@@ -191,8 +191,15 @@ kicks 1.00, handballs 1.01, marks 1.02, inside 50s 1.00, score 0.94. Behinds
 * **Season** — 24-round home-and-away fixture (each club meets every other at
   least once, plus 7 extra matches balancing home games), then the **AFL final
   eight**: top 4 get the double chance, 1QF/2QF → SF → PF → GF.
-* **List management** — select your 22 each week (18 on ground + 4 interchange),
-  with injury/rotation to be layered on.
+* **List management** — the Best 22 screen draws the selected 18 on an oval in
+  match-day shape (full back through full forward) with the four interchange
+  players in a bay underneath. Tap a guernsey for the rating.
+* **Training** — after every game, every player on your list gains XP. Named
+  players and strong games earn more; unused players still get a squad share.
+  The training menu lists the whole squad. Spend a player's own XP on any of
+  the 13 attributes. Cost rises with the current stat and with career games.
+  The old post-match screen only rolled five random names, which is why it
+  looked empty.
 
 ---
 

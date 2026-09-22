@@ -24,7 +24,7 @@ var _body: BoxContainer
 var _interactive := false
 var _event_cursor := 0
 var _my_side := 0
-var _training_done := false
+
 var _margin: MarginContainer
 var _stacked := false
 var _last_tactics := {}
@@ -554,53 +554,21 @@ func _show_fulltime() -> void:
 	right.add_child(UiKit.lbl("Best On Ground", 14, UiKit.GOLD, true))
 	right.add_child(_best_table())
 
-	var cont := UiKit.btn("Training Session", 18, true)
+	var report: Dictionary = GameState.last_training_report
+	if int(report.get("count", 0)) > 0 and str(report.get("home", "")) == str(_res.get("home", "")) \
+			and str(report.get("away", "")) == str(_res.get("away", "")):
+		v.add_child(UiKit.lbl("%d players gained %d XP. Spend it on any stat in Training." % [
+				int(report["count"]), int(report["total"])], 14, UiKit.TEXT, true))
+	var cont := UiKit.btn("Training", 18, true)
 	cont.custom_minimum_size = Vector2(0, 48)
 	cont.pressed.connect(func():
 		overlay.queue_free()
-		_show_training())
+		Router.replace("training"))
 	box["footer"].add_child(cont)
-
-
-func _show_training() -> void:
-	var box := UiKit.modal_box(self, 640.0, 640.0)
-	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.lbl("Post-Match Training", 22, UiKit.GOLD, true))
-	v.add_child(UiKit.lbl("Choose one focus. Less-experienced players have more development upside; established players improve more slowly.",
-			13, UiKit.MUTED))
-	var result_box := UiKit.vbox(4)
-	var choices := [
-		["skills", "Skills - disposal, carry, discipline"],
-		["contest", "Contest - contested ball, pressure, ruck craft"],
-		["goal", "Forward craft - goal kicking, accuracy, marking"],
-		["recovery", "Recovery - durability and repeat pressure"],
-	]
-	for c in choices:
-		var b := UiKit.btn(str(c[1]), 15)
-		b.clip_text = true
-		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		b.pressed.connect(_apply_training.bind(str(c[0]), result_box, choices))
-		v.add_child(b)
-	v.add_child(result_box)
-	var done := UiKit.btn("Back to Hub", 17, true)
-	done.pressed.connect(func(): Router.back())
-	box["footer"].add_child(done)
-
-
-func _apply_training(focus: String, result_box: VBoxContainer, _choices: Array) -> void:
-	if _training_done:
-		return
-	_training_done = true
-	for child in result_box.get_children():
-		child.queue_free()
-	var gains := GameState.train_my_list(focus)
-	result_box.add_child(UiKit.lbl("Training gains", 16, UiKit.GOLD, true))
-	for g in gains:
-		var plus := "+%d %s" % [int(g["gain"]), str(g["attr"])]
-			if int(g["overall_gain"]) > 0:
-				plus += "  (+%d OVR)" % int(g["overall_gain"])
-			var player_label := GameDB.player_display_name_by_id(str(g.get("id", "")), str(g.get("name", "Player")))
-			result_box.add_child(UiKit.lbl("%s: %s" % [player_label, plus], 13, UiKit.TEXT))
+	var leave := UiKit.btn("Back to Hub", 16)
+	leave.custom_minimum_size = Vector2(0, 44)
+	leave.pressed.connect(func(): Router.back())
+	box["footer"].add_child(leave)
 
 
 func _quarters_table() -> Control:
