@@ -1,9 +1,10 @@
 # AFL Auto-Battler
 
-An auto-battler where the battles are **simulated AFL matches**. You draft a full
-44-player list from **real 2026 AFL player statistics** — all 669 players across
-all 18 clubs — then play a 24-round home-and-away season and a real finals
-series, watching every match on an animated top-down oval.
+An auto-battler where the battles are **simulated AFL matches**. All 18 clubs
+re-draft from a shared pool of 669 players using **2026 AFL player statistics**.
+The current pool gives every club a 37-player list (up to 44 with a larger
+pool). Then play a 24-round home-and-away season and a finals series, watching
+every match on an animated top-down oval.
 
 Godot **4.7** / GDScript — targeting **PC and mobile**.
 
@@ -39,11 +40,40 @@ translations, pick *Keep File* again in the Import dock.
 
 | Step | What happens |
 |---|---|
-| **Choose a club** | You take over one of the 18. The other 17 keep the lists they actually fielded in 2026, so the ladder is genuinely competitive. |
-| **The draft** | Sign 44 players from the whole competition under a salary cap sized at 58% of the cost of the 44 best players. You must carry at least two ruckmen. Filter by position, club or name, and sort by rating, price, goals or disposals. |
+| **Choose a club** | All 18 lists start empty. Choose your club with its randomly assigned first pick shown up front. |
+| **The draft** | All clubs take turns from the same pool in snake order, under the same cap (58% of the cost of the best target-sized list). Track rival selections in the pick log. Carry at least two rucks; the other position targets are coverage guidance. Filter by position, original club or name, and sort by rating, price, goals or disposals. |
 | **Home and away** | 24 rounds, a full double round-robin. Each round you can **Play Match** and watch it on the oval, or **Sim Round** and just read the results. |
 | **Finals** | Top eight play the real AFL bracket: qualifying and elimination finals, semis, prelims, Grand Final at a neutral venue. Level scores are resolved by ladder position, exactly as the AFL does it. |
 | **Review** | The flag, your record, best win, worst loss, longest streak and a game-by-game form strip. |
+
+### The draft room
+
+- **Rival picks are visible.** A latest-rival-pick strip links to the full log.
+  The log includes the overall pick number, destination club, player and role;
+  filter it by club or load earlier selections. Taken players also identify
+  their drafting club when **Available only** is switched off under **Filters**.
+- **Live position coverage.** DEF / MID / RUCK / FWD counters always show your
+  actual totals and remaining needs. Tap a counter to filter the pool; tap it
+  again to return to all positions. Targets are **5 DEF, 7 MID, 2 RUCK, 5 FWD**:
+  the engine's on-ground structure plus the existing second-ruck requirement.
+  Other than the two rucks, these are recommendations, not additional rules.
+- **Portrait and landscape.** Portrait has Pool / Picks / My list / Order tabs.
+  Landscape puts the pool beside the activity panel when there is enough width.
+  Low-height layouts compact the header and scroll filters with the content.
+  Rotation preserves the roster, history, search, sorting and filters.
+- **Clear next steps.** Cap remaining, list progress and your next snake picks
+  stay visible. **Start Season** only enables for a complete, valid list.
+  Returning to the menu offers **Resume Draft** (for the current running session;
+  this does not add save-to-disk support).
+
+The draft UI uses locally bundled Barlow fonts, with SIL OFL licences under
+`assets/fonts/`. No network access is required by the game.
+
+Actual Godot captures after six user selections:
+
+[Portrait draft](docs/draft-portrait.png) · [Landscape draft](docs/draft-landscape.png)
+
+![Draft pool, live position counts, and rival pick log](docs/draft-landscape.png)
 
 ### The oval
 
@@ -108,7 +138,7 @@ MatchSim.gd   a match as 4 quarters of possession chains: stoppage, contest,
               carry, mark, tackle, inside 50, shot, clanger, free kick
 Season.gd     24-round fixture (circle-method round-robin), ladder with the
               real AFL tiebreak order, and the full finals bracket
-Draft.gd      the salary cap, the board filters, and the 17 AI lists
+Draft.gd      the cap, snake draft, rival AI picks and shared pick history
 ```
 
 Every match is seeded, so a result is reproducible. `MatchSim.gd` is a direct
@@ -131,21 +161,23 @@ then Export Project. Nothing here needs a native library, so the defaults work.
 **Android / iOS.** Add the export preset, install the matching export templates,
 and point the preset at your debug keystore (Android) or signing identity
 (iOS). The project is already configured for mobile: the renderer is set to
-`mobile`, ETC2/ASTC texture compression is on, the window is `sensor_landscape`,
-and touch/mouse emulation is enabled both ways so the same UI works with a
-finger or a cursor. The layout reflows below 900px wide — on a phone the
-commentary feed stacks under the oval instead of beside it.
+`mobile`, ETC2/ASTC texture compression is on, and the window uses unrestricted
+sensor orientation (portrait and landscape). `ScreenLayout` uses device density
+to keep UI units readable instead of shrinking a 1280px canvas onto a phone.
+The draft room reflows on resize and accounts for mobile safe-area insets.
+Touch/mouse emulation is enabled both ways for fingers and cursors.
 
 `export_presets.cfg` is deliberately not checked in: it holds machine-specific
 paths and signing material. Generate it in the editor.
 
 ## Note
 
-Godot cannot run in the sandbox this was built in (no engine binary, no outbound
-network), so the game itself is not playtested here — the simulation logic is,
-via the harness, and the GDScript was checked with a structural linter for
-balanced syntax, indentation, reserved-word collisions and cross-file member
-references.
+The draft update was run in Godot 4.7.2's web renderer, including touch input,
+filtering, rival pick batches, a complete league draft, resume, season handoff,
+and ten portrait/landscape viewport sizes. Model and container-layout regression
+suites are in `tests/`; see [tests/README.md](tests/README.md) for commands and
+remaining device checks. Native Android/iOS sensor rotation and safe-area insets
+still need an on-device check.
 
 Real player and club names are used for a personal, non-commercial fan project.
 No club badges, guernsey designs or player imagery are reproduced — guernseys are
