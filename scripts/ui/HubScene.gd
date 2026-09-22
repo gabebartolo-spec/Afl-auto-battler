@@ -167,7 +167,7 @@ func _ladder_grid(limit: int) -> Control:
 	var v := UiKit.vbox(2)
 	var rows := GameState.season.ladder_sorted()
 	v.add_child(_ladder_header())
-	for i in rows.size():
+	for i in range(rows.size()):
 		if limit > 0 and i >= limit:
 			break
 		v.add_child(_ladder_row(rows[i], i + 1))
@@ -224,6 +224,9 @@ func _cell(text: String, min_w: int, col: Color, fs: int, bold := false) -> Labe
 func _on_play_match() -> void:
 	if _upcoming_match().is_empty():
 		_on_sim_round()
+		return
+	if not GameState.season.is_regular_done() and GameState.prepare_interactive_match():
+		Router.go("match")
 		return
 	GameState.advance()
 	if GameState.last_match.is_empty():

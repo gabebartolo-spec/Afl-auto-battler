@@ -43,8 +43,7 @@ func reload() -> void:
 
 	loaded = not players.is_empty()
 	if not loaded:
-		push_error("GameDB: no players loaded. Check that %s exists and that its "
-				+ "import type is 'Keep File (exported as is)'." % PLAYERS_CSV)
+		push_error("GameDB: no players loaded. Check that %s exists and that its import type is 'Keep File (exported as is)'." % PLAYERS_CSV)
 	else:
 		print("GameDB: %d players across %d clubs" % [players.size(), clubs.size()])
 
@@ -111,7 +110,7 @@ func _read_rows(path: String) -> Array:
 		var line := f.get_line().strip_edges()
 		if line == "":
 			continue
-		rows.append(line.split(","))
+		rows.append(Array(line.split(",")))
 	f.close()
 	return rows
 
@@ -127,7 +126,7 @@ func _load_clubs() -> Dictionary:
 		if cells.size() < header.size():
 			continue
 		var d := {}
-		for j in header.size():
+		for j in range(header.size()):
 			d[header[j]] = cells[j]
 		# Pre-convert the hex strings so the UI never has to.
 		d["primary"] = _hex(d.get("primary", "#FFFFFF"))
@@ -144,7 +143,7 @@ func _load_players() -> Array:
 		return out
 	var header: Array = rows[0]
 	var idx := {}
-	for j in header.size():
+	for j in range(header.size()):
 		idx[header[j]] = j
 
 	for i in range(1, rows.size()):

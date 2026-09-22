@@ -1,6 +1,6 @@
 class_name Squad
 extends RefCounted
-## A match-day side: the best 18 of a 44-player list plus four on the bench,
+## A match-day side: the best 18 of a drafted list plus four on the bench,
 ## rolled up into the handful of team strengths the match engine actually uses.
 ##
 ## Port of tools/sim_harness.py::Squad. The aggregate weights below were tuned
@@ -105,7 +105,7 @@ static func _top(group: Array, key: String, n: int, fallback := 45.0) -> float:
 	vals.reverse()
 	var take := mini(n, vals.size())
 	var total := 0.0
-	for i in take:
+	for i in range(take):
 		total += vals[i]
 	return total / float(take)
 

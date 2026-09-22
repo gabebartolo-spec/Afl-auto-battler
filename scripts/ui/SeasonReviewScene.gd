@@ -99,7 +99,7 @@ func _build() -> void:
 	rv.add_child(UiKit.lbl("Final Ladder", 17, UiKit.GOLD, true))
 	var table := UiKit.vbox(2)
 	var rows := season.ladder_sorted()
-	for i in rows.size():
+	for i in range(rows.size()):
 		table.add_child(_ladder_line(rows[i], i + 1))
 	rv.add_child(UiKit.scroll(table))
 

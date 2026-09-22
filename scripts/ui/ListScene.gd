@@ -1,5 +1,5 @@
 extends Control
-## Your 44-player list: the best 22 the engine will field, then the whole list
+## Your drafted list: the best 22 the engine will field, then the whole list
 ## grouped by position with the attributes they were rated on.
 
 const ATTR_ROWS := [
@@ -165,6 +165,7 @@ func _list_row(p: Dictionary) -> Control:
 	var attr: Dictionary = p["attr"]
 	for row in ATTR_ROWS:
 		grid.add_child(_attr_bar(str(row[0]), str(row[1]), float(attr.get(row[0], 0.0))))
+	return panel
 
 
 func _attr_columns() -> int:

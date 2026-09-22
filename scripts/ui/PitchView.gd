@@ -80,13 +80,18 @@ func setup(p_result: Dictionary) -> void:
 	queue_redraw()
 
 
+func append_events(new_events: Array) -> void:
+	events.append_array(new_events)
+	queue_redraw()
+
+
 func _build_tokens() -> void:
 	_home = []
 	_away = []
 	var roster: Array = result.get("roster", [])
 	if roster.size() < 2:
 		return
-	for side in 2:
+	for side in range(2):
 		var dir := 1.0 if side == 0 else -1.0
 		var groups := {"RUCK": [], "MID": [], "DEF": [], "FWD": []}
 		for p in roster[side]:
@@ -107,7 +112,7 @@ func _build_tokens() -> void:
 
 func _make_tokens(players: Array, slots: Array, dir: float, side: int) -> Array:
 	var out := []
-	for i in players.size():
+	for i in range(players.size()):
 		var p: Dictionary = players[i]
 		var base: Vector2 = slots[i] if i < slots.size() else _spare_slot(i)
 		base = Vector2(base.x * dir, base.y)
@@ -151,7 +156,7 @@ func _px(nx: float, ny: float) -> Vector2:
 
 func _ellipse_points(c: Vector2, a: float, b: float, n: int) -> PackedVector2Array:
 	var pts := PackedVector2Array()
-	for i in n + 1:
+	for i in range(n + 1):
 		var t := TAU * float(i) / float(n)
 		pts.append(c + Vector2(cos(t) * a, sin(t) * b))
 	return pts
@@ -162,12 +167,12 @@ func _ellipse_points(c: Vector2, a: float, b: float, n: int) -> PackedVector2Arr
 func _stripe(c: Vector2, a: float, b: float, x0: float, x1: float) -> PackedVector2Array:
 	var pts := PackedVector2Array()
 	var steps := 10
-	for i in steps + 1:
+	for i in range(steps + 1):
 		var x := lerpf(x0, x1, float(i) / float(steps))
 		var t := clampf((x - c.x) / a, -1.0, 1.0)
 		var yh := b * sqrt(1.0 - t * t)
 		pts.append(Vector2(x, c.y - yh))
-	for i in steps + 1:
+	for i in range(steps + 1):
 		var x2 := lerpf(x1, x0, float(i) / float(steps))
 		var t2 := clampf((x2 - c.x) / a, -1.0, 1.0)
 		var yh2 := b * sqrt(1.0 - t2 * t2)
@@ -191,7 +196,7 @@ func _draw() -> void:
 	# Turf + mown stripes
 	draw_colored_polygon(_ellipse_points(c, a, b, 96), Color(0.118, 0.333, 0.133))
 	var stripes := 9
-	for i in stripes:
+	for i in range(stripes):
 		if i % 2 == 1:
 			continue
 		var x0 := c.x - a + (2.0 * a) * float(i) / float(stripes)
@@ -287,12 +292,12 @@ func _arc_span(c: Vector2, a: float, b: float, goal: Vector2, r: float) -> Vecto
 	var a0 := lo
 	var a1 := hi
 	var steps := 64
-	for i in steps + 1:
+	for i in range(steps + 1):
 		var ang := lerpf(lo, hi, float(i) / float(steps))
 		if _inside_oval(c, a, b, goal + Vector2(cos(ang), sin(ang)) * r):
 			a0 = ang
 			break
-	for i in steps + 1:
+	for i in range(steps + 1):
 		var ang := lerpf(hi, lo, float(i) / float(steps))
 		if _inside_oval(c, a, b, goal + Vector2(cos(ang), sin(ang)) * r):
 			a1 = ang
@@ -366,17 +371,28 @@ func progress() -> float:
 ## match plays out in about ninety seconds.
 func _event_delay(kind: String) -> float:
 	match kind:
-		"goal": return 1.00
-		"behind": return 0.60
-		"quarter": return 1.10
-		"final": return 1.10
-		"inside50": return 0.42
-		"tackle": return 0.34
-		"mark": return 0.30
-		"rebound": return 0.36
-		"free", "clanger": return 0.38
-		"kick", "handball": return 0.13
-		_: return 0.18
+		"goal":
+			return 1.00
+		"behind":
+			return 0.60
+		"quarter":
+			return 1.10
+		"final":
+			return 1.10
+		"inside50":
+			return 0.42
+		"tackle":
+			return 0.34
+		"mark":
+			return 0.30
+		"rebound":
+			return 0.36
+		"free", "clanger":
+			return 0.38
+		"kick", "handball":
+			return 0.13
+		_:
+			return 0.18
 
 
 func _process(delta: float) -> void:
@@ -448,7 +464,7 @@ func _apply(ev: Dictionary) -> void:
 	var num := int(ev.get("num", -1))
 	if side >= 0 and num >= 0:
 		var arr: Array = _home if side == 0 else _away
-		for i in arr.size():
+		for i in range(arr.size()):
 			if int(arr[i]["num"]) == num:
 				_actor = i
 				_actor_side = side
