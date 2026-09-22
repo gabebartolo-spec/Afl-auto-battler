@@ -92,6 +92,8 @@ func _emit(kind: String, side: int, fp: float, actor, text: String) -> void:
 		"club": "" if actor == null else str(actor["club"]),
 		"text": text,
 		"score": [score(0), score(1)],
+		"goals": [goals(0), goals(1)],
+		"behinds": [behinds(0), behinds(1)],
 	})
 
 
@@ -123,15 +125,37 @@ func _weighted(group: Array, key: String, power := 2.0, side := -1, purpose := "
 func _tactic_player_mult(side: int, p: Dictionary, purpose: String) -> float:
 	var out := 1.0
 	var id := str(p["id"])
-	if id == _focus_id(side) and (purpose == "carrier" or purpose == "shooter"):
-		out *= 1.55
+	var focused := id == _focus_id(side)
+	# A "run it through him" plan should make him the clear ball-winner, not
+	# give him half the team's possessions. A small early boost, then the
+	# usage curve fades him back toward a low-30s disposal game instead of 80.
+	if focused and (purpose == "carrier" or purpose == "shooter"):
+		out *= 1.14
 	if id == _tag_id(1 - side) and (purpose == "carrier" or purpose == "shooter"):
 		out *= 0.55
-	if _plan(side) == "through_stars" and int(p["overall"]) >= 70:
-		out *= 1.18
+	if _plan(side) == "through_stars" and int(p["overall"]) >= 82:
+		out *= 1.12
 	if _pep(side) == "fire_up":
 		out *= 1.05
+	if purpose == "carrier":
+		out *= _usage_mult(p, focused)
 	return out
+
+
+## Soft possession cap. Team disposal volume is unchanged — this only stops one
+## player absorbing every chain once they have already had a huge game.
+## Must match tools/sim_harness.py::usage_multiplier (the unfocused curve).
+func _usage_mult(p: Dictionary, focused: bool) -> float:
+	var d := 0.0
+	var id := str(p["id"])
+	if player_stats.has(id):
+		d = float((player_stats[id] as Dictionary).get("disposals", 0.0))
+	var start := 21.0 if focused else 18.0
+	if d <= start:
+		return 1.0
+	var over := d - start
+	var width := 5.4 if focused else 6.4
+	return maxf(0.02, exp(-(over * over) / (width * width)))
 
 
 func _pick(group: Array, weights: Array):

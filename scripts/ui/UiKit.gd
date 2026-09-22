@@ -235,14 +235,21 @@ static func chip(text: String, colour: Color) -> PanelContainer:
 
 
 static func role_chip(role: String) -> PanelContainer:
-	var colour: Color = ROLE_COLOUR.get(role, MUTED)
+	var primary := role.split("/")[0]
+	var colour: Color = ROLE_COLOUR.get(primary, MUTED)
 	var p := panel(Color(colour, 0.10), 5, 4)
-	p.custom_minimum_size.x = 44
+	var dual := role.contains("/")
+	p.custom_minimum_size.x = 78 if dual else 44
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var l := line("RUCK" if role == "RUCK" else role, 11, colour, true)
+	var text := role if dual else ("RUCK" if role == "RUCK" else role)
+	var l := line(text, 11, colour, true)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	p.add_child(l)
 	return p
+
+
+static func role_chip_for(p: Dictionary) -> PanelContainer:
+	return role_chip(Ratings.role_tag(p))
 
 
 static func readable_on(bg: Color) -> Color:
@@ -258,8 +265,7 @@ static func top_bar(title_text: String, back := true, right: Control = null) -> 
 		b.custom_minimum_size = Vector2(44, 44)
 		b.pressed.connect(func(): Router.back())
 		h.add_child(b)
-	var t := lbl(title_text, 22, TEXT, true)
-	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var t := ellipsis(title_text, 22, TEXT, true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	h.add_child(t)
 	if right != null:
@@ -271,7 +277,7 @@ static func top_bar(title_text: String, back := true, right: Control = null) -> 
 	return h
 
 
-static func club_badge(code: String, fs := 14, compact := false) -> HBoxContainer:
+static func club_badge(code: String, fs := 14, compact := false, shrink := false) -> HBoxContainer:
 	var h := hbox(6)
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
 	var cols: Array = GameDB.club_colours(code)
@@ -283,7 +289,13 @@ static func club_badge(code: String, fs := 14, compact := false) -> HBoxContaine
 	swatch.custom_minimum_size = Vector2(14, 14)
 	swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(swatch)
-	h.add_child(line(code if compact else GameDB.club_short(code), fs, TEXT))
+	var name_text := code if compact else GameDB.club_short(code)
+	if shrink:
+		h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var name := ellipsis(name_text, fs, TEXT)
+		h.add_child(name)
+	else:
+		h.add_child(line(name_text, fs, TEXT))
 	return h
 
 
@@ -293,3 +305,145 @@ static func scoreline(goals: int, behinds: int) -> String:
 
 static func margin_colour(win: bool) -> Color:
 	return GOOD if win else BAD
+
+
+## A dimmer that actually covers its parent. Anchors set before add_child are
+## ignored, which is how match controls stayed visible beside the full-time card.
+static func cover(parent: Control) -> ColorRect:
+	var overlay := ColorRect.new()
+	overlay.color = Color(0, 0, 0, 0.78)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	parent.add_child(overlay)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.offset_left = 0.0
+	overlay.offset_top = 0.0
+	overlay.offset_right = 0.0
+	overlay.offset_bottom = 0.0
+	return overlay
+
+
+## Dialog that stays inside the viewport. Body scrolls; footer stays put.
+static func modal_box(parent: Control, max_w: float, prefer_h := 0.0) -> Dictionary:
+	var overlay := cover(parent)
+	var margin := MarginContainer.new()
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for edge in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + edge, 12)
+	overlay.add_child(margin)
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var center := CenterContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_child(center)
+	var shell := panel(PANEL, 14, 12)
+	center.add_child(shell)
+	var outer := vbox(8)
+	shell.add_child(outer)
+	var body := vbox(8)
+	outer.add_child(scroll(body))
+	var footer := vbox(6)
+	outer.add_child(footer)
+	var fit := func() -> void:
+		var bounds := overlay.size
+		if bounds.x < 40.0 or bounds.y < 40.0:
+			bounds = Vector2(view_width(parent), view_height(parent))
+		var w := minf(max_w, maxf(220.0, bounds.x - 24.0))
+		var h := maxf(160.0, bounds.y - 24.0)
+		if prefer_h > 0.0:
+			h = minf(h, prefer_h)
+		shell.custom_minimum_size = Vector2(w, h)
+	fit.call()
+	overlay.resized.connect(fit)
+	return {"overlay": overlay, "body": body, "footer": footer, "shell": shell}
+
+
+static func apply_insets(margin: MarginContainer, pad := 12) -> void:
+	var safe := ScreenLayout.safe_insets()
+	margin.add_theme_constant_override("margin_left", pad + ceili(safe.x))
+	margin.add_theme_constant_override("margin_right", pad + ceili(safe.z))
+	margin.add_theme_constant_override("margin_top", pad + ceili(safe.y))
+	margin.add_theme_constant_override("margin_bottom", pad + ceili(safe.w))
+
+
+## Shared ladder. Header and rows use one spec, and only the club column grows,
+## so the numbers stay under their headings on a phone.
+static func ladder_table(rows: Array, mine: String, width: float, limit := 0,
+		full := false) -> VBoxContainer:
+	var v := vbox(2)
+	var specs := ladder_specs(width, full)
+	v.add_child(_ladder_header(specs))
+	var shown := rows.size() if limit <= 0 else mini(limit, rows.size())
+	for i in range(shown):
+		v.add_child(_ladder_data_row(rows[i], i + 1, specs, mine))
+		if i == 7 and (shown > 8 or limit == 8):
+			var note := line("top 8 make the finals", 11, MUTED)
+			note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			v.add_child(note)
+	return v
+
+
+static func ladder_specs(width: float, full: bool) -> Array:
+	var specs: Array = [
+		{"key": "pos", "title": "#", "w": 26},
+		{"key": "club", "title": "Club", "expand": true},
+	]
+	if width >= 640.0:
+		specs.append({"key": "p", "title": "P", "w": 28})
+		specs.append({"key": "w", "title": "W", "w": 28})
+		specs.append({"key": "l", "title": "L", "w": 28})
+		specs.append({"key": "d", "title": "D", "w": 26})
+	elif width >= 280.0:
+		specs.append({"key": "rec", "title": "W-L", "w": 48})
+	if full and width >= 760.0:
+		specs.append({"key": "pf", "title": "PF", "w": 40})
+		specs.append({"key": "pa", "title": "PA", "w": 40})
+	if width >= 460.0:
+		specs.append({"key": "pct", "title": "%", "w": 44})
+	specs.append({"key": "pts", "title": "Pts", "w": 34})
+	return specs
+
+
+static func _ladder_header(specs: Array) -> HBoxContainer:
+	var h := hbox(4)
+	for spec in specs:
+		var expand: bool = bool(spec.get("expand", false))
+		h.add_child(_ladder_label(str(spec["title"]), int(spec.get("w", 0)),
+				MUTED, 12, false, expand))
+	return h
+
+
+static func _ladder_data_row(r: Dictionary, pos: int, specs: Array, mine: String) -> HBoxContainer:
+	var h := hbox(4)
+	var is_mine: bool = str(r["code"]) == mine
+	var col := GOLD if is_mine else TEXT
+	for spec in specs:
+		var key := str(spec["key"])
+		var expand: bool = bool(spec.get("expand", false))
+		var w := int(spec.get("w", 0))
+		if key == "club":
+			h.add_child(club_badge(str(r["code"]), 13, false, true))
+		elif key == "pos":
+			h.add_child(_ladder_label(str(pos), w, col, 13, is_mine, false))
+		elif key == "rec":
+			h.add_child(_ladder_label("%d-%d" % [int(r["w"]), int(r["l"])], w, col, 12, false, false))
+		elif key == "pct":
+			h.add_child(_ladder_label("%.0f" % float(r["pct"]), w, col, 12, false, false))
+		elif key == "pts":
+			h.add_child(_ladder_label(str(int(r["pts"])), w, col, 13, true, false))
+		else:
+			h.add_child(_ladder_label(str(int(r.get(key, 0))), w, col, 12, false, false))
+	return h
+
+
+static func _ladder_label(text: String, w: int, col: Color, fs: int, bold: bool,
+		expand: bool) -> Label:
+	var l := ellipsis(text, fs, col, bold) if expand else line(text, fs, col, bold)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if expand else HORIZONTAL_ALIGNMENT_CENTER
+	if expand:
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	else:
+		l.custom_minimum_size = Vector2(w, 0)
+	return l

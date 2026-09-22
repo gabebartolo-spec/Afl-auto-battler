@@ -257,16 +257,5 @@ func train_my_list(focus: String) -> Array:
 
 
 func _recalc_player_overall(p: Dictionary) -> void:
-	var a: Dictionary = p["attr"]
-	var role := str(p["role"])
-	var w: Array = Ratings.ROLE_WEIGHTS.get(role, Ratings.ROLE_WEIGHTS["MID"]) as Array
-	var fifth: float = float(a.get("ruck", 45)) if role == "RUCK" else float(a.get("contested", 45))
-	var core: float = (float(w[0]) * float(a.get("disposal", 45))
-			+ float(w[1]) * float(a.get("pressure", 45))
-			+ float(w[2]) * float(a.get("goalkicking", 45))
-			+ float(w[3]) * float(a.get("intercept", 45))
-			+ float(w[4]) * fifth)
-	var overall: float = 0.70 * core + 0.22 * float(a.get("star", 45)) \
-			+ 0.08 * float(a.get("durability", 45))
-	p["overall"] = int(clampi(roundi(overall), 1, 99))
+	p["overall"] = Ratings.rate_overall(p["attr"], str(p["role"]), float(p.get("gm", 14.0)))
 	p["value"] = Ratings.salary_value(int(p["overall"]))

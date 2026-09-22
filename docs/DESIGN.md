@@ -81,10 +81,27 @@ Computed, not hand-tagged:
 Highest score wins. Across the harvested pool this yields ~2 rucks per club,
 which matches reality.
 
+A second role is added only when the season numbers clear a gate, not from a
+ratio of the two scores (that flags most of the pool). Examples the gates catch:
+Heeney, Bontempelli, Nick Daicos, Rankine and Pickett as MID/FWD; Greene as
+FWD/MID; Sicily, Blakey and Josh Daicos as DEF/MID. Butters (5 goals) and Cripps
+stay MID. DEF/FWD is allowed by the same gates, but the 2026 pool did not
+produce one — it is not invented. The tag is `MID/FWD`. Match-day selection
+fills each slot from primary players first, then from the secondary. The
+on-ground copy's `role` is the slot, so the oval still groups them; `list_tag`
+keeps the natural tag for the list screen. Draft filters and the two-ruck rule
+treat either role as cover. Position totals stay primary-only, so they still
+sum to the list size.
+
 ### Overall & salary
 `overall` blends role-weighted attributes with `star` (Brownlow signal) and
-`durability`, then shrinks toward 40 for low-game players. `value` (1–10) is the
-draft salary-cap cost, banded off `overall`.
+`durability`, then shrinks toward 40 for low-game players. That raw blend tops
+out around 80, because it is an average of attributes that rarely all peak
+together. `scale_overall` stretches it so the best 2026 players land near 90
+(Bontempelli 92, Nick Daicos and Heeney 91, Bailey Smith 90) while the middle
+of the pool stays in the 50s. The stretch is monotonic, so Brownlow order holds.
+`value` (1–10) is the draft salary-cap cost, banded off the stretched overall.
+No new player-data source is involved.
 
 **Validation.** The derived top-10 reproduces the actual 2026 Brownlow order for
 the harvested clubs — Daicos (47 votes) → Bailey Smith (36) → Cripps (27) →
@@ -126,31 +143,23 @@ view then replays it. That decouples simulation from presentation, so speed
 controls, pause and "skip to result" are free, and any match can be re-watched.
 
 ### Calibration
+Carrier picks fade a player out of the next possession once they have already
+had a realistic game (`usage_multiplier`: unfocused fade from 18 disposals,
+focused from 21). "Run play through" is a 1.14x early weight on that player,
+not a 1.55x magnet, so a focused game stays in the low 30s (hard ceiling mid-30s
+in the probe) instead of 50–80. Team disposal volume is unchanged — the fade
+only changes who is chosen. The same curve is in `tools/sim_harness.py`.
+
 `tools/sim_harness.py` runs the engine over hundreds of matches and compares the
 output against the per-team-per-game averages implied by the real harvested data.
-Current state (400 matches, 7 clubs harvested):
+With all 18 clubs loaded and the usage fade on, disposals, kicks, handballs,
+marks and inside 50s stay within a few percent of the 2026 totals. Behinds and
+rebound 50s sit lower (about 0.86–0.87) because a different carrier changes
+later rolls; they were already the soft stats before the fade.
 
-| Stat / team / game | Real 2026 | Sim | Ratio |
-|---|---|---|---|
-| **Score (pts)** | 88.0 | 88.1 | **1.00** |
-| Goals | 13.1 | 13.3 | 1.01 |
-| Behinds | 9.2 | 8.5 | 0.92 |
-| Disposals | 364.6 | 363.6 | 1.00 |
-| Kicks | 213.2 | 208.9 | 0.98 |
-| Handballs | 151.4 | 154.8 | 1.02 |
-| Marks | 93.4 | 92.3 | 0.99 |
-| Tackles | 56.2 | 52.1 | 0.93 |
-| Inside 50s | 52.4 | 54.5 | 1.04 |
-| Clearances | 35.7 | 35.1 | 0.98 |
-| Hit-outs | 33.8 | 33.7 | 1.00 |
-| Rebound 50s | 38.4 | 34.7 | 0.90 |
-| One percenters | 40.4 | 40.9 | 1.01 |
-| Clangers | 53.2 | 52.8 | 0.99 |
-| Free kicks for | 18.0 | 17.9 | 1.00 |
-
-Average margin 26 pts, 30% of games decided by ≤12 points. Margin will widen
-once the weaker clubs (West Coast, Richmond) are harvested, which is when it
-should be re-checked against the real ~33 pt league average.
+A 200-match check against the full 18-club file (seed 1234): disposals 1.01,
+kicks 1.00, handballs 1.01, marks 1.02, inside 50s 1.00, score 0.94. Behinds
+0.86 and rebound 50s 0.87 are the outliers. Average margin about 29 points.
 
 > `tools/sim_harness.py` is a **tuning harness, not shipped game code**. It is a
 > deliberate Python mirror of `scripts/sim/MatchSim.gd`. When a constant changes
@@ -184,8 +193,16 @@ Godot 4.7, `mobile` renderer, `canvas_items` stretch with `expand` aspect and
 unrestricted sensor orientation (`DisplayServer.SCREEN_SENSOR`, value 6).
 `ScreenLayout` updates the logical viewport from the actual window size and
 pixel density on resize; it never scales a desktop-width canvas down to a
-portrait phone. The draft also applies OS safe-area insets. Touch/mouse
-emulation works both ways.
+portrait phone. The draft, hub, ladder, list, match and season review apply OS
+safe-area insets. Touch/mouse emulation works both ways. Phone layouts stack
+cards and drop ladder columns rather than forcing a desktop min-width. Scores
+and club names use non-wrapping labels, so a tight row cannot collapse into a
+column of single letters. Match overlays are added to the tree before their
+anchors are set, and the dialog is capped to the viewport and scrolled, so the
+full-time card covers the speed controls. Skip to full time rolls any quarters
+that have not been simulated, using the last coach-box plan, then drains the
+event log. Rotating the match reflows the oval and the feed without rebuilding
+the pitch.
 
 The draft workspace uses portrait tabs or side-by-side panels at ≥760 UI units
 when wider than tall. Below 680 UI units high, it compacts its header and scrolls
@@ -251,7 +268,7 @@ tools/
 |---|---|
 | Real 2026 dataset | Done — 669 players, all 18 clubs, 219/220 aggregate checks pass |
 | Ratings model | Done, validated against the Brownlow order |
-| Match engine | Done and calibrated (every tracked ratio within 0.98–1.04) |
+| Match engine | Done — disposals on the 2026 total; behinds and rebound 50s a little low |
 | Godot port of engine | Done — `scripts/sim/`, same RNG call order as the harness |
 | Draft / season / ladder / finals | Done — `Draft.gd`, `Season.gd`, `GameState.gd` |
 | Animated oval + UI | Done — all seven screens build their trees in code |

@@ -13,55 +13,87 @@ func _ready() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_bottom", 12)
+	UiKit.apply_insets(margin, 12)
 	add_child(margin)
 
 	_root = UiKit.vbox(10)
 	margin.add_child(_root)
+	get_viewport().size_changed.connect(_on_resize)
 	_build()
 
 
+func _on_resize() -> void:
+	if not is_inside_tree() or GameState.season == null:
+		return
+	_build()
+
+
+func _content_width() -> float:
+	return maxf(240.0, UiKit.view_width(self) - 28.0)
+
+
+func _narrow() -> bool:
+	return _content_width() < 680.0
+
+
 func _build() -> void:
-	for c in _root.get_children():
-		c.queue_free()
+	UiKit.clear(_root)
 
 	var season: Season = GameState.season
 	_root.add_child(UiKit.top_bar("Season Hub", false))
 
-	# --- your standing ------------------------------------------------------
-	var row := UiKit.hbox(10)
-	_root.add_child(row)
+	var cards: BoxContainer
+	if _narrow():
+		cards = UiKit.vbox(8)
+	else:
+		cards = UiKit.hbox(10)
+	_root.add_child(cards)
+	cards.add_child(_standing_card())
+	cards.add_child(_next_card(season))
 
+	var lp := UiKit.panel(UiKit.PANEL, 12)
+	lp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_root.add_child(lp)
+	var lv := UiKit.vbox(4)
+	lp.add_child(lv)
+	lv.add_child(UiKit.lbl("Ladder", 17, UiKit.GOLD, true))
+	var grid := UiKit.ladder_table(season.ladder_sorted(), GameState.my_club,
+			_content_width() - 24.0, 8, false)
+	lv.add_child(UiKit.scroll(grid))
+
+	_root.add_child(_controls(season))
+
+
+func _standing_card() -> Control:
 	var card := UiKit.panel(UiKit.PANEL, 14)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(card)
 	var cv := UiKit.vbox(4)
 	card.add_child(cv)
-	cv.add_child(UiKit.club_badge(GameState.my_club, 20))
-	cv.add_child(UiKit.lbl("Position %d of %d" % [GameState.my_position(),
-			GameDB.CLUB_ORDER.size()], 26, UiKit.GOLD, true))
+	cv.add_child(UiKit.club_badge(GameState.my_club, 18, false, true))
+	var title := UiKit.lbl("Position %d of %d" % [GameState.my_position(),
+			GameDB.CLUB_ORDER.size()], 22 if _narrow() else 26, UiKit.GOLD, true)
+	title.autowrap_mode = TextServer.AUTOWRAP_OFF
+	cv.add_child(title)
 	var lr := GameState.my_ladder_row()
 	cv.add_child(UiKit.lbl("%s   -   %d pts" % [GameState.my_record(),
 			int(lr.get("pts", 0))], 14, UiKit.TEXT))
 	cv.add_child(UiKit.lbl("%d for, %d against   -   %.1f%%" % [
 			int(lr.get("pf", 0)), int(lr.get("pa", 0)),
 			float(lr.get("pct", 0.0))], 13, UiKit.MUTED))
+	return card
 
+
+func _next_card(season: Season) -> Control:
 	var nxt := UiKit.panel(UiKit.PANEL, 14)
 	nxt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(nxt)
 	var nv := UiKit.vbox(4)
 	nxt.add_child(nv)
-
 	if season.is_season_over():
 		nv.add_child(UiKit.lbl("Season Complete", 20, UiKit.GOLD, true))
-		nv.add_child(UiKit.lbl("Premiers: %s" % GameDB.club_name(GameState.premier()),
+		nv.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(GameState.premier()),
 				16, UiKit.TEXT))
 		var ru: String = str(season.finals.get("runner_up", ""))
-		nv.add_child(UiKit.lbl("Runners-up: %s" % GameDB.club_name(ru),
+		nv.add_child(UiKit.ellipsis("Runners-up: %s" % GameDB.club_name(ru),
 				13, UiKit.MUTED))
 	elif _upcoming_match().is_empty():
 		nv.add_child(UiKit.lbl("Season Over For You", 20, UiKit.BAD, true))
@@ -71,63 +103,54 @@ func _build() -> void:
 	else:
 		var phase := "Round %d of %d" % [season.round_index + 1, Season.REGULAR_ROUNDS] \
 				if not season.is_regular_done() else _finals_label()
-		nv.add_child(UiKit.lbl(phase, 20, UiKit.TEXT, true))
+		nv.add_child(UiKit.ellipsis(phase, 18, UiKit.TEXT, true))
 		var mine: Dictionary = _upcoming_match()
 		var opp: String = mine["away"] if mine["home"] == GameState.my_club else mine["home"]
 		var is_home: bool = mine["home"] == GameState.my_club
-		nv.add_child(UiKit.lbl("%s %s" % ["vs" if is_home else "at",
-				GameDB.club_name(opp)], 26, UiKit.GOLD, true))
+		nv.add_child(UiKit.ellipsis("%s %s" % ["vs" if is_home else "at",
+				GameDB.club_name(opp)], 22 if _narrow() else 26, UiKit.GOLD, true))
 		var ground: String = str(GameDB.club(str(mine["home"])).get("ground", ""))
 		var note := "%s  -  %s" % [mine.get("label", "Match"), ground]
 		if mine.get("neutral", false):
 			note = "%s  -  neutral venue" % mine.get("label", "Match")
-		nv.add_child(UiKit.lbl(note, 13, UiKit.MUTED))
+		nv.add_child(UiKit.ellipsis(note, 13, UiKit.MUTED))
+	return nxt
 
-	# --- ladder snapshot ----------------------------------------------------
-	var lp := UiKit.panel(UiKit.PANEL, 12)
-	lp.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_root.add_child(lp)
-	var lv := UiKit.vbox(4)
-	lp.add_child(lv)
-	lv.add_child(UiKit.lbl("Ladder", 17, UiKit.GOLD, true))
-	var grid := _ladder_grid(8)
-	lv.add_child(UiKit.scroll(grid))
 
-	# --- controls -----------------------------------------------------------
-	var ctrl := UiKit.hbox(10)
-	ctrl.alignment = BoxContainer.ALIGNMENT_CENTER
-	_root.add_child(ctrl)
-
+func _controls(season: Season) -> Control:
+	var buttons: Array = []
 	if season.is_season_over():
-		var rev := UiKit.btn("Season Review", 17, true)
-		rev.custom_minimum_size = Vector2(240, 50)
-		rev.pressed.connect(func(): Router.go("season_review"))
-		ctrl.add_child(rev)
-		var menu := UiKit.btn("Main Menu", 17)
-		menu.custom_minimum_size = Vector2(200, 50)
-		menu.pressed.connect(func(): Router.to_main_menu())
-		ctrl.add_child(menu)
+		buttons.append(_nav_button("Season Review", func(): Router.go("season_review"), true))
+		buttons.append(_nav_button("Main Menu", func(): Router.to_main_menu()))
 	elif _upcoming_match().is_empty():
-		var fwd := UiKit.btn("Sim to Grand Final", 18, true)
-		fwd.custom_minimum_size = Vector2(260, 52)
-		fwd.pressed.connect(_on_sim_to_end)
-		ctrl.add_child(fwd)
-		ctrl.add_child(_nav_button("Full Ladder", func(): Router.go("ladder")))
-		ctrl.add_child(_nav_button("My List", func(): Router.go("list")))
+		buttons.append(_nav_button("Sim to Grand Final", _on_sim_to_end, true))
+		buttons.append(_nav_button("Full Ladder", func(): Router.go("ladder")))
+		buttons.append(_nav_button("My List", func(): Router.go("list")))
 	else:
-		var play := UiKit.btn("Play Match", 18, true)
-		play.custom_minimum_size = Vector2(240, 52)
-		play.pressed.connect(_on_play_match)
-		ctrl.add_child(play)
+		buttons.append(_nav_button("Play Match", _on_play_match, true))
+		buttons.append(_nav_button("Sim Round", _on_sim_round))
+		buttons.append(_nav_button("Full Ladder", func(): Router.go("ladder")))
+		buttons.append(_nav_button("My List", func(): Router.go("list")))
+	if _content_width() < 720.0:
+		var grid := GridContainer.new()
+		grid.columns = 2
+		grid.add_theme_constant_override("h_separation", 8)
+		grid.add_theme_constant_override("v_separation", 8)
+		for b in buttons:
+			grid.add_child(b)
+		return grid
+	var row := UiKit.hbox(8)
+	for b in buttons:
+		row.add_child(b)
+	return row
 
-		ctrl.add_child(_nav_button("Sim Round", _on_sim_round))
-		ctrl.add_child(_nav_button("Full Ladder", func(): Router.go("ladder")))
-		ctrl.add_child(_nav_button("My List", func(): Router.go("list")))
 
-
-func _nav_button(text: String, cb: Callable) -> Button:
-	var b := UiKit.btn(text, 17)
-	b.custom_minimum_size = Vector2(190, 52)
+func _nav_button(text: String, cb: Callable, primary := false) -> Button:
+	var b := UiKit.btn(text, 16, primary)
+	b.custom_minimum_size = Vector2(0, 48)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.pressed.connect(cb)
 	return b
 
@@ -163,59 +186,9 @@ func _upcoming_match() -> Dictionary:
 	return {}
 
 
-func _ladder_grid(limit: int) -> Control:
-	var v := UiKit.vbox(2)
-	var rows := GameState.season.ladder_sorted()
-	v.add_child(_ladder_header())
-	for i in range(rows.size()):
-		if limit > 0 and i >= limit:
-			break
-		v.add_child(_ladder_row(rows[i], i + 1))
-		if i == Season.FINALISTS - 1:
-			v.add_child(_finals_line())
-	return v
-
-
-func _finals_line() -> Control:
-	var l := UiKit.lbl("- - -  top 8 make the finals  - - -", 11, UiKit.MUTED)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	return l
-
-
-func _ladder_header() -> Control:
-	var h := UiKit.hbox(6)
-	h.add_child(_cell("#", 34, UiKit.MUTED, 12))
-	h.add_child(_cell("Club", 0, UiKit.MUTED, 12, true))
-	for t in [["P", 30], ["W", 30], ["L", 30], ["D", 30], ["%", 56], ["Pts", 44]]:
-		h.add_child(_cell(t[0], t[1], UiKit.MUTED, 12))
-	return h
-
-
-func _ladder_row(r: Dictionary, pos: int) -> Control:
-	var h := UiKit.hbox(6)
-	var mine: bool = r["code"] == GameState.my_club
-	var col := UiKit.TEXT if mine else UiKit.MUTED
-	if mine:
-		col = UiKit.GOLD
-	h.add_child(_cell(str(pos), 34, col, 14, mine))
-	var badge := UiKit.club_badge(str(r["code"]), 14)
-	badge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(badge)
-	h.add_child(_cell(str(int(r["p"])), 30, col, 14))
-	h.add_child(_cell(str(int(r["w"])), 30, col, 14))
-	h.add_child(_cell(str(int(r["l"])), 30, col, 14))
-	h.add_child(_cell(str(int(r["d"])), 30, col, 14))
-	h.add_child(_cell("%.1f" % r["pct"], 56, col, 14))
-	h.add_child(_cell(str(int(r["pts"])), 44, col, 14, true))
-	return h
-
-
-func _cell(text: String, min_w: int, col: Color, fs: int, bold := false) -> Label:
-	var l := UiKit.lbl(text, fs, col, bold)
-	l.autowrap_mode = TextServer.AUTOWRAP_OFF
-	if min_w > 0:
-		l.custom_minimum_size = Vector2(min_w, 0)
-	return l
+func _ladder_grid(_limit: int) -> Control:
+	return UiKit.ladder_table(GameState.season.ladder_sorted(), GameState.my_club,
+			_content_width() - 24.0, 8, false)
 
 
 # ---------------------------------------------------------------------------
@@ -257,69 +230,72 @@ func _show_results(results: Array) -> void:
 	if _results_overlay != null and is_instance_valid(_results_overlay):
 		_results_overlay.queue_free()
 
-	var overlay := ColorRect.new()
-	overlay.color = Color(0, 0, 0, 0.74)
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(overlay)
+	var box := UiKit.modal_box(self, 660.0, 560.0)
+	var overlay: Control = box["overlay"]
 	_results_overlay = overlay
-
-	var centre := CenterContainer.new()
-	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(centre)
-
-	var p := UiKit.panel(UiKit.PANEL, 20, 12)
-	p.custom_minimum_size = Vector2(660, 0)
-	centre.add_child(p)
-	var v := UiKit.vbox(8)
-	p.add_child(v)
-
-	v.add_child(UiKit.lbl(GameState.last_label, 22, UiKit.GOLD, true))
-	v.add_child(UiKit.scroll(_results_list(results)))
-
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.ellipsis(GameState.last_label, 22, UiKit.GOLD, true))
+	v.add_child(_results_list(results))
 	if GameState.season.is_season_over():
-		v.add_child(UiKit.lbl("Premiers: %s" % GameDB.club_name(GameState.premier()),
+		v.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(GameState.premier()),
 				18, UiKit.TEXT, true))
-
 	var ok := UiKit.btn("Continue", 17, true)
 	ok.pressed.connect(func():
 		overlay.queue_free()
 		_results_overlay = null
 		_build())
-	v.add_child(ok)
+	box["footer"].add_child(ok)
 
 
 func _results_list(results: Array) -> Control:
-	var v := UiKit.vbox(3)
+	var v := UiKit.vbox(6)
+	var narrow := _content_width() < 520.0
 	for res in results:
-		var h := UiKit.hbox(8)
 		var mine: bool = GameState.is_my_match(res)
 		var col := UiKit.GOLD if mine else UiKit.TEXT
 		var s: Array = res["score"]
-
-		var hb := UiKit.club_badge(str(res["home"]), 14)
-		hb.custom_minimum_size = Vector2(150, 0)
-		h.add_child(hb)
-		var hs := UiKit.lbl(UiKit.scoreline(int(res["goals"][0]), int(res["behinds"][0])), 15, col, true)
-		hs.custom_minimum_size = Vector2(90, 0)
-		hs.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		h.add_child(hs)
-		h.add_child(UiKit.lbl("def", 12, UiKit.MUTED))
-		var asc := UiKit.lbl(UiKit.scoreline(int(res["goals"][1]), int(res["behinds"][1])), 15, col, true)
-		asc.custom_minimum_size = Vector2(90, 0)
-		h.add_child(asc)
-		var ab := UiKit.club_badge(str(res["away"]), 14)
-		ab.custom_minimum_size = Vector2(150, 0)
-		h.add_child(ab)
-		if str(res.get("tag", "")) != "":
-			h.add_child(UiKit.lbl(str(res["tag"]), 11, UiKit.MUTED))
+		var home_is_me: bool = str(res["home"]) == GameState.my_club
+		var won: bool = (s[0] > s[1] and home_is_me) or (s[1] > s[0] and not home_is_me)
+		var drew: bool = s[0] == s[1]
+		var verdict := ""
 		if mine:
-			var home_is_me: bool = str(res["home"]) == GameState.my_club
-			var won: bool = (s[0] > s[1] and home_is_me) \
-					or (s[1] > s[0] and not home_is_me)
-			var drew: bool = s[0] == s[1]
-			var tag := UiKit.lbl("DRAW" if drew else ("WON" if won else "LOST"),
-					13, UiKit.MUTED if drew else UiKit.margin_colour(won), true)
-			tag.custom_minimum_size = Vector2(56, 0)
-			h.add_child(tag)
-		v.add_child(h)
+			verdict = "DRAW" if drew else ("WON" if won else "LOST")
+		if narrow:
+			var block := UiKit.vbox(2)
+			block.add_child(_result_side(str(res["home"]), int(res["goals"][0]),
+					int(res["behinds"][0]), col, verdict if home_is_me else ""))
+			block.add_child(_result_side(str(res["away"]), int(res["goals"][1]),
+					int(res["behinds"][1]), col, verdict if not home_is_me else ""))
+			v.add_child(block)
+		else:
+			var h := UiKit.hbox(6)
+			h.add_child(UiKit.club_badge(str(res["home"]), 13, true, true))
+			var hs := UiKit.line(UiKit.scoreline(int(res["goals"][0]), int(res["behinds"][0])),
+					14, col, true)
+			hs.custom_minimum_size = Vector2(78, 0)
+			h.add_child(hs)
+			h.add_child(UiKit.line("def", 12, UiKit.MUTED))
+			var asc := UiKit.line(UiKit.scoreline(int(res["goals"][1]), int(res["behinds"][1])),
+					14, col, true)
+			asc.custom_minimum_size = Vector2(78, 0)
+			h.add_child(asc)
+			h.add_child(UiKit.club_badge(str(res["away"]), 13, true, true))
+			if verdict != "":
+				var tag := UiKit.line(verdict, 13,
+						UiKit.MUTED if drew else UiKit.margin_colour(won), true)
+				tag.custom_minimum_size = Vector2(48, 0)
+				h.add_child(tag)
+			v.add_child(h)
 	return v
+
+
+func _result_side(code: String, goals: int, behinds: int, col: Color, verdict: String) -> Control:
+	var h := UiKit.hbox(6)
+	h.add_child(UiKit.club_badge(code, 13, true, true))
+	var score := UiKit.line(UiKit.scoreline(goals, behinds), 14, col, true)
+	score.custom_minimum_size = Vector2(78, 0)
+	h.add_child(score)
+	if verdict != "":
+		var tag := UiKit.line(verdict, 13, col, true)
+		h.add_child(tag)
+	return h

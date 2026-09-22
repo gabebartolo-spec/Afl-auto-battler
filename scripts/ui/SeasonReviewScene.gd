@@ -13,18 +13,23 @@ func _ready() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_bottom", 12)
+	UiKit.apply_insets(margin, 12)
 	add_child(margin)
 
 	_root = UiKit.vbox(9)
 	margin.add_child(_root)
+	get_viewport().size_changed.connect(func():
+		if is_inside_tree() and GameState.season != null:
+			_build())
 	_build()
 
 
+func _content_width() -> float:
+	return maxf(240.0, UiKit.view_width(self) - 28.0)
+
+
 func _build() -> void:
+	UiKit.clear(_root)
 	var season: Season = GameState.season
 	_root.add_child(UiKit.top_bar("Season Review", true))
 
@@ -40,7 +45,7 @@ func _build() -> void:
 	champ_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	cv.add_child(champ_row)
 	if premier != "":
-		champ_row.add_child(UiKit.club_badge(premier, 26))
+		champ_row.add_child(UiKit.club_badge(premier, 22, false, true))
 	var mine_won: bool = premier == GameState.my_club
 	cv.add_child(UiKit.lbl("Grand Final: %s" % _gf_line(season), 15,
 			UiKit.GOLD if mine_won else UiKit.TEXT, true))
@@ -50,7 +55,12 @@ func _build() -> void:
 			UiKit.GOOD if mine_won else UiKit.MUTED))
 
 	# --- your season --------------------------------------------------------
-	var body := UiKit.hbox(10)
+	var narrow := _content_width() < 720.0
+	var body: BoxContainer
+	if narrow:
+		body = UiKit.vbox(10)
+	else:
+		body = UiKit.hbox(10)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_root.add_child(body)
 
@@ -58,7 +68,7 @@ func _build() -> void:
 	var stats := _season_stats(mine)
 
 	var left := UiKit.panel(UiKit.PANEL, 14)
-	left.custom_minimum_size = Vector2(340, 0)
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(left)
 	var lv := UiKit.vbox(5)
@@ -80,10 +90,8 @@ func _build() -> void:
 	]:
 		var h := UiKit.hbox(6)
 		lv.add_child(h)
-		var k := UiKit.lbl(row[0], 12, UiKit.MUTED)
-		k.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		h.add_child(k)
-		h.add_child(UiKit.lbl(row[1], 13, UiKit.TEXT, true))
+		h.add_child(UiKit.ellipsis(row[0], 12, UiKit.MUTED))
+		h.add_child(UiKit.line(row[1], 13, UiKit.TEXT, true))
 
 	lv.add_child(UiKit.spacer(6))
 	lv.add_child(UiKit.lbl("Game by game", 12, UiKit.MUTED, true))
@@ -97,25 +105,28 @@ func _build() -> void:
 	var rv := UiKit.vbox(4)
 	right.add_child(rv)
 	rv.add_child(UiKit.lbl("Final Ladder", 17, UiKit.GOLD, true))
-	var table := UiKit.vbox(2)
-	var rows := season.ladder_sorted()
-	for i in range(rows.size()):
-		table.add_child(_ladder_line(rows[i], i + 1))
-	rv.add_child(UiKit.scroll(table))
+	var ladder_w := _content_width() - 24.0 if narrow else (_content_width() * 0.5)
+	rv.add_child(UiKit.scroll(UiKit.ladder_table(season.ladder_sorted(),
+			GameState.my_club, ladder_w, 0, true)))
 
 	# --- actions ------------------------------------------------------------
-	var ctrl := UiKit.hbox(10)
-	ctrl.alignment = BoxContainer.ALIGNMENT_CENTER
+	var ctrl: BoxContainer
+	if _content_width() < 460.0:
+		ctrl = UiKit.vbox(8)
+	else:
+		ctrl = UiKit.hbox(8)
 	_root.add_child(ctrl)
 	var again := UiKit.btn("New Career", 18, true)
-	again.custom_minimum_size = Vector2(240, 52)
+	again.custom_minimum_size = Vector2(0, 48)
+	again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	again.pressed.connect(func():
 		GameState.reset()
 		GameState.begin_draft()
 		Router.replace("draft"))
 	ctrl.add_child(again)
 	var menu := UiKit.btn("Main Menu", 17)
-	menu.custom_minimum_size = Vector2(200, 52)
+	menu.custom_minimum_size = Vector2(0, 48)
+	menu.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	menu.pressed.connect(func(): Router.to_main_menu())
 	ctrl.add_child(menu)
 
@@ -185,7 +196,7 @@ func _season_stats(mine: Array) -> Dictionary:
 ## W/L/D chips for every game you played. Up to 28 of them, so they wrap.
 func _form_strip(mine: Array) -> Control:
 	var grid := GridContainer.new()
-	grid.columns = 10
+	grid.columns = 8 if _content_width() < 420.0 else 12
 	grid.add_theme_constant_override("h_separation", 3)
 	grid.add_theme_constant_override("v_separation", 3)
 	for res in mine:
@@ -205,30 +216,6 @@ func _form_strip(mine: Array) -> Control:
 		c.custom_minimum_size = Vector2(24, 20)
 		grid.add_child(c)
 	return grid
-
-
-func _ladder_line(r: Dictionary, pos: int) -> Control:
-	var h := UiKit.hbox(6)
-	var mine: bool = str(r["code"]) == GameState.my_club
-	var col := UiKit.GOLD if mine else UiKit.TEXT
-	var p := UiKit.lbl(str(pos), 13, col, mine)
-	p.custom_minimum_size = Vector2(30, 0)
-	h.add_child(p)
-	var badge := UiKit.club_badge(str(r["code"]), 14)
-	badge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(badge)
-	var rec := UiKit.lbl("%d-%d-%d" % [int(r["w"]), int(r["l"]), int(r["d"])],
-			12, UiKit.MUTED)
-	rec.custom_minimum_size = Vector2(70, 0)
-	h.add_child(rec)
-	var pct := UiKit.lbl("%.1f%%" % float(r["pct"]), 12, col)
-	pct.custom_minimum_size = Vector2(58, 0)
-	h.add_child(pct)
-	var pts := UiKit.lbl(str(int(r["pts"])), 14, col, true)
-	pts.custom_minimum_size = Vector2(34, 0)
-	pts.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	h.add_child(pts)
-	return h
 
 
 func _ordinal(n: int) -> String:

@@ -587,7 +587,7 @@ func _player_row(p: Dictionary) -> Control:
 	var h := UiKit.hbox(8)
 	row.add_child(h)
 	var role := str(p["role"])
-	h.add_child(UiKit.role_chip(role))
+	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
 	var info := UiKit.vbox(2)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(info)
@@ -600,7 +600,7 @@ func _player_row(p: Dictionary) -> Control:
 				GameDB.club_short(_draft.drafted_by(str(p["id"]))), int(p["overall"])]
 	info.add_child(UiKit.ellipsis(detail, 13, UiKit.MUTED))
 	var can_pick := _draft.can_pick_player(p)
-	var text := "+ " + ("RUCK" if role == "RUCK" else role)
+	var text := "+ " + role
 	var reason := "Draft %s for $%d" % [p["name"], int(p["value"])]
 	if taken:
 		text = "TAKEN"
