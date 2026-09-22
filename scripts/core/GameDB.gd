@@ -9,6 +9,7 @@ extends Node
 
 const CLUBS_CSV := "res://data/clubs.csv"
 const PLAYERS_CSV := "res://data/players_2026.csv"
+const PLAYERS_ENRICHED_CSV := "res://data/players_enriched_2026.csv"
 
 ## Numeric columns, in CSV order, after club/num/last/first.
 const STAT_KEYS := ["gm", "ki", "mk", "hb", "di", "gl", "bh", "ho", "tk", "rb",
@@ -137,7 +138,11 @@ func _load_clubs() -> Dictionary:
 
 
 func _load_players() -> Array:
-	var rows := _read_rows(PLAYERS_CSV)
+	# Prefer enriched if present (100% height coverage via afltables_bio_cache.json), fallback to base
+	var csv_path := PLAYERS_ENRICHED_CSV if FileAccess.file_exists(PLAYERS_ENRICHED_CSV) else PLAYERS_CSV
+	if csv_path == PLAYERS_ENRICHED_CSV:
+		print("GameDB: using enriched CSV with bio fields")
+	var rows := _read_rows(csv_path)
 	var out := []
 	if rows.size() < 2:
 		return out
@@ -152,14 +157,22 @@ func _load_players() -> Array:
 			continue
 		var p := {}
 		p["club"] = str(cells[idx["club"]])
-		p["num"] = int(str(cells[idx["num"]]))
-		p["last"] = str(cells[idx["last"]])
-		p["first"] = str(cells[idx["first"]])
+		p["num"] = int(str(cells[idx["num"]])) if idx.has("num") else 0
+		p["last"] = str(cells[idx["last"]]) if idx.has("last") else ""
+		p["first"] = str(cells[idx["first"]]) if idx.has("first") else ""
 		p["name"] = "%s %s" % [p["first"], p["last"]]
 		p["id"] = "%s_%d" % [p["club"], p["num"]]
 		p["src"] = int(str(cells[idx["src"]])) if idx.has("src") else 2026
 		for k in STAT_KEYS:
 			p[k] = float(str(cells[idx[k]])) if idx.has(k) else 0.0
+		# Optional enriched fields — defaults keep Ratings.gd backward-compatible
+		p["real_pos"] = str(cells[idx["real_pos"]]) if idx.has("real_pos") else ""
+		p["dob"] = str(cells[idx["dob"]]) if idx.has("dob") else ""
+		p["age"] = float(str(cells[idx["age"]])) if idx.has("age") and str(cells[idx["age"]]) != "" else 0.0
+		p["height_cm"] = float(str(cells[idx["height_cm"]])) if idx.has("height_cm") and str(cells[idx["height_cm"]]) != "" else 0.0
+		p["weight_kg"] = float(str(cells[idx["weight_kg"]])) if idx.has("weight_kg") and str(cells[idx["weight_kg"]]) != "" else 0.0
+		p["debut"] = str(cells[idx["debut"]]) if idx.has("debut") else ""
+		p["height_source"] = str(cells[idx["height_source"]]) if idx.has("height_source") else ""
 		out.append(p)
 	return out
 

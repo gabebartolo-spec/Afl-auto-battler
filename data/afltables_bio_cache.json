@@ -1,0 +1,872 @@
+{
+  "Hugo Hall-Kahan": {
+    "height_cm": "188",
+    "weight_kg": "",
+    "dob": "2003-09-22",
+    "source": "afltables.com/afl/stats/players/H/Hugo_Hall-Kahan.html"
+  },
+  "Toby Murray": {
+    "height_cm": "200",
+    "weight_kg": "",
+    "dob": "2003-11-03",
+    "source": "afltables.com/afl/stats/players/T/Toby_Murray.html"
+  },
+  "Ty Gallop": {
+    "height_cm": "194",
+    "weight_kg": "92",
+    "dob": "2006-02-09",
+    "source": "afltables.com/afl/stats/players/T/Ty_Gallop.html"
+  },
+  "Sam Marshall": {
+    "height_cm": "185",
+    "weight_kg": "82",
+    "dob": "2006-01-19",
+    "source": "afltables.com/afl/stats/players/S/Sam_Marshall.html"
+  },
+  "Archie Ludowyke": {
+    "height_cm": "197",
+    "weight_kg": "",
+    "dob": "2007-11-19",
+    "source": "afltables.com/afl/stats/players/A/Archie_Ludowyke.html"
+  },
+  "Cody Curtin": {
+    "height_cm": "200",
+    "weight_kg": "",
+    "dob": "2007-05-18",
+    "source": "afltables.com/afl/stats/players/C/Cody_Curtin.html"
+  },
+  "Charlie Edwards": {
+    "height_cm": "191",
+    "weight_kg": "",
+    "dob": "2005-05-18",
+    "source": "afltables.com/afl/stats/players/C/Charlie_Edwards.html"
+  },
+  "Finnbar Maley": {
+    "height_cm": "197",
+    "weight_kg": "98",
+    "dob": "2003-07-18",
+    "source": "afltables.com/afl/stats/players/F/Finnbar_Maley.html"
+  },
+  "Oscar Ryan": {
+    "height_cm": "187",
+    "weight_kg": "",
+    "dob": "2005-05-15",
+    "source": "afltables.com/afl/stats/players/O/Oscar_Ryan.html"
+  },
+  "Callum Ah Chee": {
+    "height_cm": "182",
+    "weight_kg": "78",
+    "dob": "1997-10-09",
+    "source": "afltables.com/afl/stats/players/C/Callum_Ah_Chee.html"
+  },
+  "Daniel Annable": {
+    "height_cm": "184",
+    "weight_kg": "",
+    "dob": "2007-04-05",
+    "source": "afltables.com/afl/stats/players/D/Daniel_Annable.html"
+  },
+  "Zane Zakostelsky": {
+    "height_cm": "196",
+    "weight_kg": "",
+    "dob": "2005-12-14",
+    "source": "afltables.com/afl/stats/players/Z/Zane_Zakostelsky.html"
+  },
+  "Jagga Smith": {
+    "height_cm": "182",
+    "weight_kg": "",
+    "dob": "2006-01-28",
+    "source": "afltables.com/afl/stats/players/J/Jagga_Smith.html"
+  },
+  "Harry Dean": {
+    "height_cm": "194",
+    "weight_kg": "",
+    "dob": "2007-11-13",
+    "source": "afltables.com/afl/stats/players/H/Harry_Dean.html"
+  },
+  "Wade Derksen": {
+    "height_cm": "194",
+    "weight_kg": "",
+    "dob": "2001-06-18",
+    "source": "afltables.com/afl/stats/players/W/Wade_Derksen.html"
+  },
+  "Talor Byrne": {
+    "height_cm": "174",
+    "weight_kg": "",
+    "dob": "2007-11-14",
+    "source": "afltables.com/afl/stats/players/T/Talor_Byrne.html"
+  },
+  "Matt Carroll": {
+    "height_cm": "188",
+    "weight_kg": "81",
+    "dob": "2005-11-28",
+    "source": "afltables.com/afl/stats/players/M/Matt_Carroll.html"
+  },
+  "Jack Ison": {
+    "height_cm": "192",
+    "weight_kg": "",
+    "dob": "2007-03-26",
+    "source": "afltables.com/afl/stats/players/J/Jack_Ison.html"
+  },
+  "Flynn Young": {
+    "height_cm": "181",
+    "weight_kg": "72",
+    "dob": "2002-02-03",
+    "source": "afltables.com/afl/stats/players/F/Flynn_Young.html"
+  },
+  "Hudson OKeeffe": {
+    "height_cm": "202",
+    "weight_kg": "94",
+    "dob": "2004-12-16",
+    "source": "afltables.com/afl/stats/players/H/Hudson_OKeeffe.html"
+  },
+  "Aidan Schubert": {
+    "height_cm": "198",
+    "weight_kg": "",
+    "dob": "2007-12-21",
+    "source": "afltables.com/afl/stats/players/A/Aidan_Schubert.html"
+  },
+  "Alex Van Wyk": {
+    "height_cm": "203",
+    "weight_kg": "",
+    "dob": "2004-07-01",
+    "source": "afltables.com/afl/stats/players/A/Alex_Van_Wyk.html"
+  },
+  "Alix Tauru": {
+    "height_cm": "193",
+    "weight_kg": "94",
+    "dob": "2006-11-16",
+    "source": "afltables.com/afl/stats/players/A/Alix_Tauru.html"
+  },
+  "Angus Anderson": {
+    "height_cm": "193",
+    "weight_kg": "",
+    "dob": "2003-05-25",
+    "source": "afltables.com/afl/stats/players/A/Angus_Anderson.html"
+  },
+  "Angus Clarke": {
+    "height_cm": "188",
+    "weight_kg": "86",
+    "dob": "2006-05-08",
+    "source": "afltables.com/afl/stats/players/A/Angus_Clarke.html"
+  },
+  "Archer Day-Wicks": {
+    "height_cm": "186",
+    "weight_kg": "82",
+    "dob": "2006-05-13",
+    "source": "afltables.com/afl/stats/players/A/Archer_Day-Wicks.html"
+  },
+  "Archie May": {
+    "height_cm": "198",
+    "weight_kg": "95",
+    "dob": "2004-08-27",
+    "source": "afltables.com/afl/stats/players/A/Archie_May.html"
+  },
+  "Balyn OBrien": {
+    "height_cm": "187",
+    "weight_kg": "",
+    "dob": "2007-01-26",
+    "source": "afltables.com/afl/stats/players/B/Balyn_OBrien.html"
+  },
+  "Beau Addinsall": {
+    "height_cm": "182",
+    "weight_kg": "",
+    "dob": "2007-03-09",
+    "source": "afltables.com/afl/stats/players/B/Beau_Addinsall.html"
+  },
+  "Ben Jepson": {
+    "height_cm": "184",
+    "weight_kg": "75",
+    "dob": "2001-10-10",
+    "source": "afltables.com/afl/stats/players/B/Ben_Jepson.html"
+  },
+  "Bo Allan": {
+    "height_cm": "191",
+    "weight_kg": "85",
+    "dob": "2006-02-16",
+    "source": "afltables.com/afl/stats/players/B/Bo_Allan.html"
+  },
+  "Bodie Ryan": {
+    "height_cm": "187",
+    "weight_kg": "",
+    "dob": "2005-04-20",
+    "source": "afltables.com/afl/stats/players/B/Bodie_Ryan.html"
+  },
+  "Caleb Lewis": {
+    "height_cm": "198",
+    "weight_kg": "",
+    "dob": "2003-09-29",
+    "source": "afltables.com/afl/stats/players/C/Caleb_Lewis.html"
+  },
+  "Cameron Nairn": {
+    "height_cm": "188",
+    "weight_kg": "",
+    "dob": "2007-10-15",
+    "source": "afltables.com/afl/stats/players/C/Cameron_Nairn.html"
+  },
+  "Campbell Gray": {
+    "height_cm": "195",
+    "weight_kg": "91",
+    "dob": "2003-09-01",
+    "source": "afltables.com/afl/stats/players/C/Campbell_Gray.html"
+  },
+  "Campbell Lake": {
+    "height_cm": "175",
+    "weight_kg": "",
+    "dob": "2004-08-11",
+    "source": "afltables.com/afl/stats/players/C/Campbell_Lake.html"
+  },
+  "Charlie Banfield": {
+    "height_cm": "192",
+    "weight_kg": "",
+    "dob": "2007-07-18",
+    "source": "afltables.com/afl/stats/players/C/Charlie_Banfield.html"
+  },
+  "Chris Scerri": {
+    "height_cm": "177",
+    "weight_kg": "",
+    "dob": "2006-07-06",
+    "source": "afltables.com/afl/stats/players/C/Chris_Scerri.html"
+  },
+  "Cody Angove": {
+    "height_cm": "182",
+    "weight_kg": "82",
+    "dob": "2006-05-28",
+    "source": "afltables.com/afl/stats/players/C/Cody_Angove.html"
+  },
+  "Cooper Duff-Tytler": {
+    "height_cm": "201",
+    "weight_kg": "",
+    "dob": "2007-08-22",
+    "source": "afltables.com/afl/stats/players/C/Cooper_Duff-Tytler.html"
+  },
+  "Cooper Hynes": {
+    "height_cm": "190",
+    "weight_kg": "87",
+    "dob": "2006-02-28",
+    "source": "afltables.com/afl/stats/players/C/Cooper_Hynes.html"
+  },
+  "Cooper Trembath": {
+    "height_cm": "193",
+    "weight_kg": "90",
+    "dob": "2005-10-17",
+    "source": "afltables.com/afl/stats/players/C/Cooper_Trembath.html"
+  },
+  "Dylan Patterson": {
+    "height_cm": "184",
+    "weight_kg": "",
+    "dob": "2007-09-01",
+    "source": "afltables.com/afl/stats/players/D/Dylan_Patterson.html"
+  },
+  "Dyson Sharp": {
+    "height_cm": "187",
+    "weight_kg": "",
+    "dob": "2007-05-23",
+    "source": "afltables.com/afl/stats/players/D/Dyson_Sharp.html"
+  },
+  "Ewan Mackinlay": {
+    "height_cm": "182",
+    "weight_kg": "80",
+    "dob": "2003-07-18",
+    "source": "afltables.com/afl/stats/players/E/Ewan_Mackinlay.html"
+  },
+  "Flynn Riley": {
+    "height_cm": "206",
+    "weight_kg": "",
+    "dob": "2004-04-05",
+    "source": "afltables.com/afl/stats/players/F/Flynn_Riley.html"
+  },
+  "George Stevens": {
+    "height_cm": "189",
+    "weight_kg": "101",
+    "dob": "2005-04-14",
+    "source": "afltables.com/afl/stats/players/G/George_Stevens.html"
+  },
+  "Hamish Davis": {
+    "height_cm": "190",
+    "weight_kg": "85",
+    "dob": "2006-05-02",
+    "source": "afltables.com/afl/stats/players/H/Hamish_Davis.html"
+  },
+  "Harrison Oliver": {
+    "height_cm": "181",
+    "weight_kg": "",
+    "dob": "2006-06-15",
+    "source": "afltables.com/afl/stats/players/H/Harrison_Oliver.html"
+  },
+  "Harrison Ramm": {
+    "height_cm": "202",
+    "weight_kg": "100",
+    "dob": "2006-12-05",
+    "source": "afltables.com/afl/stats/players/H/Harrison_Ramm.html"
+  },
+  "Harry Kyle": {
+    "height_cm": "188",
+    "weight_kg": "",
+    "dob": "2007-07-16",
+    "source": "afltables.com/afl/stats/players/H/Harry_Kyle.html"
+  },
+  "Hugh Boxshall": {
+    "height_cm": "188",
+    "weight_kg": "80",
+    "dob": "2006-07-11",
+    "source": "afltables.com/afl/stats/players/H/Hugh_Boxshall.html"
+  },
+  "Billy Cootee": {
+    "height_cm": "179",
+    "weight_kg": "",
+    "dob": "2002-12-18",
+    "source": "afltables.com/afl/stats/players/B/Billy_Cootee.html"
+  },
+  "Hussien El Achkar": {
+    "height_cm": "171",
+    "weight_kg": "",
+    "dob": "2007-04-02",
+    "source": "afltables.com/afl/stats/players/H/Hussien_El_Achkar.html"
+  },
+  "Jack Ough": {
+    "height_cm": "194",
+    "weight_kg": "",
+    "dob": "2006-12-15",
+    "source": "afltables.com/afl/stats/players/J/Jack_Ough.html"
+  },
+  "Jack Watkins": {
+    "height_cm": "176",
+    "weight_kg": "",
+    "dob": "2000-12-18",
+    "source": "afltables.com/afl/stats/players/J/Jack_Watkins.html"
+  },
+  "Jack Whitlock": {
+    "height_cm": "200",
+    "weight_kg": "92",
+    "dob": "2006-05-16",
+    "source": "afltables.com/afl/stats/players/J/Jack_Whitlock.html"
+  },
+  "Jacob Farrow": {
+    "height_cm": "188",
+    "weight_kg": "",
+    "dob": "2007-09-21",
+    "source": "afltables.com/afl/stats/players/J/Jacob_Farrow.html"
+  },
+  "Jacob Newton": {
+    "height_cm": "179",
+    "weight_kg": "76",
+    "dob": "2006-03-20",
+    "source": "afltables.com/afl/stats/players/J/Jacob_Newton.html"
+  },
+  "Jacob van Rooyen": {
+    "height_cm": "193",
+    "weight_kg": "96",
+    "dob": "2003-04-16",
+    "source": "afltables.com/afl/stats/players/J/Jacob_van_Rooyen.html"
+  },
+  "Jai Murray": {
+    "height_cm": "185",
+    "weight_kg": "",
+    "dob": "2007-03-09",
+    "source": "afltables.com/afl/stats/players/J/Jai_Murray.html"
+  },
+  "Jasper Alger": {
+    "height_cm": "183",
+    "weight_kg": "77",
+    "dob": "2006-12-17",
+    "source": "afltables.com/afl/stats/players/J/Jasper_Alger.html"
+  },
+  "Jaxon Artemis": {
+    "height_cm": "182",
+    "weight_kg": "",
+    "dob": "2006-08-24",
+    "source": "afltables.com/afl/stats/players/J/Jaxon_Artemis.html"
+  },
+  "Jay Polkinghorne": {
+    "height_cm": "191",
+    "weight_kg": "",
+    "dob": "2006-06-02",
+    "source": "afltables.com/afl/stats/players/J/Jay_Polkinghorne.html"
+  },
+  "Jayden Nguyen": {
+    "height_cm": "178",
+    "weight_kg": "70",
+    "dob": "2006-07-27",
+    "source": "afltables.com/afl/stats/players/J/Jayden_Nguyen.html"
+  },
+  "Jedd Busslinger": {
+    "height_cm": "198",
+    "weight_kg": "85",
+    "dob": "2004-03-11",
+    "source": "afltables.com/afl/stats/players/J/Jedd_Busslinger.html"
+  },
+  "Jesse Dattoli": {
+    "height_cm": "179",
+    "weight_kg": "86",
+    "dob": "2006-07-07",
+    "source": "afltables.com/afl/stats/players/J/Jesse_Dattoli.html"
+  },
+  "Jobe Shanahan": {
+    "height_cm": "195",
+    "weight_kg": "87",
+    "dob": "2006-08-02",
+    "source": "afltables.com/afl/stats/players/J/Jobe_Shanahan.html"
+  },
+  "Joel Fitzgerald": {
+    "height_cm": "188",
+    "weight_kg": "",
+    "dob": "2003-08-08",
+    "source": "afltables.com/afl/stats/players/J/Joel_Fitzgerald.html"
+  },
+  "Jonty Faull": {
+    "height_cm": "195",
+    "weight_kg": "92",
+    "dob": "2006-02-01",
+    "source": "afltables.com/afl/stats/players/J/Jonty_Faull.html"
+  },
+  "Jordan Croft": {
+    "height_cm": "201",
+    "weight_kg": "81",
+    "dob": "2005-05-12",
+    "source": "afltables.com/afl/stats/players/J/Jordan_Croft.html"
+  },
+  "Jordan de Goey": {
+    "height_cm": "188",
+    "weight_kg": "92",
+    "dob": "1996-03-15",
+    "source": "afltables.com/afl/stats/players/J/Jordan_de_Goey.html"
+  },
+  "Josaia Delana": {
+    "height_cm": "176",
+    "weight_kg": "78",
+    "dob": "2006-07-01",
+    "source": "afltables.com/afl/stats/players/J/Josaia_Delana.html"
+  },
+  "Josh Lai": {
+    "height_cm": "185",
+    "weight_kg": "",
+    "dob": "2005-10-01",
+    "source": "afltables.com/afl/stats/players/J/Josh_Lai.html"
+  },
+  "Josh Lindsay": {
+    "height_cm": "183",
+    "weight_kg": "",
+    "dob": "2007-04-07",
+    "source": "afltables.com/afl/stats/players/J/Josh_Lindsay.html"
+  },
+  "Kye Annand": {
+    "height_cm": "200",
+    "weight_kg": "",
+    "dob": "2003-10-14",
+    "source": "afltables.com/afl/stats/players/K/Kye_Annand.html"
+  },
+  "Lachie Jaques": {
+    "height_cm": "184",
+    "weight_kg": "",
+    "dob": "2006-06-01",
+    "source": "afltables.com/afl/stats/players/L/Lachie_Jaques.html"
+  },
+  "Lachlan Blakiston": {
+    "height_cm": "203",
+    "weight_kg": "100",
+    "dob": "1998-09-09",
+    "source": "afltables.com/afl/stats/players/L/Lachlan_Blakiston.html"
+  },
+  "Lachlan Carmichael": {
+    "height_cm": "184",
+    "weight_kg": "",
+    "dob": "2007-08-27",
+    "source": "afltables.com/afl/stats/players/L/Lachlan_Carmichael.html"
+  },
+  "Lachlan Gulbin": {
+    "height_cm": "187",
+    "weight_kg": "81",
+    "dob": "2006-11-24",
+    "source": "afltables.com/afl/stats/players/L/Lachlan_Gulbin.html"
+  },
+  "Lachlan Smith": {
+    "height_cm": "203",
+    "weight_kg": "",
+    "dob": "2005-10-05",
+    "source": "afltables.com/afl/stats/players/L/Lachlan_Smith.html"
+  },
+  "Lachy Dovaston": {
+    "height_cm": "178",
+    "weight_kg": "",
+    "dob": "2007-05-29",
+    "source": "afltables.com/afl/stats/players/L/Lachy_Dovaston.html"
+  },
+  "Latrelle Pickett": {
+    "height_cm": "182",
+    "weight_kg": "",
+    "dob": "2005-12-28",
+    "source": "afltables.com/afl/stats/players/L/Latrelle_Pickett.html"
+  },
+  "Leo Lombard": {
+    "height_cm": "179",
+    "weight_kg": "74",
+    "dob": "2006-10-05",
+    "source": "afltables.com/afl/stats/players/L/Leo_Lombard.html"
+  },
+  "Liam Puncher": {
+    "height_cm": "195",
+    "weight_kg": "",
+    "dob": "2003-08-26",
+    "source": "afltables.com/afl/stats/players/L/Liam_Puncher.html"
+  },
+  "Roan Steele": {
+    "height_cm": "183",
+    "weight_kg": "78",
+    "dob": "2001-10-22",
+    "source": "afltables.com/afl/stats/players/R/Roan_Steele.html"
+  },
+  "Sam Swadling": {
+    "height_cm": "189",
+    "weight_kg": "",
+    "dob": "2007-01-16",
+    "source": "afltables.com/afl/stats/players/S/Sam_Swadling.html"
+  },
+  "Oscar Steene": {
+    "height_cm": "201",
+    "weight_kg": "",
+    "dob": "2003-08-23",
+    "source": "afltables.com/afl/stats/players/O/Oscar_Steene.html"
+  },
+  "Sullivan Robey": {
+    "height_cm": "192",
+    "weight_kg": "",
+    "dob": "2007-10-04",
+    "source": "afltables.com/afl/stats/players/S/Sullivan_Robey.html"
+  },
+  "Max Kondogiannis": {
+    "height_cm": "191",
+    "weight_kg": "",
+    "dob": "2007-11-14",
+    "source": "afltables.com/afl/stats/players/M/Max_Kondogiannis.html"
+  },
+  "Zak Johnson": {
+    "height_cm": "185",
+    "weight_kg": "76",
+    "dob": "2006-12-24",
+    "source": "afltables.com/afl/stats/players/Z/Zak_Johnson.html"
+  },
+  "Sam De Koning": {
+    "height_cm": "200",
+    "weight_kg": "85",
+    "dob": "2001-02-26",
+    "source": "afltables.com/afl/stats/players/S/Sam_De_Koning.html"
+  },
+  "Mitchell Edwards": {
+    "height_cm": "206",
+    "weight_kg": "",
+    "dob": "2005-06-02",
+    "source": "afltables.com/afl/stats/players/M/Mitchell_Edwards.html"
+  },
+  "Oliver Wiltshire": {
+    "height_cm": "180",
+    "weight_kg": "67",
+    "dob": "2002-09-15",
+    "source": "afltables.com/afl/stats/players/O/Oliver_Wiltshire.html"
+  },
+  "Mitch Podhajski": {
+    "height_cm": "191",
+    "weight_kg": "",
+    "dob": "1999-01-04",
+    "source": "afltables.com/afl/stats/players/M/Mitch_Podhajski.html"
+  },
+  "Noah Howes": {
+    "height_cm": "196",
+    "weight_kg": "",
+    "dob": "2005-10-28",
+    "source": "afltables.com/afl/stats/players/N/Noah_Howes.html"
+  },
+  "Vigo Visentini": {
+    "height_cm": "203",
+    "weight_kg": "99",
+    "dob": "2005-09-05",
+    "source": "afltables.com/afl/stats/players/V/Vigo_Visentini.html"
+  },
+  "Rhys Unwin": {
+    "height_cm": "179",
+    "weight_kg": "74",
+    "dob": "2006-10-11",
+    "source": "afltables.com/afl/stats/players/R/Rhys_Unwin.html"
+  },
+  "Tobyn Murray": {
+    "height_cm": "180",
+    "weight_kg": "",
+    "dob": "2005-05-05",
+    "source": "afltables.com/afl/stats/players/T/Tobyn_Murray.html"
+  },
+  "Zeke Uwland": {
+    "height_cm": "179",
+    "weight_kg": "",
+    "dob": "2007-04-24",
+    "source": "afltables.com/afl/stats/players/Z/Zeke_Uwland.html"
+  },
+  "Oscar Adams": {
+    "height_cm": "197",
+    "weight_kg": "83",
+    "dob": "2003-07-23",
+    "source": "afltables.com/afl/stats/players/O/Oscar_Adams.html"
+  },
+  "Phoenix Gothard": {
+    "height_cm": "179",
+    "weight_kg": "",
+    "dob": "2005-09-07",
+    "source": "afltables.com/afl/stats/players/P/Phoenix_Gothard.html"
+  },
+  "Nick Madden": {
+    "height_cm": "204",
+    "weight_kg": "112",
+    "dob": "2004-05-17",
+    "source": "afltables.com/afl/stats/players/N/Nick_Madden.html"
+  },
+  "Riley Hamilton": {
+    "height_cm": "189",
+    "weight_kg": "",
+    "dob": "2006-08-15",
+    "source": "afltables.com/afl/stats/players/R/Riley_Hamilton.html"
+  },
+  "Oliver Hannaford": {
+    "height_cm": "180",
+    "weight_kg": "",
+    "dob": "2006-09-01",
+    "source": "afltables.com/afl/stats/players/O/Oliver_Hannaford.html"
+  },
+  "Noah Mraz": {
+    "height_cm": "198",
+    "weight_kg": "",
+    "dob": "2006-02-20",
+    "source": "afltables.com/afl/stats/players/N/Noah_Mraz.html"
+  },
+  "Ollie Greeves": {
+    "height_cm": "192",
+    "weight_kg": "",
+    "dob": "2007-02-07",
+    "source": "afltables.com/afl/stats/players/O/Ollie_Greeves.html"
+  },
+  "Will McCabe": {
+    "height_cm": "197",
+    "weight_kg": "",
+    "dob": "2005-09-29",
+    "source": "afltables.com/afl/stats/players/W/Will_McCabe.html"
+  },
+  "Max Beattie": {
+    "height_cm": "174",
+    "weight_kg": "",
+    "dob": "2003-11-18",
+    "source": "afltables.com/afl/stats/players/M/Max_Beattie.html"
+  },
+  "Matt Hill": {
+    "height_cm": "187",
+    "weight_kg": "",
+    "dob": "2004-01-01",
+    "source": "afltables.com/afl/stats/players/M/Matt_Hill.html"
+  },
+  "Paddy Cross": {
+    "height_cm": "181",
+    "weight_kg": "",
+    "dob": "2003-02-14",
+    "source": "afltables.com/afl/stats/players/P/Paddy_Cross.html"
+  },
+  "Max Heath": {
+    "height_cm": "204",
+    "weight_kg": "97",
+    "dob": "2002-10-24",
+    "source": "afltables.com/afl/stats/players/M/Max_Heath.html"
+  },
+  "Xavier Taylor": {
+    "height_cm": "192",
+    "weight_kg": "",
+    "dob": "2007-01-30",
+    "source": "afltables.com/afl/stats/players/X/Xavier_Taylor.html"
+  },
+  "Lukas Cooke": {
+    "height_cm": "196",
+    "weight_kg": "",
+    "dob": "2003-09-26",
+    "source": "afltables.com/afl/stats/players/L/Lukas_Cooke.html"
+  },
+  "Luker Kentfield": {
+    "height_cm": "194",
+    "weight_kg": "",
+    "dob": "2005-09-10",
+    "source": "afltables.com/afl/stats/players/L/Luker_Kentfield.html"
+  },
+  "Tom Blamires": {
+    "height_cm": "181",
+    "weight_kg": "",
+    "dob": "2002-08-13",
+    "source": "afltables.com/afl/stats/players/T/Tom_Blamires.html"
+  },
+  "Zac Banch": {
+    "height_cm": "175",
+    "weight_kg": "74",
+    "dob": "2003-07-21",
+    "source": "afltables.com/afl/stats/players/Z/Zac_Banch.html"
+  },
+  "Matt Whitlock": {
+    "height_cm": "198",
+    "weight_kg": "94",
+    "dob": "2006-05-16",
+    "source": "afltables.com/afl/stats/players/M/Matt_Whitlock.html"
+  },
+  "Taylor Goad": {
+    "height_cm": "207",
+    "weight_kg": "",
+    "dob": "2005-04-28",
+    "source": "afltables.com/afl/stats/players/T/Taylor_Goad.html"
+  },
+  "Xavier Bamert": {
+    "height_cm": "185",
+    "weight_kg": "",
+    "dob": "2007-01-29",
+    "source": "afltables.com/afl/stats/players/X/Xavier_Bamert.html"
+  },
+  "Tom Anastasopoulos": {
+    "height_cm": "176",
+    "weight_kg": "",
+    "dob": "2005-05-31",
+    "source": "afltables.com/afl/stats/players/T/Tom_Anastasopoulos.html"
+  },
+  "Mitch Zadow": {
+    "height_cm": "180",
+    "weight_kg": "",
+    "dob": "2004-03-11",
+    "source": "afltables.com/afl/stats/players/M/Mitch_Zadow.html"
+  },
+  "Patrick Retschko": {
+    "height_cm": "186",
+    "weight_kg": "",
+    "dob": "2006-02-28",
+    "source": "afltables.com/afl/stats/players/P/Patrick_Retschko.html"
+  },
+  "Sam Grlj": {
+    "height_cm": "182",
+    "weight_kg": "",
+    "dob": "2007-07-26",
+    "source": "afltables.com/afl/stats/players/S/Sam_Grlj.html"
+  },
+  "Sam Cumming": {
+    "height_cm": "184",
+    "weight_kg": "",
+    "dob": "2007-07-27",
+    "source": "afltables.com/afl/stats/players/S/Sam_Cumming.html"
+  },
+  "Taj Hotton": {
+    "height_cm": "182",
+    "weight_kg": "79",
+    "dob": "2006-06-17",
+    "source": "afltables.com/afl/stats/players/T/Taj_Hotton.html"
+  },
+  "Oliver Hayes-Brown": {
+    "height_cm": "208",
+    "weight_kg": "",
+    "dob": "2000-04-28",
+    "source": "afltables.com/afl/stats/players/O/Oliver_Hayes-Brown.html"
+  },
+  "Tom Burton": {
+    "height_cm": "178",
+    "weight_kg": "",
+    "dob": "2007-01-09",
+    "source": "afltables.com/afl/stats/players/T/Tom_Burton.html"
+  },
+  "Noah Roberts-Thomson": {
+    "height_cm": "181",
+    "weight_kg": "",
+    "dob": "2007-03-29",
+    "source": "afltables.com/afl/stats/players/N/Noah_Roberts-Thomson.html"
+  },
+  "Zane Peucker": {
+    "height_cm": "180",
+    "weight_kg": "",
+    "dob": "2007-12-04",
+    "source": "afltables.com/afl/stats/players/Z/Zane_Peucker.html"
+  },
+  "Tom De Koning": {
+    "height_cm": "203",
+    "weight_kg": "97",
+    "dob": "1999-07-16",
+    "source": "afltables.com/afl/stats/players/T/Tom_De_Koning.html"
+  },
+  "Will Edwards": {
+    "height_cm": "197",
+    "weight_kg": "",
+    "dob": "2003-05-08",
+    "source": "afltables.com/afl/stats/players/W/Will_Edwards.html"
+  },
+  "Will Green": {
+    "height_cm": "204",
+    "weight_kg": "",
+    "dob": "2005-09-08",
+    "source": "afltables.com/afl/stats/players/W/Will_Green.html"
+  },
+  "Tom McCarthy": {
+    "height_cm": "188",
+    "weight_kg": "89",
+    "dob": "2000-07-12",
+    "source": "afltables.com/afl/stats/players/T/Tom_McCarthy.html"
+  },
+  "Willem Duursma": {
+    "height_cm": "193",
+    "weight_kg": "",
+    "dob": "2007-06-21",
+    "source": "afltables.com/afl/stats/players/W/Willem_Duursma.html"
+  },
+  "Milan Murdock": {
+    "height_cm": "180",
+    "weight_kg": "",
+    "dob": "2000-06-30",
+    "source": "afltables.com/afl/stats/players/M/Milan_Murdock.html"
+  },
+  "Marcus Herbert": {
+    "height_cm": "181",
+    "weight_kg": "",
+    "dob": "2002-08-13",
+    "source": "afltables.com/afl/stats/players/M/Marcus_Herbert.html"
+  },
+  "Oliver Francou": {
+    "height_cm": "184",
+    "weight_kg": "",
+    "dob": "2006-02-27",
+    "source": "afltables.com/afl/stats/players/O/Oliver_Francou.html"
+  },
+  "Malakai Champion": {
+    "height_cm": "172",
+    "weight_kg": "69",
+    "dob": "2006-05-17",
+    "source": "afltables.com/afl/stats/players/M/Malakai_Champion.html"
+  },
+  "Sandy Brock": {
+    "height_cm": "198",
+    "weight_kg": "90",
+    "dob": "2002-12-14",
+    "source": "afltables.com/afl/stats/players/S/Sandy_Brock.html"
+  },
+  "Tom Gross": {
+    "height_cm": "181",
+    "weight_kg": "70",
+    "dob": "2006-09-15",
+    "source": "afltables.com/afl/stats/players/T/Tom_Gross.html"
+  },
+  "Michael Sellwood": {
+    "height_cm": "186",
+    "weight_kg": "",
+    "dob": "2003-10-02",
+    "source": "afltables.com/afl/stats/players/M/Michael_Sellwood.html"
+  },
+  "Will Lewis": {
+    "height_cm": "194",
+    "weight_kg": "",
+    "dob": "1999-05-05",
+    "source": "afltables.com/afl/stats/players/W/Will_Lewis.html"
+  },
+  "Luke Kennedy": {
+    "height_cm": "181",
+    "weight_kg": "",
+    "dob": "2006-10-11",
+    "source": "afltables.com/afl/stats/players/L/Luke_Kennedy.html"
+  },
+  "Louis Emmett": {
+    "height_cm": "200",
+    "weight_kg": "",
+    "dob": "2007-03-23",
+    "source": "afltables.com/afl/stats/players/L/Louis_Emmett.html"
+  }
+}
