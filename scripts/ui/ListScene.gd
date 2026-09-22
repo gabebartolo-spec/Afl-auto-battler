@@ -12,6 +12,7 @@ const ATTR_ROWS := [
 
 var _root: VBoxContainer
 var _squad: Squad = null
+var _pane := "shape"
 
 
 func _ready() -> void:
@@ -32,7 +33,16 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(func():
 		if is_inside_tree():
 			_build())
+	if not GameState.player_names_changed.is_connected(_on_names):
+		GameState.player_names_changed.connect(_on_names)
 	_build()
+
+
+func _on_names() -> void:
+	if is_inside_tree():
+		_squad = Squad.new(GameDB.club_name(GameState.my_club), GameState.my_list,
+				true, GameState.my_club)
+		_build()
 
 
 func _narrow() -> bool:
@@ -41,7 +51,10 @@ func _narrow() -> bool:
 
 func _build() -> void:
 	UiKit.clear(_root)
-	_root.add_child(UiKit.top_bar("%s - My List" % GameDB.club_name(GameState.my_club), true))
+	var train := UiKit.btn("Train", 14)
+	train.custom_minimum_size = Vector2(72, 44)
+	train.pressed.connect(func(): Router.go("training"))
+	_root.add_child(UiKit.top_bar("%s - My List" % GameDB.club_name(GameState.my_club), true, train))
 
 	var summary := GridContainer.new()
 	summary.columns = 2 if UiKit.view_width(self) < 520.0 else 5
@@ -54,6 +67,20 @@ func _build() -> void:
 	summary.add_child(_stat_card("Defence", "%.1f" % _squad.defence))
 	summary.add_child(_stat_card("List", str(GameState.my_list.size())))
 
+	if _narrow():
+		var tabs := UiKit.hbox(2)
+		_root.add_child(tabs)
+		var shape_tab := UiKit.tab("Shape", _pane == "shape")
+		shape_tab.pressed.connect(func():
+			_pane = "shape"
+			_build())
+		tabs.add_child(shape_tab)
+		var list_tab := UiKit.tab("Full list", _pane == "list")
+		list_tab.pressed.connect(func():
+			_pane = "list"
+			_build())
+		tabs.add_child(list_tab)
+
 	var body: BoxContainer
 	if _narrow():
 		body = UiKit.vbox(10)
@@ -62,35 +89,40 @@ func _build() -> void:
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_root.add_child(body)
 
-	# --- left: best 22 ------------------------------------------------------
+	if not _narrow() or _pane == "shape":
+		body.add_child(_shape_panel())
+	if not _narrow() or _pane == "list":
+		body.add_child(_full_list_panel())
+
+
+func _shape_panel() -> Control:
 	var left := UiKit.panel(UiKit.PANEL, 12)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	if _narrow():
-		left.custom_minimum_size = Vector2(0, 220)
-	body.add_child(left)
+	left.custom_minimum_size = Vector2(0, 220)
 	var lv := UiKit.vbox(5)
+	lv.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left.add_child(lv)
 	lv.add_child(UiKit.lbl("Best 22", 17, UiKit.GOLD, true))
 	lv.add_child(UiKit.lbl(
-			"Selected by overall rating, filled 1 ruck / 7 mids / 5 defenders / "
-			+ "5 forwards, plus four on the bench.", 11, UiKit.MUTED))
-	var box := UiKit.vbox(2)
-	lv.add_child(UiKit.scroll(box))
-	box.add_child(UiKit.lbl("On the ground", 12, UiKit.MUTED, true))
-	for p in _squad.ground:
-		box.add_child(_team_row(p, true))
-	box.add_child(UiKit.spacer(6))
-	box.add_child(UiKit.lbl("Bench", 12, UiKit.MUTED, true))
-	for p in _squad.bench:
-		box.add_child(_team_row(p, false))
+			"Match-day shape: 1 ruck, 7 mids, 5 defenders, 5 forwards. Four more wait on the interchange. Tap a guernsey.",
+			11, UiKit.MUTED))
+	var oval := FormationView.new()
+	oval.name = "Best22Oval"
+	oval.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	oval.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	oval.custom_minimum_size = Vector2(0, 180)
+	oval.setup(_squad.ground, _squad.bench, GameState.my_club)
+	lv.add_child(oval)
+	return left
 
-	# --- right: full list ---------------------------------------------------
+
+func _full_list_panel() -> Control:
 	var right := UiKit.panel(UiKit.PANEL, 12)
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_child(right)
 	var rv := UiKit.vbox(5)
+	rv.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right.add_child(rv)
 	rv.add_child(UiKit.lbl("Full List", 17, UiKit.GOLD, true))
 	var lbox := UiKit.vbox(2)
@@ -109,6 +141,7 @@ func _build() -> void:
 		for p in g:
 			lbox.add_child(_list_row(p))
 		lbox.add_child(UiKit.spacer(6))
+	return right
 
 
 func _stat_card(label: String, value: String) -> Control:
@@ -154,6 +187,8 @@ func _list_row(p: Dictionary) -> Control:
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	h.add_child(nm)
 	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
+	var xp := UiKit.line("%d XP" % int(p.get("xp", 0)), 12, UiKit.GOLD, true)
+	h.add_child(xp)
 	var ov := UiKit.lbl(str(int(p["overall"])), 18, UiKit.GOLD, true)
 	ov.custom_minimum_size = Vector2(38, 0)
 	ov.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

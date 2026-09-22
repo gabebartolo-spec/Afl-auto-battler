@@ -142,7 +142,7 @@ func _show_help() -> void:
 			"1. Choose your club. All 18 clubs start with empty lists.\n\n"
 			+ "2. Draft from one shared player pool under the same cap. The random order reverses each round. Rivals pick between your turns.\n\n"
 			+ "3. Track every selection in Picks. The position counters show your list's coverage; tap one to filter the pool. Carry at least two rucks.\n\n"
-			+ "4. Play 24 rounds, with matches driven by your players' rated abilities. Set your tactics in the coach box.\n\n"
+			+ "4. Play 24 rounds, with matches driven by your players' rated abilities. Set your tactics in the coach box. After each game every player earns XP, and Training lets you spend it on any stat.\n\n"
 			+ "5. Finish in the top eight to play finals and chase the flag.\n\n"
 			+ "Player labels are fictional by default. The main-menu toggle adds an educational comparison such as ‘Ari Bramble · plays like a real AFL player’ without changing ratings or gameplay.\n\n"
 			+ "Rotate your device at any time. Your draft picks, search and filters stay intact.", 16)
