@@ -323,7 +323,7 @@ func _roster_side(side: int) -> Array:
 func _simulate_next_quarter(t: Dictionary) -> void:
 	GameState.pending_sim.set_tactics(_my_side, t)
 	# Basic AI counter-plan: leaders protect a lead, trailers take more risk.
-	var s := GameState.pending_sim.result()["score"]
+	var s: Array = GameState.pending_sim.result()["score"]
 	var opp_plan := "balanced"
 	if int(s[1 - _my_side]) > int(s[_my_side]) + 18:
 		opp_plan = "controlled"

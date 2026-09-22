@@ -113,7 +113,7 @@ func _weighted(group: Array, key: String, power := 2.0, side := -1, purpose := "
 		return null
 	var weights := []
 	for p in group:
-		var w := powf(maxf(1.0, float(p["attr"][key])), power)
+		var w: float = pow(maxf(1.0, float(p["attr"][key])), power)
 		if side >= 0:
 			w *= _tactic_player_mult(side, p, purpose)
 		weights.append(w)
@@ -456,8 +456,8 @@ func run_quarter() -> Dictionary:
 			var ground: Array = squads[side].ground
 			var weights := []
 			for p in ground:
-				weights.append(powf(maxf(1.0, 101.0
-						- float(p["attr"]["discipline"])), 1.6))
+				weights.append(float(pow(maxf(1.0, 101.0
+						- float(p["attr"]["discipline"])), 1.6)))
 			var err = _pick(ground, weights)
 			_t(side, "clangers")
 			_p(err, "clangers")
