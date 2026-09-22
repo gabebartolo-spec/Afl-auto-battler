@@ -5,6 +5,12 @@ extends Node
 ## Every scene reads from here and nothing else, so scene changes never lose
 ## the season.
 
+## Name presentation is a player preference rather than a career setting. The
+## game starts with fictional labels; the optional educational view adds the
+## real-player comparison without changing the simulation or the drafted IDs.
+signal player_names_changed
+var show_real_names := false
+
 var my_club := ""
 var my_list: Array = []
 var season: Season = null
@@ -21,6 +27,13 @@ var last_match: Dictionary = {}  # YOUR match from that round, with events
 var last_phase := ""             # "regular" | "finals" | "done"
 var last_label := ""             # "Round 7" / "Grand Final" / ...
 var season_log: Array = []       # every result, for the season review screen
+
+
+func set_show_real_names(enabled: bool) -> void:
+	if show_real_names == enabled:
+		return
+	show_real_names = enabled
+	player_names_changed.emit()
 
 
 func reset() -> void:
@@ -250,7 +263,7 @@ func train_my_list(focus: String) -> Array:
 		attr[attr_key] = mini(99, before + gain)
 		var old_ov := int(p["overall"])
 		_recalc_player_overall(p)
-		out.append({"name": str(p["name"]), "attr": attr_key.capitalize(),
+		out.append({"id": str(p.get("id", "")), "name": GameDB.player_display_name(p),
 				"gain": int(attr[attr_key]) - before,
 				"overall_gain": int(p["overall"]) - old_ov})
 	return out

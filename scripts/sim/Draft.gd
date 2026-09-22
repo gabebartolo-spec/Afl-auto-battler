@@ -156,7 +156,10 @@ func _draft_pick(code: String, p: Dictionary) -> bool:
 		"round": current_round(),
 		"club": code,
 		"player_id": id,
-		"player_name": str(p["name"]),
+		# Kept as a fallback for custom/test pools. The UI resolves the current
+		# display label from player_id so changing name mode never leaves stale
+		# names in the pick log.
+		"player_name": str(p.get("generic_name", p.get("name", "Player"))),
 		"role": Ratings.role_tag(p),
 		"overall": int(p["overall"]),
 		"value": int(p["value"]),
@@ -431,7 +434,7 @@ func board(role := "", club := "", search := "", sort := "overall",
 			continue
 		if club != "" and p["club"] != club:
 			continue
-		if q != "" and not str(p["name"]).to_lower().contains(q):
+		if q != "" and not GameDB.player_search_text(p).to_lower().contains(q):
 			continue
 		out.append(p)
 	match sort:
@@ -443,7 +446,7 @@ func board(role := "", club := "", search := "", sort := "overall",
 					return int(a["value"]) < int(b["value"])
 				return a["overall"] > b["overall"])
 		"name":
-			out.sort_custom(func(a, b): return str(a["last"]) < str(b["last"]))
+			out.sort_custom(func(a, b): return GameDB.player_sort_name(a) < GameDB.player_sort_name(b))
 		"goals":
 			out.sort_custom(func(a, b): return a["gl"] > b["gl"])
 		"disposals":

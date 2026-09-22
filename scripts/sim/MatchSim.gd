@@ -87,7 +87,8 @@ func _emit(kind: String, side: int, fp: float, actor, text: String) -> void:
 		"kind": kind,
 		"side": side,
 		"fp": fp,
-		"name": "" if actor == null else str(actor["name"]),
+		"name": "" if actor == null else GameDB.player_display_name(actor),
+		"player_id": "" if actor == null else str(actor.get("id", "")),
 		"num": 0 if actor == null else int(actor["num"]),
 		"club": "" if actor == null else str(actor["club"]),
 		"text": text,
@@ -289,7 +290,7 @@ func play_chain(side: int, fp: float, from_bounce: bool) -> Dictionary:
 		if rng.randf() < float(T["handball_share"]) * hb_bias:
 			_t(side, "handballs")
 			_p(carrier, "handballs")
-			_emit("handball", side, fp, carrier, "%s handballs" % carrier["name"])
+			_emit("handball", side, fp, carrier, "%s handballs" % GameDB.player_display_name(carrier))
 		else:
 			_t(side, "kicks")
 			_p(carrier, "kicks")
@@ -299,9 +300,9 @@ func play_chain(side: int, fp: float, from_bounce: bool) -> Dictionary:
 			if marked:
 				_t(side, "marks")
 				_p(carrier, "marks")
-				_emit("mark", side, fp, carrier, "%s marks" % carrier["name"])
+				_emit("mark", side, fp, carrier, "%s marks" % GameDB.player_display_name(carrier))
 			else:
-				_emit("kick", side, fp, carrier, "%s kicks" % carrier["name"])
+				_emit("kick", side, fp, carrier, "%s kicks" % GameDB.player_display_name(carrier))
 
 		var pressure: float = (float(T["pressure_base"])
 				* (0.72 + 0.56 * dfn.def_pressure / 100.0))
@@ -325,7 +326,7 @@ func play_chain(side: int, fp: float, from_bounce: bool) -> Dictionary:
 				fp += rng.randf_range(4.0, 12.0) * dir
 				continue
 			_emit("tackle", opp, fp, tackler,
-					"%s tackles %s - ball up" % [tackler["name"], carrier["name"]])
+					"%s tackles %s - ball up" % [GameDB.player_display_name(tackler), GameDB.player_display_name(carrier)])
 			return {"outcome": "stoppage", "fp": fp, "actor": carrier}
 
 		var prev_atk_fp := atk_fp
@@ -350,7 +351,7 @@ func play_chain(side: int, fp: float, from_bounce: bool) -> Dictionary:
 			_t(side, "inside50")
 			_p(carrier, "inside50")
 			_emit("inside50", side, fp, carrier,
-					"%s sends it inside 50" % carrier["name"])
+					"%s sends it inside 50" % GameDB.player_display_name(carrier))
 			return resolve_forward50(side, fp, carrier)
 
 		# A clean exit from your own defensive 50 is a rebound.
@@ -424,7 +425,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	_t(opp, "rebounds")
 	_p(defender, "rebounds")
 	_emit("rebound", opp, fp, defender,
-			"%s rebounds it out of danger" % defender["name"])
+			"%s rebounds it out of danger" % GameDB.player_display_name(defender))
 	return {"outcome": "turnover", "fp": fp, "actor": defender}
 
 
@@ -486,14 +487,14 @@ func run_quarter() -> Dictionary:
 			_t(side, "clangers")
 			_p(err, "clangers")
 			_emit("clanger", side, fp, err,
-					"%s gives away a clanger" % err["name"])
+					"%s gives away a clanger" % GameDB.player_display_name(err))
 			if rng.randf() < float(T["clanger_is_free"]):
 				_t(1 - side, "frees_for")
 				_t(side, "frees_against")
 				_p(err, "frees_against")
 				next_side = 1 - side
 				_emit("free", 1 - side, fp, err,
-						"Free kick against %s" % err["name"])
+						"Free kick against %s" % GameDB.player_display_name(err))
 
 	_emit("quarter", -1, fp, null, "End of quarter %d - %s %d.%d (%d) | %s %d.%d (%d)" % [
 			quarter, squads[0].name, goals(0), behinds(0), score(0),
@@ -515,7 +516,7 @@ func rosters() -> Array:
 		for p in (sq as Squad).ground:
 			r.append({
 				"id": str(p["id"]), "num": int(p["num"]),
-				"name": str(p["name"]), "role": str(p["role"]),
+				"name": GameDB.player_display_name(p), "role": str(p["role"]),
 				"club": str(p["club"]), "overall": int(p["overall"]),
 			})
 		out.append(r)

@@ -129,7 +129,7 @@ func _team_row(p: Dictionary, ground: bool) -> Control:
 	var h := UiKit.hbox(6)
 	var cols: Array = GameDB.club_colours(str(p["club"]))
 	h.add_child(UiKit.chip(str(p["num"]), cols[0]))
-	var nm := UiKit.lbl(str(p["name"]), 13, UiKit.TEXT if ground else UiKit.MUTED)
+	var nm := UiKit.lbl(GameDB.player_display_name(p), 13, UiKit.TEXT if ground else UiKit.MUTED)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -148,7 +148,7 @@ func _list_row(p: Dictionary) -> Control:
 	v.add_child(h)
 	var cols: Array = GameDB.club_colours(str(p["club"]))
 	h.add_child(UiKit.chip(str(p["num"]), cols[0]))
-	var nm := UiKit.lbl(str(p["name"]), 15, UiKit.TEXT, true)
+	var nm := UiKit.lbl(GameDB.player_display_name(p), 15, UiKit.TEXT, true)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS

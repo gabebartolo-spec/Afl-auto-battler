@@ -591,7 +591,7 @@ func _player_row(p: Dictionary) -> Control:
 	var info := UiKit.vbox(2)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(info)
-	info.add_child(UiKit.ellipsis(str(p["name"]), 17, UiKit.TEXT, true))
+	info.add_child(UiKit.ellipsis(GameDB.player_display_name(p), 17, UiKit.TEXT, true))
 	var taken := _draft.has(str(p["id"]))
 	var detail := "%s · $%d · %d OVR" % [GameDB.club_short(str(p["club"])), int(p["value"]), int(p["overall"])]
 	if taken:
@@ -601,7 +601,7 @@ func _player_row(p: Dictionary) -> Control:
 	info.add_child(UiKit.ellipsis(detail, 13, UiKit.MUTED))
 	var can_pick := _draft.can_pick_player(p)
 	var text := "+ " + role
-	var reason := "Draft %s for $%d" % [p["name"], int(p["value"])]
+	var reason := "Draft %s for $%d" % [GameDB.player_display_name(p), int(p["value"])]
 	if taken:
 		text = "TAKEN"
 		reason = "Drafted by %s at pick #%d" % [GameDB.club_name(_draft.drafted_by(str(p["id"]))),
@@ -624,7 +624,7 @@ func _player_row(p: Dictionary) -> Control:
 	b.pressed.connect(_on_pick.bind(p))
 	h.add_child(b)
 	row.tooltip_text = "%s · %s\n%d games · %.1f disposals/game · %d goals\n%s" % [
-		p["name"], GameDB.club_name(str(p["club"])), int(p["gm"]),
+		GameDB.player_display_name(p), GameDB.club_name(str(p["club"])), int(p["gm"]),
 		float(p["di"]) / maxf(1.0, float(p["gm"])), int(p["gl"]), reason]
 	return row
 
@@ -729,6 +729,11 @@ func _refresh_history() -> void:
 		_history_box.add_child(more)
 
 
+func _entry_player_name(entry: Dictionary) -> String:
+	return GameDB.player_display_name_by_id(str(entry.get("player_id", "")),
+			str(entry.get("player_name", "Player")))
+
+
 func _history_row(entry: Dictionary) -> Control:
 	var mine := str(entry["club"]) == _club
 	var p := _row_panel(mine)
@@ -741,14 +746,14 @@ func _history_row(entry: Dictionary) -> Control:
 	var info := UiKit.vbox(3)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(info)
-	info.add_child(UiKit.ellipsis(str(entry["player_name"]), 16, UiKit.TEXT, true))
+	info.add_child(UiKit.ellipsis(_entry_player_name(entry), 16, UiKit.TEXT, true))
 	var club_row := UiKit.hbox(6)
 	info.add_child(club_row)
 	club_row.add_child(UiKit.club_badge(str(entry["club"]), 12, true))
 	club_row.add_child(UiKit.ellipsis("YOUR PICK" if mine else "selected", 11, UiKit.GOLD if mine else UiKit.MUTED))
 	h.add_child(UiKit.role_chip(str(entry["role"])))
 	p.tooltip_text = "Pick #%d · Round %d\n%s drafted %s from %s\n%d OVR · $%d" % [
-		entry["pick"], entry["round"], GameDB.club_name(str(entry["club"])), entry["player_name"],
+		entry["pick"], entry["round"], GameDB.club_name(str(entry["club"])), _entry_player_name(entry),
 		GameDB.club_name(str(entry["source_club"])), entry["overall"], entry["value"]]
 	return p
 
@@ -779,7 +784,7 @@ func _refresh_mine() -> void:
 				var p := _row_panel(false)
 				var v := UiKit.vbox(2)
 				p.add_child(v)
-				v.add_child(UiKit.ellipsis(str(player["name"]), 16, UiKit.TEXT, true))
+				v.add_child(UiKit.ellipsis(GameDB.player_display_name(player), 16, UiKit.TEXT, true))
 				v.add_child(UiKit.lbl("Pick #%d · %d OVR · $%d" % [
 					int(entry.get("pick", 0)), int(player["overall"]), int(player["value"])], 12, UiKit.MUTED))
 				_mine_box.add_child(p)
@@ -810,7 +815,7 @@ func _refresh_order() -> void:
 		v.add_child(badge)
 		var description := "Up next" if index > _draft.pick_index else "ON THE CLOCK"
 		if index < _draft.pick_history.size():
-			description = str(_draft.pick_history[index]["player_name"])
+			description = _entry_player_name(_draft.pick_history[index])
 		v.add_child(UiKit.ellipsis(description, 12, UiKit.MUTED))
 		h.add_child(UiKit.line("%d/%d" % [_draft.count_for(code), _draft.target_size], 12, UiKit.GOLD if mine else UiKit.MUTED))
 		_order_box.add_child(p)
@@ -874,7 +879,7 @@ func _refresh_status() -> void:
 		_ticker.text = "LEAGUE PICKS  ·  You're first on the clock. View the pick log ›"
 	else:
 		_ticker.text = "RIVAL #%d · %s: %s · +%d picks ›" % [
-			latest["pick"], str(latest["club"]), latest["player_name"], new_rivals]
+			latest["pick"], str(latest["club"]), _entry_player_name(latest), new_rivals]
 	_ticker.tooltip_text = _ticker.text + "\nTap to see every club's selections."
 
 
