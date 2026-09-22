@@ -249,7 +249,12 @@ func _show_board() -> void:
 	if _short:
 		_root.add_child(_compact_header())
 	else:
-		_root.add_child(_header("LEAGUE DRAFT", "2026  /  18 clubs  /  Snake draft"))
+		if _draft.intake_mode:
+			_root.add_child(_header("%d NATIONAL DRAFT" % GameState.season_year,
+					"%d prospects  /  keep your list  /  reversed ladder" % _draft.pool.size()))
+		else:
+			var sub := "%d  /  18 clubs  /  Snake draft" % GameState.season_year
+			_root.add_child(_header("LEAGUE DRAFT", sub))
 		_root.add_child(_summary())
 	_root.add_child(_position_counts())
 
@@ -304,6 +309,7 @@ func _compact_header() -> Control:
 	_round_info = UiKit.lbl("", 12, UiKit.MUTED)
 	v.add_child(_round_info)
 	_cap = UiKit.line("", 13, UiKit.TEXT, true)
+	_cap.name = "SalaryCap"
 	_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(_cap)
 	return h
@@ -371,7 +377,7 @@ func _footer() -> Control:
 	_next_picks.name = "UpcomingPicks"
 	_next_picks.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(_next_picks)
-	_finish_btn = UiKit.btn("START SEASON", 14, true)
+	_finish_btn = UiKit.btn("FINISH DRAFT" if _draft.intake_mode else "START SEASON", 14, true)
 	_finish_btn.name = "StartSeason"
 	_finish_btn.pressed.connect(_on_finish)
 	h.add_child(_finish_btn)
@@ -480,12 +486,22 @@ func _filters() -> Control:
 	_advanced.add_child(opts)
 	var clubs := UiKit.option()
 	clubs.name = "OriginClubFilter"
-	clubs.add_item("All original clubs")
-	for code in GameDB.CLUB_ORDER:
-		clubs.add_item(GameDB.club_name(code))
-	clubs.select(0 if _club_filter.is_empty() else GameDB.CLUB_ORDER.find(_club_filter) + 1)
+	var origin_values := GameDB.CLUB_ORDER.duplicate()
+	if _draft.intake_mode:
+		origin_values = []
+		for p in _draft.pool:
+			var team := str(p["club"])
+			if not origin_values.has(team):
+				origin_values.append(team)
+		origin_values.sort()
+		clubs.add_item("All recruiting clubs")
+	else:
+		clubs.add_item("All original clubs")
+	for value in origin_values:
+		clubs.add_item(GameDB.club_name(str(value)))
+	clubs.select(0 if _club_filter.is_empty() else origin_values.find(_club_filter) + 1)
 	clubs.item_selected.connect(func(idx: int):
-		_club_filter = "" if idx == 0 else GameDB.CLUB_ORDER[idx - 1]
+		_club_filter = "" if idx == 0 else str(origin_values[idx - 1])
 		_shown = PAGE_SIZE
 		_refresh_board(true))
 	opts.add_child(clubs)
@@ -593,7 +609,13 @@ func _player_row(p: Dictionary) -> Control:
 	h.add_child(info)
 	info.add_child(UiKit.ellipsis(GameDB.player_display_name(p), 17, UiKit.TEXT, true))
 	var taken := _draft.has(str(p["id"]))
-	var detail := "%s · $%d · %d OVR" % [GameDB.club_short(str(p["club"])), int(p["value"]), int(p["overall"])]
+	var detail := ""
+	if bool(p.get("projected", false)):
+		var team_name := str(p.get("draft_team", p["club"]))
+		detail = "%s · projected %d OVR" % [team_name, int(p["overall"])]
+	else:
+		var short := GameDB.club_short(str(p["club"]))
+		detail = "%s · $%d · %d OVR" % [short, int(p["value"]), int(p["overall"])]
 	if taken:
 		var entry := _draft.pick_details(str(p["id"]))
 		detail = "#%d to %s · %d OVR" % [int(entry.get("pick", 0)),
@@ -602,6 +624,8 @@ func _player_row(p: Dictionary) -> Control:
 	var can_pick := _draft.can_pick_player(p)
 	var text := "+ " + role
 	var reason := "Draft %s for $%d" % [GameDB.player_display_name(p), int(p["value"])]
+	if _draft.intake_mode:
+		reason = "Sign %s at projected %d OVR" % 				[GameDB.player_display_name(p), int(p["overall"])]
 	if taken:
 		text = "TAKEN"
 		reason = "Drafted by %s at pick #%d" % [GameDB.club_name(_draft.drafted_by(str(p["id"]))),
@@ -760,9 +784,18 @@ func _history_row(entry: Dictionary) -> Control:
 
 func _refresh_mine() -> void:
 	UiKit.clear(_mine_box)
-	_mine_box.add_child(UiKit.lbl("%d / %d signed · $%d of $%d spent" % [
-		_draft.count(), _draft.target_size, _draft.spent(), _draft.budget], 15, UiKit.GOLD, true))
-	_mine_box.add_child(UiKit.lbl(
+	if _draft.intake_mode:
+		_mine_box.add_child(UiKit.lbl("%d / %d rookies signed · list %d / %d" % [
+			_draft.count(), _draft.target_size,
+			int(GameState.league_lists.get(_club, []).size()), Ratings.LIST_SIZE],
+			15, UiKit.GOLD, true))
+		_mine_box.add_child(UiKit.lbl(
+			"Rookies join the list you kept. No cap at the intake draft - list space is the limit.",
+			13, UiKit.MUTED))
+	else:
+		_mine_box.add_child(UiKit.lbl("%d / %d signed · $%d of $%d spent" % [
+			_draft.count(), _draft.target_size, _draft.spent(), _draft.budget], 15, UiKit.GOLD, true))
+		_mine_box.add_child(UiKit.lbl(
 			"Cover 5 DEF, 7 MID and 5 FWD for the ground. Carry at least 2 RUCK. The bench is flexible; other needs are guidance, not limits.",
 			13, UiKit.MUTED))
 	if _draft.count() == 0:
@@ -792,6 +825,9 @@ func _refresh_mine() -> void:
 
 func _refresh_order() -> void:
 	UiKit.clear(_order_box)
+	var by_pick := {}
+	for e in _draft.pick_history:
+		by_pick[int(e["pick"])] = e
 	var round_no := mini(_draft.current_round(), _draft.target_size)
 	var going_back := round_no % 2 == 0
 	_order_box.add_child(UiKit.lbl("ROUND %d / %d" % [round_no, _draft.target_size], 12, UiKit.MUTED, true))
@@ -802,8 +838,8 @@ func _refresh_order() -> void:
 			"The arrow is the way this round's order runs. It flips every round. Highlighted club = you.",
 			13, UiKit.MUTED))
 	var start := (round_no - 1) * _draft.clubs.size()
-	for i in range(_draft.clubs.size()):
-		var index := start + i
+	var end := mini(start + _draft.clubs.size(), _draft.pick_sequence.size())
+	for index in range(start, end):
 		var code := str(_draft.pick_sequence[index])
 		var mine := code == _club
 		var p := _row_panel(mine)
@@ -821,9 +857,13 @@ func _refresh_order() -> void:
 		var badge := UiKit.club_badge(code, 14, true)
 		badge.alignment = BoxContainer.ALIGNMENT_BEGIN
 		v.add_child(badge)
-		var description := "Up next" if index > _draft.pick_index else "ON THE CLOCK"
-		if index < _draft.pick_history.size():
-			description = _entry_player_name(_draft.pick_history[index])
+		var description := "Up next"
+		if index == _draft.pick_index and not _draft.is_finished():
+			description = "ON THE CLOCK"
+		elif index < _draft.pick_index:
+			var entry: Dictionary = by_pick.get(index + 1, {})
+			description = _entry_player_name(entry) if not entry.is_empty() \
+					else "passed - list full"
 		v.add_child(UiKit.ellipsis(description, 12, UiKit.MUTED))
 		h.add_child(UiKit.line("%d/%d" % [_draft.count_for(code), _draft.target_size], 12, UiKit.GOLD if mine else UiKit.MUTED))
 		_order_box.add_child(p)
@@ -851,7 +891,10 @@ func _refresh_status() -> void:
 	if _short:
 		_round_info.text = "%s · %d/%d signed · R%d/%d" % [_club, _draft.count(),
 				_draft.target_size, mini(_draft.current_round(), _draft.target_size), _draft.target_size]
-	_cap.text = "CAP LEFT  $%d\n$%d spent / $%d" % [_draft.remaining(), _draft.spent(), _draft.budget]
+	if _draft.intake_mode:
+		_cap.text = "ROUNDS %d\n%d prospects left" % [_draft.target_size, _draft.remaining_pool()]
+	else:
+		_cap.text = "CAP LEFT  $%d\n$%d spent / $%d" % [_draft.remaining(), _draft.spent(), _draft.budget]
 	var counts := _draft.role_counts()
 	var needs := _draft.position_needs()
 	for role in ROLES:
@@ -864,7 +907,11 @@ func _refresh_status() -> void:
 		pick_labels.append("#%d" % int(number))
 	_next_picks.text = "%d left to sign\nYour picks: %s" % [_draft.target_size - _draft.count(), ", ".join(pick_labels)]
 	_finish_btn.disabled = not (done and _draft.is_valid())
-	_finish_btn.tooltip_text = "Complete your list within the cap, including at least 2 rucks."
+	if _draft.intake_mode:
+		_finish_btn.tooltip_text = \
+				"The draft concludes when every pick is made or the pool runs dry."
+	else:
+		_finish_btn.tooltip_text = "Complete your list within the cap, including at least 2 rucks."
 	if done:
 		_next_picks.text = "Your list is ready.\nTime for round one." if _draft.is_valid() \
 				else "List incomplete: at least 2 rucks\nand a full list within the cap required."
@@ -892,6 +939,10 @@ func _refresh_status() -> void:
 
 
 func _on_finish() -> void:
+	if _draft.intake_mode:
+		if GameState.finish_intake_draft():
+			Router.replace("hub")
+		return
 	if not _draft.is_finished() or not _draft.is_valid():
 		return
 	GameState.start_season(_club, _draft.list())

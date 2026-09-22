@@ -8,7 +8,21 @@ godot --headless --path . --editor --import
 
 godot --headless --path . --script tests/run_draft_tests.gd
 godot --headless --path . --script tests/run_draft_ui_tests.gd
+godot --headless --path . --script tests/run_intake_tests.gd
+godot --headless --path . --script tests/run_intake_ui_tests.gd
 ```
+
+The intake suites cover the 2026 draft-class file (56 prospects: unique ids/
+ranks/aliases, role validity, projection band, ruck cover, valid tied-club
+tags), the projection maths (rank taper, date maths, idempotent re-projection),
+the reversed-ladder intake flow (snake rounds, truncation when the pool runs
+dry, capped-club skips, contiguous logs), and the full rollover (year
+advance, list merges with jumper numbers, ageing + retirement bounds, the
+generated 2027 class, determinism, and reset restoring the pristine 2026
+data). The UI suite runs the shared DraftScene in intake mode across the same
+ten viewports. A non-Godot mirror of the same maths runs in CI-friendly Python:
+`python3 tools/intake_harness.py` (data/schema validation + a six-season
+intake/development simulation over the real lists).
 
 Both runners exit nonzero on failure. They use the shipped GDScript, not a
 Python/JavaScript reimplementation.

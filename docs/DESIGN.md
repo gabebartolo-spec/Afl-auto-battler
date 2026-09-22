@@ -33,6 +33,16 @@ Columns (all season totals unless noted):
 `data/clubs.csv` holds club names, guernsey colours (for the pitch renderer) and
 home grounds.
 
+`data/draftees_2026.csv` - the 2026 national-draft class (56 prospects).
+Columns: `rank,first,last,pos,pos2,pos_detail,height_cm,dob,state,team,league,`
+`tied_club,tied_type,u18_gm,u18_di,u18_gl,u18_mk,u18_tk,u18_if50,u18_ho,note,`
+`data_src`. `rank` is the consensus board (Rookie Me Central's August-2026 top
+50, plus six notable names it missed); `pos`/`pos2` are the engine's four
+roles; `u18_*` are per-game averages at the level quoted in the scouting
+notes (Talent League / SANFL / WAFL); `tied_club` + `tied_type` mark
+father-son/NGA prospects. These players have no AFL season line, so they skip
+`Ratings.derive_all` and use the projection in `Prospects.gd` instead.
+
 ### Attribution
 Player statistics are factual season data compiled from AFL Tables, a long-running
 volunteer-maintained archive. The AFL, its clubs and Champion Data do not endorse
@@ -115,6 +125,19 @@ No new player-data source is involved.
 **Validation.** The derived top-10 reproduces the actual 2026 Brownlow order for
 the harvested clubs — Daicos (47 votes) → Bailey Smith (36) → Cripps (27) →
 Rankine (25) → Dawson → Ashcroft (27) → Neale → Serong → Walsh → Jackson.
+
+### Prospect projections (no AFL stats)
+
+Draft-class players arrive with a target overall from a rank taper (consensus
+#1 → low 70s, back of the draft → high 40s), shaped by reported U18
+production, height and age. A role template sets the attribute *shape*; a
+bisection then shifts every attribute uniformly until `rate_overall` lands on
+the target, so prospects are expressed in exactly the same units as real
+players and feed the same engine. `Ratings.effective_games()` carries the
+"sample" override: projections skip the small-sample confidence shrink, and a
+player who has completed a simulated season keeps a full-season sample so a
+fringe 2026 games count cannot suppress them forever. `tools/intake_harness.py`
+mirrors these constants the way `sim_harness.py` mirrors the match engine.
 
 ---
 
@@ -218,6 +241,25 @@ Skip to full time, by reconstructing half-time from the Q2 snapshot.
   the 13 attributes. Cost rises with the current stat and with career games.
   The old post-match screen only rolled five random names, which is why it
   looked empty.
+* **National draft (end of season)** — `GameState.begin_intake_draft()`.
+  Father-son/NGA prospects (`tied_club` in the CSV) land at their clubs first;
+  the open pool is then drafted over `ceil(pool/18)` snake rounds (max 4) in
+  **reversed-ladder order**, worst club first, and the draft simply ends when
+  the pool runs dry — the last clubs' spare turns never happen, mirroring the
+  real draft's final partial rounds. It is the same `Draft` object in
+  `intake_mode`: the salary cap is a formality (rookie contracts), the two-ruck
+  rule does not re-apply to an intake, and a club at the 44-man cap has its
+  turn skipped rather than stalling the board. Rival AI picks between your
+  turns exactly like the career draft, and the shared DraftScene shows the
+  recruiting-club filter, projected OVR tooltips and scouting notes.
+* **Rollover** — `finish_intake_draft()` merges each club's intakes into its
+  list (rookie jumper numbers assigned from 41 up), ages every player by a
+  year, applies the development bands (young grow, old decline), retires the
+  oldest/lowest-rated (floor: 32 per club), adds the next year's generated
+  intake class (`Prospects.generate_class`), and builds a fresh 24-round
+  season. `GameDB.reload()` on career reset restores the pristine 2026 data
+  because mid-career mutations are in place. Undrafted prospects carry into
+  next year's pool and age out at 22.
 
 ---
 
@@ -264,6 +306,7 @@ project.godot          Godot 4.7 project (PC + mobile), four autoloads
 icon.svg
 data/
   players_2026.csv     real 2026 player season stats - 669 players, 18 clubs
+  draftees_2026.csv    the 2026 national-draft class - 56 projected prospects
   clubs.csv            clubs, guernsey colours, home grounds
   *.csv.import         pins Godot's csv importer to "Keep File"
 scripts/
@@ -277,7 +320,8 @@ scripts/
     MatchSim.gd        the match engine, plus the event log the oval replays
     CoachReport.gd     half-time assistant report (form + opposition gameplans)
     Season.gd          24-round fixture, ladder, finals bracket
-    Draft.gd           salary cap, board filters, the 17 AI lists
+    Draft.gd           salary cap, board filters, the 17 AI lists, intake mode
+    Prospects.gd       rank projections, season ageing, generated intake classes
   state/
     GameState.gd       autoload; the season you are playing
   ui/
@@ -293,6 +337,7 @@ scripts/
 scenes/                seven thin .tscn wrappers - a root Control + its script
 tools/
   sim_harness.py       calibration harness (run this after any engine change)
+  intake_harness.py    projection/intake/rollover harness + draft-class CSV checks
   scrape_afltables.py  re-harvests the dataset, with the <6-game 2025 fallback
   validate_data.py     checks 220 club x column aggregates vs published totals
 ```
@@ -306,6 +351,7 @@ tools/
 | Match engine | Done — disposals on the 2026 total; behinds and rebound 50s a little low |
 | Godot port of engine | Done — `scripts/sim/`, same RNG call order as the harness |
 | Draft / season / ladder / finals | Done — `Draft.gd`, `Season.gd`, `GameState.gd` |
+| 2026 draft class + end-of-season intake | Done — `data/draftees_2026.csv`, `Prospects.gd`, `Draft` intake mode, career rollover |
 | Animated oval + UI | Done — all seven screens build their trees in code |
 
 ### Note on testing

@@ -40,7 +40,7 @@ func _build() -> void:
 	champ.add_child(cv)
 	var premier := str(season.finals.get("premier", ""))
 	var runner := str(season.finals.get("runner_up", ""))
-	cv.add_child(UiKit.lbl("2026 Premiers", 14, UiKit.MUTED))
+	cv.add_child(UiKit.lbl("%d Premiers" % GameState.season_year, 14, UiKit.MUTED))
 	var champ_row := UiKit.hbox(10)
 	champ_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	cv.add_child(champ_row)
@@ -116,7 +116,17 @@ func _build() -> void:
 	else:
 		ctrl = UiKit.hbox(8)
 	_root.add_child(ctrl)
-	var again := UiKit.btn("New Career", 18, true)
+
+	# The season ends the way the real AFL year does: with the national draft.
+	var draft_btn := UiKit.btn("%d NATIONAL DRAFT" % GameState.season_year, 18, true)
+	draft_btn.name = "NationalDraft"
+	draft_btn.custom_minimum_size = Vector2(0, 48)
+	draft_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	draft_btn.pressed.connect(_on_intake_draft)
+	ctrl.add_child(draft_btn)
+
+	var again := UiKit.btn("New Career", 18, false)
+	again.name = "NewCareer"
 	again.custom_minimum_size = Vector2(0, 48)
 	again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	again.pressed.connect(func():
@@ -229,3 +239,13 @@ func _ordinal(n: int) -> String:
 	if n % 100 in [11, 12, 13]:
 		suffix = "th"
 	return "%d%s" % [n, suffix]
+
+
+## Continue the career: run the intake draft, or roll on directly when the
+## prospect pool is empty.
+func _on_intake_draft() -> void:
+	if GameState.begin_intake_draft():
+		Router.go("draft")
+		return
+	if GameState.start_next_season():
+		Router.replace("hub")

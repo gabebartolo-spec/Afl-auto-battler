@@ -64,7 +64,8 @@ func _ready() -> void:
 		quit.pressed.connect(func(): get_tree().quit())
 		_buttons.add_child(quit)
 	v.add_child(UiKit.spacer(14))
-	var foot := UiKit.lbl("2026 player stats · 18 clubs · One new league", 12, UiKit.MUTED)
+	var foot := UiKit.lbl("2026 player stats · 18 clubs · draft the next\ngeneration "
+			+ "at the end of every season", 12, UiKit.MUTED)
 	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(foot)
 	get_viewport().size_changed.connect(_layout)

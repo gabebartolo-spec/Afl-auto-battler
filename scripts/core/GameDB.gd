@@ -10,11 +10,11 @@ extends Node
 const CLUBS_CSV := "res://data/clubs.csv"
 const PLAYERS_CSV := "res://data/players_2026.csv"
 const PLAYERS_ENRICHED_CSV := "res://data/players_enriched_2026.csv"
+const DRAFTEES_CSV := "res://data/draftees_2026.csv"
 
-## Numeric columns, in CSV order, after club/num/last/first.
-const STAT_KEYS := ["gm", "ki", "mk", "hb", "di", "gl", "bh", "ho", "tk", "rb",
-		"if50", "cl", "cg", "ff", "fa", "br", "cp", "up", "cm", "mi",
-		"onepct", "bo", "ga", "pctp"]
+## Numeric columns, in CSV order, after club/num/last/first. Single source of
+## truth lives in Ratings (the prospect pipeline shares it).
+const STAT_KEYS := Ratings.STATS_ZERO_KEYS
 
 const CLUB_ORDER := ["ADE", "BRL", "CAR", "COL", "ESS", "FRE", "GEE", "GCS",
 		"GWS", "HAW", "MEL", "NTH", "PAD", "RIC", "SKN", "SYD", "WCE", "WBD"]
@@ -43,7 +43,14 @@ const FICTIONAL_NAME_SEED := 260922
 var clubs := {}            # code -> {code,name,short,primary,secondary,accent,ground}
 var players := []          # Array of player dictionaries, ratings derived
 var players_by_club := {}  # code -> Array of player dictionaries
+var draftees := []         # the shipped draft class, projections applied
+var late_draftees := []    # generated future classes registered at runtime
 var loaded := false
+
+## Fictional alias cursor shared by the season pool, the draft class and every
+## generated intake, so no two displayed players ever collide on an alias.
+var _alias_candidates: Array = []
+var _alias_next := 0
 
 
 func _ready() -> void:
@@ -52,8 +59,12 @@ func _ready() -> void:
 
 func reload() -> void:
 	clubs = _load_clubs()
+	_alias_candidates = []
+	_alias_next = 0
 	players = _load_players()
 	Ratings.derive_all(players)
+	draftees = _load_draftees()
+	late_draftees = []
 
 	players_by_club = {}
 	for code in CLUB_ORDER:
@@ -67,7 +78,8 @@ func reload() -> void:
 	if not loaded:
 		push_error("GameDB: no players loaded. Check that %s exists and that its import type is 'Keep File (exported as is)'." % PLAYERS_CSV)
 	else:
-		print("GameDB: %d players across %d clubs" % [players.size(), clubs.size()])
+		print("GameDB: %d players / %d clubs; %d draft-class prospects"
+				% [players.size(), clubs.size(), draftees.size()])
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +111,20 @@ func player_by_id(id: String):
 	for p in players:
 		if p["id"] == id:
 			return p
+	for p in draftees:
+		if p["id"] == id:
+			return p
+	for p in late_draftees:
+		if p["id"] == id:
+			return p
 	return null
+
+
+## Generated future classes register here so pick logs and box scores can still
+## resolve their names by stable id after a season rollover.
+func register_draftees(list: Array) -> void:
+	for p in list:
+		late_draftees.append(p)
 
 
 ## The default label is intentionally fictional. When the optional educational
@@ -112,7 +137,7 @@ func player_display_name(player: Dictionary) -> String:
 	if not GameState.show_real_names:
 		return generic
 	var real := str(player.get("real_name", ""))
-	if real == "":
+	if real == "" or real == generic:
 		return generic
 	return "%s  ·  plays like %s" % [generic, real]
 
@@ -142,6 +167,108 @@ func all_players_sorted() -> Array:
 	var out := players.duplicate()
 	out.sort_custom(func(a, b): return a["overall"] > b["overall"])
 	return out
+
+
+## The shipped draft class best-first (projections applied at load).
+func all_draftees_sorted() -> Array:
+	var out := draftees.duplicate()
+	out.sort_custom(func(a, b): return a["overall"] > b["overall"])
+	return out
+
+
+## data/draftees_2026.csv - the real 2026 national-draft class (Rookie Me
+## Central August-2026 top 50 plus six names it missed). These players have
+## no AFL season line, so Ratings.derive_all is skipped in favour of a
+## projection from draft rank, role and reported U18 production.
+func _load_draftees() -> Array:
+	if not FileAccess.file_exists(DRAFTEES_CSV):
+		push_warning("GameDB: no draft-class file (%s); the intake draft will fall " 				+ "back to generated classes." % DRAFTEES_CSV)
+		return []
+	var rows := _read_rows(DRAFTEES_CSV)
+	var out := []
+	if rows.size() < 2:
+		return out
+	var header: Array = rows[0]
+	var idx := {}
+	for j in range(header.size()):
+		idx[header[j]] = j
+	for i in range(1, rows.size()):
+		var cells: Array = rows[i]
+		if cells.size() < header.size():
+			continue
+		var p := {}
+		var rank := _cell_int(cells, idx, "rank")
+		p["first"] = _cell_str(cells, idx, "first")
+		p["last"] = _cell_str(cells, idx, "last")
+		p["real_name"] = "%s %s" % [p["first"], p["last"]]
+		p["generic_name"] = ""
+		p["name"] = ""
+		p["id"] = "D2026_%02d" % rank
+		# "club" carries the recruiting team until the player is drafted;
+		# the intake then reassigns club/num like a real list move.
+		p["club"] = _cell_str(cells, idx, "team")
+		p["num"] = rank
+		p["src"] = "U18"
+		for k in STAT_KEYS:
+			p[k] = 0.0
+		var role := _cell_str(cells, idx, "pos")
+		if role == "RUC":
+			role = "RUCK"
+		p["role"] = role
+		var role2 := _cell_str(cells, idx, "pos2")
+		if role2 == "RUC":
+			role2 = "RUCK"
+		p["role2"] = role2 if role2 != role else ""
+		p["real_pos"] = _cell_str(cells, idx, "pos")
+		p["height_cm"] = float(_cell_int(cells, idx, "height_cm"))
+		p["weight_kg"] = 0.0
+		p["dob"] = _cell_str(cells, idx, "dob")
+		var as_of := "2026-11-20"
+		var age := 18.0
+		if str(p["dob"]).length() >= 10:
+			age = float(Prospects.days_between(str(p["dob"]), as_of)) / 365.25
+		p["age"] = age
+		p["debut"] = ""
+		p["height_source"] = "draft class"
+		p["draft_year"] = 2026
+		p["draft_rank"] = rank
+		p["draft_team"] = _cell_str(cells, idx, "team")
+		p["draft_league"] = _cell_str(cells, idx, "league")
+		p["draft_state"] = _cell_str(cells, idx, "state")
+		p["tied_club"] = _cell_str(cells, idx, "tied_club")
+		p["tied_type"] = _cell_str(cells, idx, "tied_type")
+		p["u18_gm"] = float(_cell_int(cells, idx, "u18_gm"))
+		p["u18_di"] = _cell_float(cells, idx, "u18_di")
+		p["u18_gl"] = _cell_float(cells, idx, "u18_gl")
+		p["u18_mk"] = _cell_float(cells, idx, "u18_mk")
+		p["u18_tk"] = _cell_float(cells, idx, "u18_tk")
+		p["u18_if50"] = _cell_float(cells, idx, "u18_if50")
+		p["u18_ho"] = _cell_float(cells, idx, "u18_ho")
+		p["note"] = _cell_str(cells, idx, "note")
+		p["data_src"] = _cell_str(cells, idx, "data_src")
+		Prospects.project(p)
+		out.append(p)
+	_assign_fictional_names(out)
+	return out
+
+
+func _cell_str(cells: Array, idx: Dictionary, key: String) -> String:
+	if not idx.has(key):
+		return ""
+	return str(cells[idx[key]])
+
+
+func _cell_int(cells: Array, idx: Dictionary, key: String) -> int:
+	if not idx.has(key) or str(cells[idx[key]]) == "":
+		return 0
+	return int(str(cells[idx[key]]))
+
+
+func _cell_float(cells: Array, idx: Dictionary, key: String) -> float:
+	if not idx.has(key) or str(cells[idx[key]]) == "":
+		return 0.0
+	return float(str(cells[idx[key]]))
+
 
 
 func count_by_role(list: Array) -> Dictionary:
@@ -194,6 +321,27 @@ func _load_clubs() -> Dictionary:
 
 
 func _assign_fictional_names(list: Array) -> void:
+	assign_aliases(list)
+
+
+## Draw labels from one shuffled pool for every human in the game - season
+## pool, draft class and generated intakes - so aliases never collide and a
+## player's label is stable for the whole career. The pool order is seeded, so
+## the season pool's aliases match earlier builds exactly.
+func assign_aliases(list: Array) -> void:
+	_ensure_alias_pool()
+	for i in range(list.size()):
+		var idx := _alias_next + i
+		var label := str(_alias_candidates[idx]) if idx < _alias_candidates.size() \
+				else "Squadmate %03d" % (idx + 1)
+		list[i]["generic_name"] = label
+		list[i]["name"] = label
+		_alias_next = idx + 1
+
+
+func _ensure_alias_pool() -> void:
+	if not _alias_candidates.is_empty():
+		return
 	var candidates := []
 	for first in FICTIONAL_FIRST_NAMES:
 		for last in FICTIONAL_LAST_NAMES:
@@ -205,11 +353,7 @@ func _assign_fictional_names(list: Array) -> void:
 		var swap = candidates[i]
 		candidates[i] = candidates[j]
 		candidates[j] = swap
-
-	for i in range(list.size()):
-		var label := str(candidates[i]) if i < candidates.size() else "Squadmate %03d" % (i + 1)
-		list[i]["generic_name"] = label
-		list[i]["name"] = label
+	_alias_candidates = candidates
 
 
 func _load_players() -> Array:

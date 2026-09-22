@@ -4,12 +4,16 @@ An auto-battler where the battles are **simulated AFL matches**. All 18 clubs
 re-draft from a shared pool of 669 players using **2026 AFL player statistics**.
 The current pool gives every club a 37-player list (up to 44 with a larger
 pool). Then play a 24-round home-and-away season and a finals series, watching
-every match on an animated top-down oval.
+every match on an animated top-down oval. When the season ends, the **national
+draft** opens: keep your list, sign real 2026 draft-class prospects over the
+reversed ladder, watch the whole league age and develop, and run it back.
 
 Godot **4.7** / GDScript — targeting **PC and mobile**.
 
 ```
 data/players_2026.csv      669 players, all 18 clubs, real 2026 season stats
+data/draftees_2026.csv     the 2026 national-draft class - 56 prospects with
+                           heights, ages, positions and reported U18 numbers
 data/clubs.csv             club names, guernsey colours, home grounds
 scripts/sim/               ratings model, match engine, squad, season, draft
 scripts/core/              GameDB (data loader), Router (navigation)
@@ -45,6 +49,8 @@ translations, pick *Keep File* again in the Import dock.
 | **Home and away** | 24 rounds, a full double round-robin. Each round you can **Play Match** and watch it on the oval, or **Sim Round** and just read the results. |
 | **Finals** | Top eight play the real AFL bracket: qualifying and elimination finals, semis, prelims, Grand Final at a neutral venue. Level scores are resolved by ladder position, exactly as the AFL does it. |
 | **Review** | The flag, your record, best win, worst loss, longest streak and a game-by-game form strip. |
+| **National Draft** | The career keeps going. Father-son and NGA prospects land at their clubs, then every list - yours included - drafts the 2026 class over the reversed ladder, worst club first. Prospects have no AFL stats; they arrive with **projected ratings** built from draft rank, position and U18 production, so a top pick starts rotation-grade and develops from there. |
+| **Next season** | Every list ages: young prospects grow, veterans decline, the oldest retire. A generated intake class arrives each year, so the loop runs indefinitely. |
 
 ### The draft room
 
