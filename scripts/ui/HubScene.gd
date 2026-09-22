@@ -40,7 +40,7 @@ func _build() -> void:
 	UiKit.clear(_root)
 
 	var season: Season = GameState.season
-	_root.add_child(UiKit.top_bar("Season Hub", false))
+	_root.add_child(UiKit.top_bar("Season Hub  ·  %d" % GameState.season_year, false))
 
 	var cards: BoxContainer
 	if _narrow():
@@ -120,7 +120,10 @@ func _next_card(season: Season) -> Control:
 func _controls(season: Season) -> Control:
 	var buttons: Array = []
 	if season.is_season_over():
-		buttons.append(_nav_button("Season Review", func(): Router.go("season_review"), true))
+		var resume := GameState.draft != null and GameState.draft.intake_mode
+		buttons.append(_nav_button("Resume National Draft" if resume
+				else "%d National Draft" % GameState.season_year, _on_intake_draft, true))
+		buttons.append(_nav_button("Season Review", func(): Router.go("season_review")))
 		buttons.append(_nav_button("Training", func(): Router.go("training")))
 		buttons.append(_nav_button("Main Menu", func(): Router.to_main_menu()))
 	elif _upcoming_match().is_empty():
@@ -312,3 +315,11 @@ func _result_side(code: String, goals: int, behinds: int, col: Color, verdict: S
 		var tag := UiKit.line(verdict, 13, col, true)
 		h.add_child(tag)
 	return h
+
+
+func _on_intake_draft() -> void:
+	if GameState.begin_intake_draft():
+		Router.go("draft")
+		return
+	if GameState.start_next_season():
+		_build()

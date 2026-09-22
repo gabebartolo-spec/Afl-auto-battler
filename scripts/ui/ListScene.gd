@@ -194,12 +194,22 @@ func _list_row(p: Dictionary) -> Control:
 	ov.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(ov)
 
-	# Season line - the real numbers the rating was built from.
-	var season := "%d gm  -  %.1f disp  -  %d gl  -  %d bh  -  %d tk  -  %d i50  -  %d ho  -  %d br" % [
-			int(p["gm"]), float(p["di"]) / maxf(1.0, float(p["gm"])), int(p["gl"]),
-			int(p["bh"]), int(p["tk"]), int(p["if50"]), int(p["ho"]), int(p["br"])]
-	if str(p.get("src", "2026")) != "2026":
-		season += "   (%s stats)" % str(p["src"])
+	# Season line - the real numbers the rating was built from. Prospects
+	# instead show the U18/state-league line the projection was built on.
+	var season := ""
+	if bool(p.get("projected", false)):
+		season = "U18: %.1f disp  -  %.1f marks  -  %.1f goals  -  %.1f tk  -  %.1f ho per game" % [
+				float(p.get("u18_di", 0.0)), float(p.get("u18_mk", 0.0)),
+				float(p.get("u18_gl", 0.0)), float(p.get("u18_tk", 0.0)),
+				float(p.get("u18_ho", 0.0))]
+		if int(p.get("draft_pick", 0)) > 0:
+			season += "   ·   drafted #%d in %d" % [int(p["draft_pick"]), int(p.get("draft_year", 0))]
+	else:
+		season = "%d gm  -  %.1f disp  -  %d gl  -  %d bh  -  %d tk  -  %d i50  -  %d ho  -  %d br" % [
+				int(p["gm"]), float(p["di"]) / maxf(1.0, float(p["gm"])), int(p["gl"]),
+				int(p["bh"]), int(p["tk"]), int(p["if50"]), int(p["ho"]), int(p["br"])]
+		if str(p.get("src", "2026")) != "2026":
+			season += "   (%s stats)" % str(p["src"])
 	var sl := UiKit.lbl(season, 11, UiKit.MUTED)
 	sl.autowrap_mode = TextServer.AUTOWRAP_OFF
 	sl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS

@@ -9,6 +9,16 @@ extends RefCounted
 
 const CAP_FRACTION := 0.58
 
+## End-of-season intake (rookie) draft: clubs KEEP their existing lists and
+## take turns from a small prospect pool only. The salary cap is a formality
+## (rookie contracts), the draft order is the reversed ladder supplied by the
+## caller, and a club at the list cap skips its turn like the real draft's
+## list-management rule.
+var intake_mode := false
+var existing_sizes := {}              # code -> kept list length (intake only)
+var existing_role_counts := {}        # code -> {RUCK..FWD} kept players (intake)
+var _fixed_order: Array = []
+
 var pool: Array = []
 var budget := 0
 var target_size := Ratings.LIST_SIZE
@@ -31,14 +41,20 @@ var pick_history: Array = []
 var _pick_by_player := {}         # player id -> history entry
 
 
-func _init(all_players: Array, p_clubs: Array = [], p_seed: int = 0) -> void:
+func _init(all_players: Array, p_clubs: Array = [], p_seed: int = 0,
+		p_fixed_order: Array = [], p_rounds: int = 0) -> void:
 	pool = all_players.duplicate()
 	pool.sort_custom(func(a, b): return a["overall"] > b["overall"])
 	clubs = p_clubs.duplicate()
 	seed = p_seed
+	_fixed_order = p_fixed_order.duplicate()
 
 	if clubs.is_empty():
 		target_size = mini(Ratings.LIST_SIZE, pool.size())
+	elif p_rounds > 0:
+		# Intake mode: target_size counts rounds of new signings per club, not
+		# the final list size (kept players live outside this draft's books).
+		target_size = clampi(p_rounds, 1, 4)
 	else:
 		# The shipped dataset has 669 unique players, which is not enough for
 		# 18 x 44. Keep the league fair by giving every club the same-sized list
@@ -48,6 +64,21 @@ func _init(all_players: Array, p_clubs: Array = [], p_seed: int = 0) -> void:
 
 	if not clubs.is_empty():
 		_init_league_draft()
+
+
+## Build the end-of-season intake draft. p_order is the exact round-one club
+## sequence (normally the reversed ladder); rounds are inferred from the pool.
+static func build_intake(all_players: Array, p_clubs: Array, p_order: Array,
+		p_seed: int, p_existing_sizes: Dictionary, p_existing_counts: Dictionary) -> Draft:
+	var rounds := clampi(ceili(float(all_players.size()) / float(maxi(1, p_clubs.size()))), 1, 4)
+	var d := new(all_players, p_clubs, p_seed, p_order, rounds)
+	d.intake_mode = true
+	d.existing_sizes = p_existing_sizes
+	d.existing_role_counts = p_existing_counts
+	# Rookie deals sit outside the list cap the career draft enforces; money is
+	# not the constraint here, list space is.
+	d.budget = 999999
+	return d
 
 
 ## What the best `list_size` players would cost, scaled down. Deterministic.
@@ -71,14 +102,17 @@ func _init_league_draft() -> void:
 		club_lists[code] = []
 		club_spend[code] = 0
 
-	draft_order = clubs.duplicate()
-	var rng := RandomNumberGenerator.new()
-	rng.seed = seed if seed != 0 else int(Time.get_unix_time_from_system())
-	for i in range(draft_order.size() - 1, 0, -1):
-		var j := rng.randi_range(0, i)
-		var tmp = draft_order[i]
-		draft_order[i] = draft_order[j]
-		draft_order[j] = tmp
+	if _fixed_order.size() == clubs.size():
+		draft_order = _fixed_order.duplicate()
+	else:
+		draft_order = clubs.duplicate()
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed if seed != 0 else int(Time.get_unix_time_from_system())
+		for i in range(draft_order.size() - 1, 0, -1):
+			var j := rng.randi_range(0, i)
+			var tmp = draft_order[i]
+			draft_order[i] = draft_order[j]
+			draft_order[j] = tmp
 
 	pick_sequence = []
 	for r in range(target_size):
@@ -87,6 +121,10 @@ func _init_league_draft() -> void:
 			round_order.reverse()
 		for code in round_order:
 			pick_sequence.append(code)
+	# The draft ends when the pool runs dry - exactly like the national draft's
+	# final rounds. Career mode never trips this (666 turns vs 669 players).
+	if pick_sequence.size() > pool.size():
+		pick_sequence.resize(pool.size())
 	pick_index = 0
 
 
@@ -118,14 +156,45 @@ func is_user_turn() -> bool:
 
 
 func is_finished() -> bool:
-	return pick_index >= pick_sequence.size()
+	if pick_index >= pick_sequence.size():
+		return true
+	return intake_mode and remaining_pool() <= 0
+
+
+func remaining_pool() -> int:
+	var n := 0
+	for p in pool:
+		if not picked.has(str(p["id"])):
+			n += 1
+	return n
+
+
+func _list_full(code: String) -> bool:
+	if not intake_mode:
+		return false
+	return int(existing_sizes.get(code, 0)) + count_for(code) >= Ratings.LIST_SIZE
+
+
+func _skip_current_pick() -> void:
+	pick_index += 1
 
 
 func auto_until_user_turn() -> void:
 	if not league_mode:
 		return
-	while not is_finished() and current_club() != user_club:
+	while not is_finished():
+		var code := current_club()
+		if _list_full(code):
+			# The club is at the list cap: pass, like a club with no space
+			# under the CBA at the real draft.
+			_skip_current_pick()
+			continue
+		if code == user_club:
+			return
 		if not _ai_pick_current():
+			if intake_mode:
+				_skip_current_pick()
+				continue
 			break
 
 
@@ -142,6 +211,8 @@ func _draft_pick(code: String, p: Dictionary) -> bool:
 	if picked.has(id):
 		return false
 	if count_for(code) >= target_size:
+		return false
+	if _list_full(code):
 		return false
 	if not _can_afford_for(code, p):
 		return false
@@ -197,6 +268,15 @@ func upcoming_picks(code: String, limit := 3) -> Array:
 ## validity rule additionally requires a second ruck on the list.
 func position_targets() -> Dictionary:
 	var out := {}
+	if intake_mode:
+		# Reserve guidance across the WHOLE list (kept + intake), because the
+		# match-day structure scales with list length over a career.
+		var full := int(existing_sizes.get(user_club, 0)) + count_for(user_club)
+		out["RUCK"] = clampi(int(round(float(full) * 0.09)), 2, 4)
+		out["MID"] = int(ceil(float(full) * 0.40))
+		out["DEF"] = int(ceil(float(full) * 0.325))
+		out["FWD"] = int(ceil(float(full) * 0.325))
+		return out
 	for slot in Ratings.GROUND_SLOTS:
 		out[str(slot[0])] = int(slot[1])
 	out["RUCK"] = 2
@@ -250,6 +330,10 @@ func _best_ai_pick(code: String) -> Dictionary:
 
 
 func _forced_role(code: String) -> String:
+	if intake_mode:
+		# Ruck cover is judged on the whole kept list, not this intake; the
+		# club already met the two-ruck rule at the career draft.
+		return ""
 	var counts := role_counts_for(code)
 	var slots_left := target_size - count_for(code)
 	var rucks_needed := maxi(0, 2 - int(counts["RUCK"]))
@@ -379,6 +463,10 @@ func all_lists() -> Dictionary:
 ## two ruckmen - a list with none cannot contest a centre bounce, and the engine
 ## would quietly field a midfield ruck instead.
 func is_valid() -> bool:
+	if intake_mode:
+		# The intake is valid the moment the whole league has taken its turns
+		# (or the pool ran dry). Kept lists were validated at the career draft.
+		return is_finished()
 	if count() != target_size:
 		return false
 	if spent() > budget:
@@ -410,6 +498,10 @@ func role_counts() -> Dictionary:
 
 func role_counts_for(code: String) -> Dictionary:
 	var out := {"RUCK": 0, "MID": 0, "DEF": 0, "FWD": 0}
+	if intake_mode:
+		var ex: Dictionary = existing_role_counts.get(code, {})
+		for r in out:
+			out[r] = int(ex.get(r, 0))
 	var arr: Array
 	if league_mode:
 		arr = club_lists.get(code, []) as Array

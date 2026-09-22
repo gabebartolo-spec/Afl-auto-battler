@@ -53,6 +53,26 @@ const GROUND_SLOTS := [["RUCK", 1], ["MID", 7], ["DEF", 5], ["FWD", 5]]
 const INTERCHANGE := 4
 const LIST_SIZE := 44
 
+## Raw season columns every player dict carries. GameDB.STAT_KEYS must match;
+## prospects (no AFL stats) get these zero-filled for the display rows.
+const STATS_ZERO_KEYS := ["gm", "ki", "mk", "hb", "di", "gl", "bh", "ho", "tk", "rb",
+		"if50", "cl", "cg", "ff", "fa", "br", "cp", "up", "cm", "mi",
+		"onepct", "bo", "ga", "pctp"]
+
+## Engine role -> the three-letter position tag used by the CSVs.
+const ROLE_SHORT_TO_POS := {"RUCK": "RUC", "MID": "MID", "DEF": "DEF", "FWD": "FWD"}
+
+## Games of evidence the overall-confidence shrink should assume. Prospects
+## are projections (no sample to shrink); players who have completed a
+## simulated season carry their bumped "sample" so a small 2026 games count
+## cannot suppress them forever. Everything else keeps its real season games.
+static func effective_games(p: Dictionary) -> float:
+	if p.has("sample"):
+		return maxf(1.0, float(p["sample"]))
+	if bool(p.get("projected", false)):
+		return 14.0
+	return maxf(1.0, float(p.get("gm", 0.0)))
+
 ## Overall-rating weights per role:
 ## [disposal, pressure, goalkicking, intercept, contested-or-ruck]
 const ROLE_WEIGHTS := {

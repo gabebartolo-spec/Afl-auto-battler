@@ -27,6 +27,15 @@ var last_match: Dictionary = {}  # YOUR match from that round, with events
 var last_phase := ""             # "regular" | "finals" | "done"
 var last_label := ""             # "Round 7" / "Grand Final" / ...
 var season_log: Array = []       # every result, for the season review screen
+
+## Career loop: season 1 is the 2026 season. Every completed season ends with
+## a national intake draft (keep your list, sign the rookies), then the same
+## league rolls into the next year with one season of ageing applied.
+var season_year := 2026
+var draftee_pool: Array = []     # all prospects that have not been drafted yet
+var drafted_draftees := {}       # prospect id -> destination club
+var intake_assignments: Array = []  # father-son / NGA pre-draft landings
+var intake_summary := {}        # last rollover: retirements and growth
 ## Last game's per-player XP. The training menu reads this so the whole list
 ## is visible, not a five-name sample.
 var last_training_report: Dictionary = {}
@@ -53,6 +62,10 @@ func set_show_real_names(enabled: bool) -> void:
 
 
 func reset() -> void:
+	# Mid-career seasons mutate the loaded player dicts in place (intake,
+	# ageing, XP training). A new career must start from the pristine 2026
+	# dataset, so reload the data files before rebuilding anything.
+	GameDB.reload()
 	my_club = ""
 	my_list = []
 	season = null
@@ -70,11 +83,221 @@ func reset() -> void:
 	season_log = []
 	last_training_report = {}
 	_xp_grant_key = ""
+	season_year = 2026
+	drafted_draftees = {}
+	intake_assignments = []
+	intake_summary = {}
+	draftee_pool = GameDB.draftees.duplicate()
 
 
 func begin_draft() -> void:
 	var seed := int(Time.get_unix_time_from_system()) % 1000000
 	draft = Draft.new(GameDB.all_players_sorted(), GameDB.CLUB_ORDER.duplicate(), seed)
+	if draftee_pool.is_empty():
+		draftee_pool = GameDB.draftees.duplicate()
+
+
+# ---------------------------------------------------------------------------
+# End-of-season intake draft (the national draft: keep your list, add rookies)
+# ---------------------------------------------------------------------------
+## Open this year's intake. Club-tied prospects (father-son / NGA) land with
+## their clubs before the snake starts; the rest forms the open pool, drafted
+## in reversed-ladder order (worst club first) like the real national draft.
+## Returns false when there is nothing to draft.
+func begin_intake_draft() -> bool:
+	if season == null:
+		return false
+	if not (season.is_season_over() or season.is_regular_done()):
+		return false
+	if draft != null and draft.intake_mode:
+		return true  # resume the draft in progress
+	if draftee_pool.is_empty():
+		draftee_pool = GameDB.draftees.duplicate()
+
+	_ensure_league_lists()
+	var available := []
+	for p in draftee_pool:
+		if not drafted_draftees.has(str(p["id"])):
+			available.append(p)
+	if available.is_empty():
+		return false
+
+	intake_assignments = []
+	var open_pool := []
+	for p in available:
+		var tie := str(p.get("tied_club", ""))
+		var tied_this_year: bool = int(p.get("draft_year", 0)) == season_year
+		if tie != "" and tied_this_year and league_lists.has(tie):
+			_assign_draftee(tie, p, str(p.get("tied_type", "tied")))
+		else:
+			open_pool.append(p)
+	if my_club != "" and league_lists.has(my_club):
+		my_list = league_lists[my_club]
+
+	if open_pool.is_empty():
+		# Every prospect was club-tied. Nothing to run; the caller can start
+		# the next season directly. (Never happens with the shipped class.)
+		return false
+
+	var order := []
+	for row in season.ladder_sorted():
+		order.append(str(row["code"]))
+	order.reverse()
+
+	var sizes := {}
+	var role_counts := {}
+	for code in GameDB.CLUB_ORDER:
+		var arr: Array = league_lists.get(code, [])
+		sizes[code] = arr.size()
+		var c := {"RUCK": 0, "MID": 0, "DEF": 0, "FWD": 0}
+		for p in arr:
+			var r := str(p["role"])
+			if c.has(r):
+				c[r] = int(c[r]) + 1
+		role_counts[code] = c
+
+	var seed := int(Time.get_unix_time_from_system()) % 1000000
+	draft = Draft.build_intake(open_pool, GameDB.CLUB_ORDER.duplicate(), order,
+			seed, sizes, role_counts)
+	draft.start_for_user(my_club)
+	return true
+
+
+## Commit the intake: merge picks into every club's list, generate next year's
+## class, age the whole league (growth, decline, retirements), then build the
+## next season on those lists.
+func finish_intake_draft() -> bool:
+	if draft == null or not draft.intake_mode or not draft.is_finished():
+		return false
+	_ensure_league_lists()
+	var next_year := season_year + 1
+	var merged := 0
+	for code in GameDB.CLUB_ORDER:
+		var arr: Array = league_lists.get(code, [])
+		for p in (draft.club_lists.get(code, []) as Array):
+			var id := str(p["id"])
+			if drafted_draftees.has(id):
+				continue
+			merged += 1
+			var entry := draft.pick_details(id)
+			if not p.has("xp"):
+				p["xp"] = 0
+				p["xp_games"] = 0
+			p["club"] = code
+			p["num"] = _next_jumper_number(arr)
+			p["draft_pick"] = int(entry.get("pick", 0))
+			p["draft_round"] = int(entry.get("round", 0))
+			arr.append(p)
+			drafted_draftees[id] = code
+	draft = null
+	_start_next_season(next_year, merged)
+	return true
+
+
+## Roll every list forward one year and rebuild the season. Split out so a
+## career can continue even when there is no prospect pool to draft.
+func _start_next_season(next_year: int, signed: int) -> void:
+	# Next year's generated class joins the pool before ageing, so the fresh
+	# 17-year-olds are also a year older in the season they arrive.
+	var generated := Prospects.generate_class(next_year)
+	GameDB.register_draftees(generated)
+	for p in generated:
+		draftee_pool.append(p)
+
+	intake_summary = Prospects.age_league(league_lists, next_year)
+	intake_summary["signed"] = signed
+	intake_summary["year"] = next_year
+	draftee_pool = Prospects.age_pool(draftee_pool, next_year, drafted_draftees)
+
+	my_list = league_lists.get(my_club, [])
+	var lists := {}
+	for code in GameDB.CLUB_ORDER:
+		lists[code] = (league_lists[code] as Array).duplicate()
+	season = Season.new(GameDB.CLUB_ORDER.duplicate(), lists,
+			int(Time.get_unix_time_from_system()) % 1000000)
+	season_year = next_year
+	season_log = []
+	last_training_report = {}
+	_xp_grant_key = ""
+	last_results = []
+	last_match = {}
+	last_phase = "regular"
+	last_label = "Round 1"
+	pending_match = {}
+	pending_sim = null
+	pending_round_results = []
+	pending_phase = ""
+	pending_label = ""
+
+
+## Roll on without an intake (no prospects available, or the manager skipped
+## the draft). Same ageing and rebuild, zero new signings.
+func start_next_season() -> bool:
+	if season == null:
+		return false
+	if not (season.is_season_over() or season.is_regular_done()):
+		return false
+	if draft != null:
+		if draft.intake_mode and draft.is_finished():
+			return finish_intake_draft()
+		if draft.intake_mode or not draft.is_finished():
+			return false  # an intake still in progress blocks the rollover
+		draft = null  # a completed career draft sitting in the slot is spent
+	_ensure_league_lists()
+	_start_next_season(season_year + 1, 0)
+	return true
+
+
+## The live lists for a rollover are the season's career copies (they carry
+## this season's XP and training), not the pre-season dictionaries the draft
+## committed. Adopt them (and default the XP fields for any new signing) so
+## ageing, retirement and the intake merge all act on what actually played.
+func _ensure_league_lists() -> void:
+	if season == null or season.lists.is_empty():
+		return
+	var live := {}
+	for code in season.lists:
+		var arr: Array = season.lists[code]
+		for p in arr:
+			if not (p is Dictionary):
+				continue
+			if not (p as Dictionary).has("xp"):
+				p["xp"] = 0
+				p["xp_games"] = 0
+		live[code] = arr
+	if live.is_empty():
+		return
+	league_lists = live
+
+
+func _assign_draftee(code: String, p: Dictionary, kind: String) -> void:
+	var arr: Array = league_lists.get(code, [])
+	if not p.has("xp"):
+		p["xp"] = 0
+		p["xp_games"] = 0
+	p["club"] = code
+	p["num"] = _next_jumper_number(arr)
+	p["draft_pick"] = 0
+	arr.append(p)
+	drafted_draftees[str(p["id"])] = code
+	intake_assignments.append({
+		"club": code, "player_id": str(p["id"]),
+		"player_name": str(p.get("generic_name", p.get("name", "Player"))),
+		"kind": kind, "overall": int(p["overall"]),
+	})
+
+
+func _next_jumper_number(list: Array) -> int:
+	var used := {}
+	for p in list:
+		used[int(p.get("num", 0))] = true
+	for n in range(41, 90):
+		if not used.has(n):
+			return n
+	for n in range(1, 41):
+		if not used.has(n):
+			return n
+	return 99
 
 
 ## Commit the completed league draft and build the season from every club's
@@ -452,5 +675,6 @@ func train_stat(player_id: String, attr_key: String, points := 1) -> Dictionary:
 
 
 func _recalc_player_overall(p: Dictionary) -> void:
-	p["overall"] = Ratings.rate_overall(p["attr"], str(p["role"]), float(p.get("gm", 14.0)))
+	p["overall"] = Ratings.rate_overall(p["attr"], str(p["role"]),
+			Ratings.effective_games(p))
 	p["value"] = Ratings.salary_value(int(p["overall"]))
