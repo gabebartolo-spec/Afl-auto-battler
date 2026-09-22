@@ -1,0 +1,19 @@
+code,name,short,primary,secondary,accent,ground
+ADE,Adelaide,Crows,#002B5C,#E21A23,#FFB81C,Adelaide Oval
+BRL,Brisbane,Lions,#8B0F29,#0F2E6B,#F5B301,The Gabba
+CAR,Carlton,Blues,#0B1F4B,#FFFFFF,#7FA7E0,Marvel Stadium
+COL,Collingwood,Magpies,#141414,#FFFFFF,#BFBFBF,MCG
+ESS,Essendon,Bombers,#1A1A1A,#E4002B,#FFFFFF,Marvel Stadium
+FRE,Fremantle,Dockers,#4A1D6B,#FFFFFF,#A67FC1,Optus Stadium
+GEE,Geelong,Cats,#0B2A5B,#FFFFFF,#8FB4E3,GMHBA Stadium
+GCS,Gold Coast,Suns,#D22630,#F5B301,#1E3A8A,People First Stadium
+GWS,Greater Western Sydney,Giants,#F26522,#3C3C3B,#FFFFFF,Engie Stadium
+HAW,Hawthorn,Hawks,#4E2A14,#F2B01E,#FFFFFF,MCG
+MEL,Melbourne,Demons,#0A1F44,#D4182C,#FFFFFF,MCG
+NTH,North Melbourne,Kangaroos,#0C2340,#FFFFFF,#93A9C9,Marvel Stadium
+PAD,Port Adelaide,Power,#00A3A1,#1A1A1A,#C0C0C0,Adelaide Oval
+RIC,Richmond,Tigers,#F5D400,#1A1A1A,#FFFFFF,MCG
+SKN,St Kilda,Saints,#D6202B,#1A1A1A,#FFFFFF,Marvel Stadium
+SYD,Sydney,Swans,#E4002B,#FFFFFF,#1A1A1A,SCG
+WCE,West Coast,Eagles,#0A4EA2,#F5B301,#FFFFFF,Optus Stadium
+WBD,Western Bulldogs,Bulldogs,#D4182C,#0A2A66,#FFFFFF,Marvel Stadium
