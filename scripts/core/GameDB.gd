@@ -19,6 +19,27 @@ const STAT_KEYS := ["gm", "ki", "mk", "hb", "di", "gl", "bh", "ho", "tk", "rb",
 const CLUB_ORDER := ["ADE", "BRL", "CAR", "COL", "ESS", "FRE", "GEE", "GCS",
 		"GWS", "HAW", "MEL", "NTH", "PAD", "RIC", "SKN", "SYD", "WCE", "WBD"]
 
+## Fictional aliases are shuffled from these invented-ish name parts once at
+## load time. The fixed seed makes a player's alias stable across every screen
+## and every launch, while avoiding numbered placeholders in the UI.
+const FICTIONAL_FIRST_NAMES := [
+	"Ari", "Bex", "Cato", "Dax", "Elio", "Fenn", "Gavi", "Hux", "Ivo", "Jori",
+	"Kavi", "Luma", "Miro", "Nilo", "Oren", "Pax", "Quill", "Rumi", "Savi", "Taro",
+	"Umi", "Vero", "Wilo", "Yori", "Zeno", "Arlo", "Bardo", "Ceri", "Dori", "Eno",
+	"Fia", "Gilo", "Hani", "Juno", "Koda", "Lior", "Mavi", "Nori", "Olli", "Piri",
+	"Roka", "Sora", "Tavi", "Udo", "Vali", "Wren", "Xeno", "Yara", "Zavi",
+]
+const FICTIONAL_LAST_NAMES := [
+	"Bramble", "Cinder", "Dapple", "Ember", "Fallow", "Glint", "Hush", "Jumble",
+	"Kestrel", "Lattice", "Morrow", "Nettle", "Orbit", "Puddle", "Quiver", "Riddle",
+	"Sable", "Tangle", "Umber", "Vesper", "Wicket", "Yarrow", "Zephyr", "Barlow",
+	"Crinkle", "Dovetail", "Evers", "Flint", "Gossamer", "Hallow", "Juniper", "Kibble",
+	"Lumen", "Mica", "Nimbus", "Oxbow", "Plover", "Rook", "Sprocket", "Thimble",
+	"Upland", "Velvet", "Xylo", "Yonder", "Zinnia", "Bracken", "Cobble", "Drift",
+	"Fizz", "Grouse",
+]
+const FICTIONAL_NAME_SEED := 260922
+
 var clubs := {}            # code -> {code,name,short,primary,secondary,accent,ground}
 var players := []          # Array of player dictionaries, ratings derived
 var players_by_club := {}  # code -> Array of player dictionaries
@@ -81,6 +102,41 @@ func player_by_id(id: String):
 	return null
 
 
+## The default label is intentionally fictional. When the optional educational
+## view is enabled, keep that label and add the real-player comparison instead
+## of pretending the fictional character is the real athlete.
+func player_display_name(player: Dictionary) -> String:
+	if player.is_empty():
+		return ""
+	var generic := str(player.get("generic_name", player.get("name", "Player")))
+	if not GameState.show_real_names:
+		return generic
+	var real := str(player.get("real_name", ""))
+	if real == "":
+		return generic
+	return "%s  ·  plays like %s" % [generic, real]
+
+
+func player_display_name_by_id(id: String, fallback := "") -> String:
+	var player = player_by_id(id)
+	if player != null:
+		return player_display_name(player)
+	return fallback
+
+
+## Search may use the comparison name without exposing it in the fictional UI.
+func player_search_text(player: Dictionary) -> String:
+	return "%s %s" % [
+		str(player.get("generic_name", player.get("name", ""))),
+		str(player.get("real_name", ""))]
+
+
+func player_sort_name(player: Dictionary) -> String:
+	if GameState.show_real_names and str(player.get("real_name", "")) != "":
+		return str(player["real_name"]).to_lower()
+	return str(player.get("generic_name", player.get("name", ""))).to_lower()
+
+
 ## Every player in the competition, best-first. Used as the draft pool.
 func all_players_sorted() -> Array:
 	var out := players.duplicate()
@@ -137,6 +193,25 @@ func _load_clubs() -> Dictionary:
 	return out
 
 
+func _assign_fictional_names(list: Array) -> void:
+	var candidates := []
+	for first in FICTIONAL_FIRST_NAMES:
+		for last in FICTIONAL_LAST_NAMES:
+			candidates.append("%s %s" % [first, last])
+	var rng := RandomNumberGenerator.new()
+	rng.seed = FICTIONAL_NAME_SEED
+	for i in range(candidates.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var swap = candidates[i]
+		candidates[i] = candidates[j]
+		candidates[j] = swap
+
+	for i in range(list.size()):
+		var label := str(candidates[i]) if i < candidates.size() else "Squadmate %03d" % (i + 1)
+		list[i]["generic_name"] = label
+		list[i]["name"] = label
+
+
 func _load_players() -> Array:
 	# Prefer enriched if present (100% height coverage via afltables_bio_cache.json), fallback to base
 	var csv_path := PLAYERS_ENRICHED_CSV if FileAccess.file_exists(PLAYERS_ENRICHED_CSV) else PLAYERS_CSV
@@ -160,7 +235,12 @@ func _load_players() -> Array:
 		p["num"] = int(str(cells[idx["num"]])) if idx.has("num") else 0
 		p["last"] = str(cells[idx["last"]]) if idx.has("last") else ""
 		p["first"] = str(cells[idx["first"]]) if idx.has("first") else ""
-		p["name"] = "%s %s" % [p["first"], p["last"]]
+		p["real_name"] = "%s %s" % [p["first"], p["last"]]
+		# Keep the underlying comparison data, but never make the real name the
+		# default display value. The fictional alias is assigned below after the
+		# full pool has been loaded.
+		p["generic_name"] = ""
+		p["name"] = ""
 		p["id"] = "%s_%d" % [p["club"], p["num"]]
 		p["src"] = int(str(cells[idx["src"]])) if idx.has("src") else 2026
 		for k in STAT_KEYS:
@@ -174,6 +254,7 @@ func _load_players() -> Array:
 		p["debut"] = str(cells[idx["debut"]]) if idx.has("debut") else ""
 		p["height_source"] = str(cells[idx["height_source"]]) if idx.has("height_source") else ""
 		out.append(p)
+	_assign_fictional_names(out)
 	return out
 
 

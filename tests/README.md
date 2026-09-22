@@ -20,7 +20,8 @@ reversed and back-to-back snake turns; destination versus original club;
 rejected/duplicate picks leaving history and cap unchanged; live position
 counts and clamped needs; complete small and real-data league drafts; unique
 ownership; equal list sizes and salary caps; taken-player filters and upcoming
-pick numbers.
+pick numbers; fictional player labels, educational comparisons and stable
+ID-based name resolution.
 
 **UI:** all four draft tabs at 390×844, 844×390, 320×568, 360×800, 430×932,
 768×1024, 1024×768, 667×375, 915×412 and 1280×800. Tests check the actual viewport

@@ -35,9 +35,18 @@ home grounds.
 
 ### Attribution
 Player statistics are factual season data compiled from AFL Tables, a long-running
-volunteer-maintained archive. Real player and club names are used for a personal,
-non-commercial fan project — the AFL, its clubs and Champion Data do not endorse
-it and no player imagery or club badges are reproduced.
+volunteer-maintained archive. The AFL, its clubs and Champion Data do not endorse
+this project, and no player imagery or club badges are reproduced.
+
+### Fictional / educational player labels
+The shipped data keeps a real-world comparison for the stats model, but the player
+presentation defaults to a deterministic shuffle of generated random names
+(`Ari Bramble`, `Bex Cinder`, and so on). The main-menu **Player Labels** toggle
+switches to an educational presentation such as `Ari Bramble · plays like Jordan Dawson`;
+it does not change IDs, ratings, draft
+logic or match results. Draft history resolves labels by player ID so switching the
+mode never leaves an old name in a row or tooltip. This is a product presentation
+choice, not legal advice or a licensing determination.
 
 ---
 

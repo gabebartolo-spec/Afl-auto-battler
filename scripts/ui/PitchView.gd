@@ -118,7 +118,8 @@ func _make_tokens(players: Array, slots: Array, dir: float, side: int) -> Array:
 		base = Vector2(base.x * dir, base.y)
 		out.append({
 			"base": base, "pos": base, "target": base,
-			"num": int(p["num"]), "name": str(p["name"]),
+			"num": int(p["num"]), "name": GameDB.player_display_name_by_id(
+						str(p.get("id", "")), str(p.get("name", "Player"))),
 			"role": str(p["role"]), "side": side,
 		})
 	return out

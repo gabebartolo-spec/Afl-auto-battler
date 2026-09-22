@@ -311,7 +311,7 @@ func _show_coach_box() -> void:
 	var mine := _roster_side(_my_side)
 	for i in range(mine.size()):
 		var r: Dictionary = mine[i]
-		focus.add_item("%s #%d" % [str(r["name"]), int(r["num"])], i + 1)
+		focus.add_item("%s #%d" % [GameDB.player_display_name_by_id(str(r.get("id", "")), str(r.get("name", "Player"))), int(r["num"])], i + 1)
 	v.add_child(_field("Run play through", focus))
 
 	var tag := OptionButton.new()
@@ -319,7 +319,7 @@ func _show_coach_box() -> void:
 	var opp := _roster_side(1 - _my_side)
 	for i in range(opp.size()):
 		var r2: Dictionary = opp[i]
-		tag.add_item("%s #%d" % [str(r2["name"]), int(r2["num"])], i + 1)
+		tag.add_item("%s #%d" % [GameDB.player_display_name_by_id(str(r2.get("id", "")), str(r2.get("name", "Player"))), int(r2["num"])], i + 1)
 	v.add_child(_field("Tag opponent", tag))
 
 	var pep := OptionButton.new()
@@ -597,9 +597,10 @@ func _apply_training(focus: String, result_box: VBoxContainer, _choices: Array) 
 	result_box.add_child(UiKit.lbl("Training gains", 16, UiKit.GOLD, true))
 	for g in gains:
 		var plus := "+%d %s" % [int(g["gain"]), str(g["attr"])]
-		if int(g["overall_gain"]) > 0:
-			plus += "  (+%d OVR)" % int(g["overall_gain"])
-		result_box.add_child(UiKit.lbl("%s: %s" % [str(g["name"]), plus], 13, UiKit.TEXT))
+			if int(g["overall_gain"]) > 0:
+				plus += "  (+%d OVR)" % int(g["overall_gain"])
+			var player_label := GameDB.player_display_name_by_id(str(g.get("id", "")), str(g.get("name", "Player")))
+			result_box.add_child(UiKit.lbl("%s: %s" % [player_label, plus], 13, UiKit.TEXT))
 
 
 func _quarters_table() -> Control:
@@ -714,7 +715,7 @@ func _best_table() -> Control:
 			v.add_child(row)
 			var col := UiKit.GOLD if i == 0 else UiKit.TEXT
 			row.add_child(_qcell(str(int(p["num"])), 26, col, 12))
-			row.add_child(_lcell(str(p["name"]), 0, col, 12, i == 0))
+			row.add_child(_lcell(str(p.get("name", "Player")), 0, col, 12, i == 0))
 			row.add_child(_qcell(str(int(st.get("disposals", 0))), 28, col, 12))
 			row.add_child(_qcell(str(int(st.get("goals", 0))), 28, col, 12))
 			row.add_child(_qcell(str(int(st.get("marks", 0))), 28, col, 12))
@@ -734,8 +735,9 @@ func _rank_side(list: Array, players: Dictionary) -> Array:
 	var out := []
 	for p in list:
 		var st: Dictionary = players.get(str(p["id"]), {})
-		out.append({"num": int(p["num"]), "name": str(p["name"]), "stats": st,
-				"inf": _influence(st)})
+		out.append({"num": int(p["num"]),
+				"name": GameDB.player_display_name_by_id(str(p.get("id", "")), str(p.get("name", "Player"))),
+				"stats": st, "inf": _influence(st)})
 	out.sort_custom(func(a, b): return a["inf"] > b["inf"])
 	return out
 

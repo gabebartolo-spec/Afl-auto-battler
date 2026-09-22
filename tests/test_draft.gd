@@ -13,6 +13,7 @@ func run() -> void:
 	_test_position_guidance()
 	_test_complete_small_draft()
 	_test_real_pool()
+	_test_player_name_modes()
 	print("Draft tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -128,6 +129,27 @@ func _test_real_pool() -> void:
 		_check(draft.count_for(club) == draft.target_size, "Every rival reaches the same list size")
 		_check(draft.spent_for(club) <= draft.budget, "Every club stays under the existing cap")
 	_verify_log(draft)
+
+
+func _test_player_name_modes() -> void:
+	var p: Dictionary = GameDB.players[0]
+	var previous := GameState.show_real_names
+	GameState.set_show_real_names(false)
+	_check(GameDB.player_display_name(p) == str(p["generic_name"]),
+			"Player labels default to fictional names")
+	_check(str(p["generic_name"]) != "Player 001" and str(p["generic_name"]).contains(" "),
+			"Fictional labels use generated names rather than numbered placeholders")
+	_check(str(p["name"]) == str(p["generic_name"]),
+			"The loaded pool does not expose a real name as its default field")
+	var id := str(p["id"])
+	var overall := int(p["overall"])
+	GameState.set_show_real_names(true)
+	_check(GameDB.player_display_name(p).contains("plays like"),
+			"Educational mode adds a real-player comparison")
+	_check(GameDB.player_display_name_by_id(id).contains(str(p["real_name"])),
+			"Pick/result lookups resolve the comparison by stable player ID")
+	_check(int(p["overall"]) == overall, "Name mode never changes the player rating")
+	GameState.set_show_real_names(previous)
 
 
 func _fill_user_list(draft: Draft) -> void:

@@ -179,6 +179,11 @@ suites are in `tests/`; see [tests/README.md](tests/README.md) for commands and
 remaining device checks. Native Android/iOS sensor rotation and safe-area insets
 still need an on-device check.
 
-Real player and club names are used for a personal, non-commercial fan project.
-No club badges, guernsey designs or player imagery are reproduced — guernseys are
-two circles in each club's registered colours. See `docs/DESIGN.md` §1.
+The game starts in a fictional-label mode: players appear under generated random
+names such as `Ari Bramble`, while their 2026 stats and ratings remain unchanged.
+The main-menu **Player Labels** toggle adds an educational comparison (`Ari Bramble
+· plays like ...`) when a player wants the real-world context. Club names remain
+visible, but no club badges, guernsey designs or player imagery are reproduced —
+guernseys are two
+circles in each club's registered colours. This presentation choice is not legal
+advice or a substitute for licensing review. See `docs/DESIGN.md` §1.

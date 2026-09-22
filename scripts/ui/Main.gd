@@ -4,10 +4,13 @@ extends Control
 var _pitch: PitchView
 var _buttons: VBoxContainer
 var _help_panel: PanelContainer
+var _name_toggle: Button
 
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	if not GameState.player_names_changed.is_connected(_sync_name_toggle):
+		GameState.player_names_changed.connect(_sync_name_toggle)
 	_pitch = PitchView.new()
 	_pitch.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_pitch.setup({"events": [], "roster": [[], []], "home": "", "away": ""})
@@ -36,6 +39,7 @@ func _ready() -> void:
 	var stats := UiKit.lbl(_data_line(), 13, UiKit.MUTED)
 	stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(stats)
+	v.add_child(_name_mode_control())
 	v.add_child(UiKit.spacer(8))
 	_buttons = UiKit.vbox(10)
 	_buttons.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -65,6 +69,43 @@ func _ready() -> void:
 	v.add_child(foot)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
+
+
+func _name_mode_control() -> Control:
+	var card := UiKit.panel(UiKit.PANEL_ALT, 10, 8)
+	card.custom_minimum_size.x = minf(440.0, UiKit.view_width(self) - 32.0)
+	var v := UiKit.vbox(5)
+	card.add_child(v)
+	var row := UiKit.hbox(8)
+	v.add_child(row)
+	var copy := UiKit.vbox(1)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(copy)
+	copy.add_child(UiKit.lbl("PLAYER LABELS", 12, UiKit.GOLD, true))
+	copy.add_child(UiKit.lbl("Fictional by default; add educational comparisons when you want them.",
+			12, UiKit.MUTED))
+	_name_toggle = UiKit.btn("", 14)
+	_name_toggle.name = "PlayerNamesToggle"
+	_name_toggle.toggle_mode = true
+	_name_toggle.button_pressed = GameState.show_real_names
+	_name_toggle.custom_minimum_size = Vector2(176, 44)
+	_name_toggle.toggled.connect(_on_name_toggle)
+	row.add_child(_name_toggle)
+	_sync_name_toggle()
+	return card
+
+
+func _on_name_toggle(enabled: bool) -> void:
+	GameState.set_show_real_names(enabled)
+	_sync_name_toggle()
+
+
+func _sync_name_toggle() -> void:
+	if not is_instance_valid(_name_toggle):
+		return
+	_name_toggle.button_pressed = GameState.show_real_names
+	_name_toggle.text = "Educational: ON" if GameState.show_real_names else "Fictional: ON"
+	_name_toggle.tooltip_text = "Educational labels say who each fictional player plays like."
 
 
 func _layout() -> void:
@@ -103,6 +144,7 @@ func _show_help() -> void:
 			+ "3. Track every selection in Picks. The position counters show your list's coverage; tap one to filter the pool. Carry at least two rucks.\n\n"
 			+ "4. Play 24 rounds, with matches driven by your players' rated abilities. Set your tactics in the coach box.\n\n"
 			+ "5. Finish in the top eight to play finals and chase the flag.\n\n"
+			+ "Player labels are fictional by default. The main-menu toggle adds an educational comparison such as ‘Ari Bramble · plays like a real AFL player’ without changing ratings or gameplay.\n\n"
 			+ "Rotate your device at any time. Your draft picks, search and filters stay intact.", 16)
 	v.add_child(UiKit.scroll(text))
 	var ok := UiKit.btn("Got it", 17, true)
