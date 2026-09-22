@@ -21,6 +21,11 @@ var fp := 0.0
 var next_side := -1          # -1 => the stoppage is contested
 var at_centre := true
 var tactics := [{}, {}]      # per side: gameplan, focus_id, tag_id, pep
+# Assistant-coach audit trail. Snapshots never touch the RNG, so calibration
+# is unaffected. tactics_history[q] records the plans in force for that
+# quarter; quarter_teams[q] records the cumulative team totals afterwards.
+var tactics_history: Array = []
+var quarter_teams: Array = []
 
 
 func _init(home: Squad, away: Squad, seed: int = 0) -> void:
@@ -450,6 +455,12 @@ func run_quarter() -> Dictionary:
 	var T := Ratings.T
 	var per_quarter: int = floori(float(T["chains_per_game"]) / 4.0)
 	var quarter := current_quarter
+	# Snapshot the plans before any rolls so the half-time report can say
+	# what each side actually used in Q1/Q2. Duplicates only, no RNG draws.
+	tactics_history.append({
+		"quarter": quarter,
+		"plans": [(tactics[0] as Dictionary).duplicate(), (tactics[1] as Dictionary).duplicate()],
+	})
 	for i in range(per_quarter):
 		current_minute = (quarter - 1) * 30 + int(30 * i / maxi(1, per_quarter)) + 1
 		var stoppage := at_centre or rng.randf() < float(T["stoppage_share"])
@@ -496,9 +507,17 @@ func run_quarter() -> Dictionary:
 				_emit("free", 1 - side, fp, err,
 						"Free kick against %s" % GameDB.player_display_name(err))
 
+	quarter_teams.append({
+		"quarter": quarter,
+		"team": [team_stats[0].duplicate(), team_stats[1].duplicate()],
+		"players": player_stats.duplicate(true),
+		"score": [score(0), score(1)],
+		"goals": [goals(0), goals(1)],
+		"behinds": [behinds(0), behinds(1)],
+	})
 	_emit("quarter", -1, fp, null, "End of quarter %d - %s %d.%d (%d) | %s %d.%d (%d)" % [
-			quarter, squads[0].name, goals(0), behinds(0), score(0),
-			squads[1].name, goals(1), behinds(1), score(1)])
+		quarter, squads[0].name, goals(0), behinds(0), score(0),
+		squads[1].name, goals(1), behinds(1), score(1)])
 	current_quarter += 1
 	if quarter == 4:
 		_emit("final", -1, 0.0, null, "Full time - %s %d.%d (%d) | %s %d.%d (%d)" % [
@@ -546,4 +565,6 @@ func result() -> Dictionary:
 		"margin": absi(s0 - s1),
 		"home": squads[0].code,
 		"away": squads[1].code,
+		"tactics_history": tactics_history.duplicate(true),
+		"quarter_teams": quarter_teams.duplicate(true),
 	}
