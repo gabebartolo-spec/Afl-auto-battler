@@ -30,7 +30,11 @@ func _run() -> void:
 	ui.call("_on_club_chosen", "COL")
 	await _settle()
 
-	var defender: Dictionary = _state.draft.board("DEF", "", "", "overall", true)[0]
+	var defender := {}
+	for candidate in _state.draft.board("DEF", "", "", "overall", true):
+		if str(candidate["role"]) == "DEF":
+			defender = candidate
+			break
 	ui.call("_on_pick", defender)
 	_check(_state.draft.role_counts()["DEF"] == 1, "Pick updates the user's position count")
 	_check(_state.draft.position_needs()["DEF"] == 4, "Pick updates position needs")

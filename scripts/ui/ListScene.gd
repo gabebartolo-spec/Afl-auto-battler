@@ -24,21 +24,29 @@ func _ready() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_bottom", 12)
+	UiKit.apply_insets(margin, 12)
 	add_child(margin)
 
 	_root = UiKit.vbox(9)
 	margin.add_child(_root)
+	get_viewport().size_changed.connect(func():
+		if is_inside_tree():
+			_build())
 	_build()
 
 
+func _narrow() -> bool:
+	return UiKit.view_width(self) < 760.0
+
+
 func _build() -> void:
+	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("%s - My List" % GameDB.club_name(GameState.my_club), true))
 
-	var summary := UiKit.hbox(10)
+	var summary := GridContainer.new()
+	summary.columns = 2 if UiKit.view_width(self) < 520.0 else 5
+	summary.add_theme_constant_override("h_separation", 8)
+	summary.add_theme_constant_override("v_separation", 8)
 	_root.add_child(summary)
 	summary.add_child(_stat_card("Strength", "%.1f" % _squad.strength()))
 	summary.add_child(_stat_card("Contest", "%.1f" % _squad.contest))
@@ -46,14 +54,20 @@ func _build() -> void:
 	summary.add_child(_stat_card("Defence", "%.1f" % _squad.defence))
 	summary.add_child(_stat_card("List", str(GameState.my_list.size())))
 
-	var body := UiKit.hbox(10)
+	var body: BoxContainer
+	if _narrow():
+		body = UiKit.vbox(10)
+	else:
+		body = UiKit.hbox(10)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_root.add_child(body)
 
 	# --- left: best 22 ------------------------------------------------------
 	var left := UiKit.panel(UiKit.PANEL, 12)
-	left.custom_minimum_size = Vector2(360, 0)
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if _narrow():
+		left.custom_minimum_size = Vector2(0, 220)
 	body.add_child(left)
 	var lv := UiKit.vbox(5)
 	left.add_child(lv)
@@ -120,8 +134,8 @@ func _team_row(p: Dictionary, ground: bool) -> Control:
 	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	h.add_child(nm)
-	h.add_child(UiKit.lbl(UiKit.ROLE_SHORT[str(p["role"])], 11, UiKit.MUTED))
-	h.add_child(UiKit.lbl(str(int(p["overall"])), 14, UiKit.GOLD, true))
+	h.add_child(UiKit.role_chip(_player_tag(p)))
+	h.add_child(UiKit.line(str(int(p["overall"])), 14, UiKit.GOLD, true))
 	return h
 
 
@@ -139,7 +153,7 @@ func _list_row(p: Dictionary) -> Control:
 	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	h.add_child(nm)
-	h.add_child(UiKit.lbl(UiKit.ROLE_LABEL[str(p["role"])], 11, UiKit.MUTED))
+	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
 	var ov := UiKit.lbl(str(int(p["overall"])), 18, UiKit.GOLD, true)
 	ov.custom_minimum_size = Vector2(38, 0)
 	ov.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -168,14 +182,24 @@ func _list_row(p: Dictionary) -> Control:
 	return panel
 
 
+func _player_tag(p: Dictionary) -> String:
+	var saved := str(p.get("list_tag", ""))
+	if saved != "":
+		return saved
+	return Ratings.role_tag(p)
+
+
 func _attr_columns() -> int:
-	return 2 if UiKit.view_width(self) < 1000.0 else 3
+	var w := UiKit.view_width(self)
+	if w < 520.0:
+		return 1
+	return 2 if w < 1000.0 else 3
 
 
 func _attr_bar(key: String, label: String, value: float) -> Control:
 	var h := UiKit.hbox(4)
-	h.custom_minimum_size = Vector2(170, 0)
-	var l := UiKit.lbl(label, 10, UiKit.MUTED)
+	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var l := UiKit.ellipsis(label, 10, UiKit.MUTED)
 	l.custom_minimum_size = Vector2(74, 0)
 	l.autowrap_mode = TextServer.AUTOWRAP_OFF
 	h.add_child(l)

@@ -157,7 +157,7 @@ func _draft_pick(code: String, p: Dictionary) -> bool:
 		"club": code,
 		"player_id": id,
 		"player_name": str(p["name"]),
-		"role": str(p["role"]),
+		"role": Ratings.role_tag(p),
 		"overall": int(p["overall"]),
 		"value": int(p["value"]),
 		"source_club": str(p["club"]),
@@ -222,7 +222,7 @@ func _best_ai_pick(code: String) -> Dictionary:
 	for p in pool:
 		if picked.has(str(p["id"])):
 			continue
-		if forced_role != "" and str(p["role"]) != forced_role:
+		if forced_role != "" and not Ratings.plays_role(p, forced_role):
 			continue
 		if not _can_afford_for(code, p):
 			continue
@@ -262,6 +262,10 @@ func _ai_score(code: String, p: Dictionary) -> float:
 	var need := maxf(0.0, float(desired.get(role, 0)) - float(counts.get(role, 0)))
 	var score := float(p["overall"]) * 10.0
 	score += need * 18.0
+	var role2 := str(p.get("role2", ""))
+	if role2 != "" and role2 != role:
+		var need2 := maxf(0.0, float(desired.get(role2, 0)) - float(counts.get(role2, 0)))
+		score += need2 * 7.0
 	score -= float(p["value"]) * 1.8
 	return score
 
@@ -311,7 +315,7 @@ func can_pick_player(p: Dictionary) -> bool:
 		if not is_user_turn() or picked.has(str(p["id"])) or not _can_afford_for(user_club, p):
 			return false
 		var forced_role := _forced_role(user_club)
-		return forced_role == "" or str(p["role"]) == forced_role
+		return forced_role == "" or Ratings.plays_role(p, forced_role)
 	return not picked.has(str(p["id"])) and count() < target_size and remaining() >= int(p["value"])
 
 
@@ -376,7 +380,7 @@ func is_valid() -> bool:
 		return false
 	if spent() > budget:
 		return false
-	return count_by_role("RUCK") >= 2
+	return count_covering("RUCK") >= 2
 
 
 func is_complete_size() -> bool:
@@ -385,6 +389,16 @@ func is_complete_size() -> bool:
 
 func count_by_role(role: String) -> int:
 	return int(role_counts().get(role, 0))
+
+
+## Primary or secondary. A MID/RUCK covers the two-ruck rule; position totals
+## themselves stay primary-only so they still sum to the list size.
+func count_covering(role: String) -> int:
+	var n := 0
+	for p in list():
+		if Ratings.plays_role(p, role):
+			n += 1
+	return n
 
 
 func role_counts() -> Dictionary:
@@ -413,7 +427,7 @@ func board(role := "", club := "", search := "", sort := "overall",
 	for p in pool:
 		if hide_picked and picked.has(str(p["id"])):
 			continue
-		if role != "" and p["role"] != role:
+		if role != "" and not Ratings.plays_role(p, role):
 			continue
 		if club != "" and p["club"] != club:
 			continue

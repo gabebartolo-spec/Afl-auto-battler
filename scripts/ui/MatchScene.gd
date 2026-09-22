@@ -25,6 +25,17 @@ var _interactive := false
 var _event_cursor := 0
 var _my_side := 0
 var _training_done := false
+var _margin: MarginContainer
+var _stacked := false
+var _last_tactics := {}
+var _skipping := false
+var _fulltime_shown := false
+var _coach_overlay: Control
+var _reflow_queued := false
+var _shown_goals := [0, 0]
+var _shown_behinds := [0, 0]
+var _shown_q := 1
+var _shown_min := 0
 
 
 func _ready() -> void:
@@ -58,107 +69,117 @@ func _ready() -> void:
 
 
 func _build() -> void:
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 12)
-	margin.add_theme_constant_override("margin_right", 12)
-	margin.add_theme_constant_override("margin_top", 10)
-	margin.add_theme_constant_override("margin_bottom", 10)
-	add_child(margin)
+	_margin = MarginContainer.new()
+	_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	UiKit.apply_insets(_margin, 10)
+	add_child(_margin)
 
 	_root = UiKit.vbox(8)
-	margin.add_child(_root)
+	_margin.add_child(_root)
 
 	_root.add_child(_scoreboard())
-
-	_narrow_wanted()
+	_mount_body(UiKit.view_width(self) < 640.0)
 	_root.add_child(_body)
 
 
-func _narrow_wanted() -> void:
-	# Stack the feed under the oval on phones, side by side on desktop.
-	var narrow := UiKit.view_width(self) < 900.0
-	if narrow:
+func _mount_body(stack: bool) -> void:
+	# Stack the feed under the oval on a narrow phone. Landscape keeps the
+	# oval beside the feed, and the pitch itself is never rebuilt.
+	_stacked = stack
+	if stack:
 		_body = UiKit.vbox(8)
 	else:
 		_body = HBoxContainer.new()
 		_body.add_theme_constant_override("separation", 10)
 	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-	_pitch = PitchView.new()
+	if _pitch == null:
+		_pitch = PitchView.new()
 	_pitch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pitch.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_pitch.size_flags_stretch_ratio = 1.5
 	_body.add_child(_pitch)
 
-	_side_panel = UiKit.panel(UiKit.PANEL, 12)
-	if narrow:
-		_side_panel.custom_minimum_size = Vector2(0, 210)
-	else:
-		_side_panel.custom_minimum_size = Vector2(340, 0)
-	_side_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if _side_panel == null:
+		_side_panel = UiKit.panel(UiKit.PANEL, 10)
+		var sv := UiKit.vbox(6)
+		_side_panel.add_child(sv)
+		sv.add_child(UiKit.lbl("Commentary", 15, UiKit.GOLD, true))
+		_feed = UiKit.vbox(3)
+		_feed_scroll = UiKit.scroll(_feed)
+		sv.add_child(_feed_scroll)
+		sv.add_child(_controls())
+	_fit_side_panel()
 	_body.add_child(_side_panel)
 
-	var sv := UiKit.vbox(6)
-	_side_panel.add_child(sv)
-	sv.add_child(UiKit.lbl("Commentary", 15, UiKit.GOLD, true))
-	_feed = UiKit.vbox(3)
-	_feed_scroll = UiKit.scroll(_feed)
-	sv.add_child(_feed_scroll)
-	sv.add_child(_controls())
+
+func _fit_side_panel() -> void:
+	if _side_panel == null:
+		return
+	if _stacked:
+		var short := UiKit.view_height(self) < 520.0
+		_side_panel.custom_minimum_size = Vector2(0, 120 if short else 168)
+		_side_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_side_panel.size_flags_stretch_ratio = 1.0
+	else:
+		_side_panel.custom_minimum_size = Vector2(220, 0)
+		_side_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_side_panel.size_flags_stretch_ratio = 0.7
+	_side_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 
+## Names sit above the score, not beside it. A wrapping label in a tight hbox
+## collapses to one character per line and pushes the oval off the phone.
 func _scoreboard() -> Control:
-	var p := UiKit.panel(UiKit.PANEL, 10)
-	var h := UiKit.hbox(10)
+	var narrow := UiKit.view_width(self) < 640.0
+	var p := UiKit.panel(UiKit.PANEL, 8)
+	var h := UiKit.hbox(6)
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
 	p.add_child(h)
-
-	var hc: Array = GameDB.club_colours(str(_res["home"]))
-	var ac: Array = GameDB.club_colours(str(_res["away"]))
-
-	var left := UiKit.hbox(8)
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.alignment = BoxContainer.ALIGNMENT_END
-	h.add_child(left)
-	left.add_child(_club_name(str(_res["home"]), true))
-	_score_home = UiKit.lbl("0.0 (0)", 28, hc[2], true)
-	left.add_child(_score_home)
-
-	var mid := UiKit.vbox(0)
-	mid.custom_minimum_size = Vector2(140, 0)
-	h.add_child(mid)
-	var label := str(_res.get("label", "Match"))
-	var ll := UiKit.lbl(label, 12, UiKit.MUTED)
-	ll.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	ll.autowrap_mode = TextServer.AUTOWRAP_OFF
-	mid.add_child(ll)
-	_clock = UiKit.lbl("Q1 0'", 20, UiKit.TEXT, true)
-	_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	mid.add_child(_clock)
-	var venue := UiKit.lbl(str(GameDB.club(str(_res["home"])).get("ground", "")),
-			11, UiKit.MUTED)
-	venue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	venue.autowrap_mode = TextServer.AUTOWRAP_OFF
-	mid.add_child(venue)
-
-	var right := UiKit.hbox(8)
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(right)
-	_score_away = UiKit.lbl("0.0 (0)", 28, ac[2], true)
-	right.add_child(_score_away)
-	right.add_child(_club_name(str(_res["away"]), false))
+	h.add_child(_score_column(str(_res["home"]), true, narrow))
+	h.add_child(_score_middle(narrow))
+	h.add_child(_score_column(str(_res["away"]), false, narrow))
 	return p
 
 
-func _club_name(code: String, right_aligned: bool) -> Label:
-	var l := UiKit.lbl(GameDB.club_name(code), 16, UiKit.TEXT, true)
-	l.autowrap_mode = TextServer.AUTOWRAP_OFF
-	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if right_aligned \
+func _score_column(code: String, home: bool, narrow: bool) -> Control:
+	var v := UiKit.vbox(1)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var name_text := GameDB.club_short(code) if narrow else GameDB.club_name(code)
+	var name := UiKit.ellipsis(name_text, 13 if narrow else 16, UiKit.TEXT, true)
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if home \
 			else HORIZONTAL_ALIGNMENT_LEFT
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	l.custom_minimum_size = Vector2(90, 0)
-	return l
+	v.add_child(name)
+	var cols: Array = GameDB.club_colours(code)
+	var score := UiKit.line("0.0 (0)", 16 if narrow else 26, cols[2], true)
+	score.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if home \
+			else HORIZONTAL_ALIGNMENT_LEFT
+	# A fixed minimum wider than the phone column is what shoved the oval
+	# off screen. Let the score take its own width in portrait.
+	if not narrow:
+		score.custom_minimum_size = Vector2(136, 0)
+	v.add_child(score)
+	if home:
+		_score_home = score
+	else:
+		_score_away = score
+	return v
+
+
+func _score_middle(narrow: bool) -> Control:
+	var mid := UiKit.vbox(0)
+	mid.custom_minimum_size = Vector2(52 if narrow else 112, 0)
+	var label := UiKit.ellipsis(str(_res.get("label", "Match")), 11, UiKit.MUTED)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mid.add_child(label)
+	_clock = UiKit.line("Q%d %d'" % [_shown_q, _shown_min], 15 if narrow else 20, UiKit.TEXT, true)
+	_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mid.add_child(_clock)
+	var venue := UiKit.ellipsis(str(GameDB.club(str(_res["home"])).get("ground", "")),
+			11, UiKit.MUTED)
+	venue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mid.add_child(venue)
+	return mid
 
 
 func _controls() -> Control:
@@ -167,14 +188,17 @@ func _controls() -> Control:
 	var row := UiKit.hbox(5)
 	v.add_child(row)
 	_play_btn = UiKit.btn("Pause", 13)
-	_play_btn.custom_minimum_size = Vector2(84, 40)
+	_play_btn.custom_minimum_size = Vector2(0, 40)
 	_play_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_play_btn.clip_text = true
 	_play_btn.pressed.connect(_on_toggle)
 	row.add_child(_play_btn)
 
 	for s in SPEEDS:
 		var b := UiKit.btn("%dx" % int(s), 13)
-		b.custom_minimum_size = Vector2(44, 40)
+		b.custom_minimum_size = Vector2(0, 40)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
 		b.pressed.connect(_on_speed.bind(s))
 		_speed_btns.append(b)
 		row.add_child(b)
@@ -219,7 +243,35 @@ func _on_speed(s: float) -> void:
 
 
 func _on_skip() -> void:
-	_pitch.skip_to_end()
+	_skipping = true
+	_close_coach()
+	if _interactive and GameState.pending_sim != null:
+		_simulate_remaining()
+	if _pitch != null:
+		_pitch.skip_to_end()
+
+
+func _close_coach() -> void:
+	if _coach_overlay != null and is_instance_valid(_coach_overlay):
+		_coach_overlay.queue_free()
+		_coach_overlay = null
+
+
+## Finish every quarter that has not been rolled yet, using the last plan the
+## coach set. Skip used to drain only the events already on the pitch, which
+## stopped at the quarter break.
+func _simulate_remaining() -> void:
+	var sim: MatchSim = GameState.pending_sim
+	if sim == null or sim.current_quarter > 4:
+		return
+	var t := _last_tactics
+	if t.is_empty():
+		t = {"gameplan": "balanced", "focus_id": "", "tag_id": "", "pep": "steady"}
+	while sim.current_quarter <= 4:
+		_apply_quarter_tactics(t)
+		_res = sim.run_quarter()
+		_stamp_match_meta()
+	_append_new_events()
 
 
 # ---------------------------------------------------------------------------
@@ -236,22 +288,16 @@ const PEP_TALKS := [
 
 
 func _show_coach_box() -> void:
+	if _coach_overlay != null and is_instance_valid(_coach_overlay):
+		return
 	_pitch.pause()
 	_sync_controls()
-	var overlay := ColorRect.new()
-	overlay.color = Color(0, 0, 0, 0.76)
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(overlay)
-	var centre := CenterContainer.new()
-	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(centre)
-	var p := UiKit.panel(UiKit.PANEL, 18, 12)
-	p.custom_minimum_size = Vector2(620, 0)
-	centre.add_child(p)
-	var v := UiKit.vbox(9)
-	p.add_child(v)
+	var box := UiKit.modal_box(self, 620.0, 640.0)
+	var overlay: Control = box["overlay"]
+	_coach_overlay = overlay
+	var v: VBoxContainer = box["body"]
 	var q := GameState.pending_sim.current_quarter
-	v.add_child(UiKit.lbl("Coach Box - Quarter %d" % q, 23, UiKit.GOLD, true))
+	v.add_child(UiKit.ellipsis("Coach Box - Quarter %d" % q, 22, UiKit.GOLD, true))
 	v.add_child(UiKit.lbl("Set the plan before this quarter is simulated. The opposition has not been rolled yet.",
 			13, UiKit.MUTED))
 
@@ -282,7 +328,7 @@ func _show_coach_box() -> void:
 	v.add_child(_field("Pep talk", pep))
 
 	var start := UiKit.btn("Start Quarter", 18, true)
-	start.custom_minimum_size = Vector2(0, 52)
+	start.custom_minimum_size = Vector2(0, 48)
 	start.pressed.connect(func():
 		var focus_id := ""
 		if focus.selected > 0:
@@ -296,17 +342,26 @@ func _show_coach_box() -> void:
 			"tag_id": tag_id,
 			"pep": str(PEP_TALKS[pep.selected][0]),
 		}
-		overlay.queue_free()
+		_close_coach()
 		_simulate_next_quarter(t))
-	v.add_child(start)
+	box["footer"].add_child(start)
+	var skip := UiKit.btn("Skip to full time", 15)
+	skip.custom_minimum_size = Vector2(0, 44)
+	skip.pressed.connect(_on_skip)
+	box["footer"].add_child(skip)
 
 
 func _field(label: String, control: Control) -> Control:
+	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if UiKit.view_width(self) < 560.0:
+		var v := UiKit.vbox(4)
+		v.add_child(UiKit.lbl(label, 13, UiKit.MUTED, true))
+		v.add_child(control)
+		return v
 	var h := UiKit.hbox(8)
 	var l := UiKit.lbl(label, 13, UiKit.MUTED, true)
-	l.custom_minimum_size = Vector2(150, 0)
+	l.custom_minimum_size = Vector2(132, 0)
 	h.add_child(l)
-	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(control)
 	return h
 
@@ -321,6 +376,16 @@ func _roster_side(side: int) -> Array:
 
 
 func _simulate_next_quarter(t: Dictionary) -> void:
+	_last_tactics = t.duplicate()
+	_apply_quarter_tactics(t)
+	_res = GameState.pending_sim.run_quarter()
+	_stamp_match_meta()
+	_append_new_events()
+	_pitch.play()
+	_sync_controls()
+
+
+func _apply_quarter_tactics(t: Dictionary) -> void:
 	GameState.pending_sim.set_tactics(_my_side, t)
 	# Basic AI counter-plan: leaders protect a lead, trailers take more risk.
 	var s: Array = GameState.pending_sim.result()["score"]
@@ -330,16 +395,20 @@ func _simulate_next_quarter(t: Dictionary) -> void:
 	elif int(s[1 - _my_side]) + 18 < int(s[_my_side]):
 		opp_plan = "attacking"
 	GameState.pending_sim.set_tactics(1 - _my_side, {"gameplan": opp_plan, "pep": "steady"})
-	_res = GameState.pending_sim.run_quarter()
+
+
+func _stamp_match_meta() -> void:
 	_res["home"] = GameState.pending_match["home"]
 	_res["away"] = GameState.pending_match["away"]
 	_res["label"] = GameState.pending_match["label"]
+
+
+func _append_new_events() -> void:
 	var all_events: Array = _res.get("events", [])
 	var new_events := all_events.slice(_event_cursor)
 	_event_cursor = all_events.size()
-	_pitch.append_events(new_events)
-	_pitch.play()
-	_sync_controls()
+	if not new_events.is_empty():
+		_pitch.append_events(new_events)
 
 
 # ---------------------------------------------------------------------------
@@ -351,17 +420,23 @@ func _on_event(ev: Dictionary) -> void:
 
 
 func _update_scoreboard(ev: Dictionary) -> void:
-	var s: Array = ev.get("score", [0, 0])
-	_score_home.text = _from_total(int(s[0]))
-	_score_away.text = _from_total(int(s[1]))
-	_clock.text = "Q%d %d'" % [int(ev.get("q", 1)), int(ev.get("min", 0))]
+	if ev.has("goals") and ev.has("behinds"):
+		var g: Array = ev["goals"]
+		var b: Array = ev["behinds"]
+		_shown_goals = [int(g[0]), int(g[1])]
+		_shown_behinds = [int(b[0]), int(b[1])]
+	_shown_q = int(ev.get("q", _shown_q))
+	_shown_min = int(ev.get("min", _shown_min))
+	_paint_scoreboard()
 
 
-## Events carry the running total, so back out goals and behinds from it.
-func _from_total(total: int) -> String:
-	var t := maxi(0, total)
-	var g := int(t / 6.0)
-	return "%d.%d (%d)" % [g, t - g * 6, t]
+func _paint_scoreboard() -> void:
+	if _score_home == null or _score_away == null:
+		return
+	_score_home.text = UiKit.scoreline(_shown_goals[0], _shown_behinds[0])
+	_score_away.text = UiKit.scoreline(_shown_goals[1], _shown_behinds[1])
+	if _clock != null:
+		_clock.text = "Q%d %d'" % [_shown_q, _shown_min]
 
 
 func _feed_add(ev: Dictionary) -> void:
@@ -395,14 +470,24 @@ func _feed_add(ev: Dictionary) -> void:
 
 
 func _on_finished() -> void:
-	if _interactive and GameState.pending_sim != null and GameState.pending_sim.current_quarter <= 4:
+	if _fulltime_shown:
+		return
+	# Skip sims the rest of the match first, then drains the pitch. Without
+	# this flag the quarter-end signal reopens the coach box.
+	if _interactive and not _skipping and GameState.pending_sim != null \
+			and GameState.pending_sim.current_quarter <= 4:
 		_sync_controls()
 		_show_coach_box()
 		return
+	_skipping = false
 	_finished = true
-	# Skip-to-full-time applies the remaining events without emitting them, so
-	# force the board to the real result before the overlay goes up.
-	_update_scoreboard({"q": 4, "min": 20, "kind": "final", "score": _res["score"]})
+	_fulltime_shown = true
+	_close_coach()
+	if _res.has("goals") and _res.has("behinds"):
+		_update_scoreboard({
+			"q": 4, "min": 20, "kind": "final",
+			"goals": _res["goals"], "behinds": _res["behinds"],
+		})
 	if _interactive:
 		GameState.finish_interactive_match(_res)
 	_sync_controls()
@@ -413,20 +498,9 @@ func _on_finished() -> void:
 # Full time
 # ---------------------------------------------------------------------------
 func _show_fulltime() -> void:
-	var overlay := ColorRect.new()
-	overlay.color = Color(0, 0, 0, 0.78)
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(overlay)
-
-	var centre := CenterContainer.new()
-	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(centre)
-
-	var p := UiKit.panel(UiKit.PANEL, 20, 12)
-	p.custom_minimum_size = Vector2(mini(860, int(UiKit.view_width(self)) - 40), 0)
-	centre.add_child(p)
-	var v := UiKit.vbox(9)
-	p.add_child(v)
+	var box := UiKit.modal_box(self, 860.0, 0.0)
+	var overlay: Control = box["overlay"]
+	var v: VBoxContainer = box["body"]
 
 	var s: Array = _res["score"]
 	var home: String = _res["home"]
@@ -438,7 +512,7 @@ func _show_fulltime() -> void:
 	var won: bool = my_score > opp_score
 
 	var tag := str(_res.get("label", "Match"))
-	v.add_child(UiKit.lbl("Full Time - %s" % tag, 15, UiKit.MUTED))
+	v.add_child(UiKit.ellipsis("Full Time - %s" % tag, 15, UiKit.MUTED))
 
 	var hs := UiKit.scoreline(int(_res["goals"][0]), int(_res["behinds"][0]))
 	var ascore := UiKit.scoreline(int(_res["goals"][1]), int(_res["behinds"][1]))
@@ -447,25 +521,23 @@ func _show_fulltime() -> void:
 		verb = "defeated"
 	elif int(s[1]) > int(s[0]):
 		verb = "lost to"
-	var head := UiKit.lbl("%s %s  %s  %s %s" % [
+	v.add_child(UiKit.lbl("%s %s  %s  %s %s" % [
 			GameDB.club_name(str(home)), hs, verb,
-			GameDB.club_name(str(away)), ascore], 19, UiKit.TEXT, true)
-	v.add_child(head)
+			GameDB.club_name(str(away)), ascore], 18, UiKit.TEXT, true))
 
 	if GameState.my_club != "":
 		var verdict := "DRAW" if drew else ("WIN by %d" % absi(my_score - opp_score) \
 				if won else "LOSS by %d" % absi(my_score - opp_score))
-		var vl := UiKit.lbl(verdict, 26,
-				UiKit.MUTED if drew else UiKit.margin_colour(won), true)
-		v.add_child(vl)
+		v.add_child(UiKit.lbl(verdict, 24,
+				UiKit.MUTED if drew else UiKit.margin_colour(won), true))
 
-	# Two columns inside a scroll, so the box score fits a phone in landscape.
-	var body := UiKit.hbox(16)
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var sc := UiKit.scroll(body)
-	sc.custom_minimum_size = Vector2(0,
-			maxf(180.0, UiKit.view_height(self) - 330.0))
-	v.add_child(sc)
+	var narrow := UiKit.view_width(self) < 720.0
+	var body: BoxContainer
+	if narrow:
+		body = UiKit.vbox(14)
+	else:
+		body = UiKit.hbox(16)
+	v.add_child(body)
 
 	var left := UiKit.vbox(5)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -483,27 +555,17 @@ func _show_fulltime() -> void:
 	right.add_child(_best_table())
 
 	var cont := UiKit.btn("Training Session", 18, true)
-	cont.custom_minimum_size = Vector2(0, 52)
+	cont.custom_minimum_size = Vector2(0, 48)
 	cont.pressed.connect(func():
 		overlay.queue_free()
 		_show_training())
-	v.add_child(cont)
+	box["footer"].add_child(cont)
 
 
 func _show_training() -> void:
-	var overlay := ColorRect.new()
-	overlay.color = Color(0, 0, 0, 0.78)
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(overlay)
-	var centre := CenterContainer.new()
-	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(centre)
-	var p := UiKit.panel(UiKit.PANEL, 20, 12)
-	p.custom_minimum_size = Vector2(640, 0)
-	centre.add_child(p)
-	var v := UiKit.vbox(9)
-	p.add_child(v)
-	v.add_child(UiKit.lbl("Post-Match Training", 24, UiKit.GOLD, true))
+	var box := UiKit.modal_box(self, 640.0, 640.0)
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.lbl("Post-Match Training", 22, UiKit.GOLD, true))
 	v.add_child(UiKit.lbl("Choose one focus. Less-experienced players have more development upside; established players improve more slowly.",
 			13, UiKit.MUTED))
 	var result_box := UiKit.vbox(4)
@@ -515,12 +577,14 @@ func _show_training() -> void:
 	]
 	for c in choices:
 		var b := UiKit.btn(str(c[1]), 15)
+		b.clip_text = true
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		b.pressed.connect(_apply_training.bind(str(c[0]), result_box, choices))
 		v.add_child(b)
 	v.add_child(result_box)
 	var done := UiKit.btn("Back to Hub", 17, true)
 	done.pressed.connect(func(): Router.back())
-	v.add_child(done)
+	box["footer"].add_child(done)
 
 
 func _apply_training(focus: String, result_box: VBoxContainer, _choices: Array) -> void:
@@ -539,39 +603,58 @@ func _apply_training(focus: String, result_box: VBoxContainer, _choices: Array) 
 
 
 func _quarters_table() -> Control:
+	# Badge plus four quarters plus a full scoreline does not fit a phone
+	# modal. Stack each club there, and keep the wide table for landscape.
+	if UiKit.view_width(self) < 560.0:
+		return _quarters_stacked()
 	var v := UiKit.vbox(3)
 	var home: String = _res["home"]
 	var away: String = _res["away"]
 	var qg: Array = _res["q_goals"]
 	var qb: Array = _res["q_behinds"]
-
-	var qh := UiKit.hbox(6)
+	var qh := UiKit.hbox(4)
 	v.add_child(qh)
-	qh.add_child(_qcell("", 44, UiKit.MUTED, 12))
+	qh.add_child(_qcell("", 36, UiKit.MUTED, 12))
 	for i in range(4):
-		qh.add_child(_qcell("Q%d" % (i + 1), 52, UiKit.MUTED, 12))
-	qh.add_child(_qcell("Final", 70, UiKit.MUTED, 12))
-
+		qh.add_child(_qcell("Q%d" % (i + 1), 48, UiKit.MUTED, 12))
+	qh.add_child(_qcell("Final", 96, UiKit.MUTED, 12))
 	for side in range(2):
 		var code: String = home if side == 0 else away
-		var qr := UiKit.hbox(6)
+		var qr := UiKit.hbox(4)
 		v.add_child(qr)
-		var badge := UiKit.club_badge(code, 12)
-		badge.custom_minimum_size = Vector2(44, 0)
-		qr.add_child(badge)
+		qr.add_child(UiKit.club_badge(code, 12, true, false))
 		for i in range(4):
 			qr.add_child(_qcell("%d.%d" % [int(qg[i][side]), int(qb[i][side])],
-					52, UiKit.TEXT, 13))
+					48, UiKit.TEXT, 12))
 		qr.add_child(_qcell(UiKit.scoreline(int(_res["goals"][side]),
-				int(_res["behinds"][side])), 70, UiKit.GOLD, 14, true))
+				int(_res["behinds"][side])), 96, UiKit.GOLD, 13, true))
+	return v
+
+
+func _quarters_stacked() -> Control:
+	var v := UiKit.vbox(8)
+	var codes := [str(_res["home"]), str(_res["away"])]
+	var qg: Array = _res["q_goals"]
+	var qb: Array = _res["q_behinds"]
+	for side in range(2):
+		var block := UiKit.vbox(2)
+		var head := UiKit.hbox(6)
+		head.add_child(UiKit.club_badge(codes[side], 13, true, true))
+		head.add_child(UiKit.line(UiKit.scoreline(int(_res["goals"][side]),
+				int(_res["behinds"][side])), 15, UiKit.GOLD, true))
+		block.add_child(head)
+		var parts: PackedStringArray = []
+		for i in range(4):
+			parts.append("Q%d %d.%d" % [i + 1, int(qg[i][side]), int(qb[i][side])])
+		block.add_child(UiKit.ellipsis("   ".join(parts), 12, UiKit.MUTED))
+		v.add_child(block)
 	return v
 
 
 func _qcell(text: String, w: int, col: Color, fs: int, bold := false) -> Label:
-	var l := UiKit.lbl(text, fs, col, bold)
+	var l := UiKit.line(text, fs, col, bold)
 	l.custom_minimum_size = Vector2(w, 0)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.autowrap_mode = TextServer.AUTOWRAP_OFF
 	return l
 
 
@@ -587,20 +670,24 @@ const TEAM_STAT_ROWS := [
 
 func _team_stats_table() -> Control:
 	var v := UiKit.vbox(2)
-	var h0 := UiKit.hbox(6)
+	var h0 := UiKit.hbox(4)
 	v.add_child(h0)
-	h0.add_child(_qcell(str(GameDB.club_short(str(_res["home"]))), 70, UiKit.TEXT, 13, true))
-	h0.add_child(_qcell("", 150, UiKit.MUTED, 12))
-	h0.add_child(_qcell(str(GameDB.club_short(str(_res["away"]))), 70, UiKit.TEXT, 13, true))
+	h0.add_child(_qcell(str(_res["home"]), 44, UiKit.TEXT, 12, true))
+	var gap := UiKit.line("", 12, UiKit.MUTED)
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h0.add_child(gap)
+	h0.add_child(_qcell(str(_res["away"]), 44, UiKit.TEXT, 12, true))
 	var t: Array = _res["team"]
 	for row in TEAM_STAT_ROWS:
-		var h := UiKit.hbox(6)
+		var h := UiKit.hbox(4)
 		v.add_child(h)
 		var a := int(float(t[0].get(row[0], 0.0)))
 		var b := int(float(t[1].get(row[0], 0.0)))
-		h.add_child(_qcell(str(a), 70, UiKit.GOOD if a > b else UiKit.TEXT, 13))
-		h.add_child(_qcell(str(row[1]), 150, UiKit.MUTED, 12))
-		h.add_child(_qcell(str(b), 70, UiKit.GOOD if b > a else UiKit.TEXT, 13))
+		h.add_child(_qcell(str(a), 44, UiKit.GOOD if a > b else UiKit.TEXT, 12))
+		var lab := UiKit.ellipsis(str(row[1]), 12, UiKit.MUTED)
+		lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		h.add_child(lab)
+		h.add_child(_qcell(str(b), 44, UiKit.GOOD if b > a else UiKit.TEXT, 12))
 	return v
 
 
@@ -612,13 +699,13 @@ func _best_table() -> Control:
 	for side in range(2):
 		if side == 1:
 			v.add_child(UiKit.spacer(10))
-		v.add_child(UiKit.club_badge(codes[side], 13))
+		v.add_child(UiKit.club_badge(codes[side], 13, true, true))
 		var hdr := UiKit.hbox(4)
 		v.add_child(hdr)
 		hdr.add_child(_qcell("#", 26, UiKit.MUTED, 10))
-		hdr.add_child(_lcell("Player", 128, UiKit.MUTED, 10))
+		hdr.add_child(_lcell("Player", 0, UiKit.MUTED, 10))
 		for c in ["D", "G", "M", "T", "HO"]:
-			hdr.add_child(_qcell(c, 30, UiKit.MUTED, 10))
+			hdr.add_child(_qcell(c, 28, UiKit.MUTED, 10))
 		var best := _rank_side(roster[side], players)
 		for i in range(mini(7, best.size())):
 			var p: Dictionary = best[i]
@@ -627,20 +714,19 @@ func _best_table() -> Control:
 			v.add_child(row)
 			var col := UiKit.GOLD if i == 0 else UiKit.TEXT
 			row.add_child(_qcell(str(int(p["num"])), 26, col, 12))
-			row.add_child(_lcell(str(p["name"]), 128, col, 12, i == 0))
-			row.add_child(_qcell(str(int(st.get("disposals", 0))), 30, col, 12))
-			row.add_child(_qcell(str(int(st.get("goals", 0))), 30, col, 12))
-			row.add_child(_qcell(str(int(st.get("marks", 0))), 30, col, 12))
-			row.add_child(_qcell(str(int(st.get("tackles", 0))), 30, col, 12))
-			row.add_child(_qcell(str(int(st.get("hitouts", 0))), 30, col, 12))
+			row.add_child(_lcell(str(p["name"]), 0, col, 12, i == 0))
+			row.add_child(_qcell(str(int(st.get("disposals", 0))), 28, col, 12))
+			row.add_child(_qcell(str(int(st.get("goals", 0))), 28, col, 12))
+			row.add_child(_qcell(str(int(st.get("marks", 0))), 28, col, 12))
+			row.add_child(_qcell(str(int(st.get("tackles", 0))), 28, col, 12))
+			row.add_child(_qcell(str(int(st.get("hitouts", 0))), 28, col, 12))
 	return v
 
 
 func _lcell(text: String, w: int, col: Color, fs: int, bold := false) -> Label:
-	var l := UiKit.lbl(text, fs, col, bold)
-	l.custom_minimum_size = Vector2(w, 0)
-	l.autowrap_mode = TextServer.AUTOWRAP_OFF
-	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	var l := UiKit.ellipsis(text, fs, col, bold)
+	if w > 0:
+		l.custom_minimum_size = Vector2(w, 0)
 	return l
 
 
@@ -668,5 +754,36 @@ func _influence(st: Dictionary) -> float:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_EXIT_TREE and _pitch != null:
+	if what == NOTIFICATION_RESIZED and _pitch != null and is_inside_tree():
+		if not _reflow_queued:
+			_reflow_queued = true
+			_reflow.call_deferred()
+	elif what == NOTIFICATION_EXIT_TREE and _pitch != null:
 		_pitch.pause()
+
+
+func _reflow() -> void:
+	_reflow_queued = false
+	if not is_inside_tree() or _pitch == null or _root == null or _body == null:
+		return
+	if _margin != null:
+		UiKit.apply_insets(_margin, 10)
+	var stack := UiKit.view_width(self) < 640.0
+	if stack != _stacked:
+		_body.remove_child(_pitch)
+		_body.remove_child(_side_panel)
+		var idx := _body.get_index()
+		_root.remove_child(_body)
+		_body.queue_free()
+		_mount_body(stack)
+		_root.add_child(_body)
+		_root.move_child(_body, idx)
+	else:
+		_fit_side_panel()
+	var old := _root.get_child(0)
+	_root.remove_child(old)
+	old.queue_free()
+	var board := _scoreboard()
+	_root.add_child(board)
+	_root.move_child(board, 0)
+	_paint_scoreboard()

@@ -241,18 +241,10 @@ static func derive_all(players: Array) -> Array:
 		scores["RUCK"] = (0.25 + 0.85 * q["hitouts_pg"]) if hitouts_pg >= 7.0 else -1.0
 		p["role_scores"] = scores
 		p["role"] = pick_role(scores)
+		p["role2"] = assign_secondary(p)
 
 		# ---- overall + draft value ----------------------------------------
-		var w: Array = ROLE_WEIGHTS[p["role"]]
-		var fifth: float = a["ruck"] if p["role"] == "RUCK" else a["contested"]
-		var core: float = (w[0] * a["disposal"] + w[1] * a["pressure"]
-				+ w[2] * a["goalkicking"] + w[3] * a["intercept"] + w[4] * fifth)
-		var overall: float = 0.70 * core + 0.22 * a["star"] + 0.08 * a["durability"]
-		# Pull thin samples back toward the middle: a 3-game player's rating is
-		# mostly noise, so it should not look like a proven 25-game player's.
-		var conf: float = minf(1.0, p["gm"] / 14.0)
-		overall = 40.0 + (overall - 40.0) * (0.40 + 0.60 * conf)
-		p["overall"] = int(clampi(roundi(overall), 1, 99))
+		p["overall"] = rate_overall(a, str(p["role"]), float(p["gm"]))
 		p["value"] = salary_value(p["overall"])
 
 	return players
@@ -269,6 +261,82 @@ static func pick_role(scores: Dictionary) -> String:
 			best_v = v
 			best = role
 	return best
+
+
+## Raw blend, confidence shrink, then a stretch so the best 2026 players land
+## near 90. Monotonic: Brownlow order is preserved. Must match
+## tools/sim_harness.py (the shrink lives in derive_ratings; the stretch is
+## scale_overall).
+static func rate_overall(a: Dictionary, role: String, games: float) -> int:
+	var w: Array = ROLE_WEIGHTS.get(role, ROLE_WEIGHTS["MID"])
+	var fifth: float = float(a["ruck"]) if role == "RUCK" else float(a["contested"])
+	var core: float = (float(w[0]) * float(a["disposal"]) + float(w[1]) * float(a["pressure"])
+			+ float(w[2]) * float(a["goalkicking"]) + float(w[3]) * float(a["intercept"])
+			+ float(w[4]) * fifth)
+	var overall: float = 0.70 * core + 0.22 * float(a["star"]) + 0.08 * float(a["durability"])
+	var conf: float = minf(1.0, games / 14.0)
+	overall = 40.0 + (overall - 40.0) * (0.40 + 0.60 * conf)
+	return scale_overall(overall)
+
+
+static func scale_overall(raw: float) -> int:
+	if raw < 32.0:
+		return clampi(int(round(30.0 + (raw - 20.0) * (14.0 / 12.0))), 1, 99)
+	var t := clampf((raw - 32.0) / 49.0, 0.0, 1.2)
+	return clampi(int(round(44.0 + pow(t, 0.92) * 48.0)), 1, 99)
+
+
+## Second role only when the season numbers clear a gate. Empty string means
+## one role. Must match tools/sim_harness.py::assign_secondary.
+static func assign_secondary(p: Dictionary) -> String:
+	var scores: Dictionary = p["role_scores"]
+	var primary := str(p["role"])
+	var best := ""
+	var best_v := -1.0
+	for role in ["FWD", "MID", "DEF", "RUCK"]:
+		if role == primary:
+			continue
+		var sc: float = float(scores.get(role, -1.0))
+		if sc < 0.0 or not _secondary_ok(p, primary, role, sc):
+			continue
+		if sc > best_v:
+			best_v = sc
+			best = role
+	return best
+
+
+static func _secondary_ok(p: Dictionary, primary: String, role: String, sc: float) -> bool:
+	var primary_sc: float = float(p["role_scores"].get(primary, 0.0))
+	var games := maxf(1.0, float(p["gm"]))
+	if role == "FWD":
+		if sc < 0.46 or (int(p["gl"]) < 12 and int(p["mi"]) < 18):
+			return false
+		return sc >= primary_sc * 0.50
+	if role == "MID":
+		if sc < 0.52 or float(p["di"]) / games < 16.0:
+			return false
+		return sc >= primary_sc * 0.58
+	if role == "DEF":
+		if sc < 0.50 or (float(p["rb"]) + float(p["onepct"])) / games < 3.2:
+			return false
+		return sc >= primary_sc * 0.60
+	if role == "RUCK":
+		return float(p["ho"]) / games >= 5.0 and sc >= 0.75
+	return false
+
+
+static func role_tag(p: Dictionary) -> String:
+	var primary := str(p.get("role", ""))
+	var secondary := str(p.get("role2", ""))
+	if secondary == "" or secondary == primary:
+		return primary
+	return "%s/%s" % [primary, secondary]
+
+
+static func plays_role(p: Dictionary, role: String) -> bool:
+	if role == "":
+		return true
+	return str(p.get("role", "")) == role or str(p.get("role2", "")) == role
 
 
 ## Draft salary-cap cost (1-10) derived from the overall rating.
@@ -300,15 +368,23 @@ static func select_22(list_players: Array) -> Dictionary:
 		for p in pool:
 			if added >= need:
 				break
-			if p["role"] == role and not used.has(p["id"]):
-				ground.append(p)
+			if str(p["role"]) == role and not used.has(p["id"]):
+				ground.append(_for_slot(p, role))
+				used[p["id"]] = true
+				added += 1
+		# A MID/FWD can fill a forward slot once the primary forwards are gone.
+		for p in pool:
+			if added >= need:
+				break
+			if str(p.get("role2", "")) == role and not used.has(p["id"]):
+				ground.append(_for_slot(p, role))
 				used[p["id"]] = true
 				added += 1
 	for p in pool:
 		if ground.size() >= 18:
 			break
 		if not used.has(p["id"]):
-			ground.append(p)
+			ground.append(_for_slot(p, str(p["role"])))
 			used[p["id"]] = true
 
 	var bench: Array = []
@@ -319,3 +395,11 @@ static func select_22(list_players: Array) -> Dictionary:
 			bench.append(p)
 
 	return {"ground": ground.slice(0, 18), "bench": bench}
+
+
+## Copy so the match-day slot does not rewrite the list player's natural role.
+static func _for_slot(p: Dictionary, slot: String) -> Dictionary:
+	var copy := p.duplicate()
+	copy["list_tag"] = role_tag(p)
+	copy["role"] = slot
+	return copy

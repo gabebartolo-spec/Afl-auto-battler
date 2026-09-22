@@ -263,6 +263,7 @@ def derive_ratings(players):
             role_scores["RUCK"] = -1.0
         p["role"] = max(role_scores, key=role_scores.get)
         p["role_scores"] = role_scores
+        p["role2"] = assign_secondary(p)
 
         # ---- overall + salary value --------------------------------------
         w = {"RUCK": (0.30, 0.10, 0.10, 0.20, 0.30),
@@ -275,10 +276,68 @@ def derive_ratings(players):
         overall = 0.70 * core + 0.22 * a["star"] + 0.08 * a["durability"]
         conf = min(1.0, p["gm"] / 14.0)
         overall = 40.0 + (overall - 40.0) * (0.40 + 0.60 * conf)
-        p["overall"] = int(round(max(1, min(99, overall))))
+        p["overall"] = scale_overall(overall)
         p["value"] = salary_value(p["overall"])
 
     return players
+
+
+def scale_overall(raw):
+    """Match Ratings.gd::scale_overall. Best players land near 90."""
+    raw = float(raw)
+    if raw < 32.0:
+        return int(max(1, min(99, round(30.0 + (raw - 20.0) * (14.0 / 12.0)))))
+    t = (raw - 32.0) / 49.0
+    t = 0.0 if t < 0.0 else (1.2 if t > 1.2 else t)
+    eased = t ** 0.92
+    return int(max(1, min(99, round(44.0 + eased * 48.0))))
+
+
+def assign_secondary(p):
+    """Match Ratings.gd::assign_secondary."""
+    scores = p["role_scores"]
+    primary = p["role"]
+    best, best_v = "", -1.0
+    for role in ("FWD", "MID", "DEF", "RUCK"):
+        if role == primary:
+            continue
+        sc = scores.get(role, -1.0)
+        if sc < 0.0 or not _secondary_ok(p, primary, role, sc):
+            continue
+        if sc > best_v:
+            best_v, best = sc, role
+    return best
+
+
+def _secondary_ok(p, primary, role, sc):
+    primary_sc = p["role_scores"].get(primary, 0.0)
+    games = max(1.0, p["gm"])
+    if role == "FWD":
+        if sc < 0.46 or (p["gl"] < 12 and p["mi"] < 18):
+            return False
+        return sc >= primary_sc * 0.50
+    if role == "MID":
+        if sc < 0.52 or p["di"] / games < 16.0:
+            return False
+        return sc >= primary_sc * 0.58
+    if role == "DEF":
+        if sc < 0.50 or (p["rb"] + p["onepct"]) / games < 3.2:
+            return False
+        return sc >= primary_sc * 0.60
+    if role == "RUCK":
+        return p["ho"] / games >= 5.0 and sc >= 0.75
+    return False
+
+
+def usage_multiplier(disposals, focused=False):
+    """Match MatchSim.gd::_usage_mult. Fades a player out of possession once
+    they have already had a realistic game."""
+    start = 21.0 if focused else 18.0
+    if disposals <= start:
+        return 1.0
+    over = disposals - start
+    width = 5.4 if focused else 6.4
+    return max(0.02, math.exp(-(over * over) / (width * width)))
 
 
 def salary_value(overall):
@@ -338,18 +397,36 @@ class Squad:
                         + 0.18 * self.team_discipline)
 
 
+def _for_slot(p, slot):
+    copy = dict(p)
+    copy["role"] = slot
+    return copy
+
+
 def select_22(list_players):
     pool = sorted(list_players, key=lambda p: p["overall"], reverse=True)
     ground, used = [], set()
     for role, need in GROUND_SLOTS.items():
-        for p in [x for x in pool if x["role"] == role and x["id"] not in used][:need]:
-            ground.append(p)
-            used.add(p["id"])
+        added = 0
+        for p in pool:
+            if added >= need:
+                break
+            if p["role"] == role and p["id"] not in used:
+                ground.append(_for_slot(p, role))
+                used.add(p["id"])
+                added += 1
+        for p in pool:
+            if added >= need:
+                break
+            if p.get("role2", "") == role and p["id"] not in used:
+                ground.append(_for_slot(p, role))
+                used.add(p["id"])
+                added += 1
     for p in pool:                      # fill structural shortfalls
         if len(ground) >= 18:
             break
         if p["id"] not in used:
-            ground.append(p)
+            ground.append(_for_slot(p, p["role"]))
             used.add(p["id"])
     bench = [p for p in pool if p["id"] not in used][:INTERCHANGE]
     return ground[:18], bench
@@ -389,10 +466,15 @@ class MatchSim:
                 "side": side, "kind": kind,
                 "score": [self.stats.score(0), self.stats.score(1)]})
 
-    def _weighted(self, group, key, power=2.0):
+    def _weighted(self, group, key, power=2.0, usage=False):
         if not group:
             return None
-        w = [max(1.0, p["attr"][key]) ** power for p in group]
+        w = []
+        for p in group:
+            base = max(1.0, p["attr"][key]) ** power
+            if usage:
+                base *= usage_multiplier(self.stats.player[p["id"]]["disposals"])
+            w.append(max(base, 1e-6))
         return self.rng.choices(group, w)[0]
 
     def contest_winner(self, fp):
@@ -418,7 +500,7 @@ class MatchSim:
         else:
             group = [p for p in sq.ground if p["role"] in ("MID", "RUCK", "DEF")]
             key = "disposal"
-        return self._weighted(group or sq.ground, key)
+        return self._weighted(group or sq.ground, key, usage=True)
 
     def _stoppage(self, side, opp, from_bounce):
         """Ruck contest + clearance at a genuine stoppage."""
