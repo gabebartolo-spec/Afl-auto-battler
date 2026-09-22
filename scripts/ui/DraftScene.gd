@@ -793,9 +793,14 @@ func _refresh_mine() -> void:
 func _refresh_order() -> void:
 	UiKit.clear(_order_box)
 	var round_no := mini(_draft.current_round(), _draft.target_size)
-	_order_box.add_child(UiKit.lbl("ROUND %d / %d · %s" % [round_no, _draft.target_size,
-			"REVERSE" if round_no % 2 == 0 else "FORWARD"], 13, UiKit.GOLD, true))
-	_order_box.add_child(UiKit.lbl("The order reverses each round. Highlighted club = you.", 13, UiKit.MUTED))
+	var going_back := round_no % 2 == 0
+	_order_box.add_child(UiKit.lbl("ROUND %d / %d" % [round_no, _draft.target_size], 12, UiKit.MUTED, true))
+	var direction := UiKit.heading("‹ ORDER" if going_back else "ORDER ›", 28)
+	direction.add_theme_color_override("font_color", UiKit.GOLD)
+	_order_box.add_child(direction)
+	_order_box.add_child(UiKit.lbl(
+			"The arrow is the way this round's order runs. It flips every round. Highlighted club = you.",
+			13, UiKit.MUTED))
 	var start := (round_no - 1) * _draft.clubs.size()
 	for i in range(_draft.clubs.size()):
 		var index := start + i
@@ -804,6 +809,9 @@ func _refresh_order() -> void:
 		var p := _row_panel(mine)
 		var h := UiKit.hbox(7)
 		p.add_child(h)
+		var arrow := UiKit.line("‹" if going_back else "›", 16, UiKit.GOLD, true)
+		arrow.custom_minimum_size.x = 16
+		h.add_child(arrow)
 		var number := UiKit.line("#%d" % (index + 1), 13, UiKit.MUTED)
 		number.custom_minimum_size.x = 34
 		h.add_child(number)

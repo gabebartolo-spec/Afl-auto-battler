@@ -121,13 +121,16 @@ func _controls(season: Season) -> Control:
 	var buttons: Array = []
 	if season.is_season_over():
 		buttons.append(_nav_button("Season Review", func(): Router.go("season_review"), true))
+		buttons.append(_nav_button("Training", func(): Router.go("training")))
 		buttons.append(_nav_button("Main Menu", func(): Router.to_main_menu()))
 	elif _upcoming_match().is_empty():
 		buttons.append(_nav_button("Sim to Grand Final", _on_sim_to_end, true))
+		buttons.append(_nav_button("Training", func(): Router.go("training")))
 		buttons.append(_nav_button("Full Ladder", func(): Router.go("ladder")))
 		buttons.append(_nav_button("My List", func(): Router.go("list")))
 	else:
 		buttons.append(_nav_button("Play Match", _on_play_match, true))
+		buttons.append(_nav_button("Training", func(): Router.go("training")))
 		buttons.append(_nav_button("Sim Round", _on_sim_round))
 		buttons.append(_nav_button("Full Ladder", func(): Router.go("ladder")))
 		buttons.append(_nav_button("My List", func(): Router.go("list")))
@@ -236,9 +239,19 @@ func _show_results(results: Array) -> void:
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.ellipsis(GameState.last_label, 22, UiKit.GOLD, true))
 	v.add_child(_results_list(results))
+	var report: Dictionary = GameState.last_training_report
+	if not GameState.last_match.is_empty() and int(report.get("count", 0)) > 0:
+		v.add_child(UiKit.lbl("Your list gained %d XP across %d players." % [
+				int(report["total"]), int(report["count"])], 14, UiKit.TEXT, true))
 	if GameState.season.is_season_over():
 		v.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(GameState.premier()),
 				18, UiKit.TEXT, true))
+	if not GameState.last_match.is_empty():
+		var train := UiKit.btn("Training", 16)
+		train.pressed.connect(func():
+			overlay.queue_free()
+			Router.go("training"))
+		box["footer"].add_child(train)
 	var ok := UiKit.btn("Continue", 17, true)
 	ok.pressed.connect(func():
 		overlay.queue_free()

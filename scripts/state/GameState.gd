@@ -27,6 +27,22 @@ var last_match: Dictionary = {}  # YOUR match from that round, with events
 var last_phase := ""             # "regular" | "finals" | "done"
 var last_label := ""             # "Round 7" / "Grand Final" / ...
 var season_log: Array = []       # every result, for the season review screen
+## Last game's per-player XP. The training menu reads this so the whole list
+## is visible, not a five-name sample.
+var last_training_report: Dictionary = {}
+var _xp_grant_key := ""
+
+const TRAIN_STATS := [
+	["disposal", "Disposal"], ["contested", "Contested"], ["marking", "Marking"],
+	["pressure", "Pressure"], ["intercept", "Intercept"], ["carry", "Carry"],
+	["goalkicking", "Goalkicking"], ["accuracy", "Accuracy"],
+	["creating", "Creating"], ["ruck", "Ruck"], ["discipline", "Discipline"],
+	["durability", "Durability"], ["star", "Star power"],
+]
+const XP_SQUAD := 6
+const XP_SELECTED := 8
+const XP_NAMED := 4
+const XP_PERF_CAP := 36
 
 
 func set_show_real_names(enabled: bool) -> void:
@@ -52,6 +68,8 @@ func reset() -> void:
 	last_phase = ""
 	last_label = ""
 	season_log = []
+	last_training_report = {}
+	_xp_grant_key = ""
 
 
 func begin_draft() -> void:
@@ -63,20 +81,25 @@ func begin_draft() -> void:
 ## new list. Original club lists are only used by the legacy/test fallback.
 func start_season(club_code: String, list: Array) -> void:
 	my_club = club_code
-	my_list = list
 	var lists := {}
 	if draft != null and draft.league_mode and draft.is_finished():
 		league_lists = draft.all_lists()
 		for code in GameDB.CLUB_ORDER:
-			lists[code] = (league_lists.get(code, []) as Array).duplicate()
+			lists[code] = _career_copies(league_lists.get(code, []))
 	else:
 		# Fallback for tests or old saves: your drafted list plus real AI lists.
 		for code in GameDB.CLUB_ORDER:
-			lists[code] = my_list if code == my_club else GameDB.club_list(code)
+			var source: Array = list if code == club_code else GameDB.club_list(code)
+			lists[code] = _career_copies(source)
+	# Career copies, not the shared database rows. Training must not rewrite
+	# the draft pool for the next career.
+	my_list = lists.get(my_club, [])
 	season = Season.new(GameDB.CLUB_ORDER.duplicate(), lists,
 			int(Time.get_unix_time_from_system()) % 1000000)
 	last_phase = "regular"
 	last_label = "Round 1"
+	last_training_report = {}
+	_xp_grant_key = ""
 
 
 func prepare_interactive_match() -> bool:
@@ -133,6 +156,7 @@ func finish_interactive_match(res: Dictionary) -> void:
 	last_label = str(res["label"])
 	for r in played:
 		season_log.append(r)
+	_grant_match_xp(res)
 	pending_match = {}
 	pending_sim = null
 	pending_round_results = []
@@ -170,6 +194,7 @@ func advance() -> String:
 		season_log.append(res)
 		if res["home"] == my_club or res["away"] == my_club:
 			last_match = res
+	_grant_match_xp(last_match)
 	return last_phase
 
 
@@ -229,44 +254,201 @@ func premier() -> String:
 	return str(season.finals.get("premier", "")) if season != null else ""
 
 
-func train_my_list(focus: String) -> Array:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = int(Time.get_unix_time_from_system()) + my_list.size() * 31
-	var focus_map := {
-		"skills": ["disposal", "carry", "discipline"],
-		"contest": ["contested", "pressure", "ruck"],
-		"goal": ["goalkicking", "accuracy", "marking", "creating"],
-		"recovery": ["durability", "pressure"],
-	}
-	var attrs: Array = focus_map.get(focus, ["disposal"]) as Array
-	var weighted := []
-	for p in my_list:
-		var gm := float(p.get("gm", 20.0))
-		var upside := clampf((28.0 - gm) / 28.0, 0.15, 1.0)
-		var tickets := maxi(1, roundi(1.0 + upside * 6.0))
-		for i in range(tickets):
-			weighted.append(p)
-	var out := []
-	var used := {}
-	while out.size() < 5 and not weighted.is_empty():
-		var p: Dictionary = weighted[rng.randi_range(0, weighted.size() - 1)]
-		if used.has(str(p["id"])):
-			weighted.erase(p)
+## Deep copy so a career can raise attributes without mutating GameDB.
+func _career_copies(source: Array) -> Array:
+	var out: Array = []
+	for p in source:
+		if not (p is Dictionary):
 			continue
-		used[str(p["id"])] = true
-		var gm := float(p.get("gm", 20.0))
-		var young_mult := clampf((30.0 - gm) / 18.0, 0.35, 1.65)
-		var attr_key := str(attrs[rng.randi_range(0, attrs.size() - 1)])
-		var gain := maxi(1, roundi(rng.randf_range(0.7, 1.8) * young_mult))
-		var attr: Dictionary = p["attr"]
-		var before := int(attr.get(attr_key, 1))
-		attr[attr_key] = mini(99, before + gain)
-		var old_ov := int(p["overall"])
-		_recalc_player_overall(p)
-		out.append({"id": str(p.get("id", "")), "name": GameDB.player_display_name(p),
-				"gain": int(attr[attr_key]) - before,
-				"overall_gain": int(p["overall"]) - old_ov})
+		var copy: Dictionary = (p as Dictionary).duplicate(true)
+		copy["xp"] = 0
+		copy["xp_games"] = 0
+		out.append(copy)
 	return out
+
+
+func list_player(player_id: String) -> Dictionary:
+	for p in my_list:
+		if str(p.get("id", "")) == player_id:
+			return p
+	return {}
+
+
+func train_stat_label(key: String) -> String:
+	for row in TRAIN_STATS:
+		if str(row[0]) == key:
+			return str(row[1])
+	return key
+
+
+func xp_gain_for(player_id: String) -> int:
+	for row in last_training_report.get("rows", []):
+		if str(row.get("id", "")) == player_id:
+			return int(row.get("xp", 0))
+	return 0
+
+
+func last_duty(player_id: String) -> String:
+	for row in last_training_report.get("rows", []):
+		if str(row.get("id", "")) != player_id:
+			continue
+		if bool(row.get("on_ground", false)):
+			return "On the ground"
+		if bool(row.get("on_bench", false)):
+			return "Interchange"
+		return "Not selected"
+	return ""
+
+
+func _grant_match_xp(res: Dictionary) -> void:
+	if res.is_empty() or my_list.is_empty() or my_club == "":
+		return
+	if str(res.get("home", "")) != my_club and str(res.get("away", "")) != my_club:
+		return
+	var key := "%s|%s|%s|%s" % [str(res.get("round", "")), str(res.get("label", "")),
+			str(res.get("home", "")), str(res.get("away", ""))]
+	if key == _xp_grant_key:
+		return
+	_xp_grant_key = key
+	last_training_report = grant_match_xp(res)
+
+
+## Every player on the list is paid. Named players and good games earn more.
+## The old trainer picked five names at random and hid everyone else.
+func grant_match_xp(res: Dictionary) -> Dictionary:
+	var stats_all: Dictionary = res.get("players", {})
+	var squad := Squad.new(GameDB.club_name(my_club), my_list,
+			str(res.get("home", "")) == my_club, my_club)
+	var ground_ids := {}
+	var bench_ids := {}
+	for p in squad.ground:
+		ground_ids[str(p["id"])] = true
+	for p in squad.bench:
+		bench_ids[str(p["id"])] = true
+	var rows: Array = []
+	var total := 0
+	for p in my_list:
+		var id := str(p["id"])
+		var on_ground := ground_ids.has(id)
+		var on_bench := bench_ids.has(id)
+		var stats: Dictionary = stats_all.get(id, {})
+		var gain := _xp_amount(stats, on_ground, on_bench)
+		p["xp"] = int(p.get("xp", 0)) + gain
+		p["xp_games"] = int(p.get("xp_games", 0)) + 1
+		total += gain
+		rows.append({
+			"id": id,
+			"xp": gain,
+			"on_ground": on_ground,
+			"on_bench": on_bench,
+		})
+	rows.sort_custom(func(a, b): return int(a["xp"]) > int(b["xp"]))
+	return {
+		"label": str(res.get("label", last_label)),
+		"home": str(res.get("home", "")),
+		"away": str(res.get("away", "")),
+		"rows": rows,
+		"total": total,
+		"count": rows.size(),
+	}
+
+
+func _xp_amount(stats: Dictionary, on_ground: bool, on_bench: bool) -> int:
+	var xp := XP_SQUAD
+	if on_ground or on_bench:
+		xp += XP_SELECTED
+	if on_ground:
+		xp += XP_NAMED
+	if stats.is_empty():
+		return xp
+	var perf := 0
+	perf += int(stats.get("disposals", 0))
+	perf += int(stats.get("marks", 0))
+	perf += int(stats.get("tackles", 0))
+	perf += int(stats.get("goals", 0)) * 8
+	perf += int(stats.get("behinds", 0)) * 2
+	perf += int(float(stats.get("hitouts", 0)) / 2.0)
+	perf += int(stats.get("inside50", 0)) * 2
+	perf += int(stats.get("clearances", 0)) * 2
+	perf += int(stats.get("rebounds", 0))
+	perf += int(stats.get("one_percenters", 0))
+	perf -= int(stats.get("clangers", 0))
+	return xp + clampi(perf, 0, XP_PERF_CAP)
+
+
+func train_cost(p: Dictionary, attr_key: String) -> int:
+	if not (p.get("attr", {}) as Dictionary).has(attr_key):
+		return -1
+	var cur := int((p["attr"] as Dictionary).get(attr_key, 1))
+	if cur >= 99:
+		return -1
+	return _cost_for(cur, float(p.get("gm", 18.0)))
+
+
+func _cost_for(cur: int, games: float) -> int:
+	var exp_mult := clampf(0.70 + games / 40.0, 0.70, 1.20)
+	return maxi(8, int(round((8.0 + float(cur) * 0.40) * exp_mult)))
+
+
+func affordable_points(player_id: String, attr_key: String, cap := 5) -> int:
+	var p := list_player(player_id)
+	if p.is_empty():
+		return 0
+	var xp := int(p.get("xp", 0))
+	var cur := int((p["attr"] as Dictionary).get(attr_key, 1))
+	var games := float(p.get("gm", 18.0))
+	var n := 0
+	while n < cap and cur < 99:
+		var cost := _cost_for(cur, games)
+		if xp < cost:
+			break
+		xp -= cost
+		cur += 1
+		n += 1
+	return n
+
+
+## Spend a player's own XP on one stat. `points` is a cap, not a promise:
+## the call stops at 99 or when the bank runs out.
+func train_stat(player_id: String, attr_key: String, points := 1) -> Dictionary:
+	var fail := {"ok": false, "reason": "Could not train that stat.", "points": 0, "cost": 0}
+	var p := list_player(player_id)
+	if p.is_empty():
+		fail["reason"] = "That player is not on your list."
+		return fail
+	if not (p.get("attr", {}) as Dictionary).has(attr_key):
+		fail["reason"] = "That stat cannot be trained."
+		return fail
+	var spent := 0
+	var gained := 0
+	var ov_before := int(p["overall"])
+	var stat_before := int(p["attr"][attr_key])
+	for _step in range(maxi(1, points)):
+		var cost := train_cost(p, attr_key)
+		if cost < 0 or int(p.get("xp", 0)) < cost:
+			break
+		p["xp"] = int(p["xp"]) - cost
+		p["attr"][attr_key] = mini(99, int(p["attr"][attr_key]) + 1)
+		spent += cost
+		gained += 1
+	if gained == 0:
+		var needed := train_cost(p, attr_key)
+		fail["cost"] = needed
+		fail["reason"] = "That stat is already 99." if needed < 0 else "Needs %d XP." % needed
+		return fail
+	_recalc_player_overall(p)
+	return {
+		"ok": true,
+		"reason": "",
+		"points": gained,
+		"cost": spent,
+		"stat_before": stat_before,
+		"stat_after": int(p["attr"][attr_key]),
+		"overall_before": ov_before,
+		"overall_after": int(p["overall"]),
+		"xp": int(p["xp"]),
+		"attr": attr_key,
+	}
 
 
 func _recalc_player_overall(p: Dictionary) -> void:
