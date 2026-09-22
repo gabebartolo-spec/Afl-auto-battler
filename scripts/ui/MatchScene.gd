@@ -24,6 +24,7 @@ var _body: BoxContainer
 var _interactive := false
 var _event_cursor := 0
 var _my_side := 0
+var _half_time_report := {}
 var _training_done := false
 var _margin: MarginContainer
 var _stacked := false
@@ -50,6 +51,8 @@ func _ready() -> void:
 		_my_side = 0 if str(_res["home"]) == GameState.my_club else 1
 	else:
 		_res = GameState.last_match
+		if not _res.is_empty() and GameState.my_club != "":
+			_my_side = 0 if str(_res.get("home", "")) == GameState.my_club else 1
 	if _res.is_empty():
 		Router.replace("hub")
 		return
@@ -292,13 +295,29 @@ func _show_coach_box() -> void:
 		return
 	_pitch.pause()
 	_sync_controls()
-	var box := UiKit.modal_box(self, 620.0, 640.0)
+	var q := GameState.pending_sim.current_quarter
+	var is_half_time := q == 3
+	var box := UiKit.modal_box(self, 860.0 if is_half_time else 620.0, 0.0 if is_half_time else 640.0)
 	var overlay: Control = box["overlay"]
 	_coach_overlay = overlay
 	var v: VBoxContainer = box["body"]
-	var q := GameState.pending_sim.current_quarter
-	v.add_child(UiKit.ellipsis("Coach Box - Quarter %d" % q, 22, UiKit.GOLD, true))
-	v.add_child(UiKit.lbl("Set the plan before this quarter is simulated. The opposition has not been rolled yet.",
+	if is_half_time:
+		v.add_child(UiKit.ellipsis("Half Time - Assistant Coach Report", 22, UiKit.GOLD, true))
+		var report := CoachReport.half_time_report(_res, _my_side)
+		_half_time_report = report
+		v.add_child(_half_time_report_view(report))
+		v.add_child(UiKit.spacer(10))
+		v.add_child(UiKit.ellipsis("Coach Box - Quarter 3", 20, UiKit.GOLD, true))
+		v.add_child(UiKit.lbl("Set the second-half plan. The opposition Q3 plan has not been rolled yet.",
+			13, UiKit.MUTED))
+		_feed_note("Assistant report delivered - see the Coach Box.")
+	else:
+		v.add_child(UiKit.ellipsis("Coach Box - Quarter %d" % q, 22, UiKit.GOLD, true))
+		if q == 4 and not _half_time_report.is_empty():
+			var review := UiKit.btn("Review half-time report", 14)
+			review.pressed.connect(func(): _show_half_time_popup(_half_time_report))
+			v.add_child(review)
+		v.add_child(UiKit.lbl("Set the plan before this quarter is simulated. The opposition has not been rolled yet.",
 			13, UiKit.MUTED))
 
 	var plan := OptionButton.new()
@@ -373,6 +392,175 @@ func _roster_side(side: int) -> Array:
 	var out: Array = roster[side].duplicate()
 	out.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
 	return out
+
+
+# ---------------------------------------------------------------------------
+# Half-time assistant coach report
+# ---------------------------------------------------------------------------
+func _show_half_time_popup(report: Dictionary) -> void:
+	var box := UiKit.modal_box(self, 860.0, 0.0)
+	var overlay: Control = box["overlay"]
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.ellipsis("Half Time - Assistant Coach Report", 20, UiKit.GOLD, true))
+	v.add_child(_half_time_report_view(report))
+	var close := UiKit.btn("Close report", 16, true)
+	close.pressed.connect(func(): overlay.queue_free())
+	box["footer"].add_child(close)
+
+
+func _half_time_report_view(report: Dictionary) -> Control:
+	var v := UiKit.vbox(8)
+	var margin := int(report.get("margin", 0))
+	var my_code := str(report.get("my_code", ""))
+	var opp_code := str(report.get("opp_code", ""))
+	var my_sc := UiKit.scoreline(int(report.get("my_goals", 0)), int(report.get("my_behinds", 0)))
+	var opp_sc := UiKit.scoreline(int(report.get("opp_goals", 0)), int(report.get("opp_behinds", 0)))
+	var verb := "level"
+	if margin > 0:
+		verb = "up by %d" % margin
+	elif margin < 0:
+		verb = "down by %d" % absi(margin)
+	v.add_child(UiKit.lbl("Half time: %s %s vs %s %s (%s)" % [
+		GameDB.club_name(my_code), my_sc, GameDB.club_name(opp_code), opp_sc, verb],
+		15, UiKit.TEXT, true))
+
+	v.add_child(UiKit.lbl("Opposition strategy (Q1-Q2)", 15, UiKit.GOLD, true))
+	v.add_child(_report_opp_plans(report))
+
+	v.add_child(UiKit.lbl("Where the game is being won", 15, UiKit.GOLD, true))
+	v.add_child(_report_edges_table(report))
+
+	var narrow := UiKit.view_width(self) < 720.0
+	var cols: BoxContainer
+	if narrow:
+		cols = UiKit.vbox(10)
+	else:
+		cols = UiKit.hbox(12)
+	v.add_child(cols)
+
+	var left := UiKit.vbox(6)
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cols.add_child(left)
+	left.add_child(UiKit.lbl("Your best", 14, UiKit.GOOD, true))
+	for e in report.get("my_best", []):
+		left.add_child(_report_player_row(e, true))
+	left.add_child(UiKit.spacer(4))
+	left.add_child(UiKit.lbl("Your quiet ones - need a lift", 14, UiKit.BAD, true))
+	for e in report.get("my_worst", []):
+		left.add_child(_report_player_row(e, false))
+
+	var right := UiKit.vbox(6)
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cols.add_child(right)
+	right.add_child(UiKit.lbl("Opposition danger", 14, UiKit.GOLD, true))
+	for e in report.get("opp_best", []):
+		right.add_child(_report_player_row(e, true))
+	right.add_child(UiKit.spacer(4))
+	right.add_child(UiKit.lbl("Opposition quiet", 14, UiKit.MUTED, true))
+	for e in report.get("opp_worst", []):
+		right.add_child(_report_player_row(e, false))
+
+	v.add_child(UiKit.lbl("Second-half keys", 15, UiKit.GOLD, true))
+	for k in report.get("keys", []):
+		v.add_child(UiKit.lbl("- " + str(k), 13, UiKit.TEXT))
+
+	var my_plans: Array = report.get("my_plans", [])
+	if not my_plans.is_empty():
+		var bits := PackedStringArray()
+		for p in my_plans:
+			var d: Dictionary = p
+			bits.append("Q%d %s" % [int(d.get("quarter", 0)), str(d.get("gameplan_label", "Balanced"))])
+		v.add_child(UiKit.lbl("Your first half: " + ", ".join(bits), 12, UiKit.MUTED))
+	return v
+
+
+func _report_opp_plans(report: Dictionary) -> Control:
+	var v := UiKit.vbox(4)
+	var opp_plans: Array = report.get("opp_plans", [])
+	if opp_plans.is_empty():
+		v.add_child(UiKit.lbl("No gameplan data recorded for the first half.", 13, UiKit.MUTED))
+		return v
+	for p in opp_plans:
+		var d: Dictionary = p
+		v.add_child(UiKit.lbl("Q%d: %s" % [int(d.get("quarter", 0)),
+			str(d.get("gameplan_label", "Balanced"))], 14, UiKit.TEXT, true))
+		v.add_child(UiKit.lbl(str(d.get("effect", "")), 12, UiKit.MUTED))
+		var extras := PackedStringArray()
+		if str(d.get("focus_name", "")) != "":
+			extras.append("Ran play through %s" % str(d.get("focus_name", "")))
+		if str(d.get("tag_name", "")) != "":
+			extras.append("Tagged %s" % str(d.get("tag_name", "")))
+		var pep := str(d.get("pep", "steady"))
+		if pep == "fire_up":
+			extras.append("Fired up (+contest, +ball-winning)")
+		elif pep != "steady" and pep != "":
+			extras.append("Pep: %s" % str(d.get("pep_label", pep)))
+		if not extras.is_empty():
+			v.add_child(UiKit.lbl("  " + "; ".join(extras), 12, UiKit.TEXT))
+	for o in report.get("opp_observed", []):
+		v.add_child(UiKit.lbl(str(o), 12, UiKit.MUTED))
+	return v
+
+
+func _report_edges_table(report: Dictionary) -> Control:
+	var v := UiKit.vbox(2)
+	var edges: Array = report.get("edges", [])
+	var h0 := UiKit.hbox(4)
+	v.add_child(h0)
+	h0.add_child(_qcell(str(report.get("my_code", "US")), 52, UiKit.TEXT, 12, true))
+	var gap := UiKit.line("", 12, UiKit.MUTED)
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h0.add_child(gap)
+	h0.add_child(_qcell(str(report.get("opp_code", "OPP")), 52, UiKit.TEXT, 12, true))
+	for e in edges:
+		var d: Dictionary = e
+		var h := UiKit.hbox(4)
+		v.add_child(h)
+		var my_v := int(d.get("my", 0))
+		var opp_v := int(d.get("opp", 0))
+		var lower_better := bool(d.get("lower_better", false))
+		var my_win := (my_v > opp_v) if (not lower_better) else (my_v < opp_v)
+		var opp_win := (opp_v > my_v) if (not lower_better) else (opp_v < my_v)
+		h.add_child(_qcell(str(my_v), 52, UiKit.GOOD if my_win else UiKit.TEXT, 12, my_win))
+		var lab := UiKit.ellipsis(str(d.get("label", "")), 12, UiKit.MUTED)
+		lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		h.add_child(lab)
+		h.add_child(_qcell(str(opp_v), 52, UiKit.GOOD if opp_win else UiKit.TEXT, 12, opp_win))
+	var eff: Dictionary = report.get("efficiency", {})
+	if not eff.is_empty():
+		v.add_child(UiKit.lbl("Shot conversion: us %.0f%% (%d entries) vs them %.0f%% (%d entries)" % [
+			float(eff.get("my_conv", 0.0)), int(eff.get("my_i50", 0)),
+			float(eff.get("opp_conv", 0.0)), int(eff.get("opp_i50", 0))], 12, UiKit.MUTED))
+	return v
+
+
+func _report_player_row(entry, good: bool) -> Control:
+	var e: Dictionary = entry
+	var v := UiKit.vbox(1)
+	var verdict := CoachReport.verdict_for(e, good)
+	var col := UiKit.GOOD if good else UiKit.BAD
+	if not good and verdict == "Par game":
+		col = UiKit.MUTED
+	v.add_child(UiKit.lbl("#%d %s (%s, OVR %d) - %s" % [
+		int(e.get("num", 0)), str(e.get("name", "Player")),
+		str(e.get("role", "")), int(e.get("overall", 0)), verdict], 13, col, true))
+	v.add_child(UiKit.lbl("%s  (%s vs par)" % [
+		str(e.get("line", "")), _signed_f(float(e.get("delta", 0.0)))], 12, UiKit.MUTED))
+	return v
+
+
+func _signed_f(x: float) -> String:
+	if x >= 0.0:
+		return "+%.1f" % x
+	return "%.1f" % x
+
+
+func _feed_note(text: String) -> void:
+	if _feed == null:
+		return
+	var l := UiKit.lbl("Half time  " + text, 12, UiKit.GOOD, true)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_feed.add_child(l)
 
 
 func _simulate_next_quarter(t: Dictionary) -> void:
@@ -554,6 +742,13 @@ func _show_fulltime() -> void:
 	right.add_child(UiKit.lbl("Best On Ground", 14, UiKit.GOLD, true))
 	right.add_child(_best_table())
 
+	var snaps: Array = _res.get("quarter_teams", [])
+	if snaps.size() >= 2:
+		var ht_btn := UiKit.btn("Half-time report", 15)
+		ht_btn.custom_minimum_size = Vector2(0, 44)
+		ht_btn.pressed.connect(func():
+			_show_half_time_popup(CoachReport.half_time_report(_res, _my_side)))
+		box["footer"].add_child(ht_btn)
 	var cont := UiKit.btn("Training Session", 18, true)
 	cont.custom_minimum_size = Vector2(0, 48)
 	cont.pressed.connect(func():
@@ -743,16 +938,9 @@ func _rank_side(list: Array, players: Dictionary) -> Array:
 
 
 ## Rough best-on-ground measure: weight goals and inside 50s above raw touches.
+## Shared with the half-time report so both screens rank players identically.
 func _influence(st: Dictionary) -> float:
-	return float(st.get("disposals", 0.0)) \
-			+ float(st.get("goals", 0.0)) * 5.0 \
-			+ float(st.get("marks", 0.0)) * 0.8 \
-			+ float(st.get("inside50", 0.0)) * 2.0 \
-			+ float(st.get("tackles", 0.0)) * 0.8 \
-			+ float(st.get("hitouts", 0.0)) * 0.7 \
-			+ float(st.get("clearances", 0.0)) * 1.2 \
-			+ float(st.get("one_percenters", 0.0)) * 0.6 \
-			- float(st.get("clangers", 0.0)) * 2.0
+	return CoachReport.influence(st)
 
 
 func _notification(what: int) -> void:

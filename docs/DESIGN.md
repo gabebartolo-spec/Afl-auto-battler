@@ -174,6 +174,24 @@ kicks 1.00, handballs 1.01, marks 1.02, inside 50s 1.00, score 0.94. Behinds
 > deliberate Python mirror of `scripts/sim/MatchSim.gd`. When a constant changes
 > in one, change it in the other.
 
+### Half-time assistant coach report
+Interactive matches pause at half-time with an assistant coach report inside the
+Q3 coach box (`scripts/sim/CoachReport.gd`, pure analysis, no RNG draws). It
+names your three best and three quietest players, the same two groups for the
+opposition, and the opposition's actual Q1/Q2 gameplans with their engine
+effects — read from `MatchSim.tactics_history`, not inferred. `MatchSim`
+also snapshots team and player totals after each quarter (`quarter_teams`), so
+the report can show per-quarter opposition output (points, inside 50s, tackles,
+clearances) and flag what a Q1→Q2 plan change produced. Best/worst uses the
+same influence weighting as the full-time best-on-ground list; "quiet" is
+ranked by actual-vs-expected influence for the player's rating, so a down star
+surfaces ahead of a depth player having a par game. Team edges (clearances,
+territory, pressure, ruck, errors, conversion) feed second-half keys that map
+to real coach-box answers (tag the danger man, run play through a quiet star,
+Win contest, Controlled tempo, Attack corridor, Defensive press). The report
+is re-viewable from the Q4 coach box and the full-time screen, including after
+Skip to full time, by reconstructing half-time from the Q2 snapshot.
+
 ---
 
 ## 4. Game structure
@@ -250,6 +268,7 @@ scripts/
     Ratings.gd         season stats -> 13 attributes, role, overall, salary value
     Squad.gd           44-player list -> best 18 + bench -> team strengths
     MatchSim.gd        the match engine, plus the event log the oval replays
+    CoachReport.gd     half-time assistant report (form + opposition gameplans)
     Season.gd          24-round fixture, ladder, finals bracket
     Draft.gd           salary cap, board filters, the 17 AI lists
   state/
