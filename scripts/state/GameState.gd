@@ -46,8 +46,8 @@ func begin_draft() -> void:
 	draft = Draft.new(GameDB.all_players_sorted(), GameDB.CLUB_ORDER.duplicate(), seed)
 
 
-## Commit the drafted list and build the season around it. The 17 AI clubs keep
-## the lists they actually fielded in 2026.
+## Commit the completed league draft and build the season from every club's
+## new list. Original club lists are only used by the legacy/test fallback.
 func start_season(club_code: String, list: Array) -> void:
 	my_club = club_code
 	my_list = list

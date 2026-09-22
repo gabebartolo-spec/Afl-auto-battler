@@ -25,6 +25,10 @@ var club_lists := {}              # code -> Array[player dict]
 var club_spend := {}              # code -> int
 var picked := {}                  # globally drafted player id -> player dict
 var order: Array = []             # user's player ids, in pick order
+## Successful selections only, in league-wide pick order. Kept in the model so
+## resizing or reopening the draft never loses the rival selections.
+var pick_history: Array = []
+var _pick_by_player := {}         # player id -> history entry
 
 
 func _init(all_players: Array, p_clubs: Array = [], p_seed: int = 0) -> void:
@@ -59,6 +63,8 @@ func _init_league_draft() -> void:
 	league_mode = true
 	picked = {}
 	order = []
+	pick_history = []
+	_pick_by_player = {}
 	club_lists = {}
 	club_spend = {}
 	for code in clubs:
@@ -145,8 +151,61 @@ func _draft_pick(code: String, p: Dictionary) -> bool:
 	club_spend[code] = int(club_spend[code]) + int(p["value"])
 	if code == user_club:
 		order.append(id)
+	var entry := {
+		"pick": pick_index + 1,
+		"round": current_round(),
+		"club": code,
+		"player_id": id,
+		"player_name": str(p["name"]),
+		"role": str(p["role"]),
+		"overall": int(p["overall"]),
+		"value": int(p["value"]),
+		"source_club": str(p["club"]),
+	}
+	pick_history.append(entry)
+	_pick_by_player[id] = entry
 	pick_index += 1
 	return true
+
+
+## The destination club is not p["club"]: that is the player's original club.
+func pick_details(player_id: String) -> Dictionary:
+	return _pick_by_player.get(player_id, {})
+
+
+func drafted_by(player_id: String) -> String:
+	return str(pick_details(player_id).get("club", ""))
+
+
+## Actual overall pick numbers, including the current turn, in snake order.
+## A limit of 0 returns the entire remaining schedule for the club.
+func upcoming_picks(code: String, limit := 3) -> Array:
+	var out := []
+	for i in range(pick_index, pick_sequence.size()):
+		if str(pick_sequence[i]) == code:
+			out.append(i + 1)
+			if limit > 0 and out.size() >= limit:
+				break
+	return out
+
+
+## Coverage guidance, not new drafting restrictions. Match selection needs
+## 5 DEF / 7 MID / 1 RUCK / 5 FWD, plus a flexible bench. The existing draft
+## validity rule additionally requires a second ruck on the list.
+func position_targets() -> Dictionary:
+	var out := {}
+	for slot in Ratings.GROUND_SLOTS:
+		out[str(slot[0])] = int(slot[1])
+	out["RUCK"] = 2
+	return out
+
+
+func position_needs() -> Dictionary:
+	var out := position_targets()
+	var counts := role_counts()
+	for role in out:
+		out[role] = maxi(0, int(out[role]) - int(counts[role]))
+	return out
 
 
 func _can_afford_for(code: String, p: Dictionary) -> bool:

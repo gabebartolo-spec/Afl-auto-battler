@@ -160,9 +160,16 @@ should be re-checked against the real ~33 pt league average.
 
 ## 4. Game structure
 
-* **Draft** — 18 clubs, snake order. You draft a full **44-player list** under a
-  salary cap; the 17 AI clubs each take 26. Position needs (ruck/mid/def/fwd)
-  and cap pressure are what make the draft a decision rather than a queue.
+* **Draft** — all 18 clubs start empty and share a random snake order, one
+  player pool and one salary cap. Every list has the same target size:
+  `min(44, floor(pool_size / club_count))`, currently **37**. The human selects
+  on their turns; rivals select between turns. Coverage needs and cap pressure
+  make the draft a decision rather than a queue. Only two rucks are mandatory.
+  `Draft.pick_history` records successful selections in sequence (overall pick,
+  round, destination club, player ID/name, original club, role, rating, cost).
+  Failed selections never create a record. Player ownership comes from this
+  log, **not** the player's original `club` field. History lives in GameState's
+  draft instance, independent of UI rebuilds.
 * **Season** — 24-round home-and-away fixture (each club meets every other at
   least once, plus 7 extra matches balancing home games), then the **AFL final
   eight**: top 4 get the double chance, 1QF/2QF → SF → PF → GF.
@@ -173,11 +180,25 @@ should be re-checked against the real ~33 pt league average.
 
 ## 5. Platform
 
-Godot 4.7, `mobile` renderer, 1280×720 base with `canvas_items` stretch and
-`expand` aspect so it adapts from phones to ultrawide. `sensor_landscape`
-orientation. Touch is first-class: `emulate_touch_from_mouse` and
-`emulate_mouse_from_touch` are both on, and all controls are `Control` nodes with
-≥48 px hit targets — no hover-dependent interaction.
+Godot 4.7, `mobile` renderer, `canvas_items` stretch with `expand` aspect and
+unrestricted sensor orientation (`DisplayServer.SCREEN_SENSOR`, value 6).
+`ScreenLayout` updates the logical viewport from the actual window size and
+pixel density on resize; it never scales a desktop-width canvas down to a
+portrait phone. The draft also applies OS safe-area insets. Touch/mouse
+emulation works both ways.
+
+The draft workspace uses portrait tabs or side-by-side panels at ≥760 UI units
+when wider than tall. Below 680 UI units high, it compacts its header and scrolls
+filters inside the panels, so expanded controls cannot push the footer off
+screen. A breakpoint rebuild only replaces view nodes: picks, history, filters,
+search text/caret, active tabs and scroll offsets are retained. Player/log rows
+are paginated in batches of 60, with access to the entire pool and history.
+The main actions, tabs and position counters have ≥44 UI-unit touch targets.
+
+The shared kit uses dark green panels, warm off-white text, terracotta actions,
+position-specific colours and bundled Barlow typography. Keyboard focus remains
+visible and labels distinguish needs from covered positions without relying
+on colour alone.
 
 UI is built **programmatically in GDScript** rather than in `.tscn` files. It
 keeps the checked-in scene count tiny, avoids fragile hand-edited scene text,
@@ -188,7 +209,7 @@ and makes responsive layout straightforward.
 ## 6. Repository layout
 
 ```
-project.godot          Godot 4.7 project (PC + mobile), three autoloads
+project.godot          Godot 4.7 project (PC + mobile), four autoloads
 icon.svg
 data/
   players_2026.csv     real 2026 player season stats - 669 players, 18 clubs
@@ -198,6 +219,7 @@ scripts/
   core/
     GameDB.gd          autoload; loads both CSVs, derives ratings, indexes by club
     Router.gd          autoload; scene stack with go / back / replace
+    ScreenLayout.gd    autoload; logical viewport density and safe-area insets
   sim/
     Ratings.gd         season stats -> 13 attributes, role, overall, salary value
     Squad.gd           44-player list -> best 18 + bench -> team strengths
@@ -235,10 +257,11 @@ tools/
 | Animated oval + UI | Done — all seven screens build their trees in code |
 
 ### Note on testing
-Godot cannot run in this sandbox (no engine binary, no outbound network), so the
-game is not playtested here. The simulation logic *is* tested — via
-`tools/sim_harness.py` — and the GDScript port reproduces those numbers by
-keeping an identical RNG call order. The GDScript itself was checked with a
-structural linter covering bracket balance, tab indentation, reserved-word
-collisions, private-call resolution and every cross-file `Class.member` and
-typed-instance member reference; open the project in Godot 4.7 to confirm.
+
+The draft UI and model were exercised in Godot 4.7.2's actual web renderer, not
+an HTML recreation. Regression scripts under `tests/` check every logged
+selection, snake order, ownership, cap/list invariants, position needs, all four
+draft tabs and rotation across ten viewports. Browser touch tests additionally
+cover signing, filters, resume and the season handoff. Native mobile sensor
+rotation, software keyboards and notches still require device checks; see
+`tests/README.md`.

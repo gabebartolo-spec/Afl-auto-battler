@@ -1,19 +1,19 @@
 extends Control
-## Main menu.
+## Main menu. The scrollable foreground also fits short landscape windows.
 
 var _pitch: PitchView
+var _buttons: VBoxContainer
+var _help_panel: PanelContainer
 
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-
-	# The oval doubles as the menu backdrop.
 	_pitch = PitchView.new()
 	_pitch.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_pitch.setup({"events": [], "roster": [[], []], "home": "", "away": ""})
 	_pitch.modulate = Color(1, 1, 1, 0.55)
+	_pitch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_pitch)
-
 	var shade := ColorRect.new()
 	shade.color = Color(0.02, 0.05, 0.03, 0.55)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -22,61 +22,63 @@ func _ready() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
+	for edge in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + edge, 16)
 	add_child(margin)
-
-	var v := UiKit.vbox(10)
+	var v := UiKit.vbox(12)
+	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	margin.add_child(v)
-
+	margin.add_child(UiKit.scroll(v))
 	v.add_child(UiKit.title("AFL AUTO-BATTLER"))
 	v.add_child(UiKit.subtitle(
-			"Take part in a full random serpentine league draft from real 2026 AFL season stats,\n"
-			+ "then play a 24-round home and away season plus finals."))
-	v.add_child(UiKit.spacer(22))
-
+			"Rebuild the league. Draft your list, then take it all the way to September."))
+	v.add_child(UiKit.spacer(12))
 	var stats := UiKit.lbl(_data_line(), 13, UiKit.MUTED)
 	stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(stats)
+	v.add_child(UiKit.spacer(8))
+	_buttons = UiKit.vbox(10)
+	_buttons.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(_buttons)
+
+	var resume_draft := GameState.draft != null and not GameState.draft.user_club.is_empty() \
+			and GameState.season == null
+	if resume_draft or GameState.season != null:
+		var resume := UiKit.btn("Resume Draft" if resume_draft else "Resume Season", 19, true)
+		resume.name = "ResumeCareer"
+		resume.pressed.connect(func(): Router.go("draft" if resume_draft else "hub"))
+		_buttons.add_child(resume)
+	var new_career := UiKit.btn("New Career", 19, not resume_draft and GameState.season == null)
+	new_career.name = "NewCareer"
+	new_career.pressed.connect(_on_new_career)
+	_buttons.add_child(new_career)
+	var help := UiKit.btn("How It Works", 17)
+	help.pressed.connect(_show_help)
+	_buttons.add_child(help)
+	if not OS.has_feature("web"):
+		var quit := UiKit.btn("Quit", 17)
+		quit.pressed.connect(func(): get_tree().quit())
+		_buttons.add_child(quit)
 	v.add_child(UiKit.spacer(14))
-
-	var buttons := UiKit.vbox(10)
-	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
-	buttons.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(buttons)
-
-	var b_new := UiKit.btn("New Career", 19, true)
-	b_new.custom_minimum_size = Vector2(340, 54)
-	b_new.pressed.connect(_on_new_career)
-	buttons.add_child(b_new)
-
-	var b_how := UiKit.btn("How It Works", 17)
-	b_how.custom_minimum_size = Vector2(340, 50)
-	b_how.pressed.connect(_show_help)
-	buttons.add_child(b_how)
-
-	var b_quit := UiKit.btn("Quit", 17)
-	b_quit.custom_minimum_size = Vector2(340, 50)
-	b_quit.pressed.connect(func(): get_tree().quit())
-	buttons.add_child(b_quit)
-
-	v.add_child(UiKit.spacer(26))
-	var foot := UiKit.lbl(
-			"Player data harvested from afltables.com (2026 season).  "
-			+ "Match engine calibrated against real team totals.",
-			11, Color(0.5, 0.56, 0.51))
+	var foot := UiKit.lbl("2026 player stats · 18 clubs · One new league", 12, UiKit.MUTED)
 	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(foot)
+	get_viewport().size_changed.connect(_layout)
+	_layout()
+
+
+func _layout() -> void:
+	_buttons.custom_minimum_size.x = minf(340, UiKit.view_width(self) - 32)
+	if is_instance_valid(_help_panel):
+		var viewport_size := get_viewport().get_visible_rect().size
+		_help_panel.size = Vector2(minf(560, viewport_size.x - 24), minf(600, viewport_size.y - 24))
+		_help_panel.position = (viewport_size - _help_panel.size) / 2
 
 
 func _data_line() -> String:
 	if not GameDB.loaded:
-		return "DATA NOT LOADED - check data/players_2026.csv"
-	return "%d players  -  %d clubs  -  %d rated attributes each" % [
-			GameDB.players.size(), GameDB.clubs.size(), 13]
+		return "Data not loaded — check data/players_2026.csv"
+	return "%d players · %d clubs · 13 rated attributes" % [GameDB.players.size(), GameDB.clubs.size()]
 
 
 func _on_new_career() -> void:
@@ -87,37 +89,25 @@ func _on_new_career() -> void:
 
 func _show_help() -> void:
 	var overlay := ColorRect.new()
-	overlay.color = Color(0, 0, 0, 0.72)
+	overlay.color = Color(0, 0, 0, 0.8)
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(overlay)
-
-	var centre := CenterContainer.new()
-	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(centre)
-
-	var p := UiKit.panel(UiKit.PANEL, 22, 12)
-	p.custom_minimum_size = Vector2(560, 0)
-	centre.add_child(p)
-
-	var v := UiKit.vbox(9)
-	p.add_child(v)
-	v.add_child(UiKit.lbl("How It Works", 24, UiKit.GOLD, true))
-	v.add_child(UiKit.lbl(
-			"1. Pick a club to take over. Every club starts with 0 players.\n\n"
-			+ "2. The league draft order is random, then serpentine: round two\n"
-			+ "    runs in reverse, round three flips back, and so on.\n\n"
-			+ "3. Draft from the whole competition under the same salary cap\n"
-			+ "    as the AI clubs. Every player is rated from their real stats.\n\n"
-			+ "4. Play 24 rounds. Each match is simulated as a sequence of\n"
-			+ "    possession chains: stoppages, clearances, marks, tackles,\n"
-			+ "    inside 50s and shots on goal, all driven by your players'\n"
-			+ "    actual abilities.\n\n"
-			+ "5. Finish top 8 and play a real AFL finals series through to\n"
-			+ "    the Grand Final.\n\n"
-			+ "The engine is tuned so a simulated match reproduces real AFL\n"
-			+ "team totals - about 88 points, 365 disposals, 52 inside 50s,\n"
-			+ "34 hit-outs and 18 free kicks per team per game.",
-			14, UiKit.TEXT))
+	_help_panel = UiKit.panel(UiKit.PANEL, 16, 12)
+	overlay.add_child(_help_panel)
+	var v := UiKit.vbox(12)
+	_help_panel.add_child(v)
+	v.add_child(UiKit.heading("HOW IT WORKS", 28))
+	var text := UiKit.lbl(
+			"1. Choose your club. All 18 clubs start with empty lists.\n\n"
+			+ "2. Draft from one shared player pool under the same cap. The random order reverses each round. Rivals pick between your turns.\n\n"
+			+ "3. Track every selection in Picks. The position counters show your list's coverage; tap one to filter the pool. Carry at least two rucks.\n\n"
+			+ "4. Play 24 rounds, with matches driven by your players' rated abilities. Set your tactics in the coach box.\n\n"
+			+ "5. Finish in the top eight to play finals and chase the flag.\n\n"
+			+ "Rotate your device at any time. Your draft picks, search and filters stay intact.", 16)
+	v.add_child(UiKit.scroll(text))
 	var ok := UiKit.btn("Got it", 17, true)
-	ok.pressed.connect(func(): overlay.queue_free())
+	ok.pressed.connect(func():
+		_help_panel = null
+		overlay.queue_free())
 	v.add_child(ok)
+	_layout()
