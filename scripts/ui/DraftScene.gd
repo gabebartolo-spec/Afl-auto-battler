@@ -1,5 +1,5 @@
 extends Control
-## Club selection + the 44-player salary-cap draft.
+## Club selection + the serpentine league salary-cap draft.
 
 const BOARD_CAP := 400
 
@@ -50,9 +50,7 @@ func _show_club_select() -> void:
 
 	_root.add_child(UiKit.top_bar("Choose Your Club", true))
 	_root.add_child(UiKit.subtitle(
-			"You take over one club. The other 17 keep the lists they fielded in 2026."))
-
-	var strengths := _club_strengths()
+			"Every club starts empty. The draft order is random, then snakes each round."))
 
 	var grid := GridContainer.new()
 	grid.columns = _grid_columns()
@@ -85,8 +83,8 @@ func _show_club_select() -> void:
 		var nm := UiKit.lbl(GameDB.club_name(code), 16, UiKit.readable_on(cols[0]), true)
 		nm.autowrap_mode = TextServer.AUTOWRAP_OFF
 		inner.add_child(nm)
-		var n := int(GameDB.club_list(code).size())
-		var st := UiKit.lbl("%d players   -   strength %.0f" % [n, strengths[code]],
+		var draft_pos := _draft.draft_order.find(code) + 1
+		var st := UiKit.lbl("0 players   -   pick %d in the random order" % draft_pos,
 				12, Color(1, 1, 1, 0.78))
 		st.autowrap_mode = TextServer.AUTOWRAP_OFF
 		inner.add_child(st)
@@ -118,6 +116,7 @@ func _club_strengths() -> Dictionary:
 
 func _on_club_chosen(code: String) -> void:
 	_club = code
+	_draft.start_for_user(code)
 	_show_board()
 
 
@@ -210,7 +209,7 @@ func _filter_row() -> Control:
 	var sort_opt := OptionButton.new()
 	var sorts := [["overall", "Best first"], ["value", "Cheapest first"],
 			["goals", "Most goals"], ["disposals", "Most disposals"], ["name", "Name"]]
-	for k in sorts.size():
+	for k in range(sorts.size()):
 		sort_opt.add_item(sorts[k][1], k)
 	sort_opt.item_selected.connect(func(idx: int):
 		_sort = sorts[idx][0]
@@ -227,6 +226,7 @@ func _filter_row() -> Control:
 
 	var avail := UiKit.btn("Available only", 13)
 	avail.toggle_mode = true
+	avail.button_pressed = true
 	avail.custom_minimum_size = Vector2(0, 40)
 	avail.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	avail.toggled.connect(func(_on: bool): _refresh())
@@ -257,12 +257,19 @@ func _refresh() -> void:
 
 func _refresh_status() -> void:
 	var rc := _draft.role_counts()
-	_status.text = "Cap %d / %d spent   -   %d of %d signed   -   %d left" % [
-			_draft.spent(), _draft.budget, _draft.count(), Ratings.LIST_SIZE,
+	var prefix := "Draft complete"
+	if not _draft.is_finished():
+		prefix = "Round %d/%d, pick %d/%d - %s to choose" % [
+				_draft.current_round(), _draft.target_size, _draft.pick_number_in_round(),
+				_draft.clubs.size(), GameDB.club_short(_draft.current_club())]
+	_status.text = "%s   -   Cap %d / %d spent   -   %d of %d signed   -   %d left" % [
+			prefix, _draft.spent(), _draft.budget, _draft.count(), _draft.target_size,
 			_draft.remaining()]
 	for r in _role_labels:
 		_role_labels[r].text = "%s %d" % [UiKit.ROLE_SHORT[r], rc[r]]
-	var ok := _draft.is_valid()
+	var ok := _draft.is_valid() and _draft.is_finished()
+	if _finish_btn != null:
+		_finish_btn.disabled = not ok
 	_status.add_theme_color_override("font_color",
 			UiKit.GOOD if ok else UiKit.GOLD)
 
@@ -290,12 +297,10 @@ func _picked_row(p: Dictionary) -> Control:
 	h.add_child(UiKit.lbl(UiKit.ROLE_SHORT[str(p["role"])], 11, UiKit.MUTED))
 	h.add_child(UiKit.lbl(str(int(p["overall"])), 13, UiKit.GOLD, true))
 	h.add_child(UiKit.lbl("$%d" % int(p["value"]), 12, UiKit.MUTED))
-	var x := UiKit.btn("x", 12)
-	x.custom_minimum_size = Vector2(34, 30)
-	x.pressed.connect(func():
-		_draft.unpick(str(p["id"]))
-		_refresh())
-	h.add_child(x)
+	var pick_no := UiKit.lbl("#%d" % (_draft.order.find(str(p["id"])) + 1), 11, UiKit.MUTED)
+	pick_no.custom_minimum_size = Vector2(34, 0)
+	pick_no.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	h.add_child(pick_no)
 	return h
 
 
@@ -303,11 +308,11 @@ func _refresh_board() -> void:
 	for c in _board_box.get_children():
 		c.queue_free()
 	var rows := _draft.board(_role, _club_filter, _search, _sort, _avail_only())
-	_board_info.text = "%d players match" % rows.size()
+	_board_info.text = "%d players match   -   %d drafted league-wide" % [rows.size(), _draft.picked.size()]
 	var shown := mini(BOARD_CAP, rows.size())
 	if shown < rows.size():
 		_board_info.text += "  -  showing first %d (use filters to narrow)" % shown
-	for i in shown:
+	for i in range(shown):
 		_board_box.add_child(_board_row(rows[i]))
 
 
@@ -342,10 +347,15 @@ func _board_row(p: Dictionary) -> Control:
 	h.add_child(cost)
 
 	var signed: bool = _draft.has(str(p["id"]))
-	var affordable := _draft.remaining() >= int(p["value"])
-	var b := UiKit.btn("Signed" if signed else "Pick", 13, not signed)
+	var can_pick := _draft.can_pick_player(p)
+	var label := "Pick"
+	if signed:
+		label = "Drafted"
+	elif not _draft.is_user_turn():
+		label = "Waiting"
+	var b := UiKit.btn(label, 13, can_pick)
 	b.custom_minimum_size = Vector2(88, 38)
-	b.disabled = signed or not affordable or _draft.is_complete_size()
+	b.disabled = not can_pick
 	b.pressed.connect(func():
 		if _draft.has(str(p["id"])):
 			_draft.unpick(str(p["id"]))
@@ -357,9 +367,13 @@ func _board_row(p: Dictionary) -> Control:
 
 
 func _on_finish() -> void:
-	if _draft.count() < Ratings.LIST_SIZE:
+	if not _draft.is_finished():
+		_status.text = "The league draft is still running. Make your next pick to continue."
+		_status.add_theme_color_override("font_color", UiKit.BAD)
+		return
+	if _draft.count() < _draft.target_size:
 		_status.text = "Sign %d more player(s) to fill the list of %d." % [
-				Ratings.LIST_SIZE - _draft.count(), Ratings.LIST_SIZE]
+				_draft.target_size - _draft.count(), _draft.target_size]
 		_status.add_theme_color_override("font_color", UiKit.BAD)
 		return
 	if _draft.spent() > _draft.budget:

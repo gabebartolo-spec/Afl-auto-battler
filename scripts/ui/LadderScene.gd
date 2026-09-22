@@ -106,7 +106,7 @@ func _header() -> Control:
 
 func _rows(rows: Array) -> Control:
 	var v := UiKit.vbox(2)
-	for i in rows.size():
+	for i in range(rows.size()):
 		v.add_child(_row(rows[i], i + 1))
 	return v
 

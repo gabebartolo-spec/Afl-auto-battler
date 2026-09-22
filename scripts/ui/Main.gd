@@ -34,7 +34,7 @@ func _ready() -> void:
 
 	v.add_child(UiKit.title("AFL AUTO-BATTLER"))
 	v.add_child(UiKit.subtitle(
-			"Draft a full 44-player list from real 2026 AFL season stats,\n"
+			"Take part in a full random serpentine league draft from real 2026 AFL season stats,\n"
 			+ "then play a 24-round home and away season plus finals."))
 	v.add_child(UiKit.spacer(22))
 
@@ -103,15 +103,16 @@ func _show_help() -> void:
 	p.add_child(v)
 	v.add_child(UiKit.lbl("How It Works", 24, UiKit.GOLD, true))
 	v.add_child(UiKit.lbl(
-			"1. Pick a club to take over. The other 17 keep the lists they\n"
-			+ "    actually fielded in 2026.\n\n"
-			+ "2. Draft 44 players from the whole competition under a salary\n"
-			+ "    cap. Every player is rated from their real season stats.\n\n"
-			+ "3. Play 24 rounds. Each match is simulated as a sequence of\n"
+			"1. Pick a club to take over. Every club starts with 0 players.\n\n"
+			+ "2. The league draft order is random, then serpentine: round two\n"
+			+ "    runs in reverse, round three flips back, and so on.\n\n"
+			+ "3. Draft from the whole competition under the same salary cap\n"
+			+ "    as the AI clubs. Every player is rated from their real stats.\n\n"
+			+ "4. Play 24 rounds. Each match is simulated as a sequence of\n"
 			+ "    possession chains: stoppages, clearances, marks, tackles,\n"
 			+ "    inside 50s and shots on goal, all driven by your players'\n"
 			+ "    actual abilities.\n\n"
-			+ "4. Finish top 8 and play a real AFL finals series through to\n"
+			+ "5. Finish top 8 and play a real AFL finals series through to\n"
 			+ "    the Grand Final.\n\n"
 			+ "The engine is tuned so a simulated match reproduces real AFL\n"
 			+ "team totals - about 88 points, 365 disposals, 52 inside 50s,\n"

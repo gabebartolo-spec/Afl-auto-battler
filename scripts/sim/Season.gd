@@ -40,9 +40,9 @@ static func round_robin(codes: Array) -> Array:
 	var n := codes.size()
 	var rot := codes.duplicate()
 	var rounds := []
-	for r in n - 1:
+	for r in range(n - 1):
 		var matches := []
-		for i in floori(n / 2.0):
+		for i in range(floori(n / 2.0)):
 			var a: String = rot[i]
 			var b: String = rot[n - 1 - i]
 			# Alternate venue by round and pairing so no club is permanently
@@ -102,7 +102,7 @@ func play_round() -> Array:
 		return []
 	var round_matches: Array = fixture[round_index]
 	var played := []
-	for i in round_matches.size():
+	for i in range(round_matches.size()):
 		var m: Dictionary = round_matches[i]
 		var res := simulate(m["home"], m["away"], next_seed(i))
 		res["round"] = round_index + 1
@@ -226,7 +226,7 @@ func play_finals_week() -> Array:
 	var matches := finals_week_matches()
 	var played := []
 	var s: Dictionary = finals["slots"]
-	for i in matches.size():
+	for i in range(matches.size()):
 		var m: Dictionary = matches[i]
 		if m["home"] == "" or m["away"] == "":
 			continue

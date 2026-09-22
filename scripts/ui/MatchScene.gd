@@ -21,11 +21,24 @@ var _speed_btns: Array = []
 var _finished := false
 var _side_panel: Control
 var _body: BoxContainer
+var _interactive := false
+var _event_cursor := 0
+var _my_side := 0
+var _training_done := false
 
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	_res = GameState.last_match
+	_interactive = GameState.pending_sim != null and not GameState.pending_match.is_empty()
+	if _interactive:
+		_res = GameState.pending_sim.result()
+		_res["home"] = GameState.pending_match["home"]
+		_res["away"] = GameState.pending_match["away"]
+		_res["label"] = GameState.pending_match["label"]
+		_res["events"] = []
+		_my_side = 0 if str(_res["home"]) == GameState.my_club else 1
+	else:
+		_res = GameState.last_match
 	if _res.is_empty():
 		Router.replace("hub")
 		return
@@ -34,11 +47,14 @@ func _ready() -> void:
 	_pitch.event_played.connect(_on_event)
 	_pitch.finished.connect(_on_finished)
 	_update_scoreboard({"q": 1, "min": 0, "score": [0, 0], "kind": "info"})
-	# Give the eye a beat to find the oval before the bounce.
-	get_tree().create_timer(0.55).timeout.connect(func():
-		if not _finished:
-			_pitch.play()
-			_sync_controls())
+	if _interactive:
+		_show_coach_box()
+	else:
+		# Give the eye a beat to find the oval before the bounce.
+		get_tree().create_timer(0.55).timeout.connect(func():
+			if not _finished:
+				_pitch.play()
+				_sync_controls())
 
 
 func _build() -> void:
@@ -174,6 +190,7 @@ func _controls() -> Control:
 	var leave := UiKit.btn("Back to Hub", 13)
 	leave.custom_minimum_size = Vector2(0, 40)
 	leave.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	leave.disabled = _interactive
 	leave.pressed.connect(func(): Router.back())
 	row2.add_child(leave)
 
@@ -185,7 +202,7 @@ func _sync_controls() -> void:
 	if _play_btn == null:
 		return
 	_play_btn.text = "Play" if not _pitch.playing else "Pause"
-	for i in SPEEDS.size():
+	for i in range(SPEEDS.size()):
 		var b: Button = _speed_btns[i]
 		var on := is_equal_approx(_pitch.speed, SPEEDS[i])
 		b.modulate = Color(1, 1, 1) if on else Color(1, 1, 1, 0.45)
@@ -203,6 +220,126 @@ func _on_speed(s: float) -> void:
 
 func _on_skip() -> void:
 	_pitch.skip_to_end()
+
+
+# ---------------------------------------------------------------------------
+# Quarter-by-quarter coaching
+# ---------------------------------------------------------------------------
+const GAMEPLANS := [
+	["balanced", "Balanced"], ["attacking", "Attack corridor"],
+	["defensive", "Defensive press"], ["contest", "Win contest"],
+	["controlled", "Controlled tempo"], ["through_stars", "Through stars"],
+]
+const PEP_TALKS := [
+	["steady", "Stay composed"], ["fire_up", "Fire them up"], ["calm", "Calm the group"],
+]
+
+
+func _show_coach_box() -> void:
+	_pitch.pause()
+	_sync_controls()
+	var overlay := ColorRect.new()
+	overlay.color = Color(0, 0, 0, 0.76)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(overlay)
+	var centre := CenterContainer.new()
+	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(centre)
+	var p := UiKit.panel(UiKit.PANEL, 18, 12)
+	p.custom_minimum_size = Vector2(620, 0)
+	centre.add_child(p)
+	var v := UiKit.vbox(9)
+	p.add_child(v)
+	var q := GameState.pending_sim.current_quarter
+	v.add_child(UiKit.lbl("Coach Box - Quarter %d" % q, 23, UiKit.GOLD, true))
+	v.add_child(UiKit.lbl("Set the plan before this quarter is simulated. The opposition has not been rolled yet.",
+			13, UiKit.MUTED))
+
+	var plan := OptionButton.new()
+	for i in range(GAMEPLANS.size()):
+		plan.add_item(str(GAMEPLANS[i][1]), i)
+	v.add_child(_field("Gameplan", plan))
+
+	var focus := OptionButton.new()
+	focus.add_item("No specific player", 0)
+	var mine := _roster_side(_my_side)
+	for i in range(mine.size()):
+		var r: Dictionary = mine[i]
+		focus.add_item("%s #%d" % [str(r["name"]), int(r["num"])], i + 1)
+	v.add_child(_field("Run play through", focus))
+
+	var tag := OptionButton.new()
+	tag.add_item("No tag", 0)
+	var opp := _roster_side(1 - _my_side)
+	for i in range(opp.size()):
+		var r2: Dictionary = opp[i]
+		tag.add_item("%s #%d" % [str(r2["name"]), int(r2["num"])], i + 1)
+	v.add_child(_field("Tag opponent", tag))
+
+	var pep := OptionButton.new()
+	for i in range(PEP_TALKS.size()):
+		pep.add_item(str(PEP_TALKS[i][1]), i)
+	v.add_child(_field("Pep talk", pep))
+
+	var start := UiKit.btn("Start Quarter", 18, true)
+	start.custom_minimum_size = Vector2(0, 52)
+	start.pressed.connect(func():
+		var focus_id := ""
+		if focus.selected > 0:
+			focus_id = str(mine[focus.selected - 1]["id"])
+		var tag_id := ""
+		if tag.selected > 0:
+			tag_id = str(opp[tag.selected - 1]["id"])
+		var t := {
+			"gameplan": str(GAMEPLANS[plan.selected][0]),
+			"focus_id": focus_id,
+			"tag_id": tag_id,
+			"pep": str(PEP_TALKS[pep.selected][0]),
+		}
+		overlay.queue_free()
+		_simulate_next_quarter(t))
+	v.add_child(start)
+
+
+func _field(label: String, control: Control) -> Control:
+	var h := UiKit.hbox(8)
+	var l := UiKit.lbl(label, 13, UiKit.MUTED, true)
+	l.custom_minimum_size = Vector2(150, 0)
+	h.add_child(l)
+	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(control)
+	return h
+
+
+func _roster_side(side: int) -> Array:
+	var roster: Array = _res.get("roster", [[], []])
+	if roster.size() <= side:
+		return []
+	var out: Array = roster[side].duplicate()
+	out.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+	return out
+
+
+func _simulate_next_quarter(t: Dictionary) -> void:
+	GameState.pending_sim.set_tactics(_my_side, t)
+	# Basic AI counter-plan: leaders protect a lead, trailers take more risk.
+	var s := GameState.pending_sim.result()["score"]
+	var opp_plan := "balanced"
+	if int(s[1 - _my_side]) > int(s[_my_side]) + 18:
+		opp_plan = "controlled"
+	elif int(s[1 - _my_side]) + 18 < int(s[_my_side]):
+		opp_plan = "attacking"
+	GameState.pending_sim.set_tactics(1 - _my_side, {"gameplan": opp_plan, "pep": "steady"})
+	_res = GameState.pending_sim.run_quarter()
+	_res["home"] = GameState.pending_match["home"]
+	_res["away"] = GameState.pending_match["away"]
+	_res["label"] = GameState.pending_match["label"]
+	var all_events: Array = _res.get("events", [])
+	var new_events := all_events.slice(_event_cursor)
+	_event_cursor = all_events.size()
+	_pitch.append_events(new_events)
+	_pitch.play()
+	_sync_controls()
 
 
 # ---------------------------------------------------------------------------
@@ -258,10 +395,16 @@ func _feed_add(ev: Dictionary) -> void:
 
 
 func _on_finished() -> void:
+	if _interactive and GameState.pending_sim != null and GameState.pending_sim.current_quarter <= 4:
+		_sync_controls()
+		_show_coach_box()
+		return
 	_finished = true
 	# Skip-to-full-time applies the remaining events without emitting them, so
 	# force the board to the real result before the overlay goes up.
 	_update_scoreboard({"q": 4, "min": 20, "kind": "final", "score": _res["score"]})
+	if _interactive:
+		GameState.finish_interactive_match(_res)
 	_sync_controls()
 	_show_fulltime()
 
@@ -339,10 +482,60 @@ func _show_fulltime() -> void:
 	right.add_child(UiKit.lbl("Best On Ground", 14, UiKit.GOLD, true))
 	right.add_child(_best_table())
 
-	var cont := UiKit.btn("Continue", 18, true)
+	var cont := UiKit.btn("Training Session", 18, true)
 	cont.custom_minimum_size = Vector2(0, 52)
-	cont.pressed.connect(func(): Router.back())
+	cont.pressed.connect(func():
+		overlay.queue_free()
+		_show_training())
 	v.add_child(cont)
+
+
+func _show_training() -> void:
+	var overlay := ColorRect.new()
+	overlay.color = Color(0, 0, 0, 0.78)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(overlay)
+	var centre := CenterContainer.new()
+	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(centre)
+	var p := UiKit.panel(UiKit.PANEL, 20, 12)
+	p.custom_minimum_size = Vector2(640, 0)
+	centre.add_child(p)
+	var v := UiKit.vbox(9)
+	p.add_child(v)
+	v.add_child(UiKit.lbl("Post-Match Training", 24, UiKit.GOLD, true))
+	v.add_child(UiKit.lbl("Choose one focus. Less-experienced players have more development upside; established players improve more slowly.",
+			13, UiKit.MUTED))
+	var result_box := UiKit.vbox(4)
+	var choices := [
+		["skills", "Skills - disposal, carry, discipline"],
+		["contest", "Contest - contested ball, pressure, ruck craft"],
+		["goal", "Forward craft - goal kicking, accuracy, marking"],
+		["recovery", "Recovery - durability and repeat pressure"],
+	]
+	for c in choices:
+		var b := UiKit.btn(str(c[1]), 15)
+		b.pressed.connect(_apply_training.bind(str(c[0]), result_box, choices))
+		v.add_child(b)
+	v.add_child(result_box)
+	var done := UiKit.btn("Back to Hub", 17, true)
+	done.pressed.connect(func(): Router.back())
+	v.add_child(done)
+
+
+func _apply_training(focus: String, result_box: VBoxContainer, _choices: Array) -> void:
+	if _training_done:
+		return
+	_training_done = true
+	for child in result_box.get_children():
+		child.queue_free()
+	var gains := GameState.train_my_list(focus)
+	result_box.add_child(UiKit.lbl("Training gains", 16, UiKit.GOLD, true))
+	for g in gains:
+		var plus := "+%d %s" % [int(g["gain"]), str(g["attr"])]
+		if int(g["overall_gain"]) > 0:
+			plus += "  (+%d OVR)" % int(g["overall_gain"])
+		result_box.add_child(UiKit.lbl("%s: %s" % [str(g["name"]), plus], 13, UiKit.TEXT))
 
 
 func _quarters_table() -> Control:
@@ -355,18 +548,18 @@ func _quarters_table() -> Control:
 	var qh := UiKit.hbox(6)
 	v.add_child(qh)
 	qh.add_child(_qcell("", 44, UiKit.MUTED, 12))
-	for i in 4:
+	for i in range(4):
 		qh.add_child(_qcell("Q%d" % (i + 1), 52, UiKit.MUTED, 12))
 	qh.add_child(_qcell("Final", 70, UiKit.MUTED, 12))
 
-	for side in 2:
+	for side in range(2):
 		var code: String = home if side == 0 else away
 		var qr := UiKit.hbox(6)
 		v.add_child(qr)
 		var badge := UiKit.club_badge(code, 12)
 		badge.custom_minimum_size = Vector2(44, 0)
 		qr.add_child(badge)
-		for i in 4:
+		for i in range(4):
 			qr.add_child(_qcell("%d.%d" % [int(qg[i][side]), int(qb[i][side])],
 					52, UiKit.TEXT, 13))
 		qr.add_child(_qcell(UiKit.scoreline(int(_res["goals"][side]),
@@ -416,7 +609,7 @@ func _best_table() -> Control:
 	var roster: Array = _res.get("roster", [[], []])
 	var players: Dictionary = _res.get("players", {})
 	var codes := [str(_res["home"]), str(_res["away"])]
-	for side in 2:
+	for side in range(2):
 		if side == 1:
 			v.add_child(UiKit.spacer(10))
 		v.add_child(UiKit.club_badge(codes[side], 13))
@@ -427,7 +620,7 @@ func _best_table() -> Control:
 		for c in ["D", "G", "M", "T", "HO"]:
 			hdr.add_child(_qcell(c, 30, UiKit.MUTED, 10))
 		var best := _rank_side(roster[side], players)
-		for i in mini(7, best.size()):
+		for i in range(mini(7, best.size())):
 			var p: Dictionary = best[i]
 			var st: Dictionary = p["stats"]
 			var row := UiKit.hbox(4)
