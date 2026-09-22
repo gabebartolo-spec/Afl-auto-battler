@@ -182,7 +182,7 @@ func all_draftees_sorted() -> Array:
 ## projection from draft rank, role and reported U18 production.
 func _load_draftees() -> Array:
 	if not FileAccess.file_exists(DRAFTEES_CSV):
-	push_warning("GameDB: no draft-class file (%s); the intake draft will fall back to generated classes." % DRAFTEES_CSV)
+		push_warning("GameDB: no draft-class file (%s); the intake draft will fall back to generated classes." % DRAFTEES_CSV)
 		return []
 	var rows := _read_rows(DRAFTEES_CSV)
 	var out := []
