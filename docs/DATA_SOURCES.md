@@ -2,6 +2,17 @@
 
 This project abandoned Champion Data (paid, OAuth, Auth0, licence-restricted). Below is the full map of **free/open sources** found via GitHub, Reddit, R packages, and web search, with what they cover vs our wishlist.
 
+## Player history (tools/build_history.py)
+
+`data/player_history_2026.csv` gives every 2026 player his AFL Tables slug,
+his draft pedigree (year, national/rookie/pre-season/mid-season, pick) from
+the Wikipedia "<year> AFL draft" pages (MediaWiki API, 2006-2025), and his
+rating in each 2021-25 season with 8+ games, computed from the AFL Tables
+season totals with the game's own rating model. The potential model reads
+it. Pages are cached in `data/cache/` (git-ignored). Wikipedia rate-limits
+shared addresses, so the tool backs off and caches; re-run it to fill any
+draft year it reports missing.
+
 ## What we have vs wishlist
 
 Base: `data/players_2026.csv` — 669 players, season totals only:

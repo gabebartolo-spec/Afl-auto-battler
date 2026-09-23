@@ -274,12 +274,30 @@ def derive_ratings(players):
                 + w[3] * a["intercept"] + w[4] * (a["ruck"] if p["role"] == "RUCK"
                                                   else a["contested"]))
         overall = 0.70 * core + 0.22 * a["star"] + 0.08 * a["durability"]
+        overall = position_stretch(overall, p["role"])
         conf = min(1.0, p["gm"] / 14.0)
         overall = 40.0 + (overall - 40.0) * (0.40 + 0.60 * conf)
         p["overall"] = scale_overall(overall)
         p["value"] = salary_value(p["overall"])
 
     return players
+
+
+# Key position concession - see Ratings.gd::position_stretch.
+STRETCH_TARGET = (49.36, 73.74)
+STRETCH_ANCHORS = {"DEF": (45.60, 56.07), "FWD": (47.70, 59.96), "RUCK": (48.04, 69.46)}
+
+
+def position_stretch(raw, role):
+    if role not in STRETCH_ANCHORS:
+        return raw
+    g50, g98 = STRETCH_ANCHORS[role]
+    m50, t98 = STRETCH_TARGET
+    if raw <= g50:
+        return raw + (m50 - g50)
+    if raw <= g98:
+        return m50 + (raw - g50) * (t98 - m50) / (g98 - g50)
+    return t98 + (raw - g98)
 
 
 def scale_overall(raw):

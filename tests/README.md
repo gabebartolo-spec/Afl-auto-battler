@@ -13,6 +13,8 @@ godot --headless --path . --script tests/run_intake_ui_tests.gd
 godot --headless --path . --script tests/run_finals_tests.gd
 godot --headless --path . --script tests/run_save_tests.gd
 godot --headless --path . --script tests/run_career_ui_tests.gd
+godot --headless --path . --script tests/run_potential_tests.gd
+godot --headless --path . --script tests/run_ai_tests.gd
 ```
 
 The intake suites cover the 2026 draft-class file (56 prospects: unique ids/
@@ -39,6 +41,20 @@ dicts stay shared, generated draft classes come back, a half-played live
 match is never saved, and a file from another save version is ignored. The
 career UI suite drives the main menu (Continue Career, the New Career prompt)
 and the back button on the hub, ladder, a live match and the menu.
+
+The potential suite checks every player and prospect has a POT (generated
+ones within the position caps), recent history flags the injured stars for a
+rehab year that closes most of the gap at the first rollover (and only
+because of that history), a young top pick gets a higher ceiling than the
+same player as a rookie listing, growth never passes POT, training is cheaper
+below POT, earlier picks carry more POT, and POT, history and pedigree
+survive a save (older saves get POT filled in).
+
+The AI suite runs all-AI career drafts (every club two or three rucks, no
+club hoarding good rucks while another has none, the best ruck and an elite
+player in round one), checks the national-draft AI prefers potential, and
+plays rounds to check rivals train after games, never well past potential,
+and never with your players' XP.
 
 Every runner points saves and settings at `user://test_*` files and turns
 autosave off, so running the tests never touches a real career.

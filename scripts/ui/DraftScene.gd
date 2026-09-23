@@ -4,7 +4,7 @@ extends Control
 
 const ROLES := ["DEF", "MID", "RUCK", "FWD"]
 const ROLE_TABS := [["", "ALL"], ["DEF", "DEFS"], ["MID", "MIDS"], ["RUCK", "RUCKS"], ["FWD", "FWDS"]]
-const SORTS := [["overall", "Best rated"], ["value", "Lowest cost"],
+const SORTS := [["overall", "Best rated"], ["potential", "Highest potential"], ["value", "Lowest cost"],
 	["goals", "Most goals"], ["disposals", "Most disposals"], ["name", "Name A–Z"]]
 const PAGE_SIZE := 60
 
@@ -613,10 +613,12 @@ func _player_row(p: Dictionary) -> Control:
 	var detail := ""
 	if bool(p.get("projected", false)):
 		var team_name := str(p.get("draft_team", p["club"]))
-		detail = "%s · projected %d OVR" % [team_name, int(p["overall"])]
+		detail = "%s · projected %d OVR · %d POT" % [team_name, int(p["overall"]),
+				int(p.get("potential", p["overall"]))]
 	else:
 		var short := GameDB.club_short(str(p["club"]))
-		detail = "%s · $%d · %d OVR" % [short, int(p["value"]), int(p["overall"])]
+		detail = "%s · $%d · %d OVR · %d POT" % [short, int(p["value"]), int(p["overall"]),
+				int(p.get("potential", p["overall"]))]
 	if taken:
 		var entry := _draft.pick_details(str(p["id"]))
 		detail = "#%d to %s · %d OVR" % [int(entry.get("pick", 0)),

@@ -294,8 +294,42 @@ func position_needs() -> Dictionary:
 func _can_afford_for(code: String, p: Dictionary) -> bool:
 	var slots_after := target_size - count_for(code) - 1
 	var remaining_after := budget - int(club_spend[code]) - int(p["value"])
-	# Reserve one cap point per remaining slot, because the minimum value is 1.
-	return remaining_after >= slots_after
+	# Keep enough cap to fill every remaining spot at what those spots will
+	# really cost. Reserving 1 a spot (the old rule) painted clubs into a
+	# corner: the 2026 pool has no $1 players, so a club with $1 left for its
+	# last spot could never finish the draft.
+	return float(remaining_after) >= float(slots_after) * _reserve_per_spot()
+
+
+var _reserve_at := -1
+var _reserve_cache := 1.0
+
+
+## The average price of the cheapest players still available, taking as many
+## as the league still has list spots to fill. Rebuilt once per pick.
+func _reserve_per_spot() -> float:
+	if intake_mode:
+		return 1.0
+	if _reserve_at == pick_index:
+		return _reserve_cache
+	_reserve_at = pick_index
+	var open := 0
+	for code in clubs:
+		open += maxi(0, target_size - count_for(code))
+	var values: Array = []
+	for q in pool:
+		if not picked.has(str(q["id"])):
+			values.append(int(q["value"]))
+	values.sort()
+	var n := mini(open, values.size())
+	if n <= 0:
+		_reserve_cache = 1.0
+		return _reserve_cache
+	var total := 0
+	for i in range(n):
+		total += int(values[i])
+	_reserve_cache = maxf(1.0, float(total) / float(n))
+	return _reserve_cache
 
 
 func _best_ai_pick(code: String) -> Dictionary:
@@ -342,28 +376,150 @@ func _forced_role(code: String) -> String:
 	return ""
 
 
+# ---------------------------------------------------------------------------
+# Rival AI: value over replacement
+# ---------------------------------------------------------------------------
+## How a rival club values a player:
+##
+##   worth        his rating blended with his potential. The career draft
+##                builds for this season (25% POT); the national draft builds
+##                for the years ahead (65% POT).
+##   over repl.   worth minus the best player the club can still expect in
+##                that position at its next pick. Positions that run dry
+##                (good rucks, key forwards) are worth more early; a deep
+##                position can wait.
+##   need         an open starting slot counts in full, depth up to a
+##                balanced list counts 60%, surplus 20%.
+##   cap          a player priced above the club's remaining budget per open
+##                list spot is marked down.
+##
+## A player with a second position is valued in both (the second at 85%).
+const AI_VORP_WEIGHT := 1.5
+## A scarce position is a reason to reach, not to take the 4th-best player
+## first: the edge over replacement counts for at most this much.
+const AI_VORP_CAP := 10.0
+## Average cap left per open list spot below which a pick is marked down.
+const AI_CAP_FLOOR := 3.0
+const AI_POT_WEIGHT_LEAGUE := 0.25
+const AI_POT_WEIGHT_INTAKE := 0.65
+## Share of a balanced list by position: 13 mids, 10 defenders, 10 forwards
+## of a 37 (rucks: two in the career draft, ~8% of a list at the intake).
+const AI_LIST_SHARE := {"RUCK": 0.08, "MID": 0.36, "DEF": 0.28, "FWD": 0.28}
+
+var _ai_cache_at := -1
+var _ai_avail := {}      # role -> worths of available players, best first
+var _ai_share := {}      # role -> share of the league's remaining demand
+
+
 func _ai_score(code: String, p: Dictionary) -> float:
-	var role := str(p["role"])
-	var counts := role_counts_for(code)
-	var desired := _desired_role_counts()
-	var need := maxf(0.0, float(desired.get(role, 0)) - float(counts.get(role, 0)))
-	var score := float(p["overall"]) * 10.0
-	score += need * 18.0
+	_refresh_ai_cache()
+	var worth := _worth(p)
+	var best := -INF
+	var roles := [[str(p["role"]), 1.0]]
 	var role2 := str(p.get("role2", ""))
-	if role2 != "" and role2 != role:
-		var need2 := maxf(0.0, float(desired.get(role2, 0)) - float(counts.get(role2, 0)))
-		score += need2 * 7.0
-	score -= float(p["value"]) * 1.8
-	return score
+	if role2 != "" and role2 != str(p["role"]):
+		roles.append([role2, 0.85])
+	for entry in roles:
+		var role: String = entry[0]
+		var need := _need_weight(code, role)
+		var over := minf(AI_VORP_CAP, worth - _replacement(code, role))
+		var s := (worth + AI_VORP_WEIGHT * over) * need * float(entry[1])
+		best = maxf(best, s)
+	return best - _cap_penalty(code, p)
 
 
-func _desired_role_counts() -> Dictionary:
-	return {
-		"RUCK": 2,
-		"MID": maxi(8, roundi(float(target_size) * 0.38)),
-		"DEF": maxi(6, roundi(float(target_size) * 0.25)),
-		"FWD": maxi(6, roundi(float(target_size) * 0.25)),
-	}
+func _worth(p: Dictionary) -> float:
+	var ov := float(p["overall"])
+	var pot := maxf(ov, float(p.get("potential", ov)))
+	var w := AI_POT_WEIGHT_INTAKE if intake_mode else AI_POT_WEIGHT_LEAGUE
+	return ov * (1.0 - w) + pot * w
+
+
+func _ideal_counts(code: String) -> Dictionary:
+	var size := target_size
+	if intake_mode:
+		size = int(existing_sizes.get(code, 0)) + target_size
+	var out := {}
+	for role in AI_LIST_SHARE:
+		out[role] = maxi(1, roundi(float(size) * float(AI_LIST_SHARE[role])))
+	# The 2026 pool has 46 rucks for 18 clubs: aim for exactly two in the
+	# career draft (a third is surplus), so nobody hoards the ruck stocks.
+	out["RUCK"] = maxi(2, int(out["RUCK"])) if intake_mode else 2
+	return out
+
+
+func _need_weight(code: String, role: String) -> float:
+	var n := int(role_counts_for(code).get(role, 0))
+	if role == "RUCK" and not intake_mode and n == 1:
+		return 0.8  # the second ruck is required for a valid list
+	if not intake_mode:
+		for slot in Ratings.GROUND_SLOTS:
+			if str(slot[0]) == role and n < int(slot[1]):
+				return 1.0
+	if n < int(_ideal_counts(code).get(role, 0)):
+		return 0.6
+	return 0.2
+
+
+## The worth of the player this club can expect in `role` at its next pick:
+## rivals pick in between, and roughly their share of those picks goes to
+## this position.
+func _replacement(code: String, role: String) -> float:
+	var avail: Array = _ai_avail.get(role, [])
+	if avail.is_empty():
+		return 0.0
+	var gap := 0
+	for i in range(pick_index + 1, pick_sequence.size()):
+		if str(pick_sequence[i]) == code:
+			break
+		gap += 1
+	var depth := int(ceil(float(gap) * float(_ai_share.get(role, 0.25))))
+	return float(avail[mini(depth, avail.size() - 1)])
+
+
+## Stars are where the cap goes, so price only bites when buying this player
+## would leave less than AI_CAP_FLOOR a spot for the rest of the list.
+func _cap_penalty(code: String, p: Dictionary) -> float:
+	if intake_mode:
+		return 0.0
+	var value := float(p["value"])
+	var spots_after := target_size - count_for(code) - 1
+	if spots_after <= 0:
+		return value * 0.3
+	var left := float(budget - int(club_spend.get(code, 0))) - value
+	var per_spot := left / float(spots_after)
+	return maxf(0.0, AI_CAP_FLOOR - per_spot) * 12.0 + value * 0.3
+
+
+## Available worths by position and each position's share of what the
+## league still needs. Rebuilt once per pick, not per candidate.
+func _refresh_ai_cache() -> void:
+	if _ai_cache_at == pick_index:
+		return
+	_ai_cache_at = pick_index
+	_ai_avail = {"RUCK": [], "MID": [], "DEF": [], "FWD": []}
+	for p in pool:
+		if picked.has(str(p["id"])):
+			continue
+		var w := _worth(p)
+		(_ai_avail[str(p["role"])] as Array).append(w)
+		var role2 := str(p.get("role2", ""))
+		if role2 != "" and role2 != str(p["role"]) and _ai_avail.has(role2):
+			(_ai_avail[role2] as Array).append(w * 0.95)
+	for role in _ai_avail:
+		(_ai_avail[role] as Array).sort()
+		(_ai_avail[role] as Array).reverse()
+	var demand := {"RUCK": 0.0, "MID": 0.0, "DEF": 0.0, "FWD": 0.0}
+	var total := 0.0
+	for code in clubs:
+		var ideal := _ideal_counts(code)
+		var counts := role_counts_for(code)
+		for role in demand:
+			var d := maxf(0.0, float(ideal[role]) - float(counts.get(role, 0)))
+			demand[role] = float(demand[role]) + d
+			total += d
+	for role in demand:
+		_ai_share[role] = float(demand[role]) / total if total > 0.0 else 0.25
 
 
 func spent() -> int:
@@ -539,6 +695,11 @@ func board(role := "", club := "", search := "", sort := "overall",
 				return a["overall"] > b["overall"])
 		"name":
 			out.sort_custom(func(a, b): return GameDB.player_sort_name(a) < GameDB.player_sort_name(b))
+		"potential":
+			out.sort_custom(func(a, b):
+				if int(a.get("potential", 0)) != int(b.get("potential", 0)):
+					return int(a.get("potential", 0)) > int(b.get("potential", 0))
+				return a["overall"] > b["overall"])
 		"goals":
 			out.sort_custom(func(a, b): return a["gl"] > b["gl"])
 		"disposals":

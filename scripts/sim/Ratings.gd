@@ -294,9 +294,46 @@ static func rate_overall(a: Dictionary, role: String, games: float) -> int:
 			+ float(w[2]) * float(a["goalkicking"]) + float(w[3]) * float(a["intercept"])
 			+ float(w[4]) * fifth)
 	var overall: float = 0.70 * core + 0.22 * float(a["star"]) + 0.08 * float(a["durability"])
+	overall = position_stretch(overall, role)
 	var conf: float = minf(1.0, games / 14.0)
 	overall = 40.0 + (overall - 40.0) * (0.40 + 0.60 * conf)
 	return scale_overall(overall)
+
+
+## Key position concession. The stats a rating is built from (disposals,
+## Brownlow votes) are midfield stats, so defenders, forwards and rucks
+## bunch up well below the elite midfielders: in 2026 the best key defender
+## rated 72 against a 92 midfielder, with the medians level. Each position's
+## raw blend is re-anchored so its median sits on the midfield median and its
+## 98th percentile on 85% of the way to the midfield one: the elite of every
+## position reaches the high 80s. Beyond the 98th percentile the stretch
+## goes one for one, so a single outlier is not blown out. Monotonic within a position, so team
+## selection and the match engine (which rolls attributes) are unchanged.
+## Anchors are the 2026 raw blends of players with 12+ games; they are fixed
+## so generated prospects and later seasons use the same scale.
+## Must match tools/sim_harness.py::position_stretch.
+const STRETCH_TARGET := [49.36, 73.74]   # midfield p50, p50 + 0.85 * (p98 - p50)
+const STRETCH_ANCHORS := {                # [p50, p98] of each position
+	"DEF": [45.60, 56.07],
+	"FWD": [47.70, 59.96],
+	"RUCK": [48.04, 69.46],
+}
+
+
+static func position_stretch(raw: float, role: String) -> float:
+	if not STRETCH_ANCHORS.has(role):
+		return raw
+	var anchor: Array = STRETCH_ANCHORS[role]
+	var g50 := float(anchor[0])
+	var g98 := float(anchor[1])
+	var m50 := float(STRETCH_TARGET[0])
+	var t98 := float(STRETCH_TARGET[1])
+	if raw <= g50:
+		return raw + (m50 - g50)
+	if raw <= g98:
+		return m50 + (raw - g50) * (t98 - m50) / (g98 - g50)
+	# Past the 98th percentile, one for one: an outlier is not amplified.
+	return t98 + (raw - g98)
 
 
 static func scale_overall(raw: float) -> int:

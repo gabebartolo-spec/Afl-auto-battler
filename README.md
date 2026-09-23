@@ -153,11 +153,67 @@ is where the constants were tuned, so **run the harness after any change to the
 match engine**:
 
 ```bash
+python3 tools/build_history.py             # draft pedigree + rated 2021-25 seasons
 python3 tools/sim_harness.py               # calibration report
 python3 tools/sim_harness.py --sample      # one narrated match
 python3 tools/sim_harness.py --ratings     # dump ratings to data/ratings_preview.csv
 python3 tools/validate_data.py             # dataset integrity check
 ```
+
+## Potential
+
+Every player has a **potential (POT)**: the rating he can grow into. It shows
+beside the rating on your list, in Training (with his draft pedigree and
+recent seasons) and on the draft board, which can also sort by
+**Highest potential**.
+
+- **Draftees** get more room the earlier they rank: about +22 above their
+  projection for the top pick, about +8 at the end of the class.
+- **AFL players** get the highest of: age headroom (+16 at 20, +8 at 24,
+  nothing from 29); their **recent peak**, the best 2023-25 season (8+
+  games) rated with the same model, eased a little past 29; and their
+  **draft pedigree**, which pulls a young national-draft pick's ceiling
+  toward what that pick is expected to become (pick 1 about 90, pick 30
+  about 81), fading out by 25.
+- **Injured stars.** A player on fewer than 12 games in 2026 who rated 12+
+  higher in a recent season is rated on a small sample, not his real level.
+  He gets a **rehab year**: at the next rollover he closes 90% of the gap to
+  his POT, whatever his age. The shipped data finds Connor Rozee, Darcy Moore
+  and Sam Darcy (among others) this way.
+
+Each off-season a player 28 or under closes part of the gap to his POT
+(30% at 21, 15% by 28) instead of following the plain age curve, and never
+grows past it. Training is up to half price below POT and 50% dearer above it.
+`data/potential_overrides.csv` (club, first, last, potential) sets a POT by
+hand for anyone the data gets wrong.
+
+## Position scales
+
+A rating is built from stats, and the stats that drive it (disposals,
+Brownlow votes) are midfield stats. Left alone, the best key defender in 2026
+rated 72 against a 92 midfielder, with the medians level. `Ratings.position_stretch`
+re-anchors each position: its median sits on the midfield median and its 98th
+percentile most of the way to the midfield one, so the elite of every
+position reach the high 80s (Wilkie 88, Treacy and Greene 87, Gawn 88). The
+stretch keeps the order within a position, so team selection and the match
+engine (which rolls attributes, not ratings) are unchanged.
+
+## Rival clubs
+
+**Drafting.** Rivals value a player by *worth over replacement*: his rating
+blended with his potential (25% in the career draft, 65% in the national
+draft), minus the best player the club can still expect in that position at
+its next pick. Scarce positions go early (the elite rucks are taken in
+round one), deep ones wait. An open starting spot counts in full, depth up to
+a balanced list 60%, surplus 20%; every club ends the career draft with two
+rucks, and the salary cap only bites when a pick would starve the rest of the
+list.
+
+**Training.** Rival players earn XP from every game on the same scale as
+yours, and their coaches spend it on the stats that matter for the position
+(disposal and contested ball for midfielders, intercepts and marking for
+defenders, goalkicking for forwards, ruck work for rucks). Rivals train a
+player only up to his potential; you can push past it, at a premium.
 
 ## Saving
 
