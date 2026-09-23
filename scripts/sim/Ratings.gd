@@ -456,6 +456,97 @@ static func select_22(list_players: Array) -> Dictionary:
 	return {"ground": ground.slice(0, 18), "bench": bench}
 
 
+## True when a player can take the field (not injured).
+static func available(p: Dictionary) -> bool:
+	return int(p.get("injury_weeks", 0)) <= 0
+
+
+## The match-day 22. With an empty selection the best available side is
+## picked automatically (select_22). A selection is
+## {"RUCK": [ids], "MID": [...], "DEF": [...], "FWD": [...], "BENCH": [...],
+## "OUT": [ids]}: named players take their slots (any player can be named in
+## any position), and a gap - an injured or departed player, or a slot left
+## short - is filled the automatic way from the unnamed players, then the
+## named bench, and only as a last resort from those you left OUT. Injured
+## players never play.
+static func select_side(list_players: Array, selection: Dictionary = {}) -> Dictionary:
+	var pool: Array = []
+	for p in list_players:
+		if available(p):
+			pool.append(p)
+	if selection.is_empty():
+		return select_22(pool)
+	pool.sort_custom(func(a, b): return a["overall"] > b["overall"])
+	var by_id := {}
+	for p in pool:
+		by_id[str(p["id"])] = p
+	var ground: Array = []
+	var used := {}
+	for slot in GROUND_SLOTS:
+		var role: String = slot[0]
+		var added := 0
+		for id in selection.get(role, []):
+			if added >= int(slot[1]):
+				break
+			var p = by_id.get(str(id))
+			if p == null or used.has(str(id)):
+				continue
+			ground.append(_for_slot(p, role))
+			used[str(id)] = true
+			added += 1
+	# Fill order for gaps: 0 unnamed, 1 the named bench, 2 players left out.
+	var tier := {}
+	for id in selection.get("BENCH", []):
+		if by_id.has(str(id)) and not used.has(str(id)):
+			tier[str(id)] = 1
+	for id in selection.get("OUT", []):
+		if by_id.has(str(id)) and not used.has(str(id)):
+			tier[str(id)] = 2
+	for pass_tier in [0, 1, 2]:
+		for slot in GROUND_SLOTS:
+			var role: String = slot[0]
+			var have := 0
+			for g in ground:
+				if str(g["role"]) == role:
+					have += 1
+			for key in ["role", "role2"]:
+				for p in pool:
+					if have >= int(slot[1]):
+						break
+					var id := str(p["id"])
+					if used.has(id) or int(tier.get(id, 0)) != pass_tier:
+						continue
+					if str(p.get(key, "")) == role:
+						ground.append(_for_slot(p, role))
+						used[id] = true
+						have += 1
+			for p in pool:
+				if have >= int(slot[1]):
+					break
+				var id := str(p["id"])
+				if used.has(id) or int(tier.get(id, 0)) != pass_tier:
+					continue
+				ground.append(_for_slot(p, role))
+				used[id] = true
+				have += 1
+	var bench: Array = []
+	for id in selection.get("BENCH", []):
+		if bench.size() >= INTERCHANGE:
+			break
+		if by_id.has(str(id)) and not used.has(str(id)):
+			bench.append(by_id[str(id)])
+			used[str(id)] = true
+	for pass_tier in [0, 2]:
+		for p in pool:
+			if bench.size() >= INTERCHANGE:
+				break
+			var id := str(p["id"])
+			if not used.has(id) and int(tier.get(id, 0)) == pass_tier:
+				bench.append(p)
+				used[id] = true
+	return {"ground": ground, "bench": bench}
+
+
 ## Copy so the match-day slot does not rewrite the list player's natural role.
 static func _for_slot(p: Dictionary, slot: String) -> Dictionary:
 	var copy := p.duplicate()

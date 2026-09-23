@@ -18,6 +18,7 @@ var ladder := {}               # code -> ladder row
 var round_index := 0           # next regular round to play
 var seed := 0
 var finals := {}               # finals series state, empty until started
+var selections := {}           # code -> chosen match-day side (empty = auto)
 
 
 func _init(club_codes: Array, club_lists: Dictionary, p_seed: int = 0) -> void:
@@ -79,9 +80,9 @@ func build_fixture() -> Array:
 func simulate(home_code: String, away_code: String, match_seed: int,
 		neutral_venue := false, is_final := false) -> Dictionary:
 	var home := Squad.new(GameDB_ref().club_name(home_code),
-			lists[home_code], not neutral_venue, home_code)
+			lists[home_code], not neutral_venue, home_code, selections.get(home_code, {}))
 	var away := Squad.new(GameDB_ref().club_name(away_code),
-			lists[away_code], false, away_code)
+			lists[away_code], false, away_code, selections.get(away_code, {}))
 	var sim := MatchSim.new(home, away, match_seed)
 	sim.finals_mode = is_final
 	var res := sim.run()

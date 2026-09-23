@@ -108,6 +108,29 @@ func _run() -> void:
 	await _settle()
 	_check(_router.current() == "hub", "Escape on the ladder returns to the hub")
 
+	# --- team selection --------------------------------------------------------
+	_router.go("selection")
+	await _settle()
+	_check(current_scene.find_child("AutoPick", true, false) != null, "The team screen opens")
+	var mine: Button = current_scene.find_child("MySelection", true, false)
+	mine.emit_signal("pressed")
+	await _settle()
+	_check(not _state.my_selection().is_empty(), "My selection starts from this week's side")
+	var first_mid := str(_state.my_selection()["MID"][0])
+	var out_btn = current_scene.find_child("Move_" + first_mid, true, false)
+	out_btn = out_btn.find_child("To_OUT", true, false) if out_btn != null else null
+	_check(out_btn != null, "Each player has move buttons")
+	if out_btn != null:
+		out_btn.emit_signal("pressed")
+		await _settle()
+	_check(not (_state.my_selection()["MID"] as Array).has(first_mid), "Out removes him from the side")
+	var auto_btn: Button = current_scene.find_child("AutoPick", true, false)
+	auto_btn.emit_signal("pressed")
+	await _settle()
+	_check(_state.my_selection().is_empty(), "Auto-pick switches selection back to automatic")
+	_router.handle_back(true)
+	await _settle()
+
 	# --- training: one-time intro, stat guide, plan picker -------------------
 	_router.go("training")
 	await _settle()

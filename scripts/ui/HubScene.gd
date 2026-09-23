@@ -142,6 +142,7 @@ func _controls(season: Season) -> Control:
 	elif _upcoming_match().is_empty() and GameState.my_finals_status() == "bye":
 		# Still alive: sim only this week, never past your own final.
 		buttons.append(_nav_button("Sim %s" % _finals_label(), _on_sim_round, true))
+		buttons.append(_nav_button("Team", func(): Router.go("selection")))
 		buttons.append(_nav_button("Training", func(): Router.go("training")))
 		buttons.append(_nav_button("Full Ladder", func(): Router.go("ladder")))
 		buttons.append(_nav_button("My List", func(): Router.go("list")))
@@ -152,6 +153,7 @@ func _controls(season: Season) -> Control:
 		buttons.append(_nav_button("My List", func(): Router.go("list")))
 	else:
 		buttons.append(_nav_button("Play Match", _on_play_match, true))
+		buttons.append(_nav_button("Team", func(): Router.go("selection")))
 		buttons.append(_nav_button("Training", func(): Router.go("training")))
 		buttons.append(_nav_button("Sim Round", _on_sim_round))
 		buttons.append(_nav_button("Full Ladder", func(): Router.go("ladder")))

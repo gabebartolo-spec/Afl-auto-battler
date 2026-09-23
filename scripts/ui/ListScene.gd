@@ -20,8 +20,7 @@ func _ready() -> void:
 	if GameState.my_club == "" or GameState.my_list.is_empty():
 		Router.replace("main")
 		return
-	_squad = Squad.new(GameDB.club_name(GameState.my_club), GameState.my_list,
-			true, GameState.my_club)
+	_squad = GameState.my_squad()
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -40,8 +39,7 @@ func _ready() -> void:
 
 func _on_names() -> void:
 	if is_inside_tree():
-		_squad = Squad.new(GameDB.club_name(GameState.my_club), GameState.my_list,
-				true, GameState.my_club)
+		_squad = GameState.my_squad()
 		_build()
 
 

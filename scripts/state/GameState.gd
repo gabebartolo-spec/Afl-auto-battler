@@ -615,9 +615,11 @@ func prepare_interactive_match() -> bool:
 		season.recalc_ladder()
 		return false
 	var home := Squad.new(GameDB.club_name(str(pending_match["home"])),
-			season.lists[pending_match["home"]], true, str(pending_match["home"]))
+			season.lists[pending_match["home"]], true, str(pending_match["home"]),
+			season.selections.get(str(pending_match["home"]), {}))
 	var away := Squad.new(GameDB.club_name(str(pending_match["away"])),
-			season.lists[pending_match["away"]], false, str(pending_match["away"]))
+			season.lists[pending_match["away"]], false, str(pending_match["away"]),
+			season.selections.get(str(pending_match["away"]), {}))
 	pending_sim = MatchSim.new(home, away, season.next_seed(99))
 	pending_phase = "regular"
 	pending_label = str(pending_match["label"])
@@ -658,9 +660,11 @@ func _prepare_interactive_final() -> bool:
 			"label": str(fm["label"]), "tag": str(fm["tag"]),
 			"neutral": neutral, "finals_index": mine}
 	var home := Squad.new(GameDB.club_name(str(fm["home"])),
-			season.lists[fm["home"]], not neutral, str(fm["home"]))
+			season.lists[fm["home"]], not neutral, str(fm["home"]),
+			season.selections.get(str(fm["home"]), {}))
 	var away := Squad.new(GameDB.club_name(str(fm["away"])),
-			season.lists[fm["away"]], false, str(fm["away"]))
+			season.lists[fm["away"]], false, str(fm["away"]),
+			season.selections.get(str(fm["away"]), {}))
 	pending_sim = MatchSim.new(home, away, season.finals_seed(mine))
 	pending_sim.finals_mode = true
 	pending_phase = "finals"
@@ -960,7 +964,8 @@ func grant_match_xp(res: Dictionary) -> Dictionary:
 func _grant_xp(club: String, list: Array, res: Dictionary) -> Dictionary:
 	var stats_all: Dictionary = res.get("players", {})
 	var squad := Squad.new(GameDB.club_name(club), list,
-			str(res.get("home", "")) == club, club)
+			str(res.get("home", "")) == club, club,
+			season.selections.get(club, {}) if season != null else {})
 	var ground_ids := {}
 	var bench_ids := {}
 	for p in squad.ground:
@@ -1052,6 +1057,43 @@ func training_summary_line() -> String:
 		return ""
 	return "Training plans bought %d stat points across %d players." % [
 			int(auto["points"]), int(auto["players"])]
+
+
+# ---------------------------------------------------------------------------
+# Team selection
+# ---------------------------------------------------------------------------
+## Your chosen side, or {} when the best 22 are picked automatically.
+func my_selection() -> Dictionary:
+	if season == null:
+		return {}
+	return season.selections.get(my_club, {})
+
+
+## Set your side ({} = auto-pick every week). Stored on the season, so it is
+## saved with the career and used by every one of your matches.
+func set_selection(selection: Dictionary) -> void:
+	if season == null:
+		return
+	if selection.is_empty():
+		season.selections.erase(my_club)
+	else:
+		season.selections[my_club] = selection.duplicate(true)
+	mark_dirty()
+
+
+## The side that would take the field this week, as a selection.
+func current_side() -> Dictionary:
+	var squad := my_squad()
+	var out := {"RUCK": [], "MID": [], "DEF": [], "FWD": [], "BENCH": []}
+	for p in squad.ground:
+		(out[str(p["role"])] as Array).append(str(p["id"]))
+	for p in squad.bench:
+		(out["BENCH"] as Array).append(str(p["id"]))
+	return out
+
+
+func my_squad() -> Squad:
+	return Squad.new(GameDB.club_name(my_club), my_list, true, my_club, my_selection())
 
 
 ## Every plan a player can follow, including single-stat focuses:
