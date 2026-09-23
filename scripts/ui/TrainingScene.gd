@@ -227,6 +227,11 @@ func _detail_panel() -> Control:
 	var duty_text := duty if duty != "" else "Not yet played"
 	head.add_child(UiKit.lbl("%s  ·  %s  ·  %d OVR  ·  %d POT" % [Ratings.role_tag(p), duty_text,
 			int(p["overall"]), int(p.get("potential", p["overall"]))], 13, UiKit.MUTED))
+	var background := _background_line(p)
+	if background != "":
+		var bl := UiKit.lbl(background, 12, UiKit.MUTED)
+		bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		head.add_child(bl)
 	var pot_note := _potential_note(p)
 	if pot_note != "":
 		head.add_child(UiKit.lbl(pot_note, 13, UiKit.GOOD))
@@ -336,3 +341,19 @@ func _potential_note(p: Dictionary) -> String:
 	if mult > 1.0:
 		return "At his ceiling: training costs 50% more."
 	return ""
+
+
+## Where his POT comes from: draft pedigree and recent rated seasons.
+func _background_line(p: Dictionary) -> String:
+	var bits: PackedStringArray = []
+	if p.has("drafted_pick"):
+		var kind := str(p.get("drafted_type", "national"))
+		bits.append("Pick %d, %d %s draft" % [int(p["drafted_pick"]), int(p.get("drafted_year", 0)),
+				"national" if kind == "national" else kind])
+	var seasons: PackedStringArray = []
+	for season in p.get("history", []):
+		if int(season[0]) >= 2023:
+			seasons.append("%d  %d" % [int(season[0]), int(season[1])])
+	if not seasons.is_empty():
+		bits.append("Rated " + " · ".join(seasons))
+	return "  ·  ".join(bits)

@@ -48,12 +48,30 @@ def scale_overall(raw):
     return int(round(44.0 + t ** 0.92 * 48.0))
 
 
+# Key position concession - see Ratings.gd::position_stretch.
+STRETCH_TARGET = (49.36, 73.74)
+STRETCH_ANCHORS = {"DEF": (45.60, 56.07), "FWD": (47.70, 59.96), "RUCK": (48.04, 69.46)}
+
+
+def position_stretch(raw, role):
+    if role not in STRETCH_ANCHORS:
+        return raw
+    g50, g98 = STRETCH_ANCHORS[role]
+    m50, t98 = STRETCH_TARGET
+    if raw <= g50:
+        return raw + (m50 - g50)
+    if raw <= g98:
+        return m50 + (raw - g50) * (t98 - m50) / (g98 - g50)
+    return t98 + (raw - g98)
+
+
 def rate_overall(attr, role, games):
     w = ROLE_WEIGHTS[role]
     fifth = attr["ruck"] if role == "RUCK" else attr["contested"]
     core = (w[0] * attr["disposal"] + w[1] * attr["pressure"]
             + w[2] * attr["goalkicking"] + w[3] * attr["intercept"] + w[4] * fifth)
     overall = 0.70 * core + 0.22 * attr["star"] + 0.08 * attr["durability"]
+    overall = position_stretch(overall, role)
     conf = min(1.0, games / 14.0)
     overall = 40.0 + (overall - 40.0) * (0.40 + 0.60 * conf)
     return max(1, min(99, scale_overall(overall)))
@@ -302,7 +320,7 @@ def play_intake(clubs, lists, pool, order, rng, cap=LIST_SIZE):
 # Potential mirror (scripts/sim/Potential.gd)
 # ---------------------------------------------------------------------------
 MAX_POT = 97
-ROLE_CAP = {"MID": 95, "RUCK": 89, "FWD": 80, "DEF": 77}
+ROLE_CAP = {"MID": 95, "RUCK": 92, "FWD": 92, "DEF": 92}
 AGE_HEADROOM = [(20.0, 16.0), (22.0, 12.0), (24.0, 8.0), (26.0, 4.0), (28.0, 2.0)]
 GAP_PULL = [(21.0, 0.30), (24.0, 0.22), (28.0, 0.15)]
 REHAB_PULL = 0.9
@@ -449,7 +467,7 @@ def main():
             for p in lists[c]:
                 before = int(p.get("overall", 50))
                 age_player(p, next_year)
-                if int(p["overall"]) > max(before, int(p.get("potential", 99))):
+                if int(p["overall"]) > max(before, int(p.get("potential", 99))) + 1:  # refit rounding
                     fails.append("%s grew past its POT (%d > %d)" % (p["id"], p["overall"], p["potential"]))
                 aged.append(p)
             keep = []

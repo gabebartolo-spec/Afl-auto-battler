@@ -148,8 +148,14 @@ func _test_mid_draft_round_trip() -> void:
 	# Finish the draft from the loaded state and start the season.
 	while not d2.is_finished():
 		if d2.is_user_turn():
-			var board2: Array = d2.board("", "", "", "overall", true)
-			if board2.is_empty() or not d2.pick(board2[0]):
+			# The best player the cap allows (the top of the board can be
+			# unaffordable late in the draft).
+			var choice := {}
+			for cand in d2.board("", "", "", "overall", true):
+				if d2.can_pick_player(cand):
+					choice = cand
+					break
+			if choice.is_empty() or not d2.pick(choice):
 				break
 		else:
 			d2.auto_until_user_turn()

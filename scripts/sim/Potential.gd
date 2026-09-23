@@ -8,24 +8,38 @@ extends RefCounted
 ## picks - climb quickly, while a player already at his ceiling stays put.
 ##
 ##   draftees    from draft rank: the top pick projects near 90
-##   AFL players current rating plus age headroom (younger = more room)
-##   overrides   data/potential_overrides.csv, matched on club + real name.
-##               This is how an injured star gets his ceiling back: one short
-##               season's stats cannot tell him apart from a fringe player
-##               who was not picked (both are shrunk toward the average), so
-##               only a hand-set POT can. A big gap also earns a rehab year.
+##   AFL players the highest of:
+##                 current rating plus age headroom (younger = more room)
+##                 recent peak: best 2023-25 rating (8+ games, rated with the
+##                   same model), eased for players past 29
+##                 draft pedigree: a high national-draft pick pulls a young
+##                   player's ceiling up (pick 1 ~90), fading by 25
+##   injured     under 12 games in 2026 but 12+ below his recent peak: the
+##               2026 rating is a small-sample artefact, so he gets a rehab
+##               year (Rozee, Moore, Sam Darcy in the shipped data)
+##   overrides   data/potential_overrides.csv, matched on club + real name
+##
+## History and pedigree come from data/player_history_2026.csv, built by
+## tools/build_history.py from AFL Tables and Wikipedia.
 ##
 ## Every roll is seeded by player id, so a player's POT is the same on every
 ## launch and every career.
 
 const MAX_POT := 97
-## Ratings run on different scales by position: the best 2026 midfielder
-## rates 92, the best key defender 72. Generated ceilings stop a few points
-## above each position's best, so a prospect never outgrows his position.
-## Hand-set overrides are not capped.
-const ROLE_CAP := {"MID": 95, "RUCK": 89, "FWD": 80, "DEF": 77}
+## Generated ceilings stop a few points above each position's best 2026
+## rating (MID 92; DEF, FWD and RUCK 87-88 after the key position stretch
+## in Ratings.position_stretch), so nobody outgrows his position. History,
+## draft pedigree and hand-set overrides are not capped.
+const ROLE_CAP := {"MID": 95, "RUCK": 92, "FWD": 92, "DEF": 92}
 ## An override this far above the current rating marks a rehab case.
 const REHAB_GAP := 15
+## Automatic rehab: a short 2026 and a recent peak this far above it.
+const REHAB_GAMES := 12
+const REHAB_PEAK_GAP := 12
+## Seasons that count as "recent" for the peak.
+const PEAK_FROM_YEAR := 2023
+## A 30-year-old's peak is not all coming back: ease it per year past 29.
+const PEAK_AGE_EASE := 1.5
 
 ## Growth room above the current rating, by age.
 const AGE_HEADROOM := [[20.0, 16.0], [22.0, 12.0], [24.0, 8.0], [26.0, 4.0], [28.0, 2.0]]
@@ -52,7 +66,43 @@ static func assign(p: Dictionary) -> void:
 	else:
 		pot = float(ov) + _headroom(float(p.get("age", 26.0))) + rng.randf_range(-2.0, 3.0)
 	var cap := mini(MAX_POT, int(ROLE_CAP.get(str(p.get("role", "MID")), MAX_POT)))
-	p["potential"] = clampi(int(round(pot)), ov, maxi(ov, cap))
+	pot = clampf(pot, float(ov), float(maxi(ov, cap)))
+	# Real history and pedigree are not capped by position.
+	var peak := recent_peak(p)
+	if peak > 0.0:
+		pot = maxf(pot, peak)
+		var gm := float(p.get("gm", 0.0))
+		if gm > 0.0 and gm < REHAB_GAMES and peak - float(ov) >= REHAB_PEAK_GAP:
+			p["rehab"] = true
+	pot = maxf(pot, pedigree_potential(p, pot))
+	p["potential"] = clampi(int(round(pot)), ov, MAX_POT)
+
+
+## Best recent season (8+ games), eased for age. 0 when there is none.
+static func recent_peak(p: Dictionary) -> float:
+	var best := 0.0
+	for season in p.get("history", []):
+		if int(season[0]) >= PEAK_FROM_YEAR:
+			best = maxf(best, float(season[1]))
+	if best <= 0.0:
+		return 0.0
+	var age := float(p.get("age", 26.0))
+	return best - PEAK_AGE_EASE * maxf(0.0, age - 29.0)
+
+
+## A young player's national-draft pick pulls his ceiling toward what that
+## pick is expected to become: pick 1 ~90, pick 30 ~81, pick 60 ~72. The
+## pull is full at 19 and gone by 25; rookie listings and undrafted players
+## get none.
+static func pedigree_potential(p: Dictionary, pot: float) -> float:
+	if str(p.get("drafted_type", "")) != "national":
+		return pot
+	var age := float(p.get("age", 26.0))
+	var pull := clampf((25.0 - age) / 6.0, 0.0, 1.0) * 0.5
+	if pull <= 0.0:
+		return pot
+	var ceiling := 90.0 - 0.3 * float(maxi(1, int(p.get("drafted_pick", 60))) - 1)
+	return pot + (ceiling - pot) * pull if ceiling > pot else pot
 
 
 ## A hand-set POT (data/potential_overrides.csv). Also flags the rehab year

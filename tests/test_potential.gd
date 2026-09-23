@@ -1,8 +1,9 @@
 extends RefCounted
-## Potential (POT) regression suite: every player has a sane POT, hand-set
-## overrides land (the injured-star rehab case), the rollover pulls ratings
-## toward POT without passing it, training is cheaper below POT, draft rank
-## drives prospect POT, and POT survives a save (old saves get backfilled).
+## Potential (POT) regression suite: every player has a sane POT, recent
+## history spots the injured stars (rehab year), draft pedigree lifts young
+## high picks, the rollover pulls ratings toward POT without passing it,
+## training is cheaper below POT, draft rank drives prospect POT, and POT
+## survives a save (old saves get backfilled).
 ## Run through tests/run_potential_tests.gd.
 
 var failures: Array[String] = []
@@ -14,7 +15,7 @@ func run() -> void:
 	checks = 0
 	GameDB.reload()
 	_test_every_player_has_potential()
-	_test_overrides()
+	_test_history_and_pedigree()
 	_test_rehab_rollover()
 	_test_growth_is_capped()
 	_test_training_discount()
@@ -45,8 +46,11 @@ func _test_every_player_has_potential() -> void:
 		if not p.has("potential") or int(p["potential"]) < int(p["overall"]) \
 				or int(p["potential"]) > Potential.MAX_POT:
 			ok = false
+		# Real history and draft pedigree may go past the generated caps.
+		if p.has("history") or p.has("drafted_pick"):
+			continue
 		var cap := int(Potential.ROLE_CAP.get(str(p["role"]), 99))
-		if not p.has("rehab") and int(p["potential"]) > maxi(cap, int(p["overall"])):
+		if int(p["potential"]) > maxi(cap, int(p["overall"])):
 			capped = false
 	_check(ok, "Every player and prospect has a POT between his rating and the max")
 	_check(capped, "Generated POTs respect the position caps")
@@ -59,11 +63,49 @@ func _test_every_player_has_potential() -> void:
 	_check(int(_real("Harley Reid")["potential"]) == pot_a, "POT is stable across reloads")
 
 
-func _test_overrides() -> void:
-	for row in [["Connor Rozee", 86], ["Darcy Moore", 74], ["Sam Darcy", 76]]:
-		var p := _real(str(row[0]))
-		_check(int(p.get("potential", 0)) == int(row[1]), "%s has POT %d" % row)
-		_check(bool(p.get("rehab", false)), "%s is flagged for a rehab year" % row[0])
+func _test_history_and_pedigree() -> void:
+	var have_history := 0
+	for p in GameDB.players:
+		if p.has("history"):
+			have_history += 1
+	_check(have_history > 500, "Most players carry rated past seasons (%d)" % have_history)
+	# The injured stars: short 2026, strong recent seasons.
+	for name in ["Connor Rozee", "Darcy Moore", "Sam Darcy"]:
+		var p := _real(name)
+		_check(bool(p.get("rehab", false)), "%s is flagged for a rehab year" % name)
+		_check(int(p["potential"]) >= int(p["overall"]) + 15,
+				"%s's POT reflects his recent seasons (%d vs %d now)" % [
+				name, int(p["potential"]), int(p["overall"])])
+	# A full, healthy 2026 is not a rehab case, however good the history.
+	var daicos := _real("Nick Daicos")
+	_check(not daicos.has("rehab"), "A player with a full 2026 gets no rehab year")
+	# Pedigree: the same young player with a top pick gets a higher ceiling.
+	var young := {}
+	for p in GameDB.players:
+		if float(p["age"]) <= 21.0 and int(p["overall"]) < 70 and not p.has("history"):
+			young = p.duplicate(true)
+			break
+	if not young.is_empty():
+		var plain := young.duplicate(true)
+		plain.erase("potential")
+		plain.erase("drafted_type")
+		plain.erase("drafted_pick")
+		Potential.assign(plain)
+		var top := plain.duplicate(true)
+		top.erase("potential")
+		top["drafted_type"] = "national"
+		top["drafted_pick"] = 1
+		Potential.assign(top)
+		var rookie := plain.duplicate(true)
+		rookie.erase("potential")
+		rookie["drafted_type"] = "rookie"
+		rookie["drafted_pick"] = 1
+		Potential.assign(rookie)
+		_check(int(top["potential"]) > int(plain["potential"]),
+				"A young pick-1 player has a higher ceiling (%d vs %d)" % [
+				int(top["potential"]), int(plain["potential"])])
+		_check(int(rookie["potential"]) == int(plain["potential"]),
+				"A rookie-draft listing carries no pedigree bonus")
 
 
 func _age_once(p: Dictionary, year := 2027) -> Dictionary:
@@ -83,14 +125,15 @@ func _test_rehab_rollover() -> void:
 				name, int(p["overall"]), int(after["overall"]), int(p["potential"])])
 		_check(int(after["overall"]) <= int(p["potential"]), "%s does not pass his POT" % name)
 		_check(not after.has("rehab"), "The rehab year is used up (%s)" % name)
-	# Without the override, the same player barely moves.
+	# Without his history, the same player barely moves.
 	var rozee := _real("Connor Rozee").duplicate(true)
 	rozee.erase("potential")
 	rozee.erase("rehab")
+	rozee.erase("history")
 	Potential.assign(rozee)
 	var plain := _age_once(rozee)
 	_check(int(plain["overall"]) < int(_age_once(_real("Connor Rozee"))["overall"]) - 10,
-			"The override is what drives the rehab")
+			"His history is what drives the rehab")
 
 
 func _test_growth_is_capped() -> void:
@@ -163,11 +206,14 @@ func _test_save_and_backfill() -> void:
 	for q in GameState.my_list:
 		if str(q["real_name"]) == "Connor Rozee":
 			rozee = q
+	var pot_before := int(rozee["potential"])
 	GameState.save_career()
 	GameState.load_career()
 	var loaded := GameState.list_player(str(rozee["id"]))
-	_check(int(loaded.get("potential", 0)) == 86 and bool(loaded.get("rehab", false)),
+	_check(int(loaded.get("potential", 0)) == pot_before and bool(loaded.get("rehab", false)),
 			"POT and the rehab flag survive a save")
+	_check(loaded.has("history") and loaded.has("drafted_pick"),
+			"History and draft pedigree survive a save")
 	# A save written before POT existed: strip it and reload.
 	for code in GameState.season.lists:
 		for p in GameState.season.lists[code]:
@@ -182,5 +228,5 @@ func _test_save_and_backfill() -> void:
 				missing += 1
 	_check(missing == 0, "Loading an old save fills in every POT")
 	var back := GameState.list_player(str(rozee["id"]))
-	_check(int(back.get("potential", 0)) == 86 and bool(back.get("rehab", false)),
-			"An old save picks up the hand-set POT and rehab year")
+	_check(int(back.get("potential", 0)) == pot_before and bool(back.get("rehab", false)),
+			"An old save picks up the dataset's POT and rehab year")

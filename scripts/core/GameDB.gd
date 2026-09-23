@@ -12,6 +12,8 @@ const PLAYERS_CSV := "res://data/players_2026.csv"
 const PLAYERS_ENRICHED_CSV := "res://data/players_enriched_2026.csv"
 const DRAFTEES_CSV := "res://data/draftees_2026.csv"
 const POTENTIAL_CSV := "res://data/potential_overrides.csv"
+## Draft pedigree and rated past seasons, built by tools/build_history.py.
+const HISTORY_CSV := "res://data/player_history_2026.csv"
 
 ## Numeric columns, in CSV order, after club/num/last/first. Single source of
 ## truth lives in Ratings (the prospect pipeline shares it).
@@ -64,6 +66,7 @@ func reload() -> void:
 	_alias_next = 0
 	players = _load_players()
 	Ratings.derive_all(players)
+	_apply_history(players)
 	for p in players:
 		Potential.assign(p)
 	_apply_potential_overrides(players)
@@ -433,6 +436,44 @@ func _load_players() -> Array:
 		out.append(p)
 	_assign_fictional_names(out)
 	return out
+
+
+## Attach each player's AFL draft pedigree (drafted_year / drafted_type /
+## drafted_pick) and his rated recent seasons (history: [[year, overall,
+## games], ...]) for the potential model. Missing file: no history, POT
+## falls back to age headroom.
+func _apply_history(list: Array) -> void:
+	if not FileAccess.file_exists(HISTORY_CSV):
+		return
+	var rows := _read_rows(HISTORY_CSV)
+	if rows.size() < 2:
+		return
+	var header: Array = rows[0]
+	var idx := {}
+	for j in range(header.size()):
+		idx[str(header[j]).strip_edges()] = j
+	var by_id := {}
+	for p in list:
+		by_id[str(p["id"])] = p
+	for i in range(1, rows.size()):
+		var cells: Array = rows[i]
+		if cells.size() < header.size():
+			continue
+		var p = by_id.get("%s_%s" % [str(cells[idx["club"]]), str(cells[idx["num"]])])
+		if p == null:
+			continue
+		var pick := str(cells[idx["draft_pick"]])
+		if pick != "":
+			p["drafted_year"] = int(str(cells[idx["draft_year"]]))
+			p["drafted_type"] = str(cells[idx["draft_type"]])
+			p["drafted_pick"] = int(pick)
+		var hist := []
+		for chunk in str(cells[idx["seasons"]]).split(";", false):
+			var parts := chunk.split(":")
+			if parts.size() == 3:
+				hist.append([int(parts[0]), int(parts[1]), int(parts[2])])
+		if not hist.is_empty():
+			p["history"] = hist
 
 
 ## Hand-set potentials, matched on club + first + last name. An unmatched row

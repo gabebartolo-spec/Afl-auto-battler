@@ -674,6 +674,7 @@ func finish_interactive_match(res: Dictionary) -> void:
 	for r in played:
 		season_log.append(r)
 	_grant_match_xp(res)
+	_train_rivals(played)
 	_clear_pending()
 	autosave()
 
@@ -702,6 +703,7 @@ func _finish_interactive_final(res: Dictionary) -> void:
 	for r in played:
 		season_log.append(r)
 	_grant_match_xp(res)
+	_train_rivals(played)
 	_clear_pending()
 	autosave()
 
@@ -752,6 +754,7 @@ func advance() -> String:
 		if res["home"] == my_club or res["away"] == my_club:
 			last_match = res
 	_grant_match_xp(last_match)
+	_train_rivals(last_results)
 	autosave()
 	return last_phase
 
@@ -927,9 +930,15 @@ func _grant_match_xp(res: Dictionary) -> void:
 ## Every player on the list is paid. Named players and good games earn more.
 ## The old trainer picked five names at random and hid everyone else.
 func grant_match_xp(res: Dictionary) -> Dictionary:
+	return _grant_xp(my_club, my_list, res)
+
+
+## Pay one club's list for a match. Same scale for every club: the rivals
+## earn exactly what your players earn.
+func _grant_xp(club: String, list: Array, res: Dictionary) -> Dictionary:
 	var stats_all: Dictionary = res.get("players", {})
-	var squad := Squad.new(GameDB.club_name(my_club), my_list,
-			str(res.get("home", "")) == my_club, my_club)
+	var squad := Squad.new(GameDB.club_name(club), list,
+			str(res.get("home", "")) == club, club)
 	var ground_ids := {}
 	var bench_ids := {}
 	for p in squad.ground:
@@ -938,7 +947,7 @@ func grant_match_xp(res: Dictionary) -> Dictionary:
 		bench_ids[str(p["id"])] = true
 	var rows: Array = []
 	var total := 0
-	for p in my_list:
+	for p in list:
 		var id := str(p["id"])
 		var on_ground := ground_ids.has(id)
 		var on_bench := bench_ids.has(id)
@@ -962,6 +971,70 @@ func grant_match_xp(res: Dictionary) -> Dictionary:
 		"total": total,
 		"count": rows.size(),
 	}
+
+
+# ---------------------------------------------------------------------------
+# Rival clubs train too
+# ---------------------------------------------------------------------------
+## What each position's coaches spend XP on, by weight. Each point goes to
+## the best weight per XP, so spending spreads as the cheap stats climb.
+const AI_TRAIN_FOCUS := {
+	"MID": {"disposal": 3.0, "contested": 3.0, "pressure": 2.0, "carry": 2.0,
+			"star": 2.0, "goalkicking": 1.0, "accuracy": 1.0, "creating": 1.0,
+			"discipline": 1.0},
+	"DEF": {"intercept": 3.0, "marking": 3.0, "pressure": 3.0, "disposal": 2.0,
+			"contested": 1.0, "discipline": 1.0, "carry": 1.0},
+	"FWD": {"goalkicking": 3.0, "accuracy": 3.0, "marking": 3.0, "creating": 2.0,
+			"pressure": 1.0, "disposal": 1.0, "contested": 1.0},
+	"RUCK": {"ruck": 4.0, "contested": 2.0, "marking": 2.0, "disposal": 1.0,
+			"intercept": 1.0},
+}
+
+
+## After a round: every rival club's players are paid for the game and their
+## coaches spend it. Rivals only train a player up to his potential (you can
+## go past it, at a premium), which keeps the league from inflating.
+func _train_rivals(results: Array) -> void:
+	if season == null:
+		return
+	for res in results:
+		for side in ["home", "away"]:
+			var code := str(res.get(side, ""))
+			if code == "" or code == my_club or not season.lists.has(code):
+				continue
+			var list: Array = season.lists[code]
+			_grant_xp(code, list, res)
+			for p in list:
+				ai_spend_xp(p)
+
+
+## Spend a rival player's XP. Returns the attribute points bought.
+func ai_spend_xp(p: Dictionary) -> int:
+	var focus: Dictionary = AI_TRAIN_FOCUS.get(str(p.get("role", "MID")), AI_TRAIN_FOCUS["MID"])
+	var bought := 0
+	var games := float(p.get("gm", 18.0))
+	while int(p.get("overall", 0)) < int(p.get("potential", 0)):
+		var best_key := ""
+		var best_ratio := 0.0
+		var best_cost := 0
+		var mult := Potential.training_multiplier(p)
+		for key in focus:
+			var cur := int((p["attr"] as Dictionary).get(key, 99))
+			if cur >= 99:
+				continue
+			var cost := _cost_for(cur, games, mult)
+			var ratio := float(focus[key]) / float(cost)
+			if ratio > best_ratio:
+				best_ratio = ratio
+				best_key = key
+				best_cost = cost
+		if best_key == "" or int(p.get("xp", 0)) < best_cost:
+			break
+		p["xp"] = int(p["xp"]) - best_cost
+		p["attr"][best_key] = int(p["attr"][best_key]) + 1
+		bought += 1
+		_recalc_player_overall(p)
+	return bought
 
 
 func _xp_amount(stats: Dictionary, on_ground: bool, on_bench: bool) -> int:
