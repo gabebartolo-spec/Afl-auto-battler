@@ -349,7 +349,7 @@ tools/
 
 | Area | State |
 |---|---|
-| Real 2026 dataset | Done — 669 players, all 18 clubs, 219/220 aggregate checks pass |
+| Real 2026 dataset | Done — 669 players, all 18 clubs, 220/220 aggregate checks pass |
 | Ratings model | Done, validated against the Brownlow order |
 | Match engine | Done — disposals on the 2026 total; behinds and rebound 50s a little low |
 | Godot port of engine | Done — `scripts/sim/`, same RNG call order as the harness |

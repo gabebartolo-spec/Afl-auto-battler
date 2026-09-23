@@ -125,17 +125,6 @@ def main() -> int:
 
     print(f"\n  {checks - mismatches}/{checks} aggregate checks passed")
 
-    # --- known-issue disclosure -------------------------------------------
-    known = [p for p in problems if p.startswith("HAW aggregate br")]
-    if known and len(problems) == len(known):
-        print("\nKNOWN ISSUE (cosmetic, does not affect simulation):")
-        print("  Hawthorn's `br` (Brownlow votes) column sums 10 short of the")
-        print("  published total, so one HAW player's vote count is 10 low.")
-        print("  Brownlow votes are a prestige stat only -- Ratings.gd and the")
-        print("  match engine never read this column, so gameplay is unaffected.")
-        print("  Fix: run `python3 tools/scrape_afltables.py`, which rebuilds")
-        print("  every value directly from source.")
-
     if problems:
         print(f"\n{len(problems)} problem(s) found:")
         for p in problems:

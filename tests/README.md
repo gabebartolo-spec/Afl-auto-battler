@@ -1,6 +1,20 @@
 # Draft regression checks
 
-Use the standard Godot 4.7 editor/runtime. From the repository root:
+Use the standard Godot 4.7 editor/runtime. The quickest way to run
+everything CI runs (import, every suite below, the dataset check and the
+intake harness), with a pass/fail table at the end:
+
+```sh
+GODOT=/path/to/godot tools/run_tests.sh          # everything
+GODOT=/path/to/godot tools/run_tests.sh ai save  # just some suites
+```
+
+GitHub Actions (`.github/workflows/tests.yml`) runs the same script on every
+pull request and every push to `main`, with Godot 4.7.2 downloaded and cached.
+A suite that hangs is stopped after 15 minutes (`SUITE_TIMEOUT`) and fails the
+run; a failing run uploads the logs as an artifact.
+
+To run suites one at a time, from the repository root:
 
 ```sh
 # Registers class_name scripts and imports the bundled fonts on a fresh clone.
