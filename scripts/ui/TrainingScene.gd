@@ -279,7 +279,9 @@ func _player_row(p: Dictionary) -> Control:
 		meta += "  ·  +%d last game" % gain
 	info.add_child(UiKit.ellipsis(meta, 12, UiKit.GOLD if gain > 0 else UiKit.MUTED))
 	var duty := GameState.last_duty(id)
-	if duty == "Interchange":
+	if int(p.get("injury_weeks", 0)) > 0:
+		h.add_child(UiKit.line("INJ %dw" % int(p["injury_weeks"]), 11, UiKit.BAD, true))
+	elif duty == "Interchange":
 		h.add_child(UiKit.line("INT", 11, UiKit.MUTED))
 	elif duty == "Not selected":
 		h.add_child(UiKit.line("OUT", 11, UiKit.MUTED))

@@ -74,10 +74,10 @@ const STATS := {
 		"Everyone; midfielders handle the ball most.",
 	],
 	"durability": [
-		"Proven availability. It feeds the rating, not the match.",
+		"Stays on the park: fewer injuries.",
 		"Games played and time on ground.",
-		"Not used in matches - there are no injuries. It is 8% of the overall rating, so it moves selection order and draft price only.",
-		"Low priority unless you are chasing overall.",
+		"Every player who takes the field risks an injury; durability scales the chance from about half the base rate (99) to about 1.3x (low). Injured players miss 1 to 16 weeks. It is also 8% of the overall rating.",
+		"Everyone - your stars most of all.",
 	],
 	"star": [
 		"Match-winning class: the rating's biggest single piece.",
@@ -91,6 +91,7 @@ const TOPICS := [
 	["Overall (OVR)", "A player's rating: 70% the stats his position relies on, 22% star power and 8% durability. Defender, forward and ruck scales are stretched so the elite of every position reach the high 80s. It decides selection (the best by position take the field) and draft price. The match itself rolls the individual stats, not OVR."],
 	["Team strengths", "Contest (who wins stoppages): 42% midfield contested, 24% ruck, 22% midfield disposal, 12% top-five star. Attack: 40% forward goalkicking, 26% midfield carry, 20% forward creating, 14% forward marking. Defence: 50% defender pressure, 32% defender intercept, 18% team discipline."],
 	["Potential (POT)", "The rating a player can grow into, from his age, his best recent season and his draft pick. Each off-season, players 28 and under close part of the gap. A star coming back from an injury-shortened season gets a rehab year and closes most of it at once."],
+	["Injuries", "After every game each player who took the field has a small chance of injury, lower with high durability. Most are 1-2 weeks, the odd one ends a season. Injured players sit out automatically (your selection's gaps are filled), and everyone heals over the off-season."],
 	["XP and cost", "Every player on your list earns XP each game: more for playing, more for a big game. A stat point costs more the higher the stat already is, up to half price while a player is below his POT and 50% dearer once he is past it. 99 is the cap."],
 	["Training plans", "Each player follows a plan that spends his XP automatically after every game. The club plan applies to anyone without his own. Position plan trains what his position needs (the same priorities rival clubs use); the role plans and single-stat focuses let you shape him; Manual banks XP for you to spend. Change a plan at any time - banked XP is spent straight away."],
 ]

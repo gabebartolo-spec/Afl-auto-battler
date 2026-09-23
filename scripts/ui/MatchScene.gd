@@ -788,6 +788,11 @@ func _show_fulltime() -> void:
 		var spent := GameState.training_summary_line()
 		if spent != "":
 			v.add_child(UiKit.lbl(spent + " Adjust plans in Training.", 13, UiKit.GOOD))
+		var hurt := GameState.my_new_injuries()
+		if not hurt.is_empty():
+			var inj := UiKit.lbl("Injured: " + ", ".join(hurt), 13, UiKit.BAD, true)
+			inj.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(inj)
 	var snaps: Array = _res.get("quarter_teams", [])
 	if snaps.size() >= 2:
 		var ht_btn := UiKit.btn("Half-time report", 15)

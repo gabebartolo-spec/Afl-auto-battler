@@ -27,6 +27,7 @@ var last_match: Dictionary = {}  # YOUR match from that round, with events
 var last_phase := ""             # "regular" | "finals" | "done"
 var last_label := ""             # "Round 7" / "Grand Final" / ...
 var season_log: Array = []       # every result, for the season review screen
+var last_injuries: Array = []    # the last round's new injuries, every club
 
 ## Career loop: season 1 is the 2026 season. Every completed season ends with
 ## a national intake draft (keep your list, sign the rookies), then the same
@@ -167,6 +168,7 @@ func save_career() -> bool:
 		"last_phase": last_phase,
 		"last_label": last_label,
 		"season_log": CareerSave.slim_results(season_log),
+		"last_injuries": last_injuries,
 		"db_draftees": GameDB.draftees,
 		"db_late_draftees": GameDB.late_draftees,
 		"db_alias_next": GameDB._alias_next,
@@ -226,6 +228,7 @@ func load_career() -> bool:
 	last_phase = str(state.get("last_phase", ""))
 	last_label = str(state.get("last_label", ""))
 	season_log = state.get("season_log", [])
+	last_injuries = state.get("last_injuries", [])
 	GameDB.draftees = state.get("db_draftees", GameDB.draftees)
 	GameDB.late_draftees = state.get("db_late_draftees", [])
 	GameDB._alias_next = int(state.get("db_alias_next", GameDB._alias_next))
@@ -335,6 +338,7 @@ func reset() -> void:
 	last_phase = ""
 	last_label = ""
 	season_log = []
+	last_injuries = []
 	last_training_report = {}
 	_xp_grant_key = ""
 	_dirty = false
@@ -461,6 +465,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	for p in generated:
 		draftee_pool.append(p)
 
+	Injuries.heal_all(league_lists)
 	intake_summary = Prospects.age_league(league_lists, next_year)
 	intake_summary["signed"] = signed
 	intake_summary["year"] = next_year
@@ -699,6 +704,7 @@ func finish_interactive_match(res: Dictionary) -> void:
 		season_log.append(r)
 	_grant_match_xp(res)
 	_train_rivals(played)
+	_process_injuries(played)
 	_clear_pending()
 	autosave()
 
@@ -728,6 +734,7 @@ func _finish_interactive_final(res: Dictionary) -> void:
 		season_log.append(r)
 	_grant_match_xp(res)
 	_train_rivals(played)
+	_process_injuries(played)
 	_clear_pending()
 	autosave()
 
@@ -779,6 +786,7 @@ func advance() -> String:
 			last_match = res
 	_grant_match_xp(last_match)
 	_train_rivals(last_results)
+	_process_injuries(last_results)
 	autosave()
 	return last_phase
 
@@ -1057,6 +1065,43 @@ func training_summary_line() -> String:
 		return ""
 	return "Training plans bought %d stat points across %d players." % [
 			int(auto["points"]), int(auto["players"])]
+
+
+# ---------------------------------------------------------------------------
+# Injuries
+# ---------------------------------------------------------------------------
+## After a round: every club that played is a week closer to getting its
+## injured back, then this round's new injuries are rolled.
+func _process_injuries(results: Array) -> void:
+	if season == null:
+		return
+	last_injuries = []
+	for res in results:
+		for side in ["home", "away"]:
+			var code := str(res.get(side, ""))
+			if season.lists.has(code):
+				Injuries.tick(season.lists[code])
+	for res in results:
+		last_injuries += Injuries.roll_match(res, season.lists, season.seed,
+				int(res.get("round", season.round_index)))
+
+
+## Your club's new injuries from the last round, as readable lines.
+func my_new_injuries() -> Array:
+	var out := []
+	for inj in last_injuries:
+		if str(inj.get("club", "")) != my_club:
+			continue
+		var p := list_player(str(inj["id"]))
+		if p.is_empty():
+			continue
+		out.append("%s (%s, %s)" % [GameDB.player_display_name(p), str(inj["kind"]),
+				_weeks_text(int(inj["weeks"]))])
+	return out
+
+
+func _weeks_text(w: int) -> String:
+	return "1 week" if w == 1 else "%d weeks" % w
 
 
 # ---------------------------------------------------------------------------

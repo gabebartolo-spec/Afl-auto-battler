@@ -81,6 +81,9 @@ func _standing_card() -> Control:
 	cv.add_child(UiKit.lbl("%d for, %d against   -   %.1f%%" % [
 			int(lr.get("pf", 0)), int(lr.get("pa", 0)),
 			float(lr.get("pct", 0.0))], 13, UiKit.MUTED))
+	var injured := Injuries.injured(GameState.my_list)
+	if not injured.is_empty():
+		cv.add_child(UiKit.lbl("Injury list: %d  -  check your Team" % injured.size(), 13, UiKit.BAD))
 	return card
 
 
@@ -277,6 +280,11 @@ func _show_results(results: Array) -> void:
 		var spent := GameState.training_summary_line()
 		if spent != "":
 			v.add_child(UiKit.lbl(spent, 13, UiKit.GOOD))
+	var hurt := GameState.my_new_injuries()
+	if not hurt.is_empty():
+		var inj := UiKit.lbl("Injured: " + ", ".join(hurt), 13, UiKit.BAD, true)
+		inj.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(inj)
 	var outlook := GameState.finals_outcome_line(GameState.last_match)
 	if outlook != "":
 		v.add_child(UiKit.lbl(outlook, 15, UiKit.GOLD, true))
