@@ -126,7 +126,7 @@ static func stat_line(st: Dictionary) -> String:
 static func resolve_name(player_id: String, fallback := "Player") -> String:
 	if player_id == "":
 		return fallback
-	# GameDB resolves the current label mode (fictional or educational) by ID.
+	# GameDB resolves the current label mode (fictional or real AFL name) by ID.
 	var label := GameDB.player_display_name_by_id(player_id, "")
 	if label != "":
 		return label

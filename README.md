@@ -187,8 +187,10 @@ still need an on-device check.
 
 The game starts in a fictional-label mode: players appear under generated random
 names such as `Ari Bramble`, while their 2026 stats and ratings remain unchanged.
-The main-menu **Player Labels** toggle adds an educational comparison (`Ari Bramble
-· plays like ...`) when a player wants the real-world context. Club names remain
+Numbered placeholders are never used. The main-menu **Player Labels** toggle
+switches those labels to the real AFL name (`Jordan Dawson`) when you want that
+context — the name alone, not a "plays like" comparison. Generated prospects
+keep a fictional name. Club names remain
 visible, but no club badges, guernsey designs or player imagery are reproduced —
 guernseys are two
 circles in each club's registered colours. This presentation choice is not legal

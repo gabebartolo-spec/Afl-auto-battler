@@ -48,15 +48,18 @@ Player statistics are factual season data compiled from AFL Tables, a long-runni
 volunteer-maintained archive. The AFL, its clubs and Champion Data do not endorse
 this project, and no player imagery or club badges are reproduced.
 
-### Fictional / educational player labels
-The shipped data keeps a real-world comparison for the stats model, but the player
-presentation defaults to a deterministic shuffle of generated random names
-(`Ari Bramble`, `Bex Cinder`, and so on). The main-menu **Player Labels** toggle
-switches to an educational presentation such as `Ari Bramble · plays like Jordan Dawson`;
-it does not change IDs, ratings, draft
-logic or match results. Draft history resolves labels by player ID so switching the
-mode never leaves an old name in a row or tooltip. This is a product presentation
-choice, not legal advice or a licensing determination.
+### Fictional / real player labels
+The shipped data keeps each real name for the optional real-name view, but the
+player presentation defaults to a deterministic shuffle of generated random names
+(`Ari Bramble`, `Bex Cinder`, and so on). Every player gets a generated name —
+numbered placeholders such as `Squadmate 001` are never shown. The main-menu
+**Player Labels** toggle switches to the real AFL name on its own, such as
+`Jordan Dawson`. It does not prefix a fictional alias or a "plays like"
+comparison, and it does not change IDs, ratings, draft logic or match results.
+Players with no real-world counterpart (generated future draft classes) keep
+their fictional name in both modes. Draft history resolves labels by player ID
+so switching the mode never leaves an old name in a row or tooltip. This is a
+product presentation choice, not legal advice or a licensing determination.
 
 ---
 
