@@ -277,6 +277,9 @@ func _simulate_remaining() -> void:
 		_apply_quarter_tactics(t)
 		_res = sim.run_quarter()
 		_stamp_match_meta()
+	if sim.needs_extra_time():
+		_res = sim.run_extra_time()
+		_stamp_match_meta()
 	_append_new_events()
 
 
@@ -628,7 +631,14 @@ func _paint_scoreboard() -> void:
 	_score_home.text = UiKit.scoreline(_shown_goals[0], _shown_behinds[0])
 	_score_away.text = UiKit.scoreline(_shown_goals[1], _shown_behinds[1])
 	if _clock != null:
-		_clock.text = "Q%d %d'" % [_shown_q, _shown_min]
+		_clock.text = _clock_text(_shown_q, _shown_min)
+
+
+## "Q3 12'" in normal time; extra time counts its own minutes from zero.
+func _clock_text(q: int, minute: int) -> String:
+	if q >= 5:
+		return "ET %d'" % clampi(minute - 120, 0, 99)
+	return "Q%d %2d'" % [q, minute]
 
 
 func _feed_add(ev: Dictionary) -> void:
@@ -647,7 +657,7 @@ func _feed_add(ev: Dictionary) -> void:
 		_: col = UiKit.MUTED
 
 	var text := str(ev.get("text", ""))
-	var stamp := "Q%d %2d'" % [int(ev.get("q", 1)), int(ev.get("min", 0))]
+	var stamp := _clock_text(int(ev.get("q", 1)), int(ev.get("min", 0)))
 	var l := UiKit.lbl("%s  %s" % [stamp, text], 12, col,
 			kind == "goal" or kind == "quarter" or kind == "final")
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -671,13 +681,28 @@ func _on_finished() -> void:
 		_sync_controls()
 		_show_coach_box()
 		return
+	# A level final plays on: extra time is rolled now and fed to the pitch.
+	if _interactive and not _skipping and GameState.pending_sim != null \
+			and GameState.pending_sim.needs_extra_time():
+		_res = GameState.pending_sim.run_extra_time()
+		_stamp_match_meta()
+		_append_new_events()
+		_pitch.play()
+		_sync_controls()
+		return
 	_skipping = false
 	_finished = true
 	_fulltime_shown = true
 	_close_coach()
 	if _res.has("goals") and _res.has("behinds"):
+		var end_q := 4
+		var end_min := 20
+		var evs: Array = _res.get("events", [])
+		if bool(_res.get("extra_time", false)) and not evs.is_empty():
+			end_q = 5
+			end_min = int((evs[evs.size() - 1] as Dictionary).get("min", 128))
 		_update_scoreboard({
-			"q": 4, "min": 20, "kind": "final",
+			"q": end_q, "min": end_min, "kind": "final",
 			"goals": _res["goals"], "behinds": _res["behinds"],
 		})
 	if _interactive:
@@ -722,11 +747,15 @@ func _show_fulltime() -> void:
 				if won else "LOSS by %d" % absi(my_score - opp_score))
 		v.add_child(UiKit.lbl(verdict, 24,
 				UiKit.MUTED if drew else UiKit.margin_colour(won), true))
-		if str(_res.get("tag", "")) == "GF" and GameState.season_is_over():
-			var flag := GameState.premier() == GameState.my_club
-			v.add_child(UiKit.lbl(("%d PREMIERS" % GameState.season_year) if flag
-					else ("Runners-up in %d" % GameState.season_year), 22,
-					UiKit.GOLD if flag else UiKit.MUTED, true))
+		if bool(_res.get("extra_time", false)):
+			v.add_child(UiKit.lbl("After extra time", 14, UiKit.MUTED, true))
+		var outlook := GameState.finals_outcome_line(_res)
+		if outlook != "":
+			var tag_now := str(_res.get("tag", ""))
+			var slots: Dictionary = GameState.season.finals.get("slots", {})
+			var through: bool = str(slots.get("W_" + tag_now, "")) == GameState.my_club
+			v.add_child(UiKit.lbl(outlook, 22 if tag_now == "GF" else 16,
+					UiKit.GOLD if through else UiKit.MUTED, true))
 
 	var narrow := UiKit.view_width(self) < 720.0
 	var body: BoxContainer
@@ -788,15 +817,15 @@ func _quarters_table() -> Control:
 	var qh := UiKit.hbox(4)
 	v.add_child(qh)
 	qh.add_child(_qcell("", 36, UiKit.MUTED, 12))
-	for i in range(4):
-		qh.add_child(_qcell("Q%d" % (i + 1), 48, UiKit.MUTED, 12))
+	for i in range(qg.size()):
+		qh.add_child(_qcell(_period_label(i), 48, UiKit.MUTED, 12))
 	qh.add_child(_qcell("Final", 96, UiKit.MUTED, 12))
 	for side in range(2):
 		var code: String = home if side == 0 else away
 		var qr := UiKit.hbox(4)
 		v.add_child(qr)
 		qr.add_child(UiKit.club_badge(code, 12, true, false))
-		for i in range(4):
+		for i in range(qg.size()):
 			qr.add_child(_qcell("%d.%d" % [int(qg[i][side]), int(qb[i][side])],
 					48, UiKit.TEXT, 12))
 		qr.add_child(_qcell(UiKit.scoreline(int(_res["goals"][side]),
@@ -817,11 +846,15 @@ func _quarters_stacked() -> Control:
 				int(_res["behinds"][side])), 15, UiKit.GOLD, true))
 		block.add_child(head)
 		var parts: PackedStringArray = []
-		for i in range(4):
-			parts.append("Q%d %d.%d" % [i + 1, int(qg[i][side]), int(qb[i][side])])
+		for i in range(qg.size()):
+			parts.append("%s %d.%d" % [_period_label(i), int(qg[i][side]), int(qb[i][side])])
 		block.add_child(UiKit.ellipsis("   ".join(parts), 12, UiKit.MUTED))
 		v.add_child(block)
 	return v
+
+
+func _period_label(i: int) -> String:
+	return "ET" if i >= 4 else "Q%d" % (i + 1)
 
 
 func _qcell(text: String, w: int, col: Color, fs: int, bold := false) -> Label:
@@ -918,6 +951,23 @@ func _rank_side(list: Array, players: Dictionary) -> Array:
 ## Shared with the half-time report so both screens rank players identically.
 func _influence(st: Dictionary) -> float:
 	return CoachReport.influence(st)
+
+
+## Router back hook. A live match cannot be abandoned half way (the rest of
+## the round is already on the ladder), so back is swallowed until full time.
+func handle_back() -> bool:
+	if _interactive and not _finished:
+		_feed_hint("Finish the match first - use Skip to full time to jump ahead.")
+		return true
+	return false
+
+
+func _feed_hint(text: String) -> void:
+	if _feed == null:
+		return
+	var l := UiKit.lbl(text, 12, UiKit.MUTED, true)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_feed.add_child(l)
 
 
 func _notification(what: int) -> void:

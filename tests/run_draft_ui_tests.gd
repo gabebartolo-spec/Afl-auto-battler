@@ -22,6 +22,11 @@ func _initialize() -> void:
 func _run() -> void:
 	await process_frame
 	_state = root.get_node("GameState")
+	# Never touch a real career save or settings file from a test run.
+	_state.autosave_enabled = false
+	_state.save_path = "user://test_career.save"
+	_state.settings_path = "user://test_settings.cfg"
+	_state.show_real_names = false
 	_db = root.get_node("GameDB")
 	_state.reset()
 	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(), _db.CLUB_ORDER.duplicate(), 12345)

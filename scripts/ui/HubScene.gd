@@ -97,10 +97,22 @@ func _next_card(season: Season) -> Control:
 		nv.add_child(UiKit.ellipsis("Runners-up: %s" % GameDB.club_name(ru),
 				13, UiKit.MUTED))
 	elif _upcoming_match().is_empty():
-		nv.add_child(UiKit.lbl("Season Over For You", 20, UiKit.BAD, true))
-		nv.add_child(UiKit.lbl(
-				"You missed the eight. Sim the finals series to see who lifts the cup.",
-				13, UiKit.MUTED))
+		match GameState.my_finals_status():
+			"bye":
+				nv.add_child(UiKit.lbl("Week Off", 20, UiKit.GOOD, true))
+				nv.add_child(UiKit.lbl(
+						"You won your qualifying final. Sim the semi finals, then host a preliminary final.",
+						13, UiKit.MUTED))
+			"eliminated":
+				nv.add_child(UiKit.lbl("Knocked Out", 20, UiKit.BAD, true))
+				nv.add_child(UiKit.lbl(
+						"Your finals campaign is over. Sim the rest of the series to see who lifts the cup.",
+						13, UiKit.MUTED))
+			_:
+				nv.add_child(UiKit.lbl("Season Over For You", 20, UiKit.BAD, true))
+				nv.add_child(UiKit.lbl(
+						"You missed the eight. Sim the finals series to see who lifts the cup.",
+						13, UiKit.MUTED))
 	else:
 		var phase := "Round %d of %d" % [season.round_index + 1, Season.REGULAR_ROUNDS] \
 				if not season.is_regular_done() else _finals_label()
@@ -127,6 +139,12 @@ func _controls(season: Season) -> Control:
 		buttons.append(_nav_button("Season Review", func(): Router.go("season_review")))
 		buttons.append(_nav_button("Training", func(): Router.go("training")))
 		buttons.append(_nav_button("Main Menu", func(): Router.to_main_menu()))
+	elif _upcoming_match().is_empty() and GameState.my_finals_status() == "bye":
+		# Still alive: sim only this week, never past your own final.
+		buttons.append(_nav_button("Sim %s" % _finals_label(), _on_sim_round, true))
+		buttons.append(_nav_button("Training", func(): Router.go("training")))
+		buttons.append(_nav_button("Full Ladder", func(): Router.go("ladder")))
+		buttons.append(_nav_button("My List", func(): Router.go("list")))
 	elif _upcoming_match().is_empty():
 		buttons.append(_nav_button("Sim to Grand Final", _on_sim_to_end, true))
 		buttons.append(_nav_button("Training", func(): Router.go("training")))
@@ -230,6 +248,16 @@ func _on_sim_to_end() -> void:
 		_show_results(GameState.last_results)
 
 
+## Router back hook: close the results popup before leaving the hub.
+func handle_back() -> bool:
+	if _results_overlay != null and is_instance_valid(_results_overlay):
+		_results_overlay.queue_free()
+		_results_overlay = null
+		_build()
+		return true
+	return false
+
+
 func _show_results(results: Array) -> void:
 	if _results_overlay != null and is_instance_valid(_results_overlay):
 		_results_overlay.queue_free()
@@ -244,6 +272,9 @@ func _show_results(results: Array) -> void:
 	if not GameState.last_match.is_empty() and int(report.get("count", 0)) > 0:
 		v.add_child(UiKit.lbl("Your list gained %d XP across %d players." % [
 				int(report["total"]), int(report["count"])], 14, UiKit.TEXT, true))
+	var outlook := GameState.finals_outcome_line(GameState.last_match)
+	if outlook != "":
+		v.add_child(UiKit.lbl(outlook, 15, UiKit.GOLD, true))
 	if GameState.season.is_season_over():
 		v.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(GameState.premier()),
 				18, UiKit.TEXT, true))

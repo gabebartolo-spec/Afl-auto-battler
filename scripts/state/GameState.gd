@@ -54,11 +54,223 @@ const XP_NAMED := 4
 const XP_PERF_CAP := 36
 
 
+## Where the career is saved. Tests point this somewhere else so they never
+## touch a real save.
+var save_path := CareerSave.DEFAULT_PATH
+var settings_path := "user://settings.cfg"
+## Autosave runs on every screen change, after every round and when the app
+## is backgrounded or closed. Tests switch it off.
+var autosave_enabled := true
+## Set by small edits (training, draft picks) that save on the next screen
+## change or when the app is backgrounded, rather than on every tap.
+var _dirty := false
+
+
+func _ready() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(settings_path) == OK:
+		show_real_names = bool(cfg.get_value("display", "real_names", false))
+
+
+func _notification(what: int) -> void:
+	# Mobile OSes kill backgrounded apps without warning; save on the way out.
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST \
+			or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		autosave_if_dirty()
+
+
 func set_show_real_names(enabled: bool) -> void:
 	if show_real_names == enabled:
 		return
 	show_real_names = enabled
+	var cfg := ConfigFile.new()
+	cfg.load(settings_path)
+	cfg.set_value("display", "real_names", enabled)
+	cfg.save(settings_path)
 	player_names_changed.emit()
+
+
+# ---------------------------------------------------------------------------
+# Saving and loading
+# ---------------------------------------------------------------------------
+## True when there is a career worth saving: a season, or a draft where you
+## have already picked your club.
+func has_career() -> bool:
+	return season != null or (draft != null and not draft.user_club.is_empty())
+
+
+func has_saved_career() -> bool:
+	return CareerSave.exists(save_path)
+
+
+## Club, year and stage of the saved career, for the main menu.
+func saved_career_meta() -> Dictionary:
+	return CareerSave.read_meta(save_path)
+
+
+## Save if there is a career and no live match is half played. Mid-match the
+## rest of the round is already on the ladder but the round has not closed,
+## so the last save (from before the match) is the consistent one to keep.
+func autosave() -> bool:
+	if not autosave_enabled or not has_career() or not pending_match.is_empty():
+		return false
+	return save_career()
+
+
+func mark_dirty() -> void:
+	_dirty = true
+
+
+func autosave_if_dirty() -> bool:
+	if not _dirty:
+		return false
+	return autosave()
+
+
+func save_career() -> bool:
+	if not has_career():
+		return false
+	# The pre-season league draft is spent once the season starts (it holds a
+	# second copy of the whole player pool), so it is not written.
+	var keep_draft := draft != null and not (season != null and not draft.intake_mode)
+	var state := {
+		"season_year": season_year,
+		"my_club": my_club,
+		"season": _season_to_save() if season != null else null,
+		"draft": CareerSave.object_vars(draft) if keep_draft else null,
+		"league_lists": _unlinked_lists(league_lists),
+		"league_links": _linked_codes(league_lists),
+		"my_list": [] if _linked_code(my_list) != "" else my_list,
+		"my_list_link": _linked_code(my_list),
+		"draftee_pool": draftee_pool,
+		"drafted_draftees": drafted_draftees,
+		"intake_assignments": intake_assignments,
+		"intake_summary": intake_summary,
+		"last_training_report": last_training_report,
+		"xp_grant_key": _xp_grant_key,
+		"last_phase": last_phase,
+		"last_label": last_label,
+		"season_log": CareerSave.slim_results(season_log),
+		"db_draftees": GameDB.draftees,
+		"db_late_draftees": GameDB.late_draftees,
+		"db_alias_next": GameDB._alias_next,
+	}
+	var ok := CareerSave.write(state, _save_meta(), save_path)
+	if ok:
+		_dirty = false
+	return ok
+
+
+func _save_meta() -> Dictionary:
+	var stage := "Draft"
+	if season != null:
+		if season.is_season_over():
+			stage = "National draft" if draft != null else "Season complete"
+		elif season.is_regular_done():
+			stage = "Finals"
+		else:
+			stage = "Round %d" % (season.round_index + 1)
+	return {"club": my_club if my_club != "" else (draft.user_club if draft != null else ""),
+			"year": season_year, "stage": stage,
+			"saved_at": Time.get_datetime_string_from_system()}
+
+
+## Replace the in-memory career with the saved one. Returns false (and leaves
+## a fresh state) if there is no usable save.
+func load_career() -> bool:
+	var state := CareerSave.read(save_path)
+	if state.is_empty():
+		return false
+	reset()
+	season_year = int(state.get("season_year", 2026))
+	my_club = str(state.get("my_club", ""))
+	if state.get("season") is Dictionary:
+		var sv: Dictionary = state["season"]
+		season = Season.new(sv["clubs"], sv["lists"], int(sv["seed"]))
+		CareerSave.apply_vars(season, sv)
+	if state.get("draft") is Dictionary:
+		draft = Draft.new([], [], 0)
+		CareerSave.apply_vars(draft, state["draft"])
+		draft._pick_by_player = {}
+		for entry in draft.pick_history:
+			draft._pick_by_player[str(entry["player_id"])] = entry
+	league_lists = state.get("league_lists", {})
+	for code in state.get("league_links", []):
+		if season != null and season.lists.has(code):
+			league_lists[code] = season.lists[code]
+	var link := str(state.get("my_list_link", ""))
+	my_list = _season_list(link) if link != "" else state.get("my_list", [])
+	draftee_pool = state.get("draftee_pool", [])
+	drafted_draftees = state.get("drafted_draftees", {})
+	intake_assignments = state.get("intake_assignments", [])
+	intake_summary = state.get("intake_summary", {})
+	last_training_report = state.get("last_training_report", {})
+	_xp_grant_key = str(state.get("xp_grant_key", ""))
+	last_phase = str(state.get("last_phase", ""))
+	last_label = str(state.get("last_label", ""))
+	season_log = state.get("season_log", [])
+	GameDB.draftees = state.get("db_draftees", GameDB.draftees)
+	GameDB.late_draftees = state.get("db_late_draftees", [])
+	GameDB._alias_next = int(state.get("db_alias_next", GameDB._alias_next))
+	return true
+
+
+func delete_saved_career() -> void:
+	CareerSave.delete(save_path)
+
+
+func _season_to_save() -> Dictionary:
+	var sv := CareerSave.object_vars(season)
+	sv["results"] = CareerSave.slim_results(season.results)
+	var fin: Dictionary = season.finals.duplicate()
+	if fin.has("weeks"):
+		fin["weeks"] = CareerSave.slim_results(fin["weeks"])
+	sv["finals"] = fin
+	return sv
+
+
+## Your list and the league lists are, at different points of a career, the
+## very arrays the season plays with. Remember which, so loading relinks them
+## instead of splitting them into copies. Also covers the league lists
+## pointing at your list.
+func _linked_code(arr: Array) -> String:
+	if season == null:
+		return ""
+	for code in season.lists:
+		if is_same(season.lists[code], arr):
+			return "season:" + str(code)
+	for code in league_lists:
+		if is_same(league_lists[code], arr):
+			return "league:" + str(code)
+	return ""
+
+
+func _season_list(link: String) -> Array:
+	var parts := link.split(":")
+	if parts.size() != 2:
+		return []
+	if parts[0] == "season" and season != null:
+		return season.lists.get(parts[1], [])
+	return league_lists.get(parts[1], [])
+
+
+func _linked_codes(lists: Dictionary) -> Array:
+	var out := []
+	if season == null:
+		return out
+	for code in lists:
+		if season.lists.has(code) and is_same(lists[code], season.lists[code]):
+			out.append(code)
+	return out
+
+
+func _unlinked_lists(lists: Dictionary) -> Dictionary:
+	var linked := _linked_codes(lists)
+	var out := {}
+	for code in lists:
+		if not linked.has(code):
+			out[code] = lists[code]
+	return out
 
 
 func reset() -> void:
@@ -83,6 +295,7 @@ func reset() -> void:
 	season_log = []
 	last_training_report = {}
 	_xp_grant_key = ""
+	_dirty = false
 	season_year = 2026
 	drafted_draftees = {}
 	intake_assignments = []
@@ -160,6 +373,7 @@ func begin_intake_draft() -> bool:
 	draft = Draft.build_intake(open_pool, GameDB.CLUB_ORDER.duplicate(), order,
 			seed, sizes, role_counts)
 	draft.start_for_user(my_club)
+	autosave()
 	return true
 
 
@@ -228,6 +442,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	pending_round_results = []
 	pending_phase = ""
 	pending_label = ""
+	autosave()
 
 
 ## Roll on without an intake (no prospects available, or the manager skipped
@@ -323,6 +538,7 @@ func start_season(club_code: String, list: Array) -> void:
 	last_label = "Round 1"
 	last_training_report = {}
 	_xp_grant_key = ""
+	autosave()
 
 
 ## Set up your next match (home-and-away round or final) to be played live,
@@ -387,7 +603,7 @@ func _prepare_interactive_final() -> bool:
 		if i == mine or m["home"] == "" or m["away"] == "":
 			continue
 		var res := season.simulate(m["home"], m["away"], season.finals_seed(i),
-				season.finals_neutral(m))
+				season.finals_neutral(m), true)
 		res["finals_index"] = i
 		pending_round_results.append(res)
 	var fm: Dictionary = matches[mine]
@@ -401,6 +617,7 @@ func _prepare_interactive_final() -> bool:
 	var away := Squad.new(GameDB.club_name(str(fm["away"])),
 			season.lists[fm["away"]], false, str(fm["away"]))
 	pending_sim = MatchSim.new(home, away, season.finals_seed(mine))
+	pending_sim.finals_mode = true
 	pending_phase = "finals"
 	pending_label = str(fm["label"])
 	last_results = []
@@ -433,6 +650,7 @@ func finish_interactive_match(res: Dictionary) -> void:
 		season_log.append(r)
 	_grant_match_xp(res)
 	_clear_pending()
+	autosave()
 
 
 ## Record the whole finals week in bracket order (your final included), then
@@ -460,6 +678,7 @@ func _finish_interactive_final(res: Dictionary) -> void:
 		season_log.append(r)
 	_grant_match_xp(res)
 	_clear_pending()
+	autosave()
 
 
 func _clear_pending() -> void:
@@ -508,6 +727,7 @@ func advance() -> String:
 		if res["home"] == my_club or res["away"] == my_club:
 			last_match = res
 	_grant_match_xp(last_match)
+	autosave()
 	return last_phase
 
 
@@ -565,6 +785,59 @@ func season_is_over() -> bool:
 
 func premier() -> String:
 	return str(season.finals.get("premier", "")) if season != null else ""
+
+
+## Where your finals campaign stands: "" if you are not a finalist, else
+## "alive" (you play this week), "bye" (won a qualifying final, week off),
+## "eliminated", "premier" or "runner_up".
+func my_finals_status() -> String:
+	if season == null or season.finals.is_empty():
+		return ""
+	var top: Array = season.finals.get("top", [])
+	if not top.has(my_club):
+		return ""
+	if season.is_season_over():
+		if premier() == my_club:
+			return "premier"
+		if str(season.finals.get("runner_up", "")) == my_club:
+			return "runner_up"
+		return "eliminated"
+	var slots: Dictionary = season.finals.get("slots", {})
+	for tag in ["EF1", "EF2", "SF1", "SF2", "PF1", "PF2", "GF"]:
+		if str(slots.get("L_" + tag, "")) == my_club:
+			return "eliminated"
+	for m in season.finals_week_matches():
+		if m["home"] == my_club or m["away"] == my_club:
+			return "alive"
+	return "bye"
+
+
+## One line on what your last final means, for the full-time and results
+## screens. Reads the bracket, so a level final decided on ladder position
+## still reports the right outcome.
+func finals_outcome_line(res: Dictionary) -> String:
+	var tag := str(res.get("tag", ""))
+	if tag == "" or season == null or season.finals.is_empty():
+		return ""
+	var slots: Dictionary = season.finals.get("slots", {})
+	var won: bool = str(slots.get("W_" + tag, "")) == my_club
+	match tag.substr(0, 2):
+		"QF":
+			return "Straight through to a home preliminary final, with a week off." if won \
+					else "Second chance: you host a semi final next week."
+		"EF":
+			return "Through to the semi finals." if won \
+					else "Knocked out in an elimination final. Your season is over."
+		"SF":
+			return "Through to the preliminary finals." if won \
+					else "Knocked out in the semi finals. Your season is over."
+		"PF":
+			return "Into the Grand Final!" if won \
+					else "One game short: out in the preliminary final."
+		"GF":
+			return ("%d PREMIERS" % season_year) if won \
+					else ("Runners-up in %d" % season_year)
+	return ""
 
 
 ## Deep copy so a career can raise attributes without mutating GameDB.
@@ -750,6 +1023,7 @@ func train_stat(player_id: String, attr_key: String, points := 1) -> Dictionary:
 		fail["reason"] = "That stat is already 99." if needed < 0 else "Needs %d XP." % needed
 		return fail
 	_recalc_player_overall(p)
+	mark_dirty()
 	return {
 		"ok": true,
 		"reason": "",

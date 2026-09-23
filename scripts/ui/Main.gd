@@ -5,6 +5,8 @@ var _pitch: PitchView
 var _buttons: VBoxContainer
 var _help_panel: PanelContainer
 var _name_toggle: Button
+var _confirm_overlay: Control
+var _load_error: Label
 
 
 func _ready() -> void:
@@ -52,7 +54,23 @@ func _ready() -> void:
 		resume.name = "ResumeCareer"
 		resume.pressed.connect(func(): Router.go("draft" if resume_draft else "hub"))
 		_buttons.add_child(resume)
-	var new_career := UiKit.btn("New Career", 19, not resume_draft and GameState.season == null)
+	var saved := not GameState.has_career() and GameState.has_saved_career()
+	if saved:
+		var cont := UiKit.btn("Continue Career", 19, true)
+		cont.name = "ContinueCareer"
+		cont.pressed.connect(_on_continue)
+		_buttons.add_child(cont)
+		var meta := GameState.saved_career_meta()
+		if not meta.is_empty():
+			var info := UiKit.lbl(_meta_line(meta), 12, UiKit.MUTED)
+			info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			_buttons.add_child(info)
+	_load_error = UiKit.lbl("", 12, UiKit.BAD)
+	_load_error.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_load_error.visible = false
+	_buttons.add_child(_load_error)
+	var new_career := UiKit.btn("New Career", 19,
+			not resume_draft and GameState.season == null and not saved)
 	new_career.name = "NewCareer"
 	new_career.pressed.connect(_on_new_career)
 	_buttons.add_child(new_career)
@@ -123,10 +141,79 @@ func _data_line() -> String:
 	return "%d players · %d clubs · 13 rated attributes" % [GameDB.players.size(), GameDB.clubs.size()]
 
 
+func _meta_line(meta: Dictionary) -> String:
+	var club := str(meta.get("club", ""))
+	var bits: PackedStringArray = []
+	if club != "":
+		bits.append(GameDB.club_name(club))
+	bits.append(str(meta.get("year", "")))
+	if str(meta.get("stage", "")) != "":
+		bits.append(str(meta["stage"]))
+	return "  ·  ".join(bits)
+
+
+func _on_continue() -> void:
+	if GameState.load_career():
+		Router.go("hub" if GameState.season != null else "draft")
+		return
+	_load_error.text = "That save could not be read. Start a new career to replace it."
+	_load_error.visible = true
+
+
 func _on_new_career() -> void:
+	if GameState.has_career() or GameState.has_saved_career():
+		_confirm_new_career()
+		return
+	_start_new_career()
+
+
+func _start_new_career() -> void:
+	GameState.delete_saved_career()
 	GameState.reset()
 	GameState.begin_draft()
 	Router.go("draft")
+
+
+func _confirm_new_career() -> void:
+	var box := UiKit.modal_box(self, 460.0, 260.0)
+	_confirm_overlay = box["overlay"]
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.lbl("Start a new career?", 20, UiKit.GOLD, true))
+	var meta := GameState.saved_career_meta()
+	var what := "your current career"
+	if not meta.is_empty():
+		what = "your saved career (%s)" % _meta_line(meta)
+	v.add_child(UiKit.lbl("This replaces %s. It cannot be undone." % what, 14, UiKit.TEXT))
+	var go := UiKit.btn("Start New Career", 17, true)
+	go.name = "ConfirmNewCareer"
+	go.custom_minimum_size = Vector2(0, 44)
+	go.pressed.connect(func():
+		_close_confirm()
+		_start_new_career())
+	box["footer"].add_child(go)
+	var cancel := UiKit.btn("Cancel", 16)
+	cancel.custom_minimum_size = Vector2(0, 44)
+	cancel.pressed.connect(_close_confirm)
+	box["footer"].add_child(cancel)
+
+
+func _close_confirm() -> void:
+	if is_instance_valid(_confirm_overlay):
+		_confirm_overlay.queue_free()
+	_confirm_overlay = null
+
+
+## Router back hook: close the help panel before leaving the menu.
+func handle_back() -> bool:
+	if is_instance_valid(_confirm_overlay):
+		_close_confirm()
+		return true
+	if is_instance_valid(_help_panel):
+		var overlay := _help_panel.get_parent()
+		_help_panel = null
+		overlay.queue_free()
+		return true
+	return false
 
 
 func _show_help() -> void:

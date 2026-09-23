@@ -77,12 +77,13 @@ func build_fixture() -> Array:
 # Simulation
 # ---------------------------------------------------------------------------
 func simulate(home_code: String, away_code: String, match_seed: int,
-		neutral_venue := false) -> Dictionary:
+		neutral_venue := false, is_final := false) -> Dictionary:
 	var home := Squad.new(GameDB_ref().club_name(home_code),
 			lists[home_code], not neutral_venue, home_code)
 	var away := Squad.new(GameDB_ref().club_name(away_code),
 			lists[away_code], false, away_code)
 	var sim := MatchSim.new(home, away, match_seed)
+	sim.finals_mode = is_final
 	var res := sim.run()
 	res["neutral"] = neutral_venue
 	return res
@@ -229,7 +230,7 @@ func play_finals_week() -> Array:
 		var m: Dictionary = matches[i]
 		if m["home"] == "" or m["away"] == "":
 			continue
-		var res := simulate(m["home"], m["away"], finals_seed(i), finals_neutral(m))
+		var res := simulate(m["home"], m["away"], finals_seed(i), finals_neutral(m), true)
 		record_final(m, res)
 		played.append(res)
 	complete_finals_week(played)
@@ -248,8 +249,9 @@ func finals_neutral(m: Dictionary) -> bool:
 	return str(m.get("tag", "")) == "GF"
 
 
-## Stamp a finals result and advance the bracket slots. Finals cannot end
-## level: the higher-ranked side advances.
+## Stamp a finals result and advance the bracket slots. Extra time settles
+## almost every level final; if even the golden-point period runs dry, the
+## higher-ranked side advances.
 func record_final(m: Dictionary, res: Dictionary) -> void:
 	var s: Dictionary = finals["slots"]
 	res["round"] = REGULAR_ROUNDS + int(finals["week"])
