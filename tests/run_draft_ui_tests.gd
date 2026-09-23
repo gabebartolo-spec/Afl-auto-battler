@@ -22,9 +22,14 @@ func _initialize() -> void:
 func _run() -> void:
 	await process_frame
 	_state = root.get_node("GameState")
+	# Never touch a real career save or settings file from a test run.
+	_state.autosave_enabled = false
+	_state.save_path = "user://test_career.save"
+	_state.settings_path = "user://test_settings.cfg"
+	_state.show_real_names = false
 	_db = root.get_node("GameDB")
 	_state.reset()
-	_state.draft = Draft.new(_db.all_players_sorted(), _db.CLUB_ORDER.duplicate(), 12345)
+	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(), _db.CLUB_ORDER.duplicate(), 12345)
 	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
 	root.add_child(ui)
 	ui.call("_on_club_chosen", "COL")
@@ -98,7 +103,7 @@ func _run() -> void:
 
 
 func _snapshot(ui: Control) -> Dictionary:
-	var draft: Draft = _state.draft
+	var draft = _state.draft
 	var out := {
 		"history": draft.pick_history.duplicate(true),
 		"count": draft.count(),

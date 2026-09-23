@@ -77,12 +77,13 @@ func build_fixture() -> Array:
 # Simulation
 # ---------------------------------------------------------------------------
 func simulate(home_code: String, away_code: String, match_seed: int,
-		neutral_venue := false) -> Dictionary:
+		neutral_venue := false, is_final := false) -> Dictionary:
 	var home := Squad.new(GameDB_ref().club_name(home_code),
 			lists[home_code], not neutral_venue, home_code)
 	var away := Squad.new(GameDB_ref().club_name(away_code),
 			lists[away_code], false, away_code)
 	var sim := MatchSim.new(home, away, match_seed)
+	sim.finals_mode = is_final
 	var res := sim.run()
 	res["neutral"] = neutral_venue
 	return res
@@ -225,42 +226,63 @@ func play_finals_week() -> Array:
 		return []
 	var matches := finals_week_matches()
 	var played := []
-	var s: Dictionary = finals["slots"]
 	for i in range(matches.size()):
 		var m: Dictionary = matches[i]
 		if m["home"] == "" or m["away"] == "":
 			continue
-		var res := simulate(m["home"], m["away"],
-				seed * 7717 + int(finals["week"]) * 131 + i, true)
-		res["round"] = REGULAR_ROUNDS + int(finals["week"])
-		res["label"] = m["label"]
-		res["tag"] = m["tag"]
-		# Finals cannot end level: the higher-ranked side advances.
-		var sc: Array = res["score"]
-		var winner: String
-		var loser: String
-		if sc[0] == sc[1]:
-			var top: Array = finals["top"]
-			winner = m["home"] if top.find(m["home"]) < top.find(m["away"]) else m["away"]
-			loser = m["away"] if winner == m["home"] else m["home"]
-			res["decided_on_ladder"] = true
-		else:
-			winner = m["home"] if sc[0] > sc[1] else m["away"]
-			loser = m["away"] if winner == m["home"] else m["home"]
-		s["W_" + m["tag"]] = winner
-		s["L_" + m["tag"]] = loser
+		var res := simulate(m["home"], m["away"], finals_seed(i), finals_neutral(m), true)
+		record_final(m, res)
 		played.append(res)
+	complete_finals_week(played)
+	return played
 
+
+## Seed for match `i` of the current finals week. Shared by the simulated
+## week and the interactive finals match so both roll the same game.
+func finals_seed(i: int) -> int:
+	return seed * 7717 + int(finals["week"]) * 131 + i
+
+
+## The higher-ranked club hosts every final except the Grand Final, which is
+## played at a neutral venue. The bracket always lists the higher seed first.
+func finals_neutral(m: Dictionary) -> bool:
+	return str(m.get("tag", "")) == "GF"
+
+
+## Stamp a finals result and advance the bracket slots. Extra time settles
+## almost every level final; if even the golden-point period runs dry, the
+## higher-ranked side advances.
+func record_final(m: Dictionary, res: Dictionary) -> void:
+	var s: Dictionary = finals["slots"]
+	res["round"] = REGULAR_ROUNDS + int(finals["week"])
+	res["label"] = m["label"]
+	res["tag"] = m["tag"]
+	res["neutral"] = finals_neutral(m)
+	var sc: Array = res["score"]
+	var winner: String
+	var loser: String
+	if sc[0] == sc[1]:
+		var top: Array = finals["top"]
+		winner = m["home"] if top.find(m["home"]) < top.find(m["away"]) else m["away"]
+		loser = m["away"] if winner == m["home"] else m["home"]
+		res["decided_on_ladder"] = true
+	else:
+		winner = m["home"] if sc[0] > sc[1] else m["away"]
+		loser = m["away"] if winner == m["home"] else m["home"]
+	s["W_" + m["tag"]] = winner
+	s["L_" + m["tag"]] = loser
+
+
+## Close the current finals week once every match in it has been recorded.
+func complete_finals_week(played: Array) -> void:
+	var s: Dictionary = finals["slots"]
 	finals["weeks"].append(played)
-
 	if int(finals["week"]) == 4 and not played.is_empty():
-		var gf: Dictionary = played[0]
 		finals["premier"] = s.get("W_GF", "")
 		finals["runner_up"] = s.get("L_GF", "")
 		finals["done"] = true
 	else:
 		finals["week"] = int(finals["week"]) + 1
-	return played
 
 
 func is_season_over() -> bool:

@@ -10,6 +10,9 @@ godot --headless --path . --script tests/run_draft_tests.gd
 godot --headless --path . --script tests/run_draft_ui_tests.gd
 godot --headless --path . --script tests/run_intake_tests.gd
 godot --headless --path . --script tests/run_intake_ui_tests.gd
+godot --headless --path . --script tests/run_finals_tests.gd
+godot --headless --path . --script tests/run_save_tests.gd
+godot --headless --path . --script tests/run_career_ui_tests.gd
 ```
 
 The intake suites cover the 2026 draft-class file (56 prospects: unique ids/
@@ -20,7 +23,26 @@ dry, capped-club skips, contiguous logs), and the full rollover (year
 advance, list merges with jumper numbers, ageing + retirement bounds, the
 generated 2027 class, determinism, and reset restoring the pristine 2026
 data). The UI suite runs the shared DraftScene in intake mode across the same
-ten viewports. A non-Godot mirror of the same maths runs in CI-friendly Python:
+ten viewports. The finals suite checks the bracket opens straight after
+round 24, that a qualifying club plays every final live through the same
+prepare / quarter-by-quarter / finish path the match screen uses (nothing is
+recorded mid-match, each week records the right number of matches, only the
+Grand Final is neutral), that simming the series still crowns a premier,
+that a level final goes to extra time (one siren, a fifth period, the tie
+broken) while a home-and-away draw stays a draw, and that the finals status
+(alive / week off / knocked out) and outcome line are right each week.
+
+The save suite reloads a career at every stage (mid-season, mid-draft, mid
+national draft, second season) and checks it is the same career: the next
+round replays identically after loading, training survives, shared player
+dicts stay shared, generated draft classes come back, a half-played live
+match is never saved, and a file from another save version is ignored. The
+career UI suite drives the main menu (Continue Career, the New Career prompt)
+and the back button on the hub, ladder, a live match and the menu.
+
+Every runner points saves and settings at `user://test_*` files and turns
+autosave off, so running the tests never touches a real career.
+A non-Godot mirror of the same maths runs in CI-friendly Python:
 `python3 tools/intake_harness.py` (data/schema validation + a six-season
 intake/development simulation over the real lists).
 

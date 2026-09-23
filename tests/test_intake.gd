@@ -136,7 +136,7 @@ func _test_intake_draft_flow() -> void:
 	_check(draft.is_user_turn(), "Club A is on the clock first")
 	var best = draft.board("", "", "", "overall", true)[0]
 	_check(draft.pick(best), "The user signs the top prospect on their turn")
-	_check(draft.remaining_pool() == 5, "Pool shrinks with each selection")
+	_check(draft.has(str(best["id"])), "The user's selection is on their list")
 	# AI fills B..D and then round two for D and C; A's turn never comes again.
 	_check(draft.is_finished(), "The draft concludes when the pool runs dry")
 	_check(draft.remaining_pool() == 0, "No prospect is left undrafted")

@@ -390,6 +390,7 @@ func _load_players() -> Array:
 	for j in range(header.size()):
 		idx[header[j]] = j
 
+	var seen_ids := {}
 	for i in range(1, rows.size()):
 		var cells: Array = rows[i]
 		if cells.size() < header.size():
@@ -404,7 +405,16 @@ func _load_players() -> Array:
 		# display value is the generated alias, assigned after the pool loads.
 		p["generic_name"] = ""
 		p["name"] = ""
-		p["id"] = "%s_%d" % [p["club"], p["num"]]
+		# Club + guernsey is the id, but a list can carry two players on one
+		# number (Sydney's #36 in the 2026 data). A shared id would let the
+		# draft treat both as one player, so later duplicates get a suffix.
+		var id := "%s_%d" % [p["club"], p["num"]]
+		var dupe := 2
+		while seen_ids.has(id):
+			id = "%s_%d_%d" % [p["club"], p["num"], dupe]
+			dupe += 1
+		seen_ids[id] = true
+		p["id"] = id
 		p["src"] = int(str(cells[idx["src"]])) if idx.has("src") else 2026
 		for k in STAT_KEYS:
 			p[k] = float(str(cells[idx[k]])) if idx.has(k) else 0.0

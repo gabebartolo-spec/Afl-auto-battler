@@ -215,6 +215,7 @@ func _on_club_chosen(code: String) -> void:
 	_phase = "board"
 	_last_batch_start = _draft.pick_history.size()
 	_draft.start_for_user(code)
+	GameState.mark_dirty()
 	_show_board()
 
 
@@ -656,6 +657,7 @@ func _player_row(p: Dictionary) -> Control:
 func _on_pick(player: Dictionary) -> void:
 	_last_batch_start = _draft.pick_history.size()
 	if _draft.pick(player):
+		GameState.mark_dirty()
 		_refresh()
 
 

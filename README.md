@@ -47,7 +47,7 @@ translations, pick *Keep File* again in the Import dock.
 | **Choose a club** | All 18 lists start empty. Choose your club with its randomly assigned first pick shown up front. |
 | **The draft** | All clubs take turns from the same pool in snake order, under the same cap (58% of the cost of the best target-sized list). Track rival selections in the pick log. Carry at least two rucks; the other position targets are coverage guidance. Filter by position, original club or name, and sort by rating, price, goals or disposals. |
 | **Home and away** | 24 rounds, a full double round-robin. Each round you can **Play Match** and watch it on the oval, or **Sim Round** and just read the results. |
-| **Finals** | Top eight play the real AFL bracket: qualifying and elimination finals, semis, prelims, Grand Final at a neutral venue. Level scores are resolved by ladder position, exactly as the AFL does it. |
+| **Finals** | Top eight play the real AFL bracket: qualifying and elimination finals, semis, prelims, Grand Final. The higher seed hosts every final except the Grand Final, which is at a neutral venue. Your finals play live with the quarter-by-quarter coach box, just like a home-and-away match. A final level at full time goes to extra time (two short halves, then next score wins). After each final the game tells you where you stand: a second chance after a qualifying-final loss, a week off after a qualifying-final win, or knocked out. |
 | **Review** | The flag, your record, best win, worst loss, longest streak and a game-by-game form strip. |
 | **National Draft** | The career keeps going. Father-son and NGA prospects land at their clubs, then every list - yours included - drafts the 2026 class over the reversed ladder, worst club first. Prospects have no AFL stats; they arrive with **projected ratings** built from draft rank, position and U18 production, so a top pick starts rotation-grade and develops from there. |
 | **Next season** | Every list ages: young prospects grow, veterans decline, the oldest retire. A generated intake class arrives each year, so the loop runs indefinitely. |
@@ -69,8 +69,8 @@ translations, pick *Keep File* again in the Import dock.
   Rotation preserves the roster, history, search, sorting and filters.
 - **Clear next steps.** Cap remaining, list progress and your next snake picks
   stay visible. **Start Season** only enables for a complete, valid list.
-  Returning to the menu offers **Resume Draft** (for the current running session;
-  this does not add save-to-disk support).
+  Returning to the menu offers **Resume Draft**, and the draft is saved to disk
+  with the rest of the career (see *Saving* below).
 
 The draft UI uses locally bundled Barlow fonts, with SIL OFL licences under
 `assets/fonts/`. No network access is required by the game.
@@ -158,6 +158,32 @@ python3 tools/sim_harness.py --sample      # one narrated match
 python3 tools/sim_harness.py --ratings     # dump ratings to data/ratings_preview.csv
 python3 tools/validate_data.py             # dataset integrity check
 ```
+
+## Saving
+
+The career autosaves to `user://career.save`: after every round and every
+match you play, when a season or national draft starts or finishes, on screen
+changes after training or draft picks, and whenever the app is sent to the
+background or closed. **Continue Career** on the main menu picks it up, showing
+the club, year and stage. **New Career** asks before replacing it. A match is
+never saved half played: if the app dies mid-match, you replay that round
+(the other results are seeded, so they come out the same).
+
+`scripts/state/CareerSave.gd` writes one `store_var` blob. Player dictionaries
+are shared by reference all over a career (season lists, your list, the draft,
+the prospect pool), so each is written once and relinked on load. Match event
+logs and the derived `rates`/`norm` tables are not saved. A mid-season save is
+about 1.4 MB. The "Player Labels" choice is kept separately in
+`user://settings.cfg`.
+
+## Back button
+
+Android's back button and Escape on desktop go through `Router.handle_back()`
+(`application/config/quit_on_go_back` is off). A screen can intercept it first:
+the hub closes its results popup, the main menu closes help or the New Career
+prompt, and a live match refuses to be abandoned until full time. Otherwise it
+steps back a screen; from the hub it returns to the main menu with the career
+kept in memory. Only the OS back button on the main menu quits the app.
 
 ## Exporting
 

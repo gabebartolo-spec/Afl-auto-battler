@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://crcyc56616xvh"
+
+[deps]
+
+files=["res://data/players_enriched_2026.num.translation", "res://data/players_enriched_2026.last.translation", "res://data/players_enriched_2026.first.translation", "res://data/players_enriched_2026.gm.translation", "res://data/players_enriched_2026.ki.translation", "res://data/players_enriched_2026.mk.translation", "res://data/players_enriched_2026.hb.translation", "res://data/players_enriched_2026.di.translation", "res://data/players_enriched_2026.gl.translation", "res://data/players_enriched_2026.bh.translation", "res://data/players_enriched_2026.ho.translation", "res://data/players_enriched_2026.tk.translation", "res://data/players_enriched_2026.rb.translation", "res://data/players_enriched_2026.if50.translation", "res://data/players_enriched_2026.cl.translation", "res://data/players_enriched_2026.cg.translation", "res://data/players_enriched_2026.ff.translation", "res://data/players_enriched_2026.fa.translation", "res://data/players_enriched_2026.br.translation", "res://data/players_enriched_2026.cp.translation", "res://data/players_enriched_2026.up.translation", "res://data/players_enriched_2026.cm.translation", "res://data/players_enriched_2026.mi.translation", "res://data/players_enriched_2026.onepct.translation", "res://data/players_enriched_2026.bo.translation", "res://data/players_enriched_2026.ga.translation", "res://data/players_enriched_2026.pctp.translation", "res://data/players_enriched_2026.src.translation", "res://data/players_enriched_2026.real.translation", "res://data/players_enriched_2026.dob.translation", "res://data/players_enriched_2026.age.translation", "res://data/players_enriched_2026.height.translation", "res://data/players_enriched_2026.weight.translation", "res://data/players_enriched_2026.debut.translation", "res://data/players_enriched_2026.height.translation"]
+
+source_file="res://data/players_enriched_2026.csv"
+dest_files=["res://data/players_enriched_2026.num.translation", "res://data/players_enriched_2026.last.translation", "res://data/players_enriched_2026.first.translation", "res://data/players_enriched_2026.gm.translation", "res://data/players_enriched_2026.ki.translation", "res://data/players_enriched_2026.mk.translation", "res://data/players_enriched_2026.hb.translation", "res://data/players_enriched_2026.di.translation", "res://data/players_enriched_2026.gl.translation", "res://data/players_enriched_2026.bh.translation", "res://data/players_enriched_2026.ho.translation", "res://data/players_enriched_2026.tk.translation", "res://data/players_enriched_2026.rb.translation", "res://data/players_enriched_2026.if50.translation", "res://data/players_enriched_2026.cl.translation", "res://data/players_enriched_2026.cg.translation", "res://data/players_enriched_2026.ff.translation", "res://data/players_enriched_2026.fa.translation", "res://data/players_enriched_2026.br.translation", "res://data/players_enriched_2026.cp.translation", "res://data/players_enriched_2026.up.translation", "res://data/players_enriched_2026.cm.translation", "res://data/players_enriched_2026.mi.translation", "res://data/players_enriched_2026.onepct.translation", "res://data/players_enriched_2026.bo.translation", "res://data/players_enriched_2026.ga.translation", "res://data/players_enriched_2026.pctp.translation", "res://data/players_enriched_2026.src.translation", "res://data/players_enriched_2026.real.translation", "res://data/players_enriched_2026.dob.translation", "res://data/players_enriched_2026.age.translation", "res://data/players_enriched_2026.height.translation", "res://data/players_enriched_2026.weight.translation", "res://data/players_enriched_2026.debut.translation", "res://data/players_enriched_2026.height.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

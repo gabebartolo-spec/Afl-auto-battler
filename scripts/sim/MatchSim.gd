@@ -26,6 +26,10 @@ var tactics := [{}, {}]      # per side: gameplan, focus_id, tag_id, pep
 # quarter; quarter_teams[q] records the cumulative team totals afterwards.
 var tactics_history: Array = []
 var quarter_teams: Array = []
+## Finals cannot be drawn. With finals_mode on, a level score at the end of
+## Q4 leads to extra time instead of the full-time siren.
+var finals_mode := false
+var extra_time_played := false
 
 
 func _init(home: Squad, away: Squad, seed: int = 0) -> void:
@@ -448,6 +452,8 @@ func _scoreline(side: int, prefix: String) -> String:
 func run() -> Dictionary:
 	while current_quarter <= 4:
 		run_quarter()
+	if needs_extra_time():
+		run_extra_time()
 	return result()
 
 
@@ -461,51 +467,7 @@ func run_quarter() -> Dictionary:
 		"quarter": quarter,
 		"plans": [(tactics[0] as Dictionary).duplicate(), (tactics[1] as Dictionary).duplicate()],
 	})
-	for i in range(per_quarter):
-		current_minute = (quarter - 1) * 30 + int(30 * i / maxi(1, per_quarter)) + 1
-		var stoppage := at_centre or rng.randf() < float(T["stoppage_share"])
-		var side: int
-		var start_fp: float
-		if stoppage:
-			start_fp = 0.0
-			side = contest_winner(false, 0.0)
-		else:
-			start_fp = fp
-			side = next_side if next_side >= 0 else contest_winner(true, fp)
-
-		var res := play_chain(side, start_fp, stoppage)
-		var outcome: String = res["outcome"]
-		fp = res["fp"]
-
-		at_centre = (outcome == "score")
-		next_side = (1 - side) if outcome == "turnover" else -1
-		if outcome == "score":
-			fp = 0.0
-
-		# End-of-chain error: a clanger, sometimes a free kick against.
-		var clanger_p := float(T["clanger_per_chain"])
-		if _plan(side) == "fast" or _plan(side) == "attacking":
-			clanger_p *= 1.12
-		elif _plan(side) == "controlled":
-			clanger_p *= 0.86
-		if rng.randf() < clanger_p:
-			var ground: Array = squads[side].ground
-			var weights := []
-			for p in ground:
-				weights.append(float(pow(maxf(1.0, 101.0
-						- float(p["attr"]["discipline"])), 1.6)))
-			var err = _pick(ground, weights)
-			_t(side, "clangers")
-			_p(err, "clangers")
-			_emit("clanger", side, fp, err,
-					"%s gives away a clanger" % GameDB.player_display_name(err))
-			if rng.randf() < float(T["clanger_is_free"]):
-				_t(1 - side, "frees_for")
-				_t(side, "frees_against")
-				_p(err, "frees_against")
-				next_side = 1 - side
-				_emit("free", 1 - side, fp, err,
-						"Free kick against %s" % GameDB.player_display_name(err))
+	_play_chains(per_quarter, (quarter - 1) * 30, 30)
 
 	quarter_teams.append({
 		"quarter": quarter,
@@ -520,10 +482,114 @@ func run_quarter() -> Dictionary:
 		squads[1].name, goals(1), behinds(1), score(1)])
 	current_quarter += 1
 	if quarter == 4:
-		_emit("final", -1, 0.0, null, "Full time - %s %d.%d (%d) | %s %d.%d (%d)" % [
-				squads[0].name, goals(0), behinds(0), score(0),
-				squads[1].name, goals(1), behinds(1), score(1)])
+		if needs_extra_time():
+			# No siren: the pitch keeps going into extra time.
+			_emit("quarter", -1, 0.0, null,
+					"Scores level at full time - we are going to extra time!")
+		else:
+			_emit_full_time("Full time")
 	return result()
+
+
+## True once a finals match is level after four quarters and extra time has
+## not been played yet.
+func needs_extra_time() -> bool:
+	return finals_mode and not extra_time_played and current_quarter > 4 \
+			and score(0) == score(1)
+
+
+## AFL finals extra time: two short halves (three minutes plus time on),
+## then, if still level, the next score wins. Only ever runs after Q4 of a
+## level final, so home-and-away matches and calibration are untouched.
+func run_extra_time() -> Dictionary:
+	if not needs_extra_time():
+		return result()
+	extra_time_played = true
+	current_quarter = 5
+	q_goals.append([0, 0])
+	q_behinds.append([0, 0])
+	var T := Ratings.T
+	var per_half: int = maxi(4, roundi(float(T["chains_per_game"]) / 4.0 * 0.15))
+	at_centre = true
+	_play_chains(per_half, 120, 4)
+	_emit("quarter", -1, fp, null, "Extra time, half time - %s %d | %s %d" % [
+			squads[0].name, score(0), squads[1].name, score(1)])
+	at_centre = true
+	_play_chains(per_half, 124, 4)
+	if score(0) == score(1):
+		_emit("quarter", -1, fp, null, "Still level - next score wins!")
+		var guard := 0
+		while score(0) == score(1) and guard < GOLDEN_POINT_CHAINS:
+			current_minute = 128 + int(guard / 4)
+			_play_one_chain(T)
+			guard += 1
+	_emit_full_time("Full time (after extra time)")
+	return result()
+
+
+const GOLDEN_POINT_CHAINS := 60
+
+
+func _emit_full_time(prefix: String) -> void:
+	_emit("final", -1, 0.0, null, "%s - %s %d.%d (%d) | %s %d.%d (%d)" % [
+			prefix, squads[0].name, goals(0), behinds(0), score(0),
+			squads[1].name, goals(1), behinds(1), score(1)])
+
+
+## Play `count` possession chains, stamping minutes across `span` minutes
+## from `minute_base`. Shared by the four quarters and extra time; the RNG
+## call order is exactly the original quarter loop's.
+func _play_chains(count: int, minute_base: int, span: int) -> void:
+	var T := Ratings.T
+	for i in range(count):
+		current_minute = minute_base + int(span * i / maxi(1, count)) + 1
+		_play_one_chain(T)
+
+
+func _play_one_chain(T: Dictionary) -> void:
+	var stoppage := at_centre or rng.randf() < float(T["stoppage_share"])
+	var side: int
+	var start_fp: float
+	if stoppage:
+		start_fp = 0.0
+		side = contest_winner(false, 0.0)
+	else:
+		start_fp = fp
+		side = next_side if next_side >= 0 else contest_winner(true, fp)
+
+	var res := play_chain(side, start_fp, stoppage)
+	var outcome: String = res["outcome"]
+	fp = res["fp"]
+
+	at_centre = (outcome == "score")
+	next_side = (1 - side) if outcome == "turnover" else -1
+	if outcome == "score":
+		fp = 0.0
+
+	# End-of-chain error: a clanger, sometimes a free kick against.
+	var clanger_p := float(T["clanger_per_chain"])
+	if _plan(side) == "fast" or _plan(side) == "attacking":
+		clanger_p *= 1.12
+	elif _plan(side) == "controlled":
+		clanger_p *= 0.86
+	if rng.randf() < clanger_p:
+		var ground: Array = squads[side].ground
+		var weights := []
+		for p in ground:
+			weights.append(float(pow(maxf(1.0, 101.0
+					- float(p["attr"]["discipline"])), 1.6)))
+		var err = _pick(ground, weights)
+		_t(side, "clangers")
+		_p(err, "clangers")
+		_emit("clanger", side, fp, err,
+				"%s gives away a clanger" % GameDB.player_display_name(err))
+		if rng.randf() < float(T["clanger_is_free"]):
+			_t(1 - side, "frees_for")
+			_t(side, "frees_against")
+			_p(err, "frees_against")
+			next_side = 1 - side
+			_emit("free", 1 - side, fp, err,
+					"Free kick against %s" % GameDB.player_display_name(err))
 
 
 ## The 18 on-ground players per side, so the pitch view can draw real
@@ -567,4 +633,5 @@ func result() -> Dictionary:
 		"away": squads[1].code,
 		"tactics_history": tactics_history.duplicate(true),
 		"quarter_teams": quarter_teams.duplicate(true),
+		"extra_time": extra_time_played,
 	}
