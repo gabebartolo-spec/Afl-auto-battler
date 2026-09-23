@@ -121,6 +121,8 @@ func _test_intake_values_potential() -> void:
 func _test_rivals_train() -> void:
 	GameState.reset()
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	# Manual: your players bank XP, so any attribute change would be the AI's.
+	GameState.default_train_plan = "manual"
 	var rival: Array = GameState.season.lists["COL"]
 	var before := {}
 	for p in rival:

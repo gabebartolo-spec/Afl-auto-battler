@@ -783,8 +783,11 @@ func _show_fulltime() -> void:
 	var report: Dictionary = GameState.last_training_report
 	if int(report.get("count", 0)) > 0 and str(report.get("home", "")) == str(_res.get("home", "")) \
 			and str(report.get("away", "")) == str(_res.get("away", "")):
-		v.add_child(UiKit.lbl("%d players gained %d XP. Spend it on any stat in Training." % [
+		v.add_child(UiKit.lbl("%d players gained %d XP." % [
 				int(report["count"]), int(report["total"])], 14, UiKit.TEXT, true))
+		var spent := GameState.training_summary_line()
+		if spent != "":
+			v.add_child(UiKit.lbl(spent + " Adjust plans in Training.", 13, UiKit.GOOD))
 	var snaps: Array = _res.get("quarter_teams", [])
 	if snaps.size() >= 2:
 		var ht_btn := UiKit.btn("Half-time report", 15)

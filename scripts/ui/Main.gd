@@ -6,6 +6,7 @@ var _buttons: VBoxContainer
 var _help_panel: PanelContainer
 var _name_toggle: Button
 var _confirm_overlay: Control
+var _guide_overlay: Control
 var _load_error: Label
 
 
@@ -205,6 +206,10 @@ func _close_confirm() -> void:
 
 ## Router back hook: close the help panel before leaving the menu.
 func handle_back() -> bool:
+	if is_instance_valid(_guide_overlay):
+		_guide_overlay.queue_free()
+		_guide_overlay = null
+		return true
 	if is_instance_valid(_confirm_overlay):
 		_close_confirm()
 		return true
@@ -230,11 +235,18 @@ func _show_help() -> void:
 			"1. Choose your club. All 18 clubs start with empty lists.\n\n"
 			+ "2. Draft from one shared player pool under the same cap. The random order reverses each round. Rivals pick between your turns.\n\n"
 			+ "3. Track every selection in Picks. The position counters show your list's coverage; tap one to filter the pool. Carry at least two rucks.\n\n"
-			+ "4. Play 24 rounds, with matches driven by your players' rated abilities. Set your tactics in the coach box. After each game every player earns XP, and Training lets you spend it on any stat.\n\n"
+			+ "4. Play 24 rounds, with matches driven by your players' rated abilities. Set your tactics in the coach box. After each game every player earns XP, and his training plan spends it automatically (Position plan to start). Change plans, or buy stats by hand, in Training.\n\n"
 			+ "5. Finish in the top eight to play finals and chase the flag.\n\n"
 			+ "Player labels are generated names by default. The main-menu toggle switches to real AFL names, such as Jordan Dawson, without changing ratings or gameplay. It does not add a plays-like comparison.\n\n"
 			+ "Rotate your device at any time. Your draft picks, search and filters stay intact.", 16)
 	v.add_child(UiKit.scroll(text))
+	var guide := UiKit.btn("Stat guide", 17)
+	guide.name = "MenuStatGuide"
+	guide.pressed.connect(func():
+		_help_panel = null
+		overlay.queue_free()
+		_guide_overlay = StatGuide.show(self))
+	v.add_child(guide)
 	var ok := UiKit.btn("Got it", 17, true)
 	ok.pressed.connect(func():
 		_help_panel = null

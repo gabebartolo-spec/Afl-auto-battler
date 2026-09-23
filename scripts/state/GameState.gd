@@ -79,6 +79,21 @@ func _notification(what: int) -> void:
 		autosave_if_dirty()
 
 
+## Small UI preferences (seen tutorials and the like) in the settings file.
+func get_setting(key: String, fallback = null):
+	var cfg := ConfigFile.new()
+	if cfg.load(settings_path) != OK:
+		return fallback
+	return cfg.get_value("ui", key, fallback)
+
+
+func set_setting(key: String, value) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(settings_path)
+	cfg.set_value("ui", key, value)
+	cfg.save(settings_path)
+
+
 func set_show_real_names(enabled: bool) -> void:
 	if show_real_names == enabled:
 		return
@@ -148,6 +163,7 @@ func save_career() -> bool:
 		"intake_summary": intake_summary,
 		"last_training_report": last_training_report,
 		"xp_grant_key": _xp_grant_key,
+		"default_train_plan": default_train_plan,
 		"last_phase": last_phase,
 		"last_label": last_label,
 		"season_log": CareerSave.slim_results(season_log),
@@ -206,6 +222,7 @@ func load_career() -> bool:
 	intake_summary = state.get("intake_summary", {})
 	last_training_report = state.get("last_training_report", {})
 	_xp_grant_key = str(state.get("xp_grant_key", ""))
+	default_train_plan = str(state.get("default_train_plan", "position"))
 	last_phase = str(state.get("last_phase", ""))
 	last_label = str(state.get("last_label", ""))
 	season_log = state.get("season_log", [])
@@ -321,6 +338,7 @@ func reset() -> void:
 	last_training_report = {}
 	_xp_grant_key = ""
 	_dirty = false
+	default_train_plan = "position"
 	season_year = 2026
 	drafted_draftees = {}
 	intake_assignments = []
@@ -925,6 +943,8 @@ func _grant_match_xp(res: Dictionary) -> void:
 		return
 	_xp_grant_key = key
 	last_training_report = grant_match_xp(res)
+	# Training plans spend the fresh XP straight away.
+	last_training_report["auto"] = apply_train_plans()
 
 
 ## Every player on the list is paid. Named players and good games earn more.
@@ -991,6 +1011,170 @@ const AI_TRAIN_FOCUS := {
 }
 
 
+# ---------------------------------------------------------------------------
+# Training plans: your players spend their own XP after every game
+# ---------------------------------------------------------------------------
+## [key, label, description]. "position" uses AI_TRAIN_FOCUS for the player's
+## role; "focus_<stat>" puts everything into one stat; "manual" banks XP.
+const TRAIN_PLANS := [
+	["position", "Position plan", "Trains what his position needs - the same priorities rival clubs use."],
+	["inside_mid", "Inside midfielder", "Contested ball, disposal and pressure: win it at the coalface."],
+	["outside_mid", "Outside runner", "Carry and disposal: move it through the corridor."],
+	["key_def", "Key defender", "Intercept and marking, with pressure and discipline."],
+	["rebound_def", "Rebounding defender", "Disposal, carry and intercept: win it back and launch."],
+	["key_fwd", "Key forward", "Goalkicking, marking and accuracy: the target inside 50."],
+	["small_fwd", "Small forward", "Pressure, goalkicking, accuracy and creating."],
+	["ruck", "Ruck", "Ruck work first, then contested ball and marking."],
+	["star", "Star power", "Build a match-winner: star power, with disposal."],
+	["manual", "Manual", "No automatic spending. His XP banks until you spend it."],
+]
+const PLAN_WEIGHTS := {
+	"inside_mid": {"contested": 3.0, "disposal": 2.0, "pressure": 2.0, "star": 1.0},
+	"outside_mid": {"carry": 3.0, "disposal": 3.0, "creating": 1.0, "star": 1.0},
+	"key_def": {"intercept": 3.0, "marking": 3.0, "pressure": 1.0, "discipline": 1.0},
+	"rebound_def": {"disposal": 3.0, "carry": 2.0, "intercept": 2.0},
+	"key_fwd": {"goalkicking": 3.0, "marking": 3.0, "accuracy": 2.0},
+	"small_fwd": {"pressure": 3.0, "goalkicking": 2.0, "accuracy": 2.0, "creating": 1.0},
+	"ruck": {"ruck": 4.0, "contested": 2.0, "marking": 1.0},
+	"star": {"star": 3.0, "disposal": 1.0},
+}
+## The plan for anyone without his own. New careers start on Position plan.
+var default_train_plan := "position"
+
+
+## "Training plans bought 23 stat points across 17 players." for the last
+## game, or "" when nothing was bought.
+func training_summary_line() -> String:
+	var auto: Dictionary = last_training_report.get("auto", {})
+	if int(auto.get("points", 0)) <= 0:
+		return ""
+	return "Training plans bought %d stat points across %d players." % [
+			int(auto["points"]), int(auto["players"])]
+
+
+## Every plan a player can follow, including single-stat focuses:
+## [[key, label], ...]
+func train_plan_options() -> Array:
+	var out := []
+	for row in TRAIN_PLANS:
+		out.append([str(row[0]), str(row[1])])
+	for row in TRAIN_STATS:
+		out.append(["focus_" + str(row[0]), "Focus: " + str(row[1])])
+	return out
+
+
+func train_plan_label(key: String) -> String:
+	for row in train_plan_options():
+		if str(row[0]) == key:
+			return str(row[1])
+	return "Position plan"
+
+
+func train_plan_description(key: String) -> String:
+	for row in TRAIN_PLANS:
+		if str(row[0]) == key:
+			return str(row[2])
+	if key.begins_with("focus_"):
+		return "Every point goes into %s." % train_stat_label(key.substr(6))
+	return ""
+
+
+## The plan a player actually follows: his own, or the club plan.
+func plan_for(p: Dictionary) -> String:
+	var own := str(p.get("train_plan", ""))
+	return own if own != "" else default_train_plan
+
+
+## Give one player his own plan ("" = follow the club plan). Banked XP is
+## spent under the new plan straight away.
+func set_player_plan(player_id: String, key: String) -> Dictionary:
+	var p := list_player(player_id)
+	if p.is_empty():
+		return {}
+	if key == "":
+		p.erase("train_plan")
+	else:
+		p["train_plan"] = key
+	mark_dirty()
+	return apply_plan_to(p)
+
+
+## Change the club plan (everyone without his own follows it), then spend.
+func set_default_plan(key: String) -> Dictionary:
+	default_train_plan = key
+	mark_dirty()
+	return apply_train_plans()
+
+
+## Spend every list player's XP under his plan. Returns
+## {"points": n, "players": m, "by_player": {id: {stat: points}}}.
+func apply_train_plans() -> Dictionary:
+	var out := {"points": 0, "players": 0, "by_player": {}}
+	for p in my_list:
+		var gains := apply_plan_to(p)
+		if gains.is_empty():
+			continue
+		var pts := 0
+		for k in gains:
+			pts += int(gains[k])
+		out["points"] = int(out["points"]) + pts
+		out["players"] = int(out["players"]) + 1
+		out["by_player"][str(p["id"])] = gains
+	return out
+
+
+## Spend one player's XP under his plan. Returns {stat: points bought}.
+func apply_plan_to(p: Dictionary) -> Dictionary:
+	var key := plan_for(p)
+	if key == "manual":
+		return {}
+	var weights: Dictionary
+	if key.begins_with("focus_"):
+		weights = {key.substr(6): 1.0}
+	elif PLAN_WEIGHTS.has(key):
+		weights = PLAN_WEIGHTS[key]
+	else:
+		weights = AI_TRAIN_FOCUS.get(str(p.get("role", "MID")), AI_TRAIN_FOCUS["MID"])
+	var gains := _spend_with_weights(p, weights, false)
+	if not gains.is_empty():
+		mark_dirty()
+	return gains
+
+
+## Buy stat points while XP lasts, each one going to the best weight per XP.
+## Rivals stop at potential; your plans keep going (past POT at the premium).
+func _spend_with_weights(p: Dictionary, weights: Dictionary, stop_at_pot: bool) -> Dictionary:
+	var gains := {}
+	var games := float(p.get("gm", 18.0))
+	var attr: Dictionary = p.get("attr", {})
+	while true:
+		if stop_at_pot and int(p.get("overall", 0)) >= int(p.get("potential", 0)):
+			break
+		var best_key := ""
+		var best_ratio := 0.0
+		var best_cost := 0
+		var mult := Potential.training_multiplier(p)
+		for key in weights:
+			if not attr.has(key):
+				continue
+			var cur := int(attr[key])
+			if cur >= 99:
+				continue
+			var cost := _cost_for(cur, games, mult)
+			var ratio := float(weights[key]) / float(cost)
+			if ratio > best_ratio:
+				best_ratio = ratio
+				best_key = key
+				best_cost = cost
+		if best_key == "" or int(p.get("xp", 0)) < best_cost:
+			break
+		p["xp"] = int(p["xp"]) - best_cost
+		attr[best_key] = int(attr[best_key]) + 1
+		gains[best_key] = int(gains.get(best_key, 0)) + 1
+		_recalc_player_overall(p)
+	return gains
+
+
 ## After a round: every rival club's players are paid for the game and their
 ## coaches spend it. Rivals only train a player up to his potential (you can
 ## go past it, at a premium), which keeps the league from inflating.
@@ -1012,28 +1196,8 @@ func _train_rivals(results: Array) -> void:
 func ai_spend_xp(p: Dictionary) -> int:
 	var focus: Dictionary = AI_TRAIN_FOCUS.get(str(p.get("role", "MID")), AI_TRAIN_FOCUS["MID"])
 	var bought := 0
-	var games := float(p.get("gm", 18.0))
-	while int(p.get("overall", 0)) < int(p.get("potential", 0)):
-		var best_key := ""
-		var best_ratio := 0.0
-		var best_cost := 0
-		var mult := Potential.training_multiplier(p)
-		for key in focus:
-			var cur := int((p["attr"] as Dictionary).get(key, 99))
-			if cur >= 99:
-				continue
-			var cost := _cost_for(cur, games, mult)
-			var ratio := float(focus[key]) / float(cost)
-			if ratio > best_ratio:
-				best_ratio = ratio
-				best_key = key
-				best_cost = cost
-		if best_key == "" or int(p.get("xp", 0)) < best_cost:
-			break
-		p["xp"] = int(p["xp"]) - best_cost
-		p["attr"][best_key] = int(p["attr"][best_key]) + 1
-		bought += 1
-		_recalc_player_overall(p)
+	for n in _spend_with_weights(p, focus, true).values():
+		bought += int(n)
 	return bought
 
 

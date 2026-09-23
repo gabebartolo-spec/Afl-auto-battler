@@ -160,6 +160,29 @@ python3 tools/sim_harness.py --ratings     # dump ratings to data/ratings_previe
 python3 tools/validate_data.py             # dataset integrity check
 ```
 
+## Training
+
+Every player on your list earns XP after every game (more for playing, more
+for a big game). Each player follows a **training plan** that spends it
+automatically after the game:
+
+- **Club plan** - the plan for anyone without his own. New careers start on
+  **Position plan**, which trains what each position needs (the same
+  priorities rival clubs use).
+- **Role plans** - inside midfielder, outside runner, key defender,
+  rebounding defender, key forward, small forward, ruck, star power.
+- **Focus: <stat>** - every point into one stat.
+- **Manual** - bank the XP and spend it yourself.
+
+Change the club plan or any player's plan at any time in Training; banked XP
+is spent under the new plan straight away. You can still buy any stat by
+hand. The results and full-time screens say what the plans bought.
+
+**Stat guide.** Training's *Stat guide* button (also on the main menu under
+How It Works) explains all 13 stats: what each is built from, exactly what it
+does in a match, and who needs it - plus how overall, potential, XP and plans
+fit together. Training shows a short intro the first time you open it.
+
 ## Potential
 
 Every player has a **potential (POT)**: the rating he can grow into. It shows

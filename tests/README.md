@@ -29,6 +29,7 @@ godot --headless --path . --script tests/run_save_tests.gd
 godot --headless --path . --script tests/run_career_ui_tests.gd
 godot --headless --path . --script tests/run_potential_tests.gd
 godot --headless --path . --script tests/run_ai_tests.gd
+godot --headless --path . --script tests/run_training_tests.gd
 ```
 
 The intake suites cover the 2026 draft-class file (56 prospects: unique ids/
@@ -69,6 +70,13 @@ club hoarding good rucks while another has none, the best ruck and an elite
 player in round one), checks the national-draft AI prefers potential, and
 plays rounds to check rivals train after games, never well past potential,
 and never with your players' XP.
+
+The training suite checks the Position plan trains most of the list after a
+game (a ruck only ruck stats), Manual banks XP, a single-stat focus touches
+only that stat, switching a player's or the club plan spends banked XP at
+once, a player's own plan beats the club plan, plans survive a save, and every
+stat has a full guide entry. The career UI suite also checks the one-time
+training intro, the stat guide (and Back closing it) and the plan picker.
 
 Every runner points saves and settings at `user://test_*` files and turns
 autosave off, so running the tests never touches a real career.
