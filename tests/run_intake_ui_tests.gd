@@ -100,12 +100,22 @@ func _run() -> void:
 		var candidate2 = draft._best_ai_pick(draft.current_club())
 		if candidate2.is_empty() or not draft._draft_pick(draft.current_club(), candidate2):
 			draft._skip_current_pick()
-	var lists_before: int = int((_state.league_lists["COL"] as Array).size())
+	# Retirements run in the same rollover, so an old list can end up shorter
+	# than it started. Check the signings landed rather than the raw length.
+	var signed_ids := []
+	for p in (draft.club_lists.get("COL", []) as Array):
+		signed_ids.append(str(p["id"]))
 	var ok: bool = _state.finish_intake_draft()
 	_check(ok, "The intake commits from a UI-driven draft")
 	_check(int(_state.season_year) == 2027, "The career advanced to 2027")
-	_check(int((_state.league_lists["COL"] as Array).size()) >= lists_before,
-			"Lists are at least as long as before the rollover")
+	var new_ids := {}
+	for p in (_state.league_lists["COL"] as Array):
+		new_ids[str(p["id"])] = true
+	var all_landed := true
+	for id in signed_ids:
+		if not new_ids.has(id):
+			all_landed = false
+	_check(all_landed, "Every intake signing is on the new list")
 	ui.queue_free()
 	print("Intake UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
@@ -121,7 +131,7 @@ func _has_sandringham(draft) -> bool:
 func _junior_filter_ok(found: bool) -> bool:
 	# The 2026 class always contains Sandringham Dragons kids; generated-only
 	# pools (no CSV) legitimately lack that name.
-	return found or GameDB.draftees.is_empty()
+	return found or _db.draftees.is_empty()
 
 
 func _snapshot(ui: Control) -> Dictionary:

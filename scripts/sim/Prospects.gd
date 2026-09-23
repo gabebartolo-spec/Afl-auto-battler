@@ -422,6 +422,6 @@ static func _days_from_civil(d: Vector3i) -> int:
 		y -= 1
 	var era := int(floor(float(y) / 400.0))
 	var yoe := y - era * 400
-	var doy := int(floor((153.0 * (float(d.y + (12 if d.y <= 2 else -3)) + 2.0) / 5.0))) + d.z - 1
+	var doy := int(floor((153.0 * float(d.y + (9 if d.y <= 2 else -3)) + 2.0) / 5.0)) + d.z - 1
 	var doe := yoe * 365 + int(floor(float(yoe) / 4.0)) - int(floor(float(yoe) / 100.0)) + doy
 	return era * 146097 + doe - 719468
