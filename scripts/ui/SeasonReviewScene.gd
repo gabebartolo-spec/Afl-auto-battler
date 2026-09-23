@@ -109,6 +109,10 @@ func _build() -> void:
 	rv.add_child(UiKit.scroll(UiKit.ladder_table(season.ladder_sorted(),
 			GameState.my_club, ladder_w, 0, true)))
 
+	# --- awards -------------------------------------------------------------
+	if not GameState.season_awards.is_empty():
+		_root.add_child(_awards_panel())
+
 	# --- actions ------------------------------------------------------------
 	var ctrl: BoxContainer
 	if _content_width() < 460.0:
@@ -249,3 +253,86 @@ func _on_intake_draft() -> void:
 		return
 	if GameState.start_next_season():
 		Router.replace("hub")
+
+
+# ---------------------------------------------------------------------------
+# Awards night
+# ---------------------------------------------------------------------------
+func _awards_panel() -> Control:
+	var aw: Dictionary = GameState.season_awards
+	var panel := UiKit.panel(UiKit.PANEL, 14)
+	panel.name = "AwardsPanel"
+	var v := UiKit.vbox(5)
+	panel.add_child(v)
+	v.add_child(UiKit.heading("%d AWARDS" % int(aw.get("year", GameState.season_year)), 22))
+	var brownlow: Array = aw.get("brownlow", [])
+	if not brownlow.is_empty():
+		v.add_child(_award_line("Brownlow Medal", brownlow[0], "%d votes" % int(brownlow[0]["votes"]), true))
+		var rest := []
+		for r in brownlow.slice(1, 5):
+			rest.append("%s %d" % [GameState.award_name(r), int(r["votes"])])
+		v.add_child(_small("Then: " + ", ".join(rest)))
+	var coleman: Array = aw.get("coleman", [])
+	if not coleman.is_empty():
+		v.add_child(_award_line("Coleman Medal", coleman[0], "%d goals" % int(coleman[0]["goals"]), true))
+		var rest2 := []
+		for r in coleman.slice(1, 3):
+			rest2.append("%s %d" % [GameState.award_name(r), int(r["goals"])])
+		v.add_child(_small("Then: " + ", ".join(rest2)))
+	var rising: Array = aw.get("rising_star", [])
+	if not rising.is_empty():
+		v.add_child(_award_line("Rising Star", rising[0], "age %d" % int(rising[0]["age"]), false))
+	var mine: Array = (aw.get("best_and_fairest", {}) as Dictionary).get(GameState.my_club, [])
+	if not mine.is_empty():
+		var bf := []
+		for r in mine:
+			bf.append("%s (%d)" % [GameState.award_name(r), int(r["bf"])])
+		v.add_child(UiKit.lbl("%s best & fairest" % GameDB.club_name(GameState.my_club), 15, UiKit.GOLD, true))
+		v.add_child(_small(", ".join(bf)))
+	var aa: Array = aw.get("all_australian", [])
+	if not aa.is_empty():
+		v.add_child(UiKit.lbl("All-Australian team", 15, UiKit.GOLD, true))
+		for slot in [["RUCK", "Ruck"], ["MID", "Midfield"], ["DEF", "Defence"], ["FWD", "Forwards"], ["BENCH", "Interchange"]]:
+			var names := []
+			for r in aa:
+				if str(r["slot"]) == str(slot[0]):
+					var mine_tag := "*" if str(r["club"]) == GameState.my_club else ""
+					names.append("%s%s (%s)" % [GameState.award_name(r), mine_tag, GameDB.club_short(str(r["club"]))])
+			v.add_child(_small("%s: %s" % [str(slot[1]), ", ".join(names)]))
+	var rec := GameState.records
+	if not rec.is_empty():
+		v.add_child(UiKit.lbl("League records", 15, UiKit.GOLD, true))
+		for row in [["most_goals", "Most goals in a season", "goals"],
+				["most_votes", "Most Brownlow votes", "votes"],
+				["highest_score", "Highest score", "pts"],
+				["biggest_win", "Biggest win", "pts"]]:
+			var r: Dictionary = rec.get(str(row[0]), {})
+			if r.is_empty():
+				continue
+			var who := GameState.award_name(r) + " (%s)" % GameDB.club_short(str(r["club"])) if r.has("id") \
+					else "%s v %s" % [GameDB.club_short(str(r["club"])), GameDB.club_short(str(r.get("opp", "")))]
+			v.add_child(_small("%s: %d %s - %s, %d" % [str(row[1]), int(r["value"]), str(row[2]), who, int(r["year"])]))
+	if GameState.honour_roll.size() > 1:
+		v.add_child(UiKit.lbl("Honour roll", 15, UiKit.GOLD, true))
+		for h in GameState.honour_roll:
+			var b: Array = h.get("brownlow", [])
+			v.add_child(_small("%d  Premiers %s  ·  Brownlow %s  ·  you finished %s" % [int(h["year"]),
+					GameDB.club_short(str(h["premier"])),
+					GameState.award_name(b[0]) if not b.is_empty() else "-",
+					_ordinal(int(h.get("my_position", 0)))]))
+	return panel
+
+
+func _award_line(title: String, row: Dictionary, detail: String, big: bool) -> Control:
+	var mine := str(row["club"]) == GameState.my_club
+	var l := UiKit.lbl("%s: %s (%s), %s" % [title, GameState.award_name(row),
+			GameDB.club_name(str(row["club"])), detail], 16 if big else 14,
+			UiKit.GOOD if mine else UiKit.TEXT, true)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return l
+
+
+func _small(text: String) -> Label:
+	var l := UiKit.lbl(text, 12, UiKit.MUTED)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return l

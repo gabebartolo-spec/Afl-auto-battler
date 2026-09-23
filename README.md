@@ -114,22 +114,27 @@ the real 2026 averages derived from the harvested player data
 
 ```
 Stat/team/game   REAL 2026      SIM  ratio
-Score (pts)           87.2     85.8   0.98
-Goals                 12.9     12.7   0.98
-Behinds                9.5      9.4   0.99
-Disposals            367.6    365.0   0.99
-Marks                 91.7     92.1   1.00
+Score (pts)           87.2     87.4   1.00
+Goals                 12.9     12.9   1.00
+Behinds                9.5      9.8   1.03
+Disposals            367.6    364.0   0.99
+Marks                 91.7     92.0   1.00
 Tackles               57.4     56.0   0.98
 Inside 50s            53.1     52.1   0.98
-Clearances            36.1     36.9   1.02
-Hit-outs              35.8     36.7   1.03
-Rebound 50s           39.3     38.5   0.98
+Clearances            36.1     37.2   1.03
+Hit-outs              35.8     37.1   1.04
+Rebound 50s           39.3     37.6   0.96
 One percenters        42.6     42.1   0.99
 Clangers              55.9     55.8   1.00
 Free kicks for        18.7     18.7   1.00
+Top kicker share      0.16     0.15   0.96
+Top-3 share           0.38     0.41   1.07
 ```
 
-All 15 tracked stats sit within 3%. CI fails if any drifts past 7%.
+Team stats sit within 4%, and so does how goals spread across a side (a
+club's top goalkicker kicks about 16% of its goals, as in 2026 - which keeps
+the Coleman in the 60s rather than the 130s). CI fails if a team stat drifts
+past 7% or the spread past 15%.
 
 **Long careers stay balanced.** Training, development and new draftees lift
 the whole league a little every year. Ratings are therefore relative to the

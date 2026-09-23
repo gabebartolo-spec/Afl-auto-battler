@@ -28,6 +28,10 @@ var last_phase := ""             # "regular" | "finals" | "done"
 var last_label := ""             # "Round 7" / "Grand Final" / ...
 var season_log: Array = []       # every result, for the season review screen
 var last_injuries: Array = []    # the last round's new injuries, every club
+var season_tally := {}           # player id -> running season numbers (Awards)
+var season_awards := {}          # the finished season's awards
+var honour_roll: Array = []      # one entry per completed season
+var records := {}                # league records across the career
 
 ## Career loop: season 1 is the 2026 season. Every completed season ends with
 ## a national intake draft (keep your list, sign the rookies), then the same
@@ -169,6 +173,10 @@ func save_career() -> bool:
 		"last_label": last_label,
 		"season_log": CareerSave.slim_results(season_log),
 		"last_injuries": last_injuries,
+		"season_tally": season_tally,
+		"season_awards": season_awards,
+		"honour_roll": honour_roll,
+		"records": records,
 		"db_draftees": GameDB.draftees,
 		"db_late_draftees": GameDB.late_draftees,
 		"db_alias_next": GameDB._alias_next,
@@ -229,6 +237,10 @@ func load_career() -> bool:
 	last_label = str(state.get("last_label", ""))
 	season_log = state.get("season_log", [])
 	last_injuries = state.get("last_injuries", [])
+	season_tally = state.get("season_tally", {})
+	season_awards = state.get("season_awards", {})
+	honour_roll = state.get("honour_roll", [])
+	records = state.get("records", {})
 	GameDB.draftees = state.get("db_draftees", GameDB.draftees)
 	GameDB.late_draftees = state.get("db_late_draftees", [])
 	GameDB._alias_next = int(state.get("db_alias_next", GameDB._alias_next))
@@ -339,6 +351,10 @@ func reset() -> void:
 	last_label = ""
 	season_log = []
 	last_injuries = []
+	season_tally = {}
+	season_awards = {}
+	honour_roll = []
+	records = {}
 	last_training_report = {}
 	_xp_grant_key = ""
 	_dirty = false
@@ -466,6 +482,8 @@ func _start_next_season(next_year: int, signed: int) -> void:
 		draftee_pool.append(p)
 
 	Injuries.heal_all(league_lists)
+	season_tally = {}
+	season_awards = {}
 	intake_summary = Prospects.age_league(league_lists, next_year)
 	intake_summary["signed"] = signed
 	intake_summary["year"] = next_year
@@ -704,7 +722,7 @@ func finish_interactive_match(res: Dictionary) -> void:
 		season_log.append(r)
 	_grant_match_xp(res)
 	_train_rivals(played)
-	_process_injuries(played)
+	_after_round(played)
 	_clear_pending()
 	autosave()
 
@@ -734,7 +752,7 @@ func _finish_interactive_final(res: Dictionary) -> void:
 		season_log.append(r)
 	_grant_match_xp(res)
 	_train_rivals(played)
-	_process_injuries(played)
+	_after_round(played)
 	_clear_pending()
 	autosave()
 
@@ -786,7 +804,7 @@ func advance() -> String:
 			last_match = res
 	_grant_match_xp(last_match)
 	_train_rivals(last_results)
-	_process_injuries(last_results)
+	_after_round(last_results)
 	autosave()
 	return last_phase
 
@@ -1070,6 +1088,58 @@ func training_summary_line() -> String:
 # ---------------------------------------------------------------------------
 # Injuries
 # ---------------------------------------------------------------------------
+## Everything that follows a round: injuries, the awards tally, and - when
+## the Grand Final has just been played - the season's awards.
+func _after_round(results: Array) -> void:
+	_process_injuries(results)
+	for res in results:
+		Awards.tally_match(season_tally, res, not res.has("tag"))
+	if season != null and season.is_season_over() \
+			and int(season_awards.get("year", 0)) != season_year:
+		_close_season_awards()
+
+
+func _close_season_awards() -> void:
+	var players := {}
+	for code in season.lists:
+		for p in season.lists[code]:
+			players[str(p["id"])] = p
+	season_awards = Awards.season_awards(season_tally, players, season_year)
+	records = Awards.update_records(records, season_awards, season_log)
+	var mine_bf: Array = (season_awards["best_and_fairest"] as Dictionary).get(my_club, [])
+	honour_roll.append({
+		"year": season_year,
+		"premier": premier(),
+		"runner_up": str(season.finals.get("runner_up", "")),
+		"brownlow": (season_awards["brownlow"] as Array).slice(0, 1),
+		"coleman": (season_awards["coleman"] as Array).slice(0, 1),
+		"rising_star": (season_awards["rising_star"] as Array).slice(0, 1),
+		"my_bf": mine_bf.slice(0, 1),
+		"my_club": my_club,
+		"my_position": my_position(),
+	})
+
+
+## A readable player name for an awards row, even for a retired player.
+func award_name(row: Dictionary) -> String:
+	var id := str(row.get("id", ""))
+	for code in season.lists if season != null else {}:
+		for p in season.lists[code]:
+			if str(p["id"]) == id:
+				return GameDB.player_display_name(p)
+	return GameDB.player_display_name_by_id(id, id)
+
+
+## Live Coleman leaders: [{id, club, goals}] for the home-and-away season.
+func coleman_leaders(n := 5) -> Array:
+	var rows := []
+	for id in season_tally:
+		rows.append({"id": str(id), "club": str(season_tally[id]["club"]),
+				"goals": int(season_tally[id]["goals_ha"])})
+	rows.sort_custom(func(a, b): return int(a["goals"]) > int(b["goals"]))
+	return rows.slice(0, n)
+
+
 ## After a round: every club that played is a week closer to getting its
 ## injured back, then this round's new injuries are rolled.
 func _process_injuries(results: Array) -> void:

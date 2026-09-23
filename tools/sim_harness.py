@@ -43,13 +43,14 @@ T = {
     "clanger_is_free": 0.34,         # ...of which are free kicks against
     "mark_share_of_kicks": 0.330,
     "handball_share": 0.42,
-    "inside50_goal": 0.252,           # of inside-50 entries
-    "inside50_behind": 0.168,
+    "inside50_goal": 0.284,           # of inside-50 entries
+    "inside50_behind": 0.187,
     "stoppage_share": 0.38,          # chains that begin at a genuine stoppage
     "hitouts_per_stoppage": 0.81,    # split between the two rucks
     "clearance_per_stoppage": 0.815,  # to the team that wins the stoppage
     "one_percenter_share": 0.83,     # of inside-50 entries that yield a 1%
     "rebound_on_exit": 0.55,         # defensive-half chains that yield a reb50
+    "shooter_power": 0.5,            # how strongly shots go to the best kicks
     "rebound_from": -16.0,           # a carry from behind this line...
     "rebound_to": -13.0,             # ...to beyond this one is a rebound 50
     "shrink_games": 5.0,             # sample-size shrink for per-game rates
@@ -634,7 +635,7 @@ class MatchSim:
 
         shooter = self._weighted(
             [p for p in atk.ground if p["role"] in ("FWD", "MID")] or atk.ground,
-            "goalkicking", 2.4)
+            "goalkicking", T["shooter_power"])
         defender = self._weighted(
             [p for p in dfn.ground if p["role"] == "DEF"] or dfn.ground, "intercept")
 

@@ -47,6 +47,16 @@ func _build() -> void:
 	v.add_child(UiKit.scroll(UiKit.ladder_table(season.ladder_sorted(), GameState.my_club,
 			_content_width() - 24.0, 0, true)))
 
+	var leaders := GameState.coleman_leaders(5)
+	if not leaders.is_empty() and int(leaders[0]["goals"]) > 0:
+		var names := []
+		for r in leaders:
+			names.append("%s (%s) %d" % [GameState.award_name(r), GameDB.club_short(str(r["club"])), int(r["goals"])])
+		var cl := UiKit.lbl("Coleman: " + ",  ".join(names), 13, UiKit.TEXT)
+		cl.name = "ColemanLeaders"
+		cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_root.add_child(cl)
+
 	if not season.finals.is_empty():
 		_root.add_child(UiKit.lbl("Finals Series", 18, UiKit.GOLD, true))
 		var fp := UiKit.panel(UiKit.PANEL, 12)

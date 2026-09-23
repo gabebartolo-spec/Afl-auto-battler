@@ -40,6 +40,9 @@ func _run() -> void:
 	rng.seed = SEED
 	var totals := {}
 	var team_games := 0
+	var player_goals := {}   # id -> goals over the sample
+	var club_goals := {}     # code -> goals over the sample
+	var player_club := {}
 	for i in range(MATCHES):
 		var a: String = codes[rng.randi_range(0, codes.size() - 1)]
 		var b: String = a
@@ -48,7 +51,13 @@ func _run() -> void:
 		var home = squad_script.new(a, db.club_list(a), true, a)
 		var away = squad_script.new(b, db.club_list(b), false, b)
 		var res: Dictionary = sim_script.new(home, away, SEED + i).run()
+		for id in res["players"]:
+			player_goals[id] = float(player_goals.get(id, 0.0)) + float(res["players"][id].get("goals", 0.0))
 		for side in range(2):
+			var code: String = a if side == 0 else b
+			for r in res["roster"][side]:
+				player_club[str(r["id"])] = code
+			club_goals[code] = float(club_goals.get(code, 0.0)) + float(res["goals"][side])
 			var team: Dictionary = res["team"][side]
 			for key in team:
 				totals[key] = float(totals.get(key, 0.0)) + float(team[key])
@@ -66,9 +75,37 @@ func _run() -> void:
 			flag = "  <-- off"
 			failures.append("%s ratio %.2f" % [str(row[0]), ratio])
 		print("%-16s %9.1f %8.1f %6.2f%s" % [str(row[0]), real, sim, ratio, flag])
+	# How goals spread across a side: real 2026 clubs' top goalkicker kicks
+	# 16% of their goals and their top three 38%.
+	var by_club := {}
+	for id in player_goals:
+		var code := str(player_club.get(id, ""))
+		if code == "":
+			continue
+		if not by_club.has(code):
+			by_club[code] = []
+		(by_club[code] as Array).append(float(player_goals[id]))
+	var top1 := 0.0
+	var top3 := 0.0
+	for code in by_club:
+		var arr: Array = by_club[code]
+		arr.sort()
+		arr.reverse()
+		var total := float(club_goals.get(code, 1.0))
+		top1 += float(arr[0]) / total
+		top3 += (float(arr[0]) + float(arr[1]) + float(arr[2])) / total
+	top1 /= float(by_club.size())
+	top3 /= float(by_club.size())
+	for row in [["Top kicker share", top1, 0.16], ["Top-3 share", top3, 0.38]]:
+		var ratio := float(row[1]) / float(row[2])
+		var flag := ""
+		if absf(ratio - 1.0) > 0.15:
+			flag = "  <-- off"
+			failures.append("%s %.2f (real %.2f)" % [str(row[0]), float(row[1]), float(row[2])])
+		print("%-16s %9.2f %8.2f %6.2f%s" % [str(row[0]), float(row[2]), float(row[1]), ratio, flag])
 	for f in failures:
 		push_error("Calibration: " + f)
-	print("Calibration tests: %d checks, %d failures" % [ROWS.size(), failures.size()])
+	print("Calibration tests: %d checks, %d failures" % [ROWS.size() + 2, failures.size()])
 	quit(0 if failures.is_empty() else 1)
 
 
