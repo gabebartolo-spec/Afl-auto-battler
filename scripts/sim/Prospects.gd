@@ -43,7 +43,7 @@ const ROLE_DELTAS := {
 	"RUCK": {"ruck": 26.0, "contested": 8.0, "marking": 3.0, "disposal": -5.0,
 			"goalkicking": -1.0, "intercept": -3.0, "pressure": 0.0, "carry": -5.0,
 			"accuracy": -5.0, "creating": -2.0, "discipline": -2.0, "star": 0.0,
-			"durability": 1.0, "ruck": 0.0},
+			"durability": 1.0},
 }
 
 const JUNIOR_TEAMS := [
