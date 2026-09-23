@@ -129,9 +129,9 @@ Bailey Smith (36) → Patrick Cripps → Izak Rankine → Jordan Dawson →
 Will Ashcroft.
 
 The dataset itself is checked by `tools/validate_data.py`, which compares 220
-club × column aggregates against the totals AFL Tables publishes. 219 pass; the
-one failure is Hawthorn's Brownlow-vote column, which is off by 10 and is not
-used by the ratings or the engine.
+club × column aggregates against the totals AFL Tables publishes. All 220 pass
+(a player-by-player comparison with the live 2026 page also matches every
+stat). CI runs it on every pull request.
 
 ## The engine
 
