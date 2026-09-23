@@ -325,9 +325,14 @@ func start_season(club_code: String, list: Array) -> void:
 	_xp_grant_key = ""
 
 
+## Set up your next match (home-and-away round or final) to be played live,
+## quarter by quarter, with the coach box. Every other match that week is
+## simulated straight away. Returns false when you have no match to play.
 func prepare_interactive_match() -> bool:
-	if season == null or season.is_regular_done():
+	if season == null or season.is_season_over():
 		return false
+	if season.is_regular_done():
+		return _prepare_interactive_final()
 	pending_match = {}
 	pending_sim = null
 	pending_round_results = []
@@ -362,8 +367,54 @@ func prepare_interactive_match() -> bool:
 	return true
 
 
+## Finals version of prepare_interactive_match. Nothing is recorded until
+## your final finishes, so the bracket slots stay untouched while you coach.
+func _prepare_interactive_final() -> bool:
+	ensure_finals()
+	var matches := season.finals_week_matches()
+	var mine := -1
+	for i in range(matches.size()):
+		var m: Dictionary = matches[i]
+		if m["home"] == my_club or m["away"] == my_club:
+			mine = i
+	if mine < 0:
+		return false
+	pending_match = {}
+	pending_sim = null
+	pending_round_results = []
+	for i in range(matches.size()):
+		var m: Dictionary = matches[i]
+		if i == mine or m["home"] == "" or m["away"] == "":
+			continue
+		var res := season.simulate(m["home"], m["away"], season.finals_seed(i),
+				season.finals_neutral(m))
+		res["finals_index"] = i
+		pending_round_results.append(res)
+	var fm: Dictionary = matches[mine]
+	var neutral := season.finals_neutral(fm)
+	pending_match = {"home": fm["home"], "away": fm["away"],
+			"round": Season.REGULAR_ROUNDS + int(season.finals["week"]),
+			"label": str(fm["label"]), "tag": str(fm["tag"]),
+			"neutral": neutral, "finals_index": mine}
+	var home := Squad.new(GameDB.club_name(str(fm["home"])),
+			season.lists[fm["home"]], not neutral, str(fm["home"]))
+	var away := Squad.new(GameDB.club_name(str(fm["away"])),
+			season.lists[fm["away"]], false, str(fm["away"]))
+	pending_sim = MatchSim.new(home, away, season.finals_seed(mine))
+	pending_phase = "finals"
+	pending_label = str(fm["label"])
+	last_results = []
+	last_match = {}
+	last_phase = pending_phase
+	last_label = pending_label
+	return true
+
+
 func finish_interactive_match(res: Dictionary) -> void:
 	if season == null or pending_match.is_empty():
+		return
+	if pending_phase == "finals":
+		_finish_interactive_final(res)
 		return
 	res["round"] = int(pending_match.get("round", season.round_index + 1))
 	res["label"] = str(pending_match.get("label", "Match"))
@@ -373,6 +424,7 @@ func finish_interactive_match(res: Dictionary) -> void:
 	season.results.append(played)
 	season.round_index += 1
 	season.recalc_ladder()
+	ensure_finals()
 	last_results = played
 	last_match = res
 	last_phase = "regular"
@@ -380,11 +432,49 @@ func finish_interactive_match(res: Dictionary) -> void:
 	for r in played:
 		season_log.append(r)
 	_grant_match_xp(res)
+	_clear_pending()
+
+
+## Record the whole finals week in bracket order (your final included), then
+## close the week exactly as a simulated week would.
+func _finish_interactive_final(res: Dictionary) -> void:
+	var matches := season.finals_week_matches()
+	var by_index := {}
+	for r in pending_round_results:
+		by_index[int(r["finals_index"])] = r
+		r.erase("finals_index")
+	by_index[int(pending_match["finals_index"])] = res
+	var played := []
+	for i in range(matches.size()):
+		if not by_index.has(i):
+			continue
+		var fin: Dictionary = by_index[i]
+		season.record_final(matches[i], fin)
+		played.append(fin)
+	season.complete_finals_week(played)
+	last_results = played
+	last_match = res
+	last_phase = "done" if season.is_season_over() else "finals"
+	last_label = str(res["label"])
+	for r in played:
+		season_log.append(r)
+	_grant_match_xp(res)
+	_clear_pending()
+
+
+func _clear_pending() -> void:
 	pending_match = {}
 	pending_sim = null
 	pending_round_results = []
 	pending_phase = ""
 	pending_label = ""
+
+
+## Start the finals the moment the home-and-away season ends, so the hub can
+## show your qualifying or elimination final straight away.
+func ensure_finals() -> void:
+	if season != null and season.is_regular_done() and season.finals.is_empty():
+		season.start_finals()
 
 
 ## Play the next round (or finals week). Returns the phase it played.
@@ -398,9 +488,9 @@ func advance() -> String:
 		last_results = season.play_round()
 		last_phase = "regular"
 		last_label = "Round %d" % season.round_index
+		ensure_finals()
 	elif not season.is_season_over():
-		if season.finals.is_empty():
-			season.start_finals()
+		ensure_finals()
 		var week := int(season.finals.get("week", 1))
 		last_results = season.play_finals_week()
 		last_phase = "finals"

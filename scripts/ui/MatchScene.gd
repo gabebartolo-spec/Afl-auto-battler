@@ -1,7 +1,8 @@
 extends Control
 ## Live match view: scoreboard, the animated oval, a commentary feed and
-## playback controls. The match is already simulated by the time we get here -
-## GameState.advance() ran it - so this scene only replays the event log.
+## playback controls. Your own match (home-and-away or final) is simulated a
+## quarter at a time around the coach box; any other result is a replay of
+## the event log GameState.advance() recorded.
 
 const FEED_LIMIT := 60
 const SPEEDS := [1.0, 2.0, 4.0, 8.0]
@@ -46,6 +47,7 @@ func _ready() -> void:
 		_res["home"] = GameState.pending_match["home"]
 		_res["away"] = GameState.pending_match["away"]
 		_res["label"] = GameState.pending_match["label"]
+		_res["neutral"] = bool(GameState.pending_match.get("neutral", false))
 		_res["events"] = []
 		_my_side = 0 if str(_res["home"]) == GameState.my_club else 1
 	else:
@@ -177,8 +179,10 @@ func _score_middle(narrow: bool) -> Control:
 	_clock = UiKit.line("Q%d %d'" % [_shown_q, _shown_min], 15 if narrow else 20, UiKit.TEXT, true)
 	_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid.add_child(_clock)
-	var venue := UiKit.ellipsis(str(GameDB.club(str(_res["home"])).get("ground", "")),
-			11, UiKit.MUTED)
+	var ground := str(GameDB.club(str(_res["home"])).get("ground", ""))
+	if bool(_res.get("neutral", false)):
+		ground = "Neutral venue"
+	var venue := UiKit.ellipsis(ground, 11, UiKit.MUTED)
 	venue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid.add_child(venue)
 	return mid
@@ -588,6 +592,7 @@ func _stamp_match_meta() -> void:
 	_res["home"] = GameState.pending_match["home"]
 	_res["away"] = GameState.pending_match["away"]
 	_res["label"] = GameState.pending_match["label"]
+	_res["neutral"] = bool(GameState.pending_match.get("neutral", false))
 
 
 func _append_new_events() -> void:
@@ -717,6 +722,11 @@ func _show_fulltime() -> void:
 				if won else "LOSS by %d" % absi(my_score - opp_score))
 		v.add_child(UiKit.lbl(verdict, 24,
 				UiKit.MUTED if drew else UiKit.margin_colour(won), true))
+		if str(_res.get("tag", "")) == "GF" and GameState.season_is_over():
+			var flag := GameState.premier() == GameState.my_club
+			v.add_child(UiKit.lbl(("%d PREMIERS" % GameState.season_year) if flag
+					else ("Runners-up in %d" % GameState.season_year), 22,
+					UiKit.GOLD if flag else UiKit.MUTED, true))
 
 	var narrow := UiKit.view_width(self) < 720.0
 	var body: BoxContainer

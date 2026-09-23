@@ -10,6 +10,7 @@ godot --headless --path . --script tests/run_draft_tests.gd
 godot --headless --path . --script tests/run_draft_ui_tests.gd
 godot --headless --path . --script tests/run_intake_tests.gd
 godot --headless --path . --script tests/run_intake_ui_tests.gd
+godot --headless --path . --script tests/run_finals_tests.gd
 ```
 
 The intake suites cover the 2026 draft-class file (56 prospects: unique ids/
@@ -20,7 +21,12 @@ dry, capped-club skips, contiguous logs), and the full rollover (year
 advance, list merges with jumper numbers, ageing + retirement bounds, the
 generated 2027 class, determinism, and reset restoring the pristine 2026
 data). The UI suite runs the shared DraftScene in intake mode across the same
-ten viewports. A non-Godot mirror of the same maths runs in CI-friendly Python:
+ten viewports. The finals suite checks the bracket opens straight after
+round 24, that a qualifying club plays every final live through the same
+prepare / quarter-by-quarter / finish path the match screen uses (nothing is
+recorded mid-match, each week records the right number of matches, only the
+Grand Final is neutral), and that simming the series still crowns a premier.
+A non-Godot mirror of the same maths runs in CI-friendly Python:
 `python3 tools/intake_harness.py` (data/schema validation + a six-season
 intake/development simulation over the real lists).
 

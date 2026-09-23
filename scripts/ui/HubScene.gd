@@ -38,6 +38,7 @@ func _narrow() -> bool:
 
 func _build() -> void:
 	UiKit.clear(_root)
+	GameState.ensure_finals()
 
 	var season: Season = GameState.season
 	_root.add_child(UiKit.top_bar("Season Hub  ·  %d" % GameState.season_year, false))
@@ -204,14 +205,11 @@ func _on_play_match() -> void:
 	if _upcoming_match().is_empty():
 		_on_sim_round()
 		return
-	if not GameState.season.is_regular_done() and GameState.prepare_interactive_match():
+	# Home-and-away rounds and finals both play live with the coach box.
+	if GameState.prepare_interactive_match():
 		Router.go("match")
 		return
-	GameState.advance()
-	if GameState.last_match.is_empty():
-		_on_sim_round()
-		return
-	Router.go("match")
+	_on_sim_round()
 
 
 func _on_sim_round() -> void:
