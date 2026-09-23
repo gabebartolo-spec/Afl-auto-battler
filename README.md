@@ -107,23 +107,39 @@ draws, not a concept sketch:
 ## Simulation quality
 
 The engine is calibrated against real 2026 numbers rather than guessed at.
-`tools/sim_harness.py` derives per-team-per-game averages straight from the
-harvested player data, runs hundreds of simulated matches, and reports the gap:
+`tests/run_calibration_tests.gd` plays 400 seeded matches of the shipped
+engine between the real 2026 lists and compares per-team-per-game totals with
+the real 2026 averages derived from the harvested player data
+(`tools/sim_harness.py` is the Python mirror used for tuning):
 
 ```
-Stat / team / game     REAL 2026       SIM   ratio
-------------------------------------------------
-Score (pts)                 88.0      88.1    1.00
-Goals                       13.1      13.3    1.01
-Disposals                  364.6     363.6    1.00
-Marks                       93.4      92.3    0.99
-Inside 50s                  52.4      54.5    1.04
-Clearances                  35.7      35.1    0.98
-Hit-outs                    33.8      33.7    1.00
-Free kicks for              18.0      17.9    1.00
+Stat/team/game   REAL 2026      SIM  ratio
+Score (pts)           87.2     85.8   0.98
+Goals                 12.9     12.7   0.98
+Behinds                9.5      9.4   0.99
+Disposals            367.6    365.0   0.99
+Marks                 91.7     92.1   1.00
+Tackles               57.4     56.0   0.98
+Inside 50s            53.1     52.1   0.98
+Clearances            36.1     36.9   1.02
+Hit-outs              35.8     36.7   1.03
+Rebound 50s           39.3     38.5   0.98
+One percenters        42.6     42.1   0.99
+Clangers              55.9     55.8   1.00
+Free kicks for        18.7     18.7   1.00
 ```
 
-Every ratio sits between 0.98 and 1.04. The derived player ratings independently
+All 15 tracked stats sit within 3%. CI fails if any drifts past 7%.
+
+**Long careers stay balanced.** Training, development and new draftees lift
+the whole league a little every year. Ratings are therefore relative to the
+league: after each off-season every player is shifted so the league mean is
+back where 2026 started (`Prospects.renormalise_league`), keeping everyone's
+position relative to everyone else, while potentials stay put so the elite
+tail survives. `tests/run_balance_tests.gd` simulates three full seasons with
+drafts and fails if the mean or the top-50 drift.
+
+The derived player ratings independently
 reproduce the real 2026 Brownlow ordering — Nick Daicos (a record 47 votes) →
 Bailey Smith (36) → Patrick Cripps → Izak Rankine → Jordan Dawson →
 Will Ashcroft.

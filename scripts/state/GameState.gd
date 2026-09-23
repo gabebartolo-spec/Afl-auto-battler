@@ -465,6 +465,8 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	intake_summary["signed"] = signed
 	intake_summary["year"] = next_year
 	draftee_pool = Prospects.age_pool(draftee_pool, next_year, drafted_draftees)
+	intake_summary["renormalised"] = Prospects.renormalise_league(league_lists,
+			draftee_pool, GameDB.baseline_overall)
 
 	my_list = league_lists.get(my_club, [])
 	var lists := {}

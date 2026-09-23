@@ -16,18 +16,20 @@ const T := {
 	"goal_line": 85.0,
 	"metres_gain_mean": 8.0,         # base metres per effective disposal
 	"tackle_retention": 0.44,        # attacking team wins the ball back
-	"pressure_base": 0.150,          # chance a touch is tackled
-	"clanger_per_chain": 0.645,      # chance the chain ends in an error
+	"pressure_base": 0.158,          # chance a touch is tackled
+	"clanger_per_chain": 0.68,      # chance the chain ends in an error
 	"clanger_is_free": 0.34,         # ...of which are free kicks against
 	"mark_share_of_kicks": 0.330,
 	"handball_share": 0.42,
-	"inside50_goal": 0.243,          # of inside-50 entries
-	"inside50_behind": 0.145,
+	"inside50_goal": 0.252,          # of inside-50 entries
+	"inside50_behind": 0.168,
 	"stoppage_share": 0.38,          # chains that begin at a genuine stoppage
-	"hitouts_per_stoppage": 0.75,    # split between the two rucks
-	"clearance_per_stoppage": 0.78,  # to the team that wins the stoppage
-	"one_percenter_share": 0.77,     # of inside-50 entries that yield a 1%
+	"hitouts_per_stoppage": 0.81,    # split between the two rucks
+	"clearance_per_stoppage": 0.815,  # to the team that wins the stoppage
+	"one_percenter_share": 0.83,     # of inside-50 entries that yield a 1%
 	"rebound_on_exit": 0.55,         # defensive-half chains that yield a reb50
+	"rebound_from": -16.0,           # a carry from behind this line...
+	"rebound_to": -13.0,             # ...to beyond this one is a rebound 50
 	"shrink_games": 5.0,             # sample-size shrink for per-game rates
 	"shrink_accuracy": 14.0,         # sample-size shrink for goal conversion
 	"home_ground_bonus": 0.030,

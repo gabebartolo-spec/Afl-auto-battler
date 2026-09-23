@@ -45,16 +45,19 @@ func _test_default_plan_spends() -> void:
 	_new_season()
 	_check(GameState.default_train_plan == "position", "New careers start on the Position plan")
 	var before := _snapshot()
+	# Two games: a player left out of one earns less than a stat point costs.
+	GameState.advance()
+	var first_auto: Dictionary = GameState.last_training_report.get("auto", {})
 	GameState.advance()
 	var changed := 0
 	for p in GameState.my_list:
 		if p["attr"] != before[str(p["id"])]:
 			changed += 1
 	_check(changed > GameState.my_list.size() / 2,
-			"The Position plan trains most of the list after a game (%d)" % changed)
+			"The Position plan trains most of the list over two games (%d)" % changed)
 	var auto: Dictionary = GameState.last_training_report.get("auto", {})
-	_check(int(auto.get("points", 0)) > 0 and int(auto.get("players", 0)) == changed,
-			"The report counts what the plans bought")
+	_check(int(first_auto.get("points", 0)) > 0 and int(auto.get("points", 0)) > 0,
+			"The report counts what the plans bought each game")
 	_check(GameState.training_summary_line() != "", "The results screens get a summary line")
 	# Position plan follows the role's priorities.
 	var ruck := {}
