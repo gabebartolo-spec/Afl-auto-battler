@@ -83,7 +83,7 @@ func _name_mode_control() -> Control:
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(copy)
 	copy.add_child(UiKit.lbl("PLAYER LABELS", 12, UiKit.GOLD, true))
-	copy.add_child(UiKit.lbl("Fictional by default; add educational comparisons when you want them.",
+	copy.add_child(UiKit.lbl("Generated names by default. Turn this on for real AFL names.",
 			12, UiKit.MUTED))
 	_name_toggle = UiKit.btn("", 14)
 	_name_toggle.name = "PlayerNamesToggle"
@@ -105,8 +105,8 @@ func _sync_name_toggle() -> void:
 	if not is_instance_valid(_name_toggle):
 		return
 	_name_toggle.button_pressed = GameState.show_real_names
-	_name_toggle.text = "Educational: ON" if GameState.show_real_names else "Fictional: ON"
-	_name_toggle.tooltip_text = "Educational labels say who each fictional player plays like."
+	_name_toggle.text = "Real names: ON" if GameState.show_real_names else "Fictional: ON"
+	_name_toggle.tooltip_text = "Real names show the AFL player. Fictional names are generated. Prospects with no real counterpart keep a generated name."
 
 
 func _layout() -> void:
@@ -145,7 +145,7 @@ func _show_help() -> void:
 			+ "3. Track every selection in Picks. The position counters show your list's coverage; tap one to filter the pool. Carry at least two rucks.\n\n"
 			+ "4. Play 24 rounds, with matches driven by your players' rated abilities. Set your tactics in the coach box. After each game every player earns XP, and Training lets you spend it on any stat.\n\n"
 			+ "5. Finish in the top eight to play finals and chase the flag.\n\n"
-			+ "Player labels are fictional by default. The main-menu toggle adds an educational comparison such as ‘Ari Bramble · plays like a real AFL player’ without changing ratings or gameplay.\n\n"
+			+ "Player labels are generated names by default. The main-menu toggle switches to real AFL names, such as Jordan Dawson, without changing ratings or gameplay. It does not add a plays-like comparison.\n\n"
 			+ "Rotate your device at any time. Your draft picks, search and filters stay intact.", 16)
 	v.add_child(UiKit.scroll(text))
 	var ok := UiKit.btn("Got it", 17, true)

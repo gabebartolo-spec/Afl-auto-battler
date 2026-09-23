@@ -19,9 +19,9 @@ const STAT_KEYS := Ratings.STATS_ZERO_KEYS
 const CLUB_ORDER := ["ADE", "BRL", "CAR", "COL", "ESS", "FRE", "GEE", "GCS",
 		"GWS", "HAW", "MEL", "NTH", "PAD", "RIC", "SKN", "SYD", "WCE", "WBD"]
 
-## Fictional aliases are shuffled from these invented-ish name parts once at
-## load time. The fixed seed makes a player's alias stable across every screen
-## and every launch, while avoiding numbered placeholders in the UI.
+## Fictional aliases are shuffled from these invented name parts once at load.
+## The fixed seed keeps a player's alias stable across every screen and every
+## launch. Numbered placeholders ("Squadmate 001", "Player 001") are never used.
 const FICTIONAL_FIRST_NAMES := [
 	"Ari", "Bex", "Cato", "Dax", "Elio", "Fenn", "Gavi", "Hux", "Ivo", "Jori",
 	"Kavi", "Luma", "Miro", "Nilo", "Oren", "Pax", "Quill", "Rumi", "Savi", "Taro",
@@ -127,19 +127,20 @@ func register_draftees(list: Array) -> void:
 		late_draftees.append(p)
 
 
-## The default label is intentionally fictional. When the optional educational
-## view is enabled, keep that label and add the real-player comparison instead
-## of pretending the fictional character is the real athlete.
+## Fictional names are the default. Real-name mode shows the AFL name on its
+## own ("Jordan Dawson") — never "Squadmate 001 · plays like Jordan Dawson".
+## Generated prospects have no real name, so they keep the fictional label.
 func player_display_name(player: Dictionary) -> String:
 	if player.is_empty():
 		return ""
-	var generic := str(player.get("generic_name", player.get("name", "Player")))
-	if not GameState.show_real_names:
+	var generic := str(player.get("generic_name", player.get("name", ""))).strip_edges()
+	if GameState.show_real_names:
+		var real := str(player.get("real_name", "")).strip_edges()
+		if real != "":
+			return real
+	if generic != "":
 		return generic
-	var real := str(player.get("real_name", ""))
-	if real == "" or real == generic:
-		return generic
-	return "%s  ·  plays like %s" % [generic, real]
+	return "Player"
 
 
 func player_display_name_by_id(id: String, fallback := "") -> String:
@@ -149,7 +150,7 @@ func player_display_name_by_id(id: String, fallback := "") -> String:
 	return fallback
 
 
-## Search may use the comparison name without exposing it in the fictional UI.
+## Search can match the real name without showing it while fictional labels are on.
 func player_search_text(player: Dictionary) -> String:
 	return "%s %s" % [
 		str(player.get("generic_name", player.get("name", ""))),
@@ -157,9 +158,7 @@ func player_search_text(player: Dictionary) -> String:
 
 
 func player_sort_name(player: Dictionary) -> String:
-	if GameState.show_real_names and str(player.get("real_name", "")) != "":
-		return str(player["real_name"]).to_lower()
-	return str(player.get("generic_name", player.get("name", ""))).to_lower()
+	return player_display_name(player).to_lower()
 
 
 ## Every player in the competition, best-first. Used as the draft pool.
@@ -326,17 +325,38 @@ func _assign_fictional_names(list: Array) -> void:
 
 ## Draw labels from one shuffled pool for every human in the game - season
 ## pool, draft class and generated intakes - so aliases never collide and a
-## player's label is stable for the whole career. The pool order is seeded, so
-## the season pool's aliases match earlier builds exactly.
+## player's label is stable for the whole career. The cursor advances by one
+## name per player. Adding the loop index on top of the cursor skips names
+## quadratically, exhausts the pool, and used to fall back to "Squadmate 001".
 func assign_aliases(list: Array) -> void:
 	_ensure_alias_pool()
+	var start := _alias_next
 	for i in range(list.size()):
-		var idx := _alias_next + i
+		var idx := start + i
 		var label := str(_alias_candidates[idx]) if idx < _alias_candidates.size() \
-				else "Squadmate %03d" % (idx + 1)
+				else _overflow_alias(idx - _alias_candidates.size())
 		list[i]["generic_name"] = label
 		list[i]["name"] = label
-		_alias_next = idx + 1
+	_alias_next = start + list.size()
+
+
+## Still a generated name once the shuffled pairs run out. Three tokens cannot
+## collide with the two-token pool, and nothing here is a numbered placeholder.
+func _overflow_alias(n: int) -> String:
+	var firsts := FICTIONAL_FIRST_NAMES.size()
+	var lasts := FICTIONAL_LAST_NAMES.size()
+	var block := firsts * lasts
+	var f := n % firsts
+	var l := int(n / firsts) % lasts
+	var m := int(n / block) % firsts
+	var cycle := int(n / (block * firsts))
+	var first := str(FICTIONAL_FIRST_NAMES[f])
+	var mid := str(FICTIONAL_FIRST_NAMES[(f + 1 + m) % firsts])
+	var last := str(FICTIONAL_LAST_NAMES[l])
+	var label := "%s %s %s" % [first, mid, last]
+	if cycle > 0:
+		label = "%s %s" % [label, str(FICTIONAL_LAST_NAMES[cycle % lasts])]
+	return label
 
 
 func _ensure_alias_pool() -> void:
@@ -380,9 +400,8 @@ func _load_players() -> Array:
 		p["last"] = str(cells[idx["last"]]) if idx.has("last") else ""
 		p["first"] = str(cells[idx["first"]]) if idx.has("first") else ""
 		p["real_name"] = "%s %s" % [p["first"], p["last"]]
-		# Keep the underlying comparison data, but never make the real name the
-		# default display value. The fictional alias is assigned below after the
-		# full pool has been loaded.
+		# real_name stays available for the optional real-name view. The default
+		# display value is the generated alias, assigned after the pool loads.
 		p["generic_name"] = ""
 		p["name"] = ""
 		p["id"] = "%s_%d" % [p["club"], p["num"]]

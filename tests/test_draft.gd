@@ -134,22 +134,83 @@ func _test_real_pool() -> void:
 func _test_player_name_modes() -> void:
 	var p: Dictionary = GameDB.players[0]
 	var previous := GameState.show_real_names
+	var overall := int(p["overall"])
 	GameState.set_show_real_names(false)
 	_check(GameDB.player_display_name(p) == str(p["generic_name"]),
 			"Player labels default to fictional names")
-	_check(str(p["generic_name"]) != "Player 001" and str(p["generic_name"]).contains(" "),
-			"Fictional labels use generated names rather than numbered placeholders")
+	_check(not GameDB.player_display_name(p).contains("plays like"),
+			"Fictional labels are the name itself")
 	_check(str(p["name"]) == str(p["generic_name"]),
 			"The loaded pool does not expose a real name as its default field")
-	var id := str(p["id"])
-	var overall := int(p["overall"])
+	var seen := {}
+	for person in GameDB.players:
+		var label := str(person.get("generic_name", ""))
+		_check(_is_generated_name(label), "Season pool uses a generated name (%s)" % label)
+		_check(not seen.has(label), "Season aliases are unique (%s)" % label)
+		seen[label] = true
+		_check(GameDB.player_display_name(person) == label,
+				"Fictional mode shows the generated name")
 	GameState.set_show_real_names(true)
-	_check(GameDB.player_display_name(p).contains("plays like"),
-			"Educational mode adds a real-player comparison")
-	_check(GameDB.player_display_name_by_id(id).contains(str(p["real_name"])),
-			"Pick/result lookups resolve the comparison by stable player ID")
+	for person in GameDB.players:
+		var real := str(person.get("real_name", "")).strip_edges()
+		_check(GameDB.player_display_name(person) == real,
+				"Real-name mode shows only the AFL name (%s)" % real)
+		_check(not GameDB.player_display_name(person).contains("plays like"),
+				"Real-name mode does not add a comparison")
+	for person in GameDB.draftees:
+		var label := str(person.get("generic_name", ""))
+		_check(_is_generated_name(label), "Draft class uses a generated name (%s)" % label)
+		_check(not seen.has(label), "Draft aliases do not collide (%s)" % label)
+		seen[label] = true
+		var real := str(person.get("real_name", "")).strip_edges()
+		if real != "":
+			_check(GameDB.player_display_name(person) == real,
+					"Real-name mode shows a prospect's AFL name on its own")
+	var dawson := {}
+	for person in GameDB.players:
+		if str(person.get("real_name", "")) == "Jordan Dawson":
+			dawson = person
+			break
+	_check(not dawson.is_empty(), "Jordan Dawson is in the loaded pool")
+	_check(GameDB.player_display_name(dawson) == "Jordan Dawson",
+			"Real-name mode writes Jordan Dawson, not a plays-like label")
+	_check(GameDB.player_display_name_by_id(str(dawson["id"])) == "Jordan Dawson",
+			"Pick/result lookups resolve the real name by stable player ID")
 	_check(int(p["overall"]) == overall, "Name mode never changes the player rating")
+	var generated := {"generic_name": "Ari Bramble", "name": "Ari Bramble", "real_name": ""}
+	_check(GameDB.player_display_name(generated) == "Ari Bramble",
+			"Players with no real AFL name keep the generated name in real-name mode")
+	# Past the shuffled pool, names are still generated — never Squadmate 001.
+	var saved_next: int = GameDB._alias_next
+	GameDB._alias_next = GameDB._alias_candidates.size()
+	var extra := []
+	for i in range(24):
+		extra.append({})
+	GameDB.assign_aliases(extra)
+	var extra_seen := {}
+	for person in extra:
+		var label := str(person["generic_name"])
+		_check(_is_generated_name(label), "Overflow aliases are generated (%s)" % label)
+		_check(not seen.has(label) and not extra_seen.has(label),
+				"Overflow aliases do not collide (%s)" % label)
+		extra_seen[label] = true
+	GameDB._alias_next = saved_next
 	GameState.set_show_real_names(previous)
+
+
+func _is_generated_name(label: String) -> bool:
+	if label == "" or label.contains("plays like"):
+		return false
+	var low := label.to_lower()
+	if low.begins_with("squadmate") or low.begins_with("player "):
+		return false
+	var parts := label.split(" ", false)
+	if parts.size() < 2:
+		return false
+	for part in parts:
+		if str(part).is_valid_int():
+			return false
+	return true
 
 
 func _fill_user_list(draft: Draft) -> void:

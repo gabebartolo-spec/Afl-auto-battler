@@ -6,8 +6,8 @@ extends Node
 ## the season.
 
 ## Name presentation is a player preference rather than a career setting. The
-## game starts with fictional labels; the optional educational view adds the
-## real-player comparison without changing the simulation or the drafted IDs.
+## game starts with generated fictional labels; the optional real-name view
+## shows each AFL name on its own, without changing the simulation or IDs.
 signal player_names_changed
 var show_real_names := false
 

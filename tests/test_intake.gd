@@ -257,6 +257,9 @@ func _test_career_rollover() -> void:
 		_check(not again_ids.has(pid), "Generated ids are unique")
 		again_ids[pid] = true
 		_check(str(p["generic_name"]) != "", "Generated prospects get aliases")
+		_check(not str(p["generic_name"]).to_lower().begins_with("squadmate") \
+				and not str(p["generic_name"]).to_lower().begins_with("player "),
+				"Generated prospects never get placeholder names (%s)" % str(p["generic_name"]))
 		_check(int(p["overall"]) >= 36 and int(p["overall"]) <= 76,
 				"Generated prospects stay in the rookie band")
 	var repeats := Prospects.generate_class(2027)
