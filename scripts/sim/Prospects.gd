@@ -166,6 +166,8 @@ static func project(p: Dictionary) -> void:
 	p["sample"] = 14.0  # projections skip the low-games confidence shrink
 	p["overall"] = Ratings.rate_overall(a, role, 14.0)
 	p["value"] = Ratings.salary_value(int(p["overall"]))
+	p.erase("potential")  # re-projection re-derives it (deterministically)
+	Potential.assign(p)
 
 
 ## Shift every attribute by a uniform offset so rate_overall lands on target.
@@ -273,7 +275,16 @@ static func age_player(p: Dictionary, year: int) -> float:
 		d += 1.0  # late bloomers keep climbing
 	if age <= 23.0 and ov >= 80:
 		d += 1.0  # the young stars' ceilings stretch too
+	# Close part of the gap to potential (most of it in a rehab year). This
+	# replaces the age curve when it is bigger rather than stacking on it, so
+	# the league does not inflate. Growth never carries a player past his POT;
+	# only training can.
+	var grow := Potential.growth(p, age)
+	if grow > 0.0:
+		d = maxf(d, grow)
 	var target := clampf(float(ov) + d, 25.0, 93.0)
+	if d > 0.0 and p.has("potential"):
+		target = minf(target, float(maxi(ov, int(p["potential"]))))
 
 	var role := str(p.get("role", "MID"))
 	var a: Dictionary = p.get("attr", {})

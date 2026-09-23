@@ -156,6 +156,8 @@ def project(p):
     p["attr"] = {k: max(1, min(99, int(round(v)))) for k, v in a.items()}
     p["overall"] = rate_overall(p["attr"], role, 14.0)
     p["value"] = salary_value(p["overall"])
+    p.pop("potential", None)
+    assign_potential(p)
 
 
 def fit(a, role, target, games):
@@ -296,6 +298,54 @@ def play_intake(clubs, lists, pool, order, rng, cap=LIST_SIZE):
     return picks, history
 
 
+# ---------------------------------------------------------------------------
+# Potential mirror (scripts/sim/Potential.gd)
+# ---------------------------------------------------------------------------
+MAX_POT = 97
+ROLE_CAP = {"MID": 95, "RUCK": 89, "FWD": 80, "DEF": 77}
+AGE_HEADROOM = [(20.0, 16.0), (22.0, 12.0), (24.0, 8.0), (26.0, 4.0), (28.0, 2.0)]
+GAP_PULL = [(21.0, 0.30), (24.0, 0.22), (28.0, 0.15)]
+REHAB_PULL = 0.9
+MIN_STEP = 2.0
+
+
+def _headroom(age):
+    for top, room in AGE_HEADROOM:
+        if age <= top:
+            return room
+    return 0.0
+
+
+def assign_potential(p):
+    if "potential" in p:
+        return
+    ov = int(p.get("overall", 50))
+    rnd = _rng_for("pot|%s|%s" % (p["id"], p.get("draft_year", "")))
+    if p.get("projected"):
+        rank = max(1, min(80, int(p.get("draft_rank", 40))))
+        pot = ov + max(6.0, 22.0 - 0.25 * (rank - 1)) + rnd.uniform(-3.0, 3.0)
+    else:
+        pot = ov + _headroom(float(p.get("age", 26.0))) + rnd.uniform(-2.0, 3.0)
+    cap = min(MAX_POT, ROLE_CAP.get(p.get("role", "MID"), MAX_POT))
+    p["potential"] = max(ov, min(max(ov, cap), int(round(pot))))
+
+
+def potential_growth(p, age):
+    gap = float(int(p.get("potential", p.get("overall", 0))) - int(p.get("overall", 0)))
+    if gap <= 0:
+        return 0.0
+    pull = 0.0
+    for top, share in GAP_PULL:
+        if age <= top:
+            pull = share
+            break
+    if p.pop("rehab", False):
+        pull = max(pull, REHAB_PULL)
+    if pull <= 0:
+        return 0.0
+    return max(gap * pull, min(gap, MIN_STEP))
+
+
 def age_player(p, year):
     rnd = _rng_for("%s|%d" % (p["id"], year))
     age = float(p.get("age", 26.0)) + 1.0
@@ -317,7 +367,12 @@ def age_player(p, year):
         d += 1.0
     if age <= 23 and ov >= 80:
         d += 1.0
+    grow = potential_growth(p, age)
+    if grow > 0:
+        d = max(d, grow)
     target = max(25.0, min(93.0, ov + d))
+    if d > 0 and "potential" in p:
+        target = min(target, float(max(ov, int(p["potential"]))))
     if p.get("attr"):
         p["attr"] = fit(p["attr"], p.get("role", "MID"), target, 20.0)
         p["overall"] = rate_overall(p["attr"], p.get("role", "MID"), 20.0)
@@ -361,6 +416,7 @@ def main():
             p["gm"] = float(p.get("gm") or 18)
             p["age"] = float(p.get("age") or 26)
             p["overall"] = 50
+            assign_potential(p)
 
     order = list(clubs)
     random.Random(4242).shuffle(order)
@@ -391,7 +447,10 @@ def main():
             aged = []
             drops = 0
             for p in lists[c]:
+                before = int(p.get("overall", 50))
                 age_player(p, next_year)
+                if int(p["overall"]) > max(before, int(p.get("potential", 99))):
+                    fails.append("%s grew past its POT (%d > %d)" % (p["id"], p["overall"], p["potential"]))
                 aged.append(p)
             keep = []
             for p in aged:

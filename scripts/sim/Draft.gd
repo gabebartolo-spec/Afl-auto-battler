@@ -539,6 +539,11 @@ func board(role := "", club := "", search := "", sort := "overall",
 				return a["overall"] > b["overall"])
 		"name":
 			out.sort_custom(func(a, b): return GameDB.player_sort_name(a) < GameDB.player_sort_name(b))
+		"potential":
+			out.sort_custom(func(a, b):
+				if int(a.get("potential", 0)) != int(b.get("potential", 0)):
+					return int(a.get("potential", 0)) > int(b.get("potential", 0))
+				return a["overall"] > b["overall"])
 		"goals":
 			out.sort_custom(func(a, b): return a["gl"] > b["gl"])
 		"disposals":

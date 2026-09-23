@@ -13,6 +13,7 @@ godot --headless --path . --script tests/run_intake_ui_tests.gd
 godot --headless --path . --script tests/run_finals_tests.gd
 godot --headless --path . --script tests/run_save_tests.gd
 godot --headless --path . --script tests/run_career_ui_tests.gd
+godot --headless --path . --script tests/run_potential_tests.gd
 ```
 
 The intake suites cover the 2026 draft-class file (56 prospects: unique ids/
@@ -39,6 +40,12 @@ dicts stay shared, generated draft classes come back, a half-played live
 match is never saved, and a file from another save version is ignored. The
 career UI suite drives the main menu (Continue Career, the New Career prompt)
 and the back button on the hub, ladder, a live match and the menu.
+
+The potential suite checks every player and prospect has a POT within the
+position caps, the hand-set overrides land with a rehab year that closes most
+of the gap at the first rollover (and only because of the override), growth
+never passes POT, training is cheaper below POT, earlier picks carry more
+POT, and POT survives a save (older saves get it filled in).
 
 Every runner points saves and settings at `user://test_*` files and turns
 autosave off, so running the tests never touches a real career.

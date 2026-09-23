@@ -169,6 +169,8 @@ func _team_row(p: Dictionary, ground: bool) -> Control:
 	h.add_child(nm)
 	h.add_child(UiKit.role_chip(_player_tag(p)))
 	h.add_child(UiKit.line(str(int(p["overall"])), 14, UiKit.GOLD, true))
+	h.add_child(UiKit.line("/%d" % int(p.get("potential", p["overall"])), 11,
+			UiKit.GOOD if bool(p.get("rehab", false)) else UiKit.MUTED))
 	return h
 
 
@@ -193,6 +195,10 @@ func _list_row(p: Dictionary) -> Control:
 	ov.custom_minimum_size = Vector2(38, 0)
 	ov.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(ov)
+	var pot := UiKit.line("POT %d" % int(p.get("potential", p["overall"])), 12,
+			UiKit.GOOD if bool(p.get("rehab", false)) else UiKit.MUTED, true)
+	pot.tooltip_text = "Potential: the rating he can grow into."
+	h.add_child(pot)
 
 	# Season line - the real numbers the rating was built from. Prospects
 	# instead show the U18/state-league line the projection was built on.

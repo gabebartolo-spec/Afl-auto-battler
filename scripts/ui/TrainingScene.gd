@@ -180,7 +180,8 @@ func _player_row(p: Dictionary) -> Control:
 	h.add_child(info)
 	info.add_child(UiKit.ellipsis(GameDB.player_display_name(p), 15, UiKit.TEXT, true))
 	var gain := GameState.xp_gain_for(id)
-	var meta := "%d OVR  ·  %d XP" % [int(p["overall"]), int(p.get("xp", 0))]
+	var meta := "%d OVR  ·  %d POT  ·  %d XP" % [int(p["overall"]),
+			int(p.get("potential", p["overall"])), int(p.get("xp", 0))]
 	if gain > 0:
 		meta += "  ·  +%d last game" % gain
 	info.add_child(UiKit.ellipsis(meta, 12, UiKit.GOLD if gain > 0 else UiKit.MUTED))
@@ -224,8 +225,11 @@ func _detail_panel() -> Control:
 	head.add_child(UiKit.ellipsis(GameDB.player_display_name(p), 20, UiKit.TEXT, true))
 	var duty := GameState.last_duty(_selected)
 	var duty_text := duty if duty != "" else "Not yet played"
-	head.add_child(UiKit.lbl("%s  ·  %s  ·  %d OVR" % [Ratings.role_tag(p), duty_text, int(p["overall"])],
-			13, UiKit.MUTED))
+	head.add_child(UiKit.lbl("%s  ·  %s  ·  %d OVR  ·  %d POT" % [Ratings.role_tag(p), duty_text,
+			int(p["overall"]), int(p.get("potential", p["overall"]))], 13, UiKit.MUTED))
+	var pot_note := _potential_note(p)
+	if pot_note != "":
+		head.add_child(UiKit.lbl(pot_note, 13, UiKit.GOOD))
 	head.add_child(UiKit.lbl("%d XP to spend  ·  %d games on the list" % [int(p.get("xp", 0)),
 			int(p.get("xp_games", 0))], 15, UiKit.GOLD, true))
 	if _notice != "":
@@ -319,3 +323,16 @@ func _ignore_mouse(node: Control) -> void:
 	for child in node.get_children():
 		if child is Control:
 			_ignore_mouse(child)
+
+
+## Why this player trains cheap (or dear): potential sets the price.
+func _potential_note(p: Dictionary) -> String:
+	var mult := Potential.training_multiplier(p)
+	if bool(p.get("rehab", false)):
+		return "Rehab: back near his %d POT after this season. Training %d%% off until then." % [
+				int(p["potential"]), int(round((1.0 - mult) * 100.0))]
+	if mult < 0.95:
+		return "Room to grow: training %d%% off below his potential." % int(round((1.0 - mult) * 100.0))
+	if mult > 1.0:
+		return "At his ceiling: training costs 50% more."
+	return ""

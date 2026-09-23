@@ -10,7 +10,13 @@ func _initialize() -> void:
 func _run() -> void:
 	await process_frame
 	_isolate_saves()
-	var suite = load("res://tests/test_draft.gd").new()
+	# A suite that fails to compile must fail the run, not hang it.
+	var script = load("res://tests/test_draft.gd")
+	if script == null or not script.can_instantiate():
+		push_error("Could not load res://tests/test_draft.gd")
+		quit(1)
+		return
+	var suite = script.new()
 	suite.run()
 	quit(0 if suite.failures.is_empty() else 1)
 

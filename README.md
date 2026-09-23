@@ -159,6 +159,33 @@ python3 tools/sim_harness.py --ratings     # dump ratings to data/ratings_previe
 python3 tools/validate_data.py             # dataset integrity check
 ```
 
+## Potential
+
+Every player has a **potential (POT)**: the rating he can grow into. It shows
+beside the rating on your list, in Training and on the draft board, which can
+also sort by **Highest potential**.
+
+- **Draftees** get more room the earlier they rank: about +22 above their
+  projection for the top pick, about +8 at the end of the class.
+- **AFL players** get room by age: +16 at 20, +8 at 24, nothing from 29.
+- Generated ceilings stop a few points above each position's best (ratings
+  run on different scales: the best 2026 midfielder is 92, the best key
+  defender 72).
+
+Each off-season a player 28 or under closes part of the gap to his POT
+(30% at 21, 15% by 28) instead of following the plain age curve, and never
+grows past it. Training is up to half price below POT and 50% dearer above it.
+
+**Injured stars.** The dataset is one season, so a star who missed most of
+2026 is rated on two or three games and pulled toward the league average.
+His stats cannot tell him apart from a fringe player who was not picked, so
+his real level comes from `data/potential_overrides.csv` (club, first, last,
+potential). An override 15+ above the current rating also gives him a
+**rehab year**: at the next rollover he closes 90% of the gap, whatever his
+age. It ships with Connor Rozee (86), Darcy Moore (74) and Sam Darcy (76):
+after one off-season they come back at about 82, 72 and 74. Add rows for
+anyone else; an unmatched row is reported in the log.
+
 ## Saving
 
 The career autosaves to `user://career.save`: after every round and every
