@@ -296,47 +296,56 @@ static func age_player(p: Dictionary, year: int) -> float:
 
 
 ## Ratings are relative to the league. Training, development and new
-## draftees push the whole league up a little every year, which would
-## eventually crowd everyone near the top and push the engine off its real
-## 2026 calibration. After each rollover, every player (and every prospect
-## still in the pool) moves down by however far the league mean has drifted
-## above `baseline`, keeping everyone's position relative to everyone else.
-## A club that trains or develops better than the rest keeps that edge.
-## Returns the shift applied (0 when within half a point).
-static func renormalise_league(lists: Dictionary, pool: Array, baseline: float) -> float:
-	if baseline <= 0.0:
-		return 0.0
-	var total := 0.0
-	var n := 0
+## draftees move the league a little every year - up in the middle, and
+## bunched toward it as stars age out faster than the young ones catch them.
+## Left alone, that would eventually crowd everyone together and push the
+## engine off its real 2026 calibration. After each rollover every player
+## (and every prospect still in the pool) is re-anchored so the league has
+## the 2026 average and spread again, keeping everyone's place relative to
+## everyone else: a club that trains or develops better keeps that edge.
+## Returns {"shift": mean drift, "stretch": spread ratio applied}.
+static func renormalise_league(lists: Dictionary, pool: Array, baseline: float,
+		baseline_spread := 0.0) -> Dictionary:
+	var vals: Array = []
 	for code in lists:
 		for p in lists[code]:
-			total += float(p.get("overall", 0))
-			n += 1
-	if n == 0:
-		return 0.0
-	var drift := total / float(n) - baseline
-	if absf(drift) < 0.5:
-		return 0.0
+			vals.append(float(p.get("overall", 0)))
+	if baseline <= 0.0 or vals.is_empty():
+		return {"shift": 0.0, "stretch": 1.0}
+	var mean := 0.0
+	for v in vals:
+		mean += v
+	mean /= float(vals.size())
+	var sq := 0.0
+	for v in vals:
+		sq += (v - mean) * (v - mean)
+	var spread := sqrt(sq / float(vals.size()))
+	var stretch := 1.0
+	if baseline_spread > 0.0 and spread > 0.0:
+		stretch = clampf(baseline_spread / spread, 0.85, 1.20)
+	if absf(mean - baseline) < 0.5 and absf(stretch - 1.0) < 0.02:
+		return {"shift": 0.0, "stretch": 1.0}
 	for code in lists:
 		for p in lists[code]:
-			_shift_player(p, drift)
+			_shift_player(p, baseline + (float(p["overall"]) - mean) * stretch)
 	for p in pool:
-		_shift_player(p, drift)
-	return drift
+		_shift_player(p, baseline + (float(p["overall"]) - mean) * stretch)
+	return {"shift": mean - baseline, "stretch": stretch}
 
 
-static func _shift_player(p: Dictionary, drift: float) -> void:
+static func _shift_player(p: Dictionary, target_overall: float) -> void:
 	var a: Dictionary = p.get("attr", {})
 	if a.is_empty():
 		return
 	var role := str(p.get("role", "MID"))
-	var target := clampf(float(p["overall"]) - drift, 25.0, 99.0)
+	var target := clampf(target_overall, 25.0, 99.0)
 	p["attr"] = fit_attributes(a, role, target, Ratings.effective_games(p))
 	p["overall"] = Ratings.rate_overall(p["attr"], role, Ratings.effective_games(p))
 	p["value"] = Ratings.salary_value(int(p["overall"]))
-	# Potential stays put: players start the season a little under it and
-	# train back toward it. Shifting it too would ratchet every ceiling down
-	# each year and squeeze the elite out of the league.
+	# Potential stays put. Shifting it too would ratchet every ceiling down
+	# each year and squeeze out the elite. (Rivals can only train so far in
+	# a season - GameState.AI_SEASON_GAIN - so the room this leaves is not
+	# simply trained straight back.)
 	if p.has("potential"):
 		p["potential"] = maxi(int(p["potential"]), int(p["overall"]))
 

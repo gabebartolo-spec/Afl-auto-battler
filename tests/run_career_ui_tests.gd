@@ -188,6 +188,43 @@ func _run() -> void:
 	await _settle()
 	_check(_router.current() == "hub", "After full time, back returns to the hub")
 
+	# --- off-season: trades & contracts ----------------------------------------
+	var season = _state.season
+	season.round_index = season.fixture.size()
+	_state.ensure_finals()
+	while not season.is_season_over():
+		_state.advance()
+	_router.go("hub")
+	await _settle()
+	_check(_screen_text().contains("Trades & Contracts"), "The hub offers Trades & Contracts after the season")
+	_router.go("offseason")
+	await _settle()
+	_check(_screen_text().contains("Out of contract"), "The contracts tab lists who is out of contract")
+	for tab in ["Tab_agents", "Tab_trade"]:
+		var tb: Button = current_scene.find_child(tab, true, false)
+		tb.emit_signal("pressed")
+		await _settle()
+	var theirs = null
+	var mine_pick = null
+	for n in current_scene.find_children("Their_*", "Button", true, false):
+		theirs = n
+		break
+	for n in current_scene.find_children("Mine_*", "Button", true, false):
+		mine_pick = n
+		break
+	_check(theirs != null and mine_pick != null, "The trade tab lists both sides")
+	if theirs != null and mine_pick != null:
+		theirs.emit_signal("pressed")
+		await _settle()
+		mine_pick = current_scene.find_children("Mine_*", "Button", true, false)[0]
+		mine_pick.emit_signal("pressed")
+		await _settle()
+	var verdict = current_scene.find_child("TradeVerdict", true, false)
+	_check(verdict != null and not str(verdict.text).contains("You give: -"),
+			"Picking players shows the other club's verdict")
+	_router.handle_back(true)
+	await _settle()
+
 	# --- New Career asks before replacing a career ---------------------------
 	_router.to_main_menu(false)
 	await _settle()

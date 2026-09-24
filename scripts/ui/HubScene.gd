@@ -141,6 +141,8 @@ func _controls(season: Season) -> Control:
 	var buttons: Array = []
 	if season.is_season_over():
 		var resume := GameState.draft != null and GameState.draft.intake_mode
+		if not resume:
+			buttons.append(_nav_button("Trades & Contracts", func(): Router.go("offseason")))
 		buttons.append(_nav_button("Resume National Draft" if resume
 				else "%d National Draft" % GameState.season_year, _on_intake_draft, true))
 		buttons.append(_nav_button("Season Review", func(): Router.go("season_review")))

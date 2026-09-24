@@ -32,6 +32,10 @@ var season_tally := {}           # player id -> running season numbers (Awards)
 var season_awards := {}          # the finished season's awards
 var honour_roll: Array = []      # one entry per completed season
 var records := {}                # league records across the career
+var salary_cap := 0              # cap points every club's payroll counts against
+var free_agents: Array = []      # off-season: players no club kept
+var offseason_year := 0          # the season whose off-season has opened
+var offseason_log: Array = []    # what happened in the off-season, for news
 
 ## Career loop: season 1 is the 2026 season. Every completed season ends with
 ## a national intake draft (keep your list, sign the rookies), then the same
@@ -53,10 +57,13 @@ const TRAIN_STATS := [
 	["creating", "Creating"], ["ruck", "Ruck"], ["discipline", "Discipline"],
 	["durability", "Durability"], ["star", "Star power"],
 ]
-const XP_SQUAD := 6
-const XP_SELECTED := 8
-const XP_NAMED := 4
-const XP_PERF_CAP := 36
+## Match XP. Every club earns it and training plans spend it, so it sets how
+## far ratings climb during a season before the off-season re-anchors the
+## league (Prospects.renormalise_league). Tuned so a season adds about 4.
+const XP_SQUAD := 4
+const XP_SELECTED := 6
+const XP_NAMED := 3
+const XP_PERF_CAP := 24
 
 
 ## Where the career is saved. Tests point this somewhere else so they never
@@ -177,6 +184,10 @@ func save_career() -> bool:
 		"season_awards": season_awards,
 		"honour_roll": honour_roll,
 		"records": records,
+		"salary_cap": salary_cap,
+		"free_agents": free_agents,
+		"offseason_year": offseason_year,
+		"offseason_log": offseason_log,
 		"db_draftees": GameDB.draftees,
 		"db_late_draftees": GameDB.late_draftees,
 		"db_alias_next": GameDB._alias_next,
@@ -241,10 +252,15 @@ func load_career() -> bool:
 	season_awards = state.get("season_awards", {})
 	honour_roll = state.get("honour_roll", [])
 	records = state.get("records", {})
+	salary_cap = int(state.get("salary_cap", 0))
+	free_agents = state.get("free_agents", [])
+	offseason_year = int(state.get("offseason_year", 0))
+	offseason_log = state.get("offseason_log", [])
 	GameDB.draftees = state.get("db_draftees", GameDB.draftees)
 	GameDB.late_draftees = state.get("db_late_draftees", [])
 	GameDB._alias_next = int(state.get("db_alias_next", GameDB._alias_next))
 	_backfill_potential()
+	ensure_contracts()
 	return true
 
 
@@ -355,6 +371,10 @@ func reset() -> void:
 	season_awards = {}
 	honour_roll = []
 	records = {}
+	salary_cap = 0
+	free_agents = []
+	offseason_year = 0
+	offseason_log = []
 	last_training_report = {}
 	_xp_grant_key = ""
 	_dirty = false
@@ -387,6 +407,7 @@ func begin_intake_draft() -> bool:
 		return false
 	if draft != null and draft.intake_mode:
 		return true  # resume the draft in progress
+	open_offseason()
 	if draftee_pool.is_empty():
 		draftee_pool = GameDB.draftees.duplicate()
 
@@ -464,6 +485,7 @@ func finish_intake_draft() -> bool:
 			p["num"] = _next_jumper_number(arr)
 			p["draft_pick"] = int(entry.get("pick", 0))
 			p["draft_round"] = int(entry.get("round", 0))
+			Contracts.rookie_deal(p)
 			arr.append(p)
 			drafted_draftees[id] = code
 	draft = null
@@ -482,6 +504,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 		draftee_pool.append(p)
 
 	Injuries.heal_all(league_lists)
+	_close_contracts()
 	season_tally = {}
 	season_awards = {}
 	intake_summary = Prospects.age_league(league_lists, next_year)
@@ -489,12 +512,16 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	intake_summary["year"] = next_year
 	draftee_pool = Prospects.age_pool(draftee_pool, next_year, drafted_draftees)
 	intake_summary["renormalised"] = Prospects.renormalise_league(league_lists,
-			draftee_pool, GameDB.baseline_overall)
+			draftee_pool, GameDB.baseline_overall, GameDB.baseline_spread)
 
-	my_list = league_lists.get(my_club, [])
+	# One array per club from here on: the season, the league lists and your
+	# list are the same arrays, so trades and signings touch them all.
 	var lists := {}
 	for code in GameDB.CLUB_ORDER:
-		lists[code] = (league_lists[code] as Array).duplicate()
+		lists[code] = league_lists[code]
+		for p in lists[code]:
+			p["season_start_ov"] = int(p["overall"])
+	my_list = lists.get(my_club, [])
 	season = Season.new(GameDB.CLUB_ORDER.duplicate(), lists,
 			int(Time.get_unix_time_from_system()) % 1000000)
 	season_year = next_year
@@ -561,6 +588,7 @@ func _assign_draftee(code: String, p: Dictionary, kind: String) -> void:
 	p["club"] = code
 	p["num"] = _next_jumper_number(arr)
 	p["draft_pick"] = 0
+	Contracts.rookie_deal(p)
 	arr.append(p)
 	drafted_draftees[str(p["id"])] = code
 	intake_assignments.append({
@@ -602,6 +630,8 @@ func start_season(club_code: String, list: Array) -> void:
 	my_list = lists.get(my_club, [])
 	season = Season.new(GameDB.CLUB_ORDER.duplicate(), lists,
 			int(Time.get_unix_time_from_system()) % 1000000)
+	salary_cap = draft.budget if draft != null and draft.league_mode else 0
+	ensure_contracts()
 	last_phase = "regular"
 	last_label = "Round 1"
 	last_training_report = {}
@@ -1104,6 +1134,7 @@ func _close_season_awards() -> void:
 	for code in season.lists:
 		for p in season.lists[code]:
 			players[str(p["id"])] = p
+	open_offseason()
 	season_awards = Awards.season_awards(season_tally, players, season_year)
 	records = Awards.update_records(records, season_awards, season_log)
 	var mine_bf: Array = (season_awards["best_and_fairest"] as Dictionary).get(my_club, [])
@@ -1172,6 +1203,219 @@ func my_new_injuries() -> Array:
 
 func _weeks_text(w: int) -> String:
 	return "1 week" if w == 1 else "%d weeks" % w
+
+
+# ---------------------------------------------------------------------------
+# Contracts, free agency and trades
+# ---------------------------------------------------------------------------
+## Everyone on a list has a contract, and there is a cap. Old saves and the
+## test fallback (no career draft) get them here: the cap is then the
+## biggest payroll in the league, so every club starts under it.
+func ensure_contracts() -> void:
+	if season == null:
+		return
+	var biggest := 0
+	for code in season.lists:
+		Contracts.assign_initial(season.lists[code])
+		biggest = maxi(biggest, Contracts.payroll(season.lists[code]))
+	if salary_cap <= 0:
+		salary_cap = biggest
+
+
+func my_payroll() -> int:
+	return Contracts.payroll(my_list)
+
+
+func cap_room() -> int:
+	return salary_cap - my_payroll()
+
+
+## True while trades, re-signings and free agency are open: the season is
+## over and the national draft has not started.
+func offseason_open() -> bool:
+	return season != null and (season.is_season_over() or season.is_regular_done()) \
+			and not (draft != null and draft.intake_mode) and offseason_year == season_year
+
+
+## Season over: rivals decide on their expiring players at once - keep who
+## is worth his new price, let the rest go to free agency. Yours wait for you.
+func open_offseason() -> void:
+	if season == null or offseason_year == season_year:
+		return
+	ensure_contracts()
+	offseason_year = season_year
+	offseason_log = []
+	free_agents = []
+	for code in season.lists:
+		if code == my_club:
+			continue
+		var list: Array = season.lists[code]
+		for p in Contracts.expiring(list).duplicate():
+			if Contracts.ai_keeps(p, list, salary_cap) or list.size() <= Contracts.MIN_LIST:
+				_resign(p, _ai_years(p))
+			else:
+				_release(code, p)
+	mark_dirty()
+
+
+func _ai_years(p: Dictionary) -> int:
+	var age := float(p.get("age", 25.0))
+	return 3 if age <= 25.0 else (2 if age <= 30.0 else 1)
+
+
+## Re-sign for `years` more seasons at today's price. The contract ticks at
+## the rollover, so it is stored as years + 1.
+func _resign(p: Dictionary, years: int) -> void:
+	p["salary"] = Contracts.asking_salary(p)
+	p["contract_years"] = years + 1
+	p["resigned"] = true
+
+
+func _release(code: String, p: Dictionary) -> void:
+	(season.lists[code] as Array).erase(p)
+	p["released_by"] = code
+	p["contract_years"] = 0
+	free_agents.append(p)
+	offseason_log.append({"kind": "released", "club": code, "id": str(p["id"])})
+
+
+## Your expiring player: re-sign him for 1-4 seasons. Returns a result
+## {"ok", "reason"}.
+func resign_player(player_id: String, years: int) -> Dictionary:
+	var p := list_player(player_id)
+	if p.is_empty() or not offseason_open():
+		return {"ok": false, "reason": "Contracts can only be settled in the off-season."}
+	var cost := Contracts.asking_salary(p)
+	if my_payroll() - int(p.get("salary", 0)) + cost > salary_cap:
+		return {"ok": false, "reason": "Not enough cap room: he wants %d." % cost}
+	_resign(p, clampi(years, 1, Contracts.MAX_YEARS))
+	mark_dirty()
+	return {"ok": true, "reason": "Re-signed for %d seasons at %d." % [years, cost]}
+
+
+func release_player(player_id: String) -> Dictionary:
+	var p := list_player(player_id)
+	if p.is_empty() or not offseason_open():
+		return {"ok": false, "reason": "Players can only be released in the off-season."}
+	if my_list.size() <= Contracts.MIN_LIST:
+		return {"ok": false, "reason": "Your list cannot go below %d." % Contracts.MIN_LIST}
+	_release(my_club, p)
+	mark_dirty()
+	return {"ok": true, "reason": "%s released." % GameDB.player_display_name(p)}
+
+
+func sign_free_agent(player_id: String, years: int) -> Dictionary:
+	if not offseason_open():
+		return {"ok": false, "reason": "Free agency is only open in the off-season."}
+	var p := {}
+	for q in free_agents:
+		if str(q["id"]) == player_id:
+			p = q
+	if p.is_empty():
+		return {"ok": false, "reason": "He has already signed elsewhere."}
+	if my_list.size() >= Contracts.MAX_LIST:
+		return {"ok": false, "reason": "Your list is full (%d)." % Contracts.MAX_LIST}
+	var cost := Contracts.asking_salary(p)
+	if cost > cap_room():
+		return {"ok": false, "reason": "Not enough cap room: he wants %d." % cost}
+	_join(my_club, p)
+	_resign(p, clampi(years, 1, Contracts.MAX_YEARS))
+	free_agents.erase(p)
+	offseason_log.append({"kind": "signed", "club": my_club, "id": player_id})
+	mark_dirty()
+	return {"ok": true, "reason": "%s signed for %d seasons." % [GameDB.player_display_name(p), years]}
+
+
+func _join(code: String, p: Dictionary) -> void:
+	var list: Array = season.lists[code]
+	p["club"] = code
+	p["num"] = _next_jumper_number(list)
+	p.erase("train_plan")
+	p.erase("released_by")
+	list.append(p)
+
+
+## Would `club` accept your `mine` (ids) for its `theirs` (ids)?
+func evaluate_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
+	if not offseason_open():
+		return {"ok": false, "reason": "Trades are only open in the off-season."}
+	var give := []
+	for id in theirs:
+		for p in season.lists.get(club, []):
+			if str(p["id"]) == str(id):
+				give.append(p)
+	var take := []
+	for id in mine:
+		var p := list_player(str(id))
+		if not p.is_empty():
+			take.append(p)
+	return Contracts.evaluate_trade(season.lists.get(club, []), give, take,
+			salary_cap, my_list, salary_cap)
+
+
+func make_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
+	var verdict := evaluate_trade(club, mine, theirs)
+	if not bool(verdict["ok"]):
+		return verdict
+	var incoming := []
+	for id in theirs:
+		for p in (season.lists[club] as Array).duplicate():
+			if str(p["id"]) == str(id):
+				(season.lists[club] as Array).erase(p)
+				incoming.append(p)
+	var outgoing := []
+	for id in mine:
+		var p := list_player(str(id))
+		my_list.erase(p)
+		outgoing.append(p)
+	for p in incoming:
+		_join(my_club, p)
+	for p in outgoing:
+		_join(club, p)
+	for sel_key in ["RUCK", "MID", "DEF", "FWD", "BENCH", "OUT"]:
+		var sel := my_selection()
+		if sel.has(sel_key):
+			for p in outgoing:
+				(sel[sel_key] as Array).erase(str(p["id"]))
+	offseason_log.append({"kind": "trade", "club": club, "in": theirs.duplicate(), "out": mine.duplicate()})
+	mark_dirty()
+	return {"ok": true, "reason": "Trade done."}
+
+
+## At the rollover: your undecided expiring players are re-signed for two
+## seasons if the cap allows (released otherwise), rivals fill their lists
+## from free agency, the rest of the free agents leave, and every contract
+## ticks down a season.
+func _close_contracts() -> void:
+	if season == null:
+		return
+	open_offseason()
+	for p in Contracts.expiring(my_list).duplicate():
+		if bool(p.get("resigned", false)):
+			continue
+		var cost := Contracts.asking_salary(p)
+		if my_payroll() - int(p.get("salary", 0)) + cost <= salary_cap or my_list.size() <= Contracts.MIN_LIST:
+			_resign(p, 2)
+		else:
+			_release(my_club, p)
+	free_agents.sort_custom(func(a, b): return Contracts.worth(a) > Contracts.worth(b))
+	for code in season.lists:
+		if code == my_club:
+			continue
+		var list: Array = season.lists[code]
+		for p in free_agents.duplicate():
+			if list.size() >= 38:
+				break
+			if Contracts.asking_salary(p) <= salary_cap - Contracts.payroll(list):
+				_join(code, p)
+				_resign(p, 1)
+				free_agents.erase(p)
+				offseason_log.append({"kind": "signed", "club": code, "id": str(p["id"])})
+	free_agents = []
+	for code in season.lists:
+		for p in season.lists[code]:
+			p["contract_years"] = maxi(1, int(p.get("contract_years", 1)) - 1)
+			p.erase("resigned")
 
 
 # ---------------------------------------------------------------------------
@@ -1302,12 +1546,14 @@ func apply_plan_to(p: Dictionary) -> Dictionary:
 
 ## Buy stat points while XP lasts, each one going to the best weight per XP.
 ## Rivals stop at potential; your plans keep going (past POT at the premium).
-func _spend_with_weights(p: Dictionary, weights: Dictionary, stop_at_pot: bool) -> Dictionary:
+func _spend_with_weights(p: Dictionary, weights: Dictionary, stop_at_pot: bool,
+		ceiling := -1) -> Dictionary:
 	var gains := {}
 	var games := float(p.get("gm", 18.0))
 	var attr: Dictionary = p.get("attr", {})
+	var stop_at := ceiling if ceiling >= 0 else int(p.get("potential", 0))
 	while true:
-		if stop_at_pot and int(p.get("overall", 0)) >= int(p.get("potential", 0)):
+		if stop_at_pot and int(p.get("overall", 0)) >= stop_at:
 			break
 		var best_key := ""
 		var best_ratio := 0.0
@@ -1351,11 +1597,23 @@ func _train_rivals(results: Array) -> void:
 				ai_spend_xp(p)
 
 
+## A rival player improves at most this much through training in a season
+## (and never past his potential). Real players do not jump five points
+## mid-season, and an uncapped league would climb every year only to be
+## re-anchored at every rollover.
+const AI_SEASON_GAIN := 2
+
+
 ## Spend a rival player's XP. Returns the attribute points bought.
 func ai_spend_xp(p: Dictionary) -> int:
+	if not p.has("season_start_ov"):
+		p["season_start_ov"] = int(p.get("overall", 0))
+	var ceiling := mini(int(p.get("potential", 0)), int(p["season_start_ov"]) + AI_SEASON_GAIN)
+	if int(p.get("overall", 0)) >= ceiling:
+		return 0
 	var focus: Dictionary = AI_TRAIN_FOCUS.get(str(p.get("role", "MID")), AI_TRAIN_FOCUS["MID"])
 	var bought := 0
-	for n in _spend_with_weights(p, focus, true).values():
+	for n in _spend_with_weights(p, focus, true, ceiling).values():
 		bought += int(n)
 	return bought
 

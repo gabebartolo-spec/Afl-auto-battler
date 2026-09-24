@@ -20,12 +20,14 @@ func run() -> void:
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
 	var start := _league()
 	for year in range(SEASONS):
+		var season_start := _league()
 		while not GameState.season.is_season_over():
 			GameState.advance()
 		var end_of_season := _league()
-		_check(float(end_of_season["mean"]) - float(start["mean"]) < 6.0,
-				"In-season training lifts the league by under 6 (%d: %.1f)" % [
-				GameState.season_year, float(end_of_season["mean"]) - float(start["mean"])])
+		var lift := float(end_of_season["mean"]) - float(season_start["mean"])
+		_check(lift < 5.0,
+				"In-season training lifts the league by under 5 (%d: %.1f)" % [
+				GameState.season_year, lift])
 		if GameState.begin_intake_draft():
 			var d: Draft = GameState.draft
 			while not d.is_finished():

@@ -155,7 +155,16 @@ func _test_rivals_train() -> void:
 	var spent_to_pot := p0.duplicate(true)
 	spent_to_pot["xp"] = 100000
 	spent_to_pot["potential"] = int(spent_to_pot["overall"]) + 3
+	# Started the season well below POT, so POT (not the season cap) binds.
+	spent_to_pot["season_start_ov"] = int(spent_to_pot["overall"]) + 3 - GameState.AI_SEASON_GAIN
 	GameState.ai_spend_xp(spent_to_pot)
 	_check(int(spent_to_pot["overall"]) >= int(spent_to_pot["potential"])
 			and int(spent_to_pot["overall"]) <= int(spent_to_pot["potential"]) + 1,
 			"With XP to burn, a rival trains exactly up to his POT")
+	var capped := p0.duplicate(true)
+	capped["xp"] = 100000
+	capped["potential"] = int(capped["overall"]) + 12
+	capped["season_start_ov"] = int(capped["overall"])
+	GameState.ai_spend_xp(capped)
+	_check(int(capped["overall"]) <= int(p0["overall"]) + GameState.AI_SEASON_GAIN + 1,
+			"A rival gains at most AI_SEASON_GAIN in a season, however much XP he has")
