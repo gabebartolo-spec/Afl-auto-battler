@@ -33,6 +33,10 @@ func _run() -> void:
 	var db = root.get_node("GameDB")
 	var squad_script = load("res://scripts/sim/Squad.gd")
 	var sim_script = load("res://scripts/sim/MatchSim.gd")
+	if squad_script == null or sim_script == null or not sim_script.can_instantiate():
+		push_error("Could not load the match engine")
+		quit(1)
+		return
 	var codes: Array = db.CLUB_ORDER
 	var bench := _benchmarks(db)
 

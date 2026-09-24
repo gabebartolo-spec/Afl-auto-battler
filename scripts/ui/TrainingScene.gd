@@ -330,6 +330,16 @@ func _detail_panel() -> Control:
 	var pot_note := _potential_note(p)
 	if pot_note != "":
 		head.add_child(UiKit.lbl(pot_note, 13, UiKit.GOOD))
+	if not Traits.of(p).is_empty():
+		head.add_child(UiKit.trait_chips(p))
+	var close: Array = Traits.near(p)
+	if not close.is_empty():
+		var n: Dictionary = close[0]
+		var hint := UiKit.lbl("%d %s from %s: %s" % [int(n["gap"]), GameState.train_stat_label(str(n["stat"])).to_lower(),
+				Traits.label(str(n["key"])), Traits.text(str(n["key"]))], 12, UiKit.GOLD)
+		hint.name = "TraitHint"
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		head.add_child(hint)
 	head.add_child(UiKit.lbl("%d XP to spend  ·  %d games on the list" % [int(p.get("xp", 0)),
 			int(p.get("xp_games", 0))], 15, UiKit.GOLD, true))
 	if _notice != "":

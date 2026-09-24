@@ -20,13 +20,13 @@ const PLAN_NAMES := {
 
 const PLAN_EFFECTS := {
 	"balanced": "No adjustments - even contest, ball movement and scoring.",
-	"attacking": "Faster ball movement (+14% metres) and sharper scoring (+12% conversion), but more errors (+12% clangers).",
-	"defensive": "Heavy pressure (+18% tackles on the opposition) and harder to score against (-10% opposition conversion).",
-	"contest": "Extra numbers at the stoppage (+3.5% clearance win).",
-	"controlled": "Possession tempo: safer ball use (-14% clangers, -8% pressure taken) but shorter gains (-12% metres) and slightly lower conversion.",
-	"through_stars": "Funnelling ball to 82+ rated stars (+12% possessions for them).",
-	"fast": "Fast movement (+14% metres) with more errors (+12% clangers).",
-	"press": "High press (+18% tackles on the opposition).",
+	"attacking": "Go through the corridor: +12% metres, +10% conversion, but +12% clangers, tiring, and they score more on the rebound. Beats Controlled tempo; the Defensive press squeezes it.",
+	"defensive": "Press high: +18% pressure on them and -7% on their conversion, but fewer numbers forward (-7% your conversion, -8% metres) and tiring. Beats Attack corridor; Controlled tempo plays through it.",
+	"contest": "Numbers at the stoppage: +3.5% clearance win, but slower ball movement (-5% metres) and a little exposed on the rebound.",
+	"controlled": "Keep the ball: -14% clangers, -8% pressure taken, legs last longer, but -12% metres. Plays through a Defensive press; Attack corridor runs past it.",
+	"through_stars": "Funnel the ball to 82+ rated stars (+12% possessions for them). Easy to read: expect a tag.",
+	"fast": "Fast movement: +12% metres and +10% conversion, with more errors (+12% clangers).",
+	"press": "High press: +18% pressure on the opposition, fewer numbers forward.",
 }
 
 const PEP_NAMES := {
@@ -47,6 +47,35 @@ const TEAM_COMPARE := [
 	["clangers", "Clangers", 1, true],
 	["frees_for", "Frees for", 1, false],
 ]
+
+
+const IMPACT_LABELS := {
+	"gameplan": "gameplan", "pep": "pep talk",
+	"legs": "legs (fatigue and rotations)", "calls": "in-game calls",
+	"traits": "traits and synergies",
+}
+
+
+## Where the points came from between two impact snapshots (MatchSim.impact),
+## from `side`'s point of view: [{"label", "pts"}], biggest first, anything
+## under `min_pts` dropped. "Their gameplan -2.1" cost you 2.1 points.
+static func impact_lines(now: Array, before: Array, side: int, min_pts := 0.3) -> Array:
+	var out := []
+	for cause in IMPACT_LABELS:
+		var mine := _imp(now, side, cause) - _imp(before, side, cause)
+		var theirs := _imp(now, 1 - side, cause) - _imp(before, 1 - side, cause)
+		if absf(mine) >= min_pts:
+			out.append({"label": "Your " + str(IMPACT_LABELS[cause]), "pts": mine})
+		if absf(theirs) >= min_pts:
+			out.append({"label": "Their " + str(IMPACT_LABELS[cause]), "pts": -theirs})
+	out.sort_custom(func(a, b): return absf(float(a["pts"])) > absf(float(b["pts"])))
+	return out
+
+
+static func _imp(arr: Array, side: int, cause: String) -> float:
+	if arr.size() <= side:
+		return 0.0
+	return float((arr[side] as Dictionary).get(cause, 0.0))
 
 
 static func plan_label(key: String) -> String:

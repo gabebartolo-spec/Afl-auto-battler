@@ -202,6 +202,8 @@ func _list_row(p: Dictionary) -> Control:
 			UiKit.GOOD if bool(p.get("rehab", false)) else UiKit.MUTED, true)
 	pot.tooltip_text = "Potential: the rating he can grow into."
 	h.add_child(pot)
+	if not Traits.of(p).is_empty():
+		v.add_child(UiKit.trait_chips(p))
 
 	# Season line - the real numbers the rating was built from. Prospects
 	# instead show the U18/state-league line the projection was built on.

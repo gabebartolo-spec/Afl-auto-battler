@@ -234,6 +234,18 @@ static func chip(text: String, colour: Color) -> PanelContainer:
 	return p
 
 
+## A player's traits as small chips (empty when he has none). Tooltips say
+## what each one does.
+static func trait_chips(p: Dictionary) -> HBoxContainer:
+	var h := hbox(4)
+	h.name = "Traits"
+	for t in Traits.of(p):
+		var c := chip(Traits.label(t), BAD.darkened(0.45) if Traits.is_bad(t) else Color("35573c"))
+		c.tooltip_text = Traits.text(t)
+		h.add_child(c)
+	return h
+
+
 static func role_chip(role: String) -> PanelContainer:
 	var primary := role.split("/")[0]
 	var colour: Color = ROLE_COLOUR.get(primary, MUTED)

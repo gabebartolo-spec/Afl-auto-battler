@@ -194,6 +194,35 @@ func _run() -> void:
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "match", "Back cannot abandon a live match")
+	_check(current_scene.find_child("RotationPicker", true, false) != null
+			and current_scene.find_child("LegsView", true, false) != null
+			and current_scene.find_child("PlanPicker", true, false) != null,
+			"The coach box offers gameplan, rotations and a legs report")
+	# Play quarters until the match stops for a coach's call, then answer it.
+	var sim = _state.pending_sim
+	var start_btn: Button = current_scene.find_child("StartQuarter", true, false)
+	start_btn.emit_signal("pressed")
+	await _settle()
+	var guard := 0
+	while sim.pending_moment.is_empty() and sim.current_quarter <= 4 and guard < 6:
+		guard += 1
+		if not sim.quarter_in_progress():
+			current_scene.call("_simulate_next_quarter", {"gameplan": "balanced"})
+			await _settle()
+	var had_moment: bool = not sim.pending_moment.is_empty()
+	_check(had_moment, "A live match stops for a coach's call")
+	if had_moment:
+		current_scene.call("_show_moment")
+		await _settle()
+		var card = current_scene.find_child("MomentCard", true, false)
+		var pick: Button = card.find_child("Moment_0", true, false) if card != null else null
+		_check(pick != null, "The call shows as a card with its options")
+		var before: int = sim.moments.size()
+		if pick != null:
+			pick.emit_signal("pressed")
+			await _settle()
+		_check(sim.moments.size() == before + 1 and current_scene.find_child("MomentCard", true, false) == null,
+				"Choosing an option resolves the call and play goes on")
 	current_scene.call("_on_skip")
 	for i in range(30):
 		await process_frame
@@ -201,6 +230,8 @@ func _run() -> void:
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "hub", "After full time, back returns to the hub")
+	_check(not (_state.last_match.get("moments", []) as Array).is_empty(),
+			"The played match keeps its calls for the readout")
 
 	# --- off-season: trades & contracts ----------------------------------------
 	var season = _state.season
