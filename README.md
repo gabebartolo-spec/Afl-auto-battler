@@ -263,6 +263,51 @@ player only up to his potential; you can push past it, at a premium. A
 rival gains at most 2 rating points a season from training on Normal (see
 Difficulty).
 
+## Match day: moments, legs and gameplans
+
+Live matches are played, not just watched:
+
+- **Coach's calls.** The match stops for decisions, each with its odds:
+  - A set shot: take it, play on to a teammate, or bomb it to the goal square.
+  - A star running on empty: rest him or keep him on.
+  - Their forward kicking a bag: tag him or back your defenders.
+  - A run of goals against: throw numbers at it, slow it down, or ride it out.
+  - A tight last-quarter centre bounce: stack it, flood back, or play it straight.
+
+  There are about six a game. Skipping takes the default call.
+- **Legs.** Players tire on the ground and recover on the bench, faster with low durability and on high-tempo plans. Tired players play below their rating, and a tired midfield loses the stoppages. Coaches rotate automatically. The coach box sets the policy (rotate hard, normal, ride the stars) and shows who is cooked.
+- **Gameplans are trade-offs with counters.** Attack corridor beats Controlled tempo, Controlled tempo plays through the Defensive press, and the press squeezes Attack corridor. Measured over 1,200 games per pairing, every plan is within about 2.5 points of Balanced, and each counter wins by 3–7. The rival coach protects leads, chases deficits, tags your best player after half time, and counters a plan you run twice in a row.
+- **What your calls did.** After each quarter and at full time, the readout shows the expected points your gameplan, pep talk, legs, calls and synergies added or cost, and theirs too. It also shows each moment's result and how your tag went. The numbers come from the probabilities each call changed, with no extra dice.
+
+## Traits and synergies
+
+A standout stat earns a trait. Each player has up to two good traits, plus Hothead for poor discipline, and each trait has one match effect:
+
+| Trait | Effect |
+|---|---|
+| Ball magnet | 10% more of the ball in general play |
+| Contested bull | 15% more clearances; keeps the ball when tackled more often |
+| Ruck king | 5% more hit-outs |
+| Aerial threat | 6% more forward-50 marks |
+| Crumber | 12% more goals from ground balls |
+| Sharpshooter | +6% goal chance |
+| Playmaker | shots from his deliveries +5% |
+| Interceptor | 5% more spoils |
+| Lockdown | his opponent's shots −4% |
+| Engine | tires 25% slower |
+| Big-game player | +5% on every stat in the last quarter and in finals |
+| Hothead | 50% more clangers |
+
+Traits follow the stats, so training can unlock one; the Training screen shows how close a player is. The right mix of traits across the selected 18 switches on a **synergy**:
+- Engine room: 2 bulls
+- Tall-small forward line: an aerial forward and a crumber
+- Intercept wall: 2 interceptors in defence
+- Lockdown unit: 3 lockdowns
+- Supply line: 2 ball magnets and a playmaker
+- Running machine: 3 engines
+
+The Team screen lists active synergies and the nearest ones to finish. The draft rows show traits too. The engine still calibrates within 4% of real 2026 numbers with all of this switched on.
+
 ## Injuries
 
 After every game each player who took the field has a small chance of an

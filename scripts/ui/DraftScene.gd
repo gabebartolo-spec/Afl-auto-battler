@@ -623,6 +623,12 @@ func _player_row(p: Dictionary) -> Control:
 		var entry := _draft.pick_details(str(p["id"]))
 		detail = "#%d to %s · %d OVR" % [int(entry.get("pick", 0)),
 				GameDB.club_short(_draft.drafted_by(str(p["id"]))), int(p["overall"])]
+	var traits: Array = Traits.of(p)
+	if not traits.is_empty():
+		var names: PackedStringArray = []
+		for t in traits:
+			names.append(Traits.label(str(t)))
+		detail += " · " + ", ".join(names)
 	info.add_child(UiKit.ellipsis(detail, 13, UiKit.MUTED))
 	var can_pick := _draft.can_pick_player(p)
 	var text := "+ " + role

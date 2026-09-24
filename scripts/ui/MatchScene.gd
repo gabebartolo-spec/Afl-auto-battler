@@ -7,7 +7,7 @@ extends Control
 const FEED_LIMIT := 60
 const SPEEDS := [1.0, 2.0, 4.0, 8.0]
 ## Routine disposals drive the animation but would drown the commentary.
-const QUIET_KINDS := ["kick", "handball"]
+const QUIET_KINDS := ["kick", "handball", "sub"]
 
 var _res := {}
 var _pitch: PitchView
@@ -37,6 +37,11 @@ var _shown_goals := [0, 0]
 var _shown_behinds := [0, 0]
 var _shown_q := 1
 var _shown_min := 0
+var _moment_overlay: Control
+var _momentum := 0.0            # -1 (away on top) .. 1 (home on top)
+var _mom_home: ColorRect
+var _mom_away: ColorRect
+var _rotation := "normal"
 
 
 func _ready() -> void:
@@ -137,13 +142,59 @@ func _fit_side_panel() -> void:
 func _scoreboard() -> Control:
 	var narrow := UiKit.view_width(self) < 640.0
 	var p := UiKit.panel(UiKit.PANEL, 8)
+	var v := UiKit.vbox(4)
+	p.add_child(v)
 	var h := UiKit.hbox(6)
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
-	p.add_child(h)
+	v.add_child(h)
 	h.add_child(_score_column(str(_res["home"]), true, narrow))
 	h.add_child(_score_middle(narrow))
 	h.add_child(_score_column(str(_res["away"]), false, narrow))
+	v.add_child(_momentum_bar())
 	return p
+
+
+## Who has the run of play: a bar that swings to the side kicking the goals
+## and pumping it inside 50, and drifts back to even when nothing happens.
+func _momentum_bar() -> Control:
+	var bar := UiKit.hbox(0)
+	bar.name = "MomentumBar"
+	bar.custom_minimum_size = Vector2(0, 6)
+	bar.tooltip_text = "Momentum"
+	_mom_home = ColorRect.new()
+	_mom_away = ColorRect.new()
+	_mom_home.color = (GameDB.club_colours(str(_res["home"])) as Array)[0]
+	_mom_away.color = (GameDB.club_colours(str(_res["away"])) as Array)[0]
+	for r in [_mom_home, _mom_away]:
+		r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		r.custom_minimum_size = Vector2(0, 6)
+		bar.add_child(r)
+	_paint_momentum()
+	return bar
+
+
+func _paint_momentum() -> void:
+	if _mom_home == null or not is_instance_valid(_mom_home):
+		return
+	_mom_home.size_flags_stretch_ratio = 1.0 + _momentum
+	_mom_away.size_flags_stretch_ratio = 1.0 - _momentum
+
+
+func _track_momentum(ev: Dictionary) -> void:
+	var side := int(ev.get("side", -1))
+	var sign := 1.0 if side == 0 else -1.0
+	_momentum *= 0.985
+	match str(ev.get("kind", "")):
+		"goal":
+			_momentum += 0.30 * sign
+		"behind":
+			_momentum += 0.10 * sign
+		"inside50":
+			_momentum += 0.05 * sign
+		"quarter":
+			_momentum *= 0.5
+	_momentum = clampf(_momentum, -0.9, 0.9)
+	_paint_momentum()
 
 
 func _score_column(code: String, home: bool, narrow: bool) -> Control:
@@ -251,10 +302,17 @@ func _on_speed(s: float) -> void:
 func _on_skip() -> void:
 	_skipping = true
 	_close_coach()
+	_close_moment()
 	if _interactive and GameState.pending_sim != null:
 		_simulate_remaining()
 	if _pitch != null:
 		_pitch.skip_to_end()
+
+
+func _close_moment() -> void:
+	if _moment_overlay != null and is_instance_valid(_moment_overlay):
+		_moment_overlay.queue_free()
+	_moment_overlay = null
 
 
 func _close_coach() -> void:
@@ -270,6 +328,11 @@ func _simulate_remaining() -> void:
 	var sim: MatchSim = GameState.pending_sim
 	if sim == null or sim.current_quarter > 4:
 		return
+	# A quarter paused on a moment finishes first; the moment takes the
+	# default call.
+	if sim.quarter_in_progress():
+		_res = sim.run_quarter()
+		_stamp_match_meta()
 	var t := _last_tactics
 	if t.is_empty():
 		t = {"gameplan": "balanced", "focus_id": "", "tag_id": "", "pep": "steady"}
@@ -301,12 +364,16 @@ func _show_coach_box() -> void:
 		return
 	_pitch.pause()
 	_sync_controls()
-	var q := GameState.pending_sim.current_quarter
+	var sim: MatchSim = GameState.pending_sim
+	var q := sim.current_quarter
 	var is_half_time := q == 3
-	var box := UiKit.modal_box(self, 860.0 if is_half_time else 620.0, 0.0 if is_half_time else 640.0)
+	var box := UiKit.modal_box(self, 860.0 if is_half_time else 640.0, 0.0 if is_half_time else 680.0)
 	var overlay: Control = box["overlay"]
+	overlay.name = "CoachBox"
 	_coach_overlay = overlay
 	var v: VBoxContainer = box["body"]
+	if q > 1:
+		v.add_child(_calls_view(q - 1))
 	if is_half_time:
 		v.add_child(UiKit.ellipsis("Half Time - Assistant Coach Report", 22, UiKit.GOLD, true))
 		var report := CoachReport.half_time_report(_res, _my_side)
@@ -314,8 +381,6 @@ func _show_coach_box() -> void:
 		v.add_child(_half_time_report_view(report))
 		v.add_child(UiKit.spacer(10))
 		v.add_child(UiKit.ellipsis("Coach Box - Quarter 3", 20, UiKit.GOLD, true))
-		v.add_child(UiKit.lbl("Set the second-half plan. The opposition Q3 plan has not been rolled yet.",
-			13, UiKit.MUTED))
 		_feed_note("Assistant report delivered - see the Coach Box.")
 	else:
 		v.add_child(UiKit.ellipsis("Coach Box - Quarter %d" % q, 22, UiKit.GOLD, true))
@@ -323,13 +388,35 @@ func _show_coach_box() -> void:
 			var review := UiKit.btn("Review half-time report", 14)
 			review.pressed.connect(func(): _show_half_time_popup(_half_time_report))
 			v.add_child(review)
-		v.add_child(UiKit.lbl("Set the plan before this quarter is simulated. The opposition has not been rolled yet.",
-			13, UiKit.MUTED))
+	var syn_line := _synergy_line()
+	if syn_line != "":
+		var sl := UiKit.lbl(syn_line, 12, UiKit.MUTED)
+		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(sl)
+	var opp_last := _opp_last_plan()
+	if opp_last != "":
+		v.add_child(UiKit.lbl("They played %s last quarter." % CoachReport.plan_label(opp_last),
+				13, UiKit.TEXT, true))
+	var my_last := str(_last_tactics.get("gameplan", ""))
+	if q >= 2 and my_last != "" and my_last != "balanced" and MatchSim.counter_to(my_last) != "":
+		v.add_child(UiKit.lbl("Run %s again and they may read it: its counter is %s." % [
+				CoachReport.plan_label(my_last), CoachReport.plan_label(MatchSim.counter_to(my_last))],
+				12, UiKit.MUTED))
 
 	var plan := OptionButton.new()
+	plan.name = "PlanPicker"
 	for i in range(GAMEPLANS.size()):
 		plan.add_item(str(GAMEPLANS[i][1]), i)
+		if str(GAMEPLANS[i][0]) == my_last:
+			plan.select(i)
 	v.add_child(_field("Gameplan", plan))
+	var plan_note := UiKit.lbl("", 12, UiKit.MUTED)
+	plan_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(plan_note)
+	var sync_note := func(idx: int) -> void:
+		plan_note.text = CoachReport.plan_effect(str(GAMEPLANS[idx][0]))
+	sync_note.call(plan.selected)
+	plan.item_selected.connect(sync_note)
 
 	var focus := OptionButton.new()
 	focus.add_item("No specific player", 0)
@@ -337,14 +424,19 @@ func _show_coach_box() -> void:
 	for i in range(mine.size()):
 		var r: Dictionary = mine[i]
 		focus.add_item("%s #%d" % [GameDB.player_display_name_by_id(str(r.get("id", "")), str(r.get("name", "Player"))), int(r["num"])], i + 1)
+		if str(r["id"]) == str(_last_tactics.get("focus_id", "")):
+			focus.select(i + 1)
 	v.add_child(_field("Run play through", focus))
 
 	var tag := OptionButton.new()
 	tag.add_item("No tag", 0)
 	var opp := _roster_side(1 - _my_side)
+	var cur_tag := str((sim.tactics[_my_side] as Dictionary).get("tag_id", _last_tactics.get("tag_id", "")))
 	for i in range(opp.size()):
 		var r2: Dictionary = opp[i]
 		tag.add_item("%s #%d" % [GameDB.player_display_name_by_id(str(r2.get("id", "")), str(r2.get("name", "Player"))), int(r2["num"])], i + 1)
+		if str(r2["id"]) == cur_tag:
+			tag.select(i + 1)
 	v.add_child(_field("Tag opponent", tag))
 
 	var pep := OptionButton.new()
@@ -352,7 +444,25 @@ func _show_coach_box() -> void:
 		pep.add_item(str(PEP_TALKS[i][1]), i)
 	v.add_child(_field("Pep talk", pep))
 
+	var rot := OptionButton.new()
+	rot.name = "RotationPicker"
+	var rot_keys: Array = MatchSim.ROTATION_POLICIES.keys()
+	for i in range(rot_keys.size()):
+		rot.add_item(str(MatchSim.ROTATION_POLICIES[rot_keys[i]]["label"]), i)
+		if str(rot_keys[i]) == _rotation:
+			rot.select(i)
+	v.add_child(_field("Rotations", rot))
+	var rot_note := UiKit.lbl("", 12, UiKit.MUTED)
+	rot_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(rot_note)
+	var sync_rot := func(idx: int) -> void:
+		rot_note.text = str(MatchSim.ROTATION_POLICIES[rot_keys[idx]]["text"])
+	sync_rot.call(rot.selected)
+	rot.item_selected.connect(sync_rot)
+	v.add_child(_legs_view())
+
 	var start := UiKit.btn("Start Quarter", 18, true)
+	start.name = "StartQuarter"
 	start.custom_minimum_size = Vector2(0, 48)
 	start.pressed.connect(func():
 		var focus_id := ""
@@ -361,11 +471,13 @@ func _show_coach_box() -> void:
 		var tag_id := ""
 		if tag.selected > 0:
 			tag_id = str(opp[tag.selected - 1]["id"])
+		_rotation = str(rot_keys[rot.selected])
 		var t := {
 			"gameplan": str(GAMEPLANS[plan.selected][0]),
 			"focus_id": focus_id,
 			"tag_id": tag_id,
 			"pep": str(PEP_TALKS[pep.selected][0]),
+			"rotation": _rotation,
 		}
 		_close_coach()
 		_simulate_next_quarter(t))
@@ -374,6 +486,184 @@ func _show_coach_box() -> void:
 	skip.custom_minimum_size = Vector2(0, 44)
 	skip.pressed.connect(_on_skip)
 	box["footer"].add_child(skip)
+
+
+func _synergy_line() -> String:
+	var syn: Array = GameState.pending_sim.synergies
+	var names := func(keys: Array) -> String:
+		var out: PackedStringArray = []
+		for k in keys:
+			out.append(Traits.label(str(k)))
+		return ", ".join(out) if not out.is_empty() else "none"
+	return "Synergies - yours: %s. Theirs: %s." % [names.call(syn[_my_side]), names.call(syn[1 - _my_side])]
+
+
+## The opposition's plan in the quarter just played ("" before the bounce).
+func _opp_last_plan() -> String:
+	var hist: Array = GameState.pending_sim.tactics_history
+	if hist.is_empty():
+		return ""
+	return str(((hist[hist.size() - 1]["plans"] as Array)[1 - _my_side] as Dictionary).get("gameplan", "balanced"))
+
+
+## "Your calls" for quarter `q` (0 = the whole match): what each cause was
+## worth in expected points, the moments and how they came off, and the tag.
+func _calls_view(q: int) -> Control:
+	var v := UiKit.vbox(3)
+	v.name = "CallsReadout"
+	var snaps: Array = _res.get("quarter_teams", [])
+	var now: Array = _res.get("impact", [{}, {}])
+	var before: Array = [{}, {}]
+	if q > 0 and snaps.size() >= q:
+		now = (snaps[q - 1] as Dictionary).get("impact", now)
+		if q >= 2:
+			before = (snaps[q - 2] as Dictionary).get("impact", [{}, {}])
+	v.add_child(UiKit.lbl("What your calls did" + (" in Q%d" % q if q > 0 else ""), 16, UiKit.GOLD, true))
+	var lines := CoachReport.impact_lines(now, before, _my_side)
+	for l in lines.slice(0, 5):
+		var pts := float(l["pts"])
+		var row := UiKit.hbox(8)
+		var name_l := UiKit.ellipsis(str(l["label"]), 13, UiKit.TEXT)
+		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(name_l)
+		row.add_child(UiKit.line("%+.1f pts" % pts, 13, UiKit.GOOD if pts > 0 else UiKit.BAD, true))
+		v.add_child(row)
+	var moments: Array = _res.get("moments", [])
+	for m in moments:
+		if q > 0 and int(m.get("q", 0)) != q:
+			continue
+		var l2 := UiKit.lbl("%s  %s: %s. %s" % [_clock_text(int(m["q"]), int(m["min"])),
+				str(m.get("title", "")), str(m.get("choice_label", "")), str(m.get("outcome", ""))],
+				12, UiKit.GOLD if int(m.get("points", 0)) >= 6 else UiKit.TEXT)
+		l2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l2)
+	var tag_line := _tag_line(q)
+	if tag_line != "":
+		v.add_child(UiKit.lbl(tag_line, 12, UiKit.TEXT))
+	if lines.is_empty() and v.get_child_count() == 1:
+		v.add_child(UiKit.lbl("An even quarter: no call moved the needle much.", 12, UiKit.MUTED))
+	v.add_child(UiKit.lbl("Expected points each call added or cost, from the chances it changed.", 11, UiKit.MUTED))
+	return v
+
+
+## How your tag went in quarter q (or the match): the tagged player's line.
+func _tag_line(q: int) -> String:
+	var hist: Array = _res.get("tactics_history", [])
+	var snaps: Array = _res.get("quarter_teams", [])
+	var tag_id := ""
+	for h in hist:
+		if q > 0 and int(h.get("quarter", 0)) != q:
+			continue
+		var t := str(((h["plans"] as Array)[_my_side] as Dictionary).get("tag_id", ""))
+		if t != "":
+			tag_id = t
+	if tag_id == "":
+		return ""
+	var d := 0.0
+	var g := 0.0
+	if q > 0 and snaps.size() >= q:
+		var now: Dictionary = ((snaps[q - 1] as Dictionary)["players"] as Dictionary).get(tag_id, {})
+		var was: Dictionary = {}
+		if q >= 2:
+			was = ((snaps[q - 2] as Dictionary)["players"] as Dictionary).get(tag_id, {})
+		d = float(now.get("disposals", 0.0)) - float(was.get("disposals", 0.0))
+		g = float(now.get("goals", 0.0)) - float(was.get("goals", 0.0))
+	else:
+		var st: Dictionary = (_res.get("players", {}) as Dictionary).get(tag_id, {})
+		d = float(st.get("disposals", 0.0))
+		g = float(st.get("goals", 0.0))
+	return "Your tag on %s: %d disposals, %d goals." % [
+			GameDB.player_display_name_by_id(tag_id, "their player"), int(d), int(g)]
+
+
+## Legs: the five most tired on the ground and the bench's freshness.
+func _legs_view() -> Control:
+	var v := UiKit.vbox(3)
+	v.name = "LegsView"
+	var sim: MatchSim = GameState.pending_sim
+	v.add_child(UiKit.lbl("Legs  -  your midfield %d%%, theirs %d%%" % [
+			int(_group_energy(_my_side)), int(_group_energy(1 - _my_side))], 14, UiKit.GOLD, true))
+	var rows: Array = sim.legs(_my_side)
+	var shown := 0
+	for r in rows:
+		if not bool(r["on"]) or shown >= 5:
+			continue
+		shown += 1
+		var row := UiKit.hbox(6)
+		var name_l := UiKit.ellipsis("#%d %s" % [int(r["num"]), str(r["name"])], 12, UiKit.TEXT)
+		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(name_l)
+		var bar := ProgressBar.new()
+		bar.show_percentage = false
+		bar.custom_minimum_size = Vector2(90, 10)
+		bar.value = float(r["energy"])
+		bar.modulate = UiKit.GOOD if float(r["energy"]) >= 70.0 else (UiKit.GOLD if float(r["energy"]) >= 50.0 else UiKit.BAD)
+		row.add_child(bar)
+		row.add_child(UiKit.line("%d%%" % int(r["energy"]), 12, UiKit.MUTED))
+		v.add_child(row)
+	var bench := PackedStringArray()
+	for r in rows:
+		if not bool(r["on"]):
+			bench.append("#%d %d%%" % [int(r["num"]), int(r["energy"])])
+	if not bench.is_empty():
+		v.add_child(UiKit.ellipsis("Bench: " + ", ".join(bench), 12, UiKit.MUTED))
+	v.add_child(UiKit.lbl("Tired players win less ball and kick fewer goals; tired midfields lose the stoppages.", 11, UiKit.MUTED))
+	return v
+
+
+func _group_energy(side: int) -> float:
+	var total := 0.0
+	var n := 0
+	for r in GameState.pending_sim.legs(side):
+		if bool(r["on"]) and (str(r["role"]) == "MID" or str(r["role"]) == "RUCK"):
+			total += float(r["energy"])
+			n += 1
+	return total / float(maxi(1, n))
+
+
+# ---------------------------------------------------------------------------
+# Match moments
+# ---------------------------------------------------------------------------
+func _show_moment() -> void:
+	_close_moment()
+	_pitch.pause()
+	var m: Dictionary = GameState.pending_sim.pending_moment
+	var box := UiKit.modal_box(self, 560.0, 0.0)
+	_moment_overlay = box["overlay"]
+	_moment_overlay.name = "MomentCard"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.lbl("COACH'S CALL  -  %s" % _clock_text(int(m.get("q", 1)), int(m.get("min", 0))),
+			13, UiKit.MUTED, true))
+	var title := UiKit.lbl(str(m.get("title", "")), 20, UiKit.GOLD, true)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(title)
+	var text := UiKit.lbl(str(m.get("text", "")), 14, UiKit.TEXT)
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(text)
+	var options: Array = m.get("options", [])
+	for i in range(options.size()):
+		var o: Dictionary = options[i]
+		var b := UiKit.btn(str(o.get("label", "")), 16, i == 0)
+		b.name = "Moment_%d" % i
+		b.custom_minimum_size = Vector2(0, 46)
+		b.pressed.connect(_on_moment_choice.bind(i))
+		v.add_child(b)
+		var d := UiKit.lbl(str(o.get("detail", "")), 12, UiKit.MUTED)
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(d)
+
+
+func _on_moment_choice(i: int) -> void:
+	_close_moment()
+	var sim: MatchSim = GameState.pending_sim
+	if sim == null or sim.pending_moment.is_empty():
+		return
+	var m := sim.resolve_moment(i)
+	var note := UiKit.lbl("%s - %s" % [str(m.get("choice_label", "")), str(m.get("outcome", ""))],
+			13, UiKit.GOLD, true)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_feed.add_child(note)
+	_advance_segment()
 
 
 func _field(label: String, control: Control) -> Control:
@@ -572,7 +862,17 @@ func _feed_note(text: String) -> void:
 func _simulate_next_quarter(t: Dictionary) -> void:
 	_last_tactics = t.duplicate()
 	_apply_quarter_tactics(t)
-	_res = GameState.pending_sim.run_quarter()
+	GameState.pending_sim.begin_quarter()
+	_advance_segment()
+
+
+## Simulate on to the end of the quarter or the next moment, then play it.
+func _advance_segment() -> void:
+	var sim: MatchSim = GameState.pending_sim
+	if sim.continue_quarter():
+		_res = sim.end_quarter()
+	else:
+		_res = sim.result()
 	_stamp_match_meta()
 	_append_new_events()
 	_pitch.play()
@@ -580,15 +880,12 @@ func _simulate_next_quarter(t: Dictionary) -> void:
 
 
 func _apply_quarter_tactics(t: Dictionary) -> void:
-	GameState.pending_sim.set_tactics(_my_side, t)
-	# Basic AI counter-plan: leaders protect a lead, trailers take more risk.
-	var s: Array = GameState.pending_sim.result()["score"]
-	var opp_plan := "balanced"
-	if int(s[1 - _my_side]) > int(s[_my_side]) + 18:
-		opp_plan = "controlled"
-	elif int(s[1 - _my_side]) + 18 < int(s[_my_side]):
-		opp_plan = "attacking"
-	GameState.pending_sim.set_tactics(1 - _my_side, {"gameplan": opp_plan, "pep": "steady"})
+	var sim: MatchSim = GameState.pending_sim
+	sim.set_tactics(_my_side, t)
+	sim.set_rotation_policy(_my_side, str(t.get("rotation", _rotation)))
+	# The rival coach protects a lead, chases a deficit, counters a plan you
+	# keep running, and tags your best player after half time.
+	sim.set_tactics(1 - _my_side, sim.ai_tactics(1 - _my_side))
 
 
 func _stamp_match_meta() -> void:
@@ -611,6 +908,7 @@ func _append_new_events() -> void:
 # ---------------------------------------------------------------------------
 func _on_event(ev: Dictionary) -> void:
 	_update_scoreboard(ev)
+	_track_momentum(ev)
 	_feed_add(ev)
 
 
@@ -653,6 +951,7 @@ func _feed_add(ev: Dictionary) -> void:
 		"clanger", "free": col = Color(0.95, 0.70, 0.62)
 		"inside50": col = Color(0.66, 0.90, 0.70)
 		"quarter", "final": col = UiKit.GOOD
+		"moment": col = UiKit.GOLD
 		"mark": col = Color(0.85, 0.90, 0.95)
 		_: col = UiKit.MUTED
 
@@ -673,6 +972,11 @@ func _feed_add(ev: Dictionary) -> void:
 
 func _on_finished() -> void:
 	if _fulltime_shown:
+		return
+	if _interactive and not _skipping and GameState.pending_sim != null \
+			and not GameState.pending_sim.pending_moment.is_empty():
+		_sync_controls()
+		_show_moment()
 		return
 	# Skip sims the rest of the match first, then drains the pitch. Without
 	# this flag the quarter-end signal reopens the coach box.
@@ -780,6 +1084,8 @@ func _show_fulltime() -> void:
 	right.add_child(UiKit.lbl("Best On Ground", 14, UiKit.GOLD, true))
 	right.add_child(_best_table())
 
+	if _interactive:
+		v.add_child(_calls_view(0))
 	var report: Dictionary = GameState.last_training_report
 	if int(report.get("count", 0)) > 0 and str(report.get("home", "")) == str(_res.get("home", "")) \
 			and str(report.get("away", "")) == str(_res.get("away", "")):

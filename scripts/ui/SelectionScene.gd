@@ -64,6 +64,7 @@ func _build() -> void:
 	if _notice != "":
 		hv.add_child(_para(_notice, 13, UiKit.GOOD))
 	hv.add_child(_strength_line())
+	hv.add_child(_synergy_view())
 
 	var body := UiKit.vbox(6)
 	_root.add_child(UiKit.scroll(body))
@@ -93,6 +94,33 @@ func _build() -> void:
 		body.add_child(_row(p, "", auto))
 
 
+## Line synergies the selected 18 switch on, and the nearest ones to chase.
+func _synergy_view() -> Control:
+	var v := UiKit.vbox(3)
+	v.name = "Synergies"
+	var ground: Array = GameState.my_squad().ground
+	var rows := Traits.progress(ground)
+	var on := []
+	for r in rows:
+		if bool(r["active"]):
+			on.append(r)
+	v.add_child(UiKit.lbl("Synergies: %d active" % on.size(), 14, UiKit.GOLD, true))
+	var shown := 0
+	for r in rows:
+		if shown >= 4 or (not bool(r["active"]) and int(r["missing"]) > 1):
+			continue
+		shown += 1
+		var key := str(r["key"])
+		var col := UiKit.GOOD if bool(r["active"]) else UiKit.MUTED
+		var l := UiKit.lbl("%s %s: %s  (%s)" % ["✓" if bool(r["active"]) else "·",
+				Traits.label(key), Traits.text(key), Traits.needs_text(r)], 12, col)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
+	if shown == 0:
+		v.add_child(UiKit.lbl("None close. Traits come from high stats: draft, trade and train for them.", 12, UiKit.MUTED))
+	return v
+
+
 func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	var card := UiKit.panel(UiKit.PANEL_ALT, 8, 5)
 	var v := UiKit.vbox(4)
@@ -110,6 +138,8 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 			and str(p.get("role2", "")) != placed_as:
 		h.add_child(UiKit.line("out of position", 11, UiKit.MUTED))
 	h.add_child(UiKit.line("%d" % int(p["overall"]), 15, UiKit.GOLD, true))
+	if not Traits.of(p).is_empty():
+		v.add_child(UiKit.trait_chips(p))
 	if auto:
 		return card
 	var choices := UiKit.hbox(3)

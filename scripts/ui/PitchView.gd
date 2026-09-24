@@ -94,7 +94,9 @@ func _build_tokens() -> void:
 	for side in range(2):
 		var dir := 1.0 if side == 0 else -1.0
 		var groups := {"RUCK": [], "MID": [], "DEF": [], "FWD": []}
-		for p in roster[side]:
+		# The starting 18: interchange players take a token over when they
+		# come on (a "sub" event), so the oval never shows more than 18.
+		for p in (roster[side] as Array).slice(0, 18):
 			var r := str(p["role"])
 			if not groups.has(r):
 				r = "MID"
@@ -392,6 +394,10 @@ func _event_delay(kind: String) -> float:
 			return 0.38
 		"kick", "handball":
 			return 0.13
+		"sub":
+			return 0.02
+		"moment":
+			return 0.6
 		_:
 			return 0.18
 
@@ -463,6 +469,14 @@ func _apply(ev: Dictionary) -> void:
 	_actor = -1
 	var side := int(ev.get("side", -1))
 	var num := int(ev.get("num", -1))
+	if str(ev.get("kind", "")) == "sub" and side >= 0:
+		var team: Array = _home if side == 0 else _away
+		for t in team:
+			if int(t["num"]) == int(ev.get("off_num", -1)):
+				t["num"] = num
+				t["name"] = str(ev.get("name", t["name"]))
+				break
+		return
 	if side >= 0 and num >= 0:
 		var arr: Array = _home if side == 0 else _away
 		for i in range(arr.size()):

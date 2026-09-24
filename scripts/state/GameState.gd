@@ -693,6 +693,7 @@ func prepare_interactive_match() -> bool:
 			season.lists[pending_match["away"]], false, str(pending_match["away"]),
 			season.selections.get(str(pending_match["away"]), {}))
 	pending_sim = MatchSim.new(home, away, season.next_seed(99))
+	pending_sim.moment_side = 0 if str(pending_match["home"]) == my_club else 1
 	pending_phase = "regular"
 	pending_label = str(pending_match["label"])
 	last_results = []
@@ -739,6 +740,7 @@ func _prepare_interactive_final() -> bool:
 			season.selections.get(str(fm["away"]), {}))
 	pending_sim = MatchSim.new(home, away, season.finals_seed(mine))
 	pending_sim.finals_mode = true
+	pending_sim.moment_side = 0 if str(fm["home"]) == my_club else 1
 	pending_phase = "finals"
 	pending_label = str(fm["label"])
 	last_results = []

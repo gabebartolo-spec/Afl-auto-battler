@@ -141,18 +141,21 @@ func _new_sim(seed: int) -> MatchSim:
 ## Find a real level final and check extra time settles it.
 func _test_extra_time() -> void:
 	var found := {}
+	# Finals play a little differently (big-game players lift), so look for
+	# a final that was level at the end of the fourth quarter.
 	for seed in range(1, 1500):
-		var probe := _new_sim(seed)
-		probe.run()
-		if probe.score(0) == probe.score(1):
-			var sim := _new_sim(seed)
-			sim.finals_mode = true
-			found = sim.run()
+		var sim := _new_sim(seed)
+		sim.finals_mode = true
+		var res := sim.run()
+		if bool(res["extra_time"]):
+			found = res
 			break
-	_check(not found.is_empty(), "A level match turns up within 1,500 seeds")
+	_check(not found.is_empty(), "A level final turns up within 1,500 seeds")
 	if found.is_empty():
 		return
-	_check(bool(found["extra_time"]), "A level final goes to extra time")
+	var q4: Array = ((found["quarter_teams"] as Array)[3] as Dictionary)["score"]
+	_check(int(q4[0]) == int(q4[1]) and bool(found["extra_time"]),
+			"A level final goes to extra time")
 	_check((found["q_goals"] as Array).size() == 5, "Extra time gets its own period")
 	var events: Array = found["events"]
 	var finals := 0
