@@ -37,12 +37,14 @@ var attack := 45.0
 var defence := 45.0
 
 
-func _init(p_name: String, p_list: Array, p_home := false, p_code := "") -> void:
+func _init(p_name: String, p_list: Array, p_home := false, p_code := "",
+		p_selection: Dictionary = {}) -> void:
 	name = p_name
 	code = p_code
 	list = p_list
 	home = p_home
-	var sel := Ratings.select_22(p_list)
+	# Injured players sit out; a club's chosen side is used when it has one.
+	var sel := Ratings.select_side(p_list, p_selection)
 	ground = sel["ground"]
 	bench = sel["bench"]
 	_aggregate()

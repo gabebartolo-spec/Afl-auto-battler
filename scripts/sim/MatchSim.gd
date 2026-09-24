@@ -351,7 +351,7 @@ func play_chain(side: int, fp: float, from_bounce: bool) -> Dictionary:
 		atk_fp = fp if side == 0 else -fp
 
 		# Rebound 50: winning it out of your own defensive arc.
-		if prev_atk_fp < -20.0 and atk_fp > -12.0:
+		if prev_atk_fp < float(T["rebound_from"]) and atk_fp > float(T["rebound_to"]):
 			_t(side, "rebounds")
 			_p(carrier, "rebounds")
 
@@ -383,7 +383,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var sgroup := _by_roles(atk.ground, ["FWD", "MID"])
 	if sgroup.is_empty():
 		sgroup = atk.ground
-	var shooter = _weighted(sgroup, "goalkicking", 2.4, side, "shooter")
+	var shooter = _weighted(sgroup, "goalkicking", float(T["shooter_power"]), side, "shooter")
 
 	var dgroup := _by_roles(dfn.ground, ["DEF"])
 	if dgroup.is_empty():

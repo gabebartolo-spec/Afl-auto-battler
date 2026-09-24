@@ -49,6 +49,10 @@ var players_by_club := {}  # code -> Array of player dictionaries
 var draftees := []         # the shipped draft class, projections applied
 var late_draftees := []    # generated future classes registered at runtime
 var loaded := false
+## The 2026 league's mean overall. Each rollover re-anchors the league to it
+## (Prospects.renormalise_league), so ratings stay relative to the league.
+var baseline_overall := 0.0
+var baseline_spread := 0.0   # standard deviation of the 2026 overalls
 
 ## Fictional alias cursor shared by the season pool, the draft class and every
 ## generated intake, so no two displayed players ever collide on an alias.
@@ -82,6 +86,15 @@ func reload() -> void:
 		players_by_club[p["club"]].append(p)
 
 	loaded = not players.is_empty()
+	baseline_overall = 0.0
+	for p in players:
+		baseline_overall += float(p["overall"])
+	if loaded:
+		baseline_overall /= float(players.size())
+		var sq := 0.0
+		for p in players:
+			sq += pow(float(p["overall"]) - baseline_overall, 2.0)
+		baseline_spread = sqrt(sq / float(players.size()))
 	if not loaded:
 		push_error("GameDB: no players loaded. Check that %s exists and that its import type is 'Keep File (exported as is)'." % PLAYERS_CSV)
 	else:

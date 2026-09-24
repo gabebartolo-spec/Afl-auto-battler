@@ -16,18 +16,21 @@ const T := {
 	"goal_line": 85.0,
 	"metres_gain_mean": 8.0,         # base metres per effective disposal
 	"tackle_retention": 0.44,        # attacking team wins the ball back
-	"pressure_base": 0.150,          # chance a touch is tackled
-	"clanger_per_chain": 0.645,      # chance the chain ends in an error
+	"pressure_base": 0.158,          # chance a touch is tackled
+	"clanger_per_chain": 0.68,      # chance the chain ends in an error
 	"clanger_is_free": 0.34,         # ...of which are free kicks against
 	"mark_share_of_kicks": 0.330,
 	"handball_share": 0.42,
-	"inside50_goal": 0.243,          # of inside-50 entries
-	"inside50_behind": 0.145,
+	"inside50_goal": 0.284,          # of inside-50 entries
+	"inside50_behind": 0.187,
 	"stoppage_share": 0.38,          # chains that begin at a genuine stoppage
-	"hitouts_per_stoppage": 0.75,    # split between the two rucks
-	"clearance_per_stoppage": 0.78,  # to the team that wins the stoppage
-	"one_percenter_share": 0.77,     # of inside-50 entries that yield a 1%
+	"hitouts_per_stoppage": 0.81,    # split between the two rucks
+	"clearance_per_stoppage": 0.815,  # to the team that wins the stoppage
+	"one_percenter_share": 0.83,     # of inside-50 entries that yield a 1%
 	"rebound_on_exit": 0.55,         # defensive-half chains that yield a reb50
+	"shooter_power": 0.5,            # how strongly shots go to the best kicks
+	"rebound_from": -16.0,           # a carry from behind this line...
+	"rebound_to": -13.0,             # ...to beyond this one is a rebound 50
 	"shrink_games": 5.0,             # sample-size shrink for per-game rates
 	"shrink_accuracy": 14.0,         # sample-size shrink for goal conversion
 	"home_ground_bonus": 0.030,
@@ -452,6 +455,97 @@ static func select_22(list_players: Array) -> Dictionary:
 			bench.append(p)
 
 	return {"ground": ground.slice(0, 18), "bench": bench}
+
+
+## True when a player can take the field (not injured).
+static func available(p: Dictionary) -> bool:
+	return int(p.get("injury_weeks", 0)) <= 0
+
+
+## The match-day 22. With an empty selection the best available side is
+## picked automatically (select_22). A selection is
+## {"RUCK": [ids], "MID": [...], "DEF": [...], "FWD": [...], "BENCH": [...],
+## "OUT": [ids]}: named players take their slots (any player can be named in
+## any position), and a gap - an injured or departed player, or a slot left
+## short - is filled the automatic way from the unnamed players, then the
+## named bench, and only as a last resort from those you left OUT. Injured
+## players never play.
+static func select_side(list_players: Array, selection: Dictionary = {}) -> Dictionary:
+	var pool: Array = []
+	for p in list_players:
+		if available(p):
+			pool.append(p)
+	if selection.is_empty():
+		return select_22(pool)
+	pool.sort_custom(func(a, b): return a["overall"] > b["overall"])
+	var by_id := {}
+	for p in pool:
+		by_id[str(p["id"])] = p
+	var ground: Array = []
+	var used := {}
+	for slot in GROUND_SLOTS:
+		var role: String = slot[0]
+		var added := 0
+		for id in selection.get(role, []):
+			if added >= int(slot[1]):
+				break
+			var p = by_id.get(str(id))
+			if p == null or used.has(str(id)):
+				continue
+			ground.append(_for_slot(p, role))
+			used[str(id)] = true
+			added += 1
+	# Fill order for gaps: 0 unnamed, 1 the named bench, 2 players left out.
+	var tier := {}
+	for id in selection.get("BENCH", []):
+		if by_id.has(str(id)) and not used.has(str(id)):
+			tier[str(id)] = 1
+	for id in selection.get("OUT", []):
+		if by_id.has(str(id)) and not used.has(str(id)):
+			tier[str(id)] = 2
+	for pass_tier in [0, 1, 2]:
+		for slot in GROUND_SLOTS:
+			var role: String = slot[0]
+			var have := 0
+			for g in ground:
+				if str(g["role"]) == role:
+					have += 1
+			for key in ["role", "role2"]:
+				for p in pool:
+					if have >= int(slot[1]):
+						break
+					var id := str(p["id"])
+					if used.has(id) or int(tier.get(id, 0)) != pass_tier:
+						continue
+					if str(p.get(key, "")) == role:
+						ground.append(_for_slot(p, role))
+						used[id] = true
+						have += 1
+			for p in pool:
+				if have >= int(slot[1]):
+					break
+				var id := str(p["id"])
+				if used.has(id) or int(tier.get(id, 0)) != pass_tier:
+					continue
+				ground.append(_for_slot(p, role))
+				used[id] = true
+				have += 1
+	var bench: Array = []
+	for id in selection.get("BENCH", []):
+		if bench.size() >= INTERCHANGE:
+			break
+		if by_id.has(str(id)) and not used.has(str(id)):
+			bench.append(by_id[str(id)])
+			used[str(id)] = true
+	for pass_tier in [0, 2]:
+		for p in pool:
+			if bench.size() >= INTERCHANGE:
+				break
+			var id := str(p["id"])
+			if not used.has(id) and int(tier.get(id, 0)) == pass_tier:
+				bench.append(p)
+				used[id] = true
+	return {"ground": ground, "bench": bench}
 
 
 ## Copy so the match-day slot does not rewrite the list player's natural role.

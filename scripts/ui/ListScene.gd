@@ -20,8 +20,7 @@ func _ready() -> void:
 	if GameState.my_club == "" or GameState.my_list.is_empty():
 		Router.replace("main")
 		return
-	_squad = Squad.new(GameDB.club_name(GameState.my_club), GameState.my_list,
-			true, GameState.my_club)
+	_squad = GameState.my_squad()
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -40,8 +39,7 @@ func _ready() -> void:
 
 func _on_names() -> void:
 	if is_inside_tree():
-		_squad = Squad.new(GameDB.club_name(GameState.my_club), GameState.my_list,
-				true, GameState.my_club)
+		_squad = GameState.my_squad()
 		_build()
 
 
@@ -168,6 +166,8 @@ func _team_row(p: Dictionary, ground: bool) -> Control:
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	h.add_child(nm)
 	h.add_child(UiKit.role_chip(_player_tag(p)))
+	if int(p.get("injury_weeks", 0)) > 0:
+		h.add_child(UiKit.line("INJ", 11, UiKit.BAD, true))
 	h.add_child(UiKit.line(str(int(p["overall"])), 14, UiKit.GOLD, true))
 	h.add_child(UiKit.line("/%d" % int(p.get("potential", p["overall"])), 11,
 			UiKit.GOOD if bool(p.get("rehab", false)) else UiKit.MUTED))
@@ -189,6 +189,9 @@ func _list_row(p: Dictionary) -> Control:
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	h.add_child(nm)
 	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
+	if int(p.get("injury_weeks", 0)) > 0:
+		h.add_child(UiKit.line("INJ %dw %s" % [int(p["injury_weeks"]), str(p.get("injury_kind", ""))],
+				12, UiKit.BAD, true))
 	var xp := UiKit.line("%d XP" % int(p.get("xp", 0)), 12, UiKit.GOLD, true)
 	h.add_child(xp)
 	var ov := UiKit.lbl(str(int(p["overall"])), 18, UiKit.GOLD, true)

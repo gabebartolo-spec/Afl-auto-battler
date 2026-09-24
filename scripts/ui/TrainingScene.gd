@@ -1,6 +1,7 @@
 extends Control
-## Bespoke training. Every listed player is here. XP is personal, earned every
-## game, and can be spent on any of the 13 rated stats.
+## Training. Every listed player is here. XP is personal and earned every
+## game; each player's training plan spends it automatically after the game
+## (or banks it, on Manual), and any stat can still be trained by hand.
 
 const ROLES := ["", "DEF", "MID", "RUCK", "FWD"]
 const ROLE_TABS := [["", "ALL"], ["DEF", "DEFS"], ["MID", "MIDS"], ["RUCK", "RUCKS"], ["FWD", "FWDS"]]
@@ -14,6 +15,7 @@ var _wide := false
 var _root: VBoxContainer
 var _list_scroll: ScrollContainer
 var _detail_scroll: ScrollContainer
+var _overlay: Control
 
 
 func _ready() -> void:
@@ -33,6 +35,55 @@ func _ready() -> void:
 		if is_inside_tree():
 			_build())
 	_build()
+	if not bool(GameState.get_setting("seen_training_intro", false)):
+		GameState.set_setting("seen_training_intro", true)
+		_show_intro()
+
+
+## Router back hook: close the stat guide or intro before leaving.
+func handle_back() -> bool:
+	if is_instance_valid(_overlay):
+		_overlay.queue_free()
+		_overlay = null
+		return true
+	return false
+
+
+func _open_guide() -> void:
+	if is_instance_valid(_overlay):
+		_overlay.queue_free()
+	_overlay = StatGuide.show(self)
+
+
+## Shown once, the first time Training is opened.
+func _show_intro() -> void:
+	var box := UiKit.modal_box(self, 560.0, 0.0)
+	_overlay = box["overlay"]
+	_overlay.name = "TrainingIntro"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.heading("HOW TRAINING WORKS", 24))
+	for line in [
+		"Every player on your list earns XP after every game - more for playing, more for a big game.",
+		"Training plans spend it for you. The club plan (Position plan to start) trains what each position needs. Give any player his own plan - inside midfielder, key forward, a single stat - or Manual to bank his XP.",
+		"Change a plan whenever you like; banked XP is spent under the new plan straight away. You can still buy any stat by hand.",
+		"Points are cheaper while a player is below his potential (POT) and dearer once he is past it.",
+		"Not sure what a stat does? The Stat guide explains every one - what it is built from and exactly what it does in a match.",
+	]:
+		var l := UiKit.lbl(line, 14, UiKit.TEXT)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
+	var guide := UiKit.btn("Open stat guide", 16)
+	guide.custom_minimum_size = Vector2(0, 44)
+	guide.pressed.connect(func():
+		_overlay.queue_free()
+		_open_guide())
+	box["footer"].add_child(guide)
+	var ok := UiKit.btn("Got it", 17, true)
+	ok.custom_minimum_size = Vector2(0, 44)
+	ok.pressed.connect(func():
+		_overlay.queue_free()
+		_overlay = null)
+	box["footer"].add_child(ok)
 
 
 func _on_names() -> void:
@@ -47,7 +98,11 @@ func _build() -> void:
 	UiKit.clear(_root)
 	_list_scroll = null
 	_detail_scroll = null
-	_root.add_child(UiKit.top_bar("Training", true))
+	var guide := UiKit.btn("Stat guide", 13)
+	guide.name = "StatGuideButton"
+	guide.custom_minimum_size = Vector2(96, 44)
+	guide.pressed.connect(_open_guide)
+	_root.add_child(UiKit.top_bar("Training", true, guide))
 	_root.add_child(_summary())
 	if _wide:
 		var body := UiKit.hbox(10)
@@ -78,12 +133,49 @@ func _summary() -> Control:
 		v.add_child(UiKit.lbl("%s  ·  %d players gained %d XP" % [
 				str(report.get("label", "Last game")), int(report["count"]), int(report["total"])],
 				15, UiKit.GOLD, true))
+		var auto: Dictionary = report.get("auto", {})
+		if int(auto.get("points", 0)) > 0:
+			v.add_child(UiKit.lbl("Training plans bought %d stat points across %d players." % [
+					int(auto["points"]), int(auto["players"])], 13, UiKit.GOOD))
 	else:
 		v.add_child(UiKit.lbl("No game played yet. XP arrives after every match.", 15, UiKit.GOLD, true))
-	v.add_child(UiKit.lbl(
-			"The whole list is here, not a handful of names. Every player earns XP each game. Spend it on any stat.",
-			13, UiKit.MUTED))
+	var plan_row := UiKit.hbox(8)
+	v.add_child(plan_row)
+	plan_row.add_child(UiKit.line("Club plan", 14, UiKit.TEXT, true))
+	var pick := _plan_picker(GameState.default_train_plan, false)
+	pick.name = "ClubPlan"
+	pick.item_selected.connect(func(i: int):
+		var result := GameState.set_default_plan(str(pick.get_item_metadata(i)))
+		_notice = _spend_notice(int(result.get("points", 0)))
+		_build())
+	plan_row.add_child(pick)
+	var desc := UiKit.lbl(GameState.train_plan_description(GameState.default_train_plan)
+			+ " Anyone without his own plan follows it.", 12, UiKit.MUTED)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(desc)
 	return panel
+
+
+## A plan dropdown. With `with_club`, the first entry follows the club plan.
+func _plan_picker(current: String, with_club: bool) -> OptionButton:
+	var pick := UiKit.option()
+	pick.custom_minimum_size = Vector2(0, 44)
+	pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if with_club:
+		pick.add_item("Club plan (%s)" % GameState.train_plan_label(GameState.default_train_plan))
+		pick.set_item_metadata(0, "")
+	for row in GameState.train_plan_options():
+		pick.add_item(str(row[1]))
+		pick.set_item_metadata(pick.item_count - 1, str(row[0]))
+	for i in range(pick.item_count):
+		if str(pick.get_item_metadata(i)) == current:
+			pick.select(i)
+	return pick
+
+
+func _spend_notice(points: int) -> String:
+	return "Plan updated. Banked XP bought %d stat points." % points if points > 0 \
+			else "Plan updated. It will spend XP after the next game."
 
 
 func _list_panel() -> Control:
@@ -180,13 +272,16 @@ func _player_row(p: Dictionary) -> Control:
 	h.add_child(info)
 	info.add_child(UiKit.ellipsis(GameDB.player_display_name(p), 15, UiKit.TEXT, true))
 	var gain := GameState.xp_gain_for(id)
-	var meta := "%d OVR  ·  %d POT  ·  %d XP" % [int(p["overall"]),
-			int(p.get("potential", p["overall"])), int(p.get("xp", 0))]
+	var meta := "%d OVR  ·  %d POT  ·  %d XP  ·  %s" % [int(p["overall"]),
+			int(p.get("potential", p["overall"])), int(p.get("xp", 0)),
+			GameState.train_plan_label(GameState.plan_for(p))]
 	if gain > 0:
 		meta += "  ·  +%d last game" % gain
 	info.add_child(UiKit.ellipsis(meta, 12, UiKit.GOLD if gain > 0 else UiKit.MUTED))
 	var duty := GameState.last_duty(id)
-	if duty == "Interchange":
+	if int(p.get("injury_weeks", 0)) > 0:
+		h.add_child(UiKit.line("INJ %dw" % int(p["injury_weeks"]), 11, UiKit.BAD, true))
+	elif duty == "Interchange":
 		h.add_child(UiKit.line("INT", 11, UiKit.MUTED))
 	elif duty == "Not selected":
 		h.add_child(UiKit.line("OUT", 11, UiKit.MUTED))
@@ -239,8 +334,28 @@ func _detail_panel() -> Control:
 			int(p.get("xp_games", 0))], 15, UiKit.GOLD, true))
 	if _notice != "":
 		head.add_child(UiKit.lbl(_notice, 13, UiKit.GOOD, true))
+	var plan_row := UiKit.hbox(8)
+	head.add_child(plan_row)
+	plan_row.add_child(UiKit.line("Plan", 14, UiKit.TEXT, true))
+	var pick := _plan_picker(str(p.get("train_plan", "")), true)
+	pick.name = "PlayerPlan"
+	var pid := _selected
+	pick.item_selected.connect(func(i: int):
+		var gains := GameState.set_player_plan(pid, str(pick.get_item_metadata(i)))
+		var pts := 0
+		for k in gains:
+			pts += int(gains[k])
+		_notice = _spend_notice(pts)
+		_build())
+	plan_row.add_child(pick)
+	var plan_desc := UiKit.lbl(GameState.train_plan_description(GameState.plan_for(p)), 12, UiKit.MUTED)
+	plan_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	head.add_child(plan_desc)
+	var last_gains := _last_auto_gains(_selected)
+	if last_gains != "":
+		head.add_child(UiKit.lbl("Last game his plan bought: " + last_gains, 12, UiKit.GOOD))
 	head.add_child(UiKit.lbl(
-			"A point costs more as the stat rises. Players with fewer career games pay a little less. 99 is the cap.",
+			"Or buy points by hand below. A point costs more as the stat rises; 99 is the cap.",
 			12, UiKit.MUTED))
 	var body := UiKit.vbox(6)
 	_detail_scroll = UiKit.scroll(body)
@@ -259,11 +374,15 @@ func _stat_row(p: Dictionary, key: String, label: String) -> Control:
 	var h := UiKit.hbox(8)
 	v.add_child(h)
 	var name := UiKit.ellipsis(label, 15, UiKit.TEXT, true)
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(name)
 	var value := UiKit.line(str(cur), 18, _attr_colour(float(cur)), true)
 	value.custom_minimum_size.x = 32
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(value)
+	var what := UiKit.lbl(StatGuide.short(key), 12, UiKit.MUTED)
+	what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(what)
 	v.add_child(_bar(cur))
 	var actions := UiKit.hbox(6)
 	v.add_child(actions)
@@ -357,3 +476,13 @@ func _background_line(p: Dictionary) -> String:
 	if not seasons.is_empty():
 		bits.append("Rated " + " · ".join(seasons))
 	return "  ·  ".join(bits)
+
+
+## "Marking +2, Pressure +1" from the last game's plan spending.
+func _last_auto_gains(player_id: String) -> String:
+	var auto: Dictionary = GameState.last_training_report.get("auto", {})
+	var gains: Dictionary = (auto.get("by_player", {}) as Dictionary).get(player_id, {})
+	var bits: PackedStringArray = []
+	for key in gains:
+		bits.append("%s +%d" % [GameState.train_stat_label(key), int(gains[key])])
+	return ", ".join(bits)
