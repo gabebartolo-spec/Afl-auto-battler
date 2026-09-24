@@ -64,6 +64,20 @@ func _run() -> void:
 	_check(current_scene.find_child("ContinueCareer", true, false) == null,
 			"No Continue Career without a save")
 
+	# --- difficulty for new careers ---------------------------------------------
+	var hard_btn: Button = current_scene.find_child("Difficulty_hard", true, false)
+	_check(hard_btn != null, "The menu offers a difficulty choice")
+	if hard_btn != null:
+		hard_btn.emit_signal("pressed")
+		await _settle()
+	_check(_state.new_career_difficulty() == "hard", "Picking Hard sets the next career's difficulty")
+	var normal_btn: Button = current_scene.find_child("Difficulty_normal", true, false)
+	if normal_btn != null:
+		normal_btn.emit_signal("pressed")
+		await _settle()
+	_check(_state.new_career_difficulty() == "normal" and not hard_btn.button_pressed,
+			"Only the chosen difficulty shows as picked")
+
 	# --- a saved career shows Continue, and it loads -------------------------
 	_state.start_season("SYD", _db.club_list("SYD"))
 	_state.advance()
@@ -197,6 +211,17 @@ func _run() -> void:
 	_router.go("hub")
 	await _settle()
 	_check(_screen_text().contains("Trades & Contracts"), "The hub offers Trades & Contracts after the season")
+	var more: Button = current_scene.find_child("NewsMore", true, false)
+	_check(more != null, "The hub shows the league news")
+	if more != null:
+		more.emit_signal("pressed")
+		await _settle()
+	_check(current_scene.find_child("NewsFeed", true, false) != null
+			and _screen_text().contains("premiers"), "More opens the full news feed")
+	_router.handle_back(true)
+	await _settle()
+	_check(_router.current() == "hub" and current_scene.find_child("NewsFeed", true, false) == null,
+			"Back closes the news feed and stays on the hub")
 	_router.go("offseason")
 	await _settle()
 	_check(_screen_text().contains("Out of contract"), "The contracts tab lists who is out of contract")

@@ -48,7 +48,9 @@ translations, pick *Keep File* again in the Import dock.
 | **The draft** | All clubs take turns from the same pool in snake order, under the same cap (58% of the cost of the best target-sized list). Track rival selections in the pick log. Carry at least two rucks; the other position targets are coverage guidance. Filter by position, original club or name, and sort by rating, price, goals or disposals. |
 | **Home and away** | 24 rounds, a full double round-robin. Each round you can **Play Match** and watch it on the oval, or **Sim Round** and just read the results. |
 | **Finals** | Top eight play the real AFL bracket: qualifying and elimination finals, semis, prelims, Grand Final. The higher seed hosts every final except the Grand Final, which is at a neutral venue. Your finals play live with the quarter-by-quarter coach box, just like a home-and-away match. A final level at full time goes to extra time (two short halves, then next score wins). After each final the game tells you where you stand: a second chance after a qualifying-final loss, a week off after a qualifying-final win, or knocked out. |
-| **Review** | The flag, your record, best win, worst loss, longest streak and a game-by-game form strip. |
+| **Team** | The best 22 by position are picked automatically, around injuries. Switch to **My selection** on the Team screen to name your own ruck, midfield, defence, forwards and bench, or leave players out. Gaps (an injury, a trade) are filled for you. |
+| **Off-season** | After the Grand Final, **Trades & Contracts** opens: re-sign or release players whose contracts are up, sign free agents rivals let go, and offer trades. |
+| **Review** | The flag, your record, best win, worst loss, longest streak, a game-by-game form strip, the season's awards, the honour roll and league records. |
 | **National Draft** | The career keeps going. Father-son and NGA prospects land at their clubs, then every list - yours included - drafts the 2026 class over the reversed ladder, worst club first. Prospects have no AFL stats; they arrive with **projected ratings** built from draft rank, position and U18 production, so a top pick starts rotation-grade and develops from there. |
 | **Next season** | Every list ages: young prospects grow, veterans decline, the oldest retire. A generated intake class arrives each year, so the loop runs indefinitely. |
 
@@ -257,7 +259,66 @@ list.
 yours, and their coaches spend it on the stats that matter for the position
 (disposal and contested ball for midfielders, intercepts and marking for
 defenders, goalkicking for forwards, ruck work for rucks). Rivals train a
-player only up to his potential; you can push past it, at a premium.
+player only up to his potential; you can push past it, at a premium. A
+rival gains at most 2 rating points a season from training on Normal (see
+Difficulty).
+
+## Injuries
+
+After every game each player who took the field has a small chance of an
+injury: 4.2% at base, scaled by durability from about half that (99
+durability) to 1.3x (low). Most injuries cost 1-2 weeks; knees and shoulders
+can end a season. Injured players are left out automatically (your own
+selection's gaps are filled), show as INJ on the List and Training screens,
+and everyone heals over the off-season. Injuries are seeded per match, so a
+replayed season is identical.
+
+## Awards and records
+
+Every game feeds a running tally that survives saving:
+
+| Award | How it is decided |
+|---|---|
+| Brownlow Medal | 3-2-1 votes to the three most influential players in each home-and-away match |
+| Coleman Medal | Most home-and-away goals (the live leaders are on the Ladder screen) |
+| Rising Star | Best votes, then influence, among players 21 and under (8+ games) |
+| Best & fairest | 5-4-3-2-1 within each side every match, finals included |
+| All-Australian | The season's best by position (1 ruck, 7 mids, 5 defenders, 5 forwards, 4 bench; 12+ games) |
+
+The Season Review shows the awards, an honour roll of every season in the
+career (premier, runner-up, medallists, your club's best and fairest) and
+league records: most goals, most votes, highest score, biggest win.
+
+## Contracts, free agency and trades
+
+Every player has a contract (seasons left) and a salary in cap points. Every
+club's payroll counts against the cap the career draft used. When the season
+ends, contracts in their final year are up: rivals keep players worth their
+new price and release the rest into free agency, and you decide yours on
+**Trades & Contracts** (re-sign for 1-4 seasons at today's price, or
+release). Anything you leave undecided is re-signed for two seasons if the
+cap allows. Sign free agents while there is cap room and list space (32-44
+players). Trades are valued by the other club: stars are worth far more than
+two middling players, a club pays more for a position it is short in, and it
+has to come out ahead (the margin depends on difficulty). Drafted rookies
+start on two-season rookie deals.
+
+## Difficulty
+
+Chosen on the main menu before a New Career, and saved with the career:
+
+| | Rival training per season | Trade margin | Your match XP |
+|---|---|---|---|
+| Easy | up to +1 | none (fair value) | +25% |
+| Normal | up to +2 | 4% | as tuned |
+| Hard | up to +4 | 12% | -15% |
+
+## League news
+
+The hub's **League news** card shows the latest headlines, and **More**
+opens the whole feed: big games (6+ goals or 40+ disposals), long injuries
+to good players, the round's biggest rival improver, releases, signings and
+trades, retirements, the medallists and the premiers.
 
 ## Saving
 

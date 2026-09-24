@@ -104,7 +104,7 @@ static func ai_keeps(p: Dictionary, list: Array, cap: int) -> bool:
 ## Does the AI club accept `give` (its players, to you) for `take` (yours, to
 ## it)? Returns {"ok": bool, "reason": String}.
 static func evaluate_trade(ai_list: Array, give: Array, take: Array, cap: int,
-		my_list: Array, my_cap: int) -> Dictionary:
+		my_list: Array, my_cap: int, margin := TRADE_MARGIN) -> Dictionary:
 	if give.is_empty() or take.is_empty():
 		return {"ok": false, "reason": "Pick a player from each side."}
 	var in_value := 0.0
@@ -125,7 +125,7 @@ static func evaluate_trade(ai_list: Array, give: Array, take: Array, cap: int,
 	var my_pay := payroll(my_list) - payroll(take) + payroll(give)
 	if my_pay > my_cap:
 		return {"ok": false, "reason": "You cannot fit the salary under your cap."}
-	if in_value < out_value * (1.0 + TRADE_MARGIN):
+	if in_value < out_value * (1.0 + margin):
 		return {"ok": false, "reason": "They want more for that. (You offer %.0f%% of what they give up.)" % [
 				100.0 * in_value / maxf(0.001, out_value)]}
 	return {"ok": true, "reason": "They accept."}

@@ -100,13 +100,21 @@ func _test_changing_plans() -> void:
 	GameState.set_default_plan("manual")
 	GameState.advance()
 	GameState.advance()
+	# The player with the most banked XP: one who sat out injured may not
+	# have enough for a point yet.
 	var p: Dictionary = GameState.my_list[0]
+	for q in GameState.my_list:
+		if int(q["xp"]) > int(p["xp"]):
+			p = q
 	var banked := int(p["xp"])
 	_check(banked > 0, "The club plan on Manual banks everyone's XP")
 	var gains := GameState.set_player_plan(str(p["id"]), "star")
 	_check(not gains.is_empty() and int(p["xp"]) < banked,
 			"Switching a player's plan spends his banked XP straight away")
-	var other: Dictionary = GameState.my_list[1]
+	var other: Dictionary = {}
+	for q in GameState.my_list:
+		if q != p and (other.is_empty() or int(q["xp"]) > int(other["xp"])):
+			other = q
 	var other_xp := int(other["xp"])
 	var result := GameState.set_default_plan("position")
 	_check(int(other["xp"]) < other_xp and int(result.get("points", 0)) > 0,

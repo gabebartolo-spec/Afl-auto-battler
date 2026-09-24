@@ -36,6 +36,8 @@ var salary_cap := 0              # cap points every club's payroll counts agains
 var free_agents: Array = []      # off-season: players no club kept
 var offseason_year := 0          # the season whose off-season has opened
 var offseason_log: Array = []    # what happened in the off-season, for news
+var news: Array = []             # league news feed, newest first
+var difficulty := "normal"       # this career's difficulty (DIFFICULTIES key)
 
 ## Career loop: season 1 is the 2026 season. Every completed season ends with
 ## a national intake draft (keep your list, sign the rookies), then the same
@@ -188,6 +190,8 @@ func save_career() -> bool:
 		"free_agents": free_agents,
 		"offseason_year": offseason_year,
 		"offseason_log": offseason_log,
+		"news": news,
+		"difficulty": difficulty,
 		"db_draftees": GameDB.draftees,
 		"db_late_draftees": GameDB.late_draftees,
 		"db_alias_next": GameDB._alias_next,
@@ -256,6 +260,10 @@ func load_career() -> bool:
 	free_agents = state.get("free_agents", [])
 	offseason_year = int(state.get("offseason_year", 0))
 	offseason_log = state.get("offseason_log", [])
+	news = state.get("news", [])
+	difficulty = str(state.get("difficulty", "normal"))
+	if not DIFFICULTIES.has(difficulty):
+		difficulty = "normal"
 	GameDB.draftees = state.get("db_draftees", GameDB.draftees)
 	GameDB.late_draftees = state.get("db_late_draftees", [])
 	GameDB._alias_next = int(state.get("db_alias_next", GameDB._alias_next))
@@ -375,6 +383,8 @@ func reset() -> void:
 	free_agents = []
 	offseason_year = 0
 	offseason_log = []
+	news = []
+	difficulty = new_career_difficulty()
 	last_training_report = {}
 	_xp_grant_key = ""
 	_dirty = false
@@ -503,12 +513,21 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	for p in generated:
 		draftee_pool.append(p)
 
-	Injuries.heal_all(league_lists)
+	# Free agents are on no list until a rival signs them, so heal after
+	# free agency closes, and heal the season's lists too.
 	_close_contracts()
+	Injuries.heal_all(league_lists)
+	if season != null:
+		Injuries.heal_all(season.lists)
 	season_tally = {}
 	season_awards = {}
 	intake_summary = Prospects.age_league(league_lists, next_year)
 	intake_summary["signed"] = signed
+	for r in intake_summary.get("retired", []):
+		if int(r.get("overall", 0)) >= NEWS_MIN_OVR:
+			add_news("retirement", "%s (%s) has retired at %d." % [
+					GameDB.player_display_name_by_id(str(r["id"]), str(r["name"])),
+					GameDB.club_name(str(r["club"])), int(float(r["age"]))])
 	intake_summary["year"] = next_year
 	draftee_pool = Prospects.age_pool(draftee_pool, next_year, drafted_draftees)
 	intake_summary["renormalised"] = Prospects.renormalise_league(league_lists,
@@ -1036,6 +1055,8 @@ func _grant_xp(club: String, list: Array, res: Dictionary) -> Dictionary:
 		var on_bench := bench_ids.has(id)
 		var stats: Dictionary = stats_all.get(id, {})
 		var gain := _xp_amount(stats, on_ground, on_bench)
+		if club == my_club:
+			gain = int(round(float(gain) * float(difficulty_rules()["xp_mult"])))
 		p["xp"] = int(p.get("xp", 0)) + gain
 		p["xp_games"] = int(p.get("xp_games", 0)) + 1
 		total += gain
@@ -1124,6 +1145,7 @@ func _after_round(results: Array) -> void:
 	_process_injuries(results)
 	for res in results:
 		Awards.tally_match(season_tally, res, not res.has("tag"))
+	_round_news(results)
 	if season != null and season.is_season_over() \
 			and int(season_awards.get("year", 0)) != season_year:
 		_close_season_awards()
@@ -1149,6 +1171,7 @@ func _close_season_awards() -> void:
 		"my_club": my_club,
 		"my_position": my_position(),
 	})
+	_season_news()
 
 
 ## A readable player name for an awards row, even for a retired player.
@@ -1277,6 +1300,9 @@ func _release(code: String, p: Dictionary) -> void:
 	p["contract_years"] = 0
 	free_agents.append(p)
 	offseason_log.append({"kind": "released", "club": code, "id": str(p["id"])})
+	if int(p.get("overall", 0)) >= NEWS_MIN_OVR:
+		add_news("contract", "%s let %s (OVR %d) go to free agency." % [
+				GameDB.club_name(code), GameDB.player_display_name(p), int(p["overall"])])
 
 
 ## Your expiring player: re-sign him for 1-4 seasons. Returns a result
@@ -1322,6 +1348,8 @@ func sign_free_agent(player_id: String, years: int) -> Dictionary:
 	_resign(p, clampi(years, 1, Contracts.MAX_YEARS))
 	free_agents.erase(p)
 	offseason_log.append({"kind": "signed", "club": my_club, "id": player_id})
+	add_news("contract", "%s sign free agent %s (OVR %d)." % [GameDB.club_name(my_club),
+			GameDB.player_display_name(p), int(p["overall"])])
 	mark_dirty()
 	return {"ok": true, "reason": "%s signed for %d seasons." % [GameDB.player_display_name(p), years]}
 
@@ -1350,7 +1378,7 @@ func evaluate_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
 		if not p.is_empty():
 			take.append(p)
 	return Contracts.evaluate_trade(season.lists.get(club, []), give, take,
-			salary_cap, my_list, salary_cap)
+			salary_cap, my_list, salary_cap, float(difficulty_rules()["trade_margin"]))
 
 
 func make_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
@@ -1378,6 +1406,8 @@ func make_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
 			for p in outgoing:
 				(sel[sel_key] as Array).erase(str(p["id"]))
 	offseason_log.append({"kind": "trade", "club": club, "in": theirs.duplicate(), "out": mine.duplicate()})
+	add_news("trade", "Trade: %s get %s from %s for %s." % [GameDB.club_name(my_club),
+			_names(incoming), GameDB.club_name(club), _names(outgoing)])
 	mark_dirty()
 	return {"ok": true, "reason": "Trade done."}
 
@@ -1411,6 +1441,9 @@ func _close_contracts() -> void:
 				_resign(p, 1)
 				free_agents.erase(p)
 				offseason_log.append({"kind": "signed", "club": code, "id": str(p["id"])})
+				if int(p.get("overall", 0)) >= NEWS_MIN_OVR:
+					add_news("contract", "%s sign free agent %s (OVR %d)." % [
+							GameDB.club_name(code), GameDB.player_display_name(p), int(p["overall"])])
 	free_agents = []
 	for code in season.lists:
 		for p in season.lists[code]:
@@ -1586,6 +1619,7 @@ func _spend_with_weights(p: Dictionary, weights: Dictionary, stop_at_pot: bool,
 func _train_rivals(results: Array) -> void:
 	if season == null:
 		return
+	var best := {}
 	for res in results:
 		for side in ["home", "away"]:
 			var code := str(res.get(side, ""))
@@ -1595,6 +1629,16 @@ func _train_rivals(results: Array) -> void:
 			_grant_xp(code, list, res)
 			for p in list:
 				ai_spend_xp(p)
+				best = _development_pick(code, p, best)
+	# One development story a round: the best player to reach his season's
+	# ceiling. Every rival doing so would drown the feed.
+	if not best.is_empty():
+		var bp: Dictionary = best["p"]
+		bp["news_year"] = season_year
+		var start := int(bp["season_start_ov"])
+		add_news("development", "%s (%s) has lifted to OVR %d, up %d this season." % [
+				GameDB.player_display_name(bp), GameDB.club_name(str(best["code"])),
+				int(bp["overall"]), int(bp["overall"]) - start])
 
 
 ## A rival player improves at most this much through training in a season
@@ -1608,7 +1652,7 @@ const AI_SEASON_GAIN := 2
 func ai_spend_xp(p: Dictionary) -> int:
 	if not p.has("season_start_ov"):
 		p["season_start_ov"] = int(p.get("overall", 0))
-	var ceiling := mini(int(p.get("potential", 0)), int(p["season_start_ov"]) + AI_SEASON_GAIN)
+	var ceiling := mini(int(p.get("potential", 0)), int(p["season_start_ov"]) + rival_season_gain())
 	if int(p.get("overall", 0)) >= ceiling:
 		return 0
 	var focus: Dictionary = AI_TRAIN_FOCUS.get(str(p.get("role", "MID")), AI_TRAIN_FOCUS["MID"])
@@ -1725,3 +1769,133 @@ func _recalc_player_overall(p: Dictionary) -> void:
 	p["overall"] = Ratings.rate_overall(p["attr"], str(p["role"]),
 			Ratings.effective_games(p))
 	p["value"] = Ratings.salary_value(int(p["overall"]))
+
+
+# ---------------------------------------------------------------------------
+# Difficulty
+# ---------------------------------------------------------------------------
+## rival_gain: the most a rival player improves through training in a season.
+## trade_margin: how much better off a rival must be to accept a trade.
+## xp_mult: your players' match XP.
+const DIFFICULTIES := {
+	"easy": {"label": "Easy", "rival_gain": 1, "trade_margin": 0.0, "xp_mult": 1.25,
+			"text": "Rivals improve slowly, clubs trade at fair value and your players earn 25% more XP."},
+	"normal": {"label": "Normal", "rival_gain": AI_SEASON_GAIN, "trade_margin": Contracts.TRADE_MARGIN,
+			"xp_mult": 1.0, "text": "The league as tuned: rivals train up to 2 rating points a season."},
+	"hard": {"label": "Hard", "rival_gain": 4, "trade_margin": 0.12, "xp_mult": 0.85,
+			"text": "Rivals develop twice as fast, drive hard bargains, and your players earn 15% less XP."},
+}
+const DIFFICULTY_ORDER := ["easy", "normal", "hard"]
+
+
+func difficulty_rules() -> Dictionary:
+	return DIFFICULTIES.get(difficulty, DIFFICULTIES["normal"])
+
+
+func rival_season_gain() -> int:
+	return int(difficulty_rules()["rival_gain"])
+
+
+## The difficulty the next New Career starts on (a menu setting).
+func new_career_difficulty() -> String:
+	var d := str(get_setting("difficulty", "normal"))
+	return d if DIFFICULTIES.has(d) else "normal"
+
+
+func set_new_career_difficulty(key: String) -> void:
+	if not DIFFICULTIES.has(key):
+		return
+	set_setting("difficulty", key)
+	# Before the season starts the choice still applies to this career.
+	if season == null:
+		difficulty = key
+
+
+# ---------------------------------------------------------------------------
+# League news
+# ---------------------------------------------------------------------------
+const MAX_NEWS := 120
+## Rival releases, signings and development only make the news from here up.
+const NEWS_MIN_OVR := 72
+
+
+func add_news(kind: String, text: String) -> void:
+	var when := "Off-season" if offseason_year == season_year or season == null else last_label
+	news.push_front({"year": season_year, "when": when, "kind": kind, "text": text})
+	if news.size() > MAX_NEWS:
+		news.resize(MAX_NEWS)
+
+
+## Big games and long injuries to good players from the round just played.
+func _round_news(results: Array) -> void:
+	for res in results:
+		var roster: Array = res.get("roster", [])
+		var stats_all: Dictionary = res.get("players", {})
+		for side in range(mini(2, roster.size())):
+			var code := str(res["home"] if side == 0 else res["away"])
+			var opp := str(res["away"] if side == 0 else res["home"])
+			for r in roster[side]:
+				var st: Dictionary = stats_all.get(str(r["id"]), {})
+				if int(st.get("goals", 0)) < 6 and int(st.get("disposals", 0)) < 40:
+					continue
+				var p := _find_player(str(r["id"]))
+				if p.is_empty():
+					continue
+				if int(st.get("goals", 0)) >= 6:
+					add_news("game", "%s kicked %d goals for %s against %s." % [
+							GameDB.player_display_name(p), int(st["goals"]),
+							GameDB.club_name(code), GameDB.club_name(opp)])
+				elif int(st.get("disposals", 0)) >= 40:
+					add_news("game", "%s had %d disposals for %s against %s." % [
+							GameDB.player_display_name(p), int(st["disposals"]),
+							GameDB.club_name(code), GameDB.club_name(opp)])
+	for inj in last_injuries:
+		var p := _find_player(str(inj.get("id", "")))
+		if p.is_empty() or int(inj.get("weeks", 0)) < 4 or int(p.get("overall", 0)) < NEWS_MIN_OVR:
+			continue
+		add_news("injury", "%s (%s) is out for %s with a %s." % [GameDB.player_display_name(p),
+				GameDB.club_name(str(inj.get("club", ""))), _weeks_text(int(inj["weeks"])),
+				str(inj.get("kind", "injury")).to_lower()])
+
+
+## A rival who has trained as far as he can this season is a news candidate
+## (once a season). Returns the better of him and `best`.
+func _development_pick(code: String, p: Dictionary, best: Dictionary) -> Dictionary:
+	var start := int(p.get("season_start_ov", p.get("overall", 0)))
+	var ov := int(p.get("overall", 0))
+	if ov < NEWS_MIN_OVR or ov - start < mini(2, rival_season_gain()) \
+			or int(p.get("news_year", 0)) == season_year:
+		return best
+	if not best.is_empty() and int((best["p"] as Dictionary)["overall"]) >= ov:
+		return best
+	return {"code": code, "p": p}
+
+
+func _season_news() -> void:
+	var top: Array = season_awards.get("brownlow", [])
+	if not top.is_empty():
+		add_news("award", "%s (%s) won the Brownlow Medal with %d votes." % [
+				award_name(top[0]), GameDB.club_name(str(top[0]["club"])), int(top[0]["votes"])])
+	var gk: Array = season_awards.get("coleman", [])
+	if not gk.is_empty():
+		add_news("award", "%s (%s) won the Coleman Medal with %d goals." % [
+				award_name(gk[0]), GameDB.club_name(str(gk[0]["club"])), int(gk[0]["goals"])])
+	if premier() != "":
+		add_news("premiers", "%s are the %d premiers." % [GameDB.club_name(premier()), season_year])
+
+
+func _find_player(id: String) -> Dictionary:
+	if season == null:
+		return {}
+	for code in season.lists:
+		for p in season.lists[code]:
+			if str(p["id"]) == id:
+				return p
+	return {}
+
+
+func _names(players: Array) -> String:
+	var out: PackedStringArray = []
+	for p in players:
+		out.append(GameDB.player_display_name(p))
+	return ", ".join(out)

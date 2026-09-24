@@ -3,6 +3,7 @@ extends Control
 
 var _root: VBoxContainer
 var _results_overlay: Control
+var _news_overlay: Control
 
 
 func _ready() -> void:
@@ -51,6 +52,8 @@ func _build() -> void:
 	_root.add_child(cards)
 	cards.add_child(_standing_card())
 	cards.add_child(_next_card(season))
+	if not GameState.news.is_empty():
+		_root.add_child(_news_card())
 
 	var lp := UiKit.panel(UiKit.PANEL, 12)
 	lp.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -85,6 +88,48 @@ func _standing_card() -> Control:
 	if not injured.is_empty():
 		cv.add_child(UiKit.lbl("Injury list: %d  -  check your Team" % injured.size(), 13, UiKit.BAD))
 	return card
+
+
+## The latest league headlines; More opens the whole feed.
+func _news_card() -> Control:
+	var card := UiKit.panel(UiKit.PANEL, 10, 6)
+	card.name = "NewsCard"
+	var row := UiKit.hbox(8)
+	card.add_child(row)
+	var v := UiKit.vbox(2)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(v)
+	v.add_child(UiKit.lbl("League news", 14, UiKit.GOLD, true))
+	for item in GameState.news.slice(0, 2):
+		v.add_child(UiKit.ellipsis(str(item["text"]), 12, UiKit.TEXT))
+	var more := UiKit.btn("More", 14)
+	more.name = "NewsMore"
+	more.custom_minimum_size = Vector2(72, 44)
+	more.pressed.connect(_show_news)
+	row.add_child(more)
+	return card
+
+
+func _show_news() -> void:
+	var box := UiKit.modal_box(self, 620.0, 560.0)
+	_news_overlay = box["overlay"]
+	_news_overlay.name = "NewsFeed"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.heading("LEAGUE NEWS", 24))
+	v.add_child(UiKit.lbl("Difficulty: %s" % str(GameState.difficulty_rules()["label"]), 12, UiKit.MUTED))
+	var last_when := ""
+	for item in GameState.news:
+		var when := "%d  %s" % [int(item["year"]), str(item["when"])]
+		if when != last_when:
+			v.add_child(UiKit.lbl(when, 13, UiKit.GOLD, true))
+			last_when = when
+		var l := UiKit.lbl(str(item["text"]), 13, UiKit.TEXT)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
+	var ok := UiKit.btn("Close", 17, true)
+	ok.custom_minimum_size = Vector2(0, 44)
+	ok.pressed.connect(func(): _news_overlay.queue_free())
+	box["footer"].add_child(ok)
 
 
 func _next_card(season: Season) -> Control:
@@ -261,6 +306,10 @@ func _on_sim_to_end() -> void:
 
 ## Router back hook: close the results popup before leaving the hub.
 func handle_back() -> bool:
+	if _news_overlay != null and is_instance_valid(_news_overlay):
+		_news_overlay.queue_free()
+		_news_overlay = null
+		return true
 	if _results_overlay != null and is_instance_valid(_results_overlay):
 		_results_overlay.queue_free()
 		_results_overlay = null
