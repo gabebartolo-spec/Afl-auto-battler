@@ -132,6 +132,11 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(nm)
 	var weeks := int(p.get("injury_weeks", 0))
+	var m := ClubLife.morale(p)
+	if m < 40:
+		h.add_child(UiKit.line("Unhappy", 11, UiKit.BAD))
+	if bool(p.get("rested", false)):
+		h.add_child(UiKit.line("RESTED", 12, UiKit.MUTED, true))
 	if weeks > 0:
 		h.add_child(UiKit.line("INJ %dw" % weeks, 12, UiKit.BAD, true))
 	elif placed_as != "" and placed_as != "BENCH" and str(p["role"]) != placed_as \

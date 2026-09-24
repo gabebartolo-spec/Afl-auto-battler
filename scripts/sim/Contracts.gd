@@ -50,7 +50,11 @@ static func rookie_deal(p: Dictionary) -> void:
 
 ## What re-signing (or signing) this player costs now.
 static func asking_salary(p: Dictionary) -> int:
-	return Ratings.salary_value(int(p.get("overall", 50)))
+	var price := Ratings.salary_value(int(p.get("overall", 50)))
+	# An unhappy player wants paying to stay.
+	if int(p.get("morale", 70)) < 40:
+		price = ceili(price * 1.25)
+	return price
 
 
 static func payroll(list: Array) -> int:

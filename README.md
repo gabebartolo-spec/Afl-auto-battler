@@ -308,6 +308,21 @@ Traits follow the stats, so training can unlock one; the Training screen shows h
 
 The Team screen lists active synergies and the nearest ones to finish. The draft rows show traits too. The engine still calibrates within 4% of real 2026 numbers with all of this switched on.
 
+## The board, morale and the week
+
+- **The board.** Each season it sets a goal from where your list ranks: top four, make the finals, top 12, or win seven games. Every result moves its confidence (shown on the hub). At season's end, meeting the goal adds 20, missing it costs 25, and a flag adds 30. End a season under 30% and you get a final warning. Do it again and you're sacked, and the career is over.
+- **Morale.** Playing lifts a player's morale, and a win lifts it more. A fit player left out loses some, and a star left out loses more. Morale nudges form (±3%), and an unhappy player asks 25% more to re-sign. It shows on the List and Team screens.
+- **This week.** Most weeks bring a decision on the hub, each a real trade-off:
+  - rest a sore star or risk him
+  - a heavy training week or a recovery week
+  - suspend or back a player in the papers
+  - extend a contract now or wait
+  - promise the board a win after three losses
+  - develop a young gun pushing for games
+  - talk an unhappy player around
+
+  An unanswered card takes its default when the round is played.
+
 ## Injuries
 
 After every game each player who took the field has a small chance of an

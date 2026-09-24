@@ -52,6 +52,11 @@ func _build() -> void:
 	_root.add_child(cards)
 	cards.add_child(_standing_card())
 	cards.add_child(_next_card(season))
+	if GameState.is_sacked():
+		_root.add_child(_sacked_card())
+		return
+	if not GameState.week_event.is_empty() and not season.is_season_over():
+		_root.add_child(_event_card())
 	if not GameState.news.is_empty():
 		_root.add_child(_news_card())
 
@@ -87,6 +92,65 @@ func _standing_card() -> Control:
 	var injured := Injuries.injured(GameState.my_list)
 	if not injured.is_empty():
 		cv.add_child(UiKit.lbl("Injury list: %d  -  check your Team" % injured.size(), 13, UiKit.BAD))
+	if GameState.board_goal_text() != "":
+		var conf := GameState.board_confidence()
+		var col := UiKit.GOOD if conf >= 60 else (UiKit.GOLD if conf >= ClubLife.WARN_LINE else UiKit.BAD)
+		var board_l := UiKit.ellipsis("Board %d%%  -  %s%s" % [conf, GameState.board_goal_text(),
+				"  (final warning)" if bool(GameState.board.get("warned", false)) else ""], 13, col, true)
+		board_l.name = "BoardLine"
+		cv.add_child(board_l)
+	return card
+
+
+## This week's decision. Answer it here; unanswered, it takes the default
+## when the round is played.
+func _event_card() -> Control:
+	var e: Dictionary = GameState.week_event
+	var card := UiKit.panel(UiKit.PANEL_ALT, 10, 8)
+	card.name = "WeekEvent"
+	var v := UiKit.vbox(4)
+	card.add_child(v)
+	v.add_child(UiKit.lbl("THIS WEEK  -  " + str(e.get("title", "")), 14, UiKit.GOLD, true))
+	if GameState.week_event_pending():
+		var t := UiKit.lbl(str(e.get("text", "")), 12, UiKit.TEXT)
+		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(t)
+		var opts: Array = e.get("options", [])
+		var row: BoxContainer = UiKit.vbox(4) if _narrow() else UiKit.hbox(6)
+		v.add_child(row)
+		for i in range(opts.size()):
+			var o: Dictionary = opts[i]
+			var b := UiKit.btn(str(o.get("label", "")), 14, false)
+			b.name = "Event_%d" % i
+			b.custom_minimum_size = Vector2(0, 44)
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			b.tooltip_text = str(o.get("detail", ""))
+			b.pressed.connect(func():
+				GameState.resolve_week_event(i)
+				_build())
+			row.add_child(b)
+		var hints: PackedStringArray = []
+		for o in opts:
+			hints.append("%s: %s" % [str(o.get("label", "")), str(o.get("detail", ""))])
+		var h := UiKit.lbl("\n".join(hints), 11, UiKit.MUTED)
+		h.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(h)
+	else:
+		v.add_child(UiKit.lbl(str(e.get("outcome", "")), 13, UiKit.GOOD))
+	return card
+
+
+func _sacked_card() -> Control:
+	var card := UiKit.panel(UiKit.PANEL, 14)
+	card.name = "SackedCard"
+	var v := UiKit.vbox(8)
+	card.add_child(v)
+	v.add_child(UiKit.lbl("You have been sacked", 24, UiKit.BAD, true))
+	var t := UiKit.lbl("Two seasons short of the board's goals. Your time at %s is over. Start a new career and prove them wrong." % GameDB.club_name(GameState.my_club), 14, UiKit.TEXT)
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(t)
+	v.add_child(_nav_button("Season Review", func(): Router.go("season_review")))
+	v.add_child(_nav_button("Main Menu", func(): Router.to_main_menu(), true))
 	return card
 
 
