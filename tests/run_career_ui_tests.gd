@@ -95,6 +95,17 @@ func _run() -> void:
 	_check(_router.current() == "hub", "Continue Career opens the season hub")
 	_check(_state.season != null and _state.season.round_index == 2, "The saved round is loaded")
 	_check(_state.my_club == "SYD", "The saved club is loaded")
+	_check(current_scene.find_child("BoardLine", true, false) != null, "The hub shows the board's goal")
+	_state.week_event = load("res://scripts/sim/ClubLife.gd")._fans()
+	_router.go("hub")
+	await _settle()
+	var ev_btn: Button = current_scene.find_child("Event_0", true, false)
+	_check(ev_btn != null, "This week's decision shows on the hub")
+	if ev_btn != null:
+		ev_btn.emit_signal("pressed")
+		await _settle()
+	_check(not _state.week_event_pending() and _screen_text().contains("members loved it"),
+			"Answering it shows what happened")
 
 	# --- back on the hub: results popup first, then the menu ----------------
 	current_scene.call("_on_sim_round")

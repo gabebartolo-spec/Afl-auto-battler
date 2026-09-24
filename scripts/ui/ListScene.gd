@@ -192,6 +192,8 @@ func _list_row(p: Dictionary) -> Control:
 	if int(p.get("injury_weeks", 0)) > 0:
 		h.add_child(UiKit.line("INJ %dw %s" % [int(p["injury_weeks"]), str(p.get("injury_kind", ""))],
 				12, UiKit.BAD, true))
+	var m := ClubLife.morale(p)
+	h.add_child(UiKit.line(ClubLife.mood(m), 11, UiKit.GOOD if m >= 65 else (UiKit.MUTED if m >= 40 else UiKit.BAD)))
 	var xp := UiKit.line("%d XP" % int(p.get("xp", 0)), 12, UiKit.GOLD, true)
 	h.add_child(xp)
 	var ov := UiKit.lbl(str(int(p["overall"])), 18, UiKit.GOLD, true)

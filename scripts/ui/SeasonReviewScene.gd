@@ -109,6 +109,21 @@ func _build() -> void:
 	rv.add_child(UiKit.scroll(UiKit.ladder_table(season.ladder_sorted(),
 			GameState.my_club, ladder_w, 0, true)))
 
+	# --- the board -----------------------------------------------------------
+	var verdict := str(GameState.board.get("verdict", ""))
+	if verdict != "" and season.is_season_over():
+		var bp := UiKit.panel(UiKit.PANEL, 10, 8)
+		bp.name = "BoardVerdict"
+		var bv := UiKit.vbox(3)
+		bp.add_child(bv)
+		var hist: Array = GameState.board.get("history", [])
+		var last: Dictionary = hist[hist.size() - 1] if not hist.is_empty() else {}
+		bv.add_child(UiKit.lbl("The board: %s" % verdict, 16,
+				UiKit.GOOD if bool(last.get("met", false)) else UiKit.BAD, true))
+		bv.add_child(UiKit.lbl("Goal: %s  -  %s  -  confidence now %d%%" % [str(last.get("goal", "")),
+				"met" if bool(last.get("met", false)) else "missed", GameState.board_confidence()], 13, UiKit.MUTED))
+		_root.add_child(bp)
+
 	# --- awards -------------------------------------------------------------
 	if not GameState.season_awards.is_empty():
 		_root.add_child(_awards_panel())

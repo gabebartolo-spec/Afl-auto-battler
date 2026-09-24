@@ -38,6 +38,9 @@ var offseason_year := 0          # the season whose off-season has opened
 var offseason_log: Array = []    # what happened in the off-season, for news
 var news: Array = []             # league news feed, newest first
 var difficulty := "normal"       # this career's difficulty (DIFFICULTIES key)
+var board := {}                  # confidence, goal, warned, sacked, history
+var week_event := {}             # this week's event card (ClubLife.pick_event)
+var losing_streak := 0
 
 ## Career loop: season 1 is the 2026 season. Every completed season ends with
 ## a national intake draft (keep your list, sign the rookies), then the same
@@ -192,6 +195,9 @@ func save_career() -> bool:
 		"offseason_log": offseason_log,
 		"news": news,
 		"difficulty": difficulty,
+		"board": board,
+		"week_event": week_event,
+		"losing_streak": losing_streak,
 		"db_draftees": GameDB.draftees,
 		"db_late_draftees": GameDB.late_draftees,
 		"db_alias_next": GameDB._alias_next,
@@ -261,6 +267,9 @@ func load_career() -> bool:
 	offseason_year = int(state.get("offseason_year", 0))
 	offseason_log = state.get("offseason_log", [])
 	news = state.get("news", [])
+	board = state.get("board", {})
+	week_event = state.get("week_event", {})
+	losing_streak = int(state.get("losing_streak", 0))
 	difficulty = str(state.get("difficulty", "normal"))
 	if not DIFFICULTIES.has(difficulty):
 		difficulty = "normal"
@@ -269,6 +278,8 @@ func load_career() -> bool:
 	GameDB._alias_next = int(state.get("db_alias_next", GameDB._alias_next))
 	_backfill_potential()
 	ensure_contracts()
+	if season != null and board.is_empty():
+		_open_board_season()
 	return true
 
 
@@ -384,6 +395,9 @@ func reset() -> void:
 	offseason_year = 0
 	offseason_log = []
 	news = []
+	board = {}
+	week_event = {}
+	losing_streak = 0
 	difficulty = new_career_difficulty()
 	last_training_report = {}
 	_xp_grant_key = ""
@@ -556,6 +570,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	pending_round_results = []
 	pending_phase = ""
 	pending_label = ""
+	_open_board_season()
 	autosave()
 
 
@@ -651,6 +666,7 @@ func start_season(club_code: String, list: Array) -> void:
 			int(Time.get_unix_time_from_system()) % 1000000)
 	salary_cap = draft.budget if draft != null and draft.league_mode else 0
 	ensure_contracts()
+	_open_board_season()
 	last_phase = "regular"
 	last_label = "Round 1"
 	last_training_report = {}
@@ -664,6 +680,7 @@ func start_season(club_code: String, list: Array) -> void:
 func prepare_interactive_match() -> bool:
 	if season == null or season.is_season_over():
 		return false
+	_settle_week_event()
 	if season.is_regular_done():
 		return _prepare_interactive_final()
 	pending_match = {}
@@ -827,6 +844,7 @@ func ensure_finals() -> void:
 func advance() -> String:
 	if season == null:
 		return "none"
+	_settle_week_event()
 	last_results = []
 	last_match = {}
 
@@ -1148,9 +1166,11 @@ func _after_round(results: Array) -> void:
 	for res in results:
 		Awards.tally_match(season_tally, res, not res.has("tag"))
 	_round_news(results)
+	_board_after_round(results)
 	if season != null and season.is_season_over() \
 			and int(season_awards.get("year", 0)) != season_year:
 		_close_season_awards()
+	_next_week_event()
 
 
 func _close_season_awards() -> void:
@@ -1173,6 +1193,8 @@ func _close_season_awards() -> void:
 		"my_club": my_club,
 		"my_position": my_position(),
 	})
+	# The board's verdict first, so the premiers top the news feed.
+	_board_season_end()
 	_season_news()
 
 
@@ -1901,3 +1923,210 @@ func _names(players: Array) -> String:
 	for p in players:
 		out.append(GameDB.player_display_name(p))
 	return ", ".join(out)
+
+
+
+# ---------------------------------------------------------------------------
+# The board, morale and the weekly event card (rules in ClubLife)
+# ---------------------------------------------------------------------------
+## A new season: the board sets its goal from where your list ranks.
+func _open_board_season() -> void:
+	if season == null or my_club == "":
+		return
+	var ranks := []
+	for code in season.lists:
+		ranks.append([str(code), Squad.new(str(code), season.lists[code], true, str(code)).strength()])
+	ranks.sort_custom(func(a, b): return float(a[1]) > float(b[1]))
+	var rank := 1
+	for i in range(ranks.size()):
+		if str(ranks[i][0]) == my_club:
+			rank = i + 1
+	if board.is_empty():
+		board = {"confidence": ClubLife.START_CONFIDENCE, "warned": false, "sacked": false, "history": []}
+	board["goal"] = ClubLife.board_goal(rank)
+	board["rank"] = rank
+	board["year"] = season_year
+	board.erase("promise")
+	losing_streak = 0
+	_next_week_event()
+
+
+func board_confidence() -> int:
+	return int(board.get("confidence", ClubLife.START_CONFIDENCE))
+
+
+func board_goal_text() -> String:
+	return str((board.get("goal", {}) as Dictionary).get("text", ""))
+
+
+func is_sacked() -> bool:
+	return bool(board.get("sacked", false))
+
+
+func _my_result(results: Array) -> Dictionary:
+	for res in results:
+		if str(res.get("home", "")) == my_club or str(res.get("away", "")) == my_club:
+			return res
+	return {}
+
+
+func _board_after_round(results: Array) -> void:
+	var res := _my_result(results)
+	# This week's one-off flags (rested, sore, heavy legs) end with the round.
+	for p in my_list:
+		p.erase("rested")
+		p.erase("sore")
+		p.erase("heavy_legs")
+	if res.is_empty() or board.is_empty():
+		return
+	var side := 0 if str(res["home"]) == my_club else 1
+	var margin := int(res["score"][side]) - int(res["score"][1 - side])
+	var conf := ClubLife.after_match(board_confidence(), margin)
+	if bool(board.get("promise", false)):
+		conf = clampi(conf + (8 if margin > 0 else -10), 0, 100)
+		board.erase("promise")
+	board["confidence"] = conf
+	losing_streak = losing_streak + 1 if margin < 0 else 0
+	var played := {}
+	var roster: Array = res.get("roster", [[], []])
+	if roster.size() > side:
+		for r in roster[side]:
+			played[str(r["id"])] = true
+	ClubLife.morale_after_match(my_list, played, margin > 0)
+
+
+## Season over: did you meet the goal? Miss it badly twice and you are gone.
+func _board_season_end() -> void:
+	if board.is_empty():
+		return
+	var row := my_ladder_row()
+	var goal: Dictionary = board.get("goal", {})
+	var met := ClubLife.goal_met(goal, my_position(), int(row.get("w", 0)))
+	var conf := ClubLife.after_season(board_confidence(), met, premier() == my_club)
+	var verdict := "The board is delighted." if met else "The board is disappointed."
+	if conf < ClubLife.WARN_LINE:
+		if bool(board.get("warned", false)):
+			board["sacked"] = true
+			verdict = "The board has sacked you."
+		else:
+			board["warned"] = true
+			conf = maxi(conf, 35)
+			verdict = "Final warning: miss again next year and you are gone."
+	elif met:
+		board["warned"] = false
+	board["confidence"] = conf
+	(board["history"] as Array).append({"year": season_year, "goal": str(goal.get("text", "")),
+			"met": met, "position": my_position(), "confidence": conf, "verdict": verdict})
+	board["verdict"] = verdict
+	add_news("board", "%s board: %s (%s)" % [GameDB.club_name(my_club), verdict,
+			"goal met" if met else "goal missed: " + str(goal.get("text", ""))])
+
+
+func _next_week_event() -> void:
+	week_event = {}
+	if season == null or season.is_regular_done() or is_sacked():
+		return
+	var selected := {}
+	var side := current_side()
+	for k in side:
+		for id in side[k]:
+			selected[str(id)] = true
+	week_event = ClubLife.pick_event({"list": my_list, "round": season.round_index + 1,
+			"seed": season.seed, "losses": losing_streak, "selected": selected})
+
+
+func week_event_pending() -> bool:
+	return not week_event.is_empty() and not bool(week_event.get("resolved", false))
+
+
+## Before a round is played, an unanswered event takes its default.
+func _settle_week_event() -> void:
+	if week_event_pending():
+		resolve_week_event(int(week_event.get("default", 0)))
+
+
+## Apply the chosen option. Returns what happened.
+func resolve_week_event(choice: int) -> String:
+	if not week_event_pending():
+		return ""
+	var options: Array = week_event.get("options", [])
+	choice = clampi(choice, 0, options.size() - 1)
+	var key := str((options[choice] as Dictionary).get("key", ""))
+	var p := list_player(str(week_event.get("player_id", "")))
+	var name := GameDB.player_display_name(p) if not p.is_empty() else ""
+	var out := ""
+	match key:
+		"rest":
+			p["rested"] = true
+			ClubLife.add_morale(p, -3)
+			out = "%s is rested this week." % name
+		"play":
+			p["sore"] = true
+			out = "%s plays - fingers crossed." % name
+		"heavy":
+			for q in my_list:
+				q["xp"] = int(q.get("xp", 0)) + 12
+				q["heavy_legs"] = true
+			apply_train_plans()
+			out = "A heavy week: +12 XP each, heavy legs on game day."
+		"recover":
+			for q in my_list:
+				ClubLife.add_morale(q, 4)
+			out = "A recovery week: the group is fresher in the head."
+		"open":
+			for q in my_list:
+				ClubLife.add_morale(q, 3)
+			board["confidence"] = clampi(board_confidence() + 2, 0, 100)
+			out = "The members loved it."
+		"closed":
+			for q in my_list:
+				q["xp"] = int(q.get("xp", 0)) + 6
+			apply_train_plans()
+			out = "A closed session: +6 XP each."
+		"suspend":
+			p["rested"] = true
+			ClubLife.add_morale(p, -10)
+			board["confidence"] = clampi(board_confidence() + 4, 0, 100)
+			out = "%s is suspended for a week. The board approves." % name
+		"back":
+			ClubLife.add_morale(p, 8)
+			board["confidence"] = clampi(board_confidence() - 4, 0, 100)
+			out = "You back %s. The board is not impressed." % name
+		"extend":
+			var cost := ceili(Contracts.asking_salary(p) * 1.1)
+			if my_payroll() - int(p.get("salary", 0)) + cost <= salary_cap:
+				p["salary"] = cost
+				p["contract_years"] = 3
+				ClubLife.add_morale(p, 10)
+				out = "%s signs on for two more seasons at %d." % [name, cost]
+			else:
+				ClubLife.add_morale(p, -8)
+				out = "No cap room to extend %s now - he is disappointed." % name
+		"pressure", "promise":
+			board["promise"] = true
+			out = "You promise a win this week."
+		"patience":
+			board["confidence"] = clampi(board_confidence() - 3, 0, 100)
+			out = "The board grudgingly agrees to wait."
+		"develop":
+			p["xp"] = int(p.get("xp", 0)) + 40
+			ClubLife.add_morale(p, 5)
+			apply_plan_to(p)
+			out = "%s gets extra development: +40 XP." % name
+		"talk":
+			ClubLife.add_morale(p, 15)
+			out = "%s feels heard." % name
+		"earn":
+			ClubLife.add_morale(p, -5)
+			out = "%s is told to earn his spot." % name
+		_:
+			if not p.is_empty() and key == "wait":
+				ClubLife.add_morale(p, -8 if str(week_event.get("key", "")) == "extension" else -10)
+				out = "%s is disappointed." % name
+			else:
+				out = "Business as usual."
+	week_event["resolved"] = true
+	week_event["choice"] = choice
+	week_event["outcome"] = out
+	mark_dirty()
+	return out

@@ -72,10 +72,10 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	for side in range(2):
 		synergies[side] = Traits.active((squads[side] as Squad).ground)
 		for p in (squads[side] as Squad).ground:
-			energy[str(p["id"])] = 100.0
+			energy[str(p["id"])] = 88.0 if bool(p.get("heavy_legs", false)) else 100.0
 			_played[side][str(p["id"])] = true
 		for p in (squads[side] as Squad).bench:
-			energy[str(p["id"])] = 100.0
+			energy[str(p["id"])] = 88.0 if bool(p.get("heavy_legs", false)) else 100.0
 
 
 func set_tactics(side: int, t: Dictionary) -> void:
@@ -942,7 +942,7 @@ func fit(p: Dictionary) -> float:
 	var f := FIT_BASE + FIT_SLOPE * float(energy.get(str(p["id"]), 100.0)) / 100.0
 	if (current_quarter >= 4 or finals_mode) and _trait(p, "big_game"):
 		f += 0.05
-	return f
+	return f + ClubLife.form(p)
 
 
 func _trait(p: Dictionary, key: String) -> bool:
