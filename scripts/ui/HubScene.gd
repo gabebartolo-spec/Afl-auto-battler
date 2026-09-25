@@ -82,7 +82,7 @@ func _standing_card() -> Control:
 	card.add_child(cv)
 	cv.add_child(UiKit.club_badge(GameState.my_club, 18, false, true))
 	var title := UiKit.lbl("Position %d of %d" % [GameState.my_position(),
-			season.ladder.size()], 22 if _narrow() else 26, UiKit.GOLD, true)
+			GameState.season.ladder.size()], 22 if _narrow() else 26, UiKit.GOLD, true)
 	title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	cv.add_child(title)
 	var lr := GameState.my_ladder_row()

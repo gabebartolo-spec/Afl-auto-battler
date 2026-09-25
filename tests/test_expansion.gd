@@ -133,7 +133,7 @@ func _test_rollover_to_2028() -> void:
 		ages += float(p["age"])
 		_check(not id_seen.has(str(p["id"])), "Tasmania ids are unique")
 		id_seen[str(p["id"])] = true
-		_check(bool(p.get("contract_years", 0)) > 0,
+		_check(int(p.get("contract_years", 0)) > 0,
 				"Every Tasmanian has a contract at the season start")
 	_check(ages / float(tas.size()) > 19.0 and ages / float(tas.size()) < 27.0,
 			"The debut list mixes ages (%.1f)" % (ages / float(tas.size())))

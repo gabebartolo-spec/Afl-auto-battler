@@ -66,6 +66,9 @@ for suite in "${SUITES[@]}"; do
 		grep -E "SCRIPT ERROR|Parse Error|Compile Error" "$log" | head -20 | while IFS= read -r l; do
 			printf '::error::%s-log::%s\n' "$suite" "$l"
 		done
+		grep -E "^ERROR" "$log" | head -30 | while IFS= read -r l; do
+			printf '::error::%s-check::%s\n' "$suite" "${l#ERROR: }"
+		done
 		tail -30 "$log" | while IFS= read -r l; do
 			printf '::notice::%s-tail::%s\n' "$suite" "$l"
 		done

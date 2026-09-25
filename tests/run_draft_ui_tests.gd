@@ -43,7 +43,7 @@ func _run() -> void:
 			break
 	ui.call("_on_pick", defender)
 	_check(_state.draft.role_counts()["DEF"] == 1, "Pick updates the user's position count")
-	_check(_state.draft.position_needs()["DEF"] == 4, "Pick updates position needs")
+	_check(_state.draft.position_needs()["DEF"] == 5, "Pick updates position needs")
 	var player_row: Control = ui.find_child("Player_*", true, false)
 	var pick_button: Control = ui.find_child("Pick_*", true, false)
 	_check(player_row.mouse_filter == Control.MOUSE_FILTER_PASS,
