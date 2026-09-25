@@ -148,3 +148,4 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
 		push_error(message)
+		print("::error::draft_ui :: " + message)  # TEMP-CI-DIAG

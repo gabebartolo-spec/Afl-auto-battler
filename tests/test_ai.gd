@@ -41,7 +41,7 @@ func _test_league_draft_balance() -> void:
 		var two_rucks := true
 		var hoarders := 0
 		var with_good := 0
-			for code in GameDB.active_clubs(2026):
+		for code in GameDB.active_clubs(2026):
 			var rucks := 0
 			var good := 0
 			for p in d.club_lists[code]:

@@ -35,6 +35,7 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+		print("::error::achievements :: " + message)  # TEMP-CI-DIAG
 
 
 # ---------------------------------------------------------------------------
@@ -132,8 +133,11 @@ func _test_grand_final() -> void:
 
 func _test_top_ladder_and_slam() -> void:
 	var codes := _codes()
-	var ladder := _ladder(codes)
-	var out := _ids({}, _ctx("CAR", "GEE", ladder))
+	# CAR is third in the default ladder - move it to the top for this test.
+	var car_top := codes.duplicate()
+	car_top.erase("CAR")
+	car_top.push_front("CAR")
+	var out := _ids({}, _ctx("GEE", "ADE", _ladder(car_top)))
 	_check(out.has("car_top_ladder"), "Topping the ladder unlocks Carlton")
 
 	# SYD tops the ladder and wins the flag: grand slam. (SYD is 15th in the

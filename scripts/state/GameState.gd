@@ -590,6 +590,9 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	# entry for every club so saves and rollovers never miss a key.
 	season = Season.new(GameDB.active_clubs(next_year).duplicate(), lists,
 			int(Time.get_unix_time_from_system()) % 1000000)
+	# Expansion lists are born here, so their contracts must be assigned
+	# here too (start_season does the same for the first season).
+	ensure_contracts()
 	season_year = next_year
 	season_log = []
 	last_training_report = {}
@@ -1230,10 +1233,11 @@ func _close_season_awards() -> void:
 		"my_club": my_club,
 		"my_position": my_position(),
 	})
-	# The board's verdict first, so the premiers top the news feed.
+	# Achievements first, then the season news, so the premiership line
+	# stays the newest item in the feed.
+	_close_season_achievements()
 	_board_season_end()
 	_season_news()
-	_close_season_achievements()
 
 
 ## Club achievements unlock only at season's end: every objective reads the
