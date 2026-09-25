@@ -78,6 +78,10 @@ once, a player's own plan beats the club plan, plans survive a save, and every
 stat has a full guide entry. The career UI suite also checks the one-time
 training intro, the stat guide (and Back closing it) and the plan picker.
 
+The achievements suite checks every club's achievement is detectable from
+stats the game already tracks (`tests/run_achievements_tests.gd`, part of
+`tools/run_tests.sh`).
+
 The league-balance suite smoke-tests the competitive-balance harness in
 `tools/balance/` (seeded career draft reproducible, seasons replay exactly,
 a +10 OVR list beats +0 on identical seeds). It asserts no balance target;
