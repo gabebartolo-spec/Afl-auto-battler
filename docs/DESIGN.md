@@ -168,6 +168,12 @@ Field position is metres from the centre square (`-85 .. +85`), forward-50 arc a
 `±35`. Each side fields **18** in a 6-6-6 shape (6 DEF, 6 MID — the ruck counted
 with midfield — and 6 FWD) plus 4 interchanges.
 
+Stoppages are balled up where play stopped: a chain that starts at a stoppage
+starts at the current field position, and MatchSim logs a `ballup` event
+there. Centre bounces follow a score (a behind included, which the pitch shows
+as a kick-in) and open every quarter. A chain that starts inside its forward
+50 goes through the normal inside-50 entry on its first disposal.
+
 Stoppage win probability is a strength differential divided by `contest_swing`
 (360) and clamped to `[0.40, 0.60]`, plus a small home-ground bonus and a
 territory nudge. Clamping matters: an unclamped stoppage contest compounds over

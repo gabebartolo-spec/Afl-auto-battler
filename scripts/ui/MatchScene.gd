@@ -7,7 +7,7 @@ extends Control
 const FEED_LIMIT := 60
 const SPEEDS := [1.0, 2.0, 4.0, 8.0]
 ## Routine disposals drive the animation but would drown the commentary.
-const QUIET_KINDS := ["kick", "handball", "sub"]
+const QUIET_KINDS := ["kick", "handball", "sub", "ballup"]
 
 var _res := {}
 var _pitch: PitchView

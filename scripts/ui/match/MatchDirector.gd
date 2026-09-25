@@ -297,6 +297,8 @@ func _start_beat(k: int) -> void:
 			_phases = _rebound_phases(k)
 		"clanger":
 			_phases = _clanger_phases(k)
+		"ballup":
+			_phases = _ballup_phases(k)
 		_:
 			if DISPOSALS.has(kind):
 				_phases = _possession_phases(k)
@@ -331,22 +333,25 @@ func _next_real(k: int) -> int:
 
 
 ## How a possession event starts: from open play, a centre bounce, a kick-in,
-## a ball-up, a free kick or a loose ball.
+## a ball-up, a free kick or a loose ball. Read straight from the event before
+## it: MatchSim logs every ball-up ("ballup") and every centre restart follows
+## a goal, a behind or a quarter break.
 func _restart(k: int) -> String:
 	var ev: Dictionary = events[k]
 	var pk := _prev_real(k)
 	var pkind := "" if pk < 0 else str((events[pk] as Dictionary).get("kind", ""))
-	var centre := float(ev.get("fp", 0.0)) == 0.0
-	if centre and (pkind == "" or pkind == "goal" or pkind == "quarter"):
-		return "centre"
-	if centre and pkind == "behind":
-		return "kickin"
-	if pkind == "tackle" or centre:
-		return "ballup"
-	if pkind == "free":
-		return "free"
-	if pkind == "clanger":
-		return "loose"
+	match pkind:
+		"", "goal", "quarter":
+			return "centre"
+		"behind":
+			return "kickin"
+		"ballup":
+			return "ballup"
+		"free":
+			return "free"
+		"clanger", "tackle":
+			# No stoppage logged: the ball is won where it fell.
+			return "loose"
 	return "open"
 
 
@@ -362,7 +367,8 @@ func _possession_phases(k: int) -> Array:
 		"kickin":
 			return _kickin_phases(k, a, loc) + tail
 		"ballup":
-			return _ballup_phases(k, a, loc) + tail
+			# The ruck's tap to the player who wins it, out of the ball-up beat.
+			return [{"t": "flight", "to": loc, "dur": 0.3, "apex": 0.8, "h0": 3.0, "recv": a}] + tail
 		"free":
 			return [{"t": "wait", "dur": 0.3, "ease": true},
 					{"t": "flight", "to": loc, "dur": 0.4, "apex": 1.5, "recv": a}] + tail
@@ -473,44 +479,28 @@ func _kickin_phases(k: int, a: int, loc: Vector2) -> Array:
 	]
 
 
-func _ballup_phases(k: int, a: int, loc: Vector2) -> Array:
-	var at: Vector2 = ball["pos"]
-	var members := _nearest(at, 0, 3, [a]) + _nearest(at, 1, 3, [a])
+## A logged ball-up: the ball gets to where play stopped (the kick or scramble
+## that ended the chain), a pack forms, the umpire throws it up. The tap to
+## whoever wins it opens the next beat.
+func _ballup_phases(k: int) -> Array:
+	var at := _loc(k)
+	var out := []
+	var d := (ball["pos"] as Vector2).distance_to(at)
+	if d > 3.0:
+		var shape := _flight_shape("kick", d)
+		out.append({"t": "flight", "to": at, "dur": shape.x, "apex": shape.y, "recv": -1,
+				"mode": "stoppage"})
+	var nk := _next_real(k)
+	var winner := _actor_id(events[nk]) if nk >= 0 else -1
+	var members := _nearest(at, 0, 3, [winner]) + _nearest(at, 1, 3, [winner])
 	for t in tokens:
 		if str(t["role"]) == "RUCK" and not members.has(int(t["id"])):
 			members.append(int(t["id"]))
-	if a >= 0 and not members.has(a):
-		members.append(a)
-	var out := [
-		{"t": "pack", "at": at, "members": members, "min": 0.35, "max": 0.9, "mode": "stoppage"},
-		{"t": "throwup", "at": at},
-	]
-	if at.distance_to(loc) <= 14.0:
-		out.append({"t": "flight", "to": loc, "dur": 0.3, "apex": 0.8, "h0": 3.0, "recv": a})
-		return out
-	# A long way from the contest to where the log says the ball is won: a
-	# clearing kick out of the pack by the side it runs forward for.
-	var dx := loc.x - at.x
-	var cs := int((events[k] as Dictionary).get("side", 0))
-	if absf(dx) > 5.0:
-		cs = 0 if dx > 0.0 else 1
-	var clearer := -1
-	var best := INF
-	for id in members:
-		var t: Dictionary = tokens[id]
-		if int(t["side"]) == cs and id != a:
-			var d := (t["pos"] as Vector2).distance_to(at)
-			if d < best:
-				best = d
-				clearer = id
-	var tap_to := at + Vector2(_dir(cs) * 2.5, _rng.randf_range(-2.5, 2.5))
-	out.append({"t": "flight", "to": tap_to, "dur": 0.25, "apex": 0.6, "h0": 3.0, "recv": clearer})
-	out.append({"t": "collect", "who": clearer})
-	out.append({"t": "possess", "who": clearer, "quiet": true})
-	out.append({"t": "hold", "who": clearer, "dur": 0.15})
-	out.append({"t": "flight", "to": loc, "dur": _flight_shape("kick", tap_to.distance_to(loc)).x,
-			"apex": _flight_shape("kick", tap_to.distance_to(loc)).y, "recv": a, "adapt": true,
-			"contest": int(tokens[a]["side"]) != cs if a >= 0 else false})
+	if winner >= 0 and not members.has(winner):
+		members.append(winner)
+	out += [{"t": "pack", "at": at, "members": members, "min": 0.35, "max": 0.9, "mode": "stoppage"},
+			{"t": "throwup", "at": at},
+			{"t": "emit", "log": true}]
 	return out
 
 
@@ -584,8 +574,6 @@ func _clanger_phases(k: int) -> Array:
 			out = _centre_phases(k, e, loc)
 		"kickin":
 			out = _kickin_phases(k, e, loc)
-		"ballup":
-			out = _ballup_phases(k, e, loc)
 	var d := (ball["pos"] as Vector2).distance_to(loc)
 	if out.is_empty() and d > 1.0:
 		var pk := _prev_real(k)
@@ -618,7 +606,7 @@ func _loc(k: int) -> Vector2:
 	var a := _actor_id(ev)
 	var ry: float = (tokens[a]["pos"] as Vector2).y if a >= 0 else src.y
 	var p: Vector2
-	if kind in ["goal", "behind", "rebound", "tackle", "free"]:
+	if kind in ["goal", "behind", "rebound", "tackle", "free", "ballup"]:
 		p = Vector2(x, src.y)
 	elif _possession(kind) and _restart(k) == "centre":
 		p = Vector2(0.0, signf(ry if ry != 0.0 else 1.0) * 3.5)

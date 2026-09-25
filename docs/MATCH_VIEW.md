@@ -58,8 +58,11 @@ What that showed, and what the view does about it:
   the bounce, then there's the ruck contest and the tap.
 - **Kick-ins after a behind:** the kicker is in the goal square and the other
   side sets a three-line zone.
-- **Ball-ups after a tackle:** a pack of three a side plus the rucks, then a
-  throw-up, and a tap or a clearing kick.
+- **Ball-ups** come from MatchSim's explicit `ballup` event, logged where play
+  stopped. The ball reaches that spot, a pack of three a side plus the rucks
+  forms, the umpire throws it up, and the ruck taps it to the player who
+  wins it. The view infers no stoppages of its own. After a tackle with no
+  logged ball-up, the ball is won where it fell.
 - **Kicks arc and handballs stay flat.** Flight time grows with distance and
   stretches, within limits, to give the receiver time to arrive. Forward-50
   entries land in a marking contest.

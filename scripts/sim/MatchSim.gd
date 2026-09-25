@@ -465,9 +465,9 @@ func play_chain(side: int, fp: float, from_bounce: bool) -> Dictionary:
 	_stoppage(side, opp, from_bounce)
 
 	var atk_fp := fp if side == 0 else -fp
-	var touched_i50 := atk_fp >= f50
-	if touched_i50:
-		_t(side, "inside50")
+	# A chain that starts inside its forward 50 (a ball-up won there) goes
+	# through the normal entry below on its first disposal, so it can score.
+	var touched_i50 := false
 
 	var touches := 0
 	var max_touches := int(T["max_touches_per_chain"])
@@ -528,7 +528,7 @@ func play_chain(side: int, fp: float, from_bounce: bool) -> Dictionary:
 			if _trait(carrier, "bull"):
 				retain *= 1.10
 			if rng.randf() < retain:
-				fp += rng.randf_range(4.0, 12.0) * dir
+				fp = clampf(fp + rng.randf_range(4.0, 12.0) * dir, -gline, gline)
 				continue
 			_emit("tackle", opp, fp, tackler,
 					"%s tackles %s - ball up" % [GameDB.player_display_name(tackler), GameDB.player_display_name(carrier)])
@@ -768,6 +768,8 @@ func begin_quarter() -> void:
 	_q_i = 0
 	_q_count = floori(float(T["chains_per_game"]) / 4.0)
 	_moments_this_q = 0
+	# Every quarter starts with a centre bounce.
+	at_centre = true
 
 
 ## Play on until the quarter's chains are done (true) or a moment needs the
@@ -873,8 +875,13 @@ func _play_one_chain(T: Dictionary) -> void:
 	var side: int
 	var start_fp: float
 	if stoppage:
-		start_fp = 0.0
-		side = contest_winner(false, 0.0)
+		# A centre bounce only after a score or at the start of a quarter;
+		# any other stoppage is a ball-up where play stopped, logged so the
+		# pitch can stage it there.
+		start_fp = 0.0 if at_centre else fp
+		side = contest_winner(false, start_fp)
+		if not at_centre:
+			_emit("ballup", -1, start_fp, null, "Ball-up")
 	else:
 		start_fp = fp
 		side = next_side if next_side >= 0 else contest_winner(true, fp)

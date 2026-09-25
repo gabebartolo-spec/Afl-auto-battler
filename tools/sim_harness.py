@@ -558,9 +558,9 @@ class MatchSim:
         self._stoppage(side, opp, from_bounce)
 
         atk_fp = fp if side == 0 else -fp
-        touched_i50 = atk_fp >= T["forward50_line"]
-        if touched_i50:
-            st.t(side, "inside50")
+        # A chain that starts inside its forward 50 (a ball-up won there) goes
+        # through the normal entry below on its first disposal, so it can score.
+        touched_i50 = False
 
         touches = 0
         while touches < T["max_touches_per_chain"]:
@@ -595,7 +595,8 @@ class MatchSim:
                 retain = T["tackle_retention"] * (
                     0.75 + 0.50 * carrier["attr"]["contested"] / 100.0)
                 if self.rng.random() < retain:
-                    fp += self.rng.uniform(4, 12) * (1 if side == 0 else -1)
+                    fp = max(-T["goal_line"], min(T["goal_line"],
+                             fp + self.rng.uniform(4, 12) * (1 if side == 0 else -1)))
                     continue
                 self.log(minute, quarter, "%s tackles %s — ball up"
                          % (tackler["name"], carrier["name"]), opp, "tackle")
@@ -689,8 +690,9 @@ class MatchSim:
         Drive the match as a sequence of possession chains.
 
         A chain either starts at a genuine stoppage (centre bounce / ball-up,
-        which is where hit-outs and clearances come from) or continues from
-        where the previous chain died — a turnover hands the ball to the other
+        which is where hit-outs and clearances come from: a centre bounce
+        after a score or at a quarter start, otherwise a ball-up where play
+        stopped) or continues from where the previous chain died — a turnover hands the ball to the other
         team on the spot, a score restarts at the centre.
         """
         per_quarter = T["chains_per_game"] // 4
@@ -698,11 +700,14 @@ class MatchSim:
         next_side = None              # None => the stoppage is contested
         at_centre = True
         for quarter in range(1, 5):
+            at_centre = True          # every quarter starts with a centre bounce
             for i in range(per_quarter):
                 minute = (quarter - 1) * 30 + int(30 * i / max(1, per_quarter)) + 1
                 stoppage = at_centre or self.rng.random() < T["stoppage_share"]
                 if stoppage:
-                    start_fp = 0.0
+                    # Centre bounce after a score or at a quarter start;
+                    # otherwise a ball-up where play stopped.
+                    start_fp = 0.0 if at_centre else fp
                     side = self.contest_winner(None)
                 else:
                     start_fp = fp
