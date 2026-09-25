@@ -50,6 +50,10 @@ func _test_season_flow() -> void:
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
 	_check(GameState.board_goal_text() != "" and GameState.board_confidence() == ClubLife.START_CONFIDENCE,
 			"A season starts with a board goal")
+	# Settle this week's decision card first: some defaults move the board
+	# (backing a player in the papers costs -4), and the season seed comes from
+	# the clock, so which card appears varies run to run. Measure the match alone.
+	GameState._settle_week_event()
 	var before := GameState.board_confidence()
 	GameState.advance()
 	var res := GameState.last_match
