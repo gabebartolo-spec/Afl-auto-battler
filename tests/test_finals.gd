@@ -1,7 +1,9 @@
 extends RefCounted
-## Finals regression suite: the bracket opens as soon as round 24 ends, and a
-## qualifying club plays each of its finals live (the same prepare / quarter /
-## finish path MatchScene drives) through to a premier.
+## Finals regression suite: the wildcard bracket opens as soon as round 24
+## ends (10 finalists), week one is the two wildcard finals, the winners
+## reseed by original ladder position, and a live club plays each of its
+## finals (the same prepare / quarter / finish path MatchScene drives)
+## through to a premier.
 ## Run through tests/run_finals_tests.gd.
 
 var failures: Array[String] = []
@@ -12,6 +14,7 @@ func run() -> void:
 	failures.clear()
 	checks = 0
 	_test_finals_open_after_last_round()
+	_test_wildcard_week_and_reseed()
 	_test_interactive_finals_series()
 	_test_simulated_finals_series()
 	_test_extra_time()
@@ -55,13 +58,65 @@ func _test_finals_open_after_last_round() -> void:
 	_check(season.is_regular_done(), "Round 24 completes the home-and-away")
 	_check(not season.finals.is_empty(),
 			"The finals bracket opens as soon as round 24 is played")
-	_check(season.finals_week_matches().size() == 4, "Week one lists four finals")
+	var top: Array = season.finals["top"]
+	_check(top.size() == Season.FINALISTS,
+			"Ten clubs make the finals (top %d)" % Season.FINALISTS)
+	_check(season.finals_week_matches().size() == 2,
+			"Week one lists the two wildcard finals")
 
 	season = _to_last_round()
 	_check(GameState.prepare_interactive_match(), "Round 24 can be played live")
 	_play_pending()
 	_check(not season.finals.is_empty(),
 			"The bracket also opens after a live round 24")
+
+
+## Week one is 7v10 and 8v9; the winners reseed by their original ladder
+## position into the 7th and 8th seeds for week two.
+func _test_wildcard_week_and_reseed() -> void:
+	var season := _to_last_round()
+	GameState.advance()
+	var top: Array = season.finals["top"]
+
+	# The top six wait out the wildcard round: none of them plays in week one.
+	for m in season.finals_week_matches():
+		var codes := [str(m["home"]), str(m["away"])]
+		for i in range(6):
+			_check(not codes.has(str(top[i])),
+					"Seed %d has a week-one bye" % (i + 1))
+
+	var by_tag := {}
+	for m in season.finals_week_matches():
+		by_tag[str(m["tag"])] = m
+	_check(by_tag.has("WC1") and by_tag.has("WC2"), "Week one tags are WC1 and WC2")
+	_check(str(by_tag["WC1"]["home"]) == str(top[6]) and str(by_tag["WC1"]["away"]) == str(top[9]),
+			"WC1 is 7v10, higher seed hosting")
+	_check(str(by_tag["WC2"]["home"]) == str(top[7]) and str(by_tag["WC2"]["away"]) == str(top[8]),
+			"WC2 is 8v9, higher seed hosting")
+
+	GameState.advance()  # play the wildcard round
+	var s: Dictionary = season.finals["slots"]
+	_check(str(s.get("W_WC1", "")) == str(top[6]) or str(s.get("W_WC1", "")) == str(top[9]),
+			"WC1 has a winner")
+	_check(str(s.get("W_WC2", "")) == str(top[7]) or str(s.get("W_WC2", "")) == str(top[8]),
+			"WC2 has a winner")
+
+	# Week two: 1-4 play the qualifying finals, the wildcard winners take the
+	# 7th and 8th seeds - the winner of 7v10 is the 7th seed (EF2), the
+	# winner of 8v9 the 8th (EF1).
+	var week2 := {}
+	for m in season.finals_week_matches():
+		week2[str(m["tag"])] = m
+	_check(week2.has("QF1") and week2.has("QF2") and week2.has("EF1") and week2.has("EF2"),
+			"Week two is two qualifying and two elimination finals")
+	_check(str(week2["QF1"]["home"]) == str(top[0]) and str(week2["QF1"]["away"]) == str(top[3]),
+			"QF1 is 1v4")
+	_check(str(week2["QF2"]["home"]) == str(top[1]) and str(week2["QF2"]["away"]) == str(top[2]),
+			"QF2 is 2v3")
+	_check(str(week2["EF1"]["home"]) == str(top[4]) and str(week2["EF1"]["away"]) == str(s["W_WC2"]),
+			"EF1 is 5th v the WC2 winner (the 8th seed)")
+	_check(str(week2["EF2"]["home"]) == str(top[5]) and str(week2["EF2"]["away"]) == str(s["W_WC1"]),
+			"EF2 is 6th v the WC1 winner (the 7th seed)")
 
 
 func _test_interactive_finals_series() -> void:
@@ -83,7 +138,6 @@ func _test_interactive_finals_series() -> void:
 				or GameState.pending_phase == "finals",
 				"Only an alive club gets a live final")
 		if GameState.pending_phase == "finals":
-			_check(GameState.pending_phase == "finals", "Week %d is a live final" % week)
 			_check(season.finals["weeks"].size() == weeks_played,
 					"Nothing is recorded while the final is being coached")
 			var res := _play_pending()
@@ -99,17 +153,17 @@ func _test_interactive_finals_series() -> void:
 				_check(next == "bye" or next == "alive",
 						"A qualifying final never knocks you out")
 		else:
-			GameState.advance()  # eliminated: the rest of the series simulates
+			GameState.advance()  # bye week or eliminated: the series simulates
 		weeks_played += 1
 		var played: Array = season.finals["weeks"][weeks_played - 1]
-		var expected: int = [4, 2, 2, 1][week - 1]
+		var expected: int = [2, 4, 2, 2, 1][week - 1]
 		_check(played.size() == expected,
 				"Finals week %d records %d matches" % [week, expected])
 		for r in played:
 			var slots: Dictionary = season.finals["slots"]
 			_check(slots.has("W_" + str(r["tag"])), "%s has a winner" % str(r["tag"]))
 	_check(season.is_season_over(), "The live finals series reaches a premier")
-	_check(season.finals["weeks"].size() == 4, "Four finals weeks are recorded")
+	_check(season.finals["weeks"].size() == 5, "Five finals weeks are recorded")
 	_check(GameState.premier() != "", "A premier is crowned")
 	_check(GameState.my_finals_status() in ["premier", "runner_up", "eliminated"],
 			"A finished series gives a final status")
@@ -126,9 +180,12 @@ func _test_simulated_finals_series() -> void:
 		guard += 1
 	_check(season.is_season_over(), "Simming the finals still crowns a premier")
 	_check(GameState.last_phase == "done", "The Grand Final week reports done")
-	var gf: Dictionary = season.finals["weeks"][3][0]
+	_check(season.finals["weeks"].size() == 5, "Five weeks on the bracket")
+	var gf: Dictionary = season.finals["weeks"][4][0]
 	_check(bool(gf.get("neutral", false)), "The simulated Grand Final is neutral")
-	var qf: Dictionary = season.finals["weeks"][0][0]
+	var wc: Dictionary = season.finals["weeks"][0][0]
+	_check(not bool(wc.get("neutral", true)), "The higher seed hosts a wildcard final")
+	var qf: Dictionary = season.finals["weeks"][1][0]
 	_check(not bool(qf.get("neutral", true)), "The higher seed hosts a qualifying final")
 
 

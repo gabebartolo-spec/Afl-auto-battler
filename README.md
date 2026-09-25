@@ -1,10 +1,12 @@
 # AFL Auto-Battler
 
-An auto-battler where the battles are **simulated AFL matches**. All 18 clubs
-re-draft from a shared pool of 669 players using **2026 AFL player statistics**.
-The current pool gives every club a 37-player list (up to 44 with a larger
-pool). Then play a 24-round home-and-away season and a finals series, watching
-every match on an animated top-down oval. When the season ends, the **national
+An auto-battler where the battles are **simulated AFL matches**. All 18
+founding clubs re-draft from a shared pool of 669 players using **2026 AFL
+player statistics** (Tasmania enters in 2028 and Canberra in 2030, each
+arriving with a generated list). The current pool gives every club a
+37-player list (up to 44 with a larger pool). Then play a 24-round
+home-and-away season and a 10-finalist wildcard finals series, watching every
+match on an animated top-down oval. When the season ends, the **national
 draft** opens: keep your list, sign real 2026 draft-class prospects over the
 reversed ladder, watch the whole league age and develop, and run it back.
 
@@ -47,12 +49,12 @@ translations, pick *Keep File* again in the Import dock.
 | **Choose a club** | All 18 lists start empty. Choose your club with its randomly assigned first pick shown up front. |
 | **The draft** | All clubs take turns from the same pool in snake order, under the same cap (58% of the cost of the best target-sized list). Track rival selections in the pick log. Carry at least two rucks; the other position targets are coverage guidance. Filter by position, original club or name, and sort by rating, price, goals or disposals. |
 | **Home and away** | 24 rounds, a full double round-robin. Each round you can **Play Match** and watch it on the oval, or **Sim Round** and just read the results. |
-| **Finals** | Top eight play the real AFL bracket: qualifying and elimination finals, semis, prelims, Grand Final. The higher seed hosts every final except the Grand Final, which is at a neutral venue. Your finals play live with the quarter-by-quarter coach box, just like a home-and-away match. A final level at full time goes to extra time (two short halves, then next score wins). After each final the game tells you where you stand: a second chance after a qualifying-final loss, a week off after a qualifying-final win, or knocked out. |
+| **Finals** | The top ten play a wildcard finals series: 7v10 and 8v9 in week one, with the winners reseeded by their original ladder position into the 7th and 8th seeds, who meet 5th and 6th in the elimination finals while 1-4 play the qualifying finals; then semis, prelims and the Grand Final. The higher seed hosts every final except the Grand Final, which is at a neutral venue. Your finals play live with the quarter-by-quarter coach box, just like a home-and-away match. A final level at full time goes to extra time (two short halves, then next score wins). After each final the game tells you where you stand: a second chance after a wildcard or qualifying loss, a week off, or knocked out. |
 | **Team** | The best 22 by position are picked automatically, around injuries. Switch to **My selection** on the Team screen to name your own ruck, midfield, defence, forwards and bench, or leave players out. Gaps (an injury, a trade) are filled for you. |
 | **Off-season** | After the Grand Final, **Trades & Contracts** opens: re-sign or release players whose contracts are up, sign free agents rivals let go, and offer trades. |
 | **Review** | The flag, your record, best win, worst loss, longest streak, a game-by-game form strip, the season's awards, the honour roll and league records. |
 | **National Draft** | The career keeps going. Father-son and NGA prospects land at their clubs, then every list - yours included - drafts the 2026 class over the reversed ladder, worst club first. Prospects have no AFL stats; they arrive with **projected ratings** built from draft rank, position and U18 production, so a top pick starts rotation-grade and develops from there. |
-| **Next season** | Every list ages: young prospects grow, veterans decline, the oldest retire. A generated intake class arrives each year, so the loop runs indefinitely. |
+| **Next season** | Every list ages: young prospects grow, veterans decline, the oldest retire. A generated intake class arrives each year, so the loop runs indefinitely. Expansion follows the calendar: Tasmania (the Devils) enters in 2028 and Canberra (the Thunder) in 2030, each arriving with a generated list of 36 and joining fixtures, ladders, drafts, trades and the finals from its first season. With an odd club count the fixture rotates a bye so every club still plays 24 games. |
 
 ### The draft room
 
@@ -62,9 +64,10 @@ translations, pick *Keep File* again in the Import dock.
   their drafting club when **Available only** is switched off under **Filters**.
 - **Live position coverage.** DEF / MID / RUCK / FWD counters always show your
   actual totals and remaining needs. Tap a counter to filter the pool; tap it
-  again to return to all positions. Targets are **5 DEF, 7 MID, 2 RUCK, 5 FWD**:
-  the engine's on-ground structure plus the existing second-ruck requirement.
-  Other than the two rucks, these are recommendations, not additional rules.
+  again to return to all positions. Targets are **6 DEF, 6 MID, 2 RUCK, 6 FWD**
+  (the 6-6-6 shape counts the ruck with midfield): the engine's on-ground
+  structure plus the second-ruck requirement. Other than the two rucks, these
+  are recommendations, not additional rules.
 - **Portrait and landscape.** Portrait has Pool / Picks / My list / Order tabs.
   Landscape puts the pool beside the activity panel when there is enough width.
   Low-height layouts compact the header and scroll filters with the content.
@@ -88,8 +91,8 @@ Actual Godot captures after six user selections:
 `scripts/ui/PitchView.gd` draws the ground entirely with `_draw()` — no sprites,
 no textures, so it scales cleanly from a phone to a 4K monitor. Mown stripes are
 polygons clipped to the ellipse, and the 22 players on each side are the real
-18 selected for that match, arranged 1 ruck / 7 mids / 5 defenders / 5 forwards
-in club colours with their guernsey numbers.
+18 selected for that match, arranged 6-6-6 — six defenders, six midfielders
+(ruck included) and six forwards — in club colours with their guernsey numbers.
 
 The match is simulated in full before you see it, as a log of ~1,100 events
 (every disposal, mark, tackle, inside 50, clanger and shot). The pitch replays

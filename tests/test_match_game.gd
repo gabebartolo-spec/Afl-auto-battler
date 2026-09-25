@@ -243,6 +243,8 @@ func _test_traits() -> void:
 	var credited := false
 	var any_syn := false
 	for code in GameDB.CLUB_ORDER:
+		if (GameDB.club_list(code) as Array).is_empty():
+			continue  # expansion clubs have no 2026 data
 		var sim := _sim(40, code, "COL" if code != "COL" else "GEE")
 		if not (sim.synergies[0] as Array).is_empty():
 			any_syn = true

@@ -82,7 +82,7 @@ func _test_gaps_and_overflow() -> void:
 		counts[str(p["role"])] = int(counts[str(p["role"])]) + 1
 	_check(not ground.has(gone) and not _ids(squad.bench).has(gone),
 			"An unavailable named player sits out")
-	_check(counts == {"RUCK": 1, "MID": 7, "DEF": 5, "FWD": 5},
+	_check(counts == {"RUCK": 1, "MID": 5, "DEF": 6, "FWD": 6},
 			"Every slot is filled exactly, gap filled and overflow capped (%s)" % str(counts))
 	GameState.list_player(gone)["injury_weeks"] = 0
 

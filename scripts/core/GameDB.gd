@@ -19,8 +19,12 @@ const HISTORY_CSV := "res://data/player_history_2026.csv"
 ## truth lives in Ratings (the prospect pipeline shares it).
 const STAT_KEYS := Ratings.STATS_ZERO_KEYS
 
+## Every club the competition has ever fielded, in founding order. Clubs are
+## only active from their "enter" year (data/clubs.csv) onward - use
+## active_clubs(year) for any list that simulates a particular season.
 const CLUB_ORDER := ["ADE", "BRL", "CAR", "COL", "ESS", "FRE", "GEE", "GCS",
-		"GWS", "HAW", "MEL", "NTH", "PAD", "RIC", "SKN", "SYD", "WCE", "WBD"]
+		"GWS", "HAW", "MEL", "NTH", "PAD", "RIC", "SKN", "SYD", "WCE", "WBD",
+		"TAS", "CANB"]
 
 ## Fictional aliases are shuffled from these invented name parts once at load.
 ## The fixed seed keeps a player's alias stable across every screen and every
@@ -335,7 +339,24 @@ func _load_clubs() -> Dictionary:
 		d["primary"] = _hex(d.get("primary", "#FFFFFF"))
 		d["secondary"] = _hex(d.get("secondary", "#808080"))
 		d["accent"] = _hex(d.get("accent", "#FFD700"))
+		d["enter"] = int(d.get("enter", "2026"))
 		out[str(d["code"])] = d
+	return out
+
+
+## The year a club first fields a team (2026 for the founding eighteen).
+func enter_year(code: String) -> int:
+	return int(clubs.get(code, {}).get("enter", 2026))
+
+
+## The clubs active in a given season year, in CLUB_ORDER. Fixtures, ladders,
+## drafts and selections all iterate this - never CLUB_ORDER - so expansion
+## clubs join the competition on schedule without any club-specific code.
+func active_clubs(year: int) -> Array:
+	var out := []
+	for code in CLUB_ORDER:
+		if enter_year(code) <= year:
+			out.append(code)
 	return out
 
 

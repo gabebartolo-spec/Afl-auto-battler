@@ -22,8 +22,8 @@ const EVENT_CHANCE := 0.7
 static func board_goal(rank: int) -> Dictionary:
 	if rank <= 4:
 		return {"key": "top4", "text": "Finish in the top four", "pos": 4}
-	if rank <= 9:
-		return {"key": "finals", "text": "Make the finals", "pos": 8}
+	if rank <= Season.FINALISTS:
+		return {"key": "finals", "text": "Make the finals", "pos": Season.FINALISTS}
 	if rank <= 14:
 		return {"key": "top12", "text": "Finish in the top 12", "pos": 12}
 	return {"key": "wins7", "text": "Win at least 7 games", "wins": 7}

@@ -4,7 +4,7 @@ extends RefCounted
 ##
 ## Every club starts empty. The clubs are shuffled into a random draft order,
 ## then picks snake back and forth (serpentine) until every club has an equal
-## list. The human chooses on their club's turns; the 17 AI clubs auto-pick
+## list. The human chooses on their club's turns; the rival clubs auto-pick
 ## between those turns from the same remaining pool and under the same cap.
 
 const CAP_FRACTION := 0.58
@@ -264,7 +264,7 @@ func upcoming_picks(code: String, limit := 3) -> Array:
 
 
 ## Coverage guidance, not new drafting restrictions. Match selection needs
-## 5 DEF / 7 MID / 1 RUCK / 5 FWD, plus a flexible bench. The existing draft
+## 6 DEF / 6 MID / 1 RUCK / 6 FWD, plus a flexible bench. The existing draft
 ## validity rule additionally requires a second ruck on the list.
 func position_targets() -> Dictionary:
 	var out := {}
@@ -402,9 +402,11 @@ const AI_VORP_CAP := 10.0
 const AI_CAP_FLOOR := 3.0
 const AI_POT_WEIGHT_LEAGUE := 0.25
 const AI_POT_WEIGHT_INTAKE := 0.65
-## Share of a balanced list by position: 13 mids, 10 defenders, 10 forwards
-## of a 37 (rucks: two in the career draft, ~8% of a list at the intake).
-const AI_LIST_SHARE := {"RUCK": 0.08, "MID": 0.36, "DEF": 0.28, "FWD": 0.28}
+## Share of a balanced list by position: 11 mids, 12 defenders, 12 forwards
+## of a 37 - list depth for the 6-6-6 match-day shape, the back and forward
+## lines running a little deep (rucks: two in the career draft, ~8% of a
+## list at the intake).
+const AI_LIST_SHARE := {"RUCK": 0.08, "MID": 0.30, "DEF": 0.33, "FWD": 0.33}
 
 var _ai_cache_at := -1
 var _ai_avail := {}      # role -> worths of available players, best first

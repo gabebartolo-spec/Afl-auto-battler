@@ -189,14 +189,36 @@ func _run() -> void:
 	picker.emit_signal("item_selected", target)
 	await _settle()
 	_check(_state.plan_for(first) == "focus_marking", "The player plan picker sets his plan")
+	# Back inside a player detail steps out to the list, not out of Training.
 	_router.handle_back(true)
 	await _settle()
+	_check(_router.current() == "training",
+			"Back on a player detail stays on Training")
+	_check(current_scene.find_child("PlayerPlan", true, false) == null
+			and current_scene.find_child("TrainingRows", true, false) != null,
+			"Back on a player detail returns to the list view")
+	# The top-bar back steps out of the detail the same way.
+	current_scene.call("_open_player", str(first["id"]))
+	await _settle()
+	var top_back: Button = current_scene.find_child("TopBarBack", true, false)
+	_check(top_back != null, "The training top bar has a back button")
+	if top_back != null:
+		top_back.emit_signal("pressed")
+		await _settle()
+	_check(_router.current() == "training"
+			and current_scene.find_child("TrainingRows", true, false) != null,
+			"The top-bar back steps out of the detail, not out of Training")
+	_router.handle_back(true)
+	await _settle()
+	_check(_router.current() == "hub",
+			"Once the detail is closed, back leaves Training for the previous screen")
 	_router.go("training")
 	await _settle()
 	_check(current_scene.find_child("TrainingIntro", true, false) == null,
 			"The intro does not show again")
 	_router.handle_back(true)
 	await _settle()
+	_check(_router.current() == "hub", "Back from a plain Training list leaves the screen")
 
 	# --- a live match swallows back until full time --------------------------
 	_check(_state.prepare_interactive_match(), "A live match is prepared")

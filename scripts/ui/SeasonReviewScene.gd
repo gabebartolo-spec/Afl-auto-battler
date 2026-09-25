@@ -128,6 +128,9 @@ func _build() -> void:
 	if not GameState.season_awards.is_empty():
 		_root.add_child(_awards_panel())
 
+	# --- club achievements ----------------------------------------------------
+	_root.add_child(_achievements_panel())
+
 	# --- actions ------------------------------------------------------------
 	var ctrl: BoxContainer
 	if _content_width() < 460.0:
@@ -345,6 +348,39 @@ func _award_line(title: String, row: Dictionary, detail: String, big: bool) -> C
 			UiKit.GOOD if mine else UiKit.TEXT, true)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
+
+
+# ---------------------------------------------------------------------------
+# Club achievements
+# ---------------------------------------------------------------------------
+## Every club's achievement is written into its history; the ones that came
+## true are celebrated here, and yours (while still locked) is teased.
+func _achievements_panel() -> Control:
+	var unlocked: Dictionary = GameState.achievements
+	var panel := UiKit.panel(UiKit.PANEL, 14)
+	panel.name = "AchievementsPanel"
+	var v := UiKit.vbox(5)
+	panel.add_child(v)
+	v.add_child(UiKit.heading("CLUB ACHIEVEMENTS", 22))
+	if unlocked.is_empty():
+		v.add_child(_small("Nothing unlocked yet - every club's achievement is a piece of its history."))
+	for d in Achievements.DEFINITIONS:
+		var id := str(d["id"])
+		if not unlocked.has(id):
+			continue
+		var club := str(d["club"])
+		var mine := club == GameState.my_club
+		var l := UiKit.lbl("%s - %s, %d" % [GameDB.club_name(club), str(d["name"]),
+				int(unlocked[id].get("year", 0))], 15,
+				UiKit.GOOD if mine else UiKit.TEXT, true)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
+		var note := _small(str(d["desc"]))
+		v.add_child(note)
+	var mine_def := Achievements.definition_by_club(GameState.my_club)
+	if mine_def != {} and not unlocked.has(str(mine_def["id"])):
+		v.add_child(_small("Still chasing - %s: %s" % [str(mine_def["name"]), str(mine_def["desc"])]))
+	return panel
 
 
 func _small(text: String) -> Label:

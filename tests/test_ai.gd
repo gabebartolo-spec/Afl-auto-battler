@@ -28,7 +28,8 @@ func _check(condition: bool, message: String) -> void:
 
 
 func _all_ai_draft(seed: int) -> Draft:
-	var d := Draft.new(GameDB.all_players_sorted(), GameDB.CLUB_ORDER.duplicate(), seed)
+	var d := Draft.new(GameDB.all_players_sorted(),
+			GameDB.active_clubs(2026).duplicate(), seed)
 	d.start_for_user("")
 	return d
 
@@ -40,7 +41,7 @@ func _test_league_draft_balance() -> void:
 		var two_rucks := true
 		var hoarders := 0
 		var with_good := 0
-		for code in GameDB.CLUB_ORDER:
+		for code in GameDB.active_clubs(2026):
 			var rucks := 0
 			var good := 0
 			for p in d.club_lists[code]:
@@ -55,7 +56,7 @@ func _test_league_draft_balance() -> void:
 			if good >= 1:
 				with_good += 1
 		_check(two_rucks, "Every club drafts two or three rucks (seed %d)" % seed)
-		_check(hoarders == 0 or with_good == GameDB.CLUB_ORDER.size(),
+		_check(hoarders == 0 or with_good == 18,
 				"No club takes two good rucks while another has none (seed %d)" % seed)
 		# The best rucks are not left to the end, and round one is not all rucks.
 		var first_round_rucks := 0
@@ -79,7 +80,8 @@ func _test_league_draft_balance() -> void:
 func _test_no_cap_deadlock() -> void:
 	var finished := 0
 	for seed in range(1, 7):
-		var d := Draft.new(GameDB.all_players_sorted(), GameDB.CLUB_ORDER.duplicate(), seed * 101)
+		var d := Draft.new(GameDB.all_players_sorted(),
+				GameDB.active_clubs(2026).duplicate(), seed * 101)
 		d.start_for_user("COL")
 		for i in range(3):
 			var top: Array = d.board("", "", "", "overall", true)

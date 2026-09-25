@@ -40,11 +40,17 @@ func _ready() -> void:
 		_show_intro()
 
 
-## Router back hook: close the stat guide or intro before leaving.
+## Router back hook: close the stat guide or intro, or step out of the
+## player detail back to the list, before leaving Training. Returning false
+## lets the router take the scene back to whatever was viewed before.
 func handle_back() -> bool:
 	if is_instance_valid(_overlay):
 		_overlay.queue_free()
 		_overlay = null
+		return true
+	if _showing_detail:
+		_showing_detail = false
+		_build()
 		return true
 	return false
 
@@ -102,7 +108,9 @@ func _build() -> void:
 	guide.name = "StatGuideButton"
 	guide.custom_minimum_size = Vector2(96, 44)
 	guide.pressed.connect(_open_guide)
-	_root.add_child(UiKit.top_bar("Training", true, guide))
+	# The top-bar back steps out of the player detail first, then leaves.
+	_root.add_child(UiKit.top_bar("Training", true, guide,
+			Callable(self, "handle_back")))
 	_root.add_child(_summary())
 	if _wide:
 		var body := UiKit.hbox(10)

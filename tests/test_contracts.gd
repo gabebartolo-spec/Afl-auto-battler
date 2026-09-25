@@ -134,6 +134,9 @@ func _test_offseason_flow() -> void:
 	var ticked := true
 	var sizes_ok := true
 	for code in GameState.season.lists:
+		if GameDB.enter_year(code) > GameState.season_year:
+			# Not an active club yet - its debut list arrives at entry.
+			continue
 		var list: Array = GameState.season.lists[code]
 		if list.size() < Contracts.MIN_LIST or list.size() > Contracts.MAX_LIST:
 			sizes_ok = false

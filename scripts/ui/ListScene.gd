@@ -103,7 +103,7 @@ func _shape_panel() -> Control:
 	left.add_child(lv)
 	lv.add_child(UiKit.lbl("Best 22", 17, UiKit.GOLD, true))
 	lv.add_child(UiKit.lbl(
-			"Match-day shape: 1 ruck, 7 mids, 5 defenders, 5 forwards. Four more wait on the interchange. Tap a guernsey.",
+			"Match-day shape: 6-6-6 - six defenders, six midfielders (ruck included) and six forwards. Four more wait on the interchange. Tap a guernsey.",
 			11, UiKit.MUTED))
 	var oval := FormationView.new()
 	oval.name = "Best22Oval"

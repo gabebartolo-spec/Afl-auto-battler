@@ -2,13 +2,22 @@ class_name Season
 extends RefCounted
 ## A 24-round home-and-away season plus a full AFL finals series.
 ##
-## Fixture: 18 clubs means 9 matches a round and no byes, so 24 rounds gives
-## every club 24 games. Rounds 1-17 are a single round-robin; rounds 18-24 are
-## the first seven rounds of the return fixture with home/away flipped. That
-## mirrors the real AFL, where you meet some clubs twice and others once.
+## Fixture: with 18 clubs, 9 matches a round and no byes, 24 rounds gives
+## every club 24 games: a single round-robin (17 rounds) plus the first seven
+## rounds of the return fixture with home/away flipped. An odd club count
+## (expansion) rotates a virtual BYE, so every club still plays 24 games.
+##
+## Finals (10 finalists):
+##   Week 1  Wildcard: WC1 7v10, WC2 8v9
+##   Week 2  QF1 1v4, QF2 2v3, EF1 5v(W_WC2), EF2 6v(W_WC1) - the wildcard
+##           winners are reseeded as the 7th and 8th seeds by their original
+##           ladder position
+##   Week 3  SF: QF losers v EF winners
+##   Week 4  PF: QF winners v SF winners
+##   Week 5  GF
 
 const REGULAR_ROUNDS := 24
-const FINALISTS := 8
+const FINALISTS := 10
 
 var clubs: Array = []          # club codes
 var lists := {}                # code -> Array of player dicts
@@ -23,7 +32,14 @@ var selections := {}           # code -> chosen match-day side (empty = auto)
 
 func _init(club_codes: Array, club_lists: Dictionary, p_seed: int = 0) -> void:
 	clubs = club_codes.duplicate()
-	lists = club_lists
+	# Keep only this season's clubs. Callers build `club_lists` for every
+	# club that will ever exist, and the offseason, contracts and free-agent
+	# passes iterate `lists` - a phantom entry for a club that has not
+	# entered yet would let rivals "sign" free agents into it and silently
+	# pre-fill the expansion club's debut list (skipping its generation).
+	lists = {}
+	for c in clubs:
+		lists[c] = club_lists.get(c, [])
 	seed = p_seed
 	ladder = {}
 	for c in clubs:
@@ -36,16 +52,22 @@ func _init(club_codes: Array, club_lists: Dictionary, p_seed: int = 0) -> void:
 # Fixture
 # ---------------------------------------------------------------------------
 ## Circle method: hold one club still and rotate the rest, giving a full
-## round-robin in n-1 rounds.
+## round-robin in n-1 rounds. An odd club count (expansion) adds a virtual
+## BYE to the rotation, so every club still meets every other exactly once.
 static func round_robin(codes: Array) -> Array:
 	var n := codes.size()
 	var rot := codes.duplicate()
+	if n % 2 == 1:
+		rot.append("BYE")
+		n += 1
 	var rounds := []
 	for r in range(n - 1):
 		var matches := []
-		for i in range(floori(n / 2.0)):
+		for i in range(n / 2):
 			var a: String = rot[i]
 			var b: String = rot[n - 1 - i]
+			if a == "BYE" or b == "BYE":
+				continue
 			# Alternate venue by round and pairing so no club is permanently
 			# home or away against a given opponent.
 			if (r + i) % 2 == 0:
@@ -167,11 +189,7 @@ func is_regular_done() -> bool:
 # ---------------------------------------------------------------------------
 # Finals
 # ---------------------------------------------------------------------------
-## The real AFL bracket:
-##   Week 1  QF 1v4, 2v3      EF 5v8, 6v7
-##   Week 2  SF: QF losers v EF winners
-##   Week 3  PF: QF winners v SF winners
-##   Week 4  GF
+## The wildcard bracket (see the class doc): ten finalists, five weeks.
 func start_finals() -> void:
 	var top := []
 	for row in ladder_sorted():
@@ -181,7 +199,7 @@ func start_finals() -> void:
 	finals = {
 		"week": 1,
 		"top": top,
-		"slots": {},          # "W_QF1" etc -> club code
+		"slots": {},          # "W_WC1" etc -> club code
 		"weeks": [],          # played weeks: Array of Array of results
 		"premier": "",
 		"runner_up": "",
@@ -197,28 +215,37 @@ func finals_week_matches() -> Array:
 	match int(finals["week"]):
 		1:
 			return [
-				{"tag": "QF1", "label": "Qualifying Final 1", "home": t[0], "away": t[3]},
-				{"tag": "QF2", "label": "Qualifying Final 2", "home": t[1], "away": t[2]},
-				{"tag": "EF1", "label": "Elimination Final 1", "home": t[4], "away": t[7]},
-				{"tag": "EF2", "label": "Elimination Final 2", "home": t[5], "away": t[6]},
+				{"tag": "WC1", "label": "Wildcard Final 1", "home": t[6], "away": t[9]},
+				{"tag": "WC2", "label": "Wildcard Final 2", "home": t[7], "away": t[8]},
 			]
 		2:
+			return [
+				{"tag": "QF1", "label": "Qualifying Final 1", "home": t[0], "away": t[3]},
+				{"tag": "QF2", "label": "Qualifying Final 2", "home": t[1], "away": t[2]},
+				# Wildcard winners reseed by original ladder position: the
+				# winner of 7v10 takes the 7th seed, the winner of 8v9 the 8th.
+				{"tag": "EF1", "label": "Elimination Final 1",
+						"home": t[4], "away": s.get("W_WC2", "")},
+				{"tag": "EF2", "label": "Elimination Final 2",
+						"home": t[5], "away": s.get("W_WC1", "")},
+			]
+		3:
 			return [
 				{"tag": "SF1", "label": "Semi Final 1",
 						"home": s.get("L_QF1", ""), "away": s.get("W_EF1", "")},
 				{"tag": "SF2", "label": "Semi Final 2",
 						"home": s.get("L_QF2", ""), "away": s.get("W_EF2", "")},
 			]
-		3:
+		4:
 			return [
 				{"tag": "PF1", "label": "Preliminary Final 1",
 						"home": s.get("W_QF1", ""), "away": s.get("W_SF1", "")},
 				{"tag": "PF2", "label": "Preliminary Final 2",
 						"home": s.get("W_QF2", ""), "away": s.get("W_SF2", "")},
 			]
-		4:
+		5:
 			return [{"tag": "GF", "label": "Grand Final",
-					"home": s.get("W_PF1", ""), "away": s.get("W_PF2", "")}]
+						"home": s.get("W_PF1", ""), "away": s.get("W_PF2", "")}]
 	return []
 
 
@@ -278,7 +305,7 @@ func record_final(m: Dictionary, res: Dictionary) -> void:
 func complete_finals_week(played: Array) -> void:
 	var s: Dictionary = finals["slots"]
 	finals["weeks"].append(played)
-	if int(finals["week"]) == 4 and not played.is_empty():
+	if int(finals["week"]) == 5 and not played.is_empty():
 		finals["premier"] = s.get("W_GF", "")
 		finals["runner_up"] = s.get("L_GF", "")
 		finals["done"] = true

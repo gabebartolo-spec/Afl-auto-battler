@@ -24,7 +24,7 @@ func _ready() -> void:
 	add_child(margin)
 	_root = UiKit.vbox(8)
 	margin.add_child(_root)
-	for code in GameDB.CLUB_ORDER:
+	for code in GameDB.active_clubs(GameState.season_year):
 		if code != GameState.my_club:
 			_trade_club = code
 			break
@@ -142,7 +142,7 @@ func _trade(body: VBoxContainer) -> void:
 	var pick := UiKit.option()
 	pick.name = "TradeClub"
 	pick.custom_minimum_size = Vector2(0, 44)
-	for code in GameDB.CLUB_ORDER:
+	for code in GameDB.active_clubs(GameState.season_year):
 		if code == GameState.my_club:
 			continue
 		pick.add_item(GameDB.club_name(code))

@@ -80,13 +80,13 @@ func _test_history_and_snake_order() -> void:
 func _test_position_guidance() -> void:
 	var draft := Draft.new(_pool(), ["A", "B"], 42)
 	draft.start_for_user(str(draft.draft_order[0]))
-	_check(draft.position_targets() == {"DEF": 5, "MID": 7, "RUCK": 2, "FWD": 5},
-			"Coverage agrees with the actual ground slots and two-ruck rule")
+	_check(draft.position_targets() == {"RUCK": 2, "MID": 5, "DEF": 6, "FWD": 6},
+			"Coverage agrees with the 6-6-6 ground slots and two-ruck rule")
 	_check(draft.position_needs() == draft.position_targets(), "An empty list needs every target slot")
 	var defender: Dictionary = draft.board("DEF", "", "", "overall", true)[0]
 	_check(draft.pick(defender), "Can select a defender")
 	_check(draft.role_counts()["DEF"] == 1, "Position totals count only the user's players")
-	_check(draft.position_needs()["DEF"] == 4, "Position needs decrease immediately")
+	_check(draft.position_needs()["DEF"] == 5, "Position needs decrease immediately")
 	_check(draft.role_counts()["MID"] == 0, "Rival midfield picks do not affect user totals")
 	# Coverage is advisory, never a cap on how many players may play a role.
 	var list: Array = draft.club_lists[draft.user_club]
@@ -110,7 +110,9 @@ func _test_complete_small_draft() -> void:
 
 
 func _test_real_pool() -> void:
-	var draft := Draft.new(GameDB.all_players_sorted(), GameDB.CLUB_ORDER.duplicate(), 12345)
+	# The career draft is a 2026 event: the founding eighteen only.
+	var draft := Draft.new(GameDB.all_players_sorted(),
+			GameDB.active_clubs(2026).duplicate(), 12345)
 	var mine := str(draft.draft_order[8])
 	draft.start_for_user(mine)
 	_check(draft.pick_history.size() == 8, "All eight opening real-data rival picks are visible")

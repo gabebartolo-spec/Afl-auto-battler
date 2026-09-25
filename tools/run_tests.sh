@@ -14,7 +14,7 @@ cd "$(dirname "$0")/.." || exit 1
 
 GODOT="${GODOT:-godot}"
 SUITE_TIMEOUT="${SUITE_TIMEOUT:-900}"
-ALL_SUITES=(draft draft_ui intake intake_ui finals save career_ui potential ai training selection injuries awards contracts league club match_game calibration balance)
+ALL_SUITES=(draft draft_ui intake intake_ui expansion finals save career_ui potential ai training selection injuries awards contracts league club match_game calibration balance)
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
 
 LOG_DIR="${LOG_DIR:-$(mktemp -d)}"
@@ -59,9 +59,19 @@ for suite in "${SUITES[@]}"; do
 	if [ "$status" = FAIL ]; then
 		failed=1
 		note_error "suite '$suite' failed: $detail"
-		[ "$in_ci" = 1 ] && echo "::group::$suite log (errors)"
-		grep -E -A4 "^ERROR|SCRIPT ERROR" "$log" | head -60
-		[ "$in_ci" = 1 ] && echo "::endgroup::"
+	[ "$in_ci" = 1 ] && echo "::group::$suite log (errors)"
+	grep -E -A4 "^ERROR|SCRIPT ERROR" "$log" | head -60
+	[ "$in_ci" = 1 ] && echo "::endgroup::"
+	# Surface parse errors and failed-check messages as job annotations so a
+	# red run is diagnosable without downloading the full log.
+	if [ "$in_ci" = 1 ]; then
+		grep -E "SCRIPT ERROR|Parse Error|Compile Error" "$log" | head -20 | while IFS= read -r l; do
+			printf '::error::%s-log::%s\n' "$suite" "$l"
+		done
+		grep -E "^ERROR" "$log" | head -30 | while IFS= read -r l; do
+			printf '::error::%s-check::%s\n' "$suite" "${l#ERROR: }"
+		done
+	fi
 	fi
 	summary+=("| $suite | $status | $detail (${secs}s) |")
 done

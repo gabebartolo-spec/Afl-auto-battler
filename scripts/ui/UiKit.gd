@@ -269,13 +269,21 @@ static func readable_on(bg: Color) -> Color:
 	return Color(0.08, 0.08, 0.1) if lum > 0.55 else Color(1, 1, 1)
 
 
-static func top_bar(title_text: String, back := true, right: Control = null) -> HBoxContainer:
+## `back_cb` (optional) gets first say on the back button: if it returns
+## true it has handled the step back itself (e.g. closed an in-scene view),
+## otherwise the router steps back as usual.
+static func top_bar(title_text: String, back := true, right: Control = null,
+		back_cb: Callable = Callable()) -> HBoxContainer:
 	var h := hbox(10)
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
 	if back:
 		var b := btn("‹", 24)
+		b.name = "TopBarBack"
 		b.custom_minimum_size = Vector2(44, 44)
-		b.pressed.connect(func(): Router.back())
+		b.pressed.connect(func():
+			if back_cb.is_valid() and back_cb.call():
+				return
+			Router.back())
 		h.add_child(b)
 	var t := ellipsis(title_text, 22, TEXT, true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -387,10 +395,11 @@ static func ladder_table(rows: Array, mine: String, width: float, limit := 0,
 	var specs := ladder_specs(width, full)
 	v.add_child(_ladder_header(specs))
 	var shown := rows.size() if limit <= 0 else mini(limit, rows.size())
+	var cut := Season.FINALISTS - 1
 	for i in range(shown):
 		v.add_child(_ladder_data_row(rows[i], i + 1, specs, mine))
-		if i == 7 and (shown > 8 or limit == 8):
-			var note := line("top 8 make the finals", 11, MUTED)
+		if i == cut and (shown > Season.FINALISTS or limit == Season.FINALISTS):
+			var note := line("top %d make the finals" % Season.FINALISTS, 11, MUTED)
 			note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			v.add_child(note)

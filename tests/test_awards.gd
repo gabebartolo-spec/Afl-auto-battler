@@ -73,8 +73,8 @@ func _test_full_season() -> void:
 	var rising: Array = aw.get("rising_star", [])
 	_check(not rising.is_empty() and float(rising[0]["age"]) <= Awards.RISING_STAR_AGE,
 			"A Rising Star aged 21 or under")
-	_check((aw.get("best_and_fairest", {}) as Dictionary).size() == GameDB.CLUB_ORDER.size(),
-			"Every club has a best and fairest")
+	_check((aw.get("best_and_fairest", {}) as Dictionary).size() == GameState.season.ladder.size(),
+			"Every active club has a best and fairest")
 	var aa: Array = aw.get("all_australian", [])
 	var slots := {}
 	var ids := {}
@@ -85,8 +85,8 @@ func _test_full_season() -> void:
 		if int(r["games"]) < Awards.AA_MIN_GAMES:
 			games_ok = false
 	_check(aa.size() == 22 and ids.size() == 22, "The All-Australian team is 22 different players")
-	_check(slots == {"RUCK": 1, "MID": 7, "DEF": 5, "FWD": 5, "BENCH": 4},
-			"All-Australian is 1-7-5-5 plus 4 (%s)" % str(slots))
+	_check(slots == {"RUCK": 1, "MID": 5, "DEF": 6, "FWD": 6, "BENCH": 4},
+			"All-Australian is the 6-6-6 shape (1 ruck, 5 mids, 6 def, 6 fwd) plus 4 (%s)" % str(slots))
 	_check(games_ok, "All-Australians played 12+ games")
 	_check(GameState.honour_roll.size() == 1 and not GameState.records.is_empty(),
 			"The honour roll and records are written")
