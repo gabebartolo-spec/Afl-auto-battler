@@ -49,14 +49,21 @@ func clubs() -> Array:
 ## the lists, the pick order, your club ("" for policy "ai") and a signature
 ## of the league that ignores club names (to count distinct leagues).
 ## Deterministic for a given (seed, policy, top_n).
-func drafted_lists(seed: int, policy := "board", top_n := 5) -> Dictionary:
-	var d := make_draft(seed, policy, top_n)
+func drafted_lists(seed: int, policy := "board", top_n := 5, model := {}) -> Dictionary:
+	var d := make_draft(seed, policy, top_n, model)
 	return {"lists": d.all_lists(), "order": d.draft_order.duplicate(),
 			"user_club": d.user_club, "sig": league_signature(d.all_lists())}
 
 
-func make_draft(seed: int, policy := "board", top_n := 5) -> Draft:
-	var d := Draft.new(GameDB.all_players_sorted(), clubs(), seed)
+## A non-empty `model` drafts with an experimental draft model
+## (tools/balance/draft_variant.gd) instead of the shipped one.
+func make_draft(seed: int, policy := "board", top_n := 5, model := {}) -> Draft:
+	var d: Draft
+	if model.is_empty():
+		d = Draft.new(GameDB.all_players_sorted(), clubs(), seed)
+	else:
+		d = load("res://tools/balance/draft_variant.gd").new(GameDB.all_players_sorted(), clubs(), seed)
+		d.configure(model)
 	if policy == "ai":
 		d.start_for_user("")
 	else:
@@ -114,6 +121,40 @@ func club_ratings(lists: Dictionary, codes: Array) -> Dictionary:
 			n += 1
 		out[c] = {"strength": sq.strength(), "ovr22": total / float(maxi(1, n)),
 				"contest": sq.contest, "attack": sq.attack, "defence": sq.defence}
+	return out
+
+
+## The line aggregates behind Squad.strength() (the engine's inputs) and the
+## shape of the list, for the draft-model experiment.
+func club_units(lists: Dictionary, codes: Array) -> Dictionary:
+	var out := {}
+	for c in codes:
+		var list: Array = lists[c]
+		var sq := Squad.new(str(c), list, true, str(c))
+		var roles := {"RUCK": 0, "MID": 0, "DEF": 0, "FWD": 0}
+		var ovrs := []
+		var value := 0
+		for p in list:
+			roles[str(p["role"])] = int(roles[str(p["role"])]) + 1
+			ovrs.append(float(p["overall"]))
+			value += int(p["value"])
+		ovrs.sort()
+		ovrs.reverse()
+		var sel := 0.0
+		for p in sq.ground + sq.bench:
+			sel += float(p["overall"])
+		out[c] = {
+			"strength": sq.strength(), "ovr22": sel / float(maxi(1, sq.ground.size() + sq.bench.size())),
+			"contest": sq.contest, "attack": sq.attack, "defence": sq.defence,
+			"ruck": sq.ruck, "mid_contest": sq.mid_contest, "mid_disposal": sq.mid_disposal,
+			"mid_carry": sq.mid_carry, "def_pressure": sq.def_pressure,
+			"def_intercept": sq.def_intercept, "fwd_goal": sq.fwd_goal,
+			"fwd_mark": sq.fwd_mark, "fwd_create": sq.fwd_create,
+			"team_star": sq.team_star, "team_discipline": sq.team_discipline,
+			"list_ovr": mean(ovrs), "top5_ovr": mean(ovrs.slice(0, 5)),
+			"size": list.size(), "value": value, "roles": roles,
+			"ids": list.map(func(p): return str(p["id"])),
+		}
 	return out
 
 

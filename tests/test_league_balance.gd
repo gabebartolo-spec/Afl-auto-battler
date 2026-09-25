@@ -15,6 +15,7 @@ func run() -> void:
 	var lb = load("res://tools/balance/league_balance.gd").new()
 	_test_stats(lb)
 	_test_draft(lb)
+	_test_draft_variant(lb)
 	_test_season(lb)
 	_test_sensitivity(lb)
 	print("League balance tests: %d checks, %d failures" % [checks, failures.size()])
@@ -71,6 +72,24 @@ func _test_draft(lb) -> void:
 	for code in ratings:
 		st.append(float(ratings[code]["strength"]))
 	_check(lb.sd(st) > 0.0, "Drafted clubs differ in preseason strength")
+
+
+## The draft-compression experiment's model (tools/balance/draft_variant.gd)
+## must reproduce the shipped draft when every knob is at its shipped value,
+## so each variant changes only the mechanism it names.
+func _test_draft_variant(lb) -> void:
+	var shipped: Dictionary = lb.drafted_lists(7, "ai")
+	var same: Dictionary = lb.drafted_lists(7, "ai", 5,
+			{"order": "snake", "score": "current", "need_scale": 1.0, "vorp_scale": 1.0,
+			"cap_penalty": true, "budget_mult": 1.0, "noise_sd": 0.0})
+	_check(str(same["sig"]) == str(shipped["sig"]),
+			"The experiment draft model at shipped settings reproduces the shipped draft")
+	var linear: Dictionary = lb.drafted_lists(7, "ai", 5, {"order": "linear"})
+	_check(str(linear["sig"]) != str(shipped["sig"]), "A linear draft order changes the league")
+	var noisy1: Dictionary = lb.drafted_lists(7, "ai", 5, {"noise_sd_max": 8.0})
+	var noisy2: Dictionary = lb.drafted_lists(7, "ai", 5, {"noise_sd_max": 8.0})
+	_check(str(noisy1["sig"]) == str(noisy2["sig"]) and str(noisy1["sig"]) != str(shipped["sig"]),
+			"Club valuation noise is seeded: reproducible, and it changes the league")
 
 
 func _test_season(lb) -> void:
