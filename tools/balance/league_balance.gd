@@ -247,7 +247,7 @@ func _match_row(res: Dictionary, ratings: Dictionary, tag: String) -> Dictionary
 	return {"h": h, "a": a, "hs": int(res["score"][0]), "as": int(res["score"][1]),
 			"sh": float(ratings[h]["strength"]), "sa": float(ratings[a]["strength"]),
 			"oh": float(ratings[h]["ovr22"]), "oa": float(ratings[a]["ovr22"]),
-			"final": tag, "neutral": bool(res.get("neutral", false))}
+			"final": tag, "venue": str(res.get("venue", ""))}
 
 
 # ---------------------------------------------------------------------------

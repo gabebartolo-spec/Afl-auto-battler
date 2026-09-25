@@ -285,11 +285,15 @@ func contest_winner(use_fp: bool, fp: float) -> int:
 	return 0 if rng.randf() < maxf(1.0 - lim, minf(lim, p_home)) else 1
 
 
-## The home-ground edge at stoppages. Side 0 is the home side, except at a
-## neutral venue (the Grand Final), where its squad is built with home off
-## and nobody gets the edge.
+## The home-ground edge at stoppages, from side 0's point of view: a club
+## playing at its own home ground (Squad.home) has it. In an ordinary match
+## that is the home side only. At the Grand Final (always the MCG) either
+## club, or both, can be at home - two MCG clubs cancel out, and a club
+## listed in the home slot gets nothing for the slot alone.
 func home_edge() -> float:
-	return float(Ratings.T["home_ground_bonus"]) if (squads[0] as Squad).home else 0.0
+	var bonus := float(Ratings.T["home_ground_bonus"])
+	return (bonus if (squads[0] as Squad).home else 0.0) \
+			- (bonus if (squads[1] as Squad).home else 0.0)
 
 
 func _contest_bonus(side: int, stoppage := false) -> float:

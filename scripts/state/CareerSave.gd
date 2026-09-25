@@ -29,7 +29,7 @@ const WRITE_TAG := "__save_sid"
 const SKIP_PLAYER_KEYS := ["rates", "norm"]
 const RESULT_KEYS := ["home", "away", "score", "goals", "behinds", "quarters",
 		"q_goals", "q_behinds", "winner", "margin", "round", "label", "tag",
-		"neutral", "decided_on_ladder", "extra_time"]
+		"venue", "decided_on_ladder", "extra_time"]
 
 var _players := {}      # sid -> encoded player body (writing) / raw (reading)
 var _next_sid := 0

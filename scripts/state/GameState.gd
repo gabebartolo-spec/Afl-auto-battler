@@ -729,8 +729,7 @@ func prepare_interactive_match() -> bool:
 		if m["home"] == my_club or m["away"] == my_club:
 			pending_match = {"home": m["home"], "away": m["away"],
 					"round": season.round_index + 1,
-					"label": "Round %d" % (season.round_index + 1),
-					"neutral": false}
+					"label": "Round %d" % (season.round_index + 1)}
 		else:
 			var res := season.simulate(m["home"], m["away"], season.next_seed(i))
 			res["round"] = season.round_index + 1
@@ -777,20 +776,20 @@ func _prepare_interactive_final() -> bool:
 		if i == mine or m["home"] == "" or m["away"] == "":
 			continue
 		var res := season.simulate(m["home"], m["away"], season.finals_seed(i),
-				season.finals_neutral(m), true)
+				season.finals_at_home(m), true)
 		res["finals_index"] = i
 		pending_round_results.append(res)
 	var fm: Dictionary = matches[mine]
-	var neutral := season.finals_neutral(fm)
+	var at_home: Array = season.finals_at_home(fm)
 	pending_match = {"home": fm["home"], "away": fm["away"],
 			"round": Season.REGULAR_ROUNDS + int(season.finals["week"]),
 			"label": str(fm["label"]), "tag": str(fm["tag"]),
-			"neutral": neutral, "finals_index": mine}
+			"venue": season.finals_venue(fm), "finals_index": mine}
 	var home := Squad.new(GameDB.club_name(str(fm["home"])),
-			season.lists[fm["home"]], not neutral, str(fm["home"]),
+			season.lists[fm["home"]], bool(at_home[0]), str(fm["home"]),
 			season.selections.get(str(fm["home"]), {}))
 	var away := Squad.new(GameDB.club_name(str(fm["away"])),
-			season.lists[fm["away"]], false, str(fm["away"]),
+			season.lists[fm["away"]], bool(at_home[1]), str(fm["away"]),
 			season.selections.get(str(fm["away"]), {}))
 	pending_sim = MatchSim.new(home, away, season.finals_seed(mine))
 	pending_sim.finals_mode = true

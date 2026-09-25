@@ -18,6 +18,8 @@ extends RefCounted
 
 const REGULAR_ROUNDS := 24
 const FINALISTS := 10
+## The Grand Final is always played here, whichever clubs make it.
+const GRAND_FINAL_VENUE := "MCG"
 
 var clubs: Array = []          # club codes
 var lists := {}                # code -> Array of player dicts
@@ -99,17 +101,18 @@ func build_fixture() -> Array:
 # ---------------------------------------------------------------------------
 # Simulation
 # ---------------------------------------------------------------------------
+## `at_home`: whether each club plays at its own home ground (the engine's
+## home-ground edge). Normally the home club hosts; see finals_at_home() for
+## the Grand Final.
 func simulate(home_code: String, away_code: String, match_seed: int,
-		neutral_venue := false, is_final := false) -> Dictionary:
+		at_home := [true, false], is_final := false) -> Dictionary:
 	var home := Squad.new(GameDB_ref().club_name(home_code),
-			lists[home_code], not neutral_venue, home_code, selections.get(home_code, {}))
+			lists[home_code], bool(at_home[0]), home_code, selections.get(home_code, {}))
 	var away := Squad.new(GameDB_ref().club_name(away_code),
-			lists[away_code], false, away_code, selections.get(away_code, {}))
+			lists[away_code], bool(at_home[1]), away_code, selections.get(away_code, {}))
 	var sim := MatchSim.new(home, away, match_seed)
 	sim.finals_mode = is_final
-	var res := sim.run()
-	res["neutral"] = neutral_venue
-	return res
+	return sim.run()
 
 
 ## GameDB is an autoload; reaching it from a RefCounted needs the scene tree.
@@ -258,7 +261,7 @@ func play_finals_week() -> Array:
 		var m: Dictionary = matches[i]
 		if m["home"] == "" or m["away"] == "":
 			continue
-		var res := simulate(m["home"], m["away"], finals_seed(i), finals_neutral(m), true)
+		var res := simulate(m["home"], m["away"], finals_seed(i), finals_at_home(m), true)
 		record_final(m, res)
 		played.append(res)
 	complete_finals_week(played)
@@ -271,10 +274,29 @@ func finals_seed(i: int) -> int:
 	return seed * 7717 + int(finals["week"]) * 131 + i
 
 
-## The higher-ranked club hosts every final except the Grand Final, which is
-## played at a neutral venue. The bracket always lists the higher seed first.
-func finals_neutral(m: Dictionary) -> bool:
-	return str(m.get("tag", "")) == "GF"
+## Where a final is played. The higher-ranked club hosts every final at its
+## home ground, except the Grand Final, which is always at the MCG whoever
+## makes it. The bracket always lists the higher seed first.
+func finals_venue(m: Dictionary) -> String:
+	if str(m.get("tag", "")) == "GF":
+		return GRAND_FINAL_VENUE
+	return home_ground(str(m.get("home", "")))
+
+
+## Which of a final's clubs plays at its own home ground (the engine's
+## home-ground edge). The host of every other final has it, exactly as in a
+## home-and-away match. At the Grand Final a club has it only if the MCG is
+## its home ground, whichever slot it is listed in: two MCG clubs, or none,
+## and neither side has an edge.
+func finals_at_home(m: Dictionary) -> Array:
+	if str(m.get("tag", "")) != "GF":
+		return [true, false]
+	return [home_ground(str(m.get("home", ""))) == GRAND_FINAL_VENUE,
+			home_ground(str(m.get("away", ""))) == GRAND_FINAL_VENUE]
+
+
+func home_ground(code: String) -> String:
+	return str(GameDB_ref().club(code).get("ground", ""))
 
 
 ## Stamp a finals result and advance the bracket slots. Extra time settles
@@ -285,7 +307,7 @@ func record_final(m: Dictionary, res: Dictionary) -> void:
 	res["round"] = REGULAR_ROUNDS + int(finals["week"])
 	res["label"] = m["label"]
 	res["tag"] = m["tag"]
-	res["neutral"] = finals_neutral(m)
+	res["venue"] = finals_venue(m)
 	var sc: Array = res["score"]
 	var winner: String
 	var loser: String

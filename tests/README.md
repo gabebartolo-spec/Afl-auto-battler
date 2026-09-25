@@ -43,8 +43,10 @@ data). The UI suite runs the shared DraftScene in intake mode across the same
 ten viewports. The finals suite checks the bracket opens straight after
 round 24, that a qualifying club plays every final live through the same
 prepare / quarter-by-quarter / finish path the match screen uses (nothing is
-recorded mid-match, each week records the right number of matches, only the
-Grand Final is neutral), that simming the series still crowns a premier,
+recorded mid-match, each week records the right number of matches, the
+higher seed hosts every final but the Grand Final, which is always at the
+MCG, where only an MCG club has a home-ground edge, in either slot), that
+simming the series still crowns a premier,
 that a level final goes to extra time (one siren, a fifth period, the tie
 broken) while a home-and-away draw stays a draw, and that the finals status
 (alive / week off / knocked out) and outcome line are right each week.

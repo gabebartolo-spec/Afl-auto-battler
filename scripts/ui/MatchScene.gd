@@ -52,7 +52,7 @@ func _ready() -> void:
 		_res["home"] = GameState.pending_match["home"]
 		_res["away"] = GameState.pending_match["away"]
 		_res["label"] = GameState.pending_match["label"]
-		_res["neutral"] = bool(GameState.pending_match.get("neutral", false))
+		_res["venue"] = str(GameState.pending_match.get("venue", ""))
 		_res["events"] = []
 		_my_side = 0 if str(_res["home"]) == GameState.my_club else 1
 	else:
@@ -230,9 +230,11 @@ func _score_middle(narrow: bool) -> Control:
 	_clock = UiKit.line("Q%d %d'" % [_shown_q, _shown_min], 15 if narrow else 20, UiKit.TEXT, true)
 	_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid.add_child(_clock)
-	var ground := str(GameDB.club(str(_res["home"])).get("ground", ""))
-	if bool(_res.get("neutral", false)):
-		ground = "Neutral venue"
+	# A final names its venue (the Grand Final is always at the MCG); any
+	# other match is at the home club's ground.
+	var ground := str(_res.get("venue", ""))
+	if ground == "":
+		ground = str(GameDB.club(str(_res["home"])).get("ground", ""))
 	var venue := UiKit.ellipsis(ground, 11, UiKit.MUTED)
 	venue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid.add_child(venue)
@@ -900,7 +902,7 @@ func _stamp_match_meta() -> void:
 	_res["home"] = GameState.pending_match["home"]
 	_res["away"] = GameState.pending_match["away"]
 	_res["label"] = GameState.pending_match["label"]
-	_res["neutral"] = bool(GameState.pending_match.get("neutral", false))
+	_res["venue"] = str(GameState.pending_match.get("venue", ""))
 
 
 func _append_new_events() -> void:
