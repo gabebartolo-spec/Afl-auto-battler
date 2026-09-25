@@ -36,6 +36,8 @@ ORDER = [
     ("evn_15_6", "ai", "Club evaluation SD ~ U[1.5,6], by need"),
     ("evn_2_7", "ai", "Club evaluation SD ~ U[2,7], by need"),
     ("evn_25_8", "ai", "Club evaluation SD ~ U[2.5,8], by need"),
+    ("evn_2_4", "ai", "Club evaluation SD ~ U[2,4], by need"),
+    ("evn_3_3", "ai", "Club evaluation SD = 3 for every club, by need"),
     ("current", "ai", "Shipped draft, all-AI (snake)"),
     ("current", "board", "Shipped draft, naive human (board)"),
     ("linear", "ai", "Order: linear (same order every round)"),

@@ -32,6 +32,10 @@ const VARIANTS := {
 	"evn_15_6": {"eval_sd": [1.5, 6.0]},
 	"evn_2_7": {"eval_sd": [2.0, 7.0]},
 	"evn_25_8": {"eval_sd": [2.5, 8.0]},
+	# Narrower shapes: the same mean opinion error, less (or no) difference
+	# in how sharp clubs are.
+	"evn_2_4": {"eval_sd": [2.0, 4.0]},
+	"evn_3_3": {"eval_sd": [3.0, 3.0]},
 	# Draft order, shipped AI
 	"linear": {"order": "linear"},
 	"random_round": {"order": "random_round"},
