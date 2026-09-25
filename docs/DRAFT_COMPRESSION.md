@@ -5,6 +5,13 @@ balance constants, player data, MatchSim, home advantage and career
 progression are all unchanged. Each draft variant runs in the tooling only.
 Every season is played through the shipped `Season` → `MatchSim`.
 
+> **Note (later change).** The draft measured here as "shipped" is the draft
+> *before* club-specific evaluation. That change is described in
+> [DRAFT_EVALUATION.md](DRAFT_EVALUATION.md). The experiment's variants still
+> reproduce, because a non-empty tooling model leaves club evaluation out
+> unless it names `eval_sd`. The tooling variant `current` now means today's
+> draft.
+
 The generated tables are in
 [`docs/draft_compression_report.md`](draft_compression_report.md). The
 harness itself is described in [LEAGUE_BALANCE.md](LEAGUE_BALANCE.md).

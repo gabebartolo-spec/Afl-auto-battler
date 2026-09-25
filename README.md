@@ -255,8 +255,20 @@ draft), minus the best player the club can still expect in that position at
 its next pick. Scarce positions go early (the elite rucks are taken in
 round one), deep ones wait. An open starting spot counts in full, depth up to
 a balanced list 60%, surplus 20%; every club ends the career draft with two
-rucks, and the salary cap only bites when a pick would starve the rest of the
-list.
+or three rucks, and the salary cap only bites when a pick would starve the
+rest of the list.
+
+**Scouting opinions.** In the career draft no two rival clubs rate players
+identically. Each club sees every player through its own fixed opinion of
+him: his worth plus an error that belongs to that club and that player.
+The error is zero on average, so no club rates everyone up or down. It
+counts in full for a starting spot the club is filling, less for depth,
+and little for surplus. Clubs also differ in how sharp their scouting is:
+the typical error is 1-5 rating points depending on the club. Everything
+comes from the draft seed, so a draft replays identically. The opinions
+change only which players rivals pick. They never change a player's ratings, the draft
+board you see, the salary cap or your own picks. The national draft keeps
+one shared valuation. See [docs/DRAFT_EVALUATION.md](docs/DRAFT_EVALUATION.md).
 
 **Training.** Rival players earn XP from every game on the same scale as
 yours, and their coaches spend it on the stats that matter for the position

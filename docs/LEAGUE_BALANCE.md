@@ -6,6 +6,12 @@ in the career draft. This document describes the measurement harness for that
 league and records the baseline it produced. **It is measurement only** - no
 rating, rule or constant was changed to produce it.
 
+The baseline below predates club-specific draft evaluation. For the same
+harness re-run after that change, see
+[league_balance_after_club_eval.md](league_balance_after_club_eval.md) and
+[DRAFT_EVALUATION.md](DRAFT_EVALUATION.md). Pass `--policy ai` explicitly for
+all-AI shards: the default is `board`.
+
 The full generated baseline (every table) is
 [`docs/league_balance_baseline.md`](league_balance_baseline.md).
 
@@ -30,9 +36,10 @@ The full generated baseline (every table) is
 **Your club's picks (`--policy`).** In the real game you make your own picks.
 The harness models two drafters:
 
-- `ai` - you pick exactly like the AI. The draft is then **deterministic up to
-  the random pick order**: every seed produces the same 18 lists under
-  different club names (a property of the game, pinned by the smoke suite).
+- `ai` - you pick exactly like the AI. Before club-specific evaluation the
+  draft was then **deterministic up to the random pick order**: every seed
+  produced the same 18 lists under different club names. Now each seed is a
+  different league. The smoke suite pins both properties.
 - `board` (default) - a simple human: at each of your turns, a seeded random
   pick among the top 5 players on the draft board sorted by overall that the
   board allows (`Draft.can_pick_player`). Your picks change every later AI

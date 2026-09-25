@@ -441,9 +441,8 @@ func _ai_score(code: String, p: Dictionary) -> float:
 ## sees each player through its own scouting opinion: the worth above plus a
 ## fixed error that belongs to that club and that player, weighted by how
 ## much the club needs him (full for an open starting spot, less for depth,
-## little for surplus - so late-draft depth picks follow the consensus and
-## no club piles up spare rucks). The opinion is
-## zero-mean (no club is told to over- or under-rate everyone), and clubs
+## little for surplus - late-draft depth picks follow the consensus). The
+## opinion is zero-mean (no club is told to over- or under-rate everyone), and clubs
 ## differ in how sharp their scouting is: each club's error SD is drawn from
 ## [AI_EVAL_SD_MIN, AI_EVAL_SD_MAX] rating points. Everything derives from
 ## the draft seed, so a draft replays identically, the opinion never changes
