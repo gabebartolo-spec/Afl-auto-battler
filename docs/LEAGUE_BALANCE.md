@@ -15,6 +15,7 @@ The full generated baseline (every table) is
 |---|---|
 | `tools/balance/league_balance.gd` | Library. Drafts, plays and measures through the shipped code: `Draft`, `Squad`, `Season` → `MatchSim`, `GameState`, `Prospects._shift_player`. No football is simulated here. |
 | `tools/balance/league_balance_report.gd` | CLI. Runs seeded shards to JSON, and merges shards into a markdown report. |
+| `tools/balance/draft_variant.gd`, `draft_experiment.gd`, `draft_experiment_report.py` | The draft-compression experiment: one draft mechanism changed at a time, in the tooling only. See [DRAFT_COMPRESSION.md](DRAFT_COMPRESSION.md). |
 | `tests/test_league_balance.gd` | CI smoke suite (`league_balance` in `tools/run_tests.sh`, ~1 min). Checks the harness is reproducible and still exercises the real code; asserts **no** balance target. |
 
 ### What each league source exercises
@@ -137,7 +138,9 @@ worth roughly as much as +4 to +5 whole-list OVR.
   OVR gaps of this size are worth at most a few percentage points.
 - **The engine is less decisive than the real game, even with real lists.**
   It retains about half the real skill variance (3.14² ≈ 9.9 against
-  ≈4.5² ≈ 20 wins²), and blowouts are about half as frequent.
+  ≈4.5² ≈ 20 wins²), and blowouts are about half as frequent. (Against
+  the 13-season benchmark in [DRAFT_COMPRESSION.md](DRAFT_COMPRESSION.md),
+  rather than 2026 alone, it keeps about 64% of the per-game variance.)
 - **In a drafted league, OVR does not measure match strength.** Clubs with a
   higher selected-22 OVR win no more often (48.7%). The naive board drafter
   finishes near the bottom despite the highest OVR, because the engine

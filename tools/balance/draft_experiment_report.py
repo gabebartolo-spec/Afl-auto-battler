@@ -194,6 +194,7 @@ def season_metrics(shard_list):
                 fav_ovr[0] += res if ovr_of[h] > ovr_of[a] else 1.0 - res
                 fav_ovr[1] += 1
     within_all, skill_all, shares = [], [], []
+    reliab = []   # (share of club-mean-wins variance that is skill, clubs) per league
     club_means = []   # (league, club, mean wins, n seasons)
     distinct_prem = []
     for lg, ss in by_league.items():
@@ -215,6 +216,7 @@ def season_metrics(shard_list):
         within_all.append(within)
         skill_all.append(skill)
         shares.append(skill / (skill + within) if skill + within > 0 else 0.0)
+        reliab.append((skill / (skill + within / len(ss)) if skill > 0 else 0.0, len(per_club)))
         for club, v in per_club.items():
             club_means.append((lg, club, mean(v), len(v)))
     skill = mean(skill_all)
@@ -234,7 +236,7 @@ def season_metrics(shard_list):
         "fin_top5": mean(fin_top5),
         "distinct_prem": mean(distinct_prem) if distinct_prem else float("nan"),
         "m60": margins60[0] / max(1, margins60[1]),
-        "club_means": club_means, "units": units,
+        "club_means": club_means, "units": units, "reliab": reliab,
     }
 
 
@@ -267,6 +269,8 @@ def explain(all_season_metrics):
                 xs[name].extend([[a - b for a, b in zip(r, cm)] for r in vals])
             rel.append((key, lg, len(rows)))
     out = {"n": len(y)}
+    rs = [(r, n) for k, m in all_season_metrics.items() if k[0] != "real" for r, n in m["reliab"]]
+    out["ceiling"] = sum(r * n for r, n in rs) / max(1, sum(n for _, n in rs))
     for name in ["ovr22", "strength", "units3", "sub"]:
         out[name] = ols_r2(xs[name], y)
     both = [a + b for a, b in zip(xs["ovr22"], xs["sub"])]
@@ -379,7 +383,8 @@ def build(dirpath):
         md += "| Squad.strength | %s |\n" % f(e["strength"], "%.3f")
         md += "| Contest, attack, defence (3 lines) | %s |\n" % f(e["units3"], "%.3f")
         md += "| The %d line aggregates | %s |\n" % (len(SUBUNITS), f(e["sub"], "%.3f"))
-        md += "| OVR + the line aggregates | %s |\n\n" % f(e["ovr_plus_sub"], "%.3f")
+        md += "| OVR + the line aggregates | %s |\n" % f(e["ovr_plus_sub"], "%.3f")
+        md += "| *Ceiling: share of the target's variance that is skill, not luck* | *%s* |\n\n" % f(e["ceiling"], "%.3f")
 
     md += "## Real AFL benchmark (final home-and-away ladders)\n\n"
     md += "Luck = coin-flip binomial SD for the season length (an upper bound on luck). Skill = observed variance net of luck.\n\n"
