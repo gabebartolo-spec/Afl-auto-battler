@@ -86,6 +86,16 @@ else
 	summary+=("| validate_data | FAIL | see log |")
 fi
 
+echo "== Exported-build data check"
+if GODOT="$GODOT" tools/check_export_data.sh > "$LOG_DIR/export_data.log" 2>&1; then
+	summary+=("| export_data | pass | |")
+else
+	tail -15 "$LOG_DIR/export_data.log"
+	note_error "tools/check_export_data.sh: an exported build would not load complete player data"
+	failed=1
+	summary+=("| export_data | FAIL | see log |")
+fi
+
 echo "== Intake / development harness"
 if python3 tools/intake_harness.py --quiet > "$LOG_DIR/intake_harness.log" 2>&1; then
 	summary+=("| intake_harness | pass | |")

@@ -78,6 +78,13 @@ once, a player's own plan beats the club plan, plans survive a save, and every
 stat has a full guide entry. The career UI suite also checks the one-time
 training intro, the stat guide (and Back closing it) and the plan picker.
 
+`tools/check_export_data.sh` (also run by `tools/run_tests.sh`) guards the
+exported build's data path, which the editor and the suites above never see:
+every `data/*.csv` must use the `keep` importer, and a real exported `.pck`,
+run on its own, must load every player with an age and date of birth
+(`tests/export_data_check.gd`). A CSV left on Godot's default translation
+importer is silently dropped from exports.
+
 Every runner points saves and settings at `user://test_*` files and turns
 autosave off, so running the tests never touches a real career.
 A non-Godot mirror of the same maths runs in CI-friendly Python:
