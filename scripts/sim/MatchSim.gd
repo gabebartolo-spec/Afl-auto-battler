@@ -856,6 +856,9 @@ func run_extra_time() -> Dictionary:
 	_play_chains(per_half, 124, 4)
 	if score(0) == score(1):
 		_emit("quarter", -1, fp, null, "Still level - next score wins!")
+		# A new period: it opens with a centre bounce like any other.
+		at_centre = true
+		kick_in = false
 		var guard := 0
 		while score(0) == score(1) and guard < GOLDEN_POINT_CHAINS:
 			current_minute = 128 + int(guard / 4)
