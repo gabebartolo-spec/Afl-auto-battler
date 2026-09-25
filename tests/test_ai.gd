@@ -179,6 +179,36 @@ func _test_club_evaluation() -> void:
 		ids1.append(e["player_id"])
 	_check(h3 != ids1, "Different seeds give different drafts, not just relabelled ones")
 
+	# Clubs' opinions must not strand the pool's rucks on a few lists: no
+	# rival takes a fourth, so a human who leaves the second ruck to the
+	# final pick can still finish (this seed stranded one before the guard).
+	var r := Draft.new(GameDB.all_players_sorted(), clubs, 445908)
+	r.start_for_user("COL")
+	var guard := 0
+	while not r.is_finished() and guard < 2000:
+		guard += 1
+		if not r.is_user_turn():
+			r.auto_until_user_turn()
+			continue
+		var choice := {}
+		for cand in r.board("", "", "", "overall", true):
+			if r.can_pick_player(cand):
+				choice = cand
+				break
+		if choice.is_empty() or not r.pick(choice):
+			break
+	var max_rucks := 0
+	for code in clubs:
+		if code == "COL":
+			continue
+		var n := 0
+		for p in r.club_lists[code]:
+			if str(p["role"]) == "RUCK":
+				n += 1
+		max_rucks = maxi(max_rucks, n)
+	_check(r.is_finished(), "A ruck-light human club can still complete the draft")
+	_check(max_rucks <= 3, "No rival club takes a fourth ruck (%d)" % max_rucks)
+
 
 ## A club that splashes on three $10 stars must still be able to fill its
 ## list: the cap reserve tracks what the remaining spots really cost (the

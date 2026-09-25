@@ -523,6 +523,11 @@ func _need_weight(code: String, role: String) -> float:
 	var n := int(role_counts_for(code).get(role, 0))
 	if role == "RUCK" and not intake_mode and n == 1:
 		return 0.8  # the second ruck is required for a valid list
+	if role == "RUCK" and not intake_mode and n >= 3:
+		# A fourth ruck is never worth a list spot, and the pool's rucks must
+		# stretch to every club's two (clubs' own opinions could otherwise
+		# send spare rucks to one list late in the draft).
+		return 0.0
 	if not intake_mode:
 		for slot in Ratings.GROUND_SLOTS:
 			if str(slot[0]) == role and n < int(slot[1]):
