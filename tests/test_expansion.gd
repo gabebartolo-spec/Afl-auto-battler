@@ -127,12 +127,6 @@ func _test_rollover_to_2028() -> void:
 	for item in GameState.news:
 		if str(item["kind"]) == "expansion" and str(item["text"]).contains("Tasmania"):
 			news_ok = true
-	if not news_ok:  # TEMP-CI-DIAG
-		var sample := []
-		for i in mini(6, GameState.news.size()):
-			var it: Dictionary = GameState.news[i]
-			sample.append("%s| %s" % [str(it.get("kind", "?")), str(it.get("text", "")).substr(0, 60)])
-		print("NEWS DEBUG size=%d feed=%s" % [GameState.news.size(), " || ".join(sample)])
 	_check(news_ok, "Tasmania's entry made the news")
 
 	# The debut list: a full squad, in the right size band, with contracts
@@ -141,21 +135,13 @@ func _test_rollover_to_2028() -> void:
 	_check(tas.size() >= Prospects.MIN_LIST and tas.size() <= Ratings.LIST_SIZE,
 			"Tasmania debuts with a full list (%d)" % tas.size())
 	var ages := 0.0
-	var age_list := []
 	var id_seen := {}
 	for p in tas:
 		ages += float(p["age"])
-		age_list.append("%.0f" % float(p["age"]))
 		_check(not id_seen.has(str(p["id"])), "Tasmania ids are unique")
 		id_seen[str(p["id"])] = true
 		_check(int(p.get("contract_years", 0)) > 0,
 				"Every Tasmanian has a contract at the season start")
-	var who := []  # TEMP-CI-DIAG
-	for i in mini(5, tas.size()):
-		who.append("%s/%s/%s" % [str(tas[i].get("id", "?")),
-				str(tas[i].get("club", "?")), "%.0f" % float(tas[i].get("age", 0))])
-	print("TAS who (%d): %s" % [tas.size(), " || ".join(who)])  # TEMP-CI-DIAG
-	print("TAS debut ages (%d): %s" % [tas.size(), ", ".join(age_list)])  # TEMP-CI-DIAG
 	_check(ages / float(tas.size()) > 19.0 and ages / float(tas.size()) < 27.0,
 			"The debut list mixes ages (%.1f)" % (ages / float(tas.size())))
 

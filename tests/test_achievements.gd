@@ -35,7 +35,6 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
-		print("::error::achievements :: " + message)  # TEMP-CI-DIAG
 
 
 # ---------------------------------------------------------------------------

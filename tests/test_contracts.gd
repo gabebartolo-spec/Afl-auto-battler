@@ -20,7 +20,6 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
-		print("::error::contracts :: " + message)  # TEMP-CI-DIAG
 
 
 func _new_season() -> void:

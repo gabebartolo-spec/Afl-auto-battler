@@ -21,7 +21,6 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
 		push_error(message)
-		print("::error::career_ui :: " + message)  # TEMP-CI-DIAG
 
 
 func _settle() -> void:
@@ -44,7 +43,6 @@ func _screen_text() -> String:
 
 func _run() -> void:
 	await process_frame
-	print("::notice::career_ui :: start")  # TEMP-CI-DIAG
 	_state = root.get_node("GameState")
 	_router = root.get_node("Router")
 	_db = root.get_node("GameDB")
@@ -59,7 +57,6 @@ func _run() -> void:
 	_check(not bool(ProjectSettings.get_setting("application/config/quit_on_go_back", true)),
 			"Android back does not quit the app by default")
 
-	print("::notice::career_ui :: menu")  # TEMP-CI-DIAG
 	# --- a fresh install: no Continue button --------------------------------
 	_state.reset()
 	_router.to_main_menu(false)
@@ -81,7 +78,6 @@ func _run() -> void:
 	_check(_state.new_career_difficulty() == "normal" and not hard_btn.button_pressed,
 			"Only the chosen difficulty shows as picked")
 
-	print("::notice::career_ui :: save-continue")  # TEMP-CI-DIAG
 	# --- a saved career shows Continue, and it loads -------------------------
 	_state.start_season("SYD", _db.club_list("SYD"))
 	_state.advance()
@@ -111,7 +107,6 @@ func _run() -> void:
 	_check(not _state.week_event_pending() and _screen_text().contains("members loved it"),
 			"Answering it shows what happened")
 
-	print("::notice::career_ui :: hub-back")  # TEMP-CI-DIAG
 	# --- back on the hub: results popup first, then the menu ----------------
 	current_scene.call("_on_sim_round")
 	await _settle()
@@ -138,7 +133,6 @@ func _run() -> void:
 	await _settle()
 	_check(_router.current() == "hub", "Escape on the ladder returns to the hub")
 
-	print("::notice::career_ui :: selection")  # TEMP-CI-DIAG
 	# --- team selection --------------------------------------------------------
 	_router.go("selection")
 	await _settle()
@@ -162,7 +156,6 @@ func _run() -> void:
 	_router.handle_back(true)
 	await _settle()
 
-	print("::notice::career_ui :: training")  # TEMP-CI-DIAG
 	# --- training: one-time intro, stat guide, plan picker -------------------
 	_router.go("training")
 	await _settle()
@@ -227,7 +220,6 @@ func _run() -> void:
 	await _settle()
 	_check(_router.current() == "hub", "Back from a plain Training list leaves the screen")
 
-	print("::notice::career_ui :: live-match")  # TEMP-CI-DIAG
 	# --- a live match swallows back until full time --------------------------
 	_check(_state.prepare_interactive_match(), "A live match is prepared")
 	_router.go("match")
@@ -274,7 +266,6 @@ func _run() -> void:
 	_check(not (_state.last_match.get("moments", []) as Array).is_empty(),
 			"The played match keeps its calls for the readout")
 
-	print("::notice::career_ui :: offseason")  # TEMP-CI-DIAG
 	# --- off-season: trades & contracts ----------------------------------------
 	var season = _state.season
 	season.round_index = season.fixture.size()
@@ -323,7 +314,6 @@ func _run() -> void:
 	_router.handle_back(true)
 	await _settle()
 
-	print("::notice::career_ui :: new-career")  # TEMP-CI-DIAG
 	# --- New Career asks before replacing a career ---------------------------
 	_router.to_main_menu(false)
 	await _settle()
@@ -350,7 +340,6 @@ func _run() -> void:
 	_check(not _state.has_saved_career(), "The replaced save is removed")
 	_check(_state.season == null and _state.draft != null, "The new career starts empty")
 
-	print("::notice::career_ui :: escape-menu")  # TEMP-CI-DIAG
 	# --- Escape on the main menu never quits ---------------------------------
 	_router.to_main_menu(false)
 	await _settle()
@@ -370,6 +359,5 @@ func _run() -> void:
 	_check(_router.current() == "main", "Escape on the main menu does nothing")
 
 	_state.delete_saved_career()
-	print("::notice::career_ui :: done")  # TEMP-CI-DIAG
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)

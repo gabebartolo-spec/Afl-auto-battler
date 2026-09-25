@@ -13,8 +13,8 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 
 GODOT="${GODOT:-godot}"
-SUITE_TIMEOUT="${SUITE_TIMEOUT:-240}"  # TEMP-CI-DIAG: shorter while debugging
-ALL_SUITES=(draft_ui career_ui expansion achievements)  # TEMP-CI-DIAG: only the failing suites
+SUITE_TIMEOUT="${SUITE_TIMEOUT:-900}"
+ALL_SUITES=(draft draft_ui intake intake_ui expansion finals save career_ui potential ai training selection injuries awards contracts league club match_game calibration balance)
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
 
 LOG_DIR="${LOG_DIR:-$(mktemp -d)}"
@@ -62,15 +62,14 @@ for suite in "${SUITES[@]}"; do
 	[ "$in_ci" = 1 ] && echo "::group::$suite log (errors)"
 	grep -E -A4 "^ERROR|SCRIPT ERROR" "$log" | head -60
 	[ "$in_ci" = 1 ] && echo "::endgroup::"
-	if [ "$in_ci" = 1 ]; then  # TEMP-CI-DIAG: surface crash details as annotations
+	# Surface parse errors and failed-check messages as job annotations so a
+	# red run is diagnosable without downloading the full log.
+	if [ "$in_ci" = 1 ]; then
 		grep -E "SCRIPT ERROR|Parse Error|Compile Error" "$log" | head -20 | while IFS= read -r l; do
 			printf '::error::%s-log::%s\n' "$suite" "$l"
 		done
 		grep -E "^ERROR" "$log" | head -30 | while IFS= read -r l; do
 			printf '::error::%s-check::%s\n' "$suite" "${l#ERROR: }"
-		done
-		grep -E "^(NEWS DEBUG|TAS who|TAS debut ages)" "$log" | head -10 | while IFS= read -r l; do
-			printf '::notice::%s-diag::%s\n' "$suite" "$l"
 		done
 	fi
 	fi
