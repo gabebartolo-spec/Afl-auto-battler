@@ -66,8 +66,10 @@ STAT_KEYS = [
     "bo", "ga", "pctp",
 ]
 
-# On-ground structure: 18 players = 1 RUCK, 7 MID, 5 DEF, 5 FWD.
-GROUND_SLOTS = {"RUCK": 1, "MID": 7, "DEF": 5, "FWD": 5}
+# On-ground structure: 18 players = 6 DEF, 6 MID, 6 FWD, where the ruck is
+# counted with midfield (1 RUCK + 5 MID). Keep in lockstep with
+# Ratings.GROUND_SLOTS.
+GROUND_SLOTS = {"RUCK": 1, "MID": 5, "DEF": 6, "FWD": 6}
 INTERCHANGE = 4
 LIST_SIZE = 44
 

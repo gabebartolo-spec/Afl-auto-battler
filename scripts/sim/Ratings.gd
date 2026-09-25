@@ -50,9 +50,10 @@ const METRIC_SPECS := [
 	["bounces_pg", "bo"], ["goal_assists_pg", "ga"],
 ]
 
-## On-ground structure: 18 players = 1 RUCK, 7 MID, 5 DEF, 5 FWD.
-## Order matters - select_22() fills slots in this sequence.
-const GROUND_SLOTS := [["RUCK", 1], ["MID", 7], ["DEF", 5], ["FWD", 5]]
+## On-ground structure: 18 players = 6 DEF, 6 MID, 6 FWD, where the ruck is
+## counted with midfield (1 RUCK + 5 MID). Order matters - select_22() fills
+## slots in this sequence.
+const GROUND_SLOTS := [["RUCK", 1], ["MID", 5], ["DEF", 6], ["FWD", 6]]
 const INTERCHANGE := 4
 const LIST_SIZE := 44
 

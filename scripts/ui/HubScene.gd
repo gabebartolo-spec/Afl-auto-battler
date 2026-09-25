@@ -66,8 +66,10 @@ func _build() -> void:
 	var lv := UiKit.vbox(4)
 	lp.add_child(lv)
 	lv.add_child(UiKit.lbl("Ladder", 17, UiKit.GOLD, true))
+	# Every active club, with room to scroll - the full ladder lives here
+	# too, so the hub stays correct as the competition expands.
 	var grid := UiKit.ladder_table(season.ladder_sorted(), GameState.my_club,
-			_content_width() - 24.0, 8, false)
+			_content_width() - 24.0, 0, false)
 	lv.add_child(UiKit.scroll(grid))
 
 	_root.add_child(_controls(season))
@@ -80,7 +82,7 @@ func _standing_card() -> Control:
 	card.add_child(cv)
 	cv.add_child(UiKit.club_badge(GameState.my_club, 18, false, true))
 	var title := UiKit.lbl("Position %d of %d" % [GameState.my_position(),
-			GameDB.CLUB_ORDER.size()], 22 if _narrow() else 26, UiKit.GOLD, true)
+			season.ladder.size()], 22 if _narrow() else 26, UiKit.GOLD, true)
 	title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	cv.add_child(title)
 	var lr := GameState.my_ladder_row()
@@ -217,7 +219,7 @@ func _next_card(season: Season) -> Control:
 			"bye":
 				nv.add_child(UiKit.lbl("Week Off", 20, UiKit.GOOD, true))
 				nv.add_child(UiKit.lbl(
-						"You won your qualifying final. Sim the semi finals, then host a preliminary final.",
+						"You have a week off while the rest of the series plays on.",
 						13, UiKit.MUTED))
 			"eliminated":
 				nv.add_child(UiKit.lbl("Knocked Out", 20, UiKit.BAD, true))
@@ -227,7 +229,7 @@ func _next_card(season: Season) -> Control:
 			_:
 				nv.add_child(UiKit.lbl("Season Over For You", 20, UiKit.BAD, true))
 				nv.add_child(UiKit.lbl(
-						"You missed the eight. Sim the finals series to see who lifts the cup.",
+						"You missed the top %d. Sim the finals series to see who lifts the cup." % Season.FINALISTS,
 						13, UiKit.MUTED))
 	else:
 		var phase := "Round %d of %d" % [season.round_index + 1, Season.REGULAR_ROUNDS] \
@@ -302,12 +304,12 @@ func _nav_button(text: String, cb: Callable, primary := false) -> Button:
 
 func _finals_label() -> String:
 	var w := int(GameState.season.finals.get("week", 1))
-	return ["Finals Week 1", "Semi Finals", "Preliminary Finals",
-			"Grand Final"][clampi(w - 1, 0, 3)]
+	return ["Wildcard Round", "Qualifying & Elimination", "Semi Finals",
+			"Preliminary Finals", "Grand Final"][clampi(w - 1, 0, 4)]
 
 
 ## The match you are about to play, or {} if you have none coming up
-## (missed the eight, or already eliminated). Unified across the home and
+## (missed the finals, or already eliminated). Unified across the home and
 ## away season and the finals so the hub card and the buttons can share it.
 func _upcoming_match() -> Dictionary:
 	var season: Season = GameState.season
@@ -360,7 +362,7 @@ func _on_sim_round() -> void:
 ## You are out of the finals: run the remaining weeks out and show the winner.
 func _on_sim_to_end() -> void:
 	var guard := 0
-	while not GameState.season.is_season_over() and guard < 8:
+	while not GameState.season.is_season_over() and guard < 10:
 		GameState.advance()
 		guard += 1
 	_build()

@@ -32,6 +32,9 @@ var season_tally := {}           # player id -> running season numbers (Awards)
 var season_awards := {}          # the finished season's awards
 var honour_roll: Array = []      # one entry per completed season
 var records := {}                # league records across the career
+## Club achievements unlocked this career: id -> {"year", "detail"}.
+## Definitions live in scripts/sim/Achievements.gd.
+var achievements := {}
 var salary_cap := 0              # cap points every club's payroll counts against
 var free_agents: Array = []      # off-season: players no club kept
 var offseason_year := 0          # the season whose off-season has opened
@@ -189,6 +192,7 @@ func save_career() -> bool:
 		"season_awards": season_awards,
 		"honour_roll": honour_roll,
 		"records": records,
+		"achievements": achievements,
 		"salary_cap": salary_cap,
 		"free_agents": free_agents,
 		"offseason_year": offseason_year,
@@ -235,6 +239,12 @@ func load_career() -> bool:
 		var sv: Dictionary = state["season"]
 		season = Season.new(sv["clubs"], sv["lists"], int(sv["seed"]))
 		CareerSave.apply_vars(season, sv)
+		# Saves written under the old eight-finalist bracket cannot be
+		# restored into the wildcard series (different slots, different
+		# weeks), so the finals restart from the ladder as it was saved.
+		if not season.finals.is_empty() \
+				and int((season.finals.get("top", []) as Array).size()) != Season.FINALISTS:
+			season.finals = {}
 	if state.get("draft") is Dictionary:
 		draft = Draft.new([], [], 0)
 		CareerSave.apply_vars(draft, state["draft"])
@@ -262,6 +272,7 @@ func load_career() -> bool:
 	season_awards = state.get("season_awards", {})
 	honour_roll = state.get("honour_roll", [])
 	records = state.get("records", {})
+	achievements = state.get("achievements", {})
 	salary_cap = int(state.get("salary_cap", 0))
 	free_agents = state.get("free_agents", [])
 	offseason_year = int(state.get("offseason_year", 0))
@@ -390,6 +401,7 @@ func reset() -> void:
 	season_awards = {}
 	honour_roll = []
 	records = {}
+	achievements = {}
 	salary_cap = 0
 	free_agents = []
 	offseason_year = 0
@@ -412,7 +424,11 @@ func reset() -> void:
 
 func begin_draft() -> void:
 	var seed := int(Time.get_unix_time_from_system()) % 1000000
-	draft = Draft.new(GameDB.all_players_sorted(), GameDB.CLUB_ORDER.duplicate(), seed)
+	# A career starts in 2026, so this is the founding eighteen - but gate on
+	# the season year anyway so a future start year can't draft expansion clubs
+	# that do not exist yet.
+	draft = Draft.new(GameDB.all_players_sorted(),
+			GameDB.active_clubs(season_year).duplicate(), seed)
 	if draftee_pool.is_empty():
 		draftee_pool = GameDB.draftees.duplicate()
 
@@ -477,8 +493,12 @@ func begin_intake_draft() -> bool:
 				c[r] = int(c[r]) + 1
 		role_counts[code] = c
 
+	# Only clubs on this season's ladder take intake picks. An expansion club
+	# arrives with its own generated list at its first season (see
+	# _start_next_season) rather than drafting into one.
+	var active := GameDB.active_clubs(season_year)
 	var seed := int(Time.get_unix_time_from_system()) % 1000000
-	draft = Draft.build_intake(open_pool, GameDB.CLUB_ORDER.duplicate(), order,
+	draft = Draft.build_intake(open_pool, active.duplicate(), order,
 			seed, sizes, role_counts)
 	draft.start_for_user(my_club)
 	autosave()
@@ -544,18 +564,31 @@ func _start_next_season(next_year: int, signed: int) -> void:
 					GameDB.club_name(str(r["club"])), int(float(r["age"]))])
 	intake_summary["year"] = next_year
 	draftee_pool = Prospects.age_pool(draftee_pool, next_year, drafted_draftees)
+	# Expansion: any club whose first season is next_year arrives with a
+	# generated list (aged across the full range, not just a rookie class),
+	# so it ages, drafts, trains and simulates like every other club.
+	for code in GameDB.CLUB_ORDER:
+		if GameDB.enter_year(code) != next_year:
+			continue
+		if not (league_lists.get(code, []) as Array).is_empty():
+			continue
+		league_lists[code] = Prospects.generate_expansion_list(code, next_year)
+		add_news("expansion", "%s (the %s) join the competition for %d, their first season." % [
+				GameDB.club_name(code), GameDB.club_short(code), next_year])
 	intake_summary["renormalised"] = Prospects.renormalise_league(league_lists,
-			draftee_pool, GameDB.baseline_overall, GameDB.baseline_spread)
+		draftee_pool, GameDB.baseline_overall, GameDB.baseline_spread)
 
 	# One array per club from here on: the season, the league lists and your
 	# list are the same arrays, so trades and signings touch them all.
 	var lists := {}
 	for code in GameDB.CLUB_ORDER:
-		lists[code] = league_lists[code]
+		lists[code] = league_lists.get(code, [])
 		for p in lists[code]:
 			p["season_start_ov"] = int(p["overall"])
 	my_list = lists.get(my_club, [])
-	season = Season.new(GameDB.CLUB_ORDER.duplicate(), lists,
+	# The season simulates only this year's active clubs; `lists` keeps an
+	# entry for every club so saves and rollovers never miss a key.
+	season = Season.new(GameDB.active_clubs(next_year).duplicate(), lists,
 			int(Time.get_unix_time_from_system()) % 1000000)
 	season_year = next_year
 	season_log = []
@@ -662,7 +695,8 @@ func start_season(club_code: String, list: Array) -> void:
 	# Career copies, not the shared database rows. Training must not rewrite
 	# the draft pool for the next career.
 	my_list = lists.get(my_club, [])
-	season = Season.new(GameDB.CLUB_ORDER.duplicate(), lists,
+	# Fixtures, ladders and finals cover only the clubs active this year.
+	season = Season.new(GameDB.active_clubs(season_year).duplicate(), lists,
 			int(Time.get_unix_time_from_system()) % 1000000)
 	salary_cap = draft.budget if draft != null and draft.league_mode else 0
 	ensure_contracts()
@@ -858,8 +892,8 @@ func advance() -> String:
 		var week := int(season.finals.get("week", 1))
 		last_results = season.play_finals_week()
 		last_phase = "finals"
-		var labels := {1: "Finals Week 1", 2: "Semi Finals",
-				3: "Preliminary Finals", 4: "Grand Final"}
+		var labels := {1: "Wildcard Round", 2: "Qualifying & Elimination Finals",
+				3: "Semi Finals", 4: "Preliminary Finals", 5: "Grand Final"}
 		last_label = str(labels.get(week, "Finals Week %d" % week))
 		if season.is_season_over():
 			last_phase = "done"
@@ -950,7 +984,7 @@ func my_finals_status() -> String:
 			return "runner_up"
 		return "eliminated"
 	var slots: Dictionary = season.finals.get("slots", {})
-	for tag in ["EF1", "EF2", "SF1", "SF2", "PF1", "PF2", "GF"]:
+	for tag in ["WC1", "WC2", "EF1", "EF2", "SF1", "SF2", "PF1", "PF2", "GF"]:
 		if str(slots.get("L_" + tag, "")) == my_club:
 			return "eliminated"
 	for m in season.finals_week_matches():
@@ -969,6 +1003,9 @@ func finals_outcome_line(res: Dictionary) -> String:
 	var slots: Dictionary = season.finals.get("slots", {})
 	var won: bool = str(slots.get("W_" + tag, "")) == my_club
 	match tag.substr(0, 2):
+		"WC":
+			return "Through! You reseed by ladder position for a qualifying or elimination final." \
+					if won else "Knocked out in the wildcard round. Your season is over."
 		"QF":
 			return "Straight through to a home preliminary final, with a week off." if won \
 					else "Second chance: you host a semi final next week."
@@ -1196,6 +1233,43 @@ func _close_season_awards() -> void:
 	# The board's verdict first, so the premiers top the news feed.
 	_board_season_end()
 	_season_news()
+	_close_season_achievements()
+
+
+## Club achievements unlock only at season's end: every objective reads the
+## final ladder, the finished bracket or the flag history, all of which are
+## settled by then.
+func _close_season_achievements() -> void:
+	if season == null:
+		return
+	# Past seasons only - this season's flag comes in as ctx["premier"], and
+	# the honour roll already carries the entry for it.
+	var history := []
+	for entry in honour_roll:
+		if int(entry.get("year", 0)) == season_year:
+			continue
+		if str(entry.get("premier", "")) != "":
+			history.append([int(entry.get("year", 0)), str(entry.get("premier", ""))])
+	var enter := {}
+	for code in GameDB.CLUB_ORDER:
+		enter[code] = GameDB.enter_year(code)
+	var ctx := {
+		"year": season_year,
+		"premier": premier(),
+		"runner_up": str(season.finals.get("runner_up", "")),
+		"ladder": season.ladder,
+		"finalists": season.finals.get("top", []),
+		"finals_slots": season.finals.get("slots", {}),
+		"history": history,
+		"active": GameDB.active_clubs(season_year),
+		"enter": enter,
+	}
+	for id in Achievements.check_season(achievements, ctx):
+		achievements[id] = {"year": season_year}
+		var defn: Dictionary = Achievements.definition(id)
+		add_news("achievement", "Achievement unlocked: %s  -  %s (%s)" % [
+				str(defn["name"]), GameDB.club_name(str(defn["club"])),
+				GameDB.club_short(str(defn["club"]))])
 
 
 ## A readable player name for an awards row, even for a retired player.
@@ -1934,7 +2008,10 @@ func _open_board_season() -> void:
 	if season == null or my_club == "":
 		return
 	var ranks := []
-	for code in season.lists:
+	# The ladder's codes are exactly this season's active clubs, so the
+	# ranking (and the board goal that follows from it) ignores clubs that
+	# have not entered the competition yet.
+	for code in season.ladder:
 		ranks.append([str(code), Squad.new(str(code), season.lists[code], true, str(code)).strength()])
 	ranks.sort_custom(func(a, b): return float(a[1]) > float(b[1]))
 	var rank := 1

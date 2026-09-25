@@ -450,6 +450,93 @@ static func generate_class(year: int) -> Array:
 	return out
 
 
+## The full list an expansion club fields in its first season: a real
+## expansion roster mixes state-league youngsters with a core of seasoned
+## players, so this one spans the full age range (unlike a rookie class) at
+## overalls around the league baseline - competitive, but not a dynasty.
+## Deterministic per club and year; the club's own state league supplies
+## half the list when it has junior teams.
+static func generate_expansion_list(code: String, year: int, size := 36) -> Array:
+	var rng := _rng_for("expansion-%s-%d" % [code, year])
+	var home_teams := []
+	for team in JUNIOR_TEAMS:
+		if str(team[2]) == str(code):
+			home_teams.append(team)
+	var role_bag := ["MID", "MID", "MID", "MID", "MID", "MID",
+			"DEF", "DEF", "DEF", "DEF", "FWD", "FWD", "FWD", "FWD",
+			"RUCK", "RUCK"]
+	var out := []
+	for r in range(1, size + 1):
+		var p := {}
+		var role: String = str(role_bag[rng.randi_range(0, role_bag.size() - 1)])
+		if r % 18 == 10:
+			role = "RUCK"
+		p["role"] = role
+		p["role2"] = _generated_secondary(role, rng)
+		var height := 0.0
+		match role:
+			"RUCK": height = float(rng.randi_range(197, 208))
+			"FWD": height = float(rng.randi_range(184, 203))
+			"DEF": height = float(rng.randi_range(182, 198))
+			_: height = float(rng.randi_range(173, 192))
+		p["height_cm"] = height
+		var band := rng.randf()
+		var birth_year: int
+		if band < 0.45:
+			birth_year = year - rng.randi_range(18, 21)
+		elif band < 0.80:
+			birth_year = year - rng.randi_range(22, 26)
+		else:
+			birth_year = year - rng.randi_range(27, 30)
+		p["dob"] = "%04d-%02d-%02d" % [birth_year, rng.randi_range(1, 12),
+				rng.randi_range(1, 28)]
+		# ^ already the right age for the season the club enters.
+		p["age"] = float(days_between(str(p["dob"]), "%d-01-01" % year)) / 365.25
+		var team: Array
+		if not home_teams.is_empty() and rng.randf() < 0.5:
+			team = home_teams[rng.randi_range(0, home_teams.size() - 1)]
+		else:
+			team = JUNIOR_TEAMS[rng.randi_range(0, JUNIOR_TEAMS.size() - 1)]
+		p["club"] = code  # already listed; not a free agent or a draftee
+		p["draft_team"] = str(team[0])
+		p["draft_league"] = str(team[1])
+		p["draft_state"] = str(team[2])
+		p["state"] = str(team[2])
+		p["tied_club"] = ""
+		p["tied_type"] = ""
+		p["u18_gm"] = float(rng.randi_range(12, 26))
+		p["u18_di"] = float(rng.randi_range(10, 26)) if role != "RUCK" \
+				else float(rng.randi_range(8, 18))
+		p["u18_gl"] = float(rng.randi_range(3, 26)) / 10.0 if role == "FWD" \
+				else float(rng.randi_range(0, 8)) / 10.0
+		p["u18_mk"] = float(rng.randi_range(1, 7)) if role != "FWD" \
+				else float(rng.randi_range(3, 7))
+		p["u18_tk"] = float(rng.randi_range(1, 7))
+		p["u18_if50"] = float(rng.randi_range(1, 6))
+		p["u18_ho"] = float(rng.randi_range(12, 28)) if role == "RUCK" else 0.0
+		p["note"] = "Expansion list, %d" % year
+		p["id"] = "EXP_%s_%02d" % [code, r]
+		p["real_name"] = ""
+		p["generic_name"] = ""
+		p["name"] = ""
+		p["first"] = ""
+		p["last"] = ""
+		p["src"] = "U18"
+		p["data_src"] = "generated"
+		p["draft_year"] = year
+		p["draft_rank"] = r
+		p["generated"] = true
+		p["num"] = r
+		for key in Ratings.STATS_ZERO_KEYS:
+			p[key] = 0.0
+		p["weight_kg"] = 0.0
+		p["real_pos"] = Ratings.ROLE_SHORT_TO_POS.get(str(p["role"]), "MID")
+		project(p)
+		out.append(p)
+	GameDB.assign_aliases(out)
+	return out
+
+
 static func _generated_secondary(role: String, rng: RandomNumberGenerator) -> String:
 	if rng.randf() > 0.30:
 		return ""

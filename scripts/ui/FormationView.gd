@@ -2,38 +2,39 @@ class_name FormationView
 extends Control
 ## Match-day shape for one club: the best 18 placed on an oval, interchange below.
 ##
-## Positions follow the engine's 1 ruck / 7 mids / 5 defenders / 5 forwards.
-## The best player in each line takes the spine spot (full back, centre, ruck,
-## full forward) so the shape reads at a glance. Tap a guernsey for the rating.
+## Positions follow the engine's 6-6-6 shape: 6 defenders, 6 midfielders
+## (the ruck counted in midfield) and 6 forwards. The best player in each
+## line takes the spine spot (full back, centre, ruck, full forward) so the
+## shape reads at a glance. Tap a guernsey for the rating.
 
 const ASPECT := 1.28
 const GOAL_LINE_M := 85.0
 
 ## Assignment order is rating order. Draw positions are the `at` coordinates.
 const SLOTS := [
-	{"key": "FB", "role": "DEF", "abbr": "FB", "title": "Full back", "at": Vector2(-0.78, 0.00)},
-	{"key": "BPL", "role": "DEF", "abbr": "BP", "title": "Back pocket", "at": Vector2(-0.60, -0.36)},
-	{"key": "BPR", "role": "DEF", "abbr": "BP", "title": "Back pocket", "at": Vector2(-0.60, 0.36)},
-	{"key": "HBFL", "role": "DEF", "abbr": "HBF", "title": "Half-back flank", "at": Vector2(-0.42, -0.70)},
-	{"key": "HBFR", "role": "DEF", "abbr": "HBF", "title": "Half-back flank", "at": Vector2(-0.42, 0.70)},
-	{"key": "C", "role": "MID", "abbr": "C", "title": "Centre", "at": Vector2(-0.22, 0.00)},
-	{"key": "IL", "role": "MID", "abbr": "IM", "title": "Inside mid", "at": Vector2(-0.08, -0.42)},
-	{"key": "IR", "role": "MID", "abbr": "IM", "title": "Inside mid", "at": Vector2(-0.08, 0.42)},
-	{"key": "WL", "role": "MID", "abbr": "W", "title": "Wing", "at": Vector2(0.02, -0.80)},
-	{"key": "WR", "role": "MID", "abbr": "W", "title": "Wing", "at": Vector2(0.02, 0.80)},
-	{"key": "RR", "role": "MID", "abbr": "RR", "title": "Ruck-rover", "at": Vector2(0.26, -0.32)},
-	{"key": "ROV", "role": "MID", "abbr": "R", "title": "Rover", "at": Vector2(0.26, 0.32)},
-	{"key": "RUCK", "role": "RUCK", "abbr": "RUC", "title": "Ruck", "at": Vector2(0.04, 0.00)},
-	{"key": "HFFL", "role": "FWD", "abbr": "HFF", "title": "Half-forward flank", "at": Vector2(0.46, -0.70)},
-	{"key": "HFFR", "role": "FWD", "abbr": "HFF", "title": "Half-forward flank", "at": Vector2(0.46, 0.70)},
-	{"key": "FPL", "role": "FWD", "abbr": "FP", "title": "Forward pocket", "at": Vector2(0.64, -0.34)},
-	{"key": "FPR", "role": "FWD", "abbr": "FP", "title": "Forward pocket", "at": Vector2(0.64, 0.34)},
-	{"key": "FF", "role": "FWD", "abbr": "FF", "title": "Full forward", "at": Vector2(0.82, 0.00)},
+	{"key": "FB", "role": "DEF", "abbr": "FB", "title": "Full back", "at": Vector2(-0.80, 0.00)},
+	{"key": "BPL", "role": "DEF", "abbr": "BP", "title": "Back pocket", "at": Vector2(-0.62, -0.38)},
+	{"key": "BPR", "role": "DEF", "abbr": "BP", "title": "Back pocket", "at": Vector2(-0.62, 0.38)},
+	{"key": "HBFL", "role": "DEF", "abbr": "HBF", "title": "Half-back flank", "at": Vector2(-0.44, -0.72)},
+	{"key": "HBFR", "role": "DEF", "abbr": "HBF", "title": "Half-back flank", "at": Vector2(-0.44, 0.72)},
+	{"key": "CB", "role": "DEF", "abbr": "CB", "title": "Centre back", "at": Vector2(-0.30, 0.00)},
+	{"key": "C", "role": "MID", "abbr": "C", "title": "Centre", "at": Vector2(-0.10, 0.00)},
+	{"key": "IL", "role": "MID", "abbr": "IM", "title": "Inside mid", "at": Vector2(0.04, -0.40)},
+	{"key": "IR", "role": "MID", "abbr": "IM", "title": "Inside mid", "at": Vector2(0.04, 0.40)},
+	{"key": "WL", "role": "MID", "abbr": "W", "title": "Wing", "at": Vector2(0.10, -0.78)},
+	{"key": "WR", "role": "MID", "abbr": "W", "title": "Wing", "at": Vector2(0.10, 0.78)},
+	{"key": "RUCK", "role": "RUCK", "abbr": "RUC", "title": "Ruck", "at": Vector2(0.16, 0.00)},
+	{"key": "HFF", "role": "FWD", "abbr": "HFF", "title": "Half forward", "at": Vector2(0.34, 0.00)},
+	{"key": "HFFL", "role": "FWD", "abbr": "HFF", "title": "Half-forward flank", "at": Vector2(0.44, -0.70)},
+	{"key": "HFFR", "role": "FWD", "abbr": "HFF", "title": "Half-forward flank", "at": Vector2(0.44, 0.70)},
+	{"key": "FPL", "role": "FWD", "abbr": "FP", "title": "Forward pocket", "at": Vector2(0.62, -0.36)},
+	{"key": "FPR", "role": "FWD", "abbr": "FP", "title": "Forward pocket", "at": Vector2(0.62, 0.36)},
+	{"key": "FF", "role": "FWD", "abbr": "FF", "title": "Full forward", "at": Vector2(0.80, 0.00)},
 ]
 const ASSIGN := {
-	"DEF": ["FB", "HBFL", "HBFR", "BPL", "BPR"],
-	"MID": ["C", "RR", "ROV", "WL", "WR", "IL", "IR"],
-	"FWD": ["FF", "HFFL", "HFFR", "FPL", "FPR"],
+	"DEF": ["FB", "HBFL", "HBFR", "BPL", "BPR", "CB"],
+	"MID": ["C", "WL", "WR", "IL", "IR"],
+	"FWD": ["FF", "HFFL", "HFFR", "FPL", "FPR", "HFF"],
 	"RUCK": ["RUCK"],
 }
 const CALLOUT_ATTRS := {

@@ -1,11 +1,12 @@
 extends Control
 ## Team selection: your match-day 22. Auto-pick takes the best available side
-## every week; My selection lets you name the ruck, 7 midfielders, 5
-## defenders, 5 forwards and 4 on the bench - anyone in any position. A gap
-## (an injured player, a short slot) is filled automatically on match day.
+## every week; My selection lets you name the ruck, 5 midfielders, 6
+## defenders, 6 forwards and 4 on the bench - a 6-6-6 shape with the ruck
+## counted in midfield, and anyone in any position. A gap (an injured player,
+## a short slot) is filled automatically on match day.
 
-const SLOTS := [["RUCK", "Ruck", 1], ["MID", "Midfield", 7], ["DEF", "Defence", 5],
-		["FWD", "Forwards", 5], ["BENCH", "Interchange", 4]]
+const SLOTS := [["RUCK", "Ruck", 1], ["MID", "Midfield", 5], ["DEF", "Defence", 6],
+		["FWD", "Forwards", 6], ["BENCH", "Interchange", 4]]
 const CHOICES := [["RUCK", "Ruck"], ["MID", "Mid"], ["DEF", "Def"], ["FWD", "Fwd"],
 		["BENCH", "Bench"], ["OUT", "Out"]]
 

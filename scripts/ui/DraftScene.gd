@@ -164,7 +164,11 @@ func _restore_scrolls(values: Array) -> void:
 # ---------------------------------------------------------------------------
 func _show_club_select() -> void:
 	UiKit.clear(_root)
-	_root.add_child(_header("CHOOSE YOUR CLUB", "2026  /  A fresh start for all 18 clubs"))
+	# A career starts with the clubs active in its first season - the
+	# founding eighteen in 2026, more once expansion clubs arrive.
+	var active := GameDB.active_clubs(GameState.season_year)
+	_root.add_child(_header("CHOOSE YOUR CLUB",
+			"%d  /  A fresh start for all %d clubs" % [GameState.season_year, active.size()]))
 	_root.add_child(UiKit.lbl(
 			"One player pool. One salary cap. The whole league re-drafts in a random snake order.",
 			16, UiKit.MUTED))
@@ -174,7 +178,7 @@ func _show_club_select() -> void:
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	_root.add_child(UiKit.scroll(grid))
-	for code in GameDB.CLUB_ORDER:
+	for code in active:
 		var b := UiKit.btn("", 16)
 		b.name = "Choose_" + code
 		b.custom_minimum_size = Vector2(0, 110)
@@ -254,7 +258,8 @@ func _show_board() -> void:
 			_root.add_child(_header("%d NATIONAL DRAFT" % GameState.season_year,
 					"%d prospects  /  keep your list  /  reversed ladder" % _draft.pool.size()))
 		else:
-			var sub := "%d  /  18 clubs  /  Snake draft" % GameState.season_year
+			var sub := "%d  /  %d clubs  /  Snake draft" % [
+					GameState.season_year, _draft.clubs.size()]
 			_root.add_child(_header("LEAGUE DRAFT", sub))
 		_root.add_child(_summary())
 	_root.add_child(_position_counts())
@@ -487,9 +492,8 @@ func _filters() -> Control:
 	_advanced.add_child(opts)
 	var clubs := UiKit.option()
 	clubs.name = "OriginClubFilter"
-	var origin_values := GameDB.CLUB_ORDER.duplicate()
+	var origin_values := []
 	if _draft.intake_mode:
-		origin_values = []
 		for p in _draft.pool:
 			var team := str(p["club"])
 			if not origin_values.has(team):
@@ -497,6 +501,14 @@ func _filters() -> Control:
 		origin_values.sort()
 		clubs.add_item("All recruiting clubs")
 	else:
+		# The clubs that actually have players in this draft's pool - the
+		# founding eighteen in 2026, not every club that will ever exist.
+		var present := {}
+		for p in _draft.pool:
+			present[str(p.get("club", ""))] = true
+		for code in GameDB.CLUB_ORDER:
+			if present.has(code):
+				origin_values.append(code)
 		clubs.add_item("All original clubs")
 	for value in origin_values:
 		clubs.add_item(GameDB.club_name(str(value)))
@@ -695,11 +707,11 @@ func _build_activity() -> PanelContainer:
 	var clubs := UiKit.option()
 	clubs.name = "PickLogClubFilter"
 	clubs.add_item("All clubs · newest first")
-	for code in GameDB.CLUB_ORDER:
+	for code in _draft.clubs:
 		clubs.add_item(GameDB.club_name(code) + (" (you)" if code == _club else ""))
-	clubs.select(0 if _history_club.is_empty() else GameDB.CLUB_ORDER.find(_history_club) + 1)
+	clubs.select(0 if _history_club.is_empty() else _draft.clubs.find(_history_club) + 1)
 	clubs.item_selected.connect(func(idx: int):
-		_history_club = "" if idx == 0 else GameDB.CLUB_ORDER[idx - 1]
+		_history_club = "" if idx == 0 else str(_draft.clubs[idx - 1])
 		_history_shown = PAGE_SIZE
 		_refresh_history()
 		_history_scroll.set_deferred("scroll_vertical", 0))
@@ -751,7 +763,7 @@ func _refresh_history() -> void:
 	if entries.is_empty():
 		_history_box.add_child(UiKit.lbl("No picks yet" if _history_club.is_empty() else "No picks for this club yet", 18, UiKit.TEXT, true))
 		_history_box.add_child(UiKit.lbl(
-				"Every selection appears here, including all 17 rivals. The most recent picks are first.", 15, UiKit.MUTED))
+				"Every selection appears here, including all %d rival clubs. The most recent picks are first." % maxi(1, _draft.clubs.size() - 1), 15, UiKit.MUTED))
 	for i in range(mini(_history_shown, entries.size())):
 		_history_box.add_child(_history_row(entries[i]))
 	if _history_shown < entries.size():
@@ -806,7 +818,7 @@ func _refresh_mine() -> void:
 		_mine_box.add_child(UiKit.lbl("%d / %d signed · $%d of $%d spent" % [
 			_draft.count(), _draft.target_size, _draft.spent(), _draft.budget], 15, UiKit.GOLD, true))
 		_mine_box.add_child(UiKit.lbl(
-			"Cover 5 DEF, 7 MID and 5 FWD for the ground. Carry at least 2 RUCK. The bench is flexible; other needs are guidance, not limits.",
+			"Cover 6 DEF, 6 MID and 6 FWD for the ground. Carry at least 2 RUCK. The bench is flexible; other needs are guidance, not limits.",
 			13, UiKit.MUTED))
 	if _draft.count() == 0:
 		_mine_box.add_child(UiKit.spacer(8))

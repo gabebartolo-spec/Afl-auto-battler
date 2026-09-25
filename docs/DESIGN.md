@@ -165,7 +165,8 @@ A match is a sequence of **possession chains**, not a tick-based clock.
 ```
 
 Field position is metres from the centre square (`-85 .. +85`), forward-50 arc at
-`±35`. Each side fields **18** (1 RUCK, 7 MID, 5 DEF, 5 FWD) plus 4 interchanges.
+`±35`. Each side fields **18** in a 6-6-6 shape (6 DEF, 6 MID — the ruck counted
+with midfield — and 6 FWD) plus 4 interchanges.
 
 Stoppage win probability is a strength differential divided by `contest_swing`
 (360) and clamped to `[0.40, 0.60]`, plus a small home-ground bonus and a
@@ -233,8 +234,17 @@ Skip to full time, by reconstructing half-time from the Q2 snapshot.
   log, **not** the player's original `club` field. History lives in GameState's
   draft instance, independent of UI rebuilds.
 * **Season** — 24-round home-and-away fixture (each club meets every other at
-  least once, plus 7 extra matches balancing home games), then the **AFL final
-  eight**: top 4 get the double chance, 1QF/2QF → SF → PF → GF.
+  least once, plus return rounds balancing home games; an odd club count
+  rotates a virtual BYE in the circle method), then the **wildcard finals**:
+  top 10 advance; week 1 is WC1 7v10 and WC2 8v9; the winners reseed by
+  original ladder position into the 7th and 8th seeds and meet 5th and 6th in
+  the elimination finals while 1-4 play the qualifying finals; then SF → PF → GF.
+* **Expansion** — clubs carry an `enter` year in `data/clubs.csv`; every
+  fixture, ladder, draft, selection and finals path iterates
+  `GameDB.active_clubs(year)` rather than the all-time club list, so a new club
+  (Tasmania 2028, Canberra 2030) is inactive before its year and fully active
+  from it. Its debut list is generated at the rollover into its first season
+  (`Prospects.generate_expansion_list`), aged and renormalised like any other.
 * **List management** — the Best 22 screen draws the selected 18 on an oval in
   match-day shape (full back through full forward) with the four interchange
   players in a bay underneath. Tap a guernsey for the rating.
@@ -336,7 +346,7 @@ scripts/
     MatchScene.gd      scoreboard, oval, commentary, full-time box score
     LadderScene.gd     full ladder + finals bracket
     ListScene.gd       your list, best 22, attributes, real season numbers
-    SeasonReviewScene.gd  the flag, your record, final ladder
+    SeasonReviewScene.gd  the flag, your record, final ladder, awards, club achievements
 scenes/                seven thin .tscn wrappers - a root Control + its script
 tools/
   sim_harness.py       calibration harness (run this after any engine change)

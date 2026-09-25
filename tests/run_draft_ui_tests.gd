@@ -29,7 +29,8 @@ func _run() -> void:
 	_state.show_real_names = false
 	_db = root.get_node("GameDB")
 	_state.reset()
-	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(), _db.CLUB_ORDER.duplicate(), 12345)
+	_state.draft = load("res://scripts/sim/Draft.gd").new(_db.all_players_sorted(),
+			_db.active_clubs(2026).duplicate(), 12345)
 	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
 	root.add_child(ui)
 	ui.call("_on_club_chosen", "COL")

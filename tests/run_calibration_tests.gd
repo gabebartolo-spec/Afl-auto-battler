@@ -37,7 +37,7 @@ func _run() -> void:
 		push_error("Could not load the match engine")
 		quit(1)
 		return
-	var codes: Array = db.CLUB_ORDER
+	var codes: Array = db.active_clubs(2026)
 	var bench := _benchmarks(db)
 
 	var rng := RandomNumberGenerator.new()

@@ -216,6 +216,10 @@ func _test_career_rollover() -> void:
 	var seen_ids := {}
 	for code in GameDB.CLUB_ORDER:
 		var arr: Array = GameState.league_lists[code]
+		if GameDB.enter_year(code) > GameState.season_year:
+			# Not an active club yet - an expansion debut list arrives in its
+			# own entry season, so there is nothing to keep in band.
+			continue
 		total_signed += arr.size() - int(list_sizes[code])
 		_check(arr.size() >= Prospects.MIN_LIST, "No club drops below the minimum list")
 		_check(arr.size() <= Ratings.LIST_SIZE, "No club exceeds the 44-man list cap")

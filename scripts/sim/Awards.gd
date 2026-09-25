@@ -13,7 +13,7 @@ extends RefCounted
 ## Influence is the best-on-ground measure the match screens already use
 ## (CoachReport.influence).
 
-const AA_SLOTS := [["RUCK", 1], ["MID", 7], ["DEF", 5], ["FWD", 5]]
+const AA_SLOTS := [["RUCK", 1], ["MID", 5], ["DEF", 6], ["FWD", 6]]
 const AA_BENCH := 4
 const AA_MIN_GAMES := 12
 const RISING_STAR_AGE := 21.0
