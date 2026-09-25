@@ -16,6 +16,9 @@ func run() -> void:
 	_test_set_shot()
 	_test_live_determinism()
 	_test_impact_and_ai()
+	_test_pep_talks()
+	_test_hothead()
+	_test_lockdown_midfielder()
 	_test_traits()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -205,6 +208,167 @@ func _test_impact_and_ai() -> void:
 			if str(p["id"]) == str(star["id"]):
 				still_on = true
 		_check(not still_on, "Resting him takes him off the ground")
+
+
+## Calm the group is a live option: a milder, quarter-long Slow it down,
+## distinct from Fire them up and from the default Stay composed.
+func _test_pep_talks() -> void:
+	var sim := _sim(55)
+	sim.set_tactics(0, {"pep": "calm"})
+	sim.set_tactics(1, {"pep": "fire_up"})
+	_check(sim._pep_mult(0, "clangers") < 1.0 and sim._pep_mult(0, "taken") < 1.0
+			and sim._pep_mult(0, "gain") < 1.0 and sim._pep_mult(0, "pace") < 1.0,
+			"Calm the group cuts clangers, pressure felt and running, for less ground gained")
+	_check(sim._contest_pep(0) == 0.0 and sim._contest_pep(1) > 0.0
+			and sim._pep_mult(1, "clangers") == 1.0 and sim._pep_mult(1, "taken") == 1.0,
+			"Calm the group and Fire them up do different things")
+	# Legs last longer: the same chain drains a calm side less than a steady one.
+	var calm := _sim(56)
+	var steady := _sim(56)
+	calm.set_tactics(0, {"pep": "calm"})
+	steady.set_tactics(0, {"pep": "steady"})
+	calm._after_chain()
+	steady._after_chain()
+	var e_calm := 0.0
+	var e_steady := 0.0
+	for p in calm.squads[0].ground:
+		e_calm += float(calm.energy[str(p["id"])])
+	for p in steady.squads[0].ground:
+		e_steady += float(steady.energy[str(p["id"])])
+	_check(e_calm > e_steady, "Calm the group saves legs (%.2f v %.2f energy)" % [e_calm, e_steady])
+	# Played for a quarter, it acts on the chains and the readout credits it.
+	var q := _sim(57)
+	q.set_tactics(0, {"pep": "calm"})
+	q.set_tactics(1, {"pep": "steady"})
+	q.run_quarter()
+	var composed := _sim(57)
+	composed.set_tactics(0, {"pep": "steady"})
+	composed.set_tactics(1, {"pep": "steady"})
+	composed.run_quarter()
+	_check(float((q.impact[0] as Dictionary).get("pep", 0.0)) > 0.0,
+			"A calmed quarter shows in the readout as pep-talk points")
+	_check(float((composed.impact[0] as Dictionary).get("pep", 0.0)) == 0.0,
+			"Stay composed changes nothing")
+	_check(CoachReport.pep_effect("calm") != CoachReport.pep_effect("steady")
+			and CoachReport.pep_effect("calm") != CoachReport.pep_effect("fire_up"),
+			"The coach box describes what calming the group does")
+
+
+## GEE v COL with every player at discipline 60, except four of GEE's
+## on-ground players at `disc` (20 makes them Hotheads, 21 does not).
+func _discipline_sim(seed: int, disc: int) -> MatchSim:
+	var lists := []
+	for code in ["GEE", "COL"]:
+		var l: Array = []
+		for p in GameDB.club_list(code):
+			var q: Dictionary = p.duplicate(true)
+			(q["attr"] as Dictionary)["discipline"] = 60
+			l.append(q)
+		lists.append(l)
+	var home := Squad.new("GEE", lists[0], true, "GEE")
+	var away := Squad.new("COL", lists[1], false, "COL")
+	for i in range(4):
+		(home.ground[i]["attr"] as Dictionary)["discipline"] = disc
+	return MatchSim.new(home, away, seed)
+
+
+## Hothead: he gives away 50% more clangers than his discipline alone would,
+## on top of his teammates' share - so his side gives away more clangers and
+## free kicks, not just him.
+func _test_hothead() -> void:
+	var hot := _discipline_sim(60, 20)
+	var cool := _discipline_sim(60, 21)
+	_check(hot._trait(hot.squads[0].ground[0], "hothead")
+			and not cool._trait(cool.squads[0].ground[0], "hothead"),
+			"Discipline 20 makes a Hothead, 21 does not")
+	var hw: Array = hot._clanger_weights(0)
+	var cw: Array = cool._clanger_weights(0)
+	_check(float(hw[0][0]) / float(cw[0][0]) > 1.45,
+			"A Hothead is half as likely again to be the one giving it away")
+	_check(float(hw[1]) > 1.15 and is_equal_approx(float(cw[1]), 1.0),
+			"Four Hotheads lift the side's clanger rate (x%.2f); none leave it alone" % float(hw[1]))
+	# Played out: the side with the Hotheads gives away more clangers and
+	# more free kicks, and its Hotheads more of them.
+	var ids := []
+	for i in range(4):
+		ids.append(str(hot.squads[0].ground[i]["id"]))
+	var team := {"hot": [0.0, 0.0, 0.0], "cool": [0.0, 0.0, 0.0]}
+	for seed in range(61, 67):
+		for k in ["hot", "cool"]:
+			var res: Dictionary = _discipline_sim(seed, 20 if k == "hot" else 21).run()
+			var t: Array = team[k]
+			t[0] += float(res["team"][0].get("clangers", 0.0))
+			t[1] += float(res["team"][0].get("frees_against", 0.0))
+			for id in ids:
+				t[2] += float((res["players"].get(id, {}) as Dictionary).get("clangers", 0.0))
+	var h: Array = team["hot"]
+	var c: Array = team["cool"]
+	_check(h[0] > c[0] * 1.08, "Hotheads cost their side clangers (%d v %d over six games)" % [h[0], c[0]])
+	_check(h[1] > c[1], "Hotheads give away more free kicks (%d v %d)" % [h[1], c[1]])
+	_check(h[2] > c[2] * 1.2, "The Hotheads themselves give away far more (%d v %d)" % [h[2], c[2]])
+
+
+## GEE v COL, every COL player at pressure 50 (no Lockdowns), except COL's
+## first on-ground midfielder at `minder_pressure` (64+ makes him a Lockdown).
+func _lockdown_sim(minder_pressure: int) -> MatchSim:
+	var lists := []
+	for code in ["GEE", "COL"]:
+		var l: Array = []
+		for p in GameDB.club_list(code):
+			l.append(p.duplicate(true))
+		lists.append(l)
+	var home := Squad.new("GEE", lists[0], true, "GEE")
+	var away := Squad.new("COL", lists[1], false, "COL")
+	for p in away.ground + away.bench:
+		(p["attr"] as Dictionary)["pressure"] = 50
+	for p in away.ground:
+		if str(p["role"]) == "MID":
+			(p["attr"] as Dictionary)["pressure"] = minder_pressure
+			break
+	return MatchSim.new(home, away, 5)
+
+
+## GEE's on-ground players of `role`, best rated first.
+func _ranked(sim: MatchSim, role: String) -> Array:
+	var out: Array = []
+	for p in sim.squads[0].ground:
+		if str(p["role"]) == role:
+			out.append(p)
+	out.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+	return out
+
+
+## Lockdown on a midfielder: he picks up their best midfielder, whose shots
+## are 4% less likely to be goals. Before, only the forward-50 defender (a
+## defender) could ever be the Lockdown on a shot.
+func _test_lockdown_midfielder() -> void:
+	var lock := _lockdown_sim(80)
+	var none := _lockdown_sim(63)
+	var minder: Dictionary = lock.squads[1].ground.filter(func(p): return str(p["role"]) == "MID")[0]
+	_check(lock._trait(minder, "lockdown")
+			and not none._trait(none.squads[1].ground.filter(func(p): return str(p["role"]) == "MID")[0], "lockdown"),
+			"Pressure 64 makes a midfielder a Lockdown, 63 does not")
+	var fwd := _fake("lk_fwd", "FWD", {"pressure": 95})
+	_check(not Traits.of(fwd).has("lockdown"), "A forward cannot be a Lockdown, however hard he presses")
+	var best_lock: Dictionary = _ranked(lock, "MID")[0]
+	var best_none: Dictionary = _ranked(none, "MID")[0]
+	_check(str(lock._midfield_minder(0, best_lock).get("id", "")) == str(minder["id"]),
+			"The Lockdown midfielder picks up their best midfielder")
+	var p_lock := lock.shot_chance(0, best_lock, true, false)
+	var p_none := none.shot_chance(0, best_none, true, false)
+	_check(is_equal_approx(p_lock, p_none * 0.96),
+			"His opponent's shots are 4%% less likely to be goals (%.4f v %.4f)" % [p_lock, p_none])
+	# Only his opponent: their other midfielders and their forwards shoot as before.
+	var second_lock: Dictionary = _ranked(lock, "MID")[1]
+	var second_none: Dictionary = _ranked(none, "MID")[1]
+	_check(is_equal_approx(lock.shot_chance(0, second_lock, true, false),
+			none.shot_chance(0, second_none, true, false)),
+			"A midfielder he is not on shoots as before")
+	var f_lock: Dictionary = _ranked(lock, "FWD")[0]
+	var f_none: Dictionary = _ranked(none, "FWD")[0]
+	_check(lock._midfield_minder(0, f_lock).is_empty() and is_equal_approx(
+			lock.shot_chance(0, f_lock, true, false), none.shot_chance(0, f_none, true, false)),
+			"A Lockdown midfielder does not mind their forwards")
 
 
 func _fake(id: String, role: String, attr: Dictionary) -> Dictionary:

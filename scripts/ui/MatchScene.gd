@@ -440,9 +440,17 @@ func _show_coach_box() -> void:
 	v.add_child(_field("Tag opponent", tag))
 
 	var pep := OptionButton.new()
+	pep.name = "PepPicker"
 	for i in range(PEP_TALKS.size()):
 		pep.add_item(str(PEP_TALKS[i][1]), i)
 	v.add_child(_field("Pep talk", pep))
+	var pep_note := UiKit.lbl("", 12, UiKit.MUTED)
+	pep_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(pep_note)
+	var sync_pep := func(idx: int) -> void:
+		pep_note.text = CoachReport.pep_effect(str(PEP_TALKS[idx][0]))
+	sync_pep.call(pep.selected)
+	pep.item_selected.connect(sync_pep)
 
 	var rot := OptionButton.new()
 	rot.name = "RotationPicker"

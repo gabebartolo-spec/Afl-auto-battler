@@ -28,7 +28,7 @@ const DEFS := {
 	"interceptor": {"label": "Interceptor", "stat": "intercept", "min": 80, "roles": ["DEF"],
 			"text": "Spoils 5% more of the forward-50 contests he is in."},
 	"lockdown": {"label": "Lockdown", "stat": "pressure", "min": 64, "roles": ["DEF", "MID"],
-			"text": "His opponent's shots are 4% less likely to be goals."},
+			"text": "His opponent's shots are 4% less likely to be goals (a midfielder picks up their best midfielder)."},
 	"engine": {"label": "Engine", "stat": "durability", "min": 91, "roles": [],
 			"text": "Tires 25% slower."},
 	"big_game": {"label": "Big-game player", "stat": "star", "min": 60, "roles": [],

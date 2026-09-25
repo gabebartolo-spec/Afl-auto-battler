@@ -35,6 +35,12 @@ const PEP_NAMES := {
 	"calm": "Calm the group",
 }
 
+const PEP_EFFECTS := {
+	"steady": "No change.",
+	"fire_up": "More intensity: +1.8% clearance win, but legs tire faster (+5% running).",
+	"calm": "Settle them down: 8% fewer clangers, 5% less pressure felt and legs last longer, but 5% less ground gained.",
+}
+
 const TEAM_COMPARE := [
 	["disposals", "Disposals", 4, false],
 	["marks", "Marks", 3, false],
@@ -88,6 +94,10 @@ static func plan_effect(key: String) -> String:
 
 static func pep_label(key: String) -> String:
 	return str(PEP_NAMES.get(key, "Stay composed"))
+
+
+static func pep_effect(key: String) -> String:
+	return str(PEP_EFFECTS.get(key, str(PEP_EFFECTS["steady"])))
 
 
 ## Same best-on-ground weighting the full-time screen uses, so half-time form

@@ -19,6 +19,8 @@ func run() -> void:
 	_test_simulated_finals_series()
 	_test_extra_time()
 	_test_home_and_away_never_extra_time()
+	_test_grand_final_neutral()
+	_test_ladder_result_word()
 	print("Finals tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -240,3 +242,63 @@ func _test_home_and_away_never_extra_time() -> void:
 			_check(not bool(res["extra_time"]), "A home-and-away draw stays a draw")
 			_check((res["q_goals"] as Array).size() == 4, "Draws keep four quarters")
 			return
+
+
+## The Grand Final is at a neutral venue: the side in the home slot gets no
+## home-ground edge. An ordinary home side, and the higher seed hosting every
+## other final, keep it. (Tests the engine's input, not random scores.)
+func _test_grand_final_neutral() -> void:
+	var bonus := float(Ratings.T["home_ground_bonus"])
+	var ordinary := _new_sim(3)
+	_check(bonus > 0.0 and ordinary.squads[0].home and is_equal_approx(ordinary.home_edge(), bonus),
+			"An ordinary home side has the home-ground edge")
+	# The stoppage odds really use it: the same seed draws the same numbers,
+	# so the home side can only win more stoppages than a neutral one.
+	var at_home := _new_sim(11)
+	var neutral := MatchSim.new(Squad.new("Home", GameDB.club_list("GEE"), false, "GEE"),
+			Squad.new("Away", GameDB.club_list("HAW"), false, "HAW"), 11)
+	var won := [0, 0]
+	for i in range(400):
+		won[0] += 1 if at_home.contest_winner(false, 0.0) == 0 else 0
+		won[1] += 1 if neutral.contest_winner(false, 0.0) == 0 else 0
+	_check(neutral.home_edge() == 0.0 and int(won[0]) > int(won[1]),
+			"At a neutral venue the home slot wins fewer stoppages (%d v %d of 400)" % [won[1], won[0]])
+	var season := _to_last_round()
+	GameState.advance()
+	# Each finals week, coach that week's first final live (the same prepare
+	# path MatchScene uses) and read the engine's home edge for it.
+	var edges := {}
+	var guard := 0
+	while not season.is_season_over() and guard < 8:
+		guard += 1
+		var m: Dictionary = season.finals_week_matches()[0]
+		GameState.my_club = str(m["home"])
+		GameState.my_list = season.lists[GameState.my_club]
+		if not GameState.prepare_interactive_match():
+			break
+		var sim: MatchSim = GameState.pending_sim
+		edges[str(GameState.pending_match["tag"])] = [sim.home_edge(), sim.squads[0].home,
+				bool(GameState.pending_match["neutral"])]
+		_play_pending()
+	_check(edges.has("GF"), "The Grand Final was coached live")
+	var gf: Array = edges.get("GF", [1.0, true, false])
+	_check(float(gf[0]) == 0.0 and not bool(gf[1]) and bool(gf[2]),
+			"The Grand Final gives the home-slot side no home-ground edge")
+	var hosted := edges.size() > 1
+	for tag in edges:
+		if str(tag) == "GF":
+			continue
+		var e: Array = edges[tag]
+		if not (is_equal_approx(float(e[0]), bonus) and bool(e[1]) and not bool(e[2])):
+			hosted = false
+	_check(hosted, "The higher seed still hosts every other final (%s)" % str(edges.keys()))
+
+
+## The ladder's finals rows put the home side first; the word between the
+## scores says who won (it read "d." even when the away side won).
+func _test_ladder_result_word() -> void:
+	var ladder = load("res://scripts/ui/LadderScene.gd")
+	_check(ladder.result_word({"score": [80, 62]}) == "d.", "A home win reads 'd.'")
+	_check(ladder.result_word({"score": [62, 80]}) == "lost to", "An away win reads 'lost to'")
+	_check(ladder.result_word({"score": [70, 70]}) == "drew with",
+			"A level final reads 'drew with'")
