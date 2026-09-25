@@ -19,6 +19,7 @@ func run() -> void:
 	_test_appended_segments()
 	_test_pitch_view_api(res)
 	_test_empty_view()
+	_test_ballup_is_informational()
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -250,3 +251,17 @@ func _test_empty_view() -> void:
 	pv._process(0.1)
 	_check(not pv.playing and pv.director.tokens.is_empty(), "An empty view idles safely")
 	pv.free()
+
+
+## A logged ball-up only stages the stoppage: it leaves the momentum meter and
+## the commentary feed exactly as they were.
+func _test_ballup_is_informational() -> void:
+	var scene = load("res://scripts/ui/MatchScene.gd").new()
+	scene._momentum = 0.5
+	scene._track_momentum({"kind": "ballup", "side": -1, "fp": 20.0})
+	_check(is_equal_approx(scene._momentum, 0.5), "A ball-up does not move the momentum meter")
+	scene._track_momentum({"kind": "kick", "side": 0, "fp": 20.0})
+	_check(scene._momentum < 0.5, "Ordinary play still ages the momentum meter")
+	_check(scene.QUIET_KINDS.has("ballup"), "Ball-ups stay out of the commentary feed")
+	scene.free()
+

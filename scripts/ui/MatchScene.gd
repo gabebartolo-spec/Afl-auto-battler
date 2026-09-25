@@ -181,6 +181,10 @@ func _paint_momentum() -> void:
 
 
 func _track_momentum(ev: Dictionary) -> void:
+	# A ball-up is staging for the oval, not a play: it must not age the meter
+	# (the log carries ~57 a match).
+	if str(ev.get("kind", "")) == "ballup":
+		return
 	var side := int(ev.get("side", -1))
 	var sign := 1.0 if side == 0 else -1.0
 	_momentum *= 0.985
