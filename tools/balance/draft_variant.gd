@@ -28,6 +28,8 @@ extends Draft
 ##                shipped, so the draft-compression experiment
 ##                (docs/DRAFT_COMPRESSION.md) still reproduces. An empty model
 ##                is exactly the shipped draft.
+##   eval_by_need true shipped: the club's opinion is weighted by its need
+##                for the position (Draft._ai_score). false applies it in full.
 ## The two-ruck rule (_forced_role) and the hard budget check always apply.
 
 var model := {}
@@ -83,18 +85,15 @@ func _eval_sd_range() -> Array:
 	return model.get("eval_sd", [0.0, 0.0])
 
 
-func _perceived(code: String, p: Dictionary) -> float:
-	return _worth(p) + _eval_error(code, p) + float((_noise.get(code, {}) as Dictionary).get(str(p["id"]), 0.0))
-
-
 func _ai_score(code: String, p: Dictionary) -> float:
 	if model.is_empty():
 		return super(code, p)
 	_refresh_ai_cache()
 	var penalty := _cap_penalty(code, p) if bool(model.get("cap_penalty", true)) else 0.0
-	var worth := _perceived(code, p)
+	var noise := float((_noise.get(code, {}) as Dictionary).get(str(p["id"]), 0.0))
+	var err := _eval_error(code, p)
 	if str(model.get("score", "current")) == "bpa":
-		return worth - penalty
+		return _worth(p) + err + noise - penalty
 	var vorp_w := AI_VORP_WEIGHT * float(model.get("vorp_scale", 1.0))
 	var best := -INF
 	var roles := [[str(p["role"]), 1.0]]
@@ -104,6 +103,7 @@ func _ai_score(code: String, p: Dictionary) -> float:
 	for entry in roles:
 		var role: String = entry[0]
 		var need := _need_weight(code, role)
+		var worth := _worth(p) + noise + err * (need if bool(model.get("eval_by_need", true)) else 1.0)
 		var over := minf(AI_VORP_CAP, worth - _replacement(code, role))
 		var s := (worth + vorp_w * over) * need * float(entry[1])
 		best = maxf(best, s)

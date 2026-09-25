@@ -22,10 +22,16 @@ const VARIANTS := {
 	# The draft before club-specific evaluation shipped, and calibration
 	# candidates for its range (docs/DRAFT_EVALUATION.md)
 	"eval_off": {"eval_sd": [0.0, 0.0]},
-	"eval_05_3": {"eval_sd": [0.5, 3.0]},
-	"eval_1_4": {"eval_sd": [1.0, 4.0]},
-	"eval_1_5": {"eval_sd": [1.0, 5.0]},
-	"eval_15_6": {"eval_sd": [1.5, 6.0]},
+	# First round: the opinion applied in full, whatever the need.
+	"eval_05_3": {"eval_sd": [0.5, 3.0], "eval_by_need": false},
+	"eval_1_4": {"eval_sd": [1.0, 4.0], "eval_by_need": false},
+	"eval_1_5": {"eval_sd": [1.0, 5.0], "eval_by_need": false},
+	"eval_15_6": {"eval_sd": [1.5, 6.0], "eval_by_need": false},
+	# Second round (shipped shape): the opinion weighted by list need.
+	"evn_1_5": {"eval_sd": [1.0, 5.0]},
+	"evn_15_6": {"eval_sd": [1.5, 6.0]},
+	"evn_2_7": {"eval_sd": [2.0, 7.0]},
+	"evn_25_8": {"eval_sd": [2.5, 8.0]},
 	# Draft order, shipped AI
 	"linear": {"order": "linear"},
 	"random_round": {"order": "random_round"},

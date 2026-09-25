@@ -415,7 +415,8 @@ var _ai_share := {}      # role -> share of the league's remaining demand
 
 func _ai_score(code: String, p: Dictionary) -> float:
 	_refresh_ai_cache()
-	var worth := _worth(p) + _eval_error(code, p)
+	var base := _worth(p)
+	var err := _eval_error(code, p)
 	var best := -INF
 	var roles := [[str(p["role"]), 1.0]]
 	var role2 := str(p.get("role2", ""))
@@ -424,6 +425,9 @@ func _ai_score(code: String, p: Dictionary) -> float:
 	for entry in roles:
 		var role: String = entry[0]
 		var need := _need_weight(code, role)
+		# A club's own opinion counts in full for a starting spot it is
+		# filling; for depth and surplus picks it leans on the consensus.
+		var worth := base + err * need
 		var over := minf(AI_VORP_CAP, worth - _replacement(code, role))
 		var s := (worth + AI_VORP_WEIGHT * over) * need * float(entry[1])
 		best = maxf(best, s)
@@ -435,7 +439,10 @@ func _ai_score(code: String, p: Dictionary) -> float:
 # ---------------------------------------------------------------------------
 ## Recruiting departments disagree. In the career draft every rival club
 ## sees each player through its own scouting opinion: the worth above plus a
-## fixed error that belongs to that club and that player. The opinion is
+## fixed error that belongs to that club and that player, weighted by how
+## much the club needs him (full for an open starting spot, less for depth,
+## little for surplus - so late-draft depth picks follow the consensus and
+## no club piles up spare rucks). The opinion is
 ## zero-mean (no club is told to over- or under-rate everyone), and clubs
 ## differ in how sharp their scouting is: each club's error SD is drawn from
 ## [AI_EVAL_SD_MIN, AI_EVAL_SD_MAX] rating points. Everything derives from
