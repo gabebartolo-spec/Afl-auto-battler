@@ -56,8 +56,11 @@ What that showed, and what the view does about it:
 - **Centre bounces are 6-6-6**, with at most four per side in the square,
   wingers on the wings and defenders goal-side. Players stand still before
   the bounce, then there's the ruck contest and the tap.
-- **Kick-ins after a behind:** the kicker is in the goal square and the other
-  side sets a three-line zone.
+- **Kick-ins after a behind:** MatchSim restarts from the goal square (the
+  logged fp) with the defending side's kick. The view puts that logged kicker
+  in the goal square, with the other side set in a three-line zone. Every
+  restart the view stages (centre bounce, kick-in, ball-up) is the one
+  MatchSim played, read from the previous logged event.
 - **Ball-ups** come from MatchSim's explicit `ballup` event, logged where play
   stopped. The ball reaches that spot, a pack of three a side plus the rucks
   forms, the umpire throws it up, and the ruck taps it to the player who

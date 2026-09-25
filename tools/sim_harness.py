@@ -33,10 +33,10 @@ PLAYERS_CSV = os.path.join(ROOT, "data", "players_2026.csv")
 # ---------------------------------------------------------------------------
 T = {
     "chains_per_game": 165,          # possession chains across BOTH teams
-    "max_touches_per_chain": 11,
+    "max_touches_per_chain": 14,
     "forward50_line": 35.0,          # metres from the centre square
     "goal_line": 85.0,
-    "metres_gain_mean": 8.0,         # base metres per effective disposal
+    "metres_gain_mean": 8.8,         # base metres per effective disposal
     "tackle_retention": 0.44,        # attacking team wins the ball back
     "pressure_base": 0.158,          # chance a touch is tackled
     "clanger_per_chain": 0.68,       # chance the chain ends in an error
@@ -45,13 +45,13 @@ T = {
     "handball_share": 0.42,
     "inside50_goal": 0.284,           # of inside-50 entries
     "inside50_behind": 0.187,
-    "stoppage_share": 0.38,          # chains that begin at a genuine stoppage
+    "stoppage_share": 0.50,          # chains that begin at a genuine stoppage
     "hitouts_per_stoppage": 0.81,    # split between the two rucks
     "clearance_per_stoppage": 0.815,  # to the team that wins the stoppage
     "one_percenter_share": 0.83,     # of inside-50 entries that yield a 1%
     "rebound_on_exit": 0.55,         # defensive-half chains that yield a reb50
     "shooter_power": 0.5,            # how strongly shots go to the best kicks
-    "rebound_from": -16.0,           # a carry from behind this line...
+    "rebound_from": -18.0,           # a carry from behind this line...
     "rebound_to": -13.0,             # ...to beyond this one is a rebound 50
     "shrink_games": 5.0,             # sample-size shrink for per-game rates
     "shrink_accuracy": 14.0,         # sample-size shrink for goal conversion
@@ -550,7 +550,7 @@ class MatchSim:
                                  "contested")
             st.p(mid, "clearances")
 
-    def play_chain(self, side, fp, minute, quarter, from_bounce):
+    def play_chain(self, side, fp, minute, quarter, from_bounce, from_kick_in=False):
         st = self.stats
         opp = 1 - side
         atk, dfn = self.squads[side], self.squads[opp]
@@ -570,7 +570,9 @@ class MatchSim:
             st.p(carrier, "disposals")
 
             hb_bias = 0.85 + 0.30 * (100 - carrier["attr"]["marking"]) / 100.0
-            if self.rng.random() < T["handball_share"] * hb_bias:
+            # A kick-in is kicked: no handball roll for its first disposal.
+            if not (from_kick_in and touches == 1) and \
+                    self.rng.random() < T["handball_share"] * hb_bias:
                 st.t(side, "handballs")
                 st.p(carrier, "handballs")
             else:
@@ -677,7 +679,7 @@ class MatchSim:
             st.p(shooter, "behinds")
             self.log(minute, quarter, "Behind %s (%s)" % (
                 shooter["name"], self.squads[side].name), side, "behind")
-            return ("score", 0.0, shooter, True)
+            return ("behind", kick_in_fp(side), shooter, True)
 
         st.t(opp, "rebounds")
         st.p(defender, "rebounds")
@@ -699,11 +701,18 @@ class MatchSim:
         fp = 0.0
         next_side = None              # None => the stoppage is contested
         at_centre = True
+        kick_in = False
         for quarter in range(1, 5):
             at_centre = True          # every quarter starts with a centre bounce
+            kick_in = False
             for i in range(per_quarter):
                 minute = (quarter - 1) * 30 + int(30 * i / max(1, per_quarter)) + 1
-                stoppage = at_centre or self.rng.random() < T["stoppage_share"]
+                # A kick-in after a behind is not a stoppage: no ruck contest,
+                # no clearance.
+                from_kick_in = kick_in
+                kick_in = False
+                stoppage = at_centre or (not from_kick_in
+                                         and self.rng.random() < T["stoppage_share"])
                 if stoppage:
                     # Centre bounce after a score or at a quarter start;
                     # otherwise a ball-up where play stopped.
@@ -715,10 +724,13 @@ class MatchSim:
                             else self.contest_winner(fp))
 
                 outcome, fp, actor, _ = self.play_chain(
-                    side, start_fp, minute, quarter, stoppage)
+                    side, start_fp, minute, quarter, stoppage, from_kick_in)
 
+                # Goal: centre bounce. Behind: the other side kicks in (fp is
+                # already the goal square). Turnover: play on from here.
                 at_centre = (outcome == "score")
-                next_side = (1 - side) if outcome == "turnover" else None
+                kick_in = (outcome == "behind")
+                next_side = (1 - side) if outcome in ("turnover", "behind") else None
                 if outcome == "score":
                     fp = 0.0
 
@@ -735,6 +747,15 @@ class MatchSim:
                         self.stats.p(err, "frees_against")
                         next_side = 1 - side
         return self.stats
+
+
+GOAL_SQUARE_DEPTH = 9.0  # metres; kick-ins are taken from inside it
+
+
+def kick_in_fp(side):
+    """Where the defending side kicks in from after `side` scores a behind:
+    the middle of the goal square at the end `side` attacks."""
+    return (1 if side == 0 else -1) * (T["goal_line"] - GOAL_SQUARE_DEPTH * 0.5)
 
 
 # ---------------------------------------------------------------------------

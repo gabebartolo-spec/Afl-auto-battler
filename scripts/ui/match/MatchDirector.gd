@@ -334,8 +334,9 @@ func _next_real(k: int) -> int:
 
 ## How a possession event starts: from open play, a centre bounce, a kick-in,
 ## a ball-up, a free kick or a loose ball. Read straight from the event before
-## it: MatchSim logs every ball-up ("ballup") and every centre restart follows
-## a goal, a behind or a quarter break.
+## it, matching MatchSim's restarts: a goal or a quarter break -> centre
+## bounce, a behind -> kick-in from the goal square, a logged "ballup" ->
+## ball-up where play stopped.
 func _restart(k: int) -> String:
 	var ev: Dictionary = events[k]
 	var pk := _prev_real(k)
@@ -440,26 +441,31 @@ func _centre_phases(k: int, a: int, loc: Vector2) -> Array:
 	]
 
 
-func _kickin_phases(k: int, a: int, loc: Vector2) -> Array:
+## A kick-in after a behind, as MatchSim plays it: the defending side restarts
+## from its goal square (the logged fp) with no contest, while the side that
+## scored sets a zone. `kicker` takes the ball there; the kick itself is the
+## logged disposal that follows.
+func _kickin_phases(k: int, kicker: int, g: Vector2) -> Array:
 	var pk := _prev_real(k)
 	var kside := 1 - int((events[pk] as Dictionary).get("side", 0))
 	var dir := _dir(kside)
-	var g := Vector2(-80.0 * dir, 0.0)
-	var kicker := -1
-	var best := INF
-	for t in tokens:
-		if int(t["side"]) == kside and str(t["role"]) == "DEF":
-			var d := (t["pos"] as Vector2).distance_to(g)
-			if d < best:
-				best = d
-				kicker = int(t["id"])
+	if kicker < 0 or int(tokens[kicker]["side"]) != kside:
+		# No logged kicker yet (an error logged first): the full back has it.
+		kicker = -1
+		var best := INF
+		for t in tokens:
+			if int(t["side"]) == kside and str(t["role"]) == "DEF":
+				var d := (t["pos"] as Vector2).distance_to(g)
+				if d < best:
+					best = d
+					kicker = int(t["id"])
 	var layout := {}
 	var zone_side := 1 - kside
 	var used := {"FWD": 0, "MID": 0, "DEF": 0}
 	for t in tokens:
 		var id := int(t["id"])
 		if id == kicker:
-			layout[id] = g + Vector2(dir * 1.5, 0)
+			layout[id] = g + Vector2(dir * 1.0, 0)
 		elif int(t["side"]) == zone_side:
 			var grp := "MID" if str(t["role"]) == "RUCK" else str(t["role"])
 			var pts: Array = ZONE.get(grp, ZONE["MID"])
@@ -473,9 +479,7 @@ func _kickin_phases(k: int, a: int, loc: Vector2) -> Array:
 		{"t": "setup", "layout": layout, "ball_to": g, "mode": "kickin", "min": 0.9, "max": 2.2},
 		{"t": "collect", "who": kicker},
 		{"t": "possess", "who": kicker, "quiet": true},
-		{"t": "wait", "dur": 0.35},
-		{"t": "flight", "to": loc, "dur": _flight_shape("kick", g.distance_to(loc)).x,
-			"apex": 17.0, "recv": a, "adapt": true, "contest": true},
+		{"t": "wait", "dur": 0.3},
 	]
 
 
@@ -573,7 +577,8 @@ func _clanger_phases(k: int) -> Array:
 		"centre":
 			out = _centre_phases(k, e, loc)
 		"kickin":
-			out = _kickin_phases(k, e, loc)
+			# An error logged before the kick-in: shown at the goal square.
+			return _kickin_phases(k, -1, loc) + [{"t": "emit", "log": true}]
 	var d := (ball["pos"] as Vector2).distance_to(loc)
 	if out.is_empty() and d > 1.0:
 		var pk := _prev_real(k)
@@ -611,7 +616,7 @@ func _loc(k: int) -> Vector2:
 	elif _possession(kind) and _restart(k) == "centre":
 		p = Vector2(0.0, signf(ry if ry != 0.0 else 1.0) * 3.5)
 	elif _possession(kind) and _restart(k) == "kickin":
-		p = Vector2(0.0, signf(ry if ry != 0.0 else 1.0) * _rng.randf_range(12.0, 26.0))
+		p = Vector2(x, 0.0)   # the goal square: MatchSim logs the kick-in there
 	elif _possession(kind) and _restart(k) in ["ballup", "free", "loose"]:
 		p = Vector2(x, src.y + _rng.randf_range(-6.0, 6.0))
 	else:

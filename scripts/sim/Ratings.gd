@@ -11,10 +11,10 @@ extends RefCounted
 ## tools/sim_harness.py (dict `T`).
 const T := {
 	"chains_per_game": 165,          # possession chains across BOTH teams
-	"max_touches_per_chain": 11,
+	"max_touches_per_chain": 14,
 	"forward50_line": 35.0,          # metres from the centre square
 	"goal_line": 85.0,
-	"metres_gain_mean": 8.0,         # base metres per effective disposal
+	"metres_gain_mean": 8.8,         # base metres per effective disposal
 	"tackle_retention": 0.44,        # attacking team wins the ball back
 	"pressure_base": 0.158,          # chance a touch is tackled
 	"clanger_per_chain": 0.68,      # chance the chain ends in an error
@@ -23,13 +23,13 @@ const T := {
 	"handball_share": 0.42,
 	"inside50_goal": 0.284,          # of inside-50 entries
 	"inside50_behind": 0.187,
-	"stoppage_share": 0.38,          # chains that begin at a genuine stoppage
+	"stoppage_share": 0.50,          # chains that begin at a genuine stoppage
 	"hitouts_per_stoppage": 0.81,    # split between the two rucks
 	"clearance_per_stoppage": 0.815,  # to the team that wins the stoppage
 	"one_percenter_share": 0.83,     # of inside-50 entries that yield a 1%
 	"rebound_on_exit": 0.55,         # defensive-half chains that yield a reb50
 	"shooter_power": 0.5,            # how strongly shots go to the best kicks
-	"rebound_from": -16.0,           # a carry from behind this line...
+	"rebound_from": -18.0,           # a carry from behind this line...
 	"rebound_to": -13.0,             # ...to beyond this one is a rebound 50
 	"shrink_games": 5.0,             # sample-size shrink for per-game rates
 	"shrink_accuracy": 14.0,         # sample-size shrink for goal conversion

@@ -20,6 +20,8 @@ var current_quarter := 1
 var fp := 0.0
 var next_side := -1          # -1 => the stoppage is contested
 var at_centre := true
+var kick_in := false         # the next chain is a kick-in after a behind
+const GOAL_SQUARE_DEPTH := 9.0  # metres; kick-ins are taken from inside it
 var tactics := [{}, {}]      # per side: gameplan, focus_id, tag_id, pep
 # Assistant-coach audit trail. Snapshots never touch the RNG, so calibration
 # is unaffected. tactics_history[q] records the plans in force for that
@@ -452,7 +454,7 @@ func _stoppage(side: int, opp: int, from_bounce: bool) -> void:
 # ---------------------------------------------------------------------------
 # One possession chain
 # ---------------------------------------------------------------------------
-func play_chain(side: int, fp: float, from_bounce: bool) -> Dictionary:
+func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) -> Dictionary:
 	var T := Ratings.T
 	var opp := 1 - side
 	var atk: Squad = squads[side]
@@ -479,7 +481,9 @@ func play_chain(side: int, fp: float, from_bounce: bool) -> Dictionary:
 
 		var hb_bias: float = (0.85
 				+ 0.30 * (100.0 - _a(carrier, "marking")) / 100.0)
-		if rng.randf() < float(T["handball_share"]) * hb_bias:
+		# A kick-in is kicked: no handball roll for its first disposal.
+		if not (from_kick_in and touches == 1) \
+				and rng.randf() < float(T["handball_share"]) * hb_bias:
 			_t(side, "handballs")
 			_p(carrier, "handballs")
 			_emit("handball", side, fp, carrier, "%s handballs" % GameDB.player_display_name(carrier))
@@ -568,6 +572,13 @@ func play_chain(side: int, fp: float, from_bounce: bool) -> Dictionary:
 	return {"outcome": "stoppage", "fp": fp, "actor": null}
 
 
+## Where the defending side kicks in from after `side` scores a behind: the
+## middle of the goal square (9 m deep) at the end `side` attacks.
+func kick_in_fp(side: int) -> float:
+	var dir := 1.0 if side == 0 else -1.0
+	return dir * (float(Ratings.T["goal_line"]) - GOAL_SQUARE_DEPTH * 0.5)
+
+
 ## Forward-50 entry resolution: contest the mark, then roll for goal / behind /
 ## rebound. This is where almost all of the scoring variance lives.
 func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
@@ -622,7 +633,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		_p(shooter, "behinds")
 		q_behinds[current_quarter - 1][side] += 1
 		_emit("behind", side, fp, shooter, _scoreline(side, "Behind"))
-		return {"outcome": "score", "fp": 0.0, "actor": shooter}
+		return {"outcome": "behind", "fp": kick_in_fp(side), "actor": shooter}
 
 	_t(opp, "rebounds")
 	_p(defender, "rebounds")
@@ -770,6 +781,7 @@ func begin_quarter() -> void:
 	_moments_this_q = 0
 	# Every quarter starts with a centre bounce.
 	at_centre = true
+	kick_in = false
 
 
 ## Play on until the quarter's chains are done (true) or a moment needs the
@@ -835,10 +847,12 @@ func run_extra_time() -> Dictionary:
 	var T := Ratings.T
 	var per_half: int = maxi(4, roundi(float(T["chains_per_game"]) / 4.0 * 0.15))
 	at_centre = true
+	kick_in = false
 	_play_chains(per_half, 120, 4)
 	_emit("quarter", -1, fp, null, "Extra time, half time - %s %d | %s %d" % [
 			squads[0].name, score(0), squads[1].name, score(1)])
 	at_centre = true
+	kick_in = false
 	_play_chains(per_half, 124, 4)
 	if score(0) == score(1):
 		_emit("quarter", -1, fp, null, "Still level - next score wins!")
@@ -871,7 +885,10 @@ func _play_chains(count: int, minute_base: int, span: int) -> void:
 
 
 func _play_one_chain(T: Dictionary) -> void:
-	var stoppage := at_centre or rng.randf() < float(T["stoppage_share"])
+	# A kick-in after a behind is not a stoppage: no ruck contest, no clearance.
+	var from_kick_in := kick_in
+	kick_in = false
+	var stoppage := at_centre or (not from_kick_in and rng.randf() < float(T["stoppage_share"]))
 	var side: int
 	var start_fp: float
 	if stoppage:
@@ -886,15 +903,18 @@ func _play_one_chain(T: Dictionary) -> void:
 		start_fp = fp
 		side = next_side if next_side >= 0 else contest_winner(true, fp)
 
-	var res := play_chain(side, start_fp, stoppage)
+	var res := play_chain(side, start_fp, stoppage, from_kick_in)
 	var outcome: String = res["outcome"]
 	fp = res["fp"]
 	if outcome == "moment":
 		# The chain ends on the coach's call: resolve_moment() finishes it.
 		return
 
+	# Goal: centre bounce. Behind: the other side kicks in (fp is already the
+	# goal square). Turnover: the other side plays on from here.
 	at_centre = (outcome == "score")
-	next_side = (1 - side) if outcome == "turnover" else -1
+	kick_in = (outcome == "behind")
+	next_side = (1 - side) if outcome == "turnover" or outcome == "behind" else -1
 	if outcome == "score":
 		fp = 0.0
 
@@ -1449,7 +1469,7 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 		_p(kicker, "behinds")
 		q_behinds[current_quarter - 1][side] += 1
 		_emit("behind", side, fp, kicker, _scoreline(side, "Behind"))
-		_end_moment_chain("score", 0.0, side)
+		_end_moment_chain("behind", kick_in_fp(side), side)
 		return {"points": 1, "text": "Just a behind from %s." % GameDB.player_display_name(kicker)}
 	return _shot_turnover(side, defender, "%s's shot is rebounded" % GameDB.player_display_name(kicker))
 
@@ -1467,7 +1487,8 @@ func _shot_turnover(side: int, defender: Dictionary, text: String) -> Dictionary
 func _end_moment_chain(outcome: String, new_fp: float, side: int) -> void:
 	fp = new_fp
 	at_centre = outcome == "score"
-	next_side = (1 - side) if outcome == "turnover" else -1
+	kick_in = outcome == "behind"
+	next_side = (1 - side) if outcome == "turnover" or outcome == "behind" else -1
 	_after_chain()
 
 

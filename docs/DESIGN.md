@@ -168,11 +168,16 @@ Field position is metres from the centre square (`-85 .. +85`), forward-50 arc a
 `±35`. Each side fields **18** in a 6-6-6 shape (6 DEF, 6 MID — the ruck counted
 with midfield — and 6 FWD) plus 4 interchanges.
 
-Stoppages are balled up where play stopped: a chain that starts at a stoppage
-starts at the current field position, and MatchSim logs a `ballup` event
-there. Centre bounces follow a score (a behind included, which the pitch shows
-as a kick-in) and open every quarter. A chain that starts inside its forward
-50 goes through the normal inside-50 entry on its first disposal.
+Restarts: a goal or a quarter break -> centre bounce. A behind -> the other
+side kicks in from its goal square (fp 4.5 m inside its goal line, first
+disposal a kick), uncontested: no ruck contest, hit-out or clearance. Any
+other stoppage is balled up where play stopped, and MatchSim logs a `ballup`
+event there. A chain that starts inside its forward 50 goes through the
+normal inside-50 entry on its first disposal. Re-calibrated for this with
+existing constants only: `stoppage_share` 0.50 (was 0.38: the behind restarts
+no longer supply ruck contests), `metres_gain_mean` 8.8 (8.0),
+`max_touches_per_chain` 14 (11) and `rebound_from` -18 (-16), since kick-in
+chains start 80 m from goal.
 
 Stoppage win probability is a strength differential divided by `contest_swing`
 (360) and clamped to `[0.40, 0.60]`, plus a small home-ground bonus and a
