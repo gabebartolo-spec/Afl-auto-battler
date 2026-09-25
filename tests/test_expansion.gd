@@ -127,6 +127,12 @@ func _test_rollover_to_2028() -> void:
 	for item in GameState.news:
 		if str(item["kind"]) == "expansion" and str(item["text"]).contains("Tasmania"):
 			news_ok = true
+	if not news_ok:  # TEMP-CI-DIAG
+		var sample := []
+		for i in mini(6, GameState.news.size()):
+			var it: Dictionary = GameState.news[i]
+			sample.append("%s| %s" % [str(it.get("kind", "?")), str(it.get("text", "")).substr(0, 60)])
+		print("NEWS DEBUG size=%d feed=%s" % [GameState.news.size(), " || ".join(sample)])
 	_check(news_ok, "Tasmania's entry made the news")
 
 	# The debut list: a full squad, in the right size band, with contracts
