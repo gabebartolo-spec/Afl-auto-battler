@@ -27,6 +27,11 @@ FINALISTS = 10
 # Row order and labels in the report. Missing shards are skipped.
 ORDER = [
     ("real", "", "Real 2026 lists (no draft)"),
+    ("eval_off", "ai", "Before: shared evaluation (pre-change draft), all-AI"),
+    ("eval_05_3", "ai", "Club evaluation SD ~ U[0.5,3]"),
+    ("eval_1_4", "ai", "Club evaluation SD ~ U[1,4]"),
+    ("eval_1_5", "ai", "Club evaluation SD ~ U[1,5]"),
+    ("eval_15_6", "ai", "Club evaluation SD ~ U[1.5,6]"),
     ("current", "ai", "Shipped draft, all-AI (snake)"),
     ("current", "board", "Shipped draft, naive human (board)"),
     ("linear", "ai", "Order: linear (same order every round)"),

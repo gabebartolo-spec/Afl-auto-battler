@@ -14,8 +14,18 @@ extends SceneTree
 ## Aggregate with tools/balance/draft_experiment_report.py.
 
 ## One mechanism changed per variant (keys: tools/balance/draft_variant.gd).
+## Every variant but "current" leaves out the shipped club-specific
+## evaluation (eval_sd [0, 0]) unless it names one, so the documented
+## experiment reproduces; "current" is the draft as shipped today.
 const VARIANTS := {
 	"current": {},
+	# The draft before club-specific evaluation shipped, and calibration
+	# candidates for its range (docs/DRAFT_EVALUATION.md)
+	"eval_off": {"eval_sd": [0.0, 0.0]},
+	"eval_05_3": {"eval_sd": [0.5, 3.0]},
+	"eval_1_4": {"eval_sd": [1.0, 4.0]},
+	"eval_1_5": {"eval_sd": [1.0, 5.0]},
+	"eval_15_6": {"eval_sd": [1.5, 6.0]},
 	# Draft order, shipped AI
 	"linear": {"order": "linear"},
 	"random_round": {"order": "random_round"},
@@ -96,6 +106,8 @@ func _run() -> void:
 		var sig := "real"
 		var user := ""
 		var noise_sd := {}
+		var picks := []
+		var undrafted := []
 		if variant == "real":
 			lists = LB.real_lists()
 		else:
@@ -105,9 +117,24 @@ func _run() -> void:
 			user = str(d.user_club)
 			if "club_noise_sd" in d:
 				noise_sd = d.club_noise_sd
+			# Draft quality: every pick against the shared (consensus) ranking
+			# of the pool by worth, and each club's evaluation SD.
+			var ranked: Array = d.pool.duplicate()
+			ranked.sort_custom(func(a, b): return d._worth(a) > d._worth(b))
+			var rank_of := {}
+			for i in range(ranked.size()):
+				rank_of[str(ranked[i]["id"])] = i + 1
+				if not d.picked.has(str(ranked[i]["id"])):
+					undrafted.append(i + 1)
+			for e in d.pick_history:
+				picks.append([int(e["pick"]), str(e["club"]), str(e["player_id"]), str(e["role"]),
+						int(e["overall"]), int(rank_of[str(e["player_id"])])])
+			if d.has_method("club_eval_sd"):
+				for c in codes:
+					noise_sd[str(c)] = d.club_eval_sd(str(c)) if str(c) != user else 0.0
 		var units: Dictionary = LB.club_units(lists, codes)
 		var league := {"league": str(L), "sig": sig, "user_club": user,
-				"noise_sd": noise_sd, "units": units}
+				"noise_sd": noise_sd, "units": units, "picks": picks, "undrafted": undrafted}
 		out["leagues"].append(league)
 		print("%s league %d drafted (%ds)" % [variant, L, _secs()])
 		if mode != "season":

@@ -61,12 +61,17 @@ func _test_draft(lb) -> void:
 			"Every founding club drafts a list of the same size")
 	_check(str(a["sig"]) != str(c["sig"]) and str(a["user_club"]) != "",
 			"With your picks from the board policy, seeds give genuinely different leagues")
-	# Documents a property of the career draft: with every club (yours
-	# included) picking like the AI, the seed only reorders the same 18 lists.
+	# With one shared valuation (the draft before club-specific evaluation),
+	# the seed only reorders the same 18 lists; with clubs' own opinions,
+	# every seed is a different league.
+	var off1: Dictionary = lb.drafted_lists(7, "ai", 5, {"eval_sd": [0.0, 0.0]})
+	var off2: Dictionary = lb.drafted_lists(8, "ai", 5, {"eval_sd": [0.0, 0.0]})
+	_check(str(off1["sig"]) == str(off2["sig"]),
+			"With a shared valuation, an all-AI draft is one league relabelled")
 	var ai1: Dictionary = lb.drafted_lists(7, "ai")
 	var ai2: Dictionary = lb.drafted_lists(8, "ai")
-	_check(str(ai1["sig"]) == str(ai2["sig"]),
-			"An all-AI career draft yields the same league for every seed (relabelled)")
+	_check(str(ai1["sig"]) != str(ai2["sig"]),
+			"With club-specific evaluation, all-AI drafts from different seeds differ")
 	var ratings: Dictionary = lb.club_ratings(a["lists"], lb.clubs())
 	var st := []
 	for code in ratings:
@@ -81,10 +86,12 @@ func _test_draft_variant(lb) -> void:
 	var shipped: Dictionary = lb.drafted_lists(7, "ai")
 	var same: Dictionary = lb.drafted_lists(7, "ai", 5,
 			{"order": "snake", "score": "current", "need_scale": 1.0, "vorp_scale": 1.0,
-			"cap_penalty": true, "budget_mult": 1.0, "noise_sd": 0.0})
+			"cap_penalty": true, "budget_mult": 1.0, "noise_sd": 0.0,
+			"eval_sd": [Draft.AI_EVAL_SD_MIN, Draft.AI_EVAL_SD_MAX]})
 	_check(str(same["sig"]) == str(shipped["sig"]),
 			"The experiment draft model at shipped settings reproduces the shipped draft")
-	var linear: Dictionary = lb.drafted_lists(7, "ai", 5, {"order": "linear"})
+	var linear: Dictionary = lb.drafted_lists(7, "ai", 5, {"order": "linear",
+			"eval_sd": [Draft.AI_EVAL_SD_MIN, Draft.AI_EVAL_SD_MAX]})
 	_check(str(linear["sig"]) != str(shipped["sig"]), "A linear draft order changes the league")
 	var noisy1: Dictionary = lb.drafted_lists(7, "ai", 5, {"noise_sd_max": 8.0})
 	var noisy2: Dictionary = lb.drafted_lists(7, "ai", 5, {"noise_sd_max": 8.0})

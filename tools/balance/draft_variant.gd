@@ -22,6 +22,12 @@ extends Draft
 ##   noise_sd_max 0 shipped. Club drafting competence: each club gets its own
 ##                error SD, drawn uniformly from [0, noise_sd_max]. Replaces
 ##                noise_sd when set.
+##   eval_sd      [lo, hi]: the range of the shipped club-specific evaluation
+##                (Draft.club_eval_sd). Omitted in a non-empty model means
+##                [0, 0], i.e. the draft as it was before that evaluation
+##                shipped, so the draft-compression experiment
+##                (docs/DRAFT_COMPRESSION.md) still reproduces. An empty model
+##                is exactly the shipped draft.
 ## The two-ruck rule (_forced_role) and the hard budget check always apply.
 
 var model := {}
@@ -71,8 +77,14 @@ func _rebuild_sequence(order: String) -> void:
 	pick_index = 0
 
 
+func _eval_sd_range() -> Array:
+	if model.is_empty():
+		return super()
+	return model.get("eval_sd", [0.0, 0.0])
+
+
 func _perceived(code: String, p: Dictionary) -> float:
-	return _worth(p) + float((_noise.get(code, {}) as Dictionary).get(str(p["id"]), 0.0))
+	return _worth(p) + _eval_error(code, p) + float((_noise.get(code, {}) as Dictionary).get(str(p["id"]), 0.0))
 
 
 func _ai_score(code: String, p: Dictionary) -> float:
