@@ -90,6 +90,18 @@ func _week_block(week: Array) -> Control:
 	return v
 
 
+## The word between a finals row's two scores, home side first: "d." when
+## the home side won, "lost to" when the away side won, "drew with" when
+## level (a level final is then decided on the ladder).
+static func result_word(res: Dictionary) -> String:
+	var s: Array = res.get("score", [0, 0])
+	if int(s[0]) > int(s[1]):
+		return "d."
+	if int(s[1]) > int(s[0]):
+		return "lost to"
+	return "drew with"
+
+
 func _finals_row(res: Dictionary, narrow: bool) -> Control:
 	var h := UiKit.hbox(6)
 	var tag := UiKit.line("%s" % str(res.get("tag", "")), 12, UiKit.MUTED, true)
@@ -100,7 +112,7 @@ func _finals_row(res: Dictionary, narrow: bool) -> Control:
 			13, UiKit.TEXT, true)
 	hs.custom_minimum_size = Vector2(78, 0)
 	h.add_child(hs)
-	h.add_child(UiKit.line("d.", 12, UiKit.MUTED))
+	h.add_child(UiKit.line(result_word(res), 12, UiKit.MUTED))
 	var asc := UiKit.line(UiKit.scoreline(int(res["goals"][1]), int(res["behinds"][1])),
 			13, UiKit.TEXT, true)
 	asc.custom_minimum_size = Vector2(78, 0)

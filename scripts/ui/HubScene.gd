@@ -240,10 +240,10 @@ func _next_card(season: Season) -> Control:
 		var is_home: bool = mine["home"] == GameState.my_club
 		nv.add_child(UiKit.ellipsis("%s %s" % ["vs" if is_home else "at",
 				GameDB.club_name(opp)], 22 if _narrow() else 26, UiKit.GOLD, true))
-		var ground: String = str(GameDB.club(str(mine["home"])).get("ground", ""))
+		var ground := str(mine.get("venue", ""))
+		if ground == "":
+			ground = str(GameDB.club(str(mine["home"])).get("ground", ""))
 		var note := "%s  -  %s" % [mine.get("label", "Match"), ground]
-		if mine.get("neutral", false):
-			note = "%s  -  neutral venue" % mine.get("label", "Match")
 		nv.add_child(UiKit.ellipsis(note, 13, UiKit.MUTED))
 	return nxt
 
@@ -320,8 +320,7 @@ func _upcoming_match() -> Dictionary:
 		for m in round_matches:
 			if m["home"] == GameState.my_club or m["away"] == GameState.my_club:
 				return {"home": m["home"], "away": m["away"],
-						"label": "Round %d" % (season.round_index + 1),
-						"tag": "", "neutral": false}
+						"label": "Round %d" % (season.round_index + 1), "tag": ""}
 		return {}
 	for m in season.finals_week_matches():
 		if str(m["home"]) == "" or str(m["away"]) == "":
@@ -329,7 +328,7 @@ func _upcoming_match() -> Dictionary:
 		if m["home"] == GameState.my_club or m["away"] == GameState.my_club:
 			return {"home": m["home"], "away": m["away"],
 					"label": str(m["label"]), "tag": str(m["tag"]),
-					"neutral": str(m["tag"]) == "GF"}
+					"venue": season.finals_venue(m)}
 	return {}
 
 

@@ -274,7 +274,7 @@ func contest_winner(use_fp: bool, fp: float) -> int:
 	_credit(1, "legs", -legs_edge * POSSESSION_VALUE)
 	var p_home: float = (0.5
 			+ (c0 - c1) / float(T["contest_swing"])
-			+ float(T["home_ground_bonus"]))
+			+ home_edge())
 	var b0 := _contest_bonus(0, not use_fp)
 	var b1 := _contest_bonus(1, not use_fp)
 	p_home += b0 - b1
@@ -283,6 +283,17 @@ func contest_winner(use_fp: bool, fp: float) -> int:
 	if use_fp:
 		p_home += clampf(fp / 900.0, -0.07, 0.07)
 	return 0 if rng.randf() < maxf(1.0 - lim, minf(lim, p_home)) else 1
+
+
+## The home-ground edge at stoppages, from side 0's point of view: a club
+## playing at its own home ground (Squad.home) has it. In an ordinary match
+## that is the home side only. At the Grand Final (always the MCG) either
+## club, or both, can be at home - two MCG clubs cancel out, and a club
+## listed in the home slot gets nothing for the slot alone.
+func home_edge() -> float:
+	var bonus := float(Ratings.T["home_ground_bonus"])
+	return (bonus if (squads[0] as Squad).home else 0.0) \
+			- (bonus if (squads[1] as Squad).home else 0.0)
 
 
 func _contest_bonus(side: int, stoppage := false) -> float:
@@ -302,6 +313,19 @@ func _contest_pep(side: int) -> float:
 	return 0.018 if _pep(side) == "fire_up" else 0.0
 
 
+## Calm the group: a quarter-long, milder Slow it down (the "hold" call),
+## as Fire them up is a milder Throw numbers at it - fewer clangers, less
+## pressure felt and legs that last longer, for less ground gained.
+const PEP_CALM := {"clangers": 0.92, "taken": 0.95, "gain": 0.95, "pace": 0.95}
+
+
+## The pep talk's multiplier on one chain quantity (1.0 when it has none).
+func _pep_mult(side: int, key: String) -> float:
+	if _pep(side) == "calm":
+		return float(PEP_CALM.get(key, 1.0))
+	return 1.0
+
+
 func _contest_calls(side: int, stoppage: bool) -> float:
 	var b := 0.0
 	if _burst(side, "stack") and stoppage:
@@ -309,6 +333,36 @@ func _contest_calls(side: int, stoppage: bool) -> float:
 	if _burst(side, "surge"):
 		b += 0.06
 	return b
+
+
+## Hothead (Traits): he gives away this many times his share of clangers,
+## on top of his teammates' (so the side gives away more clangers and free
+## kicks, not just him).
+const HOTHEAD_ERRORS := 1.5
+## The benchmark clanger rate is real 2026 play, which already has its
+## hotheads in it: the average 2026 side fields about two, which lifts its
+## clangers by this much. The base rate is divided by it, so a disciplined
+## side gives away fewer than the benchmark and a side of hotheads more,
+## while the league-wide clanger and free-kick rates stay calibrated.
+const HOTHEAD_BASE := 1.10
+
+
+## Who gives away a side's clanger: poor discipline makes it likelier, a
+## Hothead HOTHEAD_ERRORS times likelier again. Returns [weights for the
+## on-ground players, the side's Hothead uplift] - the uplift is the
+## weights' total over what it would be without Hotheads (1.0 with none).
+func _clanger_weights(side: int) -> Array:
+	var weights := []
+	var w_base := 0.0
+	var w_all := 0.0
+	for p in (squads[side] as Squad).ground:
+		var w := float(pow(maxf(1.0, 101.0 - _a(p, "discipline")), 1.6))
+		w_base += w
+		if _trait(p, "hothead"):
+			w *= HOTHEAD_ERRORS
+		w_all += w
+		weights.append(w)
+	return [weights, w_all / w_base if w_base > 0.0 else 1.0]
 
 
 ## A won stoppage is worth about a possession chain's points.
@@ -455,6 +509,9 @@ func play_chain(side: int, fp: float, from_bounce: bool) -> Dictionary:
 		p_base = pressure
 		pressure *= _pv(side, "taken")
 		_credit(side, "gameplan", (p_base - pressure) * TURNOVER_VALUE)
+		p_base = pressure
+		pressure *= _pep_mult(side, "taken")
+		_credit(side, "pep", (p_base - pressure) * TURNOVER_VALUE)
 		if _burst(side, "hold"):
 			_credit(side, "calls", pressure * 0.15 * TURNOVER_VALUE)
 			pressure *= 0.85
@@ -480,7 +537,7 @@ func play_chain(side: int, fp: float, from_bounce: bool) -> Dictionary:
 		var prev_atk_fp := atk_fp
 		var gain: float = (float(T["metres_gain_mean"])
 				* (0.55 + 0.90 * _a(carrier, "carry") / 100.0))
-		gain *= _pv(side, "gain")
+		gain *= _pv(side, "gain") * _pep_mult(side, "gain")
 		if synergies[side].has("supply_line"):
 			gain *= 1.06
 		if _burst(side, "flood") or _burst(side, "hold"):
@@ -631,6 +688,8 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	before = goal_p
 	var dtr := 1.0
 	if defender != null and _trait(defender, "lockdown"):
+		dtr *= 0.96
+	elif not _midfield_minder(side, shooter).is_empty():
 		dtr *= 0.96
 	if synergies[opp].has("intercept_wall"):
 		dtr *= 0.95
@@ -833,20 +892,22 @@ func _play_one_chain(T: Dictionary) -> void:
 		fp = 0.0
 
 	# End-of-chain error: a clanger, sometimes a free kick against.
-	var clanger_p := float(T["clanger_per_chain"])
+	var cw := _clanger_weights(side)
+	var clanger_p := float(T["clanger_per_chain"]) / HOTHEAD_BASE
+	var hot_mult := float(cw[1])
+	_credit(side, "traits", -clanger_p * (hot_mult - 1.0) * CLANGER_VALUE)
+	clanger_p *= hot_mult
 	var cl_mult := _pv(side, "clangers")
 	_credit(side, "gameplan", clanger_p * (1.0 - cl_mult) * CLANGER_VALUE)
 	clanger_p *= cl_mult
+	var pep_cl := _pep_mult(side, "clangers")
+	_credit(side, "pep", clanger_p * (1.0 - pep_cl) * CLANGER_VALUE)
+	clanger_p *= pep_cl
 	if _burst(side, "hold"):
 		_credit(side, "calls", clanger_p * 0.25 * CLANGER_VALUE)
 		clanger_p *= 0.75
 	if rng.randf() < clanger_p:
-		var ground: Array = squads[side].ground
-		var weights := []
-		for p in ground:
-			weights.append(float(pow(maxf(1.0, 101.0
-					- _a(p, "discipline")), 1.6)) * (1.5 if _trait(p, "hothead") else 1.0))
-		var err = _pick(ground, weights)
+		var err = _pick(squads[side].ground, cw[0])
 		_t(side, "clangers")
 		_p(err, "clangers")
 		_emit("clanger", side, fp, err,
@@ -976,7 +1037,7 @@ func set_rotation_policy(side: int, key: String) -> void:
 func _after_chain() -> void:
 	for side in range(2):
 		var sq: Squad = squads[side]
-		var pace := _pv(side, "pace")
+		var pace := _pv(side, "pace") * _pep_mult(side, "pace")
 		if _pep(side) == "fire_up":
 			pace *= 1.05
 		if _burst(side, "surge"):
@@ -1200,6 +1261,29 @@ func _boundary_moment() -> bool:
 			]})
 		return true
 	return false
+
+
+## Lockdown's opponent. A defender's is the forward he stands on the shot
+## (the forward-50 defender draw); a midfielder's is one of their
+## midfielders: each Lockdown midfielder on the ground picks up their best
+## midfielder not already covered (most pressure first, best by rating
+## first). Returns the Lockdown midfielder on `shooter` (of `side`), or {}.
+func _midfield_minder(side: int, shooter: Dictionary) -> Dictionary:
+	if str(shooter.get("role", "")) != "MID":
+		return {}
+	var minders := []
+	for p in (squads[1 - side] as Squad).ground:
+		if str(p["role"]) == "MID" and _trait(p, "lockdown"):
+			minders.append(p)
+	if minders.is_empty():
+		return {}
+	var mids := _by_roles((squads[side] as Squad).ground, ["MID"])
+	mids.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+	minders.sort_custom(func(a, b): return _a(a, "pressure") > _a(b, "pressure"))
+	for i in range(mini(minders.size(), mids.size())):
+		if str(mids[i]["id"]) == str(shooter.get("id", "")):
+			return minders[i]
+	return {}
 
 
 func _on_ground(side: int, id: String) -> Dictionary:

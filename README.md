@@ -49,7 +49,7 @@ translations, pick *Keep File* again in the Import dock.
 | **Choose a club** | All 18 lists start empty. Choose your club with its randomly assigned first pick shown up front. |
 | **The draft** | All clubs take turns from the same pool in snake order, under the same cap (58% of the cost of the best target-sized list). Track rival selections in the pick log. Carry at least two rucks; the other position targets are coverage guidance. Filter by position, original club or name, and sort by rating, price, goals or disposals. |
 | **Home and away** | 24 rounds, a full double round-robin. Each round you can **Play Match** and watch it on the oval, or **Sim Round** and just read the results. |
-| **Finals** | The top ten play a wildcard finals series: 7v10 and 8v9 in week one, with the winners reseeded by their original ladder position into the 7th and 8th seeds, who meet 5th and 6th in the elimination finals while 1-4 play the qualifying finals; then semis, prelims and the Grand Final. The higher seed hosts every final except the Grand Final, which is at a neutral venue. Your finals play live with the quarter-by-quarter coach box, just like a home-and-away match. A final level at full time goes to extra time (two short halves, then next score wins). After each final the game tells you where you stand: a second chance after a wildcard or qualifying loss, a week off, or knocked out. |
+| **Finals** | The top ten play a wildcard finals series: 7v10 and 8v9 in week one, with the winners reseeded by their original ladder position into the 7th and 8th seeds, who meet 5th and 6th in the elimination finals while 1-4 play the qualifying finals; then semis, prelims and the Grand Final. The higher seed hosts every final except the Grand Final, which is always at the MCG: there a club has its home-ground edge only if the MCG is its home ground (Collingwood, Hawthorn, Melbourne and Richmond), whichever club is listed first, and two MCG clubs cancel out. Your finals play live with the quarter-by-quarter coach box, just like a home-and-away match. A final level at full time goes to extra time (two short halves, then next score wins). After each final the game tells you where you stand: a second chance after a wildcard or qualifying loss, a week off, or knocked out. |
 | **Team** | The best 22 by position are picked automatically, around injuries. Switch to **My selection** on the Team screen to name your own ruck, midfield, defence, forwards and bench, or leave players out. Gaps (an injury, a trade) are filled for you. |
 | **Off-season** | After the Grand Final, **Trades & Contracts** opens: re-sign or release players whose contracts are up, sign free agents rivals let go, and offer trades. |
 | **Review** | The flag, your record, best win, worst loss, longest streak, a game-by-game form strip, the season's awards, the honour roll and league records. |
@@ -255,8 +255,20 @@ draft), minus the best player the club can still expect in that position at
 its next pick. Scarce positions go early (the elite rucks are taken in
 round one), deep ones wait. An open starting spot counts in full, depth up to
 a balanced list 60%, surplus 20%; every club ends the career draft with two
-rucks, and the salary cap only bites when a pick would starve the rest of the
-list.
+or three rucks, and the salary cap only bites when a pick would starve the
+rest of the list.
+
+**Scouting opinions.** In the career draft no two rival clubs rate players
+identically. Each club sees every player through its own fixed opinion of
+him: his worth plus an error that belongs to that club and that player.
+The error is zero on average, so no club rates everyone up or down. It
+counts in full for a starting spot the club is filling, less for depth,
+and little for surplus. Clubs also differ in how sharp their scouting is:
+the typical error is 1-5 rating points depending on the club. Everything
+comes from the draft seed, so a draft replays identically. The opinions
+change only which players rivals pick. They never change a player's ratings, the draft
+board you see, the salary cap or your own picks. The national draft keeps
+one shared valuation. See [docs/DRAFT_EVALUATION.md](docs/DRAFT_EVALUATION.md).
 
 **Training.** Rival players earn XP from every game on the same scale as
 yours, and their coaches spend it on the stats that matter for the position

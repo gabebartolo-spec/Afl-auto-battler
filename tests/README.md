@@ -43,8 +43,10 @@ data). The UI suite runs the shared DraftScene in intake mode across the same
 ten viewports. The finals suite checks the bracket opens straight after
 round 24, that a qualifying club plays every final live through the same
 prepare / quarter-by-quarter / finish path the match screen uses (nothing is
-recorded mid-match, each week records the right number of matches, only the
-Grand Final is neutral), that simming the series still crowns a premier,
+recorded mid-match, each week records the right number of matches, the
+higher seed hosts every final but the Grand Final, which is always at the
+MCG, where only an MCG club has a home-ground edge, in either slot), that
+simming the series still crowns a premier,
 that a level final goes to extra time (one siren, a fifth period, the tie
 broken) while a home-and-away draw stays a draw, and that the finals status
 (alive / week off / knocked out) and outcome line are right each week.
@@ -77,6 +79,23 @@ only that stat, switching a player's or the club plan spends banked XP at
 once, a player's own plan beats the club plan, plans survive a save, and every
 stat has a full guide entry. The career UI suite also checks the one-time
 training intro, the stat guide (and Back closing it) and the plan picker.
+
+The achievements suite checks every club's achievement is detectable from
+stats the game already tracks (`tests/run_achievements_tests.gd`, part of
+`tools/run_tests.sh`).
+
+The league-balance suite smoke-tests the competitive-balance harness in
+`tools/balance/` (seeded career draft reproducible, seasons replay exactly,
+a +10 OVR list beats +0 on identical seeds). It asserts no balance target;
+the full drafted-league measurement is a manual run described in
+`docs/LEAGUE_BALANCE.md`.
+
+`tools/check_export_data.sh` (also run by `tools/run_tests.sh`) guards the
+exported build's data path, which the editor and the suites above never see:
+every `data/*.csv` must use the `keep` importer, and a real exported `.pck`,
+run on its own, must load every player with an age and date of birth
+(`tests/export_data_check.gd`). A CSV left on Godot's default translation
+importer is silently dropped from exports.
 
 Every runner points saves and settings at `user://test_*` files and turns
 autosave off, so running the tests never touches a real career.

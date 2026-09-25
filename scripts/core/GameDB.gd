@@ -5,10 +5,13 @@ extends Node
 ## Data files ship as plain CSV under res://data/. Their .import files set the
 ## importer to "keep" so Godot exports them verbatim instead of converting them
 ## into translation resources; FileAccess then reads them at runtime on both
-## desktop and mobile.
+## desktop and mobile. A CSV left on Godot's default (csv_translation) importer
+## is missing from an exported build: tools/check_export_data.sh guards this.
 
 const CLUBS_CSV := "res://data/clubs.csv"
-const PLAYERS_CSV := "res://data/players_2026.csv"
+## The player pool: 2026 season stats plus bio fields (dob, age, height).
+## Required - see _load_players(). data/players_2026.csv (stats only) is the
+## Python tools' source and is not read by the game.
 const PLAYERS_ENRICHED_CSV := "res://data/players_enriched_2026.csv"
 const DRAFTEES_CSV := "res://data/draftees_2026.csv"
 const POTENTIAL_CSV := "res://data/potential_overrides.csv"
@@ -100,7 +103,7 @@ func reload() -> void:
 			sq += pow(float(p["overall"]) - baseline_overall, 2.0)
 		baseline_spread = sqrt(sq / float(players.size()))
 	if not loaded:
-		push_error("GameDB: no players loaded. Check that %s exists and that its import type is 'Keep File (exported as is)'." % PLAYERS_CSV)
+		push_error("GameDB: no players loaded. Check that %s exists, is complete and that its import type is 'Keep File (exported as is)'." % PLAYERS_ENRICHED_CSV)
 	else:
 		print("GameDB: %d players / %d clubs; %d draft-class prospects"
 				% [players.size(), clubs.size(), draftees.size()])
@@ -417,12 +420,15 @@ func _ensure_alias_pool() -> void:
 	_alias_candidates = candidates
 
 
+## The enriched file is required. There is deliberately no fallback to the
+## stats-only players_2026.csv: it has no dob/age, and loading it silently
+## gave every player age 0 (every exported build did this while the enriched
+## CSV was on the csv_translation importer), which breaks ageing, potential,
+## retirement and the Rising Star. Missing or incomplete bio data is an error
+## and loads no players, so the main menu reports it instead of a career
+## starting on bad data.
 func _load_players() -> Array:
-	# Prefer enriched if present (100% height coverage via afltables_bio_cache.json), fallback to base
-	var csv_path := PLAYERS_ENRICHED_CSV if FileAccess.file_exists(PLAYERS_ENRICHED_CSV) else PLAYERS_CSV
-	if csv_path == PLAYERS_ENRICHED_CSV:
-		print("GameDB: using enriched CSV with bio fields")
-	var rows := _read_rows(csv_path)
+	var rows := _read_rows(PLAYERS_ENRICHED_CSV)
 	var out := []
 	if rows.size() < 2:
 		return out
@@ -430,6 +436,10 @@ func _load_players() -> Array:
 	var idx := {}
 	for j in range(header.size()):
 		idx[header[j]] = j
+	for key in ["dob", "age", "height_cm"]:
+		if not idx.has(key):
+			push_error("GameDB: %s has no '%s' column; refusing to load players without bio data." % [PLAYERS_ENRICHED_CSV, key])
+			return []
 
 	var seen_ids := {}
 	for i in range(1, rows.size()):
@@ -467,6 +477,10 @@ func _load_players() -> Array:
 		p["weight_kg"] = float(str(cells[idx["weight_kg"]])) if idx.has("weight_kg") and str(cells[idx["weight_kg"]]) != "" else 0.0
 		p["debut"] = str(cells[idx["debut"]]) if idx.has("debut") else ""
 		p["height_source"] = str(cells[idx["height_source"]]) if idx.has("height_source") else ""
+		if float(p["age"]) <= 0.0:
+			push_error("GameDB: %s has no age for %s %s (%s); refusing to load incomplete player data." % [
+					PLAYERS_ENRICHED_CSV, p["first"], p["last"], p["club"]])
+			return []
 		out.append(p)
 	_assign_fictional_names(out)
 	return out

@@ -14,7 +14,7 @@ cd "$(dirname "$0")/.." || exit 1
 
 GODOT="${GODOT:-godot}"
 SUITE_TIMEOUT="${SUITE_TIMEOUT:-900}"
-ALL_SUITES=(draft draft_ui intake intake_ui expansion finals save career_ui potential ai training selection injuries awards contracts league club match_game calibration balance)
+ALL_SUITES=(draft draft_ui intake intake_ui expansion finals save career_ui potential ai training selection injuries awards achievements contracts league club match_game match_visual league_balance calibration balance)
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
 
 LOG_DIR="${LOG_DIR:-$(mktemp -d)}"
@@ -84,6 +84,16 @@ else
 	note_error "tools/validate_data.py found problems"
 	failed=1
 	summary+=("| validate_data | FAIL | see log |")
+fi
+
+echo "== Exported-build data check"
+if GODOT="$GODOT" tools/check_export_data.sh > "$LOG_DIR/export_data.log" 2>&1; then
+	summary+=("| export_data | pass | |")
+else
+	tail -15 "$LOG_DIR/export_data.log"
+	note_error "tools/check_export_data.sh: an exported build would not load complete player data"
+	failed=1
+	summary+=("| export_data | FAIL | see log |")
 fi
 
 echo "== Intake / development harness"

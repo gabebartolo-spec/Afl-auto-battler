@@ -415,7 +415,8 @@ var _ai_share := {}      # role -> share of the league's remaining demand
 
 func _ai_score(code: String, p: Dictionary) -> float:
 	_refresh_ai_cache()
-	var worth := _worth(p)
+	var base := _worth(p)
+	var err := _eval_error(code, p)
 	var best := -INF
 	var roles := [[str(p["role"]), 1.0]]
 	var role2 := str(p.get("role2", ""))
@@ -424,10 +425,77 @@ func _ai_score(code: String, p: Dictionary) -> float:
 	for entry in roles:
 		var role: String = entry[0]
 		var need := _need_weight(code, role)
+		# A club's own opinion counts in full for a starting spot it is
+		# filling; for depth and surplus picks it leans on the consensus.
+		var worth := base + err * need
 		var over := minf(AI_VORP_CAP, worth - _replacement(code, role))
 		var s := (worth + AI_VORP_WEIGHT * over) * need * float(entry[1])
 		best = maxf(best, s)
 	return best - _cap_penalty(code, p)
+
+
+# ---------------------------------------------------------------------------
+# Rival AI: club-specific player evaluation
+# ---------------------------------------------------------------------------
+## Recruiting departments disagree. In the career draft every rival club
+## sees each player through its own scouting opinion: the worth above plus a
+## fixed error that belongs to that club and that player, weighted by how
+## much the club needs him (full for an open starting spot, less for depth,
+## little for surplus - late-draft depth picks follow the consensus). The
+## opinion is zero-mean (no club is told to over- or under-rate everyone), and clubs
+## differ in how sharp their scouting is: each club's error SD is drawn from
+## [AI_EVAL_SD_MIN, AI_EVAL_SD_MAX] rating points. Everything derives from
+## the draft seed, so a draft replays identically, the opinion never changes
+## mid-draft, and a saved draft needs no extra state.
+##
+## It only steers rival clubs' choices. Ratings, the board, the cap and your
+## club's picks are untouched (your club gets no error), and the intake
+## draft keeps its shared valuation. Calibrated with the drafted-league
+## harness: docs/DRAFT_EVALUATION.md.
+const AI_EVAL_SD_MIN := 1.0
+const AI_EVAL_SD_MAX := 5.0
+## Errors are capped at this many of the club's SDs, so no club rates a
+## fringe player as a star.
+const AI_EVAL_CLAMP := 2.5
+
+
+## How sharp this club's scouting is: its error SD in rating points.
+func club_eval_sd(code: String) -> float:
+	var span := _eval_sd_range()
+	var u := _hash01("%d|eval-sd|%s" % [seed, code])
+	return lerpf(float(span[0]), float(span[1]), u)
+
+
+## This club's opinion of the player, minus the shared worth. 0 for your club
+## and outside the career draft.
+func _eval_error(code: String, p: Dictionary) -> float:
+	if intake_mode or code == user_club or not league_mode:
+		return 0.0
+	var sd := club_eval_sd(code)
+	if sd <= 0.0:
+		return 0.0
+	var key := "%d|eval|%s|%s" % [seed, code, str(p["id"])]
+	# Box-Muller from two independent hashes of the key.
+	var u1 := maxf(1e-9, _hash01("a|" + key))
+	var u2 := _hash01("b|" + key)
+	var z := sqrt(-2.0 * log(u1)) * cos(TAU * u2)
+	return clampf(z, -AI_EVAL_CLAMP, AI_EVAL_CLAMP) * sd
+
+
+func _eval_sd_range() -> Array:
+	return [AI_EVAL_SD_MIN, AI_EVAL_SD_MAX]
+
+
+## A uniform [0, 1) from a string: its hash, avalanched (murmur3 finaliser)
+## so near-identical keys give unrelated values.
+static func _hash01(key: String) -> float:
+	var h := key.hash() & 0xFFFFFFFF
+	h ^= h >> 16
+	h = (h * 0x85ebca6b) & 0xFFFFFFFF
+	h ^= h >> 13
+	h = (h * 0xc2b2ae35) & 0xFFFFFFFF
+	h ^= h >> 16
+	return float(h & 0xFFFFFF) / float(0x1000000)
 
 
 func _worth(p: Dictionary) -> float:
@@ -454,6 +522,11 @@ func _need_weight(code: String, role: String) -> float:
 	var n := int(role_counts_for(code).get(role, 0))
 	if role == "RUCK" and not intake_mode and n == 1:
 		return 0.8  # the second ruck is required for a valid list
+	if role == "RUCK" and not intake_mode and n >= 3:
+		# A fourth ruck is never worth a list spot, and the pool's rucks must
+		# stretch to every club's two (clubs' own opinions could otherwise
+		# send spare rucks to one list late in the draft).
+		return 0.0
 	if not intake_mode:
 		for slot in Ratings.GROUND_SLOTS:
 			if str(slot[0]) == role and n < int(slot[1]):

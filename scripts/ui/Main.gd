@@ -76,6 +76,8 @@ func _ready() -> void:
 	var new_career := UiKit.btn("New Career", 19,
 			not resume_draft and GameState.season == null and not saved)
 	new_career.name = "NewCareer"
+	# No career can start on missing or incomplete player data.
+	new_career.disabled = not GameDB.loaded
 	new_career.pressed.connect(_on_new_career)
 	_buttons.add_child(new_career)
 	var help := UiKit.btn("How It Works", 17)
@@ -178,7 +180,7 @@ func _layout() -> void:
 
 func _data_line() -> String:
 	if not GameDB.loaded:
-		return "Data not loaded — check data/players_2026.csv"
+		return "Player data failed to load — check data/players_enriched_2026.csv"
 	return "%d players · %d clubs · 13 rated attributes" % [GameDB.players.size(), GameDB.clubs.size()]
 
 

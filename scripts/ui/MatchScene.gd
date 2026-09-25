@@ -52,7 +52,7 @@ func _ready() -> void:
 		_res["home"] = GameState.pending_match["home"]
 		_res["away"] = GameState.pending_match["away"]
 		_res["label"] = GameState.pending_match["label"]
-		_res["neutral"] = bool(GameState.pending_match.get("neutral", false))
+		_res["venue"] = str(GameState.pending_match.get("venue", ""))
 		_res["events"] = []
 		_my_side = 0 if str(_res["home"]) == GameState.my_club else 1
 	else:
@@ -230,9 +230,11 @@ func _score_middle(narrow: bool) -> Control:
 	_clock = UiKit.line("Q%d %d'" % [_shown_q, _shown_min], 15 if narrow else 20, UiKit.TEXT, true)
 	_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid.add_child(_clock)
-	var ground := str(GameDB.club(str(_res["home"])).get("ground", ""))
-	if bool(_res.get("neutral", false)):
-		ground = "Neutral venue"
+	# A final names its venue (the Grand Final is always at the MCG); any
+	# other match is at the home club's ground.
+	var ground := str(_res.get("venue", ""))
+	if ground == "":
+		ground = str(GameDB.club(str(_res["home"])).get("ground", ""))
 	var venue := UiKit.ellipsis(ground, 11, UiKit.MUTED)
 	venue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid.add_child(venue)
@@ -440,9 +442,17 @@ func _show_coach_box() -> void:
 	v.add_child(_field("Tag opponent", tag))
 
 	var pep := OptionButton.new()
+	pep.name = "PepPicker"
 	for i in range(PEP_TALKS.size()):
 		pep.add_item(str(PEP_TALKS[i][1]), i)
 	v.add_child(_field("Pep talk", pep))
+	var pep_note := UiKit.lbl("", 12, UiKit.MUTED)
+	pep_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(pep_note)
+	var sync_pep := func(idx: int) -> void:
+		pep_note.text = CoachReport.pep_effect(str(PEP_TALKS[idx][0]))
+	sync_pep.call(pep.selected)
+	pep.item_selected.connect(sync_pep)
 
 	var rot := OptionButton.new()
 	rot.name = "RotationPicker"
@@ -892,7 +902,7 @@ func _stamp_match_meta() -> void:
 	_res["home"] = GameState.pending_match["home"]
 	_res["away"] = GameState.pending_match["away"]
 	_res["label"] = GameState.pending_match["label"]
-	_res["neutral"] = bool(GameState.pending_match.get("neutral", false))
+	_res["venue"] = str(GameState.pending_match.get("venue", ""))
 
 
 func _append_new_events() -> void:

@@ -177,6 +177,8 @@ territory nudge. Clamping matters: an unclamped stoppage contest compounds over
 The sim takes a seed and generates the **entire event log up front**. The pitch
 view then replays it. That decouples simulation from presentation, so speed
 controls, pause and "skip to result" are free, and any match can be re-watched.
+The view only interprets the log (how an event looks, never whether it
+happens) with its own random stream: see `docs/MATCH_VIEW.md`.
 
 ### Calibration
 Carrier picks fade a player out of the next possession once they have already
@@ -339,7 +341,9 @@ scripts/
     GameState.gd       autoload; the season you are playing
   ui/
     UiKit.gd           shared widgets and layout helpers
-    PitchView.gd       the animated oval (pure _draw(), no textures)
+    PitchView.gd       the animated oval (pure _draw(), no textures) + camera
+    match/MatchDirector.gd  reads the event log into visual beats (docs/MATCH_VIEW.md)
+    match/MatchMotion.gd    player steering: acceleration, braking, reaction delay
     Main.gd            menu
     DraftScene.gd      club selection + draft board
     HubScene.gd        season hub: next match, ladder snapshot, round controls
@@ -353,6 +357,7 @@ tools/
   intake_harness.py    projection/intake/rollover harness + draft-class CSV checks
   scrape_afltables.py  re-harvests the dataset, with the <6-game 2025 fallback
   validate_data.py     checks 220 club x column aggregates vs published totals
+  visual/capture_match.gd  renders match-view frames and movement trails (review)
 ```
 
 ## 7. Status

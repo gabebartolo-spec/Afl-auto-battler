@@ -19,6 +19,8 @@ func run() -> void:
 	_test_simulated_finals_series()
 	_test_extra_time()
 	_test_home_and_away_never_extra_time()
+	_test_grand_final_at_the_mcg()
+	_test_ladder_result_word()
 	print("Finals tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -142,8 +144,10 @@ func _test_interactive_finals_series() -> void:
 					"Nothing is recorded while the final is being coached")
 			var res := _play_pending()
 			_check(str(res.get("tag", "")) != "", "Your final carries its bracket tag")
-			_check(bool(res.get("neutral", true)) == (str(res.get("tag", "")) == "GF"),
-					"Only the Grand Final is at a neutral venue")
+			var host := season.home_ground(str(res["home"]))
+			_check(str(res.get("venue", "")) == (Season.GRAND_FINAL_VENUE
+					if str(res.get("tag", "")) == "GF" else host),
+					"The higher seed hosts, except the Grand Final at the MCG")
 			_check(GameState.last_match == res, "Your final is the match of the week")
 			_check(GameState.pending_match.is_empty(), "The pending match clears")
 			_check(GameState.finals_outcome_line(res) != "",
@@ -182,11 +186,13 @@ func _test_simulated_finals_series() -> void:
 	_check(GameState.last_phase == "done", "The Grand Final week reports done")
 	_check(season.finals["weeks"].size() == 5, "Five weeks on the bracket")
 	var gf: Dictionary = season.finals["weeks"][4][0]
-	_check(bool(gf.get("neutral", false)), "The simulated Grand Final is neutral")
+	_check(str(gf.get("venue", "")) == "MCG", "The simulated Grand Final is at the MCG")
 	var wc: Dictionary = season.finals["weeks"][0][0]
-	_check(not bool(wc.get("neutral", true)), "The higher seed hosts a wildcard final")
+	_check(str(wc.get("venue", "")) == season.home_ground(str(wc["home"])),
+			"The higher seed hosts a wildcard final")
 	var qf: Dictionary = season.finals["weeks"][1][0]
-	_check(not bool(qf.get("neutral", true)), "The higher seed hosts a qualifying final")
+	_check(str(qf.get("venue", "")) == season.home_ground(str(qf["home"])),
+			"The higher seed hosts a qualifying final")
 
 
 func _new_sim(seed: int) -> MatchSim:
@@ -240,3 +246,92 @@ func _test_home_and_away_never_extra_time() -> void:
 			_check(not bool(res["extra_time"]), "A home-and-away draw stays a draw")
 			_check((res["q_goals"] as Array).size() == 4, "Draws keep four quarters")
 			return
+
+
+## The Grand Final is always at the MCG, and its only venue edge is the
+## game's home-ground edge: a club has it there if the MCG is its home ground
+## (clubs.csv), whichever slot it is listed in - never for the home slot
+## alone. Every other final is hosted as before. (Tests the engine's input,
+## not random scores.)
+func _test_grand_final_at_the_mcg() -> void:
+	var bonus := float(Ratings.T["home_ground_bonus"])
+	_check(bonus > 0.0 and is_equal_approx(_new_sim(3).home_edge(), bonus),
+			"An ordinary home side has the home-ground edge")
+	var season := _to_last_round()
+	# 1. The venue is the MCG, whichever clubs make it.
+	var mcg := true
+	for pair in [["WCE", "ADE"], ["COL", "RIC"], ["SYD", "HAW"], ["BRL", "GEE"]]:
+		if season.finals_venue({"tag": "GF", "home": pair[0], "away": pair[1]}) != "MCG":
+			mcg = false
+	_check(mcg, "The Grand Final is always at the MCG")
+	_check(season.finals_venue({"tag": "PF1", "home": "WCE", "away": "COL"}) == "Optus Stadium",
+			"Every other final is at the higher seed's ground")
+	_check(season.finals_at_home({"tag": "QF1", "home": "COL", "away": "RIC"}) == [true, false],
+			"The higher seed hosts every other final, even against a club sharing its ground")
+	# 2 and 3. No edge for the home slot alone; any edge comes from the venue.
+	var cases := [
+		["WCE", "ADE", 0.0, "neither club's ground - no edge, though West Coast has the home slot"],
+		["COL", "RIC", 0.0, "both MCG clubs - the edges cancel"],
+		["HAW", "SYD", bonus, "an MCG club in the home slot has the edge"],
+		["SYD", "HAW", -bonus, "an MCG club in the away slot has the edge"],
+	]
+	for c in cases:
+		var at: Array = season.finals_at_home({"tag": "GF", "home": c[0], "away": c[1]})
+		var sim := MatchSim.new(Squad.new(str(c[0]), GameDB.club_list(str(c[0])), bool(at[0]), str(c[0])),
+				Squad.new(str(c[1]), GameDB.club_list(str(c[1])), bool(at[1]), str(c[1])), 5)
+		_check(is_equal_approx(sim.home_edge(), float(c[2])), "Grand Final: %s" % str(c[3]))
+	# The stoppage odds really use it: the same seed draws the same numbers,
+	# so the home slot wins most stoppages when it is at home, fewer when
+	# neither club is, and fewest when the club in the away slot is at home.
+	var won := []
+	for flags in [[true, false], [false, false], [false, true]]:
+		var sim := MatchSim.new(Squad.new("GEE", GameDB.club_list("GEE"), bool(flags[0]), "GEE"),
+				Squad.new("HAW", GameDB.club_list("HAW"), bool(flags[1]), "HAW"), 11)
+		var n := 0
+		for i in range(400):
+			n += 1 if sim.contest_winner(false, 0.0) == 0 else 0
+		won.append(n)
+	_check(int(won[0]) > int(won[1]) and int(won[1]) > int(won[2]),
+			"Stoppage odds follow the venue edge, not the slot (%d / %d / %d of 400)" % won)
+	# The live path: coach one final a week (the same prepare path MatchScene
+	# uses) and read the venue and the engine's edge for each.
+	GameState.advance()
+	var seen := {}
+	var guard := 0
+	while not season.is_season_over() and guard < 8:
+		guard += 1
+		var m: Dictionary = season.finals_week_matches()[0]
+		GameState.my_club = str(m["home"])
+		GameState.my_list = season.lists[GameState.my_club]
+		if not GameState.prepare_interactive_match():
+			break
+		var sim: MatchSim = GameState.pending_sim
+		seen[str(GameState.pending_match["tag"])] = {"venue": str(GameState.pending_match["venue"]),
+				"edge": sim.home_edge(), "home": str(m["home"]), "away": str(m["away"])}
+		_play_pending()
+	_check(seen.has("GF"), "The Grand Final was coached live")
+	var gf: Dictionary = seen.get("GF", {"venue": "", "edge": 99.0, "home": "", "away": ""})
+	var expect := (bonus if season.home_ground(str(gf["home"])) == "MCG" else 0.0) \
+			- (bonus if season.home_ground(str(gf["away"])) == "MCG" else 0.0)
+	_check(str(gf["venue"]) == "MCG" and is_equal_approx(float(gf["edge"]), expect),
+			"The live Grand Final (%s v %s) is at the MCG with only its venue edge (%.3f)" % [
+			str(gf["home"]), str(gf["away"]), float(gf["edge"])])
+	var hosted := seen.size() > 1
+	for tag in seen:
+		if str(tag) == "GF":
+			continue
+		var e: Dictionary = seen[tag]
+		if not (str(e["venue"]) == season.home_ground(str(e["home"]))
+				and is_equal_approx(float(e["edge"]), bonus)):
+			hosted = false
+	_check(hosted, "The higher seed still hosts every other final (%s)" % str(seen.keys()))
+
+
+## The ladder's finals rows put the home side first; the word between the
+## scores says who won (it read "d." even when the away side won).
+func _test_ladder_result_word() -> void:
+	var ladder = load("res://scripts/ui/LadderScene.gd")
+	_check(ladder.result_word({"score": [80, 62]}) == "d.", "A home win reads 'd.'")
+	_check(ladder.result_word({"score": [62, 80]}) == "lost to", "An away win reads 'lost to'")
+	_check(ladder.result_word({"score": [70, 70]}) == "drew with",
+			"A level final reads 'drew with'")
