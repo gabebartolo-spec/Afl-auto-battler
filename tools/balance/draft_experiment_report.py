@@ -117,6 +117,11 @@ def key_of(d):
 
 
 # ---------------------------------------------------------------------------
+# Role counts (primary role) seen across the real 2026 lists; a drafted list
+# outside this band on any role is flagged as not believable.
+REAL_BAND = {"RUCK": (2, 4), "MID": (12, 24), "DEF": (7, 14), "FWD": (4, 9)}
+
+
 def draft_metrics(leagues):
     """Preseason spread of the drafted leagues, averaged over leagues."""
     per = defaultdict(list)
@@ -135,7 +140,7 @@ def draft_metrics(leagues):
             n_clubs += 1
             for r in ["RUCK", "MID", "DEF", "FWD"]:
                 roles[r].append(c["roles"][r])
-            if c["roles"]["DEF"] < 6 or c["roles"]["FWD"] < 6 or c["roles"]["MID"] < 5 or c["roles"]["RUCK"] < 2:
+            if any(not (REAL_BAND[r][0] <= c["roles"][r] <= REAL_BAND[r][1]) for r in REAL_BAND):
                 short_lines += 1
     out = {k: mean(v) for k, v in per.items()}
     out["n"] = len(leagues)
@@ -188,7 +193,7 @@ def season_metrics(shard_list):
             if ovr_of[h] != ovr_of[a]:
                 fav_ovr[0] += res if ovr_of[h] > ovr_of[a] else 1.0 - res
                 fav_ovr[1] += 1
-    within_all, skill_all = [], []
+    within_all, skill_all, shares = [], [], []
     club_means = []   # (league, club, mean wins, n seasons)
     distinct_prem = []
     for lg, ss in by_league.items():
@@ -209,6 +214,7 @@ def season_metrics(shard_list):
         skill = max(0.0, between - within / len(ss))
         within_all.append(within)
         skill_all.append(skill)
+        shares.append(skill / (skill + within) if skill + within > 0 else 0.0)
         for club, v in per_club.items():
             club_means.append((lg, club, mean(v), len(v)))
     skill = mean(skill_all)
@@ -219,7 +225,8 @@ def season_metrics(shard_list):
         "fav": fav[0] / fav[1] if fav[1] else float("nan"), "fav_ci": ci,
         "fav_ovr": fav_ovr[0] / fav_ovr[1] if fav_ovr[1] else float("nan"),
         "skill_share": skill / (skill + luck) if skill + luck > 0 else float("nan"),
-        "skill_sd": math.sqrt(skill), "luck_sd": math.sqrt(luck),
+        "skill_sd": math.sqrt(skill),
+        "share_se": sd(shares) / math.sqrt(len(shares)) if len(shares) > 1 else float("nan"), "luck_sd": math.sqrt(luck),
         "r_str": mean(r_str), "r_ovr": mean(r_ovr),
         "prem_top3": mean(1 if r <= 3 else 0 for r in prem_rank),
         "prem_rank": mean(prem_rank),
@@ -329,9 +336,9 @@ def build(dirpath):
             md += "| %s | %s |\n" % (label, " | ".join(f(m[s + "_sd"]) for s in SUBUNITS))
     md += "\n### List construction (believability)\n\n"
     md += "Role counts on the 37-man list, over every club in every league (min / mean / max). "
-    md += "Short = share of clubs with fewer than 6 DEF, 6 FWD, 5 MID or 2 RUCK primaries. "
+    md += "Outside real = share of clubs whose count in any role falls outside the range the real 2026 lists span (RUCK 2-4, MID 12-24, DEF 7-14, FWD 4-9; the dataset has few primary forwards, so every model averages 6.8). "
     md += "Top-5 OVR SD = spread of each club's five best players. Spend SD = spread of list value.\n\n"
-    md += "| Model | RUCK | MID | DEF | FWD | Short | List-mean OVR SD | Top-5 OVR SD | Top-5 spread | Spend SD |\n|---|---|---|---|---|---|---|---|---|---|\n"
+    md += "| Model | RUCK | MID | DEF | FWD | Outside real | List-mean OVR SD | Top-5 OVR SD | Top-5 spread | Spend SD |\n|---|---|---|---|---|---|---|---|---|---|\n"
     for v, p, label in rows:
         m = drafts.get((v, p))
         if not m:
@@ -343,7 +350,8 @@ def build(dirpath):
 
     md += "\n## Match outcomes (unchanged MatchSim)\n\n"
     md += "Stronger side = higher preseason Squad.strength (home-and-away matches, draw = half). "
-    md += "Skill share and skill SD from replaying the same lists with new season seeds. "
+    md += "Skill share and skill SD from replaying the same lists with new season seeds "
+    md += "(± = standard error across leagues; a league with one draft seed is one labelling of clubs to fixture and venues). "
     md += "r = mean per-season correlation with wins. Premier top-3 = share of premierships won by a "
     md += "top-3-strength club; spoon bottom-3 likewise; top-5 finals = how often a top-5-strength club "
     md += "makes the top %d. Distinct premiers = distinct premier clubs / seasons within a league.\n\n" % FINALISTS
@@ -355,7 +363,8 @@ def build(dirpath):
             continue
         md += "| %s | %d (%d) | %s (%s-%s) | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n" % (
             label, m["seasons"], m["leagues"], pct(m["fav"]), f(m["fav_ci"][0] * 100, "%.1f"),
-            f(m["fav_ci"][1] * 100, "%.1f"), pct(m["fav_ovr"]), pct(m["skill_share"]),
+            f(m["fav_ci"][1] * 100, "%.1f"), pct(m["fav_ovr"]),
+            pct(m["skill_share"]) + ("" if m["share_se"] != m["share_se"] else " ±" + f(m["share_se"] * 100, "%.0f")),
             f(m["skill_sd"]), f(m["r_str"]), f(m["r_ovr"]), pct(m["prem_top3"]),
             f(m["prem_rank"], "%.1f"), pct(m["spoon_bot3"]), pct(m["fin_top5"]),
             pct(m["distinct_prem"]), pct(m["m60"]))
