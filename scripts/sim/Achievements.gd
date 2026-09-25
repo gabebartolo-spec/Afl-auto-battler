@@ -129,8 +129,8 @@ static func _met(d: Dictionary, ctx: Dictionary) -> bool:
 			var row: Dictionary = (ctx.get("ladder", {}) as Dictionary).get(code, {})
 			return int(row.get("w", 0)) >= int(d.get("wins_n", 15))
 		"flags_window":
-			return _flags_in_window(ctx, code,
-					int(d.get("count", 2)), int(d.get("span", 2)))
+			var need := int(d.get("count", 2))
+			return _flags_in_window(ctx, code, need, int(d.get("span", 2))) >= need
 		"second_chance":
 			return _second_chance(ctx, code)
 		"debut_finals":

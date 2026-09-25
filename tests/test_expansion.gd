@@ -122,19 +122,29 @@ func _test_rollover_to_2028() -> void:
 	_check(season.ladder.has("TAS"), "Tasmania is on the 2028 ladder")
 	_check(not season.ladder.has("CANB"), "Canberra is not yet on the ladder")
 
+	# The entry news is posted the moment the rollover commits.
+	var news_ok := false
+	for item in GameState.news:
+		if str(item["kind"]) == "expansion" and str(item["text"]).contains("Tasmania"):
+			news_ok = true
+	_check(news_ok, "Tasmania's entry made the news")
+
 	# The debut list: a full squad, in the right size band, with contracts
 	# ready when the season opens.
 	var tas: Array = season.lists["TAS"]
 	_check(tas.size() >= Prospects.MIN_LIST and tas.size() <= Ratings.LIST_SIZE,
 			"Tasmania debuts with a full list (%d)" % tas.size())
 	var ages := 0.0
+	var age_list := []
 	var id_seen := {}
 	for p in tas:
 		ages += float(p["age"])
+		age_list.append("%.0f" % float(p["age"]))
 		_check(not id_seen.has(str(p["id"])), "Tasmania ids are unique")
 		id_seen[str(p["id"])] = true
 		_check(int(p.get("contract_years", 0)) > 0,
 				"Every Tasmanian has a contract at the season start")
+	print("TAS debut ages (%d): %s" % [tas.size(), ", ".join(age_list)])  # TEMP-CI-DIAG
 	_check(ages / float(tas.size()) > 19.0 and ages / float(tas.size()) < 27.0,
 			"The debut list mixes ages (%.1f)" % (ages / float(tas.size())))
 
@@ -173,12 +183,7 @@ func _test_2028_season_runs() -> void:
 			"Ten finalists come off the 19-club ladder")
 	_check(GameState.premier() != "", "A 2028 premier is crowned")
 
-	# The expansion news and the debut achievement only fire when they apply.
-	var news_ok := false
-	for item in GameState.news:
-		if str(item["kind"]) == "expansion" and str(item["text"]).contains("Tasmania"):
-			news_ok = true
-	_check(news_ok, "Tasmania's entry made the news")
+	# The debut achievement only fires when it applies.
 	if (season.finals["top"] as Array).has("TAS"):
 		_check(GameState.achievements.has("tas_debut_finals"),
 				"Tasmania made the finals in its debut season: achievement unlocked")
