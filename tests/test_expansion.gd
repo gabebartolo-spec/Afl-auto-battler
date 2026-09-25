@@ -150,6 +150,11 @@ func _test_rollover_to_2028() -> void:
 		id_seen[str(p["id"])] = true
 		_check(int(p.get("contract_years", 0)) > 0,
 				"Every Tasmanian has a contract at the season start")
+	var who := []  # TEMP-CI-DIAG
+	for i in mini(5, tas.size()):
+		who.append("%s/%s/%s" % [str(tas[i].get("id", "?")),
+				str(tas[i].get("club", "?")), "%.0f" % float(tas[i].get("age", 0))])
+	print("TAS who (%d): %s" % [tas.size(), " || ".join(who)])  # TEMP-CI-DIAG
 	print("TAS debut ages (%d): %s" % [tas.size(), ", ".join(age_list)])  # TEMP-CI-DIAG
 	_check(ages / float(tas.size()) > 19.0 and ages / float(tas.size()) < 27.0,
 			"The debut list mixes ages (%.1f)" % (ages / float(tas.size())))

@@ -69,7 +69,7 @@ for suite in "${SUITES[@]}"; do
 		grep -E "^ERROR" "$log" | head -30 | while IFS= read -r l; do
 			printf '::error::%s-check::%s\n' "$suite" "${l#ERROR: }"
 		done
-		grep -E "^(NEWS DEBUG|TAS debut ages)" "$log" | head -10 | while IFS= read -r l; do
+		grep -E "^(NEWS DEBUG|TAS who|TAS debut ages)" "$log" | head -10 | while IFS= read -r l; do
 			printf '::notice::%s-diag::%s\n' "$suite" "$l"
 		done
 	fi

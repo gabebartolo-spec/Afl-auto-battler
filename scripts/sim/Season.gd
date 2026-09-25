@@ -32,7 +32,14 @@ var selections := {}           # code -> chosen match-day side (empty = auto)
 
 func _init(club_codes: Array, club_lists: Dictionary, p_seed: int = 0) -> void:
 	clubs = club_codes.duplicate()
-	lists = club_lists
+	# Keep only this season's clubs. Callers build `club_lists` for every
+	# club that will ever exist, and the offseason, contracts and free-agent
+	# passes iterate `lists` - a phantom entry for a club that has not
+	# entered yet would let rivals "sign" free agents into it and silently
+	# pre-fill the expansion club's debut list (skipping its generation).
+	lists = {}
+	for c in clubs:
+		lists[c] = club_lists.get(c, [])
 	seed = p_seed
 	ladder = {}
 	for c in clubs:
