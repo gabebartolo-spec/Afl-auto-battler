@@ -13,8 +13,8 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 
 GODOT="${GODOT:-godot}"
-SUITE_TIMEOUT="${SUITE_TIMEOUT:-900}"
-ALL_SUITES=(draft draft_ui intake intake_ui finals save career_ui potential ai training selection injuries awards contracts league club match_game calibration balance expansion achievements)
+SUITE_TIMEOUT="${SUITE_TIMEOUT:-240}"  # TEMP-CI-DIAG: shorter while debugging
+ALL_SUITES=(draft_ui career_ui expansion achievements)  # TEMP-CI-DIAG: only the failing suites
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
 
 LOG_DIR="${LOG_DIR:-$(mktemp -d)}"
@@ -59,9 +59,17 @@ for suite in "${SUITES[@]}"; do
 	if [ "$status" = FAIL ]; then
 		failed=1
 		note_error "suite '$suite' failed: $detail"
-		[ "$in_ci" = 1 ] && echo "::group::$suite log (errors)"
-		grep -E -A4 "^ERROR|SCRIPT ERROR" "$log" | head -60
-		[ "$in_ci" = 1 ] && echo "::endgroup::"
+	[ "$in_ci" = 1 ] && echo "::group::$suite log (errors)"
+	grep -E -A4 "^ERROR|SCRIPT ERROR" "$log" | head -60
+	[ "$in_ci" = 1 ] && echo "::endgroup::"
+	if [ "$in_ci" = 1 ]; then  # TEMP-CI-DIAG: surface crash details as annotations
+		grep -E "SCRIPT ERROR|Parse Error|Compile Error" "$log" | head -20 | while IFS= read -r l; do
+			printf '::error::%s-log::%s\n' "$suite" "$l"
+		done
+		tail -30 "$log" | while IFS= read -r l; do
+			printf '::notice::%s-tail::%s\n' "$suite" "$l"
+		done
+	fi
 	fi
 	summary+=("| $suite | $status | $detail (${secs}s) |")
 done

@@ -133,6 +133,7 @@ func _test_grand_final() -> void:
 
 func _test_top_ladder_and_slam() -> void:
 	var codes := _codes()
+	var ladder := _ladder(codes)
 	# CAR is third in the default ladder - move it to the top for this test.
 	var car_top := codes.duplicate()
 	car_top.erase("CAR")
