@@ -58,7 +58,7 @@ func _build() -> void:
 		_root.add_child(cl)
 
 	if not season.finals.is_empty():
-		_root.add_child(UiKit.lbl("Finals Series", 18, UiKit.GOLD, true))
+		_root.add_child(UiKit.lbl("Finals Series", 18, UiKit.EMPH, true))
 		var fp := UiKit.panel(UiKit.PANEL, 12)
 		_root.add_child(fp)
 		var fv := UiKit.vbox(4)

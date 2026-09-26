@@ -149,7 +149,7 @@ func _show_callout(index: int) -> void:
 	if bool(entry.get("bench", false)):
 		duty = "Interchange"
 	_callout_box.add_child(UiKit.lbl("%s  ·  %d OVR  ·  %d XP" % [duty, int(p.get("overall", 0)),
-			int(p.get("xp", 0))], 12, UiKit.GOLD, true))
+			int(p.get("xp", 0))], 12, UiKit.EMPH, true))
 	var role := str(slot.get("role", p.get("role", "MID")))
 	var rows: Array = CALLOUT_ATTRS.get(role, CALLOUT_ATTRS["MID"])
 	var attr: Dictionary = p.get("attr", {})
@@ -301,7 +301,7 @@ func _draw() -> void:
 	var chev := Vector2(c.x + a * 0.93, c.y)
 	draw_colored_polygon(PackedVector2Array([
 		chev + Vector2(-8, -5), chev + Vector2(1, 0), chev + Vector2(-8, 5),
-	]), Color(UiKit.GOLD, 0.9))
+	]), Color(UiKit.EMPH, 0.9))
 
 	var bench: Rect2 = geo["bench"]
 	draw_rect(bench, Color(0.05, 0.08, 0.06, 0.72), true)
@@ -318,7 +318,7 @@ func _draw() -> void:
 		var px: Vector2 = tokens[i]["px"]
 		var selected := i == _selected
 		if selected:
-			draw_arc(px, tr * 1.85, 0, TAU, 24, UiKit.GOLD, 2.0)
+			draw_arc(px, tr * 1.85, 0, TAU, 24, UiKit.EMPH, 2.0)
 		draw_circle(px + Vector2(0, tr * 0.18), tr, Color(0, 0, 0, 0.28))
 		draw_circle(px, tr, primary)
 		draw_circle(px, tr * 0.62, secondary)
@@ -330,7 +330,7 @@ func _draw() -> void:
 				HORIZONTAL_ALIGNMENT_LEFT, -1, fs, _readable_on(primary))
 		if show_labels:
 			var abbr := str(slot.get("abbr", ""))
-			_draw_label(abbr, px + Vector2(0, -tr - 3.0), 9, UiKit.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+			_draw_label(abbr, px + Vector2(0, -tr - 3.0), 9, UiKit.EMPH, HORIZONTAL_ALIGNMENT_CENTER)
 			var name := _short_name(p)
 			var below := float(slot.get("at", Vector2.ZERO).y) < 0.5 or bool(entry.get("bench", false))
 			var name_y := px.y + tr + 12.0 if below else px.y - tr - 14.0

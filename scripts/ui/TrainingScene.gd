@@ -139,7 +139,7 @@ func _summary() -> Control:
 	panel.add_child(v)
 	var report: Dictionary = GameState.last_training_report
 	if int(report.get("count", 0)) > 0:
-		v.add_child(UiKit.lbl(str(report.get("label", "Last game")), 15, UiKit.GOLD, true))
+		v.add_child(UiKit.lbl(str(report.get("label", "Last game")), 15, UiKit.EMPH, true))
 		var line := GameState.training_summary_line()
 		var what := UiKit.lbl(line if line != "" else "Training: no rating changes from the last game.", 13,
 				UiKit.GOOD if line != "" else UiKit.MUTED)
@@ -150,7 +150,7 @@ func _summary() -> Control:
 		if reserves != "":
 			v.add_child(UiKit.lbl(reserves, 13, UiKit.MUTED))
 	else:
-		v.add_child(UiKit.lbl("No game played yet. Players develop after every match.", 15, UiKit.GOLD, true))
+		v.add_child(UiKit.lbl("No game played yet. Players develop after every match.", 15, UiKit.EMPH, true))
 	var paused := 0
 	for p in GameState.my_list:
 		if GameState.plan_for(p) == "manual":
@@ -268,7 +268,7 @@ func _player_row(p: Dictionary) -> Control:
 	b.custom_minimum_size.y = 58
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if selected:
-		b.add_theme_stylebox_override("normal", UiKit.style(Color("263025"), 8, 6, UiKit.GOLD))
+		b.add_theme_stylebox_override("normal", UiKit.style(Color("263025"), 8, 6, UiKit.EMPH))
 	var h := UiKit.hbox(8)
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
 	h.offset_left = 8
@@ -355,7 +355,7 @@ func _detail_panel() -> Control:
 			13, UiKit.MUTED))
 	var standing := UiKit.hbox(10)
 	body.add_child(standing)
-	standing.add_child(UiKit.line("OVR %d" % int(p["overall"]), 22, UiKit.GOLD, true))
+	standing.add_child(UiKit.line("OVR %d" % int(p["overall"]), 22, UiKit.EMPH, true))
 	var rise := _last_rise(_selected)
 	var state := GameState.development_state(p)
 	var state_l := UiKit.lbl(state + ("  ·  up from %d last game" % int(rise[0]) if rise.size() > 0 else ""), 14,
@@ -373,7 +373,7 @@ func _detail_panel() -> Control:
 	focus.add_child(fv)
 	fv.add_child(UiKit.lbl("DEVELOPMENT FOCUS", 12, UiKit.MUTED, true))
 	var plan := GameState.plan_for(p)
-	var plan_name := UiKit.lbl(GameState.train_plan_label(plan), 18, UiKit.BAD if plan == "manual" else UiKit.GOLD, true)
+	var plan_name := UiKit.lbl(GameState.train_plan_label(plan), 18, UiKit.BAD if plan == "manual" else UiKit.EMPH, true)
 	plan_name.name = "FocusName"
 	fv.add_child(plan_name)
 	var meaning := UiKit.lbl(GameState.train_plan_description(plan, str(p.get("role", "MID"))), 13, UiKit.TEXT)
@@ -406,7 +406,7 @@ func _detail_panel() -> Control:
 	if not close.is_empty():
 		var n: Dictionary = close[0]
 		var hint := UiKit.lbl("%d %s from %s: %s" % [int(n["gap"]), GameState.train_stat_label(str(n["stat"])).to_lower(),
-				Traits.label(str(n["key"])), Traits.text(str(n["key"]))], 12, UiKit.GOLD)
+				Traits.label(str(n["key"])), Traits.text(str(n["key"]))], 12, UiKit.EMPH)
 		hint.name = "TraitHint"
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		body.add_child(hint)
@@ -530,7 +530,7 @@ func _attr_colour(v: float) -> Color:
 	if v >= 75.0:
 		return UiKit.GOOD
 	if v >= 55.0:
-		return UiKit.GOLD
+		return UiKit.EMPH
 	if v >= 40.0:
 		return Color(0.80, 0.76, 0.55)
 	return UiKit.BAD

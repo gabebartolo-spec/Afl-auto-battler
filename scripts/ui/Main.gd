@@ -23,7 +23,7 @@ func _ready() -> void:
 	_pitch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_pitch)
 	var shade := ColorRect.new()
-	shade.color = Color(0.02, 0.05, 0.03, 0.55)
+	shade.color = Color(0.07, 0.066, 0.06, 0.72)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(shade)
@@ -37,7 +37,7 @@ func _ready() -> void:
 	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	margin.add_child(UiKit.scroll(v))
-	v.add_child(UiKit.title("AFL AUTO-BATTLER"))
+	v.add_child(UiKit.title("AFL Auto-Battler"))
 	v.add_child(UiKit.subtitle(
 			"Rebuild the league. Draft your list, then take it all the way to September."))
 	v.add_child(UiKit.spacer(12))
@@ -54,13 +54,13 @@ func _ready() -> void:
 	var resume_draft := GameState.draft != null and not GameState.draft.user_club.is_empty() \
 			and GameState.season == null
 	if resume_draft or GameState.season != null:
-		var resume := UiKit.btn("Resume Draft" if resume_draft else "Resume Season", 19, true)
+		var resume := UiKit.btn("Resume draft" if resume_draft else "Resume season", 19, true)
 		resume.name = "ResumeCareer"
 		resume.pressed.connect(func(): Router.go("draft" if resume_draft else "hub"))
 		_buttons.add_child(resume)
 	var saved := not GameState.has_career() and GameState.has_saved_career()
 	if saved:
-		var cont := UiKit.btn("Continue Career", 19, true)
+		var cont := UiKit.btn("Continue career", 19, true)
 		cont.name = "ContinueCareer"
 		cont.pressed.connect(_on_continue)
 		_buttons.add_child(cont)
@@ -73,14 +73,14 @@ func _ready() -> void:
 	_load_error.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_load_error.visible = false
 	_buttons.add_child(_load_error)
-	var new_career := UiKit.btn("New Career", 19,
+	var new_career := UiKit.btn("New career", 19,
 			not resume_draft and GameState.season == null and not saved)
 	new_career.name = "NewCareer"
 	# No career can start on missing or incomplete player data.
 	new_career.disabled = not GameDB.loaded
 	new_career.pressed.connect(_on_new_career)
 	_buttons.add_child(new_career)
-	var help := UiKit.btn("How It Works", 17)
+	var help := UiKit.btn("How it works", 17)
 	help.pressed.connect(_show_help)
 	_buttons.add_child(help)
 	if not OS.has_feature("web"):
@@ -88,8 +88,8 @@ func _ready() -> void:
 		quit.pressed.connect(func(): get_tree().quit())
 		_buttons.add_child(quit)
 	v.add_child(UiKit.spacer(14))
-	var foot := UiKit.lbl("2026 player stats · %d clubs · draft the next\ngeneration "
-			+ "at the end of every season" % GameDB.active_clubs(2026).size(), 12, UiKit.MUTED)
+	var foot := UiKit.lbl(("2026 player stats · %d clubs · draft the next\ngeneration "
+			+ "at the end of every season") % GameDB.active_clubs(2026).size(), 12, UiKit.MUTED)
 	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(foot)
 	get_viewport().size_changed.connect(_layout)
@@ -106,7 +106,7 @@ func _name_mode_control() -> Control:
 	var copy := UiKit.vbox(1)
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(copy)
-	copy.add_child(UiKit.lbl("PLAYER LABELS", 12, UiKit.GOLD, true))
+	copy.add_child(UiKit.lbl("Player names", UiKit.SMALL, UiKit.TEXT, true))
 	copy.add_child(UiKit.lbl("Generated names by default. Turn this on for real AFL names.",
 			12, UiKit.MUTED))
 	_name_toggle = UiKit.btn("", 14)
@@ -126,7 +126,7 @@ func _difficulty_control() -> Control:
 	card.custom_minimum_size.x = minf(440.0, UiKit.view_width(self) - 32.0)
 	var v := UiKit.vbox(5)
 	card.add_child(v)
-	v.add_child(UiKit.lbl("DIFFICULTY (NEW CAREERS)", 12, UiKit.GOLD, true))
+	v.add_child(UiKit.lbl("Difficulty for a new career", UiKit.SMALL, UiKit.TEXT, true))
 	var row := UiKit.hbox(6)
 	v.add_child(row)
 	for key in GameState.DIFFICULTY_ORDER:
@@ -221,13 +221,13 @@ func _confirm_new_career() -> void:
 	var box := UiKit.modal_box(self, 460.0, 260.0)
 	_confirm_overlay = box["overlay"]
 	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.lbl("Start a new career?", 20, UiKit.GOLD, true))
+	v.add_child(UiKit.lbl("Start a new career?", 20, UiKit.EMPH, true))
 	var meta := GameState.saved_career_meta()
 	var what := "your current career"
 	if not meta.is_empty():
 		what = "your saved career (%s)" % _meta_line(meta)
 	v.add_child(UiKit.lbl("This replaces %s. It cannot be undone." % what, 14, UiKit.TEXT))
-	var go := UiKit.btn("Start New Career", 17, true)
+	var go := UiKit.btn("Start new career", 17, true)
 	go.name = "ConfirmNewCareer"
 	go.custom_minimum_size = Vector2(0, 44)
 	go.pressed.connect(func():

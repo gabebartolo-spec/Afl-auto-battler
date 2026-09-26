@@ -197,7 +197,7 @@ func _show_club_select() -> void:
 		var row := UiKit.hbox(8)
 		v.add_child(row)
 		row.add_child(UiKit.club_badge(code, 13, true))
-		var pick_label := UiKit.lbl("PICK #%d" % (_draft.draft_order.find(code) + 1), 12, UiKit.GOLD)
+		var pick_label := UiKit.lbl("PICK #%d" % (_draft.draft_order.find(code) + 1), 12, UiKit.EMPH)
 		pick_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pick_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(pick_label)
@@ -313,7 +313,7 @@ func _compact_header() -> Control:
 	var v := UiKit.vbox(0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(v)
-	_status = UiKit.lbl("", 17, UiKit.GOLD, true)
+	_status = UiKit.lbl("", 17, UiKit.EMPH, true)
 	_status.name = "DraftStatus"
 	v.add_child(_status)
 	_round_info = UiKit.lbl("", 12, UiKit.MUTED)
@@ -332,7 +332,7 @@ func _summary() -> Control:
 	var v := UiKit.vbox(0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(v)
-	_status = UiKit.lbl("", 17, UiKit.GOLD, true)
+	_status = UiKit.lbl("", 17, UiKit.EMPH, true)
 	_status.name = "DraftStatus"
 	v.add_child(_status)
 	_round_info = UiKit.lbl("", 12, UiKit.MUTED)
@@ -1019,7 +1019,7 @@ func _history_row(entry: Dictionary) -> Control:
 	var h := UiKit.hbox(7)
 	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	tap.add_child(h)
-	var number := UiKit.line("#%d" % int(entry["pick"]), 13, UiKit.GOLD if mine else UiKit.MUTED)
+	var number := UiKit.line("#%d" % int(entry["pick"]), 13, UiKit.EMPH if mine else UiKit.MUTED)
 	number.custom_minimum_size.x = 32
 	h.add_child(number)
 	var info := UiKit.vbox(3)
@@ -1029,7 +1029,7 @@ func _history_row(entry: Dictionary) -> Control:
 	var club_row := UiKit.hbox(6)
 	info.add_child(club_row)
 	club_row.add_child(UiKit.club_badge(str(entry["club"]), 12, true))
-	club_row.add_child(UiKit.ellipsis("YOUR PICK" if mine else "selected", 11, UiKit.GOLD if mine else UiKit.MUTED))
+	club_row.add_child(UiKit.ellipsis("YOUR PICK" if mine else "selected", 11, UiKit.EMPH if mine else UiKit.MUTED))
 	h.add_child(UiKit.role_chip(str(entry["role"])))
 	p.tooltip_text = "Pick #%d · Round %d\n%s drafted %s from %s\n%d OVR · $%d" % [
 		entry["pick"], entry["round"], GameDB.club_name(str(entry["club"])), _entry_player_name(entry),
@@ -1044,13 +1044,13 @@ func _refresh_mine() -> void:
 		_mine_box.add_child(UiKit.lbl("%d / %d rookies signed · list %d / %d" % [
 			_draft.count(), _draft.target_size,
 			int(GameState.league_lists.get(_club, []).size()), Ratings.LIST_SIZE],
-			15, UiKit.GOLD, true))
+			15, UiKit.EMPH, true))
 		_mine_box.add_child(UiKit.lbl(
 			"Rookies join the list you kept. No cap at the intake draft - list space is the limit.",
 			13, UiKit.MUTED))
 	else:
 		_mine_box.add_child(UiKit.lbl("%d / %d signed · $%d of $%d spent" % [
-			_draft.count(), _draft.target_size, _draft.spent(), _draft.budget], 15, UiKit.GOLD, true))
+			_draft.count(), _draft.target_size, _draft.spent(), _draft.budget], 15, UiKit.EMPH, true))
 		_mine_box.add_child(UiKit.lbl(
 			"Cover 6 DEF, 6 MID and 6 FWD for the ground. Carry at least 2 RUCK. The bench is flexible; other needs are guidance, not limits.",
 			13, UiKit.MUTED))
@@ -1088,7 +1088,7 @@ func _refresh_order() -> void:
 	var going_back := round_no % 2 == 0
 	_order_box.add_child(UiKit.lbl("ROUND %d / %d" % [round_no, _draft.target_size], 12, UiKit.MUTED, true))
 	var direction := UiKit.heading("‹ ORDER" if going_back else "ORDER ›", 28)
-	direction.add_theme_color_override("font_color", UiKit.GOLD)
+	direction.add_theme_color_override("font_color", UiKit.EMPH)
 	_order_box.add_child(direction)
 	_order_box.add_child(UiKit.lbl(
 			"The arrow is the way this round's order runs. It flips every round. Highlighted club = you.",
@@ -1101,7 +1101,7 @@ func _refresh_order() -> void:
 		var p := _row_panel(mine)
 		var h := UiKit.hbox(7)
 		p.add_child(h)
-		var arrow := UiKit.line("‹" if going_back else "›", 16, UiKit.GOLD, true)
+		var arrow := UiKit.line("‹" if going_back else "›", 16, UiKit.EMPH, true)
 		arrow.custom_minimum_size.x = 16
 		h.add_child(arrow)
 		var number := UiKit.line("#%d" % (index + 1), 13, UiKit.MUTED)
@@ -1121,7 +1121,7 @@ func _refresh_order() -> void:
 			description = _entry_player_name(entry) if not entry.is_empty() \
 					else "passed - list full"
 		v.add_child(UiKit.ellipsis(description, 12, UiKit.MUTED))
-		h.add_child(UiKit.line("%d/%d" % [_draft.count_for(code), _draft.target_size], 12, UiKit.GOLD if mine else UiKit.MUTED))
+		h.add_child(UiKit.line("%d/%d" % [_draft.count_for(code), _draft.target_size], 12, UiKit.EMPH if mine else UiKit.MUTED))
 		_order_box.add_child(p)
 
 
@@ -1213,7 +1213,7 @@ func _row_panel(mine: bool) -> PanelContainer:
 	sb.border_width_bottom = 1
 	if mine:
 		sb.border_width_left = 2
-		sb.border_color = UiKit.GOLD
+		sb.border_color = UiKit.EMPH
 	p.add_theme_stylebox_override("panel", sb)
 	p.custom_minimum_size.y = 62
 	return p

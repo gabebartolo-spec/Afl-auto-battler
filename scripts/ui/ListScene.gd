@@ -101,7 +101,7 @@ func _shape_panel() -> Control:
 	var lv := UiKit.vbox(5)
 	lv.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left.add_child(lv)
-	lv.add_child(UiKit.lbl("Best 22", 17, UiKit.GOLD, true))
+	lv.add_child(UiKit.lbl("Best 22", 17, UiKit.EMPH, true))
 	lv.add_child(UiKit.lbl(
 			"Match-day shape: 6-6-6 - six defenders, six midfielders (ruck included) and six forwards. Four more wait on the interchange. Tap a guernsey.",
 			11, UiKit.MUTED))
@@ -122,7 +122,7 @@ func _full_list_panel() -> Control:
 	var rv := UiKit.vbox(5)
 	rv.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right.add_child(rv)
-	rv.add_child(UiKit.lbl("Full List", 17, UiKit.GOLD, true))
+	rv.add_child(UiKit.lbl("Full List", 17, UiKit.EMPH, true))
 	var lbox := UiKit.vbox(2)
 	rv.add_child(UiKit.scroll(lbox))
 
@@ -147,7 +147,7 @@ func _stat_card(label: String, value: String) -> Control:
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var v := UiKit.vbox(2)
 	p.add_child(v)
-	var val := UiKit.lbl(value, 22, UiKit.GOLD, true)
+	var val := UiKit.lbl(value, 22, UiKit.EMPH, true)
 	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(val)
 	var lab := UiKit.lbl(label, 11, UiKit.MUTED)
@@ -168,7 +168,7 @@ func _team_row(p: Dictionary, ground: bool) -> Control:
 	h.add_child(UiKit.role_chip(_player_tag(p)))
 	if int(p.get("injury_weeks", 0)) > 0:
 		h.add_child(UiKit.line("INJ", 11, UiKit.BAD, true))
-	h.add_child(UiKit.line(str(int(p["overall"])), 14, UiKit.GOLD, true))
+	h.add_child(UiKit.line(str(int(p["overall"])), 14, UiKit.EMPH, true))
 	h.add_child(UiKit.line("/%d" % int(p.get("potential", p["overall"])), 11,
 			UiKit.GOOD if bool(p.get("rehab", false)) else UiKit.MUTED))
 	return h
@@ -194,9 +194,9 @@ func _list_row(p: Dictionary) -> Control:
 				12, UiKit.BAD, true))
 	var m := ClubLife.morale(p)
 	h.add_child(UiKit.line(ClubLife.mood(m), 11, UiKit.GOOD if m >= 65 else (UiKit.MUTED if m >= 40 else UiKit.BAD)))
-	var xp := UiKit.line("%d XP" % int(p.get("xp", 0)), 12, UiKit.GOLD, true)
+	var xp := UiKit.line("%d XP" % int(p.get("xp", 0)), 12, UiKit.EMPH, true)
 	h.add_child(xp)
-	var ov := UiKit.lbl(str(int(p["overall"])), 18, UiKit.GOLD, true)
+	var ov := UiKit.lbl(str(int(p["overall"])), 18, UiKit.EMPH, true)
 	ov.custom_minimum_size = Vector2(38, 0)
 	ov.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(ov)
@@ -286,7 +286,7 @@ func _attr_colour(v: float) -> Color:
 	if v >= 75.0:
 		return UiKit.GOOD
 	if v >= 55.0:
-		return UiKit.GOLD
+		return UiKit.EMPH
 	if v >= 40.0:
 		return Color(0.80, 0.76, 0.55)
 	return UiKit.BAD

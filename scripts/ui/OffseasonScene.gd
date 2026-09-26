@@ -75,7 +75,7 @@ func _build() -> void:
 
 func _contracts(body: VBoxContainer) -> void:
 	var expiring := Contracts.expiring(GameState.my_list)
-	body.add_child(UiKit.lbl("Out of contract  (%d)" % expiring.size(), 15, UiKit.GOLD, true))
+	body.add_child(UiKit.lbl("Out of contract  (%d)" % expiring.size(), 15, UiKit.EMPH, true))
 	if expiring.is_empty():
 		body.add_child(_para("Nobody is out of contract this year.", 13, UiKit.MUTED))
 	for p in expiring:
@@ -105,7 +105,7 @@ func _contracts(body: VBoxContainer) -> void:
 			_notice = str(GameState.release_player(str(p["id"]))["reason"])
 			_build())
 		row.add_child(rel)
-	body.add_child(UiKit.lbl("Whole list", 15, UiKit.GOLD, true))
+	body.add_child(UiKit.lbl("Whole list", 15, UiKit.EMPH, true))
 	var sorted := GameState.my_list.duplicate()
 	sorted.sort_custom(func(a, b): return int(a.get("salary", 0)) > int(b.get("salary", 0)))
 	for p in sorted:
@@ -172,9 +172,9 @@ func _trade(body: VBoxContainer) -> void:
 			_theirs = []
 		_build())
 	body.add_child(go)
-	body.add_child(UiKit.lbl("Their list (pick up to 2)", 15, UiKit.GOLD, true))
+	body.add_child(UiKit.lbl("Their list (pick up to 2)", 15, UiKit.EMPH, true))
 	body.add_child(_pick_grid(GameState.season.lists.get(_trade_club, []), _theirs, "Their_"))
-	body.add_child(UiKit.lbl("Your list (pick up to 2)", 15, UiKit.GOLD, true))
+	body.add_child(UiKit.lbl("Your list (pick up to 2)", 15, UiKit.EMPH, true))
 	body.add_child(_pick_grid(GameState.my_list, _mine, "Mine_"))
 
 
