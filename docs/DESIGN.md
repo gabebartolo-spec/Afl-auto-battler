@@ -116,9 +116,19 @@ treat either role as cover. Position totals stay primary-only, so they still
 sum to the list size.
 
 Two classifier misreads are corrected by hand (`Ratings.ROLE_CORRECTIONS`:
-Maurice Rioli and Cody Weightman, listed and played as forwards). The wider
-pattern - about 87 listed forwards read as MID on their numbers - is a data job
-of its own, not patched here.
+Maurice Rioli and Cody Weightman, listed and played as forwards).
+
+**Known issue, deferred (a Ratings/classification task of its own).** The
+broad classifier is still biased to MID: the role scores are not on one scale
+(MID rewards disposals, contested ball and clearances that every busy player
+racks up; FWD leans on goals most players kick few of), so ~85 listed forwards
+and 21 listed defenders read MID - pressure forwards can even read as Wings or
+Taggers. Letting the listed position (`real_pos`) lead fixes it, but broad role
+also drives OVR (`Ratings.rate_overall` scores the role's core and position
+stretch), so that fix moves 122 players, changes 110 OVRs (4 by 10+) and pulls
+the forward median ~7 below midfield. It also shows the FWD core undervalues
+pressure forwards: pressure is not in it although the engine rewards team
+pressure. Classification and the forward rating need to be settled together.
 
 ### Match-day roles (`scripts/sim/Roles.gd`)
 Only jobs the engine rewards:
@@ -133,8 +143,14 @@ Only jobs the engine rewards:
 * **Tagger** (MID). Pressure in the top 30% of midfielders and well ahead of
   both his ball-winning and running. With a tagger on the ground, a tagged
   opponent keeps 42% of his ball instead of 55%.
-* Everyone else reads as Inside midfielder, Key/Rebounding defender,
-  Key/Small forward or Ruck - the Training vocabulary.
+* Everyone else reads as Inside midfielder, Key/Rebounding defender or Ruck
+  (the Training vocabulary), or - for forwards - Key forward, Small forward or
+  Forward (`PlayerProfile.forward_type`, a label only: ratings are untouched).
+  Goals never make a key forward: it takes height (evidence, not a cut-off:
+  184 cm counts nothing, 196 cm in full, ~192 cm the rule of thumb) weighed
+  60/40 with his marking against other forwards. A small forward is short and
+  plays below the pack. The rest, or anyone without a height, is a Forward -
+  broad rather than wrong (Toby Greene).
 
 Deferred until the engine can tell them apart: tap vs mobile ruck (only the
 ruck attribute and contested ball reach a ruck's game), swingman (any player
