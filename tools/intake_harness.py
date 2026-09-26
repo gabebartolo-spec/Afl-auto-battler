@@ -27,11 +27,11 @@ DATA = os.path.join(ROOT, "data")
 # Mirror of Ratings.gd constants
 # ---------------------------------------------------------------------------
 SHRINK_GAMES = 5.0  # unused here, kept for constant parity notes
-ROLE_WEIGHTS = {  # [disposal, pressure, goalkicking, intercept, contested-or-ruck]
-    "RUCK": (0.30, 0.10, 0.10, 0.20, 0.30),
-    "FWD": (0.30, 0.08, 0.42, 0.08, 0.12),
-    "MID": (0.44, 0.18, 0.14, 0.06, 0.18),
-    "DEF": (0.26, 0.30, 0.06, 0.28, 0.10),
+ROLE_WEIGHTS = {  # role core: attribute -> weight (Ratings.gd::ROLE_WEIGHTS)
+    "RUCK": {"ruck": 0.90, "contested": 0.10},
+    "FWD": {"goalkicking": 0.35, "marking": 0.30, "carry": 0.15, "accuracy": 0.15, "creating": 0.05},
+    "MID": {"contested": 0.60, "disposal": 0.15, "carry": 0.15, "goalkicking": 0.05, "accuracy": 0.05},
+    "DEF": {"intercept": 0.40, "pressure": 0.35, "carry": 0.15, "contested": 0.10},
 }
 ATTRS = ["disposal", "contested", "marking", "pressure", "intercept", "carry",
          "goalkicking", "accuracy", "creating", "ruck", "discipline",
@@ -48,28 +48,34 @@ def scale_overall(raw):
     return int(round(44.0 + t ** 0.92 * 48.0))
 
 
-# Key position concession - see Ratings.gd::position_stretch.
-STRETCH_TARGET = (49.36, 73.74)
-STRETCH_ANCHORS = {"DEF": (45.60, 56.07), "FWD": (47.70, 59.96), "RUCK": (48.04, 69.46)}
+# Position scale - see Ratings.gd::position_stretch. [p10, p50, p98] of each
+# position's raw blend -> where it lands; one for one outside that band.
+STRETCH_ANCHORS = {"MID": (39.66, 51.48, 83.84), "DEF": (40.37, 47.88, 58.90),
+                   "FWD": (39.24, 53.72, 68.00), "RUCK": (39.13, 66.27, 86.90)}
+STRETCH_TARGETS = {"MID": (37.74, 49.36, 78.04), "DEF": (43.07, 49.41, 73.72),
+                   "FWD": (38.38, 49.48, 73.42), "RUCK": (37.50, 49.36, 73.56)}
 
 
 def position_stretch(raw, role):
     if role not in STRETCH_ANCHORS:
         return raw
-    g50, g98 = STRETCH_ANCHORS[role]
-    m50, t98 = STRETCH_TARGET
+    g10, g50, g98 = STRETCH_ANCHORS[role]
+    t10, t50, t98 = STRETCH_TARGETS[role]
+    if raw <= g10:
+        return raw + (t10 - g10)
     if raw <= g50:
-        return raw + (m50 - g50)
+        return t10 + (raw - g10) * (t50 - t10) / (g50 - g10)
     if raw <= g98:
-        return m50 + (raw - g50) * (t98 - m50) / (g98 - g50)
+        return t50 + (raw - g50) * (t98 - t50) / (g98 - g50)
     return t98 + (raw - g98)
 
 
+def role_core(attr, role):
+    return sum(w * attr[k] for k, w in ROLE_WEIGHTS[role].items())
+
+
 def rate_overall(attr, role, games):
-    w = ROLE_WEIGHTS[role]
-    fifth = attr["ruck"] if role == "RUCK" else attr["contested"]
-    core = (w[0] * attr["disposal"] + w[1] * attr["pressure"]
-            + w[2] * attr["goalkicking"] + w[3] * attr["intercept"] + w[4] * fifth)
+    core = role_core(attr, role)
     overall = 0.70 * core + 0.22 * attr["star"] + 0.08 * attr["durability"]
     overall = position_stretch(overall, role)
     conf = min(1.0, games / 14.0)

@@ -302,11 +302,44 @@ func load_career() -> bool:
 	GameDB.draftees = state.get("db_draftees", GameDB.draftees)
 	GameDB.late_draftees = state.get("db_late_draftees", [])
 	GameDB._alias_next = int(state.get("db_alias_next", GameDB._alias_next))
+	_recompute_ratings()
 	_backfill_potential()
 	ensure_contracts()
 	if season != null and board.is_empty():
 		_open_board_season()
 	return true
+
+
+## Overall is derived data: rebuild it from the attributes on load, so a
+## save written under an older rating formula never keeps stale ratings.
+## What is pinned to a player's old overall - his POT and the season-start
+## mark for the rival training cap - moves by the same amount, so his
+## headroom is kept. With an unchanged formula nothing moves.
+func _recompute_ratings() -> void:
+	var groups: Array = [my_list, draftee_pool, free_agents, GameDB.late_draftees]
+	if season != null:
+		for code in season.lists:
+			groups.append(season.lists[code])
+	for code in league_lists:
+		groups.append(league_lists[code])
+	if draft != null:
+		groups.append(draft.pool)
+		for code in draft.club_lists:
+			groups.append(draft.club_lists[code])
+	for arr in groups:
+		for p in arr:
+			if not (p is Dictionary) or not (p as Dictionary).has("attr") or not (p as Dictionary).has("role"):
+				continue
+			var old := int(p.get("overall", 0))
+			var ov := Ratings.rate_overall(p["attr"], str(p["role"]), Ratings.effective_games(p))
+			if ov == old:
+				continue
+			p["overall"] = ov
+			p["value"] = Ratings.salary_value(ov)
+			if p.has("potential"):
+				p["potential"] = clampi(int(p["potential"]) + ov - old, ov, Potential.MAX_POT)
+			if p.has("season_start_ov"):
+				p["season_start_ov"] = int(p["season_start_ov"]) + ov - old
 
 
 ## Careers saved before potential existed: give every player a POT, taking

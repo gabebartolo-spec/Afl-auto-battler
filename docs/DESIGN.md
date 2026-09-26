@@ -116,18 +116,58 @@ treat either role as cover. Position totals stay primary-only, so they still
 sum to the list size.
 
 ### Overall & salary
-`overall` blends role-weighted attributes with `star` (Brownlow signal) and
-`durability`, then shrinks toward 40 for low-game players. That raw blend tops
-out around 80, because it is an average of attributes that rarely all peak
-together. `scale_overall` stretches it so the best 2026 players land near 90
-(Bontempelli 92, Nick Daicos and Heeney 91, Bailey Smith 90) while the middle
-of the pool stays in the 50s. The stretch is monotonic, so Brownlow order holds.
-`value` (1–10) is the draft salary-cap cost, banded off the stretched overall.
-No new player-data source is involved.
+`overall` = 0.70 × role core + 0.22 × `star` (Brownlow signal) + 0.08 ×
+`durability`, put on one position scale, shrunk toward 40 for low-game
+players, then stretched (`scale_overall`) so the best 2026 players land near
+90 while the middle of the pool stays in the 50s. `value` (1–10) is the draft
+salary-cap cost, banded off the overall.
 
-**Validation.** The derived top-10 reproduces the actual 2026 Brownlow order for
-the harvested clubs — Daicos (47 votes) → Bailey Smith (36) → Cripps (27) →
-Rankine (25) → Dawson → Ashcroft (27) → Neale → Serong → Walsh → Jackson.
+**Role core** (`Ratings.ROLE_WEIGHTS`) is what the match engine rewards a
+player in that role for, not what a stats sheet does:
+
+| Role | Core |
+|---|---|
+| MID | contested 0.60, disposal 0.15, carry 0.15, goalkicking 0.05, accuracy 0.05 |
+| DEF | intercept 0.40, pressure 0.35, carry 0.15, contested 0.10 |
+| FWD | goalkicking 0.35, marking 0.30, carry 0.15, accuracy 0.15, creating 0.05 |
+| RUCK | ruck 0.90, contested 0.10 |
+
+The weights come from measuring the engine: one attribute lifted by 20 for
+every player in a role on one side of a GEE v GEE mirror match (neutral
+venue, 1,000-4,000 matches each), and the change in margin recorded:
+
+| Role | +20 is worth (points of margin) | Worth ~0 |
+|---|---|---|
+| MID (5) | contested +12.2 (stoppage win and holding the ball in a tackle), carry +2.4, disposal +1.9, shooting ~+1.5 | pressure, intercept, marking |
+| DEF (6) | intercept +6.3, pressure +5.6, carry +2.1, contested +1.6 | disposal, marking, goalkicking |
+| FWD (6) | goalkicking +3.6, marking +2.8, carry +2.1, accuracy ~+2 | disposal, pressure, creating (+0.1) |
+| RUCK (1) | ruck +3.9 | everything else (intercept and pressure change nothing at all) |
+
+The old core gave a ruck 30% disposal and 20% intercept, a defender 26%
+disposal and a forward 30% disposal - none of which the engine uses for
+those roles - so drafting and selecting on OVR chased the wrong players.
+
+**Position scale** (`Ratings.position_stretch`). Each position's raw blend is
+mapped piecewise-linearly at its 10th, 50th and 98th percentiles (2026, 12+
+games) onto fixed targets - the positions' spreads as they were - and one for
+one outside that band. Medians stay level with the midfield median, the
+elite of every position reaches the high 80s (the non-midfield 98th
+percentile sits 85% of the way to the midfield one), and the low tail stays
+clear of the retirement floor.
+
+**Saves.** OVR is derived data. `GameState._recompute_ratings()` rebuilds
+every player's `overall` and `value` from his attributes on load, and moves
+his POT and season-start mark by the same amount, so a save from an older
+formula never keeps stale ratings. `data/player_history_2026.csv` (the past
+seasons POT reads) is rebuilt with `python3 tools/build_history.py --offline`
+whenever the formula changes.
+
+**Validation.** On the same selected 22s, the new rating predicts season wins
+better than the old in every league tested (drafted leagues, AI clubs:
+r 0.35 → 0.46; real 2026 lists: r(OVR, `Squad.strength`) 0.80 → 0.87), and
+the "a 3+ OVR favourite wins 47%" drafted-league anomaly is gone (55%).
+Spearman of OVR with 2026 Brownlow votes (5+ votes) rises from 0.46 to 0.51;
+Daicos (47 votes) rates highest.
 
 ### Prospect projections (no AFL stats)
 

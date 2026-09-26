@@ -254,6 +254,20 @@ What this means for the shipped draft:
 
 Nothing above has been implemented.
 
+> **Update (OVR alignment).** The OVR formula has since been re-weighted to
+> what the engine rewards per role ([DESIGN.md](DESIGN.md), "Overall &
+> salary"). On the same selected 22s the new rating predicts wins better
+> (AI clubs in these drafted leagues: r 0.35 → 0.46), and the 3+ OVR anomaly
+> is gone. In the full career-draft pipeline, re-run with the same seeds
+> (24 board-policy seasons, 12 all-AI, 4 career), r(selected-22 OVR, wins)
+> moved only 0.17 → 0.22 (board), 0.34 → 0.34 (all-AI) and 0.38 → 0.25
+> (career, 4 seasons, ±0.1). Clubs now draft on an engine-truthful rating, so
+> drafted lists come out closer in engine strength (`Squad.strength` SD
+> 2.5 → 2.1) and every preseason measure predicts less: `Squad.strength`
+> itself, built from the engine's own inputs, reaches only r ≈ 0.3-0.5 with
+> wins in a drafted league. The ≥ 0.4 target is capped by that, not by the
+> rating - it belongs with engine decisiveness and the draft spread.
+
 ## Reproducing
 
 ```sh
