@@ -276,7 +276,7 @@ func _show_help() -> void:
 	var text := UiKit.lbl(
 			("1. Choose your club. All %d clubs start with empty lists.\n\n"
 			% GameDB.active_clubs(2026).size())
-			+ "2. Draft from one shared player pool under the same cap. The random order reverses each round. Rivals pick between your turns.\n\n"
+			+ "2. Draft from one shared player pool under the same cap. The random order reverses each round. Rivals pick between your turns. Tap a player to see what kind of footballer he is; only the Draft button picks him.\n\n"
 			+ "3. Track every selection in Picks. The position counters show your list's coverage; tap one to filter the pool. Carry at least two rucks.\n\n"
 			+ "4. Play 24 rounds, with matches driven by your players' rated abilities. Set your tactics in the coach box. After each game every player develops: his training plan (Position plan to start) turns his XP into the kind of footballer you choose, and fit players you leave out develop in the reserves at about half the senior rate. Choose plans in Training.\n\n"
 			+ "5. Pick your own side on the Team screen, or let the best 22 be picked around injuries.\n\n"

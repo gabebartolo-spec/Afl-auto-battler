@@ -61,6 +61,10 @@ var _order_scroll: ScrollContainer
 var _ticker: Button
 var _next_picks: Label
 var _finish_btn: Button
+## The player being inspected ("" when none) and his detail overlay.
+var _detail_id := ""
+var _detail: Control
+var _detail_all := false
 
 
 func _ready() -> void:
@@ -616,10 +620,25 @@ func _player_row(p: Dictionary) -> Control:
 	var h := UiKit.hbox(8)
 	row.add_child(h)
 	var role := str(p["role"])
-	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
+	# Tapping the player (chip, name, line) inspects him; only the button on
+	# the right drafts.
+	var inspect := Button.new()
+	inspect.name = "Inspect_" + str(p["id"])
+	inspect.flat = true
+	inspect.focus_mode = Control.FOCUS_NONE
+	inspect.mouse_filter = Control.MOUSE_FILTER_PASS
+	inspect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inspect.custom_minimum_size.y = 54
+	inspect.tooltip_text = "Inspect %s" % GameDB.player_display_name(p)
+	inspect.pressed.connect(_open_player.bind(str(p["id"])))
+	h.add_child(inspect)
+	var face := UiKit.hbox(8)
+	face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	inspect.add_child(face)
+	face.add_child(UiKit.role_chip(Ratings.role_tag(p)))
 	var info := UiKit.vbox(2)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(info)
+	face.add_child(info)
 	info.add_child(UiKit.ellipsis(GameDB.player_display_name(p), 17, UiKit.TEXT, true))
 	var taken := _draft.has(str(p["id"]))
 	var detail := ""
@@ -642,6 +661,8 @@ func _player_row(p: Dictionary) -> Control:
 			names.append(Traits.label(str(t)))
 		detail += " · " + ", ".join(names)
 	info.add_child(UiKit.ellipsis(detail, 13, UiKit.MUTED))
+	face.add_child(UiKit.line("›", 20, UiKit.MUTED, true))
+	_ignore_mouse(face)
 	var can_pick := _draft.can_pick_player(p)
 	var text := "+ " + role
 	var reason := "Draft %s for $%d" % [GameDB.player_display_name(p), int(p["value"])]
@@ -655,9 +676,8 @@ func _player_row(p: Dictionary) -> Control:
 		text = "CLOSED" if _draft.is_finished() else "WAIT"
 		reason = "The draft is complete." if _draft.is_finished() else "Waiting for your next turn."
 	elif not can_pick:
-		text = "CAP" if int(p["value"]) > _draft.remaining() - (_draft.target_size - _draft.count() - 1) else "RUCK"
-		reason = "Not enough cap after reserving $1 for each remaining place." if text == "CAP" \
-				else "Your remaining places must be rucks to meet the two-ruck requirement."
+		reason = _draft.pick_block_reason(p)
+		text = "RUCK" if reason.contains("rucks") else ("FULL" if reason.contains("full") else "CAP")
 	var b := UiKit.btn(text, 13)
 	b.name = "Pick_" + str(p["id"])
 	b.custom_minimum_size = Vector2(66, 44)
@@ -679,6 +699,208 @@ func _on_pick(player: Dictionary) -> void:
 	if _draft.pick(player):
 		GameState.mark_dirty()
 		_refresh()
+
+
+# ---------------------------------------------------------------------------
+# Inspecting a player: read-only. Only the Draft / Sign button picks.
+# ---------------------------------------------------------------------------
+## Android Back and the top-bar back close the player first.
+func handle_back() -> bool:
+	if is_instance_valid(_detail):
+		_close_player()
+		return true
+	return false
+
+
+func _player_by_id(id: String) -> Dictionary:
+	if _draft.picked.has(id):
+		return _draft.picked[id]
+	for p in _draft.pool:
+		if str(p["id"]) == id:
+			return p
+	return {}
+
+
+func _close_player() -> void:
+	if is_instance_valid(_detail):
+		_detail.queue_free()
+	_detail = null
+	_detail_id = ""
+	_detail_all = false
+
+
+func _open_player(id: String) -> void:
+	var p := _player_by_id(id)
+	if p.is_empty():
+		return
+	var keep_all := _detail_all and id == _detail_id
+	_close_player()
+	_detail_id = id
+	_detail_all = keep_all
+	var box := UiKit.modal_box(self, 560.0, 0.0)
+	_detail = box["overlay"]
+	_detail.name = "PlayerDetail"
+	var v: VBoxContainer = box["body"]
+	var projected := bool(p.get("projected", false))
+
+	# Who he is.
+	var name_l := UiKit.lbl(GameDB.player_display_name(p), 22, UiKit.TEXT, true)
+	name_l.name = "DetailName"
+	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(name_l)
+	var who: PackedStringArray = [Ratings.role_tag(p)]
+	if float(p.get("age", 0.0)) > 0.0:
+		who.append("%d yo" % int(p["age"]))
+	if float(p.get("height_cm", 0.0)) > 0.0 and not projected:
+		who.append("%d cm" % int(p["height_cm"]))
+	if not projected:
+		who.append(GameDB.club_name(str(p["club"])))
+	v.add_child(UiKit.lbl("  ·  ".join(who), 13, UiKit.MUTED))
+	var ped := PlayerProfile.pedigree(p)
+	if ped != "":
+		var pl := UiKit.lbl(ped, 13, UiKit.MUTED)
+		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(pl)
+	var status := _draft_status(p)
+	var st := UiKit.lbl(status[0], 14, status[1], true)
+	st.name = "DetailStatus"
+	st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(st)
+
+	# How good, and how much room.
+	var nums := UiKit.hbox(18)
+	v.add_child(nums)
+	nums.add_child(_big_number(int(p["overall"]), "PROJECTED OVR" if projected else "OVR", "DetailOVR"))
+	nums.add_child(_big_number(int(p.get("potential", p["overall"])), "POT", "DetailPOT"))
+	var room := UiKit.lbl(GameState.development_state(p), 14, UiKit.TEXT)
+	room.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	room.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nums.add_child(room)
+	v.add_child(UiKit.lbl("Rookie contract - there is no cap at the intake draft." if _draft.intake_mode
+			else "Costs $%d of the salary cap." % int(p["value"]), 13, UiKit.MUTED))
+
+	# What kind of footballer.
+	var kind := UiKit.panel(UiKit.PANEL_ALT, 10, 8)
+	v.add_child(kind)
+	var kv := UiKit.vbox(4)
+	kind.add_child(kv)
+	var type_l := UiKit.lbl(PlayerProfile.player_type(p), 18, UiKit.GOLD, true)
+	type_l.name = "DetailType"
+	kv.add_child(type_l)
+	var strengths := PlayerProfile.strengths(p)
+	if strengths.is_empty():
+		kv.add_child(UiKit.lbl("No standout strength yet for his position.", 13, UiKit.MUTED))
+	for s in strengths:
+		var row := UiKit.hbox(8)
+		row.name = "Strength_" + str(s["key"])
+		kv.add_child(row)
+		var sl := UiKit.lbl(str(s["label"]), 14, UiKit.TEXT)
+		sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(sl)
+		row.add_child(UiKit.line(str(s["grade"]), 14, UiKit.GOOD if str(s["grade"]) != "Good" else UiKit.TEXT, true))
+	var weak := PlayerProfile.weakness(p)
+	if not weak.is_empty():
+		kv.add_child(UiKit.lbl("Needs work: " + str(weak["label"]).to_lower(), 13, UiKit.MUTED))
+	var traits: Array = Traits.of(p)
+	if not traits.is_empty():
+		kv.add_child(UiKit.trait_chips(p))
+		for t in traits:
+			var tl := UiKit.lbl("%s: %s" % [Traits.label(str(t)), Traits.text(str(t))], 12,
+					UiKit.BAD if Traits.is_bad(str(t)) else UiKit.MUTED)
+			tl.name = "Trait_" + str(t)
+			tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			kv.add_child(tl)
+
+	# What he has done.
+	var prod := PlayerProfile.production(p)
+	v.add_child(UiKit.lbl(str(prod["title"]).to_upper(), 12, UiKit.MUTED, true))
+	var pl2 := UiKit.lbl(str(prod["line"]) if str(prod["line"]) != "" else "No league statistics on record.",
+			14, UiKit.TEXT if str(prod["line"]) != "" else UiKit.MUTED)
+	pl2.name = "DetailProduction"
+	pl2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(pl2)
+	if projected:
+		var tie := str(p.get("tied_club", ""))
+		if tie != "":
+			var kind_word := str(p.get("tied_type", "")).replace("_", "-")
+			v.add_child(UiKit.lbl("%s tie to %s." % [kind_word if kind_word != "" else "Club", GameDB.club_name(tie)],
+					13, UiKit.GOLD))
+		var note := str(p.get("note", ""))
+		if note != "":
+			var nl := UiKit.lbl(note, 13, UiKit.MUTED)
+			nl.name = "DetailNote"
+			nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(nl)
+
+	# Everything else, on request.
+	var all := UiKit.btn("Hide full ratings" if _detail_all else "Full ratings", 13)
+	all.name = "DetailAllRatings"
+	all.custom_minimum_size = Vector2(0, 44)
+	all.pressed.connect(func():
+		_detail_all = not _detail_all
+		_open_player(id))
+	v.add_child(all)
+	if _detail_all:
+		var grid := GridContainer.new()
+		grid.columns = 2
+		grid.add_theme_constant_override("h_separation", 16)
+		v.add_child(grid)
+		for key in PlayerProfile.ATTR_LABELS:
+			grid.add_child(UiKit.lbl("%s  %d" % [PlayerProfile.ATTR_LABELS[key],
+					int((p["attr"] as Dictionary).get(key, 0))], 12, UiKit.MUTED))
+
+	# The decision.
+	var footer: VBoxContainer = box["footer"]
+	var can := _draft.can_pick_player(p)
+	if not can:
+		var why := _draft.pick_block_reason(p)
+		var wl := UiKit.lbl(why if why != "" else "He cannot be picked right now.", 13, UiKit.BAD)
+		wl.name = "DetailBlocked"
+		wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		footer.add_child(wl)
+	var buttons := UiKit.hbox(8)
+	footer.add_child(buttons)
+	var close := UiKit.btn("Close", 15)
+	close.name = "DetailClose"
+	close.custom_minimum_size = Vector2(96, 48)
+	close.pressed.connect(_close_player)
+	buttons.add_child(close)
+	if not _draft.has(id):
+		var who_up := GameDB.player_display_name(p).to_upper()
+		var act := UiKit.btn("SIGN " + who_up if _draft.intake_mode
+				else "DRAFT %s  ·  $%d" % [who_up, int(p["value"])], 15, true)
+		act.name = "DetailDraft"
+		act.clip_text = true
+		act.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		act.custom_minimum_size = Vector2(0, 48)
+		act.disabled = not can
+		act.pressed.connect(func():
+			var target := _player_by_id(id)
+			_close_player()
+			_on_pick(target))
+		buttons.add_child(act)
+
+
+## [text, colour] for where he stands in this draft.
+func _draft_status(p: Dictionary) -> Array:
+	var id := str(p["id"])
+	if _draft.has(id):
+		var club := _draft.drafted_by(id)
+		var pick := int(_draft.pick_details(id).get("pick", 0))
+		if club == _club or club == "":
+			return ["On your list" + (" - pick #%d" % pick if pick > 0 else "") + ".", UiKit.GOOD]
+		return ["Drafted #%d - %s." % [pick, GameDB.club_name(club)], UiKit.MUTED]
+	if _draft.is_finished():
+		return ["Not drafted.", UiKit.MUTED]
+	return ["Available.", UiKit.GOOD]
+
+
+func _big_number(value: int, label: String, node_name: String) -> Control:
+	var col := UiKit.vbox(0)
+	col.name = node_name
+	col.add_child(UiKit.line(str(value), 30, UiKit.GOLD, true))
+	col.add_child(UiKit.line(label, 11, UiKit.MUTED, true))
+	return col
 
 
 # ---------------------------------------------------------------------------
@@ -784,8 +1006,18 @@ func _history_row(entry: Dictionary) -> Control:
 	var mine := str(entry["club"]) == _club
 	var p := _row_panel(mine)
 	p.name = "HistoryPick_%d" % int(entry["pick"])
+	# Tapping a pick inspects the player.
+	var tap := Button.new()
+	tap.name = "HistoryInspect_%d" % int(entry["pick"])
+	tap.flat = true
+	tap.focus_mode = Control.FOCUS_NONE
+	tap.mouse_filter = Control.MOUSE_FILTER_PASS
+	tap.custom_minimum_size.y = 54
+	tap.pressed.connect(_open_player.bind(str(entry.get("player_id", ""))))
+	p.add_child(tap)
 	var h := UiKit.hbox(7)
-	p.add_child(h)
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tap.add_child(h)
 	var number := UiKit.line("#%d" % int(entry["pick"]), 13, UiKit.GOLD if mine else UiKit.MUTED)
 	number.custom_minimum_size.x = 32
 	h.add_child(number)
@@ -801,6 +1033,7 @@ func _history_row(entry: Dictionary) -> Control:
 	p.tooltip_text = "Pick #%d · Round %d\n%s drafted %s from %s\n%d OVR · $%d" % [
 		entry["pick"], entry["round"], GameDB.club_name(str(entry["club"])), _entry_player_name(entry),
 		GameDB.club_name(str(entry["source_club"])), entry["overall"], entry["value"]]
+	_ignore_mouse(h)
 	return p
 
 
