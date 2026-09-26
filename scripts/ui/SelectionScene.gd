@@ -33,7 +33,7 @@ func _ready() -> void:
 
 func _build() -> void:
 	UiKit.clear(_root)
-	_root.add_child(UiKit.top_bar("Team Selection", true))
+	_root.add_child(UiKit.top_bar("Team selection", true))
 	var auto := GameState.my_selection().is_empty()
 
 	var head := UiKit.panel(UiKit.PANEL, 10, 8)
@@ -77,11 +77,12 @@ func _build() -> void:
 		var ids: Array = side[role]
 		var named: Array = sel.get(role, []) if not auto else ids
 		var title := "%s  %d/%d" % [str(slot[1]), ids.size(), int(slot[2])]
-		var colour := UiKit.GOLD
+		var colour := UiKit.EMPH
 		if not auto and named.size() != int(slot[2]):
 			title += "  ·  %d named" % named.size()
-			colour = UiKit.BAD if named.size() > int(slot[2]) else UiKit.GOLD
-		body.add_child(UiKit.lbl(title, 15, colour, true))
+			colour = UiKit.BAD if named.size() > int(slot[2]) else UiKit.EMPH
+		body.add_child(UiKit.spacer(6))
+		body.add_child(UiKit.lbl(title, UiKit.H2, colour, true))
 		for id in ids:
 			placed[str(id)] = true
 			body.add_child(_row(GameState.list_player(str(id)), role, auto))
@@ -90,7 +91,8 @@ func _build() -> void:
 		if not placed.has(str(p["id"])):
 			out.append(p)
 	out.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
-	body.add_child(UiKit.lbl("Not selected  (%d)" % out.size(), 15, UiKit.MUTED, true))
+	body.add_child(UiKit.spacer(6))
+	body.add_child(UiKit.lbl("Not selected  (%d)" % out.size(), UiKit.H2, UiKit.MUTED, true))
 	for p in out:
 		body.add_child(_row(p, "", auto))
 
@@ -105,7 +107,7 @@ func _synergy_view() -> Control:
 	for r in rows:
 		if bool(r["active"]):
 			on.append(r)
-	v.add_child(UiKit.lbl("Synergies: %d active" % on.size(), 14, UiKit.GOLD, true))
+	v.add_child(UiKit.lbl("Synergies: %d active" % on.size(), 14, UiKit.EMPH, true))
 	var shown := 0
 	for r in rows:
 		if shown >= 4 or (not bool(r["active"]) and int(r["missing"]) > 1):
@@ -113,8 +115,9 @@ func _synergy_view() -> Control:
 		shown += 1
 		var key := str(r["key"])
 		var col := UiKit.GOOD if bool(r["active"]) else UiKit.MUTED
-		var l := UiKit.lbl("%s %s: %s  (%s)" % ["✓" if bool(r["active"]) else "·",
-				Traits.label(key), Traits.text(key), Traits.needs_text(r)], 12, col)
+		# What it needs, not what it does in match percentages.
+		var l := UiKit.lbl("%s %s  ·  %s" % ["✓" if bool(r["active"]) else "·",
+				Traits.label(key), Traits.needs_text(r)], 13, col)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
 	if shown == 0:
@@ -122,14 +125,25 @@ func _synergy_view() -> Control:
 	return v
 
 
+## One player: a line in the list with a rule under it, not a card.
 func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
-	var card := UiKit.panel(UiKit.PANEL_ALT, 8, 5)
+	var card := PanelContainer.new()
+	card.mouse_filter = Control.MOUSE_FILTER_PASS
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color.TRANSPARENT
+	sb.border_color = UiKit.LINE
+	sb.border_width_bottom = 1
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	sb.content_margin_left = 2
+	sb.content_margin_right = 2
+	card.add_theme_stylebox_override("panel", sb)
 	var v := UiKit.vbox(4)
 	card.add_child(v)
 	var h := UiKit.hbox(6)
 	v.add_child(h)
 	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
-	var nm := UiKit.ellipsis(GameDB.player_display_name(p), 14, UiKit.TEXT, true)
+	var nm := UiKit.ellipsis(GameDB.player_display_name(p), 15, UiKit.TEXT, true)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(nm)
 	var weeks := int(p.get("injury_weeks", 0))
@@ -137,13 +151,13 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	if m < 40:
 		h.add_child(UiKit.line("Unhappy", 11, UiKit.BAD))
 	if bool(p.get("rested", false)):
-		h.add_child(UiKit.line("RESTED", 12, UiKit.MUTED, true))
+		h.add_child(UiKit.line("Rested", 12, UiKit.MUTED))
 	if weeks > 0:
-		h.add_child(UiKit.line("INJ %dw" % weeks, 12, UiKit.BAD, true))
+		h.add_child(UiKit.line("Out %d wk%s" % [weeks, "" if weeks == 1 else "s"], 12, UiKit.BAD, true))
 	elif placed_as != "" and placed_as != "BENCH" and str(p["role"]) != placed_as \
 			and str(p.get("role2", "")) != placed_as:
 		h.add_child(UiKit.line("out of position", 11, UiKit.MUTED))
-	h.add_child(UiKit.line("%d" % int(p["overall"]), 15, UiKit.GOLD, true))
+	h.add_child(UiKit.line("%d" % int(p["overall"]), 16, UiKit.TEXT, true))
 	if not Traits.of(p).is_empty():
 		v.add_child(UiKit.trait_chips(p))
 	if auto:

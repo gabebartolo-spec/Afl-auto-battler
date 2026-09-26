@@ -116,7 +116,7 @@ static func show(parent: Control) -> Control:
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.heading("STAT GUIDE", 26))
 	for topic in TOPICS:
-		v.add_child(UiKit.lbl(str(topic[0]), 16, UiKit.GOLD, true))
+		v.add_child(UiKit.lbl(str(topic[0]), 16, UiKit.EMPH, true))
 		v.add_child(_para(str(topic[1]), 13, UiKit.TEXT))
 	v.add_child(UiKit.spacer(6))
 	v.add_child(UiKit.heading("THE 13 STATS", 22))
@@ -129,7 +129,7 @@ static func show(parent: Control) -> Control:
 		card.name = "Guide_" + key
 		var cv := UiKit.vbox(3)
 		card.add_child(cv)
-		cv.add_child(UiKit.lbl(str(row[1]), 16, UiKit.GOLD, true))
+		cv.add_child(UiKit.lbl(str(row[1]), 16, UiKit.EMPH, true))
 		cv.add_child(_para(str(info[0]), 13, UiKit.TEXT))
 		cv.add_child(_para("In matches: " + str(info[2]), 12, UiKit.TEXT))
 		cv.add_child(_para("Built from: " + str(info[1]), 12, UiKit.MUTED))

@@ -1,23 +1,43 @@
 class_name UiKit
 extends RefCounted
-## Shared, touch-friendly widgets. Local fonts keep the same hierarchy on a
-## phone and desktop without depending on fonts installed on the device.
+## Shared, touch-friendly widgets: the game's visual language in one place.
+## The rules behind it are in CLAUDE.md. In short:
+##  - Colour belongs to clubs, state (good / bad), selection and the primary
+##    action. Ordinary text is TEXT or MUTED; emphasis is weight and size.
+##  - Surfaces are flat. A panel groups things and has no border; a secondary
+##    button is an outline, so it never reads as another card.
+##  - Sentence case. Barlow for everything; the condensed face only for
+##    scores, where a scoreboard would use it.
 
 const FONT := preload("res://assets/fonts/Barlow-Regular.ttf")
 const BOLD := preload("res://assets/fonts/Barlow-SemiBold.ttf")
 const DISPLAY := preload("res://assets/fonts/BarlowCondensed-Bold.ttf")
 
-const BG := Color("0b100d")
-const PANEL := Color("151e18")
-const PANEL_ALT := Color("1d2921")
-const INK := Color("090f0b")
-const LINE := Color("2c382f")
-const TEXT := Color("efefe5")
-const MUTED := Color("a2ada0")
-const GOLD := Color("d8c176")
-const GOOD := Color("9bc69d")
-const BAD := Color("df947e")
-const ACCENT := Color("b4482f")
+## Palette: warm near-black ink, paper-white text, one red for the action.
+const BG := Color("121110")
+const PANEL := Color("1b1a17")       # a grouped surface
+const PANEL_ALT := Color("24221e")   # a surface on a surface - sparingly
+const INK := Color("0d0c0b")         # inputs and wells
+const LINE := Color("363229")        # rules and outlines
+const TEXT := Color("f1eee6")
+const MUTED := Color("a39e93")
+const FAINT := Color("6e695f")       # disabled
+const EMPH := TEXT                   # emphasis is weight, not a colour
+const GOOD := Color("8cc49a")
+const BAD := Color("e38b73")
+const ACCENT := Color("c8412b")      # the primary action, and nothing else
+
+## Type scale for a phone. Pick from these before inventing a size.
+const H1 := 24      # screen title / the one big fact on a screen
+const H2 := 18      # section heading
+const BODY := 15
+const SMALL := 13   # secondary lines
+const TINY := 11    # stamps and fine print only
+
+## Spacing and corners.
+const GAP := 8          # between rows
+const SECTION := 18     # between sections
+const RADIUS := 6       # panels and buttons; nothing rounder
 
 const ROLE_LABEL := {"RUCK": "Ruck", "MID": "Midfield", "DEF": "Defence", "FWD": "Forward"}
 const ROLE_SHORT := {"RUCK": "RUC", "MID": "MID", "DEF": "DEF", "FWD": "FWD"}
@@ -68,21 +88,38 @@ static func scroll(child: Control) -> ScrollContainer:
 	return s
 
 
-static func style(bg: Color, pad := 12, radius := 8, border := LINE) -> StyleBoxFlat:
+static func style(bg: Color, pad := 12, radius := RADIUS, border := LINE) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
-	sb.set_corner_radius_all(radius)
+	sb.set_corner_radius_all(mini(radius, RADIUS))
 	sb.set_content_margin_all(pad)
 	sb.border_color = border
 	sb.set_border_width_all(1)
 	return sb
 
 
-static func panel(colour := PANEL, pad := 14, radius := 10) -> PanelContainer:
+## A flat surface that groups related things: no border, small corners.
+static func panel(colour := PANEL, pad := 14, radius := RADIUS) -> PanelContainer:
 	var p := PanelContainer.new()
 	p.mouse_filter = Control.MOUSE_FILTER_PASS
-	p.add_theme_stylebox_override("panel", style(colour, pad, radius))
+	var sb := style(colour, pad, radius)
+	sb.set_border_width_all(0)
+	p.add_theme_stylebox_override("panel", sb)
 	return p
+
+
+## A thin rule between sections, where spacing alone is not enough.
+static func rule() -> ColorRect:
+	var r := ColorRect.new()
+	r.color = LINE
+	r.custom_minimum_size = Vector2(0, 1)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return r
+
+
+## A section heading: sentence case, weight not colour.
+static func section(text: String) -> Label:
+	return lbl(text, H2, TEXT, true)
 
 
 static func spacer(px := 6) -> Control:
@@ -127,15 +164,20 @@ static func ellipsis(text: String, fs := 16, color := TEXT, bold := false) -> La
 	return l
 
 
-static func heading(text: String, fs := 26) -> Label:
-	var l := lbl(text, fs)
-	l.add_theme_font_override("font", DISPLAY)
-	return l
+static func heading(text: String, fs := H1) -> Label:
+	return lbl(text, mini(fs, 30), TEXT, true)
 
 
 static func title(text: String) -> Label:
-	var l := heading(text, 36)
+	var l := heading(text, 30)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return l
+
+
+## Big numbers - a score, a rating - in the scoreboard face.
+static func figure(text: String, fs := 30, color := TEXT) -> Label:
+	var l := line(text, fs, color)
+	l.add_theme_font_override("font", DISPLAY)
 	return l
 
 
@@ -145,32 +187,42 @@ static func subtitle(text: String) -> Label:
 	return l
 
 
-static func style_button(b: Button, fs := 16, primary := false) -> void:
-	b.custom_minimum_size.y = 44
+## Button hierarchy: primary is filled red (one per screen, ideally);
+## secondary is an outline; danger is an outline in BAD; disabled fades to
+## FAINT. Every button is at least 44 px tall for a thumb.
+static func style_button(b: Button, fs := 16, primary := false, danger := false) -> void:
+	b.custom_minimum_size.y = maxf(b.custom_minimum_size.y, 44)
 	# Let a parent ScrollContainer see touch drags and cancel the button's
 	# pending press via NOTIFICATION_SCROLL_BEGIN instead of making a pick.
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.add_theme_font_override("font", BOLD)
 	b.add_theme_font_size_override("font_size", fs)
-	b.add_theme_color_override("font_color", TEXT)
-	b.add_theme_color_override("font_hover_color", TEXT)
-	b.add_theme_color_override("font_pressed_color", TEXT)
-	b.add_theme_color_override("font_disabled_color", Color("798477"))
-	var sb := style(ACCENT if primary else PANEL_ALT, 8, 6,
-			ACCENT.lightened(0.1) if primary else LINE)
+	var ink := BAD if danger else TEXT
+	b.add_theme_color_override("font_color", ink)
+	b.add_theme_color_override("font_hover_color", ink)
+	b.add_theme_color_override("font_pressed_color", ink)
+	b.add_theme_color_override("font_focus_color", ink)
+	b.add_theme_color_override("font_disabled_color", FAINT)
+	var sb: StyleBoxFlat
+	if primary:
+		sb = style(ACCENT, 8, RADIUS, ACCENT)
+	else:
+		sb = style(Color.TRANSPARENT, 8, RADIUS, BAD.darkened(0.25) if danger else LINE.lightened(0.12))
 	b.add_theme_stylebox_override("normal", sb)
 	var hover := sb.duplicate() as StyleBoxFlat
-	hover.bg_color = sb.bg_color.lightened(0.08)
-	hover.border_color = MUTED
+	hover.bg_color = ACCENT.lightened(0.08) if primary else Color(TEXT, 0.05)
 	b.add_theme_stylebox_override("hover", hover)
 	var pressed := sb.duplicate() as StyleBoxFlat
-	pressed.bg_color = sb.bg_color.darkened(0.12) if primary else Color("303e31")
-	pressed.border_color = GOLD
+	pressed.bg_color = ACCENT.darkened(0.15) if primary else Color(TEXT, 0.08)
+	# A toggled secondary button (a difficulty, a filter) reads as selected.
+	if not primary:
+		pressed.border_color = TEXT
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("hover_pressed", pressed)
-	b.add_theme_stylebox_override("disabled", style(PANEL, 8, 6))
-	var focus := style(Color.TRANSPARENT, 0, 6, GOLD)
+	var off := style(Color.TRANSPARENT, 8, RADIUS, Color(LINE, 0.6))
+	b.add_theme_stylebox_override("disabled", off)
+	var focus := style(Color.TRANSPARENT, 0, RADIUS, TEXT)
 	focus.set_border_width_all(2)
 	b.add_theme_stylebox_override("focus", focus)
 
@@ -182,15 +234,35 @@ static func btn(text: String, fs := 16, primary := false) -> Button:
 	return b
 
 
-static func tab(text: String, active: bool) -> Button:
-	var b := btn(text, 14)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var sb := style(PANEL_ALT if active else INK, 6, 4,
-			GOLD if active else Color.TRANSPARENT)
-	sb.set_border_width_all(0)
-	sb.border_width_bottom = 2 if active else 0
+## A destructive or risky action: outline and text in BAD.
+static func danger_btn(text: String, fs := 16) -> Button:
+	var b := Button.new()
+	b.text = text
+	style_button(b, fs, false, true)
+	return b
+
+
+## Mark a secondary button as the current choice of a set (difficulty,
+## a filter): a solid light outline and a faint fill, never a new colour.
+static func set_selected(b: Button, on: bool) -> void:
+	var sb := style(Color(TEXT, 0.08) if on else Color.TRANSPARENT, 8, RADIUS,
+			TEXT if on else LINE.lightened(0.12))
 	b.add_theme_stylebox_override("normal", sb)
+	b.add_theme_stylebox_override("hover", sb)
+	b.add_theme_color_override("font_color", TEXT if on else MUTED)
+
+
+## Tabs are text with an underline under the current one - no boxes.
+static func tab(text: String, active: bool) -> Button:
+	var b := btn(text, 15)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var sb := style(Color.TRANSPARENT, 6, 0, TEXT if active else LINE)
+	sb.set_border_width_all(0)
+	sb.border_width_bottom = 2 if active else 1
+	for state in ["normal", "hover", "pressed", "hover_pressed"]:
+		b.add_theme_stylebox_override(state, sb)
 	b.add_theme_color_override("font_color", TEXT if active else MUTED)
+	b.add_theme_color_override("font_hover_color", TEXT)
 	return b
 
 
@@ -216,9 +288,9 @@ static func search_field(text: String, placeholder := "Search players...") -> Li
 	field.add_theme_font_size_override("font_size", 16)
 	field.add_theme_color_override("font_color", TEXT)
 	field.add_theme_color_override("font_placeholder_color", MUTED)
-	field.add_theme_color_override("caret_color", GOLD)
-	field.add_theme_stylebox_override("normal", style(INK, 10, 6))
-	field.add_theme_stylebox_override("focus", style(INK, 10, 6, GOLD))
+	field.add_theme_color_override("caret_color", TEXT)
+	field.add_theme_stylebox_override("normal", style(INK, 10, RADIUS))
+	field.add_theme_stylebox_override("focus", style(INK, 10, RADIUS, MUTED))
 	field.clear_button_enabled = true
 	field.caret_blink = true
 	return field
@@ -234,28 +306,32 @@ static func chip(text: String, colour: Color) -> PanelContainer:
 	return p
 
 
-## A player's traits as small chips (empty when he has none). Tooltips say
-## what each one does.
+## A player's traits as one quiet line ("Ball magnet · Big-game player"),
+## Hothead in BAD. Empty when he has none. Tooltips say what each one does.
 static func trait_chips(p: Dictionary) -> HBoxContainer:
-	var h := hbox(4)
+	var h := hbox(10)
 	h.name = "Traits"
 	for t in Traits.of(p):
-		var c := chip(Traits.label(t), BAD.darkened(0.45) if Traits.is_bad(t) else Color("35573c"))
-		c.tooltip_text = Traits.text(t)
-		h.add_child(c)
+		var l := line(Traits.label(t), SMALL, BAD if Traits.is_bad(t) else MUTED)
+		l.tooltip_text = Traits.text(t)
+		l.mouse_filter = Control.MOUSE_FILTER_PASS
+		h.add_child(l)
 	return h
 
 
+## A position tag: coloured text in a fixed-width column so names line up.
+## The colour is the one piece of position information, so no box around it.
 static func role_chip(role: String) -> PanelContainer:
 	var primary := role.split("/")[0]
 	var colour: Color = ROLE_COLOUR.get(primary, MUTED)
-	var p := panel(Color(colour, 0.10), 5, 4)
+	var p := PanelContainer.new()
+	p.mouse_filter = Control.MOUSE_FILTER_PASS
+	p.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var dual := role.contains("/")
-	p.custom_minimum_size.x = 78 if dual else 44
+	p.custom_minimum_size.x = 72 if dual else 40
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var text := role if dual else ("RUCK" if role == "RUCK" else role)
-	var l := line(text, 11, colour, true)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var l := line(role, 12, colour, true)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	p.add_child(l)
 	return p
 
@@ -277,15 +353,18 @@ static func top_bar(title_text: String, back := true, right: Control = null,
 	var h := hbox(10)
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
 	if back:
-		var b := btn("‹", 24)
+		var b := btn("‹", 26)
 		b.name = "TopBarBack"
+		b.flat = true
 		b.custom_minimum_size = Vector2(44, 44)
+		for state in ["normal", "hover", "pressed", "hover_pressed"]:
+			b.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 		b.pressed.connect(func():
 			if back_cb.is_valid() and back_cb.call():
 				return
 			Router.back())
 		h.add_child(b)
-	var t := ellipsis(title_text, 22, TEXT, true)
+	var t := ellipsis(title_text, 20, TEXT, true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	h.add_child(t)
 	if right != null:
@@ -357,7 +436,7 @@ static func modal_box(parent: Control, max_w: float, prefer_h := 0.0) -> Diction
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(center)
-	var shell := panel(PANEL, 14, 12)
+	var shell := panel(PANEL, 16)
 	center.add_child(shell)
 	var outer := vbox(8)
 	shell.add_child(outer)
@@ -399,10 +478,7 @@ static func ladder_table(rows: Array, mine: String, width: float, limit := 0,
 	for i in range(shown):
 		v.add_child(_ladder_data_row(rows[i], i + 1, specs, mine))
 		if i == cut and (shown > Season.FINALISTS or limit == Season.FINALISTS):
-			var note := line("top %d make the finals" % Season.FINALISTS, 11, MUTED)
-			note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			v.add_child(note)
+			v.add_child(rule())
 	return v
 
 
@@ -439,7 +515,7 @@ static func _ladder_header(specs: Array) -> HBoxContainer:
 static func _ladder_data_row(r: Dictionary, pos: int, specs: Array, mine: String) -> HBoxContainer:
 	var h := hbox(4)
 	var is_mine: bool = str(r["code"]) == mine
-	var col := GOLD if is_mine else TEXT
+	var col := TEXT if is_mine else MUTED
 	for spec in specs:
 		var key := str(spec["key"])
 		var expand: bool = bool(spec.get("expand", false))
