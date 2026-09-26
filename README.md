@@ -290,9 +290,9 @@ Live matches are played, not just watched:
   - A tight last-quarter centre bounce: stack it, flood back, or play it straight.
 
   There are about six a game. Skipping takes the default call.
-- **Legs.** Players tire on the ground and recover on the bench, faster with low durability and on high-tempo plans. Tired players play below their rating, and a tired midfield loses the stoppages. Coaches rotate automatically. The coach box sets the policy (rotate hard, normal, ride the stars) and shows who is cooked.
+- **Legs.** Players tire on the ground and recover on the bench, faster with low durability and on high-tempo plans. Tired players play below their rating, and a tired midfield loses the stoppages. Coaches rotate automatically. The coach box sets the policy (rotate hard, normal, ride the stars) and says who is running on empty.
 - **Gameplans are trade-offs with counters.** Attack corridor beats Controlled tempo, Controlled tempo plays through the Defensive press, and the press squeezes Attack corridor. Measured over 1,200 games per pairing, every plan is within about 2.5 points of Balanced, and each counter wins by 3–7. The rival coach protects leads, chases deficits, tags your best player after half time, and counters a plan you run twice in a row.
-- **What your calls did.** After each quarter and at full time, the readout shows the expected points your gameplan, pep talk, legs, calls and synergies added or cost, and theirs too. It also shows each moment's result and how your tag went. The numbers come from the probabilities each call changed, with no extra dice.
+- **What your calls did.** Each quarter break says what happened - the stoppages, the ball going forward, who hurt you, how your tag and your calls came off - without telling you what to do next. At full time the readout shows the expected points your gameplan, pep talk, legs, calls and synergies added or cost, and theirs too. The numbers come from the probabilities each call changed, with no extra dice.
 
 ## Traits and synergies
 

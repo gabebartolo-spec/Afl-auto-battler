@@ -1,0 +1,193 @@
+extends SceneTree
+## godot --headless --path . --script tests/run_matchday_tests.gd
+## Matchday words (tests/test_matchday.gd), then your match on a phone: the
+## score, clock and leader at a glance, a feed of what matters, the breaks
+## as "what happened, then your calls", and Back closing a report first.
+
+var _state: Node
+var _checks := 0
+var _failures: Array[String] = []
+
+
+func _initialize() -> void:
+	_run.call_deferred()
+
+
+func _run() -> void:
+	await process_frame
+	_state = root.get_node("GameState")
+	_state.autosave_enabled = false
+	_state.save_path = "user://test_career.save"
+	_state.settings_path = "user://test_settings.cfg"
+	_state.show_real_names = false
+	var script = load("res://tests/test_matchday.gd")
+	if script == null or not script.can_instantiate():
+		push_error("Could not load res://tests/test_matchday.gd")
+		quit(1)
+		return
+	var suite = script.new()
+	suite.run()
+	_checks += suite.checks
+	_failures.append_array(suite.failures)
+	for sz in [Vector2i(420, 860), Vector2i(360, 740)]:
+		await _phone_match(sz)
+	print("Matchday + match screen tests: %d checks, %d failures" % [_checks, _failures.size()])
+	quit(0 if _failures.is_empty() else 1)
+
+
+func _phone_match(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = sz
+	_check(_state.prepare_interactive_match(), "A live match is prepared (%s)" % tag)
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var viewport := Rect2(Vector2.ZERO, Vector2(sz))
+
+	# Before the bounce: the calls, no report, no numbers from the engine.
+	var box: Node = m.find_child("CoachBox", true, false)
+	_check(box != null, "The match opens on your calls (%s)" % tag)
+	var text := _text(box)
+	_check(not text.contains("pts") and not text.contains("Expected points") and not text.contains("%"),
+			"The first coach box shows no engine numbers (%s)" % tag)
+	for n in ["PlanPicker", "TagPicker", "FocusPicker", "PepPicker", "RotationPicker", "LegsView", "TagNote"]:
+		_check(box.find_child(n, true, false) != null, "The coach box keeps %s (%s)" % [n, tag])
+	_check(not text.to_lower().contains("recommend") and not text.to_lower().contains("should"),
+			"The coach box never advises (%s)" % tag)
+	var start: Button = box.find_child("StartQuarter", true, false)
+	_check(start != null and start.size.y >= 44, "Starting is one thumb-sized tap (%s)" % tag)
+
+	# Pick a tag so the live screen has a setup to show.
+	var picker: OptionButton = box.find_child("TagPicker", true, false)
+	picker.select(1)
+	start.emit_signal("pressed")
+	await _settle()
+	_check(m.find_child("CoachBox", true, false) == null, "The box closes and play starts (%s)" % tag)
+	var setup: Label = m.find_child("SetupLine", true, false)
+	_check(setup != null and setup.visible and setup.text.contains("tagging "),
+			"The live screen says your gameplan and who you are tagging (%s: %s)" % [tag, setup.text if setup else "-"])
+	var clock: Label = m.find_child("Clock", true, false)
+	var lead: Label = m.find_child("LeadLine", true, false)
+	_check(clock != null and clock.text.begins_with("Q1") and viewport.encloses(clock.get_global_rect()),
+			"The clock is on screen (%s)" % tag)
+	_check(lead != null and lead.text == "Scores level", "Who leads, before a score: level (%s)" % tag)
+
+	# Play the quarter out fast, watching the feed.
+	var pitch = m.get("_pitch")
+	pitch.set_speed(8.0)
+	var guard := 0
+	while m.find_child("CoachBox", true, false) == null and guard < 60000:
+		await process_frame
+		guard += 1
+		var card = m.find_child("MomentCard", true, false)
+		if card != null:
+			var pick: Button = card.find_child("Moment_0", true, false)
+			if pick != null:
+				pick.emit_signal("pressed")
+			await _settle()
+	box = m.find_child("CoachBox", true, false)
+	_check(box != null, "Quarter time opens the break (%s)" % tag)
+	var feed: Node = m.find_child("Feed", true, false)
+	var feed_text := _text(feed)
+	_check(not feed_text.contains(" def ") and not feed_text.contains("defeated"),
+			"No result words in the live feed (%s)" % tag)
+	for w in ["marks", "handballs", "tackles", "clanger", "rebounds it", "sends it inside 50"]:
+		_check(not feed_text.contains(w), "Routine play stays off the feed: %s (%s)" % [w, tag])
+	_check(feed_text.contains("Quarter time: "), "The feed calls quarter time (%s)" % tag)
+	var g: Array = m.get("_shown_goals")
+	var shown := 0
+	for c in feed.get_children():
+		if str(c.get_meta("feed_kind", "")) == "goal":
+			shown += 1
+	_check(shown == int(g[0]) + int(g[1]), "Every goal has its own row (%d of %d, %s)" % [shown, int(g[0]) + int(g[1]), tag])
+	var score_text: String = lead.text
+	var sc := [int(g[0]) * 6 + int(m.get("_shown_behinds")[0]), int(g[1]) * 6 + int(m.get("_shown_behinds")[1])]
+	_check(score_text == ("Scores level" if sc[0] == sc[1] else "%s by %d" % [
+			db.club_short(str(m.get("_res")["home"] if sc[0] > sc[1] else m.get("_res")["away"])), absi(sc[0] - sc[1])]),
+			"The lead line matches the scoreboard (%s: %s)" % [tag, score_text])
+
+	# The break: the score, what happened, then the calls.
+	_check(box.find_child("BreakScore", true, false) != null and box.find_child("QuarterFacts", true, false) != null,
+			"Quarter time says the score and what happened (%s)" % tag)
+	var bt := _text(box)
+	_check(not bt.contains("pts") and not bt.contains("Expected points") and not bt.contains(" def ")
+			and not bt.contains("defeated"), "The break shows no engine numbers or result words (%s)" % tag)
+	_check(bt.contains("Your tag on "), "The break says how your tag went (%s)" % tag)
+	var small := []
+	for b in box.find_children("*", "Button", true, false):
+		if b.is_visible_in_tree() and b.size.y < 40:
+			small.append("%s %.0f" % [b.name, b.size.y])
+	_check(small.is_empty(), "Every break button is thumb-sized (%s: %s)" % [tag, str(small)])
+	for c in m.find_children("*", "Control", true, false):
+		if c is Label and c.is_visible_in_tree() and c.get_global_rect().end.x > sz.x + 1:
+			_check(false, "Nothing runs off the side of the phone: %s (%s)" % [c.name, tag])
+			break
+
+	# Half time: the assistant's report is one tap away and Back closes it.
+	var sim = _state.pending_sim
+	# Get to half time without watching: play out each segment at once, the
+	# way the pitch does when a quarter is skipped (frame counts vary by box).
+	guard = 0
+	while not (sim.current_quarter >= 3 and m.find_child("CoachBox", true, false) != null) and guard < 40:
+		guard += 1
+		var sb = m.find_child("StartQuarter", true, false)
+		if sb != null:
+			sb.emit_signal("pressed")
+			await _settle()
+		var card = m.find_child("MomentCard", true, false)
+		if card != null:
+			var pick: Button = card.find_child("Moment_0", true, false)
+			if pick != null:
+				pick.emit_signal("pressed")
+			await _settle()
+		if m.find_child("CoachBox", true, false) == null and m.find_child("MomentCard", true, false) == null:
+			pitch.skip_to_end()
+			await _settle()
+	await _settle()
+	box = m.find_child("CoachBox", true, false)
+	var report_btn: Button = box.find_child("HalfTimeReport", true, false) if box != null else null
+	_check(report_btn != null, "Half time offers the assistant's report (%s)" % tag)
+	if report_btn != null:
+		report_btn.emit_signal("pressed")
+		await _settle()
+		var rep: Node = m.find_child("AssistantReport", true, false)
+		_check(rep != null and _text(rep).contains("What stands out"), "The report opens (%s)" % tag)
+		_check(m.call("handle_back") == true, "Back is handled on the report (%s)" % tag)
+		await _settle()
+		_check(m.find_child("AssistantReport", true, false) == null and m.find_child("CoachBox", true, false) != null,
+				"Back closes the report and keeps the break (%s)" % tag)
+	_check(m.call("handle_back") == true and m.find_child("CoachBox", true, false) != null,
+			"Back cannot abandon a live match (%s)" % tag)
+
+	# Full time: the result word belongs here.
+	m.call("_on_skip")
+	for i in range(60):
+		await process_frame
+	var ft := _text(m)
+	_check(ft.contains("Full time"), "Full time is unmistakable (%s)" % tag)
+	m.queue_free()
+	await _settle()
+
+
+func _text(node: Node) -> String:
+	if node == null:
+		return ""
+	var out := ""
+	for n in node.find_children("*", "Label", true, false):
+		out += str(n.text) + "\n"
+	return out
+
+
+func _settle() -> void:
+	for i in range(6):
+		await process_frame
+
+
+func _check(condition: bool, message: String) -> void:
+	_checks += 1
+	if not condition:
+		_failures.append(message)
+		push_error(message)
