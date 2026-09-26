@@ -56,6 +56,11 @@ What that showed, and what the view does about it:
   the ball; the next two receivers always lead. Everyone else keeps the
   team's shape. The next receiver's opponent follows a step behind, and a
   tackler closes from behind before the tackle.
+- **Set-ups finish before play resumes.** During a centre-bounce or kick-in
+  set-up, players reposition at 1.5x their normal pace (a dead-ball reset
+  that takes 20-40 s in a real game). Play resumes once all but three are
+  within 5 m of their spots, capped at 4 s so one straggler cannot stall it.
+  Live-play movement is unchanged.
 - **Centre bounces are 6-6-6**, with at most four per side in the square,
   wingers on the wings and defenders goal-side. Players stand still before
   the bounce, then there's the ruck contest and the tap.

@@ -439,7 +439,7 @@ func _centre_phases(k: int, a: int, loc: Vector2) -> Array:
 		layout[int(t["id"])] = _centre_spot(t, a)
 	return [
 		{"t": "setup", "layout": layout, "ball_to": Vector2.ZERO, "mode": "centre",
-			"min": 1.1 if after_goal else 0.8, "max": 2.6 if after_goal else 2.0},
+			"min": 1.1 if after_goal else 0.8, "max": 4.0},
 		{"t": "wait", "dur": 0.3},
 		{"t": "bounce", "at": Vector2.ZERO, "recv": a, "loc": loc},
 		{"t": "flight", "to": loc, "dur": 0.3, "apex": 0.6, "h0": 3.5, "recv": a},
@@ -481,7 +481,7 @@ func _kickin_phases(k: int, kicker: int, g: Vector2) -> Array:
 		else:
 			layout[id] = _structure_spot(t, g, kside)
 	return [
-		{"t": "setup", "layout": layout, "ball_to": g, "mode": "kickin", "min": 0.9, "max": 2.2},
+		{"t": "setup", "layout": layout, "ball_to": g, "mode": "kickin", "min": 0.9, "max": 4.0},
 		{"t": "collect", "who": kicker},
 		{"t": "possess", "who": kicker, "quiet": true},
 		{"t": "wait", "dur": 0.3},
@@ -804,6 +804,7 @@ func _enter(p: Dictionary) -> void:
 			var layout: Dictionary = p["layout"]
 			for id in layout:
 				MatchMotion.set_goal(tokens[id], layout[id], 0.45, true)
+				tokens[id]["reset"] = SETUP_PACE
 				_busy[id] = true
 			_ball_carry(p["ball_to"])
 			_struct_ball = p["ball_to"]
@@ -917,17 +918,34 @@ func _enter(p: Dictionary) -> void:
 			ball["vel"] = Vector2(cos(ang2), sin(ang2)) * _rng.randf_range(6.0, 10.0)
 
 
+## Dead-ball repositioning during set-ups: players move this much faster than
+## in play (a real reset takes 20-40 s), and play resumes once all but
+## SETUP_STRAGGLERS are within SETUP_NEAR metres of their spots.
+const SETUP_PACE := 1.5
+const SETUP_NEAR := 5.0
+const SETUP_STRAGGLERS := 3
+
+
+func _end_reset_pace() -> void:
+	for t in tokens:
+		t["reset"] = 1.0
+
+
 func _done(p: Dictionary) -> bool:
 	match str(p["t"]):
 		"setup":
 			if _pt < float(p["min"]) or str(ball["mode"]) == "carry":
 				return false
-			if _pt >= float(p["max"]):
-				return true
 			var layout: Dictionary = p["layout"]
+			var off := 0
 			for id in layout:
-				if (tokens[id]["pos"] as Vector2).distance_to(layout[id]) > 3.0:
-					return false
+				if (tokens[id]["pos"] as Vector2).distance_to(layout[id]) > SETUP_NEAR:
+					off += 1
+			# Set when all but a couple are in place; the cap stops one
+			# straggler holding up the game.
+			if off > SETUP_STRAGGLERS and _pt < float(p["max"]):
+				return false
+			_end_reset_pace()
 			return true
 		"pack":
 			if _pt < float(p["min"]):
@@ -1212,6 +1230,7 @@ func flush() -> Array:
 	_phases = []
 	_busy = {}
 	_lead = {}
+	_end_reset_pace()
 	var last := Vector2.ZERO
 	for i in range(events.size() - 1, -1, -1):
 		var ev2: Dictionary = events[i]
