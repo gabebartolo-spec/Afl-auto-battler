@@ -105,6 +105,8 @@ static func player_type(p: Dictionary) -> String:
 	# engine draws between them (Roles).
 	if role == "MID":
 		return "Wing" if Roles.is_wing(p) else "Inside midfielder"
+	if role == "FWD":
+		return forward_type(p)
 	var best := ""
 	var best_score := -1.0
 	for row in GameState.TRAIN_PLANS:
@@ -124,6 +126,33 @@ static func player_type(p: Dictionary) -> String:
 			best_score = score
 			best = str(row["label"])
 	return best if best != "" else role_word(role)
+
+
+## Key forward, Small forward, or just Forward. Goals and output never make
+## a key forward: that takes a tall, aerial focal point. Height is evidence,
+## not a cut-off - around 192 cm is the rule of thumb - and it is weighed
+## with his marking (contested marks included) against other forwards. A
+## small forward is short and plays below the pack. Anyone in between, or
+## with no height on record, is a Forward: better broad than wrong.
+const KEY_FWD_CM := [184.0, 196.0]      # height evidence runs 0 -> 1 across this
+const SMALL_FWD_CM := [186.0, 176.0]    # and 0 -> 1 down this
+const FWD_TYPE_LINE := 0.70
+
+
+static func forward_type(p: Dictionary) -> String:
+	var h := float(p.get("height_cm", 0.0))
+	if h <= 0.0 or not p.has("attr"):
+		return "Forward"
+	var view := p.duplicate()
+	view["role"] = "FWD"
+	var aerial := percentile(view, "marking")
+	var tall := clampf((h - KEY_FWD_CM[0]) / (KEY_FWD_CM[1] - KEY_FWD_CM[0]), 0.0, 1.0)
+	var short := clampf((SMALL_FWD_CM[0] - h) / (SMALL_FWD_CM[0] - SMALL_FWD_CM[1]), 0.0, 1.0)
+	if 0.6 * tall + 0.4 * aerial >= FWD_TYPE_LINE:
+		return "Key forward"
+	if 0.6 * short + 0.4 * (1.0 - aerial) >= FWD_TYPE_LINE - 0.10:
+		return "Small forward"
+	return "Forward"
 
 
 static func role_word(role: String) -> String:

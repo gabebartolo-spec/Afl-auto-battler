@@ -20,6 +20,7 @@ func run() -> void:
 	_test_tagger()
 	_test_no_prescriptions()
 	_test_corrections()
+	_test_forward_types()
 	_test_every_club_fields_wings()
 	print("Roles tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -72,13 +73,13 @@ func _test_vocabulary() -> void:
 	for p in GameDB.players:
 		seen[Roles.label(p)] = true
 	var allowed := ["Wing", "Tagger", "Inside midfielder", "Key defender", "Rebounding defender",
-			"Key forward", "Small forward", "Ruck"]
+			"Key forward", "Small forward", "Forward", "Ruck"]
 	var clean := true
 	for l in seen:
 		if not allowed.has(l):
 			clean = false
 			push_error("Unexpected label: %s" % l)
-	_check(clean, "Every player reads as one of eight football identities")
+	_check(clean, "Every player reads as one of nine football identities")
 
 
 func _test_wing_marking() -> void:
@@ -199,6 +200,38 @@ func _test_corrections() -> void:
 			if str(p.get("real_name", "")) == name:
 				found = p
 		_check(not found.is_empty() and str(found["role"]) == "FWD", "%s reads as a forward" % name)
+
+
+## Key forward takes a tall, aerial focal point - never goals alone. Height
+## is evidence, not a cut-off (~192 cm the rule of thumb); unclear cases read
+## plain "Forward". Labels only: no rating changes.
+func _test_forward_types() -> void:
+	var fwd := func(h: float, marking: int, goals: int) -> Dictionary:
+		var p := _mid("F", 50, 50, 40)
+		p["role"] = "FWD"
+		p["height_cm"] = h
+		p["attr"]["marking"] = marking
+		p["attr"]["goalkicking"] = goals
+		return p
+	_check(PlayerProfile.forward_type(fwd.call(198.0, 95, 70)) == "Key forward", "A tall aerial target is a key forward")
+	_check(PlayerProfile.forward_type(fwd.call(176.0, 10, 60)) == "Small forward", "A small forward below the pack is a small forward")
+	_check(PlayerProfile.forward_type(fwd.call(186.0, 50, 60)) == "Forward", "A medium forward is a Forward")
+	_check(PlayerProfile.forward_type(fwd.call(182.0, 80, 99)) != "Key forward",
+			"A prolific medium forward who marks well is not a key forward")
+	_check(PlayerProfile.forward_type(fwd.call(200.0, 5, 40)) == "Forward",
+			"Height alone does not make a key forward")
+	_check(PlayerProfile.forward_type(fwd.call(190.0, 99, 80)) == "Key forward"
+			and PlayerProfile.forward_type(fwd.call(193.0, 20, 80)) != "Key forward",
+			"192 cm is not a cut-off: a great mark just under it is key, a weak one over it is not")
+	_check(PlayerProfile.forward_type(fwd.call(0.0, 95, 95)) == "Forward", "No height on record: plain Forward")
+	# Jamie Elliott is 178 cm (his height once came from a 1991 namesake).
+	var want := {"Toby Greene": "Forward", "Charlie Cameron": "Forward", "Jamie Elliott": "Small forward",
+			"Charlie Curnow": "Key forward", "Jeremy Cameron": "Key forward", "Harry McKay": "Key forward",
+			"Maurice Rioli": "Small forward", "Cody Weightman": "Small forward"}
+	for p in GameDB.players:
+		var n := str(p.get("real_name", ""))
+		if want.has(n):
+			_check(Roles.label(p) == str(want[n]), "%s reads %s (%s)" % [n, want[n], Roles.label(p)])
 
 
 ## AI sanity: every club still fields 18 with a full midfield and two wings.
