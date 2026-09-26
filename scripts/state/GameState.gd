@@ -760,6 +760,8 @@ func prepare_interactive_match() -> bool:
 	var away := Squad.new(GameDB.club_name(str(pending_match["away"])),
 			season.lists[pending_match["away"]], false, str(pending_match["away"]),
 			season.selections.get(str(pending_match["away"]), {}))
+	home.form = season.club_form(str(pending_match["home"]))
+	away.form = season.club_form(str(pending_match["away"]))
 	pending_sim = MatchSim.new(home, away, season.next_seed(99))
 	pending_sim.moment_side = 0 if str(pending_match["home"]) == my_club else 1
 	pending_phase = "regular"
@@ -806,6 +808,8 @@ func _prepare_interactive_final() -> bool:
 	var away := Squad.new(GameDB.club_name(str(fm["away"])),
 			season.lists[fm["away"]], bool(at_home[1]), str(fm["away"]),
 			season.selections.get(str(fm["away"]), {}))
+	home.form = season.club_form(str(fm["home"]))
+	away.form = season.club_form(str(fm["away"]))
 	pending_sim = MatchSim.new(home, away, season.finals_seed(mine))
 	pending_sim.finals_mode = true
 	pending_sim.moment_side = 0 if str(fm["home"]) == my_club else 1
@@ -941,6 +945,24 @@ func my_last_result():
 				return res
 		return null
 	return last_match
+
+
+## A club's team form for the hub: {"value": -1..1, "label": "Hot"...,
+## "last": the last five results oldest first, e.g. "WWLWW"}.
+func club_form_info(code: String) -> Dictionary:
+	if season == null:
+		return {"value": 0.0, "label": "Steady", "last": ""}
+	var res := season.club_results(code)
+	var f := ClubLife.team_form(res)
+	return {"value": f, "label": ClubLife.team_form_label(f),
+			"last": "".join(res.slice(maxi(0, res.size() - ClubLife.FORM_WEIGHTS.size())))}
+
+
+## "Form: Hot (+78)  WWWWL" - or "Form: Steady  no games yet".
+static func form_line(info: Dictionary, prefix := "Form") -> String:
+	var last := str(info.get("last", ""))
+	return "%s: %s (%+d)  %s" % [prefix, str(info["label"]), int(round(float(info["value"]) * 100.0)),
+			last if last != "" else "no games yet"]
 
 
 func my_ladder_row() -> Dictionary:

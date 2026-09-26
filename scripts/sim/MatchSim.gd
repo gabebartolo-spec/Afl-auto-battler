@@ -65,10 +65,21 @@ var _run := [0, 0]           # unanswered goals
 var _asked := {}             # one-off moment keys already offered
 var _traits := {}            # player id -> Traits.of(), cached
 var synergies := [[], []]    # side -> active synergy keys (the starting 18)
+## Team form (-1..1) from each club's recent results (Season.club_form), set
+## from Squad.form. It touches two narrow things: composure (a side in form
+## makes a few fewer clangers) and stoppages (a small edge, like a third of
+## the home-ground edge at full form). 0 (the default, and every calibration
+## match) changes nothing, and it draws nothing from the RNG.
+var form := [0.0, 0.0]
+## Clanger-rate change at full form: 0.95x at +1, 1.05x at -1.
+const FORM_COMPOSURE := 0.05
+## Stoppage-win chance at full form (home_ground_bonus is 0.030).
+const FORM_CONTEST := 0.010
 
 
 func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	squads = [home, away]
+	form = [clampf(home.form, -1.0, 1.0), clampf(away.form, -1.0, 1.0)]
 	rng.seed = seed
 	moment_rng.seed = seed * 7 + 13
 	for side in range(2):
@@ -274,9 +285,12 @@ func contest_winner(use_fp: bool, fp: float) -> int:
 	var legs_edge: float = ((c0 - c1) - (squads[0].contest - squads[1].contest)) / float(T["contest_swing"])
 	_credit(0, "legs", legs_edge * POSSESSION_VALUE)
 	_credit(1, "legs", -legs_edge * POSSESSION_VALUE)
+	var form_edge := FORM_CONTEST * (float(form[0]) - float(form[1]))
+	_credit(0, "form", FORM_CONTEST * float(form[0]) * POSSESSION_VALUE)
+	_credit(1, "form", FORM_CONTEST * float(form[1]) * POSSESSION_VALUE)
 	var p_home: float = (0.5
 			+ (c0 - c1) / float(T["contest_swing"])
-			+ home_edge())
+			+ home_edge() + form_edge)
 	var b0 := _contest_bonus(0, not use_fp)
 	var b1 := _contest_bonus(1, not use_fp)
 	p_home += b0 - b1
@@ -933,6 +947,9 @@ func _play_one_chain(T: Dictionary) -> void:
 	var pep_cl := _pep_mult(side, "clangers")
 	_credit(side, "pep", clanger_p * (1.0 - pep_cl) * CLANGER_VALUE)
 	clanger_p *= pep_cl
+	var form_cl := 1.0 - FORM_COMPOSURE * float(form[side])
+	_credit(side, "form", clanger_p * (1.0 - form_cl) * CLANGER_VALUE)
+	clanger_p *= form_cl
 	if _burst(side, "hold"):
 		_credit(side, "calls", clanger_p * 0.25 * CLANGER_VALUE)
 		clanger_p *= 0.75

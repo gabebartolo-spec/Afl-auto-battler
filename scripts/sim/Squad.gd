@@ -12,6 +12,9 @@ var list: Array = []
 var home := false
 var ground: Array = []
 var bench: Array = []
+## Team form, -1..1, from recent results (Season.club_form). Set by whoever
+## builds the match; 0 is neutral.
+var form := 0.0
 
 ## Role-group strengths
 var ruck := 45.0

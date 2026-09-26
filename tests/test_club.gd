@@ -14,6 +14,7 @@ func run() -> void:
 	_test_season_flow()
 	_test_events()
 	_test_sacking()
+	_test_team_form()
 	GameState.delete_saved_career()
 	print("Club tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -144,3 +145,77 @@ func _test_sacking() -> void:
 		GameState.board["confidence"] = 10
 		GameState._board_season_end()
 		_check(GameState.is_sacked(), "A second one and you are sacked")
+
+
+## Team form: bounded, saturating, quick to turn, neutral by default, and
+## narrow in the engine (composure only).
+func _test_team_form() -> void:
+	var f := func(r: String) -> float:
+		var arr := []
+		for c in r:
+			arr.append(c)
+		return ClubLife.team_form(arr)
+	_check(is_zero_approx(f.call("")), "No games: neutral form")
+	_check(is_zero_approx(f.call("WLWLW") - 0.30 + 0.25 - 0.20 + 0.15 - 0.10) and absf(f.call("WLWLW")) < 0.25,
+			"Alternating results stay near neutral (%.2f)" % f.call("WLWLW"))
+	_check(f.call("LLLWW") > 0.0 and f.call("LLLWW") < 0.25, "Two wins after a poor run: a small lift (%.2f)" % f.call("LLLWW"))
+	_check(is_equal_approx(f.call("WWWWW"), 1.0) and is_equal_approx(f.call("WWWWWWWWWW"), 1.0),
+			"Five straight wins hits the cap; more wins add nothing")
+	_check(f.call("WWWW") > f.call("WW") and f.call("WWWWW") - f.call("WWWW") < f.call("WW") - f.call("W"),
+			"Each extra win in a streak adds less")
+	_check(is_equal_approx(f.call("WWWWWL"), 0.40) and is_equal_approx(f.call("WWWWWLL"), -0.10),
+			"A streak turns quickly: one loss to +0.40, two to -0.10")
+	_check(is_equal_approx(f.call("LLLLLLLL"), -1.0) and is_equal_approx(f.call("LLLLLW"), -0.40),
+			"Losing runs are capped the same way and turn as fast")
+	_check(ClubLife.team_form_label(1.0) == "Hot" and ClubLife.team_form_label(0.0) == "Steady"
+			and ClubLife.team_form_label(-1.0) == "Cold", "Form reads Hot / Steady / Cold")
+
+	# The engine: neutral form is the old engine exactly.
+	var a := Squad.new("RIC", GameDB.club_list("RIC"), true, "RIC")
+	var b := Squad.new("SYD", GameDB.club_list("SYD"), false, "SYD")
+	var plain := MatchSim.new(a, b, 99).run()
+	var a0 := Squad.new("RIC", GameDB.club_list("RIC"), true, "RIC")
+	var b0 := Squad.new("SYD", GameDB.club_list("SYD"), false, "SYD")
+	a0.form = 0.0
+	b0.form = 0.0
+	var zero := MatchSim.new(a0, b0, 99).run()
+	_check(zero["events"] == plain["events"] and zero["score"] == plain["score"],
+			"Neutral form changes nothing in a match")
+	_check(not (plain["impact"][0] as Dictionary).has("form"), "Neutral form is credited nothing")
+	# Hot form: a few fewer clangers, credited to team form, nothing else.
+	var hot_cl := 0.0
+	var cold_cl := 0.0
+	var credit := 0.0
+	for i in range(40):
+		for sign in [1.0, -1.0]:
+			var h := Squad.new("RIC", GameDB.club_list("RIC"), false, "RIC")
+			var o := Squad.new("RIC", GameDB.club_list("RIC"), false, "RIC")
+			h.form = sign
+			var r := MatchSim.new(h, o, 300 + i).run()
+			var cl := float(r["team"][0].get("clangers", 0))
+			if sign > 0.0:
+				hot_cl += cl
+				credit += float((r["impact"][0] as Dictionary).get("form", 0.0))
+			else:
+				cold_cl += cl
+	_check(hot_cl < cold_cl, "A side in form makes fewer clangers than one out of form (%d v %d)" % [int(hot_cl), int(cold_cl)])
+	_check(credit / 40.0 > 0.5 and credit / 40.0 < 5.0,
+			"Full form is worth a few points a game, not a landslide (%.2f)" % (credit / 40.0))
+
+	# The season: form comes from the club's own results and survives a save.
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	_check(is_zero_approx(GameState.season.club_form("GEE")), "Every club starts the season steady")
+	for i in range(6):
+		GameState.week_event = {}
+		GameState.advance()
+	var res: Array = GameState.season.club_results("GEE")
+	_check(res.size() == 6, "Six rounds give six results (%d)" % res.size())
+	var info := GameState.club_form_info("GEE")
+	_check(is_equal_approx(float(info["value"]), ClubLife.team_form(res))
+			and str(info["last"]) == "".join(res.slice(1)), "The hub shows the last five and the form they give")
+	_check(GameState.form_line(info).begins_with("Form: " + str(info["label"])), "Form line reads Form: <label>")
+	var before := GameState.season.club_form("GEE")
+	GameState.save_career()
+	GameState.load_career()
+	_check(is_equal_approx(GameState.season.club_form("GEE"), before), "Form survives a save (it is derived from results)")

@@ -91,6 +91,10 @@ func _standing_card() -> Control:
 	cv.add_child(UiKit.lbl("%d for, %d against   -   %.1f%%" % [
 			int(lr.get("pf", 0)), int(lr.get("pa", 0)),
 			float(lr.get("pct", 0.0))], 13, UiKit.MUTED))
+	var form := GameState.club_form_info(GameState.my_club)
+	var form_l := UiKit.lbl(GameState.form_line(form), 13, _form_colour(float(form["value"])), true)
+	form_l.name = "FormLine"
+	cv.add_child(form_l)
 	var injured := Injuries.injured(GameState.my_list)
 	if not injured.is_empty():
 		cv.add_child(UiKit.lbl("Injury list: %d  -  check your Team" % injured.size(), 13, UiKit.BAD))
@@ -245,7 +249,21 @@ func _next_card(season: Season) -> Control:
 			ground = str(GameDB.club(str(mine["home"])).get("ground", ""))
 		var note := "%s  -  %s" % [mine.get("label", "Match"), ground]
 		nv.add_child(UiKit.ellipsis(note, 13, UiKit.MUTED))
+		var their := GameState.club_form_info(opp)
+		var their_l := UiKit.ellipsis(GameState.form_line(their, "Their form"),
+				13, _form_colour(float(their["value"])))
+		their_l.name = "OppFormLine"
+		nv.add_child(their_l)
 	return nxt
+
+
+## Team form reads green when good, red when poor, muted when steady.
+func _form_colour(f: float) -> Color:
+	if f >= 0.25:
+		return UiKit.GOOD
+	if f <= -0.25:
+		return UiKit.BAD
+	return UiKit.MUTED
 
 
 func _controls(season: Season) -> Control:

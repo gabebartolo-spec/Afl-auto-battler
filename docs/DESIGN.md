@@ -252,6 +252,22 @@ Skip to full time, by reconstructing half-time from the Q2 snapshot.
   top 10 advance; week 1 is WC1 7v10 and WC2 8v9; the winners reseed by
   original ladder position into the 7th and 8th seeds and meet 5th and 6th in
   the elimination finals while 1-4 play the qualifying finals; then SF → PF → GF.
+* **Team form** — each club's form (-1..1) is derived from its results this
+  season (`Season.club_results`, so it is never saved separately and resets
+  at every rollover): the last five, weighted 0.30 / 0.25 / 0.20 / 0.15 / 0.10
+  from the most recent (`ClubLife.FORM_WEIGHTS`), win +1, loss -1, draw 0.
+  Five straight wins is the cap; one loss after it is +0.40, two -0.10.
+  `Season.simulate` and the interactive match set `Squad.form`, and MatchSim
+  uses it in exactly two places: the clanger rate (x `1 - 0.05 f`,
+  `FORM_COMPOSURE`) and the stoppage-win chance (`+0.010 (f0 - f1)`,
+  `FORM_CONTEST`; the home-ground edge is 0.030). Neither draws from the RNG,
+  and form 0 leaves the engine exactly as it was, so calibration (which never
+  sets form) and the Python harness (which has no form) are unchanged. The
+  coach report credits it as "team form". Mirror matches (2,000 each): Hot v
+  Steady wins 52.5% (neutral 49.4%), Cold v Steady 46.6%, Hot v Cold 57.4%;
+  the home ground alone is 60.5%. Over 32 paired seasons (16 real-list, 16
+  drafted) it widened the season-wins SD by 0.19 (3.52 to 3.71) with no rise
+  in premiership concentration or long streaks.
 * **Expansion** — clubs carry an `enter` year in `data/clubs.csv`; every
   fixture, ladder, draft, selection and finals path iterates
   `GameDB.active_clubs(year)` rather than the all-time club list, so a new club
