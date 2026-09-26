@@ -1874,14 +1874,12 @@ static func stat_useful_for_role(role: String, key: String) -> bool:
 	return false
 
 
-## How much room a player has left, in words: "Plenty of room",
-## "Developing", "Near his ceiling" or "At his ceiling" (or "Rehab year").
+## How much room a player has left, in words: "Developing", "Near his
+## ceiling" or "At his ceiling" (or "Rehab year").
 func development_state(p: Dictionary) -> String:
 	if bool(p.get("rehab", false)):
 		return "Rehab year"
 	var gap := int(p.get("potential", p.get("overall", 0))) - int(p.get("overall", 0))
-	if gap >= 8:
-		return "Plenty of room"
 	if gap >= 3:
 		return "Developing"
 	if gap >= 1:

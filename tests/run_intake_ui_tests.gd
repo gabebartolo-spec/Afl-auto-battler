@@ -77,7 +77,7 @@ func _run() -> void:
 	_check(draft.count() == count_before and draft.pick_history == hist_before, "Inspecting a prospect signs nobody")
 	var ovr: Control = ui.find_child("DetailOVR", true, false)
 	_check(ovr != null and (ovr.get_child(0) as Label).text == str(int(prospect["overall"]))
-			and (ovr.get_child(1) as Label).text == "PROJECTED OVR", "His projected OVR is shown as projected")
+			and (ovr.get_child(1) as Label).text == "Projected OVR", "His projected OVR is shown as projected")
 	var prod: Label = ui.find_child("DetailProduction", true, false)
 	_check(prod != null and prod.text.contains("%.1f disposals" % float(prospect["u18_di"])),
 			"His U18 / state-league production is shown (%s)" % (prod.text if prod else "-"))
@@ -89,7 +89,7 @@ func _run() -> void:
 	var type_l: Label = ui.find_child("DetailType", true, false)
 	_check(type_l != null and type_l.text != "", "A prospect has a football identity (%s)" % (type_l.text if type_l else "-"))
 	var act: Button = ui.find_child("DetailDraft", true, false)
-	_check(act != null and act.text.begins_with("SIGN "), "The intake action reads Sign")
+	_check(act != null and act.text.begins_with("Sign "), "The intake action reads Sign")
 	if draft.is_user_turn():
 		_check(not act.disabled, "Sign is live on your turn")
 		act.emit_signal("pressed")

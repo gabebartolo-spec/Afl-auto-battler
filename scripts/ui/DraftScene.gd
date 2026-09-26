@@ -762,7 +762,7 @@ func _open_player(id: String) -> void:
 		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(pl)
 	var status := _draft_status(p)
-	var st := UiKit.lbl(status[0], 14, status[1], true)
+	var st := UiKit.lbl(status[0], 14, status[1])
 	st.name = "DetailStatus"
 	st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(st)
@@ -770,21 +770,20 @@ func _open_player(id: String) -> void:
 	# How good, and how much room.
 	var nums := UiKit.hbox(18)
 	v.add_child(nums)
-	nums.add_child(_big_number(int(p["overall"]), "PROJECTED OVR" if projected else "OVR", "DetailOVR"))
+	nums.add_child(_big_number(int(p["overall"]), "Projected OVR" if projected else "OVR", "DetailOVR"))
 	nums.add_child(_big_number(int(p.get("potential", p["overall"])), "POT", "DetailPOT"))
 	var room := UiKit.lbl(GameState.development_state(p), 14, UiKit.TEXT)
 	room.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	room.size_flags_vertical = Control.SIZE_SHRINK_END
 	room.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nums.add_child(room)
-	v.add_child(UiKit.lbl("Rookie contract - there is no cap at the intake draft." if _draft.intake_mode
-			else "Costs $%d of the salary cap." % int(p["value"]), 13, UiKit.MUTED))
+	# His price rides on the Draft button; the intake has none worth a line.
 
-	# What kind of footballer.
-	var kind := UiKit.panel(UiKit.PANEL_ALT, 10, 8)
-	v.add_child(kind)
-	var kv := UiKit.vbox(4)
-	kind.add_child(kv)
-	var type_l := UiKit.lbl(PlayerProfile.player_type(p), 18, UiKit.GOLD, true)
+	# What kind of footballer: type, then what he is picked for. Flat, no box.
+	v.add_child(UiKit.spacer(4))
+	var kv := UiKit.vbox(3)
+	v.add_child(kv)
+	var type_l := UiKit.lbl(PlayerProfile.player_type(p), 18, UiKit.TEXT, true)
 	type_l.name = "DetailType"
 	kv.add_child(type_l)
 	var strengths := PlayerProfile.strengths(p)
@@ -797,24 +796,25 @@ func _open_player(id: String) -> void:
 		var sl := UiKit.lbl(str(s["label"]), 14, UiKit.TEXT)
 		sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(sl)
-		row.add_child(UiKit.line(str(s["grade"]), 14, UiKit.GOOD if str(s["grade"]) != "Good" else UiKit.TEXT, true))
+		row.add_child(UiKit.line(str(s["grade"]), 14, UiKit.MUTED))
 	var weak := PlayerProfile.weakness(p)
 	if not weak.is_empty():
 		kv.add_child(UiKit.lbl("Needs work: " + str(weak["label"]).to_lower(), 13, UiKit.MUTED))
 	var traits: Array = Traits.of(p)
 	if not traits.is_empty():
-		kv.add_child(UiKit.trait_chips(p))
+		kv.add_child(UiKit.spacer(4))
 		for t in traits:
-			var tl := UiKit.lbl("%s: %s" % [Traits.label(str(t)), Traits.text(str(t))], 12,
-					UiKit.BAD if Traits.is_bad(str(t)) else UiKit.MUTED)
+			var tl := UiKit.lbl("%s. %s" % [Traits.label(str(t)), Traits.scout(str(t))], 13,
+					UiKit.BAD if Traits.is_bad(str(t)) else UiKit.TEXT)
 			tl.name = "Trait_" + str(t)
 			tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			kv.add_child(tl)
 
 	# What he has done.
 	var prod := PlayerProfile.production(p)
-	v.add_child(UiKit.lbl(str(prod["title"]).to_upper(), 12, UiKit.MUTED, true))
-	var pl2 := UiKit.lbl(str(prod["line"]) if str(prod["line"]) != "" else "No league statistics on record.",
+	v.add_child(UiKit.spacer(4))
+	v.add_child(UiKit.lbl(str(prod["title"]), 13, UiKit.MUTED))
+	var pl2 := UiKit.lbl(str(prod["line"]) if str(prod["line"]) != "" else "No stats on record.",
 			14, UiKit.TEXT if str(prod["line"]) != "" else UiKit.MUTED)
 	pl2.name = "DetailProduction"
 	pl2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -822,9 +822,9 @@ func _open_player(id: String) -> void:
 	if projected:
 		var tie := str(p.get("tied_club", ""))
 		if tie != "":
-			var kind_word := str(p.get("tied_type", "")).replace("_", "-")
-			v.add_child(UiKit.lbl("%s tie to %s." % [kind_word if kind_word != "" else "Club", GameDB.club_name(tie)],
-					13, UiKit.GOLD))
+			var kind_word: String = {"FS": "Father-son", "NGA": "Next Generation Academy"}.get(
+					str(p.get("tied_type", "")), "Club")
+			v.add_child(UiKit.lbl("%s tie to %s" % [kind_word, GameDB.club_name(tie)], 13, UiKit.TEXT))
 		var note := str(p.get("note", ""))
 		if note != "":
 			var nl := UiKit.lbl(note, 13, UiKit.MUTED)
@@ -852,7 +852,8 @@ func _open_player(id: String) -> void:
 	# The decision.
 	var footer: VBoxContainer = box["footer"]
 	var can := _draft.can_pick_player(p)
-	if not can:
+	# A taken player's status already says where he went.
+	if not can and not _draft.has(id):
 		var why := _draft.pick_block_reason(p)
 		var wl := UiKit.lbl(why if why != "" else "He cannot be picked right now.", 13, UiKit.BAD)
 		wl.name = "DetailBlocked"
@@ -866,9 +867,9 @@ func _open_player(id: String) -> void:
 	close.pressed.connect(_close_player)
 	buttons.add_child(close)
 	if not _draft.has(id):
-		var who_up := GameDB.player_display_name(p).to_upper()
-		var act := UiKit.btn("SIGN " + who_up if _draft.intake_mode
-				else "DRAFT %s  ·  $%d" % [who_up, int(p["value"])], 15, true)
+		var who_name := GameDB.player_display_name(p)
+		var act := UiKit.btn("Sign " + who_name if _draft.intake_mode
+				else "Draft %s  ·  $%d" % [who_name, int(p["value"])], 15, true)
 		act.name = "DetailDraft"
 		act.clip_text = true
 		act.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -888,18 +889,18 @@ func _draft_status(p: Dictionary) -> Array:
 		var club := _draft.drafted_by(id)
 		var pick := int(_draft.pick_details(id).get("pick", 0))
 		if club == _club or club == "":
-			return ["On your list" + (" - pick #%d" % pick if pick > 0 else "") + ".", UiKit.GOOD]
-		return ["Drafted #%d - %s." % [pick, GameDB.club_name(club)], UiKit.MUTED]
+			return ["On your list" + (", pick %d" % pick if pick > 0 else ""), UiKit.GOOD]
+		return ["Pick %d, %s" % [pick, GameDB.club_name(club)], UiKit.MUTED]
 	if _draft.is_finished():
-		return ["Not drafted.", UiKit.MUTED]
-	return ["Available.", UiKit.GOOD]
+		return ["Not drafted", UiKit.MUTED]
+	return ["Available", UiKit.MUTED]
 
 
 func _big_number(value: int, label: String, node_name: String) -> Control:
 	var col := UiKit.vbox(0)
 	col.name = node_name
-	col.add_child(UiKit.line(str(value), 30, UiKit.GOLD, true))
-	col.add_child(UiKit.line(label, 11, UiKit.MUTED, true))
+	col.add_child(UiKit.line(str(value), 30, UiKit.TEXT, true))
+	col.add_child(UiKit.line(label, 12, UiKit.MUTED))
 	return col
 
 

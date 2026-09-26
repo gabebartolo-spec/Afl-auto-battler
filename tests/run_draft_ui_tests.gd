@@ -168,9 +168,11 @@ func _test_inspect(ui: Control) -> void:
 		await _settle()
 		var all_there := true
 		for t in load("res://scripts/sim/Traits.gd").of(with_trait):
-			if ui.find_child("Trait_" + str(t), true, false) == null:
+			var tl: Label = ui.find_child("Trait_" + str(t), true, false)
+			# In football words: no simulation percentages when scouting.
+			if tl == null or tl.text.contains("%"):
 				all_there = false
-		_check(all_there, "Each of his traits is shown and explained")
+		_check(all_there, "Each of his traits is shown and explained in football terms")
 		ui.call("_close_player")
 	# A rebuild (rotation) with details open keeps them open and drafts nobody.
 	ui.call("_open_player", str(p["id"]))
@@ -211,10 +213,10 @@ func _test_inspect(ui: Control) -> void:
 	await _settle()
 	status = ui.find_child("DetailStatus", true, false)
 	var blocked: Label = ui.find_child("DetailBlocked", true, false)
-	_check(status != null and status.text == "Drafted #%d - %s." % [int(rival["pick"]), _db.club_name(str(rival["club"]))],
+	_check(status != null and status.text == "Pick %d, %s" % [int(rival["pick"]), _db.club_name(str(rival["club"]))],
 			"A rival's pick stays inspectable and shows who took him (%s)" % (status.text if status else "-"))
-	_check(blocked != null and blocked.text.begins_with("Drafted #") and ui.find_child("DetailDraft", true, false) == null,
-			"...and cannot be drafted again")
+	_check(blocked == null and ui.find_child("DetailDraft", true, false) == null,
+			"...and cannot be drafted again, without repeating where he went")
 	ui.call("_close_player")
 	# The history opens the same details.
 	ui.call("_select_tab", "picks")

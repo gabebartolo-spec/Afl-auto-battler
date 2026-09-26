@@ -345,7 +345,7 @@ Skip to full time, by reconstructing half-time from the Q2 snapshot.
   `TRAIN_COST_SCALE` (1.25) × the base price, so now that no XP is wasted a
   season's development stays where it was.
   The Training list shows each player's OVR, focus and development state
-  ("Plenty of room", "Developing", "Near his ceiling", "At his ceiling");
+  ("Developing", "Near his ceiling", "At his ceiling");
   the player view leads with his development focus and what it means on the
   field, with stats and hand training behind one button. After a game the
   results say what training changed (OVR rises, traits unlocked, potential
