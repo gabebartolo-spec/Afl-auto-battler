@@ -91,6 +91,10 @@ var _pi := 0
 var _pt := 0.0
 var _locs := {}                 # event index -> planned ball location
 var _busy := {}                 # token ids a phase is steering this beat
+## Named receivers already leading to a future possession: token id -> event
+## index. A lead holds until that event starts, so it never flickers back to
+## structure mid-run.
+var _lead := {}
 var _struct_ball := Vector2.ZERO
 var _poss := 0
 var _struct_timer := 0.0
@@ -110,6 +114,7 @@ func setup(result: Dictionary, p_events: Array) -> void:
 	arrivals = []
 	_locs = {}
 	_busy = {}
+	_lead = {}
 	_beat = {}
 	_phases = []
 	_out = []
@@ -297,6 +302,8 @@ func _start_beat(k: int) -> void:
 			_phases = _rebound_phases(k)
 		"clanger":
 			_phases = _clanger_phases(k)
+		"ballup":
+			_phases = _ballup_phases(k)
 		_:
 			if DISPOSALS.has(kind):
 				_phases = _possession_phases(k)
@@ -331,22 +338,26 @@ func _next_real(k: int) -> int:
 
 
 ## How a possession event starts: from open play, a centre bounce, a kick-in,
-## a ball-up, a free kick or a loose ball.
+## a ball-up, a free kick or a loose ball. Read straight from the event before
+## it, matching MatchSim's restarts: a goal or a quarter break -> centre
+## bounce, a behind -> kick-in from the goal square, a logged "ballup" ->
+## ball-up where play stopped.
 func _restart(k: int) -> String:
 	var ev: Dictionary = events[k]
 	var pk := _prev_real(k)
 	var pkind := "" if pk < 0 else str((events[pk] as Dictionary).get("kind", ""))
-	var centre := float(ev.get("fp", 0.0)) == 0.0
-	if centre and (pkind == "" or pkind == "goal" or pkind == "quarter"):
-		return "centre"
-	if centre and pkind == "behind":
-		return "kickin"
-	if pkind == "tackle" or centre:
-		return "ballup"
-	if pkind == "free":
-		return "free"
-	if pkind == "clanger":
-		return "loose"
+	match pkind:
+		"", "goal", "quarter":
+			return "centre"
+		"behind":
+			return "kickin"
+		"ballup":
+			return "ballup"
+		"free":
+			return "free"
+		"clanger", "tackle":
+			# No stoppage logged: the ball is won where it fell.
+			return "loose"
 	return "open"
 
 
@@ -362,7 +373,8 @@ func _possession_phases(k: int) -> Array:
 		"kickin":
 			return _kickin_phases(k, a, loc) + tail
 		"ballup":
-			return _ballup_phases(k, a, loc) + tail
+			# The ruck's tap to the player who wins it, out of the ball-up beat.
+			return [{"t": "flight", "to": loc, "dur": 0.3, "apex": 0.8, "h0": 3.0, "recv": a}] + tail
 		"free":
 			return [{"t": "wait", "dur": 0.3, "ease": true},
 					{"t": "flight", "to": loc, "dur": 0.4, "apex": 1.5, "recv": a}] + tail
@@ -427,33 +439,38 @@ func _centre_phases(k: int, a: int, loc: Vector2) -> Array:
 		layout[int(t["id"])] = _centre_spot(t, a)
 	return [
 		{"t": "setup", "layout": layout, "ball_to": Vector2.ZERO, "mode": "centre",
-			"min": 1.1 if after_goal else 0.8, "max": 2.6 if after_goal else 2.0},
+			"min": 1.1 if after_goal else 0.8, "max": 4.0},
 		{"t": "wait", "dur": 0.3},
 		{"t": "bounce", "at": Vector2.ZERO, "recv": a, "loc": loc},
 		{"t": "flight", "to": loc, "dur": 0.3, "apex": 0.6, "h0": 3.5, "recv": a},
 	]
 
 
-func _kickin_phases(k: int, a: int, loc: Vector2) -> Array:
+## A kick-in after a behind, as MatchSim plays it: the defending side restarts
+## from its goal square (the logged fp) with no contest, while the side that
+## scored sets a zone. `kicker` takes the ball there; the kick itself is the
+## logged disposal that follows.
+func _kickin_phases(k: int, kicker: int, g: Vector2) -> Array:
 	var pk := _prev_real(k)
 	var kside := 1 - int((events[pk] as Dictionary).get("side", 0))
 	var dir := _dir(kside)
-	var g := Vector2(-80.0 * dir, 0.0)
-	var kicker := -1
-	var best := INF
-	for t in tokens:
-		if int(t["side"]) == kside and str(t["role"]) == "DEF":
-			var d := (t["pos"] as Vector2).distance_to(g)
-			if d < best:
-				best = d
-				kicker = int(t["id"])
+	if kicker < 0 or int(tokens[kicker]["side"]) != kside:
+		# No logged kicker yet (an error logged first): the full back has it.
+		kicker = -1
+		var best := INF
+		for t in tokens:
+			if int(t["side"]) == kside and str(t["role"]) == "DEF":
+				var d := (t["pos"] as Vector2).distance_to(g)
+				if d < best:
+					best = d
+					kicker = int(t["id"])
 	var layout := {}
 	var zone_side := 1 - kside
 	var used := {"FWD": 0, "MID": 0, "DEF": 0}
 	for t in tokens:
 		var id := int(t["id"])
 		if id == kicker:
-			layout[id] = g + Vector2(dir * 1.5, 0)
+			layout[id] = g + Vector2(dir * 1.0, 0)
 		elif int(t["side"]) == zone_side:
 			var grp := "MID" if str(t["role"]) == "RUCK" else str(t["role"])
 			var pts: Array = ZONE.get(grp, ZONE["MID"])
@@ -464,53 +481,35 @@ func _kickin_phases(k: int, a: int, loc: Vector2) -> Array:
 		else:
 			layout[id] = _structure_spot(t, g, kside)
 	return [
-		{"t": "setup", "layout": layout, "ball_to": g, "mode": "kickin", "min": 0.9, "max": 2.2},
+		{"t": "setup", "layout": layout, "ball_to": g, "mode": "kickin", "min": 0.9, "max": 4.0},
 		{"t": "collect", "who": kicker},
 		{"t": "possess", "who": kicker, "quiet": true},
-		{"t": "wait", "dur": 0.35},
-		{"t": "flight", "to": loc, "dur": _flight_shape("kick", g.distance_to(loc)).x,
-			"apex": 17.0, "recv": a, "adapt": true, "contest": true},
+		{"t": "wait", "dur": 0.3},
 	]
 
 
-func _ballup_phases(k: int, a: int, loc: Vector2) -> Array:
-	var at: Vector2 = ball["pos"]
-	var members := _nearest(at, 0, 3, [a]) + _nearest(at, 1, 3, [a])
+## A logged ball-up: the ball gets to where play stopped (the kick or scramble
+## that ended the chain), a pack forms, the umpire throws it up. The tap to
+## whoever wins it opens the next beat.
+func _ballup_phases(k: int) -> Array:
+	var at := _loc(k)
+	var out := []
+	var d := (ball["pos"] as Vector2).distance_to(at)
+	if d > 3.0:
+		var shape := _flight_shape("kick", d)
+		out.append({"t": "flight", "to": at, "dur": shape.x, "apex": shape.y, "recv": -1,
+				"mode": "stoppage"})
+	var nk := _next_real(k)
+	var winner := _actor_id(events[nk]) if nk >= 0 else -1
+	var members := _nearest(at, 0, 3, [winner]) + _nearest(at, 1, 3, [winner])
 	for t in tokens:
 		if str(t["role"]) == "RUCK" and not members.has(int(t["id"])):
 			members.append(int(t["id"]))
-	if a >= 0 and not members.has(a):
-		members.append(a)
-	var out := [
-		{"t": "pack", "at": at, "members": members, "min": 0.35, "max": 0.9, "mode": "stoppage"},
-		{"t": "throwup", "at": at},
-	]
-	if at.distance_to(loc) <= 14.0:
-		out.append({"t": "flight", "to": loc, "dur": 0.3, "apex": 0.8, "h0": 3.0, "recv": a})
-		return out
-	# A long way from the contest to where the log says the ball is won: a
-	# clearing kick out of the pack by the side it runs forward for.
-	var dx := loc.x - at.x
-	var cs := int((events[k] as Dictionary).get("side", 0))
-	if absf(dx) > 5.0:
-		cs = 0 if dx > 0.0 else 1
-	var clearer := -1
-	var best := INF
-	for id in members:
-		var t: Dictionary = tokens[id]
-		if int(t["side"]) == cs and id != a:
-			var d := (t["pos"] as Vector2).distance_to(at)
-			if d < best:
-				best = d
-				clearer = id
-	var tap_to := at + Vector2(_dir(cs) * 2.5, _rng.randf_range(-2.5, 2.5))
-	out.append({"t": "flight", "to": tap_to, "dur": 0.25, "apex": 0.6, "h0": 3.0, "recv": clearer})
-	out.append({"t": "collect", "who": clearer})
-	out.append({"t": "possess", "who": clearer, "quiet": true})
-	out.append({"t": "hold", "who": clearer, "dur": 0.15})
-	out.append({"t": "flight", "to": loc, "dur": _flight_shape("kick", tap_to.distance_to(loc)).x,
-			"apex": _flight_shape("kick", tap_to.distance_to(loc)).y, "recv": a, "adapt": true,
-			"contest": int(tokens[a]["side"]) != cs if a >= 0 else false})
+	if winner >= 0 and not members.has(winner):
+		members.append(winner)
+	out += [{"t": "pack", "at": at, "members": members, "min": 0.35, "max": 0.9, "mode": "stoppage"},
+			{"t": "throwup", "at": at},
+			{"t": "emit", "log": true}]
 	return out
 
 
@@ -583,9 +582,8 @@ func _clanger_phases(k: int) -> Array:
 		"centre":
 			out = _centre_phases(k, e, loc)
 		"kickin":
-			out = _kickin_phases(k, e, loc)
-		"ballup":
-			out = _ballup_phases(k, e, loc)
+			# An error logged before the kick-in: shown at the goal square.
+			return _kickin_phases(k, -1, loc) + [{"t": "emit", "log": true}]
 	var d := (ball["pos"] as Vector2).distance_to(loc)
 	if out.is_empty() and d > 1.0:
 		var pk := _prev_real(k)
@@ -618,12 +616,12 @@ func _loc(k: int) -> Vector2:
 	var a := _actor_id(ev)
 	var ry: float = (tokens[a]["pos"] as Vector2).y if a >= 0 else src.y
 	var p: Vector2
-	if kind in ["goal", "behind", "rebound", "tackle", "free"]:
+	if kind in ["goal", "behind", "rebound", "tackle", "free", "ballup"]:
 		p = Vector2(x, src.y)
 	elif _possession(kind) and _restart(k) == "centre":
 		p = Vector2(0.0, signf(ry if ry != 0.0 else 1.0) * 3.5)
 	elif _possession(kind) and _restart(k) == "kickin":
-		p = Vector2(0.0, signf(ry if ry != 0.0 else 1.0) * _rng.randf_range(12.0, 26.0))
+		p = Vector2(x, 0.0)   # the goal square: MatchSim logs the kick-in there
 	elif _possession(kind) and _restart(k) in ["ballup", "free", "loose"]:
 		p = Vector2(x, src.y + _rng.randf_range(-6.0, 6.0))
 	else:
@@ -655,49 +653,118 @@ func _loc(k: int) -> Vector2:
 
 
 # ---------------------------------------------------------------------------
-# Anticipation: players read the next one or two events
+# Anticipation: players read the events coming up
 # ---------------------------------------------------------------------------
 func _anticipate(k: int) -> void:
 	var ev: Dictionary = events[k]
 	var cur := _actor_id(ev)
-	var j := k
-	for step in range(3):
-		j = _next_real(j)
-		if j < 0:
-			return
+	var j := _next_real(k)
+	if j >= 0:
 		var nev: Dictionary = events[j]
 		var kind := str(nev.get("kind", ""))
 		var a := _actor_id(nev)
-		var w := [1.0, 0.8, 0.6][step] as float
-		if a < 0 or _busy.has(a):
-			continue
-		if kind == "tackle" and step == 0 and cur >= 0:
-			# The tackler is already closing from behind as the ball arrives.
-			var at := _loc(k) if DISPOSALS.has(str(ev.get("kind", ""))) else (tokens[cur]["pos"] as Vector2)
-			var from: Vector2 = tokens[a]["pos"]
-			MatchMotion.set_goal(tokens[a], at + (from - at).limit_length(2.5), 1.0)
-			_busy[a] = true
-		elif (DISPOSALS.has(kind) or kind == "clanger") and _restart(j) == "open":
-			var loc := _loc(j)
-			var goal := loc if step < 2 else (tokens[a]["pos"] as Vector2).lerp(loc, 0.7)
-			MatchMotion.set_goal(tokens[a], goal, w)
-			_busy[a] = true
-			if step == 0:
-				_trail(a, goal, 0.85 * w)
-		elif kind == "inside50" and step == 0:
-			var nk := _next_real(j)
-			if nk >= 0:
-				_contest(_loc(j), _actor_id(events[nk]), 0.95)
+		if a >= 0 and not _busy.has(a):
+			if kind == "tackle" and cur >= 0:
+				# The tackler is already closing from behind as the ball arrives.
+				var at := _loc(k) if DISPOSALS.has(str(ev.get("kind", ""))) else (tokens[cur]["pos"] as Vector2)
+				var from: Vector2 = tokens[a]["pos"]
+				MatchMotion.set_goal(tokens[a], at + (from - at).limit_length(2.5), 1.0)
+				_busy[a] = true
+			elif kind == "inside50":
+				var nk := _next_real(j)
+				if nk >= 0:
+					_contest(_loc(j), _actor_id(events[nk]), 0.95)
 	if str(ev.get("kind", "")) == "inside50":
 		var nk2 := _next_real(k)
 		if nk2 >= 0:
 			_contest(_loc(k), _actor_id(events[nk2]), 1.0)
+	_lead_receivers(k, cur)
+
+
+const LEAD_EVENTS := 10         # how far down the log a lead can be planned
+const LEAD_HORIZON := 7.0       # ...and how far ahead in presentation seconds
+const LEAD_SLACK := 0.8         # start a run this much before it is strictly needed
+
+## Send each named receiver toward his coming possession early enough to be
+## there when the ball arrives. Walks the log ahead, estimating when each
+## possession happens; a receiver starts his lead once the time left is about
+## what he needs to get there, and holds it until his possession starts. Only
+## receivers who need to go now move; everyone else keeps the team's shape.
+func _lead_receivers(k: int, cur: int) -> void:
+	for id in _lead.keys():
+		if int(_lead[id]) <= k:
+			_lead.erase(id)
+	var ev: Dictionary = events[k]
+	var prev_kind := str(ev.get("kind", ""))
+	var prev_loc: Vector2 = ball["pos"]
+	var t := 0.0
+	if _possession(prev_kind) or ["inside50", "ballup", "rebound"].has(prev_kind):
+		prev_loc = _loc(k)
+		t = _flight_shape("kick", (ball["pos"] as Vector2).distance_to(prev_loc)).x + 0.2
+	var j := k
+	var first := -1
+	var first_loc := Vector2.ZERO
+	for n in range(LEAD_EVENTS):
+		if t > LEAD_HORIZON:
+			break
+		j = _next_real(j)
+		if j < 0:
+			break
+		var nev: Dictionary = events[j]
+		var kind := str(nev.get("kind", ""))
+		if ["goal", "behind", "quarter", "final", "inside50"].has(kind):
+			break  # restarts and forward-50 contests stage their own players
+		if kind == "tackle":
+			t += 1.2
+			continue
+		if kind == "free":
+			t += 0.8
+			continue
+		if kind == "ballup":
+			var at := _loc(j)
+			t += _flight_shape("kick", prev_loc.distance_to(at)).x + 1.4
+			prev_loc = at
+			prev_kind = kind
+			continue
+		if not _possession(kind) and kind != "rebound":
+			t += 0.5
+			continue
+		var restart := _restart(j)
+		if restart == "centre" or restart == "kickin":
+			break
+		var loc := _loc(j)
+		var d := prev_loc.distance_to(loc)
+		t += _flight_shape("handball" if prev_kind == "handball" and d < 18.0 else "kick", d).x
+		var a := _actor_id(nev)
+		if a >= 0 and a != cur and not _busy.has(a) and int(_lead.get(a, j)) == j:
+			var tok: Dictionary = tokens[a]
+			# The next two receivers always lead (as before); further ones start
+			# once the time left is about what they need to get there.
+			if _lead.has(a) or n < 2 or MatchMotion.eta(tok, loc) + LEAD_SLACK >= t:
+				_lead[a] = j
+				# A lead is a run, never a stroll: from a stride-out up to a
+				# sprint when time is short.
+				var top := float(tok["top"])
+				var need := (tok["pos"] as Vector2).distance_to(loc) / maxf(0.3, t - float(tok["reaction"]))
+				var u := clampf((need / top - MatchMotion.JOG_SHARE) / (1.0 - MatchMotion.JOG_SHARE) + 0.35, 0.6, 1.0)
+				MatchMotion.set_goal(tok, loc, u)
+				_busy[a] = true
+				if n == 0:
+					first = a
+					first_loc = loc
+		t += 0.25  # hold, collect
+		prev_loc = loc
+		prev_kind = kind
+	# The next receiver's opponent follows him, unless that opponent is on a
+	# lead of his own (often the case just before a turnover).
+	if first >= 0:
+		_trail(first, first_loc, 0.85)
 
 
 ## The receiver's direct opponent follows him a step behind, goal-side.
 func _trail(a: int, goal: Vector2, urgency: float) -> void:
 	var o := int(tokens[a]["match"])
-	if o < 0 or _busy.has(o):
+	if o < 0 or _busy.has(o) or _lead.has(o):
 		return
 	var t: Dictionary = tokens[o]
 	var own := Vector2(-MatchMotion.GOAL_X * _dir(int(t["side"])), 0.0)
@@ -737,6 +804,7 @@ func _enter(p: Dictionary) -> void:
 			var layout: Dictionary = p["layout"]
 			for id in layout:
 				MatchMotion.set_goal(tokens[id], layout[id], 0.45, true)
+				tokens[id]["reset"] = SETUP_PACE
 				_busy[id] = true
 			_ball_carry(p["ball_to"])
 			_struct_ball = p["ball_to"]
@@ -850,17 +918,34 @@ func _enter(p: Dictionary) -> void:
 			ball["vel"] = Vector2(cos(ang2), sin(ang2)) * _rng.randf_range(6.0, 10.0)
 
 
+## Dead-ball repositioning during set-ups: players move this much faster than
+## in play (a real reset takes 20-40 s), and play resumes once all but
+## SETUP_STRAGGLERS are within SETUP_NEAR metres of their spots.
+const SETUP_PACE := 1.5
+const SETUP_NEAR := 5.0
+const SETUP_STRAGGLERS := 3
+
+
+func _end_reset_pace() -> void:
+	for t in tokens:
+		t["reset"] = 1.0
+
+
 func _done(p: Dictionary) -> bool:
 	match str(p["t"]):
 		"setup":
 			if _pt < float(p["min"]) or str(ball["mode"]) == "carry":
 				return false
-			if _pt >= float(p["max"]):
-				return true
 			var layout: Dictionary = p["layout"]
+			var off := 0
 			for id in layout:
-				if (tokens[id]["pos"] as Vector2).distance_to(layout[id]) > 3.0:
-					return false
+				if (tokens[id]["pos"] as Vector2).distance_to(layout[id]) > SETUP_NEAR:
+					off += 1
+			# Set when all but a couple are in place; the cap stops one
+			# straggler holding up the game.
+			if off > SETUP_STRAGGLERS and _pt < float(p["max"]):
+				return false
+			_end_reset_pace()
 			return true
 		"pack":
 			if _pt < float(p["min"]):
@@ -1144,6 +1229,8 @@ func flush() -> Array:
 	_beat = {}
 	_phases = []
 	_busy = {}
+	_lead = {}
+	_end_reset_pace()
 	var last := Vector2.ZERO
 	for i in range(events.size() - 1, -1, -1):
 		var ev2: Dictionary = events[i]

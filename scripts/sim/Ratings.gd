@@ -11,10 +11,10 @@ extends RefCounted
 ## tools/sim_harness.py (dict `T`).
 const T := {
 	"chains_per_game": 165,          # possession chains across BOTH teams
-	"max_touches_per_chain": 11,
+	"max_touches_per_chain": 14,
 	"forward50_line": 35.0,          # metres from the centre square
 	"goal_line": 85.0,
-	"metres_gain_mean": 8.0,         # base metres per effective disposal
+	"metres_gain_mean": 8.8,         # base metres per effective disposal
 	"tackle_retention": 0.44,        # attacking team wins the ball back
 	"pressure_base": 0.158,          # chance a touch is tackled
 	"clanger_per_chain": 0.68,      # chance the chain ends in an error
@@ -23,13 +23,13 @@ const T := {
 	"handball_share": 0.42,
 	"inside50_goal": 0.284,          # of inside-50 entries
 	"inside50_behind": 0.187,
-	"stoppage_share": 0.38,          # chains that begin at a genuine stoppage
+	"stoppage_share": 0.50,          # chains that begin at a genuine stoppage
 	"hitouts_per_stoppage": 0.81,    # split between the two rucks
 	"clearance_per_stoppage": 0.815,  # to the team that wins the stoppage
 	"one_percenter_share": 0.83,     # of inside-50 entries that yield a 1%
 	"rebound_on_exit": 0.55,         # defensive-half chains that yield a reb50
 	"shooter_power": 0.5,            # how strongly shots go to the best kicks
-	"rebound_from": -16.0,           # a carry from behind this line...
+	"rebound_from": -18.0,           # a carry from behind this line...
 	"rebound_to": -13.0,             # ...to beyond this one is a rebound 50
 	"shrink_games": 5.0,             # sample-size shrink for per-game rates
 	"shrink_accuracy": 14.0,         # sample-size shrink for goal conversion
@@ -77,13 +77,21 @@ static func effective_games(p: Dictionary) -> float:
 		return 14.0
 	return maxf(1.0, float(p.get("gm", 0.0)))
 
-## Overall-rating weights per role:
-## [disposal, pressure, goalkicking, intercept, contested-or-ruck]
+## Overall-rating core per role: the attributes the match engine rewards a
+## player in that role for (Squad._aggregate and the MatchSim rolls),
+## weighted roughly by what each is worth to a result - measured by lifting
+## one attribute across a role and replaying the match (docs/DESIGN.md,
+## "Overall & salary"). Each role's weights add to 1.0.
+## A mid wins the stoppage and keeps the ball when tackled (contested), then
+## moves it (disposal, carry); a defender tackles (pressure) and wins the
+## ball back inside 50 (intercept); a forward kicks goals and marks inside
+## 50; a ruck wins the tap. What the engine never uses for a role - a
+## defender's disposal, a ruck's intercept - is left out.
 const ROLE_WEIGHTS := {
-	"RUCK": [0.30, 0.10, 0.10, 0.20, 0.30],
-	"FWD": [0.30, 0.08, 0.42, 0.08, 0.12],
-	"MID": [0.44, 0.18, 0.14, 0.06, 0.18],
-	"DEF": [0.26, 0.30, 0.06, 0.28, 0.10],
+	"RUCK": {"ruck": 0.90, "contested": 0.10},
+	"FWD": {"goalkicking": 0.35, "marking": 0.30, "carry": 0.15, "accuracy": 0.15, "creating": 0.05},
+	"MID": {"contested": 0.60, "disposal": 0.15, "carry": 0.15, "goalkicking": 0.05, "accuracy": 0.05},
+	"DEF": {"intercept": 0.40, "pressure": 0.35, "carry": 0.15, "contested": 0.10},
 }
 
 
@@ -287,16 +295,16 @@ static func pick_role(scores: Dictionary) -> String:
 	return best
 
 
-## Raw blend, confidence shrink, then a stretch so the best 2026 players land
-## near 90. Monotonic: Brownlow order is preserved. Must match
+## Raw blend (role core, star power, durability), the position scale, a
+## confidence shrink, then a stretch so the best 2026 players land near 90.
+## Must match
 ## tools/sim_harness.py (the shrink lives in derive_ratings; the stretch is
 ## scale_overall).
 static func rate_overall(a: Dictionary, role: String, games: float) -> int:
-	var w: Array = ROLE_WEIGHTS.get(role, ROLE_WEIGHTS["MID"])
-	var fifth: float = float(a["ruck"]) if role == "RUCK" else float(a["contested"])
-	var core: float = (float(w[0]) * float(a["disposal"]) + float(w[1]) * float(a["pressure"])
-			+ float(w[2]) * float(a["goalkicking"]) + float(w[3]) * float(a["intercept"])
-			+ float(w[4]) * fifth)
+	var w: Dictionary = ROLE_WEIGHTS.get(role, ROLE_WEIGHTS["MID"])
+	var core := 0.0
+	for key in w:
+		core += float(w[key]) * float(a[key])
 	var overall: float = 0.70 * core + 0.22 * float(a["star"]) + 0.08 * float(a["durability"])
 	overall = position_stretch(overall, role)
 	var conf: float = minf(1.0, games / 14.0)
@@ -304,40 +312,44 @@ static func rate_overall(a: Dictionary, role: String, games: float) -> int:
 	return scale_overall(overall)
 
 
-## Key position concession. The stats a rating is built from (disposals,
-## Brownlow votes) are midfield stats, so defenders, forwards and rucks
-## bunch up well below the elite midfielders: in 2026 the best key defender
-## rated 72 against a 92 midfielder, with the medians level. Each position's
-## raw blend is re-anchored so its median sits on the midfield median and its
-## 98th percentile on 85% of the way to the midfield one: the elite of every
-## position reaches the high 80s. Beyond the 98th percentile the stretch
-## goes one for one, so a single outlier is not blown out. Monotonic within a position, so team
-## selection and the match engine (which rolls attributes) are unchanged.
+## Position scale. Each position's raw blend is mapped onto one shared
+## scale at three points - its 10th, 50th and 98th percentiles - piecewise
+## linearly, so every position's spread lands where the 2026 scale put it:
+## medians level with the midfield median, and the elite of every position
+## in the high 80s (the other positions' 98th percentile sits 85% of the way
+## to the midfield one, the key position concession). Outside the 10th-98th
+## band the map goes one for one, so an outlier is neither amplified nor
+## squashed. Monotonic within a position.
 ## Anchors are the 2026 raw blends of players with 12+ games; they are fixed
 ## so generated prospects and later seasons use the same scale.
-## Must match tools/sim_harness.py::position_stretch.
-const STRETCH_TARGET := [49.36, 73.74]   # midfield p50, p50 + 0.85 * (p98 - p50)
-const STRETCH_ANCHORS := {                # [p50, p98] of each position
-	"DEF": [45.60, 56.07],
-	"FWD": [47.70, 59.96],
-	"RUCK": [48.04, 69.46],
+## Must match tools/sim_harness.py::position_stretch (and intake_harness.py).
+const STRETCH_ANCHORS := {                # [p10, p50, p98] raw blend
+	"MID": [39.66, 51.48, 83.84],
+	"DEF": [40.37, 47.88, 58.90],
+	"FWD": [39.24, 53.72, 68.00],
+	"RUCK": [39.13, 66.27, 86.90],
+}
+const STRETCH_TARGETS := {                # where they land
+	"MID": [37.74, 49.36, 78.04],
+	"DEF": [43.07, 49.41, 73.72],
+	"FWD": [38.38, 49.48, 73.42],
+	"RUCK": [37.50, 49.36, 73.56],
 }
 
 
 static func position_stretch(raw: float, role: String) -> float:
 	if not STRETCH_ANCHORS.has(role):
 		return raw
-	var anchor: Array = STRETCH_ANCHORS[role]
-	var g50 := float(anchor[0])
-	var g98 := float(anchor[1])
-	var m50 := float(STRETCH_TARGET[0])
-	var t98 := float(STRETCH_TARGET[1])
-	if raw <= g50:
-		return raw + (m50 - g50)
-	if raw <= g98:
-		return m50 + (raw - g50) * (t98 - m50) / (g98 - g50)
+	var g: Array = STRETCH_ANCHORS[role]
+	var t: Array = STRETCH_TARGETS[role]
+	if raw <= float(g[0]):
+		return raw + (float(t[0]) - float(g[0]))
+	if raw <= float(g[1]):
+		return float(t[0]) + (raw - float(g[0])) * (float(t[1]) - float(t[0])) / (float(g[1]) - float(g[0]))
+	if raw <= float(g[2]):
+		return float(t[1]) + (raw - float(g[1])) * (float(t[2]) - float(t[1])) / (float(g[2]) - float(g[1]))
 	# Past the 98th percentile, one for one: an outlier is not amplified.
-	return t98 + (raw - g98)
+	return float(t[2]) + (raw - float(g[2]))
 
 
 static func scale_overall(raw: float) -> int:

@@ -7,7 +7,7 @@ extends Control
 const FEED_LIMIT := 60
 const SPEEDS := [1.0, 2.0, 4.0, 8.0]
 ## Routine disposals drive the animation but would drown the commentary.
-const QUIET_KINDS := ["kick", "handball", "sub"]
+const QUIET_KINDS := ["kick", "handball", "sub", "ballup"]
 
 var _res := {}
 var _pitch: PitchView
@@ -181,6 +181,10 @@ func _paint_momentum() -> void:
 
 
 func _track_momentum(ev: Dictionary) -> void:
+	# A ball-up is staging for the oval, not a play: it must not age the meter
+	# (the log carries ~57 a match).
+	if str(ev.get("kind", "")) == "ballup":
+		return
 	var side := int(ev.get("side", -1))
 	var sign := 1.0 if side == 0 else -1.0
 	_momentum *= 0.985
@@ -1101,6 +1105,9 @@ func _show_fulltime() -> void:
 			and str(report.get("away", "")) == str(_res.get("away", "")):
 		v.add_child(UiKit.lbl("%d players gained %d XP." % [
 				int(report["count"]), int(report["total"])], 14, UiKit.TEXT, true))
+		var reserves := GameState.reserves_summary_line()
+		if reserves != "":
+			v.add_child(UiKit.lbl(reserves, 13, UiKit.MUTED))
 		var spent := GameState.training_summary_line()
 		if spent != "":
 			v.add_child(UiKit.lbl(spent + " Adjust plans in Training.", 13, UiKit.GOOD))

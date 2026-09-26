@@ -110,9 +110,42 @@ func simulate(home_code: String, away_code: String, match_seed: int,
 			lists[home_code], bool(at_home[0]), home_code, selections.get(home_code, {}))
 	var away := Squad.new(GameDB_ref().club_name(away_code),
 			lists[away_code], bool(at_home[1]), away_code, selections.get(away_code, {}))
+	home.form = club_form(home_code)
+	away.form = club_form(away_code)
 	var sim := MatchSim.new(home, away, match_seed)
 	sim.finals_mode = is_final
 	return sim.run()
+
+
+## A club's results this season, oldest first: "W", "L" or "D" for every
+## home-and-away match and final it has played. Finals decided on ladder
+## position after a level score count as a draw.
+func club_results(code: String) -> Array:
+	var out := []
+	var rounds: Array = results.duplicate()
+	rounds.append_array(finals.get("weeks", []))
+	for rnd in rounds:
+		for res in rnd:
+			var side := -1
+			if str(res.get("home", "")) == code:
+				side = 0
+			elif str(res.get("away", "")) == code:
+				side = 1
+			if side < 0:
+				continue
+			var s: Array = res["score"]
+			if int(s[side]) > int(s[1 - side]):
+				out.append("W")
+			elif int(s[side]) < int(s[1 - side]):
+				out.append("L")
+			else:
+				out.append("D")
+	return out
+
+
+## Team form, -1..1, going into the club's next match (ClubLife.team_form).
+func club_form(code: String) -> float:
+	return ClubLife.team_form(club_results(code))
 
 
 ## GameDB is an autoload; reaching it from a RefCounted needs the scene tree.

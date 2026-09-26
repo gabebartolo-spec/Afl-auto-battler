@@ -30,6 +30,10 @@ static func make_token(pos: Vector2, top: float, reaction: float) -> Dictionary:
 		"pos": pos, "vel": Vector2.ZERO, "goal": pos, "pending": pos,
 		"react_left": 0.0, "reaction": reaction, "top": top,
 		"urgency": 0.0, "pending_urgency": 0.0, "down": 0.0, "air": 0.0,
+		# Dead-ball repositioning pace (set-ups only): scales speed and
+		# acceleration so a reset that takes half a minute in a real game
+		# fits a few seconds. 1.0 in play.
+		"reset": 1.0,
 	}
 
 
@@ -75,15 +79,17 @@ static func step(t: Dictionary, dt: float) -> void:
 	else:
 		var to: Vector2 = (t["goal"] as Vector2) - pos
 		var d := to.length()
-		var top: float = float(t["top"]) * lerpf(JOG_SHARE, 1.0, clampf(float(t["urgency"]), 0.0, 1.0))
+		var top: float = float(t["top"]) * float(t.get("reset", 1.0)) \
+				* lerpf(JOG_SHARE, 1.0, clampf(float(t["urgency"]), 0.0, 1.0))
 		if d > ARRIVE_STOP:
 			# Arrive: the fastest speed from which the token can still stop
 			# at the goal, so it eases in instead of overshooting.
-			var speed := minf(top, sqrt(2.0 * BRAKE * 0.55 * maxf(0.0, d - ARRIVE_STOP * 0.5)))
+			var speed := minf(top, sqrt(2.0 * BRAKE * float(t.get("reset", 1.0)) * 0.55
+					* maxf(0.0, d - ARRIVE_STOP * 0.5)))
 			desired = to / d * speed
 	var dv := desired - vel
 	var limit := (ACCEL if desired.length_squared() > vel.length_squared()
-			and dv.dot(vel) >= 0.0 else BRAKE) * dt
+			and dv.dot(vel) >= 0.0 else BRAKE) * float(t.get("reset", 1.0)) * dt
 	vel += dv.limit_length(limit)
 	pos += vel * dt
 	var clamped := clamp_to_oval(pos, 1.0)

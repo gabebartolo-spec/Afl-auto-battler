@@ -98,7 +98,7 @@ func _test_left_out_player_sits_out() -> void:
 	var res: Dictionary = GameState.last_match
 	_check(not (res.get("players", {}) as Dictionary).has(star),
 			"A player you leave out records no stats")
-	_check(GameState.last_duty(star) == "Not selected", "His XP report says not selected")
+	_check(GameState.last_duty(star) == "Reserves", "Left out fit, his XP report says reserves")
 
 
 func _test_selection_saved() -> void:

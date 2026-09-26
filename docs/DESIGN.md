@@ -116,18 +116,58 @@ treat either role as cover. Position totals stay primary-only, so they still
 sum to the list size.
 
 ### Overall & salary
-`overall` blends role-weighted attributes with `star` (Brownlow signal) and
-`durability`, then shrinks toward 40 for low-game players. That raw blend tops
-out around 80, because it is an average of attributes that rarely all peak
-together. `scale_overall` stretches it so the best 2026 players land near 90
-(Bontempelli 92, Nick Daicos and Heeney 91, Bailey Smith 90) while the middle
-of the pool stays in the 50s. The stretch is monotonic, so Brownlow order holds.
-`value` (1–10) is the draft salary-cap cost, banded off the stretched overall.
-No new player-data source is involved.
+`overall` = 0.70 × role core + 0.22 × `star` (Brownlow signal) + 0.08 ×
+`durability`, put on one position scale, shrunk toward 40 for low-game
+players, then stretched (`scale_overall`) so the best 2026 players land near
+90 while the middle of the pool stays in the 50s. `value` (1–10) is the draft
+salary-cap cost, banded off the overall.
 
-**Validation.** The derived top-10 reproduces the actual 2026 Brownlow order for
-the harvested clubs — Daicos (47 votes) → Bailey Smith (36) → Cripps (27) →
-Rankine (25) → Dawson → Ashcroft (27) → Neale → Serong → Walsh → Jackson.
+**Role core** (`Ratings.ROLE_WEIGHTS`) is what the match engine rewards a
+player in that role for, not what a stats sheet does:
+
+| Role | Core |
+|---|---|
+| MID | contested 0.60, disposal 0.15, carry 0.15, goalkicking 0.05, accuracy 0.05 |
+| DEF | intercept 0.40, pressure 0.35, carry 0.15, contested 0.10 |
+| FWD | goalkicking 0.35, marking 0.30, carry 0.15, accuracy 0.15, creating 0.05 |
+| RUCK | ruck 0.90, contested 0.10 |
+
+The weights come from measuring the engine: one attribute lifted by 20 for
+every player in a role on one side of a GEE v GEE mirror match (neutral
+venue, 1,000-4,000 matches each), and the change in margin recorded:
+
+| Role | +20 is worth (points of margin) | Worth ~0 |
+|---|---|---|
+| MID (5) | contested +12.2 (stoppage win and holding the ball in a tackle), carry +2.4, disposal +1.9, shooting ~+1.5 | pressure, intercept, marking |
+| DEF (6) | intercept +6.3, pressure +5.6, carry +2.1, contested +1.6 | disposal, marking, goalkicking |
+| FWD (6) | goalkicking +3.6, marking +2.8, carry +2.1, accuracy ~+2 | disposal, pressure, creating (+0.1) |
+| RUCK (1) | ruck +3.9 | everything else (intercept and pressure change nothing at all) |
+
+The old core gave a ruck 30% disposal and 20% intercept, a defender 26%
+disposal and a forward 30% disposal - none of which the engine uses for
+those roles - so drafting and selecting on OVR chased the wrong players.
+
+**Position scale** (`Ratings.position_stretch`). Each position's raw blend is
+mapped piecewise-linearly at its 10th, 50th and 98th percentiles (2026, 12+
+games) onto fixed targets - the positions' spreads as they were - and one for
+one outside that band. Medians stay level with the midfield median, the
+elite of every position reaches the high 80s (the non-midfield 98th
+percentile sits 85% of the way to the midfield one), and the low tail stays
+clear of the retirement floor.
+
+**Saves.** OVR is derived data. `GameState._recompute_ratings()` rebuilds
+every player's `overall` and `value` from his attributes on load, and moves
+his POT and season-start mark by the same amount, so a save from an older
+formula never keeps stale ratings. `data/player_history_2026.csv` (the past
+seasons POT reads) is rebuilt with `python3 tools/build_history.py --offline`
+whenever the formula changes.
+
+**Validation.** On the same selected 22s, the new rating predicts season wins
+better than the old in every league tested (drafted leagues, AI clubs:
+r 0.35 → 0.46; real 2026 lists: r(OVR, `Squad.strength`) 0.80 → 0.87), and
+the "a 3+ OVR favourite wins 47%" drafted-league anomaly is gone (55%).
+Spearman of OVR with 2026 Brownlow votes (5+ votes) rises from 0.46 to 0.51;
+Daicos (47 votes) rates highest.
 
 ### Prospect projections (no AFL stats)
 
@@ -167,6 +207,17 @@ A match is a sequence of **possession chains**, not a tick-based clock.
 Field position is metres from the centre square (`-85 .. +85`), forward-50 arc at
 `±35`. Each side fields **18** in a 6-6-6 shape (6 DEF, 6 MID — the ruck counted
 with midfield — and 6 FWD) plus 4 interchanges.
+
+Restarts: a goal or a quarter break -> centre bounce. A behind -> the other
+side kicks in from its goal square (fp 4.5 m inside its goal line, first
+disposal a kick), uncontested: no ruck contest, hit-out or clearance. Any
+other stoppage is balled up where play stopped, and MatchSim logs a `ballup`
+event there. A chain that starts inside its forward 50 goes through the
+normal inside-50 entry on its first disposal. Re-calibrated for this with
+existing constants only: `stoppage_share` 0.50 (was 0.38: the behind restarts
+no longer supply ruck contests), `metres_gain_mean` 8.8 (8.0),
+`max_touches_per_chain` 14 (11) and `rebound_from` -18 (-16), since kick-in
+chains start 80 m from goal.
 
 Stoppage win probability is a strength differential divided by `contest_swing`
 (360) and clamped to `[0.40, 0.60]`, plus a small home-ground bonus and a
@@ -241,6 +292,22 @@ Skip to full time, by reconstructing half-time from the Q2 snapshot.
   top 10 advance; week 1 is WC1 7v10 and WC2 8v9; the winners reseed by
   original ladder position into the 7th and 8th seeds and meet 5th and 6th in
   the elimination finals while 1-4 play the qualifying finals; then SF → PF → GF.
+* **Team form** — each club's form (-1..1) is derived from its results this
+  season (`Season.club_results`, so it is never saved separately and resets
+  at every rollover): the last five, weighted 0.30 / 0.25 / 0.20 / 0.15 / 0.10
+  from the most recent (`ClubLife.FORM_WEIGHTS`), win +1, loss -1, draw 0.
+  Five straight wins is the cap; one loss after it is +0.40, two -0.10.
+  `Season.simulate` and the interactive match set `Squad.form`, and MatchSim
+  uses it in exactly two places: the clanger rate (x `1 - 0.05 f`,
+  `FORM_COMPOSURE`) and the stoppage-win chance (`+0.010 (f0 - f1)`,
+  `FORM_CONTEST`; the home-ground edge is 0.030). Neither draws from the RNG,
+  and form 0 leaves the engine exactly as it was, so calibration (which never
+  sets form) and the Python harness (which has no form) are unchanged. The
+  coach report credits it as "team form". Mirror matches (2,000 each): Hot v
+  Steady wins 52.5% (neutral 49.4%), Cold v Steady 46.6%, Hot v Cold 57.4%;
+  the home ground alone is 60.5%. Over 32 paired seasons (16 real-list, 16
+  drafted) it widened the season-wins SD by 0.19 (3.52 to 3.71) with no rise
+  in premiership concentration or long streaks.
 * **Expansion** — clubs carry an `enter` year in `data/clubs.csv`; every
   fixture, ladder, draft, selection and finals path iterates
   `GameDB.active_clubs(year)` rather than the all-time club list, so a new club
@@ -251,11 +318,38 @@ Skip to full time, by reconstructing half-time from the Q2 snapshot.
   match-day shape (full back through full forward) with the four interchange
   players in a bay underneath. Tap a guernsey for the rating.
 * **Training** — after every game, every player on your list gains XP. Named
-  players and strong games earn more; unused players still get a squad share.
-  The training menu lists the whole squad. Spend a player's own XP on any of
-  the 13 attributes. Cost rises with the current stat and with career games.
-  The old post-match screen only rolled five random names, which is why it
-  looked empty.
+  players and strong games earn more (a full senior game is 37 XP: squad 4 +
+  selected 6 + on the ground 3 + performance up to 24, and most senior
+  players hit the cap). A fit player left out of the 22 plays in the
+  reserves in the background and earns `RESERVES_XP_SHARE` (0.5) of a full
+  senior game, 19 XP. There is no reserves match, fixture, stats or
+  selection. Injured and rested/suspended players (`Ratings.available`) get
+  only the squad share of 4. Every club is paid on the same scale; your
+  club's figures are scaled by the difficulty's XP multiplier.
+  **Plans** (`GameState.TRAIN_PLANS`) spend that XP after every game, and
+  each is a kind of footballer, not a stat recipe:
+  - *Position plan* (default; rival clubs use it too) trains the role core
+    OVR is built from, `Ratings.ROLE_WEIGHTS`.
+  - Archetypes, offered only to players of that role (or second role):
+    Inside midfielder (contested, disposal), Outside runner (carry,
+    disposal, creating), Key defender (intercept, pressure), Rebounding
+    defender (carry, intercept), Key forward (marking, goalkicking,
+    accuracy), Small forward (goalkicking, accuracy, carry, creating - never
+    marking, so he can stay a Crumber).
+  - *Manual* pauses development: XP banks until spent by hand.
+  Every plan attribute must be in the role's core or behind a trait the
+  role can earn (`GameState.stat_useful_for_role`; tested). The old Star
+  power plan, the single-stat focuses and the Ruck plan are gone (saves
+  fall back to Position plan), as is the club-wide plan picker (a club plan
+  could train forwards' skills into defenders). A point costs
+  `TRAIN_COST_SCALE` (1.25) × the base price, so now that no XP is wasted a
+  season's development stays where it was.
+  The Training list shows each player's OVR, focus and development state
+  ("Plenty of room", "Developing", "Near his ceiling", "At his ceiling");
+  the player view leads with his development focus and what it means on the
+  field, with stats and hand training behind one button. After a game the
+  results say what training changed (OVR rises, traits unlocked, potential
+  reached), not how many stat points were bought.
 * **National draft (end of season)** — `GameState.begin_intake_draft()`.
   Father-son/NGA prospects (`tied_club` in the CSV) land at their clubs first;
   the open pool is then drafted over `ceil(pool/18)` snake rounds (max 4) in

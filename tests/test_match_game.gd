@@ -11,6 +11,7 @@ func run() -> void:
 	checks = 0
 	GameDB.reload()
 	_test_auto_sim_untouched()
+	_test_stoppage_location()
 	_test_legs_and_rotations()
 	_test_moments()
 	_test_set_shot()
@@ -41,6 +42,73 @@ func _test_auto_sim_untouched() -> void:
 	_check(r1["score"] == r2["score"] and r1["events"].size() == r2["events"].size(),
 			"A simulated match is still deterministic")
 	_check((r1["moments"] as Array).is_empty(), "Simulated matches never stop for moments")
+
+
+## Restarts: a goal or a quarter break -> centre bounce; a behind -> the
+## other side kicks in from its goal square, uncontested; any other stoppage
+## is balled up where play stopped, and logged there.
+func _test_stoppage_location() -> void:
+	var sim := _sim(42)
+	var evs: Array = sim.run()["events"]
+	var ballups := 0
+	var on_ground := true
+	var centre_ok := true
+	var last := ""
+	var last_fp := 0.0
+	for ev in evs:
+		var kind := str(ev["kind"])
+		if kind == "ballup":
+			ballups += 1
+			on_ground = on_ground and absf(float(ev["fp"])) <= 85.0
+		elif ["handball", "kick", "mark"].has(kind) and float(ev["fp"]) == 0.0 \
+				and last_fp != 0.0:
+			# The ball came back to the centre: only a goal or a break does that.
+			centre_ok = centre_ok and ["", "goal", "quarter"].has(last)
+		if not ["sub", "moment", "clanger", "free"].has(kind):
+			last = kind
+			last_fp = 0.0 if ["goal", "quarter"].has(kind) else float(ev["fp"])
+	_check(ballups > 20, "Around-the-ground ball-ups are logged (%d)" % ballups)
+	_check(on_ground, "Every ball-up is on the ground")
+	_check(centre_ok, "A centre bounce only follows a goal or a quarter break")
+	# Every behind is followed by a kick-in: the other side, from its goal
+	# square, with a kick (never a ball-up or a handball).
+	var behinds := 0
+	var kick_ins_ok := true
+	for i in range(evs.size()):
+		var ev: Dictionary = evs[i]
+		if str(ev["kind"]) != "behind":
+			continue
+		var j := i + 1
+		while j < evs.size() and ["sub", "moment", "clanger", "free"].has(str(evs[j]["kind"])):
+			j += 1
+		if j >= evs.size() or ["quarter", "final"].has(str(evs[j]["kind"])):
+			continue
+		behinds += 1
+		var nx: Dictionary = evs[j]
+		kick_ins_ok = kick_ins_ok and ["kick", "mark"].has(str(nx["kind"])) \
+				and int(nx["side"]) == 1 - int(ev["side"]) \
+				and is_equal_approx(float(nx["fp"]), sim.kick_in_fp(int(ev["side"])))
+	_check(behinds > 5 and kick_ins_ok, "Every behind is followed by a kick-in from the goal square (%d)" % behinds)
+	# A kick-in has no ruck contest: no hit-out, no clearance, no ball-up. Five
+	# seeds, so a stoppage roll sneaking back in (half of chains) shows up.
+	var uncontested := true
+	for seed in [7, 8, 9, 10, 11]:
+		var k := _sim(seed)
+		k.fp = k.kick_in_fp(0)
+		k.kick_in = true
+		k.next_side = 1
+		k.at_centre = false
+		var before := [(k.team_stats[0] as Dictionary).duplicate(), (k.team_stats[1] as Dictionary).duplicate()]
+		var n := k.events.size()
+		k._play_one_chain(Ratings.T)
+		for side in range(2):
+			for key in ["hitouts", "clearances"]:
+				uncontested = uncontested and int((k.team_stats[side] as Dictionary).get(key, 0)) \
+						== int((before[side] as Dictionary).get(key, 0))
+		var first: Dictionary = k.events[n] if k.events.size() > n else {}
+		uncontested = uncontested and ["kick", "mark"].has(str(first.get("kind", ""))) \
+				and int(first.get("side", -1)) == 1
+	_check(uncontested, "A kick-in is uncontested: the defending side kicks, no hit-out or clearance")
 
 
 func _test_legs_and_rotations() -> void:
@@ -169,12 +237,30 @@ func _test_live_determinism() -> void:
 
 
 func _test_impact_and_ai() -> void:
-	var sim := _sim(900)
-	sim.set_tactics(0, {"gameplan": "attacking"})
-	var res := sim.run()
-	var imp: Array = res["impact"]
-	_check(absf(float((imp[0] as Dictionary).get("gameplan", 0.0))) > 0.5,
-			"A gameplan's effect is measured in expected points")
+	# The impact ledger must credit a gameplan with the expected points it is
+	# worth, to the side that runs it, and nothing when nobody runs one. Checked
+	# per match over five seeds. "Controlled" is used for the size check
+	# because every effect it credits helps the side running it (fewer
+	# turnovers, fewer clangers, a slightly better shot), so its credit has a
+	# known sign in every match. "Attacking" trades a better shot for more
+	# clangers and a more exposed defence, so its net swings either way and
+	# says nothing about whether the ledger works.
+	var zero_ok := true
+	var credited_ok := true
+	var owner_ok := true
+	var imp: Array = []
+	for seed in [900, 901, 902, 903, 904]:
+		var even := _sim(seed).run()["impact"] as Array
+		for side in range(2):
+			zero_ok = zero_ok and float((even[side] as Dictionary).get("gameplan", 0.0)) == 0.0
+		var sim := _sim(seed)
+		sim.set_tactics(0, {"gameplan": "controlled"})
+		imp = sim.run()["impact"]
+		credited_ok = credited_ok and float((imp[0] as Dictionary).get("gameplan", 0.0)) > 0.5
+		owner_ok = owner_ok and float((imp[1] as Dictionary).get("gameplan", 0.0)) == 0.0
+	_check(zero_ok, "No gameplan, no gameplan points (balanced v balanced, every match)")
+	_check(credited_ok, "A gameplan's effect is measured in expected points (every match)")
+	_check(owner_ok, "Gameplan points go to the side that runs the plan")
 	var lines := CoachReport.impact_lines(imp, [{}, {}], 0)
 	_check(not lines.is_empty() and str(lines[0]["label"]).begins_with("Your")
 			or str(lines[0]["label"]).begins_with("Their"), "The readout names what the points came from")

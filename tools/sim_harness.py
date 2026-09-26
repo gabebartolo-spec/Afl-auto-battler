@@ -33,10 +33,10 @@ PLAYERS_CSV = os.path.join(ROOT, "data", "players_2026.csv")
 # ---------------------------------------------------------------------------
 T = {
     "chains_per_game": 165,          # possession chains across BOTH teams
-    "max_touches_per_chain": 11,
+    "max_touches_per_chain": 14,
     "forward50_line": 35.0,          # metres from the centre square
     "goal_line": 85.0,
-    "metres_gain_mean": 8.0,         # base metres per effective disposal
+    "metres_gain_mean": 8.8,         # base metres per effective disposal
     "tackle_retention": 0.44,        # attacking team wins the ball back
     "pressure_base": 0.158,          # chance a touch is tackled
     "clanger_per_chain": 0.68,       # chance the chain ends in an error
@@ -45,13 +45,13 @@ T = {
     "handball_share": 0.42,
     "inside50_goal": 0.284,           # of inside-50 entries
     "inside50_behind": 0.187,
-    "stoppage_share": 0.38,          # chains that begin at a genuine stoppage
+    "stoppage_share": 0.50,          # chains that begin at a genuine stoppage
     "hitouts_per_stoppage": 0.81,    # split between the two rucks
     "clearance_per_stoppage": 0.815,  # to the team that wins the stoppage
     "one_percenter_share": 0.83,     # of inside-50 entries that yield a 1%
     "rebound_on_exit": 0.55,         # defensive-half chains that yield a reb50
     "shooter_power": 0.5,            # how strongly shots go to the best kicks
-    "rebound_from": -16.0,           # a carry from behind this line...
+    "rebound_from": -18.0,           # a carry from behind this line...
     "rebound_to": -13.0,             # ...to beyond this one is a rebound 50
     "shrink_games": 5.0,             # sample-size shrink for per-game rates
     "shrink_accuracy": 14.0,         # sample-size shrink for goal conversion
@@ -271,13 +271,7 @@ def derive_ratings(players):
         p["role2"] = assign_secondary(p)
 
         # ---- overall + salary value --------------------------------------
-        w = {"RUCK": (0.30, 0.10, 0.10, 0.20, 0.30),
-             "FWD": (0.30, 0.08, 0.42, 0.08, 0.12),
-             "MID": (0.44, 0.18, 0.14, 0.06, 0.18),
-             "DEF": (0.26, 0.30, 0.06, 0.28, 0.10)}[p["role"]]
-        core = (w[0] * a["disposal"] + w[1] * a["pressure"] + w[2] * a["goalkicking"]
-                + w[3] * a["intercept"] + w[4] * (a["ruck"] if p["role"] == "RUCK"
-                                                  else a["contested"]))
+        core = role_core(a, p["role"])
         overall = 0.70 * core + 0.22 * a["star"] + 0.08 * a["durability"]
         overall = position_stretch(overall, p["role"])
         conf = min(1.0, p["gm"] / 14.0)
@@ -288,21 +282,38 @@ def derive_ratings(players):
     return players
 
 
-# Key position concession - see Ratings.gd::position_stretch.
-STRETCH_TARGET = (49.36, 73.74)
-STRETCH_ANCHORS = {"DEF": (45.60, 56.07), "FWD": (47.70, 59.96), "RUCK": (48.04, 69.46)}
+ROLE_WEIGHTS = {  # role core: attribute -> weight (Ratings.gd::ROLE_WEIGHTS)
+    "RUCK": {"ruck": 0.90, "contested": 0.10},
+    "FWD": {"goalkicking": 0.35, "marking": 0.30, "carry": 0.15, "accuracy": 0.15, "creating": 0.05},
+    "MID": {"contested": 0.60, "disposal": 0.15, "carry": 0.15, "goalkicking": 0.05, "accuracy": 0.05},
+    "DEF": {"intercept": 0.40, "pressure": 0.35, "carry": 0.15, "contested": 0.10},
+}
+
+
+# Position scale - see Ratings.gd::position_stretch. [p10, p50, p98] of each
+# position's raw blend -> where it lands; one for one outside that band.
+STRETCH_ANCHORS = {"MID": (39.66, 51.48, 83.84), "DEF": (40.37, 47.88, 58.90),
+                   "FWD": (39.24, 53.72, 68.00), "RUCK": (39.13, 66.27, 86.90)}
+STRETCH_TARGETS = {"MID": (37.74, 49.36, 78.04), "DEF": (43.07, 49.41, 73.72),
+                   "FWD": (38.38, 49.48, 73.42), "RUCK": (37.50, 49.36, 73.56)}
 
 
 def position_stretch(raw, role):
     if role not in STRETCH_ANCHORS:
         return raw
-    g50, g98 = STRETCH_ANCHORS[role]
-    m50, t98 = STRETCH_TARGET
+    g10, g50, g98 = STRETCH_ANCHORS[role]
+    t10, t50, t98 = STRETCH_TARGETS[role]
+    if raw <= g10:
+        return raw + (t10 - g10)
     if raw <= g50:
-        return raw + (m50 - g50)
+        return t10 + (raw - g10) * (t50 - t10) / (g50 - g10)
     if raw <= g98:
-        return m50 + (raw - g50) * (t98 - m50) / (g98 - g50)
+        return t50 + (raw - g50) * (t98 - t50) / (g98 - g50)
     return t98 + (raw - g98)
+
+
+def role_core(attr, role):
+    return sum(w * attr[k] for k, w in ROLE_WEIGHTS[role].items())
 
 
 def scale_overall(raw):
@@ -550,7 +561,7 @@ class MatchSim:
                                  "contested")
             st.p(mid, "clearances")
 
-    def play_chain(self, side, fp, minute, quarter, from_bounce):
+    def play_chain(self, side, fp, minute, quarter, from_bounce, from_kick_in=False):
         st = self.stats
         opp = 1 - side
         atk, dfn = self.squads[side], self.squads[opp]
@@ -558,9 +569,9 @@ class MatchSim:
         self._stoppage(side, opp, from_bounce)
 
         atk_fp = fp if side == 0 else -fp
-        touched_i50 = atk_fp >= T["forward50_line"]
-        if touched_i50:
-            st.t(side, "inside50")
+        # A chain that starts inside its forward 50 (a ball-up won there) goes
+        # through the normal entry below on its first disposal, so it can score.
+        touched_i50 = False
 
         touches = 0
         while touches < T["max_touches_per_chain"]:
@@ -570,7 +581,9 @@ class MatchSim:
             st.p(carrier, "disposals")
 
             hb_bias = 0.85 + 0.30 * (100 - carrier["attr"]["marking"]) / 100.0
-            if self.rng.random() < T["handball_share"] * hb_bias:
+            # A kick-in is kicked: no handball roll for its first disposal.
+            if not (from_kick_in and touches == 1) and \
+                    self.rng.random() < T["handball_share"] * hb_bias:
                 st.t(side, "handballs")
                 st.p(carrier, "handballs")
             else:
@@ -595,7 +608,8 @@ class MatchSim:
                 retain = T["tackle_retention"] * (
                     0.75 + 0.50 * carrier["attr"]["contested"] / 100.0)
                 if self.rng.random() < retain:
-                    fp += self.rng.uniform(4, 12) * (1 if side == 0 else -1)
+                    fp = max(-T["goal_line"], min(T["goal_line"],
+                             fp + self.rng.uniform(4, 12) * (1 if side == 0 else -1)))
                     continue
                 self.log(minute, quarter, "%s tackles %s — ball up"
                          % (tackler["name"], carrier["name"]), opp, "tackle")
@@ -676,7 +690,7 @@ class MatchSim:
             st.p(shooter, "behinds")
             self.log(minute, quarter, "Behind %s (%s)" % (
                 shooter["name"], self.squads[side].name), side, "behind")
-            return ("score", 0.0, shooter, True)
+            return ("behind", kick_in_fp(side), shooter, True)
 
         st.t(opp, "rebounds")
         st.p(defender, "rebounds")
@@ -689,20 +703,31 @@ class MatchSim:
         Drive the match as a sequence of possession chains.
 
         A chain either starts at a genuine stoppage (centre bounce / ball-up,
-        which is where hit-outs and clearances come from) or continues from
-        where the previous chain died — a turnover hands the ball to the other
+        which is where hit-outs and clearances come from: a centre bounce
+        after a score or at a quarter start, otherwise a ball-up where play
+        stopped) or continues from where the previous chain died — a turnover hands the ball to the other
         team on the spot, a score restarts at the centre.
         """
         per_quarter = T["chains_per_game"] // 4
         fp = 0.0
         next_side = None              # None => the stoppage is contested
         at_centre = True
+        kick_in = False
         for quarter in range(1, 5):
+            at_centre = True          # every quarter starts with a centre bounce
+            kick_in = False
             for i in range(per_quarter):
                 minute = (quarter - 1) * 30 + int(30 * i / max(1, per_quarter)) + 1
-                stoppage = at_centre or self.rng.random() < T["stoppage_share"]
+                # A kick-in after a behind is not a stoppage: no ruck contest,
+                # no clearance.
+                from_kick_in = kick_in
+                kick_in = False
+                stoppage = at_centre or (not from_kick_in
+                                         and self.rng.random() < T["stoppage_share"])
                 if stoppage:
-                    start_fp = 0.0
+                    # Centre bounce after a score or at a quarter start;
+                    # otherwise a ball-up where play stopped.
+                    start_fp = 0.0 if at_centre else fp
                     side = self.contest_winner(None)
                 else:
                     start_fp = fp
@@ -710,10 +735,13 @@ class MatchSim:
                             else self.contest_winner(fp))
 
                 outcome, fp, actor, _ = self.play_chain(
-                    side, start_fp, minute, quarter, stoppage)
+                    side, start_fp, minute, quarter, stoppage, from_kick_in)
 
+                # Goal: centre bounce. Behind: the other side kicks in (fp is
+                # already the goal square). Turnover: play on from here.
                 at_centre = (outcome == "score")
-                next_side = (1 - side) if outcome == "turnover" else None
+                kick_in = (outcome == "behind")
+                next_side = (1 - side) if outcome in ("turnover", "behind") else None
                 if outcome == "score":
                     fp = 0.0
 
@@ -730,6 +758,15 @@ class MatchSim:
                         self.stats.p(err, "frees_against")
                         next_side = 1 - side
         return self.stats
+
+
+GOAL_SQUARE_DEPTH = 9.0  # metres; kick-ins are taken from inside it
+
+
+def kick_in_fp(side):
+    """Where the defending side kicks in from after `side` scores a behind:
+    the middle of the goal square at the end `side` attacks."""
+    return (1 if side == 0 else -1) * (T["goal_line"] - GOAL_SQUARE_DEPTH * 0.5)
 
 
 # ---------------------------------------------------------------------------

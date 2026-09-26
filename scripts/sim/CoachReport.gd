@@ -58,7 +58,7 @@ const TEAM_COMPARE := [
 const IMPACT_LABELS := {
 	"gameplan": "gameplan", "pep": "pep talk",
 	"legs": "legs (fatigue and rotations)", "calls": "in-game calls",
-	"traits": "traits and synergies",
+	"traits": "traits and synergies", "form": "team form",
 }
 
 

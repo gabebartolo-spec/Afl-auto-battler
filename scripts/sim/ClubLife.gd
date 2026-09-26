@@ -90,6 +90,45 @@ static func form(p: Dictionary) -> float:
 	return clampf(float(morale(p) - MORALE_BASE) / 1000.0, -0.03, 0.03)
 
 
+# ---------------------------------------------------------------------------
+# Team form: the club's last five results
+# ---------------------------------------------------------------------------
+## How much each of the last five results counts, most recent first. They add
+## to 1.0, so five straight wins is +1 (the cap) and a sixth adds nothing.
+## One loss after five wins drops +1 to +0.40; a second to -0.10.
+const FORM_WEIGHTS := [0.30, 0.25, 0.20, 0.15, 0.10]
+
+
+## Team form, -1..1, from results oldest first ("W", "L" or "D"). Only the
+## last five count; a draw counts 0. Every club starts a season at 0.
+## Summed in whole hundredths so the label thresholds (0.25, 0.6) are hit
+## exactly: in floats, 0.30 - 0.25 + 0.20 comes to 0.2499999...
+static func team_form(results: Array) -> float:
+	var f := 0
+	var n := results.size()
+	for i in range(mini(n, FORM_WEIGHTS.size())):
+		var r := str(results[n - 1 - i])
+		var w := roundi(float(FORM_WEIGHTS[i]) * 100.0)
+		if r == "W":
+			f += w
+		elif r == "L":
+			f -= w
+	return clampf(float(f) / 100.0, -1.0, 1.0)
+
+
+## "Hot", "Good", "Steady", "Poor" or "Cold".
+static func team_form_label(f: float) -> String:
+	if f >= 0.6:
+		return "Hot"
+	if f >= 0.25:
+		return "Good"
+	if f > -0.25:
+		return "Steady"
+	if f > -0.6:
+		return "Poor"
+	return "Cold"
+
+
 ## This week's event for your club, or {} (about 30% of weeks are quiet).
 ## `ctx`: list, round, seed, losses (current losing streak), selected (ids
 ## in this week's side).

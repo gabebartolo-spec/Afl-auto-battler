@@ -49,17 +49,31 @@ What that showed, and what the view does about it:
 - **Around the ball**, the nearest two defenders press (one on the ball, one
   goal-side) and the nearest two attackers offer options. These roles are
   chosen once per beat, so they don't flick between neighbours.
-- **Receivers lead and defenders trail.** The next three events are known, so
-  their players start moving early. The receiver runs to where the ball will
-  land and his opponent follows a step behind. A tackler closes from behind
-  before the tackle.
+- **Receivers lead and defenders trail.** The director reads up to ten
+  events (about seven seconds of play) ahead and estimates when each
+  possession happens. A named receiver starts running once the time left is
+  about what he needs to reach his spot, and holds that lead until he gets
+  the ball; the next two receivers always lead. Everyone else keeps the
+  team's shape. The next receiver's opponent follows a step behind, and a
+  tackler closes from behind before the tackle.
+- **Set-ups finish before play resumes.** During a centre-bounce or kick-in
+  set-up, players reposition at 1.5x their normal pace (a dead-ball reset
+  that takes 20-40 s in a real game). Play resumes once all but three are
+  within 5 m of their spots, capped at 4 s so one straggler cannot stall it.
+  Live-play movement is unchanged.
 - **Centre bounces are 6-6-6**, with at most four per side in the square,
   wingers on the wings and defenders goal-side. Players stand still before
   the bounce, then there's the ruck contest and the tap.
-- **Kick-ins after a behind:** the kicker is in the goal square and the other
-  side sets a three-line zone.
-- **Ball-ups after a tackle:** a pack of three a side plus the rucks, then a
-  throw-up, and a tap or a clearing kick.
+- **Kick-ins after a behind:** MatchSim restarts from the goal square (the
+  logged fp) with the defending side's kick. The view puts that logged kicker
+  in the goal square, with the other side set in a three-line zone. Every
+  restart the view stages (centre bounce, kick-in, ball-up) is the one
+  MatchSim played, read from the previous logged event.
+- **Ball-ups** come from MatchSim's explicit `ballup` event, logged where play
+  stopped. The ball reaches that spot, a pack of three a side plus the rucks
+  forms, the umpire throws it up, and the ruck taps it to the player who
+  wins it. The view infers no stoppages of its own. After a tackle with no
+  logged ball-up, the ball is won where it fell.
 - **Kicks arc and handballs stay flat.** Flight time grows with distance and
   stretches, within limits, to give the receiver time to arrive. Forward-50
   entries land in a marking contest.
