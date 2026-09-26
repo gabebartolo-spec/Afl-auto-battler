@@ -393,7 +393,13 @@ Godot 4.7, `mobile` renderer, `canvas_items` stretch with `expand` aspect and
 unrestricted sensor orientation (`DisplayServer.SCREEN_SENSOR`, value 6).
 `ScreenLayout` updates the logical viewport from the actual window size and
 pixel density on resize; it never scales a desktop-width canvas down to a
-portrait phone. The draft, hub, ladder, list, match and season review apply OS
+portrait phone. The hub is one scrolling page led by this week - the
+opponent, at most three facts about them (Matchup: their lines ranked against
+the league, their danger man, a key player missing, a run of results), your
+own injured stars, any week event, then Pick the side / Play match - with your
+season, the news and the full ladder below at natural height. After a round
+the results say where you now sit and who is next.
+The draft, hub, ladder, list, match and season review apply OS
 safe-area insets. Touch/mouse emulation works both ways. Phone layouts stack
 cards and drop ladder columns rather than forcing a desktop min-width. Scores
 and club names use non-wrapping labels, so a tight row cannot collapse into a
@@ -443,6 +449,7 @@ scripts/
     Squad.gd           44-player list -> best 18 + bench -> team strengths
     MatchSim.gd        the match engine, plus the event log the oval replays
     CoachReport.gd     half-time assistant report (form + opposition gameplans)
+    Matchup.gd         this week's opponent in 2-3 football facts, from the engine's sides
     Season.gd          24-round fixture, ladder, finals bracket
     Draft.gd           salary cap, board filters, the 17 AI lists, intake mode
     Prospects.gd       rank projections, season ageing, generated intake classes
@@ -455,7 +462,7 @@ scripts/
     match/MatchMotion.gd    player steering: acceleration, braking, reaction delay
     Main.gd            menu
     DraftScene.gd      club selection + draft board
-    HubScene.gd        season hub: next match, ladder snapshot, round controls
+    HubScene.gd        the week: opponent + facts, your side's news, the match; then ladder
     MatchScene.gd      scoreboard, oval, commentary, full-time box score
     LadderScene.gd     full ladder + finals bracket
     ListScene.gd       your list, best 22, attributes, real season numbers
