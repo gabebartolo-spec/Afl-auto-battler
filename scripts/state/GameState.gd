@@ -958,7 +958,7 @@ func club_form_info(code: String) -> Dictionary:
 			"last": "".join(res.slice(maxi(0, res.size() - ClubLife.FORM_WEIGHTS.size())))}
 
 
-## "Form: Hot (+78)  WWWWL" - or "Form: Steady  no games yet".
+## "Form: Good (+40)  WWWWL" - or "Form: Steady (+0)  no games yet".
 static func form_line(info: Dictionary, prefix := "Form") -> String:
 	var last := str(info.get("last", ""))
 	return "%s: %s (%+d)  %s" % [prefix, str(info["label"]), int(round(float(info["value"]) * 100.0)),
