@@ -51,20 +51,26 @@ const DEFS := {
 }
 
 ## key -> label, the line it needs ("" = the whole 18), the traits needed,
-## and the match effect.
+## the match effect, and the same in football words ("about", "does").
 const SYNERGIES := {
 	"engine_room": {"label": "Engine room", "line": "", "needs": {"bull": 2},
-			"text": "+2.5% stoppage wins."},
+			"text": "+2.5% stoppage wins.",
+			"about": "Contested bulls who win the stoppages together.", "does": "Wins more of the stoppages."},
 	"tall_small": {"label": "Tall-small forward line", "line": "FWD", "needs": {"aerial": 1, "crumber": 1},
-			"text": "+5% goal chance on every forward-50 shot."},
+			"text": "+5% goal chance on every forward-50 shot.",
+			"about": "An aerial threat up forward with a crumber at his feet.", "does": "More goals from forward-50 entries."},
 	"intercept_wall": {"label": "Intercept wall", "line": "DEF", "needs": {"interceptor": 2},
-			"text": "-5% on the opposition's goal chance."},
+			"text": "-5% on the opposition's goal chance.",
+			"about": "Interceptors who read the ball in the air down back.", "does": "The opposition kick fewer goals."},
 	"lockdown_unit": {"label": "Lockdown unit", "line": "", "needs": {"lockdown": 3},
-			"text": "+8% pressure on the opposition."},
+			"text": "+8% pressure on the opposition.",
+			"about": "A side full of stoppers who squeeze the opposition.", "does": "Puts more pressure on the ball."},
 	"supply_line": {"label": "Supply line", "line": "", "needs": {"ball_magnet": 2, "playmaker": 1},
-			"text": "+6% metres gained per disposal."},
+			"text": "+6% metres gained per disposal.",
+			"about": "Ball-users feeding a playmaker going forward.", "does": "Gains more ground with every disposal."},
 	"running_machine": {"label": "Running machine", "line": "", "needs": {"engine": 3},
-			"text": "The whole side tires 15% slower."},
+			"text": "The whole side tires 15% slower.",
+			"about": "A side of endurance runners.", "does": "The whole side tires more slowly."},
 }
 
 const MAX_GOOD := 2
@@ -173,6 +179,27 @@ static func progress(ground: Array) -> Array:
 				"have": have, "needs": s["needs"]})
 	out.sort_custom(func(a, b): return int(a["missing"]) < int(b["missing"]))
 	return out
+
+
+## The rule in full, no progress: "Requires 2 Contested bulls on the
+## ground." / "Requires 1 Aerial threat and 1 Crumber in the forward line."
+static func requirement_text(key: String) -> String:
+	var s: Dictionary = SYNERGIES.get(key, {})
+	if s.is_empty():
+		return ""
+	var bits: PackedStringArray = []
+	for t in s["needs"]:
+		var n := int(s["needs"][t])
+		var name := label(str(t))
+		if n > 1:
+			name = PLURALS.get(str(t), name + "s")
+		bits.append("%d %s" % [n, name])
+	var line := str(s["line"])
+	var where := "in the %s" % str(LINE_NAMES.get(line, line)) if line != "" else "on the ground"
+	return "Requires %s %s." % [" and ".join(bits), where]
+
+
+const PLURALS := {"lockdown": "Lockdown players", "big_game": "Big-game players"}
 
 
 ## "2/2 Contested bull (midfield)" style summary for one synergy row.

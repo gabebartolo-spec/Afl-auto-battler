@@ -783,7 +783,7 @@ func _open_player(id: String) -> void:
 	v.add_child(UiKit.spacer(4))
 	var kv := UiKit.vbox(3)
 	v.add_child(kv)
-	var type_l := UiKit.lbl(PlayerProfile.player_type(p), 18, UiKit.TEXT, true)
+	var type_l := UiKit.lbl(Roles.label(p), 18, UiKit.TEXT, true)
 	type_l.name = "DetailType"
 	kv.add_child(type_l)
 	var strengths := PlayerProfile.strengths(p)

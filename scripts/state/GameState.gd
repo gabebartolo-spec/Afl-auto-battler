@@ -1292,8 +1292,8 @@ const TRAIN_PLANS := [
 	{"key": "inside_mid", "label": "Inside midfielder", "roles": ["MID"],
 			"text": "Wins the ball at stoppages and keeps it in the tackle.",
 			"weights": {"contested": 3.0, "disposal": 1.0}},
-	{"key": "outside_mid", "label": "Outside runner", "roles": ["MID"],
-			"text": "Carries it forward and hits targets inside 50.",
+	{"key": "outside_mid", "label": "Wing", "roles": ["MID"],
+			"text": "Runs the wing: carries it from defence to attack and hits targets inside 50.",
 			"weights": {"carry": 3.0, "disposal": 2.0, "creating": 1.0}},
 	{"key": "key_def", "label": "Key defender", "roles": ["DEF"],
 			"text": "Stops the opposition: spoils and marks inside 50, tackles hard.",
@@ -1671,7 +1671,7 @@ func make_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
 		_join(my_club, p)
 	for p in outgoing:
 		_join(club, p)
-	for sel_key in ["RUCK", "MID", "DEF", "FWD", "BENCH", "OUT"]:
+	for sel_key in ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH", "OUT"]:
 		var sel := my_selection()
 		if sel.has(sel_key):
 			for p in outgoing:
@@ -1747,9 +1747,10 @@ func set_selection(selection: Dictionary) -> void:
 ## The side that would take the field this week, as a selection.
 func current_side() -> Dictionary:
 	var squad := my_squad()
-	var out := {"RUCK": [], "MID": [], "DEF": [], "FWD": [], "BENCH": []}
+	var out := {"RUCK": [], "MID": [], "WING": [], "DEF": [], "FWD": [], "BENCH": []}
 	for p in squad.ground:
-		(out[str(p["role"])] as Array).append(str(p["id"]))
+		var key := "WING" if Roles.on_wing(p) else str(p["role"])
+		(out[key] as Array).append(str(p["id"]))
 	for p in squad.bench:
 		(out["BENCH"] as Array).append(str(p["id"]))
 	return out

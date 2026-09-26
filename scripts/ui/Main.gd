@@ -279,7 +279,7 @@ func _show_help() -> void:
 			+ "2. Draft from one shared player pool under the same cap. The random order reverses each round. Rivals pick between your turns. Tap a player to see what kind of footballer he is; only the Draft button picks him.\n\n"
 			+ "3. Track every selection in Picks. The position counters show your list's coverage; tap one to filter the pool. Carry at least two rucks.\n\n"
 			+ "4. Play 24 rounds, with matches driven by your players' rated abilities. Set your tactics in the coach box. After each game every player develops: his training plan (Position plan to start) turns his XP into the kind of footballer you choose, and fit players you leave out develop in the reserves at about half the senior rate. Choose plans in Training.\n\n"
-			+ "5. Pick your own side on the Team screen, or let the best 22 be picked around injuries.\n\n"
+			+ "5. Pick your own side on the Team screen, or let the best 22 be picked around injuries. Two of your five midfielders play the wings: a runner suits it, a ball-winner is wasted there. A tagger makes a tag bite.\n\n"
 			+ ("6. Finish in the top %d to play finals and chase the flag. The top four start in the qualifying finals, 5-10 in the wildcards and eliminations. The season's awards, the honour roll and league records are in the Season Review.\n\n"
 			% Season.FINALISTS)
 			+ "7. In the off-season, re-sign, release, sign free agents and trade in Trades & Contracts, then draft the next class. The hub's League news follows the whole league.\n\n"

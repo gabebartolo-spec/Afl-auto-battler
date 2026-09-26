@@ -69,6 +69,7 @@ STAT_KEYS = [
 # On-ground structure: 18 players = 6 DEF, 6 MID, 6 FWD, where the ruck is
 # counted with midfield (1 RUCK + 5 MID). Keep in lockstep with
 # Ratings.GROUND_SLOTS.
+ROLE_CORRECTIONS = {"RIC|Maurice Rioli": "FWD", "WBD|Cody Weightman": "FWD"}
 GROUND_SLOTS = {"RUCK": 1, "MID": 5, "DEF": 6, "FWD": 6}
 INTERCHANGE = 4
 LIST_SIZE = 44
@@ -267,6 +268,8 @@ def derive_ratings(players):
         else:
             role_scores["RUCK"] = -1.0
         p["role"] = max(role_scores, key=role_scores.get)
+        # Ratings.ROLE_CORRECTIONS: clearly misread forwards.
+        p["role"] = ROLE_CORRECTIONS.get("%s|%s" % (p.get("club", ""), p.get("name", "")), p["role"])
         p["role_scores"] = role_scores
         p["role2"] = assign_secondary(p)
 
@@ -408,8 +411,10 @@ class Squad:
 
         mids, defs, fwds = by_role["MID"], by_role["DEF"], by_role["FWD"]
         rucks = by_role["RUCK"]
+        # Roles: the centre square wins the stoppage ball, the wings do not.
+        centre = [p for p in mids if p.get("line") != "WING"] or mids
         self.ruck = mean(rucks, "ruck")
-        self.mid_contest = mean(mids, "contested")
+        self.mid_contest = mean(centre, "contested")
         self.mid_disposal = mean(mids, "disposal")
         self.mid_carry = mean(mids, "carry")
         self.def_pressure = mean(defs, "pressure")
@@ -463,7 +468,26 @@ def select_22(list_players):
             ground.append(_for_slot(p, p["role"]))
             used.add(p["id"])
     bench = [p for p in pool if p["id"] not in used][:INTERCHANGE]
-    return ground[:18], bench
+    ground = ground[:18]
+    mark_wings(ground)
+    return ground, bench
+
+
+# Roles.gd: two of the five midfielders play the wings.
+WING_SLOTS, WING_TRANSITION, WING_STOPPAGE = 2, 1.6, 0.4
+
+
+def mark_wings(ground):
+    def wing_fit(p):
+        return 0.55 * p["attr"]["carry"] + 0.45 * p["attr"]["disposal"]
+
+    def centre_fit(p):
+        return 0.75 * p["attr"]["contested"] + 0.25 * p["attr"]["disposal"]
+
+    mids = [p for p in ground if p["role"] == "MID"]
+    rest = sorted(mids, key=lambda p: (centre_fit(p), -wing_fit(p), p["id"]))
+    for p in rest[:min(WING_SLOTS, max(0, len(mids) - 1))]:
+        p["line"] = "WING"
 
 
 # ---------------------------------------------------------------------------
@@ -500,12 +524,14 @@ class MatchSim:
                 "side": side, "kind": kind,
                 "score": [self.stats.score(0), self.stats.score(1)]})
 
-    def _weighted(self, group, key, power=2.0, usage=False):
+    def _weighted(self, group, key, power=2.0, usage=False, wing=1.0):
         if not group:
             return None
         w = []
         for p in group:
             base = max(1.0, p["attr"][key]) ** power
+            if p.get("line") == "WING":
+                base *= wing
             if usage:
                 base *= usage_multiplier(self.stats.player[p["id"]]["disposals"])
             w.append(max(base, 1e-6))
@@ -534,7 +560,8 @@ class MatchSim:
         else:
             group = [p for p in sq.ground if p["role"] in ("MID", "RUCK", "DEF")]
             key = "disposal"
-        return self._weighted(group or sq.ground, key, usage=True)
+        wing = WING_TRANSITION if -10 <= atk_fp <= T["forward50_line"] else 1.0
+        return self._weighted(group or sq.ground, key, usage=True, wing=wing)
 
     def _stoppage(self, side, opp, from_bounce):
         """Ruck contest + clearance at a genuine stoppage."""
@@ -558,7 +585,7 @@ class MatchSim:
         if self.rng.random() < T["clearance_per_stoppage"]:
             st.t(side, "clearances")
             mid = self._weighted([p for p in atk.ground if p["role"] in ("MID", "RUCK")],
-                                 "contested")
+                                 "contested", wing=WING_STOPPAGE)
             st.p(mid, "clearances")
 
     def play_chain(self, side, fp, minute, quarter, from_bounce, from_kick_in=False):

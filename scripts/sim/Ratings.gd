@@ -273,6 +273,9 @@ static func derive_all(players: Array) -> Array:
 		scores["RUCK"] = (0.25 + 0.85 * q["hitouts_pg"]) if hitouts_pg >= 7.0 else -1.0
 		p["role_scores"] = scores
 		p["role"] = pick_role(scores)
+		var fix := "%s|%s %s" % [p.get("club", ""), p.get("first", ""), p.get("last", "")]
+		if ROLE_CORRECTIONS.has(fix):
+			p["role"] = ROLE_CORRECTIONS[fix]
 		p["role2"] = assign_secondary(p)
 
 		# ---- overall + draft value ----------------------------------------
@@ -280,6 +283,16 @@ static func derive_all(players: Array) -> Array:
 		p["value"] = salary_value(p["overall"])
 
 	return players
+
+
+## Players the stat classifier clearly gets wrong: listed and played as
+## forwards, but a light goal year reads as midfield on the numbers. Only
+## unambiguous cases - a wider real_pos-informed pass is a data job of its
+## own. Mirrored in tools/sim_harness.py.
+const ROLE_CORRECTIONS := {
+	"RIC|Maurice Rioli": "FWD",
+	"WBD|Cody Weightman": "FWD",
+}
 
 
 ## First-max wins, matching the Python harness's insertion order
@@ -467,7 +480,9 @@ static func select_22(list_players: Array) -> Dictionary:
 		if not used.has(p["id"]):
 			bench.append(p)
 
-	return {"ground": ground.slice(0, 18), "bench": bench}
+	ground = ground.slice(0, 18)
+	Roles.mark_wings(ground)
+	return {"ground": ground, "bench": bench}
 
 
 ## True when a player can take the field (not injured).
@@ -477,8 +492,9 @@ static func available(p: Dictionary) -> bool:
 
 ## The match-day 22. With an empty selection the best available side is
 ## picked automatically (select_22). A selection is
-## {"RUCK": [ids], "MID": [...], "DEF": [...], "FWD": [...], "BENCH": [...],
-## "OUT": [ids]}: named players take their slots (any player can be named in
+## {"RUCK": [ids], "MID": [...], "WING": [...], "DEF": [...], "FWD": [...],
+## "BENCH": [...], "OUT": [ids]} - WING names two of the five midfielders
+## (Roles), MID the centre square: named players take their slots (any player can be named in
 ## any position), and a gap - an injured or departed player, or a slot left
 ## short - is filled the automatic way from the unnamed players, then the
 ## named bench, and only as a last resort from those you left OUT. Injured
@@ -499,7 +515,11 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 	for slot in GROUND_SLOTS:
 		var role: String = slot[0]
 		var added := 0
-		for id in selection.get(role, []):
+		# Wings are two of the five midfield spots.
+		var named: Array = selection.get(role, [])
+		if role == "MID":
+			named = (selection.get("WING", []) as Array) + named
+		for id in named:
 			if added >= int(slot[1]):
 				break
 			var p = by_id.get(str(id))
@@ -558,6 +578,7 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 			if not used.has(id) and int(tier.get(id, 0)) == pass_tier:
 				bench.append(p)
 				used[id] = true
+	Roles.mark_wings(ground, selection.get("WING", []))
 	return {"ground": ground, "bench": bench}
 
 

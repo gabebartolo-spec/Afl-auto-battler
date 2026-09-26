@@ -1,17 +1,19 @@
 extends Control
-## Team selection: your match-day 22. Auto-pick takes the best available side
+## Team selection: your match-day 22. Auto-pick fields a sensible side
 ## every week; My selection lets you name the ruck, 5 midfielders, 6
 ## defenders, 6 forwards and 4 on the bench - a 6-6-6 shape with the ruck
 ## counted in midfield, and anyone in any position. A gap (an injured player,
 ## a short slot) is filled automatically on match day.
 
-const SLOTS := [["RUCK", "Ruck", 1], ["MID", "Midfield", 5], ["DEF", "Defence", 6],
-		["FWD", "Forwards", 6], ["BENCH", "Interchange", 4]]
-const CHOICES := [["RUCK", "Ruck"], ["MID", "Mid"], ["DEF", "Def"], ["FWD", "Fwd"],
-		["BENCH", "Bench"], ["OUT", "Out"]]
+## The midfield is the centre square (3) and the two wings (Roles).
+const SLOTS := [["RUCK", "Ruck", 1], ["MID", "Midfield", 3], ["WING", "Wings", 2],
+		["DEF", "Defence", 6], ["FWD", "Forwards", 6], ["BENCH", "Interchange", 4]]
+const CHOICES := [["RUCK", "Ruck"], ["MID", "Mid"], ["WING", "Wing"], ["DEF", "Def"],
+		["FWD", "Fwd"], ["BENCH", "Bench"], ["OUT", "Out"]]
 
 var _root: VBoxContainer
 var _notice := ""
+var _synergy_overlay: Control
 
 
 func _ready() -> void:
@@ -35,6 +37,9 @@ func _build() -> void:
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Team selection", true))
 	var auto := GameState.my_selection().is_empty()
+	# A side named before the wings existed: split its midfield once.
+	if not auto and not GameState.my_selection().has("WING"):
+		GameState.set_selection(GameState.current_side())
 
 	var head := UiKit.panel(UiKit.PANEL, 10, 8)
 	_root.add_child(head)
@@ -47,7 +52,7 @@ func _build() -> void:
 	auto_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	auto_btn.pressed.connect(func():
 		GameState.set_selection({})
-		_notice = "Auto-pick: the best available side is chosen every week."
+		_notice = "Auto-pick: a sensible side is picked each week."
 		_build())
 	modes.add_child(auto_btn)
 	var mine_btn := UiKit.tab("My selection", not auto)
@@ -56,10 +61,10 @@ func _build() -> void:
 	mine_btn.pressed.connect(func():
 		if GameState.my_selection().is_empty():
 			GameState.set_selection(GameState.current_side())
-			_notice = "Starting from this week's best 22. Move anyone with the buttons."
+			_notice = "Starting from the auto-picked 22. Move anyone with the buttons."
 		_build())
 	modes.add_child(mine_btn)
-	var help := "Auto-pick fields the best available side by position every week." if auto \
+	var help := "Auto-pick fields a sensible side by position and rating each week." if auto \
 			else "Your side plays every match. Injured players are replaced automatically."
 	hv.add_child(_para(help, 13, UiKit.MUTED))
 	if _notice != "":
@@ -67,8 +72,12 @@ func _build() -> void:
 	hv.add_child(_strength_line())
 	hv.add_child(_synergy_view())
 
+
 	var body := UiKit.vbox(6)
 	_root.add_child(UiKit.scroll(body))
+	var week := _this_week()
+	if week != null:
+		body.add_child(week)
 	var side := GameState.current_side()
 	var placed := {}
 	var sel := GameState.my_selection()
@@ -97,32 +106,76 @@ func _build() -> void:
 		body.add_child(_row(p, "", auto))
 
 
-## Line synergies the selected 18 switch on, and the nearest ones to chase.
+## The line synergies your 18 switch on - what the side is good at - and
+## the full rules one tap away. No "one more X" counts here: the rules are
+## open, the choice is yours.
 func _synergy_view() -> Control:
-	var v := UiKit.vbox(3)
-	v.name = "Synergies"
-	var ground: Array = GameState.my_squad().ground
-	var rows := Traits.progress(ground)
-	var on := []
-	for r in rows:
+	var h := UiKit.hbox(8)
+	h.name = "Synergies"
+	var on: PackedStringArray = []
+	for r in Traits.progress(GameState.my_squad().ground):
 		if bool(r["active"]):
-			on.append(r)
-	v.add_child(UiKit.lbl("Synergies: %d active" % on.size(), 14, UiKit.EMPH, true))
-	var shown := 0
-	for r in rows:
-		if shown >= 4 or (not bool(r["active"]) and int(r["missing"]) > 1):
-			continue
-		shown += 1
-		var key := str(r["key"])
-		var col := UiKit.GOOD if bool(r["active"]) else UiKit.MUTED
-		# What it needs, not what it does in match percentages.
-		var l := UiKit.lbl("%s %s  ·  %s" % ["✓" if bool(r["active"]) else "·",
-				Traits.label(key), Traits.needs_text(r)], 13, col)
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(l)
-	if shown == 0:
-		v.add_child(UiKit.lbl("None close. Traits come from high stats: draft, trade and train for them.", 12, UiKit.MUTED))
-	return v
+			on.append(Traits.label(str(r["key"])))
+	var l := _para("Your side has: " + ", ".join(on) + "." if not on.is_empty()
+			else "No line synergies in this side.", 13, UiKit.GOOD if not on.is_empty() else UiKit.MUTED)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(l)
+	var rules := UiKit.btn("Synergies", 14)
+	rules.name = "SynergyRules"
+	rules.custom_minimum_size = Vector2(104, 44)
+	rules.pressed.connect(_show_synergies)
+	h.add_child(rules)
+	return h
+
+
+## Every synergy: what it is, what it does and exactly what it needs, with
+## the ones this side has marked On.
+func _show_synergies() -> void:
+	_close_synergies()
+	var box := UiKit.modal_box(self, 560.0, 0.0)
+	_synergy_overlay = box["overlay"]
+	_synergy_overlay.name = "SynergyGuide"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.lbl("Line synergies", UiKit.H1, UiKit.TEXT, true))
+	v.add_child(_para("Players' traits combine when the right mix takes the field together.", 13, UiKit.MUTED))
+	var active := {}
+	for r in Traits.progress(GameState.my_squad().ground):
+		active[str(r["key"])] = bool(r["active"])
+	for key in Traits.SYNERGIES:
+		var s: Dictionary = Traits.SYNERGIES[key]
+		var row := UiKit.vbox(2)
+		row.name = "Synergy_" + str(key)
+		v.add_child(UiKit.spacer(6))
+		v.add_child(row)
+		var head := UiKit.hbox(8)
+		row.add_child(head)
+		var name_l := UiKit.lbl(str(s["label"]), UiKit.BODY, UiKit.TEXT, true)
+		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(name_l)
+		if bool(active.get(key, false)):
+			head.add_child(UiKit.line("On", 13, UiKit.GOOD, true))
+		row.add_child(_para("%s %s" % [str(s.get("about", "")), str(s.get("does", ""))], 13, UiKit.TEXT))
+		var req := _para(Traits.requirement_text(str(key)), 13, UiKit.MUTED)
+		req.name = "Requires"
+		row.add_child(req)
+	var close := UiKit.btn("Close", 16, true)
+	close.custom_minimum_size = Vector2(0, 48)
+	close.pressed.connect(_close_synergies)
+	box["footer"].add_child(close)
+
+
+func _close_synergies() -> void:
+	if _synergy_overlay != null and is_instance_valid(_synergy_overlay):
+		_synergy_overlay.queue_free()
+	_synergy_overlay = null
+
+
+## Android Back closes the synergy guide before leaving Selection.
+func handle_back() -> bool:
+	if _synergy_overlay != null and is_instance_valid(_synergy_overlay):
+		_close_synergies()
+		return true
+	return false
 
 
 ## One player: a line in the list with a rule under it, not a card.
@@ -154,12 +207,25 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 		h.add_child(UiKit.line("Rested", 12, UiKit.MUTED))
 	if weeks > 0:
 		h.add_child(UiKit.line("Out %d wk%s" % [weeks, "" if weeks == 1 else "s"], 12, UiKit.BAD, true))
+	elif placed_as == "MID" or placed_as == "WING":
+		var fit := Roles.fit_note(p, placed_as)
+		if not Roles.is_mid(p):
+			fit = "Out of position"
+		if fit != "":
+			var fl := UiKit.line(fit, 12, UiKit.MUTED)
+			fl.name = "Fit"
+			h.add_child(fl)
 	elif placed_as != "" and placed_as != "BENCH" and str(p["role"]) != placed_as \
 			and str(p.get("role2", "")) != placed_as:
-		h.add_child(UiKit.line("out of position", 11, UiKit.MUTED))
+		h.add_child(UiKit.line("Out of position", 12, UiKit.MUTED))
 	h.add_child(UiKit.line("%d" % int(p["overall"]), 16, UiKit.TEXT, true))
-	if not Traits.of(p).is_empty():
-		v.add_child(UiKit.trait_chips(p))
+	# Who he is, then his traits: one quiet line.
+	var about := UiKit.trait_chips(p)
+	var who := UiKit.line(Roles.label(p), 13, UiKit.TEXT)
+	who.name = "RoleLabel"
+	about.add_child(who)
+	about.move_child(who, 0)
+	v.add_child(about)
 	if auto:
 		return card
 	var choices := UiKit.hbox(3)
@@ -215,6 +281,22 @@ func _label_for(role: String) -> String:
 
 
 ## The three numbers the engine rolls against, for this side.
+## This week's opponent and what they bring. The problem, not the answer:
+## the rows say who your players are; what to do about it is your call.
+func _this_week() -> Control:
+	var nxt := GameState.my_next_opponent()
+	if nxt.is_empty():
+		return null
+	var code := str(nxt["code"])
+	var v := UiKit.vbox(3)
+	v.name = "SelectionWeek"
+	v.add_child(UiKit.lbl("This week %s %s" % ["v" if str(nxt["venue"]) == "home" else "at",
+			GameDB.club_name(code)], UiKit.BODY, UiKit.TEXT, true))
+	for f in GameState.opponent_facts(code):
+		v.add_child(_para(str(f["text"]), 13, UiKit.MUTED))
+	return v
+
+
 func _strength_line() -> Control:
 	var sq := GameState.my_squad()
 	return _para("Contest %.0f  ·  Attack %.0f  ·  Defence %.0f" % [sq.contest, sq.attack, sq.defence],

@@ -145,6 +145,15 @@ func _tag_id(side: int) -> String:
 	return str((tactics[side] as Dictionary).get("tag_id", ""))
 
 
+## How much of the ball the player `side` tags still gets: less when a
+## tagger (Roles) is on the ground to do the job.
+func _tag_share(side: int) -> float:
+	for p in (squads[side] as Squad).ground:
+		if Roles.is_tagger(p):
+			return Roles.TAG_WITH_TAGGER
+	return Roles.TAG_PLAIN
+
+
 # ---------------------------------------------------------------------------
 # Stat bookkeeping
 # ---------------------------------------------------------------------------
@@ -222,22 +231,29 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String) -> float:
 	var out := 1.0
 	var id := str(p["id"])
 	var focused := id == _focus_id(side)
+	# "transition" is a carry in the middle of the ground (pick_carrier).
+	var carrying := purpose == "carrier" or purpose == "transition"
+	# The wings run the ball through the middle and are not at the stoppage.
+	if purpose == "transition" and Roles.on_wing(p):
+		out *= Roles.WING_TRANSITION
+	elif purpose == "clearance" and Roles.on_wing(p):
+		out *= Roles.WING_STOPPAGE
 	# A "run it through him" plan should make him the clear ball-winner, not
 	# give him half the team's possessions. A small early boost, then the
 	# usage curve fades him back toward a low-30s disposal game instead of 80.
-	if focused and (purpose == "carrier" or purpose == "shooter"):
+	if focused and (carrying or purpose == "shooter"):
 		out *= 1.14
-	if purpose == "carrier" and _trait(p, "ball_magnet"):
+	if carrying and _trait(p, "ball_magnet"):
 		out *= 1.10
 	if purpose == "clearance" and _trait(p, "bull"):
 		out *= 1.15
-	if id == _tag_id(1 - side) and (purpose == "carrier" or purpose == "shooter"):
-		out *= 0.55
+	if id == _tag_id(1 - side) and (carrying or purpose == "shooter"):
+		out *= _tag_share(1 - side)
 	if _plan(side) == "through_stars" and int(p["overall"]) >= 82:
 		out *= 1.2
 	if _pep(side) == "fire_up":
 		out *= 1.05
-	if purpose == "carrier":
+	if carrying:
 		out *= _usage_mult(p, focused)
 	return out
 
@@ -407,6 +423,7 @@ func pick_carrier(side: int, fp: float):
 	var atk_fp := fp if side == 0 else -fp
 	var group: Array
 	var key: String
+	var purpose := "carrier"
 	if atk_fp < -10.0:
 		group = _by_roles(sq.ground, ["DEF", "MID"])
 		key = "intercept"
@@ -416,12 +433,14 @@ func pick_carrier(side: int, fp: float):
 	elif atk_fp > 5.0:
 		group = _by_roles(sq.ground, ["MID", "FWD"])
 		key = "carry"
+		purpose = "transition"
 	else:
 		group = _by_roles(sq.ground, ["MID", "RUCK", "DEF"])
 		key = "disposal"
+		purpose = "transition"
 	if group.is_empty():
 		group = sq.ground
-	return _weighted(group, key, 2.0, side, "carrier")
+	return _weighted(group, key, 2.0, side, purpose)
 
 
 # ---------------------------------------------------------------------------

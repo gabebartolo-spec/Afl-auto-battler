@@ -22,6 +22,12 @@ supplies the vision, taste, AFL knowledge, priorities and final judgement.
   software-documentation prose.
 - **Gameplay before analytics.** Revisit hidden simulation mechanics only when
   play exposes a real problem, a feature needs it, or the director asks.
+- **Make the rules transparent; don't make the decision.** Show opponent
+  facts, player identities and capabilities, and let every rule be looked up
+  exactly (what a synergy needs, what a role does). Let the player decide the
+  response: no "best choice" labels, suggested line-ups, recommendation
+  prompts, optimal matchup hints or "one more X" checklists on the main
+  surface - there may be several reasonable answers with trade-offs.
 - **Restraint is a feature.** A good idea is not automatically a good addition.
   Prefer the simplest thing that creates the football fantasy.
 - **Challenge the director** when an idea conflicts with this philosophy, is

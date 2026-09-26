@@ -115,6 +115,32 @@ keeps the natural tag for the list screen. Draft filters and the two-ruck rule
 treat either role as cover. Position totals stay primary-only, so they still
 sum to the list size.
 
+Two classifier misreads are corrected by hand (`Ratings.ROLE_CORRECTIONS`:
+Maurice Rioli and Cody Weightman, listed and played as forwards). The wider
+pattern - about 87 listed forwards read as MID on their numbers - is a data job
+of its own, not patched here.
+
+### Match-day roles (`scripts/sim/Roles.gd`)
+Only jobs the engine rewards:
+
+* **Wing** (MID). Two of the five midfield spots are the wings. The centre
+  square (three) alone counts for the side's contested ball
+  (`Squad.mid_contest`); on the wing a player gets 1.6x the transition ball
+  (`MatchSim.pick_carrier`) and 0.4x the stoppage ball. A natural wing -
+  running game (carry, disposal) well ahead of ball-winning against 2026
+  midfielders - suits it; a ball-winner is wasted there. Auto-pick puts the
+  two midfielders the stoppage misses least on the wings.
+* **Tagger** (MID). Pressure in the top 30% of midfielders and well ahead of
+  both his ball-winning and running. With a tagger on the ground, a tagged
+  opponent keeps 42% of his ball instead of 55%.
+* Everyone else reads as Inside midfielder, Key/Rebounding defender,
+  Key/Small forward or Ruck - the Training vocabulary.
+
+Deferred until the engine can tell them apart: tap vs mobile ruck (only the
+ruck attribute and contested ball reach a ruck's game), swingman (any player
+already plays anywhere; `role2` covers genuine dual-position players), tall vs
+small defenders, unicorns.
+
 ### Overall & salary
 `overall` = 0.70 × role core + 0.22 × `star` (Brownlow signal) + 0.08 ×
 `durability`, put on one position scale, shrunk toward 40 for low-game
@@ -331,7 +357,7 @@ Skip to full time, by reconstructing half-time from the Q2 snapshot.
   - *Position plan* (default; rival clubs use it too) trains the role core
     OVR is built from, `Ratings.ROLE_WEIGHTS`.
   - Archetypes, offered only to players of that role (or second role):
-    Inside midfielder (contested, disposal), Outside runner (carry,
+    Inside midfielder (contested, disposal), Wing (carry,
     disposal, creating), Key defender (intercept, pressure), Rebounding
     defender (carry, intercept), Key forward (marking, goalkicking,
     accuracy), Small forward (goalkicking, accuracy, carry, creating - never

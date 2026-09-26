@@ -155,7 +155,7 @@ static func _danger(opp: String, squad: Squad, lists: Dictionary) -> Dictionary:
 			break
 	var who := GameDB.player_display_name(original)
 	var text := "%s is the danger: the best player in the competition." % who if better == 0 \
-			else "%s is the danger: an elite %s." % [who, PlayerProfile.player_type(original).to_lower()]
+			else "%s is the danger: an elite %s." % [who, Roles.label(original).to_lower()]
 	return {"key": "danger", "text": text,
 			"weight": 3 if better < 5 else 2, "tone": "strong",
 			"player_id": str(original["id"])}
