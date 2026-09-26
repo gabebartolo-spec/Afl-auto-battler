@@ -17,6 +17,11 @@ func run() -> void:
 	_test_manual_and_focus()
 	_test_changing_plans()
 	_test_plans_survive_save()
+	_test_plans_match_the_engine()
+	_test_archetypes_differ()
+	_test_traits_through_training()
+	_test_old_plans_migrate()
+	_test_training_news()
 	_test_reserves_development()
 	_test_stat_guide_complete()
 	GameState.delete_saved_career()
@@ -67,7 +72,7 @@ func _test_default_plan_spends() -> void:
 			ruck = p
 	if not ruck.is_empty():
 		var gains: Dictionary = auto["by_player"][str(ruck["id"])]
-		var allowed: Dictionary = GameState.AI_TRAIN_FOCUS["RUCK"]
+		var allowed: Dictionary = Ratings.ROLE_WEIGHTS["RUCK"]
 		var only_ruck_stats := true
 		for k in gains:
 			if not allowed.has(k):
@@ -77,23 +82,32 @@ func _test_default_plan_spends() -> void:
 
 func _test_manual_and_focus() -> void:
 	_new_season()
-	var manual: Dictionary = GameState.my_list[0]
-	var focus: Dictionary = GameState.my_list[1]
+	var manual := _first_of("DEF")
+	var mid := _first_of("MID")
 	GameState.set_player_plan(str(manual["id"]), "manual")
-	GameState.set_player_plan(str(focus["id"]), "focus_marking")
+	GameState.set_player_plan(str(mid["id"]), "outside_mid")
 	var manual_attr: Dictionary = (manual["attr"] as Dictionary).duplicate()
-	var focus_attr: Dictionary = (focus["attr"] as Dictionary).duplicate()
+	var mid_attr: Dictionary = (mid["attr"] as Dictionary).duplicate()
 	for i in range(3):
 		GameState.advance()
 	_check(manual["attr"] == manual_attr, "Manual never auto-spends")
 	_check(int(manual["xp"]) > 0, "Manual banks the XP")
-	var only_marking := true
-	for k in focus_attr:
-		if k != "marking" and int(focus["attr"][k]) != int(focus_attr[k]):
-			only_marking = false
-	_check(only_marking, "A single-stat focus touches only that stat")
-	_check(int(focus["attr"]["marking"]) > int(focus_attr["marking"]) or int(focus_attr["marking"]) >= 99,
-			"A single-stat focus raises it")
+	var allowed: Dictionary = GameState.plan_weights(mid, "outside_mid")
+	var only_plan := true
+	var moved := false
+	for k in mid_attr:
+		if int(mid["attr"][k]) != int(mid_attr[k]):
+			moved = true
+			if not allowed.has(k):
+				only_plan = false
+	_check(moved and only_plan, "An archetype plan trains only its own attributes")
+
+
+func _first_of(role: String) -> Dictionary:
+	for p in GameState.my_list:
+		if str(p["role"]) == role:
+			return p
+	return {}
 
 
 func _test_changing_plans() -> void:
@@ -109,7 +123,9 @@ func _test_changing_plans() -> void:
 			p = q
 	var banked := int(p["xp"])
 	_check(banked > 0, "The club plan on Manual banks everyone's XP")
-	var gains := GameState.set_player_plan(str(p["id"]), "star")
+	var own := "inside_mid" if str(p["role"]) == "MID" else ("key_def" if str(p["role"]) == "DEF" \
+			else ("key_fwd" if str(p["role"]) == "FWD" else "position"))
+	var gains := GameState.set_player_plan(str(p["id"]), own)
 	_check(not gains.is_empty() and int(p["xp"]) < banked,
 			"Switching a player's plan spends his banked XP straight away")
 	var other: Dictionary = {}
@@ -120,7 +136,7 @@ func _test_changing_plans() -> void:
 	var result := GameState.set_default_plan("position")
 	_check(int(other["xp"]) < other_xp and int(result.get("points", 0)) > 0,
 			"Switching the club plan spends banked XP for everyone on it")
-	_check(GameState.plan_for(p) == "star", "A player's own plan wins over the club plan")
+	_check(GameState.plan_for(p) == own or own == "position", "A player's own plan wins over the club plan")
 	GameState.set_player_plan(str(p["id"]), "")
 	_check(GameState.plan_for(p) == "position" and not p.has("train_plan"),
 			"Choosing Club plan clears a player's own plan")
@@ -128,14 +144,23 @@ func _test_changing_plans() -> void:
 
 func _test_plans_survive_save() -> void:
 	_new_season()
-	var p: Dictionary = GameState.my_list[2]
-	GameState.set_player_plan(str(p["id"]), "key_fwd")
-	GameState.set_default_plan("inside_mid")
+	var fwd := _first_of("FWD")
+	var mid := _first_of("MID")
+	GameState.set_player_plan(str(fwd["id"]), "key_fwd")
+	GameState.set_player_plan(str(mid["id"]), "manual")
+	GameState.advance()
+	var fwd_state := [int(fwd["xp"]), int(fwd["overall"]), int(fwd["potential"]), (fwd["attr"] as Dictionary).duplicate()]
+	var mid_xp := int(mid["xp"])
 	GameState.save_career()
 	GameState.load_career()
-	_check(GameState.default_train_plan == "inside_mid", "The club plan survives a save")
-	var q := GameState.list_player(str(p["id"]))
+	var q := GameState.list_player(str(fwd["id"]))
 	_check(GameState.plan_for(q) == "key_fwd", "A player's own plan survives a save")
+	_check(GameState.plan_for(GameState.list_player(str(mid["id"]))) == "manual"
+			and int(GameState.list_player(str(mid["id"]))["xp"]) == mid_xp, "Manual and its banked XP survive a save")
+	_check([int(q["xp"]), int(q["overall"]), int(q["potential"]), q["attr"]] == fwd_state,
+			"XP, rating, potential and attributes survive a save unchanged")
+	GameState.set_default_plan("inside_mid")
+	_check(GameState.default_train_plan == "position", "Only Position plan or Manual can be the club plan")
 
 
 ## One round with no week-event card in the way (a card can pay the whole
@@ -159,6 +184,8 @@ func _pick(id: String, senior: bool) -> void:
 		arr[arr.size() - 1] = id
 	side["OUT"] = [] if senior else [id]
 	GameState.set_selection(side)
+
+
 
 
 func _row(id: String) -> Dictionary:
@@ -270,6 +297,7 @@ func _test_reserves_development() -> void:
 
 	# The difficulty multiplier applies to the reserves like any other XP.
 	GameState.difficulty = "hard"
+	GameState.list_player(depth)["injury_weeks"] = 0  # he may have been hurt in his senior game
 	_pick(depth, false)
 	_round()
 	_check(GameState.xp_gain_for(depth) == int(round(res_xp * 0.85)),
@@ -293,3 +321,125 @@ func _test_stat_guide_complete() -> void:
 		if GameState.train_plan_label(str(row[0])) == "" or GameState.train_plan_description(str(row[0])) == "":
 			labels_ok = false
 	_check(labels_ok, "Every plan has a label and a description")
+
+
+
+## Every plan spends only on what the engine uses for the role it is offered
+## to: the role core behind OVR, or a stat behind a trait that role can earn.
+func _test_plans_match_the_engine() -> void:
+	_new_season()
+	var ok := true
+	var bad := []
+	for row in GameState.TRAIN_PLANS:
+		if not row.has("weights"):
+			continue
+		for role in row["roles"]:
+			for k in row["weights"]:
+				if k == "star" or k == "durability" or not GameState.stat_useful_for_role(str(role), str(k)):
+					ok = false
+					bad.append("%s/%s/%s" % [row["key"], role, k])
+	_check(ok, "Every archetype trains only attributes its role uses in a match %s" % str(bad))
+	var pos_ok := true
+	for role in ["MID", "DEF", "FWD", "RUCK"]:
+		var p := _first_of(role)
+		if p.is_empty():
+			continue
+		var w: Dictionary = GameState.plan_weights(p, "position")
+		if w != Ratings.ROLE_WEIGHTS[role]:
+			pos_ok = false
+		for key in GameState.plans_for(p):
+			for k in GameState.plan_weights(p, key):
+				if not (p["attr"] as Dictionary).has(k):
+					pos_ok = false
+	_check(pos_ok, "Position plan trains each role's OVR core, and no plan names an attribute a player lacks")
+	var d := _first_of("DEF")
+	var offered: Array = GameState.plans_for(d)
+	_check(offered.has("position") and offered.has("key_def") and offered.has("manual")
+			and not offered.has("key_fwd") and not offered.has("inside_mid"),
+			"A defender is offered defender plans, not forward or midfield ones (%s)" % str(offered))
+	d["train_plan"] = "key_fwd"
+	_check(GameState.plan_for(d) == "position", "A plan for another role falls back to Position plan")
+	d.erase("train_plan")
+
+
+## Two plans for the same player make different footballers.
+func _test_archetypes_differ() -> void:
+	_new_season()
+	var mid := _first_of("MID")
+	var built := {}
+	for plan in ["inside_mid", "outside_mid"]:
+		var p: Dictionary = mid.duplicate(true)
+		p["train_plan"] = plan
+		p["xp"] = 4000
+		built[plan] = GameState._spend_with_weights(p, GameState.plan_weights(p, plan), false)
+	var inside: Dictionary = built["inside_mid"]
+	var outside: Dictionary = built["outside_mid"]
+	_check(int(inside.get("contested", 0)) > int(outside.get("contested", 0)) + 5
+			and int(outside.get("carry", 0)) > int(inside.get("carry", 0)) + 5,
+			"Inside midfielders build contested ball, outside runners build carry (%s / %s)" % [str(inside), str(outside)])
+	var fwd := _first_of("FWD")
+	var small: Dictionary = fwd.duplicate(true)
+	small["xp"] = 4000
+	var sg := GameState._spend_with_weights(small, GameState.plan_weights(small, "small_fwd"), false)
+	_check(not sg.has("marking"), "A small forward never trains marking (it would stop him crumbing)")
+
+
+## Traits are still reached through the plan that suits them.
+func _test_traits_through_training() -> void:
+	_new_season()
+	var fwd: Dictionary = _first_of("FWD").duplicate(true)
+	fwd["attr"]["marking"] = 40
+	fwd["attr"]["goalkicking"] = 50
+	fwd["role2"] = ""
+	fwd["xp"] = 2500
+	_check(not Traits.has(fwd, "crumber"), "(setup) no Crumber yet")
+	GameState._spend_with_weights(fwd, GameState.plan_weights(fwd, "small_fwd"), false)
+	_check(Traits.has(fwd, "crumber"), "Small forward training unlocks Crumber")
+	var d: Dictionary = _first_of("DEF").duplicate(true)
+	d["attr"]["intercept"] = 74
+	d["xp"] = 3000
+	GameState._spend_with_weights(d, GameState.plan_weights(d, "key_def"), false)
+	_check(int(d["attr"]["intercept"]) >= 80 and Traits.of(d).has("interceptor") or Traits.of(d).size() >= 2,
+			"Key defender training reaches Interceptor (%d)" % int(d["attr"]["intercept"]))
+
+
+## Saves from before the overhaul: removed plans and off-role plans fall
+## back to Position plan, and a Manual club plan stays Manual per player.
+func _test_old_plans_migrate() -> void:
+	_new_season()
+	var a: Dictionary = GameState.my_list[0]
+	var b: Dictionary = GameState.my_list[1]
+	var c: Dictionary = GameState.my_list[2]
+	a["train_plan"] = "focus_marking"
+	b["train_plan"] = "star"
+	c.erase("train_plan")
+	GameState.default_train_plan = "manual"
+	GameState.save_career()
+	GameState.load_career()
+	var a2 := GameState.list_player(str(a["id"]))
+	var b2 := GameState.list_player(str(b["id"]))
+	var c2 := GameState.list_player(str(c["id"]))
+	_check(GameState.default_train_plan == "position", "The club plan loads as Position plan")
+	_check(GameState.plan_for(c2) == "manual", "A player who followed a Manual club plan stays on Manual")
+	_check(not a2.has("train_plan") and not b2.has("train_plan")
+			and GameState.plan_for(a2) == "position" and GameState.plan_for(b2) == "position",
+			"Removed plans (single-stat focus, Star power) fall back to Position plan")
+
+
+## After a game the report says what training changed, in a line.
+func _test_training_news() -> void:
+	_new_season()
+	var p := _first_of("MID")
+	p["xp"] = 3000
+	var ov := int(p["overall"])
+	var out := GameState.apply_train_plans()
+	var rose := false
+	for r in out["rises"]:
+		if str(r[0]) == str(p["id"]) and int(r[1]) == ov and int(r[2]) > ov:
+			rose = true
+	_check(rose, "A rating rise is reported with before and after")
+	GameState.last_training_report = {"auto": out}
+	var line := GameState.training_summary_line()
+	_check(line.begins_with("Training:") and line.contains("OVR"), "The summary line reports it (%s)" % line)
+	GameState.last_training_report = {"auto": {"points": 5, "rises": [], "traits": []}}
+	_check(GameState.training_summary_line() == "", "Stat points alone are not news")

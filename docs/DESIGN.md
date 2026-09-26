@@ -326,10 +326,30 @@ Skip to full time, by reconstructing half-time from the Q2 snapshot.
   selection. Injured and rested/suspended players (`Ratings.available`) get
   only the squad share of 4. Every club is paid on the same scale; your
   club's figures are scaled by the difficulty's XP multiplier.
-  The training menu lists the whole squad. Spend a player's own XP on any of
-  the 13 attributes. Cost rises with the current stat and with career games.
-  The old post-match screen only rolled five random names, which is why it
-  looked empty.
+  **Plans** (`GameState.TRAIN_PLANS`) spend that XP after every game, and
+  each is a kind of footballer, not a stat recipe:
+  - *Position plan* (default; rival clubs use it too) trains the role core
+    OVR is built from, `Ratings.ROLE_WEIGHTS`.
+  - Archetypes, offered only to players of that role (or second role):
+    Inside midfielder (contested, disposal), Outside runner (carry,
+    disposal, creating), Key defender (intercept, pressure), Rebounding
+    defender (carry, intercept), Key forward (marking, goalkicking,
+    accuracy), Small forward (goalkicking, accuracy, carry, creating - never
+    marking, so he can stay a Crumber).
+  - *Manual* pauses development: XP banks until spent by hand.
+  Every plan attribute must be in the role's core or behind a trait the
+  role can earn (`GameState.stat_useful_for_role`; tested). The old Star
+  power plan, the single-stat focuses and the Ruck plan are gone (saves
+  fall back to Position plan), as is the club-wide plan picker (a club plan
+  could train forwards' skills into defenders). A point costs
+  `TRAIN_COST_SCALE` (1.25) × the base price, so now that no XP is wasted a
+  season's development stays where it was.
+  The Training list shows each player's OVR, focus and development state
+  ("Plenty of room", "Developing", "Near his ceiling", "At his ceiling");
+  the player view leads with his development focus and what it means on the
+  field, with stats and hand training behind one button. After a game the
+  results say what training changed (OVR rises, traits unlocked, potential
+  reached), not how many stat points were bought.
 * **National draft (end of season)** — `GameState.begin_intake_draft()`.
   Father-son/NGA prospects (`tied_club` in the CSV) land at their clubs first;
   the open pool is then drafted over `ceil(pool/18)` snake rounds (max 4) in

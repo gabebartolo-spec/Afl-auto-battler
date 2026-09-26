@@ -303,6 +303,7 @@ func load_career() -> bool:
 	GameDB.late_draftees = state.get("db_late_draftees", [])
 	GameDB._alias_next = int(state.get("db_alias_next", GameDB._alias_next))
 	_recompute_ratings()
+	_migrate_train_plans()
 	_backfill_potential()
 	ensure_contracts()
 	if season != null and board.is_empty():
@@ -1220,51 +1221,49 @@ func _grant_xp(club: String, list: Array, res: Dictionary) -> Dictionary:
 
 
 # ---------------------------------------------------------------------------
-# Rival clubs train too
+# Training plans: every player's XP is spent after every game
 # ---------------------------------------------------------------------------
-## What each position's coaches spend XP on, by weight. Each point goes to
-## the best weight per XP, so spending spreads as the cheap stats climb.
-const AI_TRAIN_FOCUS := {
-	"MID": {"disposal": 3.0, "contested": 3.0, "pressure": 2.0, "carry": 2.0,
-			"star": 2.0, "goalkicking": 1.0, "accuracy": 1.0, "creating": 1.0,
-			"discipline": 1.0},
-	"DEF": {"intercept": 3.0, "marking": 3.0, "pressure": 3.0, "disposal": 2.0,
-			"contested": 1.0, "discipline": 1.0, "carry": 1.0},
-	"FWD": {"goalkicking": 3.0, "accuracy": 3.0, "marking": 3.0, "creating": 2.0,
-			"pressure": 1.0, "disposal": 1.0, "contested": 1.0},
-	"RUCK": {"ruck": 4.0, "contested": 2.0, "marking": 2.0, "disposal": 1.0,
-			"intercept": 1.0},
-}
-
-
-# ---------------------------------------------------------------------------
-# Training plans: your players spend their own XP after every game
-# ---------------------------------------------------------------------------
-## [key, label, description]. "position" uses AI_TRAIN_FOCUS for the player's
-## role; "focus_<stat>" puts everything into one stat; "manual" banks XP.
+## A plan is a kind of footballer. Each spends XP on what the match engine
+## actually rewards for that job - never on an attribute that does nothing
+## for the role (tests/test_training.gd checks every plan against
+## Ratings.ROLE_WEIGHTS and the trait table). Each point goes to the best
+## weight per XP, so spending spreads as the cheap stats climb.
+##
+## "position" trains the role core that OVR is built from
+## (Ratings.ROLE_WEIGHTS) - the safe default, and what rival clubs use. The
+## archetypes lean a player toward one job (and the traits that go with it);
+## "manual" pauses development until you spend by hand.
 const TRAIN_PLANS := [
-	["position", "Position plan", "Trains what his position needs - the same priorities rival clubs use."],
-	["inside_mid", "Inside midfielder", "Contested ball, disposal and pressure: win it at the coalface."],
-	["outside_mid", "Outside runner", "Carry and disposal: move it through the corridor."],
-	["key_def", "Key defender", "Intercept and marking, with pressure and discipline."],
-	["rebound_def", "Rebounding defender", "Disposal, carry and intercept: win it back and launch."],
-	["key_fwd", "Key forward", "Goalkicking, marking and accuracy: the target inside 50."],
-	["small_fwd", "Small forward", "Pressure, goalkicking, accuracy and creating."],
-	["ruck", "Ruck", "Ruck work first, then contested ball and marking."],
-	["star", "Star power", "Build a match-winner: star power, with disposal."],
-	["manual", "Manual", "No automatic spending. His XP banks until you spend it."],
+	{"key": "position", "label": "Position plan", "roles": []},
+	{"key": "inside_mid", "label": "Inside midfielder", "roles": ["MID"],
+			"text": "Wins the ball at stoppages and keeps it in the tackle.",
+			"weights": {"contested": 3.0, "disposal": 1.0}},
+	{"key": "outside_mid", "label": "Outside runner", "roles": ["MID"],
+			"text": "Carries it forward and hits targets inside 50.",
+			"weights": {"carry": 3.0, "disposal": 2.0, "creating": 1.0}},
+	{"key": "key_def", "label": "Key defender", "roles": ["DEF"],
+			"text": "Stops the opposition: spoils and marks inside 50, tackles hard.",
+			"weights": {"intercept": 3.0, "pressure": 2.0}},
+	{"key": "rebound_def", "label": "Rebounding defender", "roles": ["DEF"],
+			"text": "Wins it back, then runs it out of defence.",
+			"weights": {"carry": 3.0, "intercept": 2.0}},
+	{"key": "key_fwd", "label": "Key forward", "roles": ["FWD"],
+			"text": "The target: marks inside 50 and kicks the goals.",
+			"weights": {"marking": 3.0, "goalkicking": 3.0, "accuracy": 1.0}},
+	{"key": "small_fwd", "label": "Small forward", "roles": ["FWD"],
+			"text": "Goals from the ground: kicks straight and creates, and stays small enough to crumb.",
+			"weights": {"goalkicking": 3.0, "accuracy": 2.0, "carry": 1.0, "creating": 1.0}},
+	{"key": "manual", "label": "Manual (development paused)", "roles": [],
+			"text": "Nothing is trained automatically. His XP banks until you spend it by hand - banked XP does not make him better."},
 ]
-const PLAN_WEIGHTS := {
-	"inside_mid": {"contested": 3.0, "disposal": 2.0, "pressure": 2.0, "star": 1.0},
-	"outside_mid": {"carry": 3.0, "disposal": 3.0, "creating": 1.0, "star": 1.0},
-	"key_def": {"intercept": 3.0, "marking": 3.0, "pressure": 1.0, "discipline": 1.0},
-	"rebound_def": {"disposal": 3.0, "carry": 2.0, "intercept": 2.0},
-	"key_fwd": {"goalkicking": 3.0, "marking": 3.0, "accuracy": 2.0},
-	"small_fwd": {"pressure": 3.0, "goalkicking": 2.0, "accuracy": 2.0, "creating": 1.0},
-	"ruck": {"ruck": 4.0, "contested": 2.0, "marking": 1.0},
-	"star": {"star": 3.0, "disposal": 1.0},
+## What the Position plan means for each role.
+const POSITION_PLAN_TEXT := {
+	"MID": "Mostly contested ball, with disposal and carry - what wins a midfielder's games.",
+	"DEF": "Intercept and pressure first, then carry - what stops the opposition.",
+	"FWD": "Goalkicking and marking first, then carry and accuracy - what puts a score on the board.",
+	"RUCK": "Wins the tap, then the ball at the stoppage - a ruck's job in a match.",
 }
-## The plan for anyone without his own. New careers start on Position plan.
+## The plan for anyone without his own: Position plan, or Manual.
 var default_train_plan := "position"
 
 
@@ -1279,14 +1278,37 @@ func reserves_summary_line() -> String:
 			"player" if n == 1 else "players", each]
 
 
-## "Training plans bought 23 stat points across 17 players." for the last
-## game, or "" when nothing was bought.
+## What the last game's training changed, in one line: "Training: 3 players
+## rose in OVR (Smith 71 to 72, ...). Jones unlocked Sharpshooter." - or ""
+## when nothing visible changed. Stat points alone are not news.
 func training_summary_line() -> String:
 	var auto: Dictionary = last_training_report.get("auto", {})
-	if int(auto.get("points", 0)) <= 0:
+	var rises: Array = auto.get("rises", [])
+	var traits: Array = auto.get("traits", [])
+	var at_pot: Array = auto.get("at_pot", [])
+	if rises.is_empty() and traits.is_empty():
 		return ""
-	return "Training plans bought %d stat points across %d players." % [
-			int(auto["points"]), int(auto["players"])]
+	var bits: PackedStringArray = []
+	if not rises.is_empty():
+		var names: PackedStringArray = []
+		for r in rises.slice(0, 2):
+			names.append("%s %d to %d" % [_short_name(str(r[0])), int(r[1]), int(r[2])])
+		if rises.size() > 2:
+			names.append("%d more" % (rises.size() - 2))
+		bits.append("%d %s in OVR (%s)." % [rises.size(),
+				"player rose" if rises.size() == 1 else "players rose", ", ".join(names)])
+	for t in traits.slice(0, 2):
+		bits.append("%s unlocked %s." % [_short_name(str(t[0])), Traits.label(str(t[1]))])
+	if at_pot.size() == 1:
+		bits.append("%s reached his potential." % _short_name(str(at_pot[0])))
+	elif at_pot.size() > 1:
+		bits.append("%d players reached their potential." % at_pot.size())
+	return "Training: " + " ".join(bits)
+
+
+func _short_name(id: String) -> String:
+	var p := list_player(id)
+	return GameDB.player_display_name(p) if not p.is_empty() else "A player"
 
 
 # ---------------------------------------------------------------------------
@@ -1683,37 +1705,72 @@ func my_squad() -> Squad:
 	return Squad.new(GameDB.club_name(my_club), my_list, true, my_club, my_selection())
 
 
-## Every plan a player can follow, including single-stat focuses:
-## [[key, label], ...]
+## Every plan: [[key, label], ...].
 func train_plan_options() -> Array:
 	var out := []
 	for row in TRAIN_PLANS:
-		out.append([str(row[0]), str(row[1])])
-	for row in TRAIN_STATS:
-		out.append(["focus_" + str(row[0]), "Focus: " + str(row[1])])
+		out.append([str(row["key"]), str(row["label"])])
 	return out
 
 
-func train_plan_label(key: String) -> String:
-	for row in train_plan_options():
-		if str(row[0]) == key:
-			return str(row[1])
-	return "Position plan"
-
-
-func train_plan_description(key: String) -> String:
+func _plan_row(key: String) -> Dictionary:
 	for row in TRAIN_PLANS:
-		if str(row[0]) == key:
-			return str(row[2])
-	if key.begins_with("focus_"):
-		return "Every point goes into %s." % train_stat_label(key.substr(6))
-	return ""
+		if str(row["key"]) == key:
+			return row
+	return {}
 
 
-## The plan a player actually follows: his own, or the club plan.
+func train_plan_label(key: String) -> String:
+	var row := _plan_row(key)
+	return str(row.get("label", "Position plan")) if not row.is_empty() else "Position plan"
+
+
+## What the plan makes of him, in football terms. The Position plan reads
+## per role, so pass the player (or his role).
+func train_plan_description(key: String, role := "") -> String:
+	if key == "position" or _plan_row(key).is_empty():
+		if role != "":
+			return str(POSITION_PLAN_TEXT.get(role, POSITION_PLAN_TEXT["MID"]))
+		return "Trains what his position is judged on - the safe default, and what rival clubs do."
+	return str(_plan_row(key).get("text", ""))
+
+
+## The plans that make sense for this player: Position plan, the archetypes
+## of his role (and his second role), and Manual.
+func plans_for(p: Dictionary) -> Array:
+	var out := []
+	for row in TRAIN_PLANS:
+		if plan_valid_for(p, str(row["key"])):
+			out.append(str(row["key"]))
+	return out
+
+
+func plan_valid_for(p: Dictionary, key: String) -> bool:
+	var row := _plan_row(key)
+	if row.is_empty():
+		return false
+	var roles: Array = row["roles"]
+	return roles.is_empty() or roles.has(str(p.get("role", ""))) or roles.has(str(p.get("role2", "")))
+
+
+## The plan a player actually follows: his own if it suits him, else the
+## club plan. A saved plan that no longer exists (single-stat focuses, Star
+## power, the old Ruck plan) or belongs to another role falls back safely.
 func plan_for(p: Dictionary) -> String:
 	var own := str(p.get("train_plan", ""))
-	return own if own != "" else default_train_plan
+	if own != "" and plan_valid_for(p, own):
+		return own
+	return default_train_plan if default_train_plan == "manual" else "position"
+
+
+## What a plan spends on for this player.
+func plan_weights(p: Dictionary, key := "") -> Dictionary:
+	if key == "":
+		key = plan_for(p)
+	var row := _plan_row(key)
+	if row.has("weights"):
+		return row["weights"]
+	return Ratings.ROLE_WEIGHTS.get(str(p.get("role", "MID")), Ratings.ROLE_WEIGHTS["MID"])
 
 
 ## Give one player his own plan ("" = follow the club plan). Banked XP is
@@ -1722,7 +1779,7 @@ func set_player_plan(player_id: String, key: String) -> Dictionary:
 	var p := list_player(player_id)
 	if p.is_empty():
 		return {}
-	if key == "":
+	if key == "" or not plan_valid_for(p, key):
 		p.erase("train_plan")
 	else:
 		p["train_plan"] = key
@@ -1730,18 +1787,39 @@ func set_player_plan(player_id: String, key: String) -> Dictionary:
 	return apply_plan_to(p)
 
 
-## Change the club plan (everyone without his own follows it), then spend.
+## Change the club plan - Position plan or Manual; nothing else suits every
+## role - then spend.
 func set_default_plan(key: String) -> Dictionary:
-	default_train_plan = key
+	default_train_plan = "manual" if key == "manual" else "position"
 	mark_dirty()
 	return apply_train_plans()
 
 
-## Spend every list player's XP under his plan. Returns
-## {"points": n, "players": m, "by_player": {id: {stat: points}}}.
-func apply_train_plans() -> Dictionary:
-	var out := {"points": 0, "players": 0, "by_player": {}}
+## Plans from older saves: the club plan becomes Position plan (a Manual
+## club plan becomes Manual on each player who followed it, so nobody's
+## development starts or stops behind your back), and a player's own plan
+## that no longer exists or does not suit his role is cleared.
+func _migrate_train_plans() -> void:
+	if default_train_plan == "manual":
+		for p in my_list:
+			if str(p.get("train_plan", "")) == "":
+				p["train_plan"] = "manual"
+	default_train_plan = "position"
 	for p in my_list:
+		var own := str(p.get("train_plan", ""))
+		if own != "" and not plan_valid_for(p, own):
+			p.erase("train_plan")
+
+
+## Spend every list player's XP under his plan. Returns
+## {"points", "players", "by_player": {id: {stat: points}}, and what it
+## changed: "rises": [[id, from, to]], "traits": [[id, trait]],
+## "at_pot": [id]}.
+func apply_train_plans() -> Dictionary:
+	var out := {"points": 0, "players": 0, "by_player": {}, "rises": [], "traits": [], "at_pot": []}
+	for p in my_list:
+		var ov := int(p.get("overall", 0))
+		var had: Array = Traits.of(p)
 		var gains := apply_plan_to(p)
 		if gains.is_empty():
 			continue
@@ -1751,25 +1829,64 @@ func apply_train_plans() -> Dictionary:
 		out["points"] = int(out["points"]) + pts
 		out["players"] = int(out["players"]) + 1
 		out["by_player"][str(p["id"])] = gains
+		var now := int(p["overall"])
+		if now > ov:
+			(out["rises"] as Array).append([str(p["id"]), ov, now])
+			var pot := int(p.get("potential", 0))
+			if ov < pot and now >= pot:
+				(out["at_pot"] as Array).append(str(p["id"]))
+		for t in Traits.of(p):
+			if not had.has(t) and not Traits.is_bad(t):
+				(out["traits"] as Array).append([str(p["id"]), t])
 	return out
 
 
 ## Spend one player's XP under his plan. Returns {stat: points bought}.
 func apply_plan_to(p: Dictionary) -> Dictionary:
-	var key := plan_for(p)
-	if key == "manual":
+	if plan_for(p) == "manual":
 		return {}
-	var weights: Dictionary
-	if key.begins_with("focus_"):
-		weights = {key.substr(6): 1.0}
-	elif PLAN_WEIGHTS.has(key):
-		weights = PLAN_WEIGHTS[key]
-	else:
-		weights = AI_TRAIN_FOCUS.get(str(p.get("role", "MID")), AI_TRAIN_FOCUS["MID"])
-	var gains := _spend_with_weights(p, weights, false)
+	var gains := _spend_with_weights(p, plan_weights(p), false)
 	if not gains.is_empty():
 		mark_dirty()
 	return gains
+
+
+## Whether an attribute does anything for this player's role in a match:
+## the role core OVR is built from (Ratings.ROLE_WEIGHTS), a trait his role
+## can earn from it, or star power and durability (every role).
+func stat_useful_for(p: Dictionary, key: String) -> bool:
+	return stat_useful_for_role(str(p.get("role", "MID")), key) \
+			or (str(p.get("role2", "")) != "" and stat_useful_for_role(str(p["role2"]), key))
+
+
+static func stat_useful_for_role(role: String, key: String) -> bool:
+	if key == "star" or key == "durability":
+		return true
+	if (Ratings.ROLE_WEIGHTS.get(role, {}) as Dictionary).has(key):
+		return true
+	for t in Traits.DEFS:
+		var d: Dictionary = Traits.DEFS[t]
+		if d.has("max") or str(d["stat"]) != key:
+			continue
+		var roles: Array = d["roles"]
+		if roles.is_empty() or roles.has(role):
+			return true
+	return false
+
+
+## How much room a player has left, in words: "Plenty of room",
+## "Developing", "Near his ceiling" or "At his ceiling" (or "Rehab year").
+func development_state(p: Dictionary) -> String:
+	if bool(p.get("rehab", false)):
+		return "Rehab year"
+	var gap := int(p.get("potential", p.get("overall", 0))) - int(p.get("overall", 0))
+	if gap >= 8:
+		return "Plenty of room"
+	if gap >= 3:
+		return "Developing"
+	if gap >= 1:
+		return "Near his ceiling"
+	return "At his ceiling"
 
 
 ## Buy stat points while XP lasts, each one going to the best weight per XP.
@@ -1850,7 +1967,7 @@ func ai_spend_xp(p: Dictionary) -> int:
 	var ceiling := mini(int(p.get("potential", 0)), int(p["season_start_ov"]) + rival_season_gain())
 	if int(p.get("overall", 0)) >= ceiling:
 		return 0
-	var focus: Dictionary = AI_TRAIN_FOCUS.get(str(p.get("role", "MID")), AI_TRAIN_FOCUS["MID"])
+	var focus: Dictionary = Ratings.ROLE_WEIGHTS.get(str(p.get("role", "MID")), Ratings.ROLE_WEIGHTS["MID"])
 	var bought := 0
 	for n in _spend_with_weights(p, focus, true, ceiling).values():
 		bought += int(n)
@@ -1895,8 +2012,15 @@ func train_cost(p: Dictionary, attr_key: String) -> int:
 ## his POT (rehabbing a star, bringing on a top pick), 50% dearer past it.
 func _cost_for(cur: int, games: float, pot_mult := 1.0) -> int:
 	var exp_mult := clampf(0.70 + games / 40.0, 0.70, 1.20)
-	return maxi(int(round(8.0 * pot_mult)),
-			int(round((8.0 + float(cur) * 0.40) * exp_mult * pot_mult)))
+	return maxi(int(round(8.0 * pot_mult * TRAIN_COST_SCALE)),
+			int(round((8.0 + float(cur) * 0.40) * exp_mult * pot_mult * TRAIN_COST_SCALE)))
+
+
+## Training plans spend only on what a role uses in a match, so every point
+## now counts toward the rating; before, a share went on attributes that did
+## nothing. Points cost this much more so a season's development stays where
+## it was (one season through GameState: your list +5 OVR, as before).
+const TRAIN_COST_SCALE := 1.25
 
 
 func affordable_points(player_id: String, attr_key: String, cap := 5) -> int:

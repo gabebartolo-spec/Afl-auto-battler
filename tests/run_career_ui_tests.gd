@@ -183,12 +183,22 @@ func _run() -> void:
 	var picker: OptionButton = current_scene.find_child("PlayerPlan", true, false)
 	var target := -1
 	for i in range(picker.item_count):
-		if str(picker.get_item_metadata(i)) == "focus_marking":
+		if str(picker.get_item_metadata(i)) == "manual":
 			target = i
 	picker.select(target)
 	picker.emit_signal("item_selected", target)
 	await _settle()
-	_check(_state.plan_for(first) == "focus_marking", "The player plan picker sets his plan")
+	_check(_state.plan_for(first) == "manual", "The player plan picker sets his plan")
+	_check(current_scene.find_child("ManualWarning", true, false) != null,
+			"Manual is flagged as paused development in the player view")
+	var adv: Button = current_scene.find_child("AdvancedToggle", true, false)
+	_check(adv != null and adv.text.begins_with("Stats and hand training"),
+			"Hand training sits behind one button in the player view")
+	if adv != null:
+		adv.emit_signal("pressed")
+		await _settle()
+	var adv2: Button = current_scene.find_child("AdvancedToggle", true, false)
+	_check(adv2 != null and adv2.text.begins_with("Hide"), "The button opens the stats and hand training")
 	# Back inside a player detail steps out to the list, not out of Training.
 	_router.handle_back(true)
 	await _settle()
