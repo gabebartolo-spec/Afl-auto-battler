@@ -167,6 +167,9 @@ func _test_team_form() -> void:
 			"A streak turns quickly: one loss to +0.40, two to -0.10")
 	_check(is_equal_approx(f.call("LLLLLLLL"), -1.0) and is_equal_approx(f.call("LLLLLW"), -0.40),
 			"Losing runs are capped the same way and turn as fast")
+	_check(ClubLife.team_form_label(f.call("WLDW")) == "Good" and ClubLife.team_form_label(f.call("LWDL")) == "Poor"
+			and ClubLife.team_form_label(f.call("WWLWW")) == "Hot",
+			"Forms landing exactly on a threshold get that label (WLDW %.17f)" % f.call("WLDW"))
 	_check(ClubLife.team_form_label(1.0) == "Hot" and ClubLife.team_form_label(0.0) == "Steady"
 			and ClubLife.team_form_label(-1.0) == "Cold", "Form reads Hot / Steady / Cold")
 

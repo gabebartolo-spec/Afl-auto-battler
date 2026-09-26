@@ -101,16 +101,19 @@ const FORM_WEIGHTS := [0.30, 0.25, 0.20, 0.15, 0.10]
 
 ## Team form, -1..1, from results oldest first ("W", "L" or "D"). Only the
 ## last five count; a draw counts 0. Every club starts a season at 0.
+## Summed in whole hundredths so the label thresholds (0.25, 0.6) are hit
+## exactly: in floats, 0.30 - 0.25 + 0.20 comes to 0.2499999...
 static func team_form(results: Array) -> float:
-	var f := 0.0
+	var f := 0
 	var n := results.size()
 	for i in range(mini(n, FORM_WEIGHTS.size())):
 		var r := str(results[n - 1 - i])
+		var w := roundi(float(FORM_WEIGHTS[i]) * 100.0)
 		if r == "W":
-			f += float(FORM_WEIGHTS[i])
+			f += w
 		elif r == "L":
-			f -= float(FORM_WEIGHTS[i])
-	return clampf(f, -1.0, 1.0)
+			f -= w
+	return clampf(float(f) / 100.0, -1.0, 1.0)
 
 
 ## "Hot", "Good", "Steady", "Poor" or "Cold".
