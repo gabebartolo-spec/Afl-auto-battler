@@ -1,5 +1,5 @@
 extends Control
-## Team selection: your match-day 22. Auto-pick takes the best available side
+## Team selection: your match-day 22. Auto-pick fields a sensible side
 ## every week; My selection lets you name the ruck, 5 midfielders, 6
 ## defenders, 6 forwards and 4 on the bench - a 6-6-6 shape with the ruck
 ## counted in midfield, and anyone in any position. A gap (an injured player,
@@ -51,7 +51,7 @@ func _build() -> void:
 	auto_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	auto_btn.pressed.connect(func():
 		GameState.set_selection({})
-		_notice = "Auto-pick: the best available side is chosen every week."
+		_notice = "Auto-pick: a sensible side is picked each week."
 		_build())
 	modes.add_child(auto_btn)
 	var mine_btn := UiKit.tab("My selection", not auto)
@@ -60,10 +60,10 @@ func _build() -> void:
 	mine_btn.pressed.connect(func():
 		if GameState.my_selection().is_empty():
 			GameState.set_selection(GameState.current_side())
-			_notice = "Starting from this week's best 22. Move anyone with the buttons."
+			_notice = "Starting from the auto-picked 22. Move anyone with the buttons."
 		_build())
 	modes.add_child(mine_btn)
-	var help := "Auto-pick fields the best available side by position every week." if auto \
+	var help := "Auto-pick fields a sensible side by position and rating each week." if auto \
 			else "Your side plays every match. Injured players are replaced automatically."
 	hv.add_child(_para(help, 13, UiKit.MUTED))
 	if _notice != "":
@@ -105,31 +105,18 @@ func _build() -> void:
 		body.add_child(_row(p, "", auto))
 
 
-## Line synergies the selected 18 switch on, and the nearest ones to chase.
+## The line synergies your 18 switch on - what the side is good at. Only
+## the ones that are on: no "one more X" counts, so the screen never reads
+## as a recipe to complete.
 func _synergy_view() -> Control:
 	var v := UiKit.vbox(3)
 	v.name = "Synergies"
-	var ground: Array = GameState.my_squad().ground
-	var rows := Traits.progress(ground)
-	var on := []
-	for r in rows:
+	var on: PackedStringArray = []
+	for r in Traits.progress(GameState.my_squad().ground):
 		if bool(r["active"]):
-			on.append(r)
-	v.add_child(UiKit.lbl("Synergies: %d active" % on.size(), 14, UiKit.EMPH, true))
-	var shown := 0
-	for r in rows:
-		if shown >= 4 or (not bool(r["active"]) and int(r["missing"]) > 1):
-			continue
-		shown += 1
-		var key := str(r["key"])
-		var col := UiKit.GOOD if bool(r["active"]) else UiKit.MUTED
-		# What it needs, not what it does in match percentages.
-		var l := UiKit.lbl("%s %s  ·  %s" % ["✓" if bool(r["active"]) else "·",
-				Traits.label(key), Traits.needs_text(r)], 13, col)
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(l)
-	if shown == 0:
-		v.add_child(UiKit.lbl("None close. Traits come from high stats: draft, trade and train for them.", 12, UiKit.MUTED))
+			on.append(Traits.label(str(r["key"])))
+	if not on.is_empty():
+		v.add_child(_para("Your side has: " + ", ".join(on) + ".", 13, UiKit.GOOD))
 	return v
 
 
@@ -236,8 +223,8 @@ func _label_for(role: String) -> String:
 
 
 ## The three numbers the engine rolls against, for this side.
-## This week's opponent, what they bring, and the one selection answer the
-## game can give so far: your tagger for their danger midfielder.
+## This week's opponent and what they bring. The problem, not the answer:
+## the rows say who your players are; what to do about it is your call.
 func _this_week() -> Control:
 	var nxt := GameState.my_next_opponent()
 	if nxt.is_empty():
@@ -249,11 +236,6 @@ func _this_week() -> Control:
 			GameDB.club_name(code)], UiKit.BODY, UiKit.TEXT, true))
 	for f in GameState.opponent_facts(code):
 		v.add_child(_para(str(f["text"]), 13, UiKit.MUTED))
-	var hint := GameState.selection_hint(code)
-	if hint != "":
-		var hl := _para(hint, 13, UiKit.TEXT)
-		hl.name = "SelectionHint"
-		v.add_child(hl)
 	return v
 
 

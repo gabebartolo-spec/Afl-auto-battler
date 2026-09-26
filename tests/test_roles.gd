@@ -18,7 +18,7 @@ func run() -> void:
 	_test_named_wings()
 	_test_engine_rewards_wings()
 	_test_tagger()
-	_test_selection_hint()
+	_test_no_prescriptions()
 	_test_corrections()
 	_test_every_club_fields_wings()
 	print("Roles tests: %d checks, %d failures" % [checks, failures.size()])
@@ -56,8 +56,8 @@ func _test_identity() -> void:
 	_check(Roles.label(runner) == Roles.label(runner.duplicate(true)), "Labels are deterministic")
 	_check(Roles.fit_note(bull, "WING") == "Not a natural wing" and Roles.fit_note(runner, "WING") == "",
 			"The wing flags a ball-winner, not a runner")
-	_check(Roles.fit_note(runner, "MID") == "Better on a wing" and Roles.fit_note(bull, "MID") == "",
-			"The centre square flags a natural wing")
+	_check(Roles.fit_note(runner, "MID") == "" and Roles.fit_note(bull, "MID") == "",
+			"The centre square gives no advice")
 
 
 func _test_vocabulary() -> void:
@@ -185,23 +185,11 @@ func _test_tagger() -> void:
 	_check(Roles.TAG_WITH_TAGGER < Roles.TAG_PLAIN, "A tagger takes more of the ball off his man")
 
 
-func _test_selection_hint() -> void:
-	var danger := _mid("D1", 80, 80, 90)
-	danger["overall"] = 90
-	var tagger := _mid("T1", 40, 45, 25, 95)
-	var facts := [{"key": "danger", "text": "x", "weight": 3, "player_id": "D1"}]
-	var hint := Matchup.selection_hint(facts, [danger], [tagger], {})
-	_check(hint.contains(GameDB.player_display_name(tagger)) and hint.contains("tag"),
-			"A danger midfielder and a tagger on your list: Selection says so (%s)" % hint)
-	var picked := Matchup.selection_hint(facts, [danger], [tagger], {"T1": true})
-	_check(picked.contains("is in the side"), "When he is picked, the hint says so")
-	_check(Matchup.selection_hint(facts, [danger], [_mid("X", 50, 50, 50, 10)], {}) == "", "No tagger, no hint")
-	var fwd := danger.duplicate(true)
-	fwd["role"] = "FWD"
-	_check(Matchup.selection_hint(facts, [fwd], [tagger], {}) == "", "A tagger is for midfielders")
-	var clean := RegEx.new()
-	clean.compile("%|\\d")
-	_check(clean.search(hint) == null, "No numbers in the hint")
+## Selection surfaces the problem, never the answer: no hint names who to
+## pick or who to tag.
+func _test_no_prescriptions() -> void:
+	var runner := _mid("R", 90, 88, 30, 20)
+	_check(Roles.fit_note(runner, "MID") == "", "A natural wing in the centre square gets no advice")
 
 
 func _test_corrections() -> void:

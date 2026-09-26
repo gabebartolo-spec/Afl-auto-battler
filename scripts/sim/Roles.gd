@@ -129,13 +129,10 @@ static func on_wing(p: Dictionary) -> bool:
 	return str(p.get("line", "")) == "WING"
 
 
-## A note for the Selection row, or "": whether he suits where he is named.
-## slot is "WING" or "MID" (the centre square).
+## A fact for the Selection row, or "": a player named on a wing who is
+## not a natural one. (A natural wing named in the centre square already
+## reads "Wing" - no advice either way.)
 static func fit_note(p: Dictionary, slot: String) -> String:
-	if slot == "WING":
-		if is_wing(p):
-			return ""
+	if slot == "WING" and not is_wing(p):
 		return "Not a natural wing"
-	if slot == "MID" and is_wing(p):
-		return "Better on a wing"
 	return ""

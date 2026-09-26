@@ -179,37 +179,6 @@ static func _form(results: Array) -> Dictionary:
 			"weight": 2, "tone": "strong" if last == "W" else "weak"}
 
 
-## The selection answer to their danger man, or "": when he is a
-## midfielder and you have a tagger (Roles) fit to play. `picked` holds the
-## ids in your side this week.
-static func selection_hint(facts: Array, opp_list: Array, my_list: Array, picked: Dictionary) -> String:
-	var danger := {}
-	for f in facts:
-		if str(f.get("key", "")) == "danger":
-			for p in opp_list:
-				if str(p["id"]) == str(f.get("player_id", "")):
-					danger = p
-	if danger.is_empty() or str(danger.get("role", "")) != "MID":
-		return ""
-	var taggers := []
-	for p in my_list:
-		if Roles.is_tagger(p) and Ratings.available(p):
-			taggers.append(p)
-	if taggers.is_empty():
-		return ""
-	taggers.sort_custom(func(a, b):
-		var pa := picked.has(str(a["id"]))
-		var pb := picked.has(str(b["id"]))
-		if pa != pb:
-			return pa
-		return int(a["overall"]) > int(b["overall"]))
-	var t: Dictionary = taggers[0]
-	var them := GameDB.player_display_name(danger)
-	if picked.has(str(t["id"])):
-		return "%s is in the side to tag %s: set the tag in the coach box." % [GameDB.player_display_name(t), them]
-	return "%s could tag %s. Pick him, then set the tag in the coach box." % [GameDB.player_display_name(t), them]
-
-
 ## Your own side's week: your best players who are injured. At most `limit`.
 static func own_notes(list: Array, limit := 2) -> Array:
 	var out := []

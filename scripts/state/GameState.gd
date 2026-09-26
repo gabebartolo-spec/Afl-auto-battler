@@ -1019,16 +1019,6 @@ func next_fixture_line() -> String:
 			"v" if str(nxt["venue"]) == "home" else "at", GameDB.club_name(str(nxt["code"]))]
 
 
-## Selection's answer to this opponent (Matchup.selection_hint), or "".
-func selection_hint(code: String) -> String:
-	if season == null or not season.lists.has(code):
-		return ""
-	var picked := {}
-	for p in my_squad().ground:
-		picked[str(p["id"])] = true
-	return Matchup.selection_hint(opponent_facts(code), season.lists[code], my_list, picked)
-
-
 ## Your own side's week worth knowing (Matchup.own_notes).
 func my_week_notes() -> Array:
 	return Matchup.own_notes(my_list)

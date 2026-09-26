@@ -52,6 +52,13 @@ func _selection_tests() -> void:
 			leak = true
 	_check(not leak, "No percentages on the rows")
 	_check(ui.find_child("SelectionWeek", true, false) != null, "Selection shows this week's opponent")
+	var recipe := RegEx.new()
+	recipe.compile("\\d/\\d [A-Z][a-z]")
+	_check(recipe.search(text) == null, "Synergies are not a recipe: no 'one more X' counts")
+	_check(not text.to_lower().contains("best available") and not text.contains("best 22"),
+			"Auto-pick is described as sensible, not best")
+	_check(ui.find_child("SelectionHint", true, false) == null and not text.contains("could tag")
+			and not text.contains("coach box"), "Selection surfaces the problem, not the answer")
 
 	# My selection: a Wing button on every row; moving a player there works.
 	var mine: Button = ui.find_child("MySelection", true, false)
