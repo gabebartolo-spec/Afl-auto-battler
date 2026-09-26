@@ -4,6 +4,7 @@ extends Control
 var _root: VBoxContainer
 var _results_overlay: Control
 var _news_overlay: Control
+var _pos_before := 0          # your ladder spot before the round just played
 
 
 func _ready() -> void:
@@ -40,83 +41,103 @@ func _narrow() -> bool:
 func _build() -> void:
 	UiKit.clear(_root)
 	GameState.ensure_finals()
-
 	var season: Season = GameState.season
-	_root.add_child(UiKit.top_bar("%d season" % GameState.season_year, false))
-
-	var cards: BoxContainer
-	if _narrow():
-		cards = UiKit.vbox(8)
-	else:
-		cards = UiKit.hbox(10)
-	_root.add_child(cards)
-	cards.add_child(_standing_card())
-	cards.add_child(_next_card(season))
+	_root.add_child(UiKit.top_bar(_week_title(season), false))
 	if GameState.is_sacked():
+		_root.add_child(_standing_card())
 		_root.add_child(_sacked_card())
 		return
-	if not GameState.week_event.is_empty() and not season.is_season_over():
-		_root.add_child(_event_card())
-	if not GameState.news.is_empty():
-		_root.add_child(_news_card())
 
-	var lp := UiKit.panel(UiKit.PANEL, 12)
-	lp.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_root.add_child(lp)
-	var lv := UiKit.vbox(4)
-	lp.add_child(lv)
-	lv.add_child(UiKit.section("Ladder"))
-	# Every active club, with room to scroll - the full ladder lives here
-	# too, so the hub stays correct as the competition expands.
-	var grid := UiKit.ladder_table(season.ladder_sorted(), GameState.my_club,
-			_content_width() - 24.0, 0, false)
-	lv.add_child(UiKit.scroll(grid))
+	# One page that scrolls: this week first, then your season, the news and
+	# the whole ladder at its natural height. Nothing is squeezed to fit.
+	var page := UiKit.vbox(UiKit.SECTION)
+	_root.add_child(UiKit.scroll(page))
+	var week := _week_section(season)
+	var ladder := _ladder_section(season)
+	if _narrow():
+		page.add_child(week)
+		page.add_child(UiKit.rule())
+		page.add_child(_standing_card())
+		if not GameState.news.is_empty():
+			page.add_child(_news_card())
+		page.add_child(ladder)
+	else:
+		var cols := UiKit.hbox(28)
+		page.add_child(cols)
+		var left := UiKit.vbox(UiKit.SECTION)
+		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cols.add_child(left)
+		left.add_child(week)
+		left.add_child(UiKit.rule())
+		left.add_child(_standing_card())
+		if not GameState.news.is_empty():
+			left.add_child(_news_card())
+		ladder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cols.add_child(ladder)
+	_root.add_child(_footer(season))
 
-	_root.add_child(_controls(season))
+
+## "Round 4", a finals week, or the season.
+func _week_title(season: Season) -> String:
+	if season.is_season_over():
+		return "%d season" % GameState.season_year
+	if not season.is_regular_done():
+		return "Round %d of %d" % [season.round_index + 1, Season.REGULAR_ROUNDS]
+	return _finals_label()
 
 
+func _ladder_section(season: Season) -> Control:
+	var v := UiKit.vbox(6)
+	v.name = "LadderSection"
+	var head := UiKit.hbox(8)
+	v.add_child(head)
+	var title := UiKit.section("Ladder")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	var full := UiKit.btn("Full ladder", 14)
+	full.name = "FullLadder"
+	full.custom_minimum_size = Vector2(112, 44)
+	full.pressed.connect(func(): Router.go("ladder"))
+	head.add_child(full)
+	var width := _content_width() if _narrow() else _content_width() * 0.45
+	v.add_child(UiKit.ladder_table(season.ladder_sorted(), GameState.my_club, width, 0, false))
+	return v
+
+
+## Your season in a few lines: where you sit, your form, the board.
 func _standing_card() -> Control:
-	var card := UiKit.panel(UiKit.PANEL, 14)
-	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var cv := UiKit.vbox(4)
-	card.add_child(cv)
-	cv.add_child(UiKit.club_badge(GameState.my_club, 18, false, true))
-	var title := UiKit.lbl("Position %d of %d" % [GameState.my_position(),
-			GameState.season.ladder.size()], 22 if _narrow() else 26, UiKit.EMPH, true)
-	title.autowrap_mode = TextServer.AUTOWRAP_OFF
-	cv.add_child(title)
+	var cv := UiKit.vbox(3)
+	cv.name = "SeasonBlock"
+	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cv.add_child(UiKit.club_badge(GameState.my_club, 16, false, true))
 	var lr := GameState.my_ladder_row()
-	cv.add_child(UiKit.lbl("%s  ·  %d pts" % [GameState.my_record(),
-			int(lr.get("pts", 0))], 14, UiKit.TEXT))
-	cv.add_child(UiKit.lbl("%d for, %d against  ·  %.1f%%" % [
-			int(lr.get("pf", 0)), int(lr.get("pa", 0)),
-			float(lr.get("pct", 0.0))], 13, UiKit.MUTED))
+	var title := UiKit.lbl("%s of %d  ·  %s  ·  %d pts" % [GameState.ordinal(GameState.my_position()),
+			GameState.season.ladder.size(), GameState.my_record(), int(lr.get("pts", 0))],
+			UiKit.H2, UiKit.TEXT, true)
+	cv.add_child(title)
 	var form := GameState.club_form_info(GameState.my_club)
-	var form_l := UiKit.lbl(GameState.form_line(form), 13, _form_colour(float(form["value"])), true)
+	var form_l := UiKit.lbl(GameState.form_line(form), UiKit.SMALL, _form_colour(float(form["value"])))
 	form_l.name = "FormLine"
 	cv.add_child(form_l)
-	var injured := Injuries.injured(GameState.my_list)
-	if not injured.is_empty():
-		cv.add_child(UiKit.lbl("%d injured  ·  check your team" % injured.size(), 13, UiKit.BAD))
 	if GameState.board_goal_text() != "":
 		var conf := GameState.board_confidence()
-		var col := UiKit.GOOD if conf >= 60 else (UiKit.EMPH if conf >= ClubLife.WARN_LINE else UiKit.BAD)
-		var board_l := UiKit.ellipsis("Board %d%%  ·  %s%s" % [conf, GameState.board_goal_text(),
-				"  (final warning)" if bool(GameState.board.get("warned", false)) else ""], 13, col, true)
+		var col := UiKit.GOOD if conf >= 60 else (UiKit.MUTED if conf >= ClubLife.WARN_LINE else UiKit.BAD)
+		var board_l := UiKit.lbl("Board %d%%  ·  %s%s" % [conf, GameState.board_goal_text(),
+				"  (final warning)" if bool(GameState.board.get("warned", false)) else ""], UiKit.SMALL, col)
 		board_l.name = "BoardLine"
 		cv.add_child(board_l)
-	return card
+	return cv
 
 
 ## This week's decision. Answer it here; unanswered, it takes the default
 ## when the round is played.
 func _event_card() -> Control:
 	var e: Dictionary = GameState.week_event
-	var card := UiKit.panel(UiKit.PANEL_ALT, 10, 8)
+	var card := UiKit.panel(UiKit.PANEL, 12)
 	card.name = "WeekEvent"
-	var v := UiKit.vbox(4)
+	var v := UiKit.vbox(6)
 	card.add_child(v)
-	v.add_child(UiKit.lbl("This week: " + str(e.get("title", "")), UiKit.BODY, UiKit.TEXT, true))
+	v.add_child(UiKit.lbl(str(e.get("title", "")), UiKit.BODY, UiKit.TEXT, true))
 	if GameState.week_event_pending():
 		var t := UiKit.lbl(str(e.get("text", "")), 12, UiKit.TEXT)
 		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -162,10 +183,10 @@ func _sacked_card() -> Control:
 
 ## The latest league headlines; More opens the whole feed.
 func _news_card() -> Control:
-	var card := UiKit.panel(UiKit.PANEL, 10, 6)
+	var card := HBoxContainer.new()
 	card.name = "NewsCard"
-	var row := UiKit.hbox(8)
-	card.add_child(row)
+	var row := card
+	row.add_theme_constant_override("separation", 8)
 	var v := UiKit.vbox(2)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(v)
@@ -202,13 +223,14 @@ func _show_news() -> void:
 	box["footer"].add_child(ok)
 
 
-func _next_card(season: Season) -> Control:
-	var nxt := UiKit.panel(UiKit.PANEL, 14)
-	nxt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var nv := UiKit.vbox(4)
-	nxt.add_child(nv)
+## This week: who you play, the two or three things worth knowing about
+## them, anything on your side that matters, and the way into the match.
+func _week_section(season: Season) -> Control:
+	var nv := UiKit.vbox(6)
+	nv.name = "ThisWeek"
+	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if season.is_season_over():
-		nv.add_child(UiKit.lbl("Season complete", 20, UiKit.EMPH, true))
+		nv.add_child(UiKit.lbl("Season complete", UiKit.H1, UiKit.TEXT, true))
 		nv.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(GameState.premier()),
 				16, UiKit.TEXT))
 		var ru: String = str(season.finals.get("runner_up", ""))
@@ -217,44 +239,62 @@ func _next_card(season: Season) -> Control:
 		var medal: Array = GameState.season_awards.get("brownlow", [])
 		if not medal.is_empty():
 			nv.add_child(UiKit.ellipsis("Brownlow: %s (%d votes)" % [
-					GameState.award_name(medal[0]), int(medal[0]["votes"])], 13, UiKit.EMPH))
+					GameState.award_name(medal[0]), int(medal[0]["votes"])], 13, UiKit.TEXT))
 	elif _upcoming_match().is_empty():
 		match GameState.my_finals_status():
 			"bye":
-				nv.add_child(UiKit.lbl("Week off", 20, UiKit.GOOD, true))
+				nv.add_child(UiKit.lbl("Week off", UiKit.H1, UiKit.GOOD, true))
 				nv.add_child(UiKit.lbl(
 						"You have a week off while the rest of the series plays on.",
-						13, UiKit.MUTED))
+						UiKit.BODY, UiKit.MUTED))
 			"eliminated":
-				nv.add_child(UiKit.lbl("Knocked out", 20, UiKit.BAD, true))
+				nv.add_child(UiKit.lbl("Knocked out", UiKit.H1, UiKit.BAD, true))
 				nv.add_child(UiKit.lbl(
 						"Your finals campaign is over. Sim the rest of the series to see who lifts the cup.",
-						13, UiKit.MUTED))
+						UiKit.BODY, UiKit.MUTED))
 			_:
-				nv.add_child(UiKit.lbl("Season over for you", 20, UiKit.BAD, true))
+				nv.add_child(UiKit.lbl("Season over for you", UiKit.H1, UiKit.BAD, true))
 				nv.add_child(UiKit.lbl(
 						"You missed the top %d. Sim the finals series to see who lifts the cup." % Season.FINALISTS,
-						13, UiKit.MUTED))
+						UiKit.BODY, UiKit.MUTED))
 	else:
-		var phase := "Round %d of %d" % [season.round_index + 1, Season.REGULAR_ROUNDS] \
-				if not season.is_regular_done() else _finals_label()
-		nv.add_child(UiKit.ellipsis(phase, 18, UiKit.TEXT, true))
 		var mine: Dictionary = _upcoming_match()
 		var opp: String = mine["away"] if mine["home"] == GameState.my_club else mine["home"]
 		var is_home: bool = mine["home"] == GameState.my_club
-		nv.add_child(UiKit.ellipsis("%s %s" % ["vs" if is_home else "at",
-				GameDB.club_name(opp)], 22 if _narrow() else 26, UiKit.EMPH, true))
 		var ground := str(mine.get("venue", ""))
 		if ground == "":
 			ground = str(GameDB.club(str(mine["home"])).get("ground", ""))
-		var note := "%s  ·  %s" % [mine.get("label", "Match"), ground]
-		nv.add_child(UiKit.ellipsis(note, 13, UiKit.MUTED))
+		nv.add_child(UiKit.ellipsis(ground, UiKit.SMALL, UiKit.MUTED))
+		var who := UiKit.lbl("%s %s" % ["v" if is_home else "at", GameDB.club_name(opp)],
+				26 if _narrow() else 30, UiKit.TEXT, true)
+		who.name = "Opponent"
+		nv.add_child(who)
 		var their := GameState.club_form_info(opp)
-		var their_l := UiKit.ellipsis(GameState.form_line(their, "Their form"),
-				13, _form_colour(float(their["value"])))
-		their_l.name = "OppFormLine"
-		nv.add_child(their_l)
-	return nxt
+		var standing := UiKit.lbl("%s on the ladder  ·  %s" % [
+				GameState.ordinal(GameState.club_position(opp)),
+				GameState.form_line(their, "form").trim_prefix("form: ")], UiKit.SMALL, UiKit.MUTED)
+		standing.name = "OppFormLine"
+		nv.add_child(standing)
+		# The football: two or three facts, then anything on our side.
+		var facts := GameState.opponent_facts(opp)
+		var notes := GameState.my_week_notes()
+		if not facts.is_empty() or not notes.is_empty():
+			nv.add_child(UiKit.spacer(4))
+		for i in range(facts.size()):
+			var f: Dictionary = facts[i]
+			var fl := UiKit.lbl(str(f["text"]), UiKit.BODY, UiKit.TEXT)
+			fl.name = "Fact_%d" % i
+			nv.add_child(fl)
+		for i in range(notes.size()):
+			var nl := UiKit.lbl(str(notes[i]["text"]), UiKit.BODY, UiKit.BAD)
+			nl.name = "OwnNote_%d" % i
+			nv.add_child(nl)
+	if not GameState.week_event.is_empty() and not season.is_season_over():
+		nv.add_child(UiKit.spacer(4))
+		nv.add_child(_event_card())
+	nv.add_child(UiKit.spacer(4))
+	nv.add_child(_week_actions(season))
+	return nv
 
 
 ## Team form reads green when good, red when poor, muted when steady.
@@ -266,7 +306,8 @@ func _form_colour(f: float) -> Color:
 	return UiKit.MUTED
 
 
-func _controls(season: Season) -> Control:
+## The week's decision buttons: the primary action last, where the thumb is.
+func _week_actions(season: Season) -> Control:
 	var buttons: Array = []
 	if season.is_season_over():
 		var resume := GameState.draft != null and GameState.draft.intake_mode
@@ -274,38 +315,39 @@ func _controls(season: Season) -> Control:
 			buttons.append(_nav_button("Trades & Contracts", func(): Router.go("offseason")))
 		buttons.append(_nav_button("Resume national draft" if resume
 				else "%d National Draft" % GameState.season_year, _on_intake_draft, true))
+	elif _upcoming_match().is_empty() and GameState.my_finals_status() == "bye":
+		# Still alive: sim only this week, never past your own final.
+		buttons.append(_nav_button("Team", func(): Router.go("selection")))
+		buttons.append(_nav_button("Sim %s" % _finals_label(), _on_sim_round, true))
+	elif _upcoming_match().is_empty():
+		buttons.append(_nav_button("Sim to Grand Final", _on_sim_to_end, true))
+	else:
+		buttons.append(_nav_button("Pick the side", func(): Router.go("selection")))
+		buttons.append(_nav_button("Play match", _on_play_match, true))
+	var row := UiKit.hbox(8)
+	row.name = "WeekActions"
+	for b in buttons:
+		row.add_child(b)
+	return row
+
+
+## Everything else, one quiet row pinned under the page.
+func _footer(season: Season) -> Control:
+	var buttons: Array = []
+	if season.is_season_over():
 		buttons.append(_nav_button("Season review", func(): Router.go("season_review")))
 		buttons.append(_nav_button("Training", func(): Router.go("training")))
 		buttons.append(_nav_button("Main menu", func(): Router.to_main_menu()))
-	elif _upcoming_match().is_empty() and GameState.my_finals_status() == "bye":
-		# Still alive: sim only this week, never past your own final.
-		buttons.append(_nav_button("Sim %s" % _finals_label(), _on_sim_round, true))
-		buttons.append(_nav_button("Team", func(): Router.go("selection")))
-		buttons.append(_nav_button("Training", func(): Router.go("training")))
-		buttons.append(_nav_button("Full ladder", func(): Router.go("ladder")))
-		buttons.append(_nav_button("My list", func(): Router.go("list")))
-	elif _upcoming_match().is_empty():
-		buttons.append(_nav_button("Sim to Grand Final", _on_sim_to_end, true))
-		buttons.append(_nav_button("Training", func(): Router.go("training")))
-		buttons.append(_nav_button("Full ladder", func(): Router.go("ladder")))
-		buttons.append(_nav_button("My list", func(): Router.go("list")))
 	else:
-		buttons.append(_nav_button("Play match", _on_play_match, true))
-		buttons.append(_nav_button("Team", func(): Router.go("selection")))
 		buttons.append(_nav_button("Training", func(): Router.go("training")))
-		buttons.append(_nav_button("Sim round", _on_sim_round))
-		buttons.append(_nav_button("Full ladder", func(): Router.go("ladder")))
 		buttons.append(_nav_button("My list", func(): Router.go("list")))
-	if _content_width() < 720.0:
-		var grid := GridContainer.new()
-		grid.columns = 2
-		grid.add_theme_constant_override("h_separation", 8)
-		grid.add_theme_constant_override("v_separation", 8)
-		for b in buttons:
-			grid.add_child(b)
-		return grid
-	var row := UiKit.hbox(8)
+		if not _upcoming_match().is_empty():
+			buttons.append(_nav_button("Sim round", _on_sim_round))
+	var row := UiKit.hbox(6)
+	row.name = "HubFooter"
 	for b in buttons:
+		b.add_theme_font_size_override("font_size", 15)
+		b.custom_minimum_size = Vector2(0, 44)
 		row.add_child(b)
 	return row
 
@@ -370,6 +412,7 @@ func _on_play_match() -> void:
 
 
 func _on_sim_round() -> void:
+	_pos_before = GameState.my_position()
 	GameState.advance()
 	_build()
 	if not GameState.last_results.is_empty():
@@ -378,6 +421,7 @@ func _on_sim_round() -> void:
 
 ## You are out of the finals: run the remaining weeks out and show the winner.
 func _on_sim_to_end() -> void:
+	_pos_before = 0
 	var guard := 0
 	while not GameState.season.is_season_over() and guard < 10:
 		GameState.advance()
@@ -410,6 +454,19 @@ func _show_results(results: Array) -> void:
 	_results_overlay = overlay
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.ellipsis(GameState.last_label, 22, UiKit.EMPH, true))
+	# What it means and what comes next, before the rest of the round.
+	if GameState.last_phase == "regular" and not GameState.last_match.is_empty():
+		var moved := GameState.ladder_move_line(_pos_before)
+		if moved != "":
+			var ml := UiKit.lbl(moved, UiKit.BODY, UiKit.TEXT, true)
+			ml.name = "LadderMove"
+			v.add_child(ml)
+		var nxt := GameState.next_fixture_line()
+		if nxt != "":
+			var nl := UiKit.lbl(nxt, UiKit.BODY, UiKit.MUTED)
+			nl.name = "NextFixture"
+			v.add_child(nl)
+		v.add_child(UiKit.spacer(4))
 	v.add_child(_results_list(results))
 	var report: Dictionary = GameState.last_training_report
 	if not GameState.last_match.is_empty() and int(report.get("count", 0)) > 0:
@@ -429,6 +486,7 @@ func _show_results(results: Array) -> void:
 	var outlook := GameState.finals_outcome_line(GameState.last_match)
 	if outlook != "":
 		v.add_child(UiKit.lbl(outlook, 15, UiKit.EMPH, true))
+
 	if GameState.season.is_season_over():
 		v.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(GameState.premier()),
 				18, UiKit.TEXT, true))

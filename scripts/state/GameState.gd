@@ -992,11 +992,65 @@ func club_form_info(code: String) -> Dictionary:
 			"last": "".join(res.slice(maxi(0, res.size() - ClubLife.FORM_WEIGHTS.size())))}
 
 
-## "Form: Good (+40)  WWWWL" - or "Form: Steady (+0)  no games yet".
+## "Form: Good  ·  WWWWL" - or "Form: Steady  ·  no games yet". The word and
+## the results say it; the internal -1..1 value stays internal.
 static func form_line(info: Dictionary, prefix := "Form") -> String:
 	var last := str(info.get("last", ""))
-	return "%s: %s (%+d)  %s" % [prefix, str(info["label"]), int(round(float(info["value"]) * 100.0)),
-			last if last != "" else "no games yet"]
+	return "%s: %s  ·  %s" % [prefix, str(info["label"]), last if last != "" else "no games yet"]
+
+
+## Two or three football facts about this week's opponent (Matchup), from
+## the sides the engine will field. [] when there is no season or club.
+func opponent_facts(code: String) -> Array:
+	if season == null or code == "" or not season.lists.has(code):
+		return []
+	return Matchup.facts(code, season.lists, season.selections, season.club_results(code))
+
+
+## What comes next, in one line: "Next: Round 5 v Carlton at the MCG." ""
+## when there is no fixture to name (finals are drawn week by week).
+func next_fixture_line() -> String:
+	if season == null or season.is_regular_done():
+		return ""
+	var nxt := my_next_opponent()
+	if nxt.is_empty():
+		return ""
+	return "Next: Round %d %s %s." % [season.round_index + 1,
+			"v" if str(nxt["venue"]) == "home" else "at", GameDB.club_name(str(nxt["code"]))]
+
+
+## Your own side's week worth knowing (Matchup.own_notes).
+func my_week_notes() -> Array:
+	return Matchup.own_notes(my_list)
+
+
+## A club's ladder position in words: "3rd".
+static func ordinal(n: int) -> String:
+	var suffix := "th"
+	if n % 100 < 11 or n % 100 > 13:
+		suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+	return "%d%s" % [n, suffix]
+
+
+func club_position(code: String) -> int:
+	if season == null:
+		return 0
+	var rows := season.ladder_sorted()
+	for i in range(rows.size()):
+		if rows[i]["code"] == code:
+			return i + 1
+	return 0
+
+
+## What a round did to your ladder spot: "Up to 6th." / "Down to 11th." /
+## "Still 8th." `before` is your position before the round (0 = unknown).
+func ladder_move_line(before: int) -> String:
+	var now := my_position()
+	if now <= 0:
+		return ""
+	if before <= 0 or before == now:
+		return "Still %s on the ladder." % ordinal(now) if before > 0 else "%s on the ladder." % ordinal(now)
+	return "%s to %s on the ladder." % ["Up" if now < before else "Down", ordinal(now)]
 
 
 func my_ladder_row() -> Dictionary:

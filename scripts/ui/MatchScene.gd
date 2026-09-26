@@ -42,6 +42,7 @@ var _momentum := 0.0            # -1 (away on top) .. 1 (home on top)
 var _mom_home: ColorRect
 var _mom_away: ColorRect
 var _rotation := "normal"
+var _pos_before := 0          # your ladder spot before this match
 
 
 func _ready() -> void:
@@ -55,6 +56,7 @@ func _ready() -> void:
 		_res["venue"] = str(GameState.pending_match.get("venue", ""))
 		_res["events"] = []
 		_my_side = 0 if str(_res["home"]) == GameState.my_club else 1
+		_pos_before = GameState.my_position()
 	else:
 		_res = GameState.last_match
 		if not _res.is_empty() and GameState.my_club != "":
@@ -1116,6 +1118,18 @@ func _show_fulltime() -> void:
 			var through: bool = str(slots.get("W_" + tag_now, "")) == GameState.my_club
 			v.add_child(UiKit.lbl(outlook, 22 if tag_now == "GF" else 16,
 					UiKit.EMPH if through else UiKit.MUTED, true))
+		# What it means and what comes next (home and away only).
+		if _interactive and str(_res.get("tag", "")) == "":
+			var moved := GameState.ladder_move_line(_pos_before)
+			if moved != "":
+				var ml := UiKit.lbl(moved, UiKit.BODY, UiKit.TEXT, true)
+				ml.name = "LadderMove"
+				v.add_child(ml)
+			var nxt := GameState.next_fixture_line()
+			if nxt != "":
+				var nl := UiKit.lbl(nxt, UiKit.BODY, UiKit.MUTED)
+				nl.name = "NextFixture"
+				v.add_child(nl)
 
 	var narrow := UiKit.view_width(self) < 720.0
 	var body: BoxContainer
@@ -1128,16 +1142,16 @@ func _show_fulltime() -> void:
 	var left := UiKit.vbox(5)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_child(left)
-	left.add_child(UiKit.lbl("Quarter by Quarter", 14, UiKit.EMPH, true))
+	left.add_child(UiKit.lbl("Quarter by quarter", 14, UiKit.EMPH, true))
 	left.add_child(_quarters_table())
 	left.add_child(UiKit.spacer(6))
-	left.add_child(UiKit.lbl("Team Stats", 14, UiKit.EMPH, true))
+	left.add_child(UiKit.lbl("Team stats", 14, UiKit.EMPH, true))
 	left.add_child(_team_stats_table())
 
 	var right := UiKit.vbox(5)
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_child(right)
-	right.add_child(UiKit.lbl("Best On Ground", 14, UiKit.EMPH, true))
+	right.add_child(UiKit.lbl("Best on ground", 14, UiKit.EMPH, true))
 	right.add_child(_best_table())
 
 	if _interactive:
@@ -1165,14 +1179,16 @@ func _show_fulltime() -> void:
 		ht_btn.pressed.connect(func():
 			_show_half_time_popup(CoachReport.half_time_report(_res, _my_side)))
 		box["footer"].add_child(ht_btn)
-	var cont := UiKit.btn("Training", 18, true)
-	cont.custom_minimum_size = Vector2(0, 48)
+	var cont := UiKit.btn("Training", 16)
+	cont.custom_minimum_size = Vector2(0, 44)
 	cont.pressed.connect(func():
 		overlay.queue_free()
 		Router.replace("training"))
 	box["footer"].add_child(cont)
-	var leave := UiKit.btn("Back to hub", 16)
-	leave.custom_minimum_size = Vector2(0, 44)
+	# The week is over: back to the hub, where next week starts.
+	var leave := UiKit.btn("Continue", 18, true)
+	leave.name = "FullTimeContinue"
+	leave.custom_minimum_size = Vector2(0, 48)
 	leave.pressed.connect(func(): Router.back())
 	box["footer"].add_child(leave)
 

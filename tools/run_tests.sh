@@ -14,7 +14,7 @@ cd "$(dirname "$0")/.." || exit 1
 
 GODOT="${GODOT:-godot}"
 SUITE_TIMEOUT="${SUITE_TIMEOUT:-900}"
-ALL_SUITES=(draft draft_ui intake intake_ui expansion finals save career_ui potential ratings ai training selection injuries awards achievements contracts league club match_game match_visual league_balance calibration balance)
+ALL_SUITES=(draft draft_ui intake intake_ui expansion finals save career_ui potential ratings ai training selection matchup injuries awards achievements contracts league club match_game match_visual league_balance calibration balance)
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
 
 LOG_DIR="${LOG_DIR:-$(mktemp -d)}"
