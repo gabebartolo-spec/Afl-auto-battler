@@ -91,6 +91,10 @@ var _pi := 0
 var _pt := 0.0
 var _locs := {}                 # event index -> planned ball location
 var _busy := {}                 # token ids a phase is steering this beat
+## Named receivers already leading to a future possession: token id -> event
+## index. A lead holds until that event starts, so it never flickers back to
+## structure mid-run.
+var _lead := {}
 var _struct_ball := Vector2.ZERO
 var _poss := 0
 var _struct_timer := 0.0
@@ -110,6 +114,7 @@ func setup(result: Dictionary, p_events: Array) -> void:
 	arrivals = []
 	_locs = {}
 	_busy = {}
+	_lead = {}
 	_beat = {}
 	_phases = []
 	_out = []
@@ -648,49 +653,118 @@ func _loc(k: int) -> Vector2:
 
 
 # ---------------------------------------------------------------------------
-# Anticipation: players read the next one or two events
+# Anticipation: players read the events coming up
 # ---------------------------------------------------------------------------
 func _anticipate(k: int) -> void:
 	var ev: Dictionary = events[k]
 	var cur := _actor_id(ev)
-	var j := k
-	for step in range(3):
-		j = _next_real(j)
-		if j < 0:
-			return
+	var j := _next_real(k)
+	if j >= 0:
 		var nev: Dictionary = events[j]
 		var kind := str(nev.get("kind", ""))
 		var a := _actor_id(nev)
-		var w := [1.0, 0.8, 0.6][step] as float
-		if a < 0 or _busy.has(a):
-			continue
-		if kind == "tackle" and step == 0 and cur >= 0:
-			# The tackler is already closing from behind as the ball arrives.
-			var at := _loc(k) if DISPOSALS.has(str(ev.get("kind", ""))) else (tokens[cur]["pos"] as Vector2)
-			var from: Vector2 = tokens[a]["pos"]
-			MatchMotion.set_goal(tokens[a], at + (from - at).limit_length(2.5), 1.0)
-			_busy[a] = true
-		elif (DISPOSALS.has(kind) or kind == "clanger") and _restart(j) == "open":
-			var loc := _loc(j)
-			var goal := loc if step < 2 else (tokens[a]["pos"] as Vector2).lerp(loc, 0.7)
-			MatchMotion.set_goal(tokens[a], goal, w)
-			_busy[a] = true
-			if step == 0:
-				_trail(a, goal, 0.85 * w)
-		elif kind == "inside50" and step == 0:
-			var nk := _next_real(j)
-			if nk >= 0:
-				_contest(_loc(j), _actor_id(events[nk]), 0.95)
+		if a >= 0 and not _busy.has(a):
+			if kind == "tackle" and cur >= 0:
+				# The tackler is already closing from behind as the ball arrives.
+				var at := _loc(k) if DISPOSALS.has(str(ev.get("kind", ""))) else (tokens[cur]["pos"] as Vector2)
+				var from: Vector2 = tokens[a]["pos"]
+				MatchMotion.set_goal(tokens[a], at + (from - at).limit_length(2.5), 1.0)
+				_busy[a] = true
+			elif kind == "inside50":
+				var nk := _next_real(j)
+				if nk >= 0:
+					_contest(_loc(j), _actor_id(events[nk]), 0.95)
 	if str(ev.get("kind", "")) == "inside50":
 		var nk2 := _next_real(k)
 		if nk2 >= 0:
 			_contest(_loc(k), _actor_id(events[nk2]), 1.0)
+	_lead_receivers(k, cur)
+
+
+const LEAD_EVENTS := 10         # how far down the log a lead can be planned
+const LEAD_HORIZON := 7.0       # ...and how far ahead in presentation seconds
+const LEAD_SLACK := 0.8         # start a run this much before it is strictly needed
+
+## Send each named receiver toward his coming possession early enough to be
+## there when the ball arrives. Walks the log ahead, estimating when each
+## possession happens; a receiver starts his lead once the time left is about
+## what he needs to get there, and holds it until his possession starts. Only
+## receivers who need to go now move; everyone else keeps the team's shape.
+func _lead_receivers(k: int, cur: int) -> void:
+	for id in _lead.keys():
+		if int(_lead[id]) <= k:
+			_lead.erase(id)
+	var ev: Dictionary = events[k]
+	var prev_kind := str(ev.get("kind", ""))
+	var prev_loc: Vector2 = ball["pos"]
+	var t := 0.0
+	if _possession(prev_kind) or ["inside50", "ballup", "rebound"].has(prev_kind):
+		prev_loc = _loc(k)
+		t = _flight_shape("kick", (ball["pos"] as Vector2).distance_to(prev_loc)).x + 0.2
+	var j := k
+	var first := -1
+	var first_loc := Vector2.ZERO
+	for n in range(LEAD_EVENTS):
+		if t > LEAD_HORIZON:
+			break
+		j = _next_real(j)
+		if j < 0:
+			break
+		var nev: Dictionary = events[j]
+		var kind := str(nev.get("kind", ""))
+		if ["goal", "behind", "quarter", "final", "inside50"].has(kind):
+			break  # restarts and forward-50 contests stage their own players
+		if kind == "tackle":
+			t += 1.2
+			continue
+		if kind == "free":
+			t += 0.8
+			continue
+		if kind == "ballup":
+			var at := _loc(j)
+			t += _flight_shape("kick", prev_loc.distance_to(at)).x + 1.4
+			prev_loc = at
+			prev_kind = kind
+			continue
+		if not _possession(kind) and kind != "rebound":
+			t += 0.5
+			continue
+		var restart := _restart(j)
+		if restart == "centre" or restart == "kickin":
+			break
+		var loc := _loc(j)
+		var d := prev_loc.distance_to(loc)
+		t += _flight_shape("handball" if prev_kind == "handball" and d < 18.0 else "kick", d).x
+		var a := _actor_id(nev)
+		if a >= 0 and a != cur and not _busy.has(a) and int(_lead.get(a, j)) == j:
+			var tok: Dictionary = tokens[a]
+			# The next two receivers always lead (as before); further ones start
+			# once the time left is about what they need to get there.
+			if _lead.has(a) or n < 2 or MatchMotion.eta(tok, loc) + LEAD_SLACK >= t:
+				_lead[a] = j
+				# A lead is a run, never a stroll: from a stride-out up to a
+				# sprint when time is short.
+				var top := float(tok["top"])
+				var need := (tok["pos"] as Vector2).distance_to(loc) / maxf(0.3, t - float(tok["reaction"]))
+				var u := clampf((need / top - MatchMotion.JOG_SHARE) / (1.0 - MatchMotion.JOG_SHARE) + 0.35, 0.6, 1.0)
+				MatchMotion.set_goal(tok, loc, u)
+				_busy[a] = true
+				if n == 0:
+					first = a
+					first_loc = loc
+		t += 0.25  # hold, collect
+		prev_loc = loc
+		prev_kind = kind
+	# The next receiver's opponent follows him, unless that opponent is on a
+	# lead of his own (often the case just before a turnover).
+	if first >= 0:
+		_trail(first, first_loc, 0.85)
 
 
 ## The receiver's direct opponent follows him a step behind, goal-side.
 func _trail(a: int, goal: Vector2, urgency: float) -> void:
 	var o := int(tokens[a]["match"])
-	if o < 0 or _busy.has(o):
+	if o < 0 or _busy.has(o) or _lead.has(o):
 		return
 	var t: Dictionary = tokens[o]
 	var own := Vector2(-MatchMotion.GOAL_X * _dir(int(t["side"])), 0.0)
@@ -1137,6 +1211,7 @@ func flush() -> Array:
 	_beat = {}
 	_phases = []
 	_busy = {}
+	_lead = {}
 	var last := Vector2.ZERO
 	for i in range(events.size() - 1, -1, -1):
 		var ev2: Dictionary = events[i]

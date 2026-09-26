@@ -49,10 +49,13 @@ What that showed, and what the view does about it:
 - **Around the ball**, the nearest two defenders press (one on the ball, one
   goal-side) and the nearest two attackers offer options. These roles are
   chosen once per beat, so they don't flick between neighbours.
-- **Receivers lead and defenders trail.** The next three events are known, so
-  their players start moving early. The receiver runs to where the ball will
-  land and his opponent follows a step behind. A tackler closes from behind
-  before the tackle.
+- **Receivers lead and defenders trail.** The director reads up to ten
+  events (about seven seconds of play) ahead and estimates when each
+  possession happens. A named receiver starts running once the time left is
+  about what he needs to reach his spot, and holds that lead until he gets
+  the ball; the next two receivers always lead. Everyone else keeps the
+  team's shape. The next receiver's opponent follows a step behind, and a
+  tackler closes from behind before the tackle.
 - **Centre bounces are 6-6-6**, with at most four per side in the square,
   wingers on the wings and defenders goal-side. Players stand still before
   the bounce, then there's the ruck contest and the tap.
