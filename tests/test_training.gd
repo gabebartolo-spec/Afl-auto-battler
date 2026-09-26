@@ -92,6 +92,10 @@ func _test_manual_and_focus() -> void:
 		GameState.advance()
 	_check(manual["attr"] == manual_attr, "Manual never auto-spends")
 	_check(int(manual["xp"]) > 0, "Manual banks the XP")
+	# Injuries (seeded from the clock) or a week's card can leave him short
+	# of a point after three games, so spend a known amount under his plan.
+	mid["xp"] = int(mid["xp"]) + 400
+	GameState.apply_plan_to(mid)
 	var allowed: Dictionary = GameState.plan_weights(mid, "outside_mid")
 	var only_plan := true
 	var moved := false
