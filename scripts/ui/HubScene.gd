@@ -397,6 +397,9 @@ func _show_results(results: Array) -> void:
 	if not GameState.last_match.is_empty() and int(report.get("count", 0)) > 0:
 		v.add_child(UiKit.lbl("Your list gained %d XP across %d players." % [
 				int(report["total"]), int(report["count"])], 14, UiKit.TEXT, true))
+		var reserves := GameState.reserves_summary_line()
+		if reserves != "":
+			v.add_child(UiKit.lbl(reserves, 13, UiKit.MUTED))
 		var spent := GameState.training_summary_line()
 		if spent != "":
 			v.add_child(UiKit.lbl(spent, 13, UiKit.GOOD))

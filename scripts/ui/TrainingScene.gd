@@ -69,7 +69,7 @@ func _show_intro() -> void:
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.heading("HOW TRAINING WORKS", 24))
 	for line in [
-		"Every player on your list earns XP after every game - more for playing, more for a big game.",
+		"Every player on your list earns XP after every game - more for playing, more for a big game. Fit players you leave out develop in the reserves at about half the rate of a senior game (RES on the list); injured and rested players only get a small squad share.",
 		"Training plans spend it for you. The club plan (Position plan to start) trains what each position needs. Give any player his own plan - inside midfielder, key forward, a single stat - or Manual to bank his XP.",
 		"Change a plan whenever you like; banked XP is spent under the new plan straight away. You can still buy any stat by hand.",
 		"Points are cheaper while a player is below his potential (POT) and dearer once he is past it.",
@@ -142,6 +142,9 @@ func _summary() -> Control:
 				str(report.get("label", "Last game")), int(report["count"]), int(report["total"])],
 				15, UiKit.GOLD, true))
 		var auto: Dictionary = report.get("auto", {})
+		var reserves := GameState.reserves_summary_line()
+		if reserves != "":
+			v.add_child(UiKit.lbl(reserves, 13, UiKit.MUTED))
 		if int(auto.get("points", 0)) > 0:
 			v.add_child(UiKit.lbl("Training plans bought %d stat points across %d players." % [
 					int(auto["points"]), int(auto["players"])], 13, UiKit.GOOD))
@@ -291,11 +294,19 @@ func _player_row(p: Dictionary) -> Control:
 		h.add_child(UiKit.line("INJ %dw" % int(p["injury_weeks"]), 11, UiKit.BAD, true))
 	elif duty == "Interchange":
 		h.add_child(UiKit.line("INT", 11, UiKit.MUTED))
+	elif duty == "Reserves":
+		h.add_child(UiKit.line("RES", 11, UiKit.MUTED))
 	elif duty == "Not selected":
 		h.add_child(UiKit.line("OUT", 11, UiKit.MUTED))
 	_ignore_mouse(h)
 	b.pressed.connect(_open_player.bind(id))
 	return b
+
+
+## A full senior game at this career's difficulty, to set the reserves
+## figure against.
+func _senior_game_xp() -> int:
+	return int(round(float(GameState.XP_SENIOR_GAME) * float(GameState.difficulty_rules()["xp_mult"])))
 
 
 func _open_player(id: String) -> void:
@@ -350,6 +361,12 @@ func _detail_panel() -> Control:
 		head.add_child(hint)
 	head.add_child(UiKit.lbl("%d XP to spend  ·  %d games on the list" % [int(p.get("xp", 0)),
 			int(p.get("xp_games", 0))], 15, UiKit.GOLD, true))
+	if duty == "Reserves":
+		var res_line := UiKit.lbl("Reserves development +%d XP last game. A senior game is worth up to %d." % [
+				GameState.xp_gain_for(_selected), _senior_game_xp()], 13, UiKit.MUTED)
+		res_line.name = "ReservesLine"
+		res_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		head.add_child(res_line)
 	if _notice != "":
 		head.add_child(UiKit.lbl(_notice, 13, UiKit.GOOD, true))
 	var plan_row := UiKit.hbox(8)

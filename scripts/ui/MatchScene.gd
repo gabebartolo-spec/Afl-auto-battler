@@ -1105,6 +1105,9 @@ func _show_fulltime() -> void:
 			and str(report.get("away", "")) == str(_res.get("away", "")):
 		v.add_child(UiKit.lbl("%d players gained %d XP." % [
 				int(report["count"]), int(report["total"])], 14, UiKit.TEXT, true))
+		var reserves := GameState.reserves_summary_line()
+		if reserves != "":
+			v.add_child(UiKit.lbl(reserves, 13, UiKit.MUTED))
 		var spent := GameState.training_summary_line()
 		if spent != "":
 			v.add_child(UiKit.lbl(spent + " Adjust plans in Training.", 13, UiKit.GOOD))

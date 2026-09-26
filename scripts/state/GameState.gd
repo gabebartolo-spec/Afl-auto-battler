@@ -72,6 +72,21 @@ const XP_SQUAD := 4
 const XP_SELECTED := 6
 const XP_NAMED := 3
 const XP_PERF_CAP := 24
+## A full senior game: named on the ground with a capped performance. Most
+## senior players earn exactly this (the cap is easy to reach), so it is the
+## reference the reserves rate is set against.
+const XP_SENIOR_GAME := XP_SQUAD + XP_SELECTED + XP_NAMED + XP_PERF_CAP
+## Reserves (VFL) development. An available player left out of the senior 22
+## plays in the reserves in the background and earns this share of a full
+## senior game - no match, stats or selection of its own. Injured and
+## rested/suspended players (Ratings.available) only get XP_SQUAD.
+const RESERVES_XP_SHARE := 0.5
+
+
+## XP for a week in the reserves: RESERVES_XP_SHARE of a full senior game
+## (19 of 37 at 0.5), before the difficulty multiplier.
+static func reserves_xp() -> int:
+	return int(round(float(XP_SENIOR_GAME) * RESERVES_XP_SHARE))
 
 
 ## Where the career is saved. Tests point this somewhere else so they never
@@ -1068,6 +1083,8 @@ func last_duty(player_id: String) -> String:
 			return "On the ground"
 		if bool(row.get("on_bench", false)):
 			return "Interchange"
+		if bool(row.get("reserves", false)):
+			return "Reserves"
 		return "Not selected"
 	return ""
 
@@ -1087,7 +1104,8 @@ func _grant_match_xp(res: Dictionary) -> void:
 	last_training_report["auto"] = apply_train_plans()
 
 
-## Every player on the list is paid. Named players and good games earn more.
+## Every player on the list is paid. Named players and good games earn more;
+## fit players left out develop in the reserves at half a senior game.
 ## The old trainer picked five names at random and hid everyone else.
 func grant_match_xp(res: Dictionary) -> Dictionary:
 	return _grant_xp(my_club, my_list, res)
@@ -1108,25 +1126,35 @@ func _grant_xp(club: String, list: Array, res: Dictionary) -> Dictionary:
 		bench_ids[str(p["id"])] = true
 	var rows: Array = []
 	var total := 0
+	var reserves_count := 0
+	var reserves_total := 0
 	for p in list:
 		var id := str(p["id"])
 		var on_ground := ground_ids.has(id)
 		var on_bench := bench_ids.has(id)
 		var stats: Dictionary = stats_all.get(id, {})
-		var gain := _xp_amount(stats, on_ground, on_bench)
+		# Left out but fit to play: he turns out in the reserves.
+		var reserves := not on_ground and not on_bench and Ratings.available(p)
+		var gain := _xp_amount(stats, on_ground, on_bench, reserves)
 		if club == my_club:
 			gain = int(round(float(gain) * float(difficulty_rules()["xp_mult"])))
 		p["xp"] = int(p.get("xp", 0)) + gain
 		p["xp_games"] = int(p.get("xp_games", 0)) + 1
 		total += gain
+		if reserves:
+			reserves_count += 1
+			reserves_total += gain
 		rows.append({
 			"id": id,
 			"xp": gain,
 			"on_ground": on_ground,
 			"on_bench": on_bench,
+			"reserves": reserves,
 		})
 	rows.sort_custom(func(a, b): return int(a["xp"]) > int(b["xp"]))
 	return {
+		"reserves_count": reserves_count,
+		"reserves_total": reserves_total,
 		"label": str(res.get("label", last_label)),
 		"home": str(res.get("home", "")),
 		"away": str(res.get("away", "")),
@@ -1183,6 +1211,17 @@ const PLAN_WEIGHTS := {
 }
 ## The plan for anyone without his own. New careers start on Position plan.
 var default_train_plan := "position"
+
+
+## "11 players developed in the reserves: +19 XP each." for the last game,
+## or "" when nobody was in the reserves.
+func reserves_summary_line() -> String:
+	var n := int(last_training_report.get("reserves_count", 0))
+	if n <= 0:
+		return ""
+	var each := int(round(float(last_training_report.get("reserves_total", 0)) / float(n)))
+	return "%d %s developed in the reserves: +%d XP each." % [n,
+			"player" if n == 1 else "players", each]
 
 
 ## "Training plans bought 23 stat points across 17 players." for the last
@@ -1763,7 +1802,9 @@ func ai_spend_xp(p: Dictionary) -> int:
 	return bought
 
 
-func _xp_amount(stats: Dictionary, on_ground: bool, on_bench: bool) -> int:
+func _xp_amount(stats: Dictionary, on_ground: bool, on_bench: bool, reserves := false) -> int:
+	if reserves:
+		return reserves_xp()
 	var xp := XP_SQUAD
 	if on_ground or on_bench:
 		xp += XP_SELECTED

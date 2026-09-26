@@ -262,7 +262,14 @@ Skip to full time, by reconstructing half-time from the Q2 snapshot.
   match-day shape (full back through full forward) with the four interchange
   players in a bay underneath. Tap a guernsey for the rating.
 * **Training** — after every game, every player on your list gains XP. Named
-  players and strong games earn more; unused players still get a squad share.
+  players and strong games earn more (a full senior game is 37 XP: squad 4 +
+  selected 6 + on the ground 3 + performance up to 24, and most senior
+  players hit the cap). A fit player left out of the 22 plays in the
+  reserves in the background and earns `RESERVES_XP_SHARE` (0.5) of a full
+  senior game, 19 XP. There is no reserves match, fixture, stats or
+  selection. Injured and rested/suspended players (`Ratings.available`) get
+  only the squad share of 4. Every club is paid on the same scale; your
+  club's figures are scaled by the difficulty's XP multiplier.
   The training menu lists the whole squad. Spend a player's own XP on any of
   the 13 attributes. Cost rises with the current stat and with career games.
   The old post-match screen only rolled five random names, which is why it
