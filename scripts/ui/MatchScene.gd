@@ -445,6 +445,16 @@ func _show_coach_box() -> void:
 		if str(r2["id"]) == cur_tag:
 			tag.select(i + 1)
 	v.add_child(_field("Tag opponent", tag))
+	# Who does the job: a tagger (Roles) makes the tag bite harder.
+	var tagger := ""
+	for p in (sim.squads[_my_side] as Squad).ground:
+		if Roles.is_tagger(p):
+			tagger = GameDB.player_display_name(p)
+			break
+	var tag_note := UiKit.lbl("%s does the tagging." % tagger if tagger != ""
+			else "No tagger on the ground, so a tag is looser.", 12, UiKit.MUTED)
+	tag_note.name = "TagNote"
+	v.add_child(tag_note)
 
 	var pep := OptionButton.new()
 	pep.name = "PepPicker"

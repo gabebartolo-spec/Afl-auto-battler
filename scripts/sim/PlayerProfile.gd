@@ -101,6 +101,10 @@ static func player_type(p: Dictionary) -> String:
 	var role := str(p.get("role", "MID"))
 	if role == "RUCK":
 		return "Ruck"
+	# A midfielder is a wing or an inside midfielder, the one line the
+	# engine draws between them (Roles).
+	if role == "MID":
+		return "Wing" if Roles.is_wing(p) else "Inside midfielder"
 	var best := ""
 	var best_score := -1.0
 	for row in GameState.TRAIN_PLANS:

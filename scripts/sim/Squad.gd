@@ -59,12 +59,20 @@ func _aggregate() -> void:
 		by_role[p["role"]].append(p)
 
 	var mids: Array = by_role["MID"]
+	# The centre square wins the ball at the stoppage; the wings do not
+	# (Roles). Every midfielder still counts for disposal and carry.
+	var centre := []
+	for p in mids:
+		if not Roles.on_wing(p):
+			centre.append(p)
+	if centre.is_empty():
+		centre = mids
 	var defs: Array = by_role["DEF"]
 	var fwds: Array = by_role["FWD"]
 	var rucks: Array = by_role["RUCK"]
 
 	ruck = _mean(rucks, "ruck")
-	mid_contest = _mean(mids, "contested")
+	mid_contest = _mean(centre, "contested")
 	mid_disposal = _mean(mids, "disposal")
 	mid_carry = _mean(mids, "carry")
 	def_pressure = _mean(defs, "pressure")

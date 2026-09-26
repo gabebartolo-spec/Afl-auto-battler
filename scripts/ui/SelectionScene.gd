@@ -5,10 +5,11 @@ extends Control
 ## counted in midfield, and anyone in any position. A gap (an injured player,
 ## a short slot) is filled automatically on match day.
 
-const SLOTS := [["RUCK", "Ruck", 1], ["MID", "Midfield", 5], ["DEF", "Defence", 6],
-		["FWD", "Forwards", 6], ["BENCH", "Interchange", 4]]
-const CHOICES := [["RUCK", "Ruck"], ["MID", "Mid"], ["DEF", "Def"], ["FWD", "Fwd"],
-		["BENCH", "Bench"], ["OUT", "Out"]]
+## The midfield is the centre square (3) and the two wings (Roles).
+const SLOTS := [["RUCK", "Ruck", 1], ["MID", "Midfield", 3], ["WING", "Wings", 2],
+		["DEF", "Defence", 6], ["FWD", "Forwards", 6], ["BENCH", "Interchange", 4]]
+const CHOICES := [["RUCK", "Ruck"], ["MID", "Mid"], ["WING", "Wing"], ["DEF", "Def"],
+		["FWD", "Fwd"], ["BENCH", "Bench"], ["OUT", "Out"]]
 
 var _root: VBoxContainer
 var _notice := ""
@@ -35,6 +36,9 @@ func _build() -> void:
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Team selection", true))
 	var auto := GameState.my_selection().is_empty()
+	# A side named before the wings existed: split its midfield once.
+	if not auto and not GameState.my_selection().has("WING"):
+		GameState.set_selection(GameState.current_side())
 
 	var head := UiKit.panel(UiKit.PANEL, 10, 8)
 	_root.add_child(head)
@@ -67,8 +71,12 @@ func _build() -> void:
 	hv.add_child(_strength_line())
 	hv.add_child(_synergy_view())
 
+
 	var body := UiKit.vbox(6)
 	_root.add_child(UiKit.scroll(body))
+	var week := _this_week()
+	if week != null:
+		body.add_child(week)
 	var side := GameState.current_side()
 	var placed := {}
 	var sel := GameState.my_selection()
@@ -154,12 +162,25 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 		h.add_child(UiKit.line("Rested", 12, UiKit.MUTED))
 	if weeks > 0:
 		h.add_child(UiKit.line("Out %d wk%s" % [weeks, "" if weeks == 1 else "s"], 12, UiKit.BAD, true))
+	elif placed_as == "MID" or placed_as == "WING":
+		var fit := Roles.fit_note(p, placed_as)
+		if not Roles.is_mid(p):
+			fit = "Out of position"
+		if fit != "":
+			var fl := UiKit.line(fit, 12, UiKit.MUTED)
+			fl.name = "Fit"
+			h.add_child(fl)
 	elif placed_as != "" and placed_as != "BENCH" and str(p["role"]) != placed_as \
 			and str(p.get("role2", "")) != placed_as:
-		h.add_child(UiKit.line("out of position", 11, UiKit.MUTED))
+		h.add_child(UiKit.line("Out of position", 12, UiKit.MUTED))
 	h.add_child(UiKit.line("%d" % int(p["overall"]), 16, UiKit.TEXT, true))
-	if not Traits.of(p).is_empty():
-		v.add_child(UiKit.trait_chips(p))
+	# Who he is, then his traits: one quiet line.
+	var about := UiKit.trait_chips(p)
+	var who := UiKit.line(Roles.label(p), 13, UiKit.TEXT)
+	who.name = "RoleLabel"
+	about.add_child(who)
+	about.move_child(who, 0)
+	v.add_child(about)
 	if auto:
 		return card
 	var choices := UiKit.hbox(3)
@@ -215,6 +236,27 @@ func _label_for(role: String) -> String:
 
 
 ## The three numbers the engine rolls against, for this side.
+## This week's opponent, what they bring, and the one selection answer the
+## game can give so far: your tagger for their danger midfielder.
+func _this_week() -> Control:
+	var nxt := GameState.my_next_opponent()
+	if nxt.is_empty():
+		return null
+	var code := str(nxt["code"])
+	var v := UiKit.vbox(3)
+	v.name = "SelectionWeek"
+	v.add_child(UiKit.lbl("This week %s %s" % ["v" if str(nxt["venue"]) == "home" else "at",
+			GameDB.club_name(code)], UiKit.BODY, UiKit.TEXT, true))
+	for f in GameState.opponent_facts(code):
+		v.add_child(_para(str(f["text"]), 13, UiKit.MUTED))
+	var hint := GameState.selection_hint(code)
+	if hint != "":
+		var hl := _para(hint, 13, UiKit.TEXT)
+		hl.name = "SelectionHint"
+		v.add_child(hl)
+	return v
+
+
 func _strength_line() -> Control:
 	var sq := GameState.my_squad()
 	return _para("Contest %.0f  ·  Attack %.0f  ·  Defence %.0f" % [sq.contest, sq.attack, sq.defence],

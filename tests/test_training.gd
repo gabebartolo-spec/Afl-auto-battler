@@ -380,7 +380,7 @@ func _test_archetypes_differ() -> void:
 	var outside: Dictionary = built["outside_mid"]
 	_check(int(inside.get("contested", 0)) > int(outside.get("contested", 0)) + 5
 			and int(outside.get("carry", 0)) > int(inside.get("carry", 0)) + 5,
-			"Inside midfielders build contested ball, outside runners build carry (%s / %s)" % [str(inside), str(outside)])
+			"Inside midfielders build contested ball, wings build carry (%s / %s)" % [str(inside), str(outside)])
 	var fwd := _first_of("FWD")
 	var small: Dictionary = fwd.duplicate(true)
 	small["xp"] = 4000
