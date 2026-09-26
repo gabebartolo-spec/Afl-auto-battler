@@ -31,7 +31,7 @@ BASE_CSV = os.path.join(DATA_DIR, "players_2026.csv")
 ENRICHED_CSV = os.path.join(DATA_DIR, "players_enriched_2026.csv")
 SQUADS_JSON = "/tmp/squad-data/squads.json"
 AGES_JSON = "/tmp/squad-data/ages.json"
-AKAREEN_GLOB = "/tmp/afldata/data/players/*_personal_details.csv"
+AKAREEN_GLOB = os.path.join(os.environ.get("AKAREEN_DIR", "/tmp/afldata"), "data", "players", "*_personal_details.csv")
 AFLTABLES_CACHE = os.path.join(DATA_DIR, "afltables_bio_cache.json")
 
 # Club code mapping: our codes vs squad-data ids
@@ -134,9 +134,11 @@ def load_afltables_cache():
     return mapping
 
 def load_akareen():
-    # personal_details.csv -> dict[norm_full_name] = {height, weight, born_date, debut_date, first, last}
-    # Also dict[(last, first)] fallback
-    mapping = {}
+    # personal_details.csv -> dict[norm_full_name] = [record, ...]
+    # Every same-name record is kept: AFL history reuses names (Jack Henry
+    # 1944 and 2018), so a name alone never identifies a player. The caller
+    # picks one with resolve_identity().
+    mapping = defaultdict(list)
     files = glob.glob(AKAREEN_GLOB)
     if not files:
         print(f"WARNING: no files match {AKAREEN_GLOB}")
@@ -150,31 +152,83 @@ def load_akareen():
                     last = row.get("last_name", "").strip()
                     if not first or not last:
                         continue
-                    full = f"{first} {last}"
-                    norm = normalize_name(full)
-                    # height/weight are strings, may be empty
-                    height = row.get("height", "").strip()
-                    weight = row.get("weight", "").strip()
-                    born = row.get("born_date", "").strip()
-                    debut = row.get("debut_date", "").strip()
-                    # Only keep if has data
-                    if norm not in mapping or (height and not mapping[norm].get("height")):
-                        mapping[norm] = {
-                            "height": height,
-                            "weight": weight,
-                            "born_date": born,
-                            "debut_date": debut,
-                            "first": first,
-                            "last": last,
-                        }
-                    # also key by last+first for alternative matching
-                    alt_key = normalize_name(f"{last} {first}")
-                    if alt_key not in mapping:
-                        mapping[alt_key] = mapping[norm]
+                    mapping[normalize_name(f"{first} {last}")].append({
+                        "height": clean_measure(row.get("height", "")),
+                        "weight": clean_measure(row.get("weight", "")),
+                        "born_date": row.get("born_date", "").strip(),
+                        "debut_date": row.get("debut_date", "").strip(),
+                        "first": first,
+                        "last": last,
+                    })
         except Exception as e:
             print(f"  skip {fp}: {e}")
-    print(f"Loaded {len(mapping)} personal_details entries from akareen")
+    print(f"Loaded {sum(len(v) for v in mapping.values())} personal_details records "
+          f"({len(mapping)} names) from akareen")
     return mapping
+
+# --- Identity -------------------------------------------------------------
+# A 2026 list player was born in this window (ages 16-46); a record born
+# earlier is a historical namesake, whatever its name.
+EARLIEST_BIRTH_YEAR = 1980
+LATEST_BIRTH_YEAR = 2010
+# No one debuts before 15.
+MIN_DEBUT_AGE = 15
+# The ages in ages.json were taken on this date; an age we have to compute
+# ourselves uses the same date so the column stays consistent.
+AGE_AS_OF = "2026-09-21"
+
+def clean_measure(v) -> str:
+    # "-1", "0" and blanks mean "not recorded".
+    v = str(v or "").strip()
+    try:
+        return v if float(v) > 0 else ""
+    except ValueError:
+        return ""
+
+def parse_date(s: str):
+    # YYYY-MM-DD or DD-MM-YYYY -> (y, m, d), or None.
+    s = (s or "").strip()
+    m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", s)
+    if m:
+        return int(m.group(1)), int(m.group(2)), int(m.group(3))
+    m = re.fullmatch(r"(\d{2})-(\d{2})-(\d{4})", s)
+    if m:
+        return int(m.group(3)), int(m.group(2)), int(m.group(1))
+    return None
+
+def plausible_dob(dob: str) -> bool:
+    d = parse_date(dob)
+    return d is not None and EARLIEST_BIRTH_YEAR <= d[0] <= LATEST_BIRTH_YEAR
+
+def plausible_record(rec: dict) -> bool:
+    # A source identity that could be on a 2026 list: born in the window, and
+    # a debut (if any) no earlier than MIN_DEBUT_AGE and no later than 2026.
+    born = rec.get("born_date") or rec.get("dob") or ""
+    if not plausible_dob(born):
+        return False
+    deb = parse_date(rec.get("debut_date", ""))
+    if deb is not None and not (parse_date(born)[0] + MIN_DEBUT_AGE <= deb[0] <= 2026):
+        return False
+    return True
+
+def resolve_identity(candidates: list, dob: str):
+    """The one source record that is this 2026 player, or None.
+
+    With a trustworthy date of birth, only a record born that day qualifies:
+    two current players can share a name (Bailey Williams, WBD and WCE).
+    Without one, a record is accepted only when it is the sole candidate
+    whose timeline fits a 2026 list. Never guesses between namesakes."""
+    if plausible_dob(dob):
+        hits = [c for c in candidates if (c.get("born_date") or c.get("dob")) == dob and plausible_record(c)]
+        return hits[0] if len(hits) == 1 else None
+    fits = [c for c in candidates if plausible_record(c)]
+    return fits[0] if len(fits) == 1 else None
+
+def age_on(dob: str, as_of: str = AGE_AS_OF) -> str:
+    d, t = parse_date(dob), parse_date(as_of)
+    if d is None or t is None:
+        return ""
+    return str(t[0] - d[0] - ((t[1], t[2]) < (d[1], d[2])))
 
 def enrich():
     base_rows, base_fields = load_base()
@@ -252,62 +306,73 @@ def enrich():
         if not dob:
             stats["dob_miss"] += 1
 
-        # Height/weight/dob from afltables_bio_cache.json (primary, 100% coverage via player pages)
+        # A date of birth we can trust anchors every identity match below:
+        # ages.json first, else the previous run's, unless it is a historical
+        # namesake's (Archie Roberts was once written as born 1910).
+        key = (club, num, norm_full)
+        er = existing.get(key, {})
+        if not dob and plausible_dob(er.get("dob", "")):
+            dob = er["dob"]
+            age = age or er.get("age", "")
+
+        # Height/weight from afltables_bio_cache.json (primary), then akareen.
+        # Both are looked up by name, so each record must also be this player:
+        # same date of birth, or the only candidate whose career fits 2026.
         height = ""
         weight = ""
         debut = ""
         born_date = ""
         height_source = ""
-        if norm_full in afl_cache:
-            info = afl_cache[norm_full]
-            height = info.get("height_cm","") or info.get("height","")
-            weight = info.get("weight_kg","") or info.get("weight","")
-            if info.get("dob"):
-                # dob in cache is YYYY-MM-DD, use as fallback if ages miss
-                born_date = info.get("dob","")
+        info = resolve_identity([afl_cache[norm_full]] if norm_full in afl_cache else [], dob)
+        if info is not None:
+            height = clean_measure(info.get("height_cm", "") or info.get("height", ""))
+            weight = info.get("weight_kg", "") or info.get("weight", "")
+            born_date = info.get("dob", "")
             if height:
                 height_source = "afltables_player_page"
                 stats["height_afltables_hit"] += 1
-        # Fallback to akareen
+        elif norm_full in afl_cache:
+            stats["afltables_namesake_rejected"] += 1
         if not height:
-            for key in (norm_full, norm_last_first):
-                if key in akareen:
-                    height = akareen[key].get("height","")
-                    weight = akareen[key].get("weight","") or weight
-                    debut = akareen[key].get("debut_date","")
-                    born_date = akareen[key].get("born_date","") or born_date
-                    if height:
-                        height_source = "akareen"
-                        stats["height_akareen_hit"] += 1
-                    break
-        # If still no dob, use born_date from caches as fallback
+            cands = akareen.get(norm_full, []) + [c for c in akareen.get(norm_last_first, [])
+                                                   if norm_last_first != norm_full]
+            rec = resolve_identity(cands, dob)
+            if rec is not None:
+                height = rec["height"]
+                weight = rec["weight"] or weight
+                debut = rec["debut_date"]
+                born_date = rec["born_date"] or born_date
+                if height:
+                    height_source = "akareen"
+                    stats["height_akareen_hit"] += 1
+            elif cands:
+                stats["akareen_namesake_rejected"] += 1
+        # If still no dob, use the matched identity's
         if not dob and born_date:
             dob = born_date
-            if height_source == "afltables_player_page":
-                stats["dob_afltables_fallback"] += 1
-            else:
-                stats["dob_akareen_fallback"] += 1
+            stats["dob_identity_fallback"] += 1
+        if dob and not age:
+            age = age_on(dob)
         if not height:
             stats["height_miss"] += 1
 
-        # If we have existing enriched row, preserve its values if new ones empty
-        key = (club, num, norm_full)
-        if key in existing:
-            er = existing[key]
-            # Use existing if we have no new data
+        # Keep the previous run's values only where this run found nothing
+        # (e.g. the akareen checkout is absent) and they still fit this
+        # player: a previous akareen row must carry a debut his own date of
+        # birth allows, or it may be a namesake's (Jack Henry, debut 1944).
+        if er:
             if not real_pos and er.get("real_pos"):
                 real_pos = er["real_pos"]
-            if not dob and er.get("dob"):
-                dob = er["dob"]
-            if not age and er.get("age"):
-                age = er["age"]
-            if not height and er.get("height_cm"):
+            prev_fits = er.get("height_source") not in ("akareen", "previous_enriched", "") or (
+                plausible_dob(dob) and parse_date(er.get("debut", "")) is not None
+                and plausible_record({"born_date": dob, "debut_date": er.get("debut", "")}))
+            if not height and clean_measure(er.get("height_cm")) and prev_fits:
                 height = er["height_cm"]
-                height_source = "previous_enriched"
-            if not weight and er.get("weight_kg"):
+                weight = weight or er.get("weight_kg", "")
+                debut = debut or er.get("debut", "")
+                height_source = er["height_source"]
+            if not weight and er.get("weight_kg") and prev_fits:
                 weight = er["weight_kg"]
-            if not debut and er.get("debut"):
-                debut = er["debut"]
 
         # Build enriched row
         new_row = dict(row)  # copy base

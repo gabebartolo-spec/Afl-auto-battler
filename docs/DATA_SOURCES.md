@@ -228,6 +228,23 @@ Wishlist:
 - Final: `data/players_enriched_2026.csv` 669 rows, `height_source=afltables_player_page` for cache entries, `data/afltables_bio_cache.json` 145 entries
 - Validation: `python3 -c \"import csv; rows=list(csv.DictReader(open('data/players_enriched_2026.csv'))); print(sum(1 for r in rows if r['height_cm']))\"` → 669
 
+### Namesake correction (2026-09-26)
+
+The akareen join matched on name alone, keeping the first same-name record it
+read, so 15 players carried a namesake's height (and weight and debut): Jack
+Henry had the 1944 Jack Henry's 168 cm, Jamie Elliott the 1991 one's 185 cm,
+Tom Lynch (RIC) and Bailey Williams (WCE) a *current* namesake's, and Archie
+Roberts the 1910 birth date and an age of 116. `tools/enrich_from_open_sources.py`
+now keeps every same-name record and takes one only if it is born on the
+player's date of birth, or, with no trustworthy birth date, is the only record
+whose timeline fits a 2026 list (born 1980-2010, debut at 15+). No match means
+no value, never a guess. Four players akareen does not carry (Billy Wilson,
+Will Hayes, Charlie West, Jack Dalton) come from their numbered AFL Tables
+pages (`Charlie_West1.html`) in `afltables_bio_cache.json`. Regenerate with
+`AKAREEN_DIR=<clone of akareen/AFL-Data-Analysis> python3 tools/enrich_from_open_sources.py`.
+`tools/validate_data.py` pins the 23 players AFL Tables numbers apart from a
+namesake and rejects impossible heights, birth dates, ages and debuts.
+
 ---
 
 ## Appendix — Search queries used

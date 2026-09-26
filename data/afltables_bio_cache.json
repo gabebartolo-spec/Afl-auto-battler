@@ -868,5 +868,29 @@
     "weight_kg": "",
     "dob": "2007-03-23",
     "source": "afltables.com/afl/stats/players/L/Louis_Emmett.html"
+  },
+  "Billy Wilson": {
+    "height_cm": "183",
+    "weight_kg": "72",
+    "dob": "2005-06-16",
+    "source": "afltables.com/afl/stats/players/B/Billy_Wilson2.html"
+  },
+  "Will Hayes": {
+    "height_cm": "180",
+    "weight_kg": "80",
+    "dob": "2006-05-16",
+    "source": "afltables.com/afl/stats/players/W/Will_Hayes1.html"
+  },
+  "Charlie West": {
+    "height_cm": "194",
+    "weight_kg": "93",
+    "dob": "2006-02-01",
+    "source": "afltables.com/afl/stats/players/C/Charlie_West1.html"
+  },
+  "Jack Dalton": {
+    "height_cm": "178",
+    "weight_kg": "",
+    "dob": "2007-04-05",
+    "source": "afltables.com/afl/stats/players/J/Jack_Dalton1.html"
   }
 }

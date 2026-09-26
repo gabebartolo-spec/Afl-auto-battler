@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Integrity check for data/players_2026.csv.
+Integrity check for data/players_2026.csv and the bio columns of
+data/players_enriched_2026.csv.
 
 Re-sums every club's per-player stats and compares them against the club
 aggregate ("N players used") totals that AFL Tables publishes at the foot of
@@ -11,6 +12,10 @@ as a column-level mismatch for that club. The published totals are embedded
 below as captured from the source page.
 
     python3 tools/validate_data.py
+
+The bio check guards identity: heights and birth dates are looked up by
+name, and AFL history reuses names (Jack Henry 1944 and 2018), so every row
+must fit a 2026 list and the known namesakes must carry their own facts.
 
 Exit code 0 = every available check passed, 1 = at least one mismatch.
 """
@@ -24,6 +29,42 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CSV_PATH = os.path.join(ROOT, "data", "players_2026.csv")
+ENRICHED_PATH = os.path.join(ROOT, "data", "players_enriched_2026.csv")
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+import enrich_from_open_sources as enrich  # noqa: E402
+
+# Every 2026 player AFL Tables disambiguates from a namesake (its player page
+# carries a number: Jack_Henry1.html), with the date of birth and height from
+# that page. A name-only join once gave each of these someone else's height.
+# (first, last, club, dob, height_cm)
+NAMESAKES = [
+    ("Archie", "Roberts", "ESS", "2005-11-18", 184),
+    ("Arthur", "Jones", "WBD", "2003-07-18", 180),
+    ("Bailey", "Williams", "WBD", "1997-10-10", 187),
+    ("Bailey", "Williams", "WCE", "2000-04-17", 199),
+    ("Billy", "Wilson", "CAR", "2005-06-16", 183),
+    ("Callum", "Brown", "GWS", "2000-08-15", 188),
+    ("Charlie", "Cameron", "BRL", "1994-07-05", 181),
+    ("Charlie", "West", "COL", "2006-02-01", 194),
+    ("Harry", "Jones", "ESS", "2001-02-25", 194),
+    ("Jack", "Buckley", "GWS", "1997-12-17", 193),
+    ("Jack", "Carroll", "SKN", "2002-12-20", 188),
+    ("Jack", "Dalton", "HAW", "2007-04-05", 178),
+    ("Jack", "Graham", "WCE", "1998-02-25", 181),
+    ("Jack", "Henry", "GEE", "1998-08-29", 191),
+    ("Jack", "Ross", "RIC", "2000-09-03", 187),
+    ("Jack", "Williams", "WCE", "2003-12-01", 198),
+    ("Jamie", "Elliott", "COL", "1992-08-21", 178),
+    ("Luke", "Trainor", "RIC", "2006-04-10", 193),
+    ("Matthew", "Kennedy", "WBD", "1997-04-06", 188),
+    ("Maurice", "Rioli", "RIC", "2002-09-01", 179),
+    ("Sam", "Butler", "HAW", "2003-02-10", 184),
+    ("Tom", "Lynch", "RIC", "1992-10-31", 199),
+    ("Will", "Hayes", "COL", "2006-05-16", 180),
+]
+# AFL heights outside this are a data error, not a player (Caleb Daniel 168,
+# Mason Cox 211 are the real extremes).
+HEIGHT_RANGE = (160, 215)
 
 EXPECTED_FIELDS = 29
 
@@ -59,6 +100,62 @@ PLAYER_COUNTS = {
 CLUB_ORDER = list(PLAYER_COUNTS)
 
 NUMERIC_FIELDS = [c for c in TOTAL_COLS if c != "DA"]
+
+
+def check_identity_rules() -> list[str]:
+    """The matcher never takes a namesake: unit cases from real collisions."""
+    problems = []
+    old = {"born_date": "1922-01-21", "debut_date": "10-07-1944", "height": "168"}
+    new = {"born_date": "1998-08-29", "debut_date": "28-03-2018", "height": "191"}
+    wbd = {"born_date": "1997-10-10", "debut_date": "11-05-2016", "height": "187"}
+    wce = {"born_date": "2000-04-17", "debut_date": "22-08-2020", "height": "199"}
+    west = {"born_date": "1884-05-19", "debut_date": "22-07-1903", "height": ""}
+    cases = [
+        ("Jack Henry by birth date", enrich.resolve_identity([old, new], "1998-08-29"), new),
+        ("Jack Henry, no birth date: only one fits 2026", enrich.resolve_identity([old, new], ""), new),
+        ("A historical namesake's birth date is not trusted", enrich.resolve_identity([old, new], "1922-01-21"), new),
+        ("Two current Bailey Williams, by birth date", enrich.resolve_identity([wbd, wce], "2000-04-17"), wce),
+        ("Two current Bailey Williams, no birth date: no guess", enrich.resolve_identity([wbd, wce], ""), None),
+        ("Only an 1884 namesake: unknown, not his height", enrich.resolve_identity([west], "2006-02-01"), None),
+        ("Birth date matches no record: unknown", enrich.resolve_identity([wbd], "2001-01-01"), None),
+    ]
+    for label, got, want in cases:
+        if got is not want:
+            problems.append(f"identity rule: {label}")
+    if enrich.clean_measure("-1") != "" or enrich.clean_measure("0") != "" or enrich.clean_measure("191") != "191":
+        problems.append("identity rule: -1 / 0 heights must read as unknown")
+    if enrich.age_on("2005-11-18") != "20" or enrich.age_on("1998-08-29") != "28":
+        problems.append("identity rule: age_on is off")
+    return problems
+
+
+def check_bio() -> list[str]:
+    """Heights, birth dates and debuts in the enriched CSV fit a 2026 list."""
+    problems: list[str] = []
+    with open(ENRICHED_PATH, newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    print(f"\n{ENRICHED_PATH}")
+    for r in rows:
+        who = f"{r['first']} {r['last']} ({r['club']})"
+        try:
+            h = float(r["height_cm"])
+        except ValueError:
+            h = 0.0
+        if not HEIGHT_RANGE[0] <= h <= HEIGHT_RANGE[1]:
+            problems.append(f"{who}: height {r['height_cm']!r} is missing or impossible")
+        if not enrich.plausible_dob(r["dob"]):
+            problems.append(f"{who}: born {r['dob']!r}, not a 2026 list player")
+        elif r["age"] != enrich.age_on(r["dob"]):
+            problems.append(f"{who}: age {r['age']} does not match born {r['dob']}")
+        if r["debut"] and not enrich.plausible_record({"born_date": r["dob"], "debut_date": r["debut"]}):
+            problems.append(f"{who}: debut {r['debut']} is impossible for born {r['dob']} (a namesake's record)")
+    for first, last, club, dob, height in NAMESAKES:
+        hits = [r for r in rows if r["first"] == first and r["last"] == last and r["club"] == club]
+        if len(hits) != 1 or hits[0]["dob"] != dob or hits[0]["height_cm"] != str(height):
+            got = [(r["dob"], r["height_cm"]) for r in hits]
+            problems.append(f"namesake {first} {last} ({club}): want born {dob}, {height} cm; got {got}")
+    print(f"  {len(rows)} players; {len(NAMESAKES)} AFL Tables namesakes pinned")
+    return problems
 
 
 def main() -> int:
@@ -124,6 +221,10 @@ def main() -> int:
             problems.append(f"{club} aggregate {b}")
 
     print(f"\n  {checks - mismatches}/{checks} aggregate checks passed")
+
+    # --- bio / identity checks ---------------------------------------------
+    problems.extend(check_identity_rules())
+    problems.extend(check_bio())
 
     if problems:
         print(f"\n{len(problems)} problem(s) found:")
