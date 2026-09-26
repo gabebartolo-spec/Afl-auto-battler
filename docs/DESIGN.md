@@ -345,7 +345,7 @@ Skip to full time, by reconstructing half-time from the Q2 snapshot.
   `TRAIN_COST_SCALE` (1.25) × the base price, so now that no XP is wasted a
   season's development stays where it was.
   The Training list shows each player's OVR, focus and development state
-  ("Plenty of room", "Developing", "Near his ceiling", "At his ceiling");
+  ("Developing", "Near his ceiling", "At his ceiling");
   the player view leads with his development focus and what it means on the
   field, with stats and hand training behind one button. After a game the
   results say what training changed (OVR rises, traits unlocked, potential
@@ -361,6 +361,21 @@ Skip to full time, by reconstructing half-time from the Q2 snapshot.
   turn skipped rather than stalling the board. Rival AI picks between your
   turns exactly like the career draft, and the shared DraftScene shows the
   recruiting-club filter, projected OVR tooltips and scouting notes.
+* **Inspecting a player before a pick** — on both draft boards, tapping a
+  player (or a pick in the history) opens his details; only the Draft / Sign
+  button at the foot of them, or the row's own draft button, picks him.
+  The details are read-only (`scripts/sim/PlayerProfile.gd`): OVR (projected
+  for prospects) and POT with a development word, cap cost or rookie
+  contract, his type (the Training archetype his attributes fit best), up to
+  three strengths graded Elite / Strong / Good against 2026 players of his
+  role - only attributes carrying at least 10% of the role's OVR core
+  (`Ratings.ROLE_WEIGHTS`) count - one weakness if he is in the bottom
+  quarter of his role at something that matters, his traits explained, and
+  a few per-game numbers from his real season (or his U18 / state-league
+  season, ranking, pathway and scouting note for a prospect). The full
+  ratings sit behind a button. `Draft.pick_block_reason` says why a player
+  cannot be picked (taken, not your turn, cap, two-ruck rule, list full).
+  Back closes the details before leaving the draft.
 * **Rollover** — `finish_intake_draft()` merges each club's intakes into its
   list (rookie jumper numbers assigned from 41 up), ages every player by a
   year, applies the development bands (young grow, old decline), retires the

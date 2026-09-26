@@ -637,6 +637,40 @@ func can_pick_player(p: Dictionary) -> bool:
 	return not picked.has(str(p["id"])) and count() < target_size and remaining() >= int(p["value"])
 
 
+## Why you cannot take this player right now, in words ("" when you can).
+## The same checks as can_pick_player, in the order a manager would ask
+## them. Read-only.
+func pick_block_reason(p: Dictionary) -> String:
+	var id := str(p["id"])
+	if picked.has(id):
+		var entry := pick_details(id)
+		var club := drafted_by(id)
+		if club == "" or not league_mode:
+			return "Already on your list."
+		return "Drafted #%d by %s." % [int(entry.get("pick", 0)),
+				Engine.get_main_loop().root.get_node("GameDB").club_name(club)]
+	if league_mode:
+		if is_finished():
+			return "The draft is complete."
+		if not is_user_turn():
+			return "Not your pick yet - rival clubs are still choosing."
+		if count() >= target_size:
+			return "Your list is full."
+		if not _can_afford_for(user_club, p):
+			var slots_after := target_size - count() - 1
+			return "Not enough salary cap: he costs $%d of your $%d left, and you must keep about $%d for your other %d places." % [
+					int(p["value"]), remaining(), int(ceil(float(slots_after) * _reserve_per_spot())), slots_after]
+		var forced := _forced_role(user_club)
+		if forced != "" and not Ratings.plays_role(p, forced):
+			return "Your remaining places must go to rucks: every list needs two."
+		return ""
+	if count() >= target_size:
+		return "Your list is full."
+	if remaining() < int(p["value"]):
+		return "Not enough salary cap: he costs $%d and you have $%d left." % [int(p["value"]), remaining()]
+	return ""
+
+
 func pick(p: Dictionary) -> bool:
 	if league_mode:
 		if not is_user_turn():

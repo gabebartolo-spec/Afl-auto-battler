@@ -55,6 +55,7 @@ func _run() -> void:
 	_check(badge.mouse_filter == Control.MOUSE_FILTER_PASS,
 			"Position badges do not block touch scrolling")
 	badge.free()
+	await _test_inspect(ui)
 	ui.set("_role", "DEF")
 	ui.set("_search", "Jack")
 	ui.set("_sort", "value")
@@ -90,6 +91,7 @@ func _run() -> void:
 
 	# Reopening uses the same draft; it must not replay AI turns.
 	var history: Array = _state.draft.pick_history.duplicate(true)
+	var roster_before: int = _state.draft.count()
 	root.remove_child(ui)
 	ui.queue_free()
 	ui = load("res://scenes/DraftScene.tscn").instantiate()
@@ -97,10 +99,189 @@ func _run() -> void:
 	await _settle()
 	_check(ui.get("_phase") == "board", "Reopening resumes the board, not club selection")
 	_check(_state.draft.pick_history == history, "Reopening never makes additional picks")
-	_check(_state.draft.count() == 1, "Reopening preserves the user's roster")
+	_check(_state.draft.count() == roster_before, "Reopening preserves the user's roster")
 	ui.queue_free()
 	print("Draft UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
+
+
+## Inspecting a player is read-only; only the explicit Draft button picks.
+func _test_inspect(ui: Control) -> void:
+	var draft = _state.draft
+	ui.set("_search", "")
+	ui.set("_role", "MID")
+	ui.set("_sort", "overall")
+	ui.call("_show_board")
+	await _settle()
+	var rows: Array = draft.board("MID", "", "", "overall", true)
+	var p: Dictionary = rows[0]
+	var before := _snapshot(ui)
+	var picked_before: int = draft.picked.size()
+	var inspect: Button = ui.find_child("Inspect_" + str(p["id"]), true, false)
+	_check(inspect != null and inspect.mouse_filter == Control.MOUSE_FILTER_PASS,
+			"Each board row has an inspect target that still lets the list scroll")
+	inspect.emit_signal("pressed")
+	await _settle()
+	var detail: Control = ui.find_child("PlayerDetail", true, false)
+	_check(detail != null, "Tapping a player row opens his details")
+	var name_l: Label = ui.find_child("DetailName", true, false)
+	_check(name_l != null and name_l.text == _db.player_display_name(p), "The details are that player's")
+	_check(_snapshot(ui) == before and draft.picked.size() == picked_before,
+			"Opening details drafts nobody and leaves filters, cap and order alone")
+	# Identity, ratings and production.
+	var profile = load("res://scripts/sim/PlayerProfile.gd")
+	var type_l: Label = ui.find_child("DetailType", true, false)
+	_check(type_l != null and type_l.text == profile.player_type(p) and type_l.text != "",
+			"An established player shows his type (%s)" % (type_l.text if type_l else "-"))
+	var ovr: Control = ui.find_child("DetailOVR", true, false)
+	var pot: Control = ui.find_child("DetailPOT", true, false)
+	_check(ovr != null and (ovr.get_child(0) as Label).text == str(int(p["overall"]))
+			and (ovr.get_child(1) as Label).text == "OVR"
+			and pot != null and (pot.get_child(0) as Label).text == str(int(p.get("potential", p["overall"]))),
+			"His OVR and POT are shown")
+	var prod: Label = ui.find_child("DetailProduction", true, false)
+	_check(prod != null and prod.text == str(profile.production(p)["line"]) and prod.text.contains("disposals"),
+			"His real season production is shown (%s)" % (prod.text if prod else "-"))
+	var strengths := ui.find_children("Strength_*", "", true, false)
+	var core: Dictionary = load("res://scripts/sim/Ratings.gd").ROLE_WEIGHTS["MID"]
+	var core_only := true
+	for s in strengths:
+		if not core.has(str(s.name).trim_prefix("Strength_")):
+			core_only = false
+	_check(not strengths.is_empty() and strengths.size() <= 3 and core_only,
+			"Strengths are a few of what the engine rewards a midfielder for")
+	_check(ui.find_children("*", "Label", true, false).filter(func(l): return l.is_visible_in_tree() and l.text.begins_with("Durability")).is_empty(),
+			"The raw rating sheet stays folded away")
+	# Android Back closes the details first.
+	_check(bool(ui.call("handle_back")) and not is_instance_valid(ui.get("_detail")),
+			"Back closes player details")
+	await _settle()
+	_check(not bool(ui.call("handle_back")), "With details closed, Back leaves it to the router")
+	# Traits.
+	var with_trait := {}
+	for q in rows:
+		if not load("res://scripts/sim/Traits.gd").of(q).is_empty():
+			with_trait = q
+			break
+	if not with_trait.is_empty():
+		ui.call("_open_player", str(with_trait["id"]))
+		await _settle()
+		var all_there := true
+		for t in load("res://scripts/sim/Traits.gd").of(with_trait):
+			var tl: Label = ui.find_child("Trait_" + str(t), true, false)
+			# In football words: no simulation percentages when scouting.
+			if tl == null or tl.text.contains("%"):
+				all_there = false
+		_check(all_there, "Each of his traits is shown and explained in football terms")
+		ui.call("_close_player")
+	# A rebuild (rotation) with details open keeps them open and drafts nobody.
+	ui.call("_open_player", str(p["id"]))
+	await _settle()
+	var size_before := root.size
+	root.size = Vector2i(844, 390)
+	await _settle()
+	root.size = Vector2i(420, 860)
+	await _settle()
+	_check(is_instance_valid(ui.get("_detail")) and draft.picked.size() == picked_before and _snapshot(ui) == before,
+			"Rotating with details open keeps them, and the draft, intact")
+	var act: Button = ui.find_child("DetailDraft", true, false)
+	var close: Button = ui.find_child("DetailClose", true, false)
+	var view := Rect2(Vector2.ZERO, root.get_visible_rect().size).grow(1)
+	_check(act != null and close != null and act.size.y >= 44 and close.size.y >= 44
+			and view.encloses(act.get_global_rect()) and view.encloses(close.get_global_rect()),
+			"On a portrait phone the Draft and Close buttons are touch-sized and on screen")
+	# The explicit Draft button picks him.
+	var had: int = draft.count()
+	act.emit_signal("pressed")
+	await _settle()
+	_check(draft.has(str(p["id"])) and draft.drafted_by(str(p["id"])) == draft.user_club and draft.count() == had + 1,
+			"Draft from the details picks that player")
+	_check(not is_instance_valid(ui.get("_detail")), "Drafting closes the details")
+	# He stays inspectable, but cannot be picked again.
+	ui.call("_open_player", str(p["id"]))
+	await _settle()
+	var status: Label = ui.find_child("DetailStatus", true, false)
+	_check(status != null and status.text.begins_with("On your list"), "A player you drafted says so")
+	_check(ui.find_child("DetailDraft", true, false) == null, "A drafted player has no Draft button")
+	ui.call("_close_player")
+	var rival := {}
+	for entry in draft.pick_history:
+		if str(entry["club"]) != draft.user_club:
+			rival = entry
+			break
+	ui.call("_open_player", str(rival["player_id"]))
+	await _settle()
+	status = ui.find_child("DetailStatus", true, false)
+	var blocked: Label = ui.find_child("DetailBlocked", true, false)
+	_check(status != null and status.text == "Pick %d, %s" % [int(rival["pick"]), _db.club_name(str(rival["club"]))],
+			"A rival's pick stays inspectable and shows who took him (%s)" % (status.text if status else "-"))
+	_check(blocked == null and ui.find_child("DetailDraft", true, false) == null,
+			"...and cannot be drafted again, without repeating where he went")
+	ui.call("_close_player")
+	# The history opens the same details.
+	ui.call("_select_tab", "picks")
+	await _settle()
+	var hist: Button = ui.find_child("HistoryInspect_%d" % int(rival["pick"]), true, false)
+	_check(hist != null, "Pick history rows can be tapped")
+	if hist != null:
+		hist.emit_signal("pressed")
+		await _settle()
+		var hn: Label = ui.find_child("DetailName", true, false)
+		_check(hn != null and hn.text == _db.player_display_name_by_id(str(rival["player_id"]), ""),
+				"Tapping a pick opens that player")
+		ui.call("_close_player")
+	ui.call("_select_tab", "pool")
+	# Cap: an expensive player you cannot afford says why.
+	var spend: int = int(draft.club_spend[draft.user_club])
+	draft.club_spend[draft.user_club] = draft.budget - 3
+	var dear: Dictionary = rows[3]
+	ui.call("_open_player", str(dear["id"]))
+	await _settle()
+	blocked = ui.find_child("DetailBlocked", true, false)
+	act = ui.find_child("DetailDraft", true, false)
+	_check(blocked != null and blocked.text.contains("salary cap") and act != null and act.disabled,
+			"Out of cap: the Draft button is off and the reason is given")
+	ui.call("_close_player")
+	draft.club_spend[draft.user_club] = spend
+	# Not your turn.
+	var idx: int = draft.pick_index
+	while draft.pick_sequence[draft.pick_index] == draft.user_club:
+		draft.pick_index += 1
+	ui.call("_open_player", str(rows[5]["id"]))
+	await _settle()
+	blocked = ui.find_child("DetailBlocked", true, false)
+	_check(blocked != null and blocked.text.begins_with("Not your pick"), "Between your picks, the details say so")
+	ui.call("_close_player")
+	draft.pick_index = idx
+	# Ruck rule: with only two places left and no ruck, a midfielder is off
+	# limits and the details say why.
+	var mine: Array = draft.club_lists[draft.user_club]
+	var saved := mine.duplicate()
+	while mine.size() < draft.target_size - 2:
+		var filler: Dictionary = rows[0].duplicate()
+		filler["id"] = "filler_%d" % mine.size()
+		filler["role"] = "MID"
+		filler["role2"] = ""
+		mine.append(filler)
+	for i in range(mine.size()):
+		if str(mine[i]["role"]) == "RUCK" or str(mine[i].get("role2", "")) == "RUCK":
+			var f: Dictionary = mine[i].duplicate()
+			f["role"] = "MID"
+			f["role2"] = ""
+			mine[i] = f
+	var spend2: int = int(draft.club_spend[draft.user_club])
+	draft.club_spend[draft.user_club] = 0
+	ui.call("_open_player", str(rows[6]["id"]))
+	await _settle()
+	blocked = ui.find_child("DetailBlocked", true, false)
+	_check(blocked != null and blocked.text.contains("rucks"), "The two-ruck rule is given as the reason (%s)" % (blocked.text if blocked else "-"))
+	ui.call("_close_player")
+	draft.club_lists[draft.user_club] = saved
+	draft.club_spend[draft.user_club] = spend2
+	root.size = size_before
+	ui.set("_role", "")
+	ui.call("_show_board")
+	await _settle()
 
 
 func _snapshot(ui: Control) -> Dictionary:

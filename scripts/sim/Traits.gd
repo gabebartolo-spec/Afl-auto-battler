@@ -9,32 +9,45 @@ extends RefCounted
 ## you draft, trade for and pick matters beyond the overall rating.
 
 ## key -> label, the stat and threshold that earn it, the roles it counts
-## for ([] = any), and what it does. "max" marks a bad trait (at or below).
+## for ([] = any), what it does, and how a recruiter would put it ("scout").
+## "max" marks a bad trait (at or below).
 const DEFS := {
 	"ball_magnet": {"label": "Ball magnet", "stat": "disposal", "min": 86, "roles": ["MID", "DEF"],
-			"text": "Wins 10% more of the ball in general play."},
+			"text": "Wins 10% more of the ball in general play.",
+			"scout": "Finds the footy all day."},
 	"bull": {"label": "Contested bull", "stat": "contested", "min": 84, "roles": ["MID", "RUCK"],
-			"text": "Wins 15% more clearances and keeps the ball when tackled more often."},
+			"text": "Wins 15% more clearances and keeps the ball when tackled more often.",
+			"scout": "Wins it at the coalface and gets it out."},
 	"ruck_king": {"label": "Ruck king", "stat": "ruck", "min": 84, "roles": ["RUCK"],
-			"text": "Takes 5% more of the hit-outs."},
+			"text": "Takes 5% more of the hit-outs.",
+			"scout": "Dominates the hit-outs."},
 	"aerial": {"label": "Aerial threat", "stat": "marking", "min": 76, "roles": ["FWD"],
-			"text": "Marks 6% more of the forward-50 contests he leads to."},
+			"text": "Marks 6% more of the forward-50 contests he leads to.",
+			"scout": "A strong contested mark inside 50."},
 	"crumber": {"label": "Crumber", "stat": "goalkicking", "min": 55, "roles": ["FWD"], "small": true,
-			"text": "A small forward: kicks 12% more goals from ground balls."},
+			"text": "A small forward: kicks 12% more goals from ground balls.",
+			"scout": "Lives at the feet of the pack."},
 	"sharpshooter": {"label": "Sharpshooter", "stat": "accuracy", "min": 71, "roles": [],
-			"text": "+6% goal chance on every shot."},
+			"text": "+6% goal chance on every shot.",
+			"scout": "Reliable set shot."},
 	"playmaker": {"label": "Playmaker", "stat": "creating", "min": 75, "roles": [],
-			"text": "Shots from his inside-50 deliveries are 5% more likely to be goals."},
+			"text": "Shots from his inside-50 deliveries are 5% more likely to be goals.",
+			"scout": "Sets up goals with his ball use going inside 50."},
 	"interceptor": {"label": "Interceptor", "stat": "intercept", "min": 80, "roles": ["DEF"],
-			"text": "Spoils 5% more of the forward-50 contests he is in."},
+			"text": "Spoils 5% more of the forward-50 contests he is in.",
+			"scout": "Reads the play and cuts off forward entries."},
 	"lockdown": {"label": "Lockdown", "stat": "pressure", "min": 64, "roles": ["DEF", "MID"],
-			"text": "His opponent's shots are 4% less likely to be goals (a midfielder picks up their best midfielder)."},
+			"text": "His opponent's shots are 4% less likely to be goals (a midfielder picks up their best midfielder).",
+			"scout": "Can shut down a dangerous opponent."},
 	"engine": {"label": "Engine", "stat": "durability", "min": 91, "roles": [],
-			"text": "Tires 25% slower."},
+			"text": "Tires 25% slower.",
+			"scout": "Runs all day."},
 	"big_game": {"label": "Big-game player", "stat": "star", "min": 60, "roles": [],
-			"text": "Lifts in the last quarter and in finals (+5% on every stat)."},
+			"text": "Lifts in the last quarter and in finals (+5% on every stat).",
+			"scout": "Lifts when it matters: last quarters and finals."},
 	"hothead": {"label": "Hothead", "stat": "discipline", "max": 20, "roles": [],
-			"text": "Gives away 50% more clangers and free kicks."},
+			"text": "Gives away 50% more clangers and free kicks.",
+			"scout": "Gives away too many free kicks."},
 }
 
 ## key -> label, the line it needs ("" = the whole 18), the traits needed,
@@ -64,6 +77,11 @@ static func label(key: String) -> String:
 
 static func text(key: String) -> String:
 	return str((DEFS.get(key, SYNERGIES.get(key, {})) as Dictionary).get("text", ""))
+
+
+## The trait in a recruiter's words, for scouting a player (no numbers).
+static func scout(key: String) -> String:
+	return str((DEFS.get(key, {}) as Dictionary).get("scout", text(key)))
 
 
 static func is_bad(key: String) -> bool:

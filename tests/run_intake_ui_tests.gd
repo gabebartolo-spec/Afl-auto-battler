@@ -57,11 +57,50 @@ func _run() -> void:
 			break
 	await _settle()
 	ui.call("_refresh")
+	# Inspect a prospect first: projected rating, U18 / state-league season,
+	# pedigree - and only the Sign button signs him.
+	var board1: Array = draft.board("", "", "", "overall", true)
+	var prospect: Dictionary = board1[0]
+	for q in board1:
+		if float(q.get("u18_di", 0.0)) > 0.0 and int(q.get("u18_gm", 0)) > 0:
+			prospect = q
+			break
+	var count_before: int = draft.count()
+	var hist_before: Array = draft.pick_history.duplicate(true)
+	var inspect: Button = ui.find_child("Inspect_" + str(prospect["id"]), true, false)
+	if inspect == null:
+		ui.call("_open_player", str(prospect["id"]))
+	else:
+		inspect.emit_signal("pressed")
+	await _settle()
+	_check(ui.find_child("PlayerDetail", true, false) != null, "A prospect's details open")
+	_check(draft.count() == count_before and draft.pick_history == hist_before, "Inspecting a prospect signs nobody")
+	var ovr: Control = ui.find_child("DetailOVR", true, false)
+	_check(ovr != null and (ovr.get_child(0) as Label).text == str(int(prospect["overall"]))
+			and (ovr.get_child(1) as Label).text == "Projected OVR", "His projected OVR is shown as projected")
+	var prod: Label = ui.find_child("DetailProduction", true, false)
+	_check(prod != null and prod.text.contains("%.1f disposals" % float(prospect["u18_di"])),
+			"His U18 / state-league production is shown (%s)" % (prod.text if prod else "-"))
+	var found_ped := false
+	for l in ui.find_children("*", "Label", true, false):
+		if str(l.text).begins_with("Ranked #%d" % int(prospect["draft_rank"])):
+			found_ped = true
+	_check(found_ped, "His draft ranking and pathway are shown")
+	var type_l: Label = ui.find_child("DetailType", true, false)
+	_check(type_l != null and type_l.text != "", "A prospect has a football identity (%s)" % (type_l.text if type_l else "-"))
+	var act: Button = ui.find_child("DetailDraft", true, false)
+	_check(act != null and act.text.begins_with("Sign "), "The intake action reads Sign")
 	if draft.is_user_turn():
-		var signed = draft.board("", "", "", "overall", true)[0]
-		ui.call("_on_pick", signed)
+		_check(not act.disabled, "Sign is live on your turn")
+		act.emit_signal("pressed")
 		await _settle()
-		_check(draft.count() >= 1, "Signing through the UI records the pick")
+		_check(draft.count() == count_before + 1 and draft.has(str(prospect["id"])),
+				"Sign from the details signs that prospect")
+	else:
+		var why: Label = ui.find_child("DetailBlocked", true, false)
+		_check(act.disabled and why != null and why.text.begins_with("Not your pick"),
+				"Off your turn, Sign is off and says why")
+		ui.call("_close_player")
 
 	ui.set("_role", "RUCK")
 	ui.set("_search", "a")
