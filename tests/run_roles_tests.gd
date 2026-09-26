@@ -52,6 +52,32 @@ func _selection_tests() -> void:
 			leak = true
 	_check(not leak, "No percentages on the rows")
 	_check(ui.find_child("SelectionWeek", true, false) != null, "Selection shows this week's opponent")
+	# The synergy rules are one tap away, in full, without progress counts.
+	var rules_btn: Button = ui.find_child("SynergyRules", true, false)
+	_check(rules_btn != null and rules_btn.size.y >= 44, "A Synergies button opens the rules")
+	if rules_btn != null:
+		rules_btn.emit_signal("pressed")
+		await _settle()
+		var guide: Node = ui.find_child("SynergyGuide", true, false)
+		var all_rules := guide != null
+		if guide != null:
+			for key in Traits.SYNERGIES:
+				var row: Node = guide.find_child("Synergy_" + str(key), true, false)
+				var req: Label = row.find_child("Requires", true, false) if row != null else null
+				if req == null or not req.text.begins_with("Requires "):
+					all_rules = false
+		_check(all_rules, "Every synergy states exactly what it requires")
+		var gtext := _screen_text(guide) if guide != null else ""
+		var prog := RegEx.new()
+		prog.compile("\\d/\\d")
+		_check(prog.search(gtext) == null and not gtext.to_lower().contains("one more") and not gtext.contains("%"),
+				"The rules carry no progress counts, advice or percentages")
+		_check(gtext.contains("Requires 2 Contested bulls on the ground.")
+				and gtext.contains("Requires 1 Aerial threat and 1 Crumber in the forward line."),
+				"Requirements read in plain words")
+		_check(ui.call("handle_back") == true and not is_instance_valid(ui.get("_synergy_overlay")),
+				"Back closes the synergy guide first")
+		await _settle()
 	var recipe := RegEx.new()
 	recipe.compile("\\d/\\d [A-Z][a-z]")
 	_check(recipe.search(text) == null, "Synergies are not a recipe: no 'one more X' counts")

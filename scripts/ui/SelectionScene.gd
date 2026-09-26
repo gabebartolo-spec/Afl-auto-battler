@@ -13,6 +13,7 @@ const CHOICES := [["RUCK", "Ruck"], ["MID", "Mid"], ["WING", "Wing"], ["DEF", "D
 
 var _root: VBoxContainer
 var _notice := ""
+var _synergy_overlay: Control
 
 
 func _ready() -> void:
@@ -105,19 +106,76 @@ func _build() -> void:
 		body.add_child(_row(p, "", auto))
 
 
-## The line synergies your 18 switch on - what the side is good at. Only
-## the ones that are on: no "one more X" counts, so the screen never reads
-## as a recipe to complete.
+## The line synergies your 18 switch on - what the side is good at - and
+## the full rules one tap away. No "one more X" counts here: the rules are
+## open, the choice is yours.
 func _synergy_view() -> Control:
-	var v := UiKit.vbox(3)
-	v.name = "Synergies"
+	var h := UiKit.hbox(8)
+	h.name = "Synergies"
 	var on: PackedStringArray = []
 	for r in Traits.progress(GameState.my_squad().ground):
 		if bool(r["active"]):
 			on.append(Traits.label(str(r["key"])))
-	if not on.is_empty():
-		v.add_child(_para("Your side has: " + ", ".join(on) + ".", 13, UiKit.GOOD))
-	return v
+	var l := _para("Your side has: " + ", ".join(on) + "." if not on.is_empty()
+			else "No line synergies in this side.", 13, UiKit.GOOD if not on.is_empty() else UiKit.MUTED)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(l)
+	var rules := UiKit.btn("Synergies", 14)
+	rules.name = "SynergyRules"
+	rules.custom_minimum_size = Vector2(104, 44)
+	rules.pressed.connect(_show_synergies)
+	h.add_child(rules)
+	return h
+
+
+## Every synergy: what it is, what it does and exactly what it needs, with
+## the ones this side has marked On.
+func _show_synergies() -> void:
+	_close_synergies()
+	var box := UiKit.modal_box(self, 560.0, 0.0)
+	_synergy_overlay = box["overlay"]
+	_synergy_overlay.name = "SynergyGuide"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.lbl("Line synergies", UiKit.H1, UiKit.TEXT, true))
+	v.add_child(_para("Players' traits combine when the right mix takes the field together.", 13, UiKit.MUTED))
+	var active := {}
+	for r in Traits.progress(GameState.my_squad().ground):
+		active[str(r["key"])] = bool(r["active"])
+	for key in Traits.SYNERGIES:
+		var s: Dictionary = Traits.SYNERGIES[key]
+		var row := UiKit.vbox(2)
+		row.name = "Synergy_" + str(key)
+		v.add_child(UiKit.spacer(6))
+		v.add_child(row)
+		var head := UiKit.hbox(8)
+		row.add_child(head)
+		var name_l := UiKit.lbl(str(s["label"]), UiKit.BODY, UiKit.TEXT, true)
+		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(name_l)
+		if bool(active.get(key, false)):
+			head.add_child(UiKit.line("On", 13, UiKit.GOOD, true))
+		row.add_child(_para("%s %s" % [str(s.get("about", "")), str(s.get("does", ""))], 13, UiKit.TEXT))
+		var req := _para(Traits.requirement_text(str(key)), 13, UiKit.MUTED)
+		req.name = "Requires"
+		row.add_child(req)
+	var close := UiKit.btn("Close", 16, true)
+	close.custom_minimum_size = Vector2(0, 48)
+	close.pressed.connect(_close_synergies)
+	box["footer"].add_child(close)
+
+
+func _close_synergies() -> void:
+	if _synergy_overlay != null and is_instance_valid(_synergy_overlay):
+		_synergy_overlay.queue_free()
+	_synergy_overlay = null
+
+
+## Android Back closes the synergy guide before leaving Selection.
+func handle_back() -> bool:
+	if _synergy_overlay != null and is_instance_valid(_synergy_overlay):
+		_close_synergies()
+		return true
+	return false
 
 
 ## One player: a line in the list with a rule under it, not a card.
