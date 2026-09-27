@@ -110,6 +110,10 @@ importer is silently dropped from exports.
 
 Every runner points saves and settings at `user://test_*` files and turns
 autosave off, so running the tests never touches a real career.
+`tools/run_tests.sh` also gives each run its own user data folder (a temp
+`XDG_DATA_HOME`, removed afterwards), so two runs at once - two worktrees,
+two branches - cannot overwrite each other's test saves. Running a single
+runner by hand still uses Godot's normal user folder.
 A non-Godot mirror of the same maths runs in CI-friendly Python:
 `python3 tools/intake_harness.py` (data/schema validation + a six-season
 intake/development simulation over the real lists).
