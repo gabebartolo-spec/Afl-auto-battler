@@ -64,19 +64,64 @@ func _run() -> void:
 	_check(current_scene.find_child("ContinueCareer", true, false) == null,
 			"No Continue Career without a save")
 
-	# --- difficulty for new careers ---------------------------------------------
+	# --- the menu is the title and a few actions, no setup -------------------
+	_check(current_scene.find_child("Difficulty_hard", true, false) == null
+			and current_scene.find_child("NameMode_real", true, false) == null,
+			"The menu itself carries no setup controls")
+	_check(not _screen_text().contains("players ·") and not _screen_text().contains("Quit"),
+			"No data line or Quit on the menu")
+	_check(current_scene.find_child("MenuHelp", true, false) != null
+			and current_scene.find_child("MenuSettings", true, false) != null,
+			"How to play and Settings are on the menu")
+
+	# --- settings: player names apply at once --------------------------------
+	current_scene.find_child("MenuSettings", true, false).emit_signal("pressed")
+	await _settle()
+	var real_setting: Button = current_scene.find_child("SettingsNames_real", true, false)
+	_check(real_setting != null, "Settings offers player names")
+	if real_setting != null:
+		real_setting.emit_signal("pressed")
+		await _settle()
+	_check(_state.show_real_names, "Choosing Real in Settings shows real names straight away")
+	_check(OS.has_feature("web") or current_scene.find_child("QuitGame", true, false) != null,
+			"Quit lives in Settings")
+	current_scene.find_child("SettingsNames_generated", true, false).emit_signal("pressed")
+	_router.handle_back(false)
+	await _settle()
+	_check(_router.current() == "main" and current_scene.find_child("Settings", true, false) == null
+			and not _state.show_real_names, "Back closes Settings")
+
+	# --- new career setup: names and difficulty, applied only on start -------
+	current_scene.find_child("NewCareer", true, false).emit_signal("pressed")
+	await _settle()
 	var hard_btn: Button = current_scene.find_child("Difficulty_hard", true, false)
-	_check(hard_btn != null, "The menu offers a difficulty choice")
+	_check(hard_btn != null and current_scene.find_child("NameMode_real", true, false) != null,
+			"New career asks for player names and difficulty")
 	if hard_btn != null:
 		hard_btn.emit_signal("pressed")
 		await _settle()
-	_check(_state.new_career_difficulty() == "hard", "Picking Hard sets the next career's difficulty")
-	var normal_btn: Button = current_scene.find_child("Difficulty_normal", true, false)
-	if normal_btn != null:
-		normal_btn.emit_signal("pressed")
-		await _settle()
-	_check(_state.new_career_difficulty() == "normal" and not hard_btn.button_pressed,
-			"Only the chosen difficulty shows as picked")
+	_check(_state.new_career_difficulty() == "normal", "A pick changes nothing before the career starts")
+	current_scene.find_child("DifficultyInfo", true, false).emit_signal("pressed")
+	await _settle()
+	var note: Label = current_scene.find_child("DifficultyNote", true, false)
+	_check(note != null and note.visible and note.text == str(_state.DIFFICULTIES["hard"]["text"]),
+			"The ? explains the picked difficulty on request")
+	_router.handle_back(false)
+	await _settle()
+	_check(_router.current() == "main" and current_scene.find_child("NewCareerSetup", true, false) == null
+			and _state.new_career_difficulty() == "normal", "Back leaves the setup without changing anything")
+	current_scene.find_child("NewCareer", true, false).emit_signal("pressed")
+	await _settle()
+	current_scene.find_child("Difficulty_hard", true, false).emit_signal("pressed")
+	current_scene.find_child("NameMode_real", true, false).emit_signal("pressed")
+	current_scene.find_child("StartCareer", true, false).emit_signal("pressed")
+	await _settle()
+	_check(_router.current() == "draft", "Starting the career goes on to choosing a club")
+	_check(_state.new_career_difficulty() == "hard" and _state.difficulty == "hard"
+			and _state.show_real_names, "The career starts with the picks made")
+	_state.set_new_career_difficulty("normal")
+	_state.set_show_real_names(false)
+	_state.reset()
 
 	# --- a saved career shows Continue, and it loads -------------------------
 	_state.start_season("SYD", _db.club_list("SYD"))
@@ -407,17 +452,19 @@ func _run() -> void:
 	var new_btn: Button = current_scene.find_child("NewCareer", true, false)
 	new_btn.emit_signal("pressed")
 	await _settle()
+	current_scene.find_child("StartCareer", true, false).emit_signal("pressed")
+	await _settle()
 	var confirm = current_scene.find_child("ConfirmNewCareer", true, false)
 	_check(confirm != null, "New Career asks for confirmation over an existing career")
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "main"
-			and current_scene.find_child("ConfirmNewCareer", true, false) == null,
-			"Back cancels the confirmation and stays on the menu")
+			and current_scene.find_child("ConfirmNewCareer", true, false) == null
+			and current_scene.find_child("NewCareerSetup", true, false) != null,
+			"Back cancels the confirmation and stays on the setup")
 	_check(_state.season != null and _state.has_saved_career(),
 			"Cancelling keeps the career and the save")
-	new_btn = current_scene.find_child("NewCareer", true, false)
-	new_btn.emit_signal("pressed")
+	current_scene.find_child("StartCareer", true, false).emit_signal("pressed")
 	await _settle()
 	confirm = current_scene.find_child("ConfirmNewCareer", true, false)
 	if confirm != null:

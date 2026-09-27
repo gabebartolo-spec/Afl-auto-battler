@@ -61,8 +61,8 @@ this project, and no player imagery or club badges are reproduced.
 The shipped data keeps each real name for the optional real-name view, but the
 player presentation defaults to a deterministic shuffle of generated random names
 (`Ari Bramble`, `Bex Cinder`, and so on). Every player gets a generated name —
-numbered placeholders such as `Squadmate 001` are never shown. The main-menu
-**Player Labels** toggle switches to the real AFL name on its own, such as
+numbered placeholders such as `Squadmate 001` are never shown. **Player
+names** (New career setup, or Settings on the main menu) switches to the real AFL name on its own, such as
 `Jordan Dawson`. It does not prefix a fictional alias or a "plays like"
 comparison, and it does not change IDs, ratings, draft logic or match results.
 Players with no real-world counterpart (generated future draft classes) keep
