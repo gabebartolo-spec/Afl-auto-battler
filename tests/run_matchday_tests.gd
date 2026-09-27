@@ -227,7 +227,10 @@ func _phone_match(sz: Vector2i) -> void:
 	_check(not ft.contains("pts") and not ft.contains("Expected points") and not ft.contains("Possession chains"),
 			"The full-time screen keeps the analysis a tap away (%s)" % tag)
 	_check(not ft.contains(" XP"), "Development reads in words at full time, not XP (%s)" % tag)
-	var stats_btn: Button = ft_box.find_child("MatchStatsButton", true, false) if ft_box != null else null
+	# One review, three tabs, one way out.
+	for n in ["ReviewTab_summary", "ReviewTab_stats", "ReviewTab_report", "FullTimeContinue"]:
+		_check(ft_box != null and ft_box.find_child(n, true, false) != null, "Full time has %s (%s)" % [n, tag])
+	var stats_btn: Button = ft_box.find_child("ReviewTab_stats", true, false) if ft_box != null else null
 	_check(stats_btn != null and stats_btn.size.y >= 44, "Match stats is one tap away (%s)" % tag)
 	if stats_btn != null:
 		stats_btn.emit_signal("pressed")
@@ -267,10 +270,31 @@ func _phone_match(sz: Vector2i) -> void:
 				if row.is_visible_in_tree() and row.get_global_rect().end.x > sz.x + 1:
 					fits = false
 			_check(fits, "The player table fits the phone (%s)" % tag)
-		_check(m.call("handle_back") == true, "Back closes match stats first (%s)" % tag)
+		_check(m.find_children("*", "Control", true, false).filter(func(c): return str(c.name) == "FullTime").size() == 1,
+				"Stats opens in the same review, not a new layer (%s)" % tag)
+		_check(m.call("handle_back") == true, "Back on Stats is handled (%s)" % tag)
 		await _settle()
-		_check(m.find_child("MatchStats", true, false) == null and m.find_child("FullTime", true, false) != null,
-				"...and stays on full time (%s)" % tag)
+		_check(m.find_child("MatchStats", true, false) == null and m.find_child("BestPlayers", true, false) != null,
+				"...and returns to Summary (%s)" % tag)
+		# The half-time report, as a tab: at a glance, the full report in place.
+		var rep_tab: Button = m.find_child("ReviewTab_report", true, false)
+		if rep_tab != null:
+			rep_tab.emit_signal("pressed")
+			await _settle()
+			var rr: Node = m.find_child("ReviewReport", true, false)
+			_check(rr != null and rr.find_child("MatchRead", true, false) != null, "Report shows the half at a glance (%s)" % tag)
+			var tog: Button = rr.find_child("FullReportToggle", true, false) if rr != null else null
+			if tog != null:
+				tog.emit_signal("pressed")
+				await _settle()
+			_check(m.find_child("FullReportDetail", true, false) != null
+					and _text(m.find_child("FullReportDetail", true, false)).contains("What stands out"),
+					"The full report opens in place (%s)" % tag)
+			_check(m.call("handle_back") == true, "Back on Report is handled (%s)" % tag)
+			await _settle()
+			_check(m.find_child("ReviewReport", true, false) == null and m.find_child("BestPlayers", true, false) != null,
+					"...and returns to Summary (%s)" % tag)
+		_check(m.call("handle_back") == false, "Back on Summary leaves as full time always has (%s)" % tag)
 	m.queue_free()
 	await _settle()
 

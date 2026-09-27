@@ -344,10 +344,12 @@ log or its quarter snapshots, never decided by the screen.
   yours and their best - with their game in a few words and their rating,
   three key team numbers and your week (injuries, and how many players
   improved - who and how is in Training, the one place the weekly training
-  result is spelled out). Everything else sits behind "Match stats": the quarter
-  table, every team stat, every player of both clubs (a tab per club, sorted
-  by rating or any column, a tap for the rest of his line) and what your
-  calls were worth.
+  result is spelled out). Full time is one review with three tabs and one
+  way out (Continue): Summary is home; Stats has the quarter table, every
+  team stat, every player of both clubs (a tab per club, sorted by rating or
+  any column, a tap for the rest of his line) and what your calls were
+  worth; Report has the assistant's half-time report at a glance, with the
+  full report opening in place. Back on Stats or Report returns to Summary.
 - **Player rating** (`MatchNotes.rating`). One number for one match, 0-10
   with one decimal (not 0-100, which would read as OVR). Built only from that
   match's box score, weighted toward what a stat does: goals 5, behinds 0.6,
@@ -367,7 +369,7 @@ log or its quarter snapshots, never decided by the screen.
   leads with your match (won or lost by how much, both scores, your best
   player and rating, a new injury, the ladder move and next opponent) and a
   "Review match" button; the rest of the round sits underneath. Review opens
-  the same full-time summary and Match stats as a watched match, from the
+  the same full-time review (Summary, Stats, Report) as a watched match, from the
   result already played (`GameState.last_match`): nothing is simulated,
   applied or paid again. The hub keeps "Last match: ..." under your season
   line to reopen it, and the save keeps enough of that match (result, box

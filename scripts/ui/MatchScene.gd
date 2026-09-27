@@ -56,7 +56,10 @@ var _pos_before := 0          # your ladder spot before this match
 var _lead: Label
 var _setup_line: Label
 var _report_overlay: Control
-var _stats_overlay: Control
+var _ft_box := {}               # the full-time review: overlay, body, footer
+var _ft_tabs: HBoxContainer
+var _ft_tab := "summary"        # summary (home), stats or report
+var _ft_full_report := false
 var _run_side := -1            # who kicked the last goal, and how many in a row
 var _run_len := 0
 
@@ -1348,11 +1351,78 @@ func _on_finished() -> void:
 # ---------------------------------------------------------------------------
 # Full time
 # ---------------------------------------------------------------------------
+## Full time is one review with three tabs - Summary (home), Stats and the
+## half-time Report - and one way out: Continue. Back on Stats or Report
+## returns to Summary. Review match (Sim round) opens the same screen.
 func _show_fulltime() -> void:
 	var box := UiKit.modal_box(self, 640.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "FullTime"
-	var v: VBoxContainer = box["body"]
+	_ft_box = box
+	_ft_tab = "summary"
+	_ft_full_report = false
+	# The tabs sit above the scrolling body, so they never scroll away.
+	var outer: Node = (box["body"] as Control).get_parent().get_parent()
+	_ft_tabs = UiKit.hbox(2)
+	_ft_tabs.name = "ReviewTabs"
+	outer.add_child(_ft_tabs)
+	outer.move_child(_ft_tabs, 0)
+
+	var home: String = _res["home"]
+	var away: String = _res["away"]
+	var mine := GameState.my_club != "" and (home == GameState.my_club or away == GameState.my_club)
+	if mine and (_interactive or _review):
+		var train := UiKit.btn("Training", 15)
+		train.name = "FullTimeTraining"
+		train.custom_minimum_size = Vector2(0, 44)
+		train.pressed.connect(func():
+			overlay.queue_free()
+			Router.replace("training"))
+		box["footer"].add_child(train)
+	# The week is over: back to the hub, where next week starts.
+	var leave := UiKit.btn("Continue", 18, true)
+	leave.name = "FullTimeContinue"
+	leave.custom_minimum_size = Vector2(0, 48)
+	leave.pressed.connect(func(): Router.back())
+	box["footer"].add_child(leave)
+	_render_ft()
+
+
+func _ft_tab_list() -> Array:
+	var tabs := [["summary", "Summary"], ["stats", "Stats"]]
+	if (_res.get("quarter_teams", []) as Array).size() >= 2:
+		tabs.append(["report", "Report"])
+	return tabs
+
+
+func _render_ft() -> void:
+	var v: VBoxContainer = _ft_box["body"]
+	UiKit.clear(v)
+	UiKit.clear(_ft_tabs)
+	for t in _ft_tab_list():
+		var key := str(t[0])
+		var b := UiKit.tab(str(t[1]), key == _ft_tab)
+		b.name = "ReviewTab_" + key
+		b.custom_minimum_size.y = 44
+		b.pressed.connect(func():
+			_ft_tab = key
+			_render_ft())
+		_ft_tabs.add_child(b)
+	match _ft_tab:
+		"stats":
+			_ft_stats(v)
+		"report":
+			_ft_report(v)
+		_:
+			_ft_summary(v)
+	var sc := v.get_parent() as ScrollContainer
+	if sc != null:
+		sc.scroll_vertical = 0
+
+
+## The Summary tab: the result, what it means, how it went, the best
+## players, a few numbers and your week.
+func _ft_summary(v: VBoxContainer) -> void:
 
 	var s: Array = _res["score"]
 	var home: String = _res["home"]
@@ -1474,31 +1544,6 @@ func _show_fulltime() -> void:
 			v.add_child(UiKit.section("Your week"))
 			v.add_child(week)
 
-	# The two ways deeper share a row, so Continue stays the obvious one.
-	var more := UiKit.hbox(8)
-	var stats_btn := UiKit.btn("Match stats", 15)
-	stats_btn.name = "MatchStatsButton"
-	stats_btn.custom_minimum_size = Vector2(0, 44)
-	stats_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stats_btn.pressed.connect(_show_match_stats)
-	more.add_child(stats_btn)
-	if mine and (_interactive or _review):
-		var train := UiKit.btn("Training", 15)
-		train.name = "FullTimeTraining"
-		train.custom_minimum_size = Vector2(0, 44)
-		train.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		train.pressed.connect(func():
-			overlay.queue_free()
-			Router.replace("training"))
-		more.add_child(train)
-	box["footer"].add_child(more)
-	# The week is over: back to the hub, where next week starts.
-	var leave := UiKit.btn("Continue", 18, true)
-	leave.name = "FullTimeContinue"
-	leave.custom_minimum_size = Vector2(0, 48)
-	leave.pressed.connect(func(): Router.back())
-	box["footer"].add_child(leave)
-
 
 ## One standout: the name (marked if best on ground), his game in words and
 ## his match rating at the end of the line.
@@ -1549,44 +1594,45 @@ func _key_stats_view(me: int) -> Control:
 	return v
 
 
-## The full numbers, a deliberate tap from full time: quarter by quarter,
-## every team stat, both box scores, and what your calls were worth.
-func _show_match_stats() -> void:
-	_close_stats()
-	var box := UiKit.modal_box(self, 860.0, 0.0)
-	var overlay: Control = box["overlay"]
-	overlay.name = "MatchStats"
-	_stats_overlay = overlay
-	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.ellipsis("Match stats", UiKit.H1, UiKit.TEXT, true))
-	v.add_child(UiKit.section("Quarter by quarter"))
-	v.add_child(_quarters_table())
-	v.add_child(UiKit.spacer(UiKit.GAP))
-	v.add_child(UiKit.section("Team stats"))
-	v.add_child(_team_stats_table())
-	v.add_child(UiKit.spacer(UiKit.GAP))
-	v.add_child(UiKit.section("Player stats"))
-	v.add_child(PlayerStatsTable.new().setup(_res, _my_side))
+## The Stats tab: quarter by quarter, every team stat, every player of both
+## clubs, and what your calls did.
+func _ft_stats(v: VBoxContainer) -> void:
+	var box := UiKit.vbox(8)
+	box.name = "MatchStats"
+	v.add_child(box)
+	box.add_child(UiKit.section("Quarter by quarter"))
+	box.add_child(_quarters_table())
+	box.add_child(UiKit.spacer(UiKit.GAP))
+	box.add_child(UiKit.section("Team stats"))
+	box.add_child(_team_stats_table())
+	box.add_child(UiKit.spacer(UiKit.GAP))
+	box.add_child(UiKit.section("Player stats"))
+	box.add_child(PlayerStatsTable.new().setup(_res, _my_side))
 	if _interactive:
-		v.add_child(UiKit.spacer(UiKit.GAP))
-		v.add_child(_calls_view(0))
-	var snaps: Array = _res.get("quarter_teams", [])
-	if snaps.size() >= 2:
-		var ht_btn := UiKit.btn("Assistant's report", 15)
-		ht_btn.custom_minimum_size = Vector2(0, 44)
-		ht_btn.pressed.connect(func():
-			_show_half_time_popup(CoachReport.half_time_report(_res, _my_side)))
-		box["footer"].add_child(ht_btn)
-	var close := UiKit.btn("Close", 16, true)
-	close.custom_minimum_size = Vector2(0, 44)
-	close.pressed.connect(_close_stats)
-	box["footer"].add_child(close)
+		box.add_child(UiKit.spacer(UiKit.GAP))
+		box.add_child(_calls_view(0))
 
 
-func _close_stats() -> void:
-	if _stats_overlay != null and is_instance_valid(_stats_overlay):
-		_stats_overlay.queue_free()
-	_stats_overlay = null
+## The Report tab: the assistant's half-time report at a glance, with the
+## full report opening in place.
+func _ft_report(v: VBoxContainer) -> void:
+	var box := UiKit.vbox(6)
+	box.name = "ReviewReport"
+	v.add_child(box)
+	var report := CoachReport.half_time_report(_res, _my_side)
+	box.add_child(_report_glance(report))
+	box.add_child(UiKit.spacer(UiKit.GAP))
+	var toggle := UiKit.btn("Hide full report" if _ft_full_report else "Full report", 15)
+	toggle.name = "FullReportToggle"
+	toggle.custom_minimum_size = Vector2(0, 44)
+	toggle.pressed.connect(func():
+		_ft_full_report = not _ft_full_report
+		_render_ft())
+	box.add_child(toggle)
+	if _ft_full_report:
+		var full := _half_time_report_view(report)
+		full.name = "FullReportDetail"
+		box.add_child(full)
 
 
 func _quarters_table() -> Control:
@@ -1706,8 +1752,11 @@ func handle_back() -> bool:
 	if _report_overlay != null and is_instance_valid(_report_overlay):
 		_close_report()
 		return true
-	if _stats_overlay != null and is_instance_valid(_stats_overlay):
-		_close_stats()
+	# In the full-time review, Stats and Report go back to Summary.
+	if _fulltime_shown and _ft_tab != "summary" and not _ft_box.is_empty() \
+			and is_instance_valid(_ft_box["overlay"]):
+		_ft_tab = "summary"
+		_render_ft()
 		return true
 	if _interactive and not _finished:
 		_feed_hint("Finish the match first - use Skip to full time to jump ahead.")

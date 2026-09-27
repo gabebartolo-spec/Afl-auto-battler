@@ -126,7 +126,7 @@ func _run() -> void:
 		await _settle()
 	var ft = current_scene.find_child("FullTime", true, false)
 	_check(_router.current() == "match" and ft != null, "Review match opens the full-time summary")
-	for n in ["Verdict", "MatchFactors", "BestPlayers", "YourWeek", "MatchStatsButton"]:
+	for n in ["Verdict", "MatchFactors", "BestPlayers", "YourWeek", "ReviewTab_stats"]:
 		_check(ft != null and ft.find_child(n, true, false) != null, "The review shows %s" % n)
 	var ft_text := ""
 	if ft != null:
@@ -134,7 +134,7 @@ func _run() -> void:
 			ft_text += str(l.text) + "\n"
 	_check(not ft_text.contains("rose in OVR") and not ft_text.contains("in the reserves"),
 			"Full time does not repeat the training result; Training has it")
-	var sb = ft.find_child("MatchStatsButton", true, false) if ft != null else null
+	var sb = ft.find_child("ReviewTab_stats", true, false) if ft != null else null
 	if sb != null:
 		sb.emit_signal("pressed")
 		await _settle()
