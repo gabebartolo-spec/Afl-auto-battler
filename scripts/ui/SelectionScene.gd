@@ -14,6 +14,8 @@ const CHOICES := [["RUCK", "Ruck"], ["MID", "Mid"], ["WING", "Wing"], ["DEF", "D
 var _root: VBoxContainer
 var _notice := ""
 var _synergy_overlay: Control
+var _sheet: Control             # a player's profile, open over the list
+var _scroll_box: ScrollContainer
 
 
 func _ready() -> void:
@@ -34,6 +36,8 @@ func _ready() -> void:
 
 
 func _build() -> void:
+	# A move or a resize rebuilds the list: keep your place in it.
+	var keep := _scroll_box.scroll_vertical if is_instance_valid(_scroll_box) else 0
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Team selection", true))
 	var auto := GameState.my_selection().is_empty()
@@ -74,7 +78,10 @@ func _build() -> void:
 
 
 	var body := UiKit.vbox(6)
-	_root.add_child(UiKit.scroll(body))
+	_scroll_box = UiKit.scroll(body)
+	_scroll_box.name = "SelectionScroll"
+	_root.add_child(_scroll_box)
+	_restore_scroll.call_deferred(keep)
 	var week := _this_week()
 	if week != null:
 		body.add_child(week)
@@ -170,8 +177,33 @@ func _close_synergies() -> void:
 	_synergy_overlay = null
 
 
-## Android Back closes the synergy guide before leaving Selection.
+func _restore_scroll(value: int) -> void:
+	# After the rebuilt list has its height, or the offset is clamped to 0.
+	await get_tree().process_frame
+	if is_instance_valid(_scroll_box):
+		_scroll_box.scroll_vertical = value
+
+
+## A player's profile over the list; closing it leaves the list untouched.
+func _open_profile(id: String) -> void:
+	var p := GameState.list_player(id)
+	if p.is_empty():
+		return
+	_close_profile()
+	_sheet = PlayerSheet.open(self, p, func(): _sheet = null)
+
+
+func _close_profile() -> void:
+	if _sheet != null and is_instance_valid(_sheet):
+		_sheet.queue_free()
+	_sheet = null
+
+
+## Android Back closes a profile, then the synergy guide, before leaving.
 func handle_back() -> bool:
+	if _sheet != null and is_instance_valid(_sheet):
+		_close_profile()
+		return true
 	if _synergy_overlay != null and is_instance_valid(_synergy_overlay):
 		_close_synergies()
 		return true
@@ -193,8 +225,21 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	card.add_theme_stylebox_override("panel", sb)
 	var v := UiKit.vbox(4)
 	card.add_child(v)
+	# Who he is: a tap opens his profile over the list.
+	var who_btn := Button.new()
+	who_btn.name = "Profile_" + str(p["id"])
+	who_btn.flat = true
+	who_btn.focus_mode = Control.FOCUS_NONE
+	who_btn.custom_minimum_size = Vector2(0, 46)
+	who_btn.mouse_filter = Control.MOUSE_FILTER_PASS
+	who_btn.tooltip_text = "Open his profile"
+	who_btn.pressed.connect(_open_profile.bind(str(p["id"])))
+	v.add_child(who_btn)
+	var who_box := UiKit.vbox(4)
+	who_box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	who_btn.add_child(who_box)
 	var h := UiKit.hbox(6)
-	v.add_child(h)
+	who_box.add_child(h)
 	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
 	var nm := UiKit.ellipsis(GameDB.player_display_name(p), 15, UiKit.TEXT, true)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -225,7 +270,9 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	who.name = "RoleLabel"
 	about.add_child(who)
 	about.move_child(who, 0)
-	v.add_child(about)
+	who_box.add_child(about)
+	_ignore_mouse(who_box)
+	who_btn.custom_minimum_size.y = maxf(46.0, who_box.get_combined_minimum_size().y)
 	if auto:
 		return card
 	var choices := UiKit.hbox(3)
@@ -308,3 +355,10 @@ func _para(text: String, size: int, colour: Color) -> Label:
 	var l := UiKit.lbl(text, size, colour)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
+
+
+func _ignore_mouse(node: Control) -> void:
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c in node.get_children():
+		if c is Control:
+			_ignore_mouse(c)

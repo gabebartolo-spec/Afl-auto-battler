@@ -133,6 +133,7 @@ func _selection_tests() -> void:
 	ui.queue_free()
 	await _settle()
 	await _list_tests()
+	await _selection_profile_tests()
 	await _ladder_tests()
 
 
@@ -168,6 +169,38 @@ func _list_tests() -> void:
 		_check(ls.find_child("PlayerProfile", true, false) == null, "Back closes the profile")
 	ls.queue_free()
 	await _settle()
+
+
+## Selection: a tap on a player opens his profile over the list, and closing
+## it leaves the side, the mode and your place in the list as they were.
+func _selection_profile_tests() -> void:
+	_state.set_selection(_state.current_side())
+	var before: Dictionary = _state.my_selection().duplicate(true)
+	var ui := await _open()
+	var sc: ScrollContainer = ui.find_child("SelectionScroll", true, false)
+	sc.scroll_vertical = 600
+	await _settle()
+	var at: int = sc.scroll_vertical
+	var target: Button = null
+	for b in ui.find_children("Profile_*", "Button", true, false):
+		if b.is_visible_in_tree() and b.get_global_rect().position.y > 200:
+			target = b
+			break
+	_check(target != null and target.size.y >= 44, "A player's name area is a thumb-sized tap")
+	if target != null:
+		target.emit_signal("pressed")
+		await _settle()
+		var prof: Node = ui.find_child("PlayerProfile", true, false)
+		_check(prof != null and prof.find_child("ProfileAttributes", true, false) != null,
+				"The tap opens his profile over Selection")
+		_check(ui.call("handle_back") == true, "Back is handled on the profile")
+		await _settle()
+		_check(ui.find_child("PlayerProfile", true, false) == null and _state.my_selection() == before
+				and sc.scroll_vertical == at and is_instance_valid(sc),
+				"Back returns to Selection as it was: same side, same place (%d)" % sc.scroll_vertical)
+	ui.queue_free()
+	await _settle()
+	_state.set_selection({})
 
 
 ## The ladder first, then the Coleman race one goalkicker to a row, all on

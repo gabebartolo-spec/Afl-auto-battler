@@ -1,0 +1,158 @@
+class_name PlayerSheet
+extends RefCounted
+## A player's profile over whatever screen you are on: who he is, his state,
+## how good and how much room, what he is picked for, his season, then the
+## attributes behind the rating. Read-only; Close or Back returns you to the
+## screen underneath exactly as it was. Used by My list and Team selection.
+
+const ATTR_ROWS := [
+	["disposal", "Disposal"], ["contested", "Contested"], ["marking", "Marking"],
+	["pressure", "Pressure"], ["intercept", "Intercept"], ["carry", "Carry"],
+	["goalkicking", "Goalkicking"], ["accuracy", "Accuracy"],
+	["creating", "Creating"], ["ruck", "Ruck"], ["discipline", "Discipline"],
+	["durability", "Durability"], ["star", "Star power"],
+]
+
+
+## Opens the sheet over `host` and returns its overlay (the host keeps it to
+## close on Back). `on_close` runs when Close is pressed.
+static func open(host: Control, p: Dictionary, on_close: Callable = Callable()) -> Control:
+	var box := UiKit.modal_box(host, 560.0, 0.0)
+	var overlay: Control = box["overlay"]
+	overlay.name = "PlayerProfile"
+	var v: VBoxContainer = box["body"]
+
+	var name_l := UiKit.lbl(GameDB.player_display_name(p), 22, UiKit.TEXT, true)
+	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(name_l)
+	var type_l := UiKit.lbl(Roles.label(p), UiKit.H2, UiKit.TEXT, true)
+	type_l.name = "ProfileType"
+	v.add_child(type_l)
+	var who := PackedStringArray(["#%d" % int(p["num"]), UiKit.ROLE_LABEL.get(str(p["role"]), str(p["role"]))])
+	if float(p.get("age", 0.0)) > 0.0:
+		who.append("%d years old" % int(p["age"]))
+	if float(p.get("height_cm", 0.0)) > 0.0:
+		who.append("%d cm" % int(p["height_cm"]))
+	v.add_child(UiKit.lbl("  ·  ".join(who), UiKit.SMALL, UiKit.MUTED))
+
+	# Now: available or not, and how he is feeling.
+	var state := PackedStringArray()
+	var weeks := int(p.get("injury_weeks", 0))
+	if weeks > 0:
+		state.append("Injured: out %s%s." % ["1 week" if weeks == 1 else "%d weeks" % weeks,
+				" (%s)" % str(p["injury_kind"]) if str(p.get("injury_kind", "")) != "" else ""])
+	elif bool(p.get("rested", false)):
+		state.append("Rested this week.")
+	else:
+		state.append("Available.")
+	state.append("Mood: %s." % ClubLife.mood(ClubLife.morale(p)).to_lower())
+	var sl := UiKit.lbl(" ".join(state), UiKit.BODY, UiKit.BAD if weeks > 0 else UiKit.TEXT)
+	sl.name = "ProfileState"
+	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(sl)
+
+	# How good, and how much room.
+	v.add_child(UiKit.spacer(4))
+	var nums := UiKit.hbox(18)
+	v.add_child(nums)
+	for pair in [[int(p["overall"]), "OVR"], [int(p.get("potential", p["overall"])), "POT"]]:
+		var nb := UiKit.vbox(0)
+		nb.add_child(UiKit.figure(str(pair[0]), 30, UiKit.TEXT))
+		nb.add_child(UiKit.lbl(str(pair[1]), UiKit.SMALL, UiKit.MUTED))
+		nums.add_child(nb)
+	var dev := UiKit.lbl(GameState.development_state(p), UiKit.BODY, UiKit.TEXT)
+	dev.name = "ProfileDevelopment"
+	dev.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dev.size_flags_vertical = Control.SIZE_SHRINK_END
+	dev.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nums.add_child(dev)
+	var plan := GameState.train_plan_label(GameState.plan_for(p))
+	if plan != "":
+		v.add_child(UiKit.lbl("Training plan: %s" % plan, UiKit.SMALL, UiKit.MUTED))
+
+	# What he is picked for.
+	v.add_child(UiKit.spacer(4))
+	for st in PlayerProfile.strengths(p):
+		var row := UiKit.hbox(8)
+		var sn := UiKit.lbl(str(st["label"]), UiKit.BODY, UiKit.TEXT)
+		sn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(sn)
+		row.add_child(UiKit.line(str(st["grade"]), UiKit.BODY, UiKit.MUTED))
+		v.add_child(row)
+	var weak := PlayerProfile.weakness(p)
+	if not weak.is_empty():
+		v.add_child(UiKit.lbl("Needs work: " + str(weak["label"]).to_lower(), UiKit.SMALL, UiKit.MUTED))
+	for t in Traits.of(p):
+		var tl := UiKit.lbl("%s. %s" % [Traits.label(str(t)), Traits.scout(str(t))], UiKit.SMALL,
+				UiKit.BAD if Traits.is_bad(str(t)) else UiKit.TEXT)
+		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(tl)
+
+	# What he has done.
+	var prod := PlayerProfile.production(p)
+	v.add_child(UiKit.spacer(4))
+	v.add_child(UiKit.lbl(str(prod["title"]), UiKit.SMALL, UiKit.MUTED))
+	var pl := UiKit.lbl(str(prod["line"]) if str(prod["line"]) != "" else "No stats on record.",
+			UiKit.BODY, UiKit.TEXT if str(prod["line"]) != "" else UiKit.MUTED)
+	pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(pl)
+
+	# The attributes behind the rating: the deepest layer, last.
+	v.add_child(UiKit.spacer(6))
+	v.add_child(UiKit.section("Attributes"))
+	var grid := GridContainer.new()
+	grid.name = "ProfileAttributes"
+	grid.columns = 1 if UiKit.view_width(host) < 520.0 else 2
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 3)
+	v.add_child(grid)
+	var attr: Dictionary = p["attr"]
+	for r in ATTR_ROWS:
+		grid.add_child(attr_bar(str(r[0]), str(r[1]), float(attr.get(r[0], 0.0))))
+
+	var close := UiKit.btn("Close", 16, true)
+	close.custom_minimum_size = Vector2(0, 48)
+	close.pressed.connect(func():
+		overlay.queue_free()
+		if on_close.is_valid():
+			on_close.call())
+	box["footer"].add_child(close)
+	return overlay
+
+
+static func attr_bar(key: String, label: String, value: float) -> Control:
+	var h := UiKit.hbox(4)
+	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var l := UiKit.ellipsis(label, UiKit.SMALL, UiKit.MUTED)
+	l.custom_minimum_size = Vector2(96, 0)
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	h.add_child(l)
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(70, 9)
+	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var bar := ColorRect.new()
+	bar.position = Vector2.ZERO
+	bar.size = Vector2(70, 7)
+	bar.color = Color(1, 1, 1, 0.10)
+	holder.add_child(bar)
+	var fill := ColorRect.new()
+	fill.position = Vector2.ZERO
+	fill.size = Vector2(70.0 * clampf(value / 99.0, 0.0, 1.0), 7)
+	fill.color = attr_colour(value)
+	holder.add_child(fill)
+	h.add_child(holder)
+	var n := UiKit.lbl(str(int(round(value))), UiKit.SMALL, UiKit.TEXT)
+	n.custom_minimum_size = Vector2(26, 0)
+	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	h.add_child(n)
+	return h
+
+
+static func attr_colour(v: float) -> Color:
+	if v >= 75.0:
+		return UiKit.GOOD
+	if v >= 55.0:
+		return UiKit.EMPH
+	if v >= 40.0:
+		return Color(0.80, 0.76, 0.55)
+	return UiKit.BAD
