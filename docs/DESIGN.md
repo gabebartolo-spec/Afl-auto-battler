@@ -249,6 +249,27 @@ player who has completed a simulated season keeps a full-season sample so a
 fringe 2026 games count cannot suppress them forever. `tools/intake_harness.py`
 mirrors these constants the way `sim_harness.py` mirrors the match engine.
 
+**Class quality.** Generated future classes (never the real 2026 class) get a
+quality tier, rolled once per career and draft year from `career_seed` (a
+random number saved with the career) and the year, so a reload never re-rolls
+a class and two careers need not share their superdrafts
+(`Prospects.class_tier`). Tiers and their rates: weak 10%, below average 20%,
+normal 50%, strong 17%, superdraft 3% (about one a generation in a 30-40 year
+career). A tier moves three things, all tapering from pick 1 to nothing by
+rank 30 (`Prospects.CLASS_TIERS`): the draft-night rating of the top end
+(super +4.5, strong +2, weak -3), the depth a little (super +2, weak -1.5),
+and the extra POT room of the best prospects (super +9, strong +3, weak -3).
+The prospects themselves - who they are, their positions, their own rolls -
+are seeded by the year alone, so busts, role spread and ordinary late picks
+stay. Measured over 400 generated years and in 28-year rollovers with one
+class forced to each tier: a super class produces about six players who peak
+at 80+ where a normal one produces none to two, with a top 20 peaking about
+4 points higher; league mean OVR stays at 60.4 either way (re-anchoring), and
+twenty years on the league's count of 80+ players is the same whatever that
+class was - a cohort advantage, not inflation. The tier of every generated
+class is recorded in `class_tiers` for a future draft-history view; the game
+does not announce it. `tools/intake_harness.py` mirrors the normal tier only.
+
 ---
 
 ## 3. Match engine

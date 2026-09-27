@@ -53,6 +53,10 @@ var losing_streak := 0
 ## a national intake draft (keep your list, sign the rookies), then the same
 ## league rolls into the next year with one season of ageing applied.
 var season_year := 2026
+## Rolled once per career: decides each generated draft class's quality tier
+## (Prospects.class_tier), so a reload never re-rolls a class.
+var career_seed := 0
+var class_tiers := {}             # draft year (string) -> tier key, as generated
 var draftee_pool: Array = []     # all prospects that have not been drafted yet
 var drafted_draftees := {}       # prospect id -> destination club
 var intake_assignments: Array = []  # father-son / NGA pre-draft landings
@@ -227,6 +231,8 @@ func save_career() -> bool:
 		"db_draftees": GameDB.draftees,
 		"db_late_draftees": GameDB.late_draftees,
 		"db_alias_next": GameDB._alias_next,
+		"career_seed": career_seed,
+		"class_tiers": class_tiers,
 		# Players carry p["career"]; saves without this mark predate it.
 		"career_version": CAREER_VERSION,
 	}
@@ -313,6 +319,9 @@ func load_career() -> bool:
 	GameDB.draftees = state.get("db_draftees", GameDB.draftees)
 	GameDB.late_draftees = state.get("db_late_draftees", [])
 	GameDB._alias_next = int(state.get("db_alias_next", GameDB._alias_next))
+	# Saves from before class tiers use seed 0: still one fixed roll per year.
+	career_seed = int(state.get("career_seed", 0))
+	class_tiers = state.get("class_tiers", {})
 	_recompute_ratings()
 	if int(state.get("career_version", 0)) < CAREER_VERSION:
 		_migrate_careers()
@@ -515,6 +524,8 @@ func reset() -> void:
 	week_event = {}
 	losing_streak = 0
 	difficulty = new_career_difficulty()
+	career_seed = randi_range(1, 999999)
+	class_tiers = {}
 	last_training_report = {}
 	_xp_grant_key = ""
 	_dirty = false
@@ -655,7 +666,8 @@ func _start_next_season(next_year: int, signed: int) -> void:
 		Career.close_season(played, season_tally, season_year)
 	# Next year's generated class joins the pool before ageing, so the fresh
 	# 17-year-olds are also a year older in the season they arrive.
-	var generated := Prospects.generate_class(next_year)
+	var generated := Prospects.generate_class(next_year, career_seed)
+	class_tiers[str(next_year)] = Prospects.class_tier(career_seed, next_year)
 	GameDB.register_draftees(generated)
 	for p in generated:
 		draftee_pool.append(p)
