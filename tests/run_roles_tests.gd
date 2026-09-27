@@ -101,23 +101,38 @@ func _selection_tests() -> void:
 	for id in sel.get("MID", []):
 		target = str(id)
 		break
+	# One position button per row; the move choices are closed until tapped.
+	_check(ui.find_children("To_*", "Button", true, false).is_empty(), "No move buttons until you ask for them")
+	var slot: Button = ui.find_child("Slot_" + target, true, false)
+	_check(slot != null and slot.size.y >= 44 and slot.text.begins_with("Mid"),
+			"Each row shows where he is, as a button (%s)" % (slot.text if slot else "-"))
+	var sc: ScrollContainer = ui.find_child("SelectionScroll", true, false)
+	sc.scroll_vertical = 300
+	await _settle()
+	var at: int = sc.scroll_vertical
+	if slot != null:
+		slot.emit_signal("pressed")
+		await _settle()
 	var move: Node = ui.find_child("Move_" + target, true, false)
 	var to_wing: Button = move.find_child("To_WING", true, false) if move != null else null
-	_check(to_wing != null and to_wing.size.y >= 40, "Each row can move a player to the wing")
-	if to_wing != null:
-		to_wing.emit_signal("pressed")
-		await _settle()
-		_check((_state.my_selection()["WING"] as Array).has(target), "Moving a player to the wing names him there")
-		_check(_screen_text(ui).contains("3 named"), "An over-full wing group says so")
+	_check(to_wing != null and to_wing.size.y >= 44, "The position button opens his move choices")
+	_check(ui.find_children("Move_*", "Node", true, false).size() == 1, "Only one player's choices are open")
 	var viewport := Rect2(Vector2.ZERO, Vector2(root.size))
 	var off := false
 	for b in ui.find_children("To_*", "Button", true, false):
-		# Width is what a phone row must fit; a row half-scrolled past the
-		# bottom of the list is fine.
 		var r: Rect2 = b.get_global_rect()
 		if b.is_visible_in_tree() and (r.position.x < -1.0 or r.end.x > viewport.size.x + 1.0):
 			off = true
-	_check(not off, "The move buttons fit a phone row")
+	_check(not off, "The move choices fit a phone row")
+	if to_wing != null:
+		to_wing.emit_signal("pressed")
+		await _settle()
+		sc = ui.find_child("SelectionScroll", true, false)
+		_check((_state.my_selection()["WING"] as Array).has(target), "Moving a player to the wing names him there")
+		_check(_screen_text(ui).contains("3 named"), "An over-full wing group says so")
+		_check(ui.find_children("To_*", "Button", true, false).is_empty(), "The choices close after a move")
+		_check(sc != null and sc.scroll_vertical == at, "A move keeps your place in the list (%d, was %d)" % [
+				sc.scroll_vertical if sc else -1, at])
 	ui.queue_free()
 	await _settle()
 

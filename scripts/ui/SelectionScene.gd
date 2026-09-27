@@ -15,6 +15,7 @@ var _root: VBoxContainer
 var _notice := ""
 var _synergy_overlay: Control
 var _sheet: Control             # a player's profile, open over the list
+var _open_move := ""            # the one player whose move choices are open
 var _scroll_box: ScrollContainer
 
 
@@ -65,7 +66,7 @@ func _build() -> void:
 	mine_btn.pressed.connect(func():
 		if GameState.my_selection().is_empty():
 			GameState.set_selection(GameState.current_side())
-			_notice = "Starting from the auto-picked 22. Move anyone with the buttons."
+			_notice = "Starting from the auto-picked 22. Tap a player's position to move him."
 		_build())
 	modes.add_child(mine_btn)
 	var help := "Auto-pick fields a sensible side by position and rating each week." if auto \
@@ -225,6 +226,8 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	card.add_theme_stylebox_override("panel", sb)
 	var v := UiKit.vbox(4)
 	card.add_child(v)
+	var top := UiKit.hbox(8)
+	v.add_child(top)
 	# Who he is: a tap opens his profile over the list.
 	var who_btn := Button.new()
 	who_btn.name = "Profile_" + str(p["id"])
@@ -234,7 +237,8 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	who_btn.mouse_filter = Control.MOUSE_FILTER_PASS
 	who_btn.tooltip_text = "Open his profile"
 	who_btn.pressed.connect(_open_profile.bind(str(p["id"])))
-	v.add_child(who_btn)
+	who_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(who_btn)
 	var who_box := UiKit.vbox(4)
 	who_box.set_anchors_preset(Control.PRESET_FULL_RECT)
 	who_btn.add_child(who_box)
@@ -275,19 +279,36 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	who_btn.custom_minimum_size.y = maxf(46.0, who_box.get_combined_minimum_size().y)
 	if auto:
 		return card
-	var choices := UiKit.hbox(3)
-	choices.name = "Move_" + str(p["id"])
-	v.add_child(choices)
-	var current := _named_role(str(p["id"]))
-	for c in CHOICES:
-		var key: String = c[0]
-		var b := UiKit.tab(str(c[1]), key == current)
-		b.custom_minimum_size = Vector2(0, 40)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.name = "To_" + key
-		b.pressed.connect(_move.bind(str(p["id"]), "" if key == "OUT" else key))
-		choices.add_child(b)
+	# Where he is now, as a button: a tap opens his move choices under the
+	# row (one row at a time), a second tap closes them.
+	var id := str(p["id"])
+	var current := _named_role(id)
+	var slot_btn := UiKit.btn("%s  ▾" % _short_label(current), 14)
+	slot_btn.name = "Slot_" + id
+	slot_btn.custom_minimum_size = Vector2(92, 44)
+	slot_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slot_btn.tooltip_text = "Move him"
+	UiKit.paint_choice(slot_btn, _open_move == id)
+	slot_btn.pressed.connect(func():
+		_open_move = "" if _open_move == id else id
+		_build())
+	top.add_child(slot_btn)
+	if _open_move == id:
+		var move := UiKit.vbox(0)
+		move.name = "Move_" + id
+		var cols := 4 if UiKit.view_width(self) < 560.0 else CHOICES.size()
+		move.add_child(UiKit.choice_grid("To", CHOICES, current if current != "" else "OUT", cols,
+				func(key: String): _move(id, "" if key == "OUT" else key)))
+		v.add_child(move)
 	return card
+
+
+## "Wing", "Bench", "Out"... for the position button.
+func _short_label(role: String) -> String:
+	for c in CHOICES:
+		if str(c[0]) == role:
+			return str(c[1])
+	return "Not picked"
 
 
 ## Where the player is named in your selection ("" = not named).
@@ -300,6 +321,7 @@ func _named_role(id: String) -> String:
 
 
 func _move(id: String, to_role: String) -> void:
+	_open_move = ""
 	var sel := GameState.my_selection().duplicate(true)
 	for slot in SLOTS + [["OUT"]]:
 		var arr: Array = sel.get(str(slot[0]), [])
