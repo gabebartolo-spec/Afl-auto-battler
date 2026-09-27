@@ -192,13 +192,12 @@ static func _sore_star(p: Dictionary) -> Dictionary:
 
 
 static func _training() -> Dictionary:
-	return {"key": "training", "default": 2,
+	return {"key": "training", "default": 1,
 		"title": "Coaches want an extra session",
 		"text": "A heavy week on the track, or a week to freshen up?",
 		"options": [
 			_opt("heavy", "Heavy session", "+12 XP for everyone, but they start the game on 88% legs."),
-			_opt("recover", "Recovery week", "Everyone's morale lifts (+4)."),
-			_opt("normal", "Normal week", "No change."),
+			_opt("recover", "Recovery week", "Everyone's morale lifts (+4), but no extra development."),
 		]}
 
 
@@ -250,8 +249,9 @@ static func _young_gun(p: Dictionary) -> Dictionary:
 		"title": "%s is pushing for games" % n,
 		"text": "The kid is flying at training and wants a senior game.",
 		"options": [
-			_opt("develop", "Extra development session", "+40 XP for him and a morale lift."),
-			_opt("wait", "Tell him to be patient", "His morale drops (-10)."),
+			_opt("develop", "Extra development session",
+					"+40 XP, but he spends the week with the development coaches: no senior or reserves game."),
+			_opt("wait", "Tell him to be patient", "He stays available and plays in the reserves. Morale -4; discipline +2."),
 		]}
 
 
@@ -261,6 +261,6 @@ static func _unhappy(p: Dictionary) -> Dictionary:
 		"title": "%s is unhappy" % n,
 		"text": "He feels he is being overlooked. Unhappy players play below their best and cost more to re-sign.",
 		"options": [
-			_opt("talk", "Sit down with him", "Morale +15."),
-			_opt("earn", "Tell him to earn it", "Morale -5; the group respects the standard."),
+			_opt("talk", "Sit down with him", "Morale +15, but he expects a game this week. Leave him out fit and it sours (-12)."),
+			_opt("earn", "Tell him to earn it", "His morale -5; the rest of the group respects the standard (+2)."),
 		]}

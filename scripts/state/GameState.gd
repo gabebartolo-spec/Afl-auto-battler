@@ -2372,6 +2372,12 @@ func _board_after_round(results: Array) -> void:
 		for r in roster[side]:
 			played[str(r["id"])] = true
 	ClubLife.morale_after_match(my_list, played, margin > 0)
+	# A player you sat down with expected a game: leaving him out fit sours it.
+	for p in my_list:
+		if bool(p.get("expects_game", false)):
+			p.erase("expects_game")
+			if not played.has(str(p["id"])) and int(p.get("injury_weeks", 0)) <= 0:
+				ClubLife.add_morale(p, -12)
 
 
 ## Season over: did you meet the goal? Miss it badly twice and you are gone.
@@ -2488,19 +2494,32 @@ func resolve_week_event(choice: int) -> String:
 			board["confidence"] = clampi(board_confidence() - 3, 0, 100)
 			out = "The board grudgingly agrees to wait."
 		"develop":
+			# A week with the development coaches instead of playing: the
+			# XP comes at the cost of this week's game, senior or reserves.
 			p["xp"] = int(p.get("xp", 0)) + 40
-			ClubLife.add_morale(p, 5)
+			p["rested"] = true
 			apply_plan_to(p)
-			out = "%s gets extra development: +40 XP." % name
+			out = "%s spends the week with the development coaches: +40 XP." % name
 		"talk":
 			ClubLife.add_morale(p, 15)
-			out = "%s feels heard." % name
+			p["expects_game"] = true
+			out = "%s feels heard, and expects a game this week." % name
 		"earn":
 			ClubLife.add_morale(p, -5)
-			out = "%s is told to earn his spot." % name
+			for q in my_list:
+				if q != p:
+					ClubLife.add_morale(q, 2)
+			out = "%s is told to earn his spot. The group respects it." % name
 		_:
-			if not p.is_empty() and key == "wait":
-				ClubLife.add_morale(p, -8 if str(week_event.get("key", "")) == "extension" else -10)
+			if not p.is_empty() and key == "wait" and str(week_event.get("key", "")) == "young_gun":
+				ClubLife.add_morale(p, -4)
+				var attr: Dictionary = p.get("attr", {})
+				if attr.has("discipline"):
+					attr["discipline"] = mini(99, int(attr["discipline"]) + 2)
+					_recalc_player_overall(p)
+				out = "%s is told to be patient and keeps playing in the reserves." % name
+			elif not p.is_empty() and key == "wait":
+				ClubLife.add_morale(p, -8)
 				out = "%s is disappointed." % name
 			else:
 				out = "Business as usual."

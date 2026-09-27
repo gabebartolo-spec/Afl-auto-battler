@@ -127,6 +127,57 @@ func _test_events() -> void:
 		if float(sim.energy[str(p["id"])]) > 88.0:
 			legs_ok = false
 	_check(legs_ok, "Heavy legs start the match below full energy")
+	_test_event_tradeoffs()
+
+
+## Every card is a trade-off: neither answer is all upside.
+func _test_event_tradeoffs() -> void:
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	_check(ClubLife._training()["options"].size() == 2, "No free 'normal week' beside a free recovery week")
+	# A kid pushing for games: development costs him this week's game.
+	var kid: Dictionary = GameState.my_list[30]
+	kid["morale"] = 70
+	kid["xp"] = 0
+	var disc := int(kid["attr"]["discipline"])
+	GameState.week_event = ClubLife._young_gun(kid)
+	GameState.resolve_week_event(0)
+	_check(bool(kid.get("rested", false)) and not Ratings.available(kid),
+			"Extra development takes him out of this week's game")
+	_check(ClubLife.morale(kid) == 70, "Extra development is not a free morale lift")
+	var kid2: Dictionary = GameState.my_list[31]
+	kid2["morale"] = 70
+	var disc2 := int(kid2["attr"]["discipline"])
+	var ov2 := int(kid2["overall"])
+	GameState.week_event = ClubLife._young_gun(kid2)
+	GameState.resolve_week_event(1)
+	_check(Ratings.available(kid2) and ClubLife.morale(kid2) == 66
+			and int(kid2["attr"]["discipline"]) == mini(99, disc2 + 2),
+			"Patience: still available, a small morale hit, a little more discipline")
+	_check(int(kid2["overall"]) == ov2, "Discipline does not move his rating")
+	# An unhappy player: sitting down with him commits you to a game.
+	var sulk: Dictionary = GameState.my_list[35]
+	sulk["morale"] = 30
+	GameState.week_event = ClubLife._unhappy(sulk)
+	GameState.resolve_week_event(0)
+	_check(ClubLife.morale(sulk) == 45 and bool(sulk.get("expects_game", false)), "A talk lifts him, and he expects a game")
+	var side: Dictionary = GameState.current_side()
+	var in_side := false
+	for k in side:
+		if (side[k] as Array).has(str(sulk["id"])):
+			in_side = true
+	var before := ClubLife.morale(sulk)
+	GameState.advance()
+	if not in_side and int(sulk.get("injury_weeks", 0)) <= 0:
+		_check(ClubLife.morale(sulk) <= before - 12 + 2, "Left out after the talk, it sours (%d -> %d)" % [before, ClubLife.morale(sulk)])
+	_check(not sulk.has("expects_game"), "The expectation lasts one week")
+	var sulk2: Dictionary = GameState.my_list[36]
+	var mate: Dictionary = GameState.my_list[0]
+	sulk2["morale"] = 30
+	mate["morale"] = 70
+	GameState.week_event = ClubLife._unhappy(sulk2)
+	GameState.resolve_week_event(1)
+	_check(ClubLife.morale(sulk2) == 25 and ClubLife.morale(mate) == 72, "Earn it: he dips, the group lifts")
 
 func _test_sacking() -> void:
 	GameState.reset()
