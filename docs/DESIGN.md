@@ -359,21 +359,21 @@ log or its quarter snapshots, never decided by the screen.
   any column, a tap for the rest of his line) and what your calls were
   worth; Report has the assistant's half-time report at a glance, with the
   full report opening in place. Back on Stats or Report returns to Summary.
-- **Player rating** (`MatchNotes.rating`). One number for one match, 0-10
-  with one decimal (not 0-100, which would read as OVR). Built only from that
-  match's box score, weighted toward what a stat does: goals 5, behinds 0.6,
-  goal assists 0.6, kicks 0.3, handballs 0.15, marks 0.7, tackles 0.8,
-  clearances 0.9, inside 50s 0.4, rebound 50s 0.9, one percenters 0.9,
-  hit-outs 0.5, clangers -0.6, frees against -0.8; then 1.5 + 0.2 x that,
-  half as steep above 8, clamped to 0-10. An average game is about 5, a good
-  one 7, best on ground 8.5 and up. Tuned over simulated matches so each
-  position's better games (90th percentile, about 7.5-8) sit within a point
-  of each other; forwards and rucks have lower medians (a forward's game is
-  goals or not much). Limits: the engine does not record contested
-  possessions, intercepts, contested marks or metres gained, so a defender's
-  defence is read from marks, rebound 50s and one percenters, and a ruck's
-  from hit-outs and clearances. The ruck's hit-outs all go to the first ruck
-  on the ground.
+- **Player rating** (`MatchNotes.rating`). One whole number for one match on
+  a fantasy-style scale - an ordinary game 50-80, a strong one 80-105, best on
+  ground 110 and up, a freak game 150+ - built only from that match's box
+  score (never OVR, value or potential). Points: kick 2, handball 1, mark 3,
+  tackle 3, goal 14, behind 1, hit-out 3, inside 50 1, forward-50 delivery
+  (the engine's `goal_assists`, credited on every entry) 3, rebound 50 3, one
+  percenter 1, clanger -2, free against -1 more (a free against is always
+  also a clanger, so -3 in all); floored at 0. Not AFL Fantasy's weights on
+  purpose: the engine gives forwards about 9 touches a game and rucks about a
+  third of real hit-outs, so with fantasy weights forwards were a side's best
+  player 1 time in 200. Tuned over 400 simulated matches (17,600 player
+  games): median 70, 90th percentile 111, 99th 143; each position's 90th
+  percentile sits at 101-118, and a side's best player is a midfielder about
+  half the time, a defender 30%, a forward 14%, a ruck 6%. A clearance earns
+  nothing extra (it is always followed by the disposal it produces).
 - **Sim round.** Simming skips watching, not the aftermath. The round popup
   leads with your match (won or lost by how much, both scores, your best
   player and rating, a new injury, the ladder move and next opponent) and a
