@@ -116,7 +116,7 @@ func _standing_card() -> Control:
 	var staff := UiKit.btn("Staff", 14)
 	staff.name = "HubStaff"
 	staff.flat = true
-	staff.custom_minimum_size = Vector2(64, 36)
+	staff.custom_minimum_size = Vector2(64, 44)
 	for state in ["normal", "hover", "pressed", "hover_pressed"]:
 		staff.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 	staff.add_theme_color_override("font_color", UiKit.MUTED)
