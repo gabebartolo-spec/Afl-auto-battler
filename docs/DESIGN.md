@@ -33,6 +33,15 @@ Columns (all season totals unless noted):
 `data/clubs.csv` holds club names, guernsey colours (for the pitch renderer) and
 home grounds.
 
+`data/player_history_2026.csv` - each 2026 player's AFL Tables slug, draft
+pedigree, rated recent seasons (`seasons`, POT's input) and `career`: every
+AFL season from 2004 to 2025 as club stints, `CLUB:first:last:games:goals`
+separated by `;` (finals included; a season split by a mid-season move counts
+at each club). `""` means no senior game before 2026; `"?"` would mean an
+unmatched player whose past is unknown (none today). Built by
+`tools/build_history.py` from one AFL Tables page per season, not one per
+player.
+
 `data/draftees_2026.csv` - the 2026 national-draft class (56 prospects).
 Columns: `rank,first,last,pos,pos2,pos_detail,height_cm,dob,state,team,league,`
 `tied_club,tied_type,u18_gm,u18_di,u18_gl,u18_mk,u18_tk,u18_if50,u18_ho,note,`
@@ -420,6 +429,25 @@ table, shot conversion, every best and quiet player with his numbers and
   top 10 advance; week 1 is WC1 7v10 and WC2 8v9; the winners reseed by
   original ladder position into the 7th and 8th seeds and meet 5th and 6th in
   the elimination finals while 1-4 play the qualifying finals; then SF → PF → GF.
+* **Career records** — every player carries `p["career"]` (`Career.gd`),
+  kept apart from `p["history"]` so potential never moves: `games` and `goals`
+  (finals included), `stints` (`[club, first, last, games, goals]`, an
+  unbroken run at one club: a season lost to injury does not split it, a
+  spell elsewhere does), `through` (the last season counted) and `unknown`
+  (`[from, to]` spans that could not be counted). Real players start with
+  their AFL careers to 2025; draftees, generated and expansion players start
+  at nothing. `GameState._close_season_awards` adds the season from the awards
+  tally for every listed player, before free agency releases anyone, and
+  `_start_next_season` repeats the call as a safety net; `through` makes a
+  second call a no-op, so a reload around the close or the rollover never
+  counts a season twice. A season is credited to the club he played his last
+  game of it for (trades happen between seasons, so this is exact in
+  practice). Career draftees get the same draft keys real players carry
+  (`drafted_year`, `drafted_type`, and `drafted_pick` for a national pick;
+  `draft_pick` / `draft_round` are kept), set after POT is fixed so POT is
+  unchanged. Saves from before this record (`career_version` missing) load
+  with each player's dataset career, and the seasons the save had already
+  played are marked unknown rather than guessed; their totals show "—".
 * **Team form** — each club's form (-1..1) is derived from its results this
   season (`Season.club_results`, so it is never saved separately and resets
   at every rollover): the last five, weighted 0.30 / 0.25 / 0.20 / 0.15 / 0.10

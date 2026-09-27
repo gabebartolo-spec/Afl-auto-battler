@@ -16,8 +16,14 @@ derive_ratings, the Python mirror of Ratings.gd, including the key position
 stretch), against that season's own player pool, so a 2024 rating means the
 same as a 2026 one.
 
-Output columns: club,num,slug,draft_year,draft_type,draft_pick,seasons
+Output columns: club,num,slug,draft_year,draft_type,draft_pick,seasons,career
   seasons = "2023:84:22;2024:86:23" (year:overall:games), 8+ game seasons.
+  career  = "SYD:2017:2020:61:12;ADE:2021:2025:112:41" - every AFL season
+            before the game starts (2004-2025, finals included) as club stints
+            (club:first:last:games:goals); "" when he had not played an AFL
+            game before 2026; "?" when he could not be matched, so his earlier
+            career is unknown rather than guessed. One AFL Tables page per
+            season, not one per player.
 
 Usage
 -----
@@ -54,6 +60,9 @@ import sim_harness as H  # noqa: E402  (ratings mirror)
 from scrape_afltables import SLUG_TO_CODE  # noqa: E402
 
 SEASONS = [2021, 2022, 2023, 2024, 2025]
+# Every season an AFL-listed 2026 player could have played in. The oldest
+# 2026 player debuted in 2006; 2004 leaves room for a missing debut date.
+CAREER_SEASONS = list(range(2004, 2026))
 DRAFT_YEARS = list(range(2006, 2026))
 MIN_SEASON_GAMES = 8
 UA = "AFLAutoBattler/1.0 (https://github.com/gabebartolo-spec/Afl-auto-battler; data tool)"
@@ -277,6 +286,25 @@ def parse_drafts(wikitext: str, year: int) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Matching
 # ---------------------------------------------------------------------------
+def career_stints(rows: list[tuple]) -> str:
+    """(year, club, games, goals) rows -> "CLUB:first:last:games:goals;...".
+    A stint is an unbroken run at one club: a season lost to injury does not
+    split it, a spell at another club does. A season split by a mid-season
+    move counts at each club for the games he played there."""
+    stints = []
+    for year, club, gm, gl in sorted(rows):
+        if gm <= 0:
+            continue
+        if stints and stints[-1][0] == club:
+            s = stints[-1]
+            s[2] = year
+            s[3] += gm
+            s[4] += gl
+        else:
+            stints.append([club, year, year, gm, gl])
+    return ";".join("%s:%d:%d:%d:%d" % tuple(s) for s in stints)
+
+
 def norm(s: str) -> str:
     s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z]", "", s.lower())
@@ -302,9 +330,11 @@ def main() -> int:
     by_name = {}
     for r in rows26:
         by_name.setdefault((r["club"], norm(r["last"])), []).append(r)
+    # Keyed by row, not club + number: a list can carry two players on one
+    # number (Sydney's #36 in 2026), and a shared key gave both one slug.
     slug_of = {}
     unmatched = []
-    for p in ours:
+    for i, p in enumerate(ours):
         key = (p["club"], int(p["num"]))
         r = by_club_num.get(key)
         if r is None or norm(r["last"]) != norm(p["last"]):
@@ -314,7 +344,7 @@ def main() -> int:
         if r is None:
             unmatched.append("%s %s %s" % (p["club"], p["first"], p["last"]))
             continue
-        slug_of[key] = r["slug"]
+        slug_of[i] = r["slug"]
     print(f"AFL Tables: linked {len(slug_of)}/{len(ours)} players to their pages")
     if unmatched:
         print("  unlinked: " + ", ".join(unmatched[:20]))
@@ -333,6 +363,51 @@ def main() -> int:
             if gm >= MIN_SEASON_GAMES:
                 history.setdefault(slug, []).append((year, ov, gm))
         print(f"  {year}: rated {len(rated)} players")
+
+    # 2b. Career before 2026: every season page, unmerged, so a season split
+    # between two clubs is credited to each. Players the 2026 page could not
+    # link (no 2026 game) are matched by name when exactly one AFL Tables
+    # player fits; otherwise their earlier career stays unknown.
+    career_rows = {}   # slug -> [(year, club, games, goals)]
+    names = {}         # (first3, last) -> {slug}
+    missing_career = []
+    for year in CAREER_SEASONS:
+        body = fetch(f"https://afltables.com/afl/stats/{year}.html",
+                     f"afltables_{year}.html", args.offline)
+        if body is None:
+            missing_career.append(year)
+            continue
+        for r in parse_season(body):
+            career_rows.setdefault(r["slug"], []).append(
+                (year, r["club"], int(r["gm"]), int(r["gl"])))
+            names.setdefault((norm(r["first"])[:3], norm(r["last"])), set()).add(r["slug"])
+    if missing_career:
+        print(f"  career seasons unavailable (career left unknown): {missing_career}",
+              file=sys.stderr)
+    career_of = {}
+    unknown_career = []
+    for i, p in enumerate(ours):
+        key = i
+        slug = slug_of.get(i, "")
+        if not slug:
+            found = names.get((norm(p["first"])[:3], norm(p["last"])), set())
+            slug = next(iter(found)) if len(found) == 1 else ""
+        debut = p.get("debut", "")
+        debuted_before = len(debut) >= 4 and debut[-4:].isdigit() and int(debut[-4:]) < 2026
+        if missing_career:
+            career_of[key] = "?"
+        elif slug:
+            career_of[key] = career_stints(career_rows.get(slug, []))
+        elif not debuted_before and not p.get("debut", ""):
+            # No AFL Tables record and no debut on file: not yet a senior player.
+            career_of[key] = ""
+        else:
+            career_of[key] = "?"
+        if career_of[key] == "?":
+            unknown_career.append("%s %s %s" % (p["club"], p["first"], p["last"]))
+    print(f"Career before 2026: known for {len(ours) - len(unknown_career)}/{len(ours)} players")
+    if unknown_career:
+        print("  unknown: " + ", ".join(unknown_career[:20]))
 
     # 3. Wikipedia drafts.
     picks = []
@@ -371,9 +446,9 @@ def main() -> int:
 
     rows_out = []
     drafted = 0
-    for p in ours:
-        key = (p["club"], int(p["num"]))
-        slug = slug_of.get(key, "")
+    for i, p in enumerate(ours):
+        key = i
+        slug = slug_of.get(i, "")
         dob_year = int(p["dob"][:4]) if p.get("dob") else 0
         debut = p.get("debut", "")
         debut_year = int(debut[-4:]) if len(debut) >= 4 and debut[-4:].isdigit() else 2026
@@ -394,13 +469,15 @@ def main() -> int:
             "draft_type": best["type"] if best else "",
             "draft_pick": best["pick"] if best else "",
             "seasons": ";".join("%d:%d:%d" % s for s in seasons),
+            "career": career_of.get(key, "?"),
         })
     print(f"Draft pedigree found for {drafted}/{len(ours)} players "
           "(the rest: category B, SSP, international or older drafts)")
 
     with open(OUT, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=["club", "num", "slug", "draft_year",
-                                           "draft_type", "draft_pick", "seasons"])
+                                           "draft_type", "draft_pick", "seasons",
+                                           "career"])
         w.writeheader()
         w.writerows(rows_out)
     print(f"wrote {OUT}")

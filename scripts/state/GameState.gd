@@ -227,6 +227,8 @@ func save_career() -> bool:
 		"db_draftees": GameDB.draftees,
 		"db_late_draftees": GameDB.late_draftees,
 		"db_alias_next": GameDB._alias_next,
+		# Players carry p["career"]; saves without this mark predate it.
+		"career_version": CAREER_VERSION,
 	}
 	var ok := CareerSave.write(state, _save_meta(), save_path)
 	if ok:
@@ -312,12 +314,54 @@ func load_career() -> bool:
 	GameDB.late_draftees = state.get("db_late_draftees", [])
 	GameDB._alias_next = int(state.get("db_alias_next", GameDB._alias_next))
 	_recompute_ratings()
+	if int(state.get("career_version", 0)) < CAREER_VERSION:
+		_migrate_careers()
 	_migrate_train_plans()
 	_backfill_potential()
 	ensure_contracts()
 	if season != null and board.is_empty():
 		_open_board_season()
 	return true
+
+
+## Career records (Career.gd) arrived with save format 1.
+const CAREER_VERSION := 1
+
+
+## A save from before career records: every player gets his dataset career
+## (AFL seasons to 2025, or nothing for a generated player), and the seasons
+## this save already played are marked unknown - their games and goals were
+## never kept, so they are not guessed.
+func _migrate_careers() -> void:
+	var closed := season != null and (offseason_year == season_year
+			or int(season_awards.get("year", 0)) == season_year)
+	var last := season_year if closed else season_year - 1
+	var played: Array = [my_list, free_agents]
+	if season != null:
+		for code in season.lists:
+			played.append(season.lists[code])
+	for code in league_lists:
+		played.append(league_lists[code])
+	var others: Array = [draftee_pool, GameDB.late_draftees]
+	if draft != null:
+		others.append(draft.pool)
+		for code in draft.club_lists:
+			others.append(draft.club_lists[code])
+	for pass_i in range(2):
+		var group: Array = played if pass_i == 0 else others
+		# Only players who could have played were on a list or a free agent;
+		# a prospect still in the pool has missed nothing.
+		var gap_to := last if pass_i == 0 else Career.BEFORE_GAME
+		for arr in group:
+			for p in arr:
+				if not (p is Dictionary) or (p as Dictionary).has("career"):
+					continue
+				var orig = GameDB.player_by_id(str(p["id"]))
+				var base: Dictionary = {}
+				if orig is Dictionary and (orig as Dictionary).get("career") is Dictionary \
+						and not is_same(orig, p):
+					base = orig["career"]
+				Career.migrate(p, base, Career.BEFORE_GAME + 1, gap_to)
 
 
 ## Overall is derived data: rebuild it from the attributes on load, so a
@@ -589,6 +633,7 @@ func finish_intake_draft() -> bool:
 			p["num"] = _next_jumper_number(arr)
 			p["draft_pick"] = int(entry.get("pick", 0))
 			p["draft_round"] = int(entry.get("round", 0))
+			_mark_drafted(p, "national", int(entry.get("pick", 0)))
 			Contracts.rookie_deal(p)
 			arr.append(p)
 			drafted_draftees[id] = code
@@ -600,6 +645,14 @@ func finish_intake_draft() -> bool:
 ## Roll every list forward one year and rebuild the season. Split out so a
 ## career can continue even when there is no prospect pool to draft.
 func _start_next_season(next_year: int, signed: int) -> void:
+	# The season's close normally counted careers already (Career skips a
+	# season it has seen); this covers a season rolled on without one.
+	if season != null:
+		var played := {}
+		for code in season.lists:
+			for p in season.lists[code]:
+				played[str(p["id"])] = p
+		Career.close_season(played, season_tally, season_year)
 	# Next year's generated class joins the pool before ageing, so the fresh
 	# 17-year-olds are also a year older in the season they arrive.
 	var generated := Prospects.generate_class(next_year)
@@ -718,6 +771,7 @@ func _assign_draftee(code: String, p: Dictionary, kind: String) -> void:
 	p["club"] = code
 	p["num"] = _next_jumper_number(arr)
 	p["draft_pick"] = 0
+	_mark_drafted(p, kind, 0)
 	Contracts.rookie_deal(p)
 	arr.append(p)
 	drafted_draftees[str(p["id"])] = code
@@ -726,6 +780,19 @@ func _assign_draftee(code: String, p: Dictionary, kind: String) -> void:
 		"player_name": str(p.get("generic_name", p.get("name", "Player"))),
 		"kind": kind, "overall": int(p["overall"]),
 	})
+
+
+## The same draft keys real players carry (drafted_year / drafted_type /
+## drafted_pick), so a career draftee's story reads like anyone's: "Pick 31,
+## 2028 national draft". A pre-listed (father-son, academy) player has no
+## pick. His potential was set when he was projected and is not re-derived.
+func _mark_drafted(p: Dictionary, kind: String, pick: int) -> void:
+	p["drafted_year"] = season_year
+	p["drafted_type"] = kind
+	if pick > 0:
+		p["drafted_pick"] = pick
+	else:
+		p.erase("drafted_pick")
 
 
 func _next_jumper_number(list: Array) -> int:
@@ -1431,6 +1498,8 @@ func _close_season_awards() -> void:
 	for code in season.lists:
 		for p in season.lists[code]:
 			players[str(p["id"])] = p
+	# Before the off-season releases anyone, so a delisted player keeps it.
+	Career.close_season(players, season_tally, season_year)
 	open_offseason()
 	season_awards = Awards.season_awards(season_tally, players, season_year)
 	records = Awards.update_records(records, season_awards, season_log)
