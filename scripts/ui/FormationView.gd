@@ -5,7 +5,9 @@ extends Control
 ## Positions follow the engine's 6-6-6 shape: 6 defenders, 6 midfielders
 ## (the ruck counted in midfield) and 6 forwards. The best player in each
 ## line takes the spine spot (full back, centre, ruck, full forward) so the
-## shape reads at a glance. Tap a guernsey for the rating.
+## shape reads at a glance. The wings are the midfielders the match plays
+## there (Roles.mark_wings), not the next two by rating. Tap a guernsey for
+## the rating.
 
 const ASPECT := 1.28
 const GOAL_LINE_M := 85.0
@@ -91,6 +93,7 @@ func _assign(ground: Array, bench: Array) -> Array:
 			overflow.append(p)
 	for role in buckets:
 		(buckets[role] as Array).sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+	buckets["MID"] = _midfield_order(buckets["MID"])
 	var used := {}
 	var out: Array = []
 	for role in ["RUCK", "MID", "DEF", "FWD"]:
@@ -111,6 +114,51 @@ func _assign(ground: Array, bench: Array) -> Array:
 		out.append({"player": bench[i], "slot": {"key": "INT%d" % i, "abbr": "INT",
 				"title": "Interchange", "role": str(bench[i].get("role", "")), "at": Vector2.ZERO},
 				"bench": true, "bench_index": i})
+	return out
+
+
+## The five midfielders in ASSIGN order (C, W, W, IM, IM). The wings are
+## the ones the match plays there - Roles.mark_wings, already marked on the
+## match-day copies as line "WING" - so the oval never contradicts the
+## match. A ground that has not been through selection is marked the same
+## way on copies. The centre goes to the best centre-square fit.
+static func _midfield_order(mids: Array) -> Array:
+	var marked := false
+	for p in mids:
+		if Roles.on_wing(p):
+			marked = true
+	var wing_ids := {}
+	if marked:
+		for p in mids:
+			if Roles.on_wing(p):
+				wing_ids[str(p["id"])] = true
+	else:
+		var copies: Array = []
+		for p in mids:
+			copies.append((p as Dictionary).duplicate())
+		Roles.mark_wings(copies)
+		for c in copies:
+			if Roles.on_wing(c):
+				wing_ids[str(c["id"])] = true
+	var wings: Array = []
+	var inside: Array = []
+	for p in mids:
+		if wing_ids.has(str(p["id"])) and wings.size() < Roles.WING_SLOTS:
+			wings.append(p)
+		else:
+			inside.append(p)
+	inside.sort_custom(func(a, b): return Roles.centre_fit(a) > Roles.centre_fit(b))
+	# C, W, W, IM, IM - any spare wing spot goes to the next inside player.
+	var out: Array = []
+	if not inside.is_empty():
+		out.append(inside.pop_front())
+	for i in range(Roles.WING_SLOTS):
+		if not wings.is_empty():
+			out.append(wings.pop_front())
+		elif not inside.is_empty():
+			out.append(inside.pop_front())
+	out.append_array(inside)
+	out.append_array(wings)
 	return out
 
 
@@ -332,8 +380,9 @@ func _draw() -> void:
 			var abbr := str(slot.get("abbr", ""))
 			_draw_label(abbr, px + Vector2(0, -tr - 3.0), 9, UiKit.EMPH, HORIZONTAL_ALIGNMENT_CENTER)
 			var name := _short_name(p)
-			var below := float(slot.get("at", Vector2.ZERO).y) < 0.5 or bool(entry.get("bench", false))
-			var name_y := px.y + tr + 12.0 if below else px.y - tr - 14.0
+			# Names sit under every guernsey. Above one (the bottom row used
+			# to) they ran into the name of the player just inside him.
+			var name_y := px.y + tr + 12.0
 			_draw_label(name, Vector2(px.x, name_y), int(clampf(tr * 0.78, 8.0, 12.0)),
 					UiKit.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 
