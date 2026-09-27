@@ -114,7 +114,7 @@ static func show(parent: Control) -> Control:
 	var overlay: Control = box["overlay"]
 	overlay.name = "StatGuide"
 	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.heading("STAT GUIDE", 26))
+	v.add_child(UiKit.heading("Stat guide", 26))
 	for topic in TOPICS:
 		v.add_child(UiKit.lbl(str(topic[0]), 16, UiKit.EMPH, true))
 		v.add_child(_para(str(topic[1]), 13, UiKit.TEXT))

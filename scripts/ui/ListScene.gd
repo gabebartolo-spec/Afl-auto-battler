@@ -1,6 +1,8 @@
 extends Control
-## Your drafted list: the best 22 the engine will field, then the whole list
-## grouped by position with the attributes they were rated on.
+## Your list: how the side stacks up, the best 22 on an oval, and every
+## player in one line each - who he is, whether he is available, how good.
+## Tap a player for his profile: role, state, development, strengths,
+## season and the attributes behind his rating.
 
 const ATTR_ROWS := [
 	["disposal", "Disposal"], ["contested", "Contested"], ["marking", "Marking"],
@@ -13,6 +15,7 @@ const ATTR_ROWS := [
 var _root: VBoxContainer
 var _squad: Squad = null
 var _pane := "shape"
+var _profile: Control
 
 
 func _ready() -> void:
@@ -52,18 +55,21 @@ func _build() -> void:
 	var train := UiKit.btn("Train", 14)
 	train.custom_minimum_size = Vector2(72, 44)
 	train.pressed.connect(func(): Router.go("training"))
-	_root.add_child(UiKit.top_bar("%s - My List" % GameDB.club_name(GameState.my_club), true, train))
+	_root.add_child(UiKit.top_bar("My list", true, train))
 
-	var summary := GridContainer.new()
-	summary.columns = 2 if UiKit.view_width(self) < 520.0 else 5
-	summary.add_theme_constant_override("h_separation", 8)
-	summary.add_theme_constant_override("v_separation", 8)
-	_root.add_child(summary)
-	summary.add_child(_stat_card("Strength", "%.1f" % _squad.strength()))
-	summary.add_child(_stat_card("Contest", "%.1f" % _squad.contest))
-	summary.add_child(_stat_card("Attack", "%.1f" % _squad.attack))
-	summary.add_child(_stat_card("Defence", "%.1f" % _squad.defence))
-	summary.add_child(_stat_card("List", str(GameState.my_list.size())))
+	# How the side stacks up, in words, and who is available.
+	var injured := 0
+	for p in GameState.my_list:
+		if int(p.get("injury_weeks", 0)) > 0:
+			injured += 1
+	var head := UiKit.lbl(GameState.my_line_standing_text(), UiKit.SMALL, UiKit.TEXT)
+	head.name = "LineStanding"
+	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_root.add_child(head)
+	var count := "%d players" % GameState.my_list.size()
+	if injured > 0:
+		count += "  ·  %d injured" % injured
+	_root.add_child(UiKit.lbl(count, UiKit.SMALL, UiKit.MUTED))
 
 	if _narrow():
 		var tabs := UiKit.hbox(2)
@@ -101,10 +107,11 @@ func _shape_panel() -> Control:
 	var lv := UiKit.vbox(5)
 	lv.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left.add_child(lv)
-	lv.add_child(UiKit.lbl("Best 22", 17, UiKit.EMPH, true))
-	lv.add_child(UiKit.lbl(
-			"Match-day shape: 6-6-6 - six defenders, six midfielders (ruck included) and six forwards. Four more wait on the interchange. Tap a guernsey.",
-			11, UiKit.MUTED))
+	lv.add_child(UiKit.lbl("Best 22", UiKit.H2, UiKit.EMPH, true))
+	var shape_note := UiKit.lbl("Six defenders, six midfielders (ruck included), six forwards and four on the bench. Tap a guernsey.",
+			UiKit.SMALL, UiKit.MUTED)
+	shape_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lv.add_child(shape_note)
 	var oval := FormationView.new()
 	oval.name = "Best22Oval"
 	oval.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -122,8 +129,9 @@ func _full_list_panel() -> Control:
 	var rv := UiKit.vbox(5)
 	rv.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right.add_child(rv)
-	rv.add_child(UiKit.lbl("Full List", 17, UiKit.EMPH, true))
-	var lbox := UiKit.vbox(2)
+	rv.add_child(UiKit.lbl("Full list", UiKit.H2, UiKit.EMPH, true))
+	var lbox := UiKit.vbox(0)
+	lbox.name = "ListRows"
 	rv.add_child(UiKit.scroll(lbox))
 
 	var grouped := {}
@@ -134,26 +142,13 @@ func _full_list_panel() -> Control:
 	for r in ["RUCK", "MID", "DEF", "FWD"]:
 		var g: Array = grouped[r]
 		g.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+		lbox.add_child(UiKit.spacer(4))
 		lbox.add_child(UiKit.lbl("%s  (%d)" % [UiKit.ROLE_LABEL[r], g.size()],
-				13, UiKit.MUTED, true))
+				UiKit.SMALL, UiKit.MUTED, true))
 		for p in g:
 			lbox.add_child(_list_row(p))
 		lbox.add_child(UiKit.spacer(6))
 	return right
-
-
-func _stat_card(label: String, value: String) -> Control:
-	var p := UiKit.panel(UiKit.PANEL_ALT, 10, 8)
-	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var v := UiKit.vbox(2)
-	p.add_child(v)
-	var val := UiKit.lbl(value, 22, UiKit.EMPH, true)
-	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(val)
-	var lab := UiKit.lbl(label, 11, UiKit.MUTED)
-	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(lab)
-	return p
 
 
 func _team_row(p: Dictionary, ground: bool) -> Control:
@@ -174,70 +169,197 @@ func _team_row(p: Dictionary, ground: bool) -> Control:
 	return h
 
 
+## One player in one line: guernsey, name, who he is (type, age, height),
+## anything that stops him playing, and how good he is. Tap for his profile.
 func _list_row(p: Dictionary) -> Control:
-	var panel := UiKit.panel(UiKit.PANEL_ALT, 8, 7)
-	var v := UiKit.vbox(4)
-	panel.add_child(v)
-
-	var h := UiKit.hbox(6)
-	v.add_child(h)
+	var row := Button.new()
+	row.name = "Row_" + str(p["id"])
+	row.custom_minimum_size = Vector2(0, 56)
+	row.focus_mode = Control.FOCUS_NONE
+	for state in ["normal", "hover", "pressed", "focus"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(1, 1, 1, 0.04) if state == "hover" or state == "pressed" else Color.TRANSPARENT
+		sb.border_color = UiKit.LINE
+		sb.border_width_bottom = 1
+		row.add_theme_stylebox_override(state, sb)
+	row.pressed.connect(_open_profile.bind(str(p["id"])))
+	var h := UiKit.hbox(8)
+	h.set_anchors_preset(Control.PRESET_FULL_RECT)
+	h.offset_left = 2
+	h.offset_right = -2
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(h)
 	var cols: Array = GameDB.club_colours(str(p["club"]))
-	h.add_child(UiKit.chip(str(p["num"]), cols[0]))
-	var nm := UiKit.lbl(GameDB.player_display_name(p), 15, UiKit.TEXT, true)
-	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
-	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	h.add_child(nm)
-	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
-	if int(p.get("injury_weeks", 0)) > 0:
-		h.add_child(UiKit.line("INJ %dw %s" % [int(p["injury_weeks"]), str(p.get("injury_kind", ""))],
-				12, UiKit.BAD, true))
-	var m := ClubLife.morale(p)
-	h.add_child(UiKit.line(ClubLife.mood(m), 11, UiKit.GOOD if m >= 65 else (UiKit.MUTED if m >= 40 else UiKit.BAD)))
-	var xp := UiKit.line("%d XP" % int(p.get("xp", 0)), 12, UiKit.EMPH, true)
-	h.add_child(xp)
-	var ov := UiKit.lbl(str(int(p["overall"])), 18, UiKit.EMPH, true)
-	ov.custom_minimum_size = Vector2(38, 0)
+	var num := UiKit.chip(str(p["num"]), cols[0])
+	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	num.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	# One width for every guernsey, so the names line up.
+	num.custom_minimum_size = Vector2(30, 0)
+	h.add_child(num)
+	var who := UiKit.vbox(0)
+	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	who.alignment = BoxContainer.ALIGNMENT_CENTER
+	who.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(who)
+	who.add_child(UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true))
+	var bits := PackedStringArray([Roles.label(p)])
+	if float(p.get("age", 0.0)) > 0.0:
+		bits.append("%d" % int(p["age"]))
+	if float(p.get("height_cm", 0.0)) > 0.0:
+		bits.append("%d cm" % int(p["height_cm"]))
+	var sub := UiKit.ellipsis("  ·  ".join(bits), UiKit.SMALL, UiKit.MUTED)
+	sub.name = "RowIdentity"
+	who.add_child(sub)
+	var status := _status(p)
+	if str(status[0]) != "":
+		var st := UiKit.line(str(status[0]), UiKit.SMALL, status[1], true)
+		st.name = "RowStatus"
+		st.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(st)
+	var nums := UiKit.vbox(0)
+	nums.alignment = BoxContainer.ALIGNMENT_CENTER
+	nums.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(nums)
+	var ov := UiKit.line(str(int(p["overall"])), 20, UiKit.TEXT, true)
 	ov.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	h.add_child(ov)
-	var pot := UiKit.line("POT %d" % int(p.get("potential", p["overall"])), 12,
-			UiKit.GOOD if bool(p.get("rehab", false)) else UiKit.MUTED, true)
-	pot.tooltip_text = "Potential: the rating he can grow into."
-	h.add_child(pot)
-	if not Traits.of(p).is_empty():
-		v.add_child(UiKit.trait_chips(p))
+	ov.custom_minimum_size = Vector2(40, 0)
+	nums.add_child(ov)
+	var pot := UiKit.line("POT %d" % int(p.get("potential", p["overall"])), UiKit.TINY, UiKit.MUTED)
+	pot.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	nums.add_child(pot)
+	return row
 
-	# Season line - the real numbers the rating was built from. Prospects
-	# instead show the U18/state-league line the projection was built on.
-	var season := ""
-	if bool(p.get("projected", false)):
-		season = "U18: %.1f disp  -  %.1f marks  -  %.1f goals  -  %.1f tk  -  %.1f ho per game" % [
-				float(p.get("u18_di", 0.0)), float(p.get("u18_mk", 0.0)),
-				float(p.get("u18_gl", 0.0)), float(p.get("u18_tk", 0.0)),
-				float(p.get("u18_ho", 0.0))]
-		if int(p.get("draft_pick", 0)) > 0:
-			season += "   ·   drafted #%d in %d" % [int(p["draft_pick"]), int(p.get("draft_year", 0))]
+
+## The one thing that matters most about his availability: [text, colour].
+func _status(p: Dictionary) -> Array:
+	var weeks := int(p.get("injury_weeks", 0))
+	if weeks > 0:
+		return ["Out %s" % ("1 week" if weeks == 1 else "%d weeks" % weeks), UiKit.BAD]
+	if bool(p.get("rested", false)):
+		return ["Rested", UiKit.MUTED]
+	if ClubLife.morale(p) < 40:
+		return ["Unhappy", UiKit.BAD]
+	return ["", UiKit.TEXT]
+
+
+## His profile: who he is, his state, how good and how much room, what he
+## is picked for, his season, then the attributes behind the rating.
+func _open_profile(id: String) -> void:
+	var p := GameState.list_player(id)
+	if p.is_empty():
+		return
+	_close_profile()
+	var box := UiKit.modal_box(self, 560.0, 0.0)
+	_profile = box["overlay"]
+	_profile.name = "PlayerProfile"
+	var v: VBoxContainer = box["body"]
+
+	var name_l := UiKit.lbl(GameDB.player_display_name(p), 22, UiKit.TEXT, true)
+	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(name_l)
+	var type_l := UiKit.lbl(Roles.label(p), UiKit.H2, UiKit.TEXT, true)
+	type_l.name = "ProfileType"
+	v.add_child(type_l)
+	var who := PackedStringArray(["#%d" % int(p["num"]), UiKit.ROLE_LABEL.get(str(p["role"]), str(p["role"]))])
+	if float(p.get("age", 0.0)) > 0.0:
+		who.append("%d years old" % int(p["age"]))
+	if float(p.get("height_cm", 0.0)) > 0.0:
+		who.append("%d cm" % int(p["height_cm"]))
+	v.add_child(UiKit.lbl("  ·  ".join(who), UiKit.SMALL, UiKit.MUTED))
+
+	# Now: available or not, and how he is feeling.
+	var state := PackedStringArray()
+	var weeks := int(p.get("injury_weeks", 0))
+	if weeks > 0:
+		state.append("Injured: out %s%s." % ["1 week" if weeks == 1 else "%d weeks" % weeks,
+				" (%s)" % str(p["injury_kind"]) if str(p.get("injury_kind", "")) != "" else ""])
+	elif bool(p.get("rested", false)):
+		state.append("Rested this week.")
 	else:
-		season = "%d gm  -  %.1f disp  -  %d gl  -  %d bh  -  %d tk  -  %d i50  -  %d ho  -  %d br" % [
-				int(p["gm"]), float(p["di"]) / maxf(1.0, float(p["gm"])), int(p["gl"]),
-				int(p["bh"]), int(p["tk"]), int(p["if50"]), int(p["ho"]), int(p["br"])]
-		if str(p.get("src", "2026")) != "2026":
-			season += "   (%s stats)" % str(p["src"])
-	var sl := UiKit.lbl(season, 11, UiKit.MUTED)
-	sl.autowrap_mode = TextServer.AUTOWRAP_OFF
-	sl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		state.append("Available.")
+	state.append("Mood: %s." % ClubLife.mood(ClubLife.morale(p)).to_lower())
+	var sl := UiKit.lbl(" ".join(state), UiKit.BODY, UiKit.BAD if weeks > 0 else UiKit.TEXT)
+	sl.name = "ProfileState"
+	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(sl)
 
-	# Attribute bars
+	# How good, and how much room.
+	v.add_child(UiKit.spacer(4))
+	var nums := UiKit.hbox(18)
+	v.add_child(nums)
+	for pair in [[int(p["overall"]), "OVR"], [int(p.get("potential", p["overall"])), "POT"]]:
+		var nb := UiKit.vbox(0)
+		nb.add_child(UiKit.figure(str(pair[0]), 30, UiKit.TEXT))
+		nb.add_child(UiKit.lbl(str(pair[1]), UiKit.SMALL, UiKit.MUTED))
+		nums.add_child(nb)
+	var dev := UiKit.lbl(GameState.development_state(p), UiKit.BODY, UiKit.TEXT)
+	dev.name = "ProfileDevelopment"
+	dev.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dev.size_flags_vertical = Control.SIZE_SHRINK_END
+	dev.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nums.add_child(dev)
+	var plan := GameState.train_plan_label(GameState.plan_for(p))
+	if plan != "":
+		v.add_child(UiKit.lbl("Training plan: %s" % plan, UiKit.SMALL, UiKit.MUTED))
+
+	# What he is picked for.
+	v.add_child(UiKit.spacer(4))
+	for st in PlayerProfile.strengths(p):
+		var row := UiKit.hbox(8)
+		var sn := UiKit.lbl(str(st["label"]), UiKit.BODY, UiKit.TEXT)
+		sn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(sn)
+		row.add_child(UiKit.line(str(st["grade"]), UiKit.BODY, UiKit.MUTED))
+		v.add_child(row)
+	var weak := PlayerProfile.weakness(p)
+	if not weak.is_empty():
+		v.add_child(UiKit.lbl("Needs work: " + str(weak["label"]).to_lower(), UiKit.SMALL, UiKit.MUTED))
+	for t in Traits.of(p):
+		var tl := UiKit.lbl("%s. %s" % [Traits.label(str(t)), Traits.scout(str(t))], UiKit.SMALL,
+				UiKit.BAD if Traits.is_bad(str(t)) else UiKit.TEXT)
+		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(tl)
+
+	# What he has done.
+	var prod := PlayerProfile.production(p)
+	v.add_child(UiKit.spacer(4))
+	v.add_child(UiKit.lbl(str(prod["title"]), UiKit.SMALL, UiKit.MUTED))
+	var pl := UiKit.lbl(str(prod["line"]) if str(prod["line"]) != "" else "No stats on record.",
+			UiKit.BODY, UiKit.TEXT if str(prod["line"]) != "" else UiKit.MUTED)
+	pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(pl)
+
+	# The attributes behind the rating: the deepest layer, last.
+	v.add_child(UiKit.spacer(6))
+	v.add_child(UiKit.section("Attributes"))
 	var grid := GridContainer.new()
-	grid.columns = _attr_columns()
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 2)
+	grid.name = "ProfileAttributes"
+	grid.columns = 1 if UiKit.view_width(self) < 520.0 else 2
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 3)
 	v.add_child(grid)
 	var attr: Dictionary = p["attr"]
-	for row in ATTR_ROWS:
-		grid.add_child(_attr_bar(str(row[0]), str(row[1]), float(attr.get(row[0], 0.0))))
-	return panel
+	for r in ATTR_ROWS:
+		grid.add_child(_attr_bar(str(r[0]), str(r[1]), float(attr.get(r[0], 0.0))))
+
+	var close := UiKit.btn("Close", 16, true)
+	close.custom_minimum_size = Vector2(0, 48)
+	close.pressed.connect(_close_profile)
+	box["footer"].add_child(close)
+
+
+func _close_profile() -> void:
+	if _profile != null and is_instance_valid(_profile):
+		_profile.queue_free()
+	_profile = null
+
+
+## Android Back closes a profile before leaving the list.
+func handle_back() -> bool:
+	if _profile != null and is_instance_valid(_profile):
+		_close_profile()
+		return true
+	return false
 
 
 func _player_tag(p: Dictionary) -> String:
@@ -257,8 +379,8 @@ func _attr_columns() -> int:
 func _attr_bar(key: String, label: String, value: float) -> Control:
 	var h := UiKit.hbox(4)
 	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var l := UiKit.ellipsis(label, 10, UiKit.MUTED)
-	l.custom_minimum_size = Vector2(74, 0)
+	var l := UiKit.ellipsis(label, UiKit.SMALL, UiKit.MUTED)
+	l.custom_minimum_size = Vector2(96, 0)
 	l.autowrap_mode = TextServer.AUTOWRAP_OFF
 	h.add_child(l)
 	var holder := Control.new()
@@ -275,8 +397,8 @@ func _attr_bar(key: String, label: String, value: float) -> Control:
 	fill.color = _attr_colour(value)
 	holder.add_child(fill)
 	h.add_child(holder)
-	var n := UiKit.lbl(str(int(round(value))), 10, _attr_colour(value))
-	n.custom_minimum_size = Vector2(20, 0)
+	var n := UiKit.lbl(str(int(round(value))), UiKit.SMALL, UiKit.TEXT)
+	n.custom_minimum_size = Vector2(26, 0)
 	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(n)
 	return h

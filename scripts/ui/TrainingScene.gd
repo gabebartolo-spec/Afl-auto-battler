@@ -69,7 +69,7 @@ func _show_intro() -> void:
 	_overlay = box["overlay"]
 	_overlay.name = "TrainingIntro"
 	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.heading("HOW TRAINING WORKS", 24))
+	v.add_child(UiKit.heading("How training works", 24))
 	for line in [
 		"Pick what kind of footballer each player should become. His plan spends the XP he earns after every game on exactly that - an inside midfielder on winning the ball, a key forward on marking and goals.",
 		"Position plan is the safe default: it trains what his position is judged on. Change a plan whenever you like; banked XP is spent straight away.",
@@ -194,7 +194,7 @@ func _list_panel() -> Control:
 		panel.custom_minimum_size.x = 280
 	var v := UiKit.vbox(6)
 	panel.add_child(v)
-	v.add_child(UiKit.heading("YOUR LIST", 24))
+	v.add_child(UiKit.heading("Your list", 24))
 	var tabs := UiKit.hbox(2)
 	v.add_child(tabs)
 	for item in ROLE_TABS:
@@ -371,7 +371,7 @@ func _detail_panel() -> Control:
 	body.add_child(focus)
 	var fv := UiKit.vbox(4)
 	focus.add_child(fv)
-	fv.add_child(UiKit.lbl("DEVELOPMENT FOCUS", 12, UiKit.MUTED, true))
+	fv.add_child(UiKit.lbl("Development focus", 12, UiKit.MUTED, true))
 	var plan := GameState.plan_for(p)
 	var plan_name := UiKit.lbl(GameState.train_plan_label(plan), 18, UiKit.BAD if plan == "manual" else UiKit.EMPH, true)
 	plan_name.name = "FocusName"
@@ -480,7 +480,7 @@ func _stat_row(p: Dictionary, key: String, label: String, useful := true) -> Con
 	v.add_child(_bar(cur))
 	var actions := UiKit.hbox(6)
 	v.add_child(actions)
-	var one := UiKit.btn("MAX" if cost < 0 else "+1  ·  %d XP" % cost, 13)
+	var one := UiKit.btn("Maxed" if cost < 0 else "+1  ·  %d XP" % cost, 13)
 	one.clip_text = true
 	one.custom_minimum_size = Vector2(0, 44)
 	one.size_flags_horizontal = Control.SIZE_EXPAND_FILL

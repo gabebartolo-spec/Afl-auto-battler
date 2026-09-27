@@ -470,14 +470,15 @@ func _show_results(results: Array) -> void:
 	v.add_child(_results_list(results))
 	var report: Dictionary = GameState.last_training_report
 	if not GameState.last_match.is_empty() and int(report.get("count", 0)) > 0:
-		v.add_child(UiKit.lbl("Your list gained %d XP across %d players." % [
-				int(report["total"]), int(report["count"])], 14, UiKit.TEXT, true))
-		var reserves := GameState.reserves_summary_line()
-		if reserves != "":
-			v.add_child(UiKit.lbl(reserves, 13, UiKit.MUTED))
+		# Who got better, in words; the XP itself lives in Training.
 		var spent := GameState.training_summary_line()
 		if spent != "":
-			v.add_child(UiKit.lbl(spent, 13, UiKit.GOOD))
+			var sl := UiKit.lbl(spent, UiKit.SMALL, UiKit.TEXT)
+			sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(sl)
+		var reserves := GameState.reserves_words_line()
+		if reserves != "":
+			v.add_child(UiKit.lbl(reserves, UiKit.SMALL, UiKit.MUTED))
 	var hurt := GameState.my_new_injuries()
 	if not hurt.is_empty():
 		var inj := UiKit.lbl("Injured: " + ", ".join(hurt), 13, UiKit.BAD, true)
@@ -516,13 +517,14 @@ func _results_list(results: Array) -> Control:
 		var drew: bool = s[0] == s[1]
 		var verdict := ""
 		if mine:
-			verdict = "DRAW" if drew else ("WON" if won else "LOST")
+			verdict = "Draw" if drew else ("Won" if won else "Lost")
 		if narrow:
 			var block := UiKit.vbox(2)
+			var vcol := UiKit.MUTED if drew else UiKit.margin_colour(won)
 			block.add_child(_result_side(str(res["home"]), int(res["goals"][0]),
-					int(res["behinds"][0]), col, verdict if home_is_me else ""))
+					int(res["behinds"][0]), col, verdict if home_is_me else "", vcol))
 			block.add_child(_result_side(str(res["away"]), int(res["goals"][1]),
-					int(res["behinds"][1]), col, verdict if not home_is_me else ""))
+					int(res["behinds"][1]), col, verdict if not home_is_me else "", vcol))
 			v.add_child(block)
 		else:
 			var h := UiKit.hbox(6)
@@ -531,7 +533,8 @@ func _results_list(results: Array) -> Control:
 					14, col, true)
 			hs.custom_minimum_size = Vector2(78, 0)
 			h.add_child(hs)
-			h.add_child(UiKit.line("def", 12, UiKit.MUTED))
+			# "v", not "def": the home side is listed first, not the winner.
+			h.add_child(UiKit.line("v", 12, UiKit.MUTED))
 			var asc := UiKit.line(UiKit.scoreline(int(res["goals"][1]), int(res["behinds"][1])),
 					14, col, true)
 			asc.custom_minimum_size = Vector2(78, 0)
@@ -546,15 +549,18 @@ func _results_list(results: Array) -> Control:
 	return v
 
 
-func _result_side(code: String, goals: int, behinds: int, col: Color, verdict: String) -> Control:
+func _result_side(code: String, goals: int, behinds: int, col: Color, verdict: String,
+		vcol: Color = UiKit.TEXT) -> Control:
 	var h := UiKit.hbox(6)
 	h.add_child(UiKit.club_badge(code, 13, true, true))
 	var score := UiKit.line(UiKit.scoreline(goals, behinds), 14, col, true)
 	score.custom_minimum_size = Vector2(78, 0)
+	score.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(score)
-	if verdict != "":
-		var tag := UiKit.line(verdict, 13, col, true)
-		h.add_child(tag)
+	# Every row keeps the verdict column, so the scores line up.
+	var tag := UiKit.line(verdict, 13, vcol, true)
+	tag.custom_minimum_size = Vector2(40, 0)
+	h.add_child(tag)
 	return h
 
 

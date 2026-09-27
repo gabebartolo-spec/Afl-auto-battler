@@ -272,3 +272,167 @@ static func cooked(rows: Array, limit := 3) -> Array:
 		if bool(r["on"]) and float(r["energy"]) < EMPTY and out.size() < limit:
 			out.append(str(r["name"]))
 	return out
+
+
+# ---------------------------------------------------------------------------
+# Full time
+# ---------------------------------------------------------------------------
+const QUARTER_NAMES := ["first", "second", "third", "last", "extra time"]
+const MAX_FACTORS := 4
+
+## Why the result happened, from `my_side`'s point of view, in two to four
+## sentences. Facts from the result, most telling first; never advice.
+static func match_factors(res: Dictionary, my_side: int) -> Array:
+	var out := []
+	var opp := 1 - my_side
+	var codes := [str(res.get("home", "")), str(res.get("away", ""))]
+	var score: Array = res.get("score", [0, 0])
+	var won := int(score[my_side]) > int(score[opp])
+	var lost := int(score[my_side]) < int(score[opp])
+	var team: Array = res.get("team", [{}, {}])
+	var t_me: Dictionary = team[my_side] if team.size() > my_side else {}
+	var t_op: Dictionary = team[opp] if team.size() > opp else {}
+
+	# 1. The run that decided it: four or more goals in a row.
+	var run := _longest_run(res.get("events", []))
+	if int(run["len"]) >= 4:
+		var who := GameDB.club_name(codes[int(run["side"])])
+		var when := " in the %s quarter" % QUARTER_NAMES[mini(int(run["q"]) - 1, 4)] if bool(run["one_q"]) else ""
+		out.append("%s kicked %s unanswered goals%s." % [who, count_word(int(run["len"])), when])
+
+	# 2. A quarter that swung it: won by four goals or more.
+	var qg: Array = res.get("q_goals", [])
+	var qb: Array = res.get("q_behinds", [])
+	var best_q := -1
+	var best_m := 0
+	for i in range(mini(qg.size(), 4)):
+		var m := (int(qg[i][0]) * 6 + int(qb[i][0])) - (int(qg[i][1]) * 6 + int(qb[i][1]))
+		if absi(m) > absi(best_m):
+			best_m = m
+			best_q = i
+	if best_q >= 0 and absi(best_m) >= 24 and (out.is_empty() or int(run["q"]) != best_q + 1):
+		var s := 0 if best_m > 0 else 1
+		out.append("%s won the %s quarter %d.%d to %d.%d." % [GameDB.club_name(codes[s]),
+				QUARTER_NAMES[best_q], int(qg[best_q][s]), int(qb[best_q][s]),
+				int(qg[best_q][1 - s]), int(qb[best_q][1 - s])])
+
+	# 3. The stoppages.
+	var clr_m := int(float(t_me.get("clearances", 0.0)))
+	var clr_t := int(float(t_op.get("clearances", 0.0)))
+	if clr_t - clr_m >= 6:
+		out.append("You were beaten at the stoppages: clearances %d to %d." % [clr_m, clr_t])
+	elif clr_m - clr_t >= 6:
+		out.append("Your midfield won the stoppages: clearances %d to %d." % [clr_m, clr_t])
+
+	# 4. Territory, read against the result.
+	var i50_m := int(float(t_me.get("inside50", 0.0)))
+	var i50_t := int(float(t_op.get("inside50", 0.0)))
+	if i50_t - i50_m >= 8:
+		if won:
+			out.append("Your defence held firm despite losing the inside 50s %d to %d." % [i50_m, i50_t])
+		else:
+			out.append("They had the ball in their forward half far more: %d inside 50s to %d." % [i50_t, i50_m])
+	elif i50_m - i50_t >= 8:
+		if lost:
+			out.append("You won the inside 50s %d to %d but could not make it count." % [i50_m, i50_t])
+		else:
+			out.append("You had the ball going forward far more: %d inside 50s to %d." % [i50_m, i50_t])
+
+	# 5. Kicking for goal.
+	var g_m := int(res.get("goals", [0, 0])[my_side])
+	var b_m := int(res.get("behinds", [0, 0])[my_side])
+	var g_t := int(res.get("goals", [0, 0])[opp])
+	var b_t := int(res.get("behinds", [0, 0])[opp])
+	if b_m >= g_m + 3 and g_m + b_m >= 12:
+		out.append("Wayward kicking cost you: %d.%d." % [g_m, b_m])
+	elif b_t >= g_t + 3 and g_t + b_t >= 12:
+		out.append("They let you off the hook in front of goal: %d.%d." % [g_t, b_t])
+	elif g_m >= b_m + 8:
+		out.append("You kicked straight: %d.%d." % [g_m, b_m])
+
+	# 6. Pressure.
+	var tk_m := int(float(t_me.get("tackles", 0.0)))
+	var tk_t := int(float(t_op.get("tackles", 0.0)))
+	if tk_m - tk_t >= 15:
+		out.append("Your pressure told: %d tackles to %d." % [tk_m, tk_t])
+	elif tk_t - tk_m >= 15:
+		out.append("Their pressure told: %d tackles to %d." % [tk_t, tk_m])
+
+	if out.is_empty():
+		out.append("Nothing much between the sides all day." if absi(int(score[0]) - int(score[1])) <= 12
+				else "No single edge: the winners were just better across the ground.")
+	return out.slice(0, MAX_FACTORS)
+
+
+## The longest run of goals by one side: {"side", "len", "q", "one_q"}.
+static func _longest_run(events: Array) -> Dictionary:
+	var best := {"side": 0, "len": 0, "q": 1, "one_q": true}
+	var side := -1
+	var n := 0
+	var q0 := 1
+	var one_q := true
+	for ev in events:
+		if str(ev.get("kind", "")) != "goal":
+			continue
+		var s := int(ev.get("side", 0))
+		var q := int(ev.get("q", 1))
+		if s == side:
+			n += 1
+			one_q = one_q and q == q0
+		else:
+			side = s
+			n = 1
+			q0 = q
+			one_q = true
+		if n > int(best["len"]):
+			best = {"side": side, "len": n, "q": q0, "one_q": one_q}
+	return best
+
+
+## A player's game in a few natural words: "31 disposals, 8 clearances".
+## Only what stands out, most telling first; never a stat-sheet row.
+static func game_line(st: Dictionary) -> String:
+	var bits := PackedStringArray()
+	var g := int(float(st.get("goals", 0.0)))
+	var d := int(float(st.get("disposals", 0.0)))
+	if g > 0:
+		bits.append("%d goal%s" % [g, "" if g == 1 else "s"])
+	if d >= 15 or bits.is_empty():
+		bits.append("%d disposals" % d)
+	for row in [["clearances", 5, "clearances"], ["hitouts", 20, "hit-outs"], ["marks", 8, "marks"],
+			["tackles", 7, "tackles"], ["rebounds", 6, "rebound 50s"], ["one_percenters", 7, "one percenters"]]:
+		var v := int(float(st.get(row[0], 0.0)))
+		if v >= int(row[1]) and bits.size() < 3:
+			bits.append("%d %s" % [v, row[2]])
+	return ", ".join(bits)
+
+
+## The best few players of a side by influence: [{"id", "name", "line"}].
+static func standouts(res: Dictionary, side: int, n: int) -> Array:
+	var roster: Array = res.get("roster", [[], []])
+	var players: Dictionary = res.get("players", {})
+	if roster.size() <= side:
+		return []
+	var ranked := []
+	for p in roster[side]:
+		var st: Dictionary = players.get(str(p["id"]), {})
+		ranked.append({"id": str(p["id"]), "name": GameDB.player_display_name_by_id(str(p["id"]),
+				str(p.get("name", "Player"))), "st": st, "inf": CoachReport.influence(st)})
+	ranked.sort_custom(func(a, b): return float(a["inf"]) > float(b["inf"]))
+	var out := []
+	for r in ranked.slice(0, n):
+		out.append({"id": r["id"], "name": r["name"], "line": game_line(r["st"]), "inf": r["inf"]})
+	return out
+
+
+## The few team numbers worth a glance at full time: [label, mine, theirs].
+const KEY_STATS := [["disposals", "Disposals"], ["inside50", "Inside 50s"],
+		["clearances", "Clearances"], ["tackles", "Tackles"]]
+
+static func key_stats(res: Dictionary, my_side: int) -> Array:
+	var team: Array = res.get("team", [{}, {}])
+	var out := []
+	for row in KEY_STATS:
+		out.append([str(row[1]), int(float((team[my_side] as Dictionary).get(row[0], 0.0))),
+				int(float((team[1 - my_side] as Dictionary).get(row[0], 0.0)))])
+	return out

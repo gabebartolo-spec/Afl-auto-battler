@@ -313,7 +313,7 @@ func _show_help() -> void:
 	overlay.add_child(_help_panel)
 	var v := UiKit.vbox(12)
 	_help_panel.add_child(v)
-	v.add_child(UiKit.heading("HOW IT WORKS", 28))
+	v.add_child(UiKit.heading("How it works", UiKit.H1))
 	var text := UiKit.lbl(
 			("1. Choose your club. All %d clubs start with empty lists.\n\n"
 			% GameDB.active_clubs(2026).size())
@@ -325,7 +325,7 @@ func _show_help() -> void:
 			% Season.FINALISTS)
 			+ "7. In the off-season, re-sign, release, sign free agents and trade in Trades & Contracts, then draft the next class. The hub's League news follows the whole league.\n\n"
 			+ "Difficulty (Easy, Normal or Hard) is chosen before a New Career: it sets how fast rivals develop, how hard they bargain, and how much XP your players earn.\n\n"
-			+ "Player labels are generated names by default. The main-menu toggle switches to real AFL names, such as Jordan Dawson, without changing ratings or gameplay. It does not add a plays-like comparison.\n\n"
+			+ "Player labels are generated names by default. The main-menu toggle switches to real AFL names, such as Jordan Dawson, without changing ratings or gameplay.\n\n"
 			+ "Rotate your device at any time. Your draft picks, search and filters stay intact.", 16)
 	v.add_child(UiKit.scroll(text))
 	var guide := UiKit.btn("Stat guide", 17)

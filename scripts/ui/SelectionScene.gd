@@ -280,7 +280,6 @@ func _label_for(role: String) -> String:
 	return role
 
 
-## The three numbers the engine rolls against, for this side.
 ## This week's opponent and what they bring. The problem, not the answer:
 ## the rows say who your players are; what to do about it is your call.
 func _this_week() -> Control:
@@ -297,10 +296,12 @@ func _this_week() -> Control:
 	return v
 
 
+## How this side's lines stack up against the league, in words: a change
+## of selection shows here, without engine numbers to decode.
 func _strength_line() -> Control:
-	var sq := GameState.my_squad()
-	return _para("Contest %.0f  ·  Attack %.0f  ·  Defence %.0f" % [sq.contest, sq.attack, sq.defence],
-			14, UiKit.TEXT)
+	var l := _para(GameState.my_line_standing_text(), 14, UiKit.TEXT)
+	l.name = "LineStanding"
+	return l
 
 
 func _para(text: String, size: int, colour: Color) -> Label:

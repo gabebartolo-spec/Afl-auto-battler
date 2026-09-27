@@ -1019,6 +1019,23 @@ func next_fixture_line() -> String:
 			"v" if str(nxt["venue"]) == "home" else "at", GameDB.club_name(str(nxt["code"]))]
 
 
+## Your side's lines against the league, in words (Matchup.standing): the
+## side as you have it picked, so a change of selection shows here.
+func my_line_standing() -> Array:
+	if season == null or my_club == "":
+		return []
+	return Matchup.standing(my_club, season.lists, season.selections, my_squad())
+
+
+## One line of it: "Midfield strong · Ruck below par · Attack one of the best
+## · Defence middle of the pack".
+func my_line_standing_text() -> String:
+	var bits := PackedStringArray()
+	for r in my_line_standing():
+		bits.append("%s %s" % [str(r[0]), str(r[1])])
+	return "  ·  ".join(bits)
+
+
 ## Your own side's week worth knowing (Matchup.own_notes).
 func my_week_notes() -> Array:
 	return Matchup.own_notes(my_list)
@@ -1330,6 +1347,15 @@ func reserves_summary_line() -> String:
 	var each := int(round(float(last_training_report.get("reserves_total", 0)) / float(n)))
 	return "%d %s developed in the reserves: +%d XP each." % [n,
 			"player" if n == 1 else "players", each]
+
+
+## The same, in words, for the hub and full time: fit players left out of
+## the 22 still develop in the reserves (at half a senior game's rate).
+func reserves_words_line() -> String:
+	var n := int(last_training_report.get("reserves_count", 0))
+	if n <= 0:
+		return ""
+	return "%d %s kept developing in the reserves." % [n, "player" if n == 1 else "players"]
 
 
 ## What the last game's training changed, in one line: "Training: 3 players

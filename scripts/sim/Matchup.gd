@@ -179,6 +179,47 @@ static func _form(results: Array) -> Dictionary:
 			"weight": 2, "tone": "strong" if last == "W" else "weak"}
 
 
+## Where `code`'s lines rank in the league, in words: [[line, word], ...]
+## for midfield, ruck, attack and defence. `own` is the side as it would
+## take the field now (your selection); the others field their own sides.
+const STANDING_WORDS := ["the best in the competition", "one of the best", "strong",
+		"middle of the pack", "below par", "among the weakest"]
+const STANDING_LINES := [["midfield", "Midfield"], ["ruck", "Ruck"], ["attack", "Attack"],
+		["defence", "Defence"]]
+
+static func standing(code: String, lists: Dictionary, selections: Dictionary, own: Squad) -> Array:
+	var squads := {}
+	for c in lists:
+		if (lists[c] as Array).is_empty():
+			continue
+		squads[c] = own if str(c) == code else Squad.new(str(c), lists[c], false, str(c), selections.get(c, {}))
+	if not squads.has(code):
+		squads[code] = own
+	var n := squads.size()
+	var out := []
+	for row in STANDING_LINES:
+		var key := str(row[0])
+		var mine: float = line_values(own)[key]
+		var better := 0
+		for c in squads:
+			if str(c) != code and float(line_values(squads[c])[key]) > mine:
+				better += 1
+		var rank := better + 1
+		var word := "middle of the pack"
+		if rank == 1:
+			word = "the best in the competition"
+		elif rank <= EDGE:
+			word = "one of the best"
+		elif rank <= 2 * EDGE:
+			word = "strong"
+		elif rank > n - EDGE:
+			word = "among the weakest"
+		elif rank > n - 2 * EDGE:
+			word = "below par"
+		out.append([str(row[1]), word])
+	return out
+
+
 ## Your own side's week: your best players who are injured. At most `limit`.
 static func own_notes(list: Array, limit := 2) -> Array:
 	var out := []

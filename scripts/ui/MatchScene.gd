@@ -51,6 +51,7 @@ var _pos_before := 0          # your ladder spot before this match
 var _lead: Label
 var _setup_line: Label
 var _report_overlay: Control
+var _stats_overlay: Control
 var _run_side := -1            # who kicked the last goal, and how many in a row
 var _run_len := 0
 
@@ -1175,48 +1176,60 @@ func _on_finished() -> void:
 # Full time
 # ---------------------------------------------------------------------------
 func _show_fulltime() -> void:
-	var box := UiKit.modal_box(self, 860.0, 0.0)
+	var box := UiKit.modal_box(self, 640.0, 0.0)
 	var overlay: Control = box["overlay"]
+	overlay.name = "FullTime"
 	var v: VBoxContainer = box["body"]
 
 	var s: Array = _res["score"]
 	var home: String = _res["home"]
 	var away: String = _res["away"]
-	var i_am_home: bool = home == GameState.my_club
-	var my_score: int = int(s[0]) if i_am_home else int(s[1])
-	var opp_score: int = int(s[1]) if i_am_home else int(s[0])
-	var drew: bool = my_score == opp_score
-	var won: bool = my_score > opp_score
+	var mine := GameState.my_club != "" and (home == GameState.my_club or away == GameState.my_club)
+	var me := 0 if home == GameState.my_club else 1
+	var margin := absi(int(s[0]) - int(s[1]))
+	var winner := -1 if int(s[0]) == int(s[1]) else (0 if int(s[0]) > int(s[1]) else 1)
 
-	var tag := str(_res.get("label", "Match"))
-	v.add_child(UiKit.ellipsis("Full time  ·  %s" % tag, 15, UiKit.MUTED))
+	var head := "Full time  ·  %s" % str(_res.get("label", "Match"))
+	if bool(_res.get("extra_time", false)):
+		head += "  ·  after extra time"
+	v.add_child(UiKit.ellipsis(head, UiKit.SMALL, UiKit.MUTED))
 
-	var hs := UiKit.scoreline(int(_res["goals"][0]), int(_res["behinds"][0]))
-	var ascore := UiKit.scoreline(int(_res["goals"][1]), int(_res["behinds"][1]))
-	var verb := "drew with"
-	if int(s[0]) > int(s[1]):
-		verb = "defeated"
-	elif int(s[1]) > int(s[0]):
-		verb = "lost to"
-	v.add_child(UiKit.lbl("%s %s  %s  %s %s" % [
-			GameDB.club_name(str(home)), hs, verb,
-			GameDB.club_name(str(away)), ascore], 18, UiKit.TEXT, true))
+	# The result first, big: who won and by how much.
+	var verdict := "Draw"
+	var col := UiKit.TEXT
+	if winner >= 0 and mine:
+		verdict = ("Won by %d" if winner == me else "Lost by %d") % margin
+		col = UiKit.margin_colour(winner == me)
+	elif winner >= 0:
+		verdict = "%s by %d" % [GameDB.club_name(home if winner == 0 else away), margin]
+	var vl := UiKit.lbl(verdict, 30, col, true)
+	vl.name = "Verdict"
+	v.add_child(vl)
+	for side in [0, 1]:
+		var row := UiKit.hbox(8)
+		row.name = "FinalScore_%d" % side
+		var nm := UiKit.ellipsis(GameDB.club_name(home if side == 0 else away), UiKit.BODY,
+				UiKit.TEXT if winner != 1 - side else UiKit.MUTED, winner == side)
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(nm)
+		var fig := UiKit.figure(UiKit.scoreline(int(_res["goals"][side]), int(_res["behinds"][side])),
+				24, UiKit.TEXT if winner != 1 - side else UiKit.MUTED)
+		row.add_child(fig)
+		# Clear of the scrollbar.
+		row.add_child(UiKit.spacer(10))
+		v.add_child(row)
 
-	if GameState.my_club != "":
-		var verdict := "Draw" if drew else ("Won by %d" % absi(my_score - opp_score) \
-				if won else "Lost by %d" % absi(my_score - opp_score))
-		v.add_child(UiKit.lbl(verdict, 24,
-				UiKit.MUTED if drew else UiKit.margin_colour(won), true))
-		if bool(_res.get("extra_time", false)):
-			v.add_child(UiKit.lbl("After extra time", 14, UiKit.MUTED, true))
+	# What it means: finals, the ladder, who is next.
+	if mine:
 		var outlook := GameState.finals_outcome_line(_res)
 		if outlook != "":
 			var tag_now := str(_res.get("tag", ""))
 			var slots: Dictionary = GameState.season.finals.get("slots", {})
 			var through: bool = str(slots.get("W_" + tag_now, "")) == GameState.my_club
-			v.add_child(UiKit.lbl(outlook, 22 if tag_now == "GF" else 16,
-					UiKit.EMPH if through else UiKit.MUTED, true))
-		# What it means and what comes next (home and away only).
+			var ol := UiKit.lbl(outlook, 20 if tag_now == "GF" else UiKit.BODY,
+					UiKit.EMPH if through else UiKit.MUTED, true)
+			ol.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(ol)
 		if _interactive and str(_res.get("tag", "")) == "":
 			var moved := GameState.ladder_move_line(_pos_before)
 			if moved != "":
@@ -1229,47 +1242,151 @@ func _show_fulltime() -> void:
 				nl.name = "NextFixture"
 				v.add_child(nl)
 
-	var narrow := UiKit.view_width(self) < 720.0
-	var body: BoxContainer
-	if narrow:
-		body = UiKit.vbox(14)
-	else:
-		body = UiKit.hbox(16)
-	v.add_child(body)
+	# How it went: the few things that decided it, in football words.
+	v.add_child(UiKit.spacer(UiKit.GAP))
+	v.add_child(UiKit.section("How it went"))
+	var factors := VBoxContainer.new()
+	factors.name = "MatchFactors"
+	factors.add_theme_constant_override("separation", 4)
+	for f in MatchNotes.match_factors(_res, me if mine else 0):
+		var fl := UiKit.lbl(str(f), UiKit.BODY, UiKit.TEXT)
+		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		factors.add_child(fl)
+	v.add_child(factors)
 
-	var left := UiKit.vbox(5)
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_child(left)
-	left.add_child(UiKit.lbl("Quarter by quarter", 14, UiKit.EMPH, true))
-	left.add_child(_quarters_table())
-	left.add_child(UiKit.spacer(6))
-	left.add_child(UiKit.lbl("Team stats", 14, UiKit.EMPH, true))
-	left.add_child(_team_stats_table())
+	# Best players: best on ground, then the rest of yours and their best.
+	v.add_child(UiKit.spacer(UiKit.GAP))
+	v.add_child(UiKit.section("Best players"))
+	var best_box := UiKit.vbox(6)
+	best_box.name = "BestPlayers"
+	var first := me if mine else (winner if winner >= 0 else 0)
+	var ours := MatchNotes.standouts(_res, first, 3)
+	var theirs := MatchNotes.standouts(_res, 1 - first, 2)
+	var bog: Dictionary = ours[0] if not ours.is_empty() else {}
+	if not theirs.is_empty() and (bog.is_empty() or float(theirs[0]["inf"]) > float(bog["inf"])):
+		bog = theirs[0]
+	for p in ours:
+		best_box.add_child(_standout_row(p, first, p == bog))
+	if not theirs.is_empty():
+		best_box.add_child(UiKit.spacer(2))
+	for p in theirs:
+		best_box.add_child(_standout_row(p, 1 - first, p == bog))
+	v.add_child(best_box)
 
-	var right := UiKit.vbox(5)
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_child(right)
-	right.add_child(UiKit.lbl("Best on ground", 14, UiKit.EMPH, true))
-	right.add_child(_best_table())
+	# A handful of numbers worth a glance; the full table is a tap away.
+	v.add_child(UiKit.spacer(UiKit.GAP))
+	v.add_child(_key_stats_view(me if mine else 0))
 
-	if _interactive:
-		v.add_child(_calls_view(0))
-	var report: Dictionary = GameState.last_training_report
-	if int(report.get("count", 0)) > 0 and str(report.get("home", "")) == str(_res.get("home", "")) \
-			and str(report.get("away", "")) == str(_res.get("away", "")):
-		v.add_child(UiKit.lbl("%d players gained %d XP." % [
-				int(report["count"]), int(report["total"])], 14, UiKit.TEXT, true))
-		var reserves := GameState.reserves_summary_line()
-		if reserves != "":
-			v.add_child(UiKit.lbl(reserves, 13, UiKit.MUTED))
-		var spent := GameState.training_summary_line()
-		if spent != "":
-			v.add_child(UiKit.lbl(spent + " Adjust plans in Training.", 13, UiKit.GOOD))
+	# Your week: who is hurt, who improved.
+	if mine and _interactive:
+		var week := UiKit.vbox(4)
+		week.name = "YourWeek"
 		var hurt := GameState.my_new_injuries()
 		if not hurt.is_empty():
-			var inj := UiKit.lbl("Injured: " + ", ".join(hurt), 13, UiKit.BAD, true)
+			var inj := UiKit.lbl("Injured: " + ", ".join(hurt), UiKit.BODY, UiKit.BAD, true)
 			inj.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			v.add_child(inj)
+			week.add_child(inj)
+		var report: Dictionary = GameState.last_training_report
+		if str(report.get("home", "")) == home and str(report.get("away", "")) == away:
+			var grew := GameState.training_summary_line()
+			if grew != "":
+				var gl := UiKit.lbl(grew, UiKit.SMALL, UiKit.TEXT)
+				gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				week.add_child(gl)
+			var reserves := GameState.reserves_words_line()
+			if reserves != "":
+				var rl := UiKit.lbl(reserves, UiKit.SMALL, UiKit.MUTED)
+				rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				week.add_child(rl)
+		if week.get_child_count() > 0:
+			v.add_child(UiKit.spacer(UiKit.GAP))
+			v.add_child(UiKit.section("Your week"))
+			v.add_child(week)
+
+	# The two ways deeper share a row, so Continue stays the obvious one.
+	var more := UiKit.hbox(8)
+	var stats_btn := UiKit.btn("Match stats", 15)
+	stats_btn.name = "MatchStatsButton"
+	stats_btn.custom_minimum_size = Vector2(0, 44)
+	stats_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stats_btn.pressed.connect(_show_match_stats)
+	more.add_child(stats_btn)
+	if mine and _interactive:
+		var train := UiKit.btn("Training", 15)
+		train.name = "FullTimeTraining"
+		train.custom_minimum_size = Vector2(0, 44)
+		train.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		train.pressed.connect(func():
+			overlay.queue_free()
+			Router.replace("training"))
+		more.add_child(train)
+	box["footer"].add_child(more)
+	# The week is over: back to the hub, where next week starts.
+	var leave := UiKit.btn("Continue", 18, true)
+	leave.name = "FullTimeContinue"
+	leave.custom_minimum_size = Vector2(0, 48)
+	leave.pressed.connect(func(): Router.back())
+	box["footer"].add_child(leave)
+
+
+## One standout: the name (marked if best on ground) and his game in words.
+func _standout_row(p: Dictionary, side: int, best: bool) -> Control:
+	var v := UiKit.vbox(0)
+	var code := str(_res["home"] if side == 0 else _res["away"])
+	var name := "%s  ·  %s" % [str(p["name"]), GameDB.club_short(code)]
+	if best:
+		name += "  ·  best on ground"
+	v.add_child(UiKit.ellipsis(name, UiKit.BODY, UiKit.TEXT, true))
+	v.add_child(UiKit.ellipsis(str(p["line"]), UiKit.SMALL, UiKit.MUTED))
+	return v
+
+
+func _key_stats_view(me: int) -> Control:
+	var v := UiKit.vbox(2)
+	v.name = "KeyStats"
+	var codes := [str(_res["home"]), str(_res["away"])]
+	var h0 := UiKit.hbox(4)
+	h0.add_child(_qcell(GameDB.club_short(codes[me]), 64, UiKit.MUTED, UiKit.SMALL, true))
+	var gap := UiKit.line("", UiKit.SMALL, UiKit.MUTED)
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h0.add_child(gap)
+	h0.add_child(_qcell(GameDB.club_short(codes[1 - me]), 64, UiKit.MUTED, UiKit.SMALL, true))
+	v.add_child(h0)
+	for row in MatchNotes.key_stats(_res, me):
+		var h := UiKit.hbox(4)
+		var a := int(row[1])
+		var b := int(row[2])
+		h.add_child(_qcell(str(a), 64, UiKit.TEXT, UiKit.BODY, a > b))
+		var lab := UiKit.ellipsis(str(row[0]), UiKit.SMALL, UiKit.MUTED)
+		lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(lab)
+		h.add_child(_qcell(str(b), 64, UiKit.TEXT, UiKit.BODY, b > a))
+		v.add_child(h)
+	return v
+
+
+## The full numbers, a deliberate tap from full time: quarter by quarter,
+## every team stat, both box scores, and what your calls were worth.
+func _show_match_stats() -> void:
+	_close_stats()
+	var box := UiKit.modal_box(self, 860.0, 0.0)
+	var overlay: Control = box["overlay"]
+	overlay.name = "MatchStats"
+	_stats_overlay = overlay
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.ellipsis("Match stats", UiKit.H1, UiKit.TEXT, true))
+	v.add_child(UiKit.section("Quarter by quarter"))
+	v.add_child(_quarters_table())
+	v.add_child(UiKit.spacer(UiKit.GAP))
+	v.add_child(UiKit.section("Team stats"))
+	v.add_child(_team_stats_table())
+	v.add_child(UiKit.spacer(UiKit.GAP))
+	v.add_child(UiKit.section("Box score"))
+	v.add_child(_best_table())
+	if _interactive:
+		v.add_child(UiKit.spacer(UiKit.GAP))
+		v.add_child(_calls_view(0))
 	var snaps: Array = _res.get("quarter_teams", [])
 	if snaps.size() >= 2:
 		var ht_btn := UiKit.btn("Assistant's report", 15)
@@ -1277,18 +1394,16 @@ func _show_fulltime() -> void:
 		ht_btn.pressed.connect(func():
 			_show_half_time_popup(CoachReport.half_time_report(_res, _my_side)))
 		box["footer"].add_child(ht_btn)
-	var cont := UiKit.btn("Training", 16)
-	cont.custom_minimum_size = Vector2(0, 44)
-	cont.pressed.connect(func():
-		overlay.queue_free()
-		Router.replace("training"))
-	box["footer"].add_child(cont)
-	# The week is over: back to the hub, where next week starts.
-	var leave := UiKit.btn("Continue", 18, true)
-	leave.name = "FullTimeContinue"
-	leave.custom_minimum_size = Vector2(0, 48)
-	leave.pressed.connect(func(): Router.back())
-	box["footer"].add_child(leave)
+	var close := UiKit.btn("Close", 16, true)
+	close.custom_minimum_size = Vector2(0, 44)
+	close.pressed.connect(_close_stats)
+	box["footer"].add_child(close)
+
+
+func _close_stats() -> void:
+	if _stats_overlay != null and is_instance_valid(_stats_overlay):
+		_stats_overlay.queue_free()
+	_stats_overlay = null
 
 
 func _quarters_table() -> Control:
@@ -1376,11 +1491,13 @@ func _team_stats_table() -> Control:
 		v.add_child(h)
 		var a := int(float(t[0].get(row[0], 0.0)))
 		var b := int(float(t[1].get(row[0], 0.0)))
-		h.add_child(_qcell(str(a), 44, UiKit.GOOD if a > b else UiKit.TEXT, 12))
+		# The bigger number in bold: more is not always better (clangers,
+		# frees against), so no good/bad colour here.
+		h.add_child(_qcell(str(a), 44, UiKit.TEXT, 12, a > b))
 		var lab := UiKit.ellipsis(str(row[1]), 12, UiKit.MUTED)
 		lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		h.add_child(lab)
-		h.add_child(_qcell(str(b), 44, UiKit.GOOD if b > a else UiKit.TEXT, 12))
+		h.add_child(_qcell(str(b), 44, UiKit.TEXT, 12, b > a))
 	return v
 
 
@@ -1395,10 +1512,10 @@ func _best_table() -> Control:
 		v.add_child(UiKit.club_badge(codes[side], 13, true, true))
 		var hdr := UiKit.hbox(4)
 		v.add_child(hdr)
-		hdr.add_child(_qcell("#", 26, UiKit.MUTED, 10))
-		hdr.add_child(_lcell("Player", 0, UiKit.MUTED, 10))
+		hdr.add_child(_qcell("#", 26, UiKit.MUTED, UiKit.TINY))
+		hdr.add_child(_lcell("Player", 0, UiKit.MUTED, UiKit.TINY))
 		for c in ["D", "G", "M", "T", "HO"]:
-			hdr.add_child(_qcell(c, 28, UiKit.MUTED, 10))
+			hdr.add_child(_qcell(c, 28, UiKit.MUTED, UiKit.TINY))
 		var best := _rank_side(roster[side], players)
 		for i in range(mini(7, best.size())):
 			var p: Dictionary = best[i]
@@ -1446,6 +1563,9 @@ func handle_back() -> bool:
 	# An open report closes first, live or at full time.
 	if _report_overlay != null and is_instance_valid(_report_overlay):
 		_close_report()
+		return true
+	if _stats_overlay != null and is_instance_valid(_stats_overlay):
+		_close_stats()
 		return true
 	if _interactive and not _finished:
 		_feed_hint("Finish the match first - use Skip to full time to jump ahead.")

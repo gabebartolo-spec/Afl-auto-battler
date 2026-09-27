@@ -20,6 +20,7 @@ func run() -> void:
 	_test_pitch_view_api(res)
 	_test_empty_view()
 	_test_ballup_is_informational()
+	_test_wings_and_lineups()
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -265,3 +266,48 @@ func _test_ballup_is_informational() -> void:
 	_check(scene.QUIET_KINDS.has("ballup"), "Ball-ups stay out of the commentary feed")
 	scene.free()
 
+
+
+## The players the match plays on the wings are drawn on the wings, a replay
+## opens with the 18 who started (not the 18 who finished), and the player
+## each event names is on the oval when it plays.
+func _test_wings_and_lineups() -> void:
+	var named := 0
+	var drawn := 0
+	var starters_ok := true
+	var seen := 0
+	var found := 0
+	for i in range(3):
+		var sim := _sim(200 + i, ["COL", "SYD", "MEL"][i], ["CAR", "GEE", "ESS"][i])
+		var wings := [[], []]
+		var start := [[], []]
+		for s in range(2):
+			for p in (sim.squads[s] as Squad).ground:
+				start[s].append(int(p["num"]))
+				if Roles.on_wing(p):
+					wings[s].append(int(p["num"]))
+		var res := sim.run()
+		res["home"] = "A%d" % i
+		res["away"] = "B%d" % i
+		var fresh := MatchDirector.new()
+		fresh.setup(res, (res["events"] as Array).duplicate())
+		for t in fresh.tokens:
+			var s := int(t["side"])
+			if not (start[s] as Array).has(int(t["num"])):
+				starters_ok = false
+			if str(t["slot"]) == "WL" or str(t["slot"]) == "WR":
+				drawn += 1
+				if (wings[s] as Array).has(int(t["num"])):
+					named += 1
+		# Play the log, counting who is on the oval as each event plays.
+		var guard := 0
+		while not fresh.idle() and guard < 200000:
+			guard += 1
+			for ev in fresh.advance(0.25):
+				if int(ev.get("num", 0)) > 0 and str(ev.get("kind", "")) != "sub":
+					seen += 1
+					if fresh._actor_id(ev) >= 0:
+						found += 1
+	_check(drawn == 12 and named == drawn, "The named wings play the wings (%d of %d)" % [named, drawn])
+	_check(starters_ok, "A replay opens with the players who started")
+	_check(float(found) >= 0.95 * float(seen), "The player an event names is on the oval (%d of %d)" % [found, seen])

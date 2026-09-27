@@ -200,7 +200,7 @@ static func production(p: Dictionary) -> Dictionary:
 	var title := "%s season, %d %s" % [year, int(p.get("gm", 0)), "game" if int(p.get("gm", 0)) == 1 else "games"]
 	var line := " · ".join(parts) + (" a game" if not parts.is_empty() else "")
 	if int(p.get("br", 0)) > 0:
-		line += "  ·  %d Brownlow votes" % int(p["br"])
+		line += "  ·  %d Brownlow %s" % [int(p["br"]), "vote" if int(p["br"]) == 1 else "votes"]
 	return {"title": title, "line": line}
 
 

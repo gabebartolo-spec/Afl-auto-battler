@@ -461,7 +461,7 @@ func _filters() -> Control:
 	var title_row := UiKit.hbox(8)
 	v.add_child(title_row)
 	title_row.visible = not _short
-	var title_label := UiKit.heading("DRAFT POOL", 25)
+	var title_label := UiKit.heading("Draft pool", 25)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(title_label)
 	_pool_total = UiKit.line("", 12, UiKit.MUTED)
@@ -669,15 +669,15 @@ func _player_row(p: Dictionary) -> Control:
 	if _draft.intake_mode:
 		reason = "Sign %s at projected %d OVR" % 				[GameDB.player_display_name(p), int(p["overall"])]
 	if taken:
-		text = "TAKEN"
+		text = "Taken"
 		reason = "Drafted by %s at pick #%d" % [GameDB.club_name(_draft.drafted_by(str(p["id"]))),
 				int(_draft.pick_details(str(p["id"])).get("pick", 0))]
 	elif not _draft.is_user_turn():
-		text = "CLOSED" if _draft.is_finished() else "WAIT"
+		text = "Closed" if _draft.is_finished() else "Wait"
 		reason = "The draft is complete." if _draft.is_finished() else "Waiting for your next turn."
 	elif not can_pick:
 		reason = _draft.pick_block_reason(p)
-		text = "RUCK" if reason.contains("rucks") else ("FULL" if reason.contains("full") else "CAP")
+		text = "Rucks" if reason.contains("rucks") else ("Full" if reason.contains("full") else "Cap")
 	var b := UiKit.btn(text, 13)
 	b.name = "Pick_" + str(p["id"])
 	b.custom_minimum_size = Vector2(66, 44)
@@ -922,7 +922,7 @@ func _build_activity() -> PanelContainer:
 	v.add_child(_history_view)
 	var head := UiKit.hbox(8)
 	_history_view.add_child(head)
-	var title_label := UiKit.heading("PICK LOG", 25)
+	var title_label := UiKit.heading("Pick log", 25)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title_label)
 	_history_info = UiKit.line("", 12, UiKit.MUTED)
@@ -959,7 +959,7 @@ func _build_activity() -> PanelContainer:
 	_squad_view.name = "MySquad"
 	_squad_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(_squad_view)
-	_squad_view.add_child(UiKit.heading("YOUR LIST", 25))
+	_squad_view.add_child(UiKit.heading("Your list", 25))
 	_mine_box = UiKit.vbox(5)
 	_mine_scroll = UiKit.scroll(_mine_box)
 	_squad_view.add_child(_mine_scroll)
@@ -968,7 +968,7 @@ func _build_activity() -> PanelContainer:
 	_order_view.name = "DraftOrder"
 	_order_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(_order_view)
-	_order_view.add_child(UiKit.heading("DRAFT ORDER", 25))
+	_order_view.add_child(UiKit.heading("Draft order", 25))
 	_order_box = UiKit.vbox(4)
 	_order_scroll = UiKit.scroll(_order_box)
 	_order_view.add_child(_order_scroll)
