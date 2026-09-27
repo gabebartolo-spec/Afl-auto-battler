@@ -156,6 +156,9 @@ static func _headroom(age: float) -> float:
 static func _draftee_potential(p: Dictionary, rng: RandomNumberGenerator) -> float:
 	var rank := clampi(int(p.get("draft_rank", 40)), 1, 80)
 	var room := maxf(6.0, 22.0 - 0.25 * float(rank - 1))
+	# A strong or weak generated class moves its best prospects' ceilings
+	# (Prospects.CLASS_TIERS); the per-player roll still makes busts.
+	room += float(p.get("class_ceiling", 0.0))
 	return float(int(p.get("overall", 50))) + room + rng.randf_range(-3.0, 3.0)
 
 
