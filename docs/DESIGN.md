@@ -342,8 +342,9 @@ log or its quarter snapshots, never decided by the screen.
   run of unanswered goals, a quarter that swung it, the stoppages, territory
   read against the result, kicking, pressure), the best players - three of
   yours and their best - with their game in a few words and their rating,
-  three key team numbers and your week (injuries, who improved, reserves
-  development). Everything else sits behind "Match stats": the quarter
+  three key team numbers and your week (injuries, and how many players
+  improved - who and how is in Training, the one place the weekly training
+  result is spelled out). Everything else sits behind "Match stats": the quarter
   table, every team stat, every player of both clubs (a tab per club, sorted
   by rating or any column, a tap for the rest of his line) and what your
   calls were worth.

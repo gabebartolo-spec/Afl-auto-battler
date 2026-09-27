@@ -128,6 +128,12 @@ func _run() -> void:
 	_check(_router.current() == "match" and ft != null, "Review match opens the full-time summary")
 	for n in ["Verdict", "MatchFactors", "BestPlayers", "YourWeek", "MatchStatsButton"]:
 		_check(ft != null and ft.find_child(n, true, false) != null, "The review shows %s" % n)
+	var ft_text := ""
+	if ft != null:
+		for l in ft.find_children("*", "Label", true, false):
+			ft_text += str(l.text) + "\n"
+	_check(not ft_text.contains("rose in OVR") and not ft_text.contains("in the reserves"),
+			"Full time does not repeat the training result; Training has it")
 	var sb = ft.find_child("MatchStatsButton", true, false) if ft != null else null
 	if sb != null:
 		sb.emit_signal("pressed")

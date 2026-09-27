@@ -1461,16 +1461,14 @@ func _show_fulltime() -> void:
 			week.add_child(inj)
 		var report: Dictionary = GameState.last_training_report
 		if str(report.get("home", "")) == home and str(report.get("away", "")) == away:
-			var grew := GameState.training_summary_line()
-			if grew != "":
-				var gl := UiKit.lbl(grew, UiKit.SMALL, UiKit.TEXT)
-				gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			# Who improved, and how, lives in Training (a tap below); here
+			# just that it happened.
+			var rises: Array = (report.get("auto", {}) as Dictionary).get("rises", [])
+			if not rises.is_empty():
+				var gl := UiKit.lbl("%d %s at training." % [rises.size(),
+						"player improved" if rises.size() == 1 else "players improved"], UiKit.SMALL, UiKit.TEXT)
+				gl.name = "TrainingCount"
 				week.add_child(gl)
-			var reserves := GameState.reserves_words_line()
-			if reserves != "":
-				var rl := UiKit.lbl(reserves, UiKit.SMALL, UiKit.MUTED)
-				rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-				week.add_child(rl)
 		if week.get_child_count() > 0:
 			v.add_child(UiKit.spacer(UiKit.GAP))
 			v.add_child(UiKit.section("Your week"))
