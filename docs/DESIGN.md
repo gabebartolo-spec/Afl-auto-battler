@@ -108,7 +108,15 @@ ratio of the two scores (that flags most of the pool). Examples the gates catch:
 Heeney, Bontempelli, Nick Daicos, Rankine and Pickett as MID/FWD; Greene as
 FWD/MID; Sicily, Blakey and Josh Daicos as DEF/MID. Butters (5 goals) and Cripps
 stay MID. DEF/FWD is allowed by the same gates, but the 2026 pool did not
-produce one — it is not invented. The tag is `MID/FWD`. Match-day selection
+produce one — it is not invented. The tag is `MID/FWD`.
+A midfielder on the numbers also keeps the line his club lists him in
+(`real_pos`) as a second position when his own numbers back it up
+(`Ratings.listed_secondary`): a listed forward with 0.35 goals or 0.5 marks
+inside 50 a game, a listed defender with 2 rebound 50s plus one percenters a
+game. That gives 71 MID/FWD and 13 MID/DEF their line back (forward-eligible
+players 141 -> 212, defence 224 -> 237). First positions, ratings and types
+are untouched; listed forwards with no forward numbers (McKercher, Delana,
+Scerri) stay midfielders. Match-day selection
 fills each slot from primary players first, then from the secondary. The
 on-ground copy's `role` is the slot, so the oval still groups them; `list_tag`
 keeps the natural tag for the list screen. Draft filters and the two-ruck rule

@@ -26,6 +26,7 @@ from collections import defaultdict
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLAYERS_CSV = os.path.join(ROOT, "data", "players_2026.csv")
+ENRICHED_CSV = os.path.join(ROOT, "data", "players_enriched_2026.csv")
 
 # ---------------------------------------------------------------------------
 # Tunables — the single source of truth for match balance.
@@ -89,6 +90,14 @@ def load_players(path=PLAYERS_CSV):
                 p[k] = float(row[k])
             p["id"] = "%s_%d" % (p["club"], p["num"])
             players.append(p)
+    # The club's listed position (Ratings.listed_secondary reads it).
+    listed = {}
+    if os.path.exists(ENRICHED_CSV):
+        with open(ENRICHED_CSV, newline="", encoding="utf-8") as fh:
+            for row in csv.DictReader(fh):
+                listed["%s_%s" % (row["club"], row["num"])] = row.get("real_pos", "")
+    for p in players:
+        p["real_pos"] = listed.get(p["id"], "")
     return players
 
 
@@ -343,7 +352,29 @@ def assign_secondary(p):
             continue
         if sc > best_v:
             best_v, best = sc, role
+    if best == "":
+        best = listed_secondary(p)
     return best
+
+
+LISTED_FWD_GOALS = 0.35
+LISTED_FWD_MARKS_I50 = 0.5
+LISTED_DEF_ACTIONS = 2.0
+
+
+def listed_secondary(p):
+    """Match Ratings.gd::listed_secondary: a midfielder on the numbers gets
+    the line his club lists him in when his own numbers back it up."""
+    if p["role"] != "MID":
+        return ""
+    listed = p.get("real_pos", "")
+    games = max(1.0, p["gm"])
+    if listed == "FWD" and (p["gl"] / games >= LISTED_FWD_GOALS
+                            or p["mi"] / games >= LISTED_FWD_MARKS_I50):
+        return "FWD"
+    if listed == "DEF" and (p["rb"] + p["onepct"]) / games >= LISTED_DEF_ACTIONS:
+        return "DEF"
+    return ""
 
 
 def _secondary_ok(p, primary, role, sc):
