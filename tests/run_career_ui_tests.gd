@@ -107,6 +107,67 @@ func _run() -> void:
 	_check(not _state.week_event_pending() and _screen_text().contains("members loved it"),
 			"Answering it shows what happened")
 
+	# --- a simmed match: headlined, and reviewable at full time -------------
+	current_scene.call("_on_sim_round")
+	await _settle()
+	var popup = current_scene.get("_results_overlay")
+	_check(popup != null and popup.find_child("MyVerdict", true, false) != null,
+			"Your result leads the round popup")
+	var round_before: int = _state.season.round_index
+	var xp_before := 0
+	for p in _state.my_list:
+		xp_before += int(p.get("xp", 0))
+	var injuries_before := str(_state.last_injuries)
+	var log_before: int = _state.season_log.size()
+	var rv: Button = popup.find_child("ReviewMatch", true, false) if popup != null else null
+	_check(rv != null and rv.size.y >= 44, "Review match is one thumb-sized tap")
+	if rv != null:
+		rv.emit_signal("pressed")
+		await _settle()
+	var ft = current_scene.find_child("FullTime", true, false)
+	_check(_router.current() == "match" and ft != null, "Review match opens the full-time summary")
+	for n in ["Verdict", "MatchFactors", "BestPlayers", "YourWeek", "MatchStatsButton"]:
+		_check(ft != null and ft.find_child(n, true, false) != null, "The review shows %s" % n)
+	var sb = ft.find_child("MatchStatsButton", true, false) if ft != null else null
+	if sb != null:
+		sb.emit_signal("pressed")
+		await _settle()
+		var me := 0 if str(_state.last_match["home"]) == _state.my_club else 1
+		var rows := current_scene.find_children("PlayerRow_*", "Button", true, false)
+		_check(rows.size() == (_state.last_match["roster"][me] as Array).size(),
+				"Match stats lists every player who played (%d)" % rows.size())
+		_router.handle_back(true)
+		await _settle()
+	var ft_cont = current_scene.find_child("FullTimeContinue", true, false)
+	if ft_cont != null:
+		ft_cont.emit_signal("pressed")
+		await _settle()
+	var xp_after := 0
+	for p in _state.my_list:
+		xp_after += int(p.get("xp", 0))
+	_check(_router.current() == "hub", "Continue from the review returns to the hub")
+	_check(_state.season.round_index == round_before and xp_after == xp_before
+			and str(_state.last_injuries) == injuries_before and _state.season_log.size() == log_before,
+			"Reviewing plays nothing again: same round, XP, injuries and results")
+	var again: Button = current_scene.find_child("ReviewLastMatch", true, false)
+	_check(again != null, "The hub keeps a way back to your last match")
+	# It survives a save and reload.
+	_state.save_career()
+	_state.load_career()
+	_router.replace("hub")
+	await _settle()
+	again = current_scene.find_child("ReviewLastMatch", true, false)
+	_check(again != null and _state.last_match.has("players"), "Your last match can still be reviewed after a reload")
+	if again != null:
+		again.emit_signal("pressed")
+		await _settle()
+		_check(current_scene.find_child("BestPlayers", true, false) != null, "...and opens at full time")
+		_router.handle_back(true)
+		await _settle()
+		if _router.current() == "match":
+			current_scene.find_child("FullTimeContinue", true, false).emit_signal("pressed")
+			await _settle()
+
 	# --- back on the hub: results popup first, then the menu ----------------
 	current_scene.call("_on_sim_round")
 	await _settle()

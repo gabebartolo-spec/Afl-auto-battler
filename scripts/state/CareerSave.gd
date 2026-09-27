@@ -117,6 +117,29 @@ static func slim_results(v):
 	return v
 
 
+## Your most recent match, kept whole enough to review after a reload: the
+## result, both box scores, the rosters, team stats and quarter snapshots,
+## and just the scoring and break events (the feed and the "run of goals"
+## line read those; the ~1,100 others only drive a replay).
+const REVIEW_KEYS := ["players", "roster", "team", "quarter_teams"]
+const REVIEW_EVENT_KINDS := ["goal", "behind", "quarter", "final"]
+
+
+static func review_result(res: Dictionary) -> Dictionary:
+	if res.is_empty():
+		return {}
+	var out: Dictionary = slim_results(res)
+	for k in REVIEW_KEYS:
+		if res.has(k):
+			out[k] = res[k]
+	var evs := []
+	for e in res.get("events", []):
+		if REVIEW_EVENT_KINDS.has(str((e as Dictionary).get("kind", ""))):
+			evs.append(e)
+	out["events"] = evs
+	return out
+
+
 ## Script variables of a RefCounted (Season, Draft) as plain data.
 static func object_vars(o: Object) -> Dictionary:
 	var out := {}

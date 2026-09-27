@@ -24,6 +24,10 @@ var pending_label := ""
 
 var last_results: Array = []     # every match from the round just played
 var last_match: Dictionary = {}  # YOUR match from that round, with events
+var last_pos_before := 0          # your ladder spot before that round
+## Set by the hub before opening the match screen to review last_match: the
+## screen goes straight to full time and plays or applies nothing.
+var review_requested := false
 var last_phase := ""             # "regular" | "finals" | "done"
 var last_label := ""             # "Round 7" / "Grand Final" / ...
 var season_log: Array = []       # every result, for the season review screen
@@ -201,6 +205,9 @@ func save_career() -> bool:
 		"default_train_plan": default_train_plan,
 		"last_phase": last_phase,
 		"last_label": last_label,
+		# Enough of your last match to review it after a reload.
+		"last_match": CareerSave.review_result(last_match),
+		"last_pos_before": last_pos_before,
 		"season_log": CareerSave.slim_results(season_log),
 		"last_injuries": last_injuries,
 		"season_tally": season_tally,
@@ -281,6 +288,8 @@ func load_career() -> bool:
 	default_train_plan = str(state.get("default_train_plan", "position"))
 	last_phase = str(state.get("last_phase", ""))
 	last_label = str(state.get("last_label", ""))
+	last_match = state.get("last_match", {})
+	last_pos_before = int(state.get("last_pos_before", 0))
 	season_log = state.get("season_log", [])
 	last_injuries = state.get("last_injuries", [])
 	season_tally = state.get("season_tally", {})
@@ -442,6 +451,8 @@ func reset() -> void:
 	pending_label = ""
 	last_results = []
 	last_match = {}
+	last_pos_before = 0
+	review_requested = false
 	last_phase = ""
 	last_label = ""
 	season_log = []
@@ -767,6 +778,7 @@ func prepare_interactive_match() -> bool:
 	if season == null or season.is_season_over():
 		return false
 	_settle_week_event()
+	last_pos_before = my_position()
 	if season.is_regular_done():
 		return _prepare_interactive_final()
 	pending_match = {}
@@ -936,6 +948,7 @@ func advance() -> String:
 	_settle_week_event()
 	last_results = []
 	last_match = {}
+	last_pos_before = my_position()
 
 	if not season.is_regular_done():
 		last_results = season.play_round()

@@ -29,6 +29,9 @@ var _finished := false
 var _side_panel: Control
 var _body: BoxContainer
 var _interactive := false
+## Reviewing a match already played (Sim round, or Review last match): straight
+## to full time, nothing played or applied again.
+var _review := false
 var _event_cursor := 0
 var _my_side := 0
 var _margin: MarginContainer
@@ -70,8 +73,11 @@ func _ready() -> void:
 		_pos_before = GameState.my_position()
 	else:
 		_res = GameState.last_match
+		_review = GameState.review_requested
+		GameState.review_requested = false
 		if not _res.is_empty() and GameState.my_club != "":
 			_my_side = 0 if str(_res.get("home", "")) == GameState.my_club else 1
+		_pos_before = GameState.last_pos_before
 	if _res.is_empty():
 		Router.replace("hub")
 		return
@@ -82,6 +88,8 @@ func _ready() -> void:
 	_update_scoreboard({"q": 1, "min": 0, "score": [0, 0], "kind": "info"})
 	if _interactive:
 		_show_coach_box()
+	elif _review:
+		_on_finished()
 	else:
 		# Give the eye a beat to find the oval before the bounce.
 		get_tree().create_timer(0.55).timeout.connect(func():
@@ -1230,7 +1238,7 @@ func _show_fulltime() -> void:
 					UiKit.EMPH if through else UiKit.MUTED, true)
 			ol.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(ol)
-		if _interactive and str(_res.get("tag", "")) == "":
+		if (_interactive or _review) and str(_res.get("tag", "")) == "":
 			var moved := GameState.ladder_move_line(_pos_before)
 			if moved != "":
 				var ml := UiKit.lbl(moved, UiKit.BODY, UiKit.TEXT, true)
@@ -1261,7 +1269,7 @@ func _show_fulltime() -> void:
 	best_box.name = "BestPlayers"
 	var first := me if mine else (winner if winner >= 0 else 0)
 	var ours := MatchNotes.standouts(_res, first, 3)
-	var theirs := MatchNotes.standouts(_res, 1 - first, 2)
+	var theirs := MatchNotes.standouts(_res, 1 - first, 1)
 	var bog: Dictionary = ours[0] if not ours.is_empty() else {}
 	if not theirs.is_empty() and (bog.is_empty() or float(theirs[0]["inf"]) > float(bog["inf"])):
 		bog = theirs[0]
@@ -1278,7 +1286,7 @@ func _show_fulltime() -> void:
 	v.add_child(_key_stats_view(me if mine else 0))
 
 	# Your week: who is hurt, who improved.
-	if mine and _interactive:
+	if mine and (_interactive or _review):
 		var week := UiKit.vbox(4)
 		week.name = "YourWeek"
 		var hurt := GameState.my_new_injuries()
@@ -1311,7 +1319,7 @@ func _show_fulltime() -> void:
 	stats_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stats_btn.pressed.connect(_show_match_stats)
 	more.add_child(stats_btn)
-	if mine and _interactive:
+	if mine and (_interactive or _review):
 		var train := UiKit.btn("Training", 15)
 		train.name = "FullTimeTraining"
 		train.custom_minimum_size = Vector2(0, 44)
@@ -1329,16 +1337,28 @@ func _show_fulltime() -> void:
 	box["footer"].add_child(leave)
 
 
-## One standout: the name (marked if best on ground) and his game in words.
+## One standout: the name (marked if best on ground), his game in words and
+## his match rating at the end of the line.
 func _standout_row(p: Dictionary, side: int, best: bool) -> Control:
+	var h := UiKit.hbox(8)
 	var v := UiKit.vbox(0)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(v)
 	var code := str(_res["home"] if side == 0 else _res["away"])
 	var name := "%s  ·  %s" % [str(p["name"]), GameDB.club_short(code)]
 	if best:
 		name += "  ·  best on ground"
 	v.add_child(UiKit.ellipsis(name, UiKit.BODY, UiKit.TEXT, true))
 	v.add_child(UiKit.ellipsis(str(p["line"]), UiKit.SMALL, UiKit.MUTED))
-	return v
+	var r := UiKit.line(MatchNotes.rating_text(float(p["rating"])), 20, UiKit.TEXT, true)
+	r.name = "StandoutRating"
+	r.tooltip_text = "Player rating for this match"
+	h.add_child(r)
+	# Clear of the scrollbar.
+	var gap := Control.new()
+	gap.custom_minimum_size.x = 10
+	h.add_child(gap)
+	return h
 
 
 func _key_stats_view(me: int) -> Control:
@@ -1382,8 +1402,8 @@ func _show_match_stats() -> void:
 	v.add_child(UiKit.section("Team stats"))
 	v.add_child(_team_stats_table())
 	v.add_child(UiKit.spacer(UiKit.GAP))
-	v.add_child(UiKit.section("Box score"))
-	v.add_child(_best_table())
+	v.add_child(UiKit.section("Player stats"))
+	v.add_child(PlayerStatsTable.new().setup(_res, _my_side))
 	if _interactive:
 		v.add_child(UiKit.spacer(UiKit.GAP))
 		v.add_child(_calls_view(0))
@@ -1501,60 +1521,11 @@ func _team_stats_table() -> Control:
 	return v
 
 
-func _best_table() -> Control:
-	var v := UiKit.vbox(2)
-	var roster: Array = _res.get("roster", [[], []])
-	var players: Dictionary = _res.get("players", {})
-	var codes := [str(_res["home"]), str(_res["away"])]
-	for side in range(2):
-		if side == 1:
-			v.add_child(UiKit.spacer(10))
-		v.add_child(UiKit.club_badge(codes[side], 13, true, true))
-		var hdr := UiKit.hbox(4)
-		v.add_child(hdr)
-		hdr.add_child(_qcell("#", 26, UiKit.MUTED, UiKit.TINY))
-		hdr.add_child(_lcell("Player", 0, UiKit.MUTED, UiKit.TINY))
-		for c in ["D", "G", "M", "T", "HO"]:
-			hdr.add_child(_qcell(c, 28, UiKit.MUTED, UiKit.TINY))
-		var best := _rank_side(roster[side], players)
-		for i in range(mini(7, best.size())):
-			var p: Dictionary = best[i]
-			var st: Dictionary = p["stats"]
-			var row := UiKit.hbox(4)
-			v.add_child(row)
-			var col := UiKit.TEXT
-			row.add_child(_qcell(str(int(p["num"])), 26, col, 12))
-			row.add_child(_lcell(str(p.get("name", "Player")), 0, col, 12, i == 0))
-			row.add_child(_qcell(str(int(st.get("disposals", 0))), 28, col, 12))
-			row.add_child(_qcell(str(int(st.get("goals", 0))), 28, col, 12))
-			row.add_child(_qcell(str(int(st.get("marks", 0))), 28, col, 12))
-			row.add_child(_qcell(str(int(st.get("tackles", 0))), 28, col, 12))
-			row.add_child(_qcell(str(int(st.get("hitouts", 0))), 28, col, 12))
-	return v
-
-
 func _lcell(text: String, w: int, col: Color, fs: int, bold := false) -> Label:
 	var l := UiKit.ellipsis(text, fs, col, bold)
 	if w > 0:
 		l.custom_minimum_size = Vector2(w, 0)
 	return l
-
-
-func _rank_side(list: Array, players: Dictionary) -> Array:
-	var out := []
-	for p in list:
-		var st: Dictionary = players.get(str(p["id"]), {})
-		out.append({"num": int(p["num"]),
-				"name": GameDB.player_display_name_by_id(str(p.get("id", "")), str(p.get("name", "Player"))),
-				"stats": st, "inf": _influence(st)})
-	out.sort_custom(func(a, b): return a["inf"] > b["inf"])
-	return out
-
-
-## Rough best-on-ground measure: weight goals and inside 50s above raw touches.
-## Shared with the half-time report so both screens rank players identically.
-func _influence(st: Dictionary) -> float:
-	return CoachReport.influence(st)
 
 
 ## Router back hook. A live match cannot be abandoned half way (the rest of

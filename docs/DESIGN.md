@@ -324,14 +324,42 @@ log or its quarter snapshots, never decided by the screen.
   (the exact percentages stay in the assistant's report). Legs read in words:
   fresh, tiring, running on empty. The break surfaces the problem; it never
   names the answer.
-- **Full time.** The result first and big (won or lost by how much, both
-  scores), then what it means (finals, the ladder, who is next), "How it went"
-  (two to four reasons from the result: a run of unanswered goals, a quarter
-  that swung it, the stoppages, territory read against the result, kicking,
-  pressure), the best players with their game in a few words, four key team
-  numbers and your week (injuries, who improved, reserves development). The
-  quarter table, every team stat, both box scores and what your calls were
-  worth in expected points sit behind "Match stats".
+- **Full time.** The conclusion, easy to scan: the result first and big
+  (won or lost by how much, both scores), then what it means (finals, the
+  ladder, who is next), "How it went" (up to three reasons from the result: a
+  run of unanswered goals, a quarter that swung it, the stoppages, territory
+  read against the result, kicking, pressure), the best players - three of
+  yours and their best - with their game in a few words and their rating,
+  three key team numbers and your week (injuries, who improved, reserves
+  development). Everything else sits behind "Match stats": the quarter
+  table, every team stat, every player of both clubs (a tab per club, sorted
+  by rating or any column, a tap for the rest of his line) and what your
+  calls were worth.
+- **Player rating** (`MatchNotes.rating`). One number for one match, 0-10
+  with one decimal (not 0-100, which would read as OVR). Built only from that
+  match's box score, weighted toward what a stat does: goals 5, behinds 0.6,
+  goal assists 0.6, kicks 0.3, handballs 0.15, marks 0.7, tackles 0.8,
+  clearances 0.9, inside 50s 0.4, rebound 50s 0.9, one percenters 0.9,
+  hit-outs 0.5, clangers -0.6, frees against -0.8; then 1.5 + 0.2 x that,
+  half as steep above 8, clamped to 0-10. An average game is about 5, a good
+  one 7, best on ground 8.5 and up. Tuned over simulated matches so each
+  position's better games (90th percentile, about 7.5-8) sit within a point
+  of each other; forwards and rucks have lower medians (a forward's game is
+  goals or not much). Limits: the engine does not record contested
+  possessions, intercepts, contested marks or metres gained, so a defender's
+  defence is read from marks, rebound 50s and one percenters, and a ruck's
+  from hit-outs and clearances. The ruck's hit-outs all go to the first ruck
+  on the ground.
+- **Sim round.** Simming skips watching, not the aftermath. The round popup
+  leads with your match (won or lost by how much, both scores, your best
+  player and rating, a new injury, the ladder move and next opponent) and a
+  "Review match" button; the rest of the round sits underneath. Review opens
+  the same full-time summary and Match stats as a watched match, from the
+  result already played (`GameState.last_match`): nothing is simulated,
+  applied or paid again. The hub keeps "Last match: ..." under your season
+  line to reopen it, and the save keeps enough of that match (result, box
+  scores, rosters, team stats, quarter snapshots, scoring events;
+  `CareerSave.review_result`) to review it after a reload.
 
 ### Half-time assistant coach report
 The assistant's report is one tap away at half time and at full time
@@ -546,7 +574,7 @@ scripts/
     Main.gd            menu
     DraftScene.gd      club selection + draft board
     HubScene.gd        the week: opponent + facts, your side's news, the match; then ladder
-    MatchScene.gd      scoreboard, oval, match feed, quarter breaks, full-time box score
+    MatchScene.gd      scoreboard, oval, match feed, quarter breaks, full time, Match stats (PlayerStatsTable)
     LadderScene.gd     full ladder + finals bracket
     ListScene.gd       your list, best 22, attributes, real season numbers
     SeasonReviewScene.gd  the flag, your record, final ladder, awards, club achievements

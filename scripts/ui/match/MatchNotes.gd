@@ -278,7 +278,7 @@ static func cooked(rows: Array, limit := 3) -> Array:
 # Full time
 # ---------------------------------------------------------------------------
 const QUARTER_NAMES := ["first", "second", "third", "last", "extra time"]
-const MAX_FACTORS := 4
+const MAX_FACTORS := 3
 
 ## Why the result happened, from `my_side`'s point of view, in two to four
 ## sentences. Facts from the result, most telling first; never advice.
@@ -409,25 +409,76 @@ static func game_line(st: Dictionary) -> String:
 
 ## The best few players of a side by influence: [{"id", "name", "line"}].
 static func standouts(res: Dictionary, side: int, n: int) -> Array:
+	var ranked := rated_players(res, side)
+	var out := []
+	for r in ranked.slice(0, n):
+		out.append({"id": r["id"], "name": r["name"], "line": game_line(r["stats"]),
+				"rating": r["rating"], "inf": r["rating"]})
+	return out
+
+
+# ---------------------------------------------------------------------------
+# Player rating: one number for one match
+# ---------------------------------------------------------------------------
+## What each tracked stat is worth toward a player's rating. Read from THIS
+## match's box score only (never OVR). Possession counts, but less than what
+## it does: a handball is worth little, a goal a lot. Tuned over simulated
+## matches so defenders, midfielders, forwards and rucks reach the same top
+## ratings their own ways (see docs/DESIGN.md, Player rating).
+const RATING_WEIGHTS := {
+	"goals": 5.0, "behinds": 0.6, "goal_assists": 0.6,
+	"kicks": 0.30, "handballs": 0.15, "marks": 0.7,
+	"tackles": 0.8, "clearances": 0.9, "inside50": 0.4,
+	"rebounds": 0.9, "one_percenters": 0.9, "hitouts": 0.5,
+	"clangers": -0.6, "frees_against": -0.8,
+}
+## Contribution to rating: an average game is about 5, a very good one 7.5,
+## a best-on-ground 8.5 and up. Above 8 each point comes at half the rate,
+## so 10 stays out of reach but for the game of the season.
+const RATING_BASE := 1.5
+const RATING_SLOPE := 0.2
+const RATING_KNEE := 8.0
+
+
+static func rating(st: Dictionary) -> float:
+	var raw := 0.0
+	for k in RATING_WEIGHTS:
+		raw += float(RATING_WEIGHTS[k]) * float(st.get(k, 0.0))
+	var r := RATING_BASE + raw * RATING_SLOPE
+	if r > RATING_KNEE:
+		r = RATING_KNEE + (r - RATING_KNEE) * 0.5
+	return snappedf(clampf(r, 0.0, 10.0), 0.1)
+
+
+## "7.4": one decimal, always.
+static func rating_text(r: float) -> String:
+	return "%.1f" % r
+
+
+## Every player of a side who took the field, best rated first:
+## [{id, num, name, stats, rating}].
+static func rated_players(res: Dictionary, side: int) -> Array:
 	var roster: Array = res.get("roster", [[], []])
 	var players: Dictionary = res.get("players", {})
 	if roster.size() <= side:
 		return []
-	var ranked := []
+	var out := []
 	for p in roster[side]:
 		var st: Dictionary = players.get(str(p["id"]), {})
-		ranked.append({"id": str(p["id"]), "name": GameDB.player_display_name_by_id(str(p["id"]),
-				str(p.get("name", "Player"))), "st": st, "inf": CoachReport.influence(st)})
-	ranked.sort_custom(func(a, b): return float(a["inf"]) > float(b["inf"]))
-	var out := []
-	for r in ranked.slice(0, n):
-		out.append({"id": r["id"], "name": r["name"], "line": game_line(r["st"]), "inf": r["inf"]})
+		out.append({"id": str(p["id"]), "num": int(p.get("num", 0)),
+				"name": GameDB.player_display_name_by_id(str(p["id"]), str(p.get("name", "Player"))),
+				"role": str(p.get("list_role", p.get("role", ""))),
+				"stats": st, "rating": rating(st)})
+	out.sort_custom(func(a, b):
+		if float(a["rating"]) != float(b["rating"]):
+			return float(a["rating"]) > float(b["rating"])
+		return int(float(a["stats"].get("disposals", 0.0))) > int(float(b["stats"].get("disposals", 0.0))))
 	return out
 
 
 ## The few team numbers worth a glance at full time: [label, mine, theirs].
 const KEY_STATS := [["disposals", "Disposals"], ["inside50", "Inside 50s"],
-		["clearances", "Clearances"], ["tackles", "Tackles"]]
+		["clearances", "Clearances"]]
 
 static func key_stats(res: Dictionary, my_side: int) -> Array:
 	var team: Array = res.get("team", [{}, {}])
