@@ -42,6 +42,11 @@ func _selection_tests() -> void:
 	var ui := await _open()
 	var text := _screen_text(ui)
 	_check(text.contains("Wings  2/2") and text.contains("Midfield  3/3"), "The midfield reads as centre square and wings")
+	var standing: Label = ui.find_child("LineStanding", true, false)
+	var digits := RegEx.new()
+	digits.compile("\\d")
+	_check(standing != null and standing.text.contains("Midfield") and digits.search(standing.text) == null,
+			"The side's lines read in words, not engine numbers (%s)" % (standing.text if standing else "-"))
 	var rows := ui.find_children("RoleLabel", "Label", true, false)
 	_check(rows.size() >= 22, "Every player row says who he is (%d)" % rows.size())
 	var rx := RegEx.new()
@@ -107,7 +112,10 @@ func _selection_tests() -> void:
 	var viewport := Rect2(Vector2.ZERO, Vector2(root.size))
 	var off := false
 	for b in ui.find_children("To_*", "Button", true, false):
-		if b.is_visible_in_tree() and not viewport.grow(1).encloses(b.get_global_rect()) and b.get_global_rect().position.y < viewport.size.y:
+		# Width is what a phone row must fit; a row half-scrolled past the
+		# bottom of the list is fine.
+		var r: Rect2 = b.get_global_rect()
+		if b.is_visible_in_tree() and (r.position.x < -1.0 or r.end.x > viewport.size.x + 1.0):
 			off = true
 	_check(not off, "The move buttons fit a phone row")
 	ui.queue_free()
@@ -123,6 +131,41 @@ func _selection_tests() -> void:
 	_check((fixed.get("WING", []) as Array).size() == 2 and (fixed.get("MID", []) as Array).size() == 3,
 			"An old five-man midfield is split into three and two wings")
 	ui.queue_free()
+	await _settle()
+	await _list_tests()
+
+
+## My list: one line per player, a profile a tap away, Back closes it.
+func _list_tests() -> void:
+	var ls: Control = load("res://scenes/ListScene.tscn").instantiate()
+	root.add_child(ls)
+	await _settle()
+	for b in ls.find_children("*", "Button", true, false):
+		if b.text == "Full list":
+			b.emit_signal("pressed")
+	await _settle()
+	var rows := ls.find_children("Row_*", "Button", true, false)
+	_check(rows.size() == _state.my_list.size(), "Every listed player has a row (%d)" % rows.size())
+	var ids := ls.find_children("RowIdentity", "Label", true, false)
+	_check(not ids.is_empty() and not str(ids[0].text).contains("XP"), "Rows say who a player is, not his XP")
+	var tall := true
+	for r in rows:
+		if r.is_visible_in_tree() and r.size.y < 44:
+			tall = false
+	_check(tall, "Each row is a thumb-sized tap")
+	_check(ls.find_children("*", "GridContainer", true, false).is_empty(),
+			"No attribute grids on the list itself")
+	if not rows.is_empty():
+		rows[0].emit_signal("pressed")
+		await _settle()
+		var prof: Node = ls.find_child("PlayerProfile", true, false)
+		_check(prof != null and prof.find_child("ProfileAttributes", true, false) != null
+				and prof.find_child("ProfileDevelopment", true, false) != null,
+				"A tap opens the profile, attributes and development included")
+		_check(ls.call("handle_back") == true, "Back is handled on the profile")
+		await _settle()
+		_check(ls.find_child("PlayerProfile", true, false) == null, "Back closes the profile")
+	ls.queue_free()
 	await _settle()
 
 
