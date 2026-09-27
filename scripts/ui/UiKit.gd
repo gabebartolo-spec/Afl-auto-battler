@@ -266,6 +266,51 @@ static func tab(text: String, active: bool) -> Button:
 	return b
 
 
+## One tap picks one: [key, label] options in a grid, the chosen one
+## outlined. Buttons are named "<node_name>_<key>". on_pick(key) runs after
+## the grid repaints. Short lists only; a long list wants its own sheet.
+static func choice_grid(node_name: String, options: Array, current: String, columns: int,
+		on_pick: Callable = Callable()) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.name = node_name
+	grid.columns = columns
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	var state := {"current": current}
+	var buttons := {}
+	var paint := func() -> void:
+		for k in buttons:
+			paint_choice(buttons[k], str(k) == str(state["current"]))
+	for o in options:
+		var key := str(o[0])
+		var b := btn(str(o[1]), 14)
+		b.name = "%s_%s" % [node_name, key]
+		b.custom_minimum_size = Vector2(0, 44)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.pressed.connect(func():
+			state["current"] = key
+			paint.call()
+			if on_pick.is_valid():
+				on_pick.call(key))
+		buttons[key] = b
+		grid.add_child(b)
+	paint.call()
+	return grid
+
+
+## A choice's look: the chosen one outlined in full text, the rest quiet.
+static func paint_choice(b: Button, on: bool) -> void:
+	var sb := style(Color.TRANSPARENT, 6, 6, TEXT if on else LINE)
+	if on:
+		sb.set_border_width_all(2)
+	for s in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		b.add_theme_stylebox_override(s, sb)
+	b.add_theme_color_override("font_color", TEXT if on else MUTED)
+	b.add_theme_color_override("font_hover_color", TEXT)
+
+
 static func option() -> OptionButton:
 	var b := OptionButton.new()
 	style_button(b, 14)

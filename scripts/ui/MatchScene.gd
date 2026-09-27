@@ -733,47 +733,14 @@ func _call_block(label: String, control: Control) -> Control:
 	return v
 
 
-## One tap picks one: [key, label] options in a grid, the chosen one
-## outlined. Writes the key to calls[field] and calls on_change(key).
+## One tap picks one (UiKit.choice_grid); the key lands in calls[field]
+## and on_change(key) runs.
 func _choice_grid(node_name: String, options: Array, calls: Dictionary, field: String, columns: int,
 		on_change: Callable = Callable()) -> Control:
-	var grid := GridContainer.new()
-	grid.name = node_name
-	grid.columns = columns
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
-	var buttons := {}
-	var paint := func() -> void:
-		for k in buttons:
-			_paint_choice(buttons[k], str(k) == str(calls[field]))
-	for o in options:
-		var key := str(o[0])
-		var b := UiKit.btn(str(o[1]), 14)
-		b.name = "%s_%s" % [node_name, key]
-		b.custom_minimum_size = Vector2(0, 44)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.clip_text = true
-		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		b.pressed.connect(func():
-			calls[field] = key
-			paint.call()
-			if on_change.is_valid():
-				on_change.call(key))
-		buttons[key] = b
-		grid.add_child(b)
-	paint.call()
-	return grid
-
-
-## The chosen one is outlined and in full text; the rest are quiet outlines.
-func _paint_choice(b: Button, on: bool) -> void:
-	var sb := UiKit.style(Color.TRANSPARENT, 6, 6, UiKit.TEXT if on else UiKit.LINE)
-	if on:
-		sb.set_border_width_all(2)
-	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
-		b.add_theme_stylebox_override(state, sb)
-	b.add_theme_color_override("font_color", UiKit.TEXT if on else UiKit.MUTED)
-	b.add_theme_color_override("font_hover_color", UiKit.TEXT)
+	return UiKit.choice_grid(node_name, options, str(calls[field]), columns, func(key: String):
+		calls[field] = key
+		if on_change.is_valid():
+			on_change.call(key))
 
 
 ## A player call: "none", the few in the game so far, whoever is chosen,
@@ -839,7 +806,7 @@ func _player_sheet(title: String, roster: Array, current: String, on_pick: Calla
 		b.clip_text = true
 		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		b.custom_minimum_size = Vector2(0, 44)
-		_paint_choice(b, id == current)
+		UiKit.paint_choice(b, id == current)
 		b.pressed.connect(func():
 			_close_sheet()
 			on_pick.call(id))

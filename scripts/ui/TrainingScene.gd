@@ -164,24 +164,21 @@ func _summary() -> Control:
 	return panel
 
 
-## This player's plans: Position plan, his role's archetypes, Manual.
-func _plan_picker(p: Dictionary) -> OptionButton:
-	var pick := UiKit.option()
-	pick.custom_minimum_size = Vector2(0, 44)
-	pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var current := GameState.plan_for(p)
+## This player's plans as taps: Position plan, his roles' archetypes,
+## Manual last. The chosen one is outlined.
+func _plan_picker(p: Dictionary, on_pick: Callable) -> Control:
 	# A dual-role player's Position plan trains his first role: say which.
 	var first := str(p.get("role", ""))
 	var dual := str(p.get("role2", "")) != "" and str(p.get("role2", "")) != first
+	var options := []
 	for key in GameState.plans_for(p):
 		var label := GameState.train_plan_label(key)
 		if key == "position" and dual:
 			label = "Position plan (%s)" % PlayerProfile.role_word(first).to_lower()
-		pick.add_item(label)
-		pick.set_item_metadata(pick.item_count - 1, key)
-		if key == current:
-			pick.select(pick.item_count - 1)
-	return pick
+		elif key == "manual":
+			label = "Manual"
+		options.append([key, label])
+	return UiKit.choice_grid("PlayerPlan", options, GameState.plan_for(p), 2, on_pick)
 
 
 func _spend_notice(gains: Dictionary, ov_before: int, ov_after: int) -> String:
@@ -395,13 +392,11 @@ func _detail_panel() -> Control:
 		paused.name = "ManualWarning"
 		paused.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		fv.add_child(paused)
-	var pick := _plan_picker(p)
-	pick.name = "PlayerPlan"
 	var pid := _selected
-	pick.item_selected.connect(func(i: int):
+	var pick := _plan_picker(p, func(key: String):
 		var q := GameState.list_player(pid)
 		var before := int(q.get("overall", 0))
-		var gains := GameState.set_player_plan(pid, str(pick.get_item_metadata(i)))
+		var gains := GameState.set_player_plan(pid, key)
 		_notice = _spend_notice(gains, before, int(GameState.list_player(pid).get("overall", 0)))
 		_build())
 	fv.add_child(pick)

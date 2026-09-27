@@ -241,15 +241,21 @@ func _run() -> void:
 	var first: Dictionary = _state.my_list[0]
 	current_scene.call("_open_player", str(first["id"]))
 	await _settle()
-	var picker: OptionButton = current_scene.find_child("PlayerPlan", true, false)
-	var target := -1
-	for i in range(picker.item_count):
-		if str(picker.get_item_metadata(i)) == "manual":
-			target = i
-	picker.select(target)
-	picker.emit_signal("item_selected", target)
+	var picker: Node = current_scene.find_child("PlayerPlan", true, false)
+	_check(picker != null and current_scene.find_children("*", "OptionButton", true, false).is_empty(),
+			"Plans are taps, not a dropdown")
+	var plan_btns := picker.find_children("PlayerPlan_*", "Button", false, false) if picker != null else []
+	_check(plan_btns.size() == _state.plans_for(first).size(), "Every plan he can follow is shown (%d)" % plan_btns.size())
+	var small_plan := false
+	for b in plan_btns:
+		if b.size.y < 44:
+			small_plan = true
+	_check(not small_plan, "Every plan is a thumb-sized tap")
+	var manual_btn: Button = picker.find_child("PlayerPlan_manual", false, false) if picker != null else null
+	if manual_btn != null:
+		manual_btn.emit_signal("pressed")
 	await _settle()
-	_check(_state.plan_for(first) == "manual", "The player plan picker sets his plan")
+	_check(_state.plan_for(first) == "manual", "Tapping a plan sets his plan")
 	_check(current_scene.find_child("ManualWarning", true, false) != null,
 			"Manual is flagged as paused development in the player view")
 	var adv: Button = current_scene.find_child("AdvancedToggle", true, false)
