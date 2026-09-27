@@ -213,6 +213,17 @@ func _selection_profile_tests() -> void:
 		_check(ui.find_child("PlayerProfile", true, false) == null and _state.my_selection() == before
 				and sc.scroll_vertical == at and is_instance_valid(sc),
 				"Back returns to Selection as it was: same side, same place (%d)" % sc.scroll_vertical)
+	# On a small phone the rating and the position button never overlap.
+	root.size = Vector2i(360, 740)
+	await _settle()
+	var clash := ""
+	for ov in ui.find_children("Ovr", "Label", true, false):
+		var row: Node = ov.get_parent()
+		for sb in row.get_children():
+			if str(sb.name).begins_with("Slot_") and ov.get_global_rect().intersects(sb.get_global_rect()):
+				clash = str(sb.name)
+	_check(clash == "", "Rating and position button sit side by side at 360 wide (%s)" % clash)
+	root.size = Vector2i(420, 860)
 	ui.queue_free()
 	await _settle()
 	_state.set_selection({})

@@ -238,6 +238,7 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	who_btn.tooltip_text = "Open his profile"
 	who_btn.pressed.connect(_open_profile.bind(str(p["id"])))
 	who_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	who_btn.clip_contents = true
 	top.add_child(who_btn)
 	var who_box := UiKit.vbox(4)
 	who_box.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -267,7 +268,14 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	elif placed_as != "" and placed_as != "BENCH" and str(p["role"]) != placed_as \
 			and str(p.get("role2", "")) != placed_as:
 		h.add_child(UiKit.line("Out of position", 12, UiKit.MUTED))
-	h.add_child(UiKit.line("%d" % int(p["overall"]), 16, UiKit.TEXT, true))
+	# His rating sits outside the tap area, beside the position button, so a
+	# long trait line never runs under either.
+	var ovr := UiKit.line("%d" % int(p["overall"]), 16, UiKit.TEXT, true)
+	ovr.name = "Ovr"
+	ovr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	ovr.custom_minimum_size.x = 28
+	ovr.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	top.add_child(ovr)
 	# Who he is, then his traits: one quiet line.
 	var about := UiKit.trait_chips(p)
 	var who := UiKit.line(Roles.label(p), 13, UiKit.TEXT)
