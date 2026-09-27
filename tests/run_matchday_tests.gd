@@ -189,7 +189,22 @@ func _phone_match(sz: Vector2i) -> void:
 		report_btn.emit_signal("pressed")
 		await _settle()
 		var rep: Node = m.find_child("AssistantReport", true, false)
-		_check(rep != null and _text(rep).contains("What stands out"), "The report opens (%s)" % tag)
+		_check(rep != null and rep.find_child("MatchRead", true, false) != null
+				and rep.find_child("ReportBest", true, false) != null, "The report opens at a glance (%s)" % tag)
+		var rt := _text(rep)
+		_check(not rt.contains("vs par") and not rt.contains("disp (") and not rt.contains("Where the game is being won"),
+				"The short report is words, not a stat dump (%s)" % tag)
+		var full_btn: Button = rep.find_child("FullReportButton", true, false)
+		_check(full_btn != null, "The full report is a tap away (%s)" % tag)
+		if full_btn != null:
+			full_btn.emit_signal("pressed")
+			await _settle()
+			var fr: Node = m.find_child("FullReport", true, false)
+			_check(fr != null and _text(fr).contains("What stands out"), "The full report keeps the detail (%s)" % tag)
+			var back_full: bool = m.call("handle_back")
+			await _settle()
+			_check(back_full and m.find_child("FullReport", true, false) == null
+					and m.find_child("AssistantReport", true, false) != null, "Back returns to the short report (%s)" % tag)
 		_check(m.call("handle_back") == true, "Back is handled on the report (%s)" % tag)
 		await _settle()
 		_check(m.find_child("AssistantReport", true, false) == null and m.find_child("CoachBox", true, false) != null,

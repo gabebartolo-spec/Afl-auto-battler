@@ -390,6 +390,16 @@ problems and strengths in the assistant's words, never the call to make. At
 full time the report is rebuilt from the Q2 snapshot, including after Skip to
 full time.
 
+It opens at a glance (`CoachReport.glance`): the half-time score; "Match
+read", the two clearest edges ("Fremantle lead the hit-outs, 31 to 9") and
+their gameplan only if it changed or was not Balanced; your best two and up
+to two who need a lift (only a genuinely quiet half, 4+ below expectation),
+each with his game in words; their two most dangerous; and up to three
+second-half notes in plain words (no numbers, nothing Match read or the
+player sections already say). Everything above - plans by quarter, the team
+table, shot conversion, every best and quiet player with his numbers and
+"vs par" - is behind "Full report"; Back steps out one level at a time.
+
 ---
 
 ## 4. Game structure

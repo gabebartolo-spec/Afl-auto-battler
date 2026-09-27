@@ -41,6 +41,7 @@ var _skipping := false
 var _fulltime_shown := false
 var _coach_overlay: Control
 var _sheet_overlay: Control
+var _full_report_overlay: Control
 var _reflow_queued := false
 var _shown_goals := [0, 0]
 var _shown_behinds := [0, 0]
@@ -883,19 +884,102 @@ func _roster_side(side: int) -> Array:
 # ---------------------------------------------------------------------------
 func _show_half_time_popup(report: Dictionary) -> void:
 	_close_report()
-	var box := UiKit.modal_box(self, 860.0, 0.0)
+	var box := UiKit.modal_box(self, 640.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "AssistantReport"
 	_report_overlay = overlay
 	var v: VBoxContainer = box["body"]
+	v.add_theme_constant_override("separation", 6)
 	v.add_child(UiKit.ellipsis("Assistant's report", UiKit.H1, UiKit.TEXT, true))
-	v.add_child(_half_time_report_view(report))
+	v.add_child(_report_glance(report))
+	var full := UiKit.btn("Full report", 15)
+	full.name = "FullReportButton"
+	full.custom_minimum_size = Vector2(0, 44)
+	full.pressed.connect(func(): _show_full_report(report))
+	box["footer"].add_child(full)
 	var close := UiKit.btn("Close report", 16, true)
+	close.custom_minimum_size = Vector2(0, 44)
 	close.pressed.connect(_close_report)
 	box["footer"].add_child(close)
 
 
+## The report at a glance: the score, the match in a few lines, who matters
+## and what stands out. Scannable in a few seconds; the rest is Full report.
+func _report_glance(report: Dictionary) -> Control:
+	var v := UiKit.vbox(6)
+	v.name = "ReportGlance"
+	var g := CoachReport.glance(report)
+	var my_code := str(report.get("my_code", ""))
+	var opp_code := str(report.get("opp_code", ""))
+	var sc := UiKit.lbl("Half time: %s %s v %s %s" % [
+		GameDB.club_name(my_code), UiKit.scoreline(int(report.get("my_goals", 0)), int(report.get("my_behinds", 0))),
+		GameDB.club_name(opp_code), UiKit.scoreline(int(report.get("opp_goals", 0)), int(report.get("opp_behinds", 0)))],
+		UiKit.BODY, UiKit.TEXT, true)
+	sc.name = "ReportScore"
+	sc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(sc)
+	_glance_section(v, "Match read", "MatchRead", g["read"])
+	_glance_people(v, "Your best", "ReportBest", g["best"])
+	_glance_people(v, "Needs a lift", "ReportLift", g["lift"])
+	_glance_people(v, "Opposition danger", "ReportDanger", g["danger"])
+	_glance_section(v, "Second-half notes", "ReportNotes", g["notes"])
+	return v
+
+
+func _glance_section(v: VBoxContainer, title: String, node_name: String, lines: Array) -> void:
+	if lines.is_empty():
+		return
+	v.add_child(UiKit.spacer(UiKit.GAP))
+	v.add_child(UiKit.section(title))
+	var box := UiKit.vbox(4)
+	box.name = node_name
+	for t in lines:
+		var l := UiKit.lbl(str(t), UiKit.BODY, UiKit.TEXT)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(l)
+	v.add_child(box)
+
+
+func _glance_people(v: VBoxContainer, title: String, node_name: String, people: Array) -> void:
+	if people.is_empty():
+		return
+	v.add_child(UiKit.spacer(UiKit.GAP))
+	v.add_child(UiKit.section(title))
+	var box := UiKit.vbox(6)
+	box.name = node_name
+	for p in people:
+		var row := UiKit.vbox(0)
+		row.add_child(UiKit.ellipsis(str(p["name"]), UiKit.BODY, UiKit.TEXT, true))
+		row.add_child(UiKit.ellipsis(str(p["line"]), UiKit.SMALL, UiKit.MUTED))
+		box.add_child(row)
+	v.add_child(box)
+
+
+## Everything the assistant has: both sides' plans by quarter, the team
+## comparison, every best and quiet player with his numbers. A deliberate tap.
+func _show_full_report(report: Dictionary) -> void:
+	_close_full_report()
+	var box := UiKit.modal_box(self, 860.0, 0.0)
+	var overlay: Control = box["overlay"]
+	overlay.name = "FullReport"
+	_full_report_overlay = overlay
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.ellipsis("Full report", UiKit.H1, UiKit.TEXT, true))
+	v.add_child(_half_time_report_view(report))
+	var close := UiKit.btn("Back to the report", 16, true)
+	close.custom_minimum_size = Vector2(0, 44)
+	close.pressed.connect(_close_full_report)
+	box["footer"].add_child(close)
+
+
+func _close_full_report() -> void:
+	if _full_report_overlay != null and is_instance_valid(_full_report_overlay):
+		_full_report_overlay.queue_free()
+	_full_report_overlay = null
+
+
 func _close_report() -> void:
+	_close_full_report()
 	if _report_overlay != null and is_instance_valid(_report_overlay):
 		_report_overlay.queue_free()
 	_report_overlay = null
@@ -1648,6 +1732,10 @@ func handle_back() -> bool:
 	# A player list opened from the break closes first.
 	if _sheet_overlay != null and is_instance_valid(_sheet_overlay):
 		_close_sheet()
+		return true
+	# The full report goes back to the short one, then that closes.
+	if _full_report_overlay != null and is_instance_valid(_full_report_overlay):
+		_close_full_report()
 		return true
 	# An open report closes first, live or at full time.
 	if _report_overlay != null and is_instance_valid(_report_overlay):

@@ -27,6 +27,7 @@ func run() -> void:
 	_test_full_time()
 	_test_report_roles(res)
 	_test_rating()
+	_test_report_glance()
 	print("Matchday tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -288,3 +289,32 @@ func _test_rating() -> void:
 		lo = minf(lo, float(p90[role]))
 		hi = maxf(hi, float(p90[role]))
 	_check(p90.size() >= 3 and hi - lo <= 1.5, "No position is shut out of good ratings (%s)" % str(p90))
+
+
+## The half-time report at a glance: a few lines and a few players, in words.
+func _test_report_glance() -> void:
+	var bad := ""
+	for seed in [2, 4, 8, 16]:
+		var sim := MatchSim.new(Squad.new("HAW", GameDB.club_list("HAW"), true, "HAW"),
+				Squad.new("BRL", GameDB.club_list("BRL"), false, "BRL"), seed)
+		sim.run_quarter()
+		var res := sim.run_quarter()
+		res["home"] = "HAW"
+		res["away"] = "BRL"
+		var g := CoachReport.glance(CoachReport.half_time_report(res, 0))
+		_check(not (g["read"] as Array).is_empty() and (g["read"] as Array).size() <= 3, "A few lines on the match")
+		_check((g["best"] as Array).size() <= 2 and (g["lift"] as Array).size() <= 2
+				and (g["danger"] as Array).size() <= 2 and (g["notes"] as Array).size() <= 3, "A few players, a few notes")
+		for n in g["notes"]:
+			var t := str(n)
+			for ch in "0123456789":
+				if t.contains(ch):
+					bad = t
+			for w in ADVICE:
+				if t.to_lower().contains(w):
+					bad = t
+		for group in ["best", "lift", "danger"]:
+			for p in g[group]:
+				if str(p["line"]).contains("disp (") or str(p["line"]).contains("CLR") or str(p["line"]).contains("vs par"):
+					bad = str(p["line"])
+	_check(bad == "", "Notes and players read as football, not a stat sheet or advice (%s)" % bad)
