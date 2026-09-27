@@ -85,10 +85,21 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	for side in range(2):
 		synergies[side] = Traits.active((squads[side] as Squad).ground)
 		for p in (squads[side] as Squad).ground:
-			energy[str(p["id"])] = 88.0 if bool(p.get("heavy_legs", false)) else 100.0
+			energy[str(p["id"])] = _start_energy(p)
 			_played[side][str(p["id"])] = true
 		for p in (squads[side] as Squad).bench:
-			energy[str(p["id"])] = 88.0 if bool(p.get("heavy_legs", false)) else 100.0
+			energy[str(p["id"])] = _start_energy(p)
+
+
+## Legs at the first bounce: a heavy week on the track, or playing sore,
+## starts him short of fresh.
+static func _start_energy(p: Dictionary) -> float:
+	var e := 100.0
+	if bool(p.get("heavy_legs", false)):
+		e = 88.0
+	if bool(p.get("sore", false)):
+		e = minf(e, ClubLife.SORE_LEGS)
+	return e
 
 
 func set_tactics(side: int, t: Dictionary) -> void:

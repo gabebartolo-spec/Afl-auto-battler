@@ -20,8 +20,14 @@ const KINDS := ["hamstring", "ankle", "knee", "shoulder", "calf", "concussion",
 ## Chance this player is injured in a game he plays.
 static func chance(p: Dictionary) -> float:
 	var dur := float((p.get("attr", {}) as Dictionary).get("durability", 50))
-	var sore := 4.0 if bool(p.get("sore", false)) else 1.0
-	return BASE_CHANCE * clampf(1.5 - dur / 100.0, 0.5, 1.3) * sore
+	# This week's club calls (ClubLife): playing him sore, a heavy week on
+	# the track, or a recovery week.
+	var week := ClubLife.SORE_RISK if bool(p.get("sore", false)) else 1.0
+	if bool(p.get("heavy_legs", false)):
+		week *= ClubLife.HEAVY_RISK
+	if bool(p.get("fresh", false)):
+		week *= ClubLife.FRESH_RISK
+	return BASE_CHANCE * clampf(1.5 - dur / 100.0, 0.5, 1.3) * week
 
 
 ## After a match: roll for everyone who took the field. `lists` maps club
