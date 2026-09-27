@@ -13,6 +13,15 @@ it. Pages are cached in `data/cache/` (git-ignored). Wikipedia rate-limits
 shared addresses, so the tool backs off and caches; re-run it to fill any
 draft year it reports missing.
 
+The `career` column is every player's AFL career before the game begins
+(2004-2025, finals included) as club stints, taken from the same AFL Tables
+season pages: one page per season covers every player, so the whole league
+needs 22 requests, not one per player. Rows are matched to players by row,
+since a list can carry two players on one number. A player no season page
+matches would get `?` (unknown) rather than zero; none does today. When the
+rating model changes, merge only the columns you mean to refresh: a full
+re-run also re-rates past `seasons`, which moves POT.
+
 ## What we have vs wishlist
 
 Base: `data/players_2026.csv` — 669 players, season totals only:

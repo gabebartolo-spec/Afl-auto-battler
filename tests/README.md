@@ -26,6 +26,7 @@ godot --headless --path . --script tests/run_intake_tests.gd
 godot --headless --path . --script tests/run_intake_ui_tests.gd
 godot --headless --path . --script tests/run_finals_tests.gd
 godot --headless --path . --script tests/run_save_tests.gd
+godot --headless --path . --script tests/run_career_tests.gd
 godot --headless --path . --script tests/run_career_ui_tests.gd
 godot --headless --path . --script tests/run_potential_tests.gd
 godot --headless --path . --script tests/run_ai_tests.gd
@@ -50,6 +51,15 @@ simming the series still crowns a premier,
 that a level final goes to extra time (one siren, a fifth period, the tie
 broken) while a home-and-away draw stays a draw, and that the finals status
 (alive / week off / knocked out) and outcome line are right each week.
+
+The career suite checks career records against the match results
+themselves: one season (finals included, every club), three seasons in a row,
+a star changing clubs (two stints), a save in Grand Final week and reloads
+before and after the close and the rollover (never counted twice), career
+draftees' draft keys (potential unchanged, first season counted from zero),
+the 2026 dataset (every player known, totals equal their stints,
+`p["history"]` untouched) and older saves (loaded, nothing invented, the
+seasons they played marked unknown, tracked normally afterwards).
 
 The save suite reloads a career at every stage (mid-season, mid-draft, mid
 national draft, second season) and checks it is the same career: the next

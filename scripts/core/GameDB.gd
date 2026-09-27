@@ -489,8 +489,16 @@ func _load_players() -> Array:
 ## Attach each player's AFL draft pedigree (drafted_year / drafted_type /
 ## drafted_pick) and his rated recent seasons (history: [[year, overall,
 ## games], ...]) for the potential model. Missing file: no history, POT
-## falls back to age headroom.
+## falls back to age headroom. Also his AFL career to 2025 (p["career"], see
+## Career.gd): a player the file does not cover has an unknown past, not none.
 func _apply_history(list: Array) -> void:
+	_apply_history_rows(list)
+	for p in list:
+		if not p.has("career"):
+			p["career"] = Career.from_source("?")
+
+
+func _apply_history_rows(list: Array) -> void:
 	if not FileAccess.file_exists(HISTORY_CSV):
 		return
 	var rows := _read_rows(HISTORY_CSV)
@@ -503,11 +511,22 @@ func _apply_history(list: Array) -> void:
 	var by_id := {}
 	for p in list:
 		by_id[str(p["id"])] = p
+	var seen := {}
 	for i in range(1, rows.size()):
 		var cells: Array = rows[i]
 		if cells.size() < header.size():
 			continue
-		var p = by_id.get("%s_%s" % [str(cells[idx["club"]]), str(cells[idx["num"]])])
+		var key := "%s_%s" % [str(cells[idx["club"]]), str(cells[idx["num"]])]
+		# The career follows the row to its own player: a second row on one
+		# number (Sydney's #36) is that club's "_2" player, as ids are made.
+		# Draft and history keep their long-standing club + number match.
+		var nth := int(seen.get(key, 0)) + 1
+		seen[key] = nth
+		if idx.has("career"):
+			var own = by_id.get(key if nth == 1 else "%s_%d" % [key, nth])
+			if own != null:
+				own["career"] = Career.from_source(str(cells[idx["career"]]))
+		var p = by_id.get(key)
 		if p == null:
 			continue
 		var pick := str(cells[idx["draft_pick"]])
