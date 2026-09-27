@@ -101,23 +101,38 @@ func _selection_tests() -> void:
 	for id in sel.get("MID", []):
 		target = str(id)
 		break
+	# One position button per row; the move choices are closed until tapped.
+	_check(ui.find_children("To_*", "Button", true, false).is_empty(), "No move buttons until you ask for them")
+	var slot: Button = ui.find_child("Slot_" + target, true, false)
+	_check(slot != null and slot.size.y >= 44 and slot.text.begins_with("Mid"),
+			"Each row shows where he is, as a button (%s)" % (slot.text if slot else "-"))
+	var sc: ScrollContainer = ui.find_child("SelectionScroll", true, false)
+	sc.scroll_vertical = 300
+	await _settle()
+	var at: int = sc.scroll_vertical
+	if slot != null:
+		slot.emit_signal("pressed")
+		await _settle()
 	var move: Node = ui.find_child("Move_" + target, true, false)
 	var to_wing: Button = move.find_child("To_WING", true, false) if move != null else null
-	_check(to_wing != null and to_wing.size.y >= 40, "Each row can move a player to the wing")
-	if to_wing != null:
-		to_wing.emit_signal("pressed")
-		await _settle()
-		_check((_state.my_selection()["WING"] as Array).has(target), "Moving a player to the wing names him there")
-		_check(_screen_text(ui).contains("3 named"), "An over-full wing group says so")
+	_check(to_wing != null and to_wing.size.y >= 44, "The position button opens his move choices")
+	_check(ui.find_children("Move_*", "Node", true, false).size() == 1, "Only one player's choices are open")
 	var viewport := Rect2(Vector2.ZERO, Vector2(root.size))
 	var off := false
 	for b in ui.find_children("To_*", "Button", true, false):
-		# Width is what a phone row must fit; a row half-scrolled past the
-		# bottom of the list is fine.
 		var r: Rect2 = b.get_global_rect()
 		if b.is_visible_in_tree() and (r.position.x < -1.0 or r.end.x > viewport.size.x + 1.0):
 			off = true
-	_check(not off, "The move buttons fit a phone row")
+	_check(not off, "The move choices fit a phone row")
+	if to_wing != null:
+		to_wing.emit_signal("pressed")
+		await _settle()
+		sc = ui.find_child("SelectionScroll", true, false)
+		_check((_state.my_selection()["WING"] as Array).has(target), "Moving a player to the wing names him there")
+		_check(_screen_text(ui).contains("3 named"), "An over-full wing group says so")
+		_check(ui.find_children("To_*", "Button", true, false).is_empty(), "The choices close after a move")
+		_check(sc != null and sc.scroll_vertical == at, "A move keeps your place in the list (%d, was %d)" % [
+				sc.scroll_vertical if sc else -1, at])
 	ui.queue_free()
 	await _settle()
 
@@ -133,6 +148,7 @@ func _selection_tests() -> void:
 	ui.queue_free()
 	await _settle()
 	await _list_tests()
+	await _selection_profile_tests()
 	await _ladder_tests()
 
 
@@ -168,6 +184,49 @@ func _list_tests() -> void:
 		_check(ls.find_child("PlayerProfile", true, false) == null, "Back closes the profile")
 	ls.queue_free()
 	await _settle()
+
+
+## Selection: a tap on a player opens his profile over the list, and closing
+## it leaves the side, the mode and your place in the list as they were.
+func _selection_profile_tests() -> void:
+	_state.set_selection(_state.current_side())
+	var before: Dictionary = _state.my_selection().duplicate(true)
+	var ui := await _open()
+	var sc: ScrollContainer = ui.find_child("SelectionScroll", true, false)
+	sc.scroll_vertical = 600
+	await _settle()
+	var at: int = sc.scroll_vertical
+	var target: Button = null
+	for b in ui.find_children("Profile_*", "Button", true, false):
+		if b.is_visible_in_tree() and b.get_global_rect().position.y > 200:
+			target = b
+			break
+	_check(target != null and target.size.y >= 44, "A player's name area is a thumb-sized tap")
+	if target != null:
+		target.emit_signal("pressed")
+		await _settle()
+		var prof: Node = ui.find_child("PlayerProfile", true, false)
+		_check(prof != null and prof.find_child("ProfileAttributes", true, false) != null,
+				"The tap opens his profile over Selection")
+		_check(ui.call("handle_back") == true, "Back is handled on the profile")
+		await _settle()
+		_check(ui.find_child("PlayerProfile", true, false) == null and _state.my_selection() == before
+				and sc.scroll_vertical == at and is_instance_valid(sc),
+				"Back returns to Selection as it was: same side, same place (%d)" % sc.scroll_vertical)
+	# On a small phone the rating and the position button never overlap.
+	root.size = Vector2i(360, 740)
+	await _settle()
+	var clash := ""
+	for ov in ui.find_children("Ovr", "Label", true, false):
+		var row: Node = ov.get_parent()
+		for sb in row.get_children():
+			if str(sb.name).begins_with("Slot_") and ov.get_global_rect().intersects(sb.get_global_rect()):
+				clash = str(sb.name)
+	_check(clash == "", "Rating and position button sit side by side at 360 wide (%s)" % clash)
+	root.size = Vector2i(420, 860)
+	ui.queue_free()
+	await _settle()
+	_state.set_selection({})
 
 
 ## The ladder first, then the Coleman race one goalkicker to a row, all on

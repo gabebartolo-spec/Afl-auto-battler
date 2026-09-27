@@ -14,6 +14,9 @@ const CHOICES := [["RUCK", "Ruck"], ["MID", "Mid"], ["WING", "Wing"], ["DEF", "D
 var _root: VBoxContainer
 var _notice := ""
 var _synergy_overlay: Control
+var _sheet: Control             # a player's profile, open over the list
+var _open_move := ""            # the one player whose move choices are open
+var _scroll_box: ScrollContainer
 
 
 func _ready() -> void:
@@ -34,6 +37,8 @@ func _ready() -> void:
 
 
 func _build() -> void:
+	# A move or a resize rebuilds the list: keep your place in it.
+	var keep := _scroll_box.scroll_vertical if is_instance_valid(_scroll_box) else 0
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Team selection", true))
 	var auto := GameState.my_selection().is_empty()
@@ -61,7 +66,7 @@ func _build() -> void:
 	mine_btn.pressed.connect(func():
 		if GameState.my_selection().is_empty():
 			GameState.set_selection(GameState.current_side())
-			_notice = "Starting from the auto-picked 22. Move anyone with the buttons."
+			_notice = "Starting from the auto-picked 22. Tap a player's position to move him."
 		_build())
 	modes.add_child(mine_btn)
 	var help := "Auto-pick fields a sensible side by position and rating each week." if auto \
@@ -74,7 +79,10 @@ func _build() -> void:
 
 
 	var body := UiKit.vbox(6)
-	_root.add_child(UiKit.scroll(body))
+	_scroll_box = UiKit.scroll(body)
+	_scroll_box.name = "SelectionScroll"
+	_root.add_child(_scroll_box)
+	_restore_scroll.call_deferred(keep)
 	var week := _this_week()
 	if week != null:
 		body.add_child(week)
@@ -170,8 +178,33 @@ func _close_synergies() -> void:
 	_synergy_overlay = null
 
 
-## Android Back closes the synergy guide before leaving Selection.
+func _restore_scroll(value: int) -> void:
+	# After the rebuilt list has its height, or the offset is clamped to 0.
+	await get_tree().process_frame
+	if is_instance_valid(_scroll_box):
+		_scroll_box.scroll_vertical = value
+
+
+## A player's profile over the list; closing it leaves the list untouched.
+func _open_profile(id: String) -> void:
+	var p := GameState.list_player(id)
+	if p.is_empty():
+		return
+	_close_profile()
+	_sheet = PlayerSheet.open(self, p, func(): _sheet = null)
+
+
+func _close_profile() -> void:
+	if _sheet != null and is_instance_valid(_sheet):
+		_sheet.queue_free()
+	_sheet = null
+
+
+## Android Back closes a profile, then the synergy guide, before leaving.
 func handle_back() -> bool:
+	if _sheet != null and is_instance_valid(_sheet):
+		_close_profile()
+		return true
 	if _synergy_overlay != null and is_instance_valid(_synergy_overlay):
 		_close_synergies()
 		return true
@@ -193,8 +226,25 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	card.add_theme_stylebox_override("panel", sb)
 	var v := UiKit.vbox(4)
 	card.add_child(v)
+	var top := UiKit.hbox(8)
+	v.add_child(top)
+	# Who he is: a tap opens his profile over the list.
+	var who_btn := Button.new()
+	who_btn.name = "Profile_" + str(p["id"])
+	who_btn.flat = true
+	who_btn.focus_mode = Control.FOCUS_NONE
+	who_btn.custom_minimum_size = Vector2(0, 46)
+	who_btn.mouse_filter = Control.MOUSE_FILTER_PASS
+	who_btn.tooltip_text = "Open his profile"
+	who_btn.pressed.connect(_open_profile.bind(str(p["id"])))
+	who_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	who_btn.clip_contents = true
+	top.add_child(who_btn)
+	var who_box := UiKit.vbox(4)
+	who_box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	who_btn.add_child(who_box)
 	var h := UiKit.hbox(6)
-	v.add_child(h)
+	who_box.add_child(h)
 	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
 	var nm := UiKit.ellipsis(GameDB.player_display_name(p), 15, UiKit.TEXT, true)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -218,29 +268,55 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	elif placed_as != "" and placed_as != "BENCH" and str(p["role"]) != placed_as \
 			and str(p.get("role2", "")) != placed_as:
 		h.add_child(UiKit.line("Out of position", 12, UiKit.MUTED))
-	h.add_child(UiKit.line("%d" % int(p["overall"]), 16, UiKit.TEXT, true))
+	# His rating sits outside the tap area, beside the position button, so a
+	# long trait line never runs under either.
+	var ovr := UiKit.line("%d" % int(p["overall"]), 16, UiKit.TEXT, true)
+	ovr.name = "Ovr"
+	ovr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	ovr.custom_minimum_size.x = 28
+	ovr.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	top.add_child(ovr)
 	# Who he is, then his traits: one quiet line.
 	var about := UiKit.trait_chips(p)
 	var who := UiKit.line(Roles.label(p), 13, UiKit.TEXT)
 	who.name = "RoleLabel"
 	about.add_child(who)
 	about.move_child(who, 0)
-	v.add_child(about)
+	who_box.add_child(about)
+	_ignore_mouse(who_box)
+	who_btn.custom_minimum_size.y = maxf(46.0, who_box.get_combined_minimum_size().y)
 	if auto:
 		return card
-	var choices := UiKit.hbox(3)
-	choices.name = "Move_" + str(p["id"])
-	v.add_child(choices)
-	var current := _named_role(str(p["id"]))
-	for c in CHOICES:
-		var key: String = c[0]
-		var b := UiKit.tab(str(c[1]), key == current)
-		b.custom_minimum_size = Vector2(0, 40)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.name = "To_" + key
-		b.pressed.connect(_move.bind(str(p["id"]), "" if key == "OUT" else key))
-		choices.add_child(b)
+	# Where he is now, as a button: a tap opens his move choices under the
+	# row (one row at a time), a second tap closes them.
+	var id := str(p["id"])
+	var current := _named_role(id)
+	var slot_btn := UiKit.btn("%s  ▾" % _short_label(current), 14)
+	slot_btn.name = "Slot_" + id
+	slot_btn.custom_minimum_size = Vector2(92, 44)
+	slot_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slot_btn.tooltip_text = "Move him"
+	UiKit.paint_choice(slot_btn, _open_move == id)
+	slot_btn.pressed.connect(func():
+		_open_move = "" if _open_move == id else id
+		_build())
+	top.add_child(slot_btn)
+	if _open_move == id:
+		var move := UiKit.vbox(0)
+		move.name = "Move_" + id
+		var cols := 4 if UiKit.view_width(self) < 560.0 else CHOICES.size()
+		move.add_child(UiKit.choice_grid("To", CHOICES, current if current != "" else "OUT", cols,
+				func(key: String): _move(id, "" if key == "OUT" else key)))
+		v.add_child(move)
 	return card
+
+
+## "Wing", "Bench", "Out"... for the position button.
+func _short_label(role: String) -> String:
+	for c in CHOICES:
+		if str(c[0]) == role:
+			return str(c[1])
+	return "Not picked"
 
 
 ## Where the player is named in your selection ("" = not named).
@@ -253,6 +329,7 @@ func _named_role(id: String) -> String:
 
 
 func _move(id: String, to_role: String) -> void:
+	_open_move = ""
 	var sel := GameState.my_selection().duplicate(true)
 	for slot in SLOTS + [["OUT"]]:
 		var arr: Array = sel.get(str(slot[0]), [])
@@ -308,3 +385,10 @@ func _para(text: String, size: int, colour: Color) -> Label:
 	var l := UiKit.lbl(text, size, colour)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
+
+
+func _ignore_mouse(node: Control) -> void:
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c in node.get_children():
+		if c is Control:
+			_ignore_mouse(c)

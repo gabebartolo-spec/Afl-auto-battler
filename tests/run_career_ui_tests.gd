@@ -126,9 +126,15 @@ func _run() -> void:
 		await _settle()
 	var ft = current_scene.find_child("FullTime", true, false)
 	_check(_router.current() == "match" and ft != null, "Review match opens the full-time summary")
-	for n in ["Verdict", "MatchFactors", "BestPlayers", "YourWeek", "MatchStatsButton"]:
+	for n in ["Verdict", "MatchFactors", "BestPlayers", "YourWeek", "ReviewTab_stats"]:
 		_check(ft != null and ft.find_child(n, true, false) != null, "The review shows %s" % n)
-	var sb = ft.find_child("MatchStatsButton", true, false) if ft != null else null
+	var ft_text := ""
+	if ft != null:
+		for l in ft.find_children("*", "Label", true, false):
+			ft_text += str(l.text) + "\n"
+	_check(not ft_text.contains("rose in OVR") and not ft_text.contains("in the reserves"),
+			"Full time does not repeat the training result; Training has it")
+	var sb = ft.find_child("ReviewTab_stats", true, false) if ft != null else null
 	if sb != null:
 		sb.emit_signal("pressed")
 		await _settle()
@@ -203,6 +209,10 @@ func _run() -> void:
 	await _settle()
 	_check(not _state.my_selection().is_empty(), "My selection starts from this week's side")
 	var first_mid := str(_state.my_selection()["MID"][0])
+	var slot_btn = current_scene.find_child("Slot_" + first_mid, true, false)
+	if slot_btn != null:
+		slot_btn.emit_signal("pressed")
+		await _settle()
 	var out_btn = current_scene.find_child("Move_" + first_mid, true, false)
 	out_btn = out_btn.find_child("To_OUT", true, false) if out_btn != null else null
 	_check(out_btn != null, "Each player has move buttons")
@@ -241,15 +251,21 @@ func _run() -> void:
 	var first: Dictionary = _state.my_list[0]
 	current_scene.call("_open_player", str(first["id"]))
 	await _settle()
-	var picker: OptionButton = current_scene.find_child("PlayerPlan", true, false)
-	var target := -1
-	for i in range(picker.item_count):
-		if str(picker.get_item_metadata(i)) == "manual":
-			target = i
-	picker.select(target)
-	picker.emit_signal("item_selected", target)
+	var picker: Node = current_scene.find_child("PlayerPlan", true, false)
+	_check(picker != null and current_scene.find_children("*", "OptionButton", true, false).is_empty(),
+			"Plans are taps, not a dropdown")
+	var plan_btns := picker.find_children("PlayerPlan_*", "Button", false, false) if picker != null else []
+	_check(plan_btns.size() == _state.plans_for(first).size(), "Every plan he can follow is shown (%d)" % plan_btns.size())
+	var small_plan := false
+	for b in plan_btns:
+		if b.size.y < 44:
+			small_plan = true
+	_check(not small_plan, "Every plan is a thumb-sized tap")
+	var manual_btn: Button = picker.find_child("PlayerPlan_manual", false, false) if picker != null else null
+	if manual_btn != null:
+		manual_btn.emit_signal("pressed")
 	await _settle()
-	_check(_state.plan_for(first) == "manual", "The player plan picker sets his plan")
+	_check(_state.plan_for(first) == "manual", "Tapping a plan sets his plan")
 	_check(current_scene.find_child("ManualWarning", true, false) != null,
 			"Manual is flagged as paused development in the player view")
 	var adv: Button = current_scene.find_child("AdvancedToggle", true, false)
