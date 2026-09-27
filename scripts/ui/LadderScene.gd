@@ -39,28 +39,33 @@ func _build() -> void:
 			else "After %d of %d rounds" % [season.round_index, Season.REGULAR_ROUNDS]
 	_root.add_child(UiKit.subtitle(info))
 
+	# The ladder, then the season's subplots below it; the page scrolls only
+	# when the finals bracket or a short screen needs it.
+	var body := UiKit.vbox(18)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_root.add_child(UiKit.scroll(body))
 	var p := UiKit.panel(UiKit.PANEL, 12)
-	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_root.add_child(p)
-	var v := UiKit.vbox(2)
-	p.add_child(v)
-	v.add_child(UiKit.scroll(UiKit.ladder_table(season.ladder_sorted(), GameState.my_club,
-			_content_width() - 24.0, 0, true)))
+	body.add_child(p)
+	p.add_child(UiKit.ladder_table(season.ladder_sorted(), GameState.my_club,
+			_content_width() - 24.0, 0, true))
 
-	var leaders := GameState.coleman_leaders(5)
-	if not leaders.is_empty() and int(leaders[0]["goals"]) > 0:
-		var names := []
-		for r in leaders:
-			names.append("%s (%s) %d" % [GameState.award_name(r), GameDB.club_short(str(r["club"])), int(r["goals"])])
-		var cl := UiKit.lbl("Coleman: " + ",  ".join(names), 13, UiKit.TEXT)
-		cl.name = "ColemanLeaders"
-		cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_root.add_child(cl)
+	var coleman := _coleman()
+	if coleman != null:
+		# Rows line up with the ladder's, inside its panel padding.
+		var inset := MarginContainer.new()
+		inset.add_theme_constant_override("margin_left", 12)
+		inset.add_theme_constant_override("margin_right", 12)
+		inset.add_child(coleman)
+		# On a wide screen, keep a name within reach of his goals.
+		if _content_width() > 640.0:
+			inset.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			coleman.custom_minimum_size.x = 460
+		body.add_child(inset)
 
 	if not season.finals.is_empty():
-		_root.add_child(UiKit.lbl("Finals Series", 18, UiKit.EMPH, true))
+		body.add_child(UiKit.lbl("Finals Series", 18, UiKit.EMPH, true))
 		var fp := UiKit.panel(UiKit.PANEL, 12)
-		_root.add_child(fp)
+		body.add_child(fp)
 		var fv := UiKit.vbox(4)
 		fp.add_child(fv)
 		for week in season.finals.get("weeks", []):
@@ -70,6 +75,41 @@ func _build() -> void:
 					str(season.finals["premier"])), 17, UiKit.GOOD, true))
 		else:
 			fv.add_child(UiKit.ellipsis("Next: %s" % _next_finals_label(), 13, UiKit.MUTED))
+
+
+## The Coleman Medal race: the leading goalkickers, one to a row. Null
+## before anyone has kicked a goal.
+func _coleman() -> Control:
+	var leaders := GameState.coleman_leaders(5)
+	if leaders.is_empty() or int(leaders[0]["goals"]) <= 0:
+		return null
+	var v := UiKit.vbox(4)
+	v.name = "ColemanLeaders"
+	v.add_child(UiKit.section("Coleman Medal"))
+	var rank := 0
+	for i in range(leaders.size()):
+		var r: Dictionary = leaders[i]
+		if int(r["goals"]) <= 0:
+			break
+		# Level on goals, level in the race.
+		if i == 0 or int(r["goals"]) != int(leaders[i - 1]["goals"]):
+			rank = i + 1
+		var mine := str(r["club"]) == GameState.my_club
+		var h := UiKit.hbox(10)
+		h.name = "Coleman_%d" % (i + 1)
+		var n := UiKit.line(str(rank), 15, UiKit.MUTED)
+		n.custom_minimum_size.x = 22
+		h.add_child(n)
+		var who := UiKit.ellipsis(GameState.award_name(r), 16, UiKit.TEXT, mine)
+		who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(who)
+		h.add_child(UiKit.line(GameDB.club_short(str(r["club"])), 14, UiKit.MUTED))
+		var g := UiKit.line(str(int(r["goals"])), 17, UiKit.TEXT, true)
+		g.custom_minimum_size.x = 30
+		g.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		h.add_child(g)
+		v.add_child(h)
+	return v
 
 
 func _next_finals_label() -> String:
