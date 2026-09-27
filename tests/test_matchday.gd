@@ -251,44 +251,53 @@ func _test_report_roles(res: Dictionary) -> void:
 	_check(line == "MID", "A midfielder named in the ruck is still a MID in the report (%s)" % line)
 
 
-## The player rating: one match, many ways to a good game, no single stat
-## running away with it, and a fair shot for every position.
+## The player rating: a fantasy-style score for one match, many ways to a
+## big game, and a real path to best on ground for every position.
 func _test_rating() -> void:
-	var r := func(st: Dictionary) -> float: return MatchNotes.rating(st)
-	var key_fwd: float = r.call({"goals": 5.0, "behinds": 2.0, "marks": 9.0, "kicks": 9.0, "handballs": 2.0, "inside50": 1.0})
-	var mid: float = r.call({"kicks": 16.0, "handballs": 14.0, "clearances": 9.0, "tackles": 7.0, "inside50": 6.0, "marks": 4.0, "goals": 1.0})
-	var back: float = r.call({"kicks": 15.0, "handballs": 5.0, "marks": 9.0, "rebounds": 8.0, "one_percenters": 9.0, "tackles": 3.0})
-	var ruck: float = r.call({"hitouts": 32.0, "clearances": 5.0, "kicks": 6.0, "handballs": 6.0, "marks": 3.0, "tackles": 3.0})
+	var r := func(st: Dictionary) -> int: return MatchNotes.rating(st)
+	var key_fwd: int = r.call({"goals": 5.0, "behinds": 2.0, "marks": 9.0, "kicks": 9.0, "handballs": 2.0, "inside50": 1.0})
+	var mid: int = r.call({"kicks": 16.0, "handballs": 14.0, "clearances": 9.0, "tackles": 7.0, "inside50": 6.0, "marks": 4.0, "goals": 1.0})
+	var back: int = r.call({"kicks": 15.0, "handballs": 5.0, "marks": 9.0, "rebounds": 8.0, "one_percenters": 9.0, "tackles": 3.0})
+	var ruck: int = r.call({"hitouts": 32.0, "clearances": 5.0, "kicks": 6.0, "handballs": 6.0, "marks": 3.0, "tackles": 3.0})
 	for x in [["key forward", key_fwd], ["midfielder", mid], ["defender", back], ["ruck", ruck]]:
-		_check(float(x[1]) >= 7.0, "A big game rates well for a %s (%.1f)" % x)
-	var empty: float = r.call({"kicks": 6.0, "handballs": 20.0, "clangers": 4.0})
-	_check(empty < 5.0, "Twenty-six touches and little else is an ordinary game (%.1f)" % empty)
-	_check(float(r.call({})) <= 2.0 and float(r.call({"clangers": 10.0, "frees_against": 6.0})) == 0.0,
-			"No contribution rates low; the floor is 0")
-	_check(float(r.call({"goals": 30.0})) <= 10.0, "The scale tops out at 10")
-	_check(float(r.call({"goals": 1.0})) < float(r.call({"goals": 1.0, "tackles": 5.0})), "More contribution, higher rating")
-	_check(MatchNotes.rating_text(7.0) == "7.0", "One decimal, always")
+		_check(int(x[1]) >= 95, "A big game rates as one for a %s (%d)" % x)
+	var empty: int = r.call({"kicks": 6.0, "handballs": 20.0, "clangers": 4.0})
+	_check(empty < 50, "Twenty-six touches and little else is a quiet game (%d)" % empty)
+	_check(int(r.call({})) == 0 and int(r.call({"clangers": 10.0, "frees_against": 6.0})) == 0,
+			"No contribution rates 0; the floor is 0")
+	_check(r.call({"kicks": 1.0}) is int, "The rating is a whole number")
+	_check(int(r.call({"goals": 1.0})) < int(r.call({"goals": 1.0, "tackles": 5.0})), "More contribution, higher rating")
+	_check(int(r.call({"marks": 5.0, "frees_against": 1.0, "clangers": 1.0})) == 12,
+			"A free against costs 3 in all (it is also a clanger)")
+	_check(MatchNotes.rating_text(118) == "118", "Shown as a whole number")
 	# Parity: across real simulated matches, each position's better games
-	# reach similar ratings (the 90th percentile within a point and a half).
+	# reach similar ratings, and forwards and defenders are sometimes a
+	# side's best (midfielders are not the only way to top a side).
 	var by := {"DEF": [], "MID": [], "FWD": [], "RUCK": []}
-	var clubs := ["COL", "CAR", "GEE", "SYD", "BRL", "MEL", "HAW", "ESS", "FRE", "ADE"]
-	for i in range(6):
+	var best := {}
+	var clubs := ["COL", "CAR", "GEE", "SYD", "BRL", "MEL", "HAW", "ESS", "FRE", "ADE", "GWS", "PAD"]
+	for i in range(8):
 		var res := _match(40 + i, clubs[i], clubs[i + 4])
 		for side in [0, 1]:
-			for p in MatchNotes.rated_players(res, side):
-				(by[str(p["role"])] as Array).append(float(p["rating"]))
+			var rated := MatchNotes.rated_players(res, side)
+			for p in rated:
+				(by[str(p["role"])] as Array).append(int(p["rating"]))
+			for p in rated.slice(0, 3):
+				best[str(p["role"])] = int(best.get(str(p["role"]), 0)) + 1
 	var p90 := {}
 	for role in by:
 		var v: Array = by[role]
 		v.sort()
 		if v.size() >= 5:
-			p90[role] = float(v[int(v.size() * 0.9)])
-	var lo := 10.0
-	var hi := 0.0
-	for role in p90:
-		lo = minf(lo, float(p90[role]))
-		hi = maxf(hi, float(p90[role]))
-	_check(p90.size() >= 3 and hi - lo <= 1.5, "No position is shut out of good ratings (%s)" % str(p90))
+			p90[role] = int(v[int(v.size() * 0.9)])
+	var lo := 999
+	var hi := 0
+	for role in ["DEF", "MID", "FWD"]:
+		lo = mini(lo, int(p90.get(role, 0)))
+		hi = maxi(hi, int(p90.get(role, 0)))
+	_check(p90.size() >= 3 and hi - lo <= 30, "No position is shut out of big ratings (%s)" % str(p90))
+	_check(int(best.get("FWD", 0)) >= 1 and int(best.get("DEF", 0)) >= 1,
+			"Forwards and defenders make their side's top three (%s)" % str(best))
 
 
 ## The half-time report at a glance: a few lines and a few players, in words.

@@ -420,39 +420,36 @@ static func standouts(res: Dictionary, side: int, n: int) -> Array:
 # ---------------------------------------------------------------------------
 # Player rating: one number for one match
 # ---------------------------------------------------------------------------
-## What each tracked stat is worth toward a player's rating. Read from THIS
-## match's box score only (never OVR). Possession counts, but less than what
-## it does: a handball is worth little, a goal a lot. Tuned over simulated
-## matches so defenders, midfielders, forwards and rucks reach the same top
-## ratings their own ways (see docs/DESIGN.md, Player rating).
-const RATING_WEIGHTS := {
-	"goals": 5.0, "behinds": 0.6, "goal_assists": 0.6,
-	"kicks": 0.30, "handballs": 0.15, "marks": 0.7,
-	"tackles": 0.8, "clearances": 0.9, "inside50": 0.4,
-	"rebounds": 0.9, "one_percenters": 0.9, "hitouts": 0.5,
-	"clangers": -0.6, "frees_against": -0.8,
+## Points per recorded stat, on a fantasy-style scale: an ordinary game is
+## 50-80, a strong one 80-105, best on ground 110 and up, a freak game 150+.
+## Read from THIS match's box score only - never OVR, value or potential.
+##
+## Tuned over 400 simulated matches so every position has a path to best on
+## ground. The engine gives forwards few touches (about 9 a game) and rucks
+## about a third of real hit-outs, so possession counts for less than in
+## AFL Fantasy and scoreboard impact for more: a goal is 14, a hit-out 3.
+## "goal_assists" is the engine's forward-50 delivery (credited on every
+## entry, not only goals), so it is scored as creation, like an inside 50.
+## A clearance is always followed by the disposal it produces, so it earns
+## nothing extra. Every free against is also a clanger: -3 in all.
+const RATING_POINTS := {
+	"kicks": 2, "handballs": 1, "marks": 3, "tackles": 3,
+	"goals": 14, "behinds": 1, "hitouts": 3,
+	"inside50": 1, "goal_assists": 3, "rebounds": 3, "one_percenters": 1,
+	"clangers": -2, "frees_against": -1,
 }
-## Contribution to rating: an average game is about 5, a very good one 7.5,
-## a best-on-ground 8.5 and up. Above 8 each point comes at half the rate,
-## so 10 stays out of reach but for the game of the season.
-const RATING_BASE := 1.5
-const RATING_SLOPE := 0.2
-const RATING_KNEE := 8.0
 
 
-static func rating(st: Dictionary) -> float:
-	var raw := 0.0
-	for k in RATING_WEIGHTS:
-		raw += float(RATING_WEIGHTS[k]) * float(st.get(k, 0.0))
-	var r := RATING_BASE + raw * RATING_SLOPE
-	if r > RATING_KNEE:
-		r = RATING_KNEE + (r - RATING_KNEE) * 0.5
-	return snappedf(clampf(r, 0.0, 10.0), 0.1)
+## A whole number, never below 0.
+static func rating(st: Dictionary) -> int:
+	var total := 0.0
+	for k in RATING_POINTS:
+		total += float(RATING_POINTS[k]) * float(st.get(k, 0.0))
+	return maxi(0, int(round(total)))
 
 
-## "7.4": one decimal, always.
-static func rating_text(r: float) -> String:
-	return "%.1f" % r
+static func rating_text(r) -> String:
+	return str(int(r))
 
 
 ## Every player of a side who took the field, best rated first:
