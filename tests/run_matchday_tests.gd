@@ -171,8 +171,29 @@ func _phone_match(sz: Vector2i) -> void:
 	m.call("_on_skip")
 	for i in range(60):
 		await process_frame
-	var ft := _text(m)
-	_check(ft.contains("Full time"), "Full time is unmistakable (%s)" % tag)
+	var ft_box: Node = m.find_child("FullTime", true, false)
+	var ft := _text(ft_box)
+	_check(ft_box != null and ft.contains("Full time"), "Full time is unmistakable (%s)" % tag)
+	var verdict: Label = ft_box.find_child("Verdict", true, false) if ft_box != null else null
+	_check(verdict != null and (verdict.text.begins_with("Won by") or verdict.text.begins_with("Lost by")
+			or verdict.text == "Draw"), "Full time leads with the result (%s: %s)" % [tag, verdict.text if verdict else "-"])
+	for n in ["MatchFactors", "BestPlayers", "KeyStats", "FinalScore_0", "FinalScore_1"]:
+		_check(ft_box != null and ft_box.find_child(n, true, false) != null, "Full time shows %s (%s)" % [n, tag])
+	_check(not ft.contains("pts") and not ft.contains("Expected points") and not ft.contains("Possession chains"),
+			"The full-time screen keeps the analysis a tap away (%s)" % tag)
+	_check(not ft.contains(" XP"), "Development reads in words at full time, not XP (%s)" % tag)
+	var stats_btn: Button = ft_box.find_child("MatchStatsButton", true, false) if ft_box != null else null
+	_check(stats_btn != null and stats_btn.size.y >= 44, "Match stats is one tap away (%s)" % tag)
+	if stats_btn != null:
+		stats_btn.emit_signal("pressed")
+		await _settle()
+		var ms: Node = m.find_child("MatchStats", true, false)
+		_check(ms != null and _text(ms).contains("Quarter by quarter") and _text(ms).contains("Box score"),
+				"Match stats holds the full numbers (%s)" % tag)
+		_check(m.call("handle_back") == true, "Back closes match stats first (%s)" % tag)
+		await _settle()
+		_check(m.find_child("MatchStats", true, false) == null and m.find_child("FullTime", true, false) != null,
+				"...and stays on full time (%s)" % tag)
 	m.queue_free()
 	await _settle()
 

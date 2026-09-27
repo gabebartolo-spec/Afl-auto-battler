@@ -316,6 +316,14 @@ log or its quarter snapshots, never decided by the screen.
   (the exact percentages stay in the assistant's report). Legs read in words:
   fresh, tiring, running on empty. The break surfaces the problem; it never
   names the answer.
+- **Full time.** The result first and big (won or lost by how much, both
+  scores), then what it means (finals, the ladder, who is next), "How it went"
+  (two to four reasons from the result: a run of unanswered goals, a quarter
+  that swung it, the stoppages, territory read against the result, kicking,
+  pressure), the best players with their game in a few words, four key team
+  numbers and your week (injuries, who improved, reserves development). The
+  quarter table, every team stat, both box scores and what your calls were
+  worth in expected points sit behind "Match stats".
 
 ### Half-time assistant coach report
 The assistant's report is one tap away at half time and at full time

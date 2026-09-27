@@ -1332,6 +1332,15 @@ func reserves_summary_line() -> String:
 			"player" if n == 1 else "players", each]
 
 
+## The same, in words, for the hub and full time: fit players left out of
+## the 22 still develop in the reserves (at half a senior game's rate).
+func reserves_words_line() -> String:
+	var n := int(last_training_report.get("reserves_count", 0))
+	if n <= 0:
+		return ""
+	return "%d %s kept developing in the reserves." % [n, "player" if n == 1 else "players"]
+
+
 ## What the last game's training changed, in one line: "Training: 3 players
 ## rose in OVR (Smith 71 to 72, ...). Jones unlocked Sharpshooter." - or ""
 ## when nothing visible changed. Stat points alone are not news.

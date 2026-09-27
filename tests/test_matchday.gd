@@ -24,6 +24,7 @@ func run() -> void:
 	_test_quarter_facts(res)
 	_test_half_time_keys()
 	_test_legs_words()
+	_test_full_time()
 	print("Matchday tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -184,3 +185,33 @@ func _test_legs_words() -> void:
 			"The break describes calls without percentages")
 	_check(CoachReport.plan_summary("attacking").contains("Controlled tempo"),
 			"A plan's summary still says what it beats")
+
+
+func _test_full_time() -> void:
+	var bad := ""
+	var total := 0
+	for seed in [1, 6, 12, 19, 27, 33]:
+		var r := _match(seed, "MEL", "ESS")
+		for side in [0, 1]:
+			var f: Array = MatchNotes.match_factors(r, side)
+			_check(f.size() >= 1 and f.size() <= MatchNotes.MAX_FACTORS, "Two to four reasons, never none")
+			total += f.size()
+			for t in f:
+				var low := str(t).to_lower()
+				for w in ADVICE:
+					if low.contains(w):
+						bad = str(t)
+				if low.contains("%") or low.contains("pts") or low.contains("expected"):
+					bad = str(t)
+		var best := MatchNotes.standouts(r, 0, 3)
+		_check(best.size() == 3 and str(best[0]["line"]) != "", "Standouts come with their game in words")
+		for p in best:
+			if str(p["line"]).contains("CLR") or str(p["line"]).contains("disp "):
+				bad = str(p["line"])
+	_check(total > 12, "Matches produce reasons (%d)" % total)
+	_check(bad == "", "Full-time reasons are football, not a stat sheet or advice (%s)" % bad)
+	_check(MatchNotes.game_line({"disposals": 31.0, "clearances": 8.0, "goals": 0.0}) == "31 disposals, 8 clearances",
+			"A midfielder's game in a few words")
+	_check(MatchNotes.game_line({"disposals": 12.0, "goals": 4.0}) == "4 goals", "A forward's game is his goals")
+	var ks := MatchNotes.key_stats(_match(3), 0)
+	_check(ks.size() == 4 and str(ks[0][0]) == "Disposals", "Four key stats at full time")
