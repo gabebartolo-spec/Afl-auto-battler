@@ -41,6 +41,26 @@ const PEP_EFFECTS := {
 	"calm": "Settle them down: 8% fewer clangers, 5% less pressure felt and legs last longer, but 5% less ground gained.",
 }
 
+## The same calls in football words, for the quarter break: what the call
+## does and what beats it, without the percentages (those stay in the
+## assistant's report, behind a tap).
+const PLAN_SUMMARY := {
+	"balanced": "Play it straight.",
+	"attacking": "Go through the corridor: more ground and better shots, but more turnovers and heavier legs. Beats Controlled tempo; a Defensive press squeezes it.",
+	"defensive": "Press up the ground: harder to score against, fewer numbers forward, heavier legs. Beats Attack corridor; Controlled tempo plays through it.",
+	"contest": "Numbers at the stoppage: win more of the clearances, move the ball a little slower.",
+	"controlled": "Keep the ball: fewer errors and fresher legs, less ground gained. Plays through a Defensive press; Attack corridor runs past it.",
+	"through_stars": "Get the ball to your stars (rated 82 and up). Easy to read: expect a tag.",
+	"fast": "Move it quickly: more ground and better shots, more errors.",
+	"press": "Press high: more pressure on them, fewer numbers forward.",
+}
+
+const PEP_SUMMARY := {
+	"steady": "",
+	"fire_up": "More intensity at the contest; legs go quicker.",
+	"calm": "Fewer errors and less rattled by pressure, legs last longer; a little less ground gained.",
+}
+
 const TEAM_COMPARE := [
 	["disposals", "Disposals", 4, false],
 	["marks", "Marks", 3, false],
@@ -90,6 +110,14 @@ static func plan_label(key: String) -> String:
 
 static func plan_effect(key: String) -> String:
 	return str(PLAN_EFFECTS.get(key, str(PLAN_EFFECTS["balanced"])))
+
+
+static func plan_summary(key: String) -> String:
+	return str(PLAN_SUMMARY.get(key, PLAN_SUMMARY["balanced"]))
+
+
+static func pep_summary(key: String) -> String:
+	return str(PEP_SUMMARY.get(key, ""))
 
 
 static func pep_label(key: String) -> String:
@@ -494,6 +522,9 @@ static func _signed(n: int) -> String:
 	return str(n)
 
 
+## What stands out at half time: the problems and the strengths, in the
+## assistant's words. It says what is happening, never which call to make -
+## that is the coach's job.
 static func _second_half_keys(res: Dictionary, my_side: int, opp_side: int, my_team: Dictionary, opp_team: Dictionary, my_ranked: Array, _opp_ranked: Array, _my_best: Array, opp_best: Array, eff: Dictionary) -> Array:
 	var keys: Array = []
 	var score: Array = res.get("score", [0, 0])
@@ -502,81 +533,68 @@ static func _second_half_keys(res: Dictionary, my_side: int, opp_side: int, my_t
 	var margin := my_score - opp_score
 	var edges: Array = _team_edges(my_team, opp_team)
 
-	# 1. Danger man - the opposition ball-winner hurting us most.
+	# 1. Danger man - the opposition player hurting us most.
 	if not opp_best.is_empty():
 		var danger: Dictionary = opp_best[0]
 		if float(danger["influence"]) >= 14.0 and float(danger["delta"]) >= 2.0:
-			keys.append("Tag %s? %s - %s. Holding him to 55%% ball would blunt them." % [
+			keys.append("%s is hurting us: %s - %s." % [
 				str(danger["name"]), str(danger["line"]), _form_word(float(danger["delta"]))])
 
 	# 2. Our quiet star - a high-rated player well below par.
-	var spark := {}
 	for p in my_ranked:
 		if int(p["overall"]) >= 76 and float(p["delta"]) <= -4.0:
-			spark = p
+			keys.append("%s has been quiet: %s." % [str(p["name"]), str(p["line"])])
 			break
-	if not spark.is_empty():
-		keys.append("Lift %s (%s, OVR %d). Run play through him to spark the second half." % [
-			str(spark["name"]), str(spark["line"]), int(spark["overall"])])
 
 	# 3. Stoppage.
 	var clr := _edge(edges, "clearances")
 	if int(clr["diff"]) <= -4:
-		keys.append("Stoppage is killing us (%d-%d clearances). Win contest or Fire them up adds clearance win." % [
-			int(clr["my"]), int(clr["opp"])])
+		keys.append("They are winning the stoppages: clearances %d to %d." % [int(clr["opp"]), int(clr["my"])])
 	elif int(clr["diff"]) >= 4:
-		keys.append("On top at stoppage (+%d clearances). Keep numbers at the contest." % int(clr["diff"]))
+		keys.append("We are on top at the stoppages: clearances %d to %d." % [int(clr["my"]), int(clr["opp"])])
 
 	# 4. Territory.
 	var i50 := _edge(edges, "inside50")
 	if int(i50["diff"]) <= -5:
-		keys.append("Losing territory (%d-%d inside 50s). Controlled tempo or Through stars can stabilise exits." % [
-			int(i50["my"]), int(i50["opp"])])
+		keys.append("They have had more of the ball going forward: %d inside 50s to %d." % [
+			int(i50["opp"]), int(i50["my"])])
 	elif int(i50["diff"]) >= 5:
-		keys.append("Territory dominance (+%d inside 50s). Keep attacking while entries are coming." % int(i50["diff"]))
+		keys.append("We have had more of the ball going forward: %d inside 50s to %d." % [
+			int(i50["my"]), int(i50["opp"])])
 
 	# 5. Pressure.
 	var tkl := _edge(edges, "tackles")
 	if int(tkl["diff"]) <= -6:
-		keys.append("Their pressure is elite (%d tackles to our %d). Controlled tempo lowers pressure taken." % [
-			int(tkl["opp"]), int(tkl["my"])])
+		keys.append("Their pressure is getting to us: %d tackles to our %d." % [int(tkl["opp"]), int(tkl["my"])])
 	elif int(tkl["diff"]) >= 6:
-		keys.append("Our pressure is working (+%d tackles). Keep the press on." % int(tkl["diff"]))
+		keys.append("Our pressure is biting: %d tackles to their %d." % [int(tkl["my"]), int(tkl["opp"])])
 
 	# 6. Ruck.
 	var ho := _edge(edges, "hitouts")
 	if int(ho["diff"]) <= -6:
-		keys.append("Ruck battle lost (%d-%d hit-outs). A contest plan can cover a beaten ruck." % [
-			int(ho["my"]), int(ho["opp"])])
+		keys.append("We are losing the ruck: hit-outs %d to %d." % [int(ho["my"]), int(ho["opp"])])
 
 	# 7. Errors.
 	var clg := _edge(edges, "clangers")
 	if int(clg["my"]) - int(clg["opp"]) >= 4:
-		keys.append("Too many errors (%d clangers). Controlled tempo cuts the clanger rate." % int(clg["my"]))
+		keys.append("Too many errors: %d clangers to their %d." % [int(clg["my"]), int(clg["opp"])])
 
 	# 8. Conversion.
 	var my_conv := float(eff.get("my_conv", 0.0))
 	var opp_conv := float(eff.get("opp_conv", 0.0))
 	if my_conv + 4.0 < opp_conv and int(eff.get("my_i50", 0)) >= 10:
-		keys.append("Wasting entries (%.0f%% conversion vs their %.0f%%). Attack corridor lifts conversion." % [
-			my_conv, opp_conv])
+		keys.append("We are wasting our entries; they are making theirs count.")
 	elif my_conv > opp_conv + 6.0 and int(eff.get("opp_i50", 0)) >= 10:
-		keys.append("More efficient than them (%.0f%% vs %.0f%%). Defensive press can protect the lead." % [
-			my_conv, opp_conv])
+		keys.append("We are making our entries count; they are wasting theirs.")
 
-	# 9. Game-state anchor so the list never comes back empty.
+	# 9. The state of the game, so the list is never empty.
 	if keys.is_empty():
 		if margin >= 18:
-			keys.append("In control (+%d). Protect territory and avoid risky corridor kicks." % margin)
+			keys.append("In control, %d points up." % margin)
 		elif margin <= -18:
-			keys.append("Chase mode (-%d). Attack corridor generates the scoring shots we need." % absi(margin))
+			keys.append("%d points down: we need scores." % absi(margin))
 		else:
-			keys.append("Arm-wrestle. Contest and territory will decide it - match their Q2 plan.")
-	else:
-		if margin >= 18:
-			keys.append("In control (+%d): favour territory over risk in Q3." % margin)
-		elif margin <= -18:
-			keys.append("Down %d: we need scoring shots - lean attacking in Q3." % absi(margin))
+			keys.append("An arm-wrestle: nothing between the sides yet.")
 
 	# Keep the box readable on a phone.
 	return _take(keys, 5)

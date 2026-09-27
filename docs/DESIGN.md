@@ -296,9 +296,30 @@ kicks 1.00, handballs 1.01, marks 1.02, inside 50s 1.00, score 0.94. Behinds
 > deliberate Python mirror of `scripts/sim/MatchSim.gd`. When a constant changes
 > in one, change it in the other.
 
+### Matchday screen
+The live match answers five questions at a glance: the score, the clock, who
+leads ("Demons by 7"), what just happened, and what your calls are ("Your
+plan: Defensive press · tagging Walsh"). It is presentation only
+(`scripts/ui/match/MatchNotes.gd`): every line is read from MatchSim's event
+log or its quarter snapshots, never decided by the screen.
+
+- **Feed.** Goals (their own row), behinds, the breaks ("Quarter time:
+  Melbourne by 7"), your coach's calls, and runs of three or more goals in a
+  row. Routine play (marks, kicks, tackles, entries, rebounds, clangers)
+  stays on the oval. A result word ("defeated") only ever describes a final
+  result. The clock is the minute of the quarter, like a ground's.
+- **Quarter breaks.** What happened, then your calls. Up to three facts
+  about the quarter (their midfield on top at the stoppages, most of the ball
+  going forward, a player hurting you, wayward kicking), what they played,
+  how your tag and your calls came off - then the gameplan, tag, player to
+  play through, pep talk and rotations, each described in football words
+  (the exact percentages stay in the assistant's report). Legs read in words:
+  fresh, tiring, running on empty. The break surfaces the problem; it never
+  names the answer.
+
 ### Half-time assistant coach report
-Interactive matches pause at half-time with an assistant coach report inside the
-Q3 coach box (`scripts/sim/CoachReport.gd`, pure analysis, no RNG draws). It
+The assistant's report is one tap away at half time and at full time
+(`scripts/sim/CoachReport.gd`, pure analysis, no RNG draws). It
 names your three best and three quietest players, the same two groups for the
 opposition, and the opposition's actual Q1/Q2 gameplans with their engine
 effects — read from `MatchSim.tactics_history`, not inferred. `MatchSim`
@@ -308,11 +329,10 @@ clearances) and flag what a Q1→Q2 plan change produced. Best/worst uses the
 same influence weighting as the full-time best-on-ground list; "quiet" is
 ranked by actual-vs-expected influence for the player's rating, so a down star
 surfaces ahead of a depth player having a par game. Team edges (clearances,
-territory, pressure, ruck, errors, conversion) feed second-half keys that map
-to real coach-box answers (tag the danger man, run play through a quiet star,
-Win contest, Controlled tempo, Attack corridor, Defensive press). The report
-is re-viewable from the Q4 coach box and the full-time screen, including after
-Skip to full time, by reconstructing half-time from the Q2 snapshot.
+territory, pressure, ruck, errors, conversion) feed "What stands out": the
+problems and strengths in the assistant's words, never the call to make. At
+full time the report is rebuilt from the Q2 snapshot, including after Skip to
+full time.
 
 ---
 
@@ -505,7 +525,7 @@ scripts/
     Main.gd            menu
     DraftScene.gd      club selection + draft board
     HubScene.gd        the week: opponent + facts, your side's news, the match; then ladder
-    MatchScene.gd      scoreboard, oval, commentary, full-time box score
+    MatchScene.gd      scoreboard, oval, match feed, quarter breaks, full-time box score
     LadderScene.gd     full ladder + finals bracket
     ListScene.gd       your list, best 22, attributes, real season numbers
     SeasonReviewScene.gd  the flag, your record, final ladder, awards, club achievements
