@@ -60,9 +60,39 @@ func _phone_match(sz: Vector2i) -> void:
 	var start: Button = box.find_child("StartQuarter", true, false)
 	_check(start != null and start.size.y >= 44, "Starting is one thumb-sized tap (%s)" % tag)
 
-	# Pick a tag so the live screen has a setup to show.
-	var picker: OptionButton = box.find_child("TagPicker", true, false)
-	picker.select(1)
+	# The calls are taps, not dropdowns.
+	_check(box.find_children("*", "OptionButton", true, false).is_empty(), "No dropdowns at the break (%s)" % tag)
+	# Tag: a few players first, "Other player..." for the rest of their side.
+	var tag_box: Node = box.find_child("TagPicker", true, false)
+	var tag_choices := tag_box.find_children("TagPickerGrid_*", "Button", true, false)
+	_check(tag_choices.size() >= 3 and tag_choices.size() <= 6, "Tag shows a few players, not a wall (%d, %s)" % [tag_choices.size(), tag])
+	var tag_other: Button = tag_box.find_child("TagPickerOther", true, false)
+	_check(tag_other != null, "Every tag_other player is a tap away (%s)" % tag)
+	var opp_side: Array = m.get("_res")["roster"][1 - int(m.get("_my_side"))]
+	if tag_other != null:
+		tag_other.emit_signal("pressed")
+		await _settle()
+		var sheet: Node = m.find_child("PlayerSheet", true, false)
+		_check(sheet != null and sheet.find_children("Sheet_*", "Button", true, false).size() == opp_side.size(),
+				"The full list has their whole side on the ground (%s)" % tag)
+		var backed: bool = m.call("handle_back")
+		await _settle()
+		_check(backed and m.find_child("PlayerSheet", true, false) == null
+				and m.find_child("CoachBox", true, false) != null, "Back closes the list and keeps the break (%s)" % tag)
+		tag_other.emit_signal("pressed")
+		await _settle()
+		sheet = m.find_child("PlayerSheet", true, false)
+		var last: Button = sheet.find_children("Sheet_*", "Button", true, false).back()
+		var picked_id := str(last.name).trim_prefix("Sheet_")
+		last.emit_signal("pressed")
+		await _settle()
+		_check(box.find_child("TagPickerGrid_" + picked_id, true, false) != null,
+				"A player picked from the list joins the choices (%s)" % tag)
+	var small_calls := []
+	for b in box.find_children("*", "Button", true, false):
+		if b.is_visible_in_tree() and b.size.y < 44:
+			small_calls.append(b.name)
+	_check(small_calls.is_empty(), "Every call is thumb-sized (%s: %s)" % [tag, str(small_calls)])
 	start.emit_signal("pressed")
 	await _settle()
 	_check(m.find_child("CoachBox", true, false) == null, "The box closes and play starts (%s)" % tag)

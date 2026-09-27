@@ -331,7 +331,11 @@ log or its quarter snapshots, never decided by the screen.
   play through, pep talk and rotations, each described in football words
   (the exact percentages stay in the assistant's report). Legs read in words:
   fresh, tiring, running on empty. The break surfaces the problem; it never
-  names the answer.
+  names the answer. The calls are taps, not dropdowns: gameplan, pep talk
+  and rotations are short lists shown in full; Tag and Play through show
+  "none" and the four players most in the game so far (before the bounce,
+  the best rated), plus "Other player..." for the whole side on the ground.
+  The order is a convenience - nobody is filtered out.
 - **Full time.** The conclusion, easy to scan: the result first and big
   (won or lost by how much, both scores), then what it means (finals, the
   ladder, who is next), "How it went" (up to three reasons from the result: a

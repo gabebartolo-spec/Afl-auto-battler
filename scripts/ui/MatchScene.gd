@@ -40,6 +40,7 @@ var _last_tactics := {}
 var _skipping := false
 var _fulltime_shown := false
 var _coach_overlay: Control
+var _sheet_overlay: Control
 var _reflow_queued := false
 var _shown_goals := [0, 0]
 var _shown_behinds := [0, 0]
@@ -355,6 +356,7 @@ func _close_moment() -> void:
 
 
 func _close_coach() -> void:
+	_close_sheet()
 	if _coach_overlay != null and is_instance_valid(_coach_overlay):
 		_coach_overlay.queue_free()
 		_coach_overlay = null
@@ -396,6 +398,9 @@ const GAMEPLANS := [
 const PEP_TALKS := [
 	["steady", "Stay composed"], ["fire_up", "Fire them up"], ["calm", "Calm the group"],
 ]
+## Short labels for the break, where the three sit side by side.
+const PEP_SHORT := [["steady", "Composed"], ["fire_up", "Fire them up"], ["calm", "Calm them"]]
+const ROTATION_SHORT := {"hard": "Hard", "normal": "Normal", "stars": "Ride stars"}
 
 
 ## The break: what happened, then your calls for the next quarter. It
@@ -408,8 +413,9 @@ func _show_coach_box() -> void:
 	_sync_controls()
 	var sim: MatchSim = GameState.pending_sim
 	var q := sim.current_quarter
-	# Before the bounce there is nothing to report: a shorter box.
-	var box := UiKit.modal_box(self, 640.0, 640.0 if q == 1 else 0.0)
+	# The calls fill the screen at every break, so the actions sit at the
+	# bottom with the choices just above them.
+	var box := UiKit.modal_box(self, 640.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "CoachBox"
 	_coach_overlay = overlay
@@ -442,39 +448,38 @@ func _show_coach_box() -> void:
 		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(sl)
 
+	# Your calls, as taps: nothing here is a settings form. Short lists sit
+	# in plain view; a player list shows the few in the game so far and
+	# keeps everyone else one tap away.
 	var my_last := str(_last_tactics.get("gameplan", ""))
-	var plan := OptionButton.new()
-	plan.name = "PlanPicker"
-	for i in range(GAMEPLANS.size()):
-		plan.add_item(str(GAMEPLANS[i][1]), i)
-		if str(GAMEPLANS[i][0]) == my_last:
-			plan.select(i)
-	v.add_child(_field("Gameplan", plan))
+	var calls := {
+		"gameplan": my_last if my_last != "" else "balanced",
+		"tag_id": str((sim.tactics[_my_side] as Dictionary).get("tag_id", _last_tactics.get("tag_id", ""))),
+		"focus_id": str(_last_tactics.get("focus_id", "")),
+		"pep": "steady",
+		"rotation": _rotation,
+	}
+	var narrow := UiKit.view_width(self) < 560.0
+
 	var plan_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	plan_note.name = "PlanNote"
 	plan_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(plan_note)
-	var sync_note := func(idx: int) -> void:
-		var key := str(GAMEPLANS[idx][0])
+	var sync_note := func(key: String) -> void:
 		var t := CoachReport.plan_summary(key)
 		# The rule for a plan you keep running: its counter is on the list.
 		if q >= 2 and key == my_last and key != "balanced" and MatchSim.counter_to(key) != "":
 			t += " Run it again and they may counter with %s." % CoachReport.plan_label(MatchSim.counter_to(key))
 		plan_note.text = t
-	sync_note.call(plan.selected)
-	plan.item_selected.connect(sync_note)
+	var plan := _choice_grid("PlanPicker", GAMEPLANS, calls, "gameplan", 2 if narrow else 3, sync_note)
+	v.add_child(_call_block("Gameplan", plan))
+	v.add_child(plan_note)
+	sync_note.call(str(calls["gameplan"]))
 
-	var tag := OptionButton.new()
-	tag.name = "TagPicker"
-	tag.add_item("No tag", 0)
+	# Tag: their most influential so far first, anyone on the ground a tap away.
 	var opp := _roster_side(1 - _my_side)
-	var cur_tag := str((sim.tactics[_my_side] as Dictionary).get("tag_id", _last_tactics.get("tag_id", "")))
-	for i in range(opp.size()):
-		var r2: Dictionary = opp[i]
-		tag.add_item("%s #%d" % [GameDB.player_display_name_by_id(str(r2.get("id", "")), str(r2.get("name", "Player"))), int(r2["num"])], i + 1)
-		if str(r2["id"]) == cur_tag:
-			tag.select(i + 1)
-	v.add_child(_field("Tag", tag))
+	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, 4), calls, "tag_id",
+			"Tag which player?")
+	v.add_child(_call_block("Tag", tag))
 	# Who you have for the job - a fact, not advice (Roles: a tagger makes
 	# a tag bite harder).
 	var tagger := ""
@@ -487,65 +492,45 @@ func _show_coach_box() -> void:
 	tag_note.name = "TagNote"
 	v.add_child(tag_note)
 
-	var focus := OptionButton.new()
-	focus.name = "FocusPicker"
-	focus.add_item("No one in particular", 0)
 	var mine := _roster_side(_my_side)
-	for i in range(mine.size()):
-		var r: Dictionary = mine[i]
-		focus.add_item("%s #%d" % [GameDB.player_display_name_by_id(str(r.get("id", "")), str(r.get("name", "Player"))), int(r["num"])], i + 1)
-		if str(r["id"]) == str(_last_tactics.get("focus_id", "")):
-			focus.select(i + 1)
-	v.add_child(_field("Play through", focus))
+	var focus := _player_choice("FocusPicker", "No one", mine, _in_the_game(mine, 4), calls, "focus_id",
+			"Play through which player?")
+	v.add_child(_call_block("Play through", focus))
 
-	var pep := OptionButton.new()
-	pep.name = "PepPicker"
-	for i in range(PEP_TALKS.size()):
-		pep.add_item(str(PEP_TALKS[i][1]), i)
-	v.add_child(_field("Pep talk", pep))
 	var pep_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	pep_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(pep_note)
-	var sync_pep := func(idx: int) -> void:
-		pep_note.text = CoachReport.pep_summary(str(PEP_TALKS[idx][0]))
+	var sync_pep := func(key: String) -> void:
+		pep_note.text = CoachReport.pep_summary(key)
 		pep_note.visible = pep_note.text != ""
-	sync_pep.call(pep.selected)
-	pep.item_selected.connect(sync_pep)
+	var pep := _choice_grid("PepPicker", PEP_SHORT, calls, "pep", 3, sync_pep)
+	v.add_child(_call_block("Pep talk", pep))
+	v.add_child(pep_note)
+	sync_pep.call("steady")
 
-	var rot := OptionButton.new()
-	rot.name = "RotationPicker"
-	var rot_keys: Array = MatchSim.ROTATION_POLICIES.keys()
-	for i in range(rot_keys.size()):
-		rot.add_item(str(MatchSim.ROTATION_POLICIES[rot_keys[i]]["label"]), i)
-		if str(rot_keys[i]) == _rotation:
-			rot.select(i)
-	v.add_child(_field("Rotations", rot))
+	var rot_opts := []
+	for k in MatchSim.ROTATION_POLICIES:
+		rot_opts.append([str(k), str(ROTATION_SHORT.get(k, MatchSim.ROTATION_POLICIES[k]["label"]))])
 	var rot_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	rot_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var sync_rot := func(key: String) -> void:
+		rot_note.text = str(MatchSim.ROTATION_POLICIES[key]["text"])
+		rot_note.visible = key != "normal"
+	var rot := _choice_grid("RotationPicker", rot_opts, calls, "rotation", 3, sync_rot)
+	v.add_child(_call_block("Rotations", rot))
 	v.add_child(rot_note)
-	var sync_rot := func(idx: int) -> void:
-		rot_note.text = str(MatchSim.ROTATION_POLICIES[rot_keys[idx]]["text"])
-		rot_note.visible = str(rot_keys[idx]) != "normal"
-	sync_rot.call(rot.selected)
-	rot.item_selected.connect(sync_rot)
+	sync_rot.call(_rotation)
 	v.add_child(_legs_view())
 
 	var start := UiKit.btn("Start quarter" if q > 1 else "Bounce the ball", 18, true)
 	start.name = "StartQuarter"
 	start.custom_minimum_size = Vector2(0, 48)
 	start.pressed.connect(func():
-		var focus_id := ""
-		if focus.selected > 0:
-			focus_id = str(mine[focus.selected - 1]["id"])
-		var tag_id := ""
-		if tag.selected > 0:
-			tag_id = str(opp[tag.selected - 1]["id"])
-		_rotation = str(rot_keys[rot.selected])
+		_rotation = str(calls["rotation"])
 		var t := {
-			"gameplan": str(GAMEPLANS[plan.selected][0]),
-			"focus_id": focus_id,
-			"tag_id": tag_id,
-			"pep": str(PEP_TALKS[pep.selected][0]),
+			"gameplan": str(calls["gameplan"]),
+			"focus_id": str(calls["focus_id"]),
+			"tag_id": str(calls["tag_id"]),
+			"pep": str(calls["pep"]),
 			"rotation": _rotation,
 		}
 		_close_coach()
@@ -739,20 +724,149 @@ func _on_moment_choice(i: int) -> void:
 	_advance_segment()
 
 
-func _field(label: String, control: Control) -> Control:
-	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	control.custom_minimum_size.y = maxf(control.custom_minimum_size.y, 44.0)
-	if UiKit.view_width(self) < 560.0:
-		var v := UiKit.vbox(4)
-		v.add_child(UiKit.lbl(label, 13, UiKit.MUTED, true))
-		v.add_child(control)
-		return v
-	var h := UiKit.hbox(8)
-	var l := UiKit.lbl(label, 13, UiKit.MUTED, true)
-	l.custom_minimum_size = Vector2(132, 0)
-	h.add_child(l)
-	h.add_child(control)
-	return h
+## A call and its choices, heading above.
+func _call_block(label: String, control: Control) -> Control:
+	var v := UiKit.vbox(6)
+	v.add_child(UiKit.lbl(label, UiKit.SMALL, UiKit.MUTED, true))
+	v.add_child(control)
+	return v
+
+
+## One tap picks one: [key, label] options in a grid, the chosen one
+## outlined. Writes the key to calls[field] and calls on_change(key).
+func _choice_grid(node_name: String, options: Array, calls: Dictionary, field: String, columns: int,
+		on_change: Callable = Callable()) -> Control:
+	var grid := GridContainer.new()
+	grid.name = node_name
+	grid.columns = columns
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	var buttons := {}
+	var paint := func() -> void:
+		for k in buttons:
+			_paint_choice(buttons[k], str(k) == str(calls[field]))
+	for o in options:
+		var key := str(o[0])
+		var b := UiKit.btn(str(o[1]), 14)
+		b.name = "%s_%s" % [node_name, key]
+		b.custom_minimum_size = Vector2(0, 44)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.pressed.connect(func():
+			calls[field] = key
+			paint.call()
+			if on_change.is_valid():
+				on_change.call(key))
+		buttons[key] = b
+		grid.add_child(b)
+	paint.call()
+	return grid
+
+
+## The chosen one is outlined and in full text; the rest are quiet outlines.
+func _paint_choice(b: Button, on: bool) -> void:
+	var sb := UiKit.style(Color.TRANSPARENT, 6, 6, UiKit.TEXT if on else UiKit.LINE)
+	if on:
+		sb.set_border_width_all(2)
+	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		b.add_theme_stylebox_override(state, sb)
+	b.add_theme_color_override("font_color", UiKit.TEXT if on else UiKit.MUTED)
+	b.add_theme_color_override("font_hover_color", UiKit.TEXT)
+
+
+## A player call: "none", the few in the game so far, whoever is chosen,
+## and "Other player..." for the whole side on the ground. Nobody is left
+## out; the list is just ordered.
+func _player_choice(node_name: String, none_label: String, roster: Array, first: Array,
+		calls: Dictionary, field: String, sheet_title: String) -> Control:
+	var box := UiKit.vbox(0)
+	box.name = node_name
+	var rebuild := func(self_ref: Callable) -> void:
+		UiKit.clear(box)
+		var shown := [["", none_label]]
+		var ids := {}
+		for r in first:
+			shown.append([str(r["id"]), _short_name(r)])
+			ids[str(r["id"])] = true
+		var cur := str(calls[field])
+		if cur != "" and not ids.has(cur):
+			for r in roster:
+				if str(r["id"]) == cur:
+					shown.append([cur, _short_name(r)])
+		var grid := _choice_grid(node_name + "Grid", shown, calls, field, 2)
+		box.add_child(grid)
+		var other := UiKit.btn("Other player…", 14)
+		other.name = node_name + "Other"
+		other.custom_minimum_size = Vector2(0, 44)
+		other.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		other.pressed.connect(func():
+			_player_sheet(sheet_title, roster, str(calls[field]), func(id: String):
+				calls[field] = id
+				self_ref.call(self_ref)))
+		grid.add_child(other)
+	rebuild.call(rebuild)
+	return box
+
+
+func _short_name(r: Dictionary) -> String:
+	return GameDB.player_display_name_by_id(str(r.get("id", "")), str(r.get("name", "Player")))
+
+
+## Everyone on the ground for one side, one tap each; the current choice is
+## marked. Back or Close leaves it as it was.
+func _player_sheet(title: String, roster: Array, current: String, on_pick: Callable) -> void:
+	_close_sheet()
+	var box := UiKit.modal_box(self, 480.0, 0.0)
+	var overlay: Control = box["overlay"]
+	overlay.name = "PlayerSheet"
+	_sheet_overlay = overlay
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.ellipsis(title, UiKit.H2, UiKit.TEXT, true))
+	var players: Dictionary = _res.get("players", {})
+	var ordered := roster.duplicate()
+	ordered.sort_custom(func(a, b): return int(a.get("num", 0)) < int(b.get("num", 0)))
+	for r in ordered:
+		var id := str(r["id"])
+		var st: Dictionary = players.get(id, {})
+		var line := "#%d  %s" % [int(r.get("num", 0)), _short_name(r)]
+		if not st.is_empty():
+			line += "  ·  " + MatchNotes.game_line(st)
+		var b := UiKit.btn(line, 14)
+		b.name = "Sheet_" + id
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.clip_text = true
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.custom_minimum_size = Vector2(0, 44)
+		_paint_choice(b, id == current)
+		b.pressed.connect(func():
+			_close_sheet()
+			on_pick.call(id))
+		v.add_child(b)
+	var close := UiKit.btn("Close", 16)
+	close.custom_minimum_size = Vector2(0, 44)
+	close.pressed.connect(_close_sheet)
+	box["footer"].add_child(close)
+
+
+func _close_sheet() -> void:
+	if _sheet_overlay != null and is_instance_valid(_sheet_overlay):
+		_sheet_overlay.queue_free()
+	_sheet_overlay = null
+
+
+## The players most in the game so far (before the bounce, the best rated):
+## ordered, never filtered.
+func _in_the_game(roster: Array, n: int) -> Array:
+	var players: Dictionary = _res.get("players", {})
+	var out := roster.duplicate()
+	out.sort_custom(func(a, b):
+		var x := CoachReport.influence(players.get(str(a["id"]), {}))
+		var y := CoachReport.influence(players.get(str(b["id"]), {}))
+		if x != y:
+			return x > y
+		return int(a["overall"]) > int(b["overall"]))
+	return out.slice(0, n)
 
 
 func _roster_side(side: int) -> Array:
@@ -1531,6 +1645,10 @@ func _lcell(text: String, w: int, col: Color, fs: int, bold := false) -> Label:
 ## Router back hook. A live match cannot be abandoned half way (the rest of
 ## the round is already on the ladder), so back is swallowed until full time.
 func handle_back() -> bool:
+	# A player list opened from the break closes first.
+	if _sheet_overlay != null and is_instance_valid(_sheet_overlay):
+		_close_sheet()
+		return true
 	# An open report closes first, live or at full time.
 	if _report_overlay != null and is_instance_valid(_report_overlay):
 		_close_report()

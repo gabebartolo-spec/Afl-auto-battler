@@ -398,7 +398,7 @@ static func game_line(st: Dictionary) -> String:
 	if g > 0:
 		bits.append("%d goal%s" % [g, "" if g == 1 else "s"])
 	if d >= 15 or bits.is_empty():
-		bits.append("%d disposals" % d)
+		bits.append("%d disposal%s" % [d, "" if d == 1 else "s"])
 	for row in [["clearances", 5, "clearances"], ["hitouts", 20, "hit-outs"], ["marks", 8, "marks"],
 			["tackles", 7, "tackles"], ["rebounds", 6, "rebound 50s"], ["one_percenters", 7, "one percenters"]]:
 		var v := int(float(st.get(row[0], 0.0)))
