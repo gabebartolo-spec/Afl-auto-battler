@@ -10,6 +10,47 @@ var _guide_overlay: Control
 var _load_error: Label
 var _difficulty_text: Label
 var _difficulty_buttons := {}
+var _logo: TextureRect
+
+## Placeholder title art. Swap the file (same path) to replace it.
+const LOGO := preload("res://assets/ui/aussie_rules_dynasties_logo_placeholder.png")
+## The logo's widest and tallest on screen, and its share of a short window.
+const LOGO_MAX_W := 560.0
+const LOGO_MAX_H_SHARE := 0.26
+
+
+## The title treatment: the logo, whole and undistorted. Its black ground
+## adds nothing under an additive blend, so only the lettering shows over
+## the menu's darkened oval - the file itself is left as supplied.
+func _logo_art() -> TextureRect:
+	_logo = TextureRect.new()
+	_logo.name = "Logo"
+	_logo.texture = LOGO
+	_logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_logo.size_flags_horizontal = Control.SIZE_FILL
+	_logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mat := CanvasItemMaterial.new()
+	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	_logo.material = mat
+	_fit_logo()
+	return _logo
+
+
+## Height from the width it can have (aspect kept), capped so a short
+## window still shows the buttons.
+func _fit_logo() -> void:
+	if _logo == null:
+		return
+	var aspect := float(LOGO.get_height()) / float(LOGO.get_width())
+	var w := minf(LOGO_MAX_W, UiKit.view_width(self) - 32.0)
+	var h := minf(w * aspect, UiKit.view_height(self) * LOGO_MAX_H_SHARE)
+	_logo.custom_minimum_size = Vector2(0, roundf(h))
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		_fit_logo()
 
 
 func _ready() -> void:
@@ -37,7 +78,7 @@ func _ready() -> void:
 	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	margin.add_child(UiKit.scroll(v))
-	v.add_child(UiKit.title("AFL Auto-Battler"))
+	v.add_child(_logo_art())
 	v.add_child(UiKit.subtitle(
 			"Rebuild the league. Draft your list, then take it all the way to September."))
 	v.add_child(UiKit.spacer(12))
