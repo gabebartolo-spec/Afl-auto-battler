@@ -27,6 +27,24 @@ const ATTR_KEYS := ["disposal", "contested", "marking", "pressure", "intercept",
 const RANK_BANDS := [[1, 70.0], [10, 64.0], [20, 61.0], [30, 58.0],
 		[40, 55.0], [50, 52.0], [64, 47.0]]
 
+## Future classes differ year to year as a cohort, not only player by
+## player. Most years are ordinary; a strong crop lifts the top end most,
+## the depth a little and the ceilings of its best prospects; a superdraft
+## does that harder; a weak one the reverse. Busts, role spread and ordinary
+## late picks stay, because each prospect's own rolls are unchanged.
+##   [key, chance, top-end shift, depth shift, ceiling shift]
+## The top-end shift is full at pick 1 and tapers to the depth shift by
+## CLASS_TOP_RANKS; the ceiling shift (extra POT room) tapers to nothing by
+## the same rank. The real 2026 class is data, never tiered.
+const CLASS_TIERS := [
+	["weak", 0.10, -3.0, -1.5, -3.0],
+	["below", 0.20, -1.5, -0.5, -1.5],
+	["normal", 0.50, 0.0, 0.0, 0.0],
+	["strong", 0.17, 2.0, 1.0, 3.0],
+	["super", 0.03, 4.5, 2.0, 9.0],
+]
+const CLASS_TOP_RANKS := 30
+
 const ROLE_DELTAS := {
 	"MID": {"disposal": 6.0, "contested": 5.0, "pressure": 3.0, "carry": 4.0,
 			"creating": 2.0, "marking": -1.0, "goalkicking": -3.0, "intercept": 0.0,
@@ -133,6 +151,7 @@ static func project(p: Dictionary) -> void:
 	if age >= 19.0:
 		target += 1.0  # over-age means proven, at a small trade-off in ceiling
 	target += rng.randf_range(-1.5, 1.5)
+	target += float(p.get("class_shift", 0.0))
 	target = clampf(target, 38.0, 74.0)
 
 	# Attributes: centre on the target, apply the role template, then let the
@@ -371,7 +390,10 @@ static func age_pool(pool: Array, year: int, drafted: Dictionary) -> Array:
 ## Deterministic fictional intake for years after the shipped data ends.
 ## Same projection pipeline as the real class, so a 2031 career keeps getting
 ## plausible rookies without inventing anyone real.
-static func generate_class(year: int) -> Array:
+## `career_seed` picks the class's quality tier (class_tier); everything
+## else about the class is seeded by the year alone, as before.
+static func generate_class(year: int, career_seed := 0) -> Array:
+	var tier := class_tier(career_seed, year)
 	var rng := _rng_for("class-%d" % year)
 	var size := 46 + int(rng.randi_range(0, 10))
 	var role_bag := ["MID", "MID", "MID", "FWD", "FWD", "DEF", "DEF", "RUCK"]
@@ -429,6 +451,9 @@ static func generate_class(year: int) -> Array:
 		p["draft_rank"] = r
 		p["generated"] = true
 		p["num"] = r
+		var shifts := class_shifts(tier, r)
+		p["class_shift"] = shifts[0]
+		p["class_ceiling"] = shifts[1]
 		for key in Ratings.STATS_ZERO_KEYS:
 			p[key] = 0.0
 		p["weight_kg"] = 0.0
@@ -448,6 +473,33 @@ static func generate_class(year: int) -> Array:
 				rucks += 1
 	GameDB.assign_aliases(out)
 	return out
+
+
+## The quality tier of the class drafted in `year` in this career: one roll
+## per career and year, so a reload never re-rolls it and two careers need
+## not share their superdrafts.
+static func class_tier(career_seed: int, year: int) -> String:
+	var rng := _rng_for("class-tier|%d|%d" % [career_seed, year])
+	rng.randi()  # the first draw from near-identical keys runs together
+	var roll := rng.randf()
+	for t in CLASS_TIERS:
+		roll -= float(t[1])
+		if roll < 0.0:
+			return str(t[0])
+	return "normal"
+
+
+## [overall shift, extra POT room] for the prospect ranked `rank` in a class
+## of this tier.
+static func class_shifts(tier: String, rank: int) -> Array:
+	for t in CLASS_TIERS:
+		if str(t[0]) != tier:
+			continue
+		var fade := clampf(1.0 - float(rank - 1) / float(CLASS_TOP_RANKS - 1), 0.0, 1.0)
+		var top := float(t[2])
+		var depth := float(t[3])
+		return [depth + (top - depth) * fade, float(t[4]) * fade]
+	return [0.0, 0.0]
 
 
 ## The full list an expansion club fields in its first season: a real

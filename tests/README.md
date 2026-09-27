@@ -67,7 +67,8 @@ national draft, second season) and checks it is the same career: the next
 round replays identically after loading, training survives, shared player
 dicts stay shared, generated draft classes come back, a half-played live
 match is never saved, and a file from another save version is ignored. The
-career UI suite drives the main menu (Continue Career, the New Career prompt)
+career UI suite drives the main menu (Continue, Settings, the New Career setup
+and its confirmation)
 and the back button on the hub, ladder, a live match and the menu.
 
 The potential suite checks every player and prospect has a POT (generated

@@ -61,8 +61,8 @@ this project, and no player imagery or club badges are reproduced.
 The shipped data keeps each real name for the optional real-name view, but the
 player presentation defaults to a deterministic shuffle of generated random names
 (`Ari Bramble`, `Bex Cinder`, and so on). Every player gets a generated name —
-numbered placeholders such as `Squadmate 001` are never shown. The main-menu
-**Player Labels** toggle switches to the real AFL name on its own, such as
+numbered placeholders such as `Squadmate 001` are never shown. **Player
+names** (New career setup, or Settings on the main menu) switches to the real AFL name on its own, such as
 `Jordan Dawson`. It does not prefix a fictional alias or a "plays like"
 comparison, and it does not change IDs, ratings, draft logic or match results.
 Players with no real-world counterpart (generated future draft classes) keep
@@ -249,6 +249,27 @@ player who has completed a simulated season keeps a full-season sample so a
 fringe 2026 games count cannot suppress them forever. `tools/intake_harness.py`
 mirrors these constants the way `sim_harness.py` mirrors the match engine.
 
+**Class quality.** Generated future classes (never the real 2026 class) get a
+quality tier, rolled once per career and draft year from `career_seed` (a
+random number saved with the career) and the year, so a reload never re-rolls
+a class and two careers need not share their superdrafts
+(`Prospects.class_tier`). Tiers and their rates: weak 10%, below average 20%,
+normal 50%, strong 17%, superdraft 3% (about one a generation in a 30-40 year
+career). A tier moves three things, all tapering from pick 1 to nothing by
+rank 30 (`Prospects.CLASS_TIERS`): the draft-night rating of the top end
+(super +4.5, strong +2, weak -3), the depth a little (super +2, weak -1.5),
+and the extra POT room of the best prospects (super +9, strong +3, weak -3).
+The prospects themselves - who they are, their positions, their own rolls -
+are seeded by the year alone, so busts, role spread and ordinary late picks
+stay. Measured over 400 generated years and in 28-year rollovers with one
+class forced to each tier: a super class produces about six players who peak
+at 80+ where a normal one produces none to two, with a top 20 peaking about
+4 points higher; league mean OVR stays at 60.4 either way (re-anchoring), and
+twenty years on the league's count of 80+ players is the same whatever that
+class was - a cohort advantage, not inflation. The tier of every generated
+class is recorded in `class_tiers` for a future draft-history view; the game
+does not announce it. `tools/intake_harness.py` mirrors the normal tier only.
+
 ---
 
 ## 3. Match engine
@@ -359,21 +380,21 @@ log or its quarter snapshots, never decided by the screen.
   any column, a tap for the rest of his line) and what your calls were
   worth; Report has the assistant's half-time report at a glance, with the
   full report opening in place. Back on Stats or Report returns to Summary.
-- **Player rating** (`MatchNotes.rating`). One number for one match, 0-10
-  with one decimal (not 0-100, which would read as OVR). Built only from that
-  match's box score, weighted toward what a stat does: goals 5, behinds 0.6,
-  goal assists 0.6, kicks 0.3, handballs 0.15, marks 0.7, tackles 0.8,
-  clearances 0.9, inside 50s 0.4, rebound 50s 0.9, one percenters 0.9,
-  hit-outs 0.5, clangers -0.6, frees against -0.8; then 1.5 + 0.2 x that,
-  half as steep above 8, clamped to 0-10. An average game is about 5, a good
-  one 7, best on ground 8.5 and up. Tuned over simulated matches so each
-  position's better games (90th percentile, about 7.5-8) sit within a point
-  of each other; forwards and rucks have lower medians (a forward's game is
-  goals or not much). Limits: the engine does not record contested
-  possessions, intercepts, contested marks or metres gained, so a defender's
-  defence is read from marks, rebound 50s and one percenters, and a ruck's
-  from hit-outs and clearances. The ruck's hit-outs all go to the first ruck
-  on the ground.
+- **Player rating** (`MatchNotes.rating`). One whole number for one match on
+  a fantasy-style scale - an ordinary game 50-80, a strong one 80-105, best on
+  ground 110 and up, a freak game 150+ - built only from that match's box
+  score (never OVR, value or potential). Points: kick 2, handball 1, mark 3,
+  tackle 3, goal 14, behind 1, hit-out 3, inside 50 1, forward-50 delivery
+  (the engine's `goal_assists`, credited on every entry) 3, rebound 50 3, one
+  percenter 1, clanger -2, free against -1 more (a free against is always
+  also a clanger, so -3 in all); floored at 0. Not AFL Fantasy's weights on
+  purpose: the engine gives forwards about 9 touches a game and rucks about a
+  third of real hit-outs, so with fantasy weights forwards were a side's best
+  player 1 time in 200. Tuned over 400 simulated matches (17,600 player
+  games): median 70, 90th percentile 111, 99th 143; each position's 90th
+  percentile sits at 101-118, and a side's best player is a midfielder about
+  half the time, a defender 30%, a forward 14%, a ruck 6%. A clearance earns
+  nothing extra (it is always followed by the disposal it produces).
 - **Sim round.** Simming skips watching, not the aftermath. The round popup
   leads with your match (won or lost by how much, both scores, your best
   player and rating, a new injury, the ladder move and next opponent) and a

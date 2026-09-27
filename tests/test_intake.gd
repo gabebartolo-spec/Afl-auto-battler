@@ -16,6 +16,7 @@ func run() -> void:
 	_test_intake_draft_flow()
 	_test_list_cap_skip()
 	_test_career_rollover()
+	_test_class_tiers()
 	print("Intake tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -293,3 +294,84 @@ func _test_career_rollover() -> void:
 			break
 	_check(restored != null and absf(float(restored.get("age", 0.0)) - 29.6) < 1.0,
 			"GameDB.reload() restores pristine 2026 ages for a new career")
+
+
+## Draft classes have a quality tier per career and year: deterministic, at
+## the planned frequencies, lifting a strong class's top end and ceilings
+## without changing who is in it, and never touching the real 2026 class.
+func _test_class_tiers() -> void:
+	_check(Prospects.class_tier(123, 2031) == Prospects.class_tier(123, 2031),
+			"The same career and year always roll the same tier")
+	var differs := false
+	for seed in range(1, 40):
+		if Prospects.class_tier(seed, 2031) != Prospects.class_tier(seed + 1000, 2031):
+			differs = true
+	_check(differs, "Different careers do not share every class tier")
+	var counts := {}
+	var n := 4000
+	for i in range(n):
+		var t := Prospects.class_tier(7, 2027 + i)
+		counts[t] = int(counts.get(t, 0)) + 1
+	var freq_ok := true
+	for t in Prospects.CLASS_TIERS:
+		var share := float(counts.get(str(t[0]), 0)) / float(n)
+		if absf(share - float(t[1])) > 0.02:
+			freq_ok = false
+	_check(freq_ok, "Tiers come up at their planned rates (%s)" % str(counts))
+	_check(str(Prospects.class_shifts("normal", 1)) == str([0.0, 0.0]), "A normal class is unchanged")
+	var s1: Array = Prospects.class_shifts("super", 1)
+	var s40: Array = Prospects.class_shifts("super", 40)
+	_check(float(s1[0]) > float(s40[0]) and float(s40[0]) > 0.0 and float(s1[1]) > 0.0
+			and float(s40[1]) == 0.0, "A superdraft lifts the top most, the depth a little, the top ceilings")
+	_check(float(Prospects.class_shifts("weak", 1)[0]) < 0.0, "A weak class sits lower")
+	# Same year, a super roll against a normal one: the same prospects,
+	# a better top end and more high ceilings.
+	var super_seed := -1
+	var normal_seed := -1
+	for seed in range(1, 5000):
+		var t := Prospects.class_tier(seed, 2033)
+		if t == "super" and super_seed < 0:
+			super_seed = seed
+		if t == "normal" and normal_seed < 0:
+			normal_seed = seed
+		if super_seed > 0 and normal_seed > 0:
+			break
+	var sup := Prospects.generate_class(2033, super_seed)
+	var nor := Prospects.generate_class(2033, normal_seed)
+	var same := sup.size() == nor.size()
+	for i in range(mini(sup.size(), nor.size())):
+		if str(sup[i]["id"]) != str(nor[i]["id"]) or str(sup[i]["role"]) != str(nor[i]["role"]):
+			same = false
+	_check(same, "A class's tier never changes who is in it or their positions")
+	var top := func(cls: Array, key: String) -> float:
+		var t := 0.0
+		for p in cls.slice(0, 20):
+			t += float(p[key])
+		return t / 20.0
+	_check(float(top.call(sup, "overall")) > float(top.call(nor, "overall")) + 1.0
+			and float(top.call(sup, "potential")) > float(top.call(nor, "potential")) + 2.0,
+			"A superdraft's top 20 rate higher now and higher later")
+	var tail_rookies := true
+	for p in sup.slice(sup.size() - 5):
+		if int(p["overall"]) > 64:
+			tail_rookies = false
+	_check(tail_rookies, "A superdraft still has ordinary late picks")
+	var untouched := true
+	for p in GameDB.draftees:
+		if (p as Dictionary).has("class_shift"):
+			untouched = false
+	_check(untouched, "The real 2026 class is never tiered")
+	# A career keeps its seed and its record of tiers through a save.
+	GameState.reset()
+	GameState.start_season("ADE", GameDB.club_list("ADE"))
+	var seed_before: int = GameState.career_seed
+	_check(seed_before > 0, "A new career rolls its seed")
+	GameState.season.round_index = GameState.season.fixture.size()
+	GameState.start_next_season()
+	_check(GameState.class_tiers.has("2027")
+			and str(GameState.class_tiers["2027"]) == Prospects.class_tier(seed_before, 2027),
+			"The rollover records the new class's tier")
+	_check(GameState.save_career() and GameState.load_career(), "The career saves and loads")
+	_check(GameState.career_seed == seed_before and GameState.class_tiers.has("2027"),
+			"The seed and the tier record survive a reload, so nothing re-rolls")
+	GameState.delete_saved_career()
