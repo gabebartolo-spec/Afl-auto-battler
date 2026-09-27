@@ -205,7 +205,7 @@ is spent under the new plan straight away. You can still buy any stat by
 hand. The results and full-time screens say what the plans bought.
 
 **Stat guide.** Training's *Stat guide* button (also on the main menu under
-How It Works) explains all 13 stats: what each is built from, exactly what it
+How to play) explains all 13 stats: what each is built from, exactly what it
 does in a match, and who needs it - plus how overall, potential, XP and plans
 fit together. Training shows a short intro the first time you open it.
 
@@ -380,7 +380,8 @@ start on two-season rookie deals.
 
 ## Difficulty
 
-Chosen on the main menu before a New Career, and saved with the career:
+Chosen in the New Career setup (after the main menu's **New career**, before
+choosing a club), and saved with the career:
 
 | | Rival training per season | Trade margin | Your match XP |
 |---|---|---|---|
@@ -400,8 +401,9 @@ trades, retirements, the medallists and the premiers.
 The career autosaves to `user://career.save`: after every round and every
 match you play, when a season or national draft starts or finishes, on screen
 changes after training or draft picks, and whenever the app is sent to the
-background or closed. **Continue Career** on the main menu picks it up, showing
-the club, year and stage. **New Career** asks before replacing it. A match is
+background or closed. **Continue** on the main menu picks it up, showing the
+club, year and stage. **New career** opens a short setup (player names,
+difficulty); starting from it asks before replacing a saved career. A match is
 never saved half played: if the app dies mid-match, you replay that round
 (the other results are seeded, so they come out the same).
 
@@ -409,15 +411,15 @@ never saved half played: if the app dies mid-match, you replay that round
 are shared by reference all over a career (season lists, your list, the draft,
 the prospect pool), so each is written once and relinked on load. Match event
 logs and the derived `rates`/`norm` tables are not saved. A mid-season save is
-about 1.4 MB. The "Player Labels" choice is kept separately in
+about 1.4 MB. The "Player names" choice is kept separately in
 `user://settings.cfg`.
 
 ## Back button
 
 Android's back button and Escape on desktop go through `Router.handle_back()`
 (`application/config/quit_on_go_back` is off). A screen can intercept it first:
-the hub closes its results popup, the main menu closes help or the New Career
-prompt, and a live match refuses to be abandoned until full time. Otherwise it
+the hub closes its results popup, the main menu closes help, Settings, the New
+Career prompt or the setup, and a live match refuses to be abandoned until full time. Otherwise it
 steps back a screen; from the hub it returns to the main menu with the career
 kept in memory. Only the OS back button on the main menu quits the app.
 
@@ -449,8 +451,8 @@ still need an on-device check.
 
 The game starts in a fictional-label mode: players appear under generated random
 names such as `Ari Bramble`, while their 2026 stats and ratings remain unchanged.
-Numbered placeholders are never used. The main-menu **Player Labels** toggle
-switches those labels to the real AFL name (`Jordan Dawson`) when you want that
+Numbered placeholders are never used. **Player names** (in the New Career
+setup, or Settings on the main menu) switches those labels to the real AFL name (`Jordan Dawson`) when you want that
 context — the name alone, not a "plays like" comparison. Generated prospects
 keep a fictional name. Club names remain
 visible, but no club badges, guernsey designs or player imagery are reproduced —
