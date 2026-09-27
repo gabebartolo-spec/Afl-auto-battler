@@ -170,8 +170,14 @@ func _plan_picker(p: Dictionary) -> OptionButton:
 	pick.custom_minimum_size = Vector2(0, 44)
 	pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var current := GameState.plan_for(p)
+	# A dual-role player's Position plan trains his first role: say which.
+	var first := str(p.get("role", ""))
+	var dual := str(p.get("role2", "")) != "" and str(p.get("role2", "")) != first
 	for key in GameState.plans_for(p):
-		pick.add_item(GameState.train_plan_label(key))
+		var label := GameState.train_plan_label(key)
+		if key == "position" and dual:
+			label = "Position plan (%s)" % PlayerProfile.role_word(first).to_lower()
+		pick.add_item(label)
 		pick.set_item_metadata(pick.item_count - 1, key)
 		if key == current:
 			pick.select(pick.item_count - 1)

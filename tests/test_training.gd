@@ -24,6 +24,7 @@ func run() -> void:
 	_test_training_news()
 	_test_reserves_development()
 	_test_stat_guide_complete()
+	_test_dual_role_plans()
 	GameState.delete_saved_career()
 	print("Training tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -447,3 +448,33 @@ func _test_training_news() -> void:
 	_check(line.begins_with("Training:") and line.contains("OVR"), "The summary line reports it (%s)" % line)
 	GameState.last_training_report = {"auto": {"points": 5, "rises": [], "traits": []}}
 	_check(GameState.training_summary_line() == "", "Stat points alone are not news")
+
+
+## A dual-role player can train toward either of his roles: a ruck who also
+## defends gets the Ruck plan and the defender archetypes; nobody gets a plan
+## for a role he does not play.
+func _test_dual_role_plans() -> void:
+	var balta := {}
+	for p in GameDB.players:
+		if str(p.get("real_name", "")) == "Noah Balta":
+			balta = p
+	_check(str(balta.get("role", "")) == "RUCK" and str(balta.get("role2", "")) == "DEF", "Noah Balta is a ruck who defends")
+	var plans := GameState.plans_for(balta)
+	_check(plans.has("ruck") and plans.has("key_def") and plans.has("rebound_def"),
+			"Balta can train as a ruck or a defender (%s)" % str(plans))
+	_check(not plans.has("inside_mid") and not plans.has("key_fwd"), "...and nothing he does not play")
+	var def_ruck := {"role": "DEF", "role2": "RUCK", "attr": {}}
+	_check(GameState.plans_for(def_ruck).has("ruck"), "A defender who pinch-hits in the ruck can train the ruck")
+	_check(not GameState.plans_for({"role": "MID", "role2": "FWD"}).has("ruck"), "A midfielder has no ruck plan")
+	var bad := 0
+	for p in GameDB.players:
+		for role in [str(p.get("role", "")), str(p.get("role2", ""))]:
+			if role == "":
+				continue
+			var ok := false
+			for k in GameState.plans_for(p):
+				if (GameState._plan_row(k)["roles"] as Array).has(role):
+					ok = true
+			if not ok:
+				bad += 1
+	_check(bad == 0, "Every role a player plays has a plan of its own (%d missing)" % bad)

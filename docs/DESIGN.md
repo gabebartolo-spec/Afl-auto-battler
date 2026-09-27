@@ -151,7 +151,8 @@ Only jobs the engine rewards:
   both his ball-winning and running. With a tagger on the ground, a tagged
   opponent keeps 42% of his ball instead of 55%.
 * Everyone else reads as Inside midfielder, Key/Rebounding defender or Ruck
-  (the Training vocabulary), or - for forwards - Key forward, Small forward or
+  (the Training vocabulary; a defender with fewer than six games of record
+  is just a Defender - a few games cannot tell the two apart), or - for forwards - Key forward, Small forward or
   Forward (`PlayerProfile.forward_type`, a label only: ratings are untouched).
   Goals never make a key forward: it takes height (evidence, not a cut-off:
   184 cm counts nothing, 196 cm in full, ~192 cm the rule of thumb) weighed
@@ -412,11 +413,13 @@ full time.
     disposal, creating), Key defender (intercept, pressure), Rebounding
     defender (carry, intercept), Key forward (marking, goalkicking,
     accuracy), Small forward (goalkicking, accuracy, carry, creating - never
-    marking, so he can stay a Crumber).
+    marking, so he can stay a Crumber), Ruck (ruck, contested). A
+    dual-role player gets both roles' archetypes; his Position plan trains
+    his first role and the picker says which ("Position plan (ruck)").
   - *Manual* pauses development: XP banks until spent by hand.
   Every plan attribute must be in the role's core or behind a trait the
   role can earn (`GameState.stat_useful_for_role`; tested). The old Star
-  power plan, the single-stat focuses and the Ruck plan are gone (saves
+  power plan and the single-stat focuses are gone (saves
   fall back to Position plan), as is the club-wide plan picker (a club plan
   could train forwards' skills into defenders). A point costs
   `TRAIN_COST_SCALE` (1.25) × the base price, so now that no XP is wasted a

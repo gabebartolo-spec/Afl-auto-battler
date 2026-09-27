@@ -72,7 +72,7 @@ func _test_vocabulary() -> void:
 	var seen := {}
 	for p in GameDB.players:
 		seen[Roles.label(p)] = true
-	var allowed := ["Wing", "Tagger", "Inside midfielder", "Key defender", "Rebounding defender",
+	var allowed := ["Wing", "Tagger", "Inside midfielder", "Key defender", "Rebounding defender", "Defender",
 			"Key forward", "Small forward", "Forward", "Ruck"]
 	var clean := true
 	for l in seen:
@@ -227,7 +227,9 @@ func _test_forward_types() -> void:
 	# Jamie Elliott is 178 cm (his height once came from a 1991 namesake).
 	var want := {"Toby Greene": "Forward", "Charlie Cameron": "Forward", "Jamie Elliott": "Small forward",
 			"Charlie Curnow": "Key forward", "Jeremy Cameron": "Key forward", "Harry McKay": "Key forward",
-			"Maurice Rioli": "Small forward", "Cody Weightman": "Small forward"}
+			"Maurice Rioli": "Small forward", "Cody Weightman": "Small forward",
+			# Three games cannot make him a key defender or a rebounder.
+			"Xavier Taylor": "Defender"}
 	for p in GameDB.players:
 		var n := str(p.get("real_name", ""))
 		if want.has(n):

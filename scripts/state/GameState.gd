@@ -1324,6 +1324,11 @@ const TRAIN_PLANS := [
 	{"key": "small_fwd", "label": "Small forward", "roles": ["FWD"],
 			"text": "Goals from the ground: kicks straight and creates, and stays small enough to crumb.",
 			"weights": {"goalkicking": 3.0, "accuracy": 2.0, "carry": 1.0, "creating": 1.0}},
+	# Rucks need this for a second-role ruck (a defender or forward who
+	# pinch-hits), whose Position plan trains his first role.
+	{"key": "ruck", "label": "Ruck", "roles": ["RUCK"],
+			"text": "Wins the hit-out, then the ball at the stoppage.",
+			"weights": {"ruck": 3.0, "contested": 1.0}},
 	{"key": "manual", "label": "Manual (development paused)", "roles": [],
 			"text": "Nothing is trained automatically. His XP banks until you spend it by hand - banked XP does not make him better."},
 ]
@@ -1836,7 +1841,7 @@ func plan_valid_for(p: Dictionary, key: String) -> bool:
 
 ## The plan a player actually follows: his own if it suits him, else the
 ## club plan. A saved plan that no longer exists (single-stat focuses, Star
-## power, the old Ruck plan) or belongs to another role falls back safely.
+## power) or belongs to another role falls back safely.
 func plan_for(p: Dictionary) -> String:
 	var own := str(p.get("train_plan", ""))
 	if own != "" and plan_valid_for(p, own):
