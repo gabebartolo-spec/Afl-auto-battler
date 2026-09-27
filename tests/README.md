@@ -27,6 +27,7 @@ godot --headless --path . --script tests/run_intake_ui_tests.gd
 godot --headless --path . --script tests/run_finals_tests.gd
 godot --headless --path . --script tests/run_save_tests.gd
 godot --headless --path . --script tests/run_career_tests.gd
+godot --headless --path . --script tests/run_coaches_tests.gd
 godot --headless --path . --script tests/run_career_ui_tests.gd
 godot --headless --path . --script tests/run_potential_tests.gd
 godot --headless --path . --script tests/run_ai_tests.gd

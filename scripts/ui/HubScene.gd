@@ -108,7 +108,21 @@ func _standing_card() -> Control:
 	var cv := UiKit.vbox(3)
 	cv.name = "SeasonBlock"
 	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cv.add_child(UiKit.club_badge(GameState.my_club, 16, false, true))
+	# Your club, with its coaching staff one quiet tap away.
+	var club_row := UiKit.hbox(8)
+	var badge := UiKit.club_badge(GameState.my_club, 16, false, true)
+	badge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	club_row.add_child(badge)
+	var staff := UiKit.btn("Staff", 14)
+	staff.name = "HubStaff"
+	staff.flat = true
+	staff.custom_minimum_size = Vector2(64, 36)
+	for state in ["normal", "hover", "pressed", "hover_pressed"]:
+		staff.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	staff.add_theme_color_override("font_color", UiKit.MUTED)
+	staff.pressed.connect(func(): Router.go("staff"))
+	club_row.add_child(staff)
+	cv.add_child(club_row)
 	var lr := GameState.my_ladder_row()
 	var title := UiKit.lbl("%s of %d  ·  %s  ·  %d pts" % [GameState.ordinal(GameState.my_position()),
 			GameState.season.ladder.size(), GameState.my_record(), int(lr.get("pts", 0))],
