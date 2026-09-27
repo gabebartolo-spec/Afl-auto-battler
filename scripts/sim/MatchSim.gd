@@ -1004,6 +1004,8 @@ func rosters() -> Array:
 				"id": str(p["id"]), "num": int(p["num"]),
 				"name": GameDB.player_display_name(p), "role": str(p["role"]),
 				"club": str(p["club"]), "overall": int(p["overall"]),
+				# Presentation only: the view puts the named wings on the wings.
+				"line": str(p.get("line", "")),
 			})
 		out.append(r)
 	return out

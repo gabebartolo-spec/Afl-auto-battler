@@ -140,6 +140,13 @@ Only jobs the engine rewards:
   running game (carry, disposal) well ahead of ball-winning against 2026
   midfielders - suits it; a ball-winner is wasted there. Auto-pick puts the
   two midfielders the stoppage misses least on the wings.
+  On the oval the named wings take the wing slots (the match roster carries
+  each player's `line`), holding width (about 30 m off centre against 7 m
+  for the centre square), following the ball up and down the ground, and
+  setting up on the wings at centre bounces. The wing marking travels with
+  the player, not the position: when a wing rotates off, his replacement
+  plays in the engine as a centre-square midfielder until the wing returns
+  (a rule to revisit with rotations, not a presentation issue).
 * **Tagger** (MID). Pressure in the top 30% of midfielders and well ahead of
   both his ball-winning and running. With a tagger on the ground, a tagged
   opponent keeps 42% of his ball instead of 55%.

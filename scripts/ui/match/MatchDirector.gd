@@ -121,7 +121,7 @@ func setup(result: Dictionary, p_events: Array) -> void:
 	# Presentation stream: seeded from the fixture, never from MatchSim.
 	_rng.seed = hash("%s|%s|%s|view" % [result.get("home", ""), result.get("away", ""),
 			result.get("label", "")])
-	_build_tokens(result.get("roster", []))
+	_build_tokens(_starting_roster(result.get("roster", []), events))
 	ball = {"pos": Vector2.ZERO, "h": 0.0, "mode": "dead", "holder": -1,
 			"from": Vector2.ZERO, "to": Vector2.ZERO, "h0": 0.0, "h1": 0.0,
 			"apex": 0.0, "dur": 1.0, "t": 0.0, "vel": Vector2.ZERO, "kind": ""}
@@ -134,6 +134,44 @@ func setup(result: Dictionary, p_events: Array) -> void:
 	_struct_ball = Vector2.ZERO
 
 
+## The 18 who started, per side. A finished match's roster lists who was on
+## the ground at full time (then the bench who played); walking the log's
+## interchanges backwards recovers the opening line-up, so the players at the
+## first bounce - and every sub after it - are the real ones. A live match
+## starts with no events, and its roster already is the opening 18.
+static func _starting_roster(roster: Array, log: Array) -> Array:
+	if roster.size() < 2:
+		return roster
+	var out := []
+	for side in range(2):
+		var all: Array = roster[side]
+		# A sub takes the slot (and so the role) of the player he replaces:
+		# walk back the players, keep the slots' roles.
+		var on := []
+		var roles := []
+		for p in all.slice(0, 18):
+			on.append(int(p.get("num", 0)))
+			roles.append(str(p.get("role", "MID")))
+		for i in range(log.size() - 1, -1, -1):
+			var ev: Dictionary = log[i]
+			if str(ev.get("kind", "")) != "sub" or int(ev.get("side", -1)) != side:
+				continue
+			var at := on.find(int(ev.get("num", -1)))
+			if at >= 0:
+				on[at] = int(ev.get("off_num", -1))
+		var by_num := {}
+		for p in all:
+			by_num[int(p.get("num", 0))] = p
+		var side_out := []
+		for k in range(on.size()):
+			if by_num.has(on[k]):
+				var p: Dictionary = (by_num[on[k]] as Dictionary).duplicate()
+				p["role"] = roles[k]
+				side_out.append(p)
+		out.append(side_out if side_out.size() == on.size() else all)
+	return out
+
+
 func _build_tokens(roster: Array) -> void:
 	tokens = []
 	_ids = [{}, {}]
@@ -144,6 +182,15 @@ func _build_tokens(roster: Array) -> void:
 		for p in (roster[side] as Array).slice(0, 18):
 			var r := str(p.get("role", "MID"))
 			groups[r if groups.has(r) else "MID"].append(p)
+		# The midfielders the match plays on the wings (Roles.mark_wings, carried
+		# in the roster as "line") take the WL/WR slots; the rest fill the
+		# centre square. Old results without the field keep list order.
+		var inside := []
+		var wings := []
+		for p in groups["MID"]:
+			(wings if str(p.get("line", "")) == "WING" else inside).append(p)
+		# Three for the centre square, then the wings, then any extra.
+		groups["MID"] = inside.slice(0, 3) + wings + inside.slice(3)
 		var extra := 0
 		for role in ["RUCK", "MID", "DEF", "FWD"]:
 			var slots: Array = SLOTS[role]
