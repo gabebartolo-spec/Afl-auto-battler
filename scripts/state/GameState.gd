@@ -35,6 +35,9 @@ var last_injuries: Array = []    # the last round's new injuries, every club
 var season_tally := {}           # player id -> running season numbers (Awards)
 var season_awards := {}          # the finished season's awards
 var honour_roll: Array = []      # one entry per completed season
+## Every coach in the game, once: cid -> record (Coaches.gd). A club's staff
+## is read from the records, never stored beside them.
+var coaches := {}
 var records := {}                # league records across the career
 ## Club achievements unlocked this career: id -> {"year", "detail"}.
 ## Definitions live in scripts/sim/Achievements.gd.
@@ -231,6 +234,7 @@ func save_career() -> bool:
 		"db_draftees": GameDB.draftees,
 		"db_late_draftees": GameDB.late_draftees,
 		"db_alias_next": GameDB._alias_next,
+		"coaches": coaches,
 		"career_seed": career_seed,
 		"class_tiers": class_tiers,
 		# Players carry p["career"]; saves without this mark predate it.
@@ -330,6 +334,10 @@ func load_career() -> bool:
 	ensure_contracts()
 	if season != null and board.is_empty():
 		_open_board_season()
+	coaches = state.get("coaches", {})
+	# A save from before the coaching world: seed it for this career now.
+	if season != null and coaches.is_empty():
+		coaches = Coaches.seed(my_club)
 	return true
 
 
@@ -515,6 +523,7 @@ func reset() -> void:
 	honour_roll = []
 	records = {}
 	achievements = {}
+	coaches = {}
 	salary_cap = 0
 	free_agents = []
 	offseason_year = 0
@@ -842,6 +851,8 @@ func start_season(club_code: String, list: Array) -> void:
 			int(Time.get_unix_time_from_system()) % 1000000)
 	salary_cap = draft.budget if draft != null and draft.league_mode else 0
 	ensure_contracts()
+	# The coaching world at Round 1 2026, with you in your club's top job.
+	coaches = Coaches.seed(my_club)
 	_open_board_season()
 	last_phase = "regular"
 	last_label = "Round 1"
@@ -2618,3 +2629,19 @@ func resolve_week_event(choice: int) -> String:
 	week_event["outcome"] = out
 	mark_dirty()
 	return out
+
+
+# ---------------------------------------------------------------------------
+# Coaching staff (Coaches.gd): read-only for now
+# ---------------------------------------------------------------------------
+## A club's staff as records by job ("SC" absent at your club: that is you).
+func club_staff(club: String) -> Dictionary:
+	var out := {}
+	var jobs := Coaches.staff(coaches, club)
+	for job in jobs:
+		out[job] = coaches[jobs[job]]
+	return out
+
+
+func coach(cid: String) -> Dictionary:
+	return coaches.get(cid, {})

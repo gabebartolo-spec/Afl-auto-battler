@@ -1,0 +1,187 @@
+source_sheet,club,coach,role,role_type,specialty,tactics,development,man_management,match_day,standards_culture,specialist_craft,confidence,status_note,source
+club,Adelaide,Matthew Nicks,Senior Coach,Head Coach,Leadership / whole-game,79,82,84,76,83,76,High,,https://www.afc.com.au/Teams/AFL/coaches
+club,Adelaide,Murray Davis,Coaching Director,Senior Assistant / Director,Whole-game strategy,87,83,83,84,86,85,High,,https://www.afc.com.au/Teams/AFL/coaches
+club,Adelaide,Scott Burns,Senior Assistant Coach (Forwards),Senior Assistant / Director,Forwards,83,77,81,82,83,87,High,,https://www.afc.com.au/Teams/AFL/coaches
+club,Adelaide,Nathan van Berlo,Assistant Coach (Midfield),Line Assistant,Midfield,75,76,76,74,78,84,High,,https://www.afc.com.au/Teams/AFL/coaches
+club,Adelaide,Jack Hombsch,Assistant Coach (Defenders),Line Assistant,Defence,75,76,76,74,78,84,Medium,,https://www.afc.com.au/Teams/AFL/coaches
+club,Adelaide,Michael Godden,Assistant Coach and Head of Development,Head of Development,Development,75,92,84,73,85,82,High,,https://www.afc.com.au/Teams/AFL/coaches
+club,Adelaide,Sam Baulderstone,Ruck Coach,Ruck / Specialist,Ruck,65,78,76,62,78,90,Medium,,https://www.afc.com.au/Teams/AFL/coaches
+club,Adelaide,Matthew Wright,SANFL Coach,VFL / State Head,Development pathway,73,82,78,75,80,78,Medium,,https://www.afc.com.au/Teams/AFL/coaches
+club,Adelaide,Chelsea Randall,Development Coach,Development Coach,Development / leadership,64,82,80,60,80,78,Medium,,https://www.afc.com.au/Teams/AFL/coaches
+club,Adelaide,Andrew McPherson,Development Coach,Development Coach,Development / defence,64,82,80,60,80,78,Low,,https://www.afc.com.au/Teams/AFL/coaches
+club,Brisbane,Chris Fagan,Head Coach,Head Coach,Leadership / whole-game,91,91,93,89,93,84,High,,https://www.lions.com.au/teams/afl/coaches
+club,Brisbane,Cameron Bruce,Senior Assistant Coach (Midfield),Senior Assistant / Director,Midfield,85,79,81,83,85,89,High,,https://www.lions.com.au/teams/afl/coaches
+club,Brisbane,Dale Morris,Assistant Coach (Backs),Line Assistant,Defence,78,80,81,77,83,89,High,,https://www.lions.com.au/teams/afl/coaches
+club,Brisbane,Daniel Lloyd,Assistant Coach (Forwards),Line Assistant,Forwards,75,76,76,74,78,84,Medium,,https://www.lions.com.au/teams/afl/coaches
+club,Brisbane,Ben Hudson,Development Coach (Rucks),Ruck / Specialist,Ruck development,65,78,76,62,78,90,High,,https://www.lions.com.au/teams/afl/coaches
+club,Brisbane,Scott Borlace,Head of Development & VFL Head Coach,Head of Development,Development,73,89,83,69,83,81,High,,https://www.lions.com.au/teams/afl/coaches
+club,Brisbane,Liam Jones,Development Coach & VFL Assistant,Development Coach,Defence / talls,64,82,80,60,80,78,Low,,https://www.lions.com.au/teams/afl/coaches
+club,Brisbane,Scott Thompson,Development Coach & VFL Assistant,Development Coach,Midfield / development,64,82,80,60,80,78,Medium,,https://www.lions.com.au/teams/afl/coaches
+club,Carlton,Michael Voss,AFL Senior Coach,Head Coach,Leadership / midfield,82,78,86,80,87,82,High,,https://www.carltonfc.com.au/news/1908743/carlton-confirms-coaching-structure-for-2026
+club,Carlton,Ash Hansen,Assistant Coach (Defence),Line Assistant,Defence,83,78,83,82,85,89,High,,https://www.carltonfc.com.au/news/1908743/carlton-confirms-coaching-structure-for-2026
+club,Carlton,Josh Fraser,Assistant Coach (Forwards),Line Assistant,Forwards,81,83,83,80,85,87,High,,https://www.carltonfc.com.au/news/1908743/carlton-confirms-coaching-structure-for-2026
+club,Carlton,Tim Clarke,Assistant Coach (Midfield stoppage & structure),Line Assistant,Stoppage / midfield,83,75,77,83,81,90,High,,https://www.carltonfc.com.au/news/1908743/carlton-confirms-coaching-structure-for-2026
+club,Carlton,Leigh Adams,Assistant Coach (Midfield),Line Assistant,Midfield,79,80,80,78,82,87,High,,https://www.carltonfc.com.au/news/1908743/carlton-confirms-coaching-structure-for-2026
+club,Carlton,Matthew Kreuzer,Ruck Coach,Ruck / Specialist,Ruck,64,80,81,61,85,94,High,,https://www.carltonfc.com.au/news/1908743/carlton-confirms-coaching-structure-for-2026
+club,Carlton,Jordan Russell,Head of Development,Head of Development,Development,71,89,83,67,83,81,Medium,,https://www.carltonfc.com.au/news/1908743/carlton-confirms-coaching-structure-for-2026
+club,Carlton,Damian Truslove,VFL Senior Coach & Development Coach,VFL / State Head,Development pathway,76,85,80,78,82,80,High,,https://www.carltonfc.com.au/news/1908743/carlton-confirms-coaching-structure-for-2026
+club,Carlton,Torin Baker,Development Coach,Development Coach,Development,64,82,80,60,80,78,Medium,,https://www.carltonfc.com.au/news/1908743/carlton-confirms-coaching-structure-for-2026
+club,Carlton,Ash Close,Development Coach,Development Coach,Development / pathways,69,87,79,63,81,77,Medium,,https://www.carltonfc.com.au/news/1908743/carlton-confirms-coaching-structure-for-2026
+club,Carlton,Jacob Townsend,Development Coach,Development Coach,Development / standards,64,82,83,60,85,78,Medium,,https://www.carltonfc.com.au/news/1908743/carlton-confirms-coaching-structure-for-2026
+club,Carlton,Travis Boak,Leadership & Culture,Leadership / Culture,Leadership / culture,61,82,93,61,95,78,High,,https://www.carltonfc.com.au/news/1908743/carlton-confirms-coaching-structure-for-2026
+club,Carlton,Adam Simpson,Part-time Coaching Consultant / Mentor,Senior Assistant / Director,Coaching process / structure,88,83,85,87,89,83,High,,https://www.carltonfc.com.au/news/1908743/carlton-confirms-coaching-structure-for-2026
+club,Collingwood,Craig McRae,Senior Coach,Head Coach,Leadership / whole-game,89,85,94,90,94,84,High,,https://www.collingwoodfc.com.au/news/1964795/collingwoodwelcomesniterraconfirms-2026-afl-coaching-structure
+club,Collingwood,Hayden Skipworth,Head of Football Strategy and Coaching,Senior Assistant / Director,Strategy / coaching,88,83,85,85,87,84,High,,https://www.collingwoodfc.com.au/news/1964795/collingwoodwelcomesniterraconfirms-2026-afl-coaching-structure
+club,Collingwood,Matthew Boyd,Assistant Coach (Midfield),Line Assistant,Midfield,80,78,79,78,82,87,High,,https://www.collingwoodfc.com.au/news/1964795/collingwoodwelcomesniterraconfirms-2026-afl-coaching-structure
+club,Collingwood,Tyson Goldsack,Assistant Coach (Forwards),Line Assistant,Forwards,75,76,76,74,78,84,Medium,,https://www.collingwoodfc.com.au/news/1964795/collingwoodwelcomesniterraconfirms-2026-afl-coaching-structure
+club,Collingwood,Jordan Roughead,Assistant Coach (Backs),Line Assistant,Defence,80,80,81,78,84,89,High,,https://www.collingwoodfc.com.au/news/1964795/collingwoodwelcomesniterraconfirms-2026-afl-coaching-structure
+club,Collingwood,Greg Stafford,Ruck Coach,Ruck / Specialist,Ruck,67,80,77,64,80,91,High,,https://www.collingwoodfc.com.au/news/1964795/collingwoodwelcomesniterraconfirms-2026-afl-coaching-structure
+club,Collingwood,Matthew Lokan,VFL Senior Coach & Development Coach,VFL / State Head,Development pathway,73,82,78,75,80,78,Medium,,https://www.collingwoodfc.com.au/news/1964795/collingwoodwelcomesniterraconfirms-2026-afl-coaching-structure
+club,Collingwood,Chloe McMillan,Development Coach,Development Coach,Development,64,82,80,60,80,78,Medium,,https://www.collingwoodfc.com.au/news/1964795/collingwoodwelcomesniterraconfirms-2026-afl-coaching-structure
+club,Collingwood,Dyson Heppell,Development Coach,Development Coach,Development / leadership,64,82,80,60,80,78,Medium,,https://www.collingwoodfc.com.au/news/1964795/collingwoodwelcomesniterraconfirms-2026-afl-coaching-structure
+club,Collingwood,Nathan Murphy,Development Coach,Development Coach,Development / defence,64,82,80,60,80,78,Low,,https://www.collingwoodfc.com.au/news/1964795/collingwoodwelcomesniterraconfirms-2026-afl-coaching-structure
+club,Essendon,Brad Scott,Senior Coach,Head Coach,Leadership / whole-game,83,78,84,82,86,80,High,,https://www.essendonfc.com.au/news/1941740/bombers-finalise-2026-coaching-structure
+club,Essendon,Dean Solomon,Assistant Coach (Defence),Line Assistant,Defence,83,76,87,81,89,87,High,,https://www.essendonfc.com.au/news/1941740/bombers-finalise-2026-coaching-structure
+club,Essendon,Ben Jacobs,Assistant Coach (Midfield),Line Assistant,Midfield,75,76,76,74,78,84,Medium,,https://www.essendonfc.com.au/news/1941740/bombers-finalise-2026-coaching-structure
+club,Essendon,Cam Roberts,Assistant Coach (Forwards),Line Assistant,Forwards,75,76,76,74,78,84,Medium,,https://www.essendonfc.com.au/news/1941740/bombers-finalise-2026-coaching-structure
+club,Essendon,Brent Stanton,Assistant Coach (Stoppages),Line Assistant,Stoppages,79,79,77,77,81,87,High,,https://www.essendonfc.com.au/news/1941740/bombers-finalise-2026-coaching-structure
+club,Essendon,David Rath,Coaching Innovation & Game Strategy Manager,Senior Assistant / Director,Strategy / innovation,89,73,72,85,81,82,High,,https://www.essendonfc.com.au/news/1941740/bombers-finalise-2026-coaching-structure
+club,Essendon,Michael Hurley,Development Coach,Development Coach,Defence / development,64,82,80,60,80,78,Medium,,https://www.essendonfc.com.au/news/1941740/bombers-finalise-2026-coaching-structure
+club,Essendon,Toby McLean,Development Coach,Development Coach,Midfield / development,64,82,80,60,80,78,Low,,https://www.essendonfc.com.au/news/1941740/bombers-finalise-2026-coaching-structure
+club,Essendon,Todd Goldstein,Ruck Coach,Ruck / Specialist,Ruck,66,79,82,62,86,94,High,,https://www.essendonfc.com.au/news/1941740/bombers-finalise-2026-coaching-structure
+club,Essendon,Cameron Joyce,VFL Senior Coach,VFL / State Head,Development pathway,73,82,78,75,80,78,Medium,,https://www.essendonfc.com.au/news/1941740/bombers-finalise-2026-coaching-structure
+club,Essendon,James Polkinghorne,"Development, VFL & Pathways Manager",Head of Development,Development pathways,70,88,82,66,82,80,Medium,,https://www.essendonfc.com.au/news/1941740/bombers-finalise-2026-coaching-structure
+club,Fremantle,Justin Longmuir,Senior Coach,Head Coach,Structure / defence,83,79,78,81,82,86,High,,https://www.fremantlefc.com.au/news/1911668/fremantle-coaching-department-update
+club,Fremantle,Jaymie Graham,Assistant Coach (Forwards),Line Assistant,Forwards,81,78,79,80,81,86,High,,https://www.fremantlefc.com.au/news/1911668/fremantle-coaching-department-update
+club,Fremantle,Joel Corey,Assistant Coach (Midfield),Line Assistant,Midfield,82,79,83,80,85,89,High,,https://www.fremantlefc.com.au/news/1911668/fremantle-coaching-department-update
+club,Fremantle,Jade Rawlings,Assistant Coach (Backs),Line Assistant,Defence,83,83,83,83,85,91,High,,https://www.fremantlefc.com.au/news/1911668/fremantle-coaching-department-update
+club,Fremantle,Harry Garland,Assistant Coach (Stoppages),Line Assistant,Stoppages,75,76,76,74,78,84,Medium,,https://www.fremantlefc.com.au/news/1911668/fremantle-coaching-department-update
+club,Fremantle,Andrew Sturgess,Opposition Strategy & Leadership Coach,Senior Assistant / Director,Opposition strategy,84,77,81,79,83,83,High,,https://www.fremantlefc.com.au/news/1911668/fremantle-coaching-department-update
+club,Fremantle,Geoff Valentine,Head of Development,Head of Development,Development,71,89,83,67,83,80,High,,https://www.fremantlefc.com.au/news/1911668/fremantle-coaching-department-update
+club,Fremantle,Adam Read,Peel Senior Coach,VFL / State Head,Development pathway,73,82,78,75,80,78,Medium,,https://www.fremantlefc.com.au/news/1911668/fremantle-coaching-department-update
+club,Fremantle,Chris Mayne,Forwards Development Coach,Development Coach,Forwards development,64,82,80,60,80,78,Medium,,https://www.fremantlefc.com.au/news/1911668/fremantle-coaching-department-update
+club,Fremantle,Todd Curley,Midfield Development Coach,Development Coach,Midfield development,79,84,81,78,83,85,High,,https://www.fremantlefc.com.au/news/1911668/fremantle-coaching-department-update
+club,Fremantle,Tendai Mzungu,Backs Development Coach,Development Coach,Defence development,64,82,80,60,80,78,Medium,,https://www.fremantlefc.com.au/news/1911668/fremantle-coaching-department-update
+club,Fremantle,Sam Naismith,Ruck Coach,Ruck / Specialist,Ruck,65,78,76,62,78,90,Medium,,https://www.fremantlefc.com.au/news/1911668/fremantle-coaching-department-update
+club,Fremantle,Damian Martin,Leadership Advisor,Leadership / Culture,Leadership / culture,60,82,92,60,94,76,High,,https://www.fremantlefc.com.au/news/1911668/fremantle-coaching-department-update
+club,Geelong,Chris Scott,AFL Senior Coach,Head Coach,Whole-game strategy,94,89,90,93,92,91,High,,https://www.geelongcats.com.au/teams/afl/coaches
+club,Geelong,James Rahilly,Assistant Coach,Senior Assistant / Director,Forwards / whole-game,82,80,82,80,84,87,High,,https://www.geelongcats.com.au/teams/afl/coaches
+club,Geelong,James Kelly,Assistant Coach,Senior Assistant / Director,Whole-game / communication,87,81,87,84,87,87,High,,https://www.geelongcats.com.au/teams/afl/coaches
+club,Geelong,Nathan Buckley,Assistant Coach,Senior Assistant / Director,Strategy / midfield,92,83,86,89,88,88,High,,https://www.geelongcats.com.au/teams/afl/coaches
+club,Geelong,Nigel Lappin,Head of Development,Head of Development,Development / midfield,74,91,85,69,87,82,High,,https://www.geelongcats.com.au/teams/afl/coaches
+club,Geelong,Mark Corrigan,VFL Coach,VFL / State Head,Development pathway,75,84,80,77,82,80,Medium,,https://www.geelongcats.com.au/teams/afl/coaches
+club,Gold Coast,Damien Hardwick,Senior Coach,Head Coach,Whole-game strategy,93,85,91,91,94,90,High,,https://resources.goldcoastfc.com.au/aflc-gcfc/document/2026/03/02/2bf3748f-20ad-48a7-805e-94e898fd381d/2026-AFL-Media-Guide.pdf
+club,Gold Coast,Shaun Grigg,Assistant Coach (Midfield),Line Assistant,Midfield,83,81,83,82,85,89,High,,https://resources.goldcoastfc.com.au/aflc-gcfc/document/2026/03/02/2bf3748f-20ad-48a7-805e-94e898fd381d/2026-AFL-Media-Guide.pdf
+club,Gold Coast,Josh Drummond,Assistant Coach (Defence),Line Assistant,Defence,81,85,81,81,85,91,High,,https://resources.goldcoastfc.com.au/aflc-gcfc/document/2026/03/02/2bf3748f-20ad-48a7-805e-94e898fd381d/2026-AFL-Media-Guide.pdf
+club,Gold Coast,Brad Miller,Assistant Coach (Forwards),Line Assistant,Forwards,78,78,78,77,81,87,High,,https://resources.goldcoastfc.com.au/aflc-gcfc/document/2026/03/02/2bf3748f-20ad-48a7-805e-94e898fd381d/2026-AFL-Media-Guide.pdf
+club,Gold Coast,Tate Kaesler,VFL Head Coach & Head of Development,Head of Development,Development pathway,74,88,82,76,83,81,High,,https://resources.goldcoastfc.com.au/aflc-gcfc/document/2026/03/02/2bf3748f-20ad-48a7-805e-94e898fd381d/2026-AFL-Media-Guide.pdf
+club,Gold Coast,Richard Douglas,Development Coach,Development Coach,Midfield development,64,82,80,60,80,78,Medium,,https://resources.goldcoastfc.com.au/aflc-gcfc/document/2026/03/02/2bf3748f-20ad-48a7-805e-94e898fd381d/2026-AFL-Media-Guide.pdf
+club,Gold Coast,Hugh Greenwood,Development Coach,Development Coach,Development / midfield,64,82,80,60,80,78,Medium,,https://resources.goldcoastfc.com.au/aflc-gcfc/document/2026/03/02/2bf3748f-20ad-48a7-805e-94e898fd381d/2026-AFL-Media-Guide.pdf
+club,Gold Coast,James Tsitas,Development Coach,Development Coach,Development / state-league,64,82,80,60,80,78,Low,,https://resources.goldcoastfc.com.au/aflc-gcfc/document/2026/03/02/2bf3748f-20ad-48a7-805e-94e898fd381d/2026-AFL-Media-Guide.pdf
+club,GWS,Adam Kingsley,Senior Coach,Head Coach,Whole-game strategy,88,84,87,87,88,89,High,,https://www.gwsgiants.com.au/news/1964341/2026-grand-final-packages
+club,GWS,Brett Montgomery,Assistant Coach (Forwards / Team Defence),Senior Assistant / Director,Forwards / team defence,85,79,83,85,85,89,High,,https://www.gwsgiants.com.au/news/1964341/2026-grand-final-packages
+club,GWS,Ben Hart,Assistant Coach (Backline),Line Assistant,Defence,83,80,82,82,84,91,High,,https://www.gwsgiants.com.au/news/1964341/2026-grand-final-packages
+club,GWS,Craig Jennings,Assistant Coach (Midfield / Transition),Senior Assistant / Director,Midfield / transition,92,79,81,89,85,91,High,,https://www.gwsgiants.com.au/news/1964341/2026-grand-final-packages
+club,GWS,Wayne Cripps,Assistant Coach (Midfield / Stoppage),Line Assistant,Stoppages / midfield,79,85,81,79,83,89,High,,https://www.gwsgiants.com.au/news/1964341/2026-grand-final-packages
+club,GWS,Shane Mumford,Assistant Coach (Rucks),Ruck / Specialist,Ruck,69,79,85,66,89,95,High,,https://www.gwsgiants.com.au/news/1964341/2026-grand-final-packages
+club,GWS,Robbie Chancellor,VFL Head Coach,VFL / State Head,Development pathway,73,82,78,75,80,78,Medium,,https://www.gwsgiants.com.au/news/1964341/2026-grand-final-packages
+club,GWS,Alicia Eva,AFL Development Coach,Development Coach,Development / leadership,64,82,80,60,80,78,High,,https://www.gwsgiants.com.au/news/1964341/2026-grand-final-packages
+club,GWS,Trent Dennis-Lane,VFL Assistant & AFL Development Coach,Development Coach,Development / forwards,64,82,80,60,80,78,Medium,,https://www.gwsgiants.com.au/news/1964341/2026-grand-final-packages
+club,GWS,Jason Davenport,Head of Development,Head of Development,Development,73,89,83,69,83,81,High,,https://www.gwsgiants.com.au/news/1964341/2026-grand-final-packages
+club,Hawthorn,Sam Mitchell,Senior Coach,Head Coach,Whole-game / ball movement,89,87,85,88,87,91,High,,https://www.hawthornfc.com.au/news/1938178/hawthorn-locks-in-2026-afl-coaching-panel
+club,Hawthorn,Brett Ratten,Head of Coaching Performance & Development,Senior Assistant / Director,Coaching / development,89,87,89,86,89,86,High,,https://www.hawthornfc.com.au/news/1938178/hawthorn-locks-in-2026-afl-coaching-panel
+club,Hawthorn,Kade Simpson,Backline Coach,Line Assistant,Defence,79,77,79,77,81,88,High,,https://www.hawthornfc.com.au/news/1938178/hawthorn-locks-in-2026-afl-coaching-panel
+club,Hawthorn,David Mackay,Midfield Coach,Line Assistant,Midfield,77,79,79,75,81,86,Medium,,https://www.hawthornfc.com.au/news/1938178/hawthorn-locks-in-2026-afl-coaching-panel
+club,Hawthorn,Adrian Hickmott,Forwards Coach,Line Assistant,Forwards,83,81,83,81,85,88,High,,https://www.hawthornfc.com.au/news/1938178/hawthorn-locks-in-2026-afl-coaching-panel
+club,Hawthorn,David Hale,Assistant Coach (Structure & Opposition),Senior Assistant / Director,Structure / opposition,89,78,81,87,85,89,High,,https://www.hawthornfc.com.au/news/1938178/hawthorn-locks-in-2026-afl-coaching-panel
+club,Hawthorn,Daniel Giansiracusa,Head of Development,Head of Development,Development,85,92,87,83,88,87,High,,https://www.hawthornfc.com.au/news/1938178/hawthorn-locks-in-2026-afl-coaching-panel
+club,Hawthorn,David Mirra,VFL Senior Coach / AFL Development Coach,VFL / State Head,Development pathway,73,82,78,75,80,78,Medium,,https://www.hawthornfc.com.au/news/1938178/hawthorn-locks-in-2026-afl-coaching-panel
+club,Hawthorn,Jason Williams,AFL Development Coach,Development Coach,Development,64,82,80,60,80,78,Medium,,https://www.hawthornfc.com.au/news/1938178/hawthorn-locks-in-2026-afl-coaching-panel
+club,Hawthorn,Jason Johannisen,AFL Development Coach,Development Coach,Development / rebounding defence,64,82,80,60,80,78,Low,,https://www.hawthornfc.com.au/news/1938178/hawthorn-locks-in-2026-afl-coaching-panel
+club,Melbourne,Steven King,AFL Senior Coach,Head Coach,Ruck / midfield structure,78,80,80,74,81,87,High,,https://www.melbournefc.com.au/teams/afl/coaches
+club,Melbourne,Troy Chaplin,Assistant Coach,Senior Assistant / Director,Whole-game / line coaching,83,79,79,81,83,87,High,,https://www.melbournefc.com.au/teams/afl/coaches
+club,Melbourne,Nathan Jones,Midfield & Stoppages Coach,Line Assistant,Midfield / stoppages,77,81,85,75,87,88,High,,https://www.melbournefc.com.au/teams/afl/coaches
+club,Melbourne,Jared Rivers,Backline & Defence Coach,Line Assistant,Defence,81,81,81,80,83,89,High,,https://www.melbournefc.com.au/teams/afl/coaches
+club,Melbourne,Taylor Whitford,AFL Head of Development,Head of Development,Development,70,87,81,65,81,78,Medium,,https://www.melbournefc.com.au/teams/afl/coaches
+club,Melbourne,Rhett McLennan,VFL Senior Coach,VFL / State Head,Development pathway,73,82,78,75,80,78,Medium,,https://www.melbournefc.com.au/teams/afl/coaches
+club,Melbourne,Rory Atkins,Development Coach,Development Coach,Development / outside game,64,82,80,60,80,78,Low,,https://www.melbournefc.com.au/teams/afl/coaches
+club,Melbourne,Mark Jamar,Ruck Coach,Ruck / Specialist,Ruck,64,78,75,61,81,92,High,,https://www.melbournefc.com.au/teams/afl/coaches
+club,Melbourne,Matthew Scarlett,Specialist Coach,Ruck / Specialist,Defence / talls,79,79,83,75,87,93,High,,https://www.melbournefc.com.au/teams/afl/coaches
+club,Melbourne,Max Viney,Tackling & Grappling Coach,Ruck / Specialist,Tackling / contest,65,78,76,62,78,90,Medium,,https://www.melbournefc.com.au/teams/afl/coaches
+club,North Melbourne,Alastair Clarkson,Senior Coach,Head Coach,Whole-game strategy,94,87,88,92,93,91,High,,https://www.nmfc.com.au/news/1964420/2026-season-guide-the-roos-to-watch-key-matches-more
+club,North Melbourne,Jed Adcock,Assistant Coach (Defence),Line Assistant,Defence,75,76,76,74,78,84,High,,https://www.nmfc.com.au/news/1964420/2026-season-guide-the-roos-to-watch-key-matches-more
+club,North Melbourne,Xavier Clarke,Assistant Coach (Forwards),Line Assistant,Forwards,75,76,76,74,78,84,High,,https://www.nmfc.com.au/news/1964420/2026-season-guide-the-roos-to-watch-key-matches-more
+club,North Melbourne,Michael Barlow,Assistant Coach (Midfield),Line Assistant,Midfield,75,76,76,74,78,84,High,,https://www.nmfc.com.au/news/1964420/2026-season-guide-the-roos-to-watch-key-matches-more
+club,North Melbourne,Zane Littlejohn,Assistant Coach (Strategy),Senior Assistant / Director,Strategy,85,81,81,83,83,84,High,,https://www.nmfc.com.au/news/1964420/2026-season-guide-the-roos-to-watch-key-matches-more
+club,North Melbourne,Damian Monkhorst,Ruck Coach,Ruck / Specialist,Ruck,66,79,79,63,83,93,High,,https://www.nmfc.com.au/news/1964420/2026-season-guide-the-roos-to-watch-key-matches-more
+club,North Melbourne,Tom Lynch,Head of Development,Head of Development,Development,71,89,83,67,83,81,High,,https://www.nmfc.com.au/news/1964420/2026-season-guide-the-roos-to-watch-key-matches-more
+club,North Melbourne,Adam Marcon,VFL Senior Coach,VFL / State Head,Development pathway,73,82,78,75,80,78,Medium,,https://www.nmfc.com.au/news/1964420/2026-season-guide-the-roos-to-watch-key-matches-more
+club,North Melbourne,Jarrod Lienert,Indigenous Player Development / Development Coach,Development Coach,Development / welfare,64,82,80,60,80,78,Low,,https://www.nmfc.com.au/news/1964420/2026-season-guide-the-roos-to-watch-key-matches-more
+club,North Melbourne,Shaun Hampson,Development Coach,Development Coach,Talls / ruck development,64,82,80,60,80,78,Medium,,https://www.nmfc.com.au/news/1964420/2026-season-guide-the-roos-to-watch-key-matches-more
+club,North Melbourne,Darcy Macpherson,Development Coach,Development Coach,Development / standards,64,82,80,60,80,78,Low,,https://www.nmfc.com.au/news/1964420/2026-season-guide-the-roos-to-watch-key-matches-more
+club,Port Adelaide,Josh Carr,Senior Coach,Head Coach,Contest / midfield,80,80,83,76,85,89,High,,https://www.portadelaidefc.com.au/news/1919372/port-adelaide-finalises-2026-afl-coaching-panel
+club,Port Adelaide,Andy Collins,Director of Coaching,Senior Assistant / Director,Coaching / whole-game,89,87,87,85,89,86,High,,https://www.portadelaidefc.com.au/news/1919372/port-adelaide-finalises-2026-afl-coaching-panel
+club,Port Adelaide,Stuart Dew,Senior Assistant Coach (Midfield),Senior Assistant / Director,Midfield / strategy,91,85,87,89,89,88,High,,https://www.portadelaidefc.com.au/news/1919372/port-adelaide-finalises-2026-afl-coaching-panel
+club,Port Adelaide,Luke Webster,Assistant Coach (Defenders),Line Assistant,Defence,83,80,79,81,83,89,High,,https://www.portadelaidefc.com.au/news/1919372/port-adelaide-finalises-2026-afl-coaching-panel
+club,Port Adelaide,Darren Reeves,Assistant Coach (Forwards),Line Assistant,Forwards,85,84,83,84,87,89,High,,https://www.portadelaidefc.com.au/news/1919372/port-adelaide-finalises-2026-afl-coaching-panel
+club,Port Adelaide,Hamish Hartlett,Assistant Coach (Contest / Stoppage / Opposition),Line Assistant,Contest / stoppage,81,78,83,79,85,89,High,,https://www.portadelaidefc.com.au/news/1919372/port-adelaide-finalises-2026-afl-coaching-panel
+club,Port Adelaide,Matthew Lobbe,Head of Development,Head of Development,Development / ruck,70,89,81,65,83,87,High,,https://www.portadelaidefc.com.au/news/1919372/port-adelaide-finalises-2026-afl-coaching-panel
+club,Port Adelaide,Mitch Clisby,Development Coach (Forwards),Development Coach,Forwards development,64,82,80,60,80,78,Medium,,https://www.portadelaidefc.com.au/news/1919372/port-adelaide-finalises-2026-afl-coaching-panel
+club,Port Adelaide,Cam Sutcliffe,Development Coach (Defenders),Development Coach,Defence development,64,82,80,60,80,78,Medium,,https://www.portadelaidefc.com.au/news/1919372/port-adelaide-finalises-2026-afl-coaching-panel
+club,Port Adelaide,Jacob Surjan,Development Coach (Midfield) & SANFL Coach,VFL / State Head,Midfield / development,73,82,78,75,80,78,High,,https://www.portadelaidefc.com.au/news/1919372/port-adelaide-finalises-2026-afl-coaching-panel
+club,Richmond,Adem Yze,Senior Coach,Head Coach,Development / whole-game,77,85,85,74,84,82,High,,https://www.richmondfc.com.au/football/afl/coaches
+club,Richmond,Ben Rutten,Head of Coaching Performance & Development,Senior Assistant / Director,Coaching / defence,88,87,85,85,88,91,High,,https://www.richmondfc.com.au/football/afl/coaches
+club,Richmond,Jake Batchelor,Assistant Coach (Backs / Defence),Line Assistant,Defence,80,85,81,79,83,87,High,,https://www.richmondfc.com.au/football/afl/coaches
+club,Richmond,Blake Caracella,Assistant Coach (Midfield / Ball Movement),Senior Assistant / Director,Midfield / ball movement,91,85,85,89,87,91,High,,https://www.richmondfc.com.au/football/afl/coaches
+club,Richmond,Sam Lonergan,Assistant Coach (Midfield / Stoppages),Line Assistant,Stoppages / midfield,75,76,76,74,78,84,High,,https://www.richmondfc.com.au/football/afl/coaches
+club,Richmond,Chris Newman,Assistant Coach (Forwards),Line Assistant,Forwards,83,83,83,81,85,88,High,,https://www.richmondfc.com.au/football/afl/coaches
+club,Richmond,Taylor Duryea,Development Coach (Backs),Development Coach,Defence development,64,82,80,60,80,78,Medium,,https://www.richmondfc.com.au/football/afl/coaches
+club,Richmond,Jack Ziebell,Development Coach (Midfielders),Development Coach,Midfield / leadership,64,82,80,60,80,78,Medium,,https://www.richmondfc.com.au/football/afl/coaches
+club,Richmond,Luke Breust,Development Coach (Forwards),Development Coach,Forwards development,64,82,80,60,80,78,Medium,,https://www.richmondfc.com.au/football/afl/coaches
+club,Richmond,Ivan Maric,Ruck Coach / Player Development Manager,Ruck / Specialist,Ruck / development,70,85,85,65,89,93,High,,https://www.richmondfc.com.au/football/afl/coaches
+club,Richmond,Jack Madgen,VFL Coach,VFL / State Head,Development pathway,73,82,78,75,80,78,Medium,,https://www.richmondfc.com.au/football/afl/coaches
+club,St Kilda,Ross Lyon,AFL Senior Coach,Head Coach,Defence / whole-game,92,78,86,90,91,93,High,,https://www.saints.com.au/afl/coaches
+club,St Kilda,Corey Enright,Head of Game Plan & Strategy,Senior Assistant / Director,Game plan / defence,91,85,85,89,89,93,High,,https://www.saints.com.au/afl/coaches
+club,St Kilda,Robert Harvey,Assistant Coach (Midfield),Line Assistant,Midfield,86,83,85,84,87,89,High,,https://www.saints.com.au/afl/coaches
+club,St Kilda,Brendon Bolton,Assistant Coach (Forwards),Senior Assistant / Director,Forwards / teaching,87,87,89,83,89,85,High,,https://www.saints.com.au/afl/coaches
+club,St Kilda,Jimmy Allan,Assistant Coach (Backline),Line Assistant,Defence,75,76,76,74,78,84,Medium,,https://www.saints.com.au/afl/coaches
+club,St Kilda,Damian Carroll,Head of Development & Learning / VFL Forwards,Head of Development,Development / learning,71,89,83,67,85,80,High,,https://www.saints.com.au/afl/coaches
+club,St Kilda,Brendon Goddard,Development Coach / VFL Senior Coach,VFL / State Head,Development / standards,72,85,87,67,91,85,High,,https://www.saints.com.au/afl/coaches
+club,St Kilda,Dylan Shiel,Development Coach,Development Coach,Midfield development,64,82,80,60,80,78,Low,,https://www.saints.com.au/afl/coaches
+club,St Kilda,Simon Williams,VFL Senior Assistant / VFL Backline,Line Assistant,Defence / development,75,76,76,74,78,84,Medium,,https://www.saints.com.au/afl/coaches
+club,St Kilda,Farren Ray,VFL Development Coach,Development Coach,Development,64,82,80,60,80,78,Medium,,https://www.saints.com.au/afl/coaches
+club,Sydney,Dean Cox,Senior Coach,Head Coach,Ruck / whole-game,80,80,83,76,83,89,High,,https://www.sydneyswans.com.au/news/1902496/laidler-and-campbell-join-sydney-swans
+club,Sydney,Simon Goodwin,Director of Coaching & Performance,Senior Assistant / Director,Coaching / performance,92,85,89,90,91,88,High,,https://www.sydneyswans.com.au/news/1902496/laidler-and-campbell-join-sydney-swans
+club,Sydney,Ben Mathews,Senior Assistant Coach,Senior Assistant / Director,Whole-game / leadership,85,81,85,84,87,85,High,,https://www.sydneyswans.com.au/news/1902496/laidler-and-campbell-join-sydney-swans
+club,Sydney,Jeremy Laidler,Assistant Coach,Line Assistant,Defence / whole-game,81,79,79,80,83,87,High,,https://www.sydneyswans.com.au/news/1902496/laidler-and-campbell-join-sydney-swans
+club,Sydney,Mark McVeigh,Assistant Coach,Senior Assistant / Director,Defence / strategy,85,81,83,83,85,89,High,,https://www.sydneyswans.com.au/news/1902496/laidler-and-campbell-join-sydney-swans
+club,Sydney,Amon Buchanan,Assistant Coach,Line Assistant,Forwards / ball movement,81,83,81,79,85,87,High,,https://www.sydneyswans.com.au/news/1902496/laidler-and-campbell-join-sydney-swans
+club,Sydney,Adam Kennedy,AFL Development Coach,Development Coach,Development / resilience,64,82,80,60,80,78,Low,,https://www.sydneyswans.com.au/news/1902496/laidler-and-campbell-join-sydney-swans
+club,Sydney,Nick Malceski,VFL Head Coach,VFL / State Head,Development pathway,76,84,81,76,83,82,High,,https://www.sydneyswans.com.au/news/1902496/laidler-and-campbell-join-sydney-swans
+club,West Coast,Andrew McQualter,Senior Coach,Head Coach,Development / whole-game,77,83,80,74,82,83,High,,https://www.westcoasteagles.com.au/teams/afl/coaches
+club,West Coast,Marco Bello,Assistant Coach (Forwards),Line Assistant,Forwards,79,81,79,77,83,87,High,,https://www.westcoasteagles.com.au/teams/afl/coaches
+club,West Coast,Sam Radford,Assistant Coach (Midfield),Line Assistant,Midfield,81,83,79,79,83,89,High,,https://www.westcoasteagles.com.au/teams/afl/coaches
+club,West Coast,Mitch Duncan,Assistant Coach (Backline),Line Assistant,Defence / ball use,70,80,83,65,87,87,Medium,,https://www.westcoasteagles.com.au/teams/afl/coaches
+club,West Coast,Luke Shuey,Assistant Coach (Stoppages),Line Assistant,Stoppages,72,81,85,67,89,91,High,,https://www.westcoasteagles.com.au/teams/afl/coaches
+club,West Coast,Jamie Maddocks,Head of Development,Head of Development,Development,70,87,81,65,83,79,Medium,,https://www.westcoasteagles.com.au/teams/afl/coaches
+club,West Coast,Shannon Hurn,Development Coach,Development Coach,Defence / leadership,66,83,85,61,91,85,High,,https://www.westcoasteagles.com.au/teams/afl/coaches
+club,West Coast,Jacob Brennan,Development Coach,Development Coach,Development,64,82,80,60,80,78,Medium,,https://www.westcoasteagles.com.au/teams/afl/coaches
+club,West Coast,Kyal Horsley,WAFL Senior Coach & Development Coach (Midfield),VFL / State Head,Midfield / development,76,85,83,77,87,85,High,,https://www.westcoasteagles.com.au/teams/afl/coaches
+club,Western Bulldogs,Luke Beveridge,Senior Coach,Head Coach,Whole-game / leadership,88,82,89,87,90,87,High,,https://www.westernbulldogs.com.au/teams/afl/coaching-staff
+club,Western Bulldogs,Brendon Lade,Midfield / Stoppage Coach,Line Assistant,Midfield / stoppages,85,81,83,83,85,91,High,,https://www.westernbulldogs.com.au/teams/afl/coaching-staff
+club,Western Bulldogs,Daniel Pratt,Backline Coach,Line Assistant,Defence,81,79,79,80,83,89,High,,https://www.westernbulldogs.com.au/teams/afl/coaching-staff
+club,Western Bulldogs,Jarryn Geary,Transition / Development & Player Leadership Coach,Senior Assistant / Director,Transition / leadership,77,85,89,73,91,83,High,,https://www.westernbulldogs.com.au/teams/afl/coaching-staff
+club,Western Bulldogs,Ben Reid,Forwards Coach,Line Assistant,Forwards,78,81,81,76,83,87,Medium,,https://www.westernbulldogs.com.au/teams/afl/coaching-staff
+club,Western Bulldogs,Jack Billings,Development Coach,Development Coach,Midfield / development,64,82,80,60,80,78,Low,,https://www.westernbulldogs.com.au/teams/afl/coaching-staff
+club,Western Bulldogs,Anthony Barry,Development Coach,Development Coach,Development / connection,64,82,80,60,80,78,Medium,,https://www.westernbulldogs.com.au/teams/afl/coaching-staff
+club,Western Bulldogs,Alex Johnson,VFL Head Coach,VFL / State Head,Development pathway,73,82,78,75,80,78,Medium,,https://www.westernbulldogs.com.au/teams/afl/coaching-staff
+club,Western Bulldogs,Luke Power,Head of Development,Head of Development,Development,73,91,87,69,87,83,High,,https://www.westernbulldogs.com.au/teams/afl/coaching-staff
+club,Western Bulldogs,Brad Johnson,Part-time Goal-kicking Specialist,Ruck / Specialist,Goal-kicking,64,77,83,61,87,93,High,,https://www.westernbulldogs.com.au/teams/afl/coaching-staff
+market,,Ken Hinkley,Port Adelaide senior coach (through 2025),Former AFL Senior Coach,Leadership / whole-game,88,80,90,86,91,84,High,Unavailable for 2026 by public statement/reporting,https://www.afl.com.au/news/1450344/former-port-adelaide-power-coach-ken-hinkley-set-to-reject-rival-offers-after-13-year-tenure/
+market,,Adam Simpson,West Coast senior coach; 2018 premiership coach,Former AFL Senior Coach,Coaching process / structure,88,83,85,87,89,83,High,Contracted/engaged part-time; not seeking a 2026 senior job,https://www.sen.com.au/news/2025/11/18/afl-2025-adam-simpson-carlton-coaching-role
+market,,James Hird,Former Essendon senior coach; later coaching involvement outside AFL club panel,Former AFL Senior Coach,Leadership / game sense,78,75,83,75,79,84,Medium,Potential external candidate; exact willingness at Round 1 uncertain,https://www.afl.com.au/news/1550963/club-great-james-hird-officially-confirms-hell-be-part-of-essendon-bombers-coaching-process/
+market,,David Teague,Richmond assistant; former Carlton senior coach,Former AFL Senior Coach,Forwards / offence,78,78,82,76,81,87,Medium,Likely external candidate; verify exact 2026 commitments,https://www.afl.com.au/news/67189/blues-make-their-choice-teague-set-to-be-named-carlton-coach
+market,,Brenton Sanderson,AFLCA chair; former Adelaide senior coach and long-time assistant,Former AFL Senior Coach,Development / teaching,81,86,84,79,84,82,High,External; not on an AFL club coaching panel,https://www.afl.com.au/news/1483816/new-afl-coaches-association-chair-brenton-sanderson-pushes-for-cba-leave-reform-and-work-life-balance/
+market,,Nathan Bassett,West Adelaide senior coach; former AFL assistant,State-league Senior Coach,Defence / team structure,86,84,82,84,87,89,High,"Contracted state-league coach — poachable, not unsigned",https://sanfl.com.au/league/news/coaching-elite-primed-for-2026-hostplus-sanfl-league/
+market,,Matthew Knights,Tasmania football program coach; former Essendon senior coach,Former AFL Senior Coach,Development / program building,82,87,83,80,85,83,Medium,Contracted external project — not unsigned,https://www.afl.com.au/news/1561562/inside-the-devils-express-how-tassies-club-is-building-towards-its-afl-dream/
+market,,John Longmire,Sydney senior coach through 2024,Former AFL Senior Coach,Leadership / whole-game,93,86,91,91,93,87,High,Contracted executive; not unsigned,https://www.sydneyswans.com.au/news/1902496/laidler-and-campbell-join-sydney-swans

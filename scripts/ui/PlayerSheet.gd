@@ -97,6 +97,20 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable()) 
 	pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(pl)
 
+	# His senior career (Career.gd): games and goals, and the clubs when he
+	# has played for more than one.
+	var tot := Career.totals_text(p)
+	if tot != "":
+		v.add_child(UiKit.spacer(4))
+		v.add_child(UiKit.lbl("Career", UiKit.SMALL, UiKit.MUTED))
+		var cl := UiKit.lbl(tot, UiKit.BODY, UiKit.TEXT)
+		cl.name = "ProfileCareer"
+		v.add_child(cl)
+		var clubs := Career.club_lines(p, func(code): return GameDB.club_name(code))
+		if clubs.size() > 1:
+			for line in clubs:
+				v.add_child(UiKit.lbl(str(line), UiKit.SMALL, UiKit.MUTED))
+
 	# The attributes behind the rating: the deepest layer, last.
 	v.add_child(UiKit.spacer(6))
 	v.add_child(UiKit.section("Attributes"))
