@@ -79,7 +79,12 @@ func _phone_match(sz: Vector2i) -> void:
 	var pitch = m.get("_pitch")
 	pitch.set_speed(8.0)
 	var guard := 0
-	while m.find_child("CoachBox", true, false) == null and guard < 60000:
+	# Drive playback in fixed steps, not wall-clock frames, so a slow runner
+	# plays the same quarter (long frames release the same events: see
+	# test_match_visual).
+	while m.find_child("CoachBox", true, false) == null and guard < 4000:
+		if pitch.playing:
+			pitch._process(0.25)
 		await process_frame
 		guard += 1
 		var card = m.find_child("MomentCard", true, false)
