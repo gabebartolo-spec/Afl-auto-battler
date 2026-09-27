@@ -1,19 +1,7 @@
 [remap]
 
-importer="csv_translation"
-type="Translation"
-uid="uid://c48gbvlcd2n3b"
+importer="keep"
 
 [deps]
 
-files=["res://data/coaches_2026.name.translation", "res://data/coaches_2026.club.translation", "res://data/coaches_2026.job.translation", "res://data/coaches_2026.spec.translation", "res://data/coaches_2026.teach.translation", "res://data/coaches_2026.tactics.translation", "res://data/coaches_2026.manage.translation", "res://data/coaches_2026.status.translation", "res://data/coaches_2026.free.translation", "res://data/coaches_2026.former.translation", "res://data/coaches_2026.origin.translation", "res://data/coaches_2026.confidence.translation", "res://data/coaches_2026.note.translation"]
-
 source_file="res://data/coaches_2026.csv"
-dest_files=["res://data/coaches_2026.name.translation", "res://data/coaches_2026.club.translation", "res://data/coaches_2026.job.translation", "res://data/coaches_2026.spec.translation", "res://data/coaches_2026.teach.translation", "res://data/coaches_2026.tactics.translation", "res://data/coaches_2026.manage.translation", "res://data/coaches_2026.status.translation", "res://data/coaches_2026.free.translation", "res://data/coaches_2026.former.translation", "res://data/coaches_2026.origin.translation", "res://data/coaches_2026.confidence.translation", "res://data/coaches_2026.note.translation"]
-
-[params]
-
-compress=1
-delimiter=0
-unescape_keys=false
-unescape_translations=true
