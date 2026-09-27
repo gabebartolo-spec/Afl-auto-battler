@@ -5,9 +5,17 @@ extends Node
 var _updating := false
 
 
+## The game's name as players see it. The project keeps its original
+## config/name, because Godot keys the desktop save folder to it: renaming
+## the project would strand existing careers.
+const TITLE := "Aussie Rules Dynasties"
+
+
 func _ready() -> void:
 	get_window().size_changed.connect(_update_scale)
 	_update_scale()
+	if DisplayServer.get_name() != "headless":
+		get_window().title = TITLE
 
 
 func _update_scale() -> void:

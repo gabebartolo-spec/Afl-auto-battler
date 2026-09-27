@@ -361,7 +361,7 @@ func _achievements_panel() -> Control:
 	panel.name = "AchievementsPanel"
 	var v := UiKit.vbox(5)
 	panel.add_child(v)
-	v.add_child(UiKit.heading("CLUB ACHIEVEMENTS", 22))
+	v.add_child(UiKit.heading("Club achievements", 22))
 	if unlocked.is_empty():
 		v.add_child(_small("Nothing unlocked yet - every club's achievement is a piece of its history."))
 	for d in Achievements.DEFINITIONS:

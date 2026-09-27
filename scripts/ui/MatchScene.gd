@@ -1512,10 +1512,10 @@ func _best_table() -> Control:
 		v.add_child(UiKit.club_badge(codes[side], 13, true, true))
 		var hdr := UiKit.hbox(4)
 		v.add_child(hdr)
-		hdr.add_child(_qcell("#", 26, UiKit.MUTED, 10))
-		hdr.add_child(_lcell("Player", 0, UiKit.MUTED, 10))
+		hdr.add_child(_qcell("#", 26, UiKit.MUTED, UiKit.TINY))
+		hdr.add_child(_lcell("Player", 0, UiKit.MUTED, UiKit.TINY))
 		for c in ["D", "G", "M", "T", "HO"]:
-			hdr.add_child(_qcell(c, 28, UiKit.MUTED, 10))
+			hdr.add_child(_qcell(c, 28, UiKit.MUTED, UiKit.TINY))
 		var best := _rank_side(roster[side], players)
 		for i in range(mini(7, best.size())):
 			var p: Dictionary = best[i]

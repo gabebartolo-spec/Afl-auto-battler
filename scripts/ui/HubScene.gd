@@ -517,13 +517,14 @@ func _results_list(results: Array) -> Control:
 		var drew: bool = s[0] == s[1]
 		var verdict := ""
 		if mine:
-			verdict = "DRAW" if drew else ("WON" if won else "LOST")
+			verdict = "Draw" if drew else ("Won" if won else "Lost")
 		if narrow:
 			var block := UiKit.vbox(2)
+			var vcol := UiKit.MUTED if drew else UiKit.margin_colour(won)
 			block.add_child(_result_side(str(res["home"]), int(res["goals"][0]),
-					int(res["behinds"][0]), col, verdict if home_is_me else ""))
+					int(res["behinds"][0]), col, verdict if home_is_me else "", vcol))
 			block.add_child(_result_side(str(res["away"]), int(res["goals"][1]),
-					int(res["behinds"][1]), col, verdict if not home_is_me else ""))
+					int(res["behinds"][1]), col, verdict if not home_is_me else "", vcol))
 			v.add_child(block)
 		else:
 			var h := UiKit.hbox(6)
@@ -532,7 +533,8 @@ func _results_list(results: Array) -> Control:
 					14, col, true)
 			hs.custom_minimum_size = Vector2(78, 0)
 			h.add_child(hs)
-			h.add_child(UiKit.line("def", 12, UiKit.MUTED))
+			# "v", not "def": the home side is listed first, not the winner.
+			h.add_child(UiKit.line("v", 12, UiKit.MUTED))
 			var asc := UiKit.line(UiKit.scoreline(int(res["goals"][1]), int(res["behinds"][1])),
 					14, col, true)
 			asc.custom_minimum_size = Vector2(78, 0)
@@ -547,15 +549,18 @@ func _results_list(results: Array) -> Control:
 	return v
 
 
-func _result_side(code: String, goals: int, behinds: int, col: Color, verdict: String) -> Control:
+func _result_side(code: String, goals: int, behinds: int, col: Color, verdict: String,
+		vcol: Color = UiKit.TEXT) -> Control:
 	var h := UiKit.hbox(6)
 	h.add_child(UiKit.club_badge(code, 13, true, true))
 	var score := UiKit.line(UiKit.scoreline(goals, behinds), 14, col, true)
 	score.custom_minimum_size = Vector2(78, 0)
+	score.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(score)
-	if verdict != "":
-		var tag := UiKit.line(verdict, 13, col, true)
-		h.add_child(tag)
+	# Every row keeps the verdict column, so the scores line up.
+	var tag := UiKit.line(verdict, 13, vcol, true)
+	tag.custom_minimum_size = Vector2(40, 0)
+	h.add_child(tag)
 	return h
 
 
