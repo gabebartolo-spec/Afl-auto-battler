@@ -348,6 +348,28 @@ func _run() -> void:
 	await _settle()
 	_check(current_scene.find_child("TrainingIntro", true, false) == null,
 			"The intro does not show again")
+	# Position tabs list everyone who can play there (Ratings.plays_role, the
+	# draft's and selection's rule); All lists each player once.
+	var dual := {}
+	for p in _state.my_list:
+		var r2 := str(p.get("role2", ""))
+		if r2 != "" and r2 != str(p["role"]):
+			dual = p
+			break
+	_check(not dual.is_empty(), "The list has a dual-position player to test with")
+	if not dual.is_empty():
+		var tid := "Trainee_" + str(dual["id"])
+		for role in [str(dual["role"]), str(dual["role2"])]:
+			current_scene.call("_set_role", role)
+			await _settle()
+			_check(current_scene.find_child(tid, true, false) != null,
+					"A %s/%s player is under the %s tab" % [dual["role"], dual["role2"], role])
+		current_scene.call("_set_role", "")
+		await _settle()
+		var seen := 0
+		for n in current_scene.find_children(tid, "", true, false):
+			seen += 1
+		_check(seen == 1, "All lists him once")
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "hub", "Back from a plain Training list leaves the screen")

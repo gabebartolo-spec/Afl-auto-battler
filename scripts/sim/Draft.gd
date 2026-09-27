@@ -17,6 +17,7 @@ const CAP_FRACTION := 0.58
 var intake_mode := false
 var existing_sizes := {}              # code -> kept list length (intake only)
 var existing_role_counts := {}        # code -> {RUCK..FWD} kept players (intake)
+var existing_roles := {}              # code -> [[role, role2], ...] kept players (intake)
 var _fixed_order: Array = []
 
 var pool: Array = []
@@ -69,12 +70,14 @@ func _init(all_players: Array, p_clubs: Array = [], p_seed: int = 0,
 ## Build the end-of-season intake draft. p_order is the exact round-one club
 ## sequence (normally the reversed ladder); rounds are inferred from the pool.
 static func build_intake(all_players: Array, p_clubs: Array, p_order: Array,
-		p_seed: int, p_existing_sizes: Dictionary, p_existing_counts: Dictionary) -> Draft:
+		p_seed: int, p_existing_sizes: Dictionary, p_existing_counts: Dictionary,
+		p_existing_roles: Dictionary = {}) -> Draft:
 	var rounds := clampi(ceili(float(all_players.size()) / float(maxi(1, p_clubs.size()))), 1, 4)
 	var d := new(all_players, p_clubs, p_seed, p_order, rounds)
 	d.intake_mode = true
 	d.existing_sizes = p_existing_sizes
 	d.existing_role_counts = p_existing_counts
+	d.existing_roles = p_existing_roles
 	# Rookie deals sit outside the list cap the career draft enforces; money is
 	# not the constraint here, list space is.
 	d.budget = 999999
@@ -283,12 +286,71 @@ func position_targets() -> Dictionary:
 	return out
 
 
+## What is still short of each target, by who can actually play there
+## (Ratings.plays_role: primary or secondary position, the same rule team
+## selection uses). Each player fills one spot only, so a MID/FWD covers the
+## forwards when the midfield is already covered, never both at once.
 func position_needs() -> Dictionary:
-	var out := position_targets()
-	var counts := role_counts()
-	for role in out:
-		out[role] = maxi(0, int(out[role]) - int(counts[role]))
+	return slot_shortfall(role_pairs_for(user_club), position_targets())
+
+
+## [[role, role2], ...] for everyone on `code`'s list (kept players too).
+func role_pairs_for(code: String) -> Array:
+	var out: Array = []
+	if intake_mode:
+		out.append_array(existing_roles.get(code, []))
+	var arr: Array = list()
+	if league_mode:
+		arr = club_lists.get(code, []) as Array
+	for p in arr:
+		out.append([str(p["role"]), str(p.get("role2", ""))])
 	return out
+
+
+## Players who can play each role, primary or secondary. A dual-position
+## player counts in both, so these do not add up to the list size (the
+## primary counts, role_counts(), do).
+func role_coverage() -> Dictionary:
+	var out := {"RUCK": 0, "MID": 0, "DEF": 0, "FWD": 0}
+	for pair in role_pairs_for(user_club):
+		for role in out:
+			if str(pair[0]) == role or str(pair[1]) == role:
+				out[role] = int(out[role]) + 1
+	return out
+
+
+## Shortfall per role when `pairs` ([[role, role2], ...]) fill `targets`
+## ({role: spots}), one spot per player, as many spots as possible (a small
+## bipartite matching). Deterministic.
+static func slot_shortfall(pairs: Array, targets: Dictionary) -> Dictionary:
+	var slots: Array = []
+	for role in ["RUCK", "MID", "DEF", "FWD"]:
+		for i in range(int(targets.get(role, 0))):
+			slots.append(role)
+	var holder: Array = []
+	holder.resize(slots.size())
+	holder.fill(-1)
+	for pi in range(pairs.size()):
+		_match_player(pi, pairs, slots, holder, {})
+	var out := {}
+	for role in targets:
+		out[role] = int(targets[role])
+	for si in range(slots.size()):
+		if int(holder[si]) >= 0:
+			out[slots[si]] = int(out[slots[si]]) - 1
+	return out
+
+
+static func _match_player(pi: int, pairs: Array, slots: Array, holder: Array, seen: Dictionary) -> bool:
+	var pair: Array = pairs[pi]
+	for si in range(slots.size()):
+		if seen.has(si) or (str(pair[0]) != str(slots[si]) and str(pair[1]) != str(slots[si])):
+			continue
+		seen[si] = true
+		if int(holder[si]) < 0 or _match_player(int(holder[si]), pairs, slots, holder, seen):
+			holder[si] = pi
+			return true
+	return false
 
 
 func _can_afford_for(code: String, p: Dictionary) -> bool:

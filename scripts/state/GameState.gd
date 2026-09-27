@@ -607,15 +607,19 @@ func begin_intake_draft() -> bool:
 
 	var sizes := {}
 	var role_counts := {}
+	var role_pairs := {}
 	for code in GameDB.CLUB_ORDER:
 		var arr: Array = league_lists.get(code, [])
 		sizes[code] = arr.size()
 		var c := {"RUCK": 0, "MID": 0, "DEF": 0, "FWD": 0}
+		var pairs: Array = []
 		for p in arr:
 			var r := str(p["role"])
 			if c.has(r):
 				c[r] = int(c[r]) + 1
+			pairs.append([r, str(p.get("role2", ""))])
 		role_counts[code] = c
+		role_pairs[code] = pairs
 
 	# Only clubs on this season's ladder take intake picks. An expansion club
 	# arrives with its own generated list at its first season (see
@@ -623,7 +627,7 @@ func begin_intake_draft() -> bool:
 	var active := GameDB.active_clubs(season_year)
 	var seed := int(Time.get_unix_time_from_system()) % 1000000
 	draft = Draft.build_intake(open_pool, active.duplicate(), order,
-			seed, sizes, role_counts)
+			seed, sizes, role_counts, role_pairs)
 	draft.start_for_user(my_club)
 	autosave()
 	return true
