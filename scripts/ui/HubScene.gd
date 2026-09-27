@@ -4,7 +4,6 @@ extends Control
 var _root: VBoxContainer
 var _results_overlay: Control
 var _news_overlay: Control
-var _pos_before := 0          # your ladder spot before the round just played
 
 
 func _ready() -> void:
@@ -119,6 +118,9 @@ func _standing_card() -> Control:
 	var form_l := UiKit.lbl(GameState.form_line(form), UiKit.SMALL, _form_colour(float(form["value"])))
 	form_l.name = "FormLine"
 	cv.add_child(form_l)
+	var last := _last_match_button()
+	if last != null:
+		cv.add_child(last)
 	if GameState.board_goal_text() != "":
 		var conf := GameState.board_confidence()
 		var col := UiKit.GOOD if conf >= 60 else (UiKit.MUTED if conf >= ClubLife.WARN_LINE else UiKit.BAD)
@@ -127,6 +129,30 @@ func _standing_card() -> Control:
 		board_l.name = "BoardLine"
 		cv.add_child(board_l)
 	return cv
+
+
+## "Last match: lost to Fremantle by 12": a tap reopens it at full time.
+func _last_match_button() -> Control:
+	var res: Dictionary = GameState.last_match
+	if res.is_empty() or not GameState.is_my_match(res) or not res.has("players"):
+		return null
+	var s: Array = res["score"]
+	var me := 0 if str(res["home"]) == GameState.my_club else 1
+	var opp := GameDB.club_name(str(res["away"] if me == 0 else res["home"]))
+	var margin := absi(int(s[0]) - int(s[1]))
+	var what := "drew with %s" % opp
+	if int(s[me]) > int(s[1 - me]):
+		what = "beat %s by %d" % [opp, margin]
+	elif int(s[me]) < int(s[1 - me]):
+		what = "lost to %s by %d" % [opp, margin]
+	var b := UiKit.btn("Last match: %s  ›" % what, UiKit.SMALL)
+	b.name = "ReviewLastMatch"
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	b.custom_minimum_size = Vector2(0, 44)
+	b.pressed.connect(_review_match)
+	return b
 
 
 ## This week's decision. Answer it here; unanswered, it takes the default
@@ -412,7 +438,6 @@ func _on_play_match() -> void:
 
 
 func _on_sim_round() -> void:
-	_pos_before = GameState.my_position()
 	GameState.advance()
 	_build()
 	if not GameState.last_results.is_empty():
@@ -421,7 +446,6 @@ func _on_sim_round() -> void:
 
 ## You are out of the finals: run the remaining weeks out and show the winner.
 func _on_sim_to_end() -> void:
-	_pos_before = 0
 	var guard := 0
 	while not GameState.season.is_season_over() and guard < 10:
 		GameState.advance()
@@ -451,58 +475,103 @@ func _show_results(results: Array) -> void:
 
 	var box := UiKit.modal_box(self, 660.0, 560.0)
 	var overlay: Control = box["overlay"]
+	overlay.name = "RoundResults"
 	_results_overlay = overlay
 	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.ellipsis(GameState.last_label, 22, UiKit.EMPH, true))
-	# What it means and what comes next, before the rest of the round.
-	if GameState.last_phase == "regular" and not GameState.last_match.is_empty():
-		var moved := GameState.ladder_move_line(_pos_before)
-		if moved != "":
-			var ml := UiKit.lbl(moved, UiKit.BODY, UiKit.TEXT, true)
-			ml.name = "LadderMove"
-			v.add_child(ml)
-		var nxt := GameState.next_fixture_line()
-		if nxt != "":
-			var nl := UiKit.lbl(nxt, UiKit.BODY, UiKit.MUTED)
-			nl.name = "NextFixture"
-			v.add_child(nl)
-		v.add_child(UiKit.spacer(4))
-	v.add_child(_results_list(results))
-	var report: Dictionary = GameState.last_training_report
-	if not GameState.last_match.is_empty() and int(report.get("count", 0)) > 0:
-		# Who got better, in words; the XP itself lives in Training.
-		var spent := GameState.training_summary_line()
-		if spent != "":
-			var sl := UiKit.lbl(spent, UiKit.SMALL, UiKit.TEXT)
-			sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			v.add_child(sl)
-		var reserves := GameState.reserves_words_line()
-		if reserves != "":
-			v.add_child(UiKit.lbl(reserves, UiKit.SMALL, UiKit.MUTED))
-	var hurt := GameState.my_new_injuries()
-	if not hurt.is_empty():
-		var inj := UiKit.lbl("Injured: " + ", ".join(hurt), 13, UiKit.BAD, true)
-		inj.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(inj)
-	var outlook := GameState.finals_outcome_line(GameState.last_match)
+	v.add_child(UiKit.ellipsis(GameState.last_label, UiKit.BODY, UiKit.MUTED, true))
+	var res: Dictionary = GameState.last_match
+	var others := results
+	if not res.is_empty() and GameState.is_my_match(res):
+		# Your match first and biggest; the rest of the round underneath.
+		_my_result(v, res)
+		others = []
+		for r in results:
+			if not GameState.is_my_match(r):
+				others.append(r)
+		var review := UiKit.btn("Review match", 17)
+		review.name = "ReviewMatch"
+		review.custom_minimum_size = Vector2(0, 48)
+		review.pressed.connect(_review_match)
+		v.add_child(review)
+	var outlook := GameState.finals_outcome_line(res)
 	if outlook != "":
 		v.add_child(UiKit.lbl(outlook, 15, UiKit.EMPH, true))
-
 	if GameState.season.is_season_over():
 		v.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(GameState.premier()),
 				18, UiKit.TEXT, true))
-	if not GameState.last_match.is_empty():
-		var train := UiKit.btn("Training", 16)
-		train.pressed.connect(func():
-			overlay.queue_free()
-			Router.go("training"))
-		box["footer"].add_child(train)
+	if not others.is_empty():
+		v.add_child(UiKit.spacer(UiKit.GAP))
+		v.add_child(UiKit.lbl("Other results" if others.size() < results.size() else "Results",
+				UiKit.SMALL, UiKit.MUTED, true))
+		v.add_child(_results_list(others))
+
 	var ok := UiKit.btn("Continue", 17, true)
+	ok.name = "ResultsContinue"
 	ok.pressed.connect(func():
 		overlay.queue_free()
 		_results_overlay = null
 		_build())
 	box["footer"].add_child(ok)
+
+
+## Your match in the round popup: the result, both scores, your best player,
+## a serious injury, and what it did to the ladder. The rest is one tap away.
+func _my_result(v: VBoxContainer, res: Dictionary) -> void:
+	var s: Array = res["score"]
+	var me := 0 if str(res["home"]) == GameState.my_club else 1
+	var margin := absi(int(s[0]) - int(s[1]))
+	var won := int(s[me]) > int(s[1 - me])
+	var drew := int(s[0]) == int(s[1])
+	var verdict := UiKit.lbl("Draw" if drew else ("Won by %d" if won else "Lost by %d") % margin,
+			30, UiKit.TEXT if drew else UiKit.margin_colour(won), true)
+	verdict.name = "MyVerdict"
+	v.add_child(verdict)
+	for side in [0, 1]:
+		var row := UiKit.hbox(8)
+		row.name = "MyScore_%d" % side
+		var lost_side := not drew and int(s[side]) < int(s[1 - side])
+		var nm := UiKit.ellipsis(GameDB.club_name(str(res["home"] if side == 0 else res["away"])),
+				UiKit.BODY, UiKit.MUTED if lost_side else UiKit.TEXT, not lost_side and not drew)
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(nm)
+		row.add_child(UiKit.figure(UiKit.scoreline(int(res["goals"][side]), int(res["behinds"][side])),
+				22, UiKit.MUTED if lost_side else UiKit.TEXT))
+		v.add_child(row)
+	var best := MatchNotes.standouts(res, me, 1)
+	if not best.is_empty():
+		var bl := UiKit.ellipsis("Best: %s %s  ·  %s" % [str(best[0]["name"]),
+				MatchNotes.rating_text(float(best[0]["rating"])), str(best[0]["line"])],
+				UiKit.SMALL, UiKit.TEXT)
+		bl.name = "MyBest"
+		v.add_child(bl)
+	var hurt := GameState.my_new_injuries()
+	if not hurt.is_empty():
+		var inj := UiKit.lbl("Injured: " + ", ".join(hurt), UiKit.SMALL, UiKit.BAD, true)
+		inj.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(inj)
+	if GameState.last_phase == "regular":
+		var moved := GameState.ladder_move_line(GameState.last_pos_before)
+		if moved != "":
+			var ml := UiKit.lbl(moved, UiKit.SMALL, UiKit.TEXT)
+			ml.name = "LadderMove"
+			v.add_child(ml)
+		var nxt := GameState.next_fixture_line()
+		if nxt != "":
+			var nl := UiKit.lbl(nxt, UiKit.SMALL, UiKit.MUTED)
+			nl.name = "NextFixture"
+			v.add_child(nl)
+
+
+## Open your last match at full time: the same summary and stats as after
+## watching it. Nothing is played or applied again.
+func _review_match() -> void:
+	if GameState.last_match.is_empty():
+		return
+	if _results_overlay != null and is_instance_valid(_results_overlay):
+		_results_overlay.queue_free()
+		_results_overlay = null
+	GameState.review_requested = true
+	Router.go("match")
 
 
 func _results_list(results: Array) -> Control:

@@ -60,9 +60,39 @@ func _phone_match(sz: Vector2i) -> void:
 	var start: Button = box.find_child("StartQuarter", true, false)
 	_check(start != null and start.size.y >= 44, "Starting is one thumb-sized tap (%s)" % tag)
 
-	# Pick a tag so the live screen has a setup to show.
-	var picker: OptionButton = box.find_child("TagPicker", true, false)
-	picker.select(1)
+	# The calls are taps, not dropdowns.
+	_check(box.find_children("*", "OptionButton", true, false).is_empty(), "No dropdowns at the break (%s)" % tag)
+	# Tag: a few players first, "Other player..." for the rest of their side.
+	var tag_box: Node = box.find_child("TagPicker", true, false)
+	var tag_choices := tag_box.find_children("TagPickerGrid_*", "Button", true, false)
+	_check(tag_choices.size() >= 3 and tag_choices.size() <= 6, "Tag shows a few players, not a wall (%d, %s)" % [tag_choices.size(), tag])
+	var tag_other: Button = tag_box.find_child("TagPickerOther", true, false)
+	_check(tag_other != null, "Every tag_other player is a tap away (%s)" % tag)
+	var opp_side: Array = m.get("_res")["roster"][1 - int(m.get("_my_side"))]
+	if tag_other != null:
+		tag_other.emit_signal("pressed")
+		await _settle()
+		var sheet: Node = m.find_child("PlayerSheet", true, false)
+		_check(sheet != null and sheet.find_children("Sheet_*", "Button", true, false).size() == opp_side.size(),
+				"The full list has their whole side on the ground (%s)" % tag)
+		var backed: bool = m.call("handle_back")
+		await _settle()
+		_check(backed and m.find_child("PlayerSheet", true, false) == null
+				and m.find_child("CoachBox", true, false) != null, "Back closes the list and keeps the break (%s)" % tag)
+		tag_other.emit_signal("pressed")
+		await _settle()
+		sheet = m.find_child("PlayerSheet", true, false)
+		var last: Button = sheet.find_children("Sheet_*", "Button", true, false).back()
+		var picked_id := str(last.name).trim_prefix("Sheet_")
+		last.emit_signal("pressed")
+		await _settle()
+		_check(box.find_child("TagPickerGrid_" + picked_id, true, false) != null,
+				"A player picked from the list joins the choices (%s)" % tag)
+	var small_calls := []
+	for b in box.find_children("*", "Button", true, false):
+		if b.is_visible_in_tree() and b.size.y < 44:
+			small_calls.append(b.name)
+	_check(small_calls.is_empty(), "Every call is thumb-sized (%s: %s)" % [tag, str(small_calls)])
 	start.emit_signal("pressed")
 	await _settle()
 	_check(m.find_child("CoachBox", true, false) == null, "The box closes and play starts (%s)" % tag)
@@ -159,7 +189,22 @@ func _phone_match(sz: Vector2i) -> void:
 		report_btn.emit_signal("pressed")
 		await _settle()
 		var rep: Node = m.find_child("AssistantReport", true, false)
-		_check(rep != null and _text(rep).contains("What stands out"), "The report opens (%s)" % tag)
+		_check(rep != null and rep.find_child("MatchRead", true, false) != null
+				and rep.find_child("ReportBest", true, false) != null, "The report opens at a glance (%s)" % tag)
+		var rt := _text(rep)
+		_check(not rt.contains("vs par") and not rt.contains("disp (") and not rt.contains("Where the game is being won"),
+				"The short report is words, not a stat dump (%s)" % tag)
+		var full_btn: Button = rep.find_child("FullReportButton", true, false)
+		_check(full_btn != null, "The full report is a tap away (%s)" % tag)
+		if full_btn != null:
+			full_btn.emit_signal("pressed")
+			await _settle()
+			var fr: Node = m.find_child("FullReport", true, false)
+			_check(fr != null and _text(fr).contains("What stands out"), "The full report keeps the detail (%s)" % tag)
+			var back_full: bool = m.call("handle_back")
+			await _settle()
+			_check(back_full and m.find_child("FullReport", true, false) == null
+					and m.find_child("AssistantReport", true, false) != null, "Back returns to the short report (%s)" % tag)
 		_check(m.call("handle_back") == true, "Back is handled on the report (%s)" % tag)
 		await _settle()
 		_check(m.find_child("AssistantReport", true, false) == null and m.find_child("CoachBox", true, false) != null,
@@ -177,7 +222,7 @@ func _phone_match(sz: Vector2i) -> void:
 	var verdict: Label = ft_box.find_child("Verdict", true, false) if ft_box != null else null
 	_check(verdict != null and (verdict.text.begins_with("Won by") or verdict.text.begins_with("Lost by")
 			or verdict.text == "Draw"), "Full time leads with the result (%s: %s)" % [tag, verdict.text if verdict else "-"])
-	for n in ["MatchFactors", "BestPlayers", "KeyStats", "FinalScore_0", "FinalScore_1"]:
+	for n in ["MatchFactors", "BestPlayers", "KeyStats", "FinalScore_0", "FinalScore_1", "StandoutRating"]:
 		_check(ft_box != null and ft_box.find_child(n, true, false) != null, "Full time shows %s (%s)" % [n, tag])
 	_check(not ft.contains("pts") and not ft.contains("Expected points") and not ft.contains("Possession chains"),
 			"The full-time screen keeps the analysis a tap away (%s)" % tag)
@@ -188,8 +233,40 @@ func _phone_match(sz: Vector2i) -> void:
 		stats_btn.emit_signal("pressed")
 		await _settle()
 		var ms: Node = m.find_child("MatchStats", true, false)
-		_check(ms != null and _text(ms).contains("Quarter by quarter") and _text(ms).contains("Box score"),
+		_check(ms != null and _text(ms).contains("Quarter by quarter") and _text(ms).contains("Player stats"),
 				"Match stats holds the full numbers (%s)" % tag)
+		var table: Node = ms.find_child("PlayerStats", true, false) if ms != null else null
+		var roster: Array = m.get("_res")["roster"]
+		var my_side: int = m.get("_my_side")
+		_check(table != null and table.find_children("PlayerRow_*", "Button", true, false).size()
+				== (roster[my_side] as Array).size(), "Every player of yours has a row (%s)" % tag)
+		if table != null:
+			var other: Button = table.find_child("StatsTab_%d" % (1 - my_side), true, false)
+			other.emit_signal("pressed")
+			await _settle()
+			_check(table.find_children("PlayerRow_*", "Button", true, false).size()
+					== (roster[1 - my_side] as Array).size(), "...and so does every opponent (%s)" % tag)
+			var sort_d: Button = table.find_child("Sort_disposals", true, false)
+			sort_d.emit_signal("pressed")
+			await _settle()
+			var cells := []
+			for row in table.find_children("PlayerRow_*", "Button", true, false):
+				var labels := row.find_children("*", "Label", true, false)
+				cells.append(int(str(labels[2].text)))
+			var sorted_ok := true
+			for i in range(1, cells.size()):
+				if int(cells[i]) > int(cells[i - 1]):
+					sorted_ok = false
+			_check(sorted_ok and not cells.is_empty(), "A column header sorts the table (%s)" % tag)
+			var first_row: Button = table.find_children("PlayerRow_*", "Button", true, false)[0]
+			first_row.emit_signal("pressed")
+			await _settle()
+			_check(table.find_child("PlayerDetail", true, false) != null, "A tap opens the rest of his line (%s)" % tag)
+			var fits := true
+			for row in table.find_children("PlayerRow_*", "Button", true, false):
+				if row.is_visible_in_tree() and row.get_global_rect().end.x > sz.x + 1:
+					fits = false
+			_check(fits, "The player table fits the phone (%s)" % tag)
 		_check(m.call("handle_back") == true, "Back closes match stats first (%s)" % tag)
 		await _settle()
 		_check(m.find_child("MatchStats", true, false) == null and m.find_child("FullTime", true, false) != null,

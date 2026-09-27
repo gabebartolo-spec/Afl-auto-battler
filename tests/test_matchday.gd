@@ -25,6 +25,9 @@ func run() -> void:
 	_test_half_time_keys()
 	_test_legs_words()
 	_test_full_time()
+	_test_report_roles(res)
+	_test_rating()
+	_test_report_glance()
 	print("Matchday tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -214,4 +217,104 @@ func _test_full_time() -> void:
 			"A midfielder's game in a few words")
 	_check(MatchNotes.game_line({"disposals": 12.0, "goals": 4.0}) == "4 goals", "A forward's game is his goals")
 	var ks := MatchNotes.key_stats(_match(3), 0)
-	_check(ks.size() == 4 and str(ks[0][0]) == "Disposals", "Four key stats at full time")
+	_check(ks.size() == 3 and str(ks[0][0]) == "Disposals", "Three key stats at full time")
+	var top := MatchNotes.standouts(_match(5), 0, 3)
+	_check(float(top[0]["rating"]) >= float(top[2]["rating"]), "Standouts come best rated first")
+
+
+## The report names a player's own position, never the slot rotations left
+## him in: a midfielder who filled the ruck is still a MID.
+func _test_report_roles(res: Dictionary) -> void:
+	var bad := ""
+	for side in [0, 1]:
+		for r in (res["roster"] as Array)[side]:
+			var own = GameDB.player_by_id(str(r["id"]))
+			if own is Dictionary and str(r["list_role"]) != str(own["role"]):
+				bad = str(r["name"])
+	_check(bad == "", "The roster carries each player's own position (%s)" % bad)
+	# Fill a vacant ruck with a midfielder: the report keeps him a MID.
+	var list := GameDB.club_list("NTH").duplicate(true)
+	var mid := {}
+	for p in list:
+		if str(p["role"]) == "RUCK":
+			p["injury_weeks"] = 3
+		elif mid.is_empty() and str(p["role"]) == "MID":
+			mid = p
+	var sel := {"RUCK": [str(mid["id"])]}
+	var sim := MatchSim.new(Squad.new("NTH", list, true, "NTH", sel), Squad.new("CAR", GameDB.club_list("CAR"), false, "CAR"), 4)
+	var r2 := sim.run()
+	var ranked := CoachReport.rank_side((r2["roster"] as Array)[0], r2.get("players", {}), 4)
+	var line := ""
+	for e in ranked:
+		if str(e["id"]) == str(mid["id"]):
+			line = str(e["role"])
+	_check(line == "MID", "A midfielder named in the ruck is still a MID in the report (%s)" % line)
+
+
+## The player rating: one match, many ways to a good game, no single stat
+## running away with it, and a fair shot for every position.
+func _test_rating() -> void:
+	var r := func(st: Dictionary) -> float: return MatchNotes.rating(st)
+	var key_fwd: float = r.call({"goals": 5.0, "behinds": 2.0, "marks": 9.0, "kicks": 9.0, "handballs": 2.0, "inside50": 1.0})
+	var mid: float = r.call({"kicks": 16.0, "handballs": 14.0, "clearances": 9.0, "tackles": 7.0, "inside50": 6.0, "marks": 4.0, "goals": 1.0})
+	var back: float = r.call({"kicks": 15.0, "handballs": 5.0, "marks": 9.0, "rebounds": 8.0, "one_percenters": 9.0, "tackles": 3.0})
+	var ruck: float = r.call({"hitouts": 32.0, "clearances": 5.0, "kicks": 6.0, "handballs": 6.0, "marks": 3.0, "tackles": 3.0})
+	for x in [["key forward", key_fwd], ["midfielder", mid], ["defender", back], ["ruck", ruck]]:
+		_check(float(x[1]) >= 7.0, "A big game rates well for a %s (%.1f)" % x)
+	var empty: float = r.call({"kicks": 6.0, "handballs": 20.0, "clangers": 4.0})
+	_check(empty < 5.0, "Twenty-six touches and little else is an ordinary game (%.1f)" % empty)
+	_check(float(r.call({})) <= 2.0 and float(r.call({"clangers": 10.0, "frees_against": 6.0})) == 0.0,
+			"No contribution rates low; the floor is 0")
+	_check(float(r.call({"goals": 30.0})) <= 10.0, "The scale tops out at 10")
+	_check(float(r.call({"goals": 1.0})) < float(r.call({"goals": 1.0, "tackles": 5.0})), "More contribution, higher rating")
+	_check(MatchNotes.rating_text(7.0) == "7.0", "One decimal, always")
+	# Parity: across real simulated matches, each position's better games
+	# reach similar ratings (the 90th percentile within a point and a half).
+	var by := {"DEF": [], "MID": [], "FWD": [], "RUCK": []}
+	var clubs := ["COL", "CAR", "GEE", "SYD", "BRL", "MEL", "HAW", "ESS", "FRE", "ADE"]
+	for i in range(6):
+		var res := _match(40 + i, clubs[i], clubs[i + 4])
+		for side in [0, 1]:
+			for p in MatchNotes.rated_players(res, side):
+				(by[str(p["role"])] as Array).append(float(p["rating"]))
+	var p90 := {}
+	for role in by:
+		var v: Array = by[role]
+		v.sort()
+		if v.size() >= 5:
+			p90[role] = float(v[int(v.size() * 0.9)])
+	var lo := 10.0
+	var hi := 0.0
+	for role in p90:
+		lo = minf(lo, float(p90[role]))
+		hi = maxf(hi, float(p90[role]))
+	_check(p90.size() >= 3 and hi - lo <= 1.5, "No position is shut out of good ratings (%s)" % str(p90))
+
+
+## The half-time report at a glance: a few lines and a few players, in words.
+func _test_report_glance() -> void:
+	var bad := ""
+	for seed in [2, 4, 8, 16]:
+		var sim := MatchSim.new(Squad.new("HAW", GameDB.club_list("HAW"), true, "HAW"),
+				Squad.new("BRL", GameDB.club_list("BRL"), false, "BRL"), seed)
+		sim.run_quarter()
+		var res := sim.run_quarter()
+		res["home"] = "HAW"
+		res["away"] = "BRL"
+		var g := CoachReport.glance(CoachReport.half_time_report(res, 0))
+		_check(not (g["read"] as Array).is_empty() and (g["read"] as Array).size() <= 3, "A few lines on the match")
+		_check((g["best"] as Array).size() <= 2 and (g["lift"] as Array).size() <= 2
+				and (g["danger"] as Array).size() <= 2 and (g["notes"] as Array).size() <= 3, "A few players, a few notes")
+		for n in g["notes"]:
+			var t := str(n)
+			for ch in "0123456789":
+				if t.contains(ch):
+					bad = t
+			for w in ADVICE:
+				if t.to_lower().contains(w):
+					bad = t
+		for group in ["best", "lift", "danger"]:
+			for p in g[group]:
+				if str(p["line"]).contains("disp (") or str(p["line"]).contains("CLR") or str(p["line"]).contains("vs par"):
+					bad = str(p["line"])
+	_check(bad == "", "Notes and players read as football, not a stat sheet or advice (%s)" % bad)

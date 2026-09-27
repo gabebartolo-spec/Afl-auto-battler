@@ -3,7 +3,6 @@ extends Control
 ## focused tabs in portrait. The model owns every pick, never the view tree.
 
 const ROLES := ["DEF", "MID", "RUCK", "FWD"]
-const ROLE_TABS := [["", "ALL"], ["DEF", "DEFS"], ["MID", "MIDS"], ["RUCK", "RUCKS"], ["FWD", "FWDS"]]
 const SORTS := [["overall", "Best rated"], ["potential", "Highest potential"], ["value", "Lowest cost"],
 	["goals", "Most goals"], ["disposals", "Most disposals"], ["name", "Name A–Z"]]
 const PAGE_SIZE := 60
@@ -43,7 +42,7 @@ var _activity_panel: PanelContainer
 var _history_view: VBoxContainer
 var _squad_view: VBoxContainer
 var _order_view: VBoxContainer
-var _role_tabs: HBoxContainer
+var _all_button: Button
 var _advanced: VBoxContainer
 var _search_field: LineEdit
 var _search_timer: Timer
@@ -266,7 +265,6 @@ func _show_board() -> void:
 					GameState.season_year, _draft.clubs.size()]
 			_root.add_child(_header("LEAGUE DRAFT", sub))
 		_root.add_child(_summary())
-	_root.add_child(_position_counts())
 
 	_ticker = UiKit.btn("", 13)
 	_ticker.name = "LatestRivalPick"
@@ -344,24 +342,33 @@ func _summary() -> Control:
 	return p
 
 
-func _position_counts() -> Control:
-	var h := UiKit.hbox(6)
+# One row answers both "what does my list need?" and "show me those players":
+# a compact All, then a card per position with the count and the need.
+func _position_filters() -> Control:
+	var h := UiKit.hbox(5)
+	h.name = "PositionFilters"
+	var narrow := _usable_size().x < 400.0
+	var height := 52 if _short else 58
+	_all_button = UiKit.btn("All", 14)
+	_all_button.name = "Filter_ALL"
+	_all_button.custom_minimum_size = Vector2(40 if narrow else 48, height)
+	_all_button.tooltip_text = "Show every position."
+	_all_button.pressed.connect(_set_role.bind(""))
+	h.add_child(_all_button)
 	var targets := _draft.position_targets()
 	for role in ROLES:
 		var b := UiKit.btn("", 14)
 		b.name = "Position_" + role
 		_role_buttons[role] = b
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size = Vector2(0, 52 if _short else 62)
-		var colour: Color = UiKit.ROLE_COLOUR[role]
-		b.add_theme_stylebox_override("normal", UiKit.style(Color(colour, 0.08), 6, 6))
+		b.custom_minimum_size = Vector2(0, height)
 		var v := UiKit.vbox(0)
 		v.set_anchors_preset(Control.PRESET_FULL_RECT)
-		v.offset_left = 6
-		v.offset_right = -6
+		v.offset_left = 2
+		v.offset_right = -2
 		v.alignment = BoxContainer.ALIGNMENT_CENTER
 		b.add_child(v)
-		var count_label := UiKit.line("", 15 if _usable_size().x < 360 else 17, colour, true)
+		var count_label := UiKit.line("", 14 if narrow else 16, UiKit.ROLE_COLOUR[role], true)
 		count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(count_label)
 		_role_labels[role] = count_label
@@ -369,12 +376,11 @@ func _position_counts() -> Control:
 		need.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(need)
 		_need_labels[role] = need
-		b.tooltip_text = "%s: aim for %d. Tap to filter the pool.\n" % [UiKit.ROLE_LABEL[role], targets[role]] \
+		b.tooltip_text = "%s: aim for %d. Tap to show only %s; tap again for all.\n" % [
+				UiKit.ROLE_LABEL[role], targets[role], str(UiKit.ROLE_LABEL[role]).to_lower()] \
 				+ "Coverage targets follow the match-day positions; only 2 rucks are mandatory."
 		_ignore_mouse(v)
-		b.pressed.connect(func():
-			_select_tab("pool")
-			_set_role("" if _role == role else role))
+		b.pressed.connect(func(): _set_role("" if _role == role else role))
 		h.add_child(b)
 	return h
 
@@ -466,9 +472,7 @@ func _filters() -> Control:
 	title_row.add_child(title_label)
 	_pool_total = UiKit.line("", 12, UiKit.MUTED)
 	title_row.add_child(_pool_total)
-	_role_tabs = UiKit.hbox(2)
-	_role_tabs.visible = not _short
-	v.add_child(_role_tabs)
+	v.add_child(_position_filters())
 	_refresh_role_tabs()
 
 	var search_row := UiKit.hbox(6)
@@ -553,13 +557,9 @@ func _refresh_role_tabs() -> void:
 		_role_buttons[role].add_theme_stylebox_override("normal", UiKit.style(
 				Color(colour, 0.14 if _role == role else 0.08), 6, 6,
 				colour if _role == role else UiKit.LINE))
-	UiKit.clear(_role_tabs)
-	for item in ROLE_TABS:
-		var key: String = item[0]
-		var b := UiKit.tab(str(item[1]), _role == key)
-		b.name = "Filter_" + ("ALL" if key.is_empty() else key)
-		b.pressed.connect(_set_role.bind(key))
-		_role_tabs.add_child(b)
+	_all_button.add_theme_stylebox_override("normal", UiKit.style(
+			Color.TRANSPARENT, 6, 6, UiKit.TEXT if _role.is_empty() else UiKit.LINE))
+	_all_button.add_theme_color_override("font_color", UiKit.TEXT if _role.is_empty() else UiKit.MUTED)
 
 
 func _set_role(role: String) -> void:
@@ -1057,7 +1057,7 @@ func _refresh_mine() -> void:
 	if _draft.count() == 0:
 		_mine_box.add_child(UiKit.spacer(8))
 		_mine_box.add_child(UiKit.lbl("Your list starts here.", 20, UiKit.TEXT, true))
-		_mine_box.add_child(UiKit.lbl("Select a player from the pool. Tap a position counter above to find the cover you need.", 15, UiKit.MUTED))
+		_mine_box.add_child(UiKit.lbl("Select a player from the pool. Tap a position in the pool to find the cover you need.", 15, UiKit.MUTED))
 		var pool := UiKit.btn("Explore the player pool", 15, true)
 		pool.pressed.connect(func(): _select_tab("pool"))
 		_mine_box.add_child(pool)

@@ -287,8 +287,8 @@ static func derive_all(players: Array) -> Array:
 
 ## Players the stat classifier clearly gets wrong: listed and played as
 ## forwards, but a light goal year reads as midfield on the numbers. Only
-## unambiguous cases - a wider real_pos-informed pass is a data job of its
-## own. Mirrored in tools/sim_harness.py.
+## unambiguous cases (first positions); the listing otherwise only adds a
+## second position (listed_secondary). Mirrored in tools/sim_harness.py.
 const ROLE_CORRECTIONS := {
 	"RIC|Maurice Rioli": "FWD",
 	"WBD|Cody Weightman": "FWD",
@@ -388,7 +388,33 @@ static func assign_secondary(p: Dictionary) -> String:
 		if sc > best_v:
 			best_v = sc
 			best = role
+	if best == "":
+		best = listed_secondary(p)
 	return best
+
+
+## The line his club lists him in, as a second position, for a player the
+## numbers read as a midfielder: a listed forward who kicks goals or marks
+## inside 50, a listed defender who wins it back (rebound 50s and one
+## percenters). His club's listing is the evidence; his own numbers have to
+## back it up. Never changes his first position, rating or type.
+## Mirrored in tools/sim_harness.py.
+const LISTED_FWD_GOALS := 0.35      # goals a game
+const LISTED_FWD_MARKS_I50 := 0.5   # marks inside 50 a game
+const LISTED_DEF_ACTIONS := 2.0     # rebound 50s + one percenters a game
+
+
+static func listed_secondary(p: Dictionary) -> String:
+	if str(p.get("role", "")) != "MID":
+		return ""
+	var listed := str(p.get("real_pos", ""))
+	var games := maxf(1.0, float(p.get("gm", 0.0)))
+	if listed == "FWD" and (float(p.get("gl", 0.0)) / games >= LISTED_FWD_GOALS
+			or float(p.get("mi", 0.0)) / games >= LISTED_FWD_MARKS_I50):
+		return "FWD"
+	if listed == "DEF" and (float(p.get("rb", 0.0)) + float(p.get("onepct", 0.0))) / games >= LISTED_DEF_ACTIONS:
+		return "DEF"
+	return ""
 
 
 static func _secondary_ok(p: Dictionary, primary: String, role: String, sc: float) -> bool:
@@ -586,5 +612,8 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 static func _for_slot(p: Dictionary, slot: String) -> Dictionary:
 	var copy := p.duplicate()
 	copy["list_tag"] = role_tag(p)
+	# His own position, kept through every re-slotting (a copy of a copy
+	# would otherwise take the last slot as his position). Display only.
+	copy["own_role"] = str(p.get("own_role", p.get("role", "")))
 	copy["role"] = slot
 	return copy

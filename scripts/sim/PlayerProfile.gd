@@ -107,6 +107,10 @@ static func player_type(p: Dictionary) -> String:
 		return "Wing" if Roles.is_wing(p) else "Inside midfielder"
 	if role == "FWD":
 		return forward_type(p)
+	# A defender's type is read from his season; a handful of games cannot
+	# tell a key defender from a rebounder, so he is just a Defender.
+	if role == "DEF" and not bool(p.get("projected", false)) and float(p.get("gm", 99.0)) < MIN_TYPE_GAMES:
+		return "Defender"
 	var best := ""
 	var best_score := -1.0
 	for row in GameState.TRAIN_PLANS:
@@ -137,6 +141,8 @@ static func player_type(p: Dictionary) -> String:
 const KEY_FWD_CM := [184.0, 196.0]      # height evidence runs 0 -> 1 across this
 const SMALL_FWD_CM := [186.0, 176.0]    # and 0 -> 1 down this
 const FWD_TYPE_LINE := 0.70
+## Fewer games than this and a defender's archetype is noise (player_type).
+const MIN_TYPE_GAMES := 6.0
 
 
 static func forward_type(p: Dictionary) -> String:

@@ -108,7 +108,15 @@ ratio of the two scores (that flags most of the pool). Examples the gates catch:
 Heeney, Bontempelli, Nick Daicos, Rankine and Pickett as MID/FWD; Greene as
 FWD/MID; Sicily, Blakey and Josh Daicos as DEF/MID. Butters (5 goals) and Cripps
 stay MID. DEF/FWD is allowed by the same gates, but the 2026 pool did not
-produce one — it is not invented. The tag is `MID/FWD`. Match-day selection
+produce one — it is not invented. The tag is `MID/FWD`.
+A midfielder on the numbers also keeps the line his club lists him in
+(`real_pos`) as a second position when his own numbers back it up
+(`Ratings.listed_secondary`): a listed forward with 0.35 goals or 0.5 marks
+inside 50 a game, a listed defender with 2 rebound 50s plus one percenters a
+game. That gives 71 MID/FWD and 13 MID/DEF their line back (forward-eligible
+players 141 -> 212, defence 224 -> 237). First positions, ratings and types
+are untouched; listed forwards with no forward numbers (McKercher, Delana,
+Scerri) stay midfielders. Match-day selection
 fills each slot from primary players first, then from the secondary. The
 on-ground copy's `role` is the slot, so the oval still groups them; `list_tag`
 keeps the natural tag for the list screen. Draft filters and the two-ruck rule
@@ -151,7 +159,8 @@ Only jobs the engine rewards:
   both his ball-winning and running. With a tagger on the ground, a tagged
   opponent keeps 42% of his ball instead of 55%.
 * Everyone else reads as Inside midfielder, Key/Rebounding defender or Ruck
-  (the Training vocabulary), or - for forwards - Key forward, Small forward or
+  (the Training vocabulary; a defender with fewer than six games of record
+  is just a Defender - a few games cannot tell the two apart), or - for forwards - Key forward, Small forward or
   Forward (`PlayerProfile.forward_type`, a label only: ratings are untouched).
   Goals never make a key forward: it takes height (evidence, not a cut-off:
   184 cm counts nothing, 196 cm in full, ~192 cm the rule of thumb) weighed
@@ -322,15 +331,47 @@ log or its quarter snapshots, never decided by the screen.
   play through, pep talk and rotations, each described in football words
   (the exact percentages stay in the assistant's report). Legs read in words:
   fresh, tiring, running on empty. The break surfaces the problem; it never
-  names the answer.
-- **Full time.** The result first and big (won or lost by how much, both
-  scores), then what it means (finals, the ladder, who is next), "How it went"
-  (two to four reasons from the result: a run of unanswered goals, a quarter
-  that swung it, the stoppages, territory read against the result, kicking,
-  pressure), the best players with their game in a few words, four key team
-  numbers and your week (injuries, who improved, reserves development). The
-  quarter table, every team stat, both box scores and what your calls were
-  worth in expected points sit behind "Match stats".
+  names the answer. The calls are taps, not dropdowns: gameplan, pep talk
+  and rotations are short lists shown in full; Tag and Play through show
+  "none" and the four players most in the game so far (before the bounce,
+  the best rated), plus "Other player..." for the whole side on the ground.
+  The order is a convenience - nobody is filtered out.
+- **Full time.** The conclusion, easy to scan: the result first and big
+  (won or lost by how much, both scores), then what it means (finals, the
+  ladder, who is next), "How it went" (up to three reasons from the result: a
+  run of unanswered goals, a quarter that swung it, the stoppages, territory
+  read against the result, kicking, pressure), the best players - three of
+  yours and their best - with their game in a few words and their rating,
+  three key team numbers and your week (injuries, who improved, reserves
+  development). Everything else sits behind "Match stats": the quarter
+  table, every team stat, every player of both clubs (a tab per club, sorted
+  by rating or any column, a tap for the rest of his line) and what your
+  calls were worth.
+- **Player rating** (`MatchNotes.rating`). One number for one match, 0-10
+  with one decimal (not 0-100, which would read as OVR). Built only from that
+  match's box score, weighted toward what a stat does: goals 5, behinds 0.6,
+  goal assists 0.6, kicks 0.3, handballs 0.15, marks 0.7, tackles 0.8,
+  clearances 0.9, inside 50s 0.4, rebound 50s 0.9, one percenters 0.9,
+  hit-outs 0.5, clangers -0.6, frees against -0.8; then 1.5 + 0.2 x that,
+  half as steep above 8, clamped to 0-10. An average game is about 5, a good
+  one 7, best on ground 8.5 and up. Tuned over simulated matches so each
+  position's better games (90th percentile, about 7.5-8) sit within a point
+  of each other; forwards and rucks have lower medians (a forward's game is
+  goals or not much). Limits: the engine does not record contested
+  possessions, intercepts, contested marks or metres gained, so a defender's
+  defence is read from marks, rebound 50s and one percenters, and a ruck's
+  from hit-outs and clearances. The ruck's hit-outs all go to the first ruck
+  on the ground.
+- **Sim round.** Simming skips watching, not the aftermath. The round popup
+  leads with your match (won or lost by how much, both scores, your best
+  player and rating, a new injury, the ladder move and next opponent) and a
+  "Review match" button; the rest of the round sits underneath. Review opens
+  the same full-time summary and Match stats as a watched match, from the
+  result already played (`GameState.last_match`): nothing is simulated,
+  applied or paid again. The hub keeps "Last match: ..." under your season
+  line to reopen it, and the save keeps enough of that match (result, box
+  scores, rosters, team stats, quarter snapshots, scoring events;
+  `CareerSave.review_result`) to review it after a reload.
 
 ### Half-time assistant coach report
 The assistant's report is one tap away at half time and at full time
@@ -348,6 +389,16 @@ territory, pressure, ruck, errors, conversion) feed "What stands out": the
 problems and strengths in the assistant's words, never the call to make. At
 full time the report is rebuilt from the Q2 snapshot, including after Skip to
 full time.
+
+It opens at a glance (`CoachReport.glance`): the half-time score; "Match
+read", the two clearest edges ("Fremantle lead the hit-outs, 31 to 9") and
+their gameplan only if it changed or was not Balanced; your best two and up
+to two who need a lift (only a genuinely quiet half, 4+ below expectation),
+each with his game in words; their two most dangerous; and up to three
+second-half notes in plain words (no numbers, nothing Match read or the
+player sections already say). Everything above - plans by quarter, the team
+table, shot conversion, every best and quiet player with his numbers and
+"vs par" - is behind "Full report"; Back steps out one level at a time.
 
 ---
 
@@ -412,11 +463,13 @@ full time.
     disposal, creating), Key defender (intercept, pressure), Rebounding
     defender (carry, intercept), Key forward (marking, goalkicking,
     accuracy), Small forward (goalkicking, accuracy, carry, creating - never
-    marking, so he can stay a Crumber).
+    marking, so he can stay a Crumber), Ruck (ruck, contested). A
+    dual-role player gets both roles' archetypes; his Position plan trains
+    his first role and the picker says which ("Position plan (ruck)").
   - *Manual* pauses development: XP banks until spent by hand.
   Every plan attribute must be in the role's core or behind a trait the
   role can earn (`GameState.stat_useful_for_role`; tested). The old Star
-  power plan, the single-stat focuses and the Ruck plan are gone (saves
+  power plan and the single-stat focuses are gone (saves
   fall back to Position plan), as is the club-wide plan picker (a club plan
   could train forwards' skills into defenders). A point costs
   `TRAIN_COST_SCALE` (1.25) × the base price, so now that no XP is wasted a
@@ -493,6 +546,9 @@ filters inside the panels, so expanded controls cannot push the footer off
 screen. A breakpoint rebuild only replaces view nodes: picks, history, filters,
 search text/caret, active tabs and scroll offsets are retained. Player/log rows
 are paginated in batches of 60, with access to the entire pool and history.
+The pool's position row does two jobs: a compact All, then one card per
+position with your count and what you still need; tapping a card filters the
+pool (again, or All, shows everyone). There is no second position row above it.
 The main actions, tabs and position counters have ≥44 UI-unit touch targets.
 
 The shared kit uses dark green panels, warm off-white text, terracotta actions,
@@ -540,7 +596,7 @@ scripts/
     Main.gd            menu
     DraftScene.gd      club selection + draft board
     HubScene.gd        the week: opponent + facts, your side's news, the match; then ladder
-    MatchScene.gd      scoreboard, oval, match feed, quarter breaks, full-time box score
+    MatchScene.gd      scoreboard, oval, match feed, quarter breaks, full time, Match stats (PlayerStatsTable)
     LadderScene.gd     full ladder + finals bracket
     ListScene.gd       your list, best 22, attributes, real season numbers
     SeasonReviewScene.gd  the flag, your record, final ladder, awards, club achievements

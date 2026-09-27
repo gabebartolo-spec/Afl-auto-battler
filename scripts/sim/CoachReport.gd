@@ -214,7 +214,9 @@ static func rank_side(roster_side: Array, player_stats: Dictionary, quarters := 
 			"id": pid,
 			"num": int((p as Dictionary).get("num", 0)),
 			"name": resolve_name(pid, str((p as Dictionary).get("name", "Player"))),
-			"role": str((p as Dictionary).get("role", "")),
+			# His own position, not the slot he was in when the report was
+			# taken (rotations move players through other slots).
+			"role": str((p as Dictionary).get("list_role", (p as Dictionary).get("role", ""))),
 			"overall": ov,
 			"stats": st,
 			"influence": inf,
@@ -612,6 +614,101 @@ static func _form_word(delta: float) -> String:
 	if delta <= -3.0:
 		return "quiet"
 	return "even"
+
+
+## The half-time report at a glance: what is happening, who matters, what
+## stands out for the second half. Built from half_time_report(); nothing new
+## is measured. {"read": [lines], "best": [...], "lift": [...],
+## "danger": [...], "notes": [lines]} - each player {"name", "line"}.
+## The full report keeps everything else.
+const READ_STATS := ["inside50", "clearances", "hitouts", "tackles", "marks", "disposals"]
+const READ_WORDS := {"inside50": "inside 50s", "clearances": "clearances", "hitouts": "hit-outs",
+		"tackles": "tackles", "marks": "marks", "disposals": "disposals"}
+## Which second-half notes say the same thing as a Match read line.
+const NOTE_TOPICS := {"clearances": "stoppages", "inside50": "going forward", "tackles": "pressure",
+		"hitouts": "ruck"}
+
+
+static func glance(report: Dictionary) -> Dictionary:
+	var me := GameDB.club_name(str(report.get("my_code", "")))
+	var them := GameDB.club_name(str(report.get("opp_code", "")))
+	# The two clearest edges, in words.
+	var edges := []
+	for e in report.get("edges", []):
+		var d: Dictionary = e
+		if not READ_STATS.has(str(d.get("key", ""))) or str(d.get("leader", "even")) == "even":
+			continue
+		var hi := maxf(1.0, float(maxi(int(d["my"]), int(d["opp"]))))
+		edges.append({"e": d, "gap": absf(float(int(d["my"]) - int(d["opp"]))) / hi})
+	edges.sort_custom(func(a, b): return float(a["gap"]) > float(b["gap"]))
+	var read: Array = []
+	var read_keys := {}
+	for x in edges.slice(0, 2):
+		var d: Dictionary = x["e"]
+		read_keys[str(d["key"])] = true
+		var word := str(READ_WORDS.get(str(d["key"]), str(d["label"]).to_lower()))
+		if str(d["leader"]) == "my":
+			read.append("You lead the %s, %d to %d." % [word, int(d["my"]), int(d["opp"])])
+		else:
+			read.append("%s lead the %s, %d to %d." % [them, word, int(d["opp"]), int(d["my"])])
+	# Their approach, only when it is not a plain game.
+	var opp_plans: Array = report.get("opp_plans", [])
+	if opp_plans.size() >= 2:
+		var q1 := str((opp_plans[0] as Dictionary).get("gameplan", "balanced"))
+		var q2 := str((opp_plans[1] as Dictionary).get("gameplan", "balanced"))
+		if q1 != q2:
+			read.append("%s switched to %s in the second quarter." % [them,
+					str((opp_plans[1] as Dictionary).get("gameplan_label", q2)).to_lower()])
+		elif q1 != "balanced":
+			read.append("%s have played %s all half." % [them,
+					str((opp_plans[0] as Dictionary).get("gameplan_label", q1)).to_lower()])
+	if read.is_empty():
+		read.append("An even half: neither side is on top anywhere in particular.")
+	var people := func(list: Array, n: int, keep: Callable) -> Array:
+		var out := []
+		for e in list:
+			if out.size() >= n:
+				break
+			var d: Dictionary = e
+			if keep.call(d):
+				out.append({"name": str(d.get("name", "Player")),
+						"line": MatchNotes.game_line(d.get("stats", {})).replace(", ", " · ")})
+		return out
+	var always := func(_d: Dictionary) -> bool: return true
+	# Only a genuinely quiet game needs a lift, not a par one.
+	var quiet := func(d: Dictionary) -> bool: return float(d.get("delta", 0.0)) <= -4.0
+	return {
+		"read": read.slice(0, 3),
+		"best": people.call(report.get("my_best", []), 2, always),
+		"lift": people.call(report.get("my_worst", []), 2, quiet),
+		"danger": people.call(report.get("opp_best", []), 2, always),
+		"notes": _glance_notes(report.get("keys", []), read_keys),
+	}
+
+
+## The assistant's notes in plain words: no player lines (they have their
+## own sections), no score (it is at the top), nothing Match read already
+## says, and no numbers - just the observation before the colon.
+static func _glance_notes(keys: Array, read_keys: Dictionary) -> Array:
+	var out := []
+	for k in keys:
+		var t := str(k)
+		if t.contains("is hurting us") or t.contains("has been quiet") \
+				or t.contains("points up") or t.contains("points down"):
+			continue
+		var dup := false
+		for key in read_keys:
+			if NOTE_TOPICS.has(key) and t.contains(str(NOTE_TOPICS[key])):
+				dup = true
+		if dup:
+			continue
+		t = t.split(":")[0].strip_edges()
+		if not t.ends_with("."):
+			t += "."
+		out.append(t)
+		if out.size() >= 3:
+			break
+	return out
 
 
 static func verdict_for(entry: Dictionary, good: bool) -> String:

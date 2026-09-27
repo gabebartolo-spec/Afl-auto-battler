@@ -5,6 +5,10 @@ extends RefCounted
 ## every game, never past potential and never with your players' XP.
 ## Run through tests/run_ai_tests.gd.
 
+## Attributes a weekly event changes directly (ClubLife: patience gives
+## +2 discipline); not training, so not the AI's doing.
+const EVENT_ATTRS := ["discipline"]
+
 var failures: Array[String] = []
 var checks := 0
 
@@ -266,8 +270,10 @@ func _test_rivals_train() -> void:
 	for p in rival:
 		before[str(p["id"])] = (p["attr"] as Dictionary).duplicate()
 	var mine_attr := {}
+	var mine_xp := {}
 	for p in GameState.my_list:
 		mine_attr[str(p["id"])] = (p["attr"] as Dictionary).duplicate()
+		mine_xp[str(p["id"])] = int(p.get("xp", 0))
 	for i in range(6):
 		GameState.advance()
 	var trained := 0
@@ -280,11 +286,18 @@ func _test_rivals_train() -> void:
 			past_pot += 1
 	_check(trained > rival.size() / 2, "Rival players train after games (%d of %d)" % [trained, rival.size()])
 	_check(past_pot == 0, "Rivals never train a player well past his POT (%d)" % past_pot)
+	# Training is the only thing that spends XP, and on Manual it must not
+	# run: every player's XP only grows, and no attribute moves - bar the
+	# ones a weekly event sets directly (patience: +2 discipline).
 	var untouched := true
 	var earned := false
 	for p in GameState.my_list:
-		if p["attr"] != mine_attr[str(p["id"])]:
+		var id := str(p["id"])
+		if int(p.get("xp", 0)) < int(mine_xp[id]):
 			untouched = false
+		for k in p["attr"]:
+			if not EVENT_ATTRS.has(k) and p["attr"][k] != mine_attr[id][k]:
+				untouched = false
 		if int(p.get("xp", 0)) > 0:
 			earned = true
 	_check(untouched, "The AI never spends your players' XP")

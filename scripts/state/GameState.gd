@@ -24,6 +24,10 @@ var pending_label := ""
 
 var last_results: Array = []     # every match from the round just played
 var last_match: Dictionary = {}  # YOUR match from that round, with events
+var last_pos_before := 0          # your ladder spot before that round
+## Set by the hub before opening the match screen to review last_match: the
+## screen goes straight to full time and plays or applies nothing.
+var review_requested := false
 var last_phase := ""             # "regular" | "finals" | "done"
 var last_label := ""             # "Round 7" / "Grand Final" / ...
 var season_log: Array = []       # every result, for the season review screen
@@ -201,6 +205,9 @@ func save_career() -> bool:
 		"default_train_plan": default_train_plan,
 		"last_phase": last_phase,
 		"last_label": last_label,
+		# Enough of your last match to review it after a reload.
+		"last_match": CareerSave.review_result(last_match),
+		"last_pos_before": last_pos_before,
 		"season_log": CareerSave.slim_results(season_log),
 		"last_injuries": last_injuries,
 		"season_tally": season_tally,
@@ -281,6 +288,8 @@ func load_career() -> bool:
 	default_train_plan = str(state.get("default_train_plan", "position"))
 	last_phase = str(state.get("last_phase", ""))
 	last_label = str(state.get("last_label", ""))
+	last_match = state.get("last_match", {})
+	last_pos_before = int(state.get("last_pos_before", 0))
 	season_log = state.get("season_log", [])
 	last_injuries = state.get("last_injuries", [])
 	season_tally = state.get("season_tally", {})
@@ -442,6 +451,8 @@ func reset() -> void:
 	pending_label = ""
 	last_results = []
 	last_match = {}
+	last_pos_before = 0
+	review_requested = false
 	last_phase = ""
 	last_label = ""
 	season_log = []
@@ -767,6 +778,7 @@ func prepare_interactive_match() -> bool:
 	if season == null or season.is_season_over():
 		return false
 	_settle_week_event()
+	last_pos_before = my_position()
 	if season.is_regular_done():
 		return _prepare_interactive_final()
 	pending_match = {}
@@ -936,6 +948,7 @@ func advance() -> String:
 	_settle_week_event()
 	last_results = []
 	last_match = {}
+	last_pos_before = my_position()
 
 	if not season.is_regular_done():
 		last_results = season.play_round()
@@ -1324,6 +1337,11 @@ const TRAIN_PLANS := [
 	{"key": "small_fwd", "label": "Small forward", "roles": ["FWD"],
 			"text": "Goals from the ground: kicks straight and creates, and stays small enough to crumb.",
 			"weights": {"goalkicking": 3.0, "accuracy": 2.0, "carry": 1.0, "creating": 1.0}},
+	# Rucks need this for a second-role ruck (a defender or forward who
+	# pinch-hits), whose Position plan trains his first role.
+	{"key": "ruck", "label": "Ruck", "roles": ["RUCK"],
+			"text": "Wins the hit-out, then the ball at the stoppage.",
+			"weights": {"ruck": 3.0, "contested": 1.0}},
 	{"key": "manual", "label": "Manual (development paused)", "roles": [],
 			"text": "Nothing is trained automatically. His XP banks until you spend it by hand - banked XP does not make him better."},
 ]
@@ -1836,7 +1854,7 @@ func plan_valid_for(p: Dictionary, key: String) -> bool:
 
 ## The plan a player actually follows: his own if it suits him, else the
 ## club plan. A saved plan that no longer exists (single-stat focuses, Star
-## power, the old Ruck plan) or belongs to another role falls back safely.
+## power) or belongs to another role falls back safely.
 func plan_for(p: Dictionary) -> String:
 	var own := str(p.get("train_plan", ""))
 	if own != "" and plan_valid_for(p, own):
@@ -2372,6 +2390,12 @@ func _board_after_round(results: Array) -> void:
 		for r in roster[side]:
 			played[str(r["id"])] = true
 	ClubLife.morale_after_match(my_list, played, margin > 0)
+	# A player you sat down with expected a game: leaving him out fit sours it.
+	for p in my_list:
+		if bool(p.get("expects_game", false)):
+			p.erase("expects_game")
+			if not played.has(str(p["id"])) and int(p.get("injury_weeks", 0)) <= 0:
+				ClubLife.add_morale(p, -12)
 
 
 ## Season over: did you meet the goal? Miss it badly twice and you are gone.
@@ -2488,19 +2512,32 @@ func resolve_week_event(choice: int) -> String:
 			board["confidence"] = clampi(board_confidence() - 3, 0, 100)
 			out = "The board grudgingly agrees to wait."
 		"develop":
+			# A week with the development coaches instead of playing: the
+			# XP comes at the cost of this week's game, senior or reserves.
 			p["xp"] = int(p.get("xp", 0)) + 40
-			ClubLife.add_morale(p, 5)
+			p["rested"] = true
 			apply_plan_to(p)
-			out = "%s gets extra development: +40 XP." % name
+			out = "%s spends the week with the development coaches: +40 XP." % name
 		"talk":
 			ClubLife.add_morale(p, 15)
-			out = "%s feels heard." % name
+			p["expects_game"] = true
+			out = "%s feels heard, and expects a game this week." % name
 		"earn":
 			ClubLife.add_morale(p, -5)
-			out = "%s is told to earn his spot." % name
+			for q in my_list:
+				if q != p:
+					ClubLife.add_morale(q, 2)
+			out = "%s is told to earn his spot. The group respects it." % name
 		_:
-			if not p.is_empty() and key == "wait":
-				ClubLife.add_morale(p, -8 if str(week_event.get("key", "")) == "extension" else -10)
+			if not p.is_empty() and key == "wait" and str(week_event.get("key", "")) == "young_gun":
+				ClubLife.add_morale(p, -4)
+				var attr: Dictionary = p.get("attr", {})
+				if attr.has("discipline"):
+					attr["discipline"] = mini(99, int(attr["discipline"]) + 2)
+					_recalc_player_overall(p)
+				out = "%s is told to be patient and keeps playing in the reserves." % name
+			elif not p.is_empty() and key == "wait":
+				ClubLife.add_morale(p, -8)
 				out = "%s is disappointed." % name
 			else:
 				out = "Business as usual."

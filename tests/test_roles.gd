@@ -22,6 +22,7 @@ func run() -> void:
 	_test_corrections()
 	_test_forward_types()
 	_test_every_club_fields_wings()
+	_test_listed_second_positions()
 	print("Roles tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -72,7 +73,7 @@ func _test_vocabulary() -> void:
 	var seen := {}
 	for p in GameDB.players:
 		seen[Roles.label(p)] = true
-	var allowed := ["Wing", "Tagger", "Inside midfielder", "Key defender", "Rebounding defender",
+	var allowed := ["Wing", "Tagger", "Inside midfielder", "Key defender", "Rebounding defender", "Defender",
 			"Key forward", "Small forward", "Forward", "Ruck"]
 	var clean := true
 	for l in seen:
@@ -227,7 +228,9 @@ func _test_forward_types() -> void:
 	# Jamie Elliott is 178 cm (his height once came from a 1991 namesake).
 	var want := {"Toby Greene": "Forward", "Charlie Cameron": "Forward", "Jamie Elliott": "Small forward",
 			"Charlie Curnow": "Key forward", "Jeremy Cameron": "Key forward", "Harry McKay": "Key forward",
-			"Maurice Rioli": "Small forward", "Cody Weightman": "Small forward"}
+			"Maurice Rioli": "Small forward", "Cody Weightman": "Small forward",
+			# Three games cannot make him a key defender or a rebounder.
+			"Xavier Taylor": "Defender"}
 	for p in GameDB.players:
 		var n := str(p.get("real_name", ""))
 		if want.has(n):
@@ -247,3 +250,37 @@ func _test_every_club_fields_wings() -> void:
 			ok = false
 			push_error("%s: %d on the ground, %d wings" % [code, sq.ground.size(), wings])
 	_check(ok, "Every club fields 18 with two wings")
+
+
+## A midfielder on the numbers keeps the line his club lists him in as a
+## second position when his own numbers back it up - and only then.
+func _test_listed_second_positions() -> void:
+	var by_name := {}
+	for p in GameDB.players:
+		by_name[str(p.get("real_name", ""))] = p
+	for n in ["Joe Richards", "Beau McCreery", "Connor Macdonald", "Milan Murdock"]:
+		_check(by_name.has(n) and Ratings.role_tag(by_name[n]) == "MID/FWD", "%s is a midfielder who plays forward" % n)
+	for n in ["Zac Williams", "Liam Baker", "Jhye Clark"]:
+		_check(by_name.has(n) and Ratings.role_tag(by_name[n]) == "MID/DEF", "%s is a midfielder who plays back" % n)
+	# Listed forwards with no forward numbers stay midfielders.
+	for n in ["Colby McKercher", "Josaia Delana", "Chris Scerri"]:
+		_check(by_name.has(n) and Ratings.role_tag(by_name[n]) == "MID", "%s stays a midfielder" % n)
+	var fwd := 0
+	var def := 0
+	var bad := ""
+	for p in GameDB.players:
+		if Ratings.plays_role(p, "FWD"):
+			fwd += 1
+		if Ratings.plays_role(p, "DEF"):
+			def += 1
+		if str(p.get("role2", "")) == str(p.get("role", "")):
+			bad = str(p.get("real_name", ""))
+	_check(fwd >= 180 and def >= 220, "The draft has forward and defensive depth (%d FWD, %d DEF)" % [fwd, def])
+	_check(bad == "", "A second position is never the first (%s)" % bad)
+	# The rule only ever adds a second position to a midfielder.
+	var mid := {"role": "MID", "real_pos": "FWD", "gm": 10.0, "gl": 5.0, "mi": 0.0, "rb": 0.0, "onepct": 0.0}
+	_check(Ratings.listed_secondary(mid) == "FWD", "A goalkicking listed forward gets FWD")
+	mid["gl"] = 1.0
+	_check(Ratings.listed_secondary(mid) == "", "A listed forward who does not kick goals or mark inside 50 does not")
+	_check(Ratings.listed_secondary({"role": "DEF", "real_pos": "FWD", "gm": 10.0, "gl": 9.0}) == "",
+			"Only a midfielder on the numbers takes his listed line")
