@@ -5,7 +5,7 @@ extends SceneTree
 
 const VIEWPORTS := [
 	Vector2i(390, 844), Vector2i(844, 390), Vector2i(320, 568),
-	Vector2i(360, 800), Vector2i(430, 932), Vector2i(768, 1024),
+	Vector2i(360, 800), Vector2i(430, 932), Vector2i(420, 860), Vector2i(360, 740), Vector2i(768, 1024),
 	Vector2i(1024, 768), Vector2i(667, 375), Vector2i(915, 412), Vector2i(1280, 800),
 ]
 
@@ -79,6 +79,8 @@ func _run() -> void:
 			await _settle()
 			_check_layout(ui, label + " / " + tab)
 		ui.call("_select_tab", "pool")
+
+	await _test_position_filters(ui)
 
 	# No-results recovery resets controls as well as their backing values.
 	ui.call("_clear_filters")
@@ -297,6 +299,51 @@ func _snapshot(ui: Control) -> Dictionary:
 			"_advanced_open", "_history_club"]:
 		out[key] = ui.get(key)
 	return out
+
+
+# One row of position cards shows the list's needs and filters the pool; no
+# second position row repeats it above the pool.
+func _test_position_filters(ui: Control) -> void:
+	var kit = load("res://scripts/ui/UiKit.gd")
+	root.size = Vector2i(420, 860)
+	ui.call("_select_tab", "pool")
+	await _settle()
+	var pool: Control = ui.find_child("DraftPool", true, false)
+	for role in ["DEF", "MID", "RUCK", "FWD"]:
+		_check(ui.find_children("Position_" + role, "Button", true, false).size() == 1,
+				"One %s card, not two position rows" % role)
+		_check(ui.find_children("Filter_" + role, "Button", true, false).is_empty(),
+				"No separate %s filter tab" % role)
+		var card: Button = ui.find_child("Position_" + role, true, false)
+		_check(pool.is_ancestor_of(card), "The %s card sits in the draft pool" % role)
+		var words := ""
+		for l in card.find_children("*", "Label", true, false):
+			words += str(l.text) + " "
+		_check(words.contains(role + " ") and (words.contains("NEED +") or words.contains("COVERED")),
+				"The %s card shows the count and the need (%s)" % [role, words])
+	var all: Button = ui.find_child("Filter_ALL", true, false)
+	var mid: Button = ui.find_child("Position_MID", true, false)
+	_check(all != null and all.size.x < mid.size.x, "All is compact beside the position cards")
+	ui.call("_set_role", "")
+	mid.emit_signal("pressed")
+	await _settle()
+	_check(ui.get("_role") == "MID", "Tapping a card filters the pool to that position")
+	var info: Label = ui.get("_board_info")
+	var want: int = _state.draft.board("MID", str(ui.get("_club_filter")), str(ui.get("_search")),
+			str(ui.get("_sort")), bool(ui.get("_available_only"))).size()
+	_check(info.text.begins_with("%d MID " % want), "The pool lists that position's players (%s)" % info.text)
+	var sb: StyleBoxFlat = mid.get_theme_stylebox("normal")
+	_check(sb.border_color == kit.ROLE_COLOUR["MID"], "The chosen card is outlined")
+	_check((all.get_theme_stylebox("normal") as StyleBoxFlat).border_color != kit.TEXT, "All is not outlined while filtered")
+	mid.emit_signal("pressed")
+	await _settle()
+	_check(ui.get("_role") == "", "Tapping the chosen card again shows everyone")
+	ui.find_child("Position_FWD", true, false).emit_signal("pressed")
+	await _settle()
+	all.emit_signal("pressed")
+	await _settle()
+	_check(ui.get("_role") == "" and (all.get_theme_stylebox("normal") as StyleBoxFlat).border_color == kit.TEXT,
+			"All shows everyone and is outlined")
 
 
 func _check_layout(ui: Control, label: String) -> void:

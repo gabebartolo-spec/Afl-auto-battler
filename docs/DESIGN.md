@@ -493,6 +493,9 @@ filters inside the panels, so expanded controls cannot push the footer off
 screen. A breakpoint rebuild only replaces view nodes: picks, history, filters,
 search text/caret, active tabs and scroll offsets are retained. Player/log rows
 are paginated in batches of 60, with access to the entire pool and history.
+The pool's position row does two jobs: a compact All, then one card per
+position with your count and what you still need; tapping a card filters the
+pool (again, or All, shows everyone). There is no second position row above it.
 The main actions, tabs and position counters have ≥44 UI-unit touch targets.
 
 The shared kit uses dark green panels, warm off-white text, terracotta actions,
