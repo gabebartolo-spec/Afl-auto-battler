@@ -214,7 +214,9 @@ static func rank_side(roster_side: Array, player_stats: Dictionary, quarters := 
 			"id": pid,
 			"num": int((p as Dictionary).get("num", 0)),
 			"name": resolve_name(pid, str((p as Dictionary).get("name", "Player"))),
-			"role": str((p as Dictionary).get("role", "")),
+			# His own position, not the slot he was in when the report was
+			# taken (rotations move players through other slots).
+			"role": str((p as Dictionary).get("list_role", (p as Dictionary).get("role", ""))),
 			"overall": ov,
 			"stats": st,
 			"influence": inf,

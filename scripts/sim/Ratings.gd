@@ -586,5 +586,8 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 static func _for_slot(p: Dictionary, slot: String) -> Dictionary:
 	var copy := p.duplicate()
 	copy["list_tag"] = role_tag(p)
+	# His own position, kept through every re-slotting (a copy of a copy
+	# would otherwise take the last slot as his position). Display only.
+	copy["own_role"] = str(p.get("own_role", p.get("role", "")))
 	copy["role"] = slot
 	return copy

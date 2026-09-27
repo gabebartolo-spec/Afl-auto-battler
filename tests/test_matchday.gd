@@ -25,6 +25,7 @@ func run() -> void:
 	_test_half_time_keys()
 	_test_legs_words()
 	_test_full_time()
+	_test_report_roles(res)
 	print("Matchday tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -215,3 +216,32 @@ func _test_full_time() -> void:
 	_check(MatchNotes.game_line({"disposals": 12.0, "goals": 4.0}) == "4 goals", "A forward's game is his goals")
 	var ks := MatchNotes.key_stats(_match(3), 0)
 	_check(ks.size() == 4 and str(ks[0][0]) == "Disposals", "Four key stats at full time")
+
+
+## The report names a player's own position, never the slot rotations left
+## him in: a midfielder who filled the ruck is still a MID.
+func _test_report_roles(res: Dictionary) -> void:
+	var bad := ""
+	for side in [0, 1]:
+		for r in (res["roster"] as Array)[side]:
+			var own = GameDB.player_by_id(str(r["id"]))
+			if own is Dictionary and str(r["list_role"]) != str(own["role"]):
+				bad = str(r["name"])
+	_check(bad == "", "The roster carries each player's own position (%s)" % bad)
+	# Fill a vacant ruck with a midfielder: the report keeps him a MID.
+	var list := GameDB.club_list("NTH").duplicate(true)
+	var mid := {}
+	for p in list:
+		if str(p["role"]) == "RUCK":
+			p["injury_weeks"] = 3
+		elif mid.is_empty() and str(p["role"]) == "MID":
+			mid = p
+	var sel := {"RUCK": [str(mid["id"])]}
+	var sim := MatchSim.new(Squad.new("NTH", list, true, "NTH", sel), Squad.new("CAR", GameDB.club_list("CAR"), false, "CAR"), 4)
+	var r2 := sim.run()
+	var ranked := CoachReport.rank_side((r2["roster"] as Array)[0], r2.get("players", {}), 4)
+	var line := ""
+	for e in ranked:
+		if str(e["id"]) == str(mid["id"]):
+			line = str(e["role"])
+	_check(line == "MID", "A midfielder named in the ruck is still a MID in the report (%s)" % line)
