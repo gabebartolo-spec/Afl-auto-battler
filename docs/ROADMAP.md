@@ -455,7 +455,8 @@ The change must affect actual visual target direction, not only labels/commentar
 ---
 
 ## ARD-M1-005 — Wrong-way / bizarre long-kick sanity
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #69 as `9e14165`; CI full suite green on the PR head.  
 **Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
 
@@ -580,7 +581,8 @@ Manual/UI snapshot checks at ~360 / 390 / 412 px widths.
 ---
 
 ## ARD-M1-009 — Draft salary-cap completion guard
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #68 as `c3f60e5`; CI full suite green on the PR head.  
 **Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
 
@@ -646,9 +648,24 @@ New career → Round 1 → season rollover → 2028.
 ---
 
 ## ARD-M1-011 — Event choices with obvious right answers
-**Status:** `TODO`  
+**Status:** `DONE`  
+**Merged:** PR #44 as `f549755`; club suite green on main.  
 **Priority:** `P1`  
 **Autonomy:** `SAFE` for clearly local events
+
+### Outcome (2026-09-28, PR #44 "Club life events: every card a real decision")
+- **Audit:** all eight weekly events were audited against measured values (a senior game 37 XP, reserves 18, heavy legs 1.7 points of margin, base injury 4.2% a game).
+- **Dominant choices fixed:**
+  - Sore player: playing dominated. Now it is 6x his own injury risk, stated in the card, and resting no longer costs morale.
+  - Young player: a development week was worth more than a senior game. Now it is 26 XP, between the reserves and a game.
+  - Contract: waiting was a fake choice. Now there is an early price against waiting to be re-priced on your rating, once a season, only when the cap can carry it.
+  - Training and open day were too small to matter. Now there are real risk, legs and board trade-offs.
+- **Repeat triggers fixed:**
+  - Board pressure fires at 3 and 6 straight losses.
+  - The unhappy player is never injured and never repeated within 5 rounds.
+  - No card repeats two weeks running.
+- **Evidence:** the PR carries a decision table saying when each option makes sense.
+- **Tests:** `club` suite, 67 checks.
 
 ### Intent
 Events should present meaningful trade-offs rather than one objectively dominant choice.
@@ -1633,6 +1650,7 @@ Validate with targeted multi-season simulations.
 
 
 ### Phase 4 implementation record (2026-09-28, branch `claude/coaching-phase4`)
+- **Merged:** PR #74 as `9e155fc` (2026-09-28); CI full suite green on the PR head.
 - **Capture:** a playing career ends (retired in `Prospects.age_league`, or delisted and unsigned at the close of free agency) and `GameState._career_over` captures him before he leaves the lists. The `played` snapshot holds games, goals, club stints, draft, listed position, retirement year and in-save Brownlows and Colemans. No ratings, contract, training, injury or stat tables are kept.
 - **Decision:** one career-seeded roll per player, decided once: 19%, 22% at 150+ games, 25% at 250+, +1 point per major award, capped at 30%. He becomes `C_P_<player id>` with his real name and the same alias, then has 1-3 pathway seasons (+1 if the market is flooded, never more than 3 extra) before the ordinary market.
 - **Fame is not ability:** skills come from the coach id alone (52-72, centred 62). Across 3,000 retirees, games correlate with skill at r ~0.03 and with starting reputation at r ~0.7. The fame part of reputation fades over nine coaching seasons. A former club rates him +2.5% (half of the 5% club link).
