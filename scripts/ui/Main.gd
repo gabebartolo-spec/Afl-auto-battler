@@ -373,29 +373,7 @@ func _close_confirm() -> void:
 ## Display preferences, which apply at once, and (outside the web build) a
 ## way to quit that does not compete with the menu.
 func _show_settings() -> void:
-	var box := UiKit.modal_box(self, 440.0, 420.0)
-	_settings_overlay = box["overlay"]
-	_settings_overlay.name = "Settings"
-	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.heading("Settings", UiKit.H1))
-	v.add_child(_choice("Player names", "SettingsNames", NAME_OPTIONS,
-			"real" if GameState.show_real_names else "generated",
-			func(_k): return NAMES_INFO,
-			func(k): GameState.set_show_real_names(k == "real")))
-	v.add_child(_choice("Confirm before simming round", "SettingsSimConfirm",
-			[["on", "On"], ["off", "Off"]],
-			"on" if GameState.confirm_sim_round() else "off",
-			func(_k): return "Sim round plays your own match for you. With this on, it asks first.",
-			func(k): GameState.set_confirm_sim_round(k == "on")))
-	var done := UiKit.btn("Done", 17, true)
-	done.name = "SettingsDone"
-	done.pressed.connect(_close_settings)
-	box["footer"].add_child(done)
-	if not OS.has_feature("web"):
-		var quit := UiKit.btn("Quit game", 16)
-		quit.name = "QuitGame"
-		quit.pressed.connect(func(): get_tree().quit())
-		box["footer"].add_child(quit)
+	_settings_overlay = OptionsSheet.open(self, false, true)
 
 
 func _close_settings() -> void:

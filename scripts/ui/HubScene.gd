@@ -1,6 +1,7 @@
 extends Control
 ## Season hub: your next match, the ladder snapshot, and the round controls.
 
+var _settings: Control
 var _root: VBoxContainer
 var _results_overlay: Control
 var _news_overlay: Control
@@ -47,7 +48,13 @@ func _build() -> void:
 	UiKit.clear(_root)
 	GameState.ensure_finals()
 	var season: Season = GameState.season
-	_root.add_child(UiKit.top_bar(_week_title(season), false))
+	var settings := UiKit.btn("Settings", 14)
+	settings.name = "HubSettings"
+	settings.flat = true
+	settings.custom_minimum_size = Vector2(64, 44)
+	settings.add_theme_color_override("font_color", UiKit.MUTED)
+	settings.pressed.connect(func(): _settings = OptionsSheet.open(self, true))
+	_root.add_child(UiKit.top_bar(_week_title(season), false, settings))
 	if GameState.is_sacked():
 		_root.add_child(_standing_card())
 		_root.add_child(_sacked_card())
@@ -384,11 +391,22 @@ func _footer(season: Season) -> Control:
 			sim.name = "SimRound"
 			_wire_long_press(sim)
 			buttons.append(sim)
-	var row := UiKit.hbox(6)
+	# Four across a 360 px phone: tighter type and padding there, so no
+	# label is cut short.
+	var tight := _content_width() < 380.0 and buttons.size() >= 4
+	var row := UiKit.hbox(4 if tight else 6)
 	row.name = "HubFooter"
 	for b in buttons:
-		b.add_theme_font_size_override("font_size", 15)
+		b.add_theme_font_size_override("font_size", 13 if tight else 15)
 		b.custom_minimum_size = Vector2(0, 44)
+		if tight:
+			for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+				var sb: StyleBox = b.get_theme_stylebox(state)
+				if sb != null:
+					sb = sb.duplicate()
+					sb.content_margin_left = 4
+					sb.content_margin_right = 4
+					b.add_theme_stylebox_override(state, sb)
 		row.add_child(b)
 	return row
 
@@ -600,6 +618,10 @@ func _on_sim_to_end() -> void:
 
 ## Router back hook: close the results popup before leaving the hub.
 func handle_back() -> bool:
+	if _settings != null and is_instance_valid(_settings):
+		_settings.queue_free()
+		_settings = null
+		return true
 	if _quick_sim != null and is_instance_valid(_quick_sim):
 		_close_quick_sim()
 		return true
