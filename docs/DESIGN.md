@@ -249,9 +249,20 @@ those roles - so drafting and selecting on OVR chased the wrong players.
 mapped piecewise-linearly at its 10th, 50th and 98th percentiles (2026, 12+
 games) onto fixed targets - the positions' spreads as they were - and one for
 one outside that band. Medians stay level with the midfield median, the
-elite of every position reaches the high 80s (the non-midfield 98th
-percentile sits 85% of the way to the midfield one), and the low tail stays
-clear of the retirement floor.
+elite of every position reaches the high 80s (the defender and ruck 98th
+percentile sits 85% of the way to the midfield one; forwards match the
+midfield, below), and the low tail stays clear of the retirement floor.
+
+*Forward ceiling (ARD-M5-010).* Margin per OVR point, measured by putting a
+median and a 98th-percentile player of each position in place of a side's
+weakest selected player (600 matches each, same seeds): forward 63 to 87
++8.7 points (0.36 a point), ruck 62 to 89 +7.5 (0.28), defender 63 to 86
++3.7 (0.16), mid 62 to 89 +4.0 (0.15). An elite forward is worth at least
+what an elite mid is, so the forwards' 85% concession undersold them: the
+forward 98th-percentile target is now the midfield one (78.04). Forward
+medians do not move; the top end does (Greene 79 to 82, Cameron 77 to 79,
+the best forward 88 to 92). The ruck result points the same way but is left
+as it is: 46 players, and no play problem reported.
 
 **Saves.** OVR is derived data. `GameState._recompute_ratings()` rebuilds
 every player's `overall` and `value` from his attributes on load, and moves

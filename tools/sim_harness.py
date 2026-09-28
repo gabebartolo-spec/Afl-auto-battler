@@ -307,7 +307,7 @@ ROLE_WEIGHTS = {  # role core: attribute -> weight (Ratings.gd::ROLE_WEIGHTS)
 STRETCH_ANCHORS = {"MID": (39.26, 51.49, 82.37), "DEF": (40.37, 47.88, 58.90),
                    "FWD": (39.79, 50.93, 62.05), "RUCK": (39.13, 66.27, 86.90)}
 STRETCH_TARGETS = {"MID": (37.74, 49.36, 78.04), "DEF": (43.07, 49.41, 73.72),
-                   "FWD": (38.38, 49.48, 73.42), "RUCK": (37.50, 49.36, 73.56)}
+                   "FWD": (38.38, 49.48, 78.04), "RUCK": (37.50, 49.36, 73.56)}
 
 
 def position_stretch(raw, role):

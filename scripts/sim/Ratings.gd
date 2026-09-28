@@ -345,7 +345,7 @@ const STRETCH_ANCHORS := {                # [p10, p50, p98] raw blend
 const STRETCH_TARGETS := {                # where they land
 	"MID": [37.74, 49.36, 78.04],
 	"DEF": [43.07, 49.41, 73.72],
-	"FWD": [38.38, 49.48, 73.42],
+	"FWD": [38.38, 49.48, 78.04],
 	"RUCK": [37.50, 49.36, 73.56],
 }
 

@@ -252,7 +252,12 @@ func _test_inspect(ui: Control) -> void:
 	# Cap: an expensive player you cannot afford says why.
 	var spend: int = int(draft.club_spend[draft.user_club])
 	draft.club_spend[draft.user_club] = draft.budget - 3
+	# A dear player still in the pool (an early row may have gone to a rival).
 	var dear: Dictionary = rows[3]
+	for r in rows:
+		if not draft.has(str(r["id"])) and int(r["value"]) > 3:
+			dear = r
+			break
 	ui.call("_open_player", str(dear["id"]))
 	await _settle()
 	blocked = ui.find_child("DetailBlocked", true, false)
