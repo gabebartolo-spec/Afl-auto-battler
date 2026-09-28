@@ -618,7 +618,6 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 	return {"ground": ground, "bench": bench}
 
 
-## Copy so the match-day slot does not rewrite the list player's natural role.
 ## Players ordered by ruck work, best first (ties by overall), for filling
 ## an empty ruck spot with the nearest thing to a ruckman.
 static func by_ruck(players: Array) -> Array:
@@ -632,6 +631,7 @@ static func by_ruck(players: Array) -> Array:
 	return out
 
 
+## Copy so the match-day slot does not rewrite the list player's natural role.
 static func _for_slot(p: Dictionary, slot: String) -> Dictionary:
 	var copy := p.duplicate()
 	copy["list_tag"] = role_tag(p)
