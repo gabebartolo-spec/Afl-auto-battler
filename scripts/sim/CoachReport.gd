@@ -313,6 +313,11 @@ static func half_time_report(res: Dictionary, my_side: int) -> Dictionary:
 	return _build_report(res, my_side, _quarters_played(res))
 
 
+## The same report over the whole match, for full time.
+static func match_report(res: Dictionary, my_side: int) -> Dictionary:
+	return _build_report(res, my_side, _quarters_played(res))
+
+
 static func _build_report(res: Dictionary, my_side: int, quarters: int) -> Dictionary:
 	var opp_side := 1 - my_side
 	var roster: Array = res.get("roster", [[], []])
@@ -631,7 +636,8 @@ const NOTE_TOPICS := {"clearances": "stoppages", "inside50": "going forward", "p
 		"hitouts": "ruck"}
 
 
-static func glance(report: Dictionary) -> Dictionary:
+static func glance(report: Dictionary, full_time := false) -> Dictionary:
+	var span := "game" if full_time else "half"
 	var me := GameDB.club_name(str(report.get("my_code", "")))
 	var them := GameDB.club_name(str(report.get("opp_code", "")))
 	# The two clearest edges, in words.
@@ -662,10 +668,10 @@ static func glance(report: Dictionary) -> Dictionary:
 			read.append("%s switched to %s in the second quarter." % [them,
 					str((opp_plans[1] as Dictionary).get("gameplan_label", q2)).to_lower()])
 		elif q1 != "balanced":
-			read.append("%s have played %s all half." % [them,
-					str((opp_plans[0] as Dictionary).get("gameplan_label", q1)).to_lower()])
+			read.append("%s played %s all %s." % [them,
+					str((opp_plans[0] as Dictionary).get("gameplan_label", q1)).to_lower(), span])
 	if read.is_empty():
-		read.append("An even half: neither side is on top anywhere in particular.")
+		read.append("An even %s: neither side is on top anywhere in particular." % span)
 	var people := func(list: Array, n: int, keep: Callable) -> Array:
 		var out := []
 		for e in list:

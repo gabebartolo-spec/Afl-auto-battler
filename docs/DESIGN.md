@@ -72,6 +72,25 @@ product presentation choice, not legal advice or a licensing determination.
 
 ---
 
+### Chronology
+* **Source data: the completed 2026 AFL season.** Ratings come from real
+  2026 statistics; every real player's career record runs through 2026
+  (`player_history_2026.csv` to 2025, plus his real 2026 games and goals at
+  the club he played them for, added when a career starts); the 2026 draft
+  class is part of that world.
+* **Career start: 2027** (`GameDB.START_YEAR`). Ages are as of 1 March 2027
+  from date of birth (`GameDB.age_at_start`). The 2027 League Draft pool is
+  the 2026 league plus the 2026 class (drafted before the season, on the same
+  terms as everyone; its real father-son/NGA ties do not apply to a full
+  redraft). The first in-career national draft, after 2027, drafts the
+  generated 2027 class, made at career start the way every rollover makes
+  next year's. No 2026 development or retirements are simulated: 2027 starts
+  from the 2026 ratings, one year older.
+* **Coaching source: Round 1 2026**, carried by continuity into 2027 (see
+  Coaching staff).
+* **Old saves** keep their own timeline: a career begun in 2026 by an older
+  build still plays and drafts its 2026 class; only new careers start in 2027.
+
 ## 2. Ratings — turning season stats into game attributes
 
 Every player is reduced to 1–99 attributes plus a **role** and a **salary value**.
@@ -514,8 +533,12 @@ table, shot conversion, every best and quiet player with his numbers and
   career starts. Coach aliases use their own first names (never a player's)
   with the shared surnames, in a fixed order, so a seeded coach has the same
   alias in every career; real-name mode shows the real person, and a
-  generated coach keeps his alias. Seeded careers start at Round 1 2026: the
-  profile claims nothing earlier. Staff screen: hub > Staff (your six jobs,
+  generated coach keeps his alias. The seed is the researched Round 1 2026
+  world, kept as the historical source; a career (from 2027) carries it
+  forward by continuity - everyone stays where the research put them, a
+  stint's first year is that 2026, your club's senior coach coached 2026 and
+  makes way for you in 2027 - and claims no real 2027 appointment. The
+  profile claims nothing before Round 1 2026. Staff screen: hub > Staff (your six jobs,
   then any club's).
 * **Team form** — each club's form (-1..1) is derived from its results this
   season (`Season.club_results`, so it is never saved separately and resets
@@ -608,7 +631,7 @@ table, shot conversion, every best and quiet player with his numbers and
   year, applies the development bands (young grow, old decline), retires the
   oldest/lowest-rated (floor: 32 per club), adds the next year's generated
   intake class (`Prospects.generate_class`), and builds a fresh 24-round
-  season. `GameDB.reload()` on career reset restores the pristine 2026 data
+  season. `GameDB.reload()` on career reset restores the pristine starting data
   because mid-career mutations are in place. Undrafted prospects carry into
   next year's pool and age out at 22.
 

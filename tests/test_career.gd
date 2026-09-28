@@ -15,6 +15,7 @@ func run() -> void:
 	checks = 0
 	_test_rules()
 	_test_dataset()
+	_test_2026_is_history()
 	_test_one_season_and_finals()
 	_test_three_seasons_and_club_change()
 	_test_reload_never_double_counts()
@@ -167,6 +168,42 @@ func _test_dataset() -> void:
 	_check(none == 0, "Draft prospects start without a senior career")
 
 
+## A new career starts in 2027 with every real player's 2026 season already
+## in his record, at the club he played it for - once, and never again.
+func _test_2026_is_history() -> void:
+	_new_season("GEE")
+	var src: Dictionary = {}
+	for p in GameDB.players:
+		if str(p.get("real_name", "")) == "Patrick Dangerfield":
+			src = p
+	var mine := {}
+	for p in _listed().values():
+		if str(p.get("real_name", "")) == "Patrick Dangerfield":
+			mine = p
+	_check(not src.is_empty() and not mine.is_empty(), "Dangerfield is in the league")
+	if src.is_empty() or mine.is_empty():
+		return
+	var c := Career.of(mine)
+	var src_games := int((src["career"] as Dictionary)["games"])
+	_check(int(c["games"]) == src_games + int(float(src["gm"])),
+			"His record adds the real 2026 season to the dataset career (%d + %d = %d)" % [
+			src_games, int(float(src["gm"])), int(c["games"])])
+	var last: Array = (c["stints"] as Array)[-1]
+	_check(int(c["through"]) == GameDB.DATA_SEASON and int(last[2]) == GameDB.DATA_SEASON
+			and str(last[0]) == str(src["data_club"]),
+			"...credited to 2026 at the club he played it for (%s)" % str(last))
+	var before := int(c["games"])
+	_check(not Career.add_season(mine, GameDB.DATA_SEASON, "GEE", 20, 10) and int(c["games"]) == before,
+			"2026 can never be counted twice")
+	var draftee_ok := true
+	for p in _listed().values():
+		if str(p["id"]).begins_with("D2026_"):
+			var dc := Career.of(p)
+			if int(dc["games"]) != 0 or int(dc["through"]) != GameDB.DATA_SEASON or not Career.complete(p):
+				draftee_ok = false
+	_check(draftee_ok, "A 2026 draftee starts 2027 with no senior games and a complete record")
+
+
 func _test_one_season_and_finals() -> void:
 	_new_season("GEE")
 	var players := _listed()
@@ -193,13 +230,13 @@ func _test_one_season_and_finals() -> void:
 			finals_players += 1
 	_check(exact, "One season: every player's games and goals match the results %s" % first_bad)
 	_check(finals_players >= 44, "Finals were played and counted (%d finals players)" % finals_players)
-	_check(clubs.size() == GameDB.active_clubs(2026).size(),
+	_check(clubs.size() == GameDB.active_clubs(GameDB.START_YEAR).size(),
 			"Every club's players are counted, not only yours (%d clubs)" % clubs.size())
 	var gf := false
 	for id in counted:
 		if int(counted[id][2]) >= 1 and players.has(id):
 			var c := Career.of(players[id])
-			if int(c["through"]) == 2026:
+			if int(c["through"]) == GameDB.START_YEAR:
 				gf = true
 	_check(gf, "A finals player's season closes with his finals in it")
 	var kept := true
@@ -213,9 +250,9 @@ func _test_one_season_and_finals() -> void:
 		if int(row[0]) <= 0:
 			continue
 		var last: Array = (Career.of(players[id])["stints"] as Array)[-1]
-		if str(last[0]) != str(row[3]) or int(last[2]) != 2026:
+		if str(last[0]) != str(row[3]) or int(last[2]) != GameDB.START_YEAR:
 			stint_ok = false
-	_check(stint_ok, "2026 is credited to the club each player played for")
+	_check(stint_ok, "The first season is credited to the club each player played for")
 
 
 func _test_three_seasons_and_club_change() -> void:
@@ -228,9 +265,10 @@ func _test_three_seasons_and_club_change() -> void:
 	var mover := {}
 	var from := "GEE"
 	var to := "WCE"
-	var years := [2026, 2027, 2028]
+	var y0 := GameDB.START_YEAR
+	var years := [y0, y0 + 1, y0 + 2]
 	for y in years:
-		if y == 2027:
+		if y == y0 + 1:
 			var best := {}
 			for p in GameState.season.lists[from]:
 				if best.is_empty() or int(p["overall"]) > int(best["overall"]):
@@ -262,8 +300,8 @@ func _test_three_seasons_and_club_change() -> void:
 	_check(seen > 400 and exact, "Three seasons accumulate exactly (%d players) %s" % [seen, first_bad])
 	var st: Array = Career.of(mover)["stints"]
 	var tail := st.slice(st.size() - 2) if st.size() >= 2 else []
-	_check(tail.size() == 2 and str(tail[0][0]) == from and int(tail[0][2]) == 2026
-			and str(tail[1][0]) == to and int(tail[1][1]) == 2027 and int(tail[1][2]) == 2028,
+	_check(tail.size() == 2 and str(tail[0][0]) == from and int(tail[0][2]) == y0
+			and str(tail[1][0]) == to and int(tail[1][1]) == y0 + 1 and int(tail[1][2]) == y0 + 2,
 			"A move from %s to %s reads as two stints (%s)" % [from, to, str(st)])
 
 
@@ -299,13 +337,13 @@ func _test_reload_never_double_counts() -> void:
 	Career.close_season(_listed(), GameState.season_tally, GameState.season_year)
 	_check(str(_totals(_listed())) == str(closed), "Closing the same season again changes nothing")
 	var ids := closed.keys()
-	_check(GameState.start_next_season(), "The career rolls to 2027")
+	_check(GameState.start_next_season(), "The career rolls to %d" % (GameDB.START_YEAR + 1))
 	var rolled := _listed()
 	var same := true
 	for id in ids:
 		if rolled.has(id) and str(_totals({id: rolled[id]})[id]) != str(closed[id]):
 			same = false
-	_check(same, "The rollover does not count 2026 again")
+	_check(same, "The rollover does not count %d again" % GameDB.START_YEAR)
 	_check(GameState.save_career() and GameState.load_career(), "Save and reload after the rollover")
 	var again := _listed()
 	same = true
@@ -318,6 +356,7 @@ func _test_reload_never_double_counts() -> void:
 func _test_draftee_metadata() -> void:
 	_new_season("ADE")
 	GameState.season.round_index = GameState.season.fixture.size()
+	var draft_year := GameState.season_year
 	_check(GameState.begin_intake_draft(), "The intake opens")
 	var draft: Draft = GameState.draft
 	var pots := {}
@@ -342,7 +381,7 @@ func _test_draftee_metadata() -> void:
 			continue
 		if int(p.get("potential", -1)) != int(pots.get(str(id), -2)):
 			pot_kept = false
-		if int(p.get("drafted_year", 0)) != 2026:
+		if int(p.get("drafted_year", 0)) != draft_year:
 			ok = false
 			bad = str(p)
 		if str(p.get("drafted_type", "")) == "national":
@@ -394,9 +433,18 @@ func _strip(v) -> void:
 			_strip(x)
 
 
+## A career as builds before 2027 careers started it: in 2026, with no
+## 2026 season in anyone's record (it was the first one played).
+func _old_2026_season(club: String) -> void:
+	GameDB.reload()
+	GameState.reset()
+	GameState.season_year = GameDB.DATA_SEASON
+	GameState.start_season(club, GameDB.club_list(club))
+
+
 func _test_old_saves() -> void:
 	# Before a ball is bounced: nothing was missed, so nothing is unknown.
-	_new_season("MEL")
+	_old_2026_season("MEL")
 	_check(GameState.save_career(), "A new career saves")
 	_age_save()
 	_check(GameState.load_career(), "An old save without career records loads")
@@ -436,7 +484,7 @@ func _test_old_saves() -> void:
 		var c := Career.of(p)
 		var row: Array = counted.get(str(p["id"]), [0, 0])
 		var last: Array = (c["stints"] as Array)[-1] if not (c["stints"] as Array).is_empty() else []
-		if int(row[0]) > 0 and (last.is_empty() or int(last[2]) != 2027):
+		if int(row[0]) > 0 and (last.is_empty() or int(last[2]) != GameDB.DATA_SEASON + 1):
 			forward = false
 	_check(forward, "After migrating, new seasons are tracked normally")
 	_check(GameState.save_career() and GameState.load_career(), "A migrated career saves and reloads")
