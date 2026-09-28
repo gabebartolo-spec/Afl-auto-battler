@@ -432,8 +432,9 @@ static func standouts(res: Dictionary, side: int, n: int) -> Array:
 ## ground. The engine gives forwards few touches (about 9 a game) and rucks
 ## about a third of real hit-outs, so possession counts for less than in
 ## AFL Fantasy and scoreboard impact for more: a goal is 14, a hit-out 3.
-## "goal_assists" is the engine's forward-50 delivery (credited on every
-## entry, not only goals), so it is scored as creation, like an inside 50.
+## An inside 50 is creation (4, what an entry earned before goal assists
+## were counted properly); a goal assist - the last kick to a goalkicker - is
+## 2 more. A free kick drawn is +1, one given away -1 (plus the clanger).
 ## A clearance is always followed by the disposal it produces, so it earns
 ## nothing extra. Every free against is also a clanger: -3 in all.
 ## Every tackle is also a pressure act, so a tackle is 2 + 1 = 3 in all and
@@ -441,8 +442,8 @@ static func standouts(res: Dictionary, side: int, n: int) -> Array:
 const RATING_POINTS := {
 	"kicks": 2, "handballs": 1, "marks": 3, "tackles": 2, "pressure_acts": 1,
 	"goals": 14, "behinds": 1, "hitouts": 3,
-	"inside50": 1, "goal_assists": 3, "rebounds": 3, "one_percenters": 1,
-	"clangers": -2, "frees_against": -1,
+	"inside50": 4, "goal_assists": 2, "rebounds": 3, "one_percenters": 1,
+	"clangers": -2, "frees_for": 1, "frees_against": -1,
 }
 
 

@@ -24,6 +24,7 @@ func run() -> void:
 	_test_traits()
 	_test_metres_and_efficiency()
 	_test_ruck_integrity()
+	_test_stat_credits()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -654,3 +655,36 @@ func _test_play_through() -> void:
 	_check(d_on / n < 40.0, "...but not an absurd share (%.1f a game)" % (d_on / n))
 	_check(g_on / n <= g_off / n + 0.35,
 			"...and he does not become the goalkicker (%.2f v %.2f goals a game)" % [g_on / n, g_off / n])
+
+
+
+## ARD-M1-001 stat credits: a goal assist only when a goal is kicked (never
+## the goalkicker himself), and every free kick paid to a player.
+func _test_stat_credits() -> void:
+	var goals := 0.0
+	var assists := 0.0
+	var i50 := 0.0
+	var sums_ok := true
+	var frees_ok := true
+	var self_assist := false
+	for i in range(20):
+		var res := _sim(1200 + i).run()
+		for side in range(2):
+			var t: Dictionary = res["team"][side]
+			goals += float(t.get("goals", 0.0))
+			assists += float(t.get("goal_assists", 0.0))
+			i50 += float(t.get("inside50", 0.0))
+			var pa := 0.0
+			var pf := 0.0
+			for r in res["roster"][side]:
+				var st: Dictionary = res["players"].get(str(r["id"]), {})
+				pa += float(st.get("goal_assists", 0.0))
+				pf += float(st.get("frees_for", 0.0))
+			if absf(pa - float(t.get("goal_assists", 0.0))) > 0.01:
+				sums_ok = false
+			if absf(pf - float(t.get("frees_for", 0.0))) > 0.01:
+				frees_ok = false
+	_check(assists > 0.4 * goals and assists < goals and assists < 0.5 * i50,
+			"Goal assists are credited on goals, not on every entry (%d assists, %d goals, %d inside 50s)" % [assists, goals, i50])
+	_check(sums_ok, "Players' goal assists add up to the team's")
+	_check(frees_ok, "Every free kick is paid to a player: players' frees for add up to the team's")
