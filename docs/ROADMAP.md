@@ -742,7 +742,8 @@ Deterministic examples for each classification; denominator zero handling; playe
 ---
 
 ## ARD-M2-003 — Centre bounce attendances (CBA / CBA%)
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #79 as `330a5fea`; verified on main 2026-09-28.  
 **Priority:** `P1`  
 **Autonomy:** `SAFE`
 
@@ -769,7 +770,8 @@ Track who actually attends centre bounces so role usage is visible and auditable
 ---
 
 ## ARD-M2-004 — Intercept possessions
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #79 as `330a5fea`; verified on main 2026-09-28.  
 **Priority:** `P1`  
 **Autonomy:** `SAFE`
 
@@ -788,7 +790,8 @@ Avoid crediting generic rebounds as intercepts unless possession was actually wo
 ---
 
 ## ARD-M2-005 — Contested vs uncontested marks
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #79 as `330a5fea`; verified on main 2026-09-28.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -831,7 +834,8 @@ Do not spam a pressure stat for every nearby player every disposal. Define a cle
 ---
 
 ## ARD-M2-007 — Score involvements
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #79 as `330a5fea`; verified on main 2026-09-28.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -851,7 +855,8 @@ Recognise players who materially participate in scoring chains before the final 
 ---
 
 ## ARD-M2-008 — Score-source tracking
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #79 as `330a5fea`; verified on main 2026-09-28.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -1503,7 +1508,8 @@ Do not manually patch only famous names if the classifier itself is wrong.
 ---
 
 ## ARD-M5-010 — OVR should predict football strength
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #80 as `69955d03`; verified on main 2026-09-28.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
