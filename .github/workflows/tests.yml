@@ -1,12 +1,20 @@
 name: Tests
 
-# Every pull request (including Arena.ai ones) and every push to main runs the
-# full check: project import, all Godot test suites, the dataset check and the
-# intake harness. tools/run_tests.sh is the same script you run locally.
+# Code/data/config pull requests and pushes to main run the full check:
+# project import, all Godot test suites, the dataset check and the intake
+# harness. Documentation-only changes skip this expensive game test run.
+# If a PR changes both docs and game files, the tests still run.
+# tools/run_tests.sh is the same script you run locally.
 on:
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
   workflow_dispatch:
 
 concurrency:
