@@ -23,6 +23,7 @@ func run() -> void:
 	_test_forward_types()
 	_test_every_club_fields_wings()
 	_test_listed_second_positions()
+	_test_formation_wings()
 	print("Roles tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -284,3 +285,70 @@ func _test_listed_second_positions() -> void:
 	_check(Ratings.listed_secondary(mid) == "", "A listed forward who does not kick goals or mark inside 50 does not")
 	_check(Ratings.listed_secondary({"role": "DEF", "real_pos": "FWD", "gm": 10.0, "gl": 9.0}) == "",
 			"Only a midfielder on the numbers takes his listed line")
+
+
+## The Best 22 oval shows the wings the match plays (Roles.mark_wings, the
+## line "WING" on the match-day copies), never the next two by rating.
+func _oval_slots(ground: Array, bench: Array = []) -> Dictionary:
+	var fv := FormationView.new()
+	var out := {}
+	for e in fv._assign(ground, bench):
+		out[str((e["player"] as Dictionary)["id"])] = str((e["slot"] as Dictionary)["abbr"])
+	fv.free()
+	return out
+
+
+func _test_formation_wings() -> void:
+	# A strong ball-winner rated second-best of the five is inside, not on a
+	# wing: before, the oval filled C, W, W, IM, IM in rating order.
+	var boss := _mid("boss", 50, 70, 95)
+	boss["overall"] = 90
+	var bull := _mid("bull", 50, 69, 90)       # Wardlaw-style: contested first
+	bull["overall"] = 85
+	var run1 := _mid("run1", 80, 75, 40)
+	run1["overall"] = 60
+	var run2 := _mid("run2", 78, 74, 42)
+	run2["overall"] = 58
+	var mid5 := _mid("mid5", 55, 60, 70)
+	mid5["overall"] = 70
+	var ruck := _mid("ruck", 30, 40, 60)
+	ruck["role"] = "RUCK"
+	var ground := [boss, bull, run1, run2, mid5, ruck]
+	var slots := _oval_slots(ground)
+	_check(slots["bull"] != "W", "A contested midfielder is not shown on a wing for his rating (%s)" % slots["bull"])
+	_check(slots["run1"] == "W" and slots["run2"] == "W", "The runners the match would play on the wings are the Ws")
+	var counts := {}
+	for id in ["boss", "bull", "run1", "run2", "mid5"]:
+		counts[slots[id]] = int(counts.get(slots[id], 0)) + 1
+	_check(counts == {"C": 1, "W": 2, "IM": 2}, "Five midfielders fill C, W, W, IM, IM exactly (%s)" % str(counts))
+	_check(slots["boss"] == "C", "The best centre-square player takes the centre")
+	# Match-day marks win: whoever selection put on the wings is shown there.
+	var copies := []
+	for p in ground:
+		copies.append(p.duplicate(true))
+	for c in copies:
+		if str(c["id"]) == "boss" or str(c["id"]) == "mid5":
+			c["line"] = "WING"
+	var named := _oval_slots(copies)
+	_check(named["boss"] == "W" and named["mid5"] == "W" and named["run1"] != "W",
+			"A named wing (line WING) is shown on the wing, whatever his fit")
+	# Bench untouched.
+	var bench := [_mid("b1", 60, 60, 60), _mid("b2", 60, 60, 60)]
+	var with_bench := _oval_slots(ground, bench)
+	_check(with_bench["b1"] == "INT" and with_bench["b2"] == "INT" and with_bench.size() == 8,
+			"The bench stays on the interchange")
+	# Every real club: the oval's wings are the match's wings.
+	var agree := true
+	var wardlaw_wing := false
+	for code in GameDB.active_clubs(2026):
+		var sel := Ratings.select_22(GameDB.club_list(code))
+		var oval := _oval_slots(sel["ground"], sel["bench"])
+		for p in sel["ground"]:
+			if str(p["role"]) != "MID":
+				continue
+			if (oval[str(p["id"])] == "W") != Roles.on_wing(p):
+				agree = false
+			if str(p.get("last", "")) == "Wardlaw" and oval[str(p["id"])] == "W":
+				wardlaw_wing = true
+	_check(agree, "On every club's best 22 the oval's wings are the wings the match plays")
+	_check(not wardlaw_wing, "Wardlaw is never shown on a wing")

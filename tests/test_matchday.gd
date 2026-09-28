@@ -28,6 +28,7 @@ func run() -> void:
 	_test_report_roles(res)
 	_test_rating()
 	_test_report_glance()
+	_test_club_markers()
 	print("Matchday tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -327,3 +328,28 @@ func _test_report_glance() -> void:
 				if str(p["line"]).contains("disp (") or str(p["line"]).contains("CLR") or str(p["line"]).contains("vs par"):
 					bad = str(p["line"])
 	_check(bad == "", "Notes and players read as football, not a stat sheet or advice (%s)" % bad)
+
+
+## A club is marked by its real colours: two for most, three where the
+## third is a club colour (the Bulldogs' white, Adelaide's gold).
+func _test_club_markers() -> void:
+	var ok := true
+	for code in GameDB.CLUB_ORDER:
+		var m := UiKit.club_marker(code)
+		var bands: Node = m.get_child(0)
+		var want := 3 if GameDB.THREE_COLOUR_CLUBS.has(code) else 2
+		if bands.get_child_count() != want:
+			ok = false
+		m.free()
+	_check(ok, "Every club's marker shows its two or three colours")
+	var mel := UiKit.club_marker("MEL")
+	var cols := []
+	for b in mel.get_child(0).get_children():
+		cols.append((b as ColorRect).color)
+	_check(cols == GameDB.club_colours("MEL").slice(0, 2), "Melbourne is navy and red")
+	mel.free()
+	var badge := UiKit.club_badge("WBD")
+	_check(badge.find_child("ClubMarker", true, false) != null
+			and badge.find_child("ClubMarker", true, false).get_child(0).get_child_count() == 3,
+			"The club badge uses the marker (the Bulldogs in three colours)")
+	badge.free()

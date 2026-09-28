@@ -310,9 +310,12 @@ func _test_ui() -> void:
 		var o := PlayerSheet.open(host, dawson)
 		await tree.process_frame
 		var cl: Label = o.find_child("ProfileCareer", true, false)
-		_check(cl != null and cl.text == "156 games · 78 goals",
-				"The player profile shows his career (%s)" % (cl.text if cl != null else "none"))
-		_check(_text(o).contains("Sydney 2017–2021") and _text(o).contains("Adelaide 2022–2025"),
+		# His AFL career to 2025 (156 games, 78 goals) plus the real 2026
+		# season, which is history before a 2027 career starts.
+		var want := "%d games · %d goals" % [156 + int(float(dawson["gm"])), 78 + int(float(dawson["gl"]))]
+		_check(cl != null and cl.text == want,
+				"The player profile shows his career through 2026 (%s, want %s)" % [cl.text if cl != null else "none", want])
+		_check(_text(o).contains("Sydney 2017–2021") and _text(o).contains("Adelaide 2022–2026"),
 				"and the clubs, when there is more than one")
 	host.queue_free()
 

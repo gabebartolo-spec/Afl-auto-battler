@@ -187,10 +187,16 @@ func _tiny_pool(n: int) -> Array:
 
 func _test_career_rollover() -> void:
 	GameState.reset()
-	_check(GameState.season_year == 2026, "A new career starts in 2026")
+	_check(GameState.season_year == 2027, "A new career starts in 2027")
 	GameState.start_season("ADE", GameDB.club_list("ADE"))
 	var season: Season = GameState.season
 	season.round_index = season.fixture.size()  # Fast-forward: the H&A is done.
+	# Generated classes carry no father-son/NGA ties (only the real 2026 class
+	# did, and it joins through the League Draft). Plant one to prove a tie
+	# still lands with its club before the snake starts.
+	var tied: Dictionary = GameState.draftee_pool[0]
+	tied["tied_club"] = "ADE"
+	tied["tied_type"] = "father-son"
 	_check(GameState.begin_intake_draft(), "The intake draft opens after the home-and-away")
 	var draft: Draft = GameState.draft
 	_check(draft != null and draft.intake_mode, "GameState built an intake draft")
@@ -209,7 +215,7 @@ func _test_career_rollover() -> void:
 	_check(draft.is_finished(), "Filling every scheduled pick completes the intake")
 	_check(GameState.finish_intake_draft(), "The rollover commits")
 
-	_check(GameState.season_year == 2027, "The career advances a year")
+	_check(GameState.season_year == 2028, "The career advances a year")
 	_check(GameState.season != null and GameState.season.round_index == 0,
 			"A fresh 24-round fixture is built")
 	_check(GameState.draft == null, "The intake draft releases the shared draft slot")
@@ -217,9 +223,9 @@ func _test_career_rollover() -> void:
 	var seen_ids := {}
 	for code in GameDB.CLUB_ORDER:
 		var arr: Array = GameState.league_lists.get(code, [])
-		if GameDB.enter_year(code) > GameState.season_year:
-			# Not an active club yet - an expansion debut list arrives in its
-			# own entry season, so there is nothing to keep in band.
+		if GameDB.enter_year(code) >= GameState.season_year:
+			# Not active yet, or an expansion club whose debut list just
+			# arrived (Tasmania in 2028): nothing was signed through the draft.
 			continue
 		total_signed += arr.size() - int(list_sizes[code])
 		_check(arr.size() >= Prospects.MIN_LIST, "No club drops below the minimum list")
@@ -233,12 +239,17 @@ func _test_career_rollover() -> void:
 
 	# A known veteran aged by exactly one year, with a recomputed rating.
 	var dawson = null
+	var dawson_start := 0.0
+	for p in GameDB.players:
+		if str(p.get("real_name", "")) == "Jordan Dawson":
+			dawson_start = GameDB.age_at_start(str(p["dob"]), 0.0)
 	for p in GameState.my_list:
 		if str(p.get("real_name", "")) == "Jordan Dawson":
 			dawson = p
 			break
 	if dawson != null:
-		_check(absf(float(dawson["age"]) - 30.6) < 1.2, "Dawson aged 29 -> 30")
+		_check(absf(float(dawson["age"]) - (dawson_start + 1.0)) < 0.01,
+				"Dawson aged exactly one year (%.2f -> %.2f)" % [dawson_start, float(dawson["age"])])
 		_check(float(dawson.get("sample", 0.0)) >= 18.0,
 				"A completed season lifts the small-sample shrink")
 	else:
@@ -253,9 +264,9 @@ func _test_career_rollover() -> void:
 			_check(int(p["num"]) > 0, "Signed rookies get a jumper number")
 	_check(rookies >= 1, "My club signed at least one rookie")
 
-	# And the loop continues: the generated 2027 class drafts into 2028.
-	var next_class := Prospects.generate_class(2027)
-	_check(next_class.size() >= 40, "The generated 2027 class is a full intake")
+	# And the loop continues: the generated 2028 class drafts into 2029.
+	var next_class := Prospects.generate_class(2028)
+	_check(next_class.size() >= 40, "The generated 2028 class is a full intake")
 	var again_ids := {}
 	for p in next_class:
 		var pid := str(p["id"])
@@ -267,7 +278,7 @@ func _test_career_rollover() -> void:
 				"Generated prospects never get placeholder names (%s)" % str(p["generic_name"]))
 		_check(int(p["overall"]) >= 36 and int(p["overall"]) <= 76,
 				"Generated prospects stay in the rookie band")
-	var repeats := Prospects.generate_class(2027)
+	var repeats := Prospects.generate_class(2028)
 	_check(repeats.size() == next_class.size(), "Class generation is deterministic in size")
 	for i in range(mini(10, repeats.size())):
 		_check(int(repeats[i]["overall"]) == int(next_class[i]["overall"]),
@@ -284,16 +295,16 @@ func _test_career_rollover() -> void:
 			GameState.draft._skip_current_pick()
 	_check(GameState.draft.is_finished(), "The second intake draft can complete")
 	_check(GameState.finish_intake_draft(), "The second rollover commits")
-	_check(GameState.season_year == 2028, "The career keeps looping (2028)")
+	_check(GameState.season_year == 2029, "The career keeps looping (2029)")
 	GameState.reset()
-	_check(GameState.season_year == 2026, "Reset returns to the 2026 baseline")
+	_check(GameState.season_year == 2027, "Reset returns to the 2027 start")
 	var restored = null
 	for p in GameDB.players:
 		if str(p.get("real_name", "")) == "Jordan Dawson":
 			restored = p
 			break
-	_check(restored != null and absf(float(restored.get("age", 0.0)) - 29.6) < 1.0,
-			"GameDB.reload() restores pristine 2026 ages for a new career")
+	_check(restored != null and absf(float(restored.get("age", 0.0)) - dawson_start) < 0.01,
+			"GameDB.reload() restores pristine start-of-2027 ages for a new career")
 
 
 ## Draft classes have a quality tier per career and year: deterministic, at

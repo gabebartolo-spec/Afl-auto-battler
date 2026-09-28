@@ -63,7 +63,7 @@ func _test_full_season() -> void:
 		GameState.advance()
 		guard += 1
 	var aw: Dictionary = GameState.season_awards
-	_check(int(aw.get("year", 0)) == 2026, "The season's awards are decided at the Grand Final")
+	_check(int(aw.get("year", 0)) == GameDB.START_YEAR, "The season's awards are decided at the Grand Final")
 	var brownlow: Array = aw.get("brownlow", [])
 	_check(not brownlow.is_empty() and int(brownlow[0]["votes"]) >= 15,
 			"A Brownlow medallist with a real tally (%d)" % (int(brownlow[0]["votes"]) if not brownlow.is_empty() else 0))
@@ -93,7 +93,7 @@ func _test_full_season() -> void:
 	_check(GameState.award_name(brownlow[0]) != "", "Award winners have names")
 	GameState.save_career()
 	GameState.load_career()
-	_check(int(GameState.season_awards.get("year", 0)) == 2026 and GameState.honour_roll.size() == 1,
+	_check(int(GameState.season_awards.get("year", 0)) == GameDB.START_YEAR and GameState.honour_roll.size() == 1,
 			"Awards, honour roll and records survive a save")
 	GameState.start_next_season()
 	_check(GameState.season_tally.is_empty() and GameState.honour_roll.size() == 1,

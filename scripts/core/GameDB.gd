@@ -8,6 +8,14 @@ extends Node
 ## desktop and mobile. A CSV left on Godot's default (csv_translation) importer
 ## is missing from an exported build: tools/check_export_data.sh guards this.
 
+## Chronology. The data is the completed 2026 AFL season (stats, ratings,
+## careers through 2026, the 2026 draft class); a career starts with the
+## 2027 season, taking over the league 2026 produced. Ages are as of the
+## start of the first playable season.
+const DATA_SEASON := 2026
+const START_YEAR := 2027
+const START_DATE := "2027-03-01"
+
 const CLUBS_CSV := "res://data/clubs.csv"
 ## The player pool: 2026 season stats plus bio fields (dob, age, height).
 ## Required - see _load_players(). data/players_2026.csv (stats only) is the
@@ -65,6 +73,14 @@ var baseline_spread := 0.0   # standard deviation of the 2026 overalls
 ## generated intake, so no two displayed players ever collide on an alias.
 var _alias_candidates: Array = []
 var _alias_next := 0
+
+
+## A player's age at the start of the first playable season (START_DATE),
+## from his date of birth. Without one, the dataset's 2026 age plus a year.
+static func age_at_start(dob: String, age_2026: float) -> float:
+	if dob.length() >= 10:
+		return float(Prospects.days_between(dob, START_DATE)) / 365.25
+	return age_2026 + 1.0
 
 
 func _ready() -> void:
@@ -128,6 +144,17 @@ func club_colours(code: String) -> Array:
 	var c: Dictionary = clubs.get(code, {})
 	return [c.get("primary", Color.WHITE), c.get("secondary", Color.DIM_GRAY),
 			c.get("accent", Color.GOLD)]
+
+
+## Clubs whose third colour is a real club colour (Adelaide's gold, the
+## Bulldogs' white); the others' "accent" is only a tint for the pitch.
+const THREE_COLOUR_CLUBS := ["ADE", "BRL", "GCS", "GWS", "PAD", "SKN", "WBD", "TAS", "CANB"]
+
+
+## The colours a club is known by, for its marker: two or three.
+func club_marker_colours(code: String) -> Array:
+	var cols := club_colours(code)
+	return cols if THREE_COLOUR_CLUBS.has(code) else cols.slice(0, 2)
 
 
 func club_list(code: String) -> Array:
@@ -249,11 +276,9 @@ func _load_draftees() -> Array:
 		p["height_cm"] = float(_cell_int(cells, idx, "height_cm"))
 		p["weight_kg"] = 0.0
 		p["dob"] = _cell_str(cells, idx, "dob")
-		var as_of := "2026-11-20"
-		var age := 18.0
-		if str(p["dob"]).length() >= 10:
-			age = float(Prospects.days_between(str(p["dob"]), as_of)) / 365.25
-		p["age"] = age
+		# The class drafted in November 2026 joins lists for 2027: aged as of
+		# the first playable season, like everyone else.
+		p["age"] = age_at_start(str(p["dob"]), 17.3)
 		p["debut"] = ""
 		p["height_source"] = "draft class"
 		p["draft_year"] = 2026
@@ -481,6 +506,10 @@ func _load_players() -> Array:
 			push_error("GameDB: %s has no age for %s %s (%s); refusing to load incomplete player data." % [
 					PLAYERS_ENRICHED_CSV, p["first"], p["last"], p["club"]])
 			return []
+		p["age"] = age_at_start(str(p["dob"]), float(p["age"]))
+		# The club he played the 2026 season for: his career record takes the
+		# real 2026 season there when a career starts (GameState.start_season).
+		p["data_club"] = str(p["club"])
 		out.append(p)
 	_assign_fictional_names(out)
 	return out

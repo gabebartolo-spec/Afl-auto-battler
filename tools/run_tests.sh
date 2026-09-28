@@ -15,11 +15,18 @@ cd "$(dirname "$0")/.." || exit 1
 
 GODOT="${GODOT:-godot}"
 SUITE_TIMEOUT="${SUITE_TIMEOUT:-900}"
-ALL_SUITES=(draft draft_ui intake intake_ui expansion finals save career coaches career_ui potential ratings ai training selection matchup matchday roles injuries awards achievements contracts league club match_game match_visual league_balance calibration balance)
+ALL_SUITES=(draft draft_ui intake intake_ui expansion finals save chronology career coaches career_ui potential ratings ai training selection matchup matchday roles injuries awards achievements contracts league club match_game match_visual league_balance calibration balance)
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
 
 LOG_DIR="${LOG_DIR:-$(mktemp -d)}"
 mkdir -p "$LOG_DIR"
+# Suites save careers and settings under user://, which Godot puts in one
+# folder per project name - shared by every checkout and worktree. Give this
+# run its own user data (Godot on Linux reads XDG_DATA_HOME), so two runs at
+# once cannot overwrite each other's saves. Only the suites use it: the
+# import and export steps keep the real data dir and its export templates.
+RUN_DATA="$(mktemp -d)"
+trap 'rm -rf "$RUN_DATA"' EXIT
 failed=0
 summary=()
 in_ci=0
@@ -45,7 +52,7 @@ for suite in "${SUITES[@]}"; do
 	runner="tests/run_${suite}_tests.gd"
 	log="$LOG_DIR/$suite.log"
 	start=$(date +%s)
-	timeout "$SUITE_TIMEOUT" "$GODOT" --headless --path . --script "$runner" > "$log" 2>&1
+	XDG_DATA_HOME="$RUN_DATA" timeout "$SUITE_TIMEOUT" "$GODOT" --headless --path . --script "$runner" > "$log" 2>&1
 	code=$?
 	secs=$(( $(date +%s) - start ))
 	result=$(grep -E "[0-9]+ checks, [0-9]+ failures" "$log" | tail -1)

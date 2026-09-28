@@ -218,19 +218,33 @@ func _on_new_career() -> void:
 # ---------------------------------------------------------------------------
 # New career setup
 # ---------------------------------------------------------------------------
+## Space under the setup block relative to the space above it: a little
+## more below, so the block sits just above the middle of the screen.
+const SETUP_BELOW := 1.3
+
 func _show_setup() -> void:
 	_mode = "setup"
 	UiKit.clear(_content)
 	_content.alignment = BoxContainer.ALIGNMENT_BEGIN
+	# Back stays where a thumb expects it; everything else is one block -
+	# title, the two choices, the button right under them - centred on the
+	# screen (a touch above the middle), over the faint oval.
+	_content.add_child(UiKit.top_bar("", true, null, func():
+		_close_setup()
+		return true))
+	var above := Control.new()
+	above.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_content.add_child(above)
 	var form := UiKit.vbox(UiKit.SECTION)
 	form.name = "NewCareerSetup"
 	form.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	form.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	form.custom_minimum_size.x = _column_width(440.0)
 	_content.add_child(form)
-	form.add_child(UiKit.top_bar("New career", true, null, func():
-		_close_setup()
-		return true))
+	var title := UiKit.lbl("New career", UiKit.H1, UiKit.TEXT, true)
+	title.name = "SetupTitle"
+	# A little more under the title than between the sections.
+	title.custom_minimum_size.y = UiKit.H1 * 1.4 + 6
+	form.add_child(title)
 	form.add_child(_choice("Player names", "NameMode", NAME_OPTIONS,
 			"real" if _pick_real else "generated",
 			func(_k): return NAMES_INFO + " You can change this later in Settings.",
@@ -241,17 +255,20 @@ func _show_setup() -> void:
 	form.add_child(_choice("Difficulty", "Difficulty", diff_options, _pick_difficulty,
 			func(k): return str(GameState.DIFFICULTIES[k]["text"]),
 			func(k): _pick_difficulty = k))
-	# On a phone the start button sits at the bottom, under the thumb; on a
-	# wide screen it follows the choices.
-	var push := Control.new()
-	if UiKit.view_height(self) > UiKit.view_width(self):
-		push.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	form.add_child(push)
+	# The button follows the choices closely, set just apart from them.
+	var cta := MarginContainer.new()
+	cta.add_theme_constant_override("margin_top", 6)
+	form.add_child(cta)
 	var start := UiKit.btn("Choose your club", 19, true)
 	start.name = "StartCareer"
+	start.custom_minimum_size.y = 52
 	start.disabled = not GameDB.loaded
 	start.pressed.connect(_on_start)
-	form.add_child(start)
+	cta.add_child(start)
+	var below := Control.new()
+	below.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	below.size_flags_stretch_ratio = SETUP_BELOW
+	_content.add_child(below)
 
 
 ## A labelled row of options, the current one outlined, with a "?" that
@@ -356,7 +373,7 @@ func _close_confirm() -> void:
 ## Display preferences, which apply at once, and (outside the web build) a
 ## way to quit that does not compete with the menu.
 func _show_settings() -> void:
-	var box := UiKit.modal_box(self, 440.0, 280.0)
+	var box := UiKit.modal_box(self, 440.0, 420.0)
 	_settings_overlay = box["overlay"]
 	_settings_overlay.name = "Settings"
 	var v: VBoxContainer = box["body"]
@@ -365,6 +382,11 @@ func _show_settings() -> void:
 			"real" if GameState.show_real_names else "generated",
 			func(_k): return NAMES_INFO,
 			func(k): GameState.set_show_real_names(k == "real")))
+	v.add_child(_choice("Confirm before simming round", "SettingsSimConfirm",
+			[["on", "On"], ["off", "Off"]],
+			"on" if GameState.confirm_sim_round() else "off",
+			func(_k): return "Sim round plays your own match for you. With this on, it asks first.",
+			func(k): GameState.set_confirm_sim_round(k == "on")))
 	var done := UiKit.btn("Done", 17, true)
 	done.name = "SettingsDone"
 	done.pressed.connect(_close_settings)
@@ -425,7 +447,7 @@ func _show_help() -> void:
 	v.add_child(UiKit.heading("How to play", UiKit.H1))
 	var text := UiKit.lbl(
 			("1. Choose your club. All %d clubs start with empty lists.\n\n"
-			% GameDB.active_clubs(2026).size())
+			% GameDB.active_clubs(GameDB.START_YEAR).size())
 			+ "2. Draft from one shared player pool under the same cap. The random order reverses each round. Rivals pick between your turns. Tap a player to see what kind of footballer he is; only the Draft button picks him.\n\n"
 			+ "3. Track every selection in Picks. The position cards in the pool show your list's coverage; tap one to filter the pool. Carry at least two rucks.\n\n"
 			+ "4. Play 24 rounds, with matches driven by your players' rated abilities. Set your tactics in the coach box. After each game every player develops: his training plan (Position plan to start) turns his XP into the kind of footballer you choose, and fit players you leave out develop in the reserves at about half the senior rate. Choose plans in Training.\n\n"

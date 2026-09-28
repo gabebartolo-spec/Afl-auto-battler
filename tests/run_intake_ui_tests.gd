@@ -31,6 +31,7 @@ func _run() -> void:
 	_state.show_real_names = false
 	_db = root.get_node("GameDB")
 	_state.reset()
+	var first_year := int(_state.season_year)
 	_state.start_season("COL", _db.club_list("COL"))
 	var season = _state.season
 	season.round_index = season.fixture.size()  # The H&A is done; draft time.
@@ -151,7 +152,7 @@ func _run() -> void:
 		signed_ids.append(str(p["id"]))
 	var ok: bool = _state.finish_intake_draft()
 	_check(ok, "The intake commits from a UI-driven draft")
-	_check(int(_state.season_year) == 2027, "The career advanced to 2027")
+	_check(int(_state.season_year) == first_year + 1, "The career advanced a year")
 	var new_ids := {}
 	for p in (_state.league_lists["COL"] as Array):
 		new_ids[str(p["id"])] = true
