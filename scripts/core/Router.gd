@@ -43,8 +43,11 @@ func replace(key: String) -> void:
 func back() -> void:
 	if stack.size() <= 1:
 		return
+	# Take both this screen and the one we return to off the stack: go()
+	# pushes the target again. Leaving it on made it appear twice, so every
+	# later back landed on the same screen.
 	stack.pop_back()
-	go(stack[stack.size() - 1])
+	go(str(stack.pop_back()))
 
 
 func current() -> String:
