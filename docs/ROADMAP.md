@@ -36,7 +36,7 @@ Use exactly these statuses:
 - `DONE` — implemented, tested, merged and verified.
 - `DEFERRED` — intentionally postponed.
 
-Never mark an item `DONE` because code was written locally. It must be merged and verified.
+Never mark an item `DONE` because code was written locally, because its PR is open, or because its PR is green. A green/mergeable PR remains `IN PROGRESS` until it is actually merged into `main` and the resulting state is verified there. Only then change the roadmap item to `DONE`.
 
 ## 0.3 Priority legend
 
@@ -68,10 +68,31 @@ For every authorised roadmap task:
 11. For save-schema changes, prove backward compatibility.
 12. For UI work, check narrow Android portrait layouts.
 13. Update this roadmap's status/notes if the task is completed or materially changed.
-14. Commit logically. Do **not** merge unless explicitly authorised.
-15. Handoff with exact files, commits, tests, behaviour before/after, balance evidence and remaining risks.
+14. Maintain a compact durable handoff directly under the roadmap task before the work is considered complete.
+15. Commit logically. Do **not** merge unless explicitly authorised.
+16. Handoff with exact files, commits, tests, behaviour before/after, balance evidence and remaining risks.
 
 If the requested feature turns into a broad rewrite, **stop and report the dependency/risk instead of silently expanding scope**.
+
+## 0.6 Durable in-roadmap handoffs
+
+The roadmap is the shared handoff surface between ChatGPT, Claude and future development sessions. Durable implementation state must live here rather than only in chat.
+
+For every task that becomes `PARTIAL`, `IN PROGRESS` or `DONE`, maintain a compact `### Outcome` or `### Implementation record` directly under that task. Include the durable facts needed to continue the project:
+
+- date and resulting status;
+- branch / PR number;
+- implementation commit SHA and merge commit SHA when known;
+- concise before → after behaviour;
+- important implementation decisions or deviations;
+- targeted tests and full-suite result;
+- balance evidence when balance-gated;
+- save-compatibility evidence when persistence changed;
+- remaining work, risks or follow-on task IDs.
+
+Do not paste a giant conversational transcript into the roadmap. Temporary debugging belongs in the PR/chat; durable project state belongs here.
+
+When a PR merges, verify the result on `main`, update the task's durable handoff with the merge result, and only then mark it `DONE`.
 
 ---
 
@@ -429,7 +450,9 @@ Open a compact quick-sim menu:
 - Next 4 stops early if the H&A season ends.
 - End-of-H&A **must stop before finals**.
 - Never silently simulate finals.
-- Genuine blocking decisions/events may interrupt a batch.
+- A batch interrupts only for a genuinely blocking state: something that cannot responsibly continue without the user's decision or a hard career boundary/state change.
+- Valid examples include a required user decision that blocks progression, being sacked, or reaching the end of the home-and-away season/finals boundary.
+- Routine weekly events, passive notifications or ordinary generated news should not halt every skip batch; if they can safely default/queue without changing later rounds, they are not blocking.
 - Long press always opens its menu even when ordinary confirmation is disabled.
 
 ### Tests
@@ -2033,5 +2056,6 @@ Before adding any new roadmap line, check this table.
 
 Keep this short. Add only meaningful structural changes, not every code commit.
 
+- **2026-09-28:** Added durable in-roadmap handoffs and clarified DONE/quick-sim semantics: green/open PRs remain IN PROGRESS until merged and verified; quick-sim only interrupts for genuinely blocking states.
 - **2026-09-28:** Converted roadmap from conversation-style backlog into a canonical execution roadmap with milestones, stable task IDs, dependency ordering, global guardrails, validation matrix, balance template, Claude task prompt and duplicate map.
 - **2026-09-28:** Consolidated repeated concepts including season momentum/team form, reports, opponent scouting, forward scoring, match-ups, history/records, simulation controls, AFL rules/restarters, rivalries, marquee games and secondary-position learning.
