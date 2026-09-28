@@ -290,7 +290,20 @@ Goal: fix things that are currently wrong, misleading, broken on mobile or capab
   - A free kick is paid to an opponent near the ball, drawn from a separate `stat_rng`, so match results are unchanged (200 seeded matches give an identical scoreline hash before and after).
   - Player Rating keeps an inside 50 at 4 and adds 2 per real goal assist and +1 per free for; the position-parity test holds.
   - Regression: `test_match_game.gd::_test_stat_credits`.
-- **Part 2, gates:** open the zone, shooter and one-percenter gates into weighted tendencies. This is balance-gated and next.
+- **Part 2, gates (branch `claude/football-gates`):** hard role filters became role weights, like `PRESS_ZONES`. Lines that could always make the play keep full weight; the rest get a small share.
+  - Carrying by zone (`CARRY_ROLES`): defenders can carry through the attacking half, and forwards can help the exit.
+  - The shot (`SHOT_ROLES`): rucks 0.35, defenders 0.06.
+  - Clearances (`CLEARANCE_ROLES`): forwards 0.12, defenders 0.10.
+  - One-percenter credit (`ONE_PCT_ROLES`, drawn from `stat_rng`).
+- **Effect (300 matches):**
+  - Defenders: 0.56 inside 50s a game (was 0.33) and 0.10 goals (0.07).
+  - Rucks: 0.32 goals (0.22) and 1.15 one-percenters (0.10).
+  - Mids: 0.96 one-percenters (0.19). Forwards: 0.53 (0.07).
+  - Defenders still take 72% of one-percenters. Forwards and defenders win the odd clearance.
+  - Team totals are unchanged.
+- **Balance (1,000 seeded matches, before v after):** mean score 86.9 v 86.5, goals per team 12.92 v 12.85, home win 59.6% v 61.3%, median margin 22 v 23. The calibration and league_balance suites pass.
+- **Regression:** `test_match_game.gd::_test_no_role_gates`.
+- **Still open (balance, not sanity):** the disposal split (mids 39%, defenders 43%) and the back-third carrier weighted by intercept (audit findings 11-12). These belong with an OVR re-measure under ARD-M5-010.
 
 ### Intent
 Normal AFL actions should not become impossible because of simplistic role gates.
