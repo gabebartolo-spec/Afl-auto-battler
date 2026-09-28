@@ -1594,6 +1594,36 @@ Before implementation, inspect the actual 2027 League Draft age distribution and
 
 
 
+## ARD-M5-012 — League Draft AI asset valuation sanity
+**Status:** `TODO`  
+**Priority:** `P1`  
+**Autonomy:** `BALANCE-GATED`
+
+### Trigger
+Observed in the 2027 opening League Draft: Bodhi Uwland was selected at pick #1. He can reasonably be a good AFL player, but that result is implausible enough to treat as a draft-valuation sanity failure rather than manually changing one player's ratings.
+
+### Intent
+Make opening League Draft AI value players as long-term dynasty assets, not merely as current-rating or positional-fit purchases.
+
+### Scope
+Audit the top ~30 selections across repeated seeded 2027 opening drafts before changing weights. Inspect whether AI valuation gives appropriate weight to:
+- current ability,
+- age / remaining career runway,
+- potential and development upside,
+- positional value/scarcity,
+- list need where appropriate,
+- salary/cap cost where relevant.
+
+Diagnose the model-level cause. **Do not special-case or manually nerf Bodhi Uwland or other individual players to manufacture plausible draft order.**
+
+### Acceptance
+- Repeated startup drafts produce broadly credible top-end selections without becoming deterministic.
+- Elite young/high-upside cornerstone players are valued appropriately against good established players.
+- Veterans and role players can still rise when their quality/context warrants it, but obvious outlier #1-type selections are rare and explainable.
+- AI clubs continue to obey the same cap/list rules as the player.
+- Measure before/after top-30 composition across deterministic seeds and check that any weighting change does not create a new age, position or potential monoculture.
+
+
 # M6 — Coaching, Board & List Management
 
 Goal: strengthen the management loop around the football.
@@ -2477,6 +2507,7 @@ Before adding any new roadmap line, check this table.
 
 Keep this short. Add only meaningful structural changes, not every code commit.
 
+- **2026-09-29:** Added ARD-M5-012 to audit/fix implausible opening League Draft AI asset valuation after Bodhi Uwland was observed going pick #1; fix the valuation model, not individual player ratings.
 - **2026-09-29:** CI-waiting PRs do not count toward Claude's two-active-implementation-branch limit. Only branches being actively coded/debugged count; a branch re-enters the limit while resolving a genuine `[CI HANDOFF]` and leaves it again once pushed back to CI.
 - **2026-09-28:** Added ARD-M7-008, an optional custom/self-insert draft prospect that enters the normal national draft and career ecosystem without custom OVR/potential or preferential treatment.
 - **2026-09-28:** Docs-only CI optimisation: PRs/pushes that change only `docs/**` or Markdown skip the full Godot game suite; mixed docs+code changes still run it.
