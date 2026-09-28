@@ -255,7 +255,9 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 		h.add_child(UiKit.line("Unhappy", 11, UiKit.BAD))
 	if bool(p.get("rested", false)):
 		h.add_child(UiKit.line("Rested", 12, UiKit.MUTED))
-	if weeks > 0:
+	if Injuries.concussion_text(p) != "":
+		h.add_child(UiKit.line(Injuries.concussion_text(p), 12, UiKit.BAD, true))
+	elif weeks > 0:
 		h.add_child(UiKit.line("Out %d wk%s" % [weeks, "" if weeks == 1 else "s"], 12, UiKit.BAD, true))
 	elif placed_as == "MID" or placed_as == "WING":
 		var fit := Roles.fit_note(p, placed_as)
