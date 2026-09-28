@@ -15,6 +15,9 @@ const BASE_CHANCE := 0.042
 const SEVERITY := [[1, 1, 0.42], [2, 2, 0.24], [3, 4, 0.19], [5, 8, 0.12], [9, 16, 0.03]]
 const KINDS := ["hamstring", "ankle", "knee", "shoulder", "calf", "concussion",
 		"groin", "quad", "hip", "foot", "back", "hand"]
+## Concussion protocols: a diagnosed concussion keeps a player out of at
+## least two matches, whatever the roll said.
+const CONCUSSION_MIN := 2
 
 
 ## Chance this player is injured in a game he plays.
@@ -53,6 +56,8 @@ static func roll_match(res: Dictionary, lists: Dictionary, season_seed: int, rou
 				continue
 			var weeks := _severity(rng)
 			var kind: String = KINDS[rng.randi_range(0, KINDS.size() - 1)]
+			if kind == "concussion":
+				weeks = maxi(weeks, CONCUSSION_MIN)
 			p["injury_weeks"] = weeks
 			p["injury_kind"] = kind
 			out.append({"id": str(p["id"]), "club": code, "weeks": weeks, "kind": kind})
@@ -68,6 +73,15 @@ static func tick(list: Array) -> void:
 			p["injury_weeks"] = w - 1
 			if w - 1 == 0:
 				p.erase("injury_kind")
+
+
+## "Concussion — 2 matches" for a concussed player (the protocol is counted
+## in matches), "" for anyone else, so callers keep their own injury wording.
+static func concussion_text(p: Dictionary) -> String:
+	var w := int(p.get("injury_weeks", 0))
+	if w <= 0 or str(p.get("injury_kind", "")) != "concussion":
+		return ""
+	return "Concussion — %d match%s" % [w, "" if w == 1 else "es"]
 
 
 static func heal_all(lists: Dictionary) -> void:

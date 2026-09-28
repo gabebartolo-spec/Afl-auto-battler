@@ -19,6 +19,7 @@ func run() -> void:
 	_test_appended_segments()
 	_test_pitch_view_api(res)
 	_test_empty_view()
+	_test_ends_swap(res)
 	_test_ballup_is_informational()
 	_test_wings_and_lineups()
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
@@ -311,3 +312,35 @@ func _test_wings_and_lineups() -> void:
 	_check(drawn == 12 and named == drawn, "The named wings play the wings (%d of %d)" % [named, drawn])
 	_check(starters_ok, "A replay opens with the players who started")
 	_check(float(found) >= 0.95 * float(seen), "The player an event names is on the oval (%d of %d)" % [found, seen])
+
+
+## Teams change ends every quarter: the home side attacks one end of the
+## screen in the 1st and 3rd quarters and the other in the 2nd and 4th.
+func _test_ends_swap(res: Dictionary) -> void:
+	var pv := PitchView.new()
+	pv.size = Vector2(400, 700)
+	pv.camera_enabled = false
+	var ok := [true]
+	var sides := {}
+	pv.event_played.connect(func(ev):
+		var q := int(ev.get("q", 0))
+		if str(ev.get("kind", "")) == "quarter" or q < 1 or q > 4:
+			return
+		if pv.period != q:
+			ok[0] = false
+		# Which side of the screen the home side's goal (field +x) is on.
+		var home_goal: Vector2 = pv._w2s(Vector2(MatchMotion.GOAL_X, 0.0))
+		sides[q] = home_goal.x > pv.size.x * 0.5)
+	pv.setup(res)
+	pv.set_speed(8.0)
+	pv.play()
+	var guard := 0
+	while pv.playing and guard < 200000:
+		guard += 1
+		pv._process(1.0 / 30.0)
+	_check(ok[0], "The ground shows the quarter being played")
+	_check(sides.size() == 4 and sides[1] and not sides[2] and sides[3] and not sides[4],
+			"The home side kicks to one end in Q1 and Q3, the other in Q2 and Q4 (%s)" % str(sides))
+	pv.setup(res)
+	_check(pv.period == 1, "A new match starts at the first end again")
+	pv.free()
