@@ -743,8 +743,15 @@ func _start_next_season(next_year: int, signed: int) -> void:
 		Injuries.heal_all(season.lists)
 	season_tally = {}
 	season_awards = {}
+	# Everyone listed before ageing: a retiree leaves the lists inside
+	# age_league, and his playing career must be captured from him first.
+	var listed := {}
+	for code in league_lists:
+		for p in league_lists[code]:
+			listed[str(p["id"])] = p
 	intake_summary = Prospects.age_league(league_lists, next_year)
 	intake_summary["signed"] = signed
+	_retirees_to_coaching(intake_summary.get("retired", []), listed)
 	for r in intake_summary.get("retired", []):
 		if int(r.get("overall", 0)) >= NEWS_MIN_OVR:
 			add_news("retirement", "%s (%s) has retired at %d." % [
@@ -1906,6 +1913,9 @@ func _close_contracts() -> void:
 				if int(p.get("overall", 0)) >= NEWS_MIN_OVR:
 					add_news("contract", "%s sign free agent %s (OVR %d)." % [
 							GameDB.club_name(code), GameDB.player_display_name(p), int(p["overall"])])
+	# Nobody signed them: their AFL careers end here.
+	for p in free_agents:
+		_career_over(p)
 	free_agents = []
 	for code in season.lists:
 		for p in season.lists[code]:
@@ -2787,6 +2797,30 @@ func _coaching_offseason() -> void:
 			staff_vacancies.append(v)
 	for t in out["news"]:
 		add_news("coaching", str(t))
+
+
+## Retirees who go into coaching (CoachPathway): each is decided once, here,
+## and becomes a coach record carrying a compact playing-career snapshot. The
+## player record itself is not kept.
+func _retirees_to_coaching(retired: Array, listed: Dictionary) -> void:
+	for r in retired:
+		var pid := str(r.get("id", ""))
+		if listed.has(pid):
+			_career_over(listed[pid])
+
+
+## A playing career has ended - retired, or delisted and not picked up - and
+## this is the last moment the player is in hand.
+func _career_over(p: Dictionary) -> void:
+	if coaches.is_empty():
+		return
+	var pid := str(p.get("id", ""))
+	var cid := CoachPathway.cid_for(pid)
+	if pid == "" or coaches.has(cid) or coach_archive.has(cid):
+		return
+	var played := CoachPathway.snapshot(p, season_year, honour_roll)
+	if CoachPathway.interested(pid, played, career_seed):
+		coaches[cid] = CoachPathway.make_coach(p, played, season_year, career_seed)
 
 
 func _vacancy_open(job: String) -> bool:

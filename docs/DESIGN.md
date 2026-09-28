@@ -544,7 +544,7 @@ table, shot conversion, every best and quiet player with his numbers and
   moves once a season, at its close (`GameState._coaching_offseason`), in
   this order: coaches develop (the job's main skill +0-2, another +0-1,
   slower above 80, a mild decline from 60) and the population is shifted
-  back to a 72 average; reputation moves (senior coaches with results,
+  back to a 70 average; reputation moves (senior coaches with results,
   assistants with service); coaches retire (from 64, certainly by 70); AI
   senior coaches are judged against the same goal the board sets you, from
   where their list ranked preseason - two failed seasons (not counting a
@@ -565,16 +565,50 @@ table, shot conversion, every best and quiet player with his numbers and
   coach replaces the senior assistant half the time. Out-of-work coaches
   leave after four seasons (the notable - ever a senior coach, a seeded
   coach, ever at your club, or eight seasons coaching - go to
-  `coach_archive`), and generated state-league coaches (32-48, skills
-  58-74) keep 45-52 in the market. Expansion clubs hire all six jobs the
+  `coach_archive`), and generated state-league coaches (32-48, new to AFL
+  coaching with the same starting skills as a former player) top the market
+  up - fewer as former players come through the pathways, never below 20. Expansion clubs hire all six jobs the
   offseason before their first season. Your club: at most two assistants
   poached a year (promotions only); open jobs wait in `staff_vacancies`
   with a shortlist of four on the Staff screen (Appoint, or Auto-fill with
   the AI's own pick), you can release assistants in the offseason, and
   anything still open is auto-filled when the next season starts. 50-season
-  probe (synthetic results): 3.3 senior coach changes a season, 33% of
-  them internal, 1.4 sackings, a 45-52 market, Elite 3.9% of skills, no job
+  probe (synthetic results, before Phase 4): 3.3 senior coach changes a
+  season, 33% of them internal, 1.4 sackings, Elite 3.9% of skills, no job
   ever unfilled, nobody moving more than twice in three years.
+* **Former players become coaches** (`CoachPathway.gd`, Coaching Phase 4) -
+  when a playing career ends (retired at the rollover, or delisted and not
+  picked up in free agency) the player is captured before he leaves the
+  lists: a compact `played` snapshot (games, goals, club stints, draft, listed
+  position, retirement year, in-save Brownlows and Colemans) and nothing
+  else - no ratings, contract, training, injuries or stat tables. One roll,
+  seeded by the career and his id, decides once whether he coaches: 19%, 22%
+  from 150 games, 25% from 250, a point per major award, capped at 30% (this
+  game's endings are mostly long-serving veterans, about 19 a season). If he
+  does he becomes `C_P_<player id>` with his real name and exactly his
+  fictional alias, spends one to three seasons in the pathways (out of sight,
+  a season longer when the market is flooded) and then joins the ordinary
+  market. Fame is not coaching ability: his skills come from his coach id
+  (52-72, most near 62), independent of his playing career; his playing name
+  lifts his starting reputation and washes out over his first nine seasons
+  coaching; clubs he played for rate him a little higher (half of the 5% club
+  link). Specialty is his playing line, a development specialist about one in
+  five, now and then a whole-game coach from a 200-game career. Former-player
+  coaches are archived with their playing career after three seasons
+  coaching, a 200-game career, or 100 games for your club. The coach profile
+  shows the playing career, then the coaching career. News: a notable former
+  player (150+ games, or one of yours) joining the coaching ranks, and his
+  first appointment ("who played 241 games for Adelaide"). 50-season probe
+  at the measured career-end volume: 23% of endings go into coaching, a third
+  of those are hired (almost all first as development coaches), 91% of them
+  reach a line job, 44% senior assistant, 25% senior coach; former players
+  hold 38% of jobs and a third of new appointments after twenty seasons;
+  games played and starting skill correlate at 0.03. A real 32-season
+  career (actual results, retirements and clubs) goes further: 615 careers
+  ended, 23% went into coaching, and by 2058 former players held 102 of the
+  119 jobs (86%), with several reaching senior coach by the usual path
+  (development, line, senior assistant). The real career is the evidence to
+  trust; if the share keeps climbing, the coaching rate is the lever.
 * **Team form** — each club's form (-1..1) is derived from its results this
   season (`Season.club_results`, so it is never saved separately and resets
   at every rollover): the last five, weighted 0.30 / 0.25 / 0.20 / 0.15 / 0.10

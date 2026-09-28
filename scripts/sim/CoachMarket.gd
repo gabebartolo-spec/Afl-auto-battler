@@ -18,6 +18,10 @@ extends RefCounted
 ##   7. long-unemployed coaches leave; the notable are archived
 ##   8. the external pool is topped up with generated coaches
 ##
+## Former players (CoachPathway) wait out of sight in the pathways, then join
+## step 6 as ordinary candidates: only their starting reputation, a small
+## edge at clubs they played for and their biography set them apart.
+##
 ## Your club: no senior coach record (you are him). Your assistants can be
 ## poached for a genuine promotion (at most MAX_POACHED_FROM_YOU a year);
 ## those vacancies wait for you (shortlist, appoint or auto-fill) and are
@@ -40,8 +44,9 @@ const MAX_POACHED_FROM_YOU := 2
 const NEW_SC_REPLACES_SA := 0.5
 const RETIRE_FROM := 64
 const RETIRE_BY := 70
-const POOL_MIN := 45               # available + away coaches kept in the market
-const POOL_TOP := 52
+const POOL_MIN := 34               # available + away coaches kept in the market
+const POOL_TOP := 40
+const POOL_FLOOR := 20             # generated top-up never lets the pool fall below this
 const NEWS_CAP := 8
 
 ## Hiring score weights (sum 1.0 before penalties).
@@ -51,11 +56,18 @@ const W_EXP := 0.10
 const W_PATH := 0.10
 const W_LINK := 0.05
 const W_RAND := 0.10
+## The club-link share a former player of the club carries (of W_LINK).
+const PLAYED_LINK := 0.5
+## Former-player coaches worth keeping in the archive: coached this long, or
+## played this many games, or this many for your club.
+const EX_PLAYER_ARCHIVE_SEASONS := 3
+const EX_PLAYER_ARCHIVE_GAMES := 200
+const MY_PLAYER_GAMES := 100
 
 ## Skill scale and the population's anchor.
 const SKILL_MIN := 55
 const SKILL_MAX := 92
-const ANCHOR_MEAN := 72.0
+const ANCHOR_MEAN := 70.0
 
 
 # ---------------------------------------------------------------------------
@@ -160,6 +172,10 @@ static func hire_score(c: Dictionary, club: String, job: String, year: int, seed
 	if employed and cur == lv - 1:
 		path = 1.0
 	var link := 0.0
+	# A former player of the club: a small edge, never more than a coaching
+	# connection there.
+	if CoachPathway.played_for(c.get("played", {}), club):
+		link = PLAYED_LINK
 	if employed and str(c.get("club", "")) == club:
 		link = 1.0
 		# Internal succession: a settled senior assistant stepping up.
@@ -168,7 +184,7 @@ static func hire_score(c: Dictionary, club: String, job: String, year: int, seed
 	else:
 		for s in c.get("stints", []):
 			if str(s[0]) == club:
-				link = 0.6
+				link = maxf(link, 0.6)
 	var score := W_FIT * fit + W_REP * rep + W_EXP * exp + W_PATH * path + W_LINK * link
 	# A senior coach sacked in the last few years is a harder sell.
 	if job == "SC" and year + 1 - int(c.get("last_sacked", -99)) <= SACKED_SC_PENALTY_YEARS:
@@ -356,6 +372,9 @@ static func offseason(ctx: Dictionary) -> Dictionary:
 
 	# Coaches you released are already free; nothing else to do for them.
 
+	# Former players whose pathway years are up join the market.
+	_enter_from_pathway(coaches, year, my_club, clubs, news, log)
+
 	# Fill every vacancy, senior jobs first. A promotion from another club
 	# opens his old job, which joins the queue; each coach moves at most once.
 	var moved := {}
@@ -393,7 +412,10 @@ static func offseason(ctx: Dictionary) -> Dictionary:
 		var from_club := str(best.get("club", "")) if str(best.get("status", "")) == "club" else ""
 		var from_job := str(best.get("job", "")) if from_club != "" else ""
 		var outside_sc := job == "SC" and from_club != club
+		var first_job := (best.get("stints", []) as Array).is_empty()
 		_appoint(best, club, job, year, seed)
+		if first_job and str(best.get("former_player_id", "")) != "" and job != "SC":
+			_first_job_news(best, club, job, my_club, news)
 		moved[str(best["cid"])] = true
 		if from_club != "":
 			log["promotions"] += 1
@@ -484,7 +506,7 @@ static func _develop(coaches: Dictionary, year: int, seed: int) -> void:
 	for cid in coaches:
 		var c: Dictionary = coaches[cid]
 		var status := str(c.get("status", ""))
-		if status == "retired":
+		if status == "retired" or CoachPathway.in_pathway(c):
 			continue
 		var sk: Dictionary = c["skills"]
 		var r: Callable = func(k: String) -> float: return _roll(seed, "dev|%d|%s|%s" % [year, cid, k])
@@ -512,7 +534,7 @@ static func _develop(coaches: Dictionary, year: int, seed: int) -> void:
 	var n := 0
 	for cid in coaches:
 		var c: Dictionary = coaches[cid]
-		if str(c.get("status", "")) == "retired":
+		if str(c.get("status", "")) == "retired" or CoachPathway.in_pathway(c):
 			continue
 		for k in ["teach", "tactics", "manage"]:
 			total += float(c["skills"].get(k, 70))
@@ -523,6 +545,8 @@ static func _develop(coaches: Dictionary, year: int, seed: int) -> void:
 	var step := int(round(clampf(shift, -1.0, 1.0)))
 	for cid in coaches:
 		var c: Dictionary = coaches[cid]
+		if CoachPathway.in_pathway(c):
+			continue
 		for k in ["teach", "tactics", "manage"]:
 			c["skills"][k] = clampi(int(c["skills"].get(k, 70)) + step, SKILL_MIN, SKILL_MAX)
 
@@ -533,7 +557,16 @@ static func _reputation(coaches: Dictionary, results: Dictionary, premier: Strin
 	for cid in coaches:
 		var c: Dictionary = coaches[cid]
 		var status := str(c.get("status", ""))
+		if CoachPathway.in_pathway(c):
+			continue   # out of sight in the pathways: nothing to judge yet
 		var rep := int(c.get("rep", 40))
+		# A playing name opens early doors; over his first seasons in coaching
+		# it washes out and his coaching record takes over.
+		var fame_left := int(c.get("fame_left", 0))
+		if fame_left > 0:
+			var d := mini(fame_left, maxi(1, int(ceil(float(c.get("fame", 0)) / float(CoachPathway.FAME_FADE_YEARS)))))
+			rep -= d
+			c["fame_left"] = fame_left - d
 		if status == "club":
 			var club := str(c["club"])
 			var r: Dictionary = results.get(club, {})
@@ -568,7 +601,8 @@ static func _prune(coaches: Dictionary, archive: Dictionary, year: int, my_club:
 			archive[cid] = {"cid": cid, "real_name": c.get("real_name", ""),
 					"generic_name": c.get("generic_name", ""), "stints": c.get("stints", []),
 					"former_sc": c.get("former_sc", false), "left": year + 1,
-					"former_player_id": c.get("former_player_id", "")}
+					"former_player_id": c.get("former_player_id", ""), "spec": c.get("spec", ""),
+					"played": c.get("played", {})}
 			log["archived"] += 1
 		else:
 			log["pruned"] += 1
@@ -583,6 +617,14 @@ static func _notable(c: Dictionary, my_club: String) -> bool:
 		if str(s[0]) == my_club:
 			return true
 		seasons += maxi(1, int(s[3]) - int(s[2]) + 1) if int(s[3]) > 0 else 1
+	# A former player's two careers together are worth keeping sooner: a few
+	# seasons coaching, a long playing career, or one of your own players.
+	var played: Dictionary = c.get("played", {})
+	if not played.is_empty():
+		if seasons >= EX_PLAYER_ARCHIVE_SEASONS or int(played.get("games", 0)) >= EX_PLAYER_ARCHIVE_GAMES:
+			return true
+		if my_club != "" and CoachPathway.games_for(played, my_club) >= MY_PLAYER_GAMES:
+			return true
 	return seasons >= 8
 
 
@@ -598,7 +640,14 @@ static func _top_up(coaches: Dictionary, year: int, seed: int, log: Dictionary, 
 	for club in clubs:
 		if GameDB.enter_year(club) == year + 2:
 			target += 8   # next year's new club will hire six
-	if pool >= POOL_MIN and pool >= target - 6:
+	# Generated coaches are the top-up, not a fixed supply: former players
+	# coming through the pathways take their place as the pipeline fills.
+	var coming := 0
+	for cid in coaches:
+		if CoachPathway.in_pathway(coaches[cid]):
+			coming += 1
+	target = maxi(POOL_FLOOR, target - coming)
+	if pool >= mini(POOL_MIN, target) and pool >= target - 6:
 		return
 	while pool < target:
 		_generate(coaches, year, seed, log, "")
@@ -622,12 +671,16 @@ static func _generate(coaches: Dictionary, year: int, seed: int, log: Dictionary
 			spec = for_job
 		"SC", "SA":
 			spec = ""
-	var base := 58.0
+	# New to AFL coaching, like a former player out of the pathways: the same
+	# starting spread (52-72, most near 62), so neither is favoured.
+	var sk := {}
+	for k in ["teach", "tactics", "manage"]:
+		var v := CoachPathway.SKILL_CENTRE + (float(r.call("s1" + k)) + float(r.call("s2" + k)) - 1.0) * CoachPathway.SKILL_SPREAD
+		sk[k] = clampi(int(round(v)), CoachPathway.SKILL_FLOOR, CoachPathway.SKILL_CEIL)
 	var c := {
 		"cid": cid, "real_name": "", "generic_name": _gen_name(cid, seed),
 		"former_player_id": "", "spec": spec,
-		"skills": {"teach": int(base + r.call("t") * 16.0), "tactics": int(base + r.call("a") * 16.0),
-				"manage": int(base + r.call("m") * 16.0)},
+		"skills": sk,
 		"status": "free" if r.call("status") < 0.65 else "away",
 		"club": "", "job": "", "free_from": 0, "stints": [], "former_sc": false,
 		"note": "" , "origin": "generated", "played": {},
@@ -665,6 +718,55 @@ static func _job_word(job: String) -> String:
 
 static func _job_phrase(job: String) -> String:
 	return _job_word(job)
+
+
+# ---------------------------------------------------------------------------
+# Former players
+# ---------------------------------------------------------------------------
+## Former players whose pathway years end this offseason become ordinary
+## available coaches (a season later when the market is badly overloaded).
+static func _enter_from_pathway(coaches: Dictionary, year: int, my_club: String, clubs: Array,
+		news: Array, log: Dictionary) -> void:
+	var pool := 0
+	for cid in coaches:
+		var st := str(coaches[cid].get("status", ""))
+		if st == "free" or st == "away":
+			pool += 1
+	var target := POOL_TOP
+	for club in clubs:
+		if GameDB.enter_year(club) == year + 2:
+			target += 8
+	for cid in coaches.keys():
+		var c: Dictionary = coaches[cid]
+		if not CoachPathway.in_pathway(c) or int(c.get("free_from", 0)) > year + 1:
+			continue
+		if not CoachPathway.enter_market(c, year, pool, target):
+			continue
+		pool += 1
+		log["ex_players_in"] = int(log.get("ex_players_in", 0)) + 1
+		var played: Dictionary = c.get("played", {})
+		var mine := my_club != "" and CoachPathway.played_for(played, my_club)
+		if mine or int(played.get("games", 0)) >= 150:
+			var club := my_club if mine else CoachPathway.main_club(played)
+			news.append([1 if mine else 3, "Former %s %s %s has joined the coaching ranks." % [
+					GameDB.club_name(club), CoachPathway.position_word(played), _name(c)]])
+
+
+## "Lachlan Mercer, who played 241 games for Adelaide, has been appointed
+## Fremantle's forwards coach." Only for a notable former player or one of
+## yours: not every retiree's first job is news.
+static func _first_job_news(c: Dictionary, club: String, job: String, my_club: String, news: Array) -> void:
+	var played: Dictionary = c.get("played", {})
+	var mine := my_club != "" and CoachPathway.played_for(played, my_club)
+	if not mine and int(played.get("games", 0)) < 150:
+		return
+	var home := my_club if mine else CoachPathway.main_club(played)
+	var n := CoachPathway.games_for(played, home)
+	var who := "%s, who played %d game%s for %s," % [_name(c), n, "" if n == 1 else "s", GameDB.club_name(home)]
+	var where := "%s's %s" % [GameDB.club_name(club), _job_word(job)]
+	if club == my_club:
+		where = "your %s" % _job_word(job)
+	news.append([1 if mine or club == my_club else 3, "%s has been appointed %s." % [who, where]])
 
 
 # ---------------------------------------------------------------------------
