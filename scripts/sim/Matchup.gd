@@ -232,7 +232,9 @@ static func own_notes(list: Array, limit := 2) -> Array:
 		var p: Dictionary = by_ovr[i]
 		var weeks := int(p.get("injury_weeks", 0))
 		if weeks > 0 and out.size() < limit:
+			var why := Injuries.concussion_text(p).to_lower()
 			out.append({"key": "own_injury", "text": "%s is out injured (%s)." % [
-					GameDB.player_display_name(p), "1 week" if weeks == 1 else "%d weeks" % weeks],
+					GameDB.player_display_name(p), why if why != "" else
+					("1 week" if weeks == 1 else "%d weeks" % weeks)],
 					"player_id": str(p["id"])})
 	return out
