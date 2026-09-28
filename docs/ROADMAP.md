@@ -1835,6 +1835,85 @@ Do not overpower player/team quality.
 
 ---
 
+## ARD-M7-008 — Create a custom draft prospect
+**Status:** `TODO`  
+**Priority:** `P2`  
+**Autonomy:** `SUPERVISED`
+
+### Intent
+Let the player create a self-insert or fictional prospect who enters the normal AFL draft ecosystem, creating a personal long-term story without turning the feature into a cheat-character creator.
+
+The fantasy is not "build a 99 OVR player". It is:
+- create someone you care about,
+- watch where they are drafted,
+- follow whether they become a star, journeyman, role player or bust,
+- see their career interact naturally with clubs, trades, finals, records and retirement.
+
+### V1 scope
+At New Career setup, optionally create **one custom prospect** for that career.
+
+Player-facing choices should stay concise:
+- name,
+- basic bio fields already supported by the player model,
+- height,
+- primary position,
+- optional secondary position where valid,
+- archetype / play style,
+- a small set of strengths and weaknesses.
+
+Do not expose exact underlying attributes, OVR, potential or draft rank as editable fields.
+
+### Draft integration
+- The custom player enters the **first national draft class** of the career, not the opening League Draft of established AFL players.
+- They go through the same draft order and AI evaluation as every other prospect.
+- The user's club gets no priority access unless a future explicit father-son / academy mechanic genuinely applies.
+- No guaranteed draft position.
+- No guaranteed selection by the user's club.
+- If undrafted, normal undrafted/carry-over rules apply.
+
+### Generation / balance
+The user's choices shape **attribute distribution**, not total power.
+
+- Generate the player's overall talent from the same draft-class quality model as other prospects.
+- Archetype, position, height, strengths and weaknesses redistribute that talent into a coherent football profile.
+- Potential remains hidden and is generated through the normal prospect/development model.
+- Do not grant special development speed, durability, consistency, personality, longevity or career outcomes because the player is custom.
+- The custom prospect should be statistically ordinary relative to the draft class except for the identity/profile choices the user made.
+
+A user-created key forward, winger or rebounding defender should feel meaningfully different without one archetype being an exploit.
+
+### Narrative / tracking
+Because the point is emotional attachment:
+- mark the player as user-created in persistent data,
+- preserve the entered name regardless of real-name / fictional-name display mode,
+- automatically make their profile easy to find from the draft and career-history flows,
+- retain their full career history after retirement,
+- surface meaningful milestones through the normal milestone/history systems rather than creating a separate "custom player" ruleset.
+
+A lightweight **Follow / Watch** affordance is preferred over extra bespoke dashboards.
+
+### Guardrails
+- Do not let the user assign a club, draft pick, OVR or potential.
+- Do not quietly bias AI clubs toward or away from the custom player.
+- Do not create a second player-generation pipeline if the existing prospect generator can be parameterised.
+- Do not add multiplayer/share-code complexity in V1.
+- Do not allow repeated custom-player creation to flood a draft class in V1.
+- Preserve save compatibility and deterministic draft-class generation.
+
+### Tests
+- custom prospect is created once and persists through save/load,
+- enters the correct national draft class,
+- uses valid role / secondary-role combinations,
+- strengths/weaknesses reshape attributes without escaping normal class power bands,
+- AI evaluates/drafts them normally,
+- user's club receives no hidden preference,
+- undrafted path remains valid,
+- career stats/history/milestones work after drafting,
+- real-name/fantasy-name setting does not replace the user-entered custom name,
+- old saves without custom-prospect data load safely.
+
+---
+
 # M8 — Presentation, Identity & Release Quality
 
 Goal: make the game coherent, readable and robust enough to ship/play for very long careers.
@@ -2272,6 +2351,7 @@ Before adding any new roadmap line, check this table.
 | VFL / reserves development | ARD-M5-006 Passive reserves |
 | OVR correlation / rating predicts strength | ARD-M5-010 |
 | Wing/inside-mid/forward identity labels | ARD-M5-009 |
+| Create-a-player / self-insert / custom draftee / custom prospect | ARD-M7-008 |
 | Draft age filter / rookie-prime-veteran / career-stage filter | ARD-M5-011 |
 
 ---
@@ -2280,6 +2360,7 @@ Before adding any new roadmap line, check this table.
 
 Keep this short. Add only meaningful structural changes, not every code commit.
 
+- **2026-09-28:** Added ARD-M7-008, an optional custom/self-insert draft prospect that enters the normal national draft and career ecosystem without custom OVR/potential or preferential treatment.
 - **2026-09-28:** Docs-only CI optimisation: PRs/pushes that change only `docs/**` or Markdown skip the full Godot game suite; mixed docs+code changes still run it.
 - **2026-09-28:** Added lean validation ownership: Claude uses targeted tests while coding; GitHub CI/ChatGPT owns the routine full-suite PR gate, log triage, selective reruns and merge verification. Avoid duplicate full-suite and long-run testing.
 - **2026-09-28:** Added Phase 4 former-player coaching guidance: test ~25% pathway entry first, let generated coaches act as top-up supply, and treat low player-career turnover as a separate upstream issue rather than forcing the coaching percentage.
