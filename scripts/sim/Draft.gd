@@ -195,10 +195,10 @@ func auto_until_user_turn() -> void:
 		if code == user_club:
 			return
 		if not _ai_pick_current():
-			if intake_mode:
-				_skip_current_pick()
-				continue
-			break
+			# A rival with no legal pick passes rather than freezing the whole
+			# draft (the cap guard makes this rare; an older save can hold it).
+			_skip_current_pick()
+			continue
 
 
 func _ai_pick_current() -> bool:
@@ -354,13 +354,22 @@ static func _match_player(pi: int, pairs: Array, slots: Array, holder: Array, se
 
 
 func _can_afford_for(code: String, p: Dictionary) -> bool:
-	var slots_after := target_size - count_for(code) - 1
-	var remaining_after := budget - int(club_spend[code]) - int(p["value"])
-	# Keep enough cap to fill every remaining spot at what those spots will
-	# really cost. Reserving 1 a spot (the old rule) painted clubs into a
-	# corner: the 2026 pool has no $1 players, so a club with $1 left for its
-	# last spot could never finish the draft.
-	return float(remaining_after) >= float(slots_after) * _reserve_per_spot()
+	return int(p["value"]) <= usable_cap_for(code)
+
+
+## What a club can spend on its next pick: the cap it has left, less enough to
+## fill every other place it still has to fill at what those places will
+## really cost. Reserving 1 a spot (the old rule) painted clubs into a
+## corner: the 2026 pool has no $1 players, so a club with $1 left for its
+## last spot could never finish the draft.
+func usable_cap_for(code: String) -> int:
+	return budget - spent_for(code) - reserve_for(code)
+
+
+## The cap a club must keep for the places after its next pick.
+func reserve_for(code: String) -> int:
+	var slots_after := maxi(0, target_size - count_for(code) - 1)
+	return int(ceil(float(slots_after) * _reserve_per_spot()))
 
 
 var _reserve_at := -1
@@ -699,6 +708,36 @@ func can_pick_player(p: Dictionary) -> bool:
 	return not picked.has(str(p["id"])) and count() < target_size and remaining() >= int(p["value"])
 
 
+## Your turn, and no player left fits both your cap and your list's needs.
+## Only an older save (from before the cap guard) can reach this.
+func user_stuck() -> bool:
+	if not league_mode or intake_mode or not is_user_turn():
+		return false
+	for p in pool:
+		if can_pick_player(p):
+			return false
+	return true
+
+
+## The way out of a stuck draft without ever breaching the cap: release one
+## of your picks. He goes back into the pool, his salary comes off your books
+## and you get an extra pick at the end of the draft to fill his place.
+func release_for_room(id: String) -> bool:
+	if not user_stuck() or not picked.has(id) or drafted_by(id) != user_club:
+		return false
+	var p: Dictionary = picked[id]
+	(club_lists[user_club] as Array).erase(p)
+	picked.erase(id)
+	order.erase(id)
+	club_spend[user_club] = int(club_spend[user_club]) - int(p["value"])
+	var entry: Dictionary = _pick_by_player.get(id, {})
+	entry["released"] = true
+	_pick_by_player.erase(id)
+	pick_sequence.append(user_club)
+	_reserve_at = -1
+	return true
+
+
 ## Why you cannot take this player right now, in words ("" when you can).
 ## The same checks as can_pick_player, in the order a manager would ask
 ## them. Read-only.
@@ -720,8 +759,10 @@ func pick_block_reason(p: Dictionary) -> String:
 			return "Your list is full."
 		if not _can_afford_for(user_club, p):
 			var slots_after := target_size - count() - 1
-			return "Not enough salary cap: he costs $%d of your $%d left, and you must keep about $%d for your other %d places." % [
-					int(p["value"]), remaining(), int(ceil(float(slots_after) * _reserve_per_spot())), slots_after]
+			if slots_after <= 0:
+				return "Not enough salary cap: he costs $%d and you have $%d left." % [int(p["value"]), remaining()]
+			return "This selection would leave too little salary cap to complete your list. He costs $%d; you have $%d left, and after keeping about $%d for your other %d places, $%d is free for this pick." % [
+					int(p["value"]), remaining(), reserve_for(user_club), slots_after, maxi(0, usable_cap_for(user_club))]
 		var forced := _forced_role(user_club)
 		if forced != "" and not Ratings.plays_role(p, forced):
 			return "Your remaining places must go to rucks: every list needs two."

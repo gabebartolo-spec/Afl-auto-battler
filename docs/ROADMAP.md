@@ -493,9 +493,15 @@ Manual/UI snapshot checks at ~360 / 390 / 412 px widths.
 ---
 
 ## ARD-M1-009 — Draft salary-cap completion guard
-**Status:** `KNOWN BUG`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
+
+### Implementation record (2026-09-28, branch `claude/draft-cap-guard`)
+- **Finding:** the cap guard (keep enough to fill every remaining place at the average price of the cheapest players still available) was already in place. A 100-draft probe (5 spending styles x 20 seeds, including "always the dearest", "no rucks until forced" and random, on the 2027 pool) found 0 stalls and 0 illegal lists. The remaining gaps were the explanation, older saves and a rival that could not pick.
+- **Before:** the cap line read "CAP LEFT $X / $Y spent / $Z". A refusal said "Not enough salary cap..."; a rival with no legal pick silently halted the draft; and a save stuck without a legal pick had no way on.
+- **After:** `Draft.usable_cap_for()` and `reserve_for()` spell out the rule (usable = cap left - reserve for the other places). The header reads "Cap left $X / Up to $Y this pick". A refusal says "This selection would leave too little salary cap to complete your list", with the cap left, the amount kept back and what is free. A rival with no legal pick passes. When you have no legal pick (only an older save can get there), My list explains why and offers Release on each pick: he returns to the pool, his salary comes off your books and you get an extra pick at the end. The cap is never breached. Released picks stay out of `drafted_by` across save and reload.
+- **Tests:** `test_draft.gd::_test_cap_guard` (exact boundary allowed, $1 over refused with the reason, the last pick can use the whole cap, rivals all legal) and `_test_stuck_draft_recovery` (an old-save state spent on stars is stuck without ever breaching the cap; release, save and reload, then finish a full legal list). The draft, draft_ui, ai, save and intake suites pass.
 
 ### Intent
 Prevent a draft from reaching an incomplete-list soft-lock without ever allowing an illegal cap breach.
