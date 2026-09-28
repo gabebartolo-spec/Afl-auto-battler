@@ -131,7 +131,13 @@ static func team_form_label(f: float) -> String:
 
 ## This week's event for your club, or {} (about 30% of weeks are quiet).
 ## `ctx`: list, round, seed, losses (current losing streak), selected (ids
-## in this week's side).
+## in this week's side), cap_room (cap points free), memory (what has
+## already come up this season: "extension|id", "media|id" -> true,
+## "unhappy|id" -> round) and last_key (last week's event).
+##
+## Every card is a trade-off a coach could make either way, depending on
+## the week: short term against long term, the board against the player,
+## development against the side, certainty against flexibility.
 static func pick_event(ctx: Dictionary) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("event|%d|%d" % [int(ctx.get("seed", 0)), int(ctx.get("round", 0))])
@@ -139,6 +145,8 @@ static func pick_event(ctx: Dictionary) -> Dictionary:
 		return {}
 	var list: Array = ctx.get("list", [])
 	var selected: Dictionary = ctx.get("selected", {})
+	var memory: Dictionary = ctx.get("memory", {})
+	var round_no := int(ctx.get("round", 0))
 	var fit := []
 	for p in list:
 		if int(p.get("injury_weeks", 0)) <= 0:
@@ -151,43 +159,96 @@ static func pick_event(ctx: Dictionary) -> Dictionary:
 	pool.append(_fans())
 	var worst := {}
 	for p in fit:
-		if selected.has(str(p["id"])) and (worst.is_empty() \
+		if selected.has(str(p["id"])) and not memory.has("media|" + str(p["id"])) and (worst.is_empty() \
 				or int(p["attr"]["discipline"]) < int(worst["attr"]["discipline"])):
 			worst = p
 	if not worst.is_empty() and int(worst["attr"]["discipline"]) <= 40:
 		pool.append(_media(worst))
+	var cap_room := int(ctx.get("cap_room", 0))
 	for p in fit:
-		if int(p.get("contract_years", 2)) <= 1 and int(p["overall"]) >= 72:
+		if extension_wanted(p, memory) and early_price(p) - int(p.get("salary", 0)) <= cap_room:
 			pool.append(_extension(p))
 			break
-	if int(ctx.get("losses", 0)) >= 3:
+	# The board calls at three straight losses, not every week of a slump.
+	var losses := int(ctx.get("losses", 0))
+	if losses >= 3 and losses % 3 == 0:
 		pool.append(_pressure())
 	for p in fit:
 		if float(p.get("age", 30.0)) <= 21.0 and int(p.get("potential", 0)) >= int(p["overall"]) + 8 \
 				and not selected.has(str(p["id"])):
 			pool.append(_young_gun(p))
 			break
-	for p in list:
-		if morale(p) < 35:
+	for p in fit:
+		var last := int(memory.get("unhappy|" + str(p["id"]), -99))
+		if morale(p) < 35 and round_no - last >= UNHAPPY_GAP:
 			pool.append(_unhappy(p))
 			break
+	# Not the same card two weeks running when there is anything else.
+	var last_key := str(ctx.get("last_key", ""))
+	if pool.size() > 1:
+		var fresh := pool.filter(func(e): return str(e["key"]) != last_key)
+		if not fresh.is_empty():
+			pool = fresh
 	var e: Dictionary = pool[rng.randi_range(0, pool.size() - 1)]
-	e["round"] = int(ctx.get("round", 0))
+	e["round"] = round_no
 	return e
+
+
+## Rounds before the same unhappy player can come to you again.
+const UNHAPPY_GAP := 5
+## Injury risk for a sore player who plays, and his legs.
+const SORE_RISK := 6.0
+const SORE_LEGS := 90.0
+## A heavy week's and a recovery week's effect on this week's injury risk.
+const HEAVY_RISK := 1.25
+const FRESH_RISK := 0.75
+## XP: a heavy week, a closed session, a development week (between a
+## reserves game and a senior game, so playing stays the best teacher).
+const HEAVY_XP := 12
+const CLOSED_XP := 8
+const DEV_WEEK_XP := 26
+
+
+## Is this player the kind who asks to extend early: good, out of contract
+## at season's end, settled enough to want to stay, not asked yet this season.
+static func extension_wanted(p: Dictionary, memory: Dictionary) -> bool:
+	return int(p.get("contract_years", 2)) <= 1 and int(p.get("overall", 0)) >= 72 \
+			and morale(p) >= 40 and not memory.has("extension|" + str(p["id"]))
+
+
+## Signing now, a season early, costs a certainty premium on today's price:
+## at least a cap point, about 15%. Waiting pays whatever his rating is worth
+## at season's end - less if he drops, more if he improves.
+static func early_price(p: Dictionary) -> int:
+	var ask := Contracts.asking_salary(p)
+	return ask + maxi(1, roundi(float(ask) * 0.15))
+
+
+## Seasons an early extension runs, counting this one: younger players sign
+## on for longer.
+static func early_years(p: Dictionary) -> int:
+	return 3 if float(p.get("age", 25.0)) <= 28.0 else 2
 
 
 static func _opt(key: String, label: String, detail: String) -> Dictionary:
 	return {"key": key, "label": label, "detail": detail}
 
 
+## "about a 1 in 4": a risk in words.
+static func _odds(chance: float) -> String:
+	return "about a 1 in %d" % maxi(2, roundi(1.0 / maxf(0.01, chance)))
+
+
 static func _sore_star(p: Dictionary) -> Dictionary:
 	var n := GameDB.player_display_name(p)
+	var sore := p.duplicate()
+	sore["sore"] = true
 	return {"key": "sore_star", "player_id": str(p["id"]), "default": 1,
 		"title": "%s pulled up sore" % n,
-		"text": "The physio says he can play, but it is a risk.",
+		"text": "The physio says he can play, but he is not right.",
 		"options": [
-			_opt("rest", "Rest him this week", "He misses the game and is a little flat about it."),
-			_opt("play", "Play him", "Four times his usual injury risk this week."),
+			_opt("rest", "Rest him this week", "He misses the game, but he is right for next week."),
+			_opt("play", "Play him", "He starts short of a gallop, and there is %s chance he breaks down for weeks." % _odds(Injuries.chance(sore))),
 		]}
 
 
@@ -196,8 +257,8 @@ static func _training() -> Dictionary:
 		"title": "Coaches want an extra session",
 		"text": "A heavy week on the track, or a week to freshen up?",
 		"options": [
-			_opt("heavy", "Heavy session", "+12 XP for everyone, but they start the game on 88% legs."),
-			_opt("recover", "Recovery week", "Everyone's morale lifts (+4), but no extra development."),
+			_opt("heavy", "Heavy session", "+%d XP for everyone, but heavy legs on game day and more soft-tissue risk." % HEAVY_XP),
+			_opt("recover", "Recovery week", "Fresher bodies: fewer injuries this week and morale +3. No extra development."),
 		]}
 
 
@@ -206,8 +267,8 @@ static func _fans() -> Dictionary:
 		"title": "Members want an open training day",
 		"text": "The fans would love it. The coaches would rather work.",
 		"options": [
-			_opt("open", "Open the doors", "Morale +3 for everyone and the board is pleased (+2)."),
-			_opt("closed", "Closed session", "+6 XP for everyone."),
+			_opt("open", "Open the doors", "The board is pleased (+4) and the group enjoys it (morale +3)."),
+			_opt("closed", "Closed session", "+%d XP for everyone." % CLOSED_XP),
 		]}
 
 
@@ -224,19 +285,24 @@ static func _media(p: Dictionary) -> Dictionary:
 
 static func _extension(p: Dictionary) -> Dictionary:
 	var n := GameDB.player_display_name(p)
+	var ask := Contracts.asking_salary(p)
+	var years := early_years(p)
 	return {"key": "extension", "player_id": str(p["id"]), "default": 1,
 		"title": "%s wants to talk contract" % n,
-		"text": "He is out of contract at season's end and wants security now.",
+		"text": "He is out of contract at season's end and wants security now. Today his rating is worth %d a season." % ask,
 		"options": [
-			_opt("extend", "Extend him now (2 more seasons)", "10% above his asking price if the cap allows; his morale lifts."),
-			_opt("wait", "Wait for the off-season", "He is disappointed (morale -8)."),
+			_opt("extend", "Extend him now",
+					"He signs on for %d more season%s at %d a season: a premium for certainty, locked in whatever he does next." % [
+						years - 1, "" if years == 2 else "s", early_price(p)]),
+			_opt("wait", "Wait for the off-season",
+					"No commitment yet. He asks what his rating is worth then - less if he drops, more if he improves. He is disappointed (morale -5)."),
 		]}
 
 
 static func _pressure() -> Dictionary:
 	return {"key": "pressure", "default": 1,
 		"title": "The board wants answers",
-		"text": "Three losses in a row. The chairman asks what happens next.",
+		"text": "Another losing run. The chairman asks what happens next.",
 		"options": [
 			_opt("promise", "Promise a win this week", "Win and the board is won over (+8); lose and it is -10."),
 			_opt("patience", "Ask for patience", "Confidence -3."),
@@ -249,9 +315,10 @@ static func _young_gun(p: Dictionary) -> Dictionary:
 		"title": "%s is pushing for games" % n,
 		"text": "The kid is flying at training and wants a senior game.",
 		"options": [
-			_opt("develop", "Extra development session",
-					"+40 XP, but he spends the week with the development coaches: no senior or reserves game."),
-			_opt("wait", "Tell him to be patient", "He stays available and plays in the reserves. Morale -4; discipline +2."),
+			_opt("blood", "Give him a senior game",
+					"Nothing develops a player like AFL footy, and he is thrilled (morale +5) - but he expects to be picked. Leave him out and it stings (-10)."),
+			_opt("develop", "A week with the development coaches",
+					"+%d XP without taking a spot in the side, but no game at all this week." % DEV_WEEK_XP),
 		]}
 
 

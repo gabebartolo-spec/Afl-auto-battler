@@ -128,6 +128,7 @@ func _test_events() -> void:
 			legs_ok = false
 	_check(legs_ok, "Heavy legs start the match below full energy")
 	_test_event_tradeoffs()
+	_test_event_decisions()
 
 
 ## Every card is a trade-off: neither answer is all upside.
@@ -135,28 +136,27 @@ func _test_event_tradeoffs() -> void:
 	GameState.reset()
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
 	_check(ClubLife._training()["options"].size() == 2, "No free 'normal week' beside a free recovery week")
-	# A kid pushing for games: development costs him this week's game.
+	# A kid pushing for games: a development week costs him this week's game.
 	var kid: Dictionary = GameState.my_list[30]
 	kid["morale"] = 70
 	kid["xp"] = 0
-	var disc := int(kid["attr"]["discipline"])
 	GameState.week_event = ClubLife._young_gun(kid)
-	GameState.resolve_week_event(0)
+	GameState.resolve_week_event(1)
 	_check(bool(kid.get("rested", false)) and not Ratings.available(kid),
-			"Extra development takes him out of this week's game")
-	_check(ClubLife.morale(kid) == 70, "Extra development is not a free morale lift")
+			"A development week takes him out of this week's game")
+	_check(ClubLife.morale(kid) == 70, "A development week is not a free morale lift")
+	_check(ClubLife.DEV_WEEK_XP + GameState.XP_SQUAD < GameState.XP_SENIOR_GAME
+			and ClubLife.DEV_WEEK_XP + GameState.XP_SQUAD > GameState.reserves_xp(),
+			"A development week is worth less than a senior game and more than the reserves")
+	# ...or his chance: he expects to be picked.
 	var kid2: Dictionary = GameState.my_list[31]
 	kid2["morale"] = 70
-	var disc2 := int(kid2["attr"]["discipline"])
-	var ov2 := int(kid2["overall"])
 	GameState.week_event = ClubLife._young_gun(kid2)
-	GameState.resolve_week_event(1)
-	_check(Ratings.available(kid2) and ClubLife.morale(kid2) == 66
-			and int(kid2["attr"]["discipline"]) == mini(99, disc2 + 2),
-			"Patience: still available, a small morale hit, a little more discipline")
-	_check(int(kid2["overall"]) == ov2, "Discipline does not move his rating")
+	GameState.resolve_week_event(0)
+	_check(Ratings.available(kid2) and ClubLife.morale(kid2) == 75 and int(kid2.get("expects_game", 0)) == 10,
+			"Giving him a game: thrilled, available, and he expects to be picked")
 	# An unhappy player: sitting down with him commits you to a game.
-	var sulk: Dictionary = GameState.my_list[35]
+	var sulk: Dictionary = GameState.my_list[26]
 	sulk["morale"] = 30
 	GameState.week_event = ClubLife._unhappy(sulk)
 	GameState.resolve_week_event(0)
@@ -171,13 +171,149 @@ func _test_event_tradeoffs() -> void:
 	if not in_side and int(sulk.get("injury_weeks", 0)) <= 0:
 		_check(ClubLife.morale(sulk) <= before - 12 + 2, "Left out after the talk, it sours (%d -> %d)" % [before, ClubLife.morale(sulk)])
 	_check(not sulk.has("expects_game"), "The expectation lasts one week")
-	var sulk2: Dictionary = GameState.my_list[36]
+	var sulk2: Dictionary = GameState.my_list[27]
 	var mate: Dictionary = GameState.my_list[0]
 	sulk2["morale"] = 30
 	mate["morale"] = 70
 	GameState.week_event = ClubLife._unhappy(sulk2)
 	GameState.resolve_week_event(1)
 	_check(ClubLife.morale(sulk2) == 25 and ClubLife.morale(mate) == 72, "Earn it: he dips, the group lifts")
+
+## Each card is a decision, not a good button and a bad one: both options
+## carry a cost, the costs are real, and nothing repeats every week.
+func _test_event_decisions() -> void:
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	# --- Contract: a real premium for certainty, only when affordable ------
+	var star: Dictionary = GameState.my_list[2]
+	star["overall"] = 80
+	star["contract_years"] = 1
+	star["morale"] = 70
+	star["age"] = 24.0
+	var ask := Contracts.asking_salary(star)
+	var early := ClubLife.early_price(star)
+	_check(early >= ask + 1 and float(early) >= float(ask) * 1.12,
+			"Extending early costs materially more than today's price (%d v %d)" % [early, ask])
+	_check(ClubLife.extension_wanted(star, {}), "A good player out of contract asks to extend")
+	var offered_broke := false
+	for r in range(1, 40):
+		var ev := ClubLife.pick_event({"list": GameState.my_list, "round": r, "seed": 7,
+				"cap_room": -50, "memory": {}, "selected": {}})
+		if str(ev.get("key", "")) == "extension":
+			offered_broke = true
+	_check(not offered_broke, "No extension card when the cap cannot carry it")
+	_check(not ClubLife.extension_wanted(star, {"extension|" + str(star["id"]): true}),
+			"He asks once a season, not every week")
+	GameState.salary_cap = 9999
+	var sal_before := int(star["salary"])
+	GameState.week_event = ClubLife._extension(star)
+	GameState.resolve_week_event(1)
+	_check(int(star["contract_years"]) == 1 and int(star["salary"]) == sal_before and ClubLife.morale(star) == 65,
+			"Waiting commits nothing and costs a little morale")
+	GameState.week_event = ClubLife._extension(star)
+	GameState.resolve_week_event(0)
+	_check(int(star["salary"]) == early and int(star["contract_years"]) == 3,
+			"Extending locks in the early price for three seasons (young)")
+	var vet: Dictionary = GameState.my_list[3]
+	vet["contract_years"] = 1
+	vet["age"] = 31.0
+	_check(ClubLife.early_years(vet) == 2, "An older player extends for less time")
+	# Already re-signed when the card resolves: nothing changes.
+	var signed: Dictionary = GameState.my_list[4]
+	signed["contract_years"] = 3
+	var s_sal := int(signed["salary"])
+	GameState.week_event = ClubLife._extension(signed)
+	GameState.resolve_week_event(0)
+	_check(int(signed["salary"]) == s_sal and int(signed["contract_years"]) == 3,
+			"An extension card for a player already signed changes nothing")
+	# The cap filled up since the card was drawn: no extension, no punishment.
+	var late: Dictionary = GameState.my_list[5]
+	late["contract_years"] = 1
+	late["morale"] = 70
+	GameState.salary_cap = 0
+	GameState.week_event = ClubLife._extension(late)
+	GameState.resolve_week_event(0)
+	_check(int(late["contract_years"]) == 1 and ClubLife.morale(late) == 70,
+			"No cap room at resolution: he waits, and is not punished for it")
+	GameState.salary_cap = 9999
+	# --- Sore player: playing is a real risk, resting a real cost ----------
+	var sore: Dictionary = GameState.my_list[1]
+	var base_risk := Injuries.chance(sore)
+	GameState.week_event = ClubLife._sore_star(sore)
+	GameState.resolve_week_event(1)
+	var risk := Injuries.chance(sore)
+	_check(is_equal_approx(risk, base_risk * ClubLife.SORE_RISK) and risk > 0.15 and risk < 0.4,
+			"Playing him sore: a real but not certain breakdown risk (%.2f)" % risk)
+	_check(is_equal_approx(MatchSim._start_energy(sore), ClubLife.SORE_LEGS), "...and he starts short of a gallop")
+	# --- Training: development against freshness ---------------------------
+	var q: Dictionary = GameState.my_list[6]
+	var r0 := Injuries.chance(q)
+	GameState.week_event = ClubLife._training()
+	GameState.resolve_week_event(0)
+	_check(Injuries.chance(q) > r0 and float(MatchSim._start_energy(q)) < 100.0,
+			"A heavy week: heavier legs and more soft-tissue risk")
+	GameState.advance()
+	var q2: Dictionary = GameState.my_list[6]
+	var m0 := ClubLife.morale(q2)
+	var r1 := Injuries.chance(q2)
+	GameState.week_event = ClubLife._training()
+	GameState.resolve_week_event(1)
+	_check(Injuries.chance(q2) < r1 and ClubLife.morale(q2) >= mini(100, m0 + 3),
+			"A recovery week: fewer injuries and a lift")
+	# --- Board pressure: once a losing run, not every week of it -----------
+	var fires := {}
+	for losses in [3, 4, 5, 6]:
+		var hit := false
+		for r in range(1, 60):
+			if str(ClubLife.pick_event({"list": GameState.my_list, "round": r, "seed": 3,
+					"losses": losses}).get("key", "")) == "pressure":
+				hit = true
+		fires[losses] = hit
+	_check(fires[3] and not fires[4] and not fires[5] and fires[6],
+			"The board calls at three and six straight losses, not every week (%s)" % str(fires))
+	# --- Unhappy: not the same player again straight away; never injured --
+	var sad: Dictionary = GameState.my_list[20]
+	sad["morale"] = 20
+	var no_repeat := true
+	for r in range(1, 50):
+		var ev := ClubLife.pick_event({"list": [sad], "round": r, "seed": 5,
+				"memory": {"unhappy|" + str(sad["id"]): r - 2}})
+		if str(ev.get("key", "")) == "unhappy":
+			no_repeat = false
+	_check(no_repeat, "The same unhappy player does not come back two weeks later")
+	sad["injury_weeks"] = 3
+	var injured_card := false
+	for r in range(1, 50):
+		if str(ClubLife.pick_event({"list": [sad], "round": r, "seed": 5}).get("key", "")) == "unhappy":
+			injured_card = true
+	_check(not injured_card, "No 'sit down with him' card for an injured player you cannot pick")
+	sad["injury_weeks"] = 0
+	# The promise resolves once.
+	sad["morale"] = 30
+	GameState.week_event = ClubLife._unhappy(sad)
+	GameState.resolve_week_event(0)
+	GameState.advance()
+	var after_one := ClubLife.morale(sad)
+	GameState.advance()
+	_check(not sad.has("expects_game") and absi(ClubLife.morale(sad) - after_one) <= 6,
+			"A promised game is judged once, not every week after")
+	# --- Repetition: never the same card two weeks running with others about
+	var repeats := 0
+	var last := ""
+	for r in range(1, 80):
+		var ev := ClubLife.pick_event({"list": GameState.my_list, "round": r, "seed": 11,
+				"last_key": last})
+		var k := str(ev.get("key", ""))
+		if k != "" and k == last:
+			repeats += 1
+		last = k
+	_check(repeats == 0, "No card twice in a row (%d repeats)" % repeats)
+	# --- A player who has left before the card resolves ---------------------
+	var gone := {"id": "gone_player", "overall": 80, "attr": {"durability": 50}}
+	GameState.week_event = ClubLife._sore_star(gone)
+	var outcome := GameState.resolve_week_event(1)
+	_check(outcome.begins_with("The moment has passed"), "A card about a departed player resolves harmlessly")
+
 
 func _test_sacking() -> void:
 	GameState.reset()

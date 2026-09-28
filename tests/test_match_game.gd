@@ -22,6 +22,7 @@ func run() -> void:
 	_test_hothead()
 	_test_lockdown_midfielder()
 	_test_traits()
+	_test_ruck_integrity()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -504,6 +505,74 @@ func _test_traits() -> void:
 				credited = true
 			break
 	_check(any_syn and credited, "A side's synergies play and show in the readout")
+
+
+## The ruck contest is decided by, and credited to, the player actually at
+## the bounce. With the ruck resting, the ruckman on the ground goes up, not
+## whoever came off the bench, and an empty ruck spot is filled by the best
+## ruckman available, not the best player.
+func _test_ruck_integrity() -> void:
+	var sim := _sim(77)
+	var sq: Squad = sim.squads[0]
+	var gi := -1
+	for i in range(sq.ground.size()):
+		if str(sq.ground[i]["role"]) == "RUCK":
+			gi = i
+	_check(gi >= 0, "The side starts with a ruck")
+	var ruckman: Dictionary = sq.ground[gi]
+	# A ruck-forward on the ground, and a bench player who is no ruckman.
+	var fj := -1
+	for i in range(sq.ground.size()):
+		if str(sq.ground[i]["role"]) == "FWD":
+			fj = i
+			break
+	sq.ground[fj]["role2"] = "RUCK"
+	sq.ground[fj]["attr"]["ruck"] = 70
+	var bj := -1
+	for i in range(sq.bench.size()):
+		if not Ratings.plays_role(sq.bench[i], "RUCK"):
+			bj = i
+			break
+	var backup_id := str(sq.ground[fj]["id"])
+	var bench_id := str(sq.bench[bj]["id"])
+	sim._swap(0, gi, bj)
+	_check(str(sq.ground[gi]["id"]) == bench_id, "The rested ruck's spot goes to the player off the bench")
+	_check(str(sim._contestant(sq)[0]["id"]) == backup_id and MatchSim._ruck_of(sim._contestant(sq)) == 70.0,
+			"...but the ruck-forward goes up at the bounce, and the contest is decided on him")
+	for i in range(60):
+		sim._stoppage(0, 1, true)
+	var st: Dictionary = sim.player_stats
+	_check(float(st.get(backup_id, {}).get("hitouts", 0.0)) > 0.0
+			and float(st.get(str(ruckman["id"]), {}).get("hitouts", 0.0)) == 0.0,
+			"Hit-outs go to the player who took them, not the rested ruck")
+	# No ruck on the list at all: the best ruckman available goes up.
+	var list: Array = []
+	for p in GameDB.club_list("GEE"):
+		if not Ratings.plays_role(p, "RUCK"):
+			list.append(p)
+	var side := Ratings.select_22(list)
+	var in_ruck = null
+	for g in side["ground"]:
+		if str(g["role"]) == "RUCK":
+			in_ruck = g
+	var best_ruck := 0.0
+	for p in list:
+		best_ruck = maxf(best_ruck, float(p["attr"]["ruck"]))
+	_check(in_ruck != null and float(in_ruck["attr"]["ruck"]) == best_ruck,
+			"With no ruckman listed, the best tap man goes into the ruck")
+	# Over whole matches, hit-outs go to ruckmen (before: half of them did not).
+	var tot := 0.0
+	var off := 0.0
+	for i in range(30):
+		var res := _sim(1200 + i).run()
+		for sd in range(2):
+			for r in res["roster"][sd]:
+				var h := float(res["players"].get(str(r["id"]), {}).get("hitouts", 0.0))
+				var p = GameDB.player_by_id(str(r["id"]))
+				tot += h
+				if not Ratings.plays_role(p, "RUCK") and float(p["attr"]["ruck"]) < 50.0:
+					off += h
+	_check(off / tot < 0.15, "Hit-outs mostly go to ruckmen (%.0f%% to others)" % (100.0 * off / tot))
 
 
 ## Play through a midfielder: he wins more of the ball in the chain, but the
