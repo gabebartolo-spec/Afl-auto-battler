@@ -218,19 +218,33 @@ func _on_new_career() -> void:
 # ---------------------------------------------------------------------------
 # New career setup
 # ---------------------------------------------------------------------------
+## Space under the setup block relative to the space above it: a little
+## more below, so the block sits just above the middle of the screen.
+const SETUP_BELOW := 1.3
+
 func _show_setup() -> void:
 	_mode = "setup"
 	UiKit.clear(_content)
 	_content.alignment = BoxContainer.ALIGNMENT_BEGIN
+	# Back stays where a thumb expects it; everything else is one block -
+	# title, the two choices, the button right under them - centred on the
+	# screen (a touch above the middle), over the faint oval.
+	_content.add_child(UiKit.top_bar("", true, null, func():
+		_close_setup()
+		return true))
+	var above := Control.new()
+	above.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_content.add_child(above)
 	var form := UiKit.vbox(UiKit.SECTION)
 	form.name = "NewCareerSetup"
 	form.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	form.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	form.custom_minimum_size.x = _column_width(440.0)
 	_content.add_child(form)
-	form.add_child(UiKit.top_bar("New career", true, null, func():
-		_close_setup()
-		return true))
+	var title := UiKit.lbl("New career", UiKit.H1, UiKit.TEXT, true)
+	title.name = "SetupTitle"
+	# A little more under the title than between the sections.
+	title.custom_minimum_size.y = UiKit.H1 * 1.4 + 6
+	form.add_child(title)
 	form.add_child(_choice("Player names", "NameMode", NAME_OPTIONS,
 			"real" if _pick_real else "generated",
 			func(_k): return NAMES_INFO + " You can change this later in Settings.",
@@ -241,17 +255,20 @@ func _show_setup() -> void:
 	form.add_child(_choice("Difficulty", "Difficulty", diff_options, _pick_difficulty,
 			func(k): return str(GameState.DIFFICULTIES[k]["text"]),
 			func(k): _pick_difficulty = k))
-	# On a phone the start button sits at the bottom, under the thumb; on a
-	# wide screen it follows the choices.
-	var push := Control.new()
-	if UiKit.view_height(self) > UiKit.view_width(self):
-		push.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	form.add_child(push)
+	# The button follows the choices closely, set just apart from them.
+	var cta := MarginContainer.new()
+	cta.add_theme_constant_override("margin_top", 6)
+	form.add_child(cta)
 	var start := UiKit.btn("Choose your club", 19, true)
 	start.name = "StartCareer"
+	start.custom_minimum_size.y = 52
 	start.disabled = not GameDB.loaded
 	start.pressed.connect(_on_start)
-	form.add_child(start)
+	cta.add_child(start)
+	var below := Control.new()
+	below.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	below.size_flags_stretch_ratio = SETUP_BELOW
+	_content.add_child(below)
 
 
 ## A labelled row of options, the current one outlined, with a "?" that
