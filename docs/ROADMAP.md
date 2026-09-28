@@ -139,9 +139,15 @@ Use the cheapest tier that answers the current question:
 Do not duplicate equivalent validation merely because both local and CI execution are available. A green GitHub full suite on the exact PR head normally satisfies the repository-wide regression requirement.
 
 ### While CI runs
-Claude should not sit idle merely because CI is running. If there is a **clearly independent** next task, Claude may continue development on it. Avoid uncontrolled branch sprawl: normally keep no more than **two active implementation branches** unless there is a strong dependency reason.
+Claude should not sit idle merely because CI is running. If there is a **clearly independent** next task, Claude should continue development on it.
 
-If the next task depends directly on the PR being merged, use the wait time for diagnosis, design inspection, or a non-conflicting preparatory step rather than building deeply on an unmerged dependency.
+**A PR that has been pushed and is only waiting on GitHub CI, review, or ChatGPT's merge/verification work does not count as an active implementation branch.** The normal limit of two active implementation branches applies only to branches Claude is currently coding on, debugging, or otherwise modifying.
+
+If CI fails and ChatGPT returns a genuine `[CI HANDOFF]`, that branch counts as active again only while Claude is reproducing/fixing the failure. Once the fix is pushed and CI owns verification again, it stops counting as active.
+
+Avoid uncontrolled branch sprawl, but do not use the branch-limit rule as a reason to go idle while completed PR heads are merely waiting on CI.
+
+If the next task depends directly on unmerged code, prefer diagnosis, design inspection, or non-conflicting preparation. Building on the dependency is acceptable only when the overlap is understood and rebasing/merging will be straightforward; otherwise choose an independent task.
 
 ---
 
@@ -2398,6 +2404,7 @@ Before adding any new roadmap line, check this table.
 
 Keep this short. Add only meaningful structural changes, not every code commit.
 
+- **2026-09-28:** CI-waiting PRs no longer count as active implementation branches. The two-branch limit now counts only work Claude is actively coding/debugging; pushed PRs waiting on CI or ChatGPT merge work do not block the next independent task.
 - **2026-09-28:** Coaching hub promoted to the next playtest gate: complete ARD-M6-001 immediately after Coaching Phase 5 and before the user's coaching playtest or unrelated feature work.
 - **2026-09-28:** Added ARD-M7-008, an optional custom/self-insert draft prospect that enters the normal national draft and career ecosystem without custom OVR/potential or preferential treatment.
 - **2026-09-28:** Docs-only CI optimisation: PRs/pushes that change only `docs/**` or Markdown skip the full Godot game suite; mixed docs+code changes still run it.
