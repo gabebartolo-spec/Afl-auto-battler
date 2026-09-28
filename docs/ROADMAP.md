@@ -1558,7 +1558,10 @@ Goal: strengthen the management loop around the football.
 ## ARD-M6-001 — Coaching hub
 **Status:** `PARTIAL`  
 **Priority:** `P1`  
+**Execution priority:** `NEXT — PLAYTEST GATE`  
 **Autonomy:** `SUPERVISED`
+
+**User priority (2026-09-28):** complete the Coaching hub immediately after Coaching staff gameplay (ARD-M6-002 / Phase 5) and **before the next coaching playtest or unrelated feature expansion**. The user wants the complete coaching-facing experience in place before testing the system.
 
 Bottom navigation target:
 `Training · My list · Coaching · Sim round`
@@ -2395,6 +2398,7 @@ Before adding any new roadmap line, check this table.
 
 Keep this short. Add only meaningful structural changes, not every code commit.
 
+- **2026-09-28:** Coaching hub promoted to the next playtest gate: complete ARD-M6-001 immediately after Coaching Phase 5 and before the user's coaching playtest or unrelated feature work.
 - **2026-09-28:** Added ARD-M7-008, an optional custom/self-insert draft prospect that enters the normal national draft and career ecosystem without custom OVR/potential or preferential treatment.
 - **2026-09-28:** Docs-only CI optimisation: PRs/pushes that change only `docs/**` or Markdown skip the full Godot game suite; mixed docs+code changes still run it.
 - **2026-09-28:** Added lean validation ownership: Claude uses targeted tests while coding; GitHub CI/ChatGPT owns the routine full-suite PR gate, log triage, selective reruns and merge verification. Avoid duplicate full-suite and long-run testing.
