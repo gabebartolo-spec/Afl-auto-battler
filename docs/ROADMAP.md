@@ -291,6 +291,25 @@ Do **not** solve this by revealing an objectively best choice, adding recommenda
 4. **Decision feedback:** after a choice, the game gives enough concise evidence to judge broadly whether the intended effect occurred and why the match developed as it did.
 5. **No number vomit:** clarity comes from better framing, comparisons, football language and causal feedback—not exposing raw internal weights or adding dense dashboards.
 
+### Implementation record — match flow, part 1 (2026-09-29, branch `claude/match-flow`)
+- **Diagnosis (presentation, not simulation):**
+  - Over two full matches replayed at 1x (RIC v SYD, SYD v RIC), no beat hung for good; the longest was 5.5 s, a mark.
+  - The ball sat still with nobody holding it 38-40% of watched time. Real dead ball (set-ups, celebrations, tackles, packs) accounts for part of that.
+  - The largest single cause was the receiver collecting after the ball had landed or gone to ground: 120-150 s a match waiting on a receiver 12 m or more away.
+  - The sim names who wins each ball, so a forward who wins it back in defence is often 40-50 m from it.
+  - Separately, at a kick-in the taker kept carrying the ball up the ground with the structure when the log moved on without his kick. That was the source of the last wrong-way kicks.
+- **Changes (`MatchDirector.gd`):**
+  - A loose ball whose winner is still more than 8 m away is scrapped for: the nearest two players converge on it. It is knocked on toward him in short hops, 5 m every 0.45 s, 16 m at most, and never back toward his own goal. The ball is no longer left on the deck while he runs.
+  - A ball held by someone other than the collector is put down where it is, not carried.
+  - Hang time for a kick to a running receiver can stretch to 1.8x its natural length (was 1.45x).
+- **Measured (same matches, main v branch):**
+  - pauses of 1.5 s or longer: 63 v 40 and 54 v 29;
+  - waiting on a far receiver: 152 v 97 s and 120 v 76 s;
+  - ball still overall: 40% v 35% and 38% v 34%.
+  - Wrong-way kicks: 0 in six seeded matches (two occurred on main).
+- **Remaining:** the rest of the far waits are the sim choosing a far-off winner (role weights let a forward win the ball in defence). Closing that would mean the sim considering position, which is a separate, balance-gated change. The phone playtest is the acceptance check.
+- **Tests:** `test_match_visual.gd::_test_match_flow` checks no beat longer than 8 s and far-receiver waits at most 12% of a match. The wrong-way check still passes.
+
 ### Playtest test
 For each important decision, verify the player can answer:
 - What decision am I making?

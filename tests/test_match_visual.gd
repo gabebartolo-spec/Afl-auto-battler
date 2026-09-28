@@ -24,6 +24,7 @@ func run() -> void:
 	_test_ballup_is_informational()
 	_test_wings_and_lineups()
 	_test_no_wrong_way_kicks(res)
+	_test_match_flow(res)
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -444,3 +445,45 @@ func _test_no_wrong_way_kicks(res: Dictionary) -> void:
 				"No kick flies 30 m+ back towards the kicker's own goal (%s: %d flights, %d wrong way %s)" % [
 				str(r["home"]), flights, wrong, first_bad])
 		_check(flipped == 0, "The ends never change with the ball in the air (%s)" % str(r["home"]))
+
+
+## Playtest gate (roadmap 1.11): a watched match flows. No beat hangs (a
+## freeze), and the ball is not left on the deck while a far-off receiver
+## runs half the ground to it: a loose ball is scrapped for and knocked on.
+func _test_match_flow(res: Dictionary) -> void:
+	var pv := PitchView.new()
+	pv.size = Vector2(400, 700)
+	pv.camera_enabled = false
+	pv.setup(res)
+	pv.set_speed(1.0)
+	pv.playing = true
+	var d = pv.director
+	var h := 1.0 / 30.0
+	var t := 0.0
+	var far := 0.0
+	var worst := 0.0
+	var beat_k := -1
+	var beat_t := 0.0
+	var last: Vector2 = d.ball["pos"]
+	var guard := 0
+	while pv.playing and guard < 400000:
+		guard += 1
+		pv._process(h)
+		t += h
+		var pos: Vector2 = d.ball["pos"]
+		var moving := pos.distance_to(last) > 0.05
+		last = pos
+		var ph: Dictionary = d._phases[d._pi] if d._pi < d._phases.size() else {}
+		if str(ph.get("t", "")) == "collect" and not moving:
+			var who := int(ph.get("who", -1))
+			if who >= 0 and (d.tokens[who]["pos"] as Vector2).distance_to(pos) > 12.0:
+				far += h
+		var k := int(d._beat.get("k", -1))
+		if k != beat_k:
+			worst = maxf(worst, beat_t)
+			beat_k = k
+			beat_t = 0.0
+		beat_t += h
+	pv.free()
+	_check(worst <= 8.0, "No moment of a watched match hangs (longest beat %.1f s)" % worst)
+	_check(far <= 0.12 * t, "The ball is rarely left waiting on a far-off receiver (%.0f s of %.0f)" % [far, t])
