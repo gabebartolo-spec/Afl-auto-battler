@@ -396,7 +396,7 @@ func _test_stuck_draft_recovery() -> void:
 	var me := str(d.draft_order[2])
 	d.start_for_user(me)
 	var guard := 0
-	while not d.user_stuck() and not d.is_finished() and guard < 60:
+	while not d.user_stuck() and not d.is_finished() and d.count() < 30 and guard < 60:
 		guard += 1
 		var star := {}
 		for p in d.pool:
@@ -408,6 +408,10 @@ func _test_stuck_draft_recovery() -> void:
 			break
 		_force_pick(d, me, star)
 		d.auto_until_user_turn()
+	# However the stars fell, the old save spent the rest too (older rules
+	# let it): every dollar gone with places still to fill.
+	if not d.user_stuck() and not d.is_finished() and d.is_user_turn():
+		d.club_spend[me] = d.budget
 	_check(d.user_stuck(), "An old save can leave you with no legal pick (%d signed, $%d left)" % [d.count(), d.remaining()])
 	if not d.user_stuck():
 		return
