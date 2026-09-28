@@ -225,6 +225,8 @@ func _list_row(p: Dictionary) -> Control:
 ## The one thing that matters most about his availability: [text, colour].
 func _status(p: Dictionary) -> Array:
 	var weeks := int(p.get("injury_weeks", 0))
+	if Injuries.concussion_text(p) != "":
+		return [Injuries.concussion_text(p), UiKit.BAD]
 	if weeks > 0:
 		return ["Out %s" % ("1 week" if weeks == 1 else "%d weeks" % weeks), UiKit.BAD]
 	if bool(p.get("rested", false)):

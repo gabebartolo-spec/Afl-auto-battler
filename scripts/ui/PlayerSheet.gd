@@ -38,7 +38,9 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable()) 
 	# Now: available or not, and how he is feeling.
 	var state := PackedStringArray()
 	var weeks := int(p.get("injury_weeks", 0))
-	if weeks > 0:
+	if Injuries.concussion_text(p) != "":
+		state.append(Injuries.concussion_text(p) + ".")
+	elif weeks > 0:
 		state.append("Injured: out %s%s." % ["1 week" if weeks == 1 else "%d weeks" % weeks,
 				" (%s)" % str(p["injury_kind"]) if str(p.get("injury_kind", "")) != "" else ""])
 	elif bool(p.get("rested", false)):
