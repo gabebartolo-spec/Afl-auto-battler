@@ -603,9 +603,12 @@ table, shot conversion, every best and quiet player with his numbers and
   of those are hired (almost all first as development coaches), 91% of them
   reach a line job, 44% senior assistant, 25% senior coach; former players
   hold 38% of jobs and a third of new appointments after twenty seasons;
-  games played and starting skill correlate at 0.03. The long-run aim of
-  60-80% former players is limited by how few playing careers end each
-  season, a list-turnover question outside coaching.
+  games played and starting skill correlate at 0.03. A real 32-season
+  career (actual results, retirements and clubs) goes further: 615 careers
+  ended, 23% went into coaching, and by 2058 former players held 102 of the
+  119 jobs (86%), with several reaching senior coach by the usual path
+  (development, line, senior assistant). The real career is the evidence to
+  trust; if the share keeps climbing, the coaching rate is the lever.
 * **Team form** — each club's form (-1..1) is derived from its results this
   season (`Season.club_results`, so it is never saved separately and resets
   at every rollover): the last five, weighted 0.30 / 0.25 / 0.20 / 0.15 / 0.10
