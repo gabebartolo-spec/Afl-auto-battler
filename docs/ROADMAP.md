@@ -257,7 +257,7 @@ Classify findings:
 ---
 
 ## ARD-M1-002 — Ruck contest integrity & emergency ruck
-**Status:** `DONE`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P0`  
 **Autonomy:** `SAFE` if local; otherwise `SUPERVISED`  
 **Depends on:** ARD-M1-001
