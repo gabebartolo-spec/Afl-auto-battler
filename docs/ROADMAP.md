@@ -22,7 +22,17 @@ Before adding a new item:
 4. Create a new task only if it has a genuinely different player-facing purpose or implementation boundary.
 5. Do not create duplicate tasks because the wording changed.
 
-The roadmap records intent. It does **not** authorise implementation by itself. Claude should only implement tasks explicitly requested by the user or included in an authorised batch.
+### Standing development authority — 2026-09-28
+
+The user has granted Claude standing authority to action this roadmap as the project's primary development agent. A ready roadmap item does **not** require a fresh bespoke prompt or a separate per-PR permission check.
+
+Claude may inspect, implement, test, balance-check, update the roadmap, open PRs and **merge clean completed work into `main`** under this standing authority.
+
+Old task briefs, PR descriptions or planning notes that say **"do not merge"**, **"wait for review"**, or equivalent are superseded by this standing authority unless the user placed a newer, task-specific `HOLD` after 2026-09-28.
+
+A dependency such as "Phase 4 starts after Phase 3 is merged" is a sequencing rule, not a user-approval gate. If Phase 3 is green, validated and otherwise ready, merge it and continue to Phase 4 rather than waiting for ceremonial approval.
+
+Stop and ask the user only for a genuine unresolved player-experience/design decision, a failed/ambiguous balance gate, destructive data/save risk, unexplained failing tests, a merge conflict whose correct resolution is unclear, or a task that has expanded materially beyond its roadmap intent.
 
 ## 0.2 Status legend
 
@@ -47,9 +57,9 @@ Never mark an item `DONE` because code was written locally. It must be merged an
 
 ## 0.4 Autonomy legend
 
-- `SAFE` — suitable for an unattended/night-shift batch if explicitly authorised.
-- `SUPERVISED` — design choices or cross-system consequences require user review.
-- `BALANCE-GATED` — may materially change results; must include simulation evidence before acceptance.
+- `SAFE` — routine enough to proceed autonomously once ready.
+- `SUPERVISED` — inspect carefully for design/cross-system consequences. This is **not** an automatic approval gate: proceed when the roadmap already resolves the player-experience decision; stop only if a material design choice remains genuinely unresolved.
+- `BALANCE-GATED` — may materially change results; proceed autonomously through implementation and measurement, but merge only when the required simulation evidence supports the intended effect without unacceptable side effects. Ambiguous or bad evidence is a stop condition.
 
 ## 0.5 Claude execution contract
 
@@ -68,8 +78,9 @@ For every authorised roadmap task:
 11. For save-schema changes, prove backward compatibility.
 12. For UI work, check narrow Android portrait layouts.
 13. Update this roadmap's status/notes if the task is completed or materially changed.
-14. Commit logically. Do **not** merge unless explicitly authorised.
-15. Handoff with exact files, commits, tests, behaviour before/after, balance evidence and remaining risks.
+14. Commit logically. Under the standing authority above, merge a clean PR once required tests/checks and any balance/save/UI gates pass. Do not wait for a second permission message.
+15. Verify the merged result on `main`, then update the roadmap status/implementation record.
+16. Handoff with exact files, commits, tests, behaviour before/after, balance evidence and remaining risks.
 
 If the requested feature turns into a broad rewrite, **stop and report the dependency/risk instead of silently expanding scope**.
 
@@ -1946,7 +1957,8 @@ Roadmap maintenance:
 
 Git:
 - Keep commits logical.
-- Do not merge unless explicitly authorised.
+- Standing authority applies: merge clean completed PRs after required validation passes.
+- A stale historical "do not merge" line is not a blocker unless the user placed a newer task-specific HOLD.
 
 Final handoff:
 1. What changed.
@@ -1965,16 +1977,19 @@ Final handoff:
 
 # 8. Night-Shift / Autonomous Batch Rules
 
-When explicitly authorised to work unattended:
+Claude has standing authority to work through ready roadmap tasks unattended.
 
-Claude may only take tasks marked `SAFE`, unless the user's batch prompt explicitly includes a supervised item.
+Use the autonomy labels as risk guidance, not as ceremonial gates:
+- `SAFE`: proceed.
+- `SUPERVISED`: proceed when the roadmap already resolves the design; stop only for a genuine unresolved player-experience choice or unexpectedly broad architecture change.
+- `BALANCE-GATED`: implement and measure autonomously; merge only when the balance evidence passes the roadmap's acceptance standard.
 
 For each task:
 - inspect first,
-- skip if unexpectedly architectural,
+- skip/stop if unexpectedly architectural or genuinely ambiguous,
 - one logical concern per commit where practical,
-- do not merge,
-- do not make speculative balance changes,
+- merge clean validated work rather than leaving finished PRs idle,
+- do not make speculative balance changes without measurement,
 - do not "clean up" unrelated code,
 - do not create a second implementation of an existing system,
 - leave a clear handoff for anything skipped.
@@ -2045,5 +2060,6 @@ Before adding any new roadmap line, check this table.
 
 Keep this short. Add only meaningful structural changes, not every code commit.
 
+- **2026-09-28:** Removed stale per-PR/phase approval gates. Claude now has standing authority to action ready roadmap work and merge clean validated PRs; supervised/balance labels are risk gates, not ceremonial user-approval gates.
 - **2026-09-28:** Converted roadmap from conversation-style backlog into a canonical execution roadmap with milestones, stable task IDs, dependency ordering, global guardrails, validation matrix, balance template, Claude task prompt and duplicate map.
 - **2026-09-28:** Consolidated repeated concepts including season momentum/team form, reports, opponent scouting, forward scoring, match-ups, history/records, simulation controls, AFL rules/restarters, rivalries, marquee games and secondary-position learning.
