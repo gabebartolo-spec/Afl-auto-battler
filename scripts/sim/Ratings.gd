@@ -10,20 +10,20 @@ extends RefCounted
 ## Tunables - single source of truth for match balance. Mirrored in
 ## tools/sim_harness.py (dict `T`).
 const T := {
-	"chains_per_game": 165,          # possession chains across BOTH teams
+	"chains_per_game": 180,          # possession chains across BOTH teams
 	"max_touches_per_chain": 14,
 	"forward50_line": 35.0,          # metres from the centre square
 	"goal_line": 85.0,
-	"metres_gain_mean": 8.8,         # base metres per effective disposal
+	"metres_gain_mean": 9.7,         # base metres per effective disposal
 	"tackle_retention": 0.44,        # attacking team wins the ball back
-	"pressure_base": 0.158,          # chance a touch is tackled
-	"clanger_per_chain": 0.68,      # chance the chain ends in an error
+	"pressure_base": 0.160,          # chance a touch is tackled
+	"clanger_per_chain": 0.625,     # chance the chain ends in an error
 	"clanger_is_free": 0.34,         # ...of which are free kicks against
 	"mark_share_of_kicks": 0.330,
-	"handball_share": 0.42,
+	"handball_share": 0.44,
 	"inside50_goal": 0.284,          # of inside-50 entries
 	"inside50_behind": 0.187,
-	"stoppage_share": 0.50,          # chains that begin at a genuine stoppage
+	"stoppage_share": 0.465,         # chains that begin at a genuine stoppage
 	"hitouts_per_stoppage": 0.81,    # split between the two rucks
 	"clearance_per_stoppage": 0.815,  # to the team that wins the stoppage
 	"one_percenter_share": 0.83,     # of inside-50 entries that yield a 1%
@@ -89,8 +89,8 @@ static func effective_games(p: Dictionary) -> float:
 ## defender's disposal, a ruck's intercept - is left out.
 const ROLE_WEIGHTS := {
 	"RUCK": {"ruck": 0.90, "contested": 0.10},
-	"FWD": {"goalkicking": 0.35, "marking": 0.30, "carry": 0.15, "accuracy": 0.15, "creating": 0.05},
-	"MID": {"contested": 0.60, "disposal": 0.15, "carry": 0.15, "goalkicking": 0.05, "accuracy": 0.05},
+	"FWD": {"goalkicking": 0.30, "pressure": 0.20, "marking": 0.15, "accuracy": 0.15, "creating": 0.12, "carry": 0.08},
+	"MID": {"contested": 0.55, "disposal": 0.13, "carry": 0.14, "pressure": 0.10, "goalkicking": 0.04, "accuracy": 0.04},
 	"DEF": {"intercept": 0.40, "pressure": 0.35, "carry": 0.15, "contested": 0.10},
 }
 
@@ -337,9 +337,9 @@ static func rate_overall(a: Dictionary, role: String, games: float) -> int:
 ## so generated prospects and later seasons use the same scale.
 ## Must match tools/sim_harness.py::position_stretch (and intake_harness.py).
 const STRETCH_ANCHORS := {                # [p10, p50, p98] raw blend
-	"MID": [39.66, 51.48, 83.84],
+	"MID": [39.26, 51.49, 82.37],
 	"DEF": [40.37, 47.88, 58.90],
-	"FWD": [39.24, 53.72, 68.00],
+	"FWD": [39.79, 50.93, 62.05],
 	"RUCK": [39.13, 66.27, 86.90],
 }
 const STRETCH_TARGETS := {                # where they land

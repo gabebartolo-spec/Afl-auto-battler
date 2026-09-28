@@ -219,6 +219,11 @@ func _test_save_and_backfill() -> void:
 		for p in GameState.season.lists[code]:
 			p.erase("potential")
 			p.erase("rehab")
+	# An old save from before his first game: rated as the dataset has him.
+	var orig: Dictionary = GameDB.player_by_id(str(rozee["id"]))
+	var at_start := GameState.list_player(str(rozee["id"]))
+	at_start["attr"] = (orig["attr"] as Dictionary).duplicate()
+	at_start["overall"] = int(orig["overall"])
 	GameState.save_career()
 	GameState.load_career()
 	var missing := 0
