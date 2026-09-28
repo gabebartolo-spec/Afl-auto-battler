@@ -6,10 +6,19 @@ extends RefCounted
 
 
 static func open(host: Control, c: Dictionary, on_close: Callable = Callable()) -> Control:
-	var box := UiKit.modal_box(host, 520.0, 460.0)
+	var box := UiKit.modal_box(host, 520.0, 640.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "CoachProfile"
 	var v: VBoxContainer = box["body"]
+	# A former player's two careers can run past one screen: keep the grades
+	# clear of the scroll bar.
+	var sc := v.get_parent()
+	sc.remove_child(v)
+	var gutter := MarginContainer.new()
+	gutter.add_theme_constant_override("margin_right", 14)
+	gutter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gutter.add_child(v)
+	sc.add_child(gutter)
 
 	var name_l := UiKit.lbl(GameDB.player_display_name(c), 22, UiKit.TEXT, true)
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -36,6 +45,18 @@ static func open(host: Control, c: Dictionary, on_close: Callable = Callable()) 
 		fit.name = "CoachFit"
 		skills.add_child(fit)
 
+	# A former player: his playing days first, from the snapshot kept when
+	# he retired - the same person, whichever name the game is showing.
+	var played: Dictionary = c.get("played", {})
+	if not played.is_empty():
+		v.add_child(UiKit.spacer(6))
+		v.add_child(UiKit.section("Playing career"))
+		var pc := UiKit.vbox(2)
+		pc.name = "CoachPlaying"
+		v.add_child(pc)
+		for line in playing_lines(played):
+			pc.add_child(_wrapped(str(line)))
+
 	# His coaching career, as far as this game knows it.
 	var stints: Array = c.get("stints", [])
 	if not stints.is_empty():
@@ -45,19 +66,9 @@ static func open(host: Control, c: Dictionary, on_close: Callable = Callable()) 
 		list.name = "CoachCareer"
 		v.add_child(list)
 		for s in stints:
-			list.add_child(UiKit.lbl(_stint_line(s), UiKit.BODY, UiKit.TEXT))
-		v.add_child(UiKit.lbl("Records begin at Round 1, 2026.", UiKit.SMALL, UiKit.MUTED))
-
-	# A coach who played for us: his playing days, from his career record.
-	var played: Dictionary = c.get("played", {})
-	if not played.is_empty():
-		v.add_child(UiKit.spacer(6))
-		v.add_child(UiKit.section("Playing career"))
-		var tot := Career.totals_text({"career": played})
-		if tot != "":
-			v.add_child(UiKit.lbl(tot, UiKit.BODY, UiKit.TEXT))
-		for line in Career.club_lines({"career": played}, func(code): return GameDB.club_name(code)):
-			v.add_child(UiKit.lbl(str(line), UiKit.SMALL, UiKit.MUTED))
+			list.add_child(_wrapped(_stint_line(s)))
+		if str(c.get("origin", "")) == "seed":
+			v.add_child(UiKit.lbl("Records begin at Round 1, 2026.", UiKit.SMALL, UiKit.MUTED))
 
 	var close := UiKit.btn("Close", 16, true)
 	close.custom_minimum_size = Vector2(0, 48)
@@ -67,6 +78,35 @@ static func open(host: Control, c: Dictionary, on_close: Callable = Callable()) 
 			on_close.call())
 	box["footer"].add_child(close)
 	return overlay
+
+
+## "Adelaide 2028–2043 · 263 games, 187 goals" per club, the career total
+## when he played for more than one, how he was drafted and any Brownlow or
+## Coleman he won.
+static func playing_lines(played: Dictionary) -> Array:
+	var out := Career.club_lines({"career": played}, func(code): return GameDB.club_name(code))
+	if (played.get("stints", []) as Array).size() > 1:
+		var tot := Career.totals_text({"career": played})
+		if tot != "":
+			out.append(tot)
+	var draft := CoachPathway.draft_line(played)
+	if draft != "":
+		out.append(draft)
+	var h: Dictionary = played.get("honours", {})
+	for key in ["brownlow", "coleman"]:
+		var n := int(h.get(key, 0))
+		if n > 0:
+			var medal := "Brownlow Medal" if key == "brownlow" else "Coleman Medal"
+			out.append(medal if n == 1 else "%d %ss" % [n, medal])
+	return out
+
+
+## A career line that wraps on a narrow phone instead of widening the sheet.
+static func _wrapped(text: String) -> Label:
+	var l := UiKit.lbl(text, UiKit.BODY, UiKit.TEXT)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return l
 
 
 static func _row(label: String, value: String) -> Control:
