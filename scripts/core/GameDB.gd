@@ -146,6 +146,17 @@ func club_colours(code: String) -> Array:
 			c.get("accent", Color.GOLD)]
 
 
+## Clubs whose third colour is a real club colour (Adelaide's gold, the
+## Bulldogs' white); the others' "accent" is only a tint for the pitch.
+const THREE_COLOUR_CLUBS := ["ADE", "BRL", "GCS", "GWS", "PAD", "SKN", "WBD", "TAS", "CANB"]
+
+
+## The colours a club is known by, for its marker: two or three.
+func club_marker_colours(code: String) -> Array:
+	var cols := club_colours(code)
+	return cols if THREE_COLOUR_CLUBS.has(code) else cols.slice(0, 2)
+
+
 func club_list(code: String) -> Array:
 	return players_by_club.get(code, [])
 
