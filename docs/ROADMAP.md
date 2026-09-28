@@ -1439,6 +1439,22 @@ Requirements:
 
 Validate with targeted multi-season simulations.
 
+
+### Phase 4 implementation record (2026-09-28, branch `claude/coaching-phase4`)
+- **Capture:** a playing career ends (retired in `Prospects.age_league`, or delisted and unsigned at the close of free agency) and `GameState._career_over` captures him before he leaves the lists. The `played` snapshot holds games, goals, club stints, draft, listed position, retirement year and in-save Brownlows and Colemans. No ratings, contract, training, injury or stat tables are kept.
+- **Decision:** one career-seeded roll per player, decided once: 19%, 22% at 150+ games, 25% at 250+, +1 point per major award, capped at 30%. He becomes `C_P_<player id>` with his real name and the same alias, then has 1-3 pathway seasons (+1 if the market is flooded, never more than 3 extra) before the ordinary market.
+- **Fame is not ability:** skills come from the coach id alone (52-72, centred 62). Across 3,000 retirees, games correlate with skill at r ~0.03 and with starting reputation at r ~0.7. The fame part of reputation fades over nine coaching seasons. A former club rates him +2.5% (half of the 5% club link).
+- **Market change (Phase 3 tuning):**
+  - Generated external coaches are now top-up supply: fewer as the pathway fills, pool floor 20, top 40.
+  - They get the same newcomer starting skills as a former player.
+  - The population anchor is now 70, which keeps Elite at 1-4%.
+- **Evidence:**
+  - Real 32-season career: about 19 career endings a season, median about 280 games, 593 retired, 2 unsigned. Generated draftees reached AFL coaching jobs; for example, a 2031 draftee (253 games) became development coach at Tasmania in 2049 and midfield coach at Essendon in 2053.
+  - Synthetic 50-season market at that volume: 23% of endings go into coaching, 36% of those are hired (almost all first as development coaches), then 91% reach a line job, 44% senior assistant and 25% senior coach (about 25 years after retiring). Former players hold 38% of jobs at year 50 and make 33% of new appointments after year 20. Emergencies 0; generated pool 16-22; coach records plus archive about 180 KB at year 50.
+- **Limiting factor:** the 60-80% long-run aim is supply-limited by how few playing careers end each season (a list-turnover question, not coaching).
+- **UI:** the coach profile shows the playing career (clubs, games, goals, draft, medals), then the coaching career, wrapped for 360 px. News covers notable former players joining the coaching ranks and their first appointment.
+- **Tests:** new `coach_pathway` suite, plus the coaches and coach_market suites.
+
 ---
 
 ## ARD-M6-003 — Board Confidence
