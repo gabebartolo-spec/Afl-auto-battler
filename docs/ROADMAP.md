@@ -68,10 +68,32 @@ For every authorised roadmap task:
 11. For save-schema changes, prove backward compatibility.
 12. For UI work, check narrow Android portrait layouts.
 13. Update this roadmap's status/notes if the task is completed or materially changed.
-14. Commit logically. Do **not** merge unless explicitly authorised.
-15. Handoff with exact files, commits, tests, behaviour before/after, balance evidence and remaining risks.
+14. Before opening/merging the PR, add or update a compact `### Implementation record` directly under the roadmap task so the durable handoff lives in the repo.
+15. Commit logically. Do **not** merge unless explicitly authorised.
+16. Handoff with exact files, commits, tests, behaviour before/after, balance evidence and remaining risks.
 
 If the requested feature turns into a broad rewrite, **stop and report the dependency/risk instead of silently expanding scope**.
+
+## 0.6 Durable in-roadmap handoffs
+
+The roadmap must contain enough implementation history that ChatGPT, Claude, or another future development session can understand what actually happened without relying on old chat transcripts.
+
+For every task that becomes `PARTIAL`, `IN PROGRESS`, or `DONE`, maintain a compact `### Implementation record` directly under that task. Include only durable information:
+
+- date;
+- resulting status;
+- branch / PR number;
+- implementation commit SHA and merge commit SHA when known;
+- concise before → after behaviour;
+- important implementation decisions or deviations from the original plan;
+- targeted tests and full-suite result;
+- balance evidence when the task is balance-gated;
+- save-compatibility evidence when persistence changed;
+- remaining work, risks, or follow-on task IDs.
+
+Do **not** paste a giant conversational handoff into the roadmap. Keep the record concise and factual. Detailed transient debugging belongs in the PR/chat; durable project state belongs here.
+
+When a PR is merged, update the implementation record with the merge result and only then mark the task `DONE`.
 
 ---
 
@@ -1903,7 +1925,9 @@ Validation:
 - If UI changes, verify narrow Android portrait layouts.
 
 Roadmap maintenance:
-- Update this item's status/implementation note only after the work is actually completed.
+- Update this item's status only when supported by the actual implementation state.
+- Maintain a compact `### Implementation record` under the task with PR/commit/merge references, before→after behaviour, test results, balance/save evidence where relevant, and remaining work.
+- Treat that in-roadmap record as the durable handoff for future ChatGPT/Claude sessions.
 - Do not mark DONE until merged and verified.
 - Do not create duplicate roadmap entries for consequences of this same system.
 
@@ -1912,16 +1936,17 @@ Git:
 - Do not merge unless explicitly authorised.
 
 Final handoff:
-1. What changed.
-2. Behaviour before vs after.
-3. Files changed.
-4. Tests added/updated.
-5. Full suite result.
-6. Balance evidence if applicable.
-7. Save-compatibility evidence if applicable.
-8. Remaining risks/deferred work.
-9. Commit hash(es).
-10. PR status.
+1. Confirm the roadmap task's `### Implementation record` has been updated with the durable handoff.
+2. Summarise what changed.
+3. Behaviour before vs after.
+4. Files changed.
+5. Tests added/updated.
+6. Full-suite result.
+7. Balance evidence if applicable.
+8. Save-compatibility evidence if applicable.
+9. Remaining risks/deferred work.
+10. Commit hash(es).
+11. PR / merge status.
 ```
 
 ---
@@ -2008,5 +2033,6 @@ Before adding any new roadmap line, check this table.
 
 Keep this short. Add only meaningful structural changes, not every code commit.
 
+- **2026-09-28:** Added durable in-roadmap implementation records so Claude and ChatGPT can hand work off through the canonical roadmap rather than relying on chat history.
 - **2026-09-28:** Converted roadmap from conversation-style backlog into a canonical execution roadmap with milestones, stable task IDs, dependency ordering, global guardrails, validation matrix, balance template, Claude task prompt and duplicate map.
 - **2026-09-28:** Consolidated repeated concepts including season momentum/team form, reports, opponent scouting, forward scoring, match-ups, history/records, simulation controls, AFL rules/restarters, rivalries, marquee games and secondary-position learning.
