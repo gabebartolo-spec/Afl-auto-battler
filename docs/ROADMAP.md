@@ -36,7 +36,7 @@ Use exactly these statuses:
 - `DONE` — implemented, tested, merged and verified.
 - `DEFERRED` — intentionally postponed.
 
-Never mark an item `DONE` because code was written locally. It must be merged and verified.
+Never mark an item `DONE` because code was written locally, because its PR is open, or because its PR is green. A green/mergeable PR remains `IN PROGRESS` until it is actually merged into `main` and the resulting state is verified there. Only then change the roadmap item to `DONE`.
 
 ## 0.3 Priority legend
 
@@ -429,7 +429,9 @@ Open a compact quick-sim menu:
 - Next 4 stops early if the H&A season ends.
 - End-of-H&A **must stop before finals**.
 - Never silently simulate finals.
-- Genuine blocking decisions/events may interrupt a batch.
+- A batch should interrupt only for a genuinely blocking state: something that cannot responsibly continue without the user's decision or a hard career boundary/state change. Routine weekly events, passive notifications, or ordinary generated news should **not** stop every skip batch.
+- Examples of valid interrupts include a required user decision that blocks progression, being sacked, or reaching the end of the home-and-away season/finals boundary.
+- If an event can safely be queued/read afterwards without changing the legality or meaning of subsequent rounds, it is not blocking.
 - Long press always opens its menu even when ordinary confirmation is disabled.
 
 ### Tests
@@ -2033,5 +2035,6 @@ Before adding any new roadmap line, check this table.
 
 Keep this short. Add only meaningful structural changes, not every code commit.
 
+- **2026-09-28:** Clarified that green/open PRs remain `IN PROGRESS` until merged and verified on `main`, and defined genuinely blocking quick-sim interruptions so routine weekly events do not halt every batch.
 - **2026-09-28:** Converted roadmap from conversation-style backlog into a canonical execution roadmap with milestones, stable task IDs, dependency ordering, global guardrails, validation matrix, balance template, Claude task prompt and duplicate map.
 - **2026-09-28:** Consolidated repeated concepts including season momentum/team form, reports, opponent scouting, forward scoring, match-ups, history/records, simulation controls, AFL rules/restarters, rivalries, marquee games and secondary-position learning.
