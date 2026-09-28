@@ -1410,7 +1410,7 @@ Before implementing more, inspect current merged Staff/coaching work and extend 
 **Status:** `IN PROGRESS / PARTIAL`  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
-**Current state (2026-09-28):** Phase 2 (data model, Round 1 2026 seed, read-only Staff UI) is merged. Phase 3 (the living coaching market: sackings, contracts, retirement, promotions, poaching, your vacancies and releases, development, reputation, generated coaches, expansion staffing, archive) is in its own PR. Phase 4 (retired players becoming coaches) and Phase 5 (Teaching/Tactics/Man-management gameplay effects) remain.
+**Current state (2026-09-28):** Phase 2 (data model, Round 1 2026 seed, read-only Staff UI) is merged. Phase 3 (the living coaching market: sackings, contracts, retirement, promotions, poaching, your vacancies and releases, development, reputation, generated coaches, expansion staffing, archive) is merged: PR #62 as `bf8bd0a`, `coach_market` suite, 50-season probe with every job filled. Phase 4 (retired players become coaches) is next; Phase 5 (gameplay effects) after it.  
 
 Core design:
 - Teaching → development,
