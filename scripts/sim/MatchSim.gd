@@ -56,6 +56,12 @@ var moment_rng := RandomNumberGenerator.new()
 ## Stat credits that must not disturb the match's own random sequence (who a
 ## free kick was paid to): results are identical with or without them.
 var stat_rng := RandomNumberGenerator.new()
+## The chain being played: how it began (centre, stoppage, kick_in, free,
+## turnover, general) and who touched the ball in it, for score sources and
+## score involvements. How the last chain ended decides the next's origin.
+var chain_origin := "general"
+var _chain_touch := {}
+var _prev_end := ""
 var pending_moment := {}
 var moments: Array = []      # resolved moments, for the readouts
 var bursts := [{}, {}]       # side -> {kind: chains left}: short-term calls
@@ -609,9 +615,19 @@ func _stoppage(side: int, opp: int, from_bounce: bool) -> void:
 		_p(ruck_a[0] if not ruck_a.is_empty() else null, "hitouts", ha)
 		_p(ruck_b[0] if not ruck_b.is_empty() else null, "hitouts", hb)
 
+	# A centre bounce: the ruck and three inside mids from each side attend.
+	var attend := {}
+	if at_centre:
+		for s2 in [side, opp]:
+			attend[s2] = _centre_attendees(s2)
+			_t(s2, "centre_bounces")
+			for p in attend[s2]:
+				_p(p, "cba")
 	if rng.randf() < float(T["clearance_per_stoppage"]):
 		_t(side, "clearances")
 		var group := _by_roles(atk.ground, ["MID", "RUCK"])
+		if at_centre and not (attend[side] as Array).is_empty():
+			group = attend[side]   # a centre clearance goes to someone who was there
 		if group.is_empty():
 			group = atk.ground
 		var mid = _weighted(group, "contested", 2.0, side, "clearance")
@@ -650,6 +666,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_effective(side, pending)
 			pending = null
 		var carrier = pick_carrier(side, fp)
+		_chain_touch[str(carrier["id"])] = carrier
 		_t(side, "disposals")
 		_p(carrier, "disposals")
 		pending = carrier
@@ -735,6 +752,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 					* (1.20 - 0.40 * _a(carrier, "disposal") / 100.0))
 			if rng.randf() < turn_p:
 				_t(opp, "pressure_wins")
+				_intercept(opp, presser, false)
 				_emit("pressure", opp, fp, presser,
 						"%s forces the turnover" % GameDB.player_display_name(presser))
 				return {"outcome": "turnover", "fp": fp, "actor": presser}
@@ -812,6 +830,11 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	if marked:
 		_t(side, "marks")
 		_p(shooter, "marks")
+		# Most forward marks come on the lead; some are taken in a one-on-one
+		# (stat_rng, so play is unchanged).
+		if stat_rng.randf() < 0.35 + mark_edge:
+			_t(side, "contested_marks")
+			_p(shooter, "contested_marks")
 	var spoil_edge := 0.05 if defender != null and _trait(defender, "interceptor") else 0.0
 	var spoilt := rng.randf() < 0.30 + 0.35 * dfn.def_intercept / 100.0 + spoil_edge
 	if rng.randf() < float(T["one_percenter_share"]):
@@ -833,6 +856,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		_t(side, "goals")
 		_p(shooter, "goals")
 		_assist(side, feeder, shooter)
+		_scored(side, 6, shooter)
 		q_goals[current_quarter - 1][side] += 1
 		_score_run(side)
 		_emit("goal", side, fp, shooter, _scoreline(side, "GOAL"))
@@ -841,6 +865,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	if roll < goal_p + behind_p:
 		_t(side, "behinds")
 		_p(shooter, "behinds")
+		_scored(side, 1, shooter)
 		q_behinds[current_quarter - 1][side] += 1
 		_emit("behind", side, fp, shooter, _scoreline(side, "Behind"))
 		_tag_shot(marked)
@@ -848,9 +873,55 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 
 	_t(opp, "rebounds")
 	_p(defender, "rebounds")
+	_intercept(opp, defender, not spoilt)
 	_emit("rebound", opp, fp, defender,
 			"%s rebounds it out of danger" % GameDB.player_display_name(defender))
 	return {"outcome": "turnover", "fp": fp, "actor": defender}
+
+
+## Who attends a centre bounce for `side`: the ruck who contests it and the
+## three inside midfielders on the ground (the best contested players among
+## the mids not on a wing). Deterministic: no dice.
+func _centre_attendees(side: int) -> Array:
+	var sq: Squad = squads[side]
+	var out: Array = _contestant(sq).duplicate()
+	var mids := []
+	for p in sq.ground:
+		if str(p["role"]) == "MID" and not Roles.on_wing(p) and not out.has(p):
+			mids.append(p)
+	mids.sort_custom(func(a, b): return _a(a, "contested") > _a(b, "contested"))
+	for p in mids.slice(0, 3):
+		out.append(p)
+	return out
+
+
+## Possession won from the opposition (a forced turnover, a rebound out of
+## defence): an intercept, and an intercept mark when he took it cleanly -
+## judged from stat_rng, so play is unchanged.
+func _intercept(side: int, who, could_mark: bool) -> void:
+	if who == null or (who as Dictionary).is_empty():
+		return
+	_t(side, "intercepts")
+	_p(who, "intercepts")
+	if could_mark and stat_rng.randf() < 0.35 * (0.5 + _a(who, "intercept") / 100.0):
+		_t(side, "marks")
+		_p(who, "marks")
+		if stat_rng.randf() < 0.5:
+			_t(side, "contested_marks")
+			_p(who, "contested_marks")
+
+
+## A score: its points by how the chain began (score sources), and one score
+## involvement for everyone who touched the ball in the chain.
+func _scored(side: int, points: int, scorer) -> void:
+	_t(side, "score_from_" + chain_origin, float(points))
+	if scorer != null:
+		_chain_touch[str(scorer["id"])] = scorer
+	for id in _chain_touch:
+		var p: Dictionary = _chain_touch[id]
+		if _on_ground(side, str(id)).is_empty():
+			continue
+		_p(p, "score_involvements")
 
 
 ## A goal assist: the last disposal to the goalkicker, only when the goal
@@ -1161,6 +1232,15 @@ func _play_one_chain(T: Dictionary) -> void:
 		start_fp = fp
 		side = next_side if next_side >= 0 else contest_winner(true, fp)
 
+	if stoppage:
+		chain_origin = "centre" if at_centre else "stoppage"
+	elif from_kick_in:
+		chain_origin = "kick_in"
+	elif _prev_end == "free" or _prev_end == "turnover":
+		chain_origin = _prev_end
+	else:
+		chain_origin = "general"
+	_chain_touch = {}
 	var res := play_chain(side, start_fp, stoppage, from_kick_in)
 	var outcome: String = res["outcome"]
 	fp = res["fp"]
@@ -1173,6 +1253,7 @@ func _play_one_chain(T: Dictionary) -> void:
 	at_centre = (outcome == "score")
 	kick_in = (outcome == "behind")
 	next_side = (1 - side) if outcome == "turnover" or outcome == "behind" else -1
+	_prev_end = outcome
 	if outcome == "score":
 		fp = 0.0
 
@@ -1206,6 +1287,7 @@ func _play_one_chain(T: Dictionary) -> void:
 			_t(side, "frees_against")
 			_p(err, "frees_against")
 			next_side = 1 - side
+			_prev_end = "free"
 			_emit("free", 1 - side, fp, err,
 					"Free kick against %s" % GameDB.player_display_name(err))
 	_after_chain()
@@ -1704,6 +1786,7 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 	if shooter.is_empty():
 		shooter = (squads[side] as Squad).ground[0]
 	var defender := _on_ground(opp, str(m.get("defender_id", "")))
+	_chain_touch[str(shooter["id"])] = shooter
 	var key := str(opt.get("key", "shoot"))
 	fp = float(m.get("fp", fp))
 	var kicker := shooter
@@ -1730,6 +1813,7 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 		_t(side, "goals")
 		_p(kicker, "goals")
 		_assist(side, assist, kicker)
+		_scored(side, 6, kicker)
 		q_goals[current_quarter - 1][side] += 1
 		_score_run(side)
 		_emit("goal", side, fp, kicker, _scoreline(side, "GOAL"))
@@ -1739,6 +1823,7 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 	if roll < goal_p + behind_p:
 		_t(side, "behinds")
 		_p(kicker, "behinds")
+		_scored(side, 1, kicker)
 		q_behinds[current_quarter - 1][side] += 1
 		_emit("behind", side, fp, kicker, _scoreline(side, "Behind"))
 		_tag_shot(true)
@@ -1752,6 +1837,7 @@ func _shot_turnover(side: int, defender: Dictionary, text: String) -> Dictionary
 	_t(opp, "rebounds")
 	if not defender.is_empty():
 		_p(defender, "rebounds")
+		_intercept(opp, defender, false)
 		_emit("rebound", opp, fp, defender, "%s rebounds it out of danger" % GameDB.player_display_name(defender))
 	_end_moment_chain("turnover", fp, side)
 	return {"points": 0, "text": text + " - no score."}
@@ -1762,6 +1848,7 @@ func _end_moment_chain(outcome: String, new_fp: float, side: int) -> void:
 	at_centre = outcome == "score"
 	kick_in = outcome == "behind"
 	next_side = (1 - side) if outcome == "turnover" or outcome == "behind" else -1
+	_prev_end = outcome
 	_after_chain()
 
 

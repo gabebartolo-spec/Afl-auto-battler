@@ -12,8 +12,9 @@ const COLUMNS := [
 ## The rest of the line, shown when a row is opened.
 const DETAIL := [
 	["pressure_acts", "pressure acts"], ["kicks", "kicks"], ["handballs", "handballs"], ["metres_gained", "metres gained"],
-	["behinds", "behinds"],
-	["goal_assists", "goal assists"], ["inside50", "inside 50s"], ["rebounds", "rebound 50s"],
+	["behinds", "behinds"], ["score_involvements", "score involvements"],
+	["goal_assists", "goal assists"], ["contested_marks", "contested marks"], ["intercepts", "intercepts"],
+	["cba", "centre bounce attendances"], ["inside50", "inside 50s"], ["rebounds", "rebound 50s"],
 	["one_percenters", "one percenters"], ["hitouts", "hit-outs"],
 	["clangers", "clangers"], ["frees_against", "frees against"],
 ]
