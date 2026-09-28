@@ -38,6 +38,14 @@ var honour_roll: Array = []      # one entry per completed season
 ## Every coach in the game, once: cid -> record (Coaches.gd). A club's staff
 ## is read from the records, never stored beside them.
 var coaches := {}
+## Notable coaches who have left the game: cid -> slim record (CoachMarket).
+var coach_archive := {}
+## Your staff jobs open after the season, waiting for you: [{job, reason}].
+## Anything still open is auto-filled when the next season starts.
+var staff_vacancies: Array = []
+## Every club's place in the preseason pecking order (list strength), for
+## judging AI senior coaches at season's end: code -> rank.
+var club_expect := {}
 var records := {}                # league records across the career
 ## Club achievements unlocked this career: id -> {"year", "detail"}.
 ## Definitions live in scripts/sim/Achievements.gd.
@@ -235,6 +243,9 @@ func save_career() -> bool:
 		"db_late_draftees": GameDB.late_draftees,
 		"db_alias_next": GameDB._alias_next,
 		"coaches": coaches,
+		"coach_archive": coach_archive,
+		"staff_vacancies": staff_vacancies,
+		"club_expect": club_expect,
 		"career_seed": career_seed,
 		"class_tiers": class_tiers,
 		# Players carry p["career"]; saves without this mark predate it.
@@ -335,6 +346,9 @@ func load_career() -> bool:
 	if season != null and board.is_empty():
 		_open_board_season()
 	coaches = state.get("coaches", {})
+	coach_archive = state.get("coach_archive", {})
+	staff_vacancies = state.get("staff_vacancies", [])
+	club_expect = state.get("club_expect", {})
 	# A save from before the coaching world: seed it for this career now.
 	if season != null and coaches.is_empty():
 		coaches = Coaches.seed(my_club)
@@ -524,6 +538,9 @@ func reset() -> void:
 	records = {}
 	achievements = {}
 	coaches = {}
+	coach_archive = {}
+	staff_vacancies = []
+	club_expect = {}
 	salary_cap = 0
 	free_agents = []
 	offseason_year = 0
@@ -665,6 +682,8 @@ func finish_intake_draft() -> bool:
 ## Roll every list forward one year and rebuild the season. Split out so a
 ## career can continue even when there is no prospect pool to draft.
 func _start_next_season(next_year: int, signed: int) -> void:
+	# The new season never starts with one of your staff jobs empty.
+	_fill_open_staff()
 	# The season's close normally counted careers already (Career skips a
 	# season it has seen); this covers a season rolled on without one.
 	if season != null:
@@ -1533,6 +1552,7 @@ func _close_season_awards() -> void:
 	# stays the newest item in the feed.
 	_close_season_achievements()
 	_board_season_end()
+	_coaching_offseason()
 	_season_news()
 
 
@@ -2418,7 +2438,9 @@ func _open_board_season() -> void:
 		ranks.append([str(code), Squad.new(str(code), season.lists[code], true, str(code)).strength()])
 	ranks.sort_custom(func(a, b): return float(a[1]) > float(b[1]))
 	var rank := 1
+	club_expect = {}
 	for i in range(ranks.size()):
+		club_expect[str(ranks[i][0])] = i + 1
 		if str(ranks[i][0]) == my_club:
 			rank = i + 1
 	if board.is_empty():
@@ -2645,3 +2667,98 @@ func club_staff(club: String) -> Dictionary:
 
 func coach(cid: String) -> Dictionary:
 	return coaches.get(cid, {})
+
+
+## The coaching world moves once a season, at its close (CoachMarket): AI
+## senior coaches are judged against where their list ranked preseason -
+## the same goal the board sets you - and every vacancy is filled. Your
+## open jobs wait in staff_vacancies.
+func _coaching_offseason() -> void:
+	if season == null or coaches.is_empty():
+		return
+	var results := {}
+	var table := season.ladder_sorted()
+	for i in range(table.size()):
+		var row: Dictionary = table[i]
+		var code := str(row["code"])
+		var goal := ClubLife.board_goal(int(club_expect.get(code, 9)))
+		var pos := i + 1
+		var met := ClubLife.goal_met(goal, pos, int(row.get("w", 0)))
+		results[code] = {"met": met, "finals": pos <= Season.FINALISTS,
+				"severe": not met and pos >= table.size() - 2 and int(club_expect.get(code, 18)) <= 10}
+	var out := CoachMarket.offseason({"coaches": coaches, "archive": coach_archive,
+			"year": season_year, "my_club": my_club, "clubs": GameDB.active_clubs(season_year + 1),
+			"results": results, "premier": premier(), "seed": career_seed})
+	for v in out["vacancies"]:
+		if not _vacancy_open(str(v["job"])):
+			staff_vacancies.append(v)
+	for t in out["news"]:
+		add_news("coaching", str(t))
+
+
+func _vacancy_open(job: String) -> bool:
+	for v in staff_vacancies:
+		if str(v["job"]) == job:
+			return true
+	return false
+
+
+## The shortlist for one of your open jobs (coach records, best first).
+func staff_shortlist(job: String) -> Array:
+	var out := []
+	for cid in CoachMarket.shortlist(coaches, my_club, job, season_year, career_seed, 4):
+		out.append(coaches[cid])
+	return out
+
+
+## Appoint a coach to one of your open jobs. Promoting your own assistant
+## opens his old job instead.
+func appoint_staff(job: String, cid: String) -> void:
+	if not coaches.has(cid):
+		return
+	var left := CoachMarket.appoint_mine(coaches, cid, my_club, job, season_year, career_seed)
+	_close_vacancy(job)
+	if left != "":
+		staff_vacancies.append({"job": left, "reason": "%s stepped up to %s." % [
+				GameDB.player_display_name(coaches[cid]), CoachMarket._job_word(job)]})
+	_dirty = true
+
+
+func auto_fill_staff(job: String) -> void:
+	var left := CoachMarket.auto_fill(coaches, my_club, job, season_year, career_seed)
+	_close_vacancy(job)
+	if left != "":
+		staff_vacancies.append({"job": left, "reason": "Filled from within: his old job is open."})
+	_dirty = true
+
+
+func _close_vacancy(job: String) -> void:
+	for i in range(staff_vacancies.size() - 1, -1, -1):
+		if str(staff_vacancies[i]["job"]) == job:
+			staff_vacancies.remove_at(i)
+
+
+## The offseason is the time to change staff: release an assistant (no
+## payout, no negotiation); his job opens for you to fill.
+func can_release_staff() -> bool:
+	return season != null and season.is_season_over()
+
+
+func release_staff(cid: String) -> void:
+	if not can_release_staff() or not coaches.has(cid):
+		return
+	var c: Dictionary = coaches[cid]
+	if str(c.get("club", "")) != my_club or str(c.get("job", "")) == "SC":
+		return
+	CoachMarket.ensure_fields(c, season_year)
+	var job := CoachMarket.release(coaches, cid, season_year)
+	staff_vacancies.append({"job": job, "reason": "You released %s." % GameDB.player_display_name(c)})
+	_dirty = true
+
+
+## A season never starts a staff member short: open jobs are auto-filled.
+func _fill_open_staff() -> void:
+	var guard := 0
+	while not staff_vacancies.is_empty() and guard < 12:
+		guard += 1
+		auto_fill_staff(str(staff_vacancies[0]["job"]))
