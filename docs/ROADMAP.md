@@ -681,11 +681,12 @@ This feeds:
 ---
 
 ## ARD-M2-006 — Pressure acts
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 **Balance:** `BALANCE-GATED`
-**Current state (2026-09-28):** in PR #47 (zonal pressure, pressure acts, team Pressure rating); awaiting merge.
+**Merged:** PR #47 as `307b68b`; verified on main 2026-09-28 (full suite green).  
+**Outcome (2026-09-28, PR #47):** zonal pressure (forwards and mids press the opposition's back third, mids and rucks the middle, defenders and mids their own back third) with one roll per disposal: a tackle, a rushed disposal (a pressure act whose turnover chance scales with presser against carrier), or nothing. Any line can tackle. Pressure acts and pressure wins are recorded per player and team; the team Pressure rating (0-100) is acts plus wins over the opposition's disposals (p10 55, p50 60, p90 66). Calibration: every team stat within 6% of real 2026; tackles by line FWD 2.29 (real 1.98), MID 3.46 (3.33), DEF 2.02 (1.80), RUCK 2.48 (2.64). OVR re-measured (+20 per attribute, 2,500 matches a line): the forward core is now goalkicking .30, pressure .20, marking .15, accuracy .15, creating .12, carry .08, and midfield adds pressure .10. Pressure small forwards rise (Greene 72 to 79) and stay-at-home key forwards ease (McKay 72 to 66). UI: pressure rows in Match stats and full time; Player Rating counts tackles 2 and pressure acts 1. Regression: new `pressure` suite (21 checks); ratings, potential and matchday updated.
 
 ### Intent
 Tackles alone should not represent defensive pressure.
