@@ -447,14 +447,44 @@ func pick_carrier(side: int, fp: float):
 # ---------------------------------------------------------------------------
 # Stoppage: ruck contest + clearance
 # ---------------------------------------------------------------------------
+## Who goes up at the bounce: the player in the ruck spot if he is a
+## ruckman; if not (the ruck is resting and a midfielder came on in his
+## spot), the ruckman already on the ground - a ruck-forward, say - and only
+## with none out there, the best tap man on the ground (an emergency ruck).
+## Returned as [] or [player] so callers can keep the list shape.
+func _contestant(sq: Squad) -> Array:
+	var in_slot := _by_roles(sq.ground, ["RUCK"])
+	if not in_slot.is_empty() and _is_ruckman(in_slot[0]):
+		return [in_slot[0]]
+	var best = null
+	for p in sq.ground:
+		if _is_ruckman(p) and (best == null or float(p["attr"]["ruck"]) > float(best["attr"]["ruck"])):
+			best = p
+	if best != null:
+		return [best]
+	for p in sq.ground:
+		if best == null or float(p["attr"]["ruck"]) > float(best["attr"]["ruck"]):
+			best = p
+	return [] if best == null else [best]
+
+
+## A ruckman by his own listing (first or second position), whatever spot
+## he is standing in today.
+static func _is_ruckman(p: Dictionary) -> bool:
+	return str(p.get("own_role", p.get("role", ""))) == "RUCK" or str(p.get("role2", "")) == "RUCK"
+
+
+static func _ruck_of(contestant: Array) -> float:
+	return 45.0 if contestant.is_empty() else float(contestant[0]["attr"]["ruck"])
+
 func _stoppage(side: int, opp: int, from_bounce: bool) -> void:
 	if not from_bounce:
 		return
 	var T := Ratings.T
 	var atk: Squad = squads[side]
 	var dfn: Squad = squads[opp]
-	var ruck_a := _by_roles(atk.ground, ["RUCK"])
-	var ruck_b := _by_roles(dfn.ground, ["RUCK"])
+	var ruck_a := _contestant(atk)
+	var ruck_b := _contestant(dfn)
 
 	# Three independent hit-out opportunities per bounce, so a game lands near
 	# the real ~34 hit-outs per team rather than one lump per stoppage.
@@ -468,7 +498,9 @@ func _stoppage(side: int, opp: int, from_bounce: bool) -> void:
 			king += 0.05
 		if not ruck_b.is_empty() and _trait(ruck_b[0], "ruck_king"):
 			king -= 0.05
-		var share := clampf(0.5 + (atk.ruck - dfn.ruck) / 260.0 + king, 0.15, 0.85)
+		# The two players actually at the contest, on their own ruck work -
+		# not the side's starting ruck, who may be on the bench.
+		var share := clampf(0.5 + (_ruck_of(ruck_a) - _ruck_of(ruck_b)) / 260.0 + king, 0.15, 0.85)
 		var ha := int(round(total_hits * share))
 		var hb := total_hits - ha
 		_t(side, "hitouts", ha)
