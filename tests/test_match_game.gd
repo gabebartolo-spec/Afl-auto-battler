@@ -25,6 +25,7 @@ func run() -> void:
 	_test_metres_and_efficiency()
 	_test_ruck_integrity()
 	_test_stat_credits()
+	_test_m2_stats()
 	_test_no_role_gates()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -690,6 +691,49 @@ func _test_stat_credits() -> void:
 	_check(sums_ok, "Players' goal assists add up to the team's")
 	_check(frees_ok, "Every free kick is paid to a player: players' frees for add up to the team's")
 
+
+## M2 stats: centre bounce attendances, intercepts, contested marks, score
+## involvements and score sources all reconcile with the team numbers.
+func _test_m2_stats() -> void:
+	var cba_ok := true
+	var sums_ok := true
+	var sources_ok := true
+	var involved_ok := true
+	var marks_ok := true
+	var cbs := 0.0
+	for i in range(12):
+		var res := _sim(1400 + i).run()
+		for side in range(2):
+			var t: Dictionary = res["team"][side]
+			var cb := float(t.get("centre_bounces", 0.0))
+			cbs += cb
+			var src := 0.0
+			for k in t:
+				if str(k).begins_with("score_from_"):
+					src += float(t[k])
+			if absf(src - (6.0 * float(t.get("goals", 0.0)) + float(t.get("behinds", 0.0)))) > 0.01:
+				sources_ok = false
+			var cba := 0.0
+			var ints := 0.0
+			var cm := 0.0
+			for r in res["roster"][side]:
+				var st: Dictionary = res["players"].get(str(r["id"]), {})
+				cba += float(st.get("cba", 0.0))
+				ints += float(st.get("intercepts", 0.0))
+				cm += float(st.get("contested_marks", 0.0))
+				if float(st.get("contested_marks", 0.0)) > float(st.get("marks", 0.0)):
+					marks_ok = false
+				if float(st.get("score_involvements", 0.0)) < float(st.get("goals", 0.0)) + float(st.get("behinds", 0.0)):
+					involved_ok = false
+			if cba > 4.0 * cb + 0.01 or cba < 2.0 * cb:
+				cba_ok = false
+			if absf(ints - float(t.get("intercepts", 0.0))) > 0.01 or absf(cm - float(t.get("contested_marks", 0.0))) > 0.01:
+				sums_ok = false
+	_check(cbs > 0.0 and cba_ok, "A ruck and up to three midfielders attend each centre bounce")
+	_check(sums_ok, "Players' intercepts and contested marks add up to the team's")
+	_check(marks_ok, "A contested mark is always a mark")
+	_check(sources_ok, "Every point scored has a source: score sources add up to the score")
+	_check(involved_ok, "Every scorer is involved in his own scores")
 
 
 ## ARD-M1-001: no ordinary play is impossible for a line. Across matches a
