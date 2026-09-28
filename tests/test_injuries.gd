@@ -14,6 +14,7 @@ func run() -> void:
 	_test_durability_matters()
 	_test_season_rate_and_absence()
 	_test_heal_at_rollover()
+	_test_concussion()
 	print("Injuries tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -39,6 +40,8 @@ func _test_season_rate_and_absence() -> void:
 	var missed_ok := true
 	var healed_ok := true
 	var watched := {}  # id -> weeks still to miss
+	var concussions := 0
+	var concussion_ok := true
 	while not GameState.season.is_regular_done():
 		GameState.advance()
 		games += GameState.last_results.size() * 2
@@ -60,10 +63,16 @@ func _test_season_rate_and_absence() -> void:
 		watched = next
 		for inj in GameState.last_injuries:
 			watched[str(inj["id"])] = int(inj["weeks"])
+			if str(inj["kind"]) == "concussion":
+				concussions += 1
+				if int(inj["weeks"]) < Injuries.CONCUSSION_MIN:
+					concussion_ok = false
 	var rate := float(total) / float(maxi(1, games))
 	_check(rate > 0.35 and rate < 1.3,
 			"About one new injury per side per game (%.2f)" % rate)
 	_check(missed_ok, "An injured player misses his club's matches")
+	_check(concussions > 0 and concussion_ok,
+			"Every concussion in a season is at least two matches (%d concussions)" % concussions)
 	var still_out := 0
 	for code in GameState.season.lists:
 		still_out += Injuries.injured(GameState.season.lists[code]).size()
@@ -86,3 +95,35 @@ func _test_heal_at_rollover() -> void:
 	for code in GameState.season.lists:
 		any += Injuries.injured(GameState.season.lists[code]).size()
 	_check(any == 0, "Everyone heals over the off-season")
+
+
+## A concussion keeps him out for two matches: no early return, no naming
+## him in the side, the same rule for every club, and it survives a save.
+func _test_concussion() -> void:
+	GameState.reset()
+	GameState.autosave_enabled = false
+	GameState.save_path = "user://test_concussion.save"
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var p: Dictionary = GameState.my_list[0]
+	p["injury_weeks"] = 2
+	p["injury_kind"] = "concussion"
+	_check(Injuries.concussion_text(p) == "Concussion — 2 matches", "Out two matches reads as a concussion")
+	# Named in the centre square, he still does not play.
+	var named := {"MID": [str(p["id"])]}
+	var side := Ratings.select_side(GameState.my_list, named)
+	var plays := false
+	for g in (side["ground"] as Array) + (side["bench"] as Array):
+		if str(g["id"]) == str(p["id"]):
+			plays = true
+	_check(not plays, "Naming a concussed player does not get him on the ground")
+	_check(GameState.save_career() and GameState.load_career(), "The career saves and loads")
+	var back := GameState.list_player(str(p["id"]))
+	_check(int(back.get("injury_weeks", 0)) == 2 and str(back.get("injury_kind", "")) == "concussion",
+			"A concussion survives a save, matches to miss and all")
+	Injuries.tick([back])
+	_check(not Ratings.available(back) and Injuries.concussion_text(back) == "Concussion — 1 match",
+			"After one match he still has one to miss")
+	Injuries.tick([back])
+	_check(Ratings.available(back) and Injuries.concussion_text(back) == "",
+			"After two matches he is available again")
+	GameState.delete_saved_career()
