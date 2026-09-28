@@ -219,9 +219,12 @@ func _phone_match(sz: Vector2i) -> void:
 	_check(not ft.contains("pts") and not ft.contains("Expected points") and not ft.contains("Possession chains"),
 			"The full-time screen keeps the analysis a tap away (%s)" % tag)
 	_check(not ft.contains(" XP"), "Development reads in words at full time, not XP (%s)" % tag)
-	# One review, three tabs, one way out.
-	for n in ["ReviewTab_summary", "ReviewTab_stats", "ReviewTab_report", "FullTimeContinue"]:
+	# One review, two tabs, one way out: the Summary is the one report.
+	for n in ["ReviewTab_summary", "ReviewTab_stats", "FullTimeContinue"]:
 		_check(ft_box != null and ft_box.find_child(n, true, false) != null, "Full time has %s (%s)" % [n, tag])
+	_check(ft_box != null and ft_box.find_child("ReviewTab_report", true, false) == null
+			and not ft.contains("Second-half notes") and not ft.contains("Match read"),
+			"One coaching report, not a summary plus a report (%s)" % tag)
 	var stats_btn: Button = ft_box.find_child("ReviewTab_stats", true, false) if ft_box != null else null
 	_check(stats_btn != null and stats_btn.size.y >= 44, "Match stats is one tap away (%s)" % tag)
 	if stats_btn != null:
@@ -271,23 +274,6 @@ func _phone_match(sz: Vector2i) -> void:
 		await _settle()
 		_check(m.find_child("MatchStats", true, false) == null and m.find_child("BestPlayers", true, false) != null,
 				"...and returns to Summary (%s)" % tag)
-		# The half-time report, as a tab: at a glance, the full report in place.
-		var rep_tab: Button = m.find_child("ReviewTab_report", true, false)
-		if rep_tab != null:
-			rep_tab.emit_signal("pressed")
-			await _settle()
-			var rr: Node = m.find_child("ReviewReport", true, false)
-			_check(rr != null and rr.find_child("MatchRead", true, false) != null, "Report shows the match at a glance (%s)" % tag)
-			var rtext := _text(rr) if rr != null else ""
-			_check(rr != null and rr.find_child("FullReportToggle", true, false) == null
-					and not rtext.contains("vs par") and not rtext.contains("Where the game is being won"),
-					"The Report tab is the one short report; the numbers are on Stats (%s)" % tag)
-			_check(not rtext.contains("Second-half notes") and not rtext.contains(" half."),
-					"At full time it talks about the game, not the half (%s)" % tag)
-			_check(m.call("handle_back") == true, "Back on Report is handled (%s)" % tag)
-			await _settle()
-			_check(m.find_child("ReviewReport", true, false) == null and m.find_child("BestPlayers", true, false) != null,
-					"...and returns to Summary (%s)" % tag)
 		_check(m.call("handle_back") == false, "Back on Summary leaves as full time always has (%s)" % tag)
 	m.queue_free()
 	await _settle()
