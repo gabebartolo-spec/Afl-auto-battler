@@ -21,6 +21,7 @@ func run() -> void:
 	_test_hothead()
 	_test_lockdown_midfielder()
 	_test_traits()
+	_test_metres_and_efficiency()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -503,3 +504,45 @@ func _test_traits() -> void:
 				credited = true
 			break
 	_check(any_syn and credited, "A side's synergies play and show in the readout")
+
+
+## Metres gained and disposal efficiency come from the chain itself: metres
+## are the ball's real forward movement, an effective disposal is one his
+## side kept.
+func _test_metres_and_efficiency() -> void:
+	var ok_sum := true
+	var ok_bounds := true
+	var fwd := [0.0, 0.0]
+	var dfn := [0.0, 0.0]
+	for i in range(12):
+		var res := _sim(900 + i).run()
+		for side in range(2):
+			var t: Dictionary = res["team"][side]
+			var m := 0.0
+			var e := 0.0
+			for r in res["roster"][side]:
+				var st: Dictionary = res["players"].get(str(r["id"]), {})
+				m += float(st.get("metres_gained", 0.0))
+				e += float(st.get("effective_disposals", 0.0))
+				if float(st.get("metres_gained", 0.0)) < 0.0 \
+						or float(st.get("effective_disposals", 0.0)) > float(st.get("disposals", 0.0)):
+					ok_bounds = false
+				var role := str(r.get("list_role", r["role"]))
+				if role == "FWD":
+					fwd[0] += float(st.get("effective_disposals", 0.0))
+					fwd[1] += float(st.get("disposals", 0.0))
+				elif role == "DEF":
+					dfn[0] += float(st.get("effective_disposals", 0.0))
+					dfn[1] += float(st.get("disposals", 0.0))
+			if absf(m - float(t.get("metres_gained", 0.0))) > 0.5 or absf(e - float(t.get("effective_disposals", 0.0))) > 0.5:
+				ok_sum = false
+			var de := MatchSim.disposal_efficiency(t)
+			if de < 50 or de >= 100:
+				ok_bounds = false
+	_check(ok_sum, "Players' metres and effective disposals add up to the team's")
+	_check(ok_bounds, "No negative metres, never more effective disposals than disposals")
+	_check(fwd[0] / fwd[1] < dfn[0] / dfn[1],
+			"Forwards, whose entries get rebounded, are less efficient than defenders (%.0f%% v %.0f%%)" % [
+			100.0 * fwd[0] / fwd[1], 100.0 * dfn[0] / dfn[1]])
+	_check(MatchSim.disposal_efficiency({"disposals": 20.0, "effective_disposals": 15.0}) == 75
+			and MatchSim.disposal_efficiency({}) == 0, "Disposal efficiency is effective over total")

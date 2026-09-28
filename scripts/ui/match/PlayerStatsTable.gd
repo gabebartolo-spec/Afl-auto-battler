@@ -11,7 +11,8 @@ const COLUMNS := [
 ]
 ## The rest of the line, shown when a row is opened.
 const DETAIL := [
-	["kicks", "kicks"], ["handballs", "handballs"], ["behinds", "behinds"],
+	["kicks", "kicks"], ["handballs", "handballs"], ["metres_gained", "metres gained"],
+	["behinds", "behinds"],
 	["goal_assists", "goal assists"], ["inside50", "inside 50s"], ["rebounds", "rebound 50s"],
 	["one_percenters", "one percenters"], ["hitouts", "hit-outs"],
 	["clangers", "clangers"], ["frees_against", "frees against"],
@@ -122,9 +123,12 @@ func _row(p: Dictionary) -> Control:
 	if _open == id:
 		var bits: PackedStringArray = []
 		for d in DETAIL:
-			var n := int(float(st.get(str(d[0]), 0.0)))
+			var n := int(round(float(st.get(str(d[0]), 0.0))))
 			if n > 0:
 				bits.append("%d %s" % [n, str(d[1])])
+			if str(d[0]) == "handballs" and st.has("effective_disposals") \
+					and float(st.get("disposals", 0.0)) > 0.0:
+				bits.append("%d%% disposal efficiency" % MatchSim.disposal_efficiency(st))
 		var more := UiKit.lbl(", ".join(bits) if not bits.is_empty() else "No other stats.",
 				UiKit.SMALL, UiKit.MUTED)
 		more.name = "PlayerDetail"

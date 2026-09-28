@@ -162,6 +162,28 @@ func _t(side: int, key: String, n := 1.0) -> void:
 	d[key] = float(d.get(key, 0.0)) + n
 
 
+## Ground won going forward by this possession: the ball's actual movement
+## toward the side's goal. Going backwards earns nothing.
+func _metres(side: int, player, m: float) -> void:
+	if m <= 0.0:
+		return
+	_t(side, "metres_gained", m)
+	_p(player, "metres_gained", m)
+
+
+func _effective(side: int, player) -> void:
+	_t(side, "effective_disposals")
+	_p(player, "effective_disposals")
+
+
+## Disposal efficiency, 0-100: the share of disposals that kept the ball.
+static func disposal_efficiency(st: Dictionary) -> int:
+	var d := float(st.get("disposals", 0.0))
+	if d <= 0.0:
+		return 0
+	return int(round(100.0 * float(st.get("effective_disposals", 0.0)) / d))
+
+
 func _p(player, key: String, n := 1.0) -> void:
 	if player == null:
 		return
@@ -506,11 +528,19 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 
 	var touches := 0
 	var max_touches := int(T["max_touches_per_chain"])
+	# The last disposal, until we know where it went: effective if his side
+	# has it next, not if he is caught with it or the chain dies in a
+	# stoppage or an entry is rebounded (disposal efficiency).
+	var pending = null
 	while touches < max_touches:
 		touches += 1
+		if pending != null:
+			_effective(side, pending)
+			pending = null
 		var carrier = pick_carrier(side, fp)
 		_t(side, "disposals")
 		_p(carrier, "disposals")
+		pending = carrier
 
 		var hb_bias: float = (0.85
 				+ 0.30 * (100.0 - _a(carrier, "marking")) / 100.0)
@@ -565,7 +595,9 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			if _trait(carrier, "bull"):
 				retain *= 1.10
 			if rng.randf() < retain:
+				var before_fp := fp
 				fp = clampf(fp + rng.randf_range(4.0, 12.0) * dir, -gline, gline)
+				_metres(side, carrier, (fp - before_fp) * dir)
 				continue
 			_emit("tackle", opp, fp, tackler,
 					"%s tackles %s - ball up" % [GameDB.player_display_name(tackler), GameDB.player_display_name(carrier)])
@@ -583,6 +615,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		fp += gain * dir
 		fp = clampf(fp, -gline, gline)
 		atk_fp = fp if side == 0 else -fp
+		_metres(side, carrier, atk_fp - prev_atk_fp)
 
 		# Rebound 50: winning it out of your own defensive arc.
 		if prev_atk_fp < float(T["rebound_from"]) and atk_fp > float(T["rebound_to"]):
@@ -595,7 +628,11 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_p(carrier, "inside50")
 			_emit("inside50", side, fp, carrier,
 					"%s sends it inside 50" % GameDB.player_display_name(carrier))
-			return resolve_forward50(side, fp, carrier)
+			var entry := resolve_forward50(side, fp, carrier)
+			# An entry the defence rebounds is a turnover, not an effective kick.
+			if str(entry["outcome"]) != "turnover":
+				_effective(side, carrier)
+			return entry
 
 		# A clean exit from your own defensive 50 is a rebound.
 		if atk_fp > 5.0 and atk_fp - gain <= -f50:
