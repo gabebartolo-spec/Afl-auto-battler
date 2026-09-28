@@ -375,10 +375,10 @@ Instrument/seed the offending situation and confirm the ball is targeting the co
 ---
 
 ## ARD-M1-006 — Concussion: mandatory two-match absence
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
-**Current state (2026-09-28):** fixed in PR #51 (concussion floored at 2 matches, "Concussion — X matches" copy); awaiting merge.
+**Outcome (2026-09-28, PR #51):** `Injuries.roll_match` floors a concussion at `CONCUSSION_MIN` = 2 matches after the roll (no extra random draws, so every other injury rolls as before). Already true and verified: `injury_weeks` counts the club's matches; `Ratings.select_side` drops injured players for every club, named or not (AI parity); the absence is saved on the player. UI: "Concussion — 2 matches" / "Concussion — 1 match" on the player sheet, list, selection and matchup notes. Regression: `tests/test_injuries.gd` (every concussion in a season is 2+ matches; a named concussed player does not play; survives save/load; available only after two matches).
 
 ### Requirements
 - Concussion means a minimum **2 matches unavailable**.
