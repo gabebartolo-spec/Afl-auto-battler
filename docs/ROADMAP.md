@@ -71,18 +71,65 @@ For every authorised roadmap task:
 4. State the smallest implementation plan.
 5. Implement only the authorised scope.
 6. Do not opportunistically redesign adjacent systems.
-7. Add targeted regression tests.
-8. Run the relevant tests.
-9. Run the full suite before handoff unless the environment prevents it.
-10. For simulation-affecting work, run an appropriate seeded balance comparison.
-11. For save-schema changes, prove backward compatibility.
-12. For UI work, check narrow Android portrait layouts.
+7. Add targeted regression tests for the behaviour actually changed.
+8. During implementation, run only the targeted/relevant suites needed for fast feedback. Do **not** repeatedly run the entire repository suite after small edits.
+9. When the coherent implementation is ready, push/open the PR. GitHub CI is the default owner of the full regression suite.
+10. For simulation-affecting work, run the smallest appropriate seeded balance comparison that can answer the actual hypothesis; only scale the sample up once the implementation is stable.
+11. For save-schema changes, prove backward compatibility with targeted save/load coverage.
+12. For UI work, check the relevant narrow Android portrait layouts; do not re-screenshot unrelated screens.
 13. Update this roadmap's status/notes if the task is completed or materially changed.
 14. Commit logically. Under the standing authority above, merge a clean PR once required tests/checks and any balance/save/UI gates pass. Do not wait for a second permission message.
 15. Verify the merged result on `main`, then update the roadmap status/implementation record.
 16. Handoff with exact files, commits, tests, behaviour before/after, balance evidence and remaining risks.
 
 If the requested feature turns into a broad rewrite, **stop and report the dependency/risk instead of silently expanding scope**.
+
+## 0.6 Lean validation ownership
+
+The goal is **high confidence without making Claude spend development time repeatedly proving the same thing**.
+
+### Claude owns while coding
+Claude should:
+- run the smallest targeted test suite(s) that cover the code being changed;
+- add/repair regression tests for the changed behaviour;
+- run targeted save, UI or balance probes only when the task requires them;
+- fix genuine failures caused by the implementation;
+- push a coherent PR as soon as the feature is ready for repository-wide verification.
+
+Claude should **not** routinely run the full suite locally when GitHub CI will run the same suite on the same PR head. A local full-suite run is justified only when:
+- the change modifies the test harness / CI itself;
+- CI is unavailable;
+- a difficult integration failure is easier to diagnose locally;
+- the task is unusually high-risk and repository-wide behaviour must be checked before pushing.
+
+### ChatGPT owns repository-wide verification
+When ChatGPT has GitHub access, ChatGPT should take over the mechanical verification work after Claude pushes:
+- inspect the PR diff and test coverage;
+- monitor the GitHub Actions full-suite result;
+- inspect failing job logs;
+- distinguish a real code failure from an infrastructure/flaky failure;
+- rerun only the failed job/run when appropriate rather than restarting everything;
+- confirm the PR is current enough with `main` and mergeable;
+- verify required balance/save/UI evidence is present;
+- merge clean validated work under the standing authority;
+- verify the merge on `main` and keep the roadmap record accurate.
+
+If CI exposes a genuine implementation bug, ChatGPT should give Claude the **specific failure and relevant log context**; Claude remains the coding agent.
+
+### Test tiers
+Use the cheapest tier that answers the current question:
+
+1. **Fast loop — targeted tests:** after code edits; normally seconds/minutes.
+2. **Feature gate — targeted integration/balance/save/UI checks:** once the implementation stabilises.
+3. **PR gate — full repository suite in GitHub CI:** normally once per coherent PR head, not after every local edit.
+4. **Long-run gate — multi-season / large seeded simulations:** only for systems whose correctness or balance genuinely emerges over time.
+
+Do not duplicate equivalent validation merely because both local and CI execution are available. A green GitHub full suite on the exact PR head normally satisfies the repository-wide regression requirement.
+
+### While CI runs
+Claude should not sit idle merely because CI is running. If there is a **clearly independent** next task, Claude may continue development on it. Avoid uncontrolled branch sprawl: normally keep no more than **two active implementation branches** unless there is a strong dependency reason.
+
+If the next task depends directly on the PR being merged, use the wait time for diagnosis, design inspection, or a non-conflicting preparatory step rather than building deeply on an unmerged dependency.
 
 ---
 
@@ -1971,20 +2018,29 @@ These are here to stop Claude from rebuilding things that already exist. **Verif
 
 # 5. Standard Validation Matrix
 
-Claude should use the relevant rows for every task.
+Use the relevant rows only. These are **feature-specific gates**; the repository-wide full suite is normally delegated to GitHub CI at PR time under §0.6.
 
-| Change type | Required validation |
+| Change type | During coding / feature gate |
 |---|---|
-| Pure UI | narrow portrait check; navigation/state preservation; no clipping; relevant UI tests |
-| MatchSim logic | deterministic unit/regression tests; seeded sim comparison; full suite |
-| Player statistics | event-level attribution test; player/team reconciliation; season aggregation; save/load if persisted |
-| Balance mechanic | baseline vs change over many seeds; distribution and positional effects; strong/weak team comparison |
-| Availability/injury/suspension | manual selection; AI selection; decrement rules; save/load roundtrip |
-| Season/calendar | new career; round progression; finals boundary; rollover; save/reload |
-| Salary/list rule | exact-boundary cases; AI parity; invalid-state recovery; save/reload |
+| Pure UI | relevant UI tests; inspect only affected portrait layouts; navigation/state preservation; no clipping |
+| MatchSim logic | deterministic targeted regression; focused seeded sim comparison if outcomes can change |
+| Player statistics | event-level attribution; player/team reconciliation; season aggregation; save/load only if persisted |
+| Balance mechanic | start with a cheap baseline/variant sample; scale to a larger seeded run only after the effect stabilises; inspect relevant distributions/side effects |
+| Availability/injury/suspension | targeted manual/AI selection rules; decrement rules; save/load if state persists |
+| Season/calendar | targeted progression/boundary/rollover scenarios; save/reload if affected |
+| Salary/list rule | exact-boundary cases; AI parity; invalid-state recovery; save/reload if affected |
 | Persistent schema | old-save default/migration; current-save roundtrip; no data loss |
-| Visualisation | event/result reconciliation; direction/restart; no second simulation logic |
-| Long-save feature | multi-season automated run; duplicate/history checks; performance/data growth |
+| Visualisation | affected event/result reconciliation; direction/restart regression; relevant phone view only |
+| Long-save feature | run the minimum multi-season probe that exposes the long-run behaviour; expand to 30/50/100 seasons only when the question requires it |
+| Docs/copy only | no local full suite; rely on CI if repository policy runs it |
+
+### Avoid redundant validation
+
+- Do not run the same full suite locally and then again in CI without a specific reason.
+- Do not rerun a long balance/career probe after a docs-only or copy-only change.
+- After resolving a merge conflict, run the **affected targeted suites** locally; let CI provide the repository-wide regression pass.
+- If a CI run fails for an unrelated/flaky reason, inspect the logs and rerun the failed job rather than making Claude repeat every local test.
+- A test count is not a goal by itself. Prefer a small test that proves the behaviour over thousands of irrelevant checks during the coding loop.
 
 ---
 
@@ -2063,11 +2119,13 @@ Implementation rules:
 
 Validation:
 - Add targeted regression tests.
-- Run relevant tests.
-- Run the full suite before handoff.
-- If simulation outcomes change, perform the roadmap Balance Assessment.
+- During coding, run only relevant/targeted suites.
+- Push the coherent PR for the repository-wide full-suite gate; GitHub CI owns that by default.
+- Do not duplicate a green CI full suite with an equivalent local full-suite run unless §0.6 gives a reason.
+- If simulation outcomes change, perform the smallest useful roadmap Balance Assessment and scale the sample only when needed.
 - If persisted data changes, run old-save/default + save/reload checks.
-- If UI changes, verify narrow Android portrait layouts.
+- If UI changes, verify only the affected narrow Android portrait layouts.
+- Once pushed, ChatGPT may own CI monitoring/log review/reruns/merge verification so Claude can keep coding.
 
 Roadmap maintenance:
 - Update this item's status/implementation note only after the work is actually completed.
@@ -2084,7 +2142,7 @@ Final handoff:
 2. Behaviour before vs after.
 3. Files changed.
 4. Tests added/updated.
-5. Full suite result.
+5. Targeted test result + GitHub CI full-suite result (do not duplicate equivalent runs).
 6. Balance evidence if applicable.
 7. Save-compatibility evidence if applicable.
 8. Remaining risks/deferred work.
@@ -2107,6 +2165,8 @@ For each task:
 - inspect first,
 - skip/stop if unexpectedly architectural or genuinely ambiguous,
 - one logical concern per commit where practical,
+- use targeted tests during the coding loop and delegate the routine full-suite PR gate to GitHub CI / ChatGPT where available,
+- do not idle solely waiting for CI when an independent next task can safely proceed,
 - merge clean validated work rather than leaving finished PRs idle,
 - do not make speculative balance changes without measurement,
 - do not "clean up" unrelated code,
@@ -2180,6 +2240,7 @@ Before adding any new roadmap line, check this table.
 
 Keep this short. Add only meaningful structural changes, not every code commit.
 
+- **2026-09-28:** Added lean validation ownership: Claude uses targeted tests while coding; GitHub CI/ChatGPT owns the routine full-suite PR gate, log triage, selective reruns and merge verification. Avoid duplicate full-suite and long-run testing.
 - **2026-09-28:** Added Phase 4 former-player coaching guidance: test ~25% pathway entry first, let generated coaches act as top-up supply, and treat low player-career turnover as a separate upstream issue rather than forcing the coaching percentage.
 - **2026-09-28:** Added ARD-M5-011 for opening League Draft career-stage filters (Rookies / Prime / Veterans), with exact age cut-offs to be chosen from the actual 2027 pool distribution.
 - **2026-09-28:** Added OVR calibration sanity notes: keep #47's measured pressure weighting; use Toby Greene in the low-80s as a broader-model spot-check rather than a manual patch.
