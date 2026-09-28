@@ -660,12 +660,14 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		q_goals[current_quarter - 1][side] += 1
 		_score_run(side)
 		_emit("goal", side, fp, shooter, _scoreline(side, "GOAL"))
+		_tag_shot(marked)
 		return {"outcome": "score", "fp": 0.0, "actor": shooter}
 	if roll < goal_p + behind_p:
 		_t(side, "behinds")
 		_p(shooter, "behinds")
 		q_behinds[current_quarter - 1][side] += 1
 		_emit("behind", side, fp, shooter, _scoreline(side, "Behind"))
+		_tag_shot(marked)
 		return {"outcome": "behind", "fp": kick_in_fp(side), "actor": shooter}
 
 	_t(opp, "rebounds")
@@ -673,6 +675,12 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	_emit("rebound", opp, fp, defender,
 			"%s rebounds it out of danger" % GameDB.player_display_name(defender))
 	return {"outcome": "turnover", "fp": fp, "actor": defender}
+
+
+## Marks the score just logged as a set shot (from a mark) or a shot in
+## open play, so the match view stages one and not the other.
+func _tag_shot(set_shot: bool) -> void:
+	(events[events.size() - 1] as Dictionary)["set_shot"] = set_shot
 
 
 ## The goal chance for a shot. With `credit`, the tactical, fatigue and
@@ -1505,6 +1513,7 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 		q_goals[current_quarter - 1][side] += 1
 		_score_run(side)
 		_emit("goal", side, fp, kicker, _scoreline(side, "GOAL"))
+		_tag_shot(true)
 		_end_moment_chain("score", 0.0, side)
 		return {"points": 6, "text": "GOAL to %s!" % GameDB.player_display_name(kicker)}
 	if roll < goal_p + behind_p:
@@ -1512,6 +1521,7 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 		_p(kicker, "behinds")
 		q_behinds[current_quarter - 1][side] += 1
 		_emit("behind", side, fp, kicker, _scoreline(side, "Behind"))
+		_tag_shot(true)
 		_end_moment_chain("behind", kick_in_fp(side), side)
 		return {"points": 1, "text": "Just a behind from %s." % GameDB.player_display_name(kicker)}
 	return _shot_turnover(side, defender, "%s's shot is rebounded" % GameDB.player_display_name(kicker))
