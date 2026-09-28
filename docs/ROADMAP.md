@@ -116,6 +116,16 @@ When ChatGPT has GitHub access, ChatGPT should take over the mechanical verifica
 
 If CI exposes a genuine implementation bug, ChatGPT should give Claude the **specific failure and relevant log context**; Claude remains the coding agent.
 
+### PR feedback handoff
+Claude must actively check the conversation/comments on any open PR he owns:
+- immediately after pushing/opening the PR;
+- before resuming work on that PR after doing another task;
+- before treating the PR as ready to merge or abandoning it for the next roadmap item.
+
+ChatGPT will post actionable failures as a top-level PR comment, prefixed **`[CI HANDOFF]`**, with the failing suite/job, the relevant log excerpt or symptom, and what needs fixing. Claude should treat an unresolved `[CI HANDOFF]` comment as work on that PR, fix the code, push the update, and reply/resolve through the PR rather than asking the user to relay the failure.
+
+Claude should not assume GitHub comments will be surfaced automatically by the coding session; **checking the PR is part of the workflow**.
+
 Documentation-only PRs (`docs/**` and Markdown-only changes) are excluded from the expensive Godot full-suite workflow. If a PR changes both documentation and game/code/data/config files, CI still runs normally.
 
 ### Test tiers
