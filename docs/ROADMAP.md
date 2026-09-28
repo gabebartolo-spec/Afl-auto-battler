@@ -1586,7 +1586,8 @@ Before implementation, inspect the actual 2027 League Draft age distribution and
 Goal: strengthen the management loop around the football.
 
 ## ARD-M6-001 — Coaching hub
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #81 as `6a9abc73`; verified on main 2026-09-28.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
