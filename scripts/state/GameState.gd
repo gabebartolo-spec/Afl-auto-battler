@@ -548,22 +548,34 @@ func reset() -> void:
 	_xp_grant_key = ""
 	_dirty = false
 	default_train_plan = "position"
-	season_year = 2026
+	season_year = GameDB.START_YEAR
 	drafted_draftees = {}
 	intake_assignments = []
 	intake_summary = {}
-	draftee_pool = GameDB.draftees.duplicate()
+	# The 2026 class was drafted before the career began (it is in the
+	# League Draft pool); the first class drafted in the career is 2027's,
+	# made exactly as a rollover makes the next year's class.
+	draftee_pool = _first_class(season_year)
+
+
+## The draft class a career starting in `year` drafts at that season's end:
+## generated and aged the way _start_next_season prepares next year's.
+func _first_class(year: int) -> Array:
+	var generated := Prospects.generate_class(year, career_seed)
+	class_tiers[str(year)] = Prospects.class_tier(career_seed, year)
+	GameDB.register_draftees(generated)
+	return Prospects.age_pool(generated, year, {})
 
 
 func begin_draft() -> void:
 	var seed := int(Time.get_unix_time_from_system()) % 1000000
-	# A career starts in 2026, so this is the founding eighteen - but gate on
-	# the season year anyway so a future start year can't draft expansion clubs
-	# that do not exist yet.
-	draft = Draft.new(GameDB.all_players_sorted(),
-			GameDB.active_clubs(season_year).duplicate(), seed)
-	if draftee_pool.is_empty():
-		draftee_pool = GameDB.draftees.duplicate()
+	# The clubs of the first playable season (the founding eighteen in 2027;
+	# expansion clubs arrive later with their own lists). The pool is the
+	# league 2026 left behind: every listed player plus the 2026 draft class,
+	# drafted before the 2027 season.
+	var pool: Array = GameDB.all_players_sorted() + GameDB.all_draftees_sorted()
+	pool.sort_custom(func(a, b): return a["overall"] > b["overall"])
+	draft = Draft.new(pool, GameDB.active_clubs(season_year).duplicate(), seed)
 
 
 # ---------------------------------------------------------------------------
@@ -581,7 +593,9 @@ func begin_intake_draft() -> bool:
 	if draft != null and draft.intake_mode:
 		return true  # resume the draft in progress
 	open_offseason()
-	if draftee_pool.is_empty():
+	if draftee_pool.is_empty() and season_year == GameDB.DATA_SEASON:
+		# A career begun in 2026 (before 2027 starts) still drafts the real
+		# 2026 class at its first season's end.
 		draftee_pool = GameDB.draftees.duplicate()
 
 	_ensure_league_lists()
@@ -855,12 +869,21 @@ func start_season(club_code: String, list: Array) -> void:
 	# Career copies, not the shared database rows. Training must not rewrite
 	# the draft pool for the next career.
 	my_list = lists.get(my_club, [])
+	# The real 2026 season is history before the career starts: every real
+	# player's record runs through 2026, at the club he played it for. A
+	# 2026 draftee has no senior games; his record starts after 2026 too.
+	if season_year > GameDB.DATA_SEASON:
+		for code in lists:
+			for p in lists[code]:
+				Career.add_season(p, GameDB.DATA_SEASON, str(p.get("data_club", p.get("club", ""))),
+						int(float(p.get("gm", 0.0))), int(float(p.get("gl", 0.0))))
 	# Fixtures, ladders and finals cover only the clubs active this year.
 	season = Season.new(GameDB.active_clubs(season_year).duplicate(), lists,
 			int(Time.get_unix_time_from_system()) % 1000000)
 	salary_cap = draft.budget if draft != null and draft.league_mode else 0
 	ensure_contracts()
-	# The coaching world at Round 1 2026, with you in your club's top job.
+	# The coaching world from its Round 1 2026 source, carried into this
+	# career's first season with you in your club's top job.
 	coaches = Coaches.seed(my_club)
 	_open_board_season()
 	last_phase = "regular"

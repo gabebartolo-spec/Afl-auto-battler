@@ -61,31 +61,32 @@ func _test_entry_gates() -> void:
 		_check(str(c.get("name", "")) != "" and str(c.get("ground", "")) != "",
 				"%s has a name and a ground" % code)
 		_check((GameDB.club_list(code) as Array).is_empty(),
-				"%s has no 2026 players (its list is generated at entry)" % code)
+				"%s has no 2026-data players (its list is generated at entry)" % code)
 
-	# The new career's draft and club selection only see 2026's active clubs.
+	# The new career's draft and club selection only see the first season's clubs.
 	GameState.reset()
 	GameState.begin_draft()
 	_check(GameState.draft.clubs.size() == 18
 			and not GameState.draft.clubs.has("TAS")
 			and not GameState.draft.clubs.has("CANB"),
-			"The 2026 career draft runs the founding eighteen only")
+			"The 2027 career draft runs the founding eighteen only")
 	GameState.reset()
 
 
 # ---------------------------------------------------------------------------
 # A career through the expansion
 # ---------------------------------------------------------------------------
-func _new_2026_season() -> Season:
+func _new_first_season() -> Season:
 	GameState.reset()
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
 	return GameState.season
 
 
 func _test_2026_baseline() -> void:
-	var season := _new_2026_season()
-	_check(season.ladder.size() == 18, "The 2026 ladder has eighteen clubs")
-	_check(season.fixture.size() == Season.REGULAR_ROUNDS, "24 rounds in 2026")
+	var season := _new_first_season()
+	_check(GameState.season_year == 2027, "A career's first season is 2027")
+	_check(season.ladder.size() == 18, "The 2027 ladder has eighteen clubs")
+	_check(season.fixture.size() == Season.REGULAR_ROUNDS, "24 rounds in 2027")
 	for r in season.fixture:
 		_check((r as Array).size() == 9, "Eighteen clubs play nine matches a round")
 
@@ -107,14 +108,7 @@ func _rollover() -> void:
 
 
 func _test_rollover_to_2028() -> void:
-	# 2026 -> 2027: nothing changes.
-	_rollover()
-	_check(GameState.season_year == 2027, "The career advances to 2027")
-	_check(GameState.season.ladder.size() == 18, "2027 still has eighteen clubs")
-	_check(GameState.season.fixture.size() == Season.REGULAR_ROUNDS,
-			"2027 keeps a 24-round fixture")
-
-	# 2027 -> 2028: Tasmania arrives.
+	# 2027 -> 2028: the first rollover, and Tasmania arrives.
 	_rollover()
 	_check(GameState.season_year == 2028, "The career advances to 2028")
 	var season: Season = GameState.season

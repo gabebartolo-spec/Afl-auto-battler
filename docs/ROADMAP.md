@@ -512,7 +512,7 @@ Provide a legal compliance path such as releasing/delisting eligible commitments
 **Status:** `IN PROGRESS`  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
-**Current state (2026-09-28):** implemented in PR #45 (careers start 2027, 2026 is history); awaiting merge.
+**Outcome (2026-09-28, PR #45):** the dataset is the completed 2026 season (`GameDB.DATA_SEASON`); careers start in 2027 (`START_YEAR`, ages as at 1 March 2027). The League Draft pool includes the real 2026 draft class (725 players, lists of 40); every player's career line carries his real 2026 season; the first generated national class is 2027; 2026 coaching stints stay history (`Coaches.SEED_YEAR`); old 2026 saves keep their original behaviour. Regression: new chronology suite (28 checks) plus career, intake, coaches, expansion, awards and achievements suites parameterised on `START_YEAR`; a full-career trace ran League Draft 2027 -> season -> national draft -> rollover to 2028 with Tasmania.
 
 ### Intent
 The playable career baseline should be 2027 so roster, draft and coaching chronology make sense.
