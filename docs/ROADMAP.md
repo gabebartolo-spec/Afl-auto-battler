@@ -313,7 +313,13 @@ Goal: fix things that are currently wrong, misleading, broken on mobile or capab
   - Team totals are unchanged.
 - **Balance (1,000 seeded matches, before v after):** mean score 86.9 v 86.5, goals per team 12.92 v 12.85, home win 59.6% v 61.3%, median margin 22 v 23. The calibration and league_balance suites pass.
 - **Regression:** `test_match_game.gd::_test_no_role_gates`.
-- **Still open (balance, not sanity):** the disposal split (mids 39%, defenders 43%) and the back-third carrier weighted by intercept (audit findings 11-12). These belong with an OVR re-measure under ARD-M5-010.
+- **Balance follow-up (2026-09-28, re-measured on main after part 2 and ARD-M5-010):**
+  - Disposal split over 150 seeded matches: mids 35.9%, defenders 35.0%, forwards 24.1%, rucks 4.9%.
+  - Real AFL runs roughly mids 40%, defenders 34%, forwards 21%, rucks 5%.
+  - The role weights in part 2 removed the defender excess the audit found (43%), so no further tuning.
+  - Lowering defenders' carrying weight through the middle (1.0 to 0.5) moved it under a point (mids 36.4%, defenders 34.0%). It was not kept.
+  - The back-third carrier stays weighted by intercept. Interceptor defenders winning the ball in their back half is football, and the defender core already rates intercept first.
+- **Status note:** both parts are merged. The remaining findings are resolved or measured as within range, so nothing is open under this item. The verification record is ChatGPT's.
 
 ### Intent
 Normal AFL actions should not become impossible because of simplistic role gates.
