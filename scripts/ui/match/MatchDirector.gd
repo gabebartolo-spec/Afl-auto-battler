@@ -341,6 +341,8 @@ func _start_beat(k: int) -> void:
 			_phases = [{"t": "emit"}, {"t": "wait", "dur": 0.5, "ease": true}]
 		"tackle":
 			_phases = _tackle_phases(k)
+		"pressure":
+			_phases = _pressure_phases(k)
 		"inside50":
 			_phases = _inside50_phases(k)
 		"goal", "behind":
@@ -449,7 +451,7 @@ func _possession_phases(k: int) -> Array:
 func _receive(k: int, a: int) -> Array:
 	# About to be tackled: he runs onto it where it lies, and is caught there.
 	var nk := _next_real(k)
-	var roll := not (nk >= 0 and str((events[nk] as Dictionary).get("kind", "")) == "tackle")
+	var roll := not (nk >= 0 and str((events[nk] as Dictionary).get("kind", "")) in ["tackle", "pressure"])
 	return [{"t": "collect", "who": a, "max": 0.25}, {"t": "emit", "log": true},
 			{"t": "collect", "who": a, "roll": roll}, {"t": "possess", "who": a}, _hold(k, a)]
 
@@ -466,7 +468,7 @@ func _hold(k: int, who: int) -> Dictionary:
 	if nk >= 0 and who >= 0:
 		var nev: Dictionary = events[nk]
 		var nkind := str(nev.get("kind", ""))
-		if nkind == "tackle":
+		if nkind == "tackle" or nkind == "pressure":
 			return {"t": "hold", "who": who, "dur": 0.05}
 		if (DISPOSALS.has(nkind) or nkind == "inside50" or nkind == "clanger") \
 				and _restart(nk) == "open" and int(nev.get("side", -1)) == int((events[k] as Dictionary).get("side", -2)):
@@ -577,6 +579,16 @@ func _tackle_phases(k: int) -> Array:
 			{"t": "down", "who": tk, "victim": victim, "dur": 0.55}]
 
 
+## Pressure that forces a turnover: the presser closes on the carrier and
+## the ball spills to him, no stoppage.
+func _pressure_phases(k: int) -> Array:
+	var ph := _tackle_phases(k)
+	if ph.size() < 3:
+		return ph
+	var who := int((ph[0] as Dictionary)["who"])
+	return [ph[0], ph[1], {"t": "collect", "who": who}, {"t": "possess", "who": who}]
+
+
 func _inside50_phases(k: int) -> Array:
 	var ev: Dictionary = events[k]
 	var a := _actor_id(ev)
@@ -672,7 +684,7 @@ func _loc(k: int) -> Vector2:
 	var a := _actor_id(ev)
 	var ry: float = (tokens[a]["pos"] as Vector2).y if a >= 0 else src.y
 	var p: Vector2
-	if kind in ["goal", "behind", "rebound", "tackle", "free", "ballup"]:
+	if kind in ["goal", "behind", "rebound", "tackle", "pressure", "free", "ballup"]:
 		p = Vector2(x, src.y)
 	elif _possession(kind) and _restart(k) == "centre":
 		p = Vector2(0.0, signf(ry if ry != 0.0 else 1.0) * 3.5)
@@ -720,7 +732,7 @@ func _anticipate(k: int) -> void:
 		var kind := str(nev.get("kind", ""))
 		var a := _actor_id(nev)
 		if a >= 0 and not _busy.has(a):
-			if kind == "tackle" and cur >= 0:
+			if (kind == "tackle" or kind == "pressure") and cur >= 0:
 				# The tackler is already closing from behind as the ball arrives.
 				var at := _loc(k) if DISPOSALS.has(str(ev.get("kind", ""))) else (tokens[cur]["pos"] as Vector2)
 				var from: Vector2 = tokens[a]["pos"]
@@ -770,7 +782,7 @@ func _lead_receivers(k: int, cur: int) -> void:
 		var kind := str(nev.get("kind", ""))
 		if ["goal", "behind", "quarter", "final", "inside50"].has(kind):
 			break  # restarts and forward-50 contests stage their own players
-		if kind == "tackle":
+		if kind == "tackle" or kind == "pressure":
 			t += 1.2
 			continue
 		if kind == "free":

@@ -205,6 +205,19 @@ func _p(player, key: String, n := 1.0) -> void:
 	d[key] = float(d.get(key, 0.0)) + n
 
 
+## A side's Pressure Rating for a match (or part of one), from its own and
+## its opponent's team stats: pressure acts per 100 opposition disposals,
+## with pressure that stopped their move (a tackle that forced a ball-up, or
+## a turnover) counting twice. A typical side lands near 60. Our own game
+## measure, read straight from what happened.
+static func pressure_rating(team: Dictionary, opp_team: Dictionary) -> int:
+	var opp_disposals := float(opp_team.get("disposals", 0.0))
+	if opp_disposals <= 0.0:
+		return 0
+	var acts := float(team.get("pressure_acts", 0.0)) + float(team.get("pressure_wins", 0.0))
+	return clampi(roundi(100.0 * acts / opp_disposals), 0, 100)
+
+
 func score(side: int) -> int:
 	return int(goals(side) * 6 + behinds(side))
 
@@ -451,6 +464,57 @@ func _credit(side: int, cause: String, pts: float) -> void:
 	d[cause] = float(d.get(cause, 0.0)) + pts
 
 
+## Pressure by zone. Where the ball is, from the carrier's end: his back
+## third (their forwards press), the middle (their midfield), his forward
+## third (their defenders). Each role's share of the pressing there; a
+## player's chance to be the one applying it is this times Pressure squared.
+const PRESS_ZONES := [
+	{"FWD": 1.0, "MID": 0.75, "RUCK": 0.30, "DEF": 0.10},
+	{"FWD": 0.30, "MID": 1.0, "RUCK": 0.70, "DEF": 0.30},
+	{"FWD": 0.10, "MID": 0.75, "RUCK": 0.30, "DEF": 1.0},
+]
+const PRESS_ZONE_EDGE := 20.0
+## Non-tackle pressure acts per tackle chance, the share of those that turn
+## the ball over outright, and the ground a rushed disposal still gains.
+const PRESS_RUSH_RATIO := 2.0
+const PRESS_TURNOVER := 0.08
+const PRESS_RUSH_GAIN := 0.80
+
+
+static func _press_zone(atk_fp: float) -> int:
+	if atk_fp < -PRESS_ZONE_EDGE:
+		return 0
+	if atk_fp > PRESS_ZONE_EDGE:
+		return 2
+	return 1
+
+
+## How hard `side` presses in `zone`: its on-ground players' Pressure as
+## they are playing now, weighted by who is in that zone.
+func _zone_pressure(side: int, zone: int) -> float:
+	var w: Dictionary = PRESS_ZONES[zone]
+	var total := 0.0
+	var weight := 0.0
+	for p in (squads[side] as Squad).ground:
+		var rw := float(w.get(str(p["role"]), 0.0))
+		total += rw * _a(p, "pressure")
+		weight += rw
+	return total / weight if weight > 0.0 else 45.0
+
+
+## Who applies the pressure: zone opportunity x Pressure squared, so the
+## best pressers do most of it without doing all of it.
+func _pick_presser(side: int, zone: int):
+	var w: Dictionary = PRESS_ZONES[zone]
+	var group: Array = (squads[side] as Squad).ground
+	var weights := []
+	for p in group:
+		weights.append(float(w.get(str(p["role"]), 0.0))
+				* pow(maxf(1.0, _a(p, "pressure")), 2.0)
+				* _tactic_player_mult(side, p, "tackler"))
+	return _pick(group, weights)
+
+
 func pick_carrier(side: int, fp: float):
 	var T := Ratings.T
 	var sq: Squad = squads[side]
@@ -607,9 +671,13 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			else:
 				_emit("kick", side, fp, carrier, "%s kicks" % GameDB.player_display_name(carrier))
 
-		var pressure: float = (float(T["pressure_base"])
-				* (0.72 + 0.56 * dfn.def_pressure / 100.0))
+		# Pressure comes from whoever is near the ball: their forwards when we
+		# are coming out of defence, their midfield through the middle, their
+		# defenders when we are going forward (PRESS_ZONES).
 		atk_fp = fp if side == 0 else -fp
+		var zone := _press_zone(atk_fp)
+		var pressure: float = (float(T["pressure_base"])
+				* (0.72 + 0.56 * _zone_pressure(opp, zone) / 100.0))
 		pressure *= 1.10 if atk_fp < 0.0 else 0.95
 		var p_base := pressure
 		pressure *= _press_on(side)
@@ -627,13 +695,16 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_credit(side, "calls", pressure * 0.15 * TURNOVER_VALUE)
 			pressure *= 0.85
 
-		if rng.randf() < pressure:
+		# One roll, three outcomes: a tackle, a pressured (rushed) disposal,
+		# or no pressure at all. Both of the first two are pressure acts.
+		var press_roll := rng.randf()
+		var rushed := false
+		if press_roll < pressure:
+			var tackler = _pick_presser(opp, zone)
 			_t(opp, "tackles")
-			var tgroup := _by_roles(dfn.ground, ["MID", "DEF"])
-			if tgroup.is_empty():
-				tgroup = dfn.ground
-			var tackler = _weighted(tgroup, "pressure", 2.0, opp, "tackler")
 			_p(tackler, "tackles")
+			_t(opp, "pressure_acts")
+			_p(tackler, "pressure_acts")
 			var retain: float = (float(T["tackle_retention"])
 					* (0.75 + 0.50 * _a(carrier, "contested") / 100.0))
 			if _trait(carrier, "bull"):
@@ -643,9 +714,27 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				fp = clampf(fp + rng.randf_range(4.0, 12.0) * dir, -gline, gline)
 				_metres(side, carrier, (fp - before_fp) * dir)
 				continue
+			_t(opp, "pressure_wins")
 			_emit("tackle", opp, fp, tackler,
 					"%s tackles %s - ball up" % [GameDB.player_display_name(tackler), GameDB.player_display_name(carrier)])
 			return {"outcome": "stoppage", "fp": fp, "actor": carrier}
+		if press_roll < pressure * (1.0 + PRESS_RUSH_RATIO):
+			# Closed down without a tackle: the disposal is rushed. It gains
+			# less ground, and sometimes goes straight to the opposition -
+			# likelier against a strong presser, less likely from a clean
+			# user of the ball.
+			var presser = _pick_presser(opp, zone)
+			_t(opp, "pressure_acts")
+			_p(presser, "pressure_acts")
+			var turn_p: float = (PRESS_TURNOVER
+					* (0.80 + 0.40 * _a(presser, "pressure") / 100.0)
+					* (1.20 - 0.40 * _a(carrier, "disposal") / 100.0))
+			if rng.randf() < turn_p:
+				_t(opp, "pressure_wins")
+				_emit("pressure", opp, fp, presser,
+						"%s forces the turnover" % GameDB.player_display_name(presser))
+				return {"outcome": "turnover", "fp": fp, "actor": presser}
+			rushed = true
 
 		var prev_atk_fp := atk_fp
 		var gain: float = (float(T["metres_gain_mean"])
@@ -656,6 +745,8 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		if _burst(side, "flood") or _burst(side, "hold"):
 			gain *= 0.85
 		gain *= rng.randf_range(0.45, 1.75)
+		if rushed:
+			gain *= PRESS_RUSH_GAIN
 		fp += gain * dir
 		fp = clampf(fp, -gline, gline)
 		atk_fp = fp if side == 0 else -fp
@@ -764,6 +855,12 @@ func _tag_shot(set_shot: bool) -> void:
 	(events[events.size() - 1] as Dictionary)["set_shot"] = set_shot
 
 
+## Shot quality from the inside-50 kick: 0.94x from a poor creator, 1.06x
+## from an elite one (1.0 at 50).
+const FEED_BASE := 0.94
+const FEED_SLOPE := 0.12
+
+
 ## The goal chance for a shot. With `credit`, the tactical, fatigue and
 ## call multipliers are also logged as expected points in `impact`.
 func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, credit := false,
@@ -779,6 +876,9 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	if spoilt and not marked:
 		goal_p *= 0.58
 	goal_p *= 0.90 + 0.20 * atk.attack / 100.0
+	# The delivery inside 50: a creative kick makes the shot a better one.
+	if feeder != null:
+		goal_p *= FEED_BASE + FEED_SLOPE * _a(feeder, "creating") / 100.0
 	goal_p *= 1.06 - 0.12 * dfn.defence / 100.0
 	if credit:
 		# What fresh legs would have given, for the Legs line.

@@ -73,6 +73,8 @@ func _test_role_attributes() -> void:
 		["DEF", "intercept", "Intercept lifts a defender"],
 		["FWD", "goalkicking", "Goalkicking lifts a forward"],
 		["FWD", "marking", "Marking lifts a forward"],
+		["FWD", "pressure", "Pressure lifts a forward"],
+		["MID", "pressure", "Pressure lifts a midfielder"],
 		["RUCK", "ruck", "Ruck work lifts a ruck"],
 	]
 	var flat := {}
@@ -80,8 +82,8 @@ func _test_role_attributes() -> void:
 		flat[role] = _with(role, {})
 	for c in cases:
 		_check(_with(c[0], {c[1]: 80}) >= int(flat[c[0]]) + 2, "%s (%d -> %d)" % [c[2], int(flat[c[0]]), _with(c[0], {c[1]: 80})])
-	var unused := [["DEF", "disposal"], ["DEF", "goalkicking"], ["FWD", "disposal"], ["FWD", "pressure"],
-			["RUCK", "intercept"], ["RUCK", "disposal"], ["MID", "pressure"], ["MID", "intercept"]]
+	var unused := [["DEF", "disposal"], ["DEF", "goalkicking"], ["FWD", "disposal"], ["FWD", "contested"],
+			["RUCK", "intercept"], ["RUCK", "disposal"], ["MID", "marking"], ["MID", "intercept"]]
 	var still := true
 	for c in unused:
 		if _with(c[0], {c[1]: 90}) != int(flat[c[0]]):

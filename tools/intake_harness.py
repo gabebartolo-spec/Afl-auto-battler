@@ -29,8 +29,8 @@ DATA = os.path.join(ROOT, "data")
 SHRINK_GAMES = 5.0  # unused here, kept for constant parity notes
 ROLE_WEIGHTS = {  # role core: attribute -> weight (Ratings.gd::ROLE_WEIGHTS)
     "RUCK": {"ruck": 0.90, "contested": 0.10},
-    "FWD": {"goalkicking": 0.35, "marking": 0.30, "carry": 0.15, "accuracy": 0.15, "creating": 0.05},
-    "MID": {"contested": 0.60, "disposal": 0.15, "carry": 0.15, "goalkicking": 0.05, "accuracy": 0.05},
+    "FWD": {"goalkicking": 0.30, "pressure": 0.20, "marking": 0.15, "accuracy": 0.15, "creating": 0.12, "carry": 0.08},
+    "MID": {"contested": 0.55, "disposal": 0.13, "carry": 0.14, "pressure": 0.10, "goalkicking": 0.04, "accuracy": 0.04},
     "DEF": {"intercept": 0.40, "pressure": 0.35, "carry": 0.15, "contested": 0.10},
 }
 ATTRS = ["disposal", "contested", "marking", "pressure", "intercept", "carry",
@@ -50,8 +50,8 @@ def scale_overall(raw):
 
 # Position scale - see Ratings.gd::position_stretch. [p10, p50, p98] of each
 # position's raw blend -> where it lands; one for one outside that band.
-STRETCH_ANCHORS = {"MID": (39.66, 51.48, 83.84), "DEF": (40.37, 47.88, 58.90),
-                   "FWD": (39.24, 53.72, 68.00), "RUCK": (39.13, 66.27, 86.90)}
+STRETCH_ANCHORS = {"MID": (39.26, 51.49, 82.37), "DEF": (40.37, 47.88, 58.90),
+                   "FWD": (39.79, 50.93, 62.05), "RUCK": (39.13, 66.27, 86.90)}
 STRETCH_TARGETS = {"MID": (37.74, 49.36, 78.04), "DEF": (43.07, 49.41, 73.72),
                    "FWD": (38.38, 49.48, 73.42), "RUCK": (37.50, 49.36, 73.56)}
 
