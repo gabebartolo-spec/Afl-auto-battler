@@ -1382,13 +1382,64 @@ Do not manually patch only famous names if the classifier itself is wrong.
 
 Overall rating should be meaningfully aligned with what Squad/MatchSim reward.
 
+### Current calibration notes
+- PR #47 deliberately re-measured forward/midfield OVR against MatchSim rather than hand-tuning famous players.
+- Do **not** revert the pressure/OVR work merely because individual headline ratings moved.
+- User sanity target: Toby Greene at 79 after #47 still reads a little low; expect roughly **low 80s** if the broader model supports it. Treat this as a calibration spot-check, not a manual one-player buff.
+- No special McKay correction is requested from the #47 movement; investigate only if the wider OVR model says the player is mis-valued.
+
 ### Guardrails
 - Diagnose measurement first.
 - Prefer fixing Ratings/OVR interpretation before changing MatchSim merely to force correlation.
 - Validate impacts on salary, POT, value, awards, selection and drafting.
 - Preserve role-specific value; one generic OVR should not erase archetypes.
+- Named-player sanity checks are evidence, not the model. Fix the general cause where possible rather than building a patch list of famous names.
 
 ---
+
+## ARD-M5-011 — League Draft career-stage filters
+**Status:** `TODO`  
+**Priority:** `P2`  
+**Autonomy:** `SAFE`
+
+### Intent
+Make the opening League Draft easier to browse by career stage, so the player can quickly build around youth, prime-age talent or experienced veterans without manually scanning ages.
+
+### UX
+Add an age/career-stage filter to the **opening League Draft**:
+
+- **All**
+- **Rookies**
+- **Prime**
+- **Veterans**
+
+Use natural player-facing labels rather than raw implementation bands.
+
+The exact age cut-offs are **not locked yet**. An initial candidate is:
+- Rookie: roughly 18–23,
+- Prime: roughly 24–28,
+- Veteran: roughly 29+.
+
+Before implementation, inspect the actual 2027 League Draft age distribution and choose cut-offs that produce useful, reasonably populated groups. Do not contort the data just to preserve those example numbers.
+
+### Behaviour
+- Filtering changes only which players are shown; it must not alter draft eligibility, rankings, AI behaviour, cap logic or availability.
+- Combine cleanly with existing position/search/filter controls.
+- Preserve the selected filter while inspecting a player and returning to the draft list.
+- Mobile-first: the control should remain compact and tappable without adding a dense filter bar.
+- If exact age is already shown elsewhere, do not duplicate it unnecessarily on every row just because this filter exists.
+
+### Tests
+- every eligible player appears in exactly one non-All career-stage band,
+- boundary ages route to the intended band,
+- switching bands never changes the underlying draft pool,
+- existing position/search filters combine correctly,
+- Back/profile navigation preserves the selected band,
+- narrow Android portrait remains usable.
+
+---
+
+
 
 # M6 — Coaching, Board & List Management
 
@@ -1422,12 +1473,60 @@ Before implementing more, inspect current merged Staff/coaching work and extend 
 **Status:** `IN PROGRESS / PARTIAL`  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
-**Current state (2026-09-28):** Phase 2 (data model, Round 1 2026 seed, read-only Staff UI) is merged. Phase 3 (the living coaching market: sackings, contracts, retirement, promotions, poaching, your vacancies and releases, development, reputation, generated coaches, expansion staffing, archive) is merged: PR #62 as `bf8bd0a`, `coach_market` suite, 50-season probe with every job filled. Phase 4 (retired players become coaches) is next; Phase 5 (gameplay effects) after it.  
+**Current state (2026-09-28):** Phase 2 (data model, Round 1 2026 seed, read-only Staff UI) is merged. Phase 3 (the living coaching market: sackings, contracts, retirement, promotions, poaching, your vacancies and releases, development, reputation, generated coaches, expansion staffing, archive) is merged: PR #62 as `bf8bd0a`, `coach_market` suite, 50-season probe with every job filled. **Phase 4 (former players entering coaching) is actively being implemented by Claude; Phase 5 (gameplay effects) follows it.**  
 
 Core design:
 - Teaching → development,
 - Tactics → match performance,
 - Man-management → morale/selection response.
+
+### Phase 4 — former-player coaching pathway
+
+Implementation direction:
+
+- capture a player before retirement/delisting removes them from the active lists;
+- one deterministic career-seeded roll decides whether they pursue coaching;
+- preserve the same player name/alias and link the coach record back to the playing career;
+- pathway period: roughly 1–3 seasons before entering the normal coaching market;
+- **playing ability must not determine coaching skill**;
+- playing fame may raise starting reputation only, and that advantage should fade over roughly a decade;
+- former clubs may provide a small, bounded hiring-link advantage;
+- once in the market, former players obey the same hiring, promotion, retirement and vacancy rules as other coaches;
+- profile/history should show the playing career without creating a separate former-player coaching ruleset.
+
+### Phase 4 balance guidance
+
+A real 32-season career exposed an upstream constraint: the current game ends only about **19 playing careers per season**, heavily skewed toward long-tenured veterans. At the original 8% coaching-entry rate, former players reached only about 10% of coaching jobs after 32 seasons.
+
+Do **not** solve that by forcing an extreme conversion rate simply to hit a headline percentage.
+
+Use this order:
+
+1. Test a former-player coaching-entry rate in roughly the **20–30%** range, with **25% as the first baseline**.
+2. Make generated external coaches a **top-up/fallback supply**, not a fixed source that permanently crowds former players out as the ex-player pipeline matures.
+3. Keep the long-run design target of roughly **60–80% of coaching jobs eventually being held by former players** as a mature-world aspiration, not a hard Phase 4 pass/fail if the current player-retirement pipeline cannot supply enough candidates.
+4. Record the observed ~19 career endings per season as a separate player-lifecycle/list-turnover issue. Do not hide it inside coaching by inflating conversion rates.
+5. Compare 30–50+ season runs for:
+   - former-player share of all coaching jobs,
+   - former-player share of new appointments,
+   - generated-coach pool size,
+   - vacancy fill rate,
+   - internal promotion share,
+   - coaching skill distribution / Elite share,
+   - churn and repeat moves.
+
+If 20–30% entry plus adaptive generated-coach supply still cannot produce a believable coaching ecosystem, report the limiting factor rather than tuning blindly.
+
+### Phase 4 merge authority
+
+The older Phase 4 brief saying **"do not merge"** is superseded by the roadmap's standing development authority. Once Phase 4:
+- passes its targeted suites,
+- passes the full suite,
+- has acceptable long-run balance evidence,
+- preserves save compatibility,
+- and CI is green,
+
+Claude should **merge it and proceed to Phase 5** without waiting for another permission message.
 
 Requirements:
 - modest/capped effects,
@@ -2067,6 +2166,7 @@ Before adding any new roadmap line, check this table.
 | VFL / reserves development | ARD-M5-006 Passive reserves |
 | OVR correlation / rating predicts strength | ARD-M5-010 |
 | Wing/inside-mid/forward identity labels | ARD-M5-009 |
+| Draft age filter / rookie-prime-veteran / career-stage filter | ARD-M5-011 |
 
 ---
 
@@ -2074,6 +2174,9 @@ Before adding any new roadmap line, check this table.
 
 Keep this short. Add only meaningful structural changes, not every code commit.
 
+- **2026-09-28:** Added Phase 4 former-player coaching guidance: test ~25% pathway entry first, let generated coaches act as top-up supply, and treat low player-career turnover as a separate upstream issue rather than forcing the coaching percentage.
+- **2026-09-28:** Added ARD-M5-011 for opening League Draft career-stage filters (Rookies / Prime / Veterans), with exact age cut-offs to be chosen from the actual 2027 pool distribution.
+- **2026-09-28:** Added OVR calibration sanity notes: keep #47's measured pressure weighting; use Toby Greene in the low-80s as a broader-model spot-check rather than a manual patch.
 - **2026-09-28:** Removed stale per-PR/phase approval gates. Claude now has standing authority to action ready roadmap work and merge clean validated PRs; supervised/balance labels are risk gates, not ceremonial user-approval gates.
 - **2026-09-28:** Converted roadmap from conversation-style backlog into a canonical execution roadmap with milestones, stable task IDs, dependency ordering, global guardrails, validation matrix, balance template, Claude task prompt and duplicate map.
 - **2026-09-28:** Consolidated repeated concepts including season momentum/team form, reports, opponent scouting, forward scoring, match-ups, history/records, simulation controls, AFL rules/restarters, rivalries, marquee games and secondary-position learning.
