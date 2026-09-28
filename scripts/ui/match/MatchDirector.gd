@@ -749,6 +749,8 @@ func _anticipate(k: int) -> void:
 	_lead_receivers(k, cur)
 
 
+## How far a ball bobbles on to a receiver still short of it.
+const ROLL_REACH := 8.0
 const LEAD_EVENTS := 10         # how far down the log a lead can be planned
 const LEAD_HORIZON := 7.0       # ...and how far ahead in presentation seconds
 const LEAD_SLACK := 0.8         # start a run this much before it is strictly needed
@@ -1047,9 +1049,11 @@ func _done(p: Dictionary) -> bool:
 				return true
 			if p.has("max") and _pt >= float(p["max"]):
 				return true
-			if p.get("roll", false) and _pt > 0.1 and str(ball["mode"]) != "flight":
+			if p.get("roll", false) and _pt > 0.1 and str(ball["mode"]) != "flight" and d <= ROLL_REACH:
 				# Still short of it: the ball bobbles on toward him rather
-				# than anyone jumping across the ground.
+				# than anyone jumping across the ground. Further off (a
+				# forward who won it back in defence), it stays where it fell
+				# and he runs onto it: a ball never rolls up the ground.
 				ball["mode"] = "roll_to"
 				ball["holder"] = who
 			return false
