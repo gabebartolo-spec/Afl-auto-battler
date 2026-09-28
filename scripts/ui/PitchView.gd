@@ -31,6 +31,12 @@ var _cam := Vector2.ZERO
 var _zoom := 1.0
 var _drawn_cam := Vector2.INF
 var _drawn_zoom := -1.0
+## Teams change ends every quarter. The director plays the match in its own
+## frame (the home side always kicks toward +x); the view mirrors that frame
+## in the 2nd and 4th quarters so the home side attacks the other end.
+## Counts periods of play: every break (quarter time, half time, three
+## quarter time, and the extra-time breaks) is a change of ends.
+var period := 1
 
 
 func _ready() -> void:
@@ -50,6 +56,7 @@ func setup(p_result: Dictionary) -> void:
 	playing = false
 	director = MatchDirector.new()
 	director.setup(p_result, events)
+	period = 1
 	_cam = Vector2.ZERO
 	_zoom = _target_zoom()
 	set_process(true)
@@ -96,7 +103,8 @@ func set_speed(s: float) -> void:
 ## settles.
 func skip_to_end() -> void:
 	playing = false
-	director.flush()
+	for ev in director.flush():
+		_track_quarter(ev)
 	queue_redraw()
 	finished.emit()
 
@@ -114,6 +122,7 @@ func _process(delta: float) -> void:
 	if playing:
 		var out := director.advance(delta * speed)
 		for ev in out:
+			_track_quarter(ev)
 			event_played.emit(ev)
 			if str((ev as Dictionary).get("kind", "")) == "final":
 				playing = false
@@ -126,6 +135,19 @@ func _process(delta: float) -> void:
 	if playing or _cam.distance_to(_drawn_cam) > 0.05 or absf(_zoom - _drawn_zoom) > 0.002 \
 			or not director.flash.is_empty():
 		queue_redraw()
+
+
+## Every break the match screen plays is a change of ends.
+func _track_quarter(ev: Dictionary) -> void:
+	if str(ev.get("kind", "")) == "quarter":
+		period += 1
+		queue_redraw()
+
+
+## +1 when the home side kicks to the right of the screen, -1 when it kicks
+## to the left: periods 1 and 3 one way, 2 and 4 the other.
+static func end_sign(p: int) -> float:
+	return 1.0 if p % 2 == 1 else -1.0
 
 
 func _target_zoom() -> float:
@@ -179,7 +201,8 @@ func _scale() -> float:
 
 ## Ground metres to pixels.
 func _w2s(p: Vector2) -> Vector2:
-	return size * 0.5 + (p - _cam) * _scale()
+	var m := end_sign(period)
+	return size * 0.5 + Vector2((p.x - _cam.x) * m, p.y - _cam.y) * _scale()
 
 
 func _ellipse_points(c: Vector2, a: float, b: float, n: int) -> PackedVector2Array:
@@ -254,7 +277,7 @@ func _draw() -> void:
 		# Goal square: 9m deep, 6.4m wide across the goal line.
 		var depth := 9.0 * s
 		var width := 6.4 * s
-		var gx := goal.x - depth if sgn > 0.0 else goal.x
+		var gx := goal.x - depth if goal.x > c.x else goal.x
 		draw_rect(Rect2(Vector2(gx, goal.y - width * 0.5), Vector2(depth, width)),
 				line_col, false, lw)
 		# Goal posts 6.4m apart, behind posts a further 6.4m out.
