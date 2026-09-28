@@ -156,7 +156,7 @@ func _test_event_tradeoffs() -> void:
 			"Patience: still available, a small morale hit, a little more discipline")
 	_check(int(kid2["overall"]) == ov2, "Discipline does not move his rating")
 	# An unhappy player: sitting down with him commits you to a game.
-	var sulk: Dictionary = GameState.my_list[35]
+	var sulk: Dictionary = GameState.my_list[26]
 	sulk["morale"] = 30
 	GameState.week_event = ClubLife._unhappy(sulk)
 	GameState.resolve_week_event(0)
@@ -171,7 +171,7 @@ func _test_event_tradeoffs() -> void:
 	if not in_side and int(sulk.get("injury_weeks", 0)) <= 0:
 		_check(ClubLife.morale(sulk) <= before - 12 + 2, "Left out after the talk, it sours (%d -> %d)" % [before, ClubLife.morale(sulk)])
 	_check(not sulk.has("expects_game"), "The expectation lasts one week")
-	var sulk2: Dictionary = GameState.my_list[36]
+	var sulk2: Dictionary = GameState.my_list[27]
 	var mate: Dictionary = GameState.my_list[0]
 	sulk2["morale"] = 30
 	mate["morale"] = 70

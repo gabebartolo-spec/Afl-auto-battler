@@ -201,7 +201,7 @@ func _test_career_rollover() -> void:
 
 	var list_sizes := {}
 	for code in GameDB.CLUB_ORDER:
-		list_sizes[code] = (GameState.league_lists[code] as Array).size()
+		list_sizes[code] = (GameState.league_lists.get(code, []) as Array).size()
 	while not draft.is_finished():
 		var candidate := draft._best_ai_pick(draft.current_club())
 		if candidate.is_empty() or not draft._draft_pick(draft.current_club(), candidate):
@@ -216,7 +216,7 @@ func _test_career_rollover() -> void:
 	var total_signed := 0
 	var seen_ids := {}
 	for code in GameDB.CLUB_ORDER:
-		var arr: Array = GameState.league_lists[code]
+		var arr: Array = GameState.league_lists.get(code, [])
 		if GameDB.enter_year(code) > GameState.season_year:
 			# Not an active club yet - an expansion debut list arrives in its
 			# own entry season, so there is nothing to keep in band.

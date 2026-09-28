@@ -167,6 +167,7 @@ func _test_mid_draft_round_trip() -> void:
 
 func _test_intake_and_second_season() -> void:
 	_new_season("ADE")
+	var first_year := int(GameState.season_year)
 	GameState.season.round_index = GameState.season.fixture.size()
 	_check(GameState.begin_intake_draft(), "The intake opens")
 	var draft: Draft = GameState.draft
@@ -177,8 +178,8 @@ func _test_intake_and_second_season() -> void:
 	_check(draft != null and draft.intake_mode, "Intake mode is restored")
 	_check(draft.pick_history.size() == logged, "Intake picks are restored")
 	var linked := true
-	for code in GameDB.CLUB_ORDER:
-		if not is_same(GameState.league_lists[code], GameState.season.lists[code]):
+	for code in GameState.season.lists:
+		if not is_same(GameState.league_lists.get(code), GameState.season.lists[code]):
 			linked = false
 	_check(linked, "League lists are the season's lists again after loading")
 	while not draft.is_finished():
@@ -186,7 +187,7 @@ func _test_intake_and_second_season() -> void:
 		if c.is_empty() or not draft._draft_pick(draft.current_club(), c):
 			draft._skip_current_pick()
 	_check(GameState.finish_intake_draft(), "The loaded intake commits")
-	_check(GameState.season_year == 2027, "The career rolls to 2027")
+	_check(GameState.season_year == first_year + 1, "The career rolls into the next season")
 
 	var late := GameDB.late_draftees.size()
 	var alias_next: int = GameDB._alias_next
@@ -196,8 +197,8 @@ func _test_intake_and_second_season() -> void:
 	var ladder := _ladder_sig()
 	_check(GameState.save_career(), "A second-season career saves")
 	_check(GameState.load_career(), "The second season loads")
-	_check(GameState.season_year == 2027, "The year is restored")
-	_check(_ladder_sig() == ladder, "The 2027 ladder is restored")
+	_check(GameState.season_year == first_year + 1, "The year is restored")
+	_check(_ladder_sig() == ladder, "The second season's ladder is restored")
 	_check(GameDB.late_draftees.size() == late, "Generated draft classes are restored")
 	_check(GameDB._alias_next == alias_next, "The fictional-name cursor is restored")
 	_check(GameState.draftee_pool.size() == pool, "The prospect pool is restored")
