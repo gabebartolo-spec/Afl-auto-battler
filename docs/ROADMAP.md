@@ -443,10 +443,10 @@ Open a compact quick-sim menu:
 ---
 
 ## ARD-M1-008 — Full Ratings mobile layout
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
-**Current state (2026-09-28):** fixed in PR #54 (draft Full ratings reuse the profile's attribute rows); awaiting merge.
+**Outcome (2026-09-28, PR #54):** the draft details' Full ratings put wrapped labels in a 2-column grid, so at portrait widths each name collapsed to one letter per line. They now reuse the player profile's attribute rows (`PlayerSheet.attr_bar`: name, bar, rating on one line; one column under 520px, two above). The profile's own Attributes section was already correct. Regression: `tests/run_draft_ui_tests.gd` (on a portrait phone every attribute is one readable line; hiding the list leaves the details the same size); checked at 360x740.
 
 ### Intent
 Attribute names must never collapse into one-character-per-line columns.
