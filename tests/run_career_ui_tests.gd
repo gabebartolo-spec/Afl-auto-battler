@@ -429,6 +429,24 @@ func _run() -> void:
 	await _settle()
 	_check(_router.current() == "hub", "Back from a plain Training list leaves the screen")
 
+	# --- back after coming back: hub -> My list -> Training -> back -> back ----
+	# Router.back() used to leave the screen it returned to on the stack twice,
+	# so the next back stayed put (My list's back arrow "did nothing").
+	_router.go("list")
+	await _settle()
+	_router.go("training")
+	await _settle()
+	_router.handle_back(false)
+	await _settle()
+	_check(_router.current() == "list" and _router.stack.count("list") == 1,
+			"Back returns to My list without stacking it twice")
+	var list_back: Button = current_scene.find_child("TopBarBack", true, false)
+	_check(list_back != null, "My list has a back arrow")
+	if list_back != null:
+		list_back.emit_signal("pressed")
+		await _settle()
+	_check(_router.current() == "hub", "Its back arrow then returns to the hub")
+
 	# --- a live match swallows back until full time --------------------------
 	_check(_state.prepare_interactive_match(), "A live match is prepared")
 	_router.go("match")
