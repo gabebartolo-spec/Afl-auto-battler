@@ -23,6 +23,7 @@ func run() -> void:
 	_test_ends_swap(res)
 	_test_ballup_is_informational()
 	_test_wings_and_lineups()
+	_test_no_wrong_way_kicks(res)
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -384,3 +385,62 @@ func _test_ends_swap(res: Dictionary) -> void:
 	pv.setup(res)
 	_check(pv.period == 1, "A new match starts at the first end again")
 	pv.free()
+
+
+
+## ARD-M1-005: no staged kick sails back towards the kicker's own goal. Every
+## flight on screen is checked against where the side in possession attacks
+## that quarter (ends change each quarter), with your club home and away.
+func _test_no_wrong_way_kicks(res: Dictionary) -> void:
+	var away := _sim(43, "SYD", "RIC").run()
+	away["home"] = "SYD"
+	away["away"] = "RIC"
+	for r in [res, away]:
+		var pv := PitchView.new()
+		pv.size = Vector2(400, 700)
+		pv.camera_enabled = false
+		pv.setup(r)
+		pv.playing = true
+		var events: Array = pv.events
+		var last := [Vector2.INF, Vector2.INF]
+		var flights := 0
+		var wrong := 0
+		var flipped := 0
+		var period := 1
+		var first_bad := ""
+		var guard := 0
+		while pv.playing and guard < 120000:
+			guard += 1
+			pv._process(1.0 / 15.0)
+			var ball: Dictionary = pv.director.ball
+			if str(ball.get("mode", "")) != "flight":
+				continue
+			var from: Vector2 = ball["from"]
+			var to: Vector2 = ball["to"]
+			if from == last[0] and to == last[1]:
+				if pv.period != period:
+					flipped += 1   # the ends changed with the ball in the air
+					period = pv.period
+				continue
+			last = [from, to]
+			period = pv.period
+			flights += 1
+			var k := int(pv.director._beat.get("k", -1))
+			if k < 0:
+				continue
+			var ev: Dictionary = events[k]
+			var pk := pv.director._prev_real(k)
+			var kicker := int(ev.get("side", 0))
+			if pk >= 0 and not (str(ev.get("kind", "")) in ["goal", "behind", "inside50"]):
+				kicker = int((events[pk] as Dictionary).get("side", kicker))
+			var attack := (1.0 if kicker == 0 else -1.0) * PitchView.end_sign(pv.period)
+			var metres := (pv._w2s(to).x - pv._w2s(from).x) / pv._scale()
+			if -metres * attack > 30.0:
+				wrong += 1
+				if first_bad == "":
+					first_bad = "event %d (%s), period %d" % [k, str(ev.get("kind", "")), pv.period]
+		pv.free()
+		_check(flights > 500 and wrong == 0,
+				"No kick flies 30 m+ back towards the kicker's own goal (%s: %d flights, %d wrong way %s)" % [
+				str(r["home"]), flights, wrong, first_bad])
+		_check(flipped == 0, "The ends never change with the ball in the air (%s)" % str(r["home"]))

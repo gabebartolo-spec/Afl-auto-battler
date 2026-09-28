@@ -427,9 +427,19 @@ The change must affect actual visual target direction, not only labels/commentar
 ---
 
 ## ARD-M1-005 — Wrong-way / bizarre long-kick sanity
-**Status:** `KNOWN BUG`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
+
+### Implementation record (2026-09-28, branch `claude/wrong-way-kicks`)
+- **Engine:** a chain only ever moves the ball towards the attacking side's goal (`fp += gain * dir`, gain >= 0; tackles broken are forward too), so the engine cannot produce a wrong-way kick. Turnovers change the side, not the direction.
+- **Instrumented:**
+  - Director frame: every staged ball flight was checked against the attacking direction of the side in possession. 6 matches, 6,064 flights, 0 went back 30 m+.
+  - Screen: the same check through PitchView, including the change of ends each quarter. 8 matches (4 seeds x your club home and away), 7,472 flights, 0 went back 30 m+, and the ends never changed with the ball in the air.
+  - The live, quarter-by-quarter match appends to the same shared event list and director state, so it takes the same path.
+- **Finding:** not reproducible on current main. The most likely original cause was the missing change of ends (ARD-M1-004, PR #49): before it, the second and fourth quarters showed each side attacking the end a watcher expects them to defend.
+- **Regression guard:** `test_match_visual.gd::_test_no_wrong_way_kicks` covers a full match with your club at home and one away. No flight goes 30 m+ back towards the kicker's own goal on screen, and no change of ends happens mid-flight.
+- **If it is seen again:** reopen with the save or seed and quarter. The test names the event it catches.
 
 ### Intent
 Remove cases where the user's side appears to kick long deep into the opponent's attacking 50 without a football reason.
