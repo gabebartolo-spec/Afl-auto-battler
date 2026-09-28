@@ -517,7 +517,7 @@ table, shot conversion, every best and quiet player with his numbers and
   teaching; senior assistant 35/35/30; line coaches 60% teaching / 25 / 15
   and -8 outside their line; development 70% teaching / 30%
   man-management, -3 for a line specialist, -6 for a whole-game coach).
-  **They do nothing yet**: no development, match or morale rule reads them.
+  What they do on the field is in *Coaching effects* below.
   The seed is the Round 1 2026 world, built by `tools/build_coaches.py` from
   the research in `data/research/coaches_round1_2026.csv` (research only):
   103 real coaches in jobs, 5 generated where no real person defensibly
@@ -576,6 +576,25 @@ table, shot conversion, every best and quiet player with his numbers and
   probe (synthetic results, before Phase 4): 3.3 senior coach changes a
   season, 33% of them internal, 1.4 sackings, Elite 3.9% of skills, no job
   ever unfilled, nobody moving more than twice in three years.
+* **Coaching effects** (`CoachEffects.gd`, Coaching Phase 5) - three small,
+  capped modifiers read straight from the coach records (nothing saved). A
+  skill counts from a Good coach (70): level = (skill - 70) / 20, -0.75..1.
+  **Teaching** scales a player's match XP (the one place it is paid,
+  `_grant_xp`, your club and the rivals alike): 6% x his line coach's fit
+  for the job (midfield & ruck for mids and rucks), 5% x the development
+  coach's fit for a player 22 or under or not on the ground (2% otherwise),
+  2% x the senior assistant's teaching; the total is capped at -5%..+10%, and
+  the reserves keep their half rate. **Tactics** is the club's tactical brain
+  (senior coach 60% / senior assistant 40%; your assistant at your club, as
+  the calls are yours): a game plan's effects, costs included, are executed
+  at 1 +/- 15% x level, and an AI club reading the match reacts to a margin
+  of 18 - 8 x level points, counters your plan after one quarter (level 0.4+)
+  or two, never if poor, and tags from half time if sharp. AI clubs now pick
+  their plan each quarter in every match (they did only in the one you
+  watch); with no plan in play tactics change nothing. **Man-management**
+  spares part of the morale a fit player loses when left out (and a promised
+  game not given): up to 40% at elite (senior assistant 60%, his line coach
+  40%), nothing from a poor man-manager - it never makes anyone unhappier.
 * **Former players become coaches** (`CoachPathway.gd`, Coaching Phase 4) -
   when a playing career ends (retired at the rollover, or delisted and not
   picked up in free agency) the player is captured before he leaves the

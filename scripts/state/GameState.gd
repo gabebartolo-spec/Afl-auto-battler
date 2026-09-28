@@ -968,6 +968,9 @@ func prepare_interactive_match() -> bool:
 			season.selections.get(str(pending_match["away"]), {}))
 	home.form = season.club_form(str(pending_match["home"]))
 	away.form = season.club_form(str(pending_match["away"]))
+	_refresh_coach_tactics()
+	CoachEffects.apply(home)
+	CoachEffects.apply(away)
 	pending_sim = MatchSim.new(home, away, season.next_seed(99))
 	pending_sim.moment_side = 0 if str(pending_match["home"]) == my_club else 1
 	pending_phase = "regular"
@@ -1016,6 +1019,9 @@ func _prepare_interactive_final() -> bool:
 			season.selections.get(str(fm["away"]), {}))
 	home.form = season.club_form(str(fm["home"]))
 	away.form = season.club_form(str(fm["away"]))
+	_refresh_coach_tactics()
+	CoachEffects.apply(home)
+	CoachEffects.apply(away)
 	pending_sim = MatchSim.new(home, away, season.finals_seed(mine))
 	pending_sim.finals_mode = true
 	pending_sim.moment_side = 0 if str(fm["home"]) == my_club else 1
@@ -1106,6 +1112,7 @@ func advance() -> String:
 	if season == null:
 		return "none"
 	_settle_week_event()
+	_refresh_coach_tactics()
 	last_results = []
 	last_match = {}
 	last_pos_before = my_position()
@@ -1428,6 +1435,8 @@ func _grant_xp(club: String, list: Array, res: Dictionary) -> Dictionary:
 	var total := 0
 	var reserves_count := 0
 	var reserves_total := 0
+	# The club's teachers (CoachEffects): only once there is a coaching world.
+	var staff: Dictionary = CoachEffects.staffs(coaches).get(club, {}) if not coaches.is_empty() else {}
 	for p in list:
 		var id := str(p["id"])
 		var on_ground := ground_ids.has(id)
@@ -1438,6 +1447,8 @@ func _grant_xp(club: String, list: Array, res: Dictionary) -> Dictionary:
 		var gain := _xp_amount(stats, on_ground, on_bench, reserves)
 		if club == my_club:
 			gain = int(round(float(gain) * float(difficulty_rules()["xp_mult"])))
+		if not coaches.is_empty():
+			gain = int(round(float(gain) * CoachEffects.xp_mult(staff, p, on_ground)))
 		p["xp"] = int(p.get("xp", 0)) + gain
 		p["xp_games"] = int(p.get("xp_games", 0)) + 1
 		total += gain
@@ -2551,7 +2562,13 @@ func _board_after_round(results: Array) -> void:
 	if roster.size() > side:
 		for r in roster[side]:
 			played[str(r["id"])] = true
-	ClubLife.morale_after_match(my_list, played, margin > 0)
+	# Your man-managers soften what being left out costs (CoachEffects).
+	var soft := {}
+	if not coaches.is_empty():
+		var staff: Dictionary = club_staff(my_club)
+		for p in my_list:
+			soft[str(p["id"])] = CoachEffects.soften(staff, p)
+	ClubLife.morale_after_match(my_list, played, margin > 0, soft)
 	# A player promised a game (a talk, or a kid given his chance): leaving
 	# him out fit sours it. Once: the promise ends with the round.
 	for p in my_list:
@@ -2559,7 +2576,7 @@ func _board_after_round(results: Array) -> void:
 			var sting := int(p["expects_game"]) if typeof(p["expects_game"]) == TYPE_INT else 12
 			p.erase("expects_game")
 			if not played.has(str(p["id"])) and int(p.get("injury_weeks", 0)) <= 0:
-				ClubLife.add_morale(p, -sting)
+				ClubLife.add_morale(p, -CoachEffects.softened(sting, float(soft.get(str(p["id"]), 0.0))))
 
 
 ## Season over: did you meet the goal? Miss it badly twice and you are gone.
@@ -2821,6 +2838,15 @@ func _career_over(p: Dictionary) -> void:
 	var played := CoachPathway.snapshot(p, season_year, honour_roll)
 	if CoachPathway.interested(pid, played, career_seed):
 		coaches[cid] = CoachPathway.make_coach(p, played, season_year, career_seed)
+
+
+## Every club's tactics for the coming matches (CoachEffects), derived from
+## the coach records each time and never saved.
+func _refresh_coach_tactics() -> void:
+	if coaches.is_empty() or season == null:
+		CoachEffects.table = {}
+		return
+	CoachEffects.set_table(coaches, GameDB.active_clubs(season_year), my_club)
 
 
 func _vacancy_open(job: String) -> bool:

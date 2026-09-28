@@ -39,11 +39,17 @@ static func open(host: Control, c: Dictionary, on_close: Callable = Callable()) 
 	v.add_child(skills)
 	for key in Coaches.SKILLS:
 		skills.add_child(_row(str(Coaches.SKILL_LABEL[key]), Coaches.grade(Coaches.skill(c, key))))
+	var what := UiKit.lbl("Teaching develops his players. Tactics sharpen the game plan. Man-management softens being left out.",
+			UiKit.SMALL, UiKit.MUTED)
+	what.name = "CoachSkillsMeaning"
+	what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var job := str(c.get("job", ""))
 	if str(c.get("status", "")) == "club" and job != "":
 		var fit := _row("Fit for this job", Coaches.grade(Coaches.role_fit(c, job)))
 		fit.name = "CoachFit"
 		skills.add_child(fit)
+
+	v.add_child(what)
 
 	# A former player: his playing days first, from the snapshot kept when
 	# he retired - the same person, whichever name the game is showing.

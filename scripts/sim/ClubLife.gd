@@ -63,13 +63,16 @@ static func add_morale(p: Dictionary, d: int) -> void:
 
 ## After your match: who played gets a lift (more for a win), a fit player
 ## left out loses some - a star left out loses more.
-static func morale_after_match(list: Array, played: Dictionary, won: bool) -> void:
+## `soften` (id -> 0..0.4, from your man-managers) spares part of what being
+## left out costs; it never adds to it.
+static func morale_after_match(list: Array, played: Dictionary, won: bool, soften: Dictionary = {}) -> void:
 	for p in list:
 		var id := str(p["id"])
 		if played.has(id):
 			add_morale(p, 2 + (2 if won else 0) - (0 if won else 1))
 		elif int(p.get("injury_weeks", 0)) <= 0:
-			add_morale(p, -6 if int(p.get("overall", 0)) >= 78 else -3)
+			var loss := 6 if int(p.get("overall", 0)) >= 78 else 3
+			add_morale(p, -CoachEffects.softened(loss, float(soften.get(id, 0.0))))
 		else:
 			# Injured players drift back toward settled.
 			add_morale(p, signi(MORALE_BASE - morale(p)))

@@ -126,8 +126,12 @@ const PLANS := {
 }
 
 
+## A plan's value, as this side's coaching executes it: a sharp tactical
+## group gets more out of the plan (and pays more of its cost), a weak one
+## less of both (Squad.tactics_exec, 1.0 = as written).
 func _pv(side: int, key: String, fallback := 1.0) -> float:
-	return float((PLANS.get(_plan(side), {}) as Dictionary).get(key, fallback))
+	var v := float((PLANS.get(_plan(side), {}) as Dictionary).get(key, fallback))
+	return fallback + (v - fallback) * float((squads[side] as Squad).tactics_exec)
 
 
 ## Pressure multiplier `side` faces from the opposition's plan, counters in.
@@ -997,6 +1001,11 @@ func begin_quarter() -> void:
 	if current_quarter > 1:
 		for id in energy:
 			energy[id] = minf(100.0, float(energy[id]) + ENERGY_BREAK_RECOVER)
+	# AI clubs pick their plan for the quarter from the score and what they
+	# have seen (no dice: replays are unchanged).
+	for side in range(2):
+		if (squads[side] as Squad).ai_plans:
+			tactics[side] = ai_tactics(side)
 	_q_active = true
 	_q_i = 0
 	_q_count = floori(float(T["chains_per_game"]) / 4.0)
@@ -1744,22 +1753,30 @@ const COUNTERS := {"attacking": "defensive", "fast": "defensive", "defensive": "
 ## The opposition's plan for the coming quarter: protect a big lead, chase a
 ## big deficit, and counter a plan you have run two quarters in a row. From
 ## half time it tags your most influential player.
+## A sharper tactical group (Squad.tactics_read) reacts to a smaller margin,
+## counters a plan after one quarter rather than two, and tags from half
+## time; a poor one reacts late and never reads the counter.
 func ai_tactics(side: int) -> Dictionary:
 	var opp := 1 - side
+	var read := float((squads[side] as Squad).tactics_read)
 	var margin := score(side) - score(opp)
+	var react := 18.0 - 8.0 * read
 	var plan := "balanced"
-	if margin >= 18:
+	if margin >= react:
 		plan = "controlled"
-	elif margin <= -18:
+	elif margin <= -react:
 		plan = "attacking"
 	var n := tactics_history.size()
-	if n >= 2:
+	var needs := 1 if read >= 0.4 else 2
+	if read > -0.5 and n >= needs:
 		var last := str(((tactics_history[n - 1]["plans"] as Array)[opp] as Dictionary).get("gameplan", "balanced"))
-		var prev := str(((tactics_history[n - 2]["plans"] as Array)[opp] as Dictionary).get("gameplan", "balanced"))
-		if last == prev and COUNTERS.has(last):
+		var same := true
+		if needs == 2:
+			same = last == str(((tactics_history[n - 2]["plans"] as Array)[opp] as Dictionary).get("gameplan", "balanced"))
+		if same and COUNTERS.has(last):
 			plan = str(COUNTERS[last])
 	var t := {"gameplan": plan, "pep": "fire_up" if margin <= -12 and current_quarter >= 3 else "steady"}
-	if current_quarter >= 3:
+	if current_quarter >= (2 if read >= 0.4 else 3):
 		var best := ""
 		var best_inf := -1.0
 		for p in (squads[opp] as Squad).ground:
