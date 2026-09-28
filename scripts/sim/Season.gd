@@ -30,6 +30,7 @@ var round_index := 0           # next regular round to play
 var seed := 0
 var finals := {}               # finals series state, empty until started
 var selections := {}           # code -> chosen match-day side (empty = auto)
+var plans := {}                # code -> standing game plan (absent = balanced)
 
 
 func _init(club_codes: Array, club_lists: Dictionary, p_seed: int = 0) -> void:
@@ -114,6 +115,10 @@ func simulate(home_code: String, away_code: String, match_seed: int,
 	away.form = club_form(away_code)
 	var sim := MatchSim.new(home, away, match_seed)
 	sim.finals_mode = is_final
+	for side in range(2):
+		var plan := str(plans.get([home_code, away_code][side], ""))
+		if plan != "":
+			sim.set_tactics(side, {"gameplan": plan})
 	return sim.run()
 
 

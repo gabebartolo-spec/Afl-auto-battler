@@ -15,6 +15,7 @@ func run() -> void:
 	_test_events()
 	_test_sacking()
 	_test_team_form()
+	_test_coaching_hub()
 	GameState.delete_saved_career()
 	print("Club tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -412,3 +413,61 @@ func _test_team_form() -> void:
 	GameState.save_career()
 	GameState.load_career()
 	_check(is_equal_approx(GameState.season.club_form("GEE"), before), "Form survives a save (it is derived from results)")
+
+
+## Coaching hub: the standing game plan reaches every match of yours, form
+## reads your players' last three games against their season, and how we
+## play is read from the season's team numbers.
+func _test_coaching_hub() -> void:
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	_check(GameState.club_plan == "balanced", "A career starts on a balanced plan")
+	GameState.set_club_plan("nonsense")
+	_check(GameState.club_plan == "balanced", "Only a real plan can be chosen")
+	GameState.set_club_plan("defensive")
+	_check(GameState.season.plans.get("GEE", "") == "defensive" and GameState.season.plans.size() == 1,
+			"Your plan is yours alone: other clubs keep theirs")
+	# A simmed match of yours runs on it from the first bounce.
+	var sim_plan := ""
+	var fx: Array = GameState.season.fixture[GameState.season.round_index]
+	for m in fx:
+		if m["home"] == "GEE" or m["away"] == "GEE":
+			var res := GameState.season.simulate(str(m["home"]), str(m["away"]), 77)
+			var side := 0 if m["home"] == "GEE" else 1
+			var hist: Array = res.get("tactics_history", [])
+			if not hist.is_empty():
+				sim_plan = str(((hist[0]["plans"] as Array)[side] as Dictionary).get("gameplan", ""))
+	_check(sim_plan == "defensive", "A simmed match of yours starts on your plan (%s)" % sim_plan)
+	# Three rounds: no style read yet before three games, then one appears.
+	_check(int(GameState.how_we_play()["games"]) == 0 and (GameState.how_we_play()["win"] as Array).is_empty(),
+			"Nothing is said about how you play before a game")
+	for i in range(6):
+		GameState.advance()
+	var style := GameState.how_we_play()
+	_check(int(style["games"]) >= 3 and (style["win"] as Array).size() + (style["beaten"] as Array).size() > 0
+			and (style["win"] as Array).size() <= 3 and (style["beaten"] as Array).size() <= 3,
+			"After a few games, up to three lines each on how you win and get beaten (%s)" % str(style))
+	for line in (style["win"] as Array) + (style["beaten"] as Array):
+		_check(str(line).contains("a game") and not str(line).contains("%"), "A style line is football words and a number: %s" % str(line))
+	# Form: last three against his season, only with five games behind him.
+	var some: String = GameState.form_log.keys()[0] if not GameState.form_log.is_empty() else ""
+	_check(some != "" and (GameState.form_log[some]["last"] as Array).size() <= 3,
+			"Each player's form keeps only his last three games")
+	GameState.form_log = {"X1": {"last": [120, 110, 130], "sum": 600, "n": 8},
+			"X2": {"last": [20, 30, 25], "sum": 600, "n": 8},
+			"X3": {"last": [120, 110, 130], "sum": 360, "n": 3}}
+	var keep := GameState.my_list
+	GameState.my_list = [{"id": "X1"}, {"id": "X2"}, {"id": "X3"}]
+	var form := GameState.player_form()
+	GameState.my_list = keep
+	_check((form["hot"] as Array).size() == 1 and str(form["hot"][0]["id"]) == "X1"
+			and int(form["hot"][0]["recent"]) == 120 and int(form["hot"][0]["season"]) == 75,
+			"In form: well above his own season (%s)" % str(form))
+	_check((form["cold"] as Array).size() == 1 and str(form["cold"][0]["id"]) == "X2",
+			"Out of form: well below it; too few games says nothing")
+	_check(GameState.save_career() and GameState.load_career() and GameState.club_plan == "defensive"
+			and GameState.form_log.has("X1") and not GameState.season_team.is_empty(),
+			"The plan, form and season numbers survive a save")
+	_check(GameState.season.plans.get("GEE", "") == "defensive", "A loaded career plays on its plan")
+	GameState.set_club_plan("balanced")
+	GameState.delete_saved_career()
