@@ -96,22 +96,22 @@ func _test_identity() -> void:
 
 func _test_interest() -> void:
 	var base := {"games": 40}
-	_check(is_equal_approx(CoachPathway.interest_chance(base), 0.06), "Base interest 6%")
-	_check(is_equal_approx(CoachPathway.interest_chance({"games": 160}), 0.08), "150+ games: 8%")
-	_check(is_equal_approx(CoachPathway.interest_chance({"games": 260}), 0.10), "250+ games: 10%")
-	_check(CoachPathway.interest_chance({"games": 300, "honours": {"brownlow": 3, "coleman": 4}}) <= 0.15 + 0.0001,
-			"Capped at 15%")
+	_check(is_equal_approx(CoachPathway.interest_chance(base), 0.19), "Base interest 19%")
+	_check(is_equal_approx(CoachPathway.interest_chance({"games": 160}), 0.22), "150+ games: 22%")
+	_check(is_equal_approx(CoachPathway.interest_chance({"games": 260}), 0.25), "250+ games (a typical retiree here): 25%")
+	_check(CoachPathway.interest_chance({"games": 300, "honours": {"brownlow": 3, "coleman": 4}}) <= 0.30 + 0.0001,
+			"Capped at 30%")
 	var same := true
 	var yes := 0
 	for i in range(2000):
-		var pl := {"games": 100}
+		var pl := {"games": 260}
 		var a := CoachPathway.interested("R%d" % i, pl, SEED)
 		if a != CoachPathway.interested("R%d" % i, pl, SEED):
 			same = false
 		if a:
 			yes += 1
 	_check(same, "The interest roll is deterministic: reloading never rerolls it")
-	_check(yes > 80 and yes < 170, "About 6%% of ordinary retirees go into coaching (%d of 2000)" % yes)
+	_check(yes > 440 and yes < 560, "About one veteran retiree in four goes into coaching (%d of 2000)" % yes)
 
 
 func _test_pathway_and_specialty() -> void:

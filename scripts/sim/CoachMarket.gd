@@ -44,8 +44,9 @@ const MAX_POACHED_FROM_YOU := 2
 const NEW_SC_REPLACES_SA := 0.5
 const RETIRE_FROM := 64
 const RETIRE_BY := 70
-const POOL_MIN := 45               # available + away coaches kept in the market
-const POOL_TOP := 52
+const POOL_MIN := 34               # available + away coaches kept in the market
+const POOL_TOP := 40
+const POOL_FLOOR := 20             # generated top-up never lets the pool fall below this
 const NEWS_CAP := 8
 
 ## Hiring score weights (sum 1.0 before penalties).
@@ -66,7 +67,7 @@ const MY_PLAYER_GAMES := 100
 ## Skill scale and the population's anchor.
 const SKILL_MIN := 55
 const SKILL_MAX := 92
-const ANCHOR_MEAN := 72.0
+const ANCHOR_MEAN := 70.0
 
 
 # ---------------------------------------------------------------------------
@@ -639,7 +640,14 @@ static func _top_up(coaches: Dictionary, year: int, seed: int, log: Dictionary, 
 	for club in clubs:
 		if GameDB.enter_year(club) == year + 2:
 			target += 8   # next year's new club will hire six
-	if pool >= POOL_MIN and pool >= target - 6:
+	# Generated coaches are the top-up, not a fixed supply: former players
+	# coming through the pathways take their place as the pipeline fills.
+	var coming := 0
+	for cid in coaches:
+		if CoachPathway.in_pathway(coaches[cid]):
+			coming += 1
+	target = maxi(POOL_FLOOR, target - coming)
+	if pool >= mini(POOL_MIN, target) and pool >= target - 6:
 		return
 	while pool < target:
 		_generate(coaches, year, seed, log, "")
@@ -663,12 +671,16 @@ static func _generate(coaches: Dictionary, year: int, seed: int, log: Dictionary
 			spec = for_job
 		"SC", "SA":
 			spec = ""
-	var base := 58.0
+	# New to AFL coaching, like a former player out of the pathways: the same
+	# starting spread (52-72, most near 62), so neither is favoured.
+	var sk := {}
+	for k in ["teach", "tactics", "manage"]:
+		var v := CoachPathway.SKILL_CENTRE + (float(r.call("s1" + k)) + float(r.call("s2" + k)) - 1.0) * CoachPathway.SKILL_SPREAD
+		sk[k] = clampi(int(round(v)), CoachPathway.SKILL_FLOOR, CoachPathway.SKILL_CEIL)
 	var c := {
 		"cid": cid, "real_name": "", "generic_name": _gen_name(cid, seed),
 		"former_player_id": "", "spec": spec,
-		"skills": {"teach": int(base + r.call("t") * 16.0), "tactics": int(base + r.call("a") * 16.0),
-				"manage": int(base + r.call("m") * 16.0)},
+		"skills": sk,
 		"status": "free" if r.call("status") < 0.65 else "away",
 		"club": "", "job": "", "free_from": 0, "stints": [], "former_sc": false,
 		"note": "" , "origin": "generated", "played": {},

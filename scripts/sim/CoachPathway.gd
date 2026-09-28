@@ -24,11 +24,14 @@ extends RefCounted
 ## Nothing else from the player is kept: no attributes, ratings, contract,
 ## training, injuries or season stats.
 
-const BASE_INTEREST := 0.06
-const GAMES_150 := 0.02
-const GAMES_250 := 0.02
+## The chance a retiree goes into coaching. This game's career endings are
+## mostly long-serving veterans (about 19 a season, median ~280 games), so the
+## rate is set for them: about one in four, a little higher for a long career.
+const BASE_INTEREST := 0.19
+const GAMES_150 := 0.03
+const GAMES_250 := 0.03
 const HONOUR := 0.01
-const MAX_INTEREST := 0.15
+const MAX_INTEREST := 0.30
 const DEV_SPEC := 0.22            # enters as a development specialist
 const WHOLE_GAME := 0.08          # 200+ gamers who coach the whole game
 const PATHWAY_MIN := 1            # seasons out of sight before he is hireable
