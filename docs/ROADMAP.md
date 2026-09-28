@@ -1587,7 +1587,7 @@ Goal: strengthen the management loop around the football.
   - **The board:** confidence, their goal, any final warning.
   - **Staff:** one line per job, which opens the coach's profile (a vacant job opens Staff). The Staff screen is one button away for appointments and other clubs.
 - **Saved:** `club_plan`, `form_log` (last three ratings plus the season sum), `season_team` (season team totals for every club). Form and team totals reset each season.
-- **Not in this change:** score sources in "How we get beaten" (M2-008, PR #79) slot in once that merges. The Phase 5 effects copy (what teaching, tactics and man-management do) stays on each coach's profile, one tap from every staff line, rather than repeated on the hub.
+- **Score sources (M2-008):** the season also keeps points scored and conceded from turnovers and from stoppages (centre bounces included), so the lines can say "They hurt us on the turnover: 6 more points a game conceded from it than the average side." The Phase 5 effects copy (what teaching, tactics and man-management do) stays on each coach's profile, one tap from every staff line, rather than repeated on the hub.
 - **Tests:** `test_club.gd::_test_coaching_hub` checks that:
   - the plan is valid, yours only, and reaches a simmed match;
   - style lines only appear after three games, with at most three each;

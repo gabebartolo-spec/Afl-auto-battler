@@ -2973,6 +2973,12 @@ func _note_form_and_team(res: Dictionary) -> void:
 			row[k] = float(row.get(k, 0.0)) + float((team[side] as Dictionary).get(k, 0.0))
 		row["for"] = float(row.get("for", 0.0)) + float(score[side])
 		row["against"] = float(row.get("against", 0.0)) + float(score[1 - side])
+		# Where the points come from, both ways (MatchSim score sources).
+		var mine_t: Dictionary = team[side]
+		var theirs_t: Dictionary = team[1 - side] if team.size() > 1 else {}
+		for k in ["turnover", "stoppage"]:
+			row["from_" + k] = float(row.get("from_" + k, 0.0)) + _source_pts(mine_t, k)
+			row["conceded_" + k] = float(row.get("conceded_" + k, 0.0)) + _source_pts(theirs_t, k)
 		season_team[codes[side]] = row
 	if not is_my_match(res):
 		return
@@ -2991,6 +2997,14 @@ func _note_form_and_team(res: Dictionary) -> void:
 		f["sum"] = int(f["sum"]) + pts
 		f["n"] = int(f["n"]) + 1
 		form_log[id] = f
+
+
+## Points from one kind of source; stoppages include centre bounces.
+static func _source_pts(t: Dictionary, k: String) -> float:
+	var v := float(t.get("score_from_" + k, 0.0))
+	if k == "stoppage":
+		v += float(t.get("score_from_centre", 0.0))
+	return v
 
 
 const FORM_GAMES := 3
@@ -3086,4 +3100,12 @@ const STYLE_LINES := {
 			"We turn it over: %d more clangers a game than the average side.", true],
 	"hitouts": ["Our ruck wins the tap: %d more hit-outs a game than the average side.",
 			"We are beaten in the ruck: %d fewer hit-outs a game than the average side.", false],
+	"from_turnover": ["We hurt sides on the turnover: %d more points a game from it than the average side.",
+			"We rarely score on the turnover: %d fewer points a game from it than the average side.", false],
+	"from_stoppage": ["We score from the stoppages: %d more points a game from them than the average side.",
+			"We rarely score from the stoppages: %d fewer points a game from them than the average side.", false],
+	"conceded_turnover": ["We rarely get caught on the turnover: %d fewer points a game conceded from it than the average side.",
+			"They hurt us on the turnover: %d more points a game conceded from it than the average side.", true],
+	"conceded_stoppage": ["We shut down their stoppage game: %d fewer points a game conceded from stoppages than the average side.",
+			"They hurt us from the stoppages: %d more points a game conceded from them than the average side.", true],
 }

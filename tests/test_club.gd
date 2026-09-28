@@ -447,6 +447,10 @@ func _test_coaching_hub() -> void:
 	_check(int(style["games"]) >= 3 and (style["win"] as Array).size() + (style["beaten"] as Array).size() > 0
 			and (style["win"] as Array).size() <= 3 and (style["beaten"] as Array).size() <= 3,
 			"After a few games, up to three lines each on how you win and get beaten (%s)" % str(style))
+	var mine: Dictionary = GameState.season_team["GEE"]
+	_check(mine.has("from_turnover") and mine.has("conceded_stoppage")
+			and float(mine["from_turnover"]) + float(mine["from_stoppage"]) <= float(mine["for"]) + 0.01,
+			"Where our points come from, both ways, is kept for the season")
 	for line in (style["win"] as Array) + (style["beaten"] as Array):
 		_check(str(line).contains("a game") and not str(line).contains("%"), "A style line is football words and a number: %s" % str(line))
 	# Form: last three against his season, only with five games behind him.
