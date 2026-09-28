@@ -35,6 +35,7 @@ var _cap: Label
 var _role_labels := {}
 var _role_buttons := {}
 var _need_labels := {}
+var _cover_labels := {}
 var _main_tabs: HBoxContainer
 var _side_tabs: HBoxContainer
 var _pool_panel: PanelContainer
@@ -168,7 +169,7 @@ func _restore_scrolls(values: Array) -> void:
 func _show_club_select() -> void:
 	UiKit.clear(_root)
 	# A career starts with the clubs active in its first season - the
-	# founding eighteen in 2026, more once expansion clubs arrive.
+	# founding eighteen in the first season, more once expansion clubs arrive.
 	var active := GameDB.active_clubs(GameState.season_year)
 	_root.add_child(_header("CHOOSE YOUR CLUB",
 			"%d  /  A fresh start for all %d clubs" % [GameState.season_year, active.size()]))
@@ -372,6 +373,13 @@ func _position_filters() -> Control:
 		count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(count_label)
 		_role_labels[role] = count_label
+		# Dual-position players who can also play here: shown only when
+		# there are some, so the headline count stays the list's make-up.
+		var cover := UiKit.line("", 11, UiKit.MUTED)
+		cover.name = "Cover_" + role
+		cover.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(cover)
+		_cover_labels[role] = cover
 		var need := UiKit.line("", 11, UiKit.MUTED, true)
 		need.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(need)
@@ -510,7 +518,7 @@ func _filters() -> Control:
 		clubs.add_item("All recruiting clubs")
 	else:
 		# The clubs that actually have players in this draft's pool - the
-		# founding eighteen in 2026, not every club that will ever exist.
+		# founding eighteen in the first season, not every club that will ever exist.
 		var present := {}
 		for p in _draft.pool:
 			present[str(p.get("club", ""))] = true
@@ -1156,9 +1164,13 @@ func _refresh_status() -> void:
 	else:
 		_cap.text = "CAP LEFT  $%d\n$%d spent / $%d" % [_draft.remaining(), _draft.spent(), _draft.budget]
 	var counts := _draft.role_counts()
+	var cover := _draft.role_coverage()
 	var needs := _draft.position_needs()
 	for role in ROLES:
 		_role_labels[role].text = "%s %d" % [role, counts[role]]
+		var extra := int(cover[role]) - int(counts[role])
+		_cover_labels[role].text = "%d can play" % int(cover[role]) if extra > 0 else ""
+		_cover_labels[role].visible = extra > 0
 		_need_labels[role].text = "NEED +%d" % int(needs[role]) if int(needs[role]) > 0 else "COVERED"
 		_need_labels[role].add_theme_color_override("font_color", UiKit.BAD if int(needs[role]) > 0 else UiKit.GOOD)
 	var upcoming := _draft.upcoming_picks(_club, 3)

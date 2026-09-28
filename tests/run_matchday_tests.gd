@@ -194,17 +194,9 @@ func _phone_match(sz: Vector2i) -> void:
 		var rt := _text(rep)
 		_check(not rt.contains("vs par") and not rt.contains("disp (") and not rt.contains("Where the game is being won"),
 				"The short report is words, not a stat dump (%s)" % tag)
-		var full_btn: Button = rep.find_child("FullReportButton", true, false)
-		_check(full_btn != null, "The full report is a tap away (%s)" % tag)
-		if full_btn != null:
-			full_btn.emit_signal("pressed")
-			await _settle()
-			var fr: Node = m.find_child("FullReport", true, false)
-			_check(fr != null and _text(fr).contains("What stands out"), "The full report keeps the detail (%s)" % tag)
-			var back_full: bool = m.call("handle_back")
-			await _settle()
-			_check(back_full and m.find_child("FullReport", true, false) == null
-					and m.find_child("AssistantReport", true, false) != null, "Back returns to the short report (%s)" % tag)
+		_check(rep.find_child("FullReportButton", true, false) == null and not rt.contains("Half time:"),
+				"One report: no full-report stat wall, no second scoreline (%s)" % tag)
+		_check(rt.contains("Half time, "), "It says where the game stands, once (%s)" % tag)
 		_check(m.call("handle_back") == true, "Back is handled on the report (%s)" % tag)
 		await _settle()
 		_check(m.find_child("AssistantReport", true, false) == null and m.find_child("CoachBox", true, false) != null,
@@ -285,14 +277,13 @@ func _phone_match(sz: Vector2i) -> void:
 			rep_tab.emit_signal("pressed")
 			await _settle()
 			var rr: Node = m.find_child("ReviewReport", true, false)
-			_check(rr != null and rr.find_child("MatchRead", true, false) != null, "Report shows the half at a glance (%s)" % tag)
-			var tog: Button = rr.find_child("FullReportToggle", true, false) if rr != null else null
-			if tog != null:
-				tog.emit_signal("pressed")
-				await _settle()
-			_check(m.find_child("FullReportDetail", true, false) != null
-					and _text(m.find_child("FullReportDetail", true, false)).contains("What stands out"),
-					"The full report opens in place (%s)" % tag)
+			_check(rr != null and rr.find_child("MatchRead", true, false) != null, "Report shows the match at a glance (%s)" % tag)
+			var rtext := _text(rr) if rr != null else ""
+			_check(rr != null and rr.find_child("FullReportToggle", true, false) == null
+					and not rtext.contains("vs par") and not rtext.contains("Where the game is being won"),
+					"The Report tab is the one short report; the numbers are on Stats (%s)" % tag)
+			_check(not rtext.contains("Second-half notes") and not rtext.contains(" half."),
+					"At full time it talks about the game, not the half (%s)" % tag)
 			_check(m.call("handle_back") == true, "Back on Report is handled (%s)" % tag)
 			await _settle()
 			_check(m.find_child("ReviewReport", true, false) == null and m.find_child("BestPlayers", true, false) != null,
