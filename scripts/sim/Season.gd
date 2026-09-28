@@ -112,6 +112,8 @@ func simulate(home_code: String, away_code: String, match_seed: int,
 			lists[away_code], bool(at_home[1]), away_code, selections.get(away_code, {}))
 	home.form = club_form(home_code)
 	away.form = club_form(away_code)
+	CoachEffects.apply(home)
+	CoachEffects.apply(away)
 	var sim := MatchSim.new(home, away, match_seed)
 	sim.finals_mode = is_final
 	return sim.run()

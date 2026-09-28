@@ -15,6 +15,12 @@ var bench: Array = []
 ## Team form, -1..1, from recent results (Season.club_form). Set by whoever
 ## builds the match; 0 is neutral.
 var form := 0.0
+## From the club's coaches (CoachEffects), set before a match: how well its
+## game plan is executed (1.0 = as written), how sharply it reads the match
+## (-0.75 .. 1), and whether it picks its own plan each quarter (AI clubs).
+var tactics_exec := 1.0
+var tactics_read := 0.0
+var ai_plans := false
 
 ## Role-group strengths
 var ruck := 45.0

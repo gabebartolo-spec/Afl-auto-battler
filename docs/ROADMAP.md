@@ -1661,6 +1661,27 @@ Validate with targeted multi-season simulations.
 - **UI:** the coach profile shows the playing career (clubs, games, goals, draft, medals), then the coaching career, wrapped for 360 px. News covers notable former players joining the coaching ranks and their first appointment.
 - **Tests:** new `coach_pathway` suite, plus the coaches and coach_market suites.
 
+
+### Phase 5 implementation record (2026-09-28, branch `claude/coaching-phase5`)
+- **Design:** `CoachEffects.gd` holds three capped modifiers read from the coach records; nothing is saved. A skill counts from a Good coach: level = (skill - 70) / 20, clamped -0.75..1. A vacant job counts as a weak coach.
+- **Teaching:** scales match XP in the one place it is paid (`GameState._grant_xp`, your club and rivals alike).
+  - Weights: 6% x the player's line coach's fit for the job, 5% x the development coach's fit for a player aged 22 or under or not on the ground (2% otherwise), and 2% x the senior assistant's teaching.
+  - Capped at -5% to +10%. The reserves keep their half rate.
+  - Probe, the same career with coaches set to 60 / 72 / 90: match XP 126.9k / 133.6k / 148.7k; starting list after 3 seasons +1.10 / +1.21 / +1.52 OVR.
+- **Tactics:**
+  - The tactical brain is the senior coach 60% and senior assistant 40%; at your club it is your assistant.
+  - Plan effects, costs included, execute at 1 +/- 15% x level through `MatchSim._pv`.
+  - `ai_tactics` reacts to a margin of 18 - 8 x level, counters after one quarter at level 0.4+ (two otherwise, never below -0.5), and tags from half time when sharp.
+  - AI clubs now pick their plan each quarter in every match; before, only in the match you watched.
+  - With no plan in play, tactics change nothing: a hash test confirms identical results.
+  - Identical lists: 72 v 72 wins 50.4%; 90 v 72 wins 53.2% (+2.8 points a game).
+  - AI plans league-wide (1,000 matches): plans used in about 18% of quarters, mean score 86.9 to 88.5, home win 59.6% to 57.1%, stronger side wins 63.1% to 64.6%.
+- **Man-management:** spares part of the morale a fit player loses when left out, and part of a broken promise of a game.
+  - The senior assistant counts 60% and his line coach 40%, up to 40% spared; a poor man-manager spares nothing.
+  - A star dropped eight weeks from 70 ends at 22 / 30 / 38 with weak / Good / elite: he still slides.
+- **UI:** one plain line on the coach profile says what each skill does. No numbers.
+- **Tests:** new `coach_effects` suite (24 checks).
+
 ---
 
 ## ARD-M6-003 — Board Confidence
