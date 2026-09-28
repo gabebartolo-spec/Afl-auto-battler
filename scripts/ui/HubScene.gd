@@ -4,6 +4,7 @@ extends Control
 var _root: VBoxContainer
 var _results_overlay: Control
 var _news_overlay: Control
+var _sim_confirm: Control
 
 
 func _ready() -> void:
@@ -382,7 +383,9 @@ func _footer(season: Season) -> Control:
 		buttons.append(_nav_button("Training", func(): Router.go("training")))
 		buttons.append(_nav_button("My list", func(): Router.go("list")))
 		if not _upcoming_match().is_empty():
-			buttons.append(_nav_button("Sim round", _on_sim_round))
+			var sim := _nav_button("Sim round", _on_sim_round_pressed)
+			sim.name = "SimRound"
+			buttons.append(sim)
 	var row := UiKit.hbox(6)
 	row.name = "HubFooter"
 	for b in buttons:
@@ -451,6 +454,49 @@ func _on_play_match() -> void:
 	_on_sim_round()
 
 
+## Sim round skips your own match for good, so it asks first (unless you
+## have said not to; Settings turns the question back on).
+func _on_sim_round_pressed() -> void:
+	var m := _upcoming_match()
+	if m.is_empty() or not GameState.confirm_sim_round():
+		_on_sim_round()
+		return
+	var box := UiKit.modal_box(self, 420.0, 290.0)
+	_sim_confirm = box["overlay"]
+	_sim_confirm.name = "SimConfirm"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.heading("Simulate %s?" % str(m["label"]), UiKit.H1))
+	var why := UiKit.lbl("Your match will be simulated instead of played.", UiKit.BODY, UiKit.TEXT)
+	why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(why)
+	var go := UiKit.btn("Sim round", 17, true)
+	go.name = "SimConfirmGo"
+	go.custom_minimum_size = Vector2(0, 48)
+	go.pressed.connect(func():
+		_close_sim_confirm()
+		_on_sim_round())
+	box["footer"].add_child(go)
+	var cancel := UiKit.btn("Cancel", 16)
+	cancel.name = "SimConfirmCancel"
+	cancel.custom_minimum_size = Vector2(0, 44)
+	cancel.pressed.connect(_close_sim_confirm)
+	box["footer"].add_child(cancel)
+	var never := UiKit.btn("Don't ask again", 16)
+	never.name = "SimConfirmNever"
+	never.custom_minimum_size = Vector2(0, 44)
+	never.pressed.connect(func():
+		GameState.set_confirm_sim_round(false)
+		_close_sim_confirm()
+		_on_sim_round())
+	box["footer"].add_child(never)
+
+
+func _close_sim_confirm() -> void:
+	if _sim_confirm != null and is_instance_valid(_sim_confirm):
+		_sim_confirm.queue_free()
+	_sim_confirm = null
+
+
 func _on_sim_round() -> void:
 	GameState.advance()
 	_build()
@@ -471,6 +517,9 @@ func _on_sim_to_end() -> void:
 
 ## Router back hook: close the results popup before leaving the hub.
 func handle_back() -> bool:
+	if _sim_confirm != null and is_instance_valid(_sim_confirm):
+		_close_sim_confirm()
+		return true
 	if _news_overlay != null and is_instance_valid(_news_overlay):
 		_news_overlay.queue_free()
 		_news_overlay = null

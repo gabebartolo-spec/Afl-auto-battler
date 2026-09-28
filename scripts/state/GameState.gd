@@ -140,6 +140,15 @@ func set_setting(key: String, value) -> void:
 	cfg.save(settings_path)
 
 
+## Ask before Sim round plays your match without you. On by default.
+func confirm_sim_round() -> bool:
+	return bool(get_setting("confirm_sim_round", true))
+
+
+func set_confirm_sim_round(enabled: bool) -> void:
+	set_setting("confirm_sim_round", enabled)
+
+
 func set_show_real_names(enabled: bool) -> void:
 	if show_real_names == enabled:
 		return

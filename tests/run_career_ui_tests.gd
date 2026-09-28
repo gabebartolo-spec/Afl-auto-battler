@@ -152,6 +152,48 @@ func _run() -> void:
 	_check(not _state.week_event_pending() and _screen_text().contains("members loved it"),
 			"Answering it shows what happened")
 
+	# --- Sim round asks first: it plays your match without you --------------
+	_state.set_confirm_sim_round(true)
+	_router.go("hub")
+	await _settle()
+	var r0: int = _state.season.round_index
+	var press_sim := func() -> void:
+		var b: Button = current_scene.find_child("SimRound", true, false)
+		if b != null:
+			b.emit_signal("pressed")
+	press_sim.call()
+	await _settle()
+	_check(current_scene.find_child("SimConfirm", true, false) != null and _state.season.round_index == r0,
+			"Sim round asks before playing your match")
+	_check(_screen_text().contains("Simulate Round %d?" % (r0 + 1)), "The question names the round")
+	_router.handle_back(true)
+	await _settle()
+	_check(_router.current() == "hub" and current_scene.find_child("SimConfirm", true, false) == null
+			and _state.season.round_index == r0, "Back closes the question and sims nothing")
+	press_sim.call()
+	await _settle()
+	current_scene.find_child("SimConfirmCancel", true, false).emit_signal("pressed")
+	await _settle()
+	_check(_state.season.round_index == r0, "Cancel sims nothing")
+	press_sim.call()
+	await _settle()
+	current_scene.find_child("SimConfirmNever", true, false).emit_signal("pressed")
+	await _settle()
+	var cfg := ConfigFile.new()
+	cfg.load(_state.settings_path)
+	_check(_state.season.round_index == r0 + 1 and not _state.confirm_sim_round()
+			and cfg.get_value("ui", "confirm_sim_round", true) == false,
+			"Don't ask again sims the round and remembers the choice")
+	_router.handle_back(true)
+	await _settle()
+	press_sim.call()
+	await _settle()
+	_check(current_scene.find_child("SimConfirm", true, false) == null and _state.season.round_index == r0 + 2,
+			"After Don't ask again, Sim round goes straight ahead")
+	_router.handle_back(true)
+	await _settle()
+	_state.set_confirm_sim_round(true)
+
 	# --- a simmed match: headlined, and reviewable at full time -------------
 	current_scene.call("_on_sim_round")
 	await _settle()
@@ -235,6 +277,19 @@ func _run() -> void:
 	_check(_state.season != null, "Leaving by back keeps the career in memory")
 	_check(current_scene.find_child("ResumeCareer", true, false) != null,
 			"The menu offers Resume Season after backing out")
+	# Settings can turn the Sim round question off and back on.
+	current_scene.call("_show_settings")
+	await _settle()
+	var off_btn: Button = current_scene.find_child("SettingsSimConfirm_off", true, false)
+	var on_btn: Button = current_scene.find_child("SettingsSimConfirm_on", true, false)
+	_check(off_btn != null and on_btn != null, "Settings has Confirm before simming round")
+	if off_btn != null and on_btn != null:
+		off_btn.emit_signal("pressed")
+		_check(not _state.confirm_sim_round(), "...which can be switched off")
+		on_btn.emit_signal("pressed")
+		_check(_state.confirm_sim_round(), "...and back on")
+	current_scene.call("_close_settings")
+	await _settle()
 
 	# --- back on other screens ------------------------------------------------
 	_router.go("hub")
