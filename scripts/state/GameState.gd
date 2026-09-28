@@ -140,6 +140,15 @@ func set_setting(key: String, value) -> void:
 	cfg.save(settings_path)
 
 
+## Ask before Sim round plays your match without you. On by default.
+func confirm_sim_round() -> bool:
+	return bool(get_setting("confirm_sim_round", true))
+
+
+func set_confirm_sim_round(enabled: bool) -> void:
+	set_setting("confirm_sim_round", enabled)
+
+
 func set_show_real_names(enabled: bool) -> void:
 	if show_real_names == enabled:
 		return
@@ -2519,6 +2528,27 @@ func _next_week_event() -> void:
 			selected[str(id)] = true
 	week_event = ClubLife.pick_event({"list": my_list, "round": season.round_index + 1,
 			"seed": season.seed, "losses": losing_streak, "selected": selected})
+
+
+## Quick sim: play up to `rounds` home-and-away rounds (-1: to the end of the
+## home-and-away season). It never plays a final, and stops early if the
+## season ends or something genuinely stops the club (you are sacked).
+## Returns {"played": n, "reason": "done" | "season_end" | "sacked"}.
+func quick_sim(rounds: int) -> Dictionary:
+	var played := 0
+	var reason := "done"
+	while season != null and (rounds < 0 or played < rounds):
+		if season.is_regular_done():
+			reason = "season_end"
+			break
+		advance()
+		played += 1
+		if is_sacked():
+			reason = "sacked"
+			break
+	if reason == "done" and season != null and season.is_regular_done():
+		reason = "season_end"
+	return {"played": played, "reason": reason}
 
 
 func week_event_pending() -> bool:
