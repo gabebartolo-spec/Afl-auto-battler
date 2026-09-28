@@ -492,6 +492,16 @@ static func select_22(list_players: Array) -> Dictionary:
 				ground.append(_for_slot(p, role))
 				used[p["id"]] = true
 				added += 1
+		# No ruck on the list: the best ruckman available goes up (an
+		# emergency ruck), not simply the best player.
+		if role == "RUCK" and added < need:
+			for p in by_ruck(pool):
+				if added >= need:
+					break
+				if not used.has(p["id"]):
+					ground.append(_for_slot(p, role))
+					used[p["id"]] = true
+					added += 1
 	for p in pool:
 		if ground.size() >= 18:
 			break
@@ -580,7 +590,7 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 						ground.append(_for_slot(p, role))
 						used[id] = true
 						have += 1
-			for p in pool:
+			for p in (by_ruck(pool) if role == "RUCK" else pool):
 				if have >= int(slot[1]):
 					break
 				var id := str(p["id"])
@@ -609,6 +619,19 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 
 
 ## Copy so the match-day slot does not rewrite the list player's natural role.
+## Players ordered by ruck work, best first (ties by overall), for filling
+## an empty ruck spot with the nearest thing to a ruckman.
+static func by_ruck(players: Array) -> Array:
+	var out := players.duplicate()
+	out.sort_custom(func(a, b):
+		var ra := float(a["attr"]["ruck"])
+		var rb := float(b["attr"]["ruck"])
+		if ra != rb:
+			return ra > rb
+		return int(a["overall"]) > int(b["overall"]))
+	return out
+
+
 static func _for_slot(p: Dictionary, slot: String) -> Dictionary:
 	var copy := p.duplicate()
 	copy["list_tag"] = role_tag(p)
