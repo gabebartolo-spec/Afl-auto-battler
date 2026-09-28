@@ -1469,11 +1469,18 @@ Do not manually patch only famous names if the classifier itself is wrong.
 ---
 
 ## ARD-M5-010 — OVR should predict football strength
-**Status:** `PARTIAL / KNOWN ISSUE`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
 Overall rating should be meaningfully aligned with what Squad/MatchSim reward.
+
+### Implementation record (2026-09-28, branch `claude/ovr-predicts`)
+- **Measured:** margin per OVR point by position. A median and a 98th-percentile player of each position replaced a side's weakest selected player of that position (600 matches per condition, same seeds). Forward 63 to 87: +8.7 points (0.36 a point). Ruck 62 to 89: +7.5 (0.28). Defender 63 to 86: +3.7 (0.16). Mid 62 to 89: +4.0 (0.15). The per-condition noise is about 1.4 points.
+- **Cause:** not the forward core weights but the position scale. The forwards' 98th percentile was placed 85% of the way to the midfield one, while the engine says an elite forward is worth at least an elite mid.
+- **Change:** the forward 98th-percentile target equals the midfield one (73.42 to 78.04) in `Ratings.gd`, `tools/sim_harness.py` and `tools/intake_harness.py`. Medians and the low tail are unchanged. Greene 79 to 82, Cameron 77 to 79, the best forward 88 to 92; forward p90 79 to 82. Salary value and selection follow from OVR. `data/player_history_2026.csv` (past seasons for POT) carries only the change this makes: 153 forward season ratings across 66 players rise, and nothing else moves. A fresh page fetch also showed unrelated source drift (non-forward ratings, one relinked player), which is left out here.
+- **Not changed:** rucks measure high per point too (0.28) but keep the 85% ceiling: there are only 46 of them and play has shown no problem. The same lever applies if it does.
+- **Tests:** ratings, potential and intake suites pass (every position's best in the mid 80s, medians together, monotonic scale).
 
 ### Current calibration notes
 - PR #47 deliberately re-measured forward/midfield OVR against MatchSim rather than hand-tuning famous players.
