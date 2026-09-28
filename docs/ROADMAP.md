@@ -116,6 +116,8 @@ When ChatGPT has GitHub access, ChatGPT should take over the mechanical verifica
 
 If CI exposes a genuine implementation bug, ChatGPT should give Claude the **specific failure and relevant log context**; Claude remains the coding agent.
 
+Documentation-only PRs (`docs/**` and Markdown-only changes) are excluded from the expensive Godot full-suite workflow. If a PR changes both documentation and game/code/data/config files, CI still runs normally.
+
 ### Test tiers
 Use the cheapest tier that answers the current question:
 
@@ -2032,7 +2034,7 @@ Use the relevant rows only. These are **feature-specific gates**; the repository
 | Persistent schema | old-save default/migration; current-save roundtrip; no data loss |
 | Visualisation | affected event/result reconciliation; direction/restart regression; relevant phone view only |
 | Long-save feature | run the minimum multi-season probe that exposes the long-run behaviour; expand to 30/50/100 seasons only when the question requires it |
-| Docs/copy only | no local full suite; rely on CI if repository policy runs it |
+| Docs/copy only | no game suite; docs/Markdown-only PRs skip the expensive Godot CI by path filter |
 
 ### Avoid redundant validation
 
@@ -2240,6 +2242,7 @@ Before adding any new roadmap line, check this table.
 
 Keep this short. Add only meaningful structural changes, not every code commit.
 
+- **2026-09-28:** Docs-only CI optimisation: PRs/pushes that change only `docs/**` or Markdown skip the full Godot game suite; mixed docs+code changes still run it.
 - **2026-09-28:** Added lean validation ownership: Claude uses targeted tests while coding; GitHub CI/ChatGPT owns the routine full-suite PR gate, log triage, selective reruns and merge verification. Avoid duplicate full-suite and long-run testing.
 - **2026-09-28:** Added Phase 4 former-player coaching guidance: test ~25% pathway entry first, let generated coaches act as top-up supply, and treat low player-career turnover as a separate upstream issue rather than forcing the coaching percentage.
 - **2026-09-28:** Added ARD-M5-011 for opening League Draft career-stage filters (Rookies / Prime / Veterans), with exact age cut-offs to be chosen from the actual 2027 pool distribution.
