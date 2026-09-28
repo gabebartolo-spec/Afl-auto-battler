@@ -29,6 +29,12 @@ func _run() -> void:
 		failures.append("%d of %d players have no age" % [no_age, db.players.size()])
 	if no_dob > 0:
 		failures.append("%d of %d players have no date of birth" % [no_dob, db.players.size()])
+	# The coaching world's Round 1 seed ships too.
+	var coach_csv := "res://data/coaches_2026.csv"
+	if not FileAccess.file_exists(coach_csv):
+		failures.append("%s is missing from the exported pack" % coach_csv)
+	elif (load("res://scripts/sim/Coaches.gd").seed("CAR") as Dictionary).size() < 100:
+		failures.append("the coaching seed loaded too few coaches from the exported pack")
 	for f in failures:
 		push_error("Export data check: " + f)
 	print("Export data check: %d players, %d failures" % [db.players.size(), failures.size()])

@@ -38,7 +38,9 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable()) 
 	# Now: available or not, and how he is feeling.
 	var state := PackedStringArray()
 	var weeks := int(p.get("injury_weeks", 0))
-	if weeks > 0:
+	if Injuries.concussion_text(p) != "":
+		state.append(Injuries.concussion_text(p) + ".")
+	elif weeks > 0:
 		state.append("Injured: out %s%s." % ["1 week" if weeks == 1 else "%d weeks" % weeks,
 				" (%s)" % str(p["injury_kind"]) if str(p.get("injury_kind", "")) != "" else ""])
 	elif bool(p.get("rested", false)):
@@ -96,6 +98,20 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable()) 
 			UiKit.BODY, UiKit.TEXT if str(prod["line"]) != "" else UiKit.MUTED)
 	pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(pl)
+
+	# His senior career (Career.gd): games and goals, and the clubs when he
+	# has played for more than one.
+	var tot := Career.totals_text(p)
+	if tot != "":
+		v.add_child(UiKit.spacer(4))
+		v.add_child(UiKit.lbl("Career", UiKit.SMALL, UiKit.MUTED))
+		var cl := UiKit.lbl(tot, UiKit.BODY, UiKit.TEXT)
+		cl.name = "ProfileCareer"
+		v.add_child(cl)
+		var clubs := Career.club_lines(p, func(code): return GameDB.club_name(code))
+		if clubs.size() > 1:
+			for line in clubs:
+				v.add_child(UiKit.lbl(str(line), UiKit.SMALL, UiKit.MUTED))
 
 	# The attributes behind the rating: the deepest layer, last.
 	v.add_child(UiKit.spacer(6))

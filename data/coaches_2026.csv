@@ -1,0 +1,144 @@
+cid,name,club,job,spec,teach,tactics,manage,status,free_from,former_sc,origin,confidence,note
+C_matthew_nicks,Matthew Nicks,ADE,SC,,63,72,74,club,0,0,seed,High,
+C_murray_davis,Murray Davis,ADE,SA,,71,79,74,club,0,0,seed,High,
+C_nathan_van_berlo,Nathan van Berlo,ADE,MID,MID,62,68,61,club,0,0,seed,High,
+C_scott_burns,Scott Burns,ADE,FWD,FWD,67,76,70,club,0,0,seed,High,
+C_jack_hombsch,Jack Hombsch,ADE,DEF,DEF,64,68,63,club,0,0,seed,Medium,
+C_michael_godden,Michael Godden,ADE,DEV,DEV,85,68,75,club,0,0,seed,High,
+C_chris_fagan,Chris Fagan,BRL,SC,,85,83,90,club,0,0,seed,High,
+C_cameron_bruce,Cameron Bruce,BRL,MID,MID,72,77,71,club,0,0,seed,High,
+C_daniel_lloyd,Daniel Lloyd,BRL,FWD,FWD,64,68,63,club,0,0,seed,Medium,
+C_dale_morris,Dale Morris,BRL,DEF,DEF,74,71,70,club,0,0,seed,High,
+C_scott_borlace,Scott Borlace,BRL,DEV,DEV,79,66,73,club,0,0,seed,High,
+C_michael_voss,Michael Voss,CAR,SC,MID,60,75,79,club,0,0,seed,High,
+C_tim_clarke,Tim Clarke,CAR,SA,MID,61,76,64,club,0,0,seed,High,
+C_leigh_adams,Leigh Adams,CAR,MID,MID,71,72,69,club,0,0,seed,High,
+C_josh_fraser,Josh Fraser,CAR,FWD,FWD,75,74,74,club,0,0,seed,High,
+C_ash_hansen,Ash Hansen,CAR,DEF,DEF,71,76,74,club,0,0,seed,High,
+C_jordan_russell,Jordan Russell,CAR,DEV,DEV,77,65,72,club,0,0,seed,Medium,
+C_craig_mcrae,Craig McRae,COL,SC,,74,82,92,club,0,0,seed,High,
+C_hayden_skipworth,Hayden Skipworth,COL,SA,,71,80,77,club,0,0,seed,High,
+C_matthew_boyd,Matthew Boyd,COL,MID,MID,69,73,67,club,0,0,seed,High,
+C_tyson_goldsack,Tyson Goldsack,COL,FWD,FWD,64,68,63,club,0,0,seed,Medium,
+C_jordan_roughead,Jordan Roughead,COL,DEF,DEF,74,73,71,club,0,0,seed,High,
+C_chloe_mcmillan,Chloe McMillan,COL,DEV,DEV,65,60,68,club,0,0,seed,Medium,
+C_brad_scott,Brad Scott,ESS,SC,,59,76,76,club,0,0,seed,High,
+C_david_rath,David Rath,ESS,SA,,55,81,58,club,0,0,seed,High,
+C_ben_jacobs,Ben Jacobs,ESS,MID,MID,64,68,63,club,0,0,seed,Medium,
+C_cam_roberts,Cam Roberts,ESS,FWD,FWD,64,68,63,club,0,0,seed,Medium,
+C_dean_solomon,Dean Solomon,ESS,DEF,DEF,66,76,81,club,0,0,seed,High,
+C_james_polkinghorne,James Polkinghorne,ESS,DEV,DEV,75,64,70,club,0,0,seed,Medium,
+C_justin_longmuir,Justin Longmuir,FRE,SC,DEF,65,76,66,club,0,0,seed,High,
+C_andrew_sturgess,Andrew Sturgess,FRE,SA,,59,76,70,club,0,0,seed,High,
+C_joel_corey,Joel Corey,FRE,MID,MID,72,75,74,club,0,0,seed,High,
+C_jaymie_graham,Jaymie Graham,FRE,FWD,FWD,67,74,67,club,0,0,seed,High,
+C_jade_rawlings,Jade Rawlings,FRE,DEF,DEF,80,76,74,club,0,0,seed,High,
+C_geoff_valentine,Geoff Valentine,FRE,DEV,DEV,78,64,73,club,0,0,seed,High,
+C_chris_scott,Chris Scott,GEE,SC,,86,86,86,club,0,0,seed,High,
+C_james_kelly,James Kelly,GEE,SA,,69,79,80,club,0,0,seed,High,
+C_nathan_buckley,Nathan Buckley,GEE,MID,MID,76,84,79,club,0,1,seed,High,
+C_james_rahilly,James Rahilly,GEE,FWD,FWD,71,75,72,club,0,0,seed,High,
+C_nigel_lappin,Nigel Lappin,GEE,DEV,DEV,83,66,77,club,0,0,seed,High,
+C_damien_hardwick,Damien Hardwick,GCS,SC,,79,85,88,club,0,0,seed,High,
+C_shaun_grigg,Shaun Grigg,GCS,MID,MID,75,76,74,club,0,0,seed,High,
+C_brad_miller,Brad Miller,GCS,FWD,FWD,69,71,66,club,0,0,seed,High,
+C_josh_drummond,Josh Drummond,GCS,DEF,DEF,82,74,71,club,0,0,seed,High,
+C_tate_kaesler,Tate Kaesler,GCS,DEV,DEV,77,68,72,club,0,0,seed,High,
+C_adam_kingsley,Adam Kingsley,GWS,SC,,76,80,80,club,0,0,seed,High,
+C_craig_jennings,Craig Jennings,GWS,SA,MID,69,84,71,club,0,0,seed,High,
+C_wayne_cripps,Wayne Cripps,GWS,MID,MID,80,72,70,club,0,0,seed,High,
+C_brett_montgomery,Brett Montgomery,GWS,FWD,FWD,72,78,74,club,0,0,seed,High,
+C_ben_hart,Ben Hart,GWS,DEF,DEF,76,76,72,club,0,0,seed,High,
+C_jason_davenport,Jason Davenport,GWS,DEV,DEV,79,66,73,club,0,0,seed,High,
+C_sam_mitchell,Sam Mitchell,HAW,SC,,83,81,77,club,0,0,seed,High,
+C_brett_ratten,Brett Ratten,HAW,SA,DEV,79,81,83,club,0,1,seed,High,
+C_david_mackay,David Mackay,HAW,MID,MID,69,70,67,club,0,0,seed,Medium,
+C_adrian_hickmott,Adrian Hickmott,HAW,FWD,FWD,74,76,74,club,0,0,seed,High,
+C_kade_simpson,Kade Simpson,HAW,DEF,DEF,69,72,67,club,0,0,seed,High,
+C_daniel_giansiracusa,Daniel Giansiracusa,HAW,DEV,DEV,89,77,80,club,0,0,seed,High,
+C_steven_king,Steven King,MEL,SC,RUCK,68,70,68,club,0,0,seed,High,
+C_nathan_jones,Nathan Jones,MEL,MID,MID,74,70,77,club,0,0,seed,High,
+C_troy_chaplin,Troy Chaplin,MEL,FWD,,70,76,68,club,0,0,seed,High,
+C_jared_rivers,Jared Rivers,MEL,DEF,DEF,75,74,70,club,0,0,seed,High,
+C_taylor_whitford,Taylor Whitford,MEL,DEV,DEV,72,64,69,club,0,0,seed,Medium,
+C_alastair_clarkson,Alastair Clarkson,NTH,SC,,83,86,84,club,0,0,seed,High,
+C_zane_littlejohn,Zane Littlejohn,NTH,SA,,67,77,70,club,0,0,seed,High,
+C_michael_barlow,Michael Barlow,NTH,MID,MID,62,68,61,club,0,0,seed,High,
+C_xavier_clarke,Xavier Clarke,NTH,FWD,FWD,62,68,61,club,0,0,seed,High,
+C_jed_adcock,Jed Adcock,NTH,DEF,DEF,62,68,61,club,0,0,seed,High,
+C_tom_lynch,Tom Lynch,NTH,DEV,DEV,79,64,73,club,0,0,seed,High,
+C_josh_carr,Josh Carr,PAD,SC,MID,69,72,74,club,0,0,seed,High,
+C_andy_collins,Andy Collins,PAD,SA,,79,81,81,club,0,0,seed,High,
+C_stuart_dew,Stuart Dew,PAD,MID,MID,79,83,81,club,0,1,seed,High,
+C_darren_reeves,Darren Reeves,PAD,FWD,FWD,79,78,75,club,0,0,seed,High,
+C_luke_webster,Luke Webster,PAD,DEF,DEF,74,76,68,club,0,0,seed,High,
+C_matthew_lobbe,Matthew Lobbe,PAD,DEV,DEV,83,63,70,club,0,0,seed,High,
+C_adem_yze,Adem Yze,RIC,SC,DEV,73,70,76,club,0,1,seed,High,
+C_blake_caracella,Blake Caracella,RIC,SA,MID,79,83,77,club,0,0,seed,High,
+C_sam_lonergan,Sam Lonergan,RIC,MID,MID,62,68,61,club,0,0,seed,High,
+C_chris_newman,Chris Newman,RIC,FWD,FWD,76,76,74,club,0,0,seed,High,
+C_jake_batchelor,Jake Batchelor,RIC,DEF,DEF,77,73,70,club,0,0,seed,High,
+C_taylor_duryea,Taylor Duryea,RIC,DEV,DEF,65,60,68,club,0,0,seed,Medium,
+C_ross_lyon,Ross Lyon,SKN,SC,DEF,69,84,81,club,0,0,seed,High,
+C_corey_enright,Corey Enright,SKN,SA,DEF,81,83,78,club,0,0,seed,High,
+C_robert_harvey,Robert Harvey,SKN,MID,MID,77,78,77,club,0,0,seed,High,
+C_brendon_bolton,Brendon Bolton,SKN,FWD,FWD,77,79,83,club,0,1,seed,High,
+C_jimmy_allan,Jimmy Allan,SKN,DEF,DEF,64,68,63,club,0,0,seed,Medium,
+C_damian_carroll,Damian Carroll,SKN,DEV,DEV,78,64,74,club,0,0,seed,High,
+C_dean_cox,Dean Cox,SYD,SC,RUCK,69,72,73,club,0,0,seed,High,
+C_simon_goodwin,Simon Goodwin,SYD,SA,,77,84,84,club,0,1,seed,High,
+C_ben_mathews,Ben Mathews,SYD,MID,,70,78,77,club,0,0,seed,High,
+C_jeremy_laidler,Jeremy Laidler,SYD,FWD,DEF,70,74,68,club,0,0,seed,High,
+C_mark_mcveigh,Mark McVeigh,SYD,DEF,DEF,75,77,74,club,0,0,seed,High,
+C_adam_kennedy,Adam Kennedy,SYD,DEV,DEV,66,62,68,club,0,0,seed,Low,
+C_andrew_mcqualter,Andrew McQualter,WCE,SC,DEV,70,70,69,club,0,0,seed,High,
+C_sam_radford,Sam Radford,WCE,MID,MID,77,74,68,club,0,0,seed,High,
+C_marco_bello,Marco Bello,WCE,FWD,FWD,72,72,68,club,0,0,seed,High,
+C_mitch_duncan,Mitch Duncan,WCE,DEF,DEF,71,64,73,club,0,0,seed,Medium,
+C_jamie_maddocks,Jamie Maddocks,WCE,DEV,DEV,73,64,70,club,0,0,seed,Medium,
+C_luke_beveridge,Luke Beveridge,WBD,SC,,71,80,84,club,0,0,seed,High,
+C_jarryn_geary,Jarryn Geary,WBD,SA,,73,70,84,club,0,0,seed,High,
+C_brendon_lade,Brendon Lade,WBD,MID,MID,77,77,74,club,0,0,seed,High,
+C_ben_reid,Ben Reid,WBD,FWD,FWD,72,70,70,club,0,0,seed,Medium,
+C_daniel_pratt,Daniel Pratt,WBD,DEF,DEF,72,74,68,club,0,0,seed,High,
+C_luke_power,Luke Power,WBD,DEV,DEV,84,66,80,club,0,0,seed,High,
+C_ken_hinkley,Ken Hinkley,,,,65,80,86,out,2027,1,seed,High,Taking 2026 away from clubland
+C_adam_simpson,Adam Simpson,,,,70,80,78,away,0,1,seed,High,"Part-time coaching consultant, Carlton"
+C_james_hird,James Hird,,,,59,70,70,free,0,1,seed,Medium,Outside an AFL coaching panel
+C_david_teague,David Teague,,,FWD,65,70,70,free,0,1,seed,Medium,Outside an AFL coaching panel
+C_brenton_sanderson,Brenton Sanderson,,,DEV,74,74,75,free,0,1,seed,High,Outside an AFL coaching panel
+C_nathan_bassett,Nathan Bassett,,,DEF,76,78,74,away,0,0,seed,High,"SANFL senior coach, West Adelaide"
+C_matthew_knights,Matthew Knights,,,DEV,75,73,73,away,0,1,seed,Medium,Tasmania football program
+C_john_longmire,John Longmire,,,,78,85,88,away,0,1,seed,High,"Executive director of club performance, Sydney"
+C_ben_rutten,Ben Rutten,,,DEF,83,80,78,away,0,1,seed,High,"General manager of football, Port Adelaide"
+C_matthew_wright,Matthew Wright,,,DEV,65,68,66,away,0,0,seed,Medium,"SANFL coach, Adelaide"
+C_damian_truslove,Damian Truslove,,,DEV,71,70,69,away,0,0,seed,High,"VFL senior coach, Carlton"
+C_matthew_lokan,Matthew Lokan,,,DEV,65,68,66,away,0,0,seed,Medium,"VFL senior coach, Collingwood"
+C_cameron_joyce,Cameron Joyce,,,DEV,65,68,66,away,0,0,seed,Medium,"VFL senior coach, Essendon"
+C_adam_read,Adam Read,,,DEV,65,68,66,away,0,0,seed,Medium,"WAFL senior coach, Peel Thunder"
+C_mark_corrigan,Mark Corrigan,,,DEV,69,69,68,away,0,0,seed,Medium,"VFL coach, Geelong"
+C_robbie_chancellor,Robbie Chancellor,,,DEV,65,68,66,away,0,0,seed,Medium,"VFL head coach, GWS"
+C_david_mirra,David Mirra,,,DEV,65,68,66,away,0,0,seed,Medium,"VFL senior coach, Hawthorn"
+C_rhett_mclennan,Rhett McLennan,,,DEV,65,68,66,away,0,0,seed,Medium,"VFL senior coach, Casey"
+C_adam_marcon,Adam Marcon,,,DEV,65,68,66,away,0,0,seed,Medium,"VFL senior coach, North Melbourne"
+C_jacob_surjan,Jacob Surjan,,,MID,64,67,65,away,0,0,seed,High,"SANFL coach, Port Adelaide"
+C_jack_madgen,Jack Madgen,,,DEV,65,68,66,away,0,0,seed,Medium,"VFL coach, Richmond"
+C_brendon_goddard,Brendon Goddard,,,DEV,75,65,82,away,0,0,seed,High,"VFL senior coach, Sandringham"
+C_nick_malceski,Nick Malceski,,,DEV,71,70,70,away,0,0,seed,High,"VFL head coach, Sydney"
+C_kyal_horsley,Kyal Horsley,,,MID,75,70,75,away,0,0,seed,High,"WAFL senior coach, West Coast"
+C_alex_johnson,Alex Johnson,,,DEV,65,68,66,away,0,0,seed,Medium,"VFL head coach, Footscray"
+C_sam_baulderstone,Sam Baulderstone,,,RUCK,72,61,63,away,0,0,seed,Medium,"Ruck coach, Adelaide"
+C_ben_hudson,Ben Hudson,,,RUCK,72,59,61,away,0,0,seed,High,"Ruck development coach, Brisbane"
+C_matthew_kreuzer,Matthew Kreuzer,,,RUCK,80,58,71,away,0,0,seed,High,"Ruck coach, Carlton"
+C_greg_stafford,Greg Stafford,,,RUCK,76,61,64,away,0,0,seed,High,"Ruck coach, Collingwood"
+C_todd_goldstein,Todd Goldstein,,,RUCK,79,59,73,away,0,0,seed,High,"Part-time ruck coach, Essendon"
+C_sam_naismith,Sam Naismith,,,RUCK,72,61,63,away,0,0,seed,Medium,"Ruck coach, Fremantle"
+C_shane_mumford,Shane Mumford,,,RUCK,80,62,78,away,0,0,seed,High,"Ruck coach, GWS"
+C_mark_jamar,Mark Jamar,,,RUCK,75,58,62,away,0,0,seed,High,"Part-time ruck coach, Melbourne"
+C_damian_monkhorst,Damian Monkhorst,,,RUCK,77,60,68,away,0,0,seed,High,"Ruck coach, North Melbourne"
+C_ivan_maric,Ivan Maric,,,RUCK,85,63,78,away,0,0,seed,High,"Ruck coach, Richmond"
+C_G2026_1,,BRL,SA,,70,62,64,club,0,0,generated,,
+C_G2026_2,,GEE,DEF,DEF,63,62,68,club,0,0,generated,,
+C_G2026_3,,GCS,SA,,66,65,66,club,0,0,generated,,
+C_G2026_4,,MEL,SA,,68,67,62,club,0,0,generated,,
+C_G2026_5,,WCE,SA,,64,65,69,club,0,0,generated,,
