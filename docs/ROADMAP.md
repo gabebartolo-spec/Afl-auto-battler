@@ -257,7 +257,8 @@ Classify findings:
 ---
 
 ## ARD-M1-002 — Ruck contest integrity & emergency ruck
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #60 as `2e0c69d`; verified on main 2026-09-28 (full suite green).  
 **Priority:** `P0`  
 **Autonomy:** `SAFE` if local; otherwise `SUPERVISED`  
 **Depends on:** ARD-M1-001
@@ -299,6 +300,7 @@ Balance (1,000 seeded matches, before/after): hit-outs to non-ruckmen 51.5% -> 6
 
 ## ARD-M1-003 — "Play through" shooter-bias fix
 **Status:** `DONE`  
+**Merged:** PR #48 as `66e3d53`; verified on main 2026-09-28 (full suite green).  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`  
 **Balance:** `BALANCE-GATED`
@@ -345,6 +347,7 @@ Usage and inside-50 gains are unchanged; the goal spike (+13% MID, +11% FWD) is 
 
 ## ARD-M1-004 — Attacking ends swap every quarter
 **Status:** `DONE`  
+**Merged:** PR #49 as `dffcefe`; verified on main 2026-09-28 (full suite green).  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
 **Outcome (2026-09-28, PR #49):** `PitchView` counts breaks and mirrors the ground's x axis in even periods (Q2, Q4, and each extra-time break), so every token, the ball, the camera and the goal squares follow; the director and MatchSim are untouched, so results cannot change. Regression: `tests/test_match_visual.gd::_test_ends_swap` (a full match: the period matches the quarter at every in-play event; home goal right in Q1/Q3, left in Q2/Q4).
@@ -387,6 +390,7 @@ Instrument/seed the offending situation and confirm the ball is targeting the co
 
 ## ARD-M1-006 — Concussion: mandatory two-match absence
 **Status:** `DONE`  
+**Merged:** PR #51 as `2fa23c1`; verified on main 2026-09-28 (full suite green).  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
 **Outcome (2026-09-28, PR #51):** `Injuries.roll_match` floors a concussion at `CONCUSSION_MIN` = 2 matches after the roll (no extra random draws, so every other injury rolls as before). Already true and verified: `injury_weeks` counts the club's matches; `Ratings.select_side` drops injured players for every club, named or not (AI parity); the absence is saved on the player. UI: "Concussion — 2 matches" / "Concussion — 1 match" on the player sheet, list, selection and matchup notes. Regression: `tests/test_injuries.gd` (every concussion in a season is 2+ matches; a named concussed player does not play; survives save/load; available only after two matches).
@@ -410,7 +414,8 @@ Instrument/seed the offending situation and confirm the ball is targeting the co
 ---
 
 ## ARD-M1-007 — Sim Round safety & quick-sim controls
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #53 as `4552e20`; verified on main 2026-09-28 (full suite green).  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
 **Outcome (2026-09-28, PR #53):** short press asks before simming your match (Sim round / Cancel / Don't ask again, re-enabled from Options). Holding Sim round (0.5 s, or right-click on desktop) opens Quick sim: this round, skip 4 rounds, or skip to the end of the home and away. Each option names where it lands. Batches stop at the end of the home and away (never into finals) and if you are sacked. The long press ignores the confirmation setting. Tests are in `run_career_ui_tests.gd`.
@@ -455,6 +460,7 @@ Open a compact quick-sim menu:
 
 ## ARD-M1-008 — Full Ratings mobile layout
 **Status:** `DONE`  
+**Merged:** PR #54 as `5b93a40`; verified on main 2026-09-28 (full suite green).  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
 **Outcome (2026-09-28, PR #54):** the draft details' Full ratings put wrapped labels in a 2-column grid, so at portrait widths each name collapsed to one letter per line. They now reuse the player profile's attribute rows (`PlayerSheet.attr_bar`: name, bar, rating on one line; one column under 520px, two above). The profile's own Attributes section was already correct. Regression: `tests/run_draft_ui_tests.gd` (on a portrait phone every attribute is one readable line; hiding the list leaves the details the same size); checked at 360x740.
@@ -509,7 +515,8 @@ Provide a legal compliance path such as releasing/delisting eligible commitments
 ---
 
 ## ARD-M1-010 — Career starts in 2027 / chronology alignment
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #45 as `2cf5223`; verified on main 2026-09-28 (full suite green).  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
 **Outcome (2026-09-28, PR #45):** the dataset is the completed 2026 season (`GameDB.DATA_SEASON`); careers start in 2027 (`START_YEAR`, ages as at 1 March 2027). The League Draft pool includes the real 2026 draft class (725 players, lists of 40); every player's career line carries his real 2026 season; the first generated national class is 2027; 2026 coaching stints stay history (`Coaches.SEED_YEAR`); old 2026 saves keep their original behaviour. Regression: new chronology suite (28 checks) plus career, intake, coaches, expansion, awards and achievements suites parameterised on `START_YEAR`; a full-career trace ran League Draft 2027 -> season -> national draft -> rollover to 2028 with Tasmania.
@@ -557,10 +564,11 @@ For each changed event, demonstrate the trade-off and verify no choice dominates
 Goal: create trustworthy football data that later coaching, scouting, reports and role systems can use.
 
 ## ARD-M2-001 — Metres gained
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
 **Priority:** `P1`  
 **Autonomy:** `SAFE`
-**Current state (2026-09-28):** in PR #55 with ARD-M2-002 (player and team metres from the chain's real movement); awaiting merge.
+**Merged:** PR #55 as `43b344a`; verified on main 2026-09-28 (full suite green).  
+**Outcome (2026-09-28, PR #55, with M2-002):** player and team `metres_gained` are the ball's real forward movement in each possession (the disposal's gain, or ground won breaking a tackle); backwards movement earns nothing and nothing is counted twice. Shown in a player's detailed line in Match stats. No random draws added, so results are unchanged. There is no season aggregation because the game has no generic season player-stat store (only career games and goals); add it when one exists. Known gap: about 3,200 m a team against about 5,500 m broadcast, because field position moves only about 10 m a disposal (engine territory model, balance-gated). Regression: `test_match_game.gd::_test_metres_and_efficiency` (players reconcile with the team; no negative metres).
 
 ### Intent
 The sim already moves the ball in metres; retain the meaningful territory contribution as a player/team stat.
@@ -583,10 +591,11 @@ The sim already moves the ball in metres; retain the meaningful territory contri
 ---
 
 ## ARD-M2-002 — Effective disposals / Disposal Efficiency %
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
-**Current state (2026-09-28):** in PR #55 (effective when the side keeps the ball or the entry is not rebounded); awaiting merge.
+**Merged:** PR #55 as `43b344a`; verified on main 2026-09-28 (full suite green).  
+**Outcome (2026-09-28, PR #55):** `effective_disposals` per player and team; `MatchSim.disposal_efficiency()` gives the percentage (0 when there are no disposals). Effective means his side has the ball next, or his inside-50 entry is not rebounded. Ineffective means he is caught holding it, the chain dies in a stoppage, or the entry is rebounded. By line: DEF 89%, RUCK 88%, MID 82%, FWD 71%. Known gap: team DE is about 84% against about 73% real, because a non-free clanger does not turn the ball over in the engine. It isn't counted as ineffective (that would be pretending). Fixing it is engine turnover work (balance-gated; see the MatchSim audit). Regression: `test_match_game.gd::_test_metres_and_efficiency` (effective never exceeds disposals; forwards are less efficient than defenders; formula).
 
 ### Intent
 A disposal should be judged from its actual outcome.
@@ -672,11 +681,12 @@ This feeds:
 ---
 
 ## ARD-M2-006 — Pressure acts
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 **Balance:** `BALANCE-GATED`
-**Current state (2026-09-28):** in PR #47 (zonal pressure, pressure acts, team Pressure rating); awaiting merge.
+**Merged:** PR #47 as `307b68b`; verified on main 2026-09-28 (full suite green).  
+**Outcome (2026-09-28, PR #47):** zonal pressure (forwards and mids press the opposition's back third, mids and rucks the middle, defenders and mids their own back third) with one roll per disposal: a tackle, a rushed disposal (a pressure act whose turnover chance scales with presser against carrier), or nothing. Any line can tackle. Pressure acts and pressure wins are recorded per player and team; the team Pressure rating (0-100) is acts plus wins over the opposition's disposals (p10 55, p50 60, p90 66). Calibration: every team stat within 6% of real 2026; tackles by line FWD 2.29 (real 1.98), MID 3.46 (3.33), DEF 2.02 (1.80), RUCK 2.48 (2.64). OVR re-measured (+20 per attribute, 2,500 matches a line): the forward core is now goalkicking .30, pressure .20, marking .15, accuracy .15, creating .12, carry .08, and midfield adds pressure .10. Pressure small forwards rise (Greene 72 to 79) and stay-at-home key forwards ease (McKay 72 to 66). UI: pressure rows in Match stats and full time; Player Rating counts tackles 2 and pressure acts 1. Regression: new `pressure` suite (21 checks); ratings, potential and matchday updated.
 
 ### Intent
 Tackles alone should not represent defensive pressure.
@@ -748,7 +758,7 @@ Goal: make the event stream and visualisation look and behave like Australian fo
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 **Depends on:** M2 shot/event context
-**Current state (2026-09-28):** the open-play freeze is fixed in PR #50 (scores carry `set_shot`; open-play shots are kicked on the run); the scoring-model part is not started.
+**Current state (2026-09-28):** the open-play freeze is fixed and merged (PR #50 as `d1757f5`: scores carry `set_shot`; open-play shots are kicked on the run while forwards crumb). The scoring-model part is not started.
 
 ### Current issue
 MatchSim can score without a mark, but the visualisation routes every goal/behind through staged shot presentation, making open-play shots look like set shots.
@@ -1401,7 +1411,7 @@ Before implementing more, inspect current merged Staff/coaching work and extend 
 **Status:** `IN PROGRESS / PARTIAL`  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
-**Current state (2026-09-28):** Phase 2 (data model, Round 1 2026 seed, read-only Staff UI) is merged. Phase 3 (the living coaching market: sackings, contracts, retirement, promotions, poaching, your vacancies and releases, development, reputation, generated coaches, expansion staffing, archive) is in its own PR. Phase 4 (retired players becoming coaches) and Phase 5 (Teaching/Tactics/Man-management gameplay effects) remain.
+**Current state (2026-09-28):** Phase 2 (data model, Round 1 2026 seed, read-only Staff UI) is merged. Phase 3 (the living coaching market: sackings, contracts, retirement, promotions, poaching, your vacancies and releases, development, reputation, generated coaches, expansion staffing, archive) is merged: PR #62 as `bf8bd0a`, `coach_market` suite, 50-season probe with every job filled. Phase 4 (retired players become coaches) is next; Phase 5 (gameplay effects) after it.  
 
 Core design:
 - Teaching → development,
@@ -1627,9 +1637,11 @@ Do not overpower player/team quality.
 Goal: make the game coherent, readable and robust enough to ship/play for very long careers.
 
 ## ARD-M8-001 — Club colour markers
-**Status:** `TODO`  
+**Status:** `DONE`  
+**Merged:** PR #57 as `f549755`; verified on main 2026-09-28 (full suite green).  
 **Priority:** `P1`  
 **Autonomy:** `SAFE`
+**Outcome (2026-09-28, PR #57):** `UiKit.club_marker(code)` draws the club's real colours as vertical bands: two for most clubs, three where the third is a genuine club colour (`GameDB.THREE_COLOUR_CLUBS`: Adelaide, Brisbane, Gold Coast, GWS, Port, St Kilda, Bulldogs, Tasmania, Canberra). A faint edge keeps navy and black readable. `club_badge` uses it, so the ladder, hub, results, draft, season review and match change together; no logos. Regression: `tests/test_matchday.gd::_test_club_markers`.
 
 Replace tiny single-colour squares with compact multi-colour markers.
 
@@ -1645,9 +1657,11 @@ Reuse one component/helper across ladder, fixtures, matchups and reports.
 ---
 
 ## ARD-M8-002 — Visual identity: remove generic green
-**Status:** `TODO`  
+**Status:** `DONE`  
 **Priority:** `P1`  
 **Autonomy:** `SAFE` if theme-level
+**Merged:** PR #58 as `6ff1ae0`; verified on main 2026-09-28 (full suite green).  
+**Outcome (2026-09-28, PR #58):** a small pass, not a redesign; red (`ACCENT`) was already the only action colour. Green used as decoration now goes neutral. Training selection uses the shared outline. Your draft picks get a neutral surface. The Premiers line, "Week off" and "Your best" are plain text. The quarter-by-quarter winner is bold. Season-review club lines are bold. Real states keep green (won, needs met, a rise, form, cap room, re-signed). Regression: `test_matchday.gd::_test_no_green_decoration` (no UI script paints a green highlight surface). The broader palette direction above stays as guidance for future screens.
 
 Direction:
 - charcoal / near-black base,
