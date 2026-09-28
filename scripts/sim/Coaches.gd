@@ -3,6 +3,13 @@ extends RefCounted
 ## The coaching world: six jobs at every club and one record per coach.
 ## Pure rules and the Round 1 2026 seed; GameState keeps the records.
 ##
+## Chronology: the seed is researched Round 1 2026 staff (the historical
+## source, kept as it is). A career starts in 2027 (GameDB.START_YEAR) from
+## that world carried forward one year by continuity: everyone stays where
+## the research put them, a stint's first year is the 2026 the research
+## records, and your club's senior coach coached 2026 and makes way for you.
+## Nothing claims a real 2027 appointment.
+##
 ## One canonical record per coach, in GameState.coaches[cid]. A club's staff
 ## is never stored: it is read from each record's club and job, so a coach
 ## can never exist twice (a save writes plain dictionaries by value, and a
@@ -31,7 +38,8 @@ extends RefCounted
 ## Skills do nothing yet: they are read only to describe a coach.
 
 const SEED_CSV := "res://data/coaches_2026.csv"
-const START_YEAR := 2026
+## The season the researched seed describes (Round 1 2026).
+const SEED_YEAR := 2026
 
 const JOBS := ["SC", "SA", "MID", "FWD", "DEF", "DEV"]
 const JOB_LABEL := {
@@ -170,14 +178,14 @@ static func seed(my_club: String) -> Dictionary:
 			"played": {},
 		}
 		if status == "club":
-			(c["stints"] as Array).append([club, job, START_YEAR, 0])
+			(c["stints"] as Array).append([club, job, SEED_YEAR, 0])
 		# You are this club's senior coach: the real one is free to be hired.
 		if status == "club" and club == my_club and job == "SC":
 			c["status"] = "free"
 			c["club"] = ""
 			c["job"] = ""
 			c["former_sc"] = true
-			c["stints"] = [[club, "SC", START_YEAR, START_YEAR]]
+			c["stints"] = [[club, "SC", SEED_YEAR, SEED_YEAR]]
 			c["note"] = ""
 		out[cid] = c
 	return out

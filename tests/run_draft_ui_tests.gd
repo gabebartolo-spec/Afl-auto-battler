@@ -249,7 +249,13 @@ func _test_inspect(ui: Control) -> void:
 	var idx: int = draft.pick_index
 	while draft.pick_sequence[draft.pick_index] == draft.user_club:
 		draft.pick_index += 1
-	ui.call("_open_player", str(rows[5]["id"]))
+	# Any player still on the board (the early rows may be gone by now).
+	var free: Dictionary = rows[5]
+	for r in rows:
+		if not draft.has(str(r["id"])):
+			free = r
+			break
+	ui.call("_open_player", str(free["id"]))
 	await _settle()
 	blocked = ui.find_child("DetailBlocked", true, false)
 	_check(blocked != null and blocked.text.begins_with("Not your pick"), "Between your picks, the details say so")

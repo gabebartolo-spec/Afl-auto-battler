@@ -46,7 +46,7 @@ static func open(host: Control, c: Dictionary, on_close: Callable = Callable()) 
 		v.add_child(list)
 		for s in stints:
 			list.add_child(UiKit.lbl(_stint_line(s), UiKit.BODY, UiKit.TEXT))
-		v.add_child(UiKit.lbl("From Round 1, 2026.", UiKit.SMALL, UiKit.MUTED))
+		v.add_child(UiKit.lbl("Records begin at Round 1, 2026.", UiKit.SMALL, UiKit.MUTED))
 
 	# A coach who played for us: his playing days, from his career record.
 	var played: Dictionary = c.get("played", {})

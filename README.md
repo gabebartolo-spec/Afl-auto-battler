@@ -1,14 +1,21 @@
 # AFL Auto-Battler
 
-An auto-battler where the battles are **simulated AFL matches**. All 18
-founding clubs re-draft from a shared pool of 669 players using **2026 AFL
-player statistics** (Tasmania enters in 2028 and Canberra in 2030, each
-arriving with a generated list). The current pool gives every club a
-37-player list (up to 44 with a larger pool). Then play a 24-round
+An auto-battler where the battles are **simulated AFL matches**. The
+completed **2026 AFL season** is the foundation: 669 players rated from their
+real 2026 statistics, their real careers through 2026, and the 2026 draft
+class. A career takes over for the **2027 season**: all 18 founding clubs
+re-draft that league - the 669 players plus the 56 prospects of the 2026
+class - in the 2027 League Draft (40-player lists), then play a 24-round
 home-and-away season and a 10-finalist wildcard finals series, watching every
 match on an animated top-down oval. When the season ends, the **national
-draft** opens: keep your list, sign real 2026 draft-class prospects over the
-reversed ladder, watch the whole league age and develop, and run it back.
+draft** opens: keep your list, sign the 2027 class over the reversed ladder,
+watch the whole league age and develop, and run it back. Tasmania enters in
+2028 and Canberra in 2030, each arriving with a generated list.
+
+**Chronology.** Source data: the 2026 AFL season. Career start: 2027 (ages
+are as of the start of 2027). Coaching source: the researched Round 1 2026
+staff world, carried by continuity into the fictional 2027 starting world -
+not a claim about real 2027 appointments.
 
 Godot **4.7** / GDScript — targeting **PC and mobile**.
 
@@ -53,7 +60,7 @@ translations, pick *Keep File* again in the Import dock.
 | **Team** | The best 22 by position are picked automatically, around injuries. Switch to **My selection** on the Team screen to name your own ruck, midfield, defence, forwards and bench, or leave players out. Gaps (an injury, a trade) are filled for you. |
 | **Off-season** | After the Grand Final, **Trades & Contracts** opens: re-sign or release players whose contracts are up, sign free agents rivals let go, and offer trades. |
 | **Review** | The flag, your record, best win, worst loss, longest streak, a game-by-game form strip, the season's awards, the honour roll and league records. |
-| **National Draft** | The career keeps going. Father-son and NGA prospects land at their clubs, then every list - yours included - drafts the 2026 class over the reversed ladder, worst club first. Prospects have no AFL stats; they arrive with **projected ratings** built from draft rank, position and U18 production, so a top pick starts rotation-grade and develops from there. |
+| **National Draft** | The career keeps going. Father-son and NGA prospects land at their clubs, then every list - yours included - drafts that year's class over the reversed ladder, worst club first (the first is the generated 2027 class; the real 2026 class was already taken in the League Draft). Prospects have no AFL stats; they arrive with **projected ratings** built from draft rank, position and U18 production, so a top pick starts rotation-grade and develops from there. |
 | **Next season** | Every list ages: young prospects grow, veterans decline, the oldest retire. A generated intake class arrives each year, so the loop runs indefinitely. Expansion follows the calendar: Tasmania (the Devils) enters in 2028 and Canberra (the Thunder) in 2030, each arriving with a generated list of 36 and joining fixtures, ladders, drafts, trades and the finals from its first season. With an odd club count the fixture rotates a bye so every club still plays 24 games. |
 
 ### The draft room

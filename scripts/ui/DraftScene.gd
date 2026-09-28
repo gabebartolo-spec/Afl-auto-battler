@@ -168,7 +168,7 @@ func _restore_scrolls(values: Array) -> void:
 func _show_club_select() -> void:
 	UiKit.clear(_root)
 	# A career starts with the clubs active in its first season - the
-	# founding eighteen in 2026, more once expansion clubs arrive.
+	# founding eighteen in the first season, more once expansion clubs arrive.
 	var active := GameDB.active_clubs(GameState.season_year)
 	_root.add_child(_header("CHOOSE YOUR CLUB",
 			"%d  /  A fresh start for all %d clubs" % [GameState.season_year, active.size()]))
@@ -510,7 +510,7 @@ func _filters() -> Control:
 		clubs.add_item("All recruiting clubs")
 	else:
 		# The clubs that actually have players in this draft's pool - the
-		# founding eighteen in 2026, not every club that will ever exist.
+		# founding eighteen in the first season, not every club that will ever exist.
 		var present := {}
 		for p in _draft.pool:
 			present[str(p.get("club", ""))] = true
