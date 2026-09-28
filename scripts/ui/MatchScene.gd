@@ -41,7 +41,6 @@ var _skipping := false
 var _fulltime_shown := false
 var _coach_overlay: Control
 var _sheet_overlay: Control
-var _full_report_overlay: Control
 var _reflow_queued := false
 var _shown_goals := [0, 0]
 var _shown_behinds := [0, 0]
@@ -59,7 +58,6 @@ var _report_overlay: Control
 var _ft_box := {}               # the full-time review: overlay, body, footer
 var _ft_tabs: HBoxContainer
 var _ft_tab := "summary"        # summary (home), stats or report
-var _ft_full_report := false
 var _run_side := -1            # who kicked the last goal, and how many in a row
 var _run_len := 0
 
@@ -861,38 +859,29 @@ func _show_half_time_popup(report: Dictionary) -> void:
 	var v: VBoxContainer = box["body"]
 	v.add_theme_constant_override("separation", 6)
 	v.add_child(UiKit.ellipsis("Assistant's report", UiKit.H1, UiKit.TEXT, true))
+	# The report covers the scoreboard: say where the game stands, once.
+	var margin := int(report.get("margin", 0))
+	var where := "Half time, scores level" if margin == 0 else ("Half time, up by %d" % margin
+			if margin > 0 else "Half time, down by %d" % absi(margin))
+	v.add_child(UiKit.lbl(where, UiKit.SMALL, UiKit.MUTED))
 	v.add_child(_report_glance(report))
-	var full := UiKit.btn("Full report", 15)
-	full.name = "FullReportButton"
-	full.custom_minimum_size = Vector2(0, 44)
-	full.pressed.connect(func(): _show_full_report(report))
-	box["footer"].add_child(full)
 	var close := UiKit.btn("Close report", 16, true)
 	close.custom_minimum_size = Vector2(0, 44)
 	close.pressed.connect(_close_report)
 	box["footer"].add_child(close)
 
 
-## The report at a glance: the score, the match in a few lines, who matters
-## and what stands out. Scannable in a few seconds; the rest is Full report.
-func _report_glance(report: Dictionary) -> Control:
+## The assistant's report: the match in a few lines, who matters and what
+## to work on. The one report; the numbers behind it are on the Stats tab.
+func _report_glance(report: Dictionary, full_time := false) -> Control:
 	var v := UiKit.vbox(6)
 	v.name = "ReportGlance"
-	var g := CoachReport.glance(report)
-	var my_code := str(report.get("my_code", ""))
-	var opp_code := str(report.get("opp_code", ""))
-	var sc := UiKit.lbl("Half time: %s %s v %s %s" % [
-		GameDB.club_name(my_code), UiKit.scoreline(int(report.get("my_goals", 0)), int(report.get("my_behinds", 0))),
-		GameDB.club_name(opp_code), UiKit.scoreline(int(report.get("opp_goals", 0)), int(report.get("opp_behinds", 0)))],
-		UiKit.BODY, UiKit.TEXT, true)
-	sc.name = "ReportScore"
-	sc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(sc)
+	var g := CoachReport.glance(report, full_time)
 	_glance_section(v, "Match read", "MatchRead", g["read"])
 	_glance_people(v, "Your best", "ReportBest", g["best"])
 	_glance_people(v, "Needs a lift", "ReportLift", g["lift"])
 	_glance_people(v, "Opposition danger", "ReportDanger", g["danger"])
-	_glance_section(v, "Second-half notes", "ReportNotes", g["notes"])
+	_glance_section(v, "Worth working on" if full_time else "Second-half notes", "ReportNotes", g["notes"])
 	return v
 
 
@@ -925,181 +914,10 @@ func _glance_people(v: VBoxContainer, title: String, node_name: String, people: 
 	v.add_child(box)
 
 
-## Everything the assistant has: both sides' plans by quarter, the team
-## comparison, every best and quiet player with his numbers. A deliberate tap.
-func _show_full_report(report: Dictionary) -> void:
-	_close_full_report()
-	var box := UiKit.modal_box(self, 860.0, 0.0)
-	var overlay: Control = box["overlay"]
-	overlay.name = "FullReport"
-	_full_report_overlay = overlay
-	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.ellipsis("Full report", UiKit.H1, UiKit.TEXT, true))
-	v.add_child(_half_time_report_view(report))
-	var close := UiKit.btn("Back to the report", 16, true)
-	close.custom_minimum_size = Vector2(0, 44)
-	close.pressed.connect(_close_full_report)
-	box["footer"].add_child(close)
-
-
-func _close_full_report() -> void:
-	if _full_report_overlay != null and is_instance_valid(_full_report_overlay):
-		_full_report_overlay.queue_free()
-	_full_report_overlay = null
-
-
 func _close_report() -> void:
-	_close_full_report()
 	if _report_overlay != null and is_instance_valid(_report_overlay):
 		_report_overlay.queue_free()
 	_report_overlay = null
-
-
-func _half_time_report_view(report: Dictionary) -> Control:
-	var v := UiKit.vbox(8)
-	var margin := int(report.get("margin", 0))
-	var my_code := str(report.get("my_code", ""))
-	var opp_code := str(report.get("opp_code", ""))
-	var my_sc := UiKit.scoreline(int(report.get("my_goals", 0)), int(report.get("my_behinds", 0)))
-	var opp_sc := UiKit.scoreline(int(report.get("opp_goals", 0)), int(report.get("opp_behinds", 0)))
-	var verb := "level"
-	if margin > 0:
-		verb = "up by %d" % margin
-	elif margin < 0:
-		verb = "down by %d" % absi(margin)
-	v.add_child(UiKit.lbl("Half time: %s %s vs %s %s (%s)" % [
-		GameDB.club_name(my_code), my_sc, GameDB.club_name(opp_code), opp_sc, verb],
-		15, UiKit.TEXT, true))
-
-	v.add_child(UiKit.lbl("Opposition strategy (Q1-Q2)", 15, UiKit.EMPH, true))
-	v.add_child(_report_opp_plans(report))
-
-	v.add_child(UiKit.lbl("Where the game is being won", 15, UiKit.EMPH, true))
-	v.add_child(_report_edges_table(report))
-
-	var narrow := UiKit.view_width(self) < 720.0
-	var cols: BoxContainer
-	if narrow:
-		cols = UiKit.vbox(10)
-	else:
-		cols = UiKit.hbox(12)
-	v.add_child(cols)
-
-	var left := UiKit.vbox(6)
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cols.add_child(left)
-	left.add_child(UiKit.lbl("Your best", 14, UiKit.GOOD, true))
-	for e in report.get("my_best", []):
-		left.add_child(_report_player_row(e, true))
-	left.add_child(UiKit.spacer(4))
-	left.add_child(UiKit.lbl("Your quiet ones - need a lift", 14, UiKit.BAD, true))
-	for e in report.get("my_worst", []):
-		left.add_child(_report_player_row(e, false))
-
-	var right := UiKit.vbox(6)
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cols.add_child(right)
-	right.add_child(UiKit.lbl("Opposition danger", 14, UiKit.EMPH, true))
-	for e in report.get("opp_best", []):
-		right.add_child(_report_player_row(e, true))
-	right.add_child(UiKit.spacer(4))
-	right.add_child(UiKit.lbl("Opposition quiet", 14, UiKit.MUTED, true))
-	for e in report.get("opp_worst", []):
-		right.add_child(_report_player_row(e, false))
-
-	v.add_child(UiKit.lbl("What stands out", 15, UiKit.EMPH, true))
-	for k in report.get("keys", []):
-		v.add_child(UiKit.lbl("- " + str(k), 13, UiKit.TEXT))
-
-	var my_plans: Array = report.get("my_plans", [])
-	if not my_plans.is_empty():
-		var bits := PackedStringArray()
-		for p in my_plans:
-			var d: Dictionary = p
-			bits.append("Q%d %s" % [int(d.get("quarter", 0)), str(d.get("gameplan_label", "Balanced"))])
-		v.add_child(UiKit.lbl("Your first half: " + ", ".join(bits), 12, UiKit.MUTED))
-	return v
-
-
-func _report_opp_plans(report: Dictionary) -> Control:
-	var v := UiKit.vbox(4)
-	var opp_plans: Array = report.get("opp_plans", [])
-	if opp_plans.is_empty():
-		v.add_child(UiKit.lbl("No gameplan data recorded for the first half.", 13, UiKit.MUTED))
-		return v
-	for p in opp_plans:
-		var d: Dictionary = p
-		v.add_child(UiKit.lbl("Q%d: %s" % [int(d.get("quarter", 0)),
-			str(d.get("gameplan_label", "Balanced"))], 14, UiKit.TEXT, true))
-		v.add_child(UiKit.lbl(str(d.get("effect", "")), 12, UiKit.MUTED))
-		var extras := PackedStringArray()
-		if str(d.get("focus_name", "")) != "":
-			extras.append("Ran play through %s" % str(d.get("focus_name", "")))
-		if str(d.get("tag_name", "")) != "":
-			extras.append("Tagged %s" % str(d.get("tag_name", "")))
-		var pep := str(d.get("pep", "steady"))
-		if pep == "fire_up":
-			extras.append("Fired up (+contest, +ball-winning)")
-		elif pep != "steady" and pep != "":
-			extras.append("Pep: %s" % str(d.get("pep_label", pep)))
-		if not extras.is_empty():
-			v.add_child(UiKit.lbl("  " + "; ".join(extras), 12, UiKit.TEXT))
-	for o in report.get("opp_observed", []):
-		v.add_child(UiKit.lbl(str(o), 12, UiKit.MUTED))
-	return v
-
-
-func _report_edges_table(report: Dictionary) -> Control:
-	var v := UiKit.vbox(2)
-	var edges: Array = report.get("edges", [])
-	var h0 := UiKit.hbox(4)
-	v.add_child(h0)
-	h0.add_child(_qcell(str(report.get("my_code", "US")), 52, UiKit.TEXT, 12, true))
-	var gap := UiKit.line("", 12, UiKit.MUTED)
-	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h0.add_child(gap)
-	h0.add_child(_qcell(str(report.get("opp_code", "OPP")), 52, UiKit.TEXT, 12, true))
-	for e in edges:
-		var d: Dictionary = e
-		var h := UiKit.hbox(4)
-		v.add_child(h)
-		var my_v := int(d.get("my", 0))
-		var opp_v := int(d.get("opp", 0))
-		var lower_better := bool(d.get("lower_better", false))
-		var my_win := (my_v > opp_v) if (not lower_better) else (my_v < opp_v)
-		var opp_win := (opp_v > my_v) if (not lower_better) else (opp_v < my_v)
-		h.add_child(_qcell(str(my_v), 52, UiKit.GOOD if my_win else UiKit.TEXT, 12, my_win))
-		var lab := UiKit.ellipsis(str(d.get("label", "")), 12, UiKit.MUTED)
-		lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		h.add_child(lab)
-		h.add_child(_qcell(str(opp_v), 52, UiKit.GOOD if opp_win else UiKit.TEXT, 12, opp_win))
-	var eff: Dictionary = report.get("efficiency", {})
-	if not eff.is_empty():
-		v.add_child(UiKit.lbl("Shot conversion: us %.0f%% (%d entries) vs them %.0f%% (%d entries)" % [
-			float(eff.get("my_conv", 0.0)), int(eff.get("my_i50", 0)),
-			float(eff.get("opp_conv", 0.0)), int(eff.get("opp_i50", 0))], 12, UiKit.MUTED))
-	return v
-
-
-func _report_player_row(entry, good: bool) -> Control:
-	var e: Dictionary = entry
-	var v := UiKit.vbox(1)
-	var verdict := CoachReport.verdict_for(e, good)
-	var col := UiKit.GOOD if good else UiKit.BAD
-	if not good and verdict == "Par game":
-		col = UiKit.MUTED
-	v.add_child(UiKit.lbl("#%d %s (%s, OVR %d) - %s" % [
-		int(e.get("num", 0)), str(e.get("name", "Player")),
-		str(e.get("role", "")), int(e.get("overall", 0)), verdict], 13, col, true))
-	v.add_child(UiKit.lbl("%s  (%s vs par)" % [
-		str(e.get("line", "")), _signed_f(float(e.get("delta", 0.0)))], 12, UiKit.MUTED))
-	return v
-
-
-func _signed_f(x: float) -> String:
-	if x >= 0.0:
-		return "+%.1f" % x
-	return "%.1f" % x
 
 
 func _simulate_next_quarter(t: Dictionary) -> void:
@@ -1360,7 +1178,6 @@ func _show_fulltime() -> void:
 	overlay.name = "FullTime"
 	_ft_box = box
 	_ft_tab = "summary"
-	_ft_full_report = false
 	# The tabs sit above the scrolling body, so they never scroll away.
 	var outer: Node = (box["body"] as Control).get_parent().get_parent()
 	_ft_tabs = UiKit.hbox(2)
@@ -1613,26 +1430,14 @@ func _ft_stats(v: VBoxContainer) -> void:
 		box.add_child(_calls_view(0))
 
 
-## The Report tab: the assistant's half-time report at a glance, with the
-## full report opening in place.
+## The Report tab: the assistant's report on the whole match. The numbers
+## behind it are on the Stats tab.
 func _ft_report(v: VBoxContainer) -> void:
 	var box := UiKit.vbox(6)
 	box.name = "ReviewReport"
 	v.add_child(box)
-	var report := CoachReport.half_time_report(_res, _my_side)
-	box.add_child(_report_glance(report))
-	box.add_child(UiKit.spacer(UiKit.GAP))
-	var toggle := UiKit.btn("Hide full report" if _ft_full_report else "Full report", 15)
-	toggle.name = "FullReportToggle"
-	toggle.custom_minimum_size = Vector2(0, 44)
-	toggle.pressed.connect(func():
-		_ft_full_report = not _ft_full_report
-		_render_ft())
-	box.add_child(toggle)
-	if _ft_full_report:
-		var full := _half_time_report_view(report)
-		full.name = "FullReportDetail"
-		box.add_child(full)
+	var report := CoachReport.match_report(_res, _my_side)
+	box.add_child(_report_glance(report, true))
 
 
 func _quarters_table() -> Control:
@@ -1743,10 +1548,6 @@ func handle_back() -> bool:
 	# A player list opened from the break closes first.
 	if _sheet_overlay != null and is_instance_valid(_sheet_overlay):
 		_close_sheet()
-		return true
-	# The full report goes back to the short one, then that closes.
-	if _full_report_overlay != null and is_instance_valid(_full_report_overlay):
-		_close_full_report()
 		return true
 	# An open report closes first, live or at full time.
 	if _report_overlay != null and is_instance_valid(_report_overlay):
