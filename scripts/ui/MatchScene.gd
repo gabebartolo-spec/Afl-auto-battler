@@ -988,7 +988,7 @@ func _half_time_report_view(report: Dictionary) -> Control:
 	var left := UiKit.vbox(6)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cols.add_child(left)
-	left.add_child(UiKit.lbl("Your best", 14, UiKit.GOOD, true))
+	left.add_child(UiKit.lbl("Your best", 14, UiKit.TEXT, true))
 	for e in report.get("my_best", []):
 		left.add_child(_report_player_row(e, true))
 	left.add_child(UiKit.spacer(4))
@@ -1068,11 +1068,11 @@ func _report_edges_table(report: Dictionary) -> Control:
 		var lower_better := bool(d.get("lower_better", false))
 		var my_win := (my_v > opp_v) if (not lower_better) else (my_v < opp_v)
 		var opp_win := (opp_v > my_v) if (not lower_better) else (opp_v < my_v)
-		h.add_child(_qcell(str(my_v), 52, UiKit.GOOD if my_win else UiKit.TEXT, 12, my_win))
+		h.add_child(_qcell(str(my_v), 52, UiKit.TEXT, 12, my_win))
 		var lab := UiKit.ellipsis(str(d.get("label", "")), 12, UiKit.MUTED)
 		lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		h.add_child(lab)
-		h.add_child(_qcell(str(opp_v), 52, UiKit.GOOD if opp_win else UiKit.TEXT, 12, opp_win))
+		h.add_child(_qcell(str(opp_v), 52, UiKit.TEXT, 12, opp_win))
 	var eff: Dictionary = report.get("efficiency", {})
 	if not eff.is_empty():
 		v.add_child(UiKit.lbl("Shot conversion: us %.0f%% (%d entries) vs them %.0f%% (%d entries)" % [

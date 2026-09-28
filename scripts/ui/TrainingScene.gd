@@ -271,7 +271,7 @@ func _player_row(p: Dictionary) -> Control:
 	b.custom_minimum_size.y = 58
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if selected:
-		b.add_theme_stylebox_override("normal", UiKit.style(Color("263025"), 8, 6, UiKit.EMPH))
+		UiKit.set_selected(b, true)
 	var h := UiKit.hbox(8)
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
 	h.offset_left = 8
