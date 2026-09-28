@@ -14,6 +14,7 @@ func run() -> void:
 	var res := _result(42)
 	_test_sim_untouched(res)
 	_test_full_playback(res)
+	_test_open_play_shots(res)
 	_test_speed_sequencing(res)
 	_test_rng_isolation(res)
 	_test_appended_segments()
@@ -312,6 +313,45 @@ func _test_wings_and_lineups() -> void:
 	_check(drawn == 12 and named == drawn, "The named wings play the wings (%d of %d)" % [named, drawn])
 	_check(starters_ok, "A replay opens with the players who started")
 	_check(float(found) >= 0.95 * float(seen), "The player an event names is on the oval (%d of %d)" % [found, seen])
+
+
+## A set shot is staged (the shooter steps back and the ground holds); a shot
+## in open play is kicked on the move while forwards crumb and defenders chase.
+func _test_open_play_shots(res: Dictionary) -> void:
+	var set_k := -1
+	var open_k := -1
+	var tagged := true
+	var evs: Array = res["events"]
+	for i in range(evs.size()):
+		var ev: Dictionary = evs[i]
+		if not ["goal", "behind"].has(str(ev.get("kind", ""))):
+			continue
+		if not ev.has("set_shot"):
+			tagged = false
+		elif bool(ev["set_shot"]) and set_k < 0:
+			set_k = i
+		elif not bool(ev["set_shot"]) and open_k < 0:
+			open_k = i
+	_check(tagged, "Every score says whether it came from a set shot")
+	_check(set_k >= 0 and open_k >= 0, "A match has set shots and open-play shots")
+	if set_k < 0 or open_k < 0:
+		return
+	var d := MatchDirector.new()
+	d.setup(res, evs)
+	var staged := func(k: int) -> Dictionary:
+		var ph: Array = d._shot_phases(k)
+		var hold := 0.0
+		var crumb := false
+		for p in ph:
+			if str(p["t"]) == "hold":
+				hold = maxf(hold, float(p.get("dur", 0.0)))
+			if str(p["t"]) == "crumb":
+				crumb = true
+		return {"hold": hold, "crumb": crumb}
+	var a: Dictionary = staged.call(set_k)
+	var b: Dictionary = staged.call(open_k)
+	_check(a["hold"] > 0.3 and not a["crumb"], "A set shot is lined up")
+	_check(b["hold"] == 0.0 and b["crumb"], "An open-play shot is kicked on the run, the play going on around it")
 
 
 ## Teams change ends every quarter: the home side attacks one end of the

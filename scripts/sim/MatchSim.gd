@@ -173,6 +173,28 @@ func _t(side: int, key: String, n := 1.0) -> void:
 	d[key] = float(d.get(key, 0.0)) + n
 
 
+## Ground won going forward by this possession: the ball's actual movement
+## toward the side's goal. Going backwards earns nothing.
+func _metres(side: int, player, m: float) -> void:
+	if m <= 0.0:
+		return
+	_t(side, "metres_gained", m)
+	_p(player, "metres_gained", m)
+
+
+func _effective(side: int, player) -> void:
+	_t(side, "effective_disposals")
+	_p(player, "effective_disposals")
+
+
+## Disposal efficiency, 0-100: the share of disposals that kept the ball.
+static func disposal_efficiency(st: Dictionary) -> int:
+	var d := float(st.get("disposals", 0.0))
+	if d <= 0.0:
+		return 0
+	return int(round(100.0 * float(st.get("effective_disposals", 0.0)) / d))
+
+
 func _p(player, key: String, n := 1.0) -> void:
 	if player == null:
 		return
@@ -614,11 +636,19 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 
 	var touches := 0
 	var max_touches := int(T["max_touches_per_chain"])
+	# The last disposal, until we know where it went: effective if his side
+	# has it next, not if he is caught with it or the chain dies in a
+	# stoppage or an entry is rebounded (disposal efficiency).
+	var pending = null
 	while touches < max_touches:
 		touches += 1
+		if pending != null:
+			_effective(side, pending)
+			pending = null
 		var carrier = pick_carrier(side, fp)
 		_t(side, "disposals")
 		_p(carrier, "disposals")
+		pending = carrier
 
 		var hb_bias: float = (0.85
 				+ 0.30 * (100.0 - _a(carrier, "marking")) / 100.0)
@@ -680,7 +710,9 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			if _trait(carrier, "bull"):
 				retain *= 1.10
 			if rng.randf() < retain:
+				var before_fp := fp
 				fp = clampf(fp + rng.randf_range(4.0, 12.0) * dir, -gline, gline)
+				_metres(side, carrier, (fp - before_fp) * dir)
 				continue
 			_t(opp, "pressure_wins")
 			_emit("tackle", opp, fp, tackler,
@@ -718,6 +750,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		fp += gain * dir
 		fp = clampf(fp, -gline, gline)
 		atk_fp = fp if side == 0 else -fp
+		_metres(side, carrier, atk_fp - prev_atk_fp)
 
 		# Rebound 50: winning it out of your own defensive arc.
 		if prev_atk_fp < float(T["rebound_from"]) and atk_fp > float(T["rebound_to"]):
@@ -730,7 +763,11 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_p(carrier, "inside50")
 			_emit("inside50", side, fp, carrier,
 					"%s sends it inside 50" % GameDB.player_display_name(carrier))
-			return resolve_forward50(side, fp, carrier)
+			var entry := resolve_forward50(side, fp, carrier)
+			# An entry the defence rebounds is a turnover, not an effective kick.
+			if str(entry["outcome"]) != "turnover":
+				_effective(side, carrier)
+			return entry
 
 		# A clean exit from your own defensive 50 is a rebound.
 		if atk_fp > 5.0 and atk_fp - gain <= -f50:
@@ -795,12 +832,14 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		q_goals[current_quarter - 1][side] += 1
 		_score_run(side)
 		_emit("goal", side, fp, shooter, _scoreline(side, "GOAL"))
+		_tag_shot(marked)
 		return {"outcome": "score", "fp": 0.0, "actor": shooter}
 	if roll < goal_p + behind_p:
 		_t(side, "behinds")
 		_p(shooter, "behinds")
 		q_behinds[current_quarter - 1][side] += 1
 		_emit("behind", side, fp, shooter, _scoreline(side, "Behind"))
+		_tag_shot(marked)
 		return {"outcome": "behind", "fp": kick_in_fp(side), "actor": shooter}
 
 	_t(opp, "rebounds")
@@ -808,6 +847,12 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	_emit("rebound", opp, fp, defender,
 			"%s rebounds it out of danger" % GameDB.player_display_name(defender))
 	return {"outcome": "turnover", "fp": fp, "actor": defender}
+
+
+## Marks the score just logged as a set shot (from a mark) or a shot in
+## open play, so the match view stages one and not the other.
+func _tag_shot(set_shot: bool) -> void:
+	(events[events.size() - 1] as Dictionary)["set_shot"] = set_shot
 
 
 ## Shot quality from the inside-50 kick: 0.94x from a poor creator, 1.06x
@@ -1649,6 +1694,7 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 		q_goals[current_quarter - 1][side] += 1
 		_score_run(side)
 		_emit("goal", side, fp, kicker, _scoreline(side, "GOAL"))
+		_tag_shot(true)
 		_end_moment_chain("score", 0.0, side)
 		return {"points": 6, "text": "GOAL to %s!" % GameDB.player_display_name(kicker)}
 	if roll < goal_p + behind_p:
@@ -1656,6 +1702,7 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 		_p(kicker, "behinds")
 		q_behinds[current_quarter - 1][side] += 1
 		_emit("behind", side, fp, kicker, _scoreline(side, "Behind"))
+		_tag_shot(true)
 		_end_moment_chain("behind", kick_in_fp(side), side)
 		return {"points": 1, "text": "Just a behind from %s." % GameDB.player_display_name(kicker)}
 	return _shot_turnover(side, defender, "%s's shot is rebounded" % GameDB.player_display_name(kicker))

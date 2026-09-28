@@ -1224,7 +1224,7 @@ func _on_finish() -> void:
 func _row_panel(mine: bool) -> PanelContainer:
 	var p := PanelContainer.new()
 	p.mouse_filter = Control.MOUSE_FILTER_PASS
-	var sb := UiKit.style(Color("263025") if mine else Color.TRANSPARENT, 7, 4)
+	var sb := UiKit.style(UiKit.PANEL_ALT if mine else Color.TRANSPARENT, 7, 4)
 	sb.set_border_width_all(0)
 	sb.border_width_bottom = 1
 	if mine:

@@ -617,10 +617,19 @@ func _shot_phases(k: int) -> Array:
 			else signf(_rng.randf() - 0.5) * _rng.randf_range(4.0, 8.5)
 	var target := Vector2(MatchMotion.GOAL_X * _dir(side), gy)
 	var out := []
-	if s >= 0:
+	# A set shot (from a mark) is staged: he steps back and the ground holds.
+	# In open play he kicks on the move and everyone else keeps playing.
+	var set_shot := bool(ev.get("set_shot", true))
+	if s >= 0 and set_shot:
 		out += [{"t": "collect", "who": s}, {"t": "possess", "who": s, "quiet": true},
 				{"t": "hold", "who": s, "dur": 0.45, "carry": Vector2.INF, "back": true}]
+	elif s >= 0:
+		var on := (target - (ball["pos"] as Vector2)).normalized() * 4.0
+		out += [{"t": "collect", "who": s, "max": 0.35}, {"t": "possess", "who": s, "quiet": true},
+				{"t": "hold", "who": s, "dur": 0.0, "carry": (ball["pos"] as Vector2) + on}]
 	var d := (ball["pos"] as Vector2).distance_to(target)
+	if not set_shot:
+		out.append({"t": "crumb", "at": target, "side": side})
 	out += [{"t": "flight", "to": target, "dur": 0.3 + d / 48.0, "apex": 3.0 + d * 0.14,
 				"recv": -1, "mode": "shot"},
 			{"t": "emit", "log": true, "flash": "goal" if goal else "behind"},
@@ -957,6 +966,17 @@ func _enter(p: Dictionary) -> void:
 				MatchMotion.set_goal(tokens[members[i]], at2 + Vector2(cos(ang), sin(ang)) * r, 0.95)
 				_busy[int(members[i])] = true
 			_struct_ball = at2
+		"crumb":
+			# The ball is in the air in open play: the nearest forwards lead to
+			# the goal square for the crumb and the nearest defenders chase.
+			var at4: Vector2 = p["at"]
+			var drop := at4 - Vector2(10.0 * signf(at4.x), 0.0)
+			var fwd_side := int(p["side"])
+			for sd in [fwd_side, 1 - fwd_side]:
+				for id in _nearest(drop, sd, 2, []):
+					if not _busy.has(int(id)):
+						MatchMotion.set_goal(tokens[id], drop, 0.9)
+						_busy[int(id)] = true
 		"celebrate":
 			var who4 := int(p.get("who", -1))
 			mode = "shot"

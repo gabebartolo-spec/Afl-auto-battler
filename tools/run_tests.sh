@@ -2,7 +2,8 @@
 # Run every check CI runs, locally or in GitHub Actions:
 #   1. import the project (a script that fails to compile fails the run)
 #   2. every Godot test suite in tests/, each with a time limit so a hang
-#      fails fast instead of eating the runner
+#      fails fast instead of eating the runner; a suite whose log shows a
+#      script error fails even if every check it reached passed
 #   3. the dataset check and the intake/development harness
 #
 #   GODOT=/path/to/godot tools/run_tests.sh          # default: godot on PATH
@@ -59,6 +60,10 @@ for suite in "${SUITES[@]}"; do
 		status="FAIL"; detail="timed out after ${SUITE_TIMEOUT}s"
 	elif [ "$code" != 0 ] || [ -z "$result" ]; then
 		status="FAIL"; detail="${result:-no result (exit $code)}"
+	elif grep -qE "SCRIPT ERROR|Parse Error|Compile Error" "$log"; then
+		# A runtime error aborts the test function it hit, so the checks after
+		# it never run and the suite can still report 0 failures.
+		status="FAIL"; detail="$result, but a script error stopped part of the suite"
 	else
 		status="pass"; detail="$result"
 	fi
