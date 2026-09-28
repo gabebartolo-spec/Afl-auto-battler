@@ -206,6 +206,15 @@ func _row(id: String) -> Dictionary:
 func _test_reserves_development() -> void:
 	_new_season()
 	GameState.difficulty = "normal"
+	# The reserves rate itself, not the coaching around it: a Good (70)
+	# staff, each coach in his own line, teaches at exactly par.
+	var staff := GameState.club_staff(GameState.my_club)
+	for c in staff.values():
+		for k in ["teach", "tactics", "manage"]:
+			c["skills"][k] = 70
+		c["spec"] = {"MID": "MID", "FWD": "FWD", "DEF": "DEF", "DEV": "DEV"}.get(str(c["job"]), "")
+	_check(is_equal_approx(CoachEffects.xp_mult(staff, GameState.my_list[0], false), 1.0),
+			"A Good coaching staff leaves reserves development as it is")
 	var res_xp := GameState.reserves_xp()
 	_check(res_xp == 19 and GameState.XP_SENIOR_GAME == 37,
 			"A reserves game is half a full senior game (%d of %d)" % [res_xp, GameState.XP_SENIOR_GAME])
