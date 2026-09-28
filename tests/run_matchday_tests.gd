@@ -257,6 +257,9 @@ func _phone_match(sz: Vector2i) -> void:
 			first_row.emit_signal("pressed")
 			await _settle()
 			_check(table.find_child("PlayerDetail", true, false) != null, "A tap opens the rest of his line (%s)" % tag)
+			var more = table.find_child("PlayerDetail", true, false)
+			_check(more != null and str(more.text).contains("metres gained") and str(more.text).contains("disposal efficiency"),
+					"His line includes metres gained and disposal efficiency (%s)" % tag)
 			var fits := true
 			for row in table.find_children("PlayerRow_*", "Button", true, false):
 				if row.is_visible_in_tree() and row.get_global_rect().end.x > sz.x + 1:
