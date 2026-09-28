@@ -399,10 +399,10 @@ Instrument/seed the offending situation and confirm the ball is targeting the co
 ---
 
 ## ARD-M1-007 — Sim Round safety & quick-sim controls
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
-**Current state (2026-09-28):** short-press confirmation and the persistent setting are in PR #53; the long-press quick-sim menu is not started.
+**Outcome (2026-09-28, PR #53):** short press asks before simming your match (Sim round / Cancel / Don't ask again, re-enabled from Options). Holding Sim round (0.5 s, or right-click on desktop) opens Quick sim: this round, skip 4 rounds, or skip to the end of the home and away. Each option names where it lands. Batches stop at the end of the home and away (never into finals) and if you are sacked. The long press ignores the confirmation setting. Tests are in `run_career_ui_tests.gd`.
 
 ### Short press
 Before sacrificing the user's only playable match that round, confirm:

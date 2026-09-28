@@ -5,6 +5,11 @@ var _root: VBoxContainer
 var _results_overlay: Control
 var _news_overlay: Control
 var _sim_confirm: Control
+var _quick_sim: Control
+## A long press on Sim round opens the quick-sim menu instead of a sim.
+var _hold_fired := false
+var _hold_id := 0
+const HOLD_SECONDS := 0.5
 
 
 func _ready() -> void:
@@ -385,6 +390,7 @@ func _footer(season: Season) -> Control:
 		if not _upcoming_match().is_empty():
 			var sim := _nav_button("Sim round", _on_sim_round_pressed)
 			sim.name = "SimRound"
+			_wire_long_press(sim)
 			buttons.append(sim)
 	var row := UiKit.hbox(6)
 	row.name = "HubFooter"
@@ -457,6 +463,9 @@ func _on_play_match() -> void:
 ## Sim round skips your own match for good, so it asks first (unless you
 ## have said not to; Settings turns the question back on).
 func _on_sim_round_pressed() -> void:
+	if _hold_fired:
+		_hold_fired = false
+		return
 	var m := _upcoming_match()
 	if m.is_empty() or not GameState.confirm_sim_round():
 		_on_sim_round()
@@ -497,6 +506,79 @@ func _close_sim_confirm() -> void:
 	_sim_confirm = null
 
 
+## Hold Sim round (or right-click it) for the quick-sim menu.
+func _wire_long_press(b: Button) -> void:
+	b.button_down.connect(func():
+		_hold_id += 1
+		var id := _hold_id
+		# Still held: no button_up has moved the counter on since.
+		get_tree().create_timer(HOLD_SECONDS).timeout.connect(func():
+			if id == _hold_id and is_instance_valid(b):
+				_hold_fired = true
+				_open_quick_sim()))
+	b.button_up.connect(func(): _hold_id += 1)
+	b.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed \
+				and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_RIGHT:
+			_open_quick_sim())
+
+
+## Quick sim: this round, the next four, or the rest of the home-and-away
+## season - each shows where it lands. Never plays a final. Always opens on
+## a long press, whether or not Sim round asks first.
+func _open_quick_sim() -> void:
+	_close_sim_confirm()
+	_close_quick_sim()
+	var season: Season = GameState.season
+	if season == null or season.is_regular_done():
+		return
+	var now := season.round_index + 1
+	var last := season.fixture.size()
+	var box := UiKit.modal_box(self, 420.0, 330.0)
+	_quick_sim = box["overlay"]
+	_quick_sim.name = "QuickSim"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.heading("Quick sim", UiKit.H1))
+	var why := UiKit.lbl("Your matches are simulated. It always stops before the finals.",
+			UiKit.SMALL, UiKit.MUTED)
+	why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(why)
+	var four_to := mini(now + 3, last)
+	var options := [
+		["QuickSimOne", "Sim this round (Round %d)" % now, 1],
+		["QuickSimFour", "Skip to Round %d" % (four_to + 1) if four_to < last
+				else "Skip to the end of the home and away", 4],
+		["QuickSimAll", "Skip to the end of the home and away (after Round %d)" % last, -1],
+	]
+	for o in options:
+		var b := UiKit.btn(str(o[1]), 15)
+		b.name = str(o[0])
+		b.custom_minimum_size = Vector2(0, 48)
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var n := int(o[2])
+		b.pressed.connect(func(): _run_quick_sim(n))
+		box["footer"].add_child(b)
+	var cancel := UiKit.btn("Cancel", 15)
+	cancel.name = "QuickSimCancel"
+	cancel.custom_minimum_size = Vector2(0, 44)
+	cancel.pressed.connect(_close_quick_sim)
+	box["footer"].add_child(cancel)
+
+
+func _close_quick_sim() -> void:
+	if _quick_sim != null and is_instance_valid(_quick_sim):
+		_quick_sim.queue_free()
+	_quick_sim = null
+
+
+func _run_quick_sim(rounds: int) -> void:
+	_close_quick_sim()
+	GameState.quick_sim(rounds)
+	_build()
+	if not GameState.last_results.is_empty():
+		_show_results(GameState.last_results)
+
+
 func _on_sim_round() -> void:
 	GameState.advance()
 	_build()
@@ -517,6 +599,9 @@ func _on_sim_to_end() -> void:
 
 ## Router back hook: close the results popup before leaving the hub.
 func handle_back() -> bool:
+	if _quick_sim != null and is_instance_valid(_quick_sim):
+		_close_quick_sim()
+		return true
 	if _sim_confirm != null and is_instance_valid(_sim_confirm):
 		_close_sim_confirm()
 		return true

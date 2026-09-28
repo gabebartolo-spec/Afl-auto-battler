@@ -2530,6 +2530,27 @@ func _next_week_event() -> void:
 			"seed": season.seed, "losses": losing_streak, "selected": selected})
 
 
+## Quick sim: play up to `rounds` home-and-away rounds (-1: to the end of the
+## home-and-away season). It never plays a final, and stops early if the
+## season ends or something genuinely stops the club (you are sacked).
+## Returns {"played": n, "reason": "done" | "season_end" | "sacked"}.
+func quick_sim(rounds: int) -> Dictionary:
+	var played := 0
+	var reason := "done"
+	while season != null and (rounds < 0 or played < rounds):
+		if season.is_regular_done():
+			reason = "season_end"
+			break
+		advance()
+		played += 1
+		if is_sacked():
+			reason = "sacked"
+			break
+	if reason == "done" and season != null and season.is_regular_done():
+		reason = "season_end"
+	return {"played": played, "reason": reason}
+
+
 func week_event_pending() -> bool:
 	return not week_event.is_empty() and not bool(week_event.get("resolved", false))
 
