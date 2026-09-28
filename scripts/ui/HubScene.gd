@@ -119,13 +119,14 @@ func _standing_card() -> Control:
 	var badge := UiKit.club_badge(GameState.my_club, 16, false, true)
 	badge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	club_row.add_child(badge)
-	var staff := UiKit.btn("Staff", 14)
+	var open_jobs := GameState.staff_vacancies.size()
+	var staff := UiKit.btn("Staff" if open_jobs == 0 else "Staff · %d to fill" % open_jobs, 14)
 	staff.name = "HubStaff"
 	staff.flat = true
 	staff.custom_minimum_size = Vector2(64, 44)
 	for state in ["normal", "hover", "pressed", "hover_pressed"]:
 		staff.add_theme_stylebox_override(state, StyleBoxEmpty.new())
-	staff.add_theme_color_override("font_color", UiKit.MUTED)
+	staff.add_theme_color_override("font_color", UiKit.MUTED if open_jobs == 0 else UiKit.TEXT)
 	staff.pressed.connect(func(): Router.go("staff"))
 	club_row.add_child(staff)
 	cv.add_child(club_row)

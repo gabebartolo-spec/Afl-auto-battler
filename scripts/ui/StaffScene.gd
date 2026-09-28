@@ -1,7 +1,8 @@
 extends Control
 ## A club's coaching staff: six jobs, one row each. At your club the senior
-## coach is you; the other five are the people you inherited. Tap a coach
-## for his profile. Other clubs' staffs are one tap away. Read-only.
+## coach is you; the other five work for you. Tap a coach for his profile.
+## Other clubs' staffs are one tap away. After the season your open jobs
+## show a shortlist (appoint or auto-fill) and assistants can be released.
 
 var _root: VBoxContainer
 var _club := ""
@@ -39,11 +40,17 @@ func _build() -> void:
 	body.add_child(head)
 	body.add_child(UiKit.spacer(6))
 	var staff := GameState.club_staff(_club)
+	var open := {}
+	if mine:
+		for v in GameState.staff_vacancies:
+			open[str(v["job"])] = v
 	for job in Coaches.JOBS:
 		if job == "SC" and mine:
 			body.add_child(_you_row())
+		elif open.has(job):
+			body.add_child(_vacancy_card(job, open[job]))
 		elif staff.has(job):
-			body.add_child(_coach_row(job, staff[job]))
+			body.add_child(_coach_row(job, staff[job], mine and GameState.can_release_staff()))
 		else:
 			body.add_child(_empty_row(job))
 		body.add_child(UiKit.rule())
@@ -86,7 +93,7 @@ func _you_row() -> Control:
 	return _padded(v)
 
 
-func _coach_row(job: String, c: Dictionary) -> Control:
+func _coach_row(job: String, c: Dictionary, releasable := false) -> Control:
 	var b := Button.new()
 	b.name = "StaffRow_" + job
 	b.flat = true
@@ -106,7 +113,85 @@ func _coach_row(job: String, c: Dictionary) -> Control:
 	for n in v.find_children("*", "Control", true, false):
 		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.pressed.connect(func(): _sheet = CoachSheet.open(self, c))
-	return b
+	if not releasable:
+		return b
+	# The offseason: an assistant can be let go (no payout, no negotiation).
+	var h := UiKit.hbox(8)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(b)
+	var rel := UiKit.btn("Release", 14)
+	rel.name = "Release_" + job
+	rel.custom_minimum_size = Vector2(92, 44)
+	rel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rel.pressed.connect(func():
+		GameState.release_staff(str(c["cid"]))
+		_build())
+	h.add_child(rel)
+	return h
+
+
+## One of your jobs is open: why, a short list to choose from, or let the
+## club pick (the same judgement the AI clubs use).
+func _vacancy_card(job: String, vac: Dictionary) -> Control:
+	var v := UiKit.vbox(6)
+	v.name = "Vacancy_" + job
+	v.add_child(UiKit.lbl("%s vacancy" % _job_title(job), UiKit.BODY, UiKit.TEXT, true))
+	if str(vac.get("reason", "")) != "":
+		var why := UiKit.lbl(str(vac["reason"]), UiKit.SMALL, UiKit.MUTED)
+		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(why)
+	var list := GameState.staff_shortlist(job)
+	for i in range(list.size()):
+		v.add_child(_candidate_row(job, list[i], i))
+	var auto := UiKit.btn("Auto-fill", 15)
+	auto.name = "AutoFill_" + job
+	auto.custom_minimum_size = Vector2(0, 44)
+	auto.pressed.connect(func():
+		GameState.auto_fill_staff(job)
+		_build())
+	v.add_child(auto)
+	return _padded(v)
+
+
+func _candidate_row(job: String, c: Dictionary, i: int) -> Control:
+	var h := UiKit.hbox(8)
+	h.name = "Candidate_%s_%d" % [job, i]
+	var info := UiKit.vbox(1)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(info)
+	var who := Button.new()
+	who.flat = true
+	who.text = GameDB.player_display_name(c)
+	who.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	who.add_theme_font_override("font", UiKit.BOLD)
+	who.add_theme_font_size_override("font_size", UiKit.BODY)
+	who.custom_minimum_size.y = 32
+	who.pressed.connect(func(): _sheet = CoachSheet.open(self, c))
+	info.add_child(who)
+	info.add_child(UiKit.ellipsis(Coaches.whereabouts(c), UiKit.SMALL, UiKit.MUTED))
+	var facts := UiKit.lbl("%s · %s · %s" % [Coaches.fit_word(c, job), Coaches.rep_word(c),
+			Coaches.experience_word(c, job)], UiKit.SMALL, UiKit.TEXT)
+	facts.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_child(facts)
+	var grades := UiKit.lbl("Teaching %s · Tactics %s · Man-management %s" % [
+			Coaches.grade(Coaches.skill(c, "teach")), Coaches.grade(Coaches.skill(c, "tactics")),
+			Coaches.grade(Coaches.skill(c, "manage"))], UiKit.SMALL, UiKit.MUTED)
+	grades.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_child(grades)
+	var pick := UiKit.btn("Appoint", 14, i == 0)
+	pick.name = "Appoint_%s_%d" % [job, i]
+	pick.custom_minimum_size = Vector2(92, 44)
+	pick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pick.pressed.connect(func():
+		GameState.appoint_staff(job, str(c["cid"]))
+		_build())
+	h.add_child(pick)
+	return h
+
+
+func _job_title(job: String) -> String:
+	var label := str(Coaches.JOB_LABEL[job])
+	return label if job == "SC" or job == "SA" else label + " coach"
 
 
 ## A job nobody holds (an expansion club before it has hired).

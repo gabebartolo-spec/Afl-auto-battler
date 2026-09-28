@@ -540,6 +540,41 @@ table, shot conversion, every best and quiet player with his numbers and
   makes way for you in 2027 - and claims no real 2027 appointment. The
   profile claims nothing before Round 1 2026. Staff screen: hub > Staff (your six jobs,
   then any club's).
+* **The coaching market** (`CoachMarket.gd`, Coaching Phase 3) — the world
+  moves once a season, at its close (`GameState._coaching_offseason`), in
+  this order: coaches develop (the job's main skill +0-2, another +0-1,
+  slower above 80, a mild decline from 60) and the population is shifted
+  back to a 72 average; reputation moves (senior coaches with results,
+  assistants with service); coaches retire (from 64, certainly by 70); AI
+  senior coaches are judged against the same goal the board sets you, from
+  where their list ranked preseason - two failed seasons (not counting a
+  first season, not within three seasons of a flag) is the sack, at most
+  five a year, and an expiring 2-4 season contract is renewed after a good
+  year; then every vacancy is filled, senior jobs first, so a promotion's
+  vacancy is filled after it. Employed coaches move only for a promotion
+  (dev < line < senior assistant < senior coach), after two seasons in a
+  role, and about half take a step up when offered below senior coach; a
+  former senior coach out of work can take any job. Senior coach needs a
+  former senior coach, a senior assistant of two seasons, a big-name
+  outsider, or an exceptional line coach (never a development coach).
+  Clubs rank candidates 45% role fit, 25% reputation, 10% experience at the
+  level, 10% a natural next step (more for the club's own senior
+  assistant), 5% a club link and 10% seeded chance, less a penalty for a
+  senior coach sacked in the last three years; a coach is not rehired by a
+  club that sacked or released him within five years. An outside senior
+  coach replaces the senior assistant half the time. Out-of-work coaches
+  leave after four seasons (the notable - ever a senior coach, a seeded
+  coach, ever at your club, or eight seasons coaching - go to
+  `coach_archive`), and generated state-league coaches (32-48, skills
+  58-74) keep 45-52 in the market. Expansion clubs hire all six jobs the
+  offseason before their first season. Your club: at most two assistants
+  poached a year (promotions only); open jobs wait in `staff_vacancies`
+  with a shortlist of four on the Staff screen (Appoint, or Auto-fill with
+  the AI's own pick), you can release assistants in the offseason, and
+  anything still open is auto-filled when the next season starts. 50-season
+  probe (synthetic results): 3.3 senior coach changes a season, 33% of
+  them internal, 1.4 sackings, a 45-52 market, Elite 3.9% of skills, no job
+  ever unfilled, nobody moving more than twice in three years.
 * **Team form** — each club's form (-1..1) is derived from its results this
   season (`Season.club_results`, so it is never saved separately and resets
   at every rollover): the last five, weighted 0.30 / 0.25 / 0.20 / 0.15 / 0.10
