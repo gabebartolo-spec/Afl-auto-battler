@@ -262,6 +262,49 @@ Do not tune purely until one screenshot "looks right".
 
 ---
 
+## 1.11 Current playtest gate — match flow and decision clarity
+
+**Status:** `IN PROGRESS`  
+**Priority:** `P0`  
+**Autonomy:** `SUPERVISED`
+
+The current phone playtest has exposed a core-loop problem more important than feature expansion. **Pause unrelated new feature work until this gate is addressed.** Existing PRs may finish through CI/merge, but the next development work should focus on the failures below rather than advancing the roadmap for completion's sake.
+
+### Observed failures
+- Match simulation can freeze/stall.
+- Loose-ball sequences can visibly stop while players wait for a far-away predetermined player to run over and collect the ball instead of nearby players contesting naturally.
+- The watched match therefore feels discontinuous and unlike football.
+- List/selection synergies are opaque enough that the user cannot reliably reason about why a combination should work.
+- Pre-match and in-match choices feel insufficiently informed: the user is often clicking an option and hoping rather than making a football decision from understandable evidence.
+- Results do not provide enough feedback to connect a decision to what subsequently happened, so the player cannot readily learn from wins/losses.
+
+### Product goal
+The core loop must support:
+**understand the side → identify a football problem/opportunity → make an informed choice → observe the consequence → learn for the next decision.**
+
+Do **not** solve this by revealing an objectively best choice, adding recommendation arrows, or dumping more numbers onto primary screens. Preserve uncertainty and trade-offs while making the underlying football logic scrutable.
+
+### Hard gates before unrelated feature expansion
+1. **Match flow:** watched matches run without freezes/stalls or obviously artificial waits for predetermined receivers. Loose-ball possession must look locally contestable and believable.
+2. **Decision inputs:** before a meaningful selection/tactical choice, the player can see enough relevant football information to form a reasoned expectation.
+3. **Synergy clarity:** list/line/role synergies can be understood in football language; the player can explain broadly what a combination is good/bad at without reverse-engineering hidden formulas.
+4. **Decision feedback:** after a choice, the game gives enough concise evidence to judge broadly whether the intended effect occurred and why the match developed as it did.
+5. **No number vomit:** clarity comes from better framing, comparisons, football language and causal feedback—not exposing raw internal weights or adding dense dashboards.
+
+### Playtest test
+For each important decision, verify the player can answer:
+- What decision am I making?
+- What information am I using?
+- What do I expect to happen?
+- Afterward, can I tell whether it mattered?
+
+If those questions cannot be answered, that decision loop is not complete.
+
+### Implementation approach
+Treat each observed failure as a reproducible problem. Diagnose simulation authority vs visualisation/presentation before changing architecture. Prefer small fixes where sufficient; do not launch a movement-engine rewrite without evidence that local fixes cannot solve the problem. Use the user's phone playtest observations as the acceptance signal alongside targeted regression tests.
+
+---
+
 # 2. Roadmap Execution Order
 
 The sequence below is deliberate. Later milestones depend on cleaner football events, statistics and selection semantics from earlier milestones.
@@ -2507,6 +2550,7 @@ Before adding any new roadmap line, check this table.
 
 Keep this short. Add only meaningful structural changes, not every code commit.
 
+- **2026-09-29:** Added a P0 playtest gate for core fun/readability: pause unrelated feature expansion while match freezes/stalls, implausible loose-ball waiting, opaque synergies, uninformed choices and weak decision feedback are addressed. Core test is whether the player can understand a decision, form an expectation, observe the consequence and learn from it without number-vomit or best-choice hints.
 - **2026-09-29:** Added ARD-M5-012 to audit/fix implausible opening League Draft AI asset valuation after Bodhi Uwland was observed going pick #1; fix the valuation model, not individual player ratings.
 - **2026-09-29:** CI-waiting PRs do not count toward Claude's two-active-implementation-branch limit. Only branches being actively coded/debugged count; a branch re-enters the limit while resolving a genuine `[CI HANDOFF]` and leaves it again once pushed back to CI.
 - **2026-09-28:** Added ARD-M7-008, an optional custom/self-insert draft prospect that enters the normal national draft and career ecosystem without custom OVR/potential or preferential treatment.
