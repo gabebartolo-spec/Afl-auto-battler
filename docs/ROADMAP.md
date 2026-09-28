@@ -257,7 +257,7 @@ Classify findings:
 ---
 
 ## ARD-M1-002 — Ruck contest integrity & emergency ruck
-**Status:** `KNOWN BUG`  
+**Status:** `DONE`  
 **Priority:** `P0`  
 **Autonomy:** `SAFE` if local; otherwise `SUPERVISED`  
 **Depends on:** ARD-M1-001
@@ -283,6 +283,17 @@ If this requires rewriting selection/rotation architecture, stop and document wh
 - Ruck injury with nominated/eligible fallback.
 - No-ruck emergency scenario.
 - Regression: unrelated non-ruck cannot replace a healthy selected ruck.
+
+### Outcome (2026-09-28)
+Hit-outs were decided on `Squad.ruck` (the starting ruck, computed once) and credited to whoever stood in the ruck slot, so a bench midfielder covering a resting ruck was credited with hit-outs won on the ruck's rating: 51.5% of all hit-outs went to non-ruckmen over 1,000 seeded matches.
+
+- `MatchSim._contestant`: the ruck-slot player if he is a ruckman (listed or second position); else a ruckman already on the ground (a ruck-forward); only with none there, the best tap man on the ground (emergency, on his own rating). The tap is decided on, and credited to, that player.
+- Selection fills an empty ruck spot by ruck work, not overall (`Ratings.by_ruck`, in `select_22` and the `select_side` gap fill).
+- Rotations stay plain two-way interchanges (a three-way re-slot broke the match view's lineup replay).
+
+Balance (1,000 seeded matches, before/after): hit-outs to non-ruckmen 51.5% -> 6.1%; total score, margin, home win rate, team hit-outs and clearances identical (hit-outs are a stat; stoppage wins come from the squad contest). Regression: `tests/test_match_game.gd::_test_ruck_integrity`.
+
+**Follow-up (balance-gated, not in this task):** `Squad.ruck`/`contest` - the side's stoppage strength - is still computed once from the starting 18, so it does not drop while the ruck rests or rise when a better ruck comes on. Refreshing it after interchanges would change results and needs its own balance run.
 
 ---
 
