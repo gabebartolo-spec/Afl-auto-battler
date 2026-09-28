@@ -29,6 +29,11 @@ PLAYERS_CSV = os.path.join(ROOT, "data", "players_2026.csv")
 ENRICHED_CSV = os.path.join(ROOT, "data", "players_enriched_2026.csv")
 
 # ---------------------------------------------------------------------------
+# Who crumbs off a spoil, and how often (MatchSim.CRUMB_*).
+CRUMB_ROLES = {"FWD": 1.0, "MID": 0.25, "RUCK": 0.1, "DEF": 0.03}
+CRUMB_P = 0.30
+CRUMB_SNAP = 0.85
+
 # Tunables — the single source of truth for match balance.
 # Mirrored in scripts/sim/MatchSim.gd.
 # ---------------------------------------------------------------------------
@@ -44,8 +49,8 @@ T = {
     "clanger_is_free": 0.34,         # ...of which are free kicks against
     "mark_share_of_kicks": 0.330,
     "handball_share": 0.44,
-    "inside50_goal": 0.284,           # of inside-50 entries
-    "inside50_behind": 0.187,
+    "inside50_goal": 0.269,           # of inside-50 entries
+    "inside50_behind": 0.180,
     "stoppage_share": 0.465,         # chains that begin at a genuine stoppage
     "hitouts_per_stoppage": 0.81,    # split between the two rucks
     "clearance_per_stoppage": 0.815,  # to the team that wins the stoppage
@@ -775,6 +780,9 @@ class MatchSim:
             st.t(side, "marks")
             st.p(shooter, "marks")
         spoilt = self.rng.random() < 0.30 + 0.35 * dfn.def_intercept / 100.0
+        if spoilt and not marked:
+            st.t(opp, "spoils")
+            st.p(defender, "spoils")
         if self.rng.random() < T["one_percenter_share"]:
             st.t(opp, "one_percenters")
             st.p(defender, "one_percenters")
@@ -806,6 +814,33 @@ class MatchSim:
             self.log(minute, quarter, "Behind %s (%s)" % (
                 shooter["name"], self.squads[side].name), side, "behind")
             return ("behind", kick_in_fp(side), shooter, True)
+
+        # A spoil puts it on the deck: the forwards crumb it now and then and
+        # snap (MatchSim._crumb), otherwise the defence clears.
+        if spoilt and not marked:
+            pool = atk.ground
+            weights = [CRUMB_ROLES.get(p["role"], 0.0) * max(1.0, p["attr"]["pressure"]) ** 2 for p in pool]
+            if sum(weights) > 0:
+                crumber = self.rng.choices(pool, weights)[0]
+                if self.rng.random() < CRUMB_P * (0.7 + 0.6 * crumber["attr"]["pressure"] / 100.0):
+                    snap = T["inside50_goal"]
+                    snap *= 0.80 + 0.40 * crumber["attr"]["goalkicking"] / 100.0
+                    snap *= 0.74 * (0.82 + 0.36 * crumber["attr"]["accuracy"] / 100.0)
+                    snap *= (0.90 + 0.20 * atk.attack / 100.0) * (1.06 - 0.12 * dfn.defence / 100.0)
+                    snap *= CRUMB_SNAP
+                    c_behind = T["inside50_behind"] * (0.80 + 0.40 * crumber["attr"]["goalkicking"] / 100.0)
+                    r = self.rng.random()
+                    if r < snap:
+                        st.t(side, "goals")
+                        st.p(crumber, "goals")
+                        self.log(minute, quarter, "GOAL %s (crumb)" % crumber["name"], side, "goal")
+                        return ("score", 0.0, crumber, True)
+                    if r < snap + c_behind:
+                        st.t(side, "behinds")
+                        st.p(crumber, "behinds")
+                        self.log(minute, quarter, "Behind %s (%s)" % (
+                            crumber["name"], self.squads[side].name), side, "behind")
+                        return ("behind", kick_in_fp(side), crumber, True)
 
         st.t(opp, "rebounds")
         st.p(defender, "rebounds")

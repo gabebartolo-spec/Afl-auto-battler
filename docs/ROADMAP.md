@@ -953,9 +953,30 @@ Empower different forward types naturally.
 ---
 
 ## ARD-M3-003 — Spoils across the ground
-**Status:** `PARTIAL`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
+
+### Implementation record (2026-09-28, branch `claude/spoils`)
+- **Spoil stat:** when a forward-50 entry is not marked and the defender gets a fist to it, the defender is credited a spoil (team and player). This is a credit only. There are 15.2 a team per game, all from forward-50 contests.
+- **A spoil is a loose ball, not defender possession:** when a spoiled entry does not score, the ball is on the deck.
+  - A crumbing player sometimes wins it (`MatchSim._crumb`), weighted by pressure. By role: forwards 1.0, mids 0.25, rucks 0.1, defenders 0.03.
+  - The chance is 30% scaled by his pressure. He then snaps: an unmarked shot at 0.85.
+  - Otherwise the defence clears it, as before (a rebound, an intercept that is never a mark off a spoil).
+  - Crumbed goals carry `crumb: true` on the event for the match view and commentary.
+- **Balance:** crumbs added about 0.7 goals a team, offset by the base conversion (`inside50_goal` 0.284 to 0.269, `inside50_behind` 0.187 to 0.180). This is mirrored in `tools/sim_harness.py` along with the crumb step.
+- **Result (400 seeded matches, calibration seed), main v this branch:**
+  - score 86.6 v 86.7;
+  - goals 12.85 v 12.87;
+  - behinds 9.47 v 9.52;
+  - rebounds 38.6 v 39.0;
+  - home win 59.4% v 60.0%.
+  The calibration and league_balance suites pass. The Python harness reads 0.98 of benchmark scoring.
+- **UI:** "spoils" in the player's detail line on Match stats.
+- **Tests:** `test_match_game.gd::_test_spoils_and_crumbs` checks that:
+  - spoils add up to the team total and are made by defenders;
+  - crumbed goals happen and go mostly to forwards.
+- **Still open:** spoils in general play (marking contests outside the forward 50 are not yet modelled as contests). Small-forward crumbing as an archetype belongs to ARD-M3-002.
 
 ### Current foundation
 Forward-50 resolution has a partial spoil modifier but no complete spoil event/stat model.

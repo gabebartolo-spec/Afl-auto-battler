@@ -868,6 +868,10 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 			_p(shooter, "contested_marks")
 	var spoil_edge := 0.05 if defender != null and _trait(defender, "interceptor") else 0.0
 	var spoilt := rng.randf() < 0.30 + 0.35 * dfn.def_intercept / 100.0 + spoil_edge
+	if spoilt and not marked and defender != null:
+		# He got a fist to it: a spoil (a credit only).
+		_t(opp, "spoils")
+		_p(defender, "spoils")
 	if rng.randf() < float(T["one_percenter_share"]):
 		_t(opp, "one_percenters")
 		_p(_one_percenter(opp), "one_percenters")
@@ -902,12 +906,56 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		_tag_shot(marked)
 		return {"outcome": "behind", "fp": kick_in_fp(side), "actor": shooter}
 
+	# A spoil puts it on the deck rather than in the defender's hands: the
+	# forwards crumb it now and then and snap, otherwise the defence clears.
+	if spoilt and not marked:
+		var crumb := _crumb(side, fp)
+		if not crumb.is_empty():
+			return crumb
+
 	_t(opp, "rebounds")
 	_p(defender, "rebounds")
 	_intercept(opp, defender, not spoilt)
 	_emit("rebound", opp, fp, defender,
 			"%s rebounds it out of danger" % GameDB.player_display_name(defender))
 	return {"outcome": "turnover", "fp": fp, "actor": defender}
+
+
+## The ball off a spoil, on the ground inside 50: a crumbing forward (the
+## small forwards who hunt it) wins it now and then and snaps. {} when the
+## defence clears it or the snap misses everything.
+func _crumb(side: int, fp: float) -> Dictionary:
+	var crumber = _weighted_roles((squads[side] as Squad).ground, "pressure", CRUMB_ROLES, 2.0, side, "shooter")
+	if crumber == null or rng.randf() >= CRUMB_P * (0.7 + 0.6 * _a(crumber, "pressure") / 100.0):
+		return {}
+	var snap := shot_chance(side, crumber, false, false) * CRUMB_SNAP
+	var behind_p: float = float(Ratings.T["inside50_behind"]) * (0.80 + 0.40 * _a(crumber, "goalkicking") / 100.0)
+	var r := rng.randf()
+	if r < snap:
+		_t(side, "goals")
+		_p(crumber, "goals")
+		_scored(side, 6, crumber)
+		q_goals[current_quarter - 1][side] += 1
+		_score_run(side)
+		_emit("goal", side, fp, crumber, _scoreline(side, "GOAL"))
+		events[events.size() - 1]["crumb"] = true
+		_tag_shot(false)
+		return {"outcome": "score", "fp": 0.0, "actor": crumber}
+	if r < snap + behind_p:
+		_t(side, "behinds")
+		_p(crumber, "behinds")
+		_scored(side, 1, crumber)
+		q_behinds[current_quarter - 1][side] += 1
+		_emit("behind", side, fp, crumber, _scoreline(side, "Behind"))
+		_tag_shot(false)
+		return {"outcome": "behind", "fp": kick_in_fp(side), "actor": crumber}
+	return {}
+
+
+## Who crumbs off a spoil: forwards first, a mid at the fall of the ball.
+const CRUMB_ROLES := {"FWD": 1.0, "MID": 0.25, "RUCK": 0.1, "DEF": 0.03}
+const CRUMB_P := 0.30     # of spoils that do not score, before the crumber's pressure
+const CRUMB_SNAP := 0.85  # a snap off the deck, against an unmarked shot
 
 
 ## Who attends a centre bounce for `side`: the ruck who contests it and the
