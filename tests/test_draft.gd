@@ -15,6 +15,8 @@ func run() -> void:
 	_test_complete_small_draft()
 	_test_real_pool()
 	_test_player_name_modes()
+	_test_cap_guard()
+	_test_stuck_draft_recovery()
 	print("Draft tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -321,3 +323,125 @@ func _verify_log(draft: Draft) -> void:
 				found = true
 				break
 		_check(found, "The logged player belongs to the drafting club's list")
+
+
+
+## The career draft's pool: the 2026 league plus its draft class.
+func _career_draft(seed: int) -> Draft:
+	var pool: Array = GameDB.all_players_sorted() + GameDB.all_draftees_sorted()
+	pool.sort_custom(func(a, b): return a["overall"] > b["overall"])
+	return Draft.new(pool, GameDB.active_clubs(GameDB.START_YEAR).duplicate(), seed)
+
+
+func _cheapest_legal(d: Draft) -> Dictionary:
+	var best := {}
+	for p in d.pool:
+		if d.can_pick_player(p) and (best.is_empty() or int(p["value"]) < int(best["value"])):
+			best = p
+	return best
+
+
+## ARD-M1-009: a pick must leave enough cap to fill the rest of the list.
+func _test_cap_guard() -> void:
+	var d := _career_draft(31)
+	var me := str(d.draft_order[4])
+	d.start_for_user(me)
+	var p := _cheapest_legal(d)
+	var real_spend := int(d.club_spend[me])
+	# Exactly at the boundary: this pick leaves precisely the reserve.
+	d.club_spend[me] = d.budget - d.reserve_for(me) - int(p["value"])
+	_check(d.usable_cap_for(me) == int(p["value"]) and d.can_pick_player(p),
+			"A pick that leaves exactly enough to fill the list is allowed")
+	d.club_spend[me] = int(d.club_spend[me]) + 1
+	_check(not d.can_pick_player(p) and d.pick_block_reason(p).begins_with("This selection would leave too little salary cap"),
+			"A dollar over and it is refused, in plain words")
+	_check(d.pick_block_reason(p).contains("$%d left" % d.remaining()), "The refusal shows the cap actually left")
+	d.club_spend[me] = real_spend
+	# The final place: nothing to keep back, every dollar left can be spent.
+	var guard := 0
+	while d.count() < d.target_size - 1 and not d.is_finished() and guard < 200:
+		guard += 1
+		d.pick(_cheapest_legal(d))
+	_check(d.count() == d.target_size - 1 and d.reserve_for(me) == 0 and d.usable_cap_for(me) == d.remaining(),
+			"On the last pick the whole remaining cap is usable")
+	d.pick(_cheapest_legal(d))
+	_check(d.is_finished() and d.is_valid(), "The list completes legally")
+	var legal := true
+	for club in d.clubs:
+		if d.count_for(club) != d.target_size or d.spent_for(club) > d.budget:
+			legal = false
+	_check(legal, "Every rival finishes a full list within the cap")
+
+
+## A pick that ignores the cap guard: how an older save could have spent.
+func _force_pick(d: Draft, code: String, p: Dictionary) -> void:
+	var id := str(p["id"])
+	d.picked[id] = p
+	(d.club_lists[code] as Array).append(p)
+	d.club_spend[code] = int(d.club_spend[code]) + int(p["value"])
+	if code == d.user_club:
+		d.order.append(id)
+	var entry := {"pick": d.pick_index + 1, "round": d.current_round(), "club": code, "player_id": id,
+			"player_name": str(p.get("name", "")), "role": Ratings.role_tag(p), "overall": int(p["overall"]),
+			"value": int(p["value"]), "source_club": str(p["club"])}
+	d.pick_history.append(entry)
+	d._pick_by_player[id] = entry
+	d.pick_index += 1
+
+
+## An older save where you spent your cap on stars: a legal way on, never a
+## cap breach, and it survives a save and reload.
+func _test_stuck_draft_recovery() -> void:
+	var d := _career_draft(47)
+	var me := str(d.draft_order[2])
+	d.start_for_user(me)
+	var guard := 0
+	while not d.user_stuck() and not d.is_finished() and guard < 60:
+		guard += 1
+		var star := {}
+		for p in d.pool:
+			if d.picked.has(str(p["id"])) or Ratings.plays_role(p, "RUCK"):
+				continue
+			if int(p["value"]) <= d.remaining() and (star.is_empty() or int(p["value"]) > int(star["value"])):
+				star = p
+		if star.is_empty():
+			break
+		_force_pick(d, me, star)
+		d.auto_until_user_turn()
+	_check(d.user_stuck(), "An old save can leave you with no legal pick (%d signed, $%d left)" % [d.count(), d.remaining()])
+	if not d.user_stuck():
+		return
+	_check(d.spent() <= d.budget, "Even stuck, the cap was never breached")
+	var seq := d.pick_sequence.size()
+	var dear: Dictionary = d.list()[0]
+	for p in d.list():
+		if int(p["value"]) > int(dear["value"]):
+			dear = p
+	_check(not d.release_for_room("nobody") and d.release_for_room(str(dear["id"])),
+			"You can release one of your picks when stuck")
+	_check(not d.picked.has(str(dear["id"])) and d.pick_sequence.size() == seq + 1 and d.drafted_by(str(dear["id"])) == "",
+			"He goes back to the pool and you get an extra pick at the end")
+	# Save and reload mid-recovery.
+	GameState.draft = d
+	GameState.my_club = me
+	_check(GameState.save_career() and GameState.load_career(), "A stuck draft saves and loads")
+	var r: Draft = GameState.draft
+	_check(r.drafted_by(str(dear["id"])) == "" and not r.picked.has(str(dear["id"])),
+			"After a reload the released player is still back in the pool")
+	guard = 0
+	while not r.is_finished() and guard < 200:
+		guard += 1
+		if r.user_stuck():
+			var cheap: Dictionary = r.list()[0]
+			for p in r.list():
+				if int(p["value"]) > int(cheap["value"]):
+					cheap = p
+			r.release_for_room(str(cheap["id"]))
+			continue
+		var p := _cheapest_legal(r)
+		if p.is_empty() or not r.pick(p):
+			break
+	_check(r.is_finished() and r.count() == r.target_size and r.spent() <= r.budget and r.is_valid(),
+			"The draft then completes with a full, legal list (%d/%d, $%d of $%d)" % [r.count(), r.target_size, r.spent(), r.budget])
+	GameState.draft = null
+	GameState.delete_saved_career()
