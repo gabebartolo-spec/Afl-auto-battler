@@ -18,6 +18,7 @@ func run() -> void:
 	_test_live_determinism()
 	_test_impact_and_ai()
 	_test_pep_talks()
+	_test_play_through()
 	_test_hothead()
 	_test_lockdown_midfielder()
 	_test_traits()
@@ -507,9 +508,9 @@ func _test_traits() -> void:
 
 
 ## The ruck contest is decided by, and credited to, the player actually at
-## the bounce. A rested ruck is replaced by the next ruckman on the ground,
-## not by whoever comes off the bench, and an empty ruck spot is filled by
-## the best ruckman available, not the best player.
+## the bounce. With the ruck resting, the ruckman on the ground goes up, not
+## whoever came off the bench, and an empty ruck spot is filled by the best
+## ruckman available, not the best player.
 func _test_ruck_integrity() -> void:
 	var sim := _sim(77)
 	var sq: Squad = sim.squads[0]
@@ -572,3 +573,41 @@ func _test_ruck_integrity() -> void:
 				if not Ratings.plays_role(p, "RUCK") and float(p["attr"]["ruck"]) < 50.0:
 					off += h
 	_check(off / tot < 0.15, "Hit-outs mostly go to ruckmen (%.0f%% to others)" % (100.0 * off / tot))
+
+
+## Play through a midfielder: he wins more of the ball in the chain, but the
+## call does not turn him into the side's shooter.
+func _test_play_through() -> void:
+	var probe := _sim(60)
+	var mid: Dictionary = {}
+	for p in probe.squads[0].ground:
+		if str(p["role"]) == "MID":
+			mid = p
+			break
+	var plain := probe._tactic_player_mult(0, mid, "shooter")
+	var plain_carry := probe._tactic_player_mult(0, mid, "carrier")
+	probe.set_tactics(0, {"focus_id": str(mid["id"])})
+	_check(probe._tactic_player_mult(0, mid, "shooter") == plain,
+			"Play through does not favour him for the shot")
+	_check(probe._tactic_player_mult(0, mid, "carrier") > plain_carry,
+			"Play through favours him in the chain")
+	var d_on := 0.0
+	var d_off := 0.0
+	var g_on := 0.0
+	var g_off := 0.0
+	var n := 30
+	for i in range(n):
+		var on := _sim(700 + i)
+		on.set_tactics(0, {"focus_id": str(mid["id"])})
+		var r_on := on.run()
+		var r_off := _sim(700 + i).run()
+		var s_on: Dictionary = r_on["players"].get(str(mid["id"]), {})
+		var s_off: Dictionary = r_off["players"].get(str(mid["id"]), {})
+		d_on += float(s_on.get("disposals", 0.0))
+		d_off += float(s_off.get("disposals", 0.0))
+		g_on += float(s_on.get("goals", 0.0))
+		g_off += float(s_off.get("goals", 0.0))
+	_check(d_on > d_off, "Played through, he gets more of the ball (%.1f v %.1f a game)" % [d_on / n, d_off / n])
+	_check(d_on / n < 40.0, "...but not an absurd share (%.1f a game)" % (d_on / n))
+	_check(g_on / n <= g_off / n + 0.35,
+			"...and he does not become the goalkicker (%.2f v %.2f goals a game)" % [g_on / n, g_off / n])
