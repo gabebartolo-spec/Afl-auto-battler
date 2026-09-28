@@ -12,6 +12,7 @@ const SCENES := {
 	"selection": "res://scenes/SelectionScene.tscn",
 	"offseason": "res://scenes/OffseasonScene.tscn",
 	"training": "res://scenes/TrainingScene.tscn",
+	"staff": "res://scenes/StaffScene.tscn",
 	"season_review": "res://scenes/SeasonReviewScene.tscn",
 }
 

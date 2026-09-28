@@ -499,7 +499,13 @@ func _show_coach_box() -> void:
 	var mine := _roster_side(_my_side)
 	var focus := _player_choice("FocusPicker", "No one", mine, _in_the_game(mine, 4), calls, "focus_id",
 			"Play through which player?")
-	v.add_child(_call_block("Play through", focus))
+	var focus_block := _call_block("Play through", focus)
+	var focus_note := UiKit.lbl("Favour this player in possession chains and attacking transition.",
+			UiKit.SMALL, UiKit.MUTED)
+	focus_note.name = "FocusNote"
+	focus_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	focus_block.add_child(focus_note)
+	v.add_child(focus_block)
 
 	var pep_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	pep_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

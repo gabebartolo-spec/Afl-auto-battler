@@ -251,10 +251,11 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String) -> float:
 		out *= Roles.WING_TRANSITION
 	elif purpose == "clearance" and Roles.on_wing(p):
 		out *= Roles.WING_STOPPAGE
-	# A "run it through him" plan should make him the clear ball-winner, not
-	# give him half the team's possessions. A small early boost, then the
-	# usage curve fades him back toward a low-30s disposal game instead of 80.
-	if focused and (carrying or purpose == "shooter"):
+	# A "run it through him" plan makes him the clear ball-winner in the
+	# chain, not the shooter: a mid who gets more of the ball delivers more
+	# inside 50s and his forwards still take the shots. A small early boost,
+	# then the usage curve fades him back toward a low-30s disposal game.
+	if focused and carrying:
 		out *= 1.14
 	if carrying and _trait(p, "ball_magnet"):
 		out *= 1.10

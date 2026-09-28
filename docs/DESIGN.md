@@ -484,6 +484,39 @@ table, shot conversion, every best and quiet player with his numbers and
   unchanged. Saves from before this record (`career_version` missing) load
   with each player's dataset career, and the seasons the save had already
   played are marked unknown rather than guessed; their totals show "—".
+* **Coaching staff** (`Coaches.gd`, `data/coaches_2026.csv`) — six jobs at
+  every club: senior coach, senior assistant, midfield & ruck, forwards,
+  defence, development. At your club the senior coach is you; the other
+  five are NPCs. Each coach is one record in `GameState.coaches[cid]` (cid,
+  real/generic name, former_player_id, skills {teach, tactics, manage} 55-92,
+  spec MID/RUCK/FWD/DEF/DEV or "" for the whole game, status club / free /
+  away / out, club, job, free_from, stints, former_sc, note, origin, played).
+  A club's staff is read from the records (club + job), never stored beside
+  them, and records never carry the id + attr + role that CareerSave takes
+  for a player. Skills show only as grades (Elite 86+, Strong 78+, Good 68+,
+  Fair) and role fit (senior coach 45% tactics / 35% man-management / 20%
+  teaching; senior assistant 35/35/30; line coaches 60% teaching / 25 / 15
+  and -8 outside their line; development 70% teaching / 30%
+  man-management, -3 for a line specialist, -6 for a whole-game coach).
+  **They do nothing yet**: no development, match or morale rule reads them.
+  The seed is the Round 1 2026 world, built by `tools/build_coaches.py` from
+  the research in `data/research/coaches_round1_2026.csv` (research only):
+  103 real coaches in jobs, 5 generated where no real person defensibly
+  fills the job (senior assistant at Brisbane, Gold Coast, Melbourne and
+  West Coast; defence at Geelong), 35 outside a job (former senior coaches,
+  the clubs' state-league senior coaches, one ruck coach per club), and 47
+  researched people left out. Assignments follow each club's 2026
+  announcements: a director of coaching takes the senior assistant job when
+  the titled senior assistant also runs a line (Adelaide, Port Adelaide,
+  Sydney); where two coaches share a line, the one whose brief covers
+  structure, transition or ball movement is the senior assistant (Carlton,
+  GWS, Richmond). Your club's real senior coach becomes free when your
+  career starts. Coach aliases use their own first names (never a player's)
+  with the shared surnames, in a fixed order, so a seeded coach has the same
+  alias in every career; real-name mode shows the real person, and a
+  generated coach keeps his alias. Seeded careers start at Round 1 2026: the
+  profile claims nothing earlier. Staff screen: hub > Staff (your six jobs,
+  then any club's).
 * **Team form** — each club's form (-1..1) is derived from its results this
   season (`Season.club_results`, so it is never saved separately and resets
   at every rollover): the last five, weighted 0.30 / 0.25 / 0.20 / 0.15 / 0.10
