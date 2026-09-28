@@ -841,13 +841,17 @@ func _open_player(id: String) -> void:
 		_open_player(id))
 	v.add_child(all)
 	if _detail_all:
+		# The same attribute rows as the player profile: name, bar, rating,
+		# one column on a phone so the names never wrap letter by letter.
 		var grid := GridContainer.new()
-		grid.columns = 2
-		grid.add_theme_constant_override("h_separation", 16)
+		grid.name = "DetailAttributes"
+		grid.columns = 1 if UiKit.view_width(self) < 520.0 else 2
+		grid.add_theme_constant_override("h_separation", 14)
+		grid.add_theme_constant_override("v_separation", 6)
 		v.add_child(grid)
-		for key in PlayerProfile.ATTR_LABELS:
-			grid.add_child(UiKit.lbl("%s  %d" % [PlayerProfile.ATTR_LABELS[key],
-					int((p["attr"] as Dictionary).get(key, 0))], 12, UiKit.MUTED))
+		var attr: Dictionary = p["attr"]
+		for r in PlayerSheet.ATTR_ROWS:
+			grid.add_child(PlayerSheet.attr_bar(str(r[0]), str(r[1]), float(attr.get(r[0], 0.0))))
 
 	# The decision.
 	var footer: VBoxContainer = box["footer"]
