@@ -186,6 +186,22 @@ func _test_inspect(ui: Control) -> void:
 	await _settle()
 	_check(is_instance_valid(ui.get("_detail")) and draft.picked.size() == picked_before and _snapshot(ui) == before,
 			"Rotating with details open keeps them, and the draft, intact")
+	# Full ratings on a portrait phone: readable rows, not one letter a line.
+	var shell_before: Vector2 = (ui.get("_detail") as Control).get_child(0).size
+	ui.find_child("DetailAllRatings", true, false).emit_signal("pressed")
+	await _settle()
+	var attrs: Node = ui.find_child("DetailAttributes", true, false)
+	var readable := attrs != null and attrs.get_child_count() == (load("res://scripts/ui/PlayerSheet.gd").ATTR_ROWS as Array).size()
+	if attrs != null:
+		for l in attrs.find_children("*", "Label", true, false):
+			if (l as Label).size.y > 30.0 or (l as Label).size.x < 20.0:
+				readable = false
+	_check(readable, "Full ratings lists every attribute on one readable line each")
+	ui.find_child("DetailAllRatings", true, false).emit_signal("pressed")
+	await _settle()
+	_check(is_instance_valid(ui.get("_detail")) and ui.find_child("DetailAttributes", true, false) == null
+			and (ui.get("_detail") as Control).get_child(0).size == shell_before,
+			"Hiding them again leaves the details as they were")
 	var act: Button = ui.find_child("DetailDraft", true, false)
 	var close: Button = ui.find_child("DetailClose", true, false)
 	var view := Rect2(Vector2.ZERO, root.get_visible_rect().size).grow(1)
