@@ -33,6 +33,9 @@ var last_label := ""             # "Round 7" / "Grand Final" / ...
 var season_log: Array = []       # every result, for the season review screen
 var last_injuries: Array = []    # the last round's new injuries, every club
 var season_tally := {}           # player id -> running season numbers (Awards)
+var club_plan := "balanced"      # your standing game plan, from the first bounce
+var form_log := {}               # your player id -> his last three Player Ratings
+var season_team := {}            # club -> {"games": n, stat: season total}
 var season_awards := {}          # the finished season's awards
 var honour_roll: Array = []      # one entry per completed season
 ## Every coach in the game, once: cid -> record (Coaches.gd). A club's staff
@@ -238,6 +241,9 @@ func save_career() -> bool:
 		"season_log": CareerSave.slim_results(season_log),
 		"last_injuries": last_injuries,
 		"season_tally": season_tally,
+		"club_plan": club_plan,
+		"form_log": form_log,
+		"season_team": season_team,
 		"season_awards": season_awards,
 		"honour_roll": honour_roll,
 		"records": records,
@@ -331,6 +337,12 @@ func load_career() -> bool:
 	season_log = state.get("season_log", [])
 	last_injuries = state.get("last_injuries", [])
 	season_tally = state.get("season_tally", {})
+	club_plan = str(state.get("club_plan", "balanced"))
+	if not CLUB_PLANS.has(club_plan):
+		club_plan = "balanced"
+	form_log = state.get("form_log", {})
+	season_team = state.get("season_team", {})
+	_sync_club_plan()
 	season_awards = state.get("season_awards", {})
 	honour_roll = state.get("honour_roll", [])
 	records = state.get("records", {})
@@ -549,6 +561,9 @@ func reset() -> void:
 	season_log = []
 	last_injuries = []
 	season_tally = {}
+	club_plan = "balanced"
+	form_log = {}
+	season_team = {}
 	season_awards = {}
 	honour_roll = []
 	records = {}
@@ -742,6 +757,8 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	if season != null:
 		Injuries.heal_all(season.lists)
 	season_tally = {}
+	form_log = {}
+	season_team = {}
 	season_awards = {}
 	# Everyone listed before ageing: a retiree leaves the lists inside
 	# age_league, and his playing career must be captured from him first.
@@ -973,6 +990,7 @@ func prepare_interactive_match() -> bool:
 	CoachEffects.apply(away)
 	pending_sim = MatchSim.new(home, away, season.next_seed(99))
 	pending_sim.moment_side = 0 if str(pending_match["home"]) == my_club else 1
+	pending_sim.set_tactics(pending_sim.moment_side, {"gameplan": club_plan})
 	pending_phase = "regular"
 	pending_label = str(pending_match["label"])
 	last_results = []
@@ -1025,6 +1043,7 @@ func _prepare_interactive_final() -> bool:
 	pending_sim = MatchSim.new(home, away, season.finals_seed(mine))
 	pending_sim.finals_mode = true
 	pending_sim.moment_side = 0 if str(fm["home"]) == my_club else 1
+	pending_sim.set_tactics(pending_sim.moment_side, {"gameplan": club_plan})
 	pending_phase = "finals"
 	pending_label = str(fm["label"])
 	last_results = []
@@ -1112,6 +1131,7 @@ func advance() -> String:
 	if season == null:
 		return "none"
 	_settle_week_event()
+	_sync_club_plan()
 	_refresh_coach_tactics()
 	last_results = []
 	last_match = {}
@@ -1580,6 +1600,7 @@ func _after_round(results: Array) -> void:
 	_process_injuries(results)
 	for res in results:
 		Awards.tally_match(season_tally, res, not res.has("tag"))
+		_note_form_and_team(res)
 	_round_news(results)
 	_board_after_round(results)
 	if season != null and season.is_season_over() \
@@ -2915,3 +2936,176 @@ func _fill_open_staff() -> void:
 	while not staff_vacancies.is_empty() and guard < 12:
 		guard += 1
 		auto_fill_staff(str(staff_vacancies[0]["job"]))
+
+
+# ---------------------------------------------------------------------------
+# Coaching hub: the standing game plan, player form, how the side plays
+# ---------------------------------------------------------------------------
+## The plans a club can stand on; the same six as the quarter-break calls.
+const CLUB_PLANS := ["balanced", "attacking", "defensive", "contest", "controlled", "through_stars"]
+
+
+## Your standing game plan: every match starts with it, played or simmed,
+## and the quarter-break calls change it from there.
+func set_club_plan(key: String) -> void:
+	if not CLUB_PLANS.has(key):
+		return
+	club_plan = key
+	_sync_club_plan()
+	mark_dirty()
+
+
+func _sync_club_plan() -> void:
+	if season != null:
+		season.plans = {my_club: club_plan} if club_plan != "balanced" else {}
+
+
+## After each match: your players' last three Player Ratings, and every
+## club's season team totals.
+func _note_form_and_team(res: Dictionary) -> void:
+	var codes := [str(res.get("home", "")), str(res.get("away", ""))]
+	var team: Array = res.get("team", [])
+	var score: Array = res.get("score", [0, 0])
+	for side in range(mini(2, team.size())):
+		var row: Dictionary = season_team.get(codes[side], {"games": 0})
+		row["games"] = int(row["games"]) + 1
+		for k in TEAM_KEYS:
+			row[k] = float(row.get(k, 0.0)) + float((team[side] as Dictionary).get(k, 0.0))
+		row["for"] = float(row.get("for", 0.0)) + float(score[side])
+		row["against"] = float(row.get("against", 0.0)) + float(score[1 - side])
+		# Where the points come from, both ways (MatchSim score sources).
+		var mine_t: Dictionary = team[side]
+		var theirs_t: Dictionary = team[1 - side] if team.size() > 1 else {}
+		for k in ["turnover", "stoppage"]:
+			row["from_" + k] = float(row.get("from_" + k, 0.0)) + _source_pts(mine_t, k)
+			row["conceded_" + k] = float(row.get("conceded_" + k, 0.0)) + _source_pts(theirs_t, k)
+		season_team[codes[side]] = row
+	if not is_my_match(res):
+		return
+	var side := 0 if codes[0] == my_club else 1
+	var roster: Array = res.get("roster", [[], []])
+	if roster.size() <= side:
+		return
+	var players: Dictionary = res.get("players", {})
+	for r in roster[side]:
+		var id := str(r["id"])
+		var f: Dictionary = form_log.get(id, {"last": [], "sum": 0, "n": 0})
+		var pts := MatchNotes.rating(players.get(id, {}))
+		var last: Array = f["last"]
+		last.append(pts)
+		f["last"] = last.slice(maxi(0, last.size() - FORM_GAMES))
+		f["sum"] = int(f["sum"]) + pts
+		f["n"] = int(f["n"]) + 1
+		form_log[id] = f
+
+
+## Points from one kind of source; stoppages include centre bounces.
+static func _source_pts(t: Dictionary, k: String) -> float:
+	var v := float(t.get("score_from_" + k, 0.0))
+	if k == "stoppage":
+		v += float(t.get("score_from_centre", 0.0))
+	return v
+
+
+const FORM_GAMES := 3
+const TEAM_KEYS := ["clearances", "inside50", "tackles", "pressure_acts", "marks",
+		"rebounds", "clangers", "hitouts", "disposals", "metres_gained"]
+
+
+## Players whose last three games stand out against their own season:
+## {"hot": [...], "cold": [...]}, each [{id, recent, season}], at most
+## three a side, only for players with five games or more this season.
+func player_form() -> Dictionary:
+	var hot := []
+	var cold := []
+	for p in my_list:
+		var id := str(p["id"])
+		var f: Dictionary = form_log.get(id, {})
+		var last: Array = f.get("last", [])
+		var n := int(f.get("n", 0))
+		if last.size() < FORM_GAMES or n < 5:
+			continue
+		var recent := 0.0
+		for x in last:
+			recent += float(x)
+		recent /= float(last.size())
+		var avg := float(f["sum"]) / float(n)
+		var row := {"id": id, "recent": int(round(recent)), "season": int(round(avg))}
+		if recent >= avg + FORM_GAP:
+			hot.append(row)
+		elif recent <= avg - FORM_GAP:
+			cold.append(row)
+	hot.sort_custom(func(a, b): return int(a["recent"]) - int(a["season"]) > int(b["recent"]) - int(b["season"]))
+	cold.sort_custom(func(a, b): return int(a["recent"]) - int(a["season"]) < int(b["recent"]) - int(b["season"]))
+	return {"hot": hot.slice(0, 3), "cold": cold.slice(0, 3)}
+
+
+const FORM_GAP := 15.0
+
+
+## How the side plays, from the season so far against the average club:
+## {"win": [sentence], "beaten": [sentence], "games": n}. The biggest
+## differences first, at most three each; nothing until three games in.
+func how_we_play(code := "") -> Dictionary:
+	if code == "":
+		code = my_club
+	var mine: Dictionary = season_team.get(code, {})
+	var games := int(mine.get("games", 0))
+	var out := {"win": [], "beaten": [], "games": games}
+	if games < 3:
+		return out
+	var league := {}
+	var clubs := 0
+	for c in season_team:
+		var row: Dictionary = season_team[c]
+		var g := float(maxi(1, int(row.get("games", 0))))
+		clubs += 1
+		for k in STYLE_LINES:
+			league[k] = float(league.get(k, 0.0)) + float(row.get(k, 0.0)) / g
+	var found := []
+	for k in STYLE_LINES:
+		var avg := float(league.get(k, 0.0)) / float(maxi(1, clubs))
+		if avg <= 0.0:
+			continue
+		var d := float(mine.get(k, 0.0)) / float(games) - avg
+		var good: bool = (d > 0.0) != bool(STYLE_LINES[k][2])
+		if absf(d) / avg >= STYLE_GAP and int(round(absf(d))) >= 1:
+			found.append({"k": k, "rel": absf(d) / avg, "n": int(round(absf(d))), "good": good})
+	found.sort_custom(func(a, b): return float(a["rel"]) > float(b["rel"]))
+	for f in found:
+		var lines: Array = STYLE_LINES[f["k"]]
+		var bucket: Array = out["win"] if bool(f["good"]) else out["beaten"]
+		if bucket.size() < 3:
+			bucket.append(str(lines[0] if bool(f["good"]) else lines[1]) % int(f["n"]))
+	return out
+
+
+## How far off the average a side must be before it is a trait of its play.
+const STYLE_GAP := 0.07
+## stat -> [said when it helps, said when it hurts, lower is better]
+const STYLE_LINES := {
+	"for": ["We kick a winning score: %d points a game more than the average side.",
+			"We struggle to score: %d points a game fewer than the average side.", false],
+	"against": ["We are hard to score against: %d points a game fewer conceded than the average side.",
+			"We leak scores: %d points a game more conceded than the average side.", true],
+	"clearances": ["We win it at the stoppages: %d more clearances a game than the average side.",
+			"We get beaten at the stoppages: %d fewer clearances a game than the average side.", false],
+	"inside50": ["We live in our forward half: %d more inside 50s a game than the average side.",
+			"We struggle to get it forward: %d fewer inside 50s a game than the average side.", false],
+	"pressure_acts": ["We bring the heat: %d more pressure acts a game than the average side.",
+			"We give opponents time: %d fewer pressure acts a game than the average side.", false],
+	"marks": ["We hold it by foot and mark it: %d more marks a game than the average side.",
+			"We rarely take a mark: %d fewer a game than the average side.", false],
+	"clangers": ["We look after the ball: %d fewer clangers a game than the average side.",
+			"We turn it over: %d more clangers a game than the average side.", true],
+	"hitouts": ["Our ruck wins the tap: %d more hit-outs a game than the average side.",
+			"We are beaten in the ruck: %d fewer hit-outs a game than the average side.", false],
+	"from_turnover": ["We hurt sides on the turnover: %d more points a game from it than the average side.",
+			"We rarely score on the turnover: %d fewer points a game from it than the average side.", false],
+	"from_stoppage": ["We score from the stoppages: %d more points a game from them than the average side.",
+			"We rarely score from the stoppages: %d fewer points a game from them than the average side.", false],
+	"conceded_turnover": ["We rarely get caught on the turnover: %d fewer points a game conceded from it than the average side.",
+			"They hurt us on the turnover: %d more points a game conceded from it than the average side.", true],
+	"conceded_stoppage": ["We shut down their stoppage game: %d fewer points a game conceded from stoppages than the average side.",
+			"They hurt us from the stoppages: %d more points a game conceded from them than the average side.", true],
+}

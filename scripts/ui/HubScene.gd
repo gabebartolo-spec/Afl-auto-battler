@@ -114,22 +114,9 @@ func _standing_card() -> Control:
 	var cv := UiKit.vbox(3)
 	cv.name = "SeasonBlock"
 	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# Your club, with its coaching staff one quiet tap away.
-	var club_row := UiKit.hbox(8)
 	var badge := UiKit.club_badge(GameState.my_club, 16, false, true)
 	badge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	club_row.add_child(badge)
-	var open_jobs := GameState.staff_vacancies.size()
-	var staff := UiKit.btn("Staff" if open_jobs == 0 else "Staff · %d to fill" % open_jobs, 14)
-	staff.name = "HubStaff"
-	staff.flat = true
-	staff.custom_minimum_size = Vector2(64, 44)
-	for state in ["normal", "hover", "pressed", "hover_pressed"]:
-		staff.add_theme_stylebox_override(state, StyleBoxEmpty.new())
-	staff.add_theme_color_override("font_color", UiKit.MUTED if open_jobs == 0 else UiKit.TEXT)
-	staff.pressed.connect(func(): Router.go("staff"))
-	club_row.add_child(staff)
-	cv.add_child(club_row)
+	cv.add_child(badge)
 	var lr := GameState.my_ladder_row()
 	var title := UiKit.lbl("%s of %d  ·  %s  ·  %d pts" % [GameState.ordinal(GameState.my_position()),
 			GameState.season.ladder.size(), GameState.my_record(), int(lr.get("pts", 0))],
@@ -142,13 +129,15 @@ func _standing_card() -> Control:
 	var last := _last_match_button()
 	if last != null:
 		cv.add_child(last)
+	# The board lives in Coaching; here only when your job is at risk.
 	if GameState.board_goal_text() != "":
 		var conf := GameState.board_confidence()
-		var col := UiKit.GOOD if conf >= 60 else (UiKit.MUTED if conf >= ClubLife.WARN_LINE else UiKit.BAD)
-		var board_l := UiKit.lbl("Board %d%%  ·  %s%s" % [conf, GameState.board_goal_text(),
-				"  (final warning)" if bool(GameState.board.get("warned", false)) else ""], UiKit.SMALL, col)
-		board_l.name = "BoardLine"
-		cv.add_child(board_l)
+		var warned := bool(GameState.board.get("warned", false))
+		if warned or conf < ClubLife.WARN_LINE:
+			var board_l := UiKit.lbl("Board %d%%  ·  %s%s" % [conf, GameState.board_goal_text(),
+					"  (final warning)" if warned else ""], UiKit.SMALL, UiKit.BAD)
+			board_l.name = "BoardLine"
+			cv.add_child(board_l)
 	return cv
 
 
@@ -384,10 +373,12 @@ func _footer(season: Season) -> Control:
 	if season.is_season_over():
 		buttons.append(_nav_button("Season review", func(): Router.go("season_review")))
 		buttons.append(_nav_button("Training", func(): Router.go("training")))
+		buttons.append(_coaching_button())
 		buttons.append(_nav_button("Main menu", func(): Router.to_main_menu()))
 	else:
 		buttons.append(_nav_button("Training", func(): Router.go("training")))
 		buttons.append(_nav_button("My list", func(): Router.go("list")))
+		buttons.append(_coaching_button())
 		if not _upcoming_match().is_empty():
 			var sim := _nav_button("Sim round", _on_sim_round_pressed)
 			sim.name = "SimRound"
@@ -400,6 +391,15 @@ func _footer(season: Season) -> Control:
 		b.custom_minimum_size = Vector2(0, 44)
 		row.add_child(b)
 	return row
+
+
+## Coaching: staff, how we play, form, the list and the board. An open job
+## on your staff shows on the tab until it is filled.
+func _coaching_button() -> Button:
+	var jobs := GameState.staff_vacancies.size()
+	var b := _nav_button("Coaching" if jobs == 0 else "Coaching · %d" % jobs, func(): Router.go("coaching"))
+	b.name = "HubCoaching"
+	return b
 
 
 func _nav_button(text: String, cb: Callable, primary := false) -> Button:

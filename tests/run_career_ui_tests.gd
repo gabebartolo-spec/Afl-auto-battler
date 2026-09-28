@@ -140,7 +140,25 @@ func _run() -> void:
 	_check(_router.current() == "hub", "Continue Career opens the season hub")
 	_check(_state.season != null and _state.season.round_index == 2, "The saved round is loaded")
 	_check(_state.my_club == "SYD", "The saved club is loaded")
-	_check(current_scene.find_child("BoardLine", true, false) != null, "The hub shows the board's goal")
+	var coaching: Button = current_scene.find_child("HubCoaching", true, false)
+	_check(coaching != null, "Coaching is on the hub's bottom row")
+	if coaching != null:
+		coaching.emit_signal("pressed")
+		await _settle()
+	_check(_router.current() == "coaching" and current_scene.find_child("BoardConfidence", true, false) != null
+			and current_scene.find_child("HowWePlay", true, false) != null
+			and current_scene.find_child("StaffLine_SA", true, false) != null,
+			"Coaching shows how we play, the board and the staff")
+	var plan: Button = current_scene.find_child("ClubPlan_contest", true, false)
+	if plan != null:
+		plan.emit_signal("pressed")
+		await _settle()
+	_check(_state.club_plan == "contest" and _state.season.plans.get("SYD", "") == "contest",
+			"Choosing a game plan makes it the club's plan")
+	_state.set_club_plan("balanced")
+	_router.handle_back(true)
+	await _settle()
+	_check(_router.current() == "hub", "Back returns to the hub")
 	_state.week_event = load("res://scripts/sim/ClubLife.gd")._fans()
 	_router.go("hub")
 	await _settle()
