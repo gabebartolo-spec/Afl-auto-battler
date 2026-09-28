@@ -333,10 +333,10 @@ Usage and inside-50 gains are unchanged; the goal spike (+13% MID, +11% FWD) is 
 ---
 
 ## ARD-M1-004 — Attacking ends swap every quarter
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
-**Current state (2026-09-28):** fixed in PR #49 (the view mirrors the ground each break); awaiting merge.
+**Outcome (2026-09-28, PR #49):** `PitchView` counts breaks and mirrors the ground's x axis in even periods (Q2, Q4, and each extra-time break), so every token, the ball, the camera and the goal squares follow; the director and MatchSim are untouched, so results cannot change. Regression: `tests/test_match_visual.gd::_test_ends_swap` (a full match: the period matches the quarter at every in-play event; home goal right in Q1/Q3, left in Q2/Q4).
 
 ### Intent
 Teams must visibly attack opposite ends in alternating quarters.
