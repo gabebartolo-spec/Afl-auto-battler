@@ -294,6 +294,9 @@ func _test_event_decisions() -> void:
 	GameState.resolve_week_event(0)
 	GameState.advance()
 	var after_one := ClubLife.morale(sad)
+	# Only the promise is measured: next week's card (settled with its
+	# default when left unanswered) can move the whole group's morale.
+	GameState.week_event = {}
 	GameState.advance()
 	_check(not sad.has("expects_game") and absi(ClubLife.morale(sad) - after_one) <= 6,
 			"A promised game is judged once, not every week after")
