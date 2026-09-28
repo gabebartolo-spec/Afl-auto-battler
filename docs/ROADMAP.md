@@ -280,7 +280,8 @@ Do not rigidly wait for an entire milestone to finish before touching the next o
 Goal: fix things that are currently wrong, misleading, broken on mobile or capable of trapping the player.
 
 ## ARD-M1-001 — Football sanity audit
-**Status:** `PARTIAL`  
+**Status:** `DONE`  
+**Verified:** PR #82 (`05ad9354`) closed the final audit finding on main, 2026-09-28.  
 **Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
 
