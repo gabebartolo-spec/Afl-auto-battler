@@ -72,7 +72,7 @@ func _build() -> void:
 			fv.add_child(_week_block(week))
 		if season.is_season_over():
 			fv.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(
-					str(season.finals["premier"])), 17, UiKit.GOOD, true))
+					str(season.finals["premier"])), 17, UiKit.TEXT, true))
 		else:
 			fv.add_child(UiKit.ellipsis("Next: %s" % _next_finals_label(), 13, UiKit.MUTED))
 

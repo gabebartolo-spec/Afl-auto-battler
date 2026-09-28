@@ -289,7 +289,7 @@ func _week_section(season: Season) -> Control:
 	elif _upcoming_match().is_empty():
 		match GameState.my_finals_status():
 			"bye":
-				nv.add_child(UiKit.lbl("Week off", UiKit.H1, UiKit.GOOD, true))
+				nv.add_child(UiKit.lbl("Week off", UiKit.H1, UiKit.TEXT, true))
 				nv.add_child(UiKit.lbl(
 						"You have a week off while the rest of the series plays on.",
 						UiKit.BODY, UiKit.MUTED))

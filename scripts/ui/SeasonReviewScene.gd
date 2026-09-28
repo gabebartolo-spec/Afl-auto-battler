@@ -345,7 +345,7 @@ func _award_line(title: String, row: Dictionary, detail: String, big: bool) -> C
 	var mine := str(row["club"]) == GameState.my_club
 	var l := UiKit.lbl("%s: %s (%s), %s" % [title, GameState.award_name(row),
 			GameDB.club_name(str(row["club"])), detail], 16 if big else 14,
-			UiKit.GOOD if mine else UiKit.TEXT, true)
+			UiKit.TEXT, mine)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
 
@@ -372,7 +372,7 @@ func _achievements_panel() -> Control:
 		var mine := club == GameState.my_club
 		var l := UiKit.lbl("%s - %s, %d" % [GameDB.club_name(club), str(d["name"]),
 				int(unlocked[id].get("year", 0))], 15,
-				UiKit.GOOD if mine else UiKit.TEXT, true)
+				UiKit.TEXT, mine)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
 		var note := _small(str(d["desc"]))

@@ -23,7 +23,7 @@ const TEXT := Color("f1eee6")
 const MUTED := Color("a39e93")
 const FAINT := Color("6e695f")       # disabled
 const EMPH := TEXT                   # emphasis is weight, not a colour
-const GOOD := Color("8cc49a")
+const GOOD := Color("8cc49a")        # a genuinely good state (won, met, rising) - never decoration
 const BAD := Color("e38b73")
 const ACCENT := Color("c8412b")      # the primary action, and nothing else
 
