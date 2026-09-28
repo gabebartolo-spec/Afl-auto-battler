@@ -213,21 +213,33 @@ player in that role for, not what a stats sheet does:
 
 | Role | Core |
 |---|---|
-| MID | contested 0.60, disposal 0.15, carry 0.15, goalkicking 0.05, accuracy 0.05 |
+| MID | contested 0.55, carry 0.14, disposal 0.13, pressure 0.10, goalkicking 0.04, accuracy 0.04 |
 | DEF | intercept 0.40, pressure 0.35, carry 0.15, contested 0.10 |
-| FWD | goalkicking 0.35, marking 0.30, carry 0.15, accuracy 0.15, creating 0.05 |
+| FWD | goalkicking 0.30, pressure 0.20, marking 0.15, accuracy 0.15, creating 0.12, carry 0.08 |
 | RUCK | ruck 0.90, contested 0.10 |
 
 The weights come from measuring the engine: one attribute lifted by 20 for
-every player in a role on one side of a GEE v GEE mirror match (neutral
-venue, 1,000-4,000 matches each), and the change in margin recorded:
+every player in a role on one side of a GEE v COL match (neutral venue,
+2,500 matches each; baseline GEE +20.6), and the change in margin recorded.
+Re-measured after zonal pressure (forwards press the defensive half,
+rushed disposals, pressure acts). A difference under ~1 point is noise.
 
 | Role | +20 is worth (points of margin) | Worth ~0 |
 |---|---|---|
-| MID (5) | contested +12.2 (stoppage win and holding the ball in a tackle), carry +2.4, disposal +1.9, shooting ~+1.5 | pressure, intercept, marking |
-| DEF (6) | intercept +6.3, pressure +5.6, carry +2.1, contested +1.6 | disposal, marking, goalkicking |
-| FWD (6) | goalkicking +3.6, marking +2.8, carry +2.1, accuracy ~+2 | disposal, pressure, creating (+0.1) |
-| RUCK (1) | ruck +3.9 | everything else (intercept and pressure change nothing at all) |
+| MID (5) | contested +12.9, pressure +6.7, carry +4.1, disposal +3.1, accuracy +2.9 | goalkicking (+0.9), marking, creating |
+| DEF (6) | pressure +5.6, intercept +5.4, carry +4.5, contested +1.8 | disposal (+1.2), marking |
+| FWD (6) | goalkicking +4.3, pressure +3.1, accuracy +2.4, marking +2.2, creating +1.9, carry +1.0 | disposal, contested |
+| RUCK (1) | ruck +4.7 | contested, pressure |
+
+The forward core follows the measurement: a forward who presses and sets
+up goals is now rated for it, so pressure small forwards rise (Greene 72 to
+79, Curtis 68 to 75) and key forwards who neither tackle nor create ease
+back (McKay 72 to 66, Georgiades 82 to 76). The midfield core takes a
+smaller pressure share than measured (0.10) so it stays a stoppage rating
+first. The defensive and ruck cores are unchanged: the measurement would
+lift carry for defenders, but that reflects where the engine lets
+defenders carry rather than a football case for rating rebounders above
+key defenders.
 
 The old core gave a ruck 30% disposal and 20% intercept, a defender 26%
 disposal and a forward 30% disposal - none of which the engine uses for

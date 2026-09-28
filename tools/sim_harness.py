@@ -33,20 +33,20 @@ ENRICHED_CSV = os.path.join(ROOT, "data", "players_enriched_2026.csv")
 # Mirrored in scripts/sim/MatchSim.gd.
 # ---------------------------------------------------------------------------
 T = {
-    "chains_per_game": 165,          # possession chains across BOTH teams
+    "chains_per_game": 180,          # possession chains across BOTH teams
     "max_touches_per_chain": 14,
     "forward50_line": 35.0,          # metres from the centre square
     "goal_line": 85.0,
-    "metres_gain_mean": 8.8,         # base metres per effective disposal
+    "metres_gain_mean": 9.7,         # base metres per effective disposal
     "tackle_retention": 0.44,        # attacking team wins the ball back
-    "pressure_base": 0.158,          # chance a touch is tackled
-    "clanger_per_chain": 0.68,       # chance the chain ends in an error
+    "pressure_base": 0.160,          # chance a touch is tackled
+    "clanger_per_chain": 0.625,      # chance the chain ends in an error
     "clanger_is_free": 0.34,         # ...of which are free kicks against
     "mark_share_of_kicks": 0.330,
-    "handball_share": 0.42,
+    "handball_share": 0.44,
     "inside50_goal": 0.284,           # of inside-50 entries
     "inside50_behind": 0.187,
-    "stoppage_share": 0.50,          # chains that begin at a genuine stoppage
+    "stoppage_share": 0.465,         # chains that begin at a genuine stoppage
     "hitouts_per_stoppage": 0.81,    # split between the two rucks
     "clearance_per_stoppage": 0.815,  # to the team that wins the stoppage
     "one_percenter_share": 0.83,     # of inside-50 entries that yield a 1%
@@ -296,16 +296,16 @@ def derive_ratings(players):
 
 ROLE_WEIGHTS = {  # role core: attribute -> weight (Ratings.gd::ROLE_WEIGHTS)
     "RUCK": {"ruck": 0.90, "contested": 0.10},
-    "FWD": {"goalkicking": 0.35, "marking": 0.30, "carry": 0.15, "accuracy": 0.15, "creating": 0.05},
-    "MID": {"contested": 0.60, "disposal": 0.15, "carry": 0.15, "goalkicking": 0.05, "accuracy": 0.05},
+    "FWD": {"goalkicking": 0.30, "pressure": 0.20, "marking": 0.15, "accuracy": 0.15, "creating": 0.12, "carry": 0.08},
+    "MID": {"contested": 0.55, "disposal": 0.13, "carry": 0.14, "pressure": 0.10, "goalkicking": 0.04, "accuracy": 0.04},
     "DEF": {"intercept": 0.40, "pressure": 0.35, "carry": 0.15, "contested": 0.10},
 }
 
 
 # Position scale - see Ratings.gd::position_stretch. [p10, p50, p98] of each
 # position's raw blend -> where it lands; one for one outside that band.
-STRETCH_ANCHORS = {"MID": (39.66, 51.48, 83.84), "DEF": (40.37, 47.88, 58.90),
-                   "FWD": (39.24, 53.72, 68.00), "RUCK": (39.13, 66.27, 86.90)}
+STRETCH_ANCHORS = {"MID": (39.26, 51.49, 82.37), "DEF": (40.37, 47.88, 58.90),
+                   "FWD": (39.79, 50.93, 62.05), "RUCK": (39.13, 66.27, 86.90)}
 STRETCH_TARGETS = {"MID": (37.74, 49.36, 78.04), "DEF": (43.07, 49.41, 73.72),
                    "FWD": (38.38, 49.48, 73.42), "RUCK": (37.50, 49.36, 73.56)}
 
@@ -540,6 +540,27 @@ class MatchStats:
         return int(self.team[side]["goals"] * 6 + self.team[side]["behinds"])
 
 
+# Pressure by zone (MatchSim.gd PRESS_ZONES): the carrier's back third (their
+# forwards press), the middle (their midfield), his forward third (their
+# defenders). Each role's share of the pressing there.
+PRESS_ZONES = [
+    {"FWD": 1.0, "MID": 0.75, "RUCK": 0.30, "DEF": 0.10},
+    {"FWD": 0.30, "MID": 1.0, "RUCK": 0.70, "DEF": 0.30},
+    {"FWD": 0.10, "MID": 0.75, "RUCK": 0.30, "DEF": 1.0},
+]
+PRESS_ZONE_EDGE = 20.0
+PRESS_RUSH_RATIO = 2.0     # non-tackle pressure acts per tackle chance
+PRESS_TURNOVER = 0.08      # of those, the share that turn it over outright
+PRESS_RUSH_GAIN = 0.80     # the ground a rushed disposal still gains
+FEED_BASE, FEED_SLOPE = 0.94, 0.12   # inside-50 kick's Creating on the shot
+
+
+def press_zone(atk_fp):
+    if atk_fp < -PRESS_ZONE_EDGE:
+        return 0
+    return 2 if atk_fp > PRESS_ZONE_EDGE else 1
+
+
 class MatchSim:
     def __init__(self, squad_home, squad_away, seed=0, narrate=False):
         self.squads = [squad_home, squad_away]
@@ -567,6 +588,22 @@ class MatchSim:
                 base *= usage_multiplier(self.stats.player[p["id"]]["disposals"])
             w.append(max(base, 1e-6))
         return self.rng.choices(group, w)[0]
+
+    def zone_pressure(self, side, zone):
+        w = PRESS_ZONES[zone]
+        tot = wt = 0.0
+        for p in self.squads[side].ground:
+            rw = w.get(p["role"], 0.0)
+            tot += rw * p["attr"]["pressure"]
+            wt += rw
+        return tot / wt if wt else 45.0
+
+    def pick_presser(self, side, zone):
+        w = PRESS_ZONES[zone]
+        group = self.squads[side].ground
+        weights = [max(w.get(p["role"], 0.0) * max(1.0, p["attr"]["pressure"]) ** 2, 1e-6)
+                   for p in group]
+        return self.rng.choices(group, weights)[0]
 
     def contest_winner(self, fp):
         a, b = self.squads[0].contest, self.squads[1].contest
@@ -653,29 +690,48 @@ class MatchSim:
                     st.t(side, "marks")
                     st.p(carrier, "marks")
 
-            pressure = T["pressure_base"] * (0.72 + 0.56 * dfn.def_pressure / 100.0)
             atk_fp = fp if side == 0 else -fp
+            zone = press_zone(atk_fp)
+            pressure = T["pressure_base"] * (0.72 + 0.56 * self.zone_pressure(opp, zone) / 100.0)
             pressure *= 1.10 if atk_fp < 0 else 0.95
 
-            if self.rng.random() < pressure:
+            # One roll, three outcomes: tackle, rushed disposal, or nothing.
+            press_roll = self.rng.random()
+            rushed = False
+            if press_roll < pressure:
+                tackler = self.pick_presser(opp, zone)
                 st.t(opp, "tackles")
-                tackler = self._weighted(
-                    [p for p in dfn.ground if p["role"] in ("MID", "DEF")] or dfn.ground,
-                    "pressure")
                 st.p(tackler, "tackles")
+                st.t(opp, "pressure_acts")
+                st.p(tackler, "pressure_acts")
                 retain = T["tackle_retention"] * (
                     0.75 + 0.50 * carrier["attr"]["contested"] / 100.0)
                 if self.rng.random() < retain:
                     fp = max(-T["goal_line"], min(T["goal_line"],
                              fp + self.rng.uniform(4, 12) * (1 if side == 0 else -1)))
                     continue
+                st.t(opp, "pressure_wins")
                 self.log(minute, quarter, "%s tackles %s — ball up"
                          % (tackler["name"], carrier["name"]), opp, "tackle")
                 return ("stoppage", fp, carrier, False)
+            if press_roll < pressure * (1.0 + PRESS_RUSH_RATIO):
+                presser = self.pick_presser(opp, zone)
+                st.t(opp, "pressure_acts")
+                st.p(presser, "pressure_acts")
+                turn_p = (PRESS_TURNOVER * (0.80 + 0.40 * presser["attr"]["pressure"] / 100.0)
+                          * (1.20 - 0.40 * carrier["attr"]["disposal"] / 100.0))
+                if self.rng.random() < turn_p:
+                    st.t(opp, "pressure_wins")
+                    self.log(minute, quarter, "%s forces the turnover" % presser["name"],
+                             opp, "pressure")
+                    return ("turnover", fp, presser, False)
+                rushed = True
 
             prev_atk_fp = atk_fp
             gain = T["metres_gain_mean"] * (0.55 + 0.90 * carrier["attr"]["carry"] / 100.0)
             gain *= self.rng.uniform(0.45, 1.75)
+            if rushed:
+                gain *= PRESS_RUSH_GAIN
             fp += gain if side == 0 else -gain
             fp = max(-T["goal_line"], min(T["goal_line"], fp))
 
@@ -730,6 +786,7 @@ class MatchSim:
         if spoilt and not marked:
             goal_p *= 0.58
         goal_p *= 0.90 + 0.20 * atk.attack / 100.0
+        goal_p *= FEED_BASE + FEED_SLOPE * feeder["attr"]["creating"] / 100.0 if feeder else 1.0
         goal_p *= 1.06 - 0.12 * dfn.defence / 100.0
         behind_p = T["inside50_behind"] * (0.80 + 0.40 * shooter["attr"]["goalkicking"] / 100.0)
 
