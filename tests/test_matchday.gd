@@ -217,7 +217,8 @@ func _test_full_time() -> void:
 			"A midfielder's game in a few words")
 	_check(MatchNotes.game_line({"disposals": 12.0, "goals": 4.0}) == "4 goals", "A forward's game is his goals")
 	var ks := MatchNotes.key_stats(_match(3), 0)
-	_check(ks.size() == 3 and str(ks[0][0]) == "Disposals", "Three key stats at full time")
+	_check(ks.size() == 4 and str(ks[0][0]) == "Disposals" and str(ks[3][0]) == "Pressure rating",
+			"Four key stats at full time, pressure rating last")
 	var top := MatchNotes.standouts(_match(5), 0, 3)
 	_check(float(top[0]["rating"]) >= float(top[2]["rating"]), "Standouts come best rated first")
 
@@ -256,9 +257,9 @@ func _test_report_roles(res: Dictionary) -> void:
 func _test_rating() -> void:
 	var r := func(st: Dictionary) -> int: return MatchNotes.rating(st)
 	var key_fwd: int = r.call({"goals": 5.0, "behinds": 2.0, "marks": 9.0, "kicks": 9.0, "handballs": 2.0, "inside50": 1.0})
-	var mid: int = r.call({"kicks": 16.0, "handballs": 14.0, "clearances": 9.0, "tackles": 7.0, "inside50": 6.0, "marks": 4.0, "goals": 1.0})
-	var back: int = r.call({"kicks": 15.0, "handballs": 5.0, "marks": 9.0, "rebounds": 8.0, "one_percenters": 9.0, "tackles": 3.0})
-	var ruck: int = r.call({"hitouts": 32.0, "clearances": 5.0, "kicks": 6.0, "handballs": 6.0, "marks": 3.0, "tackles": 3.0})
+	var mid: int = r.call({"kicks": 16.0, "handballs": 14.0, "clearances": 9.0, "tackles": 7.0, "pressure_acts": 18.0, "inside50": 6.0, "marks": 4.0, "goals": 1.0})
+	var back: int = r.call({"kicks": 15.0, "handballs": 5.0, "marks": 9.0, "rebounds": 8.0, "one_percenters": 9.0, "tackles": 3.0, "pressure_acts": 8.0})
+	var ruck: int = r.call({"hitouts": 32.0, "clearances": 5.0, "kicks": 6.0, "handballs": 6.0, "marks": 3.0, "tackles": 3.0, "pressure_acts": 10.0})
 	for x in [["key forward", key_fwd], ["midfielder", mid], ["defender", back], ["ruck", ruck]]:
 		_check(int(x[1]) >= 95, "A big game rates as one for a %s (%d)" % x)
 	var empty: int = r.call({"kicks": 6.0, "handballs": 20.0, "clangers": 4.0})

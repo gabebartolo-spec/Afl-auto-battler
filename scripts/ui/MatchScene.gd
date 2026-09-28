@@ -8,7 +8,7 @@ const FEED_LIMIT := 60
 const SPEEDS := [1.0, 2.0, 4.0, 8.0]
 ## Routine play drives the animation but would drown the feed; the feed
 ## keeps what MatchNotes.FEED_KINDS names (goals, behinds, breaks, calls).
-const QUIET_KINDS := ["kick", "handball", "sub", "ballup", "mark", "tackle", "inside50",
+const QUIET_KINDS := ["kick", "handball", "sub", "ballup", "mark", "tackle", "pressure", "inside50",
 		"rebound", "clanger", "free"]
 ## A run of goals worth a line in the feed.
 const RUN_LINE := 3
@@ -1695,9 +1695,15 @@ func _qcell(text: String, w: int, col: Color, fs: int, bold := false) -> Label:
 	return l
 
 
+## Pressure leads the comparison: how much each side applied, how well
+## (MatchSim.pressure_rating), and the tackles among it.
+const PRESSURE_ROWS := [
+	["pressure_acts", "Pressure acts"], ["pressure_rating", "Pressure rating"],
+	["tackles", "Tackles"],
+]
 const TEAM_STAT_ROWS := [
 	["disposals", "Disposals"], ["kicks", "Kicks"], ["handballs", "Handballs"],
-	["marks", "Marks"], ["tackles", "Tackles"], ["inside50", "Inside 50s"],
+	["marks", "Marks"], ["inside50", "Inside 50s"],
 	["rebounds", "Rebound 50s"], ["clearances", "Clearances"],
 	["hitouts", "Hit-outs"], ["one_percenters", "One percenters"],
 	["frees_for", "Frees for"], ["frees_against", "Frees against"],
@@ -1715,19 +1721,37 @@ func _team_stats_table() -> Control:
 	h0.add_child(gap)
 	h0.add_child(_qcell(str(_res["away"]), 44, UiKit.TEXT, 12, true))
 	var t: Array = _res["team"]
+	var pressure := UiKit.vbox(2)
+	pressure.name = "TeamPressure"
+	v.add_child(pressure)
+	for row in PRESSURE_ROWS:
+		var a: int
+		var b: int
+		if str(row[0]) == "pressure_rating":
+			a = MatchSim.pressure_rating(t[0], t[1])
+			b = MatchSim.pressure_rating(t[1], t[0])
+		else:
+			a = int(float(t[0].get(row[0], 0.0)))
+			b = int(float(t[1].get(row[0], 0.0)))
+		pressure.add_child(_team_row(str(row[1]), a, b))
+	v.add_child(UiKit.spacer(6))
 	for row in TEAM_STAT_ROWS:
-		var h := UiKit.hbox(4)
-		v.add_child(h)
-		var a := int(float(t[0].get(row[0], 0.0)))
-		var b := int(float(t[1].get(row[0], 0.0)))
-		# The bigger number in bold: more is not always better (clangers,
-		# frees against), so no good/bad colour here.
-		h.add_child(_qcell(str(a), 44, UiKit.TEXT, 12, a > b))
-		var lab := UiKit.ellipsis(str(row[1]), 12, UiKit.MUTED)
-		lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		h.add_child(lab)
-		h.add_child(_qcell(str(b), 44, UiKit.TEXT, 12, b > a))
+		v.add_child(_team_row(str(row[1]), int(float(t[0].get(row[0], 0.0))),
+				int(float(t[1].get(row[0], 0.0)))))
 	return v
+
+
+func _team_row(label: String, a: int, b: int) -> Control:
+	var h := UiKit.hbox(4)
+	# The bigger number in bold: more is not always better (clangers,
+	# frees against), so no good/bad colour here.
+	h.add_child(_qcell(str(a), 44, UiKit.TEXT, 12, a > b))
+	var lab := UiKit.ellipsis(label, 12, UiKit.MUTED)
+	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(lab)
+	h.add_child(_qcell(str(b), 44, UiKit.TEXT, 12, b > a))
+	return h
 
 
 func _lcell(text: String, w: int, col: Color, fs: int, bold := false) -> Label:

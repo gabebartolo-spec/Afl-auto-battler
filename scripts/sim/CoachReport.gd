@@ -65,6 +65,7 @@ const TEAM_COMPARE := [
 	["disposals", "Disposals", 4, false],
 	["marks", "Marks", 3, false],
 	["tackles", "Tackles", 2, false],
+	["pressure_acts", "Pressure acts", 6, false],
 	["inside50", "Inside 50s", 2, false],
 	["clearances", "Clearances", 2, false],
 	["hitouts", "Hit-outs", 3, false],
@@ -135,7 +136,8 @@ static func influence(st: Dictionary) -> float:
 		+ float(st.get("goals", 0.0)) * 5.0 \
 		+ float(st.get("marks", 0.0)) * 0.8 \
 		+ float(st.get("inside50", 0.0)) * 2.0 \
-		+ float(st.get("tackles", 0.0)) * 0.8 \
+		+ float(st.get("tackles", 0.0)) * 0.5 \
+		+ float(st.get("pressure_acts", 0.0)) * 0.3 \
 		+ float(st.get("hitouts", 0.0)) * 0.7 \
 		+ float(st.get("clearances", 0.0)) * 1.2 \
 		+ float(st.get("one_percenters", 0.0)) * 0.6 \
@@ -565,11 +567,11 @@ static func _second_half_keys(res: Dictionary, my_side: int, opp_side: int, my_t
 			int(i50["my"]), int(i50["opp"])])
 
 	# 5. Pressure.
-	var tkl := _edge(edges, "tackles")
-	if int(tkl["diff"]) <= -6:
-		keys.append("Their pressure is getting to us: %d tackles to our %d." % [int(tkl["opp"]), int(tkl["my"])])
-	elif int(tkl["diff"]) >= 6:
-		keys.append("Our pressure is biting: %d tackles to their %d." % [int(tkl["my"]), int(tkl["opp"])])
+	var pa := _edge(edges, "pressure_acts")
+	if int(pa["diff"]) <= -18:
+		keys.append("Their pressure is getting to us: %d pressure acts to our %d." % [int(pa["opp"]), int(pa["my"])])
+	elif int(pa["diff"]) >= 18:
+		keys.append("Our pressure is biting: %d pressure acts to their %d." % [int(pa["my"]), int(pa["opp"])])
 
 	# 6. Ruck.
 	var ho := _edge(edges, "hitouts")
@@ -621,11 +623,11 @@ static func _form_word(delta: float) -> String:
 ## is measured. {"read": [lines], "best": [...], "lift": [...],
 ## "danger": [...], "notes": [lines]} - each player {"name", "line"}.
 ## The full report keeps everything else.
-const READ_STATS := ["inside50", "clearances", "hitouts", "tackles", "marks", "disposals"]
+const READ_STATS := ["inside50", "clearances", "hitouts", "pressure_acts", "marks", "disposals"]
 const READ_WORDS := {"inside50": "inside 50s", "clearances": "clearances", "hitouts": "hit-outs",
-		"tackles": "tackles", "marks": "marks", "disposals": "disposals"}
+		"pressure_acts": "pressure acts", "marks": "marks", "disposals": "disposals"}
 ## Which second-half notes say the same thing as a Match read line.
-const NOTE_TOPICS := {"clearances": "stoppages", "inside50": "going forward", "tackles": "pressure",
+const NOTE_TOPICS := {"clearances": "stoppages", "inside50": "going forward", "pressure_acts": "pressure",
 		"hitouts": "ruck"}
 
 

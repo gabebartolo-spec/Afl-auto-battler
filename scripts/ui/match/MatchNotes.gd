@@ -18,6 +18,8 @@ const INSIDE50_EDGE := 5
 const STANDOUT_DISPOSALS := 9
 const STANDOUT_GOALS := 2
 const MAX_FACTS := 3
+## Pressure-rating gap worth a full-time line (about one match in five).
+const PRESSURE_GAP := 8
 
 ## Legs in words (MatchSim energy, 0-100).
 const FRESH := 75.0
@@ -350,13 +352,14 @@ static func match_factors(res: Dictionary, my_side: int) -> Array:
 	elif g_m >= b_m + 8:
 		out.append("You kicked straight: %d.%d." % [g_m, b_m])
 
-	# 6. Pressure.
-	var tk_m := int(float(t_me.get("tackles", 0.0)))
-	var tk_t := int(float(t_op.get("tackles", 0.0)))
-	if tk_m - tk_t >= 15:
-		out.append("Your pressure told: %d tackles to %d." % [tk_m, tk_t])
-	elif tk_t - tk_m >= 15:
-		out.append("Their pressure told: %d tackles to %d." % [tk_t, tk_m])
+	# 6. Pressure: the pressure rating, which allows for how much of the
+	# ball each side had to pressure.
+	var pr_m := MatchSim.pressure_rating(t_me, t_op)
+	var pr_t := MatchSim.pressure_rating(t_op, t_me)
+	if pr_m - pr_t >= PRESSURE_GAP:
+		out.append("Your pressure told: a pressure rating of %d to %d." % [pr_m, pr_t])
+	elif pr_t - pr_m >= PRESSURE_GAP:
+		out.append("Their pressure told: a pressure rating of %d to %d." % [pr_t, pr_m])
 
 	if out.is_empty():
 		out.append("Nothing much between the sides all day." if absi(int(score[0]) - int(score[1])) <= 12
@@ -400,7 +403,8 @@ static func game_line(st: Dictionary) -> String:
 	if d >= 15 or bits.is_empty():
 		bits.append("%d disposal%s" % [d, "" if d == 1 else "s"])
 	for row in [["clearances", 5, "clearances"], ["hitouts", 20, "hit-outs"], ["marks", 8, "marks"],
-			["tackles", 7, "tackles"], ["rebounds", 6, "rebound 50s"], ["one_percenters", 7, "one percenters"]]:
+			["tackles", 7, "tackles"], ["pressure_acts", 18, "pressure acts"],
+			["rebounds", 6, "rebound 50s"], ["one_percenters", 7, "one percenters"]]:
 		var v := int(float(st.get(row[0], 0.0)))
 		if v >= int(row[1]) and bits.size() < 3:
 			bits.append("%d %s" % [v, row[2]])
@@ -432,8 +436,10 @@ static func standouts(res: Dictionary, side: int, n: int) -> Array:
 ## entry, not only goals), so it is scored as creation, like an inside 50.
 ## A clearance is always followed by the disposal it produces, so it earns
 ## nothing extra. Every free against is also a clanger: -3 in all.
+## Every tackle is also a pressure act, so a tackle is 2 + 1 = 3 in all and
+## pressure without a tackle (a rushed disposal, a forced turnover) is 1.
 const RATING_POINTS := {
-	"kicks": 2, "handballs": 1, "marks": 3, "tackles": 3,
+	"kicks": 2, "handballs": 1, "marks": 3, "tackles": 2, "pressure_acts": 1,
 	"goals": 14, "behinds": 1, "hitouts": 3,
 	"inside50": 1, "goal_assists": 3, "rebounds": 3, "one_percenters": 1,
 	"clangers": -2, "frees_against": -1,
@@ -475,12 +481,18 @@ static func rated_players(res: Dictionary, side: int) -> Array:
 
 ## The few team numbers worth a glance at full time: [label, mine, theirs].
 const KEY_STATS := [["disposals", "Disposals"], ["inside50", "Inside 50s"],
-		["clearances", "Clearances"]]
+		["clearances", "Clearances"], ["pressure_rating", "Pressure rating"]]
 
 static func key_stats(res: Dictionary, my_side: int) -> Array:
 	var team: Array = res.get("team", [{}, {}])
+	var mine: Dictionary = team[my_side]
+	var theirs: Dictionary = team[1 - my_side]
 	var out := []
 	for row in KEY_STATS:
-		out.append([str(row[1]), int(float((team[my_side] as Dictionary).get(row[0], 0.0))),
-				int(float((team[1 - my_side] as Dictionary).get(row[0], 0.0)))])
+		if str(row[0]) == "pressure_rating":
+			out.append([str(row[1]), MatchSim.pressure_rating(mine, theirs),
+					MatchSim.pressure_rating(theirs, mine)])
+		else:
+			out.append([str(row[1]), int(float(mine.get(row[0], 0.0))),
+					int(float(theirs.get(row[0], 0.0)))])
 	return out

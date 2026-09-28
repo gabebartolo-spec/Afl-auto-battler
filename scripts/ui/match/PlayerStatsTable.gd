@@ -11,7 +11,7 @@ const COLUMNS := [
 ]
 ## The rest of the line, shown when a row is opened.
 const DETAIL := [
-	["kicks", "kicks"], ["handballs", "handballs"], ["behinds", "behinds"],
+	["pressure_acts", "pressure acts"], ["kicks", "kicks"], ["handballs", "handballs"], ["behinds", "behinds"],
 	["goal_assists", "goal assists"], ["inside50", "inside 50s"], ["rebounds", "rebound 50s"],
 	["one_percenters", "one percenters"], ["hitouts", "hit-outs"],
 	["clangers", "clangers"], ["frees_against", "frees against"],
