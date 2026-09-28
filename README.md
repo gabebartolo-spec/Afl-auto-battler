@@ -334,16 +334,17 @@ The Team screen lists active synergies and the nearest ones to finish. The draft
 
 - **The board.** Each season it sets a goal from where your list ranks: top four, make the finals, top 12, or win seven games. Every result moves its confidence (shown on the hub). At season's end, meeting the goal adds 20, missing it costs 25, and a flag adds 30. End a season under 30% and you get a final warning. Do it again and you're sacked, and the career is over.
 - **Morale.** Playing lifts a player's morale, and a win lifts it more. A fit player left out loses some, and a star left out loses more. Morale nudges form (±3%), and an unhappy player asks 25% more to re-sign. It shows on the List and Team screens.
-- **This week.** Most weeks bring a decision on the hub, each a real trade-off:
-  - rest a sore star or risk him
-  - a heavy training week or a recovery week
-  - suspend or back a player in the papers
-  - extend a contract now or wait
-  - promise the board a win after three losses
-  - develop a young gun pushing for games
-  - talk an unhappy player around
+- **This week.** Most weeks bring a decision on the hub. Each is a trade-off a coach could make either way, depending on the week:
+  - **A sore player:** rest him, or play him short of a gallop with several times his usual injury risk (the card gives his odds).
+  - **An extra session:** a heavy week (XP for everyone, heavy legs and more soft-tissue risk on game day, worth about 1.7 points a game) or a recovery week (fewer injuries, a lift).
+  - **An open training day:** the board and the group enjoy it, or a closed session builds XP.
+  - **A player in the papers:** suspend him (the board approves, he misses the game) or back him (he lifts, the board does not).
+  - **A contract:** extend a good player early at a premium for certainty, or wait and pay whatever his rating is worth at season's end (less if he drops, more if he improves). Only offered when the cap can carry it, once a season per player.
+  - **The board after a losing run** (three and six straight losses): promise a win, or ask for patience.
+  - **A young gun pushing for games:** give him a senior game (the best development there is, if you pick him) or a week with the development coaches (less than a senior game, more than the reserves, no game at all).
+  - **An unhappy player:** sit down with him (he expects a game) or tell him to earn it. Never for an injured player, and not the same player again within five rounds.
 
-  An unanswered card takes its default when the round is played.
+  The same card never comes twice in a row when another is due. An unanswered card takes its default when the round is played.
 
 ## Injuries
 
