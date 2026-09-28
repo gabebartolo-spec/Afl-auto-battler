@@ -130,8 +130,12 @@ const PLANS := {
 }
 
 
+## A plan's value, as this side's coaching executes it: a sharp tactical
+## group gets more out of the plan (and pays more of its cost), a weak one
+## less of both (Squad.tactics_exec, 1.0 = as written).
 func _pv(side: int, key: String, fallback := 1.0) -> float:
-	return float((PLANS.get(_plan(side), {}) as Dictionary).get(key, fallback))
+	var v := float((PLANS.get(_plan(side), {}) as Dictionary).get(key, fallback))
+	return fallback + (v - fallback) * float((squads[side] as Squad).tactics_exec)
 
 
 ## Pressure multiplier `side` faces from the opposition's plan, counters in.
@@ -261,6 +265,38 @@ static func _by_roles(group: Array, roles: Array) -> Array:
 		if roles.has(p["role"]):
 			out.append(p)
 	return out
+
+
+## Who can do what, as weights by listed line rather than hard gates: every
+## line can make any ordinary play, each leans where it belongs. The lines
+## that could always do it keep full weight.
+## Carrying by zone (from the carrying side's view).
+const CARRY_ROLES := {
+	"back": {"DEF": 1.0, "MID": 1.0, "RUCK": 0.3, "FWD": 0.12},
+	"middle": {"MID": 1.0, "RUCK": 1.0, "DEF": 1.0, "FWD": 0.3},
+	"attack": {"MID": 1.0, "FWD": 1.0, "DEF": 0.2, "RUCK": 0.3},
+	"inside": {"FWD": 1.0, "MID": 1.0, "RUCK": 0.3, "DEF": 0.05},
+}
+## Who takes the shot from an entry: a resting ruck or a defender pushed
+## forward kicks the odd goal.
+const SHOT_ROLES := {"FWD": 1.0, "MID": 1.0, "RUCK": 0.35, "DEF": 0.06}
+## Who wins a clearance: forwards and defenders at a stoppage now and then.
+const CLEARANCE_ROLES := {"MID": 1.0, "RUCK": 1.0, "FWD": 0.12, "DEF": 0.10}
+## Who is credited a one-percenter (a spoil, smother or shepherd).
+const ONE_PCT_ROLES := {"DEF": 1.0, "RUCK": 0.5, "MID": 0.3, "FWD": 0.1}
+
+
+## `_weighted` over a whole group, each player's weight scaled by his line.
+func _weighted_roles(group: Array, key: String, roles: Dictionary, power := 2.0, side := -1, purpose := ""):
+	if group.is_empty():
+		return null
+	var weights := []
+	for p in group:
+		var w: float = float(roles.get(str(p["role"]), 0.0)) * pow(maxf(1.0, _a(p, key)), power)
+		if side >= 0:
+			w *= _tactic_player_mult(side, p, purpose)
+		weights.append(w)
+	return _pick(group, weights)
 
 
 ## Weighted random pick. Better players at the relevant attribute get the ball
@@ -523,26 +559,24 @@ func pick_carrier(side: int, fp: float):
 	var T := Ratings.T
 	var sq: Squad = squads[side]
 	var atk_fp := fp if side == 0 else -fp
-	var group: Array
+	var zone: String
 	var key: String
 	var purpose := "carrier"
 	if atk_fp < -10.0:
-		group = _by_roles(sq.ground, ["DEF", "MID"])
+		zone = "back"
 		key = "intercept"
 	elif atk_fp > float(T["forward50_line"]):
-		group = _by_roles(sq.ground, ["FWD", "MID"])
+		zone = "inside"
 		key = "goalkicking"
 	elif atk_fp > 5.0:
-		group = _by_roles(sq.ground, ["MID", "FWD"])
+		zone = "attack"
 		key = "carry"
 		purpose = "transition"
 	else:
-		group = _by_roles(sq.ground, ["MID", "RUCK", "DEF"])
+		zone = "middle"
 		key = "disposal"
 		purpose = "transition"
-	if group.is_empty():
-		group = sq.ground
-	return _weighted(group, key, 2.0, side, purpose)
+	return _weighted_roles(sq.ground, key, CARRY_ROLES[zone], 2.0, side, purpose)
 
 
 # ---------------------------------------------------------------------------
@@ -611,10 +645,7 @@ func _stoppage(side: int, opp: int, from_bounce: bool) -> void:
 
 	if rng.randf() < float(T["clearance_per_stoppage"]):
 		_t(side, "clearances")
-		var group := _by_roles(atk.ground, ["MID", "RUCK"])
-		if group.is_empty():
-			group = atk.ground
-		var mid = _weighted(group, "contested", 2.0, side, "clearance")
+		var mid = _weighted_roles(atk.ground, "contested", CLEARANCE_ROLES, 2.0, side, "clearance")
 		_p(mid, "clearances")
 
 
@@ -796,10 +827,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var atk: Squad = squads[side]
 	var dfn: Squad = squads[opp]
 
-	var sgroup := _by_roles(atk.ground, ["FWD", "MID"])
-	if sgroup.is_empty():
-		sgroup = atk.ground
-	var shooter = _weighted(sgroup, "goalkicking", float(T["shooter_power"]), side, "shooter")
+	var shooter = _weighted_roles(atk.ground, "goalkicking", SHOT_ROLES, float(T["shooter_power"]), side, "shooter")
 
 	var dgroup := _by_roles(dfn.ground, ["DEF"])
 	if dgroup.is_empty():
@@ -816,7 +844,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var spoilt := rng.randf() < 0.30 + 0.35 * dfn.def_intercept / 100.0 + spoil_edge
 	if rng.randf() < float(T["one_percenter_share"]):
 		_t(opp, "one_percenters")
-		_p(defender, "one_percenters")
+		_p(_one_percenter(opp), "one_percenters")
 
 	var goal_p := shot_chance(side, shooter, marked, spoilt, true, feeder, defender)
 	var behind_p: float = (float(T["inside50_behind"])
@@ -851,6 +879,24 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	_emit("rebound", opp, fp, defender,
 			"%s rebounds it out of danger" % GameDB.player_display_name(defender))
 	return {"outcome": "turnover", "fp": fp, "actor": defender}
+
+
+## Who made the spoil, smother or shepherd: mostly defenders, sometimes a
+## ruck or a mid back helping. A credit only, drawn from stat_rng.
+func _one_percenter(side: int):
+	var group: Array = (squads[side] as Squad).ground
+	var total := 0.0
+	var weights := []
+	for p in group:
+		var x := float(ONE_PCT_ROLES.get(str(p["role"]), 0.0)) * (0.5 + _a(p, "intercept") / 100.0)
+		weights.append(x)
+		total += x
+	var r := stat_rng.randf() * total
+	for i in range(group.size()):
+		r -= float(weights[i])
+		if r <= 0.0:
+			return group[i]
+	return group[group.size() - 1]
 
 
 ## A goal assist: the last disposal to the goalkicker, only when the goal
@@ -1030,6 +1076,11 @@ func begin_quarter() -> void:
 	if current_quarter > 1:
 		for id in energy:
 			energy[id] = minf(100.0, float(energy[id]) + ENERGY_BREAK_RECOVER)
+	# AI clubs pick their plan for the quarter from the score and what they
+	# have seen (no dice: replays are unchanged).
+	for side in range(2):
+		if (squads[side] as Squad).ai_plans:
+			tactics[side] = ai_tactics(side)
 	_q_active = true
 	_q_i = 0
 	_q_count = floori(float(T["chains_per_game"]) / 4.0)
@@ -1783,22 +1834,30 @@ const COUNTERS := {"attacking": "defensive", "fast": "defensive", "defensive": "
 ## The opposition's plan for the coming quarter: protect a big lead, chase a
 ## big deficit, and counter a plan you have run two quarters in a row. From
 ## half time it tags your most influential player.
+## A sharper tactical group (Squad.tactics_read) reacts to a smaller margin,
+## counters a plan after one quarter rather than two, and tags from half
+## time; a poor one reacts late and never reads the counter.
 func ai_tactics(side: int) -> Dictionary:
 	var opp := 1 - side
+	var read := float((squads[side] as Squad).tactics_read)
 	var margin := score(side) - score(opp)
+	var react := 18.0 - 8.0 * read
 	var plan := "balanced"
-	if margin >= 18:
+	if margin >= react:
 		plan = "controlled"
-	elif margin <= -18:
+	elif margin <= -react:
 		plan = "attacking"
 	var n := tactics_history.size()
-	if n >= 2:
+	var needs := 1 if read >= 0.4 else 2
+	if read > -0.5 and n >= needs:
 		var last := str(((tactics_history[n - 1]["plans"] as Array)[opp] as Dictionary).get("gameplan", "balanced"))
-		var prev := str(((tactics_history[n - 2]["plans"] as Array)[opp] as Dictionary).get("gameplan", "balanced"))
-		if last == prev and COUNTERS.has(last):
+		var same := true
+		if needs == 2:
+			same = last == str(((tactics_history[n - 2]["plans"] as Array)[opp] as Dictionary).get("gameplan", "balanced"))
+		if same and COUNTERS.has(last):
 			plan = str(COUNTERS[last])
 	var t := {"gameplan": plan, "pep": "fire_up" if margin <= -12 and current_quarter >= 3 else "steady"}
-	if current_quarter >= 3:
+	if current_quarter >= (2 if read >= 0.4 else 3):
 		var best := ""
 		var best_inf := -1.0
 		for p in (squads[opp] as Squad).ground:

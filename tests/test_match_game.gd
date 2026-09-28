@@ -25,6 +25,7 @@ func run() -> void:
 	_test_metres_and_efficiency()
 	_test_ruck_integrity()
 	_test_stat_credits()
+	_test_no_role_gates()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -688,3 +689,29 @@ func _test_stat_credits() -> void:
 			"Goal assists are credited on goals, not on every entry (%d assists, %d goals, %d inside 50s)" % [assists, goals, i50])
 	_check(sums_ok, "Players' goal assists add up to the team's")
 	_check(frees_ok, "Every free kick is paid to a player: players' frees for add up to the team's")
+
+
+
+## ARD-M1-001: no ordinary play is impossible for a line. Across matches a
+## defender carries it inside 50 and kicks a goal, a ruck kicks goals and
+## spoils, forwards and defenders win the odd clearance, mids and forwards
+## take one-percenters - while each line still leans where it belongs.
+func _test_no_role_gates() -> void:
+	var by := {}
+	for i in range(30):
+		var res := _sim(1500 + i).run()
+		for side in range(2):
+			for r in res["roster"][side]:
+				var role := str(r.get("list_role", r["role"]))
+				var st: Dictionary = res["players"].get(str(r["id"]), {})
+				if not by.has(role):
+					by[role] = {}
+				for k in ["inside50", "goals", "one_percenters", "clearances"]:
+					by[role][k] = float(by[role].get(k, 0.0)) + float(st.get(k, 0.0))
+	var g := func(role: String, k: String) -> float: return float((by.get(role, {}) as Dictionary).get(k, 0.0))
+	_check(g.call("DEF", "inside50") > 0.0 and g.call("DEF", "goals") > 0.0, "Defenders carry it inside 50 and kick the odd goal")
+	_check(g.call("RUCK", "goals") > 0.0 and g.call("RUCK", "one_percenters") > 0.0, "Rucks kick goals and spoil")
+	_check(g.call("FWD", "clearances") > 0.0 and g.call("DEF", "clearances") > 0.0, "Forwards and defenders win the odd clearance")
+	_check(g.call("MID", "one_percenters") > 0.0 and g.call("FWD", "one_percenters") > 0.0, "Mids and forwards take one-percenters")
+	_check(g.call("DEF", "one_percenters") > g.call("MID", "one_percenters") and g.call("FWD", "goals") > g.call("DEF", "goals") * 5.0
+			and g.call("MID", "clearances") > g.call("FWD", "clearances") * 3.0, "Each line still leans where it belongs")

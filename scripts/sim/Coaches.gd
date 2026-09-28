@@ -35,8 +35,9 @@ extends RefCounted
 ##   origin           seed / generated
 ##   played           the playing career of a future ex-player coach
 ##
-## Skills do nothing yet: they are read only to describe a coach. The coaching
-## market (who is hired, promoted, sacked) lives in CoachMarket.gd.
+## What the skills do on the field lives in CoachEffects.gd (teaching ->
+## match XP, tactics -> game-plan execution, man-management -> morale when
+## left out). The coaching market lives in CoachMarket.gd.
 
 const SEED_CSV := "res://data/coaches_2026.csv"
 ## The season the researched seed describes (Round 1 2026).

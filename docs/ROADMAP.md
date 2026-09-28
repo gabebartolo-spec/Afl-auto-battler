@@ -300,7 +300,20 @@ Goal: fix things that are currently wrong, misleading, broken on mobile or capab
   - A free kick is paid to an opponent near the ball, drawn from a separate `stat_rng`, so match results are unchanged (200 seeded matches give an identical scoreline hash before and after).
   - Player Rating keeps an inside 50 at 4 and adds 2 per real goal assist and +1 per free for; the position-parity test holds.
   - Regression: `test_match_game.gd::_test_stat_credits`.
-- **Part 2, gates:** open the zone, shooter and one-percenter gates into weighted tendencies. This is balance-gated and next.
+- **Part 2, gates (branch `claude/football-gates`):** hard role filters became role weights, like `PRESS_ZONES`. Lines that could always make the play keep full weight; the rest get a small share.
+  - Carrying by zone (`CARRY_ROLES`): defenders can carry through the attacking half, and forwards can help the exit.
+  - The shot (`SHOT_ROLES`): rucks 0.35, defenders 0.06.
+  - Clearances (`CLEARANCE_ROLES`): forwards 0.12, defenders 0.10.
+  - One-percenter credit (`ONE_PCT_ROLES`, drawn from `stat_rng`).
+- **Effect (300 matches):**
+  - Defenders: 0.56 inside 50s a game (was 0.33) and 0.10 goals (0.07).
+  - Rucks: 0.32 goals (0.22) and 1.15 one-percenters (0.10).
+  - Mids: 0.96 one-percenters (0.19). Forwards: 0.53 (0.07).
+  - Defenders still take 72% of one-percenters. Forwards and defenders win the odd clearance.
+  - Team totals are unchanged.
+- **Balance (1,000 seeded matches, before v after):** mean score 86.9 v 86.5, goals per team 12.92 v 12.85, home win 59.6% v 61.3%, median margin 22 v 23. The calibration and league_balance suites pass.
+- **Regression:** `test_match_game.gd::_test_no_role_gates`.
+- **Still open (balance, not sanity):** the disposal split (mids 39%, defenders 43%) and the back-third carrier weighted by intercept (audit findings 11-12). These belong with an OVR re-measure under ARD-M5-010.
 
 ### Intent
 Normal AFL actions should not become impossible because of simplistic role gates.
@@ -1553,7 +1566,7 @@ Goal: strengthen the management loop around the football.
   - **The board:** confidence, their goal, any final warning.
   - **Staff:** one line per job, which opens the coach's profile (a vacant job opens Staff). The Staff screen is one button away for appointments and other clubs.
 - **Saved:** `club_plan`, `form_log` (last three ratings plus the season sum), `season_team` (season team totals for every club). Form and team totals reset each season.
-- **Not in this change:** score sources in "How we get beaten" (M2-008, PR #79) and coaching effects copy (Phase 5, PR #77). Both slot in once merged.
+- **Not in this change:** score sources in "How we get beaten" (M2-008, PR #79) slot in once that merges. The Phase 5 effects copy (what teaching, tactics and man-management do) stays on each coach's profile, one tap from every staff line, rather than repeated on the hub.
 - **Tests:** `test_club.gd::_test_coaching_hub` checks that:
   - the plan is valid, yours only, and reaches a simmed match;
   - style lines only appear after three games, with at most three each;
@@ -1665,6 +1678,27 @@ Validate with targeted multi-season simulations.
 - **Upstream issue:** about 19 playing careers end a season, almost all veterans. That is a list-turnover question for the player lifecycle, not coaching.
 - **UI:** the coach profile shows the playing career (clubs, games, goals, draft, medals), then the coaching career, wrapped for 360 px. News covers notable former players joining the coaching ranks and their first appointment.
 - **Tests:** new `coach_pathway` suite, plus the coaches and coach_market suites.
+
+
+### Phase 5 implementation record (2026-09-28, branch `claude/coaching-phase5`)
+- **Design:** `CoachEffects.gd` holds three capped modifiers read from the coach records; nothing is saved. A skill counts from a Good coach: level = (skill - 70) / 20, clamped -0.75..1. A vacant job counts as a weak coach.
+- **Teaching:** scales match XP in the one place it is paid (`GameState._grant_xp`, your club and rivals alike).
+  - Weights: 6% x the player's line coach's fit for the job, 5% x the development coach's fit for a player aged 22 or under or not on the ground (2% otherwise), and 2% x the senior assistant's teaching.
+  - Capped at -5% to +10%. The reserves keep their half rate.
+  - Probe, the same career with coaches set to 60 / 72 / 90: match XP 126.9k / 133.6k / 148.7k; starting list after 3 seasons +1.10 / +1.21 / +1.52 OVR.
+- **Tactics:**
+  - The tactical brain is the senior coach 60% and senior assistant 40%; at your club it is your assistant.
+  - Plan effects, costs included, execute at 1 +/- 15% x level through `MatchSim._pv`.
+  - `ai_tactics` reacts to a margin of 18 - 8 x level, counters after one quarter at level 0.4+ (two otherwise, never below -0.5), and tags from half time when sharp.
+  - AI clubs now pick their plan each quarter in every match; before, only in the match you watched.
+  - With no plan in play, tactics change nothing: a hash test confirms identical results.
+  - Identical lists: 72 v 72 wins 50.4%; 90 v 72 wins 53.2% (+2.8 points a game).
+  - AI plans league-wide (1,000 matches): plans used in about 18% of quarters, mean score 86.9 to 88.5, home win 59.6% to 57.1%, stronger side wins 63.1% to 64.6%.
+- **Man-management:** spares part of the morale a fit player loses when left out, and part of a broken promise of a game.
+  - The senior assistant counts 60% and his line coach 40%, up to 40% spared; a poor man-manager spares nothing.
+  - A star dropped eight weeks from 70 ends at 22 / 30 / 38 with weak / Good / elite: he still slides.
+- **UI:** one plain line on the coach profile says what each skill does. No numbers.
+- **Tests:** new `coach_effects` suite (24 checks).
 
 ---
 
