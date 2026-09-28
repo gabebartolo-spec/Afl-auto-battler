@@ -35,7 +35,8 @@ extends RefCounted
 ##   origin           seed / generated
 ##   played           the playing career of a future ex-player coach
 ##
-## Skills do nothing yet: they are read only to describe a coach.
+## Skills do nothing yet: they are read only to describe a coach. The coaching
+## market (who is hired, promoted, sacked) lives in CoachMarket.gd.
 
 const SEED_CSV := "res://data/coaches_2026.csv"
 ## The season the researched seed describes (Round 1 2026).
@@ -116,6 +117,39 @@ static func role_fit(c: Dictionary, job: String) -> float:
 static func headline(c: Dictionary) -> String:
 	var key := str(JOB_SKILL.get(str(c.get("job", "")), "teach"))
 	return "%s %s" % [grade(skill(c, key)), SKILL_NOUN[key]]
+
+
+## How he suits a job, in words, for a shortlist.
+static func fit_word(c: Dictionary, job: String) -> String:
+	var f := role_fit(c, job)
+	if f >= 80.0:
+		return "Excellent fit"
+	if f >= 72.0:
+		return "Good fit"
+	if f >= 64.0:
+		return "Fair fit"
+	return "Poor fit"
+
+
+static func rep_word(c: Dictionary) -> String:
+	var r := int(c.get("rep", 40))
+	if r >= 75:
+		return "Big name"
+	if r >= 55:
+		return "Well regarded"
+	if r >= 35:
+		return "Respected"
+	return "Little known"
+
+
+static func experience_word(c: Dictionary, job: String) -> String:
+	var held := CoachMarket.held_level(c)
+	var lv := CoachMarket.level(job)
+	if held >= lv:
+		return "Has done the job"
+	if held == lv - 1:
+		return "Ready to step up"
+	return "New to this level"
 
 
 ## A club's staff: job -> cid, read from the records.
