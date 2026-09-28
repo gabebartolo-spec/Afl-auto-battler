@@ -53,6 +53,9 @@ var impact := [{}, {}]
 ## matches (moment_side -1) never see one.
 var moment_side := -1
 var moment_rng := RandomNumberGenerator.new()
+## Stat credits that must not disturb the match's own random sequence (who a
+## free kick was paid to): results are identical with or without them.
+var stat_rng := RandomNumberGenerator.new()
 var pending_moment := {}
 var moments: Array = []      # resolved moments, for the readouts
 var bursts := [{}, {}]       # side -> {kind: chains left}: short-term calls
@@ -82,6 +85,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	form = [clampf(home.form, -1.0, 1.0), clampf(away.form, -1.0, 1.0)]
 	rng.seed = seed
 	moment_rng.seed = seed * 7 + 13
+	stat_rng.seed = seed * 11 + 5
 	for side in range(2):
 		synergies[side] = Traits.active((squads[side] as Squad).ground)
 		for p in (squads[side] as Squad).ground:
@@ -791,7 +795,6 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var opp := 1 - side
 	var atk: Squad = squads[side]
 	var dfn: Squad = squads[opp]
-	_p(feeder, "goal_assists")
 
 	var sgroup := _by_roles(atk.ground, ["FWD", "MID"])
 	if sgroup.is_empty():
@@ -822,13 +825,14 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	if side == moment_side and marked and _moment_ready():
 		var close := current_quarter >= 4 and absi(score(side) - score(opp)) <= 18
 		if moment_rng.randf() < (0.6 if close else 0.22):
-			_offer_set_shot(side, fp, shooter, defender, goal_p, behind_p)
+			_offer_set_shot(side, fp, shooter, defender, goal_p, behind_p, feeder)
 			return {"outcome": "moment", "fp": fp, "actor": shooter}
 
 	var roll := rng.randf()
 	if roll < goal_p:
 		_t(side, "goals")
 		_p(shooter, "goals")
+		_assist(side, feeder, shooter)
 		q_goals[current_quarter - 1][side] += 1
 		_score_run(side)
 		_emit("goal", side, fp, shooter, _scoreline(side, "GOAL"))
@@ -847,6 +851,35 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	_emit("rebound", opp, fp, defender,
 			"%s rebounds it out of danger" % GameDB.player_display_name(defender))
 	return {"outcome": "turnover", "fp": fp, "actor": defender}
+
+
+## A goal assist: the last disposal to the goalkicker, only when the goal
+## is kicked (never for the kicker himself).
+func _assist(side: int, from, to) -> void:
+	if from == null or (from as Dictionary).is_empty() or str(from["id"]) == str(to["id"]):
+		return
+	_t(side, "goal_assists")
+	_p(from, "goal_assists")
+
+
+## Who a free kick was paid to: an opponent at the contest, weighted like the
+## pressure (who is near the ball in that zone). Drawn from stat_rng, so the
+## match itself plays out exactly as before.
+func _free_to(side: int, against_fp: float):
+	var w: Dictionary = PRESS_ZONES[_press_zone(against_fp)]
+	var group: Array = (squads[side] as Squad).ground
+	var total := 0.0
+	var weights := []
+	for p in group:
+		var x := float(w.get(str(p["role"]), 0.0)) + 0.05
+		weights.append(x)
+		total += x
+	var r := stat_rng.randf() * total
+	for i in range(group.size()):
+		r -= float(weights[i])
+		if r <= 0.0:
+			return group[i]
+	return group[group.size() - 1]
 
 
 ## Marks the score just logged as a set shot (from a mark) or a shot in
@@ -1169,6 +1202,7 @@ func _play_one_chain(T: Dictionary) -> void:
 				"%s gives away a clanger" % GameDB.player_display_name(err))
 		if rng.randf() < float(T["clanger_is_free"]):
 			_t(1 - side, "frees_for")
+			_p(_free_to(1 - side, fp if side == 0 else -fp), "frees_for")
 			_t(side, "frees_against")
 			_p(err, "frees_against")
 			next_side = 1 - side
@@ -1561,7 +1595,7 @@ func _best_stopper(side: int) -> String:
 
 
 ## A marked shot inside 50: take it, play on to a teammate, or bomb it long.
-func _offer_set_shot(side: int, p_fp: float, shooter: Dictionary, defender, goal_p: float, behind_p: float) -> void:
+func _offer_set_shot(side: int, p_fp: float, shooter: Dictionary, defender, goal_p: float, behind_p: float, feeder = null) -> void:
 	var r := moment_rng.randf()
 	var spot := "from 45 metres on a slight angle"
 	var angle := 1.0
@@ -1599,6 +1633,7 @@ func _offer_set_shot(side: int, p_fp: float, shooter: Dictionary, defender, goal
 		"goal": bomb_goal, "behind": 0.30})
 	_fire({"kind": "set_shot", "default": 0, "player_id": str(shooter["id"]),
 		"defender_id": "" if defender == null else str(defender["id"]), "fp": p_fp,
+		"feeder_id": "" if feeder == null else str(feeder["id"]),
 		"title": "%s marks %s" % [GameDB.player_display_name(shooter), spot],
 		"text": "Your call. %s: goalkicking %d, accuracy %d, legs %d%%." % [
 			GameDB.player_display_name(shooter), int(shooter["attr"]["goalkicking"]),
@@ -1672,6 +1707,9 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 	var key := str(opt.get("key", "shoot"))
 	fp = float(m.get("fp", fp))
 	var kicker := shooter
+	# Who gets the assist if it goes through: whoever kicked it in to him,
+	# or the man who played on and passed.
+	var assist = _on_ground(side, str(m.get("feeder_id", "")))
 	var goal_p := float(opt.get("goal", 0.3))
 	var behind_p := float(opt.get("behind", 0.2))
 	if key == "pass":
@@ -1684,13 +1722,14 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 		kicker = _on_ground(side, str(opt.get("mate_id", "")))
 		if kicker.is_empty():
 			kicker = shooter
-		_p(shooter, "goal_assists")
+		assist = shooter
 		goal_p = float(opt.get("mate_goal", 0.5))
 		behind_p = (1.0 - goal_p) * 0.6
 	var roll := rng.randf()
 	if roll < goal_p:
 		_t(side, "goals")
 		_p(kicker, "goals")
+		_assist(side, assist, kicker)
 		q_goals[current_quarter - 1][side] += 1
 		_score_run(side)
 		_emit("goal", side, fp, kicker, _scoreline(side, "GOAL"))

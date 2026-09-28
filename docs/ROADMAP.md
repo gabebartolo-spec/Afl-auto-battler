@@ -274,6 +274,24 @@ Goal: fix things that are currently wrong, misleading, broken on mobile or capab
 **Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
 
+### Implementation record (2026-09-28)
+- **Diagnosis:** the MatchSim football sanity audit (300 matches) found these issues.
+  - Stat-credit bugs:
+    - goal assists were credited on every inside-50 entry (`goal_assists == inside50` in all 13,200 player-games; the team total was 0);
+    - frees for were never credited to a player.
+  - Six dead squad aggregates.
+  - Over-restrictive gates:
+    - carrying by zone (defenders cannot carry into the attacking half, forwards cannot help the exit);
+    - only forwards and mids can shoot;
+    - only defenders take one-percenters;
+    - only mids and rucks win clearances.
+- **Part 1, stat credits (branch `claude/football-sanity`):**
+  - A goal assist is the last kick to a goalkicker, credited only when the goal is kicked and never to the scorer. It covers the set-shot moment too: the feeder, or the man who played on.
+  - A free kick is paid to an opponent near the ball, drawn from a separate `stat_rng`, so match results are unchanged (200 seeded matches give an identical scoreline hash before and after).
+  - Player Rating keeps an inside 50 at 4 and adds 2 per real goal assist and +1 per free for; the position-parity test holds.
+  - Regression: `test_match_game.gd::_test_stat_credits`.
+- **Part 2, gates:** open the zone, shooter and one-percenter gates into weighted tendencies. This is balance-gated and next.
+
 ### Intent
 Normal AFL actions should not become impossible because of simplistic role gates.
 
