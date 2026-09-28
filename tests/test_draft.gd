@@ -11,6 +11,7 @@ func run() -> void:
 	checks = 0
 	_test_history_and_snake_order()
 	_test_position_guidance()
+	_test_dual_position_coverage()
 	_test_complete_small_draft()
 	_test_real_pool()
 	_test_player_name_modes()
@@ -94,6 +95,75 @@ func _test_position_guidance() -> void:
 		list.append({"role": "DEF"})
 	_check(draft.role_counts()["DEF"] == 9, "Counts do not stop at the coverage target")
 	_check(draft.position_needs()["DEF"] == 0, "Needs never become negative")
+
+
+func _dual(id: String, role: String, role2 := "") -> Dictionary:
+	return {"id": id, "name": id, "last": id, "club": "ORIGINAL", "role": role, "role2": role2,
+			"overall": 60, "value": 1, "gl": 0, "di": 0,
+			"attr": {"ruck": 10, "contested": 50, "disposal": 50, "carry": 50, "intercept": 40,
+				"pressure": 40, "goalkicking": 40, "marking": 40, "accuracy": 50, "creating": 40,
+				"discipline": 50, "durability": 60, "star": 20}}
+
+
+## Needs follow who can actually play a role (primary or secondary, the rule
+## selection uses), one spot per player; the headline counts stay primary.
+func _test_dual_position_coverage() -> void:
+	var draft := Draft.new(_pool(), ["A", "B"], 42)
+	draft.start_for_user(str(draft.draft_order[0]))
+	var list: Array = draft.club_lists[draft.user_club]
+	list.clear()
+	for i in range(5):
+		list.append(_dual("m%d" % i, "MID"))
+	list.append(_dual("mf", "MID", "FWD"))
+	_check(draft.role_coverage()["FWD"] == 1, "A MID/FWD counts as forward cover")
+	_check(draft.position_needs()["FWD"] == 5 and draft.position_needs()["MID"] == 0,
+			"With the midfield covered, a MID/FWD takes a forward need off (FWD need 5)")
+	var prim := draft.role_counts()
+	_check(int(prim["MID"]) + int(prim["FWD"]) + int(prim["DEF"]) + int(prim["RUCK"]) == list.size()
+			and int(prim["FWD"]) == 0, "Primary counts still add up to the list size")
+	list.append(_dual("mf2", "MID", "FWD"))
+	_check(draft.position_needs()["FWD"] == 4, "Each extra MID/FWD takes one more forward need off")
+	# One spot each: a DEF/MID covers the defence or the midfield, not both.
+	list.clear()
+	list.append(_dual("dm", "DEF", "MID"))
+	var cov := draft.role_coverage()
+	var needs := draft.position_needs()
+	_check(cov["DEF"] == 1 and cov["MID"] == 1, "A DEF/MID counts as cover for both lines")
+	_check(int(needs["DEF"]) + int(needs["MID"]) == 6 + 5 - 1,
+			"...but fills only one spot between them")
+	# A MID/RUCK is ruck cover, as the two-ruck rule already says.
+	list.clear()
+	for i in range(5):
+		list.append(_dual("m%d" % i, "MID"))
+	list.append(_dual("mr", "MID", "RUCK"))
+	_check(draft.count_covering("RUCK") == 1 and draft.role_coverage()["RUCK"] == 1
+			and draft.position_needs()["RUCK"] == 1, "A MID/RUCK counts toward the rucks")
+	# Selection agrees: forwards the draft counts as cover take forward spots.
+	var side: Array = []
+	for i in range(6):
+		side.append(_dual("d%d" % i, "DEF"))
+	for i in range(6):
+		var m := _dual("m%d" % i, "MID")
+		m["overall"] = 70  # pure midfielders first, as select_22 fills lines greedily
+		side.append(m)
+	side.append(_dual("r0", "RUCK"))
+	for i in range(6):
+		side.append(_dual("x%d" % i, "MID", "FWD"))
+	var sf := Draft.slot_shortfall(side.map(func(p): return [p["role"], p["role2"]]),
+			{"RUCK": 1, "MID": 6, "DEF": 6, "FWD": 6})
+	var fwd := 0
+	for p in Ratings.select_22(side)["ground"]:
+		if str(p["role"]) == "FWD":
+			fwd += 1
+			_check(Ratings.plays_role(side.filter(func(q): return q["id"] == p["id"])[0], "FWD"),
+					"Selection only puts players the draft counts as forward cover in a forward spot")
+	_check(int(sf["FWD"]) == 0 and fwd == 6, "Draft says the forwards are covered, and selection fields six")
+	# The intake draft counts kept players' second positions too.
+	var intake := Draft.build_intake(_pool(), ["A", "B"], ["A", "B"], 7, {"A": 1, "B": 0},
+			{"A": {"RUCK": 0, "MID": 1, "DEF": 0, "FWD": 0}, "B": {}},
+			{"A": [["MID", "FWD"]], "B": []})
+	intake.start_for_user("A")
+	_check(intake.role_coverage()["FWD"] == 1, "The intake draft counts a kept MID/FWD as forward cover")
 
 
 func _test_complete_small_draft() -> void:

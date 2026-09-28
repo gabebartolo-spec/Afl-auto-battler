@@ -421,18 +421,40 @@ static func top_bar(title_text: String, back := true, right: Control = null,
 	return h
 
 
+## A club's colours as a small flag of vertical bands (two or three: navy
+## and red for Melbourne; blue, red and white for the Bulldogs), with a
+## faint edge so dark colours still read on the dark background.
+static func club_marker(code: String, size := 18.0) -> Control:
+	var frame := PanelContainer.new()
+	frame.name = "ClubMarker"
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0)
+	sb.border_color = Color(TEXT, 0.28)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(2)
+	sb.set_content_margin_all(1)
+	frame.add_theme_stylebox_override("panel", sb)
+	frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var bands := HBoxContainer.new()
+	bands.add_theme_constant_override("separation", 0)
+	bands.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(bands)
+	var cols: Array = GameDB.club_marker_colours(code)
+	var w := roundf(size / float(cols.size()))
+	for c in cols:
+		var band := ColorRect.new()
+		band.color = c
+		band.custom_minimum_size = Vector2(w, size - 4.0)
+		band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bands.add_child(band)
+	return frame
+
+
 static func club_badge(code: String, fs := 14, compact := false, shrink := false) -> HBoxContainer:
 	var h := hbox(6)
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
-	var cols: Array = GameDB.club_colours(code)
-	var swatch := PanelContainer.new()
-	swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := style(cols[0], 0, 3, cols[2])
-	sb.set_border_width_all(2)
-	swatch.add_theme_stylebox_override("panel", sb)
-	swatch.custom_minimum_size = Vector2(14, 14)
-	swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	h.add_child(swatch)
+	h.add_child(club_marker(code))
 	var name_text := code if compact else GameDB.club_short(code)
 	if shrink:
 		h.size_flags_horizontal = Control.SIZE_EXPAND_FILL

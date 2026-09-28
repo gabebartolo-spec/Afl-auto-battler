@@ -289,7 +289,7 @@ func _test_full_season() -> void:
 		known[str(d["id"])] = true
 	for id in GameState.achievements:
 		_check(known.has(str(id)), "Only catalogued achievements unlock (%s)" % str(id))
-		_check(int(GameState.achievements[id].get("year", 0)) == 2026,
+		_check(int(GameState.achievements[id].get("year", 0)) == GameDB.START_YEAR,
 				"%s is stamped with the season it unlocked" % str(id))
 	# The premier's own premiership-type achievement must have fired.
 	var prem := GameState.premier()

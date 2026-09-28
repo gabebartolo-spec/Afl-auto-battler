@@ -239,7 +239,12 @@ func _fill_rows(rows: Node) -> void:
 			continue
 		var group: Array = []
 		for p in GameState.my_list:
-			if str(p.get("role", "")) != role:
+			# All: each player once, under his own position. A position tab:
+			# everyone who can play there (Ratings.plays_role, the rule the
+			# draft and selection use), so a MID/FWD is in both.
+			if _role == "" and str(p.get("role", "")) != role:
+				continue
+			if _role != "" and not Ratings.plays_role(p, role):
 				continue
 			if not _matches(p):
 				continue
