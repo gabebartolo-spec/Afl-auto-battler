@@ -120,8 +120,8 @@ func _build() -> void:
 		var last: Dictionary = hist[hist.size() - 1] if not hist.is_empty() else {}
 		bv.add_child(UiKit.lbl("The board: %s" % verdict, 16,
 				UiKit.GOOD if bool(last.get("met", false)) else UiKit.BAD, true))
-		bv.add_child(UiKit.lbl("Goal: %s  -  %s  -  confidence now %d%%" % [str(last.get("goal", "")),
-				"met" if bool(last.get("met", false)) else "missed", GameState.board_confidence()], 13, UiKit.MUTED))
+		bv.add_child(UiKit.lbl("Goal: %s  -  %s  -  the board is %s" % [str(last.get("goal", "")),
+				"met" if bool(last.get("met", false)) else "missed", GameState.board_state().to_lower()], 13, UiKit.MUTED))
 		_root.add_child(bp)
 
 	# --- awards -------------------------------------------------------------

@@ -2544,6 +2544,15 @@ func board_confidence() -> int:
 	return int(board.get("confidence", ClubLife.START_CONFIDENCE))
 
 
+## The board's mood in words (ClubLife.board_state), and why it last moved.
+func board_state() -> String:
+	return ClubLife.board_state(board_confidence())
+
+
+func board_why() -> String:
+	return str(board.get("why", ""))
+
+
 func board_goal_text() -> String:
 	return str((board.get("goal", {}) as Dictionary).get("text", ""))
 
@@ -2572,12 +2581,18 @@ func _board_after_round(results: Array) -> void:
 		return
 	var side := 0 if str(res["home"]) == my_club else 1
 	var margin := int(res["score"][side]) - int(res["score"][1 - side])
-	var conf := ClubLife.after_match(board_confidence(), margin)
+	losing_streak = losing_streak + 1 if margin < 0 else 0
+	var goal: Dictionary = board.get("goal", {})
+	var moved := ClubLife.after_match(board_confidence(), margin, ClubLife.goal_steps(goal), losing_streak)
+	var conf := int(moved["confidence"])
+	var opp := str(res["away"]) if side == 0 else str(res["home"])
+	board["why"] = ClubLife.match_reason(goal, GameDB.club_name(opp), margin, losing_streak)
 	if bool(board.get("promise", false)):
 		conf = clampi(conf + (8 if margin > 0 else -10), 0, 100)
 		board.erase("promise")
+		board["why"] = ("You promised the board a win over %s, and delivered." if margin > 0
+				else "You promised the board a win over %s, and did not deliver.") % GameDB.club_name(opp)
 	board["confidence"] = conf
-	losing_streak = losing_streak + 1 if margin < 0 else 0
 	var played := {}
 	var roster: Array = res.get("roster", [[], []])
 	if roster.size() > side:
@@ -2623,6 +2638,7 @@ func _board_season_end() -> void:
 	(board["history"] as Array).append({"year": season_year, "goal": str(goal.get("text", "")),
 			"met": met, "position": my_position(), "confidence": conf, "verdict": verdict})
 	board["verdict"] = verdict
+	board["why"] = verdict
 	add_news("board", "%s board: %s (%s)" % [GameDB.club_name(my_club), verdict,
 			"goal met" if met else "goal missed: " + str(goal.get("text", ""))])
 

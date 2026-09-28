@@ -15,6 +15,7 @@ func run() -> void:
 	_test_events()
 	_test_sacking()
 	_test_team_form()
+	_test_board_confidence()
 	_test_coaching_hub()
 	GameState.delete_saved_career()
 	print("Club tests: %d checks, %d failures" % [checks, failures.size()])
@@ -32,8 +33,8 @@ func _test_rules() -> void:
 			"The board expects more from a stronger list")
 	_check(ClubLife.goal_met({"pos": 8}, 6, 12) and not ClubLife.goal_met({"pos": 8}, 10, 12)
 			and ClubLife.goal_met({"wins": 7}, 15, 7), "Goals are judged on position or wins")
-	_check(ClubLife.after_match(60, 45) == 64 and ClubLife.after_match(60, -10) == 57,
-			"Wins lift the board, losses cost it, thrashings count double")
+	_check(int(ClubLife.after_match(60, 45)["confidence"]) == 63 and int(ClubLife.after_match(60, -10)["confidence"]) == 58,
+			"Wins lift the board, losses cost it, a thrashing counts one more")
 	var star := {"id": "s", "overall": 85, "morale": 70}
 	var kid := {"id": "k", "overall": 60, "morale": 70}
 	ClubLife.morale_after_match([star, kid], {"k": true}, true)
@@ -474,4 +475,39 @@ func _test_coaching_hub() -> void:
 			"The plan, form and season numbers survive a save")
 	_check(GameState.season.plans.get("GEE", "") == "defensive", "A loaded career plays on its plan")
 	GameState.set_club_plan("balanced")
+	GameState.delete_saved_career()
+
+
+## ARD-M6-003: the board is read in words, moves slowly against what the
+## season's goal asks, and says why it moved.
+func _test_board_confidence() -> void:
+	var top4 := ClubLife.board_goal(2)
+	var battler := ClubLife.board_goal(17)
+	var w_top := int(ClubLife.after_match(60, 12, ClubLife.goal_steps(top4))["delta"])
+	var l_top := int(ClubLife.after_match(60, -12, ClubLife.goal_steps(top4))["delta"])
+	var w_bat := int(ClubLife.after_match(60, 12, ClubLife.goal_steps(battler))["delta"])
+	var l_bat := int(ClubLife.after_match(60, -12, ClubLife.goal_steps(battler))["delta"])
+	_check(w_top < w_bat and l_top < l_bat and absi(l_top) > w_top and absi(l_bat) < w_bat,
+			"A loss costs a top-four side more and a win earns it less than a side asked to win seven (%d/%d v %d/%d)" % [w_top, l_top, w_bat, l_bat])
+	_check(absi(l_top) <= 3 and w_bat <= 3, "One ordinary result never moves the board more than three")
+	var run := int(ClubLife.after_match(60, -12, ClubLife.goal_steps(top4), 4)["delta"])
+	_check(run < l_top, "A long losing run starts to tell")
+	_check(int(ClubLife.after_match(60, 0, ClubLife.goal_steps(top4))["delta"]) == 0, "A draw leaves the board where it was")
+	var states := []
+	for c in [90, 70, 50, 35, 10]:
+		states.append(ClubLife.board_state(c))
+	_check(states == ["Very secure", "Secure", "Stable", "Under pressure", "In trouble"],
+			"The board reads in words (%s)" % str(states))
+	_check(ClubLife.board_state(ClubLife.START_CONFIDENCE) == "Stable", "A new coach starts stable")
+	_check(ClubLife.match_reason(top4, "Carlton", -5, 1) == "The loss to Carlton puts a top-four finish under threat."
+			and ClubLife.match_reason(battler, "Carlton", 20, 0) == "The win over Carlton keeps seven wins in reach."
+			and ClubLife.match_reason(top4, "Carlton", -5, 4).begins_with("Four losses in a row"),
+			"The board says why it moved, in football words")
+	# In a career: after a round the reason is there and the words show.
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	GameState._settle_week_event()
+	GameState.week_event = {}
+	GameState.advance()
+	_check(GameState.board_why() != "" and GameState.board_state() != "", "After a match the board has a mood and a reason")
 	GameState.delete_saved_career()
