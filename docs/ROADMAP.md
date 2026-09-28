@@ -71,18 +71,77 @@ For every authorised roadmap task:
 4. State the smallest implementation plan.
 5. Implement only the authorised scope.
 6. Do not opportunistically redesign adjacent systems.
-7. Add targeted regression tests.
-8. Run the relevant tests.
-9. Run the full suite before handoff unless the environment prevents it.
-10. For simulation-affecting work, run an appropriate seeded balance comparison.
-11. For save-schema changes, prove backward compatibility.
-12. For UI work, check narrow Android portrait layouts.
+7. Add targeted regression tests for the behaviour actually changed.
+8. During implementation, run only the targeted/relevant suites needed for fast feedback. Do **not** repeatedly run the entire repository suite after small edits.
+9. When the coherent implementation is ready, push/open the PR. GitHub CI is the default owner of the full regression suite.
+10. For simulation-affecting work, run the smallest appropriate seeded balance comparison that can answer the actual hypothesis; only scale the sample up once the implementation is stable.
+11. For save-schema changes, prove backward compatibility with targeted save/load coverage.
+12. For UI work, check the relevant narrow Android portrait layouts; do not re-screenshot unrelated screens.
 13. Update this roadmap's status/notes if the task is completed or materially changed.
 14. Commit logically. Under the standing authority above, merge a clean PR once required tests/checks and any balance/save/UI gates pass. Do not wait for a second permission message.
 15. Verify the merged result on `main`, then update the roadmap status/implementation record.
 16. Handoff with exact files, commits, tests, behaviour before/after, balance evidence and remaining risks.
 
 If the requested feature turns into a broad rewrite, **stop and report the dependency/risk instead of silently expanding scope**.
+
+## 0.6 Lean validation ownership
+
+The goal is **high confidence without making Claude spend development time repeatedly proving the same thing**.
+
+### Claude owns while coding
+Claude should:
+- run the smallest targeted test suite(s) that cover the code being changed;
+- add/repair regression tests for the changed behaviour;
+- run targeted save, UI or balance probes only when the task requires them;
+- fix genuine failures caused by the implementation;
+- push a coherent PR as soon as the feature is ready for repository-wide verification.
+
+Claude should **not** routinely run the full suite locally when GitHub CI will run the same suite on the same PR head. A local full-suite run is justified only when:
+- the change modifies the test harness / CI itself;
+- CI is unavailable;
+- a difficult integration failure is easier to diagnose locally;
+- the task is unusually high-risk and repository-wide behaviour must be checked before pushing.
+
+### ChatGPT owns repository-wide verification
+When ChatGPT has GitHub access, ChatGPT should take over the mechanical verification work after Claude pushes:
+- inspect the PR diff and test coverage;
+- monitor the GitHub Actions full-suite result;
+- inspect failing job logs;
+- distinguish a real code failure from an infrastructure/flaky failure;
+- rerun only the failed job/run when appropriate rather than restarting everything;
+- confirm the PR is current enough with `main` and mergeable;
+- verify required balance/save/UI evidence is present;
+- merge clean validated work under the standing authority;
+- verify the merge on `main` and keep the roadmap record accurate.
+
+If CI exposes a genuine implementation bug, ChatGPT should give Claude the **specific failure and relevant log context**; Claude remains the coding agent.
+
+### PR feedback handoff
+Claude must actively check the conversation/comments on any open PR he owns:
+- immediately after pushing/opening the PR;
+- before resuming work on that PR after doing another task;
+- before treating the PR as ready to merge or abandoning it for the next roadmap item.
+
+ChatGPT will post actionable failures as a top-level PR comment, prefixed **`[CI HANDOFF]`**, with the failing suite/job, the relevant log excerpt or symptom, and what needs fixing. Claude should treat an unresolved `[CI HANDOFF]` comment as work on that PR, fix the code, push the update, and reply/resolve through the PR rather than asking the user to relay the failure.
+
+Claude should not assume GitHub comments will be surfaced automatically by the coding session; **checking the PR is part of the workflow**.
+
+Documentation-only PRs (`docs/**` and Markdown-only changes) are excluded from the expensive Godot full-suite workflow. If a PR changes both documentation and game/code/data/config files, CI still runs normally.
+
+### Test tiers
+Use the cheapest tier that answers the current question:
+
+1. **Fast loop — targeted tests:** after code edits; normally seconds/minutes.
+2. **Feature gate — targeted integration/balance/save/UI checks:** once the implementation stabilises.
+3. **PR gate — full repository suite in GitHub CI:** normally once per coherent PR head, not after every local edit.
+4. **Long-run gate — multi-season / large seeded simulations:** only for systems whose correctness or balance genuinely emerges over time.
+
+Do not duplicate equivalent validation merely because both local and CI execution are available. A green GitHub full suite on the exact PR head normally satisfies the repository-wide regression requirement.
+
+### While CI runs
+Claude should not sit idle merely because CI is running. If there is a **clearly independent** next task, Claude may continue development on it. Avoid uncontrolled branch sprawl: normally keep no more than **two active implementation branches** unless there is a strong dependency reason.
+
+If the next task depends directly on the PR being merged, use the wait time for diagnosis, design inspection, or a non-conflicting preparatory step rather than building deeply on an unmerged dependency.
 
 ---
 
@@ -378,9 +437,19 @@ The change must affect actual visual target direction, not only labels/commentar
 ---
 
 ## ARD-M1-005 — Wrong-way / bizarre long-kick sanity
-**Status:** `KNOWN BUG`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
+
+### Implementation record (2026-09-28, branch `claude/wrong-way-kicks`)
+- **Engine:** a chain only ever moves the ball towards the attacking side's goal (`fp += gain * dir`, gain >= 0; tackles broken are forward too), so the engine cannot produce a wrong-way kick. Turnovers change the side, not the direction.
+- **Instrumented:**
+  - Director frame: every staged ball flight was checked against the attacking direction of the side in possession. 6 matches, 6,064 flights, 0 went back 30 m+.
+  - Screen: the same check through PitchView, including the change of ends each quarter. 8 matches (4 seeds x your club home and away), 7,472 flights, 0 went back 30 m+, and the ends never changed with the ball in the air.
+  - The live, quarter-by-quarter match appends to the same shared event list and director state, so it takes the same path.
+- **Finding:** not reproducible on current main. The most likely original cause was the missing change of ends (ARD-M1-004, PR #49): before it, the second and fourth quarters showed each side attacking the end a watcher expects them to defend.
+- **Regression guard:** `test_match_visual.gd::_test_no_wrong_way_kicks` covers a full match with your club at home and one away. No flight goes 30 m+ back towards the kicker's own goal on screen, and no change of ends happens mid-flight.
+- **If it is seen again:** reopen with the save or seed and quarter. The test names the event it catches.
 
 ### Intent
 Remove cases where the user's side appears to kick long deep into the opponent's attacking 50 without a football reason.
@@ -493,9 +562,15 @@ Manual/UI snapshot checks at ~360 / 390 / 412 px widths.
 ---
 
 ## ARD-M1-009 — Draft salary-cap completion guard
-**Status:** `KNOWN BUG`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
+
+### Implementation record (2026-09-28, branch `claude/draft-cap-guard`)
+- **Finding:** the cap guard (keep enough to fill every remaining place at the average price of the cheapest players still available) was already in place. A 100-draft probe (5 spending styles x 20 seeds, including "always the dearest", "no rucks until forced" and random, on the 2027 pool) found 0 stalls and 0 illegal lists. The remaining gaps were the explanation, older saves and a rival that could not pick.
+- **Before:** the cap line read "CAP LEFT $X / $Y spent / $Z". A refusal said "Not enough salary cap..."; a rival with no legal pick silently halted the draft; and a save stuck without a legal pick had no way on.
+- **After:** `Draft.usable_cap_for()` and `reserve_for()` spell out the rule (usable = cap left - reserve for the other places). The header reads "Cap left $X / Up to $Y this pick". A refusal says "This selection would leave too little salary cap to complete your list", with the cap left, the amount kept back and what is free. A rival with no legal pick passes. When you have no legal pick (only an older save can get there), My list explains why and offers Release on each pick: he returns to the pool, his salary comes off your books and you get an extra pick at the end. The cap is never breached. Released picks stay out of `drafted_by` across save and reload.
+- **Tests:** `test_draft.gd::_test_cap_guard` (exact boundary allowed, $1 over refused with the reason, the last pick can use the whole cap, rivals all legal) and `_test_stuck_draft_recovery` (an old-save state spent on stars is stuck without ever breaching the cap; release, save and reload, then finish a full legal list). The draft, draft_ui, ai, save and intake suites pass.
 
 ### Intent
 Prevent a draft from reaching an incomplete-list soft-lock without ever allowing an illegal cap breach.
@@ -1382,13 +1457,64 @@ Do not manually patch only famous names if the classifier itself is wrong.
 
 Overall rating should be meaningfully aligned with what Squad/MatchSim reward.
 
+### Current calibration notes
+- PR #47 deliberately re-measured forward/midfield OVR against MatchSim rather than hand-tuning famous players.
+- Do **not** revert the pressure/OVR work merely because individual headline ratings moved.
+- User sanity target: Toby Greene at 79 after #47 still reads a little low; expect roughly **low 80s** if the broader model supports it. Treat this as a calibration spot-check, not a manual one-player buff.
+- No special McKay correction is requested from the #47 movement; investigate only if the wider OVR model says the player is mis-valued.
+
 ### Guardrails
 - Diagnose measurement first.
 - Prefer fixing Ratings/OVR interpretation before changing MatchSim merely to force correlation.
 - Validate impacts on salary, POT, value, awards, selection and drafting.
 - Preserve role-specific value; one generic OVR should not erase archetypes.
+- Named-player sanity checks are evidence, not the model. Fix the general cause where possible rather than building a patch list of famous names.
 
 ---
+
+## ARD-M5-011 — League Draft career-stage filters
+**Status:** `TODO`  
+**Priority:** `P2`  
+**Autonomy:** `SAFE`
+
+### Intent
+Make the opening League Draft easier to browse by career stage, so the player can quickly build around youth, prime-age talent or experienced veterans without manually scanning ages.
+
+### UX
+Add an age/career-stage filter to the **opening League Draft**:
+
+- **All**
+- **Rookies**
+- **Prime**
+- **Veterans**
+
+Use natural player-facing labels rather than raw implementation bands.
+
+The exact age cut-offs are **not locked yet**. An initial candidate is:
+- Rookie: roughly 18–23,
+- Prime: roughly 24–28,
+- Veteran: roughly 29+.
+
+Before implementation, inspect the actual 2027 League Draft age distribution and choose cut-offs that produce useful, reasonably populated groups. Do not contort the data just to preserve those example numbers.
+
+### Behaviour
+- Filtering changes only which players are shown; it must not alter draft eligibility, rankings, AI behaviour, cap logic or availability.
+- Combine cleanly with existing position/search/filter controls.
+- Preserve the selected filter while inspecting a player and returning to the draft list.
+- Mobile-first: the control should remain compact and tappable without adding a dense filter bar.
+- If exact age is already shown elsewhere, do not duplicate it unnecessarily on every row just because this filter exists.
+
+### Tests
+- every eligible player appears in exactly one non-All career-stage band,
+- boundary ages route to the intended band,
+- switching bands never changes the underlying draft pool,
+- existing position/search filters combine correctly,
+- Back/profile navigation preserves the selected band,
+- narrow Android portrait remains usable.
+
+---
+
+
 
 # M6 — Coaching, Board & List Management
 
@@ -1422,12 +1548,60 @@ Before implementing more, inspect current merged Staff/coaching work and extend 
 **Status:** `IN PROGRESS / PARTIAL`  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
-**Current state (2026-09-28):** Phase 2 (data model, Round 1 2026 seed, read-only Staff UI) is merged. Phase 3 (the living coaching market: sackings, contracts, retirement, promotions, poaching, your vacancies and releases, development, reputation, generated coaches, expansion staffing, archive) is merged: PR #62 as `bf8bd0a`, `coach_market` suite, 50-season probe with every job filled. Phase 4 (retired players become coaches) is next; Phase 5 (gameplay effects) after it.  
+**Current state (2026-09-28):** Phase 2 (data model, Round 1 2026 seed, read-only Staff UI) is merged. Phase 3 (the living coaching market: sackings, contracts, retirement, promotions, poaching, your vacancies and releases, development, reputation, generated coaches, expansion staffing, archive) is merged: PR #62 as `bf8bd0a`, `coach_market` suite, 50-season probe with every job filled. **Phase 4 (former players entering coaching) is actively being implemented by Claude; Phase 5 (gameplay effects) follows it.**  
 
 Core design:
 - Teaching → development,
 - Tactics → match performance,
 - Man-management → morale/selection response.
+
+### Phase 4 — former-player coaching pathway
+
+Implementation direction:
+
+- capture a player before retirement/delisting removes them from the active lists;
+- one deterministic career-seeded roll decides whether they pursue coaching;
+- preserve the same player name/alias and link the coach record back to the playing career;
+- pathway period: roughly 1–3 seasons before entering the normal coaching market;
+- **playing ability must not determine coaching skill**;
+- playing fame may raise starting reputation only, and that advantage should fade over roughly a decade;
+- former clubs may provide a small, bounded hiring-link advantage;
+- once in the market, former players obey the same hiring, promotion, retirement and vacancy rules as other coaches;
+- profile/history should show the playing career without creating a separate former-player coaching ruleset.
+
+### Phase 4 balance guidance
+
+A real 32-season career exposed an upstream constraint: the current game ends only about **19 playing careers per season**, heavily skewed toward long-tenured veterans. At the original 8% coaching-entry rate, former players reached only about 10% of coaching jobs after 32 seasons.
+
+Do **not** solve that by forcing an extreme conversion rate simply to hit a headline percentage.
+
+Use this order:
+
+1. Test a former-player coaching-entry rate in roughly the **20–30%** range, with **25% as the first baseline**.
+2. Make generated external coaches a **top-up/fallback supply**, not a fixed source that permanently crowds former players out as the ex-player pipeline matures.
+3. Keep the long-run design target of roughly **60–80% of coaching jobs eventually being held by former players** as a mature-world aspiration, not a hard Phase 4 pass/fail if the current player-retirement pipeline cannot supply enough candidates.
+4. Record the observed ~19 career endings per season as a separate player-lifecycle/list-turnover issue. Do not hide it inside coaching by inflating conversion rates.
+5. Compare 30–50+ season runs for:
+   - former-player share of all coaching jobs,
+   - former-player share of new appointments,
+   - generated-coach pool size,
+   - vacancy fill rate,
+   - internal promotion share,
+   - coaching skill distribution / Elite share,
+   - churn and repeat moves.
+
+If 20–30% entry plus adaptive generated-coach supply still cannot produce a believable coaching ecosystem, report the limiting factor rather than tuning blindly.
+
+### Phase 4 merge authority
+
+The older Phase 4 brief saying **"do not merge"** is superseded by the roadmap's standing development authority. Once Phase 4:
+- passes its targeted suites,
+- passes the full suite,
+- has acceptable long-run balance evidence,
+- preserves save compatibility,
+- and CI is green,
+
+Claude should **merge it and proceed to Phase 5** without waiting for another permission message.
 
 Requirements:
 - modest/capped effects,
@@ -1883,20 +2057,29 @@ These are here to stop Claude from rebuilding things that already exist. **Verif
 
 # 5. Standard Validation Matrix
 
-Claude should use the relevant rows for every task.
+Use the relevant rows only. These are **feature-specific gates**; the repository-wide full suite is normally delegated to GitHub CI at PR time under §0.6.
 
-| Change type | Required validation |
+| Change type | During coding / feature gate |
 |---|---|
-| Pure UI | narrow portrait check; navigation/state preservation; no clipping; relevant UI tests |
-| MatchSim logic | deterministic unit/regression tests; seeded sim comparison; full suite |
-| Player statistics | event-level attribution test; player/team reconciliation; season aggregation; save/load if persisted |
-| Balance mechanic | baseline vs change over many seeds; distribution and positional effects; strong/weak team comparison |
-| Availability/injury/suspension | manual selection; AI selection; decrement rules; save/load roundtrip |
-| Season/calendar | new career; round progression; finals boundary; rollover; save/reload |
-| Salary/list rule | exact-boundary cases; AI parity; invalid-state recovery; save/reload |
+| Pure UI | relevant UI tests; inspect only affected portrait layouts; navigation/state preservation; no clipping |
+| MatchSim logic | deterministic targeted regression; focused seeded sim comparison if outcomes can change |
+| Player statistics | event-level attribution; player/team reconciliation; season aggregation; save/load only if persisted |
+| Balance mechanic | start with a cheap baseline/variant sample; scale to a larger seeded run only after the effect stabilises; inspect relevant distributions/side effects |
+| Availability/injury/suspension | targeted manual/AI selection rules; decrement rules; save/load if state persists |
+| Season/calendar | targeted progression/boundary/rollover scenarios; save/reload if affected |
+| Salary/list rule | exact-boundary cases; AI parity; invalid-state recovery; save/reload if affected |
 | Persistent schema | old-save default/migration; current-save roundtrip; no data loss |
-| Visualisation | event/result reconciliation; direction/restart; no second simulation logic |
-| Long-save feature | multi-season automated run; duplicate/history checks; performance/data growth |
+| Visualisation | affected event/result reconciliation; direction/restart regression; relevant phone view only |
+| Long-save feature | run the minimum multi-season probe that exposes the long-run behaviour; expand to 30/50/100 seasons only when the question requires it |
+| Docs/copy only | no game suite; docs/Markdown-only PRs skip the expensive Godot CI by path filter |
+
+### Avoid redundant validation
+
+- Do not run the same full suite locally and then again in CI without a specific reason.
+- Do not rerun a long balance/career probe after a docs-only or copy-only change.
+- After resolving a merge conflict, run the **affected targeted suites** locally; let CI provide the repository-wide regression pass.
+- If a CI run fails for an unrelated/flaky reason, inspect the logs and rerun the failed job rather than making Claude repeat every local test.
+- A test count is not a goal by itself. Prefer a small test that proves the behaviour over thousands of irrelevant checks during the coding loop.
 
 ---
 
@@ -1975,11 +2158,13 @@ Implementation rules:
 
 Validation:
 - Add targeted regression tests.
-- Run relevant tests.
-- Run the full suite before handoff.
-- If simulation outcomes change, perform the roadmap Balance Assessment.
+- During coding, run only relevant/targeted suites.
+- Push the coherent PR for the repository-wide full-suite gate; GitHub CI owns that by default.
+- Do not duplicate a green CI full suite with an equivalent local full-suite run unless §0.6 gives a reason.
+- If simulation outcomes change, perform the smallest useful roadmap Balance Assessment and scale the sample only when needed.
 - If persisted data changes, run old-save/default + save/reload checks.
-- If UI changes, verify narrow Android portrait layouts.
+- If UI changes, verify only the affected narrow Android portrait layouts.
+- Once pushed, ChatGPT may own CI monitoring/log review/reruns/merge verification so Claude can keep coding.
 
 Roadmap maintenance:
 - Update this item's status/implementation note only after the work is actually completed.
@@ -1996,7 +2181,7 @@ Final handoff:
 2. Behaviour before vs after.
 3. Files changed.
 4. Tests added/updated.
-5. Full suite result.
+5. Targeted test result + GitHub CI full-suite result (do not duplicate equivalent runs).
 6. Balance evidence if applicable.
 7. Save-compatibility evidence if applicable.
 8. Remaining risks/deferred work.
@@ -2019,6 +2204,8 @@ For each task:
 - inspect first,
 - skip/stop if unexpectedly architectural or genuinely ambiguous,
 - one logical concern per commit where practical,
+- use targeted tests during the coding loop and delegate the routine full-suite PR gate to GitHub CI / ChatGPT where available,
+- do not idle solely waiting for CI when an independent next task can safely proceed,
 - merge clean validated work rather than leaving finished PRs idle,
 - do not make speculative balance changes without measurement,
 - do not "clean up" unrelated code,
@@ -2084,6 +2271,7 @@ Before adding any new roadmap line, check this table.
 | VFL / reserves development | ARD-M5-006 Passive reserves |
 | OVR correlation / rating predicts strength | ARD-M5-010 |
 | Wing/inside-mid/forward identity labels | ARD-M5-009 |
+| Draft age filter / rookie-prime-veteran / career-stage filter | ARD-M5-011 |
 
 ---
 
@@ -2091,6 +2279,11 @@ Before adding any new roadmap line, check this table.
 
 Keep this short. Add only meaningful structural changes, not every code commit.
 
+- **2026-09-28:** Docs-only CI optimisation: PRs/pushes that change only `docs/**` or Markdown skip the full Godot game suite; mixed docs+code changes still run it.
+- **2026-09-28:** Added lean validation ownership: Claude uses targeted tests while coding; GitHub CI/ChatGPT owns the routine full-suite PR gate, log triage, selective reruns and merge verification. Avoid duplicate full-suite and long-run testing.
+- **2026-09-28:** Added Phase 4 former-player coaching guidance: test ~25% pathway entry first, let generated coaches act as top-up supply, and treat low player-career turnover as a separate upstream issue rather than forcing the coaching percentage.
+- **2026-09-28:** Added ARD-M5-011 for opening League Draft career-stage filters (Rookies / Prime / Veterans), with exact age cut-offs to be chosen from the actual 2027 pool distribution.
+- **2026-09-28:** Added OVR calibration sanity notes: keep #47's measured pressure weighting; use Toby Greene in the low-80s as a broader-model spot-check rather than a manual patch.
 - **2026-09-28:** Removed stale per-PR/phase approval gates. Claude now has standing authority to action ready roadmap work and merge clean validated PRs; supervised/balance labels are risk gates, not ceremonial user-approval gates.
 - **2026-09-28:** Converted roadmap from conversation-style backlog into a canonical execution roadmap with milestones, stable task IDs, dependency ordering, global guardrails, validation matrix, balance template, Claude task prompt and duplicate map.
 - **2026-09-28:** Consolidated repeated concepts including season momentum/team form, reports, opponent scouting, forward scoring, match-ups, history/records, simulation controls, AFL rules/restarters, rivalries, marquee games and secondary-position learning.

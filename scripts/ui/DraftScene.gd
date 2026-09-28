@@ -1041,7 +1041,10 @@ func _history_row(entry: Dictionary) -> Control:
 	var club_row := UiKit.hbox(6)
 	info.add_child(club_row)
 	club_row.add_child(UiKit.club_badge(str(entry["club"]), 12, true))
-	club_row.add_child(UiKit.ellipsis("YOUR PICK" if mine else "selected", 11, UiKit.EMPH if mine else UiKit.MUTED))
+	var tag := "YOUR PICK" if mine else "selected"
+	if bool(entry.get("released", false)):
+		tag = "released"
+	club_row.add_child(UiKit.ellipsis(tag, 11, UiKit.EMPH if mine else UiKit.MUTED))
 	h.add_child(UiKit.role_chip(str(entry["role"])))
 	p.tooltip_text = "Pick #%d · Round %d\n%s drafted %s from %s\n%d OVR · $%d" % [
 		entry["pick"], entry["round"], GameDB.club_name(str(entry["club"])), _entry_player_name(entry),
@@ -1066,6 +1069,16 @@ func _refresh_mine() -> void:
 		_mine_box.add_child(UiKit.lbl(
 			"Cover 6 DEF, 6 MID and 6 FWD for the ground. Carry at least 2 RUCK. The bench is flexible; other needs are guidance, not limits.",
 			13, UiKit.MUTED))
+	var stuck := _draft.user_stuck()
+	if stuck:
+		# Only an older save can get here: say so plainly and offer the one
+		# legal way on - never a cap breach.
+		var why := UiKit.lbl("No player left fits your cap and your list's needs. Release one of your picks to make room: he goes back into the pool and you get an extra pick at the end of the draft.",
+				14, UiKit.BAD)
+		why.name = "DraftStuck"
+		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_mine_box.add_child(UiKit.spacer(6))
+		_mine_box.add_child(why)
 	if _draft.count() == 0:
 		_mine_box.add_child(UiKit.spacer(8))
 		_mine_box.add_child(UiKit.lbl("Your list starts here.", 20, UiKit.TEXT, true))
@@ -1088,7 +1101,23 @@ func _refresh_mine() -> void:
 				v.add_child(UiKit.ellipsis(GameDB.player_display_name(player), 16, UiKit.TEXT, true))
 				v.add_child(UiKit.lbl("Pick #%d · %d OVR · $%d" % [
 					int(entry.get("pick", 0)), int(player["overall"]), int(player["value"])], 12, UiKit.MUTED))
+				if stuck:
+					var row := UiKit.hbox(8)
+					v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+					p.remove_child(v)
+					row.add_child(v)
+					var rel := UiKit.btn("Release", 14)
+					rel.name = "Release_" + str(player["id"])
+					rel.custom_minimum_size = Vector2(92, 44)
+					rel.pressed.connect(_on_release.bind(str(player["id"])))
+					row.add_child(rel)
+					p.add_child(row)
 				_mine_box.add_child(p)
+
+
+func _on_release(id: String) -> void:
+	if _draft.release_for_room(id):
+		_refresh()
 
 
 func _refresh_order() -> void:
@@ -1162,7 +1191,15 @@ func _refresh_status() -> void:
 	if _draft.intake_mode:
 		_cap.text = "ROUNDS %d\n%d prospects left" % [_draft.target_size, _draft.remaining_pool()]
 	else:
-		_cap.text = "CAP LEFT  $%d\n$%d spent / $%d" % [_draft.remaining(), _draft.spent(), _draft.budget]
+		# The cap you have, and what you can actually spend on this pick once
+		# enough is kept to fill the rest of your list.
+		var usable := maxi(0, _draft.usable_cap_for(_club))
+		if _draft.count() >= _draft.target_size:
+			_cap.text = "Cap left $%d\nList complete" % _draft.remaining()
+		elif usable < _draft.remaining():
+			_cap.text = "Cap left $%d\nUp to $%d this pick" % [_draft.remaining(), usable]
+		else:
+			_cap.text = "Cap left $%d\n$%d spent" % [_draft.remaining(), _draft.spent()]
 	var counts := _draft.role_counts()
 	var cover := _draft.role_coverage()
 	var needs := _draft.position_needs()
@@ -1184,6 +1221,8 @@ func _refresh_status() -> void:
 				"The draft concludes when every pick is made or the pool runs dry."
 	else:
 		_finish_btn.tooltip_text = "Complete your list within the cap, including at least 2 rucks."
+	if _draft.user_stuck():
+		_next_picks.text = "No player fits your cap and list.\nRelease a pick on My list."
 	if done:
 		_next_picks.text = "Your list is ready.\nTime for round one." if _draft.is_valid() \
 				else "List incomplete: at least 2 rucks\nand a full list within the cap required."

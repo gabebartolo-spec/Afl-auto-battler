@@ -308,6 +308,8 @@ func load_career() -> bool:
 		CareerSave.apply_vars(draft, state["draft"])
 		draft._pick_by_player = {}
 		for entry in draft.pick_history:
+			if bool(entry.get("released", false)):
+				continue   # released to make cap room: back in the pool
 			draft._pick_by_player[str(entry["player_id"])] = entry
 	league_lists = state.get("league_lists", {})
 	for code in state.get("league_links", []):
