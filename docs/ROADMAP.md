@@ -287,7 +287,7 @@ If this requires rewriting selection/rotation architecture, stop and document wh
 ---
 
 ## ARD-M1-003 — "Play through" shooter-bias fix
-**Status:** `KNOWN BUG`  
+**Status:** `DONE`  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`  
 **Balance:** `BALANCE-GATED`
@@ -314,12 +314,29 @@ Compare focused vs unfocused:
 
 A focused midfielder should gain meaningful usage without an implausible goal spike.
 
+### Outcome (2026-09-28, PR #48)
+`MatchSim._tactic_player_mult` now applies the focus bonus to carrying/transition only, not shooter selection; the soft possession cap is unchanged. The coach box explains the call: "Favour this player in possession chains and attacking transition."
+
+Balance, 1,000 seeded GEE v COL matches per condition (focused player's per-game line):
+
+| Condition | Disposals (p90/max) | Inside 50s | Goals | Shots | Team margin |
+|---|---|---|---|---|---|
+| Unfocused MID | 28.5 (30/33) | 5.29 | 0.623 | 1.09 | +24.7 |
+| Focus MID, old | 30.4 (32/34) | 5.65 | 0.702 | 1.25 | +24.6 |
+| Focus MID, new | 30.4 (32/35) | 5.62 | 0.639 | 1.14 | +24.8 |
+| Unfocused FWD | 9.0 (13/20) | 4.45 | 2.343 | 3.81 | +24.7 |
+| Focus FWD, old | 10.0 (14/23) | 4.92 | 2.596 | 4.29 | +25.4 |
+| Focus FWD, new | 10.0 (14/20) | 4.91 | 2.306 | 3.79 | +24.8 |
+
+Usage and inside-50 gains are unchanged; the goal spike (+13% MID, +11% FWD) is gone. Metres gained was not yet available (ARD-M2-001). Regression: `tests/test_match_game.gd::_test_play_through`.
+
 ---
 
 ## ARD-M1-004 — Attacking ends swap every quarter
-**Status:** `KNOWN BUG`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
+**Current state (2026-09-28):** fixed in PR #49 (the view mirrors the ground each break); awaiting merge.
 
 ### Intent
 Teams must visibly attack opposite ends in alternating quarters.
@@ -358,9 +375,10 @@ Instrument/seed the offending situation and confirm the ball is targeting the co
 ---
 
 ## ARD-M1-006 — Concussion: mandatory two-match absence
-**Status:** `TODO`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
+**Current state (2026-09-28):** fixed in PR #51 (concussion floored at 2 matches, "Concussion — X matches" copy); awaiting merge.
 
 ### Requirements
 - Concussion means a minimum **2 matches unavailable**.
@@ -381,9 +399,10 @@ Instrument/seed the offending situation and confirm the ball is targeting the co
 ---
 
 ## ARD-M1-007 — Sim Round safety & quick-sim controls
-**Status:** `TODO`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
+**Current state (2026-09-28):** short-press confirmation and the persistent setting are in PR #53; the long-press quick-sim menu is not started.
 
 ### Short press
 Before sacrificing the user's only playable match that round, confirm:
@@ -424,9 +443,10 @@ Open a compact quick-sim menu:
 ---
 
 ## ARD-M1-008 — Full Ratings mobile layout
-**Status:** `KNOWN BUG`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
+**Current state (2026-09-28):** fixed in PR #54 (draft Full ratings reuse the profile's attribute rows); awaiting merge.
 
 ### Intent
 Attribute names must never collapse into one-character-per-line columns.
@@ -478,9 +498,10 @@ Provide a legal compliance path such as releasing/delisting eligible commitments
 ---
 
 ## ARD-M1-010 — Career starts in 2027 / chronology alignment
-**Status:** `VERIFY`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
+**Current state (2026-09-28):** implemented in PR #45 (careers start 2027, 2026 is history); awaiting merge.
 
 ### Intent
 The playable career baseline should be 2027 so roster, draft and coaching chronology make sense.
@@ -525,9 +546,10 @@ For each changed event, demonstrate the trade-off and verify no choice dominates
 Goal: create trustworthy football data that later coaching, scouting, reports and role systems can use.
 
 ## ARD-M2-001 — Metres gained
-**Status:** `TODO`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P1`  
 **Autonomy:** `SAFE`
+**Current state (2026-09-28):** in PR #55 with ARD-M2-002 (player and team metres from the chain's real movement); awaiting merge.
 
 ### Intent
 The sim already moves the ball in metres; retain the meaningful territory contribution as a player/team stat.
@@ -550,9 +572,10 @@ The sim already moves the ball in metres; retain the meaningful territory contri
 ---
 
 ## ARD-M2-002 — Effective disposals / Disposal Efficiency %
-**Status:** `TODO`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
+**Current state (2026-09-28):** in PR #55 (effective when the side keeps the ball or the entry is not rebounded); awaiting merge.
 
 ### Intent
 A disposal should be judged from its actual outcome.
@@ -638,10 +661,11 @@ This feeds:
 ---
 
 ## ARD-M2-006 — Pressure acts
-**Status:** `TODO`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 **Balance:** `BALANCE-GATED`
+**Current state (2026-09-28):** in PR #47 (zonal pressure, pressure acts, team Pressure rating); awaiting merge.
 
 ### Intent
 Tackles alone should not represent defensive pressure.
@@ -713,6 +737,7 @@ Goal: make the event stream and visualisation look and behave like Australian fo
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 **Depends on:** M2 shot/event context
+**Current state (2026-09-28):** the open-play freeze is fixed in PR #50 (scores carry `set_shot`; open-play shots are kicked on the run); the scoring-model part is not started.
 
 ### Current issue
 MatchSim can score without a mark, but the visualisation routes every goal/behind through staged shot presentation, making open-play shots look like set shots.
