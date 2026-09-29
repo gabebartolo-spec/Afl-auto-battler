@@ -34,6 +34,16 @@ A dependency such as "Phase 4 starts after Phase 3 is merged" is a sequencing ru
 
 Stop and ask the user only for a genuine unresolved player-experience/design decision, a failed/ambiguous balance gate, destructive data/save risk, unexplained failing tests, a merge conflict whose correct resolution is unclear, or a task that has expanded materially beyond its roadmap intent.
 
+## 0.2 Design philosophy — fun and agency over simulation purity
+
+**Aussie Rules Dynasties is a game first and a simulation second.** Football realism matters because it makes decisions understandable and the world believable, but realism is not a reason to preserve passive, opaque or unfun play.
+
+Do **not** be afraid to gamify football systems when doing so creates meaningful player agency. The player should be able to read a problem, make a deliberate choice, and materially influence what happens next. A good decision does not need to guarantee a win, erase list quality or produce an exaggerated arcade effect, but it must have enough leverage that the player can reasonably feel and learn from its consequences.
+
+When realism and agency genuinely conflict, prefer the design that is **more fun and gives the player more meaningful control**, provided it still reads as Australian football. Do not preserve simulation purity merely because it is more realistic.
+
+This principle applies especially to tactics, match-day decisions, list construction, training and other systems where the player is expected to make choices. If a system is realistic but the player's choices barely matter, treat that as a design problem rather than a successful simulation.
+
 ## 0.2 Status legend
 
 Use exactly these statuses:
@@ -2775,6 +2785,8 @@ Replace the leftover prototype identity shown by Android. The installed app must
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-09-29:** Codified the project's game-first philosophy: realism supports believable football, but fun and meaningful player agency take precedence over simulation purity. Gamification is explicitly welcome when it makes deliberate choices materially influence outcomes.
 
 - **2026-09-29:** Added ARD-M8-008 to replace the Android prototype identity: installed app name becomes **Aussie Rules Dynasties** and the launcher/App info icon must be purpose-built around the game's identity rather than the generic football-field placeholder.
 
