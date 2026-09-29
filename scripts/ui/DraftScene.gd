@@ -1087,6 +1087,7 @@ func _refresh_mine() -> void:
 		pool.pressed.connect(func(): _select_tab("pool"))
 		_mine_box.add_child(pool)
 		return
+	_side_shape()
 	var counts := _draft.role_counts()
 	for role in ROLES:
 		_mine_box.add_child(UiKit.spacer(6))
@@ -1113,6 +1114,25 @@ func _refresh_mine() -> void:
 					row.add_child(rel)
 					p.add_child(row)
 				_mine_box.add_child(p)
+
+
+## Your side so far against every club's, line by line, in the words the
+## selection screen uses ("Ruck: among the weakest."). Facts only: which
+## player would fix it is the coach's call. From SHAPE_FROM picks, when a
+## side is enough of a side to compare; not at the intake draft.
+const SHAPE_FROM := 8
+
+func _side_shape() -> void:
+	if _draft.intake_mode or _draft.count() < SHAPE_FROM:
+		return
+	var own := Squad.new(_club, _draft.club_lists[_club], false, _club)
+	var box := UiKit.vbox(2)
+	box.name = "SideShape"
+	_mine_box.add_child(UiKit.spacer(8))
+	box.add_child(UiKit.lbl("Your side so far, against the league", UiKit.BODY, UiKit.TEXT, true))
+	for row in Matchup.standing(_club, _draft.club_lists, {}, own):
+		box.add_child(UiKit.lbl("%s: %s." % [str(row[0]), str(row[1])], UiKit.BODY, UiKit.TEXT))
+	_mine_box.add_child(box)
 
 
 func _on_release(id: String) -> void:

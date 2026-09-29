@@ -450,6 +450,12 @@ Design audit §4.5: synergies worked in code but most were too small to feel, an
 - **Not done:** synergies tied to game plans (PlanFit), and trade-off costs on synergies (the audit's risk mitigation). Both wait for play to show a dominant build.
 - **Tests:** `test_match_game.gd::_test_traits_surfaced`; the crumb test now has margin.
 
+### Implementation record — the draft shows your side against the league (2026-09-29, branch `claude/draft-shape`)
+Design audit §4.6: the league draft decides most of a first season, but while drafting the player saw only position counts. The director's first season began with an unfixable ruck hole.
+- **Change:** from eight picks, the draft's My list shows "Your side so far, against the league". It gives one line each for midfield, ruck, attack and defence, in the words the selection screen uses ("Ruck: among the weakest."). It compares your picks with every club's picks so far, through the same engine line values (`Matchup.standing`).
+- **Not done, deliberately:** no suggested player, no "draft a ruck", no projected ladder, no numbers. The need counts stay. The intake draft is left alone, since rookies rarely change a side.
+- **Tests:** `run_draft_ui_tests.gd::_test_side_shape`: none before eight picks; four lines in words after.
+
 ### Playtest test
 For each important decision, verify the player can answer:
 - What decision am I making?

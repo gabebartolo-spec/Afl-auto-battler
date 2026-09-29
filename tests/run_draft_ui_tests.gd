@@ -90,6 +90,7 @@ func _run() -> void:
 	_check(ui.get("_available_only") == true, "Clear filters restores availability")
 	var finish: Button = ui.find_child("StartSeason", true, false)
 	_check(finish.disabled, "Season cannot start before a valid draft is complete")
+	await _test_side_shape(ui)
 
 	# Reopening uses the same draft; it must not replay AI turns.
 	var history: Array = _state.draft.pick_history.duplicate(true)
@@ -105,6 +106,38 @@ func _run() -> void:
 	ui.queue_free()
 	print("Draft UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
+
+
+## From eight picks, My list shows your side so far against the league, line
+## by line in words: no numbers, no suggested player.
+func _test_side_shape(ui: Control) -> void:
+	ui.call("_select_tab", "squad")
+	await _settle()
+	_check(_state.draft.count() >= 8 or ui.find_child("SideShape", true, false) == null,
+			"No comparison while the side is too thin to compare")
+	var guard := 0
+	while _state.draft.count() < 8 and guard < 40:
+		guard += 1
+		var board: Array = _state.draft.board("", "", "", "overall", true)
+		if board.is_empty():
+			break
+		ui.call("_on_pick", board[0])
+	ui.call("_refresh")
+	ui.call("_select_tab", "squad")
+	await _settle()
+	var shape: Node = ui.find_child("SideShape", true, false)
+	_check(shape != null and shape.get_child_count() == 5,
+			"My list shows the side so far against the league, line by line")
+	if shape != null:
+		var digits := false
+		for c in shape.get_children():
+			var t := str((c as Label).text)
+			for ch in t:
+				if ch >= "0" and ch <= "9":
+					digits = true
+		_check(not digits, "The comparison is in words, not numbers")
+		_check(str((shape.get_child(1) as Label).text).begins_with("Midfield: "),
+				"Lines read like selection's: " + str((shape.get_child(1) as Label).text))
 
 
 ## Inspecting a player is read-only; only the explicit Draft button picks.
