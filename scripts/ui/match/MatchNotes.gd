@@ -771,7 +771,8 @@ static func duel_feed_line(mem: Dictionary, ev: Dictionary) -> String:
 
 
 ## The match's other turning points in the feed, from the log: a player going
-## off hurt (always), a goal from an intercept that takes or levels the
+## off hurt (always), a Big-game player's goal when he lifts (once a side), a
+## goal from an intercept that takes or levels the
 ## lead, and a missed set shot in a close last quarter. At most one of each
 ## and MAX_STORY_LINES of them a quarter, so quiet games stay quiet. "" to
 ## leave it to the oval.
@@ -792,6 +793,10 @@ static func story_feed_line(mem: Dictionary, ev: Dictionary) -> String:
 	var side := int(ev.get("side", 0))
 	var score: Array = ev.get("score", [0, 0])
 	var line_kind := ""
+	# A Big-game player's goal when he lifts: once a match for each side.
+	if kind == "goal" and str(ev.get("trait", "")) == "big_game" and not mem.has("big|%d" % side):
+		mem["big|%d" % side] = true
+		return "%s lifts when it matters." % who
 	# A goal from an intercept that takes the lead or levels it.
 	if kind == "goal" and ev.has("from_id") and str(ev["from_id"]) != str(ev.get("player_id", "")):
 		var before := int(score[side]) - 6
@@ -873,3 +878,32 @@ static func _when(ev: Dictionary) -> String:
 	if m <= 3:
 		return "early in the %s quarter" % qn
 	return "%d minutes into the %s quarter" % [m, qn]
+
+
+## What each synergy you had switched on is about, from this match: the
+## stat it shows up in, yours against theirs, as "What your calls did" does for
+## calls. Facts only - no claim of what the synergy itself was worth.
+static func synergy_lines(res: Dictionary, my_side: int) -> Array:
+	var out := []
+	var opp := 1 - my_side
+	var syn: Array = (res.get("synergies", [[], []]) as Array)[my_side]
+	var team: Array = res.get("team", [{}, {}])
+	var me: Dictionary = team[my_side]
+	var them: Dictionary = team[opp]
+	var goals: Array = res.get("goals", [0, 0])
+	for key in syn:
+		var fact := ""
+		match str(key):
+			"engine_room":
+				fact = "clearances %d to %d." % [int(me.get("clearances", 0)), int(them.get("clearances", 0))]
+			"tall_small":
+				fact = "%s goals from %d inside 50s." % [str(goals[my_side]), int(me.get("inside50", 0))]
+			"intercept_wall":
+				fact = "they kicked %s goals from %d inside 50s." % [str(goals[opp]), int(them.get("inside50", 0))]
+			"lockdown_unit":
+				fact = "a pressure rating of %d to %d." % [MatchSim.pressure_rating(me, them), MatchSim.pressure_rating(them, me)]
+			"supply_line":
+				fact = "%d inside 50s to %d." % [int(me.get("inside50", 0)), int(them.get("inside50", 0))]
+		if fact != "":
+			out.append("%s: %s" % [Traits.label(str(key)), fact])
+	return out
