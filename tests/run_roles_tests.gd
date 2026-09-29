@@ -30,6 +30,7 @@ func _run() -> void:
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
 	await _selection_tests()
+	await _team_changes_tests()
 	print("Roles + selection tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -328,6 +329,47 @@ func _ladder_tests() -> void:
 		lad.queue_free()
 		await _settle()
 	root.size = Vector2i(420, 860)
+
+
+## The team sheet: after a match, a player who is injured is out, and the
+## player who comes in is named in for him.
+func _team_changes_tests() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.autosave_enabled = false
+	_state.start_season("COL", db.club_list("COL"))
+	var before := await _open()
+	_check(before.find_child("TeamChanges", true, false) == null, "No team changes before the first match")
+	before.queue_free()
+	_state.advance()
+	_check(not _state.last_side.is_empty(), "Your last match's side is remembered (%d)" % _state.last_side.size())
+	var hurt: Dictionary = _state.list_player(str(_state.last_side[0]))
+	hurt["injury_weeks"] = 2
+	var ch: Dictionary = _state.week_changes()
+	var out_ok := false
+	for o in ch["outs"]:
+		if str(o["id"]) == str(hurt["id"]) and str(o["why"]) == "injured, 2 wks":
+			out_ok = true
+	_check(out_ok, "An injured player is out, with how long (%s)" % str(ch["outs"]))
+	var for_ok := false
+	for i in ch["ins"]:
+		if str(i["for"]) == str(hurt["id"]):
+			for_ok = true
+	_check(for_ok, "Someone comes in for him (%s)" % str(ch["ins"]))
+	var ui := await _open()
+	var line: Label = ui.find_child("TeamChanges", true, false)
+	var name: String = db.player_display_name(hurt)
+	_check(line != null and line.text.contains("Outs: ") and line.text.contains(name)
+			and line.text.contains("for " + name), "Selection reads the team sheet (%s)" % (line.text if line else "-"))
+	var said := 0
+	for l in ui.find_children("*", "Label", true, false):
+		if str(l.text).contains(name) and str(l.text).contains("injur"):
+			said += 1
+	_check(said == 1, "His injury is said once, on the team sheet (%d)" % said)
+	ui.queue_free()
+	var kid := {"id": "KID", "career": {"games": 0, "goals": 0, "stints": [], "through": 2026, "unknown": []}}
+	_check(_state.games_note(kid) == "debut", "A player yet to play a senior game is on debut")
+	await _settle()
 
 
 func _open() -> Control:
