@@ -416,6 +416,12 @@ func _this_week() -> Control:
 			continue
 		v.add_child(_para(str(f["text"]), 13, UiKit.BAD))
 	var style := GameState.their_style(code)
+	var usual := GameState.usual_plan(code)
+	if usual != "balanced":
+		v.add_child(UiKit.spacer(4))
+		var up := _para("Their usual game: %s." % CoachReport.plan_label(usual), 13, UiKit.MUTED)
+		up.name = "TheirPlan"
+		v.add_child(up)
 	if not style.is_empty():
 		v.add_child(UiKit.spacer(4))
 		var st := _para("How they play: " + " ".join(style), 13, UiKit.MUTED)
@@ -454,15 +460,22 @@ func _show_plan() -> void:
 	var opts := []
 	for key in GameState.CLUB_PLANS:
 		opts.append([key, CoachReport.plan_label(key)])
+	var ground: Array = GameState.my_squad().ground
+	var fit := _para(GameState.plan_fit_line(ground, GameState.club_plan), 13, UiKit.TEXT)
+	fit.name = "PlanFit"
+	fit.visible = fit.text != ""
 	var note := _para(CoachReport.plan_summary(GameState.club_plan), 13, UiKit.MUTED)
 	note.name = "PlanNote"
 	v.add_child(UiKit.choice_grid("ClubPlan", opts, GameState.club_plan, 2, func(key):
 		GameState.set_club_plan(str(key))
 		note.text = CoachReport.plan_summary(str(key))
+		fit.text = GameState.plan_fit_line(ground, str(key))
+		fit.visible = fit.text != ""
 		var line: Label = find_child("PlanLine", true, false)
 		if line != null:
 			line.text = "Game plan: %s" % CoachReport.plan_label(str(key))))
 	v.add_child(note)
+	v.add_child(fit)
 	v.add_child(_para("Every match starts on this plan. Change it at any break.", 13, UiKit.MUTED))
 	var done := UiKit.btn("Done", 16, true)
 	done.name = "PlanDone"

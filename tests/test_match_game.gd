@@ -28,6 +28,7 @@ func run() -> void:
 	_test_m2_stats()
 	_test_no_role_gates()
 	_test_spoils_and_crumbs()
+	_test_hot_player_moment()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -271,17 +272,30 @@ func _test_impact_and_ai() -> void:
 	var lines := CoachReport.impact_lines(imp, [{}, {}], 0)
 	_check(not lines.is_empty() and str(lines[0]["label"]).begins_with("Your")
 			or str(lines[0]["label"]).begins_with("Their"), "The readout names what the points came from")
-	# The rival coach reads a plan you keep running.
+	# The rival coach plays its usual game and reacts to the scoreboard; it
+	# does not read and counter the plan you keep running.
 	var live := _sim(901)
 	for q in range(2):
 		live.set_tactics(0, {"gameplan": "attacking"})
 		live.set_tactics(1, {"gameplan": "balanced"})
 		live.run_quarter()
-	_check(str(live.ai_tactics(1)["gameplan"]) == "defensive",
-			"Run Attack corridor twice and the rival coach presses")
+	var margin := live.score(1) - live.score(0)
+	var expect := str(live.standing[1])
+	var react := 18.0 - 8.0 * float((live.squads[1] as Squad).tactics_read)
+	if margin >= react:
+		expect = "controlled"
+	elif margin <= -react:
+		expect = "attacking"
+	_check(str(live.ai_tactics(1)["gameplan"]) == expect,
+			"Run Attack corridor twice: the rival coach keeps its usual game or plays the scoreboard (%s)" % expect)
 	live.set_tactics(0, {"gameplan": "controlled"})
 	live.run_quarter()
-	_check(live.ai_tactics(1).has("tag_id"), "After half time the rival coach tags your best player")
+	var tagged := str(live.ai_tactics(1).get("tag_id", ""))
+	var tagged_mid := false
+	for p in (live.squads[0] as Squad).ground:
+		if str(p["id"]) == tagged:
+			tagged_mid = MatchSim.taggable(p)
+	_check(tagged != "" and tagged_mid, "After half time the rival coach tags one of your midfielders")
 	# A tired star can be rested.
 	var tired := _sim(902)
 	tired.moment_side = 0
@@ -797,3 +811,33 @@ func _test_spoils_and_crumbs() -> void:
 	_check(by_def >= 0.7 * spoils, "Spoils are made by defenders (rotations aside) (%d of %d)" % [by_def, spoils])
 	_check(crumbs > 0 and float(crumbs_fwd) >= 0.55 * float(crumbs),
 			"Goals are crumbed off spoils, mostly by forwards (%d of %d)" % [crumbs_fwd, crumbs])
+
+
+## A tag is a midfield job: a forward kicking a bag never gets a tag card
+## (that would be a choice with no effect); a midfielder does, and the card
+## names the midfielder who would go to him.
+func _test_hot_player_moment() -> void:
+	var sim := _sim(77)
+	sim.moment_side = 0
+	sim.current_quarter = 2
+	sim._chain_no = 100
+	var fwd: Dictionary = {}
+	var mid: Dictionary = {}
+	for p in (sim.squads[1] as Squad).ground:
+		if str(p["role"]) == "FWD" and fwd.is_empty():
+			fwd = p
+		if str(p["role"]) == "MID" and mid.is_empty():
+			mid = p
+	sim.player_stats[str(fwd["id"])] = {"goals": 4.0}
+	sim._boundary_moment()
+	_check(sim.pending_moment.is_empty() or str(sim.pending_moment.get("kind", "")) != "hot",
+			"A forward kicking a bag is never answered with a tag")
+	sim.pending_moment = {}
+	sim._chain_no = 200
+	sim.player_stats[str(mid["id"])] = {"goals": 3.0}
+	sim._boundary_moment()
+	var m: Dictionary = sim.pending_moment
+	var tagger = MatchSim.tagger_for((sim.squads[0] as Squad).ground)
+	_check(str(m.get("kind", "")) == "hot" and tagger != null
+			and str(m["options"][0]["label"]).contains(GameDB.player_display_name(tagger)),
+			"A midfielder kicking a bag can be tagged, by the midfielder who would go to him")

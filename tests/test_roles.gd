@@ -186,6 +186,42 @@ func _test_tagger() -> void:
 	_check(sim._tag_share(0) == (Roles.TAG_WITH_TAGGER if has else Roles.TAG_PLAIN),
 			"The tag share follows whether a tagger is on the ground")
 	_check(Roles.TAG_WITH_TAGGER < Roles.TAG_PLAIN, "A tagger takes more of the ball off his man")
+	# A tag is a midfield job: a tag on a defender or forward does nothing,
+	# and the player who goes to the tagged man is a midfielder.
+	var t = MatchSim.tagger_for(home.ground)
+	_check(t != null and str(t["role"]) == "MID", "The player who takes the tag is a midfielder")
+	var back: Dictionary = {}
+	var mid: Dictionary = {}
+	for p in away.ground:
+		if str(p["role"]) == "DEF" and back.is_empty():
+			back = p
+		if str(p["role"]) == "MID" and mid.is_empty():
+			mid = p
+	sim.set_tactics(0, {"gameplan": "balanced", "tag_id": str(back["id"])})
+	_check(not MatchSim.taggable(back) and MatchSim.taggable(mid), "Only midfielders can be tagged")
+	# Game plans suit a list: the upside grows with the players who carry
+	# it, the cost does not.
+	var ok_fit := true
+	for code in GameDB.active_clubs(2027):
+		var g: Array = Squad.new(code, GameDB.club_list(code), false, code).ground
+		for plan in PlanFit.NEEDS:
+			var f := PlanFit.fit(g, plan)
+			if f < PlanFit.FIT_MIN or f > PlanFit.FIT_MAX or PlanFit.carriers(g, plan).is_empty():
+				ok_fit = false
+		if not (["balanced"] + PlanFit.NEEDS.keys()).has(PlanFit.standing_plan(g)):
+			ok_fit = false
+	_check(ok_fit, "Every club has a fit and named carriers for every plan, and a real usual game")
+	sim.set_tactics(0, {"gameplan": "defensive"})
+	sim.plan_fit[0]["defensive"] = 1.4
+	var strong_press := sim._pv(0, "press")
+	var strong_cost := sim._pv(0, "goal")
+	sim.plan_fit[0]["defensive"] = 0.6
+	_check(sim._pv(0, "press") < strong_press and is_equal_approx(sim._pv(0, "goal"), strong_cost),
+			"A press gets more from pressure players; what it gives up stays the same")
+	var usual := {}
+	for code in GameDB.active_clubs(2027):
+		usual[PlanFit.standing_plan(Squad.new(code, GameDB.club_list(code), false, code).ground)] = true
+	_check(usual.size() >= 3, "Clubs play different usual games (%s)" % str(usual.keys()))
 
 
 ## Selection surfaces the problem, never the answer: no hint names who to

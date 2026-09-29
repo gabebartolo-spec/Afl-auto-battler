@@ -1352,6 +1352,27 @@ func week_changes_text() -> String:
 	return " ".join(bits)
 
 
+## Who in a side makes a game plan work, and how they compare with the
+## league, in one line: "Your pressure players are strong: Viney, Oliver,
+## Petracca, Brayshaw." "" for a plan with no needs (Balanced, Through stars).
+func plan_fit_line(ground: Array, plan: String) -> String:
+	if not PlanFit.NEEDS.has(plan):
+		return ""
+	var names := PackedStringArray()
+	for p in PlanFit.carriers(ground, plan).slice(0, 4):
+		names.append(GameDB.player_display_name(p))
+	return "Your %s are %s: %s." % [str(PlanFit.NEEDS[plan]["word"]), PlanFit.fit_word(ground, plan), ", ".join(names)]
+
+
+## The plan a club's list suits as its usual game (PlanFit.standing_plan),
+## from the side it would field this week.
+func usual_plan(code: String) -> String:
+	if season == null or code == "" or not season.lists.has(code):
+		return "balanced"
+	return PlanFit.standing_plan(Squad.new(code, season.lists[code], false, code,
+			season.selections.get(code, {})).ground)
+
+
 ## Your own side's week worth knowing (Matchup.own_notes).
 func my_week_notes() -> Array:
 	return Matchup.own_notes(my_list)
