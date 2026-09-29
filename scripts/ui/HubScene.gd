@@ -329,7 +329,8 @@ func _week_section(season: Season) -> Control:
 			fl.name = "Fact_%d" % i
 			nv.add_child(fl)
 		for i in range(notes.size()):
-			var nl := UiKit.lbl(str(notes[i]["text"]), UiKit.BODY, UiKit.BAD)
+			var nl := UiKit.lbl(str(notes[i]["text"]), UiKit.BODY,
+					UiKit.BAD if str(notes[i].get("key", "")) == "own_injury" else UiKit.TEXT)
 			nl.name = "OwnNote_%d" % i
 			nv.add_child(nl)
 	if not GameState.week_event.is_empty() and not season.is_season_over():

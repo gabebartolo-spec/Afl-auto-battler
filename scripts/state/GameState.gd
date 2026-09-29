@@ -1421,7 +1421,96 @@ func set_my_matchup(fwd_id: String, def_id: String) -> void:
 
 ## Your own side's week worth knowing (Matchup.own_notes).
 func my_week_notes() -> Array:
-	return Matchup.own_notes(my_list)
+	return Matchup.own_notes(my_list) + milestone_notes()
+
+
+## Games milestones worth marking (AFL convention: career games).
+const MILESTONES := [50, 100, 150, 200, 250, 300, 350, 400]
+
+## His senior games so far: the career record plus this season's games not
+## yet closed into it.
+func games_played(p: Dictionary) -> int:
+	var c := Career.of(p)
+	var g := int(c.get("games", 0))
+	if int(c.get("through", 0)) < season_year:
+		g += int((season_tally.get(str(p.get("id", "")), {}) as Dictionary).get("games", 0))
+	return g
+
+
+## "Jack Viney plays his 100th game." for anyone in this week's side about to
+## reach a milestone. Only for a career on record in full.
+func milestone_notes() -> Array:
+	var out := []
+	if season == null:
+		return out
+	var side := current_side()
+	for k in side:
+		for id in side[k]:
+			var p := list_player(str(id))
+			if p.is_empty() or not Career.complete(p):
+				continue
+			var next := games_played(p) + 1
+			if MILESTONES.has(next):
+				out.append({"key": "milestone", "player_id": str(id),
+						"text": "%s plays his %s game." % [GameDB.player_display_name(p), ordinal(next)]})
+	return out
+
+
+## What he has done for your club: {"games", "goals", "since", "bf": [years],
+## "flags": [years]}. Games and goals count every spell at the club, this
+## season included; "since" is when his current spell began.
+func with_us(p: Dictionary) -> Dictionary:
+	var out := {"games": 0, "goals": 0, "since": 0, "bf": [], "flags": []}
+	if my_club == "":
+		return out
+	var id := str(p.get("id", ""))
+	var c := Career.of(p)
+	var spells := []
+	for st in c.get("stints", []):
+		if str(st[0]) == my_club:
+			out["games"] = int(out["games"]) + int(st[3])
+			out["goals"] = int(out["goals"]) + int(st[4])
+			spells.append([int(st[1]), int(st[2])])
+	var t: Dictionary = season_tally.get(id, {})
+	if int(c.get("through", 0)) < season_year and str(t.get("club", "")) == my_club:
+		out["games"] = int(out["games"]) + int(t.get("games", 0))
+		out["goals"] = int(out["goals"]) + int(t.get("goals", 0))
+		if spells.is_empty() or int(spells[-1][1]) < season_year - 1:
+			spells.append([season_year, season_year])
+	if not spells.is_empty():
+		out["since"] = int(spells[-1][0])
+	for entry in honour_roll:
+		if str(entry.get("my_club", "")) != my_club:
+			continue
+		var year := int(entry.get("year", 0))
+		var bf: Array = entry.get("my_bf", [])
+		if not bf.is_empty() and str((bf[0] as Dictionary).get("id", "")) == id:
+			(out["bf"] as Array).append(year)
+		if str(entry.get("premier", "")) == my_club:
+			for sp in spells:
+				if year >= int(sp[0]) and year <= int(sp[1]):
+					(out["flags"] as Array).append(year)
+					break
+	return out
+
+
+## "With us since 2027: 87 games, 42 goals. Best and fairest 2029.
+## Premiership 2030." "" for someone yet to play for you.
+func with_us_text(p: Dictionary) -> String:
+	var w := with_us(p)
+	if int(w["games"]) <= 0:
+		return ""
+	var g := int(w["games"])
+	var gl := int(w["goals"])
+	var bits := PackedStringArray(["With us since %d: %d game%s, %s." % [int(w["since"]), g,
+			"" if g == 1 else "s", "no goals" if gl == 0 else "%d goal%s" % [gl, "" if gl == 1 else "s"]]])
+	if not (w["bf"] as Array).is_empty():
+		bits.append("Best and fairest %s." % ", ".join(PackedStringArray((w["bf"] as Array).map(func(y): return str(y)))))
+	if not (w["flags"] as Array).is_empty():
+		var f: Array = w["flags"]
+		bits.append("%s %s." % ["Premiership" if f.size() == 1 else "Premierships",
+				", ".join(PackedStringArray(f.map(func(y): return str(y))))])
+	return " ".join(bits)
 
 
 ## A club's ladder position in words: "3rd".
