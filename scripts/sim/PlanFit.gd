@@ -30,7 +30,11 @@ const LEAGUE := {
 	"defensive": [49.8, 2.4],
 	"contest": [80.3, 3.8],
 	"controlled": [62.9, 2.3],
+	# Through stars: how far the side's best three stand above its average.
+	"through_stars": [15.1, 2.3],
 }
+## Through stars goes through this many of the side's best players.
+const STAR_N := 3
 ## How far one spread from the league moves a plan's upside, and its limits:
 ## the best-suited list gets about half as much again, the worst about half.
 const PER_SPREAD := 0.32
@@ -52,6 +56,13 @@ static func _value(p: Dictionary, weights: Dictionary) -> float:
 ## The players who carry `plan` in this side, best first ([] for a plan with
 ## no needs, such as Balanced or Through stars).
 static func carriers(ground: Array, plan: String) -> Array:
+	if plan == "through_stars":
+		var best := ground.duplicate()
+		best.sort_custom(func(a, b):
+			if int(a["overall"]) != int(b["overall"]):
+				return int(a["overall"]) > int(b["overall"])
+			return str(a.get("id", "")) < str(b.get("id", "")))
+		return best.slice(0, STAR_N)
 	if not NEEDS.has(plan):
 		return []
 	var need: Dictionary = NEEDS[plan]
@@ -77,6 +88,17 @@ static func carriers(ground: Array, plan: String) -> Array:
 ## The side's raw score for `plan`: its carriers' average on what the plan
 ## needs (the ruck's tap work counts for a quarter of a contest).
 static func score(ground: Array, plan: String) -> float:
+	if plan == "through_stars":
+		if ground.is_empty():
+			return 0.0
+		var all := 0.0
+		for p in ground:
+			all += float(p["overall"])
+		var top := 0.0
+		var stars := carriers(ground, plan)
+		for p in stars:
+			top += float(p["overall"])
+		return top / float(stars.size()) - all / float(ground.size())
 	if not NEEDS.has(plan):
 		return 0.0
 	var need: Dictionary = NEEDS[plan]
@@ -104,9 +126,9 @@ static func edge(ground: Array, plan: String) -> float:
 
 
 ## The multiplier on `plan`'s upside for this side: 1.0 for an average list.
-## Plans with no needs (Balanced, Through stars) are always 1.0.
+## Balanced has no needs and is always 1.0.
 static func fit(ground: Array, plan: String) -> float:
-	if not NEEDS.has(plan):
+	if not LEAGUE.has(plan):
 		return 1.0
 	return clampf(1.0 + PER_SPREAD * edge(ground, plan), FIT_MIN, FIT_MAX)
 

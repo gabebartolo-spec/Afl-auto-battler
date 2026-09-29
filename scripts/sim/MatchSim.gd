@@ -26,6 +26,8 @@ var tactics := [{}, {}]      # per side: gameplan, focus_id, tag_id, pep
 ## How well each side's match-day players suit each plan (PlanFit): the
 ## plan's upside is scaled by it, its costs are not.
 var plan_fit := [{}, {}]
+## Each side's best three at the first bounce: who Through stars goes through.
+var stars := [{}, {}]
 ## The plan each side's list suits as its usual game (PlanFit.standing_plan):
 ## where an AI club starts, and what it goes back to.
 var standing := ["balanced", "balanced"]
@@ -145,8 +147,10 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 		synergies[side] = Traits.active((squads[side] as Squad).ground)
 		standing[side] = PlanFit.standing_plan((squads[side] as Squad).ground)
 		duels[side] = Matchups.defaults((squads[1 - side] as Squad).ground, (squads[side] as Squad).ground)
-		for plan in PlanFit.NEEDS:
+		for plan in PlanFit.LEAGUE:
 			(plan_fit[side] as Dictionary)[plan] = PlanFit.fit((squads[side] as Squad).ground, plan)
+		for p in PlanFit.carriers((squads[side] as Squad).ground, "through_stars"):
+			(stars[side] as Dictionary)[str(p["id"])] = true
 		for p in (squads[side] as Squad).ground:
 			energy[str(p["id"])] = _start_energy(p)
 			_played[side][str(p["id"])] = true
@@ -260,14 +264,18 @@ const PLAN_UPSIDE := {
 	"defensive": ["press", "opp_goal"], "press": ["press", "opp_goal"],
 	"contest": ["contest"],
 	"controlled": ["taken", "clangers", "goal", "pace"],
+	"through_stars": ["star_ball", "star_goal", "clangers"],
 }
 const PLANS := {
-	"attacking": {"goal": 1.10, "gain": 1.12, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
-	"fast": {"goal": 1.10, "gain": 1.12, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
-	"defensive": {"press": 1.18, "opp_goal": 0.93, "goal": 0.96, "gain": 0.95, "pace": 1.12},
-	"press": {"press": 1.18, "opp_goal": 0.93, "goal": 0.96, "gain": 0.95, "pace": 1.12},
-	"contest": {"contest": 0.035, "gain": 0.95, "exposed": 1.04},
-	"controlled": {"taken": 0.92, "gain": 0.94, "goal": 1.02, "clangers": 0.86, "pace": 0.9},
+	"attacking": {"goal": 1.05, "gain": 1.06, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
+	"fast": {"goal": 1.05, "gain": 1.06, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
+	"defensive": {"press": 1.09, "opp_goal": 0.965, "goal": 0.96, "gain": 0.95, "pace": 1.12},
+	"press": {"press": 1.09, "opp_goal": 0.965, "goal": 0.96, "gain": 0.95, "pace": 1.12},
+	"contest": {"contest": 0.0175, "gain": 0.95, "exposed": 1.04},
+	"controlled": {"taken": 0.98, "gain": 0.94, "goal": 1.02, "clangers": 0.90, "pace": 0.95},
+	# Through stars: the ball to the best three and their finishing (star_ball,
+	# star_goal), the ball in good hands; but they know where it's going.
+	"through_stars": {"star_ball": 1.3, "star_goal": 1.08, "clangers": 0.95, "taken": 1.06},
 }
 
 
@@ -497,8 +505,8 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String) -> float:
 		out *= CRUMBER_AT_FEET
 	if id == _tag_id(1 - side) and taggable(p) and (carrying or purpose == "shooter" or purpose == "crumb"):
 		out *= _tag_share(1 - side)
-	if _plan(side) == "through_stars" and int(p["overall"]) >= 82:
-		out *= 1.2
+	if _plan(side) == "through_stars" and (stars[side] as Dictionary).has(id):
+		out *= _pv(side, "star_ball")
 	if _pep(side) == "fire_up":
 		out *= 1.05
 	if carrying:
@@ -1304,8 +1312,8 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	# The press closes the corridor: half the attacking plan's edge.
 	if own > 1.0 and _pv(opp, "press") > 1.0:
 		own = 1.0 + (own - 1.0) * 0.5
-	if _plan(side) == "through_stars" and int(shooter.get("overall", 0)) >= 82:
-		own *= 1.08
+	if _plan(side) == "through_stars" and (stars[side] as Dictionary).has(str(shooter.get("id", ""))):
+		own *= _pv(side, "star_goal")
 	goal_p *= own
 	if credit:
 		_credit(side, "gameplan", 6.0 * (goal_p - before))
@@ -1647,6 +1655,7 @@ func result() -> Dictionary:
 				q_goals[q][1] * 6 + q_behinds[q][1]])
 	return {
 		"roster": rosters(),
+		"stars": [(stars[0] as Dictionary).keys(), (stars[1] as Dictionary).keys()],
 		"score": [s0, s1],
 		"goals": [goals(0), goals(1)],
 		"behinds": [behinds(0), behinds(1)],
