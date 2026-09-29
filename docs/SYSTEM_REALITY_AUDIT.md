@@ -377,3 +377,21 @@ The findings above are kept as found. This appendix records each repair as it la
 |---|---|---|
 | C1: standing plan dropped at the first bounce of a live match | The pre-bounce box (and Skip) read the plan the engine already holds for your side, which is your club plan, so Start without a change keeps it. Behavioural test `run_matchday_tests.gd::_plan_at_first_bounce` drives the live start and reads the engine's own quarter record (`tactics_history`). It fails on the old code (engine: balanced) and passes on the fix. | Fixed, branch `claude/fix-first-bounce-plan` (pending merge) |
 
+## Appendix: repair sprint status (test harness)
+
+**Weak tests: silent skips (repaired).**
+
+**Reproduced:** Godot's `--frame-delay 50` simulates a loaded machine. Under it, matchday ran 290 of 293 checks and still passed. The match screen plays by elapsed time, so a busy machine changes how far a match gets between two checks.
+
+**Fix (`tools/run_tests.sh`):**
+- Every suite runs on a fixed frame clock (`--fixed-fps 60`). Under the same load, matchday ran all 293.
+- Every suite has a check floor in `tests/expected_checks.txt`, taken from a full run under the fixed clock.
+  - A suite that reports fewer checks fails: "checks went missing".
+  - A suite with no floor fails until one is added.
+- A check a suite skips on purpose prints `SKIP: <reason>`, and the summary counts it.
+- The one matchday block that could skip without a failure (the key match-up Change button) now starts with a required check.
+
+**Harness regression:** `tools/test_run_tests.sh` runs a real suite three ways (its floor passes; an impossible floor fails; no floor fails). The full run in CI calls it.
+
+Branch `claude/test-floors` (pending merge; stacked on the first-bounce fix, whose checks its floors count).
+
