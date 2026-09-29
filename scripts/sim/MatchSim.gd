@@ -1787,21 +1787,28 @@ func _check_injuries() -> void:
 		_refill_duel(side, id)
 
 
-## A matched defender gone off hurt: the next defender on the ground in the
-## default order takes his forward (not recorded as a coach's change).
-func _refill_duel(def_side: int, gone: String) -> void:
-	var d: Dictionary = duels[def_side]
+## A player gone off hurt leaves the match-ups: a key forward's direct
+## opponent is freed, and a matched defender's forward goes to the next
+## defender on the ground in the default order (not recorded as a coach's
+## change). The order of the match-ups is kept.
+func _refill_duel(side: int, gone: String) -> void:
+	(duels[1 - side] as Dictionary).erase(gone)
+	var d: Dictionary = duels[side]
 	for fid in d.keys():
 		if str(d[fid]) != gone:
 			continue
 		var used := {}
 		for f in d:
 			used[str(d[f])] = true
-		d.erase(fid)
-		for p in Matchups.defenders((squads[def_side] as Squad).ground):
+		var next := ""
+		for p in Matchups.defenders((squads[side] as Squad).ground):
 			if not used.has(str(p["id"])):
-				d[fid] = str(p["id"])
+				next = str(p["id"])
 				break
+		if next == "":
+			d.erase(fid)
+		else:
+			d[fid] = next
 
 
 ## One interchange per check: the most tired player past his policy's line
