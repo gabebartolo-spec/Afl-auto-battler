@@ -2395,7 +2395,7 @@ Do not prioritise this until the current §1.11 playtest gate has proved that th
 ### Prototype first
 Build **one** centre-stoppage decision vignette before committing to a library.
 
-The cheap prototype may be enlarged 2D / 2.5D. Stylised 3D is allowed only if the prototype demonstrates enough player value to justify the extra production burden.
+The prototype should use enlarged 2D / 2.5D presentation only. Do not introduce 3D player models or 3D match presentation.
 
 A successful vignette should:
 - enter briefly from the normal match view;
@@ -2421,7 +2421,7 @@ Possible families:
 
 ### Guardrails
 - MatchSim remains the authority. A vignette may illustrate state but must not invent a second football outcome.
-- Do not attempt realistic player faces, broadcast-quality stadium presentation or continuous 3D match recreation.
+- Do not introduce 3D player models, 3D stadium presentation or continuous 3D match recreation.
 - Do not build hundreds of unique scenes.
 - Tactical readability matters more than graphical fidelity.
 - Preserve club colours and player identity where useful without requiring licensed likenesses.
@@ -2742,14 +2742,14 @@ Before adding any new roadmap line, check this table.
 | OVR correlation / rating predicts strength | ARD-M5-010 |
 | Wing/inside-mid/forward identity labels | ARD-M5-009 |
 | Create-a-player / self-insert / custom draftee / custom prospect | ARD-M7-008 |
-| Cinematic decision scene / tactical close-up / 3D match moment | ARD-M8-007 Cinematic tactical vignettes |
+| Cinematic decision scene / tactical close-up / detailed match moment | ARD-M8-007 Cinematic tactical vignettes |
 | Draft age filter / rookie-prime-veteran / career-stage filter | ARD-M5-011 |
 
 ---
 
 # 10. Roadmap Maintenance Log
 
-- **2026-09-29:** Added ARD-M8-007 for cinematic tactical vignettes: prototype one high-value decision moment first, use visual detail to make the football problem legible, and explicitly avoid turning the project into a full 3D match engine. Deferred until the §1.11 decision-clarity gate proves the underlying choices are good.
+- **2026-09-29:** Added ARD-M8-007 for cinematic tactical vignettes: prototype one high-value decision moment first using 2D/2.5D presentation, use visual detail to make the football problem legible, and explicitly keep 3D out of scope. Deferred until the §1.11 decision-clarity gate proves the underlying choices are good.
 Keep this short. Add only meaningful structural changes, not every code commit.
 
 - **2026-09-29:** Added a P0 playtest gate for core fun/readability: pause unrelated feature expansion while match freezes/stalls, implausible loose-ball waiting, opaque synergies, uninformed choices and weak decision feedback are addressed. Core test is whether the player can understand a decision, form an expectation, observe the consequence and learn from it without number-vomit or best-choice hints.
