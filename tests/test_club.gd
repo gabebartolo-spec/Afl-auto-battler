@@ -157,20 +157,31 @@ func _test_event_tradeoffs() -> void:
 	GameState.resolve_week_event(0)
 	_check(Ratings.available(kid2) and ClubLife.morale(kid2) == 75 and int(kid2.get("expects_game", 0)) == 10,
 			"Giving him a game: thrilled, available, and he expects to be picked")
+	# On auto-pick he is named on the ground, without you touching the side.
+	var on_ground := false
+	for p in GameState.my_squad().ground:
+		if str(p["id"]) == str(kid2["id"]):
+			on_ground = true
+	_check(on_ground, "Auto-pick names the kid you gave a game (%s)" % GameState.week_event.get("outcome", ""))
+	_check(str(GameState.week_event.get("outcome", "")).contains("Auto-pick names him"),
+			"The outcome says auto-pick has him")
+	kid2.erase("expects_game")
 	# An unhappy player: sitting down with him commits you to a game.
 	var sulk: Dictionary = GameState.my_list[26]
 	sulk["morale"] = 30
 	GameState.week_event = ClubLife._unhappy(sulk)
 	GameState.resolve_week_event(0)
 	_check(ClubLife.morale(sulk) == 45 and bool(sulk.get("expects_game", false)), "A talk lifts him, and he expects a game")
+	# Your own side that leaves him out: the promise is broken, and it sours.
 	var side: Dictionary = GameState.current_side()
-	var in_side := false
 	for k in side:
-		if (side[k] as Array).has(str(sulk["id"])):
-			in_side = true
+		(side[k] as Array).erase(str(sulk["id"]))
+	side["OUT"] = [str(sulk["id"])]
+	GameState.set_selection(side)
 	var before := ClubLife.morale(sulk)
 	GameState.advance()
-	if not in_side and int(sulk.get("injury_weeks", 0)) <= 0:
+	GameState.set_selection({})
+	if int(sulk.get("injury_weeks", 0)) <= 0:
 		_check(ClubLife.morale(sulk) <= before - 12 + 2, "Left out after the talk, it sours (%d -> %d)" % [before, ClubLife.morale(sulk)])
 	_check(not sulk.has("expects_game"), "The expectation lasts one week")
 	var sulk2: Dictionary = GameState.my_list[27]
