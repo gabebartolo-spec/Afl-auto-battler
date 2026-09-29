@@ -30,6 +30,8 @@ func run() -> void:
 	_test_spoils_and_crumbs()
 	_test_hot_player_moment()
 	_test_matchups()
+	_test_in_match_injuries()
+	_test_match_story()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -931,3 +933,93 @@ func _test_matchups() -> void:
 			[1, "A", true, false], [2, "B", false, false]]}}}
 	_check(str(MatchNotes.duel_story(thin, 0)[0]).contains("too few"),
 			"Too few contests after a change is said as such, not dressed up")
+
+
+## Injuries happen during the match: the player goes off for good, the bench
+## covers him, and the list records the same injury afterwards.
+func _test_in_match_injuries() -> void:
+	var n := 0
+	var hurt := 0
+	var sound := true
+	var covered := true
+	var duels_ok := true
+	var sample := {}
+	for i in range(40):
+		var sim := _sim(3100 + i, "MEL", "CAR")
+		var res := sim.run()
+		n += 1
+		for inj in res["injuries"]:
+			hurt += 1
+			var side := int(inj["side"])
+			var id := str(inj["id"])
+			for p in (sim.squads[side] as Squad).ground + (sim.squads[side] as Squad).bench:
+				if str(p["id"]) == id:
+					sound = false
+			var in_roster := false
+			for r in res["roster"][side]:
+				if str(r["id"]) == id:
+					in_roster = true
+			var ev_ok := false
+			for ev in res["events"]:
+				if str(ev["kind"]) == "injury" and str(ev["player_id"]) == id and str(ev.get("on", "")) == str(inj["on"]):
+					ev_ok = true
+			covered = covered and in_roster and ev_ok
+			if sample.is_empty():
+				sample = {"res": res, "inj": inj}
+		# Nobody gone off hurt is left in a match-up (a break would offer a
+		# change the engine cannot make).
+		for side in range(2):
+			var here := {}
+			for p in (sim.squads[side] as Squad).ground + (sim.squads[side] as Squad).bench:
+				here[str(p["id"])] = true
+			var there := {}
+			for p in (sim.squads[1 - side] as Squad).ground + (sim.squads[1 - side] as Squad).bench:
+				there[str(p["id"])] = true
+			for fid in (sim.duels[side] as Dictionary):
+				if not there.has(str(fid)) or not here.has(str(sim.duels[side][fid])):
+					duels_ok = false
+	var rate := float(hurt) / (2.0 * n)
+	_check(rate > 0.4 and rate < 1.1, "In-match injuries run near the old rate (%.2f a side a match)" % rate)
+	_check(sound, "A player hurt in a match takes no further part")
+	_check(covered, "Each injury is in the log and the injured player is in the box score")
+	_check(duels_ok, "A player gone off hurt is out of the match-ups")
+	if not sample.is_empty():
+		var res: Dictionary = sample["res"]
+		var inj: Dictionary = sample["inj"]
+		var code: String = [str(res["home"]), str(res["away"])][int(inj["side"])]
+		var lists := {code: GameDB.club_list(code).duplicate(true)}
+		var applied := Injuries.apply_match(res, lists, 1, 1)
+		var p: Dictionary = {}
+		for q in lists[code]:
+			if str(q["id"]) == str(inj["id"]):
+				p = q
+		_check(not applied.is_empty() and int(p.get("injury_weeks", 0)) == int(inj["weeks"]),
+				"The list records the injury the match had")
+
+
+## The feed and full time tell the match's turning points from the log.
+func _test_match_story() -> void:
+	var mem := {}
+	var inj := MatchNotes.story_feed_line(mem, {"kind": "injury", "q": 2, "min": 40,
+			"name": "Ed Richards", "club": "WBD", "on": ""})
+	_check(inj.begins_with("Ed Richards") and inj.contains("won't return"), "An injury always reaches the feed: " + inj)
+	var intercepts := 0
+	for m in range(5):
+		var ev := {"kind": "goal", "q": 1, "min": 5 + m, "side": 0, "player_id": "a", "from_id": "b",
+				"score": [6 * (m + 1), 6 * (m + 1)]}
+		if MatchNotes.story_feed_line(mem, ev) != "":
+			intercepts += 1
+	_check(intercepts == 1, "At most one intercept line a quarter (%d)" % intercepts)
+	var ahead := MatchNotes.story_feed_line({}, {"kind": "goal", "q": 2, "min": 40, "side": 0,
+			"player_id": "a", "from_id": "b", "score": [40, 20]})
+	_check(ahead == "", "A goal from an intercept that changes nothing stays off the feed")
+	var res := {"home": "MEL", "away": "CAR", "score": [80, 75], "roster": [[], []], "events": [
+		{"kind": "goal", "q": 1, "min": 5, "side": 1, "name": "X", "score": [0, 6]},
+		{"kind": "goal", "q": 4, "min": 112, "side": 0, "name": "Jack Viney", "score": [7, 6]},
+	]}
+	var tp := MatchNotes.turning_points(res, 1)
+	_check(not tp.is_empty() and str(tp[0]) == "Jack Viney's goal 22 minutes into the last quarter put Melbourne in front for good.",
+			"Full time names the score that put the winners in front for good: %s" % str(tp))
+	var calm := MatchNotes.turning_points({"home": "MEL", "away": "CAR", "score": [80, 20], "events": [
+		{"kind": "goal", "q": 1, "min": 3, "side": 0, "name": "A", "score": [6, 0]}]}, 0)
+	_check(calm.is_empty(), "A match led from the first goal has no turning point to invent")

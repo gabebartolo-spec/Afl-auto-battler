@@ -21,7 +21,8 @@ extends RefCounted
 ## sits loose; centre bounces set up 6-6-6; kick-ins face a zone.
 
 const DISPOSALS := ["handball", "kick", "mark"]
-const META := ["sub", "moment"]
+## Off-the-ball entries: an interchange, a coach's call, a player going off hurt.
+const META := ["sub", "moment", "injury"]
 const SUBSTEP := 1.0 / 60.0
 const STRUCTURE_EVERY := 0.45
 ## Presentation time runs this much faster than the movement model's own
@@ -327,10 +328,10 @@ func _start_beat(k: int) -> void:
 	_pi = 0
 	_busy = {}
 	var side := int(ev.get("side", -1))
-	if side >= 0 and kind != "sub" and kind != "moment":
+	if side >= 0 and not META.has(kind):
 		_poss = side
 	match kind:
-		"sub", "final":
+		"sub", "final", "injury":
 			_phases = [{"t": "emit"}]
 		"moment":
 			_phases = [{"t": "emit"}, {"t": "wait", "dur": 0.5, "ease": true}]
@@ -1140,7 +1141,7 @@ func _emit(p: Dictionary) -> void:
 	if kind == "sub":
 		_sub(ev)
 	var a := _actor_id(ev)
-	if a >= 0 and kind != "sub":
+	if a >= 0 and not META.has(kind):
 		actor = a
 	if p.get("log", false):
 		_log_arrival(k)
@@ -1376,7 +1377,7 @@ func flush() -> Array:
 	var last := Vector2.ZERO
 	for i in range(events.size() - 1, -1, -1):
 		var ev2: Dictionary = events[i]
-		if not ["quarter", "final", "sub", "moment"].has(str(ev2.get("kind", ""))):
+		if not ["quarter", "final", "sub", "moment", "injury"].has(str(ev2.get("kind", ""))):
 			last = Vector2(clampf(float(ev2.get("fp", 0.0)), -MatchMotion.GOAL_X, MatchMotion.GOAL_X), 0.0)
 			break
 	ball["mode"] = "dead"
