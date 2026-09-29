@@ -62,6 +62,7 @@ var difficulty := "normal"       # this career's difficulty (DIFFICULTIES key)
 var board := {}                  # confidence, goal, warned, sacked, history
 var week_event := {}             # this week's event card (ClubLife.pick_event)
 var losing_streak := 0
+var last_side: Array = []       # ids of your players who took the field in your last match
 ## What the event cards have already raised this season (ClubLife.pick_event
 ## memory): "extension|id", "media|id" -> true, "unhappy|id" -> round.
 var event_memory := {}
@@ -268,6 +269,7 @@ func save_career() -> bool:
 		"board": board,
 		"week_event": week_event,
 		"losing_streak": losing_streak,
+		"last_side": last_side,
 		"event_memory": event_memory,
 		"db_draftees": GameDB.draftees,
 		"db_late_draftees": GameDB.late_draftees,
@@ -366,6 +368,7 @@ func load_career() -> bool:
 	board = state.get("board", {})
 	week_event = state.get("week_event", {})
 	losing_streak = int(state.get("losing_streak", 0))
+	last_side = state.get("last_side", [])
 	event_memory = state.get("event_memory", {})
 	difficulty = str(state.get("difficulty", "normal"))
 	if not DIFFICULTIES.has(difficulty):
@@ -591,6 +594,7 @@ func reset() -> void:
 	board = {}
 	week_event = {}
 	losing_streak = 0
+	last_side = []
 	event_memory = {}
 	difficulty = new_career_difficulty()
 	career_seed = randi_range(1, 999999)
@@ -1259,6 +1263,93 @@ func opponent_people(code: String) -> Array:
 	if season == null or code == "" or not season.lists.has(code):
 		return []
 	return Matchup.people(code, season.lists, season.selections, season.club_results(code))
+
+
+## This week's changes to your side, as a team sheet reads them:
+## {"ins": [{"id", "for", "note"}], "outs": [{"id", "why"}]}. An "in" is paired
+## with an "out" from the same line where there is one ("for"); "note" is
+## "debut" or "first game this season" when it is. Empty before your first
+## match.
+func week_changes() -> Dictionary:
+	var out := {"ins": [], "outs": []}
+	if last_side.is_empty() or season == null:
+		return out
+	var side := current_side()
+	var now := {}
+	for k in side:
+		for id in side[k]:
+			now[str(id)] = true
+	var was := {}
+	for id in last_side:
+		was[str(id)] = true
+	var outs := []
+	for id in last_side:
+		if not now.has(str(id)):
+			var p := list_player(str(id))
+			if p.is_empty():
+				continue  # traded or delisted since
+			var why := "omitted"
+			var wks := int(p.get("injury_weeks", 0))
+			if wks > 0:
+				why = "injured, %s" % ("1 wk" if wks == 1 else "%d wks" % wks)
+			elif bool(p.get("rested", false)):
+				why = "rested"
+			outs.append({"id": str(id), "why": why, "role": str(p.get("role", ""))})
+	var free := outs.duplicate()
+	for id in now:
+		if was.has(id):
+			continue
+		var p := list_player(id)
+		var pair := {}
+		for o in free:
+			if str(o["role"]) == str(p.get("role", "")):
+				pair = o
+				break
+		if pair.is_empty() and not free.is_empty():
+			pair = free[0]
+		free.erase(pair)
+		(out["ins"] as Array).append({"id": id, "for": str(pair.get("id", "")), "note": games_note(p)})
+	for o in outs:
+		(out["outs"] as Array).append({"id": o["id"], "why": o["why"]})
+	return out
+
+
+## "debut" for a player about to play his first senior game, "first game this
+## season" for one yet to play this year (after round 1), else "".
+func games_note(p: Dictionary) -> String:
+	var this_year := int((season_tally.get(str(p.get("id", "")), {}) as Dictionary).get("games", 0))
+	if this_year > 0:
+		return ""
+	var c := Career.of(p)
+	if int(c.get("games", 0)) == 0 and (c.get("unknown", []) as Array).is_empty():
+		return "debut"
+	if season != null and season.round_index > 0:
+		return "first game this season"
+	return ""
+
+
+## The team sheet line: "Ins: Jack Viney (for Ed Richards). Outs: Ed Richards
+## (injured, 2 wks)." "" when the side is unchanged or has not played yet.
+func week_changes_text() -> String:
+	var ch := week_changes()
+	var bits := PackedStringArray()
+	var ins := PackedStringArray()
+	for i in ch["ins"]:
+		var extra := PackedStringArray()
+		if str(i["note"]) != "":
+			extra.append(str(i["note"]))
+		if str(i["for"]) != "":
+			extra.append("for " + GameDB.player_display_name(list_player(str(i["for"]))))
+		var name := GameDB.player_display_name(list_player(str(i["id"])))
+		ins.append(name + (" (%s)" % ", ".join(extra) if not extra.is_empty() else ""))
+	var outs := PackedStringArray()
+	for o in ch["outs"]:
+		outs.append("%s (%s)" % [GameDB.player_display_name(list_player(str(o["id"]))), str(o["why"])])
+	if not ins.is_empty():
+		bits.append("Ins: " + ", ".join(ins) + ".")
+	if not outs.is_empty():
+		bits.append("Outs: " + ", ".join(outs) + ".")
+	return " ".join(bits)
 
 
 ## Who in a side makes a game plan work, and how they compare with the
@@ -3051,6 +3142,9 @@ func _note_form_and_team(res: Dictionary) -> void:
 	if roster.size() <= side:
 		return
 	var players: Dictionary = res.get("players", {})
+	last_side = []
+	for r in roster[side]:
+		last_side.append(str(r["id"]))
 	for r in roster[side]:
 		var id := str(r["id"])
 		var f: Dictionary = form_log.get(id, {"last": [], "sum": 0, "n": 0})

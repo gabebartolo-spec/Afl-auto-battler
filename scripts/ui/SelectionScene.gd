@@ -84,6 +84,13 @@ func _build() -> void:
 	_root.add_child(_scroll_box)
 	_restore_scroll.call_deferred(keep)
 	body.add_child(_this_week())
+	# The team sheet: who is in and out since your last match, and why.
+	var changes := GameState.week_changes_text()
+	if changes != "":
+		body.add_child(UiKit.spacer(6))
+		var ch := _para(changes, 14, UiKit.TEXT)
+		ch.name = "TeamChanges"
+		body.add_child(ch)
 	var side := GameState.current_side()
 	var placed := {}
 	var sel := GameState.my_selection()
@@ -400,7 +407,13 @@ func _this_week() -> Control:
 		v.add_child(UiKit.spacer(4))
 	for f in people:
 		v.add_child(_para(str(f["text"]), 13, UiKit.MUTED))
+	# A key player already on the team sheet's outs is said there, once.
+	var sheet_outs := {}
+	for o in GameState.week_changes()["outs"]:
+		sheet_outs[str(o["id"])] = true
 	for f in own:
+		if sheet_outs.has(str(f.get("player_id", ""))):
+			continue
 		v.add_child(_para(str(f["text"]), 13, UiKit.BAD))
 	var style := GameState.their_style(code)
 	var usual := GameState.usual_plan(code)
