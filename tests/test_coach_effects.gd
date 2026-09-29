@@ -74,6 +74,8 @@ func _test_tactics() -> void:
 	var sq2 := Squad.new("SYD", GameDB.club_list("SYD"), false, "SYD")
 	var sim := MatchSim.new(sq, sq2, 11)
 	sim.set_tactics(0, {"gameplan": "attacking"})
+	# An average list for the plan, so only the coaching moves it (PlanFit).
+	sim.plan_fit[0]["attacking"] = 1.0
 	var base := sim._pv(0, "goal")
 	sq.tactics_exec = 1.15
 	var sharp := sim._pv(0, "goal")
@@ -123,7 +125,7 @@ func _test_tactics() -> void:
 	var sharp_plan := str(r3.ai_tactics(0)["gameplan"])
 	(r3.squads[0] as Squad).tactics_read = -0.75
 	var slow_plan := str(r3.ai_tactics(0)["gameplan"])
-	_check(sharp_plan == "controlled" and slow_plan == "balanced",
+	_check(sharp_plan == "controlled" and slow_plan == str(r3.standing[0]),
 			"Two goals up: a sharp coach shuts it down, a poor one has not noticed (%s / %s)" % [sharp_plan, slow_plan])
 
 

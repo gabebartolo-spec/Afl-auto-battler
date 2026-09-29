@@ -23,6 +23,12 @@ var at_centre := true
 var kick_in := false         # the next chain is a kick-in after a behind
 const GOAL_SQUARE_DEPTH := 9.0  # metres; kick-ins are taken from inside it
 var tactics := [{}, {}]      # per side: gameplan, focus_id, tag_id, pep
+## How well each side's match-day players suit each plan (PlanFit): the
+## plan's upside is scaled by it, its costs are not.
+var plan_fit := [{}, {}]
+## The plan each side's list suits as its usual game (PlanFit.standing_plan):
+## where an AI club starts, and what it goes back to.
+var standing := ["balanced", "balanced"]
 # Assistant-coach audit trail. Snapshots never touch the RNG, so calibration
 # is unaffected. tactics_history[q] records the plans in force for that
 # quarter; quarter_teams[q] records the cumulative team totals afterwards.
@@ -94,6 +100,9 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	stat_rng.seed = seed * 11 + 5
 	for side in range(2):
 		synergies[side] = Traits.active((squads[side] as Squad).ground)
+		standing[side] = PlanFit.standing_plan((squads[side] as Squad).ground)
+		for plan in PlanFit.NEEDS:
+			(plan_fit[side] as Dictionary)[plan] = PlanFit.fit((squads[side] as Squad).ground, plan)
 		for p in (squads[side] as Squad).ground:
 			energy[str(p["id"])] = _start_energy(p)
 			_played[side][str(p["id"])] = true
@@ -126,6 +135,14 @@ func set_tactics(side: int, t: Dictionary) -> void:
 ## exposed (their conversion when you turn it over), gain (metres),
 ## clangers, press (pressure you apply), taken (pressure you take),
 ## contest (stoppage win), pace (how fast legs go).
+## What each plan gains (scaled by how well the list suits it, PlanFit); the
+## rest of its keys are what it gives up.
+const PLAN_UPSIDE := {
+	"attacking": ["goal", "gain"], "fast": ["goal", "gain"],
+	"defensive": ["press", "opp_goal"], "press": ["press", "opp_goal"],
+	"contest": ["contest"],
+	"controlled": ["taken", "clangers", "goal", "pace"],
+}
 const PLANS := {
 	"attacking": {"goal": 1.10, "gain": 1.12, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
 	"fast": {"goal": 1.10, "gain": 1.12, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
@@ -139,9 +156,15 @@ const PLANS := {
 ## A plan's value, as this side's coaching executes it: a sharp tactical
 ## group gets more out of the plan (and pays more of its cost), a weak one
 ## less of both (Squad.tactics_exec, 1.0 = as written).
+## The upside of a plan also grows with how well the players suit it
+## (PlanFit); what it gives up does not.
 func _pv(side: int, key: String, fallback := 1.0) -> float:
-	var v := float((PLANS.get(_plan(side), {}) as Dictionary).get(key, fallback))
-	return fallback + (v - fallback) * float((squads[side] as Squad).tactics_exec)
+	var plan := _plan(side)
+	var v := float((PLANS.get(plan, {}) as Dictionary).get(key, fallback))
+	var scale := float((squads[side] as Squad).tactics_exec)
+	if (PLAN_UPSIDE.get(plan, []) as Array).has(key):
+		scale *= float((plan_fit[side] as Dictionary).get(plan, 1.0))
+	return fallback + (v - fallback) * scale
 
 
 ## Pressure multiplier `side` faces from the opposition's plan, counters in.
@@ -173,10 +196,8 @@ func _tag_id(side: int) -> String:
 ## How much of the ball the player `side` tags still gets: less when a
 ## tagger (Roles) is on the ground to do the job.
 func _tag_share(side: int) -> float:
-	for p in (squads[side] as Squad).ground:
-		if Roles.is_tagger(p):
-			return Roles.TAG_WITH_TAGGER
-	return Roles.TAG_PLAIN
+	var t = tagger_for((squads[side] as Squad).ground)
+	return Roles.TAG_WITH_TAGGER if t != null and Roles.is_tagger(t) else Roles.TAG_PLAIN
 
 
 # ---------------------------------------------------------------------------
@@ -340,7 +361,7 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String) -> float:
 		out *= 1.10
 	if purpose == "clearance" and _trait(p, "bull"):
 		out *= 1.15
-	if id == _tag_id(1 - side) and (carrying or purpose == "shooter"):
+	if id == _tag_id(1 - side) and taggable(p) and (carrying or purpose == "shooter"):
 		out *= _tag_share(1 - side)
 	if _plan(side) == "through_stars" and int(p["overall"]) >= 82:
 		out *= 1.2
@@ -1969,42 +1990,56 @@ const COUNTERS := {"attacking": "defensive", "fast": "defensive", "defensive": "
 		"through_stars": "defensive"}
 
 
-## The opposition's plan for the coming quarter: protect a big lead, chase a
-## big deficit, and counter a plan you have run two quarters in a row. From
-## half time it tags your most influential player.
-## A sharper tactical group (Squad.tactics_read) reacts to a smaller margin,
-## counters a plan after one quarter rather than two, and tags from half
-## time; a poor one reacts late and never reads the counter.
+## The opposition's plan for the coming quarter: its usual game (the plan
+## its list suits, PlanFit.standing_plan), protecting a big lead or chasing
+## a big deficit. It does not read and counter your plan. From half time it
+## tags your most influential midfielder.
+## A sharper tactical group (Squad.tactics_read) reacts to a smaller margin
+## and tags from half time rather than the last quarter.
 func ai_tactics(side: int) -> Dictionary:
 	var opp := 1 - side
 	var read := float((squads[side] as Squad).tactics_read)
 	var margin := score(side) - score(opp)
 	var react := 18.0 - 8.0 * read
-	var plan := "balanced"
+	var plan := str(standing[side])
 	if margin >= react:
 		plan = "controlled"
 	elif margin <= -react:
 		plan = "attacking"
-	var n := tactics_history.size()
-	var needs := 1 if read >= 0.4 else 2
-	if read > -0.5 and n >= needs:
-		var last := str(((tactics_history[n - 1]["plans"] as Array)[opp] as Dictionary).get("gameplan", "balanced"))
-		var same := true
-		if needs == 2:
-			same = last == str(((tactics_history[n - 2]["plans"] as Array)[opp] as Dictionary).get("gameplan", "balanced"))
-		if same and COUNTERS.has(last):
-			plan = str(COUNTERS[last])
 	var t := {"gameplan": plan, "pep": "fire_up" if margin <= -12 and current_quarter >= 3 else "steady"}
 	if current_quarter >= (2 if read >= 0.4 else 3):
 		var best := ""
 		var best_inf := -1.0
 		for p in (squads[opp] as Squad).ground:
+			if not taggable(p):
+				continue
 			var inf := CoachReport.influence(player_stats.get(str(p["id"]), {}))
 			if inf > best_inf:
 				best_inf = inf
 				best = str(p["id"])
-		t["tag_id"] = best
+		if best != "":
+			t["tag_id"] = best
 	return t
+
+
+## A tag is a midfield job: only a midfielder (centre or wing) can be tagged.
+static func taggable(p: Dictionary) -> bool:
+	return str(p.get("role", "")) == "MID"
+
+
+## Who goes to the player `side` tags: its tagger if one is on the ground,
+## otherwise the midfielder with the most pressure in his game. null with no
+## midfielder on the ground.
+static func tagger_for(ground: Array):
+	var best = null
+	for p in ground:
+		if str(p.get("role", "")) != "MID":
+			continue
+		if Roles.is_tagger(p):
+			return p
+		if best == null or float(p["attr"]["pressure"]) > float(best["attr"]["pressure"]):
+			best = p
+	return best
 
 
 ## The counter to a plan, for the coach box hint ("" when there is none).

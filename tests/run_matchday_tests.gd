@@ -68,13 +68,15 @@ func _phone_match(sz: Vector2i) -> void:
 	_check(tag_choices.size() >= 3 and tag_choices.size() <= 6, "Tag shows a few players, not a wall (%d, %s)" % [tag_choices.size(), tag])
 	var tag_other: Button = tag_box.find_child("TagPickerOther", true, false)
 	_check(tag_other != null, "Every tag_other player is a tap away (%s)" % tag)
-	var opp_side: Array = m.get("_res")["roster"][1 - int(m.get("_my_side"))]
+	# A tag is a midfield job: the list is their midfielders on the ground.
+	var opp_side: Array = (m.get("_res")["roster"][1 - int(m.get("_my_side"))] as Array).filter(
+			func(r): return str(r["role"]) == "MID")
 	if tag_other != null:
 		tag_other.emit_signal("pressed")
 		await _settle()
 		var sheet: Node = m.find_child("PlayerSheet", true, false)
 		_check(sheet != null and sheet.find_children("Sheet_*", "Button", true, false).size() == opp_side.size(),
-				"The full list has their whole side on the ground (%s)" % tag)
+				"The full list has every one of their midfielders (%s)" % tag)
 		var backed: bool = m.call("handle_back")
 		await _settle()
 		_check(backed and m.find_child("PlayerSheet", true, false) == null

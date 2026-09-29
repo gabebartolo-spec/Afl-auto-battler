@@ -475,11 +475,13 @@ func _show_coach_box() -> void:
 	var plan_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	plan_note.name = "PlanNote"
 	plan_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var my_ground: Array = (sim.squads[_my_side] as Squad).ground
 	var sync_note := func(key: String) -> void:
 		var t := CoachReport.plan_summary(key)
-		# The rule for a plan you keep running: its counter is on the list.
-		if q >= 2 and key == my_last and key != "balanced" and MatchSim.counter_to(key) != "":
-			t += " Run it again and they may counter with %s." % CoachReport.plan_label(MatchSim.counter_to(key))
+		# Who makes it work: the plan's upside rests on them (PlanFit).
+		var fit := GameState.plan_fit_line(my_ground, key)
+		if fit != "":
+			t += " " + fit
 		plan_note.text = t
 	var plan := _choice_grid("PlanPicker", GAMEPLANS, calls, "gameplan", 2 if narrow else 3, sync_note)
 	v.add_child(_call_block("Gameplan", plan))
@@ -487,20 +489,21 @@ func _show_coach_box() -> void:
 	sync_note.call(str(calls["gameplan"]))
 
 	# Tag: their most influential so far first, anyone on the ground a tap away.
-	var opp := _roster_side(1 - _my_side)
+	# A tag is a midfield job: only their midfielders can be tagged.
+	var opp := _roster_side(1 - _my_side).filter(func(r): return MatchSim.taggable(r))
 	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, 4), calls, "tag_id",
-			"Tag which player?")
+			"Tag which midfielder?")
 	v.add_child(_call_block("Tag", tag))
-	# Who you have for the job - a fact, not advice (Roles: a tagger makes
-	# a tag bite harder).
-	var tagger := ""
-	for p in (sim.squads[_my_side] as Squad).ground:
-		if Roles.is_tagger(p):
-			tagger = GameDB.player_display_name(p)
-			break
-	var tag_note := UiKit.lbl("Your tagger on the ground: %s." % tagger if tagger != ""
-			else "No tagger on the ground.", UiKit.SMALL, UiKit.MUTED)
+	# Who goes to him - a fact, not advice (Roles: a tagger makes a tag bite
+	# harder than a midfielder doing the job).
+	var tagger = MatchSim.tagger_for(my_ground)
+	var tag_text := "No midfielder on the ground to tag with."
+	if tagger != null:
+		tag_text = ("%s, your tagger, goes to him." if Roles.is_tagger(tagger)
+				else "No specialist tagger on the ground: %s goes to him.") % GameDB.player_display_name(tagger)
+	var tag_note := UiKit.lbl(tag_text, UiKit.SMALL, UiKit.MUTED)
 	tag_note.name = "TagNote"
+	tag_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(tag_note)
 
 	# The rest of the calls, one tap away: the plan and the tag are the
@@ -976,8 +979,8 @@ func _apply_quarter_tactics(t: Dictionary) -> void:
 	var sim: MatchSim = GameState.pending_sim
 	sim.set_tactics(_my_side, t)
 	sim.set_rotation_policy(_my_side, str(t.get("rotation", _rotation)))
-	# The rival coach protects a lead, chases a deficit, counters a plan you
-	# keep running, and tags your best player after half time.
+	# The rival coach plays its usual game, protects a lead, chases a
+	# deficit, and tags your best midfielder after half time.
 	sim.set_tactics(1 - _my_side, sim.ai_tactics(1 - _my_side))
 
 

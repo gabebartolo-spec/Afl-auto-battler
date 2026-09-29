@@ -271,17 +271,30 @@ func _test_impact_and_ai() -> void:
 	var lines := CoachReport.impact_lines(imp, [{}, {}], 0)
 	_check(not lines.is_empty() and str(lines[0]["label"]).begins_with("Your")
 			or str(lines[0]["label"]).begins_with("Their"), "The readout names what the points came from")
-	# The rival coach reads a plan you keep running.
+	# The rival coach plays its usual game and reacts to the scoreboard; it
+	# does not read and counter the plan you keep running.
 	var live := _sim(901)
 	for q in range(2):
 		live.set_tactics(0, {"gameplan": "attacking"})
 		live.set_tactics(1, {"gameplan": "balanced"})
 		live.run_quarter()
-	_check(str(live.ai_tactics(1)["gameplan"]) == "defensive",
-			"Run Attack corridor twice and the rival coach presses")
+	var margin := live.score(1) - live.score(0)
+	var expect := str(live.standing[1])
+	var react := 18.0 - 8.0 * float((live.squads[1] as Squad).tactics_read)
+	if margin >= react:
+		expect = "controlled"
+	elif margin <= -react:
+		expect = "attacking"
+	_check(str(live.ai_tactics(1)["gameplan"]) == expect,
+			"Run Attack corridor twice: the rival coach keeps its usual game or plays the scoreboard (%s)" % expect)
 	live.set_tactics(0, {"gameplan": "controlled"})
 	live.run_quarter()
-	_check(live.ai_tactics(1).has("tag_id"), "After half time the rival coach tags your best player")
+	var tagged := str(live.ai_tactics(1).get("tag_id", ""))
+	var tagged_mid := false
+	for p in (live.squads[0] as Squad).ground:
+		if str(p["id"]) == tagged:
+			tagged_mid = MatchSim.taggable(p)
+	_check(tagged != "" and tagged_mid, "After half time the rival coach tags one of your midfielders")
 	# A tired star can be rested.
 	var tired := _sim(902)
 	tired.moment_side = 0
