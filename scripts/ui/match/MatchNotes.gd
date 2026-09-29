@@ -225,6 +225,88 @@ static func _standout(res: Dictionary, now: Dictionary, was: Dictionary, side: i
 	return "%s is hurting you: %s this quarter." % [who, " and ".join(bits)]
 
 
+## What your calls did in quarter q, one line each, against the quarter
+## before where there is one: the stat each call is about, in its own words,
+## so a problem at the break and the call you answered it with read the same.
+## Facts only - never whether it was the right call.
+static func calls_lines(res: Dictionary, my_side: int, q: int) -> Array:
+	var hist: Array = res.get("tactics_history", [])
+	var snaps: Array = res.get("quarter_teams", [])
+	if q < 1 or snaps.size() < q:
+		return []
+	var calls: Dictionary = {}
+	for h in hist:
+		if int(h.get("quarter", 0)) == q:
+			calls = ((h["plans"] as Array)[my_side] as Dictionary)
+	if calls.is_empty():
+		return []
+	var opp := 1 - my_side
+	var now: Dictionary = snaps[q - 1]
+	var was: Dictionary = snaps[q - 2] if q >= 2 else {}
+	var before: Dictionary = snaps[q - 3] if q >= 3 else {}
+	var mine := _team_delta(now, was, my_side)
+	var theirs := _team_delta(now, was, opp)
+	var p_mine := _team_delta(was, before, my_side) if q >= 2 else {}
+	var p_theirs := _team_delta(was, before, opp) if q >= 2 else {}
+	var prev := (" in the %s" % QUARTER_NAMES[q - 2]) if q >= 2 else ""
+	var n := func(d: Dictionary, k: String) -> int: return int(d.get(k, 0.0))
+	var out := []
+	var plan := str(calls.get("gameplan", "balanced"))
+	var label := CoachReport.plan_label(plan)
+	match plan:
+		"attacking", "fast":
+			out.append(("%s: %d inside 50s and %s" % [label, n.call(mine, "inside50"), _goals_word(n.call(mine, "goals"))])
+					+ ((", from %d and %d%s." % [n.call(p_mine, "inside50"), n.call(p_mine, "goals"), prev]) if q >= 2 else "."))
+		"defensive", "press":
+			out.append(("%s: they had %d inside 50s and kicked %s" % [label, n.call(theirs, "inside50"), _goals_word(n.call(theirs, "goals"))])
+					+ ((", from %d and %d%s." % [n.call(p_theirs, "inside50"), n.call(p_theirs, "goals"), prev]) if q >= 2 else "."))
+		"contest":
+			out.append(("%s: clearances %d to %d" % [label, n.call(mine, "clearances"), n.call(theirs, "clearances")])
+					+ ((", from %d to %d%s." % [n.call(p_mine, "clearances"), n.call(p_theirs, "clearances"), prev]) if q >= 2 else "."))
+		"controlled":
+			out.append(("%s: %d clangers" % [label, n.call(mine, "clangers")])
+					+ ((", from %d%s." % [n.call(p_mine, "clangers"), prev]) if q >= 2 else "."))
+		"through_stars":
+			var stars := _stars_disposals(res, now, was, my_side)
+			if stars >= 0:
+				out.append(("%s: your stars had %d disposals" % [label, stars])
+						+ ((", from %d%s." % [_stars_disposals(res, was, before, my_side), prev]) if q >= 2 else "."))
+	for key in [["tag_id", "Tag on %s: %d disposal%s", opp], ["focus_id", "Through %s: %d disposal%s", my_side]]:
+		var id := str(calls.get(key[0], ""))
+		if id == "":
+			continue
+		var d_now := _player_delta(now, was, id, "disposals")
+		var line := str(key[1]) % [GameDB.player_display_name_by_id(id, "him"), d_now, "" if d_now == 1 else "s"]
+		if q >= 2:
+			line += ", from %d%s" % [_player_delta(was, before, id, "disposals"), prev]
+		out.append(line + ".")
+	return out
+
+
+static func _goals_word(g: int) -> String:
+	return "no goals" if g == 0 else ("1 goal" if g == 1 else "%d goals" % g)
+
+
+static func _player_delta(now: Dictionary, was: Dictionary, id: String, key: String) -> int:
+	var a: Dictionary = (now.get("players", {}) as Dictionary).get(id, {})
+	var b: Dictionary = {} if was.is_empty() else (was.get("players", {}) as Dictionary).get(id, {})
+	return int(float(a.get(key, 0.0)) - float(b.get(key, 0.0)))
+
+
+## Disposals by your 82-and-up players between two snapshots (-1: none).
+static func _stars_disposals(res: Dictionary, now: Dictionary, was: Dictionary, side: int) -> int:
+	var roster: Array = res.get("roster", [[], []])
+	if roster.size() <= side or now.is_empty():
+		return -1
+	var total := 0
+	var any := false
+	for p in roster[side]:
+		if int(p.get("overall", 0)) >= 82:
+			any = true
+			total += _player_delta(now, was, str(p["id"]), "disposals")
+	return total if any else -1
+
+
 ## How your tag went in quarter q: "Your tag on Walsh: 4 disposals, no goals."
 static func tag_line(res: Dictionary, my_side: int, q: int) -> String:
 	var hist: Array = res.get("tactics_history", [])
