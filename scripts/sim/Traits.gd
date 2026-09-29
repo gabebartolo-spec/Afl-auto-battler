@@ -199,6 +199,34 @@ static func requirement_text(key: String) -> String:
 	return "Requires %s %s." % [" and ".join(bits), where]
 
 
+## Who in a side carries each trait a synergy needs, in its line:
+## [[trait, [players]]] - the facts behind "On" or not, never a to-do list.
+static func carriers(key: String, ground: Array) -> Array:
+	var s: Dictionary = SYNERGIES.get(key, {})
+	if s.is_empty():
+		return []
+	var line := str(s["line"])
+	var out := []
+	for t in s["needs"]:
+		var names := []
+		for p in ground:
+			if line != "" and str(p.get("role", "")) != line:
+				continue
+			if of(p).has(str(t)):
+				names.append(p)
+		out.append([str(t), names])
+	return out
+
+
+## "Engine room (wins more of the stoppages)" - a synergy and what it does.
+static func with_effect(key: String) -> String:
+	var s: Dictionary = SYNERGIES.get(key, {})
+	var does := str(s.get("does", ""))
+	if does == "":
+		return label(key)
+	return "%s (%s)" % [label(key), does.trim_suffix(".").to_lower()]
+
+
 const PLURALS := {"lockdown": "Lockdown players", "big_game": "Big-game players"}
 
 
