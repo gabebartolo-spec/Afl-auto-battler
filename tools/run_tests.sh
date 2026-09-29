@@ -12,8 +12,9 @@
 #   - every suite has a floor in tests/expected_checks.txt; a suite that
 #     reports fewer checks fails ("checks went missing"), and a suite with no
 #     floor fails until one is added;
-#   - a check a suite skips on purpose prints "SKIP: <reason>", and the
-#     summary shows how many were skipped.
+#   - a check a suite skips on purpose prints one "SKIP: <reason>" line per
+#     check; skipped checks count towards the floor, and the summary shows
+#     how many were skipped.
 #
 #   GODOT=/path/to/godot tools/run_tests.sh          # default: godot on PATH
 #   SUITE_TIMEOUT=900 tools/run_tests.sh ai finals   # just some suites
@@ -86,7 +87,7 @@ for suite in "${SUITES[@]}"; do
 	skipped=$(grep -c "^SKIP:" "$log")
 	if [ "$status" = pass ] && [ -z "$floor" ]; then
 		status="FAIL"; detail="$result, but $EXPECTED_CHECKS has no floor for '$suite'"
-	elif [ "$status" = pass ] && [ -n "$ran" ] && [ "$ran" -lt "$floor" ]; then
+	elif [ "$status" = pass ] && [ -n "$ran" ] && [ $((ran + skipped)) -lt "$floor" ]; then
 		status="FAIL"; detail="$result, but only $ran of at least $floor checks ran: checks went missing"
 	fi
 	if [ "$skipped" -gt 0 ]; then

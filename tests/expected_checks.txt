@@ -25,10 +25,10 @@ matchday 295
 roles 130
 injuries 12
 awards 16
-achievements 155
+achievements 153
 contracts 20
 league 14
-club 93
+club 90
 match_game 122
 pressure 21
 match_visual 54
