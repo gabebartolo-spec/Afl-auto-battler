@@ -418,7 +418,8 @@ func _this_week() -> Control:
 	for f in own:
 		if sheet_outs.has(str(f.get("player_id", ""))):
 			continue
-		v.add_child(_para(str(f["text"]), 13, UiKit.BAD))
+		# Only an injury is bad news; a milestone is just marked.
+		v.add_child(_para(str(f["text"]), 13, UiKit.BAD if str(f.get("key", "")) == "own_injury" else UiKit.TEXT))
 	# Their key forwards and who goes to them: your call, in names.
 	var mus := GameState.week_matchups(code)
 	if not mus.is_empty():

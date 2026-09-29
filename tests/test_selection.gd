@@ -17,6 +17,7 @@ func run() -> void:
 	_test_gaps_and_overflow()
 	_test_left_out_player_sits_out()
 	_test_selection_saved()
+	_test_with_us_and_milestones()
 	GameState.delete_saved_career()
 	print("Selection tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -111,3 +112,38 @@ func _test_selection_saved() -> void:
 	_check(GameState.my_selection() == side, "The selection survives a save")
 	GameState.set_selection({})
 	_check(GameState.my_selection().is_empty(), "Auto-pick clears it")
+
+
+## The profile remembers what a player did for you; a milestone is marked the
+## week he reaches it.
+func _test_with_us_and_milestones() -> void:
+	_new_season()
+	var year: int = GameState.season_year
+	var id := str(GameState.current_side()["MID"][0])
+	var p := GameState.list_player(id)
+	p["career"] = {"games": 99, "goals": 30, "through": year - 1, "unknown": [],
+			"stints": [["COL", year - 8, year - 6, 40, 10], ["GEE", year - 5, year - 1, 59, 20]]}
+	GameState.honour_roll = [
+		{"year": year - 3, "my_club": "GEE", "premier": "GEE", "my_bf": [{"id": id}]},
+		{"year": year - 2, "my_club": "GEE", "premier": "SYD", "my_bf": [{"id": "someone"}]},
+	]
+	var w := GameState.with_us(p)
+	_check(int(w["games"]) == 59 and int(w["goals"]) == 20 and int(w["since"]) == year - 5,
+			"With us counts only his games for your club: %s" % str(w))
+	_check(GameState.with_us_text(p) == "With us since %d: 59 games, 20 goals. Best and fairest %d. Premiership %d." % [
+			year - 5, year - 3, year - 3], "With us in words: " + GameState.with_us_text(p))
+	var notes := GameState.milestone_notes()
+	var found := false
+	for n in notes:
+		if str(n["player_id"]) == id and str(n["text"]).ends_with("plays his 100th game."):
+			found = true
+	_check(found, "A player in the side on 99 games has his 100th marked: %s" % str(notes))
+	p["career"]["games"] = 97
+	var none := true
+	for n in GameState.milestone_notes():
+		if str(n["player_id"]) == id:
+			none = false
+	_check(none, "No milestone note on an ordinary week")
+	var stranger := {"id": "x", "career": {"games": 10, "goals": 1, "through": year - 1, "unknown": [],
+			"stints": [["SYD", year - 2, year - 1, 10, 1]]}}
+	_check(GameState.with_us_text(stranger) == "", "Nothing for someone who never played for you")

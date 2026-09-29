@@ -113,6 +113,16 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable()) 
 			for line in clubs:
 				v.add_child(UiKit.lbl(str(line), UiKit.SMALL, UiKit.MUTED))
 
+	# What he has done for your club: games, goals, best and fairests, flags.
+	if not GameState.list_player(str(p.get("id", ""))).is_empty():
+		var wu := GameState.with_us_text(p)
+		if wu != "":
+			v.add_child(UiKit.spacer(4))
+			var wl := UiKit.lbl(wu, UiKit.BODY, UiKit.TEXT)
+			wl.name = "ProfileWithUs"
+			wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(wl)
+
 	# The attributes behind the rating: the deepest layer, last.
 	v.add_child(UiKit.spacer(6))
 	v.add_child(UiKit.section("Attributes"))
