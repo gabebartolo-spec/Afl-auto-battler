@@ -1336,9 +1336,23 @@ Before the match, show only 3–4 high-signal observations such as:
 ---
 
 ## ARD-M4-009 — Match report / "why we won or lost"
-**Status:** `TODO`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P1`  
 **Autonomy:** `SAFE` once M2 data exists
+
+### Implementation record (2026-09-28, branch `claude/match-report`)
+- **Before:** at full time the Summary tab (result, how it went, best players, key numbers, your week) and a separate Report tab (match read, best, needs a lift, opposition danger, notes) answered the same question twice.
+- **After:** the Summary is the one coaching report, in this order:
+  - the result once, and what it means (finals, ladder, next opponent);
+  - "How it went": the 2 or 3 causal lines from the sim (`MatchNotes.match_factors`: a run of goals, a quarter that swung it, stoppages, territory);
+  - best players: your best three and their best one, with best on ground;
+  - "Needs a lift": 1 or 2 of yours only when genuinely quiet (at least 4 points under their usual);
+  - "Coaching notes": at most 2 from the assistant, observations only, nothing the lines above already say;
+  - four key numbers (disposals, inside 50s, clearances, pressure rating);
+  - your week.
+  - The Report tab is gone at full time. Stats keeps quarters, team and player stats. The half-time report is unchanged.
+- **Tests:** `run_matchday_tests.gd` checks two tabs and one report (no Report tab, no "Match read" or "Second-half notes" at full time). The existing summary checks (result, factors, best players, key stats) still pass.
+- **Screens:** the phone portrait (390x844) full-time Summary was reviewed. Stat lines read the same way in best players and needs a lift.
 
 Create **one** concise coaching report, not a compact report plus a giant full-report dump.
 

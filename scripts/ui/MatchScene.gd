@@ -1175,9 +1175,9 @@ func _on_finished() -> void:
 # ---------------------------------------------------------------------------
 # Full time
 # ---------------------------------------------------------------------------
-## Full time is one review with three tabs - Summary (home), Stats and the
-## half-time Report - and one way out: Continue. Back on Stats or Report
-## returns to Summary. Review match (Sim round) opens the same screen.
+## Full time is one review with two tabs - the Summary (the one coaching
+## report) and Stats - and one way out: Continue. Back on Stats returns to
+## Summary. Review match (Sim round) opens the same screen.
 func _show_fulltime() -> void:
 	var box := UiKit.modal_box(self, 640.0, 0.0)
 	var overlay: Control = box["overlay"]
@@ -1212,10 +1212,7 @@ func _show_fulltime() -> void:
 
 
 func _ft_tab_list() -> Array:
-	var tabs := [["summary", "Summary"], ["stats", "Stats"]]
-	if (_res.get("quarter_teams", []) as Array).size() >= 2:
-		tabs.append(["report", "Report"])
-	return tabs
+	return [["summary", "Summary"], ["stats", "Stats"]]
 
 
 func _render_ft() -> void:
@@ -1234,8 +1231,6 @@ func _render_ft() -> void:
 	match _ft_tab:
 		"stats":
 			_ft_stats(v)
-		"report":
-			_ft_report(v)
 		_:
 			_ft_summary(v)
 	var sc := v.get_parent() as ScrollContainer
@@ -1339,6 +1334,13 @@ func _ft_summary(v: VBoxContainer) -> void:
 		best_box.add_child(_standout_row(p, 1 - first, p == bog))
 	v.add_child(best_box)
 
+	# The coach's side of it: who needs a lift, and what to work on. Only
+	# for your match, and only what the result above does not already say.
+	if mine and (_res.get("quarter_teams", []) as Array).size() >= 2:
+		var g := CoachReport.glance(CoachReport.match_report(_res, me), true)
+		_glance_people(v, "Needs a lift", "ReportLift", g["lift"])
+		_glance_section(v, "Coaching notes", "ReportNotes", (g["notes"] as Array).slice(0, 2))
+
 	# A handful of numbers worth a glance; the full table is a tap away.
 	v.add_child(UiKit.spacer(UiKit.GAP))
 	v.add_child(_key_stats_view(me if mine else 0))
@@ -1434,16 +1436,6 @@ func _ft_stats(v: VBoxContainer) -> void:
 	if _interactive:
 		box.add_child(UiKit.spacer(UiKit.GAP))
 		box.add_child(_calls_view(0))
-
-
-## The Report tab: the assistant's report on the whole match. The numbers
-## behind it are on the Stats tab.
-func _ft_report(v: VBoxContainer) -> void:
-	var box := UiKit.vbox(6)
-	box.name = "ReviewReport"
-	v.add_child(box)
-	var report := CoachReport.match_report(_res, _my_side)
-	box.add_child(_report_glance(report, true))
 
 
 func _quarters_table() -> Control:

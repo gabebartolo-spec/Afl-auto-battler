@@ -680,7 +680,7 @@ static func glance(report: Dictionary, full_time := false) -> Dictionary:
 			var d: Dictionary = e
 			if keep.call(d):
 				out.append({"name": str(d.get("name", "Player")),
-						"line": MatchNotes.game_line(d.get("stats", {})).replace(", ", " · ")})
+						"line": MatchNotes.game_line(d.get("stats", {}))})
 		return out
 	var always := func(_d: Dictionary) -> bool: return true
 	# Only a genuinely quiet game needs a lift, not a par one.
