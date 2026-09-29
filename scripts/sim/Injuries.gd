@@ -1,9 +1,11 @@
 class_name Injuries
 extends RefCounted
-## Match injuries. Rolled after each game for the 18 who took the field -
-## outside MatchSim, so the engine's RNG and calibration are untouched - and
-## seeded by season, round and player, so a reloaded save replays the same
-## injuries. Durability finally matters: it scales the chance from about half
+## Match injuries. MatchSim rolls them during the match for everyone who
+## takes the field, from its own injury dice (so the match's play dice are
+## untouched): the player goes off at that point and the best bench player
+## comes on (MatchSim._check_injuries). apply_match() records them on the
+## lists afterwards. roll_match() is the older after-the-siren roll, seeded by
+## season, round and player, kept for a result with no injury record. Durability finally matters: it scales the chance from about half
 ## the base rate (99) to about 1.3x (low). An injured player carries
 ## injury_weeks and misses that many of his club's matches; everyone heals
 ## over the off-season.
@@ -52,15 +54,44 @@ static func roll_match(res: Dictionary, lists: Dictionary, season_seed: int, rou
 				continue
 			var rng := RandomNumberGenerator.new()
 			rng.seed = hash("inj|%d|%d|%s" % [season_seed, round_no, str(p["id"])])
-			if rng.randf() >= chance(p):
+			var inj := roll(rng, p)
+			if inj.is_empty():
 				continue
-			var weeks := _severity(rng)
-			var kind: String = KINDS[rng.randi_range(0, KINDS.size() - 1)]
-			if kind == "concussion":
-				weeks = maxi(weeks, CONCUSSION_MIN)
-			p["injury_weeks"] = weeks
-			p["injury_kind"] = kind
-			out.append({"id": str(p["id"]), "club": code, "weeks": weeks, "kind": kind})
+			p["injury_weeks"] = int(inj["weeks"])
+			p["injury_kind"] = str(inj["kind"])
+			out.append({"id": str(p["id"]), "club": code, "weeks": int(inj["weeks"]), "kind": str(inj["kind"])})
+	return out
+
+
+## One player's roll for one game: {} or {"weeks", "kind"}.
+static func roll(rng: RandomNumberGenerator, p: Dictionary) -> Dictionary:
+	if rng.randf() >= chance(p):
+		return {}
+	var weeks := _severity(rng)
+	var kind: String = KINDS[rng.randi_range(0, KINDS.size() - 1)]
+	if kind == "concussion":
+		weeks = maxi(weeks, CONCUSSION_MIN)
+	return {"weeks": weeks, "kind": kind}
+
+
+## After a match: record the injuries MatchSim says happened in it
+## (res["injuries"]) on the clubs' lists. Same shape as roll_match(). A result
+## without that record (an old save's) falls back to roll_match().
+static func apply_match(res: Dictionary, lists: Dictionary, season_seed: int, round_no: int) -> Array:
+	if not res.has("injuries"):
+		return roll_match(res, lists, season_seed, round_no)
+	var out := []
+	var codes := [str(res.get("home", "")), str(res.get("away", ""))]
+	for inj in res["injuries"]:
+		var code: String = codes[int(inj["side"])]
+		if not lists.has(code):
+			continue
+		for p in lists[code]:
+			if str(p["id"]) != str(inj["id"]) or int(p.get("injury_weeks", 0)) > 0:
+				continue
+			p["injury_weeks"] = int(inj["weeks"])
+			p["injury_kind"] = str(inj["kind"])
+			out.append({"id": str(p["id"]), "club": code, "weeks": int(inj["weeks"]), "kind": str(inj["kind"])})
 	return out
 
 

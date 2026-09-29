@@ -1031,6 +1031,7 @@ func _on_event(ev: Dictionary) -> void:
 	_track_momentum(ev)
 	_feed_add(ev)
 	_duel_feed(ev)
+	_story_feed(ev)
 	if str(ev.get("kind", "")) == "goal":
 		_flash_score(int(ev.get("side", 0)))
 		_track_run(int(ev.get("side", 0)))
@@ -1755,6 +1756,14 @@ func _show_break_matchup(sim: MatchSim, fid: String, line: Label, q: int) -> voi
 		_matchup_overlay.queue_free()
 		_matchup_overlay = null)
 	box["footer"].add_child(close)
+
+
+## Injuries and the odd turning point in the feed (MatchNotes.story_feed_line).
+func _story_feed(ev: Dictionary) -> void:
+	var text := MatchNotes.story_feed_line(_duel_mem, ev)
+	if text != "":
+		_feed_text("%s  %s" % [_clock_text(int(ev.get("q", 1)), int(ev.get("min", 0))), text],
+				UiKit.TEXT, false, "StoryLine")
 
 
 ## The battle in the feed, rarely (MatchNotes.duel_feed_line).

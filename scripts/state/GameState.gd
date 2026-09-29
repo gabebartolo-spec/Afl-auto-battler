@@ -1879,7 +1879,7 @@ func coleman_leaders(n := 5) -> Array:
 
 
 ## After a round: every club that played is a week closer to getting its
-## injured back, then this round's new injuries are rolled.
+## injured back, then this round's new injuries (from the matches) go on.
 func _process_injuries(results: Array) -> void:
 	if season == null:
 		return
@@ -1890,7 +1890,7 @@ func _process_injuries(results: Array) -> void:
 			if season.lists.has(code):
 				Injuries.tick(season.lists[code])
 	for res in results:
-		last_injuries += Injuries.roll_match(res, season.lists, season.seed,
+		last_injuries += Injuries.apply_match(res, season.lists, season.seed,
 				int(res.get("round", season.round_index)))
 
 

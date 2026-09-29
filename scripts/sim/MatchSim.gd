@@ -40,6 +40,21 @@ var duel_log := {}
 var duel_changes: Array = []
 ## The contest in play, attached to the score or rebound it produces.
 var _duel := {}
+## Injuries during the match (Injuries.roll per player, from injury_rng so
+## the play dice are untouched). Planned at the first bounce:
+## [{"side", "id", "q", "min", "weeks", "kind"}]; each happens when its
+## time comes and he is on the ground (_check_injuries).
+var injury_rng := RandomNumberGenerator.new()
+var _injury_plan: Array = []
+## The injuries that happened: [{"side", "id", "q", "min", "weeks", "kind",
+## "on"}] ("on": who came on for him, "" for none).
+var injuries: Array = []
+## Players gone off injured, per side; they take no further part.
+var injured_off := [[], []]
+## Who won the ball back for the chain being played ({"side", "id"}), so a
+## goal from a turnover can say whose intercept it came from.
+var _won_back := {}
+var _chain_from := {}
 # Assistant-coach audit trail. Snapshots never touch the RNG, so calibration
 # is unaffected. tactics_history[q] records the plans in force for that
 # quarter; quarter_teams[q] records the cumulative team totals afterwards.
@@ -109,6 +124,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	rng.seed = seed
 	moment_rng.seed = seed * 7 + 13
 	stat_rng.seed = seed * 11 + 5
+	injury_rng.seed = seed * 13 + 7
 	for side in range(2):
 		synergies[side] = Traits.active((squads[side] as Squad).ground)
 		standing[side] = PlanFit.standing_plan((squads[side] as Squad).ground)
@@ -120,6 +136,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 			_played[side][str(p["id"])] = true
 		for p in (squads[side] as Squad).bench:
 			energy[str(p["id"])] = _start_energy(p)
+	_plan_injuries()
 
 
 ## Legs at the first bounce: a heavy week on the track, or playing sore,
@@ -366,6 +383,10 @@ func _emit(kind: String, side: int, fp: float, actor, text: String) -> void:
 		"goals": [goals(0), goals(1)],
 		"behinds": [behinds(0), behinds(1)],
 	})
+	# A score from a turnover: whose intercept it came from.
+	if (kind == "goal" or kind == "behind") and not _chain_from.is_empty() \
+			and int(_chain_from["side"]) == side:
+		events[events.size() - 1]["from_id"] = str(_chain_from["id"])
 	# A named contest belongs to the score or rebound it produced.
 	if not _duel.is_empty() and ["goal", "behind", "rebound"].has(kind) and actor != null \
 			and [str(_duel["fwd"]), str(_duel["def"])].has(str(actor.get("id", ""))):
@@ -1048,6 +1069,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		q_goals[current_quarter - 1][side] += 1
 		_score_run(side)
 		_emit("goal", side, fp, shooter, _scoreline(side, "GOAL"))
+		events[events.size() - 1]["set"] = marked
 		_tag_shot(marked)
 		return {"outcome": "score", "fp": 0.0, "actor": shooter}
 	if roll < goal_p + behind_p:
@@ -1056,6 +1078,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		_scored(side, 1, shooter)
 		q_behinds[current_quarter - 1][side] += 1
 		_emit("behind", side, fp, shooter, _scoreline(side, "Behind"))
+		events[events.size() - 1]["set"] = marked
 		_tag_shot(marked)
 		return {"outcome": "behind", "fp": kick_in_fp(side), "actor": shooter}
 
@@ -1135,6 +1158,7 @@ func _intercept(side: int, who, could_mark: bool) -> void:
 		return
 	_t(side, "intercepts")
 	_p(who, "intercepts")
+	_won_back = {"side": side, "id": str(who.get("id", ""))}
 	if could_mark and stat_rng.randf() < 0.35 * (0.5 + _a(who, "intercept") / 100.0):
 		_t(side, "marks")
 		_p(who, "marks")
@@ -1498,6 +1522,8 @@ func _play_one_chain(T: Dictionary) -> void:
 	else:
 		chain_origin = "general"
 	_chain_touch = {}
+	_chain_from = _won_back if chain_origin == "turnover" else {}
+	_won_back = {}
 	var res := play_chain(side, start_fp, stoppage, from_kick_in)
 	var outcome: String = res["outcome"]
 	fp = res["fp"]
@@ -1561,6 +1587,7 @@ func rosters() -> Array:
 		for p in (sq as Squad).bench:
 			if _played[side].has(str(p["id"])):
 				on.append(p)
+		on.append_array(injured_off[side])
 		for p in on:
 			r.append({
 				"id": str(p["id"]), "num": int(p["num"]),
@@ -1607,6 +1634,7 @@ func result() -> Dictionary:
 		"duels": duel_log.duplicate(true),
 		"duel_changes": duel_changes.duplicate(true),
 		"matchups": duels.duplicate(true),
+		"injuries": injuries.duplicate(true),
 	}
 
 
@@ -1696,9 +1724,84 @@ func _after_chain() -> void:
 			if int(b[k]) <= 0:
 				b.erase(k)
 	_chain_no += 1
+	_check_injuries()
 	if _chain_no % ROTATE_EVERY == 0:
 		for side in range(2):
 			_auto_rotate(side)
+
+
+## Who will be hurt in this match, and when: one Injuries.roll per player
+## in the 22 (the same chance as the old after-the-siren roll), at a minute
+## of the four quarters.
+func _plan_injuries() -> void:
+	for side in range(2):
+		var sq: Squad = squads[side]
+		for p in sq.ground + sq.bench:
+			var inj := Injuries.roll(injury_rng, p)
+			if inj.is_empty():
+				continue
+			inj["side"] = side
+			inj["id"] = str(p["id"])
+			inj["at"] = injury_rng.randi_range(2, 118)
+			_injury_plan.append(inj)
+
+
+## An injury whose time has come: on the ground, he goes off for good and
+## the best bench player for his spot comes on (none left: he plays on
+## hurt). One resting on the bench who has played takes no further part; one
+## yet to come on is hurt when he does.
+func _check_injuries() -> void:
+	for inj in _injury_plan.duplicate():
+		if current_minute < int(inj["at"]):
+			continue
+		var side := int(inj["side"])
+		var sq: Squad = squads[side]
+		var id := str(inj["id"])
+		var gi := -1
+		for i in range(sq.ground.size()):
+			if str((sq.ground[i] as Dictionary)["id"]) == id:
+				gi = i
+		var bi := -1
+		for i in range(sq.bench.size()):
+			if str((sq.bench[i] as Dictionary)["id"]) == id:
+				bi = i
+		if gi < 0 and (bi < 0 or not _played[side].has(id)):
+			continue
+		_injury_plan.erase(inj)
+		var hurt: Dictionary = sq.ground[gi] if gi >= 0 else sq.bench[bi]
+		var on := ""
+		if gi >= 0:
+			var rep := _bench_for(side, str(hurt["role"]), 0.0)
+			if rep >= 0:
+				on = str((sq.bench[rep] as Dictionary)["id"])
+				_swap(side, gi, rep)
+				bi = rep
+		if bi >= 0 and str((sq.bench[bi] as Dictionary)["id"]) == id:
+			sq.bench.remove_at(bi)
+			(injured_off[side] as Array).append(hurt)
+		var rec := {"side": side, "id": id, "q": current_quarter, "min": current_minute,
+				"weeks": int(inj["weeks"]), "kind": str(inj["kind"]), "on": on}
+		injuries.append(rec)
+		_emit("injury", side, fp, hurt, "%s is injured (%s)" % [GameDB.player_display_name(hurt), str(inj["kind"])])
+		events[events.size() - 1]["on"] = on
+		_refill_duel(side, id)
+
+
+## A matched defender gone off hurt: the next defender on the ground in the
+## default order takes his forward (not recorded as a coach's change).
+func _refill_duel(def_side: int, gone: String) -> void:
+	var d: Dictionary = duels[def_side]
+	for fid in d.keys():
+		if str(d[fid]) != gone:
+			continue
+		var used := {}
+		for f in d:
+			used[str(d[f])] = true
+		d.erase(fid)
+		for p in Matchups.defenders((squads[def_side] as Squad).ground):
+			if not used.has(str(p["id"])):
+				d[fid] = str(p["id"])
+				break
 
 
 ## One interchange per check: the most tired player past his policy's line
@@ -2117,6 +2220,7 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 		q_goals[current_quarter - 1][side] += 1
 		_score_run(side)
 		_emit("goal", side, fp, kicker, _scoreline(side, "GOAL"))
+		events[events.size() - 1]["set"] = true
 		_tag_shot(true)
 		_end_moment_chain("score", 0.0, side)
 		return {"points": 6, "text": "GOAL to %s!" % GameDB.player_display_name(kicker)}
@@ -2126,6 +2230,7 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 		_scored(side, 1, kicker)
 		q_behinds[current_quarter - 1][side] += 1
 		_emit("behind", side, fp, kicker, _scoreline(side, "Behind"))
+		events[events.size() - 1]["set"] = true
 		_tag_shot(true)
 		_end_moment_chain("behind", kick_in_fp(side), side)
 		return {"points": 1, "text": "Just a behind from %s." % GameDB.player_display_name(kicker)}

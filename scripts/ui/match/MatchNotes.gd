@@ -377,6 +377,10 @@ static func match_factors(res: Dictionary, my_side: int) -> Array:
 	var t_me: Dictionary = team[my_side] if team.size() > my_side else {}
 	var t_op: Dictionary = team[opp] if team.size() > opp else {}
 
+	# The turning points first: the score that put the winners in front for
+	# good, a star lost to injury, a late miss in a close loss.
+	out.append_array(turning_points(res, my_side))
+
 	# 1. The run that decided it: four or more goals in a row.
 	var run := _longest_run(res.get("events", []))
 	if int(run["len"]) >= 4:
@@ -764,3 +768,108 @@ static func duel_feed_line(mem: Dictionary, ev: Dictionary) -> String:
 	per_q[q] = int(per_q.get(q, 0)) + 1
 	mem["per_q"] = per_q
 	return text
+
+
+## The match's other turning points in the feed, from the log: a player going
+## off hurt (always), a goal from an intercept that takes or levels the
+## lead, and a missed set shot in a close last quarter. At most one of each
+## and MAX_STORY_LINES of them a quarter, so quiet games stay quiet. "" to
+## leave it to the oval.
+const MAX_STORY_LINES := 2
+const CLOSE_MISS := 6
+
+static func story_feed_line(mem: Dictionary, ev: Dictionary) -> String:
+	var kind := str(ev.get("kind", ""))
+	var who := str(ev.get("name", ""))
+	var club := GameDB.club_short(str(ev.get("club", "")))
+	if kind == "injury":
+		var on := str(ev.get("on", ""))
+		var hurt := "%s (%s) is hurt and won't return" % [who, club]
+		if on != "":
+			return "%s: %s comes on." % [hurt, _pname(on)]
+		return hurt + "."
+	var text := ""
+	var side := int(ev.get("side", 0))
+	var score: Array = ev.get("score", [0, 0])
+	var line_kind := ""
+	# A goal from an intercept that takes the lead or levels it.
+	if kind == "goal" and ev.has("from_id") and str(ev["from_id"]) != str(ev.get("player_id", "")):
+		var before := int(score[side]) - 6
+		if int(score[side]) >= int(score[1 - side]) and before <= int(score[1 - side]):
+			text = "From %s's intercept." % _pname(str(ev["from_id"]))
+			line_kind = "intercept"
+	elif kind == "behind" and bool(ev.get("set", false)) and int(ev.get("q", 1)) >= 4 and who != "":
+		var gap := int(score[1 - side]) - int(score[side])
+		if gap >= 0 and gap <= CLOSE_MISS:
+			text = "%s misses a set shot: %s." % [who,
+					"scores level" if gap == 0 else "%s still %d down" % [club, gap]]
+			line_kind = "miss"
+	if text == "":
+		return ""
+	var q := int(ev.get("q", 1))
+	var per_q: Dictionary = mem.get("story_q", {})
+	var key := "%d|%s" % [q, line_kind]
+	if int(per_q.get(q, 0)) >= MAX_STORY_LINES or per_q.has(key):
+		return ""
+	per_q[q] = int(per_q.get(q, 0)) + 1
+	per_q[key] = true
+	mem["story_q"] = per_q
+	return text
+
+
+## The moments a match turned on, from the log, as sentences: the score
+## that put the winners in front for good (when they had been behind or
+## level after the first quarter), a star who went off hurt before the last
+## quarter, and your missed set shot late in a close loss. [] for a match
+## that never turned.
+static func turning_points(res: Dictionary, my_side: int) -> Array:
+	var out := []
+	var events: Array = res.get("events", [])
+	var codes := [str(res.get("home", "")), str(res.get("away", ""))]
+	var score: Array = res.get("score", [0, 0])
+	var winner := -1 if int(score[0]) == int(score[1]) else (0 if int(score[0]) > int(score[1]) else 1)
+	if winner >= 0:
+		var took: Dictionary = {}
+		var was_ahead := false
+		for ev in events:
+			var kind := str(ev.get("kind", ""))
+			if kind != "goal" and kind != "behind":
+				continue
+			var sc: Array = ev.get("score", [0, 0])
+			var ahead := int(sc[winner]) > int(sc[1 - winner])
+			if ahead and not was_ahead:
+				took = ev
+			was_ahead = ahead
+		if not took.is_empty() and int(took.get("q", 1)) >= 2 and int(took.get("q", 1)) <= 4 \
+				and str(took.get("name", "")) != "":
+			out.append("%s's %s %s put %s in front for good." % [str(took["name"]), str(took["kind"]),
+					_when(took), GameDB.club_name(codes[winner])])
+	var overall := {}
+	for side in range(2):
+		for r in (res.get("roster", [[], []]) as Array)[side]:
+			overall[str(r["id"])] = int(r.get("overall", 0))
+	for inj in res.get("injuries", []):
+		if int(inj.get("q", 4)) >= 4 or int(overall.get(str(inj["id"]), 0)) < MatchSim.STAR_OVR:
+			continue
+		var whose := "You" if int(inj["side"]) == my_side else GameDB.club_name(codes[int(inj["side"])])
+		out.append("%s lost %s to a %s in the %s quarter." % [whose, _pname(str(inj["id"])),
+				str(inj.get("kind", "injury")), QUARTER_NAMES[int(inj["q"]) - 1]])
+		break
+	if winner != my_side and absi(int(score[0]) - int(score[1])) <= CLOSE_MISS:
+		for ev in events:
+			if str(ev.get("kind", "")) == "behind" and int(ev.get("side", -1)) == my_side \
+					and bool(ev.get("set", false)) and int(ev.get("q", 1)) == 4 \
+					and int(ev.get("min", 0)) - 90 >= 20 and str(ev.get("name", "")) != "":
+				out.append("%s missed a set shot late in the last quarter." % str(ev["name"]))
+				break
+	return out
+
+
+## "12 minutes into the last quarter", "early in the second quarter".
+static func _when(ev: Dictionary) -> String:
+	var q := int(ev.get("q", 1))
+	var m := int(ev.get("min", 0)) - (q - 1) * 30
+	var qn: String = QUARTER_NAMES[mini(q - 1, 4)]
+	if m <= 3:
+		return "early in the %s quarter" % qn
+	return "%d minutes into the %s quarter" % [m, qn]
