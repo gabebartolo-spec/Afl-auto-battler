@@ -372,6 +372,7 @@ static func _build_report(res: Dictionary, my_side: int, quarters: int) -> Dicti
 		"margin": my_score - opp_score,
 		"my_best": my_best,
 		"my_worst": my_worst,
+		"my_ranked": my_ranked,
 		"opp_best": opp_best,
 		"opp_worst": opp_worst,
 		"edges": edges,
@@ -636,6 +637,11 @@ const NOTE_TOPICS := {"clearances": "stoppages", "inside50": "going forward", "p
 		"hitouts": "ruck"}
 
 
+## A Player Rating below this over a full game is a quiet one (MatchNotes:
+## an ordinary game is 50-80); scaled down for a half.
+const LIFT_BELOW := 50.0
+
+
 static func glance(report: Dictionary, full_time := false) -> Dictionary:
 	var span := "game" if full_time else "half"
 	var me := GameDB.club_name(str(report.get("my_code", "")))
@@ -683,12 +689,18 @@ static func glance(report: Dictionary, full_time := false) -> Dictionary:
 						"line": MatchNotes.game_line(d.get("stats", {}))})
 		return out
 	var always := func(_d: Dictionary) -> bool: return true
-	# Only a genuinely quiet game needs a lift, not a par one.
-	var quiet := func(d: Dictionary) -> bool: return float(d.get("delta", 0.0)) <= -4.0
+	# Needs a lift: the lowest Player Ratings, the same number the screen
+	# shows beside every name, and only below an ordinary game - a busy
+	# defender with 24 disposals and 7 rebounds is never "quiet".
+	var lift_pool: Array = (report.get("my_ranked", []) as Array).duplicate()
+	lift_pool.sort_custom(func(a, b):
+		return MatchNotes.rating(a.get("stats", {})) < MatchNotes.rating(b.get("stats", {})))
+	var quiet := func(d: Dictionary) -> bool:
+		return MatchNotes.rating(d.get("stats", {})) < LIFT_BELOW * float(int(report.get("quarters", 4))) / 4.0
 	return {
 		"read": read.slice(0, 3),
 		"best": people.call(report.get("my_best", []), 2, always),
-		"lift": people.call(report.get("my_worst", []), 2, quiet),
+		"lift": people.call(lift_pool, 2, quiet),
 		"danger": people.call(report.get("opp_best", []), 2, always),
 		"notes": _glance_notes(report.get("keys", []), read_keys),
 	}
