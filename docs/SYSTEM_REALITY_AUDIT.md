@@ -368,3 +368,8 @@ The same fields for each system.
 **Clubs:** 2027 active clubs, rotating home and away pairs; seeds 60000+, 70000+ and 80000+.
 
 The home-versus-away lever in the paired probe was mis-built (both arms away) and is not reported. Home ground is classified from code.
+
+## Appendix: repair sprint status (morale and player form)
+
+- **Morale (§19):** kept as is; the size is reasonable for a whole unhappy side (−6.0 ± 1.5) and small for one player. It is now legible: the profile adds "It's lifting his footy" (85+), "It's taking a little off his footy" (40–64) or "It's costing him on the field" (under 40) to the mood word, in the same direction as `ClubLife.form`. No numbers. A test ties the wording to the sign and size of the engine nudge. Status: WORKING, now legible.
+- **Player form (§18):** the Coaching section is renamed "Recent games", with "Playing above / below his season". It stays a report of recent Player Ratings; no engine modifier was invented. Status: REPORT, labelled as one.
