@@ -311,6 +311,47 @@ func _tag_id(side: int) -> String:
 	return str((tactics[side] as Dictionary).get("tag_id", ""))
 
 
+## A tag in the midfield battle: contest points `side` loses to tags this
+## chain. Their tag on one of ours takes that share of his game (1 - the tag
+## share) out of our midfield - the better he is, the more it hurts. Our own
+## tag costs us TAGGER_COST of our tagger's game: he plays the man, not the
+## ball. So a specialist tagger on their star is worth it; your best
+## midfielder on an ordinary one is not.
+const TAGGER_COST := 0.4
+## His own share of the ball while he tags.
+const TAGGER_BALL := 0.6
+
+func _tag_drag(side: int) -> float:
+	var sq: Squad = squads[side]
+	var n_centre := 0
+	var n_mids := 0
+	for p in sq.ground:
+		if str(p["role"]) == "MID":
+			n_mids += 1
+			if not Roles.on_wing(p):
+				n_centre += 1
+	if n_mids == 0:
+		return 0.0
+	var drag := 0.0
+	var tagged := _on_ground(side, _tag_id(1 - side))
+	if not tagged.is_empty() and taggable(tagged):
+		drag += (1.0 - _tag_share(1 - side)) * _mid_value(tagged, n_centre, n_mids)
+	if _tag_id(side) != "" and not _on_ground(1 - side, _tag_id(side)).is_empty():
+		var t = tagger_for(sq.ground)
+		if t != null:
+			drag += TAGGER_COST * _mid_value(t, n_centre, n_mids)
+	return drag
+
+
+## One midfielder's part in his side's contest number (Squad._aggregate): his
+## contested ball in the centre-square mean, his disposal in the midfield's.
+func _mid_value(p: Dictionary, n_centre: int, n_mids: int) -> float:
+	var v := 0.22 * _a(p, "disposal") / float(maxi(1, n_mids))
+	if not Roles.on_wing(p):
+		v += 0.42 * _a(p, "contested") / float(maxi(1, n_centre))
+	return v
+
+
 ## How much of the ball the player `side` tags still gets: less when a
 ## tagger (Roles) is on the ground to do the job.
 func _tag_share(side: int) -> float:
@@ -497,6 +538,11 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String) -> float:
 		out *= CRUMBER_AT_FEET
 	if id == _tag_id(1 - side) and taggable(p) and (carrying or purpose == "shooter" or purpose == "crumb"):
 		out *= _tag_share(1 - side)
+	# Our tagger is playing the man, not the ball.
+	if carrying and _tag_id(side) != "":
+		var tagger = tagger_for((squads[side] as Squad).ground)
+		if tagger != null and str(tagger["id"]) == id:
+			out *= TAGGER_BALL
 	if _plan(side) == "through_stars" and int(p["overall"]) >= 82:
 		out *= 1.2
 	if _pep(side) == "fire_up":
@@ -544,9 +590,11 @@ func contest_winner(use_fp: bool, fp: float) -> int:
 	var T := Ratings.T
 	var lim := float(T["contest_clamp"])
 	# Midfield legs scale the contest strength; the Legs line gets the credit.
-	var c0: float = squads[0].contest * _mid_fit(0)
-	var c1: float = squads[1].contest * _mid_fit(1)
-	var legs_edge: float = ((c0 - c1) - (squads[0].contest - squads[1].contest)) / float(T["contest_swing"])
+	var drag0 := _tag_drag(0)
+	var drag1 := _tag_drag(1)
+	var c0: float = squads[0].contest * _mid_fit(0) - drag0
+	var c1: float = squads[1].contest * _mid_fit(1) - drag1
+	var legs_edge: float = ((c0 + drag0 - c1 - drag1) - (squads[0].contest - squads[1].contest)) / float(T["contest_swing"])
 	_credit(0, "legs", legs_edge * POSSESSION_VALUE)
 	_credit(1, "legs", -legs_edge * POSSESSION_VALUE)
 	var form_edge := FORM_CONTEST * (float(form[0]) - float(form[1]))
