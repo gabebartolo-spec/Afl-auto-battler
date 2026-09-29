@@ -63,11 +63,18 @@ func _how_we_play() -> Control:
 		opts.append([key, CoachReport.plan_label(key)])
 	var note := _wrapped(CoachReport.plan_summary(GameState.club_plan), UiKit.SMALL, UiKit.MUTED)
 	note.name = "PlanNote"
+	var ground: Array = GameState.my_squad().ground
+	var fit := _wrapped(GameState.plan_fit_line(ground, GameState.club_plan), UiKit.SMALL, UiKit.TEXT)
+	fit.name = "PlanFit"
+	fit.visible = fit.text != ""
 	v.add_child(UiKit.choice_grid("ClubPlan", opts, GameState.club_plan, 2 if _narrow() else 3,
 			func(key):
 				GameState.set_club_plan(str(key))
-				note.text = CoachReport.plan_summary(str(key))))
+				note.text = CoachReport.plan_summary(str(key))
+				fit.text = GameState.plan_fit_line(ground, str(key))
+				fit.visible = fit.text != ""))
 	v.add_child(note)
+	v.add_child(fit)
 	v.add_child(_wrapped("Every match starts on this plan. Change it at any break.",
 			UiKit.SMALL, UiKit.MUTED))
 
