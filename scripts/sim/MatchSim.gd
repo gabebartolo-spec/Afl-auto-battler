@@ -1662,7 +1662,7 @@ const ROTATION_POLICIES := {
 	"normal": {"label": "Normal rotations", "role": 70.0, "star": 50.0,
 			"text": "Rotate the group, ride the stars a little longer."},
 	"stars": {"label": "Ride the stars", "role": 68.0, "star": 25.0,
-			"text": "Your 80+ players stay on until they are cooked."},
+			"text": "Your stars stay on until they are cooked."},
 }
 ## fit(): effective-attribute multiplier. 0.80 + 0.25 x energy puts an
 ## average match (~80 energy) at 1.0: fresh 1.05, cooked (30) 0.875.
@@ -1959,12 +1959,12 @@ func _boundary_moment() -> bool:
 			_asked[key] = true
 			_fire({"kind": "tired", "player_id": id, "default": 1,
 				"title": "%s is running on empty" % GameDB.player_display_name(p),
-				"text": "Your star is down to %d%% legs. Tired players win less of the ball and kick fewer goals." % int(e),
+				"text": "Your star's legs are gone. Tired players win less of the ball and kick fewer goals.",
 				"options": [
 					{"key": "rest", "label": "Rest him now",
 						"detail": "The freshest bench player takes his spot; he recovers on the bench."},
 					{"key": "keep", "label": "Keep him out there",
-						"detail": "He stays on and keeps tiring (%d%% legs)." % int(e)},
+						"detail": "He stays on and keeps tiring."},
 				]})
 			return true
 	# An opposition key forward getting on top: kicked a bag, or won three
@@ -2117,26 +2117,68 @@ func _offer_set_shot(side: int, p_fp: float, shooter: Dictionary, defender, goal
 			- 0.12 * dfn.def_intercept / 100.0, 0.1, 0.5)
 	var options := [
 		{"key": "shoot", "label": "Take the shot",
-			"detail": "Goal %d%%  -  behind %d%%" % [roundi(shot_goal * 100), roundi(shot_behind * 100)],
+			"detail": chance_words(shot_goal) + ".",
 			"goal": shot_goal, "behind": shot_behind},
 	]
 	if not mate.is_empty():
 		options.append({"key": "pass", "label": "Play on to %s" % GameDB.player_display_name(mate),
-			"detail": "Pass sticks %d%%, then he shoots from closer (%d%%)  -  goal %d%% overall" % [
-				roundi(pass_p * 100), roundi(mate_goal * 100), roundi(pass_p * mate_goal * 100)],
+			"detail": "%s, then he shoots from closer: %s." % [pass_words(pass_p), chance_words(mate_goal).to_lower()],
 			"goal": pass_p * mate_goal, "pass": pass_p, "mate_goal": mate_goal,
 			"mate_id": str(mate["id"])})
 	options.append({"key": "bomb", "label": "Bomb it to the goal square",
-		"detail": "Goal %d%%  -  behind 30%%  -  else they rebound" % roundi(bomb_goal * 100),
+		"detail": "Now and then it falls for a goal; more often a behind or they rebound it.",
 		"goal": bomb_goal, "behind": 0.30})
 	_fire({"kind": "set_shot", "default": 0, "player_id": str(shooter["id"]),
 		"defender_id": "" if defender == null else str(defender["id"]), "fp": p_fp,
 		"feeder_id": "" if feeder == null else str(feeder["id"]),
 		"title": "%s marks %s" % [GameDB.player_display_name(shooter), spot],
-		"text": "Your call. %s: goalkicking %d, accuracy %d, legs %d%%." % [
-			GameDB.player_display_name(shooter), int(shooter["attr"]["goalkicking"]),
-			int(shooter["attr"]["accuracy"]), int(energy.get(str(shooter["id"]), 100.0))],
+		"text": "Your call. %s is %s, and %s." % [GameDB.player_display_name(shooter),
+			kick_words(shooter), legs_words(float(energy.get(str(shooter["id"]), 100.0)))],
 		"options": options})
+
+
+## A shot's chance in a coach's words, never a percentage.
+static func chance_words(p: float) -> String:
+	if p >= 0.65:
+		return "He should kick it"
+	if p >= 0.5:
+		return "Better than even"
+	if p >= 0.35:
+		return "A coin toss"
+	if p >= 0.2:
+		return "A tough shot"
+	return "A long shot"
+
+
+## A pass under pressure in words.
+static func pass_words(p: float) -> String:
+	if p >= 0.75:
+		return "The pass is on"
+	if p >= 0.6:
+		return "The pass usually sticks"
+	return "A risky pass"
+
+
+## How good a kick for goal he is, from his goalkicking and accuracy.
+static func kick_words(p: Dictionary) -> String:
+	var a: Dictionary = p.get("attr", {})
+	var k := 0.5 * float(a.get("goalkicking", 50)) + 0.5 * float(a.get("accuracy", 50))
+	if k >= 78:
+		return "one of your best kicks for goal"
+	if k >= 65:
+		return "a reliable kick"
+	if k >= 50:
+		return "a fair kick"
+	return "no natural kick for goal"
+
+
+## His legs in words.
+static func legs_words(e: float) -> String:
+	if e >= 75.0:
+		return "he is fresh"
+	if e >= 55.0:
+		return "he is tiring"
+	return "his legs are gone"
 
 
 ## Apply the coach's call for the pending moment. Returns the resolved

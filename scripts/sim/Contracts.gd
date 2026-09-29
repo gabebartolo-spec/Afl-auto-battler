@@ -130,8 +130,8 @@ static func evaluate_trade(ai_list: Array, give: Array, take: Array, cap: int,
 	if my_pay > my_cap:
 		return {"ok": false, "reason": "You cannot fit the salary under your cap."}
 	if in_value < out_value * (1.0 + margin):
-		return {"ok": false, "reason": "They want more for that. (You offer %.0f%% of what they give up.)" % [
-				100.0 * in_value / maxf(0.001, out_value)]}
+		var short := "a little short" if in_value >= 0.9 * out_value else "well short"
+		return {"ok": false, "reason": "They want more for that: your offer is %s of what they give up." % short}
 	return {"ok": true, "reason": "They accept."}
 
 
