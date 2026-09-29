@@ -112,6 +112,22 @@ var synergies := [[], []]    # side -> active synergy keys (the starting 18)
 ## the home-ground edge at full form). 0 (the default, and every calibration
 ## match) changes nothing, and it draws nothing from the RNG.
 var form := [0.0, 0.0]
+## Momentum: who has the run of play, -1 (away on top) .. 1 (home on top).
+## A goal swings it to the scorers, a behind a little; the swing shrinks as
+## it nears the cap and a goal the other way pulls it back harder, so it can
+## be arrested and turned. It fades every chain and halves at a break. Its
+## only effect is a small edge in who wins the ball at stoppages and loose
+## balls (contest_winner) - at most about the home-ground edge, for a few
+## minutes. The match screen's meter shows this value.
+var momentum := 0.0
+## The contest edge at full momentum (tests set 0 to measure without it).
+var momentum_edge := MOMENTUM_EDGE
+const MOMENTUM_EDGE := 0.04
+const MOMENTUM_GOAL := 0.40
+const MOMENTUM_BEHIND := 0.10
+## Kept each chain: halves in about nine chains (five or six minutes).
+const MOMENTUM_DECAY := 0.93
+const MOMENTUM_BREAK := 0.5
 ## Clanger-rate change at full form: 0.95x at +1, 1.05x at -1.
 const FORM_COMPOSURE := 0.05
 ## Stoppage-win chance at full form (home_ground_bonus is 0.030).
@@ -382,6 +398,7 @@ func _emit(kind: String, side: int, fp: float, actor, text: String) -> void:
 		"score": [score(0), score(1)],
 		"goals": [goals(0), goals(1)],
 		"behinds": [behinds(0), behinds(1)],
+		"mom": snappedf(momentum, 0.01),
 	})
 	# A score from a turnover: whose intercept it came from.
 	if (kind == "goal" or kind == "behind") and not _chain_from.is_empty() \
@@ -538,6 +555,8 @@ func contest_winner(use_fp: bool, fp: float) -> int:
 	var p_home: float = (0.5
 			+ (c0 - c1) / float(T["contest_swing"])
 			+ home_edge() + form_edge)
+	# The side with the run of play wins a little more of the ball.
+	p_home += momentum_edge * momentum
 	var b0 := _contest_bonus(0, not use_fp)
 	var b1 := _contest_bonus(1, not use_fp)
 	p_home += b0 - b1
@@ -1178,6 +1197,7 @@ func _intercept(side: int, who, could_mark: bool) -> void:
 ## involvement for everyone who touched the ball in the chain.
 func _scored(side: int, points: int, scorer) -> void:
 	_t(side, "score_from_" + chain_origin, float(points))
+	_swing_momentum(side, MOMENTUM_GOAL if points >= 6 else MOMENTUM_BEHIND)
 	if scorer != null:
 		_chain_touch[str(scorer["id"])] = scorer
 	for id in _chain_touch:
@@ -1185,6 +1205,13 @@ func _scored(side: int, points: int, scorer) -> void:
 		if _on_ground(side, str(id)).is_empty():
 			continue
 		_p(p, "score_involvements")
+
+
+## A score swings momentum to `side`: less the nearer it already is to the
+## cap, more when it is turning the other side's run.
+func _swing_momentum(side: int, amount: float) -> void:
+	var s := 1.0 if side == 0 else -1.0
+	momentum = clampf(momentum + s * amount * (1.0 - s * momentum), -1.0, 1.0)
 
 
 ## Who made the spoil, smother or shepherd: mostly defenders, sometimes a
@@ -1418,6 +1445,7 @@ func continue_quarter() -> bool:
 func end_quarter() -> Dictionary:
 	var quarter := current_quarter
 	_q_active = false
+	momentum *= MOMENTUM_BREAK
 	quarter_teams.append({
 		"quarter": quarter,
 		"team": [team_stats[0].duplicate(), team_stats[1].duplicate()],
@@ -1719,6 +1747,7 @@ func set_rotation_policy(side: int, key: String) -> void:
 
 
 func _after_chain() -> void:
+	momentum *= MOMENTUM_DECAY
 	for side in range(2):
 		var sq: Squad = squads[side]
 		var pace := _pv(side, "pace") * _pep_mult(side, "pace")

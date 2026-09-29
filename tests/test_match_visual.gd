@@ -266,10 +266,12 @@ func _test_empty_view() -> void:
 func _test_ballup_is_informational() -> void:
 	var scene = load("res://scripts/ui/MatchScene.gd").new()
 	scene._momentum = 0.5
-	scene._track_momentum({"kind": "ballup", "side": -1, "fp": 20.0})
+	scene._track_momentum({"kind": "sub", "side": 0, "fp": 20.0})
+	_check(is_equal_approx(scene._momentum, 0.5), "An event without the engine's momentum leaves the meter")
+	scene._track_momentum({"kind": "ballup", "side": -1, "fp": 20.0, "mom": 0.5})
 	_check(is_equal_approx(scene._momentum, 0.5), "A ball-up does not move the momentum meter")
-	scene._track_momentum({"kind": "kick", "side": 0, "fp": 20.0})
-	_check(scene._momentum < 0.5, "Ordinary play still ages the momentum meter")
+	scene._track_momentum({"kind": "kick", "side": 0, "fp": 20.0, "mom": -0.32})
+	_check(is_equal_approx(scene._momentum, -0.32), "The meter shows the engine's momentum, nothing of its own")
 	_check(scene.QUIET_KINDS.has("ballup"), "Ball-ups stay out of the commentary feed")
 	scene.free()
 

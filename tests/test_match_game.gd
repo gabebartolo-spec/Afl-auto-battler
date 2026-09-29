@@ -33,6 +33,7 @@ func run() -> void:
 	_test_in_match_injuries()
 	_test_match_story()
 	_test_traits_surfaced()
+	_test_momentum()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -1062,3 +1063,65 @@ func _test_traits_surfaced() -> void:
 			and str(lines[1]) == "Intercept wall: they kicked 9 goals from 48 inside 50s.",
 			"Full time shows the stat each of your synergies plays on: %s" % str(lines))
 	_check(MatchNotes.synergy_lines(res, 1).is_empty(), "No synergies, no lines")
+
+
+## Momentum is real, small, capped, fading and reversible, and it does not
+## snowball.
+func _test_momentum() -> void:
+	# Real: the side with the run of play wins more of the ball, by about
+	# MOMENTUM_EDGE at full momentum.
+	var sim := _sim(9100)
+	var wins := [0, 0]
+	for mode in range(2):
+		sim.momentum = 1.0 if mode == 1 else 0.0
+		sim.rng.seed = 424242
+		for i in range(20000):
+			if sim.contest_winner(false, 0.0) == 0:
+				wins[mode] += 1
+	var lift := float(wins[1] - wins[0]) / 20000.0
+	_check(lift > 0.025 and lift < 0.055, "Full momentum wins about 4%% more of the ball (%.3f)" % lift)
+	# Capped: a string of goals cannot push it past full.
+	sim.momentum = 0.0
+	for i in range(20):
+		sim._swing_momentum(0, MatchSim.MOMENTUM_GOAL)
+	_check(sim.momentum <= 1.0 and sim.momentum > 0.9, "A run of goals fills it but never past full (%.2f)" % sim.momentum)
+	var edge_at_full: float = sim.momentum_edge * sim.momentum
+	_check(edge_at_full <= MatchSim.MOMENTUM_EDGE, "The edge is capped at MOMENTUM_EDGE")
+	# Reversible: the other side's goals turn it, faster than it built.
+	sim.momentum = 0.8
+	sim._swing_momentum(1, MatchSim.MOMENTUM_GOAL)
+	_check(sim.momentum < 0.2, "One goal the other way arrests a strong run (%.2f)" % sim.momentum)
+	sim._swing_momentum(1, MatchSim.MOMENTUM_GOAL)
+	_check(sim.momentum < 0.0, "Two goals the other way turn it (%.2f)" % sim.momentum)
+	# Fades: ten passages without a score take most of it away.
+	sim.momentum = 0.8
+	for i in range(10):
+		sim._after_chain()
+	_check(sim.momentum < 0.4 and sim.momentum > 0.0, "It fades within a few minutes of play (%.2f)" % sim.momentum)
+	# Every event carries it for the meter.
+	var res := _sim(9101).run()
+	var carried := true
+	var moved := false
+	for ev in res["events"]:
+		if str(ev["kind"]) == "goal":
+			carried = carried and ev.has("mom")
+			if absf(float(ev.get("mom", 0.0))) > 0.3:
+				moved = true
+	_check(carried and moved, "Goals carry the engine's momentum, and it moves")
+	# No snowball: after a goal the same side kicks the next only slightly
+	# more often than without momentum (measured 51% without, 52% with).
+	var pairs := 0
+	var same := 0
+	for i in range(80):
+		var r := _sim(9200 + i, ["GEE", "COL", "MEL", "SYD"][i % 4], ["CAR", "BRL", "ADE", "HAW"][i % 4]).run()
+		var last := -1
+		for ev in r["events"]:
+			if str(ev["kind"]) != "goal":
+				continue
+			if last >= 0:
+				pairs += 1
+				if int(ev["side"]) == last:
+					same += 1
+			last = int(ev["side"])
+	var share := float(same) / float(maxi(1, pairs))
+	_check(share < 0.56, "Momentum does not snowball: the scorers kick the next goal %.0f%% of the time" % (100.0 * share))
