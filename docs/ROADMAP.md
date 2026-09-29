@@ -1845,9 +1845,37 @@ Validate with targeted multi-season simulations.
 ---
 
 ## ARD-M6-003 — Board Confidence
-**Status:** `TODO`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
+
+### Implementation record (2026-09-28, branch `claude/board-confidence`)
+- **Relative to expectations:** each result moves the board by what the season's goal asks (`ClubLife.GOAL_STEPS`, [win, loss]).
+  - Top four: +2 / −3.
+  - Finals: +2 / −2.
+  - Top 12: +2 / −2.
+  - Win seven games: +3 / −1.
+  - Plus one for a 40-point margin either way. After three losses in a row each further loss costs one more.
+  - This replaced ±3 (±4 for a thrashing) whoever you were.
+  - The season verdict (+20 met, −25 missed, +30 a flag) and the warning and sacking rules are unchanged.
+- **States, not a percentage:** Very secure (80+), Secure (62+), Stable (45+), Under pressure (30+), In trouble. They show on the Coaching hub and the season review. The Hub's at-risk line reads "Board: Under pressure · goal". The number stays behind the scenes.
+- **Why it moved:** after every match, a sentence, e.g.
+  - "The loss to Carlton puts a top-four finish under threat."
+  - "Four losses in a row: the board is getting restless about a finals spot."
+  - The promise card and the season verdict set their own sentences.
+- **Balance (54 club-seasons, every club as yours, same results, old v new):**
+  - average move a match 3.3 v 2.4;
+  - confidence at the end of the home-and-away season 58.9 v 60.4;
+  - after the verdict 62.4 v 64.0;
+  - clubs that missed their goal and ended in trouble 14 v 16 of 18.
+  - Sacking (a second missed goal after a warning) is unchanged.
+- **Not in this change:** smaller inputs (finals runs, player development, cap health, trend). Those come once play shows the base model is right.
+- **Tests:** `test_club.gd::_test_board_confidence` covers:
+  - steps against the goal;
+  - no ordinary result moving more than three;
+  - the losing run;
+  - draws, the five states and the reason sentences;
+  - a reason after a real round.
 
 Persistent qualitative hierarchy satisfaction.
 

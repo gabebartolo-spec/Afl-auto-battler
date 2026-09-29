@@ -35,14 +35,62 @@ static func goal_met(goal: Dictionary, position: int, wins: int) -> bool:
 	return position <= int(goal.get("pos", 18))
 
 
-## Confidence after one of your matches (margin from your side).
-static func after_match(confidence: int, margin: int) -> int:
+## How one result moves the board, by what the season's goal asks: a side
+## expected to finish top four gains little for a win and loses more for a
+## loss; a side asked to win seven games, the other way round. [win, loss].
+const GOAL_STEPS := {"top4": [2, -3], "finals": [2, -2], "top12": [2, -2], "wins7": [3, -1]}
+## Losses in a row before the board starts to count them extra.
+const RESTLESS_AFTER := 3
+
+
+static func goal_steps(goal: Dictionary) -> Array:
+	return GOAL_STEPS.get(str(goal.get("key", "")), [2, -2])
+
+
+## Confidence after one of your matches (margin from your side), weighed
+## against what the goal needs. A thrashing either way counts one extra, and
+## a long losing run starts to tell. {"confidence", "delta"}.
+static func after_match(confidence: int, margin: int, steps := [2, -2], losses_in_row := 0) -> Dictionary:
 	var d := 0
 	if margin > 0:
-		d = 3 + (1 if margin >= 40 else 0)
+		d = int(steps[0]) + (1 if margin >= 40 else 0)
 	elif margin < 0:
-		d = -3 - (1 if margin <= -40 else 0)
-	return clampi(confidence + d, 0, 100)
+		d = int(steps[1]) - (1 if margin <= -40 else 0)
+		if losses_in_row >= RESTLESS_AFTER:
+			d -= 1
+	var c := clampi(confidence + d, 0, 100)
+	return {"confidence": c, "delta": c - confidence}
+
+
+## The board's mood in words; the number stays behind the scenes.
+static func board_state(confidence: int) -> String:
+	if confidence >= 80:
+		return "Very secure"
+	if confidence >= 62:
+		return "Secure"
+	if confidence >= 45:
+		return "Stable"
+	if confidence >= WARN_LINE:
+		return "Under pressure"
+	return "In trouble"
+
+
+## The goal as the board would put it in a sentence.
+const GOAL_PHRASE := {"top4": "a top-four finish", "finals": "a finals spot",
+		"top12": "a top-12 finish", "wins7": "seven wins"}
+
+
+## Why the board moved after a match, in a sentence.
+static func match_reason(goal: Dictionary, opp_name: String, margin: int, losses_in_row: int) -> String:
+	var aim := str(GOAL_PHRASE.get(str(goal.get("key", "")), "the season's goal"))
+	if margin < 0 and losses_in_row >= RESTLESS_AFTER:
+		return "%s losses in a row: the board is getting restless about %s." % [
+				MatchNotes.count_word(losses_in_row).capitalize(), aim]
+	if margin > 0:
+		return "The win over %s keeps %s in reach." % [opp_name, aim]
+	if margin < 0:
+		return "The loss to %s puts %s under threat." % [opp_name, aim]
+	return "A draw with %s leaves the board where it was." % opp_name
 
 
 ## Confidence after the season: goal met or missed, a flag on top.

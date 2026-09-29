@@ -172,12 +172,17 @@ func _board() -> Control:
 	var v := UiKit.vbox(4)
 	v.name = "Board"
 	v.add_child(UiKit.section("The board"))
-	var conf := GameState.board_confidence()
-	var col := UiKit.GOOD if conf >= 60 else (UiKit.TEXT if conf >= ClubLife.WARN_LINE else UiKit.BAD)
-	var l := UiKit.lbl("Confidence %d%%" % conf, UiKit.H2, col, true)
+	var state := GameState.board_state()
+	var col := UiKit.GOOD if state in ["Very secure", "Secure"] \
+			else (UiKit.TEXT if state == "Stable" else UiKit.BAD)
+	var l := UiKit.lbl(state, UiKit.H2, col, true)
 	l.name = "BoardConfidence"
 	v.add_child(l)
 	v.add_child(_wrapped("Their goal: %s" % GameState.board_goal_text()))
+	if GameState.board_why() != "":
+		var why := _wrapped(GameState.board_why(), UiKit.BODY, UiKit.MUTED)
+		why.name = "BoardWhy"
+		v.add_child(why)
 	if bool(GameState.board.get("warned", false)):
 		v.add_child(_wrapped("You are on a final warning.", UiKit.BODY, UiKit.BAD))
 	return v

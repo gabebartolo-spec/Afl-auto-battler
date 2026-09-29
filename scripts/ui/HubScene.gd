@@ -134,7 +134,7 @@ func _standing_card() -> Control:
 		var conf := GameState.board_confidence()
 		var warned := bool(GameState.board.get("warned", false))
 		if warned or conf < ClubLife.WARN_LINE:
-			var board_l := UiKit.lbl("Board %d%%  ·  %s%s" % [conf, GameState.board_goal_text(),
+			var board_l := UiKit.lbl("Board: %s  ·  %s%s" % [GameState.board_state(), GameState.board_goal_text(),
 					"  (final warning)" if warned else ""], UiKit.SMALL, UiKit.BAD)
 			board_l.name = "BoardLine"
 			cv.add_child(board_l)
