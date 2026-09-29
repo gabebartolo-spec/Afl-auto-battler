@@ -710,7 +710,8 @@ The change must affect actual visual target direction, not only labels/commentar
 ---
 
 ## ARD-M1-005 — Wrong-way / bizarre long-kick sanity
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #69 as `9e14165`; later match-flow regression coverage remains green on main.  
 **Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
 
@@ -835,7 +836,8 @@ Manual/UI snapshot checks at ~360 / 390 / 412 px widths.
 ---
 
 ## ARD-M1-009 — Draft salary-cap completion guard
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #68 as `c3f60e5`; verified on main.  
 **Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
 
@@ -901,7 +903,8 @@ New career → Round 1 → season rollover → 2028.
 ---
 
 ## ARD-M1-011 — Event choices with obvious right answers
-**Status:** `TODO`  
+**Status:** `DONE`  
+**Merged:** PR #44 as `f549755`; the eight weekly club-life events were audited and dominated/repeating choices were fixed.  
 **Priority:** `P1`  
 **Autonomy:** `SAFE` for clearly local events
 
@@ -1195,7 +1198,8 @@ Empower different forward types naturally.
 ---
 
 ## ARD-M3-003 — Spoils across the ground
-**Status:** `IN PROGRESS`  
+**Status:** `PARTIAL`  
+**Merged foundation:** PR #83 as `a013277`; forward-50 spoils are real loose-ball events, while general-play marking contests remain open.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -1342,7 +1346,8 @@ Behind → kick-in → exit; no phantom stoppage; correct end/direction after qu
 ---
 
 ## ARD-M3-010 — In-match injuries visibly affect play
-**Status:** `TODO`  
+**Status:** `DONE`  
+**Merged:** PR #97 as `e068060`; injuries now occur during the match, remove the player, bring on bench cover, and reconcile with post-match availability.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -1405,7 +1410,8 @@ Trigger frequency, choice diversity, no repeated spam, deterministic resolution 
 ---
 
 ## ARD-M4-002 — Defensive / forward match-ups
-**Status:** `TODO`  
+**Status:** `DONE`  
+**Merged:** PR #96 as `26d34a2`; key forward/defender assignments are selectable, play out in named contests, can be changed during matches, and AI can rematch.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -1503,7 +1509,8 @@ Integrate with ARD-M4-001 and ARD-M4-006 instead of creating a separate hidden b
 ---
 
 ## ARD-M4-008 — Opponent preparation / scouting
-**Status:** `TODO`  
+**Status:** `DONE`  
+**Merged:** PR #90 as `71409fc`; selection now shows line-v-line strength, relevant people, opposition style and the game plan in football language without prescribing a best answer.  
 **Priority:** `P1`  
 **Autonomy:** `SAFE` once M2 data exists
 
@@ -1522,7 +1529,8 @@ Before the match, show only 3–4 high-signal observations such as:
 ---
 
 ## ARD-M4-009 — Match report / "why we won or lost"
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #85 as `73338d6`, extended by PR #97; full time now uses one concise coaching report with causal match factors and turning points.  
 **Priority:** `P1`  
 **Autonomy:** `SAFE` once M2 data exists
 
@@ -1564,7 +1572,8 @@ Detailed stats live in the Stats screen.
 ---
 
 ## ARD-M4-010 — In-match Momentum
-**Status:** `PARTIAL`  
+**Status:** `IN PROGRESS`  
+**Implementation:** PR #102 is open; the display-only meter is being replaced by a real small, capped, fading contest effect. Do not mark DONE until that PR is merged and verified.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -1936,7 +1945,8 @@ Before implementing more, inspect current merged Staff/coaching work and extend 
 ---
 
 ## ARD-M6-002 — Coaching staff gameplay
-**Status:** `IN PROGRESS / PARTIAL`  
+**Status:** `DONE`  
+**Merged:** Phase 3 PR #62, former-player pathway PR #74, and gameplay-effects PR #77; teaching, tactics and man-management effects are all live.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 **Current state (2026-09-28):** Phase 2 (data model, Round 1 2026 seed, read-only Staff UI) is merged. Phase 3 (the living coaching market: sackings, contracts, retirement, promotions, poaching, your vacancies and releases, development, reputation, generated coaches, expansion staffing, archive) is merged: PR #62 as `bf8bd0a`, `coach_market` suite, 50-season probe with every job filled. **Phase 4 (former players entering coaching) is actively being implemented by Claude; Phase 5 (gameplay effects) follows it.**  
@@ -2045,7 +2055,8 @@ Validate with targeted multi-season simulations.
 ---
 
 ## ARD-M6-003 — Board Confidence
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #84 as `48a805d`; confidence now moves relative to expectations, surfaces qualitative states, and explains why it changed.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -2121,7 +2132,8 @@ Split into smaller authorised subphases when started.
 ---
 
 ## ARD-M6-005 — Options / settings
-**Status:** `IN PROGRESS`  
+**Status:** `DONE`  
+**Merged:** PR #86 as `ebc570d`; one Settings sheet now serves the menu and career hub, with relevant current options and destructive-action confirmation.  
 **Priority:** `P1`  
 **Autonomy:** `SAFE`
 
@@ -2207,7 +2219,8 @@ Presentation/identity first. Avoid arbitrary gameplay bonuses.
 ---
 
 ## ARD-M7-003 — Player milestones
-**Status:** `TODO`  
+**Status:** `PARTIAL`  
+**Merged foundation:** PR #100 as `12aae17`; career-game milestones (50/100/150 etc.) and club-tenure context are live, while first-goal/career-high style milestones remain future work.  
 **Priority:** `P2`  
 **Autonomy:** `SAFE` once career stats are stable
 
@@ -2636,17 +2649,17 @@ These are here to stop Claude from rebuilding things that already exist. **Verif
 
 - Inside 50s are already tracked at player/team level.
 - Goal conversion uses the actual shooter rather than a team-wide accuracy average.
-- Open-play scoring is structurally possible in MatchSim, but presentation has treated goal/behind events too uniformly.
-- A presentation-only Momentum value exists; the requested gameplay Momentum system is not complete.
+- Open-play scoring is structurally possible in MatchSim, and PR #50 made open-play shots remain live in presentation; the broader scoring-model variety under M3-001 is still partial.
+- A presentation-only Momentum value exists on current main; PR #102 is replacing it with the intended gameplay mechanic.
 - Free kicks exist in simplified form.
-- Concussion exists as a generic injury type but does not yet represent the requested mandatory two-match protocol.
+- Concussion now enforces a minimum two-match absence with AI parity and save persistence (PR #51).
 - Wildcard finals/top-10 finals structure already exists; do not add another wildcard-finals feature.
 - Matchday squad has historically been 18 + 4 interchange and needs migration to 18 + 5 unless already changed.
-- "Play through" has historically boosted both carrying/transition and shooter selection; the shooter component is the known issue.
-- MatchSim already calculates movement distance during possession chains; player metres gained is not yet a fully accumulated player stat unless since implemented.
-- True player Disposal Efficiency % has not historically been tracked.
+- "Play through" now favours possession-chain/transition involvement without generic shooter bias (PR #48).
+- Player/team metres gained are accumulated from actual forward ball movement (PR #55).
+- Effective disposals and Disposal Efficiency are tracked from actual disposal outcomes (PR #55).
 - OOB/out-on-full/throw-in/last-disposal have not historically existed as a complete event path.
-- Spoils have existed only partially in forward-50 resolution.
+- Forward-50 spoils are now explicit loose-ball events with player/team credits; general-play spoils remain incomplete (PR #83).
 - Coaching staff/career-history work has already begun; inspect current main/active PRs before creating new staff architecture.
 - Wildcard finals are **not** backlog work unless the competition rules change.
 
@@ -2914,6 +2927,8 @@ Hold this idea for the eventual MRO/tribunal design work. Do not implement it me
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-09-29:** Status-sync pass after merged work was allowed to drift: recorded M1-005, M1-009, M1-011, M3-010, M4-002, M4-008, M4-009, M6-002, M6-003 and M6-005 as completed; M3-003 and M7-003 as partial; and M4-010 as actively in progress on PR #102. Refreshed stale current-state notes so agents do not rebuild already-finished systems.
 
 - **2026-09-29:** Added a very-maybe MRO flavour idea: “Spin the MRO wheel”, a tongue-in-cheek nod to footy-fan perceptions of inconsistent suspension outcomes. Presentation joke only; do not make the underlying system arbitrary.
 
