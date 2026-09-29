@@ -527,6 +527,11 @@ The match screen's momentum meter was display-only: the screen computed its own 
 
   `test_match_visual.gd`: the meter shows the engine's value and nothing of its own.
 
+### Audit repair sprint (2026-09-29, from `docs/SYSTEM_REALITY_AUDIT.md`)
+**Status:** `IN PROGRESS`. Repairs land in dependency order, each as its own PR, and are recorded in the audit's appendix.
+- **A. Live-match plan reset (P0):** the plan you take into a live match is the plan at the first bounce. Branch `claude/fix-first-bounce-plan`.
+- **B.** Test-harness silent skips. **C.** Moment-card consequences. **D.** Tagging trade-off. **E.** Plan ecosystem, Through stars and plan copy. **F.** Morale, form and the coaching-tactics effect. **G.** Lower-severity findings. *(Not started.)*
+
 ### Playtest test
 For each important decision, verify the player can answer:
 - What decision am I making?
