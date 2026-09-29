@@ -749,6 +749,54 @@ func _anticipate(k: int) -> void:
 	_lead_receivers(k, cur)
 
 
+## A loose ball whose winner is still well off: the nearest two players
+## converge and it is knocked on toward him in short hops, so the play is a
+## scrap on the deck rather than everyone waiting. Short and capped, so the
+## ball is never carried up the ground (and the next kick starts where the
+## play is).
+const KNOCK_EVERY := 0.45
+const KNOCK_METRES := 5.0
+const KNOCK_CAP := 16.0
+
+
+func _scrap(p: Dictionary, who: int) -> void:
+	var at: Vector2 = ball["pos"]
+	var near := []
+	for t in tokens:
+		var id := int(t["id"])
+		if id != who and float(t.get("down", 0.0)) <= 0.0:
+			near.append([(t["pos"] as Vector2).distance_to(at), id])
+	near.sort()
+	for i in range(mini(2, near.size())):
+		var id2 := int(near[i][1])
+		# Beside the ball, not on it: they contest without shoving the
+		# man who comes out with it.
+		var side_off: Vector2 = ((tokens[id2]["pos"] as Vector2) - at).limit_length(1.0)
+		if side_off.length() < 0.1:
+			side_off = Vector2(0.0, 1.0)
+		MatchMotion.set_goal(tokens[id2], at + side_off.normalized() * 2.0, 0.9, true)
+		_busy[id2] = true
+	var knocked := float(p.get("_knocked", 0.0))
+	if knocked >= KNOCK_CAP or _pt - float(p.get("_knock_t", 0.0)) < KNOCK_EVERY:
+		return
+	var to: Vector2 = (tokens[who]["pos"] as Vector2) - at
+	# Never back toward his own goal: sideways or forward only.
+	if to.x * _dir(int(tokens[who]["side"])) < 0.0:
+		to.x = 0.0
+	var step := minf(KNOCK_METRES, minf(KNOCK_CAP - knocked, to.length() * 0.5))
+	if step < 1.0:
+		return
+	p["_knock_t"] = _pt
+	p["_knocked"] = knocked + step
+	ball["mode"] = "loose"
+	ball["holder"] = -1
+	# A loose ball decays at exp(-3t): a push of 3v travels about v metres.
+	ball["vel"] = to.normalized().rotated(_rng.randf_range(-0.35, 0.35)) * step * 3.0
+	ball["h"] = 0.3
+
+
+## The longest a player is left collecting before the ball is his.
+const COLLECT_LIMIT := 6.0
 ## How far a ball bobbles on to a receiver still short of it.
 const ROLL_REACH := 8.0
 const LEAD_EVENTS := 10         # how far down the log a lead can be planned
@@ -908,7 +956,7 @@ func _enter(p: Dictionary) -> void:
 				if p.get("adapt", false):
 					# Hang the ball long enough for the receiver to get there,
 					# within what a kick of that length can plausibly take.
-					dur = clampf(MatchMotion.eta(r, to) * 0.9, dur, dur * 1.45)
+					dur = clampf(MatchMotion.eta(r, to) * 0.9, dur, dur * 1.8)
 				if p.get("contest", false):
 					_contest(to, recv, 1.0)
 			var h0 := float(p.get("h0", 1.0 if int(ball["holder"]) >= 0 else float(ball["h"])))
@@ -1055,13 +1103,18 @@ func _done(p: Dictionary) -> bool:
 				return true
 			if p.has("max") and _pt >= float(p["max"]):
 				return true
+			# Never a freeze: a ball against the fence or a crowd round it can
+			# keep him just short of it. Close enough after a moment is his,
+			# and no collect lasts longer than COLLECT_LIMIT.
+			if (_pt >= 1.5 and d <= 3.0) or _pt >= COLLECT_LIMIT:
+				return true
 			if p.get("roll", false) and _pt > 0.1 and str(ball["mode"]) != "flight" and d <= ROLL_REACH:
 				# Still short of it: the ball bobbles on toward him rather
-				# than anyone jumping across the ground. Further off (a
-				# forward who won it back in defence), it stays where it fell
-				# and he runs onto it: a ball never rolls up the ground.
+				# than anyone jumping across the ground.
 				ball["mode"] = "roll_to"
 				ball["holder"] = who
+			elif p.get("roll", false) and _pt > 0.1 and str(ball["mode"]) in ["dead", "loose"]:
+				_scrap(p, who)
 			return false
 		"chase":
 			var tk: Dictionary = tokens[int(p["who"])]
