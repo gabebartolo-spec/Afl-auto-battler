@@ -26,6 +26,7 @@ func run() -> void:
 	_test_no_wrong_way_kicks(res)
 	_test_match_flow(res)
 	_test_boundary_collect(res)
+	_test_play_when_idle(res)
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -529,3 +530,17 @@ func _test_boundary_collect(res: Dictionary) -> void:
 	pv.free()
 	_check(all_done and worst <= MatchDirector.COLLECT_LIMIT + 0.1,
 			"A ball against the fence is always collected, never a freeze (longest %.1f s)" % worst)
+
+
+## Playtest freeze (mid play, live): resuming after a moment with no new
+## events to show left the view idle without saying so, so the next moment
+## card never came. play() on an idle view now reports finished.
+func _test_play_when_idle(res: Dictionary) -> void:
+	var pv := PitchView.new()
+	pv.setup(res)
+	pv.director.flush()
+	var got := [false]
+	pv.finished.connect(func(): got[0] = true)
+	pv.play()
+	_check(got[0] and not pv.playing, "Resuming with nothing new to show still hands back to the match screen")
+	pv.free()

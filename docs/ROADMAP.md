@@ -312,7 +312,12 @@ Do **not** solve this by revealing an objectively best choice, adding recommenda
   - A loose ball can settle 1 m inside the fence, but a player's run is kept 2 m inside. With others crowding the ball, the collector could end up more than 1.4 m short.
   - Collecting was the only step with no time limit, so play stopped for good.
   - Now close enough (3 m) after 1.5 s counts as his, and no collect lasts longer than 6 s. Players contesting a scrap go beside the ball, not onto it.
+- **The mid-play freeze in a live match (found by driving live matches end to end):**
+  - After a moment call, the match screen resumes play. When the sim stopped at another moment with no new events to show, the view's `play()` returned silently without reporting it had finished.
+  - So the next moment card never appeared and the match sat frozen: every event shown, a call pending, no card.
+  - `play()` on an idle view now reports finished straight away.
 - **Tests:**
+  - `_test_play_when_idle`: resuming with nothing new to show still hands back to the match screen.
   - `test_match_visual.gd::_test_match_flow`: no beat longer than 8 s; far-receiver waits at most 12% of a match.
   - `_test_boundary_collect`: a ball against the fence with a crowd around it is always collected.
   - The wrong-way check still passes.
