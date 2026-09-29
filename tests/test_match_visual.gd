@@ -24,6 +24,9 @@ func run() -> void:
 	_test_ballup_is_informational()
 	_test_wings_and_lineups()
 	_test_no_wrong_way_kicks(res)
+	_test_match_flow(res)
+	_test_boundary_collect(res)
+	_test_play_when_idle(res)
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -444,3 +447,100 @@ func _test_no_wrong_way_kicks(res: Dictionary) -> void:
 				"No kick flies 30 m+ back towards the kicker's own goal (%s: %d flights, %d wrong way %s)" % [
 				str(r["home"]), flights, wrong, first_bad])
 		_check(flipped == 0, "The ends never change with the ball in the air (%s)" % str(r["home"]))
+
+
+## Playtest gate (roadmap 1.11): a watched match flows. No beat hangs (a
+## freeze), and the ball is not left on the deck while a far-off receiver
+## runs half the ground to it: a loose ball is scrapped for and knocked on.
+func _test_match_flow(res: Dictionary) -> void:
+	var pv := PitchView.new()
+	pv.size = Vector2(400, 700)
+	pv.camera_enabled = false
+	pv.setup(res)
+	pv.set_speed(1.0)
+	pv.playing = true
+	var d = pv.director
+	var h := 1.0 / 30.0
+	var t := 0.0
+	var far := 0.0
+	var worst := 0.0
+	var beat_k := -1
+	var beat_t := 0.0
+	var last: Vector2 = d.ball["pos"]
+	var guard := 0
+	while pv.playing and guard < 400000:
+		guard += 1
+		pv._process(h)
+		t += h
+		var pos: Vector2 = d.ball["pos"]
+		var moving := pos.distance_to(last) > 0.05
+		last = pos
+		var ph: Dictionary = d._phases[d._pi] if d._pi < d._phases.size() else {}
+		if str(ph.get("t", "")) == "collect" and not moving:
+			var who := int(ph.get("who", -1))
+			if who >= 0 and (d.tokens[who]["pos"] as Vector2).distance_to(pos) > 12.0:
+				far += h
+		var k := int(d._beat.get("k", -1))
+		if k != beat_k:
+			worst = maxf(worst, beat_t)
+			beat_k = k
+			beat_t = 0.0
+		beat_t += h
+	pv.free()
+	_check(worst <= 8.0, "No moment of a watched match hangs (longest beat %.1f s)" % worst)
+	_check(far <= 0.12 * t, "The ball is rarely left waiting on a far-off receiver (%.0f s of %.0f)" % [far, t])
+
+
+## Playtest freeze (near the boundary): a ball resting against the fence sat
+## where the collector's run could never reach within touching distance, and
+## collecting had no time limit, so play stopped. It now always completes.
+func _test_boundary_collect(res: Dictionary) -> void:
+	var pv := PitchView.new()
+	pv.size = Vector2(400, 700)
+	pv.camera_enabled = false
+	pv.setup(res)
+	var d = pv.director
+	var worst := 0.0
+	var all_done := true
+	for ang in [0.3, 1.2, 1.57, 2.4, 3.0, 4.4]:
+		# The ball on the fence (as a loose ball can settle), the collector
+		# well away, and team-mates crowding in beside the ball.
+		var at := MatchMotion.clamp_to_oval(Vector2(cos(ang), sin(ang)) * 200.0, 1.0)
+		d.ball["pos"] = at
+		d.ball["mode"] = "dead"
+		d.ball["holder"] = -1
+		var who := 5
+		d.tokens[who]["pos"] = at * 0.7
+		for j in range(6, 9):
+			d.tokens[j]["pos"] = at + Vector2(0.4 * j - 3.0, 0.3)
+			MatchMotion.set_goal(d.tokens[j], at, 1.0, true)
+		var p := {"t": "collect", "who": who, "roll": true}
+		d._pt = 0.0
+		var done := false
+		for step in range(600):
+			d._pt += 1.0 / 30.0
+			for t in d.tokens:
+				MatchMotion.step(t, 1.0 / 30.0)
+			MatchMotion.separate(d.tokens)
+			if d._done(p):
+				done = true
+				break
+		worst = maxf(worst, d._pt)
+		all_done = all_done and done
+	pv.free()
+	_check(all_done and worst <= MatchDirector.COLLECT_LIMIT + 0.1,
+			"A ball against the fence is always collected, never a freeze (longest %.1f s)" % worst)
+
+
+## Playtest freeze (mid play, live): resuming after a moment with no new
+## events to show left the view idle without saying so, so the next moment
+## card never came. play() on an idle view now reports finished.
+func _test_play_when_idle(res: Dictionary) -> void:
+	var pv := PitchView.new()
+	pv.setup(res)
+	pv.director.flush()
+	var got := [false]
+	pv.finished.connect(func(): got[0] = true)
+	pv.play()
+	_check(got[0] and not pv.playing, "Resuming with nothing new to show still hands back to the match screen")
+	pv.free()

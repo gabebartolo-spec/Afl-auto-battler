@@ -73,6 +73,11 @@ func append_events(new_events: Array) -> void:
 # ---------------------------------------------------------------------------
 func play() -> void:
 	if director.idle():
+		# Nothing new to show (a moment right where the last one left off):
+		# say so, or the match screen waits for a finish that never comes
+		# and the match freezes with the next call unasked.
+		playing = false
+		finished.emit()
 		return
 	playing = true
 	set_process(true)
