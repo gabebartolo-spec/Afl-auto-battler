@@ -150,7 +150,19 @@ func _phone_match(sz: Vector2i) -> void:
 	var bt := _text(box)
 	_check(not bt.contains("pts") and not bt.contains("Expected points") and not bt.contains(" def ")
 			and not bt.contains("defeated"), "The break shows no engine numbers or result words (%s)" % tag)
-	_check(bt.contains("Your tag on "), "The break says how your tag went (%s)" % tag)
+	_check(bt.contains("Tag on ") and box.find_child("CallsDid", true, false) != null,
+			"The break says what your calls did, your tag among them (%s)" % tag)
+	_check(bt.contains("What's happening"), "The break leads with what is happening (%s)" % tag)
+	var more_calls: Control = box.find_child("MoreCalls", true, false)
+	var more_btn: Button = box.find_child("MoreCallsToggle", true, false)
+	_check(more_calls != null and not more_calls.visible and more_btn != null and box.find_child("PlanPicker", true, false).is_visible_in_tree()
+			and box.find_child("TagPicker", true, false).is_visible_in_tree(),
+			"The plan and the tag are in view; the rest of the calls are one tap away (%s)" % tag)
+	if more_btn != null:
+		more_btn.emit_signal("pressed")
+		await _settle()
+		_check(more_calls.visible and box.find_child("RotationPicker", true, false).is_visible_in_tree(),
+				"More calls opens the rest (%s)" % tag)
 	var small := []
 	for b in box.find_children("*", "Button", true, false):
 		if b.is_visible_in_tree() and b.size.y < 40:
