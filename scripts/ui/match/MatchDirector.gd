@@ -769,7 +769,12 @@ func _scrap(p: Dictionary, who: int) -> void:
 	near.sort()
 	for i in range(mini(2, near.size())):
 		var id2 := int(near[i][1])
-		MatchMotion.set_goal(tokens[id2], at, 0.9, true)
+		# Beside the ball, not on it: they contest without shoving the
+		# man who comes out with it.
+		var side_off: Vector2 = ((tokens[id2]["pos"] as Vector2) - at).limit_length(1.0)
+		if side_off.length() < 0.1:
+			side_off = Vector2(0.0, 1.0)
+		MatchMotion.set_goal(tokens[id2], at + side_off.normalized() * 2.0, 0.9, true)
 		_busy[id2] = true
 	var knocked := float(p.get("_knocked", 0.0))
 	if knocked >= KNOCK_CAP or _pt - float(p.get("_knock_t", 0.0)) < KNOCK_EVERY:
@@ -790,6 +795,8 @@ func _scrap(p: Dictionary, who: int) -> void:
 	ball["h"] = 0.3
 
 
+## The longest a player is left collecting before the ball is his.
+const COLLECT_LIMIT := 6.0
 ## How far a ball bobbles on to a receiver still short of it.
 const ROLL_REACH := 8.0
 const LEAD_EVENTS := 10         # how far down the log a lead can be planned
@@ -1095,6 +1102,11 @@ func _done(p: Dictionary) -> bool:
 			if d <= 1.4:
 				return true
 			if p.has("max") and _pt >= float(p["max"]):
+				return true
+			# Never a freeze: a ball against the fence or a crowd round it can
+			# keep him just short of it. Close enough after a moment is his,
+			# and no collect lasts longer than COLLECT_LIMIT.
+			if (_pt >= 1.5 and d <= 3.0) or _pt >= COLLECT_LIMIT:
 				return true
 			if p.get("roll", false) and _pt > 0.1 and str(ball["mode"]) != "flight" and d <= ROLL_REACH:
 				# Still short of it: the ball bobbles on toward him rather

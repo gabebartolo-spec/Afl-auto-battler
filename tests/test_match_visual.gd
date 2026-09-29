@@ -25,6 +25,7 @@ func run() -> void:
 	_test_wings_and_lineups()
 	_test_no_wrong_way_kicks(res)
 	_test_match_flow(res)
+	_test_boundary_collect(res)
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -487,3 +488,44 @@ func _test_match_flow(res: Dictionary) -> void:
 	pv.free()
 	_check(worst <= 8.0, "No moment of a watched match hangs (longest beat %.1f s)" % worst)
 	_check(far <= 0.12 * t, "The ball is rarely left waiting on a far-off receiver (%.0f s of %.0f)" % [far, t])
+
+
+## Playtest freeze (near the boundary): a ball resting against the fence sat
+## where the collector's run could never reach within touching distance, and
+## collecting had no time limit, so play stopped. It now always completes.
+func _test_boundary_collect(res: Dictionary) -> void:
+	var pv := PitchView.new()
+	pv.size = Vector2(400, 700)
+	pv.camera_enabled = false
+	pv.setup(res)
+	var d = pv.director
+	var worst := 0.0
+	var all_done := true
+	for ang in [0.3, 1.2, 1.57, 2.4, 3.0, 4.4]:
+		# The ball on the fence (as a loose ball can settle), the collector
+		# well away, and team-mates crowding in beside the ball.
+		var at := MatchMotion.clamp_to_oval(Vector2(cos(ang), sin(ang)) * 200.0, 1.0)
+		d.ball["pos"] = at
+		d.ball["mode"] = "dead"
+		d.ball["holder"] = -1
+		var who := 5
+		d.tokens[who]["pos"] = at * 0.7
+		for j in range(6, 9):
+			d.tokens[j]["pos"] = at + Vector2(0.4 * j - 3.0, 0.3)
+			MatchMotion.set_goal(d.tokens[j], at, 1.0, true)
+		var p := {"t": "collect", "who": who, "roll": true}
+		d._pt = 0.0
+		var done := false
+		for step in range(600):
+			d._pt += 1.0 / 30.0
+			for t in d.tokens:
+				MatchMotion.step(t, 1.0 / 30.0)
+			MatchMotion.separate(d.tokens)
+			if d._done(p):
+				done = true
+				break
+		worst = maxf(worst, d._pt)
+		all_done = all_done and done
+	pv.free()
+	_check(all_done and worst <= MatchDirector.COLLECT_LIMIT + 0.1,
+			"A ball against the fence is always collected, never a freeze (longest %.1f s)" % worst)

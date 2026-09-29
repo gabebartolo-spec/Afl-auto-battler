@@ -308,7 +308,14 @@ Do **not** solve this by revealing an objectively best choice, adding recommenda
   - ball still overall: 40% v 35% and 38% v 34%.
   - Wrong-way kicks: 0 in six seeded matches (two occurred on main).
 - **Remaining:** the rest of the far waits are the sim choosing a far-off winner (role weights let a forward win the ball in defence). Closing that would mean the sim considering position, which is a separate, balance-gated change. The phone playtest is the acceptance check.
-- **Tests:** `test_match_visual.gd::_test_match_flow` checks no beat longer than 8 s and far-receiver waits at most 12% of a match. The wrong-way check still passes.
+- **The mid-play freeze near the boundary (reported from the phone playtest):**
+  - A loose ball can settle 1 m inside the fence, but a player's run is kept 2 m inside. With others crowding the ball, the collector could end up more than 1.4 m short.
+  - Collecting was the only step with no time limit, so play stopped for good.
+  - Now close enough (3 m) after 1.5 s counts as his, and no collect lasts longer than 6 s. Players contesting a scrap go beside the ball, not onto it.
+- **Tests:**
+  - `test_match_visual.gd::_test_match_flow`: no beat longer than 8 s; far-receiver waits at most 12% of a match.
+  - `_test_boundary_collect`: a ball against the fence with a crowd around it is always collected.
+  - The wrong-way check still passes.
 
 ### Playtest test
 For each important decision, verify the player can answer:
