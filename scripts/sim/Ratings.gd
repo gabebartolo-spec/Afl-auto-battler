@@ -469,7 +469,13 @@ static func salary_value(overall: int) -> int:
 ## backfilled by overall rating so a team always fields 18.
 static func select_22(list_players: Array) -> Dictionary:
 	var pool := list_players.duplicate()
-	pool.sort_custom(func(a, b): return a["overall"] > b["overall"])
+	# A player promised a game this week (a kid given his chance, a talk)
+	# is first in line for his own position; then the best available.
+	pool.sort_custom(func(a, b):
+		var pa: bool = a.has("expects_game")
+		if pa != b.has("expects_game"):
+			return pa
+		return a["overall"] > b["overall"])
 
 	var ground: Array = []
 	var used := {}

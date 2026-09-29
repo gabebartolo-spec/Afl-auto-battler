@@ -149,6 +149,10 @@ When ChatGPT has GitHub access, ChatGPT should take over the mechanical verifica
 - confirm the PR is current enough with `main` and mergeable;
 - verify required balance/save/UI evidence is present;
 - merge clean validated work under the standing authority;
+- **treat concurrent open PRs as a merge queue, not independent patches:** before merging any PR, inspect the full open-PR set for shared base age, dependencies and overlapping files/systems; establish the safest merge order first;
+- when several PRs were cut from the same/stale `main`, prefer merging dependent/high-overlap companion work in an order that minimises rebases rather than simply merging whichever CI finishes first;
+- after each merge advances `main`, immediately re-check every remaining queued PR's mergeability. If a remaining branch needs to sync, hand it back for sync/rebase **before spending time waiting on an obsolete CI run**; validate and merge only its new exact head;
+- avoid preventable conflict churn: a green CI result is necessary evidence, not permission to ignore the state of sibling PRs;
 - verify the merge on `main` and keep the roadmap record accurate.
 
 If CI exposes a genuine implementation bug, ChatGPT should give Claude the **specific failure and relevant log context**; Claude remains the coding agent.
@@ -2812,6 +2816,8 @@ Replace the leftover prototype identity shown by Android. The installed app must
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-09-29:** Tightened ChatGPT workflow ownership for concurrent PRs: inspect the whole open-PR set and establish merge order before merging, then re-check/sync remaining branches immediately after each merge so stale CI and preventable merge conflicts do not accumulate.
 
 - **2026-09-29:** Extended the party-RPG lens to matches: each match is a quest/encounter testing the player's party, and emergent storytelling is a core design goal. Matches should generate legible arcs, turning points and memorable individual moments that the player can recount afterward without scripted drama.
 
