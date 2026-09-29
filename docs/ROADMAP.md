@@ -2815,7 +2815,35 @@ Replace the leftover prototype identity shown by Android. The installed app must
 
 ---
 
+## Design idea — Unicorn as a synergy wildcard
+
+**Status: IDEA / hold for synergy-system design review.**
+
+Explore making the **Unicorn** player archetype a wildcard for list synergies: a Unicorn could satisfy a required player/archetype slot for any synergy, reflecting an unusually versatile football skill set and making that player a flexible piece in the club's "party" composition.
+
+Guardrail: this should **not** mean a Unicorn automatically strengthens every synergy at once or becomes a universal best-in-slot player. The intended value is composition flexibility — potentially satisfying one missing synergy requirement — while the player's actual position, attributes and football performance still matter.
+
+This is deliberately not implementation-ready. Revisit it alongside the broader synergy-system assessment arising from the new game-first / party-CRPG design philosophy.
+
+---
+
+## Design idea — “Spin the MRO wheel”
+
+**Status: VERY MAYBE / idea only.**
+
+Explore a tongue-in-cheek MRO presentation called **“Spin the MRO wheel”**, playing on the familiar footy-fan joke that Match Review Officer suspension outcomes can feel unpredictable or inconsistent.
+
+This is primarily flavour/presentation, not a request to make the underlying MRO system genuinely arbitrary. If ever used, the actual disciplinary logic should remain coherent enough for gameplay while the presentation can wink at the perceived randomness familiar to football supporters.
+
+Hold this idea for the eventual MRO/tribunal design work. Do not implement it merely because it is recorded here.
+
+---
+
 # 10. Roadmap Maintenance Log
+
+- **2026-09-29:** Added a very-maybe MRO flavour idea: “Spin the MRO wheel”, a tongue-in-cheek nod to footy-fan perceptions of inconsistent suspension outcomes. Presentation joke only; do not make the underlying system arbitrary.
+
+- **2026-09-29:** Recorded a design idea for Unicorn players to act as flexible synergy wildcards. Hold for the broader synergy-system design review; avoid making Unicorn a universal automatic buff.
 
 - **2026-09-29:** Tightened ChatGPT workflow ownership for concurrent PRs: inspect the whole open-PR set and establish merge order before merging, then re-check/sync remaining branches immediately after each merge so stale CI and preventable merge conflicts do not accumulate.
 
