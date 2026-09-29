@@ -60,6 +60,8 @@ var _ft_tabs: HBoxContainer
 var _ft_tab := "summary"        # summary (home), stats or report
 var _run_side := -1            # who kicked the last goal, and how many in a row
 var _run_len := 0
+var _duel_mem := {}             # the feed's memory of the key match-ups (MatchNotes.duel_feed_line)
+var _matchup_overlay: Control
 
 
 func _ready() -> void:
@@ -439,7 +441,8 @@ func _show_coach_box() -> void:
 		v.add_child(UiKit.spacer(UiKit.GAP))
 		v.add_child(UiKit.section("What's happening"))
 		v.add_child(_quarter_view(q - 1))
-		var did := MatchNotes.calls_lines(_res, _my_side, q - 1)
+		var did := MatchNotes.calls_lines(_res, _my_side, q - 1) \
+				+ MatchNotes.duel_change_lines(_res, _my_side, q - 1)
 		if not did.is_empty():
 			v.add_child(UiKit.spacer(UiKit.GAP))
 			v.add_child(UiKit.section("What your calls did"))
@@ -505,6 +508,12 @@ func _show_coach_box() -> void:
 	tag_note.name = "TagNote"
 	tag_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(tag_note)
+
+	# Key match-ups: who is on their key forwards, how the contests went last
+	# quarter, and yours against their defenders. Change one in a tap.
+	var mv := _matchups_view(sim, q)
+	if mv != null:
+		v.add_child(mv)
 
 	# The rest of the calls, one tap away: the plan and the tag are the
 	# decisions most breaks turn on.
@@ -1021,6 +1030,7 @@ func _on_event(ev: Dictionary) -> void:
 	_update_scoreboard(ev)
 	_track_momentum(ev)
 	_feed_add(ev)
+	_duel_feed(ev)
 	if str(ev.get("kind", "")) == "goal":
 		_flash_score(int(ev.get("side", 0)))
 		_track_run(int(ev.get("side", 0)))
@@ -1369,11 +1379,15 @@ func _ft_summary(v: VBoxContainer) -> void:
 		_glance_people(v, "Needs a lift", "ReportLift", g["lift"])
 		_glance_section(v, "Coaching notes", "ReportNotes", (g["notes"] as Array).slice(0, 2))
 
+	# The key match-ups: who had the better of whom, from the contests.
+	if mine:
+		_glance_section(v, "Key match-ups", "FullTimeMatchups", MatchNotes.duel_story(_res, me).slice(0, 3))
+
 	# Your calls, quarter by quarter: what each was about and how that went.
 	if mine and _interactive:
 		var did := []
 		for qq in range(1, 5):
-			for t in MatchNotes.calls_lines(_res, me, qq):
+			for t in MatchNotes.calls_lines(_res, me, qq) + MatchNotes.duel_change_lines(_res, me, qq):
 				did.append("Q%d  ·  %s" % [qq, str(t)])
 		if not did.is_empty():
 			_glance_section(v, "Your calls", "FullTimeCalls", did.slice(0, 5))
@@ -1662,3 +1676,90 @@ func _reflow() -> void:
 	_root.add_child(board)
 	_root.move_child(board, 0)
 	_paint_scoreboard()
+
+
+
+# ---------------------------------------------------------------------------
+# Key match-ups (Matchups): the named forward-50 contests
+# ---------------------------------------------------------------------------
+## At a break: their key forwards and who is on them - with last quarter's
+## contests and a tap to change - then yours against their defenders.
+func _matchups_view(sim: MatchSim, q: int) -> Control:
+	var theirs: Dictionary = sim.duels[_my_side]
+	var ours: Dictionary = sim.duels[1 - _my_side]
+	if theirs.is_empty() and ours.is_empty():
+		return null
+	var v := UiKit.vbox(4)
+	v.name = "BreakMatchups"
+	v.add_child(UiKit.spacer(4))
+	v.add_child(UiKit.lbl("Key match-ups", UiKit.BODY, UiKit.TEXT, true))
+	for fid in theirs.keys():
+		var row := UiKit.hbox(8)
+		row.name = "BreakMatchup_" + str(fid)
+		var l := UiKit.lbl(_matchup_text(str(fid), str(theirs[fid]), q), UiKit.BODY, UiKit.TEXT)
+		l.name = "MatchupLine"
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(l)
+		var b := UiKit.btn("Change", 14)
+		b.name = "ChangeMatchup"
+		b.custom_minimum_size = Vector2(96, 44)
+		var f := str(fid)
+		b.pressed.connect(func(): _show_break_matchup(sim, f, l, q))
+		row.add_child(b)
+		v.add_child(row)
+	for fid in ours.keys():
+		var l2 := UiKit.lbl("Yours: " + _matchup_text(str(fid), str(ours[fid]), q), UiKit.SMALL, UiKit.MUTED)
+		l2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l2)
+	return v
+
+
+func _matchup_text(fid: String, did: String, q: int) -> String:
+	if q <= 1:
+		return "%s: %s on him." % [MatchNotes._pname(fid), MatchNotes._pname(did)]
+	return MatchNotes.duel_quarter_line(_res, fid, did, q - 1)
+
+
+## Who goes to their forward, from your defenders on the ground. The change
+## is made in the engine at once and takes effect from the next bounce.
+func _show_break_matchup(sim: MatchSim, fid: String, line: Label, q: int) -> void:
+	if _matchup_overlay != null and is_instance_valid(_matchup_overlay):
+		_matchup_overlay.queue_free()
+	var box := UiKit.modal_box(self, 480.0, 0.0)
+	_matchup_overlay = box["overlay"]
+	_matchup_overlay.name = "MatchupChooser"
+	var v: VBoxContainer = box["body"]
+	v.add_theme_constant_override("separation", 6)
+	var fwd := sim._on_ground(1 - _my_side, fid)
+	v.add_child(UiKit.lbl("Who goes to %s?" % MatchNotes._pname(fid), UiKit.H1, UiKit.TEXT, true))
+	if not fwd.is_empty():
+		v.add_child(UiKit.lbl(Matchups.describe(fwd), UiKit.SMALL, UiKit.MUTED))
+	var cur := str((sim.duels[_my_side] as Dictionary).get(fid, ""))
+	for p in Matchups.defenders((sim.squads[_my_side] as Squad).ground):
+		var b := UiKit.btn("%s\n%s" % [GameDB.player_display_name(p), Matchups.describe(p)], 15)
+		b.name = "Defender_" + str(p["id"])
+		b.custom_minimum_size = Vector2(0, 56)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		UiKit.paint_choice(b, str(p["id"]) == cur)
+		var pid := str(p["id"])
+		b.pressed.connect(func():
+			sim.set_matchup(_my_side, fid, pid)
+			line.text = _matchup_text(fid, pid, 1).trim_suffix(".") + " from the next bounce."
+			_matchup_overlay.queue_free()
+			_matchup_overlay = null)
+		v.add_child(b)
+	var close := UiKit.btn("Close", 16)
+	close.custom_minimum_size = Vector2(0, 48)
+	close.pressed.connect(func():
+		_matchup_overlay.queue_free()
+		_matchup_overlay = null)
+	box["footer"].add_child(close)
+
+
+## The battle in the feed, rarely (MatchNotes.duel_feed_line).
+func _duel_feed(ev: Dictionary) -> void:
+	var text := MatchNotes.duel_feed_line(_duel_mem, ev)
+	if text != "":
+		_feed_text("%s  %s" % [_clock_text(int(ev.get("q", 1)), int(ev.get("min", 0))), text],
+				UiKit.TEXT, false, "DuelLine")

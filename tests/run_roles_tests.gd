@@ -56,6 +56,31 @@ func _selection_tests() -> void:
 			" | ".join(h2h_lines.map(func(l): return str(l.text))))
 	var mid_line: Label = ui.find_child("H2H_midfield", true, false)
 	_check(mid_line != null and mid_line.text.begins_with("Midfield: yours "), "Midfield sets yours against theirs")
+	# Their key forwards, and who you put on them.
+	var km: Node = ui.find_child("KeyMatchups", true, false)
+	_check(km != null and km.find_child("MatchupLine", true, false) != null
+			and str(km.find_child("MatchupLine", true, false).text).contains(" on him"),
+			"Selection names their key forwards and who is on them")
+	var chm: Button = km.find_child("ChangeMatchup", true, false) if km != null else null
+	if chm != null:
+		chm.emit_signal("pressed")
+		await _settle()
+		var mc: Node = ui.find_child("MatchupChooser", true, false)
+		var defs_b := mc.find_children("Defender_*", "Button", true, false) if mc != null else []
+		_check(defs_b.size() >= 2, "Your defenders are offered, each described (%d)" % defs_b.size())
+		if defs_b.size() >= 2:
+			var last: Button = defs_b[defs_b.size() - 1]
+			var want := str(last.name).trim_prefix("Defender_")
+			last.emit_signal("pressed")
+			await _settle()
+			_check(_state.my_matchups.values().has(want), "Your choice is kept for the match")
+			var rows: Array = _state.week_matchups(str(_state.my_next_opponent()["code"]))
+			var shown := false
+			for r in rows:
+				if str(r["def"]["id"]) == want:
+					shown = true
+			_check(shown, "The match-up line follows your choice")
+		_state.my_matchups = {}
 	# The game plan you take in is on show, and changed here.
 	var plan_line: Label = ui.find_child("PlanLine", true, false)
 	var plan_before: String = plan_line.text if plan_line != null else ""

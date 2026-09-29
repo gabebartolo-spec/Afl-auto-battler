@@ -160,6 +160,34 @@ func _phone_match(sz: Vector2i) -> void:
 	_check(more_calls != null and not more_calls.visible and more_btn != null and box.find_child("PlanPicker", true, false).is_visible_in_tree()
 			and box.find_child("TagPicker", true, false).is_visible_in_tree(),
 			"The plan and the tag are in view; the rest of the calls are one tap away (%s)" % tag)
+	# Key match-ups: their key forwards and who is on them, changed in a tap
+	# - and the change is the engine's from the next bounce.
+	var qsim = _state.pending_sim
+	var myside := int(m.get("_my_side"))
+	var bm: Node = box.find_child("BreakMatchups", true, false)
+	_check(bm != null, "The break shows the key match-ups (%s)" % tag)
+	var ch: Button = bm.find_child("ChangeMatchup", true, false) if bm != null else null
+	if ch != null:
+		var fid := str((qsim.duels[myside] as Dictionary).keys()[0])
+		var cur := str(qsim.duels[myside][fid])
+		ch.emit_signal("pressed")
+		await _settle()
+		var chooser: Node = m.find_child("MatchupChooser", true, false)
+		var pick: Button = null
+		if chooser != null:
+			for b2 in chooser.find_children("Defender_*", "Button", true, false):
+				if str(b2.name) != "Defender_" + cur and pick == null:
+					pick = b2
+		_check(pick != null, "Your defenders are offered for their forward (%s)" % tag)
+		if pick != null:
+			var picked := str(pick.name).trim_prefix("Defender_")
+			pick.emit_signal("pressed")
+			await _settle()
+			_check(str(qsim.duels[myside][fid]) == picked
+					and int(qsim.duel_changes[qsim.duel_changes.size() - 1]["from"]) == 2,
+					"The defender goes to him from the next quarter (%s)" % tag)
+			var btext := _text(box)
+			_check(not btext.contains("%") and not btext.contains("pts"), "The match-ups show no engine numbers (%s)" % tag)
 	if more_btn != null:
 		more_btn.emit_signal("pressed")
 		await _settle()
