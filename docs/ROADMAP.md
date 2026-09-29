@@ -321,6 +321,34 @@ Do **not** solve this by revealing an objectively best choice, adding recommenda
   - `test_match_visual.gd::_test_match_flow`: no beat longer than 8 s; far-receiver waits at most 12% of a match.
   - `_test_boundary_collect`: a ball against the fence with a crowd around it is always collected.
   - The wrong-way check still passes.
+### Implementation record — quarter breaks (2026-09-29, branch `claude/quarter-breaks`)
+The director's playtest named quarter breaks as the most obtuse decision. The break now follows the gate's loop: the problem, what your last calls did, then the response.
+- **What's happening:** the quarter's facts as before: stoppages, territory, the opposition player hurting you, wayward kicking, their plan, moments.
+- **What your calls did (new, `MatchNotes.calls_lines`):** one line per call you made, with the stat that call is about, against the quarter before. Examples:
+  - "Defensive press: they had 6 inside 50s and kicked 1 goal, from 11 and 4 in the first."
+  - "Win contest: clearances 9 to 6, from 5 to 8 in the first."
+  - "Tag on Walsh: 4 disposals, from 11 in the first."
+  - "Through Bontempelli: …"
+  - The problem and the call that answers it use the same words (stoppages and Win contest, a player hurting you and the tag). There is no verdict and no "best call".
+- **Your calls:** the game plan and the tag stay in view. Play through, pep talk, rotations, legs and the synergy line sit behind one "More calls" tap.
+- **Full time:** a "Your calls" section lists the same lines quarter by quarter (at most five) for a match you played live.
+- **Tests:** `run_matchday_tests.gd` checks:
+  - the break leads with what's happening;
+  - what your calls did, with the tag, is shown;
+  - plan and tag are in view and the rest one tap away;
+  - More calls opens the rest.
+- **Screens:** quarter time at 390 px reviewed.
+- **Next in this gate:** decision inputs before the match (selection and the standing plan), and synergy clarity.
+
+### Implementation record — synergy clarity (2026-09-29, branch `claude/synergy-clarity`)
+- **Problem:** a synergy showed only its name ("Engine room: On"). The player could not tell what it does for the side or who in the side makes it work, so a combination had to be reverse-engineered.
+- **Changes:**
+  - Wherever an active synergy is named (selection, the match coach box), it now carries what it does in plain football words: "Engine room (wins more of the stoppages)". `Traits.with_effect`.
+  - The synergy guide on the selection screen names who in your side carries each trait a synergy needs, in its line: "Aerial threats in your side: Fenn Quiver. Crumbers in your side: none." `Traits.carriers`. Facts only: no "one more X" prompts or suggested picks.
+  - The coach box reads "Your synergies: ... Theirs: ...".
+  - No numbers added; the effect lines are the existing `does` text.
+- **Tests:** `run_roles_tests.gd`: each synergy names who in your side carries what it needs.
+- **Acceptance:** the phone playtest - can the player say broadly what their combination is good at and who makes it work?
 
 ### Implementation record — decision inputs before the match (2026-09-29, branch `claude/decision-inputs`)
 - **Problem:** the selection screen showed the opponent's facts and your own lines separately, in different words, so the comparison was left to the player. The game plan was set on Coaching, away from any match, and not shown before one. How the opponent plays was worked out for every club but only ever shown for yours.

@@ -436,7 +436,20 @@ func _show_coach_box() -> void:
 		sc.name = "BreakScore"
 		sc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(sc)
+		v.add_child(UiKit.spacer(UiKit.GAP))
+		v.add_child(UiKit.section("What's happening"))
 		v.add_child(_quarter_view(q - 1))
+		var did := MatchNotes.calls_lines(_res, _my_side, q - 1)
+		if not did.is_empty():
+			v.add_child(UiKit.spacer(UiKit.GAP))
+			v.add_child(UiKit.section("What your calls did"))
+			var dv := UiKit.vbox(4)
+			dv.name = "CallsDid"
+			for t in did:
+				var dl := UiKit.lbl(str(t), UiKit.BODY, UiKit.TEXT)
+				dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				dv.add_child(dl)
+			v.add_child(dv)
 		if q == 3:
 			var report := UiKit.btn("Assistant's report", 15)
 			report.name = "HalfTimeReport"
@@ -445,11 +458,6 @@ func _show_coach_box() -> void:
 			v.add_child(report)
 	v.add_child(UiKit.spacer(UiKit.GAP))
 	v.add_child(UiKit.section("Your calls" if q == 1 else "Next quarter"))
-	var syn_line := _synergy_line()
-	if syn_line != "":
-		var sl := UiKit.lbl(syn_line, UiKit.SMALL, UiKit.MUTED)
-		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(sl)
 
 	# Your calls, as taps: nothing here is a settings form. Short lists sit
 	# in plain view; a player list shows the few in the game so far and
@@ -495,6 +503,25 @@ func _show_coach_box() -> void:
 	tag_note.name = "TagNote"
 	v.add_child(tag_note)
 
+	# The rest of the calls, one tap away: the plan and the tag are the
+	# decisions most breaks turn on.
+	var more := UiKit.vbox(8)
+	more.name = "MoreCalls"
+	more.visible = false
+	var more_btn := UiKit.btn("More calls", 15)
+	more_btn.name = "MoreCallsToggle"
+	more_btn.custom_minimum_size = Vector2(0, 44)
+	more_btn.pressed.connect(func():
+		more.visible = not more.visible
+		more_btn.text = "Fewer calls" if more.visible else "More calls")
+	v.add_child(more_btn)
+	v.add_child(more)
+	var syn_line := _synergy_line()
+	if syn_line != "":
+		var sl := UiKit.lbl(syn_line, UiKit.SMALL, UiKit.MUTED)
+		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		more.add_child(sl)
+
 	var mine := _roster_side(_my_side)
 	var focus := _player_choice("FocusPicker", "No one", mine, _in_the_game(mine, 4), calls, "focus_id",
 			"Play through which player?")
@@ -504,7 +531,7 @@ func _show_coach_box() -> void:
 	focus_note.name = "FocusNote"
 	focus_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	focus_block.add_child(focus_note)
-	v.add_child(focus_block)
+	more.add_child(focus_block)
 
 	var pep_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	pep_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -512,8 +539,8 @@ func _show_coach_box() -> void:
 		pep_note.text = CoachReport.pep_summary(key)
 		pep_note.visible = pep_note.text != ""
 	var pep := _choice_grid("PepPicker", PEP_SHORT, calls, "pep", 3, sync_pep)
-	v.add_child(_call_block("Pep talk", pep))
-	v.add_child(pep_note)
+	more.add_child(_call_block("Pep talk", pep))
+	more.add_child(pep_note)
 	sync_pep.call("steady")
 
 	var rot_opts := []
@@ -525,10 +552,10 @@ func _show_coach_box() -> void:
 		rot_note.text = str(MatchSim.ROTATION_POLICIES[key]["text"])
 		rot_note.visible = key != "normal"
 	var rot := _choice_grid("RotationPicker", rot_opts, calls, "rotation", 3, sync_rot)
-	v.add_child(_call_block("Rotations", rot))
-	v.add_child(rot_note)
+	more.add_child(_call_block("Rotations", rot))
+	more.add_child(rot_note)
 	sync_rot.call(_rotation)
-	v.add_child(_legs_view())
+	more.add_child(_legs_view())
 
 	var start := UiKit.btn("Start quarter" if q > 1 else "Bounce the ball", 18, true)
 	start.name = "StartQuarter"
@@ -560,9 +587,6 @@ func _quarter_view(q: int) -> Control:
 	var opp_last := _opp_last_plan()
 	if opp_last != "" and opp_last != "balanced":
 		lines.append("They played %s." % CoachReport.plan_label(opp_last))
-	var tag_line := MatchNotes.tag_line(_res, _my_side, q)
-	if tag_line != "":
-		lines.append(tag_line)
 	for m in _res.get("moments", []):
 		if int(m.get("q", 0)) == q:
 			lines.append(MatchNotes.moment_line(m))
@@ -580,9 +604,9 @@ func _synergy_line() -> String:
 	var names := func(keys: Array) -> String:
 		var out: PackedStringArray = []
 		for k in keys:
-			out.append(Traits.label(str(k)))
+			out.append(Traits.with_effect(str(k)))
 		return ", ".join(out) if not out.is_empty() else "none"
-	return "Synergies - yours: %s. Theirs: %s." % [names.call(syn[_my_side]), names.call(syn[1 - _my_side])]
+	return "Your synergies: %s. Theirs: %s." % [names.call(syn[_my_side]), names.call(syn[1 - _my_side])]
 
 
 ## The opposition's plan in the quarter just played ("" before the bounce).
@@ -1341,6 +1365,15 @@ func _ft_summary(v: VBoxContainer) -> void:
 		var g := CoachReport.glance(CoachReport.match_report(_res, me), true)
 		_glance_people(v, "Needs a lift", "ReportLift", g["lift"])
 		_glance_section(v, "Coaching notes", "ReportNotes", (g["notes"] as Array).slice(0, 2))
+
+	# Your calls, quarter by quarter: what each was about and how that went.
+	if mine and _interactive:
+		var did := []
+		for qq in range(1, 5):
+			for t in MatchNotes.calls_lines(_res, me, qq):
+				did.append("Q%d  ·  %s" % [qq, str(t)])
+		if not did.is_empty():
+			_glance_section(v, "Your calls", "FullTimeCalls", did.slice(0, 5))
 
 	# A handful of numbers worth a glance; the full table is a tap away.
 	v.add_child(UiKit.spacer(UiKit.GAP))

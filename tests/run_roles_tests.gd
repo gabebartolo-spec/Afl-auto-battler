@@ -105,6 +105,19 @@ func _selection_tests() -> void:
 				if req == null or not req.text.begins_with("Requires "):
 					all_rules = false
 		_check(all_rules, "Every synergy states exactly what it requires")
+		var carriers_ok := guide != null
+		if guide != null:
+			for key in Traits.SYNERGIES:
+				var row2: Node = guide.find_child("Synergy_" + str(key), true, false)
+				var cl: Label = row2.find_child("Carriers", true, false) if row2 != null else null
+				if cl == null or not cl.text.contains("in your side:"):
+					carriers_ok = false
+				else:
+					for c in Traits.carriers(str(key), _state.my_squad().ground):
+						for p in c[1]:
+							if not cl.text.contains(str(root.get_node("GameDB").player_display_name(p))):
+								carriers_ok = false
+		_check(carriers_ok, "Each synergy names who in your side carries what it needs")
 		var gtext := _screen_text(guide) if guide != null else ""
 		var prog := RegEx.new()
 		prog.compile("\\d/\\d")
