@@ -943,6 +943,7 @@ func _test_in_match_injuries() -> void:
 	var hurt := 0
 	var sound := true
 	var covered := true
+	var duels_ok := true
 	var sample := {}
 	for i in range(40):
 		var sim := _sim(3100 + i, "MEL", "CAR")
@@ -966,10 +967,23 @@ func _test_in_match_injuries() -> void:
 			covered = covered and in_roster and ev_ok
 			if sample.is_empty():
 				sample = {"res": res, "inj": inj}
+		# Nobody gone off hurt is left in a match-up (a break would offer a
+		# change the engine cannot make).
+		for side in range(2):
+			var here := {}
+			for p in (sim.squads[side] as Squad).ground + (sim.squads[side] as Squad).bench:
+				here[str(p["id"])] = true
+			var there := {}
+			for p in (sim.squads[1 - side] as Squad).ground + (sim.squads[1 - side] as Squad).bench:
+				there[str(p["id"])] = true
+			for fid in (sim.duels[side] as Dictionary):
+				if not there.has(str(fid)) or not here.has(str(sim.duels[side][fid])):
+					duels_ok = false
 	var rate := float(hurt) / (2.0 * n)
 	_check(rate > 0.4 and rate < 1.1, "In-match injuries run near the old rate (%.2f a side a match)" % rate)
 	_check(sound, "A player hurt in a match takes no further part")
 	_check(covered, "Each injury is in the log and the injured player is in the box score")
+	_check(duels_ok, "A player gone off hurt is out of the match-ups")
 	if not sample.is_empty():
 		var res: Dictionary = sample["res"]
 		var inj: Dictionary = sample["inj"]
