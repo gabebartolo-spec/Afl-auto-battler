@@ -2380,6 +2380,59 @@ Final pass:
 
 ---
 
+## ARD-M8-007 — Cinematic tactical vignettes
+**Status:** `DEFERRED`  
+**Priority:** `P3`  
+**Autonomy:** `SUPERVISED`
+
+Use short, deliberately higher-detail tactical vignettes for selected high-value in-match decisions so the player can **see the football problem or opportunity**, not just read about it.
+
+This is **not** a full 3D match engine or a replacement for the standard watched-match view.
+
+### Dependency
+Do not prioritise this until the current §1.11 playtest gate has proved that the underlying decisions themselves are informed, meaningful and give useful feedback. Better presentation must not be used to disguise arbitrary choices.
+
+### Prototype first
+Build **one** centre-stoppage decision vignette before committing to a library.
+
+The cheap prototype may be enlarged 2D / 2.5D. Stylised 3D is allowed only if the prototype demonstrates enough player value to justify the extra production burden.
+
+A successful vignette should:
+- enter briefly from the normal match view;
+- show only the relevant players and space, not all 36 footballers;
+- use the actual clubs/players/context from the match state;
+- play a short tactical sequence, then freeze at the decision point;
+- visually expose the problem/opportunity — e.g. an opponent getting goal-side, a spare defender, an isolated forward, or a numerical advantage;
+- present the normal decision UI over/after that readable situation;
+- return cleanly to the standard match view.
+
+### Reuse model
+If the prototype earns expansion, prefer a small reusable library of situation templates rather than bespoke cinematics.
+
+Possible families:
+- centre clearance / stoppage,
+- defensive transition,
+- forward isolated one-on-one,
+- spare defender / loose player,
+- kick-in press,
+- wing/outside overlap,
+- forward stoppage,
+- late-game flood / protect-space situation.
+
+### Guardrails
+- MatchSim remains the authority. A vignette may illustrate state but must not invent a second football outcome.
+- Do not attempt realistic player faces, broadcast-quality stadium presentation or continuous 3D match recreation.
+- Do not build hundreds of unique scenes.
+- Tactical readability matters more than graphical fidelity.
+- Preserve club colours and player identity where useful without requiring licensed likenesses.
+- Keep mobile performance and load time within the Android-first target.
+- No extra number-vomit: the visual should replace explanation where possible, not add another analytics layer.
+
+### Acceptance test
+The feature earns further work only if a phone playtest shows that the player can explain **why the decision is being asked**, form a reasonable expectation before choosing, and finds the moment materially more engaging than the normal presentation.
+
+---
+
 # 3. Cross-Cutting Systems That Must Stay Consolidated
 
 These are not separate roadmap items. They are architectural umbrellas used to prevent duplicates.
@@ -2689,12 +2742,14 @@ Before adding any new roadmap line, check this table.
 | OVR correlation / rating predicts strength | ARD-M5-010 |
 | Wing/inside-mid/forward identity labels | ARD-M5-009 |
 | Create-a-player / self-insert / custom draftee / custom prospect | ARD-M7-008 |
+| Cinematic decision scene / tactical close-up / 3D match moment | ARD-M8-007 Cinematic tactical vignettes |
 | Draft age filter / rookie-prime-veteran / career-stage filter | ARD-M5-011 |
 
 ---
 
 # 10. Roadmap Maintenance Log
 
+- **2026-09-29:** Added ARD-M8-007 for cinematic tactical vignettes: prototype one high-value decision moment first, use visual detail to make the football problem legible, and explicitly avoid turning the project into a full 3D match engine. Deferred until the §1.11 decision-clarity gate proves the underlying choices are good.
 Keep this short. Add only meaningful structural changes, not every code commit.
 
 - **2026-09-29:** Added a P0 playtest gate for core fun/readability: pause unrelated feature expansion while match freezes/stalls, implausible loose-ball waiting, opaque synergies, uninformed choices and weak decision feedback are addressed. Core test is whether the player can understand a decision, form an expectation, observe the consequence and learn from it without number-vomit or best-choice hints.
