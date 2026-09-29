@@ -204,19 +204,74 @@ static func standing(code: String, lists: Dictionary, selections: Dictionary, ow
 		for c in squads:
 			if str(c) != code and float(line_values(squads[c])[key]) > mine:
 				better += 1
-		var rank := better + 1
-		var word := "middle of the pack"
-		if rank == 1:
-			word = "the best in the competition"
-		elif rank <= EDGE:
-			word = "one of the best"
-		elif rank <= 2 * EDGE:
-			word = "strong"
-		elif rank > n - EDGE:
-			word = "among the weakest"
-		elif rank > n - 2 * EDGE:
-			word = "below par"
-		out.append([str(row[1]), word])
+		out.append([str(row[1]), _standing_word(better + 1, n)])
+	return out
+
+
+## A league rank (1 = best of n) in the standing words.
+static func _standing_word(rank: int, n: int) -> String:
+	if rank == 1:
+		return "the best in the competition"
+	if rank <= EDGE:
+		return "one of the best"
+	if rank <= 2 * EDGE:
+		return "strong"
+	if rank > n - EDGE:
+		return "among the weakest"
+	if rank > n - 2 * EDGE:
+		return "below par"
+	return "middle of the pack"
+
+
+## This week, line against line, in the standing words for both sides:
+## midfield v midfield, ruck v ruck, your forwards v their defence and your
+## defence v their forwards. `own` is your side as picked now, so a change of
+## selection shows. [{"key", "text"}], [] without the opponent.
+static func head_to_head(mine: String, opp: String, lists: Dictionary, selections: Dictionary,
+		own: Squad) -> Array:
+	if not lists.has(opp) or (lists[opp] as Array).is_empty():
+		return []
+	var squads := {}
+	for c in lists:
+		if (lists[c] as Array).is_empty():
+			continue
+		squads[c] = own if str(c) == mine else Squad.new(str(c), lists[c], false, str(c), selections.get(c, {}))
+	squads[mine] = own
+	var values := {}
+	for c in squads:
+		values[c] = line_values(squads[c])
+	var n := squads.size()
+	var word := func(code: String, key: String) -> String:
+		var better := 0
+		for c in squads:
+			if str(c) != code and float(values[c][key]) > float(values[code][key]):
+				better += 1
+		return _standing_word(better + 1, n)
+	return [
+		{"key": "midfield", "text": "Midfield: yours %s, theirs %s." % [word.call(mine, "midfield"), word.call(opp, "midfield")]},
+		{"key": "ruck", "text": "Ruck: yours %s, theirs %s." % [word.call(mine, "ruck"), word.call(opp, "ruck")]},
+		{"key": "attack", "text": "Your forwards v their defence: %s v %s." % [word.call(mine, "attack"), word.call(opp, "defence")]},
+		{"key": "defence", "text": "Your defence v their forwards: %s v %s." % [word.call(mine, "defence"), word.call(opp, "attack")]},
+	]
+
+
+## The people behind this week, not the lines: their danger, their best
+## player missing, a run of wins or losses. Most useful first.
+static func people(opp: String, lists: Dictionary, selections: Dictionary = {},
+		results: Array = []) -> Array:
+	if not lists.has(opp) or (lists[opp] as Array).is_empty():
+		return []
+	var out := []
+	var missing := _missing(lists[opp])
+	if not missing.is_empty():
+		out.append(missing)
+	var danger := _danger(opp, Squad.new(opp, lists[opp], false, opp, selections.get(opp, {})), lists)
+	if not danger.is_empty():
+		out.append(danger)
+	var form := _form(results)
+	if not form.is_empty():
+		out.append(form)
+	out.sort_custom(func(a, b): return PRIORITY.find(str(a["key"])) < PRIORITY.find(str(b["key"])))
 	return out
 
 

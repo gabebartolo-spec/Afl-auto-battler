@@ -50,6 +50,23 @@ func _hub_tests() -> void:
 	var facts := hub.find_children("Fact_*", "Label", true, false)
 	_check(facts.size() <= 3, "At most three facts about them (%d)" % facts.size())
 	var expected: Array = _state.opponent_facts(str(nxt["code"]))
+	# How they play, after three games: at most two lines, words not numbers.
+	var style: Array = _state.their_style(str(nxt["code"]))
+	var style_ok := style.size() <= 2
+	for t in style:
+		if not (str(t).begins_with("They ") or str(t).begins_with("Their ")) or RegEx.create_from_string("\\d").search(str(t)) != null:
+			style_ok = false
+	_check(style_ok, "Their style reads as football, no numbers (%s)" % " ".join(style))
+	var any_style := false
+	for c in _state.season.lists:
+		if not _state.their_style(str(c)).is_empty():
+			any_style = true
+	_check(any_style, "After three rounds some sides have a style worth saying")
+	var ppl_ok := true
+	for f in _state.opponent_people(str(nxt["code"])):
+		if not ["missing", "danger", "form"].has(str(f["key"])):
+			ppl_ok = false
+	_check(ppl_ok, "The people facts are people, not lines")
 	_check(facts.size() == expected.size(), "The hub shows exactly the derived facts")
 	var form: Label = hub.find_child("OppFormLine", true, false)
 	_check(form != null and not form.text.contains("(") and form.text.contains("on the ladder"),

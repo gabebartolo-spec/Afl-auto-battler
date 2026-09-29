@@ -14,6 +14,7 @@ const CHOICES := [["RUCK", "Ruck"], ["MID", "Mid"], ["WING", "Wing"], ["DEF", "D
 var _root: VBoxContainer
 var _notice := ""
 var _synergy_overlay: Control
+var _plan_overlay: Control      # the game plan chooser
 var _sheet: Control             # a player's profile, open over the list
 var _open_move := ""            # the one player whose move choices are open
 var _scroll_box: ScrollContainer
@@ -74,7 +75,6 @@ func _build() -> void:
 	hv.add_child(_para(help, 13, UiKit.MUTED))
 	if _notice != "":
 		hv.add_child(_para(_notice, 13, UiKit.GOOD))
-	hv.add_child(_strength_line())
 	hv.add_child(_synergy_view())
 
 
@@ -83,9 +83,7 @@ func _build() -> void:
 	_scroll_box.name = "SelectionScroll"
 	_root.add_child(_scroll_box)
 	_restore_scroll.call_deferred(keep)
-	var week := _this_week()
-	if week != null:
-		body.add_child(week)
+	body.add_child(_this_week())
 	var side := GameState.current_side()
 	var placed := {}
 	var sel := GameState.my_selection()
@@ -211,13 +209,17 @@ func _close_profile() -> void:
 	_sheet = null
 
 
-## Android Back closes a profile, then the synergy guide, before leaving.
+## Android Back closes a profile, then the synergy guide or the plan
+## chooser, before leaving.
 func handle_back() -> bool:
 	if _sheet != null and is_instance_valid(_sheet):
 		_close_profile()
 		return true
 	if _synergy_overlay != null and is_instance_valid(_synergy_overlay):
 		_close_synergies()
+		return true
+	if _plan_overlay != null and is_instance_valid(_plan_overlay):
+		_close_plan()
 		return true
 	return false
 
@@ -370,24 +372,100 @@ func _label_for(role: String) -> String:
 	return role
 
 
-## This week's opponent and what they bring. The problem, not the answer:
-## the rows say who your players are; what to do about it is your call.
+## This week, what the choice rests on: line against line (your half moves
+## with your selection), the people who matter, how they play, then the game
+## plan you take in. Facts, never a verdict: what to do about it is your call.
 func _this_week() -> Control:
-	var nxt := GameState.my_next_opponent()
-	if nxt.is_empty():
-		return null
-	var code := str(nxt["code"])
 	var v := UiKit.vbox(3)
 	v.name = "SelectionWeek"
+	var nxt := GameState.my_next_opponent()
+	if nxt.is_empty():
+		v.add_child(_strength_line())
+		v.add_child(UiKit.spacer(4))
+		v.add_child(_plan_row())
+		return v
+	var code := str(nxt["code"])
 	v.add_child(UiKit.lbl("This week %s %s" % ["v" if str(nxt["venue"]) == "home" else "at",
 			GameDB.club_name(code)], UiKit.BODY, UiKit.TEXT, true))
-	for f in GameState.opponent_facts(code):
+	var lines := UiKit.vbox(3)
+	lines.name = "HeadToHead"
+	v.add_child(lines)
+	for row in GameState.my_head_to_head(code):
+		var l := _para(str(row["text"]), 14, UiKit.TEXT)
+		l.name = "H2H_" + str(row["key"])
+		lines.add_child(l)
+	var people := GameState.opponent_people(code)
+	var own := GameState.my_week_notes()
+	if not people.is_empty() or not own.is_empty():
+		v.add_child(UiKit.spacer(4))
+	for f in people:
 		v.add_child(_para(str(f["text"]), 13, UiKit.MUTED))
+	for f in own:
+		v.add_child(_para(str(f["text"]), 13, UiKit.BAD))
+	var style := GameState.their_style(code)
+	if not style.is_empty():
+		v.add_child(UiKit.spacer(4))
+		var st := _para("How they play: " + " ".join(style), 13, UiKit.MUTED)
+		st.name = "TheirStyle"
+		v.add_child(st)
+	v.add_child(UiKit.spacer(6))
+	v.add_child(_plan_row())
 	return v
 
 
-## How this side's lines stack up against the league, in words: a change
-## of selection shows here, without engine numbers to decode.
+## The game plan you take into the match, and the way to change it.
+func _plan_row() -> Control:
+	var h := UiKit.hbox(8)
+	h.name = "PlanRow"
+	var l := UiKit.lbl("Game plan: %s" % CoachReport.plan_label(GameState.club_plan), UiKit.BODY, UiKit.TEXT, true)
+	l.name = "PlanLine"
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(l)
+	var b := UiKit.btn("Change", 14)
+	b.name = "ChangePlan"
+	b.custom_minimum_size = Vector2(104, 44)
+	b.pressed.connect(_show_plan)
+	h.add_child(b)
+	return h
+
+
+## The same six plans as Coaching and the breaks, each with what it does.
+func _show_plan() -> void:
+	_close_plan()
+	var box := UiKit.modal_box(self, 480.0, 0.0)
+	_plan_overlay = box["overlay"]
+	_plan_overlay.name = "PlanChooser"
+	var v: VBoxContainer = box["body"]
+	v.add_theme_constant_override("separation", 6)
+	v.add_child(UiKit.lbl("Game plan", UiKit.H1, UiKit.TEXT, true))
+	var opts := []
+	for key in GameState.CLUB_PLANS:
+		opts.append([key, CoachReport.plan_label(key)])
+	var note := _para(CoachReport.plan_summary(GameState.club_plan), 13, UiKit.MUTED)
+	note.name = "PlanNote"
+	v.add_child(UiKit.choice_grid("ClubPlan", opts, GameState.club_plan, 2, func(key):
+		GameState.set_club_plan(str(key))
+		note.text = CoachReport.plan_summary(str(key))
+		var line: Label = find_child("PlanLine", true, false)
+		if line != null:
+			line.text = "Game plan: %s" % CoachReport.plan_label(str(key))))
+	v.add_child(note)
+	v.add_child(_para("Every match starts on this plan. Change it at any break.", 13, UiKit.MUTED))
+	var done := UiKit.btn("Done", 16, true)
+	done.name = "PlanDone"
+	done.custom_minimum_size = Vector2(0, 48)
+	done.pressed.connect(_close_plan)
+	box["footer"].add_child(done)
+
+
+func _close_plan() -> void:
+	if _plan_overlay != null and is_instance_valid(_plan_overlay):
+		_plan_overlay.queue_free()
+	_plan_overlay = null
+
+
+## Your lines against the league, in words, when there is no opponent to
+## set them against (a bye, the season over).
 func _strength_line() -> Control:
 	var l := _para(GameState.my_line_standing_text(), 14, UiKit.TEXT)
 	l.name = "LineStanding"
