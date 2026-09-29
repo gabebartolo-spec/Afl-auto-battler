@@ -46,6 +46,12 @@ func _test_rules() -> void:
 	_check(unhappy_price > Contracts.asking_salary(star), "An unhappy player asks more to re-sign")
 	_check(ClubLife.form({"morale": 100}) > 0.0 and ClubLife.form({"morale": 20}) < 0.0,
 			"Morale nudges match form")
+	# The profile says so wherever it matters, in the same direction as the engine.
+	for m in [20, 50, 70, 90, 100]:
+		var said := ClubLife.mood_effect(m)
+		var f := ClubLife.form({"morale": m})
+		_check((said == "") == (absf(f) < 0.015) and (said.contains("lifting") == (f > 0.0) or said == ""),
+				"The profile's word on morale %d matches its match effect (%s)" % [m, said])
 
 
 func _test_season_flow() -> void:
