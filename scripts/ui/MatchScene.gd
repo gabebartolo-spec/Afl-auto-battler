@@ -47,7 +47,7 @@ var _shown_behinds := [0, 0]
 var _shown_q := 1
 var _shown_min := 0
 var _moment_overlay: Control
-var _momentum := 0.0            # -1 (away on top) .. 1 (home on top)
+var _momentum := 0.0            # the engine's momentum as shown: -1 (away on top) .. 1 (home on top)
 var _mom_home: ColorRect
 var _mom_away: ColorRect
 var _rotation := "normal"
@@ -188,8 +188,9 @@ func _scoreboard() -> Control:
 	return p
 
 
-## Who has the run of play: a bar that swings to the side kicking the goals
-## and pumping it inside 50, and drifts back to even when nothing happens.
+## Who has the run of play: the engine's momentum (MatchSim.momentum), which
+## goals swing, time fades and a goal the other way turns. The side it
+## favours wins a little more of the ball at stoppages and loose balls.
 func _momentum_bar() -> Control:
 	var bar := UiKit.hbox(0)
 	bar.name = "MomentumBar"
@@ -210,28 +211,17 @@ func _momentum_bar() -> Control:
 func _paint_momentum() -> void:
 	if _mom_home == null or not is_instance_valid(_mom_home):
 		return
-	_mom_home.size_flags_stretch_ratio = 1.0 + _momentum
-	_mom_away.size_flags_stretch_ratio = 1.0 - _momentum
+	# Kept short of the ends so both clubs' colours always show.
+	_mom_home.size_flags_stretch_ratio = 1.0 + 0.9 * _momentum
+	_mom_away.size_flags_stretch_ratio = 1.0 - 0.9 * _momentum
 
 
+## Every event carries the engine's momentum as it stood ("mom"): the meter
+## shows exactly that, nothing of its own.
 func _track_momentum(ev: Dictionary) -> void:
-	# A ball-up is staging for the oval, not a play: it must not age the meter
-	# (the log carries ~57 a match).
-	if str(ev.get("kind", "")) == "ballup":
+	if not ev.has("mom"):
 		return
-	var side := int(ev.get("side", -1))
-	var sign := 1.0 if side == 0 else -1.0
-	_momentum *= 0.985
-	match str(ev.get("kind", "")):
-		"goal":
-			_momentum += 0.30 * sign
-		"behind":
-			_momentum += 0.10 * sign
-		"inside50":
-			_momentum += 0.05 * sign
-		"quarter":
-			_momentum *= 0.5
-	_momentum = clampf(_momentum, -0.9, 0.9)
+	_momentum = clampf(float(ev["mom"]), -1.0, 1.0)
 	_paint_momentum()
 
 
