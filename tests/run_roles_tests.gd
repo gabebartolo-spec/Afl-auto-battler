@@ -42,11 +42,44 @@ func _selection_tests() -> void:
 	var ui := await _open()
 	var text := _screen_text(ui)
 	_check(text.contains("Wings  2/2") and text.contains("Midfield  3/3"), "The midfield reads as centre square and wings")
-	var standing: Label = ui.find_child("LineStanding", true, false)
+	# This week, line against line: both sides in the same words, no numbers.
+	var h2h: Node = ui.find_child("HeadToHead", true, false)
 	var digits := RegEx.new()
 	digits.compile("\\d")
-	_check(standing != null and standing.text.contains("Midfield") and digits.search(standing.text) == null,
-			"The side's lines read in words, not engine numbers (%s)" % (standing.text if standing else "-"))
+	var h2h_lines: Array = h2h.get_children() if h2h != null else []
+	var h2h_ok := h2h_lines.size() == 4
+	for l in h2h_lines:
+		if digits.search(str(l.text)) != null or not (str(l.text).contains("yours") or str(l.text).contains(" v ")):
+			h2h_ok = false
+	_check(h2h_ok, "The matchup reads line against line, in words (%s)" %
+			" | ".join(h2h_lines.map(func(l): return str(l.text))))
+	var mid_line: Label = ui.find_child("H2H_midfield", true, false)
+	_check(mid_line != null and mid_line.text.begins_with("Midfield: yours "), "Midfield sets yours against theirs")
+	# The game plan you take in is on show, and changed here.
+	var plan_line: Label = ui.find_child("PlanLine", true, false)
+	var plan_before: String = plan_line.text if plan_line != null else ""
+	_check(plan_line != null and plan_line.text.begins_with("Game plan: ") and plan_line.text.length() > 11,
+			"The game plan you take in is on show (%s)" % (plan_line.text if plan_line else "-"))
+	var change: Button = ui.find_child("ChangePlan", true, false)
+	_check(change != null and change.size.y >= 44, "The plan can be changed from selection")
+	if change != null:
+		change.emit_signal("pressed")
+		await _settle()
+		var chooser: Node = ui.find_child("PlanChooser", true, false)
+		var contest: Button = chooser.find_child("ClubPlan_contest", true, false) if chooser != null else null
+		_check(contest != null, "The chooser offers the plans")
+		if contest != null:
+			contest.emit_signal("pressed")
+			await _settle()
+			_check(_state.club_plan == "contest", "Picking a plan sets the standing plan")
+			var note: Label = chooser.find_child("PlanNote", true, false)
+			_check(note != null and note.text.contains("clearances"), "The plan says what it does (%s)" % (note.text if note else "-"))
+			plan_line = ui.find_child("PlanLine", true, false)
+			_check(plan_line != null and plan_line.text != plan_before and plan_line.text == "Game plan: " + contest.text,
+					"The plan line follows the pick")
+		_check(ui.call("handle_back") == true, "Back closes the plan chooser")
+		await _settle()
+		_state.set_club_plan("balanced")
 	var rows := ui.find_children("RoleLabel", "Label", true, false)
 	_check(rows.size() >= 22, "Every player row says who he is (%d)" % rows.size())
 	var rx := RegEx.new()

@@ -1247,6 +1247,20 @@ func my_line_standing_text() -> String:
 	return "  ·  ".join(bits)
 
 
+## This week line against line (Matchup.head_to_head), your side as picked.
+func my_head_to_head(code: String) -> Array:
+	if season == null or my_club == "" or code == "":
+		return []
+	return Matchup.head_to_head(my_club, code, season.lists, season.selections, my_squad())
+
+
+## Their danger, who they are missing and their run (Matchup.people).
+func opponent_people(code: String) -> Array:
+	if season == null or code == "" or not season.lists.has(code):
+		return []
+	return Matchup.people(code, season.lists, season.selections, season.club_results(code))
+
+
 ## Your own side's week worth knowing (Matchup.own_notes).
 func my_week_notes() -> Array:
 	return Matchup.own_notes(my_list)
@@ -3076,11 +3090,35 @@ const FORM_GAP := 15.0
 func how_we_play(code := "") -> Dictionary:
 	if code == "":
 		code = my_club
+	var games := int((season_team.get(code, {}) as Dictionary).get("games", 0))
+	var out := {"win": [], "beaten": [], "games": games}
+	for f in _style_found(code):
+		var lines: Array = STYLE_LINES[f["k"]]
+		var bucket: Array = out["win"] if bool(f["good"]) else out["beaten"]
+		if bucket.size() < 3:
+			bucket.append(str(lines[0] if bool(f["good"]) else lines[1]) % int(f["n"]))
+	return out
+
+
+## How an opponent plays, from their season so far, in words and no numbers:
+## "They win it at the stoppages." At most `limit`, most marked first; [] before
+## they have played three games.
+func their_style(code: String, limit := 2) -> Array:
+	var out := []
+	for f in _style_found(code):
+		if out.size() >= limit:
+			break
+		out.append(str(THEIR_STYLE[f["k"]][0 if bool(f["good"]) else 1]))
+	return out
+
+
+## The stats where a club is clearly off the league average, most marked
+## first: [{"k", "rel", "n", "good"}]. [] before three games.
+func _style_found(code: String) -> Array:
 	var mine: Dictionary = season_team.get(code, {})
 	var games := int(mine.get("games", 0))
-	var out := {"win": [], "beaten": [], "games": games}
 	if games < 3:
-		return out
+		return []
 	var league := {}
 	var clubs := 0
 	for c in season_team:
@@ -3099,12 +3137,24 @@ func how_we_play(code := "") -> Dictionary:
 		if absf(d) / avg >= STYLE_GAP and int(round(absf(d))) >= 1:
 			found.append({"k": k, "rel": absf(d) / avg, "n": int(round(absf(d))), "good": good})
 	found.sort_custom(func(a, b): return float(a["rel"]) > float(b["rel"]))
-	for f in found:
-		var lines: Array = STYLE_LINES[f["k"]]
-		var bucket: Array = out["win"] if bool(f["good"]) else out["beaten"]
-		if bucket.size() < 3:
-			bucket.append(str(lines[0] if bool(f["good"]) else lines[1]) % int(f["n"]))
-	return out
+	return found
+
+
+## STYLE_LINES as said of an opponent: [when it helps them, when it hurts them].
+const THEIR_STYLE := {
+	"for": ["They kick big scores.", "They struggle to score."],
+	"against": ["They are hard to score against.", "They leak scores."],
+	"clearances": ["They win it at the stoppages.", "They get beaten at the stoppages."],
+	"inside50": ["They live in their forward half.", "They struggle to get it forward."],
+	"pressure_acts": ["They bring the heat.", "They give opponents time."],
+	"marks": ["They hold it by foot and mark it.", "They rarely take a mark."],
+	"clangers": ["They look after the ball.", "They turn it over."],
+	"hitouts": ["Their ruck wins the tap.", "They get beaten in the ruck."],
+	"from_turnover": ["They hurt sides on the turnover.", "They rarely score on the turnover."],
+	"from_stoppage": ["They score from the stoppages.", "They rarely score from the stoppages."],
+	"conceded_turnover": ["They rarely get caught on the turnover.", "They get caught on the turnover."],
+	"conceded_stoppage": ["They shut down stoppage scores.", "They give up scores from the stoppages."],
+}
 
 
 ## How far off the average a side must be before it is a trait of its play.
