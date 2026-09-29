@@ -104,14 +104,13 @@ This is the **authoritative near-term work order**. The M1→M8 milestone struct
 
 When this queue conflicts with milestone number, item order, or a generic P1/P2 label, **follow this queue**.
 
-1. **Finish current in-flight work.** Complete/verify PR #102 (real in-match Momentum), then mark ARD-M4-010 accurately on `main`.
-2. **P0 System Reality Audit (§1.12).** Before adding more major player-facing systems, prove that existing mechanics actually connect end-to-end and change outcomes. Audit first; do not repair findings piecemeal until the report is complete.
-3. **Close the current playtest gate (§1.11).** The recent match-flow/decision-clarity work is implemented; the next phone playtest is the acceptance check. Any remaining freeze, fake choice, opaque cause/effect or misleading feedback is P0 and jumps the queue.
-4. **Core match agency.** Prioritise ARD-M4-001, M4-003, M4-006 and M4-007. Then M4-004/M4-005 if the simpler live-decision layer proves worthwhile.
-5. **Core football authenticity.** Prioritise ARD-M3-006, M3-007, M3-009 and completion of M3-001/M3-002. Then lower-frequency flavour such as 50m penalties, smothers and speccies.
-6. **Core team management.** Prioritise ARD-M5-001, M5-002, M5-008 and M5-012. Then M5-003/M5-005/M5-006.
-7. **Management depth / long-save substance.** Contracts/trades/free agency, history/records, role/development depth and other systems that make seasons and careers matter.
-8. **Flavour, expansion and release polish.** Rivalries, marquee identity, captaincy, weather, venues, custom prospect, onboarding, long-save QA, app identity and cinematic vignettes belong here unless a release blocker promotes them.
+1. **P0 audit repair pass — HOLD for user review.** The System Reality Audit is complete and merged as PR #103. Do not begin repairs until the user explicitly releases this hold. The provisional repair order is: live-match plan reset at first bounce; no-op/near-no-op moment choices; tagging with no team-level consequence; Through stars no measurable effect / plan-balance trap; misleading/incorrect plan copy; hidden morale effect; weak/silent-skipping tests; then lower-severity questionable systems.
+2. **Close the current playtest gate (§1.11).** After the audit repair pass, the next phone playtest is the acceptance check. Any remaining freeze, fake choice, opaque cause/effect or misleading feedback is P0 and jumps the queue.
+3. **Core match agency.** Prioritise ARD-M4-001, M4-003, M4-006 and M4-007. Then M4-004/M4-005 if the simpler live-decision layer proves worthwhile.
+4. **Core football authenticity.** Prioritise ARD-M3-006, M3-007, M3-009 and completion of M3-001/M3-002. Then lower-frequency flavour such as 50m penalties, smothers and speccies.
+5. **Core team management.** Prioritise ARD-M5-001, M5-002, M5-008 and M5-012. Then M5-003/M5-005/M5-006.
+6. **Management depth / long-save substance.** Contracts/trades/free agency, history/records, role/development depth and other systems that make seasons and careers matter.
+7. **Flavour, expansion and release polish.** Rivalries, marquee identity, captaincy, weather, venues, custom prospect, onboarding, long-save QA, app identity and cinematic vignettes belong here unless a release blocker promotes them.
 
 ### Queue rules
 
@@ -544,8 +543,8 @@ Treat each observed failure as a reproducible problem. Diagnose simulation autho
 
 ## 1.12 P0 gate — System Reality Audit: does the mechanic actually work?
 
-**Status:** `TODO`  
-**Execution priority:** `NEXT AFTER PR #102`  
+**Status:** `DONE`  
+**Merged:** PR #103 as `ae4eb7b`; audit report is `docs/SYSTEM_REALITY_AUDIT.md`.  
 **Priority:** `P0`  
 **Autonomy:** `SUPERVISED — DIAGNOSIS FIRST`
 
@@ -619,8 +618,20 @@ Create `docs/SYSTEM_REALITY_AUDIT.md` containing:
 
 Do **not** mark a system working because code exists or a test is green.
 
+### Audit result (2026-09-29, PR #103)
+40 systems were classified: 26 working, 7 working-but-questionable, 2 partially connected, 2 UI/report-only, 1 no-op, 1 dead/disconnected and 1 unverified.
+
+Critical findings:
+- A game plan chosen on Selection/Coaching is silently reset to Balanced immediately before a live match starts unless reselected in the pre-bounce box. Simulated rounds are unaffected.
+- Moment-card choice policies produced less than half a point of margin difference across the measured sample despite roughly seven cards a match.
+- Tagging cuts the target's disposals but did not produce a measurable team-margin effect.
+- Through stars had no measurable result effect; Balanced was materially worse than several alternatives in the measured setup.
+- Morale has a sizeable hidden match effect, while Coaching's player "form" display is report-only.
+- Several plan descriptions quote effects that do not match the engine.
+- Existing tests often prove storage/multipliers rather than outcomes; some guarded matchday checks can silently skip under load while the suite still reports pass.
+
 ### Gate
-After the report is complete:
+The audit itself is complete. Repairs are held for user review. Once released:
 1. player-facing `NO-OP`, `UI / REPORT ONLY` (when presented as a mechanic), and serious `PARTIALLY CONNECTED` findings enter the execution queue ahead of unrelated feature expansion;
 2. repair priority is player deception/no-op decisions → core gameplay importance → severity → simplest robust fix;
 3. desired mechanics are **fixed, not deleted**, merely because their implementation is incomplete, unless the user explicitly changes the design.
@@ -1708,13 +1719,13 @@ Detailed stats live in the Stats screen.
 ---
 
 ## ARD-M4-010 — In-match Momentum
-**Status:** `IN PROGRESS`  
-**Implementation:** PR #102 is open; the display-only meter is being replaced by a real small, capped, fading contest effect. Do not mark DONE until that PR is merged and verified.  
+**Status:** `DONE`  
+**Merged:** PR #102 as `902d152`; the meter now reads real MatchSim state and the effect is capped, fading and measured.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
-### Current foundation
-A presentation-only momentum value exists.
+### Current state
+Momentum is now an engine mechanic, not presentation-only. Goals/behinds move a capped state that fades each chain and halves at breaks; it gives the favoured side up to a small 4% contest edge, and the meter reads that exact state.
 
 ### Goal
 Make Momentum a small, capped, reversible football mechanic.
@@ -2786,7 +2797,7 @@ These are here to stop Claude from rebuilding things that already exist. **Verif
 - Inside 50s are already tracked at player/team level.
 - Goal conversion uses the actual shooter rather than a team-wide accuracy average.
 - Open-play scoring is structurally possible in MatchSim, and PR #50 made open-play shots remain live in presentation; the broader scoring-model variety under M3-001 is still partial.
-- A presentation-only Momentum value exists on current main; PR #102 is replacing it with the intended gameplay mechanic.
+- In-match Momentum is now a real capped/fading MatchSim mechanic, and the meter reads engine state directly (PR #102).
 - Free kicks exist in simplified form.
 - Concussion now enforces a minimum two-match absence with AI parity and save persistence (PR #51).
 - Wildcard finals/top-10 finals structure already exists; do not add another wildcard-finals feature.
@@ -3063,6 +3074,8 @@ Hold this idea for the eventual MRO/tribunal design work. Do not implement it me
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-09-29:** Merged PR #102 (real Momentum) and PR #103 (System Reality Audit). ARD-M4-010 and §1.12 are now DONE. The Current Execution Queue now starts with a user-review hold on the audit repair pass, led by the live-match plan reset and other measured no-op/questionable systems.
 
 - **2026-09-29:** Added an authoritative Current Execution Queue so Claude does not infer priority from milestone numbering alone. The queue now finishes #102, runs the P0 System Reality Audit, closes the phone playtest gate, then moves through core match agency, football authenticity, team management, management depth, and finally flavour/polish. Added §1.12 as the canonical System Reality Audit gate after the display-only Momentum discovery.
 
