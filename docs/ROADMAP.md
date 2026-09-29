@@ -44,6 +44,21 @@ When realism and agency genuinely conflict, prefer the design that is **more fun
 
 This principle applies especially to tactics, match-day decisions, list construction, training and other systems where the player is expected to make choices. If a system is realistic but the player's choices barely matter, treat that as a design problem rather than a successful simulation.
 
+### Party-based RPG lens
+
+The game should retain the uncertainty and emergent outcomes of a football simulation while creating some of the attachment and agency of a party-based CRPG. **The club is the campaign; the playing group is the party; matches are where that party is tested.**
+
+This is a design lens, not a request to bolt literal RPG conventions onto football. Do not add fantasy classes, ability bars, dialogue trees or other genre furniture merely to satisfy the analogy. Borrow the useful qualities instead:
+
+- individual players should become recognisable pieces with strengths, weaknesses, roles, development and distinctive ways they can help a side;
+- list construction and selection should feel like building a party whose pieces complement one another, not merely maximizing aggregate OVR;
+- coaching and preparation should give the player meaningful ways to deploy the particular group they have built;
+- unusual player archetypes should create different possibilities, not merely slightly different simulation coefficients;
+- long-term development, history and shared success should create attachment to individuals and to the group;
+- the player prepares, selects and instructs the side, but does not directly control footballers once play unfolds. MatchSim retains uncertainty: good plans can fail, stars can have poor games and stronger opposition can still win.
+
+A useful feature test is: **Does this help the player care about their players, understand what makes their group distinctive, or make a meaningful decision about how to use that group?** If not, be cautious about adding complexity for its own sake.
+
 ## 0.2 Status legend
 
 Use exactly these statuses:
@@ -2785,6 +2800,8 @@ Replace the leftover prototype identity shown by Android. The installed app must
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-09-29:** Added the party-based RPG design lens: the club is the campaign, the playing group is the party, and matches test the group. Preserve simulation uncertainty while making player identity, composition, development and deployment create CRPG-like attachment and agency without literal RPG genre furniture.
 
 - **2026-09-29:** Codified the project's game-first philosophy: realism supports believable football, but fun and meaningful player agency take precedence over simulation purity. Gamification is explicitly welcome when it makes deliberate choices materially influence outcomes.
 
