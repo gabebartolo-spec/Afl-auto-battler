@@ -1706,19 +1706,22 @@ func _boundary_moment() -> bool:
 						"detail": "He stays on and keeps tiring (%d%% legs)." % int(e)},
 				]})
 			return true
-	# An opposition forward kicking a bag.
+	# An opposition midfielder kicking a bag: a tag is a midfield job, so
+	# only a midfielder can be answered with one (a forward is a match-up).
 	for id in player_stats:
 		var st: Dictionary = player_stats[id]
 		if int(st.get("goals", 0.0)) < 3 or _asked.has("hot|" + str(id)):
 			continue
 		var hot := _on_ground(opp, str(id))
-		if hot.is_empty() or _tag_id(me) == str(id):
+		if hot.is_empty() or not taggable(hot) or _tag_id(me) == str(id):
 			continue
 		_asked["hot|" + str(id)] = true
-		var stopper := _best_stopper(me)
+		# The midfielder who would actually go to him (tagger_for).
+		var minder = tagger_for((squads[me] as Squad).ground)
+		var stopper := GameDB.player_display_name(minder) if minder != null else "a midfielder"
 		_fire({"kind": "hot", "player_id": str(id), "default": 1,
 			"title": "%s has kicked %d" % [GameDB.player_display_name(hot), int(st["goals"])],
-			"text": "Their forward is on fire. A tag takes a good chunk of the ball off him, but your stopper stops playing his own game.",
+			"text": "Their midfielder is hurting you on the scoreboard. A tag takes a good chunk of the ball off him, but your stopper stops playing his own game.",
 			"options": [
 				{"key": "tag", "label": "Tag him with %s" % stopper,
 					"detail": "For the rest of the quarter he gets about half as much of the ball."},
@@ -1789,14 +1792,6 @@ func _on_ground(side: int, id: String) -> Dictionary:
 		if str(p["id"]) == id:
 			return p
 	return {}
-
-
-func _best_stopper(side: int) -> String:
-	var best := {}
-	for p in (squads[side] as Squad).ground:
-		if str(p["role"]) == "DEF" and (best.is_empty() or _a(p, "pressure") > _a(best, "pressure")):
-			best = p
-	return GameDB.player_display_name(best) if not best.is_empty() else "a defender"
 
 
 ## A marked shot inside 50: take it, play on to a teammate, or bomb it long.

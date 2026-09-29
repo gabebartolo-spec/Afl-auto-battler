@@ -28,6 +28,7 @@ func run() -> void:
 	_test_m2_stats()
 	_test_no_role_gates()
 	_test_spoils_and_crumbs()
+	_test_hot_player_moment()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -810,3 +811,33 @@ func _test_spoils_and_crumbs() -> void:
 	_check(by_def >= 0.7 * spoils, "Spoils are made by defenders (rotations aside) (%d of %d)" % [by_def, spoils])
 	_check(crumbs > 0 and float(crumbs_fwd) >= 0.55 * float(crumbs),
 			"Goals are crumbed off spoils, mostly by forwards (%d of %d)" % [crumbs_fwd, crumbs])
+
+
+## A tag is a midfield job: a forward kicking a bag never gets a tag card
+## (that would be a choice with no effect); a midfielder does, and the card
+## names the midfielder who would go to him.
+func _test_hot_player_moment() -> void:
+	var sim := _sim(77)
+	sim.moment_side = 0
+	sim.current_quarter = 2
+	sim._chain_no = 100
+	var fwd: Dictionary = {}
+	var mid: Dictionary = {}
+	for p in (sim.squads[1] as Squad).ground:
+		if str(p["role"]) == "FWD" and fwd.is_empty():
+			fwd = p
+		if str(p["role"]) == "MID" and mid.is_empty():
+			mid = p
+	sim.player_stats[str(fwd["id"])] = {"goals": 4.0}
+	sim._boundary_moment()
+	_check(sim.pending_moment.is_empty() or str(sim.pending_moment.get("kind", "")) != "hot",
+			"A forward kicking a bag is never answered with a tag")
+	sim.pending_moment = {}
+	sim._chain_no = 200
+	sim.player_stats[str(mid["id"])] = {"goals": 3.0}
+	sim._boundary_moment()
+	var m: Dictionary = sim.pending_moment
+	var tagger = MatchSim.tagger_for((sim.squads[0] as Squad).ground)
+	_check(str(m.get("kind", "")) == "hot" and tagger != null
+			and str(m["options"][0]["label"]).contains(GameDB.player_display_name(tagger)),
+			"A midfielder kicking a bag can be tagged, by the midfielder who would go to him")
