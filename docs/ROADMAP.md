@@ -340,6 +340,16 @@ The director's playtest named quarter breaks as the most obtuse decision. The br
 - **Screens:** quarter time at 390 px reviewed.
 - **Next in this gate:** decision inputs before the match (selection and the standing plan), and synergy clarity.
 
+### Implementation record — synergy clarity (2026-09-29, branch `claude/synergy-clarity`)
+- **Problem:** a synergy showed only its name ("Engine room: On"). The player could not tell what it does for the side or who in the side makes it work, so a combination had to be reverse-engineered.
+- **Changes:**
+  - Wherever an active synergy is named (selection, the match coach box), it now carries what it does in plain football words: "Engine room (wins more of the stoppages)". `Traits.with_effect`.
+  - The synergy guide on the selection screen names who in your side carries each trait a synergy needs, in its line: "Aerial threats in your side: Fenn Quiver. Crumbers in your side: none." `Traits.carriers`. Facts only: no "one more X" prompts or suggested picks.
+  - The coach box reads "Your synergies: ... Theirs: ...".
+  - No numbers added; the effect lines are the existing `does` text.
+- **Tests:** `run_roles_tests.gd`: each synergy names who in your side carries what it needs.
+- **Acceptance:** the phone playtest - can the player say broadly what their combination is good at and who makes it work?
+
 ### Playtest test
 For each important decision, verify the player can answer:
 - What decision am I making?

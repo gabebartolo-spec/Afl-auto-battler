@@ -123,7 +123,7 @@ func _synergy_view() -> Control:
 	var on: PackedStringArray = []
 	for r in Traits.progress(GameState.my_squad().ground):
 		if bool(r["active"]):
-			on.append(Traits.label(str(r["key"])))
+			on.append(Traits.with_effect(str(r["key"])))
 	var l := _para("Your side has: " + ", ".join(on) + "." if not on.is_empty()
 			else "No line synergies in this side.", 13, UiKit.GOOD if not on.is_empty() else UiKit.MUTED)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -166,6 +166,17 @@ func _show_synergies() -> void:
 		var req := _para(Traits.requirement_text(str(key)), 13, UiKit.MUTED)
 		req.name = "Requires"
 		row.add_child(req)
+		# Who in your 18 carries each trait it needs: the facts behind On.
+		var who := PackedStringArray()
+		for c in Traits.carriers(str(key), GameState.my_squad().ground):
+			var names: Array = []
+			for p in c[1]:
+				names.append(GameDB.player_display_name(p))
+			var plural := str(Traits.PLURALS.get(str(c[0]), Traits.label(str(c[0])) + "s"))
+			who.append("%s in your side: %s." % [plural, ", ".join(names) if not names.is_empty() else "none"])
+		var wl := _para("\n".join(who), 13, UiKit.TEXT)
+		wl.name = "Carriers"
+		row.add_child(wl)
 	var close := UiKit.btn("Close", 16, true)
 	close.custom_minimum_size = Vector2(0, 48)
 	close.pressed.connect(_close_synergies)

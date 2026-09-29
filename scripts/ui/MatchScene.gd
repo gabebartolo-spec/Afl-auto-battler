@@ -604,9 +604,9 @@ func _synergy_line() -> String:
 	var names := func(keys: Array) -> String:
 		var out: PackedStringArray = []
 		for k in keys:
-			out.append(Traits.label(str(k)))
+			out.append(Traits.with_effect(str(k)))
 		return ", ".join(out) if not out.is_empty() else "none"
-	return "Synergies - yours: %s. Theirs: %s." % [names.call(syn[_my_side]), names.call(syn[1 - _my_side])]
+	return "Your synergies: %s. Theirs: %s." % [names.call(syn[_my_side]), names.call(syn[1 - _my_side])]
 
 
 ## The opposition's plan in the quarter just played ("" before the bounce).
