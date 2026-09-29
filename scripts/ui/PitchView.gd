@@ -335,7 +335,8 @@ func _draw_tokens(side: int, colours: Array, tr: float) -> void:
 	var secondary: Color = colours[1]
 	var font := ThemeDB.fallback_font
 	var fs := int(clampf(tr * 1.15, 6.0, 15.0))
-	var text_col := _readable_on(primary)
+	# The number sits on the inner disc, so it reads against the secondary.
+	var text_col := _readable_on(secondary)
 	for t in director.tokens:
 		if int(t["side"]) != side:
 			continue

@@ -2832,11 +2832,13 @@ func resolve_week_event(choice: int) -> String:
 			# pick him. Leaving him out after this stings.
 			ClubLife.add_morale(p, 5)
 			p["expects_game"] = 10
-			out = "%s is told he is in. Pick him this week." % name
+			out = ("%s is told he is in. Auto-pick names him this week." if my_selection().is_empty()
+					else "%s is told he is in. Pick him this week.") % name
 		"talk":
 			ClubLife.add_morale(p, 15)
 			p["expects_game"] = 12
-			out = "%s feels heard, and expects a game this week." % name
+			out = ("%s feels heard. Auto-pick names him this week." if my_selection().is_empty()
+					else "%s feels heard, and expects a game this week.") % name
 		"earn":
 			ClubLife.add_morale(p, -5)
 			for q in my_list:
