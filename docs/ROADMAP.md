@@ -44,6 +44,33 @@ When realism and agency genuinely conflict, prefer the design that is **more fun
 
 This principle applies especially to tactics, match-day decisions, list construction, training and other systems where the player is expected to make choices. If a system is realistic but the player's choices barely matter, treat that as a design problem rather than a successful simulation.
 
+### Party-based RPG lens
+
+The game should retain the uncertainty and emergent outcomes of a football simulation while creating some of the attachment and agency of a party-based CRPG. **The club is the campaign; the playing group is the party; matches are where that party is tested.**
+
+This is a design lens, not a request to bolt literal RPG conventions onto football. Do not add fantasy classes, ability bars, dialogue trees or other genre furniture merely to satisfy the analogy. Borrow the useful qualities instead:
+
+- individual players should become recognisable pieces with strengths, weaknesses, roles, development and distinctive ways they can help a side;
+- list construction and selection should feel like building a party whose pieces complement one another, not merely maximizing aggregate OVR;
+- coaching and preparation should give the player meaningful ways to deploy the particular group they have built;
+- unusual player archetypes should create different possibilities, not merely slightly different simulation coefficients;
+- long-term development, history and shared success should create attachment to individuals and to the group;
+- the player prepares, selects and instructs the side, but does not directly control footballers once play unfolds. MatchSim retains uncertainty: good plans can fail, stars can have poor games and stronger opposition can still win.
+
+A useful feature test is: **Does this help the player care about their players, understand what makes their group distinctive, or make a meaningful decision about how to use that group?** If not, be cautious about adding complexity for its own sake.
+
+### Matches as quests — emergent storytelling
+
+Treat each match as the equivalent of a **quest or encounter in an RPG**: a test of the particular party the player has built. The result matters, but the match should produce more than a final score and a statistical summary.
+
+**Emergent storytelling is a core design goal.** After a good match, the player should be able to recount a short story of what happened without the game manufacturing a scripted narrative for them: who started brilliantly, what went wrong, which adjustment changed the contest, who unexpectedly stood up, which star was shut down, the late mistake or heroic act, and how the result was won or lost.
+
+Design MatchSim, presentation and decision systems so matches can naturally develop **arcs, reversals, individual moments and consequences**. Players should have opportunities to become the remembered protagonists or villains of particular games through simulated football events, not canned story events.
+
+This does not mean forcing every match into artificial drama. Some matches should be comfortable wins, ugly losses or quiet professional performances. The goal is for the simulation to generate enough legible cause-and-effect and individual identity that, when something dramatic happens, the player understands it and remembers it.
+
+A useful match-quality test is: **Immediately after the siren, can the player tell the story of that match in a few sentences — including its turning points and the players who defined it — rather than only reporting the margin and stat leaders?**
+
 ## 0.2 Status legend
 
 Use exactly these statuses:
@@ -122,6 +149,10 @@ When ChatGPT has GitHub access, ChatGPT should take over the mechanical verifica
 - confirm the PR is current enough with `main` and mergeable;
 - verify required balance/save/UI evidence is present;
 - merge clean validated work under the standing authority;
+- **treat concurrent open PRs as a merge queue, not independent patches:** before merging any PR, inspect the full open-PR set for shared base age, dependencies and overlapping files/systems; establish the safest merge order first;
+- when several PRs were cut from the same/stale `main`, prefer merging dependent/high-overlap companion work in an order that minimises rebases rather than simply merging whichever CI finishes first;
+- after each merge advances `main`, immediately re-check every remaining queued PR's mergeability. If a remaining branch needs to sync, hand it back for sync/rebase **before spending time waiting on an obsolete CI run**; validate and merge only its new exact head;
+- avoid preventable conflict churn: a green CI result is necessary evidence, not permission to ignore the state of sibling PRs;
 - verify the merge on `main` and keep the roadmap record accurate.
 
 If CI exposes a genuine implementation bug, ChatGPT should give Claude the **specific failure and relevant log context**; Claude remains the coding agent.
@@ -2785,6 +2816,12 @@ Replace the leftover prototype identity shown by Android. The installed app must
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-09-29:** Tightened ChatGPT workflow ownership for concurrent PRs: inspect the whole open-PR set and establish merge order before merging, then re-check/sync remaining branches immediately after each merge so stale CI and preventable merge conflicts do not accumulate.
+
+- **2026-09-29:** Extended the party-RPG lens to matches: each match is a quest/encounter testing the player's party, and emergent storytelling is a core design goal. Matches should generate legible arcs, turning points and memorable individual moments that the player can recount afterward without scripted drama.
+
+- **2026-09-29:** Added the party-based RPG design lens: the club is the campaign, the playing group is the party, and matches test the group. Preserve simulation uncertainty while making player identity, composition, development and deployment create CRPG-like attachment and agency without literal RPG genre furniture.
 
 - **2026-09-29:** Codified the project's game-first philosophy: realism supports believable football, but fun and meaningful player agency take precedence over simulation purity. Gamification is explicitly welcome when it makes deliberate choices materially influence outcomes.
 
