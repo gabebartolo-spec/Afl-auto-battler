@@ -511,9 +511,12 @@ static func standouts(res: Dictionary, side: int, n: int) -> Array:
 ## Read from THIS match's box score only - never OVR, value or potential.
 ##
 ## Tuned over 400 simulated matches so every position has a path to best on
-## ground. The engine gives forwards few touches (about 9 a game) and rucks
-## about a third of real hit-outs, so possession counts for less than in
-## AFL Fantasy and scoreboard impact for more: a goal is 14, a hit-out 3.
+## ground. The engine gives forwards few touches (about 9 a game), so
+## possession counts for less than in AFL Fantasy and scoreboard impact for
+## more: a goal is 14. A hit-out is 1, as in AFL Fantasy: in the engine the
+## tap itself decides little (under half a point of margin each, measured
+## over 1,000 matches), and a ruck with no opposite number can take 60 of
+## them - worth recording, not a best-on-ground game on its own.
 ## An inside 50 is creation (4, what an entry earned before goal assists
 ## were counted properly); a goal assist - the last kick to a goalkicker - is
 ## 2 more. A free kick drawn is +1, one given away -1 (plus the clanger).
@@ -523,7 +526,7 @@ static func standouts(res: Dictionary, side: int, n: int) -> Array:
 ## pressure without a tackle (a rushed disposal, a forced turnover) is 1.
 const RATING_POINTS := {
 	"kicks": 2, "handballs": 1, "marks": 3, "tackles": 2, "pressure_acts": 1,
-	"goals": 14, "behinds": 1, "hitouts": 3,
+	"goals": 14, "behinds": 1, "hitouts": 1,
 	"inside50": 4, "goal_assists": 2, "rebounds": 3, "one_percenters": 1,
 	"clangers": -2, "frees_for": 1, "frees_against": -1,
 }

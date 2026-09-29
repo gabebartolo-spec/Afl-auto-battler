@@ -261,9 +261,14 @@ func _test_rating() -> void:
 	var key_fwd: int = r.call({"goals": 5.0, "behinds": 2.0, "marks": 9.0, "kicks": 9.0, "handballs": 2.0, "inside50": 1.0})
 	var mid: int = r.call({"kicks": 16.0, "handballs": 14.0, "clearances": 9.0, "tackles": 7.0, "pressure_acts": 18.0, "inside50": 6.0, "marks": 4.0, "goals": 1.0})
 	var back: int = r.call({"kicks": 15.0, "handballs": 5.0, "marks": 9.0, "rebounds": 8.0, "one_percenters": 9.0, "tackles": 3.0, "pressure_acts": 8.0})
-	var ruck: int = r.call({"hitouts": 32.0, "clearances": 5.0, "kicks": 6.0, "handballs": 6.0, "marks": 3.0, "tackles": 3.0, "pressure_acts": 10.0})
+	# A ruck's big game is taps and the ball: around the ground, a mark, a goal.
+	var ruck: int = r.call({"hitouts": 32.0, "clearances": 6.0, "kicks": 8.0, "handballs": 6.0, "marks": 4.0, "tackles": 3.0, "pressure_acts": 10.0, "goals": 1.0})
 	for x in [["key forward", key_fwd], ["midfielder", mid], ["defender", back], ["ruck", ruck]]:
 		_check(int(x[1]) >= 95, "A big game rates as one for a %s (%d)" % x)
+	# Taps alone are not a best-on-ground game: in the engine a hit-out
+	# decides little, and a ruck with no opposite number can take 60.
+	var taps_only: int = r.call({"hitouts": 60.0, "kicks": 5.0, "handballs": 4.0, "marks": 2.0, "tackles": 2.0, "pressure_acts": 6.0})
+	_check(taps_only < mid and taps_only < 110, "Sixty taps and little else is not best on ground (%d v %d)" % [taps_only, mid])
 	var empty: int = r.call({"kicks": 6.0, "handballs": 20.0, "clangers": 4.0})
 	_check(empty < 50, "Twenty-six touches and little else is a quiet game (%d)" % empty)
 	_check(int(r.call({})) == 0 and int(r.call({"clangers": 10.0, "frees_against": 6.0})) == 0,
@@ -317,6 +322,15 @@ func _test_report_glance() -> void:
 		_check(not (g["read"] as Array).is_empty() and (g["read"] as Array).size() <= 3, "A few lines on the match")
 		_check((g["best"] as Array).size() <= 2 and (g["lift"] as Array).size() <= 2
 				and (g["danger"] as Array).size() <= 2 and (g["notes"] as Array).size() <= 3, "A few players, a few notes")
+		# Needs a lift follows the Player Rating on screen: half a game below
+		# an ordinary one, never a busy player.
+		var ht := CoachReport.half_time_report(res, 0)
+		var by_name := {}
+		for e in ht.get("my_ranked", []):
+			by_name[str(e["name"])] = MatchNotes.rating(e.get("stats", {}))
+		for p in g["lift"]:
+			_check(int(by_name.get(str(p["name"]), 999)) < CoachReport.LIFT_BELOW / 2.0,
+					"Needs a lift is a quiet game by the rating shown (%s %d)" % [str(p["name"]), int(by_name.get(str(p["name"]), -1))])
 		for n in g["notes"]:
 			var t := str(n)
 			for ch in "0123456789":
