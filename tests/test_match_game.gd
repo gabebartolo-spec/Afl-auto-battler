@@ -32,6 +32,7 @@ func run() -> void:
 	_test_matchups()
 	_test_in_match_injuries()
 	_test_match_story()
+	_test_traits_surfaced()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -1009,3 +1010,34 @@ func _test_match_story() -> void:
 	var calm := MatchNotes.turning_points({"home": "MEL", "away": "CAR", "score": [80, 20], "events": [
 		{"kind": "goal", "q": 1, "min": 3, "side": 0, "name": "A", "score": [6, 0]}]}, 0)
 	_check(calm.is_empty(), "A match led from the first goal has no turning point to invent")
+
+
+## Traits and synergies say when they were at work, from the log.
+func _test_traits_surfaced() -> void:
+	var crumbs := 0
+	var tagged := true
+	var big := 0
+	for i in range(30):
+		var res := _sim(4200 + i, "COL", "GEE").run()
+		for ev in res["events"]:
+			if str(ev["kind"]) != "goal" or not ev.has("trait"):
+				continue
+			if str(ev["trait"]) == "crumber":
+				crumbs += 1
+				tagged = tagged and bool(ev.get("crumb", false))
+			elif str(ev["trait"]) == "big_game":
+				big += 1
+				tagged = tagged and int(ev["q"]) >= 4
+	_check(crumbs + big > 0 and tagged, "A Crumber's crumb and a Big-game player's late goal are marked (%d, %d)" % [crumbs, big])
+	var mem := {}
+	var ev := {"kind": "goal", "q": 4, "min": 100, "side": 0, "name": "Jack Viney", "trait": "big_game",
+			"score": [60, 50]}
+	_check(MatchNotes.story_feed_line(mem, ev) == "Jack Viney lifts when it matters.", "A Big-game player's lift reaches the feed")
+	_check(MatchNotes.story_feed_line(mem, ev) == "", "Once a match a side")
+	var res := {"synergies": [["engine_room", "intercept_wall"], []], "goals": [12, 9],
+			"team": [{"clearances": 40, "inside50": 55}, {"clearances": 33, "inside50": 48}]}
+	var lines := MatchNotes.synergy_lines(res, 0)
+	_check(lines.size() == 2 and str(lines[0]) == "Engine room: clearances 40 to 33."
+			and str(lines[1]) == "Intercept wall: they kicked 9 goals from 48 inside 50s.",
+			"Full time shows the stat each of your synergies plays on: %s" % str(lines))
+	_check(MatchNotes.synergy_lines(res, 1).is_empty(), "No synergies, no lines")

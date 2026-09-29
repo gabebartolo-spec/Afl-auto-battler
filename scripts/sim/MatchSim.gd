@@ -475,7 +475,10 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String) -> float:
 		out *= 1.10
 	if purpose == "clearance" and _trait(p, "bull"):
 		out *= 1.15
-	if id == _tag_id(1 - side) and taggable(p) and (carrying or purpose == "shooter"):
+	# A Crumber lives at the feet of the pack: he is there when it spills.
+	if purpose == "crumb" and _trait(p, "crumber"):
+		out *= CRUMBER_AT_FEET
+	if id == _tag_id(1 - side) and taggable(p) and (carrying or purpose == "shooter" or purpose == "crumb"):
 		out *= _tag_share(1 - side)
 	if _plan(side) == "through_stars" and int(p["overall"]) >= 82:
 		out *= 1.2
@@ -932,7 +935,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				* (0.55 + 0.90 * _a(carrier, "carry") / 100.0))
 		gain *= _pv(side, "gain") * _pep_mult(side, "gain")
 		if synergies[side].has("supply_line"):
-			gain *= 1.06
+			gain *= 1.12
 		if _burst(side, "flood") or _burst(side, "hold"):
 			gain *= 0.85
 		gain *= rng.randf_range(0.45, 1.75)
@@ -1070,6 +1073,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		_score_run(side)
 		_emit("goal", side, fp, shooter, _scoreline(side, "GOAL"))
 		events[events.size() - 1]["set"] = marked
+		_trait_note(shooter)
 		_tag_shot(marked)
 		return {"outcome": "score", "fp": 0.0, "actor": shooter}
 	if roll < goal_p + behind_p:
@@ -1101,7 +1105,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 ## small forwards who hunt it) wins it now and then and snaps. {} when the
 ## defence clears it or the snap misses everything.
 func _crumb(side: int, fp: float) -> Dictionary:
-	var crumber = _weighted_roles((squads[side] as Squad).ground, "pressure", CRUMB_ROLES, 2.0, side, "shooter")
+	var crumber = _weighted_roles((squads[side] as Squad).ground, "pressure", CRUMB_ROLES, 2.0, side, "crumb")
 	if crumber == null or rng.randf() >= CRUMB_P * (0.7 + 0.6 * _a(crumber, "pressure") / 100.0):
 		return {}
 	var snap := shot_chance(side, crumber, false, false) * CRUMB_SNAP
@@ -1115,6 +1119,7 @@ func _crumb(side: int, fp: float) -> Dictionary:
 		_score_run(side)
 		_emit("goal", side, fp, crumber, _scoreline(side, "GOAL"))
 		events[events.size() - 1]["crumb"] = true
+		_trait_note(crumber)
 		_tag_shot(false)
 		return {"outcome": "score", "fp": 0.0, "actor": crumber}
 	if r < snap + behind_p:
@@ -1129,9 +1134,11 @@ func _crumb(side: int, fp: float) -> Dictionary:
 
 
 ## Who crumbs off a spoil: forwards first, a mid at the fall of the ball.
-const CRUMB_ROLES := {"FWD": 1.0, "MID": 0.25, "RUCK": 0.1, "DEF": 0.03}
+const CRUMB_ROLES := {"FWD": 1.0, "MID": 0.15, "RUCK": 0.1, "DEF": 0.03}
 const CRUMB_P := 0.30     # of spoils that do not score, before the crumber's pressure
 const CRUMB_SNAP := 0.85  # a snap off the deck, against an unmarked shot
+## How much more often a Crumber is the one at the fall of the ball.
+const CRUMBER_AT_FEET := 2.0
 
 
 ## Who attends a centre bounce for `side`: the ruck who contests it and the
@@ -1292,7 +1299,7 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	if feeder != null and _trait(feeder, "playmaker"):
 		tr *= 1.05
 	if synergies[side].has("tall_small"):
-		tr *= 1.05
+		tr *= 1.08
 	goal_p *= tr
 	if credit:
 		_credit(side, "traits", 6.0 * (goal_p - before))
@@ -1303,7 +1310,7 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	elif not _midfield_minder(side, shooter).is_empty():
 		dtr *= 0.96
 	if synergies[opp].has("intercept_wall"):
-		dtr *= 0.95
+		dtr *= 0.91
 	goal_p *= dtr
 	if credit:
 		_credit(opp, "traits", 6.0 * (before - goal_p))
@@ -1635,6 +1642,7 @@ func result() -> Dictionary:
 		"duel_changes": duel_changes.duplicate(true),
 		"matchups": duels.duplicate(true),
 		"injuries": injuries.duplicate(true),
+		"synergies": synergies.duplicate(true),
 	}
 
 
@@ -1667,6 +1675,19 @@ func fit(p: Dictionary) -> float:
 	if (current_quarter >= 4 or finals_mode) and _trait(p, "big_game"):
 		f += 0.05
 	return f + ClubLife.form(p)
+
+
+## The trait that played a part in the goal just logged, for the feed: a
+## Crumber's goal off the deck, a Big-game player's goal when he lifts (the
+## last quarter, a final). Presentation only.
+func _trait_note(p) -> void:
+	if p == null:
+		return
+	var ev: Dictionary = events[events.size() - 1]
+	if bool(ev.get("crumb", false)) and _trait(p, "crumber"):
+		ev["trait"] = "crumber"
+	elif (current_quarter >= 4 or finals_mode) and _trait(p, "big_game"):
+		ev["trait"] = "big_game"
 
 
 func _trait(p: Dictionary, key: String) -> bool:
@@ -1706,7 +1727,7 @@ func _after_chain() -> void:
 		if _burst(side, "surge"):
 			pace *= 1.3
 		if synergies[side].has("running_machine"):
-			pace *= 0.85
+			pace *= 0.70
 		for p in sq.ground:
 			var id := str(p["id"])
 			var dur := float((p["attr"] as Dictionary).get("durability", 70.0))
@@ -2221,6 +2242,7 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 		_score_run(side)
 		_emit("goal", side, fp, kicker, _scoreline(side, "GOAL"))
 		events[events.size() - 1]["set"] = true
+		_trait_note(kicker)
 		_tag_shot(true)
 		_end_moment_chain("score", 0.0, side)
 		return {"points": 6, "text": "GOAL to %s!" % GameDB.player_display_name(kicker)}

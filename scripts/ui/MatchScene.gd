@@ -1074,6 +1074,9 @@ func _goal_row(ev: Dictionary, stamp: String) -> Control:
 	v.add_child(hl)
 	var g: Array = ev.get("goals", [0, 0])
 	var b: Array = ev.get("behinds", [0, 0])
+	# A Crumber's goal off the deck is his trait at work: say so.
+	if str(ev.get("trait", "")) == "crumber":
+		stamp = "Crumbing goal  ·  " + stamp
 	v.add_child(UiKit.lbl("%s  ·  %s %s  %s %s" % [stamp,
 			GameDB.club_short(str(_res["home"])), UiKit.scoreline(int(g[0]), int(b[0])),
 			GameDB.club_short(str(_res["away"])), UiKit.scoreline(int(g[1]), int(b[1]))],
@@ -1383,6 +1386,8 @@ func _ft_summary(v: VBoxContainer) -> void:
 	# The key match-ups: who had the better of whom, from the contests.
 	if mine:
 		_glance_section(v, "Key match-ups", "FullTimeMatchups", MatchNotes.duel_story(_res, me).slice(0, 3))
+		# Your synergies: the stat each one shows up in, from this match.
+		_glance_section(v, "Your synergies", "FullTimeSynergies", MatchNotes.synergy_lines(_res, me).slice(0, 3))
 
 	# Your calls, quarter by quarter: what each was about and how that went.
 	if mine and _interactive:
