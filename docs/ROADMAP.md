@@ -1935,9 +1935,34 @@ Split into smaller authorised subphases when started.
 ---
 
 ## ARD-M6-005 — Options / settings
-**Status:** `TODO`  
+**Status:** `IN PROGRESS`  
 **Priority:** `P1`  
 **Autonomy:** `SAFE`
+
+### Implementation record (2026-09-28, branch `claude/options`)
+- **One Settings sheet** (`scripts/ui/OptionsSheet.gd`), opened from the main menu (Settings) and from a new top-right Settings on the hub. It holds:
+  - player names;
+  - confirm before simming a round;
+  - match speed (new: 1x, 2x, 4x or 8x, the speed a watched match starts at, default 4x);
+  - the version.
+- **In a career it also has:**
+  - Main menu (saves, then returns);
+  - Delete this career. It asks first ("This deletes your saved career for good. It cannot be undone.", with Keep it / Delete career), then removes the save and returns to the menu.
+  - Quit game stays on the menu's sheet (desktop only).
+  - Back closes the sheet.
+- **Left out, as not yet relevant:**
+  - light/dark theme and UI scale: one palette and type scale, and a change there is project-wide;
+  - audio: none yet;
+  - reduced motion: the match view already has 1x to 8x and Skip.
+- **Also fixed:** the hub's four-button bottom row cut "Sim round" short at 360 px. Below 380 px it uses 13 px type and tighter padding.
+- **Tests:** `run_career_ui_tests.gd` covers:
+  - Settings on the hub's top bar;
+  - speed, main menu and version present;
+  - speed remembered;
+  - Keep it cancels;
+  - delete asks first, removes the save and returns to the menu.
+  - The existing menu Settings checks still pass.
+- **Screens:** hub and Settings at 360 and 390 px reviewed.
 
 Accessible top-right/main-hub Options.
 

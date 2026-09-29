@@ -651,6 +651,39 @@ func _run() -> void:
 			"With the home and away done, there is nothing to quick sim")
 	_state.set_confirm_sim_round(true)
 
+	# --- Settings from the hub: speed, the menu, and deleting the career ----
+	_router.go("hub")
+	await _settle()
+	var hub_settings: Button = current_scene.find_child("HubSettings", true, false)
+	_check(hub_settings != null and hub_settings.size.y >= 44, "Settings is on the hub's top bar")
+	if hub_settings != null:
+		hub_settings.emit_signal("pressed")
+		await _settle()
+	var eight: Button = current_scene.find_child("SettingsSpeed_8", true, false)
+	_check(eight != null and current_scene.find_child("OptionsMainMenu", true, false) != null
+			and current_scene.find_child("OptionsVersion", true, false) != null,
+			"Settings in a career has match speed, the main menu and the version")
+	if eight != null:
+		eight.emit_signal("pressed")
+		await _settle()
+	_check(is_equal_approx(_state.match_speed(), 8.0), "Match speed is remembered")
+	_state.set_match_speed(4.0)
+	_check(_state.save_career(), "The career is saved before the delete test")
+	current_scene.find_child("OptionsDelete", true, false).emit_signal("pressed")
+	await _settle()
+	current_scene.find_child("OptionsDeleteCancel", true, false).emit_signal("pressed")
+	await _settle()
+	_check(_state.has_saved_career() and _state.season != null, "Keep it cancels the delete")
+	current_scene.find_child("OptionsDelete", true, false).emit_signal("pressed")
+	await _settle()
+	var sure: Button = current_scene.find_child("OptionsDeleteConfirm", true, false)
+	_check(sure != null and sure.is_visible_in_tree(), "Deleting asks first")
+	if sure != null:
+		sure.emit_signal("pressed")
+		await _settle()
+	_check(_router.current() == "main" and not _state.has_saved_career() and _state.season == null,
+			"Delete this career removes the save and returns to the menu")
+
 	_state.delete_saved_career()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)

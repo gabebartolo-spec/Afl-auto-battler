@@ -128,6 +128,7 @@ func _mount_body(stack: bool) -> void:
 
 	if _pitch == null:
 		_pitch = PitchView.new()
+		_pitch.speed = GameState.match_speed()
 	_pitch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pitch.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	# The feed is a handful of lines (scores, breaks, calls): on a phone the

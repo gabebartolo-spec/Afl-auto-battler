@@ -163,6 +163,17 @@ func set_confirm_sim_round(enabled: bool) -> void:
 	set_setting("confirm_sim_round", enabled)
 
 
+## How fast a watched match starts (1x, 2x, 4x or 8x). 4x by default.
+func match_speed() -> float:
+	var s := float(get_setting("match_speed", 4.0))
+	return s if s in [1.0, 2.0, 4.0, 8.0] else 4.0
+
+
+func set_match_speed(s: float) -> void:
+	if s in [1.0, 2.0, 4.0, 8.0]:
+		set_setting("match_speed", s)
+
+
 func set_show_real_names(enabled: bool) -> void:
 	if show_real_names == enabled:
 		return
