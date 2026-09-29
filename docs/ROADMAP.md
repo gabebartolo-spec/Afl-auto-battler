@@ -2742,7 +2742,7 @@ Before adding any new roadmap line, check this table.
 | Injury / visible injury / concussion | ARD-M1-006 + ARD-M3-010 |
 | Sim confirmation / skip rounds / don't ask again | ARD-M1-007 Simulation controls |
 | Settings / options menu | ARD-M6-005 Options |
-| Club colours / green UI / game visual style | ARD-M8-001/002 |
+| Club colours / green UI / game visual style | ARD-M8-001/002 |\n| Android app name / launcher icon / installed app identity | ARD-M8-008 |
 | End swaps / wrong-way movement / shot freeze | ARD-M1-004/005 + ARD-M8-003 |
 | OOB / last disposal / throw-in / OOF / 50m / frees | M3 AFL Rules & Match Authenticity |
 | Wind / rain | ARD-M7-006 Weather |
@@ -2757,9 +2757,26 @@ Before adding any new roadmap line, check this table.
 | Cinematic decision scene / tactical close-up / detailed match moment | ARD-M8-007 Cinematic tactical vignettes |
 | Draft age filter / rookie-prime-veteran / career-stage filter | ARD-M5-011 |
 
+## ARD-M8-008 — Android app identity: name and launcher icon
+**Status:** `TODO`  
+**Priority:** `P1`  
+**Autonomy:** `SAFE`
+
+### Goal
+Replace the leftover prototype identity shown by Android. The installed app must use the current game name, **Aussie Rules Dynasties**, rather than **AFL Auto-Battler**, and the launcher/app-info icon must be purpose-built for the Aussie Rules Dynasties identity rather than the current generic football-field placeholder.
+
+### Acceptance
+- Android launcher and App info show **Aussie Rules Dynasties**.
+- Android launcher/adaptive icon is visually tied to the game's title/identity and remains legible at phone icon size.
+- Remove visible legacy **AFL Auto-Battler** branding from Android export metadata where it is user-facing.
+- Do not redesign the in-game title/logo as part of this task unless required to share the same approved identity assets.
+
+
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-09-29:** Added ARD-M8-008 to replace the Android prototype identity: installed app name becomes **Aussie Rules Dynasties** and the launcher/App info icon must be purpose-built around the game's identity rather than the generic football-field placeholder.
 
 - **2026-09-29:** Added ARD-M8-007 for cinematic tactical vignettes: prototype one high-value decision moment first using 2D/2.5D presentation, use visual detail to make the football problem legible, and explicitly keep 3D out of scope. Deferred until the §1.11 decision-clarity gate proves the underlying choices are good.
 Keep this short. Add only meaningful structural changes, not every code commit.
