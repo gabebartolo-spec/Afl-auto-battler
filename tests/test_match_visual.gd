@@ -27,6 +27,7 @@ func run() -> void:
 	_test_match_flow(res)
 	_test_boundary_collect(res)
 	_test_play_when_idle(res)
+	_test_numbers_readable()
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -543,4 +544,20 @@ func _test_play_when_idle(res: Dictionary) -> void:
 	pv.finished.connect(func(): got[0] = true)
 	pv.play()
 	_check(got[0] and not pv.playing, "Resuming with nothing new to show still hands back to the match screen")
+	pv.free()
+
+
+## Every club's numbers read on its own token: the number sits on the inner
+## (secondary) disc, so it must contrast with that, not the outer ring.
+func _test_numbers_readable() -> void:
+	var pv := PitchView.new()
+	var bad := []
+	for code in GameDB.active_clubs(2027):
+		var cols: Array = GameDB.club_colours(str(code))
+		var disc: Color = cols[1]
+		var num: Color = pv._readable_on(disc)
+		var lum := func(c: Color) -> float: return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b
+		if absf(float(lum.call(disc)) - float(lum.call(num))) < 0.35:
+			bad.append(str(code))
+	_check(bad.is_empty(), "Every club's player numbers stand out on the token (%s)" % ", ".join(bad))
 	pv.free()
