@@ -227,8 +227,15 @@ func _test_set_shot() -> void:
 				if str(m["kind"]) == "set_shot" and not found:
 					found = true
 					var opts: Array = m["options"]
-					_check(opts.size() >= 2 and str(opts[0]["detail"]).contains("%"),
-							"A set shot offers choices with their odds")
+					var worded := opts.size() >= 2
+					for o in opts:
+						var d := str(o["detail"])
+						worded = worded and d != "" and not d.contains("%")
+					var t := str(m["text"])
+					for ch in t:
+						if ch >= "0" and ch <= "9":
+							worded = false
+					_check(worded, "A set shot offers choices described in words, not odds: %s / %s" % [t, str(opts[0]["detail"])])
 					var before := sim.score(0)
 					var done := sim.resolve_moment(0)
 					var gained := sim.score(0) - before
