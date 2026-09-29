@@ -98,6 +98,30 @@ Never mark an item `DONE` because code was written locally. It must be merged an
 - `SUPERVISED` — inspect carefully for design/cross-system consequences. This is **not** an automatic approval gate: proceed when the roadmap already resolves the player-experience decision; stop only if a material design choice remains genuinely unresolved.
 - `BALANCE-GATED` — may materially change results; proceed autonomously through implementation and measurement, but merge only when the required simulation evidence supports the intended effect without unacceptable side effects. Ambiguous or bad evidence is a stop condition.
 
+## 0.4.1 Current execution queue — overrides milestone order
+
+This is the **authoritative near-term work order**. The M1→M8 milestone structure below is a catalogue/dependency map, **not** a command to complete every lower-numbered milestone before higher-value work.
+
+When this queue conflicts with milestone number, item order, or a generic P1/P2 label, **follow this queue**.
+
+1. **Finish current in-flight work.** Complete/verify PR #102 (real in-match Momentum), then mark ARD-M4-010 accurately on `main`.
+2. **P0 System Reality Audit (§1.12).** Before adding more major player-facing systems, prove that existing mechanics actually connect end-to-end and change outcomes. Audit first; do not repair findings piecemeal until the report is complete.
+3. **Close the current playtest gate (§1.11).** The recent match-flow/decision-clarity work is implemented; the next phone playtest is the acceptance check. Any remaining freeze, fake choice, opaque cause/effect or misleading feedback is P0 and jumps the queue.
+4. **Core match agency.** Prioritise ARD-M4-001, M4-003, M4-006 and M4-007. Then M4-004/M4-005 if the simpler live-decision layer proves worthwhile.
+5. **Core football authenticity.** Prioritise ARD-M3-006, M3-007, M3-009 and completion of M3-001/M3-002. Then lower-frequency flavour such as 50m penalties, smothers and speccies.
+6. **Core team management.** Prioritise ARD-M5-001, M5-002, M5-008 and M5-012. Then M5-003/M5-005/M5-006.
+7. **Management depth / long-save substance.** Contracts/trades/free agency, history/records, role/development depth and other systems that make seasons and careers matter.
+8. **Flavour, expansion and release polish.** Rivalries, marquee identity, captaincy, weather, venues, custom prospect, onboarding, long-save QA, app identity and cinematic vignettes belong here unless a release blocker promotes them.
+
+### Queue rules
+
+- A newly observed **P0 correctness, soft-lock, fake/no-op mechanic or core-fun failure** jumps ahead of planned feature work.
+- Findings from the System Reality Audit that are player-facing no-ops or materially misleading become repair work **before** unrelated new systems.
+- Within a queue tier, honour explicit dependencies and choose the smallest high-value coherent task.
+- Do not chase roadmap completion percentage. The objective is a good game, not a finished checklist.
+- Do not use a lower milestone number as justification to work on a lower-value task.
+- When a queue item is completed/merged, update this section so the next task is obvious without interpretation.
+
 ## 0.5 Claude execution contract
 
 For every authorised roadmap task:
@@ -488,6 +512,91 @@ If those questions cannot be answered, that decision loop is not complete.
 
 ### Implementation approach
 Treat each observed failure as a reproducible problem. Diagnose simulation authority vs visualisation/presentation before changing architecture. Prefer small fixes where sufficient; do not launch a movement-engine rewrite without evidence that local fixes cannot solve the problem. Use the user's phone playtest observations as the acceptance signal alongside targeted regression tests.
+
+---
+
+## 1.12 P0 gate — System Reality Audit: does the mechanic actually work?
+
+**Status:** `TODO`  
+**Execution priority:** `NEXT AFTER PR #102`  
+**Priority:** `P0`  
+**Autonomy:** `SUPERVISED — DIAGNOSIS FIRST`
+
+### Trigger
+The Momentum meter existed as a player-facing system even though MatchSim had no real Momentum state underneath it. That was not a design reason to remove Momentum; it exposed a more serious process risk: other "implemented" systems may also be UI-only, disconnected, written-but-never-read, statistically irrelevant, or tested only for existence rather than behaviour.
+
+### Goal
+Establish which current player-facing systems are **real**, which are only partially connected, and which do nothing meaningful.
+
+This is an **audit before repair**. Do not start fixing individual findings while still discovering the scope unless a destructive/soft-locking defect makes continued testing unsafe.
+
+### Required end-to-end trace
+For every implemented player-facing mechanic, trace:
+
+`player sees/chooses → state created → state stored → engine/system reads it → calculation changes → outcome changes → result is surfaced back`
+
+A break anywhere in that chain is a finding.
+
+At minimum inspect:
+- Momentum and Team Form,
+- traits and synergies,
+- game plans/tactics and quarter-break calls,
+- moment/event choices,
+- tagging and defensive match-ups,
+- Play through / focal-player instructions,
+- positions/roles, selection and interchange behaviour,
+- attributes and OVR where consumed,
+- player form/morale/fatigue,
+- injuries/suspensions where implemented,
+- training, XP and passive reserves development,
+- coaching Teaching/Tactics/Man-management effects,
+- draft/scouting uncertainty and list/draft valuation systems,
+- salary-cap consequences,
+- every other implemented modifier/toggle/meter presented as consequential.
+
+### Look specifically for
+- state written but never read;
+- return values/modifiers calculated then discarded;
+- UI reading one value while MatchSim uses another;
+- dead/unreachable branches and placeholder callbacks;
+- effects overwritten, normalised away or applied after the result is decided;
+- values technically connected but too weak/rare to matter;
+- player/AI asymmetry;
+- save/load dropping the state;
+- report-only statistics presented as mechanics;
+- tests that prove a widget/key/function exists but do not prove behaviour changes.
+
+### Empirical verification
+Where practical, use controlled paired-seed or identical-state comparisons: mechanic on/off, trait present/absent, plan A/B, tag/no tag, form neutral/high, coach effect weak/strong, and equivalent deterministic checks for non-match systems.
+
+The question is not whether every mechanic is perfectly tuned. The question is **whether it genuinely changes the thing the player is told it changes**.
+
+### Classification
+Every audited system gets exactly one factual status:
+- `WORKING`
+- `WORKING BUT QUESTIONABLE`
+- `PARTIALLY CONNECTED`
+- `UI / REPORT ONLY`
+- `NO-OP`
+- `DEAD / DISCONNECTED`
+- `UNVERIFIED`
+
+### Output
+Create `docs/SYSTEM_REALITY_AUDIT.md` containing:
+- executive counts by classification;
+- critical player-facing no-ops/misleading systems first;
+- system-by-system implementation path and behavioural evidence;
+- what existing tests actually prove;
+- weak/fake-confidence tests;
+- recommended repair order.
+
+Do **not** mark a system working because code exists or a test is green.
+
+### Gate
+After the report is complete:
+1. player-facing `NO-OP`, `UI / REPORT ONLY` (when presented as a mechanic), and serious `PARTIALLY CONNECTED` findings enter the execution queue ahead of unrelated feature expansion;
+2. repair priority is player deception/no-op decisions → core gameplay importance → severity → simplest robust fix;
+3. desired mechanics are **fixed, not deleted**, merely because their implementation is incomplete, unless the user explicitly changes the design.
 
 ---
 
@@ -2927,6 +3036,8 @@ Hold this idea for the eventual MRO/tribunal design work. Do not implement it me
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-09-29:** Added an authoritative Current Execution Queue so Claude does not infer priority from milestone numbering alone. The queue now finishes #102, runs the P0 System Reality Audit, closes the phone playtest gate, then moves through core match agency, football authenticity, team management, management depth, and finally flavour/polish. Added §1.12 as the canonical System Reality Audit gate after the display-only Momentum discovery.
 
 - **2026-09-29:** Status-sync pass after merged work was allowed to drift: recorded M1-005, M1-009, M1-011, M3-010, M4-002, M4-008, M4-009, M6-002, M6-003 and M6-005 as completed; M3-003 and M7-003 as partial; and M4-010 as actively in progress on PR #102. Refreshed stale current-state notes so agents do not rebuild already-finished systems.
 
