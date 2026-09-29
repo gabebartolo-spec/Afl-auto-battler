@@ -579,3 +579,185 @@ static func key_stats(res: Dictionary, my_side: int) -> Array:
 			out.append([str(row[1]), int(float(mine.get(row[0], 0.0))),
 					int(float(theirs.get(row[0], 0.0)))])
 	return out
+
+
+# ---------------------------------------------------------------------------
+# Key match-ups (Matchups): the named forward-50 contests, in counts a coach
+# would quote. Every line is built from the contests the engine logged.
+# ---------------------------------------------------------------------------
+## Contests `fid` had: [contests, marked, goals], in quarter q (0 = the whole
+## match) and against defender def_id ("" = anyone).
+static func duel_tally(res: Dictionary, fid: String, q := 0, def_id := "") -> Array:
+	var n := 0
+	var won := 0
+	var goals := 0
+	for c in ((res.get("duels", {}) as Dictionary).get(fid, {}) as Dictionary).get("contests", []):
+		if (q > 0 and int(c[0]) != q) or (def_id != "" and str(c[1]) != def_id):
+			continue
+		n += 1
+		if bool(c[2]):
+			won += 1
+		if bool(c[3]):
+			goals += 1
+	return [n, won, goals]
+
+
+static func _pname(id: String) -> String:
+	return GameDB.player_display_name_by_id(id, "")
+
+
+const QUARTER_WORDS := {1: "the first", 2: "the second", 3: "the third", 4: "the last"}
+
+
+## "Curnow on Maynard: 4 marks from 6 contests in the first." At a break, for
+## the quarter just played.
+static func duel_quarter_line(res: Dictionary, fid: String, def_id: String, q: int) -> String:
+	var t := duel_tally(res, fid, q)
+	var who := "%s on %s" % [_pname(fid), _pname(def_id)]
+	if int(t[0]) == 0:
+		return "%s: no contests in %s." % [who, str(QUARTER_WORDS.get(q, "that quarter"))]
+	return "%s: %d %s from %d %s in %s." % [who, int(t[1]), "mark" if int(t[1]) == 1 else "marks",
+			int(t[0]), "contest" if int(t[0]) == 1 else "contests", str(QUARTER_WORDS.get(q, "that quarter"))]
+
+
+## What a match-up change at the break did in quarter q: "Moore onto Curnow:
+## Curnow marked 1 of 4, from 4 of 6 in the first." [] when you made none.
+static func duel_change_lines(res: Dictionary, my_side: int, q: int) -> Array:
+	var out := []
+	for ch in res.get("duel_changes", []):
+		if int(ch.get("from", ch.get("q", 0))) != q or int(ch.get("side", -1)) != my_side:
+			continue
+		var fid := str(ch["fwd"])
+		var now := duel_tally(res, fid, q)
+		var was := duel_tally(res, fid, q - 1) if q > 1 else [0, 0, 0]
+		var line := "%s onto %s: " % [_pname(str(ch["def"])), _pname(fid)]
+		if int(now[0]) == 0:
+			line += "no contests yet."
+		else:
+			line += "%s marked %d of %d" % [_pname(fid), int(now[1]), int(now[0])]
+			if int(was[0]) > 0:
+				line += ", from %d of %d in %s" % [int(was[1]), int(was[0]), str(QUARTER_WORDS.get(q - 1, "the quarter before"))]
+			line += "."
+		out.append(line)
+	return out
+
+
+## The key match-ups at full time, one honest line each, theirs first:
+## who had the better of whom, and - where you moved a defender - whether
+## the contests changed. Quiet match-ups (fewer than MIN_DUELS) stay quiet.
+const MIN_DUELS := 4
+const CLEAR_EDGE := 0.25
+
+static func duel_story(res: Dictionary, my_side: int) -> Array:
+	# Your changes first (the calls you made), then their key forwards by
+	# how many contests they had, then at most one of your own forwards.
+	var moved := {}
+	for ch in res.get("duel_changes", []):
+		if int(ch.get("side", -1)) == my_side:
+			moved[str(ch["fwd"])] = true
+	var theirs := []
+	var ours := []
+	var duels: Dictionary = res.get("duels", {})
+	for fid in duels:
+		var d: Dictionary = duels[fid]
+		var all := duel_tally(res, str(fid))
+		if int(all[0]) < MIN_DUELS:
+			continue
+		var line := _duel_line(res, str(fid), int(d.get("side", 0)) != my_side, my_side)
+		if line == "":
+			continue
+		var row := [0 if moved.has(str(fid)) else 1, -int(all[0]), line]
+		if int(d.get("side", 0)) != my_side:
+			theirs.append(row)
+		else:
+			ours.append(row)
+	theirs.sort()
+	ours.sort()
+	var out := []
+	for r in theirs:
+		out.append(r[2])
+	if not ours.is_empty():
+		out.append(ours[0][2])
+	return out
+
+
+static func _duel_line(res: Dictionary, fid: String, theirs: bool, my_side: int) -> String:
+	var fname := _pname(fid)
+	# The defenders he met, in the order he met them.
+	var order := []
+	for c in ((res.get("duels", {}) as Dictionary).get(fid, {}) as Dictionary).get("contests", []):
+		if not order.has(str(c[1])):
+			order.append(str(c[1]))
+	var goals := int(duel_tally(res, fid)[2])
+	var kicked := "" if goals == 0 else (", and kicked %d %s from them" % [goals, "goal" if goals == 1 else "goals"])
+	if order.size() >= 2:
+		var a := duel_tally(res, fid, 0, str(order[0]))
+		var b := duel_tally(res, fid, 0, str(order[order.size() - 1]))
+		var moved := "%s's move onto %s" % [_pname(str(order[order.size() - 1])), fname]
+		if int(a[0]) < 3 or int(b[0]) < 3:
+			return "%s won %d of %d contests; too few after the change to tell whether %s helped." % [
+					fname, int(a[1]) + int(b[1]), int(a[0]) + int(b[0]), moved]
+		var ra := float(a[1]) / float(a[0])
+		var rb := float(b[1]) / float(b[0])
+		var counts := "%d of %d on %s, %d of %d on %s" % [int(a[1]), int(a[0]), _pname(str(order[0])),
+				int(b[1]), int(b[0]), _pname(str(order[order.size() - 1]))]
+		if rb <= ra - CLEAR_EDGE:
+			return "%s turned the contest: %s marked %s." % [moved, fname, counts]
+		if rb >= ra + CLEAR_EDGE:
+			return "%s got on top even after the change: %s." % [fname, counts]
+		return "The change on %s made little difference: %s." % [fname, counts]
+	var t := duel_tally(res, fid)
+	var dname := _pname(str(order[0])) if not order.is_empty() else "his man"
+	var r := float(t[1]) / float(maxi(1, int(t[0])))
+	if r >= 0.60:
+		return "%s beat %s in the air: %d marks from %d contests%s." % [fname, dname, int(t[1]), int(t[0]), kicked]
+	if r <= 0.40:
+		return "%s held %s: %d marks from %d contests." % [dname, fname, int(t[1]), int(t[0])]
+	return "An even battle, %s and %s: %d marks from %d contests%s." % [fname, dname, int(t[1]), int(t[0]), kicked]
+
+
+
+## The battle in the feed, rarely: the first contest after a defender goes
+## to him, or a third contest in a row to the same man. At most MAX_DUEL_LINES a
+## quarter, and not twice on one forward inside DUEL_LINE_GAP minutes (a
+## change always shows). `mem` is the caller's memory for the match. ""
+## when the contest is not worth a line; quiet games stay quiet.
+const MAX_DUEL_LINES := 2
+const DUEL_LINE_GAP := 6
+
+static func duel_feed_line(mem: Dictionary, ev: Dictionary) -> String:
+	if not ev.has("duel"):
+		return ""
+	var d: Dictionary = ev["duel"]
+	var fid := str(d["fwd"])
+	var did := str(d["def"])
+	var fwd_won := str(d["won"]) == "fwd"
+	var q := int(ev.get("q", 1))
+	var mins := int(ev.get("min", 0))
+	var seen_all: Dictionary = mem.get("seen", {})
+	var seen: Dictionary = seen_all.get(fid, {})
+	var changed := not seen.is_empty() and str(seen.get("def", "")) != did
+	var streak := 1
+	if not changed and str(seen.get("def", "")) == did and bool(seen.get("fwd_won", false)) == fwd_won:
+		streak = int(seen.get("streak", 0)) + 1
+	var f := _pname(fid)
+	var dn := _pname(did)
+	var text := ""
+	if changed:
+		text = ("%s beats %s in the air at the first contest." % [f, dn]) if fwd_won \
+				else ("%s gets across %s at the first contest." % [dn, f])
+	elif streak == 3:
+		text = ("%s is getting on top of %s in the air." % [f, dn]) if fwd_won \
+				else ("%s has had the better of %s again." % [dn, f])
+	var last_min := int(seen.get("last_min", -99))
+	seen_all[fid] = {"def": did, "streak": streak, "fwd_won": fwd_won, "last_min": last_min}
+	mem["seen"] = seen_all
+	var per_q: Dictionary = mem.get("per_q", {})
+	if text == "" or int(per_q.get(q, 0)) >= MAX_DUEL_LINES:
+		return ""
+	if not changed and mins - last_min < DUEL_LINE_GAP:
+		return ""
+	seen_all[fid]["last_min"] = mins
+	per_q[q] = int(per_q.get(q, 0)) + 1
+	mem["per_q"] = per_q
+	return text

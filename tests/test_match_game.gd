@@ -29,6 +29,7 @@ func run() -> void:
 	_test_no_role_gates()
 	_test_spoils_and_crumbs()
 	_test_hot_player_moment()
+	_test_matchups()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -785,7 +786,9 @@ func _test_spoils_and_crumbs() -> void:
 	var crumbs := 0
 	var crumbs_fwd := 0
 	var by_def := 0.0
-	for i in range(30):
+	# 60 matches: crumbed goals are rare (about one a match), and a 30-match
+	# sample swings a few points either side of the forwards' 58% share.
+	for i in range(60):
 		var res := _sim(1600 + i).run()
 		for side in range(2):
 			var team_sp := float((res["team"][side] as Dictionary).get("spoils", 0.0))
@@ -841,3 +844,90 @@ func _test_hot_player_moment() -> void:
 	_check(str(m.get("kind", "")) == "hot" and tagger != null
 			and str(m["options"][0]["label"]).contains(GameDB.player_display_name(tagger)),
 			"A midfielder kicking a bag can be tagged, by the midfielder who would go to him")
+
+
+## Gate 1.12: key forward v key defender. Every link: a default set-up, a
+## controllable assignment, contests fought against the named defender, a
+## measurable effect, the forward's card answered with a defender (never a
+## tag), and full-time lines that say only what the contests show.
+func _test_matchups() -> void:
+	var sim := _sim(501, "ADE", "SYD")
+	var theirs: Dictionary = sim.duels[1]      # SYD's defenders on ADE's key forwards
+	_check(not theirs.is_empty() and not (sim.duels[0] as Dictionary).is_empty(),
+			"Both sides start with a defender on the other's key forwards")
+	var fid := str(theirs.keys()[0])
+	var defs := Matchups.defenders((sim.squads[1] as Squad).ground)
+	var other := ""
+	for p in defs:
+		if str(p["id"]) != str(theirs[fid]):
+			other = str(p["id"])
+			break
+	var had := str(theirs[fid])
+	_check(sim.set_matchup(1, fid, other, false) and str(sim.duels[1][fid]) == other,
+			"A defender can be put on a key forward")
+	var swapped := true
+	for k in theirs:
+		if str(k) != fid and str(theirs[k]) == other:
+			swapped = false
+	_check(swapped, "A defender is only ever on one forward (the old job is swapped, %s)" % had)
+	_check(not sim.set_matchup(1, fid, "NOPE", false), "An unknown defender is refused")
+	var res := sim.run()
+	var log: Dictionary = res["duels"].get(fid, {})
+	var against_other := true
+	for c in log.get("contests", []):
+		if str(c[1]) != other:
+			against_other = false
+	_check(not log.is_empty() and against_other,
+			"Every contest the forward played was against the defender put on him (%d)" % (log.get("contests", []) as Array).size())
+	var tagged_events := 0
+	for ev in res["events"]:
+		if ev.has("duel"):
+			tagged_events += 1
+	_check(tagged_events > 0, "The contests reach the match log for the feed (%d)" % tagged_events)
+	# Leverage: the same forward on a strong v a small, poor-in-the-air defender.
+	var rates := []
+	for want_strong in [true, false]:
+		var n := 0
+		var won := 0
+		for seed in range(600, 630):
+			var m := _sim(seed, "ADE", "SYD")
+			var ds := Matchups.defenders((m.squads[1] as Squad).ground)
+			ds.sort_custom(func(a, b): return Matchups.defender_air(a) > Matchups.defender_air(b))
+			var f := str((m.duels[1] as Dictionary).keys()[0])
+			m.set_matchup(1, f, str((ds[0] if want_strong else ds[ds.size() - 1])["id"]), false)
+			for c in (m.run()["duels"].get(f, {}) as Dictionary).get("contests", []):
+				n += 1
+				if bool(c[2]):
+					won += 1
+		rates.append(float(won) / float(maxi(1, n)))
+	_check(rates[1] - rates[0] >= 0.12 and rates[0] >= 0.35,
+			"The defender on him changes the contests, but never shuts him out (%.2f strong v %.2f small)" % [rates[0], rates[1]])
+	# The forward's card: a defender, never a tag.
+	var live := _sim(88, "SYD", "ADE")
+	live.moment_side = 0
+	live.current_quarter = 2
+	live._chain_no = 100
+	var hot := str((live.duels[0] as Dictionary).keys()[0])
+	live.player_stats[hot] = {"goals": 3.0}
+	live._boundary_moment()
+	var m2: Dictionary = live.pending_moment
+	var has_tag := false
+	for o in m2.get("options", []):
+		if str(o["key"]) == "tag":
+			has_tag = true
+	_check(str(m2.get("kind", "")) == "duel" and not has_tag and str(m2["options"][0]["key"]).begins_with("def:"),
+			"A forward kicking a bag is answered with a defender, never a tag")
+	live.resolve_moment(0)
+	_check(str(live.duels[0][hot]) == str(m2["options"][0]["key"]).trim_prefix("def:")
+			and not live.duel_changes.is_empty(), "Choosing a defender puts him on the forward, from now")
+	# Full time says only what the contests show.
+	var fake := {"duels": {"F": {"side": 1, "contests": [
+			[1, "A", true, true], [1, "A", true, false], [1, "A", true, true], [2, "A", true, false],
+			[3, "B", false, false], [3, "B", false, false], [3, "B", true, false], [4, "B", false, false]]}}}
+	var story := MatchNotes.duel_story(fake, 0)
+	_check(story.size() == 1 and str(story[0]).contains("turned the contest"),
+			"A change that swung the contests is credited (%s)" % str(story))
+	var thin := {"duels": {"F": {"side": 1, "contests": [[1, "A", true, false], [1, "A", true, false],
+			[1, "A", true, false], [2, "B", false, false]]}}}
+	_check(str(MatchNotes.duel_story(thin, 0)[0]).contains("too few"),
+			"Too few contests after a change is said as such, not dressed up")

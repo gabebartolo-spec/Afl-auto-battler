@@ -62,6 +62,10 @@ var difficulty := "normal"       # this career's difficulty (DIFFICULTIES key)
 var board := {}                  # confidence, goal, warned, sacked, history
 var week_event := {}             # this week's event card (ClubLife.pick_event)
 var losing_streak := 0
+## Your match-ups for the next match (Matchups): {their forward id: your
+## defender id}, on top of the default set-up. Cleared after each of your
+## matches - every opponent is a new problem.
+var my_matchups := {}
 ## What the event cards have already raised this season (ClubLife.pick_event
 ## memory): "extension|id", "media|id" -> true, "unhappy|id" -> round.
 var event_memory := {}
@@ -268,6 +272,7 @@ func save_career() -> bool:
 		"board": board,
 		"week_event": week_event,
 		"losing_streak": losing_streak,
+		"my_matchups": my_matchups,
 		"event_memory": event_memory,
 		"db_draftees": GameDB.draftees,
 		"db_late_draftees": GameDB.late_draftees,
@@ -366,6 +371,7 @@ func load_career() -> bool:
 	board = state.get("board", {})
 	week_event = state.get("week_event", {})
 	losing_streak = int(state.get("losing_streak", 0))
+	my_matchups = state.get("my_matchups", {})
 	event_memory = state.get("event_memory", {})
 	difficulty = str(state.get("difficulty", "normal"))
 	if not DIFFICULTIES.has(difficulty):
@@ -591,6 +597,7 @@ func reset() -> void:
 	board = {}
 	week_event = {}
 	losing_streak = 0
+	my_matchups = {}
 	event_memory = {}
 	difficulty = new_career_difficulty()
 	career_seed = randi_range(1, 999999)
@@ -1002,6 +1009,7 @@ func prepare_interactive_match() -> bool:
 	pending_sim = MatchSim.new(home, away, season.next_seed(99))
 	pending_sim.moment_side = 0 if str(pending_match["home"]) == my_club else 1
 	pending_sim.set_tactics(pending_sim.moment_side, {"gameplan": club_plan})
+	pending_sim.set_matchups(pending_sim.moment_side, my_matchups)
 	pending_phase = "regular"
 	pending_label = str(pending_match["label"])
 	last_results = []
@@ -1055,6 +1063,7 @@ func _prepare_interactive_final() -> bool:
 	pending_sim.finals_mode = true
 	pending_sim.moment_side = 0 if str(fm["home"]) == my_club else 1
 	pending_sim.set_tactics(pending_sim.moment_side, {"gameplan": club_plan})
+	pending_sim.set_matchups(pending_sim.moment_side, my_matchups)
 	pending_phase = "finals"
 	pending_label = str(fm["label"])
 	last_results = []
@@ -1280,6 +1289,43 @@ func usual_plan(code: String) -> String:
 		return "balanced"
 	return PlanFit.standing_plan(Squad.new(code, season.lists[code], false, code,
 			season.selections.get(code, {})).ground)
+
+
+## This week's key match-ups against `opp`: [{"fwd": their forward, "def":
+## your defender on him, "set": true when you chose it}], their key forwards
+## first. [] without an opponent.
+func week_matchups(opp: String) -> Array:
+	if season == null or opp == "" or not season.lists.has(opp):
+		return []
+	var theirs: Array = Squad.new(opp, season.lists[opp], false, opp, season.selections.get(opp, {})).ground
+	var mine: Array = my_squad().ground
+	var d := Matchups.defaults(theirs, mine)
+	var mine_ids := {}
+	for p in mine:
+		mine_ids[str(p["id"])] = p
+	# Your choices, applied the way the match applies them (a swap).
+	for fid in my_matchups:
+		if not d.has(str(fid)) or not mine_ids.has(str(my_matchups[fid])):
+			continue
+		var want := str(my_matchups[fid])
+		var had := str(d[fid])
+		for other in d.keys():
+			if str(d[other]) == want and str(other) != str(fid):
+				d[other] = had
+		d[fid] = want
+	var out := []
+	for f in Matchups.key_forwards(theirs):
+		var fid := str(f["id"])
+		if d.has(fid) and mine_ids.has(str(d[fid])):
+			out.append({"fwd": f, "def": mine_ids[str(d[fid])], "set": my_matchups.has(fid)})
+	return out
+
+
+## Put your defender `def_id` on their forward `fwd_id` for the next match.
+func set_my_matchup(fwd_id: String, def_id: String) -> void:
+	my_matchups[fwd_id] = def_id
+	_sync_club_plan()
+	mark_dirty()
 
 
 ## Your own side's week worth knowing (Matchup.own_notes).
@@ -3022,6 +3068,7 @@ func set_club_plan(key: String) -> void:
 func _sync_club_plan() -> void:
 	if season != null:
 		season.plans = {my_club: club_plan} if club_plan != "balanced" else {}
+		season.matchups = {my_club: my_matchups} if not my_matchups.is_empty() else {}
 
 
 ## After each match: your players' last three Player Ratings, and every
@@ -3046,6 +3093,9 @@ func _note_form_and_team(res: Dictionary) -> void:
 		season_team[codes[side]] = row
 	if not is_my_match(res):
 		return
+	# This week's match-ups were for this opponent.
+	my_matchups = {}
+	_sync_club_plan()
 	var side := 0 if codes[0] == my_club else 1
 	var roster: Array = res.get("roster", [[], []])
 	if roster.size() <= side:

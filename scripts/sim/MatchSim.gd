@@ -29,6 +29,17 @@ var plan_fit := [{}, {}]
 ## The plan each side's list suits as its usual game (PlanFit.standing_plan):
 ## where an AI club starts, and what it goes back to.
 var standing := ["balanced", "balanced"]
+## Named match-ups (Matchups, Gate 1.12): per defending side, which defender
+## stands on each of the other side's key forwards. {forward id: defender id}.
+var duels := [{}, {}]
+## Every contest a matched forward and his direct opponent played:
+## forward id -> {"side": attacking side, "contests": [[q, defender id,
+## forward marked, goal from it]]}.
+var duel_log := {}
+## Match-ups changed during the match: [{"q", "side" (defending), "fwd", "def"}].
+var duel_changes: Array = []
+## The contest in play, attached to the score or rebound it produces.
+var _duel := {}
 # Assistant-coach audit trail. Snapshots never touch the RNG, so calibration
 # is unaffected. tactics_history[q] records the plans in force for that
 # quarter; quarter_teams[q] records the cumulative team totals afterwards.
@@ -101,6 +112,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	for side in range(2):
 		synergies[side] = Traits.active((squads[side] as Squad).ground)
 		standing[side] = PlanFit.standing_plan((squads[side] as Squad).ground)
+		duels[side] = Matchups.defaults((squads[1 - side] as Squad).ground, (squads[side] as Squad).ground)
 		for plan in PlanFit.NEEDS:
 			(plan_fit[side] as Dictionary)[plan] = PlanFit.fit((squads[side] as Squad).ground, plan)
 		for p in (squads[side] as Squad).ground:
@@ -119,6 +131,79 @@ static func _start_energy(p: Dictionary) -> float:
 	if bool(p.get("sore", false)):
 		e = minf(e, ClubLife.SORE_LEGS)
 	return e
+
+
+## Put `def_id` (of `def_side`) on the other side's forward `fwd_id`. If he
+## was on another forward, that forward gets the defender this one had (a
+## swap), as a coach moves his key defenders around. `during` records the
+## change for the match story. Returns false for an unknown player.
+func set_matchup(def_side: int, fwd_id: String, def_id: String, during := true) -> bool:
+	if def_side < 0 or def_side > 1:
+		return false
+	var att: Squad = squads[1 - def_side]
+	var own: Squad = squads[def_side]
+	var fwd_ok := false
+	for p in att.ground + att.bench:
+		if str(p["id"]) == fwd_id:
+			fwd_ok = true
+	var def_ok := false
+	for p in own.ground + own.bench:
+		if str(p["id"]) == def_id:
+			def_ok = true
+	if not fwd_ok or not def_ok:
+		return false
+	var d: Dictionary = duels[def_side]
+	if str(d.get(fwd_id, "")) == def_id:
+		return true
+	var had := str(d.get(fwd_id, ""))
+	for other in d.keys():
+		if str(d[other]) == def_id and str(other) != fwd_id:
+			if had != "":
+				d[other] = had
+			else:
+				d.erase(other)
+	d[fwd_id] = def_id
+	if during:
+		# Between quarters current_quarter is already the next one, so a change
+		# at a break starts with it; from a moment card, straight away. A
+		# second change at the same break replaces the first.
+		var from := maxi(1, current_quarter)
+		for i in range(duel_changes.size() - 1, -1, -1):
+			var ch: Dictionary = duel_changes[i]
+			if int(ch["from"]) == from and int(ch["side"]) == def_side and str(ch["fwd"]) == fwd_id:
+				duel_changes.remove_at(i)
+		duel_changes.append({"q": maxi(1, current_quarter), "from": from, "side": def_side,
+				"fwd": fwd_id, "def": def_id})
+	return true
+
+
+## Your set-up before the bounce: {forward id: defender id} on top of the
+## default. Not a change during the match.
+func set_matchups(def_side: int, m: Dictionary) -> void:
+	for fid in m:
+		set_matchup(def_side, str(fid), str(m[fid]), false)
+
+
+## An AI club moves a key defender when their forward has had the better of
+## him: three or more contests last quarter and two in three won. It tries
+## the next defender a coach would, not the ideal one.
+func _ai_rematch(def_side: int) -> void:
+	var d: Dictionary = duels[def_side]
+	for fid in d.keys():
+		var log: Dictionary = duel_log.get(str(fid), {})
+		var n := 0
+		var won := 0
+		for c in log.get("contests", []):
+			if int(c[0]) == current_quarter - 1 and str(c[1]) == str(d[fid]):
+				n += 1
+				if bool(c[2]):
+					won += 1
+		if n < 3 or float(won) / float(n) < 0.67:
+			continue
+		for p in Matchups.defenders((squads[def_side] as Squad).ground):
+			if str(p["id"]) != str(d[fid]):
+				set_matchup(def_side, str(fid), str(p["id"]))
+				break
 
 
 func set_tactics(side: int, t: Dictionary) -> void:
@@ -281,6 +366,14 @@ func _emit(kind: String, side: int, fp: float, actor, text: String) -> void:
 		"goals": [goals(0), goals(1)],
 		"behinds": [behinds(0), behinds(1)],
 	})
+	# A named contest belongs to the score or rebound it produced.
+	if not _duel.is_empty() and ["goal", "behind", "rebound"].has(kind) and actor != null \
+			and [str(_duel["fwd"]), str(_duel["def"])].has(str(actor.get("id", ""))):
+		events[events.size() - 1]["duel"] = _duel.duplicate()
+		if kind == "goal" and str(actor.get("id", "")) == str(_duel["fwd"]):
+			var c: Array = (duel_log[str(_duel["fwd"])]["contests"] as Array)
+			c[c.size() - 1][3] = true
+		_duel = {}
 
 
 # ---------------------------------------------------------------------------
@@ -870,15 +963,43 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var dfn: Squad = squads[opp]
 
 	var shooter = _weighted_roles(atk.ground, "goalkicking", SHOT_ROLES, float(T["shooter_power"]), side, "shooter")
+	# Sides look for their key forwards on the way in: a share of entries go
+	# to one of them (the better one more often), into his match-up.
+	var keys := []
+	for fid in (duels[opp] as Dictionary):
+		var kf := _on_ground(side, str(fid))
+		if not kf.is_empty():
+			keys.append(kf)
+	if not keys.is_empty() and rng.randf() < Matchups.KEY_TARGET:
+		keys.sort_custom(func(a, b): return Matchups.forward_air(a) > Matchups.forward_air(b))
+		shooter = keys[0] if keys.size() == 1 or rng.randf() < 0.6 else keys[1]
 
 	var dgroup := _by_roles(dfn.ground, ["DEF"])
 	if dgroup.is_empty():
 		dgroup = dfn.ground
 	var defender = _weighted(dgroup, "intercept", 2.0, opp, "defender")
+	# A forward with a direct opponent contests it with him: their aerial
+	# games decide it on top of the lines (Matchups).
+	_duel = {}
+	var duel_shift := 0.0
+	var matched := _on_ground(opp, str((duels[opp] as Dictionary).get(str(shooter["id"]), "")))
+	if not matched.is_empty():
+		defender = matched
+		duel_shift = Matchups.mark_shift(shooter, matched)
 
 	var mark_edge := 0.06 if _trait(shooter, "aerial") else 0.0
+	# A named contest can be lopsided: a great forward on a small defender
+	# marks nearly everything, so its ceiling is higher than the lines'.
+	var mark_cap := 0.78 if matched.is_empty() else Matchups.DUEL_CAP
 	var marked := rng.randf() < clampf(
-			0.5 + (atk.fwd_mark - dfn.def_intercept) / 240.0 + mark_edge, 0.10, 0.78)
+			0.5 + (atk.fwd_mark - dfn.def_intercept) / 240.0 + mark_edge + duel_shift, 0.10, mark_cap)
+	if not matched.is_empty():
+		var fid := str(shooter["id"])
+		if not duel_log.has(fid):
+			duel_log[fid] = {"side": side, "contests": []}
+		(duel_log[fid]["contests"] as Array).append([current_quarter, str(matched["id"]), marked, false])
+		_duel = {"fwd": fid, "def": str(matched["id"]), "won": "fwd" if marked else "def",
+				"q": current_quarter, "n": (duel_log[fid]["contests"] as Array).size()}
 	if marked:
 		_t(side, "marks")
 		_p(shooter, "marks")
@@ -888,7 +1009,13 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 			_t(side, "contested_marks")
 			_p(shooter, "contested_marks")
 	var spoil_edge := 0.05 if defender != null and _trait(defender, "interceptor") else 0.0
-	var spoilt := rng.randf() < 0.30 + 0.35 * dfn.def_intercept / 100.0 + spoil_edge
+	var spoil_read := dfn.def_intercept
+	if not matched.is_empty():
+		# His own reading of the ball, alongside the line's.
+		spoil_read = 0.5 * dfn.def_intercept + 0.5 * Matchups.defender_air(matched)
+	# In a named contest the same aerial gap decides whether he gets a fist
+	# to it (Matchups): a defender on top spoils more, one beaten spoils less.
+	var spoilt := rng.randf() < clampf(0.30 + 0.35 * spoil_read / 100.0 + spoil_edge - duel_shift, 0.05, 0.95)
 	if spoilt and not marked and defender != null:
 		# He got a fist to it: a spoil (a credit only).
 		_t(opp, "spoils")
@@ -900,6 +1027,11 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var goal_p := shot_chance(side, shooter, marked, spoilt, true, feeder, defender)
 	var behind_p: float = (float(T["inside50_behind"])
 			* (0.80 + 0.40 * _a(shooter, "goalkicking") / 100.0))
+	# Beaten in the air by his direct opponent, a key forward rarely gets the
+	# shot himself: the ball spills or the defender clears it.
+	if not matched.is_empty() and not marked:
+		goal_p *= Matchups.BEATEN_SHOT
+		behind_p *= Matchups.BEATEN_SHOT
 
 	if side == moment_side and marked and _moment_ready():
 		var close := current_quarter >= 4 and absi(score(side) - score(opp)) <= 18
@@ -1224,6 +1356,8 @@ func begin_quarter() -> void:
 	for side in range(2):
 		if (squads[side] as Squad).ai_plans:
 			tactics[side] = ai_tactics(side)
+			if current_quarter > 1:
+				_ai_rematch(side)
 	_q_active = true
 	_q_i = 0
 	_q_count = floori(float(T["chains_per_game"]) / 4.0)
@@ -1470,6 +1604,9 @@ func result() -> Dictionary:
 		"impact": impact.duplicate(true),
 		"moments": moments.duplicate(true),
 		"interchanges": interchanges.duplicate(),
+		"duels": duel_log.duplicate(true),
+		"duel_changes": duel_changes.duplicate(true),
+		"matchups": duels.duplicate(true),
 	}
 
 
@@ -1706,6 +1843,43 @@ func _boundary_moment() -> bool:
 						"detail": "He stays on and keeps tiring (%d%% legs)." % int(e)},
 				]})
 			return true
+	# An opposition key forward getting on top: kicked a bag, or won three
+	# contests this quarter against his man. The answer is a match-up.
+	var mine: Dictionary = duels[me]
+	for fid in mine.keys():
+		var hotf := _on_ground(opp, str(fid))
+		var cur := _on_ground(me, str(mine[fid]))
+		if hotf.is_empty() or cur.is_empty():
+			continue
+		var bag := int((player_stats.get(str(fid), {}) as Dictionary).get("goals", 0.0))
+		var wins := 0
+		for c in (duel_log.get(str(fid), {}) as Dictionary).get("contests", []):
+			if int(c[0]) == current_quarter and str(c[1]) == str(cur["id"]) and bool(c[2]):
+				wins += 1
+		var key := "duel|%s|%d" % [str(fid), current_quarter]
+		if (bag < 3 and wins < 3) or _asked.has(key) or _asked.has("bag|" + str(fid)) and wins < 3:
+			continue
+		_asked[key] = true
+		if bag >= 3:
+			_asked["bag|" + str(fid)] = true
+		var opts := []
+		for p in Matchups.defenders((squads[me] as Squad).ground):
+			if str(p["id"]) == str(cur["id"]) or opts.size() >= 2:
+				continue
+			opts.append({"key": "def:" + str(p["id"]), "label": "Put %s on him" % GameDB.player_display_name(p),
+					"detail": Matchups.describe(p)})
+		if opts.is_empty():
+			continue
+		opts.append({"key": "keep", "label": "Keep %s on him" % GameDB.player_display_name(cur),
+				"detail": Matchups.describe(cur)})
+		var fname := GameDB.player_display_name(hotf)
+		_fire({"kind": "duel", "player_id": str(fid), "default": opts.size() - 1,
+			"title": ("%s has kicked %d" % [fname, bag]) if bag >= 3 else ("%s is getting on top" % fname),
+			"text": "%s has won %d contests in the air against %s this quarter." % [fname, wins,
+					GameDB.player_display_name(cur)] if wins > 0 else
+					"%s is on him. Change the match-up, or back him in." % GameDB.player_display_name(cur),
+			"options": opts})
+		return true
 	# An opposition midfielder kicking a bag: a tag is a midfield job, so
 	# only a midfielder can be answered with one (a forward is a match-up).
 	for id in player_stats:
@@ -1883,6 +2057,14 @@ func resolve_moment(choice: int) -> Dictionary:
 				outcome = "Tag on for the rest of the quarter."
 			else:
 				outcome = "Structure unchanged."
+		"duel":
+			if key.begins_with("def:"):
+				var did := key.trim_prefix("def:")
+				set_matchup(side, str(m["player_id"]), did)
+				outcome = "%s goes to %s." % [GameDB.player_display_name(_on_ground(side, did)),
+						GameDB.player_display_name(_on_ground(1 - side, str(m["player_id"])))]
+			else:
+				outcome = "The match-up stays."
 		"momentum", "bounce":
 			if BURSTS.has(key):
 				(bursts[side] as Dictionary)[key] = int(BURSTS[key]["chains"])

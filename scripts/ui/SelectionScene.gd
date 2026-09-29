@@ -15,6 +15,7 @@ var _root: VBoxContainer
 var _notice := ""
 var _synergy_overlay: Control
 var _plan_overlay: Control      # the game plan chooser
+var _matchup_overlay: Control   # who goes to their key forward
 var _sheet: Control             # a player's profile, open over the list
 var _open_move := ""            # the one player whose move choices are open
 var _scroll_box: ScrollContainer
@@ -218,6 +219,9 @@ func handle_back() -> bool:
 	if _synergy_overlay != null and is_instance_valid(_synergy_overlay):
 		_close_synergies()
 		return true
+	if _matchup_overlay != null and is_instance_valid(_matchup_overlay):
+		_close_matchup()
+		return true
 	if _plan_overlay != null and is_instance_valid(_plan_overlay):
 		_close_plan()
 		return true
@@ -402,6 +406,16 @@ func _this_week() -> Control:
 		v.add_child(_para(str(f["text"]), 13, UiKit.MUTED))
 	for f in own:
 		v.add_child(_para(str(f["text"]), 13, UiKit.BAD))
+	# Their key forwards and who goes to them: your call, in names.
+	var mus := GameState.week_matchups(code)
+	if not mus.is_empty():
+		v.add_child(UiKit.spacer(6))
+		var mv := UiKit.vbox(2)
+		mv.name = "KeyMatchups"
+		v.add_child(mv)
+		mv.add_child(UiKit.lbl("Their key forwards", UiKit.BODY, UiKit.TEXT, true))
+		for m in mus:
+			mv.add_child(_matchup_row(m))
 	var style := GameState.their_style(code)
 	var usual := GameState.usual_plan(code)
 	if usual != "balanced":
@@ -417,6 +431,63 @@ func _this_week() -> Control:
 	v.add_child(UiKit.spacer(6))
 	v.add_child(_plan_row())
 	return v
+
+
+## "Curnow: Moore on him" with the way to change it.
+func _matchup_row(m: Dictionary) -> Control:
+	var f: Dictionary = m["fwd"]
+	var h := UiKit.hbox(8)
+	h.name = "Matchup_" + str(f["id"])
+	var t := UiKit.vbox(0)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(t)
+	var who := _para("%s: %s on him" % [GameDB.player_display_name(f),
+			GameDB.player_display_name(m["def"])], 14, UiKit.TEXT)
+	who.name = "MatchupLine"
+	t.add_child(who)
+	t.add_child(_para(Matchups.describe(f), 12, UiKit.MUTED))
+	var b := UiKit.btn("Change", 14)
+	b.name = "ChangeMatchup"
+	b.custom_minimum_size = Vector2(104, 44)
+	b.pressed.connect(func(): _show_matchup(f, m["def"]))
+	h.add_child(b)
+	return h
+
+
+## Who goes to their forward: your defenders on the ground, each as a coach
+## would describe him. Tap one and he has the job.
+func _show_matchup(fwd: Dictionary, current: Dictionary) -> void:
+	_close_matchup()
+	var box := UiKit.modal_box(self, 480.0, 0.0)
+	_matchup_overlay = box["overlay"]
+	_matchup_overlay.name = "MatchupChooser"
+	var v: VBoxContainer = box["body"]
+	v.add_theme_constant_override("separation", 6)
+	v.add_child(UiKit.lbl("Who goes to %s?" % GameDB.player_display_name(fwd), UiKit.H1, UiKit.TEXT, true))
+	v.add_child(_para(Matchups.describe(fwd), 13, UiKit.MUTED))
+	for p in Matchups.defenders(GameState.my_squad().ground):
+		var b := UiKit.btn("", 15)
+		b.name = "Defender_" + str(p["id"])
+		b.custom_minimum_size = Vector2(0, 56)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.text = "%s\n%s" % [GameDB.player_display_name(p), Matchups.describe(p)]
+		UiKit.paint_choice(b, str(p["id"]) == str(current.get("id", "")))
+		var pid := str(p["id"])
+		b.pressed.connect(func():
+			GameState.set_my_matchup(str(fwd["id"]), pid)
+			_close_matchup()
+			_build())
+		v.add_child(b)
+	var done := UiKit.btn("Close", 16)
+	done.custom_minimum_size = Vector2(0, 48)
+	done.pressed.connect(_close_matchup)
+	box["footer"].add_child(done)
+
+
+func _close_matchup() -> void:
+	if _matchup_overlay != null and is_instance_valid(_matchup_overlay):
+		_matchup_overlay.queue_free()
+	_matchup_overlay = null
 
 
 ## The game plan you take into the match, and the way to change it.
