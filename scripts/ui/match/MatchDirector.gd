@@ -1043,6 +1043,12 @@ func _done(p: Dictionary) -> bool:
 			if who < 0:
 				return true
 			var t: Dictionary = tokens[who]
+			if str(ball["mode"]) == "held" and int(ball["holder"]) != who:
+				# Someone else still has it (a kick-in taker when the log
+				# moves on without his kick): he puts it down where he is,
+				# rather than carrying it up the ground for the receiver.
+				ball["mode"] = "dead"
+				ball["holder"] = -1
 			MatchMotion.set_goal(t, ball["pos"], 1.0, true)
 			var d := (t["pos"] as Vector2).distance_to(ball["pos"])
 			if d <= 1.4:

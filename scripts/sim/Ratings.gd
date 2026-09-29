@@ -21,8 +21,8 @@ const T := {
 	"clanger_is_free": 0.34,         # ...of which are free kicks against
 	"mark_share_of_kicks": 0.330,
 	"handball_share": 0.44,
-	"inside50_goal": 0.284,          # of inside-50 entries
-	"inside50_behind": 0.187,
+	"inside50_goal": 0.269,          # of inside-50 entries
+	"inside50_behind": 0.180,
 	"stoppage_share": 0.465,         # chains that begin at a genuine stoppage
 	"hitouts_per_stoppage": 0.81,    # split between the two rucks
 	"clearance_per_stoppage": 0.815,  # to the team that wins the stoppage

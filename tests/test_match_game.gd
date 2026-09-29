@@ -27,6 +27,7 @@ func run() -> void:
 	_test_stat_credits()
 	_test_m2_stats()
 	_test_no_role_gates()
+	_test_spoils_and_crumbs()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -759,3 +760,40 @@ func _test_no_role_gates() -> void:
 	_check(g.call("MID", "one_percenters") > 0.0 and g.call("FWD", "one_percenters") > 0.0, "Mids and forwards take one-percenters")
 	_check(g.call("DEF", "one_percenters") > g.call("MID", "one_percenters") and g.call("FWD", "goals") > g.call("DEF", "goals") * 5.0
 			and g.call("MID", "clearances") > g.call("FWD", "clearances") * 3.0, "Each line still leans where it belongs")
+
+
+## ARD-M3-003: a spoil is credited to the defender who made it, and the
+## ball it knocks loose inside 50 is sometimes crumbed and snapped - mostly
+## by forwards - rather than always going back to the defence.
+func _test_spoils_and_crumbs() -> void:
+	var sums_ok := true
+	var spoils := 0.0
+	var crumbs := 0
+	var crumbs_fwd := 0
+	var by_def := 0.0
+	for i in range(30):
+		var res := _sim(1600 + i).run()
+		for side in range(2):
+			var team_sp := float((res["team"][side] as Dictionary).get("spoils", 0.0))
+			spoils += team_sp
+			var ps := 0.0
+			for r in res["roster"][side]:
+				var st: Dictionary = res["players"].get(str(r["id"]), {})
+				ps += float(st.get("spoils", 0.0))
+				if str(r["role"]) == "DEF":
+					by_def += float(st.get("spoils", 0.0))
+			if absf(ps - team_sp) > 0.01:
+				sums_ok = false
+		var role := {}
+		for side in range(2):
+			for r in res["roster"][side]:
+				role[str(r["id"])] = str(r["role"])
+		for e in res["events"]:
+			if str(e.get("kind", "")) == "goal" and bool(e.get("crumb", false)):
+				crumbs += 1
+				if str(role.get(str(e.get("player_id", "")), "")) == "FWD":
+					crumbs_fwd += 1
+	_check(sums_ok and spoils > 0.0, "Spoils are credited, and players' spoils add up to the team's")
+	_check(by_def >= 0.7 * spoils, "Spoils are made by defenders (rotations aside) (%d of %d)" % [by_def, spoils])
+	_check(crumbs > 0 and float(crumbs_fwd) >= 0.55 * float(crumbs),
+			"Goals are crumbed off spoils, mostly by forwards (%d of %d)" % [crumbs_fwd, crumbs])
