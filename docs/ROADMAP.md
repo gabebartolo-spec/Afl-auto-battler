@@ -1662,8 +1662,8 @@ Trigger frequency, choice diversity, no repeated spam, deterministic resolution 
 
 ---
 
-## ARD-M4-002 — Defensive / forward match-ups
-**Status:** `DONE`  
+## ARD-M4-002 — Key match-ups
+**Status:** `DONE / FOLLOW-UP TODO`  
 **Merged:** PR #96 as `26d34a2`; key forward/defender assignments are selectable, play out in named contests, can be changed during matches, and AI can rematch.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
@@ -1675,6 +1675,28 @@ Trigger frequency, choice diversity, no repeated spam, deterministic resolution 
 
 ### Guardrails
 Do not create 18 individual matchup controls. Focus on meaningful key assignments.
+
+### Follow-up — broaden “key match-ups” beyond forward vs defender
+The current implementation is too narrow if “key match-ups” effectively means only a key forward against a key defender.
+
+Treat **Key match-ups** as the handful of contests that shape the game, which may include:
+- **Ruck battle:** the two primary rucks, especially where tap quality / hit-outs to advantage / clearances make the contest strategically important.
+- **Star midfielder battle:** opposing elite mids, or a star mid against the player assigned to run with/tag him. This does **not** have to mean a literal fixed one-on-one all game; it can be presented as who is influencing the stoppages/contest more.
+- **Key forward vs key defender:** the existing direct assignment model.
+- **Interceptor vs opposition forward structure:** an elite intercept defender whose influence comes from reading play and leaving his direct opponent rather than simply winning one-on-one contests.
+
+The pre-match and live-match presentation should surface only the genuinely important contests for that fixture. A “key matchup” may therefore be:
+- a direct assignment,
+- a positional duel such as ruck vs ruck,
+- or an influence battle such as star midfielder vs star midfielder.
+
+Do not imply every highlighted matchup is a hard man-on-man assignment. The point is to help the player understand **where the game is being won or lost**, not to create eighteen pairing controls.
+
+Acceptance:
+- a match can surface a ruck duel or midfield-star battle as a key matchup even when no forward/defender assignment is involved;
+- direct defender assignments remain explicit when they exist;
+- live and post-match matchup commentary uses the correct type of contest rather than pretending every matchup is one-on-one;
+- the system still surfaces only a few high-value contests, not a full positional matrix.
 
 ---
 
@@ -1705,9 +1727,31 @@ Support concepts such as:
 - extra number at stoppage,
 - seventh-defender-type positioning.
 
+### Interceptor role — roam the backline as the spare
+Support a deliberate instruction for a **Jake Lever-style interceptor**: a defender who is given licence to leave his nominal opponent, track the ball, attack aerial contests and hunt intercept possessions/marks across the backline.
+
+This should be a real structural choice, not a flat intercept-stat buff:
+- nominate an appropriate defender as the roaming interceptor / spare;
+- weight his involvement toward opposition entries, aerial contests, intercept possessions and intercept marks;
+- reduce his strict one-on-one accountability to a single forward;
+- the cost is structural: somebody else must absorb the opponent he leaves, the defence can be exposed if the ball gets through him, and the side gives up something elsewhere by keeping a spare/loose player behind the ball;
+- suitability should come from relevant football traits/attributes such as intercept ability, marking, reading play/positioning and defensive quality — not simply OVR or height;
+- a genuine lockdown defender and a roaming interceptor should feel meaningfully different even if both are high-quality defenders;
+- opposition AI can use the same role when its personnel and game state justify it.
+
+The roaming interceptor should also be eligible to appear as a **key matchup / opposition danger** even though he is not assigned to one forward. If he is controlling the air, the player should have football-appropriate counters available (for example changing forward structure, making him accountable, lowering/altering entries, or moving the spare), rather than being told he is a danger with no response.
+
 Do not literally create an extra player. Moving numbers to one area must reduce presence elsewhere.
 
 Prefer situational/live choices before adding permanent micromanagement.
+
+Acceptance:
+- an elite interceptor can materially influence opposition entries without being hard-matched to one forward;
+- his impact shows up through real intercept/spoil/mark events, not a hidden blanket modifier;
+- using him loose creates a measurable trade-off elsewhere;
+- the role can be changed/removed during a match;
+- AI parity applies;
+- post-match reporting can explain that the spare/interceptor controlled the backline when the event data supports it.
 
 ---
 
@@ -3416,8 +3460,10 @@ Includes:
 
 ## E. Match-ups & Accountability
 Includes:
-- defensive assignments,
-- forward match-ups,
+- key forward / key defender assignments,
+- ruck duels,
+- star-midfielder influence battles / tags,
+- roaming interceptor / spare-defender influence,
 - tagging trade-offs.
 
 ## F. History & Records
