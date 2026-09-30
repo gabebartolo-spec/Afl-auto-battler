@@ -31,8 +31,53 @@ func _run() -> void:
 	_failures.append_array(suite.failures)
 	for sz in [Vector2i(420, 860), Vector2i(360, 740)]:
 		await _phone_match(sz)
+	await _plan_at_first_bounce()
 	print("Matchday + match screen tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
+
+
+## The plan you take into a live match is the plan at the first bounce: the
+## pre-bounce box shows it, Start without touching it keeps it, and a change
+## in the box is what plays. Read from the engine's own record of the
+## quarter (tactics_history), not from a stored setting or a label.
+func _plan_at_first_bounce() -> void:
+	var db = root.get_node("GameDB")
+	for want in [["defensive", ""], ["controlled", "contest"]]:
+		var chosen := str(want[0])
+		var change := str(want[1])
+		_state.reset()
+		_state.start_season("COL", db.club_list("COL"))
+		root.size = Vector2i(420, 860)
+		_state.set_club_plan(chosen)
+		_check(_state.prepare_interactive_match(), "A live match is prepared (plan %s)" % chosen)
+		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m)
+		await _settle()
+		var box: Node = m.find_child("CoachBox", true, false)
+		_check(box != null, "The pre-bounce box opens (plan %s)" % chosen)
+		if box == null:
+			m.queue_free()
+			continue
+		var shown: Button = box.find_child("PlanPicker_" + chosen, true, false)
+		_check(shown != null and shown.get_theme_stylebox("normal").border_width_left == 2,
+				"The pre-bounce box shows the plan you took in (%s)" % chosen)
+		if change != "":
+			var other: Button = box.find_child("PlanPicker_" + change, true, false)
+			_check(other != null, "Another plan can be picked before the bounce (%s)" % change)
+			if other != null:
+				other.emit_signal("pressed")
+				await _settle()
+		var start: Button = box.find_child("StartQuarter", true, false)
+		start.emit_signal("pressed")
+		await _settle()
+		var sim = _state.pending_sim
+		var side := int(sim.moment_side)
+		var hist: Array = sim.tactics_history
+		var played := str(((hist[0] as Dictionary)["plans"][side] as Dictionary).get("gameplan", "")) if not hist.is_empty() else ""
+		var expect := change if change != "" else chosen
+		_check(played == expect, "The first quarter is played on %s (engine: %s)" % [expect, played])
+		m.queue_free()
+		await _settle()
 
 
 func _phone_match(sz: Vector2i) -> void:
@@ -167,6 +212,8 @@ func _phone_match(sz: Vector2i) -> void:
 	var bm: Node = box.find_child("BreakMatchups", true, false)
 	_check(bm != null, "The break shows the key match-ups (%s)" % tag)
 	var ch: Button = bm.find_child("ChangeMatchup", true, false) if bm != null else null
+	# Required: without a Change button the checks below would be skipped.
+	_check(ch != null, "The break offers a Change for their key forward (%s)" % tag)
 	if ch != null:
 		var fid := str((qsim.duels[myside] as Dictionary).keys()[0])
 		var cur := str(qsim.duels[myside][fid])
