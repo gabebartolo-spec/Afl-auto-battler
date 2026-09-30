@@ -103,15 +103,15 @@ func _how_we_play() -> Control:
 func _form() -> Control:
 	var v := UiKit.vbox(4)
 	v.name = "Form"
-	v.add_child(UiKit.section("Form"))
+	v.add_child(UiKit.section("Recent games"))
 	var form := GameState.player_form()
 	if (form["hot"] as Array).is_empty() and (form["cold"] as Array).is_empty():
 		v.add_child(_wrapped("Nobody is far from his usual level over the last three games.",
 				UiKit.BODY, UiKit.MUTED))
 		return v
-	v.add_child(_wrapped("Player Rating over the last three games, against his season.",
+	v.add_child(_wrapped("How his last three games rated against his season so far.",
 			UiKit.SMALL, UiKit.MUTED))
-	for part in [["In form", "hot"], ["Out of form", "cold"]]:
+	for part in [["Playing above his season", "hot"], ["Playing below his season", "cold"]]:
 		var rows: Array = form[part[1]]
 		if rows.is_empty():
 			continue

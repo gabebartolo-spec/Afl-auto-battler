@@ -26,6 +26,8 @@ var tactics := [{}, {}]      # per side: gameplan, focus_id, tag_id, pep
 ## How well each side's match-day players suit each plan (PlanFit): the
 ## plan's upside is scaled by it, its costs are not.
 var plan_fit := [{}, {}]
+## Each side's best three at the first bounce: who Through stars goes through.
+var stars := [{}, {}]
 ## The plan each side's list suits as its usual game (PlanFit.standing_plan):
 ## where an AI club starts, and what it goes back to.
 var standing := ["balanced", "balanced"]
@@ -145,8 +147,10 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 		synergies[side] = Traits.active((squads[side] as Squad).ground)
 		standing[side] = PlanFit.standing_plan((squads[side] as Squad).ground)
 		duels[side] = Matchups.defaults((squads[1 - side] as Squad).ground, (squads[side] as Squad).ground)
-		for plan in PlanFit.NEEDS:
+		for plan in PlanFit.LEAGUE:
 			(plan_fit[side] as Dictionary)[plan] = PlanFit.fit((squads[side] as Squad).ground, plan)
+		for p in PlanFit.carriers((squads[side] as Squad).ground, "through_stars"):
+			(stars[side] as Dictionary)[str(p["id"])] = true
 		for p in (squads[side] as Squad).ground:
 			energy[str(p["id"])] = _start_energy(p)
 			_played[side][str(p["id"])] = true
@@ -260,28 +264,32 @@ const PLAN_UPSIDE := {
 	"defensive": ["press", "opp_goal"], "press": ["press", "opp_goal"],
 	"contest": ["contest"],
 	"controlled": ["taken", "clangers", "goal", "pace"],
+	"through_stars": ["star_ball", "star_goal", "clangers"],
 }
 const PLANS := {
-	"attacking": {"goal": 1.10, "gain": 1.12, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
-	"fast": {"goal": 1.10, "gain": 1.12, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
-	"defensive": {"press": 1.18, "opp_goal": 0.93, "goal": 0.96, "gain": 0.95, "pace": 1.12},
-	"press": {"press": 1.18, "opp_goal": 0.93, "goal": 0.96, "gain": 0.95, "pace": 1.12},
-	"contest": {"contest": 0.035, "gain": 0.95, "exposed": 1.04},
-	"controlled": {"taken": 0.92, "gain": 0.94, "goal": 1.02, "clangers": 0.86, "pace": 0.9},
+	"attacking": {"goal": 1.05, "gain": 1.06, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
+	"fast": {"goal": 1.05, "gain": 1.06, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
+	"defensive": {"press": 1.09, "opp_goal": 0.965, "goal": 0.96, "gain": 0.95, "pace": 1.12},
+	"press": {"press": 1.09, "opp_goal": 0.965, "goal": 0.96, "gain": 0.95, "pace": 1.12},
+	"contest": {"contest": 0.025, "gain": 0.95, "exposed": 1.04},
+	"controlled": {"taken": 0.96, "gain": 0.94, "goal": 1.01, "clangers": 0.93, "pace": 0.95},
+	# Through stars: the ball to the best three and their finishing (star_ball,
+	# star_goal), the ball in good hands; but they know where it's going.
+	"through_stars": {"star_ball": 1.3, "star_goal": 1.18, "clangers": 0.92, "taken": 1.04},
 }
 
 
-## A plan's value, as this side's coaching executes it: a sharp tactical
-## group gets more out of the plan (and pays more of its cost), a weak one
-## less of both (Squad.tactics_exec, 1.0 = as written).
-## The upside of a plan also grows with how well the players suit it
-## (PlanFit); what it gives up does not.
+## A plan's value for this side. Its upside grows with how well the players
+## suit it (PlanFit) and how sharply the coaches execute it
+## (Squad.tactics_exec, 1.0 = as written); what it gives up is the plan's
+## own and does not move.
 func _pv(side: int, key: String, fallback := 1.0) -> float:
 	var plan := _plan(side)
 	var v := float((PLANS.get(plan, {}) as Dictionary).get(key, fallback))
-	var scale := float((squads[side] as Squad).tactics_exec)
+	var scale := 1.0
 	if (PLAN_UPSIDE.get(plan, []) as Array).has(key):
-		scale *= float((plan_fit[side] as Dictionary).get(plan, 1.0))
+		scale = float((squads[side] as Squad).tactics_exec) \
+				* float((plan_fit[side] as Dictionary).get(plan, 1.0))
 	return fallback + (v - fallback) * scale
 
 
@@ -309,6 +317,47 @@ func _focus_id(side: int) -> String:
 
 func _tag_id(side: int) -> String:
 	return str((tactics[side] as Dictionary).get("tag_id", ""))
+
+
+## A tag in the midfield battle: contest points `side` loses to tags this
+## chain. Their tag on one of ours takes that share of his game (1 - the tag
+## share) out of our midfield - the better he is, the more it hurts. Our own
+## tag costs us TAGGER_COST of our tagger's game: he plays the man, not the
+## ball. So a specialist tagger on their star is worth it; your best
+## midfielder on an ordinary one is not.
+const TAGGER_COST := 0.4
+## His own share of the ball while he tags.
+const TAGGER_BALL := 0.6
+
+func _tag_drag(side: int) -> float:
+	var sq: Squad = squads[side]
+	var n_centre := 0
+	var n_mids := 0
+	for p in sq.ground:
+		if str(p["role"]) == "MID":
+			n_mids += 1
+			if not Roles.on_wing(p):
+				n_centre += 1
+	if n_mids == 0:
+		return 0.0
+	var drag := 0.0
+	var tagged := _on_ground(side, _tag_id(1 - side))
+	if not tagged.is_empty() and taggable(tagged):
+		drag += (1.0 - _tag_share(1 - side)) * _mid_value(tagged, n_centre, n_mids)
+	if _tag_id(side) != "" and not _on_ground(1 - side, _tag_id(side)).is_empty():
+		var t = tagger_for(sq.ground)
+		if t != null:
+			drag += TAGGER_COST * _mid_value(t, n_centre, n_mids)
+	return drag
+
+
+## One midfielder's part in his side's contest number (Squad._aggregate): his
+## contested ball in the centre-square mean, his disposal in the midfield's.
+func _mid_value(p: Dictionary, n_centre: int, n_mids: int) -> float:
+	var v := 0.22 * _a(p, "disposal") / float(maxi(1, n_mids))
+	if not Roles.on_wing(p):
+		v += 0.42 * _a(p, "contested") / float(maxi(1, n_centre))
+	return v
 
 
 ## How much of the ball the player `side` tags still gets: less when a
@@ -497,8 +546,13 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String) -> float:
 		out *= CRUMBER_AT_FEET
 	if id == _tag_id(1 - side) and taggable(p) and (carrying or purpose == "shooter" or purpose == "crumb"):
 		out *= _tag_share(1 - side)
-	if _plan(side) == "through_stars" and int(p["overall"]) >= 82:
-		out *= 1.2
+	# Our tagger is playing the man, not the ball.
+	if carrying and _tag_id(side) != "":
+		var tagger = tagger_for((squads[side] as Squad).ground)
+		if tagger != null and str(tagger["id"]) == id:
+			out *= TAGGER_BALL
+	if _plan(side) == "through_stars" and (stars[side] as Dictionary).has(id):
+		out *= _pv(side, "star_ball")
 	if _pep(side) == "fire_up":
 		out *= 1.05
 	if carrying:
@@ -544,9 +598,11 @@ func contest_winner(use_fp: bool, fp: float) -> int:
 	var T := Ratings.T
 	var lim := float(T["contest_clamp"])
 	# Midfield legs scale the contest strength; the Legs line gets the credit.
-	var c0: float = squads[0].contest * _mid_fit(0)
-	var c1: float = squads[1].contest * _mid_fit(1)
-	var legs_edge: float = ((c0 - c1) - (squads[0].contest - squads[1].contest)) / float(T["contest_swing"])
+	var drag0 := _tag_drag(0)
+	var drag1 := _tag_drag(1)
+	var c0: float = squads[0].contest * _mid_fit(0) - drag0
+	var c1: float = squads[1].contest * _mid_fit(1) - drag1
+	var legs_edge: float = ((c0 + drag0 - c1 - drag1) - (squads[0].contest - squads[1].contest)) / float(T["contest_swing"])
 	_credit(0, "legs", legs_edge * POSSESSION_VALUE)
 	_credit(1, "legs", -legs_edge * POSSESSION_VALUE)
 	var form_edge := FORM_CONTEST * (float(form[0]) - float(form[1]))
@@ -613,7 +669,7 @@ func _contest_calls(side: int, stoppage: bool) -> float:
 	if _burst(side, "stack") and stoppage:
 		b += 0.10
 	if _burst(side, "surge"):
-		b += 0.06
+		b += 0.03
 	return b
 
 
@@ -1304,8 +1360,8 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	# The press closes the corridor: half the attacking plan's edge.
 	if own > 1.0 and _pv(opp, "press") > 1.0:
 		own = 1.0 + (own - 1.0) * 0.5
-	if _plan(side) == "through_stars" and int(shooter.get("overall", 0)) >= 82:
-		own *= 1.08
+	if _plan(side) == "through_stars" and (stars[side] as Dictionary).has(str(shooter.get("id", ""))):
+		own *= _pv(side, "star_goal")
 	goal_p *= own
 	if credit:
 		_credit(side, "gameplan", 6.0 * (goal_p - before))
@@ -1343,8 +1399,12 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 		_credit(opp, "traits", 6.0 * (before - goal_p))
 	before = goal_p
 	var call_mult := 1.0
+	# Throw numbers at it: more of your shots go in. Slow it down: fewer
+	# shots at goal, both ends - the game goes quiet. Flood: numbers back.
 	if _burst(side, "surge"):
-		call_mult *= 1.08
+		call_mult *= 1.12
+	if _burst(side, "hold"):
+		call_mult *= 0.90
 	if _burst(side, "flood"):
 		call_mult *= 0.90
 	goal_p *= call_mult
@@ -1354,10 +1414,12 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	var opp_mult := 1.0
 	if _burst(opp, "flood"):
 		opp_mult *= 0.80
+	if _burst(opp, "hold"):
+		opp_mult *= 0.85
 	if _burst(opp, "stack"):
 		opp_mult *= 1.12
 	if _burst(opp, "surge"):
-		opp_mult *= 1.10
+		opp_mult *= 1.25
 	goal_p *= opp_mult
 	if credit:
 		_credit(opp, "calls", 6.0 * (before - goal_p))
@@ -1446,6 +1508,8 @@ func end_quarter() -> Dictionary:
 	var quarter := current_quarter
 	_q_active = false
 	momentum *= MOMENTUM_BREAK
+	# A moment card's call is for a passage of play: the break ends it.
+	bursts = [{}, {}]
 	quarter_teams.append({
 		"quarter": quarter,
 		"team": [team_stats[0].duplicate(), team_stats[1].duplicate()],
@@ -1647,6 +1711,7 @@ func result() -> Dictionary:
 				q_goals[q][1] * 6 + q_behinds[q][1]])
 	return {
 		"roster": rosters(),
+		"stars": [(stars[0] as Dictionary).keys(), (stars[1] as Dictionary).keys()],
 		"score": [s0, s1],
 		"goals": [goals(0), goals(1)],
 		"behinds": [behinds(0), behinds(1)],
@@ -1944,11 +2009,15 @@ func legs(side: int) -> Array:
 # ---------------------------------------------------------------------------
 const MAX_MOMENTS_Q := 2
 const MOMENT_GAP := 8                # chains between moments
+## A short-term call from a moment card, and how long it lasts (possession
+## chains; a quarter is about 45). Long enough to be a passage of play - the
+## card says "the next ten minutes" - and every call ends at the break.
+## (They lasted 4-8 chains, about two minutes, and measured as no-ops.)
 const BURSTS := {
-	"stack": {"label": "Stack the stoppage", "chains": 4},
-	"flood": {"label": "Flood behind the ball", "chains": 5},
-	"surge": {"label": "Throw numbers at it", "chains": 8},
-	"hold": {"label": "Slow it down", "chains": 8},
+	"stack": {"label": "Stack the stoppage", "chains": 12, "for": "for the next few centre bounces"},
+	"flood": {"label": "Flood behind the ball", "chains": 45, "for": "for the rest of the quarter"},
+	"surge": {"label": "Throw numbers at it", "chains": 15, "for": "for the next ten minutes"},
+	"hold": {"label": "Slow it down", "chains": 15, "for": "for the next ten minutes"},
 }
 
 
@@ -2045,12 +2114,15 @@ func _boundary_moment() -> bool:
 		# The midfielder who would actually go to him (tagger_for).
 		var minder = tagger_for((squads[me] as Squad).ground)
 		var stopper := GameDB.player_display_name(minder) if minder != null else "a midfielder"
+		var cost := ("Tagging is %s's job: he takes more of the ball off him and gives up little." % stopper) \
+				if minder != null and Roles.is_tagger(minder) else \
+				("%s is no tagger: he gives up his own game to do it." % stopper)
 		_fire({"kind": "hot", "player_id": str(id), "default": 1,
 			"title": "%s has kicked %d" % [GameDB.player_display_name(hot), int(st["goals"])],
 			"text": "Their midfielder is hurting you on the scoreboard. A tag takes a good chunk of the ball off him, but your stopper stops playing his own game.",
 			"options": [
 				{"key": "tag", "label": "Tag him with %s" % stopper,
-					"detail": "For the rest of the quarter he gets about half as much of the ball."},
+					"detail": "Until you call it off. " + cost},
 				{"key": "leave", "label": "Back your defenders",
 					"detail": "Keep the structure as it is."},
 			]})
@@ -2060,12 +2132,12 @@ func _boundary_moment() -> bool:
 		_asked["run|%d|%d" % [current_quarter, goals(opp)]] = true
 		_fire({"kind": "momentum", "default": 2,
 			"title": "They have kicked %d in a row" % _run[opp],
-			"text": "The game is getting away from you. Make a call for the next few minutes.",
+			"text": "The game is getting away from you. Make a call for the next ten minutes.",
 			"options": [
 				{"key": "surge", "label": "Throw numbers at it",
-					"detail": "Win more of the ball and kick straighter, but leave the back door open and burn legs."},
+					"detail": "Win more of the ball and more goals, but they score more when they get out, and it burns legs."},
 				{"key": "hold", "label": "Slow it down",
-					"detail": "Chip it around: fewer turnovers and clangers, less ground gained."},
+					"detail": "Chip it around: fewer turnovers, a quieter game at both ends, less ground gained."},
 				{"key": "none", "label": "Ride it out",
 					"detail": "Trust the plan. No change."},
 			]})
@@ -2077,7 +2149,7 @@ func _boundary_moment() -> bool:
 		var state := "level" if margin == 0 else ("%d up" % margin if margin > 0 else "%d down" % -margin)
 		_fire({"kind": "bounce", "default": 2,
 			"title": "Centre bounce - %s with %d minutes left" % [state, 120 - current_minute],
-			"text": "Set up for the next few minutes of the game.",
+			"text": "Set up for the rest of the game.",
 			"options": [
 				{"key": "stack", "label": "Stack the stoppage",
 					"detail": "Extra numbers at the bounce: win far more clearances, but they score more easily if they get out."},
@@ -2248,7 +2320,7 @@ func resolve_moment(choice: int) -> Dictionary:
 				var t: Dictionary = (tactics[side] as Dictionary).duplicate()
 				t["tag_id"] = str(m["player_id"])
 				tactics[side] = t
-				outcome = "Tag on for the rest of the quarter."
+				outcome = "Tag on. You can call it off at the break."
 			else:
 				outcome = "Structure unchanged."
 		"duel":
@@ -2262,7 +2334,7 @@ func resolve_moment(choice: int) -> Dictionary:
 		"momentum", "bounce":
 			if BURSTS.has(key):
 				(bursts[side] as Dictionary)[key] = int(BURSTS[key]["chains"])
-				outcome = "%s for the next few minutes." % str(BURSTS[key]["label"])
+				outcome = "%s %s." % [str(BURSTS[key]["label"]), str(BURSTS[key]["for"])]
 			else:
 				outcome = "No change."
 	m["choice"] = choice
@@ -2360,8 +2432,10 @@ func _score_run(side: int) -> void:
 # ---------------------------------------------------------------------------
 ## The opposition's plan for the coming quarter: its usual game (the plan
 ## its list suits, PlanFit.standing_plan), protecting a big lead or chasing
-## a big deficit. It does not read and counter your plan. From half time it
-## tags your most influential midfielder.
+## a big deficit. It does not read and counter your plan. With a specialist
+## tagger on the ground it tags your most influential midfielder from half
+## time; without one it does not (a tag by a good midfielder costs more than
+## it takes, _tag_drag).
 ## A sharper tactical group (Squad.tactics_read) reacts to a smaller margin
 ## and tags from half time rather than the last quarter.
 func ai_tactics(side: int) -> Dictionary:
@@ -2375,7 +2449,8 @@ func ai_tactics(side: int) -> Dictionary:
 	elif margin <= -react:
 		plan = "attacking"
 	var t := {"gameplan": plan, "pep": "fire_up" if margin <= -12 and current_quarter >= 3 else "steady"}
-	if current_quarter >= (2 if read >= 0.4 else 3):
+	var tagger = tagger_for((squads[side] as Squad).ground)
+	if current_quarter >= (2 if read >= 0.4 else 3) and tagger != null and Roles.is_tagger(tagger):
 		var best := ""
 		var best_inf := -1.0
 		for p in (squads[opp] as Squad).ground:

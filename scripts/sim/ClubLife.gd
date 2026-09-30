@@ -136,6 +136,18 @@ static func mood(m: int) -> String:
 	return "Unhappy"
 
 
+## What his mood is doing to his footy, in a coach's words ("" when it is
+## doing nothing worth saying). Mirrors `form`: settled is neutral.
+static func mood_effect(m: int) -> String:
+	if m >= 85:
+		return "It's lifting his footy."
+	if m >= 65:
+		return ""
+	if m >= 40:
+		return "It's taking a little off his footy."
+	return "It's costing him on the field."
+
+
 ## Match-form nudge from morale: +3% at 100, -3% at 40 and below.
 static func form(p: Dictionary) -> float:
 	return clampf(float(morale(p) - MORALE_BASE) / 1000.0, -0.03, 0.03)

@@ -1365,8 +1365,14 @@ func week_changes_text() -> String:
 
 ## Who in a side makes a game plan work, and how they compare with the
 ## league, in one line: "Your pressure players are strong: Viney, Oliver,
-## Petracca, Brayshaw." "" for a plan with no needs (Balanced, Through stars).
+## Petracca, Brayshaw." Through stars names your best three and how far they
+## stand above the rest. "" for Balanced.
 func plan_fit_line(ground: Array, plan: String) -> String:
+	if plan == "through_stars":
+		var stars := PackedStringArray()
+		for p in PlanFit.carriers(ground, plan):
+			stars.append(GameDB.player_display_name(p))
+		return "Your best three are %s: %s." % [PlanFit.stars_word(ground), ", ".join(stars)]
 	if not PlanFit.NEEDS.has(plan):
 		return ""
 	var names := PackedStringArray()

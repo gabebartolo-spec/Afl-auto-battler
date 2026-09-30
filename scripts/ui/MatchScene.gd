@@ -495,7 +495,7 @@ func _show_coach_box() -> void:
 	var tag_text := "No midfielder on the ground to tag with."
 	if tagger != null:
 		tag_text = ("%s, your tagger, goes to him." if Roles.is_tagger(tagger)
-				else "No specialist tagger on the ground: %s goes to him.") % GameDB.player_display_name(tagger)
+				else "No specialist tagger on the ground: %s goes to him and gives up his own game.") % GameDB.player_display_name(tagger)
 	var tag_note := UiKit.lbl(tag_text, UiKit.SMALL, UiKit.MUTED)
 	tag_note.name = "TagNote"
 	tag_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

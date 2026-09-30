@@ -376,6 +376,48 @@ The findings above are kept as found. This appendix records each repair as it la
 | Finding | Repair | Status |
 |---|---|---|
 | C1: standing plan dropped at the first bounce of a live match | The pre-bounce box (and Skip) read the plan the engine already holds for your side, which is your club plan, so Start without a change keeps it. Behavioural test `run_matchday_tests.gd::_plan_at_first_bounce` drives the live start and reads the engine's own quarter record (`tactics_history`). It fails on the old code (engine: balanced) and passes on the fix. | Fixed, branch `claude/fix-first-bounce-plan` (pending merge) |
+## Appendix: repair sprint status (moment cards)
+
+**C3, moment cards: repaired.** The cause differed by card, so each was measured on its own. Each card got a random option in 600–900 live matches, and the net score change was measured over the window the call covers.
+
+**"They've kicked 3 in a row" (surge / slow it down / ride it out):**
+- **Why it did nothing:** the calls lasted 8 of about 180 possession chains, roughly two minutes. They also barely moved scoring at either end.
+- **Fix:**
+  - the calls last 15 chains ("the next ten minutes") and end at the break;
+  - "Throw numbers at it" is more goals at both ends: your shots ×1.12, theirs ×1.25 when they get out, +3% of the ball, and heavier legs;
+  - "Slow it down" is a quieter game at both ends: your shots ×0.90, theirs ×0.85, plus fewer turnovers and less ground gained.
+- **After:** rest of the quarter, about 1,200 cards:
+
+  | Call | Yours | Theirs | Net |
+  |---|---|---|---|
+  | Ride it out | 14.5 | 13.7 | +0.9 |
+  | Throw numbers at it | 15.4 | 14.0 | +1.4 |
+  | Slow it down | 13.8 | 12.9 | +1.0 |
+
+  The shape differs and the nets are close, so the right call depends on the scoreboard. Before, the three differed by 0.3 ± 0.4.
+
+**Late centre bounce (stack / flood / straight):**
+- Stack now covers the next few bounces (12 chains); flood covers the rest of the quarter.
+- About 30 cards each: stack +5.6, flood +0.2 (theirs 8.7 against 9.6), straight +0.4. The card is rare (0.1 a match).
+
+**Set shot:** already situational; the aggregate policy test hid it. Points from the kick:
+- better than even: shoot 2.69 (bomb 1.72, play on 1.86);
+- a coin toss: shoot 2.75;
+- a tough shot: bomb 2.32 (shoot 2.00);
+- a long shot: play on 2.48 (small sample).
+
+Classified as working.
+
+**Tired star:** intentionally low-impact. Rest +0.97 against keep +0.52 (±0.3) over the rest of the quarter. A real but small call.
+
+**Hot midfielder (tag):** see the tagging repair.
+
+**Tests:** `test_match_game.gd::_test_moment_calls_matter`:
+- a call lasts a passage and ends at the break;
+- over 40 matches, surge gives more total scoring than riding it out, and slowing it down less;
+- the best-value set-shot call is not always "shoot".
+
+Branch `claude/moment-consequences` (pending merge).
 
 ## Appendix: repair sprint status (test harness)
 
@@ -395,6 +437,141 @@ The findings above are kept as found. This appendix records each repair as it la
 
 Branch `claude/test-floors` (pending merge; stacked on the first-bounce fix, whose checks its floors count).
 
+## Appendix: repair sprint status (tagging, C4)
+
+**Root cause.** A tag only moved possessions around: the tagged player's share went to his teammates, the tagger paid nothing, and nothing reached the stoppages. So it changed one player's stat line, not the match. The AI also tagged every second half whatever it had to do the job with.
+
+**Repair (smallest change that makes it a trade):**
+- **At the stoppages** (`MatchSim._tag_drag`), a tagged midfielder takes the lost share of his game (1 − tag share) out of his side's contest number.
+  - Your tag costs you 40% of your tagger's own midfield game (`TAGGER_COST`).
+  - The better the target, the more a tag takes; the better your tagger is as a midfielder, the more it costs.
+- **Around the ground**, the tagger gets 60% of his usual share of the ball while he tags (`TAGGER_BALL`).
+- **The AI follows the same rule.** It tags from half time only when it has a specialist tagger on the ground.
+- **Copy:**
+  - The hot-player card no longer says "for the rest of the quarter": the tag stays on until you call it off.
+  - It says who does the job and what that costs.
+  - The break box says so too when there is no specialist.
+
+**Measured (paired, 600 matches, side 0 tags the opposition's best or worst midfielder all match; before is `main`):**
+
+| Target | Tagger | Before, margin | After, margin |
+|---|---|---|---|
+| Best midfielder | any | −3.4 ± 2.1 (N 300) | −1.5 ± 1.5 |
+| Best midfielder | specialist on the ground (n 67) | | **+6.9 ± 4.1** |
+| Best midfielder | no specialist (n 533) | | **−2.5 ± 1.7** |
+| Worst midfielder | specialist (n 67) | | −0.7 ± 4.5 |
+| Worst midfielder | no specialist (n 533) | | **−4.1 ± 1.7** |
+
+- **Target disposals:** −5.9 (best), −4.4 (worst).
+- **Tagger disposals:** about −3.6 (before: about 0).
+- **Clearance differential, tagging the worst:** −1.3 (before −0.3).
+
+**Status: WORKING, a real trade.**
+- Tagging their star with a specialist is worth close to a goal.
+- Sending a good midfielder to tag, or tagging an ordinary player, costs you.
+- Only about one side in nine has a specialist on the ground, so for most clubs a tag is usually the wrong call, and the screens say what it costs.
+
+**Tests (`test_match_game`):**
+- the contest edge by target and tagger;
+- target and tagger disposals over 20 paired matches;
+- the AI tags only with a specialist on the ground.
+## Appendix: repair sprint status (plans, Through stars, plan copy)
+
+**Root cause.**
+- **Balanced dominated:** each plan's upside was worth far more than its costs against a Balanced side. Every plan beat Balanced, even with a list that didn't suit it.
+- **Counters too big:** a counter was worth three to four goals (+22 to +24), bigger than anything else a coach controls.
+- **Through stars a no-op:** it went through "82+" players, whom several clubs don't have. Moving the ball between good players changed nothing.
+- **Copy stale:** the plan copy quoted percentages the code no longer used, in two descriptions per plan.
+
+**Repair:**
+- **Halved each plan's upside (`MatchSim.PLANS`); costs unchanged.**
+  - An average list now roughly breaks even against Balanced.
+  - A list that suits the plan gains; one that doesn't loses.
+  - Counters halve with the upside.
+- **Win contest's stoppage edge** was set a little higher than half (0.025), so it keeps a reason to exist.
+- **Through stars goes through the side's best three** (`PlanFit.carriers`):
+  - They see more of the ball, finish better and make fewer errors.
+  - They are easier to read, so the pressure on the ball rises a little.
+  - Its upside scales with how far the best three stand above the side's average (`PlanFit`, as for the other plans). The gap runs from 10 to 22 OVR across the 2027 clubs.
+- **One description per plan** (`CoachReport.PLAN_SUMMARY`), written from the engine, with no percentages:
+  - selection, coaching, the quarter break and the assistant's report all read it;
+  - the old percentage text (`PLAN_EFFECTS`) is gone;
+  - the Through stars fit line names your best three and how far they stand out;
+  - StatGuide no longer says "82+ … 12%".
+
+**Measured: plans against a Balanced side** (paired; gain for switching side 0 from Balanced; "suited" means fit ≥ 1.1, "unsuited" fit ≤ 0.9):
+
+| Plan | Before (N 300) | After (N 600) | Suited list, after | Unsuited list, after |
+|---|---|---|---|---|
+| Defensive press | +9.4 ± 2.4 | +1.1 ± 1.5 | +4.1 | 0.0 |
+| Attack corridor | +7.2 ± 2.5 | +0.1 ± 1.7 | +3.9 | −1.9 |
+| Controlled tempo | +7.8 ± 2.2 | +1.1 ± 1.6 | −0.5 | +5.0 |
+| Win contest | +6.8 ± 2.3 | +1.9 ± 1.6 | +2.6 | −0.5 |
+| Through stars | +2.3 ± 2.2 | +1.0 ± 1.7 | +4.5 | +0.3 |
+
+**Measured: counters** (gain for switching from Balanced to X, against a side on Y; before is the audit's 400-match figure):
+
+| X v Y | Before | After (N 400–600) |
+|---|---|---|
+| Defensive press v Attack corridor | +23.8 | +11.9 ± 1.8 |
+| Controlled tempo v Defensive press | +22.2 | +5.7 ± 1.6 |
+| Attack corridor v Controlled tempo | +9.9 | +3.3 ± 2.2 |
+| Attack corridor v Defensive press | −1.9 | −9.7 ± 2.0 |
+| Defensive press v Controlled tempo | −4.9 | −7.9 ± 2.1 |
+| Controlled tempo v Attack corridor | +3.0 | −4.8 ± 2.1 |
+| Win contest v Attack corridor | | −1.6 ± 2.4 (N 300) |
+| Through stars v Defensive press | | +0.4 ± 1.8 |
+
+**Reading it:**
+- **Balanced is the safe call.** Nothing beats it by much on average, and it can't be countered.
+- **A plan pays when the list suits it,** or when it counters the opposition's plan.
+  - A counter is now worth one to two goals, not three to four.
+  - The wrong plan into a press or a controlled side costs about as much.
+  - List fit moves a plan by about four points either way, the same order as a counter, so the list still matters.
+- **Controlled tempo's fit split is not clear.**
+  - Unsuited lists gained more in every run: +14.3 v +8.0 before, +5.0 v −0.5 after.
+  - Each difference is within about 1.5 standard errors.
+  - Recorded as open: its upside may be carried by something other than the kicks-and-marks carriers PlanFit names.
+
+**Tests:**
+- `test_match_game._test_through_stars`:
+  - the best three;
+  - their disposals and goals over 20 paired matches;
+  - fit follows the gap.
+- `test_coach_effects` reads the written plan value from the engine instead of a copy.
+- `test_matchday` keeps the no-percentages check on the plan copy.
+
+**Status:**
+- Balanced: WORKING (the safe choice).
+- Plans and counters: WORKING, sized.
+- Through stars: WORKING.
+- Plan copy: honest, single source.
+
+## Appendix: repair sprint status (coaching tactics, play through)
+
+- **Coaching tactics (§27):** measurable now, and secondary.
+  - **Root cause.** Execution scaled a plan's upside and its costs alike. Once a plan roughly breaks even for an average list (the plan repair, #110), scaling both did nothing.
+  - **Repair.**
+    - Execution scales only a plan's upside: the costs are the plan's own. This is the coaching screen's own promise, "Tactics sharpen the game plan."
+    - Its range is 0.81–1.25 (`CoachEffects.EXEC_RANGE` 0.25, was 0.15).
+  - **Measured** (paired, 600 matches; Defensive press, the best tactical group against the worst):
+
+    | Opponent's plan | Before (1.15 − 0.89) | After (1.25 − 0.81) |
+    |---|---|---|
+    | Balanced | +1.4 ± 1.5 | +1.1 ± 1.5 |
+    | Attack corridor (the press's counter case) | −2.2 ± 1.5 | **+4.3 ± 1.5** |
+
+  - Worth most where the plan matters most. It stays well under picking the right plan (+12) and list fit (about ±4).
+  - Tests (`test_coach_effects`): the upside moves within the range, and the costs do not.
+  - Status: WORKING, secondary.
+- **Play through (§7):** the promise is "get the ball to him", and it is met.
+  - His disposals rise (+2.0 a game), with a behavioural test.
+  - It does not move the result (+0.4 ± 1.3), and nothing on screen claims it will.
+  - Status: WORKING (as promised), intentionally low-impact on results. Not changed.
+## Appendix: repair sprint status (morale and player form)
+
+- **Morale (§19):** kept as is; the size is reasonable for a whole unhappy side (−6.0 ± 1.5) and small for one player. It is now legible: the profile adds "It's lifting his footy" (85+), "It's taking a little off his footy" (40–64) or "It's costing him on the field" (under 40) to the mood word, in the same direction as `ClubLife.form`. No numbers. A test ties the wording to the sign and size of the engine nudge. Status: WORKING, now legible.
+- **Player form (§18):** the Coaching section is renamed "Recent games", with "Playing above / below his season". It stays a report of recent Player Ratings; no engine modifier was invented. Status: REPORT, labelled as one.
 ## Appendix: repair sprint status (loose ends)
 
 - **Coach table on a live week (§31):** fixed.

@@ -18,17 +18,6 @@ const PLAN_NAMES := {
 	"press": "High press",
 }
 
-const PLAN_EFFECTS := {
-	"balanced": "No adjustments - even contest, ball movement and scoring.",
-	"attacking": "Go through the corridor: +12% metres, +10% conversion, but +12% clangers, tiring, and they score more on the rebound. Beats Controlled tempo; the Defensive press squeezes it.",
-	"defensive": "Press high: +18% pressure on them and -7% on their conversion, but fewer numbers forward (-7% your conversion, -8% metres) and tiring. Beats Attack corridor; Controlled tempo plays through it.",
-	"contest": "Numbers at the stoppage: +3.5% clearance win, but slower ball movement (-5% metres) and a little exposed on the rebound.",
-	"controlled": "Keep the ball: -14% clangers, -8% pressure taken, legs last longer, but -12% metres. Plays through a Defensive press; Attack corridor runs past it.",
-	"through_stars": "Funnel the ball to 82+ rated stars (+12% possessions for them). Easy to read: expect a tag.",
-	"fast": "Fast movement: +12% metres and +10% conversion, with more errors (+12% clangers).",
-	"press": "High press: +18% pressure on the opposition, fewer numbers forward.",
-}
-
 const PEP_NAMES := {
 	"steady": "Stay composed",
 	"fire_up": "Fire them up",
@@ -41,18 +30,19 @@ const PEP_EFFECTS := {
 	"calm": "Settle them down: 8% fewer clangers, 5% less pressure felt and legs last longer, but 5% less ground gained.",
 }
 
-## The same calls in football words, for the quarter break: what the call
-## does and what beats it, without the percentages (those stay in the
-## assistant's report, behind a tap).
+## What each plan does and gives up, in football words, from MatchSim.PLANS.
+## The one description of a plan: selection, coaching, the quarter break
+## and the assistant's report all read it. No percentages; how much a plan
+## gives depends on the players who carry it (GameState.plan_fit_line).
 const PLAN_SUMMARY := {
-	"balanced": "Play it straight.",
-	"attacking": "Go through the corridor: more ground and better shots, but more turnovers and heavier legs. Beats Controlled tempo; a Defensive press squeezes it.",
-	"defensive": "Press up the ground: harder to score against, fewer numbers forward, heavier legs. Beats Attack corridor; Controlled tempo plays through it.",
-	"contest": "Numbers at the stoppage: win more of the clearances, move the ball a little slower.",
-	"controlled": "Keep the ball: fewer errors and fresher legs, less ground gained. Plays through a Defensive press; Attack corridor runs past it.",
-	"through_stars": "Get the ball to your stars (rated 82 and up). Easy to read: expect a tag.",
-	"fast": "Move it quickly: more ground and better shots, more errors.",
-	"press": "Press high: more pressure on them, fewer numbers forward.",
+	"balanced": "Play it straight: no extra edge, and nothing for them to exploit.",
+	"attacking": "Go through the corridor: more ground and better shots, but more turnovers, heavier legs, and they score more on the rebound. The better your runners, the more it gives. Beats Controlled tempo; a Defensive press squeezes it.",
+	"defensive": "Press up the ground: harder to score against, but fewer numbers forward and heavier legs. The more pressure players you have, the more it bites. Beats Attack corridor; Controlled tempo plays through it.",
+	"contest": "Numbers at the stoppage: win more of the clearances, but the ball moves a little slower and you are a little exposed on the rebound. Leans on your ball-winners and ruck.",
+	"controlled": "Keep the ball: fewer errors, less rattled by pressure and fresher legs, but less ground gained. Plays through a Defensive press; Attack corridor runs past it.",
+	"through_stars": "Go through your best three: they see more of the ball and finish better, with fewer errors, but they know where it's going and the pressure comes. Worth more the further they stand above the rest.",
+	"fast": "Go through the corridor: more ground and better shots, but more turnovers, heavier legs, and they score more on the rebound.",
+	"press": "Press up the ground: harder to score against, but fewer numbers forward and heavier legs.",
 }
 
 const PEP_SUMMARY := {
@@ -110,7 +100,7 @@ static func plan_label(key: String) -> String:
 
 
 static func plan_effect(key: String) -> String:
-	return str(PLAN_EFFECTS.get(key, str(PLAN_EFFECTS["balanced"])))
+	return plan_summary(key)
 
 
 static func plan_summary(key: String) -> String:

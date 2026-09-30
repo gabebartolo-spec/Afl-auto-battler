@@ -82,7 +82,7 @@ const STATS := {
 	"star": [
 		"Match-winning class: the rating's biggest single piece.",
 		"Brownlow votes per game, plus disposals.",
-		"The average of your top five star ratings is 12% of team Contest. It is 22% of every player's overall, which drives selection, draft price and the Through stars game plan (82+ overall players get 12% more of the ball).",
+		"The average of your top five star ratings is 12% of team Contest. It is 22% of every player's overall, which drives selection, draft price and the Through stars game plan, which goes through your best three.",
 		"Your best few players; it is how ratings climb fastest.",
 	],
 }

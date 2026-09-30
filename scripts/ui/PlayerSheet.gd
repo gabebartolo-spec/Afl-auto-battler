@@ -48,6 +48,8 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable()) 
 	else:
 		state.append("Available.")
 	state.append("Mood: %s." % ClubLife.mood(ClubLife.morale(p)).to_lower())
+	if ClubLife.mood_effect(ClubLife.morale(p)) != "":
+		state.append(ClubLife.mood_effect(ClubLife.morale(p)))
 	var sl := UiKit.lbl(" ".join(state), UiKit.BODY, UiKit.BAD if weeks > 0 else UiKit.TEXT)
 	sl.name = "ProfileState"
 	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
