@@ -1014,6 +1014,8 @@ func _test_current_club_identity() -> void:
 	_check(injuries > 0, "The sample includes injuries, whose lines once named a stale club")
 	var line := MatchNotes.story_feed_line({}, {"kind": "injury", "name": "Tim English", "club": "MEL", "on": ""})
 	_check(line.contains("(%s)" % GameDB.club_short("MEL")), "The injury line reads the match club (%s)" % line)
+
+
 ## A tagged player hurt and gone off takes the tag with him: the tagging side
 ## keeps no hidden tag, and he cannot be tagged again.
 func _test_tag_ends_with_injury() -> void:
