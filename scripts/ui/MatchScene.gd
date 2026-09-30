@@ -496,7 +496,8 @@ func _show_coach_box() -> void:
 
 	# Tag: their most influential so far first, anyone on the ground a tap away.
 	# A tag is a midfield job: only their midfielders can be tagged.
-	var opp := _roster_side(1 - _my_side).filter(func(r): return MatchSim.taggable(r))
+	# Only players still in the match: the roster keeps anyone hurt and gone.
+	var opp := _roster_side(1 - _my_side).filter(func(r): return _taggable_now(sim, r))
 	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, 4), calls, "tag_id",
 			"Tag which midfielder?")
 	v.add_child(_call_block("Tag", tag))
@@ -953,6 +954,10 @@ func _in_the_game(roster: Array, n: int) -> Array:
 			return x > y
 		return int(a["overall"]) > int(b["overall"]))
 	return out.slice(0, n)
+
+
+func _taggable_now(sim: MatchSim, r: Dictionary) -> bool:
+	return MatchSim.taggable(r) and sim.taking_part(1 - _my_side, str(r["id"]))
 
 
 func _roster_side(side: int) -> Array:

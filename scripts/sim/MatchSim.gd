@@ -247,6 +247,10 @@ func set_tactics(side: int, t: Dictionary) -> void:
 	if side < 0 or side > 1:
 		return
 	tactics[side] = t.duplicate()
+	# A tag needs its man still in the match.
+	var tag := str(t.get("tag_id", ""))
+	if tag != "" and not taking_part(1 - side, tag):
+		tactics[side]["tag_id"] = ""
 
 
 ## Gameplan trade-offs. Every plan gives something up, and the main three
@@ -1927,6 +1931,28 @@ func _check_injuries() -> void:
 		_emit("injury", side, fp, hurt, "%s is injured (%s)" % [GameDB.player_display_name(hurt), str(inj["kind"])])
 		events[events.size() - 1]["on"] = on
 		_refill_duel(side, id)
+		_drop_tag_on(id)
+
+
+## A tag on a player gone off hurt ends with him: no side keeps a hidden tag
+## on someone no longer playing (the next break offers a fresh choice; an AI
+## side picks again at its next call).
+func _drop_tag_on(id: String) -> void:
+	for side in range(2):
+		if _tag_id(side) == id:
+			var t: Dictionary = (tactics[side] as Dictionary).duplicate()
+			t["tag_id"] = ""
+			tactics[side] = t
+
+
+## Still taking part in the match: on the ground or on the bench, not gone
+## off hurt.
+func taking_part(side: int, id: String) -> bool:
+	var sq: Squad = squads[side]
+	for p in sq.ground + sq.bench:
+		if str(p["id"]) == id:
+			return true
+	return false
 
 
 ## A player gone off hurt leaves the match-ups: a key forward's direct

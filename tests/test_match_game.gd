@@ -32,6 +32,7 @@ func run() -> void:
 	_test_matchups()
 	_test_in_match_injuries()
 	_test_current_club_identity()
+	_test_tag_ends_with_injury()
 	_test_match_story()
 	_test_traits_surfaced()
 	_test_momentum()
@@ -1013,6 +1014,32 @@ func _test_current_club_identity() -> void:
 	_check(injuries > 0, "The sample includes injuries, whose lines once named a stale club")
 	var line := MatchNotes.story_feed_line({}, {"kind": "injury", "name": "Tim English", "club": "MEL", "on": ""})
 	_check(line.contains("(%s)" % GameDB.club_short("MEL")), "The injury line reads the match club (%s)" % line)
+## A tagged player hurt and gone off takes the tag with him: the tagging side
+## keeps no hidden tag, and he cannot be tagged again.
+func _test_tag_ends_with_injury() -> void:
+	var sim := _sim(3200, "MEL", "CAR")
+	sim.moment_side = 0
+	var target: Dictionary = {}
+	for p in (sim.squads[1] as Squad).ground:
+		if MatchSim.taggable(p):
+			target = p
+			break
+	var id := str(target["id"])
+	sim.set_tactics(0, {"gameplan": "balanced", "tag_id": id})
+	_check(str(sim.tactics[0].get("tag_id", "")) == id, "A tag goes on a midfielder in the match")
+	sim._injury_plan = [{"side": 1, "id": id, "at": 3, "weeks": 2, "kind": "hamstring"}]
+	sim.begin_quarter()
+	var guard := 0
+	while guard < 30:
+		sim.continue_quarter()
+		if sim.pending_moment.is_empty():
+			break
+		sim.resolve_moment(int(sim.pending_moment.get("default", 0)))
+		guard += 1
+	_check(not sim.taking_part(1, id), "He goes off hurt and takes no further part")
+	_check(str(sim.tactics[0].get("tag_id", "")) == "", "The tag on him ends when he goes off")
+	sim.set_tactics(0, {"gameplan": "balanced", "tag_id": id})
+	_check(str(sim.tactics[0].get("tag_id", "")) == "", "He cannot be tagged at the next break")
 
 
 func _test_in_match_injuries() -> void:

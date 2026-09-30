@@ -14,13 +14,13 @@ coaches 335
 coach_market 56
 coach_pathway 54
 coach_effects 24
-career_ui 130
+career_ui 132
 potential 36
 ratings 27
 ai 35
 training 59
 selection 14
-matchup 49
+matchup 51
 matchday 313
 roles 139
 injuries 12

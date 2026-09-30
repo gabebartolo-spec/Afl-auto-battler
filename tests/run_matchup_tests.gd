@@ -75,6 +75,20 @@ func _hub_tests() -> void:
 	var rx := RegEx.new()
 	rx.compile("[+-]\\d")
 	_check(mine != null and rx.search(mine.text) == null, "Your form hides the internal number")
+	# Each result in its own colour, letters kept: a W reads as a win.
+	var streak: Node = hub.find_child("FormStreak", true, false)
+	var letters := ""
+	var coloured := true
+	var kit = load("res://scripts/ui/UiKit.gd")
+	for l in (streak.get_children() if streak != null else []):
+		var ch := str((l as Label).text)
+		letters += ch
+		var want: Color = kit.GOOD if ch == "W" else (kit.BAD if ch == "L" else kit.MUTED)
+		coloured = coloured and (l as Label).get_theme_color("font_color").is_equal_approx(want)
+	var info: Dictionary = _state.club_form_info(_state.my_club)
+	_check(streak != null and letters == str(info.get("last", "")) and letters != "",
+			"The form line keeps the result letters (%s)" % letters)
+	_check(coloured, "Wins, losses and draws each read in their own colour (%s)" % letters)
 	var actions: Control = hub.find_child("WeekActions", true, false)
 	var play := _button(actions, "Play match")
 	_check(play != null and play.size.y >= 44, "Play match sits in this week, thumb-sized")
