@@ -2364,7 +2364,7 @@ Destructive actions require clear confirmation.
 ---
 
 ## ARD-M6-006 — League-relative List Profile
-**Status:** `TODO`  
+**Status:** `DONE (2026-09-30), awaiting director review`  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -2399,6 +2399,29 @@ It should help the player:
 - Derive each dimension from football-relevant player qualities already present in the simulation wherever possible; do not invent a parallel rating system.
 - Before implementation, inspect `PlanFit.gd`, synergies and other existing team-strength calculations and reuse/extend them rather than creating contradictory definitions.
 - The Coaching screen remains the primary home for this information.
+
+### Built (2026-09-30)
+- **Rules:** `scripts/sim/ListProfile.gd`.
+  - Each strength ranks your match-day side, as you have picked it, against every club's side this week (`GameState.league_grounds`).
+  - The words fall by share of the league: roughly the top 17% is Elite, then Strong to 44%, Average to 72%, and Weak below that. In an 18-club league that is 3 / 5 / 5 / 5.
+  - A rank moves whenever any list in the league changes. No score is shown.
+- **Definitions** (the engine's own, not a parallel system):
+  - Contest, Running power and Pressure are `PlanFit.score` for Win contest, Attacking and Defensive.
+  - Control is disposal (what beats a press in MatchSim) with discipline (what avoids clangers), across the side minus the ruck.
+  - Aerial power is the side's six best marks.
+- **Screen:** Coaching opens on "List profile", ahead of "How we play".
+  - Five rows show a strength and a word.
+  - Tapping a row says what that strength is and who leads it in your side.
+  - No numbers, no radar, no recommended plan.
+- **2027 league:** every word is used, and every club has a distinct mix. For example, Adelaide is elite everywhere except Running power, while Collingwood is Weak in Contest and Running power.
+- **Tests:**
+  - `test_roles` `_test_list_profile`:
+    - the words spread across the league;
+    - better ball-winners make Contest Elite;
+    - the same list reads Weak in the air once every other club's marks improve;
+    - Aerial power and Control move independently;
+    - three strengths equal the plans' own scores.
+  - `run_career_ui_tests`: five thumb-sized rows, no digits or advice, and a tap reveals the detail.
 
 ### Acceptance
 - The five labels change meaningfully when the underlying list changes.
