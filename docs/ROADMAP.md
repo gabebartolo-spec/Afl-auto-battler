@@ -822,6 +822,13 @@ Balance (1,000 seeded matches, before/after): hit-outs to non-ruckmen 51.5% -> 6
 
 **Follow-up (balance-gated, not in this task):** `Squad.ruck`/`contest` - the side's stoppage strength - is still computed once from the starting 18, so it does not drop while the ruck rests or rise when a better ruck comes on. Refreshing it after interchanges would change results and needs its own balance run.
 
+**Phone-playtest follow-up — hit-outs vs clearances (2026-09-30):** The user observed an extreme hit-out advantage but only a narrow clearance win. Treat this as two linked checks, not as a request to force a deterministic relationship:
+- Audit whether team hit-out totals themselves are within plausible AFL ranges; the observed total looked unrealistically high.
+- Audit whether ruck dominance has enough causal influence on stoppage/clearance outcomes. A large hit-out advantage should generally improve the chance of clearance dominance, while still allowing opposition mids to shark taps and win clearances.
+- Trace the current authority path: hit-outs are presently recorded separately while stoppage wins come from the squad contest score, so verify whether the displayed hit-out result and the clearance engine can materially diverge without football justification.
+- Diagnose and measure before tuning. Use seeded simulations plus real-AFL reference ranges/relationships; preserve uncertainty rather than hard-linking each hit-out to a clearance.
+
+
 ---
 
 ## ARD-M1-003 — "Play through" shooter-bias fix
