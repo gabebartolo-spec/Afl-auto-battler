@@ -683,6 +683,13 @@ func _loc(k: int) -> Vector2:
 	var pk := _prev_real(k)
 	var src: Vector2 = _locs[pk] if pk >= 0 and _locs.has(pk) else (ball["pos"] as Vector2)
 	var a := _actor_id(ev)
+	if kind in ["inside50", "clanger"]:
+		# Where the ball lands, not where the kicker stands: lean it toward
+		# whoever the log says wins it next, so he is not left running 30 m
+		# to a ball his team-mates are standing over.
+		var nk := _next_real(k)
+		if nk >= 0 and _actor_id(events[nk]) >= 0:
+			a = _actor_id(events[nk])
 	var ry: float = (tokens[a]["pos"] as Vector2).y if a >= 0 else src.y
 	var p: Vector2
 	if kind in ["goal", "behind", "rebound", "tackle", "pressure", "free", "ballup"]:
@@ -831,8 +838,17 @@ func _lead_receivers(k: int, cur: int) -> void:
 			break
 		var nev: Dictionary = events[j]
 		var kind := str(nev.get("kind", ""))
-		if ["goal", "behind", "quarter", "final", "inside50"].has(kind):
-			break  # restarts and forward-50 contests stage their own players
+		if ["goal", "behind", "quarter", "final"].has(kind):
+			break  # restarts stage their own players
+		if kind == "inside50":
+			# The entry itself stages its contest, but whoever wins the ball
+			# after it (a rebounding defender, a forward on the lead) can
+			# start toward where it lands now.
+			var at := _loc(j)
+			t += _flight_shape("kick", prev_loc.distance_to(at)).x + 0.3
+			prev_loc = at
+			prev_kind = kind
+			continue
 		if kind == "tackle" or kind == "pressure":
 			t += 1.2
 			continue
