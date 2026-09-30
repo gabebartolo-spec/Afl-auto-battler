@@ -2167,6 +2167,75 @@ Questions to measure:
 - Save/load and rating-formula migrations preserve the chosen semantics.
 - Add regression coverage for below-POT growth, at-POT behaviour, any allowed overachievement, age decline and AI/player parity.
 
+
+## ARD-M5-014 — National Draft decision support, combine & list-need clarity
+**Status:** `TODO`  
+**Priority:** `P1`  
+**Autonomy:** `SUPERVISED`
+
+### Trigger
+The 2027 National Draft currently presents a long pool of names plus OVR/POT and a position strip, but the user still feels under-informed about *why* to consider particular prospects. The position strip is itself confusing: examples such as **“FWD 9 / 14 can play / NEED +5”** and **“MID 15 / 17 can play / COVERED”** do not read as one coherent model and do not appear to change in the intuitive way as players are selected.
+
+### Current implementation reality
+The contradiction is structural, not just copy:
+- `role_coverage()` counts a dual-position player in **every** role he can play;
+- `position_needs()` uses a slot-matching pass where each player can fill **only one** target slot.
+So “14 can play FWD” does **not** mean 14 forward slots are actually covered, because some of those same dual-role players may be required elsewhere. The screen is showing two different counting semantics side by side without explaining the distinction.
+
+### List-need presentation
+Replace the current `count / can play / NEED +x / COVERED` language with one coherent, football-readable composition model.
+
+Requirements:
+- one primary answer per line: what the list currently has and whether it is genuinely short in that area;
+- dual-role flexibility may contribute to coverage, but do not double-count the same player in a way that makes the headline self-contradictory;
+- after every selection/release, the displayed need state must visibly and deterministically update;
+- distinguish **mandatory structural shortages** (e.g. not enough usable rucks / cannot field the required shape) from softer recruiting guidance/depth;
+- do not tell the player the “correct” position to draft or automatically rank prospects by need;
+- on phone, prefer a short label such as `Forwards: short 2`, `Midfield: covered`, `Ruck: one more needed` over stacked implementation counts.
+
+Add targeted UI/tests proving the labels change after a relevant pick and that a dual-role player is never presented as simultaneously solving two mandatory slots.
+
+### Pre-draft coaching/recruiting meeting
+Before the National Draft begins, add a short **pre-draft meeting** with the coaching/recruiting panel. Its job is to give the player a starting mental model, not solve the draft.
+
+It can summarise:
+- what the current list already does well;
+- genuine structural/depth holes;
+- age/profile issues worth being aware of;
+- a small handful of scouted prospects who may be relevant;
+- why each named prospect caught the recruiting staff's eye, in football terms.
+
+Examples of useful language:
+- “We have enough inside mids, but we're light for genuine outside run.”
+- “We only have two credible rucks on the list.”
+- “Recruiting liked the marking and forward craft of X.”
+- “Y tested well athletically, but we're less certain about his football production.”
+
+Guardrails:
+- typically surface only a few names, not a ranked top-20 shopping list;
+- different scouting quality/knowledge can change how much confidence/detail the panel provides;
+- never label one prospect as the objectively correct pick;
+- allow disagreement/uncertainty where appropriate;
+- the meeting should remain useful even when the user's next pick is late in the round.
+
+### Draft combine / scouting information
+There is **no explicit combine task in the current canonical roadmap**, so restore it here rather than assuming it is already scheduled.
+
+The Combine should give the draft pool more identity and evidence before selection:
+- physical/athletic testing and relevant football testing where the game has meaningful underlying attributes;
+- role/archetype clues, strengths and weaknesses;
+- scouting uncertainty rather than exact omniscient ratings where appropriate;
+- enough information to distinguish prospects with similar projected OVR/POT.
+
+Do not make the Combine another number-vomit screen. Default to interpretable results/relative descriptors, with deeper detail available on inspection. Combine results should inform scouting, not override actual football production or make every athletic outlier a top prospect.
+
+### Acceptance
+- list needs are internally consistent and visibly update after each relevant selection;
+- the player can explain what the squad lacks without reverse-engineering `can play` vs `NEED`;
+- the pre-draft meeting gives useful direction and a few names without prescribing the answer;
+- prospect inspection/Combine provides enough evidence for a deliberate choice rather than “pick the biggest POT number”;
+- mobile presentation remains fast to scan and does not become another dashboard.
+
 # M6 — Coaching, Board & List Management
 
 Goal: strengthen the management loop around the football.
@@ -3403,6 +3472,41 @@ Before adding any new roadmap line, check this table.
 | Create-a-player / self-insert / custom draftee / custom prospect | ARD-M7-008 |
 | Cinematic decision scene / tactical close-up / detailed match moment | ARD-M8-007 Cinematic tactical vignettes |
 | Draft age filter / rookie-prime-veteran / career-stage filter | ARD-M5-011 |
+
+
+## ARD-M8-009 — Plausible fictional player names
+**Status:** `TODO`  
+**Priority:** `P1`  
+**Autonomy:** `SAFE`
+
+### Trigger
+The first generated National Draft immediately breaks immersion with names such as **Fia Drift, Sora Jumble, Gavi Cobble, Hani Orbit, Gilo Orbit and Ivo Orbit**. Several obviously invented surnames repeat within a tiny class.
+
+### Current implementation reality
+This is not random bad luck. `GameDB.gd` currently uses a deliberately fantastical alias pool of only **49 first names and 50 surnames**, including `Orbit`, `Jumble`, `Fizz`, `Puddle`, `Gossamer`, `Cobble`, etc. Every first/last combination is shuffled deterministically, so full-name collisions are avoided initially, but the very small surname pool makes repeated surnames unavoidable and the vocabulary itself does not resemble Australian footballers. Generated future prospects have no real-name fallback, so this problem becomes more visible with every long save.
+
+### Direction
+Replace the fantasy-word alias system with a large, plausible contemporary Australian player-name generator.
+
+Requirements:
+- names should read like believable human names in an Australian national competition;
+- use a broad contemporary Australian mix of first names and surnames rather than a narrow Anglo-only list or fantasy syllables;
+- greatly expand the pools so a 50-player draft class does not visibly recycle surnames;
+- avoid repeated full names across an active career;
+- avoid more than an occasional repeated surname within one draft class unless it is intentionally linked to a future family-lineage mechanic;
+- generation remains deterministic for a career/seed and stable through save/reload;
+- real current players can still use the player's chosen real-name/fictive-name setting, but **generated future players must always receive plausible names**;
+- do not use numbered placeholders or artificial sci-fi/fantasy vocabulary;
+- future father-son/family systems may intentionally reuse a surname and should be able to bypass the ordinary duplicate-avoidance rule.
+
+### Validation
+Generate at least 20 full draft classes and inspect:
+- surname repetition per class;
+- full-name collisions across decades;
+- obviously non-human/novelty combinations;
+- name-length/wrapping on 360–390 px screens.
+
+Acceptance: a draft list should look like a plausible list of Australian football prospects at a glance; repeated surnames are uncommon enough to feel notable rather than procedural; long saves do not devolve into obvious recycled-name patterns.
 
 ## ARD-M8-008 — Android app identity: name and launcher icon
 **Status:** `TODO`  
