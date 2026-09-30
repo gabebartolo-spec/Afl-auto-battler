@@ -293,18 +293,16 @@ static func _player_delta(now: Dictionary, was: Dictionary, id: String, key: Str
 	return int(float(a.get(key, 0.0)) - float(b.get(key, 0.0)))
 
 
-## Disposals by your 82-and-up players between two snapshots (-1: none).
+## Disposals by your stars (the three Through stars goes through) between
+## two snapshots (-1: none).
 static func _stars_disposals(res: Dictionary, now: Dictionary, was: Dictionary, side: int) -> int:
-	var roster: Array = res.get("roster", [[], []])
-	if roster.size() <= side or now.is_empty():
+	var stars: Array = res.get("stars", [[], []])
+	if stars.size() <= side or (stars[side] as Array).is_empty() or now.is_empty():
 		return -1
 	var total := 0
-	var any := false
-	for p in roster[side]:
-		if int(p.get("overall", 0)) >= 82:
-			any = true
-			total += _player_delta(now, was, str(p["id"]), "disposals")
-	return total if any else -1
+	for id in stars[side]:
+		total += _player_delta(now, was, str(id), "disposals")
+	return total
 
 
 ## How your tag went in quarter q: "Your tag on Walsh: 4 disposals, no goals."
