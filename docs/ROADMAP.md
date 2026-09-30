@@ -2564,6 +2564,24 @@ Canonical umbrella for:
 - Hall of Fame / legends where justified,
 - famous finals/dynasties/droughts.
 
+### End-of-season awards presentation — fanfare, not summary cards
+The current Season Review collapses Brownlow, Coleman, Rising Star, club best & fairest and All-Australian into a single static awards panel. That is too flat for awards that should feel like major season payoffs. Keep the **season story/campaign recap separate** from awards night.
+
+- **Brownlow Medal:** give it a bespoke round-by-round count. Reveal votes round by round, update the leaderboard as the count progresses, build tension late, then clearly crown the winner. The underlying Brownlow already accrues 3-2-1 votes from home-and-away matches in `Awards.tally_match()`; presentation should reveal those existing votes rather than re-roll or invent anything. Allow sensible pacing/skip controls so repeat long careers do not become tedious, but the default first-time experience should have ceremony and escalation rather than immediately exposing the final totals.
+- **Club best & fairest:** give the user's club its own bespoke count/ceremony, again progressing through the season rather than dumping the final `bf` totals. The current model already accrues 5-4-3-2-1 within each side every match, finals included. Reveal those existing votes progressively, with the club winner feeling like a genuine end-of-year moment. This is a club event, distinct from the Brownlow night.
+- **All-Australian:** give the final team a bespoke unveiling at season's end instead of a compact list. Reveal the side in stages/lines (e.g. defence, midfield/ruck, forwards, interchange) with enough pause and presentation that selections feel prestigious. Do not expose the internal selection formula or turn it into a number dump.
+- **Coaches' votes:** implement as an in-season accumulating recognition system, visible through appropriate leader/record surfaces as the year progresses. **Do not** give coaches' votes another bespoke end-of-season countdown; by season's end the winner can be acknowledged briefly because the interest came from watching the race accrue during the season.
+- **Other awards:** Coleman/Rising Star can remain comparatively concise unless separately elevated later; do not force every honour into a ceremony just because Brownlow/B&F/AA have one.
+
+Presentation guardrails:
+- fanfare should come from pacing, reveal, hierarchy and football context, not particle spam or UI clutter;
+- no fake suspense: reveal deterministic stored results only;
+- skippable/acceleratable for experienced players while preserving a satisfying default flow;
+- save/reload must not double-award, re-roll votes, or change winners;
+- each ceremony should work cleanly on a phone and should not require dense tables.
+
+Acceptance: Brownlow and the user's B&F can be watched as progressive counts with evolving leaders and a final winner reveal; All-Australian is unveiled progressively by line/position; coaches' votes accrue through the actual season and need no separate countdown; the ordinary Season Review no longer substitutes a single static card for these major moments.
+
 ### Guardrails
 - count each season/event once,
 - no duplicate career aggregation on reload,
