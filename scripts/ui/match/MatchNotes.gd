@@ -696,29 +696,63 @@ static func _duel_line(res: Dictionary, fid: String, theirs: bool, my_side: int)
 	var goals := int(duel_tally(res, fid)[2])
 	var kicked := "" if goals == 0 else (", and kicked %d %s from them" % [goals, "goal" if goals == 1 else "goals"])
 	if order.size() >= 2:
-		var a := duel_tally(res, fid, 0, str(order[0]))
-		var b := duel_tally(res, fid, 0, str(order[order.size() - 1]))
-		var moved := "%s's move onto %s" % [_pname(str(order[order.size() - 1])), fname]
+		# Told in order - who had the better of it first, and after the
+		# change - so it never reads as if what was said live was wrong.
+		var first := str(order[0])
+		var last := str(order[order.size() - 1])
+		var a := duel_tally(res, fid, 0, first)
+		var b := duel_tally(res, fid, 0, last)
+		# "The move" only when a side made one; otherwise the other man just
+		# took him (a rotation, an injury).
+		var after := "after the move" if _moved_onto(res, fid, last) else "once he took over"
 		if int(a[0]) < 3 or int(b[0]) < 3:
-			return "%s won %d of %d contests; too few after the change to tell whether %s helped." % [
-					fname, int(a[1]) + int(b[1]), int(a[0]) + int(b[0]), moved]
+			return "%s won %d of %d contests; too few after %s took him to tell." % [
+					fname, int(a[1]) + int(b[1]), int(a[0]) + int(b[0]), _pname(last)]
 		var ra := float(a[1]) / float(a[0])
 		var rb := float(b[1]) / float(b[0])
-		var counts := "%d of %d on %s, %d of %d on %s" % [int(a[1]), int(a[0]), _pname(str(order[0])),
-				int(b[1]), int(b[0]), _pname(str(order[order.size() - 1]))]
-		if rb <= ra - CLEAR_EDGE:
-			return "%s turned the contest: %s marked %s." % [moved, fname, counts]
+		var early := "%s had the better of %s early (%d of %d)" % [fname, _pname(first), int(a[1]), int(a[0])] \
+				if ra >= 0.5 else "%s held %s early (%d of %d)" % [_pname(first), fname, int(a[1]), int(a[0])]
+		if rb <= ra - CLEAR_EDGE and rb <= 0.40:
+			return "%s; %s held him %s (%d of %d)." % [early, _pname(last), after, int(b[1]), int(b[0])]
 		if rb >= ra + CLEAR_EDGE:
-			return "%s got on top even after the change: %s." % [fname, counts]
-		return "The change on %s made little difference: %s." % [fname, counts]
+			return "%s; he got on top of %s %s too (%d of %d)." % [early, _pname(last), after, int(b[1]), int(b[0])]
+		return "%s; much the same on %s %s (%d of %d)." % [early, _pname(last), after, int(b[1]), int(b[0])]
 	var t := duel_tally(res, fid)
 	var dname := _pname(str(order[0])) if not order.is_empty() else "his man"
 	var r := float(t[1]) / float(maxi(1, int(t[0])))
+	# A quarter where he was on top of this man (what the live call said):
+	# the full-time line keeps that part of the story.
+	var hot_q := _on_top_quarter(res, fid, str(order[0]) if not order.is_empty() else "")
 	if r >= 0.60:
 		return "%s beat %s in the air: %d marks from %d contests%s." % [fname, dname, int(t[1]), int(t[0]), kicked]
 	if r <= 0.40:
+		if hot_q > 0:
+			return "%s got on top of %s in %s, but %s held him over the match: %d marks from %d contests%s." % [
+					fname, dname, str(QUARTER_WORDS.get(hot_q, "one quarter")), dname, int(t[1]), int(t[0]), kicked]
 		return "%s held %s: %d marks from %d contests." % [dname, fname, int(t[1]), int(t[0])]
 	return "An even battle, %s and %s: %d marks from %d contests%s." % [fname, dname, int(t[1]), int(t[0]), kicked]
+
+
+## Whether a side actually moved `def_id` onto `fid` (a recorded change,
+## not a rotation or an injury).
+static func _moved_onto(res: Dictionary, fid: String, def_id: String) -> bool:
+	for ch in res.get("duel_changes", []):
+		if str(ch.get("fwd", "")) == fid and str(ch.get("def", "")) == def_id:
+			return true
+	return false
+
+
+## The first quarter in which `fid` won three or more contests against
+## `def_id` - the threshold the live "getting on top" call uses. 0 if none.
+static func _on_top_quarter(res: Dictionary, fid: String, def_id: String) -> int:
+	var wins := {}
+	for c in ((res.get("duels", {}) as Dictionary).get(fid, {}) as Dictionary).get("contests", []):
+		if str(c[1]) == def_id and bool(c[2]):
+			wins[int(c[0])] = int(wins.get(int(c[0]), 0)) + 1
+	for q in [1, 2, 3, 4, 5]:
+		if int(wins.get(q, 0)) >= 3:
+			return q
+	return 0
 
 
 
