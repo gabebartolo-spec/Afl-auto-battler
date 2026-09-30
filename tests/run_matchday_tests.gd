@@ -195,6 +195,9 @@ func _phone_match(sz: Vector2i) -> void:
 	# The break: the score, what happened, then the calls.
 	_check(box.find_child("BreakScore", true, false) != null and box.find_child("QuarterFacts", true, false) != null,
 			"Quarter time says the score and what happened (%s)" % tag)
+	var facts: Node = box.find_child("QuarterFacts", true, false)
+	_check(facts != null and facts.get_child_count() <= 3,
+			"What happened in the quarter is three things at most (%s)" % tag)
 	var bt := _text(box)
 	_check(not bt.contains("pts") and not bt.contains("Expected points") and not bt.contains(" def ")
 			and not bt.contains("defeated"), "The break shows no engine numbers or result words (%s)" % tag)
