@@ -30,6 +30,7 @@ func _run() -> void:
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
 	await _hub_tests()
+	await _season_review_scrolls()
 	print("Matchup + hub tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -157,6 +158,30 @@ func _hub_tests() -> void:
 	_check(_button(hub.find_child("WeekActions", true, false), "National Draft") != null,
 			"The national draft is the next step")
 	hub.queue_free()
+	await _settle()
+
+
+## The Season Review runs well past one phone screen: everything under the
+## top bar scrolls, so the National Draft button at the bottom is reachable.
+func _season_review_scrolls() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(360, 740)
+	var review: Control = load("res://scenes/SeasonReviewScene.tscn").instantiate()
+	root.add_child(review)
+	await _settle()
+	var page: Control = review.find_child("ReviewPage", true, false)
+	var sc := page.get_parent() as ScrollContainer if page != null else null
+	_check(sc != null, "The Season Review sits in a scroll")
+	var draft: Button = review.find_child("NationalDraft", true, false)
+	var viewport := Rect2(Vector2.ZERO, Vector2(root.size))
+	if sc != null and draft != null:
+		_check(page.size.y > sc.size.y, "On a phone the review runs past one screen (%.0f > %.0f)" % [page.size.y, sc.size.y])
+		sc.scroll_vertical = int(page.size.y)
+		await _settle()
+		_check(viewport.encloses(draft.get_global_rect()), "Scrolled down, the National Draft button is on screen")
+	review.queue_free()
 	await _settle()
 
 
