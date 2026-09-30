@@ -21,6 +21,7 @@ func run() -> void:
 	_test_home_and_away_never_extra_time()
 	_test_grand_final_at_the_mcg()
 	_test_ladder_result_word()
+	_test_rest_of_week_in_background()
 	print("Finals tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -335,3 +336,51 @@ func _test_ladder_result_word() -> void:
 	_check(ladder.result_word({"score": [62, 80]}) == "lost to", "An away win reads 'lost to'")
 	_check(ladder.result_word({"score": [70, 70]}) == "drew with",
 			"A level final reads 'drew with'")
+
+
+## Play match no longer waits on the rest of the week: the other matches run
+## in the background while you coach yours and are recorded at full time,
+## exactly as they come out played one after another.
+func _test_rest_of_week_in_background() -> void:
+	for finals_week in [false, true]:
+		var season := _to_last_round()
+		season.seed = 424242
+		if finals_week:
+			GameState.advance()
+			var first: Dictionary = season.finals_week_matches()[0]
+			GameState.my_club = str(first["home"])
+			GameState.my_list = season.lists[GameState.my_club]
+		var matches: Array = season.finals_week_matches() if finals_week \
+				else season.fixture[season.round_index]
+		GameState._refresh_coach_tactics()   # as Play match does first
+		var expect := {}
+		for i in range(matches.size()):
+			var m: Dictionary = matches[i]
+			if GameState.my_club in [m["home"], m["away"]] or m["home"] == "" or m["away"] == "":
+				continue
+			var r := season.simulate(m["home"], m["away"], season.finals_seed(i), season.finals_at_home(m), true) \
+					if finals_week else season.simulate(m["home"], m["away"], season.next_seed(i))
+			expect[str(m["home"])] = _fingerprint(r)
+		var played_before := _games_played(season)
+		var tag := "finals week" if finals_week else "round"
+		_check(GameState.prepare_interactive_match(), "A live %s is prepared" % tag)
+		_check(_games_played(season) == played_before,
+				"Nothing else in the %s is on the ladder before your match is played" % tag)
+		_play_pending()
+		var same := 0
+		for r in GameState.last_results:
+			if expect.has(str(r["home"])) and expect[str(r["home"])] == _fingerprint(r):
+				same += 1
+		_check(expect.size() > 0 and same == expect.size(),
+				"The rest of the %s comes out exactly as played in turn (%d of %d)" % [tag, same, expect.size()])
+
+
+func _fingerprint(r: Dictionary) -> String:
+	return JSON.stringify([r["score"], r["players"], (r["events"] as Array).size(), r["injuries"]])
+
+
+func _games_played(season: Season) -> int:
+	var n := 0
+	for c in season.ladder:
+		n += int(season.ladder[c]["p"])
+	return n

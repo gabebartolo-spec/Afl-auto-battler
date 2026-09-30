@@ -108,6 +108,13 @@ func build_fixture() -> Array:
 ## the Grand Final.
 func simulate(home_code: String, away_code: String, match_seed: int,
 		at_home := [true, false], is_final := false) -> Dictionary:
+	return match_sim(home_code, away_code, match_seed, at_home, is_final).run()
+
+
+## The match, set up and ready to run: both sides, their form, coaching,
+## plans and match-ups.
+func match_sim(home_code: String, away_code: String, match_seed: int,
+		at_home := [true, false], is_final := false) -> MatchSim:
 	var home := Squad.new(GameDB_ref().club_name(home_code),
 			lists[home_code], bool(at_home[0]), home_code, selections.get(home_code, {}))
 	var away := Squad.new(GameDB_ref().club_name(away_code),
@@ -125,7 +132,52 @@ func simulate(home_code: String, away_code: String, match_seed: int,
 		var mu: Dictionary = matchups.get([home_code, away_code][side], {})
 		if not mu.is_empty():
 			sim.set_matchups(side, mu)
-	return sim.run()
+	return sim
+
+
+## Run matches side by side on background threads and wait for them all.
+## Results in the order given. A week's matches don't depend on one another
+## (recording one only moves the ladder and bracket), so this gives exactly
+## what running them in turn would, several times faster on a phone.
+static func run_all(sims: Array) -> Array:
+	return finish_all(start_all(sims, OS.get_processor_count()))
+
+
+## Start matches running in the background: {"threads", "out"}. By default
+## one core is left for the screen and the rest share the matches.
+static func start_all(sims: Array, cores := OS.get_processor_count() - 1) -> Dictionary:
+	PlayerProfile.warm()     # its lazy cache must not be filled from threads
+	var out := []
+	for i in range(sims.size()):
+		out.append({})       # one holder per match: no shared writes
+	var n := clampi(cores, 1, maxi(1, sims.size()))
+	var threads := []
+	for k in range(n):
+		var mine := []
+		for i in range(k, sims.size(), n):
+			mine.append([sims[i], out[i]])
+		if mine.is_empty():
+			continue
+		var th := Thread.new()
+		th.start(Season._run_share.bind(mine))
+		threads.append(th)
+	return {"threads": threads, "out": out}
+
+
+static func _run_share(share: Array) -> void:
+	for pair in share:
+		(pair[1] as Dictionary)["res"] = (pair[0] as MatchSim).run()
+
+
+## Wait for matches started by start_all; their results, in order.
+static func finish_all(job: Dictionary) -> Array:
+	for th in job.get("threads", []):
+		(th as Thread).wait_to_finish()
+	job["threads"] = []
+	var res := []
+	for h in job.get("out", []):
+		res.append((h as Dictionary)["res"])
+	return res
 
 
 ## A club's results this season, oldest first: "W", "L" or "D" for every
@@ -172,13 +224,14 @@ func play_round() -> Array:
 	if round_index >= fixture.size():
 		return []
 	var round_matches: Array = fixture[round_index]
-	var played := []
+	var sims := []
 	for i in range(round_matches.size()):
 		var m: Dictionary = round_matches[i]
-		var res := simulate(m["home"], m["away"], next_seed(i))
+		sims.append(match_sim(m["home"], m["away"], next_seed(i)))
+	var played := run_all(sims)
+	for res in played:
 		res["round"] = round_index + 1
 		res["label"] = "Round %d" % (round_index + 1)
-		played.append(res)
 		record_regular(res)
 	results.append(played)
 	round_index += 1
@@ -300,14 +353,17 @@ func play_finals_week() -> Array:
 	if finals.is_empty() or bool(finals["done"]):
 		return []
 	var matches := finals_week_matches()
-	var played := []
+	var ready := []
+	var sims := []
 	for i in range(matches.size()):
 		var m: Dictionary = matches[i]
 		if m["home"] == "" or m["away"] == "":
 			continue
-		var res := simulate(m["home"], m["away"], finals_seed(i), finals_at_home(m), true)
-		record_final(m, res)
-		played.append(res)
+		ready.append(m)
+		sims.append(match_sim(m["home"], m["away"], finals_seed(i), finals_at_home(m), true))
+	var played := run_all(sims)
+	for i in range(played.size()):
+		record_final(ready[i], played[i])
 	complete_finals_week(played)
 	return played
 

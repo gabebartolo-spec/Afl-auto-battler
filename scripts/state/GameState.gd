@@ -19,6 +19,7 @@ var league_lists := {}
 var pending_match: Dictionary = {}
 var pending_sim: MatchSim = null
 var pending_round_results: Array = []
+var _others := {}          # the round's other matches, running in the background
 var pending_phase := ""
 var pending_label := ""
 
@@ -135,6 +136,10 @@ func _ready() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(settings_path) == OK:
 		show_real_names = bool(cfg.get_value("display", "real_names", false))
+
+
+func _exit_tree() -> void:
+	_collect_others()      # the round's other matches may still be running
 
 
 func _notification(what: int) -> void:
@@ -569,6 +574,7 @@ func reset() -> void:
 	league_lists = {}
 	pending_match = {}
 	pending_sim = null
+	_collect_others()
 	pending_round_results = []
 	pending_phase = ""
 	pending_label = ""
@@ -837,6 +843,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	last_label = "Round 1"
 	pending_match = {}
 	pending_sim = null
+	_collect_others()
 	pending_round_results = []
 	pending_phase = ""
 	pending_label = ""
@@ -982,11 +989,13 @@ func prepare_interactive_match() -> bool:
 		return _prepare_interactive_final()
 	pending_match = {}
 	pending_sim = null
+	_collect_others()
 	pending_round_results = []
 	# The coaching table first: the round's other matches use it (it is not
 	# saved, so on the first live week after loading it would be empty).
 	_refresh_coach_tactics()
 	var round_matches: Array = season.fixture[season.round_index]
+	var others := []
 	for i in range(round_matches.size()):
 		var m: Dictionary = round_matches[i]
 		if m["home"] == my_club or m["away"] == my_club:
@@ -994,14 +1003,16 @@ func prepare_interactive_match() -> bool:
 					"round": season.round_index + 1,
 					"label": "Round %d" % (season.round_index + 1)}
 		else:
-			var res := season.simulate(m["home"], m["away"], season.next_seed(i))
-			res["round"] = season.round_index + 1
-			res["label"] = "Round %d" % (season.round_index + 1)
+			others.append(season.match_sim(m["home"], m["away"], season.next_seed(i)))
+	if pending_match.is_empty():
+		for res in Season.run_all(others):
 			pending_round_results.append(res)
 			season.record_regular(res)
-	if pending_match.is_empty():
 		season.recalc_ladder()
 		return false
+	# The rest of the round plays out in the background while you coach
+	# yours (none of it touches your match), and is collected at full time.
+	_others = Season.start_all(others)
 	var home := Squad.new(GameDB.club_name(str(pending_match["home"])),
 			season.lists[pending_match["home"]], true, str(pending_match["home"]),
 			season.selections.get(str(pending_match["home"]), {}))
@@ -1039,15 +1050,19 @@ func _prepare_interactive_final() -> bool:
 		return false
 	pending_match = {}
 	pending_sim = null
+	_collect_others()
 	pending_round_results = []
+	var others := []
+	var index := []
 	for i in range(matches.size()):
 		var m: Dictionary = matches[i]
 		if i == mine or m["home"] == "" or m["away"] == "":
 			continue
-		var res := season.simulate(m["home"], m["away"], season.finals_seed(i),
-				season.finals_at_home(m), true)
-		res["finals_index"] = i
-		pending_round_results.append(res)
+		others.append(season.match_sim(m["home"], m["away"], season.finals_seed(i),
+				season.finals_at_home(m), true))
+		index.append(i)
+	_others = Season.start_all(others)
+	_others["index"] = index
 	var fm: Dictionary = matches[mine]
 	var at_home: Array = season.finals_at_home(fm)
 	pending_match = {"home": fm["home"], "away": fm["away"],
@@ -1087,6 +1102,11 @@ func finish_interactive_match(res: Dictionary) -> void:
 		return
 	res["round"] = int(pending_match.get("round", season.round_index + 1))
 	res["label"] = str(pending_match.get("label", "Match"))
+	for r in _collect_others():
+		r["round"] = res["round"]
+		r["label"] = res["label"]
+		pending_round_results.append(r)
+		season.record_regular(r)
 	season.record_regular(res)
 	var played := pending_round_results.duplicate()
 	played.append(res)
@@ -1111,6 +1131,11 @@ func finish_interactive_match(res: Dictionary) -> void:
 ## close the week exactly as a simulated week would.
 func _finish_interactive_final(res: Dictionary) -> void:
 	var matches := season.finals_week_matches()
+	var index: Array = _others.get("index", [])
+	var done := _collect_others()
+	for j in range(done.size()):
+		done[j]["finals_index"] = index[j]
+		pending_round_results.append(done[j])
 	var by_index := {}
 	for r in pending_round_results:
 		by_index[int(r["finals_index"])] = r
@@ -1137,7 +1162,18 @@ func _finish_interactive_final(res: Dictionary) -> void:
 	autosave()
 
 
+## The round's other matches, started when yours was set up: waits for any
+## still running (usually none by full time) and hands them over once.
+func _collect_others() -> Array:
+	if _others.is_empty():
+		return []
+	var out := Season.finish_all(_others)
+	_others = {}
+	return out
+
+
 func _clear_pending() -> void:
+	_collect_others()      # never leave a worker running on dropped matches
 	pending_match = {}
 	pending_sim = null
 	pending_round_results = []

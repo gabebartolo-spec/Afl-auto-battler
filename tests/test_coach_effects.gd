@@ -177,8 +177,18 @@ func _test_in_career() -> void:
 	# round's other matches must still be coached (their AI calls run).
 	CoachEffects.table = {}
 	_check(GameState.prepare_interactive_match(), "A live week after loading")
+	# They play while you coach yours and are recorded at full time.
+	var sim: MatchSim = GameState.pending_sim
+	var mine := {}
+	while sim.current_quarter <= 4:
+		mine = sim.run_quarter()
+	mine["home"] = GameState.pending_match["home"]
+	mine["away"] = GameState.pending_match["away"]
+	GameState.finish_interactive_match(mine)
 	var coached := false
-	for r in GameState.pending_round_results:
+	for r in GameState.last_results:
+		if GameState.my_club in [str(r["home"]), str(r["away"])]:
+			continue
 		var hist: Array = (r as Dictionary).get("tactics_history", [])
 		if hist.size() >= 2 and ((hist[1]["plans"] as Array)[0] as Dictionary).has("pep"):
 			coached = true
