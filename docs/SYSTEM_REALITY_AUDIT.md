@@ -368,3 +368,42 @@ The same fields for each system.
 **Clubs:** 2027 active clubs, rotating home and away pairs; seeds 60000+, 70000+ and 80000+.
 
 The home-versus-away lever in the paired probe was mis-built (both arms away) and is not reported. Home ground is classified from code.
+
+## Appendix: repair sprint status (tagging, C4)
+
+**Root cause.** A tag only moved possessions around: the tagged player's share went to his teammates, the tagger paid nothing, and nothing reached the stoppages. So it changed one player's stat line, not the match. The AI also tagged every second half whatever it had to do the job with.
+
+**Repair (smallest change that makes it a trade):**
+- **At the stoppages** (`MatchSim._tag_drag`), a tagged midfielder takes the lost share of his game (1 − tag share) out of his side's contest number.
+  - Your tag costs you 40% of your tagger's own midfield game (`TAGGER_COST`).
+  - The better the target, the more a tag takes; the better your tagger is as a midfielder, the more it costs.
+- **Around the ground**, the tagger gets 60% of his usual share of the ball while he tags (`TAGGER_BALL`).
+- **The AI follows the same rule.** It tags from half time only when it has a specialist tagger on the ground.
+- **Copy:**
+  - The hot-player card no longer says "for the rest of the quarter": the tag stays on until you call it off.
+  - It says who does the job and what that costs.
+  - The break box says so too when there is no specialist.
+
+**Measured (paired, 600 matches, side 0 tags the opposition's best or worst midfielder all match; before is `main`):**
+
+| Target | Tagger | Before, margin | After, margin |
+|---|---|---|---|
+| Best midfielder | any | −3.4 ± 2.1 (N 300) | −1.5 ± 1.5 |
+| Best midfielder | specialist on the ground (n 67) | | **+6.9 ± 4.1** |
+| Best midfielder | no specialist (n 533) | | **−2.5 ± 1.7** |
+| Worst midfielder | specialist (n 67) | | −0.7 ± 4.5 |
+| Worst midfielder | no specialist (n 533) | | **−4.1 ± 1.7** |
+
+- **Target disposals:** −5.9 (best), −4.4 (worst).
+- **Tagger disposals:** about −3.6 (before: about 0).
+- **Clearance differential, tagging the worst:** −1.3 (before −0.3).
+
+**Status: WORKING, a real trade.**
+- Tagging their star with a specialist is worth close to a goal.
+- Sending a good midfielder to tag, or tagging an ordinary player, costs you.
+- Only about one side in nine has a specialist on the ground, so for most clubs a tag is usually the wrong call, and the screens say what it costs.
+
+**Tests (`test_match_game`):**
+- the contest edge by target and tagger;
+- target and tagger disposals over 20 paired matches;
+- the AI tags only with a specialist on the ground.

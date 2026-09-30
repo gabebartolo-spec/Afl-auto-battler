@@ -2101,12 +2101,15 @@ func _boundary_moment() -> bool:
 		# The midfielder who would actually go to him (tagger_for).
 		var minder = tagger_for((squads[me] as Squad).ground)
 		var stopper := GameDB.player_display_name(minder) if minder != null else "a midfielder"
+		var cost := ("Tagging is %s's job: he takes more of the ball off him and gives up little." % stopper) \
+				if minder != null and Roles.is_tagger(minder) else \
+				("%s is no tagger: he gives up his own game to do it." % stopper)
 		_fire({"kind": "hot", "player_id": str(id), "default": 1,
 			"title": "%s has kicked %d" % [GameDB.player_display_name(hot), int(st["goals"])],
 			"text": "Their midfielder is hurting you on the scoreboard. A tag takes a good chunk of the ball off him, but your stopper stops playing his own game.",
 			"options": [
 				{"key": "tag", "label": "Tag him with %s" % stopper,
-					"detail": "For the rest of the quarter he gets about half as much of the ball."},
+					"detail": "Until you call it off. " + cost},
 				{"key": "leave", "label": "Back your defenders",
 					"detail": "Keep the structure as it is."},
 			]})
@@ -2304,7 +2307,7 @@ func resolve_moment(choice: int) -> Dictionary:
 				var t: Dictionary = (tactics[side] as Dictionary).duplicate()
 				t["tag_id"] = str(m["player_id"])
 				tactics[side] = t
-				outcome = "Tag on for the rest of the quarter."
+				outcome = "Tag on. You can call it off at the break."
 			else:
 				outcome = "Structure unchanged."
 		"duel":
@@ -2422,8 +2425,10 @@ const COUNTERS := {"attacking": "defensive", "fast": "defensive", "defensive": "
 
 ## The opposition's plan for the coming quarter: its usual game (the plan
 ## its list suits, PlanFit.standing_plan), protecting a big lead or chasing
-## a big deficit. It does not read and counter your plan. From half time it
-## tags your most influential midfielder.
+## a big deficit. It does not read and counter your plan. With a specialist
+## tagger on the ground it tags your most influential midfielder from half
+## time; without one it does not (a tag by a good midfielder costs more than
+## it takes, _tag_drag).
 ## A sharper tactical group (Squad.tactics_read) reacts to a smaller margin
 ## and tags from half time rather than the last quarter.
 func ai_tactics(side: int) -> Dictionary:
@@ -2437,7 +2442,8 @@ func ai_tactics(side: int) -> Dictionary:
 	elif margin <= -react:
 		plan = "attacking"
 	var t := {"gameplan": plan, "pep": "fire_up" if margin <= -12 and current_quarter >= 3 else "steady"}
-	if current_quarter >= (2 if read >= 0.4 else 3):
+	var tagger = tagger_for((squads[side] as Squad).ground)
+	if current_quarter >= (2 if read >= 0.4 else 3) and tagger != null and Roles.is_tagger(tagger):
 		var best := ""
 		var best_inf := -1.0
 		for p in (squads[opp] as Squad).ground:
