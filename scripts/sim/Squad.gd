@@ -129,12 +129,6 @@ static func _top(group: Array, key: String, n: int, fallback := 45.0) -> float:
 	return total / float(take)
 
 
-func best_on_ground() -> Array:
-	var out := ground.duplicate()
-	out.sort_custom(func(a, b): return a["overall"] > b["overall"])
-	return out
-
-
 ## Estimated list strength, 0-100, for AI difficulty scaling and ladder seeding.
 func strength() -> float:
 	return clampf(0.45 * contest + 0.30 * attack + 0.25 * defence, 0.0, 100.0)

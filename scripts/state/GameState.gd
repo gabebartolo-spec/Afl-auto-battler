@@ -983,6 +983,9 @@ func prepare_interactive_match() -> bool:
 	pending_match = {}
 	pending_sim = null
 	pending_round_results = []
+	# The coaching table first: the round's other matches use it (it is not
+	# saved, so on the first live week after loading it would be empty).
+	_refresh_coach_tactics()
 	var round_matches: Array = season.fixture[season.round_index]
 	for i in range(round_matches.size()):
 		var m: Dictionary = round_matches[i]
@@ -1007,7 +1010,6 @@ func prepare_interactive_match() -> bool:
 			season.selections.get(str(pending_match["away"]), {}))
 	home.form = season.club_form(str(pending_match["home"]))
 	away.form = season.club_form(str(pending_match["away"]))
-	_refresh_coach_tactics()
 	CoachEffects.apply(home)
 	CoachEffects.apply(away)
 	pending_sim = MatchSim.new(home, away, season.next_seed(99))

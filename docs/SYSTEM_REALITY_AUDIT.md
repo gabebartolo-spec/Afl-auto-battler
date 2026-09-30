@@ -368,3 +368,21 @@ The same fields for each system.
 **Clubs:** 2027 active clubs, rotating home and away pairs; seeds 60000+, 70000+ and 80000+.
 
 The home-versus-away lever in the paired probe was mis-built (both arms away) and is not reported. Home ground is classified from code.
+
+## Appendix: repair sprint status (loose ends)
+
+- **Coach table on a live week (§31):** fixed.
+  - `prepare_interactive_match` now builds the coaching table before simulating the round's other matches.
+  - Test (`test_coach_effects`): clear the table as a fresh load would, prepare a live week, and check that the other matches ran their coaches' calls. It fails on the old order. Status: WORKING.
+- **Dead code (§40 and the hidden and dead list):** removed.
+  - `MatchSim.counter_to` and `COUNTERS`, `MatchSim.average_energy`;
+  - `Matchup.STANDING_WORDS`;
+  - `Draft.pick_number_in_round`, `Draft.is_complete_size`, `Draft.ai_lists`;
+  - `Squad.best_on_ground`.
+  - None had a caller.
+- **Hot-card duration text (C4 copy):** fixed with the tagging repair (#108).
+- **AI tactical reading (§30):** measured (paired, 600 matches; an AI-coached side with read 1.0 against −0.75; opponent plays Balanced).
+  - Behaviour changes: the sharp group tags in 600 quarters against 300 and leaves its usual plan in 629 quarters against 239.
+  - Result: −1.7 ± 1.4 for the sharp group, indistinguishable from nothing.
+  - **Status: WORKING (behaviour), LOW-IMPACT on results, recorded rather than tuned.** A sharper read reacts sooner, but reacting to the scoreboard is not itself worth points.
+  - Making the read valuable would mean reading your plan and choosing a counter. That was removed on purpose in #93, so it is a design question for the director, not a repair.
