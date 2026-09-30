@@ -2388,6 +2388,38 @@ Acceptance:
 
 Split into smaller authorised subphases when started.
 
+### Free-agent offers, compensation and browsing
+The same negotiation standard applies to **external free agents**, not only the user's own expiring players. The current Free agents tab presents `Sign 1 yr / Sign 2 yr / Sign 3 yr` buttons and immediately executes `GameState.sign_free_agent()` at the fixed asking salary. A free agent cannot reject, counter or compare the offer with any market alternative. That makes a major list acquisition feel like buying an item from a shop.
+
+Required direction:
+- tapping a free agent opens the same dedicated offer/negotiation flow used for re-signings;
+- salary **and** term are proposed by the user;
+- the player may accept, reject or counter based on his value, age, requested security, morale/market situation and competing interest;
+- no player is guaranteed to join merely because the club has enough cap room;
+- show the cap impact before confirmation;
+- allow a quick **meet asking price** path where appropriate, but it is still an offer the player can accept rather than an instant transaction;
+- keep negotiation legible and bounded: no hidden slot-machine bargaining.
+
+**Free-agency compensation picks:** there is currently no compensation-pick system in the contract/free-agency code or national-draft order path. Add one as part of the mature free-agency model rather than pretending the current release/sign flow already represents AFL free agency. The compensation band should be driven materially by the contract the departing player actually receives — especially salary and term — with age/value/eligibility context as appropriate. Do not expose an opaque real-world formula verbatim; give the player a clear projected compensation consequence before a qualifying player signs elsewhere, and ensure AI clubs are evaluated under the same rules. Compensation picks must be inserted into the national draft order deterministically and survive save/reload. Delisted/unrestricted pool players who should not attract compensation must be distinguishable from qualifying free agents rather than every released player automatically generating a pick.
+
+### Free-agent list usability
+The Free agents list needs lightweight sort controls suitable for phone browsing:
+- **OVR**
+- **POT**
+- **Age**
+- optionally the existing composite/value order as the default
+
+Allow reversing the selected sort where useful. Keep the controls compact; do not add a spreadsheet toolbar.
+
+The screen must also **preserve scroll position after an action**. Right now `OffseasonScene._build()` reconstructs the tab after every signing/re-signing and creates a fresh `ScrollContainer`, which sends the user back to the top of a long list. Capture the current tab's vertical scroll before rebuilding and restore it after the UI is rebuilt (clamped if the list shrank). The same principle should apply to other repeated off-season actions that rebuild the current list.
+
+Additional acceptance:
+- signing a free agent never happens from a single immediate term tap;
+- free agents can reject/counter offers and salary is genuinely negotiable;
+- qualifying departures can generate correctly ordered compensation picks based materially on the accepted contract;
+- the Free agents tab can be sorted by OVR, POT and Age;
+- after signing/rejecting/negotiating with a player midway down the list, the user remains at approximately the same scroll position instead of being thrown back to the top.
+
 ---
 
 ## ARD-M6-005 — Options / settings
