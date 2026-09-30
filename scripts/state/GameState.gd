@@ -1429,6 +1429,26 @@ func plan_fit_line(ground: Array, plan: String) -> String:
 	return "Your %s are %s: %s." % [str(PlanFit.NEEDS[plan]["word"]), PlanFit.fit_word(ground, plan), ", ".join(names)]
 
 
+## What your list is good at against this league (ListProfile): every club's
+## side as it would be picked this week, yours as you have picked it.
+func list_profile() -> Array:
+	if season == null or my_club == "":
+		return []
+	return ListProfile.profile(league_grounds(), my_club)
+
+
+## Every club's match-day side this week, by code; yours as you have picked it.
+func league_grounds() -> Dictionary:
+	var grounds := {}
+	for code in season.lists:
+		if str(code) == my_club:
+			grounds[my_club] = my_squad().ground
+		else:
+			grounds[str(code)] = Squad.new(str(code), season.lists[code], false, str(code),
+					season.selections.get(code, {})).ground
+	return grounds
+
+
 ## The plan a club's list suits as its usual game (PlanFit.standing_plan),
 ## from the side it would field this week.
 func usual_plan(code: String) -> String:
