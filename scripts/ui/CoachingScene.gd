@@ -1,5 +1,6 @@
 extends Control
-## Coaching: the club from the coach's box. How we play (the standing game
+## Coaching: the club from the coach's box. What the list is good at against
+## this league, how we play (the standing game
 ## plan, then how we win and how we get beaten), who is in and out of form,
 ## the list and the cap, the board, and the staff. Plain football first;
 ## the supporting number comes after it. Facts, never advice.
@@ -31,6 +32,7 @@ func _build() -> void:
 	var body := UiKit.vbox(UiKit.SECTION)
 	body.name = "CoachingBody"
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_child(_list_profile())
 	body.add_child(_how_we_play())
 	body.add_child(_form())
 	body.add_child(_list_and_cap())
@@ -49,6 +51,62 @@ func _wrapped(text: String, fs := UiKit.BODY, col := UiKit.TEXT) -> Label:
 	var l := UiKit.lbl(text, fs, col)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
+
+
+# ---------------------------------------------------------------------------
+# List profile: five strengths, a word each, against this league. A tap on
+# one says what it is and who leads it; nothing says what to do about it.
+# ---------------------------------------------------------------------------
+func _list_profile() -> Control:
+	var v := UiKit.vbox(0)
+	v.name = "ListProfile"
+	v.add_child(UiKit.section("List profile"))
+	v.add_child(_wrapped("Your side as picked, against every list in the league.", UiKit.SMALL, UiKit.MUTED))
+	v.add_child(UiKit.spacer(4))
+	var ground: Array = GameState.my_squad().ground
+	for row in GameState.list_profile():
+		v.add_child(_profile_row(row, ground))
+	return v
+
+
+func _profile_row(row: Dictionary, ground: Array) -> Control:
+	var dim := str(row["dim"])
+	var box := UiKit.vbox(2)
+	var b := Button.new()
+	b.name = "Profile_%s" % dim
+	b.flat = true
+	b.custom_minimum_size.y = 44
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_filter = Control.MOUSE_FILTER_PASS
+	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		b.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	var h := UiKit.hbox(8)
+	b.add_child(h)
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var name_l := UiKit.line(str(row["label"]), UiKit.BODY, UiKit.TEXT)
+	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	h.add_child(name_l)
+	var word := UiKit.line(str(row["word"]), UiKit.BODY, UiKit.TEXT, true)
+	word.name = "Word"
+	word.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	h.add_child(word)
+	var pad := Control.new()
+	pad.custom_minimum_size.x = 10    # clear of the scroll bar
+	h.add_child(pad)
+	for n in h.find_children("*", "Control", true, false) + [h]:
+		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(b)
+	var names := PackedStringArray()
+	for p in ListProfile.leaders(ground, dim):
+		names.append(GameDB.player_display_name(p))
+	var detail := _wrapped("%s Leading it: %s." % [str(ListProfile.MEANS[dim]), ", ".join(names)],
+			UiKit.SMALL, UiKit.MUTED)
+	detail.name = "Detail"
+	detail.visible = false
+	box.add_child(detail)
+	b.pressed.connect(func(): detail.visible = not detail.visible)
+	return box
 
 
 # ---------------------------------------------------------------------------

@@ -24,6 +24,7 @@ func run() -> void:
 	_test_every_club_fields_wings()
 	_test_listed_second_positions()
 	_test_formation_wings()
+	_test_list_profile()
 	print("Roles tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -397,3 +398,80 @@ func _test_formation_wings() -> void:
 				wardlaw_wing = true
 	_check(agree, "On every club's best 22 the oval's wings are the wings the match plays")
 	_check(not wardlaw_wing, "Wardlaw is never shown on a wing")
+
+
+## List profile (ARD-M6-006): five words, each where the side ranks in this
+## league; they move with the list and with the league around it.
+func _test_list_profile() -> void:
+	var grounds := {}
+	for code in GameDB.active_clubs(2027):
+		grounds[str(code)] = Squad.new(code, GameDB.club_list(code), false, code).ground
+	var n := grounds.size()
+	var words := []
+	for r in range(n):
+		words.append(ListProfile.word(r, n))
+	_check(words.count("Elite") >= 2 and words.count("Elite") <= 4 and words.count("Weak") >= 4
+			and words[0] == "Elite" and words[n - 1] == "Weak",
+			"The words spread across the league (%s)" % str(words))
+	var mine := "COL"
+	var prof := ListProfile.profile(grounds, mine)
+	var labels := prof.map(func(r): return str(r["label"]))
+	_check(labels == ["Contest", "Control", "Running power", "Pressure", "Aerial power"],
+			"Five strengths in plain words (%s)" % str(labels))
+	_check(prof.all(func(r): return ["Elite", "Strong", "Average", "Weak"].has(str(r["word"]))),
+			"Every strength is a word, not a score")
+	# Every club reads somewhere: the words are not all one thing.
+	var seen := {}
+	for code in grounds:
+		for r in ListProfile.profile(grounds, code):
+			seen[str(r["word"])] = true
+	_check(seen.size() == 4, "Across the league, every word is used (%s)" % str(seen.keys()))
+	# The list changes: better ball-winners lift Contest to the top.
+	var better: Array = _boosted(grounds[mine], ["contested", "ruck"], 30)
+	var g2 := grounds.duplicate()
+	g2[mine] = better
+	_check(_word(ListProfile.profile(g2, mine), "contest") == "Elite",
+			"Better ball-winners make the Contest elite")
+	# The league changes around the same list: its Aerial power drops as
+	# everyone else's marks get better.
+	var before := _rank(prof, "aerial")
+	var g3 := {}
+	for code in grounds:
+		g3[code] = grounds[code] if code == mine else _boosted(grounds[code], ["marking"], 12)
+	var after := _rank(ListProfile.profile(g3, mine), "aerial")
+	_check(after > before and _word(ListProfile.profile(g3, mine), "aerial") == "Weak",
+			"The same list reads weaker in the air when the league marks better (%d to %d)" % [before, after])
+	# Aerial power is not Control: better marks move one and not the other.
+	var markers: Array = _boosted(grounds[mine], ["marking"], 30)
+	_check(is_equal_approx(ListProfile.score(markers, "control"), ListProfile.score(grounds[mine], "control"))
+			and ListProfile.score(markers, "aerial") > ListProfile.score(grounds[mine], "aerial"),
+			"Aerial power and Control are different things")
+	# Three strengths are the plans' own definitions, not a parallel system.
+	_check(is_equal_approx(ListProfile.score(grounds[mine], "contest"), PlanFit.score(grounds[mine], "contest"))
+			and is_equal_approx(ListProfile.score(grounds[mine], "pressure"), PlanFit.score(grounds[mine], "defensive"))
+			and is_equal_approx(ListProfile.score(grounds[mine], "running"), PlanFit.score(grounds[mine], "attacking")),
+			"Contest, Pressure and Running power are what the game plans lean on")
+
+
+func _boosted(ground: Array, keys: Array, by: int) -> Array:
+	var out := []
+	for p in ground:
+		var q: Dictionary = p.duplicate(true)
+		for k in keys:
+			(q["attr"] as Dictionary)[k] = mini(99, int((q["attr"] as Dictionary).get(k, 0)) + by)
+		out.append(q)
+	return out
+
+
+func _word(prof: Array, dim: String) -> String:
+	for r in prof:
+		if str(r["dim"]) == dim:
+			return str(r["word"])
+	return ""
+
+
+func _rank(prof: Array, dim: String) -> int:
+	for r in prof:
+		if str(r["dim"]) == dim:
+			return int(r["rank"])
+	return -1
