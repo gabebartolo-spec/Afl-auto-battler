@@ -369,6 +369,13 @@ The same fields for each system.
 
 The home-versus-away lever in the paired probe was mis-built (both arms away) and is not reported. Home ground is classified from code.
 
+## Appendix: repair sprint status
+
+The findings above are kept as found. This appendix records each repair as it lands.
+
+| Finding | Repair | Status |
+|---|---|---|
+| C1: standing plan dropped at the first bounce of a live match | The pre-bounce box (and Skip) read the plan the engine already holds for your side, which is your club plan, so Start without a change keeps it. Behavioural test `run_matchday_tests.gd::_plan_at_first_bounce` drives the live start and reads the engine's own quarter record (`tactics_history`). It fails on the old code (engine: balanced) and passes on the fix. | Fixed, branch `claude/fix-first-bounce-plan` (pending merge) |
 ## Appendix: repair sprint status (moment cards)
 
 **C3, moment cards: repaired.** The cause differed by card, so each was measured on its own. Each card got a random option in 600–900 live matches, and the net score change was measured over the window the call covers.

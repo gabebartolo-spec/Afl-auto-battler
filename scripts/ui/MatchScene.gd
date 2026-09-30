@@ -371,7 +371,8 @@ func _simulate_remaining() -> void:
 		_stamp_match_meta()
 	var t := _last_tactics
 	if t.is_empty():
-		t = {"gameplan": "balanced", "focus_id": "", "tag_id": "", "pep": "steady"}
+		# Skipped before the first bounce: the plan you took in still plays.
+		t = {"gameplan": _current_plan(sim), "focus_id": "", "tag_id": "", "pep": "steady"}
 	while sim.current_quarter <= 4:
 		_apply_quarter_tactics(t)
 		_res = sim.run_quarter()
@@ -455,9 +456,10 @@ func _show_coach_box() -> void:
 	# Your calls, as taps: nothing here is a settings form. Short lists sit
 	# in plain view; a player list shows the few in the game so far and
 	# keeps everyone else one tap away.
-	var my_last := str(_last_tactics.get("gameplan", ""))
+	# The plan in force is the engine's: your club plan before the first
+	# bounce (GameState.prepare_interactive_match), your last call after.
 	var calls := {
-		"gameplan": my_last if my_last != "" else "balanced",
+		"gameplan": _current_plan(sim),
 		"tag_id": str((sim.tactics[_my_side] as Dictionary).get("tag_id", _last_tactics.get("tag_id", ""))),
 		"focus_id": str(_last_tactics.get("focus_id", "")),
 		"pep": "steady",
@@ -951,6 +953,14 @@ func _close_report() -> void:
 	if _report_overlay != null and is_instance_valid(_report_overlay):
 		_report_overlay.queue_free()
 	_report_overlay = null
+
+
+## The plan your side is playing right now, as the engine has it.
+func _current_plan(sim: MatchSim) -> String:
+	var plan := str((sim.tactics[_my_side] as Dictionary).get("gameplan", ""))
+	if plan == "":
+		plan = str(_last_tactics.get("gameplan", ""))
+	return plan if plan != "" else "balanced"
 
 
 func _simulate_next_quarter(t: Dictionary) -> void:
