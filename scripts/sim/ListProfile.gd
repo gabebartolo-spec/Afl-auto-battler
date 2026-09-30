@@ -1,18 +1,19 @@
 class_name ListProfile
 extends RefCounted
 ## What a list is good at, against the league it is playing in (ARD-M6-006).
-## Five strengths, each a word - Elite, Strong, Average, Weak - from where the
+## Six strengths, each a word - Elite, Strong, Average, Weak - from where the
 ## side ranks among every club's side this week, so the words move as the
 ## league around a list gets better or worse. No score is shown.
 ##
 ## Each strength is the engine's own: Contest, Running power and Pressure are
 ## PlanFit's scores for Win contest, Attacking and Defensive; Control is the
 ## disposal that beats a press and the discipline that avoids clangers;
-## Aerial power is the side's best marks. Pure rules on match-day sides.
+## Aerial power is the side's best marks; Finishing is the best forwards'
+## kicking for goal and marking up forward. Pure rules on match-day sides.
 
-const DIMS := ["contest", "control", "running", "pressure", "aerial"]
+const DIMS := ["contest", "control", "running", "pressure", "aerial", "finishing"]
 const LABEL := {"contest": "Contest", "control": "Control", "running": "Running power",
-		"pressure": "Pressure", "aerial": "Aerial power"}
+		"pressure": "Pressure", "aerial": "Aerial power", "finishing": "Finishing"}
 ## What each strength is, for the player who asks.
 const MEANS := {
 	"contest": "Winning it at the stoppages: your centre-square midfielders' contested ball and your ruck's tap work.",
@@ -20,6 +21,7 @@ const MEANS := {
 	"running": "Carrying it forward: your runners' carry and their disposal on the move.",
 	"pressure": "Making them cough it up: your midfielders' and forwards' pressure.",
 	"aerial": "Winning it in the air: your best marks, at both ends.",
+	"finishing": "Turning entries into scores: your best forwards' goalkicking, accuracy and marking.",
 }
 ## Where the words fall, as a share of the league from the top.
 const ELITE := 0.17
@@ -27,6 +29,8 @@ const STRONG := 0.44
 const AVERAGE := 0.72
 const MARKERS := 6
 const CONTROL_W := {"disposal": 0.65, "discipline": 0.35}
+const FINISHERS := 5
+const FINISH_W := {"goalkicking": 0.5, "accuracy": 0.3, "marking": 0.2}
 
 
 static func _a(p: Dictionary, key: String) -> float:
@@ -35,6 +39,13 @@ static func _a(p: Dictionary, key: String) -> float:
 
 static func _control(p: Dictionary) -> float:
 	return CONTROL_W["disposal"] * _a(p, "disposal") + CONTROL_W["discipline"] * _a(p, "discipline")
+
+
+static func _finish(p: Dictionary) -> float:
+	var v := 0.0
+	for k in FINISH_W:
+		v += float(FINISH_W[k]) * _a(p, k)
+	return v
 
 
 ## The side's raw score for a strength. Never shown.
@@ -60,6 +71,12 @@ static func score(ground: Array, dim: String) -> float:
 			for p in best:
 				tot += _a(p, "marking")
 			return tot / float(maxi(1, best.size()))
+		"finishing":
+			var tot := 0.0
+			var best := leaders(ground, dim, FINISHERS)
+			for p in best:
+				tot += _finish(p)
+			return tot / float(maxi(1, best.size()))
 	return 0.0
 
 
@@ -75,7 +92,13 @@ static func leaders(ground: Array, dim: String, n := 4) -> Array:
 	var pool := ground.duplicate()
 	if dim == "control":
 		pool = pool.filter(func(p): return str(p.get("role", "")) != "RUCK")
-	var key := func(p) -> float: return _control(p) if dim == "control" else _a(p, "marking")
+	elif dim == "finishing":
+		pool = pool.filter(func(p): return str(p.get("role", "")) == "FWD")
+	var key := func(p) -> float:
+		match dim:
+			"control": return _control(p)
+			"finishing": return _finish(p)
+		return _a(p, "marking")
 	pool.sort_custom(func(a, b):
 		var va: float = key.call(a)
 		var vb: float = key.call(b)

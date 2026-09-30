@@ -400,7 +400,7 @@ func _test_formation_wings() -> void:
 	_check(not wardlaw_wing, "Wardlaw is never shown on a wing")
 
 
-## List profile (ARD-M6-006): five words, each where the side ranks in this
+## List profile (ARD-M6-006): six words, each where the side ranks in this
 ## league; they move with the list and with the league around it.
 func _test_list_profile() -> void:
 	var grounds := {}
@@ -416,8 +416,8 @@ func _test_list_profile() -> void:
 	var mine := "COL"
 	var prof := ListProfile.profile(grounds, mine)
 	var labels := prof.map(func(r): return str(r["label"]))
-	_check(labels == ["Contest", "Control", "Running power", "Pressure", "Aerial power"],
-			"Five strengths in plain words (%s)" % str(labels))
+	_check(labels == ["Contest", "Control", "Running power", "Pressure", "Aerial power", "Finishing"],
+			"Six strengths in plain words (%s)" % str(labels))
 	_check(prof.all(func(r): return ["Elite", "Strong", "Average", "Weak"].has(str(r["word"]))),
 			"Every strength is a word, not a score")
 	# Every club reads somewhere: the words are not all one thing.
@@ -446,6 +446,32 @@ func _test_list_profile() -> void:
 	_check(is_equal_approx(ListProfile.score(markers, "control"), ListProfile.score(grounds[mine], "control"))
 			and ListProfile.score(markers, "aerial") > ListProfile.score(grounds[mine], "aerial"),
 			"Aerial power and Control are different things")
+	# Finishing: the best five forwards' goalkicking, accuracy and marking.
+	var fwds: Array = grounds[mine].filter(func(p): return str(p["role"]) == "FWD")
+	var vals: Array = fwds.map(func(p):
+		return 0.5 * float(p["attr"]["goalkicking"]) + 0.3 * float(p["attr"]["accuracy"]) + 0.2 * float(p["attr"]["marking"]))
+	vals.sort()
+	vals.reverse()
+	var top: Array = vals.slice(0, 5)
+	var want: float = top.reduce(func(a, b): return a + b, 0.0) / float(top.size())
+	_check(is_equal_approx(ListProfile.score(grounds[mine], "finishing"), want),
+			"Finishing is the best five forwards' goalkicking, accuracy and marking")
+	_check(ListProfile.leaders(grounds[mine], "finishing").all(func(p): return str(p["role"]) == "FWD"),
+			"Finishing is led by forwards")
+	# Better kicks for goal lift it to the top; better defenders do not move it.
+	var kickers: Array = _boosted(grounds[mine], ["goalkicking", "accuracy"], 30)
+	var g4 := grounds.duplicate()
+	g4[mine] = kickers
+	_check(_word(ListProfile.profile(g4, mine), "finishing") == "Elite",
+			"Better goalkickers make the Finishing elite")
+	var backs: Array = grounds[mine].map(func(p):
+		var q: Dictionary = p.duplicate(true)
+		if str(q["role"]) == "DEF":
+			q["attr"]["marking"] = float(q["attr"]["marking"]) + 30
+			q["attr"]["goalkicking"] = float(q["attr"]["goalkicking"]) + 30
+		return q)
+	_check(is_equal_approx(ListProfile.score(backs, "finishing"), ListProfile.score(grounds[mine], "finishing")),
+			"Finishing is the forwards' alone: the backs do not move it")
 	# Three strengths are the plans' own definitions, not a parallel system.
 	_check(is_equal_approx(ListProfile.score(grounds[mine], "contest"), PlanFit.score(grounds[mine], "contest"))
 			and is_equal_approx(ListProfile.score(grounds[mine], "pressure"), PlanFit.score(grounds[mine], "defensive"))
