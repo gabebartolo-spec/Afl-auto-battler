@@ -129,6 +129,21 @@ static func moment_line(m: Dictionary) -> String:
 	return "%s: %s" % [str(m.get("title", "")), said]
 
 
+## The calls made in the moment that still matter at the break: resting a
+## tired player (or keeping him out there) and tagging a hot one. A set shot,
+## a centre bounce or a run of goals has played out in the feed already.
+## (A match-up change has its own line, from duel_change_lines.)
+const LASTING_MOMENTS := ["tired", "hot"]
+
+
+static func lasting_moment_lines(res: Dictionary, q: int) -> Array:
+	var out := []
+	for m in res.get("moments", []):
+		if int(m.get("q", 0)) == q and LASTING_MOMENTS.has(str(m.get("kind", ""))):
+			out.append(moment_line(m))
+	return out
+
+
 static func count_word(n: int) -> String:
 	return COUNT_WORDS[n] if n > 0 and n < COUNT_WORDS.size() else str(n)
 
