@@ -154,11 +154,26 @@ static func _danger(opp: String, squad: Squad, lists: Dictionary) -> Dictionary:
 			original = p
 			break
 	var who := GameDB.player_display_name(original)
-	var text := "%s is the danger: the best player in the competition." % who if better == 0 \
-			else "%s is the danger: an elite %s." % [who, Roles.label(original).to_lower()]
+	# "The danger" only when the coach has a move for him; otherwise it is
+	# simply who their best is.
+	var framing := "is the danger" if has_lever(best, squad.ground) else "is their best"
+	var text := "%s %s: the best player in the competition." % [who, framing] if better == 0 \
+			else "%s %s: an elite %s." % [who, framing, Roles.label(original).to_lower()]
 	return {"key": "danger", "text": text,
 			"weight": 3 if better < 5 else 2, "tone": "strong",
 			"player_id": str(original["id"])}
+
+
+## Whether a coach has a direct answer to this opponent on match day: a
+## midfielder can be tagged, and their key forwards get a defender put on
+## them. A rebounding defender or a ruck has no such answer.
+static func has_lever(p: Dictionary, ground: Array) -> bool:
+	if MatchSim.taggable(p):
+		return true
+	for f in Matchups.key_forwards(ground):
+		if str(f.get("id", "")) == str(p.get("id", "")):
+			return true
+	return false
 
 
 ## A run of STREAK or more wins or losses going into the game.

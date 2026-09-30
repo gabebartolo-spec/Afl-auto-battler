@@ -291,6 +291,8 @@ func _phone_match(sz: Vector2i) -> void:
 		_check(rep != null and rep.find_child("MatchRead", true, false) != null
 				and rep.find_child("ReportBest", true, false) != null, "The report opens at a glance (%s)" % tag)
 		var rt := _text(rep)
+		_check(not rt.contains("Opposition danger"),
+				"Their best players are an observation, not a problem to solve (%s)" % tag)
 		_check(not rt.contains("vs par") and not rt.contains("disp (") and not rt.contains("Where the game is being won"),
 				"The short report is words, not a stat dump (%s)" % tag)
 		_check(rep.find_child("FullReportButton", true, false) == null and not rt.contains("Half time:"),

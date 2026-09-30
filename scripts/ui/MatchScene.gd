@@ -1009,7 +1009,7 @@ func _report_glance(report: Dictionary, full_time := false) -> Control:
 	_glance_section(v, "Match read", "MatchRead", g["read"])
 	_glance_people(v, "Your best", "ReportBest", g["best"])
 	_glance_people(v, "Needs a lift", "ReportLift", g["lift"])
-	_glance_people(v, "Opposition danger", "ReportDanger", g["danger"])
+	_glance_people(v, "Their best", "ReportDanger", g["danger"])
 	_glance_section(v, "Worth working on" if full_time else "Second-half notes", "ReportNotes", g["notes"])
 	return v
 
