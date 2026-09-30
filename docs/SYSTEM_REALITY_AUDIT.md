@@ -369,6 +369,14 @@ The same fields for each system.
 
 The home-versus-away lever in the paired probe was mis-built (both arms away) and is not reported. Home ground is classified from code.
 
+## Appendix: repair sprint status
+
+The findings above are kept as found. This appendix records each repair as it lands.
+
+| Finding | Repair | Status |
+|---|---|---|
+| C1: standing plan dropped at the first bounce of a live match | The pre-bounce box (and Skip) read the plan the engine already holds for your side, which is your club plan, so Start without a change keeps it. Behavioural test `run_matchday_tests.gd::_plan_at_first_bounce` drives the live start and reads the engine's own quarter record (`tactics_history`). It fails on the old code (engine: balanced) and passes on the fix. | Fixed, branch `claude/fix-first-bounce-plan` (pending merge) |
+
 ## Appendix: repair sprint status (morale and player form)
 
 - **Morale (§19):** kept as is; the size is reasonable for a whole unhappy side (−6.0 ± 1.5) and small for one player. It is now legible: the profile adds "It's lifting his footy" (85+), "It's taking a little off his footy" (40–64) or "It's costing him on the field" (under 40) to the mood word, in the same direction as `ClubLife.form`. No numbers. A test ties the wording to the sign and size of the engine nudge. Status: WORKING, now legible.
