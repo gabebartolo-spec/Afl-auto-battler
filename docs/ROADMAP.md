@@ -531,9 +531,15 @@ The match screen's momentum meter was display-only: the screen computed its own 
   `test_match_visual.gd`: the meter shows the engine's value and nothing of its own.
 
 ### Audit repair sprint (2026-09-29, from `docs/SYSTEM_REALITY_AUDIT.md`)
-**Status:** `IN PROGRESS`. Repairs land in dependency order, each as its own PR, and are recorded in the audit's appendix.
-- **A. Live-match plan reset (P0):** the plan you take into a live match is the plan at the first bounce. Branch `claude/fix-first-bounce-plan`.
-- **B.** Test-harness silent skips. **C.** Moment-card consequences. **D.** Tagging trade-off. **E.** Plan ecosystem, Through stars and plan copy. **F.** Morale, form and the coaching-tactics effect. **G.** Lower-severity findings. *(Not started.)*
+**Status:** `DONE` (merged 2026-09-30). Each repair is recorded, with its measurements, in the audit's appendix.
+- **A. Live-match plan reset (P0):** the plan you take into a live match is the plan at the first bounce, proven by driving the live start. PR #104.
+- **B. Test harness:** every suite has a check floor, deliberate skips say so, and a self-test proves missing checks fail the run. PR #106.
+- **C. Moment cards:** calls last a real passage of play and are situational (surge v hold, set-shot choices). PR #105.
+- **D. Tagging:** a real trade. A specialist tagger on their star is worth close to a goal; a good midfielder sent to tag, or a tag on an ordinary player, costs you. The AI tags only with a specialist on the ground. PR #108.
+- **E. Plans:** Balanced is the safe call, counters are sized to one or two goals, and list fit decides whether a plan pays. Through stars goes through your best three. Each plan has one description, written from the engine. PR #110.
+- **F. Morale, form and coaching:** the profile says what morale is doing; "Form" is now "Recent games"; coaching tactics sharpen a plan's upside, measurably but secondarily. PRs #107 and #111.
+- **G. Loose ends:** the coach table is built before a live week's other matches, and dead code is gone. The AI's tactical read is measured and recorded as low-impact. PR #109.
+- **Open, for the director:** a valuable AI read would have to infer your plan from observed play (no psychic AI); Controlled tempo's list-fit split is unclear; "Fire them up" is still a free gain.
 
 ### Playtest test
 For each important decision, verify the player can answer:
@@ -3084,6 +3090,7 @@ Hold this idea for the eventual MRO/tribunal design work. Do not implement it me
 # 10. Roadmap Maintenance Log
 
 - **2026-09-30:** Clarified AI parity as a global design rule: AI must never be psychic. It may infer and react to observable/scouted information, but must not read hidden player choices or concealed simulation state to counter the player.
+- **2026-09-30:** Audit repair sprint (A–G) merged in #104–#111; statuses and measurements are in the audit appendix.
 
 - **2026-09-29:** Merged PR #102 (real Momentum) and PR #103 (System Reality Audit). ARD-M4-010 and §1.12 are now DONE. The Current Execution Queue now starts with a user-review hold on the audit repair pass, led by the live-match plan reset and other measured no-op/questionable systems.
 
