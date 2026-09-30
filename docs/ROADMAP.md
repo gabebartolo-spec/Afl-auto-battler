@@ -2126,6 +2126,47 @@ Diagnose the model-level cause. **Do not special-case or manually nerf Bodhi Uwl
 - Measure before/after top-30 composition across deterministic seeds and check that any weighting change does not create a new age, position or potential monoculture.
 
 
+
+## ARD-M5-013 — Potential ceiling semantics audit
+**Status:** `TODO`  
+**Priority:** `P1`  
+**Autonomy:** `BALANCE-GATED`
+
+### Trigger
+Phone playtesting after the first season shows several players with **OVR above displayed POT** (for example Jordan Sweet 76 OVR / 70 POT, Zac Bailey 75 / 73, Karl Amon 73 / 70, Ryan Lester 70 / 63). This is currently possible by design, but the presentation reads as contradictory: if POT means “the overall rating a player can grow into”, a player already above it makes POT look wrong or secretly dynamic.
+
+### Current implementation reality
+- `Potential.assign()` creates a seeded POT intended to be stable for that player.
+- Natural off-season growth pulls toward POT and stops once the gap closes.
+- Rival XP spending explicitly stops at POT.
+- **The user's manual training does not stop at POT**; `_spend_with_weights(..., stop_at_pot=false)` may push OVR above it, with `Potential.training_multiplier()` making post-POT training 50% more expensive.
+- Rating-formula migrations can also lift POT alongside a recalculated OVR on load so old saves do not become internally inconsistent, but ordinary in-career training does not raise POT.
+
+So OVR > POT is **expected under the current rules**, not necessarily a save corruption bug. The problem is whether those rules and the word “Potential” are the right design.
+
+### Audit question
+Decide what POT should mean in a long-save dynasty game before changing numbers. The user's current preference is that POT should remain **stable/static**, but development should have enough bounded uncertainty/headroom that careers do not feel pre-written.
+
+Compare at least these models with multi-season evidence:
+1. **Hard static ceiling:** OVR cannot exceed POT. Simple and legible, but risks making development deterministic once POT is visible.
+2. **Static expected ceiling + bounded overachievement:** POT stays fixed as the player's expected peak, while exceptional development/training can exceed it by a small, explicitly bounded amount. If used, the UI wording must make clear that POT is a projection rather than a hard maximum.
+3. **Mutable POT:** development events change the ceiling itself. This is currently *not preferred* because it makes the displayed number unstable and can turn “potential” into a second OVR, but include it in the audit as a control rather than assuming it is forbidden.
+
+Questions to measure:
+- How often and by how many OVR points do user-trained players currently exceed POT?
+- Does the player-only ability to train past POT create an unfair long-save advantage over AI clubs, which currently stop at POT?
+- Do low-POT veterans become artificially improvable simply because the user can spend enough XP?
+- How much unpredictability is needed so a 70 POT prospect can still have a memorable breakout without making POT meaningless?
+- Should POT remain directly visible, become a range/qualitative estimate, or be renamed if it is an expected ceiling rather than a maximum? Avoid adding uncertainty UI unless it materially improves decisions.
+
+### Acceptance
+- POT has one consistent, player-understandable meaning across draft, list, training, contracts and trade value.
+- OVR > POT is either impossible, or deliberately rare/bounded and clearly explained by that meaning.
+- User and AI development obey equivalent ceiling/headroom rules unless an explicit difficulty rule says otherwise.
+- Multi-season development distributions remain plausible: young high-upside players improve meaningfully, late bloomers/breakouts remain possible, veterans do not become endlessly trainable, and league OVR does not inflate.
+- Save/load and rating-formula migrations preserve the chosen semantics.
+- Add regression coverage for below-POT growth, at-POT behaviour, any allowed overachievement, age decline and AI/player parity.
+
 # M6 — Coaching, Board & List Management
 
 Goal: strengthen the management loop around the football.
@@ -2419,6 +2460,73 @@ Additional acceptance:
 - qualifying departures can generate correctly ordered compensation picks based materially on the accepted contract;
 - the Free agents tab can be sorted by OVR, POT and Age;
 - after signing/rejecting/negotiating with a player midway down the list, the user remains at approximately the same scroll position instead of being thrown back to the top.
+
+### Trade market redesign — picks, asset value and club strategy
+The current Trade tab is a prototype rather than a credible AFL trade market. Phone playtesting exposed several linked problems:
+- only players can be traded; **draft picks and future picks are absent**;
+- each side is arbitrarily capped at **two players**;
+- tapping any player rebuilds the screen and jumps the user back to the top, making package construction unpleasant;
+- the AI can accept implausible consolidation trades. A concrete example: Adelaide accepted **Jordan Sweet + Ryan Lester for Arki Butler (72 OVR / 92 POT)** even though Sweet was a worse ruck than Adelaide's existing option and Lester was an old defender near the end of his career. A rebuilding/neutral real club should not surrender an elite young asset merely because two lesser player values add up;
+- the current need bonus only counts how many players of a role remain (`RUCK < 3`, etc.). It does **not** ask whether the incoming ruck is actually better than the club's existing rucks, so a worse player can receive a positional-need premium.
+
+#### Tradable assets
+Support AFL-style packages containing:
+- players;
+- the club's **current-year National Draft selections**;
+- tradable **future National Draft selections**;
+- combinations of any of the above on either side.
+
+Remove the hard-coded `pick up to 2` asset limit. Do not replace it with another arbitrary two-item cap; allow realistic multi-asset packages while keeping the phone UI manageable.
+
+Every tradable asset must have a **numerical trade value** used consistently by the trade engine and inspectable enough that the player can understand why a deal is close or far apart. This is a decision aid, not salary=value:
+- player trade value should include current football ability, age/career runway, POT/upside, recent/previous-season form and production, injury/availability and durability context, role scarcity/list fit, contract salary **and remaining term**, and relevant honours only insofar as they represent football value;
+- salary can raise or lower trade attractiveness depending on whether the contract is good or burdensome; it must never be the player's whole value;
+- draft-pick value should be based on pick/round and expected draft position, with future picks valued from the originating club's projected range with uncertainty rather than pretending a future first is already an exact number;
+- a package of two mediocre/old assets must not automatically equal one elite young cornerstone simply because raw values add. Apply a credible **consolidation/star premium** or equivalent nonlinear rule so the side giving up the best asset needs a reason to do so.
+
+Do not expose a giant spreadsheet. A compact `Trade value` number per selected asset/package is acceptable because the user has explicitly requested numerical asset values, but keep the primary interaction football-readable.
+
+#### Draft-pick ownership and AFL future-pick rules
+Implement actual pick ownership as persistent career state: year + round/selection identity + originating club + current owner. Traded picks must flow into the correct National Draft order and remain owned after save/reload.
+
+Research and model the current AFL men's future-pick framework rather than inventing a generic sports rule. **As of the 2025 rule change, clubs may trade selections from the current National Draft and the following two National Drafts.** The official AFL framework also retains protections including the rolling requirement to use at least **two first-round selections in four years**; trading first-round selections requires board approval; and the furthest future year has additional first-vs-second/third-round holding restrictions. Re-verify the current official AFL rules when implementing in case they change, then encode the football rule itself rather than hard-coding a one-season-only approximation. Board approval can be treated as an eligibility rule rather than pointless confirmation busywork.
+
+The current career begins in 2027, so in a 2027 trade period the normal asset horizon should be the 2027, 2028 and 2029 National Drafts if the contemporary rule is unchanged.
+
+#### Club list-management phase / strategy
+AI trade value must depend on what the club is trying to do, using only its own public/roster information — never hidden user intent.
+
+Give each club a simple, recalculated list-management phase such as:
+- **Rebuilding:** materially values high/current and future draft picks plus elite young/high-POT players; is reluctant to trade premium youth for established older stars; may move veterans for picks/youth.
+- **Building/rising:** values a mixture of young core and targeted established needs.
+- **In the premiership window / contending:** places less marginal value on future picks and is more willing to trade good picks/youth depth for established players who improve the best 22 now.
+
+Derive this from evidence such as recent ladder/expectation, list quality, age profile, elite-young core and competitive trajectory. Do not assign permanent hand-authored personalities. Recalculate as careers evolve.
+
+A club's position need must be **quality-aware**, not only headcount-aware. If a club already owns a better ruck, receiving an inferior ruck should not get a generic need premium just because it has fewer than three players tagged RUCK.
+
+#### Trade fairness / long-save exploit audit
+Treat the Sweet + Lester → Arki Butler acceptance as a concrete regression case. Audit repeated attempts to acquire elite young players/high picks using bundles of older/middling players. The long-save game must resist the familiar management-sim exploit where the human consolidates junk into stars every off-season and becomes unbeatable after a few years.
+
+Acceptance:
+- the Butler example is rejected absent substantial additional premium value;
+- elite young/high-POT players and premium picks are genuinely expensive, especially to rebuilding clubs;
+- contenders can rationally pay picks for established stars;
+- rebuilders can rationally sell veterans for picks/youth;
+- a worse player at an already-strong position does not receive a fake need premium;
+- trade difficulty may change how hard a fair deal is to close, but cannot make obviously irrational deals acceptable;
+- repeated long-save AI-vs-user trade probes do not let the user turn low-value bundles into a superteam.
+
+#### Trade UI / navigation
+Rebuild the trade interaction around **selected packages**, not two enormous full-list dumps:
+- compact selected-assets summary for `You give / You get`;
+- browse/add players and picks with useful sort/filter controls;
+- clear package value and concise acceptance feedback;
+- confirmation before committing a completed trade;
+- preserve the current club, package selection **and vertical scroll position** whenever the UI rebuilds after adding/removing an asset. The current `_pick_grid()` calls `_build()` on every tap, which recreates the ScrollContainer and repeatedly throws the user back to the top.
+
+The same scroll-preservation rule now applies across Contracts, Free agents and Trade.
+
 
 ---
 
