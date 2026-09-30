@@ -31,6 +31,7 @@ func run() -> void:
 	_test_hot_player_moment()
 	_test_matchups()
 	_test_in_match_injuries()
+	_test_run_call_once_a_run()
 	_test_current_club_identity()
 	_test_tag_ends_with_injury()
 	_test_match_story()
@@ -1070,6 +1071,33 @@ func _test_tag_ends_with_injury() -> void:
 	_check(str(sim.tactics[0].get("tag_id", "")) == "", "The tag on him ends when he goes off")
 	sim.set_tactics(0, {"gameplan": "balanced", "tag_id": id})
 	_check(str(sim.tactics[0].get("tag_id", "")) == "", "He cannot be tagged at the next break")
+
+
+## A run of goals against brings one call a run, not one a goal: the fourth
+## and fifth goals of the same run ask nothing new; a new run can.
+func _test_run_call_once_a_run() -> void:
+	var sim := _sim(4500, "MEL", "CAR")
+	sim.moment_side = 0
+	sim.current_quarter = 2
+	var ready := func() -> void:
+		sim.pending_moment = {}
+		sim._moments_this_q = 0
+		sim._last_moment_chain = sim._chain_no - 100
+	var calls := 0
+	# Their goals 3, 4, 5 in a row: one run.
+	for g in [3, 4, 5]:
+		ready.call()
+		(sim.team_stats[1] as Dictionary)["goals"] = float(g)
+		sim._run = [0, g]
+		if sim._boundary_moment() and str(sim.pending_moment.get("kind", "")) == "momentum":
+			calls += 1
+	_check(calls == 1, "Three, four, five in a row: one call for the run (%d)" % calls)
+	# You kick one; then they kick three more: a new run, a new call.
+	ready.call()
+	(sim.team_stats[1] as Dictionary)["goals"] = 8.0
+	sim._run = [0, 3]
+	_check(sim._boundary_moment() and str(sim.pending_moment.get("kind", "")) == "momentum",
+			"A new run after you score can bring the call again")
 
 
 func _test_in_match_injuries() -> void:
