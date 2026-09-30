@@ -441,7 +441,11 @@ func _show_coach_box() -> void:
 		sc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(sc)
 		v.add_child(UiKit.spacer(UiKit.GAP))
-		v.add_child(UiKit.section("What's happening"))
+		# The quarter just played, by name: what happened, not what is happening.
+		var played := UiKit.section(str({2: "First quarter", 3: "Second quarter",
+				4: "Third quarter"}.get(q, "Last quarter")))
+		played.name = "QuarterHeading"
+		v.add_child(played)
 		v.add_child(_quarter_view(q - 1))
 		var did := MatchNotes.calls_lines(_res, _my_side, q - 1) \
 				+ MatchNotes.duel_change_lines(_res, _my_side, q - 1)
