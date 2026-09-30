@@ -346,7 +346,18 @@ func _on_skip() -> void:
 
 func _close_moment() -> void:
 	if _moment_overlay != null and is_instance_valid(_moment_overlay):
-		_moment_overlay.queue_free()
+		if _moment_overlay.has_meta("scene") and not _skipping:
+			# Cut back to the match: the scene fades out over play resuming.
+			var leaving := _moment_overlay
+			leaving.name = "MomentLeaving"
+			leaving.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			for c in leaving.find_children("*", "Control", true, false):
+				(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var tw := leaving.create_tween()
+			tw.tween_property(leaving, "modulate:a", 0.0, 0.3)
+			tw.tween_callback(leaving.queue_free)
+		else:
+			_moment_overlay.queue_free()
 	_moment_overlay = null
 
 
@@ -724,6 +735,9 @@ func _show_moment() -> void:
 	_close_moment()
 	_pitch.pause()
 	var m: Dictionary = GameState.pending_sim.pending_moment
+	if str(m.get("kind", "")) == "bounce":
+		_show_bounce_moment(m)
+		return
 	# Sized for its few lines, not the whole phone.
 	var box := UiKit.modal_box(self, 560.0, 440.0)
 	_moment_overlay = box["overlay"]
@@ -748,6 +762,74 @@ func _show_moment() -> void:
 		var d := UiKit.lbl(str(o.get("detail", "")), 12, UiKit.MUTED)
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(d)
+
+
+## The late centre-bounce call as a scene (ARD-M8-007 prototype): the match
+## cuts to a close-up of that stoppage, the players set up, the ball goes up
+## and it freezes; the call slides up over the frozen scene; the choice cuts
+## back to the match. The options and what they do are MatchSim's; the scene
+## only shows the state of the match.
+func _show_bounce_moment(m: Dictionary) -> void:
+	var overlay := UiKit.cover(self)
+	overlay.color = Color(0, 0, 0, 0)
+	overlay.name = "MomentCard"
+	overlay.set_meta("scene", true)
+	_moment_overlay = overlay
+	var vignette := StoppageVignette.new()
+	vignette.name = "StoppageVignette"
+	overlay.add_child(vignette)
+	vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vignette.setup(GameState.pending_sim, _my_side, str(m.get("title", "")))
+	# The call, held below the screen until the scene freezes.
+	var margin := MarginContainer.new()
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(margin)
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var hold := UiKit.vbox(0)
+	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_child(hold)
+	var spacer := Control.new()
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hold.add_child(spacer)
+	var panel := UiKit.panel(UiKit.PANEL, 14)
+	panel.name = "BounceCall"
+	hold.add_child(panel)
+	var call := UiKit.vbox(6)
+	panel.add_child(call)
+	for f in vignette.facts:
+		var fl := UiKit.lbl(str(f), UiKit.BODY, UiKit.TEXT, true)
+		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		call.add_child(fl)
+	var text := UiKit.lbl(str(m.get("text", "")), UiKit.SMALL, UiKit.MUTED)
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	call.add_child(text)
+	var buttons: Array = []
+	var options: Array = m.get("options", [])
+	for i in range(options.size()):
+		var o: Dictionary = options[i]
+		var b := UiKit.btn(str(o.get("label", "")), 16, i == 0)
+		b.name = "Moment_%d" % i
+		b.custom_minimum_size = Vector2(0, 46)
+		b.disabled = true
+		b.pressed.connect(_on_moment_choice.bind(i))
+		call.add_child(b)
+		buttons.append(b)
+		var d := UiKit.lbl(str(o.get("detail", "")), 12, UiKit.MUTED)
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		call.add_child(d)
+	panel.modulate.a = 0.0
+	margin.add_theme_constant_override("margin_bottom", -600)
+	vignette.ready_for_call.connect(func() -> void:
+		for b in buttons:
+			if is_instance_valid(b):
+				b.disabled = false
+		if not is_instance_valid(margin):
+			return
+		panel.modulate.a = 1.0
+		var tw := margin.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.tween_method(func(v: float) -> void: margin.add_theme_constant_override("margin_bottom", int(v)),
+				-600.0, 0.0, 0.3))
 
 
 func _on_moment_choice(i: int) -> void:
