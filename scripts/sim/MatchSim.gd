@@ -436,6 +436,28 @@ func behinds(side: int) -> int:
 	return int(float(team_stats[side].get("behinds", 0.0)))
 
 
+## The club a player represents in this match: the side whose list he is on,
+## never p["club"], which can be his source club (a league re-draft, a trade).
+func club_of(p: Dictionary) -> String:
+	if _side_of.is_empty():
+		for side in range(squads.size()):
+			var sq: Squad = squads[side]
+			for q in sq.list + sq.ground + sq.bench:
+				_side_of[str(q["id"])] = side
+	var id := str(p.get("id", ""))
+	if _side_of.has(id):
+		return _side_club(int(_side_of[id]), p)
+	return str(p.get("club", ""))
+
+
+var _side_of := {}       # player id -> the side he plays for today (club_of)
+
+
+func _side_club(side: int, p: Dictionary) -> String:
+	var code := str((squads[side] as Squad).code)
+	return code if code != "" else str(p.get("club", ""))
+
+
 func _emit(kind: String, side: int, fp: float, actor, text: String) -> void:
 	events.append({
 		"q": current_quarter,
@@ -446,7 +468,7 @@ func _emit(kind: String, side: int, fp: float, actor, text: String) -> void:
 		"name": "" if actor == null else GameDB.player_display_name(actor),
 		"player_id": "" if actor == null else str(actor.get("id", "")),
 		"num": 0 if actor == null else int(actor["num"]),
-		"club": "" if actor == null else str(actor["club"]),
+		"club": "" if actor == null else club_of(actor),
 		"text": text,
 		"score": [score(0), score(1)],
 		"goals": [goals(0), goals(1)],
@@ -501,11 +523,12 @@ const ONE_PCT_ROLES := {"DEF": 1.0, "RUCK": 0.5, "MID": 0.3, "FWD": 0.1}
 func _weighted_roles(group: Array, key: String, roles: Dictionary, power := 2.0, side := -1, purpose := ""):
 	if group.is_empty():
 		return null
+	var ctx := _pick_ctx(side) if side >= 0 else {}
 	var weights := []
 	for p in group:
 		var w: float = float(roles.get(str(p["role"]), 0.0)) * pow(maxf(1.0, _a(p, key)), power)
 		if side >= 0:
-			w *= _tactic_player_mult(side, p, purpose)
+			w *= _tactic_player_mult(side, p, purpose, ctx)
 		weights.append(w)
 	return _pick(group, weights)
 
@@ -515,19 +538,39 @@ func _weighted_roles(group: Array, key: String, roles: Dictionary, power := 2.0,
 func _weighted(group: Array, key: String, power := 2.0, side := -1, purpose := ""):
 	if group.is_empty():
 		return null
+	var ctx := _pick_ctx(side) if side >= 0 else {}
 	var weights := []
 	for p in group:
 		var w: float = pow(maxf(1.0, _a(p, key)), power)
 		if side >= 0:
-			w *= _tactic_player_mult(side, p, purpose)
+			w *= _tactic_player_mult(side, p, purpose, ctx)
 		weights.append(w)
 	return _pick(group, weights)
 
 
-func _tactic_player_mult(side: int, p: Dictionary, purpose: String) -> float:
+## What _tactic_player_mult needs that is the same for every player in one
+## pick - the focus, the tags, the plan. Worked out once a pick, not once a
+## player (finding the tagger walks the whole ground). Pure: no dice.
+func _pick_ctx(side: int) -> Dictionary:
+	var their_tag := _tag_id(1 - side)
+	var tagger_id := ""
+	if _tag_id(side) != "":
+		var tagger = tagger_for((squads[side] as Squad).ground)
+		if tagger != null:
+			tagger_id = str(tagger["id"])
+	var plan := _plan(side)
+	return {"focus": _focus_id(side), "their_tag": their_tag,
+			"tag_share": _tag_share(1 - side) if their_tag != "" else 1.0,
+			"tagger": tagger_id, "stars": plan == "through_stars",
+			"star_ball": _pv(side, "star_ball") if plan == "through_stars" else 1.0}
+
+
+func _tactic_player_mult(side: int, p: Dictionary, purpose: String, ctx: Dictionary = {}) -> float:
+	if ctx.is_empty():
+		ctx = _pick_ctx(side)
 	var out := 1.0
 	var id := str(p["id"])
-	var focused := id == _focus_id(side)
+	var focused := id == str(ctx["focus"])
 	# "transition" is a carry in the middle of the ground (pick_carrier).
 	var carrying := purpose == "carrier" or purpose == "transition"
 	# The wings run the ball through the middle and are not at the stoppage.
@@ -548,15 +591,13 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String) -> float:
 	# A Crumber lives at the feet of the pack: he is there when it spills.
 	if purpose == "crumb" and _trait(p, "crumber"):
 		out *= CRUMBER_AT_FEET
-	if id == _tag_id(1 - side) and taggable(p) and (carrying or purpose == "shooter" or purpose == "crumb"):
-		out *= _tag_share(1 - side)
+	if id == str(ctx["their_tag"]) and taggable(p) and (carrying or purpose == "shooter" or purpose == "crumb"):
+		out *= float(ctx["tag_share"])
 	# Our tagger is playing the man, not the ball.
-	if carrying and _tag_id(side) != "":
-		var tagger = tagger_for((squads[side] as Squad).ground)
-		if tagger != null and str(tagger["id"]) == id:
-			out *= TAGGER_BALL
-	if _plan(side) == "through_stars" and (stars[side] as Dictionary).has(id):
-		out *= _pv(side, "star_ball")
+	if carrying and id == str(ctx["tagger"]):
+		out *= TAGGER_BALL
+	if bool(ctx["stars"]) and (stars[side] as Dictionary).has(id):
+		out *= float(ctx["star_ball"])
 	if carrying:
 		out *= _usage_mult(p, focused)
 	return out
@@ -778,10 +819,11 @@ func _pick_presser(side: int, zone: int):
 	var w: Dictionary = PRESS_ZONES[zone]
 	var group: Array = (squads[side] as Squad).ground
 	var weights := []
+	var ctx := _pick_ctx(side)
 	for p in group:
 		weights.append(float(w.get(str(p["role"]), 0.0))
 				* pow(maxf(1.0, _a(p, "pressure")), 2.0)
-				* _tactic_player_mult(side, p, "tackler"))
+				* _tactic_player_mult(side, p, "tackler", ctx))
 	return _pick(group, weights)
 
 
@@ -1704,7 +1746,7 @@ func rosters() -> Array:
 				"name": GameDB.player_display_name(p), "role": str(p["role"]),
 				# "role" is the slot he filled today; this is his own position.
 				"list_role": str(p.get("own_role", p["role"])),
-				"club": str(p["club"]), "overall": int(p["overall"]),
+				"club": _side_club(side, p), "overall": int(p["overall"]),
 				# Presentation only: the view puts the named wings on the wings.
 				"line": str(p.get("line", "")),
 			})
@@ -2013,7 +2055,7 @@ func _swap(side: int, gi: int, bi: int) -> void:
 	events.append({
 		"q": current_quarter, "min": current_minute, "kind": "sub", "side": side, "fp": fp,
 		"name": GameDB.player_display_name(on_slot), "player_id": str(on["id"]),
-		"num": int(on["num"]), "off_num": int(off["num"]), "club": str(on.get("club", "")),
+		"num": int(on["num"]), "off_num": int(off["num"]), "club": _side_club(side, on),
 		"text": "Interchange: %s on for %s" % [GameDB.player_display_name(on_slot),
 				GameDB.player_display_name(off)],
 		"score": [score(0), score(1)], "goals": [goals(0), goals(1)],

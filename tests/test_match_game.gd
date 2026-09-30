@@ -31,6 +31,7 @@ func run() -> void:
 	_test_hot_player_moment()
 	_test_matchups()
 	_test_in_match_injuries()
+	_test_current_club_identity()
 	_test_tag_ends_with_injury()
 	_test_match_story()
 	_test_traits_surfaced()
@@ -1012,6 +1013,37 @@ func _test_matchups() -> void:
 
 ## Injuries happen during the match: the player goes off for good, the bench
 ## covers him, and the list records the same injury afterwards.
+## A player's club in a match is the side he plays for today, never the
+## source club still on his record (a league re-draft, a trade): no club
+## that is not playing can appear beside a name in the feed or box score.
+func _test_current_club_identity() -> void:
+	var moved := []
+	for p in GameDB.club_list("MEL"):
+		var q: Dictionary = p.duplicate(true)
+		q["club"] = "WBD"
+		moved.append(q)
+	var stray := []
+	var injuries := 0
+	for i in range(12):
+		var sim := MatchSim.new(Squad.new("MEL", moved, true, "MEL"),
+				Squad.new("CAR", GameDB.club_list("CAR"), false, "CAR"), 3300 + i)
+		var res := sim.run()
+		for ev in res["events"]:
+			var c := str(ev.get("club", ""))
+			if c != "" and c != ["MEL", "CAR"][int(ev.get("side", 0))] and not ["MEL", "CAR"].has(c):
+				stray.append("%s %s" % [str(ev["kind"]), c])
+			if str(ev["kind"]) == "injury":
+				injuries += 1
+		for side in range(2):
+			for r in res["roster"][side]:
+				if str(r["club"]) != ["MEL", "CAR"][side]:
+					stray.append("roster " + str(r["club"]))
+	_check(stray.is_empty(), "Every name in the match carries the club he plays for today (%s)" % str(stray.slice(0, 3)))
+	_check(injuries > 0, "The sample includes injuries, whose lines once named a stale club")
+	var line := MatchNotes.story_feed_line({}, {"kind": "injury", "name": "Tim English", "club": "MEL", "on": ""})
+	_check(line.contains("(%s)" % GameDB.club_short("MEL")), "The injury line reads the match club (%s)" % line)
+
+
 ## A tagged player hurt and gone off takes the tag with him: the tagging side
 ## keeps no hidden tag, and he cannot be tagged again.
 func _test_tag_ends_with_injury() -> void:

@@ -382,8 +382,8 @@ The current phone playtest has exposed a core-loop problem more important than f
 - **St Kilda club code cleanup — `SKN` → `STK`:** the repository currently hard-codes St Kilda as `SKN` in `data/clubs.csv`, `GameDB.CLUB_ORDER`, the player datasets/history and therefore football-facing result rows. There is no good presentation reason for `SKN`; use the conventional **`STK`** abbreviation everywhere the user sees or reasons about club codes. Treat this as a data-key migration, not a one-line label patch: update canonical club/data keys and every dependent reference, and provide a save migration/alias so existing careers containing `SKN` continue to load correctly rather than losing St Kilda lists, history, fixtures or records. Acceptance: all new careers/data use `STK`; no user-facing screen emits `SKN`; an existing save made with `SKN` loads into the same St Kilda state under `STK`; tests cover fixture/list/history/save migration.
 - **Player role-allocation / draft-position distribution audit — REOPEN:** Gryan Miers is being labelled **Wing** in the user's list even though the source data explicitly lists him as `FWD`, and his real football role is a pure small/creative forward rather than a wing or pressure-forward. **Bodhi Uwland is also being treated as a Key defender despite being a 188 cm medium/rebounding defender who can take lockdown jobs but is not a key-position defender.** Code inspection shows both primary-role and subtype problems. `Ratings.derive_all()` chooses the primary role largely from season-stat role scores, then only applies two hard-coded forward corrections; a player read as `MID` can receive `FWD` only as a secondary role, and `Roles.is_wing()` can then mislabel him from stat shape. Separately, defender subtype classification currently ignores height/size entirely: `PlayerProfile.player_type()` picks between training archetypes, where **Key defender = intercept 3 + pressure 2** and **Rebounding defender = carry 3 + intercept 2**. That means a medium defender with strong intercept/one-percent/pressure numbers can become a 'Key defender' simply because he is less of a ball carrier. Do **not** fix these with one-off Miers/Uwland overrides alone. Re-audit the whole role classifier against football reality and source listed positions, especially MID↔FWD, MID↔DEF, and defender subtypes. Audit whether the current binary Key/Rebounding defender labels are themselves too coarse; a medium/general/lockdown identity may be needed if it better describes real usage, but prefer the smallest model that avoids false key-position labels. Measure source `real_pos` vs derived primary/secondary roles across the full 2026 pool; manually inspect representative archetypes (small forwards/creative forwards, key forwards, rebounding defenders, medium/lockdown defenders, true key defenders, genuine wings, inside mids); quantify draft-pool counts and match-day coverage by role before and after any change. Source listed position, height and actual football usage should be meaningful evidence, with stats used to refine dual-role capability/archetype rather than casually overwriting an unambiguous football role. Preserve legitimate dual-role players. Acceptance: Gryan Miers is a forward; Bodhi Uwland is not labelled Key defender; true key defenders require credible key-position evidence rather than merely high intercept/pressure; known pure forwards/defenders are not routinely converted into midfielders because of disposal volume; genuine wings such as Harvey Langford remain distinguishable from inside mids/forwards; the league draft has a plausible supply of FWD and DEF options without artificial quota stuffing; and regression tests cover representative named and archetypal cases.
 - **Form streak colour bug:** in the hub/form string (for example `Form: Poor · LLWL`), wins should be visually distinguished from losses. Render `W` in the positive/green result colour while losses remain in the loss/negative colour; preserve accessibility/legibility and do not rely on colour alone if the surrounding UI ever removes the W/L letters. Acceptance: a mixed streak such as `LLWL` clearly shows the `W` in green/positive colour without changing the text content. **Status:** fixed and merged in PR #122.
-- **Android battery / thermal audit:** phone playtesting is draining battery and heating the device far more than expected for the game's visual complexity. Treat this as a profiling task before optimisation. Measure power-relevant behaviour separately on an idle hub/menu, a paused match, a live match at 1x, and accelerated playback. Record actual FPS/refresh rate, CPU frame time, render frame time, draw/redraw frequency, active `_process` callbacks/timers, and whether the app continues doing meaningful work while visually idle. Concrete leads already visible in the repo: `project.godot` does not set an explicit FPS cap / low-processor mode, so a high-refresh Android display may be rendering far more frames than the game needs; `PitchView.gd` calls `set_process(true)` and its `pause()` only flips `playing = false`, so its per-frame callback continues while paused even when little is changing. These are audit leads, not assumed root causes. Compare a sensible capped rate (for example 60 fps, and lower when static if Godot permits cleanly) against current behaviour without degrading match readability or touch response. Acceptance: identify the dominant battery/thermal costs with measurements, eliminate unnecessary idle/per-frame work, and verify the game no longer keeps the phone hot or burns disproportionate battery during a normal play session. Do not trade simulation correctness for battery life.
-- **Round simulation / Play match performance regression audit:** phone playtesting reports that **Sim round takes far too long**, and the delay after tapping **Play match** appears to get progressively worse as the season advances. Profile this by phase and by season round before optimising: benchmark cold-device runs at R1/R6/R12/R18/R24 for (a) `prepare_interactive_match`, (b) one background `Season.simulate`, (c) a full `Season.play_round`, (d) rival XP/training + `_after_round`, and (e) autosave/serialization; repeat after a long/hot session to separate state-growth from Android thermal throttling. A concrete architectural cost is already visible: `prepare_interactive_match()` synchronously simulates **every other match in the round before the user's MatchSim is even created**, so tapping Play match blocks on roughly eight full background simulations. Background `Season.simulate()` also runs the full `MatchSim.run()` path, which generates rich match state/events intended for watched/reviewed games even though most rival matches only need their result and stats. Audit whether a non-visual/background mode can suppress presentation-only event/log work while preserving identical football outcomes and award/training stats. Also inspect any season-length-dependent scans/allocations (including `club_form()` walking accumulated results) and save growth. Acceptance: Play match gives immediate transition feedback and reaches the user's match without waiting unnecessarily for unrelated fixtures; Sim round has a measured target suitable for phone use; R24 is not materially slower than R1 except for justified bounded work; background fast-sim produces the same seeded scores/player/team stats needed by the career; and no optimisation changes balance or RNG outcomes.
+- **Android battery-drain audit:** phone playtesting reports that the game drains the phone battery much faster than expected while it is open. **The user did not report abnormal device heating**, so do not treat thermal behaviour as an observed symptom. Profile power-relevant behaviour before optimisation: compare an idle hub/menu, a paused match, a live match at 1x, and accelerated playback. Record actual FPS/refresh rate, CPU frame time, render frame time, draw/redraw frequency, active `_process` callbacks/timers, and whether the app continues doing meaningful work while visually idle. Concrete leads already visible in the repo: `project.godot` does not set an explicit FPS cap / low-processor mode, so a high-refresh Android display may be rendering far more frames than the game needs; `PitchView.gd` calls `set_process(true)` and its `pause()` only flips `playing = false`, so its per-frame callback continues while paused even when little is changing. These are audit leads, not assumed root causes. Compare a sensible capped rate (for example 60 fps, and lower when static if Godot permits cleanly) against current behaviour without degrading match readability or touch response. Acceptance: identify the dominant sources of unnecessary power draw, eliminate avoidable idle/per-frame work, and verify materially lower battery consumption during a normal play session. Do not trade simulation correctness for battery life.
+- **Round simulation / Play match performance regression audit:** phone playtesting reports that **Sim round takes far too long**, and the delay after tapping **Play match** appears to get progressively worse as the season advances. Profile this by phase and by season round before optimising: benchmark cold-device runs at R1/R6/R12/R18/R24 for (a) `prepare_interactive_match`, (b) one background `Season.simulate`, (c) a full `Season.play_round`, (d) rival XP/training + `_after_round`, and (e) autosave/serialization; repeat after a long continuous session to distinguish season-state growth from other sustained-runtime effects. **Do not assume thermal throttling from the user's report; heating was not reported.** A concrete architectural cost is already visible: `prepare_interactive_match()` synchronously simulates **every other match in the round before the user's MatchSim is even created**, so tapping Play match blocks on roughly eight full background simulations. Background `Season.simulate()` also runs the full `MatchSim.run()` path, which generates rich match state/events intended for watched/reviewed games even though most rival matches only need their result and stats. Audit whether a non-visual/background mode can suppress presentation-only event/log work while preserving identical football outcomes and award/training stats. Also inspect any season-length-dependent scans/allocations (including `club_form()` walking accumulated results) and save growth. Acceptance: Play match gives immediate transition feedback and reaches the user's match without waiting unnecessarily for unrelated fixtures; Sim round has a measured target suitable for phone use; R24 is not materially slower than R1 except for justified bounded work; background fast-sim produces the same seeded scores/player/team stats needed by the career; and no optimisation changes balance or RNG outcomes.
 - **Vignette playtest reachability problem — BLOCKER FOR THIS PLAYTEST:** the current centre-bounce prototype is still not appearing in organic phone playtests. This now includes a match decided in the final minute, which is strong evidence that the issue may be more than simple rarity. The nominal trigger is a centre bounce in Q4 after 100 match minutes with the margin within 12 points, but `_moment_ready()` also gates moments behind the per-quarter moment cap / chain gap and `_boundary_moment()` checks other moment types first. Audit whether competing Q4 moments, `MAX_MOMENTS_Q`, `MOMENT_GAP`, trigger ordering, or centre-bounce state can make the vignette effectively unreachable even in close finishes. Do not ask for further organic vignette testing until it is deliberately reachable. For prototype validation, add a temporary/manual playtest trigger or otherwise guarantee one vignette opportunity in a normal test match without changing MatchSim's underlying football outcome. Acceptance: a tester can deliberately reach the vignette in one match without needing a lucky close finish; add targeted coverage proving the vignette can actually fire through the real MatchScene flow; production frequency must be reconsidered separately after the scene passes the phone-playtest gate.
 - **Pre-match loading beat / vignette opportunity:** pressing “Play match” currently appears to freeze for several seconds while the match scene/state loads, which feels like the app has stalled. Cover that unavoidable wait with an immediate lightweight transition/loading beat in football language, e.g. “Warming up”, “Running through the banner”, “Final instructions”, rather than a generic spinner. Consider this a natural place for a short pre-match vignette (players warming up, entering through the banner, coaches' box, crowd/ground establishing shot) that hides loading and builds match-day atmosphere. Guardrail: do not add a heavy animation that makes load time worse; the visual must appear immediately and remain skippable/non-blocking where practical. Acceptance: after tapping Play match, the user gets instant feedback that the game is progressing, never a dead/frozen screen, and the transition feels like part of match day rather than a loading screen.
 - **Opposition danger with no player lever:** the assistant can identify an opponent as a major danger (for example, Bodhi Uwland dominating from defence) while the player has no available tactical action that can plausibly reduce that player's influence. This makes the report informative but not actionable and undermines the core decision loop. Do **not** solve this by making every opponent universally taggable. Diagnose danger by role and ensure that when the game elevates a player as an actionable threat, at least one football-appropriate counter exists in the current decision set (for example a forward matchup/run-with role against a rebounding defender, changing who is played through, or another role-specific response). If there is genuinely no direct lever, phrase it as an observation rather than a problem the user is expected to solve. Acceptance: “Opposition danger” never presents a player-specific tactical problem with zero plausible player response; any added counter has a real, measurable trade-off and uses the same non-psychic information available to the user.
@@ -1044,6 +1044,27 @@ Open a compact quick-sim menu:
 
 ---
 
+
+### Temporary playtest affordance — one-tap Sim to finals
+**Status:** `TEMPORARY TEST TOOL`
+
+For the current post-season/off-season playtest cycle, expose a visible **Sim to finals** button on the regular-season Hub so the user can reach the finals/post-season quickly without long-pressing Quick sim or manually advancing rounds.
+
+This should **reuse the existing quick-sim-to-end-of-home-and-away path** rather than create a second simulation route:
+- one tap simulates the remaining home-and-away rounds;
+- it must stop **before the first finals week**;
+- it must still stop if the user is sacked or another existing hard stop occurs;
+- it must preserve the same match results, injuries, awards, XP, board effects and save behaviour as the normal quick-sim path;
+- after arriving at the finals, normal finals controls take over so the user can test the post-season flow.
+
+Keep this deliberately lightweight and easy to delete. It is a **testing convenience, not a permanent UX commitment**. Mark the control/comment clearly enough that it can be removed once post-season testing is no longer the active focus.
+
+Acceptance:
+- from Round 1 or any later home-and-away round, one tap reaches the end of H&A without entering the finals;
+- no duplicate sim logic is introduced;
+- the resulting ladder/finals bracket is identical to using the existing `quick_sim(-1)` path;
+- the temporary button can be removed later without touching simulation code.
+
 ## ARD-M1-008 — Full Ratings mobile layout
 **Status:** `DONE`  
 **Merged:** PR #54 as `5b93a40`; verified on main 2026-09-28 (full suite green).  
@@ -1641,8 +1662,8 @@ Trigger frequency, choice diversity, no repeated spam, deterministic resolution 
 
 ---
 
-## ARD-M4-002 — Defensive / forward match-ups
-**Status:** `DONE`  
+## ARD-M4-002 — Key match-ups
+**Status:** `DONE / FOLLOW-UP TODO`  
 **Merged:** PR #96 as `26d34a2`; key forward/defender assignments are selectable, play out in named contests, can be changed during matches, and AI can rematch.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
@@ -1654,6 +1675,28 @@ Trigger frequency, choice diversity, no repeated spam, deterministic resolution 
 
 ### Guardrails
 Do not create 18 individual matchup controls. Focus on meaningful key assignments.
+
+### Follow-up — broaden “key match-ups” beyond forward vs defender
+The current implementation is too narrow if “key match-ups” effectively means only a key forward against a key defender.
+
+Treat **Key match-ups** as the handful of contests that shape the game, which may include:
+- **Ruck battle:** the two primary rucks, especially where tap quality / hit-outs to advantage / clearances make the contest strategically important.
+- **Star midfielder battle:** opposing elite mids, or a star mid against the player assigned to run with/tag him. This does **not** have to mean a literal fixed one-on-one all game; it can be presented as who is influencing the stoppages/contest more.
+- **Key forward vs key defender:** the existing direct assignment model.
+- **Interceptor vs opposition forward structure:** an elite intercept defender whose influence comes from reading play and leaving his direct opponent rather than simply winning one-on-one contests.
+
+The pre-match and live-match presentation should surface only the genuinely important contests for that fixture. A “key matchup” may therefore be:
+- a direct assignment,
+- a positional duel such as ruck vs ruck,
+- or an influence battle such as star midfielder vs star midfielder.
+
+Do not imply every highlighted matchup is a hard man-on-man assignment. The point is to help the player understand **where the game is being won or lost**, not to create eighteen pairing controls.
+
+Acceptance:
+- a match can surface a ruck duel or midfield-star battle as a key matchup even when no forward/defender assignment is involved;
+- direct defender assignments remain explicit when they exist;
+- live and post-match matchup commentary uses the correct type of contest rather than pretending every matchup is one-on-one;
+- the system still surfaces only a few high-value contests, not a full positional matrix.
 
 ---
 
@@ -1684,9 +1727,31 @@ Support concepts such as:
 - extra number at stoppage,
 - seventh-defender-type positioning.
 
+### Interceptor role — roam the backline as the spare
+Support a deliberate instruction for a **Jake Lever-style interceptor**: a defender who is given licence to leave his nominal opponent, track the ball, attack aerial contests and hunt intercept possessions/marks across the backline.
+
+This should be a real structural choice, not a flat intercept-stat buff:
+- nominate an appropriate defender as the roaming interceptor / spare;
+- weight his involvement toward opposition entries, aerial contests, intercept possessions and intercept marks;
+- reduce his strict one-on-one accountability to a single forward;
+- the cost is structural: somebody else must absorb the opponent he leaves, the defence can be exposed if the ball gets through him, and the side gives up something elsewhere by keeping a spare/loose player behind the ball;
+- suitability should come from relevant football traits/attributes such as intercept ability, marking, reading play/positioning and defensive quality — not simply OVR or height;
+- a genuine lockdown defender and a roaming interceptor should feel meaningfully different even if both are high-quality defenders;
+- opposition AI can use the same role when its personnel and game state justify it.
+
+The roaming interceptor should also be eligible to appear as a **key matchup / opposition danger** even though he is not assigned to one forward. If he is controlling the air, the player should have football-appropriate counters available (for example changing forward structure, making him accountable, lowering/altering entries, or moving the spare), rather than being told he is a danger with no response.
+
 Do not literally create an extra player. Moving numbers to one area must reduce presence elsewhere.
 
 Prefer situational/live choices before adding permanent micromanagement.
+
+Acceptance:
+- an elite interceptor can materially influence opposition entries without being hard-matched to one forward;
+- his impact shows up through real intercept/spoil/mark events, not a hidden blanket modifier;
+- using him loose creates a measurable trade-off elsewhere;
+- the role can be changed/removed during a match;
+- AI parity applies;
+- post-match reporting can explain that the spare/interceptor controlled the backline when the event data supports it.
 
 ---
 
@@ -3395,8 +3460,10 @@ Includes:
 
 ## E. Match-ups & Accountability
 Includes:
-- defensive assignments,
-- forward match-ups,
+- key forward / key defender assignments,
+- ruck duels,
+- star-midfielder influence battles / tags,
+- roaming interceptor / spare-defender influence,
 - tagging trade-offs.
 
 ## F. History & Records

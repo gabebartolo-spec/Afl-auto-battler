@@ -489,6 +489,7 @@ func _run() -> void:
 	# --- back after coming back: hub -> My list -> Training -> back -> back ----
 	# Router.back() used to leave the screen it returned to on the stack twice,
 	# so the next back stayed put (My list's back arrow "did nothing").
+	_state.my_list[0]["club"] = "COL" if _state.my_club != "COL" else "GEE"
 	_router.go("list")
 	await _settle()
 	_router.go("training")
@@ -497,6 +498,18 @@ func _run() -> void:
 	await _settle()
 	_check(_router.current() == "list" and _router.stack.count("list") == 1,
 			"Back returns to My list without stacking it twice")
+	# Everyone on My list wears your club's colours, whatever club he came
+	# from (a league re-draft leaves his source club in p["club"]).
+	current_scene.set("_pane", "list")
+	current_scene.call("_build")
+	await _settle()
+	var mine_col: Color = (root.get_node("GameDB").club_colours(_state.my_club) as Array)[0]
+	var guernseys: Array = current_scene.find_children("Guernsey", "PanelContainer", true, false)
+	var all_ours := not guernseys.is_empty()
+	for g in guernseys:
+		var g_sb := (g as PanelContainer).get_theme_stylebox("panel") as StyleBoxFlat
+		all_ours = all_ours and g_sb != null and g_sb.bg_color.is_equal_approx(mine_col)
+	_check(all_ours, "My list: every guernsey is your club's (%d rows)" % guernseys.size())
 	var list_back: Button = current_scene.find_child("TopBarBack", true, false)
 	_check(list_back != null, "My list has a back arrow")
 	if list_back != null:

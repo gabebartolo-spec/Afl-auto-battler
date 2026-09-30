@@ -145,8 +145,7 @@ func _full_list_panel() -> Control:
 
 func _team_row(p: Dictionary, ground: bool) -> Control:
 	var h := UiKit.hbox(6)
-	var cols: Array = GameDB.club_colours(str(p["club"]))
-	h.add_child(UiKit.chip(str(p["num"]), cols[0]))
+	h.add_child(_guernsey(p))
 	var nm := UiKit.lbl(GameDB.player_display_name(p), 13, UiKit.TEXT if ground else UiKit.MUTED)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -159,6 +158,19 @@ func _team_row(p: Dictionary, ground: bool) -> Control:
 	h.add_child(UiKit.line("/%d" % int(p.get("potential", p["overall"])), 11,
 			UiKit.GOOD if bool(p.get("rehab", false)) else UiKit.MUTED))
 	return h
+
+
+## His number on your club's guernsey: everyone on this list plays for you,
+## whatever club he came from (p["club"] can be his source club after a
+## league re-draft).
+func _guernsey(p: Dictionary) -> PanelContainer:
+	var cols: Array = GameDB.club_colours(GameState.my_club)
+	var chip := UiKit.chip(str(p["num"]), cols[0])
+	chip.name = "Guernsey"
+	var sb := UiKit.style(cols[0], 4, 4, cols[1])
+	sb.set_border_width_all(2)
+	chip.add_theme_stylebox_override("panel", sb)
+	return chip
 
 
 ## One player in one line: guernsey, name, who he is (type, age, height),
@@ -181,8 +193,7 @@ func _list_row(p: Dictionary) -> Control:
 	h.offset_right = -2
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(h)
-	var cols: Array = GameDB.club_colours(str(p["club"]))
-	var num := UiKit.chip(str(p["num"]), cols[0])
+	var num := _guernsey(p)
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	num.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	# One width for every guernsey, so the names line up.
