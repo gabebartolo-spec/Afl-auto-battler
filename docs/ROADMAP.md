@@ -2429,6 +2429,17 @@ Acceptance:
 
 Split into smaller authorised subphases when started.
 
+
+### Contract/off-season copy cleanup
+Phone playtesting exposed awkward/dehumanising wording at the top of Trades & Contracts: **“Anything you leave undecided is re-signed for two seasons if the cap allows.”** “Anything” appears to refer to players/contracts and reads strangely.
+
+Use human, football-specific language. Preferred direction:
+- **“Any out-of-contract players you leave undecided will be re-signed for two seasons if the cap allows.”**
+- or a shorter equivalent such as **“Undecided out-of-contract players will be re-signed for two seasons if the cap allows.”**
+
+Audit nearby off-season transactional copy for the same problem: refer to **players, contracts, offers, picks and trades** explicitly rather than vague object-language like “anything”, “done”, or generic system wording where a football term would be clearer.
+
+Acceptance: the screen reads naturally to a footy fan, never describes players as generic objects, and preserves concise mobile copy without becoming wordy.
 ### Free-agent offers, compensation and browsing
 The same negotiation standard applies to **external free agents**, not only the user's own expiring players. The current Free agents tab presents `Sign 1 yr / Sign 2 yr / Sign 3 yr` buttons and immediately executes `GameState.sign_free_agent()` at the fixed asking salary. A free agent cannot reject, counter or compare the offer with any market alternative. That makes a major list acquisition feel like buying an item from a shop.
 
