@@ -53,8 +53,8 @@ static func _value(p: Dictionary, weights: Dictionary) -> float:
 	return v
 
 
-## The players who carry `plan` in this side, best first ([] for a plan with
-## no needs, such as Balanced or Through stars).
+## The players who carry `plan` in this side, best first: for Through stars
+## the best three by overall ([] for Balanced).
 static func carriers(ground: Array, plan: String) -> Array:
 	if plan == "through_stars":
 		var best := ground.duplicate()
@@ -147,6 +147,20 @@ static func standing_plan(ground: Array) -> String:
 
 
 ## How the side's carriers for `plan` compare with the league, in words.
+## How far a side's best three stand above the rest, in words (Through stars).
+static func stars_word(ground: Array) -> String:
+	var e := edge(ground, "through_stars")
+	if e >= 1.2:
+		return "far above the rest"
+	if e >= 0.4:
+		return "well above the rest"
+	if e > -0.4:
+		return "above the rest, as most sides' are"
+	if e > -1.2:
+		return "not far above the rest"
+	return "barely above the rest"
+
+
 static func fit_word(ground: Array, plan: String) -> String:
 	var e := edge(ground, plan)
 	if e >= 1.2:

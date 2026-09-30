@@ -81,7 +81,9 @@ func _test_tactics() -> void:
 	var sharp := sim._pv(0, "goal")
 	sq.tactics_exec = 0.89
 	var blunt := sim._pv(0, "goal")
-	_check(is_equal_approx(base, 1.10) and sharp > base and blunt < base and sharp <= 1.10 + 0.10 * 0.15 + 0.0001,
+	var written := float(MatchSim.PLANS["attacking"]["goal"])
+	_check(is_equal_approx(base, written) and sharp > base and blunt < base
+			and sharp <= written + (written - 1.0) * 0.15 + 0.0001,
 			"A plan is executed better or worse, within 15%% of how it is written (%.3f / %.3f / %.3f)" % [blunt, base, sharp])
 	sq.tactics_exec = 1.15
 	_check(is_equal_approx(sim._pv(0, "clangers"), 1.0 + 0.12 * 1.15), "Its costs bite harder too: no free lunch")

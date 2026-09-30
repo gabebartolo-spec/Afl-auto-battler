@@ -34,6 +34,7 @@ func run() -> void:
 	_test_match_story()
 	_test_traits_surfaced()
 	_test_momentum()
+	_test_through_stars()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -1125,3 +1126,42 @@ func _test_momentum() -> void:
 			last = int(ev["side"])
 	var share := float(same) / float(maxi(1, pairs))
 	_check(share < 0.56, "Momentum does not snowball: the scorers kick the next goal %.0f%% of the time" % (100.0 * share))
+
+
+## Through stars goes through the side's best three: they see more of the
+## ball and kick more goals, and how much it gives follows how far they
+## stand above the rest (PlanFit), not a fixed rating line.
+func _test_through_stars() -> void:
+	var probe := _sim(40)
+	var stars: Array = (probe.stars[0] as Dictionary).keys()
+	var best := PlanFit.carriers((probe.squads[0] as Squad).ground, "through_stars")
+	_check(stars.size() == 3 and best.size() == 3 and stars.has(str(best[0]["id"])),
+			"Through stars goes through the side's best three")
+	var d_on := 0.0
+	var d_off := 0.0
+	var g_on := 0.0
+	var g_off := 0.0
+	var n := 20
+	for i in range(n):
+		var on := _sim(760 + i)
+		on.set_tactics(0, {"gameplan": "through_stars"})
+		var r_on := on.run()
+		var r_off := _sim(760 + i).run()
+		for id in stars:
+			d_on += float((r_on["players"] as Dictionary).get(str(id), {}).get("disposals", 0.0))
+			d_off += float((r_off["players"] as Dictionary).get(str(id), {}).get("disposals", 0.0))
+			g_on += float((r_on["players"] as Dictionary).get(str(id), {}).get("goals", 0.0))
+			g_off += float((r_off["players"] as Dictionary).get(str(id), {}).get("goals", 0.0))
+	_check(d_on > d_off + 2.0 * n, "Through stars: the best three see more of the ball (%.1f v %.1f a game)" % [d_on / n, d_off / n])
+	_check(g_on > g_off, "...and kick more goals (%.2f v %.2f a game)" % [g_on / n, g_off / n])
+	# The further the best three stand above the rest, the more it gives.
+	var rows := []
+	for code in GameDB.active_clubs(2027):
+		var g: Array = Squad.new(code, GameDB.club_list(code), false, code).ground
+		rows.append([PlanFit.score(g, "through_stars"), PlanFit.fit(g, "through_stars")])
+	rows.sort_custom(func(a, b): return float(a[0]) < float(b[0]))
+	var ordered := true
+	for i in range(1, rows.size()):
+		ordered = ordered and float(rows[i][1]) >= float(rows[i - 1][1])
+	_check(ordered and float(rows[rows.size() - 1][1]) > 1.1 and float(rows[0][1]) < 0.9,
+			"Through stars suits a side whose stars stand out (fit %.2f to %.2f)" % [float(rows[0][1]), float(rows[rows.size() - 1][1])])
