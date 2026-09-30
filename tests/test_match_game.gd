@@ -1245,6 +1245,22 @@ func _test_tag_tradeoff() -> void:
 	var tagger: Dictionary = MatchSim.tagger_for((_sim(5, without, opp).squads[0] as Squad).ground)
 	var t_on := 0.0
 	var t_off := 0.0
+	var g_on := 0.0
+	var g_off := 0.0
+	var n := 20
+	for i in range(n):
+		var on := _sim(900 + i, without, opp)
+		on.set_tactics(0, {"tag_id": str(star["id"])})
+		var r_on := on.run()
+		var r_off := _sim(900 + i, without, opp).run()
+		t_on += float((r_on["players"] as Dictionary).get(str(star["id"]), {}).get("disposals", 0.0))
+		t_off += float((r_off["players"] as Dictionary).get(str(star["id"]), {}).get("disposals", 0.0))
+		g_on += float((r_on["players"] as Dictionary).get(str(tagger["id"]), {}).get("disposals", 0.0))
+		g_off += float((r_off["players"] as Dictionary).get(str(tagger["id"]), {}).get("disposals", 0.0))
+	_check(t_on < t_off - 2.0 * n, "Tagged, their star sees much less of it (%.1f v %.1f a game)" % [t_on / n, t_off / n])
+	_check(g_on < g_off - 1.0 * n, "...and so does the midfielder who tags him (%.1f v %.1f a game)" % [g_on / n, g_off / n])
+
+
 ## Through stars goes through the side's best three: they see more of the
 ## ball and kick more goals, and how much it gives follows how far they
 ## stand above the rest (PlanFit), not a fixed rating line.
@@ -1260,16 +1276,6 @@ func _test_through_stars() -> void:
 	var g_off := 0.0
 	var n := 20
 	for i in range(n):
-		var on := _sim(900 + i, without, opp)
-		on.set_tactics(0, {"tag_id": str(star["id"])})
-		var r_on := on.run()
-		var r_off := _sim(900 + i, without, opp).run()
-		t_on += float((r_on["players"] as Dictionary).get(str(star["id"]), {}).get("disposals", 0.0))
-		t_off += float((r_off["players"] as Dictionary).get(str(star["id"]), {}).get("disposals", 0.0))
-		g_on += float((r_on["players"] as Dictionary).get(str(tagger["id"]), {}).get("disposals", 0.0))
-		g_off += float((r_off["players"] as Dictionary).get(str(tagger["id"]), {}).get("disposals", 0.0))
-	_check(t_on < t_off - 2.0 * n, "Tagged, their star sees much less of it (%.1f v %.1f a game)" % [t_on / n, t_off / n])
-	_check(g_on < g_off - 1.0 * n, "...and so does the midfielder who tags him (%.1f v %.1f a game)" % [g_on / n, g_off / n])
 		var on := _sim(760 + i)
 		on.set_tactics(0, {"gameplan": "through_stars"})
 		var r_on := on.run()
