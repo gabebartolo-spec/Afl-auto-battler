@@ -39,7 +39,7 @@ const PLAN_SUMMARY := {
 	"attacking": "Go through the corridor: more ground and better shots, but more turnovers, heavier legs, and they score more on the rebound. The better your runners, the more it gives. Beats Controlled tempo; a Defensive press squeezes it.",
 	"defensive": "Press up the ground: harder to score against, but fewer numbers forward and heavier legs. The more pressure players you have, the more it bites. Beats Attack corridor; Controlled tempo plays through it.",
 	"contest": "Numbers at the stoppage: win more of the clearances, but the ball moves a little slower and you are a little exposed on the rebound. Leans on your ball-winners and ruck.",
-	"controlled": "Keep the ball: fewer errors, less rattled by pressure and fresher legs, but less ground gained. Plays through a Defensive press; Attack corridor runs past it.",
+	"controlled": "Keep the ball: fewer errors, less rattled by pressure and fresher legs, but less ground gained. Asks nothing special of your list. Plays through a Defensive press; Attack corridor runs past it.",
 	"through_stars": "Go through your best three: they see more of the ball and finish better, with fewer errors, but they know where it's going and the pressure comes. Worth more the further they stand above the rest.",
 	"fast": "Go through the corridor: more ground and better shots, but more turnovers, heavier legs, and they score more on the rebound.",
 	"press": "Press up the ground: harder to score against, but fewer numbers forward and heavier legs.",

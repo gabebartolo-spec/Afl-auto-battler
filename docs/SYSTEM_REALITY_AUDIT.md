@@ -589,3 +589,41 @@ Branch `claude/test-floors` (pending merge; stacked on the first-bounce fix, who
   - Result: −1.7 ± 1.4 for the sharp group, indistinguishable from nothing.
   - **Status: WORKING (behaviour), LOW-IMPACT on results, recorded rather than tuned.** A sharper read reacts sooner, but reacting to the scoreboard is not itself worth points.
   - Making the read valuable would mean the AI working out your plan and countering it. Under the no-psychic-AI rule (ROADMAP, 2026-09-30) it could only infer your plan from what it can observe in the match, never read it. That is a design question for the director, not a repair.
+
+## Appendix: audit leftovers (Controlled tempo, AI tactical read)
+
+**Controlled tempo list fit: incoherent design, not noise or a code bug.**
+
+Ablation (paired, 900 matches each against a Balanced side). Each run keeps one of the plan's effects; the slope is gain against list fit (1 fit unit is about ±3 spreads of kicks and marks):
+
+| Effect kept | Gain | Slope against fit |
+|---|---|---|
+| All (as shipped) | +0.7 ± 1.4 | +0.2 ± 4.5 |
+| Pressure relief | +3.9 ± 1.2 | −0.2 ± 4.1 |
+| Fewer clangers | +0.9 ± 1.1 | −3.5 ± 3.8 |
+| Fresher legs | +1.0 ± 1.1 | −4.2 ± 3.8 |
+| Metres cost | −3.4 ± 1.3 | −13.4 ± 4.4 |
+
+- **The benefits are skill-blind.** They help an error-prone list most. The fit multiplier only cancelled that out.
+- **The cost bites hardest on good-kicking, good-running lists.**
+- **So "good kicks and marks carry it" was never true.** I tried three ways of routing the benefit through the kicker's disposal. All stayed flat:
+  - retention at the turnover roll: +3.1 ± 4.3;
+  - getting rid of it before the pressure arrives: −5.0 ± 5.4 and +0.3 ± 5.6.
+- The engine has no kicking-under-pressure channel strong enough to carry a list identity. Building one (a kick-target and interception model) is out of scope.
+
+**Repair:** Controlled tempo is honestly list-neutral.
+- No fit (always 1.0) and no carrier line.
+- Its copy says it asks nothing special of your list.
+- Its identity: protect the ball, save legs, play through a press, give up ground.
+- Balance for an average list is unchanged.
+- Three AI clubs lose it as their usual game (BRL and NTH now play Balanced, GCS Win contest). AI sides still switch to it to protect a lead.
+- Test (`test_roles`): fit 1.0 and no carrier line for every club.
+
+**AI tactical read from observed play: deferred (no-go).**
+- An honest read could use only what the AI sees in the match.
+- A plan's observable signature at half time is about 0.3 to 0.5 of a normal game's spread:
+  - Controlled tempo: about 4 fewer clangers a match, and under 2% fewer metres;
+  - Win contest: about +4.6 in the clearance differential;
+  - Defensive press: a modest rise in pressure acts.
+- A simple observer choosing between five plans would be close to chance. A right counter is worth +3 to +12 and a wrong one costs −5 to −10, so acting on the read is worth about nothing.
+- Kept as is: honest, low-impact (scoreboard reactions and the specialist-tagger rule). It never reads your plan.

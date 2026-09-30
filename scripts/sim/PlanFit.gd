@@ -2,9 +2,11 @@ class_name PlanFit
 extends RefCounted
 ## How well a side's players suit each game plan. Every plan leans on a kind
 ## of player: a press on its pressure players, corridor footy on its runners,
-## winning the contest on its ball-winners and ruck, controlled tempo on its
-## good kicks and marks. A plan's upside grows with them; its costs do not
-## (MatchSim._pv), so a plan the list does not suit is a real risk.
+## winning the contest on its ball-winners and ruck. A plan's upside grows
+## with them; its costs do not (MatchSim._pv), so a plan the list does not suit
+## is a real risk. Controlled tempo asks nothing special of a list (fewer
+## errors, fresher legs, less ground for any side): measured, its value does
+## not move with the side's kicks and marks, so it has no fit (always 1.0).
 ##
 ## The same rules pick an AI club's usual plan (standing_plan) and name, for
 ## the player, who in the side makes each plan work (carriers). Pure rules on
@@ -19,8 +21,6 @@ const NEEDS := {
 			"word": "pressure players"},
 	"contest": {"attr": {"contested": 1.0}, "lines": ["MID"], "n": 4, "ruck": true,
 			"word": "ball-winners"},
-	"controlled": {"attr": {"disposal": 0.6, "marking": 0.4}, "lines": ["MID", "FWD", "DEF"],
-			"n": 8, "word": "good kicks and marks"},
 }
 
 ## Where the league sits on each plan's score (mean, spread), from the 2027
@@ -29,7 +29,6 @@ const LEAGUE := {
 	"attacking": [71.3, 3.5],
 	"defensive": [49.8, 2.4],
 	"contest": [80.3, 3.8],
-	"controlled": [62.9, 2.3],
 	# Through stars: how far the side's best three stand above its average.
 	"through_stars": [15.1, 2.3],
 }
