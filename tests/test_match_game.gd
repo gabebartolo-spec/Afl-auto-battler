@@ -34,6 +34,7 @@ func run() -> void:
 	_test_match_story()
 	_test_traits_surfaced()
 	_test_momentum()
+	_test_moment_calls_matter()
 	_test_tag_tradeoff()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -1153,6 +1154,53 @@ func _test_momentum() -> void:
 	_check(share < 0.56, "Momentum does not snowball: the scorers kick the next goal %.0f%% of the time" % (100.0 * share))
 
 
+## A moment card's call changes the football, and which call is right
+## depends on the situation.
+func _test_moment_calls_matter() -> void:
+	# The calls last a passage of play and end at the break.
+	var sim := _sim(8800)
+	sim.moment_side = 0
+	_check(int(MatchSim.BURSTS["surge"]["chains"]) >= 12 and int(MatchSim.BURSTS["hold"]["chains"]) >= 12,
+			"'The next ten minutes' is a passage of play, not two minutes")
+	sim.begin_quarter()
+	(sim.bursts[0] as Dictionary)["surge"] = 15
+	sim.run_quarter()
+	_check((sim.bursts[0] as Dictionary).is_empty(), "A call ends at the break")
+	# Throw numbers at it: more scoring at both ends. Slow it down: less.
+	var totals := {"none": 0.0, "surge": 0.0, "hold": 0.0}
+	for key in totals:
+		for i in range(40):
+			var s2 := _sim(8900 + i, ["GEE", "MEL", "SYD", "ADE"][i % 4], ["COL", "CAR", "BRL", "HAW"][i % 4])
+			while s2.current_quarter <= 4:
+				s2.begin_quarter()
+				if key != "none":
+					(s2.bursts[0] as Dictionary)[key] = 999
+				s2.run_quarter()
+			totals[key] += float(s2.score(0) + s2.score(1))
+	_check(totals["surge"] > totals["none"] * 1.03 and totals["hold"] < totals["none"] * 0.97,
+			"Throwing numbers at it opens the game up and slowing it down closes it (%.0f / %.0f / %.0f a match)" % [
+			totals["surge"] / 40.0, totals["none"] / 40.0, totals["hold"] / 40.0])
+	# Set shots: the best call depends on the shot.
+	var best := {}
+	for i in range(30):
+		var s3 := _sim(9300 + i)
+		s3.moment_side = 0
+		while s3.current_quarter <= 4:
+			s3.begin_quarter()
+			while not s3.continue_quarter():
+				var m := s3.pending_moment
+				if str(m["kind"]) == "set_shot":
+					var top := ""
+					var top_ev := -1.0
+					for o in m["options"]:
+						var ev := 6.0 * float(o.get("goal", 0.0)) + float(o.get("behind", 0.0) if o.has("behind") else (1.0 - float(o.get("goal", 0.0))) * 0.3)
+						if ev > top_ev:
+							top_ev = ev
+							top = str(o["key"])
+					best[top] = int(best.get(top, 0)) + 1
+				s3.resolve_moment(int(m.get("default", 0)))
+			s3.end_quarter()
+	_check(best.size() >= 2, "No set-shot call is always right: the best one changes with the shot (%s)" % str(best))
 ## A tag is a trade: it takes the target out of the midfield battle and costs
 ## you your tagger's own game. Worth it on their star with a specialist; a
 ## loss when a good midfielder has to do the job.
