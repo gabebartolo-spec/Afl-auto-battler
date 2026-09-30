@@ -287,10 +287,17 @@ func _test_full_season() -> void:
 	var known := {}
 	for d in Achievements.DEFINITIONS:
 		known[str(d["id"])] = true
+	# One check each however many unlock: the season is not seeded, and a
+	# check count that moves with it would hide checks that go missing.
+	var unknown := []
+	var unstamped := []
 	for id in GameState.achievements:
-		_check(known.has(str(id)), "Only catalogued achievements unlock (%s)" % str(id))
-		_check(int(GameState.achievements[id].get("year", 0)) == GameDB.START_YEAR,
-				"%s is stamped with the season it unlocked" % str(id))
+		if not known.has(str(id)):
+			unknown.append(str(id))
+		if int(GameState.achievements[id].get("year", 0)) != GameDB.START_YEAR:
+			unstamped.append(str(id))
+	_check(unknown.is_empty(), "Only catalogued achievements unlock (%d unlocked; unknown: %s)" % [GameState.achievements.size(), str(unknown)])
+	_check(unstamped.is_empty(), "Each unlock is stamped with the season it unlocked (%s)" % str(unstamped))
 	# The premier's own premiership-type achievement must have fired.
 	var prem := GameState.premier()
 	var defn := Achievements.definition("")
@@ -301,6 +308,8 @@ func _test_full_season() -> void:
 	if str(defn.get("type", "")) == "premiership":
 		_check(GameState.achievements.has(str(defn["id"])),
 				"The premier's premiership achievement unlocked")
+	else:
+		print("SKIP: the premier (%s) has no premiership achievement to check" % prem)
 	# The whole state survives a save and load.
 	_check(GameState.save_career(), "The career saves")
 	var before := GameState.achievements.duplicate()

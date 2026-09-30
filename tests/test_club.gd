@@ -183,6 +183,8 @@ func _test_event_tradeoffs() -> void:
 	GameState.set_selection({})
 	if int(sulk.get("injury_weeks", 0)) <= 0:
 		_check(ClubLife.morale(sulk) <= before - 12 + 2, "Left out after the talk, it sours (%d -> %d)" % [before, ClubLife.morale(sulk)])
+	else:
+		print("SKIP: he was injured this week, so being left out says nothing")
 	_check(not sulk.has("expects_game"), "The expectation lasts one week")
 	var sulk2: Dictionary = GameState.my_list[27]
 	var mate: Dictionary = GameState.my_list[0]
@@ -348,6 +350,9 @@ func _test_sacking() -> void:
 		GameState.board["confidence"] = 10
 		GameState._board_season_end()
 		_check(GameState.is_sacked(), "A second one and you are sacked")
+	else:
+		print("SKIP: GEE won the flag, so the warning never comes")
+		print("SKIP: GEE won the flag, so the sacking never comes")
 
 
 ## Team form: bounded, saturating, quick to turn, neutral by default, and
@@ -463,8 +468,11 @@ func _test_coaching_hub() -> void:
 	_check(mine.has("from_turnover") and mine.has("conceded_stoppage")
 			and float(mine["from_turnover"]) + float(mine["from_stoppage"]) <= float(mine["for"]) + 0.01,
 			"Where our points come from, both ways, is kept for the season")
+	var odd_lines := []
 	for line in (style["win"] as Array) + (style["beaten"] as Array):
-		_check(str(line).contains("a game") and not str(line).contains("%"), "A style line is football words and a number: %s" % str(line))
+		if not str(line).contains("a game") or str(line).contains("%"):
+			odd_lines.append(str(line))
+	_check(odd_lines.is_empty(), "Every style line is football words and a number (%s)" % str(odd_lines))
 	# Form: last three against his season, only with five games behind him.
 	var some: String = GameState.form_log.keys()[0] if not GameState.form_log.is_empty() else ""
 	_check(some != "" and (GameState.form_log[some]["last"] as Array).size() <= 3,

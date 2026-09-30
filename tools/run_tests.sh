@@ -6,6 +6,16 @@
 #      script error fails even if every check it reached passed
 #   3. the dataset check and the intake/development harness
 #
+# A green suite must mean every check ran:
+#   - suites run on a fixed frame clock (--fixed-fps), so a busy machine
+#     cannot change how far a match plays between two checks;
+#   - every suite has a floor in tests/expected_checks.txt; a suite that
+#     reports fewer checks fails ("checks went missing"), and a suite with no
+#     floor fails until one is added;
+#   - a check a suite skips on purpose prints one "SKIP: <reason>" line per
+#     check; skipped checks count towards the floor, and the summary shows
+#     how many were skipped.
+#
 #   GODOT=/path/to/godot tools/run_tests.sh          # default: godot on PATH
 #   SUITE_TIMEOUT=900 tools/run_tests.sh ai finals   # just some suites
 #
@@ -15,6 +25,10 @@ cd "$(dirname "$0")/.." || exit 1
 
 GODOT="${GODOT:-godot}"
 SUITE_TIMEOUT="${SUITE_TIMEOUT:-900}"
+# The check floors (tools/test_run_tests.sh points this at its own file).
+EXPECTED_CHECKS="${EXPECTED_CHECKS:-tests/expected_checks.txt}"
+# SUITES_ONLY=1 skips the dataset, export and harness steps after the suites.
+SUITES_ONLY="${SUITES_ONLY:-0}"
 ALL_SUITES=(draft draft_ui intake intake_ui expansion finals save chronology career coaches coach_market coach_pathway coach_effects career_ui potential ratings ai training selection matchup matchday roles injuries awards achievements contracts league club match_game pressure match_visual league_balance calibration balance)
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
 
@@ -52,7 +66,7 @@ for suite in "${SUITES[@]}"; do
 	runner="tests/run_${suite}_tests.gd"
 	log="$LOG_DIR/$suite.log"
 	start=$(date +%s)
-	XDG_DATA_HOME="$RUN_DATA" timeout "$SUITE_TIMEOUT" "$GODOT" --headless --path . --script "$runner" > "$log" 2>&1
+	XDG_DATA_HOME="$RUN_DATA" timeout "$SUITE_TIMEOUT" "$GODOT" --headless --fixed-fps 60 --path . --script "$runner" > "$log" 2>&1
 	code=$?
 	secs=$(( $(date +%s) - start ))
 	result=$(grep -E "[0-9]+ checks, [0-9]+ failures" "$log" | tail -1)
@@ -66,6 +80,18 @@ for suite in "${SUITES[@]}"; do
 		status="FAIL"; detail="$result, but a script error stopped part of the suite"
 	else
 		status="pass"; detail="$result"
+	fi
+	# Every check must have run: compare with the suite's floor.
+	ran=$(echo "$result" | grep -oE "[0-9]+ checks" | head -1 | grep -oE "[0-9]+")
+	floor=$(grep -E "^$suite[[:space:]]" "$EXPECTED_CHECKS" 2>/dev/null | awk '{print $2}')
+	skipped=$(grep -c "^SKIP:" "$log")
+	if [ "$status" = pass ] && [ -z "$floor" ]; then
+		status="FAIL"; detail="$result, but $EXPECTED_CHECKS has no floor for '$suite'"
+	elif [ "$status" = pass ] && [ -n "$ran" ] && [ $((ran + skipped)) -lt "$floor" ]; then
+		status="FAIL"; detail="$result, but only $ran of at least $floor checks ran: checks went missing"
+	fi
+	if [ "$skipped" -gt 0 ]; then
+		detail="$detail ($skipped skipped on purpose)"
 	fi
 	printf '%-5s %-11s %4ss  %s\n' "$status" "$suite" "$secs" "$detail"
 	if [ "$status" = FAIL ]; then
@@ -88,6 +114,7 @@ for suite in "${SUITES[@]}"; do
 	summary+=("| $suite | $status | $detail (${secs}s) |")
 done
 
+if [ "$SUITES_ONLY" != 1 ]; then
 echo "== Dataset check"
 if python3 tools/validate_data.py > "$LOG_DIR/validate.log" 2>&1; then
 	summary+=("| validate_data | pass | |")
@@ -116,6 +143,20 @@ else
 	note_error "tools/intake_harness.py failed"
 	failed=1
 	summary+=("| intake_harness | FAIL | see log |")
+fi
+fi
+
+# The harness checks itself: a truncated or unfloored suite must fail.
+if [ "$SUITES_ONLY" != 1 ] && [ "$#" -eq 0 ]; then
+	echo "== Harness self-test"
+	if GODOT="$GODOT" tools/test_run_tests.sh > "$LOG_DIR/harness_selftest.log" 2>&1; then
+		summary+=("| harness_selftest | pass | |")
+	else
+		tail -15 "$LOG_DIR/harness_selftest.log"
+		note_error "tools/test_run_tests.sh: the test runner no longer catches missing checks"
+		failed=1
+		summary+=("| harness_selftest | FAIL | see log |")
+	fi
 fi
 
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
