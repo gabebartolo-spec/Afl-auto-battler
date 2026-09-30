@@ -432,6 +432,28 @@ func behinds(side: int) -> int:
 	return int(float(team_stats[side].get("behinds", 0.0)))
 
 
+## The club a player represents in this match: the side whose list he is on,
+## never p["club"], which can be his source club (a league re-draft, a trade).
+func club_of(p: Dictionary) -> String:
+	if _side_of.is_empty():
+		for side in range(squads.size()):
+			var sq: Squad = squads[side]
+			for q in sq.list + sq.ground + sq.bench:
+				_side_of[str(q["id"])] = side
+	var id := str(p.get("id", ""))
+	if _side_of.has(id):
+		return _side_club(int(_side_of[id]), p)
+	return str(p.get("club", ""))
+
+
+var _side_of := {}       # player id -> the side he plays for today (club_of)
+
+
+func _side_club(side: int, p: Dictionary) -> String:
+	var code := str((squads[side] as Squad).code)
+	return code if code != "" else str(p.get("club", ""))
+
+
 func _emit(kind: String, side: int, fp: float, actor, text: String) -> void:
 	events.append({
 		"q": current_quarter,
@@ -442,7 +464,7 @@ func _emit(kind: String, side: int, fp: float, actor, text: String) -> void:
 		"name": "" if actor == null else GameDB.player_display_name(actor),
 		"player_id": "" if actor == null else str(actor.get("id", "")),
 		"num": 0 if actor == null else int(actor["num"]),
-		"club": "" if actor == null else str(actor["club"]),
+		"club": "" if actor == null else club_of(actor),
 		"text": text,
 		"score": [score(0), score(1)],
 		"goals": [goals(0), goals(1)],
@@ -1700,7 +1722,7 @@ func rosters() -> Array:
 				"name": GameDB.player_display_name(p), "role": str(p["role"]),
 				# "role" is the slot he filled today; this is his own position.
 				"list_role": str(p.get("own_role", p["role"])),
-				"club": str(p["club"]), "overall": int(p["overall"]),
+				"club": _side_club(side, p), "overall": int(p["overall"]),
 				# Presentation only: the view puts the named wings on the wings.
 				"line": str(p.get("line", "")),
 			})
@@ -1985,7 +2007,7 @@ func _swap(side: int, gi: int, bi: int) -> void:
 	events.append({
 		"q": current_quarter, "min": current_minute, "kind": "sub", "side": side, "fp": fp,
 		"name": GameDB.player_display_name(on_slot), "player_id": str(on["id"]),
-		"num": int(on["num"]), "off_num": int(off["num"]), "club": str(on.get("club", "")),
+		"num": int(on["num"]), "off_num": int(off["num"]), "club": _side_club(side, on),
 		"text": "Interchange: %s on for %s" % [GameDB.player_display_name(on_slot),
 				GameDB.player_display_name(off)],
 		"score": [score(0), score(1)], "goals": [goals(0), goals(1)],
