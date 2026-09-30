@@ -441,10 +441,15 @@ func _show_coach_box() -> void:
 		sc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(sc)
 		v.add_child(UiKit.spacer(UiKit.GAP))
-		v.add_child(UiKit.section("What's happening"))
+		# The quarter just played, by name: what happened, not what is happening.
+		var played := UiKit.section(str({2: "First quarter", 3: "Second quarter",
+				4: "Third quarter"}.get(q, "Last quarter")))
+		played.name = "QuarterHeading"
+		v.add_child(played)
 		v.add_child(_quarter_view(q - 1))
 		var did := MatchNotes.calls_lines(_res, _my_side, q - 1) \
-				+ MatchNotes.duel_change_lines(_res, _my_side, q - 1)
+				+ MatchNotes.duel_change_lines(_res, _my_side, q - 1) \
+				+ MatchNotes.lasting_moment_lines(_res, q - 1)
 		if not did.is_empty():
 			v.add_child(UiKit.spacer(UiKit.GAP))
 			v.add_child(UiKit.section("What your calls did"))
@@ -496,7 +501,8 @@ func _show_coach_box() -> void:
 
 	# Tag: their most influential so far first, anyone on the ground a tap away.
 	# A tag is a midfield job: only their midfielders can be tagged.
-	var opp := _roster_side(1 - _my_side).filter(func(r): return MatchSim.taggable(r))
+	# Only players still in the match: the roster keeps anyone hurt and gone.
+	var opp := _roster_side(1 - _my_side).filter(func(r): return _taggable_now(sim, r))
 	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, 4), calls, "tag_id",
 			"Tag which midfielder?")
 	v.add_child(_call_block("Tag", tag))
@@ -598,13 +604,15 @@ func _show_coach_box() -> void:
 func _quarter_view(q: int) -> Control:
 	var v := UiKit.vbox(4)
 	v.name = "QuarterFacts"
+	# The few things that stood out, readable in a glance: no more than
+	# three, their plan kept (it is what the next quarter's calls answer).
+	# Moments already played out in the feed are not replayed here; the
+	# ones that carry on are under "What your calls did".
 	var lines: Array = MatchNotes.quarter_facts(_res, _my_side, q)
 	var opp_last := _opp_last_plan()
 	if opp_last != "" and opp_last != "balanced":
+		lines = lines.slice(0, MatchNotes.MAX_FACTS - 1)
 		lines.append("They played %s." % CoachReport.plan_label(opp_last))
-	for m in _res.get("moments", []):
-		if int(m.get("q", 0)) == q:
-			lines.append(MatchNotes.moment_line(m))
 	if lines.is_empty():
 		lines.append("An even quarter.")
 	for t in lines:
@@ -955,6 +963,10 @@ func _in_the_game(roster: Array, n: int) -> Array:
 	return out.slice(0, n)
 
 
+func _taggable_now(sim: MatchSim, r: Dictionary) -> bool:
+	return MatchSim.taggable(r) and sim.taking_part(1 - _my_side, str(r["id"]))
+
+
 func _roster_side(side: int) -> Array:
 	var roster: Array = _res.get("roster", [[], []])
 	if roster.size() <= side:
@@ -997,7 +1009,7 @@ func _report_glance(report: Dictionary, full_time := false) -> Control:
 	_glance_section(v, "Match read", "MatchRead", g["read"])
 	_glance_people(v, "Your best", "ReportBest", g["best"])
 	_glance_people(v, "Needs a lift", "ReportLift", g["lift"])
-	_glance_people(v, "Opposition danger", "ReportDanger", g["danger"])
+	_glance_people(v, "Their best", "ReportDanger", g["danger"])
 	_glance_section(v, "Worth working on" if full_time else "Second-half notes", "ReportNotes", g["notes"])
 	return v
 

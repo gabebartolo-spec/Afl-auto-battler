@@ -12,6 +12,8 @@ var _hold_fired := false
 var _hold_id := 0
 var _pre_match: PreMatchVignette    # the scene over the wait after Play match
 const HOLD_SECONDS := 0.5
+## How long the pre-match scene runs before the side goes through the banner.
+const PRE_MATCH_SECONDS := 2.6
 
 
 func _ready() -> void:
@@ -131,9 +133,7 @@ func _standing_card() -> Control:
 			UiKit.H2, UiKit.TEXT, true)
 	cv.add_child(title)
 	var form := GameState.club_form_info(GameState.my_club)
-	var form_l := UiKit.lbl(GameState.form_line(form), UiKit.SMALL, _form_colour(float(form["value"])))
-	form_l.name = "FormLine"
-	cv.add_child(form_l)
+	cv.add_child(_form_row(form))
 	var last := _last_match_button()
 	if last != null:
 		cv.add_child(last)
@@ -343,6 +343,27 @@ func _week_section(season: Season) -> Control:
 
 
 ## Team form reads green when good, red when poor, muted when steady.
+## "Form: Poor  ·  LLWL" with each result in its own colour - a win reads
+## as a win inside a poor run - and the letters kept, so colour is never the
+## only signal.
+func _form_row(form: Dictionary) -> Control:
+	var row := UiKit.hbox(0)
+	var last := str(form.get("last", ""))
+	var head := UiKit.line(GameState.form_line(form) if last == "" else
+			GameState.form_line(form).trim_suffix(last), UiKit.SMALL, _form_colour(float(form["value"])))
+	head.name = "FormLine"
+	row.add_child(head)
+	var streak := UiKit.hbox(1)
+	streak.name = "FormStreak"
+	row.add_child(streak)
+	for ch in last:
+		var col := UiKit.GOOD if ch == "W" else (UiKit.BAD if ch == "L" else UiKit.MUTED)
+		var l := UiKit.line(ch, UiKit.SMALL, col, true)
+		l.name = "Result_%s" % ch
+		streak.add_child(l)
+	return row
+
+
 func _form_colour(f: float) -> Color:
 	if f >= 0.25:
 		return UiKit.GOOD
@@ -365,7 +386,15 @@ func _week_actions(season: Season) -> Control:
 		buttons.append(_nav_button("Team", func(): Router.go("selection")))
 		buttons.append(_nav_button("Sim %s" % _finals_label(), _on_sim_round, true))
 	elif _upcoming_match().is_empty():
-		buttons.append(_nav_button("Sim to Grand Final", _on_sim_to_end, true))
+		# Out of the finals, the league still plays them week by week: each
+		# week's results come up before the next, and the rest of the series
+		# is one tap further if you would rather skip it.
+		var skip := _nav_button("Sim to Grand Final", _on_sim_to_end)
+		skip.name = "SimToGrandFinal"
+		buttons.append(skip)
+		var week := _nav_button("Sim %s" % _finals_label(), _on_sim_round, true)
+		week.name = "SimFinalsWeek"
+		buttons.append(week)
 	else:
 		buttons.append(_nav_button("Pick the side", func(): Router.go("selection")))
 		buttons.append(_nav_button("Play match", _on_play_match, true))
@@ -476,9 +505,9 @@ func _on_play_match() -> void:
 		return
 	if _pre_match != null:
 		return
-	# The pre-match scene goes up in this frame, before any of the wait: the
-	# round's other matches are simulated a frame apart underneath it, and
-	# the side runs through the banner as soon as the match is ready.
+	# The pre-match scene goes up in this frame: a couple of seconds of
+	# match day (warm-up, final words, through the banner) while the match
+	# is set up underneath. A tap sends them through the banner at once.
 	var m := _upcoming_match()
 	var mine := GameState.my_club
 	var opp := str(m["away"]) if str(m["home"]) == mine else str(m["home"])
@@ -490,13 +519,13 @@ func _on_play_match() -> void:
 	_pre_match = PreMatchVignette.open(get_tree().root, mine, opp, GameState.my_squad().ground,
 			opp_ground, heading)
 	# Home-and-away rounds and finals both play live with the coach box.
-	var ok: bool = await GameState.prepare_interactive_match_async(_pre_match.set_progress)
-	if not ok:
+	await get_tree().process_frame
+	if not GameState.prepare_interactive_match():
 		_pre_match.get_parent().queue_free()
 		_pre_match = null
 		_on_sim_round()
 		return
-	_pre_match.run_out()
+	_pre_match.play_through(PRE_MATCH_SECONDS)
 	await _pre_match.done
 	Router.go("match")
 

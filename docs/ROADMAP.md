@@ -1,6 +1,7 @@
 # Aussie Rules Dynasties — Canonical Execution Roadmap
 
 _Last reorganised: 2026-09-28_
+_Last sanity-checked: 2026-09-30 after full-season phone playtest_
 
 This file is the **single source of truth** for the project roadmap. It is deliberately written so Claude or another coding agent can read it, select an authorised task, inspect the repo, implement it, validate it, and update the roadmap with minimal extra guidance.
 
@@ -125,14 +126,13 @@ This is the **authoritative near-term work order**. The M1→M8 milestone struct
 
 When this queue conflicts with milestone number, item order, or a generic P1/P2 label, **follow this queue**.
 
-1. **P0 audit repair pass — HOLD for user review.** The System Reality Audit is complete and merged as PR #103. Do not begin repairs until the user explicitly releases this hold. The provisional repair order is: live-match plan reset at first bounce; no-op/near-no-op moment choices; tagging with no team-level consequence; Through stars no measurable effect / plan-balance trap; misleading/incorrect plan copy; hidden morale effect; weak/silent-skipping tests; then lower-severity questionable systems.
-2. **Close the current playtest gate (§1.11).** After the audit repair pass, the next phone playtest is the acceptance check. Any remaining freeze, fake choice, opaque cause/effect or misleading feedback is P0 and jumps the queue.
-3. **Core match agency.** Prioritise ARD-M4-001, M4-003, M4-006 and M4-007. Then M4-004/M4-005 if the simpler live-decision layer proves worthwhile.
-4. **Core football authenticity.** Prioritise ARD-M3-006, M3-007, M3-009 and completion of M3-001/M3-002. Then lower-frequency flavour such as 50m penalties, smothers and speccies.
-5. **Core team management.** Prioritise ARD-M5-001, M5-002, M5-008 and M5-012. Then M5-003/M5-005/M5-006.
-6. **Management depth / long-save substance.** Contracts/trades/free agency, history/records, role/development depth and other systems that make seasons and careers matter.
-7. **Flavour, expansion and release polish.** Rivalries, marquee identity, captaincy, weather, venues, custom prospect, onboarding, long-save QA, app identity and cinematic vignettes belong here unless a release blocker promotes them.
-
+1. **Finish the in-flight easy playtest fixes.** PR #118 (current-club colours on My list) and PR #120 (match-feed current club identity) are still open. Let those land cleanly before starting overlapping work. PR #124 is a stale docs-only status PR and is superseded by the roadmap sanity pass on `main`.
+2. **Close the P0 phone-playtest gate (§1.11).** Residual far-away-player waits, match/Sim-round performance regressions, fake/repetitive choices, misleading feedback and any other core match-flow failure remain ahead of unrelated feature expansion.
+3. **Run the full-season playtest audit batch — Claude owns the final audit.** Prioritise the user-requested measured audits already written in §1.11: How-we-play maturity/actionability, easy-set-shot conversion, AI plan adaptation / Controlled tempo, key-forward vs key-defender balance, Coleman plausibility, sim-score/blowout distribution, autosim-vs-played injury parity, ruck/HTA/clearance relationships, and any other explicit `audit` item recorded there. Measure first; do not tune from one screenshot.
+4. **Draft / role integrity.** Then address ARD-M5-009, M5-012, M5-013 and M5-014 plus ARD-M8-009. This covers role allocation, annual-draft valuation/sliders, POT semantics, coherent list needs, Combine/scouting support and plausible generated names.
+5. **Off-season / list-management depth.** Then run the Board-expectation follow-up (M6-003), coach-market movement audit (M6-002), contracts/trades/free agency (M6-004), and the off-season wrap/new-season launch (M6-007). Do not let major list decisions remain one-tap transactions.
+6. **Post-season payoff and long-save continuity.** Finals follow-through, Grand Final climax, season-story recap, bespoke Brownlow/B&F/AA presentation, records/history and related long-save work come after the core match/draft/list-management correctness above.
+7. **Broader planned football/authenticity and flavour work.** Continue remaining M3/M4/M7/M8 catalogue items only when the higher queue tiers are clear or a dependency explicitly promotes one.
 ### Queue rules
 
 - A newly observed **P0 correctness, soft-lock, fake/no-op mechanic or core-fun failure** jumps ahead of planned feature work.
@@ -143,6 +143,10 @@ When this queue conflicts with milestone number, item order, or a generic P1/P2 
 - When a queue item is completed/merged, update this section so the next task is obvious without interpretation.
 
 ## 0.5 Claude execution contract
+
+### Audit ownership convention
+
+When the user says **audit / investigate / check this**, treat that as a **Claude-owned engineering task**, not merely a note for ChatGPT. ChatGPT may inspect the code first, sharpen the hypothesis, record likely leads and keep the roadmap organised, but **Claude must run the final measured audit, make the implementation diagnosis/recommendation, and report the evidence**. The user remains the final design authority. Do not mark an audit complete solely from ChatGPT's preliminary code read.
 
 For every authorised roadmap task:
 
@@ -361,26 +365,47 @@ The current phone playtest has exposed a core-loop problem more important than f
 ### Observed failures
 - Match simulation can freeze/stall.
 - **Residual far-away receiver / loose-ball wait bug:** phone playtesting still shows occasional pauses where the visualisation waits for a distant predetermined player to reach the ball while nearer players stand off, despite the earlier match-flow repair. Treat this as an unresolved core-flow defect rather than closed work. Capture concrete occurrences and trace whether the delay comes from MatchSim selecting an implausibly distant next actor, MatchDirector/Motion over-honouring a predetermined event actor, or presentation failing to hand the loose ball to a locally plausible contestant. Prefer the smallest fix that preserves MatchSim authority and existing balance; do not silently change football outcomes just to make the animation look smoother. Acceptance: loose-ball sequences no longer visibly stall for a far-away player when a nearby eligible player could plausibly contest/collect, and any unavoidable long run has a football reason visible in the simulation state. Add targeted regression/replay coverage for the previously observed failure pattern.
-- Loose-ball sequences can visibly stop while players wait for a far-away predetermined player to run over and collect the ball instead of nearby players contesting naturally.
-- The watched match therefore feels discontinuous and unlike football.
 - List/selection synergies are opaque enough that the user cannot reliably reason about why a combination should work.
 - Pre-match and in-match choices feel insufficiently informed: the user is often clicking an option and hoping rather than making a football decision from understandable evidence.
 - Results do not provide enough feedback to connect a decision to what subsequently happened, so the player cannot readily learn from wins/losses.
-- **Match-feed club identity bug:** injury lines can show a club that is not playing (for example, `Tim English (Bulldogs)` during Demons–Suns), even when ordinary scoring lines use the player's current in-save club correctly. Fix injury/story feed club labels so they are derived from the player's current match side/list context rather than stale source-data club metadata. Acceptance: moved players always show the club they represent in that match, and no uninvolved club can appear on their injury line; add targeted regression coverage.
-- **Unavailable tag-target bug:** a player who has already been injured out of the match can still appear as a tag target at the next-quarter decision (for example, Jordan Dawson after the feed says he will not return). Tag-target eligibility must come from current match availability/on-ground state, not the pre-match opponent list. Acceptance: injured-off players and anyone else no longer taking part cannot be selected or retained as a tag target; if the current target leaves the match, clear/re-resolve the tag cleanly; add targeted regression coverage.
+- **Match-feed club identity bug:** injury lines can show a club that is not playing (for example, `Tim English (Bulldogs)` during Demons–Suns), even when ordinary scoring lines use the player's current in-save club correctly. Fix injury/story feed club labels so they are derived from the player's current match side/list context rather than stale source-data club metadata. Acceptance: moved players always show the club they represent in that match, and no uninvolved club can appear on their injury line; add targeted regression coverage. **Status:** fix is in open PR #120; not yet merged to `main`.
+- **Unavailable tag-target bug:** a player who has already been injured out of the match can still appear as a tag target at the next-quarter decision (for example, Jordan Dawson after the feed says he will not return). Tag-target eligibility must come from current match availability/on-ground state, not the pre-match opponent list. Acceptance: injured-off players and anyone else no longer taking part cannot be selected or retained as a tag target; if the current target leaves the match, clear/re-resolve the tag cleanly; add targeted regression coverage. **Status:** fixed and merged in PR #121.
 - **Three-game coaching trend gate bug:** after the user has completed three matches, Coaching can still show “After three games, how your side wins and gets beaten shows here.” Diagnose why `GameState.how_we_play()["games"]` is still below 3 or otherwise stale despite three completed user matches. Acceptance: the section unlocks immediately after the third completed match, persists correctly through save/load, and does not depend on unrelated clubs having played a particular number of matches; add targeted regression coverage.
+- **How-we-play data maturity / season-learning audit:** once `How we win / How we get beaten` unlocks after three matches, it can feel effectively fixed for the rest of the season instead of becoming a better read as evidence accumulates. Current code is **not literally frozen**: `_note_form_and_team()` adds every match to `season_team`, and `_style_found()` recomputes per-game differences against the current league average whenever the screen is read. The phone screenshots already show small numeric movement (for example ruck edge 12 → 10 hit-outs, turnover concession 7 → 6), so treat this as a quality/confidence problem rather than a stale-state bug unless testing proves otherwise. Audit whether the same top traits become too sticky after the initial three-game sample, whether early outlier games dominate too long, and whether new evidence can realistically promote/demote/reorder traits. The system should become **more trustworthy, not merely more verbose**, as the season grows. Prefer sample-size-aware thresholds/shrinkage or similarly simple statistical treatment over extra UI; if early-season uncertainty needs copy, keep it minimal (for example an 'early read' treatment rather than confidence bars/numbers). Acceptance: after each match the underlying profile is recomputed from all available season data; early three-game identities are appropriately provisional; materially changing team performance can change which traits are surfaced; stable genuine traits become harder to dislodge as evidence grows; and late-season `How we play` is demonstrably more reliable than the first three-game read. Add deterministic season-progression tests at 3, 6, 12 and 20+ games.
+- **How-we-win / get-beaten actionability and materiality audit:** the current section can surface trivial deviations as if they explain results — e.g. **2 extra points conceded from turnovers** and **1 fewer point scored from turnovers** are shown under `How we get beaten`. Nobody is meaningfully losing because of a three-point combined seasonal tendency, and the output becomes statistical vomit rather than coaching information. Code inspection shows the root cause: `_style_found()` only requires a **7% relative gap** plus an absolute difference rounding to at least 1. On low-baseline stats, a one- or two-point difference can therefore rank as a major trait, and correlated symptoms can stack (`against` plus `conceded_turnover`) without telling the user what to do. Redesign this section around **material, football-addressable problems/opportunities**, not whichever percentages are furthest from league average. Calibrate metric-specific minimum effect sizes from league distributions and match impact rather than one global relative threshold; suppress trivial differences even if percentage-wise large; collapse redundant/correlated lines into one clearer football diagnosis; and prefer leading/process indicators the player can act on (territory, stoppage control, turnover creation/concession, pressure, ball retention, aerial contests) over tiny score-source noise. Do not assert causation the data cannot support: if the section cannot demonstrate a credible reason a tendency contributes to wins/losses, phrase it as a team tendency or omit it. Each surfaced weakness should have at least one existing or planned football lever the player can plausibly use to address it, without recommending an objectively best button. Acceptance: a line such as +1/-2 points per game never appears as a headline win/loss identity merely because its relative percentage is high; the screen shows at most 2–3 genuinely material, non-duplicative traits; each is understandable and actionable in football terms; and seeded season tests show surfaced traits correspond to meaningful differences in outcomes or underlying play.
+- **Recent-games form copy / number-vomit cleanup:** the Coaching `Recent games` section currently says things like **“How his last three games rated against his season so far”**, **“Playing above his season”**, and **“76 over his last three, 53 for the season.”** The pronoun has no clear referent at section level, and the raw numbers are internal `MatchNotes.rating()` scores with no football meaning exposed to the player. This is exactly the kind of number-vomit the UI should avoid. Keep the underlying comparison if it is useful for selection/coaching, but present the conclusion in football language. Prefer simple headers such as **“In good form”** and **“In poor form”** (or similarly concise football wording), list the relevant players, and omit the opaque rating numbers from the primary screen. If supporting context is needed, use a short qualitative line rather than unexplained scores. Acceptance: a player can scan the section and immediately understand who is in/out of form without knowing the Player Rating formula; no dangling `his` copy and no unexplained 76/53-style numbers. **Status:** fixed and merged in PR #117 (`In good form` / `In poor form`, names only).
 - **Match-up narrative consistency bug:** live quarter-break/report messaging and the post-match summary can tell conflicting stories about the same matchup (for example, live play says Jye Amiss is beating Blake Hardwick, while the post-match review says Hardwick's move onto Amiss "turned the contest" / was decisive). A changing matchup is valid, but the game must make the timeline explicit rather than sounding self-contradictory. Audit all live and post-match matchup verdicts so they are derived from the same underlying contest windows and thresholds. Acceptance: if a defender turns a matchup after previously losing it, the post-match copy says that clearly (e.g. "Amiss had the better of him early; Hardwick held him after the move") and never implies the earlier live assessment was wrong; if the evidence does not support a genuine turn, do not claim one. Add regression coverage for matchup narrative continuity across quarters and full-time.
-- **Quarter-break “What's happening” information vomit / tense problem:** the break screen currently mixes retrospective match facts, opponent-plan history, streaks and resolved in-play moments under a present-tense heading (“What's happening”), producing a dense, feed-like block that is awkward to read and visually ugly. Treat this as a presentation/decision-clarity issue, not a request for more data. Reframe the section as a concise record of **what happened in the quarter/half** and only surface the few facts that materially help the next decision. Avoid replaying resolved event-feed moments (for example a completed set shot) unless they matter tactically. Acceptance: at a break, the user can scan the section in a few seconds, understand the 2–3 most important developments from the period, and distinguish them cleanly from “What your calls did” and the next-quarter controls. Preserve football language; no stat dump and no duplicate story lines.
+- **Quarter-break “What's happening” information vomit / tense problem:** the break screen currently mixes retrospective match facts, opponent-plan history, streaks and resolved in-play moments under a present-tense heading (“What's happening”), producing a dense, feed-like block that is awkward to read and visually ugly. Treat this as a presentation/decision-clarity issue, not a request for more data. Reframe the section as a concise record of **what happened in the quarter/half** and only surface the few facts that materially help the next decision. Avoid replaying resolved event-feed moments (for example a completed set shot) unless they matter tactically. Acceptance: at a break, the user can scan the section in a few seconds, understand the 2–3 most important developments from the period, and distinguish them cleanly from “What your calls did” and the next-quarter controls. Preserve football language; no stat dump and no duplicate story lines. **Status:** heading/tense part fixed in PR #123; the fact-selection/info-density part remains open.
 - **List Profile vs actual team strength validation:** the user's side can read as mostly Strong/Average across the five List Profile dimensions while losing every match heavily. The profile is not meant to predict every result, but if a side has no visible Weak area and repeatedly performs like a bottom side, the words may be overstating practical strength or omitting an important determinant of match performance. Audit the relationship between each profile label and realised match performance/results across clubs and repeated seeded matches. Do not turn this into an overall power rating or recommendation. Acceptance: Strong/Elite labels correspond to materially better outcomes in the football area they describe, and a side that is broadly above average across the profile does not routinely behave like a clearly weak team without an explainable cause visible elsewhere.
-- **Form streak colour bug:** in the hub/form string (for example `Form: Poor · LLWL`), wins should be visually distinguished from losses. Render `W` in the positive/green result colour while losses remain in the loss/negative colour; preserve accessibility/legibility and do not rely on colour alone if the surrounding UI ever removes the W/L letters. Acceptance: a mixed streak such as `LLWL` clearly shows the `W` in green/positive colour without changing the text content.
-- **Android battery / thermal audit:** phone playtesting is draining battery and heating the device far more than expected for the game's visual complexity. Treat this as a profiling task before optimisation. Measure power-relevant behaviour separately on an idle hub/menu, a paused match, a live match at 1x, and accelerated playback. Record actual FPS/refresh rate, CPU frame time, render frame time, draw/redraw frequency, active `_process` callbacks/timers, and whether the app continues doing meaningful work while visually idle. Concrete leads already visible in the repo: `project.godot` does not set an explicit FPS cap / low-processor mode, so a high-refresh Android display may be rendering far more frames than the game needs; `PitchView.gd` calls `set_process(true)` and its `pause()` only flips `playing = false`, so its per-frame callback continues while paused even when little is changing. These are audit leads, not assumed root causes. Compare a sensible capped rate (for example 60 fps, and lower when static if Godot permits cleanly) against current behaviour without degrading match readability or touch response. Acceptance: identify the dominant battery/thermal costs with measurements, eliminate unnecessary idle/per-frame work, and verify the game no longer keeps the phone hot or burns disproportionate battery during a normal play session. Do not trade simulation correctness for battery life.
+- **Current-list club identity bug:** `My list` is still colouring each player's guernsey/number tile from `p["club"]`, which in a league re-draft can remain the player's original/source club. On the user's Melbourne list this produces a patchwork of old-team colours even though every player now represents Melbourne. Current-squad screens must use the player's **current club/list context**, not historical source-club metadata. On `My list`, every player should therefore carry Melbourne's red/blue identity (prefer the existing multi-band club marker where practical, not a single stale origin colour). Apply the same rule anywhere else that presents a player as a current member of a club: selection, training, match-day list/profile surfaces. Preserve original/source club only for explicit history/draft-origin contexts. Acceptance: after a league re-draft, no current-list screen visually implies a player still belongs to his former club; a Melbourne list reads consistently red/blue while career/history screens can still show past clubs when relevant. **Status:** fix is in open PR #118; not yet merged to `main`.
+- **Club marker colour accuracy audit:** the round-results screen exposes that a number of club colour markers do not convincingly match their real AFL identities. This screen is not inventing colours locally: `HubScene._results_list()` uses `UiKit.club_badge()` → `club_marker()` → `GameDB.club_marker_colours()`, which reads the hard-coded `primary/secondary/accent` values in `data/clubs.csv`; therefore audit the **source palette for every current AFL club**, not just this popup. Verify genuine club colours, ordering, two-vs-three-colour treatment and sufficiently accurate shades against authoritative club/AFL branding references. Do not use generic approximations simply because they are distinguishable. Obvious shade/order candidates should be checked rather than guessed (for example North Melbourne currently uses a very dark navy-like `#0C2340` as its primary despite its recognisable royal blue/white identity). Keep fictional/future clubs separate from the real-club audit. Acceptance: every 2027 AFL club marker is immediately recognisable to a footy fan across results, ladder, draft, selection and other shared badge surfaces; shared `club_marker` remains the single source of presentation; add a palette regression/snapshot fixture so later UI work cannot silently reintroduce wrong colours.
+- **St Kilda club code cleanup — `SKN` → `STK`:** the repository currently hard-codes St Kilda as `SKN` in `data/clubs.csv`, `GameDB.CLUB_ORDER`, the player datasets/history and therefore football-facing result rows. There is no good presentation reason for `SKN`; use the conventional **`STK`** abbreviation everywhere the user sees or reasons about club codes. Treat this as a data-key migration, not a one-line label patch: update canonical club/data keys and every dependent reference, and provide a save migration/alias so existing careers containing `SKN` continue to load correctly rather than losing St Kilda lists, history, fixtures or records. Acceptance: all new careers/data use `STK`; no user-facing screen emits `SKN`; an existing save made with `SKN` loads into the same St Kilda state under `STK`; tests cover fixture/list/history/save migration.
+- **Player role-allocation / draft-position distribution audit — REOPEN:** Gryan Miers is being labelled **Wing** in the user's list even though the source data explicitly lists him as `FWD`, and his real football role is a pure small/creative forward rather than a wing or pressure-forward. **Bodhi Uwland is also being treated as a Key defender despite being a 188 cm medium/rebounding defender who can take lockdown jobs but is not a key-position defender.** Code inspection shows both primary-role and subtype problems. `Ratings.derive_all()` chooses the primary role largely from season-stat role scores, then only applies two hard-coded forward corrections; a player read as `MID` can receive `FWD` only as a secondary role, and `Roles.is_wing()` can then mislabel him from stat shape. Separately, defender subtype classification currently ignores height/size entirely: `PlayerProfile.player_type()` picks between training archetypes, where **Key defender = intercept 3 + pressure 2** and **Rebounding defender = carry 3 + intercept 2**. That means a medium defender with strong intercept/one-percent/pressure numbers can become a 'Key defender' simply because he is less of a ball carrier. Do **not** fix these with one-off Miers/Uwland overrides alone. Re-audit the whole role classifier against football reality and source listed positions, especially MID↔FWD, MID↔DEF, and defender subtypes. Audit whether the current binary Key/Rebounding defender labels are themselves too coarse; a medium/general/lockdown identity may be needed if it better describes real usage, but prefer the smallest model that avoids false key-position labels. Measure source `real_pos` vs derived primary/secondary roles across the full 2026 pool; manually inspect representative archetypes (small forwards/creative forwards, key forwards, rebounding defenders, medium/lockdown defenders, true key defenders, genuine wings, inside mids); quantify draft-pool counts and match-day coverage by role before and after any change. Source listed position, height and actual football usage should be meaningful evidence, with stats used to refine dual-role capability/archetype rather than casually overwriting an unambiguous football role. Preserve legitimate dual-role players. Acceptance: Gryan Miers is a forward; Bodhi Uwland is not labelled Key defender; true key defenders require credible key-position evidence rather than merely high intercept/pressure; known pure forwards/defenders are not routinely converted into midfielders because of disposal volume; genuine wings such as Harvey Langford remain distinguishable from inside mids/forwards; the league draft has a plausible supply of FWD and DEF options without artificial quota stuffing; and regression tests cover representative named and archetypal cases.
+- **Form streak colour bug:** in the hub/form string (for example `Form: Poor · LLWL`), wins should be visually distinguished from losses. Render `W` in the positive/green result colour while losses remain in the loss/negative colour; preserve accessibility/legibility and do not rely on colour alone if the surrounding UI ever removes the W/L letters. Acceptance: a mixed streak such as `LLWL` clearly shows the `W` in green/positive colour without changing the text content. **Status:** fixed and merged in PR #122.
+- **Android battery-drain audit:** phone playtesting reports that the game drains the phone battery much faster than expected while it is open. **The user did not report abnormal device heating**, so do not treat thermal behaviour as an observed symptom. Profile power-relevant behaviour before optimisation: compare an idle hub/menu, a paused match, a live match at 1x, and accelerated playback. Record actual FPS/refresh rate, CPU frame time, render frame time, draw/redraw frequency, active `_process` callbacks/timers, and whether the app continues doing meaningful work while visually idle. Concrete leads already visible in the repo: `project.godot` does not set an explicit FPS cap / low-processor mode, so a high-refresh Android display may be rendering far more frames than the game needs; `PitchView.gd` calls `set_process(true)` and its `pause()` only flips `playing = false`, so its per-frame callback continues while paused even when little is changing. These are audit leads, not assumed root causes. Compare a sensible capped rate (for example 60 fps, and lower when static if Godot permits cleanly) against current behaviour without degrading match readability or touch response. Acceptance: identify the dominant sources of unnecessary power draw, eliminate avoidable idle/per-frame work, and verify materially lower battery consumption during a normal play session. Do not trade simulation correctness for battery life.
+- **Round simulation / Play match performance regression audit:** phone playtesting reports that **Sim round takes far too long**, and the delay after tapping **Play match** appears to get progressively worse as the season advances. Profile this by phase and by season round before optimising: benchmark cold-device runs at R1/R6/R12/R18/R24 for (a) `prepare_interactive_match`, (b) one background `Season.simulate`, (c) a full `Season.play_round`, (d) rival XP/training + `_after_round`, and (e) autosave/serialization; repeat after a long continuous session to distinguish season-state growth from other sustained-runtime effects. **Do not assume thermal throttling from the user's report; heating was not reported.** A concrete architectural cost is already visible: `prepare_interactive_match()` synchronously simulates **every other match in the round before the user's MatchSim is even created**, so tapping Play match blocks on roughly eight full background simulations. Background `Season.simulate()` also runs the full `MatchSim.run()` path, which generates rich match state/events intended for watched/reviewed games even though most rival matches only need their result and stats. Audit whether a non-visual/background mode can suppress presentation-only event/log work while preserving identical football outcomes and award/training stats. Also inspect any season-length-dependent scans/allocations (including `club_form()` walking accumulated results) and save growth. Acceptance: Play match gives immediate transition feedback and reaches the user's match without waiting unnecessarily for unrelated fixtures; Sim round has a measured target suitable for phone use; R24 is not materially slower than R1 except for justified bounded work; background fast-sim produces the same seeded scores/player/team stats needed by the career; and no optimisation changes balance or RNG outcomes.
 - **Vignette playtest reachability problem — BLOCKER FOR THIS PLAYTEST:** the current centre-bounce prototype is still not appearing in organic phone playtests. This now includes a match decided in the final minute, which is strong evidence that the issue may be more than simple rarity. The nominal trigger is a centre bounce in Q4 after 100 match minutes with the margin within 12 points, but `_moment_ready()` also gates moments behind the per-quarter moment cap / chain gap and `_boundary_moment()` checks other moment types first. Audit whether competing Q4 moments, `MAX_MOMENTS_Q`, `MOMENT_GAP`, trigger ordering, or centre-bounce state can make the vignette effectively unreachable even in close finishes. Do not ask for further organic vignette testing until it is deliberately reachable. For prototype validation, add a temporary/manual playtest trigger or otherwise guarantee one vignette opportunity in a normal test match without changing MatchSim's underlying football outcome. Acceptance: a tester can deliberately reach the vignette in one match without needing a lucky close finish; add targeted coverage proving the vignette can actually fire through the real MatchScene flow; production frequency must be reconsidered separately after the scene passes the phone-playtest gate.
+- **Vignette player representation / appearance bug:** the current cinematic vignette prototype effectively presents every player with the same white/light-skinned appearance, so Indigenous and other darker-skinned players are visually misrepresented. Treat this as a representation defect in the vignette renderer, not as cosmetic polish. Add neutral **appearance data** for rendering (at minimum skin tone; hair appearance only where the vignette system actually supports it) and use that data instead of a single default player appearance. **Do not create gameplay race/ethnicity attributes and do not infer race or ethnicity from player names.** For the current real-player dataset, curate visual appearance from reliable visual references where practical; for future/generated players, generate a genuinely varied range of appearances independently of ratings, potential, role, personality, discipline, athleticism or any other gameplay trait. Acceptance: vignettes no longer render every player as white; real players are represented credibly without racial labelling or name-based inference; generated-player appearance has visible diversity with no gameplay correlation; and the change remains presentation-only.
+- **Vignette centre-bounce participant mismatch:** the cinematic centre-bounce vignette currently reconstructs participants independently from `ground` by taking whoever has the current `role == "RUCK"` plus three inside mids. That does **not** match MatchSim, which resolves the actual ruck contestant through `_contestant()` / `_centre_attendees()` and can reject a non-ruck temporarily standing in the ruck slot in favour of a genuine listed ruckman on the ground. This can visibly put non-rucks such as Eric Hipwood or Harley Reid into the ruck contest while the actual ruckman stands outside it, making the supposedly cinematic scene contradict the simulation. The vignette must consume the same authoritative centre-bounce attendees/ruck contestant that MatchSim uses rather than re-deriving them in presentation code. Acceptance: the two players shown contesting the bounce are exactly the two players MatchSim credits as the ruck contestants for that stoppage; the three mids shown for each side are the same centre-bounce attendees MatchSim uses; a non-ruck occupying the RUCK slot is never visually shown taking the tap if MatchSim substitutes a genuine ruckman; and targeted regression coverage includes the resting-ruck / emergency-slot case.
 - **Pre-match loading beat / vignette opportunity:** pressing “Play match” currently appears to freeze for several seconds while the match scene/state loads, which feels like the app has stalled. Cover that unavoidable wait with an immediate lightweight transition/loading beat in football language, e.g. “Warming up”, “Running through the banner”, “Final instructions”, rather than a generic spinner. Consider this a natural place for a short pre-match vignette (players warming up, entering through the banner, coaches' box, crowd/ground establishing shot) that hides loading and builds match-day atmosphere. Guardrail: do not add a heavy animation that makes load time worse; the visual must appear immediately and remain skippable/non-blocking where practical. Acceptance: after tapping Play match, the user gets instant feedback that the game is progressing, never a dead/frozen screen, and the transition feels like part of match day rather than a loading screen.
 - **Opposition danger with no player lever:** the assistant can identify an opponent as a major danger (for example, Bodhi Uwland dominating from defence) while the player has no available tactical action that can plausibly reduce that player's influence. This makes the report informative but not actionable and undermines the core decision loop. Do **not** solve this by making every opponent universally taggable. Diagnose danger by role and ensure that when the game elevates a player as an actionable threat, at least one football-appropriate counter exists in the current decision set (for example a forward matchup/run-with role against a rebounding defender, changing who is played through, or another role-specific response). If there is genuinely no direct lever, phrase it as an observation rather than a problem the user is expected to solve. Acceptance: “Opposition danger” never presents a player-specific tactical problem with zero plausible player response; any added counter has a real, measurable trade-off and uses the same non-psychic information available to the user.
 - **Run-of-goals intervention audit:** in a phone playtest Brisbane kicked eight unanswered goals and, once the run started, the game repeatedly asked after subsequent goals whether to **Throw numbers at it** or **Slow it down**. The user tried interventions and perceived no effect. This may be a legitimate case of being outclassed rather than a broken mechanic, so diagnose before tuning. Audit two things separately: **cadence** (the same run-of-goals prompt should not fire mechanically after every additional goal in one streak; repeated calls need a meaningful cooldown/state change) and **efficacy** (surge/hold should produce measurable short-term effects in the directions their copy promises, without guaranteeing that a weaker side stops the run). Use paired seeded states from the same score/run situation with each option and the no-change/default choice; measure next-N-chain clearances/territory/scoring, opponent scoring, and leg cost. Also verify repeated calls do not stack/reset in a way that makes them misleading or ineffective. Acceptance: each option has a statistically visible, bounded trade-off; a strong opponent can still overwhelm it; and the player is not spammed with the same decision every goal while nothing new has changed.
+- **Draw frequency validation:** home-and-away draws are already mechanically possible: `Season.record_regular()` records equal scores as a draw and awards two premiership points, while `MatchSim.needs_extra_time()` only invokes extra time when `finals_mode` is true. Existing league-balance measurements report a draw rate around **1.1–1.4%**, which across an 18-club, 24-round season (216 matches) is roughly **2.4–3.0 draws per season** — already in the desired ballpark. Pin this behaviour so later scoring/balance changes do not accidentally eliminate draws or make them too common. Do **not** force a quota of exactly 2–3 every individual season; draws should emerge naturally from scores, with the long-run mean around 2–3 league-wide per 216-match season and natural year-to-year variance. Finals must never finish level: ordinary finals use extra time / next-score resolution, with any ladder-position fallback treated only as a defensive failsafe. Acceptance: large seeded season batches average roughly 1.0–1.5% regular-season draws, ladder points/history record them correctly, and finals always produce a winner through the intended extra-time path.
+- **Post-elimination finals follow-through:** if the user's team misses the finals or is eliminated, the hub currently removes week-by-week control and offers only **“Sim to Grand Final”**. Code inspection confirms `_week_actions()` sends every non-bye/no-upcoming-match finals state straight to `_on_sim_to_end()`, which loops through the entire remaining series. That makes the league suddenly stop feeling alive at the most important time of year. Give the player a way to **follow the finals week by week** even when their club is out: at minimum offer `Sim [current finals week]` / `Next finals week` so each Wildcard, Qualifying/Elimination, Semi and Preliminary week resolves separately and its results can be reviewed before continuing. Keep `Sim to Grand Final` as an optional fast-forward, not the only path. Prefer reusing the existing round-results/finals-bracket presentation rather than building spectator match controls unless separately justified. Acceptance: a non-finalist can advance one finals week at a time, see every result and evolving bracket, stop between weeks, and still choose to skip the remainder; season awards/off-season do not trigger until the series is actually complete.
+- **Grand Final / premiership climax presentation:** phone playtesting confirms that `Sim to Grand Final` currently ends on the generic round-results modal: a small **Grand Final** label, `Premiers: Greater Western Sydney`, two score rows and a **Continue** button. Code inspection confirms `_show_results()` is the same generic results overlay used for ordinary rounds, with only one extra `Premiers:` line when the season is over. That is far too unceremonious for the climax of a full season, even when the user's own club has already been eliminated. Give the Grand Final a bespoke end-of-season result presentation with clear escalation and a proper premiership reveal: establish the matchup/result, reveal the winner as premiers, give the final score/margin enough visual weight, and then hand off cleanly into the season-story/awards sequence. Fanfare should come from pacing, hierarchy, club identity and a sense of occasion rather than generic particles or a giant stat dump. If the user fast-forwards the finals, they should still land on this climax rather than an ordinary round popup. Acceptance: the Grand Final can never be mistaken for a routine fixture result; the premier reveal feels like the culmination of the league season on phone; the result is still quick to read/skip on repeat careers; and `Continue` leads into the proper post-season flow rather than making the season simply stop.
+- **Season story / campaign recap — separate from awards night:** the existing `Season Review` is mostly a stat sheet plus league awards: finish/record/points, PF/PA/percentage, best win, worst loss, longest win streak, goals, a W/L strip, final ladder, board verdict, awards and achievements. That is useful, but it does **not** yet give the emotional/narrative payoff of finishing a long campaign. Add a concise **Your season / Season story** recap after the Grand Final that tells the story of the user's year in football language, separate from the awards panel. Treat it like completing a major RPG campaign: identify the season's arc rather than dumping every round. Candidate beats include the opening trajectory, longest/biggest winning and losing runs, a genuine finals push or collapse, defining wins/losses, key performers, important injuries that changed the side, major improvers/breakouts, and how the year ultimately ended. **Also include the football identity the player actually coached into the side across the year:** e.g. `We played through the corridor most weeks`, `Nick Daicos was our focal point in most matches`, `We were conservative with legs and rotated hard`, `We usually backed our contested game`, `We changed plans often rather than sticking to one style`. These tendencies must come from actual season usage, not generic flavour text. `MatchSim.result()` already exposes `tactics_history`, `stars`, `interchanges`, `moments`, `impact` and related match data, but `CareerSave.slim_results()` deliberately strips most of that from `season_log` on save/load; therefore if the recap needs to survive a reload, track a **small incremental season-story ledger** as matches finish (plan-quarter counts, play-through/focus usage, rotation philosophy counts, notable streaks/results, significant injuries, player development/performance candidates) instead of retaining giant match logs. Keep it curated: roughly 5–8 memorable beats plus a short `How we played` identity block, not a timeline dump. Do not conflate this with awards night; Brownlow/Coleman/AA/B&F remain separate recognition, while the story answers **what happened to us this season and what kind of side were we?** Acceptance: after a full season, the user can read the recap and recognise their own campaign and coaching habits; tendencies are quantitatively grounded in actual usage (e.g. majority-of-quarter/match thresholds rather than one isolated call); the same recap survives save/reload; major injuries/improvers only appear when genuinely season-defining; and the presentation avoids number vomit while preserving enough concrete detail to feel earned.
+- **Season Review mobile scroll / replacement path:** on phone, the current Season Review can extend below the viewport and **cannot be scrolled**, so the lower sections/actions become unreachable. Code inspection confirms `SeasonReviewScene.gd` puts its main VBox directly inside a full-screen `MarginContainer` with no enclosing `ScrollContainer`; once the content height exceeds the screen, it simply overflows. Fix the current usability defect even if this screen is later substantially replaced by the richer post-season campaign recap. The comprehensive redesign should treat the whole post-season flow as a vertically scrollable or staged mobile experience rather than one oversized static page. Acceptance: every section and action is reachable at narrow Android widths; no content is clipped below the viewport; and replacing the old summary with the richer season-story flow must not regress scroll/touch behaviour.
+- **Tired-star event / rotation-philosophy audit:** the recurring **“[star] is running on empty”** moment (e.g. Nick Daicos / Ed Richards) is already becoming stale and is asking the player to micromanage something the rotation system should normally handle. Code inspection confirms the tension: auto-rotations already exist, but under `Normal rotations` ordinary players come off below 70 energy while stars are deliberately ridden to 50; meanwhile the tired-star event fires at **58**, so Normal rotations intentionally creates a manual prompt before the automatic star rotation threshold. The event key includes the quarter (`tired|player|quarter`), so the same star can also generate the same decision again in later quarters. Rework the responsibility boundary: under **Normal rotations** and **Rotate hard**, tired players/stars should be rotated automatically according to the chosen philosophy without repetitive intervention cards. Reserve explicit fatigue decisions for **Ride the stars** (or genuinely exceptional match states where overriding the philosophy is meaningful), because choosing that philosophy is the player's deliberate instruction to keep stars out there longer. Audit thresholds, bench availability and repeat cadence so the system cannot spam the same star every quarter. Acceptance: selecting Normal means the coach can trust routine rotations to happen automatically; selecting Rotate hard gets stars off earlier; selecting Ride the stars knowingly risks cooked stars and may surface a rare meaningful intervention; the same generic running-on-empty card does not recur mechanically; and fatigue/rotation outcomes remain measurable in minutes/energy/performance without adding UI clutter. **Status:** fixed and merged in PR #119.
 - **Set-shot location vs conversion audit:** phone playtesting suggests the decision card **“from 30 metres, straight in front”** is missed far too often (user estimate ~80% misses). The current code confirms a likely modelling/presentation mismatch: `_offer_set_shot()` randomly labels 40% of set-shot moments as “30 metres, straight in front” and only multiplies the generic marked-shot goal probability by 1.18; for an average shooter the underlying `inside50_goal` baseline is 0.269, so an easy-looking 30 m shot can still have a low conversion chance. Audit and fix rather than merely changing the words. Shot location/difficulty should be causally tied to the actual shot probability (and, where possible, the real field position) rather than independently random flavour text. **Use real AFL calibration rather than guessing:** AFL.com.au/Champion Data reported 2024 directly-in-front set-shot accuracy of **92.20% from 15–30 m** and **73.87% from 30–40 m**. A nominal 30 m straight shot therefore belongs in a clearly high-probability band before kicker/fatigue modifiers; the user's rough 60% expectation is conservative relative to that evidence. Calibrate all distance/angle bands against comparable AFL data, then layer player goalkicking/accuracy, fatigue and tactical effects on top. Acceptance: 30 m directly in front is a high-probability AFL shot for an ordinary league-level player, elite/poor kicks still differ meaningfully, pocket/long shots remain materially harder, and the qualitative copy (“He should kick it”, etc.) matches the actual probability band. Add seeded distribution tests by distance/angle and kicker quality.
 - **AI plan adaptation / Controlled-tempo free-counter audit:** phone playtesting showed an opponent repeatedly using **Defensive press** across quarters while trailing, while the user could answer with **Controlled tempo** even with subpar ball users and seemingly counter it for free. Current code explains both concerns: `ai_tactics()` only abandons the AI club's standing plan when the margin crosses a tactics-read threshold (`18 - 8 * read` points), so a naturally defensive side can remain in Defensive press while losing by a smaller margin; meanwhile `PlanFit.gd` explicitly gives Controlled tempo **no list-fit requirement at all** (`fit == 1.0` for every list), even though its identity is about reducing pressure/clangers and should plausibly depend on ball use/composure. Audit, do not just make the AI psychic. Test AI plan choices by quarter, margin, standing-plan identity and recent observed match state using only information available to a coach; determine when a losing side should persist with its style versus chase the game. Separately test Controlled tempo with strong vs weak disposal/decision-making lists against Defensive press. Acceptance: a defensive AI can sensibly persist when appropriate but does not mechanically sit in a losing countered plan all game; Controlled tempo is not an equally effective press-counter for poor ball-use sides; and there remains no hidden direct read of the user's selected plan.
 - **Key-forward vs key-defender balance audit:** phone playtesting suggests good key forwards are consistently getting the better of good key defenders. Do not assume a nerf/buff yet; measure it. The current matchup system only sends a small explicit share of inside-50 entries through named key-forward matchups (`KEY_TARGET = 0.06`), while most forward-50 outcomes still come from broader line strength and shooter selection. On explicit duels, forward aerial ability is `70% marking + 30% height` while defender aerial ability is `45% intercept + 30% marking + 25% height`, then layered on top of team forward-mark vs defensive-intercept strength. Audit whether strong key forwards are over-performing overall, whether strong key defenders materially suppress them, and whether the named matchup system is too infrequent to matter. Run seeded matchup matrices across elite/good/average key forwards vs elite/good/average key defenders, tracking target share, mark win rate, shots, goals, spoils/intercepts and matchup-report verdicts. Acceptance: elite forwards can still win games, elite defenders can genuinely contain them, equal-quality matchups are not systematically tilted one way without evidence, and matchup presentation reflects the measured duel rather than reputation.
+- **Coleman / individual goalkicker plausibility audit:** Round 18 phone playtesting has **Brodie Kemp leading the Coleman with 48 goals**, ahead of established spearheads. This is surprising enough to audit, but not automatically a bug: the shipped 2026 data already has Kemp at **39 goals from 25 games (1.56/game)** and listed as `FWD`, so the model has genuine source-season evidence that he can score; a redraft can also create unusual opportunity. The current calibration only checks **how concentrated** team goals are (top goalkicker ≈16% of club goals, top three ≈38%), not whether the players who become league-leading scorers are plausibly the best/most-used forwards. Add season-level validation across many drafted leagues: correlate goals/game and Coleman finishes with goalkicking, accuracy, marking/forward role, actual source scoring and team opportunity; inspect outlier Coleman leaders manually; and measure whether middling forwards can routinely become 60+ goal spearheads merely because shooter selection funnels chances to them. Preserve genuine breakout seasons and redraft weirdness — do not hard-code famous names or force the real-world Coleman order. Acceptance: unusual winners remain possible, but league-leading goal seasons are usually produced by players with a credible scoring profile and/or clearly explainable opportunity; strong source scorers are not systematically suppressed; and the long-run Coleman goal totals/distribution remain AFL-plausible.
+- **Sim-round score / blowout plausibility audit:** phone playtesting produced some extreme-looking simulated results, including Melbourne 18.13 (121) defeating Port Adelaide 3.6 (24), a **97-point margin**, alongside several low losing totals in the same round. First clarify that Sim round is **not using a separate arcade score generator**: `Season.play_round()` calls `Season.simulate()` → `MatchSim.run()`, the same possession-chain engine used by watched matches, with AI/default tactics rather than live human interventions. Existing league-balance data says drafted leagues currently produce **60+ margins about 6.7–7.8% of matches and 100+ margins about 0.2–0.5%**, versus roughly 15.5% / 1.9% in the referenced real AFL season, so one 97-point result is not by itself evidence that blowouts are too common. Audit the **distribution and causes**, not the screenshot alone: compare full-season simulated score/margin distributions with real AFL and with watched-user matches; track 0–39, 40–59, 60–79, 80–99 and 100+ margins, team scores under 40/50 and over 120/140, quarter-by-quarter runaway frequency, and whether particular tactics/form/momentum/list mismatches create implausible snowballing. Use the same drafted league states and paired seeds where possible to compare `Season.simulate()` with equivalent live/default-call matches and confirm score generation is identical when decisions are held constant. Acceptance: no hidden fast-score path diverges from MatchSim; extreme scores occur at plausible long-run rates and for understandable football reasons; simmed rounds and equivalent watched/default-call matches have matching seeded outcomes/distributions; and any fix targets the actual causal mechanism rather than globally compressing scores.
+- **Autosim vs played-match injury-rate parity audit:** phone playtesting gives the impression that the user's players get injured more often when matches are autosimmed than when watched/played. Do not assume this is true; measure it. Code inspection finds **no explicit autosim injury multiplier**: both paths use `MatchSim`, `_plan_injuries()` calls the same `Injuries.roll()` with the same `BASE_CHANCE`, durability and weekly-risk modifiers, and current results always carry an `injuries` record so `Injuries.apply_match()` should not perform the legacy fallback roll a second time. However, there are two real path differences worth testing: (1) an interactively prepared user match currently uses `season.next_seed(99)` whereas a Sim-round user match uses the fixture-index seed, so the same fixture is not an injury-identical replay; and (2) injuries are planned for ground + bench but only actually occur once that player has taken part, so rotation philosophy/manual rests can change how many bench players are exposed. Run large paired tests from identical list/selection/soreness states comparing pure autosim with a live/default-call path, holding rotation policy constant, and report injuries per team-game, per player-game, initial-18 injuries, bench-player injuries, severity mix and concussion rate. Also test Normal/Hard/Ride-stars separately so participation exposure is understood. Acceptance: after controlling for players who actually took the field, autosim and played matches have statistically equivalent injury probability/severity; no result is double-rolled; any genuine difference is traced to an intentional exposure/input difference rather than hidden mode logic. If parity already holds, add a regression test and leave balance unchanged.
+
+### 2026-09-30 full-season phone playtest handoff
+
+This playtest reached the end of the 2027 season, finals, off-season and National Draft. The findings in this section are now the canonical player-observed evidence for the next work. **Do not treat every bullet as an immediate implementation request:** bugs/UX defects can be fixed directly when scoped; anything labelled audit/investigate must be measured by Claude first under the audit-ownership convention above. Prefer coherent batches and keep the P0 match-flow gate ahead of lower-risk presentation/features.
 
 ### Product goal
 The core loop must support:
@@ -1021,6 +1046,27 @@ Open a compact quick-sim menu:
 
 ---
 
+
+### Temporary playtest affordance — one-tap Sim to finals
+**Status:** `TEMPORARY TEST TOOL`
+
+For the current post-season/off-season playtest cycle, expose a visible **Sim to finals** button on the regular-season Hub so the user can reach the finals/post-season quickly without long-pressing Quick sim or manually advancing rounds.
+
+This should **reuse the existing quick-sim-to-end-of-home-and-away path** rather than create a second simulation route:
+- one tap simulates the remaining home-and-away rounds;
+- it must stop **before the first finals week**;
+- it must still stop if the user is sacked or another existing hard stop occurs;
+- it must preserve the same match results, injuries, awards, XP, board effects and save behaviour as the normal quick-sim path;
+- after arriving at the finals, normal finals controls take over so the user can test the post-season flow.
+
+Keep this deliberately lightweight and easy to delete. It is a **testing convenience, not a permanent UX commitment**. Mark the control/comment clearly enough that it can be removed once post-season testing is no longer the active focus.
+
+Acceptance:
+- from Round 1 or any later home-and-away round, one tap reaches the end of H&A without entering the finals;
+- no duplicate sim logic is introduced;
+- the resulting ladder/finals bracket is identical to using the existing `quick_sim(-1)` path;
+- the temporary button can be removed later without touching simulation code.
+
 ## ARD-M1-008 — Full Ratings mobile layout
 **Status:** `DONE`  
 **Merged:** PR #54 as `5b93a40`; verified on main 2026-09-28 (full suite green).  
@@ -1618,8 +1664,8 @@ Trigger frequency, choice diversity, no repeated spam, deterministic resolution 
 
 ---
 
-## ARD-M4-002 — Defensive / forward match-ups
-**Status:** `DONE`  
+## ARD-M4-002 — Key match-ups
+**Status:** `DONE / FOLLOW-UP TODO`  
 **Merged:** PR #96 as `26d34a2`; key forward/defender assignments are selectable, play out in named contests, can be changed during matches, and AI can rematch.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
@@ -1631,6 +1677,28 @@ Trigger frequency, choice diversity, no repeated spam, deterministic resolution 
 
 ### Guardrails
 Do not create 18 individual matchup controls. Focus on meaningful key assignments.
+
+### Follow-up — broaden “key match-ups” beyond forward vs defender
+The current implementation is too narrow if “key match-ups” effectively means only a key forward against a key defender.
+
+Treat **Key match-ups** as the handful of contests that shape the game, which may include:
+- **Ruck battle:** the two primary rucks, especially where tap quality / hit-outs to advantage / clearances make the contest strategically important.
+- **Star midfielder battle:** opposing elite mids, or a star mid against the player assigned to run with/tag him. This does **not** have to mean a literal fixed one-on-one all game; it can be presented as who is influencing the stoppages/contest more.
+- **Key forward vs key defender:** the existing direct assignment model.
+- **Interceptor vs opposition forward structure:** an elite intercept defender whose influence comes from reading play and leaving his direct opponent rather than simply winning one-on-one contests.
+
+The pre-match and live-match presentation should surface only the genuinely important contests for that fixture. A “key matchup” may therefore be:
+- a direct assignment,
+- a positional duel such as ruck vs ruck,
+- or an influence battle such as star midfielder vs star midfielder.
+
+Do not imply every highlighted matchup is a hard man-on-man assignment. The point is to help the player understand **where the game is being won or lost**, not to create eighteen pairing controls.
+
+Acceptance:
+- a match can surface a ruck duel or midfield-star battle as a key matchup even when no forward/defender assignment is involved;
+- direct defender assignments remain explicit when they exist;
+- live and post-match matchup commentary uses the correct type of contest rather than pretending every matchup is one-on-one;
+- the system still surfaces only a few high-value contests, not a full positional matrix.
 
 ---
 
@@ -1661,9 +1729,31 @@ Support concepts such as:
 - extra number at stoppage,
 - seventh-defender-type positioning.
 
+### Interceptor role — roam the backline as the spare
+Support a deliberate instruction for a **Jake Lever-style interceptor**: a defender who is given licence to leave his nominal opponent, track the ball, attack aerial contests and hunt intercept possessions/marks across the backline.
+
+This should be a real structural choice, not a flat intercept-stat buff:
+- nominate an appropriate defender as the roaming interceptor / spare;
+- weight his involvement toward opposition entries, aerial contests, intercept possessions and intercept marks;
+- reduce his strict one-on-one accountability to a single forward;
+- the cost is structural: somebody else must absorb the opponent he leaves, the defence can be exposed if the ball gets through him, and the side gives up something elsewhere by keeping a spare/loose player behind the ball;
+- suitability should come from relevant football traits/attributes such as intercept ability, marking, reading play/positioning and defensive quality — not simply OVR or height;
+- a genuine lockdown defender and a roaming interceptor should feel meaningfully different even if both are high-quality defenders;
+- opposition AI can use the same role when its personnel and game state justify it.
+
+The roaming interceptor should also be eligible to appear as a **key matchup / opposition danger** even though he is not assigned to one forward. If he is controlling the air, the player should have football-appropriate counters available (for example changing forward structure, making him accountable, lowering/altering entries, or moving the spare), rather than being told he is a danger with no response.
+
 Do not literally create an extra player. Moving numbers to one area must reduce presence elsewhere.
 
 Prefer situational/live choices before adding permanent micromanagement.
+
+Acceptance:
+- an elite interceptor can materially influence opposition entries without being hard-matched to one forward;
+- his impact shows up through real intercept/spoil/mark events, not a hidden blanket modifier;
+- using him loose creates a measurable trade-off elsewhere;
+- the role can be changed/removed during a match;
+- AI parity applies;
+- post-match reporting can explain that the spare/interceptor controlled the backline when the event data supports it.
 
 ---
 
@@ -2076,34 +2166,166 @@ Before implementation, inspect the actual 2027 League Draft age distribution and
 
 
 
-## ARD-M5-012 — League Draft AI asset valuation sanity
+## ARD-M5-012 — Draft AI asset valuation sanity
+**Status:** `TODO`  
+**Priority:** `P1`  
+**Autonomy:** `BALANCE-GATED`
+
+### Triggers
+Two separate phone-playtest cases now show that AI draft ordering can become implausible in opposite directions:
+- **Opening League Draft:** Bodhi Uwland was selected at pick #1. He can reasonably be a good AFL player, but that result is implausible enough to audit the established-player valuation model rather than manually changing him.
+- **2027 National Draft:** **Sora Crinkle, projected 78 OVR / 92 POT, was still available at pick #30** while clubs had already selected prospects with potential in the low 70s. Barring an extreme, visible reason (major injury/character/scouting uncertainty etc.), a prospect with that combination of current ability and ceiling should almost never slide that far.
+
+### Current implementation lead
+The National Draft is **not** currently producing this through club scouting error: `_eval_error()` returns zero in `intake_mode`. Intake valuation already weights POT heavily (`AI_POT_WEIGHT_INTAKE = 0.65`), but the final candidate score is then multiplied by `_need_weight()`. Once a club considers a position surplus, that multiplier can fall to **0.2**, meaning even an exceptional prospect can be heavily suppressed purely because the club thinks it has enough players at his position. Treat this as a strong diagnostic lead, not a predetermined fix.
+
+### Intent
+Make both the opening League Draft and annual National Draft value players as long-term dynasty assets without becoming deterministic or ignoring legitimate list construction.
+
+### Scope
+Audit repeated seeded drafts and inspect:
+- current ability;
+- age / remaining career runway;
+- potential and development upside;
+- positional value/scarcity;
+- list need where appropriate;
+- salary/cap cost where relevant;
+- value-over-replacement / expected availability at the club's next pick;
+- whether list-need multipliers can overwhelm obvious best-available talent.
+
+For the National Draft, explicitly chart where the top 5/10/20 prospects by shared talent/worth are actually selected across many classes. Manually inspect major sliders and reaches.
+
+Do **not** special-case named players/prospects to manufacture plausible order. Fix the valuation model.
+
+### Guardrail — best available vs need
+List need should influence close decisions and explain sensible reaches, but it must not routinely make clubs pass on elite talent for marginal low-ceiling prospects. Early/high-value selections should lean strongly toward **best available long-term asset**; need can matter more as talent gaps narrow or later in the draft.
+
+If an elite prospect falls dramatically, the game should have a legible football reason — e.g. genuine injury concern, severe scouting uncertainty, role/body concern — rather than an invisible `0.2` multiplier.
+
+### Acceptance
+- Repeated opening League Drafts produce broadly credible top-end selections without becoming deterministic.
+- In annual National Drafts, prospects in the very top band of both OVR and POT almost never survive to pick ~30 absent a documented adverse factor.
+- A 78 OVR / 92 POT prospect is not passed over for low-70s-ceiling prospects merely because clubs already have nominal positional coverage.
+- Elite young/high-upside cornerstone players are valued appropriately against good established players.
+- Veterans and role players can still rise when their quality/context warrants it, but obvious outlier #1 reaches are rare and explainable.
+- Need/scarcity can move players within plausible bands without overpowering major talent gaps.
+- AI clubs continue to obey the same cap/list rules as the player.
+- Measure before/after top-30 composition across deterministic seeds and check that any weighting change does not create a new age, position or potential monoculture.
+
+
+
+## ARD-M5-013 — Potential ceiling semantics audit
 **Status:** `TODO`  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
 ### Trigger
-Observed in the 2027 opening League Draft: Bodhi Uwland was selected at pick #1. He can reasonably be a good AFL player, but that result is implausible enough to treat as a draft-valuation sanity failure rather than manually changing one player's ratings.
+Phone playtesting after the first season shows several players with **OVR above displayed POT** (for example Jordan Sweet 76 OVR / 70 POT, Zac Bailey 75 / 73, Karl Amon 73 / 70, Ryan Lester 70 / 63). This is currently possible by design, but the presentation reads as contradictory: if POT means “the overall rating a player can grow into”, a player already above it makes POT look wrong or secretly dynamic.
 
-### Intent
-Make opening League Draft AI value players as long-term dynasty assets, not merely as current-rating or positional-fit purchases.
+### Current implementation reality
+- `Potential.assign()` creates a seeded POT intended to be stable for that player.
+- Natural off-season growth pulls toward POT and stops once the gap closes.
+- Rival XP spending explicitly stops at POT.
+- **The user's manual training does not stop at POT**; `_spend_with_weights(..., stop_at_pot=false)` may push OVR above it, with `Potential.training_multiplier()` making post-POT training 50% more expensive.
+- Rating-formula migrations can also lift POT alongside a recalculated OVR on load so old saves do not become internally inconsistent, but ordinary in-career training does not raise POT.
 
-### Scope
-Audit the top ~30 selections across repeated seeded 2027 opening drafts before changing weights. Inspect whether AI valuation gives appropriate weight to:
-- current ability,
-- age / remaining career runway,
-- potential and development upside,
-- positional value/scarcity,
-- list need where appropriate,
-- salary/cap cost where relevant.
+So OVR > POT is **expected under the current rules**, not necessarily a save corruption bug. The problem is whether those rules and the word “Potential” are the right design.
 
-Diagnose the model-level cause. **Do not special-case or manually nerf Bodhi Uwland or other individual players to manufacture plausible draft order.**
+### Audit question
+Decide what POT should mean in a long-save dynasty game before changing numbers. The user's current preference is that POT should remain **stable/static**, but development should have enough bounded uncertainty/headroom that careers do not feel pre-written.
+
+Compare at least these models with multi-season evidence:
+1. **Hard static ceiling:** OVR cannot exceed POT. Simple and legible, but risks making development deterministic once POT is visible.
+2. **Static expected ceiling + bounded overachievement:** POT stays fixed as the player's expected peak, while exceptional development/training can exceed it by a small, explicitly bounded amount. If used, the UI wording must make clear that POT is a projection rather than a hard maximum.
+3. **Mutable POT:** development events change the ceiling itself. This is currently *not preferred* because it makes the displayed number unstable and can turn “potential” into a second OVR, but include it in the audit as a control rather than assuming it is forbidden.
+
+Questions to measure:
+- How often and by how many OVR points do user-trained players currently exceed POT?
+- Does the player-only ability to train past POT create an unfair long-save advantage over AI clubs, which currently stop at POT?
+- Do low-POT veterans become artificially improvable simply because the user can spend enough XP?
+- How much unpredictability is needed so a 70 POT prospect can still have a memorable breakout without making POT meaningless?
+- Should POT remain directly visible, become a range/qualitative estimate, or be renamed if it is an expected ceiling rather than a maximum? Avoid adding uncertainty UI unless it materially improves decisions.
 
 ### Acceptance
-- Repeated startup drafts produce broadly credible top-end selections without becoming deterministic.
-- Elite young/high-upside cornerstone players are valued appropriately against good established players.
-- Veterans and role players can still rise when their quality/context warrants it, but obvious outlier #1-type selections are rare and explainable.
-- AI clubs continue to obey the same cap/list rules as the player.
-- Measure before/after top-30 composition across deterministic seeds and check that any weighting change does not create a new age, position or potential monoculture.
+- POT has one consistent, player-understandable meaning across draft, list, training, contracts and trade value.
+- OVR > POT is either impossible, or deliberately rare/bounded and clearly explained by that meaning.
+- User and AI development obey equivalent ceiling/headroom rules unless an explicit difficulty rule says otherwise.
+- Multi-season development distributions remain plausible: young high-upside players improve meaningfully, late bloomers/breakouts remain possible, veterans do not become endlessly trainable, and league OVR does not inflate.
+- Save/load and rating-formula migrations preserve the chosen semantics.
+- Add regression coverage for below-POT growth, at-POT behaviour, any allowed overachievement, age decline and AI/player parity.
+
+
+## ARD-M5-014 — National Draft decision support, combine & list-need clarity
+**Status:** `TODO`  
+**Priority:** `P1`  
+**Autonomy:** `SUPERVISED`
+
+### Trigger
+The 2027 National Draft currently presents a long pool of names plus OVR/POT and a position strip, but the user still feels under-informed about *why* to consider particular prospects. The position strip is itself confusing: examples such as **“FWD 9 / 14 can play / NEED +5”** and **“MID 15 / 17 can play / COVERED”** do not read as one coherent model and do not appear to change in the intuitive way as players are selected.
+
+### Current implementation reality
+The contradiction is structural, not just copy:
+- `role_coverage()` counts a dual-position player in **every** role he can play;
+- `position_needs()` uses a slot-matching pass where each player can fill **only one** target slot.
+So “14 can play FWD” does **not** mean 14 forward slots are actually covered, because some of those same dual-role players may be required elsewhere. The screen is showing two different counting semantics side by side without explaining the distinction.
+
+### List-need presentation
+Replace the current `count / can play / NEED +x / COVERED` language with one coherent, football-readable composition model.
+
+Requirements:
+- one primary answer per line: what the list currently has and whether it is genuinely short in that area;
+- dual-role flexibility may contribute to coverage, but do not double-count the same player in a way that makes the headline self-contradictory;
+- after every selection/release, the displayed need state must visibly and deterministically update;
+- distinguish **mandatory structural shortages** (e.g. not enough usable rucks / cannot field the required shape) from softer recruiting guidance/depth;
+- do not tell the player the “correct” position to draft or automatically rank prospects by need;
+- on phone, prefer a short label such as `Forwards: short 2`, `Midfield: covered`, `Ruck: one more needed` over stacked implementation counts.
+
+Add targeted UI/tests proving the labels change after a relevant pick and that a dual-role player is never presented as simultaneously solving two mandatory slots.
+
+### Pre-draft coaching/recruiting meeting
+Before the National Draft begins, add a short **pre-draft meeting** with the coaching/recruiting panel. Its job is to give the player a starting mental model, not solve the draft.
+
+It can summarise:
+- what the current list already does well;
+- genuine structural/depth holes;
+- age/profile issues worth being aware of;
+- a small handful of scouted prospects who may be relevant;
+- why each named prospect caught the recruiting staff's eye, in football terms.
+
+Examples of useful language:
+- “We have enough inside mids, but we're light for genuine outside run.”
+- “We only have two credible rucks on the list.”
+- “Recruiting liked the marking and forward craft of X.”
+- “Y tested well athletically, but we're less certain about his football production.”
+
+Guardrails:
+- typically surface only a few names, not a ranked top-20 shopping list;
+- different scouting quality/knowledge can change how much confidence/detail the panel provides;
+- never label one prospect as the objectively correct pick;
+- allow disagreement/uncertainty where appropriate;
+- the meeting should remain useful even when the user's next pick is late in the round.
+
+### Draft combine / scouting information
+There is **no explicit combine task in the current canonical roadmap**, so restore it here rather than assuming it is already scheduled.
+
+The Combine should give the draft pool more identity and evidence before selection:
+- physical/athletic testing and relevant football testing where the game has meaningful underlying attributes;
+- role/archetype clues, strengths and weaknesses;
+- scouting uncertainty rather than exact omniscient ratings where appropriate;
+- enough information to distinguish prospects with similar projected OVR/POT.
+
+Do not make the Combine another number-vomit screen. Default to interpretable results/relative descriptors, with deeper detail available on inspection. Combine results should inform scouting, not override actual football production or make every athletic outlier a top prospect.
+
+### Acceptance
+- list needs are internally consistent and visibly update after each relevant selection;
+- the player can explain what the squad lacks without reverse-engineering `can play` vs `NEED`;
+- the pre-draft meeting gives useful direction and a few names without prescribing the answer;
+- prospect inspection/Combine provides enough evidence for a deliberate choice rather than “pick the biggest POT number”;
+- mobile presentation remains fast to scan and does not become another dashboard.
+
+
+### Post-draft handoff
+The National Draft's own decision-support work ends when the selections are complete. The **off-season Ins/Outs summary, coaching movement recap and board-expectation reveal are owned by ARD-M6-007**, so do not build a second transition flow inside the draft screen.
 
 
 # M6 — Coaching, Board & List Management
@@ -2224,7 +2446,6 @@ Requirements:
 
 Validate with targeted multi-season simulations.
 
-
 ### Phase 4 implementation record (2026-09-28, branch `claude/coaching-phase4`)
 - **Capture:** a playing career ends (retired in `Prospects.age_league`, or delisted and unsigned at the close of free agency) and `GameState._career_over` captures him before he leaves the lists. The `played` snapshot holds games, goals, club stints, draft, listed position, retirement year and in-save Brownlows and Colemans. No ratings, contract, training, injury or stat tables are kept.
 - **Decision:** one career-seeded roll per player, decided once: 19%, 22% at 150+ games, 25% at 250+, +1 point per major award, capped at 30%. He becomes `C_P_<player id>` with his real name and the same alias, then has 1-3 pathway seasons (+1 if the market is flooded, never more than 3 extra) before the ordinary market.
@@ -2264,8 +2485,36 @@ Validate with targeted multi-season simulations.
 
 ---
 
+
+### Coach-market movement visibility / frequency audit
+**Claude audit required.** Phone playtesting through a complete season/offseason produced no obvious sense that coaches moved clubs at all.
+
+The coaching market **is implemented**: `GameState._close_season_awards()` calls `_coaching_offseason()`, which runs `CoachMarket.offseason()`; the market supports senior-coach sackings/contract expiry, promotions, retirements, poaching from the user's staff, vacancy chains and appointments. Existing automated tests also prove movement can occur over long runs. That does **not** prove the live player experience is working.
+
+Claude must run the final audit and report:
+- whether any coach movement actually occurred in the user's first 2027 offseason under normal career conditions;
+- league-wide counts per offseason for senior-coach changes, promotions, retirements, contract non-renewals, internal promotions and assistants poached;
+- how often an entire offseason legitimately has little/no visible movement;
+- whether the movement rate is football-plausible over 10–30 seasons;
+- whether movement happens but is effectively invisible because it is buried in the news feed / staff screen;
+- whether the user's own staff can realistically be poached often enough to matter without becoming churny;
+- whether senior-coach turnover is too conservative in early seasons because of first-season/tenure protections.
+
+Do not tune merely to guarantee a coaching carousel every year. Some quiet offseasons are believable. The requirement is that the system produces credible movement over time **and the player can actually notice important changes**.
+
+If the underlying rate is healthy, improve presentation rather than forcing extra churn:
+- include notable coaching ins/outs in the post-draft offseason summary;
+- surface major senior-coach appointments/sackings clearly;
+- surface any coach poached from the user's club as an explicit event requiring a response.
+
+Acceptance:
+- Claude provides measured movement distributions before changing rates;
+- a multi-season career produces a believable coaching market with neither stasis nor constant churn;
+- significant coaching changes are visible to the player;
+- the user's first offseason being quiet is explainable by the measured system rather than assumed correct because tests pass.
+
 ## ARD-M6-003 — Board Confidence
-**Status:** `DONE`  
+**Status:** `DONE / FOLLOW-UP TODO`  
 **Merged:** PR #84 as `48a805d`; confidence now moves relative to expectations, surfaces qualitative states, and explains why it changed.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
@@ -2322,6 +2571,40 @@ Rules:
 - no opaque random swings,
 - sacking/job-security consequences come later after balance proves the confidence model.
 
+### Phone-playtest follow-up — expectation fairness is part of the lose-state contract
+Board goals are **not randomly assigned** in the current implementation. At the start of each season, `GameState._open_board_season()` ranks every club by `Squad.strength()` and passes that rank into `ClubLife.board_goal()`:
+- strength rank 1–4 → **Finish top four**;
+- next finals-band clubs → **Make finals**;
+- ranks 11–14 → **Finish top 12**;
+- bottom group → **Win at least seven games**.
+
+That is deterministic, but it still needs a fairness audit. A single pre-season squad-strength ranking can be wrong or too brittle, particularly for a rebuilding/young list, a newly redrafted club, a side carrying major injuries, or a roster whose OVR/role model does not translate cleanly to wins. The bucket boundaries are also abrupt: moving one underlying strength rank can materially change the season-long demand.
+
+This matters more than ordinary flavour because **being sacked is currently the game's explicit hard career-ending lose state**: the Hub stops the career and tells the player to start a new one. Therefore the game must never kill a long save because an opaque or miscalibrated expectation was assigned.
+
+Audit expectations against:
+- pre-season list strength **and how well that metric predicts realised wins/ladder position**;
+- previous-season finish and multi-year trajectory once history exists;
+- age profile / rebuilding vs building vs contending phase;
+- major known injuries/unavailability at the point the goal is set;
+- recent list turnover and whether the club has deliberately moved into a rebuild;
+- finals structure/wildcard context;
+- uncertainty: boards should use a realistic **range/band of expectation**, not pretend the model knows the exact ladder order.
+
+First-season/redraft careers need special scrutiny because there is no prior club trajectory: do not make “model ranks this list fourth” automatically equivalent to a punitive top-four mandate unless calibration proves that is fair.
+
+The board may still be demanding. The goal is **earned pressure, not arbitrary safety**.
+
+Acceptance:
+- identical roster/context always yields the same explainable expectation; no hidden random assignment;
+- pre-season expectation bands are calibrated against large simulated samples so “top four”, “finals”, etc. correspond to credible outcome distributions rather than one-point rank boundaries;
+- rebuilding clubs are not routinely given top-four/finals-or-bust goals simply because of noisy raw list strength;
+- genuine contenders can still receive demanding goals;
+- the player can see a concise reason for the goal (e.g. list quality, last season, trajectory) without number vomit;
+- two otherwise similar clubs do not receive radically different goals without an explainable difference;
+- sacking remains a meaningful lose state only if the expectations feeding it are demonstrably fair and the warning path gives the player a real chance to recover;
+- long-save probes verify the human is not disproportionately sacked due to expectation-model error.
+
 ---
 
 ## ARD-M6-004 — Contracts / trades / free agency
@@ -2331,15 +2614,156 @@ Rules:
 
 Build toward a complete AFL list-management ecosystem.
 
+### Contract negotiation — important decisions need ceremony and guardrails
+The current off-season UI lets the user tap `1 yr / 2 yr / 3 yr / 4 yr` and immediately executes `GameState.resign_player()` at a fixed `Contracts.asking_salary()`; Release is similarly immediate. That is too abrupt for one of the core dynasty/list-management decisions.
+
+For expiring players, tapping a contract option should open a **dedicated negotiation screen/sheet** rather than instantly resolving the deal. The negotiation should make the decision feel consequential without turning every fringe player into paperwork.
+
+The user must be able to negotiate **salary as well as term** with the player in question. The player's current asking salary is an anchor, not an immutable price.
+
+Design direction:
+- show player identity, age, current OVR/POT, current salary, requested salary, requested/available term, cap room after the proposed deal and list context;
+- let the user propose a salary + term combination;
+- the player can accept, reject, or counter based on understandable factors such as ability/value, age, morale, market demand, role/security and contract length;
+- longer security can reasonably trade against salary in some cases; stars/young guns should have more leverage than fringe veterans;
+- negotiation must not become a hidden dice casino. If randomness is used at all, keep it bounded and seeded, with the player's expectations legible enough that the user can reason about the offer;
+- failed offers should not instantly destroy the relationship unless the offer is genuinely insulting or repeated bargaining warrants a consequence;
+- preserve the possibility that a player walks to free agency if agreement cannot be reached;
+- AI clubs should negotiate under equivalent cap/value constraints rather than magically signing everyone at fixed prices;
+- **Release / delist** actions should have an explicit confirmation step with the consequences stated before execution;
+- consider a lightweight "accept asking price" shortcut for routine deals so the system has ceremony where it matters without contract-admin busywork.
+
 Guardrails:
 - understandable and streamlined,
 - AI follows same core constraints,
 - no contract-admin busywork,
+- important list decisions must not resolve from a single accidental tap,
 - do not attempt all player movement systems in one mega-PR.
+
+Acceptance:
+- tapping an expiring player's contract no longer instantly commits the deal;
+- salary and term are both negotiable;
+- the user can see cap consequences before confirming;
+- accepted/rejected/countered offers follow transparent football-list logic;
+- Release cannot happen accidentally;
+- save/reload preserves an in-progress negotiation or safely returns to the pre-offer state without duplicating the transaction;
+- routine deals remain quick enough that managing 40 players does not become tedious.
 
 Split into smaller authorised subphases when started.
 
+
+### Contract/off-season copy cleanup
+Phone playtesting exposed awkward/dehumanising wording at the top of Trades & Contracts: **“Anything you leave undecided is re-signed for two seasons if the cap allows.”** “Anything” appears to refer to players/contracts and reads strangely.
+
+Use human, football-specific language. Preferred direction:
+- **“Any out-of-contract players you leave undecided will be re-signed for two seasons if the cap allows.”**
+- or a shorter equivalent such as **“Undecided out-of-contract players will be re-signed for two seasons if the cap allows.”**
+
+Audit nearby off-season transactional copy for the same problem: refer to **players, contracts, offers, picks and trades** explicitly rather than vague object-language like “anything”, “done”, or generic system wording where a football term would be clearer.
+
+Acceptance: the screen reads naturally to a footy fan, never describes players as generic objects, and preserves concise mobile copy without becoming wordy.
+### Free-agent offers, compensation and browsing
+The same negotiation standard applies to **external free agents**, not only the user's own expiring players. The current Free agents tab presents `Sign 1 yr / Sign 2 yr / Sign 3 yr` buttons and immediately executes `GameState.sign_free_agent()` at the fixed asking salary. A free agent cannot reject, counter or compare the offer with any market alternative. That makes a major list acquisition feel like buying an item from a shop.
+
+Required direction:
+- tapping a free agent opens the same dedicated offer/negotiation flow used for re-signings;
+- salary **and** term are proposed by the user;
+- the player may accept, reject or counter based on his value, age, requested security, morale/market situation and competing interest;
+- no player is guaranteed to join merely because the club has enough cap room;
+- show the cap impact before confirmation;
+- allow a quick **meet asking price** path where appropriate, but it is still an offer the player can accept rather than an instant transaction;
+- keep negotiation legible and bounded: no hidden slot-machine bargaining.
+
+**Free-agency compensation picks:** there is currently no compensation-pick system in the contract/free-agency code or national-draft order path. Add one as part of the mature free-agency model rather than pretending the current release/sign flow already represents AFL free agency. The compensation band should be driven materially by the contract the departing player actually receives — especially salary and term — with age/value/eligibility context as appropriate. Do not expose an opaque real-world formula verbatim; give the player a clear projected compensation consequence before a qualifying player signs elsewhere, and ensure AI clubs are evaluated under the same rules. Compensation picks must be inserted into the national draft order deterministically and survive save/reload. Delisted/unrestricted pool players who should not attract compensation must be distinguishable from qualifying free agents rather than every released player automatically generating a pick.
+
+### Free-agent list usability
+The Free agents list needs lightweight sort controls suitable for phone browsing:
+- **OVR**
+- **POT**
+- **Age**
+- optionally the existing composite/value order as the default
+
+Allow reversing the selected sort where useful. Keep the controls compact; do not add a spreadsheet toolbar.
+
+The screen must also **preserve scroll position after an action**. Right now `OffseasonScene._build()` reconstructs the tab after every signing/re-signing and creates a fresh `ScrollContainer`, which sends the user back to the top of a long list. Capture the current tab's vertical scroll before rebuilding and restore it after the UI is rebuilt (clamped if the list shrank). The same principle should apply to other repeated off-season actions that rebuild the current list.
+
+Additional acceptance:
+- signing a free agent never happens from a single immediate term tap;
+- free agents can reject/counter offers and salary is genuinely negotiable;
+- qualifying departures can generate correctly ordered compensation picks based materially on the accepted contract;
+- the Free agents tab can be sorted by OVR, POT and Age;
+- after signing/rejecting/negotiating with a player midway down the list, the user remains at approximately the same scroll position instead of being thrown back to the top.
+
+### Trade market redesign — picks, asset value and club strategy
+The current Trade tab is a prototype rather than a credible AFL trade market. Phone playtesting exposed several linked problems:
+- only players can be traded; **draft picks and future picks are absent**;
+- each side is arbitrarily capped at **two players**;
+- tapping any player rebuilds the screen and jumps the user back to the top, making package construction unpleasant;
+- the AI can accept implausible consolidation trades. A concrete example: Adelaide accepted **Jordan Sweet + Ryan Lester for Arki Butler (72 OVR / 92 POT)** even though Sweet was a worse ruck than Adelaide's existing option and Lester was an old defender near the end of his career. A rebuilding/neutral real club should not surrender an elite young asset merely because two lesser player values add up;
+- the current need bonus only counts how many players of a role remain (`RUCK < 3`, etc.). It does **not** ask whether the incoming ruck is actually better than the club's existing rucks, so a worse player can receive a positional-need premium.
+
+#### Tradable assets
+Support AFL-style packages containing:
+- players;
+- the club's **current-year National Draft selections**;
+- tradable **future National Draft selections**;
+- combinations of any of the above on either side.
+
+Remove the hard-coded `pick up to 2` asset limit. Do not replace it with another arbitrary two-item cap; allow realistic multi-asset packages while keeping the phone UI manageable.
+
+Every tradable asset must have a **numerical trade value** used consistently by the trade engine and inspectable enough that the player can understand why a deal is close or far apart. This is a decision aid, not salary=value:
+- player trade value should include current football ability, age/career runway, POT/upside, recent/previous-season form and production, injury/availability and durability context, role scarcity/list fit, contract salary **and remaining term**, and relevant honours only insofar as they represent football value;
+- salary can raise or lower trade attractiveness depending on whether the contract is good or burdensome; it must never be the player's whole value;
+- draft-pick value should be based on pick/round and expected draft position, with future picks valued from the originating club's projected range with uncertainty rather than pretending a future first is already an exact number;
+- a package of two mediocre/old assets must not automatically equal one elite young cornerstone simply because raw values add. Apply a credible **consolidation/star premium** or equivalent nonlinear rule so the side giving up the best asset needs a reason to do so.
+
+Do not expose a giant spreadsheet. A compact `Trade value` number per selected asset/package is acceptable because the user has explicitly requested numerical asset values, but keep the primary interaction football-readable.
+
+#### Draft-pick ownership and AFL future-pick rules
+Implement actual pick ownership as persistent career state: year + round/selection identity + originating club + current owner. Traded picks must flow into the correct National Draft order and remain owned after save/reload.
+
+Research and model the current AFL men's future-pick framework rather than inventing a generic sports rule. **As of the 2025 rule change, clubs may trade selections from the current National Draft and the following two National Drafts.** The official AFL framework also retains protections including the rolling requirement to use at least **two first-round selections in four years**; trading first-round selections requires board approval; and the furthest future year has additional first-vs-second/third-round holding restrictions. Re-verify the current official AFL rules when implementing in case they change, then encode the football rule itself rather than hard-coding a one-season-only approximation. Board approval can be treated as an eligibility rule rather than pointless confirmation busywork.
+
+The current career begins in 2027, so in a 2027 trade period the normal asset horizon should be the 2027, 2028 and 2029 National Drafts if the contemporary rule is unchanged.
+
+#### Club list-management phase / strategy
+AI trade value must depend on what the club is trying to do, using only its own public/roster information — never hidden user intent.
+
+Give each club a simple, recalculated list-management phase such as:
+- **Rebuilding:** materially values high/current and future draft picks plus elite young/high-POT players; is reluctant to trade premium youth for established older stars; may move veterans for picks/youth.
+- **Building/rising:** values a mixture of young core and targeted established needs.
+- **In the premiership window / contending:** places less marginal value on future picks and is more willing to trade good picks/youth depth for established players who improve the best 22 now.
+
+Derive this from evidence such as recent ladder/expectation, list quality, age profile, elite-young core and competitive trajectory. Do not assign permanent hand-authored personalities. Recalculate as careers evolve.
+
+A club's position need must be **quality-aware**, not only headcount-aware. If a club already owns a better ruck, receiving an inferior ruck should not get a generic need premium just because it has fewer than three players tagged RUCK.
+
+#### Trade fairness / long-save exploit audit
+Treat the Sweet + Lester → Arki Butler acceptance as a concrete regression case. Audit repeated attempts to acquire elite young players/high picks using bundles of older/middling players. The long-save game must resist the familiar management-sim exploit where the human consolidates junk into stars every off-season and becomes unbeatable after a few years.
+
+Acceptance:
+- the Butler example is rejected absent substantial additional premium value;
+- elite young/high-POT players and premium picks are genuinely expensive, especially to rebuilding clubs;
+- contenders can rationally pay picks for established stars;
+- rebuilders can rationally sell veterans for picks/youth;
+- a worse player at an already-strong position does not receive a fake need premium;
+- trade difficulty may change how hard a fair deal is to close, but cannot make obviously irrational deals acceptable;
+- repeated long-save AI-vs-user trade probes do not let the user turn low-value bundles into a superteam.
+
+#### Trade UI / navigation
+Rebuild the trade interaction around **selected packages**, not two enormous full-list dumps:
+- compact selected-assets summary for `You give / You get`;
+- browse/add players and picks with useful sort/filter controls;
+- clear package value and concise acceptance feedback;
+- confirmation before committing a completed trade;
+- preserve the current club, package selection **and vertical scroll position** whenever the UI rebuilds after adding/removing an asset. The current `_pick_grid()` calls `_build()` on every tap, which recreates the ScrollContainer and repeatedly throws the user back to the top.
+
+The same scroll-preservation rule now applies across Contracts, Free agents and Trade.
+
+
 ---
+
+
 
 ## ARD-M6-005 — Options / settings
 **Status:** `DONE`  
@@ -2458,6 +2882,62 @@ It should help the player:
 
 ---
 
+
+## ARD-M6-007 — Off-season wrap and new-season launch
+**Status:** `TODO`  
+**Priority:** `P1`  
+**Autonomy:** `SUPERVISED`
+
+### Trigger
+Completing the National Draft currently calls `finish_intake_draft()` → `_start_next_season()` immediately. The game therefore jumps straight from the final draft pick into Round 1 of the new season with no transition, despite a large amount of list-management state having just changed.
+
+### Intent
+Give the off-season a proper conclusion and the new season a deliberate beginning.
+
+After the National Draft is completed — and **before** the player is dropped into the normal Round 1 hub — show a concise **Off-season wrap / New season briefing**.
+
+### Ins / Outs summary
+Summarise what actually changed at the user's club across the whole off-season, not only the draft:
+- **Ins:** traded-in players, free-agent signings, National Draft selections and any other genuine list additions;
+- **Outs:** trades out, delistings/releases, free-agent departures, retirements and other permanent list exits;
+- show draft pick number next to drafted players where useful;
+- include notable staff changes in a separate coaching line/block when they occurred;
+- if nothing happened in one category, omit it rather than showing empty furniture.
+
+Reuse persistent transactional state rather than reconstructing it from guesses. `offseason_log` already captures some releases/signings/trades, draft history carries selections, retirement/intake summary contains retirements, and coach records/news capture coaching movement. Extend the smallest durable season-transition ledger needed so the wrap survives save/reload.
+
+### Board expectation reveal
+The same transition should reveal the board's **upcoming-season expectation** after the new list has been assembled and the expectation model has run.
+
+Show:
+- the actual goal in plain football language;
+- a short reason for it, grounded in the expectation-fairness model (e.g. list quality, previous finish/trajectory, rebuild/contending state);
+- current job-security state only if materially relevant.
+
+This is the moment the player should learn “the board expects finals/top four/seven wins”, not by stumbling across it later in Coaching.
+
+Do not turn this into another dashboard. The purpose is:
+**What changed? What does the club expect now? Then begin the season.**
+
+### Presentation
+Give the transition enough ceremony to feel like the end of one management phase and the start of another, while staying phone-friendly:
+1. Off-season complete.
+2. Ins / Outs.
+3. Any notable coaching movement at your club.
+4. Board expectation for the new season.
+5. **Begin season**.
+
+A one-screen scroll or short staged flow is fine. No forced slideshow.
+
+### Acceptance
+- finishing the draft never silently drops the player into Round 1;
+- every genuine player addition/removal from that off-season can be accounted for in the wrap;
+- draft picks are correctly identified;
+- notable staff changes are surfaced if they occurred;
+- the board's new-season goal and a concise reason are shown before Round 1 begins;
+- save/reload at the transition cannot duplicate transactions or skip the briefing;
+- long saves retain a clear year-to-year sense of roster change without number vomit.
+
 # M7 — Competition Identity & Long Careers
 
 Goal: make decades of play feel like a living AFL world rather than repeated isolated seasons.
@@ -2546,6 +3026,26 @@ Canonical umbrella for:
 - honours,
 - Hall of Fame / legends where justified,
 - famous finals/dynasties/droughts.
+
+### End-of-season awards presentation — fanfare, not summary cards
+The current Season Review collapses Brownlow, Coleman, Rising Star, club best & fairest and All-Australian into a single static awards panel. That is too flat for awards that should feel like major season payoffs. Keep the **season story/campaign recap separate** from awards night.
+
+- **Brownlow Medal:** give it a bespoke round-by-round count. Reveal votes round by round, update the leaderboard as the count progresses, build tension late, then clearly crown the winner. The underlying Brownlow already accrues 3-2-1 votes from home-and-away matches in `Awards.tally_match()`; presentation should reveal those existing votes rather than re-roll or invent anything. Allow sensible pacing/skip controls so repeat long careers do not become tedious, but the default first-time experience should have ceremony and escalation rather than immediately exposing the final totals.
+- **Club best & fairest:** give the user's club its own bespoke count/ceremony, again progressing through the season rather than dumping the final `bf` totals. The current model already accrues 5-4-3-2-1 within each side every match, finals included. Reveal those existing votes progressively, with the club winner feeling like a genuine end-of-year moment. This is a club event, distinct from the Brownlow night.
+- **All-Australian:** give the final team a bespoke unveiling at season's end instead of a compact list. Reveal the side in stages/lines (e.g. defence, midfield/ruck, forwards, interchange) with enough pause and presentation that selections feel prestigious. Do not expose the internal selection formula or turn it into a number dump.
+- **Coaches' votes:** implement as an in-season accumulating recognition system, visible through appropriate leader/record surfaces as the year progresses. **Do not** give coaches' votes another bespoke end-of-season countdown; by season's end the winner can be acknowledged briefly because the interest came from watching the race accrue during the season.
+- **Coleman Medal:** the race should also accumulate visibly throughout the season, just like coaches' votes and the existing ladder Coleman panel. It does **not** need its own bespoke countdown ceremony at season's end because the user has already watched the race develop week by week. Give the final Coleman winner a short, prestigious presentation/mention during the Brownlow ceremony.
+- **Rising Star:** no separate ceremony required. Award/present the Rising Star during the Brownlow ceremony as part of the broader league awards night, with enough prominence to feel meaningful but without interrupting the Brownlow count's pacing.
+- Do not force every honour into its own ceremony: the distinct marquee experiences are the Brownlow count, the user's club B&F count, and the All-Australian unveiling; Coleman and Rising Star live naturally within the Brownlow awards-night presentation.
+
+Presentation guardrails:
+- fanfare should come from pacing, reveal, hierarchy and football context, not particle spam or UI clutter;
+- no fake suspense: reveal deterministic stored results only;
+- skippable/acceleratable for experienced players while preserving a satisfying default flow;
+- save/reload must not double-award, re-roll votes, or change winners;
+- each ceremony should work cleanly on a phone and should not require dense tables.
+
+Acceptance: Brownlow and the user's B&F can be watched as progressive counts with evolving leaders and a final winner reveal; All-Australian is unveiled progressively by line/position; coaches' votes accrue through the actual season and need no separate countdown; the ordinary Season Review no longer substitutes a single static card for these major moments.
 
 ### Guardrails
 - count each season/event once,
@@ -2839,10 +3339,12 @@ Possible families:
 
 ### Guardrails
 - MatchSim remains the authority. A vignette may illustrate state but must not invent a second football outcome.
+- Vignette participants must come from MatchSim's authoritative participant selection for that event (for centre bounces, the same ruck contestant and centre-bounce attendees), not a separate presentation-only reconstruction from generic position slots.
 - Do not introduce 3D player models, 3D stadium presentation or continuous 3D match recreation.
 - Do not build hundreds of unique scenes.
 - Tactical readability matters more than graphical fidelity.
 - Preserve club colours and player identity where useful without requiring licensed likenesses.
+- Player identity includes credible visual diversity: never default every vignette player to the same white/light-skinned appearance. Use appearance data for rendering rather than racial/ethnic gameplay categories or name-based inference.
 - Keep mobile performance and load time within the Android-first target.
 - No extra number-vomit: the visual should replace explanation where possible, not add another analytics layer.
 
@@ -2887,6 +3389,58 @@ The feature earns further work only if a phone playtest shows that the player ca
 
 ---
 
+
+## ARD-M8-008 — Android app identity: name and launcher icon
+**Status:** `TODO`  
+**Priority:** `P1`  
+**Autonomy:** `SAFE`
+
+### Goal
+Replace the leftover prototype identity shown by Android. The installed app must use the current game name, **Aussie Rules Dynasties**, rather than **AFL Auto-Battler**, and the launcher/app-info icon must be purpose-built for the Aussie Rules Dynasties identity rather than the current generic football-field placeholder.
+
+### Acceptance
+- Android launcher and App info show **Aussie Rules Dynasties**.
+- Android launcher/adaptive icon is visually tied to the game's title/identity and remains legible at phone icon size.
+- Remove visible legacy **AFL Auto-Battler** branding from Android export metadata where it is user-facing.
+- Do not redesign the in-game title/logo as part of this task unless required to share the same approved identity assets.
+
+
+---
+
+## ARD-M8-009 — Plausible fictional player names
+**Status:** `TODO`  
+**Priority:** `P1`  
+**Autonomy:** `SAFE`
+
+### Trigger
+The first generated National Draft immediately breaks immersion with names such as **Fia Drift, Sora Jumble, Gavi Cobble, Hani Orbit, Gilo Orbit and Ivo Orbit**. Several obviously invented surnames repeat within a tiny class.
+
+### Current implementation reality
+This is not random bad luck. `GameDB.gd` currently uses a deliberately fantastical alias pool of only **49 first names and 50 surnames**, including `Orbit`, `Jumble`, `Fizz`, `Puddle`, `Gossamer`, `Cobble`, etc. Every first/last combination is shuffled deterministically, so full-name collisions are avoided initially, but the very small surname pool makes repeated surnames unavoidable and the vocabulary itself does not resemble Australian footballers. Generated future prospects have no real-name fallback, so this problem becomes more visible with every long save.
+
+### Direction
+Replace the fantasy-word alias system with a large, plausible contemporary Australian player-name generator.
+
+Requirements:
+- names should read like believable human names in an Australian national competition;
+- use a broad contemporary Australian mix of first names and surnames rather than a narrow Anglo-only list or fantasy syllables;
+- greatly expand the pools so a 50-player draft class does not visibly recycle surnames;
+- avoid repeated full names across an active career;
+- avoid more than an occasional repeated surname within one draft class unless it is intentionally linked to a future family-lineage mechanic;
+- generation remains deterministic for a career/seed and stable through save/reload;
+- real current players can still use the player's chosen real-name/fictive-name setting, but **generated future players must always receive plausible names**;
+- do not use numbered placeholders or artificial sci-fi/fantasy vocabulary;
+- future father-son/family systems may intentionally reuse a surname and should be able to bypass the ordinary duplicate-avoidance rule.
+
+### Validation
+Generate at least 20 full draft classes and inspect:
+- surname repetition per class;
+- full-name collisions across decades;
+- obviously non-human/novelty combinations;
+- name-length/wrapping on 360–390 px screens.
+
+Acceptance: a draft list should look like a plausible list of Australian football prospects at a glance; repeated surnames are uncommon enough to feel notable rather than procedural; long saves do not devolve into obvious recycled-name patterns.
+
 # 3. Cross-Cutting Systems That Must Stay Consolidated
 
 These are not separate roadmap items. They are architectural umbrellas used to prevent duplicates.
@@ -2925,8 +3479,10 @@ Includes:
 
 ## E. Match-ups & Accountability
 Includes:
-- defensive assignments,
-- forward match-ups,
+- key forward / key defender assignments,
+- ruck duels,
+- star-midfielder influence battles / tags,
+- roaming interceptor / spare-defender influence,
 - tagging trade-offs.
 
 ## F. History & Records
@@ -3199,22 +3755,6 @@ Before adding any new roadmap line, check this table.
 | Cinematic decision scene / tactical close-up / detailed match moment | ARD-M8-007 Cinematic tactical vignettes |
 | Draft age filter / rookie-prime-veteran / career-stage filter | ARD-M5-011 |
 
-## ARD-M8-008 — Android app identity: name and launcher icon
-**Status:** `TODO`  
-**Priority:** `P1`  
-**Autonomy:** `SAFE`
-
-### Goal
-Replace the leftover prototype identity shown by Android. The installed app must use the current game name, **Aussie Rules Dynasties**, rather than **AFL Auto-Battler**, and the launcher/app-info icon must be purpose-built for the Aussie Rules Dynasties identity rather than the current generic football-field placeholder.
-
-### Acceptance
-- Android launcher and App info show **Aussie Rules Dynasties**.
-- Android launcher/adaptive icon is visually tied to the game's title/identity and remains legible at phone icon size.
-- Remove visible legacy **AFL Auto-Battler** branding from Android export metadata where it is user-facing.
-- Do not redesign the in-game title/logo as part of this task unless required to share the same approved identity assets.
-
-
----
 
 ## Design idea — Unicorn as a synergy wildcard
 

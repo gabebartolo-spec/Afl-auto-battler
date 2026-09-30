@@ -30,6 +30,8 @@ func _run() -> void:
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
 	await _hub_tests()
+	await _finals_week_by_week()
+	await _season_review_scrolls()
 	await _pre_match_scene()
 	print("Matchup + hub tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
@@ -76,6 +78,20 @@ func _hub_tests() -> void:
 	var rx := RegEx.new()
 	rx.compile("[+-]\\d")
 	_check(mine != null and rx.search(mine.text) == null, "Your form hides the internal number")
+	# Each result in its own colour, letters kept: a W reads as a win.
+	var streak: Node = hub.find_child("FormStreak", true, false)
+	var letters := ""
+	var coloured := true
+	var kit = load("res://scripts/ui/UiKit.gd")
+	for l in (streak.get_children() if streak != null else []):
+		var ch := str((l as Label).text)
+		letters += ch
+		var want: Color = kit.GOOD if ch == "W" else (kit.BAD if ch == "L" else kit.MUTED)
+		coloured = coloured and (l as Label).get_theme_color("font_color").is_equal_approx(want)
+	var info: Dictionary = _state.club_form_info(_state.my_club)
+	_check(streak != null and letters == str(info.get("last", "")) and letters != "",
+			"The form line keeps the result letters (%s)" % letters)
+	_check(coloured, "Wins, losses and draws each read in their own colour (%s)" % letters)
 	var actions: Control = hub.find_child("WeekActions", true, false)
 	var play := _button(actions, "Play match")
 	_check(play != null and play.size.y >= 44, "Play match sits in this week, thumb-sized")
@@ -147,55 +163,74 @@ func _hub_tests() -> void:
 	await _settle()
 
 
-## Play match puts the pre-match scene up in the same frame as the tap, plays
-## it over the preparation (warm-up, then final instructions as the round's
-## other matches finish), runs through the banner once the match is ready and
-## gives way to the match. The round comes out exactly as the blocking path's.
-func _pre_match_scene() -> void:
+## Out of the finals, the league still plays them a week at a time: the hub
+## offers the week, shows its results, and the season (and its awards) ends
+## only after the Grand Final. Sim to Grand Final stays as the fast-forward.
+func _finals_week_by_week() -> void:
 	var db = root.get_node("GameDB")
-	var router = root.get_node("Router")
-	_state.reset()
-	_state.start_season("COL", db.club_list("COL"))
-	_state.season.seed = 424242     # a new career's seed is random
-	_state.prepare_interactive_match()
-	var blocking := var_to_str(_state.pending_round_results) + var_to_str(_state.season.ladder_sorted())
-	var others: int = _state.pending_round_results.size()
-	_state.reset()
-	_state.start_season("COL", db.club_list("COL"))
-	_state.season.seed = 424242     # a new career's seed is random
+	var out := ""
+	for code in ["GWS", "RIC", "NTH", "WCE", "STK", "SKN", "ESS", "ADE"]:
+		if not db.active_clubs(2027).has(code):
+			continue
+		_state.reset()
+		_state.start_season(code, db.club_list(code))
+		_state.season.round_index = _state.season.fixture.size() - 1
+		_state.advance()
+		if not (_state.season.finals["top"] as Array).has(code):
+			out = code
+			break
+	_check(out != "", "A club misses the finals to test with")
+	if out == "":
+		return
 	root.size = Vector2i(390, 844)
 	var hub: Control = await _open_hub()
-	var play := _button(hub.find_child("WeekActions", true, false), "Play match")
-	play.emit_signal("pressed")
-	var vig = root.find_child("PreMatchVignette", true, false)
-	_check(vig != null, "Play match cuts to the pre-match scene in the same frame")
-	if vig == null:
-		hub.queue_free()
-		return
-	_check(vig.banner == db.club_name("COL") and str(vig.title).contains(db.club_name("COL")),
-			"The scene is your club's: its banner and this week's match (%s)" % str(vig.title))
-	var seen := {}
-	var frames_before_run := 0
-	var frames := 0
-	while frames < 900 and (router.current() != "match" or root.find_child("PreMatch", true, false) != null):
-		if is_instance_valid(vig):
-			seen[str(vig.phase())] = true
-			if str(vig.phase()) != "run":
-				frames_before_run += 1
-		await process_frame
-		frames += 1
-	_check(seen.has("warm") and seen.has("huddle") and seen.has("run"),
-			"Warm-up, final instructions, then through the banner (%s)" % str(seen.keys()))
-	_check(frames_before_run >= others,
-			"The scene plays while the round's %d other matches are simulated (%d frames)" % [others, frames_before_run])
-	_check(router.current() == "match" and root.find_child("PreMatch", true, false) == null,
-			"Then the match, and the scene is gone")
-	_check(var_to_str(_state.pending_round_results) + var_to_str(_state.season.ladder_sorted()) == blocking,
-			"The round comes out exactly as without the scene")
-	if get_current_scene() != null:
-		get_current_scene().queue_free()
-	if is_instance_valid(hub):
-		hub.queue_free()
+	var weeks := 0
+	var one_at_a_time := true
+	while not _state.season.is_season_over() and weeks < 6:
+		var actions: Node = hub.find_child("WeekActions", true, false)
+		var week: Button = actions.find_child("SimFinalsWeek", true, false) if actions != null else null
+		var skip: Button = actions.find_child("SimToGrandFinal", true, false) if actions != null else null
+		if week == null or skip == null:
+			one_at_a_time = false
+			break
+		var before := int(_state.season.finals.get("week", 0))
+		week.emit_signal("pressed")
+		await _settle()
+		weeks += 1
+		one_at_a_time = one_at_a_time and (_state.season.is_season_over()
+				or int(_state.season.finals.get("week", 0)) == before + 1)
+		one_at_a_time = one_at_a_time and hub.get("_results_overlay") != null
+		if not _state.season.is_season_over():
+			one_at_a_time = one_at_a_time and int(_state.season_awards.get("year", 0)) != _state.season_year
+		hub.call("handle_back")
+		await _settle()
+	_check(one_at_a_time and weeks >= 4, "Out of the finals: every week can be played one at a time, results each week (%d weeks)" % weeks)
+	_check(_state.season.is_season_over() and int(_state.season_awards.get("year", 0)) == _state.season_year,
+			"The season, and its awards, close only after the Grand Final")
+	hub.queue_free()
+
+
+## The Season Review runs well past one phone screen: everything under the
+## top bar scrolls, so the National Draft button at the bottom is reachable.
+func _season_review_scrolls() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(360, 740)
+	var review: Control = load("res://scenes/SeasonReviewScene.tscn").instantiate()
+	root.add_child(review)
+	await _settle()
+	var page: Control = review.find_child("ReviewPage", true, false)
+	var sc := page.get_parent() as ScrollContainer if page != null else null
+	_check(sc != null, "The Season Review sits in a scroll")
+	var draft: Button = review.find_child("NationalDraft", true, false)
+	var viewport := Rect2(Vector2.ZERO, Vector2(root.size))
+	if sc != null and draft != null:
+		_check(page.size.y > sc.size.y, "On a phone the review runs past one screen (%.0f > %.0f)" % [page.size.y, sc.size.y])
+		sc.scroll_vertical = int(page.size.y)
+		await _settle()
+		_check(viewport.encloses(draft.get_global_rect()), "Scrolled down, the National Draft button is on screen")
+	review.queue_free()
 	await _settle()
 
 
@@ -232,3 +267,56 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
 		push_error(message)
+
+
+## Play match puts the pre-match scene up in the same frame as the tap:
+## a couple of seconds of match day (warm-up, final instructions, through the
+## banner) while the match is set up, then the match. A tap sends them
+## through the banner at once.
+func _pre_match_scene() -> void:
+	var db = root.get_node("GameDB")
+	var router = root.get_node("Router")
+	for skip in [false, true]:
+		_state.reset()
+		_state.start_season("COL", db.club_list("COL"))
+		root.size = Vector2i(390, 844)
+		var hub: Control = await _open_hub()
+		var play := _button(hub.find_child("WeekActions", true, false), "Play match")
+		play.emit_signal("pressed")
+		var vig = root.find_child("PreMatchVignette", true, false)
+		_check(vig != null, "Play match cuts to the pre-match scene in the same frame")
+		if vig == null:
+			hub.queue_free()
+			return
+		if not skip:
+			_check(vig.banner == db.club_name("COL") and str(vig.title).contains(db.club_name("COL")),
+					"The scene is your club's: its banner and this week's match (%s)" % str(vig.title))
+		var seen := {}
+		var frames_before_run := 0
+		var frames := 0
+		while frames < 900 and (router.current() != "match" or root.find_child("PreMatch", true, false) != null):
+			if is_instance_valid(vig):
+				if skip and frames == 5:
+					var tap := InputEventMouseButton.new()
+					tap.button_index = MOUSE_BUTTON_LEFT
+					tap.pressed = true
+					vig._gui_input(tap)
+				seen[str(vig.phase())] = true
+				if str(vig.phase()) != "run":
+					frames_before_run += 1
+			await process_frame
+			frames += 1
+		if skip:
+			_check(frames_before_run <= 8, "A tap sends them through the banner at once (%d frames)" % frames_before_run)
+		else:
+			_check(seen.has("warm") and seen.has("huddle") and seen.has("run"),
+					"Warm-up, final instructions, then through the banner (%s)" % str(seen.keys()))
+			_check(frames_before_run >= 100 and frames_before_run <= 240,
+					"A couple of seconds of match day, not a wait (%d frames at 60)" % frames_before_run)
+		_check(router.current() == "match" and root.find_child("PreMatch", true, false) == null,
+				"Then the match, and the scene is gone")
+		if get_current_scene() != null:
+			get_current_scene().queue_free()
+		if is_instance_valid(hub):
+			hub.queue_free()
+		await process_frame

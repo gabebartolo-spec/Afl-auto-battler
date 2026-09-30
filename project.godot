@@ -16,6 +16,12 @@ config/features=PackedStringArray("4.7")
 config/icon="res://icon.svg"
 ; Android's back button goes through Router.handle_back() instead of quitting.
 config/quit_on_go_back=false
+; Battery: redraw only when something on screen changes (an idle hub or
+; menu drew every frame - measured 35/s under software rendering, 0.2/s
+; with this) and never above 60 fps on high-refresh phones. The match view
+; and vignettes ask for their own frames while they animate.
+run/low_processor_mode=true
+run/max_fps=60
 
 [autoload]
 

@@ -33,6 +33,10 @@ func _run() -> void:
 		await _phone_match(sz)
 	await _plan_at_first_bounce()
 	await _bounce_close_up()
+	# Battery: nothing is redrawn unless it changes, and never above 60 fps.
+	_check(bool(ProjectSettings.get_setting("application/run/low_processor_mode", false))
+			and int(ProjectSettings.get_setting("application/run/max_fps", 0)) == 60,
+			"Idle screens are not redrawn every frame, and frames are capped at 60")
 	print("Matchday + match screen tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -195,12 +199,17 @@ func _phone_match(sz: Vector2i) -> void:
 	# The break: the score, what happened, then the calls.
 	_check(box.find_child("BreakScore", true, false) != null and box.find_child("QuarterFacts", true, false) != null,
 			"Quarter time says the score and what happened (%s)" % tag)
+	var facts: Node = box.find_child("QuarterFacts", true, false)
+	_check(facts != null and facts.get_child_count() <= 3,
+			"What happened in the quarter is three things at most (%s)" % tag)
 	var bt := _text(box)
 	_check(not bt.contains("pts") and not bt.contains("Expected points") and not bt.contains(" def ")
 			and not bt.contains("defeated"), "The break shows no engine numbers or result words (%s)" % tag)
 	_check(bt.contains("Tag on ") and box.find_child("CallsDid", true, false) != null,
 			"The break says what your calls did, your tag among them (%s)" % tag)
-	_check(bt.contains("What's happening"), "The break leads with what is happening (%s)" % tag)
+	var qh: Label = box.find_child("QuarterHeading", true, false)
+	_check(qh != null and qh.text == "First quarter" and not bt.contains("What's happening"),
+			"Quarter time leads with the quarter just played, by name (%s)" % tag)
 	var more_calls: Control = box.find_child("MoreCalls", true, false)
 	var more_btn: Button = box.find_child("MoreCallsToggle", true, false)
 	_check(more_calls != null and not more_calls.visible and more_btn != null and box.find_child("PlanPicker", true, false).is_visible_in_tree()
@@ -282,6 +291,8 @@ func _phone_match(sz: Vector2i) -> void:
 		_check(rep != null and rep.find_child("MatchRead", true, false) != null
 				and rep.find_child("ReportBest", true, false) != null, "The report opens at a glance (%s)" % tag)
 		var rt := _text(rep)
+		_check(not rt.contains("Opposition danger"),
+				"Their best players are an observation, not a problem to solve (%s)" % tag)
 		_check(not rt.contains("vs par") and not rt.contains("disp (") and not rt.contains("Where the game is being won"),
 				"The short report is words, not a stat dump (%s)" % tag)
 		_check(rep.find_child("FullReportButton", true, false) == null and not rt.contains("Half time:"),

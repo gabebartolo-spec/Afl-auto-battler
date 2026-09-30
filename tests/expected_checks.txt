@@ -6,7 +6,7 @@ draft_ui 1298
 intake 2128
 intake_ui 493
 expansion 1168
-finals 102
+finals 108
 save 49
 chronology 28
 career 71
@@ -14,14 +14,14 @@ coaches 335
 coach_market 56
 coach_pathway 54
 coach_effects 24
-career_ui 130
+career_ui 133
 potential 36
 ratings 27
 ai 35
 training 59
 selection 14
-matchup 55
-matchday 313
+matchup 62
+matchday 319
 roles 139
 injuries 12
 awards 16
@@ -31,7 +31,7 @@ league 14
 club 90
 match_game 122
 pressure 21
-match_visual 54
+match_visual 55
 league_balance 21
 calibration 17
 balance 12

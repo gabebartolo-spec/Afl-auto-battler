@@ -26,6 +26,7 @@ var _since := 0.0          # time the phase began
 var _progress := 0.0
 var _left_at := -1.0       # when the scene went black, waiting for the match
 var _scene_then: Node = null
+var _auto := -1.0          # play_through: seconds until the run (-1: off)
 
 
 ## The scene on its own layer over whatever is showing, so it stays up while
@@ -70,6 +71,12 @@ func set_progress(f: float) -> void:
 		_go(HUDDLE, "Final instructions")
 
 
+## Warm-up, final words, then through the banner after `seconds` on its
+## own; a tap sends them through at once.
+func play_through(seconds: float) -> void:
+	_auto = maxf(0.1, seconds)
+
+
 ## The match is ready: through the banner, then `done`.
 func run_out() -> void:
 	if _phase != RUN:
@@ -89,6 +96,10 @@ func _go(p: int, words: String) -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	if _auto > 0.0 and _phase != RUN:
+		set_progress(_t / _auto)
+		if _t >= _auto:
+			run_out()
 	if _phase == RUN and _left_at < 0.0 and _t - _since >= RUN_TIME:
 		_left_at = _t
 		_scene_then = get_tree().current_scene
@@ -103,8 +114,12 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-func _gui_input(_event: InputEvent) -> void:
+func _gui_input(event: InputEvent) -> void:
 	accept_event()     # nothing under the scene takes a tap while it plays
+	var tap := (event is InputEventMouseButton and (event as InputEventMouseButton).pressed) \
+			or (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed)
+	if tap and _auto > 0.0:
+		run_out()      # skip to the banner
 
 
 # ---------------------------------------------------------------------------

@@ -31,6 +31,10 @@ func run() -> void:
 	_test_hot_player_moment()
 	_test_matchups()
 	_test_in_match_injuries()
+	_test_run_call_once_a_run()
+	_test_late_bounce_reachable()
+	_test_current_club_identity()
+	_test_tag_ends_with_injury()
 	_test_match_story()
 	_test_traits_surfaced()
 	_test_momentum()
@@ -336,25 +340,53 @@ func _test_impact_and_ai() -> void:
 		var has_now: bool = now_t != null and Roles.is_tagger(now_t)
 		_check((str(s2.ai_tactics(1).get("tag_id", "")) != "") == has_now,
 				"%s %s a tag in the second half" % [str(pair[0]), "calls" if has_now else "does not call"])
-	# A tired star can be rested.
-	var tired := _sim(902)
-	tired.moment_side = 0
-	var star: Dictionary = {}
-	for p in tired.squads[0].ground:
-		if int(p["overall"]) >= MatchSim.STAR_OVR:
-			star = p
-	if not star.is_empty():
-		tired.energy[str(star["id"])] = 40.0
-		tired.begin_quarter()
-		tired.continue_quarter()
-		var m := tired.pending_moment
-		_check(str(m.get("kind", "")) == "tired", "A cooked star brings a rest-him call")
-		tired.resolve_moment(0)
-		var still_on := false
+	# A tired star: under Normal rotations the rotations handle him, with no
+	# call; riding the stars brings one call a match, and resting him works.
+	for policy in ["normal", "stars"]:
+		var tired := _sim(902)
+		tired.moment_side = 0
+		tired.set_rotation_policy(0, policy)
+		var star: Dictionary = {}
 		for p in tired.squads[0].ground:
-			if str(p["id"]) == str(star["id"]):
-				still_on = true
-		_check(not still_on, "Resting him takes him off the ground")
+			if int(p["overall"]) >= MatchSim.STAR_OVR:
+				star = p
+		if star.is_empty():
+			_check(false, "Club 902 fields a star")
+			continue
+		tired.begin_quarter()
+		tired.energy[str(star["id"])] = 40.0      # after the break's recovery
+		var calls := 0
+		var guard := 0
+		while guard < 40:
+			tired.continue_quarter()
+			var m := tired.pending_moment
+			if m.is_empty():
+				break
+			if str(m.get("kind", "")) == "tired":
+				calls += 1
+				if calls == 1:
+					tired.resolve_moment(0)
+					var still_on := false
+					for p in tired.squads[0].ground:
+						if str(p["id"]) == str(star["id"]):
+							still_on = true
+					_check(not still_on, "Resting him takes him off the ground")
+					# Cooked again later: still only the one call.
+					for p in tired.squads[0].ground:
+						if int(p["overall"]) >= MatchSim.STAR_OVR:
+							tired.energy[str(p["id"])] = 30.0
+					continue
+			tired.resolve_moment(int(m.get("default", 0)))
+			guard += 1
+		if policy == "normal":
+			var subbed := false
+			for ev in tired.events:
+				if str(ev["kind"]) == "sub" and int(ev["side"]) == 0 and int(ev.get("off_num", -1)) == int(star["num"]):
+					subbed = true
+			_check(calls == 0, "Normal rotations: no running-on-empty call")
+			_check(subbed, "Normal rotations take the cooked star off by themselves")
+		else:
+			_check(calls == 1, "Riding the stars: one tired call a match, not one a quarter (%d)" % calls)
 
 
 ## Calm the group is a live option: a milder, quarter-long Slow it down,
@@ -973,8 +1005,22 @@ func _test_matchups() -> void:
 			[1, "A", true, true], [1, "A", true, false], [1, "A", true, true], [2, "A", true, false],
 			[3, "B", false, false], [3, "B", false, false], [3, "B", true, false], [4, "B", false, false]]}}}
 	var story := MatchNotes.duel_story(fake, 0)
-	_check(story.size() == 1 and str(story[0]).contains("turned the contest"),
-			"A change that swung the contests is credited (%s)" % str(story))
+	_check(story.size() == 1 and str(story[0]).contains("had the better of") and str(story[0]).contains("held him once he took over"),
+			"A change that swung the contests is told in order: on top early, held after (%s)" % str(story))
+	# A side's move onto him is called a move; a rotation is not.
+	fake["duel_changes"] = [{"q": 3, "from": 3, "side": 0, "fwd": "F", "def": "B"}]
+	story = MatchNotes.duel_story(fake, 0)
+	_check(str(story[0]).contains("held him after the move") and not str(story[0]).contains("turned"),
+			"A real move is named as the move, and the early part is kept (%s)" % str(story))
+	# One man all day, on top of him in one quarter (the live call), held
+	# overall: full time keeps both halves instead of contradicting the call.
+	var one := {"duels": {"F": {"side": 1, "contests": [
+			[1, "A", false, false], [1, "A", false, false], [1, "A", false, false],
+			[2, "A", true, false], [2, "A", true, true], [2, "A", true, false],
+			[3, "A", false, false], [3, "A", false, false], [4, "A", false, false], [4, "A", false, false]]}}}
+	var s1 := str(MatchNotes.duel_story(one, 0)[0])
+	_check(s1.contains("got on top of") and s1.contains("the second") and s1.contains("held him over the match"),
+			"On top in one quarter, held overall: both halves at full time (%s)" % s1)
 	var thin := {"duels": {"F": {"side": 1, "contests": [[1, "A", true, false], [1, "A", true, false],
 			[1, "A", true, false], [2, "B", false, false]]}}}
 	_check(str(MatchNotes.duel_story(thin, 0)[0]).contains("too few"),
@@ -983,6 +1029,118 @@ func _test_matchups() -> void:
 
 ## Injuries happen during the match: the player goes off for good, the bench
 ## covers him, and the list records the same injury afterwards.
+## A player's club in a match is the side he plays for today, never the
+## source club still on his record (a league re-draft, a trade): no club
+## that is not playing can appear beside a name in the feed or box score.
+func _test_current_club_identity() -> void:
+	var moved := []
+	for p in GameDB.club_list("MEL"):
+		var q: Dictionary = p.duplicate(true)
+		q["club"] = "WBD"
+		moved.append(q)
+	var stray := []
+	var injuries := 0
+	for i in range(12):
+		var sim := MatchSim.new(Squad.new("MEL", moved, true, "MEL"),
+				Squad.new("CAR", GameDB.club_list("CAR"), false, "CAR"), 3300 + i)
+		var res := sim.run()
+		for ev in res["events"]:
+			var c := str(ev.get("club", ""))
+			if c != "" and c != ["MEL", "CAR"][int(ev.get("side", 0))] and not ["MEL", "CAR"].has(c):
+				stray.append("%s %s" % [str(ev["kind"]), c])
+			if str(ev["kind"]) == "injury":
+				injuries += 1
+		for side in range(2):
+			for r in res["roster"][side]:
+				if str(r["club"]) != ["MEL", "CAR"][side]:
+					stray.append("roster " + str(r["club"]))
+	_check(stray.is_empty(), "Every name in the match carries the club he plays for today (%s)" % str(stray.slice(0, 3)))
+	_check(injuries > 0, "The sample includes injuries, whose lines once named a stale club")
+	var line := MatchNotes.story_feed_line({}, {"kind": "injury", "name": "Tim English", "club": "MEL", "on": ""})
+	_check(line.contains("(%s)" % GameDB.club_short("MEL")), "The injury line reads the match club (%s)" % line)
+
+
+## A tagged player hurt and gone off takes the tag with him: the tagging side
+## keeps no hidden tag, and he cannot be tagged again.
+func _test_tag_ends_with_injury() -> void:
+	var sim := _sim(3200, "MEL", "CAR")
+	sim.moment_side = 0
+	var target: Dictionary = {}
+	for p in (sim.squads[1] as Squad).ground:
+		if MatchSim.taggable(p):
+			target = p
+			break
+	var id := str(target["id"])
+	sim.set_tactics(0, {"gameplan": "balanced", "tag_id": id})
+	_check(str(sim.tactics[0].get("tag_id", "")) == id, "A tag goes on a midfielder in the match")
+	sim._injury_plan = [{"side": 1, "id": id, "at": 3, "weeks": 2, "kind": "hamstring"}]
+	sim.begin_quarter()
+	var guard := 0
+	while guard < 30:
+		sim.continue_quarter()
+		if sim.pending_moment.is_empty():
+			break
+		sim.resolve_moment(int(sim.pending_moment.get("default", 0)))
+		guard += 1
+	_check(not sim.taking_part(1, id), "He goes off hurt and takes no further part")
+	_check(str(sim.tactics[0].get("tag_id", "")) == "", "The tag on him ends when he goes off")
+	sim.set_tactics(0, {"gameplan": "balanced", "tag_id": id})
+	_check(str(sim.tactics[0].get("tag_id", "")) == "", "He cannot be tagged at the next break")
+
+
+## A run of goals against brings one call a run, not one a goal: the fourth
+## and fifth goals of the same run ask nothing new; a new run can.
+func _test_run_call_once_a_run() -> void:
+	var sim := _sim(4500, "MEL", "CAR")
+	sim.moment_side = 0
+	sim.current_quarter = 2
+	var ready := func() -> void:
+		sim.pending_moment = {}
+		sim._moments_this_q = 0
+		sim._last_moment_chain = sim._chain_no - 100
+	var calls := 0
+	# Their goals 3, 4, 5 in a row: one run.
+	for g in [3, 4, 5]:
+		ready.call()
+		(sim.team_stats[1] as Dictionary)["goals"] = float(g)
+		sim._run = [0, g]
+		if sim._boundary_moment() and str(sim.pending_moment.get("kind", "")) == "momentum":
+			calls += 1
+	_check(calls == 1, "Three, four, five in a row: one call for the run (%d)" % calls)
+	# You kick one; then they kick three more: a new run, a new call.
+	ready.call()
+	(sim.team_stats[1] as Dictionary)["goals"] = 8.0
+	sim._run = [0, 3]
+	_check(sim._boundary_moment() and str(sim.pending_moment.get("kind", "")) == "momentum",
+			"A new run after you score can bring the call again")
+
+
+## A tight finish gets the centre-bounce call even when the last quarter's
+## two calls went early: one more is kept for it, and only for it.
+func _test_late_bounce_reachable() -> void:
+	var sim := _sim(4400, "MEL", "CAR")
+	sim.moment_side = 0
+	sim.current_quarter = 4
+	sim.current_minute = 106
+	sim.at_centre = true
+	sim._chain_no = 200
+	sim._last_moment_chain = 150
+	sim._moments_this_q = MatchSim.MAX_MOMENTS_Q
+	for side in range(2):
+		(sim.team_stats[side] as Dictionary)["goals"] = 10.0
+	_check(sim._boundary_moment() and str(sim.pending_moment.get("kind", "")) == "bounce",
+			"Q4's calls spent, a tight centre bounce still brings the call")
+	sim.pending_moment = {}
+	_check(not sim._boundary_moment(), "...once: the kept call is not a third")
+	sim._moments_this_q = MatchSim.MAX_MOMENTS_Q
+	sim._asked.erase("bounce")
+	sim.at_centre = false
+	_check(not sim._boundary_moment(), "The kept call is only for a centre bounce")
+	sim.at_centre = true
+	sim.current_quarter = 3
+	_check(not sim._boundary_moment(), "...and only in the last quarter")
+
+
 func _test_in_match_injuries() -> void:
 	var n := 0
 	var hurt := 0

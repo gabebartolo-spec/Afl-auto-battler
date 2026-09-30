@@ -466,6 +466,7 @@ func _test_match_flow(res: Dictionary) -> void:
 	var h := 1.0 / 30.0
 	var t := 0.0
 	var far := 0.0
+	var far_entry := 0.0
 	var worst := 0.0
 	var beat_k := -1
 	var beat_t := 0.0
@@ -483,6 +484,9 @@ func _test_match_flow(res: Dictionary) -> void:
 			var who := int(ph.get("who", -1))
 			if who >= 0 and (d.tokens[who]["pos"] as Vector2).distance_to(pos) > 12.0:
 				far += h
+				var pk: int = d._prev_real(int(d._beat.get("k", 0)))
+				if pk >= 0 and str((d.events[pk] as Dictionary).get("kind", "")) == "inside50":
+					far_entry += h
 		var k := int(d._beat.get("k", -1))
 		if k != beat_k:
 			worst = maxf(worst, beat_t)
@@ -492,6 +496,10 @@ func _test_match_flow(res: Dictionary) -> void:
 	pv.free()
 	_check(worst <= 8.0, "No moment of a watched match hangs (longest beat %.1f s)" % worst)
 	_check(far <= 0.12 * t, "The ball is rarely left waiting on a far-off receiver (%.0f s of %.0f)" % [far, t])
+	# Playtest: after a forward-50 entry the rebounding defender used to run
+	# 30 m to a ball landing among others. The entry now lands toward him and
+	# he starts for it during the play before.
+	_check(far_entry <= 0.012 * t, "An entry is not left waiting on a far-off rebounder (%.1f s of %.0f)" % [far_entry, t])
 
 
 ## Playtest freeze (near the boundary): a ball resting against the fence sat
