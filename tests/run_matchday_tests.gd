@@ -200,7 +200,9 @@ func _phone_match(sz: Vector2i) -> void:
 			and not bt.contains("defeated"), "The break shows no engine numbers or result words (%s)" % tag)
 	_check(bt.contains("Tag on ") and box.find_child("CallsDid", true, false) != null,
 			"The break says what your calls did, your tag among them (%s)" % tag)
-	_check(bt.contains("What's happening"), "The break leads with what is happening (%s)" % tag)
+	var qh: Label = box.find_child("QuarterHeading", true, false)
+	_check(qh != null and qh.text == "First quarter" and not bt.contains("What's happening"),
+			"Quarter time leads with the quarter just played, by name (%s)" % tag)
 	var more_calls: Control = box.find_child("MoreCalls", true, false)
 	var more_btn: Button = box.find_child("MoreCallsToggle", true, false)
 	_check(more_calls != null and not more_calls.visible and more_btn != null and box.find_child("PlanPicker", true, false).is_visible_in_tree()
