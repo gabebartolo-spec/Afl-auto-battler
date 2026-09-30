@@ -33,6 +33,10 @@ func _run() -> void:
 		await _phone_match(sz)
 	await _plan_at_first_bounce()
 	await _bounce_close_up()
+	# Battery: nothing is redrawn unless it changes, and never above 60 fps.
+	_check(bool(ProjectSettings.get_setting("application/run/low_processor_mode", false))
+			and int(ProjectSettings.get_setting("application/run/max_fps", 0)) == 60,
+			"Idle screens are not redrawn every frame, and frames are capped at 60")
 	print("Matchday + match screen tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
