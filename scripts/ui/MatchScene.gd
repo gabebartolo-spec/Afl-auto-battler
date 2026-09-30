@@ -448,7 +448,8 @@ func _show_coach_box() -> void:
 		v.add_child(played)
 		v.add_child(_quarter_view(q - 1))
 		var did := MatchNotes.calls_lines(_res, _my_side, q - 1) \
-				+ MatchNotes.duel_change_lines(_res, _my_side, q - 1)
+				+ MatchNotes.duel_change_lines(_res, _my_side, q - 1) \
+				+ MatchNotes.lasting_moment_lines(_res, q - 1)
 		if not did.is_empty():
 			v.add_child(UiKit.spacer(UiKit.GAP))
 			v.add_child(UiKit.section("What your calls did"))
@@ -603,13 +604,15 @@ func _show_coach_box() -> void:
 func _quarter_view(q: int) -> Control:
 	var v := UiKit.vbox(4)
 	v.name = "QuarterFacts"
+	# The few things that stood out, readable in a glance: no more than
+	# three, their plan kept (it is what the next quarter's calls answer).
+	# Moments already played out in the feed are not replayed here; the
+	# ones that carry on are under "What your calls did".
 	var lines: Array = MatchNotes.quarter_facts(_res, _my_side, q)
 	var opp_last := _opp_last_plan()
 	if opp_last != "" and opp_last != "balanced":
+		lines = lines.slice(0, MatchNotes.MAX_FACTS - 1)
 		lines.append("They played %s." % CoachReport.plan_label(opp_last))
-	for m in _res.get("moments", []):
-		if int(m.get("q", 0)) == q:
-			lines.append(MatchNotes.moment_line(m))
 	if lines.is_empty():
 		lines.append("An even quarter.")
 	for t in lines:

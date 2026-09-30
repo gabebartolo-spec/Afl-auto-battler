@@ -104,6 +104,15 @@ func _test_feed(res: Dictionary) -> void:
 			"A call is said once")
 	_check(MatchNotes.moment_line({"title": "Set shot", "choice_label": "Take the shot", "outcome": "GOAL to X!"})
 			== "Set shot: Take the shot. GOAL to X!", "A call and how it came off")
+	# Playtest: the break replayed every call already seen in the feed. Only
+	# the ones that carry into the next quarter come back.
+	var played := {"moments": [
+		{"kind": "set_shot", "q": 1, "title": "Set shot", "choice_label": "Take the shot", "outcome": "GOAL to X!"},
+		{"kind": "tired", "q": 1, "title": "X is running on empty", "choice_label": "Rest him now", "outcome": "He comes off."},
+		{"kind": "momentum", "q": 1, "title": "They have kicked 3 in a row", "choice_label": "Ride it out", "outcome": "No change."},
+		{"kind": "hot", "q": 2, "title": "Y has kicked 3", "choice_label": "Tag him", "outcome": "Z goes to him."}]}
+	_check(MatchNotes.lasting_moment_lines(played, 1) == ["X is running on empty: Rest him now. He comes off."],
+			"At the break, only the calls that carry on come back (%s)" % [MatchNotes.lasting_moment_lines(played, 1)])
 	_check(MatchNotes.run_line("CAR", 3) == "%s have kicked three in a row." % GameDB.club_name("CAR"),
 			"A run of goals reads in words")
 
