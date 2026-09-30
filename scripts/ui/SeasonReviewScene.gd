@@ -32,10 +32,15 @@ func _build() -> void:
 	UiKit.clear(_root)
 	var season: Season = GameState.season
 	_root.add_child(UiKit.top_bar("Season Review", true))
+	# Everything under the top bar scrolls: on a phone the review runs well
+	# past one screen, and its actions sit at the bottom.
+	var page := UiKit.vbox(9)
+	page.name = "ReviewPage"
+	_root.add_child(UiKit.scroll(page))
 
 	# --- premiership --------------------------------------------------------
 	var champ := UiKit.panel(UiKit.PANEL_ALT, 18, 12)
-	_root.add_child(champ)
+	page.add_child(champ)
 	var cv := UiKit.vbox(4)
 	champ.add_child(cv)
 	var premier := str(season.finals.get("premier", ""))
@@ -62,7 +67,7 @@ func _build() -> void:
 	else:
 		body = UiKit.hbox(10)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_root.add_child(body)
+	page.add_child(body)
 
 	var mine := _my_results()
 	var stats := _season_stats(mine)
@@ -106,8 +111,8 @@ func _build() -> void:
 	right.add_child(rv)
 	rv.add_child(UiKit.lbl("Final Ladder", 17, UiKit.EMPH, true))
 	var ladder_w := _content_width() - 24.0 if narrow else (_content_width() * 0.5)
-	rv.add_child(UiKit.scroll(UiKit.ladder_table(season.ladder_sorted(),
-			GameState.my_club, ladder_w, 0, true)))
+	# At full height: the page scrolls, not the ladder inside it.
+	rv.add_child(UiKit.ladder_table(season.ladder_sorted(), GameState.my_club, ladder_w, 0, true))
 
 	# --- the board -----------------------------------------------------------
 	var verdict := str(GameState.board.get("verdict", ""))
@@ -122,14 +127,14 @@ func _build() -> void:
 				UiKit.GOOD if bool(last.get("met", false)) else UiKit.BAD, true))
 		bv.add_child(UiKit.lbl("Goal: %s  -  %s  -  the board is %s" % [str(last.get("goal", "")),
 				"met" if bool(last.get("met", false)) else "missed", GameState.board_state().to_lower()], 13, UiKit.MUTED))
-		_root.add_child(bp)
+		page.add_child(bp)
 
 	# --- awards -------------------------------------------------------------
 	if not GameState.season_awards.is_empty():
-		_root.add_child(_awards_panel())
+		page.add_child(_awards_panel())
 
 	# --- club achievements ----------------------------------------------------
-	_root.add_child(_achievements_panel())
+	page.add_child(_achievements_panel())
 
 	# --- actions ------------------------------------------------------------
 	var ctrl: BoxContainer
@@ -137,7 +142,7 @@ func _build() -> void:
 		ctrl = UiKit.vbox(8)
 	else:
 		ctrl = UiKit.hbox(8)
-	_root.add_child(ctrl)
+	page.add_child(ctrl)
 
 	# The season ends the way the real AFL year does: with the national draft.
 	var draft_btn := UiKit.btn("%d NATIONAL DRAFT" % GameState.season_year, 18, true)
