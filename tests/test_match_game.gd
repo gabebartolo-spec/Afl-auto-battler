@@ -32,6 +32,7 @@ func run() -> void:
 	_test_matchups()
 	_test_in_match_injuries()
 	_test_run_call_once_a_run()
+	_test_late_bounce_reachable()
 	_test_current_club_identity()
 	_test_tag_ends_with_injury()
 	_test_match_story()
@@ -1098,6 +1099,32 @@ func _test_run_call_once_a_run() -> void:
 	sim._run = [0, 3]
 	_check(sim._boundary_moment() and str(sim.pending_moment.get("kind", "")) == "momentum",
 			"A new run after you score can bring the call again")
+
+
+## A tight finish gets the centre-bounce call even when the last quarter's
+## two calls went early: one more is kept for it, and only for it.
+func _test_late_bounce_reachable() -> void:
+	var sim := _sim(4400, "MEL", "CAR")
+	sim.moment_side = 0
+	sim.current_quarter = 4
+	sim.current_minute = 106
+	sim.at_centre = true
+	sim._chain_no = 200
+	sim._last_moment_chain = 150
+	sim._moments_this_q = MatchSim.MAX_MOMENTS_Q
+	for side in range(2):
+		(sim.team_stats[side] as Dictionary)["goals"] = 10.0
+	_check(sim._boundary_moment() and str(sim.pending_moment.get("kind", "")) == "bounce",
+			"Q4's calls spent, a tight centre bounce still brings the call")
+	sim.pending_moment = {}
+	_check(not sim._boundary_moment(), "...once: the kept call is not a third")
+	sim._moments_this_q = MatchSim.MAX_MOMENTS_Q
+	sim._asked.erase("bounce")
+	sim.at_centre = false
+	_check(not sim._boundary_moment(), "The kept call is only for a centre bounce")
+	sim.at_centre = true
+	sim.current_quarter = 3
+	_check(not sim._boundary_moment(), "...and only in the last quarter")
 
 
 func _test_in_match_injuries() -> void:
