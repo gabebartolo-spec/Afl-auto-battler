@@ -2839,6 +2839,21 @@ Started on the director's direction, ahead of the §1.11 gate. The director aske
 - **Review:** `tools/visual/capture_vignette.gd` renders a contact sheet of the beats on a phone.
 - **Not built:** templates, other families, or a framework. These wait for the playtest below.
 
+### Pre-match scene (playtest, 2026-09-30)
+The centre-bounce call was too rare to judge in normal play, so on the director's direction a pre-match scene now plays on every Play match.
+- **The scene (`scripts/ui/match/PreMatchVignette.gd`):**
+  - It uses the same camera and figures as the centre-bounce scene.
+  - Your side warms up in front of your banner while the opposition warms up beyond it.
+  - The side gathers for final instructions as preparation passes halfway, then runs through the banner when the match is ready.
+  - It uses real clubs, colours and numbers, and says nothing about the match itself.
+- **Timing: it hides the wait rather than adding one.**
+  - The scene goes up in the same frame as the tap.
+  - The round's other matches, the old several-second freeze, are simulated a frame apart underneath it (`GameState.prepare_interactive_match_async`).
+  - Each match has its own seed, so the results are byte-identical to the blocking path. A test checks this.
+  - The run-out (about 0.75 s) starts only once the match is ready.
+- **Tests:** `run_matchup_tests.gd` `_pre_match_scene`.
+- **Review:** `tools/visual/capture_prematch.gd` renders a frame sheet of the beats.
+
 ### Acceptance test
 The feature earns further work only if a phone playtest shows that the player can explain **why the decision is being asked**, form a reasonable expectation before choosing, and finds the moment materially more engaging than the normal presentation.
 

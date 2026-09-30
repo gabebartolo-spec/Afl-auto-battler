@@ -10,6 +10,7 @@ var _quick_sim: Control
 ## A long press on Sim round opens the quick-sim menu instead of a sim.
 var _hold_fired := false
 var _hold_id := 0
+var _pre_match: PreMatchVignette    # the scene over the wait after Play match
 const HOLD_SECONDS := 0.5
 
 
@@ -473,11 +474,31 @@ func _on_play_match() -> void:
 	if _upcoming_match().is_empty():
 		_on_sim_round()
 		return
-	# Home-and-away rounds and finals both play live with the coach box.
-	if GameState.prepare_interactive_match():
-		Router.go("match")
+	if _pre_match != null:
 		return
-	_on_sim_round()
+	# The pre-match scene goes up in this frame, before any of the wait: the
+	# round's other matches are simulated a frame apart underneath it, and
+	# the side runs through the banner as soon as the match is ready.
+	var m := _upcoming_match()
+	var mine := GameState.my_club
+	var opp := str(m["away"]) if str(m["home"]) == mine else str(m["home"])
+	var season: Season = GameState.season
+	var opp_ground: Array = Squad.new(opp, season.lists[opp], false, opp,
+			season.selections.get(opp, {})).ground
+	var heading := "%s  ·  %s v %s" % [str(m["label"]), GameDB.club_name(str(m["home"])),
+			GameDB.club_name(str(m["away"]))]
+	_pre_match = PreMatchVignette.open(get_tree().root, mine, opp, GameState.my_squad().ground,
+			opp_ground, heading)
+	# Home-and-away rounds and finals both play live with the coach box.
+	var ok: bool = await GameState.prepare_interactive_match_async(_pre_match.set_progress)
+	if not ok:
+		_pre_match.get_parent().queue_free()
+		_pre_match = null
+		_on_sim_round()
+		return
+	_pre_match.run_out()
+	await _pre_match.done
+	Router.go("match")
 
 
 ## Sim round skips your own match for good, so it asks first (unless you
@@ -619,6 +640,8 @@ func _on_sim_to_end() -> void:
 
 ## Router back hook: close the results popup before leaving the hub.
 func handle_back() -> bool:
+	if _pre_match != null:
+		return true     # the side is on its way out
 	if _settings != null and is_instance_valid(_settings):
 		_settings.queue_free()
 		_settings = null

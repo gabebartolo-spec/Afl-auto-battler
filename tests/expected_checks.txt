@@ -20,7 +20,7 @@ ratings 27
 ai 35
 training 59
 selection 14
-matchup 49
+matchup 55
 matchday 313
 roles 130
 injuries 12

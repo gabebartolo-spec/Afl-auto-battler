@@ -970,6 +970,45 @@ func start_season(club_code: String, list: Array) -> void:
 	autosave()
 
 
+## The round's other matches while a live match is prepared: run at once, or
+## (prepare_interactive_match_async) queued and run a frame apart so the
+## screen keeps moving. Each is its own seed, so the order changes nothing.
+var _prep_defer := false
+var _prep_jobs: Array[Callable] = []
+
+
+func _prep_run(job: Callable) -> void:
+	if _prep_defer:
+		_prep_jobs.append(job)
+	else:
+		job.call()
+
+
+func _prep_flush() -> void:
+	while not _prep_jobs.is_empty():
+		_prep_jobs.pop_front().call()
+
+
+## prepare_interactive_match, handing a frame back between the round's other
+## matches (the few seconds after Play match) so the pre-match scene plays
+## instead of the screen freezing. `progress` gets 0..1 as they finish.
+## Same results as the blocking version.
+func prepare_interactive_match_async(progress := Callable()) -> bool:
+	_prep_jobs.clear()
+	_prep_defer = true
+	var ok := prepare_interactive_match()
+	_prep_defer = false
+	var total := _prep_jobs.size()
+	var done := 0
+	while not _prep_jobs.is_empty():
+		await get_tree().process_frame
+		_prep_jobs.pop_front().call()
+		done += 1
+		if progress.is_valid():
+			progress.call(float(done) / float(maxi(1, total)))
+	return ok
+
+
 ## Set up your next match (home-and-away round or final) to be played live,
 ## quarter by quarter, with the coach box. Every other match that week is
 ## simulated straight away. Returns false when you have no match to play.
@@ -994,12 +1033,16 @@ func prepare_interactive_match() -> bool:
 					"round": season.round_index + 1,
 					"label": "Round %d" % (season.round_index + 1)}
 		else:
-			var res := season.simulate(m["home"], m["away"], season.next_seed(i))
-			res["round"] = season.round_index + 1
-			res["label"] = "Round %d" % (season.round_index + 1)
-			pending_round_results.append(res)
-			season.record_regular(res)
+			var seed_i := season.next_seed(i)
+			var rnd := season.round_index + 1
+			_prep_run(func() -> void:
+				var res := season.simulate(m["home"], m["away"], seed_i)
+				res["round"] = rnd
+				res["label"] = "Round %d" % rnd
+				pending_round_results.append(res)
+				season.record_regular(res))
 	if pending_match.is_empty():
+		_prep_flush()
 		season.recalc_ladder()
 		return false
 	var home := Squad.new(GameDB.club_name(str(pending_match["home"])),
@@ -1040,14 +1083,19 @@ func _prepare_interactive_final() -> bool:
 	pending_match = {}
 	pending_sim = null
 	pending_round_results = []
+	# The coaching table before the week's other finals, as in a home-and-away
+	# round (they may run a frame later: prepare_interactive_match_async).
+	_refresh_coach_tactics()
 	for i in range(matches.size()):
 		var m: Dictionary = matches[i]
 		if i == mine or m["home"] == "" or m["away"] == "":
 			continue
-		var res := season.simulate(m["home"], m["away"], season.finals_seed(i),
-				season.finals_at_home(m), true)
-		res["finals_index"] = i
-		pending_round_results.append(res)
+		var seed_i := season.finals_seed(i)
+		var at: Array = season.finals_at_home(m)
+		_prep_run(func() -> void:
+			var res := season.simulate(m["home"], m["away"], seed_i, at, true)
+			res["finals_index"] = i
+			pending_round_results.append(res))
 	var fm: Dictionary = matches[mine]
 	var at_home: Array = season.finals_at_home(fm)
 	pending_match = {"home": fm["home"], "away": fm["away"],

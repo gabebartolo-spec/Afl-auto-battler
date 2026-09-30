@@ -30,6 +30,7 @@ func _run() -> void:
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
 	await _hub_tests()
+	await _pre_match_scene()
 	print("Matchup + hub tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -143,6 +144,58 @@ func _hub_tests() -> void:
 	_check(_button(hub.find_child("WeekActions", true, false), "National Draft") != null,
 			"The national draft is the next step")
 	hub.queue_free()
+	await _settle()
+
+
+## Play match puts the pre-match scene up in the same frame as the tap, plays
+## it over the preparation (warm-up, then final instructions as the round's
+## other matches finish), runs through the banner once the match is ready and
+## gives way to the match. The round comes out exactly as the blocking path's.
+func _pre_match_scene() -> void:
+	var db = root.get_node("GameDB")
+	var router = root.get_node("Router")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	_state.season.seed = 424242     # a new career's seed is random
+	_state.prepare_interactive_match()
+	var blocking := var_to_str(_state.pending_round_results) + var_to_str(_state.season.ladder_sorted())
+	var others: int = _state.pending_round_results.size()
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	_state.season.seed = 424242     # a new career's seed is random
+	root.size = Vector2i(390, 844)
+	var hub: Control = await _open_hub()
+	var play := _button(hub.find_child("WeekActions", true, false), "Play match")
+	play.emit_signal("pressed")
+	var vig = root.find_child("PreMatchVignette", true, false)
+	_check(vig != null, "Play match cuts to the pre-match scene in the same frame")
+	if vig == null:
+		hub.queue_free()
+		return
+	_check(vig.banner == db.club_name("COL") and str(vig.title).contains(db.club_name("COL")),
+			"The scene is your club's: its banner and this week's match (%s)" % str(vig.title))
+	var seen := {}
+	var frames_before_run := 0
+	var frames := 0
+	while frames < 900 and (router.current() != "match" or root.find_child("PreMatch", true, false) != null):
+		if is_instance_valid(vig):
+			seen[str(vig.phase())] = true
+			if str(vig.phase()) != "run":
+				frames_before_run += 1
+		await process_frame
+		frames += 1
+	_check(seen.has("warm") and seen.has("huddle") and seen.has("run"),
+			"Warm-up, final instructions, then through the banner (%s)" % str(seen.keys()))
+	_check(frames_before_run >= others,
+			"The scene plays while the round's %d other matches are simulated (%d frames)" % [others, frames_before_run])
+	_check(router.current() == "match" and root.find_child("PreMatch", true, false) == null,
+			"Then the match, and the scene is gone")
+	_check(var_to_str(_state.pending_round_results) + var_to_str(_state.season.ladder_sorted()) == blocking,
+			"The round comes out exactly as without the scene")
+	if get_current_scene() != null:
+		get_current_scene().queue_free()
+	if is_instance_valid(hub):
+		hub.queue_free()
 	await _settle()
 
 
