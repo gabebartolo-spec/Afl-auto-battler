@@ -368,3 +368,75 @@ The same fields for each system.
 **Clubs:** 2027 active clubs, rotating home and away pairs; seeds 60000+, 70000+ and 80000+.
 
 The home-versus-away lever in the paired probe was mis-built (both arms away) and is not reported. Home ground is classified from code.
+
+## Appendix: repair sprint status (plans, Through stars, plan copy)
+
+**Root cause.**
+- **Balanced dominated:** each plan's upside was worth far more than its costs against a Balanced side. Every plan beat Balanced, even with a list that didn't suit it.
+- **Counters too big:** a counter was worth three to four goals (+22 to +24), bigger than anything else a coach controls.
+- **Through stars a no-op:** it went through "82+" players, whom several clubs don't have. Moving the ball between good players changed nothing.
+- **Copy stale:** the plan copy quoted percentages the code no longer used, in two descriptions per plan.
+
+**Repair:**
+- **Halved each plan's upside (`MatchSim.PLANS`); costs unchanged.**
+  - An average list now roughly breaks even against Balanced.
+  - A list that suits the plan gains; one that doesn't loses.
+  - Counters halve with the upside.
+- **Win contest's stoppage edge** was set a little higher than half (0.025), so it keeps a reason to exist.
+- **Through stars goes through the side's best three** (`PlanFit.carriers`):
+  - They see more of the ball, finish better and make fewer errors.
+  - They are easier to read, so the pressure on the ball rises a little.
+  - Its upside scales with how far the best three stand above the side's average (`PlanFit`, as for the other plans). The gap runs from 10 to 22 OVR across the 2027 clubs.
+- **One description per plan** (`CoachReport.PLAN_SUMMARY`), written from the engine, with no percentages:
+  - selection, coaching, the quarter break and the assistant's report all read it;
+  - the old percentage text (`PLAN_EFFECTS`) is gone;
+  - the Through stars fit line names your best three and how far they stand out;
+  - StatGuide no longer says "82+ … 12%".
+
+**Measured: plans against a Balanced side** (paired; gain for switching side 0 from Balanced; "suited" means fit ≥ 1.1, "unsuited" fit ≤ 0.9):
+
+| Plan | Before (N 300) | After (N 600) | Suited list, after | Unsuited list, after |
+|---|---|---|---|---|
+| Defensive press | +9.4 ± 2.4 | +1.1 ± 1.5 | +4.1 | 0.0 |
+| Attack corridor | +7.2 ± 2.5 | +0.1 ± 1.7 | +3.9 | −1.9 |
+| Controlled tempo | +7.8 ± 2.2 | +1.1 ± 1.6 | −0.5 | +5.0 |
+| Win contest | +6.8 ± 2.3 | +1.9 ± 1.6 | +2.6 | −0.5 |
+| Through stars | +2.3 ± 2.2 | +1.0 ± 1.7 | +4.5 | +0.3 |
+
+**Measured: counters** (gain for switching from Balanced to X, against a side on Y; before is the audit's 400-match figure):
+
+| X v Y | Before | After (N 400–600) |
+|---|---|---|
+| Defensive press v Attack corridor | +23.8 | +11.9 ± 1.8 |
+| Controlled tempo v Defensive press | +22.2 | +5.7 ± 1.6 |
+| Attack corridor v Controlled tempo | +9.9 | +3.3 ± 2.2 |
+| Attack corridor v Defensive press | −1.9 | −9.7 ± 2.0 |
+| Defensive press v Controlled tempo | −4.9 | −7.9 ± 2.1 |
+| Controlled tempo v Attack corridor | +3.0 | −4.8 ± 2.1 |
+| Win contest v Attack corridor | | −1.6 ± 2.4 (N 300) |
+| Through stars v Defensive press | | +0.4 ± 1.8 |
+
+**Reading it:**
+- **Balanced is the safe call.** Nothing beats it by much on average, and it can't be countered.
+- **A plan pays when the list suits it,** or when it counters the opposition's plan.
+  - A counter is now worth one to two goals, not three to four.
+  - The wrong plan into a press or a controlled side costs about as much.
+  - List fit moves a plan by about four points either way, the same order as a counter, so the list still matters.
+- **Controlled tempo's fit split is not clear.**
+  - Unsuited lists gained more in every run: +14.3 v +8.0 before, +5.0 v −0.5 after.
+  - Each difference is within about 1.5 standard errors.
+  - Recorded as open: its upside may be carried by something other than the kicks-and-marks carriers PlanFit names.
+
+**Tests:**
+- `test_match_game._test_through_stars`:
+  - the best three;
+  - their disposals and goals over 20 paired matches;
+  - fit follows the gap.
+- `test_coach_effects` reads the written plan value from the engine instead of a copy.
+- `test_matchday` keeps the no-percentages check on the plan copy.
+
+**Status:**
+- Balanced: WORKING (the safe choice).
+- Plans and counters: WORKING, sized.
+- Through stars: WORKING.
+- Plan copy: honest, single source.

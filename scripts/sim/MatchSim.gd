@@ -271,7 +271,7 @@ const PLANS := {
 	"fast": {"goal": 1.05, "gain": 1.06, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
 	"defensive": {"press": 1.09, "opp_goal": 0.965, "goal": 0.96, "gain": 0.95, "pace": 1.12},
 	"press": {"press": 1.09, "opp_goal": 0.965, "goal": 0.96, "gain": 0.95, "pace": 1.12},
-	"contest": {"contest": 0.0175, "gain": 0.95, "exposed": 1.04},
+	"contest": {"contest": 0.025, "gain": 0.95, "exposed": 1.04},
 	"controlled": {"taken": 0.96, "gain": 0.94, "goal": 1.01, "clangers": 0.93, "pace": 0.95},
 	# Through stars: the ball to the best three and their finishing (star_ball,
 	# star_goal), the ball in good hands; but they know where it's going.
