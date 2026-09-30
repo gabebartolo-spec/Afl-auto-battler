@@ -140,6 +140,11 @@ func _run() -> void:
 	_check(_router.current() == "hub", "Continue Career opens the season hub")
 	_check(_state.season != null and _state.season.round_index == 2, "The saved round is loaded")
 	_check(_state.my_club == "SYD", "The saved club is loaded")
+	# One player well above his season, one well below (GameState.player_form).
+	var hot_id := str(_state.my_list[0]["id"])
+	var cold_id := str(_state.my_list[1]["id"])
+	_state.form_log[hot_id] = {"last": [95, 95, 95], "n": 10, "sum": 500}
+	_state.form_log[cold_id] = {"last": [15, 15, 15], "n": 10, "sum": 600}
 	var coaching: Button = current_scene.find_child("HubCoaching", true, false)
 	_check(coaching != null, "Coaching is on the hub's bottom row")
 	if coaching != null:
@@ -169,6 +174,20 @@ func _run() -> void:
 		await _settle()
 		_check(detail != null and detail.visible and detail.text.contains("Leading it: "),
 				"A tap says what the strength is and who leads it")
+	# Recent games: who is in and out of form, by name - no ratings, no "his".
+	var form_box: Node = current_scene.find_child("Form", true, false)
+	var form_text := ""
+	for l in (form_box.find_children("*", "Label", true, false) if form_box != null else []):
+		form_text += (l as Label).text + "\n"
+	var form_digits := false
+	for c in form_text:
+		form_digits = form_digits or (c >= "0" and c <= "9")
+	_check(form_text.contains("In good form") and form_text.contains("In poor form")
+			and form_box.find_child("Form_hot_" + hot_id, true, false) != null
+			and form_box.find_child("Form_cold_" + cold_id, true, false) != null,
+			"Recent games says who is in good and poor form, by name")
+	_check(not form_digits and not form_text.contains(" his ") and not form_text.contains("his season"),
+			"Recent games shows no rating numbers and no dangling 'his' (%s)" % form_text.replace("\n", " / "))
 	var plan: Button = current_scene.find_child("ClubPlan_contest", true, false)
 	if plan != null:
 		plan.emit_signal("pressed")
