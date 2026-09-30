@@ -6,7 +6,7 @@ draft_ui 1298
 intake 2128
 intake_ui 493
 expansion 1168
-finals 114
+finals 108
 save 49
 chronology 28
 career 71
