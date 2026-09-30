@@ -6,7 +6,7 @@ draft_ui 1298
 intake 2128
 intake_ui 493
 expansion 1168
-finals 114
+finals 109
 save 49
 chronology 28
 career 71
@@ -32,6 +32,6 @@ club 90
 match_game 122
 pressure 21
 match_visual 55
-league_balance 21
+league_balance 23
 calibration 17
 balance 12
