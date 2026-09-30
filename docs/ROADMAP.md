@@ -2253,6 +2253,29 @@ Do not make the Combine another number-vomit screen. Default to interpretable re
 - prospect inspection/Combine provides enough evidence for a deliberate choice rather than “pick the biggest POT number”;
 - mobile presentation remains fast to scan and does not become another dashboard.
 
+
+### Post-draft handoff — offseason ins/outs and board expectation
+Finishing the National Draft currently drops the user straight into Round 1 of the new season. That skips the natural transition point where a coach should be told **what changed over the offseason and what the club now expects**.
+
+Add a concise post-draft / preseason handoff before the new season hub becomes active.
+
+At minimum show:
+- **Ins:** drafted players, free-agent signings, trade arrivals and relevant coaching/staff arrivals;
+- **Outs:** retirements, delistings/releases, free-agent departures, trade departures and relevant coaching/staff exits;
+- **Draft:** the user's selections in one compact recap;
+- **List shape:** only the most important resulting change(s), not another full roster dump;
+- **Board expectation for the new season**, plus a short reason for it using the calibrated expectation model;
+- any major staff vacancy/appointment that materially affects the club.
+
+This should feel like the club closing the books on one offseason and opening the next campaign, not like another spreadsheet. It should be skippable/compact on repeat seasons but should never silently jump from the final draft pick to Round 1.
+
+Acceptance:
+- completing the draft always lands on the offseason summary before Round 1;
+- every material player/staff movement made during that offseason appears exactly once;
+- board expectation is shown before the first match, with a concise reason;
+- the summary survives save/reload without duplicating events;
+- mobile portrait remains readable without long scrolling.
+
 # M6 — Coaching, Board & List Management
 
 Goal: strengthen the management loop around the football.
@@ -2438,6 +2461,34 @@ Acceptance:
 - **Tests:** new `coach_effects` suite (24 checks).
 
 ---
+
+
+### Coach-market movement visibility / frequency audit
+**Claude audit required.** Phone playtesting through a complete season/offseason produced no obvious sense that coaches moved clubs at all.
+
+The coaching market **is implemented**: `GameState._close_season_awards()` calls `_coaching_offseason()`, which runs `CoachMarket.offseason()`; the market supports senior-coach sackings/contract expiry, promotions, retirements, poaching from the user's staff, vacancy chains and appointments. Existing automated tests also prove movement can occur over long runs. That does **not** prove the live player experience is working.
+
+Claude must run the final audit and report:
+- whether any coach movement actually occurred in the user's first 2027 offseason under normal career conditions;
+- league-wide counts per offseason for senior-coach changes, promotions, retirements, contract non-renewals, internal promotions and assistants poached;
+- how often an entire offseason legitimately has little/no visible movement;
+- whether the movement rate is football-plausible over 10–30 seasons;
+- whether movement happens but is effectively invisible because it is buried in the news feed / staff screen;
+- whether the user's own staff can realistically be poached often enough to matter without becoming churny;
+- whether senior-coach turnover is too conservative in early seasons because of first-season/tenure protections.
+
+Do not tune merely to guarantee a coaching carousel every year. Some quiet offseasons are believable. The requirement is that the system produces credible movement over time **and the player can actually notice important changes**.
+
+If the underlying rate is healthy, improve presentation rather than forcing extra churn:
+- include notable coaching ins/outs in the post-draft offseason summary;
+- surface major senior-coach appointments/sackings clearly;
+- surface any coach poached from the user's club as an explicit event requiring a response.
+
+Acceptance:
+- Claude provides measured movement distributions before changing rates;
+- a multi-season career produces a believable coaching market with neither stasis nor constant churn;
+- significant coaching changes are visible to the player;
+- the user's first offseason being quiet is explainable by the measured system rather than assumed correct because tests pass.
 
 ## ARD-M6-003 — Board Confidence
 **Status:** `DONE / FOLLOW-UP TODO`  
