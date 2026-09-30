@@ -34,6 +34,8 @@ func run() -> void:
 	_test_match_story()
 	_test_traits_surfaced()
 	_test_momentum()
+	_test_moment_calls_matter()
+	_test_tag_tradeoff()
 	_test_through_stars()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -308,7 +310,32 @@ func _test_impact_and_ai() -> void:
 	for p in (live.squads[0] as Squad).ground:
 		if str(p["id"]) == tagged:
 			tagged_mid = MatchSim.taggable(p)
-	_check(tagged != "" and tagged_mid, "After half time the rival coach tags one of your midfielders")
+	var their_tagger = MatchSim.tagger_for((live.squads[1] as Squad).ground)
+	if their_tagger != null and Roles.is_tagger(their_tagger):
+		_check(tagged != "" and tagged_mid, "After half time the rival coach tags one of your midfielders with its tagger")
+	else:
+		_check(tagged == "", "Without a specialist tagger the rival coach does not waste a good midfielder on a tag")
+	# The same rule both ways: a side with a tagger tags, one without does not.
+	var with_tagger := ""
+	var without := ""
+	for code in GameDB.active_clubs(2027):
+		var t = MatchSim.tagger_for(Squad.new(code, GameDB.club_list(code), false, code).ground)
+		if t != null and Roles.is_tagger(t):
+			with_tagger = code if with_tagger == "" else with_tagger
+		elif without == "":
+			without = code
+	for pair in [[with_tagger, true], [without, false]]:
+		if str(pair[0]) == "":
+			_check(false, "The league has clubs with and without a specialist tagger")
+			continue
+		var s2 := _sim(903, "GEE" if str(pair[0]) != "GEE" else "COL", str(pair[0]))
+		for q in range(3):
+			s2.run_quarter()
+		# Who is on the ground now: rotations can take the tagger off.
+		var now_t = MatchSim.tagger_for((s2.squads[1] as Squad).ground)
+		var has_now: bool = now_t != null and Roles.is_tagger(now_t)
+		_check((str(s2.ai_tactics(1).get("tag_id", "")) != "") == has_now,
+				"%s %s a tag in the second half" % [str(pair[0]), "calls" if has_now else "does not call"])
 	# A tired star can be rested.
 	var tired := _sim(902)
 	tired.moment_side = 0
@@ -1128,6 +1155,94 @@ func _test_momentum() -> void:
 	_check(share < 0.56, "Momentum does not snowball: the scorers kick the next goal %.0f%% of the time" % (100.0 * share))
 
 
+## A moment card's call changes the football, and which call is right
+## depends on the situation.
+func _test_moment_calls_matter() -> void:
+	# The calls last a passage of play and end at the break.
+	var sim := _sim(8800)
+	sim.moment_side = 0
+	_check(int(MatchSim.BURSTS["surge"]["chains"]) >= 12 and int(MatchSim.BURSTS["hold"]["chains"]) >= 12,
+			"'The next ten minutes' is a passage of play, not two minutes")
+	sim.begin_quarter()
+	(sim.bursts[0] as Dictionary)["surge"] = 15
+	sim.run_quarter()
+	_check((sim.bursts[0] as Dictionary).is_empty(), "A call ends at the break")
+	# Throw numbers at it: more scoring at both ends. Slow it down: less.
+	var totals := {"none": 0.0, "surge": 0.0, "hold": 0.0}
+	for key in totals:
+		for i in range(40):
+			var s2 := _sim(8900 + i, ["GEE", "MEL", "SYD", "ADE"][i % 4], ["COL", "CAR", "BRL", "HAW"][i % 4])
+			while s2.current_quarter <= 4:
+				s2.begin_quarter()
+				if key != "none":
+					(s2.bursts[0] as Dictionary)[key] = 999
+				s2.run_quarter()
+			totals[key] += float(s2.score(0) + s2.score(1))
+	_check(totals["surge"] > totals["none"] * 1.03 and totals["hold"] < totals["none"] * 0.97,
+			"Throwing numbers at it opens the game up and slowing it down closes it (%.0f / %.0f / %.0f a match)" % [
+			totals["surge"] / 40.0, totals["none"] / 40.0, totals["hold"] / 40.0])
+	# Set shots: the best call depends on the shot.
+	var best := {}
+	for i in range(30):
+		var s3 := _sim(9300 + i)
+		s3.moment_side = 0
+		while s3.current_quarter <= 4:
+			s3.begin_quarter()
+			while not s3.continue_quarter():
+				var m := s3.pending_moment
+				if str(m["kind"]) == "set_shot":
+					var top := ""
+					var top_ev := -1.0
+					for o in m["options"]:
+						var ev := 6.0 * float(o.get("goal", 0.0)) + float(o.get("behind", 0.0) if o.has("behind") else (1.0 - float(o.get("goal", 0.0))) * 0.3)
+						if ev > top_ev:
+							top_ev = ev
+							top = str(o["key"])
+					best[top] = int(best.get(top, 0)) + 1
+				s3.resolve_moment(int(m.get("default", 0)))
+			s3.end_quarter()
+	_check(best.size() >= 2, "No set-shot call is always right: the best one changes with the shot (%s)" % str(best))
+## A tag is a trade: it takes the target out of the midfield battle and costs
+## you your tagger's own game. Worth it on their star with a specialist; a
+## loss when a good midfielder has to do the job.
+func _test_tag_tradeoff() -> void:
+	var with_spec := ""
+	var without := ""
+	for code in GameDB.active_clubs(2027):
+		var t = MatchSim.tagger_for(Squad.new(code, GameDB.club_list(code), true, code).ground)
+		if t != null and Roles.is_tagger(t):
+			with_spec = code if with_spec == "" else with_spec
+		elif without == "":
+			without = code
+	_check(with_spec != "" and without != "", "Clubs with and without a specialist tagger (%s, %s)" % [with_spec, without])
+	if with_spec == "" or without == "":
+		return
+	var opp := "SYD" if with_spec != "SYD" and without != "SYD" else "BRL"
+	var mids := []
+	for p in (_sim(5, with_spec, opp).squads[1] as Squad).ground:
+		if str(p["role"]) == "MID":
+			mids.append(p)
+	mids.sort_custom(func(x, y): return int(x["overall"]) > int(y["overall"]))
+	var star: Dictionary = mids[0]
+	var plain: Dictionary = mids[mids.size() - 1]
+	# The midfield battle, as the stoppages see it (positive: ours).
+	var edge := func(code: String, target: Dictionary) -> float:
+		var sim := _sim(5, code, opp)
+		sim.set_tactics(0, {"tag_id": str(target["id"])})
+		return sim._tag_drag(1) - sim._tag_drag(0)
+	var spec_star: float = edge.call(with_spec, star)
+	var spec_plain: float = edge.call(with_spec, plain)
+	var mid_star: float = edge.call(without, star)
+	var mid_plain: float = edge.call(without, plain)
+	_check(spec_star > 0.0, "A specialist tagger on their best midfielder wins us the midfield battle (%+.2f)" % spec_star)
+	_check(spec_star > 2.0 * spec_plain, "...by far more than the same tag on an ordinary one (%+.2f)" % spec_plain)
+	_check(mid_plain < 0.0 and mid_star < spec_star,
+			"Without a specialist, a good midfielder gives up his own game: a loss on an ordinary one (%+.2f), less on their star (%+.2f)" % [mid_plain, mid_star])
+	# Over paired matches: the target sees less of the ball, and a good
+	# midfielder sent to tag sees less of it too.
+	var tagger: Dictionary = MatchSim.tagger_for((_sim(5, without, opp).squads[0] as Squad).ground)
+	var t_on := 0.0
+	var t_off := 0.0
 ## Through stars goes through the side's best three: they see more of the
 ## ball and kick more goals, and how much it gives follows how far they
 ## stand above the rest (PlanFit), not a fixed rating line.
@@ -1143,6 +1258,16 @@ func _test_through_stars() -> void:
 	var g_off := 0.0
 	var n := 20
 	for i in range(n):
+		var on := _sim(900 + i, without, opp)
+		on.set_tactics(0, {"tag_id": str(star["id"])})
+		var r_on := on.run()
+		var r_off := _sim(900 + i, without, opp).run()
+		t_on += float((r_on["players"] as Dictionary).get(str(star["id"]), {}).get("disposals", 0.0))
+		t_off += float((r_off["players"] as Dictionary).get(str(star["id"]), {}).get("disposals", 0.0))
+		g_on += float((r_on["players"] as Dictionary).get(str(tagger["id"]), {}).get("disposals", 0.0))
+		g_off += float((r_off["players"] as Dictionary).get(str(tagger["id"]), {}).get("disposals", 0.0))
+	_check(t_on < t_off - 2.0 * n, "Tagged, their star sees much less of it (%.1f v %.1f a game)" % [t_on / n, t_off / n])
+	_check(g_on < g_off - 1.0 * n, "...and so does the midfielder who tags him (%.1f v %.1f a game)" % [g_on / n, g_off / n])
 		var on := _sim(760 + i)
 		on.set_tactics(0, {"gameplan": "through_stars"})
 		var r_on := on.run()
