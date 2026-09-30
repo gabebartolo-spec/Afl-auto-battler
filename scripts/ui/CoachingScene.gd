@@ -164,16 +164,18 @@ func _form() -> Control:
 	v.add_child(UiKit.section("Recent games"))
 	var form := GameState.player_form()
 	if (form["hot"] as Array).is_empty() and (form["cold"] as Array).is_empty():
-		v.add_child(_wrapped("Nobody is far from his usual level over the last three games.",
+		v.add_child(_wrapped("Nobody is playing well above or below their usual level.",
 				UiKit.BODY, UiKit.MUTED))
 		return v
-	v.add_child(_wrapped("How his last three games rated against his season so far.",
-			UiKit.SMALL, UiKit.MUTED))
-	for part in [["Playing above his season", "hot"], ["Playing below his season", "cold"]]:
+	# Who is in and out of form, by name. The comparison (last three games
+	# against the season, GameState.player_form) stays behind the words.
+	for part in [["In good form", "hot"], ["In poor form", "cold"]]:
 		var rows: Array = form[part[1]]
 		if rows.is_empty():
 			continue
-		v.add_child(UiKit.lbl(str(part[0]), UiKit.BODY, UiKit.TEXT, true))
+		var head := UiKit.lbl(str(part[0]), UiKit.BODY, UiKit.TEXT, true)
+		head.name = "FormHead_%s" % part[1]
+		v.add_child(head)
 		for row in rows:
 			v.add_child(_form_row(row, str(part[1])))
 		v.add_child(UiKit.spacer(4))
@@ -185,22 +187,16 @@ func _form_row(row: Dictionary, kind: String) -> Control:
 	var b := Button.new()
 	b.name = "Form_%s_%s" % [kind, str(row["id"])]
 	b.flat = true
-	b.custom_minimum_size.y = 52
+	b.custom_minimum_size.y = 44
 	b.focus_mode = Control.FOCUS_NONE
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 		b.add_theme_stylebox_override(state, StyleBoxEmpty.new())
-	var v := UiKit.vbox(1)
-	v.set_anchors_preset(Control.PRESET_FULL_RECT)
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	b.add_child(v)
-	v.add_child(UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT))
-	var line := UiKit.lbl("%d over his last three, %d for the season" % [int(row["recent"]),
-			int(row["season"])], UiKit.SMALL, UiKit.MUTED)
-	line.name = "FormLine"
-	v.add_child(line)
-	for n in v.find_children("*", "Control", true, false) + [v]:
-		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var name_l := UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT)
+	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	b.add_child(name_l)
+	name_l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	b.pressed.connect(func(): _sheet = PlayerSheet.open(self, p, func(): _sheet = null))
 	return b
 
