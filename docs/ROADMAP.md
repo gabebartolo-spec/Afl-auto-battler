@@ -2351,11 +2351,40 @@ Rules:
 
 Build toward a complete AFL list-management ecosystem.
 
+### Contract negotiation — important decisions need ceremony and guardrails
+The current off-season UI lets the user tap `1 yr / 2 yr / 3 yr / 4 yr` and immediately executes `GameState.resign_player()` at a fixed `Contracts.asking_salary()`; Release is similarly immediate. That is too abrupt for one of the core dynasty/list-management decisions.
+
+For expiring players, tapping a contract option should open a **dedicated negotiation screen/sheet** rather than instantly resolving the deal. The negotiation should make the decision feel consequential without turning every fringe player into paperwork.
+
+The user must be able to negotiate **salary as well as term** with the player in question. The player's current asking salary is an anchor, not an immutable price.
+
+Design direction:
+- show player identity, age, current OVR/POT, current salary, requested salary, requested/available term, cap room after the proposed deal and list context;
+- let the user propose a salary + term combination;
+- the player can accept, reject, or counter based on understandable factors such as ability/value, age, morale, market demand, role/security and contract length;
+- longer security can reasonably trade against salary in some cases; stars/young guns should have more leverage than fringe veterans;
+- negotiation must not become a hidden dice casino. If randomness is used at all, keep it bounded and seeded, with the player's expectations legible enough that the user can reason about the offer;
+- failed offers should not instantly destroy the relationship unless the offer is genuinely insulting or repeated bargaining warrants a consequence;
+- preserve the possibility that a player walks to free agency if agreement cannot be reached;
+- AI clubs should negotiate under equivalent cap/value constraints rather than magically signing everyone at fixed prices;
+- **Release / delist** actions should have an explicit confirmation step with the consequences stated before execution;
+- consider a lightweight "accept asking price" shortcut for routine deals so the system has ceremony where it matters without contract-admin busywork.
+
 Guardrails:
 - understandable and streamlined,
 - AI follows same core constraints,
 - no contract-admin busywork,
+- important list decisions must not resolve from a single accidental tap,
 - do not attempt all player movement systems in one mega-PR.
+
+Acceptance:
+- tapping an expiring player's contract no longer instantly commits the deal;
+- salary and term are both negotiable;
+- the user can see cap consequences before confirming;
+- accepted/rejected/countered offers follow transparent football-list logic;
+- Release cannot happen accidentally;
+- save/reload preserves an in-progress negotiation or safely returns to the pre-offer state without duplicating the transaction;
+- routine deals remain quick enough that managing 40 players does not become tedious.
 
 Split into smaller authorised subphases when started.
 
