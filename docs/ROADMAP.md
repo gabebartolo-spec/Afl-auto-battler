@@ -365,6 +365,7 @@ The current phone playtest has exposed a core-loop problem more important than f
 - List/selection synergies are opaque enough that the user cannot reliably reason about why a combination should work.
 - Pre-match and in-match choices feel insufficiently informed: the user is often clicking an option and hoping rather than making a football decision from understandable evidence.
 - Results do not provide enough feedback to connect a decision to what subsequently happened, so the player cannot readily learn from wins/losses.
+- **Match-feed club identity bug:** injury lines can show a club that is not playing (for example, `Tim English (Bulldogs)` during Demons–Suns), even when ordinary scoring lines use the player's current in-save club correctly. Fix injury/story feed club labels so they are derived from the player's current match side/list context rather than stale source-data club metadata. Acceptance: moved players always show the club they represent in that match, and no uninvolved club can appear on their injury line; add targeted regression coverage.
 
 ### Product goal
 The core loop must support:
@@ -2772,7 +2773,7 @@ Final pass:
 ---
 
 ## ARD-M8-007 — Cinematic tactical vignettes
-**Status:** `DEFERRED`  
+**Status:** `PROTOTYPE BUILT — awaiting phone playtest`  
 **Priority:** `P3`  
 **Autonomy:** `SUPERVISED`
 
@@ -2818,6 +2819,27 @@ Possible families:
 - Preserve club colours and player identity where useful without requiring licensed likenesses.
 - Keep mobile performance and load time within the Android-first target.
 - No extra number-vomit: the visual should replace explanation where possible, not add another analytics layer.
+
+### Prototype (2026-09-30)
+Started on the director's direction, ahead of the §1.11 gate. The director asked for a *cinematic* scene, not an enhanced moment card.
+- **Where:** the late-game centre-bounce call (MatchSim's `bounce` moment: Q4, a margin within two goals, at a centre bounce). No other moment changed.
+- **The scene (`scripts/ui/match/StoppageVignette.gd`, about 4 s, a tap skips to the freeze):**
+  - the match cuts in with letterbox bars;
+  - a low camera behind your end pushes in on the centre square;
+  - the real rucks and centre-square midfielders, in club colours, jog into their set-up, and anyone running on empty arrives last;
+  - the umpire walks in and bounces the ball, and the rucks go up;
+  - it freezes at the top of the contest, with a flash and the key names.
+- **The call:** it slides up over the frozen frame with one or two commentary lines in words and no numbers (how the stoppages have gone, who is out on their feet), then MatchSim's own options. Choosing fades the scene back into the match.
+- **Authority:** it is presentation only. It reads MatchSim's state (players on the ground, energy, clearances and hit-outs) and MatchSim resolves the call. There is no second simulation.
+- **Tests:** `run_matchday_tests.gd` `_bounce_close_up` covers the following:
+  - MatchSim raises the call;
+  - only the stoppage players from this match appear;
+  - it plays in and then freezes, and the options stay disabled until the freeze;
+  - the commentary comes from the match, with no stats;
+  - MatchSim takes the call;
+  - the scene cuts back to the match.
+- **Review:** `tools/visual/capture_vignette.gd` renders a contact sheet of the beats on a phone.
+- **Not built:** templates, other families, or a framework. These wait for the playtest below.
 
 ### Acceptance test
 The feature earns further work only if a phone playtest shows that the player can explain **why the decision is being asked**, form a reasonable expectation before choosing, and finds the moment materially more engaging than the normal presentation.

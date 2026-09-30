@@ -26,8 +26,8 @@ const PEP_NAMES := {
 
 const PEP_EFFECTS := {
 	"steady": "No change.",
-	"fire_up": "More intensity: +1.8% clearance win, but legs tire faster (+5% running).",
-	"calm": "Settle them down: 8% fewer clangers, 5% less pressure felt and legs last longer, but 5% less ground gained.",
+	"fire_up": "A lift at the contest while you are chasing the game; level or in front it does nothing for you. Either way legs go quicker and tempers fray.",
+	"calm": "Settle them down: fewer errors, less rattled by pressure and legs last longer, but less ground gained.",
 }
 
 ## What each plan does and gives up, in football words, from MatchSim.PLANS.
@@ -47,8 +47,8 @@ const PLAN_SUMMARY := {
 
 const PEP_SUMMARY := {
 	"steady": "",
-	"fire_up": "More intensity at the contest; legs go quicker.",
-	"calm": "Fewer errors and less rattled by pressure, legs last longer; a little less ground gained.",
+	"fire_up": "A lift at the contest when you are chasing the game; legs go quicker and tempers fray.",
+	"calm": "Fewer errors and less rattled by pressure, legs last longer; less ground gained.",
 }
 
 const TEAM_COMPARE := [

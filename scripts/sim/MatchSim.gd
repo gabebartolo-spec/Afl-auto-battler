@@ -553,8 +553,6 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String) -> float:
 			out *= TAGGER_BALL
 	if _plan(side) == "through_stars" and (stars[side] as Dictionary).has(id):
 		out *= _pv(side, "star_ball")
-	if _pep(side) == "fire_up":
-		out *= 1.05
 	if carrying:
 		out *= _usage_mult(p, focused)
 	return out
@@ -647,20 +645,29 @@ func _contest_plan(side: int) -> float:
 	return _pv(side, "contest", 0.0)
 
 
+## Fire them up lifts a side at the contest only while it is chasing the
+## game; level or in front it has nothing to answer, so the lift is gone
+## while the costs (legs, tempers: PEP_FIRE) stay.
 func _contest_pep(side: int) -> float:
-	return 0.018 if _pep(side) == "fire_up" else 0.0
+	if _pep(side) != "fire_up" or score(side) >= score(1 - side):
+		return 0.0
+	return 0.018
 
 
 ## Calm the group: a quarter-long, milder Slow it down (the "hold" call),
 ## as Fire them up is a milder Throw numbers at it - fewer clangers, less
 ## pressure felt and legs that last longer, for less ground gained.
-const PEP_CALM := {"clangers": 0.92, "taken": 0.95, "gain": 0.95, "pace": 0.95}
+const PEP_CALM := {"clangers": 0.92, "taken": 0.95, "gain": 0.92, "pace": 0.95}
+## Fire them up: legs go quicker and tempers fray.
+const PEP_FIRE := {"clangers": 1.10, "pace": 1.20}
 
 
 ## The pep talk's multiplier on one chain quantity (1.0 when it has none).
 func _pep_mult(side: int, key: String) -> float:
 	if _pep(side) == "calm":
 		return float(PEP_CALM.get(key, 1.0))
+	if _pep(side) == "fire_up":
+		return float(PEP_FIRE.get(key, 1.0))
 	return 1.0
 
 
@@ -1816,8 +1823,6 @@ func _after_chain() -> void:
 	for side in range(2):
 		var sq: Squad = squads[side]
 		var pace := _pv(side, "pace") * _pep_mult(side, "pace")
-		if _pep(side) == "fire_up":
-			pace *= 1.05
 		if _burst(side, "surge"):
 			pace *= 1.3
 		if synergies[side].has("running_machine"):

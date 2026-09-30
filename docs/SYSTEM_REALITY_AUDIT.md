@@ -627,3 +627,28 @@ Ablation (paired, 900 matches each against a Balanced side). Each run keeps one 
   - Defensive press: a modest rise in pressure acts.
 - A simple observer choosing between five plans would be close to chance. A right counter is worth +3 to +12 and a wrong one costs −5 to −10, so acting on the read is worth about nothing.
 - Kept as is: honest, low-impact (scoreboard reactions and the specialist-tagger rule). It never reads your plan.
+
+## Appendix: audit leftovers (pep talks)
+
+**Fire them up was a free gain.**
+- It gave a flat +1.8% at every contest. Its only cost was legs tiring 5% faster, which never showed over a match.
+- It also gave every player a ×1.05 selection weight, which cancels within the side and did nothing.
+- Calm the group was free too, because its ground cost was too small to bite.
+
+Measured (paired, 600 matches, against Stay composed all match):
+
+| Pep talk | Before | After |
+|---|---|---|
+| Fire them up, all match | +2.6 ± 1.4 | +1.5 ± 1.6 |
+| Fire them up, Q4 regardless of score | +0.8 ± 0.5 | −0.4 ± 0.6 |
+| Calm the group, all match | +2.9 ± 1.7 | −0.5 ± 1.8 |
+
+Raising only the costs (legs ×1.20, clangers ×1.10) left Fire them up at +4.5 ± 1.5. The engine barely punishes tired legs or clangers, so costs alone could not make it situational.
+
+**Repair (context, not numbers):**
+- **Fire them up lifts a side at the contest only while it is behind on the scoreboard.** Level or in front, it gets no lift and keeps the costs: legs go quicker and tempers fray (more clangers).
+- It becomes a comeback call, and a fired-up lead costs you. This is the same situation the AI already uses it in (12 or more down from the third quarter).
+- The dead ×1.05 weight is removed.
+- **Calm the group gives up more ground** (×0.92). It pays only when you are being rattled.
+- The copy says when each helps, with no percentages.
+- Tests (`test_match_game`): level gives no lift; two goals down gives the lift; in front, no lift and the costs stay; Calm and Fire do different things.
