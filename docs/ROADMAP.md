@@ -253,6 +253,9 @@ Unless a feature is explicitly player-only UX:
 - AI clubs obey the same availability, salary-cap, suspension, concussion, selection and match rules.
 - AI should be able to make equivalent tactical choices.
 - Never give the player a rule loophole unavailable to AI, or vice versa, without documenting why.
+- **AI must never be psychic.** An AI club may react only to information it could plausibly know at that moment: public match state, observed behaviour, scouting/known tendencies, and other information deliberately exposed to both sides.
+- AI must not inspect or counter hidden player-only choices merely because the simulation has access to them. This includes an unobserved game plan, a private moment-card choice, a future player decision, or other concealed UI/state unless that information has become observable or an explicit symmetric scouting mechanic provides it.
+- Stronger AI should come from better inference, preparation and reactions to evidence, not omniscience. If an AI advantage only works because it reads hidden state, redesign the behaviour rather than preserving the advantage.
 
 ## 1.5 Save compatibility
 
@@ -3079,6 +3082,8 @@ Hold this idea for the eventual MRO/tribunal design work. Do not implement it me
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-09-30:** Clarified AI parity as a global design rule: AI must never be psychic. It may infer and react to observable/scouted information, but must not read hidden player choices or concealed simulation state to counter the player.
 
 - **2026-09-29:** Merged PR #102 (real Momentum) and PR #103 (System Reality Audit). ARD-M4-010 and §1.12 are now DONE. The Current Execution Queue now starts with a user-review hold on the audit repair pass, led by the live-match plan reset and other measured no-op/questionable systems.
 
