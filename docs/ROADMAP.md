@@ -365,6 +365,7 @@ The current phone playtest has exposed a core-loop problem more important than f
 - List/selection synergies are opaque enough that the user cannot reliably reason about why a combination should work.
 - Pre-match and in-match choices feel insufficiently informed: the user is often clicking an option and hoping rather than making a football decision from understandable evidence.
 - Results do not provide enough feedback to connect a decision to what subsequently happened, so the player cannot readily learn from wins/losses.
+- **Match-feed club identity bug:** injury lines can show a club that is not playing (for example, `Tim English (Bulldogs)` during Demons–Suns), even when ordinary scoring lines use the player's current in-save club correctly. Fix injury/story feed club labels so they are derived from the player's current match side/list context rather than stale source-data club metadata. Acceptance: moved players always show the club they represent in that match, and no uninvolved club can appear on their injury line; add targeted regression coverage.
 
 ### Product goal
 The core loop must support:
