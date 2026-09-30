@@ -34,6 +34,27 @@ A dependency such as "Phase 4 starts after Phase 3 is merged" is a sequencing ru
 
 Stop and ask the user only for a genuine unresolved player-experience/design decision, a failed/ambiguous balance gate, destructive data/save risk, unexplained failing tests, a merge conflict whose correct resolution is unclear, or a task that has expanded materially beyond its roadmap intent.
 
+## 0.1.1 Project lexicon and interaction conventions
+
+These terms have established project-specific meanings. **Do not guess or reinterpret them from generic usage.** When one is used, verify against this roadmap and the current repo/project context before acting.
+
+- **Poke** — a request for ChatGPT to perform the repository-status job now: check GitHub for new PRs, CI state, merges, commits/branches, blockers, and any mechanical action already expected from the current workflow. It is not a conversational acknowledgement.
+- **Vignette / vignettes** — unless the user explicitly says otherwise, this means **ARD-M8-007 — Cinematic tactical vignettes**: short, higher-detail in-match visual sequences around meaningful football decisions. It does **not** mean ClubLife/week_event narrative events, player-dialogue scenes, or generic story cards.
+- **Roadmap** — `docs/ROADMAP.md` is the canonical execution/source-of-truth document for this project.
+- **Audit** — unless otherwise qualified, refers to the current project design/system audit material recorded in the roadmap and `docs/SYSTEM_REALITY_AUDIT.md`.
+- **Claude** — the primary development agent. ChatGPT's AFL-project role is planning, review, roadmap maintenance, repo-status/mechanical GitHub work, and prompting/coordination unless the user explicitly asks otherwise.
+
+### Interpretation rule
+For AFL-project shorthand, named concepts, or phrases that may have an established project meaning:
+1. Check this roadmap and relevant current repo docs first.
+2. Use prior established project context second.
+3. Only infer from ordinary-language meaning if no project-specific definition exists.
+4. If sources genuinely conflict, surface the conflict instead of silently choosing one.
+
+The user should not have to restate established project vocabulary each time.
+
+---
+
 ## 0.2 Design philosophy — fun and agency over simulation purity
 
 **Aussie Rules Dynasties is a game first and a simulation second.** Football realism matters because it makes decisions understandable and the world believable, but realism is not a reason to preserve passive, opaque or unfun play.
