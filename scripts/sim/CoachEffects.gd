@@ -65,7 +65,7 @@ static func xp_mult(staff: Dictionary, p: Dictionary, on_ground: bool) -> float:
 # ---------------------------------------------------------------------------
 # Tactics
 # ---------------------------------------------------------------------------
-const EXEC_RANGE := 0.15     # a plan's effects scaled 0.89 .. 1.15
+const EXEC_RANGE := 0.25     # a plan's upside scaled 0.81 .. 1.25
 
 ## The club's tactical brain: the senior coach and his assistant. At your
 ## club you are the senior coach, so it is your assistant's.
@@ -75,7 +75,8 @@ static func tactics_skill(staff: Dictionary, mine: bool) -> float:
 	return 0.6 * _skill(staff, "SC", "tactics") + 0.4 * _skill(staff, "SA", "tactics")
 
 
-## {exec, read}: exec scales how much a plan's trade-offs bite (both ways);
+## {exec, read}: exec scales how much a plan's upside gives (its costs are
+## the plan's own);
 ## read (-0.75 .. 1) is how sharply an AI club reads the match.
 static func tactics(staff: Dictionary, mine: bool) -> Dictionary:
 	var l := level(tactics_skill(staff, mine))

@@ -83,10 +83,11 @@ func _test_tactics() -> void:
 	var blunt := sim._pv(0, "goal")
 	var written := float(MatchSim.PLANS["attacking"]["goal"])
 	_check(is_equal_approx(base, written) and sharp > base and blunt < base
-			and sharp <= written + (written - 1.0) * 0.15 + 0.0001,
-			"A plan is executed better or worse, within 15%% of how it is written (%.3f / %.3f / %.3f)" % [blunt, base, sharp])
+			and sharp <= written + (written - 1.0) * CoachEffects.EXEC_RANGE + 0.0001,
+			"A plan is executed better or worse, within the coaching range of how it is written (%.3f / %.3f / %.3f)" % [blunt, base, sharp])
 	sq.tactics_exec = 1.15
-	_check(is_equal_approx(sim._pv(0, "clangers"), 1.0 + 0.12 * 1.15), "Its costs bite harder too: no free lunch")
+	var cost := float(MatchSim.PLANS["attacking"]["clangers"])
+	_check(is_equal_approx(sim._pv(0, "clangers"), cost), "Its costs are the plan's own: sharper coaching gets more out of it, not less")
 	sim.set_tactics(0, {"gameplan": "balanced"})
 	_check(is_equal_approx(sim._pv(0, "goal"), 1.0), "No plan, nothing to execute: tactics do not touch the score")
 	# No plans in play: tactics change nothing at all.

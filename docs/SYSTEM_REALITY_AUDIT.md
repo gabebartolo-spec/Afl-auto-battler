@@ -440,3 +440,25 @@ The home-versus-away lever in the paired probe was mis-built (both arms away) an
 - Plans and counters: WORKING, sized.
 - Through stars: WORKING.
 - Plan copy: honest, single source.
+
+## Appendix: repair sprint status (coaching tactics, play through)
+
+- **Coaching tactics (§27):** measurable now, and secondary.
+  - **Root cause.** Execution scaled a plan's upside and its costs alike. Once a plan roughly breaks even for an average list (the plan repair, #110), scaling both did nothing.
+  - **Repair.**
+    - Execution scales only a plan's upside: the costs are the plan's own. This is the coaching screen's own promise, "Tactics sharpen the game plan."
+    - Its range is 0.81–1.25 (`CoachEffects.EXEC_RANGE` 0.25, was 0.15).
+  - **Measured** (paired, 600 matches; Defensive press, the best tactical group against the worst):
+
+    | Opponent's plan | Before (1.15 − 0.89) | After (1.25 − 0.81) |
+    |---|---|---|
+    | Balanced | +1.4 ± 1.5 | +1.1 ± 1.5 |
+    | Attack corridor (the press's counter case) | −2.2 ± 1.5 | **+4.3 ± 1.5** |
+
+  - Worth most where the plan matters most. It stays well under picking the right plan (+12) and list fit (about ±4).
+  - Tests (`test_coach_effects`): the upside moves within the range, and the costs do not.
+  - Status: WORKING, secondary.
+- **Play through (§7):** the promise is "get the ball to him", and it is met.
+  - His disposals rise (+2.0 a game), with a behavioural test.
+  - It does not move the result (+0.4 ± 1.3), and nothing on screen claims it will.
+  - Status: WORKING (as promised), intentionally low-impact on results. Not changed.

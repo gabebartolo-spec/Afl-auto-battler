@@ -279,17 +279,17 @@ const PLANS := {
 }
 
 
-## A plan's value, as this side's coaching executes it: a sharp tactical
-## group gets more out of the plan (and pays more of its cost), a weak one
-## less of both (Squad.tactics_exec, 1.0 = as written).
-## The upside of a plan also grows with how well the players suit it
-## (PlanFit); what it gives up does not.
+## A plan's value for this side. Its upside grows with how well the players
+## suit it (PlanFit) and how sharply the coaches execute it
+## (Squad.tactics_exec, 1.0 = as written); what it gives up is the plan's
+## own and does not move.
 func _pv(side: int, key: String, fallback := 1.0) -> float:
 	var plan := _plan(side)
 	var v := float((PLANS.get(plan, {}) as Dictionary).get(key, fallback))
-	var scale := float((squads[side] as Squad).tactics_exec)
+	var scale := 1.0
 	if (PLAN_UPSIDE.get(plan, []) as Array).has(key):
-		scale *= float((plan_fit[side] as Dictionary).get(plan, 1.0))
+		scale = float((squads[side] as Squad).tactics_exec) \
+				* float((plan_fit[side] as Dictionary).get(plan, 1.0))
 	return fallback + (v - fallback) * scale
 
 
