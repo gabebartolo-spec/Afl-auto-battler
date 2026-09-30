@@ -15,7 +15,7 @@ const DETAIL := [
 	["behinds", "behinds"], ["score_involvements", "score involvements"],
 	["goal_assists", "goal assists"], ["contested_marks", "contested marks"], ["intercepts", "intercepts"],
 	["cba", "centre bounce attendances"], ["inside50", "inside 50s"], ["rebounds", "rebound 50s"],
-	["one_percenters", "one percenters"], ["spoils", "spoils"], ["hitouts", "hit-outs"],
+	["one_percenters", "one percenters"], ["spoils", "spoils"], ["hitouts", "hit-outs"], ["hitouts_adv", "hit-outs to advantage"],
 	["clangers", "clangers"], ["frees_against", "frees against"],
 ]
 
