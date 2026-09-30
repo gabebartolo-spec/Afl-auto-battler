@@ -17,6 +17,7 @@ func run() -> void:
 	_test_line_extremes()
 	_test_missing_player()
 	_test_danger()
+	_test_danger_needs_a_lever()
 	_test_form()
 	_test_unusual_data()
 	_test_own_notes()
@@ -159,6 +160,43 @@ func _test_danger() -> void:
 		if x["key"] == "danger" and str(x["text"]).contains("the best player in the competition"):
 			found = true
 	_check(found, "The league's best player is named as the danger (%s)" % top_club)
+
+
+## Playtest: an opposition defender was flagged as "the danger" with nothing
+## the coach could do about him. Only a player with a match-day answer (a
+## tag for a midfielder, a defender on a key forward) is "the danger"; any
+## other best player is just their best.
+func _test_danger_needs_a_lever() -> void:
+	var lists := _league()
+	var ground: Array = Squad.new("CAR", lists["CAR"], false, "CAR").ground
+	var mid := {}
+	var dfn := {}
+	var ruck := {}
+	for p in ground:
+		match str(p["role"]):
+			"MID": mid = p
+			"DEF": dfn = p
+			"RUCK": ruck = p
+	var keys: Array = Matchups.key_forwards(ground)
+	_check(Matchup.has_lever(mid, ground), "A midfielder can be tagged")
+	_check(not keys.is_empty() and Matchup.has_lever(keys[0], ground), "A key forward gets a defender put on him")
+	_check(not Matchup.has_lever(dfn, ground), "A defender has no match-day answer")
+	_check(not Matchup.has_lever(ruck, ground), "A ruck has no match-day answer")
+	# Every club: "the danger" only ever names someone with an answer.
+	var ok := true
+	for code in lists:
+		for x in Matchup.facts(code, lists):
+			if str(x["key"]) != "danger":
+				continue
+			var sq := Squad.new(code, lists[code], false, code)
+			var him := {}
+			for p in sq.ground:
+				if str(p["id"]) == str(x["player_id"]):
+					him = p
+			var says_danger := str(x["text"]).contains("is the danger")
+			if says_danger != Matchup.has_lever(him, sq.ground):
+				ok = false
+	_check(ok, "Only a player with an answer is called the danger")
 
 
 func _test_form() -> void:
