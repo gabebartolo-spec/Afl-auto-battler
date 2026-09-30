@@ -2096,32 +2096,49 @@ Before implementation, inspect the actual 2027 League Draft age distribution and
 
 
 
-## ARD-M5-012 — League Draft AI asset valuation sanity
+## ARD-M5-012 — Draft AI asset valuation sanity
 **Status:** `TODO`  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
-### Trigger
-Observed in the 2027 opening League Draft: Bodhi Uwland was selected at pick #1. He can reasonably be a good AFL player, but that result is implausible enough to treat as a draft-valuation sanity failure rather than manually changing one player's ratings.
+### Triggers
+Two separate phone-playtest cases now show that AI draft ordering can become implausible in opposite directions:
+- **Opening League Draft:** Bodhi Uwland was selected at pick #1. He can reasonably be a good AFL player, but that result is implausible enough to audit the established-player valuation model rather than manually changing him.
+- **2027 National Draft:** **Sora Crinkle, projected 78 OVR / 92 POT, was still available at pick #30** while clubs had already selected prospects with potential in the low 70s. Barring an extreme, visible reason (major injury/character/scouting uncertainty etc.), a prospect with that combination of current ability and ceiling should almost never slide that far.
+
+### Current implementation lead
+The National Draft is **not** currently producing this through club scouting error: `_eval_error()` returns zero in `intake_mode`. Intake valuation already weights POT heavily (`AI_POT_WEIGHT_INTAKE = 0.65`), but the final candidate score is then multiplied by `_need_weight()`. Once a club considers a position surplus, that multiplier can fall to **0.2**, meaning even an exceptional prospect can be heavily suppressed purely because the club thinks it has enough players at his position. Treat this as a strong diagnostic lead, not a predetermined fix.
 
 ### Intent
-Make opening League Draft AI value players as long-term dynasty assets, not merely as current-rating or positional-fit purchases.
+Make both the opening League Draft and annual National Draft value players as long-term dynasty assets without becoming deterministic or ignoring legitimate list construction.
 
 ### Scope
-Audit the top ~30 selections across repeated seeded 2027 opening drafts before changing weights. Inspect whether AI valuation gives appropriate weight to:
-- current ability,
-- age / remaining career runway,
-- potential and development upside,
-- positional value/scarcity,
-- list need where appropriate,
-- salary/cap cost where relevant.
+Audit repeated seeded drafts and inspect:
+- current ability;
+- age / remaining career runway;
+- potential and development upside;
+- positional value/scarcity;
+- list need where appropriate;
+- salary/cap cost where relevant;
+- value-over-replacement / expected availability at the club's next pick;
+- whether list-need multipliers can overwhelm obvious best-available talent.
 
-Diagnose the model-level cause. **Do not special-case or manually nerf Bodhi Uwland or other individual players to manufacture plausible draft order.**
+For the National Draft, explicitly chart where the top 5/10/20 prospects by shared talent/worth are actually selected across many classes. Manually inspect major sliders and reaches.
+
+Do **not** special-case named players/prospects to manufacture plausible order. Fix the valuation model.
+
+### Guardrail — best available vs need
+List need should influence close decisions and explain sensible reaches, but it must not routinely make clubs pass on elite talent for marginal low-ceiling prospects. Early/high-value selections should lean strongly toward **best available long-term asset**; need can matter more as talent gaps narrow or later in the draft.
+
+If an elite prospect falls dramatically, the game should have a legible football reason — e.g. genuine injury concern, severe scouting uncertainty, role/body concern — rather than an invisible `0.2` multiplier.
 
 ### Acceptance
-- Repeated startup drafts produce broadly credible top-end selections without becoming deterministic.
+- Repeated opening League Drafts produce broadly credible top-end selections without becoming deterministic.
+- In annual National Drafts, prospects in the very top band of both OVR and POT almost never survive to pick ~30 absent a documented adverse factor.
+- A 78 OVR / 92 POT prospect is not passed over for low-70s-ceiling prospects merely because clubs already have nominal positional coverage.
 - Elite young/high-upside cornerstone players are valued appropriately against good established players.
-- Veterans and role players can still rise when their quality/context warrants it, but obvious outlier #1-type selections are rare and explainable.
+- Veterans and role players can still rise when their quality/context warrants it, but obvious outlier #1 reaches are rare and explainable.
+- Need/scarcity can move players within plausible bands without overpowering major talent gaps.
 - AI clubs continue to obey the same cap/list rules as the player.
 - Measure before/after top-30 composition across deterministic seeds and check that any weighting change does not create a new age, position or potential monoculture.
 
@@ -2395,7 +2412,7 @@ Validate with targeted multi-season simulations.
 ---
 
 ## ARD-M6-003 — Board Confidence
-**Status:** `DONE`  
+**Status:** `DONE / FOLLOW-UP TODO`  
 **Merged:** PR #84 as `48a805d`; confidence now moves relative to expectations, surfaces qualitative states, and explains why it changed.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
@@ -2451,6 +2468,40 @@ Rules:
 - explain why it moved,
 - no opaque random swings,
 - sacking/job-security consequences come later after balance proves the confidence model.
+
+### Phone-playtest follow-up — expectation fairness is part of the lose-state contract
+Board goals are **not randomly assigned** in the current implementation. At the start of each season, `GameState._open_board_season()` ranks every club by `Squad.strength()` and passes that rank into `ClubLife.board_goal()`:
+- strength rank 1–4 → **Finish top four**;
+- next finals-band clubs → **Make finals**;
+- ranks 11–14 → **Finish top 12**;
+- bottom group → **Win at least seven games**.
+
+That is deterministic, but it still needs a fairness audit. A single pre-season squad-strength ranking can be wrong or too brittle, particularly for a rebuilding/young list, a newly redrafted club, a side carrying major injuries, or a roster whose OVR/role model does not translate cleanly to wins. The bucket boundaries are also abrupt: moving one underlying strength rank can materially change the season-long demand.
+
+This matters more than ordinary flavour because **being sacked is currently the game's explicit hard career-ending lose state**: the Hub stops the career and tells the player to start a new one. Therefore the game must never kill a long save because an opaque or miscalibrated expectation was assigned.
+
+Audit expectations against:
+- pre-season list strength **and how well that metric predicts realised wins/ladder position**;
+- previous-season finish and multi-year trajectory once history exists;
+- age profile / rebuilding vs building vs contending phase;
+- major known injuries/unavailability at the point the goal is set;
+- recent list turnover and whether the club has deliberately moved into a rebuild;
+- finals structure/wildcard context;
+- uncertainty: boards should use a realistic **range/band of expectation**, not pretend the model knows the exact ladder order.
+
+First-season/redraft careers need special scrutiny because there is no prior club trajectory: do not make “model ranks this list fourth” automatically equivalent to a punitive top-four mandate unless calibration proves that is fair.
+
+The board may still be demanding. The goal is **earned pressure, not arbitrary safety**.
+
+Acceptance:
+- identical roster/context always yields the same explainable expectation; no hidden random assignment;
+- pre-season expectation bands are calibrated against large simulated samples so “top four”, “finals”, etc. correspond to credible outcome distributions rather than one-point rank boundaries;
+- rebuilding clubs are not routinely given top-four/finals-or-bust goals simply because of noisy raw list strength;
+- genuine contenders can still receive demanding goals;
+- the player can see a concise reason for the goal (e.g. list quality, last season, trajectory) without number vomit;
+- two otherwise similar clubs do not receive radically different goals without an explainable difference;
+- sacking remains a meaningful lose state only if the expectations feeding it are demonstrably fair and the warning path gives the player a real chance to recover;
+- long-save probes verify the human is not disproportionately sacked due to expectation-model error.
 
 ---
 
