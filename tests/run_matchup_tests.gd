@@ -30,6 +30,7 @@ func _run() -> void:
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
 	await _hub_tests()
+	await _finals_week_by_week()
 	print("Matchup + hub tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -156,6 +157,54 @@ func _hub_tests() -> void:
 	_check(hub.find_children("Fact_*", "Label", true, false).is_empty(), "No facts once the season is over")
 	_check(_button(hub.find_child("WeekActions", true, false), "National Draft") != null,
 			"The national draft is the next step")
+	hub.queue_free()
+	await _settle()
+
+
+## Out of the finals, the league still plays them a week at a time: the hub
+## offers the week, shows its results, and the season (and its awards) ends
+## only after the Grand Final. Sim to Grand Final stays as the fast-forward.
+func _finals_week_by_week() -> void:
+	var db = root.get_node("GameDB")
+	var out := ""
+	for code in ["GWS", "RIC", "NTH", "WCE", "STK", "SKN", "ESS", "ADE"]:
+		if not db.active_clubs(2027).has(code):
+			continue
+		_state.reset()
+		_state.start_season(code, db.club_list(code))
+		_state.season.round_index = _state.season.fixture.size() - 1
+		_state.advance()
+		if not (_state.season.finals["top"] as Array).has(code):
+			out = code
+			break
+	_check(out != "", "A club misses the finals to test with")
+	if out == "":
+		return
+	root.size = Vector2i(390, 844)
+	var hub: Control = await _open_hub()
+	var weeks := 0
+	var one_at_a_time := true
+	while not _state.season.is_season_over() and weeks < 6:
+		var actions: Node = hub.find_child("WeekActions", true, false)
+		var week: Button = actions.find_child("SimFinalsWeek", true, false) if actions != null else null
+		var skip: Button = actions.find_child("SimToGrandFinal", true, false) if actions != null else null
+		if week == null or skip == null:
+			one_at_a_time = false
+			break
+		var before := int(_state.season.finals.get("week", 0))
+		week.emit_signal("pressed")
+		await _settle()
+		weeks += 1
+		one_at_a_time = one_at_a_time and (_state.season.is_season_over()
+				or int(_state.season.finals.get("week", 0)) == before + 1)
+		one_at_a_time = one_at_a_time and hub.get("_results_overlay") != null
+		if not _state.season.is_season_over():
+			one_at_a_time = one_at_a_time and int(_state.season_awards.get("year", 0)) != _state.season_year
+		hub.call("handle_back")
+		await _settle()
+	_check(one_at_a_time and weeks >= 4, "Out of the finals: every week can be played one at a time, results each week (%d weeks)" % weeks)
+	_check(_state.season.is_season_over() and int(_state.season_awards.get("year", 0)) == _state.season_year,
+			"The season, and its awards, close only after the Grand Final")
 	hub.queue_free()
 	await _settle()
 
