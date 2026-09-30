@@ -613,7 +613,7 @@ func _contest_calls(side: int, stoppage: bool) -> float:
 	if _burst(side, "stack") and stoppage:
 		b += 0.10
 	if _burst(side, "surge"):
-		b += 0.06
+		b += 0.03
 	return b
 
 
@@ -1343,8 +1343,12 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 		_credit(opp, "traits", 6.0 * (before - goal_p))
 	before = goal_p
 	var call_mult := 1.0
+	# Throw numbers at it: more of your shots go in. Slow it down: fewer
+	# shots at goal, both ends - the game goes quiet. Flood: numbers back.
 	if _burst(side, "surge"):
-		call_mult *= 1.08
+		call_mult *= 1.12
+	if _burst(side, "hold"):
+		call_mult *= 0.90
 	if _burst(side, "flood"):
 		call_mult *= 0.90
 	goal_p *= call_mult
@@ -1354,10 +1358,12 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	var opp_mult := 1.0
 	if _burst(opp, "flood"):
 		opp_mult *= 0.80
+	if _burst(opp, "hold"):
+		opp_mult *= 0.85
 	if _burst(opp, "stack"):
 		opp_mult *= 1.12
 	if _burst(opp, "surge"):
-		opp_mult *= 1.10
+		opp_mult *= 1.25
 	goal_p *= opp_mult
 	if credit:
 		_credit(opp, "calls", 6.0 * (before - goal_p))
@@ -1446,6 +1452,8 @@ func end_quarter() -> Dictionary:
 	var quarter := current_quarter
 	_q_active = false
 	momentum *= MOMENTUM_BREAK
+	# A moment card's call is for a passage of play: the break ends it.
+	bursts = [{}, {}]
 	quarter_teams.append({
 		"quarter": quarter,
 		"team": [team_stats[0].duplicate(), team_stats[1].duplicate()],
@@ -1952,11 +1960,15 @@ func average_energy(side: int) -> float:
 # ---------------------------------------------------------------------------
 const MAX_MOMENTS_Q := 2
 const MOMENT_GAP := 8                # chains between moments
+## A short-term call from a moment card, and how long it lasts (possession
+## chains; a quarter is about 45). Long enough to be a passage of play - the
+## card says "the next ten minutes" - and every call ends at the break.
+## (They lasted 4-8 chains, about two minutes, and measured as no-ops.)
 const BURSTS := {
-	"stack": {"label": "Stack the stoppage", "chains": 4},
-	"flood": {"label": "Flood behind the ball", "chains": 5},
-	"surge": {"label": "Throw numbers at it", "chains": 8},
-	"hold": {"label": "Slow it down", "chains": 8},
+	"stack": {"label": "Stack the stoppage", "chains": 12, "for": "for the next few centre bounces"},
+	"flood": {"label": "Flood behind the ball", "chains": 45, "for": "for the rest of the quarter"},
+	"surge": {"label": "Throw numbers at it", "chains": 15, "for": "for the next ten minutes"},
+	"hold": {"label": "Slow it down", "chains": 15, "for": "for the next ten minutes"},
 }
 
 
@@ -2068,12 +2080,12 @@ func _boundary_moment() -> bool:
 		_asked["run|%d|%d" % [current_quarter, goals(opp)]] = true
 		_fire({"kind": "momentum", "default": 2,
 			"title": "They have kicked %d in a row" % _run[opp],
-			"text": "The game is getting away from you. Make a call for the next few minutes.",
+			"text": "The game is getting away from you. Make a call for the next ten minutes.",
 			"options": [
 				{"key": "surge", "label": "Throw numbers at it",
-					"detail": "Win more of the ball and kick straighter, but leave the back door open and burn legs."},
+					"detail": "Win more of the ball and more goals, but they score more when they get out, and it burns legs."},
 				{"key": "hold", "label": "Slow it down",
-					"detail": "Chip it around: fewer turnovers and clangers, less ground gained."},
+					"detail": "Chip it around: fewer turnovers, a quieter game at both ends, less ground gained."},
 				{"key": "none", "label": "Ride it out",
 					"detail": "Trust the plan. No change."},
 			]})
@@ -2085,7 +2097,7 @@ func _boundary_moment() -> bool:
 		var state := "level" if margin == 0 else ("%d up" % margin if margin > 0 else "%d down" % -margin)
 		_fire({"kind": "bounce", "default": 2,
 			"title": "Centre bounce - %s with %d minutes left" % [state, 120 - current_minute],
-			"text": "Set up for the next few minutes of the game.",
+			"text": "Set up for the rest of the game.",
 			"options": [
 				{"key": "stack", "label": "Stack the stoppage",
 					"detail": "Extra numbers at the bounce: win far more clearances, but they score more easily if they get out."},
@@ -2270,7 +2282,7 @@ func resolve_moment(choice: int) -> Dictionary:
 		"momentum", "bounce":
 			if BURSTS.has(key):
 				(bursts[side] as Dictionary)[key] = int(BURSTS[key]["chains"])
-				outcome = "%s for the next few minutes." % str(BURSTS[key]["label"])
+				outcome = "%s %s." % [str(BURSTS[key]["label"]), str(BURSTS[key]["for"])]
 			else:
 				outcome = "No change."
 	m["choice"] = choice

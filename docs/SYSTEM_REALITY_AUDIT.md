@@ -376,6 +376,48 @@ The findings above are kept as found. This appendix records each repair as it la
 | Finding | Repair | Status |
 |---|---|---|
 | C1: standing plan dropped at the first bounce of a live match | The pre-bounce box (and Skip) read the plan the engine already holds for your side, which is your club plan, so Start without a change keeps it. Behavioural test `run_matchday_tests.gd::_plan_at_first_bounce` drives the live start and reads the engine's own quarter record (`tactics_history`). It fails on the old code (engine: balanced) and passes on the fix. | Fixed, branch `claude/fix-first-bounce-plan` (pending merge) |
+## Appendix: repair sprint status (moment cards)
+
+**C3, moment cards: repaired.** The cause differed by card, so each was measured on its own. Each card got a random option in 600–900 live matches, and the net score change was measured over the window the call covers.
+
+**"They've kicked 3 in a row" (surge / slow it down / ride it out):**
+- **Why it did nothing:** the calls lasted 8 of about 180 possession chains, roughly two minutes. They also barely moved scoring at either end.
+- **Fix:**
+  - the calls last 15 chains ("the next ten minutes") and end at the break;
+  - "Throw numbers at it" is more goals at both ends: your shots ×1.12, theirs ×1.25 when they get out, +3% of the ball, and heavier legs;
+  - "Slow it down" is a quieter game at both ends: your shots ×0.90, theirs ×0.85, plus fewer turnovers and less ground gained.
+- **After:** rest of the quarter, about 1,200 cards:
+
+  | Call | Yours | Theirs | Net |
+  |---|---|---|---|
+  | Ride it out | 14.5 | 13.7 | +0.9 |
+  | Throw numbers at it | 15.4 | 14.0 | +1.4 |
+  | Slow it down | 13.8 | 12.9 | +1.0 |
+
+  The shape differs and the nets are close, so the right call depends on the scoreboard. Before, the three differed by 0.3 ± 0.4.
+
+**Late centre bounce (stack / flood / straight):**
+- Stack now covers the next few bounces (12 chains); flood covers the rest of the quarter.
+- About 30 cards each: stack +5.6, flood +0.2 (theirs 8.7 against 9.6), straight +0.4. The card is rare (0.1 a match).
+
+**Set shot:** already situational; the aggregate policy test hid it. Points from the kick:
+- better than even: shoot 2.69 (bomb 1.72, play on 1.86);
+- a coin toss: shoot 2.75;
+- a tough shot: bomb 2.32 (shoot 2.00);
+- a long shot: play on 2.48 (small sample).
+
+Classified as working.
+
+**Tired star:** intentionally low-impact. Rest +0.97 against keep +0.52 (±0.3) over the rest of the quarter. A real but small call.
+
+**Hot midfielder (tag):** see the tagging repair.
+
+**Tests:** `test_match_game.gd::_test_moment_calls_matter`:
+- a call lasts a passage and ends at the break;
+- over 40 matches, surge gives more total scoring than riding it out, and slowing it down less;
+- the best-value set-shot call is not always "shoot".
+
+Branch `claude/moment-consequences` (pending merge).
 
 ## Appendix: repair sprint status (test harness)
 
