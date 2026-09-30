@@ -1003,8 +1003,22 @@ func _test_matchups() -> void:
 			[1, "A", true, true], [1, "A", true, false], [1, "A", true, true], [2, "A", true, false],
 			[3, "B", false, false], [3, "B", false, false], [3, "B", true, false], [4, "B", false, false]]}}}
 	var story := MatchNotes.duel_story(fake, 0)
-	_check(story.size() == 1 and str(story[0]).contains("turned the contest"),
-			"A change that swung the contests is credited (%s)" % str(story))
+	_check(story.size() == 1 and str(story[0]).contains("had the better of") and str(story[0]).contains("held him once he took over"),
+			"A change that swung the contests is told in order: on top early, held after (%s)" % str(story))
+	# A side's move onto him is called a move; a rotation is not.
+	fake["duel_changes"] = [{"q": 3, "from": 3, "side": 0, "fwd": "F", "def": "B"}]
+	story = MatchNotes.duel_story(fake, 0)
+	_check(str(story[0]).contains("held him after the move") and not str(story[0]).contains("turned"),
+			"A real move is named as the move, and the early part is kept (%s)" % str(story))
+	# One man all day, on top of him in one quarter (the live call), held
+	# overall: full time keeps both halves instead of contradicting the call.
+	var one := {"duels": {"F": {"side": 1, "contests": [
+			[1, "A", false, false], [1, "A", false, false], [1, "A", false, false],
+			[2, "A", true, false], [2, "A", true, true], [2, "A", true, false],
+			[3, "A", false, false], [3, "A", false, false], [4, "A", false, false], [4, "A", false, false]]}}}
+	var s1 := str(MatchNotes.duel_story(one, 0)[0])
+	_check(s1.contains("got on top of") and s1.contains("the second") and s1.contains("held him over the match"),
+			"On top in one quarter, held overall: both halves at full time (%s)" % s1)
 	var thin := {"duels": {"F": {"side": 1, "contests": [[1, "A", true, false], [1, "A", true, false],
 			[1, "A", true, false], [2, "B", false, false]]}}}
 	_check(str(MatchNotes.duel_story(thin, 0)[0]).contains("too few"),
