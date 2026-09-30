@@ -2238,8 +2238,12 @@ func _boundary_moment() -> bool:
 			]})
 		return true
 	# Three goals in a row against.
-	if _run[opp] >= 3 and not _asked.has("run|%d|%d" % [current_quarter, goals(opp)]):
-		_asked["run|%d|%d" % [current_quarter, goals(opp)]] = true
+	# Once a run: the key is where the run started (their goals before it),
+	# so a fourth or fifth goal in the same run asks nothing new. A new run -
+	# after you score - can ask again.
+	var run_key := "run|%d" % (goals(opp) - int(_run[opp]))
+	if _run[opp] >= 3 and not _asked.has(run_key):
+		_asked[run_key] = true
 		_fire({"kind": "momentum", "default": 2,
 			"title": "They have kicked %d in a row" % _run[opp],
 			"text": "The game is getting away from you. Make a call for the next ten minutes.",

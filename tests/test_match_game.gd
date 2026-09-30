@@ -31,6 +31,7 @@ func run() -> void:
 	_test_hot_player_moment()
 	_test_matchups()
 	_test_in_match_injuries()
+	_test_run_call_once_a_run()
 	_test_late_bounce_reachable()
 	_test_current_club_identity()
 	_test_tag_ends_with_injury()
@@ -1004,8 +1005,22 @@ func _test_matchups() -> void:
 			[1, "A", true, true], [1, "A", true, false], [1, "A", true, true], [2, "A", true, false],
 			[3, "B", false, false], [3, "B", false, false], [3, "B", true, false], [4, "B", false, false]]}}}
 	var story := MatchNotes.duel_story(fake, 0)
-	_check(story.size() == 1 and str(story[0]).contains("turned the contest"),
-			"A change that swung the contests is credited (%s)" % str(story))
+	_check(story.size() == 1 and str(story[0]).contains("had the better of") and str(story[0]).contains("held him once he took over"),
+			"A change that swung the contests is told in order: on top early, held after (%s)" % str(story))
+	# A side's move onto him is called a move; a rotation is not.
+	fake["duel_changes"] = [{"q": 3, "from": 3, "side": 0, "fwd": "F", "def": "B"}]
+	story = MatchNotes.duel_story(fake, 0)
+	_check(str(story[0]).contains("held him after the move") and not str(story[0]).contains("turned"),
+			"A real move is named as the move, and the early part is kept (%s)" % str(story))
+	# One man all day, on top of him in one quarter (the live call), held
+	# overall: full time keeps both halves instead of contradicting the call.
+	var one := {"duels": {"F": {"side": 1, "contests": [
+			[1, "A", false, false], [1, "A", false, false], [1, "A", false, false],
+			[2, "A", true, false], [2, "A", true, true], [2, "A", true, false],
+			[3, "A", false, false], [3, "A", false, false], [4, "A", false, false], [4, "A", false, false]]}}}
+	var s1 := str(MatchNotes.duel_story(one, 0)[0])
+	_check(s1.contains("got on top of") and s1.contains("the second") and s1.contains("held him over the match"),
+			"On top in one quarter, held overall: both halves at full time (%s)" % s1)
 	var thin := {"duels": {"F": {"side": 1, "contests": [[1, "A", true, false], [1, "A", true, false],
 			[1, "A", true, false], [2, "B", false, false]]}}}
 	_check(str(MatchNotes.duel_story(thin, 0)[0]).contains("too few"),
@@ -1071,6 +1086,33 @@ func _test_tag_ends_with_injury() -> void:
 	_check(str(sim.tactics[0].get("tag_id", "")) == "", "The tag on him ends when he goes off")
 	sim.set_tactics(0, {"gameplan": "balanced", "tag_id": id})
 	_check(str(sim.tactics[0].get("tag_id", "")) == "", "He cannot be tagged at the next break")
+
+
+## A run of goals against brings one call a run, not one a goal: the fourth
+## and fifth goals of the same run ask nothing new; a new run can.
+func _test_run_call_once_a_run() -> void:
+	var sim := _sim(4500, "MEL", "CAR")
+	sim.moment_side = 0
+	sim.current_quarter = 2
+	var ready := func() -> void:
+		sim.pending_moment = {}
+		sim._moments_this_q = 0
+		sim._last_moment_chain = sim._chain_no - 100
+	var calls := 0
+	# Their goals 3, 4, 5 in a row: one run.
+	for g in [3, 4, 5]:
+		ready.call()
+		(sim.team_stats[1] as Dictionary)["goals"] = float(g)
+		sim._run = [0, g]
+		if sim._boundary_moment() and str(sim.pending_moment.get("kind", "")) == "momentum":
+			calls += 1
+	_check(calls == 1, "Three, four, five in a row: one call for the run (%d)" % calls)
+	# You kick one; then they kick three more: a new run, a new call.
+	ready.call()
+	(sim.team_stats[1] as Dictionary)["goals"] = 8.0
+	sim._run = [0, 3]
+	_check(sim._boundary_moment() and str(sim.pending_moment.get("kind", "")) == "momentum",
+			"A new run after you score can bring the call again")
 
 
 ## A tight finish gets the centre-bounce call even when the last quarter's

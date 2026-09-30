@@ -383,7 +383,15 @@ func _week_actions(season: Season) -> Control:
 		buttons.append(_nav_button("Team", func(): Router.go("selection")))
 		buttons.append(_nav_button("Sim %s" % _finals_label(), _on_sim_round, true))
 	elif _upcoming_match().is_empty():
-		buttons.append(_nav_button("Sim to Grand Final", _on_sim_to_end, true))
+		# Out of the finals, the league still plays them week by week: each
+		# week's results come up before the next, and the rest of the series
+		# is one tap further if you would rather skip it.
+		var skip := _nav_button("Sim to Grand Final", _on_sim_to_end)
+		skip.name = "SimToGrandFinal"
+		buttons.append(skip)
+		var week := _nav_button("Sim %s" % _finals_label(), _on_sim_round, true)
+		week.name = "SimFinalsWeek"
+		buttons.append(week)
 	else:
 		buttons.append(_nav_button("Pick the side", func(): Router.go("selection")))
 		buttons.append(_nav_button("Play match", _on_play_match, true))

@@ -26,6 +26,7 @@ const ATTR_LABELS := {
 }
 
 static var _sorted := {}          # "ROLE|attr" -> sorted 2026 values
+static var _db: Node = null       # GameDB, looked up once on the main thread
 
 
 ## 2026 players of this role (the scale every rating is anchored to).
@@ -33,13 +34,35 @@ static func _values(role: String, key: String) -> Array:
 	var k := role + "|" + key
 	if not _sorted.has(k):
 		var vals := []
-		var db: Node = Engine.get_main_loop().root.get_node("GameDB")
-		for p in db.players:
+		for p in _game_db().players:
 			if str(p.get("role", "")) == role:
 				vals.append(float((p["attr"] as Dictionary).get(key, 0)))
 		vals.sort()
+		# Off the main thread (a match on a worker) it is only read: warm()
+		# fills it first, and anything missed is worked out, not stored.
+		if OS.get_thread_caller_id() != OS.get_main_thread_id():
+			return vals
 		_sorted[k] = vals
 	return _sorted[k]
+
+
+static func _game_db() -> Node:
+	if _db == null:
+		_db = Engine.get_main_loop().root.get_node("GameDB")
+	return _db
+
+
+## Fill the cache for every role and attribute, before matches run on
+## worker threads (which must only read it).
+static func warm() -> void:
+	var roles := {}
+	for p in _game_db().players:
+		roles[str(p.get("role", ""))] = true
+	if _sorted.size() >= roles.size() * ATTR_LABELS.size():
+		return
+	for role in roles:
+		for key in ATTR_LABELS:
+			_values(role, key)
 
 
 ## Share of 2026 players of his role he is at least as good as (0..1).

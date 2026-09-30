@@ -6,7 +6,7 @@ draft_ui 1298
 intake 2128
 intake_ui 493
 expansion 1168
-finals 102
+finals 114
 save 49
 chronology 28
 career 71
@@ -20,7 +20,7 @@ ratings 27
 ai 35
 training 59
 selection 14
-matchup 54
+matchup 57
 matchday 314
 roles 139
 injuries 12
