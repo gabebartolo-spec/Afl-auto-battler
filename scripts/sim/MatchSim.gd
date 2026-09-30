@@ -1755,6 +1755,8 @@ const ENERGY_BREAK_RECOVER := 20.0   # at each quarter break
 const ROTATE_EVERY := 3              # chains between rotation checks
 const ROLE_DRAIN := {"MID": 1.25, "RUCK": 1.15, "DEF": 0.85, "FWD": 0.9}
 const STAR_OVR := 80
+## Riding the stars, a star this cooked brings the one tired call of the match.
+const TIRED_CALL := 45.0
 ## Energy below which a player is rotated off: stars are ridden harder.
 const ROTATION_POLICIES := {
 	"hard": {"label": "Rotate hard", "role": 80.0, "star": 68.0,
@@ -2052,13 +2054,15 @@ func _boundary_moment() -> bool:
 	var me := moment_side
 	var opp := 1 - me
 	var margin := score(me) - score(opp)
-	# A star running on empty.
-	for p in (squads[me] as Squad).ground:
+	# A star running on empty - only when you have chosen to ride your stars.
+	# Under Normal rotations or Rotate hard the rotations take tired players
+	# off by themselves (_auto_rotate); riding them is the one policy that
+	# leaves a star out there cooked, so it may bring one call a match.
+	for p in (squads[me] as Squad).ground if rotation_policy[me] == "stars" else []:
 		var id := str(p["id"])
 		var e := float(energy.get(id, 100.0))
-		var key := "tired|%s|%d" % [id, current_quarter]
-		if int(p["overall"]) >= STAR_OVR and e < 58.0 and not _asked.has(key):
-			_asked[key] = true
+		if int(p["overall"]) >= STAR_OVR and e < TIRED_CALL and not _asked.has("tired"):
+			_asked["tired"] = true
 			_fire({"kind": "tired", "player_id": id, "default": 1,
 				"title": "%s is running on empty" % GameDB.player_display_name(p),
 				"text": "Your star's legs are gone. Tired players win less of the ball and kick fewer goals.",

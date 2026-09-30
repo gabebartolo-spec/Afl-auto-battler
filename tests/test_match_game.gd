@@ -336,25 +336,53 @@ func _test_impact_and_ai() -> void:
 		var has_now: bool = now_t != null and Roles.is_tagger(now_t)
 		_check((str(s2.ai_tactics(1).get("tag_id", "")) != "") == has_now,
 				"%s %s a tag in the second half" % [str(pair[0]), "calls" if has_now else "does not call"])
-	# A tired star can be rested.
-	var tired := _sim(902)
-	tired.moment_side = 0
-	var star: Dictionary = {}
-	for p in tired.squads[0].ground:
-		if int(p["overall"]) >= MatchSim.STAR_OVR:
-			star = p
-	if not star.is_empty():
-		tired.energy[str(star["id"])] = 40.0
-		tired.begin_quarter()
-		tired.continue_quarter()
-		var m := tired.pending_moment
-		_check(str(m.get("kind", "")) == "tired", "A cooked star brings a rest-him call")
-		tired.resolve_moment(0)
-		var still_on := false
+	# A tired star: under Normal rotations the rotations handle him, with no
+	# call; riding the stars brings one call a match, and resting him works.
+	for policy in ["normal", "stars"]:
+		var tired := _sim(902)
+		tired.moment_side = 0
+		tired.set_rotation_policy(0, policy)
+		var star: Dictionary = {}
 		for p in tired.squads[0].ground:
-			if str(p["id"]) == str(star["id"]):
-				still_on = true
-		_check(not still_on, "Resting him takes him off the ground")
+			if int(p["overall"]) >= MatchSim.STAR_OVR:
+				star = p
+		if star.is_empty():
+			_check(false, "Club 902 fields a star")
+			continue
+		tired.begin_quarter()
+		tired.energy[str(star["id"])] = 40.0      # after the break's recovery
+		var calls := 0
+		var guard := 0
+		while guard < 40:
+			tired.continue_quarter()
+			var m := tired.pending_moment
+			if m.is_empty():
+				break
+			if str(m.get("kind", "")) == "tired":
+				calls += 1
+				if calls == 1:
+					tired.resolve_moment(0)
+					var still_on := false
+					for p in tired.squads[0].ground:
+						if str(p["id"]) == str(star["id"]):
+							still_on = true
+					_check(not still_on, "Resting him takes him off the ground")
+					# Cooked again later: still only the one call.
+					for p in tired.squads[0].ground:
+						if int(p["overall"]) >= MatchSim.STAR_OVR:
+							tired.energy[str(p["id"])] = 30.0
+					continue
+			tired.resolve_moment(int(m.get("default", 0)))
+			guard += 1
+		if policy == "normal":
+			var subbed := false
+			for ev in tired.events:
+				if str(ev["kind"]) == "sub" and int(ev["side"]) == 0 and int(ev.get("off_num", -1)) == int(star["num"]):
+					subbed = true
+			_check(calls == 0, "Normal rotations: no running-on-empty call")
+			_check(subbed, "Normal rotations take the cooked star off by themselves")
+		else:
+			_check(calls == 1, "Riding the stars: one tired call a match, not one a quarter (%d)" % calls)
 
 
 ## Calm the group is a live option: a milder, quarter-long Slow it down,
