@@ -113,21 +113,30 @@ func _hub_tests() -> void:
 	await _settle()
 
 	# Run the season out: no fixture, no facts, a clear next step every week.
+	# One check per rule however many finals weeks you play: the season is
+	# not seeded, so a per-week check count would move with it.
 	var guard := 0
+	var weeks := 0
+	var facts_bad := []
+	var acts_bad := []
 	while not _state.season.is_season_over() and guard < 40:
 		_state.advance()
 		guard += 1
 		if _state.season.is_regular_done() and not _state.season.is_season_over():
+			weeks += 1
 			hub = await _open_hub()
 			var status: String = _state.my_finals_status()
 			var up := hub.find_child("Opponent", true, false) != null
-			if not up:
-				_check(hub.find_children("Fact_*", "Label", true, false).is_empty(),
-						"No fixture, no facts (%s)" % status)
+			if not up and not hub.find_children("Fact_*", "Label", true, false).is_empty():
+				facts_bad.append(status)
 			var acts: Control = hub.find_child("WeekActions", true, false)
-			_check(acts != null and acts.get_child_count() > 0, "Finals week has a next action (%s)" % status)
+			if not (acts != null and acts.get_child_count() > 0):
+				acts_bad.append(status)
 			hub.queue_free()
 			await _settle()
+	_check(weeks > 0, "The finals weeks are visited (%d)" % weeks)
+	_check(facts_bad.is_empty(), "No fixture, no facts (%s)" % str(facts_bad))
+	_check(acts_bad.is_empty(), "Every finals week has a next action (%s)" % str(acts_bad))
 	hub = await _open_hub()
 	_check(_screen_text(hub).contains("Season complete"), "A finished season says so")
 	_check(hub.find_children("Fact_*", "Label", true, false).is_empty(), "No facts once the season is over")
