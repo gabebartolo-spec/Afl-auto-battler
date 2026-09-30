@@ -588,4 +588,4 @@ Branch `claude/test-floors` (pending merge; stacked on the first-bounce fix, who
   - Behaviour changes: the sharp group tags in 600 quarters against 300 and leaves its usual plan in 629 quarters against 239.
   - Result: −1.7 ± 1.4 for the sharp group, indistinguishable from nothing.
   - **Status: WORKING (behaviour), LOW-IMPACT on results, recorded rather than tuned.** A sharper read reacts sooner, but reacting to the scoreboard is not itself worth points.
-  - Making the read valuable would mean reading your plan and choosing a counter. That was removed on purpose in #93, so it is a design question for the director, not a repair.
+  - Making the read valuable would mean the AI working out your plan and countering it. Under the no-psychic-AI rule (ROADMAP, 2026-09-30) it could only infer your plan from what it can observe in the match, never read it. That is a design question for the director, not a repair.
