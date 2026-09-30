@@ -212,6 +212,8 @@ func _phone_match(sz: Vector2i) -> void:
 	var bm: Node = box.find_child("BreakMatchups", true, false)
 	_check(bm != null, "The break shows the key match-ups (%s)" % tag)
 	var ch: Button = bm.find_child("ChangeMatchup", true, false) if bm != null else null
+	# Required: without a Change button the checks below would be skipped.
+	_check(ch != null, "The break offers a Change for their key forward (%s)" % tag)
 	if ch != null:
 		var fid := str((qsim.duels[myside] as Dictionary).keys()[0])
 		var cur := str(qsim.duels[myside][fid])
