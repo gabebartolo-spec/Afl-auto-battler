@@ -2004,14 +2004,6 @@ func legs(side: int) -> Array:
 	return out
 
 
-func average_energy(side: int) -> float:
-	var sq: Squad = squads[side]
-	var total := 0.0
-	for p in sq.ground:
-		total += float(energy.get(str(p["id"]), 100.0))
-	return total / float(maxi(1, sq.ground.size()))
-
-
 # ---------------------------------------------------------------------------
 # Match moments
 # ---------------------------------------------------------------------------
@@ -2438,12 +2430,6 @@ func _score_run(side: int) -> void:
 # ---------------------------------------------------------------------------
 # The rival coach (live matches)
 # ---------------------------------------------------------------------------
-## What beats what (see PLANS).
-const COUNTERS := {"attacking": "defensive", "fast": "defensive", "defensive": "controlled",
-		"press": "controlled", "controlled": "attacking", "contest": "attacking",
-		"through_stars": "defensive"}
-
-
 ## The opposition's plan for the coming quarter: its usual game (the plan
 ## its list suits, PlanFit.standing_plan), protecting a big lead or chasing
 ## a big deficit. It does not read and counter your plan. With a specialist
@@ -2498,7 +2484,3 @@ static func tagger_for(ground: Array):
 			best = p
 	return best
 
-
-## The counter to a plan, for the coach box hint ("" when there is none).
-static func counter_to(plan: String) -> String:
-	return str(COUNTERS.get(plan, ""))

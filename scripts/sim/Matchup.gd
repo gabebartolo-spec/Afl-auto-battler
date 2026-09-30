@@ -182,8 +182,6 @@ static func _form(results: Array) -> Dictionary:
 ## Where `code`'s lines rank in the league, in words: [[line, word], ...]
 ## for midfield, ruck, attack and defence. `own` is the side as it would
 ## take the field now (your selection); the others field their own sides.
-const STANDING_WORDS := ["the best in the competition", "one of the best", "strong",
-		"middle of the pack", "below par", "among the weakest"]
 const STANDING_LINES := [["midfield", "Midfield"], ["ruck", "Ruck"], ["attack", "Attack"],
 		["defence", "Defence"]]
 

@@ -572,3 +572,20 @@ Branch `claude/test-floors` (pending merge; stacked on the first-bounce fix, who
 
 - **Morale (§19):** kept as is; the size is reasonable for a whole unhappy side (−6.0 ± 1.5) and small for one player. It is now legible: the profile adds "It's lifting his footy" (85+), "It's taking a little off his footy" (40–64) or "It's costing him on the field" (under 40) to the mood word, in the same direction as `ClubLife.form`. No numbers. A test ties the wording to the sign and size of the engine nudge. Status: WORKING, now legible.
 - **Player form (§18):** the Coaching section is renamed "Recent games", with "Playing above / below his season". It stays a report of recent Player Ratings; no engine modifier was invented. Status: REPORT, labelled as one.
+## Appendix: repair sprint status (loose ends)
+
+- **Coach table on a live week (§31):** fixed.
+  - `prepare_interactive_match` now builds the coaching table before simulating the round's other matches.
+  - Test (`test_coach_effects`): clear the table as a fresh load would, prepare a live week, and check that the other matches ran their coaches' calls. It fails on the old order. Status: WORKING.
+- **Dead code (§40 and the hidden and dead list):** removed.
+  - `MatchSim.counter_to` and `COUNTERS`, `MatchSim.average_energy`;
+  - `Matchup.STANDING_WORDS`;
+  - `Draft.pick_number_in_round`, `Draft.is_complete_size`, `Draft.ai_lists`;
+  - `Squad.best_on_ground`.
+  - None had a caller.
+- **Hot-card duration text (C4 copy):** fixed with the tagging repair (#108).
+- **AI tactical reading (§30):** measured (paired, 600 matches; an AI-coached side with read 1.0 against −0.75; opponent plays Balanced).
+  - Behaviour changes: the sharp group tags in 600 quarters against 300 and leaves its usual plan in 629 quarters against 239.
+  - Result: −1.7 ± 1.4 for the sharp group, indistinguishable from nothing.
+  - **Status: WORKING (behaviour), LOW-IMPACT on results, recorded rather than tuned.** A sharper read reacts sooner, but reacting to the scoreboard is not itself worth points.
+  - Making the read valuable would mean the AI working out your plan and countering it. Under the no-psychic-AI rule (ROADMAP, 2026-09-30) it could only infer your plan from what it can observe in the match, never read it. That is a design question for the director, not a repair.

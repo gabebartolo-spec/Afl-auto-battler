@@ -173,3 +173,13 @@ func _test_in_career() -> void:
 	_check(GameState.save_career() and GameState.load_career(), "The career saves and loads")
 	var saved := FileAccess.get_file_as_string(GameState.save_path)
 	_check(not saved.contains("tactics_exec") and not saved.contains("tactics_read"), "Nothing derived is saved: effects are read from the coaches")
+	# The table is not saved. On the first live week after loading, the
+	# round's other matches must still be coached (their AI calls run).
+	CoachEffects.table = {}
+	_check(GameState.prepare_interactive_match(), "A live week after loading")
+	var coached := false
+	for r in GameState.pending_round_results:
+		var hist: Array = (r as Dictionary).get("tactics_history", [])
+		if hist.size() >= 2 and ((hist[1]["plans"] as Array)[0] as Dictionary).has("pep"):
+			coached = true
+	_check(coached, "...and the round's other matches still use their coaches' calls")

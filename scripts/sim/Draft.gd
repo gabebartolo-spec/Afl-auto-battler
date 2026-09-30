@@ -148,12 +148,6 @@ func current_round() -> int:
 	return int(pick_index / clubs.size()) + 1
 
 
-func pick_number_in_round() -> int:
-	if clubs.is_empty():
-		return 1
-	return int(pick_index % clubs.size()) + 1
-
-
 func is_user_turn() -> bool:
 	return league_mode and not is_finished() and current_club() == user_club
 
@@ -842,10 +836,6 @@ func is_valid() -> bool:
 	return count_covering("RUCK") >= 2
 
 
-func is_complete_size() -> bool:
-	return count() >= target_size
-
-
 func count_by_role(role: String) -> int:
 	return int(role_counts().get(role, 0))
 
@@ -918,12 +908,3 @@ func board(role := "", club := "", search := "", sort := "overall",
 			out.sort_custom(func(a, b): return a["di"] > b["di"])
 	return out
 
-
-## Retained for scripts/tests that need the old AI-list helper.
-static func ai_lists(by_club: Dictionary, exclude_club: String) -> Dictionary:
-	var out := {}
-	for code in by_club:
-		if code == exclude_club:
-			continue
-		out[code] = (by_club[code] as Array).duplicate()
-	return out
