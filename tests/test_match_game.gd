@@ -366,9 +366,18 @@ func _test_pep_talks() -> void:
 	_check(sim._pep_mult(0, "clangers") < 1.0 and sim._pep_mult(0, "taken") < 1.0
 			and sim._pep_mult(0, "gain") < 1.0 and sim._pep_mult(0, "pace") < 1.0,
 			"Calm the group cuts clangers, pressure felt and running, for less ground gained")
-	_check(sim._contest_pep(0) == 0.0 and sim._contest_pep(1) > 0.0
-			and sim._pep_mult(1, "clangers") == 1.0 and sim._pep_mult(1, "taken") == 1.0,
-			"Calm the group and Fire them up do different things")
+	_check(sim._contest_pep(0) == 0.0 and sim._pep_mult(1, "taken") == 1.0
+			and sim._pep_mult(1, "clangers") > 1.0 and sim._pep_mult(1, "pace") > 1.0,
+			"Calm the group and Fire them up do different things: fired up, tempers fray and legs go quicker")
+	# Fire them up lifts a side only while it is chasing the game; the costs stay.
+	_check(sim._contest_pep(1) == 0.0, "Level on the scoreboard, a fired-up side gets no lift at the contest")
+	(sim.team_stats[0] as Dictionary)["goals"] = 2.0
+	_check(sim._contest_pep(1) > 0.0, "Two goals down, it does")
+	(sim.team_stats[0] as Dictionary)["goals"] = 0.0
+	(sim.team_stats[1] as Dictionary)["goals"] = 2.0
+	_check(sim._contest_pep(1) == 0.0 and sim._pep_mult(1, "clangers") > 1.0,
+			"In front, the lift is gone but the costs are not")
+	(sim.team_stats[1] as Dictionary)["goals"] = 0.0
 	# Legs last longer: the same chain drains a calm side less than a steady one.
 	var calm := _sim(56)
 	var steady := _sim(56)
