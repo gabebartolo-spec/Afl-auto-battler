@@ -1044,6 +1044,27 @@ Open a compact quick-sim menu:
 
 ---
 
+
+### Temporary playtest affordance — one-tap Sim to finals
+**Status:** `TEMPORARY TEST TOOL`
+
+For the current post-season/off-season playtest cycle, expose a visible **Sim to finals** button on the regular-season Hub so the user can reach the finals/post-season quickly without long-pressing Quick sim or manually advancing rounds.
+
+This should **reuse the existing quick-sim-to-end-of-home-and-away path** rather than create a second simulation route:
+- one tap simulates the remaining home-and-away rounds;
+- it must stop **before the first finals week**;
+- it must still stop if the user is sacked or another existing hard stop occurs;
+- it must preserve the same match results, injuries, awards, XP, board effects and save behaviour as the normal quick-sim path;
+- after arriving at the finals, normal finals controls take over so the user can test the post-season flow.
+
+Keep this deliberately lightweight and easy to delete. It is a **testing convenience, not a permanent UX commitment**. Mark the control/comment clearly enough that it can be removed once post-season testing is no longer the active focus.
+
+Acceptance:
+- from Round 1 or any later home-and-away round, one tap reaches the end of H&A without entering the finals;
+- no duplicate sim logic is introduced;
+- the resulting ladder/finals bracket is identical to using the existing `quick_sim(-1)` path;
+- the temporary button can be removed later without touching simulation code.
+
 ## ARD-M1-008 — Full Ratings mobile layout
 **Status:** `DONE`  
 **Merged:** PR #54 as `5b93a40`; verified on main 2026-09-28 (full suite green).  
