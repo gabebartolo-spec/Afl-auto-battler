@@ -32,6 +32,7 @@ func _run() -> void:
 	for sz in [Vector2i(420, 860), Vector2i(360, 740)]:
 		await _phone_match(sz)
 	await _plan_at_first_bounce()
+	await _bounce_close_up()
 	print("Matchday + match screen tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -375,6 +376,119 @@ func _text(node: Node) -> String:
 	for n in node.find_children("*", "Label", true, false):
 		out += str(n.text) + "\n"
 	return out
+
+
+## The late centre-bounce call opens on a close-up of that stoppage
+## (ARD-M8-007): only the players at the bounce, from this match, freezing
+## before the call; the lines under it are MatchSim's own numbers; the call
+## is MatchSim's and closes back to the match view.
+func _bounce_close_up() -> void:
+	var sz := Vector2i(360, 740)
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = sz
+	_check(_state.prepare_interactive_match(), "A live match is prepared (bounce close-up)")
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var start: Button = m.find_child("StartQuarter", true, false)
+	start.emit_signal("pressed")
+	await _settle()
+	var pitch = m.get("_pitch")
+	pitch.pause()
+	var sim = _state.pending_sim
+	var me := int(m.get("_my_side"))
+	var them := 1 - me
+	# A tight last quarter at a centre bounce, as MatchSim would reach it.
+	sim.pending_moment = {}
+	sim.moment_side = me
+	sim.current_quarter = 4
+	sim.current_minute = 106
+	sim.at_centre = true
+	sim.set("_moments_this_q", 0)
+	sim.set("_last_moment_chain", -1000)
+	sim.set("_run", [0, 0])
+	for side in range(2):
+		(sim.team_stats[side] as Dictionary)["goals"] = 9.0 + side
+		(sim.team_stats[side] as Dictionary)["behinds"] = 8.0
+	(sim.team_stats[me] as Dictionary)["clearances"] = 5.0
+	(sim.team_stats[them] as Dictionary)["clearances"] = 12.0
+	var their_mids: Array = sim.squads[them].ground.filter(
+			func(p): return str(p["role"]) == "MID")
+	for side in range(2):
+		for p in sim.squads[side].ground:
+			sim.energy[str(p["id"])] = 90.0
+	for p in their_mids:
+		sim.energy[str(p["id"])] = 30.0
+	_check(sim.call("_boundary_moment") and str(sim.pending_moment.get("kind", "")) == "bounce",
+			"MatchSim asks the late centre-bounce call (%s)" % str(sim.pending_moment.get("kind", "-")))
+	m.call("_show_moment")
+	await _settle()
+	var card = m.find_child("MomentCard", true, false)
+	var vig = m.find_child("StoppageVignette", true, false)
+	_check(card != null and vig != null, "The call opens on the close-up of the bounce")
+	if card == null or vig == null:
+		m.queue_free()
+		return
+	var viewport := Rect2(Vector2.ZERO, Vector2(sz))
+	_check(vig.size.y >= 220.0 and viewport.encloses(vig.get_global_rect()),
+			"The close-up fills the top of a phone (%s)" % str(vig.get_global_rect()))
+	# Only the stoppage: both rucks, the centre-square mids and the wings.
+	var tokens: Array = vig.tokens
+	var sides := {}
+	var names_ok := true
+	for t in tokens:
+		sides[int(t["side"])] = true
+		var found := false
+		for p in sim.squads[int(t["side"])].ground:
+			if int(p["num"]) == int(t["num"]) and db.player_display_name(p).ends_with(str(t["name"])):
+				found = true
+		names_ok = names_ok and found
+	_check(tokens.size() >= 6 and tokens.size() <= 8 and sides.size() == 2,
+			"Only the players at the bounce, both sides (%d)" % tokens.size())
+	_check(names_ok, "Every player in the close-up is on the ground in this match")
+	_check(tokens.filter(func(t): return str(t["slot"]) == "R").size() == 2, "Both rucks are at the bounce")
+	# It plays as a scene: the players run into the set-up before the freeze.
+	var before: Vector2 = vig.call("_pos", tokens[0])
+	for i in range(20):
+		await process_frame
+	_check(float(vig.get("_t")) > 0.0 and (vig.call("_pos", tokens[0]) as Vector2).distance_to(before) > 0.1,
+			"The players move into the set-up before the freeze")
+	# It plays in, then freezes for the call; no tap makes the call early.
+	var b0: Button = card.find_child("Moment_0", true, false)
+	_check(not vig.is_frozen() and b0 != null and b0.disabled, "The call waits for the bounce")
+	vig.finish_now()
+	await _settle()
+	_check(vig.is_frozen() and not b0.disabled, "Frozen on the bounce, the call is live")
+	var text := _text(card)
+	_check(text.contains("They have been winning it out of the middle all day."),
+			"The commentary tells the story of the stoppages, from the match (%s)" % text)
+	_check(text.contains("Their ") and text.contains("is running on empty."),
+			"Their tired midfielder is called out (%s)" % text)
+	var said := " ".join(vig.facts)
+	_check(not said.contains("%") and not said.contains("clearances") and not text.to_lower().contains("recommend"),
+			"No stats, percentages or advice over the scene")
+	var t0: float = vig.get("_t")
+	await _settle()
+	_check(is_equal_approx(float(vig.get("_t")), t0), "The scene holds still while the call is up")
+	var off := []
+	for b in card.find_children("Moment_*", "Button", true, false):
+		if not viewport.encloses((b as Button).get_global_rect()) or (b as Button).size.y < 44:
+			off.append(b.name)
+	_check(off.is_empty(), "Every option is on screen and thumb-sized (%s)" % str(off))
+	# The call is MatchSim's; then straight back to the match view.
+	var asked: int = sim.moments.size()
+	var straight: Button = card.find_child("Moment_2", true, false)
+	straight.emit_signal("pressed")
+	_check(sim.moments.size() == asked + 1 and str((sim.moments[-1] as Dictionary).get("kind", "")) == "bounce",
+			"MatchSim takes the call")
+	_check(not is_instance_valid(card) or card.name != "MomentCard", "The scene cuts back to the match")
+	for i in range(40):
+		await process_frame
+	_check(not is_instance_valid(card), "The scene is gone once it has faded")
+	m.queue_free()
+	await _settle()
 
 
 func _settle() -> void:
