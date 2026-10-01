@@ -8,16 +8,17 @@ extends RefCounted
 
 const ESTABLISHED := [
 	["COL", "CAR", "Collingwood–Carlton"],
-	["ADE", "PAD", "Showdown"],
+	["ADE", "PAD", "The Showdown"],
 	["HAW", "GEE", "Hawthorn–Geelong"],
-	["FRE", "WCE", "Western Derby"],
+	["FRE", "WCE", "The Western Derby"],
 	["ESS", "COL", "Essendon–Collingwood"],
 	["RIC", "CAR", "Richmond–Carlton"],
 	["SYD", "GWS", "Sydney Derby"],
-	["BRL", "GCS", "QClash"],
+	["BRL", "GCS", "The Pineapple Grapple"],
 	["MEL", "COL", "Melbourne–Collingwood"],
 	["WBD", "COL", "Western Bulldogs–Collingwood"],
 	["PAD", "COL", "Port Adelaide–Collingwood"],
+	["TAS", "CANB", "Expansion Cup"],
 ]
 
 
