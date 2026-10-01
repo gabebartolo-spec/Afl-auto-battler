@@ -199,9 +199,15 @@ func _open_talks(player_id: String, free_agent := false) -> void:
 	var want := Contracts.wants(p)
 	var talks: Dictionary = p.get("talks", {})
 	_talk_reply = ""
-	var premium := int(GameState.free_agent_terms(player_id)["premium"]) if free_agent else 0
-	_offer_salary = int(talks.get("counter", int(want["salary"]) + premium))
-	_offer_years = int(talks.get("years", want["years"]))
+	_offer_salary = int(talks.get("counter", want["salary"]))
+	if free_agent:
+		# Start from your standing offer, if you have one on the table.
+		for row in GameState.fa_offers(player_id):
+			if bool(row["mine"]):
+				_offer_salary = int(row["salary"])
+				_offer_years = int(row["years"])
+	if not free_agent or _offer_years <= 0:
+		_offer_years = int(talks.get("years", want["years"]))
 	_show_talks()
 
 
@@ -233,6 +239,8 @@ func _show_talks() -> void:
 		var why := _para(str(reason), 14, UiKit.BAD if bool(terms["refuse"]) else UiKit.TEXT)
 		why.name = "FreeAgentReason"
 		v.add_child(why)
+	if _talk_fa:
+		_offers_table(v)
 	var reply := _talk_reply
 	if reply == "" and talks.has("counter"):
 		reply = "He'd sign for %d over %d season%s." % [int(talks["counter"]), int(talks["years"]),
@@ -280,7 +288,9 @@ func _show_talks() -> void:
 	var room_after := GameState.cap_room() + on_books - _offer_salary
 	var blocked := bool(terms.get("refuse", false)) or (_talk_fa and GameState.my_list.size() >= Contracts.MAX_LIST)
 	v.add_child(_para("Cap room after this deal: %d" % room_after, 14, UiKit.TEXT if room_after >= 0 else UiKit.BAD))
-	var offer := UiKit.btn("Offer %d for %d season%s" % [_offer_salary, _offer_years, "" if _offer_years == 1 else "s"], 16, true)
+	var final := _talk_fa and GameState.fa_market_stage(_talk_id) == "final"
+	var offer := UiKit.btn("%s %d for %d season%s" % ["Final offer:" if final else "Offer", _offer_salary, _offer_years,
+			"" if _offer_years == 1 else "s"], 16, true)
 	offer.name = "MakeOffer"
 	offer.custom_minimum_size.y = 44
 	offer.disabled = room_after < 0 or blocked
@@ -299,9 +309,55 @@ func _show_talks() -> void:
 	box["footer"].add_child(cancel)
 
 
+## The offers on the table, his view of each, and where the talks stand.
+## Four short columns that fit a phone: club, salary, years, his view.
+func _offers_table(v: VBoxContainer) -> void:
+	var rows := GameState.fa_offers(_talk_id)
+	v.add_child(UiKit.lbl("Offers on the table", 14, UiKit.EMPH, true))
+	if rows.is_empty():
+		v.add_child(_para("No club has made an offer.", 13, UiKit.MUTED))
+	else:
+		var grid := GridContainer.new()
+		grid.name = "OffersTable"
+		grid.columns = 4
+		grid.add_theme_constant_override("h_separation", 10)
+		grid.add_theme_constant_override("v_separation", 4)
+		for h in ["Club", "Salary", "Years", "His view"]:
+			grid.add_child(UiKit.line(h, 12, UiKit.MUTED))
+		for row in rows:
+			var who := "You" if bool(row["mine"]) else GameDB.club_short(str(row["club"]))
+			var club := UiKit.line(who, 13, UiKit.TEXT, bool(row["leading"]))
+			club.name = "Offer_" + str(row["club"])
+			grid.add_child(club)
+			grid.add_child(UiKit.line(str(row["salary"]), 13, UiKit.TEXT, bool(row["leading"])))
+			grid.add_child(UiKit.line(str(row["years"]), 13, UiKit.TEXT, bool(row["leading"])))
+			var view := _para(("Leading. " if bool(row["leading"]) else "") + str(row["view"]), 12, UiKit.TEXT)
+			view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			view.custom_minimum_size.x = 120
+			grid.add_child(view)
+		v.add_child(grid)
+	var log: Array = GameState.free_agent(_talk_id).get("market_log", [])
+	if not log.is_empty():
+		var said := _para("After your offer: " + " ".join(PackedStringArray(log)), 13, UiKit.TEXT)
+		said.name = "RivalResponses"
+		v.add_child(said)
+	var stage := GameState.fa_market_stage(_talk_id)
+	var note := "Rivals see an offer once you make it, and can answer it once. Your second offer is final." if stage == "open" \
+			else ("Your next offer is final: rivals answer, then he decides." if stage == "final" else "")
+	if note != "" and not rows.is_empty():
+		v.add_child(_para(note + " Otherwise he decides when free agency closes.", 12, UiKit.MUTED))
+
+
 func _make_offer(salary: int, years: int) -> void:
 	var r := GameState.offer_free_agent(_talk_id, salary, years) if _talk_fa \
 			else GameState.offer_contract(_talk_id, salary, years)
+	if str(r.get("answer", "")) == "table":
+		_talk_reply = str(r["reason"])
+		# Your offer stands; the stepper starts from it for any final offer.
+		_offer_salary = salary
+		_offer_years = years
+		_show_talks()
+		return
 	if str(r.get("answer", "")) == "counter":
 		_talk_reply = str(r["reason"])
 		_offer_salary = int(r["salary"])
@@ -326,11 +382,17 @@ func _agents(body: VBoxContainer) -> void:
 		body.add_child(_para("No free agents right now. Rivals let players go when the season ends.", 13, UiKit.MUTED))
 	for p in fas:
 		var want := Contracts.wants(p)
-		var terms := GameState.free_agent_terms(str(p["id"]))
 		var card := _player_card(p, "%d OVR  ·  %d POT  ·  age %d  ·  wants %d for %d seasons  ·  from %s" % [
 				int(p["overall"]), int(p.get("potential", p["overall"])), int(p.get("age", 0)),
-				int(want["salary"]) + int(terms["premium"]), int(want["years"]),
+				int(want["salary"]), int(want["years"]),
 				GameDB.club_short(str(p.get("released_by", "")))])
+		var offers := GameState.fa_offers(str(p["id"]))
+		if not offers.is_empty():
+			var bits := PackedStringArray()
+			for o in offers.slice(0, 3):
+				bits.append("%s %d for %d" % ["you" if bool(o["mine"]) else GameDB.club_short(str(o["club"])), int(o["salary"]), int(o["years"])])
+			var line := "Offers: " + ", ".join(bits) + (" and %d more" % (offers.size() - 3) if offers.size() > 3 else "")
+			(card.get_child(0) as VBoxContainer).add_child(_para(line + ".", 12, UiKit.TEXT))
 		var row := UiKit.hbox(4)
 		row.name = "Agent_" + str(p["id"])
 		(card.get_child(0) as VBoxContainer).add_child(row)
