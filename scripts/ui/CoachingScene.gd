@@ -54,7 +54,7 @@ func _wrapped(text: String, fs := UiKit.BODY, col := UiKit.TEXT) -> Label:
 
 
 # ---------------------------------------------------------------------------
-# List profile: five strengths, a word each, against this league. A tap on
+# List profile: six strengths, a word each, against this league. A tap on
 # one says what it is and who leads it; nothing says what to do about it.
 # ---------------------------------------------------------------------------
 func _list_profile() -> Control:

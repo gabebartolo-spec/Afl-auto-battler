@@ -154,10 +154,11 @@ func _run() -> void:
 			and current_scene.find_child("HowWePlay", true, false) != null
 			and current_scene.find_child("StaffLine_SA", true, false) != null,
 			"Coaching shows how we play, the board and the staff")
-	# List profile: five strengths as words; a tap says what one is and who leads it.
+	# List profile: six strengths as words; a tap says what one is and who leads it.
 	var lp: Node = current_scene.find_child("ListProfile", true, false)
 	var lp_rows: Array = lp.find_children("Profile_*", "Button", true, false) if lp != null else []
-	_check(lp_rows.size() == 5, "Coaching opens on the list profile, five strengths (%d)" % lp_rows.size())
+	_check(lp_rows.size() == 6 and lp.find_child("Profile_finishing", true, false) != null,
+			"Coaching opens on the list profile, six strengths with Finishing (%d)" % lp_rows.size())
 	var lp_text := ""
 	for l in (lp.find_children("*", "Label", true, false) if lp != null else []):
 		if (l as Label).is_visible_in_tree():
@@ -168,7 +169,7 @@ func _run() -> void:
 	_check(not digits and not lp_text.to_lower().contains("recommend") and not lp_text.to_lower().contains("should"),
 			"The profile is words, with no scores and no advice")
 	_check(lp_rows.all(func(b): return (b as Button).size.y >= 44), "Each strength is a thumb-sized tap")
-	if lp_rows.size() == 5:
+	if lp_rows.size() == 6:
 		var detail: Label = (lp_rows[0] as Node).get_parent().find_child("Detail", false, false)
 		(lp_rows[0] as Button).emit_signal("pressed")
 		await _settle()
