@@ -608,6 +608,22 @@ func _run() -> void:
 		var tb: Button = current_scene.find_child(tab, true, false)
 		tb.emit_signal("pressed")
 		await _settle()
+		if tab == "Tab_agents" and not _state.free_agents.is_empty():
+			_check(current_scene.find_children("Sign_*", "Button", true, false).is_empty(),
+					"No one-tap free-agent signing")
+			var fa_talk = current_scene.find_child("FreeAgentTalks", true, false)
+			_check(fa_talk != null, "A free agent can be talked to")
+			if fa_talk != null:
+				var list_before: int = _state.my_list.size()
+				fa_talk.emit_signal("pressed")
+				await _settle()
+				_check(current_scene.find_child("ContractTalks", true, false) != null
+						and _screen_text().contains("Cap room after this deal")
+						and _state.my_list.size() == list_before,
+						"Free-agent talks open the same sheet and sign nothing")
+				_router.handle_back(true)
+				await _settle()
+				_check(current_scene.find_child("ContractTalks", true, false) == null, "Back closes free-agent talks")
 	var theirs = null
 	var mine_pick = null
 	for n in current_scene.find_children("Their_*", "Button", true, false):

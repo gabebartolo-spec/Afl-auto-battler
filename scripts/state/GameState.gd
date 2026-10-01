@@ -2359,28 +2359,94 @@ func release_player(player_id: String) -> Dictionary:
 	return {"ok": true, "reason": "%s released." % GameDB.player_display_name(p)}
 
 
+## A free agent at his asking price for `years` seasons. Still an offer: he
+## weighs it like any other (offer_free_agent).
 func sign_free_agent(player_id: String, years: int) -> Dictionary:
-	if not offseason_open():
-		return {"ok": false, "reason": "Free agency is only open in the off-season."}
-	var p := {}
+	var p := free_agent(player_id)
+	return offer_free_agent(player_id, Contracts.asking_salary(p) if not p.is_empty() else 0, years)
+
+
+func free_agent(player_id: String) -> Dictionary:
 	for q in free_agents:
 		if str(q["id"]) == player_id:
-			p = q
+			return q
+	return {}
+
+
+## What a free agent weighs about joining you, all from facts you can see:
+## whether he would make your best 22, which rival clubs have the room and
+## the need for him, and where you finished. See Contracts.free_agent_terms.
+func free_agent_terms(player_id: String) -> Dictionary:
+	var p := free_agent(player_id)
+	if p.is_empty() or season == null:
+		return {"premium": 0, "refuse": false, "reasons": []}
+	var side := Ratings.select_22(my_list + [p])
+	var in_22 := false
+	for q in (side["ground"] as Array) + (side["bench"] as Array):
+		if str(q["id"]) == player_id:
+			in_22 = true
+	var rivals := 0
+	for code in season.lists:
+		if code != my_club and Contracts.ai_wants(p, season.lists[code], salary_cap):
+			rivals += 1
+	var table := season.ladder_sorted()
+	var finish := 0
+	for k in range(table.size()):
+		if str(table[k]["code"]) == my_club:
+			finish = k + 1
+	return Contracts.free_agent_terms(p, {"in_best22": in_22, "rivals": rivals,
+			"finish": finish, "clubs": table.size()})
+
+
+## Offer a free agent `salary` a season for `years` seasons. He answers like
+## your own players (accept, counter, walk), with his options on top: rival
+## interest and a struggling club cost more, and a player who would not make
+## your best 22 turns you down while another club wants him. Cap room alone
+## never signs anyone. Returns {"ok", "answer", "salary", "reason"}.
+func offer_free_agent(player_id: String, salary: int, years: int) -> Dictionary:
+	if not offseason_open():
+		return {"ok": false, "answer": "", "reason": "Free agency is only open in the off-season."}
+	var p := free_agent(player_id)
 	if p.is_empty():
-		return {"ok": false, "reason": "He has already signed elsewhere."}
+		return {"ok": false, "answer": "", "reason": "He has already signed elsewhere."}
 	if my_list.size() >= Contracts.MAX_LIST:
-		return {"ok": false, "reason": "Your list is full (%d)." % Contracts.MAX_LIST}
-	var cost := Contracts.asking_salary(p)
-	if cost > cap_room():
-		return {"ok": false, "reason": "Not enough cap room: he wants %d." % cost}
-	_join(my_club, p)
-	_resign(p, clampi(years, 1, Contracts.MAX_YEARS))
-	free_agents.erase(p)
-	offseason_log.append({"kind": "signed", "club": my_club, "id": player_id})
-	add_news("contract", "%s sign free agent %s (OVR %d)." % [GameDB.club_name(my_club),
-			GameDB.player_display_name(p), int(p["overall"])])
+		return {"ok": false, "answer": "", "reason": "Your list is full (%d)." % Contracts.MAX_LIST}
+	var talks: Dictionary = p.get("talks", {})
+	if bool(talks.get("walked", false)):
+		return {"ok": false, "answer": "walk", "reason": "He has stopped talking to you."}
+	years = clampi(years, 1, Contracts.MAX_YEARS)
+	salary = maxi(1, salary)
+	if salary > cap_room():
+		return {"ok": false, "answer": "", "reason": "Not enough cap room for %d a season." % salary}
+	var name := GameDB.player_display_name(p)
+	var terms := free_agent_terms(player_id)
+	if bool(terms["refuse"]):
+		return {"ok": false, "answer": "reject", "reason": "%s turns you down. %s" % [name, str(terms["reasons"][0])]}
+	var reply := Contracts.respond(p, salary, years, int(talks.get("failed", 0)), int(terms["premium"]))
+	var out := {"ok": false, "answer": str(reply["answer"]), "salary": int(reply["salary"])}
+	match str(reply["answer"]):
+		"accept":
+			_join(my_club, p)
+			_resign(p, years, salary)
+			free_agents.erase(p)
+			offseason_log.append({"kind": "signed", "club": my_club, "id": player_id})
+			add_news("contract", "%s sign free agent %s (OVR %d)." % [GameDB.club_name(my_club),
+					name, int(p["overall"])])
+			out["ok"] = true
+			out["reason"] = "%s signs for %d season%s at %d." % [name, years, "" if years == 1 else "s", salary]
+		"counter":
+			talks["failed"] = int(talks.get("failed", 0)) + (2 if bool(reply["insult"]) else 1)
+			talks["counter"] = int(reply["salary"])
+			talks["years"] = years
+			p["talks"] = talks
+			out["reason"] = ("He's insulted. " if bool(reply["insult"]) else "") + \
+					"He'd sign for %d a season over %d season%s." % [int(reply["salary"]), years, "" if years == 1 else "s"]
+		"walk":
+			talks["walked"] = true
+			p["talks"] = talks
+			out["reason"] = "Talks have broken down: %s will look elsewhere." % name
 	mark_dirty()
-	return {"ok": true, "reason": "%s signed for %d seasons." % [GameDB.player_display_name(p), years]}
+	return out
 
 
 func _join(code: String, p: Dictionary) -> void:
@@ -2469,11 +2535,14 @@ func _close_contracts() -> void:
 			continue
 		var list: Array = season.lists[code]
 		for p in free_agents.duplicate():
-			if list.size() >= 38:
+			if list.size() >= Contracts.AI_FILL:
 				break
-			if Contracts.asking_salary(p) <= salary_cap - Contracts.payroll(list):
+			# Rivals sign by the same rules: the least he takes for their term.
+			var years := _ai_years(p)
+			var price := Contracts.lowest(p, years)
+			if price <= salary_cap - Contracts.payroll(list):
 				_join(code, p)
-				_resign(p, 1)
+				_resign(p, years, price)
 				free_agents.erase(p)
 				offseason_log.append({"kind": "signed", "club": code, "id": str(p["id"])})
 				if int(p.get("overall", 0)) >= NEWS_MIN_OVR:
