@@ -19,6 +19,11 @@ const WING_SLOTS := 2
 ## A MID whose running game outweighs his ball-winning by this much (both
 ## as a share of 2026 midfielders) reads as a wing.
 const WING_MARGIN := 0.12
+## ...or a MID who wins fewer clearances than this a game, with less than this
+## share of his ball contested (on a season of at least WING_STAT_GAMES).
+const WING_CLEARANCES := 2.0
+const WING_CONTESTED_SHARE := 0.42
+const WING_STAT_GAMES := 6.0
 ## How much more of the transition ball a wing gets, and how much less of
 ## the stoppage ball (MatchSim.pick_carrier / _stoppage).
 const WING_TRANSITION := 1.6
@@ -58,7 +63,15 @@ static func is_wing(p: Dictionary) -> bool:
 	mid_view["role"] = "MID"
 	var run := 0.5 * (PlayerProfile.percentile(mid_view, "carry") + PlayerProfile.percentile(mid_view, "disposal"))
 	var win := PlayerProfile.percentile(mid_view, "contested")
-	return run - win >= WING_MARGIN
+	if run - win >= WING_MARGIN:
+		return true
+	# A midfielder who seldom wins it at the stoppage and gets most of his
+	# ball on the outside plays on the wing, however modest his volume.
+	if str(p.get("role", "")) != "MID" or float(p.get("gm", 0.0)) < WING_STAT_GAMES:
+		return false
+	var games := float(p["gm"])
+	return float(p.get("cl", 0.0)) / games < WING_CLEARANCES \
+			and float(p.get("cp", 0.0)) / maxf(1.0, float(p.get("di", 0.0))) < WING_CONTESTED_SHARE
 
 
 ## A tagger: a midfielder whose game is stopping others - elite pressure
