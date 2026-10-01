@@ -47,6 +47,18 @@ var _shown_behinds := [0, 0]
 var _shown_q := 1
 var _shown_min := 0
 var _moment_overlay: Control
+## Broadcast vignettes sit over the live oval and never touch MatchSim. They
+## are deliberately sparse: at most three ordinary close-ups per watched
+## match, with the final-kick set shot allowed as a separate special beat.
+var _broadcast_overlay: Control
+var _broadcast_pending := false
+var _broadcast_busy := false
+var _broadcast_finish_waiting := false
+var _broadcast_seen := {}
+var _broadcast_count := 0
+var _broadcast_speccies := 0
+var _broadcast_last_event := -1000
+var _playback_event_index := 0
 var _momentum := 0.0            # the engine's momentum as shown: -1 (away on top) .. 1 (home on top)
 var _mom_home: ColorRect
 var _mom_away: ColorRect
@@ -1121,6 +1133,8 @@ func _append_new_events() -> void:
 # Playback hooks
 # ---------------------------------------------------------------------------
 func _on_event(ev: Dictionary) -> void:
+	var event_index := _playback_event_index
+	_playback_event_index += 1
 	_update_scoreboard(ev)
 	_track_momentum(ev)
 	_feed_add(ev)
@@ -1129,6 +1143,110 @@ func _on_event(ev: Dictionary) -> void:
 	if str(ev.get("kind", "")) == "goal":
 		_flash_score(int(ev.get("side", 0)))
 		_track_run(int(ev.get("side", 0)))
+	_queue_broadcast(ev, event_index)
+
+
+## A vignette reads the positions the presentation has already staged. It
+## cannot alter those positions, the event log, the score or any match RNG.
+func _broadcast_snapshot(ev: Dictionary) -> Dictionary:
+	if _pitch == null or _pitch.director == null:
+		return {}
+	var d: MatchDirector = _pitch.director
+	var ball: Vector2 = d.ball.get("pos", Vector2.ZERO)
+	var actor_pos := ball
+	var actor_id := d.actor
+	if actor_id >= 0 and actor_id < d.tokens.size():
+		actor_pos = d.tokens[actor_id].get("pos", ball)
+	var at: Vector2 = actor_pos if str(ev.get("kind", "")) == "mark" else ball
+	var nearby := 0
+	for token in d.tokens:
+		if (token.get("pos", Vector2.ZERO) as Vector2).distance_to(at) <= 8.0:
+			nearby += 1
+	return {"actor_pos": actor_pos, "ball_pos": ball, "nearby": nearby}
+
+
+## Trigger selection is deterministic and presentation-only. Categories are
+## sparse, with enough football between them that a watched game does not
+## become a highlights reel interrupting itself.
+func _queue_broadcast(ev: Dictionary, event_index: int) -> void:
+	if _skipping or _finished or _broadcast_pending or _broadcast_busy or _pitch == null:
+		return
+	var prev_ev := {}
+	var next_ev := {}
+	if event_index > 0 and event_index - 1 < _pitch.events.size():
+		prev_ev = _pitch.events[event_index - 1]
+	if event_index + 1 < _pitch.events.size():
+		next_ev = _pitch.events[event_index + 1]
+	var snap := _broadcast_snapshot(ev)
+	var kind := BroadcastVignette.pick_kind(ev, prev_ev, next_ev, snap)
+	if kind == "":
+		return
+	var special := kind == BroadcastVignette.AFTER_SIREN
+	var cat := BroadcastVignette.category(kind)
+	if cat == "speccy":
+		# Speccies are rare enough to stay special. The quota is deterministic
+		# from the fixture, so replaying the same match never changes presentation:
+		# 30% of matches get none, 60% get one, 10% may get two (mean 0.8,
+		# hard maximum 2, subject to eligible contests actually occurring).
+		if _broadcast_speccies >= _speccy_quota():
+			return
+	elif _broadcast_seen.has(cat):
+		return
+	if not special and (_broadcast_count >= 3 or event_index - _broadcast_last_event < 70):
+		return
+	if cat == "speccy":
+		_broadcast_speccies += 1
+	else:
+		_broadcast_seen[cat] = true
+	if not special:
+		_broadcast_count += 1
+		_broadcast_last_event = event_index
+	_broadcast_pending = true
+	_pitch.pause()
+	_show_broadcast.call_deferred(kind, ev.duplicate(true), snap)
+
+
+func _speccy_quota() -> int:
+	var key := "%s|%s|%s" % [str(_res.get("home", "")), str(_res.get("away", "")),
+			str(_res.get("label", ""))]
+	var bucket := posmod(hash(key), 10)
+	if bucket < 3:
+		return 0
+	if bucket < 9:
+		return 1
+	return 2
+
+
+func _show_broadcast(kind: String, ev: Dictionary, snap: Dictionary) -> void:
+	if not _broadcast_pending or _finished:
+		_broadcast_pending = false
+		return
+	_broadcast_pending = false
+	_broadcast_busy = true
+	var overlay := UiKit.cover(self)
+	overlay.name = "BroadcastVignetteOverlay"
+	overlay.color = Color(0.015, 0.018, 0.02, 1.0)
+	_broadcast_overlay = overlay
+	var vignette := BroadcastVignette.new()
+	vignette.name = "BroadcastVignette"
+	overlay.add_child(vignette)
+	vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vignette.setup(kind, ev, snap, _res)
+	vignette.finished.connect(_finish_broadcast)
+
+
+func _finish_broadcast() -> void:
+	if _broadcast_overlay != null and is_instance_valid(_broadcast_overlay):
+		_broadcast_overlay.queue_free()
+	_broadcast_overlay = null
+	_broadcast_busy = false
+	if _broadcast_finish_waiting:
+		_broadcast_finish_waiting = false
+		_on_finished()
+		return
+	if not _finished and _coach_overlay == null and _moment_overlay == null and _pitch != null:
+		_pitch.play()
+		_sync_controls()
 
 
 ## "Carlton have kicked three in a row." - a fact from the goals in the log.
@@ -1264,6 +1382,11 @@ func _trim_feed() -> void:
 
 
 func _on_finished() -> void:
+	# A quarter/final can be released in the same PitchView frame as a close-up
+	# candidate. Let the vignette finish before opening the next modal.
+	if _broadcast_pending or _broadcast_busy:
+		_broadcast_finish_waiting = true
+		return
 	if _fulltime_shown:
 		return
 	if _interactive and not _skipping and GameState.pending_sim != null \
