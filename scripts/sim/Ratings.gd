@@ -508,23 +508,38 @@ static func select_22(list_players: Array) -> Dictionary:
 		var role: String = slot[0]
 		var need: int = slot[1]
 		var added := 0
-		for p in pool:
-			if added >= need:
-				break
-			if str(p["role"]) == role and not used.has(p["id"]):
+		# Ruck is a specialist job: among recognised primary/secondary rucks,
+		# pick the best tap player rather than the highest overall. This keeps
+		# a high-OVR part-timer from displacing the side's actual best ruck.
+		if role == "RUCK":
+			var recognised := []
+			for p in pool:
+				if plays_role(p, "RUCK") and not used.has(p["id"]):
+					recognised.append(p)
+			for p in by_ruck(recognised):
+				if added >= need:
+					break
 				ground.append(_for_slot(p, role))
 				used[p["id"]] = true
 				added += 1
-		# A MID/FWD can fill a forward slot once the primary forwards are gone.
-		for p in pool:
-			if added >= need:
-				break
-			if str(p.get("role2", "")) == role and not used.has(p["id"]):
-				ground.append(_for_slot(p, role))
-				used[p["id"]] = true
-				added += 1
-		# No ruck on the list: the best ruckman available goes up (an
-		# emergency ruck), not simply the best player.
+		else:
+			for p in pool:
+				if added >= need:
+					break
+				if str(p["role"]) == role and not used.has(p["id"]):
+					ground.append(_for_slot(p, role))
+					used[p["id"]] = true
+					added += 1
+			# A MID/FWD can fill a forward slot once the primary forwards are gone.
+			for p in pool:
+				if added >= need:
+					break
+				if str(p.get("role2", "")) == role and not used.has(p["id"]):
+					ground.append(_for_slot(p, role))
+					used[p["id"]] = true
+					added += 1
+		# No recognised ruck on the list: the best tap player available goes
+		# up as an emergency, not simply the best overall player.
 		if role == "RUCK" and added < need:
 			for p in by_ruck(pool):
 				if added >= need:
@@ -611,17 +626,33 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 			for g in ground:
 				if str(g["role"]) == role:
 					have += 1
-			for key in ["role", "role2"]:
+			if role == "RUCK":
+				# A missing named ruck is filled by the best available recognised
+				# ruck in this selection tier, not whichever ruck has the best OVR.
+				var recognised := []
 				for p in pool:
+					var id := str(p["id"])
+					if not used.has(id) and int(tier.get(id, 0)) == pass_tier and plays_role(p, "RUCK"):
+						recognised.append(p)
+				for p in by_ruck(recognised):
 					if have >= int(slot[1]):
 						break
 					var id := str(p["id"])
-					if used.has(id) or int(tier.get(id, 0)) != pass_tier:
-						continue
-					if str(p.get(key, "")) == role:
-						ground.append(_for_slot(p, role))
-						used[id] = true
-						have += 1
+					ground.append(_for_slot(p, role))
+					used[id] = true
+					have += 1
+			else:
+				for key in ["role", "role2"]:
+					for p in pool:
+						if have >= int(slot[1]):
+							break
+						var id := str(p["id"])
+						if used.has(id) or int(tier.get(id, 0)) != pass_tier:
+							continue
+						if str(p.get(key, "")) == role:
+							ground.append(_for_slot(p, role))
+							used[id] = true
+							have += 1
 			for p in (by_ruck(pool) if role == "RUCK" else pool):
 				if have >= int(slot[1]):
 					break
