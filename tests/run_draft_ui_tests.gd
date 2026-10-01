@@ -165,6 +165,23 @@ func _test_intake_combine() -> void:
 	_check(act != null and close != null and act.size.y >= 44 and close.size.y >= 44
 			and view.encloses(act.get_global_rect()) and view.encloses(close.get_global_rect()),
 			"Combine inspection remains usable on a 360px portrait phone")
+	# Selection must not make the hidden true rating suddenly appear elsewhere.
+	act.emit_signal("pressed")
+	await _settle()
+	ui.call("_select_tab", "picks")
+	await _settle()
+	var picked_entry: Dictionary = _state.draft.pick_details(str(p["id"]))
+	var hist: Control = ui.find_child("HistoryPick_%d" % int(picked_entry["pick"]), true, false)
+	_check(hist != null and hist.tooltip_text.contains("Scouted") and not hist.tooltip_text.contains("$"),
+			"Pick history keeps the selected prospect inside the scouting view")
+	ui.call("_select_tab", "squad")
+	await _settle()
+	var list_is_scouted := false
+	for label in ui.find_children("*", "Label", true, false):
+		if (label as Label).text.contains("scouted") and (label as Label).text.contains("OVR"):
+			list_is_scouted = true
+			break
+	_check(list_is_scouted, "The intake list keeps a scouted range instead of revealing exact OVR")
 	ui.queue_free()
 	await _settle()
 	root.size = old_size
