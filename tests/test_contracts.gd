@@ -19,6 +19,8 @@ func run() -> void:
 	_test_compensation_draft_order()
 	_test_compensation_flow()
 	_test_trade_value()
+	_test_trade_packages_and_needs()
+	_test_phase_cache()
 	GameState.delete_saved_career()
 	print("Contracts tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -769,8 +771,9 @@ func _test_trade_value() -> void:
 	var all_no := true
 	var worst := 0.0
 	for ph in TradeValue.PHASES:
+		for m in [0.0, Contracts.TRADE_MARGIN, 0.12]:
+			all_no = all_no and not bool(_trade(ade, [butler], [sweet, lester], ph, m)["ok"])
 		var r := _trade(ade, [butler], [sweet, lester], ph, 0.0)
-		all_no = all_no and not bool(r["ok"])
 		worst = maxf(worst, float(r.get("in", 0.0)) / maxf(0.01, float(r.get("out", 1.0))))
 	_check(all_no and worst < 0.7, "Sweet and Lester no longer buy Arki Butler, whatever Adelaide's phase (best ratio %.2f)" % worst)
 	# Packages: lesser pieces count for less, so four 0.5s don't buy a 2.0.
@@ -817,24 +820,28 @@ func _test_trade_value() -> void:
 	var fwd_bar := int(TradeValue.selection_bars(base).get("FWD", 60))
 	var forward := _with(base.filter(func(q): return str(q["role"]) == "FWD")[0], {"id": "t_fwd", "overall": fwd_bar + 3, "age": 28.0, "role2": ""})
 	var young_line := base.map(func(q): return _with(q, {"age": 21.0, "potential": int(q["overall"]) + 15}) if str(q["role"]) == "FWD" else q)
-	_check(TradeValue.fit(forward, TradeValue.selection_bars(base)) >= 0.8
-			and TradeValue.fit(forward, TradeValue.selection_bars(young_line)) < 0.8,
-			"A forward who would start for an ordinary forward line isn't needed by a strong young one")
+	_check(TradeValue.cover(forward, TradeValue.selection_bars(base, true)) == 1.0
+			and TradeValue.cover(forward, TradeValue.selection_bars(young_line, true)) < 1.0,
+			"A forward with a future at an ordinary forward line is covered by a strong young one")
 	# Rational trades still happen.
 	var vet := _with(base[0], {"id": "t_vet", "overall": 80, "potential": 80, "age": 30.0})
 	var kid := _with(base[1], {"id": "t_kid", "overall": 70, "potential": 88, "age": 20.0})
 	var club_vet: Array = base.duplicate()
 	club_vet.append(vet)
-	_check(bool(_trade(club_vet, [vet], [kid], "rebuilding", 0.04)["ok"])
-			and not bool(_trade(club_vet, [vet], [kid], "contending", 0.04)["ok"]),
-			"A rebuilder moves a 30-year-old star for a young talent; a contender keeps him")
+	var sensible := true
+	for m in [0.0, Contracts.TRADE_MARGIN, 0.12]:
+		sensible = sensible and bool(_trade(club_vet, [vet], [kid], "rebuilding", m)["ok"]) \
+				and not bool(_trade(club_vet, [vet], [kid], "contending", m)["ok"])
+	_check(sensible, "On every difficulty a rebuilder moves a 30-year-old star for a young talent; a contender keeps him")
 	var prospect := _with(base[2], {"id": "t_prospect", "overall": 66, "potential": 90, "age": 20.0})
 	var starter := _with(base[3], {"id": "t_starter", "overall": 80, "potential": 80, "age": 27.0})
 	var club_kid: Array = base.duplicate()
 	club_kid.append(prospect)
-	_check(bool(_trade(club_kid, [prospect], [starter], "contending", 0.04)["ok"])
-			and not bool(_trade(club_kid, [prospect], [starter], "rebuilding", 0.04)["ok"]),
-			"A contender pays future value for an established starter; a rebuilder protects its prospect")
+	var paying := true
+	for m in [0.0, Contracts.TRADE_MARGIN, 0.12]:
+		paying = paying and bool(_trade(club_kid, [prospect], [starter], "contending", m)["ok"]) \
+				and not bool(_trade(club_kid, [prospect], [starter], "rebuilding", m)["ok"])
+	_check(paying, "On every difficulty a contender pays future value for an established starter; a rebuilder protects its prospect")
 	var twin := _with(base[4], {"id": "t_twin"})
 	_check(bool(_trade(base, [base[4]], [twin], "building", 0.0)["ok"]), "Like for like goes through")
 	# The cycle comes from what anyone can see.
@@ -849,3 +856,98 @@ func _test_trade_value() -> void:
 	var ctx := {"phase": "building", "bars": TradeValue.selection_bars(base)}
 	_check(float(TradeValue.value(old, ctx)["total"]) < 0.6 * float(TradeValue.value(prime, ctx)["total"]),
 			"A 34-year-old is worth well under a player in his prime of the same rating")
+
+
+## Packages are order-free and fit one newcomer at a time; current need and
+## projected cover stay separate.
+func _test_trade_packages_and_needs() -> void:
+	GameDB.reload()
+	var base: Array = GameDB.club_list("COL").duplicate()
+	var gee: Array = GameDB.club_list("GEE")
+	var ordinary := gee.filter(func(q): return int(q["overall"]) >= 58 and int(q["overall"]) <= 68 and float(q["age"]) >= 26.0)
+	var young := base.filter(func(q): return float(q["age"]) <= 23.0)
+	young.sort_custom(func(x, y): return TradeValue.future_rating(x) > TradeValue.future_rating(y))
+	var same := true
+	for ph in TradeValue.PHASES:
+		var a := _trade(base, [young[0]], ordinary.slice(0, 3), ph, 0.0)
+		var rev := ordinary.slice(0, 3)
+		rev.reverse()
+		var b := _trade(base, [young[0]], rev, ph, 0.0)
+		same = same and bool(a["ok"]) == bool(b["ok"]) and is_equal_approx(float(a["in"]), float(b["in"]))
+	_check(same, "The order you pick players in never changes the valuation")
+	# Two players for one gap don't both fill it: a second ruck adds less
+	# than the first.
+	var bars := TradeValue.selection_bars(base)
+	var r1 := _with(base.filter(func(q): return str(q["role"]) == "RUCK")[0], {"id": "t_r1", "overall": int(bars.get("RUCK", 60)) + 8, "age": 26.0, "role2": ""})
+	var r2 := _with(r1, {"id": "t_r2"})
+	var one := _trade(base, [base[6]], [r1], "building", 0.0)
+	var two := _trade(base, [base[6]], [r1, r2], "building", 0.0)
+	_check(float(two["in"]) < float(one["in"]) * 1.45, "A second ruck for the same spot adds little (%.2f v %.2f)" % [float(two["in"]), float(one["in"])])
+	# Two starters filling separate weak spots are worth close to their sum.
+	var roles := ["RUCK", "MID", "DEF", "FWD"]
+	roles.sort_custom(func(x, y): return int(bars.get(x, 99)) < int(bars.get(y, 99)))
+	var s1 := _with(base[7], {"id": "t_s1", "role": roles[0], "role2": "", "overall": int(bars[roles[0]]) + 6, "potential": int(bars[roles[0]]) + 6, "age": 26.0})
+	var s2 := _with(base[8], {"id": "t_s2", "role": roles[1], "role2": "", "overall": int(bars[roles[1]]) + 6, "potential": int(bars[roles[1]]) + 6, "age": 26.0})
+	var solo := float(_trade(base, [base[6]], [s1], "building", 0.0)["in"])
+	var pair := float(_trade(base, [base[6]], [s1, s2], "building", 0.0)["in"])
+	_check(pair > solo * 1.4, "Two starters at separate weak spots both count (%.2f v %.2f alone)" % [pair, solo])
+	# A promising young forward line that is weak now.
+	var kids := base.map(func(q): return _with(q, {"overall": 58, "potential": 86, "age": 20.0}) if str(q["role"]) == "FWD" else q)
+	var vet := _with(base.filter(func(q): return str(q["role"]) == "FWD")[0], {"id": "t_vetfwd", "overall": 72, "potential": 72, "age": 27.0, "role2": ""})
+	var now_bars := TradeValue.selection_bars(kids)
+	var proj_bars := TradeValue.selection_bars(kids, true)
+	var c_ctx := {"phase": "contending", "bars": now_bars, "proj": proj_bars}
+	var r_ctx := {"phase": "rebuilding", "bars": now_bars, "proj": proj_bars}
+	var vc := TradeValue.value(vet, c_ctx)
+	var vr := TradeValue.value(vet, r_ctx)
+	_check(TradeValue.fit(vet, now_bars) >= 1.2, "Weak forwards now: an established forward is a big upgrade this season")
+	_check(TradeValue.cover(vet, proj_bars) < 1.0 and float(vc["total"]) > float(vr["total"]) * 1.2,
+			"A contender values him for now; a rebuilder sees its young forwards coming (%.2f v %.2f)" % [float(vc["total"]), float(vr["total"])])
+	_check(TradeValue.future_rating(kids.filter(func(q): return str(q["role"]) == "FWD")[0]) < 86.0 - 5.0,
+			"A prospect is projected part of the way to his potential, not all of it")
+
+
+## A club's phase from the cache always matches a fresh calculation: after a
+## trade, a save and load, and the rollover.
+func _phases_fresh() -> bool:
+	for code in GameState.season.lists:
+		if GameState.club_phase(code) != GameState._club_phase(code):
+			return false
+	return true
+
+
+func _test_phase_cache() -> void:
+	_new_season()
+	_to_offseason()
+	_check(_phases_fresh(), "Phases match a fresh calculation after the season")
+	var rival := "COL"
+	var their_weak: Dictionary = {}
+	for p in GameState.season.lists[rival]:
+		if their_weak.is_empty() or int(p["overall"]) < int(their_weak["overall"]):
+			their_weak = p
+	var sorted_mine := GameState.my_list.duplicate()
+	sorted_mine.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+	for code in GameState.season.lists:
+		GameState.club_phase(code)
+	var before_key := str(GameState._phase_cache.get("key", ""))
+	var t := GameState.make_trade(rival, [str(sorted_mine[0]["id"])], [str(their_weak["id"])])
+	_check(bool(t["ok"]) and str(GameState._league_fingerprint()) != before_key and _phases_fresh(),
+			"A completed trade changes the league's fingerprint and the phases follow")
+	var ctx := GameState.trade_context(rival)
+	var fresh := ctx.duplicate()
+	fresh["phase"] = GameState._club_phase(rival)
+	var give := [GameState.season.lists[rival][0]]
+	var take := [GameState.my_list[GameState.my_list.size() - 1]]
+	var a := Contracts.evaluate_trade(GameState.season.lists[rival], give, take, GameState.salary_cap, GameState.my_list, GameState.salary_cap, 0.0, ctx)
+	var b := Contracts.evaluate_trade(GameState.season.lists[rival], give, take, GameState.salary_cap, GameState.my_list, GameState.salary_cap, 0.0, fresh)
+	_check(str(a) == str(b), "A trade is valued the same with the cached phase as with a fresh one")
+	var phases := {}
+	for code in GameState.season.lists:
+		phases[code] = GameState.club_phase(code)
+	_check(GameState.save_career() and GameState.load_career() and _phases_fresh(), "After a load the phases match a fresh calculation")
+	var same := true
+	for code in phases:
+		same = same and GameState.club_phase(code) == str(phases[code])
+	_check(same, "A save and load doesn't change any club's phase")
+	GameState.start_next_season()
+	_check(_phases_fresh(), "After the rollover (ageing and development) the phases match a fresh calculation")

@@ -396,14 +396,33 @@ static func evaluate_trade(ai_list: Array, give: Array, take: Array, cap: int,
 	var phase := str(ctx.get("phase", "building"))
 	var games: Dictionary = ctx.get("games", {})
 	var remaining := ai_list.filter(func(q): return not give.has(q))
-	var bars_in := TradeValue.selection_bars(remaining)
+	# Newcomers are fitted one at a time, the most valuable first, each into
+	# the side with the earlier ones already in it: two players for one
+	# gap don't both fill it, and the order you pick them in changes nothing.
+	var ranked := take.duplicate()
+	var standalone := {}
+	var start_bars := TradeValue.selection_bars(remaining)
+	var start_proj := TradeValue.selection_bars(remaining, true)
+	for p in ranked:
+		standalone[str(p["id"])] = float(TradeValue.value(p, {"phase": phase, "bars": start_bars, "proj": start_proj,
+				"games": int(games.get(str(p["id"]), -1))})["total"])
+	ranked.sort_custom(func(a, b):
+		var va := float(standalone[str(a["id"])])
+		var vb := float(standalone[str(b["id"])])
+		if va != vb:
+			return va > vb
+		return str(a["id"]) < str(b["id"]))
 	var in_values := []
 	var benchwarmer := ""
-	for p in take:
-		var v := TradeValue.value(p, {"phase": phase, "bars": bars_in, "games": int(games.get(str(p["id"]), -1))})
+	var side := remaining.duplicate()
+	for p in ranked:
+		var bars := TradeValue.selection_bars(side)
+		var v := TradeValue.value(p, {"phase": phase, "bars": bars, "proj": TradeValue.selection_bars(side, true),
+				"games": int(games.get(str(p["id"]), -1))})
 		in_values.append(float(v["total"]))
-		if TradeValue.fit(p, bars_in) < 0.5 and benchwarmer == "":
+		if TradeValue.fit(p, bars) < 0.5 and benchwarmer == "":
 			benchwarmer = str((ctx.get("names", {}) as Dictionary).get(str(p["id"]), p.get("name", "")))
+		side.append(p)
 	var in_value := TradeValue.package(in_values)
 	var out_value := 0.0
 	var cornerstone := ""
@@ -411,7 +430,7 @@ static func evaluate_trade(ai_list: Array, give: Array, take: Array, cap: int,
 	for p in give:
 		var without := ai_list.filter(func(q): return q != p)
 		var v := TradeValue.value(p, {"phase": phase, "bars": TradeValue.selection_bars(without),
-				"games": int(games.get(str(p["id"]), -1)), "own": true})
+				"proj": TradeValue.selection_bars(without, true), "games": int(games.get(str(p["id"]), -1)), "own": true})
 		out_value += float(v["total"])
 		if float(v["future"]) > best_future and TradeValue.future_rating(p) > TradeValue.now_rating(p) + 3.0:
 			best_future = float(v["future"])

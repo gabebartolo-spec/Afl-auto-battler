@@ -17,7 +17,7 @@ const PHASES := ["rebuilding", "building", "contending"]
 ## Weight on [now, future] by phase.
 const WEIGHTS := {"rebuilding": [0.35, 1.0], "building": [0.8, 0.7], "contending": [1.0, 0.45]}
 ## The 2nd, 3rd, 4th... players in a package count for this much.
-const PACKAGE := [1.0, 0.6, 0.35, 0.2, 0.1]
+static var package_weights := [1.0, 0.6, 0.35, 0.2, 0.1]
 
 
 ## Value of a rating: steep, so stars are worth far more than the sum of
@@ -67,32 +67,47 @@ static func contract_factor(p: Dictionary) -> float:
 
 
 ## The weakest player a club picks in each position of its side, and on its
-## bench: the bar a newcomer has to clear (see `fit`). A young player counts
-## at what he is becoming, so a strong young forward line already has its
-## forwards for years to come.
-static func selection_bars(list: Array) -> Dictionary:
+## bench: the bar a newcomer has to clear (see `fit`). `projected`: rate the
+## side at what its players are expected to become (`future_rating`: part
+## of the way to potential, never all of it), for judging future cover.
+static func selection_bars(list: Array, projected := false) -> Dictionary:
 	var side := Ratings.select_22(list)
 	var bars := {}
 	for q in side["ground"]:
 		var r := str(q["role"])
-		bars[r] = mini(int(bars.get(r, 999)), _bar_rating(q))
+		bars[r] = mini(int(bars.get(r, 999)), _bar_rating(q, projected))
 	var bench := 999
 	for q in side["bench"]:
-		bench = mini(bench, _bar_rating(q))
+		bench = mini(bench, _bar_rating(q, projected))
 	bars["bench"] = bench if bench < 999 else 0
 	return bars
 
 
-static func _bar_rating(q: Dictionary) -> int:
+static func _bar_rating(q: Dictionary, projected: bool) -> int:
+	if not projected:
+		return int(q["overall"])
 	return maxi(int(q["overall"]), roundi(future_rating(q)))
 
 
-## How much of his football a club can use, from its own side - its own
-## needs, by quality, not a count of position tags. A starter counts from
-## 0.8 (barely better than the man he replaces) to 1.3 (a big upgrade where
-## the club is weakest): a club with a poor ruckman pays more for a good
-## one. A bench player counts 0.65; a player who would not get a game - say
-## another forward for a strong young forward line - 0.4.
+## Will he still have a place once the club's young players grow? His
+## projected rating against the side's projected bars: 1 if he would start,
+## 0.85 on the bench, 0.7 if young players already cover his position. Only
+## the future part of his value uses this, and it never reaches zero:
+## projections are not promises.
+static func cover(p: Dictionary, projected_bars: Dictionary) -> float:
+	var fut := roundi(future_rating(p))
+	for r in [str(p.get("role", "")), str(p.get("role2", ""))]:
+		if r != "" and projected_bars.has(r) and fut > int(projected_bars[r]):
+			return 1.0
+	return 0.85 if fut > int(projected_bars.get("bench", 0)) else 0.7
+
+
+## How much of his football a club can use this season, from its own side as
+## it is now - its own needs, by quality, not a count of position tags. A
+## starter counts from 0.8 (barely better than the man he replaces) to 1.3
+## (a big upgrade where the club is weakest): a club with a poor ruckman pays
+## more for a good one. A bench player counts 0.65; a player who would not
+## get a game, 0.4.
 static func fit(p: Dictionary, bars: Dictionary) -> float:
 	var ovr := int(p.get("overall", 0))
 	var gain := -999
@@ -107,13 +122,17 @@ static func fit(p: Dictionary, bars: Dictionary) -> float:
 
 
 ## His value to a club: {"now", "future", "total"}. `ctx` = {"phase",
-## "bars" (the club's side without him for its own players, with the
-## outgoing players gone for newcomers), "games" (last season's games or -1),
-## "own" (true for a player the club would be giving up)}.
+## "bars" and "proj" (the club's side now and projected - without him for
+## its own players, as it would be for a newcomer), "games" (last season's
+## games or -1), "own" (true for a player the club would be giving up)}.
+## Now and future stay separate: this season's fit judges the now part,
+## future cover the future part.
 static func value(p: Dictionary, ctx: Dictionary) -> Dictionary:
 	var w: Array = WEIGHTS.get(str(ctx.get("phase", "building")), WEIGHTS["building"])
 	var now := curve(now_rating(p)) * availability(p, int(ctx.get("games", -1))) * fit(p, ctx.get("bars", {}))
 	var future := curve(future_rating(p)) * runway(p)
+	if ctx.has("proj"):
+		future *= cover(p, ctx["proj"])
 	var total := (float(w[0]) * now + float(w[1]) * future) * contract_factor(p)
 	# A rebuilding club guards the young talent it already has: giving away
 	# a player with real growth ahead of him costs it a quarter more.
@@ -131,7 +150,7 @@ static func package(values: Array) -> float:
 	sorted.reverse()
 	var total := 0.0
 	for i in range(sorted.size()):
-		total += float(sorted[i]) * float(PACKAGE[mini(i, PACKAGE.size() - 1)])
+		total += float(sorted[i]) * float(package_weights[mini(i, package_weights.size() - 1)])
 	return total
 
 

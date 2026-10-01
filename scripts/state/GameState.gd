@@ -2985,18 +2985,35 @@ func trade_context(club: String) -> Dictionary:
 ## Where a club is in its cycle - "rebuilding", "building" or "contending" -
 ## from what anyone can see: last season's finish, how its list ranks, and
 ## how old its best 22 is (TradeValue.phase). Worked out afresh each time.
-var _phase_cache := {}   # club -> phase, until the career next changes
+## Phases worked out for one state of the league: {"key": fingerprint,
+## club: phase}. The fingerprint covers everything a phase reads - every
+## list (who, rating, potential, age) and the ladder - so any trade,
+## signing, draft, development or load gets a fresh answer.
+var _phase_cache := {}
 
 
 func club_phase(club: String) -> String:
 	if season == null or not season.lists.has(club):
 		return "building"
-	var key := "%d|%s|%d" % [season_year, club, season.round_index]
-	if _phase_cache.has(key):
-		return str(_phase_cache[key])
-	var ph := _club_phase(club)
-	_phase_cache[key] = ph
-	return ph
+	var key := _league_fingerprint()
+	if str(_phase_cache.get("key", "")) != key:
+		_phase_cache = {"key": key}
+	if not _phase_cache.has(club):
+		_phase_cache[club] = _club_phase(club)
+	return str(_phase_cache[club])
+
+
+func _league_fingerprint() -> String:
+	var parts := PackedStringArray([str(season_year)])
+	for code in season.lists:
+		var h := 0
+		for q in season.lists[code]:
+			h = hash([h, str(q["id"]), int(q.get("overall", 0)), int(q.get("potential", 0)), snappedf(float(q.get("age", 0.0)), 0.01)])
+		parts.append("%s:%d:%d" % [code, (season.lists[code] as Array).size(), h])
+	for code in season.ladder:
+		var row: Dictionary = season.ladder[code]
+		parts.append("%s=%d/%d/%d/%d" % [code, int(row.get("p", 0)), int(row.get("pts", 0)), int(row.get("pf", 0)), int(row.get("pa", 0))])
+	return "|".join(parts)
 
 
 func _club_phase(club: String) -> String:
