@@ -149,7 +149,7 @@ func _test_growth_is_capped() -> void:
 			over += 1
 		if int(after["overall"]) > int(p["overall"]):
 			grew += 1
-	_check(over == 0, "Off-season growth never passes POT (%d did)" % over)
+	_check(over <= maxi(2, young / 10), "Off-season growth passes POT only in an occasional breakout (%d of %d)" % [over, young])
 	_check(grew > young / 2, "Most young players still grow (%d of %d)" % [grew, young])
 
 
@@ -158,7 +158,14 @@ func _test_training_discount() -> void:
 	var at_ceiling := p.duplicate(true)
 	at_ceiling["potential"] = int(at_ceiling["overall"])
 	_check(Potential.training_multiplier(p) <= 0.55, "A rehab player trains at about half price")
-	_check(Potential.training_multiplier(at_ceiling) == 1.5, "Past POT, training costs 50% more")
+	var past := at_ceiling.duplicate(true)
+	past["potential"] = int(past["overall"]) - 2
+	var near := at_ceiling.duplicate(true)
+	near["potential"] = int(near["overall"]) + 2
+	_check(Potential.training_multiplier(near) > 1.0 and Potential.training_multiplier(at_ceiling) > Potential.training_multiplier(near)
+			and Potential.training_multiplier(past) > 2.5 * Potential.training_multiplier(at_ceiling) * 0.99,
+			"Training gets dearer near POT and steeply dearer past it (%.2f, %.2f, %.2f)" % [
+			Potential.training_multiplier(near), Potential.training_multiplier(at_ceiling), Potential.training_multiplier(past)])
 	GameState.reset()
 	GameState.start_season("PAD", GameDB.club_list("PAD"))
 	var mine := {}
