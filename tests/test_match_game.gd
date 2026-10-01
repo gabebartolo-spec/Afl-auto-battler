@@ -41,6 +41,7 @@ func run() -> void:
 	_test_traits_surfaced()
 	_test_momentum()
 	_test_moment_calls_matter()
+	_test_ai_chases_and_controlled_needs_ball_users()
 	_test_tag_tradeoff()
 	_test_through_stars()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
@@ -1488,6 +1489,49 @@ func _test_moment_calls_matter() -> void:
 			s3.end_quarter()
 	_check(best.size() >= 2, "No set-shot call is always right: the best one changes with the shot (%s)" % str(best))
 
+
+## Playtest: a defensive AI sat in its press all game while losing, and
+## Controlled tempo shut the press out for any list. Now:
+## - behind after half time and outscored in the quarter just gone, the AI
+##   chases (only the scoreboard - no read of the other side's plan);
+## - Controlled tempo holds a press off as far as its ball users can.
+##   Measured, 150 matches a club v a pressing side: worth +20 and +15
+##   points to the two best ball-using sides, +3 and +4 to the two worst
+##   (it was +8 to +18 whatever the list).
+func _test_ai_chases_and_controlled_needs_ball_users() -> void:
+	var sim := _sim(4800)
+	sim.standing[1] = "defensive"
+	(sim.squads[1] as Squad).tactics_read = 0.5
+	sim.current_quarter = 3
+	for side in range(2):
+		(sim.team_stats[side] as Dictionary)["goals"] = 8.0
+	(sim.team_stats[0] as Dictionary)["goals"] = 9.0
+	sim.q_goals[1] = [4, 1]
+	sim.q_behinds[1] = [1, 1]
+	_check(str(sim.ai_tactics(1)["gameplan"]) == "attacking",
+			"Behind after half time and outscored last quarter, the AI chases")
+	sim.q_goals[1] = [1, 4]
+	_check(str(sim.ai_tactics(1)["gameplan"]) == "defensive",
+			"Behind but winning the last quarter, it sticks with its game")
+	sim.current_quarter = 2
+	sim.q_goals[0] = [4, 1]
+	_check(str(sim.ai_tactics(1)["gameplan"]) == "defensive",
+			"Before half time a close deficit is no reason to abandon it")
+	# Controlled tempo against a press: good ball users hold it off, poor ones
+	# only partly.
+	var press := _sim(4801)
+	press.set_tactics(1, {"gameplan": "defensive"})
+	press.set_tactics(0, {"gameplan": "controlled"})
+	(press.plan_fit[0] as Dictionary)["controlled"] = 1.2
+	var good := press._press_on(0)
+	(press.plan_fit[0] as Dictionary)["controlled"] = 0.5
+	var poor := press._press_on(0)
+	press.set_tactics(0, {"gameplan": "balanced"})
+	var none := press._press_on(0)
+	_check(is_equal_approx(good, 1.0) and poor > 1.0 and poor < none,
+			"Controlled tempo holds a press off as far as its ball users can (%.3f, %.3f, %.3f)" % [good, poor, none])
+	_check(PlanFit.standing_plan([]) == "balanced" and not ["controlled"].has(PlanFit.standing_plan(_sim(4802).squads[0].ground)),
+			"No club plays Controlled tempo as its usual game")
 
 ## A tag is a trade: it takes the target out of the midfield battle and costs
 ## you your tagger's own game. Worth it on their star with a specialist; a
