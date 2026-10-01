@@ -1136,9 +1136,17 @@ func _history_row(entry: Dictionary) -> Control:
 		tag = "released"
 	club_row.add_child(UiKit.ellipsis(tag, 11, UiKit.EMPH if mine else UiKit.MUTED))
 	h.add_child(UiKit.role_chip(str(entry["role"])))
-	p.tooltip_text = "Pick #%d · Round %d\n%s drafted %s from %s\n%d OVR · $%d" % [
-		entry["pick"], entry["round"], GameDB.club_name(str(entry["club"])), _entry_player_name(entry),
-		GameDB.club_name(str(entry["source_club"])), entry["overall"], entry["value"]]
+	if _draft.intake_mode:
+		var picked_player := _player_by_id(str(entry.get("player_id", "")))
+		var scout := DraftScouting.projection(picked_player, _club, _draft.seed) if not picked_player.is_empty() else {}
+		var rating := DraftScouting.range_text(scout.get("overall", [])) if not scout.is_empty() else "-"
+		p.tooltip_text = "Pick #%d · Round %d\n%s selected %s from %s\nScouted %s OVR" % [
+				entry["pick"], entry["round"], GameDB.club_name(str(entry["club"])), _entry_player_name(entry),
+				str(entry.get("source_club", "")), rating]
+	else:
+		p.tooltip_text = "Pick #%d · Round %d\n%s drafted %s from %s\n%d OVR · $%d" % [
+				entry["pick"], entry["round"], GameDB.club_name(str(entry["club"])), _entry_player_name(entry),
+				GameDB.club_name(str(entry["source_club"])), entry["overall"], entry["value"]]
 	_ignore_mouse(h)
 	return p
 
@@ -1190,8 +1198,15 @@ func _refresh_mine() -> void:
 				var v := UiKit.vbox(2)
 				p.add_child(v)
 				v.add_child(UiKit.ellipsis(GameDB.player_display_name(player), 16, UiKit.TEXT, true))
-				v.add_child(UiKit.lbl("Pick #%d · %d OVR · $%d" % [
-					int(entry.get("pick", 0)), int(player["overall"]), int(player["value"])], 12, UiKit.MUTED))
+				if _draft.intake_mode:
+					var scout := DraftScouting.projection(player, _club, _draft.seed)
+					v.add_child(UiKit.lbl("Pick #%d · scouted %s OVR" % [
+							int(entry.get("pick", 0)), DraftScouting.range_text(scout["overall"])],
+							12, UiKit.MUTED))
+				else:
+					v.add_child(UiKit.lbl("Pick #%d · %d OVR · $%d" % [
+							int(entry.get("pick", 0)), int(player["overall"]), int(player["value"])],
+							12, UiKit.MUTED))
 				if stuck:
 					var row := UiKit.hbox(8)
 					v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
