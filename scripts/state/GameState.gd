@@ -59,6 +59,9 @@ var salary_cap := 0              # cap points every club's payroll counts agains
 var free_agents: Array = []      # off-season: players no club kept
 var offseason_year := 0          # the season whose off-season has opened
 var offseason_log: Array = []    # what happened in the off-season, for news
+var offseason_staff := {}        # your staff (job -> cid) when the off-season opened
+var season_wrap := {}            # the off-season briefing shown before Round 1 (season_wrap_lines)
+var _wrap_picks: Array = []      # your National Draft picks, carried into the rollover
 var news: Array = []             # league news feed, newest first
 var difficulty := "normal"       # this career's difficulty (DIFFICULTIES key)
 var board := {}                  # confidence, goal, warned, sacked, history
@@ -273,6 +276,8 @@ func save_career() -> bool:
 		"salary_cap": salary_cap,
 		"free_agents": free_agents,
 		"offseason_year": offseason_year,
+		"offseason_staff": offseason_staff,
+		"season_wrap": season_wrap,
 		"offseason_log": offseason_log,
 		"news": news,
 		"difficulty": difficulty,
@@ -376,6 +381,8 @@ func load_career() -> bool:
 	salary_cap = int(state.get("salary_cap", 0))
 	free_agents = state.get("free_agents", [])
 	offseason_year = int(state.get("offseason_year", 0))
+	offseason_staff = state.get("offseason_staff", {})
+	season_wrap = state.get("season_wrap", {})
 	offseason_log = state.get("offseason_log", [])
 	news = state.get("news", [])
 	board = state.get("board", {})
@@ -607,6 +614,9 @@ func reset() -> void:
 	free_agents = []
 	offseason_year = 0
 	offseason_log = []
+	offseason_staff = {}
+	season_wrap = {}
+	_wrap_picks = []
 	news = []
 	board = {}
 	week_event = {}
@@ -755,6 +765,8 @@ func finish_intake_draft() -> bool:
 			p["draft_round"] = int(entry.get("round", 0))
 			_mark_drafted(p, "national", int(entry.get("pick", 0)))
 			Contracts.rookie_deal(p)
+			if code == my_club:
+				_wrap_picks.append([id, int(entry.get("pick", 0))])
 			arr.append(p)
 			drafted_draftees[id] = code
 	draft = null
@@ -856,7 +868,85 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	pending_phase = ""
 	pending_label = ""
 	_open_board_season()
+	_build_season_wrap(next_year)
 	autosave()
+
+
+## The off-season, wrapped up for your club before Round 1: who came, who
+## went (and how), staff changes, and what the board expects. Built once at
+## the rollover from the records the off-season kept, saved, and shown until
+## you begin the season - a reload can neither skip nor repeat it.
+func _build_season_wrap(year: int) -> void:
+	var ins := []
+	var outs := []
+	for e in offseason_log:
+		match str(e.get("kind", "")):
+			"signed":
+				if str(e.get("club", "")) == my_club:
+					ins.append({"id": str(e["id"]), "how": "free agent"})
+			"released":
+				if str(e.get("club", "")) == my_club:
+					outs.append({"id": str(e["id"]), "how": "delisted"})
+			"trade":
+				for id in e.get("in", []):
+					ins.append({"id": str(id), "how": "trade"})
+				for id in e.get("out", []):
+					outs.append({"id": str(id), "how": "trade"})
+	for a in intake_assignments:
+		if str(a.get("club", "")) == my_club:
+			ins.append({"id": str(a["player_id"]), "how": "NGA" if str(a.get("kind", "")) == "nga" else str(a.get("kind", "")), "name": str(a.get("player_name", ""))})
+	for pk in _wrap_picks:
+		ins.append({"id": str(pk[0]), "how": "pick %d" % int(pk[1])})
+	_wrap_picks = []
+	for r in intake_summary.get("retired", []):
+		if str(r.get("club", "")) == my_club:
+			outs.append({"id": str(r["id"]), "how": "retired", "name": str(r.get("name", ""))})
+	for row in ins + outs:
+		if not row.has("name") or str(row["name"]) == "":
+			row["name"] = GameDB.player_display_name_by_id(str(row["id"]), "A player")
+		else:
+			row["name"] = GameDB.player_display_name_by_id(str(row["id"]), str(row["name"]))
+	var staff_lines := []
+	if not offseason_staff.is_empty() and not coaches.is_empty():
+		var now := Coaches.staff(coaches, my_club)
+		for job in Coaches.JOB_LABEL:
+			var was := str(offseason_staff.get(job, ""))
+			var is_now := str(now.get(job, ""))
+			if is_now != "" and is_now != was:
+				var c: Dictionary = coaches.get(is_now, {})
+				staff_lines.append("New %s: %s." % [_job_words(job), GameDB.player_display_name(c)])
+	season_wrap = {"year": year, "ins": ins, "outs": outs, "staff": staff_lines,
+			"goal": board_goal_text(), "reason": board_goal_reason(), "seen": false}
+
+
+static func _job_words(job: String) -> String:
+	var label := str(Coaches.JOB_LABEL.get(job, job)).to_lower()
+	return label if job == "SC" or job == "SA" else label + " coach"
+
+
+## Why the board set this season's goal, in a sentence. It reads the list
+## the club has assembled against the rest of the league.
+func board_goal_reason() -> String:
+	var rank := int(board.get("rank", 9))
+	if rank <= 4:
+		return "The board rates this list among the best few in the competition."
+	if rank <= Season.FINALISTS:
+		return "The board sees a list good enough to play finals."
+	if rank <= 14:
+		return "The board sees a list in the middle of the pack."
+	return "The board knows this list is still building."
+
+
+## Mark the briefing read: the season can begin.
+func begin_season_from_wrap() -> void:
+	season_wrap["seen"] = true
+	mark_dirty()
+	autosave()
+
+
+func needs_season_wrap() -> bool:
+	return not season_wrap.is_empty() and not bool(season_wrap.get("seen", true)) \
+			and int(season_wrap.get("year", 0)) == season_year
 
 
 ## Roll on without an intake (no prospects available, or the manager skipped
@@ -2119,6 +2209,7 @@ func open_offseason() -> void:
 	ensure_contracts()
 	offseason_year = season_year
 	offseason_log = []
+	offseason_staff = Coaches.staff(coaches, my_club) if not coaches.is_empty() else {}
 	free_agents = []
 	for code in season.lists:
 		if code == my_club:

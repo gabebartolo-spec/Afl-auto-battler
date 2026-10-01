@@ -216,6 +216,32 @@ func _test_career_rollover() -> void:
 	_check(GameState.finish_intake_draft(), "The rollover commits")
 
 	_check(GameState.season_year == 2028, "The career advances a year")
+	# The off-season wrap (ARD-M6-007): built once at the rollover, saved,
+	# and shown before Round 1 until you begin the season.
+	var wrap: Dictionary = GameState.season_wrap
+	_check(GameState.needs_season_wrap(), "Finishing the draft leads to the off-season wrap, not straight to Round 1")
+	var picks := (wrap.get("ins", []) as Array).filter(func(r): return str(r["how"]).begins_with("pick "))
+	var mine_drafted := 0
+	for p in GameState.my_list:
+		if int(p.get("draft_pick", 0)) > 0 and str(p.get("drafted_type", "")) == "national" \
+				and int(p.get("drafted_year", 0)) == 2027:
+			mine_drafted += 1
+	_check(picks.size() == mine_drafted, "Every draft pick is in the wrap with its number (%d of %d)" % [picks.size(), mine_drafted])
+	var retired_here := (GameState.intake_summary.get("retired", []) as Array).filter(func(r): return str(r["club"]) == "ADE").size()
+	var retired_wrap := (wrap.get("outs", []) as Array).filter(func(r): return str(r["how"]) == "retired").size()
+	_check(retired_here == retired_wrap, "Every retirement from the list is in the wrap (%d)" % retired_here)
+	_check((wrap.get("ins", []) as Array).any(func(r): return str(r["id"]) == str(tied["id"])),
+			"A father-son signing is in the wrap too")
+	_check(str(wrap.get("goal", "")) != "" and str(wrap.get("reason", "")) != "",
+			"The wrap shows the board's goal and why (%s / %s)" % [wrap.get("goal", ""), wrap.get("reason", "")])
+	var ins_before := (wrap.get("ins", []) as Array).size()
+	_check(GameState.save_career() and GameState.load_career() and GameState.needs_season_wrap()
+			and (GameState.season_wrap.get("ins", []) as Array).size() == ins_before,
+			"A reload keeps the wrap, unseen and with nothing doubled")
+	GameState.begin_season_from_wrap()
+	_check(not GameState.needs_season_wrap(), "Once begun, the wrap is gone")
+	_check(GameState.save_career() and GameState.load_career() and not GameState.needs_season_wrap(),
+			"...and stays gone after a reload")
 	_check(GameState.season != null and GameState.season.round_index == 0,
 			"A fresh 24-round fixture is built")
 	_check(GameState.draft == null, "The intake draft releases the shared draft slot")

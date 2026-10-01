@@ -31,6 +31,57 @@ func _ready() -> void:
 	margin.add_child(_root)
 	get_viewport().size_changed.connect(_on_resize)
 	_build()
+	if GameState.needs_season_wrap():
+		_show_season_wrap()
+
+
+## The off-season, wrapped up before Round 1 (ARD-M6-007): who came, who
+## went, any staff change, what the board expects. Then begin the season.
+func _show_season_wrap() -> void:
+	var w: Dictionary = GameState.season_wrap
+	var box := UiKit.modal_box(self, 520.0, 0.0)
+	var overlay: Control = box["overlay"]
+	overlay.name = "SeasonWrap"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.lbl("Off-season complete", 20, UiKit.TEXT, true))
+	v.add_child(UiKit.lbl("Your %d list is set." % int(w.get("year", GameState.season_year)), 14, UiKit.MUTED))
+	for part in [["In", "ins", "WrapIn"], ["Out", "outs", "WrapOut"]]:
+		var rows: Array = w.get(part[1], [])
+		if rows.is_empty():
+			continue
+		v.add_child(UiKit.spacer(4))
+		v.add_child(UiKit.lbl(str(part[0]), 14, UiKit.MUTED, true))
+		for i in range(rows.size()):
+			var r: Dictionary = rows[i]
+			var l := UiKit.lbl("%s  ·  %s" % [str(r["name"]), str(r["how"])], 14, UiKit.TEXT)
+			l.name = "%s_%d" % [part[2], i]
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(l)
+	var staff: Array = w.get("staff", [])
+	if not staff.is_empty():
+		v.add_child(UiKit.spacer(4))
+		v.add_child(UiKit.lbl("Coaching", 14, UiKit.MUTED, true))
+		for line in staff:
+			var l := UiKit.lbl(str(line), 14, UiKit.TEXT)
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(l)
+	if str(w.get("goal", "")) != "":
+		v.add_child(UiKit.spacer(4))
+		v.add_child(UiKit.lbl("The board expects", 14, UiKit.MUTED, true))
+		var goal := UiKit.lbl(str(w["goal"]), 16, UiKit.TEXT, true)
+		goal.name = "WrapGoal"
+		goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(goal)
+		var why := UiKit.lbl(str(w.get("reason", "")), 14, UiKit.MUTED)
+		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(why)
+	var go := UiKit.btn("Begin season", 15, true)
+	go.name = "BeginSeason"
+	go.custom_minimum_size.y = 48
+	go.pressed.connect(func():
+		GameState.begin_season_from_wrap()
+		overlay.queue_free())
+	(box["footer"] as VBoxContainer).add_child(go)
 
 
 func _on_resize() -> void:

@@ -31,6 +31,7 @@ func _run() -> void:
 	_failures.append_array(suite.failures)
 	await _hub_tests()
 	await _finals_week_by_week()
+	await _season_wrap()
 	await _season_review_scrolls()
 	await _pre_match_scene()
 	print("Matchup + hub tests: %d checks, %d failures" % [_checks, _failures.size()])
@@ -231,6 +232,34 @@ func _season_review_scrolls() -> void:
 		await _settle()
 		_check(viewport.encloses(draft.get_global_rect()), "Scrolled down, the National Draft button is on screen")
 	review.queue_free()
+	await _settle()
+
+
+## The off-season wrap sits over the hub until you begin the season.
+func _season_wrap() -> void:
+	_state.reset()
+	_state.start_season("GEE", root.get_node("GameDB").club_list("GEE"))
+	_state.season_wrap = {"year": _state.season_year, "seen": false,
+			"ins": [{"id": "x1", "name": "New Recruit", "how": "pick 7"}],
+			"outs": [{"id": "x2", "name": "Old Hand", "how": "retired"}],
+			"staff": [], "goal": "Make the finals", "reason": "The board sees a list good enough to play finals."}
+	root.size = Vector2i(390, 844)
+	var hub: Control = await _open_hub()
+	_check(hub.find_child("SeasonWrap", true, false) != null, "Round 1 waits behind the off-season wrap")
+	var goal: Label = hub.find_child("WrapGoal", true, false)
+	_check(goal != null and goal.text == "Make the finals", "The wrap names the board's goal")
+	_check(hub.find_child("WrapIn_0", true, false) != null and hub.find_child("WrapOut_0", true, false) != null,
+			"Ins and outs are listed")
+	var go: Button = hub.find_child("BeginSeason", true, false)
+	go.emit_signal("pressed")
+	await _settle()
+	_check(hub.find_child("SeasonWrap", true, false) == null and not _state.needs_season_wrap(),
+			"Begin season closes it for good")
+	hub.queue_free()
+	await _settle()
+	var again: Control = await _open_hub()
+	_check(again.find_child("SeasonWrap", true, false) == null, "It does not come back")
+	again.queue_free()
 	await _settle()
 
 
