@@ -599,7 +599,9 @@ var _ai_share := {}      # role -> share of the league's remaining demand
 
 func _ai_score(code: String, p: Dictionary) -> float:
 	_refresh_ai_cache()
-	var base := _worth(p)
+	# National Draft clubs see the same kind of imperfect scouting picture as
+	# the human player. Career-redraft evaluation keeps its existing model.
+	var base := DraftScouting.scouted_worth(p, code, seed, AI_POT_WEIGHT_INTAKE) if intake_mode else _worth(p)
 	var err := _eval_error(code, p)
 	var best := -INF
 	var roles := [[str(p["role"]), 1.0]]
@@ -1056,7 +1058,11 @@ func board(role := "", club := "", search := "", sort := "overall",
 		out.append(p)
 	match sort:
 		"overall":
-			out.sort_custom(func(a, b): return a["overall"] > b["overall"])
+			if intake_mode:
+				out.sort_custom(func(a, b):
+					return DraftScouting.estimated_overall(a, user_club, seed) > DraftScouting.estimated_overall(b, user_club, seed))
+			else:
+				out.sort_custom(func(a, b): return a["overall"] > b["overall"])
 		"value":
 			out.sort_custom(func(a, b):
 				if a["value"] != b["value"]:
@@ -1065,13 +1071,23 @@ func board(role := "", club := "", search := "", sort := "overall",
 		"name":
 			out.sort_custom(func(a, b): return GameDB.player_sort_name(a) < GameDB.player_sort_name(b))
 		"potential":
-			out.sort_custom(func(a, b):
-				if int(a.get("potential", 0)) != int(b.get("potential", 0)):
-					return int(a.get("potential", 0)) > int(b.get("potential", 0))
-				return a["overall"] > b["overall"])
+			if intake_mode:
+				out.sort_custom(func(a, b):
+					var ap := DraftScouting.estimated_potential(a, user_club, seed)
+					var bp := DraftScouting.estimated_potential(b, user_club, seed)
+					if ap != bp:
+						return ap > bp
+					return DraftScouting.estimated_overall(a, user_club, seed) > DraftScouting.estimated_overall(b, user_club, seed))
+			else:
+				out.sort_custom(func(a, b):
+					if int(a.get("potential", 0)) != int(b.get("potential", 0)):
+						return int(a.get("potential", 0)) > int(b.get("potential", 0))
+					return a["overall"] > b["overall"])
 		"goals":
-			out.sort_custom(func(a, b): return a["gl"] > b["gl"])
+			out.sort_custom(func(a, b):
+				return float(a.get("u18_gl", 0.0)) > float(b.get("u18_gl", 0.0)) if intake_mode else a["gl"] > b["gl"])
 		"disposals":
-			out.sort_custom(func(a, b): return a["di"] > b["di"])
+			out.sort_custom(func(a, b):
+				return float(a.get("u18_di", 0.0)) > float(b.get("u18_di", 0.0)) if intake_mode else a["di"] > b["di"])
 	return out
 
