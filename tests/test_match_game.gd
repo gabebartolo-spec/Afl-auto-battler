@@ -485,7 +485,7 @@ func _test_hothead() -> void:
 	for i in range(4):
 		ids.append(str(hot.squads[0].ground[i]["id"]))
 	var team := {"hot": [0.0, 0.0, 0.0], "cool": [0.0, 0.0, 0.0]}
-	for seed in range(61, 67):
+	for seed in range(61, 81):
 		for k in ["hot", "cool"]:
 			var res: Dictionary = _discipline_sim(seed, 20 if k == "hot" else 21).run()
 			var t: Array = team[k]
@@ -495,7 +495,7 @@ func _test_hothead() -> void:
 				t[2] += float((res["players"].get(id, {}) as Dictionary).get("clangers", 0.0))
 	var h: Array = team["hot"]
 	var c: Array = team["cool"]
-	_check(h[0] > c[0] * 1.08, "Hotheads cost their side clangers (%d v %d over six games)" % [h[0], c[0]])
+	_check(h[0] > c[0] * 1.08, "Hotheads cost their side clangers (%d v %d over twenty games)" % [h[0], c[0]])
 	_check(h[1] > c[1], "Hotheads give away more free kicks (%d v %d)" % [h[1], c[1]])
 	_check(h[2] > c[2] * 1.2, "The Hotheads themselves give away far more (%d v %d)" % [h[2], c[2]])
 
