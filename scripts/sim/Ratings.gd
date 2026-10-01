@@ -272,7 +272,7 @@ static func derive_all(players: Array) -> Array:
 		# without the gate every tall forward gets classified as a ruckman.
 		scores["RUCK"] = (0.25 + 0.85 * q["hitouts_pg"]) if hitouts_pg >= 7.0 else -1.0
 		p["role_scores"] = scores
-		p["role"] = pick_role(scores)
+		p["role"] = listed_primary(p, pick_role(scores))
 		var fix := "%s|%s %s" % [p.get("club", ""), p.get("first", ""), p.get("last", "")]
 		if ROLE_CORRECTIONS.has(fix):
 			p["role"] = ROLE_CORRECTIONS[fix]
@@ -293,6 +293,31 @@ const ROLE_CORRECTIONS := {
 	"RIC|Maurice Rioli": "FWD",
 	"WBD|Cody Weightman": "FWD",
 }
+
+
+## His club's listing is his first position when the numbers read him as a
+## midfielder: a listed forward or defender with heavy possession is still a
+## forward or defender who can go through the middle. The numbers win when
+## his listed-line game has thinned out and he wins clearances, or when that
+## listed game has gone altogether.
+const LISTED_KEEP := 0.65
+const LISTED_GONE := 0.50
+const LISTED_MID_CLEARANCES := 1.5
+const LISTED_TRUST_GAMES := 6.0
+
+
+static func listed_primary(p: Dictionary, role: String) -> String:
+	var listed := str(p.get("real_pos", ""))
+	if role != "MID" or not (listed == "FWD" or listed == "DEF"):
+		return role
+	var scores: Dictionary = p["role_scores"]
+	var games := float(p.get("gm", 0.0))
+	if games < LISTED_TRUST_GAMES \
+			or float(scores[listed]) >= LISTED_KEEP * float(scores["MID"]) \
+			or (float(scores[listed]) >= LISTED_GONE * float(scores["MID"]) \
+				and float(p.get("cl", 0.0)) / games < LISTED_MID_CLEARANCES):
+		return listed
+	return role
 
 
 ## First-max wins, matching the Python harness's insertion order
@@ -337,9 +362,9 @@ static func rate_overall(a: Dictionary, role: String, games: float) -> int:
 ## so generated prospects and later seasons use the same scale.
 ## Must match tools/sim_harness.py::position_stretch (and intake_harness.py).
 const STRETCH_ANCHORS := {                # [p10, p50, p98] raw blend
-	"MID": [39.26, 51.49, 82.37],
-	"DEF": [40.37, 47.88, 58.90],
-	"FWD": [39.79, 50.93, 62.05],
+	"MID": [41.22, 53.99, 82.62],
+	"DEF": [40.07, 47.75, 58.86],
+	"FWD": [36.86, 48.25, 61.42],
 	"RUCK": [39.13, 66.27, 86.90],
 }
 const STRETCH_TARGETS := {                # where they land
