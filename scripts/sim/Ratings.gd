@@ -626,17 +626,33 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 			for g in ground:
 				if str(g["role"]) == role:
 					have += 1
-			for key in ["role", "role2"]:
+			if role == "RUCK":
+				# A missing named ruck is filled by the best available recognised
+				# ruck in this selection tier, not whichever ruck has the best OVR.
+				var recognised := []
 				for p in pool:
+					var id := str(p["id"])
+					if not used.has(id) and int(tier.get(id, 0)) == pass_tier and plays_role(p, "RUCK"):
+						recognised.append(p)
+				for p in by_ruck(recognised):
 					if have >= int(slot[1]):
 						break
 					var id := str(p["id"])
-					if used.has(id) or int(tier.get(id, 0)) != pass_tier:
-						continue
-					if str(p.get(key, "")) == role:
-						ground.append(_for_slot(p, role))
-						used[id] = true
-						have += 1
+					ground.append(_for_slot(p, role))
+					used[id] = true
+					have += 1
+			else:
+				for key in ["role", "role2"]:
+					for p in pool:
+						if have >= int(slot[1]):
+							break
+						var id := str(p["id"])
+						if used.has(id) or int(tier.get(id, 0)) != pass_tier:
+							continue
+						if str(p.get(key, "")) == role:
+							ground.append(_for_slot(p, role))
+							used[id] = true
+							have += 1
 			for p in (by_ruck(pool) if role == "RUCK" else pool):
 				if have >= int(slot[1]):
 					break
