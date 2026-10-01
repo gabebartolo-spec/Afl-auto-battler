@@ -28,6 +28,7 @@ func run() -> void:
 	_test_boundary_collect(res)
 	_test_play_when_idle(res)
 	_test_numbers_readable()
+	_test_broadcast_vignettes()
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -571,3 +572,78 @@ func _test_numbers_readable() -> void:
 			bad.append(str(code))
 	_check(bad.is_empty(), "Every club's player numbers stand out on the token (%s)" % ", ".join(bad))
 	pv.free()
+
+
+
+## The dramatic close-ups are chosen from the presentation facts already in
+## the log. They never roll their own football outcome, and every sequence is
+## short enough to stay a beat rather than become a cutscene.
+func _test_broadcast_vignettes() -> void:
+	var final := {"kind": "final"}
+	var close_set := {
+		"kind": "goal", "side": 0, "q": 4, "set_shot": true,
+		"goals": [10, 9], "behinds": [5, 4], "num": 10,
+	}
+	var ordinary_snap := {
+		"kind": "goal", "side": 0, "q": 3, "set_shot": false,
+		"goals": [8, 7], "behinds": [6, 8], "num": 23,
+	}
+	var mark := {"kind": "mark", "side": 0, "q": 2, "num": 4}
+	var front := {"actor_pos": Vector2(10, 2), "ball_pos": Vector2(10, 2), "nearby": 4}
+	var flank := {"actor_pos": Vector2(18, 31), "ball_pos": Vector2(18, 31), "nearby": 4}
+	var defensive := {"actor_pos": Vector2(-32, 4), "ball_pos": Vector2(-32, 4), "nearby": 4}
+	var boundary := {"actor_pos": Vector2(50, 38), "ball_pos": Vector2(83, 18), "nearby": 2}
+	var line := {"actor_pos": Vector2(62, 4), "ball_pos": Vector2(85, 3), "nearby": 4}
+
+	_check(BroadcastVignette.pick_kind(close_set, {}, final, front) == BroadcastVignette.AFTER_SIREN,
+			"A close final set shot gets the final-kick broadcast scene")
+	var easy_set := close_set.duplicate(true)
+	easy_set["goals"] = [15, 9]
+	_check(BroadcastVignette.pick_kind(easy_set, {}, final, front) != BroadcastVignette.AFTER_SIREN,
+			"A comfortable final set shot is not dressed up as a dramatic final kick")
+	_check(BroadcastVignette.pick_kind(mark, {}, {}, front) == BroadcastVignette.SPECCY_FRONT,
+			"A crowded mark through the corridor gets the front-on speccy shot")
+	_check(BroadcastVignette.pick_kind(mark, {}, {}, flank) == BroadcastVignette.SPECCY_SIDE,
+			"A crowded mark near the flank gets the side-sit speccy shot")
+	_check(BroadcastVignette.pick_kind(mark, {}, {}, defensive) == BroadcastVignette.SPECCY_DEFENSIVE,
+			"A crowded mark running back in defence gets the defensive-mark shot")
+	_check(BroadcastVignette.pick_kind(ordinary_snap, {}, {}, boundary) == BroadcastVignette.BOUNDARY_SNAP,
+			"An open-play score from the pocket gets the boundary-snap shot")
+	_check(BroadcastVignette.pick_kind(ordinary_snap, {}, {}, line) == BroadcastVignette.GOAL_LINE,
+			"A crowded open-play score on the line gets the goal-line scramble")
+	_check(BroadcastVignette.category(BroadcastVignette.SPECCY_FRONT)
+			== BroadcastVignette.category(BroadcastVignette.SPECCY_SIDE),
+			"Speccy variations share one frequency category")
+
+	var scene = load("res://scripts/ui/MatchScene.gd").new()
+	var quotas := []
+	var quota_total := 0
+	for i in range(200):
+		scene._res = {"home": "COL", "away": "CAR", "label": "Fixture %d" % i}
+		var q: int = scene._speccy_quota()
+		quotas.append(q)
+		quota_total += q
+	var mean := float(quota_total) / float(quotas.size())
+	_check(quotas.min() >= 0 and quotas.max() <= 2,
+			"Speccies are hard-capped at two in every match")
+	_check(mean >= 0.65 and mean <= 0.95,
+			"The deterministic speccy allowance averages about 0.8 per match (%.2f)" % mean)
+	scene.free()
+
+	var all := [
+		BroadcastVignette.SPECCY_FRONT, BroadcastVignette.SPECCY_SIDE,
+		BroadcastVignette.SPECCY_DEFENSIVE, BroadcastVignette.AFTER_SIREN,
+		BroadcastVignette.GOAL_LINE, BroadcastVignette.BOUNDARY_SNAP,
+	]
+	var short := true
+	for kind in all:
+		short = short and BroadcastVignette.duration_for(kind) <= 6.0
+	_check(short, "Every broadcast vignette stays under six seconds")
+
+	seed(271828)
+	var expect := [randi(), randi(), randi()]
+	seed(271828)
+	BroadcastVignette.pick_kind(mark, {}, {}, front)
+	BroadcastVignette.pick_kind(ordinary_snap, {}, {}, line)
+	var got := [randi(), randi(), randi()]
+	_check(got == expect, "Vignette selection draws nothing from the match/global RNG")
