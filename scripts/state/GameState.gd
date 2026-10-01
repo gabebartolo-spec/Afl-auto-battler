@@ -1942,6 +1942,7 @@ func _after_round(results: Array) -> void:
 		Awards.tally_match(season_tally, res, not res.has("tag"))
 		_note_form_and_team(res)
 	_round_news(results)
+	_draft_class_news()
 	_board_after_round(results)
 	if season != null and season.is_season_over() \
 			and int(season_awards.get("year", 0)) != season_year:
@@ -2771,6 +2772,26 @@ func add_news(kind: String, text: String) -> void:
 	news.push_front({"year": season_year, "when": when, "kind": kind, "text": text})
 	if news.size() > MAX_NEWS:
 		news.resize(MAX_NEWS)
+
+
+## Around halfway through the home-and-away season, recruiting has seen
+## enough of an exceptional class to call it. This is deliberately only a
+## superdraft signal: ordinary/weak/strong classes stay uncertain rather than
+## turning the news feed into a hidden numeric scouting report.
+func _draft_class_news() -> void:
+	if season == null or season.is_season_over():
+		return
+	var reveal_round := ceili(float(Season.REGULAR_ROUNDS) / 2.0)
+	if season.round_index < reveal_round:
+		return
+	if str(class_tiers.get(str(season_year), "")) != "super":
+		return
+	# The news item itself is the durable acknowledgement. Saves already persist
+	# the feed, so this needs no second flag that could drift out of sync.
+	for item in news:
+		if int(item.get("year", 0)) == season_year and str(item.get("kind", "")) == "superdraft":
+			return
+	add_news("superdraft", "Recruiters believe this year's national draft is a superdraft — unusually strong at the top and deeper than a normal class. Clubs will be planning their off-season around it.")
 
 
 ## Big games and long injuries to good players from the round just played.
