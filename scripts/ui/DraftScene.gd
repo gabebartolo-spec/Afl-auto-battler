@@ -398,7 +398,7 @@ func _footer() -> Control:
 	_next_picks.name = "UpcomingPicks"
 	_next_picks.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(_next_picks)
-	_finish_btn = UiKit.btn("FINISH DRAFT" if _draft.intake_mode else "START SEASON", 14, true)
+	_finish_btn = UiKit.btn("Finish draft" if _draft.intake_mode else "Start season", 14, true)
 	_finish_btn.name = "StartSeason"
 	_finish_btn.pressed.connect(_on_finish)
 	h.add_child(_finish_btn)
@@ -579,7 +579,7 @@ func _refresh_board(reset_scroll := false) -> void:
 		return
 	UiKit.clear(_board_box)
 	var rows := _draft.board(_role, _club_filter, _search.strip_edges(), _sort, _available_only)
-	_pool_total.text = "%d AVAILABLE" % (_draft.pool.size() - _draft.picked.size())
+	_pool_total.text = "%d available" % (_draft.pool.size() - _draft.picked.size())
 	var sort_label := ""
 	for sort_entry in SORTS:
 		if str(sort_entry[0]) == _sort:

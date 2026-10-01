@@ -164,7 +164,7 @@ func _run() -> void:
 	ui.call("_clear_filters")
 	await _settle()
 	var finish: Button = ui.find_child("StartSeason", true, false)
-	_check(finish.text.contains("FINISH"), "The action button is 'Finish draft' in intake mode")
+	_check(finish.text == "Finish draft", "The action button is 'Finish draft' in intake mode")
 	_check(not finish.disabled or draft.is_user_turn(),
 			"Finish unlocks when the board is closed or it is your turn")
 
