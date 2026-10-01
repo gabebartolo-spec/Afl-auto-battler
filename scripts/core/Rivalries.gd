@@ -14,6 +14,7 @@ const ESTABLISHED := [
 	["ESS", "COL", "Essendon–Collingwood"],
 	["RIC", "CAR", "Richmond–Carlton"],
 	["SYD", "GWS", "Sydney Derby"],
+	["GWS", "WBD", "GWS–Western Bulldogs"],
 	["BRL", "GCS", "The Pineapple Grapple"],
 	["MEL", "COL", "Melbourne–Collingwood"],
 	["WBD", "COL", "Western Bulldogs–Collingwood"],
