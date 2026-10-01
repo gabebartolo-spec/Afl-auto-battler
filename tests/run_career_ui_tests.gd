@@ -16,6 +16,32 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 
+
+func _test_player_goal_milestones() -> void:
+	var p := {"id": "milestone_test", "name": "Milestone Test", "club": "MEL",
+			"career": {"games": 12, "goals": 0, "stints": [], "through": GameState.season_year - 1, "unknown": []}}
+	var old_season := GameState.season
+	var old_tally := GameState.season_tally
+	var old_news := GameState.news
+	GameState.season = Season.new(GameState.season_year)
+	GameState.season.lists["MEL"] = [p]
+	GameState.season_tally = {"milestone_test": {"club": "MEL", "games": 1, "goals": 1, "goals_ha": 1}}
+	GameState.news = []
+	GameState._player_milestone_news({"home": "MEL", "away": "CAR",
+			"roster": [[{"id": "milestone_test"}], []],
+			"players": {"milestone_test": {"goals": 1}}})
+	_check(GameState.news.size() == 1 and str(GameState.news[0].get("text", "")).contains("first AFL goal"),
+			"A provable first AFL goal is recorded as a milestone")
+	p["career"]["unknown"] = [[2020, 2021]]
+	GameState.news = []
+	GameState._player_milestone_news({"home": "MEL", "away": "CAR",
+			"roster": [[{"id": "milestone_test"}], []],
+			"players": {"milestone_test": {"goals": 1}}})
+	_check(GameState.news.is_empty(), "Unknown historical seasons never fabricate a first-goal milestone")
+	GameState.season = old_season
+	GameState.season_tally = old_tally
+	GameState.news = old_news
+
 func _check(condition: bool, message: String) -> void:
 	_checks += 1
 	if not condition:
@@ -42,6 +68,7 @@ func _screen_text() -> String:
 
 
 func _run() -> void:
+	_test_player_goal_milestones()
 	await process_frame
 	_state = root.get_node("GameState")
 	_router = root.get_node("Router")
