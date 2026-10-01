@@ -90,6 +90,11 @@ func _ready() -> void:
 	add_child(_search_timer)
 	get_viewport().size_changed.connect(_on_resize)
 	_build_layout()
+	# The recruiting panel meets once before each National Draft.
+	if _draft.intake_mode and _phase == "board" and not _draft.is_finished() \
+			and GameState.draft_meeting_year != GameState.season_year:
+		GameState.draft_meeting_year = GameState.season_year
+		_show_meeting()
 
 
 func _on_resize() -> void:
@@ -719,6 +724,42 @@ func _player_by_id(id: String) -> Dictionary:
 		if str(p["id"]) == id:
 			return p
 	return {}
+
+
+## Before the National Draft: what the list does well, where it is short,
+## and a few prospects recruiting liked - a starting point, not an answer.
+func _show_meeting() -> void:
+	var notes := RecruitMeeting.notes(_draft, GameState.my_list, GameState.list_profile())
+	var box := UiKit.modal_box(self, 520.0, 0.0)
+	var overlay: Control = box["overlay"]
+	overlay.name = "DraftMeeting"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.lbl("Before the draft", 20, UiKit.TEXT, true))
+	if not (notes["list"] as Array).is_empty():
+		v.add_child(UiKit.lbl("Our list", 14, UiKit.MUTED, true))
+		for line in notes["list"]:
+			var l := UiKit.lbl(str(line), 14, UiKit.TEXT)
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(l)
+	if not (notes["names"] as Array).is_empty():
+		v.add_child(UiKit.spacer(4))
+		v.add_child(UiKit.lbl("Recruiting liked", 14, UiKit.MUTED, true))
+		for row in notes["names"]:
+			var id := str(row["id"])
+			var b := UiKit.btn(str(row["line"]), 14)
+			b.name = "MeetingName_" + id
+			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			b.custom_minimum_size.y = 44
+			b.pressed.connect(func():
+				overlay.queue_free()
+				_open_player(id))
+			v.add_child(b)
+	var go := UiKit.btn("To the draft", 15, true)
+	go.name = "MeetingDone"
+	go.custom_minimum_size.y = 48
+	go.pressed.connect(func(): overlay.queue_free())
+	(box["footer"] as VBoxContainer).add_child(go)
 
 
 func _close_player() -> void:

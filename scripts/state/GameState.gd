@@ -50,6 +50,7 @@ var staff_vacancies: Array = []
 ## Every club's place in the preseason pecking order (list strength), for
 ## judging AI senior coaches at season's end: code -> rank.
 var club_expect := {}
+var draft_meeting_year := 0     # the National Draft the recruiting panel last met before
 var records := {}                # league records across the career
 ## Club achievements unlocked this career: id -> {"year", "detail"}.
 ## Definitions live in scripts/sim/Achievements.gd.
@@ -288,6 +289,7 @@ func save_career() -> bool:
 		"coach_archive": coach_archive,
 		"staff_vacancies": staff_vacancies,
 		"club_expect": club_expect,
+		"draft_meeting_year": draft_meeting_year,
 		"career_seed": career_seed,
 		"class_tiers": class_tiers,
 		# Players carry p["career"]; saves without this mark predate it.
@@ -402,6 +404,7 @@ func load_career() -> bool:
 	coach_archive = state.get("coach_archive", {})
 	staff_vacancies = state.get("staff_vacancies", [])
 	club_expect = state.get("club_expect", {})
+	draft_meeting_year = int(state.get("draft_meeting_year", 0))
 	# A save from before the coaching world: seed it for this career now.
 	if season != null and coaches.is_empty():
 		coaches = Coaches.seed(my_club)
@@ -598,6 +601,7 @@ func reset() -> void:
 	coach_archive = {}
 	staff_vacancies = []
 	club_expect = {}
+	draft_meeting_year = 0
 	salary_cap = 0
 	free_agents = []
 	offseason_year = 0
