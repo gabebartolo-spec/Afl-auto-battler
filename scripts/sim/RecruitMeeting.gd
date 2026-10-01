@@ -82,8 +82,10 @@ static func prospect_lines(draft: Draft) -> Array:
 		if not draft.picked.has(str(p["id"])):
 			avail.append(p)
 	avail.sort_custom(func(a, b):
-		if not is_equal_approx(draft._worth(a), draft._worth(b)):
-			return draft._worth(a) > draft._worth(b)
+		var aw := DraftScouting.scouted_worth(a, draft.user_club, draft.seed, Draft.AI_POT_WEIGHT_INTAKE)
+		var bw := DraftScouting.scouted_worth(b, draft.user_club, draft.seed, Draft.AI_POT_WEIGHT_INTAKE)
+		if not is_equal_approx(aw, bw):
+			return aw > bw
 		return str(a["id"]) < str(b["id"]))
 	# Rival picks still to come before yours: the window starts there.
 	var ahead := maxi(0, first - 1 - draft.pick_index)
