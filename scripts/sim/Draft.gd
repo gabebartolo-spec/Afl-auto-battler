@@ -473,6 +473,19 @@ const AI_POT_WEIGHT_INTAKE := 0.65
 ## list at the intake).
 const AI_LIST_SHARE := {"RUCK": 0.08, "MID": 0.30, "DEF": 0.33, "FWD": 0.33}
 
+## Scarcity is a reason to reach late, not at the top: the edge over
+## replacement counts in full from the third round of a career draft and
+## not at all at its first pick. The national draft keeps it throughout.
+const AI_VORP_FULL_ROUNDS := 2
+
+
+func _vorp_weight() -> float:
+	if intake_mode or clubs.is_empty():
+		return AI_VORP_WEIGHT
+	var ramp := float(pick_index) / float(clubs.size() * AI_VORP_FULL_ROUNDS)
+	return AI_VORP_WEIGHT * clampf(ramp, 0.0, 1.0)
+
+
 var _ai_cache_at := -1
 var _ai_avail := {}      # role -> worths of available players, best first
 var _ai_share := {}      # role -> share of the league's remaining demand
@@ -494,7 +507,7 @@ func _ai_score(code: String, p: Dictionary) -> float:
 		# filling; for depth and surplus picks it leans on the consensus.
 		var worth := base + err * need
 		var over := minf(AI_VORP_CAP, worth - _replacement(code, role))
-		var s := (worth + AI_VORP_WEIGHT * over) * need * float(entry[1])
+		var s := (worth + _vorp_weight() * over) * need * float(entry[1])
 		best = maxf(best, s)
 	return best - _cap_penalty(code, p)
 
@@ -544,7 +557,29 @@ func _eval_error(code: String, p: Dictionary) -> float:
 	var u1 := maxf(1e-9, _hash01("a|" + key))
 	var u2 := _hash01("b|" + key)
 	var z := sqrt(-2.0 * log(u1)) * cos(TAU * u2)
-	return clampf(z, -AI_EVAL_CLAMP, AI_EVAL_CLAMP) * sd
+	return clampf(z, -AI_EVAL_CLAMP, AI_EVAL_CLAMP) * sd * _eval_certainty(p)
+
+
+## Clubs agree more about the league's proven best: at the consensus top the
+## opinion counts AI_EVAL_TOP_SHARE of itself, rising to full by
+## AI_EVAL_FULL_RANK. Below that - where most of a list is built and where
+## sharper scouting separates clubs - nothing changes.
+const AI_EVAL_TOP_SHARE := 0.30
+const AI_EVAL_FULL_RANK := 90
+var _consensus_rank := {}
+
+
+func _eval_certainty(p: Dictionary) -> float:
+	if _consensus_rank.is_empty():
+		var by_worth := pool.duplicate()
+		by_worth.sort_custom(func(a, b):
+			if not is_equal_approx(_worth(a), _worth(b)):
+				return _worth(a) > _worth(b)
+			return str(a["id"]) < str(b["id"]))
+		for i in range(by_worth.size()):
+			_consensus_rank[str(by_worth[i]["id"])] = i + 1
+	var rank := int(_consensus_rank.get(str(p["id"]), AI_EVAL_FULL_RANK))
+	return lerpf(AI_EVAL_TOP_SHARE, 1.0, clampf(float(rank - 1) / float(AI_EVAL_FULL_RANK - 1), 0.0, 1.0))
 
 
 func _eval_sd_range() -> Array:
@@ -583,6 +618,11 @@ func _ideal_counts(code: String) -> Dictionary:
 	return out
 
 
+## A national-draft prospect at a position the club already has covered is
+## worth this share: a few rating points, enough to separate near-equals.
+const INTAKE_COVERED := 0.92
+
+
 func _need_weight(code: String, role: String) -> float:
 	var n := int(role_counts_for(code).get(role, 0))
 	if role == "RUCK" and not intake_mode and n == 1:
@@ -596,6 +636,10 @@ func _need_weight(code: String, role: String) -> float:
 		for slot in Ratings.GROUND_SLOTS:
 			if str(slot[0]) == role and n < int(slot[1]):
 				return 1.0
+	if intake_mode:
+		# The national draft builds for years ahead: need tips close calls,
+		# it never makes a club pass a much better prospect.
+		return 1.0 if n < int(_ideal_counts(code).get(role, 0)) else INTAKE_COVERED
 	if n < int(_ideal_counts(code).get(role, 0)):
 		return 0.6
 	return 0.2

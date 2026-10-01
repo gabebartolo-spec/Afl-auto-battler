@@ -17,6 +17,7 @@ func run() -> void:
 	_test_player_name_modes()
 	_test_cap_guard()
 	_test_stuck_draft_recovery()
+	_test_asset_valuation()
 	print("Draft tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -449,3 +450,59 @@ func _test_stuck_draft_recovery() -> void:
 			"The draft then completes with a full, legal list (%d/%d, $%d of $%d)" % [r.count(), r.target_size, r.spent(), r.budget])
 	GameState.draft = null
 	GameState.delete_saved_career()
+
+
+## ARD-M5-012: the top of a draft goes to the best long-term assets. Need
+## and scarcity steer close calls; they never bury a much better player.
+func _test_asset_valuation() -> void:
+	# National draft: every club already has its midfield covered, and the
+	# class's best prospect is a midfielder. He goes in the first few picks.
+	var pool := []
+	for i in range(24):
+		var role: String = ["MID", "DEF", "FWD", "RUCK"][i % 4]
+		pool.append({"id": "pr_%d" % i, "name": "Prospect %d" % i, "club": "U18",
+				"role": "MID" if i == 0 else role, "role2": "",
+				"overall": 78 if i == 0 else 66 - i / 3, "potential": 92 if i == 0 else 74,
+				"value": 1, "gl": 0, "di": 0})
+	var clubs := ["A", "B", "C", "D"]
+	var sizes := {}
+	var counts := {}
+	for c in clubs:
+		sizes[c] = 36
+		counts[c] = {"RUCK": 3, "MID": 16, "DEF": 9, "FWD": 8}
+	var intake := Draft.build_intake(pool, clubs, clubs, 11, sizes, counts)
+	_check(intake._need_weight("A", "MID") >= Draft.INTAKE_COVERED and intake._need_weight("A", "DEF") == 1.0,
+			"In the national draft a covered position is marked down a little, never to a fifth")
+	var at := -1
+	var n := 0
+	while not intake.is_finished() and at < 0:
+		var c: Dictionary = intake._best_ai_pick(intake.current_club())
+		if c.is_empty() or not intake._draft_pick(intake.current_club(), c):
+			intake._skip_current_pick()
+			continue
+		n += 1
+		if str(c["id"]) == "pr_0":
+			at = n
+	_check(at >= 1 and at <= 2, "A 78/92 prospect goes at the top even to clubs full of midfielders (pick %d)" % at)
+
+	# Career draft: clubs agree on the proven best, and scarcity waits.
+	var real := Draft.new(GameDB.all_players_sorted() + GameDB.all_draftees_sorted(),
+			GameDB.active_clubs(2027).duplicate(), 4242)
+	var by_worth: Array = real.pool.duplicate()
+	by_worth.sort_custom(func(a, b): return real._worth(a) > real._worth(b))
+	_check(is_equal_approx(real._eval_certainty(by_worth[0]), Draft.AI_EVAL_TOP_SHARE)
+			and is_equal_approx(real._eval_certainty(by_worth[Draft.AI_EVAL_FULL_RANK + 5]), 1.0),
+			"Scouting disagreement shrinks for the consensus best, in full further down")
+	_check(is_zero_approx(real._vorp_weight()), "At the first pick scarcity counts for nothing")
+	real.pick_index = real.clubs.size() * Draft.AI_VORP_FULL_ROUNDS
+	_check(is_equal_approx(real._vorp_weight(), Draft.AI_VORP_WEIGHT), "From the third round it counts in full")
+	var top := {}
+	for i in range(8):
+		top[str(by_worth[i]["id"])] = true
+	var credible := 0
+	for s in range(12):
+		var d := Draft.new(real.pool, GameDB.active_clubs(2027).duplicate(), 9001 + s * 31)
+		var first: Dictionary = d._best_ai_pick(d.current_club())
+		if top.has(str(first["id"])):
+			credible += 1
+	_check(credible >= 11, "The first pick of a career draft is one of the consensus top eight (%d of 12)" % credible)
