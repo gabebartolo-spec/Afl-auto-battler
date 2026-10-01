@@ -28,6 +28,10 @@ var clubs: Array = []
 var user_club := ""
 var draft_order: Array = []       # randomised round-one order
 var pick_sequence: Array = []     # serpentine club code for every pick
+var pick_rounds: Array = []       # round of every pick (compensation picks count in their round)
+## Free-agency compensation picks in this draft: [{"index" (0-based pick),
+## "club", "after", "player", "name", "to", ...}]. See add_compensation.
+var comp_picks: Array = []
 var pick_index := 0               # next pick in pick_sequence
 var league_mode := false
 var seed := 0
@@ -117,18 +121,76 @@ func _init_league_draft() -> void:
 			draft_order[i] = draft_order[j]
 			draft_order[j] = tmp
 
-	pick_sequence = []
+	_build_sequence([])
+	pick_index = 0
+
+
+## The serpentine order, with compensation picks slotted in: each sits right
+## after regular pick `after`, best compensation first when two share a
+## spot. The draft ends when the pool runs dry - exactly like the national
+## draft's final rounds - so an extra pick never adds players to the league:
+## the last regular picks drop off the end instead, and a compensation pick
+## a club has earned is never the one lost.
+func _build_sequence(comps: Array) -> void:
+	var by_after := {}
+	for c in comps:
+		var k := int(c["after"])
+		if not by_after.has(k):
+			by_after[k] = []
+		(by_after[k] as Array).append(c)
+	var slots := []   # [club, round, comp entry or {}]
+	var regular := 0
 	for r in range(target_size):
 		var round_order := draft_order.duplicate()
 		if r % 2 == 1:
 			round_order.reverse()
 		for code in round_order:
-			pick_sequence.append(code)
-	# The draft ends when the pool runs dry - exactly like the national draft's
-	# final rounds. Career mode never trips this (666 turns vs 669 players).
-	if pick_sequence.size() > pool.size():
-		pick_sequence.resize(pool.size())
-	pick_index = 0
+			slots.append([code, r + 1, {}])
+			regular += 1
+			for c in by_after.get(regular, []):
+				slots.append([str(c["club"]), r + 1, c])
+	# A pick placed after one the draft never reaches goes at the very end.
+	var ks := by_after.keys()
+	ks.sort()
+	for after in ks:
+		if int(after) > regular:
+			for c in by_after[after]:
+				slots.append([str(c["club"]), target_size, c])
+	# Too many picks for the pool: drop regular picks from the end.
+	var k := slots.size() - 1
+	while slots.size() > pool.size() and k >= 0:
+		if (slots[k][2] as Dictionary).is_empty():
+			slots.remove_at(k)
+		k = mini(k - 1, slots.size() - 1)
+	if slots.size() > pool.size():
+		slots.resize(pool.size())
+	pick_sequence = []
+	pick_rounds = []
+	comp_picks = []
+	for slot in slots:
+		if not (slot[2] as Dictionary).is_empty():
+			var entry: Dictionary = (slot[2] as Dictionary).duplicate()
+			entry["index"] = pick_sequence.size()
+			comp_picks.append(entry)
+		pick_sequence.append(slot[0])
+		pick_rounds.append(slot[1])
+
+
+## Slot this year's compensation picks into the order (before any pick is
+## made). `comps` = [{"club", "after", "value", ...}]; a pick after a regular
+## pick the draft would not reach lands at the end of the draft. Ties at one spot: higher value
+## first, then the club lower on the ladder (earlier in round one).
+func add_compensation(comps: Array) -> void:
+	if pick_index != 0:
+		return
+	var sorted := comps.duplicate()
+	sorted.sort_custom(func(a, b):
+		if int(a["after"]) != int(b["after"]):
+			return int(a["after"]) < int(b["after"])
+		if float(a.get("value", 0.0)) != float(b.get("value", 0.0)):
+			return float(a.get("value", 0.0)) > float(b.get("value", 0.0))
+		return draft_order.find(str(a["club"])) < draft_order.find(str(b["club"])))
+	_build_sequence(sorted)
 
 
 func start_for_user(code: String) -> void:
@@ -145,6 +207,10 @@ func current_club() -> String:
 func current_round() -> int:
 	if clubs.is_empty():
 		return 1
+	if pick_index < pick_rounds.size():
+		return int(pick_rounds[pick_index])
+	if not pick_rounds.is_empty() and pick_index == pick_rounds.size():
+		return int(pick_rounds[-1])
 	return int(pick_index / clubs.size()) + 1
 
 
@@ -207,7 +273,7 @@ func _draft_pick(code: String, p: Dictionary) -> bool:
 	var id := str(p["id"])
 	if picked.has(id):
 		return false
-	if count_for(code) >= target_size:
+	if count_for(code) >= pick_limit(code):
 		return false
 	if _list_full(code):
 		return false
@@ -767,6 +833,23 @@ func count() -> int:
 	return count_for(user_club)
 
 
+## Picks a club may make: one a round, plus any compensation picks.
+func pick_limit(code: String) -> int:
+	var n := target_size
+	for c in comp_picks:
+		if str(c["club"]) == code:
+			n += 1
+	return n
+
+
+## The compensation pick at `index`, or {}.
+func comp_at(index: int) -> Dictionary:
+	for c in comp_picks:
+		if int(c["index"]) == index:
+			return c
+	return {}
+
+
 func count_for(code: String) -> int:
 	if league_mode:
 		return (club_lists.get(code, []) as Array).size()
@@ -833,7 +916,7 @@ func pick_block_reason(p: Dictionary) -> String:
 			return "The draft is complete."
 		if not is_user_turn():
 			return "Not your pick yet - rival clubs are still choosing."
-		if count() >= target_size:
+		if count() >= pick_limit(user_club):
 			return "Your list is full."
 		if not _can_afford_for(user_club, p):
 			var slots_after := target_size - count() - 1

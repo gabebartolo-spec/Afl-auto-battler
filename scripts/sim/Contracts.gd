@@ -19,6 +19,8 @@ extends RefCounted
 const MIN_LIST := 32
 const MAX_LIST := 44
 const MAX_YEARS := 4
+## Rivals fill their lists from free agency up to this size.
+const AI_FILL := 38
 const ROOKIE_YEARS := 2
 ## A trade has to leave the AI club at least this much better off.
 const TRADE_MARGIN := 0.04
@@ -105,12 +107,12 @@ static func lowest(p: Dictionary, years: int) -> int:
 
 
 ## His answer to `salary` over `years`, given how many offers have already
-## failed. Returns {"answer": "accept" | "counter" | "walk", "salary": int,
+## failed (and, for a free agent, the `premium` his options add). Returns {"answer": "accept" | "counter" | "walk", "salary": int,
 ## "insult": bool}. An offer at or above his lowest is accepted; anything else
 ## gets his lowest for that term as a counter. An offer under two-thirds of
 ## it is an insult and counts as two failures. Run out of offers and he walks.
-static func respond(p: Dictionary, salary: int, years: int, failed := 0) -> Dictionary:
-	var floor_price := lowest(p, years)
+static func respond(p: Dictionary, salary: int, years: int, failed := 0, premium := 0) -> Dictionary:
+	var floor_price := lowest(p, years) + premium
 	if salary >= floor_price:
 		return {"answer": "accept", "salary": salary, "insult": false}
 	var insult := salary * 3 < floor_price * 2
@@ -118,6 +120,137 @@ static func respond(p: Dictionary, salary: int, years: int, failed := 0) -> Dict
 	if strikes >= MAX_OFFERS:
 		return {"answer": "walk", "salary": floor_price, "insult": insult}
 	return {"answer": "counter", "salary": floor_price, "insult": insult}
+
+
+## A free agent weighs your club against his options, all from facts you
+## can see: `facts` = {"in_best22": would he make your best 22, "rivals":
+## other clubs with the room and the need for him, "finish": your ladder
+## finish, "clubs": clubs in the league}. Returns {"premium": points on top
+## of his lowest, "refuse": bool, "reasons": [what he's weighing, in words]}.
+## Rival interest costs a point. Your last finish costs a little more the
+## lower you were (`club_premium`). A player who would not make your best 22
+## won't come while another club wants him.
+static func free_agent_terms(p: Dictionary, facts: Dictionary) -> Dictionary:
+	var premium := 0
+	var reasons := []
+	var rivals := int(facts.get("rivals", 0))
+	var finish := int(facts.get("finish", 0))
+	var refuse := false
+	if not bool(facts.get("in_best22", true)):
+		if rivals > 0:
+			refuse = true
+			reasons.append("He wants senior football: he wouldn't make your best 22, and other clubs want him.")
+		else:
+			reasons.append("He wouldn't make your best 22, but no other club has room for him.")
+	if rivals > 0 and not refuse:
+		premium += 1
+		reasons.append("Another club has the room and the need for him." if rivals == 1
+				else "Other clubs have the room and the need for him.")
+	var club := club_premium(p, finish, int(facts.get("clubs", 18)))
+	if club > 0 and not refuse:
+		premium += club
+		reasons.append("Your side finished %s: he'd want a little more to come." % _ordinal(finish))
+	return {"premium": premium, "refuse": refuse, "reasons": reasons}
+
+
+## How much your last finish adds to his price: nothing for the premiers,
+## rising evenly to a tenth of his asking price for the wooden spoon,
+## rounded to a whole point. No single ladder position changes the rule; the
+## rounding only decides where, for this player, the one point lands.
+static func club_premium(p: Dictionary, finish: int, clubs: int) -> int:
+	if finish <= 1 or clubs <= 1:
+		return 0
+	var t := clampf(float(finish - 1) / float(clubs - 1), 0.0, 1.0)
+	return roundi(asking_salary(p) * 0.1 * t)
+
+
+static func _ordinal(n: int) -> String:
+	var suffix := "th"
+	if n % 100 < 11 or n % 100 > 13:
+		suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+	return "%d%s" % [n, suffix]
+
+
+## Would a rival club want this free agent? It has a spot to fill, the cap room for
+## his asking price and he would be at least an average player on its list
+## - the same test rivals use to keep their own.
+static func ai_wants(p: Dictionary, list: Array, cap: int) -> bool:
+	if list.size() >= AI_FILL or asking_salary(p) > cap - payroll(list):
+		return false
+	var worths := []
+	for q in list:
+		worths.append(worth(q))
+	worths.sort()
+	var median := float(worths[worths.size() / 2]) if not worths.is_empty() else 0.0
+	return worth(p) >= median - 2.0
+
+
+# ---------------------------------------------------------------------------
+# Free-agency compensation. A club that loses an out-of-contract player it
+# wanted to keep - he walked, or it could not fit him under the cap - gets a
+# national draft pick when he signs elsewhere. A delisted player earns
+# nothing, and nor does one who had been at the club under two seasons.
+# ---------------------------------------------------------------------------
+## Seasons a player must have been at a club before losing him earns a pick.
+const COMP_TENURE := 2
+
+
+## Why a rival lets an expiring player go: "" (it keeps him), "delist" (not
+## wanted: past it, or below the list's median worth) or "cap" (wanted, but
+## no room for his price - he walks to free agency and can earn a pick).
+static func ai_release_reason(p: Dictionary, list: Array, cap: int) -> String:
+	if float(p.get("age", 25.0)) >= 33.0 and int(p.get("overall", 50)) < 70:
+		return "delist"
+	var worths := []
+	for q in list:
+		worths.append(worth(q))
+	worths.sort()
+	var median := float(worths[worths.size() / 2]) if not worths.is_empty() else 0.0
+	if worth(p) < median - 2.0:
+		return "delist"
+	if asking_salary(p) > cap - payroll(list) + int(p.get("salary", 0)):
+		return "cap"
+	return ""
+
+
+## The term a rival club offers: longer for the young.
+static func ai_years(p: Dictionary) -> int:
+	var age := float(p.get("age", 25.0))
+	return 3 if age <= 25.0 else (2 if age <= 30.0 else 1)
+
+
+## What losing him is worth, from what the market paid for him and who he
+## is - nothing hidden: his new salary and its length, his rating and his
+## age. Two parts in five are the salary he signed for, three his rating on
+## the same scale (so a rating point moves it smoothly, where salaries step); a
+## longer deal and a younger player each count for more. Roughly 1 to 14.
+static func compensation_value(p: Dictionary, salary: int, years: int) -> float:
+	var rating := clampf((float(p.get("overall", 50)) - 35.0) / 5.5, 1.0, 10.0)
+	var base := 0.4 * float(salary) + 0.6 * rating
+	var term := 0.85 + 0.1 * float(clampi(years, 1, MAX_YEARS))
+	var youth := clampf(1.0 + (27.0 - float(p.get("age", 27.0))) * 0.03, 0.85, 1.15)
+	return base * term * youth
+
+
+## Where the pick goes: right after regular pick `after` in the national
+## draft (0 = no pick). It slides evenly with the value - the best
+## departures land mid first round, an ordinary starter around the end of
+## the first, a role player in the second - and a value too small to reach
+## the end of the second round earns nothing.
+static func compensation_after(value: float, clubs: int) -> int:
+	var after := roundi(float(clubs) * (0.5 + (12.0 - value) / 4.0))
+	after = maxi(after, roundi(clubs * 0.5))
+	return after if after <= clubs * 2 else 0
+
+
+## "after pick 18, at the end of the first round".
+static func pick_words(after: int, clubs: int) -> String:
+	var rnd := (after - 1) / maxi(1, clubs) + 1
+	var nth: String = ["first", "second", "third", "fourth"][clampi(rnd - 1, 0, 3)]
+	var at := after - (rnd - 1) * clubs
+	var where := "at the end of the %s round" % nth if at == clubs else \
+			("early in the %s round" % nth if at <= clubs / 3 else "in the %s round" % nth)
+	return "after pick %d, %s" % [after, where]
 
 
 static func payroll(list: Array) -> int:
@@ -154,18 +287,7 @@ static func trade_value(p: Dictionary) -> float:
 ## Would a rival keep this expiring player at his asking price? Keep good
 ## players the cap can carry; let the rest go.
 static func ai_keeps(p: Dictionary, list: Array, cap: int) -> bool:
-	if float(p.get("age", 25.0)) >= 33.0 and int(p.get("overall", 50)) < 70:
-		return false
-	var room := cap - payroll(list) + int(p.get("salary", 0))
-	if asking_salary(p) > room:
-		return false
-	# Keep anyone at or above the list's median worth.
-	var worths := []
-	for q in list:
-		worths.append(worth(q))
-	worths.sort()
-	var median := float(worths[worths.size() / 2]) if not worths.is_empty() else 0.0
-	return worth(p) >= median - 2.0
+	return ai_release_reason(p, list, cap) == ""
 
 
 ## Does the AI club accept `give` (its players, to you) for `take` (yours, to
