@@ -296,14 +296,22 @@ static func age_player(p: Dictionary, year: int) -> float:
 		d += 1.0  # the young stars' ceilings stretch too
 	# Close part of the gap to potential (most of it in a rehab year). This
 	# replaces the age curve when it is bigger rather than stacking on it, so
-	# the league does not inflate. Growth never carries a player past his POT;
-	# only training can.
+	# the league does not inflate. Natural growth stops at the projection.
 	var grow := Potential.growth(p, age)
 	if grow > 0.0:
 		d = maxf(d, grow)
 	var target := clampf(float(ov) + d, 25.0, 93.0)
 	if d > 0.0 and p.has("potential"):
 		target = minf(target, float(maxi(ov, int(p["potential"]))))
+	# A breakout year: a jump on top of that, wherever he stands against his
+	# POT. Rolled fresh each year for every player alike - nobody is marked
+	# for it in advance - and remembered for his story.
+	if p.has("potential") and rng.randf() < Potential.breakout_chance(age):
+		var jump := Potential.breakout_jump(rng)
+		target = clampf(target + jump, 25.0, 97.0)
+		var story: Array = p.get("breakouts", [])
+		story.append([year, int(round(jump))])
+		p["breakouts"] = story
 
 	var role := str(p.get("role", "MID"))
 	var a: Dictionary = p.get("attr", {})
@@ -344,15 +352,16 @@ static func renormalise_league(lists: Dictionary, pool: Array, baseline: float,
 		stretch = clampf(baseline_spread / spread, 0.85, 1.20)
 	if absf(mean - baseline) < 0.5 and absf(stretch - 1.0) < 0.02:
 		return {"shift": 0.0, "stretch": 1.0}
+	var to_scale := func(v: float) -> float: return baseline + (v - mean) * stretch
 	for code in lists:
 		for p in lists[code]:
-			_shift_player(p, baseline + (float(p["overall"]) - mean) * stretch)
+			_shift_player(p, to_scale.call(float(p["overall"])), to_scale)
 	for p in pool:
-		_shift_player(p, baseline + (float(p["overall"]) - mean) * stretch)
+		_shift_player(p, to_scale.call(float(p["overall"])), to_scale)
 	return {"shift": mean - baseline, "stretch": stretch}
 
 
-static func _shift_player(p: Dictionary, target_overall: float) -> void:
+static func _shift_player(p: Dictionary, target_overall: float, to_scale: Callable) -> void:
 	var a: Dictionary = p.get("attr", {})
 	if a.is_empty():
 		return
@@ -361,12 +370,11 @@ static func _shift_player(p: Dictionary, target_overall: float) -> void:
 	p["attr"] = fit_attributes(a, role, target, Ratings.effective_games(p))
 	p["overall"] = Ratings.rate_overall(p["attr"], role, Ratings.effective_games(p))
 	p["value"] = Ratings.salary_value(int(p["overall"]))
-	# Potential stays put. Shifting it too would ratchet every ceiling down
-	# each year and squeeze out the elite. (Rivals can only train so far in
-	# a season - GameState.AI_SEASON_GAIN - so the room this leaves is not
-	# simply trained straight back.)
+	# POT is a projection on the same scale as OVR: when the league is
+	# re-anchored it moves with it, so a player's distance to his projection
+	# is kept. It never moves to meet the rating he has reached.
 	if p.has("potential"):
-		p["potential"] = maxi(int(p["potential"]), int(p["overall"]))
+		p["potential"] = clampi(int(round(to_scale.call(float(p["potential"])))), 1, Potential.MAX_POT)
 
 
 ## Age the undrafted pool between seasons. Prospects re-enter next year's
