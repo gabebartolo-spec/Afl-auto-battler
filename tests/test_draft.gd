@@ -15,6 +15,7 @@ func run() -> void:
 	_test_complete_small_draft()
 	_test_real_pool()
 	_test_player_name_modes()
+	_test_plausible_names()
 	_test_cap_guard()
 	_test_stuck_draft_recovery()
 	print("Draft tests: %d checks, %d failures" % [checks, failures.size()])
@@ -270,6 +271,50 @@ func _test_player_name_modes() -> void:
 		extra_seen[label] = true
 	GameDB._alias_next = saved_next
 	GameState.set_show_real_names(previous)
+
+
+## ARD-M8-009: twenty generated classes read like Australian football
+## prospects - no recycled surnames inside a class, no repeated full names
+## across a long career, no real player's name, no invented words.
+func _test_plausible_names() -> void:
+	var saved_next: int = GameDB._alias_next
+	var seen := {}
+	var real := {}
+	for person in GameDB.players + GameDB.draftees:
+		seen[str(person["generic_name"])] = true
+		real[str(person.get("real_name", ""))] = true
+	var class_repeats := 0
+	var collisions := []
+	var real_hits := []
+	var longest := ""
+	for i in range(20):
+		var cls: Array = Prospects.generate_class(2027 + i, 4242)
+		var surnames := {}
+		for person in cls:
+			var label := str(person["generic_name"])
+			var last := label.substr(label.find(" ") + 1)
+			if surnames.has(last):
+				class_repeats += 1
+			surnames[last] = true
+			if seen.has(label):
+				collisions.append(label)
+			if real.has(label):
+				real_hits.append(label)
+			seen[label] = true
+			if label.length() > longest.length():
+				longest = label
+	GameDB._alias_next = saved_next
+	_check(class_repeats == 0, "No draft class recycles a surname (%d repeats over 20 classes)" % class_repeats)
+	_check(collisions.is_empty(), "No full name repeats across twenty years of drafts (%s)" % str(collisions))
+	_check(real_hits.is_empty(), "A generated player never takes a real player's name (%s)" % str(real_hits))
+	_check(longest.length() <= 24, "Names stay short enough for a phone row (%s)" % longest)
+	var invented := ["Orbit", "Jumble", "Cobble", "Drift", "Fizz", "Puddle", "Gossamer", "Sprocket"]
+	var words_ok := true
+	for word in invented:
+		if GameDB.FICTIONAL_LAST_NAMES.has(word):
+			words_ok = false
+	_check(words_ok and GameDB.FICTIONAL_FIRST_NAMES.size() >= 120 and GameDB.FICTIONAL_LAST_NAMES.size() >= 300,
+			"The name pools are large and made of real names")
 
 
 func _is_generated_name(label: String) -> bool:

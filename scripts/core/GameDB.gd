@@ -37,24 +37,68 @@ const CLUB_ORDER := ["ADE", "BRL", "CAR", "COL", "ESS", "FRE", "GEE", "GCS",
 		"GWS", "HAW", "MEL", "NTH", "PAD", "RIC", "SKN", "SYD", "WCE", "WBD",
 		"TAS", "CANB"]
 
-## Fictional aliases are shuffled from these invented name parts once at load.
-## The fixed seed keeps a player's alias stable across every screen and every
-## launch. Numbered placeholders ("Squadmate 001", "Player 001") are never used.
+## Fictional names: a broad contemporary Australian mix of first names and
+## surnames. Each list is shuffled once with a fixed seed and the two are
+## walked in step (their lengths share no factor), so every full name is
+## unique for lengths-multiplied draws and no surname repeats inside any run
+## of FICTIONAL_LAST_NAMES.size() consecutive players - a draft class never
+## recycles a surname. A pair that is a real listed player's name is
+## skipped. Numbered placeholders and invented words are never used.
 const FICTIONAL_FIRST_NAMES := [
-	"Ari", "Bex", "Cato", "Dax", "Elio", "Fenn", "Gavi", "Hux", "Ivo", "Jori",
-	"Kavi", "Luma", "Miro", "Nilo", "Oren", "Pax", "Quill", "Rumi", "Savi", "Taro",
-	"Umi", "Vero", "Wilo", "Yori", "Zeno", "Arlo", "Bardo", "Ceri", "Dori", "Eno",
-	"Fia", "Gilo", "Hani", "Juno", "Koda", "Lior", "Mavi", "Nori", "Olli", "Piri",
-	"Roka", "Sora", "Tavi", "Udo", "Vali", "Wren", "Xeno", "Yara", "Zavi",
+	"Jack", "Harry", "Oliver", "Noah", "William", "Thomas", "James", "Lachlan", "Cooper", "Charlie", "Henry", "Max",
+	"Lucas", "Ethan", "Liam", "Samuel", "Jacob", "Joshua", "Benjamin", "Alexander", "Isaac", "Hunter", "Archie", "Riley",
+	"Oscar", "Hudson", "Mason", "Jaxon", "Leo", "Harrison", "Patrick", "Daniel", "Tyler", "Ryan", "Nathan", "Luke",
+	"Mitchell", "Callum", "Zac", "Kai", "Jai", "Flynn", "Angus", "Hamish", "Fraser", "Tom", "Will", "Sam",
+	"Ben", "Josh", "Nick", "Matt", "Jake", "Dylan", "Connor", "Jordan", "Brodie", "Darcy", "Toby", "Blake",
+	"Jasper", "Felix", "Hugo", "Ollie", "Arlo", "Elijah", "Xavier", "Sebastian", "Owen", "Marcus", "Aidan", "Caleb",
+	"Bailey", "Jesse", "Kade", "Luca", "Marco", "Nikolas", "Christian", "Adrian", "Dominic", "Anthony", "Joel", "Elias",
+	"Tristan", "Damon", "Leon", "Andre", "Stefan", "Ivan", "Harvey", "Jye", "Jett", "Koby", "Kobe", "Taj",
+	"Rhys", "Ewan", "Reuben", "Finn", "Ned", "Alfie", "Jamie", "Logan", "Cody", "Mackenzie", "Brayden", "Jayden",
+	"Tyson", "Tate", "Beau", "Lewis", "Reid", "Zane", "Seth", "Gabriel", "Isaiah", "Malachi", "Levi", "Micah",
+	"Jonah", "Ari", "Dante", "Mateo", "Nate", "Kyle", "Shaun", "Corey", "Bryce", "Kieran", "Declan", "Rory",
+	"Quinn", "Hayden", "Tobias", "Spencer", "Archer", "Joseph", "Jordy", "Carter", "Lincoln", "Austin", "Jeremy", "Travis",
+	"Darius", "Marley", "Tahj", "Jarrod",
 ]
 const FICTIONAL_LAST_NAMES := [
-	"Bramble", "Cinder", "Dapple", "Ember", "Fallow", "Glint", "Hush", "Jumble",
-	"Kestrel", "Lattice", "Morrow", "Nettle", "Orbit", "Puddle", "Quiver", "Riddle",
-	"Sable", "Tangle", "Umber", "Vesper", "Wicket", "Yarrow", "Zephyr", "Barlow",
-	"Crinkle", "Dovetail", "Evers", "Flint", "Gossamer", "Hallow", "Juniper", "Kibble",
-	"Lumen", "Mica", "Nimbus", "Oxbow", "Plover", "Rook", "Sprocket", "Thimble",
-	"Upland", "Velvet", "Xylo", "Yonder", "Zinnia", "Bracken", "Cobble", "Drift",
-	"Fizz", "Grouse",
+	"Anderson", "Baker", "Bennett", "Brooks", "Brown", "Campbell", "Carter", "Clarke", "Collins", "Cook",
+	"Cooper", "Davies", "Dixon", "Edwards", "Evans", "Fisher", "Fletcher", "Foster", "Graham", "Grant",
+	"Gray", "Hall", "Harris", "Harrison", "Hayes", "Henderson", "Hill", "Hughes", "Hunter", "Jackson",
+	"James", "Jenkins", "Johnson", "Jones", "Kelly", "Kennedy", "King", "Knight", "Lane", "Lawson",
+	"Lee", "Lewis", "Lloyd", "Marshall", "Martin", "Mason", "Matthews", "McDonald", "McKenzie", "Miller",
+	"Mitchell", "Moore", "Morgan", "Morris", "Murphy", "Murray", "Nelson", "Newman", "Parker", "Payne",
+	"Pearce", "Phillips", "Porter", "Powell", "Price", "Reid", "Richards", "Roberts", "Robertson", "Robinson",
+	"Rogers", "Ross", "Russell", "Ryan", "Saunders", "Scott", "Shaw", "Simpson", "Smith", "Spencer",
+	"Stewart", "Sullivan", "Taylor", "Thomas", "Thompson", "Turner", "Walker", "Wallace", "Ward", "Watson",
+	"Webb", "Wells", "White", "Williams", "Wilson", "Wood", "Wright", "Young", "Burke", "Byrne",
+	"Doyle", "Duffy", "Fitzgerald", "Flanagan", "Gallagher", "Kavanagh", "Keane", "Lynch", "Maguire", "McCarthy",
+	"McGrath", "McMahon", "Moloney", "Nolan", "O'Brien", "O'Connor", "Quinlan", "Ryder", "Sheehan", "Walsh",
+	"Brennan", "Callaghan", "Costello", "Delaney", "Donnelly", "Fogarty", "Hanlon", "Keogh", "Malone", "Regan",
+	"Tierney", "Cullen", "Dunne", "Hogan", "Horan", "Rossi", "Russo", "Romano", "Ricci", "Marino",
+	"Greco", "Bruno", "Gallo", "Conti", "Esposito", "Mancini", "Lombardi", "Moretti", "Barbieri", "Ferraro",
+	"Rinaldi", "Caruso", "Santoro", "Fabbri", "Bianchi", "Colombo", "Vitale", "Messina", "Testa", "Grasso",
+	"Pellegrino", "Silvestri", "Palmieri", "Leone", "Morello", "Papadopoulos", "Georgiou", "Nikolaidis", "Christou", "Dimitriou",
+	"Pappas", "Vlahos", "Karras", "Andreou", "Zervas", "Galanis", "Mavros", "Kovac", "Horvat", "Novak",
+	"Petrovic", "Jankovic", "Markovic", "Babic", "Juric", "Kralj", "Vukovic", "Peric", "Bozic", "Lukic",
+	"Simic", "Tomic", "Haddad", "Khoury", "Nasser", "Saliba", "Hanna", "Farah", "Mansour", "Daher",
+	"Issa", "Karam", "Abboud", "Rahme", "Sleiman", "Chidiac", "Habib", "Nguyen", "Tran", "Le",
+	"Pham", "Huynh", "Vo", "Dang", "Bui", "Do", "Ho", "Ngo", "Duong", "Ly",
+	"Truong", "Lam", "Singh", "Sharma", "Patel", "Kumar", "Gill", "Sandhu", "Dhillon", "Grewal",
+	"Bains", "Sidhu", "Chen", "Wong", "Li", "Zhang", "Lin", "Thorne", "Rowe", "Hart",
+	"Fox", "Ford", "Frost", "Gale", "Hale", "Holt", "Keen", "Kent", "Lowe", "Marsh",
+	"Nash", "Page", "Pike", "Pratt", "Rice", "Rudd", "Shore", "Stone", "Swift", "Todd",
+	"Vale", "Wade", "Wolfe", "Yates", "Bishop", "Booth", "Bolton", "Bowman", "Brady", "Buckley",
+	"Burgess", "Burton", "Carr", "Chapman", "Coleman", "Cross", "Curtis", "Dawson", "Day", "Dean",
+	"Doherty", "Draper", "Eaton", "Ellis", "Farrell", "Ferguson", "Finch", "Gardiner", "Gibson", "Gilbert",
+	"Goodwin", "Gordon", "Greenwood", "Griffin", "Hammond", "Hancock", "Hardy", "Harper", "Hawkins", "Haynes",
+	"Hicks", "Hodges", "Holland", "Holmes", "Hopkins", "Howard", "Hudson", "Hutchinson", "Ingram", "Jarvis",
+	"Jennings", "Kemp", "Lambert", "Lawrence", "Little", "Lucas", "Lyons", "Mann", "Maxwell", "McLean",
+	"Mills", "Moss", "Norris", "Oakley", "Osborne", "Owen", "Palmer", "Parsons", "Pearson", "Perry",
+	"Pope", "Potter", "Quinn", "Ramsay", "Randall", "Reynolds", "Riley", "Rowley", "Sanders", "Sharp",
+	"Sims", "Skinner", "Slater", "Stevens", "Sutton", "Sweeney", "Talbot", "Tucker", "Vaughan", "Walton",
+	"Warren", "Waters", "Weaver", "Whitfield", "Wilkins", "Woods", "Briggs", "Bourke", "Crowe", "Donovan",
+	"Egan", "Garvey", "Hennessy", "Kirby", "Lacey", "Mahony", "Mulcahy", "Nugent", "Rourke", "Tobin",
+	"Whelan", "Ahmed", "Ali", "Hassan", "Hussein", "Karimi", "Omar", "Rahimi", "Sultani", "Yusuf",
+	"Barakat", "Coulter", "Dunstan", "Mabey", "Penhall", "Treloar", "Whitehead",
 ]
 const FICTIONAL_NAME_SEED := 260922
 
@@ -73,6 +117,7 @@ var baseline_spread := 0.0   # standard deviation of the 2026 overalls
 ## generated intake, so no two displayed players ever collide on an alias.
 var _alias_candidates: Array = []
 var _alias_next := 0
+var _real_names := {}
 
 
 ## A player's age at the start of the first playable season (START_DATE),
@@ -91,6 +136,7 @@ func reload() -> void:
 	clubs = _load_clubs()
 	_alias_candidates = []
 	_alias_next = 0
+	_real_names = {}
 	players = _load_players()
 	Ratings.derive_all(players)
 	_apply_history(players)
@@ -399,14 +445,24 @@ func _assign_fictional_names(list: Array) -> void:
 ## quadratically, exhausts the pool, and used to fall back to "Squadmate 001".
 func assign_aliases(list: Array) -> void:
 	_ensure_alias_pool()
-	var start := _alias_next
+	# A real listed player's name is never handed out as an alias.
+	for p in list:
+		var real := str(p.get("real_name", ""))
+		if real != "":
+			_real_names[real] = true
 	for i in range(list.size()):
-		var idx := start + i
-		var label := str(_alias_candidates[idx]) if idx < _alias_candidates.size() \
-				else _overflow_alias(idx - _alias_candidates.size())
+		var label := _alias_at(_alias_next)
+		_alias_next += 1
+		while _real_names.has(label):
+			label = _alias_at(_alias_next)
+			_alias_next += 1
 		list[i]["generic_name"] = label
 		list[i]["name"] = label
-	_alias_next = start + list.size()
+
+
+func _alias_at(idx: int) -> String:
+	return str(_alias_candidates[idx]) if idx < _alias_candidates.size() \
+			else _overflow_alias(idx - _alias_candidates.size())
 
 
 ## Still a generated name once the shuffled pairs run out. Three tokens cannot
@@ -431,18 +487,24 @@ func _overflow_alias(n: int) -> String:
 func _ensure_alias_pool() -> void:
 	if not _alias_candidates.is_empty():
 		return
+	var firsts := _shuffled(FICTIONAL_FIRST_NAMES, FICTIONAL_NAME_SEED)
+	var lasts := _shuffled(FICTIONAL_LAST_NAMES, FICTIONAL_NAME_SEED + 1)
 	var candidates := []
-	for first in FICTIONAL_FIRST_NAMES:
-		for last in FICTIONAL_LAST_NAMES:
-			candidates.append("%s %s" % [first, last])
-	var rng := RandomNumberGenerator.new()
-	rng.seed = FICTIONAL_NAME_SEED
-	for i in range(candidates.size() - 1, 0, -1):
-		var j := rng.randi_range(0, i)
-		var swap = candidates[i]
-		candidates[i] = candidates[j]
-		candidates[j] = swap
+	for k in range(firsts.size() * lasts.size()):
+		candidates.append("%s %s" % [firsts[k % firsts.size()], lasts[k % lasts.size()]])
 	_alias_candidates = candidates
+
+
+static func _shuffled(words: Array, seed: int) -> Array:
+	var out := words.duplicate()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
+	for i in range(out.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var swap = out[i]
+		out[i] = out[j]
+		out[j] = swap
+	return out
 
 
 ## The enriched file is required. There is deliberately no fallback to the
