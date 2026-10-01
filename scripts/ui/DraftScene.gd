@@ -834,7 +834,8 @@ func _open_player(id: String) -> void:
 	else:
 		nums.add_child(_big_number(int(p["overall"]), "OVR", "DetailOVR"))
 		nums.add_child(_big_number(int(p.get("potential", p["overall"])), "POT", "DetailPOT"))
-	var room := UiKit.lbl(GameState.development_state(p), 14, UiKit.TEXT)
+	var room := UiKit.lbl("Scouting estimate" if projected else GameState.development_state(p), 14,
+			UiKit.MUTED if projected else UiKit.TEXT)
 	room.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	room.size_flags_vertical = Control.SIZE_SHRINK_END
 	room.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
