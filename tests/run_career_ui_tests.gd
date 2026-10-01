@@ -612,6 +612,13 @@ func _run() -> void:
 			_check(current_scene.find_children("Sign_*", "Button", true, false).is_empty(),
 					"No one-tap free-agent signing")
 			var fa_talk = current_scene.find_child("FreeAgentTalks", true, false)
+			# Prefer a free agent with rival offers, to see the offers table.
+			for fa in _state.free_agents:
+				if not (_state.fa_offers(str(fa["id"])) as Array).is_empty():
+					var row = current_scene.find_child("Agent_" + str(fa["id"]), true, false)
+					if row != null and row.find_child("FreeAgentTalks", true, false) != null:
+						fa_talk = row.find_child("FreeAgentTalks", true, false)
+						break
 			_check(fa_talk != null, "A free agent can be talked to")
 			if fa_talk != null:
 				var list_before: int = _state.my_list.size()
@@ -621,6 +628,12 @@ func _run() -> void:
 						and _screen_text().contains("Cap room after this deal")
 						and _state.my_list.size() == list_before,
 						"Free-agent talks open the same sheet and sign nothing")
+				var table = current_scene.find_child("OffersTable", true, false)
+				var view_w: float = current_scene.get_viewport_rect().size.x
+				_check(table != null and (table as Control).get_global_rect().end.x <= view_w + 0.5
+						and _screen_text().contains("His view"),
+						"Rival offers show as a table that fits the screen (%s of %d)" % [
+						str((table as Control).get_global_rect().end.x) if table != null else "none", int(view_w)])
 				_router.handle_back(true)
 				await _settle()
 				_check(current_scene.find_child("ContractTalks", true, false) == null, "Back closes free-agent talks")

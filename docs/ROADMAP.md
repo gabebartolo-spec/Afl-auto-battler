@@ -2753,7 +2753,7 @@ Additional acceptance:
 - after signing/rejecting/negotiating with a player midway down the list, the user remains at approximately the same scroll position instead of being thrown back to the top.
 
 ### Rival free-agency order — no first refusal by club order
-**Status:** `TODO` (follow-up found while building compensation picks, #166). Not started; the fix below is a proposal awaiting approval.
+**Status:** `IN REVIEW` (follow-up found while building compensation picks, #166). The director chose competing visible offers over the reverse-ladder turn order proposed below; see the competitive free-agent offers PR stacked on #166.
 
 When free agency closes, rival clubs sign free agents by walking the clubs in list order (`season.lists`, i.e. `CLUB_ORDER`): each club in turn takes the best free agents it can afford until it reaches `Contracts.AI_FILL`. The clubs early in that order therefore get first refusal on the whole market. With negotiated contracts and compensation picks, that is now a fairness problem, not trivia.
 

@@ -89,9 +89,12 @@ func _test_offseason_flow() -> void:
 	# Sign the best free agent we can afford.
 	var signed := false
 	GameState.salary_cap += 40
+	# A free agent no other club has offered for signs at his asking price;
+	# where rivals have offered, your offer goes on the table instead.
 	for fa in GameState.free_agents.duplicate():
-		if str(fa.get("released_by", "")) != GameState.my_club:
-			var res := GameState.sign_free_agent(str(fa["id"]), 2)
+		if str(fa.get("released_by", "")) != GameState.my_club and (fa.get("offers", []) as Array).is_empty() \
+				and not bool(GameState.free_agent_terms(str(fa["id"]))["refuse"]):
+			var res := GameState.sign_free_agent(str(fa["id"]), int(Contracts.wants(fa)["years"]))
 			signed = bool(res["ok"]) and GameState.list_player(str(fa["id"])) == fa \
 					and str(fa["club"]) == GameState.my_club
 			break
@@ -262,60 +265,111 @@ func _test_negotiation() -> void:
 ## player can see. Cap room alone never signs anyone.
 func _test_free_agent_terms() -> void:
 	var p := {"id": "fa_t", "overall": 70, "potential": 72, "age": 27.0, "morale": 70}
-	var calm := Contracts.free_agent_terms(p, {"in_best22": true, "rivals": 0, "finish": 3, "clubs": 18})
-	_check(int(calm["premium"]) == 0 and not bool(calm["refuse"]) and (calm["reasons"] as Array).is_empty(),
-			"With no other suitors and a good club he asks nothing extra")
-	var wanted := Contracts.free_agent_terms(p, {"in_best22": true, "rivals": 2, "finish": 16, "clubs": 18})
-	_check(int(wanted["premium"]) == 2 and str(wanted["reasons"]).contains("Other clubs")
-			and str(wanted["reasons"]).contains("16th"),
-			"Rival interest and a bottom-six club each cost a point, and he says why")
-	var bench := Contracts.free_agent_terms(p, {"in_best22": false, "rivals": 1, "finish": 3, "clubs": 18})
+	var bench := Contracts.free_agent_terms(p, {"in_best22": false, "rivals": 1})
 	_check(bool(bench["refuse"]) and str(bench["reasons"]).contains("best 22"),
-			"He won't sit outside your best 22 while another club wants him")
-	var nowhere := Contracts.free_agent_terms(p, {"in_best22": false, "rivals": 0, "finish": 3, "clubs": 18})
-	_check(not bool(nowhere["refuse"]) and int(nowhere["premium"]) == 0,
-			"With nowhere else to go, he'll come and fight for a spot")
-	# Club attractiveness is graded and modest: nothing for the premiers, at
-	# most a tenth of his price for the wooden spoon, never falling as you
-	# drop and never more than a point between neighbouring finishes.
-	var graded := true
-	for ovr in [45, 60, 70, 80, 92]:
-		var q := {"id": "fa_g", "overall": ovr, "potential": ovr, "age": 26.0, "morale": 70}
-		var cap_pts := roundi(Contracts.asking_salary(q) * 0.1)
-		var last := 0
-		for finish in range(1, 19):
-			var c := Contracts.club_premium(q, finish, 18)
-			if c < last or c - last > 1 or c > cap_pts or (finish == 1 and c != 0):
-				graded = false
-			last = c
-	_check(graded, "Your finish lifts his price gradually and modestly, with no ladder cliff")
-	var twelfth := Contracts.club_premium(p, 12, 18)
-	var thirteenth := Contracts.club_premium(p, 13, 18)
-	_check(thirteenth - twelfth <= 1 and twelfth == Contracts.club_premium(p, 11, 18),
-			"Finishing 13th is not a different rule from finishing 12th")
-	var low := Contracts.lowest(p, 3)
-	_check(str(Contracts.respond(p, low, 3, 0, 1)["answer"]) == "counter"
-			and str(Contracts.respond(p, low + 1, 3, 0, 1)["answer"]) == "accept",
-			"His options are added to his lowest price")
+			"He won't sit outside your best 22 while a club that would play him has an offer")
+	var nowhere := Contracts.free_agent_terms(p, {"in_best22": false, "rivals": 0})
+	_check(not bool(nowhere["refuse"]), "With nowhere else to play, he'll come and fight for a spot")
+	# How he weighs offers: close decisions turn on each factor.
+	var ask := Contracts.asking_salary(p)
+	var o := func(salary: int, years: int, role: String, t: float) -> Dictionary:
+		return {"salary": salary, "years": years, "role": role, "finish_t": t}
+	_check(Contracts.prefers(p, o.call(ask + 1, 3, "bench", 0.5), o.call(ask, 3, "bench", 0.5))
+			and Contracts.offer_view(p, o.call(ask + 1, 3, "bench", 0.5), o.call(ask, 3, "bench", 0.5), "X") == "Best financial offer.",
+			"Salary matters in a close decision, and he says so")
+	_check(Contracts.prefers(p, o.call(ask, 3, "bench", 0.5), o.call(ask, 1, "bench", 0.5))
+			and Contracts.offer_view(p, o.call(ask, 3, "bench", 0.5), o.call(ask, 1, "bench", 0.5), "X") == "More contract security.",
+			"Contract security matters in a close decision")
+	_check(Contracts.prefers(p, o.call(ask, 3, "ground", 0.5), o.call(ask + 1, 3, "depth", 0.5))
+			and Contracts.offer_view(p, o.call(ask, 3, "ground", 0.5), o.call(ask + 1, 3, "depth", 0.5), "X") == "Clearer path into the best 22.",
+			"A spot in the best 22 beats one more salary point to sit in the twos")
+	_check(Contracts.prefers(p, o.call(ask, 3, "bench", 0.0), o.call(ask, 3, "bench", 1.0))
+			and Contracts.offer_view(p, o.call(ask, 3, "bench", 0.0), o.call(ask, 3, "bench", 1.0), "Carlton").contains("Carlton's offer after their stronger season"),
+			"The club's last season counts when all else is level")
+	_check(Contracts.prefers(p, o.call(ask + 3, 3, "depth", 0.5), o.call(ask, 3, "ground", 0.5)),
+			"Enough money still wins: nothing is absolute")
+	# Equal in his eyes: more money first, never a list position.
+	var a: Dictionary = o.call(8, 3, "depth", 0.5)
+	var b: Dictionary = o.call(7, 3, "bench", 0.1875)
+	_check(Contracts.prefers(p, a, b) and not Contracts.prefers(p, b, a), "A dead heat goes to the bigger salary")
+	# Club valuations come from his role there, and stop at the cap.
+	_check(Contracts.club_max(p, "ground", 99) == ask + 2 and Contracts.club_max(p, "bench", 99) == ask + 1
+			and Contracts.club_max(p, "depth", 99) == Contracts.lowest(p, Contracts.ai_years(p))
+			and Contracts.club_max(p, "ground", 3) == 3, "A club pays a starter more than a depth player, never past its cap room")
+	# Rival answers.
+	var match_r := Contracts.rival_response(p, o.call(ask, 3, "ground", 0.5), o.call(ask + 2, 3, "ground", 0.6), ask + 3)
+	_check(str(match_r["action"]) == "match" and int(match_r["salary"]) == ask + 2, "A rival can match the leading salary")
+	var up := Contracts.rival_response(p, o.call(ask, 3, "bench", 0.5), o.call(ask + 1, 3, "bench", 0.5), ask + 3)
+	_check(str(up["action"]) == "improve" and int(up["salary"]) == ask + 2, "A rival improves just enough to lead")
+	var out := Contracts.rival_response(p, o.call(ask, 3, "ground", 0.5), o.call(ask + 4, 3, "ground", 0.5), ask + 2)
+	_check(str(out["action"]) == "withdraw", "A rival withdraws once the price passes what he's worth to it")
+	var stay := Contracts.rival_response(p, o.call(ask - 1, 1, "depth", 1.0), o.call(ask - 1, 3, "ground", 0.0), ask - 1)
+	_check(str(stay["action"]) == "hold" and int(stay["salary"]) == ask - 1, "A rival that can't win but isn't priced out holds")
 
 
 func _test_free_agents() -> void:
 	_new_season()
 	_to_offseason()
-	GameState.salary_cap += 40
-	var target := {}
-	var refused := {}
+	var me := GameState.my_club
+	# Offers on the table: real contracts, from clubs that want him.
+	var multi := {}
+	var total := 0
+	var honest := true
+	var notes := []
 	for fa in GameState.free_agents:
-		var t := GameState.free_agent_terms(str(fa["id"]))
-		if bool(t["refuse"]) and refused.is_empty():
-			refused = fa
-		elif not bool(t["refuse"]) and int(t["premium"]) > 0 and target.is_empty() \
-				and Contracts.lowest(fa, int(Contracts.wants(fa)["years"])) > 1:
-			target = fa
-	# The best-22 test is the real selection (1 ruck, 7 mids, 5 backs, 5
-	# forwards and a bench), not a rank of ratings: a player who fills a thin
-	# position makes the side even when 22 of your players rate higher.
-	# Make the ruck the thin position: your rucks drop to 40 for the check.
+		var seen := {}
+		for o in fa.get("offers", []):
+			total += 1
+			var code := str(o["club"])
+			var list: Array = GameState.season.lists[code]
+			if seen.has(code) or code == str(fa.get("released_by", "")) or code == me \
+					or int(o["salary"]) < 1 or int(o["years"]) < 1 or int(o["years"]) > Contracts.MAX_YEARS \
+					or int(o["salary"]) > GameState._cap_room_of(code) \
+					or int(o["salary"]) > GameState.offer_max(fa, o) \
+					or GameState.fa_role(fa, code) != str(o["role"]) \
+					or (bool(o.get("filler", false)) and list.size() >= Contracts.AI_FILL) \
+					or (not bool(o.get("filler", false)) and str(o["role"]) == "depth"):
+				honest = false
+				notes.append("%s %s" % [code, str(o)])
+			seen[code] = true
+		if seen.size() >= 2 and multi.is_empty():
+			multi = fa
+	_check(not multi.is_empty(), "A free agent can hold offers from several clubs")
+	_check(honest, "Every offer is a real contract from a club with the need, the cap room and the valuation %s" % str(notes.slice(0, 3)))
+	_check(total < GameState.free_agents.size() * GameState.season.lists.size() / 3,
+			"Clubs don't bid on everyone (%d offers for %d free agents)" % [total, GameState.free_agents.size()])
+	# No list-order priority: the same market opens whatever order the clubs
+	# are stored in.
+	var before := _offer_book()
+	var lists: Dictionary = GameState.season.lists
+	var keys := lists.keys()
+	keys.reverse()
+	var flipped := {}
+	for k in keys:
+		flipped[k] = lists[k]
+	GameState.season.lists = flipped
+	for fa in GameState.free_agents:
+		fa.erase("offers")
+	GameState._open_market(GameState.free_agents)
+	_check(_offer_book() == before, "The offers don't depend on the order clubs are listed in")
+	# A generated player goes through exactly the same market.
+	var gen: Dictionary = (GameDB.draftees[0] as Dictionary).duplicate(true)
+	gen["id"] = "fa_generated"
+	gen["overall"] = 84
+	gen["age"] = 24.0
+	gen["contract_years"] = 0
+	gen["released_by"] = str(keys[0])
+	GameState.free_agents.append(gen)
+	for fa in GameState.free_agents:
+		fa.erase("offers")
+	GameState._open_market(GameState.free_agents)
+	_check((gen.get("offers", []) as Array).size() >= 2, "A generated player draws offers like anyone (%d)" % (gen.get("offers", []) as Array).size())
+	GameState.free_agents.erase(gen)
+	for fa in GameState.free_agents:
+		fa.erase("offers")
+	GameState._open_market(GameState.free_agents)
+	# The best-22 test is positional: with your rucks weak, a ruckman rated
+	# below your top 22 still has a place.
 	var saved := {}
 	for q in GameState.my_list:
 		if str(q["role"]) == "RUCK":
@@ -327,62 +381,145 @@ func _test_free_agents() -> void:
 	all_ovr.sort()
 	all_ovr.reverse()
 	var cut := int(all_ovr[21])
-	var big := {"id": "fa_ruck", "overall": cut - 5, "potential": cut - 5, "age": 26.0, "morale": 70,
-			"role": "RUCK", "attr": {}}
+	var big := {}
 	for q in GameState.my_list:
 		if str(q["role"]) == "RUCK":
 			big = q.duplicate(true)
 			break
-	big["id"] = "fa_ruck"
-	big["overall"] = cut - 5
-	big.erase("talks")
-	GameState.free_agents.append(big)
-	var t_fit := GameState.free_agent_terms("fa_ruck")
-	_check(not str(t_fit["reasons"]).contains("best 22"),
-			"A ruckman rated below your top 22 still has a place when your rucks are weak: the test is positional (%d v cut %d)" % [
-			int(big["overall"]), cut])
-	GameState.free_agents.erase(big)
+	if not big.is_empty():
+		big["id"] = "fa_ruck"
+		big["overall"] = cut - 5
+		big.erase("role2")
+		GameState._bars = {}
+		_check(GameState.fa_role(big, me) == "ground",
+				"A ruckman rated below your top 22 starts when your rucks are weak (%d v cut %d)" % [int(big["overall"]), cut])
 	for q in GameState.my_list:
 		if saved.has(str(q["id"])):
 			q["overall"] = saved[str(q["id"])]
+	GameState._bars = {}
+	# Refusal: he won't sit outside your best 22 while a club that would play
+	# him has an offer.
+	var refused := {}
+	for fa in GameState.free_agents:
+		if bool(GameState.free_agent_terms(str(fa["id"]))["refuse"]):
+			refused = fa
+			break
 	if not refused.is_empty():
 		var r0 := GameState.offer_free_agent(str(refused["id"]), 50, 3)
 		_check(not bool(r0["ok"]) and str(r0["answer"]) == "reject" and GameState.free_agents.has(refused),
 				"A player who won't come turns down even a big offer, and says why")
-	_check(not refused.is_empty(), "Some free agent won't sit outside your best 22")
-	_check(not target.is_empty(), "Some free agent has other options to weigh")
+	# Bidding against rivals for a player who would start for you.
+	GameState.salary_cap += 80
+	var target := {}
+	for fa in GameState.free_agents:
+		if GameState.fa_role(fa, me) == "ground" and (fa.get("offers", []) as Array).size() >= 1:
+			var ok := true
+			for o in fa["offers"]:
+				ok = ok and not bool(o.get("filler", false))
+			if ok and (target.is_empty() or int(fa["overall"]) > int(target["overall"])):
+				target = fa
+	_check(not target.is_empty(), "A starter for you has rival offers to beat")
 	if target.is_empty():
 		return
 	var id := str(target["id"])
 	var years := int(Contracts.wants(target)["years"])
-	var premium := int(GameState.free_agent_terms(id)["premium"])
-	var base := Contracts.lowest(target, years)
-	var size_before := GameState.my_list.size()
-	var r := GameState.offer_free_agent(id, base, years)
-	_check(str(r["answer"]) == "counter" and int(r["salary"]) == base + premium
-			and GameState.my_list.size() == size_before and GameState.free_agents.has(target),
-			"Cap room alone does not sign him: his options lift his price")
-	_check(GameState.save_career() and GameState.load_career(), "Free-agent talks survive a save")
-	target = GameState.free_agent(id)
-	_check(int(target.get("talks", {}).get("counter", 0)) == base + premium,
-			"After a load his counter stands")
-	r = GameState.offer_free_agent(id, base + premium, years)
-	_check(bool(r["ok"]) and GameState.list_player(id) == target and GameState.free_agent(id).is_empty()
-			and int(target["salary"]) == base + premium and int(target["contract_years"]) == years + 1,
-			"Meeting his counter signs him onto your list")
-	# Rivals sign whoever is left by the same rules at the rollover.
+	var low := Contracts.lowest(target, years)
+	var r := GameState.offer_free_agent(id, low - 1, years)
+	_check(str(r["answer"]) == "counter" and GameState.fa_offers(id).filter(func(x): return bool(x["mine"])).is_empty(),
+			"Under his lowest price he counters, and nothing goes on the table")
+	var top: Dictionary = GameState.fa_offers(id)[0]
+	var bid := int(top["salary"]) + 1
+	r = GameState.offer_free_agent(id, bid, years)
+	_check(str(r["answer"]) == "table" and not (r["responses"] as Array).is_empty(),
+			"Your offer goes on the table and the rivals you overtook answer it (%s)" % str(r["responses"]))
+	var within := true
+	for o in GameState.free_agent(id).get("offers", []):
+		if str(o["club"]) != me and int(o["salary"]) > GameState.offer_max(target, o):
+			within = false
+	_check(within, "No rival goes past its valuation or its cap room")
+	_check(GameState.fa_market_stage(id) == "final", "Your second offer will be your last")
+	var book := str(GameState.fa_offers(id))
+	_check(GameState.save_career() and GameState.load_career() and str(GameState.fa_offers(id)) == book
+			and GameState.fa_market_stage(id) == "final", "A save keeps every offer and where the talks stand")
+	var lead: Dictionary = GameState.fa_offers(id)[0]
+	var final_salary := int(lead["salary"]) + (0 if bool(lead["mine"]) else 1)
+	var r1 := GameState.offer_free_agent(id, final_salary, years)
+	var won := str(r1["answer"])
+	var where := ""
+	var contract := []
+	for code in GameState.season.lists:
+		for q in GameState.season.lists[code]:
+			if str(q["id"]) == id:
+				where = code
+				contract = [int(q["salary"]), int(q["contract_years"])]
+	_check(won == "signed" or won == "lost", "After your final offer he chooses (%s)" % won)
+	_check(where != "" and GameState.free_agent(id).is_empty(), "He signs with the club he chose")
+	_check(GameState.load_career() and str(GameState.offer_free_agent(id, final_salary, years)["answer"]) == won,
+			"Reloading before he chooses cannot change his choice")
+	var again := ""
+	var contract2 := []
+	for code in GameState.season.lists:
+		for q in GameState.season.lists[code]:
+			if str(q["id"]) == id:
+				again = code
+				contract2 = [int(q["salary"]), int(q["contract_years"])]
+	_check(again == where and contract2 == contract, "Same club, same contract, every time")
+	# He signs the contract he chose, and his old club's compensation reads it.
+	var a_club := ""
+	var star := {}
+	for code in GameState.season.lists:
+		if code == me:
+			continue
+		for q in GameState.season.lists[code]:
+			if not q.has("joined") and (star.is_empty() or int(q["overall"]) > int(star["overall"])):
+				star = q
+				a_club = code
+	GameState._release(a_club, star, true)
+	GameState._open_market([star])
+	var sid := str(star["id"])
+	var offers_now := GameState.fa_offers(sid)
+	if not offers_now.is_empty():
+		var lead2: Dictionary = offers_now[0]
+		GameState.offer_free_agent(sid, int(lead2["salary"]) + 1, int(Contracts.wants(star)["years"]))
+		var lead3: Dictionary = GameState.fa_offers(sid)[0]
+		GameState.offer_free_agent(sid, int(lead3["salary"]) + (0 if bool(lead3["mine"]) else 1), int(Contracts.wants(star)["years"]))
+	var signed_for := []
+	var signed_with := ""
+	for code in GameState.season.lists:
+		for q in GameState.season.lists[code]:
+			if str(q["id"]) == sid:
+				signed_with = code
+				signed_for = [int(q["salary"]), int(q["contract_years"]) - 1]
+	var comp_ok := false
+	for c in GameState.compensation:
+		if str(c["player"]) == sid:
+			comp_ok = str(c["club"]) == a_club and str(c["to"]) == signed_with \
+					and [int(c["salary"]), int(c["years"])] == signed_for
+	_check(signed_with != "" and comp_ok, "Compensation is worked out from the contract he actually signed")
+	# Free agency closes: rivals settle the rest by the same rules.
 	GameState._close_contracts()
 	var fair := true
-	var seen := 0
+	var seen_n := 0
 	for entry in GameState.offseason_log:
-		if str(entry.get("kind", "")) == "signed" and str(entry["club"]) != GameState.my_club:
-			for q in GameState.season.lists[str(entry["club"])]:
-				if str(q["id"]) == str(entry["id"]):
-					seen += 1
-					# Contracts have ticked: contract_years is now the term signed.
-					if int(q["salary"]) != Contracts.lowest(q, int(q["contract_years"])):
-						fair = false
-	_check(fair and seen > 0, "Rivals sign free agents at the least each takes for their term (%d checked)" % seen)
+		if str(entry.get("kind", "")) == "signed" and str(entry["club"]) != me:
+			seen_n += 1
+			var code := str(entry["club"])
+			if Contracts.payroll(GameState.season.lists[code]) > GameState.salary_cap:
+				fair = false
+	_check(fair and seen_n > 0, "Every rival signing fits under the cap (%d signings)" % seen_n)
+
+
+## The market as a comparable book: player -> sorted club offers.
+func _offer_book() -> String:
+	var rows := []
+	for fa in GameState.free_agents:
+		var offers := []
+		for o in fa.get("offers", []):
+			offers.append("%s:%d:%d:%s:%s" % [o["club"], int(o["salary"]), int(o["years"]), o["role"], str(o.get("filler", false))])
+		offers.sort()
+		rows.append("%s=%s" % [fa["id"], ",".join(PackedStringArray(offers))])
+	rows.sort()
+	return "|".join(PackedStringArray(rows))
 
 
 ## Part 3: free-agency compensation. Losing a better, younger player on a

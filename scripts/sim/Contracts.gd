@@ -122,46 +122,146 @@ static func respond(p: Dictionary, salary: int, years: int, failed := 0, premium
 	return {"answer": "counter", "salary": floor_price, "insult": insult}
 
 
-## A free agent weighs your club against his options, all from facts you
-## can see: `facts` = {"in_best22": would he make your best 22, "rivals":
-## other clubs with the room and the need for him, "finish": your ladder
-## finish, "clubs": clubs in the league}. Returns {"premium": points on top
-## of his lowest, "refuse": bool, "reasons": [what he's weighing, in words]}.
-## Rival interest costs a point. Your last finish costs a little more the
-## lower you were (`club_premium`). A player who would not make your best 22
-## won't come while another club wants him.
-static func free_agent_terms(p: Dictionary, facts: Dictionary) -> Dictionary:
-	var premium := 0
+## Would this free agent turn you down flat? A player who would not make
+## your best 22 won't come while a club that would play him has an offer on
+## the table. `facts` = {"in_best22": bool, "rivals": offers from clubs that
+## would play him}. Returns {"refuse": bool, "reasons": [words]}. His price
+## is settled by the offers themselves (see the market below).
+static func free_agent_terms(_p: Dictionary, facts: Dictionary) -> Dictionary:
 	var reasons := []
-	var rivals := int(facts.get("rivals", 0))
-	var finish := int(facts.get("finish", 0))
 	var refuse := false
 	if not bool(facts.get("in_best22", true)):
-		if rivals > 0:
+		if int(facts.get("rivals", 0)) > 0:
 			refuse = true
-			reasons.append("He wants senior football: he wouldn't make your best 22, and other clubs want him.")
+			reasons.append("He wants senior football: he wouldn't make your best 22, and a club that would play him has made an offer.")
 		else:
-			reasons.append("He wouldn't make your best 22, but no other club has room for him.")
-	if rivals > 0 and not refuse:
-		premium += 1
-		reasons.append("Another club has the room and the need for him." if rivals == 1
-				else "Other clubs have the room and the need for him.")
-	var club := club_premium(p, finish, int(facts.get("clubs", 18)))
-	if club > 0 and not refuse:
-		premium += club
-		reasons.append("Your side finished %s: he'd want a little more to come." % _ordinal(finish))
-	return {"premium": premium, "refuse": refuse, "reasons": reasons}
+			reasons.append("He wouldn't make your best 22, but no club that would play him has made an offer.")
+	return {"premium": 0, "refuse": refuse, "reasons": reasons}
 
 
-## How much your last finish adds to his price: nothing for the premiers,
-## rising evenly to a tenth of his asking price for the wooden spoon,
-## rounded to a whole point. No single ladder position changes the rule; the
-## rounding only decides where, for this player, the one point lands.
-static func club_premium(p: Dictionary, finish: int, clubs: int) -> int:
-	if finish <= 1 or clubs <= 1:
-		return 0
-	var t := clampf(float(finish - 1) / float(clubs - 1), 0.0, 1.0)
-	return roundi(asking_salary(p) * 0.1 * t)
+# ---------------------------------------------------------------------------
+# The free-agent market. Clubs that want a free agent put real offers on the
+# table (salary and years, visible to everyone); he weighs them on money,
+# security, his role at the club and how the club went last year. No dice:
+# the same offers always produce the same choice.
+# ---------------------------------------------------------------------------
+## Offers you can make that rivals answer: the second is your final offer.
+const FA_ROUNDS := 2
+const ROLE_WEIGHT := {"ground": 1.5, "bench": 0.75, "depth": 0.0}
+const ROLE_RANK := {"ground": 2, "bench": 1, "depth": 0}
+
+
+## How he rates an offer: salary in points, plus security (0.4 a year, up to
+## the term he wants), plus his role at the club (a starting spot is worth
+## a point and a half, a bench spot half that), plus up to 0.8 for a club
+## that finished high last year (`finish_t`: 0 premiers, 1 wooden spoon).
+## Never shown as a number; `offer_view` puts it in words.
+static func offer_score(p: Dictionary, o: Dictionary) -> float:
+	var wanted := int(wants(p)["years"])
+	return float(o["salary"]) + 0.4 * float(mini(int(o["years"]), wanted)) \
+			+ float(ROLE_WEIGHT.get(str(o.get("role", "depth")), 0.0)) \
+			+ 0.8 * (1.0 - clampf(float(o.get("finish_t", 0.5)), 0.0, 1.0))
+
+
+## Does he prefer offer `a` to `b`? Ties go to more money, then the longer
+## deal, then the bigger role, then the club that finished higher - never
+## to a club's place in any list.
+static func prefers(p: Dictionary, a: Dictionary, b: Dictionary) -> bool:
+	var sa := snappedf(offer_score(p, a), 0.001)
+	var sb := snappedf(offer_score(p, b), 0.001)
+	if sa != sb:
+		return sa > sb
+	if int(a["salary"]) != int(b["salary"]):
+		return int(a["salary"]) > int(b["salary"])
+	if int(a["years"]) != int(b["years"]):
+		return int(a["years"]) > int(b["years"])
+	var ra := int(ROLE_RANK.get(str(a.get("role", "depth")), 0))
+	var rb := int(ROLE_RANK.get(str(b.get("role", "depth")), 0))
+	if ra != rb:
+		return ra > rb
+	return float(a.get("finish_t", 1.0)) < float(b.get("finish_t", 1.0))
+
+
+## The offer he prefers among `offers` (standing ones only), or {}.
+static func best_offer(p: Dictionary, offers: Array) -> Dictionary:
+	var best := {}
+	for o in offers:
+		if bool(o.get("withdrawn", false)):
+			continue
+		if best.is_empty() or prefers(p, o, best):
+			best = o
+	return best
+
+
+## The most a club will pay him a season, from his role there and his
+## asking price - never his potential: a starter up to two points over his
+## asking price, a bench player one, a depth signing only his lowest. Never
+## more than the club's cap room.
+static func club_max(p: Dictionary, role: String, cap_room: int) -> int:
+	var ask := asking_salary(p)
+	var most := ask + 2 if role == "ground" else (ask + 1 if role == "bench" else lowest(p, ai_years(p)))
+	return mini(most, cap_room)
+
+
+## A club's opening offer: his lowest price for the term he wants (a depth
+## signing: the club's usual term).
+static func opening_offer(p: Dictionary, role: String) -> Dictionary:
+	var years := int(wants(p)["years"]) if role != "depth" else ai_years(p)
+	return {"salary": lowest(p, years), "years": years}
+
+
+## A rival's answer when `leader` is ahead of its offer `own`: the cheapest
+## offer up to `most` a season that he would prefer (it may lengthen the
+## deal to the term he wants first). Returns {"action": "improve" |
+## "match" | "hold" | "withdraw", "salary", "years"}: "match" when it only
+## draws level on money, "withdraw" once the leading salary is past what he
+## is worth to the club, "hold" otherwise.
+static func rival_response(p: Dictionary, own: Dictionary, leader: Dictionary, most: int) -> Dictionary:
+	var wanted := int(wants(p)["years"])
+	var years_options := [int(own["years"])]
+	if wanted > int(own["years"]):
+		years_options.append(wanted)
+	for salary in range(int(own["salary"]), most + 1):
+		for years in years_options:
+			var trial: Dictionary = own.duplicate()
+			trial["salary"] = salary
+			trial["years"] = years
+			if prefers(p, trial, leader):
+				var action := "match" if salary == int(leader["salary"]) else "improve"
+				if salary == int(own["salary"]) and years == int(own["years"]):
+					action = "hold"
+				return {"action": action, "salary": salary, "years": years}
+	if int(leader["salary"]) > most:
+		return {"action": "withdraw", "salary": int(own["salary"]), "years": int(own["years"])}
+	return {"action": "hold", "salary": int(own["salary"]), "years": int(own["years"])}
+
+
+## Why he likes `o` more than `other`, in a few words: the factor that
+## favours it most. "" when nothing does.
+static func offer_view(p: Dictionary, o: Dictionary, other: Dictionary, club_name: String) -> String:
+	if other.is_empty():
+		return "The only offer."
+	var wanted := int(wants(p)["years"])
+	var gaps := {
+		"money": float(int(o["salary"]) - int(other["salary"])),
+		"security": 0.4 * float(mini(int(o["years"]), wanted) - mini(int(other["years"]), wanted)),
+		"role": float(ROLE_WEIGHT.get(str(o.get("role", "depth")), 0.0)) - float(ROLE_WEIGHT.get(str(other.get("role", "depth")), 0.0)),
+		"club": 0.8 * (float(other.get("finish_t", 0.5)) - float(o.get("finish_t", 0.5))),
+	}
+	var top := ""
+	for k in ["money", "role", "security", "club"]:
+		if float(gaps[k]) > 0.0 and (top == "" or float(gaps[k]) > float(gaps[top])):
+			top = k
+	match top:
+		"money":
+			return "Best financial offer."
+		"role":
+			return "Clearer path into the best 22."
+		"security":
+			return "More contract security."
+		"club":
+			return "Prefers %s offer after their stronger season." % (club_name + ("'" if club_name.ends_with("s") else "'s"))
+	return ""
 
 
 static func _ordinal(n: int) -> String:
@@ -169,20 +269,6 @@ static func _ordinal(n: int) -> String:
 	if n % 100 < 11 or n % 100 > 13:
 		suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
 	return "%d%s" % [n, suffix]
-
-
-## Would a rival club want this free agent? It has a spot to fill, the cap room for
-## his asking price and he would be at least an average player on its list
-## - the same test rivals use to keep their own.
-static func ai_wants(p: Dictionary, list: Array, cap: int) -> bool:
-	if list.size() >= AI_FILL or asking_salary(p) > cap - payroll(list):
-		return false
-	var worths := []
-	for q in list:
-		worths.append(worth(q))
-	worths.sort()
-	var median := float(worths[worths.size() / 2]) if not worths.is_empty() else 0.0
-	return worth(p) >= median - 2.0
 
 
 # ---------------------------------------------------------------------------
