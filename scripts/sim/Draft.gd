@@ -634,10 +634,11 @@ func _ai_score(code: String, p: Dictionary) -> float:
 ## the draft seed, so a draft replays identically, the opinion never changes
 ## mid-draft, and a saved draft needs no extra state.
 ##
-## It only steers rival clubs' choices. Ratings, the board, the cap and your
-## club's picks are untouched (your club gets no error), and the intake
-## draft keeps its shared valuation. Calibrated with the drafted-league
-## harness: docs/DRAFT_EVALUATION.md.
+## It only steers rival clubs' choices in the career re-draft. The National
+## Draft has its own shared scouting model (DraftScouting): every club,
+## including the human user's, gets a stable imperfect view rather than hidden
+## true ratings. Calibrated with the drafted-league harness:
+## docs/DRAFT_EVALUATION.md.
 const AI_EVAL_SD_MIN := 1.0
 const AI_EVAL_SD_MAX := 5.0
 ## Errors are capped at this many of the club's SDs, so no club rates a
@@ -757,7 +758,19 @@ func _need_weight(code: String, role: String) -> float:
 ## rivals pick in between, and roughly their share of those picks goes to
 ## this position.
 func _replacement(code: String, role: String) -> float:
-	var avail: Array = _ai_avail.get(role, [])
+	var avail: Array = []
+	if intake_mode:
+		# A National Draft club judges the depth behind a prospect through its
+		# own scouting view too; it cannot use hidden true ratings to know who
+		# will still be valuable at the next pick.
+		for p in pool:
+			if picked.has(str(p["id"])) or not Ratings.plays_role(p, role):
+				continue
+			avail.append(DraftScouting.scouted_worth(p, code, seed, AI_POT_WEIGHT_INTAKE))
+		avail.sort()
+		avail.reverse()
+	else:
+		avail = _ai_avail.get(role, [])
 	if avail.is_empty():
 		return 0.0
 	var gap := 0
