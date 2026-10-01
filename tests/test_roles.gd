@@ -223,15 +223,21 @@ func _test_tagger() -> void:
 	for code in GameDB.active_clubs(2027):
 		usual[PlanFit.standing_plan(Squad.new(code, GameDB.club_list(code), false, code).ground)] = true
 	_check(usual.size() >= 3, "Clubs play different usual games (%s)" % str(usual.keys()))
-	# Controlled tempo asks nothing special of a list (measured: its value does
-	# not move with kicks and marks), so no list fits it better or worse and
-	# no screen names carriers for it.
-	var neutral := true
+	# Controlled tempo now needs clean ball users: good lists get more from it,
+	# poor ones only blunt a press part-way. It stays a situational protection
+	# plan, never a club's usual game.
+	var controlled_ok := true
+	var lo := INF
+	var hi := -INF
 	for code in GameDB.active_clubs(2027):
 		var g2: Array = Squad.new(code, GameDB.club_list(code), false, code).ground
-		neutral = neutral and is_equal_approx(PlanFit.fit(g2, "controlled"), 1.0) \
-				and GameState.plan_fit_line(g2, "controlled") == ""
-	_check(neutral, "Controlled tempo is list-neutral: fit 1.0 and no carrier line for every club")
+		var f := PlanFit.fit(g2, "controlled")
+		lo = minf(lo, f)
+		hi = maxf(hi, f)
+		controlled_ok = controlled_ok and not PlanFit.carriers(g2, "controlled").is_empty() \
+				and PlanFit.standing_plan(g2) != "controlled"
+	_check(controlled_ok and hi > lo,
+			"Controlled tempo depends on ball users and is never a club's usual game")
 
 
 ## Selection surfaces the problem, never the answer: no hint names who to
