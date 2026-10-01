@@ -282,6 +282,15 @@ def derive_ratings(players):
         else:
             role_scores["RUCK"] = -1.0
         p["role"] = max(role_scores, key=role_scores.get)
+        # Ratings.listed_primary: the listing first, unless the numbers
+        # have all but left his listed line.
+        listed = p.get("real_pos", "")
+        if p["role"] == "MID" and listed in ("FWD", "DEF") and (
+                p["gm"] < LISTED_TRUST_GAMES
+                or role_scores[listed] >= LISTED_KEEP * role_scores["MID"]
+                or (role_scores[listed] >= LISTED_GONE * role_scores["MID"]
+                    and p["cl"] / p["gm"] < LISTED_MID_CLEARANCES)):
+            p["role"] = listed
         # Ratings.ROLE_CORRECTIONS: clearly misread forwards.
         p["role"] = ROLE_CORRECTIONS.get("%s|%s" % (p.get("club", ""), p.get("name", "")), p["role"])
         p["role_scores"] = role_scores
@@ -309,8 +318,8 @@ ROLE_WEIGHTS = {  # role core: attribute -> weight (Ratings.gd::ROLE_WEIGHTS)
 
 # Position scale - see Ratings.gd::position_stretch. [p10, p50, p98] of each
 # position's raw blend -> where it lands; one for one outside that band.
-STRETCH_ANCHORS = {"MID": (39.26, 51.49, 82.37), "DEF": (40.37, 47.88, 58.90),
-                   "FWD": (39.79, 50.93, 62.05), "RUCK": (39.13, 66.27, 86.90)}
+STRETCH_ANCHORS = {"MID": (41.22, 53.99, 82.62), "DEF": (40.07, 47.75, 58.86),
+                   "FWD": (36.86, 48.25, 61.42), "RUCK": (39.13, 66.27, 86.90)}
 STRETCH_TARGETS = {"MID": (37.74, 49.36, 78.04), "DEF": (43.07, 49.41, 73.72),
                    "FWD": (38.38, 49.48, 78.04), "RUCK": (37.50, 49.36, 73.56)}
 
@@ -362,6 +371,10 @@ def assign_secondary(p):
     return best
 
 
+LISTED_KEEP = 0.65
+LISTED_GONE = 0.50
+LISTED_MID_CLEARANCES = 1.5
+LISTED_TRUST_GAMES = 6.0
 LISTED_FWD_GOALS = 0.35
 LISTED_FWD_MARKS_I50 = 0.5
 LISTED_DEF_ACTIONS = 2.0
