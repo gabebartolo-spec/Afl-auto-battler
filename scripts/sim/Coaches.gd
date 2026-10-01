@@ -81,10 +81,9 @@ const DEV_WHOLE_GAME := 6.0
 
 ## Coaches' fictional first names: never one a player can have, so a coach
 ## and a player never share a name. Surnames come from GameDB's list.
-const COACH_FIRST_NAMES := ["Alder", "Ansel", "Bastian", "Brannock", "Caddo", "Corvin",
-		"Dallin", "Denholm", "Emrys", "Everard", "Faulk", "Garnet", "Harlow", "Ismay",
-		"Jessop", "Keir", "Lorne", "Merrick", "Nevin", "Orrin", "Pell", "Quinlan", "Rook",
-		"Soren", "Thane", "Ulick", "Vance", "Wyatt", "Yarrow", "Zeb", "Barnaby", "Cuthbert"]
+const COACH_FIRST_NAMES := ["Graeme", "Darren", "Wayne", "Craig", "Brett", "Shane", "Glenn", "Rodney", "Stephen", "Peter", "Mark", "Paul",
+		"Michael", "David", "Andrew", "Simon", "Brad", "Scott", "Damien", "Dean", "Garry", "Neil", "Rohan", "Trevor",
+		"Kevin", "Gavin", "Murray", "Leigh", "Clinton", "Justin", "Brendan", "Gerard", "Phillip"]
 const COACH_NAME_SEED := 51_2026
 
 

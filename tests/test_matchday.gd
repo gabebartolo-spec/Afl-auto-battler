@@ -11,7 +11,7 @@ var checks := 0
 const ADVICE := ["should", "try ", "switch", "recommend", "consider", "you need to", "lean ",
 		"keep the", "protect", "tag him", "run play"]
 ## Engine words that must never reach the player.
-const ENGINE := ["fp", "chain", "ballup", "ball-up", "inside50", "_", "|", "sim", "def "]
+const ENGINE := ["fp", "chain", "ballup", "ball-up", "inside50", "_", "|", "def "]
 
 
 func run() -> void:
@@ -72,6 +72,12 @@ func _test_feed(res: Dictionary) -> void:
 		for w in ENGINE:
 			if low.contains(w):
 				leak = t
+		# "sim" is an engine token only as a word. A real surname such as Sims
+		# must not trip the presentation-language guard.
+		var sim_word := RegEx.new()
+		sim_word.compile("(^|[^a-z])sim([^a-z]|$)")
+		if sim_word.search(low) != null:
+			leak = t
 		if (low.contains("def ") or low.contains("defeated")) and not t.begins_with("Full time"):
 			leak = t
 	_check(shown_goals == goals, "Every goal reaches the feed (%d of %d)" % [shown_goals, goals])
