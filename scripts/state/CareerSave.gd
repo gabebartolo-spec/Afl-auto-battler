@@ -242,18 +242,38 @@ static func migrate_club_codes(v: Variant) -> Variant:
 			re.compile("(?<![A-Za-z])%s(?![A-Za-z])" % old)
 			_code_res.append([re, RENAMED_CLUBS[old]])
 	if v is String:
-		var s: String = v
-		for pair in _code_res:
-			s = (pair[0] as RegEx).sub(s, str(pair[1]), true)
-		return s
-	if v is Dictionary:
-		var out := {}
-		for k in v:
-			out[migrate_club_codes(k)] = migrate_club_codes(v[k])
-		return out
-	if v is Array:
-		var out := []
-		for x in v:
-			out.append(migrate_club_codes(x))
-		return out
+		return _renamed(v)
+	# In place: a save shares one player dict between lists, the draft and
+	# GameDB, and that sharing must survive. Renaming is idempotent, so a
+	# shared dict visited twice is harmless.
+	_migrate_in_place(v)
 	return v
+
+
+static func _renamed(s: String) -> String:
+	for pair in _code_res:
+		s = (pair[0] as RegEx).sub(s, str(pair[1]), true)
+	return s
+
+
+static func _migrate_in_place(v: Variant) -> void:
+	if v is Dictionary:
+		var d: Dictionary = v
+		for k in d.keys():
+			var val = d[k]
+			if val is String:
+				d[k] = _renamed(val)
+			else:
+				_migrate_in_place(val)
+			if k is String:
+				var nk := _renamed(k)
+				if nk != k:
+					d[nk] = d[k]
+					d.erase(k)
+	elif v is Array:
+		var a: Array = v
+		for idx in range(a.size()):
+			if a[idx] is String:
+				a[idx] = _renamed(a[idx])
+			else:
+				_migrate_in_place(a[idx])
