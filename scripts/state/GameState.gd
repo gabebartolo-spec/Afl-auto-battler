@@ -3405,8 +3405,8 @@ const FORM_GAP := 15.0
 
 
 ## How the side plays, from the season so far against the average club:
-## {"win": [sentence], "beaten": [sentence], "games": n}. The biggest
-## differences first, at most three each; nothing until three games in.
+## {"win": [sentence], "beaten": [sentence], "games": n}. The most material
+## differences first, at most two each; nothing until three games in.
 func how_we_play(code := "") -> Dictionary:
 	if code == "":
 		code = my_club
@@ -3415,7 +3415,7 @@ func how_we_play(code := "") -> Dictionary:
 	for f in _style_found(code):
 		var lines: Array = STYLE_LINES[f["k"]]
 		var bucket: Array = out["win"] if bool(f["good"]) else out["beaten"]
-		if bucket.size() < 3:
+		if bucket.size() < 2:
 			bucket.append(str(lines[0] if bool(f["good"]) else lines[1]) % int(f["n"]))
 	return out
 
@@ -3432,8 +3432,16 @@ func their_style(code: String, limit := 2) -> Array:
 	return out
 
 
-## The stats where a club is clearly off the league average, most marked
+## The stats where a club is materially off the league average, most marked
 ## first: [{"k", "rel", "n", "good"}]. [] before three games.
+## - Material: each stat has its own smallest difference worth saying
+##   (STYLE_MIN, about one club-to-club spread, never under a goal for a
+##   points line), so a point or two a game is never an identity.
+## - Early reads are provisional: the per-game difference is shrunk toward
+##   the average by games / (games + STYLE_SHRINK), so three games need a
+##   big gap and a genuine trait firms up as the season goes on.
+## - One diagnosis, not its symptoms: a points-source line is dropped when
+##   the total it feeds (points for or against) already says the same.
 func _style_found(code: String) -> Array:
 	var mine: Dictionary = season_team.get(code, {})
 	var games := int(mine.get("games", 0))
@@ -3447,17 +3455,44 @@ func _style_found(code: String) -> Array:
 		clubs += 1
 		for k in STYLE_LINES:
 			league[k] = float(league.get(k, 0.0)) + float(row.get(k, 0.0)) / g
+	var shrink := float(games) / float(games + STYLE_SHRINK)
 	var found := []
 	for k in STYLE_LINES:
 		var avg := float(league.get(k, 0.0)) / float(maxi(1, clubs))
 		if avg <= 0.0:
 			continue
-		var d := float(mine.get(k, 0.0)) / float(games) - avg
+		var d := (float(mine.get(k, 0.0)) / float(games) - avg) * shrink
 		var good: bool = (d > 0.0) != bool(STYLE_LINES[k][2])
-		if absf(d) / avg >= STYLE_GAP and int(round(absf(d))) >= 1:
-			found.append({"k": k, "rel": absf(d) / avg, "n": int(round(absf(d))), "good": good})
+		if absf(d) >= float(STYLE_MIN[k]):
+			found.append({"k": k, "rel": absf(d) / float(STYLE_MIN[k]), "n": int(round(absf(d))), "good": good})
 	found.sort_custom(func(a, b): return float(a["rel"]) > float(b["rel"]))
-	return found
+	var said := {}
+	for f in found:
+		said["%s|%s" % [f["k"], f["good"]]] = true
+	var out := []
+	for f in found:
+		var total := str(STYLE_PART_OF.get(str(f["k"]), ""))
+		if total != "" and said.has("%s|%s" % [total, f["good"]]):
+			continue
+		out.append(f)
+	return out
+
+
+## The smallest per-game difference from the average side worth calling a
+## trait: about one club-to-club spread over a season (measured), and never
+## under a goal for a points line.
+const STYLE_MIN := {
+	"for": 9.0, "against": 8.0, "clearances": 2.5, "inside50": 3.0,
+	"pressure_acts": 9.0, "marks": 5.0, "clangers": 3.5, "hitouts": 7.0,
+	"from_turnover": 6.0, "from_stoppage": 6.0, "conceded_turnover": 6.0, "conceded_stoppage": 6.0,
+}
+## Early reads are provisional: the difference counts games / (games + this).
+const STYLE_SHRINK := 4
+## A points-source line and the total it is part of.
+const STYLE_PART_OF := {
+	"from_turnover": "for", "from_stoppage": "for",
+	"conceded_turnover": "against", "conceded_stoppage": "against",
+}
 
 
 ## STYLE_LINES as said of an opponent: [when it helps them, when it hurts them].
@@ -3477,8 +3512,6 @@ const THEIR_STYLE := {
 }
 
 
-## How far off the average a side must be before it is a trait of its play.
-const STYLE_GAP := 0.07
 ## stat -> [said when it helps, said when it hurts, lower is better]
 const STYLE_LINES := {
 	"for": ["We kick a winning score: %d points a game more than the average side.",
