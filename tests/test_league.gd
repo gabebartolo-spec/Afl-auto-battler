@@ -27,37 +27,32 @@ func _check(condition: bool, message: String) -> void:
 
 func _test_difficulty() -> void:
 	GameState.reset()
-	_check(GameState.difficulty == "normal" and GameState.rival_season_gain() == GameState.AI_SEASON_GAIN,
-			"A new career starts on Normal, the tuned league")
+	_check(GameState.difficulty == "normal", "A new career starts on Normal, the tuned league")
 	GameState.set_new_career_difficulty("hard")
 	GameState.reset()
 	_check(GameState.difficulty == "hard", "The menu's difficulty applies to the next career")
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	# Difficulty never changes how players develop: the same rival gains the
+	# same on Hard and Easy, and the same game pays your players the same XP.
 	var rival: Dictionary = (GameState.season.lists["ADE"] as Array)[0]
-	var hard := rival.duplicate(true)
-	hard["xp"] = 100000
-	hard["potential"] = int(hard["overall"]) + 12
-	hard["season_start_ov"] = int(hard["overall"])
-	GameState.ai_spend_xp(hard)
-	var hard_gain := int(hard["overall"]) - int(rival["overall"])
-	GameState.difficulty = "easy"
-	var easy := rival.duplicate(true)
-	easy["xp"] = 100000
-	easy["potential"] = int(easy["overall"]) + 12
-	easy["season_start_ov"] = int(easy["overall"])
-	GameState.ai_spend_xp(easy)
-	var easy_gain := int(easy["overall"]) - int(rival["overall"])
-	_check(hard_gain >= 4 and easy_gain <= 2 and hard_gain > easy_gain,
-			"Rivals develop further on Hard than on Easy (%d vs %d)" % [hard_gain, easy_gain])
+	var gains := []
+	for level in ["hard", "easy"]:
+		GameState.difficulty = level
+		var q := rival.duplicate(true)
+		q["xp"] = 100000
+		q["potential"] = int(q["overall"]) + 12
+		q["season_start_ov"] = int(q["overall"])
+		GameState.ai_spend_xp(q)
+		gains.append(int(q["overall"]) - int(rival["overall"]))
+	_check(gains[0] == gains[1], "Rivals develop the same on Hard and Easy (%s)" % str(gains))
 
-	# Your XP: the same game pays more on Easy than on Normal.
 	GameState.difficulty = "normal"
 	GameState.advance()
 	var res: Dictionary = GameState.last_match
 	var normal_xp := int(GameState.grant_match_xp(res)["total"])
 	GameState.difficulty = "easy"
 	var easy_xp := int(GameState.grant_match_xp(res)["total"])
-	_check(easy_xp > normal_xp, "Your players earn more XP on Easy (%d vs %d)" % [easy_xp, normal_xp])
+	_check(easy_xp == normal_xp, "Your players earn the same XP on any difficulty (%d vs %d)" % [easy_xp, normal_xp])
 
 	# Saved with the career, not taken from the menu setting.
 	GameState.difficulty = "hard"
