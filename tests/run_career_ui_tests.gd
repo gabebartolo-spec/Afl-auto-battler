@@ -61,7 +61,6 @@ func test_media_conference_rules() -> void:
 	var stage := MediaConferenceVignette.new()
 	stage.size = Vector2(390, 300)
 	stage.club = "COL"
-	stage._colours = GameDB.club_colours("COL")
 	_check(not stage._ready, "Media vignette begins as a staged scene before the question")
 	stage.finish_now()
 	_check(stage._ready, "Media vignette can skip its play-in to the question")
