@@ -656,9 +656,13 @@ func _player_row(p: Dictionary) -> Control:
 	var detail := ""
 	if bool(p.get("projected", false)):
 		var team_name := str(p.get("draft_team", p["club"]))
-		var scout := DraftScouting.projection(p, _club, _draft.seed)
-		detail = "%s · scouted %s OVR · %s POT" % [team_name,
-				DraftScouting.range_text(scout["overall"]), DraftScouting.range_text(scout["potential"])]
+		if _draft.intake_mode:
+			var scout := DraftScouting.projection(p, _club, _draft.seed)
+			detail = "%s · scouted %s OVR · %s POT" % [team_name,
+					DraftScouting.range_text(scout["overall"]), DraftScouting.range_text(scout["potential"])]
+		else:
+			detail = "%s · projected %d OVR · %d POT" % [team_name, int(p["overall"]),
+					int(p.get("potential", p["overall"]))]
 	else:
 		var short := GameDB.club_short(str(p["club"]))
 		detail = "%s · $%d · %d OVR · %d POT" % [short, int(p["value"]), int(p["overall"]),
@@ -667,7 +671,7 @@ func _player_row(p: Dictionary) -> Control:
 		var entry := _draft.pick_details(str(p["id"]))
 		detail = "#%d to %s" % [int(entry.get("pick", 0)),
 				GameDB.club_short(_draft.drafted_by(str(p["id"])))]
-		if not bool(p.get("projected", false)):
+		if not (bool(p.get("projected", false)) and _draft.intake_mode):
 			detail += " · %d OVR" % int(p["overall"])
 	var traits: Array = Traits.of(p)
 	if not traits.is_empty():
@@ -798,6 +802,7 @@ func _open_player(id: String) -> void:
 	_detail.name = "PlayerDetail"
 	var v: VBoxContainer = box["body"]
 	var projected := bool(p.get("projected", false))
+	var scouted := projected and _draft.intake_mode
 
 	# Who he is.
 	var name_l := UiKit.lbl(GameDB.player_display_name(p), 22, UiKit.TEXT, true)
@@ -827,15 +832,15 @@ func _open_player(id: String) -> void:
 	# players keep their known ratings.
 	var nums := UiKit.hbox(18)
 	v.add_child(nums)
-	if projected:
+	if scouted:
 		var scout := DraftScouting.projection(p, _club, _draft.seed)
 		nums.add_child(_big_range(scout["overall"], "Projected OVR", "DetailOVR"))
 		nums.add_child(_big_range(scout["potential"], "POT", "DetailPOT"))
 	else:
-		nums.add_child(_big_number(int(p["overall"]), "OVR", "DetailOVR"))
+		nums.add_child(_big_number(int(p["overall"]), "Projected OVR" if projected else "OVR", "DetailOVR"))
 		nums.add_child(_big_number(int(p.get("potential", p["overall"])), "POT", "DetailPOT"))
-	var room := UiKit.lbl("Scouting estimate" if projected else GameState.development_state(p), 14,
-			UiKit.MUTED if projected else UiKit.TEXT)
+	var room := UiKit.lbl("Scouting estimate" if scouted else GameState.development_state(p), 14,
+			UiKit.MUTED if scouted else UiKit.TEXT)
 	room.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	room.size_flags_vertical = Control.SIZE_SHRINK_END
 	room.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -874,7 +879,7 @@ func _open_player(id: String) -> void:
 			kv.add_child(tl)
 
 	# The Combine is a short scouting read, not invented raw athletics data.
-	if projected:
+	if scouted:
 		v.add_child(UiKit.spacer(4))
 		var combine_head := UiKit.lbl("Draft Combine", 13, UiKit.MUTED, true)
 		combine_head.name = "CombineHeading"
@@ -917,7 +922,7 @@ func _open_player(id: String) -> void:
 	# Exact attribute sheets are known for established players. A prospect's
 	# hidden ratings stay hidden: the Combine, production and scouting ranges
 	# are the evidence the recruiter actually has.
-	if not projected:
+	if not scouted:
 		var all := UiKit.btn("Hide full ratings" if _detail_all else "Full ratings", 13)
 		all.name = "DetailAllRatings"
 		all.custom_minimum_size = Vector2(0, 44)
