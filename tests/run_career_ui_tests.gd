@@ -41,6 +41,24 @@ func _screen_text() -> String:
 	return " | ".join(out)
 
 
+
+func test_media_conference_rules() -> void:
+	var recent := {}
+	var heavy := MediaConference.pick({"club": "COL", "opponent_name": "Carlton", "round": 8,
+			"result": {"home": "COL", "away": "CAR", "score": [55, 101]}}, recent)
+	_check(str(heavy.get("key", "")) == "heavy_loss", "Heavy loss earns a factual media question")
+	_check((heavy.get("options", []) as Array).size() == 3, "Media question offers three responses")
+	recent["heavy_loss"] = 8
+	var repeat := MediaConference.pick({"club": "COL", "opponent_name": "Carlton", "round": 10,
+			"result": {"home": "COL", "away": "CAR", "score": [55, 101]}}, recent)
+	_check(repeat.is_empty(), "Same media angle respects its cooldown")
+	var ordinary := MediaConference.pick({"club": "COL", "opponent_name": "Carlton", "round": 15,
+			"result": {"home": "COL", "away": "CAR", "score": [88, 72]}}, {})
+	_check(ordinary.is_empty(), "Ordinary matches do not force a press conference")
+	var close := MediaConference.pick({"club": "CAR", "opponent_name": "Collingwood", "round": 16,
+			"result": {"home": "COL", "away": "CAR", "score": [84, 86]}}, {})
+	_check(str(close.get("key", "")) == "close_game", "Close finishes can drive the press conference")
+
 func _run() -> void:
 	await process_frame
 	_state = root.get_node("GameState")
