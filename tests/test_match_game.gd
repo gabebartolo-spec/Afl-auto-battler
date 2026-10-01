@@ -43,6 +43,7 @@ func run() -> void:
 	_test_moment_calls_matter()
 	_test_tag_tradeoff()
 	_test_through_stars()
+	_test_set_shot_bands()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -933,9 +934,10 @@ func _test_spoils_and_crumbs() -> void:
 	var crumbs := 0
 	var crumbs_fwd := 0
 	var by_def := 0.0
-	# 60 matches: crumbed goals are rare (about one a match), and a 30-match
-	# sample swings a few points either side of the forwards' 58% share.
-	for i in range(60):
+	# 150 matches: crumbed goals are rare (about one a match). Forwards kick
+	# about 64% of them over 300 matches; a 60-match sample swung to 54%,
+	# under the 55% bar, on noise alone.
+	for i in range(150):
 		var res := _sim(1600 + i).run()
 		for side in range(2):
 			var team_sp := float((res["team"][side] as Dictionary).get("spoils", 0.0))
@@ -1583,3 +1585,84 @@ func _test_through_stars() -> void:
 		ordered = ordered and float(rows[i][1]) >= float(rows[i - 1][1])
 	_check(ordered and float(rows[rows.size() - 1][1]) > 1.1 and float(rows[0][1]) < 0.9,
 			"Through stars suits a side whose stars stand out (fit %.2f to %.2f)" % [float(rows[0][1]), float(rows[rows.size() - 1][1])])
+
+
+## Playtest: "from 30 metres, straight in front" was missed most of the time.
+## A set shot's chance now comes from where it is kicked from, calibrated to
+## AFL rates (92% from 15-30 m in front, 74% from 30-40 m), with the kicker
+## and the match on top; the words match the chance.
+func _test_set_shot_bands() -> void:
+	var ordinary := MatchSim.set_bands(MatchSim.SET_REF)
+	var by := {}
+	for b in ordinary:
+		by[str(b["key"])] = b
+	_check(is_equal_approx(float(by["close"]["goal"]), 0.92) and is_equal_approx(float(by["front"]["goal"]), 0.74),
+			"An ordinary kick converts at the AFL rate in front (%.2f, %.2f)" % [float(by["close"]["goal"]), float(by["front"]["goal"])])
+	_check(MatchSim.chance_words(float(by["front"]["goal"])) == "He should kick it"
+			and MatchSim.chance_words(float(by["close"]["goal"])) == "He should kick it",
+			"Straight in front, an ordinary kick should kick it")
+	_check(float(by["pocket"]["goal"]) < 0.5 and float(by["long"]["goal"]) < 0.3
+			and float(by["angle"]["goal"]) < float(by["front"]["goal"]),
+			"The pocket, the angle and long shots are harder")
+	var good := {}
+	var poor := {}
+	for b in MatchSim.set_bands(MatchSim.SET_REF * 1.25):
+		good[str(b["key"])] = b
+	for b in MatchSim.set_bands(MatchSim.SET_REF * 0.75):
+		poor[str(b["key"])] = b
+	_check(float(good["front"]["goal"]) - float(poor["front"]["goal"]) >= 0.25,
+			"A good kick and a poor one differ from 35 m in front (%.2f v %.2f)" % [float(good["front"]["goal"]), float(poor["front"]["goal"])])
+	_check(ordinary.all(func(b): return float(b["goal"]) + float(b["behind"]) <= 1.0),
+			"A set shot's goal and behind chances never exceed one")
+	# The split keeps the mark's expected goals: scoring across the league
+	# does not move, only where it comes from.
+	var sim := _sim(4600)
+	var goal_p := 0.36
+	var behind_p := 0.17
+	var n := 20000
+	var shots := 0
+	var e_goal := 0.0
+	var e_behind := 0.0
+	var fronts := 0
+	for i in range(n):
+		var split: Dictionary = sim._set_shot_split(goal_p, behind_p)
+		e_goal += float(split["goal"])
+		e_behind += float(split["behind"])
+		if not (split["band"] as Dictionary).is_empty():
+			shots += 1
+			if str(split["band"]["key"]) in ["close", "front"]:
+				fronts += 1
+	_check(absf(e_goal / n - goal_p) < 0.01, "A mark's expected goals are unchanged (%.3f v %.3f)" % [e_goal / n, goal_p])
+	_check(absf(e_behind / n - behind_p) < 0.01, "...and its expected behinds (%.3f v %.3f)" % [e_behind / n, behind_p])
+	_check(absf(float(shots) / n - MatchSim.SET_SHOT_SHARE) < 0.02 and absf(float(fronts) / shots - 0.45) < 0.03,
+			"Under half the marks are set shots, about half of them in front (%d, %d)" % [shots, fronts])
+	# In play: set shots convert at an AFL-like rate, and the offered call
+	# names where from and gives the band's chance.
+	var goals := 0
+	var tried := 0
+	for seed in range(4610, 4640):
+		var r := _sim(seed, "SYD", "RIC").run()
+		for e in r["events"]:
+			if bool(e.get("set", false)):
+				tried += 1
+				if str(e["kind"]) == "goal":
+					goals += 1
+	_check(tried > 0 and float(goals) / tried > 0.5 and float(goals) / tried < 0.8,
+			"Set shots that score go through at an AFL-like rate (%d of %d)" % [goals, tried])
+	var asked := {}
+	for seed in range(4700, 4760):
+		var live := _sim(seed)
+		live.moment_side = 0
+		while live.current_quarter <= 4 and asked.is_empty():
+			live.begin_quarter()
+			while not live.continue_quarter():
+				if str(live.pending_moment["kind"]) == "set_shot":
+					asked = live.pending_moment.duplicate(true)
+				live.resolve_moment(int(live.pending_moment.get("default", 0)))
+			live.end_quarter()
+		if not asked.is_empty():
+			break
+	var named := false
+	for b in MatchSim.SET_BANDS:
+		named = named or str(asked.get("title", "")).ends_with(str(b["spot"]))
+	_check(named, "The set-shot call says where he kicks from (%s)" % str(asked.get("title", "")))
