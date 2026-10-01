@@ -478,3 +478,16 @@ visible, but no club badges, guernsey designs or player imagery are reproduced โ
 guernseys are two
 circles in each club's registered colours. This presentation choice is not legal
 advice or a substitute for licensing review. See `docs/DESIGN.md` ยง1.
+
+
+### Android debug export
+
+The repository includes an `Android Debug` export preset for the phone playtest build. It exports an ARM64 APK as `builds/aussie-rules-dynasties-debug.apk` with package ID `com.gabebartolo.aussierulesdynasties`.
+
+After configuring Godot's Android SDK/JDK paths on the development machine:
+
+```bash
+godot --headless --path . --export-debug "Android Debug"
+```
+
+Godot's local debug keystore/export credentials are intentionally not committed. APK/AAB output and the `builds/` directory are ignored.
