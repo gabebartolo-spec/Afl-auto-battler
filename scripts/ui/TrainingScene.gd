@@ -324,7 +324,7 @@ func _last_rise(id: String) -> Array:
 ## A full senior game at this career's difficulty, to set the reserves
 ## figure against.
 func _senior_game_xp() -> int:
-	return int(round(float(GameState.XP_SENIOR_GAME) * float(GameState.difficulty_rules()["xp_mult"])))
+	return GameState.XP_SENIOR_GAME
 
 
 func _open_player(id: String) -> void:
@@ -557,8 +557,11 @@ func _potential_note(p: Dictionary) -> String:
 				int(p["potential"]), int(round((1.0 - mult) * 100.0))]
 	if mult < 0.95:
 		return "Room to grow: training %d%% off below his potential." % int(round((1.0 - mult) * 100.0))
+	var gap := int(p.get("potential", p["overall"])) - int(p["overall"])
+	if gap < 0:
+		return "Past his projected peak: every point costs far more."
 	if mult > 1.0:
-		return "At his ceiling: training costs 50% more."
+		return "Close to his projected peak: training costs more."
 	return ""
 
 
