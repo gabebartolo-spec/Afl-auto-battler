@@ -204,3 +204,35 @@ python3 tools/balance/draft_experiment_report.py <dir> --md report.md
 python3 tools/balance/draft_quality.py d_eval_off_ai.json d_current_ai.json
 # before/after with the baseline harness and seeds: see LEAGUE_BALANCE.md (pass --policy ai / board)
 ```
+
+## Asset valuation sanity (ARD-M5-012)
+
+Phone playtests showed implausible picks at both ends of the draft: Bodhi Uwland going #1 in the career draft, and a 78/92 prospect still on the board at pick 30 of a national draft.
+
+**Measured before the change**, on 24 career drafts and 8 national drafts:
+- **#1 pick in the career draft:** consensus rank 1 in only 5 of 24 drafts, and as low as 20.
+- **What drove the reaches:**
+  - the edge over replacement, worth up to +15, rewarding positions that sit lower on the rating scale (defenders);
+  - the tails of the clubs' own opinions, up to ±12.5 rating points even for the league's proven best.
+- **National draft:** every top midfield prospect fell to about pick 36. Every club counted its midfield as covered, and the covered weight of 0.2 cut his score to a fifth.
+
+**Changes (`Draft.gd`):**
+- **`INTAKE_COVERED = 0.92`.** In the national draft a covered position marks a prospect down a few points. It no longer marks him down to a fifth.
+- **`_eval_certainty`.** A club's opinion counts at `AI_EVAL_TOP_SHARE = 0.30` for the consensus best, rising to full by `AI_EVAL_FULL_RANK = 90`. Clubs agree about proven stars. They disagree in the depth, where sharper scouting separates them.
+- **`_vorp_weight`.** In the career draft, scarcity counts nothing at the first pick and in full from round three (`AI_VORP_FULL_ROUNDS = 2`). It is a reason to reach late, not at the top. The national draft keeps it throughout.
+- `draft_variant.gd` uses `_vorp_weight()`, so the experiment model still reproduces the shipped draft.
+
+**After the change:**
+- **Career #1 pick:** consensus top 4 in all 24 drafts; consensus #1 in 15.
+- **Career round-one reaches past consensus 36:** 15 before, 10 after.
+- **National draft:** no consensus top-10 prospect lasts past pick 25 (16 did across 8 classes before). Top-5 prospects go by pick 14 at the latest.
+
+**League balance** (`draft_experiment --variant current`, 8 leagues × 2 seasons, before → after):
+
+| Measure | Before | After |
+|---|---|---|
+| Squad.strength SD | 2.12 | 2.26 |
+| Skill share | 58.8% ±5 | 55.6% ±5 (within noise) |
+| Skill SD (wins) | 2.63 | 2.65 |
+
+List shape is unchanged: 2.4 rucks, 16.1 midfielders, 11.6 defenders and 6.9 forwards on average.

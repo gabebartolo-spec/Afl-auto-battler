@@ -14,7 +14,7 @@ extends Draft
 ##                only, minus the cap penalty if it is on)
 ##   need_scale   1.0 shipped. Need weights are pulled toward 1 by
 ##                w' = 1 - need_scale * (1 - w): 0 ignores list needs.
-##   vorp_scale   1.0 shipped. Multiplies AI_VORP_WEIGHT (the replacement term).
+##   vorp_scale   1.0 shipped. Multiplies _vorp_weight() (the replacement term).
 ##   cap_penalty  true shipped. false drops the soft cap mark-down.
 ##   budget_mult  1.0 shipped. Multiplies every club's hard cap (10 = no cap).
 ##   noise_sd     0 shipped. Every club misjudges every player by a fixed,
@@ -94,7 +94,7 @@ func _ai_score(code: String, p: Dictionary) -> float:
 	var err := _eval_error(code, p)
 	if str(model.get("score", "current")) == "bpa":
 		return _worth(p) + err + noise - penalty
-	var vorp_w := AI_VORP_WEIGHT * float(model.get("vorp_scale", 1.0))
+	var vorp_w := _vorp_weight() * float(model.get("vorp_scale", 1.0))
 	var best := -INF
 	var roles := [[str(p["role"]), 1.0]]
 	var role2 := str(p.get("role2", ""))
