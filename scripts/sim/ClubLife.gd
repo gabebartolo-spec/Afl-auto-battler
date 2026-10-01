@@ -19,12 +19,30 @@ const MORALE_BASE := 70
 const EVENT_CHANCE := 0.7
 
 
-static func board_goal(rank: int) -> Dictionary:
-	if rank <= 4:
+## The season's goal from where the list ranks pre-season (`rank`, by
+## Squad.strength) and where the club finished last season (`prev`, 0 when
+## there is no last season). Calibrated against replayed seasons
+## (ARD-M6-003): a pre-season list ranking is a rough guide - the best list
+## averages about fifth - so the bands ask for what a list of that rank
+## reaches in most seasons, about four times in five:
+##   top four   only a top-two list that also finished top four last year
+##              (a list ranking alone makes the top four well under half
+##              the time, so it never sets that demand by itself);
+##   finals     the top seven lists;
+##   top 12     ranks 8-12;
+##   seven wins the rest.
+const TOP4_LIST_RANK := 2
+const TOP4_LAST_FINISH := 4
+const FINALS_LIST_RANK := 7
+const TOP12_LIST_RANK := 12
+
+
+static func board_goal(rank: int, prev := 0) -> Dictionary:
+	if rank <= TOP4_LIST_RANK and prev >= 1 and prev <= TOP4_LAST_FINISH:
 		return {"key": "top4", "text": "Finish in the top four", "pos": 4}
-	if rank <= Season.FINALISTS:
+	if rank <= FINALS_LIST_RANK:
 		return {"key": "finals", "text": "Make the finals", "pos": Season.FINALISTS}
-	if rank <= 14:
+	if rank <= TOP12_LIST_RANK:
 		return {"key": "top12", "text": "Finish in the top 12", "pos": 12}
 	return {"key": "wins7", "text": "Win at least 7 games", "wins": 7}
 

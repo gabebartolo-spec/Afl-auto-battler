@@ -31,8 +31,18 @@ func _check(condition: bool, message: String) -> void:
 
 
 func _test_rules() -> void:
-	_check(str(ClubLife.board_goal(2)["key"]) == "top4" and str(ClubLife.board_goal(17)["key"]) == "wins7",
+	_check(str(ClubLife.board_goal(2, 3)["key"]) == "top4" and str(ClubLife.board_goal(17)["key"]) == "wins7",
 			"The board expects more from a stronger list")
+	# Bands match what a list of that rank reaches most years; only a top list
+	# that finished top four last year is asked to do it again.
+	var keys := []
+	for r in [1, 2, 3, 7, 8, 12, 13, 18]:
+		keys.append(str(ClubLife.board_goal(r)["key"]))
+	_check(keys == ["finals", "finals", "finals", "finals", "top12", "top12", "wins7", "wins7"],
+			"Board goals follow the list's rank (%s)" % str(keys))
+	_check(str(ClubLife.board_goal(1, 4)["key"]) == "top4" and str(ClubLife.board_goal(1, 5)["key"]) == "finals"
+			and str(ClubLife.board_goal(3, 1)["key"]) == "finals" and str(ClubLife.board_goal(1, 0)["key"]) == "finals",
+			"Top four is asked only of a top list that was top four last year")
 	_check(ClubLife.goal_met({"pos": 8}, 6, 12) and not ClubLife.goal_met({"pos": 8}, 10, 12)
 			and ClubLife.goal_met({"wins": 7}, 15, 7), "Goals are judged on position or wins")
 	_check(int(ClubLife.after_match(60, 45)["confidence"]) == 63 and int(ClubLife.after_match(60, -10)["confidence"]) == 58,
@@ -78,8 +88,28 @@ func _test_season_flow() -> void:
 		if ClubLife.morale(p) != ClubLife.MORALE_BASE:
 			changed = true
 	_check(changed, "Morale moves after a game")
+	_check(GameState.club_goals.size() == GameState.season.ladder.size() and GameState.club_goals.has("GEE"),
+			"Every club gets a board goal")
+	var goals_before := str(GameState.club_goals)
 	_check(GameState.save_career() and GameState.load_career()
 			and GameState.board_goal_text() != "", "The board survives a save and load")
+	_check(str(GameState.club_goals) == goals_before, "Every club's board goal survives a save and load")
+	# Last year's finish feeds the board: the top list, top four last year, is asked again.
+	var saved_goals: Dictionary = GameState.club_goals.duplicate(true)
+	var saved_board: Dictionary = GameState.board.duplicate(true)
+	var ranked := []
+	for code in GameState.season.ladder:
+		ranked.append([Squad.new(str(code), GameState.season.lists[code], true, str(code)).strength(), code])
+	ranked.sort_custom(func(a, b): return a[0] > b[0])
+	var best := str(ranked[0][1])
+	GameState._last_finish = {best: 2}
+	GameState._open_board_season()
+	_check(str(GameState.club_goals[best]["key"]) == "top4", "The best list, top four last year, is asked for top four again")
+	GameState._last_finish = {}
+	GameState._open_board_season()
+	_check(str(GameState.club_goals[best]["key"]) == "finals", "Without that history the best list is asked for finals")
+	GameState.club_goals = saved_goals
+	GameState.board = saved_board
 	var season = GameState.season
 	season.round_index = season.fixture.size()
 	GameState.ensure_finals()
@@ -584,7 +614,7 @@ func _test_coaching_hub() -> void:
 ## ARD-M6-003: the board is read in words, moves slowly against what the
 ## season's goal asks, and says why it moved.
 func _test_board_confidence() -> void:
-	var top4 := ClubLife.board_goal(2)
+	var top4 := ClubLife.board_goal(2, 1)
 	var battler := ClubLife.board_goal(17)
 	var w_top := int(ClubLife.after_match(60, 12, ClubLife.goal_steps(top4))["delta"])
 	var l_top := int(ClubLife.after_match(60, -12, ClubLife.goal_steps(top4))["delta"])
