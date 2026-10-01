@@ -424,7 +424,7 @@ static func top_bar(title_text: String, back := true, right: Control = null,
 ## A club's colours as a small flag of vertical bands (two or three: navy
 ## and red for Melbourne; blue, red and white for the Bulldogs), with a
 ## faint edge so dark colours still read on the dark background.
-static func club_marker(code: String, size := 18.0) -> Control:
+static func club_marker(code: String, size := 22.0) -> Control:
 	var frame := PanelContainer.new()
 	frame.name = "ClubMarker"
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE

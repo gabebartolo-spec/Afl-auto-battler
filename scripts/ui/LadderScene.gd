@@ -86,6 +86,16 @@ func _coleman() -> Control:
 	var v := UiKit.vbox(4)
 	v.name = "ColemanLeaders"
 	v.add_child(UiKit.section("Coleman Medal"))
+	var header := UiKit.hbox(10)
+	for column in [["Rank", 32], ["Player", 0], ["Club", 72], ["Goals", 40]]:
+		var label := UiKit.line(str(column[0]), 12, UiKit.MUTED)
+		label.custom_minimum_size.x = float(column[1])
+		if column[0] == "Player":
+			label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		elif column[0] == "Goals":
+			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		header.add_child(label)
+	v.add_child(header)
 	var rank := 0
 	for i in range(leaders.size()):
 		var r: Dictionary = leaders[i]
@@ -98,14 +108,17 @@ func _coleman() -> Control:
 		var h := UiKit.hbox(10)
 		h.name = "Coleman_%d" % (i + 1)
 		var n := UiKit.line(str(rank), 15, UiKit.MUTED)
-		n.custom_minimum_size.x = 22
+		n.custom_minimum_size.x = 32
 		h.add_child(n)
 		var who := UiKit.ellipsis(GameState.award_name(r), 16, UiKit.TEXT, mine)
 		who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(who)
-		h.add_child(UiKit.line(GameDB.club_short(str(r["club"])), 14, UiKit.MUTED))
+		var club := UiKit.ellipsis(GameDB.club_short(str(r["club"])), 14, UiKit.MUTED)
+		club.custom_minimum_size.x = 72
+		club.size_flags_horizontal = Control.SIZE_FILL
+		h.add_child(club)
 		var g := UiKit.line(str(int(r["goals"])), 17, UiKit.TEXT, true)
-		g.custom_minimum_size.x = 30
+		g.custom_minimum_size.x = 40
 		g.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		h.add_child(g)
 		v.add_child(h)
