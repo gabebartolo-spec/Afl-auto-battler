@@ -18,6 +18,7 @@ func run() -> void:
 	_test_board_confidence()
 	_test_coaching_hub()
 	_test_how_we_play_reads()
+	_test_how_we_play_unlocks_on_the_third_game()
 	GameState.delete_saved_career()
 	print("Club tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -487,6 +488,32 @@ func _test_how_we_play_reads() -> void:
 	var dup: Array = keys.call(read.call({"for": 15.0, "from_turnover": 12.0, "conceded_stoppage": 10.0}, 22))
 	_check(dup.has("for") and not dup.has("from_turnover") and dup.has("conceded_stoppage"),
 			"Where points come from is not repeated next to the total (%s)" % str(dup))
+	GameState.reset()
+
+
+## The How we play read opens the moment your third game is done, played
+## live or simmed, and stays open through a save and load.
+func _test_how_we_play_unlocks_on_the_third_game() -> void:
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var counts := []
+	for i in range(3):
+		if i == 1:
+			GameState.advance()
+		elif GameState.prepare_interactive_match():
+			var sim: MatchSim = GameState.pending_sim
+			var res := {}
+			while sim.current_quarter <= 4:
+				res = sim.run_quarter()
+			res["home"] = GameState.pending_match["home"]
+			res["away"] = GameState.pending_match["away"]
+			res["label"] = GameState.pending_match["label"]
+			GameState.finish_interactive_match(res)
+		counts.append(int(GameState.how_we_play()["games"]))
+	_check(counts == [1, 2, 3], "Every game of yours counts, live or simmed (%s)" % str(counts))
+	_check(GameState.save_career() and GameState.load_career()
+			and int(GameState.how_we_play()["games"]) == 3,
+			"Three games still read as three after a reload")
 	GameState.reset()
 
 
