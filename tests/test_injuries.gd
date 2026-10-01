@@ -15,6 +15,7 @@ func run() -> void:
 	_test_season_rate_and_absence()
 	_test_heal_at_rollover()
 	_test_concussion()
+	_test_played_and_simulated_alike()
 	print("Injuries tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -127,3 +128,34 @@ func _test_concussion() -> void:
 	_check(Ratings.available(back) and Injuries.concussion_text(back) == "",
 			"After two matches he is available again")
 	GameState.delete_saved_career()
+
+
+## Playtest impression: players get hurt more when the round is simulated
+## than when it is played. Measured over 600 paired matches: the same players
+## were hurt either way in every one (0.685 a team a game, 2.64 weeks,
+## 40 concussions each). Injuries are planned at the bounce from their own
+## stream; playing the match changes who takes the field, never the plan.
+func _test_played_and_simulated_alike() -> void:
+	var same := true
+	var any := false
+	for seed in range(7000, 7030):
+		var hurt := []
+		for live in [false, true]:
+			var sim := MatchSim.new(Squad.new("GEE", GameDB.club_list("GEE"), true, "GEE"),
+					Squad.new("COL", GameDB.club_list("COL"), false, "COL"), seed)
+			var res: Dictionary
+			if live:
+				sim.moment_side = 0
+				while sim.current_quarter <= 4:
+					sim.run_quarter()
+				res = sim.result()
+			else:
+				res = sim.run()
+			var ids := []
+			for inj in res["injuries"]:
+				ids.append("%s:%d:%s" % [str(inj["id"]), int(inj["weeks"]), str(inj["kind"])])
+			ids.sort()
+			hurt.append(ids)
+		any = any or not (hurt[0] as Array).is_empty()
+		same = same and hurt[0] == hurt[1]
+	_check(any and same, "A match played and the same match simulated hurt the same players")
