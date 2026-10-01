@@ -54,6 +54,7 @@ var club_goals := {}             # club -> this season\'s board goal (ClubLife.b
 var _last_finish := {}           # club -> last season\'s ladder position, for the board
 var draft_meeting_year := 0     # the National Draft the recruiting panel last met before
 var records := {}                # league records across the career
+var rivalry_history := {}        # canonical club pair -> emergent rivalry evidence
 ## Club achievements unlocked this career: id -> {"year", "detail"}.
 ## Definitions live in scripts/sim/Achievements.gd.
 var achievements := {}
@@ -279,6 +280,7 @@ func save_career() -> bool:
 		"season_awards": season_awards,
 		"honour_roll": honour_roll,
 		"records": records,
+		"rivalry_history": rivalry_history,
 		"achievements": achievements,
 		"salary_cap": salary_cap,
 		"free_agents": free_agents,
@@ -387,6 +389,7 @@ func load_career() -> bool:
 	season_awards = state.get("season_awards", {})
 	honour_roll = state.get("honour_roll", [])
 	records = state.get("records", {})
+	rivalry_history = state.get("rivalry_history", {})
 	achievements = state.get("achievements", {})
 	salary_cap = int(state.get("salary_cap", 0))
 	free_agents = state.get("free_agents", [])
@@ -617,6 +620,7 @@ func reset() -> void:
 	season_awards = {}
 	honour_roll = []
 	records = {}
+	rivalry_history = {}
 	achievements = {}
 	coaches = {}
 	coach_archive = {}
