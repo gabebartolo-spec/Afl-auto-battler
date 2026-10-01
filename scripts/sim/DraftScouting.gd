@@ -121,7 +121,8 @@ static func _key(p: Dictionary, club: String, seed: int, suffix: String) -> Stri
 
 
 static func _unit(key: String) -> float:
-	return float(posmod(key.hash(), 1000000)) / 1000000.0
+	var h := int(key.hash())
+	return float(abs(h % 1000000)) / 1000000.0
 
 
 static func _normal(key: String) -> float:
