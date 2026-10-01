@@ -19,6 +19,8 @@ extends RefCounted
 const MIN_LIST := 32
 const MAX_LIST := 44
 const MAX_YEARS := 4
+## Rivals fill their lists from free agency up to this size.
+const AI_FILL := 38
 const ROOKIE_YEARS := 2
 ## A trade has to leave the AI club at least this much better off.
 const TRADE_MARGIN := 0.04
@@ -105,12 +107,12 @@ static func lowest(p: Dictionary, years: int) -> int:
 
 
 ## His answer to `salary` over `years`, given how many offers have already
-## failed. Returns {"answer": "accept" | "counter" | "walk", "salary": int,
+## failed (and, for a free agent, the `premium` his options add). Returns {"answer": "accept" | "counter" | "walk", "salary": int,
 ## "insult": bool}. An offer at or above his lowest is accepted; anything else
 ## gets his lowest for that term as a counter. An offer under two-thirds of
 ## it is an insult and counts as two failures. Run out of offers and he walks.
-static func respond(p: Dictionary, salary: int, years: int, failed := 0) -> Dictionary:
-	var floor_price := lowest(p, years)
+static func respond(p: Dictionary, salary: int, years: int, failed := 0, premium := 0) -> Dictionary:
+	var floor_price := lowest(p, years) + premium
 	if salary >= floor_price:
 		return {"answer": "accept", "salary": salary, "insult": false}
 	var insult := salary * 3 < floor_price * 2
@@ -118,6 +120,56 @@ static func respond(p: Dictionary, salary: int, years: int, failed := 0) -> Dict
 	if strikes >= MAX_OFFERS:
 		return {"answer": "walk", "salary": floor_price, "insult": insult}
 	return {"answer": "counter", "salary": floor_price, "insult": insult}
+
+
+## A free agent weighs your club against his options, all from facts you
+## can see: `facts` = {"in_best22": would he make your best 22, "rivals":
+## other clubs with the room and the need for him, "finish": your ladder
+## finish, "clubs": clubs in the league}. Returns {"premium": points on top
+## of his lowest, "refuse": bool, "reasons": [what he's weighing, in words]}.
+## Rival interest costs a point; so does joining a bottom-six side. A player
+## who would not make your best 22 won't come while another club wants him.
+static func free_agent_terms(p: Dictionary, facts: Dictionary) -> Dictionary:
+	var premium := 0
+	var reasons := []
+	var rivals := int(facts.get("rivals", 0))
+	var finish := int(facts.get("finish", 0))
+	var refuse := false
+	if not bool(facts.get("in_best22", true)):
+		if rivals > 0:
+			refuse = true
+			reasons.append("He wants senior football: he wouldn't make your best 22, and other clubs want him.")
+		else:
+			reasons.append("He wouldn't make your best 22, but no other club has room for him.")
+	if rivals > 0 and not refuse:
+		premium += 1
+		reasons.append("Another club has the room and the need for him." if rivals == 1
+				else "Other clubs have the room and the need for him.")
+	if finish > 0 and finish > int(facts.get("clubs", 18)) - 6 and not refuse:
+		premium += 1
+		reasons.append("Your side finished %s: he wants more to come." % _ordinal(finish))
+	return {"premium": premium, "refuse": refuse, "reasons": reasons}
+
+
+static func _ordinal(n: int) -> String:
+	var suffix := "th"
+	if n % 100 < 11 or n % 100 > 13:
+		suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+	return "%d%s" % [n, suffix]
+
+
+## Would a rival club want this free agent? It has a spot to fill, the cap room for
+## his asking price and he would be at least an average player on its list
+## - the same test rivals use to keep their own.
+static func ai_wants(p: Dictionary, list: Array, cap: int) -> bool:
+	if list.size() >= AI_FILL or asking_salary(p) > cap - payroll(list):
+		return false
+	var worths := []
+	for q in list:
+		worths.append(worth(q))
+	worths.sort()
+	var median := float(worths[worths.size() / 2]) if not worths.is_empty() else 0.0
+	return worth(p) >= median - 2.0
 
 
 static func payroll(list: Array) -> int:
