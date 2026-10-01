@@ -298,10 +298,14 @@ func _pv(side: int, key: String, fallback := 1.0) -> float:
 
 
 ## Pressure multiplier `side` faces from the opposition's plan, counters in.
+## Controlled tempo takes the sting out of a press as far as its ball users
+## can: a side of ordinary ones or better holds it off, poor ones only
+## partly (PlanFit, "controlled").
 func _press_on(side: int) -> float:
 	var m := _pv(1 - side, "press")
 	if m > 1.0 and _plan(side) == "controlled":
-		m = 1.0
+		var hold := clampf(float((plan_fit[side] as Dictionary).get("controlled", 1.0)), 0.0, 1.0)
+		m = 1.0 + (m - 1.0) * (1.0 - hold)
 	elif m > 1.0 and (_plan(side) == "attacking" or _plan(side) == "fast"):
 		m *= 1.10
 	return m
@@ -2590,6 +2594,10 @@ func ai_tactics(side: int) -> Dictionary:
 		plan = "controlled"
 	elif margin <= -react:
 		plan = "attacking"
+	elif margin < 0 and current_quarter >= 3 and _lost_quarter(side, current_quarter - 1):
+		# Behind after half time and still losing ground: the usual game is
+		# not working, so it chases. Only what a coach sees - the scoreboard.
+		plan = "attacking"
 	var t := {"gameplan": plan, "pep": "fire_up" if margin <= -12 and current_quarter >= 3 else "steady"}
 	var tagger = tagger_for((squads[side] as Squad).ground)
 	if current_quarter >= (2 if read >= 0.4 else 3) and tagger != null and Roles.is_tagger(tagger):
@@ -2605,6 +2613,14 @@ func ai_tactics(side: int) -> Dictionary:
 		if best != "":
 			t["tag_id"] = best
 	return t
+
+
+## Whether `side` was outscored in quarter `q` (1-4).
+func _lost_quarter(side: int, q: int) -> bool:
+	if q < 1 or q > q_goals.size():
+		return false
+	var pts := func(s: int) -> int: return int(q_goals[q - 1][s]) * 6 + int(q_behinds[q - 1][s])
+	return pts.call(side) < pts.call(1 - side)
 
 
 ## A tag is a midfield job: only a midfielder (centre or wing) can be tagged.
