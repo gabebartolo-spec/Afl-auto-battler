@@ -50,6 +50,8 @@ var staff_vacancies: Array = []
 ## Every club's place in the preseason pecking order (list strength), for
 ## judging AI senior coaches at season's end: code -> rank.
 var club_expect := {}
+var club_goals := {}             # club -> this season\'s board goal (ClubLife.board_goal)
+var _last_finish := {}           # club -> last season\'s ladder position, for the board
 var draft_meeting_year := 0     # the National Draft the recruiting panel last met before
 var records := {}                # league records across the career
 ## Club achievements unlocked this career: id -> {"year", "detail"}.
@@ -301,6 +303,7 @@ func save_career() -> bool:
 		"coach_archive": coach_archive,
 		"staff_vacancies": staff_vacancies,
 		"club_expect": club_expect,
+		"club_goals": club_goals,
 		"draft_meeting_year": draft_meeting_year,
 		"career_seed": career_seed,
 		"class_tiers": class_tiers,
@@ -421,6 +424,7 @@ func load_career() -> bool:
 	coach_archive = state.get("coach_archive", {})
 	staff_vacancies = state.get("staff_vacancies", [])
 	club_expect = state.get("club_expect", {})
+	club_goals = state.get("club_goals", {})
 	draft_meeting_year = int(state.get("draft_meeting_year", 0))
 	# A save from before the coaching world: seed it for this career now.
 	if season != null and coaches.is_empty():
@@ -618,6 +622,8 @@ func reset() -> void:
 	coach_archive = {}
 	staff_vacancies = []
 	club_expect = {}
+	club_goals = {}
+	_last_finish = {}
 	draft_meeting_year = 0
 	salary_cap = 0
 	free_agents = []
@@ -794,6 +800,12 @@ func finish_intake_draft() -> bool:
 ## Roll every list forward one year and rebuild the season. Split out so a
 ## career can continue even when there is no prospect pool to draft.
 func _start_next_season(next_year: int, signed: int) -> void:
+	# Where every club finished: next season's board reads it (ClubLife.board_goal).
+	_last_finish = {}
+	if season != null:
+		var table := season.ladder_sorted()
+		for k in range(table.size()):
+			_last_finish[str(table[k]["code"])] = k + 1
 	# The new season never starts with one of your staff jobs empty.
 	_fill_open_staff()
 	# The season's close normally counted careers already (Career skips a
@@ -995,12 +1007,14 @@ static func _job_words(job: String) -> String:
 ## the club has assembled against the rest of the league.
 func board_goal_reason() -> String:
 	var rank := int(board.get("rank", 9))
-	if rank <= 4:
-		return "The board rates this list among the best few in the competition."
-	if rank <= Season.FINALISTS:
-		return "The board sees a list good enough to play finals."
-	if rank <= 14:
-		return "The board sees a list in the middle of the pack."
+	match str((board.get("goal", {}) as Dictionary).get("key", "")):
+		"top4":
+			return "One of the best lists in the competition, and top four last year: the board expects it again."
+		"finals":
+			return "The board rates this list among the best few in the competition." if rank <= 2 \
+					else "The board sees a list good enough to play finals."
+		"top12":
+			return "The board sees a list in the middle of the pack."
 	return "The board knows this list is still building."
 
 
@@ -3666,21 +3680,23 @@ func _open_board_season() -> void:
 	ranks.sort_custom(func(a, b): return float(a[1]) > float(b[1]))
 	var rank := 1
 	club_expect = {}
+	club_goals = {}
 	for i in range(ranks.size()):
-		club_expect[str(ranks[i][0])] = i + 1
-		if str(ranks[i][0]) == my_club:
+		var code := str(ranks[i][0])
+		club_expect[code] = i + 1
+		club_goals[code] = ClubLife.board_goal(i + 1, int(_last_finish.get(code, 0)))
+		if code == my_club:
 			rank = i + 1
 	if board.is_empty():
 		board = {"confidence": ClubLife.START_CONFIDENCE, "warned": false, "sacked": false, "history": []}
-	board["goal"] = ClubLife.board_goal(rank)
+	board["goal"] = club_goals.get(my_club, ClubLife.board_goal(rank))
 	board["rank"] = rank
+	board["last_finish"] = int(_last_finish.get(my_club, 0))
 	board["year"] = season_year
 	board.erase("promise")
 	losing_streak = 0
 	event_memory = {}
 	_next_week_event()
-
-
 func board_confidence() -> int:
 	return int(board.get("confidence", ClubLife.START_CONFIDENCE))
 
@@ -3981,7 +3997,7 @@ func _coaching_offseason() -> void:
 	for i in range(table.size()):
 		var row: Dictionary = table[i]
 		var code := str(row["code"])
-		var goal := ClubLife.board_goal(int(club_expect.get(code, 9)))
+		var goal: Dictionary = club_goals.get(code, ClubLife.board_goal(int(club_expect.get(code, 9))))
 		var pos := i + 1
 		var met := ClubLife.goal_met(goal, pos, int(row.get("w", 0)))
 		results[code] = {"met": met, "finals": pos <= Season.FINALISTS,
