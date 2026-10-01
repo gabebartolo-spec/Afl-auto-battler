@@ -35,6 +35,10 @@ func _run() -> void:
 	_state.start_season("COL", _db.club_list("COL"))
 	var season = _state.season
 	season.round_index = season.fixture.size()  # The H&A is done; draft time.
+	# A compensation pick for losing a free agent, so the order shows one.
+	_state.open_offseason()
+	_state.compensation.append({"club": "COL", "player": "comp_test", "name": "Sam Example",
+			"to": "CAR", "salary": 8, "years": 3, "value": 10.0, "after": 1})
 	var opened: bool = _state.begin_intake_draft()
 	_check(opened, "begin_intake_draft opens after the home-and-away")
 	var draft = _state.draft
@@ -66,6 +70,21 @@ func _run() -> void:
 		done.emit_signal("pressed")
 	await _settle()
 	_check(ui.find_child("DraftMeeting", true, false) == null, "One tap and it is the draft")
+	# The order is a tab on a phone and a side panel when wide.
+	var order_tab: Button = ui.find_child("Tab_order", true, false)
+	if order_tab == null:
+		order_tab = ui.find_child("SideTab_order", true, false)
+	if order_tab != null:
+		order_tab.emit_signal("pressed")
+		await _settle()
+	var comp_rows := ui.find_children("CompPick", "Label", true, false)
+	_check(comp_rows.size() == 1
+			and str((comp_rows[0] as Label).text).contains("Compensation for losing Sam Example"),
+			"The draft order shows a compensation pick as compensation, with the player it replaces")
+	var tab_pool: Button = ui.find_child("Tab_pool", true, false)
+	if tab_pool != null:
+		tab_pool.emit_signal("pressed")
+		await _settle()
 	var again: Control = load("res://scenes/DraftScene.tscn").instantiate()
 	root.add_child(again)
 	await _settle()
