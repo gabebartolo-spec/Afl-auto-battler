@@ -50,7 +50,7 @@ CLUB_MAP = {
     "NTH": "northmelbourne",
     "PAD": "portadelaide",
     "RIC": "richmond",
-    "SKN": "stkilda",
+    "STK": "stkilda",
     "SYD": "sydney",
     "WCE": "westcoast",
     "WBD": "westernbulldogs",

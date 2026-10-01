@@ -321,6 +321,7 @@ func load_career() -> bool:
 	var state := CareerSave.read(save_path)
 	if state.is_empty():
 		return false
+	state = CareerSave.migrate_club_codes(state)
 	reset()
 	season_year = int(state.get("season_year", 2026))
 	my_club = str(state.get("my_club", ""))

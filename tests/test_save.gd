@@ -17,6 +17,7 @@ func run() -> void:
 	_test_mid_draft_round_trip()
 	_test_intake_and_second_season()
 	_test_bad_file_is_ignored()
+	_test_old_club_code_migrates()
 	GameState.delete_saved_career()
 	print("Save tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -229,3 +230,48 @@ func _test_bad_file_is_ignored() -> void:
 	f.close()
 	_check(not GameState.load_career(), "A save from another version is not loaded")
 	_check(GameState.saved_career_meta().is_empty(), "Its header is ignored too")
+
+
+## St Kilda was saved as SKN before it became STK: an old career loads into
+## the same St Kilda - list, ids, ladder and header - under STK.
+func _test_old_club_code_migrates() -> void:
+	GameState.reset()
+	GameState.start_season("STK", GameDB.club_list("STK"))
+	GameState.advance()
+	GameState.advance()
+	var ladder := _ladder_sig()
+	var ids := GameState.my_list.map(func(p): return str(p["id"]))
+	_check(GameState.save_career(), "A St Kilda career saves")
+	# Write it back the way an older build did: every STK as SKN.
+	var old_state = _to_old(CareerSave.read(GameState.save_path))
+	var old_meta = _to_old(CareerSave.read_meta(GameState.save_path))
+	_check(var_to_str(old_state).contains("SKN_") and not var_to_str(old_state).contains("STK"),
+			"The test save really is an old SKN save")
+	CareerSave.write(old_state, old_meta, GameState.save_path)
+	_check(str(GameState.saved_career_meta().get("club", "")) == "STK", "The menu header reads St Kilda's new code")
+	_check(GameState.load_career(), "The old save loads")
+	_check(GameState.my_club == "STK" and GameState.season.lists.has("STK") and not GameState.season.lists.has("SKN"),
+			"It is St Kilda under STK")
+	_check(GameState.my_list.map(func(p): return str(p["id"])) == ids.map(func(i): return str(i)),
+			"The same players, with the same ids")
+	_check(_ladder_sig() == ladder and not _ladder_sig().contains("SKN"), "The ladder is the same")
+	var found := true
+	for p in GameState.my_list:
+		if not bool(p.get("projected", false)) and GameDB.player_by_id(str(p["id"])) == null:
+			found = false
+	_check(found, "Every listed player still resolves to his source data")
+
+
+static func _to_old(v: Variant) -> Variant:
+	if v is String:
+		var re := RegEx.new()
+		re.compile("(?<![A-Za-z])STK(?![A-Za-z])")
+		return re.sub(v, "SKN", true)
+	if v is Dictionary:
+		var out := {}
+		for k in v:
+			out[_to_old(k)] = _to_old(v[k])
+		return out
+	if v is Array:
+		return (v as Array).map(func(x): return _to_old(x))
+	return v

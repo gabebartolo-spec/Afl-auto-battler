@@ -107,7 +107,7 @@ func _test_catalog() -> void:
 func _test_premiership_types() -> void:
 	for row in [["ADE", "ade_first_flag"], ["FRE", "fre_first_flag"],
 			["GWS", "gws_first_flag"], ["PAD", "pad_first_flag"],
-			["SKN", "skn_long_wait"]]:
+			["STK", "skn_long_wait"]]:
 		var code := str(row[0])
 		var id := str(row[1])
 		var ladder := _ladder(_codes())
@@ -118,7 +118,7 @@ func _test_premiership_types() -> void:
 	var out := _ids({}, _ctx("GEE", "HAW", ladder))
 	for row in [["ADE", "ade_first_flag"], ["FRE", "fre_first_flag"],
 			["GWS", "gws_first_flag"], ["PAD", "pad_first_flag"],
-			["SKN", "skn_long_wait"]]:
+			["STK", "skn_long_wait"]]:
 		_check(not out.has(str(row[1])), "GEE's flag never unlocks %s" % str(row[1]))
 
 

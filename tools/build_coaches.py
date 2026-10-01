@@ -46,7 +46,7 @@ CLUBS = {
     "Adelaide": "ADE", "Brisbane": "BRL", "Carlton": "CAR", "Collingwood": "COL",
     "Essendon": "ESS", "Fremantle": "FRE", "Geelong": "GEE", "Gold Coast": "GCS",
     "GWS": "GWS", "Hawthorn": "HAW", "Melbourne": "MEL", "North Melbourne": "NTH",
-    "Port Adelaide": "PAD", "Richmond": "RIC", "St Kilda": "SKN", "Sydney": "SYD",
+    "Port Adelaide": "PAD", "Richmond": "RIC", "St Kilda": "STK", "Sydney": "SYD",
     "West Coast": "WCE", "Western Bulldogs": "WBD",
 }
 JOBS = ["SC", "SA", "MID", "FWD", "DEF", "DEV"]
@@ -69,7 +69,7 @@ ACTIVE = {
     "NTH": ["Alastair Clarkson", "Zane Littlejohn", "Michael Barlow", "Xavier Clarke", "Jed Adcock", "Tom Lynch"],
     "PAD": ["Josh Carr", "Andy Collins", "Stuart Dew", "Darren Reeves", "Luke Webster", "Matthew Lobbe"],
     "RIC": ["Adem Yze", "Blake Caracella", "Sam Lonergan", "Chris Newman", "Jake Batchelor", "Taylor Duryea"],
-    "SKN": ["Ross Lyon", "Corey Enright", "Robert Harvey", "Brendon Bolton", "Jimmy Allan", "Damian Carroll"],
+    "STK": ["Ross Lyon", "Corey Enright", "Robert Harvey", "Brendon Bolton", "Jimmy Allan", "Damian Carroll"],
     "SYD": ["Dean Cox", "Simon Goodwin", "Ben Mathews", "Jeremy Laidler", "Mark McVeigh", "Adam Kennedy"],
     "WCE": ["Andrew McQualter", GAP, "Sam Radford", "Marco Bello", "Mitch Duncan", "Jamie Maddocks"],
     "WBD": ["Luke Beveridge", "Jarryn Geary", "Brendon Lade", "Ben Reid", "Daniel Pratt", "Luke Power"],

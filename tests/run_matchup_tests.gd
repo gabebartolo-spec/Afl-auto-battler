@@ -169,7 +169,7 @@ func _hub_tests() -> void:
 func _finals_week_by_week() -> void:
 	var db = root.get_node("GameDB")
 	var out := ""
-	for code in ["GWS", "RIC", "NTH", "WCE", "STK", "SKN", "ESS", "ADE"]:
+	for code in ["GWS", "RIC", "NTH", "WCE", "STK", "ESS", "ADE"]:
 		if not db.active_clubs(2027).has(code):
 			continue
 		_state.reset()
