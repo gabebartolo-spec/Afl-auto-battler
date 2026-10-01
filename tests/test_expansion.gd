@@ -175,9 +175,9 @@ func _test_2028_season_runs() -> void:
 	_check(GameState.premier() != "", "A 2028 premier is crowned")
 
 	# The debut achievement only fires when it applies.
-	if (season.finals["top"] as Array).has("TAS"):
-		_check(GameState.achievements.has("tas_debut_finals"),
-				"Tasmania made the finals in its debut season: achievement unlocked")
+	var tas_made_finals := (season.finals["top"] as Array).has("TAS")
+	_check(not tas_made_finals or GameState.achievements.has("tas_debut_finals"),
+			"Tasmania's debut-finals achievement matches its result")
 	var stored: Dictionary = GameState.achievements.get("tas_debut_finals", {})
 	var debut_year: Variant = stored.get("year", "")
 	_check(debut_year == "" or int(debut_year) == 2028,

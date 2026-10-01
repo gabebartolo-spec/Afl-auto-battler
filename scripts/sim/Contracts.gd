@@ -10,8 +10,11 @@ extends RefCounted
 ## Off-season (season over, before the national draft opens): contracts in
 ## their final year are up. Rivals decide straight away - keep a player who
 ## is worth his new price, let the rest go to free agency - and you decide in
-## Trades & Contracts. Anything you leave undecided is re-signed for 2 years
-## if the cap allows. Contracts tick down at the rollover.
+## Trades & Contracts, where you negotiate salary and term with each player
+## (see `wants`, `lowest` and `respond`). Players you leave undecided are
+## re-signed for 2 years at their asking price if the cap allows; a player
+## whose talks broke down goes to free agency. Contracts tick down at the
+## rollover.
 
 const MIN_LIST := 32
 const MAX_LIST := 44
@@ -55,6 +58,66 @@ static func asking_salary(p: Dictionary) -> int:
 	if int(p.get("morale", 70)) < 40:
 		price = ceili(price * 1.25)
 	return price
+
+
+# ---------------------------------------------------------------------------
+# Negotiation. No dice: the same offer always gets the same answer, and what
+# a player wants is shown in full - only how far he would bend is left to the
+# words in `stance`.
+# ---------------------------------------------------------------------------
+## Failed offers before a player gives up on talks and tests free agency.
+const MAX_OFFERS := 3
+
+
+## His opening position: his asking price over the term he would like.
+## Players up to 29 want three years of security; older players two.
+static func wants(p: Dictionary) -> Dictionary:
+	return {"salary": asking_salary(p), "years": 3 if float(p.get("age", 25.0)) < 30.0 else 2}
+
+
+## How much leverage he has, from 0 (a fringe player glad of a contract) to 1
+## (one of the best in the game, or a young gun). Scales smoothly with his
+## worth - rating, potential and age - so no single rating changes the rules.
+static func leverage(p: Dictionary) -> float:
+	return clampf((worth(p) - 55.0) / 30.0, 0.0, 1.0)
+
+
+## What a coach or manager would say about his position. Read off the same
+## numbers as `lowest`, so the words never promise a discount he won't give.
+static func stance(p: Dictionary) -> String:
+	var want := wants(p)
+	if lowest(p, int(want["years"])) >= int(want["salary"]):
+		return "He knows his worth and won't take less."
+	if leverage(p) < 0.35:
+		return "He's fighting for a spot on a list and will take less."
+	return "He'd give a little on salary for the security he wants."
+
+
+## The least he would sign for over `years`. Given the term he wants (or
+## longer) he gives up to a fifth of his price, less the more leverage he has;
+## a shorter deal costs a point more for anyone.
+static func lowest(p: Dictionary, years: int) -> int:
+	var want := wants(p)
+	var price := int(want["salary"])
+	if years < int(want["years"]):
+		return price + 1
+	return maxi(1, roundi(price * (1.0 - 0.2 * (1.0 - leverage(p)))))
+
+
+## His answer to `salary` over `years`, given how many offers have already
+## failed. Returns {"answer": "accept" | "counter" | "walk", "salary": int,
+## "insult": bool}. An offer at or above his lowest is accepted; anything else
+## gets his lowest for that term as a counter. An offer under two-thirds of
+## it is an insult and counts as two failures. Run out of offers and he walks.
+static func respond(p: Dictionary, salary: int, years: int, failed := 0) -> Dictionary:
+	var floor_price := lowest(p, years)
+	if salary >= floor_price:
+		return {"answer": "accept", "salary": salary, "insult": false}
+	var insult := salary * 3 < floor_price * 2
+	var strikes := failed + (2 if insult else 1)
+	if strikes >= MAX_OFFERS:
+		return {"answer": "walk", "salary": floor_price, "insult": insult}
+	return {"answer": "counter", "salary": floor_price, "insult": insult}
 
 
 static func payroll(list: Array) -> int:

@@ -2273,7 +2273,9 @@ func open_offseason() -> void:
 		var list: Array = season.lists[code]
 		for p in Contracts.expiring(list).duplicate():
 			if Contracts.ai_keeps(p, list, salary_cap) or list.size() <= Contracts.MIN_LIST:
-				_resign(p, _ai_years(p))
+				# Rivals bargain by the same rules: the least he takes for that term.
+				var years := _ai_years(p)
+				_resign(p, years, Contracts.lowest(p, years))
 			else:
 				_release(code, p)
 	mark_dirty()
@@ -2284,12 +2286,13 @@ func _ai_years(p: Dictionary) -> int:
 	return 3 if age <= 25.0 else (2 if age <= 30.0 else 1)
 
 
-## Re-sign for `years` more seasons at today's price. The contract ticks at
-## the rollover, so it is stored as years + 1.
-func _resign(p: Dictionary, years: int) -> void:
-	p["salary"] = Contracts.asking_salary(p)
+## Re-sign for `years` more seasons at `salary` (his asking price when not
+## given). The contract ticks at the rollover, so it is stored as years + 1.
+func _resign(p: Dictionary, years: int, salary := -1) -> void:
+	p["salary"] = salary if salary > 0 else Contracts.asking_salary(p)
 	p["contract_years"] = years + 1
 	p["resigned"] = true
+	p.erase("talks")
 
 
 func _release(code: String, p: Dictionary) -> void:
@@ -2303,18 +2306,60 @@ func _release(code: String, p: Dictionary) -> void:
 				GameDB.club_name(code), GameDB.player_display_name(p), int(p["overall"])])
 
 
-## Your expiring player: re-sign him for 1-4 seasons. Returns a result
-## {"ok", "reason"}.
+## Your expiring player at his asking price for `years` seasons. It is
+## still an offer: a shorter term than he wants gets a counter.
 func resign_player(player_id: String, years: int) -> Dictionary:
 	var p := list_player(player_id)
-	if p.is_empty() or not offseason_open():
-		return {"ok": false, "reason": "Contracts can only be settled in the off-season."}
-	var cost := Contracts.asking_salary(p)
-	if my_payroll() - int(p.get("salary", 0)) + cost > salary_cap:
-		return {"ok": false, "reason": "Not enough cap room: he wants %d." % cost}
-	_resign(p, clampi(years, 1, Contracts.MAX_YEARS))
+	return offer_contract(player_id, Contracts.asking_salary(p) if not p.is_empty() else 0, years)
+
+
+## Where talks with your expiring player stand: {} before any offer, else
+## {"failed", "counter", "years", "walked"}. Kept on the player, so a save
+## and load picks the talks up where they were. Nothing is signed until he
+## accepts.
+func contract_talks(player_id: String) -> Dictionary:
+	return list_player(player_id).get("talks", {})
+
+
+## Offer your expiring player `salary` a season for `years` seasons. Returns
+## {"ok", "answer": "accept" | "counter" | "walk" | "", "salary", "reason"}.
+## The cap is checked first, so an offer you cannot afford costs nothing.
+func offer_contract(player_id: String, salary: int, years: int) -> Dictionary:
+	var p := list_player(player_id)
+	if not p.is_empty() and bool(p.get("resigned", false)):
+		return {"ok": false, "answer": "", "reason": "He has already re-signed."}
+	if p.is_empty() or not offseason_open() or not Contracts.expiring(my_list).has(p):
+		return {"ok": false, "answer": "", "reason": "Contracts can only be settled in the off-season."}
+	var talks: Dictionary = p.get("talks", {})
+	if bool(talks.get("walked", false)):
+		return {"ok": false, "answer": "walk", "reason": "Talks have broken down: he will test free agency."}
+	years = clampi(years, 1, Contracts.MAX_YEARS)
+	salary = maxi(1, salary)
+	if my_payroll() - int(p.get("salary", 0)) + salary > salary_cap:
+		return {"ok": false, "answer": "", "reason": "Not enough cap room for %d a season." % salary}
+	var name := GameDB.player_display_name(p)
+	var reply := Contracts.respond(p, salary, years, int(talks.get("failed", 0)))
+	var out := {"ok": false, "answer": str(reply["answer"]), "salary": int(reply["salary"])}
+	match str(reply["answer"]):
+		"accept":
+			_resign(p, years, salary)
+			out["ok"] = true
+			out["reason"] = "%s re-signs for %d season%s at %d." % [name, years, "" if years == 1 else "s", salary]
+		"counter":
+			talks["failed"] = int(talks.get("failed", 0)) + (2 if bool(reply["insult"]) else 1)
+			talks["counter"] = int(reply["salary"])
+			talks["years"] = years
+			p["talks"] = talks
+			out["reason"] = ("He's insulted. " if bool(reply["insult"]) else "") + \
+					"He'd sign for %d a season over %d season%s." % [int(reply["salary"]), years, "" if years == 1 else "s"]
+		"walk":
+			talks["walked"] = true
+			p["talks"] = talks
+			out["reason"] = "Talks have broken down: %s will test free agency." % name
+	if bool(reply["insult"]):
+		ClubLife.add_morale(p, -5)
 	mark_dirty()
-	return {"ok": true, "reason": "Re-signed for %d seasons at %d." % [years, cost]}
+	return out
 
 
 func release_player(player_id: String) -> Dictionary:
@@ -2411,7 +2456,9 @@ func make_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
 
 
 ## At the rollover: your undecided expiring players are re-signed for two
-## seasons if the cap allows (released otherwise), rivals fill their lists
+## seasons if the cap allows (released otherwise), a player whose talks broke
+## down leaves for free agency (unless your list is at the minimum, when he
+## stays a season), rivals fill their lists
 ## from free agency, the rest of the free agents leave, and every contract
 ## ticks down a season.
 func _close_contracts() -> void:
@@ -2421,8 +2468,12 @@ func _close_contracts() -> void:
 	for p in Contracts.expiring(my_list).duplicate():
 		if bool(p.get("resigned", false)):
 			continue
+		var walked := bool(p.get("talks", {}).get("walked", false))
+		if walked and my_list.size() <= Contracts.MIN_LIST:
+			_resign(p, 1)
+			continue
 		var cost := Contracts.asking_salary(p)
-		if my_payroll() - int(p.get("salary", 0)) + cost <= salary_cap or my_list.size() <= Contracts.MIN_LIST:
+		if not walked and (my_payroll() - int(p.get("salary", 0)) + cost <= salary_cap or my_list.size() <= Contracts.MIN_LIST):
 			_resign(p, 2)
 		else:
 			_release(my_club, p)
@@ -2450,6 +2501,7 @@ func _close_contracts() -> void:
 		for p in season.lists[code]:
 			p["contract_years"] = maxi(1, int(p.get("contract_years", 1)) - 1)
 			p.erase("resigned")
+			p.erase("talks")
 
 
 # ---------------------------------------------------------------------------
