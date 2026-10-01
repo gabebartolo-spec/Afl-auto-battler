@@ -3819,6 +3819,16 @@ func media_conference_pending() -> bool:
 	return not media_conference.is_empty()
 
 
+
+func skip_media_conference() -> void:
+	if media_conference.is_empty():
+		return
+	media_memory[str(media_conference.get("key", ""))] = int(media_conference.get("round", 0))
+	media_conference = {}
+	mark_dirty()
+	autosave()
+
+
 func resolve_media_conference(option: int) -> void:
 	if media_conference.is_empty():
 		return
