@@ -11,6 +11,8 @@ func run() -> void:
 	GameDB.reload()
 	_test_initial_contracts()
 	_test_offseason_flow()
+	_test_negotiation_rules()
+	_test_negotiation()
 	GameState.delete_saved_career()
 	print("Contracts tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -148,3 +150,91 @@ func _test_offseason_flow() -> void:
 	_check(GameState.free_agents.is_empty(), "Unsigned free agents leave at the rollover")
 	_check(is_same(GameState.my_list, GameState.season.lists[GameState.my_club]),
 			"Your list is the season's list after the rollover")
+
+
+## ARD-M6-004: what a player wants is shown; how far he bends follows his
+## standing and the term; the same offer always gets the same answer.
+func _test_negotiation_rules() -> void:
+	var star := {"id": "n_star", "overall": 84, "potential": 86, "age": 26.0, "morale": 70}
+	var regular := {"id": "n_reg", "overall": 70, "potential": 72, "age": 27.0, "morale": 70}
+	var fringe := {"id": "n_fringe", "overall": 52, "potential": 55, "age": 31.0, "morale": 70}
+	var kid := {"id": "n_kid", "overall": 66, "potential": 85, "age": 21.0, "morale": 70}
+	_check(int(Contracts.wants(regular)["years"]) == 3 and int(Contracts.wants(fringe)["years"]) == 2
+			and int(Contracts.wants(regular)["salary"]) == Contracts.asking_salary(regular),
+			"He asks his price over three seasons, or two once he is 30")
+	_check(Contracts.standing(star) == "star" and Contracts.standing(kid) == "star"
+			and Contracts.standing(regular) == "regular" and Contracts.standing(fringe) == "fringe",
+			"Stars and young guns have the leverage; fringe players do not")
+	var ask := Contracts.asking_salary(regular)
+	_check(Contracts.lowest(star, 3) == Contracts.asking_salary(star) and Contracts.lowest(regular, 3) == ask - 1
+			and Contracts.lowest(regular, 4) == ask - 1 and Contracts.lowest(regular, 1) == ask + 1,
+			"A star won't take less; a regular gives a point for security; a short deal costs a point")
+	_check(str(Contracts.respond(regular, ask - 1, 3)["answer"]) == "accept"
+			and str(Contracts.respond(regular, ask - 2, 3)["answer"]) == "counter"
+			and int(Contracts.respond(regular, ask - 2, 3)["salary"]) == ask - 1,
+			"An offer at his lowest is accepted; below it he counts with his lowest")
+	_check(str(Contracts.respond(regular, ask, 1)["answer"]) == "counter",
+			"His asking price over a shorter term than he wants gets a counter")
+	_check(bool(Contracts.respond(regular, 1, 3)["insult"]) and str(Contracts.respond(regular, 1, 3, 1)["answer"]) == "walk"
+			and str(Contracts.respond(regular, ask - 2, 3, Contracts.MAX_OFFERS - 1)["answer"]) == "walk",
+			"An insulting offer counts double, and too many failed offers end the talks")
+	_check(str(Contracts.respond(regular, ask - 2, 3)) == str(Contracts.respond(regular, ask - 2, 3)),
+			"No dice: the same offer gets the same answer")
+
+
+func _test_negotiation() -> void:
+	_new_season()
+	_to_offseason()
+	# Rivals bargain under the same rules.
+	var ai_fair := true
+	for code in GameState.season.lists:
+		if code == GameState.my_club:
+			continue
+		for p in Contracts.expiring(GameState.season.lists[code]):
+			if bool(p.get("resigned", false)):
+				var years := int(p["contract_years"]) - 1
+				if int(p["salary"]) != Contracts.lowest(p, years):
+					ai_fair = false
+	_check(ai_fair, "Rivals re-sign at the least each player takes for that term")
+	GameState.salary_cap += 40
+	var talkers := []
+	for p in Contracts.expiring(GameState.my_list):
+		if Contracts.standing(p) != "star" and Contracts.asking_salary(p) >= 3:
+			talkers.append(p)
+	_check(talkers.size() >= 2, "Two of your out-of-contract players can be negotiated with (%d)" % talkers.size())
+	if talkers.size() < 2:
+		return
+	var a: Dictionary = talkers[0]
+	var id := str(a["id"])
+	var years := int(Contracts.wants(a)["years"])
+	var floor_price := Contracts.lowest(a, years)
+	var before := int(a["salary"])
+	var r := GameState.offer_contract(id, floor_price - 1, years)
+	_check(str(r["answer"]) == "counter" and int(r["salary"]) == floor_price
+			and int(a["salary"]) == before and not bool(a.get("resigned", false)),
+			"An offer under his lowest gets a counter and signs nothing")
+	_check(GameState.save_career() and GameState.load_career(), "Talks survive a save")
+	a = GameState.list_player(id)
+	_check(int(GameState.contract_talks(id).get("counter", 0)) == floor_price and not bool(a.get("resigned", false)),
+			"After a load the counter stands and nothing has been signed")
+	r = GameState.offer_contract(id, floor_price, years)
+	_check(bool(r["ok"]) and int(a["salary"]) == floor_price and int(a["contract_years"]) == years + 1
+			and not a.has("talks"), "Meeting his counter signs the deal at that price and term")
+	_check(not bool(GameState.offer_contract(id, floor_price, years)["ok"]), "A signed player cannot be signed twice")
+	var b: Dictionary = GameState.list_player(str(talkers[1]["id"]))
+	var bid := str(b["id"])
+	var morale_before := ClubLife.morale(b)
+	r = GameState.offer_contract(bid, 1, 3)
+	_check(ClubLife.morale(b) < morale_before and str(r["reason"]).begins_with("He's insulted"),
+			"An insulting offer costs morale and he says so")
+	r = GameState.offer_contract(bid, 1, 3)
+	_check(str(r["answer"]) == "walk" and bool(GameState.contract_talks(bid).get("walked", false)),
+			"Too many failed offers and he walks")
+	_check(not bool(GameState.offer_contract(bid, 99, 3)["ok"]), "No more offers once talks break down")
+	var size_before := GameState.my_list.size()
+	GameState._close_contracts()
+	if size_before > Contracts.MIN_LIST:
+		_check(GameState.list_player(bid).is_empty(), "A player whose talks broke down leaves at the rollover")
+	else:
+		_check(int(b["contract_years"]) >= 1 and GameState.my_list.has(b),
+				"At the list minimum he stays a season")

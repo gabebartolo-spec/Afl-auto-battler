@@ -10,8 +10,11 @@ extends RefCounted
 ## Off-season (season over, before the national draft opens): contracts in
 ## their final year are up. Rivals decide straight away - keep a player who
 ## is worth his new price, let the rest go to free agency - and you decide in
-## Trades & Contracts. Anything you leave undecided is re-signed for 2 years
-## if the cap allows. Contracts tick down at the rollover.
+## Trades & Contracts, where you negotiate salary and term with each player
+## (see `wants`, `lowest` and `respond`). Players you leave undecided are
+## re-signed for 2 years at their asking price if the cap allows; a player
+## whose talks broke down goes to free agency. Contracts tick down at the
+## rollover.
 
 const MIN_LIST := 32
 const MAX_LIST := 44
@@ -55,6 +58,72 @@ static func asking_salary(p: Dictionary) -> int:
 	if int(p.get("morale", 70)) < 40:
 		price = ceili(price * 1.25)
 	return price
+
+
+# ---------------------------------------------------------------------------
+# Negotiation. No dice: the same offer always gets the same answer, and what
+# a player wants is shown in full - only how far he would bend is left to the
+# words in `stance`.
+# ---------------------------------------------------------------------------
+## Failed offers before a player gives up on talks and tests free agency.
+const MAX_OFFERS := 3
+
+
+## His opening position: his asking price over the term he would like.
+## Players up to 29 want three years of security; older players two.
+static func wants(p: Dictionary) -> Dictionary:
+	return {"salary": asking_salary(p), "years": 3 if float(p.get("age", 25.0)) < 30.0 else 2}
+
+
+## How much leverage he has: "star" (among the best, or a young gun), "fringe"
+## (fighting for his spot), else "regular".
+static func standing(p: Dictionary) -> String:
+	var ovr := int(p.get("overall", 50))
+	var age := float(p.get("age", 25.0))
+	if ovr >= 79 or (age <= 23.0 and int(p.get("potential", ovr)) >= 82):
+		return "star"
+	if asking_salary(p) <= 4:
+		return "fringe"
+	return "regular"
+
+
+## What a coach or manager would say about his position.
+static func stance(p: Dictionary) -> String:
+	match standing(p):
+		"star":
+			return "He knows his worth and won't take less."
+		"fringe":
+			return "He's fighting for his spot and will take less to stay."
+	return "He'd give a little on salary for the security he wants."
+
+
+## The least he would sign for over `years`. A regular or fringe player gives
+## a point for the term he wants (or longer); a shorter deal costs a point
+## more for anyone.
+static func lowest(p: Dictionary, years: int) -> int:
+	var want := wants(p)
+	var price := int(want["salary"])
+	if years < int(want["years"]):
+		return price + 1
+	if standing(p) != "star":
+		price -= 1
+	return maxi(1, price)
+
+
+## His answer to `salary` over `years`, given how many offers have already
+## failed. Returns {"answer": "accept" | "counter" | "walk", "salary": int,
+## "insult": bool}. An offer at or above his lowest is accepted; anything else
+## gets his lowest for that term as a counter. An offer under two-thirds of
+## it is an insult and counts as two failures. Run out of offers and he walks.
+static func respond(p: Dictionary, salary: int, years: int, failed := 0) -> Dictionary:
+	var floor_price := lowest(p, years)
+	if salary >= floor_price:
+		return {"answer": "accept", "salary": salary, "insult": false}
+	var insult := salary * 3 < floor_price * 2
+	var strikes := failed + (2 if insult else 1)
+	if strikes >= MAX_OFFERS:
+		return {"answer": "walk", "salary": floor_price, "insult": insult}
+	return {"answer": "counter", "salary": floor_price, "insult": insult}
 
 
 static func payroll(list: Array) -> int:

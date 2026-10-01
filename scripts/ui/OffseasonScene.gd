@@ -14,6 +14,11 @@ var _scroll_box: ScrollContainer
 var _scroll_tab := ""
 var _scroll_positions := {}
 var _release_overlay: Control
+var _talk_overlay: Control
+var _talk_id := ""
+var _offer_salary := 0
+var _offer_years := 0
+var _talk_reply := ""
 
 
 func _ready() -> void:
@@ -94,28 +99,34 @@ func _contracts(body: VBoxContainer) -> void:
 	if expiring.is_empty():
 		body.add_child(_para("Nobody is out of contract this year.", 13, UiKit.MUTED))
 	for p in expiring:
-		var card := _player_card(p, "%d OVR  ·  %d POT  ·  age %d  ·  now %d, asks %d" % [
+		var want := Contracts.wants(p)
+		var card := _player_card(p, "%d OVR  ·  %d POT  ·  age %d  ·  on %d, wants %d for %d seasons" % [
 				int(p["overall"]), int(p.get("potential", p["overall"])), int(p.get("age", 0)),
-				int(p.get("salary", 0)), Contracts.asking_salary(p)])
+				int(p.get("salary", 0)), int(want["salary"]), int(want["years"])])
 		body.add_child(card)
 		var row := UiKit.hbox(4)
 		row.name = "Contract_" + str(p["id"])
 		(card.get_child(0) as VBoxContainer).add_child(row)
 		if bool(p.get("resigned", false)):
-			row.add_child(UiKit.line("Re-signed: %d more seasons" % (int(p["contract_years"]) - 1), 13, UiKit.GOOD, true))
+			row.add_child(UiKit.line("Re-signed: %d more seasons at %d" % [int(p["contract_years"]) - 1,
+					int(p.get("salary", 0))], 13, UiKit.GOOD, true))
 			continue
-		for years in [1, 2, 3, 4]:
-			var b := UiKit.btn("%d yr" % years, 13)
-			b.name = "Resign_%d" % years
-			b.custom_minimum_size = Vector2(0, 40)
-			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			b.pressed.connect(func():
-				_notice = str(GameState.resign_player(str(p["id"]), years)["reason"])
-				_build())
-			row.add_child(b)
+		var talks: Dictionary = p.get("talks", {})
+		if bool(talks.get("walked", false)):
+			row.add_child(UiKit.line("Talks broke down: he'll test free agency", 13, UiKit.BAD, true))
+			continue
+		if talks.has("counter"):
+			(card.get_child(0) as VBoxContainer).add_child(_para("He'd sign for %d over %d season%s." % [
+					int(talks["counter"]), int(talks["years"]), "" if int(talks["years"]) == 1 else "s"], 12, UiKit.TEXT))
+		var talk := UiKit.btn("Talk contract", 13)
+		talk.name = "Negotiate"
+		talk.custom_minimum_size = Vector2(0, 44)
+		talk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		talk.pressed.connect(_open_talks.bind(str(p["id"])))
+		row.add_child(talk)
 		var rel := UiKit.btn("Release", 13)
 		rel.name = "Release"
-		rel.custom_minimum_size = Vector2(0, 40)
+		rel.custom_minimum_size = Vector2(0, 44)
 		rel.pressed.connect(_confirm_release.bind(p))
 		row.add_child(rel)
 	body.add_child(UiKit.lbl("Whole list", 15, UiKit.EMPH, true))
@@ -157,10 +168,123 @@ func _close_release() -> void:
 
 
 func handle_back() -> bool:
+	if is_instance_valid(_talk_overlay):
+		_close_talks()
+		return true
 	if not is_instance_valid(_release_overlay):
 		return false
 	_close_release()
 	return true
+
+
+## Contract talks: propose a salary and a term; he accepts, counters or, after
+## too many failed offers, walks. Nothing is signed until he accepts.
+func _open_talks(player_id: String) -> void:
+	var p := GameState.list_player(player_id)
+	if p.is_empty():
+		return
+	var want := Contracts.wants(p)
+	var talks := GameState.contract_talks(player_id)
+	_talk_id = player_id
+	_talk_reply = ""
+	_offer_salary = int(talks.get("counter", want["salary"]))
+	_offer_years = int(talks.get("years", want["years"]))
+	_show_talks()
+
+
+func _show_talks() -> void:
+	if is_instance_valid(_talk_overlay):
+		_talk_overlay.queue_free()
+	var p := GameState.list_player(_talk_id)
+	var want := Contracts.wants(p)
+	var talks := GameState.contract_talks(_talk_id)
+	var box := UiKit.modal_box(self, 440.0, 0.0)
+	_talk_overlay = box["overlay"]
+	_talk_overlay.name = "ContractTalks"
+	var v: VBoxContainer = box["body"]
+	v.add_child(_para(GameDB.player_display_name(p), 20, UiKit.TEXT))
+	v.add_child(_para("Age %d  ·  %d OVR  ·  %d POT  ·  on %d now" % [int(p.get("age", 0)), int(p["overall"]),
+			int(p.get("potential", p["overall"])), int(p.get("salary", 0))], 13, UiKit.MUTED))
+	v.add_child(_para("He wants %d a season for %d seasons. %s" % [int(want["salary"]), int(want["years"]),
+			Contracts.stance(p)], 15, UiKit.TEXT))
+	var reply := _talk_reply
+	if reply == "" and talks.has("counter"):
+		reply = "He'd sign for %d over %d season%s." % [int(talks["counter"]), int(talks["years"]),
+				"" if int(talks["years"]) == 1 else "s"]
+	if reply != "":
+		var r := _para(reply, 15, UiKit.TEXT)
+		r.name = "TalksReply"
+		v.add_child(r)
+	var left := Contracts.MAX_OFFERS - int(talks.get("failed", 0))
+	if talks.has("failed") and left == 1:
+		v.add_child(_para("One more failed offer and he'll test free agency.", 13, UiKit.BAD))
+	v.add_child(UiKit.lbl("Seasons", 14, UiKit.EMPH, true))
+	var terms := []
+	for y in range(1, Contracts.MAX_YEARS + 1):
+		terms.append([str(y), str(y)])
+	v.add_child(UiKit.choice_grid("Term", terms, str(_offer_years), 4, func(k: String):
+		_offer_years = int(k)
+		_show_talks()))
+	v.add_child(UiKit.lbl("Salary a season", 14, UiKit.EMPH, true))
+	var srow := UiKit.hbox(8)
+	v.add_child(srow)
+	var less := UiKit.btn("−", 18)
+	less.name = "SalaryDown"
+	less.custom_minimum_size = Vector2(56, 44)
+	less.disabled = _offer_salary <= 1
+	less.pressed.connect(func():
+		_offer_salary = maxi(1, _offer_salary - 1)
+		_show_talks())
+	srow.add_child(less)
+	var amount := UiKit.lbl(str(_offer_salary), 20, UiKit.TEXT, true)
+	amount.name = "SalaryOffer"
+	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	amount.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	srow.add_child(amount)
+	var more := UiKit.btn("+", 18)
+	more.name = "SalaryUp"
+	more.custom_minimum_size = Vector2(56, 44)
+	more.pressed.connect(func():
+		_offer_salary += 1
+		_show_talks())
+	srow.add_child(more)
+	var room_after := GameState.cap_room() + int(p.get("salary", 0)) - _offer_salary
+	v.add_child(_para("Cap room after this deal: %d" % room_after, 14, UiKit.TEXT if room_after >= 0 else UiKit.BAD))
+	var offer := UiKit.btn("Offer %d for %d season%s" % [_offer_salary, _offer_years, "" if _offer_years == 1 else "s"], 16, true)
+	offer.name = "MakeOffer"
+	offer.custom_minimum_size.y = 44
+	offer.disabled = room_after < 0
+	offer.pressed.connect(_make_offer.bind(_offer_salary, _offer_years))
+	box["footer"].add_child(offer)
+	var meet := UiKit.btn("Meet his terms: %d for %d seasons" % [int(want["salary"]), int(want["years"])], 16)
+	meet.name = "MeetTerms"
+	meet.custom_minimum_size.y = 44
+	meet.disabled = GameState.cap_room() + int(p.get("salary", 0)) < int(want["salary"])
+	meet.pressed.connect(_make_offer.bind(int(want["salary"]), int(want["years"])))
+	box["footer"].add_child(meet)
+	var cancel := UiKit.btn("Cancel", 16)
+	cancel.name = "CancelTalks"
+	cancel.custom_minimum_size.y = 44
+	cancel.pressed.connect(_close_talks)
+	box["footer"].add_child(cancel)
+
+
+func _make_offer(salary: int, years: int) -> void:
+	var r := GameState.offer_contract(_talk_id, salary, years)
+	if str(r.get("answer", "")) == "counter":
+		_talk_reply = str(r["reason"])
+		_offer_salary = int(r["salary"])
+		_show_talks()
+		return
+	_close_talks()
+	_notice = str(r["reason"])
+	_build()
+
+
+func _close_talks() -> void:
+	if is_instance_valid(_talk_overlay):
+		_talk_overlay.queue_free()
+	_talk_overlay = null
 
 
 func _agents(body: VBoxContainer) -> void:

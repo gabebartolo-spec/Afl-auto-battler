@@ -587,6 +587,23 @@ func _run() -> void:
 	_router.go("offseason")
 	await _settle()
 	_check(_screen_text().contains("Out of contract"), "The contracts tab lists who is out of contract")
+	_check(current_scene.find_children("Resign_*", "Button", true, false).is_empty(),
+			"No one-tap re-signing: contracts go through talks")
+	var talk = current_scene.find_child("Negotiate", true, false)
+	_check(talk != null, "An out-of-contract player can be talked to")
+	if talk != null:
+		var payroll_before: int = _state.my_payroll()
+		talk.emit_signal("pressed")
+		await _settle()
+		_check(current_scene.find_child("ContractTalks", true, false) != null
+				and current_scene.find_child("MakeOffer", true, false) != null
+				and _screen_text().contains("Cap room after this deal"),
+				"Talks open a sheet with salary, term and the cap consequence")
+		_check(_state.my_payroll() == payroll_before, "Opening talks signs nothing")
+		_router.handle_back(true)
+		await _settle()
+		_check(_router.current() == "offseason" and current_scene.find_child("ContractTalks", true, false) == null,
+				"Back closes the talks and stays on Trades & Contracts")
 	for tab in ["Tab_agents", "Tab_trade"]:
 		var tb: Button = current_scene.find_child(tab, true, false)
 		tb.emit_signal("pressed")
