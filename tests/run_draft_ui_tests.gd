@@ -104,8 +104,70 @@ func _run() -> void:
 	_check(_state.draft.pick_history == history, "Reopening never makes additional picks")
 	_check(_state.draft.count() == roster_before, "Reopening preserves the user's roster")
 	ui.queue_free()
+	await _settle()
+	await _test_intake_combine()
 	print("Draft UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
+
+
+## National Draft prospects show a compact Combine and scouting ranges on a
+## narrow phone, without exposing the hidden attribute sheet.
+func _test_intake_combine() -> void:
+	var old_size := root.size
+	root.size = Vector2i(360, 800)
+	var clubs := ["COL", "CAR"]
+	var sizes := {"COL": 34, "CAR": 34}
+	var counts := {
+		"COL": {"RUCK": 2, "MID": 13, "DEF": 9, "FWD": 10},
+		"CAR": {"RUCK": 2, "MID": 13, "DEF": 9, "FWD": 10},
+	}
+	var prospects: Array = load("res://scripts/sim/Prospects.gd").generate_class(_state.season_year + 1, 7331)
+	prospects = prospects.slice(0, 18)
+	_state.draft = load("res://scripts/sim/Draft.gd").build_intake(
+			prospects, clubs, clubs, 551, sizes, counts)
+	_state.draft.start_for_user("COL")
+	_state.my_club = "COL"
+	# Suppress the separate pre-draft meeting; this test is only the Combine.
+	_state.draft_meeting_year = _state.season_year
+
+	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ui)
+	await _settle()
+	var sort: OptionButton = ui.find_child("SortPlayers", true, false)
+	_check(sort != null and sort.get_item_text(0) == "Best scouted"
+			and sort.get_item_text(1) == "Highest upside",
+			"National Draft sorting is phrased as scouting, not hidden truth")
+
+	var p: Dictionary = _state.draft.board("", "", "", "overall", true)[0]
+	ui.call("_open_player", str(p["id"]))
+	await _settle()
+	var combine: Label = ui.find_child("CombineHeading", true, false)
+	_check(combine != null and combine.text == "Draft Combine", "Prospect inspection includes the Draft Combine")
+	_check(ui.find_children("Combine_*", "", true, false).size() == 4,
+			"The Combine stays compact at four scouting reads")
+	var ovr: Control = ui.find_child("DetailOVR", true, false)
+	var pot: Control = ui.find_child("DetailPOT", true, false)
+	_check(ovr != null and pot != null
+			and (ovr.get_child(0) as Label).text.contains("-")
+			and (pot.get_child(0) as Label).text.contains("-"),
+			"Prospect OVR and POT are shown as scouting ranges")
+	_check(ui.find_child("DetailAllRatings", true, false) == null
+			and ui.find_child("DetailAttributes", true, false) == null,
+			"A prospect cannot reveal the hidden exact attribute sheet")
+	var prod: Label = ui.find_child("DetailProduction", true, false)
+	_check(prod != null and prod.text != "", "Junior production remains beside Combine evidence")
+	var note: Label = ui.find_child("CombineNote", true, false)
+	_check(note != null and note.text.contains("junior football"),
+			"The screen says testing is evidence, not the whole projection")
+	var act: Button = ui.find_child("DetailDraft", true, false)
+	var close: Button = ui.find_child("DetailClose", true, false)
+	var view := Rect2(Vector2.ZERO, root.get_visible_rect().size).grow(1)
+	_check(act != null and close != null and act.size.y >= 44 and close.size.y >= 44
+			and view.encloses(act.get_global_rect()) and view.encloses(close.get_global_rect()),
+			"Combine inspection remains usable on a 360px portrait phone")
+	ui.queue_free()
+	await _settle()
+	root.size = old_size
 
 
 ## From eight picks, My list shows your side so far against the league, line
