@@ -272,7 +272,7 @@ static func derive_all(players: Array) -> Array:
 		# without the gate every tall forward gets classified as a ruckman.
 		scores["RUCK"] = (0.25 + 0.85 * q["hitouts_pg"]) if hitouts_pg >= 7.0 else -1.0
 		p["role_scores"] = scores
-		p["role"] = pick_role(scores)
+		p["role"] = listed_primary(p, pick_role(scores))
 		var fix := "%s|%s %s" % [p.get("club", ""), p.get("first", ""), p.get("last", "")]
 		if ROLE_CORRECTIONS.has(fix):
 			p["role"] = ROLE_CORRECTIONS[fix]
@@ -293,6 +293,35 @@ const ROLE_CORRECTIONS := {
 	"RIC|Maurice Rioli": "FWD",
 	"WBD|Cody Weightman": "FWD",
 }
+
+
+## His club's listing is his first position when the numbers read him as a
+## midfielder: a listed forward or defender with heavy possession is still a
+## forward or defender who can go through the middle (his second position
+## follows from the numbers). The numbers win when his game in his listed
+## line has thinned out and he wins his share of clearances, or when that
+## game has gone altogether (under half his midfield one) - then the listing
+## is a second position (listed_secondary). Disposals alone never move him: a half-forward or a
+## half-back can find plenty of it. With only a few games the numbers are too
+## thin to overrule the listing at all. Mirrored in tools/sim_harness.py.
+const LISTED_KEEP := 0.65           # his listed line's score against his midfield score
+const LISTED_GONE := 0.50           # under this share his listed line has gone
+const LISTED_MID_CLEARANCES := 1.5  # clearances a game: a real midfielder's work
+const LISTED_TRUST_GAMES := 6.0
+
+
+static func listed_primary(p: Dictionary, role: String) -> String:
+	var listed := str(p.get("real_pos", ""))
+	if role != "MID" or not (listed == "FWD" or listed == "DEF"):
+		return role
+	var scores: Dictionary = p["role_scores"]
+	var games := float(p.get("gm", 0.0))
+	if games < LISTED_TRUST_GAMES \
+			or float(scores[listed]) >= LISTED_KEEP * float(scores["MID"]) \
+			or (float(scores[listed]) >= LISTED_GONE * float(scores["MID"])
+				and float(p.get("cl", 0.0)) / games < LISTED_MID_CLEARANCES):
+		return listed
+	return role
 
 
 ## First-max wins, matching the Python harness's insertion order
@@ -337,9 +366,9 @@ static func rate_overall(a: Dictionary, role: String, games: float) -> int:
 ## so generated prospects and later seasons use the same scale.
 ## Must match tools/sim_harness.py::position_stretch (and intake_harness.py).
 const STRETCH_ANCHORS := {                # [p10, p50, p98] raw blend
-	"MID": [39.26, 51.49, 82.37],
-	"DEF": [40.37, 47.88, 58.90],
-	"FWD": [39.79, 50.93, 62.05],
+	"MID": [41.22, 53.99, 82.62],
+	"DEF": [40.07, 47.75, 58.86],
+	"FWD": [36.86, 48.25, 61.42],
 	"RUCK": [39.13, 66.27, 86.90],
 }
 const STRETCH_TARGETS := {                # where they land
