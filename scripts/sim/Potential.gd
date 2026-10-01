@@ -1,6 +1,10 @@
 class_name Potential
 extends RefCounted
-## Potential (POT): the overall rating a player can grow into.
+## Potential (POT): a player's projected natural peak - where his rating is
+## expected to settle, not a cap. It is set once, when he enters the game,
+## and never moves to match what he later reaches. Development is pulled
+## toward it and gets steadily harder near and past it, under the same rules
+## for every club; an occasional breakout carries a player beyond it.
 ##
 ## The dataset is one season of stats, so a star who missed most of 2026 is
 ## rated on two or three games and shrunk toward the league average. POT is
@@ -135,13 +139,44 @@ static func growth(p: Dictionary, age: float) -> float:
 	return maxf(gap * pull, minf(gap, MIN_STEP))
 
 
-## Training discount: stats come cheaper the further a player sits below his
-## POT (down to half price), and cost 50% more once he is past it.
+## Training price against POT, the same for every club. Well below it a
+## stat comes cheaper (down to half price); over the last few points it gets
+## dearer; at POT it costs PAST_POT_BASE and every point beyond multiplies
+## that by PAST_POT_STEP. No stop: an exceptional player can still be built
+## past his projection, but each point costs far more than the last.
+const NEAR_POT_GAP := 4
+const NEAR_POT_STEP := 0.15
+const PAST_POT_BASE := 1.6
+const PAST_POT_STEP := 1.7
+
+
 static func training_multiplier(p: Dictionary) -> float:
-	var gap := float(int(p.get("potential", p.get("overall", 0))) - int(p.get("overall", 0)))
-	if gap <= 0.0:
-		return 1.5
-	return clampf(1.0 - gap / 50.0, 0.5, 1.0)
+	var gap := int(p.get("potential", p.get("overall", 0))) - int(p.get("overall", 0))
+	if gap <= 0:
+		return PAST_POT_BASE * pow(PAST_POT_STEP, float(-gap))
+	if gap < NEAR_POT_GAP:
+		return 1.0 + float(NEAR_POT_GAP - gap) * NEAR_POT_STEP
+	return clampf(1.0 - float(gap) / 50.0, 0.5, 1.0)
+
+
+## A breakout: an off-season in which a player jumps well beyond his normal
+## development - past his projection if he was near it. Rolled fresh each
+## year for every player alike, likelier when young, rare at any age, and
+## open-ended: BREAKOUT_MIN plus an exponential tail averaging BREAKOUT_MEAN.
+const BREAKOUT_CHANCE := [[22.0, 0.03], [25.0, 0.02], [28.0, 0.01]]
+const BREAKOUT_MIN := 2.0
+const BREAKOUT_MEAN := 2.5
+
+
+static func breakout_jump(rng: RandomNumberGenerator) -> float:
+	return BREAKOUT_MIN - BREAKOUT_MEAN * log(maxf(1e-6, 1.0 - rng.randf()))
+
+
+static func breakout_chance(age: float) -> float:
+	for band in BREAKOUT_CHANCE:
+		if age <= float(band[0]):
+			return float(band[1])
+	return 0.0
 
 
 static func _headroom(age: float) -> float:
