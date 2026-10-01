@@ -21,6 +21,7 @@ func run() -> void:
 	_test_old_save()
 	_test_expansion_structure()
 	_test_no_effects_yet()
+	_test_movement_is_visible()
 	await _test_ui()
 	GameState.delete_saved_career()
 	print("Coaches tests: %d checks, %d failures" % [checks, failures.size()])
@@ -327,3 +328,36 @@ func _text(n: Node) -> String:
 	if n is Label:
 		bits.append(str(n.text))
 	return " | ".join(bits)
+
+
+## ARD-M6-002: coaching movement is visible. The off-season wrap names who
+## left your staff and where he went, and every club with a new senior coach
+## (who replaced whom), read from the coach records alone.
+func _test_movement_is_visible() -> void:
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var y := GameState.season_year
+	for cid in GameState.coaches:
+		CoachMarket.ensure_fields(GameState.coaches[cid], y)
+	GameState.offseason_staff = Coaches.staff(GameState.coaches, "GEE")
+	var mine: Dictionary = GameState.coaches[str(GameState.offseason_staff["FWD"])]
+	var car_sc: Dictionary = GameState.coaches[str(Coaches.staff(GameState.coaches, "CAR")["SC"])]
+	CoachMarket._leave_job(car_sc, y)
+	CoachMarket._appoint(mine, "CAR", "SC", y, 1)
+	GameState._build_season_wrap(y + 1)
+	var staff: Array = GameState.season_wrap["staff"]
+	var left_line := ""
+	for line in staff:
+		if str(line).contains(GameDB.player_display_name(mine)) and str(line).contains("left"):
+			left_line = str(line)
+	_check(left_line.contains("senior coach") and left_line.contains("Carlton"),
+			"The wrap says who left your staff and where he went (%s)" % left_line)
+	var league: Array = GameState.season_wrap["league_coaches"]
+	var coach_line := ""
+	for line in league:
+		if str(line).begins_with("Carlton"):
+			coach_line = str(line)
+	_check(coach_line.contains(GameDB.player_display_name(mine)) and coach_line.contains(GameDB.player_display_name(car_sc)),
+			"New senior coaches read who replaced whom (%s)" % coach_line)
+	_check(league.size() == 1, "Only clubs that changed senior coach are listed (%d)" % league.size())
+	GameState.reset()
