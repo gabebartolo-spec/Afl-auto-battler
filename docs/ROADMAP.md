@@ -1,7 +1,7 @@
 # Aussie Rules Dynasties — Canonical Execution Roadmap
 
 _Last reorganised: 2026-09-28_
-_Last sanity-checked: 2026-09-30 after full-season phone playtest_
+_Last sanity-checked: 2026-10-02 against current main and open implementation PRs_
 
 This file is the **single source of truth** for the project roadmap. It is deliberately written so Claude or another coding agent can read it, select an authorised task, inspect the repo, implement it, validate it, and update the roadmap with minimal extra guidance.
 
@@ -3010,7 +3010,7 @@ A one-screen scroll or short staged flow is fine. No forced slideshow.
 - long saves retain a clear year-to-year sense of roster change without number vomit.
 
 ## ARD-M6-008 — Post-match media conference
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — implementation in PR #183; cinematic media-room vignette, factual questions, modest morale/board consequences, cooldowns, save persistence and neutral Skip are implemented on the branch; awaiting CI/phone verification before DONE.  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -3043,7 +3043,7 @@ After a match, the coach faces the press in a short, dramatic vignette: a journa
 Goal: make decades of play feel like a living AFL world rather than repeated isolated seasons.
 
 ## ARD-M7-001 — Rivalries
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — PR #180 implements permanent established rivalries plus persistent dynamic rivalries grown from close/high-stakes meetings, with brewing/rivals UI context; awaiting CI/merge verification.  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -3064,7 +3064,7 @@ Avoid arbitrary large stat buffs.
 ---
 
 ## ARD-M7-002 — Marquee games
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — PR #181 implements recurring marquee identity in weekly matchup presentation without gameplay bonuses; exact calendar-date fixture pinning remains future work because the current fixture model is round-based.  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
