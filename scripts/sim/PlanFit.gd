@@ -21,6 +21,11 @@ const NEEDS := {
 			"word": "pressure players"},
 	"contest": {"attr": {"contested": 1.0}, "lines": ["MID"], "n": 4, "ruck": true,
 			"word": "ball-winners"},
+	# Controlled tempo holds the ball against a press: it needs ball users
+	# right across the ground - disposal under pressure, and the discipline
+	# not to cough it up.
+	"controlled": {"attr": {"disposal": 0.65, "discipline": 0.35}, "lines": ["DEF", "MID", "FWD"],
+			"n": 10, "word": "ball users"},
 }
 
 ## Where the league sits on each plan's score (mean, spread), from the 2027
@@ -29,6 +34,7 @@ const LEAGUE := {
 	"attacking": [71.3, 3.5],
 	"defensive": [49.8, 2.4],
 	"contest": [80.3, 3.8],
+	"controlled": [57.9, 1.6],
 	# Through stars: how far the side's best three stand above its average.
 	"through_stars": [15.1, 2.3],
 }
@@ -138,6 +144,8 @@ static func standing_plan(ground: Array) -> String:
 	var best := "balanced"
 	var best_edge := STANDING_EDGE
 	for plan in NEEDS:
+		if plan == "controlled":
+			continue   # the AI's game for protecting a lead, not a style
 		var e := edge(ground, plan)
 		if e > best_edge:
 			best_edge = e
