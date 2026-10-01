@@ -16,6 +16,12 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 
+func _test_rivalry_catalogue() -> void:
+	_check(Rivalries.are_rivals("COL", "CAR") and Rivalries.are_rivals("CAR", "COL"),
+			"Established rivalries work in either fixture direction")
+	_check(Rivalries.label("ADE", "PAD") == "Showdown", "Named rivalry context is preserved")
+	_check(not Rivalries.are_rivals("ADE", "GEE"), "Ordinary opponents are not labelled rivals")
+
 func _check(condition: bool, message: String) -> void:
 	_checks += 1
 	if not condition:
@@ -42,6 +48,7 @@ func _screen_text() -> String:
 
 
 func _run() -> void:
+	_test_rivalry_catalogue()
 	await process_frame
 	_state = root.get_node("GameState")
 	_router = root.get_node("Router")
