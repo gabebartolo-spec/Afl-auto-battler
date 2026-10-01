@@ -261,6 +261,19 @@ func _season_wrap() -> void:
 	_check(again.find_child("SeasonWrap", true, false) == null, "It does not come back")
 	again.queue_free()
 	await _settle()
+	# A coach leaving your staff is a notice on the hub, not only a badge.
+	_state.staff_vacancies = [{"job": "FWD", "reason": "Tom Hart left to become senior coach at Carlton."}]
+	var hub2: Control = await _open_hub()
+	var notice: Control = hub2.find_child("StaffNotice", true, false)
+	_check(notice != null and hub2.find_child("StaffNoticeGo", true, false) != null,
+			"A coach leaving your staff shows on the hub with the way to replace him")
+	_state.staff_vacancies = []
+	hub2.queue_free()
+	await _settle()
+	var hub3: Control = await _open_hub()
+	_check(hub3.find_child("StaffNotice", true, false) == null, "No notice once the job is filled")
+	hub3.queue_free()
+	await _settle()
 
 
 func _open_hub() -> Control:
