@@ -24,7 +24,7 @@ matchup 62
 matchday 319
 roles 143
 injuries 12
-awards 16
+awards 17
 achievements 153
 contracts 20
 league 14

@@ -70,6 +70,24 @@ func _test_full_season() -> void:
 	var coleman: Array = aw.get("coleman", [])
 	_check(not coleman.is_empty() and int(coleman[0]["goals"]) >= 30,
 			"A Coleman medallist with a real tally (%d)" % (int(coleman[0]["goals"]) if not coleman.is_empty() else 0))
+	# A credible scorer wins it: across 8 drafted-league seasons every
+	# medallist was a spearman (59-81 goals, 1.6-2.6 a game in 2026) and no
+	# 60-goal season came from a below-median kick. Unusual winners stay
+	# possible; a middling forward funnelled into a Coleman does not.
+	if not coleman.is_empty():
+		var kicks := []
+		var winner := {}
+		for c in GameState.season.lists:
+			for p in GameState.season.lists[c]:
+				if str(p.get("role", "")) == "FWD":
+					kicks.append(float(p["attr"]["goalkicking"]))
+				if str(p["id"]) == str(coleman[0].get("id", "")):
+					winner = p
+		kicks.sort()
+		var median: float = kicks[kicks.size() / 2]
+		_check(not winner.is_empty() and float(winner["attr"]["goalkicking"]) >= median,
+				"The Coleman medallist can kick goals (%d, league forward median %d)" % [
+				int(winner.get("attr", {}).get("goalkicking", 0)), int(median)])
 	var rising: Array = aw.get("rising_star", [])
 	_check(not rising.is_empty() and float(rising[0]["age"]) <= Awards.RISING_STAR_AGE,
 			"A Rising Star aged 21 or under")
