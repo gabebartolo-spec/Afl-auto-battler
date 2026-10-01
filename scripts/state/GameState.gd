@@ -781,8 +781,11 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	# Free agents are on no list until a rival signs them, so heal after
 	# free agency closes, and heal the season's lists too.
 	_close_contracts()
+	Workload.reset(league_lists)
+	Workload.reset({"free_agents": free_agents})
 	Injuries.heal_all(league_lists)
 	if season != null:
+		Workload.reset(season.lists)
 		Injuries.heal_all(season.lists)
 	season_tally = {}
 	form_log = {}
@@ -953,6 +956,7 @@ func start_season(club_code: String, list: Array) -> void:
 	# Career copies, not the shared database rows. Training must not rewrite
 	# the draft pool for the next career.
 	my_list = lists.get(my_club, [])
+	Workload.reset(lists)
 	# The real 2026 season is history before the career starts: every real
 	# player's record runs through 2026, at the club he played it for. A
 	# 2026 draftee has no senior games; his record starts after 2026 too.
@@ -1933,6 +1937,11 @@ func _short_name(id: String) -> String:
 ## Everything that follows a round: injuries, the awards tally, and - when
 ## the Grand Final has just been played - the season's awards.
 func _after_round(results: Array) -> void:
+	if season != null:
+		var regular := last_phase == "regular"
+		var week := "%d|%s|%d" % [season_year, "R" if regular else "F",
+				season.round_index if regular else (season.finals.get("weeks", []) as Array).size()]
+		Workload.advance_week(season.lists, results, week)
 	_process_injuries(results)
 	for res in results:
 		Awards.tally_match(season_tally, res, not res.has("tag"))

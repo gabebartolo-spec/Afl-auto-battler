@@ -29,7 +29,7 @@ SUITE_TIMEOUT="${SUITE_TIMEOUT:-900}"
 EXPECTED_CHECKS="${EXPECTED_CHECKS:-tests/expected_checks.txt}"
 # SUITES_ONLY=1 skips the dataset, export and harness steps after the suites.
 SUITES_ONLY="${SUITES_ONLY:-0}"
-ALL_SUITES=(draft draft_ui intake intake_ui expansion finals save chronology career coaches coach_market coach_pathway coach_effects career_ui potential ratings ai training selection matchup matchday roles injuries awards achievements contracts league club match_game pressure match_visual league_balance calibration balance)
+ALL_SUITES=(draft draft_ui intake intake_ui expansion finals save chronology career coaches coach_market coach_pathway coach_effects career_ui potential ratings ai training selection matchup matchday roles injuries awards achievements contracts league club match_game pressure workload match_visual league_balance calibration balance)
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
 
 LOG_DIR="${LOG_DIR:-$(mktemp -d)}"

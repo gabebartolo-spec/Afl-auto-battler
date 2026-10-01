@@ -63,6 +63,17 @@ translations, pick *Keep File* again in the Import dock.
 | **National Draft** | The career keeps going. Father-son and NGA prospects land at their clubs, then every list - yours included - drafts that year's class over the reversed ladder, worst club first (the first is the generated 2027 class; the real 2026 class was already taken in the League Draft). Prospects have no AFL stats; they arrive with **projected ratings** built from draft rank, position and U18 production, so a top pick starts rotation-grade and develops from there. |
 | **Next season** | Every list ages: young prospects grow, veterans decline, the oldest retire. A generated intake class arrives each year, so the loop runs indefinitely. Expansion follows the calendar: Tasmania (the Devils) enters in 2028 and Canberra (the Thunder) in 2030, each arriving with a generated list of 36 and joining fixtures, ladders, drafts, trades and the finals from its first season. With an odd club count the fixture rotates a bye so every club still plays 24 games. |
 
+### Managing workload
+
+Senior game time carries into the next week. Team selection shows **Fresh**,
+**Carrying a load**, or **Needs a break**; tap a player for the explanation.
+A loaded player starts with less in his legs, and a bench spell during the
+match cannot completely remove the week's fatigue. Lighter game time helps;
+leave him **Out** of your named side to give him a week away from seniors.
+Byes and injury absences also allow recovery, and the offseason clears it.
+Older players recover more slowly, while durability helps. Auto-pick weighs
+freshness alongside ability for every club; a named selection remains yours.
+
 ### The draft room
 
 - **Rival picks are visible.** A latest-rival-pick strip links to the full log.

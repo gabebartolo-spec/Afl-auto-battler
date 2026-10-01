@@ -11,6 +11,10 @@ extends RefCounted
 var squads: Array = []                 # [Squad home, Squad away]
 var rng := RandomNumberGenerator.new()
 var team_stats: Array = [{}, {}]
+## Actual effort, accumulated only while a player is on the ground. Kept
+## separately from energy, which recovers during a match, and from stats.
+var exertion := {}
+var energy_caps := {}
 var player_stats := {}                 # player id -> {stat: float}
 var events: Array = []
 var q_goals: Array = [[0, 0], [0, 0], [0, 0], [0, 0]]
@@ -152,9 +156,11 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 		for p in PlanFit.carriers((squads[side] as Squad).ground, "through_stars"):
 			(stars[side] as Dictionary)[str(p["id"])] = true
 		for p in (squads[side] as Squad).ground:
+			energy_caps[str(p["id"])] = Workload.energy_cap(p)
 			energy[str(p["id"])] = _start_energy(p)
 			_played[side][str(p["id"])] = true
 		for p in (squads[side] as Squad).bench:
+			energy_caps[str(p["id"])] = Workload.energy_cap(p)
 			energy[str(p["id"])] = _start_energy(p)
 	_plan_injuries()
 
@@ -167,7 +173,7 @@ static func _start_energy(p: Dictionary) -> float:
 		e = 88.0
 	if bool(p.get("sore", false)):
 		e = minf(e, ClubLife.SORE_LEGS)
-	return e
+	return minf(e, Workload.energy_cap(p))
 
 
 ## Put `def_id` (of `def_side`) on the other side's forward `fwd_id`. If he
@@ -1523,7 +1529,7 @@ func begin_quarter() -> void:
 	})
 	if current_quarter > 1:
 		for id in energy:
-			energy[id] = minf(100.0, float(energy[id]) + ENERGY_BREAK_RECOVER)
+			energy[id] = minf(float(energy_caps.get(id, 100.0)), float(energy[id]) + ENERGY_BREAK_RECOVER)
 	# AI clubs pick their plan for the quarter from the score and what they
 	# have seen (no dice: replays are unchanged).
 	for side in range(2):
@@ -1773,6 +1779,7 @@ func result() -> Dictionary:
 		"q_behinds": q_behinds.duplicate(true),
 		"team": [team_stats[0].duplicate(), team_stats[1].duplicate()],
 		"players": player_stats.duplicate(true),
+		"exertion": exertion.duplicate(),
 		"events": events,
 		"winner": winner,
 		"margin": absi(s0 - s1),
@@ -1882,10 +1889,11 @@ func _after_chain() -> void:
 					* (1.2 - 0.4 * dur / 100.0) * pace
 			if _trait(p, "engine"):
 				d *= 0.75
+			exertion[id] = float(exertion.get(id, 0.0)) + d
 			energy[id] = maxf(5.0, float(energy.get(id, 100.0)) - d)
 		for p in sq.bench:
 			var id := str(p["id"])
-			energy[id] = minf(100.0, float(energy.get(id, 100.0)) + ENERGY_BENCH_RECOVER)
+			energy[id] = minf(float(energy_caps.get(id, 100.0)), float(energy.get(id, 100.0)) + ENERGY_BENCH_RECOVER)
 		var b: Dictionary = bursts[side]
 		for k in b.keys():
 			b[k] = int(b[k]) - 1
