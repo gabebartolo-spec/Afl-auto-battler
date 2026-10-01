@@ -376,11 +376,15 @@ func _week_section(season: Season) -> Control:
 				26 if _narrow() else 30, UiKit.TEXT, true)
 		who.name = "Opponent"
 		nv.add_child(who)
-		var rivalry := Rivalries.established(GameState.my_club, opp)
+		var rivalry := GameState.rivalry_context(GameState.my_club, opp)
 		if not rivalry.is_empty():
-			var rivalry_line := UiKit.lbl(str(rivalry["name"]) + " rivalry", UiKit.SMALL, UiKit.EMPH, true)
+			var rivalry_line := UiKit.lbl(str(rivalry["title"]), UiKit.SMALL, UiKit.EMPH, true)
 			rivalry_line.name = "RivalryContext"
 			nv.add_child(rivalry_line)
+			if str(rivalry.get("detail", "")) != "":
+				var rivalry_detail := UiKit.lbl(str(rivalry["detail"]), UiKit.SMALL, UiKit.MUTED)
+				rivalry_detail.name = "RivalryDetail"
+				nv.add_child(rivalry_detail)
 		var their := GameState.club_form_info(opp)
 		var standing := UiKit.lbl("%s on the ladder  ·  %s" % [
 				GameState.ordinal(GameState.club_position(opp)),
