@@ -366,11 +366,15 @@ func _test_plans_match_the_engine() -> void:
 				if not (p["attr"] as Dictionary).has(k):
 					pos_ok = false
 	_check(pos_ok, "Position plan trains each role's OVR core, and no plan names an attribute a player lacks")
-	var d := _first_of("DEF")
+	var d := {}
+	for p in GameState.my_list:
+		if str(p["role"]) == "DEF" and str(p.get("role2", "")) == "":
+			d = p
+			break
 	var offered: Array = GameState.plans_for(d)
 	_check(offered.has("position") and offered.has("key_def") and offered.has("manual")
 			and not offered.has("key_fwd") and not offered.has("inside_mid"),
-			"A defender is offered defender plans, not forward or midfield ones (%s)" % str(offered))
+			"A pure defender is offered defender plans, not forward or midfield ones (%s)" % str(offered))
 	d["train_plan"] = "key_fwd"
 	_check(GameState.plan_for(d) == "position", "A plan for another role falls back to Position plan")
 	d.erase("train_plan")
