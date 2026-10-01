@@ -416,8 +416,12 @@ func _test_traits_through_training() -> void:
 	GameState._spend_with_weights(fwd, GameState.plan_weights(fwd, "small_fwd"), false)
 	_check(Traits.has(fwd, "crumber"), "Small forward training unlocks Crumber")
 	var d: Dictionary = _first_of("DEF").duplicate(true)
-	d["potential"] = int(d["overall"]) + 10
+	# Controlled fixture: only Intercept is buyable, so this tests the plan/trait
+	# path rather than whichever real defender happens to be first in the list.
+	d["potential"] = 99
+	d["gm"] = 0
 	d["attr"]["intercept"] = 74
+	d["attr"]["pressure"] = 99
 	d["xp"] = 3000
 	GameState._spend_with_weights(d, GameState.plan_weights(d, "key_def"), false)
 	_check(int(d["attr"]["intercept"]) >= 80 and Traits.of(d).has("interceptor") or Traits.of(d).size() >= 2,
