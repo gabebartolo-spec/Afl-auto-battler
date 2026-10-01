@@ -153,7 +153,7 @@ func _test_offseason_flow() -> void:
 
 
 ## ARD-M6-004: what a player wants is shown; how far he bends follows his
-## standing and the term; the same offer always gets the same answer.
+## leverage and the term; the same offer always gets the same answer.
 func _test_negotiation_rules() -> void:
 	var star := {"id": "n_star", "overall": 84, "potential": 86, "age": 26.0, "morale": 70}
 	var regular := {"id": "n_reg", "overall": 70, "potential": 72, "age": 27.0, "morale": 70}
@@ -162,13 +162,25 @@ func _test_negotiation_rules() -> void:
 	_check(int(Contracts.wants(regular)["years"]) == 3 and int(Contracts.wants(fringe)["years"]) == 2
 			and int(Contracts.wants(regular)["salary"]) == Contracts.asking_salary(regular),
 			"He asks his price over three seasons, or two once he is 30")
-	_check(Contracts.standing(star) == "star" and Contracts.standing(kid) == "star"
-			and Contracts.standing(regular) == "regular" and Contracts.standing(fringe) == "fringe",
-			"Stars and young guns have the leverage; fringe players do not")
+	_check(Contracts.leverage(star) > Contracts.leverage(kid) and Contracts.leverage(kid) > Contracts.leverage(fringe)
+			and Contracts.stance(star).contains("won't take less") and Contracts.stance(fringe).contains("fighting"),
+			"Better and younger players have more leverage, and he says so")
 	var ask := Contracts.asking_salary(regular)
 	_check(Contracts.lowest(star, 3) == Contracts.asking_salary(star) and Contracts.lowest(regular, 3) == ask - 1
-			and Contracts.lowest(regular, 4) == ask - 1 and Contracts.lowest(regular, 1) == ask + 1,
-			"A star won't take less; a regular gives a point for security; a short deal costs a point")
+			and Contracts.lowest(regular, 4) == ask - 1 and Contracts.lowest(regular, 1) == ask + 1
+			and Contracts.lowest(fringe, 2) < Contracts.asking_salary(fringe),
+			"A star won't take less; others give a little for security; a short deal costs a point")
+	# No cliff: leverage moves smoothly with rating, and one rating point never
+	# moves his lowest price by more than a point.
+	var smooth := true
+	var prev := {}
+	for ovr in range(55, 92):
+		var q := {"id": "n_s", "overall": ovr, "potential": ovr, "age": 26.0, "morale": 70}
+		if not prev.is_empty():
+			if Contracts.leverage(q) - Contracts.leverage(prev) > 0.05 or absi(Contracts.lowest(q, 3) - Contracts.lowest(prev, 3)) > 1:
+				smooth = false
+		prev = q
+	_check(smooth, "Leverage and price scale smoothly with rating: no threshold where the rules change")
 	_check(str(Contracts.respond(regular, ask - 1, 3)["answer"]) == "accept"
 			and str(Contracts.respond(regular, ask - 2, 3)["answer"]) == "counter"
 			and int(Contracts.respond(regular, ask - 2, 3)["salary"]) == ask - 1,
@@ -199,7 +211,8 @@ func _test_negotiation() -> void:
 	GameState.salary_cap += 40
 	var talkers := []
 	for p in Contracts.expiring(GameState.my_list):
-		if Contracts.standing(p) != "star" and Contracts.asking_salary(p) >= 3:
+		var w := Contracts.wants(p)
+		if Contracts.lowest(p, int(w["years"])) < int(w["salary"]) and int(w["salary"]) >= 3:
 			talkers.append(p)
 	_check(talkers.size() >= 2, "Two of your out-of-contract players can be negotiated with (%d)" % talkers.size())
 	if talkers.size() < 2:

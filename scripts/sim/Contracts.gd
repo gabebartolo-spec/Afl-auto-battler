@@ -75,39 +75,33 @@ static func wants(p: Dictionary) -> Dictionary:
 	return {"salary": asking_salary(p), "years": 3 if float(p.get("age", 25.0)) < 30.0 else 2}
 
 
-## How much leverage he has: "star" (among the best, or a young gun), "fringe"
-## (fighting for his spot), else "regular".
-static func standing(p: Dictionary) -> String:
-	var ovr := int(p.get("overall", 50))
-	var age := float(p.get("age", 25.0))
-	if ovr >= 79 or (age <= 23.0 and int(p.get("potential", ovr)) >= 82):
-		return "star"
-	if asking_salary(p) <= 4:
-		return "fringe"
-	return "regular"
+## How much leverage he has, from 0 (a fringe player glad of a contract) to 1
+## (one of the best in the game, or a young gun). Scales smoothly with his
+## worth - rating, potential and age - so no single rating changes the rules.
+static func leverage(p: Dictionary) -> float:
+	return clampf((worth(p) - 55.0) / 30.0, 0.0, 1.0)
 
 
-## What a coach or manager would say about his position.
+## What a coach or manager would say about his position. Read off the same
+## numbers as `lowest`, so the words never promise a discount he won't give.
 static func stance(p: Dictionary) -> String:
-	match standing(p):
-		"star":
-			return "He knows his worth and won't take less."
-		"fringe":
-			return "He's fighting for his spot and will take less to stay."
+	var want := wants(p)
+	if lowest(p, int(want["years"])) >= int(want["salary"]):
+		return "He knows his worth and won't take less."
+	if leverage(p) < 0.35:
+		return "He's fighting for a spot on a list and will take less."
 	return "He'd give a little on salary for the security he wants."
 
 
-## The least he would sign for over `years`. A regular or fringe player gives
-## a point for the term he wants (or longer); a shorter deal costs a point
-## more for anyone.
+## The least he would sign for over `years`. Given the term he wants (or
+## longer) he gives up to a fifth of his price, less the more leverage he has;
+## a shorter deal costs a point more for anyone.
 static func lowest(p: Dictionary, years: int) -> int:
 	var want := wants(p)
 	var price := int(want["salary"])
 	if years < int(want["years"]):
 		return price + 1
-	if standing(p) != "star":
-		price -= 1
-	return maxi(1, price)
+	return maxi(1, roundi(price * (1.0 - 0.2 * (1.0 - leverage(p)))))
 
 
 ## His answer to `salary` over `years`, given how many offers have already
