@@ -3127,6 +3127,14 @@ Canonical umbrella for:
 - Hall of Fame / legends where justified,
 - famous finals/dynasties/droughts.
 
+### Awards ceremony implementation — 2026-10-02
+**Status:** `IN PROGRESS` — branch `chatgpt/season-awards`; pending PR CI and phone playtest.
+- Brownlow, Coleman, All-Australian and club best and fairest are presented over the existing Season Review, with B&F last.
+- One reusable stage walk-on/medal vignette reads the actual winner and all 20 clubs' genuine colour bands; it reuses BroadcastVignette's silhouette figures. No separate scenes per club, fabricated likeness, votes or outcomes.
+- All-Australian is scrollable; controls reveal immediately, finish animation, advance, or skip to the review. Replay is read-only; viewed state lives in the already-saved season_awards dictionary.
+- Uses existing stored placings (including existing tiebreak order), rather than inventing shared medals or a round-by-round count. B&F currently stores three placings; does not invent fifth/fourth.
+- Validation: career_ui 178 checks, save 57 checks, awards 17 checks; zero failures. Actual Godot/OpenGL portrait capture inspected at 360×800. UI regressions cover 320/360/430 widths. Phone check still required for pacing, touch and Android Back.
+
 ### End-of-season awards presentation — fanfare, not summary cards
 The current Season Review collapses Brownlow, Coleman, Rising Star, club best & fairest and All-Australian into a single static awards panel. That is too flat for awards that should feel like major season payoffs. Keep the **season story/campaign recap separate** from awards night.
 
