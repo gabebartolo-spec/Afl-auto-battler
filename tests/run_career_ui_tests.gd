@@ -611,6 +611,19 @@ func _run() -> void:
 		if tab == "Tab_agents" and not _state.free_agents.is_empty():
 			_check(current_scene.find_children("Sign_*", "Button", true, false).is_empty(),
 					"No one-tap free-agent signing")
+			for sort_name in ["AgentSort_overall", "AgentSort_potential", "AgentSort_age"]:
+				_check(current_scene.find_child(sort_name, true, false) != null,
+						"Free agents can be sorted by " + sort_name.trim_prefix("AgentSort_"))
+			var age_sort: Button = current_scene.find_child("AgentSort_age", true, false)
+			if age_sort != null and _state.free_agents.size() > 1:
+				age_sort.emit_signal("pressed")
+				await _settle()
+				_check((current_scene.find_child("AgentSort_age", true, false) as Button).text.contains("↓"),
+						"Selecting Age sorts descending")
+				(current_scene.find_child("AgentSort_age", true, false) as Button).emit_signal("pressed")
+				await _settle()
+				_check((current_scene.find_child("AgentSort_age", true, false) as Button).text.contains("↑"),
+						"Tapping the active free-agent sort reverses it")
 			var fa_talk = current_scene.find_child("FreeAgentTalks", true, false)
 			# Prefer a free agent with rival offers, to see the offers table.
 			for fa in _state.free_agents:
