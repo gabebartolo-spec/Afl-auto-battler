@@ -35,7 +35,6 @@ var _cap: Label
 var _role_labels := {}
 var _role_buttons := {}
 var _need_labels := {}
-var _cover_labels := {}
 var _main_tabs: HBoxContainer
 var _side_tabs: HBoxContainer
 var _pool_panel: PanelContainer
@@ -356,7 +355,6 @@ func _position_filters() -> Control:
 	_all_button.tooltip_text = "Show every position."
 	_all_button.pressed.connect(_set_role.bind(""))
 	h.add_child(_all_button)
-	var targets := _draft.position_targets()
 	for role in ROLES:
 		var b := UiKit.btn("", 14)
 		b.name = "Position_" + role
@@ -373,20 +371,14 @@ func _position_filters() -> Control:
 		count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(count_label)
 		_role_labels[role] = count_label
-		# Dual-position players who can also play here: shown only when
-		# there are some, so the headline count stays the list's make-up.
-		var cover := UiKit.line("", 11, UiKit.MUTED)
-		cover.name = "Cover_" + role
-		cover.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		v.add_child(cover)
-		_cover_labels[role] = cover
+		# One answer per position: short of the match-day side, light on a
+		# full list's depth, or covered. Each player fills one spot only.
 		var need := UiKit.line("", 11, UiKit.MUTED, true)
+		need.name = "Need_" + role
 		need.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(need)
 		_need_labels[role] = need
-		b.tooltip_text = "%s: aim for %d. Tap to show only %s; tap again for all.\n" % [
-				UiKit.ROLE_LABEL[role], targets[role], str(UiKit.ROLE_LABEL[role]).to_lower()] \
-				+ "Coverage targets follow the match-day positions; only 2 rucks are mandatory."
+		b.tooltip_text = "Tap to show only %s; tap again for all." % str(UiKit.ROLE_LABEL[role]).to_lower()
 		_ignore_mouse(v)
 		b.pressed.connect(func(): _set_role("" if _role == role else role))
 		h.add_child(b)
@@ -1220,16 +1212,13 @@ func _refresh_status() -> void:
 			_cap.text = "Cap left $%d\nUp to $%d this pick" % [_draft.remaining(), usable]
 		else:
 			_cap.text = "Cap left $%d\n$%d spent" % [_draft.remaining(), _draft.spent()]
-	var counts := _draft.role_counts()
-	var cover := _draft.role_coverage()
-	var needs := _draft.position_needs()
+	var status := _draft.position_status()
 	for role in ROLES:
-		_role_labels[role].text = "%s %d" % [role, counts[role]]
-		var extra := int(cover[role]) - int(counts[role])
-		_cover_labels[role].text = "%d can play" % int(cover[role]) if extra > 0 else ""
-		_cover_labels[role].visible = extra > 0
-		_need_labels[role].text = "NEED +%d" % int(needs[role]) if int(needs[role]) > 0 else "COVERED"
-		_need_labels[role].add_theme_color_override("font_color", UiKit.BAD if int(needs[role]) > 0 else UiKit.GOOD)
+		var st: Dictionary = status[role]
+		_role_labels[role].text = "%s %d" % [role, int(st["count"])]
+		_need_labels[role].text = Draft.need_word(st, role)
+		_need_labels[role].add_theme_color_override("font_color",
+				UiKit.BAD if int(st["short"]) > 0 else UiKit.MUTED)
 	var upcoming := _draft.upcoming_picks(_club, 3)
 	var pick_labels := []
 	for number in upcoming:
