@@ -30,6 +30,7 @@ func run() -> void:
 	_test_spoils_and_crumbs()
 	_test_hot_player_moment()
 	_test_matchups()
+	_test_key_duel_balance()
 	_test_in_match_injuries()
 	_test_run_call_once_a_run()
 	_test_late_bounce_reachable()
@@ -1259,6 +1260,57 @@ func _test_traits_surfaced() -> void:
 			"Full time shows the stat each of your synergies plays on: %s" % str(lines))
 	_check(MatchNotes.synergy_lines(res, 1).is_empty(), "No synergies, no lines")
 
+
+## Playtest impression: good key forwards always beat good key defenders.
+## Measured (60 matches a cell, one forward transplanted into the same
+## side): equal quality is about even (elite v elite 52%, good v good 43%,
+## average v average 50% of named contests to the forward); an elite
+## defender holds a good forward to 34% and cuts his goals about a quarter.
+## Pinned smaller: the same forward against an elite and an average
+## defender.
+func _test_key_duel_balance() -> void:
+	var kfs := []
+	var kds := []
+	for p in GameDB.players:
+		if str(p["role"]) == "FWD" and PlayerProfile.forward_type(p) == "Key forward":
+			kfs.append(p)
+		if str(p["role"]) == "DEF" and PlayerProfile.player_type(p) == "Key defender":
+			kds.append(p)
+	kfs.sort_custom(func(a, b): return Matchups.forward_air(a) > Matchups.forward_air(b))
+	kds.sort_custom(func(a, b): return Matchups.defender_air(a) > Matchups.defender_air(b))
+	var fwd: Dictionary = kfs[kfs.size() / 4]
+	var rates := []
+	for dfn in [kds[1], kds[kds.size() / 2]]:
+		var contests := 0
+		var won := 0
+		for s in range(30):
+			var home := []
+			for p in GameDB.club_list("GEE"):
+				home.append(p.duplicate(true))
+			var away := []
+			for p in GameDB.club_list("COL"):
+				away.append(p.duplicate(true))
+			var kf_id := str(Matchups.key_forwards(Squad.new("GEE", home, true, "GEE").ground)[0]["id"])
+			var kd_id := str(Matchups.defenders(Squad.new("COL", away, false, "COL").ground)[0]["id"])
+			for p in home:
+				if str(p["id"]) == kf_id:
+					p["attr"] = (fwd["attr"] as Dictionary).duplicate()
+					p["height_cm"] = fwd.get("height_cm", 0)
+			for p in away:
+				if str(p["id"]) == kd_id:
+					p["attr"] = (dfn["attr"] as Dictionary).duplicate()
+					p["height_cm"] = dfn.get("height_cm", 0)
+			var sim := MatchSim.new(Squad.new("GEE", home, true, "GEE"), Squad.new("COL", away, false, "COL"), 9000 + s)
+			sim.set_matchups(1, {kf_id: kd_id})
+			sim.run()
+			for c in (sim.duel_log.get(kf_id, {}) as Dictionary).get("contests", []):
+				if str(c[1]) == kd_id:
+					contests += 1
+					if bool(c[2]):
+						won += 1
+		rates.append(float(won) / maxi(1, contests))
+	_check(rates[1] - rates[0] >= 0.08 and rates[0] < 0.5,
+			"An elite key defender holds a good forward; an average one does not (%.0f%% v %.0f%%)" % [100 * rates[0], 100 * rates[1]])
 
 ## Momentum is real, small, capped, fading and reversible, and it does not
 ## snowball.
