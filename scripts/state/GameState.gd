@@ -1663,6 +1663,43 @@ func set_my_matchup(fwd_id: String, def_id: String) -> void:
 	mark_dirty()
 
 
+
+## Compact stored-fact history surfaces. These deliberately read existing
+## records/honour_roll rather than reconstructing or inventing old seasons.
+func history_record_lines() -> Array:
+	var out := []
+	var high: Dictionary = records.get("highest_score", {})
+	if not high.is_empty():
+		out.append("Highest score: %s — %d v %s (%d)" % [
+				GameDB.club_name(str(high.get("club", ""))), int(high.get("value", 0)),
+				GameDB.club_name(str(high.get("opp", ""))), int(high.get("year", 0))])
+	var win: Dictionary = records.get("biggest_win", {})
+	if not win.is_empty():
+		out.append("Biggest win: %s by %d points v %s (%d)" % [
+				GameDB.club_name(str(win.get("club", ""))), int(win.get("value", 0)),
+				GameDB.club_name(str(win.get("opp", ""))), int(win.get("year", 0))])
+	var goals: Dictionary = records.get("most_goals", {})
+	if not goals.is_empty():
+		var gp := _find_player(str(goals.get("id", "")))
+		var gn := GameDB.player_display_name(gp) if not gp.is_empty() else str(goals.get("id", ""))
+		out.append("Season goals: %s — %d (%d)" % [gn, int(goals.get("value", 0)), int(goals.get("year", 0))])
+	var votes: Dictionary = records.get("most_votes", {})
+	if not votes.is_empty():
+		var vp := _find_player(str(votes.get("id", "")))
+		var vn := GameDB.player_display_name(vp) if not vp.is_empty() else str(votes.get("id", ""))
+		out.append("Brownlow votes: %s — %d (%d)" % [vn, int(votes.get("value", 0)), int(votes.get("year", 0))])
+	return out
+
+
+func recent_honours(limit := 5) -> Array:
+	var out := []
+	for i in range(honour_roll.size() - 1, -1, -1):
+		var h: Dictionary = honour_roll[i]
+		out.append(h)
+		if out.size() >= limit:
+			break
+	return out
+
 ## Your own side's week worth knowing (Matchup.own_notes).
 func my_week_notes() -> Array:
 	return Matchup.own_notes(my_list) + milestone_notes()
