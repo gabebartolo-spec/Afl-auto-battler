@@ -1189,7 +1189,13 @@ func _refresh_order() -> void:
 			13, UiKit.MUTED))
 	var start := (round_no - 1) * _draft.clubs.size()
 	var end := mini(start + _draft.clubs.size(), _draft.pick_sequence.size())
-	for index in range(start, end):
+	if _draft.pick_rounds.size() == _draft.pick_sequence.size() and not _draft.pick_rounds.is_empty():
+		# Compensation picks sit inside their round: list the round as drafted.
+		start = _draft.pick_rounds.find(round_no)
+		end = start
+		while end < _draft.pick_rounds.size() and int(_draft.pick_rounds[end]) == round_no:
+			end += 1
+	for index in range(maxi(0, start), end):
 		var code := str(_draft.pick_sequence[index])
 		var mine := code == _club
 		var p := _row_panel(mine)
@@ -1215,7 +1221,12 @@ func _refresh_order() -> void:
 			description = _entry_player_name(entry) if not entry.is_empty() \
 					else "passed - list full"
 		v.add_child(UiKit.ellipsis(description, 12, UiKit.MUTED))
-		h.add_child(UiKit.line("%d/%d" % [_draft.count_for(code), _draft.target_size], 12, UiKit.EMPH if mine else UiKit.MUTED))
+		var comp := _draft.comp_at(index)
+		if not comp.is_empty():
+			var why := UiKit.ellipsis("Compensation for losing %s" % str(comp.get("name", "a free agent")), 12, UiKit.TEXT)
+			why.name = "CompPick"
+			v.add_child(why)
+		h.add_child(UiKit.line("%d/%d" % [_draft.count_for(code), _draft.pick_limit(code)], 12, UiKit.EMPH if mine else UiKit.MUTED))
 		_order_box.add_child(p)
 
 

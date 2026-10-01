@@ -96,6 +96,13 @@ func _restore_scroll(scroll: ScrollContainer, offset: int) -> void:
 
 func _contracts(body: VBoxContainer) -> void:
 	var expiring := Contracts.expiring(GameState.my_list)
+	var clubs := GameDB.active_clubs(GameState.season_year).size()
+	for c in GameState.compensation:
+		if str(c["club"]) == GameState.my_club:
+			var got := _para("Compensation: a draft pick %s for losing %s to %s." % [
+					Contracts.pick_words(int(c["after"]), clubs), str(c["name"]), GameDB.club_name(str(c["to"]))], 13, UiKit.TEXT)
+			got.name = "CompReceived"
+			body.add_child(got)
 	body.add_child(UiKit.lbl("Out of contract  (%d)" % expiring.size(), 15, UiKit.EMPH, true))
 	if expiring.is_empty():
 		body.add_child(_para("Nobody is out of contract this year.", 13, UiKit.MUTED))
@@ -115,6 +122,9 @@ func _contracts(body: VBoxContainer) -> void:
 		var talks: Dictionary = p.get("talks", {})
 		if bool(talks.get("walked", false)):
 			row.add_child(UiKit.line("Talks broke down: he'll test free agency", 13, UiKit.BAD, true))
+			var proj := _para(str(GameState.projected_compensation(p)["reason"]), 12, UiKit.TEXT)
+			proj.name = "CompProjection"
+			(card.get_child(0) as VBoxContainer).add_child(proj)
 			continue
 		if talks.has("counter"):
 			(card.get_child(0) as VBoxContainer).add_child(_para("He'd sign for %d over %d season%s." % [
@@ -146,7 +156,7 @@ func _confirm_release(p: Dictionary) -> void:
 	_release_overlay = box["overlay"]
 	_release_overlay.name = "ReleaseConfirmation"
 	box["body"].add_child(_para("Release %s?" % GameDB.player_display_name(p), 20, UiKit.TEXT))
-	box["body"].add_child(_para("He will leave your list and become a free agent.", 14, UiKit.TEXT))
+	box["body"].add_child(_para("He will leave your list and become a free agent. A delisted player earns no draft pick if he signs elsewhere.", 14, UiKit.TEXT))
 	var release := UiKit.btn("Release player", 16, true)
 	release.name = "ConfirmRelease"
 	release.custom_minimum_size.y = 44
