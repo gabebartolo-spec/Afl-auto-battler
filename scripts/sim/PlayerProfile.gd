@@ -152,6 +152,11 @@ static func player_type(p: Dictionary) -> String:
 		if score > best_score:
 			best_score = score
 			best = str(row["label"])
+	# A key defender plays on the opposition's tall forwards: that takes size.
+	# A medium defender who stops his man rather than running it out is a
+	# Defender, never a key defender.
+	if best == "Key defender" and float(p.get("height_cm", 0.0)) < KEY_DEF_CM:
+		return "Defender"
 	return best if best != "" else role_word(role)
 
 
@@ -164,6 +169,9 @@ static func player_type(p: Dictionary) -> String:
 const KEY_FWD_CM := [184.0, 196.0]      # height evidence runs 0 -> 1 across this
 const SMALL_FWD_CM := [186.0, 176.0]    # and 0 -> 1 down this
 const FWD_TYPE_LINE := 0.70
+## The shortest a key defender stands (player_type); under it a defender
+## who reads as one is a Defender.
+const KEY_DEF_CM := 191.0
 ## Fewer games than this and a defender's archetype is noise (player_type).
 const MIN_TYPE_GAMES := 6.0
 
