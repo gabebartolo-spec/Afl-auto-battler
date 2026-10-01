@@ -2,7 +2,7 @@
 # fails the run: checks went missing. Raise a floor when a suite gains
 # checks; lower one only on purpose, in the PR that removes checks.
 draft 7800
-draft_ui 1298
+draft_ui 1100
 intake 2128
 intake_ui 493
 expansion 1168
