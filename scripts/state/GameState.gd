@@ -486,7 +486,7 @@ func _recompute_ratings() -> void:
 			p["overall"] = ov
 			p["value"] = Ratings.salary_value(ov)
 			if p.has("potential"):
-				p["potential"] = clampi(int(p["potential"]) + ov - old, ov, Potential.MAX_POT)
+				p["potential"] = clampi(int(p["potential"]) + ov - old, 1, Potential.MAX_POT)
 			if p.has("season_start_ov"):
 				p["season_start_ov"] = int(p["season_start_ov"]) + ov - old
 
@@ -1943,8 +1943,6 @@ func _grant_xp(club: String, list: Array, res: Dictionary) -> Dictionary:
 		# Left out but fit to play: he turns out in the reserves.
 		var reserves := not on_ground and not on_bench and Ratings.available(p)
 		var gain := _xp_amount(stats, on_ground, on_bench, reserves)
-		if club == my_club:
-			gain = int(round(float(gain) * float(difficulty_rules()["xp_mult"])))
 		if not coaches.is_empty():
 			gain = int(round(float(gain) * CoachEffects.xp_mult(staff, p, on_ground)))
 		p["xp"] = int(p.get("xp", 0)) + gain
@@ -2618,7 +2616,7 @@ func apply_train_plans() -> Dictionary:
 func apply_plan_to(p: Dictionary) -> Dictionary:
 	if plan_for(p) == "manual":
 		return {}
-	var gains := _spend_with_weights(p, plan_weights(p), false)
+	var gains := _spend_with_weights(p, plan_weights(p), true, season_ceiling(p))
 	if not gains.is_empty():
 		mark_dirty()
 	return gains
@@ -2647,8 +2645,9 @@ static func stat_useful_for_role(role: String, key: String) -> bool:
 	return false
 
 
-## How much room a player has left, in words: "Developing", "Near his
-## ceiling" or "At his ceiling" (or "Rehab year").
+## Where he stands against his projection, in words: "Developing", "Near his
+## projected peak", "At his projected peak", "Past his projection" (or
+## "Rehab year").
 func development_state(p: Dictionary) -> String:
 	if bool(p.get("rehab", false)):
 		return "Rehab year"
@@ -2656,12 +2655,15 @@ func development_state(p: Dictionary) -> String:
 	if gap >= 3:
 		return "Developing"
 	if gap >= 1:
-		return "Near his ceiling"
-	return "At his ceiling"
+		return "Near his projected peak"
+	if gap == 0:
+		return "At his projected peak"
+	return "Past his projection"
 
 
 ## Buy stat points while XP lasts, each one going to the best weight per XP.
-## Rivals stop at potential; your plans keep going (past POT at the premium).
+## POT prices every point the same way for every club; `ceiling` is a
+## season limit (SEASON_TRAIN_GAIN, every club alike), not his potential.
 func _spend_with_weights(p: Dictionary, weights: Dictionary, stop_at_pot: bool,
 		ceiling := -1) -> Dictionary:
 	var gains := {}
@@ -2724,18 +2726,23 @@ func _train_rivals(results: Array) -> void:
 				int(bp["overall"]), int(bp["overall"]) - start])
 
 
-## A rival player improves at most this much through training in a season
-## (and never past his potential). Real players do not jump five points
-## mid-season, and an uncapped league would climb every year only to be
-## re-anchored at every rollover.
-const AI_SEASON_GAIN := 2
+## The most any player - yours or a rival's - improves through training in
+## one season. Natural development happens in the off-season (Prospects.
+## age_player); training adds at most this on top, so nobody is rebuilt
+## mid-season and no club develops by different rules.
+const SEASON_TRAIN_GAIN := 3
+
+
+## The rating a player's training can take him to this season.
+func season_ceiling(p: Dictionary) -> int:
+	if not p.has("season_start_ov"):
+		p["season_start_ov"] = int(p.get("overall", 0))
+	return int(p["season_start_ov"]) + SEASON_TRAIN_GAIN
 
 
 ## Spend a rival player's XP. Returns the attribute points bought.
 func ai_spend_xp(p: Dictionary) -> int:
-	if not p.has("season_start_ov"):
-		p["season_start_ov"] = int(p.get("overall", 0))
-	var ceiling := mini(int(p.get("potential", 0)), int(p["season_start_ov"]) + rival_season_gain())
+	var ceiling := season_ceiling(p)
 	if int(p.get("overall", 0)) >= ceiling:
 		return 0
 	var focus: Dictionary = Ratings.ROLE_WEIGHTS.get(str(p.get("role", "MID")), Ratings.ROLE_WEIGHTS["MID"])
@@ -2780,7 +2787,8 @@ func train_cost(p: Dictionary, attr_key: String) -> int:
 
 
 ## Potential scales the price: up to half off while a player sits well below
-## his POT (rehabbing a star, bringing on a top pick), 50% dearer past it.
+## his POT (rehabbing a star, bringing on a top pick), dearer near it and
+## steeply dearer past it (Potential.training_multiplier).
 func _cost_for(cur: int, games: float, pot_mult := 1.0) -> int:
 	var exp_mult := clampf(0.70 + games / 40.0, 0.70, 1.20)
 	return maxi(int(round(8.0 * pot_mult * TRAIN_COST_SCALE)),
@@ -2829,6 +2837,8 @@ func train_stat(player_id: String, attr_key: String, points := 1) -> Dictionary:
 	var ov_before := int(p["overall"])
 	var stat_before := int(p["attr"][attr_key])
 	for _step in range(maxi(1, points)):
+		if int(p["overall"]) >= season_ceiling(p):
+			break
 		var cost := train_cost(p, attr_key)
 		if cost < 0 or int(p.get("xp", 0)) < cost:
 			break
@@ -2836,10 +2846,14 @@ func train_stat(player_id: String, attr_key: String, points := 1) -> Dictionary:
 		p["attr"][attr_key] = mini(99, int(p["attr"][attr_key]) + 1)
 		spent += cost
 		gained += 1
+		_recalc_player_overall(p)
 	if gained == 0:
 		var needed := train_cost(p, attr_key)
 		fail["cost"] = needed
-		fail["reason"] = "That stat is already 99." if needed < 0 else "Needs %d XP." % needed
+		if int(p["overall"]) >= season_ceiling(p):
+			fail["reason"] = "He has had a full season's development. More after the off-season."
+		else:
+			fail["reason"] = "That stat is already 99." if needed < 0 else "Needs %d XP." % needed
 		return fail
 	_recalc_player_overall(p)
 	mark_dirty()
@@ -2866,26 +2880,22 @@ func _recalc_player_overall(p: Dictionary) -> void:
 # ---------------------------------------------------------------------------
 # Difficulty
 # ---------------------------------------------------------------------------
-## rival_gain: the most a rival player improves through training in a season.
 ## trade_margin: how much better off a rival must be to accept a trade.
-## xp_mult: your players' match XP.
+## Difficulty never changes how players develop: every club's players earn,
+## train and grow by the same rules (SEASON_TRAIN_GAIN, Potential).
 const DIFFICULTIES := {
-	"easy": {"label": "Easy", "rival_gain": 1, "trade_margin": 0.0, "xp_mult": 1.25,
-			"text": "Rivals improve slowly, clubs trade at fair value and your players earn 25% more XP."},
-	"normal": {"label": "Normal", "rival_gain": AI_SEASON_GAIN, "trade_margin": Contracts.TRADE_MARGIN,
-			"xp_mult": 1.0, "text": "The league as tuned: rivals train up to 2 rating points a season."},
-	"hard": {"label": "Hard", "rival_gain": 4, "trade_margin": 0.12, "xp_mult": 0.85,
-			"text": "Rivals develop twice as fast, drive hard bargains, and your players earn 15% less XP."},
+	"easy": {"label": "Easy", "trade_margin": 0.0,
+			"text": "Clubs trade at fair value."},
+	"normal": {"label": "Normal", "trade_margin": Contracts.TRADE_MARGIN,
+			"text": "The league as tuned."},
+	"hard": {"label": "Hard", "trade_margin": 0.12,
+			"text": "Rival clubs drive hard bargains in trades."},
 }
 const DIFFICULTY_ORDER := ["easy", "normal", "hard"]
 
 
 func difficulty_rules() -> Dictionary:
 	return DIFFICULTIES.get(difficulty, DIFFICULTIES["normal"])
-
-
-func rival_season_gain() -> int:
-	return int(difficulty_rules()["rival_gain"])
 
 
 ## The difficulty the next New Career starts on (a menu setting).
@@ -2975,7 +2985,7 @@ func _round_news(results: Array) -> void:
 func _development_pick(code: String, p: Dictionary, best: Dictionary) -> Dictionary:
 	var start := int(p.get("season_start_ov", p.get("overall", 0)))
 	var ov := int(p.get("overall", 0))
-	if ov < NEWS_MIN_OVR or ov - start < mini(2, rival_season_gain()) \
+	if ov < NEWS_MIN_OVR or ov - start < 2 \
 			or int(p.get("news_year", 0)) == season_year:
 		return best
 	if not best.is_empty() and int((best["p"] as Dictionary)["overall"]) >= ov:
