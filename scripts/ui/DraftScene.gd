@@ -5,6 +5,8 @@ extends Control
 const ROLES := ["DEF", "MID", "RUCK", "FWD"]
 const SORTS := [["overall", "Best rated"], ["potential", "Highest potential"], ["value", "Lowest cost"],
 	["goals", "Most goals"], ["disposals", "Most disposals"], ["name", "Name A–Z"]]
+const INTAKE_SORTS := [["overall", "Best scouted"], ["potential", "Highest upside"],
+	["goals", "Junior goals"], ["disposals", "Junior disposals"], ["name", "Name A–Z"]]
 const PAGE_SIZE := 60
 
 var _draft: Draft
@@ -211,6 +213,10 @@ func _show_club_select() -> void:
 		b.pressed.connect(_on_club_chosen.bind(code))
 		grid.add_child(b)
 	_root.add_child(UiKit.subtitle("Every club drafts %d players. Your first pick is shown on each card." % _draft.target_size))
+
+
+func _sort_options() -> Array:
+	return INTAKE_SORTS if _draft != null and _draft.intake_mode else SORTS
 
 
 func _grid_columns() -> int:
@@ -533,12 +539,13 @@ func _filters() -> Control:
 	opts.add_child(clubs)
 	var sort_option := UiKit.option()
 	sort_option.name = "SortPlayers"
-	for i in range(SORTS.size()):
-		sort_option.add_item(str(SORTS[i][1]))
-		if str(SORTS[i][0]) == _sort:
+	var sort_options := _sort_options()
+	for i in range(sort_options.size()):
+		sort_option.add_item(str(sort_options[i][1]))
+		if str(sort_options[i][0]) == _sort:
 			sort_option.select(i)
 	sort_option.item_selected.connect(func(idx: int):
-		_sort = str(SORTS[idx][0])
+		_sort = str(sort_options[idx][0])
 		_shown = PAGE_SIZE
 		_refresh_board(true))
 	opts.add_child(sort_option)
@@ -581,7 +588,7 @@ func _refresh_board(reset_scroll := false) -> void:
 	var rows := _draft.board(_role, _club_filter, _search.strip_edges(), _sort, _available_only)
 	_pool_total.text = "%d available" % (_draft.pool.size() - _draft.picked.size())
 	var sort_label := ""
-	for sort_entry in SORTS:
+	for sort_entry in _sort_options():
 		if str(sort_entry[0]) == _sort:
 			sort_label = str(sort_entry[1]).to_lower()
 	var role_text := "" if _role.is_empty() else _role + " "
@@ -649,16 +656,19 @@ func _player_row(p: Dictionary) -> Control:
 	var detail := ""
 	if bool(p.get("projected", false)):
 		var team_name := str(p.get("draft_team", p["club"]))
-		detail = "%s · projected %d OVR · %d POT" % [team_name, int(p["overall"]),
-				int(p.get("potential", p["overall"]))]
+		var scout := DraftScouting.projection(p, _club, _draft.seed)
+		detail = "%s · scouted %s OVR · %s POT" % [team_name,
+				DraftScouting.range_text(scout["overall"]), DraftScouting.range_text(scout["potential"])]
 	else:
 		var short := GameDB.club_short(str(p["club"]))
 		detail = "%s · $%d · %d OVR · %d POT" % [short, int(p["value"]), int(p["overall"]),
 				int(p.get("potential", p["overall"]))]
 	if taken:
 		var entry := _draft.pick_details(str(p["id"]))
-		detail = "#%d to %s · %d OVR" % [int(entry.get("pick", 0)),
-				GameDB.club_short(_draft.drafted_by(str(p["id"]))), int(p["overall"])]
+		detail = "#%d to %s" % [int(entry.get("pick", 0)),
+				GameDB.club_short(_draft.drafted_by(str(p["id"])))]
+		if not bool(p.get("projected", false)):
+			detail += " · %d OVR" % int(p["overall"])
 	var traits: Array = Traits.of(p)
 	if not traits.is_empty():
 		var names: PackedStringArray = []
@@ -672,7 +682,7 @@ func _player_row(p: Dictionary) -> Control:
 	var text := "+ " + role
 	var reason := "Draft %s for $%d" % [GameDB.player_display_name(p), int(p["value"])]
 	if _draft.intake_mode:
-		reason = "Sign %s at projected %d OVR" % 				[GameDB.player_display_name(p), int(p["overall"])]
+		reason = "Select %s in the National Draft" % GameDB.player_display_name(p)
 	if taken:
 		text = "Taken"
 		reason = "Drafted by %s at pick #%d" % [GameDB.club_name(_draft.drafted_by(str(p["id"]))),
@@ -693,9 +703,14 @@ func _player_row(p: Dictionary) -> Control:
 		b.add_theme_stylebox_override("normal", UiKit.style(UiKit.PANEL, 6, 5, Color("6c5142")))
 	b.pressed.connect(_on_pick.bind(p))
 	h.add_child(b)
-	row.tooltip_text = "%s · %s\n%d games · %.1f disposals/game · %d goals\n%s" % [
-		GameDB.player_display_name(p), GameDB.club_name(str(p["club"])), int(p["gm"]),
-		float(p["di"]) / maxf(1.0, float(p["gm"])), int(p["gl"]), reason]
+	if bool(p.get("projected", false)):
+		var production := PlayerProfile.production(p)
+		row.tooltip_text = "%s · %s\n%s\n%s" % [GameDB.player_display_name(p),
+				str(p.get("draft_team", p["club"])), str(production.get("line", "")), reason]
+	else:
+		row.tooltip_text = "%s · %s\n%d games · %.1f disposals/game · %d goals\n%s" % [
+			GameDB.player_display_name(p), GameDB.club_name(str(p["club"])), int(p["gm"]),
+			float(p["di"]) / maxf(1.0, float(p["gm"])), int(p["gl"]), reason]
 	return row
 
 
@@ -808,11 +823,17 @@ func _open_player(id: String) -> void:
 	st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(st)
 
-	# How good, and how much room.
+	# How good, and how much room. Prospects are scouted ranges; established
+	# players keep their known ratings.
 	var nums := UiKit.hbox(18)
 	v.add_child(nums)
-	nums.add_child(_big_number(int(p["overall"]), "Projected OVR" if projected else "OVR", "DetailOVR"))
-	nums.add_child(_big_number(int(p.get("potential", p["overall"])), "POT", "DetailPOT"))
+	if projected:
+		var scout := DraftScouting.projection(p, _club, _draft.seed)
+		nums.add_child(_big_range(scout["overall"], "Projected OVR", "DetailOVR"))
+		nums.add_child(_big_range(scout["potential"], "POT", "DetailPOT"))
+	else:
+		nums.add_child(_big_number(int(p["overall"]), "OVR", "DetailOVR"))
+		nums.add_child(_big_number(int(p.get("potential", p["overall"])), "POT", "DetailPOT"))
 	var room := UiKit.lbl(GameState.development_state(p), 14, UiKit.TEXT)
 	room.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	room.size_flags_vertical = Control.SIZE_SHRINK_END
@@ -851,6 +872,25 @@ func _open_player(id: String) -> void:
 			tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			kv.add_child(tl)
 
+	# The Combine is a short scouting read, not invented raw athletics data.
+	if projected:
+		v.add_child(UiKit.spacer(4))
+		var combine_head := UiKit.lbl("Draft Combine", 13, UiKit.MUTED, true)
+		combine_head.name = "CombineHeading"
+		v.add_child(combine_head)
+		for result in DraftScouting.combine_lines(p, _club, _draft.seed):
+			var cr := UiKit.hbox(8)
+			cr.name = "Combine_" + str(result["label"]).replace(" ", "_").replace("/", "_")
+			var cl := UiKit.lbl(str(result["label"]), 14, UiKit.TEXT)
+			cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			cr.add_child(cl)
+			cr.add_child(UiKit.line(str(result["grade"]), 14, UiKit.MUTED))
+			v.add_child(cr)
+		var combine_note := UiKit.lbl("Testing is one part of the projection; junior football still matters.", 12, UiKit.MUTED)
+		combine_note.name = "CombineNote"
+		combine_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(combine_note)
+
 	# What he has done.
 	var prod := PlayerProfile.production(p)
 	v.add_child(UiKit.spacer(4))
@@ -873,26 +913,29 @@ func _open_player(id: String) -> void:
 			nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(nl)
 
-	# Everything else, on request.
-	var all := UiKit.btn("Hide full ratings" if _detail_all else "Full ratings", 13)
-	all.name = "DetailAllRatings"
-	all.custom_minimum_size = Vector2(0, 44)
-	all.pressed.connect(func():
-		_detail_all = not _detail_all
-		_open_player(id))
-	v.add_child(all)
-	if _detail_all:
-		# The same attribute rows as the player profile: name, bar, rating,
-		# one column on a phone so the names never wrap letter by letter.
-		var grid := GridContainer.new()
-		grid.name = "DetailAttributes"
-		grid.columns = 1 if UiKit.view_width(self) < 520.0 else 2
-		grid.add_theme_constant_override("h_separation", 14)
-		grid.add_theme_constant_override("v_separation", 6)
-		v.add_child(grid)
-		var attr: Dictionary = p["attr"]
-		for r in PlayerSheet.ATTR_ROWS:
-			grid.add_child(PlayerSheet.attr_bar(str(r[0]), str(r[1]), float(attr.get(r[0], 0.0))))
+	# Exact attribute sheets are known for established players. A prospect's
+	# hidden ratings stay hidden: the Combine, production and scouting ranges
+	# are the evidence the recruiter actually has.
+	if not projected:
+		var all := UiKit.btn("Hide full ratings" if _detail_all else "Full ratings", 13)
+		all.name = "DetailAllRatings"
+		all.custom_minimum_size = Vector2(0, 44)
+		all.pressed.connect(func():
+			_detail_all = not _detail_all
+			_open_player(id))
+		v.add_child(all)
+		if _detail_all:
+			# The same attribute rows as the player profile: name, bar, rating,
+			# one column on a phone so the names never wrap letter by letter.
+			var grid := GridContainer.new()
+			grid.name = "DetailAttributes"
+			grid.columns = 1 if UiKit.view_width(self) < 520.0 else 2
+			grid.add_theme_constant_override("h_separation", 14)
+			grid.add_theme_constant_override("v_separation", 6)
+			v.add_child(grid)
+			var attr: Dictionary = p["attr"]
+			for r in PlayerSheet.ATTR_ROWS:
+				grid.add_child(PlayerSheet.attr_bar(str(r[0]), str(r[1]), float(attr.get(r[0], 0.0))))
 
 	# The decision.
 	var footer: VBoxContainer = box["footer"]
@@ -945,6 +988,14 @@ func _big_number(value: int, label: String, node_name: String) -> Control:
 	var col := UiKit.vbox(0)
 	col.name = node_name
 	col.add_child(UiKit.line(str(value), 30, UiKit.TEXT, true))
+	col.add_child(UiKit.line(label, 12, UiKit.MUTED))
+	return col
+
+
+func _big_range(values: Array, label: String, node_name: String) -> Control:
+	var col := UiKit.vbox(0)
+	col.name = node_name
+	col.add_child(UiKit.line(DraftScouting.range_text(values), 24, UiKit.TEXT, true))
 	col.add_child(UiKit.line(label, 12, UiKit.MUTED))
 	return col
 
