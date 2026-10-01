@@ -333,7 +333,16 @@ func _test_inspect(ui: Control) -> void:
 			mine[i] = f
 	var spend2: int = int(draft.club_spend[draft.user_club])
 	draft.club_spend[draft.user_club] = 0
-	ui.call("_open_player", str(rows[6]["id"]))
+	# Pick an actual non-ruck candidate. Role allocation can legitimately make
+	# a fixed row a MID/RUCK, which would satisfy the rule and make this test
+	# accidentally test the wrong player.
+	var non_ruck: Dictionary = {}
+	for r in rows:
+		if not draft.has(str(r["id"])) and str(r.get("role", "")) != "RUCK" \
+				and str(r.get("role2", "")) != "RUCK":
+			non_ruck = r
+			break
+	ui.call("_open_player", str(non_ruck["id"]))
 	await _settle()
 	blocked = ui.find_child("DetailBlocked", true, false)
 	_check(blocked != null and blocked.text.contains("rucks"), "The two-ruck rule is given as the reason (%s)" % (blocked.text if blocked else "-"))
