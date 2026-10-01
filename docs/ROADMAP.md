@@ -743,6 +743,16 @@ Do not rigidly wait for an entire milestone to finish before touching the next o
 
 Goal: fix things that are currently wrong, misleading, broken on mobile or capable of trapping the player.
 
+### Implementation-status verification rule
+Roadmap status is a summary, **not** the authority for what exists. Before changing an ARD item to TODO / PARTIAL / DONE, or reporting its implementation status:
+1. check the item's current roadmap acceptance criteria;
+2. inspect the relevant code on current `main`;
+3. search merged PR/commit history for later implementation or superseding work;
+4. check open PRs for work that exists but is not yet on `main`;
+5. map each claimed acceptance criterion to code/tests rather than inferring completion from a PR title.
+
+Use `DONE` only for work merged to `main` whose required behaviour is actually implemented. Use `IN PROGRESS` for open-PR work. Visual/mobile acceptance that explicitly requires a phone playtest remains unverified until that playtest occurs. When gameplay and presentation are separate (for example speccy mechanics vs a speccy vignette), record them separately rather than allowing one to imply the other.
+
 ## ARD-M1-001 — Football sanity audit
 **Status:** `DONE`  
 **Verified:** PR #82 (`05ad9354`) closed the final audit finding on main, 2026-09-28.  
@@ -3399,7 +3409,7 @@ Final pass:
 ---
 
 ## ARD-M8-007 — Cinematic tactical vignettes
-**Status:** `PROTOTYPE BUILT — awaiting phone playtest`  
+**Status:** `PARTIAL — centre-bounce prototype plus broadcast vignette library implemented; awaiting phone playtest / further tactical families`  
 **Priority:** `P3`  
 **Autonomy:** `SUPERVISED`
 
@@ -3467,7 +3477,9 @@ Started on the director's direction, ahead of the §1.11 gate. The director aske
   - MatchSim takes the call;
   - the scene cuts back to the match.
 - **Review:** `tools/visual/capture_vignette.gd` renders a contact sheet of the beats on a phone.
-- **Not built:** templates, other families, or a framework. These wait for the playtest below.
+- **Follow-up expansion merged 2026-10-01 (#153 / `8320e41`):** the DeepSeek broadcast-scene concepts were adapted into ARD's existing procedural 2D match presentation rather than a parallel renderer. `BroadcastVignette.gd` adds three speccy camera/pose variations, a close final-kick set-shot sequence, a goal-line scramble and a boundary-pocket snap. They are presentation-only, deterministic from the existing event log/staged positions, skippable, and do not change MatchSim outcomes. Speccy presentation is fixture-seeded to average about 0.8 appearances per match with a hard maximum of two. This does **not** complete ARD-M3-005: the simulation still lacks a dedicated rare spectacular-mark outcome driven by marking/aerial quality; #153 presents qualifying existing contested marks cinematically.
+- **Also merged (#143):** every watched match has the short pre-match warm-up / final-words / banner-run scene.
+- **Still not built:** the broader tactical template families listed above (defensive transition, isolated forward, spare defender, kick-in press, wing overlap, forward stoppage, late-game protect-space) and a generalized vignette framework. Existing scenes are concrete implementations, not evidence that every proposed family exists.
 
 ### Acceptance test
 The feature earns further work only if a phone playtest shows that the player can explain **why the decision is being asked**, form a reasonable expectation before choosing, and finds the moment materially more engaging than the normal presentation.
