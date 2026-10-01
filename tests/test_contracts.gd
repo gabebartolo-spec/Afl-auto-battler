@@ -18,6 +18,7 @@ func run() -> void:
 	_test_compensation_rules()
 	_test_compensation_draft_order()
 	_test_compensation_flow()
+	_test_trade_value()
 	GameState.delete_saved_career()
 	print("Contracts tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -720,3 +721,131 @@ func _test_compensation_flow() -> void:
 	_check(GameState.finish_intake_draft(), "The draft completes and the season rolls over")
 	_check(GameState.compensation.is_empty() or GameState.offseason_year != GameState.season_year,
 			"Last year's compensation does not carry into the new season")
+
+
+## Trade valuation: what a club gets is judged against its own side and
+## cycle; a package of lesser players never adds up to a cornerstone.
+func _by_name(list: Array, last: String, first: String) -> Dictionary:
+	for p in list:
+		if str(p.get("last", "")) == last and str(p.get("first", "")).begins_with(first):
+			return p
+	return {}
+
+
+func _with(p: Dictionary, changes: Dictionary) -> Dictionary:
+	var q := p.duplicate(true)
+	for k in changes:
+		q[k] = changes[k]
+	return q
+
+
+## Room on both lists so the valuation decides; returns the verdict.
+func _trade(ai_list: Array, give: Array, take: Array, phase: String, margin := 0.0) -> Dictionary:
+	var ai := ai_list.duplicate()
+	var spare := ai.filter(func(q): return not give.has(q))
+	spare.sort_custom(func(x, y): return int(x["overall"]) < int(y["overall"]))
+	while ai.size() - give.size() + take.size() > 40 and not spare.is_empty():
+		ai.erase(spare.pop_front())
+	var mine: Array = GameDB.club_list("GEE").duplicate()
+	mine.append_array(take)
+	return Contracts.evaluate_trade(ai, give, take, 999, mine, 999, margin, {"phase": phase})
+
+
+func _test_trade_value() -> void:
+	GameDB.reload()
+	# The phone-playtest case: Adelaide gave Arki Butler (72 OVR / 92 POT, 19)
+	# for Jordon Sweet and Ryan Lester. Rebuilt as it was then: Sweet a 72
+	# ruck, Adelaide down to two rucks, the easiest trade margin.
+	var ade: Array = GameDB.club_list("ADE").duplicate()
+	var butler := _with(_by_name(GameDB.draftees, "Butler", "Arki"),
+			{"overall": 72, "potential": 92, "age": 19.0, "salary": 2, "contract_years": 2, "club": "ADE"})
+	ade.append(butler)
+	var rucks := ade.filter(func(q): return str(q["role"]) == "RUCK")
+	rucks.sort_custom(func(x, y): return int(x["overall"]) < int(y["overall"]))
+	ade.erase(rucks[0])
+	var sweet := _with(_by_name(GameDB.club_list("PAD"), "Sweet", "Jord"), {"overall": 72})
+	var lester := _by_name(GameDB.club_list("BRL"), "Lester", "Ryan")
+	_check(not butler.is_empty() and not sweet.is_empty() and not lester.is_empty(), "The playtest players are in the data")
+	var all_no := true
+	var worst := 0.0
+	for ph in TradeValue.PHASES:
+		var r := _trade(ade, [butler], [sweet, lester], ph, 0.0)
+		all_no = all_no and not bool(r["ok"])
+		worst = maxf(worst, float(r.get("in", 0.0)) / maxf(0.01, float(r.get("out", 1.0))))
+	_check(all_no and worst < 0.7, "Sweet and Lester no longer buy Arki Butler, whatever Adelaide's phase (best ratio %.2f)" % worst)
+	# Packages: lesser pieces count for less, so four 0.5s don't buy a 2.0.
+	_check(TradeValue.package([0.5, 0.5, 0.5, 0.5]) < 1.2 and is_equal_approx(TradeValue.package([2.0]), 2.0),
+			"A package of four ordinary players is worth about one good one")
+	# Bundles of ordinary or older players for a club's best young player.
+	var gee: Array = GameDB.club_list("GEE")
+	var ordinary := gee.filter(func(q): return int(q["overall"]) >= 58 and int(q["overall"]) <= 68 and float(q["age"]) >= 26.0)
+	var bundles_refused := true
+	var tried := 0
+	for code in GameDB.CLUB_ORDER:
+		var list: Array = GameDB.club_list(code)
+		var young := list.filter(func(q): return float(q["age"]) <= 22.0)
+		young.sort_custom(func(x, y): return TradeValue.future_rating(x) > TradeValue.future_rating(y))
+		# Elite young talent only: a solid package can fairly buy a lesser one.
+		if young.is_empty() or ordinary.size() < 4 or TradeValue.future_rating(young[0]) < 78.0:
+			continue
+		tried += 1
+		for k in [2, 3, 4]:
+			for ph in TradeValue.PHASES:
+				if bool(_trade(list, [young[0]], ordinary.slice(0, k), ph, 0.0)["ok"]):
+					bundles_refused = false
+	_check(bundles_refused and tried >= 4,
+			"Bundles of two to four ordinary or older players never buy a club's elite young player (%d clubs)" % tried)
+	# Quality-aware needs: a club with a poor ruckman pays more for a good one;
+	# a club whose ruck is better than him barely wants him.
+	var base: Array = GameDB.club_list("COL")
+	var ruck := _with(base.filter(func(q): return str(q["role"]) == "RUCK")[0], {"id": "t_ruck", "overall": 76, "age": 26.0, "role2": ""})
+	var weakest := ""
+	var strongest := ""
+	for code in GameDB.CLUB_ORDER:
+		var list: Array = GameDB.club_list(code)
+		if list.is_empty():
+			continue
+		var bar := int(TradeValue.selection_bars(list).get("RUCK", 0))
+		if weakest == "" or bar < int(TradeValue.selection_bars(GameDB.club_list(weakest)).get("RUCK", 0)):
+			weakest = code
+		if strongest == "" or bar > int(TradeValue.selection_bars(GameDB.club_list(strongest)).get("RUCK", 0)):
+			strongest = code
+	var needy := TradeValue.fit(ruck, TradeValue.selection_bars(GameDB.club_list(weakest)))
+	var full := TradeValue.fit(ruck, TradeValue.selection_bars(GameDB.club_list(strongest)))
+	_check(needy >= 1.2 and full <= 0.65, "A club short of a ruckman values a good one far more than a club with a better one (%.2f v %.2f)" % [needy, full])
+	# A strong, young forward line: another forward wouldn't get a game.
+	var fwd_bar := int(TradeValue.selection_bars(base).get("FWD", 60))
+	var forward := _with(base.filter(func(q): return str(q["role"]) == "FWD")[0], {"id": "t_fwd", "overall": fwd_bar + 3, "age": 28.0, "role2": ""})
+	var young_line := base.map(func(q): return _with(q, {"age": 21.0, "potential": int(q["overall"]) + 15}) if str(q["role"]) == "FWD" else q)
+	_check(TradeValue.fit(forward, TradeValue.selection_bars(base)) >= 0.8
+			and TradeValue.fit(forward, TradeValue.selection_bars(young_line)) < 0.8,
+			"A forward who would start for an ordinary forward line isn't needed by a strong young one")
+	# Rational trades still happen.
+	var vet := _with(base[0], {"id": "t_vet", "overall": 80, "potential": 80, "age": 30.0})
+	var kid := _with(base[1], {"id": "t_kid", "overall": 70, "potential": 88, "age": 20.0})
+	var club_vet: Array = base.duplicate()
+	club_vet.append(vet)
+	_check(bool(_trade(club_vet, [vet], [kid], "rebuilding", 0.04)["ok"])
+			and not bool(_trade(club_vet, [vet], [kid], "contending", 0.04)["ok"]),
+			"A rebuilder moves a 30-year-old star for a young talent; a contender keeps him")
+	var prospect := _with(base[2], {"id": "t_prospect", "overall": 66, "potential": 90, "age": 20.0})
+	var starter := _with(base[3], {"id": "t_starter", "overall": 80, "potential": 80, "age": 27.0})
+	var club_kid: Array = base.duplicate()
+	club_kid.append(prospect)
+	_check(bool(_trade(club_kid, [prospect], [starter], "contending", 0.04)["ok"])
+			and not bool(_trade(club_kid, [prospect], [starter], "rebuilding", 0.04)["ok"]),
+			"A contender pays future value for an established starter; a rebuilder protects its prospect")
+	var twin := _with(base[4], {"id": "t_twin"})
+	_check(bool(_trade(base, [base[4]], [twin], "building", 0.0)["ok"]), "Like for like goes through")
+	# The cycle comes from what anyone can see.
+	_check(TradeValue.phase(0.0, 0.0, 27.0) == "contending" and TradeValue.phase(1.0, 1.0, 26.0) == "rebuilding"
+			and TradeValue.phase(0.55, 0.6, 23.5) == "rebuilding" and TradeValue.phase(0.55, 0.6, 27.0) == "building"
+			and TradeValue.phase(-1.0, 0.1, 27.0) == "contending",
+			"Clubs contend, build or rebuild by their finish, list strength and age")
+	# Older players lose value; a long-serving 34-year-old is no longer half
+	# a starter.
+	var old := _with(base[5], {"overall": 66, "potential": 66, "age": 34.5})
+	var prime := _with(base[5], {"overall": 66, "potential": 66, "age": 27.0})
+	var ctx := {"phase": "building", "bars": TradeValue.selection_bars(base)}
+	_check(float(TradeValue.value(old, ctx)["total"]) < 0.6 * float(TradeValue.value(prime, ctx)["total"]),
+			"A 34-year-old is worth well under a player in his prime of the same rating")

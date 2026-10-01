@@ -364,30 +364,23 @@ static func worth(p: Dictionary) -> float:
 	return w
 
 
-## Stars are worth far more than two middling players: value grows steeply
-## with worth, so two 65s never buy an 85.
-static func trade_value(p: Dictionary) -> float:
-	return pow(maxf(1.0, worth(p)) / 70.0, 4.0)
-
-
 ## Would a rival keep this expiring player at his asking price? Keep good
 ## players the cap can carry; let the rest go.
 static func ai_keeps(p: Dictionary, list: Array, cap: int) -> bool:
 	return ai_release_reason(p, list, cap) == ""
 
-
 ## Does the AI club accept `give` (its players, to you) for `take` (yours, to
-## it)? Returns {"ok": bool, "reason": String}.
+## it)? It weighs both sides by TradeValue from its own position: `ctx` =
+## {"phase": its cycle, "games": {player id: last season's games}, "name":
+## its club name, "names": {player id: display name}}. What it receives is
+## judged against its side without the players it gives up, and counted as
+## a package (its lesser pieces for less); what it gives up is counted in
+## full. Returns {"ok": bool,
+## "reason": String, "in": value received, "out": value given}.
 static func evaluate_trade(ai_list: Array, give: Array, take: Array, cap: int,
-		my_list: Array, my_cap: int, margin := TRADE_MARGIN) -> Dictionary:
+		my_list: Array, my_cap: int, margin := TRADE_MARGIN, ctx := {}) -> Dictionary:
 	if give.is_empty() or take.is_empty():
 		return {"ok": false, "reason": "Pick a player from each side."}
-	var in_value := 0.0
-	var out_value := 0.0
-	for p in take:
-		in_value += trade_value(p) * _need_bonus(ai_list, give, str(p["role"]))
-	for p in give:
-		out_value += trade_value(p)
 	var ai_after := ai_list.size() - give.size() + take.size()
 	var my_after := my_list.size() - take.size() + give.size()
 	if ai_after > MAX_LIST or my_after > MAX_LIST:
@@ -400,17 +393,40 @@ static func evaluate_trade(ai_list: Array, give: Array, take: Array, cap: int,
 	var my_pay := payroll(my_list) - payroll(take) + payroll(give)
 	if my_pay > my_cap:
 		return {"ok": false, "reason": "You cannot fit the salary under your cap."}
+	var phase := str(ctx.get("phase", "building"))
+	var games: Dictionary = ctx.get("games", {})
+	var remaining := ai_list.filter(func(q): return not give.has(q))
+	var bars_in := TradeValue.selection_bars(remaining)
+	var in_values := []
+	var benchwarmer := ""
+	for p in take:
+		var v := TradeValue.value(p, {"phase": phase, "bars": bars_in, "games": int(games.get(str(p["id"]), -1))})
+		in_values.append(float(v["total"]))
+		if TradeValue.fit(p, bars_in) < 0.5 and benchwarmer == "":
+			benchwarmer = str((ctx.get("names", {}) as Dictionary).get(str(p["id"]), p.get("name", "")))
+	var in_value := TradeValue.package(in_values)
+	var out_value := 0.0
+	var cornerstone := ""
+	var best_future := 0.0
+	for p in give:
+		var without := ai_list.filter(func(q): return q != p)
+		var v := TradeValue.value(p, {"phase": phase, "bars": TradeValue.selection_bars(without),
+				"games": int(games.get(str(p["id"]), -1)), "own": true})
+		out_value += float(v["total"])
+		if float(v["future"]) > best_future and TradeValue.future_rating(p) > TradeValue.now_rating(p) + 3.0:
+			best_future = float(v["future"])
+			cornerstone = str((ctx.get("names", {}) as Dictionary).get(str(p["id"]), p.get("name", "")))
+	var out := {"ok": false, "in": in_value, "out": out_value}
 	if in_value < out_value * (1.0 + margin):
-		var short := "a little short" if in_value >= 0.9 * out_value else "well short"
-		return {"ok": false, "reason": "They want more for that: your offer is %s of what they give up." % short}
-	return {"ok": true, "reason": "They accept."}
-
-
-## A club values a player more in a position it is short of.
-static func _need_bonus(list: Array, leaving: Array, role: String) -> float:
-	var have := 0
-	for p in list:
-		if str(p.get("role", "")) == role and not leaving.has(p):
-			have += 1
-	var ideal := {"RUCK": 3, "MID": 13, "DEF": 10, "FWD": 10}
-	return 1.15 if have < int(ideal.get(role, 10)) else 1.0
+		var club := str(ctx.get("name", "They"))
+		if phase == "rebuilding" and cornerstone != "":
+			out["reason"] = "%s are rebuilding: %s is part of their future." % [club, cornerstone]
+		elif benchwarmer != "" and in_value < 0.9 * out_value:
+			out["reason"] = "%s wouldn't get a game in their side." % benchwarmer
+		else:
+			var short := "a little short" if in_value >= 0.9 * out_value else "well short"
+			out["reason"] = "They want more for that: your offer is %s of what they give up." % short
+		return out
+	out["ok"] = true
+	out["reason"] = "They accept."
+	return out

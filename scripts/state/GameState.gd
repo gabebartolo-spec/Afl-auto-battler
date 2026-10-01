@@ -235,6 +235,7 @@ func autosave() -> bool:
 
 func mark_dirty() -> void:
 	_dirty = true
+	_phase_cache = {}
 
 
 func autosave_if_dirty() -> bool:
@@ -2963,8 +2964,69 @@ func evaluate_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
 		var p := list_player(str(id))
 		if not p.is_empty():
 			take.append(p)
+	var ctx := trade_context(club)
+	var names := {}
+	for p in give + take:
+		names[str(p["id"])] = GameDB.player_display_name(p)
+	ctx["names"] = names
 	return Contracts.evaluate_trade(season.lists.get(club, []), give, take,
-			salary_cap, my_list, salary_cap, float(difficulty_rules()["trade_margin"]))
+			salary_cap, my_list, salary_cap, float(difficulty_rules()["trade_margin"]), ctx)
+
+
+## What a club weighs a trade with: its cycle, last season's games for
+## everyone, its name.
+func trade_context(club: String) -> Dictionary:
+	var games := {}
+	for id in season_tally:
+		games[str(id)] = int((season_tally[id] as Dictionary).get("games", 0))
+	return {"phase": club_phase(club), "games": games, "name": GameDB.club_name(club)}
+
+
+## Where a club is in its cycle - "rebuilding", "building" or "contending" -
+## from what anyone can see: last season's finish, how its list ranks, and
+## how old its best 22 is (TradeValue.phase). Worked out afresh each time.
+var _phase_cache := {}   # club -> phase, until the career next changes
+
+
+func club_phase(club: String) -> String:
+	if season == null or not season.lists.has(club):
+		return "building"
+	var key := "%d|%s|%d" % [season_year, club, season.round_index]
+	if _phase_cache.has(key):
+		return str(_phase_cache[key])
+	var ph := _club_phase(club)
+	_phase_cache[key] = ph
+	return ph
+
+
+func _club_phase(club: String) -> String:
+	var played := false
+	for code in season.ladder:
+		if int((season.ladder[code] as Dictionary).get("p", 0)) > 0:
+			played = true
+			break
+	var finish_t := -1.0
+	if played:
+		var table := season.ladder_sorted()
+		for k in range(table.size()):
+			if str(table[k]["code"]) == club:
+				finish_t = float(k) / float(maxi(1, table.size() - 1))
+	var ranks := []
+	for code in season.lists:
+		if GameDB.active_clubs(season_year).has(code):
+			ranks.append([str(code), Squad.new(str(code), season.lists[code], true, str(code)).strength()])
+	ranks.sort_custom(func(a, b): return float(a[1]) > float(b[1]))
+	var strength_t := 0.5
+	for k in range(ranks.size()):
+		if str(ranks[k][0]) == club:
+			strength_t = float(k) / float(maxi(1, ranks.size() - 1))
+	var side := Ratings.select_22(season.lists[club])
+	var ages := 0.0
+	var n := 0
+	for q in (side["ground"] as Array) + (side["bench"] as Array):
+		ages += float(q.get("age", 25.0))
+		n += 1
+	return TradeValue.phase(finish_t, strength_t, ages / float(maxi(1, n)))
 
 
 func make_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
