@@ -288,6 +288,46 @@ func position_needs() -> Dictionary:
 	return slot_shortfall(role_pairs_for(user_club), position_targets())
 
 
+## The match-day shape a list must be able to field: the ground positions,
+## and two rucks (the second covers the first).
+static func match_day_targets() -> Dictionary:
+	var out := {}
+	for slot in Ratings.GROUND_SLOTS:
+		out[str(slot[0])] = int(slot[1])
+	out["RUCK"] = 2
+	return out
+
+
+## One answer per position for your list, every player counted in one spot
+## only (slot_shortfall): {role: {"count": primary players, "short": spots of
+## the match-day shape still unfilled, "light": spots short of a full list's
+## depth beyond that (national draft guidance)}}.
+func position_status() -> Dictionary:
+	var pairs := role_pairs_for(user_club)
+	var must := slot_shortfall(pairs, match_day_targets())
+	var depth := slot_shortfall(pairs, position_targets())
+	var counts := role_counts()
+	var out := {}
+	for role in ["RUCK", "MID", "DEF", "FWD"]:
+		var short := maxi(0, int(must.get(role, 0)))
+		out[role] = {"count": int(counts.get(role, 0)), "short": short,
+				"light": 0 if short > 0 else maxi(0, int(depth.get(role, 0)))}
+	return out
+
+
+## A position's state in a word or two: "short 2" (the match-day side cannot
+## be fielded), "need 1" for rucks, "light 3" (below a full list's depth),
+## or "covered".
+static func need_word(st: Dictionary, role: String) -> String:
+	var short := int(st.get("short", 0))
+	if short > 0:
+		return ("need %d" if role == "RUCK" else "short %d") % short
+	var light := int(st.get("light", 0))
+	if light > 0:
+		return "light %d" % light
+	return "covered"
+
+
 ## [[role, role2], ...] for everyone on `code`'s list (kept players too).
 func role_pairs_for(code: String) -> Array:
 	var out: Array = []

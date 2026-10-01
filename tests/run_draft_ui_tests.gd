@@ -379,8 +379,9 @@ func _test_position_filters(ui: Control) -> void:
 		var words := ""
 		for l in card.find_children("*", "Label", true, false):
 			words += str(l.text) + " "
-		_check(words.contains(role + " ") and (words.contains("NEED +") or words.contains("COVERED")),
-				"The %s card shows the count and the need (%s)" % [role, words])
+		var one_state := ["short ", "need ", "light ", "covered"].filter(func(w): return words.contains(w)).size() == 1
+		_check(words.contains(role + " ") and one_state and not words.contains("can play"),
+				"The %s card shows the count and one state (%s)" % [role, words])
 	var all: Button = ui.find_child("Filter_ALL", true, false)
 	var mid: Button = ui.find_child("Position_MID", true, false)
 	_check(all != null and all.size.x < mid.size.x, "All is compact beside the position cards")
