@@ -475,7 +475,7 @@ static func select_22(list_players: Array) -> Dictionary:
 		var pa: bool = a.has("expects_game")
 		if pa != b.has("expects_game"):
 			return pa
-		return a["overall"] > b["overall"])
+		return float(a["overall"]) * Workload.selection_factor(a) > float(b["overall"]) * Workload.selection_factor(b))
 
 	var ground: Array = []
 	var used := {}
@@ -548,7 +548,8 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 			pool.append(p)
 	if selection.is_empty():
 		return select_22(pool)
-	pool.sort_custom(func(a, b): return a["overall"] > b["overall"])
+	pool.sort_custom(func(a, b):
+		return float(a["overall"]) * Workload.selection_factor(a) > float(b["overall"]) * Workload.selection_factor(b))
 	var by_id := {}
 	for p in pool:
 		by_id[str(p["id"])] = p

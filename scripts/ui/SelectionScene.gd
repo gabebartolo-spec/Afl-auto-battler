@@ -309,6 +309,11 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	about.add_child(who)
 	about.move_child(who, 0)
 	who_box.add_child(about)
+	if Ratings.available(p):
+		var readiness := _para(Workload.label(p), 12,
+				UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
+		readiness.name = "Readiness_" + str(p["id"])
+		who_box.add_child(readiness)
 	_ignore_mouse(who_box)
 	who_btn.custom_minimum_size.y = maxf(46.0, who_box.get_combined_minimum_size().y)
 	if auto:

@@ -2335,6 +2335,32 @@ Do not make the Combine another number-vomit screen. Default to interpretable re
 The National Draft's own decision-support work ends when the selections are complete. The **off-season Ins/Outs summary, coaching movement recap and board-expectation reveal are owned by ARD-M6-007**, so do not build a second transition flow inside the draft screen.
 
 
+## ARD-M5-015 — Workload across the campaign
+**Status:** `IN PROGRESS`
+
+**Priority:** `P2`
+
+**Autonomy:** `BALANCE-GATED`
+
+Explicitly assigned by the director: implement idea 4, carrying workload
+between weeks so selection and resting a veteran before finals have consequences.
+
+- Record actual on-ground effort in MatchSim, including rotations and extra time.
+- Apply effort and automatic recovery once per completed week to every club.
+  Omitted players, injured players and clubs with a bye recover without senior effort.
+- Carry load into starting energy and the recovery ceiling during matches;
+  preserve permanent ratings and existing injury odds.
+- Show Fresh / Carrying a load / Needs a break in selection, with an explanation
+  in the player profile. Existing manual selection and Out controls provide rest.
+- Auto-pick weighs readiness alongside ability; manual choices remain available.
+- Persist workload in career saves, default absent fields to fresh, and reset
+  every club at the offseason transition.
+
+Implementation: `scripts/sim/Workload.gd`, the shared end-of-week career path,
+selection and player profiles. Regression suite: `workload` (32 checks).
+Measurement: `tools/workload_probe.gd`; validation record in
+`docs/WORKLOAD_VALIDATION.md`. Native phone playtesting remains a follow-up.
+
 # M6 — Coaching, Board & List Management
 
 Goal: strengthen the management loop around the football.

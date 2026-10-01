@@ -173,3 +173,16 @@ cannot verify a hardware orientation sensor or OS safe-area values):
 Position targets are **guidance**, except for the existing two-ruck rule. This
 UI change intentionally does not rebalance the draft AI, salary cap, positional
 classification or match engine.
+
+
+## Weekly workload
+
+`tools/run_tests.sh workload save selection finals` checks accumulated effort,
+recovery, duplicate-week protection, match energy limits, stepped-match parity,
+automatic/manual selection, save replay, older saves, finals byes, Grand Final
+recovery, offseason reset, and readiness copy at 360-pixel portrait width.
+
+`godot --headless --path . --script tools/workload_probe.gd` measures 128
+paired matches (same squads and seeds; one home squad fresh versus loaded),
+then reports readiness across a regular season with automatic selection.
+It uses the shipped Godot engine, not a second simulation.

@@ -54,6 +54,11 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable()) 
 	sl.name = "ProfileState"
 	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(sl)
+	if Ratings.available(p):
+		var readiness := UiKit.lbl(Workload.description(p), UiKit.SMALL, UiKit.MUTED)
+		readiness.name = "ProfileReadiness"
+		readiness.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(readiness)
 
 	# How good, and how much room.
 	v.add_child(UiKit.spacer(4))
