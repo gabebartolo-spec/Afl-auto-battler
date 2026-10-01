@@ -16,6 +16,22 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 
+
+func _test_history_records_are_stored_facts() -> void:
+	var old_records := GameState.records
+	var old_roll := GameState.honour_roll
+	GameState.records = {"highest_score": {"value": 151, "club": "MEL", "opp": "CAR", "year": 2028},
+			"biggest_win": {"value": 72, "club": "MEL", "opp": "CAR", "year": 2029}}
+	GameState.honour_roll = [{"year": 2028, "premier": "COL"}, {"year": 2029, "premier": "MEL"}]
+	var lines := GameState.history_record_lines()
+	_check(lines.size() == 2 and str(lines[0]).contains("151") and str(lines[1]).contains("72"),
+			"History surface reads the stored league records")
+	var honours := GameState.recent_honours(1)
+	_check(honours.size() == 1 and int(honours[0]["year"]) == 2029,
+			"History surface reads the stored honour roll newest first")
+	GameState.records = old_records
+	GameState.honour_roll = old_roll
+
 func _check(condition: bool, message: String) -> void:
 	_checks += 1
 	if not condition:
@@ -42,6 +58,7 @@ func _screen_text() -> String:
 
 
 func _run() -> void:
+	_test_history_records_are_stored_facts()
 	await process_frame
 	_state = root.get_node("GameState")
 	_router = root.get_node("Router")
