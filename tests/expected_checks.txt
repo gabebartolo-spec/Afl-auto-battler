@@ -27,7 +27,7 @@ injuries 13
 awards 17
 achievements 153
 contracts 100
-league 14
+league 19
 club 98
 match_game 122
 pressure 21
