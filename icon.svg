@@ -1,11 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="20" fill="#12451c"/>
-  <ellipse cx="64" cy="64" rx="52" ry="34" fill="#1c6b2c" stroke="#f2f2f2" stroke-width="3"/>
-  <ellipse cx="64" cy="64" rx="20" ry="12" fill="none" stroke="#f2f2f2" stroke-width="2.5" opacity="0.75"/>
-  <line x1="64" y1="30" x2="64" y2="98" stroke="#f2f2f2" stroke-width="2.5" opacity="0.75"/>
-  <g transform="rotate(-32 64 64)">
-    <ellipse cx="64" cy="64" rx="21" ry="12" fill="#8a4b23" stroke="#f7e7cf" stroke-width="2"/>
-    <path d="M48 60 q16 9 32 0" fill="none" stroke="#f7e7cf" stroke-width="2"/>
-    <path d="M48 68 q16 -9 32 0" fill="none" stroke="#f7e7cf" stroke-width="2"/>
+  <!-- Aussie Rules Dynasties: a football beneath a simple dynasty crown.
+       Bold geometry and no text keep the mark legible at launcher size. -->
+  <rect width="128" height="128" rx="24" fill="#171614"/>
+  <path d="M27 43 L36 25 L52 39 L64 20 L76 39 L92 25 L101 43 Z" fill="#D7B56D"/>
+  <rect x="29" y="44" width="70" height="8" rx="4" fill="#D7B56D"/>
+  <g transform="rotate(-18 64 78)">
+    <path d="M23 78 C31 57 47 48 64 48 C81 48 97 57 105 78 C97 99 81 108 64 108 C47 108 31 99 23 78 Z" fill="#A34E2B" stroke="#F2E7D5" stroke-width="4"/>
+    <path d="M44 78 H84" stroke="#F2E7D5" stroke-width="3" stroke-linecap="round"/>
+    <path d="M52 72 V84 M60 72 V84 M68 72 V84 M76 72 V84" stroke="#F2E7D5" stroke-width="2.5" stroke-linecap="round"/>
   </g>
 </svg>
