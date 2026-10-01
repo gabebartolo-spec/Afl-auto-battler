@@ -58,6 +58,13 @@ func test_media_conference_rules() -> void:
 	var close := MediaConference.pick({"club": "CAR", "opponent_name": "Collingwood", "round": 16,
 			"result": {"home": "COL", "away": "CAR", "score": [84, 86]}}, {})
 	_check(str(close.get("key", "")) == "close_game", "Close finishes can drive the press conference")
+	var stage := MediaConferenceVignette.new()
+	stage.size = Vector2(390, 300)
+	stage.club = "COL"
+	stage._colours = GameDB.club_colours("COL")
+	_check(not stage._ready, "Media vignette begins as a staged scene before the question")
+	stage.finish_now()
+	_check(stage._ready, "Media vignette can skip its play-in to the question")
 
 func _run() -> void:
 	await process_frame
