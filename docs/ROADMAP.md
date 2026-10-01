@@ -2945,6 +2945,35 @@ A one-screen scroll or short staged flow is fine. No forced slideshow.
 - save/reload at the transition cannot duplicate transactions or skip the briefing;
 - long saves retain a clear year-to-year sense of roster change without number vomit.
 
+## ARD-M6-008 — Post-match media conference
+**Status:** `TODO`  
+**Priority:** `P2`  
+**Autonomy:** `SUPERVISED`
+
+### Intent
+After a match, the coach faces the press in a short, dramatic vignette: a journalist puts a pointed question (a heavy loss, a star's poor form, an umpiring flashpoint, a selection call, a winning streak) and the player answers by choosing one of a few multiple-choice responses. What the coach says publicly can move **player morale** and **board happiness**.
+
+### Direction
+- Treat this as part of the existing club-life/event system (weekly `ClubLife` events, morale and Board Confidence, ARD-M6-003), not a parallel system: same morale/board plumbing, same consequence rules.
+- Questions come from what actually happened in the match and season (margin, result run, a named player's game, injuries, ladder position, board expectation), so the conference reads as a response to this week rather than random flavour.
+- Every answer is a real trade-off with a consequence the player can understand: e.g. backing an out-of-form player publicly lifts his morale but costs a little board patience if the side keeps losing; criticising the group may sting morale but satisfy a frustrated board. No answer that is simply "correct", no option that does nothing, and no hidden coefficients on the main surface.
+- Show the outcome in football language afterwards (e.g. "The playing group appreciated the support", "The board wanted more accountability"), not as numbers.
+- Short and skippable: a few lines, two to four answers, one tap. It must not appear after every match; it should feel like an occasion (big wins/losses, milestones, controversy), and the same question must not repeat in a short span.
+- Mobile first: readable at 360-390 px, thumb-sized answers, natural Android Back.
+
+### Guardrails
+- No fake choices: every answer changes morale and/or board standing in a direction the copy promises (see the System Reality Audit's fake/no-op choice rule).
+- Effects are modest and decay; the media conference cannot outweigh results, selection or coaching.
+- Natural AFL language: what a coach would actually say at a press conference.
+
+### Acceptance
+- Conferences appear only after notable matches and never repeat the same question within a short span.
+- Each answer has a measurable effect on morale and/or board happiness, matching its copy, verified by targeted tests.
+- Skipping is always possible and has a defined, neutral outcome.
+- Narrow Android portrait layouts remain usable.
+
+---
+
 # M7 — Competition Identity & Long Careers
 
 Goal: make decades of play feel like a living AFL world rather than repeated isolated seasons.
