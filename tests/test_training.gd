@@ -120,11 +120,12 @@ func _test_changing_plans() -> void:
 	GameState.set_default_plan("manual")
 	GameState.advance()
 	GameState.advance()
-	# The player with the most banked XP: one who sat out injured may not
-	# have enough for a point yet.
-	var p: Dictionary = GameState.my_list[0]
+	# The developing player with the most banked XP: one who sat out injured
+	# may not have enough for a point yet, and one at his POT pays its premium.
+	var p: Dictionary = {}
 	for q in GameState.my_list:
-		if int(q["xp"]) > int(p["xp"]):
+		var room := int(q.get("potential", 0)) - int(q["overall"])
+		if room >= Potential.NEAR_POT_GAP and (p.is_empty() or int(q["xp"]) > int(p["xp"])):
 			p = q
 	var banked := int(p["xp"])
 	_check(banked > 0, "The club plan on Manual banks everyone's XP")
@@ -135,7 +136,8 @@ func _test_changing_plans() -> void:
 			"Switching a player's plan spends his banked XP straight away")
 	var other: Dictionary = {}
 	for q in GameState.my_list:
-		if q != p and (other.is_empty() or int(q["xp"]) > int(other["xp"])):
+		var room := int(q.get("potential", 0)) - int(q["overall"])
+		if q != p and room >= Potential.NEAR_POT_GAP and (other.is_empty() or int(q["xp"]) > int(other["xp"])):
 			other = q
 	var other_xp := int(other["xp"])
 	var result := GameState.set_default_plan("position")
@@ -309,13 +311,13 @@ func _test_reserves_development() -> void:
 			and GameState.xp_gain_for(depth) >= GameState.XP_SQUAD + GameState.XP_SELECTED + GameState.XP_NAMED,
 			"Recalled, he earns senior XP again (%d)" % GameState.xp_gain_for(depth))
 
-	# The difficulty multiplier applies to the reserves like any other XP.
+	# Difficulty never changes development: reserves XP is the same on Hard.
 	GameState.difficulty = "hard"
 	GameState.list_player(depth)["injury_weeks"] = 0  # he may have been hurt in his senior game
 	_pick(depth, false)
 	_round()
-	_check(GameState.xp_gain_for(depth) == int(round(res_xp * 0.85)),
-			"Hard scales reserves XP too (%d)" % GameState.xp_gain_for(depth))
+	_check(GameState.xp_gain_for(depth) == res_xp,
+			"Reserves XP is the same on Hard (%d)" % GameState.xp_gain_for(depth))
 	GameState.difficulty = "normal"
 
 
