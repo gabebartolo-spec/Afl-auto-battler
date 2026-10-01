@@ -19,7 +19,10 @@ func _initialize() -> void:
 func _test_rivalry_catalogue() -> void:
 	_check(Rivalries.are_rivals("COL", "CAR") and Rivalries.are_rivals("CAR", "COL"),
 			"Established rivalries work in either fixture direction")
-	_check(Rivalries.label("ADE", "PAD") == "Showdown", "Named rivalry context is preserved")
+	_check(Rivalries.label("ADE", "PAD") == "The Showdown", "Named rivalry context is preserved")
+	_check(Rivalries.label("WCE", "FRE") == "The Western Derby", "WA meetings are always The Western Derby")
+	_check(Rivalries.label("GCS", "BRL") == "The Pineapple Grapple", "Queensland meetings are always The Pineapple Grapple")
+	_check(Rivalries.label("TAS", "CANB") == "Expansion Cup", "Expansion clubs contest the Expansion Cup")
 	_check(not Rivalries.are_rivals("ADE", "GEE"), "Ordinary opponents are not labelled rivals")
 
 func _check(condition: bool, message: String) -> void:
