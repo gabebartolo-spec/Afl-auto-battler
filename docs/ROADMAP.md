@@ -2082,7 +2082,8 @@ Avoid disposal-count bias.
 ---
 
 ## ARD-M5-009 — Player role/archetype identity sanity
-**Status:** `PARTIAL`  
+**Status:** `DONE`  
+**Merged:** 2026-10-01 — role allocation/direct-land reconciliation from PR #147.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -2096,6 +2097,13 @@ Known sanity examples:
 Validate labels against real role evidence and in-game usage.
 
 Do not manually patch only famous names if the classifier itself is wrong.
+
+### Role-identity implementation record (2026-10-01)
+- Club-listed forward/defender identity now wins over a misleading MID classification unless the player's own clearance and listed-line evidence says he is genuinely a midfielder.
+- Key defenders require key-position size; short stopping defenders no longer read as key defenders.
+- Wing identity now also recognises genuine outside players with low clearance volume and low contested share, covering Harvey Langford/Xavier Duursma-type usage without turning contested mids into wings.
+- Position rating anchors/harnesses were recalibrated to the corrected role population, with regression coverage for named sanity cases and league-wide positional depth.
+
 
 ---
 
@@ -2222,9 +2230,18 @@ If an elite prospect falls dramatically, the game should have a legible football
 
 
 ## ARD-M5-013 — Potential ceiling semantics audit
-**Status:** `TODO`  
+**Status:** `DONE`  
+**Merged:** 2026-10-01 — projected-peak/development-parity work from PR #156, reconciled directly onto current main.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
+
+### Final implementation (2026-10-01)
+- POT means a player's **projected natural peak**, not a hard cap and not a value that rises merely because OVR overtakes it.
+- Human and AI players now earn/develop under the same underlying rules; difficulty no longer gives either side hidden development-rate or XP advantages.
+- Training gets progressively dearer near and beyond POT, with the same seasonal training ceiling for every club.
+- Rare fresh breakout rolls can push a player meaningfully beyond his original projection; these are recorded as career development stories rather than predetermined hidden destinies.
+- League re-anchoring moves POT on the same rating scale as OVR, preserving projection headroom without silently ratcheting POT up to current OVR.
+- Regression coverage now checks drafting/POT stability, at- and past-POT training, breakouts, AI/human parity, difficulty parity and balance-harness scaling.
 
 ### Trigger
 Phone playtesting after the first season shows several players with **OVR above displayed POT** (for example Jordan Sweet 76 OVR / 70 POT, Zac Bailey 75 / 73, Karl Amon 73 / 70, Ryan Lester 70 / 63). This is currently possible by design, but the presentation reads as contradictory: if POT means “the overall rating a player can grow into”, a player already above it makes POT look wrong or secretly dynamic.
@@ -2411,7 +2428,7 @@ Before implementing more, inspect current merged Staff/coaching work and extend 
 
 ## ARD-M6-002 — Coaching staff gameplay
 **Status:** `DONE`  
-**Merged:** Phase 3 PR #62, former-player pathway PR #74, and gameplay-effects PR #77; teaching, tactics and man-management effects are all live.  
+**Merged:** Phase 3 PR #62, former-player pathway PR #74, gameplay-effects PR #77, plus the ARD-M6-002 coaching-movement visibility/frequency audit direct-landed on 2026-10-01; teaching, tactics and man-management effects are all live.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 **Current state (2026-09-28):** Phase 2 (data model, Round 1 2026 seed, read-only Staff UI) is merged. Phase 3 (the living coaching market: sackings, contracts, retirement, promotions, poaching, your vacancies and releases, development, reputation, generated coaches, expansion staffing, archive) is merged: PR #62 as `bf8bd0a`, `coach_market` suite, 50-season probe with every job filled. **Phase 4 (former players entering coaching) is actively being implemented by Claude; Phase 5 (gameplay effects) follows it.**  
@@ -2520,6 +2537,14 @@ Validate with targeted multi-season simulations.
 
 
 ### Coach-market movement visibility / frequency audit
+
+#### Final audit record (2026-10-01)
+- Measured synthetic market: about **3.1 senior-coach changes** and **~17 total job moves per season** across 90 simulated seasons; only 1 season in 30 had no senior-coach change.
+- First real 2027 offseasons checked produced 1 senior-coach change and 8–9 total job moves, confirming the underlying market was moving at a plausible rate rather than being stuck.
+- The main problem was visibility: coaching items were easy to lose in the wider news feed, and user-staff departures could amount to little more than a tab badge.
+- The hub now explicitly surfaces staff departures/vacancies with a path to appoint a replacement, and the off-season wrap names staff departures plus new senior coaches and whom they replaced.
+- No churn-rate inflation was added merely to guarantee drama every offseason.
+
 **Claude audit required.** Phone playtesting through a complete season/offseason produced no obvious sense that coaches moved clubs at all.
 
 The coaching market **is implemented**: `GameState._close_season_awards()` calls `_coaching_offseason()`, which runs `CoachMarket.offseason()`; the market supports senior-coach sackings/contract expiry, promotions, retirements, poaching from the user's staff, vacancy chains and appointments. Existing automated tests also prove movement can occur over long runs. That does **not** prove the live player experience is working.
