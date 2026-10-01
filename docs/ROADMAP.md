@@ -128,7 +128,7 @@ When this queue conflicts with milestone number, item order, or a generic P1/P2 
 
 1. **Close the remaining P0 phone-playtest gate (§1.11).** The old easy-fix PR stack has landed. Residual far-away-player waits, any reproducible match/Sim-round performance regression, fake/repetitive choices, misleading feedback and other core match-flow failures remain ahead of unrelated feature expansion.
 2. **Finish the full-season playtest audit batch — Claude owns measured balance conclusions.** Most named audits from the original batch have now landed (How we play, AI adaptation/Controlled tempo, key-forward/key-defender balance, Coleman, blowouts, injury parity and ruck/HTA). Re-check §1.11 for any explicit audit finding that still lacks a measured outcome; do not repeat completed audits merely because this queue once named them.
-3. **Finish the genuinely open Draft decision-support work.** ARD-M5-012, M5-013 and M8-009 are merged; M5-014's list-need strip and pre-draft meeting are merged. The Draft Combine/scouting portion remains open and is the outstanding draft-support subphase.
+3. **Finish the genuinely open Draft decision-support work.** ARD-M5-012, M5-013 and M8-009 are merged; M5-014's list-need strip and pre-draft meeting are merged. The Draft Combine/scouting portion is implemented in PR #188 and remains this queue item until that PR is validated and merged.
 4. **Finish ARD-M6-004 list-management depth.** Contract talks, free-agent negotiations, compensation and competitive rival FA offers are merged. The major remaining system is the Trade Market redesign: trustworthy player/club valuation first, then tradable current/future draft picks and package/UI work. Keep FA browsing polish small and independent.
 5. **Post-season payoff and long-save continuity.** Finals follow-through, Grand Final climax, season-story recap, bespoke Brownlow/B&F/AA presentation, records/history and related long-save work come after the remaining core match/draft/list-management correctness above.
 6. **Broader planned football/authenticity and flavour work.** Continue remaining M3/M4/M7/M8 catalogue items only when the higher queue tiers are clear or a dependency explicitly promotes one.
@@ -2279,7 +2279,7 @@ Questions to measure:
 
 
 ## ARD-M5-014 — National Draft decision support, combine & list-need clarity
-**Status:** `PARTIAL` — list-need strip (#150) and pre-draft recruiting meeting (#152) are merged; Draft Combine work remains.  
+**Status:** `IN REVIEW` — list-need strip (#150) and pre-draft recruiting meeting (#152) are merged; Draft Combine/scouting is implemented in PR #188, pending validation/merge.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
