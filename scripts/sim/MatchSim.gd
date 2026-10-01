@@ -663,7 +663,13 @@ func contest_winner(use_fp: bool, fp: float) -> int:
 	_credit_contest(1, not use_fp)
 	if use_fp:
 		p_home += clampf(fp / 900.0, -0.07, 0.07)
-	return 0 if rng.randf() < maxf(1.0 - lim, minf(lim, p_home)) else 1
+	p_home = maxf(1.0 - lim, minf(lim, p_home))
+	if not _tap.is_empty():
+		# At a ruck contest the tap, not the list's ruck on paper, is what
+		# the rucks give (the lists' ruck term comes out; see _ruck_tap).
+		p_home -= RUCK_WEIGHT * (float(squads[0].ruck) - float(squads[1].ruck)) / float(T["contest_swing"])
+		p_home = clampf(p_home + float(_tap["edge"]), 0.08, 0.92)
+	return 0 if rng.randf() < p_home else 1
 
 
 ## The home-ground edge at stoppages, from side 0's point of view: a club
@@ -884,6 +890,48 @@ static func _is_ruckman(p: Dictionary) -> bool:
 static func _ruck_of(contestant: Array) -> float:
 	return 45.0 if contestant.is_empty() else float(contestant[0]["attr"]["ruck"])
 
+
+## The ruck contest at a stoppage, before anyone wins the ball: the two rucks
+## on the ground now (not the starting ruck, who may be resting) contest the
+## taps - three chances at a hit-out, as many as a real ball-up gives - and
+## the first tap won can be to advantage, straight to a team-mate's
+## advantage. A tap to advantage swings the stoppage by TAP_ADV_EDGE; a
+## tap that is not, by nothing - the mids still have to win it. The lists'
+## ruck on paper comes out of the stoppage contest (contest_winner), so on
+## average ruck quality counts as much as it did; the tap now decides where.
+const RUCK_WEIGHT := 0.24          # Squad.contest's ruck share
+const TAP_ADV_EDGE := 0.22
+const TAP_ADV_BASE := 0.40         # a league-average ruck's first taps to advantage
+const TAP_ADV_SLOPE := 0.004       # per ruck point above the league's 70
+var _tap := {}
+
+
+func _ruck_tap() -> void:
+	var T := Ratings.T
+	var ruck := [_contestant(squads[0]), _contestant(squads[1])]
+	var king := 0.0
+	if not (ruck[0] as Array).is_empty() and _trait(ruck[0][0], "ruck_king"):
+		king += 0.05
+	if not (ruck[1] as Array).is_empty() and _trait(ruck[1][0], "ruck_king"):
+		king -= 0.05
+	var share := clampf(0.5 + (_ruck_of(ruck[0]) - _ruck_of(ruck[1])) / 260.0 + king, 0.15, 0.85)
+	var hits := [0, 0]
+	var first := -1
+	for i in range(3):
+		if rng.randf() < float(T["hitouts_per_stoppage"]) / 3.0:
+			var s := 0 if rng.randf() < share else 1
+			hits[s] += 1
+			if first < 0:
+				first = s
+	var adv := false
+	var edge := 0.0
+	if first >= 0:
+		var r := _ruck_of(ruck[first])
+		adv = rng.randf() < clampf(TAP_ADV_BASE + TAP_ADV_SLOPE * (r - 70.0), 0.12, 0.6)
+		if adv:
+			edge = TAP_ADV_EDGE if first == 0 else -TAP_ADV_EDGE
+	_tap = {"side": first, "hits": hits, "adv": adv, "edge": edge}
+
 func _stoppage(side: int, opp: int, from_bounce: bool) -> void:
 	if not from_bounce:
 		return
@@ -893,27 +941,22 @@ func _stoppage(side: int, opp: int, from_bounce: bool) -> void:
 	var ruck_a := _contestant(atk)
 	var ruck_b := _contestant(dfn)
 
-	# Three independent hit-out opportunities per bounce, so a game lands near
-	# the real ~34 hit-outs per team rather than one lump per stoppage.
-	var total_hits := 0
-	for i in range(3):
-		if rng.randf() < float(T["hitouts_per_stoppage"]) / 3.0:
-			total_hits += 1
-	if total_hits > 0:
-		var king := 0.0
-		if not ruck_a.is_empty() and _trait(ruck_a[0], "ruck_king"):
-			king += 0.05
-		if not ruck_b.is_empty() and _trait(ruck_b[0], "ruck_king"):
-			king -= 0.05
-		# The two players actually at the contest, on their own ruck work -
-		# not the side's starting ruck, who may be on the bench.
-		var share := clampf(0.5 + (_ruck_of(ruck_a) - _ruck_of(ruck_b)) / 260.0 + king, 0.15, 0.85)
-		var ha := int(round(total_hits * share))
-		var hb := total_hits - ha
-		_t(side, "hitouts", ha)
-		_t(opp, "hitouts", hb)
-		_p(ruck_a[0] if not ruck_a.is_empty() else null, "hitouts", ha)
-		_p(ruck_b[0] if not ruck_b.is_empty() else null, "hitouts", hb)
+	# The hit-outs of this stoppage, as the tap in _ruck_tap had them: the
+	# deciding tap and any further taps at the same ball-up.
+	var tap := _tap
+	_tap = {}
+	if not tap.is_empty():
+		var hit := {0: int(tap["hits"][0]), 1: int(tap["hits"][1])}
+		for s2 in [0, 1]:
+			var r: Array = ruck_a if s2 == side else ruck_b
+			if int(hit[s2]) > 0:
+				_t(s2, "hitouts", hit[s2])
+				_p(r[0] if not r.is_empty() else null, "hitouts", hit[s2])
+		var ts := int(tap["side"])
+		if ts >= 0 and bool(tap["adv"]):
+			var r2: Array = ruck_a if ts == side else ruck_b
+			_t(ts, "hitouts_adv")
+			_p(r2[0] if not r2.is_empty() else null, "hitouts_adv")
 
 	# A centre bounce: the ruck and three inside mids from each side attend.
 	var attend := {}
@@ -1658,6 +1701,7 @@ func _play_one_chain(T: Dictionary) -> void:
 		# any other stoppage is a ball-up where play stopped, logged so the
 		# pitch can stage it there.
 		start_fp = 0.0 if at_centre else fp
+		_ruck_tap()
 		side = contest_winner(false, start_fp)
 		if not at_centre:
 			_emit("ballup", -1, start_fp, null, "Ball-up")

@@ -1659,7 +1659,8 @@ const TEAM_STAT_ROWS := [
 	["disposals", "Disposals"], ["kicks", "Kicks"], ["handballs", "Handballs"],
 	["marks", "Marks"], ["inside50", "Inside 50s"],
 	["rebounds", "Rebound 50s"], ["clearances", "Clearances"],
-	["hitouts", "Hit-outs"], ["one_percenters", "One percenters"],
+	["hitouts", "Hit-outs"], ["hitouts_adv", "Hit-outs to advantage"],
+	["one_percenters", "One percenters"],
 	["frees_for", "Frees for"], ["frees_against", "Frees against"],
 	["clangers", "Clangers"], ["chains", "Possession chains"],
 ]

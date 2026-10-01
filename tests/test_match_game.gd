@@ -24,6 +24,7 @@ func run() -> void:
 	_test_traits()
 	_test_metres_and_efficiency()
 	_test_ruck_integrity()
+	_test_ruck_taps()
 	_test_stat_credits()
 	_test_m2_stats()
 	_test_no_role_gates()
@@ -650,6 +651,70 @@ func _test_metres_and_efficiency() -> void:
 			and MatchSim.disposal_efficiency({}) == 0, "Disposal efficiency is effective over total")
 
 
+## Phone playtest: a huge hit-out win came with a narrow clearance count,
+## and one ruck was beaten far too heavily. The tap now decides where a
+## stoppage goes (a tap to advantage swings it; mids still win the rest),
+## hit-outs to advantage are their own stat, and a single tap is no longer
+## rounded to one ruck (that gave a 70/30 split in 130 of 300 matches; now
+## 7). Measured, 300 matches: 36.7 hit-outs and 12.1 to advantage a team;
+## clearance margin correlates 0.30 with the hit-out margin (was 0.07) and
+## 0.34 with the margin in taps to advantage.
+func _test_ruck_taps() -> void:
+	var reconciled := true
+	var ho := 0.0
+	var adv := 0.0
+	var lopsided := 0
+	var n := 40
+	for i in range(n):
+		var res := _sim(5100 + i).run()
+		var tot := 0.0
+		for side in range(2):
+			var t: Dictionary = res["team"][side]
+			var ph := 0.0
+			var pa := 0.0
+			for r in res["roster"][side]:
+				var st: Dictionary = res["players"].get(str(r["id"]), {})
+				ph += float(st.get("hitouts", 0))
+				pa += float(st.get("hitouts_adv", 0))
+				reconciled = reconciled and float(st.get("hitouts_adv", 0)) <= float(st.get("hitouts", 0))
+			reconciled = reconciled and is_equal_approx(ph, float(t.get("hitouts", 0))) \
+					and is_equal_approx(pa, float(t.get("hitouts_adv", 0)))
+			ho += float(t.get("hitouts", 0))
+			adv += float(t.get("hitouts_adv", 0))
+			tot += float(t.get("hitouts", 0))
+		var share := float(res["team"][0].get("hitouts", 0)) / maxf(1.0, tot)
+		if share > 0.7 or share < 0.3:
+			lopsided += 1
+	_check(reconciled, "Hit-outs to advantage never exceed hit-outs, and players add up to the team")
+	_check(adv / ho > 0.2 and adv / ho < 0.45, "About a third of hit-outs are to advantage (%.0f%%)" % (100.0 * adv / ho))
+	_check(lopsided <= n / 8, "Two league rucks rarely split the taps 70/30 (%d of %d)" % [lopsided, n])
+	# A far better ruck: more taps, more of them to advantage, and more of
+	# the ball - not all of it.
+	var shares := []
+	for ruck in [40, 99]:
+		var won := 0.0
+		var all := 0.0
+		var cl := 0.0
+		var cl_all := 0.0
+		for i in range(40):
+			var home := []
+			for p in GameDB.club_list("GEE"):
+				var q: Dictionary = p.duplicate(true)
+				if str(q.get("role", "")) == "RUCK":
+					q["attr"]["ruck"] = ruck
+				home.append(q)
+			var sim := MatchSim.new(Squad.new("GEE", home, true, "GEE"),
+					Squad.new("COL", GameDB.club_list("COL"), false, "COL"), 5200 + i)
+			var res := sim.run()
+			won += float(res["team"][0].get("hitouts_adv", 0))
+			all += float(res["team"][0].get("hitouts_adv", 0)) + float(res["team"][1].get("hitouts_adv", 0))
+			cl += float(res["team"][0].get("clearances", 0))
+			cl_all += float(res["team"][0].get("clearances", 0)) + float(res["team"][1].get("clearances", 0))
+		shares.append([won / maxf(1.0, all), cl / maxf(1.0, cl_all)])
+	_check(float(shares[1][0]) - float(shares[0][0]) >= 0.15 and float(shares[1][1]) > float(shares[0][1]) + 0.02
+			and float(shares[1][1]) < 0.75,
+			"A far better ruck wins more taps to advantage and more of the ball, not all of it (%s)" % str(shares))
+
 ## The ruck contest is decided by, and credited to, the player actually at
 ## the bounce. With the ruck resting, the ruckman on the ground goes up, not
 ## whoever came off the bench, and an empty ruck spot is filled by the best
@@ -683,6 +748,7 @@ func _test_ruck_integrity() -> void:
 	_check(str(sim._contestant(sq)[0]["id"]) == backup_id and MatchSim._ruck_of(sim._contestant(sq)) == 70.0,
 			"...but the ruck-forward goes up at the bounce, and the contest is decided on him")
 	for i in range(60):
+		sim._ruck_tap()        # the tap comes first, as at a real stoppage
 		sim._stoppage(0, 1, true)
 	var st: Dictionary = sim.player_stats
 	_check(float(st.get(backup_id, {}).get("hitouts", 0.0)) > 0.0
