@@ -126,13 +126,12 @@ This is the **authoritative near-term work order**. The M1→M8 milestone struct
 
 When this queue conflicts with milestone number, item order, or a generic P1/P2 label, **follow this queue**.
 
-1. **Finish the in-flight easy playtest fixes.** PR #118 (current-club colours on My list) and PR #120 (match-feed current club identity) are still open. Let those land cleanly before starting overlapping work. PR #124 is a stale docs-only status PR and is superseded by the roadmap sanity pass on `main`.
-2. **Close the P0 phone-playtest gate (§1.11).** Residual far-away-player waits, match/Sim-round performance regressions, fake/repetitive choices, misleading feedback and any other core match-flow failure remain ahead of unrelated feature expansion.
-3. **Run the full-season playtest audit batch — Claude owns the final audit.** Prioritise the user-requested measured audits already written in §1.11: How-we-play maturity/actionability, easy-set-shot conversion, AI plan adaptation / Controlled tempo, key-forward vs key-defender balance, Coleman plausibility, sim-score/blowout distribution, autosim-vs-played injury parity, ruck/HTA/clearance relationships, and any other explicit `audit` item recorded there. Measure first; do not tune from one screenshot.
-4. **Draft / role integrity.** Then address ARD-M5-009, M5-012, M5-013 and M5-014 plus ARD-M8-009. This covers role allocation, annual-draft valuation/sliders, POT semantics, coherent list needs, Combine/scouting support and plausible generated names.
-5. **Off-season / list-management depth.** Then run the Board-expectation follow-up (M6-003), coach-market movement audit (M6-002), contracts/trades/free agency (M6-004), and the off-season wrap/new-season launch (M6-007). Do not let major list decisions remain one-tap transactions.
-6. **Post-season payoff and long-save continuity.** Finals follow-through, Grand Final climax, season-story recap, bespoke Brownlow/B&F/AA presentation, records/history and related long-save work come after the core match/draft/list-management correctness above.
-7. **Broader planned football/authenticity and flavour work.** Continue remaining M3/M4/M7/M8 catalogue items only when the higher queue tiers are clear or a dependency explicitly promotes one.
+1. **Close the remaining P0 phone-playtest gate (§1.11).** The old easy-fix PR stack has landed. Residual far-away-player waits, any reproducible match/Sim-round performance regression, fake/repetitive choices, misleading feedback and other core match-flow failures remain ahead of unrelated feature expansion.
+2. **Finish the full-season playtest audit batch — Claude owns measured balance conclusions.** Most named audits from the original batch have now landed (How we play, AI adaptation/Controlled tempo, key-forward/key-defender balance, Coleman, blowouts, injury parity and ruck/HTA). Re-check §1.11 for any explicit audit finding that still lacks a measured outcome; do not repeat completed audits merely because this queue once named them.
+3. **Finish the genuinely open Draft decision-support work.** ARD-M5-012, M5-013 and M8-009 are merged; M5-014's list-need strip and pre-draft meeting are merged. The Draft Combine/scouting portion remains open and is the outstanding draft-support subphase.
+4. **Finish ARD-M6-004 list-management depth.** Contract talks, free-agent negotiations, compensation and competitive rival FA offers are merged. The major remaining system is the Trade Market redesign: trustworthy player/club valuation first, then tradable current/future draft picks and package/UI work. Keep FA browsing polish small and independent.
+5. **Post-season payoff and long-save continuity.** Finals follow-through, Grand Final climax, season-story recap, bespoke Brownlow/B&F/AA presentation, records/history and related long-save work come after the remaining core match/draft/list-management correctness above.
+6. **Broader planned football/authenticity and flavour work.** Continue remaining M3/M4/M7/M8 catalogue items only when the higher queue tiers are clear or a dependency explicitly promotes one.
 ### Queue rules
 
 - A newly observed **P0 correctness, soft-lock, fake/no-op mechanic or core-fun failure** jumps ahead of planned feature work.
@@ -2182,7 +2181,7 @@ Before implementation, inspect the actual 2027 League Draft age distribution and
 
 
 ## ARD-M5-012 — Draft AI asset valuation sanity
-**Status:** `TODO`  
+**Status:** `DONE` — implemented in #148; top picks prioritise long-term asset quality, with need/scarcity used for close calls.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -2280,7 +2279,7 @@ Questions to measure:
 
 
 ## ARD-M5-014 — National Draft decision support, combine & list-need clarity
-**Status:** `TODO`  
+**Status:** `PARTIAL` — list-need strip (#150) and pre-draft recruiting meeting (#152) are merged; Draft Combine work remains.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -2666,7 +2665,7 @@ Acceptance:
 ---
 
 ## ARD-M6-004 — Contracts / trades / free agency
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — contract talks, free-agent negotiations, compensation and competitive rival offers are merged (#163, #164/#171, #166/#171, #172). Trade-market redesign and remaining browsing polish are still open.  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -2956,7 +2955,7 @@ It should help the player:
 
 
 ## ARD-M6-007 — Off-season wrap and new-season launch
-**Status:** `TODO`  
+**Status:** `DONE` — implemented in #158.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -3477,7 +3476,7 @@ The feature earns further work only if a phone playtest shows that the player ca
 
 
 ## ARD-M8-008 — Android app identity: name and launcher icon
-**Status:** `TODO`  
+**Status:** `IN REVIEW` — implementation is in #173.  
 **Priority:** `P1`  
 **Autonomy:** `SAFE`
 
@@ -3494,7 +3493,7 @@ Replace the leftover prototype identity shown by Android. The installed app must
 ---
 
 ## ARD-M8-009 — Plausible fictional player names
-**Status:** `TODO`  
+**Status:** `DONE` — implemented in #149.  
 **Priority:** `P1`  
 **Autonomy:** `SAFE`
 
