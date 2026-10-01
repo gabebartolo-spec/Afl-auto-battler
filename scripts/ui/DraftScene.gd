@@ -471,7 +471,7 @@ func _filters() -> Control:
 	var v := UiKit.vbox(6)
 	var title_row := UiKit.hbox(8)
 	v.add_child(title_row)
-	title_row.visible = not _short
+	title_row.visible = _wide and not _short
 	var title_label := UiKit.heading("Draft pool", 25)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(title_label)
