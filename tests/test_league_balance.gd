@@ -18,6 +18,7 @@ func run() -> void:
 	_test_draft_variant(lb)
 	_test_season(lb)
 	_test_sensitivity(lb)
+	_test_draw_rate(lb)
 	print("League balance tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -156,3 +157,27 @@ func _test_sensitivity(lb) -> void:
 	_check(after / shifted.size() - original / shifted.size() > 8.0,
 			"The shift raises the list's ratings through the game's own refit")
 	_check(is_equal_approx(still, original), "Shifting works on copies, not the league's players")
+
+
+## Draws come from level scores, not a quota. Measured over 12 seasons on
+## differently drafted leagues: 25 draws in 2592 matches (0.96%, about two a
+## season, 0-6 in any one). Pinned so a scoring change cannot quietly remove
+## them or make them common: three seeded seasons give at least one and no
+## more than 3%.
+func _test_draw_rate(lb) -> void:
+	var lists: Dictionary = lb.drafted_lists(7)["lists"]
+	var matches := 0
+	var draws := 0
+	var recorded := 0
+	for i in range(3):
+		var season := Season.new(lb.clubs(), lists, 7100 + i)
+		while season.round_index < season.fixture.size():
+			for r in season.play_round():
+				matches += 1
+				if int(r["score"][0]) == int(r["score"][1]):
+					draws += 1
+		for c in season.ladder:
+			recorded += int(season.ladder[c]["d"])
+	_check(draws >= 1 and float(draws) / matches <= 0.03,
+			"Home-and-away draws happen, and rarely (%d in %d)" % [draws, matches])
+	_check(recorded == 2 * draws, "Every draw is on the ladder for both clubs (%d, %d)" % [recorded, draws])

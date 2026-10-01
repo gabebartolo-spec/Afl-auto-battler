@@ -22,6 +22,7 @@ func run() -> void:
 	_test_grand_final_at_the_mcg()
 	_test_ladder_result_word()
 	_test_rest_of_week_in_background()
+	_test_draws_on_the_ladder()
 	print("Finals tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -384,3 +385,23 @@ func _games_played(season: Season) -> int:
 	for c in season.ladder:
 		n += int(season.ladder[c]["p"])
 	return n
+
+
+## A level home-and-away match is a draw: two points each, a D on the
+## ladder, and it counts as a game played.
+func _test_draws_on_the_ladder() -> void:
+	var season := _to_last_round()
+	var a: String = season.ladder.keys()[0]
+	var b: String = season.ladder.keys()[1]
+	var before_a: Dictionary = (season.ladder[a] as Dictionary).duplicate()
+	var before_b: Dictionary = (season.ladder[b] as Dictionary).duplicate()
+	season.record_regular({"home": a, "away": b, "score": [74, 74]})
+	season.recalc_ladder()
+	var ok := true
+	for pair in [[a, before_a], [b, before_b]]:
+		var row: Dictionary = season.ladder[pair[0]]
+		var was: Dictionary = pair[1]
+		ok = ok and int(row["d"]) == int(was["d"]) + 1 and int(row["p"]) == int(was["p"]) + 1 \
+				and int(row["w"]) == int(was["w"]) and int(row["l"]) == int(was["l"]) \
+				and int(row["pts"]) == int(was["w"]) * 4 + (int(was["d"]) + 1) * 2
+	_check(ok, "A level home-and-away match is a draw: two points each")
