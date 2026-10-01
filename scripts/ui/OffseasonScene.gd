@@ -10,6 +10,9 @@ var _notice := ""
 var _trade_club := ""
 var _mine: Array = []     # your player ids in the trade (up to 2)
 var _theirs: Array = []   # their player ids (up to 2)
+var _scroll_box: ScrollContainer
+var _scroll_tab := ""
+var _scroll_positions := {}
 
 
 func _ready() -> void:
@@ -35,6 +38,8 @@ func _ready() -> void:
 
 
 func _build() -> void:
+	if is_instance_valid(_scroll_box):
+		_scroll_positions[_scroll_tab] = _scroll_box.scroll_vertical
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Trades & Contracts", true))
 	var head := UiKit.panel(UiKit.PANEL, 10, 8)
@@ -63,7 +68,9 @@ func _build() -> void:
 			_build())
 		tabs.add_child(b)
 	var body := UiKit.vbox(6)
-	_root.add_child(UiKit.scroll(body))
+	_scroll_box = UiKit.scroll(body)
+	_scroll_tab = _tab
+	_root.add_child(_scroll_box)
 	match _tab:
 		"contracts":
 			_contracts(body)
@@ -71,6 +78,13 @@ func _build() -> void:
 			_agents(body)
 		"trade":
 			_trade(body)
+	_restore_scroll(_scroll_box, int(_scroll_positions.get(_tab, 0)))
+
+
+func _restore_scroll(scroll: ScrollContainer, offset: int) -> void:
+	await get_tree().process_frame
+	if is_instance_valid(scroll):
+		scroll.scroll_vertical = offset
 
 
 func _contracts(body: VBoxContainer) -> void:
