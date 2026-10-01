@@ -13,6 +13,7 @@ func run() -> void:
 	_test_difficulty()
 	_test_trade_margin()
 	_test_news()
+	_test_marquee_games()
 	GameState.set_new_career_difficulty("normal")
 	GameState.delete_saved_career()
 	print("League tests: %d checks, %d failures" % [checks, failures.size()])
@@ -84,6 +85,19 @@ func _test_trade_margin() -> void:
 	_check(float(GameState.DIFFICULTIES["hard"]["trade_margin"]) > float(GameState.DIFFICULTIES["normal"]["trade_margin"]),
 			"Rivals drive harder bargains on Hard")
 
+
+
+func _test_marquee_games() -> void:
+	_check(MarqueeGames.label("ESS", "COL") == "ANZAC Day",
+			"Essendon-Collingwood carries the ANZAC Day tradition")
+	_check(MarqueeGames.label("COL", "ESS") == "ANZAC Day",
+			"Marquee identity is independent of generated home/away order")
+	_check(MarqueeGames.label("MEL", "COL") == "King's Birthday",
+			"Melbourne-Collingwood carries King's Birthday")
+	_check(MarqueeGames.label("HAW", "GEE") == "Easter Monday",
+			"Hawthorn-Geelong carries Easter Monday")
+	_check(MarqueeGames.label("ADE", "GEE").is_empty(),
+			"An ordinary fixture is not labelled marquee")
 
 func _test_news() -> void:
 	GameState.reset()
