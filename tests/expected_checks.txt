@@ -3,7 +3,7 @@
 # checks; lower one only on purpose, in the PR that removes checks.
 draft 7800
 draft_ui 1298
-intake 2128
+intake 2120
 intake_ui 493
 expansion 1168
 finals 109
@@ -22,7 +22,7 @@ training 59
 selection 14
 matchup 70
 matchday 319
-roles 143
+roles 164
 injuries 12
 awards 17
 achievements 153
