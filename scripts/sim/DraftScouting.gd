@@ -121,8 +121,15 @@ static func _key(p: Dictionary, club: String, seed: int, suffix: String) -> Stri
 
 
 static func _unit(key: String) -> float:
-	var h := int(key.hash())
-	return float(abs(h % 1000000)) / 1000000.0
+	# Avalanche String.hash() before using it as a random draw. Nearby keys
+	# ("ovr" / "pot", adjacent prospect IDs) should not produce nearby errors.
+	var h := key.hash() & 0xFFFFFFFF
+	h ^= h >> 16
+	h = (h * 0x85ebca6b) & 0xFFFFFFFF
+	h ^= h >> 13
+	h = (h * 0xc2b2ae35) & 0xFFFFFFFF
+	h ^= h >> 16
+	return float(h & 0xFFFFFF) / float(0x1000000)
 
 
 static func _normal(key: String) -> float:
