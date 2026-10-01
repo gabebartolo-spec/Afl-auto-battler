@@ -86,8 +86,8 @@ SLUG_TO_CODE = {
     "padelaide": "PAD",
     "portadelaide": "PAD",
     "richmond": "RIC",
-    "stkilda": "SKN",
-    "st.kilda": "SKN",
+    "stkilda": "STK",
+    "st.kilda": "STK",
     "sydney": "SYD",
     "swans": "SYD",
     "southmelbourne": "SYD",
@@ -101,7 +101,7 @@ SLUG_TO_CODE = {
 
 CLUB_ORDER = [
     "ADE", "BRL", "CAR", "COL", "ESS", "FRE", "GEE", "GCS", "GWS",
-    "HAW", "MEL", "NTH", "PAD", "RIC", "SKN", "SYD", "WCE", "WBD",
+    "HAW", "MEL", "NTH", "PAD", "RIC", "STK", "SYD", "WCE", "WBD",
 ]
 
 # afltables renders some surnames with punctuation stripped from the anchor

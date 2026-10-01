@@ -84,7 +84,7 @@ static func read(path := DEFAULT_PATH) -> Dictionary:
 ## Just the header (club, year, phase) for the main menu.
 static func read_meta(path := DEFAULT_PATH) -> Dictionary:
 	var blob := _read_blob(path)
-	return blob.get("meta", {}) if not blob.is_empty() else {}
+	return migrate_club_codes(blob.get("meta", {})) if not blob.is_empty() else {}
 
 
 static func _read_blob(path: String) -> Dictionary:
@@ -223,5 +223,37 @@ func _decode(v):
 		var out := []
 		for x in v:
 			out.append(_decode(x) if _is_container(x) else x)
+		return out
+	return v
+
+
+## Club codes that changed after saves were written: old -> new. Every
+## standalone occurrence in a save - club keys, club fields and the ids
+## built from them ("SKN_13") - moves to the new code on load, so an old
+## career keeps the same club, lists, history, fixtures and records.
+const RENAMED_CLUBS := {"SKN": "STK"}
+static var _code_res: Array = []
+
+
+static func migrate_club_codes(v: Variant) -> Variant:
+	if _code_res.is_empty():
+		for old in RENAMED_CLUBS:
+			var re := RegEx.new()
+			re.compile("(?<![A-Za-z])%s(?![A-Za-z])" % old)
+			_code_res.append([re, RENAMED_CLUBS[old]])
+	if v is String:
+		var s: String = v
+		for pair in _code_res:
+			s = (pair[0] as RegEx).sub(s, str(pair[1]), true)
+		return s
+	if v is Dictionary:
+		var out := {}
+		for k in v:
+			out[migrate_club_codes(k)] = migrate_club_codes(v[k])
+		return out
+	if v is Array:
+		var out := []
+		for x in v:
+			out.append(migrate_club_codes(x))
 		return out
 	return v

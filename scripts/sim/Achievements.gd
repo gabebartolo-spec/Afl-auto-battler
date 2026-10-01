@@ -63,7 +63,7 @@ const DEFINITIONS := [
 	{"id": "ric_back_to_back", "club": "RIC", "name": "Tigers' streak",
 		"desc": "Richmond win back-to-back premierships, as in 1973-74 and 2019-20.",
 		"type": "flags_window", "count": 2, "span": 2},
-	{"id": "skn_long_wait", "club": "SKN", "name": "The long wait ends",
+	{"id": "skn_long_wait", "club": "STK", "name": "The long wait ends",
 		"desc": "St Kilda win a premiership. The Saints' last flag was 1966 - end the long wait.",
 		"type": "premiership"},
 	{"id": "syd_grand_slam", "club": "SYD", "name": "Grand slam",

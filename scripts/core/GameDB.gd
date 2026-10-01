@@ -34,7 +34,7 @@ const STAT_KEYS := Ratings.STATS_ZERO_KEYS
 ## only active from their "enter" year (data/clubs.csv) onward - use
 ## active_clubs(year) for any list that simulates a particular season.
 const CLUB_ORDER := ["ADE", "BRL", "CAR", "COL", "ESS", "FRE", "GEE", "GCS",
-		"GWS", "HAW", "MEL", "NTH", "PAD", "RIC", "SKN", "SYD", "WCE", "WBD",
+		"GWS", "HAW", "MEL", "NTH", "PAD", "RIC", "STK", "SYD", "WCE", "WBD",
 		"TAS", "CANB"]
 
 ## Fictional aliases are shuffled from these invented name parts once at load.
@@ -148,7 +148,7 @@ func club_colours(code: String) -> Array:
 
 ## Clubs whose third colour is a real club colour (Adelaide's gold, the
 ## Bulldogs' white); the others' "accent" is only a tint for the pitch.
-const THREE_COLOUR_CLUBS := ["ADE", "BRL", "GCS", "GWS", "PAD", "SKN", "WBD", "TAS", "CANB"]
+const THREE_COLOUR_CLUBS := ["ADE", "BRL", "GCS", "GWS", "PAD", "STK", "WBD", "TAS", "CANB"]
 
 
 ## The colours a club is known by, for its marker: two or three.

@@ -84,7 +84,7 @@ WIKI_CLUBS = {
     "ade": "ADE", "bl": "BRL", "bri": "BRL", "car": "CAR", "col": "COL",
     "ess": "ESS", "fre": "FRE", "gee": "GEE", "gc": "GCS", "gcs": "GCS",
     "gws": "GWS", "haw": "HAW", "mel": "MEL", "nm": "NTH", "pa": "PAD",
-    "ric": "RIC", "stk": "SKN", "syd": "SYD", "wc": "WCE", "wb": "WBD",
+    "ric": "RIC", "stk": "STK", "syd": "SYD", "wc": "WCE", "wb": "WBD",
 }
 
 
