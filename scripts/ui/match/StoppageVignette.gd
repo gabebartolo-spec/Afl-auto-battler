@@ -168,6 +168,7 @@ var _cam_d := 40.0
 var _cam_h := 7.0
 var _focal := 400.0
 var _horizon := 0.0
+var _cam_x := CAM_X
 
 
 func _set_camera() -> void:
@@ -183,7 +184,7 @@ func _set_camera() -> void:
 ## World (x across, y towards your goal, h up) to screen, and metres to pixels there.
 func _project(p: Vector2, h := 0.0) -> Vector3:
 	var z := maxf(0.5, p.y + _cam_d)
-	return Vector3(size.x * 0.5 + _focal * (p.x - CAM_X) / z, _horizon + _focal * (_cam_h - h) / z, _focal / z)
+	return Vector3(size.x * 0.5 + _focal * (p.x - _cam_x) / z, _horizon + _focal * (_cam_h - h) / z, _focal / z)
 
 
 static func _ease(k: float) -> float:
@@ -292,6 +293,10 @@ func _draw_ground() -> void:
 		for n in range(int(size.x * edge / 90.0)):
 			var col: Color = (_colours[rng.randi() % 2] as Array)[0] if rng.randf() < 0.45 else Color(0.5, 0.5, 0.52)
 			draw_rect(Rect2(rng.randf() * size.x, rng.randf() * edge, 2, 2), Color(col, 0.55), true)
+	_draw_markings()
+
+
+func _draw_markings() -> void:
 	var line := Color(1, 1, 1, 0.75)
 	# The centre square, the circles and the line through them.
 	_ground_poly([Vector2(-25, -25), Vector2(25, -25), Vector2(25, 25), Vector2(-25, 25)], line, true)

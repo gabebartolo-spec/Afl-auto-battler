@@ -32,6 +32,7 @@ func _run() -> void:
 	await _hub_tests()
 	await _finals_week_by_week()
 	await _season_review_scrolls()
+	await _pre_match_scene()
 	print("Matchup + hub tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -266,3 +267,56 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
 		push_error(message)
+
+
+## Play match puts the pre-match scene up in the same frame as the tap:
+## a couple of seconds of match day (warm-up, final instructions, through the
+## banner) while the match is set up, then the match. A tap sends them
+## through the banner at once.
+func _pre_match_scene() -> void:
+	var db = root.get_node("GameDB")
+	var router = root.get_node("Router")
+	for skip in [false, true]:
+		_state.reset()
+		_state.start_season("COL", db.club_list("COL"))
+		root.size = Vector2i(390, 844)
+		var hub: Control = await _open_hub()
+		var play := _button(hub.find_child("WeekActions", true, false), "Play match")
+		play.emit_signal("pressed")
+		var vig = root.find_child("PreMatchVignette", true, false)
+		_check(vig != null, "Play match cuts to the pre-match scene in the same frame")
+		if vig == null:
+			hub.queue_free()
+			return
+		if not skip:
+			_check(vig.banner == db.club_name("COL") and str(vig.title).contains(db.club_name("COL")),
+					"The scene is your club's: its banner and this week's match (%s)" % str(vig.title))
+		var seen := {}
+		var frames_before_run := 0
+		var frames := 0
+		while frames < 900 and (router.current() != "match" or root.find_child("PreMatch", true, false) != null):
+			if is_instance_valid(vig):
+				if skip and frames == 5:
+					var tap := InputEventMouseButton.new()
+					tap.button_index = MOUSE_BUTTON_LEFT
+					tap.pressed = true
+					vig._gui_input(tap)
+				seen[str(vig.phase())] = true
+				if str(vig.phase()) != "run":
+					frames_before_run += 1
+			await process_frame
+			frames += 1
+		if skip:
+			_check(frames_before_run <= 8, "A tap sends them through the banner at once (%d frames)" % frames_before_run)
+		else:
+			_check(seen.has("warm") and seen.has("huddle") and seen.has("run"),
+					"Warm-up, final instructions, then through the banner (%s)" % str(seen.keys()))
+			_check(frames_before_run >= 100 and frames_before_run <= 240,
+					"A couple of seconds of match day, not a wait (%d frames at 60)" % frames_before_run)
+		_check(router.current() == "match" and root.find_child("PreMatch", true, false) == null,
+				"Then the match, and the scene is gone")
+		if get_current_scene() != null:
+			get_current_scene().queue_free()
+		if is_instance_valid(hub):
+			hub.queue_free()
+		await process_frame
