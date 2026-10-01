@@ -272,6 +272,24 @@ func _test_free_agent_terms() -> void:
 	var nowhere := Contracts.free_agent_terms(p, {"in_best22": false, "rivals": 0, "finish": 3, "clubs": 18})
 	_check(not bool(nowhere["refuse"]) and int(nowhere["premium"]) == 0,
 			"With nowhere else to go, he'll come and fight for a spot")
+	# Club attractiveness is graded and modest: nothing for the premiers, at
+	# most a tenth of his price for the wooden spoon, never falling as you
+	# drop and never more than a point between neighbouring finishes.
+	var graded := true
+	for ovr in [45, 60, 70, 80, 92]:
+		var q := {"id": "fa_g", "overall": ovr, "potential": ovr, "age": 26.0, "morale": 70}
+		var cap_pts := roundi(Contracts.asking_salary(q) * 0.1)
+		var last := 0
+		for finish in range(1, 19):
+			var c := Contracts.club_premium(q, finish, 18)
+			if c < last or c - last > 1 or c > cap_pts or (finish == 1 and c != 0):
+				graded = false
+			last = c
+	_check(graded, "Your finish lifts his price gradually and modestly, with no ladder cliff")
+	var twelfth := Contracts.club_premium(p, 12, 18)
+	var thirteenth := Contracts.club_premium(p, 13, 18)
+	_check(thirteenth - twelfth <= 1 and twelfth == Contracts.club_premium(p, 11, 18),
+			"Finishing 13th is not a different rule from finishing 12th")
 	var low := Contracts.lowest(p, 3)
 	_check(str(Contracts.respond(p, low, 3, 0, 1)["answer"]) == "counter"
 			and str(Contracts.respond(p, low + 1, 3, 0, 1)["answer"]) == "accept",
@@ -291,6 +309,39 @@ func _test_free_agents() -> void:
 		elif not bool(t["refuse"]) and int(t["premium"]) > 0 and target.is_empty() \
 				and Contracts.lowest(fa, int(Contracts.wants(fa)["years"])) > 1:
 			target = fa
+	# The best-22 test is the real selection (1 ruck, 7 mids, 5 backs, 5
+	# forwards and a bench), not a rank of ratings: a player who fills a thin
+	# position makes the side even when 22 of your players rate higher.
+	# Make the ruck the thin position: your rucks drop to 40 for the check.
+	var saved := {}
+	for q in GameState.my_list:
+		if str(q["role"]) == "RUCK":
+			saved[str(q["id"])] = int(q["overall"])
+			q["overall"] = 40
+	var all_ovr := []
+	for q in GameState.my_list:
+		all_ovr.append(int(q["overall"]))
+	all_ovr.sort()
+	all_ovr.reverse()
+	var cut := int(all_ovr[21])
+	var big := {"id": "fa_ruck", "overall": cut - 5, "potential": cut - 5, "age": 26.0, "morale": 70,
+			"role": "RUCK", "attr": {}}
+	for q in GameState.my_list:
+		if str(q["role"]) == "RUCK":
+			big = q.duplicate(true)
+			break
+	big["id"] = "fa_ruck"
+	big["overall"] = cut - 5
+	big.erase("talks")
+	GameState.free_agents.append(big)
+	var t_fit := GameState.free_agent_terms("fa_ruck")
+	_check(not str(t_fit["reasons"]).contains("best 22"),
+			"A ruckman rated below your top 22 still has a place when your rucks are weak: the test is positional (%d v cut %d)" % [
+			int(big["overall"]), cut])
+	GameState.free_agents.erase(big)
+	for q in GameState.my_list:
+		if saved.has(str(q["id"])):
+			q["overall"] = saved[str(q["id"])]
 	if not refused.is_empty():
 		var r0 := GameState.offer_free_agent(str(refused["id"]), 50, 3)
 		_check(not bool(r0["ok"]) and str(r0["answer"]) == "reject" and GameState.free_agents.has(refused),

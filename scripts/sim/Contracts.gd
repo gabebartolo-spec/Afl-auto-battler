@@ -127,8 +127,9 @@ static func respond(p: Dictionary, salary: int, years: int, failed := 0, premium
 ## other clubs with the room and the need for him, "finish": your ladder
 ## finish, "clubs": clubs in the league}. Returns {"premium": points on top
 ## of his lowest, "refuse": bool, "reasons": [what he's weighing, in words]}.
-## Rival interest costs a point; so does joining a bottom-six side. A player
-## who would not make your best 22 won't come while another club wants him.
+## Rival interest costs a point. Your last finish costs a little more the
+## lower you were (`club_premium`). A player who would not make your best 22
+## won't come while another club wants him.
 static func free_agent_terms(p: Dictionary, facts: Dictionary) -> Dictionary:
 	var premium := 0
 	var reasons := []
@@ -145,10 +146,22 @@ static func free_agent_terms(p: Dictionary, facts: Dictionary) -> Dictionary:
 		premium += 1
 		reasons.append("Another club has the room and the need for him." if rivals == 1
 				else "Other clubs have the room and the need for him.")
-	if finish > 0 and finish > int(facts.get("clubs", 18)) - 6 and not refuse:
-		premium += 1
-		reasons.append("Your side finished %s: he wants more to come." % _ordinal(finish))
+	var club := club_premium(p, finish, int(facts.get("clubs", 18)))
+	if club > 0 and not refuse:
+		premium += club
+		reasons.append("Your side finished %s: he'd want a little more to come." % _ordinal(finish))
 	return {"premium": premium, "refuse": refuse, "reasons": reasons}
+
+
+## How much your last finish adds to his price: nothing for the premiers,
+## rising evenly to a tenth of his asking price for the wooden spoon,
+## rounded to a whole point. No single ladder position changes the rule; the
+## rounding only decides where, for this player, the one point lands.
+static func club_premium(p: Dictionary, finish: int, clubs: int) -> int:
+	if finish <= 1 or clubs <= 1:
+		return 0
+	var t := clampf(float(finish - 1) / float(clubs - 1), 0.0, 1.0)
+	return roundi(asking_salary(p) * 0.1 * t)
 
 
 static func _ordinal(n: int) -> String:
