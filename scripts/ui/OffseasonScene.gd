@@ -10,6 +10,10 @@ var _notice := ""
 var _trade_club := ""
 var _mine: Array = []     # your player ids in the trade (up to 2)
 var _theirs: Array = []   # their player ids (up to 2)
+var _scroll_box: ScrollContainer
+var _scroll_tab := ""
+var _scroll_positions := {}
+var _release_overlay: Control
 
 
 func _ready() -> void:
@@ -35,6 +39,8 @@ func _ready() -> void:
 
 
 func _build() -> void:
+	if is_instance_valid(_scroll_box):
+		_scroll_positions[_scroll_tab] = _scroll_box.scroll_vertical
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Trades & Contracts", true))
 	var head := UiKit.panel(UiKit.PANEL, 10, 8)
@@ -48,7 +54,7 @@ func _build() -> void:
 	if not GameState.offseason_open():
 		hv.add_child(_para("The off-season is closed: trades and contracts open when the season ends, until the national draft starts.", 13, UiKit.MUTED))
 	else:
-		hv.add_child(_para("Anything you leave undecided is re-signed for two seasons if the cap allows.", 12, UiKit.MUTED))
+		hv.add_child(_para("Out-of-contract players you leave unsigned are re-signed for two seasons if the cap allows.", 12, UiKit.MUTED))
 	if _notice != "":
 		hv.add_child(_para(_notice, 13, UiKit.GOOD))
 	var tabs := UiKit.hbox(4)
@@ -63,7 +69,9 @@ func _build() -> void:
 			_build())
 		tabs.add_child(b)
 	var body := UiKit.vbox(6)
-	_root.add_child(UiKit.scroll(body))
+	_scroll_box = UiKit.scroll(body)
+	_scroll_tab = _tab
+	_root.add_child(_scroll_box)
 	match _tab:
 		"contracts":
 			_contracts(body)
@@ -71,6 +79,13 @@ func _build() -> void:
 			_agents(body)
 		"trade":
 			_trade(body)
+	_restore_scroll(_scroll_box, int(_scroll_positions.get(_tab, 0)))
+
+
+func _restore_scroll(scroll: ScrollContainer, offset: int) -> void:
+	await get_tree().process_frame
+	if is_instance_valid(scroll):
+		scroll.scroll_vertical = offset
 
 
 func _contracts(body: VBoxContainer) -> void:
@@ -101,9 +116,7 @@ func _contracts(body: VBoxContainer) -> void:
 		var rel := UiKit.btn("Release", 13)
 		rel.name = "Release"
 		rel.custom_minimum_size = Vector2(0, 40)
-		rel.pressed.connect(func():
-			_notice = str(GameState.release_player(str(p["id"]))["reason"])
-			_build())
+		rel.pressed.connect(_confirm_release.bind(p))
 		row.add_child(rel)
 	body.add_child(UiKit.lbl("Whole list", 15, UiKit.EMPH, true))
 	var sorted := GameState.my_list.duplicate()
@@ -112,6 +125,42 @@ func _contracts(body: VBoxContainer) -> void:
 		body.add_child(_para("%s  ·  %d OVR  ·  salary %d  ·  %d season%s left" % [
 				GameDB.player_display_name(p), int(p["overall"]), int(p.get("salary", 0)),
 				int(p.get("contract_years", 1)), "" if int(p.get("contract_years", 1)) == 1 else "s"], 12, UiKit.TEXT))
+
+
+func _confirm_release(p: Dictionary) -> void:
+	if is_instance_valid(_release_overlay):
+		return
+	var box := UiKit.modal_box(self, 440.0, 0.0)
+	_release_overlay = box["overlay"]
+	_release_overlay.name = "ReleaseConfirmation"
+	box["body"].add_child(_para("Release %s?" % GameDB.player_display_name(p), 20, UiKit.TEXT))
+	box["body"].add_child(_para("He will leave your list and become a free agent.", 14, UiKit.TEXT))
+	var release := UiKit.btn("Release player", 16, true)
+	release.name = "ConfirmRelease"
+	release.custom_minimum_size.y = 44
+	release.pressed.connect(func():
+		_close_release()
+		_notice = str(GameState.release_player(str(p["id"]))["reason"])
+		_build())
+	box["footer"].add_child(release)
+	var cancel := UiKit.btn("Cancel", 16)
+	cancel.name = "CancelRelease"
+	cancel.custom_minimum_size.y = 44
+	cancel.pressed.connect(_close_release)
+	box["footer"].add_child(cancel)
+
+
+func _close_release() -> void:
+	if is_instance_valid(_release_overlay):
+		_release_overlay.queue_free()
+	_release_overlay = null
+
+
+func handle_back() -> bool:
+	if not is_instance_valid(_release_overlay):
+		return false
+	_close_release()
+	return true
 
 
 func _agents(body: VBoxContainer) -> void:
