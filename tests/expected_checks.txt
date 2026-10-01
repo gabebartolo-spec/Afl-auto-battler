@@ -10,7 +10,7 @@ finals 109
 save 49
 chronology 28
 career 71
-coaches 335
+coaches 338
 coach_market 56
 coach_pathway 54
 coach_effects 24
@@ -20,7 +20,7 @@ ratings 27
 ai 35
 training 59
 selection 14
-matchup 75
+matchup 77
 matchday 319
 roles 143
 injuries 13
