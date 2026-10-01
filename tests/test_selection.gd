@@ -13,6 +13,7 @@ func run() -> void:
 	checks = 0
 	GameDB.reload()
 	_test_auto_matches_select_22()
+	_test_ruck_selection_integrity()
 	_test_named_side()
 	_test_gaps_and_overflow()
 	_test_left_out_player_sits_out()
@@ -47,6 +48,39 @@ func _test_auto_matches_select_22() -> void:
 	var b := Ratings.select_side(list, {})
 	_check(_ids(a["ground"]) == _ids(b["ground"]) and _ids(a["bench"]) == _ids(b["bench"]),
 			"With no selection the side is exactly the automatic best 22")
+
+
+## Automatic selection treats ruck as a specialist position. A higher-OVR
+## recognised ruck must not start ahead of a clearly better tap player.
+func _test_ruck_selection_integrity() -> void:
+	var list: Array = []
+	var ruck_ids := []
+	for src in GameDB.players:
+		var p: Dictionary = src.duplicate(true)
+		list.append(p)
+		if Ratings.plays_role(p, "RUCK"):
+			ruck_ids.append(str(p["id"]))
+			p["attr"]["ruck"] = 40
+	_check(ruck_ids.size() >= 2, "The league pool contains two recognised rucks for the selection test")
+	if ruck_ids.size() < 2:
+		return
+	var high_ovr := ruck_ids[0]
+	var tapper := ruck_ids[1]
+	for p in list:
+		if str(p["id"]) == high_ovr:
+			p["overall"] = 99
+			p["attr"]["ruck"] = 55
+		elif str(p["id"]) == tapper:
+			p["overall"] = 50
+			p["attr"]["ruck"] = 90
+	var side := Ratings.select_22(list)
+	var starter := ""
+	for p in side["ground"]:
+		if str(p["role"]) == "RUCK":
+			starter = str(p["id"])
+			break
+	_check(starter == tapper,
+			"Auto-pick starts the best tap ruck, not the highest-OVR recognised ruck")
 
 
 func _test_named_side() -> void:
