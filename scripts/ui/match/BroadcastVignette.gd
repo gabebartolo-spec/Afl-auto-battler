@@ -351,7 +351,7 @@ func _draw_player(pos: Vector2, scale: float, cols: Array, number: int,
 		var fs := maxi(8, int(12.0 * scale))
 		var label := str(number)
 		var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
-		draw_string(font, body + Vector2(-tw * 0.5, 5 * scale),
+		draw_string(font, body + Vector2(-tw * 0.5, 5 * scale), label,
 				HORIZONTAL_ALIGNMENT_LEFT, -1, fs, _readable_on(primary))
 
 
