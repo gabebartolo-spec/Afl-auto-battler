@@ -90,6 +90,9 @@ var moment_rng := RandomNumberGenerator.new()
 ## Stat credits that must not disturb the match's own random sequence (who a
 ## free kick was paid to): results are identical with or without them.
 var stat_rng := RandomNumberGenerator.new()
+## Whether a mark inside 50 ends in a set shot and from where (SET_BANDS):
+## its own stream, so the rest of the match draws exactly as before.
+var shot_rng := RandomNumberGenerator.new()
 ## The chain being played: how it began (centre, stoppage, kick_in, free,
 ## turnover, general) and who touched the ball in it, for score sources and
 ## score involvements. How the last chain ended decides the next's origin.
@@ -142,6 +145,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	rng.seed = seed
 	moment_rng.seed = seed * 7 + 13
 	stat_rng.seed = seed * 11 + 5
+	shot_rng.seed = seed * 13 + 3
 	injury_rng.seed = seed * 13 + 7
 	for side in range(2):
 		synergies[side] = Traits.active((squads[side] as Squad).ground)
@@ -1228,11 +1232,24 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		goal_p *= Matchups.BEATEN_SHOT
 		behind_p *= Matchups.BEATEN_SHOT
 
-	if side == moment_side and marked and _moment_ready():
+	# A mark inside 50 is a set shot from a distance and angle, or the ball
+	# goes on (SET_BANDS); the chances come from where he kicks from.
+	var set_shot := {}
+	var shot_fp := fp
+	if marked:
+		var split := _set_shot_split(goal_p, behind_p)
+		goal_p = float(split["goal"])
+		behind_p = float(split["behind"])
+		set_shot = split["band"]
+		if not set_shot.is_empty():
+			shot_fp = (1.0 if side == 0 else -1.0) * (float(T["goal_line"]) - float(set_shot["metres"]))
+
+	if side == moment_side and not set_shot.is_empty() and _moment_ready():
 		var close := current_quarter >= 4 and absi(score(side) - score(opp)) <= 18
-		if moment_rng.randf() < (0.6 if close else 0.22):
-			_offer_set_shot(side, fp, shooter, defender, goal_p, behind_p, feeder)
-			return {"outcome": "moment", "fp": fp, "actor": shooter}
+		# Asked about as often as before: a set shot is under half the marks.
+		if moment_rng.randf() < (1.0 if close else 0.49):
+			_offer_set_shot(side, shot_fp, shooter, defender, set_shot, feeder)
+			return {"outcome": "moment", "fp": shot_fp, "actor": shooter}
 
 	var roll := rng.randf()
 	if roll < goal_p:
@@ -1242,19 +1259,19 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		_scored(side, 6, shooter)
 		q_goals[current_quarter - 1][side] += 1
 		_score_run(side)
-		_emit("goal", side, fp, shooter, _scoreline(side, "GOAL"))
-		events[events.size() - 1]["set"] = marked
+		_emit("goal", side, shot_fp, shooter, _scoreline(side, "GOAL"))
+		events[events.size() - 1]["set"] = not set_shot.is_empty()
 		_trait_note(shooter)
-		_tag_shot(marked)
+		_tag_shot(not set_shot.is_empty())
 		return {"outcome": "score", "fp": 0.0, "actor": shooter}
 	if roll < goal_p + behind_p:
 		_t(side, "behinds")
 		_p(shooter, "behinds")
 		_scored(side, 1, shooter)
 		q_behinds[current_quarter - 1][side] += 1
-		_emit("behind", side, fp, shooter, _scoreline(side, "Behind"))
-		events[events.size() - 1]["set"] = marked
-		_tag_shot(marked)
+		_emit("behind", side, shot_fp, shooter, _scoreline(side, "Behind"))
+		events[events.size() - 1]["set"] = not set_shot.is_empty()
+		_tag_shot(not set_shot.is_empty())
 		return {"outcome": "behind", "fp": kick_in_fp(side), "actor": shooter}
 
 	# A spoil puts it on the deck rather than in the defender's hands: the
@@ -2335,19 +2352,11 @@ func _on_ground(side: int, id: String) -> Dictionary:
 
 
 ## A marked shot inside 50: take it, play on to a teammate, or bomb it long.
-func _offer_set_shot(side: int, p_fp: float, shooter: Dictionary, defender, goal_p: float, behind_p: float, feeder = null) -> void:
-	var r := moment_rng.randf()
-	var spot := "from 45 metres on a slight angle"
-	var angle := 1.0
-	if r < 0.4:
-		spot = "from 30 metres, straight in front"
-		angle = 1.18
-	elif r >= 0.8:
-		spot = "from the pocket, on a tight angle"
-		angle = 0.72
+func _offer_set_shot(side: int, p_fp: float, shooter: Dictionary, defender, band: Dictionary, feeder = null) -> void:
+	var spot := str(band["spot"])
 	var dfn: Squad = squads[1 - side]
-	var shot_goal := clampf(goal_p * angle, 0.05, 0.92)
-	var shot_behind := minf(behind_p * (1.3 if angle < 1.0 else 1.0), (1.0 - shot_goal) * 0.85)
+	var shot_goal := float(band["goal"])
+	var shot_behind := float(band["behind"])
 	var mate := {}
 	for p in _by_roles((squads[side] as Squad).ground, ["FWD", "MID"]):
 		if str(p["id"]) != str(shooter["id"]) and (mate.is_empty() or _a(p, "goalkicking") > _a(mate, "goalkicking")):
@@ -2377,6 +2386,65 @@ func _offer_set_shot(side: int, p_fp: float, shooter: Dictionary, defender, goal
 		"text": "Your call. %s is %s, and %s." % [GameDB.player_display_name(shooter),
 			kick_words(shooter), legs_words(float(energy.get(str(shooter["id"]), 100.0)))],
 		"options": options})
+
+
+## Set shots by where they are kicked from. `acc` is the AFL rate for the
+## band (AFL.com.au / Champion Data, 2024 season: 92.2% of set shots from
+## 15-30 m directly in front were goals, 73.9% from 30-40 m), `share` how
+## often a set shot comes from there. An ordinary kick in an ordinary match
+## converts at `acc`; this kicker, his legs, the plans and the defence scale
+## it through the marked-entry chance they already give (SET_REF is that
+## chance for an ordinary league shot, measured).
+const SET_BANDS := [
+	{"key": "close", "spot": "from 25 metres, straight in front", "metres": 25.0, "acc": 0.92, "share": 0.20},
+	{"key": "front", "spot": "from 35 metres, straight in front", "metres": 35.0, "acc": 0.74, "share": 0.25},
+	{"key": "angle", "spot": "from 45 metres on a slight angle", "metres": 45.0, "acc": 0.50, "share": 0.30},
+	{"key": "pocket", "spot": "from the pocket, on a tight angle", "metres": 15.0, "acc": 0.35, "share": 0.15},
+	{"key": "long", "spot": "from 55 metres out", "metres": 55.0, "acc": 0.25, "share": 0.10},
+]
+const SET_REF := 0.34
+## Of the marks inside 50, the share that end in a set shot from the mark;
+## the rest go on (a play-on, a switch, a turnover) and score less.
+const SET_SHOT_SHARE := 0.45
+## A missed set shot is usually a behind; now and then it falls short or
+## goes out on the full.
+const SET_MISS_BEHIND := 0.70
+
+
+## The bands with this shot's chances filled in: {goal, behind} per band.
+static func set_bands(goal_p: float) -> Array:
+	var out := []
+	for b in SET_BANDS:
+		var band: Dictionary = b.duplicate()
+		band["goal"] = clampf(float(b["acc"]) * goal_p / SET_REF, 0.03, 0.97)
+		band["behind"] = (1.0 - float(band["goal"])) * SET_MISS_BEHIND
+		out.append(band)
+	return out
+
+
+## A mark inside 50: a set shot from one of SET_BANDS, or the ball goes on.
+## The split keeps the entry's expected goals and behinds exactly what they
+## were, so scoring across the league is unchanged; only where they come
+## from moves. {"band": {} or the band, "goal", "behind"}.
+func _set_shot_split(goal_p: float, behind_p: float) -> Dictionary:
+	var bands := set_bands(goal_p)
+	var e_goal := 0.0
+	var e_behind := 0.0
+	for b in bands:
+		e_goal += float(b["share"]) * float(b["goal"])
+		e_behind += float(b["share"]) * float(b["behind"])
+	if shot_rng.randf() < SET_SHOT_SHARE:
+		var r := shot_rng.randf()
+		for b in bands:
+			r -= float(b["share"])
+			if r < 0.0:
+				return {"band": b, "goal": b["goal"], "behind": b["behind"]}
+		var last: Dictionary = bands[bands.size() - 1]
+		return {"band": last, "goal": last["goal"], "behind": last["behind"]}
+	var rest := 1.0 - SET_SHOT_SHARE
+	return {"band": {},
+			"goal": maxf(0.0, (goal_p - SET_SHOT_SHARE * e_goal) / rest),
+			"behind": maxf(0.0, (behind_p - SET_SHOT_SHARE * e_behind) / rest)}
 
 
 ## A shot's chance in a coach's words, never a percentage.
