@@ -417,7 +417,7 @@ func _test_traits_through_training() -> void:
 	_check(Traits.has(fwd, "crumber"), "Small forward training unlocks Crumber")
 	var d: Dictionary = _first_of("DEF").duplicate(true)
 	d["attr"]["intercept"] = 74
-	d["xp"] = 3000
+	d["xp"] = 10000
 	GameState._spend_with_weights(d, GameState.plan_weights(d, "key_def"), false)
 	_check(int(d["attr"]["intercept"]) >= 80 and Traits.of(d).has("interceptor") or Traits.of(d).size() >= 2,
 			"Key defender training reaches Interceptor (%d)" % int(d["attr"]["intercept"]))
