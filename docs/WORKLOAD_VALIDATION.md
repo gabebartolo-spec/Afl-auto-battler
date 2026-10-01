@@ -27,19 +27,32 @@ ground/bench effort, stepped matches with default moment choices, automatic
 and manual selection, career save/replay, finals byes, Grand Final processing,
 offseason reset and readiness copy at 360 x 800.
 
+Local validation against the original base (`2473cf4`): 775 passing checks
+across workload, save, selection, injuries, finals, career, training, AI, ratings,
+roles, match game, pressure, league balance, calibration and balance.
+
+After integrating current main (`6c1c6fe`), workload/save/selection pass again
+(95 checks). Full regression coverage on that combined code belongs to PR CI.
+
 Run: `tools/run_tests.sh workload save selection finals`.
 
 ## Measurement
 
 Run: `godot --headless --path . --script tools/workload_probe.gd`.
 
-Local Godot 4.6.3 results, seeds 42000–42127:
+Local Godot 4.6.3 results against main `6c1c6fe` plus this change,
+match seeds 42000–42127 and season seed 43000:
 
 | Scenario | Result |
 |---|---|
-| GEE squad at 50 workload versus the same fresh squad, against COL; 128 paired seeds | Home margin changed by -17.96 points on average; standard error 3.45 |
+| GEE squad at 50 workload versus the same fresh squad, against COL; 128 paired seeds | Home margin changed by -12.41 points on average; standard error 3.90 |
 | One regular career season, every club automatically selecting | 587 Fresh, 82 Carrying a load, 0 Needs a break after the final round |
-| Highest workload at that season checkpoint | 42.97 of the internal 100-point scale |
+| Highest workload at that season checkpoint | 35.55 of the internal 100-point scale |
+
+At the season checkpoint, carrying-or-higher counts by primary role were
+MID 42/290, DEF 9/208, FWD 23/125 and RUCK 8/46. Peak loads were respectively
+35.41, 25.90, 31.95 and 35.55. The burden is concentrated in higher-effort
+roles rather than affecting every player equally.
 
 The paired experiment is a deliberately loaded **whole-squad** comparison, not
 a prediction of the effect of resting one player. Most players stay fresh with
