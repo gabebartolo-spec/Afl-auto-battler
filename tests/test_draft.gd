@@ -12,6 +12,7 @@ func run() -> void:
 	_test_history_and_snake_order()
 	_test_position_guidance()
 	_test_dual_position_coverage()
+	_test_position_status()
 	_test_complete_small_draft()
 	_test_real_pool()
 	_test_player_name_modes()
@@ -450,6 +451,39 @@ func _test_stuck_draft_recovery() -> void:
 			"The draft then completes with a full, legal list (%d/%d, $%d of $%d)" % [r.count(), r.target_size, r.spent(), r.budget])
 	GameState.draft = null
 	GameState.delete_saved_career()
+
+
+## ARD-M5-014: one answer per position. A dual-position player fills one
+## spot only, so he never solves two shortages at once, and every pick moves
+## the answer at once.
+func _test_position_status() -> void:
+	var d := Draft.new(_pool(), ["A", "B"], 5)
+	d.start_for_user("A")
+	var st := d.position_status()
+	_check(int(st["FWD"]["short"]) == 6 and int(st["RUCK"]["short"]) == 2,
+			"An empty list is short the whole match-day side")
+	_check(Draft.need_word(st["RUCK"], "RUCK") == "need 2" and Draft.need_word(st["FWD"], "FWD") == "short 6",
+			"Shortages read in a word: need 2, short 6")
+	# Five MID/FWD players: they cover the midfield, so the forwards stay short.
+	var pairs := []
+	for i in range(5):
+		pairs.append(["MID", "FWD"])
+	var sf := Draft.slot_shortfall(pairs, Draft.match_day_targets())
+	_check(int(sf["MID"]) + int(sf["FWD"]) == 11 - 5,
+			"Five dual-position players fill five spots, never ten (%s)" % str(sf))
+	var before := int(d.position_status()["FWD"]["short"])
+	var fwd := {}
+	for p in d.pool:
+		if str(p["role"]) == "FWD":
+			fwd = p
+			break
+	d.picked[str(fwd["id"])] = fwd
+	(d.club_lists["A"] as Array).append(fwd)
+	d.order.append(str(fwd["id"]))
+	_check(int(d.position_status()["FWD"]["short"]) == before - 1, "A forward picked: the forwards are one less short")
+	_check(Draft.need_word({"short": 0, "light": 3}, "MID") == "light 3"
+			and Draft.need_word({"short": 0, "light": 0}, "MID") == "covered",
+			"Depth below a full list reads light; otherwise covered")
 
 
 ## ARD-M5-012: the top of a draft goes to the best long-term assets. Need
