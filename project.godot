@@ -1,5 +1,5 @@
 ; Engine configuration file.
-; Godot 4.7 — AFL Auto-Battler
+; Godot 4.7 — Aussie Rules Dynasties
 ;
 ; Targets desktop (Windows/macOS/Linux) and mobile (Android/iOS).
 ; See docs/DESIGN.md for architecture notes.
@@ -8,8 +8,8 @@ config_version=5
 
 [application]
 
-config/name="AFL Auto-Battler"
-config/description="Re-draft the whole league from 2026 AFL player stats, then play a 24-round season and finals on an animated oval."
+config/name="Aussie Rules Dynasties"
+config/description="Build an Australian rules football dynasty: shape your list, coach the season and carry the club through the years."
 config/version="0.1.0"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7")
