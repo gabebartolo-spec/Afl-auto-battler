@@ -2752,6 +2752,20 @@ Additional acceptance:
 - the Free agents tab can be sorted by OVR, POT and Age;
 - after signing/rejecting/negotiating with a player midway down the list, the user remains at approximately the same scroll position instead of being thrown back to the top.
 
+### Rival free-agency order — no first refusal by club order
+**Status:** `TODO` (follow-up found while building compensation picks, #166). Not started; the fix below is a proposal awaiting approval.
+
+When free agency closes, rival clubs sign free agents by walking the clubs in list order (`season.lists`, i.e. `CLUB_ORDER`): each club in turn takes the best free agents it can afford until it reaches `Contracts.AI_FILL`. The clubs early in that order therefore get first refusal on the whole market. With negotiated contracts and compensation picks, that is now a fairness problem, not trivia.
+
+Evidence (3 careers × 4 off-seasons, 2027-2030, real seasons and drafts, 816 rival signings):
+- signing **counts** are spread (2-8% per club), because the early clubs fill their lists quickly;
+- signing **quality** is not: **60% of each off-season's ten best free agents go to the first four clubs** in list order, and clubs from 13th in the order onwards sign **none** of them;
+- mean OVR signed: Brisbane 70.2, Carlton 66.4, Collingwood 64.4 against roughly 53-57 for the clubs late in the order.
+
+Direction: free agency must resolve competing rival interest without `CLUB_ORDER` giving any club priority. Deterministic, using only facts every club has (ladder, list, cap). No uncontrolled randomness, no special treatment for the human club, no auction or bidding system.
+
+Proposed small fix (inside the current resolution code): rival clubs take turns in **reverse-ladder order, the national draft's order**, each turn signing the best free agent it can fit (list below `AI_FILL`, cap room for his price), one signing per turn, until no club can sign anyone. Acceptance: no correlation between a club's place in `CLUB_ORDER` and the quality of free agents it signs over a multi-season sample; same total signings as today.
+
 ### Trade market redesign — picks, asset value and club strategy
 The current Trade tab is a prototype rather than a credible AFL trade market. Phone playtesting exposed several linked problems:
 - only players can be traded; **draft picks and future picks are absent**;
