@@ -618,9 +618,17 @@ func _run() -> void:
 	await _settle()
 	_check(_router.current() == "hub" and current_scene.find_child("NewsFeed", true, false) == null,
 			"Back closes the news feed and stays on the hub")
+	var offseason_size_before := root.size
+	root.size = Vector2i(360, 800)
 	_router.go("offseason")
 	await _settle()
 	_check(_screen_text().contains("Out of contract"), "The contracts tab lists who is out of contract")
+	var phone_view := Rect2(Vector2.ZERO, root.get_visible_rect().size).grow(1)
+	for tab_name in ["Tab_contracts", "Tab_agents", "Tab_trade"]:
+		var phone_tab: Control = current_scene.find_child(tab_name, true, false)
+		_check(phone_tab != null and phone_view.encloses(phone_tab.get_global_rect())
+				and phone_tab.size.y >= 40,
+				"Off-season " + tab_name.trim_prefix("Tab_") + " tab fits a 360px phone")
 	_check(current_scene.find_children("Resign_*", "Button", true, false).is_empty(),
 			"No one-tap re-signing: contracts go through talks")
 	var talk = current_scene.find_child("Negotiate", true, false)
@@ -680,6 +688,7 @@ func _run() -> void:
 		mine_pick = n
 		break
 	_check(theirs != null and mine_pick != null, "The trade tab lists both sides")
+	root.size = offseason_size_before
 	if theirs != null and mine_pick != null:
 		theirs.emit_signal("pressed")
 		await _settle()
