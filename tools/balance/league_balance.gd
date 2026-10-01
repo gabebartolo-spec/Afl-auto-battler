@@ -261,7 +261,10 @@ func shifted_list(list: Array, k: int) -> Array:
 	for p in list:
 		var q: Dictionary = p.duplicate(true)
 		if k != 0:
-			Prospects._shift_player(q, float(int(q["overall"]) + k))
+			# Sensitivity shifts the whole rating scale by k, so POT moves by
+			# the same amount and preserves the player's projected headroom.
+			var to_scale := func(v: float) -> float: return v + float(k)
+			Prospects._shift_player(q, float(int(q["overall"]) + k), to_scale)
 		out.append(q)
 	return out
 
