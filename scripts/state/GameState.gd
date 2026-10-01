@@ -643,6 +643,8 @@ func reset() -> void:
 	news = []
 	board = {}
 	week_event = {}
+	media_conference = {}
+	media_memory = {}
 	losing_streak = 0
 	my_matchups = {}
 	last_side = []
