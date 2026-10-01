@@ -50,8 +50,6 @@ var staff_vacancies: Array = []
 ## Every club's place in the preseason pecking order (list strength), for
 ## judging AI senior coaches at season's end: code -> rank.
 var club_expect := {}
-var club_goals := {}             # club -> this season\'s board goal (ClubLife.board_goal)
-var _last_finish := {}           # club -> last season\'s ladder position, for the board
 var draft_meeting_year := 0     # the National Draft the recruiting panel last met before
 var records := {}                # league records across the career
 ## Club achievements unlocked this career: id -> {"year", "detail"}.
@@ -303,7 +301,6 @@ func save_career() -> bool:
 		"coach_archive": coach_archive,
 		"staff_vacancies": staff_vacancies,
 		"club_expect": club_expect,
-		"club_goals": club_goals,
 		"draft_meeting_year": draft_meeting_year,
 		"career_seed": career_seed,
 		"class_tiers": class_tiers,
@@ -424,7 +421,6 @@ func load_career() -> bool:
 	coach_archive = state.get("coach_archive", {})
 	staff_vacancies = state.get("staff_vacancies", [])
 	club_expect = state.get("club_expect", {})
-	club_goals = state.get("club_goals", {})
 	draft_meeting_year = int(state.get("draft_meeting_year", 0))
 	# A save from before the coaching world: seed it for this career now.
 	if season != null and coaches.is_empty():
@@ -622,8 +618,6 @@ func reset() -> void:
 	coach_archive = {}
 	staff_vacancies = []
 	club_expect = {}
-	club_goals = {}
-	_last_finish = {}
 	draft_meeting_year = 0
 	salary_cap = 0
 	free_agents = []
@@ -800,12 +794,6 @@ func finish_intake_draft() -> bool:
 ## Roll every list forward one year and rebuild the season. Split out so a
 ## career can continue even when there is no prospect pool to draft.
 func _start_next_season(next_year: int, signed: int) -> void:
-	# Where every club finished: next season's board reads it (ClubLife.board_goal).
-	_last_finish = {}
-	if season != null:
-		var table := season.ladder_sorted()
-		for k in range(table.size()):
-			_last_finish[str(table[k]["code"])] = k + 1
 	# The new season never starts with one of your staff jobs empty.
 	_fill_open_staff()
 	# The season's close normally counted careers already (Career skips a
@@ -1007,14 +995,12 @@ static func _job_words(job: String) -> String:
 ## the club has assembled against the rest of the league.
 func board_goal_reason() -> String:
 	var rank := int(board.get("rank", 9))
-	match str((board.get("goal", {}) as Dictionary).get("key", "")):
-		"top4":
-			return "One of the best lists in the competition, and top four last year: the board expects it again."
-		"finals":
-			return "The board rates this list among the best few in the competition." if rank <= 2 \
-					else "The board sees a list good enough to play finals."
-		"top12":
-			return "The board sees a list in the middle of the pack."
+	if rank <= 4:
+		return "The board rates this list among the best few in the competition."
+	if rank <= Season.FINALISTS:
+		return "The board sees a list good enough to play finals."
+	if rank <= 14:
+		return "The board sees a list in the middle of the pack."
 	return "The board knows this list is still building."
 
 
@@ -2306,6 +2292,9 @@ func open_offseason() -> void:
 				# A player they wanted but could not fit can earn them a pick;
 				# one they delisted cannot.
 				_release(code, p, why == "cap")
+	# The market opens: rivals put their offers on the table.
+	market_stats = {}
+	_open_market(free_agents)
 	mark_dirty()
 
 
@@ -2397,6 +2386,7 @@ func release_player(player_id: String) -> Dictionary:
 	if my_list.size() <= Contracts.MIN_LIST:
 		return {"ok": false, "reason": "Your list cannot go below %d." % Contracts.MIN_LIST}
 	_release(my_club, p, false)
+	_open_market([p])
 	mark_dirty()
 	return {"ok": true, "reason": "%s released." % GameDB.player_display_name(p)}
 
@@ -2415,36 +2405,360 @@ func free_agent(player_id: String) -> Dictionary:
 	return {}
 
 
-## What a free agent weighs about joining you, all from facts you can see:
-## whether he would make your best 22, which rival clubs have the room and
-## the need for him, and where you finished. See Contracts.free_agent_terms.
+## Would he turn you down flat? Only when he would not make your best 22
+## and a club that would play him has an offer on the table.
 func free_agent_terms(player_id: String) -> Dictionary:
 	var p := free_agent(player_id)
 	if p.is_empty() or season == null:
 		return {"premium": 0, "refuse": false, "reasons": []}
-	var side := Ratings.select_22(my_list + [p])
-	var in_22 := false
-	for q in (side["ground"] as Array) + (side["bench"] as Array):
-		if str(q["id"]) == player_id:
-			in_22 = true
 	var rivals := 0
-	for code in season.lists:
-		if code != my_club and Contracts.ai_wants(p, season.lists[code], salary_cap):
+	for o in p.get("offers", []):
+		if str(o["club"]) != my_club and not bool(o.get("withdrawn", false)) and str(o.get("role", "depth")) != "depth":
 			rivals += 1
+	return Contracts.free_agent_terms(p, {"in_best22": fa_role(p, my_club) != "depth", "rivals": rivals})
+
+
+# ---------------------------------------------------------------------------
+# The free-agent market (Contracts has the rules). Offers live on the free
+# agent ("offers": [{"club", "salary", "years", "role", "finish_t",
+# "withdrawn"}], "market_round": your offers rivals have answered,
+# "market_log": the last responses), so a save keeps every offer and no
+# reload can change who he picks.
+# ---------------------------------------------------------------------------
+var _bars := {}   # code -> positional selection bars, for one market pass
+## Rival actions this off-season (improve, match, hold, withdraw), for
+## measurement; not saved.
+var market_stats := {}
+var _targets_signed := {}   # code -> targets signed while free agency closes
+
+
+## His role at `code`: "ground" (in its best 18), "bench" (in its 22) or
+## "depth". The club's real selection sets the bar in each position: he is
+## a starter if he beats its weakest starter in his position (or his second
+## one), on the bench if he beats its weakest bench player.
+func fa_role(p: Dictionary, code: String) -> String:
+	if not _bars.has(code):
+		_bars[code] = _selection_bars(season.lists.get(code, []))
+	var bars: Dictionary = _bars[code]
+	var ovr := int(p.get("overall", 0))
+	for r in [str(p.get("role", "")), str(p.get("role2", ""))]:
+		if r != "" and ovr > int(bars.get(r, 0)):
+			return "ground"
+	return "bench" if ovr > int(bars.get("bench", 0)) else "depth"
+
+
+func _selection_bars(list: Array) -> Dictionary:
+	var side := Ratings.select_22(list)
+	var bars := {}
+	for q in side["ground"]:
+		var r := str(q["role"])
+		bars[r] = mini(int(bars.get(r, 999)), int(q["overall"]))
+	var bench := 999
+	for q in side["bench"]:
+		bench = mini(bench, int(q["overall"]))
+	bars["bench"] = bench if bench < 999 else 0
+	return bars
+
+
+## 0 for last year's premiers ... 1 for the wooden spoon.
+func _finish_t(code: String) -> float:
 	var table := season.ladder_sorted()
-	var finish := 0
 	for k in range(table.size()):
-		if str(table[k]["code"]) == my_club:
-			finish = k + 1
-	return Contracts.free_agent_terms(p, {"in_best22": in_22, "rivals": rivals,
-			"finish": finish, "clubs": table.size()})
+		if str(table[k]["code"]) == code:
+			return float(k) / float(maxi(1, table.size() - 1))
+	return 1.0
 
 
-## Offer a free agent `salary` a season for `years` seasons. He answers like
-## your own players (accept, counter, walk), with his options on top: rival
-## interest and a struggling club cost more, and a player who would not make
-## your best 22 turns you down while another club wants him. Cap room alone
-## never signs anyone. Returns {"ok", "answer", "salary", "reason"}.
+func _cap_room_of(code: String) -> int:
+	return salary_cap - Contracts.payroll(season.lists.get(code, []))
+
+
+func _offer_of(p: Dictionary, code: String) -> Dictionary:
+	for o in p.get("offers", []):
+		if str(o["club"]) == code:
+			return o
+	return {}
+
+
+## Rivals put offers on the table for `players`. Each club goes after the
+## free agents who would improve its side most - up to two it would play
+## (in its best 22: the furthest above its bar in their position first) -
+## plus one depth signing per spot it is short of its usual list size, best
+## players first by what everyone can see (rating, then age). Only with the
+## cap room, never the club that let him go, never by a club's place in any
+## list.
+const FA_TARGETS := 2
+## Places in the side by position, for spotting the thinnest part of a list.
+const FILL_SHARE := {"RUCK": 1, "MID": 7, "DEF": 5, "FWD": 5}
+const FILLER_CAP := 3
+
+
+func _open_market(players: Array) -> void:
+	_bars = {}
+	var depth_held := {}
+	var targets_held := {}
+	for q in free_agents:
+		for o in q.get("offers", []):
+			if bool(o.get("withdrawn", false)):
+				continue
+			var held := depth_held if bool(o.get("filler", false)) else targets_held
+			held[str(o["club"])] = int(held.get(str(o["club"]), 0)) + 1
+	var ranked := players.duplicate()
+	ranked.sort_custom(func(a, b):
+		if int(a["overall"]) != int(b["overall"]):
+			return int(a["overall"]) > int(b["overall"])
+		if float(a.get("age", 25.0)) != float(b.get("age", 25.0)):
+			return float(a.get("age", 25.0)) < float(b.get("age", 25.0))
+		return str(a["id"]) < str(b["id"]))
+	var clubs := []
+	for code in GameDB.active_clubs(season_year):
+		if code != my_club and season.lists.has(code) and (season.lists[code] as Array).size() < Contracts.MAX_LIST:
+			clubs.append(code)
+	# Every club picks its targets first, independently of the others.
+	for code in clubs:
+		var room := _cap_room_of(code)
+		var aims := FA_TARGETS - int(targets_held.get(code, 0)) - int(_targets_signed.get(code, 0))
+		var ft := _finish_t(code)
+		var wanted := []
+		for p in ranked:
+			if str(p.get("released_by", "")) != code and _offer_of(p, code).is_empty() and fa_role(p, code) != "depth":
+				wanted.append(p)
+		wanted.sort_custom(func(a, b):
+			var ga := _gain(a, code)
+			var gb := _gain(b, code)
+			if ga != gb:
+				return ga > gb
+			return ranked.find(a) < ranked.find(b))
+		for p in wanted:
+			if aims <= 0:
+				break
+			var role := fa_role(p, code)
+			var open := Contracts.opening_offer(p, role)
+			if int(open["salary"]) > Contracts.club_max(p, role, room):
+				continue
+			aims -= 1
+			_add_offer(p, code, open, role, ft)
+	# Then list fillers, among the players no club has targeted, so depth
+	# signings don't pile onto the market's best players.
+	var targeted := {}
+	for p in free_agents:
+		for o in p.get("offers", []):
+			if not bool(o.get("filler", false)) and not bool(o.get("withdrawn", false)):
+				targeted[str(p["id"])] = true
+	_place_fillers(clubs, ranked, targeted, depth_held)
+
+
+## List fillers: each club short of its usual list size fills the position it
+## is thinnest in (players per place in the side), best free agent there
+## first. At most three fillers per player: when more clubs want him, the
+## ones thinnest in his position keep their offers (a lower finish first on a
+## tie) and the rest move to their next choice. All clubs choose at once, so
+## no club's turn comes first.
+func _place_fillers(clubs: Array, ranked: Array, targeted: Dictionary, depth_held: Dictionary) -> void:
+	var spots := {}
+	var counts := {}
+	var closed := {}     # code -> {player id: true} it was bumped from or has
+	var holders := {}    # player id -> [codes]
+	for code in clubs:
+		var list: Array = season.lists[code]
+		spots[code] = Contracts.AI_FILL - list.size() - int(depth_held.get(code, 0))
+		var c := {}
+		for q in list:
+			var r := str(q.get("role", ""))
+			c[r] = int(c.get(r, 0)) + 1
+		counts[code] = c
+		closed[code] = {}
+	for _round in range(60):
+		var proposals := {}
+		for code in clubs:
+			if int(spots[code]) <= 0:
+				continue
+			var pick := _filler_choice(code, ranked, targeted, counts[code], closed[code])
+			if pick.is_empty():
+				spots[code] = 0
+				continue
+			var id := str(pick["id"])
+			if not proposals.has(id):
+				proposals[id] = []
+			(proposals[id] as Array).append(code)
+		if proposals.is_empty():
+			break
+		for id in proposals:
+			var p := free_agent(str(id))
+			var all: Array = (holders.get(id, []) as Array) + (proposals[id] as Array)
+			all.sort_custom(func(a, b):
+				var na := _thinness(counts[a], p)
+				var nb := _thinness(counts[b], p)
+				if na != nb:
+					return na < nb
+				return _finish_t(a) > _finish_t(b))
+			var before: Array = holders.get(id, [])
+			holders[id] = all.slice(0, FILLER_CAP)
+			for code in before:
+				if not (holders[id] as Array).has(code):
+					# Bumped by a club thinner in his position: the spot is free
+					# again.
+					spots[code] = int(spots[code]) + 1
+					counts[code][str(p.get("role", ""))] = int(counts[code].get(str(p.get("role", "")), 1)) - 1
+			for code in all:
+				closed[code][id] = true
+				if (holders[id] as Array).has(code) and (proposals[id] as Array).has(code):
+					spots[code] = int(spots[code]) - 1
+					counts[code][str(p.get("role", ""))] = int(counts[code].get(str(p.get("role", "")), 0)) + 1
+	for id in holders:
+		var p := free_agent(str(id))
+		for code in holders[id]:
+			# A list filler: priced as depth, though he still weighs the role
+			# he would have there.
+			_add_offer(p, code, Contracts.opening_offer(p, "depth"), fa_role(p, code), _finish_t(code), true)
+
+
+## How thin `counts` (a club's players by position) is where he plays:
+## players per place in the side, the lower of his positions.
+func _thinness(counts: Dictionary, p: Dictionary) -> float:
+	var best := 999.0
+	for r in [str(p.get("role", "")), str(p.get("role2", ""))]:
+		if FILL_SHARE.has(r):
+			best = minf(best, float(counts.get(r, 0)) / float(FILL_SHARE[r]))
+	return best
+
+
+## The free agent a club would fill its next spot with: the best one in its
+## thinnest position, else the best one it can afford at all.
+func _filler_choice(code: String, ranked: Array, targeted: Dictionary, counts: Dictionary, closed: Dictionary) -> Dictionary:
+	var need := ""
+	for r in FILL_SHARE:
+		if need == "" or float(counts.get(r, 0)) / float(FILL_SHARE[r]) < float(counts.get(need, 0)) / float(FILL_SHARE[need]):
+			need = r
+	var room := _cap_room_of(code)
+	for any in [false, true]:
+		for p in ranked:
+			var id := str(p["id"])
+			if targeted.has(id) or closed.has(id) or str(p.get("released_by", "")) == code or not _offer_of(p, code).is_empty():
+				continue
+			if not any and str(p.get("role", "")) != need and str(p.get("role2", "")) != need:
+				continue
+			if int(Contracts.opening_offer(p, "depth")["salary"]) > Contracts.club_max(p, "depth", room):
+				continue
+			return p
+	return {}
+
+
+## How far above `code`'s bar he is in his best position: what signing him
+## adds to its side.
+func _gain(p: Dictionary, code: String) -> int:
+	var bars: Dictionary = _bars.get(code, {})
+	var ovr := int(p.get("overall", 0))
+	var best := ovr - int(bars.get("bench", 0))
+	for r in [str(p.get("role", "")), str(p.get("role2", ""))]:
+		if r != "" and bars.has(r):
+			best = maxi(best, ovr - int(bars[r]))
+	return best
+
+
+func _add_offer(p: Dictionary, code: String, open: Dictionary, role: String, ft: float, filler := false) -> void:
+	if not p.has("offers"):
+		p["offers"] = []
+	var o := {"club": code, "salary": int(open["salary"]), "years": int(open["years"]), "role": role, "finish_t": ft}
+	if filler:
+		o["filler"] = true
+	(p["offers"] as Array).append(o)
+
+
+## The most `o`'s club will pay him: by his role there, or only his lowest
+## for a list filler; never past its cap room.
+func offer_max(p: Dictionary, o: Dictionary) -> int:
+	var room := _cap_room_of(str(o["club"]))
+	if bool(o.get("filler", false)):
+		return Contracts.club_max(p, "depth", room)
+	return Contracts.club_max(p, str(o.get("role", "depth")), room)
+
+
+## Rivals behind `leader` answer it once, all at the same moment, so no
+## club's turn comes first. Returns sentences such as "Carlton improve: 8
+## for 3 seasons." and "Brisbane, Sydney and 3 more withdraw."
+func _rival_round(p: Dictionary, leader: Dictionary) -> Array:
+	var lines := []
+	var moves := []
+	for o in p.get("offers", []):
+		if o == leader or str(o["club"]) == my_club or bool(o.get("withdrawn", false)):
+			continue
+		var most := offer_max(p, o)
+		moves.append([o, Contracts.rival_response(p, o, leader, most)])
+	var gone := []
+	var held := []
+	for m in moves:
+		var o: Dictionary = m[0]
+		var r: Dictionary = m[1]
+		market_stats[str(r["action"])] = int(market_stats.get(str(r["action"]), 0)) + 1
+		var name := GameDB.club_name(str(o["club"]))
+		match str(r["action"]):
+			"improve", "match":
+				o["salary"] = int(r["salary"])
+				o["years"] = int(r["years"])
+				lines.append("%s %s: %d for %d season%s." % [name, "improve" if str(r["action"]) == "improve" else "match",
+						int(r["salary"]), int(r["years"]), "" if int(r["years"]) == 1 else "s"])
+			"withdraw":
+				o["withdrawn"] = true
+				gone.append(name)
+			"hold":
+				held.append(name)
+	if not gone.is_empty():
+		lines.append("%s withdraw%s." % [_name_list(gone), "s" if gone.size() == 1 else ""])
+	if not held.is_empty():
+		lines.append("%s hold%s." % [_name_list(held), "s" if held.size() == 1 else ""])
+	return lines
+
+
+## "Brisbane", "Brisbane and Sydney", "Brisbane, Sydney and 4 more".
+func _name_list(names: Array) -> String:
+	if names.size() == 1:
+		return str(names[0])
+	if names.size() == 2:
+		return "%s and %s" % [names[0], names[1]]
+	return "%s, %s and %d more" % [names[0], names[1], names.size() - 2]
+
+
+## The offers on the table for a free agent, best first for him, each with
+## his view of it in words: [{"club", "name", "salary", "years", "view",
+## "leading", "mine"}].
+func fa_offers(player_id: String) -> Array:
+	var p := free_agent(player_id)
+	var standing := []
+	for o in p.get("offers", []):
+		if not bool(o.get("withdrawn", false)):
+			standing.append(o)
+	standing.sort_custom(func(a, b): return Contracts.prefers(p, a, b))
+	var out := []
+	for i in range(standing.size()):
+		var o: Dictionary = standing[i]
+		var other: Dictionary = standing[1] if i == 0 and standing.size() > 1 else (standing[0] if i > 0 else {})
+		var club_name := GameDB.club_name(str(o["club"]))
+		var view := Contracts.offer_view(p, o, other, club_name)
+		if i > 0 and view != "":
+			view = "Behind, though: " + view.left(1).to_lower() + view.substr(1)
+		elif i > 0:
+			view = "Behind."
+		out.append({"club": str(o["club"]), "name": club_name, "salary": int(o["salary"]), "years": int(o["years"]),
+				"view": view, "leading": i == 0, "mine": str(o["club"]) == my_club})
+	return out
+
+
+## Where his market stands for you: "open" (you can make an offer), "final"
+## (one more, your last), "closed" (you have made your final offer).
+func fa_market_stage(player_id: String) -> String:
+	var n := int(free_agent(player_id).get("market_round", 0))
+	return "closed" if n >= Contracts.FA_ROUNDS else ("final" if n == Contracts.FA_ROUNDS - 1 else "open")
+
+
+## Offer a free agent `salary` a season for `years` seasons. Below his lowest
+## price he counters, as your own players do. At or above it, your offer goes
+## on the table: if nobody else has offered he signs; otherwise the rivals
+## you have overtaken answer once (improve, match, hold or withdraw). Your
+## second offer is your final one: rivals answer, then he chooses. Untouched,
+## he chooses when free agency closes. Cap room alone never signs anyone.
+## Returns {"ok", "answer": "signed" | "table" | "lost" | "counter" | "walk" |
+## "reject" | "", "salary", "reason", "responses": [lines]}.
 func offer_free_agent(player_id: String, salary: int, years: int) -> Dictionary:
 	if not offseason_open():
 		return {"ok": false, "answer": "", "reason": "Free agency is only open in the off-season."}
@@ -2456,40 +2770,113 @@ func offer_free_agent(player_id: String, salary: int, years: int) -> Dictionary:
 	var talks: Dictionary = p.get("talks", {})
 	if bool(talks.get("walked", false)):
 		return {"ok": false, "answer": "walk", "reason": "He has stopped talking to you."}
+	if int(p.get("market_round", 0)) >= Contracts.FA_ROUNDS:
+		return {"ok": false, "answer": "", "reason": "You have made your final offer."}
 	years = clampi(years, 1, Contracts.MAX_YEARS)
 	salary = maxi(1, salary)
-	if salary > cap_room():
-		return {"ok": false, "answer": "", "reason": "Not enough cap room for %d a season." % salary}
 	var name := GameDB.player_display_name(p)
 	var terms := free_agent_terms(player_id)
 	if bool(terms["refuse"]):
 		return {"ok": false, "answer": "reject", "reason": "%s turns you down. %s" % [name, str(terms["reasons"][0])]}
-	var reply := Contracts.respond(p, salary, years, int(talks.get("failed", 0)), int(terms["premium"]))
-	var out := {"ok": false, "answer": str(reply["answer"]), "salary": int(reply["salary"])}
-	match str(reply["answer"]):
-		"accept":
-			_record_departure(p, my_club, salary, years)
-			_join(my_club, p)
-			_resign(p, years, salary)
-			free_agents.erase(p)
-			offseason_log.append({"kind": "signed", "club": my_club, "id": player_id})
-			add_news("contract", "%s sign free agent %s (OVR %d)." % [GameDB.club_name(my_club),
-					name, int(p["overall"])])
-			out["ok"] = true
-			out["reason"] = "%s signs for %d season%s at %d." % [name, years, "" if years == 1 else "s", salary]
-		"counter":
+	if salary > cap_room():
+		return {"ok": false, "answer": "", "reason": "Not enough cap room for %d a season." % salary}
+	var reply := Contracts.respond(p, salary, years, int(talks.get("failed", 0)))
+	if str(reply["answer"]) != "accept":
+		var out := {"ok": false, "answer": str(reply["answer"]), "salary": int(reply["salary"])}
+		if str(reply["answer"]) == "counter":
 			talks["failed"] = int(talks.get("failed", 0)) + (2 if bool(reply["insult"]) else 1)
 			talks["counter"] = int(reply["salary"])
 			talks["years"] = years
 			p["talks"] = talks
 			out["reason"] = ("He's insulted. " if bool(reply["insult"]) else "") + \
-					"He'd sign for %d a season over %d season%s." % [int(reply["salary"]), years, "" if years == 1 else "s"]
-		"walk":
+					"He'd want at least %d a season over %d season%s." % [int(reply["salary"]), years, "" if years == 1 else "s"]
+		else:
 			talks["walked"] = true
 			p["talks"] = talks
 			out["reason"] = "Talks have broken down: %s will look elsewhere." % name
+		mark_dirty()
+		return out
+	# A real offer: on the table, beside any rival's.
+	_bars = {}
+	var mine := _offer_of(p, my_club)
+	if mine.is_empty():
+		mine = {"club": my_club}
+		if not p.has("offers"):
+			p["offers"] = []
+		(p["offers"] as Array).append(mine)
+	mine["salary"] = salary
+	mine["years"] = years
+	mine["role"] = fa_role(p, my_club)
+	mine["finish_t"] = _finish_t(my_club)
+	var rivals_left := false
+	for o in p["offers"]:
+		if str(o["club"]) != my_club and not bool(o.get("withdrawn", false)):
+			rivals_left = true
+	if not rivals_left:
+		_sign_fa(p, my_club, salary, years)
+		mark_dirty()
+		return {"ok": true, "answer": "signed", "salary": salary,
+				"reason": "%s signs for %d season%s at %d." % [name, years, "" if years == 1 else "s", salary], "responses": []}
+	p["market_round"] = int(p.get("market_round", 0)) + 1
+	var lines := []
+	var leader := Contracts.best_offer(p, p["offers"])
+	if leader == mine:
+		# Only the clubs you have overtaken answer - they see your offer once
+		# it is made, never before.
+		lines = _rival_round(p, mine)
+	p["market_log"] = lines
+	var out := {"ok": true, "answer": "table", "salary": salary, "responses": lines}
+	if int(p["market_round"]) >= Contracts.FA_ROUNDS:
+		var club := _decide_fa(p)
+		out["answer"] = "signed" if club == my_club else "lost"
+		out["ok"] = club == my_club
+		out["reason"] = ("%s signs with you: %d for %d season%s." % [name, salary, years, "" if years == 1 else "s"]) if club == my_club \
+				else "%s chooses %s." % [name, GameDB.club_name(club)] if club != "" else "%s stays on the market." % name
+	else:
+		var lead := Contracts.best_offer(p, p["offers"])
+		out["reason"] = "Your offer leads." if lead == mine else "%s's offer leads." % GameDB.club_name(str(lead["club"]))
 	mark_dirty()
 	return out
+
+
+## He picks among the standing offers his suitors can still honour (a spot on
+## the list, the cap room). Returns the club he signs with, or "".
+func _decide_fa(p: Dictionary) -> String:
+	var valid := []
+	for o in p.get("offers", []):
+		if bool(o.get("withdrawn", false)):
+			continue
+		var code := str(o["club"])
+		var list: Array = season.lists.get(code, [])
+		if list.size() >= Contracts.MAX_LIST or int(o["salary"]) > _cap_room_of(code):
+			continue
+		if code != my_club and bool(o.get("filler", false)) and list.size() >= Contracts.AI_FILL:
+			continue
+		valid.append(o)
+	var best := Contracts.best_offer(p, valid)
+	if best.is_empty():
+		return ""
+	if not bool(best.get("filler", false)) and str(best["club"]) != my_club:
+		_targets_signed[str(best["club"])] = int(_targets_signed.get(str(best["club"]), 0)) + 1
+	_sign_fa(p, str(best["club"]), int(best["salary"]), int(best["years"]))
+	return str(best["club"])
+
+
+## He joins `code` on the contract he chose; his old club's compensation (if
+## any) comes from this contract.
+func _sign_fa(p: Dictionary, code: String, salary: int, years: int) -> void:
+	_record_departure(p, code, salary, years)
+	_join(code, p)
+	_resign(p, years, salary)
+	p.erase("offers")
+	p.erase("market_round")
+	p.erase("market_log")
+	free_agents.erase(p)
+	_bars.erase(code)
+	offseason_log.append({"kind": "signed", "club": code, "id": str(p["id"]), "salary": salary, "years": years})
+	if code == my_club or int(p.get("overall", 0)) >= NEWS_MIN_OVR:
+		add_news("contract", "%s sign free agent %s (OVR %d): %d for %d season%s." % [GameDB.club_name(code),
+				GameDB.player_display_name(p), int(p["overall"]), salary, years, "" if years == 1 else "s"])
 
 
 func _join(code: String, p: Dictionary) -> void:
@@ -2637,31 +3024,44 @@ func _close_free_agency() -> void:
 			# He walked, or you could not fit him: you wanted him, as a rival
 			# that runs out of room does.
 			_release(my_club, p, true)
-	free_agents.sort_custom(func(a, b): return Contracts.worth(a) > Contracts.worth(b))
-	for code in season.lists:
-		if code == my_club:
-			continue
-		var list: Array = season.lists[code]
-		for p in free_agents.duplicate():
-			if list.size() >= Contracts.AI_FILL:
-				break
-			# Rivals sign by the same rules: the least he takes for their term.
-			var years := Contracts.ai_years(p)
-			var price := Contracts.lowest(p, years)
-			if price <= salary_cap - Contracts.payroll(list):
-				_record_departure(p, code, price, years)
-				_join(code, p)
-				_resign(p, years, price)
-				free_agents.erase(p)
-				offseason_log.append({"kind": "signed", "club": code, "id": str(p["id"])})
-				if int(p.get("overall", 0)) >= NEWS_MIN_OVR:
-					add_news("contract", "%s sign free agent %s (OVR %d)." % [
-							GameDB.club_name(code), GameDB.player_display_name(p), int(p["overall"])])
+	_resolve_market()
 	# Nobody signed them: their AFL careers end here.
 	for p in free_agents:
 		_career_over(p)
 	free_agents = []
 	mark_dirty()
+
+
+## Free agency closes: every free agent still on the market gets offers
+## (those released at the close included); where you never bid, the rivals
+## behind the leader answer once among themselves; then each chooses, best
+## players first by what everyone can see. Clubs still short of their usual
+## list size go again for whoever is left, until nobody else signs.
+func _resolve_market() -> void:
+	_targets_signed = {}
+	_open_market(free_agents)
+	for p in free_agents:
+		if int(p.get("market_round", 0)) == 0 and _offer_of(p, my_club).is_empty():
+			var leader := Contracts.best_offer(p, p.get("offers", []))
+			if not leader.is_empty():
+				_rival_round(p, leader)
+	for _pass in range(40):
+		var order := free_agents.duplicate()
+		order.sort_custom(func(a, b):
+			if int(a["overall"]) != int(b["overall"]):
+				return int(a["overall"]) > int(b["overall"])
+			if float(a.get("age", 25.0)) != float(b.get("age", 25.0)):
+				return float(a.get("age", 25.0)) < float(b.get("age", 25.0))
+			return str(a["id"]) < str(b["id"]))
+		var signed := 0
+		for p in order:
+			if _decide_fa(p) != "":
+				signed += 1
+		if signed == 0 or free_agents.is_empty():
+			break
+		for p in free_agents:
+			p.erase("offers")
+		_open_market(free_agents)
 
 
 # ---------------------------------------------------------------------------
@@ -3266,23 +3666,21 @@ func _open_board_season() -> void:
 	ranks.sort_custom(func(a, b): return float(a[1]) > float(b[1]))
 	var rank := 1
 	club_expect = {}
-	club_goals = {}
 	for i in range(ranks.size()):
-		var code := str(ranks[i][0])
-		club_expect[code] = i + 1
-		club_goals[code] = ClubLife.board_goal(i + 1, int(_last_finish.get(code, 0)))
-		if code == my_club:
+		club_expect[str(ranks[i][0])] = i + 1
+		if str(ranks[i][0]) == my_club:
 			rank = i + 1
 	if board.is_empty():
 		board = {"confidence": ClubLife.START_CONFIDENCE, "warned": false, "sacked": false, "history": []}
-	board["goal"] = club_goals.get(my_club, ClubLife.board_goal(rank))
+	board["goal"] = ClubLife.board_goal(rank)
 	board["rank"] = rank
-	board["last_finish"] = int(_last_finish.get(my_club, 0))
 	board["year"] = season_year
 	board.erase("promise")
 	losing_streak = 0
 	event_memory = {}
 	_next_week_event()
+
+
 func board_confidence() -> int:
 	return int(board.get("confidence", ClubLife.START_CONFIDENCE))
 
@@ -3583,7 +3981,7 @@ func _coaching_offseason() -> void:
 	for i in range(table.size()):
 		var row: Dictionary = table[i]
 		var code := str(row["code"])
-		var goal: Dictionary = club_goals.get(code, ClubLife.board_goal(int(club_expect.get(code, 9))))
+		var goal := ClubLife.board_goal(int(club_expect.get(code, 9)))
 		var pos := i + 1
 		var met := ClubLife.goal_met(goal, pos, int(row.get("w", 0)))
 		results[code] = {"met": met, "finals": pos <= Season.FINALISTS,
