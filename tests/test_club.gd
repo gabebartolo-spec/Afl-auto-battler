@@ -17,6 +17,7 @@ func run() -> void:
 	_test_team_form()
 	_test_board_confidence()
 	_test_coaching_hub()
+	_test_how_we_play_reads()
 	GameState.delete_saved_career()
 	print("Club tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -438,6 +439,57 @@ func _test_team_form() -> void:
 	_check(is_equal_approx(GameState.season.club_form("GEE"), before), "Form survives a save (it is derived from results)")
 
 
+## How we play, read from a made-up league at 3, 6, 12 and 22 games: a
+## point or two is never a trait, an early read needs a big gap, a real
+## trait firms up, and a points source is not said next to its total.
+func _test_how_we_play_reads() -> void:
+	GameState.reset()
+	var base := {"for": 85.0, "against": 85.0, "clearances": 37.0, "inside50": 50.0,
+		"pressure_acts": 60.0, "marks": 90.0, "clangers": 50.0, "hitouts": 36.0,
+		"from_turnover": 40.0, "from_stoppage": 30.0, "conceded_turnover": 40.0, "conceded_stoppage": 30.0}
+	var read := func(delta: Dictionary, games: int) -> Array:
+		GameState.season_team = {}
+		for i in range(17):
+			var row := {"games": games}
+			for k in base:
+				row[k] = float(base[k]) * games
+			GameState.season_team["C%d" % i] = row
+		var mine := {"games": games}
+		for k in base:
+			mine[k] = (float(base[k]) + float(delta.get(k, 0.0))) * games
+		GameState.season_team["ME"] = mine
+		return GameState._style_found("ME")
+	var keys := func(found: Array) -> Array:
+		return found.map(func(f): return str(f["k"]))
+	var small_ok := true
+	var floor_ok := true
+	var said_ok := true
+	for g in [3, 6, 12, 22]:
+		if not (read.call({"for": 1.0, "against": -2.0, "clearances": 1.0, "hitouts": 3.0}, g) as Array).is_empty():
+			small_ok = false
+		for f in read.call({"for": 30.0, "against": 12.0, "marks": 7.0, "clangers": -5.0, "hitouts": 12.0}, g):
+			if float(f["rel"]) < 1.0:
+				floor_ok = false
+		var style: Dictionary = GameState.how_we_play("ME")
+		if (style["win"] as Array).size() > 2 or (style["beaten"] as Array).size() > 2:
+			said_ok = false
+	_check(small_ok, "A point or two a game is never how you play, early or late")
+	_check(floor_ok, "Every trait said clears its own smallest worthwhile gap")
+	_check(said_ok, "At most two lines each way, however many traits there are")
+	var firm := {"for": 15.0}
+	var early: Array = keys.call(read.call(firm, 3)) + keys.call(read.call(firm, 6))
+	var late: Array = keys.call(read.call(firm, 12)) + keys.call(read.call(firm, 22))
+	_check(not early.has("for") and late.count("for") == 2,
+			"A real two-goal edge waits for the season to confirm it (%s / %s)" % [early, late])
+	var loud: Array = read.call({"for": 30.0}, 3)
+	_check(keys.call(loud) == ["for"] and int(loud[0]["n"]) >= 25,
+			"A big early gap is said at once, with the real margin (%s)" % str(loud))
+	var dup: Array = keys.call(read.call({"for": 15.0, "from_turnover": 12.0, "conceded_stoppage": 10.0}, 22))
+	_check(dup.has("for") and not dup.has("from_turnover") and dup.has("conceded_stoppage"),
+			"Where points come from is not repeated next to the total (%s)" % str(dup))
+	GameState.reset()
+
+
 ## Coaching hub: the standing game plan reaches every match of yours, form
 ## reads your players' last three games against their season, and how we
 ## play is read from the season's team numbers.
@@ -467,9 +519,8 @@ func _test_coaching_hub() -> void:
 	for i in range(6):
 		GameState.advance()
 	var style := GameState.how_we_play()
-	_check(int(style["games"]) >= 3 and (style["win"] as Array).size() + (style["beaten"] as Array).size() > 0
-			and (style["win"] as Array).size() <= 3 and (style["beaten"] as Array).size() <= 3,
-			"After a few games, up to three lines each on how you win and get beaten (%s)" % str(style))
+	_check(int(style["games"]) >= 3 and (style["win"] as Array).size() <= 2 and (style["beaten"] as Array).size() <= 2,
+			"After a few games, at most two lines each on how you win and get beaten (%s)" % str(style))
 	var mine: Dictionary = GameState.season_team["GEE"]
 	_check(mine.has("from_turnover") and mine.has("conceded_stoppage")
 			and float(mine["from_turnover"]) + float(mine["from_stoppage"]) <= float(mine["for"]) + 0.01,

@@ -3461,10 +3461,11 @@ func _style_found(code: String) -> Array:
 		var avg := float(league.get(k, 0.0)) / float(maxi(1, clubs))
 		if avg <= 0.0:
 			continue
-		var d := (float(mine.get(k, 0.0)) / float(games) - avg) * shrink
+		var raw := float(mine.get(k, 0.0)) / float(games) - avg
+		var d := raw * shrink
 		var good: bool = (d > 0.0) != bool(STYLE_LINES[k][2])
 		if absf(d) >= float(STYLE_MIN[k]):
-			found.append({"k": k, "rel": absf(d) / float(STYLE_MIN[k]), "n": int(round(absf(d))), "good": good})
+			found.append({"k": k, "rel": absf(d) / float(STYLE_MIN[k]), "n": int(round(absf(raw))), "good": good})
 	found.sort_custom(func(a, b): return float(a["rel"]) > float(b["rel"]))
 	var said := {}
 	for f in found:

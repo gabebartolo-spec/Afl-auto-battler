@@ -28,7 +28,7 @@ awards 16
 achievements 153
 contracts 20
 league 14
-club 90
+club 96
 match_game 122
 pressure 21
 match_visual 55
