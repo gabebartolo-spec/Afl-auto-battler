@@ -305,19 +305,29 @@ func _test_rivals_train() -> void:
 	_check(untouched, "The AI never spends your players' XP")
 	_check(earned, "Your players still bank their XP")
 	var p0: Dictionary = rival[0]
-	var spent_to_pot := p0.duplicate(true)
-	spent_to_pot["xp"] = 100000
-	spent_to_pot["potential"] = int(spent_to_pot["overall"]) + 3
-	# Started the season well below POT, so POT (not the season cap) binds.
-	spent_to_pot["season_start_ov"] = int(spent_to_pot["overall"]) + 3 - GameState.AI_SEASON_GAIN
-	GameState.ai_spend_xp(spent_to_pot)
-	_check(int(spent_to_pot["overall"]) >= int(spent_to_pot["potential"])
-			and int(spent_to_pot["overall"]) <= int(spent_to_pot["potential"]) + 1,
-			"With XP to burn, a rival trains exactly up to his POT")
+	# POT prices a rival's training exactly as it prices yours: no stop at it.
+	var at_pot := p0.duplicate(true)
+	at_pot["xp"] = 100000
+	at_pot["potential"] = int(at_pot["overall"])
+	at_pot["season_start_ov"] = int(at_pot["overall"])
+	GameState.ai_spend_xp(at_pot)
+	_check(int(at_pot["overall"]) > int(at_pot["potential"]),
+			"With XP to burn, a rival can train past his POT, at its price")
 	var capped := p0.duplicate(true)
 	capped["xp"] = 100000
 	capped["potential"] = int(capped["overall"]) + 12
 	capped["season_start_ov"] = int(capped["overall"])
 	GameState.ai_spend_xp(capped)
-	_check(int(capped["overall"]) <= int(p0["overall"]) + GameState.AI_SEASON_GAIN + 1,
-			"A rival gains at most AI_SEASON_GAIN in a season, however much XP he has")
+	_check(int(capped["overall"]) <= int(p0["overall"]) + GameState.SEASON_TRAIN_GAIN + 1,
+			"A rival gains at most SEASON_TRAIN_GAIN in a season, however much XP he has")
+	# Your players live under the same season limit.
+	var mine: Dictionary = GameState.my_list[0]
+	mine["xp"] = 100000
+	mine["potential"] = int(mine["overall"]) + 12
+	mine["season_start_ov"] = int(mine["overall"])
+	var start := int(mine["overall"])
+	GameState.apply_plan_to(mine)
+	for k in ["disposal", "contested", "marking", "pressure"]:
+		GameState.train_stat(str(mine["id"]), k, 20)
+	_check(int(mine["overall"]) <= start + GameState.SEASON_TRAIN_GAIN + 1,
+			"Your player is held to the same season limit, by plan or by hand (%d -> %d)" % [start, int(mine["overall"])])
