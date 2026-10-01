@@ -23,6 +23,7 @@ func run() -> void:
 	_test_forward_types()
 	_test_every_club_fields_wings()
 	_test_listed_second_positions()
+	_test_identities()
 	_test_formation_wings()
 	_test_list_profile()
 	print("Roles tests: %d checks, %d failures" % [checks, failures.size()])
@@ -305,19 +306,66 @@ func _test_every_club_fields_wings() -> void:
 	_check(ok, "Every club fields 18 with two wings")
 
 
-## A midfielder on the numbers keeps the line his club lists him in as a
-## second position when his own numbers back it up - and only then.
+## Football identities for the cases the playtest exposed, and the rules
+## behind them: a key defender has size, a wing seldom wins the stoppage.
+func _test_identities() -> void:
+	var by_name := {}
+	for p in GameDB.players:
+		by_name[str(p.get("real_name", ""))] = p
+	var lab := func(n: String) -> String:
+		return Roles.label(by_name[n]) if by_name.has(n) else "?"
+	_check(lab.call("Bodhi Uwland") != "Key defender", "Bodhi Uwland (188 cm) is not a key defender (%s)" % lab.call("Bodhi Uwland"))
+	for n in ["Harris Andrews", "Sam De Koning", "Jake Lever"]:
+		_check(lab.call(n) == "Key defender", "%s is a key defender (%s)" % [n, lab.call(n)])
+	_check(lab.call("Gryan Miers") == "Small forward", "Gryan Miers is a small forward (%s)" % lab.call("Gryan Miers"))
+	for n in ["Harvey Langford", "Xavier Duursma", "Ed Langdon"]:
+		_check(lab.call(n) == "Wing", "%s is a wing (%s)" % [n, lab.call(n)])
+	for n in ["Clayton Oliver", "Patrick Cripps"]:
+		_check(lab.call(n) == "Inside midfielder", "%s is an inside midfielder (%s)" % [n, lab.call(n)])
+	var short_keys := []
+	var keys := 0
+	for p in GameDB.players:
+		if PlayerProfile.player_type(p) == "Key defender":
+			keys += 1
+			if float(p.get("height_cm", 0.0)) < PlayerProfile.KEY_DEF_CM:
+				short_keys.append(str(p.get("real_name", "")))
+	_check(short_keys.is_empty() and keys >= 54,
+			"Every key defender has key-position size, and every club has some (%d; %s)" % [keys, short_keys])
+	var fwds := 0
+	for p in GameDB.players:
+		fwds += 1 if str(p["role"]) == "FWD" else 0
+	_check(fwds >= 180, "Forwards are forwards first: enough for six a side and cover (%d)" % fwds)
+
+
+## His club's listing is his first position unless the numbers show a
+## midfielder in fact (clearances, with his listed game thinned out) or his
+## listed game has gone; a listed line the numbers win keeps as a second
+## position when his own numbers back it up.
 func _test_listed_second_positions() -> void:
 	var by_name := {}
 	for p in GameDB.players:
 		by_name[str(p.get("real_name", ""))] = p
-	for n in ["Joe Richards", "Beau McCreery", "Connor Macdonald", "Milan Murdock"]:
-		_check(by_name.has(n) and Ratings.role_tag(by_name[n]) == "MID/FWD", "%s is a midfielder who plays forward" % n)
-	for n in ["Zac Williams", "Liam Baker", "Jhye Clark"]:
-		_check(by_name.has(n) and Ratings.role_tag(by_name[n]) == "MID/DEF", "%s is a midfielder who plays back" % n)
-	# Listed forwards with no forward numbers stay midfielders.
-	for n in ["Colby McKercher", "Josaia Delana", "Chris Scerri"]:
-		_check(by_name.has(n) and Ratings.role_tag(by_name[n]) == "MID", "%s stays a midfielder" % n)
+	var tag := func(n: String) -> String:
+		return Ratings.role_tag(by_name[n]) if by_name.has(n) else "?"
+	for n in ["Joe Richards", "Connor Macdonald", "Murphy Reid"]:
+		_check(tag.call(n) == "MID/FWD", "%s is a midfielder who plays forward (%s)" % [n, tag.call(n)])
+	for n in ["Beau McCreery", "Milan Murdock", "Jack Ginnivan", "Kade Chandler", "Max King"]:
+		_check(tag.call(n).begins_with("FWD"), "%s is a forward (%s)" % [n, tag.call(n)])
+	_check(tag.call("Gryan Miers") == "FWD/MID", "Gryan Miers is a forward who can go through the middle (%s)" % tag.call("Gryan Miers"))
+	for n in ["Zac Williams", "Liam Baker", "Jhye Clark", "Sam De Koning"]:
+		_check(tag.call(n).begins_with("DEF"), "%s is a defender (%s)" % [n, tag.call(n)])
+	for n in ["Colby McKercher", "Chris Scerri"]:
+		_check(tag.call(n) == "MID", "%s stays a midfielder (%s)" % [n, tag.call(n)])
+	var lp := func(listed: String, gm: float, cl: float, own: float, mid: float) -> String:
+		return Ratings.listed_primary({"real_pos": listed, "gm": gm, "cl": cl * gm,
+				"role_scores": {"FWD": own, "DEF": own, "MID": mid, "RUCK": -1.0}}, "MID")
+	_check(lp.call("FWD", 20, 1.0, 0.33, 0.53) == "FWD", "Disposals alone never move a listed forward")
+	_check(lp.call("FWD", 20, 2.5, 0.30, 0.53) == "MID", "A listed forward winning clearances with little forward game is a midfielder")
+	_check(lp.call("FWD", 20, 2.5, 0.40, 0.53) == "FWD", "...unless his forward game holds up")
+	_check(lp.call("FWD", 20, 0.8, 0.22, 0.53) == "MID", "A listed forward with no forward game left is a midfielder")
+	_check(lp.call("DEF", 3, 3.0, 0.10, 0.60) == "DEF", "A few games never overrule the listing")
+	_check(lp.call("", 20, 0.5, 0.40, 0.53) == "MID" and lp.call("MID", 20, 0.5, 0.40, 0.53) == "MID",
+			"Without a forward or back listing, the numbers decide")
 	var fwd := 0
 	var def := 0
 	var bad := ""
@@ -328,16 +376,14 @@ func _test_listed_second_positions() -> void:
 			def += 1
 		if str(p.get("role2", "")) == str(p.get("role", "")):
 			bad = str(p.get("real_name", ""))
-	_check(fwd >= 180 and def >= 220, "The draft has forward and defensive depth (%d FWD, %d DEF)" % [fwd, def])
+	_check(fwd >= 210 and def >= 230, "The draft has forward and defensive depth (%d FWD, %d DEF)" % [fwd, def])
 	_check(bad == "", "A second position is never the first (%s)" % bad)
-	# The rule only ever adds a second position to a midfielder.
 	var mid := {"role": "MID", "real_pos": "FWD", "gm": 10.0, "gl": 5.0, "mi": 0.0, "rb": 0.0, "onepct": 0.0}
 	_check(Ratings.listed_secondary(mid) == "FWD", "A goalkicking listed forward gets FWD")
 	mid["gl"] = 1.0
 	_check(Ratings.listed_secondary(mid) == "", "A listed forward who does not kick goals or mark inside 50 does not")
 	_check(Ratings.listed_secondary({"role": "DEF", "real_pos": "FWD", "gm": 10.0, "gl": 9.0}) == "",
 			"Only a midfielder on the numbers takes his listed line")
-
 
 ## The Best 22 oval shows the wings the match plays (Roles.mark_wings, the
 ## line "WING" on the match-day copies), never the next two by rating.
