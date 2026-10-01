@@ -912,11 +912,54 @@ func _build_season_wrap(year: int) -> void:
 		for job in Coaches.JOB_LABEL:
 			var was := str(offseason_staff.get(job, ""))
 			var is_now := str(now.get(job, ""))
+			if was != "" and was != is_now and (coaches.has(was) or coach_archive.has(was)):
+				# A retired coach may already be archived (or gone from the
+				# records): then he has finished in the game.
+				var gone: Dictionary = coaches.get(was, coach_archive.get(was, {}))
+				var where := "retired"
+				if coaches.has(was) and str(gone.get("status", "")) != "retired":
+					where = Coaches.whereabouts(gone)
+					where = where.left(1).to_lower() + where.substr(1)
+				staff_lines.append("%s left: %s." % [GameDB.player_display_name(gone), where])
 			if is_now != "" and is_now != was:
 				var c: Dictionary = coaches.get(is_now, {})
 				staff_lines.append("New %s: %s." % [_job_words(job), GameDB.player_display_name(c)])
 	season_wrap = {"year": year, "ins": ins, "outs": outs, "staff": staff_lines,
+			"league_coaches": new_senior_coaches(year),
 			"goal": board_goal_text(), "reason": board_goal_reason(), "seen": false}
+
+
+## The clubs with a new senior coach for `year`, as sentences: who replaced
+## whom. Read from the coach records (an appointment for `year` starts that
+## season), so nothing extra is saved. Most notable first: none of these
+## change hands quietly in real football.
+func new_senior_coaches(year: int) -> Array:
+	var out := []
+	for cid in coaches:
+		var c: Dictionary = coaches[cid]
+		if str(c.get("status", "")) != "club" or str(c.get("job", "")) != "SC" \
+				or int(c.get("sc_since", 0)) != year:
+			continue
+		var club := str(c["club"])
+		var before := _previous_senior_coach(club, year, str(cid))
+		if before == "":
+			out.append("%s: %s is the new senior coach." % [GameDB.club_name(club), GameDB.player_display_name(c)])
+		else:
+			out.append("%s: %s replaces %s as senior coach." % [GameDB.club_name(club),
+					GameDB.player_display_name(c), before])
+	out.sort()
+	return out
+
+
+func _previous_senior_coach(club: String, year: int, new_cid: String) -> String:
+	for pool in [coaches, coach_archive]:
+		for cid in pool:
+			if str(cid) == new_cid:
+				continue
+			for stint in (pool[cid] as Dictionary).get("stints", []):
+				if str(stint[0]) == club and str(stint[1]) == "SC" and int(stint[3]) == year - 1:
+					return GameDB.player_display_name(pool[cid])
+	return ""
 
 
 static func _job_words(job: String) -> String:
