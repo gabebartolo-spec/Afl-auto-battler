@@ -20,6 +20,7 @@ func run() -> void:
 	_test_cap_guard()
 	_test_stuck_draft_recovery()
 	_test_asset_valuation()
+	_test_combine_scouting()
 	print("Draft tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -533,6 +534,69 @@ func _test_position_status() -> void:
 
 ## ARD-M5-012: the top of a draft goes to the best long-term assets. Need
 ## and scarcity steer close calls; they never bury a much better player.
+## ARD-M5-014: the National Draft is a scouting decision, not access to the
+## hidden player dictionary. Human and AI clubs use the same deterministic
+## uncertainty model; combine evidence stays short and football-readable.
+func _test_combine_scouting() -> void:
+	var pool: Array = Prospects.generate_class(2028, 611)
+	var clubs := ["A", "B"]
+	var sizes := {"A": 34, "B": 34}
+	var counts := {
+		"A": {"RUCK": 2, "MID": 13, "DEF": 9, "FWD": 10},
+		"B": {"RUCK": 2, "MID": 13, "DEF": 9, "FWD": 10},
+	}
+	var d := Draft.build_intake(pool, clubs, clubs, 90210, sizes, counts)
+	d.start_for_user("A")
+	var p: Dictionary = pool[0]
+	var scouting = load("res://scripts/sim/DraftScouting.gd")
+	var first: Dictionary = scouting.projection(p, "A", d.seed)
+	var again: Dictionary = scouting.projection(p, "A", d.seed)
+	_check(first == again, "A club's scouting report is deterministic across reads")
+	_check((first["overall"] as Array).size() == 2 and int(first["overall"][0]) < int(first["overall"][1])
+			and (first["potential"] as Array).size() == 2 and int(first["potential"][0]) < int(first["potential"][1]),
+			"Prospect OVR and POT are scouting ranges, not exact single ratings")
+	_check(int(first["potential_mid"]) >= int(first["overall_mid"]),
+			"Scouted upside never falls below the current projection")
+
+	var disagreement := false
+	for q in pool.slice(0, mini(16, pool.size())):
+		if scouting.projection(q, "A", d.seed) != scouting.projection(q, "B", d.seed):
+			disagreement = true
+			break
+	_check(disagreement, "Different clubs can reasonably disagree on a prospect")
+
+	var combine: Array = scouting.combine_lines(p, "A", d.seed)
+	_check(combine.size() == 4, "The Combine stays to four useful reads")
+	var clean := true
+	for row in combine:
+		if str(row.get("label", "")) == "" or str(row.get("grade", "")) == "" or str(row.get("grade", "")).contains("%"):
+			clean = false
+	_check(clean, "Combine results are interpretable descriptors, not raw simulation numbers")
+
+	var rated: Array = d.board("", "", "", "overall", true)
+	var ordered := true
+	for i in range(1, rated.size()):
+		if scouting.estimated_overall(rated[i - 1], "A", d.seed) < scouting.estimated_overall(rated[i], "A", d.seed):
+			ordered = false
+			break
+	_check(ordered, "Best scouted sorts by the user's scouting view rather than hidden true OVR")
+
+	var by_goals: Array = d.board("", "", "", "goals", true)
+	var junior_ordered := true
+	for i in range(1, by_goals.size()):
+		if float(by_goals[i - 1].get("u18_gl", 0.0)) < float(by_goals[i].get("u18_gl", 0.0)):
+			junior_ordered = false
+			break
+	_check(junior_ordered, "National Draft goal sorting uses junior production")
+
+	var opinions_differ := false
+	for q in pool.slice(0, mini(20, pool.size())):
+		if absf(d._ai_score("A", q) - d._ai_score("B", q)) > 0.01:
+			opinions_differ = true
+			break
+	_check(opinions_differ, "AI clubs also draft through club-specific scouting rather than exact prospect truth")
+
+
 func _test_asset_valuation() -> void:
 	# National draft: every club already has its midfield covered, and the
 	# class's best prospect is a midfielder. He goes in the first few picks.
