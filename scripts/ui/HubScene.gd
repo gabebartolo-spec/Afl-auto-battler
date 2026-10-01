@@ -65,6 +65,15 @@ func _show_season_wrap() -> void:
 			var l := UiKit.lbl(str(line), 14, UiKit.TEXT)
 			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(l)
+	var league: Array = w.get("league_coaches", [])
+	if not league.is_empty():
+		v.add_child(UiKit.spacer(4))
+		v.add_child(UiKit.lbl("New senior coaches", 14, UiKit.MUTED, true))
+		for i in range(league.size()):
+			var l := UiKit.lbl(str(league[i]), 14, UiKit.TEXT)
+			l.name = "WrapLeagueCoach_%d" % i
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(l)
 	if str(w.get("goal", "")) != "":
 		v.add_child(UiKit.spacer(4))
 		v.add_child(UiKit.lbl("The board expects", 14, UiKit.MUTED, true))
@@ -324,6 +333,9 @@ func _week_section(season: Season) -> Control:
 	var nv := UiKit.vbox(6)
 	nv.name = "ThisWeek"
 	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var notice := _staff_notice()
+	if notice != null:
+		nv.add_child(notice)
 	if season.is_season_over():
 		nv.add_child(UiKit.lbl("Season complete", UiKit.H1, UiKit.TEXT, true))
 		nv.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(GameState.premier()),
@@ -491,6 +503,31 @@ func _footer(season: Season) -> Control:
 					b.add_theme_stylebox_override(state, sb)
 		row.add_child(b)
 	return row
+
+
+## A coach has left your staff (retired, or taken a job elsewhere): say who
+## and where, and lead to the appointment. Until the job is filled it waits
+## here, not only as a badge on the Coaching tab.
+func _staff_notice() -> Control:
+	var reasons := []
+	for vac in GameState.staff_vacancies:
+		if str(vac.get("reason", "")) != "":
+			reasons.append(str(vac["reason"]))
+	if reasons.is_empty():
+		return null
+	var v := UiKit.vbox(4)
+	v.name = "StaffNotice"
+	for r in reasons:
+		var l := UiKit.lbl(r, UiKit.BODY, UiKit.TEXT)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
+	var go := UiKit.btn("Appoint a replacement" if reasons.size() == 1 else "Appoint replacements", 15)
+	go.name = "StaffNoticeGo"
+	go.custom_minimum_size = Vector2(0, 44)
+	go.pressed.connect(func(): Router.go("staff"))
+	v.add_child(go)
+	v.add_child(UiKit.rule())
+	return v
 
 
 ## Coaching: staff, how we play, form, the list and the board. An open job
