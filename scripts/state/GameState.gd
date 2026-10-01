@@ -3588,9 +3588,50 @@ func _draft_class_news() -> void:
 	add_news("superdraft", "Recruiters believe this year's national draft is a superdraft — unusually strong at the top and deeper than a normal class. Clubs will be planning their off-season around it.")
 
 
+
+## Durable player milestones that can be proven from the save. Historical real
+## players only get career-total milestones when Career.complete() says there
+## are no unknown seasons; first goals are only announced for players whose
+## recorded career had zero goals before this match.
+func _player_milestone_news(res: Dictionary) -> void:
+	var roster: Array = res.get("roster", [])
+	var stats_all: Dictionary = res.get("players", {})
+	for side in range(mini(2, roster.size())):
+		var code := str(res["home"] if side == 0 else res["away"])
+		for r in roster[side]:
+			var id := str(r.get("id", ""))
+			var st: Dictionary = stats_all.get(id, {})
+			var goals := int(st.get("goals", 0))
+			if goals <= 0:
+				continue
+			var p := _find_player(id)
+			if p.is_empty():
+				continue
+			var t: Dictionary = season_tally.get(id, {})
+			var season_goals := int(t.get("goals", 0))
+			var career := Career.of(p)
+			var previous_career_goals := int(career.get("goals", 0))
+			if int(career.get("through", 0)) < season_year:
+				previous_career_goals += maxi(0, season_goals - goals)
+			if Career.complete(p) and previous_career_goals == 0:
+				add_news("milestone", "%s kicked his first AFL goal for %s." % [
+						GameDB.player_display_name(p), GameDB.club_name(code)])
+			if not Career.complete(p):
+				continue
+			var career_goals := previous_career_goals + goals
+			for mark in [100, 200, 300, 400, 500, 600, 700, 800]:
+				if previous_career_goals < mark and career_goals >= mark:
+					add_news("milestone", "%s reached %d career goals." % [
+							GameDB.player_display_name(p), mark])
+			for mark in [25, 50, 75, 100]:
+				if season_goals - goals < mark and season_goals >= mark:
+					add_news("milestone", "%s reached %d goals for the %d season." % [
+							GameDB.player_display_name(p), mark, season_year])
+
 ## Big games and long injuries to good players from the round just played.
 func _round_news(results: Array) -> void:
 	for res in results:
+		_player_milestone_news(res)
 		var roster: Array = res.get("roster", [])
 		var stats_all: Dictionary = res.get("players", {})
 		for side in range(mini(2, roster.size())):
