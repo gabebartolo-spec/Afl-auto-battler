@@ -189,6 +189,18 @@ func _test_career_rollover() -> void:
 	GameState.reset()
 	_check(GameState.season_year == 2027, "A new career starts in 2027")
 	GameState.start_season("ADE", GameDB.club_list("ADE"))
+	# An established player in his prime and still under contract next year,
+	# so neither the off-season market nor retirement can move him.
+	var vet_id := ""
+	var vet_start := 0.0
+	var vet_ovr := -1
+	for p in GameState.my_list:
+		var age := float(p.get("age", 0.0))
+		if int(p.get("contract_years", 1)) >= 2 and age >= 26.0 and age <= 30.0 \
+				and int(p["overall"]) > vet_ovr:
+			vet_id = str(p["id"])
+			vet_start = age
+			vet_ovr = int(p["overall"])
 	var season: Season = GameState.season
 	season.round_index = season.fixture.size()  # Fast-forward: the H&A is done.
 	# Generated classes carry no father-son/NGA ties (only the real 2026 class
@@ -263,23 +275,19 @@ func _test_career_rollover() -> void:
 			_check(not bool(p.get("retired", false)), "Retired players leave every list")
 	_check(total_signed > 18, "Rookies actually arrived (signed: %d)" % total_signed)
 
-	# A known veteran aged by exactly one year, with a recomputed rating.
-	var dawson = null
-	var dawson_start := 0.0
-	for p in GameDB.players:
-		if str(p.get("real_name", "")) == "Jordan Dawson":
-			dawson_start = GameDB.age_at_start(str(p["dob"]), 0.0)
+	# A contracted veteran aged by exactly one year, with a recomputed rating.
+	var vet = null
 	for p in GameState.my_list:
-		if str(p.get("real_name", "")) == "Jordan Dawson":
-			dawson = p
+		if str(p["id"]) == vet_id:
+			vet = p
 			break
-	if dawson != null:
-		_check(absf(float(dawson["age"]) - (dawson_start + 1.0)) < 0.01,
-				"Dawson aged exactly one year (%.2f -> %.2f)" % [dawson_start, float(dawson["age"])])
-		_check(float(dawson.get("sample", 0.0)) >= 18.0,
+	if vet != null:
+		_check(absf(float(vet["age"]) - (vet_start + 1.0)) < 0.01,
+				"A veteran aged exactly one year (%.2f -> %.2f)" % [vet_start, float(vet["age"])])
+		_check(float(vet.get("sample", 0.0)) >= 18.0,
 				"A completed season lifts the small-sample shrink")
 	else:
-		_check(false, "Jordan Dawson vanished from the Adelaide list")
+		_check(false, "A contracted veteran (%s) vanished from the Adelaide list" % vet_id)
 
 	# Prospects that landed keep a real jumper number and their club.
 	var rookies := 0
@@ -326,10 +334,10 @@ func _test_career_rollover() -> void:
 	_check(GameState.season_year == 2027, "Reset returns to the 2027 start")
 	var restored = null
 	for p in GameDB.players:
-		if str(p.get("real_name", "")) == "Jordan Dawson":
+		if str(p["id"]) == vet_id:
 			restored = p
 			break
-	_check(restored != null and absf(float(restored.get("age", 0.0)) - dawson_start) < 0.01,
+	_check(restored != null and absf(float(restored.get("age", 0.0)) - vet_start) < 0.01,
 			"GameDB.reload() restores pristine start-of-2027 ages for a new career")
 
 
