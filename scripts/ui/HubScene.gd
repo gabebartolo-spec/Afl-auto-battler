@@ -792,16 +792,25 @@ func _show_media_conference() -> void:
 		return
 	if _media_overlay != null and is_instance_valid(_media_overlay):
 		return
-	var box := UiKit.modal_box(self, 520.0, 0.0)
+	var box := UiKit.modal_box(self, 560.0, 0.0)
 	_media_overlay = box["overlay"]
 	_media_overlay.name = "MediaConference"
 	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.lbl("Post-match press conference", 20, UiKit.TEXT, true))
-	v.add_child(UiKit.lbl("Journalist", UiKit.SMALL, UiKit.MUTED, true))
+	var stage := Control.new()
+	stage.name = "MediaConferenceStage"
+	stage.custom_minimum_size = Vector2(0, minf(300.0, get_viewport_rect().size.y * 0.38))
+	v.add_child(stage)
+	var scene := MediaConferenceVignette.open(stage, GameState.my_club)
+	var prompt := UiKit.vbox(6)
+	prompt.visible = false
+	v.add_child(prompt)
+	prompt.add_child(UiKit.lbl("Journalist", UiKit.SMALL, UiKit.MUTED, true))
 	var q := UiKit.lbl(str(GameState.media_conference.get("question", "")), 16, UiKit.TEXT)
 	q.name = "MediaQuestion"
 	q.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(q)
+	prompt.add_child(q)
+	var footer: VBoxContainer = box["footer"]
+	footer.visible = false
 	var opts: Array = GameState.media_conference.get("options", [])
 	for i in range(opts.size()):
 		var b := UiKit.btn(str((opts[i] as Dictionary).get("label", "")), 15)
@@ -811,12 +820,23 @@ func _show_media_conference() -> void:
 		var choice := i
 		b.pressed.connect(func():
 			GameState.resolve_media_conference(choice)
-			if _media_overlay != null:
-				_media_overlay.queue_free()
+			_media_overlay.queue_free()
 			_media_overlay = null
 			_build())
-		(box["footer"] as VBoxContainer).add_child(b)
-
+		footer.add_child(b)
+	var skip := UiKit.btn("Skip press conference", 14)
+	skip.name = "MediaSkip"
+	skip.flat = true
+	skip.custom_minimum_size = Vector2(0, 44)
+	skip.pressed.connect(func():
+		GameState.skip_media_conference()
+		_media_overlay.queue_free()
+		_media_overlay = null
+		_build())
+	footer.add_child(skip)
+	scene.ready_for_question.connect(func():
+		prompt.visible = true
+		footer.visible = true)
 
 
 func _show_results(results: Array) -> void:
