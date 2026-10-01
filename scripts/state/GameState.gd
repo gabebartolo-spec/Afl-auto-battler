@@ -1306,6 +1306,7 @@ func finish_interactive_match(res: Dictionary) -> void:
 		season_log.append(r)
 	_grant_match_xp(res)
 	_train_rivals(played)
+	_record_rivalries(played)
 	_after_round(played)
 	_clear_pending()
 	autosave()
@@ -1341,6 +1342,7 @@ func _finish_interactive_final(res: Dictionary) -> void:
 		season_log.append(r)
 	_grant_match_xp(res)
 	_train_rivals(played)
+	_record_rivalries(played)
 	_after_round(played)
 	_clear_pending()
 	autosave()
@@ -1408,9 +1410,32 @@ func advance() -> String:
 			last_match = res
 	_grant_match_xp(last_match)
 	_train_rivals(last_results)
+	_record_rivalries(last_results)
 	_after_round(last_results)
 	autosave()
 	return last_phase
+
+
+
+## Feed completed league matches into the long-save rivalry history.
+func _record_rivalries(results: Array) -> void:
+	for res in results:
+		if res is Dictionary:
+			Rivalries.record_match(rivalry_history, res, season_year)
+
+
+func rivalry_context(a: String, b: String) -> Dictionary:
+	var fixed := Rivalries.established(a, b)
+	if not fixed.is_empty():
+		return {"state": "established", "title": str(fixed["name"]), "detail": ""}
+	var state := Rivalries.state(rivalry_history, a, b)
+	if state == "":
+		return {}
+	return {
+		"state": state,
+		"title": "Rivals" if state == "rivals" else "Rivalry brewing",
+		"detail": Rivalries.context(rivalry_history, a, b),
+	}
 
 
 func is_my_match(res: Dictionary) -> bool:
