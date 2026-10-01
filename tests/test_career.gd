@@ -387,11 +387,20 @@ func _test_draftee_metadata() -> void:
 		var c := draft._best_ai_pick(draft.current_club())
 		if c.is_empty() or not draft._draft_pick(draft.current_club(), c):
 			draft._skip_current_pick()
+	# Drafting itself must not rewrite a prospect's projection. Check this
+	# before the season rollover, because the rollover deliberately re-anchors
+	# both OVR and POT to the league-wide rating scale.
+	var pot_kept := true
+	for code in draft.club_lists:
+		for p in draft.club_lists[code]:
+			var id := str(p["id"])
+			if pots.has(id) and int(p.get("potential", -1)) != int(pots[id]):
+				pot_kept = false
+	_check(pot_kept, "Drafting does not change a draftee's potential")
 	_check(GameState.finish_intake_draft(), "The intake commits")
 	var national := 0
 	var ok := true
 	var bad := ""
-	var pot_kept := true
 	for id in GameState.drafted_draftees:
 		var p := {}
 		for code in GameState.league_lists:
@@ -400,8 +409,6 @@ func _test_draftee_metadata() -> void:
 					p = q
 		if p.is_empty():
 			continue
-		if int(p.get("potential", -1)) != int(pots.get(str(id), -2)):
-			pot_kept = false
 		if int(p.get("drafted_year", 0)) != draft_year:
 			ok = false
 			bad = str(p)
@@ -415,7 +422,6 @@ func _test_draftee_metadata() -> void:
 			ok = false
 			bad = "a pre-listed player has a pick: %s" % str(p.get("drafted_type"))
 	_check(national > 20 and ok, "Career draftees carry drafted_year / type / pick (%d national) %s" % [national, bad])
-	_check(pot_kept, "Drafting does not change a draftee's potential")
 	# A draftee starts his career at nothing, and his first season counts.
 	var counted := _play_season()
 	var rookie_ok := true
