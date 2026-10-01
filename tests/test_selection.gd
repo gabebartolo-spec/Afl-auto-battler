@@ -64,8 +64,8 @@ func _test_ruck_selection_integrity() -> void:
 	_check(ruck_ids.size() >= 2, "The league pool contains two recognised rucks for the selection test")
 	if ruck_ids.size() < 2:
 		return
-	var high_ovr := ruck_ids[0]
-	var tapper := ruck_ids[1]
+	var high_ovr: String = str(ruck_ids[0])
+	var tapper: String = str(ruck_ids[1])
 	for p in list:
 		if str(p["id"]) == high_ovr:
 			p["overall"] = 99
