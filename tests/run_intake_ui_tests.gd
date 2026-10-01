@@ -44,6 +44,34 @@ func _run() -> void:
 	root.add_child(ui)
 	await _settle()
 	_check(ui.get("_phase") == "board", "The intake draft resumes straight to the board")
+	# The recruiting panel meets first: a few lines on the list, a few names,
+	# no order of preference and no "best pick".
+	var meeting: Control = ui.find_child("DraftMeeting", true, false)
+	_check(meeting != null, "The recruiting panel meets before the National Draft")
+	var names := ui.find_children("MeetingName_*", "Button", true, false)
+	_check(names.size() >= 1 and names.size() <= int(load("res://scripts/sim/RecruitMeeting.gd").NAMES), "It names a few prospects (%d)" % names.size())
+	var said := ""
+	if meeting != null:
+		for l in meeting.find_children("*", "Label", true, false):
+			said += str(l.text).to_lower() + " "
+	for b in names:
+		said += str((b as Button).text).to_lower() + " "
+	var pushy := false
+	for w in ["best pick", "must take", "you should", "recommend", "top pick"]:
+		if said.contains(w):
+			pushy = true
+	_check(not pushy, "The meeting never tells you who to take (%s)" % said.left(200))
+	var done: Button = ui.find_child("MeetingDone", true, false)
+	if done != null:
+		done.emit_signal("pressed")
+	await _settle()
+	_check(ui.find_child("DraftMeeting", true, false) == null, "One tap and it is the draft")
+	var again: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(again)
+	await _settle()
+	_check(again.find_child("DraftMeeting", true, false) == null, "The panel meets once a draft, not every visit")
+	again.queue_free()
+	await _settle()
 	var cap: Label = ui.find_child("SalaryCap", true, false)
 	_check(cap != null and cap.text.contains("ROUNDS"), "Intake swaps the cap line for rounds")
 
