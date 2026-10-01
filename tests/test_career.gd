@@ -20,6 +20,7 @@ func run() -> void:
 	_test_three_seasons_and_club_change()
 	_test_reload_never_double_counts()
 	_test_draftee_metadata()
+	_test_superdraft_midseason_news()
 	_test_old_saves()
 	GameState.delete_saved_career()
 	print("Career tests: %d checks, %d failures" % [checks, failures.size()])
@@ -351,6 +352,26 @@ func _test_reload_never_double_counts() -> void:
 		if again.has(id) and str(_totals({id: again[id]})[id]) != str(closed[id]):
 			same = false
 	_check(same, "Totals survive a reload across the rollover")
+
+
+func _test_superdraft_midseason_news() -> void:
+	_new_season()
+	GameState.news = []
+	GameState.class_tiers[str(GameState.season_year)] = "super"
+	var halfway := ceili(float(Season.REGULAR_ROUNDS) / 2.0)
+	GameState.season.round_index = halfway - 1
+	GameState._draft_class_news()
+	_check(GameState.news.is_empty(), "A superdraft is not revealed before mid-season")
+	GameState.season.round_index = halfway
+	GameState._draft_class_news()
+	_check(GameState.news.size() == 1 and str(GameState.news[0].get("kind", "")) == "superdraft",
+			"A superdraft is flagged to the manager around halfway through the season")
+	GameState._draft_class_news()
+	_check(GameState.news.size() == 1, "The superdraft warning is only raised once")
+	GameState.news = []
+	GameState.class_tiers[str(GameState.season_year)] = "strong"
+	GameState._draft_class_news()
+	_check(GameState.news.is_empty(), "A merely strong class is not falsely called a superdraft")
 
 
 func _test_draftee_metadata() -> void:
