@@ -20,6 +20,8 @@ var _talk_fa := false   # talking to a free agent rather than your own player
 var _offer_salary := 0
 var _offer_years := 0
 var _talk_reply := ""
+var _fa_sort := "value"
+var _fa_sort_desc := true
 
 
 func _ready() -> void:
@@ -377,7 +379,44 @@ func _close_talks() -> void:
 
 func _agents(body: VBoxContainer) -> void:
 	var fas := GameState.free_agents.duplicate()
-	fas.sort_custom(func(a, b): return Contracts.worth(a) > Contracts.worth(b))
+	var controls := UiKit.hbox(4)
+	controls.name = "FreeAgentSort"
+	for entry in [["value", "Value"], ["overall", "OVR"], ["potential", "POT"], ["age", "Age"]]:
+		var key := str(entry[0])
+		var label := str(entry[1])
+		if key == _fa_sort:
+			label += " ↓" if _fa_sort_desc else " ↑"
+		var sort_btn := UiKit.tab(label, key == _fa_sort)
+		sort_btn.name = "AgentSort_" + key
+		sort_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sort_btn.pressed.connect(func():
+			if _fa_sort == key:
+				_fa_sort_desc = not _fa_sort_desc
+			else:
+				_fa_sort = key
+				_fa_sort_desc = true
+			_build())
+		controls.add_child(sort_btn)
+	body.add_child(controls)
+	fas.sort_custom(func(a, b):
+		var av: float
+		var bv: float
+		match _fa_sort:
+			"overall":
+				av = float(a.get("overall", 0))
+				bv = float(b.get("overall", 0))
+			"potential":
+				av = float(a.get("potential", a.get("overall", 0)))
+				bv = float(b.get("potential", b.get("overall", 0)))
+			"age":
+				av = float(a.get("age", 0))
+				bv = float(b.get("age", 0))
+			_:
+				av = Contracts.worth(a)
+				bv = Contracts.worth(b)
+		if av == bv:
+			return str(a.get("id", "")) < str(b.get("id", ""))
+		return av > bv if _fa_sort_desc else av < bv)
 	if fas.is_empty():
 		body.add_child(_para("No free agents right now. Rivals let players go when the season ends.", 13, UiKit.MUTED))
 	for p in fas:
