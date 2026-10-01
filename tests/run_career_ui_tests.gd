@@ -64,6 +64,7 @@ func _run() -> void:
 	_state = root.get_node("GameState")
 	_router = root.get_node("Router")
 	_db = root.get_node("GameDB")
+	test_media_conference_rules()
 	# Never touch a real career save or settings file from a test run.
 	_state.autosave_enabled = false
 	_state.save_path = "user://test_career.save"
