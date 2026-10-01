@@ -50,8 +50,8 @@ def scale_overall(raw):
 
 # Position scale - see Ratings.gd::position_stretch. [p10, p50, p98] of each
 # position's raw blend -> where it lands; one for one outside that band.
-STRETCH_ANCHORS = {"MID": (39.26, 51.49, 82.37), "DEF": (40.37, 47.88, 58.90),
-                   "FWD": (39.79, 50.93, 62.05), "RUCK": (39.13, 66.27, 86.90)}
+STRETCH_ANCHORS = {"MID": (41.22, 53.99, 82.62), "DEF": (40.07, 47.75, 58.86),
+                   "FWD": (36.86, 48.25, 61.42), "RUCK": (39.13, 66.27, 86.90)}
 STRETCH_TARGETS = {"MID": (37.74, 49.36, 78.04), "DEF": (43.07, 49.41, 73.72),
                    "FWD": (38.38, 49.48, 78.04), "RUCK": (37.50, 49.36, 73.56)}
 
