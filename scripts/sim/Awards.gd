@@ -32,7 +32,7 @@ static func tally_match(tally: Dictionary, res: Dictionary, regular: bool) -> vo
 			var st: Dictionary = stats_all.get(id, {})
 			var inf := CoachReport.influence(st)
 			var t: Dictionary = tally.get(id, {"club": codes[side], "games": 0, "goals": 0,
-					"goals_ha": 0, "disposals": 0, "influence": 0.0, "votes": 0, "bf": 0,
+					"goals_ha": 0, "disposals": 0, "distance_run": 0.0, "influence": 0.0, "votes": 0, "bf": 0,
 					"polled": 0, "coaches": 0})
 			t["club"] = codes[side]
 			t["games"] = int(t["games"]) + 1
@@ -40,6 +40,7 @@ static func tally_match(tally: Dictionary, res: Dictionary, regular: bool) -> vo
 			if regular:
 				t["goals_ha"] = int(t["goals_ha"]) + int(st.get("goals", 0))
 			t["disposals"] = int(t["disposals"]) + int(st.get("disposals", 0))
+			t["distance_run"] = float(t.get("distance_run", 0.0)) + float(st.get("distance_run", 0.0))
 			t["influence"] = float(t["influence"]) + inf
 			# AFL Coaches Association-style award: each coach effectively names a top five;
 			# the combined 10-8-6-4-2 scale preserves the same ordering without inventing
