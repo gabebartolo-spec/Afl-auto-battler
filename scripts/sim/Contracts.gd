@@ -3,9 +3,9 @@ extends RefCounted
 ## Contracts, the salary cap, free agency and trade valuation.
 ##
 ## A contract is `contract_years` (seasons left, counting the current one)
-## and `salary` (cap points, fixed when signed - a player's draft price,
-## Ratings.salary_value). Every club's payroll counts against the same cap
-## the career draft used, carried across seasons.
+## and `salary` (annual Australian dollars for list-management purposes,
+## fixed when signed). Match payments/ASAs are deliberately outside this
+## lightweight model. Every club's payroll counts against the same cap.
 ##
 ## Off-season (season over, before the national draft opens): contracts in
 ## their final year are up. Rivals decide straight away - keep a player who
@@ -24,6 +24,55 @@ const AI_FILL := 38
 const ROOKIE_YEARS := 2
 ## A trade has to leave the AI club at least this much better off.
 const TRADE_MARGIN := 0.04
+
+## 2027 is the first playable season. These are the real CBA anchors the
+## simplified economy starts from; unknown future years grow by a modest
+## game-world index rather than pretending future AFL agreements are known.
+const CAP_2027 := 18440415
+const SENIOR_MIN_2027 := 155000
+const ROOKIE_MIN_2027 := 105000
+const SALARY_STEP := 25000
+const FUTURE_GROWTH := 1.03
+
+
+static func salary_cap_for_year(year: int) -> int:
+	var cap := float(CAP_2027)
+	for y in range(2028, year + 1):
+		cap *= FUTURE_GROWTH
+	return int(round(cap / 1000.0)) * 1000
+
+
+static func indexed_money_2027(amount: int, year: int) -> int:
+	var value := float(amount)
+	for y in range(2028, year + 1):
+		value *= FUTURE_GROWTH
+	return int(round(value / 1000.0)) * 1000
+
+
+## Compact football money for phone UI.
+static func money(amount: int) -> String:
+	var n := maxi(0, amount)
+	if n >= 1000000:
+		var m := float(n) / 1000000.0
+		return "$%.2fm" % m if n % 100000 != 0 else ("$%.1fm" % m)
+	return "$%dk" % int(round(float(n) / 1000.0))
+
+
+## Convert one old 1-10 cap-point salary into the equivalent rung of the new
+## dollar curve. Used only for save migration.
+static func old_points_to_salary(points: int) -> int:
+	var map := {
+		1: 155000, 2: 225000, 3: 325000, 4: 425000, 5: 525000,
+		6: 650000, 7: 775000, 8: 900000, 9: 1050000, 10: 1250000,
+	}
+	return int(map.get(clampi(points, 1, 10), SENIOR_MIN_2027))
+
+
+## Salary represented on the old roughly 1-10 market scale. Free-agent
+## preference and compensation use this normalised value so moving to dollars
+## does not make money overwhelm role, security, rating or age.
+static func salary_score(salary: int) -> float:
+	return clampf(1.0 + 9.0 * (float(salary) - 155000.0) / (1250000.0 - 155000.0), 1.0, 12.0)
 
 
 ## First contracts for a list: younger players on longer deals. Seeded by
@@ -46,11 +95,21 @@ static func assign_initial(list: Array) -> void:
 		p["salary"] = int(p.get("value", 3))
 
 
-## A drafted rookie: two seasons on a rookie wage.
-static func rookie_deal(p: Dictionary) -> void:
+## A first-year National Draft deal. The 2027 CBA base bands are used as
+## the starting point and indexed in later game-world seasons.
+static func rookie_deal(p: Dictionary, year := 2027) -> void:
 	p["contract_years"] = ROOKIE_YEARS
-	var pick := int(p.get("draft_pick", 99))
-	p["salary"] = 2 if pick > 0 and pick <= 10 else 1
+	var pick := int(p.get("draft_pick", 0))
+	var base := 125000
+	if pick > 0 and pick <= 10:
+		base = 150000
+	elif pick <= 20 and pick > 0:
+		base = 140000
+	elif pick <= 50 and pick > 0:
+		base = 130000
+	elif pick <= 0:
+		base = ROOKIE_MIN_2027
+	p["salary"] = indexed_money_2027(base, year)
 
 
 ## What re-signing (or signing) this player costs now.
@@ -97,13 +156,13 @@ static func stance(p: Dictionary) -> String:
 
 ## The least he would sign for over `years`. Given the term he wants (or
 ## longer) he gives up to a fifth of his price, less the more leverage he has;
-## a shorter deal costs a point more for anyone.
+## a shorter deal costs one normal negotiation step more for anyone.
 static func lowest(p: Dictionary, years: int) -> int:
 	var want := wants(p)
 	var price := int(want["salary"])
 	if years < int(want["years"]):
-		return price + 1
-	return maxi(1, roundi(price * (1.0 - 0.2 * (1.0 - leverage(p)))))
+		return price + SALARY_STEP
+	return maxi(SENIOR_MIN_2027, int(round(float(price) * (1.0 - 0.2 * (1.0 - leverage(p))) / 5000.0)) * 5000)
 
 
 ## His answer to `salary` over `years`, given how many offers have already
@@ -151,14 +210,14 @@ const ROLE_WEIGHT := {"ground": 1.5, "bench": 0.75, "depth": 0.0}
 const ROLE_RANK := {"ground": 2, "bench": 1, "depth": 0}
 
 
-## How he rates an offer: salary in points, plus security (0.4 a year, up to
-## the term he wants), plus his role at the club (a starting spot is worth
-## a point and a half, a bench spot half that), plus up to 0.8 for a club
+## How he rates an offer: salary normalised back to the old market scale,
+## plus security (0.4 a year, up to the term he wants), role and club context.
+## This keeps the pre-conversion bargaining balance intact.
 ## that finished high last year (`finish_t`: 0 premiers, 1 wooden spoon).
 ## Never shown as a number; `offer_view` puts it in words.
 static func offer_score(p: Dictionary, o: Dictionary) -> float:
 	var wanted := int(wants(p)["years"])
-	return float(o["salary"]) + 0.4 * float(mini(int(o["years"]), wanted)) \
+	return salary_score(int(o["salary"])) + 0.4 * float(mini(int(o["years"]), wanted)) \
 			+ float(ROLE_WEIGHT.get(str(o.get("role", "depth")), 0.0)) \
 			+ 0.8 * (1.0 - clampf(float(o.get("finish_t", 0.5)), 0.0, 1.0))
 
@@ -194,12 +253,11 @@ static func best_offer(p: Dictionary, offers: Array) -> Dictionary:
 
 
 ## The most a club will pay him a season, from his role there and his
-## asking price - never his potential: a starter up to two points over his
-## asking price, a bench player one, a depth signing only his lowest. Never
-## more than the club's cap room.
+## asking price - never his potential: a starter up to two $25k steps over
+## his ask, a bench player one, a depth signing only his lowest.
 static func club_max(p: Dictionary, role: String, cap_room: int) -> int:
 	var ask := asking_salary(p)
-	var most := ask + 2 if role == "ground" else (ask + 1 if role == "bench" else lowest(p, ai_years(p)))
+	var most := ask + 2 * SALARY_STEP if role == "ground" else (ask + SALARY_STEP if role == "bench" else lowest(p, ai_years(p)))
 	return mini(most, cap_room)
 
 
@@ -221,7 +279,7 @@ static func rival_response(p: Dictionary, own: Dictionary, leader: Dictionary, m
 	var years_options := [int(own["years"])]
 	if wanted > int(own["years"]):
 		years_options.append(wanted)
-	for salary in range(int(own["salary"]), most + 1):
+	for salary in range(int(own["salary"]), most + 1, SALARY_STEP):
 		for years in years_options:
 			var trial: Dictionary = own.duplicate()
 			trial["salary"] = salary
@@ -243,7 +301,7 @@ static func offer_view(p: Dictionary, o: Dictionary, other: Dictionary, club_nam
 		return "The only offer."
 	var wanted := int(wants(p)["years"])
 	var gaps := {
-		"money": float(int(o["salary"]) - int(other["salary"])),
+		"money": salary_score(int(o["salary"])) - salary_score(int(other["salary"])),
 		"security": 0.4 * float(mini(int(o["years"]), wanted) - mini(int(other["years"]), wanted)),
 		"role": float(ROLE_WEIGHT.get(str(o.get("role", "depth")), 0.0)) - float(ROLE_WEIGHT.get(str(other.get("role", "depth")), 0.0)),
 		"club": 0.8 * (float(other.get("finish_t", 0.5)) - float(o.get("finish_t", 0.5))),
@@ -312,7 +370,7 @@ static func ai_years(p: Dictionary) -> int:
 ## longer deal and a younger player each count for more. Roughly 1 to 14.
 static func compensation_value(p: Dictionary, salary: int, years: int) -> float:
 	var rating := clampf((float(p.get("overall", 50)) - 35.0) / 5.5, 1.0, 10.0)
-	var base := 0.4 * float(salary) + 0.6 * rating
+	var base := 0.4 * salary_score(salary) + 0.6 * rating
 	var term := 0.85 + 0.1 * float(clampi(years, 1, MAX_YEARS))
 	var youth := clampf(1.0 + (27.0 - float(p.get("age", 27.0))) * 0.03, 0.85, 1.15)
 	return base * term * youth
@@ -342,7 +400,7 @@ static func pick_words(after: int, clubs: int) -> String:
 static func payroll(list: Array) -> int:
 	var total := 0
 	for p in list:
-		total += int(p.get("salary", p.get("value", 1)))
+		total += int(p.get("salary", p.get("value", SENIOR_MIN_2027)))
 	return total
 
 
