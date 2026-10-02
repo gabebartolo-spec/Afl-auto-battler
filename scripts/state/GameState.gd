@@ -2540,11 +2540,18 @@ func my_mro_lines() -> Array:
 		if str(row.get("challenge_result", "")) == "overturned":
 			out.append("%s cleared at the Tribunal" % name)
 			continue
+		if str(row.get("appeal_result", "")) == "overturned":
+			out.append("%s cleared at the Appeals Board" % name)
+			continue
 		match str(row.get("outcome", "")):
 			"suspension":
 				var w := int(row.get("weeks", 0))
-				out.append("%s suspended for %d match%s%s" % [name, w, "" if w == 1 else "es",
-						" — challenge failed" if str(row.get("challenge_result", "")) == "upheld" else ""])
+				var suffix := ""
+				if str(row.get("appeal_result", "")) == "upheld":
+					suffix = " — appeal failed"
+				elif str(row.get("challenge_result", "")) == "upheld":
+					suffix = " — Tribunal upheld"
+				out.append("%s suspended for %d match%s%s" % [name, w, "" if w == 1 else "es", suffix])
 			"fine":
 				out.append("%s fined for %s%s" % [name, str(row.get("reason", "rough conduct")),
 						" — challenge failed" if str(row.get("challenge_result", "")) == "upheld" else ""])
@@ -2556,11 +2563,19 @@ func my_mro_lines() -> Array:
 func pending_mro_challenges() -> Array:
 	var out := []
 	for row in last_mro:
-		if str(row.get("club", "")) != my_club 				or str(row.get("outcome", "")) == "no_action" 				or bool(row.get("challenged", false)):
+		if str(row.get("club", "")) != my_club or str(row.get("outcome", "")) == "no_action":
 			continue
 		var copy: Dictionary = (row as Dictionary).duplicate(true)
-		copy["case"] = tribunal_case(row)
-		out.append(copy)
+		if not bool(row.get("challenged", false)):
+			copy["stage"] = "tribunal"
+			copy["case"] = tribunal_case(row)
+			out.append(copy)
+		elif str(row.get("challenge_result", "")) == "upheld" \
+				and str(row.get("outcome", "")) == "suspension" \
+				and not bool(row.get("appealed", false)):
+			copy["stage"] = "appeal"
+			copy["case"] = appeal_case(row)
+			out.append(copy)
 	return out
 
 
@@ -2585,6 +2600,47 @@ static func tribunal_case(row: Dictionary) -> String:
 	return "Long shot"
 
 
+## Appeals Board grounds are narrower than the first Tribunal challenge.
+static func appeal_chance(row: Dictionary) -> float:
+	match int(row.get("weeks", 0)):
+		1:
+			return 0.16
+		2:
+			return 0.10
+		_:
+			return 0.06
+
+
+static func appeal_case(row: Dictionary) -> String:
+	return "Narrow" if appeal_chance(row) >= 0.12 else "Very difficult"
+
+
+## Rebuild the player's live sanction state after a successful contest.
+func _recompute_mro_player(player_id: String) -> void:
+	var p := list_player(player_id)
+	if p.is_empty():
+		return
+	var remaining_weeks := 0
+	var still_ineligible := false
+	for row in last_mro:
+		if str(row.get("id", "")) != player_id or str(row.get("outcome", "")) == "no_action":
+			continue
+		if str(row.get("challenge_result", "")) == "overturned" \
+				or str(row.get("appeal_result", "")) == "overturned":
+			continue
+		still_ineligible = true
+		if str(row.get("outcome", "")) == "suspension":
+			remaining_weeks = maxi(remaining_weeks, int(row.get("weeks", 0)))
+	if remaining_weeks > 0:
+		p["suspension_weeks"] = remaining_weeks
+	else:
+		p.erase("suspension_weeks")
+	if still_ineligible:
+		p["brownlow_ineligible"] = true
+	else:
+		p.erase("brownlow_ineligible")
+
+
 ## One Tribunal challenge per MRO sanction. The evidence roll was stored in
 ## MatchSim when the incident happened, so save/reload cannot fish for a new
 ## result. A successful challenge clears the sanction and restores Brownlow
@@ -2603,27 +2659,7 @@ func challenge_mro(player_id: String) -> Dictionary:
 	var p := list_player(player_id)
 	var name := str(target.get("name", player_id)) if p.is_empty() else GameDB.player_display_name(p)
 	if success:
-		# Another sanction for the same player in this round can still keep him
-		# out/ineligible; recompute from the remaining live sanctions.
-		var remaining_weeks := 0
-		var still_ineligible := false
-		for row in last_mro:
-			if str(row.get("id", "")) != player_id or str(row.get("outcome", "")) == "no_action":
-				continue
-			if str(row.get("challenge_result", "")) == "overturned":
-				continue
-			still_ineligible = true
-			if str(row.get("outcome", "")) == "suspension":
-				remaining_weeks = maxi(remaining_weeks, int(row.get("weeks", 0)))
-		if not p.is_empty():
-			if remaining_weeks > 0:
-				p["suspension_weeks"] = remaining_weeks
-			else:
-				p.erase("suspension_weeks")
-			if still_ineligible:
-				p["brownlow_ineligible"] = true
-			else:
-				p.erase("brownlow_ineligible")
+		_recompute_mro_player(player_id)
 		add_news("tribunal", "%s has successfully challenged the MRO sanction at the Tribunal and is Brownlow-eligible again." % name)
 		mark_dirty()
 		return {"ok": true, "success": true,
@@ -2633,6 +2669,37 @@ func challenge_mro(player_id: String) -> Dictionary:
 	mark_dirty()
 	return {"ok": true, "success": false,
 			"reason": "%s's Tribunal challenge fails. The original sanction stands." % name}
+
+
+## A failed Tribunal suspension can go once to the Appeals Board. Successful
+## appeal clears the sanction and restores Brownlow eligibility; failure is final.
+func appeal_mro(player_id: String) -> Dictionary:
+	var target := {}
+	for row in last_mro:
+		if str(row.get("club", "")) == my_club \
+				and str(row.get("id", "")) == player_id \
+				and str(row.get("outcome", "")) == "suspension" \
+				and str(row.get("challenge_result", "")) == "upheld" \
+				and not bool(row.get("appealed", false)):
+			target = row
+			break
+	if target.is_empty():
+		return {"ok": false, "reason": "There is no Tribunal decision available to appeal."}
+	target["appealed"] = true
+	var success := float(target.get("appeal_roll", 1.0)) < appeal_chance(target)
+	target["appeal_result"] = "overturned" if success else "upheld"
+	var p := list_player(player_id)
+	var name := str(target.get("name", player_id)) if p.is_empty() else GameDB.player_display_name(p)
+	if success:
+		_recompute_mro_player(player_id)
+		add_news("tribunal", "%s has won at the Appeals Board; the suspension is overturned and Brownlow eligibility is restored." % name)
+		mark_dirty()
+		return {"ok": true, "success": true,
+				"reason": "%s wins the appeal. The suspension is overturned and Brownlow eligibility is restored." % name}
+	add_news("tribunal", "%s's Appeals Board case failed; the suspension and Brownlow ineligibility stand." % name)
+	mark_dirty()
+	return {"ok": true, "success": false,
+			"reason": "%s's appeal fails. The suspension and Brownlow ineligibility stand." % name}
 
 
 ## Your club's new injuries from the last round, as readable lines.
