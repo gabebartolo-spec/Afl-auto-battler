@@ -17,7 +17,8 @@ static func open(host: Node, club_code: String) -> MediaConferenceVignette:
 	var v := MediaConferenceVignette.new()
 	v.name = "MediaConferenceVignette"
 	v.club = club_code
-	v._colours = GameDB.club_colours(club_code)
+	var db := host.get_tree().root.get_node("GameDB")
+	v._colours = db.club_colours(club_code)
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.mouse_filter = Control.MOUSE_FILTER_STOP
 	host.add_child(v)
