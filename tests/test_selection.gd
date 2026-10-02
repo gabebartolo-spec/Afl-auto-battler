@@ -15,6 +15,7 @@ func run() -> void:
 	_test_auto_matches_select_22()
 	_test_ruck_selection_integrity()
 	_test_named_side()
+	_test_formation_layout()
 	_test_gaps_and_overflow()
 	_test_left_out_player_sits_out()
 	_test_selection_saved()
@@ -81,6 +82,37 @@ func _test_ruck_selection_integrity() -> void:
 			break
 	_check(starter == tapper,
 			"Auto-pick starts the best tap ruck, not the highest-OVR recognised ruck")
+
+
+## The selection screen lays the 18 out as football lines rather than a
+## serial list. The centre square keeps the two wings outside three mids
+## with the ruck in the middle.
+func _test_formation_layout() -> void:
+	_new_season()
+	var side := GameState.current_side()
+	var scene = load("res://scripts/ui/SelectionScene.gd").new()
+	var layout: Dictionary = scene._formation_layout(side)
+	_check((layout["forwards"] as Array).size() == 6
+			and (layout["defence"] as Array).size() == 6
+			and (layout["midfield"] as Array).size() == 6,
+			"The formation is two six-player lines around a six-player midfield")
+	var mid: Array = layout["midfield"]
+	_check(str(mid[0]) == str(side["WING"][0]) and str(mid[2]) == str(side["WING"][1])
+			and str(mid[4]) == str(side["RUCK"][0]),
+			"The centre shape puts the wings outside and the ruck in the middle")
+	var field := []
+	field.append_array(layout["forwards"])
+	field.append_array(layout["midfield"])
+	field.append_array(layout["defence"])
+	var unique := {}
+	for id in field:
+		if str(id) != "":
+			unique[str(id)] = true
+	_check(field.size() == 18 and unique.size() == 18,
+			"Every on-field player appears once in the formation")
+	_check((layout["bench"] as Array).size() == 4,
+			"The current four-player interchange sits below the oval")
+	scene.free()
 
 
 func _test_named_side() -> void:

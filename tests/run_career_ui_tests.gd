@@ -401,9 +401,9 @@ func _run() -> void:
 	await _settle()
 	_check(not _state.my_selection().is_empty(), "My selection starts from this week's side")
 	var first_mid := str(_state.my_selection()["MID"][0])
-	var slot_btn = current_scene.find_child("Slot_" + first_mid, true, false)
-	if slot_btn != null:
-		slot_btn.emit_signal("pressed")
+	var player_btn = current_scene.find_child("FormationPlayer_" + first_mid, true, false)
+	if player_btn != null:
+		player_btn.emit_signal("pressed")
 		await _settle()
 	var out_btn = current_scene.find_child("Move_" + first_mid, true, false)
 	out_btn = out_btn.find_child("To_OUT", true, false) if out_btn != null else null

@@ -94,21 +94,19 @@ func _build() -> void:
 		body.add_child(ch)
 	var side := GameState.current_side()
 	var placed := {}
-	var sel := GameState.my_selection()
 	for slot in SLOTS:
-		var role: String = slot[0]
-		var ids: Array = side[role]
-		var named: Array = sel.get(role, []) if not auto else ids
-		var title := "%s  %d/%d" % [str(slot[1]), ids.size(), int(slot[2])]
-		var colour := UiKit.EMPH
-		if not auto and named.size() != int(slot[2]):
-			title += "  ·  %d named" % named.size()
-			colour = UiKit.BAD if named.size() > int(slot[2]) else UiKit.EMPH
-		body.add_child(UiKit.spacer(6))
-		body.add_child(UiKit.lbl(title, UiKit.H2, colour, true))
-		for id in ids:
+		for id in side[str(slot[0])]:
 			placed[str(id)] = true
-			body.add_child(_row(GameState.list_player(str(id)), role, auto))
+	body.add_child(UiKit.spacer(6))
+	body.add_child(_formation(side, GameState.my_selection(), auto))
+	# In My selection, one picked player at a time can open below the shape.
+	# The existing row keeps the richer profile/move controls out of the
+	# formation itself, so the team sheet stays readable on a phone.
+	if not auto and _open_move != "":
+		var picked := GameState.list_player(_open_move)
+		if not picked.is_empty() and placed.has(_open_move):
+			body.add_child(UiKit.spacer(4))
+			body.add_child(_row(picked, _placed_role(side, _open_move), false))
 	var out: Array = []
 	for p in GameState.my_list:
 		if not placed.has(str(p["id"])):
@@ -118,6 +116,152 @@ func _build() -> void:
 	body.add_child(UiKit.lbl("Not selected  (%d)" % out.size(), UiKit.H2, UiKit.MUTED, true))
 	for p in out:
 		body.add_child(_row(p, "", auto))
+
+
+## The picked side as a football formation rather than one long list.
+## Three across keeps every target comfortably tappable at phone width:
+## forwards 3x2, then wings / mids / ruck in a centre-square shape,
+## defenders 3x2, and the interchange underneath.
+func _formation(side: Dictionary, sel: Dictionary, auto: bool) -> Control:
+	var panel := UiKit.panel(UiKit.PANEL, 10, 8)
+	panel.name = "Formation"
+	var v := UiKit.vbox(8)
+	panel.add_child(v)
+	v.add_child(UiKit.lbl("On the field", UiKit.H2, UiKit.TEXT, true))
+	var layout := _formation_layout(side)
+	_formation_group(v, "Forwards", layout["forwards"], "FWD", 3, auto, sel, 6)
+	_formation_group(v, "Midfield", layout["midfield"], "", 3, auto, sel, 0)
+	if not auto:
+		for issue in [
+			_slot_issue(sel, "WING", 2),
+			_slot_issue(sel, "MID", 3),
+			_slot_issue(sel, "RUCK", 1),
+		]:
+			if issue != "":
+				v.add_child(_para(issue, 12, UiKit.BAD))
+	_formation_group(v, "Defence", layout["defence"], "DEF", 3, auto, sel, 6)
+	_formation_group(v, "Interchange", layout["bench"], "BENCH", 2, auto, sel, 4)
+	return panel
+
+
+## The actual visual order. The middle six read as:
+## wing - mid - wing
+## mid  - ruck - mid
+func _formation_layout(side: Dictionary) -> Dictionary:
+	var wings: Array = side.get("WING", [])
+	var mids: Array = side.get("MID", [])
+	var rucks: Array = side.get("RUCK", [])
+	var centre := [
+		str(wings[0]) if wings.size() > 0 else "",
+		str(mids[0]) if mids.size() > 0 else "",
+		str(wings[1]) if wings.size() > 1 else "",
+		str(mids[1]) if mids.size() > 1 else "",
+		str(rucks[0]) if rucks.size() > 0 else "",
+		str(mids[2]) if mids.size() > 2 else "",
+	]
+	return {
+		"forwards": (side.get("FWD", []) as Array).duplicate(),
+		"midfield": centre,
+		"defence": (side.get("DEF", []) as Array).duplicate(),
+		"bench": (side.get("BENCH", []) as Array).duplicate(),
+	}
+
+
+func _formation_group(v: VBoxContainer, title: String, ids: Array, placed_as: String,
+		columns: int, auto: bool, sel: Dictionary, target: int) -> void:
+	v.add_child(UiKit.lbl(title, UiKit.BODY, UiKit.MUTED, true))
+	var grid := GridContainer.new()
+	grid.name = "Formation_" + title.replace(" ", "")
+	grid.columns = columns
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	v.add_child(grid)
+	for raw_id in ids:
+		var id := str(raw_id)
+		if id == "":
+			var gap := Control.new()
+			gap.custom_minimum_size = Vector2(0, 58)
+			grid.add_child(gap)
+			continue
+		var role := placed_as if placed_as != "" else _placed_role(GameState.current_side(), id)
+		grid.add_child(_formation_player(id, role, auto))
+	if not auto and target > 0:
+		var issue := _slot_issue(sel, placed_as, target)
+		if issue != "":
+			v.add_child(_para(issue, 12, UiKit.BAD))
+
+
+func _formation_player(id: String, placed_as: String, auto: bool) -> Control:
+	var p := GameState.list_player(id)
+	var b := UiKit.btn("", 13)
+	b.name = "FormationPlayer_" + id
+	b.custom_minimum_size = Vector2(0, 58)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.tooltip_text = "Open his profile" if auto else "Move him"
+	UiKit.paint_choice(b, not auto and _open_move == id)
+	var box := UiKit.vbox(1)
+	box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	box.offset_left = 6
+	box.offset_right = -6
+	box.offset_top = 5
+	box.offset_bottom = -5
+	b.add_child(box)
+	var name := UiKit.ellipsis(GameDB.player_display_name(p), 13, UiKit.TEXT, true)
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(name)
+	var spot := UiKit.line(_formation_label(placed_as), 11, UiKit.MUTED)
+	spot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(spot)
+	if Ratings.available(p):
+		var readiness := _para(Workload.label(p), 11,
+				UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
+		readiness.name = "Readiness_" + id
+		readiness.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(readiness)
+		b.custom_minimum_size.y = 72
+	_ignore_mouse(box)
+	if auto:
+		b.pressed.connect(_open_profile.bind(id))
+	else:
+		b.pressed.connect(func():
+			_open_move = "" if _open_move == id else id
+			_build())
+	return b
+
+
+func _formation_label(role: String) -> String:
+	match role:
+		"WING":
+			return "Wing"
+		"MID":
+			return "Mid"
+		"RUCK":
+			return "Ruck"
+		"DEF":
+			return "Def"
+		"FWD":
+			return "Fwd"
+		"BENCH":
+			return "Interchange"
+	return ""
+
+
+func _placed_role(side: Dictionary, id: String) -> String:
+	for slot in SLOTS:
+		var role := str(slot[0])
+		if (side.get(role, []) as Array).has(id):
+			return role
+	return ""
+
+
+func _slot_issue(sel: Dictionary, role: String, target: int) -> String:
+	var named := (sel.get(role, []) as Array).size()
+	if named == target:
+		return ""
+	var label := _label_for(role).capitalize()
+	if named < target:
+		return "%s: %d named; match day fills the gap automatically." % [label, named]
+	return "%s: %d named; only %d can play there." % [label, named, target]
 
 
 ## The line synergies your 18 switch on - what the side is good at - and
