@@ -369,8 +369,16 @@ static func worth(p: Dictionary) -> float:
 static func ai_keeps(p: Dictionary, list: Array, cap: int) -> bool:
 	return ai_release_reason(p, list, cap) == ""
 
-## Does the AI club accept `give` (its players, to you) for `take` (yours, to
-## it)? It weighs both sides by TradeValue from its own position: `ctx` =
+## A draft pick in a trade: {"pick": true, "id", "year", "round", "origin",
+## "owner", "positions": [[overall pick, weight]...]} (GameState.pick_asset).
+static func is_pick(a: Dictionary) -> bool:
+	return bool(a.get("pick", false))
+
+
+## Does the AI club accept `give` (its players and picks, to you) for `take`
+## (yours, to it)? Picks are valued as the prospect a club expects to get
+## with them (TradeValue.pick_value, from ctx "prospects": {year: ranked
+## class}) and join the package like players. It weighs both sides by TradeValue from its own position: `ctx` =
 ## {"phase": its cycle, "games": {player id: last season's games}, "name":
 ## its club name, "names": {player id: display name}}. What it receives is
 ## judged against its side without the players it gives up, and counted as
@@ -380,7 +388,12 @@ static func ai_keeps(p: Dictionary, list: Array, cap: int) -> bool:
 static func evaluate_trade(ai_list: Array, give: Array, take: Array, cap: int,
 		my_list: Array, my_cap: int, margin := TRADE_MARGIN, ctx := {}) -> Dictionary:
 	if give.is_empty() or take.is_empty():
-		return {"ok": false, "reason": "Pick a player from each side."}
+		return {"ok": false, "reason": "Pick a player or a pick from each side."}
+	# Draft picks ride along with players: no list spot, no salary.
+	var give_picks := give.filter(func(a): return is_pick(a))
+	var take_picks := take.filter(func(a): return is_pick(a))
+	give = give.filter(func(a): return not is_pick(a))
+	take = take.filter(func(a): return not is_pick(a))
 	var ai_after := ai_list.size() - give.size() + take.size()
 	var my_after := my_list.size() - take.size() + give.size()
 	if ai_after > MAX_LIST or my_after > MAX_LIST:
@@ -423,6 +436,9 @@ static func evaluate_trade(ai_list: Array, give: Array, take: Array, cap: int,
 		if TradeValue.fit(p, bars) < 0.5 and benchwarmer == "":
 			benchwarmer = str((ctx.get("names", {}) as Dictionary).get(str(p["id"]), p.get("name", "")))
 		side.append(p)
+	var prospects: Dictionary = ctx.get("prospects", {})
+	for pk in take_picks:
+		in_values.append(TradeValue.pick_value(pk["positions"], prospects.get(str(pk["year"]), []), phase))
 	var in_value := TradeValue.package(in_values)
 	var out_value := 0.0
 	var cornerstone := ""
@@ -435,6 +451,8 @@ static func evaluate_trade(ai_list: Array, give: Array, take: Array, cap: int,
 		if float(v["future"]) > best_future and TradeValue.future_rating(p) > TradeValue.now_rating(p) + 3.0:
 			best_future = float(v["future"])
 			cornerstone = str((ctx.get("names", {}) as Dictionary).get(str(p["id"]), p.get("name", "")))
+	for pk in give_picks:
+		out_value += TradeValue.pick_value(pk["positions"], prospects.get(str(pk["year"]), []), phase)
 	var out := {"ok": false, "in": in_value, "out": out_value}
 	if in_value < out_value * (1.0 + margin):
 		var club := str(ctx.get("name", "They"))
