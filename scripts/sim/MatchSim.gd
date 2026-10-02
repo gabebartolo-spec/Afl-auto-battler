@@ -111,6 +111,8 @@ var shot_rng := RandomNumberGenerator.new()
 var smother_rng := RandomNumberGenerator.new()
 ## Spectacular-mark selection is presentation/stat context only.
 var speccy_rng := RandomNumberGenerator.new()
+## Post-free 50m infringements are independent of ordinary play rolls.
+var discipline_rng := RandomNumberGenerator.new()
 var _speccy_quota := 0
 var _speccies := 0
 ## Boundary law rolls are isolated from the calibrated play RNG. Adding or
@@ -172,6 +174,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	shot_rng.seed = seed * 13 + 3
 	smother_rng.seed = seed * 23 + 29
 	speccy_rng.seed = seed * 31 + 37
+	discipline_rng.seed = seed * 41 + 43
 	var speccy_bucket := posmod(hash("speccy|%d" % seed), 10)
 	_speccy_quota = 0 if speccy_bucket < 3 else (1 if speccy_bucket < 9 else 2)
 	boundary_rng.seed = seed * 17 + 19
@@ -780,6 +783,8 @@ const HOTHEAD_ERRORS := 1.5
 ## side gives away fewer than the benchmark and a side of hotheads more,
 ## while the league-wide clanger and free-kick rates stay calibrated.
 const HOTHEAD_BASE := 1.10
+## Roughly one 50m penalty every couple of matches at ordinary discipline.
+const FIFTY_BASE := 0.012
 
 
 ## Who gives away a side's clanger: poor discipline makes it likelier, a
@@ -798,6 +803,33 @@ func _clanger_weights(side: int) -> Array:
 		w_all += w
 		weights.append(w)
 	return [weights, w_all / w_base if w_base > 0.0 else 1.0]
+
+
+## A free can be marched 50 for dissent, encroachment or delay. We do not
+## pretend to simulate umpire micromanagement: discipline and Hothead only
+## alter a small post-free risk. Returns the new mark for the free.
+func _maybe_fifty(receiving_side: int, mark_fp: float, offender, recipient) -> float:
+	if offender == null:
+		return mark_fp
+	var discipline := _a(offender, "discipline")
+	var chance := FIFTY_BASE * (1.35 - 0.70 * discipline / 100.0)
+	if _trait(offender, "hothead"):
+		chance *= 1.65
+	if discipline_rng.randf() >= clampf(chance, 0.002, 0.035):
+		return mark_fp
+	var dir := 1.0 if receiving_side == 0 else -1.0
+	var new_fp := clampf(mark_fp + 50.0 * dir,
+			-float(Ratings.T["goal_line"]), float(Ratings.T["goal_line"]))
+	_t(receiving_side, "fifties_for")
+	_t(1 - receiving_side, "fifties_against")
+	_p(offender, "fifties_against")
+	_emit("fifty", receiving_side, new_fp, recipient,
+			"50-metre penalty against %s" % GameDB.player_display_name(offender))
+	var ev: Dictionary = events[events.size() - 1]
+	ev["from_fp"] = mark_fp
+	ev["against_id"] = str(offender.get("id", ""))
+	ev["against_name"] = GameDB.player_display_name(offender)
+	return new_fp
 
 
 ## A won stoppage is worth about a possession chain's points.
@@ -1072,7 +1104,8 @@ func _boundary_exit(side: int, cross_fp: float, carrier, disposal_kind: String,
 	fev["against_id"] = "" if carrier == null else str(carrier.get("id", ""))
 	fev["against_name"] = "" if carrier == null else GameDB.player_display_name(carrier)
 	fev["disposal_kind"] = disposal_kind
-	return {"outcome": "free", "fp": cross_fp, "actor": recipient}
+	var restart_fp := _maybe_fifty(opp, cross_fp, carrier, recipient)
+	return {"outcome": "free", "fp": restart_fp, "actor": recipient}
 
 
 # ---------------------------------------------------------------------------
@@ -1934,8 +1967,10 @@ func _play_one_chain(T: Dictionary) -> void:
 			_p(err, "frees_against")
 			next_side = 1 - side
 			_prev_end = "free"
-			_emit("free", 1 - side, fp, err,
+			var recipient = _free_to(1 - side, fp if side == 0 else -fp)
+			_emit("free", 1 - side, fp, recipient,
 					"Free kick against %s" % GameDB.player_display_name(err))
+			fp = _maybe_fifty(1 - side, fp, err, recipient)
 	_after_chain()
 
 
