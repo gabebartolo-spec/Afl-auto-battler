@@ -18,19 +18,19 @@ func _initialize() -> void:
 
 
 func _test_history_records_are_stored_facts() -> void:
-	var old_records := GameState.records
-	var old_roll := GameState.honour_roll
-	GameState.records = {"highest_score": {"value": 151, "club": "MEL", "opp": "CAR", "year": 2028},
+	var old_records := _state.records
+	var old_roll := _state.honour_roll
+	_state.records = {"highest_score": {"value": 151, "club": "MEL", "opp": "CAR", "year": 2028},
 			"biggest_win": {"value": 72, "club": "MEL", "opp": "CAR", "year": 2029}}
-	GameState.honour_roll = [{"year": 2028, "premier": "COL"}, {"year": 2029, "premier": "MEL"}]
-	var lines := GameState.history_record_lines()
+	_state.honour_roll = [{"year": 2028, "premier": "COL"}, {"year": 2029, "premier": "MEL"}]
+	var lines := _state.history_record_lines()
 	_check(lines.size() == 2 and str(lines[0]).contains("151") and str(lines[1]).contains("72"),
 			"History surface reads the stored league records")
-	var honours := GameState.recent_honours(1)
+	var honours := _state.recent_honours(1)
 	_check(honours.size() == 1 and int(honours[0]["year"]) == 2029,
 			"History surface reads the stored honour roll newest first")
-	GameState.records = old_records
-	GameState.honour_roll = old_roll
+	_state.records = old_records
+	_state.honour_roll = old_roll
 
 func _check(condition: bool, message: String) -> void:
 	_checks += 1
@@ -58,11 +58,11 @@ func _screen_text() -> String:
 
 
 func _run() -> void:
-	_test_history_records_are_stored_facts()
 	await process_frame
 	_state = root.get_node("GameState")
 	_router = root.get_node("Router")
 	_db = root.get_node("GameDB")
+	_test_history_records_are_stored_facts()
 	# Never touch a real career save or settings file from a test run.
 	_state.autosave_enabled = false
 	_state.save_path = "user://test_career.save"
@@ -157,7 +157,7 @@ func _run() -> void:
 	_check(_router.current() == "hub", "Continue Career opens the season hub")
 	_check(_state.season != null and _state.season.round_index == 2, "The saved round is loaded")
 	_check(_state.my_club == "SYD", "The saved club is loaded")
-	# One player well above his season, one well below (GameState.player_form).
+	# One player well above his season, one well below (_state.player_form).
 	var hot_id := str(_state.my_list[0]["id"])
 	var cold_id := str(_state.my_list[1]["id"])
 	_state.form_log[hot_id] = {"last": [95, 95, 95], "n": 10, "sum": 500}
