@@ -16,6 +16,39 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 
+func _test_rivalry_catalogue() -> void:
+	_check(Rivalries.are_rivals("COL", "CAR") and Rivalries.are_rivals("CAR", "COL"),
+			"Established rivalries work in either fixture direction")
+	_check(Rivalries.label("ADE", "PAD") == "The Showdown", "Named rivalry context is preserved")
+	_check(Rivalries.label("WCE", "FRE") == "The Western Derby", "WA meetings are always The Western Derby")
+	_check(Rivalries.label("GCS", "BRL") == "The Pineapple Grapple", "Queensland meetings are always The Pineapple Grapple")
+	_check(Rivalries.label("TAS", "CANB") == "Expansion Cup", "Expansion clubs contest the Expansion Cup")
+	_check(Rivalries.are_rivals("GWS", "WBD"), "Giants and Bulldogs are established rivals")
+	_check(not Rivalries.are_rivals("ADE", "GEE"), "Ordinary opponents are not labelled rivals")
+	var dynamic := {}
+	for i in range(4):
+		Rivalries.record_match(dynamic, {"home": "ADE", "away": "GEE",
+				"score": [80, 75], "label": "Round %d" % (i + 1)}, 2027 + i)
+	_check(Rivalries.state(dynamic, "ADE", "GEE") == "brewing",
+			"Repeated close games can make a new rivalry brew")
+	Rivalries.record_match(dynamic, {"home": "ADE", "away": "GEE",
+			"score": [91, 88], "label": "Preliminary Final", "is_final": true}, 2031)
+	Rivalries.record_match(dynamic, {"home": "GEE", "away": "ADE",
+			"score": [77, 73], "label": "Grand Final", "is_final": true}, 2032)
+	_check(Rivalries.state(dynamic, "ADE", "GEE") == "rivals",
+			"Repeated high-stakes meetings can create a full dynamic rivalry")
+	var before := int((Rivalries.dynamic(dynamic, "ADE", "GEE") as Dictionary)["score"])
+	Rivalries.record_match(dynamic, {"home": "GEE", "away": "ADE",
+			"score": [77, 73], "label": "Grand Final", "is_final": true}, 2032)
+	_check(int((Rivalries.dynamic(dynamic, "ADE", "GEE") as Dictionary)["score"]) == before,
+			"Reprocessing a saved match cannot inflate rivalry history")
+	var quiet := {}
+	for i in range(8):
+		Rivalries.record_match(quiet, {"home": "NTH", "away": "STK",
+				"score": [110, 70], "label": "Round %d" % (i + 1)}, 2027 + i)
+	_check(Rivalries.state(quiet, "NTH", "STK") == "",
+			"Routine meetings alone do not manufacture a rivalry")
+
 func _check(condition: bool, message: String) -> void:
 	_checks += 1
 	if not condition:
@@ -42,6 +75,7 @@ func _screen_text() -> String:
 
 
 func _run() -> void:
+	_test_rivalry_catalogue()
 	await process_frame
 	_state = root.get_node("GameState")
 	_router = root.get_node("Router")

@@ -54,6 +54,7 @@ var club_goals := {}             # club -> this season\'s board goal (ClubLife.b
 var _last_finish := {}           # club -> last season\'s ladder position, for the board
 var draft_meeting_year := 0     # the National Draft the recruiting panel last met before
 var records := {}                # league records across the career
+var rivalry_history := {}        # canonical club pair -> emergent rivalry evidence
 ## Club achievements unlocked this career: id -> {"year", "detail"}.
 ## Definitions live in scripts/sim/Achievements.gd.
 var achievements := {}
@@ -279,6 +280,7 @@ func save_career() -> bool:
 		"season_awards": season_awards,
 		"honour_roll": honour_roll,
 		"records": records,
+		"rivalry_history": rivalry_history,
 		"achievements": achievements,
 		"salary_cap": salary_cap,
 		"free_agents": free_agents,
@@ -387,6 +389,7 @@ func load_career() -> bool:
 	season_awards = state.get("season_awards", {})
 	honour_roll = state.get("honour_roll", [])
 	records = state.get("records", {})
+	rivalry_history = state.get("rivalry_history", {})
 	achievements = state.get("achievements", {})
 	salary_cap = int(state.get("salary_cap", 0))
 	free_agents = state.get("free_agents", [])
@@ -617,6 +620,7 @@ func reset() -> void:
 	season_awards = {}
 	honour_roll = []
 	records = {}
+	rivalry_history = {}
 	achievements = {}
 	coaches = {}
 	coach_archive = {}
@@ -1302,6 +1306,7 @@ func finish_interactive_match(res: Dictionary) -> void:
 		season_log.append(r)
 	_grant_match_xp(res)
 	_train_rivals(played)
+	_record_rivalries(played)
 	_after_round(played)
 	_clear_pending()
 	autosave()
@@ -1337,6 +1342,7 @@ func _finish_interactive_final(res: Dictionary) -> void:
 		season_log.append(r)
 	_grant_match_xp(res)
 	_train_rivals(played)
+	_record_rivalries(played)
 	_after_round(played)
 	_clear_pending()
 	autosave()
@@ -1404,9 +1410,32 @@ func advance() -> String:
 			last_match = res
 	_grant_match_xp(last_match)
 	_train_rivals(last_results)
+	_record_rivalries(last_results)
 	_after_round(last_results)
 	autosave()
 	return last_phase
+
+
+
+## Feed completed league matches into the long-save rivalry history.
+func _record_rivalries(results: Array) -> void:
+	for res in results:
+		if res is Dictionary:
+			Rivalries.record_match(rivalry_history, res, season_year)
+
+
+func rivalry_context(a: String, b: String) -> Dictionary:
+	var fixed := Rivalries.established(a, b)
+	if not fixed.is_empty():
+		return {"state": "established", "title": str(fixed["name"]), "detail": ""}
+	var state := Rivalries.state(rivalry_history, a, b)
+	if state == "":
+		return {}
+	return {
+		"state": state,
+		"title": "Rivals" if state == "rivals" else "Rivalry brewing",
+		"detail": Rivalries.context(rivalry_history, a, b),
+	}
 
 
 func is_my_match(res: Dictionary) -> bool:

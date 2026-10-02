@@ -14,7 +14,7 @@ coaches 338
 coach_market 56
 coach_pathway 54
 coach_effects 24
-career_ui 146
+career_ui 154
 potential 36
 ratings 27
 ai 35
