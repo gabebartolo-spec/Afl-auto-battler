@@ -1054,7 +1054,7 @@ Open a compact quick-sim menu:
 
 
 ### Temporary playtest affordance — one-tap Sim to finals
-**Status:** `TEMPORARY TEST TOOL`
+**Status:** `TODO` — temporary testing convenience only; remove/defer once the post-season test cycle no longer needs it.
 
 For the current post-season/off-season playtest cycle, expose a visible **Sim to finals** button on the regular-season Hub so the user can reach the finals/post-season quickly without long-pressing Quick sim or manually advancing rounds.
 
@@ -1542,6 +1542,7 @@ Forward-50 resolution has a partial spoil modifier but no complete spoil event/s
 - Marking/aerial quality and traits can increase chance.
 - Statistically a mark unless a dedicated stat later adds value.
 - Presentation flourish, not a giant gameplay buff.
+- Frequency target: roughly **0.8 speccies per match**, with **2 as a hard match maximum**; #196 implements that target deterministically.
 
 ---
 
@@ -1652,7 +1653,8 @@ Behind → kick-in → exit; no phantom stoppage; correct end/direction after qu
 - Discipline/aggression/Hothead-like tendencies can influence risk, capped.
 - AI same rules.
 - Post-round MRO summary.
-- Tribunal/appeal system deferred until justified.
+- PR #196 includes a one-shot Tribunal challenge and, after a failed Tribunal suspension challenge, one Appeals Board path for the user's club. Verdict evidence is fixed with the incident so reloads cannot reroll it.
+- Any upheld sanction makes the player Brownlow-ineligible for that season while preserving the raw votes; overturning the case restores eligibility unless another upheld case still disqualifies him.
 
 ---
 
