@@ -129,9 +129,13 @@ func match_sim(home_code: String, away_code: String, match_seed: int,
 		var plan := str(plans.get([home_code, away_code][side], ""))
 		if plan != "":
 			sim.set_tactics(side, {"gameplan": plan})
-		var mu: Dictionary = matchups.get([home_code, away_code][side], {})
+		var code := [home_code, away_code][side]
+		var mu: Dictionary = matchups.get(code, {})
 		if not mu.is_empty():
 			sim.set_matchups(side, mu)
+		var spare := str(interceptors.get(code, ""))
+		if spare != "":
+			sim.set_interceptor(side, spare)
 	return sim
 
 
