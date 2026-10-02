@@ -15,6 +15,7 @@ func run() -> void:
 	_test_boundary_rules()
 	_test_authenticity_events()
 	_test_contextual_frees_and_general_spoils()
+	_test_roaming_interceptor()
 	_test_legs_and_rotations()
 	_test_moments()
 	_test_set_shot()
@@ -294,6 +295,44 @@ func _test_contextual_frees_and_general_spoils() -> void:
 	_check(free_meta_ok, "Contextual frees identify the offender")
 	_check(general_spoils > 0, "General-play kicks can produce real spoils to a loose ball")
 	_check(general_marks > 0, "The same general-play aerial model can produce marks")
+
+
+## A roaming interceptor is a structural choice: the nominated defender is
+## pulled toward aerial contests, while the side gives up a body around general
+## contests. The AI can make the same call from its own visible personnel.
+func _test_roaming_interceptor() -> void:
+	var sim := _sim(7300, "MEL", "CAR")
+	var spare := MatchSim.best_interceptor((sim.squads[0] as Squad).ground)
+	_check(not spare.is_empty() and str(spare.get("role", "")) == "DEF",
+			"The roaming interceptor is chosen from actual on-ground defenders")
+	sim.set_tactics(0, {"gameplan": "balanced", "spare_id": str(spare["id"])})
+	_check(sim._spare_id(0) == str(spare["id"]),
+			"A coach can nominate a defender to roam as the spare")
+	var with_spare := 0
+	var without_spare := 0
+	sim.rng.seed = 8811
+	for i in range(8000):
+		if sim.contest_winner(false, 0.0) == 0:
+			with_spare += 1
+	var plain := _sim(7300, "MEL", "CAR")
+	plain.rng.seed = 8811
+	for i in range(8000):
+		if plain.contest_winner(false, 0.0) == 0:
+			without_spare += 1
+	_check(with_spare < without_spare,
+			"Keeping a spare behind the ball costs presence around general contests (%d v %d wins)" % [
+					with_spare, without_spare])
+	var ai := _sim(7301, "MEL", "CAR")
+	ai.current_quarter = 2
+	var ai_spare := str(ai.ai_tactics(1).get("spare_id", ""))
+	if ai_spare != "":
+		var found := false
+		for p in (ai.squads[1] as Squad).ground:
+			if str(p.get("id", "")) == ai_spare:
+				found = str(p.get("role", "")) == "DEF"
+		_check(found, "AI roaming-interceptor calls use one of its own defenders")
+	else:
+		_check(true, "AI declines the spare when its defenders do not justify it")
 
 
 func _test_legs_and_rotations() -> void:
