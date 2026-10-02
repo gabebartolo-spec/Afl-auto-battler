@@ -866,6 +866,11 @@ func _my_result(v: VBoxContainer, res: Dictionary) -> void:
 		var inj := UiKit.lbl("Injured: " + ", ".join(hurt), UiKit.SMALL, UiKit.BAD, true)
 		inj.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(inj)
+	var mro := GameState.my_mro_lines()
+	if not mro.is_empty():
+		var mr := UiKit.lbl("MRO: " + ", ".join(mro), UiKit.SMALL, UiKit.BAD, true)
+		mr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(mr)
 	if GameState.last_phase == "regular":
 		var moved := GameState.ladder_move_line(GameState.last_pos_before)
 		if moved != "":
