@@ -1226,6 +1226,10 @@ func _refresh_order() -> void:
 			var why := UiKit.ellipsis("Compensation for losing %s" % str(comp.get("name", "a free agent")), 12, UiKit.TEXT)
 			why.name = "CompPick"
 			v.add_child(why)
+		elif index < _draft.pick_origin.size() and str(_draft.pick_origin[index]) != code:
+			var via := UiKit.ellipsis("Via %s" % GameDB.club_name(str(_draft.pick_origin[index])), 12, UiKit.TEXT)
+			via.name = "ViaPick"
+			v.add_child(via)
 		h.add_child(UiKit.line("%d/%d" % [_draft.count_for(code), _draft.pick_limit(code)], 12, UiKit.EMPH if mine else UiKit.MUTED))
 		_order_box.add_child(p)
 

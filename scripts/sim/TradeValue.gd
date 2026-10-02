@@ -166,3 +166,42 @@ static func phase(finish_t: float, strength_t: float, best22_age: float) -> Stri
 	if standing <= 0.35 or (standing <= 0.5 and best22_age <= 24.5):
 		return "rebuilding"
 	return "building"
+
+
+## A draft pick, valued as the player a club expects to get with it: the
+## prospects around that spot in the class (best first by projected rating,
+## the five spots around it - who goes first is never certain), through the club's own phase weights, so a rebuilder values
+## good picks more than a contender does. `positions` = [[overall pick,
+## weight], ...]: one exact spot for this year's draft, a spread for a pick
+## whose spot isn't known yet. A pick past the end of the class is worth
+## nothing.
+static func pick_value(positions: Array, prospects: Array, phase: String) -> float:
+	if prospects.is_empty():
+		return 0.0
+	var total := 0.0
+	var weight := 0.0
+	for pw in positions:
+		var at := int(pw[0])
+		var w := float(pw[1])
+		weight += w
+		if at < 1 or at > prospects.size():
+			continue
+		var lo := maxi(0, at - 3)
+		var hi := mini(prospects.size() - 1, at + 1)
+		var sum := 0.0
+		for i in range(lo, hi + 1):
+			sum += float(value(prospects[i], {"phase": phase})["total"])
+		total += w * sum / float(hi - lo + 1)
+	return total / maxf(weight, 0.0001)
+
+
+## Prospects best first by what a club can see of them (projected rating).
+static func rank_prospects(pool: Array) -> Array:
+	var ranked := pool.duplicate()
+	ranked.sort_custom(func(a, b):
+		var fa := future_rating(a)
+		var fb := future_rating(b)
+		if fa != fb:
+			return fa > fb
+		return str(a["id"]) < str(b["id"]))
+	return ranked

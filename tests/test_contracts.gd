@@ -21,6 +21,7 @@ func run() -> void:
 	_test_trade_value()
 	_test_trade_packages_and_needs()
 	_test_phase_cache()
+	_test_trade_picks()
 	GameState.delete_saved_career()
 	print("Contracts tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -951,3 +952,104 @@ func _test_phase_cache() -> void:
 	_check(same, "A save and load doesn't change any club's phase")
 	GameState.start_next_season()
 	_check(_phases_fresh(), "After the rollover (ageing and development) the phases match a fresh calculation")
+
+
+## Draft picks as trade assets: who owns them, what they're worth to whom,
+## the rules a trade with them keeps, and the draft honouring a traded pick.
+func _test_trade_picks() -> void:
+	_new_season()
+	_check(GameState.club_picks(GameState.my_club).is_empty(), "No picks can be traded during the season")
+	_to_offseason()
+	var me := GameState.my_club
+	var year := GameState.season_year
+	var rounds := GameState.trade_pick_rounds(year)
+	var mine := GameState.club_picks(me)
+	_check(rounds >= 1 and mine.size() == rounds, "Each club has one pick a round to trade (%d rounds)" % rounds)
+	var all_own := true
+	for pk in mine:
+		all_own = all_own and str(pk["owner"]) == me and str(pk["origin"]) == me
+	_check(all_own, "Untraded picks belong to their own club")
+	# What a pick is worth: earlier is worth more, a rebuilder values it more.
+	var prospects: Array = GameState.trade_prospects()[str(year)]
+	var n := GameDB.active_clubs(year).size()
+	var first := TradeValue.pick_value([[1, 1.0]], prospects, "building")
+	var mid := TradeValue.pick_value([[n / 2, 1.0]], prospects, "building")
+	var late := TradeValue.pick_value([[2 * n, 1.0]], prospects, "building")
+	_check(first > mid and mid > late and late > 0.0, "An earlier pick is worth more (%.2f, %.2f, %.2f)" % [first, mid, late])
+	_check(TradeValue.pick_value([[3, 1.0]], prospects, "rebuilding") > TradeValue.pick_value([[3, 1.0]], prospects, "contending") * 1.3,
+			"A rebuilding club values a high pick well above a contender")
+	_check(TradeValue.pick_value([[prospects.size() + 1, 1.0]], prospects, "building") == 0.0,
+			"A pick past the end of the class is worth nothing")
+
+	var rival := "COL"
+	var their_first := GameState.pick_id(year, 1, rival)
+	var my_first := GameState.pick_id(year, 1, me)
+	var my_last := GameState.pick_id(year, rounds, me)
+	var sorted_mine := GameState.my_list.duplicate()
+	sorted_mine.sort_custom(func(a, b): return int(a["overall"]) < int(b["overall"]))
+	var my_weak := str(sorted_mine[0]["id"])
+	var theirs := (GameState.season.lists[rival] as Array).duplicate()
+	theirs.sort_custom(func(a, b): return int(a["overall"]) < int(b["overall"]))
+	var their_weak := str(theirs[0]["id"])
+	var their_star := str(theirs[theirs.size() - 1]["id"])
+	_check(not bool(GameState.evaluate_trade(rival, [their_first], [their_weak])["ok"]),
+			"You can't trade a pick that isn't yours")
+	_check(not bool(GameState.evaluate_trade(rival, [my_weak], [my_first])["ok"]),
+			"You can't ask a club for a pick it doesn't own")
+	_check(not bool(GameState.evaluate_trade(rival, [my_first, my_first], [their_weak])["ok"]),
+			"The same pick can't go in twice")
+	_check(not bool(GameState.evaluate_trade(rival, [GameState.pick_id(year, 9, me)], [their_weak])["ok"])
+			and not bool(GameState.evaluate_trade(rival, [GameState.pick_id(year + 3, 1, me)], [their_weak])["ok"]),
+			"Only the rounds and years on offer can be traded")
+	# The Butler regression holds with a late pick thrown in, in any order.
+	var a := GameState.evaluate_trade(rival, [my_weak, my_last], [their_star])
+	var b := GameState.evaluate_trade(rival, [my_last, my_weak], [their_star])
+	_check(not bool(a["ok"]) and str(a) == str(b), "A fringe player and a late pick don't buy their best player, whatever the order")
+
+	# A pick changes hands; lists and payrolls move only for the players.
+	var my_size := GameState.my_list.size()
+	var their_size := (GameState.season.lists[rival] as Array).size()
+	var my_pay := GameState.my_payroll()
+	var their_player: Dictionary = GameState.list_player(their_weak)
+	var t := GameState.make_trade(rival, [my_first], [their_weak])
+	if not bool(t["ok"]):
+		t = GameState.make_trade(rival, [my_first, my_weak], [their_weak])
+	_check(bool(t["ok"]), "A first-round pick buys a fringe player (%s)" % str(t["reason"]))
+	var gave_player := GameState.my_list.size() == my_size
+	_check(GameState.pick_owner_of(year, 1, me) == rival and GameState.club_picks(rival).any(func(pk): return str(pk["id"]) == my_first)
+			and not GameState.club_picks(me).any(func(pk): return str(pk["id"]) == my_first),
+			"The traded pick belongs to its new club")
+	_check(GameState.my_list.size() == (my_size if gave_player else my_size + 1)
+			and (GameState.season.lists[rival] as Array).size() == (their_size if gave_player else their_size - 1)
+			and (gave_player or GameState.my_payroll() == my_pay + int(their_player.get("salary", 0))),
+			"A pick takes no list spot and no salary")
+	_check(not bool(GameState.evaluate_trade(rival, [my_first], [str(theirs[1]["id"])])["ok"]),
+			"A pick you traded away can't be spent again")
+	_check(GameState.save_career() and GameState.load_career() and GameState.pick_owner_of(year, 1, me) == rival,
+			"Pick ownership survives a save and load")
+
+	# The draft gives the pick to its new owner.
+	_check(GameState.begin_intake_draft(), "The national draft opens")
+	var d: Draft = GameState.draft
+	var at := -1
+	for k in range(d.pick_sequence.size()):
+		if str(d.pick_origin[k]) == me and int(d.pick_rounds[k]) == 1 and d.comp_at(k).is_empty():
+			at = k
+	_check(at >= 0 and str(d.pick_sequence[at]) == rival, "Your traded first-round pick is theirs in the draft order")
+	var my_comps := d.comp_picks.filter(func(c): return str(c["club"]) == me).size()
+	var their_comps := d.comp_picks.filter(func(c): return str(c["club"]) == rival).size()
+	_check(d.pick_limit(me) == d.target_size - 1 + my_comps and d.pick_limit(rival) == d.target_size + 1 + their_comps,
+			"You make one pick fewer; they make one more")
+	_check(GameState.save_career() and GameState.load_career() and str(GameState.draft.pick_sequence[at]) == rival
+			and str(GameState.draft.pick_origin[at]) == me, "The draft keeps the traded pick through a save")
+	d = GameState.draft
+	while not d.is_finished():
+		var c := d._best_ai_pick(d.current_club())
+		if c.is_empty() or not d._draft_pick(d.current_club(), c):
+			d._skip_current_pick()
+	var used_by := ""
+	for id in d.picked:
+		if int(d.pick_details(str(id)).get("pick", 0)) == at + 1:
+			used_by = d.drafted_by(str(id))
+	_check(used_by == rival, "The player taken with the traded pick goes to its new owner")
+	_check(GameState.finish_intake_draft() and GameState.pick_owner.is_empty(), "Spent picks leave the ownership record")
