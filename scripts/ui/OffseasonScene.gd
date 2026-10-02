@@ -6,8 +6,12 @@ var _root: VBoxContainer
 var _tab := "contracts"
 var _notice := ""
 var _trade_club := ""
-var _mine: Array = []     # your player ids in the trade (up to 2)
-var _theirs: Array = []   # their player ids (up to 2)
+var _mine: Array = []     # your player and pick ids in the trade
+var _theirs: Array = []   # theirs
+var _trade_side := "theirs"   # which list the builder shows to add from
+var _choosing_club := false   # the club sheet is open
+## Most players and picks one side can put in a trade.
+const TRADE_MAX := 5
 var _scroll_box: ScrollContainer
 var _scroll_tab := ""
 var _scroll_positions := {}
@@ -72,6 +76,7 @@ func _build() -> void:
 		b.pressed.connect(func():
 			_tab = str(t[0])
 			_notice = ""
+			_choosing_club = false
 			_build())
 		tabs.add_child(b)
 	var body := UiKit.vbox(6)
@@ -252,6 +257,10 @@ func _close_release() -> void:
 
 
 func handle_back() -> bool:
+	if _choosing_club and _tab == "trade":
+		_choosing_club = false
+		_build()
+		return true
 	if is_instance_valid(_talk_overlay):
 		_close_talks()
 		return true
@@ -522,22 +531,25 @@ func _agents(body: VBoxContainer) -> void:
 		body.add_child(card)
 
 
+## The trade builder, one screen for a phone: who you're trading with, what
+## you give and get (tap Remove to take something out), their answer and
+## Make trade; then one list at a time - theirs or yours, picks first - to
+## add from. Nothing here shows a value: their answer is in words.
 func _trade(body: VBoxContainer) -> void:
-	var pick := UiKit.option()
-	pick.name = "TradeClub"
-	pick.custom_minimum_size = Vector2(0, 44)
-	for code in GameDB.active_clubs(GameState.season_year):
-		if code == GameState.my_club:
-			continue
-		pick.add_item(GameDB.club_name(code))
-		pick.set_item_metadata(pick.item_count - 1, code)
-		if code == _trade_club:
-			pick.select(pick.item_count - 1)
-	pick.item_selected.connect(func(i: int):
-		_trade_club = str(pick.get_item_metadata(i))
-		_theirs = []
+	if _choosing_club:
+		_trade_club_sheet(body)
+		return
+	var who := UiKit.hbox(8)
+	who.add_child(UiKit.ellipsis("Trading with %s" % GameDB.club_name(_trade_club), 16, UiKit.TEXT, true))
+	who.get_child(0).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var change := UiKit.btn("Change club", 14)
+	change.name = "TradeClub"
+	change.custom_minimum_size = Vector2(0, 44)
+	change.pressed.connect(func():
+		_choosing_club = true
 		_build())
-	body.add_child(pick)
+	who.add_child(change)
+	body.add_child(who)
 	var phase := GameState.club_phase(_trade_club)
 	var stance := {"rebuilding": "are rebuilding: they guard young talent and want players for the future.",
 			"building": "are building: they weigh this season and the future evenly.",
@@ -545,15 +557,20 @@ func _trade(body: VBoxContainer) -> void:
 	var cycle := _para("%s %s" % [GameDB.club_name(_trade_club), str(stance.get(phase, ""))], 13, UiKit.MUTED)
 	cycle.name = "TradeClubPhase"
 	body.add_child(cycle)
+	body.add_child(UiKit.spacer(4))
+	_package(body, "You give", _mine, GameState.my_club, "GiveRow_",
+			"Nothing yet: add from your list below.")
+	_package(body, "You get", _theirs, _trade_club, "GetRow_",
+			"Nothing yet: add from their list below.")
 	var verdict := GameState.evaluate_trade(_trade_club, _mine, _theirs)
-	var summary := _para("You give: %s\nYou get: %s\n%s" % [_names(_mine, GameState.my_club),
-			_names(_theirs, _trade_club), str(verdict["reason"])], 14,
+	var empty := _mine.is_empty() or _theirs.is_empty()
+	var answer := _para("Put something on each side." if empty else str(verdict["reason"]), 14,
 			UiKit.GOOD if bool(verdict["ok"]) else UiKit.MUTED)
-	summary.name = "TradeVerdict"
-	body.add_child(summary)
+	answer.name = "TradeVerdict"
+	body.add_child(answer)
 	var go := UiKit.btn("Make trade", 16, true)
 	go.name = "MakeTrade"
-	go.custom_minimum_size = Vector2(0, 44)
+	go.custom_minimum_size = Vector2(0, 48)
 	go.disabled = not bool(verdict["ok"])
 	go.pressed.connect(func():
 		var r := GameState.make_trade(_trade_club, _mine, _theirs)
@@ -563,37 +580,123 @@ func _trade(body: VBoxContainer) -> void:
 			_theirs = []
 		_build())
 	body.add_child(go)
-	body.add_child(UiKit.lbl("Their list (pick up to 2)", 15, UiKit.EMPH, true))
-	body.add_child(_pick_grid(GameState.season.lists.get(_trade_club, []), _theirs, "Their_"))
-	_draft_picks(body, "Their draft picks", _trade_club, _theirs, "Their_")
-	body.add_child(UiKit.lbl("Your list (pick up to 2)", 15, UiKit.EMPH, true))
-	body.add_child(_pick_grid(GameState.my_list, _mine, "Mine_"))
-	_draft_picks(body, "Your draft picks", GameState.my_club, _mine, "Mine_")
+	body.add_child(UiKit.spacer(UiKit.SECTION - 6))
+	var sides := UiKit.hbox(4)
+	for t in [["theirs", "Their list"], ["mine", "Your list"]]:
+		var tb := UiKit.tab(str(t[1]), _trade_side == str(t[0]))
+		tb.name = "TradeSide_" + str(t[0])
+		tb.pressed.connect(func():
+			_trade_side = str(t[0])
+			_build())
+		sides.add_child(tb)
+	body.add_child(sides)
+	if _trade_side == "mine":
+		_draft_picks(body, GameState.my_club, _mine, "Mine_")
+		_pick_grid(body, GameState.my_list, _mine, "Mine_")
+	else:
+		_draft_picks(body, _trade_club, _theirs, "Their_")
+		_pick_grid(body, GameState.season.lists.get(_trade_club, []), _theirs, "Their_")
+
+
+## One side of the trade: each player or pick on its own line with Remove.
+func _package(body: VBoxContainer, title: String, ids: Array, club: String, prefix: String, none: String) -> void:
+	body.add_child(UiKit.lbl(title, 15, UiKit.EMPH, true))
+	if ids.is_empty():
+		body.add_child(_para(none, 13, UiKit.MUTED))
+		return
+	for id in ids.duplicate():
+		var row := UiKit.hbox(8)
+		row.name = prefix + str(id).replace(":", "_")
+		var what := UiKit.ellipsis(_asset_line(str(id), club), 14, UiKit.TEXT)
+		what.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(what)
+		var rm := UiKit.btn("Remove", 13)
+		rm.name = "Remove"
+		rm.custom_minimum_size = Vector2(88, 44)
+		rm.pressed.connect(func():
+			ids.erase(id)
+			_build())
+		row.add_child(rm)
+		body.add_child(row)
+
+
+## A player or pick in a trade, in a line: "Name, MID 72" or the pick.
+func _asset_line(id: String, club: String) -> String:
+	if id.begins_with("pick:"):
+		var pk := GameState.pick_asset(id)
+		return _pick_label(pk) if not pk.is_empty() else "-"
+	for p in GameState.season.lists.get(club, []):
+		if str(p["id"]) == id:
+			return "%s, %s %d" % [GameDB.player_display_name(p), Ratings.role_tag(p), int(p["overall"])]
+	return "-"
+
+
+## Every other club, two to a row; Back or a choice closes it.
+func _trade_club_sheet(body: VBoxContainer) -> void:
+	body.add_child(UiKit.lbl("Trade with", 15, UiKit.EMPH, true))
+	var options := []
+	for code in GameDB.active_clubs(GameState.season_year):
+		if code != GameState.my_club:
+			options.append([code, GameDB.club_name(code)])
+	body.add_child(UiKit.choice_grid("TradeClubChoice", options, _trade_club, 2, func(code: String):
+		if code != _trade_club:
+			_theirs = []
+		_trade_club = code
+		_choosing_club = false
+		_build()))
 
 
 ## A club's tradeable draft picks, earliest first: "2027 first round, No. 3"
 ## (next year's has no number yet), and the club it came from if it was
 ## traded in.
-func _draft_picks(body: VBoxContainer, title: String, code: String, chosen: Array, prefix: String) -> void:
+func _draft_picks(body: VBoxContainer, code: String, chosen: Array, prefix: String) -> void:
 	var picks := GameState.club_picks(code)
 	if picks.is_empty():
 		return
-	body.add_child(UiKit.lbl(title, 15, UiKit.EMPH, true))
-	var v := UiKit.vbox(3)
+	body.add_child(UiKit.lbl("Draft picks", 14, UiKit.MUTED, true))
 	for pk in picks:
 		var id := str(pk["id"])
-		var b := UiKit.tab(_pick_label(pk), chosen.has(id))
+		var b := _asset_button(_pick_label(pk), chosen.has(id))
 		b.name = prefix + id.replace(":", "_")
-		b.custom_minimum_size = Vector2(0, 40)
-		b.clip_text = true
-		b.pressed.connect(func():
-			if chosen.has(id):
-				chosen.erase(id)
-			elif chosen.filter(func(x): return str(x).begins_with("pick:")).size() < 3:
-				chosen.append(id)
-			_build())
-		v.add_child(b)
-	body.add_child(v)
+		b.pressed.connect(_toggle.bind(chosen, id))
+		body.add_child(b)
+
+
+## A list to add players from, best first: name, position, OVR, POT and age.
+func _pick_grid(body: VBoxContainer, list: Array, chosen: Array, prefix: String) -> void:
+	body.add_child(UiKit.lbl("Players", 14, UiKit.MUTED, true))
+	var sorted := list.duplicate()
+	sorted.sort_custom(func(a, b):
+		if int(a["overall"]) != int(b["overall"]):
+			return int(a["overall"]) > int(b["overall"])
+		return str(a["id"]) < str(b["id"]))
+	for p in sorted:
+		var id := str(p["id"])
+		var b := _asset_button("%s  ·  %s  ·  %d OVR  ·  %d POT  ·  %d" % [GameDB.player_display_name(p),
+				Ratings.role_tag(p), int(p["overall"]), int(p.get("potential", p["overall"])),
+				int(p.get("age", 0))], chosen.has(id))
+		b.name = prefix + id
+		b.pressed.connect(_toggle.bind(chosen, id))
+		body.add_child(b)
+
+
+func _asset_button(text: String, on: bool) -> Button:
+	var b := UiKit.btn(text, 14)
+	b.custom_minimum_size = Vector2(0, 44)
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	UiKit.set_selected(b, on)
+	return b
+
+
+## Add or take out one player or pick; a side holds at most TRADE_MAX.
+func _toggle(chosen: Array, id: String) -> void:
+	if chosen.has(id):
+		chosen.erase(id)
+	elif chosen.size() < TRADE_MAX:
+		chosen.append(id)
+	_build()
 
 
 func _pick_label(pk: Dictionary) -> String:
@@ -604,43 +707,6 @@ func _pick_label(pk: Dictionary) -> String:
 	if str(pk["origin"]) != str(pk["owner"]):
 		text += " (via %s)" % GameDB.club_name(str(pk["origin"]))
 	return text
-
-
-func _pick_grid(list: Array, chosen: Array, prefix: String) -> Control:
-	var v := UiKit.vbox(3)
-	var sorted := list.duplicate()
-	sorted.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
-	for p in sorted:
-		var id := str(p["id"])
-		var on := chosen.has(id)
-		var b := UiKit.tab("%s  ·  %s  ·  %d OVR  ·  %d POT  ·  $%d" % [GameDB.player_display_name(p),
-				Ratings.role_tag(p), int(p["overall"]), int(p.get("potential", p["overall"])),
-				int(p.get("salary", 0))], on)
-		b.name = prefix + id
-		b.custom_minimum_size = Vector2(0, 40)
-		b.clip_text = true
-		b.pressed.connect(func():
-			if chosen.has(id):
-				chosen.erase(id)
-			elif chosen.filter(func(x): return not str(x).begins_with("pick:")).size() < 2:
-				chosen.append(id)
-			_build())
-		v.add_child(b)
-	return v
-
-
-func _names(ids: Array, club: String) -> String:
-	var out := []
-	for id in ids:
-		if str(id).begins_with("pick:"):
-			var pk := GameState.pick_asset(str(id))
-			if not pk.is_empty():
-				out.append(str(pk["name"]))
-			continue
-		for p in GameState.season.lists.get(club, []):
-			if str(p["id"]) == str(id):
-				out.append(GameDB.player_display_name(p))
-	return ", ".join(out) if not out.is_empty() else "-"
 
 
 func _player_card(p: Dictionary, detail: String) -> PanelContainer:
