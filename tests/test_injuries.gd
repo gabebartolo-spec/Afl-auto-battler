@@ -218,6 +218,21 @@ func _test_tribunal_challenge() -> void:
 			"A resolved Appeals Board case cannot be appealed twice")
 
 
+	var prior: Dictionary = GameState.my_list[2]
+	var prior_id := str(prior["id"])
+	prior["brownlow_ineligible_cases"] = ["earlier-case"]
+	prior["brownlow_ineligible"] = true
+	var later_report := {"side": 0, "id": prior_id, "name": GameDB.player_display_name(prior),
+			"victim_id": "v3", "victim_name": "Victim", "reason": "rough conduct",
+			"outcome": "suspension", "weeks": 1, "tribunal_roll": 0.0, "appeal_roll": 0.0,
+			"challenged": false, "appealed": false}
+	GameState._process_discipline([{"home": "GEE", "away": "COL", "reports": [later_report]}])
+	GameState.challenge_mro(prior_id)
+	_check(bool(prior.get("brownlow_ineligible", false))
+			and (prior.get("brownlow_ineligible_cases", []) as Array).has("earlier-case"),
+			"Winning a later case does not erase Brownlow ineligibility from an earlier upheld case")
+
+
 ## Playtest impression: players get hurt more when the round is simulated
 ## than when it is played. Measured over 600 paired matches: the same players
 ## were hurt either way in every one (0.685 a team a game, 2.64 weeks,
