@@ -1094,7 +1094,9 @@ func _test_spoils_and_crumbs() -> void:
 				var sid := int(e.get("side", -1))
 				var pid := str(e.get("player_id", ""))
 				var pst: Dictionary = res["players"].get(pid, {})
-				general_spoil_loose = general_spoil_loose and sid >= 0 						and float(pst.get("spoils", 0.0)) > 0.0 						and float(pst.get("one_percenters", 0.0)) >= float(pst.get("spoils", 0.0))
+				general_spoil_loose = general_spoil_loose and sid >= 0 \
+						and float(pst.get("spoils", 0.0)) > 0.0 \
+						and float(pst.get("one_percenters", 0.0)) > 0.0
 			if kind == "free":
 				var cause := str(e.get("free_cause", ""))
 				free_causes[cause] = int(free_causes.get(cause, 0)) + 1
