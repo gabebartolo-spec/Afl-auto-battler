@@ -6,6 +6,7 @@ var checks := 0
 
 func run() -> void:
 	_test_budget_model()
+	_test_budget_allocation_state()
 	_test_recovery()
 	_test_match()
 	_test_selection()
@@ -47,6 +48,28 @@ func _test_budget_model() -> void:
 			{"B": ClubBudget.recovery_mult(3)})
 	_check(Workload.value(funded) < Workload.value(normal),
 			"Elite High performance produces more weekly recovery than Standard")
+
+
+func _test_budget_allocation_state() -> void:
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	GameState.season.round_index = GameState.season.fixture.size()
+	GameState.open_offseason()
+	_check(GameState.department_budget_year == GameState.season_year + 1
+			and is_equal_approx(GameState.department_budget_spent_m(), ClubBudget.ANNUAL_M),
+			"The off-season opens a fresh Standard allocation for the coming year")
+	var blocked := GameState.set_department_budget("recruiting", 2)
+	_check(not bool(blocked.get("ok", true)),
+			"You cannot raise a department above the fixed annual budget")
+	var cut := GameState.set_department_budget("high_performance", 0)
+	var raised := GameState.set_department_budget("recruiting", 2)
+	_check(bool(cut.get("ok", false)) and bool(raised.get("ok", false))
+			and is_equal_approx(GameState.department_budget_remaining_m(), 0.0),
+			"Cutting one department creates room to fund another")
+	var snapshot: Dictionary = GameState.department_budget.duplicate()
+	_check(GameState.save_career() and GameState.load_career()
+			and GameState.department_budget == snapshot,
+			"The annual department allocation survives save/load")
 
 
 func _test_recovery() -> void:
