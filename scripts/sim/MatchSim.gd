@@ -106,6 +106,13 @@ var stat_rng := RandomNumberGenerator.new()
 ## Whether a mark inside 50 ends in a set shot and from where (SET_BANDS):
 ## its own stream, so the rest of the match draws exactly as before.
 var shot_rng := RandomNumberGenerator.new()
+## Smothers alter possession but use their own stream, so ordinary disposal
+## outcomes keep the calibration RNG sequence they had before this feature.
+var smother_rng := RandomNumberGenerator.new()
+## Spectacular-mark selection is presentation/stat context only.
+var speccy_rng := RandomNumberGenerator.new()
+var _speccy_quota := 0
+var _speccies := 0
 ## Boundary law rolls are isolated from the calibrated play RNG. Adding or
 ## tuning boundary frequency therefore does not silently re-roll ordinary
 ## disposals in chains that stay in play.
@@ -163,6 +170,10 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	moment_rng.seed = seed * 7 + 13
 	stat_rng.seed = seed * 11 + 5
 	shot_rng.seed = seed * 13 + 3
+	smother_rng.seed = seed * 23 + 29
+	speccy_rng.seed = seed * 31 + 37
+	var speccy_bucket := posmod(hash("speccy|%d" % seed), 10)
+	_speccy_quota = 0 if speccy_bucket < 3 else (1 if speccy_bucket < 9 else 2)
 	boundary_rng.seed = seed * 17 + 19
 	injury_rng.seed = seed * 13 + 7
 	for side in range(2):
@@ -824,6 +835,10 @@ const PRESS_ZONE_EDGE := 20.0
 const PRESS_RUSH_RATIO := 2.0
 const PRESS_TURNOVER := 0.08
 const PRESS_RUSH_GAIN := 0.80
+## A close defender occasionally gets boot to ball. Around one or two per
+## match across both sides; pressure and the smotherer's ability move it.
+const SMOTHER_BASE := 0.008
+const SMOTHER_CAP := 0.022
 
 
 static func _press_zone(atk_fp: float) -> int:
@@ -1187,6 +1202,24 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				return {"outcome": "turnover", "fp": fp, "actor": presser}
 			rushed = true
 
+		# A smother is a real blocked kick, not a decorative stat. It leaves
+		# the ball live at the contest, so the next chain is won as a loose
+		# ball rather than automatically handed to either side.
+		if disposal_kind == "kick" and not marked:
+			var smotherer = _pick_presser(opp, zone)
+			var smother_p := SMOTHER_BASE * (0.55 + 0.90 * _a(smotherer, "pressure") / 100.0)
+			smother_p *= 1.35 if rushed else 0.85
+			if smother_rng.randf() < minf(SMOTHER_CAP, smother_p):
+				_t(opp, "smothers")
+				_p(smotherer, "smothers")
+				_t(opp, "one_percenters")
+				_p(smotherer, "one_percenters")
+				_t(opp, "pressure_acts")
+				_p(smotherer, "pressure_acts")
+				_emit("smother", opp, fp, smotherer,
+						"%s smothers the kick" % GameDB.player_display_name(smotherer))
+				return {"outcome": "loose", "fp": fp, "actor": smotherer}
+
 		var prev_atk_fp := atk_fp
 		var gain: float = (float(T["metres_gain_mean"])
 				* (0.55 + 0.90 * _a(carrier, "carry") / 100.0))
@@ -1290,9 +1323,25 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		_p(shooter, "marks")
 		# Most forward marks come on the lead; some are taken in a one-on-one
 		# (stat_rng, so play is unchanged).
-		if stat_rng.randf() < 0.35 + mark_edge:
+		var contested := stat_rng.randf() < 0.35 + mark_edge
+		if contested:
 			_t(side, "contested_marks")
 			_p(shooter, "contested_marks")
+		var speccy := false
+		if contested and _speccies < _speccy_quota:
+			# The quota gives the requested long-run shape: 30% none, 60% one,
+			# 10% up to two (mean 0.8, hard max two). Aerial/marking quality
+			# decides which genuine contested marks earn the spectacular tag.
+			var spectacular_p := clampf(0.28 + (_a(shooter, "marking") - 50.0) / 180.0
+					+ (0.12 if _trait(shooter, "aerial") else 0.0), 0.16, 0.62)
+			if speccy_rng.randf() < spectacular_p:
+				speccy = true
+				_speccies += 1
+		_emit("mark", side, fp, shooter,
+				"%s takes %smark" % [GameDB.player_display_name(shooter), "a spectacular " if speccy else "the "])
+		var mev: Dictionary = events[events.size() - 1]
+		mev["contested"] = contested
+		mev["speccy"] = speccy
 	var spoil_edge := 0.05 if defender != null and _trait(defender, "interceptor") else 0.0
 	var spoil_read := dfn.def_intercept
 	if not matched.is_empty():
@@ -1850,7 +1899,7 @@ func _play_one_chain(T: Dictionary) -> void:
 	_prev_end = outcome
 	if outcome == "score":
 		fp = 0.0
-	if outcome == "boundary" or outcome == "free":
+	if ["boundary", "free", "loose"].has(outcome):
 		_after_chain()
 		return
 
