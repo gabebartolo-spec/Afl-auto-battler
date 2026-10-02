@@ -8,8 +8,8 @@ const FEED_LIMIT := 60
 const SPEEDS := [1.0, 2.0, 4.0, 8.0]
 ## Routine play drives the animation but would drown the feed; the feed
 ## keeps what MatchNotes.FEED_KINDS names (goals, behinds, breaks, calls).
-const QUIET_KINDS := ["kick", "handball", "sub", "ballup", "mark", "tackle", "pressure", "inside50",
-		"rebound", "clanger", "free"]
+const QUIET_KINDS := ["kick", "handball", "sub", "ballup", "throwin", "mark", "tackle", "pressure", "inside50",
+		"rebound", "clanger", "free", "last_disposal", "out_on_full"]
 ## A run of goals worth a line in the feed.
 const RUN_LINE := 3
 ## MatchSim's minutes per quarter (it stamps Q2 from 31, Q3 from 61...).
