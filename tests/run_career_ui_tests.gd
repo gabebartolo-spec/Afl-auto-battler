@@ -800,6 +800,24 @@ func _run() -> void:
 	var verdict = current_scene.find_child("TradeVerdict", true, false)
 	_check(verdict != null and not str(verdict.text).contains("You give: -"),
 			"Picking players shows the other club's verdict")
+	_check(current_scene.find_child("TradeClubPhase", true, false) != null,
+			"The trade tab says where the other club is in its cycle")
+	# Picking a player rebuilds the tab but keeps your place in a long list.
+	var box: ScrollContainer = current_scene.get("_scroll_box")
+	box.scroll_vertical = 600
+	await _settle()
+	var held := box.scroll_vertical
+	var deep = null
+	for n in current_scene.find_children("Mine_*", "Button", true, false):
+		deep = n
+	var found: bool = deep != null
+	if found:
+		deep.emit_signal("pressed")
+		await _settle()
+		await _settle()
+	var after: ScrollContainer = current_scene.get("_scroll_box")
+	_check(held > 0 and found and absi(after.scroll_vertical - held) <= 4,
+			"Picking a player keeps the trade list where it was (%d then %d)" % [held, after.scroll_vertical])
 	_router.handle_back(true)
 	await _settle()
 
