@@ -3182,10 +3182,10 @@ func projected_compensation(p: Dictionary) -> Dictionary:
 const TRADE_PICK_ROUNDS := 3
 
 
-## The draft years whose picks can be traded now: this year's national
-## draft while the off-season is open.
+## The draft years whose picks can be traded now, while the off-season is
+## open: this year's national draft and next year's.
 func trade_pick_years() -> Array:
-	return [season_year] if offseason_open() else []
+	return [season_year, season_year + 1] if offseason_open() else []
 
 
 func pick_id(year: int, rnd: int, origin: String) -> String:
@@ -3207,12 +3207,12 @@ func pick_asset(id: String) -> Dictionary:
 	var rnd := int(parts[2])
 	var origin := str(parts[3])
 	if not trade_pick_years().has(year) or rnd < 1 or rnd > trade_pick_rounds(year) \
-			or not GameDB.active_clubs(season_year).has(origin):
+			or not GameDB.active_clubs(season_year).has(origin) or not GameDB.active_clubs(year).has(origin):
 		return {}
-	var at := draft_spot(year, rnd, origin)
+	var positions := [[draft_spot(year, rnd, origin), 1.0]] if year == season_year else future_spots(rnd, origin)
 	return {"pick": true, "id": id, "year": year, "round": rnd, "origin": origin,
-			"owner": pick_owner_of(year, rnd, origin), "positions": [[at, 1.0]],
-			"name": _pick_name(year, rnd, origin, at)}
+			"owner": pick_owner_of(year, rnd, origin), "positions": positions,
+			"name": _pick_name(year, rnd, origin, int(positions[0][0]) if year == season_year else 0)}
 
 
 ## The overall pick a club's pick in `rnd` will be in this year's national
@@ -3228,10 +3228,31 @@ func draft_spot(year: int, rnd: int, origin: String) -> int:
 	return (rnd - 1) * n + in_round
 
 
+## Where a club's pick in next year's draft might fall: [[overall pick,
+## weight], ...] over every spot in the round. Nobody knows where a club
+## will finish, so the spread is wide, centred on what anyone can see now -
+## this season's finish and how its list ranks.
+func future_spots(rnd: int, origin: String) -> Array:
+	var n := GameDB.active_clubs(season_year).size()
+	var standing := _standing(origin)
+	var t := float(standing[1]) if float(standing[0]) < 0.0 else 0.5 * float(standing[0]) + 0.5 * float(standing[1])
+	# Ladder place 0 (top) .. n-1; the draft runs the ladder in reverse.
+	var expect := t * float(n - 1)
+	var sigma := float(n) / 4.0
+	var out := []
+	for place in range(n):
+		var in_round := n - place if rnd % 2 == 1 else place + 1
+		var w := exp(-pow(float(place) - expect, 2.0) / (2.0 * sigma * sigma))
+		out.append([(rnd - 1) * n + in_round, w])
+	out.sort_custom(func(a, b): return float(a[1]) > float(b[1]))
+	return out
+
+
 func _pick_name(year: int, rnd: int, origin: String, at: int) -> String:
 	var nth: String = ["first", "second", "third", "fourth"][clampi(rnd - 1, 0, 3)]
-	return "%s %d %s-round pick (No. %d)" % [GameDB.club_name(origin) + ("'" if GameDB.club_name(origin).ends_with("s") else "'s"),
-			year, nth, at]
+	var name := "%s %d %s-round pick" % [GameDB.club_name(origin) + ("'" if GameDB.club_name(origin).ends_with("s") else "'s"),
+			year, nth]
+	return name + (" (No. %d)" % at if at > 0 else "")
 
 
 ## The tradeable picks `code` owns, earliest first.
@@ -3242,7 +3263,12 @@ func club_picks(code: String) -> Array:
 			for origin in GameDB.active_clubs(season_year):
 				if pick_owner_of(int(year), rnd, str(origin)) == code:
 					out.append(pick_asset(pick_id(int(year), rnd, str(origin))))
-	out.sort_custom(func(a, b): return int(a["positions"][0][0]) < int(b["positions"][0][0]))
+	out.sort_custom(func(a, b):
+		if int(a["year"]) != int(b["year"]):
+			return int(a["year"]) < int(b["year"])
+		if int(a["round"]) != int(b["round"]):
+			return int(a["round"]) < int(b["round"])
+		return int(a["positions"][0][0]) < int(b["positions"][0][0]))
 	return out
 
 
@@ -3261,7 +3287,8 @@ func draft_pick_owners(year: int) -> Dictionary:
 func trade_prospects() -> Dictionary:
 	var out := {}
 	for year in trade_pick_years():
-		out[str(year)] = TradeValue.rank_prospects(_open_class(int(year)))
+		# Next year's class isn't known yet: this year's stands in for it.
+		out[str(year)] = TradeValue.rank_prospects(_open_class(mini(int(year), season_year)))
 	return out
 
 
@@ -3279,6 +3306,8 @@ func _open_class(year: int) -> Array:
 ## Rounds of `year`'s draft that can be traded: the rounds it will run (as
 ## many as the class fills, Draft.build_intake), at most TRADE_PICK_ROUNDS.
 func trade_pick_rounds(year: int) -> int:
+	if year > season_year:
+		year = season_year  # next year's class isn't known yet: assume one like this year's
 	var clubs := maxi(1, GameDB.active_clubs(season_year).size())
 	var rounds := clampi(ceili(float(_open_class(year).size()) / float(clubs)), 1, 4)
 	return mini(TRADE_PICK_ROUNDS, rounds)
@@ -3374,6 +3403,20 @@ func _league_fingerprint() -> String:
 
 
 func _club_phase(club: String) -> String:
+	var standing := _standing(club)
+	var side := Ratings.select_22(season.lists[club])
+	var ages := 0.0
+	var n := 0
+	for q in (side["ground"] as Array) + (side["bench"] as Array):
+		ages += float(q.get("age", 25.0))
+		n += 1
+	return TradeValue.phase(float(standing[0]), float(standing[1]), ages / float(maxi(1, n)))
+
+
+## What anyone can see of where a club stands: [finish_t (0 premiers .. 1
+## wooden spoon, -1 before a game is played), strength_t (its list's rank, 0
+## best .. 1 weakest)].
+func _standing(club: String) -> Array:
 	var played := false
 	for code in season.ladder:
 		if int((season.ladder[code] as Dictionary).get("p", 0)) > 0:
@@ -3394,13 +3437,7 @@ func _club_phase(club: String) -> String:
 	for k in range(ranks.size()):
 		if str(ranks[k][0]) == club:
 			strength_t = float(k) / float(maxi(1, ranks.size() - 1))
-	var side := Ratings.select_22(season.lists[club])
-	var ages := 0.0
-	var n := 0
-	for q in (side["ground"] as Array) + (side["bench"] as Array):
-		ages += float(q.get("age", 25.0))
-		n += 1
-	return TradeValue.phase(finish_t, strength_t, ages / float(maxi(1, n)))
+	return [finish_t, strength_t]
 
 
 ## Do the trade if `club` accepts: players change lists, picks change owners.
