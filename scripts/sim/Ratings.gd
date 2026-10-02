@@ -10,7 +10,7 @@ extends RefCounted
 ## Tunables - single source of truth for match balance. Mirrored in
 ## tools/sim_harness.py (dict `T`).
 const T := {
-	"chains_per_game": 180,          # possession chains across BOTH teams
+	"chains_per_game": 200,          # possession chains across BOTH teams
 	"max_touches_per_chain": 14,
 	"forward50_line": 35.0,          # metres from the centre square
 	"goal_line": 85.0,
@@ -23,7 +23,7 @@ const T := {
 	"handball_share": 0.44,
 	"inside50_goal": 0.269,          # of inside-50 entries
 	"inside50_behind": 0.180,
-	"stoppage_share": 0.465,         # chains that begin at a genuine stoppage
+	"stoppage_share": 0.42,          # chains that begin at a genuine stoppage
 	"hitouts_per_stoppage": 0.81,    # split between the two rucks
 	"clearance_per_stoppage": 0.815,  # to the team that wins the stoppage
 	"one_percenter_share": 0.83,     # of inside-50 entries that yield a 1%

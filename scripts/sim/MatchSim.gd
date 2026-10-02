@@ -909,7 +909,7 @@ const HIGH_CONTACT_BASE := 0.022
 const HTB_NO_PRIOR := 0.10
 const HTB_PRIOR := 0.24
 const MARK_FREE_BASE := 0.020
-const GENERIC_FREE_MULT := 0.62
+const GENERIC_FREE_MULT := 0.40
 
 
 ## Who gives away a side's clanger: poor discipline makes it likelier, a
@@ -2470,6 +2470,10 @@ func _play_one_chain(T: Dictionary) -> void:
 			_prev_end = "free"
 			fp = _award_context_free(1 - side, fp, err, recipient,
 					"general", "General infringement")
+			# Play restarts from the free (and any 50), not another bounce.
+			at_centre = false
+			kick_in = false
+			boundary_throw_in = false
 	_after_chain()
 
 
