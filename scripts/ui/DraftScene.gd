@@ -1340,11 +1340,11 @@ func _refresh_status() -> void:
 		# enough is kept to fill the rest of your list.
 		var usable := maxi(0, _draft.usable_cap_for(_club))
 		if _draft.count() >= _draft.target_size:
-			_cap.text = "Cap left $%d\nList complete" % _draft.remaining()
+			_cap.text = "Cap left %s\nList complete" % Contracts.money(_draft.remaining())
 		elif usable < _draft.remaining():
-			_cap.text = "Cap left $%d\nUp to $%d this pick" % [_draft.remaining(), usable]
+			_cap.text = "Cap left %s\nUp to %s this pick" % [Contracts.money(_draft.remaining()), Contracts.money(usable)]
 		else:
-			_cap.text = "Cap left $%d\n$%d spent" % [_draft.remaining(), _draft.spent()]
+			_cap.text = "Cap left %s\n%s spent" % [Contracts.money(_draft.remaining()), Contracts.money(_draft.spent())]
 	var status := _draft.position_status()
 	for role in ROLES:
 		var st: Dictionary = status[role]
