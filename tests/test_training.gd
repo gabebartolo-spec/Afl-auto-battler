@@ -23,6 +23,7 @@ func run() -> void:
 	_test_old_plans_migrate()
 	_test_training_news()
 	_test_reserves_development()
+	_test_department_development()
 	_test_stat_guide_complete()
 	_test_dual_role_plans()
 	GameState.delete_saved_career()
@@ -319,6 +320,39 @@ func _test_reserves_development() -> void:
 	_check(GameState.xp_gain_for(depth) == res_xp,
 			"Reserves XP is the same on Hard (%d)" % GameState.xp_gain_for(depth))
 	GameState.difficulty = "normal"
+
+
+func _test_department_development() -> void:
+	_new_season()
+	# Hold coach teaching at par so this check isolates the club allocation.
+	var staff := GameState.club_staff(GameState.my_club)
+	for coach in staff.values():
+		for key in ["teach", "tactics", "manage"]:
+			coach["skills"][key] = 70
+		coach["spec"] = {"MID": "MID", "FWD": "FWD", "DEF": "DEF", "DEV": "DEV"}.get(
+				str(coach["job"]), "")
+	var kid: Dictionary = GameState.my_list[0]
+	kid["age"] = 20
+	kid["xp"] = 0
+	var result := {"home": GameState.my_club, "away": "COL", "players": {}}
+
+	GameState.department_budget["development"] = 0
+	var low: Dictionary = GameState._grant_xp(GameState.my_club, GameState.my_list, result)
+	var low_gain := 0
+	for row in low["rows"]:
+		if str(row["id"]) == str(kid["id"]):
+			low_gain = int(row["xp"])
+	kid["xp"] = 0
+	GameState.department_budget["development"] = 3
+	var elite: Dictionary = GameState._grant_xp(GameState.my_club, GameState.my_list, result)
+	var elite_gain := 0
+	for row in elite["rows"]:
+		if str(row["id"]) == str(kid["id"]):
+			elite_gain = int(row["xp"])
+	_check(elite_gain > low_gain,
+			"Development funding directly changes a young player's XP (%d Minimal, %d Elite)" % [
+			low_gain, elite_gain])
+	GameState.department_budget["development"] = ClubBudget.STANDARD
 
 
 func _test_stat_guide_complete() -> void:

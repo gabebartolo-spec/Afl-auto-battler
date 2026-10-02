@@ -5,6 +5,8 @@ var checks := 0
 
 
 func run() -> void:
+	_test_budget_model()
+	_test_budget_allocation_state()
 	_test_recovery()
 	_test_match()
 	_test_selection()
@@ -20,6 +22,54 @@ func _check(ok: bool, message: String) -> void:
 	if not ok:
 		failures.append(message)
 		push_error(message)
+
+
+func _test_budget_model() -> void:
+	var standard := ClubBudget.defaults()
+	_check(is_equal_approx(ClubBudget.total_m(standard), ClubBudget.ANNUAL_M),
+			"Standard funding in all four departments exactly fills the annual budget")
+	var rebuild := {
+		"recruiting": 2, "development": 2,
+		"high_performance": 0, "football": 0,
+	}
+	_check(is_equal_approx(ClubBudget.total_m(rebuild), ClubBudget.ANNUAL_M),
+			"A rebuild can fund Recruiting and Development strongly by cutting the other two")
+	_check(ClubBudget.development_mult(3) > ClubBudget.development_mult(2)
+			and ClubBudget.development_mult(2) > ClubBudget.development_mult(1)
+			and ClubBudget.development_mult(1) > ClubBudget.development_mult(0),
+			"More Development funding always has a larger, diminishing XP benefit")
+	_check(ClubBudget.benefit_text("recruiting", 2).contains("20% narrower")
+			and ClubBudget.benefit_text("high_performance", 3).contains("20% higher"),
+			"Funding benefits are stated as exact effects, not hidden scores")
+
+	var normal := {"id": "normal", "age": 25, "attr": {"durability": 70}, "workload": 50.0}
+	var funded := {"id": "funded", "age": 25, "attr": {"durability": 70}, "workload": 50.0}
+	Workload.advance_week({"A": [normal], "B": [funded]}, [], "budget",
+			{"B": ClubBudget.recovery_mult(3)})
+	_check(Workload.value(funded) < Workload.value(normal),
+			"Elite High performance produces more weekly recovery than Standard")
+
+
+func _test_budget_allocation_state() -> void:
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	GameState.season.round_index = GameState.season.fixture.size()
+	GameState.open_offseason()
+	_check(GameState.department_budget_year == GameState.season_year + 1
+			and is_equal_approx(GameState.department_budget_spent_m(), ClubBudget.ANNUAL_M),
+			"The off-season opens a fresh Standard allocation for the coming year")
+	var blocked := GameState.set_department_budget("recruiting", 2)
+	_check(not bool(blocked.get("ok", true)),
+			"You cannot raise a department above the fixed annual budget")
+	var cut := GameState.set_department_budget("high_performance", 0)
+	var raised := GameState.set_department_budget("recruiting", 2)
+	_check(bool(cut.get("ok", false)) and bool(raised.get("ok", false))
+			and is_equal_approx(GameState.department_budget_remaining_m(), 0.0),
+			"Cutting one department creates room to fund another")
+	var snapshot: Dictionary = GameState.department_budget.duplicate()
+	_check(GameState.save_career() and GameState.load_career()
+			and GameState.department_budget == snapshot,
+			"The annual department allocation survives save/load")
 
 
 func _test_recovery() -> void:
@@ -200,4 +250,35 @@ func _test_ui() -> void:
 	_check(explanation != null and explanation.text.contains("week out of seniors"),
 			"The profile explains how the coach can help a tired player recover")
 	screen.queue_free()
+	await tree.process_frame
+
+	# The annual allocation must remain readable and tappable on the same
+	# narrow portrait viewport used for the Android playtest.
+	GameState.season.round_index = GameState.season.fixture.size()
+	GameState.open_offseason()
+	var offseason: Control = load("res://scenes/OffseasonScene.tscn").instantiate()
+	tree.root.add_child(offseason)
+	for i in range(4):
+		await tree.process_frame
+	var budget_tab := offseason.find_child("Tab_budget", true, false) as Button
+	_check(budget_tab != null, "The off-season exposes the annual Budget tab")
+	if budget_tab != null:
+		budget_tab.emit_signal("pressed")
+		for i in range(4):
+			await tree.process_frame
+	var budget_summary := offseason.find_child("BudgetSummary", true, false) as Label
+	var benefit := offseason.find_child("BudgetBenefit_recruiting", true, false) as Label
+	var next_benefit := offseason.find_child("BudgetNext_recruiting", true, false) as Label
+	var lower := offseason.find_child("BudgetLower_recruiting", true, false) as Button
+	var raise := offseason.find_child("BudgetRaise_recruiting", true, false) as Button
+	_check(budget_summary != null and budget_summary.text.contains("$12.0m allocated"),
+			"The Budget tab states exactly how much is allocated")
+	_check(benefit != null and benefit.text.contains("standard")
+			and next_benefit != null and next_benefit.text.contains("20% narrower"),
+			"Current and next Recruiting effects are visible before spending")
+	_check(next_benefit != null and next_benefit.autowrap_mode != TextServer.AUTOWRAP_OFF
+			and lower != null and raise != null
+			and lower.custom_minimum_size.y >= 44 and raise.custom_minimum_size.y >= 44,
+			"Budget choices wrap cleanly and keep phone-sized touch targets")
+	offseason.queue_free()
 	await tree.process_frame

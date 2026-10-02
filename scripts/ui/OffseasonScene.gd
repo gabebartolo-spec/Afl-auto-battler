@@ -1,8 +1,6 @@
 extends Control
-## Trades & Contracts: the off-season, between the Grand Final and the
-## national draft. Re-sign or release your expiring players, sign free
-## agents rivals let go, and trade with any club. Everything is priced
-## against the salary cap.
+## The off-season between the Grand Final and the national draft: contracts,
+## free agency, trades and the club's annual department allocation.
 
 var _root: VBoxContainer
 var _tab := "contracts"
@@ -50,7 +48,7 @@ func _build() -> void:
 	if is_instance_valid(_scroll_box):
 		_scroll_positions[_scroll_tab] = _scroll_box.scroll_vertical
 	UiKit.clear(_root)
-	_root.add_child(UiKit.top_bar("Trades & Contracts", true))
+	_root.add_child(UiKit.top_bar("Off-season", true))
 	var head := UiKit.panel(UiKit.PANEL, 10, 8)
 	_root.add_child(head)
 	var hv := UiKit.vbox(4)
@@ -67,7 +65,7 @@ func _build() -> void:
 		hv.add_child(_para(_notice, 13, UiKit.GOOD))
 	var tabs := UiKit.hbox(4)
 	_root.add_child(tabs)
-	for t in [["contracts", "Contracts"], ["agents", "Free agents (%d)" % GameState.free_agents.size()], ["trade", "Trade"]]:
+	for t in [["contracts", "Contracts"], ["agents", "Agents"], ["trade", "Trade"], ["budget", "Budget"]]:
 		var b := UiKit.tab(str(t[1]), _tab == str(t[0]))
 		b.name = "Tab_" + str(t[0])
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -87,6 +85,8 @@ func _build() -> void:
 			_agents(body)
 		"trade":
 			_trade(body)
+		"budget":
+			_budget(body)
 	_restore_scroll(_scroll_box, int(_scroll_positions.get(_tab, 0)))
 
 
@@ -94,6 +94,77 @@ func _restore_scroll(scroll: ScrollContainer, offset: int) -> void:
 	await get_tree().process_frame
 	if is_instance_valid(scroll):
 		scroll.scroll_vertical = offset
+
+
+func _budget(body: VBoxContainer) -> void:
+	var year := GameState.department_budget_year if GameState.department_budget_year > 0 \
+			else GameState.season_year + 1
+	body.add_child(UiKit.lbl("Club budget · %d" % year, 17, UiKit.EMPH, true))
+	body.add_child(_para(
+			"$%.1fm to allocate for the football year. It resets next off-season; there is no bank balance to hoard." \
+			% ClubBudget.ANNUAL_M, 13, UiKit.MUTED))
+	var spent := GameState.department_budget_spent_m()
+	var remaining := GameState.department_budget_remaining_m()
+	var summary := UiKit.lbl("$%.1fm allocated  ·  $%.1fm remaining" % [spent, maxf(0.0, remaining)],
+			14, UiKit.TEXT, true)
+	summary.name = "BudgetSummary"
+	body.add_child(summary)
+	body.add_child(UiKit.spacer(4))
+
+	for area in ClubBudget.AREA_ORDER:
+		var level := GameState.department_budget_level(area)
+		var card := UiKit.panel(UiKit.PANEL, 8, 8)
+		card.name = "Budget_" + area
+		body.add_child(card)
+		var v := UiKit.vbox(4)
+		card.add_child(v)
+		var head := UiKit.hbox(8)
+		v.add_child(head)
+		var label := UiKit.lbl(str(ClubBudget.AREA_LABEL[area]), 15, UiKit.TEXT, true)
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(label)
+		head.add_child(UiKit.line("%s · $%.1fm" % [
+				ClubBudget.level_label(level), ClubBudget.cost_m(level)], 13, UiKit.MUTED, true))
+
+		var current := _para(ClubBudget.benefit_text(area, level), 13, UiKit.TEXT)
+		current.name = "BudgetBenefit_" + area
+		v.add_child(current)
+
+		var next_text := UiKit.lbl("", 12, UiKit.MUTED)
+		next_text.name = "BudgetNext_" + area
+		next_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		if level < ClubBudget.LEVELS.size() - 1:
+			next_text.text = "Raise to %s ($%.1fm): %s" % [
+					ClubBudget.level_label(level + 1), ClubBudget.cost_m(level + 1),
+					ClubBudget.benefit_text(area, level + 1)]
+		else:
+			next_text.text = "Maximum funding."
+		v.add_child(next_text)
+
+		var controls := UiKit.hbox(6)
+		v.add_child(controls)
+		var lower := UiKit.btn("Lower", 13)
+		lower.name = "BudgetLower_" + area
+		lower.custom_minimum_size.y = 44
+		lower.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lower.disabled = level <= 0
+		lower.pressed.connect(_change_budget.bind(area, level - 1))
+		controls.add_child(lower)
+
+		var raise := UiKit.btn("Raise", 13)
+		raise.name = "BudgetRaise_" + area
+		raise.custom_minimum_size.y = 44
+		raise.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		raise.disabled = level >= ClubBudget.LEVELS.size() - 1 \
+				or not GameState.can_set_department_budget(area, level + 1)
+		raise.pressed.connect(_change_budget.bind(area, level + 1))
+		controls.add_child(raise)
+
+
+func _change_budget(area: String, level: int) -> void:
+	var result := GameState.set_department_budget(area, level)
+	_notice = "" if bool(result.get("ok", false)) else str(result.get("reason", ""))
+	_build()
 
 
 func _contracts(body: VBoxContainer) -> void:

@@ -68,6 +68,10 @@ var fa_closed_year := 0          # the season whose free agency has closed
 var compensation: Array = []
 var offseason_log: Array = []    # what happened in the off-season, for news
 var offseason_staff := {}        # your staff (job -> cid) when the off-season opened
+## Annual discretionary department funding for the coming season. It is an
+## allocation, not cash carried between years (ClubBudget).
+var department_budget := {}
+var department_budget_year := 0
 var season_wrap := {}            # the off-season briefing shown before Round 1 (season_wrap_lines)
 var _wrap_picks: Array = []      # your National Draft picks, carried into the rollover
 var news: Array = []             # league news feed, newest first
@@ -288,6 +292,8 @@ func save_career() -> bool:
 		"fa_closed_year": fa_closed_year,
 		"compensation": compensation,
 		"offseason_staff": offseason_staff,
+		"department_budget": department_budget,
+		"department_budget_year": department_budget_year,
 		"season_wrap": season_wrap,
 		"offseason_log": offseason_log,
 		"news": news,
@@ -397,6 +403,9 @@ func load_career() -> bool:
 	fa_closed_year = int(state.get("fa_closed_year", 0))
 	compensation = state.get("compensation", [])
 	offseason_staff = state.get("offseason_staff", {})
+	department_budget = state.get("department_budget", ClubBudget.defaults())
+	department_budget_year = int(state.get("department_budget_year", season_year))
+	_ensure_department_budget()
 	season_wrap = state.get("season_wrap", {})
 	offseason_log = state.get("offseason_log", [])
 	news = state.get("news", [])
@@ -636,6 +645,8 @@ func reset() -> void:
 	compensation = []
 	offseason_log = []
 	offseason_staff = {}
+	department_budget = ClubBudget.defaults()
+	department_budget_year = 0
 	season_wrap = {}
 	_wrap_picks = []
 	news = []
@@ -756,6 +767,9 @@ func begin_intake_draft() -> bool:
 	var seed := int(Time.get_unix_time_from_system()) % 1000000
 	draft = Draft.build_intake(open_pool, active.duplicate(), order,
 			seed, sizes, role_counts, role_pairs)
+	# Recruiting funding narrows only our club's uncertainty; rivals use the
+	# same scouting model at Standard rather than hidden true ratings.
+	draft.scouting_mults[my_club] = recruiting_uncertainty_mult()
 	var comps := []
 	for c in compensation:
 		if active.has(str(c["club"])):
@@ -1153,6 +1167,9 @@ func start_season(club_code: String, list: Array) -> void:
 	# The coaching world from its Round 1 2026 source, carried into this
 	# career's first season with you in your club's top job.
 	coaches = Coaches.seed(my_club)
+	_ensure_department_budget()
+	if department_budget_year <= 0:
+		department_budget_year = season_year
 	_open_board_season()
 	last_phase = "regular"
 	last_label = "Round 1"
@@ -2012,6 +2029,9 @@ func _grant_xp(club: String, list: Array, res: Dictionary) -> Dictionary:
 		var gain := _xp_amount(stats, on_ground, on_bench, reserves)
 		if not coaches.is_empty():
 			gain = int(round(float(gain) * CoachEffects.xp_mult(staff, p, on_ground)))
+		if club == my_club and float(p.get("age", 25.0)) <= ClubBudget.YOUNG_AGE:
+			gain = int(round(float(gain) * ClubBudget.development_mult(
+					department_budget_level("development"))))
 		p["xp"] = int(p.get("xp", 0)) + gain
 		p["xp_games"] = int(p.get("xp_games", 0)) + 1
 		total += gain
@@ -2144,7 +2164,11 @@ func _after_round(results: Array) -> void:
 		var regular := last_phase == "regular"
 		var week := "%d|%s|%d" % [season_year, "R" if regular else "F",
 				season.round_index if regular else (season.finals.get("weeks", []) as Array).size()]
-		Workload.advance_week(season.lists, results, week)
+		var recovery_mults := {}
+		if my_club != "":
+			recovery_mults[my_club] = ClubBudget.recovery_mult(
+					department_budget_level("high_performance"))
+		Workload.advance_week(season.lists, results, week, recovery_mults)
 	_process_injuries(results)
 	for res in results:
 		Awards.tally_match(season_tally, res, not res.has("tag"))
@@ -2303,6 +2327,59 @@ func cap_room() -> int:
 	return salary_cap - my_payroll()
 
 
+# ---------------------------------------------------------------------------
+# Annual club department budget
+# ---------------------------------------------------------------------------
+func _ensure_department_budget() -> void:
+	var clean := ClubBudget.defaults()
+	for area in ClubBudget.AREA_ORDER:
+		clean[area] = ClubBudget.clamp_level(int(department_budget.get(area, ClubBudget.STANDARD)))
+	department_budget = clean
+
+
+func department_budget_level(area: String) -> int:
+	_ensure_department_budget()
+	return int(department_budget.get(area, ClubBudget.STANDARD))
+
+
+func department_budget_spent_m() -> float:
+	_ensure_department_budget()
+	return ClubBudget.total_m(department_budget)
+
+
+func department_budget_remaining_m() -> float:
+	return ClubBudget.ANNUAL_M - department_budget_spent_m()
+
+
+func can_set_department_budget(area: String, level: int) -> bool:
+	if not ClubBudget.valid_area(area) or level < 0 or level >= ClubBudget.LEVELS.size():
+		return false
+	_ensure_department_budget()
+	var trial: Dictionary = department_budget.duplicate()
+	trial[area] = level
+	return ClubBudget.total_m(trial) <= ClubBudget.ANNUAL_M + 0.001
+
+
+## Set one department for the coming season. The allocation can only be
+## changed while the off-season market is open; once the National Draft starts
+## it is locked for that football year.
+func set_department_budget(area: String, level: int) -> Dictionary:
+	if not offseason_open():
+		return {"ok": false, "reason": "Department funding is set during the off-season."}
+	if not ClubBudget.valid_area(area) or level < 0 or level >= ClubBudget.LEVELS.size():
+		return {"ok": false, "reason": "Unknown funding level."}
+	if not can_set_department_budget(area, level):
+		return {"ok": false, "reason": "That allocation would exceed the $%.1fm annual club budget." % ClubBudget.ANNUAL_M}
+	department_budget[area] = level
+	department_budget_year = season_year + 1
+	mark_dirty()
+	return {"ok": true}
+
+
+func recruiting_uncertainty_mult() -> float:
+	return ClubBudget.scouting_mult(department_budget_level("recruiting"))
+
+
 ## True while trades, re-signings and free agency are open: the season is
 ## over and the national draft has not started.
 func offseason_open() -> bool:
@@ -2317,6 +2394,10 @@ func open_offseason() -> void:
 		return
 	ensure_contracts()
 	offseason_year = season_year
+	# The board funds a fresh operating year. Last season's choices do not
+	# become permanent upgrades or compound into a tech tree.
+	department_budget = ClubBudget.defaults()
+	department_budget_year = season_year + 1
 	offseason_log = []
 	compensation = []
 	offseason_staff = Coaches.staff(coaches, my_club) if not coaches.is_empty() else {}
@@ -4072,6 +4153,10 @@ func _refresh_coach_tactics() -> void:
 		CoachEffects.table = {}
 		return
 	CoachEffects.set_table(coaches, GameDB.active_clubs(season_year), my_club)
+	if CoachEffects.table.has(my_club):
+		var mine: Dictionary = CoachEffects.table[my_club]
+		mine["exec"] = clampf(float(mine.get("exec", 1.0)) * ClubBudget.tactics_mult(
+				department_budget_level("football")), 0.75, 1.35)
 
 
 func _vacancy_open(job: String) -> bool:
