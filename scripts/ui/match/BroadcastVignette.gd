@@ -71,7 +71,7 @@ static func pick_kind(ev: Dictionary, prev_ev: Dictionary, next_ev: Dictionary, 
 	if (ek == "goal" or ek == "behind") and bool(ev.get("set_shot", false)) 			and int(ev.get("q", 0)) >= 4 and str(next_ev.get("kind", "")) == "final" 			and _pre_score_margin(ev) <= 6:
 		return AFTER_SIREN
 
-	if ek == "mark" and nearby >= 3:
+	if ek == "mark" and bool(ev.get("speccy", false)) and nearby >= 3:
 		if attack_x < -20.0:
 			return SPECCY_DEFENSIVE
 		if absf(actor.y) > 20.0:
