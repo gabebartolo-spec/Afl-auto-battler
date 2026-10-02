@@ -88,29 +88,36 @@ static func tactics_mult(level: int) -> float:
 ## The UI uses these exact statements before the player spends.
 static func benefit_text(area: String, level: int) -> String:
 	level = clamp_level(level)
-	match area:
-		"recruiting":
-			match level:
-				0: return "Prospect scouting uncertainty is 25% wider than standard."
-				1: return "Prospect scouting uncertainty is at the standard level."
-				2: return "Prospect scouting uncertainty is 20% narrower than standard."
-				3: return "Prospect scouting uncertainty is 35% narrower than standard."
-		"development":
-			match level:
-				0: return "Players aged 22 and under earn 10% less development XP."
-				1: return "Players aged 22 and under earn standard development XP."
-				2: return "Players aged 22 and under earn 10% more development XP."
-				3: return "Players aged 22 and under earn 15% more development XP."
-		"high_performance":
-			match level:
-				0: return "Weekly workload recovery is 10% lower than standard."
-				1: return "Weekly workload recovery is at the standard rate."
-				2: return "Weekly workload recovery is 10% higher than standard."
-				3: return "Weekly workload recovery is 20% higher than standard."
-		"football":
-			match level:
-				0: return "Gameplan execution is 5% lower than standard."
-				1: return "Gameplan execution is at the standard level."
-				2: return "Gameplan execution is 5% higher than standard."
-				3: return "Gameplan execution is 8% higher than standard."
+	if area == "recruiting":
+		if level == 0:
+			return "Prospect scouting uncertainty is 25% wider than standard."
+		if level == 1:
+			return "Prospect scouting uncertainty is at the standard level."
+		if level == 2:
+			return "Prospect scouting uncertainty is 20% narrower than standard."
+		return "Prospect scouting uncertainty is 35% narrower than standard."
+	if area == "development":
+		if level == 0:
+			return "Players aged 22 and under earn 10% less development XP."
+		if level == 1:
+			return "Players aged 22 and under earn standard development XP."
+		if level == 2:
+			return "Players aged 22 and under earn 10% more development XP."
+		return "Players aged 22 and under earn 15% more development XP."
+	if area == "high_performance":
+		if level == 0:
+			return "Weekly workload recovery is 10% lower than standard."
+		if level == 1:
+			return "Weekly workload recovery is at the standard rate."
+		if level == 2:
+			return "Weekly workload recovery is 10% higher than standard."
+		return "Weekly workload recovery is 20% higher than standard."
+	if area == "football":
+		if level == 0:
+			return "Gameplan execution is 5% lower than standard."
+		if level == 1:
+			return "Gameplan execution is at the standard level."
+		if level == 2:
+			return "Gameplan execution is 5% higher than standard."
+		return "Gameplan execution is 8% higher than standard."
 	return ""
