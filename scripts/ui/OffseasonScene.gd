@@ -571,8 +571,9 @@ func _trade(body: VBoxContainer) -> void:
 	_draft_picks(body, "Your draft picks", GameState.my_club, _mine, "Mine_")
 
 
-## A club's tradeable draft picks, earliest first: "2027 first round, No. 3",
-## and the club it came from if it was traded in.
+## A club's tradeable draft picks, earliest first: "2027 first round, No. 3"
+## (next year's has no number yet), and the club it came from if it was
+## traded in.
 func _draft_picks(body: VBoxContainer, title: String, code: String, chosen: Array, prefix: String) -> void:
 	var picks := GameState.club_picks(code)
 	if picks.is_empty():
@@ -597,7 +598,9 @@ func _draft_picks(body: VBoxContainer, title: String, code: String, chosen: Arra
 
 func _pick_label(pk: Dictionary) -> String:
 	var nth: String = ["first", "second", "third", "fourth"][clampi(int(pk["round"]) - 1, 0, 3)]
-	var text := "%d %s round, No. %d" % [int(pk["year"]), nth, int(pk["positions"][0][0])]
+	var text := "%d %s round" % [int(pk["year"]), nth]
+	if int(pk["year"]) == GameState.season_year:
+		text += ", No. %d" % int(pk["positions"][0][0])
 	if str(pk["origin"]) != str(pk["owner"]):
 		text += " (via %s)" % GameDB.club_name(str(pk["origin"]))
 	return text
