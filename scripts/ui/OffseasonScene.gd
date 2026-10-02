@@ -10,8 +10,8 @@ var _mine: Array = []     # your player and pick ids in the trade
 var _theirs: Array = []   # theirs
 var _trade_side := "theirs"   # which list the builder shows to add from
 var _choosing_club := false   # the club sheet is open
-## Most players and picks one side can put in a trade.
-const TRADE_MAX := 5
+var _counter_key := ""
+var _counter := {}
 var _scroll_box: ScrollContainer
 var _scroll_tab := ""
 var _scroll_positions := {}
@@ -539,6 +539,7 @@ func _trade(body: VBoxContainer) -> void:
 	if _choosing_club:
 		_trade_club_sheet(body)
 		return
+	_offers(body)
 	var who := UiKit.hbox(8)
 	who.add_child(UiKit.ellipsis("Trading with %s" % GameDB.club_name(_trade_club), 16, UiKit.TEXT, true))
 	who.get_child(0).size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -564,10 +565,26 @@ func _trade(body: VBoxContainer) -> void:
 			"Nothing yet: add from their list below.")
 	var verdict := GameState.evaluate_trade(_trade_club, _mine, _theirs)
 	var empty := _mine.is_empty() or _theirs.is_empty()
-	var answer := _para("Put something on each side." if empty else str(verdict["reason"]), 14,
+	var shopping := _mine.size() == 1 and _theirs.is_empty()
+	var prompt := "Add what you want back, or put it on the trade table." if shopping else "Put something on each side."
+	var answer := _para(prompt if empty else str(verdict["reason"]), 14,
 			UiKit.GOOD if bool(verdict["ok"]) else UiKit.MUTED)
 	answer.name = "TradeVerdict"
 	body.add_child(answer)
+	if not empty and not bool(verdict["ok"]):
+		var counter := _counter_for(_trade_club, _mine, _theirs)
+		if not counter.is_empty():
+			var ask := _para(str(counter["say"]), 14, UiKit.TEXT)
+			ask.name = "TradeCounter"
+			body.add_child(ask)
+			var apply := UiKit.btn("Make that change", 14)
+			apply.name = "TradeCounterApply"
+			apply.custom_minimum_size = Vector2(0, 44)
+			apply.pressed.connect(func():
+				_mine = (counter["mine"] as Array).duplicate()
+				_theirs = (counter["theirs"] as Array).duplicate()
+				_build())
+			body.add_child(apply)
 	var go := UiKit.btn("Make trade", 16, true)
 	go.name = "MakeTrade"
 	go.custom_minimum_size = Vector2(0, 48)
@@ -580,6 +597,20 @@ func _trade(body: VBoxContainer) -> void:
 			_theirs = []
 		_build())
 	body.add_child(go)
+	if shopping:
+		var listed := GameState.trade_table.has(str(_mine[0]))
+		var table := UiKit.btn("Already on the trade table" if listed else "Put on the trade table", 15)
+		table.name = "TradeTable"
+		table.custom_minimum_size = Vector2(0, 44)
+		table.disabled = listed
+		table.pressed.connect(func():
+			var r := GameState.put_on_trade_table(str(_mine[0]))
+			_notice = str(r["reason"])
+			if bool(r["ok"]):
+				_mine = []
+				_scroll_positions["trade"] = 0
+			_build())
+		body.add_child(table)
 	body.add_child(UiKit.spacer(UiKit.SECTION - 6))
 	var sides := UiKit.hbox(4)
 	for t in [["theirs", "Their list"], ["mine", "Your list"]]:
@@ -596,6 +627,45 @@ func _trade(body: VBoxContainer) -> void:
 	else:
 		_draft_picks(body, _trade_club, _theirs, "Their_")
 		_pick_grid(body, GameState.season.lists.get(_trade_club, []), _theirs, "Their_")
+
+
+## Offers rival clubs have put to you: what they'd give and want, in words,
+## with Accept and No thanks.
+func _offers(body: VBoxContainer) -> void:
+	var open := GameState.open_trade_offers()
+	if open.is_empty():
+		return
+	body.add_child(UiKit.lbl("Offers for your players", 15, UiKit.EMPH, true))
+	for i in open:
+		var text := _para(GameState.trade_offer_text(i), 14, UiKit.TEXT)
+		text.name = "Offer_%d" % i
+		body.add_child(text)
+		var row := UiKit.hbox(8)
+		for b in [["Accept", "OfferAccept_%d" % i, true], ["No thanks", "OfferDecline_%d" % i, false]]:
+			var btn := UiKit.btn(str(b[0]), 14)
+			btn.name = str(b[1])
+			btn.custom_minimum_size = Vector2(0, 44)
+			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			var accept: bool = b[2]
+			btn.pressed.connect(func():
+				if accept:
+					_notice = str(GameState.accept_trade_offer(i)["reason"])
+				else:
+					GameState.decline_trade_offer(i)
+				_build())
+			row.add_child(btn)
+		body.add_child(row)
+	body.add_child(UiKit.spacer(UiKit.SECTION - 6))
+
+
+## The counter for this offer, worked out once per offer (it tries every
+## one of your players and picks).
+func _counter_for(club: String, mine: Array, theirs: Array) -> Dictionary:
+	var key := "%s|%s|%s|%d" % [club, ",".join(mine), ",".join(theirs), GameState.my_list.size()]
+	if key != _counter_key:
+		_counter_key = key
+		_counter = GameState.trade_counter(club, mine, theirs)
+	return _counter
 
 
 ## One side of the trade: each player or pick on its own line with Remove.
@@ -690,11 +760,11 @@ func _asset_button(text: String, on: bool) -> Button:
 	return b
 
 
-## Add or take out one player or pick; a side holds at most TRADE_MAX.
+## Add or take out one player or pick; a side holds at most GameState.TRADE_MAX.
 func _toggle(chosen: Array, id: String) -> void:
 	if chosen.has(id):
 		chosen.erase(id)
-	elif chosen.size() < TRADE_MAX:
+	elif chosen.size() < GameState.TRADE_MAX:
 		chosen.append(id)
 	_build()
 
