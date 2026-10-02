@@ -1184,11 +1184,9 @@ func _queue_broadcast(ev: Dictionary, event_index: int) -> void:
 	var special := kind == BroadcastVignette.AFTER_SIREN
 	var cat := BroadcastVignette.category(kind)
 	if cat == "speccy":
-		# Speccies are rare enough to stay special. The quota is deterministic
-		# from the fixture, so replaying the same match never changes presentation:
-		# 30% of matches get none, 60% get one, 10% may get two (mean 0.8,
-		# hard maximum 2, subject to eligible contests actually occurring).
-		if _broadcast_speccies >= _speccy_quota():
+		# MatchSim now owns whether the mark was actually spectacular and
+		# enforces the 0/1/2 distribution. Presentation only guards the hard cap.
+		if _broadcast_speccies >= 2:
 			return
 	elif _broadcast_seen.has(cat):
 		return
@@ -1205,16 +1203,6 @@ func _queue_broadcast(ev: Dictionary, event_index: int) -> void:
 	_pitch.pause()
 	_show_broadcast.call_deferred(kind, ev.duplicate(true), snap)
 
-
-func _speccy_quota() -> int:
-	var key := "%s|%s|%s" % [str(_res.get("home", "")), str(_res.get("away", "")),
-			str(_res.get("label", ""))]
-	var bucket := posmod(hash(key), 10)
-	if bucket < 3:
-		return 0
-	if bucket < 9:
-		return 1
-	return 2
 
 
 func _show_broadcast(kind: String, ev: Dictionary, snap: Dictionary) -> void:
