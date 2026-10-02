@@ -116,6 +116,9 @@ var shot_rng := RandomNumberGenerator.new()
 ## Smothers alter possession but use their own stream, so ordinary disposal
 ## outcomes keep the calibration RNG sequence they had before this feature.
 var smother_rng := RandomNumberGenerator.new()
+## General-play aerial contests alter real possession outcomes but use their
+## own stream so ordinary non-aerial play keeps its prior RNG ordering.
+var aerial_rng := RandomNumberGenerator.new()
 ## Spectacular-mark selection is presentation/stat context only.
 var speccy_rng := RandomNumberGenerator.new()
 ## Post-free 50m infringements are independent of ordinary play rolls.
@@ -184,6 +187,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	stat_rng.seed = seed * 11 + 5
 	shot_rng.seed = seed * 13 + 3
 	smother_rng.seed = seed * 23 + 29
+	aerial_rng.seed = seed * 73 + 79
 	speccy_rng.seed = seed * 31 + 37
 	discipline_rng.seed = seed * 41 + 43
 	mro_rng.seed = seed * 47 + 53
@@ -1085,6 +1089,11 @@ const PRESS_RUSH_GAIN := 0.80
 ## match across both sides; pressure and the smotherer's ability move it.
 const SMOTHER_BASE := 0.008
 const SMOTHER_CAP := 0.022
+## A subset of genuine 15m+ kicks outside forward 50 become aerial contests.
+## Most ordinary kicks still use the calibrated chain model unchanged.
+const GENERAL_AERIAL_P := 0.040
+const GENERAL_SPOIL_BASE := 0.56
+const GENERAL_MARK_ROLES := {"FWD": 1.0, "MID": 0.85, "DEF": 0.65, "RUCK": 0.70}
 
 
 static func _press_zone(atk_fp: float) -> int:
@@ -1216,6 +1225,63 @@ func _kick_in_play_on(taker) -> bool:
 		return false
 	var chance := clampf(0.30 + _a(taker, "carry") / 180.0, 0.42, 0.82)
 	return restart_rng.randf() < chance
+
+
+## A 15m+ kick in general play can bring two players to the drop. The result
+## is a real mark/spoil/free; a spoil leaves the ball loose rather than gifting
+## possession to the defender.
+func _general_aerial_contest(side: int, mark_fp: float, carrier) -> Dictionary:
+	var opp := 1 - side
+	var target = _weighted_roles((squads[side] as Squad).ground, "marking",
+			GENERAL_MARK_ROLES, 2.0, side, "aerial_target")
+	var defs := _by_roles((squads[opp] as Squad).ground, ["DEF"])
+	if defs.is_empty():
+		defs = (squads[opp] as Squad).ground
+	var defender = _weighted(defs, "intercept", 2.0, opp, "aerial_defender")
+	if target == null or defender == null:
+		return {}
+
+	var infringement := _marking_free(side, target, defender)
+	if not infringement.is_empty():
+		var free_side := int(infringement["side"])
+		var mark := _award_context_free(free_side, mark_fp,
+				infringement["offender"], infringement["recipient"],
+				str(infringement["cause"]), str(infringement["label"]))
+		return {"outcome": "free", "fp": mark, "actor": infringement["recipient"],
+				"free_side": free_side}
+
+	var mark_edge := (_a(target, "marking") - _a(defender, "intercept")) / 260.0
+	if _trait(target, "aerial"):
+		mark_edge += 0.05
+	var mark_p := clampf(0.42 + mark_edge, 0.18, 0.70)
+	if aerial_rng.randf() < mark_p:
+		_t(side, "marks")
+		_p(target, "marks")
+		_t(side, "contested_marks")
+		_p(target, "contested_marks")
+		_emit("mark", side, mark_fp, target,
+				"%s takes a contested mark" % GameDB.player_display_name(target))
+		var mev: Dictionary = events[events.size() - 1]
+		mev["contested"] = true
+		mev["general_play"] = true
+		mev["from_id"] = "" if carrier == null else str(carrier.get("id", ""))
+		return {"outcome": "mark", "fp": mark_fp, "actor": target}
+
+	var spoil_p := clampf(GENERAL_SPOIL_BASE
+			+ (_a(defender, "intercept") - _a(target, "marking")) / 300.0
+			+ (0.06 if _trait(defender, "interceptor") else 0.0), 0.30, 0.82)
+	if aerial_rng.randf() < spoil_p:
+		_t(opp, "spoils")
+		_p(defender, "spoils")
+		_t(opp, "one_percenters")
+		_p(defender, "one_percenters")
+		_emit("spoil", opp, mark_fp, defender,
+				"%s spoils the marking contest" % GameDB.player_display_name(defender))
+		var sev: Dictionary = events[events.size() - 1]
+		sev["against_id"] = str(target.get("id", ""))
+		sev["general_play"] = true
+		return {"outcome": "loose", "fp": mark_fp, "actor": defender}
+	return {}
 
 
 # ---------------------------------------------------------------------------
@@ -1585,6 +1651,19 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		atk_fp = fp if side == 0 else -fp
 		_metres(side, carrier, atk_fp - prev_atk_fp)
 
+		# Outside forward 50, a genuine long kick can become a contested
+		# aerial ball. A mark retains it; a spoil makes the next chain loose.
+		if disposal_kind == "kick" and not marked and gain >= 15.0 and atk_fp < f50 				and aerial_rng.randf() < GENERAL_AERIAL_P:
+			var aerial := _general_aerial_contest(side, fp, carrier)
+			if not aerial.is_empty():
+				match str(aerial["outcome"]):
+					"mark":
+						_effective(side, carrier)
+						pending = null
+						continue
+					"free", "loose":
+						return aerial
+
 		var boundary := _boundary_exit(side, fp, carrier, disposal_kind, rushed, marked)
 		if not boundary.is_empty():
 			return boundary
@@ -1663,6 +1742,17 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	if not matched.is_empty():
 		defender = matched
 		duel_shift = Matchups.mark_shift(shooter, matched)
+
+	# A marking infringement is paid from the contest itself, not from a
+	# post-chain generic dice roll.
+	var infringement := _marking_free(side, shooter, defender)
+	if not infringement.is_empty():
+		var free_side := int(infringement["side"])
+		var mark_fp := _award_context_free(free_side, fp,
+				infringement["offender"], infringement["recipient"],
+				str(infringement["cause"]), str(infringement["label"]))
+		return {"outcome": "free", "fp": mark_fp, "actor": infringement["recipient"],
+				"free_side": free_side}
 
 	var marking_free := _marking_free(side, fp, shooter, defender)
 	if not marking_free.is_empty():
