@@ -42,7 +42,7 @@ const LINES := [
 			"The leakiest defence in the competition."],
 ]
 ## Order among equally weighted facts: what changes a selection first.
-const PRIORITY := ["missing", "danger", "midfield", "ruck", "attack", "defence", "form"]
+const PRIORITY := ["missing", "danger", "interceptor", "midfield", "ruck", "attack", "defence", "form"]
 
 
 ## The engine's view of a club's line strengths, from its match-day side.
@@ -77,6 +77,10 @@ static func facts(opp: String, lists: Dictionary, selections: Dictionary = {},
 	var danger := _danger(opp, squads[opp], lists)
 	if not danger.is_empty():
 		out.append(danger)
+	var spare := _interceptor_fact(squads[opp])
+	if not spare.is_empty() and (danger.is_empty()
+			or str(spare.get("player_id", "")) != str(danger.get("player_id", ""))):
+		out.append(spare)
 	var form := _form(results)
 	if not form.is_empty():
 		out.append(form)
@@ -164,16 +168,29 @@ static func _danger(opp: String, squad: Squad, lists: Dictionary) -> Dictionary:
 			"player_id": str(original["id"])}
 
 
+## An opposition defender who is genuinely suited to roam is worth knowing
+## before the bounce because the coach has a direct structural response:
+## make the spare accountable. This is personnel evidence, not a prediction.
+static func _interceptor_fact(squad: Squad) -> Dictionary:
+	var spare := Matchups.best_interceptor(squad.ground)
+	if spare.is_empty():
+		return {}
+	return {"key": "interceptor",
+			"text": "%s can roam behind the ball and attack aerial entries." % GameDB.player_display_name(spare),
+			"weight": 2, "tone": "strong", "player_id": str(spare.get("id", ""))}
+
+
 ## Whether a coach has a direct answer to this opponent on match day: a
-## midfielder can be tagged, and their key forwards get a defender put on
-## them. A rebounding defender or a ruck has no such answer.
+## midfielder can be tagged, key forwards get a defender put on them, and a
+## genuine loose interceptor can be made accountable.
 static func has_lever(p: Dictionary, ground: Array) -> bool:
 	if MatchSim.taggable(p):
 		return true
 	for f in Matchups.key_forwards(ground):
 		if str(f.get("id", "")) == str(p.get("id", "")):
 			return true
-	return false
+	var spare := Matchups.best_interceptor(ground)
+	return not spare.is_empty() and str(spare.get("id", "")) == str(p.get("id", ""))
 
 
 ## A run of STREAK or more wins or losses going into the game.
