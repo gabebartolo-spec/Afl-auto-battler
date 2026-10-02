@@ -47,6 +47,9 @@ var standing := ["balanced", "balanced"]
 ## Named match-ups (Matchups, Gate 1.12): per defending side, which defender
 ## stands on each of the other side's key forwards. {forward id: defender id}.
 var duels := [{}, {}]
+## Nominated loose/spare defender per side. He leaves direct accountability
+## and attacks opposition aerial entries/intercepts instead.
+var interceptors := ["", ""]
 ## Every contest a matched forward and his direct opponent played:
 ## forward id -> {"side": attacking side, "contests": [[q, defender id,
 ## forward marked, goal from it]]}.
@@ -274,6 +277,43 @@ func set_matchup(def_side: int, fwd_id: String, def_id: String, during := true) 
 func set_matchups(def_side: int, m: Dictionary) -> void:
 	for fid in m:
 		set_matchup(def_side, str(fid), str(m[fid]), false)
+
+
+## Nominate a defender to roam as the spare. He cannot simultaneously be a
+## direct key-forward matchup: those assignments are redistributed among the
+## remaining defenders, so this is structure rather than an extra man.
+func set_interceptor(def_side: int, def_id: String) -> bool:
+	if def_side < 0 or def_side > 1:
+		return false
+	var own: Squad = squads[def_side]
+	var chosen := _on_ground(def_side, def_id)
+	if def_id != "" and (chosen.is_empty() or str(chosen.get("role", "")) != "DEF"):
+		return false
+	interceptors[def_side] = def_id
+	if def_id == "":
+		duels[def_side] = Matchups.defaults((squads[1 - def_side] as Squad).ground, own.ground)
+		return true
+	var used := {}
+	var needs := []
+	for fid in (duels[def_side] as Dictionary).keys():
+		if str((duels[def_side] as Dictionary)[fid]) == def_id:
+			needs.append(str(fid))
+		else:
+			used[str((duels[def_side] as Dictionary)[fid])] = true
+	for fid in needs:
+		for p in Matchups.defenders(own.ground):
+			var pid := str(p["id"])
+			if pid == def_id or used.has(pid):
+				continue
+			(duels[def_side] as Dictionary)[fid] = pid
+			used[pid] = true
+			break
+	return true
+
+
+func interceptor(side: int) -> Dictionary:
+	var id := str(interceptors[side])
+	return {} if id == "" else _on_ground(side, id)
 
 
 ## An AI club moves a key defender when their forward has had the better of
@@ -1558,12 +1598,23 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	if dgroup.is_empty():
 		dgroup = dfn.ground
 	var defender = _weighted(dgroup, "intercept", 2.0, opp, "defender")
+	var spare := interceptor(opp)
+	# The loose interceptor reads across entries. Better intercept/marking makes
+	# him more likely to arrive; if he does, he becomes the aerial opponent.
+	if not spare.is_empty():
+		var roam_p := clampf(0.18 + 0.22 * _a(spare, "intercept") / 100.0
+				+ 0.10 * _a(spare, "marking") / 100.0, 0.22, 0.46)
+		if rng.randf() < roam_p:
+			defender = spare
 	# A forward with a direct opponent contests it with him: their aerial
 	# games decide it on top of the lines (Matchups).
 	_duel = {}
 	var duel_shift := 0.0
 	var matched := _on_ground(opp, str((duels[opp] as Dictionary).get(str(shooter["id"]), "")))
-	if not matched.is_empty():
+	# A roaming spare can arrive over the top of the direct matchup. Otherwise
+	# the named defender remains authoritative for the one-on-one.
+	var spare_arrived := not spare.is_empty() and str(defender.get("id", "")) == str(spare.get("id", ""))
+	if not matched.is_empty() and not spare_arrived:
 		defender = matched
 		duel_shift = Matchups.mark_shift(shooter, matched)
 
@@ -1609,6 +1660,8 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		mev["contested"] = contested
 		mev["speccy"] = speccy
 	var spoil_edge := 0.05 if defender != null and _trait(defender, "interceptor") else 0.0
+	if spare_arrived:
+		spoil_edge += 0.08
 	var spoil_read := dfn.def_intercept
 	if not matched.is_empty():
 		# His own reading of the ball, alongside the line's.
@@ -2271,6 +2324,7 @@ func result() -> Dictionary:
 		"duels": duel_log.duplicate(true),
 		"duel_changes": duel_changes.duplicate(true),
 		"matchups": duels.duplicate(true),
+		"interceptors": interceptors.duplicate(),
 		"injuries": injuries.duplicate(true),
 		"reports": reports.duplicate(true),
 		"synergies": synergies.duplicate(true),
