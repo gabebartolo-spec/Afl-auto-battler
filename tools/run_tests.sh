@@ -53,11 +53,13 @@ note_error() {  # message
 echo "== Godot: $("$GODOT" --headless --version 2>/dev/null | tail -1)"
 echo "== Importing the project"
 timeout 600 "$GODOT" --headless --path . --editor --import > "$LOG_DIR/import.log" 2>&1
-if grep -qE "SCRIPT ERROR|Parse Error|Compile Error" "$LOG_DIR/import.log"; then
-	grep -E -A3 "SCRIPT ERROR|Parse Error|Compile Error" "$LOG_DIR/import.log"
-	note_error "scripts failed to compile during import"
-	failed=1
+import_code=$?
+if [ "$import_code" != 0 ] || grep -qE "SCRIPT ERROR|Parse Error|Compile Error" "$LOG_DIR/import.log"; then
+	grep -E -A3 "SCRIPT ERROR|Parse Error|Compile Error" "$LOG_DIR/import.log" || true
+	note_error "scripts failed to compile during import (exit $import_code)"
 	summary+=("| import | FAIL | scripts failed to compile |")
+	echo "Logs: $LOG_DIR"
+	exit 1
 else
 	summary+=("| import | pass | |")
 fi

@@ -475,8 +475,8 @@ func _test_career_stage_filters(ui: Control) -> void:
 
 	var old_size := root.size
 	root.size = Vector2i(360, 800)
-	var pool_size := _state.draft.pool.size()
-	var history := _state.draft.pick_history.duplicate(true)
+	var pool_size: int = int(_state.draft.pool.size())
+	var history: Array = _state.draft.pick_history.duplicate(true)
 	ui.set("_advanced_open", true)
 	ui.set("_role", "MID")
 	ui.set("_club_filter", "")

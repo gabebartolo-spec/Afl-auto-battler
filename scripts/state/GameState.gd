@@ -2534,7 +2534,7 @@ func _process_discipline(results: Array) -> void:
 		for row in res.get("reports", []):
 			var item: Dictionary = (row as Dictionary).duplicate(true)
 			var side := clampi(int(item.get("side", 0)), 0, 1)
-			var code := codes[side]
+			var code: String = str(codes[side])
 			item["club"] = code
 			item["case_id"] = "%d|%s|%s|%d|%d|%d" % [season_year, code,
 					str(item.get("id", "")), int(item.get("q", 0)), int(item.get("min", 0)),

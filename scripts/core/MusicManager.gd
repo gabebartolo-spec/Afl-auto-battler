@@ -2,15 +2,16 @@ extends Node
 ## Persistent, deliberately quiet menu music. The playlist continues across
 ## management screens and pauses for MatchScene so match audio can stand alone.
 
-const TRACKS := [
-	preload("res://assets/audio/music/hub_after_hours.wav"),
-	preload("res://assets/audio/music/draft_room_rain.wav"),
-	preload("res://assets/audio/music/long_season.wav"),
-	preload("res://assets/audio/music/matchday_morning.wav"),
+const TRACK_PATHS: Array[String] = [
+	"res://assets/audio/music/hub_after_hours.wav",
+	"res://assets/audio/music/draft_room_rain.wav",
+	"res://assets/audio/music/long_season.wav",
+	"res://assets/audio/music/matchday_morning.wav",
 ]
 const MUSIC_DB := -18.0
 
 var _player: AudioStreamPlayer
+var _tracks: Array[AudioStream] = []
 var _next_track := 0
 var _paused_for_match := false
 
@@ -23,6 +24,7 @@ func _ready() -> void:
 	_player.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_player)
 	_player.finished.connect(_on_finished)
+	_load_tracks()
 	call_deferred("_play_next")
 
 
@@ -51,8 +53,16 @@ func _on_finished() -> void:
 
 
 func _play_next() -> void:
-	if _paused_for_match or not is_instance_valid(_player) or TRACKS.is_empty():
+	if _paused_for_match or not is_instance_valid(_player) or _tracks.is_empty():
 		return
-	_player.stream = TRACKS[_next_track]
-	_next_track = (_next_track + 1) % TRACKS.size()
+	_player.stream = _tracks[_next_track]
+	_next_track = (_next_track + 1) % _tracks.size()
 	_player.play()
+
+
+func _load_tracks() -> void:
+	_tracks.clear()
+	for path in TRACK_PATHS:
+		var stream := load(path) as AudioStream
+		if stream != null:
+			_tracks.append(stream)

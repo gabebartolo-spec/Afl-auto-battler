@@ -904,6 +904,12 @@ const FIFTY_BASE := 0.012
 ## A reportable tackle is rare. Poor discipline and Hothead raise the chance,
 ## but neither can turn ordinary aggression into a weekly suspension machine.
 const REPORT_BASE := 0.0035
+## Contextual frees replace part of the old generic clanger/free bucket.
+const HIGH_CONTACT_BASE := 0.022
+const HTB_NO_PRIOR := 0.10
+const HTB_PRIOR := 0.24
+const MARK_FREE_BASE := 0.020
+const GENERIC_FREE_MULT := 0.62
 
 
 ## Who gives away a side's clanger: poor discipline makes it likelier, a
@@ -924,51 +930,64 @@ func _clanger_weights(side: int) -> Array:
 	return [weights, w_all / w_base if w_base > 0.0 else 1.0]
 
 
-## Pay a contextual free at the actual contest. Every free records a cause,
-## offender and recipient, and shares the normal post-free 50m path.
-func _pay_free(receiving_side: int, mark_fp: float, offender, recipient, cause: String) -> Dictionary:
-	if recipient == null:
-		recipient = _free_to(receiving_side, mark_fp if receiving_side == 0 else -mark_fp)
+## Pay a football free with a real cause. Returns the mark after any 50.
+func _award_context_free(receiving_side: int, mark_fp: float, offender, recipient,
+		cause: String, label: String) -> float:
 	_t(receiving_side, "frees_for")
 	_p(recipient, "frees_for")
 	_t(1 - receiving_side, "frees_against")
 	_p(offender, "frees_against")
+	_t(receiving_side, "free_" + cause)
 	var who := GameDB.player_display_name(recipient) if recipient != null else "the opposition"
-	_emit("free", receiving_side, mark_fp, recipient, "%s — free kick to %s" % [cause, who])
+	_emit("free", receiving_side, mark_fp, recipient, "%s — free kick to %s" % [label, who])
 	var ev: Dictionary = events[events.size() - 1]
-	ev["cause"] = cause
+	ev["free_cause"] = cause
 	ev["against_id"] = "" if offender == null else str(offender.get("id", ""))
 	ev["against_name"] = "" if offender == null else GameDB.player_display_name(offender)
-	var restart_fp := _maybe_fifty(receiving_side, mark_fp, offender, recipient)
-	return {"outcome": "free", "fp": restart_fp, "actor": recipient}
+	return _maybe_fifty(receiving_side, mark_fp, offender, recipient)
 
 
-func _tackle_free(side: int, carrier, tackler, mark_fp: float, retained: bool) -> Dictionary:
-	if carrier == null or tackler == null:
-		return {}
-	var high_p := 0.035 * (1.25 - 0.50 * _a(tackler, "discipline") / 100.0)
+## A tackle infringement against the tackler: high contact/rough conduct.
+func _high_contact_free(tackler) -> bool:
+	if tackler == null:
+		return false
+	var discipline := _a(tackler, "discipline")
+	var p := HIGH_CONTACT_BASE * (1.35 - 0.70 * discipline / 100.0)
 	if _trait(tackler, "hothead"):
-		high_p *= 1.35
-	if free_rng.randf() < clampf(high_p, 0.012, 0.055):
-		return _pay_free(side, mark_fp, tackler, carrier, "High contact")
-	if not retained:
-		var htb_p := clampf(0.16 + 0.16 * _a(tackler, "pressure") / 100.0
-				- 0.10 * _a(carrier, "contested") / 100.0, 0.10, 0.25)
-		if free_rng.randf() < htb_p:
-			return _pay_free(1 - side, mark_fp, carrier, tackler, "Holding the ball")
-	return {}
+		p *= 1.45
+	return free_rng.randf() < clampf(p, 0.006, 0.045)
 
 
-func _marking_free(side: int, mark_fp: float, forward, defender) -> Dictionary:
-	if forward == null or defender == null:
+## Holding the ball only exists after a legal tackle actually stops the carrier.
+## More prior opportunity (later in the chain) makes it more likely; clean
+## contested/disposal players are a little harder to catch.
+func _holding_ball_free(carrier, touches: int) -> bool:
+	if carrier == null:
+		return false
+	var p := HTB_PRIOR if touches > 1 else HTB_NO_PRIOR
+	p *= 1.18 - 0.30 * _a(carrier, "contested") / 100.0
+	p *= 1.12 - 0.24 * _a(carrier, "disposal") / 100.0
+	return free_rng.randf() < clampf(p, 0.05, 0.28)
+
+
+## A genuine aerial contest can be infringed by either side. Poor discipline
+## shifts who is more likely to hold/block; it never overwhelms the contest.
+func _marking_free(side: int, attacker, defender) -> Dictionary:
+	if attacker == null or defender == null:
 		return {}
-	var def_p := 0.055 * (1.20 - 0.45 * _a(defender, "discipline") / 100.0)
-	var fwd_p := 0.018 * (1.20 - 0.45 * _a(forward, "discipline") / 100.0)
-	var roll := free_rng.randf()
-	if roll < clampf(def_p, 0.025, 0.075):
-		return _pay_free(side, mark_fp, defender, forward, "Holding in the marking contest")
-	if roll < clampf(def_p + fwd_p, 0.04, 0.10):
-		return _pay_free(1 - side, mark_fp, forward, defender, "Blocking in the marking contest")
+	var def_p := MARK_FREE_BASE * (1.35 - 0.65 * _a(defender, "discipline") / 100.0)
+	var att_p := MARK_FREE_BASE * 0.70 * (1.35 - 0.65 * _a(attacker, "discipline") / 100.0)
+	if _trait(defender, "hothead"):
+		def_p *= 1.35
+	if _trait(attacker, "hothead"):
+		att_p *= 1.35
+	var r := free_rng.randf()
+	if r < clampf(def_p, 0.004, 0.035):
+		return {"side": side, "offender": defender, "recipient": attacker,
+				"cause": "marking", "label": "Holding in the marking contest"}
+	if r < clampf(def_p, 0.004, 0.035) + clampf(att_p, 0.003, 0.025):
+		return {"side": 1 - side, "offender": attacker, "recipient": defender,
+				"cause": "marking", "label": "Blocking in the marking contest"}
 	return {}
 
 
@@ -1597,20 +1616,28 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_p(tackler, "tackles")
 			_t(opp, "pressure_acts")
 			_p(tackler, "pressure_acts")
+			# High contact belongs to the tackle itself. The ball carrier keeps
+			# possession via a free; the tackler is credited the infringement.
+			if _high_contact_free(tackler):
+				var mark := _award_context_free(side, fp, tackler, carrier,
+						"high_contact", "High contact")
+				return {"outcome": "free", "fp": mark, "actor": carrier, "free_side": side}
 			var retain: float = (float(T["tackle_retention"])
 					* (0.75 + 0.50 * _a(carrier, "contested") / 100.0))
 			if _trait(carrier, "bull"):
 				retain *= 1.10
-			var retained := rng.randf() < retain
-			var tackle_free := _tackle_free(side, carrier, tackler, fp, retained)
-			if not tackle_free.is_empty():
-				return tackle_free
-			if retained:
+			if rng.randf() < retain:
 				var before_fp := fp
 				fp = clampf(fp + rng.randf_range(4.0, 12.0) * dir, -gline, gline)
 				_metres(side, carrier, (fp - before_fp) * dir)
 				continue
 			_t(opp, "pressure_wins")
+			# A legal tackle that stops him can be holding the ball; otherwise
+			# it remains the ball-up the engine already had.
+			if _holding_ball_free(carrier, touches):
+				var mark := _award_context_free(opp, fp, carrier, tackler,
+						"holding_ball", "Holding the ball")
+				return {"outcome": "free", "fp": mark, "actor": tackler, "free_side": opp}
 			_emit("tackle", opp, fp, tackler,
 					"%s tackles %s - ball up" % [GameDB.player_display_name(tackler), GameDB.player_display_name(carrier)])
 			return {"outcome": "stoppage", "fp": fp, "actor": carrier}
@@ -1792,10 +1819,6 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 				_p(defender, "roam_losses")
 		return {"outcome": "free", "fp": mark_fp, "actor": infringement["recipient"],
 				"free_side": free_side}
-
-	var marking_free := _marking_free(side, fp, shooter, defender)
-	if not marking_free.is_empty():
-		return marking_free
 
 	var mark_edge := 0.06 if _trait(shooter, "aerial") else 0.0
 	# A named contest can be lopsided: a great forward on a small defender
@@ -2441,21 +2464,12 @@ func _play_one_chain(T: Dictionary) -> void:
 		_p(err, "clangers")
 		_emit("clanger", side, fp, err,
 				"%s gives away a clanger" % GameDB.player_display_name(err))
-		if rng.randf() < float(T["clanger_is_free"]) * 0.35:
+		if free_rng.randf() < float(T["clanger_is_free"]) * GENERIC_FREE_MULT:
 			var recipient = _free_to(1 - side, fp if side == 0 else -fp)
-			_t(1 - side, "frees_for")
-			_p(recipient, "frees_for")
-			_t(side, "frees_against")
-			_p(err, "frees_against")
 			next_side = 1 - side
 			_prev_end = "free"
-			_emit("free", 1 - side, fp, recipient,
-					"Other infringement — free kick against %s" % GameDB.player_display_name(err))
-			var fev: Dictionary = events[events.size() - 1]
-			fev["cause"] = "Other infringement"
-			fev["against_id"] = str(err.get("id", ""))
-			fev["against_name"] = GameDB.player_display_name(err)
-			fp = _maybe_fifty(1 - side, fp, err, recipient)
+			fp = _award_context_free(1 - side, fp, err, recipient,
+					"general", "General infringement")
 	_after_chain()
 
 
