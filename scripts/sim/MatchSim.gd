@@ -1961,13 +1961,13 @@ func _play_one_chain(T: Dictionary) -> void:
 		_emit("clanger", side, fp, err,
 				"%s gives away a clanger" % GameDB.player_display_name(err))
 		if rng.randf() < float(T["clanger_is_free"]):
+			var recipient = _free_to(1 - side, fp if side == 0 else -fp)
 			_t(1 - side, "frees_for")
-			_p(_free_to(1 - side, fp if side == 0 else -fp), "frees_for")
+			_p(recipient, "frees_for")
 			_t(side, "frees_against")
 			_p(err, "frees_against")
 			next_side = 1 - side
 			_prev_end = "free"
-			var recipient = _free_to(1 - side, fp if side == 0 else -fp)
 			_emit("free", 1 - side, fp, recipient,
 					"Free kick against %s" % GameDB.player_display_name(err))
 			fp = _maybe_fifty(1 - side, fp, err, recipient)
