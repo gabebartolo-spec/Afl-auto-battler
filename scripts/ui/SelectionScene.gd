@@ -274,11 +274,15 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(nm)
 	var weeks := int(p.get("injury_weeks", 0))
+	var suspended := int(p.get("suspension_weeks", 0))
 	var m := ClubLife.morale(p)
 	if m < 40:
 		h.add_child(UiKit.line("Unhappy", 11, UiKit.BAD))
 	if bool(p.get("rested", false)):
 		h.add_child(UiKit.line("Rested", 12, UiKit.MUTED))
+	if suspended > 0:
+		h.add_child(UiKit.line("Suspended — %d match%s" % [
+				suspended, "" if suspended == 1 else "es"], 12, UiKit.BAD, true))
 	if Injuries.concussion_text(p) != "":
 		h.add_child(UiKit.line(Injuries.concussion_text(p), 12, UiKit.BAD, true))
 	elif weeks > 0:
