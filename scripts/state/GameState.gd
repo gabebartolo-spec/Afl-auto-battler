@@ -4520,7 +4520,7 @@ static func _source_pts(t: Dictionary, k: String) -> float:
 
 const FORM_GAMES := 3
 const TEAM_KEYS := ["clearances", "inside50", "tackles", "pressure_acts", "marks",
-		"rebounds", "clangers", "hitouts", "disposals", "metres_gained"]
+		"rebounds", "clangers", "hitouts", "disposals", "metres_gained", "distance_run"]
 
 
 ## Players whose last three games stand out against their own season:
