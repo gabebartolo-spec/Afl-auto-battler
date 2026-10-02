@@ -117,6 +117,7 @@ var speccy_rng := RandomNumberGenerator.new()
 ## Post-free 50m infringements are independent of ordinary play rolls.
 var discipline_rng := RandomNumberGenerator.new()
 var mro_rng := RandomNumberGenerator.new()
+var restart_rng := RandomNumberGenerator.new()
 var _speccy_quota := 0
 var _speccies := 0
 ## Boundary law rolls are isolated from the calibrated play RNG. Adding or
@@ -180,6 +181,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	speccy_rng.seed = seed * 31 + 37
 	discipline_rng.seed = seed * 41 + 43
 	mro_rng.seed = seed * 47 + 53
+	restart_rng.seed = seed * 59 + 61
 	var speccy_bucket := posmod(hash("speccy|%d" % seed), 10)
 	_speccy_quota = 0 if speccy_bucket < 3 else (1 if speccy_bucket < 9 else 2)
 	boundary_rng.seed = seed * 17 + 19
@@ -979,6 +981,32 @@ func pick_carrier(side: int, fp: float):
 	return _weighted_roles(sq.ground, key, CARRY_ROLES[zone], 2.0, side, purpose)
 
 
+## The primary kick-in player: a defender who can use and carry the ball.
+## Deterministic within the match so a club has a recognisable rebounder
+## instead of a random player materialising in the goal square after each behind.
+func kick_in_taker(side: int):
+	var ground: Array = (squads[side] as Squad).ground
+	var pool := _by_roles(ground, ["DEF"])
+	if pool.is_empty():
+		pool = ground
+	var best = null
+	var best_v := -INF
+	for p in pool:
+		var v := 0.58 * _a(p, "carry") + 0.42 * _a(p, "disposal")
+		if best == null or v > best_v or (is_equal_approx(v, best_v)
+				and str(p.get("id", "")) < str(best.get("id", ""))):
+			best = p
+			best_v = v
+	return best
+
+
+func _kick_in_play_on(taker) -> bool:
+	if taker == null:
+		return false
+	var chance := clampf(0.30 + _a(taker, "carry") / 180.0, 0.42, 0.82)
+	return restart_rng.randf() < chance
+
+
 # ---------------------------------------------------------------------------
 # Stoppage: ruck contest + clearance
 # ---------------------------------------------------------------------------
@@ -1186,10 +1214,18 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		if pending != null:
 			_effective(side, pending)
 			pending = null
-		var carrier = pick_carrier(side, fp)
+		var is_kick_in := from_kick_in and touches == 1
+		var carrier = kick_in_taker(side) if is_kick_in else pick_carrier(side, fp)
+		var kick_in_play_on := _kick_in_play_on(carrier) if is_kick_in else false
 		_chain_touch[str(carrier["id"])] = carrier
 		_t(side, "disposals")
 		_p(carrier, "disposals")
+		if is_kick_in:
+			_t(side, "kick_ins")
+			_p(carrier, "kick_ins")
+			if kick_in_play_on:
+				_t(side, "kick_in_play_ons")
+				_p(carrier, "kick_in_play_ons")
 		pending = carrier
 
 		var hb_bias: float = (0.85
@@ -1208,13 +1244,18 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_p(carrier, "kicks")
 			var mark_p: float = (float(T["mark_share_of_kicks"])
 					* (0.75 + 0.50 * _a(carrier, "marking") / 100.0))
-			marked = rng.randf() < mark_p
+			marked = false if is_kick_in else rng.randf() < mark_p
 			if marked:
 				_t(side, "marks")
 				_p(carrier, "marks")
 				_emit("mark", side, fp, carrier, "%s marks" % GameDB.player_display_name(carrier))
 			else:
 				_emit("kick", side, fp, carrier, "%s kicks" % GameDB.player_display_name(carrier))
+			if is_kick_in:
+				var kev: Dictionary = events[events.size() - 1]
+				kev["kick_in"] = true
+				kev["play_on"] = kick_in_play_on
+				kev["kick_in_style"] = "play_on" if kick_in_play_on else "safe"
 
 		# Pressure comes from whoever is near the ball: their forwards when we
 		# are coming out of defence, their midfield through the middle, their
@@ -1224,6 +1265,10 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		var pressure: float = (float(T["pressure_base"])
 				* (0.72 + 0.56 * _zone_pressure(opp, zone) / 100.0))
 		pressure *= 1.10 if atk_fp < 0.0 else 0.95
+		if is_kick_in:
+			# The conservative exit buys space; playing on gains ground but
+			# exposes the taker to more immediate pressure.
+			pressure *= 0.68 if not kick_in_play_on else 0.92
 		var p_base := pressure
 		pressure *= _press_on(side)
 		_credit(opp, "gameplan", (pressure - p_base) * TURNOVER_VALUE)
@@ -1310,6 +1355,8 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		if _burst(side, "flood") or _burst(side, "hold"):
 			gain *= 0.85
 		gain *= rng.randf_range(0.45, 1.75)
+		if is_kick_in:
+			gain *= 0.82 if not kick_in_play_on else 1.12
 		if rushed:
 			gain *= PRESS_RUSH_GAIN
 		fp += gain * dir
