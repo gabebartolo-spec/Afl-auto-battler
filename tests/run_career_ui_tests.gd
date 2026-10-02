@@ -297,6 +297,11 @@ func _run() -> void:
 	await _settle()
 	_check(current_scene.find_child("WeeklyLoopIntro", true, false) == null,
 			"Contextual onboarding does not nag after it has been dismissed")
+	# A press conference left from the saved round follows the intro.
+	var media_skip = current_scene.find_child("MediaSkip", true, false)
+	if media_skip != null:
+		media_skip.emit_signal("pressed")
+		await _settle()
 	# One player well above his season, one well below (GameState.player_form).
 	var hot_id := str(_state.my_list[0]["id"])
 	var cold_id := str(_state.my_list[1]["id"])
@@ -486,6 +491,12 @@ func _run() -> void:
 	overlay = current_scene.get("_results_overlay")
 	_check(_router.current() == "hub" and (overlay == null or not is_instance_valid(overlay)),
 			"Back closes the results popup and stays on the hub")
+	# The round may have raised a press conference: Back skips it.
+	if current_scene.find_child("MediaConference", true, false) != null:
+		_router.handle_back(true)
+		await _settle()
+		_check(_router.current() == "hub" and not _state.media_conference_pending(),
+				"Back skips the press conference and stays on the hub")
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "main", "Back from the hub goes to the main menu")
@@ -836,7 +847,10 @@ func _run() -> void:
 	_check(verdict != null and str(verdict.text) != "" and not str(verdict.text).contains("Put something on each side"),
 			"With something on each side, their answer shows")
 	var decimal := RegEx.create_from_string("\\d\\.\\d|%")
-	_check(decimal.search(_screen_text()) == null, "The trade screen shows no internal values")
+	# Money is real AFL money ("$18.44m"); anything else with a decimal or a
+	# percentage would be a model value leaking out.
+	var no_money := RegEx.create_from_string("\\$[0-9][0-9.,]*[mk]?").sub(_screen_text(), "", true)
+	_check(decimal.search(no_money) == null, "The trade screen shows no internal values")
 	_check(current_scene.find_child("TradeClubPhase", true, false) != null,
 			"The trade tab says where the other club is in its cycle")
 	var pick_btns := current_scene.find_children("Mine_pick_*", "Button", true, false)

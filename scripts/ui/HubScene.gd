@@ -33,12 +33,14 @@ func _ready() -> void:
 	margin.add_child(_root)
 	get_viewport().size_changed.connect(_on_resize)
 	_build()
+	# The first visit's orientation comes before anything else waiting here;
+	# a pending press conference follows when it closes.
 	if GameState.needs_season_wrap():
 		_show_season_wrap()
-	elif GameState.media_conference_pending():
-		_show_media_conference()
 	elif not bool(GameState.get_setting("seen_weekly_loop_intro", false)):
 		_show_weekly_loop_intro()
+	elif GameState.media_conference_pending():
+		_show_media_conference()
 
 
 ## A short first-hub orientation, shown where the weekly loop actually lives
@@ -77,6 +79,8 @@ func _close_weekly_loop_intro() -> void:
 	if _onboarding_overlay != null and is_instance_valid(_onboarding_overlay):
 		_onboarding_overlay.queue_free()
 	_onboarding_overlay = null
+	if GameState.media_conference_pending():
+		_show_media_conference()
 
 
 ## The off-season, wrapped up before Round 1 (ARD-M6-007): who came, who
@@ -884,8 +888,6 @@ func handle_back() -> bool:
 	if _sim_confirm != null and is_instance_valid(_sim_confirm):
 		_close_sim_confirm()
 		return true
-	if _media_overlay != null and is_instance_valid(_media_overlay):
-		return true
 	if _news_overlay != null and is_instance_valid(_news_overlay):
 		_news_overlay.queue_free()
 		_news_overlay = null
@@ -893,6 +895,14 @@ func handle_back() -> bool:
 	if _results_overlay != null and is_instance_valid(_results_overlay):
 		_results_overlay.queue_free()
 		_results_overlay = null
+		_build()
+		return true
+	# Back skips the press conference, as its Skip button does (natural
+	# Android Back); an overlay opened over it closes first.
+	if _media_overlay != null and is_instance_valid(_media_overlay):
+		GameState.skip_media_conference()
+		_media_overlay.queue_free()
+		_media_overlay = null
 		_build()
 		return true
 	return false
