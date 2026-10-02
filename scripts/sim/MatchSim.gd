@@ -1776,7 +1776,9 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var marked := rng.randf() < clampf(
 			0.5 + (atk.fwd_mark - dfn.def_intercept) / 240.0 + mark_edge + duel_shift
 			+ roam_shift - accountable_cost, 0.10, mark_cap)
-	if not matched.is_empty():
+	# A third-man arrival is not credited to the direct defender's 1v1 log.
+	# Interceptor contests have their own evidence/stats and story.
+	if not matched.is_empty() and not roaming:
 		var fid := str(shooter["id"])
 		if not duel_log.has(fid):
 			duel_log[fid] = {"side": side, "contests": []}
