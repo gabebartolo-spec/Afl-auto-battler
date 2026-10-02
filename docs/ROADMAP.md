@@ -3923,7 +3923,23 @@ Hold this idea for the eventual MRO/tribunal design work. Do not implement it me
 
 ---
 
+## Design idea — GOAT prospect
+
+**Status: TODO / long-save draft feature.**
+
+In any normal draft, independently of the rare super-draft system, there can be an **exceptionally rare generational / GOAT-level prospect**. This is governed by a **hard spawn cooldown**: once a GOAT prospect is generated, **no other GOAT prospect is eligible to spawn for roughly the next 30 seasons**. After that cooldown expires, eligibility returns; this is not a guarantee that one immediately appears. This must feel extraordinary, not like a recurring draft archetype.
+
+The player must **not be explicitly identified before the draft**. Build anticipation through escalating draft whispers and recruiter/media chatter that allude to unusual ability, development ceiling or combine traits without giving away the prospect's name. The player should have to inspect the draft pool and Combine evidence and make an educated guess about who the rumours describe. Avoid copying the reference game's wording/presentation directly.
+
+If the prospect fulfils that potential, his career economics should reflect genuine superstar scarcity: he eventually commands an **extremely high salary** and becomes **nigh-untradeable** because his club values him accordingly. A trade remains possible only for a genuine **godfather offer**, not through an arbitrary hard lock.
+
+Guardrails: this is **not tied to super drafts**; do not guarantee the GOAT is obvious, Pick 1, or successful; preserve scouting uncertainty and normal career variance; enforce the ~30-season hard spawn cooldown rather than using a simple per-draft random chance that can produce clusters.
+
+---
+
 # 10. Roadmap Maintenance Log
+
+- **2026-10-02:** Added the ultra-rare GOAT prospect concept: roughly once per 30 seasons, independent of super drafts, foreshadowed anonymously through draft whispers/Combine clues, with superstar salary and godfather-offer trade economics if he develops.
 
 - **2026-10-02:** Added the requested SAFE roadmap batch to the existing consolidated #208 branch instead of opening another stack: League Draft career-stage filtering (M5-011) and contextual first-Hub weekly-loop onboarding completing the M8-004 menu/onboarding intent. Refreshed stale SAFE-item references: training multi-select (#192) is already merged, the milestone expansion from closed #186 is carried by #208, and Android app identity remains a device-verification item rather than new code.
 
