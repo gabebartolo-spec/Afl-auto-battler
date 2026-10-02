@@ -538,6 +538,13 @@ func _trade(body: VBoxContainer) -> void:
 		_theirs = []
 		_build())
 	body.add_child(pick)
+	var phase := GameState.club_phase(_trade_club)
+	var stance := {"rebuilding": "are rebuilding: they guard young talent and want players for the future.",
+			"building": "are building: they weigh this season and the future evenly.",
+			"contending": "are contending: they want players who help them win now."}
+	var cycle := _para("%s %s" % [GameDB.club_name(_trade_club), str(stance.get(phase, ""))], 13, UiKit.MUTED)
+	cycle.name = "TradeClubPhase"
+	body.add_child(cycle)
 	var verdict := GameState.evaluate_trade(_trade_club, _mine, _theirs)
 	var summary := _para("You give: %s\nYou get: %s\n%s" % [_names(_mine, GameState.my_club),
 			_names(_theirs, _trade_club), str(verdict["reason"])], 14,
