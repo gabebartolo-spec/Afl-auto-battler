@@ -183,6 +183,10 @@ static func quarter_facts(res: Dictionary, my_side: int, q: int) -> Array:
 	elif i50_m - i50_t >= INSIDE50_EDGE:
 		out.append("You have had most of the ball going forward: %d inside 50s to %d." % [i50_m, i50_t])
 
+	var spare := _roamer_quarter_fact(res, now, was, opp)
+	if spare != "":
+		out.append(spare)
+
 	var standout := _standout(res, now, was, opp)
 	if not standout.is_empty():
 		out.append(standout)
@@ -203,6 +207,30 @@ static func _team_delta(now: Dictionary, was: Dictionary, side: int) -> Dictiona
 	for k in t:
 		out[k] = float(t[k]) - float(b.get(k, 0.0))
 	return out
+
+
+## A loose defender controlling the air is a genuine quarter fact, but only
+## once he has actually won multiple roaming contests in that period.
+static func _roamer_quarter_fact(res: Dictionary, now: Dictionary, was: Dictionary, side: int) -> String:
+	var roster: Array = res.get("roster", [[], []])
+	if roster.size() <= side:
+		return ""
+	var players_now: Dictionary = now.get("players", {})
+	var players_was: Dictionary = was.get("players", {}) if not was.is_empty() else {}
+	var best := {}
+	var wins := 0
+	for p in roster[side]:
+		var id := str(p.get("id", ""))
+		var a: Dictionary = players_now.get(id, {})
+		var b: Dictionary = players_was.get(id, {})
+		var w := int(a.get("roam_wins", 0)) - int(b.get("roam_wins", 0))
+		if w > wins:
+			wins = w
+			best = p
+	if best.is_empty() or wins < 2:
+		return ""
+	return "%s is controlling the air as their loose defender." % GameDB.player_display_name_by_id(
+			str(best.get("id", "")), str(best.get("name", "Player")))
 
 
 ## Their player who hurt you most this quarter, if anyone clearly did.
@@ -503,6 +531,7 @@ static func game_line(st: Dictionary) -> String:
 		bits.append("%d disposal%s" % [d, "" if d == 1 else "s"])
 	for row in [["clearances", 5, "clearances"], ["hitouts", 20, "hit-outs"], ["marks", 8, "marks"],
 			["tackles", 7, "tackles"], ["pressure_acts", 18, "pressure acts"],
+			["spoils", 5, "spoils"], ["intercepts", 6, "intercepts"],
 			["rebounds", 6, "rebound 50s"], ["one_percenters", 7, "one percenters"]]:
 		var v := int(float(st.get(row[0], 0.0)))
 		if v >= int(row[1]) and bits.size() < 3:
@@ -667,6 +696,40 @@ static func duel_change_lines(res: Dictionary, my_side: int, q: int) -> Array:
 ## the contests changed. Quiet match-ups (fewer than MIN_DUELS) stay quiet.
 const MIN_DUELS := 4
 const CLEAR_EDGE := 0.25
+
+## A roaming defender earns a full-time line only from real contests. No
+## structural role is praised merely because it was selected.
+static func interceptor_story(res: Dictionary, my_side: int) -> Array:
+	var roster: Array = res.get("roster", [[], []])
+	var players: Dictionary = res.get("players", {})
+	var out := []
+	for side in range(mini(2, roster.size())):
+		var best := {}
+		var best_wins := 0
+		for p in roster[side]:
+			var st: Dictionary = players.get(str(p.get("id", "")), {})
+			var contests := int(st.get("roam_contests", 0))
+			var wins := int(st.get("roam_wins", 0))
+			if contests >= 3 and wins > best_wins:
+				best = p
+				best_wins = wins
+		if best.is_empty():
+			continue
+		var st: Dictionary = players.get(str(best.get("id", "")), {})
+		var contests := int(st.get("roam_contests", 0))
+		var wins := int(st.get("roam_wins", 0))
+		var losses := int(st.get("roam_losses", 0))
+		var who := GameDB.player_display_name_by_id(str(best.get("id", "")), str(best.get("name", "Player")))
+		var ours := side == my_side
+		if wins >= 3 and wins > losses:
+			out.append(("%s controlled the air as your spare: %d wins from %d roaming contests." if ours
+					else "%s controlled the air as their spare: %d wins from %d roaming contests.") % [
+					who, wins, contests])
+		elif losses >= 3 and losses > wins:
+			out.append(("%s was exposed when roaming: %d lost contests." if ours
+					else "%s's roaming left space behind him: %d lost contests.") % [who, losses])
+	return out
+
 
 static func duel_story(res: Dictionary, my_side: int) -> Array:
 	# Your changes first (the calls you made), then their key forwards by
