@@ -3,6 +3,7 @@ extends Control
 ## ladder.
 
 var _root: VBoxContainer
+var _awards_overlay: Control
 var _awards_reveal := 0
 
 
@@ -23,6 +24,18 @@ func _ready() -> void:
 		if is_inside_tree() and GameState.season != null:
 			_build())
 	_build()
+	if not GameState.season_awards.is_empty() and GameState.season.is_season_over() \
+			and not bool(GameState.season_awards.get("presentation_seen", false)):
+		_awards_overlay = SeasonAwards.open(self)
+
+
+func handle_back() -> bool:
+	if is_instance_valid(_awards_overlay):
+		var skip = _awards_overlay.find_child("AwardsSkip", true, false)
+		if skip != null:
+			skip.emit_signal("pressed")
+		return true
+	return false
 
 
 func _content_width() -> float:
@@ -288,7 +301,12 @@ func _awards_panel() -> Control:
 	panel.name = "AwardsPanel"
 	var v := UiKit.vbox(5)
 	panel.add_child(v)
-	v.add_child(UiKit.heading("%d AWARDS" % int(aw.get("year", GameState.season_year)), 22))
+	v.add_child(UiKit.heading("%d awards" % int(aw.get("year", GameState.season_year)), 22))
+	var replay := UiKit.btn("Replay awards", 15)
+	replay.name = "ReplayAwards"
+	replay.custom_minimum_size.y = 44
+	replay.pressed.connect(func(): _awards_overlay = SeasonAwards.open(self))
+	v.add_child(replay)
 	var intro := UiKit.lbl("Awards night", 13, UiKit.MUTED)
 	v.add_child(intro)
 	var brownlow: Array = aw.get("brownlow", [])
