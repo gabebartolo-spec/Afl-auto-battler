@@ -124,8 +124,10 @@ func _run() -> void:
 	_check(ui.find_child("PlayerDetail", true, false) != null, "A prospect's details open")
 	_check(draft.count() == count_before and draft.pick_history == hist_before, "Inspecting a prospect signs nobody")
 	var ovr: Control = ui.find_child("DetailOVR", true, false)
-	_check(ovr != null and (ovr.get_child(0) as Label).text == str(int(prospect["overall"]))
-			and (ovr.get_child(1) as Label).text == "Projected OVR", "His projected OVR is shown as projected")
+	var scout := DraftScouting.projection(prospect, draft.user_club, draft.seed)
+	_check(ovr != null and (ovr.get_child(0) as Label).text == DraftScouting.range_text(scout["overall"])
+			and (ovr.get_child(1) as Label).text == "Projected OVR",
+			"His projected OVR is shown as a scouting range")
 	var prod: Label = ui.find_child("DetailProduction", true, false)
 	_check(prod != null and prod.text.contains("%.1f disposals" % float(prospect["u18_di"])),
 			"His U18 / state-league production is shown (%s)" % (prod.text if prod else "-"))
