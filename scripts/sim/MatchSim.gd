@@ -865,6 +865,7 @@ func _maybe_report(side: int, offender, victim) -> void:
 	var severity := mro_rng.randf() + (50.0 - discipline) / 500.0 \
 			+ (0.06 if _trait(offender, "hothead") else 0.0)
 	var tribunal_roll := mro_rng.randf()
+	var appeal_roll := mro_rng.randf()
 	var outcome := "no_action"
 	var weeks := 0
 	if severity >= 0.985:
@@ -890,7 +891,9 @@ func _maybe_report(side: int, offender, victim) -> void:
 		"outcome": outcome,
 		"weeks": weeks,
 		"tribunal_roll": tribunal_roll,
+		"appeal_roll": appeal_roll,
 		"challenged": false,
+		"appealed": false,
 	})
 
 
