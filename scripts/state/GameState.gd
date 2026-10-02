@@ -81,6 +81,8 @@ var news: Array = []             # league news feed, newest first
 var difficulty := "normal"       # this career's difficulty (DIFFICULTIES key)
 var board := {}                  # confidence, goal, warned, sacked, history
 var week_event := {}             # this week's event card (ClubLife.pick_event)
+var media_conference := {}       # pending post-match press question
+var media_memory := {}           # question key -> last round asked
 var losing_streak := 0
 ## Your match-ups for the next match (Matchups): {their forward id: your
 ## defender id}, on top of the default set-up. Cleared after each of your
@@ -338,6 +340,8 @@ func save_career() -> bool:
 		"difficulty": difficulty,
 		"board": board,
 		"week_event": week_event,
+		"media_conference": media_conference,
+		"media_memory": media_memory,
 		"losing_streak": losing_streak,
 		"my_matchups": my_matchups,
 		"last_side": last_side,
@@ -449,6 +453,8 @@ func load_career() -> bool:
 	news = state.get("news", [])
 	board = state.get("board", {})
 	week_event = state.get("week_event", {})
+	media_conference = state.get("media_conference", {})
+	media_memory = state.get("media_memory", {})
 	losing_streak = int(state.get("losing_streak", 0))
 	my_matchups = state.get("my_matchups", {})
 	last_side = state.get("last_side", [])
@@ -690,6 +696,8 @@ func reset() -> void:
 	news = []
 	board = {}
 	week_event = {}
+	media_conference = {}
+	media_memory = {}
 	losing_streak = 0
 	my_matchups = {}
 	last_side = []
@@ -2215,6 +2223,7 @@ func _after_round(results: Array) -> void:
 	_round_news(results)
 	_draft_class_news()
 	_board_after_round(results)
+	_prepare_media_conference(results)
 	if season != null and season.is_season_over() \
 			and int(season_awards.get("year", 0)) != season_year:
 		_close_season_awards()
@@ -3938,6 +3947,76 @@ func _board_after_round(results: Array) -> void:
 			p.erase("expects_game")
 			if not played.has(str(p["id"])) and int(p.get("injury_weeks", 0)) <= 0:
 				ClubLife.add_morale(p, -CoachEffects.softened(sting, float(soft.get(str(p["id"]), 0.0))))
+
+
+
+## A notable user match may produce one short press conference.
+func _prepare_media_conference(results: Array) -> void:
+	media_conference = {}
+	var res := _my_result(results)
+	if res.is_empty():
+		return
+	var side := 0 if str(res["home"]) == my_club else 1
+	var opp := str(res["away"] if side == 0 else res["home"])
+	var injuries := []
+	for inj in last_injuries:
+		if str(inj.get("club", "")) == my_club:
+			var p := _find_player(str(inj.get("id", "")))
+			injuries.append({"name": GameDB.player_display_name(p) if not p.is_empty() else "a player"})
+	var star := {}
+	var roster: Array = res.get("roster", [[], []])
+	var stats: Dictionary = res.get("players", {})
+	if roster.size() > side:
+		for r in roster[side]:
+			var st: Dictionary = stats.get(str(r.get("id", "")), {})
+			var goals := int(st.get("goals", 0))
+			var disposals := int(st.get("disposals", 0))
+			if goals >= 6 or disposals >= 40:
+				var p := _find_player(str(r.get("id", "")))
+				star = {"name": GameDB.player_display_name(p) if not p.is_empty() else str(r.get("name", "A player")),
+						"line": "kicked %d goals" % goals if goals >= 6 else "had %d disposals" % disposals}
+				break
+	var round_no := season.round_index if last_phase == "regular" else Season.REGULAR_ROUNDS + int((season.finals.get("weeks", []) as Array).size())
+	media_conference = MediaConference.pick({
+		"result": res, "club": my_club, "opponent_name": GameDB.club_name(opp),
+		"round": round_no, "injuries": injuries, "star": star,
+	}, media_memory)
+
+
+func media_conference_pending() -> bool:
+	return not media_conference.is_empty()
+
+
+
+func skip_media_conference() -> void:
+	if media_conference.is_empty():
+		return
+	media_memory[str(media_conference.get("key", ""))] = int(media_conference.get("round", 0))
+	media_conference = {}
+	mark_dirty()
+	autosave()
+
+
+func resolve_media_conference(option: int) -> void:
+	if media_conference.is_empty():
+		return
+	var opts: Array = media_conference.get("options", [])
+	if option < 0 or option >= opts.size():
+		return
+	var picked: Dictionary = opts[option]
+	if not board.is_empty():
+		board["confidence"] = clampi(board_confidence() + int(picked.get("board", 0)), 0, 100)
+		board["why"] = "Your post-match comments were noted by the board."
+	var morale_delta := int(picked.get("morale", 0))
+	if morale_delta != 0:
+		for p in my_list:
+			ClubLife.add_morale(p, morale_delta)
+	media_memory[str(media_conference.get("key", ""))] = int(media_conference.get("round", 0))
+	add_news("media", "Post-match: '%s'" % str(picked.get("label", "")))
+	media_conference = {}
+	mark_dirty()
+	autosave()
+
 
 
 ## Season over: did you meet the goal? Miss it badly twice and you are gone.
