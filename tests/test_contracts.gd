@@ -22,6 +22,7 @@ func run() -> void:
 	_test_trade_packages_and_needs()
 	_test_phase_cache()
 	_test_trade_picks()
+	_test_future_picks()
 	GameState.delete_saved_career()
 	print("Contracts tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -964,7 +965,7 @@ func _test_trade_picks() -> void:
 	var year := GameState.season_year
 	var rounds := GameState.trade_pick_rounds(year)
 	var mine := GameState.club_picks(me)
-	_check(rounds >= 1 and mine.size() == rounds, "Each club has one pick a round to trade (%d rounds)" % rounds)
+	_check(rounds >= 1 and mine.size() == 2 * rounds, "Each club has one pick a round to trade, this year and next (%d rounds)" % rounds)
 	var all_own := true
 	for pk in mine:
 		all_own = all_own and str(pk["owner"]) == me and str(pk["origin"]) == me
@@ -1053,3 +1054,90 @@ func _test_trade_picks() -> void:
 			used_by = d.drafted_by(str(id))
 	_check(used_by == rival, "The player taken with the traded pick goes to its new owner")
 	_check(GameState.finish_intake_draft() and GameState.pick_owner.is_empty(), "Spent picks leave the ownership record")
+
+
+func _run_draft() -> void:
+	var d: Draft = GameState.draft
+	while not d.is_finished():
+		var c := d._best_ai_pick(d.current_club())
+		if c.is_empty() or not d._draft_pick(d.current_club(), c):
+			d._skip_current_pick()
+
+
+## Next year's picks: valued with honest uncertainty about where a club will
+## finish, owned once, and honoured a year later at the draft.
+func _test_future_picks() -> void:
+	_new_season()
+	_to_offseason()
+	var me := GameState.my_club
+	var year := GameState.season_year
+	var next := year + 1
+	var clubs := GameDB.active_clubs(year)
+	var n := clubs.size()
+	var prospects: Array = GameState.trade_prospects()[str(next)]
+	# The weakest and strongest clubs by what anyone can see.
+	var by_standing := clubs.duplicate()
+	by_standing.sort_custom(func(a, b):
+		var sa: Array = GameState._standing(str(a))
+		var sb: Array = GameState._standing(str(b))
+		return float(sa[0]) + float(sa[1]) > float(sb[0]) + float(sb[1]))
+	var weak := str(by_standing[0])
+	var strong := str(by_standing[n - 1])
+	var weak_pick := GameState.pick_asset(GameState.pick_id(next, 1, weak))
+	var strong_pick := GameState.pick_asset(GameState.pick_id(next, 1, strong))
+	_check(not weak_pick.is_empty() and not strong_pick.is_empty() and str(weak_pick["name"]).ends_with("%d first-round pick" % next),
+			"Next year's picks can be traded, named without a number yet")
+	var wv := TradeValue.pick_value(weak_pick["positions"], prospects, "building")
+	var sv := TradeValue.pick_value(strong_pick["positions"], prospects, "building")
+	var top := TradeValue.pick_value([[1, 1.0]], prospects, "building")
+	var bottom := TradeValue.pick_value([[n, 1.0]], prospects, "building")
+	_check(wv > sv, "A weak club's future first is worth more than a strong club's (%.2f v %.2f)" % [wv, sv])
+	_check(wv < top and sv > bottom, "Nobody knows where a club will finish: a future first is never valued as the very first or last pick (%.2f..%.2f within %.2f..%.2f)" % [sv, wv, bottom, top])
+	var spread := 0
+	for pw in weak_pick["positions"]:
+		if float(pw[1]) >= 0.3:
+			spread += 1
+	_check(spread >= 5, "A future pick spreads over several possible spots (%d)" % spread)
+
+	# Trade your next-year first; it can't be traded again.
+	var rival := "COL"
+	var my_future := GameState.pick_id(next, 1, me)
+	var sorted_mine := GameState.my_list.duplicate()
+	sorted_mine.sort_custom(func(a, b): return int(a["overall"]) < int(b["overall"]))
+	var theirs := (GameState.season.lists[rival] as Array).duplicate()
+	theirs.sort_custom(func(a, b): return int(a["overall"]) < int(b["overall"]))
+	var t := GameState.make_trade(rival, [my_future], [str(theirs[0]["id"])])
+	if not bool(t["ok"]):
+		t = GameState.make_trade(rival, [my_future, str(sorted_mine[0]["id"])], [str(theirs[0]["id"])])
+	_check(bool(t["ok"]) and GameState.pick_owner_of(next, 1, me) == rival,
+			"Your next-year first can be traded (%s)" % str(t["reason"]))
+	_check(not bool(GameState.evaluate_trade(rival, [my_future], [str(theirs[1]["id"])])["ok"]),
+			"A future pick you traded can't be spent again")
+	_check(GameState.save_career() and GameState.load_career() and GameState.pick_owner_of(next, 1, me) == rival,
+			"Future-pick ownership survives a save and load")
+
+	# This year's draft leaves it alone; a year on it is theirs at the draft.
+	_check(GameState.begin_intake_draft(), "This year's draft opens")
+	var d: Draft = GameState.draft
+	var mine_now := 0
+	for k in range(d.pick_sequence.size()):
+		if str(d.pick_origin[k]) == me and int(d.pick_rounds[k]) == 1 and d.comp_at(k).is_empty():
+			mine_now = 1 if str(d.pick_sequence[k]) == me else 0
+	_check(mine_now == 1, "Trading next year's pick leaves this year's with you")
+	_run_draft()
+	_check(GameState.finish_intake_draft() and GameState.season_year == next
+			and GameState.pick_owner_of(next, 1, me) == rival, "The future pick carries over the rollover")
+	_to_offseason()
+	var now := GameState.pick_asset(GameState.pick_id(next, 1, me))
+	_check(not now.is_empty() and str(now["owner"]) == rival and (now["positions"] as Array).size() == 1
+			and str(now["name"]).contains("(No. "), "A year on it is this year's pick, at its exact spot, still theirs")
+	_check(not GameState.pick_asset(GameState.pick_id(next + 1, 1, me)).is_empty()
+			and GameState.pick_asset(GameState.pick_id(next + 2, 1, me)).is_empty(),
+			"The next year opens for trading; the one after doesn't")
+	_check(GameState.begin_intake_draft(), "Next year's draft opens")
+	d = GameState.draft
+	var at := -1
+	for k in range(d.pick_sequence.size()):
+		if str(d.pick_origin[k]) == me and int(d.pick_rounds[k]) == 1 and d.comp_at(k).is_empty():
+			at = k
+	_check(at >= 0 and str(d.pick_sequence[at]) == rival, "At that draft the pick is theirs")
