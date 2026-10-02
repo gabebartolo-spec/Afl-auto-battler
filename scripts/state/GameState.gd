@@ -188,7 +188,7 @@ func appearance() -> String:
 ## Change the shared UI palette. The caller rebuilds the current screen when
 ## this returns true so no old-theme controls remain on screen.
 func set_appearance(mode: String) -> bool:
-	if not mode in ["dark", "light"]:
+	if mode != "dark" and mode != "light":
 		return false
 	var changed := appearance() != mode
 	set_setting("appearance", mode)
