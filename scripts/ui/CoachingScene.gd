@@ -47,7 +47,9 @@ func _narrow() -> bool:
 	return UiKit.view_width(self) < 560.0
 
 
-func _wrapped(text: String, fs := UiKit.BODY, col := UiKit.TEXT) -> Label:
+func _wrapped(text: String, fs := UiKit.BODY, col := UiKit.AUTO_COLOUR) -> Label:
+	if col == UiKit.AUTO_COLOUR:
+		col = UiKit.TEXT
 	var l := UiKit.lbl(text, fs, col)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
