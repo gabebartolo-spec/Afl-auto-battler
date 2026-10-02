@@ -645,38 +645,79 @@ func _run() -> void:
 				_router.handle_back(true)
 				await _settle()
 				_check(current_scene.find_child("ContractTalks", true, false) == null, "Back closes free-agent talks")
-	var theirs = null
-	var mine_pick = null
+	# The trade builder: one list at a time, what you give and get on top.
+	var theirs_btn = null
 	for n in current_scene.find_children("Their_*", "Button", true, false):
-		theirs = n
+		theirs_btn = n
 		break
-	for n in current_scene.find_children("Mine_*", "Button", true, false):
-		mine_pick = n
-		break
-	_check(theirs != null and mine_pick != null, "The trade tab lists both sides")
+	_check(theirs_btn != null and current_scene.find_child("TradeSide_mine", true, false) != null
+			and current_scene.find_children("Mine_*", "Button", true, false).is_empty(),
+			"The trade builder shows one list at a time: theirs, with yours a tap away")
+	var phone_rect := Rect2(Vector2.ZERO, root.get_visible_rect().size).grow(1)
+	var builder_fits := true
+	for nm in ["TradeClub", "MakeTrade", "TradeSide_theirs", "TradeSide_mine"]:
+		var c: Control = current_scene.find_child(nm, true, false)
+		builder_fits = builder_fits and c != null and c.get_global_rect().end.x <= phone_rect.end.x and c.size.y >= 40
+	_check(builder_fits, "The trade builder's controls fit a 360px phone at thumb size")
 	root.size = offseason_size_before
-	if theirs != null and mine_pick != null:
-		theirs.emit_signal("pressed")
+	await _settle()
+	var theirs_now := current_scene.find_children("Their_*", "Button", true, false)
+	if not theirs_now.is_empty():
+		theirs_now[0].emit_signal("pressed")
 		await _settle()
-		mine_pick = current_scene.find_children("Mine_*", "Button", true, false)[0]
-		mine_pick.emit_signal("pressed")
-		await _settle()
+	current_scene.find_child("TradeSide_mine", true, false).emit_signal("pressed")
+	await _settle()
+	for n in current_scene.find_children("Mine_*", "Button", true, false):
+		if not str(n.name).begins_with("Mine_pick_"):
+			n.emit_signal("pressed")
+			await _settle()
+			break
+	_check(current_scene.find_children("GiveRow_*", "", true, false).size() == 1
+			and current_scene.find_children("GetRow_*", "", true, false).size() == 1,
+			"What you give and what you get each show in their own section")
 	var verdict = current_scene.find_child("TradeVerdict", true, false)
-	_check(verdict != null and not str(verdict.text).contains("You give: -"),
-			"Picking players shows the other club's verdict")
+	_check(verdict != null and str(verdict.text) != "" and not str(verdict.text).contains("Put something on each side"),
+			"With something on each side, their answer shows")
+	var decimal := RegEx.create_from_string("\\d\\.\\d|%")
+	_check(decimal.search(_screen_text()) == null, "The trade screen shows no internal values")
 	_check(current_scene.find_child("TradeClubPhase", true, false) != null,
 			"The trade tab says where the other club is in its cycle")
 	var pick_btns := current_scene.find_children("Mine_pick_*", "Button", true, false)
-	_check(pick_btns.size() >= 1 and str((pick_btns[0] as Button).text).contains("first round"),
-			"Your draft picks can be put in a trade")
+	_check(pick_btns.size() >= 2 and str((pick_btns[0] as Button).text).contains("first round"),
+			"Your draft picks, this year's and next, can go in a trade")
 	if not pick_btns.is_empty():
 		pick_btns[0].emit_signal("pressed")
 		await _settle()
-		verdict = current_scene.find_child("TradeVerdict", true, false)
-		_check(verdict != null and str(verdict.text).contains("first-round pick"),
-				"A pick in the trade shows in what you give")
-		current_scene.find_children("Mine_pick_*", "Button", true, false)[0].emit_signal("pressed")
-		await _settle()
+		var pick_row = current_scene.find_child("GiveRow_pick_*", true, false)
+		_check(pick_row != null and current_scene.find_children("GiveRow_*", "", true, false).size() == 2,
+				"A pick joins what you give")
+		if pick_row != null:
+			pick_row.find_child("Remove", true, false).emit_signal("pressed")
+			await _settle()
+			_check(current_scene.find_children("GiveRow_*", "", true, false).size() == 1, "Remove takes it out")
+	# Changing club: every other club, two to a row; Back closes it.
+	current_scene.find_child("TradeClub", true, false).emit_signal("pressed")
+	await _settle()
+	var club_grid = current_scene.find_child("TradeClubChoice", true, false)
+	_check(club_grid != null and club_grid.get_child_count() == _db.active_clubs(_state.season_year).size() - 1
+			and int(club_grid.columns) == 2, "Change club lists every other club, two to a row")
+	_router.handle_back(true)
+	await _settle()
+	_check(_router.current() == "offseason" and current_scene.find_child("TradeClubChoice", true, false) == null
+			and current_scene.find_children("GiveRow_*", "", true, false).size() == 1,
+			"Back closes the club list and keeps the trade")
+	current_scene.find_child("TradeClub", true, false).emit_signal("pressed")
+	await _settle()
+	var other_club = null
+	for n in current_scene.find_child("TradeClubChoice", true, false).get_children():
+		if str(n.name) != "TradeClubChoice_" + str(current_scene.get("_trade_club")):
+			other_club = n
+			break
+	other_club.emit_signal("pressed")
+	await _settle()
+	_check(current_scene.find_children("GetRow_*", "", true, false).is_empty()
+			and current_scene.find_children("GiveRow_*", "", true, false).size() == 1,
+			"A new club clears what you'd get from the old one and keeps what you give")
 	# Picking a player rebuilds the tab but keeps your place in a long list.
 	var box: ScrollContainer = current_scene.get("_scroll_box")
 	box.scroll_vertical = 600

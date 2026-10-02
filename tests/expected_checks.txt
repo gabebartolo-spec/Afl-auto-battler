@@ -14,7 +14,7 @@ coaches 338
 coach_market 56
 coach_pathway 54
 coach_effects 24
-career_ui 141
+career_ui 147
 potential 36
 ratings 27
 ai 35
@@ -26,7 +26,7 @@ roles 164
 injuries 13
 awards 17
 achievements 153
-contracts 153
+contracts 155
 league 19
 club 98
 match_game 122

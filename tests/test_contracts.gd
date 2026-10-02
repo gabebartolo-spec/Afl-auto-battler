@@ -23,6 +23,7 @@ func run() -> void:
 	_test_phase_cache()
 	_test_trade_picks()
 	_test_future_picks()
+	_test_mixed_packages()
 	GameState.delete_saved_career()
 	print("Contracts tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -1141,3 +1142,53 @@ func _test_future_picks() -> void:
 		if str(d.pick_origin[k]) == me and int(d.pick_rounds[k]) == 1 and d.comp_at(k).is_empty():
 			at = k
 	_check(at >= 0 and str(d.pick_sequence[at]) == rival, "At that draft the pick is theirs")
+
+
+## Players and picks on both sides: the order you add them changes nothing,
+## and a pile of lesser pieces still doesn't buy a star.
+func _test_mixed_packages() -> void:
+	_new_season()
+	_to_offseason()
+	var me := GameState.my_club
+	var year := GameState.season_year
+	var invariant := true
+	var tried := 0
+	for rival in ["COL", "WCE", "SYD", "NTH"]:
+		var theirs := (GameState.season.lists[rival] as Array).duplicate()
+		theirs.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+		var mine := GameState.my_list.duplicate()
+		mine.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+		var give := [str(mine[8]["id"]), GameState.pick_id(year, 2, me), str(mine[20]["id"]), GameState.pick_id(year + 1, 1, me)]
+		var take := [str(theirs[10]["id"]), GameState.pick_id(year, 1, rival), str(theirs[25]["id"])]
+		var base := GameState.evaluate_trade(rival, give, take)
+		var g2 := give.duplicate()
+		g2.reverse()
+		var t2 := take.duplicate()
+		t2.reverse()
+		var flipped := GameState.evaluate_trade(rival, g2, t2)
+		invariant = invariant and str(base) == str(flipped)
+		tried += 1
+	_check(tried == 4 and invariant, "Players and picks on both sides: the order they go in changes nothing")
+	# Five lesser pieces - three fringe players and two late picks - for a star.
+	var refused := true
+	for rival in ["COL", "WCE", "SYD", "NTH"]:
+		var theirs := (GameState.season.lists[rival] as Array).duplicate()
+		theirs.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+		var mine := GameState.my_list.duplicate()
+		mine.sort_custom(func(a, b): return int(a["overall"]) < int(b["overall"]))
+		var pile := [str(mine[0]["id"]), str(mine[1]["id"]), str(mine[2]["id"]),
+				GameState.pick_id(year, GameState.trade_pick_rounds(year), me), GameState.pick_id(year + 1, GameState.trade_pick_rounds(year), me)]
+		for m in [0.0, Contracts.TRADE_MARGIN, 0.12]:
+			var ctx := GameState.trade_context(rival)
+			ctx["prospects"] = GameState.trade_prospects()
+			var give_assets := []
+			for id in pile:
+				give_assets.append(GameState.pick_asset(id) if str(id).begins_with("pick:") else GameState.list_player(id))
+			# Room on every list and cap, so only value can refuse it.
+			var padded := GameState.my_list.duplicate()
+			for k in range(4):
+				padded.append({"id": "pad%d" % k, "overall": 40, "salary": 0})
+			var v := Contracts.evaluate_trade(GameState.season.lists[rival], [theirs[0]], give_assets,
+					99999, padded, 99999, m, ctx)
+			refused = refused and v.has("in") and not bool(v["ok"])
+	_check(refused, "Three fringe players and two late picks never buy a club's best player, on any margin")
