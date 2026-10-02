@@ -989,8 +989,10 @@ func _start_next_season(next_year: int, signed: int) -> void:
 				continue
 			seen_brownlow[id] = true
 			p.erase("brownlow_ineligible")
+			p.erase("brownlow_ineligible_cases")
 	for p in free_agents:
 		p.erase("brownlow_ineligible")
+		p.erase("brownlow_ineligible_cases")
 	season_tally = {}
 	form_log = {}
 	season_team = {}
@@ -2513,6 +2515,9 @@ func _process_discipline(results: Array) -> void:
 			var side := clampi(int(item.get("side", 0)), 0, 1)
 			var code := codes[side]
 			item["club"] = code
+			item["case_id"] = "%d|%s|%s|%d|%d|%d" % [season_year, code,
+					str(item.get("id", "")), int(item.get("q", 0)), int(item.get("min", 0)),
+					last_mro.size()]
 			last_mro.append(item)
 			if not season.lists.has(code):
 				continue
@@ -2522,7 +2527,12 @@ func _process_discipline(results: Array) -> void:
 				# User rule: any MRO sanction makes him Brownlow-ineligible.
 				# Votes continue to accrue; Awards only checks this at winner time.
 				if str(item.get("outcome", "")) != "no_action":
-					p["brownlow_ineligible"] = true
+					var cases: Array = p.get("brownlow_ineligible_cases", []).duplicate()
+					var case_id := str(item.get("case_id", ""))
+					if case_id != "" and not cases.has(case_id):
+						cases.append(case_id)
+					p["brownlow_ineligible_cases"] = cases
+					p["brownlow_ineligible"] = not cases.is_empty()
 				if str(item.get("outcome", "")) == "suspension":
 					p["suspension_weeks"] = maxi(int(p.get("suspension_weeks", 0)),
 							int(item.get("weeks", 0)))
@@ -2616,29 +2626,33 @@ static func appeal_case(row: Dictionary) -> String:
 
 
 ## Rebuild the player's live sanction state after a successful contest.
-func _recompute_mro_player(player_id: String) -> void:
+func _recompute_mro_player(player_id: String, cleared_case_id: String) -> void:
 	var p := list_player(player_id)
 	if p.is_empty():
 		return
+	var cases: Array = p.get("brownlow_ineligible_cases", []).duplicate()
+	cases.erase(cleared_case_id)
+	if cases.is_empty():
+		p.erase("brownlow_ineligible_cases")
+		p.erase("brownlow_ineligible")
+	else:
+		p["brownlow_ineligible_cases"] = cases
+		p["brownlow_ineligible"] = true
+
+	# Suspension availability is current-state, so only live unresolved cases
+	# from this round can remain alongside the case just overturned.
 	var remaining_weeks := 0
-	var still_ineligible := false
 	for row in last_mro:
-		if str(row.get("id", "")) != player_id or str(row.get("outcome", "")) == "no_action":
+		if str(row.get("id", "")) != player_id or str(row.get("outcome", "")) != "suspension":
 			continue
 		if str(row.get("challenge_result", "")) == "overturned" \
 				or str(row.get("appeal_result", "")) == "overturned":
 			continue
-		still_ineligible = true
-		if str(row.get("outcome", "")) == "suspension":
-			remaining_weeks = maxi(remaining_weeks, int(row.get("weeks", 0)))
+		remaining_weeks = maxi(remaining_weeks, int(row.get("weeks", 0)))
 	if remaining_weeks > 0:
 		p["suspension_weeks"] = remaining_weeks
 	else:
 		p.erase("suspension_weeks")
-	if still_ineligible:
-		p["brownlow_ineligible"] = true
-	else:
-		p.erase("brownlow_ineligible")
 
 
 ## One Tribunal challenge per MRO sanction. The evidence roll was stored in
@@ -2659,7 +2673,7 @@ func challenge_mro(player_id: String) -> Dictionary:
 	var p := list_player(player_id)
 	var name := str(target.get("name", player_id)) if p.is_empty() else GameDB.player_display_name(p)
 	if success:
-		_recompute_mro_player(player_id)
+		_recompute_mro_player(player_id, str(target.get("case_id", "")))
 		add_news("tribunal", "%s has successfully challenged the MRO sanction at the Tribunal and is Brownlow-eligible again." % name)
 		mark_dirty()
 		return {"ok": true, "success": true,
@@ -2691,7 +2705,7 @@ func appeal_mro(player_id: String) -> Dictionary:
 	var p := list_player(player_id)
 	var name := str(target.get("name", player_id)) if p.is_empty() else GameDB.player_display_name(p)
 	if success:
-		_recompute_mro_player(player_id)
+		_recompute_mro_player(player_id, str(target.get("case_id", "")))
 		add_news("tribunal", "%s has won at the Appeals Board; the suspension is overturned and Brownlow eligibility is restored." % name)
 		mark_dirty()
 		return {"ok": true, "success": true,
