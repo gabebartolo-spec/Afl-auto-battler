@@ -318,8 +318,8 @@ func _test_free_agent_terms() -> void:
 	_check(Contracts.prefers(p, o.call(ask + 3 * Contracts.SALARY_STEP, 3, "depth", 0.5), o.call(ask, 3, "ground", 0.5)),
 			"Enough money still wins: nothing is absolute")
 	# Equal in his eyes: more money first, never a list position.
-	var a: Dictionary = o.call(ask + Contracts.SALARY_STEP, 3, "depth", 0.5)
-	var b: Dictionary = o.call(ask, 3, "bench", 0.1875)
+	var a: Dictionary = o.call(ask + 48667, 2, "bench", 0.5)
+	var b: Dictionary = o.call(ask, 3, "bench", 0.5)
 	_check(Contracts.prefers(p, a, b) and not Contracts.prefers(p, b, a), "A dead heat goes to the bigger salary")
 	# Club valuations come from his role there, and stop at the cap.
 	_check(Contracts.club_max(p, "ground", ask + 10 * Contracts.SALARY_STEP) == ask + 2 * Contracts.SALARY_STEP
@@ -329,7 +329,7 @@ func _test_free_agent_terms() -> void:
 	# Rival answers.
 	var match_r := Contracts.rival_response(p, o.call(ask, 3, "ground", 0.5), o.call(ask + 2 * Contracts.SALARY_STEP, 3, "ground", 0.6), ask + 3 * Contracts.SALARY_STEP)
 	_check(str(match_r["action"]) == "match" and int(match_r["salary"]) == ask + 2 * Contracts.SALARY_STEP, "A rival can match the leading salary")
-	var up := Contracts.rival_response(p, o.call(ask, 3, "bench", 0.5), o.call(ask + Contracts.SALARY_STEP, 3, "bench", 0.5), ask + 3)
+	var up := Contracts.rival_response(p, o.call(ask, 3, "bench", 0.5), o.call(ask + Contracts.SALARY_STEP, 3, "bench", 0.5), ask + 3 * Contracts.SALARY_STEP)
 	_check(str(up["action"]) == "improve" and int(up["salary"]) == ask + 2 * Contracts.SALARY_STEP, "A rival improves just enough to lead")
 	var out := Contracts.rival_response(p, o.call(ask, 3, "ground", 0.5), o.call(ask + 4 * Contracts.SALARY_STEP, 3, "ground", 0.5), ask + 2 * Contracts.SALARY_STEP)
 	_check(str(out["action"]) == "withdraw", "A rival withdraws once the price passes what he's worth to it")
