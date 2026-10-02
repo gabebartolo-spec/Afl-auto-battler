@@ -346,6 +346,8 @@ func _start_beat(k: int) -> void:
 			_phases = _throwin_phases(k)
 		"tackle":
 			_phases = _tackle_phases(k)
+		"smother":
+			_phases = _smother_phases(k)
 		"pressure":
 			_phases = _pressure_phases(k)
 		"inside50":
@@ -411,7 +413,7 @@ func _restart(k: int) -> String:
 			return "throwin"
 		"free", "last_disposal", "out_on_full":
 			return "free"
-		"clanger", "tackle":
+		"clanger", "tackle", "smother":
 			# No stoppage logged: the ball is won where it fell.
 			return "loose"
 	return "open"
@@ -631,6 +633,18 @@ func _tackle_phases(k: int) -> Array:
 
 ## Pressure that forces a turnover: the presser closes on the carrier and
 ## the ball spills to him, no stoppage.
+## A blocked kick: the defender reaches the boot, the ball spills and both
+## sides react to the loose ball. No automatic possession is invented here.
+func _smother_phases(k: int) -> Array:
+	var ev: Dictionary = events[k]
+	var who := _actor_id(ev)
+	var victim := int(ball["holder"])
+	if who < 0 or victim < 0:
+		return [{"t": "emit", "log": true}, {"t": "fumble", "dur": 0.25}]
+	return [{"t": "chase", "who": who, "victim": victim, "max": 0.8},
+			{"t": "emit", "log": true}, {"t": "fumble", "dur": 0.25}]
+
+
 func _pressure_phases(k: int) -> Array:
 	var ph := _tackle_phases(k)
 	if ph.size() < 3:
