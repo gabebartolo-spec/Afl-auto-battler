@@ -1108,8 +1108,14 @@ func board(role := "", club := "", search := "", sort := "overall",
 						return int(a.get("potential", 0)) > int(b.get("potential", 0))
 					return a["overall"] > b["overall"])
 		"goals":
-			out.sort_custom(func(a, b): return a["gl"] > b["gl"])
+			out.sort_custom(func(a, b):
+				if intake_mode:
+					return float(a.get("u18_gl", 0.0)) > float(b.get("u18_gl", 0.0))
+				return a["gl"] > b["gl"])
 		"disposals":
-			out.sort_custom(func(a, b): return a["di"] > b["di"])
+			out.sort_custom(func(a, b):
+				if intake_mode:
+					return float(a.get("u18_di", 0.0)) > float(b.get("u18_di", 0.0))
+				return a["di"] > b["di"])
 	return out
 
