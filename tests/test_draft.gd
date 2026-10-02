@@ -14,6 +14,7 @@ func run() -> void:
 	_test_dual_position_coverage()
 	_test_position_status()
 	_test_complete_small_draft()
+	_test_real_money_cap()
 	_test_real_pool()
 	_test_player_name_modes()
 	_test_plausible_names()
@@ -182,6 +183,14 @@ func _test_complete_small_draft() -> void:
 	_check(draft.board("", "", "", "overall", true).is_empty(), "Picked players leave the available pool")
 	_check(draft.board().size() == 20, "Turning off available-only includes taken players")
 	_verify_log(draft)
+
+
+func _test_real_money_cap() -> void:
+	var d := _career_draft(17)
+	_check(d.budget == Contracts.CAP_2027,
+			"The opening career draft uses the 2027 AFL cap")
+	_check(d.pool.all(func(p): return int(p["value"]) >= 125000),
+			"Draft costs are annual-dollar salaries, not 1-10 cap points")
 
 
 func _test_real_pool() -> void:
@@ -402,7 +411,7 @@ func _test_cap_guard() -> void:
 	d.club_spend[me] = int(d.club_spend[me]) + 1
 	_check(not d.can_pick_player(p) and d.pick_block_reason(p).begins_with("This selection would leave too little salary cap"),
 			"A dollar over and it is refused, in plain words")
-	_check(d.pick_block_reason(p).contains("$%d left" % d.remaining()), "The refusal shows the cap actually left")
+	_check(d.pick_block_reason(p).contains(Contracts.money(d.remaining()) + " left"), "The refusal shows the cap actually left")
 	d.club_spend[me] = real_spend
 	# The final place: nothing to keep back, every dollar left can be spent.
 	var guard := 0
@@ -459,7 +468,7 @@ func _test_stuck_draft_recovery() -> void:
 	# let it): every dollar gone with places still to fill.
 	if not d.user_stuck() and not d.is_finished() and d.is_user_turn():
 		d.club_spend[me] = d.budget
-	_check(d.user_stuck(), "An old save can leave you with no legal pick (%d signed, $%d left)" % [d.count(), d.remaining()])
+	_check(d.user_stuck(), "An old save can leave you with no legal pick (%d signed, %s left)" % [d.count(), Contracts.money(d.remaining())])
 	if not d.user_stuck():
 		return
 	_check(d.spent() <= d.budget, "Even stuck, the cap was never breached")
@@ -493,7 +502,7 @@ func _test_stuck_draft_recovery() -> void:
 		if p.is_empty() or not r.pick(p):
 			break
 	_check(r.is_finished() and r.count() == r.target_size and r.spent() <= r.budget and r.is_valid(),
-			"The draft then completes with a full, legal list (%d/%d, $%d of $%d)" % [r.count(), r.target_size, r.spent(), r.budget])
+			"The draft then completes with a full, legal list (%d/%d, %s of %s)" % [r.count(), r.target_size, Contracts.money(r.spent()), Contracts.money(r.budget)])
 	GameState.draft = null
 	GameState.delete_saved_career()
 
