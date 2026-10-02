@@ -108,7 +108,26 @@ func _run() -> void:
 			and current_scene.find_child("MenuSettings", true, false) != null,
 			"How to play and Settings are on the menu")
 
-	# --- settings: player names apply at once --------------------------------
+	# --- settings: appearance and player names apply at once -----------------
+	current_scene.find_child("MenuSettings", true, false).emit_signal("pressed")
+	await _settle()
+	var light_setting: Button = current_scene.find_child("SettingsAppearance_light", true, false)
+	var dark_setting: Button = current_scene.find_child("SettingsAppearance_dark", true, false)
+	_check(light_setting != null and dark_setting != null, "Settings offers Dark and Light appearance")
+	if light_setting != null:
+		light_setting.emit_signal("pressed")
+		await _settle()
+	_check(_state.appearance() == "light" and UiKit.appearance() == "light"
+			and UiKit.BG.r > 0.8 and _router.current() == "main",
+			"Light appearance applies immediately and rebuilds the current screen")
+	current_scene.find_child("MenuSettings", true, false).emit_signal("pressed")
+	await _settle()
+	dark_setting = current_scene.find_child("SettingsAppearance_dark", true, false)
+	if dark_setting != null:
+		dark_setting.emit_signal("pressed")
+		await _settle()
+	_check(_state.appearance() == "dark" and UiKit.appearance() == "dark"
+			and UiKit.BG.r < 0.2, "Dark appearance restores the original palette")
 	current_scene.find_child("MenuSettings", true, false).emit_signal("pressed")
 	await _settle()
 	var real_setting: Button = current_scene.find_child("SettingsNames_real", true, false)
@@ -117,6 +136,20 @@ func _run() -> void:
 		real_setting.emit_signal("pressed")
 		await _settle()
 	_check(_state.show_real_names, "Choosing Real in Settings shows real names straight away")
+	var mute_on: Button = current_scene.find_child("SettingsMuteSounds_on", true, false)
+	var mute_off: Button = current_scene.find_child("SettingsMuteSounds_off", true, false)
+	_check(mute_on != null and mute_off != null, "Settings offers Mute sounds")
+	if mute_on != null:
+		mute_on.emit_signal("pressed")
+	var master_bus := AudioServer.get_bus_index("Master")
+	_check(_state.sounds_muted()
+			and (master_bus < 0 or AudioServer.is_bus_mute(master_bus)),
+			"Mute sounds immediately mutes the Master audio bus")
+	if mute_off != null:
+		mute_off.emit_signal("pressed")
+	_check(not _state.sounds_muted()
+			and (master_bus < 0 or not AudioServer.is_bus_mute(master_bus)),
+			"Sounds can be switched back on")
 	_check(OS.has_feature("web") or current_scene.find_child("QuitGame", true, false) != null,
 			"Quit lives in Settings")
 	current_scene.find_child("SettingsNames_generated", true, false).emit_signal("pressed")
@@ -803,14 +836,35 @@ func _run() -> void:
 		await _settle()
 	var eight: Button = current_scene.find_child("SettingsSpeed_8", true, false)
 	_check(eight != null and current_scene.find_child("OptionsMainMenu", true, false) != null
+			and current_scene.find_child("OptionsNewCareer", true, false) != null
 			and current_scene.find_child("OptionsVersion", true, false) != null,
-			"Settings in a career has match speed, the main menu and the version")
+			"Settings in a career has speed, main menu, New career and version")
 	if eight != null:
 		eight.emit_signal("pressed")
 		await _settle()
 	_check(is_equal_approx(_state.match_speed(), 8.0), "Match speed is remembered")
 	_state.set_match_speed(4.0)
-	_check(_state.save_career(), "The career is saved before the delete test")
+	_check(_state.save_career(), "The career is saved before the destructive-action tests")
+	var new_from_settings: Button = current_scene.find_child("OptionsNewCareer", true, false)
+	if new_from_settings != null:
+		new_from_settings.emit_signal("pressed")
+		await _settle()
+	_check(_router.current() == "main"
+			and current_scene.find_child("NewCareerSetup", true, false) != null
+			and _state.has_saved_career(),
+			"New career opens setup without deleting the current save")
+	_router.handle_back(false)
+	await _settle()
+	var saved_continue: Button = current_scene.find_child("ContinueCareer", true, false)
+	if saved_continue != null:
+		saved_continue.emit_signal("pressed")
+		await _settle()
+	_check(_router.current() == "hub" and _state.season != null,
+			"Backing out of New career can still resume the saved career")
+	hub_settings = current_scene.find_child("HubSettings", true, false)
+	if hub_settings != null:
+		hub_settings.emit_signal("pressed")
+		await _settle()
 	current_scene.find_child("OptionsDelete", true, false).emit_signal("pressed")
 	await _settle()
 	current_scene.find_child("OptionsDeleteCancel", true, false).emit_signal("pressed")

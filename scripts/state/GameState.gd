@@ -10,6 +10,9 @@ extends Node
 ## shows each AFL name on its own, without changing the simulation or IDs.
 signal player_names_changed
 var show_real_names := false
+## Transient navigation request. Settings can send the user straight to New
+## career setup without touching the existing save.
+var new_career_setup_requested := false
 
 var my_club := ""
 var my_list: Array = []
@@ -152,6 +155,8 @@ func _ready() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(settings_path) == OK:
 		show_real_names = bool(cfg.get_value("display", "real_names", false))
+	UiKit.apply_appearance(str(cfg.get_value("ui", "appearance", "dark")))
+	_apply_sound_mute(bool(cfg.get_value("ui", "mute_sounds", false)))
 
 
 func _exit_tree() -> void:
@@ -178,6 +183,39 @@ func set_setting(key: String, value) -> void:
 	cfg.load(settings_path)
 	cfg.set_value("ui", key, value)
 	cfg.save(settings_path)
+
+
+func appearance() -> String:
+	var mode := str(get_setting("appearance", "dark"))
+	return mode if mode in ["dark", "light"] else "dark"
+
+
+## Change the shared UI palette. The caller rebuilds the current screen when
+## this returns true so no old-theme controls remain on screen.
+func set_appearance(mode: String) -> bool:
+	if mode != "dark" and mode != "light":
+		return false
+	var changed := appearance() != mode
+	set_setting("appearance", mode)
+	UiKit.apply_appearance(mode)
+	return changed
+
+
+func sounds_muted() -> bool:
+	return bool(get_setting("mute_sounds", false))
+
+
+func set_sounds_muted(muted: bool) -> void:
+	set_setting("mute_sounds", muted)
+	_apply_sound_mute(muted)
+
+
+## Mute the Master bus so future music and SFX automatically honour the same
+## setting even if they later gain their own child buses.
+func _apply_sound_mute(muted: bool) -> void:
+	var master := AudioServer.get_bus_index("Master")
+	if master >= 0:
+		AudioServer.set_bus_mute(master, muted)
 
 
 ## Ask before Sim round plays your match without you. On by default.
@@ -661,6 +699,7 @@ func reset() -> void:
 	class_tiers = {}
 	last_training_report = {}
 	_xp_grant_key = ""
+	new_career_setup_requested = false
 	_dirty = false
 	default_train_plan = "position"
 	season_year = GameDB.START_YEAR

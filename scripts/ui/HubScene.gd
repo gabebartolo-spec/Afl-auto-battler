@@ -945,7 +945,9 @@ func _results_list(results: Array) -> Control:
 
 
 func _result_side(code: String, goals: int, behinds: int, col: Color, verdict: String,
-		vcol: Color = UiKit.TEXT) -> Control:
+		vcol: Color = UiKit.AUTO_COLOUR) -> Control:
+	if vcol == UiKit.AUTO_COLOUR:
+		vcol = UiKit.TEXT
 	var h := UiKit.hbox(6)
 	h.add_child(UiKit.club_badge(code, 13, true, true))
 	var score := UiKit.line(UiKit.scoreline(goals, behinds), 14, col, true)

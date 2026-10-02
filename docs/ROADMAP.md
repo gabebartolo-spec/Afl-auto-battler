@@ -2877,10 +2877,18 @@ The same scroll-preservation rule now applies across Contracts, Free agents and 
 
 
 ## ARD-M6-005 — Options / settings
-**Status:** `DONE`  
-**Merged:** PR #86 as `ebc570d`; one Settings sheet now serves the menu and career hub, with relevant current options and destructive-action confirmation.  
+**Status:** `IN PROGRESS` — core Settings merged in #86; the requested light/dark appearance and direct safe New career action are implemented in PR #205 pending validation/merge.  
+**Merged:** PR #86 as `ebc570d`; one Settings sheet serves the menu and career hub, with relevant current options and destructive-action confirmation.  
 **Priority:** `P1`  
 **Autonomy:** `SAFE`
+
+### Follow-up (2026-10-02, PR #205)
+- Dark / Light is now a real persisted shared-palette choice; changing it rebuilds the current screen immediately.
+- Light mode uses warm neutral paper/ink colours while club colours and the football ground remain unchanged.
+- Career Settings adds **New career**. It opens setup without deleting the existing save; the existing replacement confirmation remains the destructive gate, so backing out can still resume the save.
+- Delete this career retains its explicit confirmation and uses the shared danger treatment.
+- **Mute sounds** persists and mutes Godot's Master audio bus, so incoming music and SFX automatically honour it.
+- UI scale and reduced motion remain out until they have real systems to control.
 
 ### Implementation record (2026-09-28, branch `claude/options`)
 - **One Settings sheet** (`scripts/ui/OptionsSheet.gd`), opened from the main menu (Settings) and from a new top-right Settings on the hub. It holds:
@@ -2893,10 +2901,7 @@ The same scroll-preservation rule now applies across Contracts, Free agents and 
   - Delete this career. It asks first ("This deletes your saved career for good. It cannot be undone.", with Keep it / Delete career), then removes the save and returns to the menu.
   - Quit game stays on the menu's sheet (desktop only).
   - Back closes the sheet.
-- **Left out, as not yet relevant:**
-  - light/dark theme and UI scale: one palette and type scale, and a change there is project-wide;
-  - audio: none yet;
-  - reduced motion: the match view already has 1x to 8x and Skip.
+- **Originally left out:** light/dark, audio, UI scale and reduced motion. PR #205 now adds light/dark and the now-relevant global Mute sounds control; UI scale and reduced motion remain out until they have real systems to control.
 - **Also fixed:** the hub's four-button bottom row cut "Sim round" short at 360 px. Below 380 px it uses 13 px type and tighter padding.
 - **Tests:** `run_career_ui_tests.gd` covers:
   - Settings on the hub's top bar;
