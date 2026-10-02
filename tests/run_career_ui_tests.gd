@@ -907,6 +907,63 @@ func _run() -> void:
 	_check(_router.current() == "main" and not _state.has_saved_career() and _state.season == null,
 			"Delete this career removes the save and returns to the menu")
 
+	await _test_season_awards()
 	_state.delete_saved_career()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
+
+
+func _test_season_awards() -> void:
+	_state.reset()
+	_state.start_season("COL", _db.club_list("COL"))
+	var player: Dictionary = _state.my_list[0]
+	var row := {"id": str(player["id"]), "club": "COL", "votes": 24, "goals": 71, "bf": 118, "slot": "MID"}
+	_state.season_awards = {"year": 2027, "brownlow": [row], "coleman": [row],
+		"all_australian": [row], "best_and_fairest": {"COL": [row]}}
+	var before := var_to_str(_state.season_awards)
+	var host := Control.new()
+	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(host)
+	root.size = Vector2i(360, 800)
+	var ceremony: Control = load("res://scripts/ui/SeasonAwards.gd").open(host)
+	await _settle()
+	var next: Button = ceremony.find_child("AwardsNext", true, false)
+	_check(next != null and next.size.y >= 44, "Awards actions remain thumb sized")
+	next.emit_signal("pressed")
+	await _settle()
+	var scene: Control = ceremony.find_child("AwardWinner", true, false)
+	_check(scene != null and scene.club == "COL", "The stored winner supplies the vignette club")
+	_check(scene.number == int(player["num"]), "The winner retains his actual jumper number")
+	for width in [320, 360, 430]:
+		root.size = Vector2i(width, 800)
+		await _settle()
+		var button_rect := next.get_global_rect()
+		_check(button_rect.position.x >= 0 and button_rect.end.x <= width and button_rect.end.y <= 800,
+			"Awards footer remains reachable at %d portrait width" % width)
+
+	next.emit_signal("pressed")
+	_check(scene._done, "A tap completes the winner animation without advancing the award")
+	_check(var_to_str(_state.season_awards) == before, "Revealing awards does not mutate votes or results")
+	for i in range(20):
+		if not is_instance_valid(ceremony):
+			break
+		next.emit_signal("pressed")
+		await _settle()
+	_check(not is_instance_valid(ceremony) and _state.season_awards.get("presentation_seen", false),
+		"Completing awards records viewing and returns to review")
+	_check(_state.save_career(), "Awards viewed state saves")
+	_check(_state.load_career() and _state.season_awards.get("presentation_seen", false), "Awards viewed state survives reload")
+	ceremony = load("res://scripts/ui/SeasonAwards.gd").open(host)
+	await _settle()
+	ceremony.find_child("AwardsSkip", true, false).emit_signal("pressed")
+	await _settle()
+	_check(not is_instance_valid(ceremony), "Replay can skip straight to review")
+	for code in _db.CLUB_ORDER:
+		var winner: Control = load("res://scripts/ui/match/AwardWinnerVignette.gd").new()
+		host.add_child(winner)
+		winner.setup_winner(code, 7)
+		winner.finish_now()
+		_check(winner._colours[0] == _db.club_marker_colours(code), "%s uses genuine club colours" % code)
+		winner.queue_free()
+	host.queue_free()
+	await _settle()
