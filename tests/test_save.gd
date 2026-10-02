@@ -274,4 +274,9 @@ static func _to_old(v: Variant) -> Variant:
 		return out
 	if v is Array:
 		return (v as Array).map(func(x): return _to_old(x))
+	if v is PackedStringArray:
+		var out := PackedStringArray()
+		for x in v:
+			out.append(_to_old(x))
+		return out
 	return v

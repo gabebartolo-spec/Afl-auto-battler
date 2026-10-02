@@ -556,7 +556,7 @@ func _filters() -> Control:
 		_shown = PAGE_SIZE
 		_refresh_board(true))
 	opts.add_child(sort_option)
-	if _draft.league_mode:
+	if _draft.league_mode and not _draft.intake_mode:
 		var stage_row := UiKit.hbox(6)
 		_advanced.add_child(stage_row)
 		var stage_label := UiKit.lbl("Career stage", 13, UiKit.MUTED)
@@ -624,7 +624,7 @@ func _career_stage_label(key: String) -> String:
 
 func _board_rows() -> Array:
 	var rows := _draft.board(_role, _club_filter, _search.strip_edges(), _sort, _available_only)
-	if not _draft.league_mode or _career_stage.is_empty():
+	if not _draft.league_mode or _draft.intake_mode or _career_stage.is_empty():
 		return rows
 	var filtered := []
 	for p in rows:
@@ -1019,7 +1019,7 @@ func _open_player(id: String) -> void:
 	buttons.add_child(close)
 	if not _draft.has(id):
 		var who_name := GameDB.player_display_name(p)
-		var act := UiKit.btn("Select " + who_name if _draft.intake_mode
+		var act := UiKit.btn("Sign " + who_name if _draft.intake_mode
 				else "Draft %s  ·  %s" % [who_name, Contracts.money(int(p["value"]))], 15, true)
 		act.name = "DetailDraft"
 		act.clip_text = true
