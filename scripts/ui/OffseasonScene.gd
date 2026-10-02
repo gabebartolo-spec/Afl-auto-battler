@@ -54,8 +54,8 @@ func _build() -> void:
 	var hv := UiKit.vbox(4)
 	head.add_child(hv)
 	var room := GameState.cap_room()
-	hv.add_child(UiKit.lbl("Payroll %d of %d  ·  cap room %d  ·  list %d" % [GameState.my_payroll(),
-			GameState.salary_cap, room, GameState.my_list.size()], 15,
+	hv.add_child(UiKit.lbl("Payroll %s of %s  ·  cap room %s  ·  list %d" % [Contracts.money(GameState.my_payroll()),
+			Contracts.money(GameState.salary_cap), Contracts.money(room), GameState.my_list.size()], 15,
 			UiKit.GOOD if room >= 0 else UiKit.BAD, true))
 	if not GameState.offseason_open():
 		hv.add_child(_para("The off-season is closed: trades and contracts open when the season ends, until the national draft starts.", 13, UiKit.MUTED))
@@ -108,16 +108,16 @@ func _contracts(body: VBoxContainer) -> void:
 		body.add_child(_para("Nobody is out of contract this year.", 13, UiKit.MUTED))
 	for p in expiring:
 		var want := Contracts.wants(p)
-		var card := _player_card(p, "%d OVR  ·  %d POT  ·  age %d  ·  on %d, wants %d for %d seasons" % [
+		var card := _player_card(p, "%d OVR  ·  %d POT  ·  age %d  ·  on %s, wants %s for %d seasons" % [
 				int(p["overall"]), int(p.get("potential", p["overall"])), int(p.get("age", 0)),
-				int(p.get("salary", 0)), int(want["salary"]), int(want["years"])])
+				Contracts.money(int(p.get("salary", 0))), Contracts.money(int(want["salary"])), int(want["years"])])
 		body.add_child(card)
 		var row := UiKit.hbox(4)
 		row.name = "Contract_" + str(p["id"])
 		(card.get_child(0) as VBoxContainer).add_child(row)
 		if bool(p.get("resigned", false)):
-			row.add_child(UiKit.line("Re-signed: %d more seasons at %d" % [int(p["contract_years"]) - 1,
-					int(p.get("salary", 0))], 13, UiKit.GOOD, true))
+			row.add_child(UiKit.line("Re-signed: %d more seasons at %s" % [int(p["contract_years"]) - 1,
+					Contracts.money(int(p.get("salary", 0)))], 13, UiKit.GOOD, true))
 			continue
 		var talks: Dictionary = p.get("talks", {})
 		if bool(talks.get("walked", false)):
@@ -127,8 +127,8 @@ func _contracts(body: VBoxContainer) -> void:
 			(card.get_child(0) as VBoxContainer).add_child(proj)
 			continue
 		if talks.has("counter"):
-			(card.get_child(0) as VBoxContainer).add_child(_para("He'd sign for %d over %d season%s." % [
-					int(talks["counter"]), int(talks["years"]), "" if int(talks["years"]) == 1 else "s"], 12, UiKit.TEXT))
+			(card.get_child(0) as VBoxContainer).add_child(_para("He'd sign for %s over %d season%s." % [
+					Contracts.money(int(talks["counter"])), int(talks["years"]), "" if int(talks["years"]) == 1 else "s"], 12, UiKit.TEXT))
 		var talk := UiKit.btn("Talk contract", 13)
 		talk.name = "Negotiate"
 		talk.custom_minimum_size = Vector2(0, 44)
@@ -144,8 +144,8 @@ func _contracts(body: VBoxContainer) -> void:
 	var sorted := GameState.my_list.duplicate()
 	sorted.sort_custom(func(a, b): return int(a.get("salary", 0)) > int(b.get("salary", 0)))
 	for p in sorted:
-		body.add_child(_para("%s  ·  %d OVR  ·  salary %d  ·  %d season%s left" % [
-				GameDB.player_display_name(p), int(p["overall"]), int(p.get("salary", 0)),
+		body.add_child(_para("%s  ·  %d OVR  ·  %s  ·  %d season%s left" % [
+				GameDB.player_display_name(p), int(p["overall"]), Contracts.money(int(p.get("salary", 0))),
 				int(p.get("contract_years", 1)), "" if int(p.get("contract_years", 1)) == 1 else "s"], 12, UiKit.TEXT))
 
 
@@ -227,11 +227,11 @@ func _show_talks() -> void:
 	_talk_overlay.name = "ContractTalks"
 	var v: VBoxContainer = box["body"]
 	v.add_child(_para(GameDB.player_display_name(p), 20, UiKit.TEXT))
-	v.add_child(_para("Age %d  ·  %d OVR  ·  %d POT  ·  on %d now" % [int(p.get("age", 0)), int(p["overall"]),
-			int(p.get("potential", p["overall"])), int(p.get("salary", 0))], 13, UiKit.MUTED))
+	v.add_child(_para("Age %d  ·  %d OVR  ·  %d POT  ·  on %s now" % [int(p.get("age", 0)), int(p["overall"]),
+			int(p.get("potential", p["overall"])), Contracts.money(int(p.get("salary", 0)))], 13, UiKit.MUTED))
 	# For a free agent his terms include what his options add.
 	var meet_salary := int(want["salary"]) + int(terms.get("premium", 0))
-	v.add_child(_para("He wants %d a season for %d seasons. %s" % [meet_salary, int(want["years"]),
+	v.add_child(_para("He wants %s a season for %d seasons. %s" % [Contracts.money(meet_salary), int(want["years"]),
 			Contracts.stance(p)], 15, UiKit.TEXT))
 	if _talk_fa and GameState.my_list.size() >= Contracts.MAX_LIST:
 		v.add_child(_para("Your list is full (%d): release a player first." % Contracts.MAX_LIST, 14, UiKit.BAD))
@@ -243,7 +243,7 @@ func _show_talks() -> void:
 		_offers_table(v)
 	var reply := _talk_reply
 	if reply == "" and talks.has("counter"):
-		reply = "He'd sign for %d over %d season%s." % [int(talks["counter"]), int(talks["years"]),
+		reply = "He'd sign for %s over %d season%s." % [Contracts.money(int(talks["counter"])), int(talks["years"]),
 				"" if int(talks["years"]) == 1 else "s"]
 	if reply != "":
 		var r := _para(reply, 15, UiKit.TEXT)
@@ -265,12 +265,12 @@ func _show_talks() -> void:
 	var less := UiKit.btn("−", 18)
 	less.name = "SalaryDown"
 	less.custom_minimum_size = Vector2(56, 44)
-	less.disabled = _offer_salary <= 1
+	less.disabled = _offer_salary <= Contracts.SENIOR_MIN_2027
 	less.pressed.connect(func():
-		_offer_salary = maxi(1, _offer_salary - 1)
+		_offer_salary = maxi(Contracts.SENIOR_MIN_2027, _offer_salary - Contracts.SALARY_STEP)
 		_show_talks())
 	srow.add_child(less)
-	var amount := UiKit.lbl(str(_offer_salary), 20, UiKit.TEXT, true)
+	var amount := UiKit.lbl(Contracts.money(_offer_salary), 20, UiKit.TEXT, true)
 	amount.name = "SalaryOffer"
 	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	amount.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -279,7 +279,7 @@ func _show_talks() -> void:
 	more.name = "SalaryUp"
 	more.custom_minimum_size = Vector2(56, 44)
 	more.pressed.connect(func():
-		_offer_salary += 1
+		_offer_salary += Contracts.SALARY_STEP
 		_show_talks())
 	srow.add_child(more)
 	# Your own player's current salary is already on the books; a free
@@ -287,16 +287,16 @@ func _show_talks() -> void:
 	var on_books := 0 if _talk_fa else int(p.get("salary", 0))
 	var room_after := GameState.cap_room() + on_books - _offer_salary
 	var blocked := bool(terms.get("refuse", false)) or (_talk_fa and GameState.my_list.size() >= Contracts.MAX_LIST)
-	v.add_child(_para("Cap room after this deal: %d" % room_after, 14, UiKit.TEXT if room_after >= 0 else UiKit.BAD))
+	v.add_child(_para("Cap room after this deal: %s" % Contracts.money(room_after), 14, UiKit.TEXT if room_after >= 0 else UiKit.BAD))
 	var final := _talk_fa and GameState.fa_market_stage(_talk_id) == "final"
-	var offer := UiKit.btn("%s %d for %d season%s" % ["Final offer:" if final else "Offer", _offer_salary, _offer_years,
+	var offer := UiKit.btn("%s %s for %d season%s" % ["Final offer:" if final else "Offer", Contracts.money(_offer_salary), _offer_years,
 			"" if _offer_years == 1 else "s"], 16, true)
 	offer.name = "MakeOffer"
 	offer.custom_minimum_size.y = 44
 	offer.disabled = room_after < 0 or blocked
 	offer.pressed.connect(_make_offer.bind(_offer_salary, _offer_years))
 	box["footer"].add_child(offer)
-	var meet := UiKit.btn("Meet his terms: %d for %d seasons" % [meet_salary, int(want["years"])], 16)
+	var meet := UiKit.btn("Meet his terms: %s for %d seasons" % [Contracts.money(meet_salary), int(want["years"])], 16)
 	meet.name = "MeetTerms"
 	meet.custom_minimum_size.y = 44
 	meet.disabled = GameState.cap_room() + on_books < meet_salary or blocked
@@ -329,7 +329,7 @@ func _offers_table(v: VBoxContainer) -> void:
 			var club := UiKit.line(who, 13, UiKit.TEXT, bool(row["leading"]))
 			club.name = "Offer_" + str(row["club"])
 			grid.add_child(club)
-			grid.add_child(UiKit.line(str(row["salary"]), 13, UiKit.TEXT, bool(row["leading"])))
+			grid.add_child(UiKit.line(Contracts.money(int(row["salary"])), 13, UiKit.TEXT, bool(row["leading"])))
 			grid.add_child(UiKit.line(str(row["years"]), 13, UiKit.TEXT, bool(row["leading"])))
 			var view := _para(("Leading. " if bool(row["leading"]) else "") + str(row["view"]), 12, UiKit.TEXT)
 			view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -382,15 +382,15 @@ func _agents(body: VBoxContainer) -> void:
 		body.add_child(_para("No free agents right now. Rivals let players go when the season ends.", 13, UiKit.MUTED))
 	for p in fas:
 		var want := Contracts.wants(p)
-		var card := _player_card(p, "%d OVR  ·  %d POT  ·  age %d  ·  wants %d for %d seasons  ·  from %s" % [
+		var card := _player_card(p, "%d OVR  ·  %d POT  ·  age %d  ·  wants %s for %d seasons  ·  from %s" % [
 				int(p["overall"]), int(p.get("potential", p["overall"])), int(p.get("age", 0)),
-				int(want["salary"]), int(want["years"]),
+				Contracts.money(int(want["salary"])), int(want["years"]),
 				GameDB.club_short(str(p.get("released_by", "")))])
 		var offers := GameState.fa_offers(str(p["id"]))
 		if not offers.is_empty():
 			var bits := PackedStringArray()
 			for o in offers.slice(0, 3):
-				bits.append("%s %d for %d" % ["you" if bool(o["mine"]) else GameDB.club_short(str(o["club"])), int(o["salary"]), int(o["years"])])
+				bits.append("%s %s for %d" % ["you" if bool(o["mine"]) else GameDB.club_short(str(o["club"])), Contracts.money(int(o["salary"])), int(o["years"])])
 			var line := "Offers: " + ", ".join(bits) + (" and %d more" % (offers.size() - 3) if offers.size() > 3 else "")
 			(card.get_child(0) as VBoxContainer).add_child(_para(line + ".", 12, UiKit.TEXT))
 		var row := UiKit.hbox(4)
@@ -401,8 +401,8 @@ func _agents(body: VBoxContainer) -> void:
 			row.add_child(UiKit.line("Talks broke down: he'll look elsewhere", 13, UiKit.BAD, true))
 		else:
 			if talks.has("counter"):
-				(card.get_child(0) as VBoxContainer).add_child(_para("He'd sign for %d over %d season%s." % [
-						int(talks["counter"]), int(talks["years"]), "" if int(talks["years"]) == 1 else "s"], 12, UiKit.TEXT))
+				(card.get_child(0) as VBoxContainer).add_child(_para("He'd sign for %s over %d season%s." % [
+						Contracts.money(int(talks["counter"])), int(talks["years"]), "" if int(talks["years"]) == 1 else "s"], 12, UiKit.TEXT))
 			var talk := UiKit.btn("Talk contract", 13)
 			talk.name = "FreeAgentTalks"
 			talk.custom_minimum_size = Vector2(0, 44)
