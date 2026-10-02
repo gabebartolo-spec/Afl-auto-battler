@@ -10,6 +10,9 @@ extends Node
 ## shows each AFL name on its own, without changing the simulation or IDs.
 signal player_names_changed
 var show_real_names := false
+## Transient navigation request. Settings can send the user straight to New
+## career setup without touching the existing save.
+var new_career_setup_requested := false
 
 var my_club := ""
 var my_list: Array = []
@@ -148,6 +151,7 @@ func _ready() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(settings_path) == OK:
 		show_real_names = bool(cfg.get_value("display", "real_names", false))
+	UiKit.apply_appearance(str(cfg.get_value("ui", "appearance", "dark")))
 
 
 func _exit_tree() -> void:
@@ -174,6 +178,22 @@ func set_setting(key: String, value) -> void:
 	cfg.load(settings_path)
 	cfg.set_value("ui", key, value)
 	cfg.save(settings_path)
+
+
+func appearance() -> String:
+	var mode := str(get_setting("appearance", "dark"))
+	return mode if mode in ["dark", "light"] else "dark"
+
+
+## Change the shared UI palette. The caller rebuilds the current screen when
+## this returns true so no old-theme controls remain on screen.
+func set_appearance(mode: String) -> bool:
+	if not mode in ["dark", "light"]:
+		return false
+	var changed := appearance() != mode
+	set_setting("appearance", mode)
+	UiKit.apply_appearance(mode)
+	return changed
 
 
 ## Ask before Sim round plays your match without you. On by default.
@@ -650,6 +670,7 @@ func reset() -> void:
 	class_tiers = {}
 	last_training_report = {}
 	_xp_grant_key = ""
+	new_career_setup_requested = false
 	_dirty = false
 	default_train_plan = "position"
 	season_year = GameDB.START_YEAR
