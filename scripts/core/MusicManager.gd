@@ -58,7 +58,7 @@ func _play_next() -> void:
 	if _bag.is_empty():
 		return
 
-	var track := _bag.pop_front()
+	var track: AudioStream = _bag.pop_front()
 	_last_track = track
 	_player.stream = track
 	_player.play()
