@@ -1,7 +1,7 @@
 # Aussie Rules Dynasties — Canonical Execution Roadmap
 
 _Last reorganised: 2026-09-28_
-_Last sanity-checked: 2026-09-30 after full-season phone playtest_
+_Last sanity-checked: 2026-10-02 against current `main`, merged PRs and the full open-PR set_
 
 This file is the **single source of truth** for the project roadmap. It is deliberately written so Claude or another coding agent can read it, select an authorised task, inspect the repo, implement it, validate it, and update the roadmap with minimal extra guidance.
 
@@ -122,16 +122,16 @@ Never mark an item `DONE` because code was written locally. It must be merged an
 
 ## 0.4.1 Current execution queue — overrides milestone order
 
-This is the **authoritative near-term work order**. The M1→M8 milestone structure below is a catalogue/dependency map, **not** a command to complete every lower-numbered milestone before higher-value work.
+This is the **authoritative near-term work order**. The milestone catalogue below is not a command to start more work while validated PRs are already in flight.
 
-When this queue conflicts with milestone number, item order, or a generic P1/P2 label, **follow this queue**.
+1. **Close any genuine P0 phone-playtest failures first (§1.11).** A newly reproduced soft-lock, broken match flow, fake/no-op choice or major performance regression still jumps ahead of planned feature work.
+2. **Finish the active match-authenticity stack before starting adjacent M3 work.** PR #190 implements boundary/OOB/2026 last-disposal rules. PR #196 is stacked on it and implements smothers, genuine speccies, 50-metre penalties, MRO/suspensions/Tribunal flow and real kick-ins. Merge/sync in dependency order; do not duplicate these systems on another branch.
+3. **Finish the active Draft decision-support work.** M5-012, M5-013, the list-need strip and pre-draft meeting are merged. PR #188 is the remaining M5-014 Combine/scouting-uncertainty implementation. Do not start a second Combine/scouting model while it is open.
+4. **Finish ARD-M6-004 through the existing stack.** The trade redesign is already split into #182 (valuation/club strategy) → #191 (current picks) → #193 (future picks). PR #198 is stacked on #193 and converts the salary-cap/contracts economy from cap points to AFL-scale dollars. Free-agent browsing sort/scroll polish is already merged in #184. Finish and reconcile this stack before adding more list-management branches.
+5. **Clear the small independent mobile/gameplay PRs already in review.** #192 training multi-select, #194 football-shaped selection and #195 GPS distance covered are implemented and should be validated/merged rather than re-created. M5-001 (18 + 5 interchange) remains a separate TODO after the current match/selection changes settle.
+6. **Finish the post-season / long-save PRs already in flight before opening more presentation work.** #183 post-match media, #186 milestone expansion, #187 History & records, #189 coaches-award/season-honours program and #185 awards ceremony work are active. These are incremental pieces of M6-008/M7-003/M7-005, not proof that the whole umbrellas are complete.
+7. **Then resume genuinely unstarted catalogue work** from M3/M4/M5/M7/M8 according to player value and dependencies, rather than roadmap-number order.
 
-1. **Close the remaining P0 phone-playtest gate (§1.11).** The old easy-fix PR stack has landed. Residual far-away-player waits, any reproducible match/Sim-round performance regression, fake/repetitive choices, misleading feedback and other core match-flow failures remain ahead of unrelated feature expansion.
-2. **Finish the full-season playtest audit batch — Claude owns measured balance conclusions.** Most named audits from the original batch have now landed (How we play, AI adaptation/Controlled tempo, key-forward/key-defender balance, Coleman, blowouts, injury parity and ruck/HTA). Re-check §1.11 for any explicit audit finding that still lacks a measured outcome; do not repeat completed audits merely because this queue once named them.
-3. **Finish the genuinely open Draft decision-support work.** ARD-M5-012, M5-013 and M8-009 are merged; M5-014's list-need strip and pre-draft meeting are merged. The Draft Combine/scouting portion remains open and is the outstanding draft-support subphase.
-4. **Finish ARD-M6-004 list-management depth.** Contract talks, free-agent negotiations, compensation and competitive rival FA offers are merged. The major remaining system is the Trade Market redesign: trustworthy player/club valuation first, then tradable current/future draft picks and package/UI work. Keep FA browsing polish small and independent.
-5. **Post-season payoff and long-save continuity.** Finals follow-through, Grand Final climax, season-story recap, bespoke Brownlow/B&F/AA presentation, records/history and related long-save work come after the remaining core match/draft/list-management correctness above.
-6. **Broader planned football/authenticity and flavour work.** Continue remaining M3/M4/M7/M8 catalogue items only when the higher queue tiers are clear or a dependency explicitly promotes one.
 ### Queue rules
 
 - A newly observed **P0 correctness, soft-lock, fake/no-op mechanic or core-fun failure** jumps ahead of planned feature work.
@@ -1398,12 +1398,34 @@ Do not create fake precision from coordinates the simulation does not meaningful
 
 ---
 
+## ARD-M2-010 — GPS distance covered / running output
+**Status:** `IN PROGRESS` — implemented in PR #195 and awaiting validation/merge.  
+**Priority:** `P2`  
+**Autonomy:** `SUPERVISED`
+
+Track believable player distance covered so running capacity and coaching style have a visible behavioural output rather than only hidden fatigue effects.
+
+Current implementation in #195:
+- accumulates metres for every on-ground player from actual possession-chain participation;
+- varies running output by role/wing duty, involvement, play-through focus, tagging, gameplan tempo, pep talks and live tactical calls;
+- keeps **distance covered separate from fatigue**, so strong runners can cover more ground without being paradoxically credited with less work because they tire less;
+- shows one-decimal kilometres in detailed match stats and season km/game on the player profile;
+- stores team running totals for later tactical analysis;
+- adds no RNG draws, preserving deterministic match outcomes.
+
+Guardrails:
+- use distance as a readable consequence/diagnostic, not another primary-screen stat dump;
+- do not double-count this as ARD-M5-015 workload: **distance is what the player physically covered; workload is the carried recovery/fatigue consequence between weeks**;
+- calibrate believable role/team ranges before using distance as an input to awards, selection or injury risk.
+
+---
+
 # M3 — AFL Rules & Match Authenticity
 
 Goal: make the event stream and visualisation look and behave like Australian football.
 
 ## ARD-M3-001 — Set shots vs open-play scoring
-**Status:** `PARTIAL / KNOWN PRESENTATION BUG`  
+**Status:** `PARTIAL` — open-play freeze is merged; scoring-model/context variety remains.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 **Depends on:** M2 shot/event context
@@ -1498,7 +1520,7 @@ Forward-50 resolution has a partial spoil modifier but no complete spoil event/s
 ---
 
 ## ARD-M3-004 — Smothers
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — implemented in stacked PR #196, pending validation/merge after #190.  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -1512,7 +1534,7 @@ Forward-50 resolution has a partial spoil modifier but no complete spoil event/s
 ---
 
 ## ARD-M3-005 — Speccies
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — MatchSim-authored speccies and the 0–2/match quota are in stacked PR #196.  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -1524,7 +1546,7 @@ Forward-50 resolution has a partial spoil modifier but no complete spoil event/s
 ---
 
 ## ARD-M3-006 — Boundary rules / OOB / out on full / last disposal
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — implementation is in PR #190.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -1572,7 +1594,7 @@ Add real football causes where the event model supports them, e.g.:
 ---
 
 ## ARD-M3-008 — 50 metre penalties
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — implementation is in stacked PR #196.  
 **Priority:** `P2`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -1587,7 +1609,7 @@ Add real football causes where the event model supports them, e.g.:
 ---
 
 ## ARD-M3-009 — Kick-ins as real football
-**Status:** `PARTIAL`  
+**Status:** `IN PROGRESS` — existing restart foundation is extended with real kick-in takers/styles/stats in stacked PR #196.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -1620,7 +1642,7 @@ Behind → kick-in → exit; no phantom stoppage; correct end/direction after qu
 ---
 
 ## ARD-M3-011 — MRO / suspensions
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — MRO, suspensions, Brownlow eligibility and Tribunal/Appeals flow are in stacked PR #196.  
 **Priority:** `P2`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -1671,7 +1693,7 @@ Trigger frequency, choice diversity, no repeated spam, deterministic resolution 
 ---
 
 ## ARD-M4-002 — Key match-ups
-**Status:** `DONE / FOLLOW-UP TODO`  
+**Status:** `PARTIAL` — forward/defender assignments are merged; broader ruck/midfield/interceptor matchup presentation remains open.  
 **Merged:** PR #96 as `26d34a2`; key forward/defender assignments are selectable, play out in named contests, can be changed during matches, and AI can rematch.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
@@ -1957,10 +1979,10 @@ Audit:
 ---
 
 ## ARD-M5-002 — Visual oval/team-shape selection
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — phone-first football formation is implemented in PR #194.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
-**Depends on:** stable squad-size/role semantics
+**Depends on:** stable role semantics. The fifth interchange player (M5-001) is a separate follow-up; #194 intentionally preserves the current bench size.
 
 Primary team selection should be a recognisable AFL field shape:
 - backs,
@@ -2001,7 +2023,7 @@ This is the canonical item for the user's previously requested secondary-positio
 ---
 
 ## ARD-M5-004 — Training multi-select
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — long-press group selection and shared valid plans are implemented in PR #192.  
 **Priority:** `P2`  
 **Autonomy:** `SAFE`
 
@@ -2031,7 +2053,7 @@ Keep the list short; do not create a depth-chart spreadsheet.
 ---
 
 ## ARD-M5-006 — Passive reserves/VFL development
-**Status:** `PARTIAL / TODO`  
+**Status:** `PARTIAL`  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -2279,7 +2301,7 @@ Questions to measure:
 
 
 ## ARD-M5-014 — National Draft decision support, combine & list-need clarity
-**Status:** `PARTIAL` — list-need strip (#150) and pre-draft recruiting meeting (#152) are merged; Draft Combine work remains.  
+**Status:** `IN PROGRESS` — list-need strip (#150) and recruiting meeting (#152) are merged; Combine/scouting uncertainty is implemented in PR #188 and awaiting validation/merge.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -2352,7 +2374,7 @@ The National Draft's own decision-support work ends when the selections are comp
 
 
 ## ARD-M5-015 — Workload across the campaign
-**Status:** `IN PROGRESS`
+**Status:** `VERIFY` — implementation merged in PR #154; native phone playtest remains the final follow-up.
 
 **Priority:** `P2`
 
@@ -2571,7 +2593,7 @@ Acceptance:
 - the user's first offseason being quiet is explainable by the measured system rather than assumed correct because tests pass.
 
 ## ARD-M6-003 — Board Confidence
-**Status:** `DONE / FOLLOW-UP TODO`  
+**Status:** `PARTIAL` — the core confidence system is merged in #84; the explicitly listed smaller follow-up inputs remain optional/open.  
 **Merged:** PR #84 as `48a805d`; confidence now moves relative to expectations, surfaces qualitative states, and explains why it changed.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
@@ -2665,11 +2687,27 @@ Acceptance:
 ---
 
 ## ARD-M6-004 — Contracts / trades / free agency
-**Status:** `IN PROGRESS` — contract talks, free-agent negotiations, compensation and competitive rival offers are merged (#163, #164/#171, #166/#171, #172). Trade-market redesign and remaining browsing polish are still open.  
+**Status:** `IN PROGRESS` — contract talks/free agency/compensation/competitive offers are merged; free-agent sorting is merged in #184; trade redesign is active as #182 → #191 → #193, with the real-money conversion stacked on top as #198.  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
 Build toward a complete AFL list-management ecosystem.
+
+### Real AFL money scale
+**Status:** `IN PROGRESS` — implemented in PR #198, stacked on the trade-future-picks branch (#193).
+
+The old 1–10 salary/cap-point economy is being replaced at the underlying system level, not merely reformatted:
+- playable 2027 starts from the AFL-scale **$18.44m** club cap;
+- annual salaries run from a senior floor around **$155k** through to **$1m+** elite contracts;
+- first-year draftee contracts use pick-band salary anchors;
+- contract/free-agent bidding moves in football-sized increments;
+- trade/free-agency/compensation formulas normalise the larger units so salary does not swamp every other factor;
+- old point-based saves, counters/offers and in-progress opening drafts migrate deterministically;
+- UI uses compact football money such as **$650k / $1.20m / $18.44m**;
+- match payments, ASAs and club profit/loss accounting remain deliberately out of scope.
+
+Do not create a separate economy subsystem for this. It is part of ARD-M6-004 and must land after/reconcile with the active trade stack.
+
 
 ### Contract negotiation — important decisions need ceremony and guardrails
 The current off-season UI lets the user tap `1 yr / 2 yr / 3 yr / 4 yr` and immediately executes `GameState.resign_player()` at a fixed `Contracts.asking_salary()`; Release is similarly immediate. That is too abrupt for one of the core dynasty/list-management decisions.
@@ -2752,7 +2790,7 @@ Additional acceptance:
 - after signing/rejecting/negotiating with a player midway down the list, the user remains at approximately the same scroll position instead of being thrown back to the top.
 
 ### Rival free-agency order — no first refusal by club order
-**Status:** `IN REVIEW` (follow-up found while building compensation picks, #166). The director chose competing visible offers over the reverse-ladder turn order proposed below; see the competitive free-agent offers PR stacked on #166.
+**Status:** `DONE` — competing visible offers replaced the proposed club-order/reverse-ladder shortcut and merged in PR #172.
 
 When free agency closes, rival clubs sign free agents by walking the clubs in list order (`season.lists`, i.e. `CLUB_ORDER`): each club in turn takes the best free agents it can afford until it reaches `Contracts.AI_FILL`. The clubs early in that order therefore get first refusal on the whole market. With negotiated contracts and compensation picks, that is now a fairness problem, not trivia.
 
@@ -2886,7 +2924,7 @@ Destructive actions require clear confirmation.
 ---
 
 ## ARD-M6-006 — League-relative List Profile
-**Status:** `DONE (2026-09-30), awaiting director review`  
+**Status:** `VERIFY` — implementation is merged; director/phone review remains.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -3010,7 +3048,7 @@ A one-screen scroll or short staged flow is fine. No forced slideshow.
 - long saves retain a clear year-to-year sense of roster change without number vomit.
 
 ## ARD-M6-008 — Post-match media conference
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — cinematic post-match conference implementation is in PR #183.  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -3043,7 +3081,7 @@ After a match, the coach faces the press in a short, dramatic vignette: a journa
 Goal: make decades of play feel like a living AFL world rather than repeated isolated seasons.
 
 ## ARD-M7-001 — Rivalries
-**Status:** `TODO`  
+**Status:** `DONE` — established and dynamic rivalry system merged in PR #180.  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -3064,7 +3102,7 @@ Avoid arbitrary large stat buffs.
 ---
 
 ## ARD-M7-002 — Marquee games
-**Status:** `TODO`  
+**Status:** `DONE` — recurring marquee-game identity merged in PR #181.  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -3077,7 +3115,7 @@ Presentation/identity first. Avoid arbitrary gameplay bonuses.
 ---
 
 ## ARD-M7-003 — Player milestones
-**Status:** `PARTIAL`  
+**Status:** `IN PROGRESS` — career-game foundation is merged in #100; factual first-goal/goal-threshold expansion is in PR #186.  
 **Merged foundation:** PR #100 as `12aae17`; career-game milestones (50/100/150 etc.) and club-tenure context are live, while first-goal/career-high style milestones remain future work.  
 **Priority:** `P2`  
 **Autonomy:** `SAFE` once career stats are stable
@@ -3109,7 +3147,7 @@ Avoid blanket attribute boosts.
 ---
 
 ## ARD-M7-005 — History, records, leaders & recognition
-**Status:** `PARTIAL`  
+**Status:** `IN PROGRESS` — existing foundations are live; #187 adds History & records, #189 adds the coaches-award/season-honours program, and #185 contains awards-ceremony presentation work.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -3399,7 +3437,7 @@ Final pass:
 ---
 
 ## ARD-M8-007 — Cinematic tactical vignettes
-**Status:** `PROTOTYPE BUILT — awaiting phone playtest`  
+**Status:** `VERIFY` — the prototype/broadcast-vignette foundation is merged (#153); phone playtest still decides whether the vignette library earns expansion.  
 **Priority:** `P3`  
 **Autonomy:** `SUPERVISED`
 
@@ -3476,7 +3514,7 @@ The feature earns further work only if a phone playtest shows that the player ca
 
 
 ## ARD-M8-008 — Android app identity: name and launcher icon
-**Status:** `IN REVIEW` — implementation is in #173.  
+**Status:** `VERIFY` — implementation merged in PR #173; verify the installed Android name/icon on the next phone build.  
 **Priority:** `P1`  
 **Autonomy:** `SAFE`
 
@@ -3820,12 +3858,14 @@ Before adding any new roadmap line, check this table.
 | Spoils / contested marks / speccies | ARD-M2-005 + ARD-M3-003/005 |
 | Pressure / smother / tackle pressure | ARD-M2-006 + ARD-M3-004 |
 | I50 / metres / DE / CBA / intercepts / score involvements | M2 Match Event & Stat Foundation |
+| GPS / distance covered / km per game / running output | ARD-M2-010 GPS distance covered |
 | Player form / match rating by position | ARD-M5-008 Role-aware performance |
 | Best on ground / coaches votes / honours / league leaders | ARD-M7-005 History & recognition |
 | Injury / visible injury / concussion | ARD-M1-006 + ARD-M3-010 |
 | Sim confirmation / skip rounds / don't ask again | ARD-M1-007 Simulation controls |
 | Settings / options menu | ARD-M6-005 Options |
-| Club colours / green UI / game visual style | ARD-M8-001/002 |\n| Android app name / launcher icon / installed app identity | ARD-M8-008 |
+| Club colours / green UI / game visual style | ARD-M8-001/002 |
+| Android app name / launcher icon / installed app identity | ARD-M8-008 |
 | End swaps / wrong-way movement / shot freeze | ARD-M1-004/005 + ARD-M8-003 |
 | OOB / last disposal / throw-in / OOF / 50m / frees | M3 AFL Rules & Match Authenticity |
 | Wind / rain | ARD-M7-006 Weather |
@@ -3833,6 +3873,7 @@ Before adding any new roadmap line, check this table.
 | 22-player side / 4 bench / 5 interchange | ARD-M5-001 |
 | Career history / records / Hall of Fame / league leaders | ARD-M7-005 |
 | Board satisfaction / job security | ARD-M6-003 Board Confidence |
+| Salary cap dollars / realistic salaries / contract money scale | ARD-M6-004 Contracts / trades / free agency |
 | VFL / reserves development | ARD-M5-006 Passive reserves |
 | OVR correlation / rating predicts strength | ARD-M5-010 |
 | Wing/inside-mid/forward identity labels | ARD-M5-009 |
@@ -3866,6 +3907,8 @@ Hold this idea for the eventual MRO/tribunal design work. Do not implement it me
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-02:** Full progress reconciliation against current `main` plus open/merged PRs. Corrected stale statuses for M3/M5/M6/M7/M8, replaced the near-term queue with the actual merge/finish stacks, recorded GPS distance tracking (#195) as ARD-M2-010, recorded real AFL money (#198) under M6-004, and normalised several legacy compound statuses to the canonical status vocabulary.
 
 - **2026-09-30:** Clarified AI parity as a global design rule: AI must never be psychic. It may infer and react to observable/scouted information, but must not read hidden player choices or concealed simulation state to counter the player.
 - **2026-09-30:** Audit repair sprint (A–G) merged in #104–#111; statuses and measurements are in the audit appendix.
