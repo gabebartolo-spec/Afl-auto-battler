@@ -125,7 +125,7 @@ var speccy_rng := RandomNumberGenerator.new()
 var discipline_rng := RandomNumberGenerator.new()
 var mro_rng := RandomNumberGenerator.new()
 var restart_rng := RandomNumberGenerator.new()
-var free_rng := RandomNumberGenerator.new()var _speccy_quota := 0
+var free_rng := RandomNumberGenerator.new()\nvar _speccy_quota := 0
 var _speccies := 0
 ## Boundary law rolls are isolated from the calibrated play RNG. Adding or
 ## tuning boundary frequency therefore does not silently re-roll ordinary
