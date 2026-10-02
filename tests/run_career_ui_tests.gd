@@ -176,6 +176,9 @@ func _run() -> void:
 	_check(current_scene.find_child("MenuHelp", true, false) != null
 			and current_scene.find_child("MenuSettings", true, false) != null,
 			"How to play and Settings are on the menu")
+	var tagline: Label = current_scene.find_child("Tagline", true, false)
+	_check(tagline != null and tagline.text == "Build your dynasty.",
+			"The minimal menu uses the approved tagline")
 
 	# --- settings: appearance and player names apply at once -----------------
 	current_scene.find_child("MenuSettings", true, false).emit_signal("pressed")
@@ -276,6 +279,23 @@ func _run() -> void:
 	_check(_router.current() == "hub", "Continue Career opens the season hub")
 	_check(_state.season != null and _state.season.round_index == 2, "The saved round is loaded")
 	_check(_state.my_club == "SYD", "The saved club is loaded")
+	var intro: Control = current_scene.find_child("WeeklyLoopIntro", true, false)
+	var skip_intro: Button = current_scene.find_child("SkipOnboarding", true, false)
+	_check(intro != null and skip_intro != null
+			and _screen_text().contains("This is home base")
+			and _screen_text().contains("Play match")
+			and _screen_text().contains("After the game"),
+			"The first Hub visit explains the weekly loop in context and can be skipped")
+	if skip_intro != null:
+		skip_intro.emit_signal("pressed")
+		await _settle()
+	_check(current_scene.find_child("WeeklyLoopIntro", true, false) == null
+			and bool(_state.get_setting("seen_weekly_loop_intro", false)),
+			"Skipping onboarding closes it and remembers the choice")
+	current_scene.call("_show_weekly_loop_intro")
+	await _settle()
+	_check(current_scene.find_child("WeeklyLoopIntro", true, false) == null,
+			"Contextual onboarding does not nag after it has been dismissed")
 	# One player well above his season, one well below (GameState.player_form).
 	var hot_id := str(_state.my_list[0]["id"])
 	var cold_id := str(_state.my_list[1]["id"])

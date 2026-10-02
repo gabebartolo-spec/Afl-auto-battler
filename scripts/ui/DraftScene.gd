@@ -8,6 +8,11 @@ const SORTS := [["overall", "Best rated"], ["potential", "Highest potential"], [
 const INTAKE_SORTS := [["overall", "Best scouted"], ["potential", "Highest upside"],
 	["goals", "Junior goals"], ["disposals", "Junior disposals"], ["name", "Name A–Z"]]
 const PAGE_SIZE := 60
+# Opening League Draft only. The 2027 pool splits cleanly at these natural
+# career stages (252 rookies, 248 prime-age players, 169 veterans).
+const CAREER_STAGES := [["", "All"], ["rookie", "Rookies"], ["prime", "Prime"], ["veteran", "Veterans"]]
+const ROOKIE_MAX_AGE := 24.0
+const PRIME_MAX_AGE := 29.0
 
 var _draft: Draft
 var _club := ""
@@ -16,6 +21,7 @@ var _role := ""
 var _club_filter := ""
 var _search := ""
 var _sort := "overall"
+var _career_stage := ""
 var _available_only := true
 var _advanced_open := false
 var _history_club := ""
@@ -550,6 +556,23 @@ func _filters() -> Control:
 		_shown = PAGE_SIZE
 		_refresh_board(true))
 	opts.add_child(sort_option)
+	if _draft.league_mode:
+		var stage_row := UiKit.hbox(6)
+		_advanced.add_child(stage_row)
+		var stage_label := UiKit.lbl("Career stage", 13, UiKit.MUTED)
+		stage_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		stage_row.add_child(stage_label)
+		var stage_option := UiKit.option()
+		stage_option.name = "CareerStageFilter"
+		for i in range(CAREER_STAGES.size()):
+			stage_option.add_item(str(CAREER_STAGES[i][1]))
+			if str(CAREER_STAGES[i][0]) == _career_stage:
+				stage_option.select(i)
+		stage_option.item_selected.connect(func(idx: int):
+			_career_stage = str(CAREER_STAGES[idx][0])
+			_shown = PAGE_SIZE
+			_refresh_board(true))
+		stage_row.add_child(stage_option)
 	var avail := UiKit.btn("Available only", 14)
 	avail.name = "AvailableOnly"
 	avail.toggle_mode = true
@@ -582,11 +605,39 @@ func _set_role(role: String) -> void:
 	_refresh_board(true)
 
 
+func _career_stage_for_age(age: float) -> String:
+	if age <= 0.0:
+		return ""
+	if age < ROOKIE_MAX_AGE:
+		return "rookie"
+	if age < PRIME_MAX_AGE:
+		return "prime"
+	return "veteran"
+
+
+func _career_stage_label(key: String) -> String:
+	for stage in CAREER_STAGES:
+		if str(stage[0]) == key:
+			return str(stage[1])
+	return ""
+
+
+func _board_rows() -> Array:
+	var rows := _draft.board(_role, _club_filter, _search.strip_edges(), _sort, _available_only)
+	if not _draft.league_mode or _career_stage.is_empty():
+		return rows
+	var filtered := []
+	for p in rows:
+		if _career_stage_for_age(float(p.get("age", 0.0))) == _career_stage:
+			filtered.append(p)
+	return filtered
+
+
 func _refresh_board(reset_scroll := false) -> void:
 	if _phase != "board" or not is_instance_valid(_board_box):
 		return
 	UiKit.clear(_board_box)
-	var rows := _draft.board(_role, _club_filter, _search.strip_edges(), _sort, _available_only)
+	var rows := _board_rows()
 	_pool_total.text = "%d available" % (_draft.pool.size() - _draft.picked.size())
 	var sort_label := ""
 	for sort_entry in _sort_options():
@@ -597,6 +648,8 @@ func _refresh_board(reset_scroll := false) -> void:
 			"available" if _available_only else "players", sort_label]
 	if not _club_filter.is_empty():
 		_board_info.text += " · " + GameDB.club_short(_club_filter)
+	if not _career_stage.is_empty() and _draft.league_mode:
+		_board_info.text += " · " + _career_stage_label(_career_stage).to_lower()
 	var shown := mini(_shown, rows.size())
 	for i in range(shown):
 		_board_box.add_child(_player_row(rows[i]))
@@ -622,6 +675,7 @@ func _clear_filters() -> void:
 	_club_filter = ""
 	_search = ""
 	_sort = "overall"
+	_career_stage = ""
 	_available_only = true
 	_shown = PAGE_SIZE
 	_show_board()

@@ -8,6 +8,7 @@ var _media_overlay: Control
 var _news_overlay: Control
 var _sim_confirm: Control
 var _quick_sim: Control
+var _onboarding_overlay: Control
 ## A long press on Sim round opens the quick-sim menu instead of a sim.
 var _hold_fired := false
 var _hold_id := 0
@@ -36,6 +37,46 @@ func _ready() -> void:
 		_show_season_wrap()
 	elif GameState.media_conference_pending():
 		_show_media_conference()
+	elif not bool(GameState.get_setting("seen_weekly_loop_intro", false)):
+		_show_weekly_loop_intro()
+
+
+## A short first-hub orientation, shown where the weekly loop actually lives
+## instead of front-loading a tutorial on the main menu.
+func _show_weekly_loop_intro() -> void:
+	if bool(GameState.get_setting("seen_weekly_loop_intro", false)):
+		return
+	if _onboarding_overlay != null and is_instance_valid(_onboarding_overlay):
+		return
+	var box := UiKit.modal_box(self, 520.0, 0.0)
+	_onboarding_overlay = box["overlay"]
+	_onboarding_overlay.name = "WeeklyLoopIntro"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.heading("Your week", 24))
+	for line in [
+		"This is home base. Check the next opponent, then use Team to pick the side and Coaching if you want to change how you play.",
+		"Play match when you want the live coaching calls. Sim round moves the week on quickly; both use the same match simulation.",
+		"After the game, review what happened and change selection or training only when you have a reason. There is no weekly checklist to clear.",
+	]:
+		var l := UiKit.lbl(line, 14, UiKit.TEXT)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
+	var skip := UiKit.btn("Skip", 15)
+	skip.name = "SkipOnboarding"
+	skip.flat = true
+	skip.pressed.connect(_close_weekly_loop_intro)
+	(box["footer"] as VBoxContainer).add_child(skip)
+	var ok := UiKit.btn("Got it", 17, true)
+	ok.name = "FinishOnboarding"
+	ok.pressed.connect(_close_weekly_loop_intro)
+	(box["footer"] as VBoxContainer).add_child(ok)
+
+
+func _close_weekly_loop_intro() -> void:
+	GameState.set_setting("seen_weekly_loop_intro", true)
+	if _onboarding_overlay != null and is_instance_valid(_onboarding_overlay):
+		_onboarding_overlay.queue_free()
+	_onboarding_overlay = null
 
 
 ## The off-season, wrapped up before Round 1 (ARD-M6-007): who came, who
@@ -830,6 +871,9 @@ func _on_sim_to_end() -> void:
 func handle_back() -> bool:
 	if _pre_match != null:
 		return true     # the side is on its way out
+	if _onboarding_overlay != null and is_instance_valid(_onboarding_overlay):
+		_close_weekly_loop_intro()
+		return true
 	if _settings != null and is_instance_valid(_settings):
 		_settings.queue_free()
 		_settings = null

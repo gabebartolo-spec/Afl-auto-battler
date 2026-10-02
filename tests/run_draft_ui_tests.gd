@@ -80,6 +80,7 @@ func _run() -> void:
 			_check_layout(ui, label + " / " + tab)
 		ui.call("_select_tab", "pool")
 
+	await _test_career_stage_filters(ui)
 	await _test_position_filters(ui)
 
 	# No-results recovery resets controls as well as their backing values.
@@ -134,6 +135,8 @@ func _test_intake_combine() -> void:
 	root.add_child(ui)
 	await _settle()
 	var sort: OptionButton = ui.find_child("SortPlayers", true, false)
+	_check(ui.find_child("CareerStageFilter", true, false) == null,
+			"Career-stage filtering stays out of the National Draft")
 	_check(sort != null and sort.get_item_text(0) == "Best scouted"
 			and sort.get_item_text(1) == "Highest upside",
 			"National Draft sorting is phrased as scouting, not hidden truth")
@@ -443,10 +446,97 @@ func _snapshot(ui: Control) -> Dictionary:
 		"remaining": draft.remaining(),
 		"pick_index": draft.pick_index,
 	}
-	for key in ["_role", "_search", "_sort", "_club_filter", "_available_only",
-			"_advanced_open", "_history_club"]:
+	for key in ["_role", "_search", "_sort", "_club_filter", "_career_stage",
+			"_available_only", "_advanced_open", "_history_club"]:
 		out[key] = ui.get(key)
 	return out
+
+
+# The opening League Draft can be narrowed by career stage without changing
+# the draft itself. The cut-offs are based on the actual 2027 pool.
+func _test_career_stage_filters(ui: Control) -> void:
+	var counts := {"rookie": 0, "prime": 0, "veteran": 0}
+	var valid := true
+	for p in _state.draft.pool:
+		var stage := str(ui.call("_career_stage_for_age", float(p.get("age", 0.0))))
+		if not counts.has(stage):
+			valid = false
+		else:
+			counts[stage] = int(counts[stage]) + 1
+	_check(valid and int(counts["rookie"]) + int(counts["prime"]) + int(counts["veteran"]) == _state.draft.pool.size(),
+			"Every League Draft player belongs to exactly one career stage")
+	_check(int(counts["rookie"]) > 100 and int(counts["prime"]) > 100 and int(counts["veteran"]) > 100,
+			"The 2027 career-stage bands are all useful, populated groups")
+	_check(str(ui.call("_career_stage_for_age", 23.99)) == "rookie"
+			and str(ui.call("_career_stage_for_age", 24.0)) == "prime"
+			and str(ui.call("_career_stage_for_age", 28.99)) == "prime"
+			and str(ui.call("_career_stage_for_age", 29.0)) == "veteran",
+			"Career-stage boundary ages route to the intended band")
+
+	var old_size := root.size
+	root.size = Vector2i(360, 800)
+	var pool_size := _state.draft.pool.size()
+	var history := _state.draft.pick_history.duplicate(true)
+	ui.set("_advanced_open", true)
+	ui.set("_role", "MID")
+	ui.set("_club_filter", "")
+	ui.set("_search", "")
+	ui.set("_career_stage", "rookie")
+	ui.call("_show_board")
+	await _settle()
+	var stage_filter: OptionButton = ui.find_child("CareerStageFilter", true, false)
+	_check(stage_filter != null and stage_filter.item_count == 4
+			and stage_filter.get_item_text(0) == "All"
+			and stage_filter.get_item_text(1) == "Rookies"
+			and stage_filter.get_item_text(2) == "Prime"
+			and stage_filter.get_item_text(3) == "Veterans",
+			"League Draft exposes one compact All/Rookies/Prime/Veterans control")
+	var viewport := Rect2(Vector2.ZERO, root.get_visible_rect().size).grow(1)
+	_check(stage_filter != null and stage_filter.size.y >= 44
+			and viewport.encloses(stage_filter.get_global_rect()),
+			"Career-stage filter is touch-sized and fits a 360px portrait phone")
+
+	var rows: Array = ui.call("_board_rows")
+	var combined_ok := not rows.is_empty()
+	for p in rows:
+		combined_ok = combined_ok and (
+				Ratings.plays_role(p, "MID")
+				and str(ui.call("_career_stage_for_age", float(p.get("age", 0.0)))) == "rookie")
+	_check(combined_ok, "Career stage combines with the existing position filter")
+
+	if not rows.is_empty():
+		var target: Dictionary = rows[0]
+		var search_name := str(target.get("real_name", target.get("name", "")))
+		var query := search_name.split(" ")[0] if not search_name.is_empty() else str(target["id"])
+		ui.set("_search", query)
+		var searched: Array = ui.call("_board_rows")
+		var search_ok := not searched.is_empty()
+		for p in searched:
+			search_ok = search_ok and str(ui.call("_career_stage_for_age", float(p.get("age", 0.0)))) == "rookie"
+		_check(search_ok, "Career stage combines with player search")
+
+	if stage_filter != null:
+		stage_filter.select(2)
+		stage_filter.emit_signal("item_selected", 2)
+		await _settle()
+	_check(str(ui.get("_career_stage")) == "prime", "Switching the career-stage control changes only the view")
+	_check(_state.draft.pool.size() == pool_size and _state.draft.pick_history == history,
+			"Switching career stage never changes the underlying draft pool or picks")
+
+	ui.set("_search", "")
+	var prime_rows: Array = ui.call("_board_rows")
+	if not prime_rows.is_empty():
+		ui.call("_open_player", str(prime_rows[0]["id"]))
+		await _settle()
+		_check(str(ui.get("_career_stage")) == "prime", "Inspecting a player preserves the career-stage filter")
+		ui.call("_close_player")
+		await _settle()
+		_check(str(ui.get("_career_stage")) == "prime", "Closing a player returns to the same career stage")
+
+	ui.call("_clear_filters")
+	await _settle()
+	_check(str(ui.get("_career_stage")) == "", "Clear filters restores All career stages")
+	root.size = old_size
 
 
 # One row of position cards shows the list's needs and filters the pool; no

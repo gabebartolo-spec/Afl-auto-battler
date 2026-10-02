@@ -2025,7 +2025,7 @@ This is the canonical item for the user's previously requested secondary-positio
 ---
 
 ## ARD-M5-004 — Training multi-select
-**Status:** `IN PROGRESS` — long-press group selection and shared valid plans are implemented in PR #192.  
+**Status:** `DONE` — long-press group selection and shared valid plans merged in PR #192.  
 **Priority:** `P2`  
 **Autonomy:** `SAFE`
 
@@ -2161,7 +2161,7 @@ Overall rating should be meaningfully aligned with what Squad/MatchSim reward.
 ---
 
 ## ARD-M5-011 — League Draft career-stage filters
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — implemented in consolidated PR #208; awaiting CI/merge.  
 **Priority:** `P2`  
 **Autonomy:** `SAFE`
 
@@ -2199,6 +2199,8 @@ Before implementation, inspect the actual 2027 League Draft age distribution and
 - existing position/search filters combine correctly,
 - Back/profile navigation preserves the selected band,
 - narrow Android portrait remains usable.
+
+Implementation in #208 keeps this as a view-only opening-League-Draft filter. The 2027 pool supports clean **18–23 / 24–28 / 29+** bands (252 / 248 / 169 players respectively), exposed as **Rookies / Prime / Veterans** inside the existing advanced filter area. It does not touch draft eligibility, AI valuation, cap logic or National Draft scouting.
 
 ---
 
@@ -3122,8 +3124,8 @@ Presentation/identity first. Avoid arbitrary gameplay bonuses.
 ---
 
 ## ARD-M7-003 — Player milestones
-**Status:** `IN PROGRESS` — career-game foundation is merged in #100; factual first-goal/goal-threshold expansion is in PR #186.  
-**Merged foundation:** PR #100 as `12aae17`; career-game milestones (50/100/150 etc.) and club-tenure context are live, while first-goal/career-high style milestones remain future work.  
+**Status:** `IN PROGRESS` — career-game foundation is merged in #100; the factual first-goal/goal-threshold expansion from closed PR #186 is carried by consolidated PR #208.  
+**Merged foundation:** PR #100 as `12aae17`; career-game milestones (50/100/150 etc.) and club-tenure context are live, while career-high style milestones remain future work.  
 **Priority:** `P2`  
 **Autonomy:** `SAFE` once career stats are stable
 
@@ -3397,7 +3399,7 @@ Do not perform a movement-engine rewrite without evidence that local fixes are i
 ---
 
 ## ARD-M8-004 — Main menu / onboarding
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — the minimal main menu already exists; #208 adds the one-time contextual Hub weekly-loop onboarding and tests, awaiting CI/merge.  
 **Priority:** `P2`  
 **Autonomy:** `SAFE`
 
@@ -3922,6 +3924,8 @@ Hold this idea for the eventual MRO/tribunal design work. Do not implement it me
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-02:** Added the requested SAFE roadmap batch to the existing consolidated #208 branch instead of opening another stack: League Draft career-stage filtering (M5-011) and contextual first-Hub weekly-loop onboarding completing the M8-004 menu/onboarding intent. Refreshed stale SAFE-item references: training multi-select (#192) is already merged, the milestone expansion from closed #186 is carried by #208, and Android app identity remains a device-verification item rather than new code.
 
 - **2026-10-02:** Full progress reconciliation against current `main` plus open/merged PRs. Corrected stale statuses for M3/M5/M6/M7/M8, replaced the near-term queue with the actual merge/finish stacks, recorded GPS distance tracking (#195) as ARD-M2-010, recorded real AFL money (#198) under M6-004, and normalised several legacy compound statuses to the canonical status vocabulary.
 
