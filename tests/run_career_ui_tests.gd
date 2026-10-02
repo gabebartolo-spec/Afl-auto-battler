@@ -19,28 +19,28 @@ func _initialize() -> void:
 
 func _test_player_goal_milestones() -> void:
 	var p := {"id": "milestone_test", "name": "Milestone Test", "club": "MEL",
-			"career": {"games": 12, "goals": 0, "stints": [], "through": GameState.season_year - 1, "unknown": []}}
-	var old_season := GameState.season
-	var old_tally := GameState.season_tally
-	var old_news := GameState.news
-	GameState.season = Season.new(GameState.season_year)
-	GameState.season.lists["MEL"] = [p]
-	GameState.season_tally = {"milestone_test": {"club": "MEL", "games": 1, "goals": 1, "goals_ha": 1}}
-	GameState.news = []
-	GameState._player_milestone_news({"home": "MEL", "away": "CAR",
+			"career": {"games": 12, "goals": 0, "stints": [], "through": _state.season_year - 1, "unknown": []}}
+	var old_season := _state.season
+	var old_tally := _state.season_tally
+	var old_news := _state.news
+	var SeasonScript = load("res://scripts/sim/Season.gd")
+	_state.season = SeasonScript.new(["MEL", "CAR"], {"MEL": [p], "CAR": []})
+	_state.season_tally = {"milestone_test": {"club": "MEL", "games": 1, "goals": 1, "goals_ha": 1}}
+	_state.news = []
+	_state._player_milestone_news({"home": "MEL", "away": "CAR",
 			"roster": [[{"id": "milestone_test"}], []],
 			"players": {"milestone_test": {"goals": 1}}})
-	_check(GameState.news.size() == 1 and str(GameState.news[0].get("text", "")).contains("first AFL goal"),
+	_check(_state.news.size() == 1 and str(_state.news[0].get("text", "")).contains("first AFL goal"),
 			"A provable first AFL goal is recorded as a milestone")
 	p["career"]["unknown"] = [[2020, 2021]]
-	GameState.news = []
-	GameState._player_milestone_news({"home": "MEL", "away": "CAR",
+	_state.news = []
+	_state._player_milestone_news({"home": "MEL", "away": "CAR",
 			"roster": [[{"id": "milestone_test"}], []],
 			"players": {"milestone_test": {"goals": 1}}})
-	_check(GameState.news.is_empty(), "Unknown historical seasons never fabricate a first-goal milestone")
-	GameState.season = old_season
-	GameState.season_tally = old_tally
-	GameState.news = old_news
+	_check(_state.news.is_empty(), "Unknown historical seasons never fabricate a first-goal milestone")
+	_state.season = old_season
+	_state.season_tally = old_tally
+	_state.news = old_news
 
 func _check(condition: bool, message: String) -> void:
 	_checks += 1
@@ -68,11 +68,11 @@ func _screen_text() -> String:
 
 
 func _run() -> void:
-	_test_player_goal_milestones()
 	await process_frame
 	_state = root.get_node("GameState")
 	_router = root.get_node("Router")
 	_db = root.get_node("GameDB")
+	_test_player_goal_milestones()
 	# Never touch a real career save or settings file from a test run.
 	_state.autosave_enabled = false
 	_state.save_path = "user://test_career.save"
@@ -167,7 +167,7 @@ func _run() -> void:
 	_check(_router.current() == "hub", "Continue Career opens the season hub")
 	_check(_state.season != null and _state.season.round_index == 2, "The saved round is loaded")
 	_check(_state.my_club == "SYD", "The saved club is loaded")
-	# One player well above his season, one well below (GameState.player_form).
+	# One player well above his season, one well below (_state.player_form).
 	var hot_id := str(_state.my_list[0]["id"])
 	var cold_id := str(_state.my_list[1]["id"])
 	_state.form_log[hot_id] = {"last": [95, 95, 95], "n": 10, "sum": 500}
