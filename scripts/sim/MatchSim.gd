@@ -1213,6 +1213,13 @@ func _general_aerial_contest(side: int, mark_fp: float, carrier) -> Dictionary:
 	var defender = _weighted(defs, "intercept", 2.0, opp, "aerial_defender")
 	if target == null or defender == null:
 		return {}
+	var roaming := false
+	var roamer := _roaming_interceptor(opp)
+	if not roamer.is_empty() and str(roamer.get("id", "")) != str(defender.get("id", "")) 			and aerial_rng.randf() < _roam_chance(opp):
+		defender = roamer
+		roaming = true
+		_t(opp, "roam_contests")
+		_p(defender, "roam_contests")
 
 	var infringement := _marking_free(side, target, defender)
 	if not infringement.is_empty():
@@ -1220,6 +1227,11 @@ func _general_aerial_contest(side: int, mark_fp: float, carrier) -> Dictionary:
 		var mark := _award_context_free(free_side, mark_fp,
 				infringement["offender"], infringement["recipient"],
 				str(infringement["cause"]), str(infringement["label"]))
+		if roaming:
+			if free_side == opp:
+				_p(defender, "roam_wins")
+			else:
+				_p(defender, "roam_losses")
 		return {"outcome": "free", "fp": mark, "actor": infringement["recipient"],
 				"free_side": free_side}
 
@@ -1238,6 +1250,9 @@ func _general_aerial_contest(side: int, mark_fp: float, carrier) -> Dictionary:
 		mev["contested"] = true
 		mev["general_play"] = true
 		mev["from_id"] = "" if carrier == null else str(carrier.get("id", ""))
+		if roaming:
+			mev["roaming_interceptor_id"] = str(defender.get("id", ""))
+			_p(defender, "roam_losses")
 		return {"outcome": "mark", "fp": mark_fp, "actor": target}
 
 	var spoil_p := clampf(GENERAL_SPOIL_BASE
@@ -1253,7 +1268,12 @@ func _general_aerial_contest(side: int, mark_fp: float, carrier) -> Dictionary:
 		var sev: Dictionary = events[events.size() - 1]
 		sev["against_id"] = str(target.get("id", ""))
 		sev["general_play"] = true
+		if roaming:
+			sev["roaming_interceptor"] = true
+			_p(defender, "roam_wins")
 		return {"outcome": "loose", "fp": mark_fp, "actor": defender}
+	if roaming:
+		_p(defender, "roam_losses")
 	return {}
 
 
@@ -1714,6 +1734,18 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		defender = matched
 		duel_shift = Matchups.mark_shift(shooter, matched)
 
+	# The loose interceptor can arrive as a third man. He is not a second
+	# direct matchup: another defender still owns the forward assignment.
+	var roaming := false
+	var roamer := _roaming_interceptor(opp)
+	var roam_shift := 0.0
+	if not roamer.is_empty() and str(roamer.get("id", "")) != str(defender.get("id", "")) 			and aerial_rng.randf() < _roam_chance(opp):
+		defender = roamer
+		roaming = true
+		roam_shift = -clampf((Matchups.interceptor_score(roamer) - 55.0) / 450.0, 0.0, 0.10)
+		_t(opp, "roam_contests")
+		_p(roamer, "roam_contests")
+
 	# A marking infringement is paid from the contest itself, not from a
 	# post-chain generic dice roll.
 	var infringement := _marking_free(side, shooter, defender)
@@ -1722,6 +1754,11 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		var mark_fp := _award_context_free(free_side, fp,
 				infringement["offender"], infringement["recipient"],
 				str(infringement["cause"]), str(infringement["label"]))
+		if roaming:
+			if free_side == opp:
+				_p(defender, "roam_wins")
+			else:
+				_p(defender, "roam_losses")
 		return {"outcome": "free", "fp": mark_fp, "actor": infringement["recipient"],
 				"free_side": free_side}
 
@@ -1729,8 +1766,12 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	# A named contest can be lopsided: a great forward on a small defender
 	# marks nearly everything, so its ceiling is higher than the lines'.
 	var mark_cap := 0.78 if matched.is_empty() else Matchups.DUEL_CAP
+	# Sending a forward to make the spare accountable drags him away, but
+	# costs a little aerial presence of your own.
+	var accountable_cost := 0.035 if _spare_accountable(side) else 0.0
 	var marked := rng.randf() < clampf(
-			0.5 + (atk.fwd_mark - dfn.def_intercept) / 240.0 + mark_edge + duel_shift, 0.10, mark_cap)
+			0.5 + (atk.fwd_mark - dfn.def_intercept) / 240.0 + mark_edge + duel_shift
+			+ roam_shift - accountable_cost, 0.10, mark_cap)
 	if not matched.is_empty():
 		var fid := str(shooter["id"])
 		if not duel_log.has(fid):
@@ -1762,9 +1803,14 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		var mev: Dictionary = events[events.size() - 1]
 		mev["contested"] = contested
 		mev["speccy"] = speccy
+		if roaming:
+			mev["roaming_interceptor_id"] = str(defender.get("id", ""))
+			_p(defender, "roam_losses")
 	var spoil_edge := 0.05 if defender != null and _trait(defender, "interceptor") else 0.0
 	var spoil_read := dfn.def_intercept
-	if not matched.is_empty():
+	if roaming and defender != null:
+		spoil_read = 0.5 * dfn.def_intercept + 0.5 * Matchups.defender_air(defender)
+	elif not matched.is_empty():
 		# His own reading of the ball, alongside the line's.
 		spoil_read = 0.5 * dfn.def_intercept + 0.5 * Matchups.defender_air(matched)
 	# In a named contest the same aerial gap decides whether he gets a fist
@@ -1774,6 +1820,8 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		# He got a fist to it: a spoil (a credit only).
 		_t(opp, "spoils")
 		_p(defender, "spoils")
+		if roaming:
+			_p(defender, "roam_wins")
 	if rng.randf() < float(T["one_percenter_share"]):
 		_t(opp, "one_percenters")
 		_p(_one_percenter(opp), "one_percenters")
@@ -1781,6 +1829,13 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var goal_p := shot_chance(side, shooter, marked, spoilt, true, feeder, defender)
 	var behind_p: float = (float(T["inside50_behind"])
 			* (0.80 + 0.40 * _a(shooter, "goalkicking") / 100.0))
+	# If the spare flies and does not kill the ball, the space behind him is
+	# the price of the role: the resulting chance is slightly more dangerous.
+	if roaming and not spoilt:
+		goal_p *= 1.08 if marked else 1.04
+		behind_p *= 1.03
+		if not marked:
+			_p(defender, "roam_losses")
 	# Beaten in the air by his direct opponent, a key forward rarely gets the
 	# shot himself: the ball spills or the defender clears it.
 	if not matched.is_empty() and not marked:
@@ -1839,6 +1894,8 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	_t(opp, "rebounds")
 	_p(defender, "rebounds")
 	_intercept(opp, defender, not spoilt)
+	if roaming and not spoilt:
+		_p(defender, "roam_wins")
 	_emit("rebound", opp, fp, defender,
 			"%s rebounds it out of danger" % GameDB.player_display_name(defender))
 	return {"outcome": "turnover", "fp": fp, "actor": defender}
