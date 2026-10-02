@@ -36,6 +36,7 @@ var last_phase := ""             # "regular" | "finals" | "done"
 var last_label := ""             # "Round 7" / "Grand Final" / ...
 var season_log: Array = []       # every result, for the season review screen
 var last_injuries: Array = []    # the last round's new injuries, every club
+var last_mro: Array = []         # the last round's MRO outcomes, every club
 var season_tally := {}           # player id -> running season numbers (Awards)
 var club_plan := "balanced"      # your standing game plan, from the first bounce
 var form_log := {}               # your player id -> his last three Player Ratings
@@ -322,6 +323,7 @@ func save_career() -> bool:
 		"last_pos_before": last_pos_before,
 		"season_log": CareerSave.slim_results(season_log),
 		"last_injuries": last_injuries,
+		"last_mro": last_mro,
 		"season_tally": season_tally,
 		"club_plan": club_plan,
 		"form_log": form_log,
@@ -433,6 +435,7 @@ func load_career() -> bool:
 	last_pos_before = int(state.get("last_pos_before", 0))
 	season_log = state.get("season_log", [])
 	last_injuries = state.get("last_injuries", [])
+	last_mro = state.get("last_mro", [])
 	season_tally = state.get("season_tally", {})
 	club_plan = str(state.get("club_plan", "balanced"))
 	if not CLUB_PLANS.has(club_plan):
@@ -738,6 +741,7 @@ func reset() -> void:
 	last_label = ""
 	season_log = []
 	last_injuries = []
+	last_mro = []
 	season_tally = {}
 	club_plan = "balanced"
 	form_log = {}
@@ -1693,8 +1697,11 @@ func week_changes() -> Dictionary:
 			if p.is_empty():
 				continue  # traded or delisted since
 			var why := "omitted"
+			var suspended := int(p.get("suspension_weeks", 0))
 			var wks := int(p.get("injury_weeks", 0))
-			if wks > 0:
+			if suspended > 0:
+				why = "suspended, %s" % ("1 wk" if suspended == 1 else "%d wks" % suspended)
+			elif wks > 0:
 				why = "injured, %s" % ("1 wk" if wks == 1 else "%d wks" % wks)
 			elif bool(p.get("rested", false)):
 				why = "rested"
@@ -2338,6 +2345,7 @@ func _after_round(results: Array) -> void:
 					department_budget_level("high_performance"))
 		Workload.advance_week(season.lists, results, week, recovery_mults)
 	_process_injuries(results)
+	_process_discipline(results)
 	for res in results:
 		Awards.tally_match(season_tally, res, not res.has("tag"))
 		_note_form_and_team(res)
@@ -2465,6 +2473,61 @@ func _process_injuries(results: Array) -> void:
 	for res in results:
 		last_injuries += Injuries.apply_match(res, season.lists, season.seed,
 				int(res.get("round", season.round_index)))
+
+
+## Suspensions count down when that player's club plays, then this round's
+## MRO outcomes are applied. The incident outcome already came from MatchSim,
+## so a reload cannot re-roll a suspension.
+func _process_discipline(results: Array) -> void:
+	if season == null:
+		return
+	last_mro = []
+	var played := {}
+	for res in results:
+		for key in ["home", "away"]:
+			var code := str(res.get(key, ""))
+			if code == "" or played.has(code) or not season.lists.has(code):
+				continue
+			played[code] = true
+			for p in season.lists[code]:
+				var w := int(p.get("suspension_weeks", 0))
+				if w > 0:
+					p["suspension_weeks"] = w - 1
+					if w - 1 <= 0:
+						p.erase("suspension_weeks")
+	for res in results:
+		var codes := [str(res.get("home", "")), str(res.get("away", ""))]
+		for row in res.get("reports", []):
+			var item: Dictionary = (row as Dictionary).duplicate(true)
+			var side := clampi(int(item.get("side", 0)), 0, 1)
+			var code := codes[side]
+			item["club"] = code
+			last_mro.append(item)
+			if str(item.get("outcome", "")) != "suspension" or not season.lists.has(code):
+				continue
+			for p in season.lists[code]:
+				if str(p.get("id", "")) != str(item.get("id", "")):
+					continue
+				p["suspension_weeks"] = maxi(int(p.get("suspension_weeks", 0)),
+						int(item.get("weeks", 0)))
+				break
+
+
+## Your club's MRO outcomes from the round, in football language.
+func my_mro_lines() -> Array:
+	var out := []
+	for row in last_mro:
+		if str(row.get("club", "")) != my_club:
+			continue
+		var p := list_player(str(row.get("id", "")))
+		var name := str(row.get("name", "")) if p.is_empty() else GameDB.player_display_name(p)
+		match str(row.get("outcome", "")):
+			"suspension":
+				var w := int(row.get("weeks", 0))
+				out.append("%s suspended for %d match%s" % [name, w, "" if w == 1 else "es"])
+			"fine":
+				out.append("%s fined for %s" % [name, str(row.get("reason", "rough conduct"))])
+	return out
 
 
 ## Your club's new injuries from the last round, as readable lines.
@@ -4203,6 +4266,21 @@ func _round_news(results: Array) -> void:
 		add_news("injury", "%s (%s) is out for %s with a %s." % [GameDB.player_display_name(p),
 				GameDB.club_name(str(inj.get("club", ""))), _weeks_text(int(inj["weeks"])),
 				str(inj.get("kind", "injury")).to_lower()])
+	for row in last_mro:
+		var outcome := str(row.get("outcome", ""))
+		if outcome == "no_action":
+			continue
+		var club := str(row.get("club", ""))
+		var p := _find_player(str(row.get("id", "")))
+		var name := str(row.get("name", "")) if p.is_empty() else GameDB.player_display_name(p)
+		if outcome == "suspension":
+			var w := int(row.get("weeks", 0))
+			add_news("mro", "%s (%s) has been suspended for %d match%s for %s." % [
+					name, GameDB.club_name(club), w, "" if w == 1 else "es",
+					str(row.get("reason", "rough conduct"))])
+		elif outcome == "fine":
+			add_news("mro", "%s (%s) was fined by the MRO for %s." % [
+					name, GameDB.club_name(club), str(row.get("reason", "rough conduct"))])
 
 
 ## A rival who has trained as far as he can this season is a news candidate
