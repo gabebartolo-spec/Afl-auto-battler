@@ -182,8 +182,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	discipline_rng.seed = seed * 41 + 43
 	mro_rng.seed = seed * 47 + 53
 	restart_rng.seed = seed * 59 + 61
-	var speccy_bucket := posmod(hash("speccy|%d" % seed), 10)
-	_speccy_quota = 0 if speccy_bucket < 3 else (1 if speccy_bucket < 9 else 2)
+	_speccy_quota = speccy_quota(seed)
 	boundary_rng.seed = seed * 17 + 19
 	injury_rng.seed = seed * 13 + 7
 	for side in range(2):
@@ -204,7 +203,14 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	_plan_injuries()
 
 
-## Legs at the first bounce: a heavy week on the track, or playing sore,
+## Deterministic spectacular-mark allowance: 30% none, 60% one, 10% two.
+## Eligibility still requires a genuine contested mark in the match.
+static func speccy_quota(seed: int) -> int:
+	var bucket := posmod(hash("speccy|%d" % seed), 10)
+	return 0 if bucket < 3 else (1 if bucket < 9 else 2)
+
+
+## Legs at the first bounce: a heavy week on the track, or playing sore.
 ## starts him short of fresh.
 static func _start_energy(p: Dictionary) -> float:
 	var e := 100.0
@@ -818,6 +824,11 @@ func _clanger_weights(side: int) -> Array:
 ## A free can be marched 50 for dissent, encroachment or delay. We do not
 ## pretend to simulate umpire micromanagement: discipline and Hothead only
 ## alter a small post-free risk. Returns the new mark for the free.
+static func fifty_mark(receiving_side: int, mark_fp: float, goal_line: float) -> float:
+	var dir := 1.0 if receiving_side == 0 else -1.0
+	return clampf(mark_fp + 50.0 * dir, -goal_line, goal_line)
+
+
 func _maybe_fifty(receiving_side: int, mark_fp: float, offender, recipient) -> float:
 	if offender == null:
 		return mark_fp
@@ -827,9 +838,7 @@ func _maybe_fifty(receiving_side: int, mark_fp: float, offender, recipient) -> f
 		chance *= 1.65
 	if discipline_rng.randf() >= clampf(chance, 0.002, 0.035):
 		return mark_fp
-	var dir := 1.0 if receiving_side == 0 else -1.0
-	var new_fp := clampf(mark_fp + 50.0 * dir,
-			-float(Ratings.T["goal_line"]), float(Ratings.T["goal_line"]))
+	var new_fp := fifty_mark(receiving_side, mark_fp, float(Ratings.T["goal_line"]))
 	_t(receiving_side, "fifties_for")
 	_t(1 - receiving_side, "fifties_against")
 	_p(offender, "fifties_against")
