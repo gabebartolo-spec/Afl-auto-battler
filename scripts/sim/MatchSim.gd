@@ -1681,8 +1681,12 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_emit("inside50", side, fp, carrier,
 					"%s sends it inside 50" % GameDB.player_display_name(carrier))
 			var entry := resolve_forward50(side, fp, carrier)
-			# An entry the defence rebounds is a turnover, not an effective kick.
-			if str(entry["outcome"]) != "turnover":
+			# A rebound or a free paid to the defence makes the entry
+			# ineffective. A free to the attacking side still retained the ball.
+			var effective_entry := str(entry["outcome"]) != "turnover"
+			if str(entry["outcome"]) == "free" and int(entry.get("free_side", side)) != side:
+				effective_entry = false
+			if effective_entry:
 				_effective(side, carrier)
 			return entry
 
@@ -3306,11 +3310,12 @@ func ai_tactics(side: int) -> Dictionary:
 	# The AI never reads the opponent's hidden structural call. It only makes
 	# the spare accountable after the match log/stats show that player has
 	# actually influenced enough aerial contests.
-	var opp_spare := _roaming_interceptor(opp)
-	if not opp_spare.is_empty():
-		var ost: Dictionary = player_stats.get(str(opp_spare.get("id", "")), {})
-		if int(ost.get("roam_wins", 0)) >= 2:
-			t["spare_accountable"] = true
+	var observed_spare_wins := 0
+	for p in (squads[opp] as Squad).ground:
+		var ost: Dictionary = player_stats.get(str(p.get("id", "")), {})
+		observed_spare_wins = maxi(observed_spare_wins, int(ost.get("roam_wins", 0)))
+	if observed_spare_wins >= 2:
+		t["spare_accountable"] = true
 
 	var tagger = tagger_for((squads[side] as Squad).ground)
 	if current_quarter >= (2 if read >= 0.4 else 3) and tagger != null and Roles.is_tagger(tagger):
