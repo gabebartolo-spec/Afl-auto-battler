@@ -420,6 +420,8 @@ func _this_week() -> Control:
 		v.add_child(UiKit.spacer(4))
 	for f in people:
 		v.add_child(_para(str(f["text"]), 13, UiKit.MUTED))
+	v.add_child(UiKit.spacer(4))
+	v.add_child(_interceptor_row())
 	# A key player already on the team sheet's outs is said there, once.
 	var sheet_outs := {}
 	for o in GameState.week_changes()["outs"]:
@@ -454,6 +456,56 @@ func _this_week() -> Control:
 	v.add_child(UiKit.spacer(6))
 	v.add_child(_plan_row())
 	return v
+
+
+## One deliberate spare/interceptor choice. It sits beside matchups because
+## roaming changes who can take direct responsibility for their forwards.
+func _interceptor_row() -> Control:
+	var h := UiKit.hbox(8)
+	h.name = "InterceptorRow"
+	var text := "Spare defender: None"
+	var current := GameState.list_player(GameState.my_interceptor)
+	if not current.is_empty():
+		text = "Spare defender: %s" % GameDB.player_display_name(current)
+	var l := UiKit.lbl(text, 14, UiKit.TEXT, true)
+	l.name = "InterceptorLine"
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(l)
+	var b := UiKit.btn("Change", 14)
+	b.custom_minimum_size = Vector2(104, 44)
+	b.pressed.connect(_show_interceptor)
+	h.add_child(b)
+	return h
+
+
+func _show_interceptor() -> void:
+	var box := UiKit.modal_box(self, 480.0, 0.0)
+	var overlay: Control = box["overlay"]
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.lbl("Spare defender", UiKit.H1, UiKit.TEXT, true))
+	v.add_child(_para("He leaves a direct opponent to read the ball and attack aerial entries. Another defender must absorb his matchup.", 13, UiKit.MUTED))
+	var none := UiKit.btn("No spare — keep direct matchups", 14)
+	none.custom_minimum_size.y = 48
+	none.pressed.connect(func():
+		GameState.set_my_interceptor("")
+		overlay.queue_free()
+		_build())
+	v.add_child(none)
+	for p in GameState.interceptor_options():
+		var b := UiKit.btn("%s\n%s" % [GameDB.player_display_name(p), Matchups.describe(p)], 14)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.custom_minimum_size.y = 56
+		var pid := str(p["id"])
+		UiKit.paint_choice(b, pid == GameState.my_interceptor)
+		b.pressed.connect(func():
+			GameState.set_my_interceptor(pid)
+			overlay.queue_free()
+			_build())
+		v.add_child(b)
+	var done := UiKit.btn("Close", 16)
+	done.custom_minimum_size.y = 48
+	done.pressed.connect(func(): overlay.queue_free())
+	box["footer"].add_child(done)
 
 
 ## "Curnow: Moore on him" with the way to change it.
