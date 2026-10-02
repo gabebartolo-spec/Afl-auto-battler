@@ -15,6 +15,7 @@ func run() -> void:
 	_test_season_rate_and_absence()
 	_test_heal_at_rollover()
 	_test_concussion()
+	_test_suspension()
 	_test_played_and_simulated_alike()
 	print("Injuries tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -127,6 +128,45 @@ func _test_concussion() -> void:
 	Injuries.tick([back])
 	_check(Ratings.available(back) and Injuries.concussion_text(back) == "",
 			"After two matches he is available again")
+	GameState.delete_saved_career()
+
+
+## A suspension is match-based availability just like the fixture needs:
+## same rule for AI/human selection, survives save/load, and counts down only
+## when the club plays.
+func _test_suspension() -> void:
+	GameState.reset()
+	GameState.autosave_enabled = false
+	GameState.save_path = "user://test_suspension.save"
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var p: Dictionary = GameState.my_list[0]
+	var id := str(p["id"])
+	var report := {"side": 0, "id": id, "name": GameDB.player_display_name(p),
+			"victim_id": "v", "victim_name": "Victim", "reason": "rough conduct",
+			"outcome": "suspension", "weeks": 2}
+	GameState._process_discipline([{"home": "GEE", "away": "COL", "reports": [report]}])
+	_check(int(p.get("suspension_weeks", 0)) == 2 and not Ratings.available(p),
+			"A two-match MRO suspension makes the player unavailable immediately")
+	var named := {"MID": [id]}
+	var side := Ratings.select_side(GameState.my_list, named)
+	var selected := false
+	for q in (side["ground"] as Array) + (side["bench"] as Array):
+		selected = selected or str(q["id"]) == id
+	_check(not selected, "Naming a suspended player cannot bypass the suspension")
+	var lines := GameState.my_mro_lines()
+	_check(not lines.is_empty() and str(lines[0]).contains("2 matches"),
+			"The round review reports the MRO suspension in football language")
+	_check(GameState.save_career() and GameState.load_career(),
+			"A career with a suspension saves and reloads")
+	var back := GameState.list_player(id)
+	_check(int(back.get("suspension_weeks", 0)) == 2 and not Ratings.available(back),
+			"The suspension survives save/load with its matches remaining")
+	GameState._process_discipline([{"home": "GEE", "away": "COL", "reports": []}])
+	_check(int(back.get("suspension_weeks", 0)) == 1 and not Ratings.available(back),
+			"After one club match, one match of the suspension remains")
+	GameState._process_discipline([{"home": "GEE", "away": "COL", "reports": []}])
+	_check(Ratings.available(back) and int(back.get("suspension_weeks", 0)) == 0,
+			"After the second club match the player is available again")
 	GameState.delete_saved_career()
 
 
