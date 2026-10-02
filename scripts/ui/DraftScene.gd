@@ -668,7 +668,7 @@ func _player_row(p: Dictionary) -> Control:
 					int(p.get("potential", p["overall"]))]
 	else:
 		var short := GameDB.club_short(str(p["club"]))
-		detail = "%s · $%d · %d OVR · %d POT" % [short, int(p["value"]), int(p["overall"]),
+		detail = "%s · %s · %d OVR · %d POT" % [short, Contracts.money(int(p["value"])), int(p["overall"]),
 				int(p.get("potential", p["overall"]))]
 	if taken:
 		var entry := _draft.pick_details(str(p["id"]))
@@ -687,7 +687,7 @@ func _player_row(p: Dictionary) -> Control:
 	_ignore_mouse(face)
 	var can_pick := _draft.can_pick_player(p)
 	var text := "+ " + role
-	var reason := "Draft %s for $%d" % [GameDB.player_display_name(p), int(p["value"])]
+	var reason := "Draft %s for %s" % [GameDB.player_display_name(p), Contracts.money(int(p["value"]))]
 	if _draft.intake_mode:
 		reason = "Select %s in the National Draft" % GameDB.player_display_name(p)
 	if taken:
@@ -966,7 +966,7 @@ func _open_player(id: String) -> void:
 	if not _draft.has(id):
 		var who_name := GameDB.player_display_name(p)
 		var act := UiKit.btn("Select " + who_name if _draft.intake_mode
-				else "Draft %s  ·  $%d" % [who_name, int(p["value"])], 15, true)
+				else "Draft %s  ·  %s" % [who_name, Contracts.money(int(p["value"]))], 15, true)
 		act.name = "DetailDraft"
 		act.clip_text = true
 		act.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1148,9 +1148,9 @@ func _history_row(entry: Dictionary) -> Control:
 				entry["pick"], entry["round"], GameDB.club_name(str(entry["club"])), _entry_player_name(entry),
 				str(entry.get("source_club", "")), rating]
 	else:
-		p.tooltip_text = "Pick #%d · Round %d\n%s drafted %s from %s\n%d OVR · $%d" % [
+		p.tooltip_text = "Pick #%d · Round %d\n%s drafted %s from %s\n%d OVR · %s" % [
 			entry["pick"], entry["round"], GameDB.club_name(str(entry["club"])), _entry_player_name(entry),
-			GameDB.club_name(str(entry["source_club"])), entry["overall"], entry["value"]]
+			GameDB.club_name(str(entry["source_club"])), entry["overall"], Contracts.money(int(entry["value"]))]
 	_ignore_mouse(h)
 	return p
 
@@ -1166,8 +1166,8 @@ func _refresh_mine() -> void:
 			"Rookies join the list you kept. No cap at the intake draft - list space is the limit.",
 			13, UiKit.MUTED))
 	else:
-		_mine_box.add_child(UiKit.lbl("%d / %d signed · $%d of $%d spent" % [
-			_draft.count(), _draft.target_size, _draft.spent(), _draft.budget], 15, UiKit.EMPH, true))
+		_mine_box.add_child(UiKit.lbl("%d / %d signed · %s of %s spent" % [
+			_draft.count(), _draft.target_size, Contracts.money(_draft.spent()), Contracts.money(_draft.budget)], 15, UiKit.EMPH, true))
 		_mine_box.add_child(UiKit.lbl(
 			"Cover 6 DEF, 6 MID and 6 FWD for the ground. Carry at least 2 RUCK. The bench is flexible; other needs are guidance, not limits.",
 			13, UiKit.MUTED))
@@ -1209,8 +1209,8 @@ func _refresh_mine() -> void:
 							int(entry.get("pick", 0)), DraftScouting.range_text(scout["overall"])],
 							12, UiKit.MUTED))
 				else:
-					v.add_child(UiKit.lbl("Pick #%d · %d OVR · $%d" % [
-							int(entry.get("pick", 0)), int(player["overall"]), int(player["value"])],
+					v.add_child(UiKit.lbl("Pick #%d · %d OVR · %s" % [
+							int(entry.get("pick", 0)), int(player["overall"]), Contracts.money(int(player["value"]))],
 							12, UiKit.MUTED))
 				if stuck:
 					var row := UiKit.hbox(8)
