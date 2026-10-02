@@ -49,17 +49,6 @@ func _build() -> void:
 	p.add_child(UiKit.ladder_table(season.ladder_sorted(), GameState.my_club,
 			_content_width() - 24.0, 0, true))
 
-	var coaches := _coaches_award()
-	if coaches != null:
-		var cinset := MarginContainer.new()
-		cinset.add_theme_constant_override("margin_left", 12)
-		cinset.add_theme_constant_override("margin_right", 12)
-		cinset.add_child(coaches)
-		if _content_width() > 640.0:
-			cinset.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-			coaches.custom_minimum_size.x = 460
-		body.add_child(cinset)
-
 	var coleman := _coleman()
 	if coleman != null:
 		# Rows line up with the ladder's, inside its panel padding.
@@ -72,6 +61,17 @@ func _build() -> void:
 			inset.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 			coleman.custom_minimum_size.x = 460
 		body.add_child(inset)
+
+	var coaches := _coaches_award()
+	if coaches != null:
+		var cinset := MarginContainer.new()
+		cinset.add_theme_constant_override("margin_left", 12)
+		cinset.add_theme_constant_override("margin_right", 12)
+		cinset.add_child(coaches)
+		if _content_width() > 640.0:
+			cinset.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			coaches.custom_minimum_size.x = 460
+		body.add_child(cinset)
 
 	if not season.finals.is_empty():
 		body.add_child(UiKit.lbl("Finals Series", 18, UiKit.EMPH, true))
