@@ -4,6 +4,7 @@ extends Control
 var _settings: Control
 var _root: VBoxContainer
 var _results_overlay: Control
+var _media_overlay: Control
 var _news_overlay: Control
 var _sim_confirm: Control
 var _quick_sim: Control
@@ -33,6 +34,8 @@ func _ready() -> void:
 	_build()
 	if GameState.needs_season_wrap():
 		_show_season_wrap()
+	elif GameState.media_conference_pending():
+		_show_media_conference()
 
 
 ## The off-season, wrapped up before Round 1 (ARD-M6-007): who came, who
@@ -783,6 +786,8 @@ func handle_back() -> bool:
 	if _sim_confirm != null and is_instance_valid(_sim_confirm):
 		_close_sim_confirm()
 		return true
+	if _media_overlay != null and is_instance_valid(_media_overlay):
+		return true
 	if _news_overlay != null and is_instance_valid(_news_overlay):
 		_news_overlay.queue_free()
 		_news_overlay = null
@@ -793,6 +798,59 @@ func handle_back() -> bool:
 		_build()
 		return true
 	return false
+
+
+
+func _show_media_conference() -> void:
+	if not GameState.media_conference_pending():
+		return
+	if _media_overlay != null and is_instance_valid(_media_overlay):
+		return
+	var box := UiKit.modal_box(self, 560.0, 0.0)
+	_media_overlay = box["overlay"]
+	_media_overlay.name = "MediaConference"
+	var v: VBoxContainer = box["body"]
+	var stage := Control.new()
+	stage.name = "MediaConferenceStage"
+	stage.custom_minimum_size = Vector2(0, minf(300.0, get_viewport_rect().size.y * 0.38))
+	v.add_child(stage)
+	var scene := MediaConferenceVignette.open(stage, GameState.my_club)
+	var prompt := UiKit.vbox(6)
+	prompt.visible = false
+	v.add_child(prompt)
+	prompt.add_child(UiKit.lbl("Journalist", UiKit.SMALL, UiKit.MUTED, true))
+	var q := UiKit.lbl(str(GameState.media_conference.get("question", "")), 16, UiKit.TEXT)
+	q.name = "MediaQuestion"
+	q.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	prompt.add_child(q)
+	var footer: VBoxContainer = box["footer"]
+	footer.visible = false
+	var opts: Array = GameState.media_conference.get("options", [])
+	for i in range(opts.size()):
+		var b := UiKit.btn(str((opts[i] as Dictionary).get("label", "")), 15)
+		b.name = "MediaAnswer_%d" % i
+		b.custom_minimum_size = Vector2(0, 48)
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var choice := i
+		b.pressed.connect(func():
+			GameState.resolve_media_conference(choice)
+			_media_overlay.queue_free()
+			_media_overlay = null
+			_build())
+		footer.add_child(b)
+	var skip := UiKit.btn("Skip press conference", 14)
+	skip.name = "MediaSkip"
+	skip.flat = true
+	skip.custom_minimum_size = Vector2(0, 44)
+	skip.pressed.connect(func():
+		GameState.skip_media_conference()
+		_media_overlay.queue_free()
+		_media_overlay = null
+		_build())
+	footer.add_child(skip)
+	scene.ready_for_question.connect(func():
+		prompt.visible = true
+		footer.visible = true)
 
 
 func _show_results(results: Array) -> void:
@@ -836,7 +894,9 @@ func _show_results(results: Array) -> void:
 	ok.pressed.connect(func():
 		overlay.queue_free()
 		_results_overlay = null
-		_build())
+		_build()
+		if GameState.media_conference_pending():
+			_show_media_conference())
 	box["footer"].add_child(ok)
 
 
