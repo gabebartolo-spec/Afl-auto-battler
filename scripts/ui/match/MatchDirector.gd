@@ -340,6 +340,10 @@ func _start_beat(k: int) -> void:
 			_phases = [{"t": "emit"}, {"t": "wait", "dur": 1.6, "ease": true}]
 		"free":
 			_phases = [{"t": "emit"}, {"t": "wait", "dur": 0.5, "ease": true}]
+		"last_disposal", "out_on_full":
+			_phases = _boundary_free_phases(k)
+		"throwin":
+			_phases = _throwin_phases(k)
 		"tackle":
 			_phases = _tackle_phases(k)
 		"pressure":
@@ -403,7 +407,9 @@ func _restart(k: int) -> String:
 			return "kickin"
 		"ballup":
 			return "ballup"
-		"free":
+		"throwin":
+			return "throwin"
+		"free", "last_disposal", "out_on_full":
 			return "free"
 		"clanger", "tackle":
 			# No stoppage logged: the ball is won where it fell.
@@ -425,6 +431,10 @@ func _possession_phases(k: int) -> Array:
 		"ballup":
 			# The ruck's tap to the player who wins it, out of the ball-up beat.
 			return [{"t": "flight", "to": loc, "dur": 0.3, "apex": 0.8, "h0": 3.0, "recv": a}] + tail
+		"throwin":
+			# The boundary umpire has the ball on the line; throw it back into
+			# the pack and let the logged winner collect it.
+			return [{"t": "flight", "to": loc, "dur": 0.55, "apex": 6.0, "h0": 1.0, "recv": a}] + tail
 		"free":
 			return [{"t": "wait", "dur": 0.3, "ease": true},
 					{"t": "flight", "to": loc, "dur": 0.4, "apex": 1.5, "recv": a}] + tail
@@ -563,6 +573,45 @@ func _ballup_phases(k: int) -> Array:
 	return out
 
 
+## The disposal has crossed the line. The ball reaches the boundary and the
+## nearby players form a pack; the next possession beat is the actual throw-in.
+func _throwin_phases(k: int) -> Array:
+	var at := _loc(k)
+	var out := []
+	var d := (ball["pos"] as Vector2).distance_to(at)
+	if d > 2.0:
+		var shape := _flight_shape("kick", d)
+		out.append({"t": "flight", "to": at, "dur": shape.x, "apex": shape.y,
+				"recv": -1, "mode": "stoppage"})
+	var infield := Vector2(at.x, at.y * 0.78)
+	var nk := _next_real(k)
+	var winner := _actor_id(events[nk]) if nk >= 0 else -1
+	var members := _nearest(infield, 0, 3, [winner]) + _nearest(infield, 1, 3, [winner])
+	for t in tokens:
+		if str(t["role"]) == "RUCK" and not members.has(int(t["id"])):
+			members.append(int(t["id"]))
+	if winner >= 0 and not members.has(winner):
+		members.append(winner)
+	out += [{"t": "pack", "at": infield, "members": members, "min": 0.25, "max": 0.75,
+				"mode": "stoppage"},
+			{"t": "emit", "log": true}]
+	return out
+
+
+## A last-disposal or out-on-full free: show the ball crossing the line. The
+## following possession beat uses the normal free-kick restart.
+func _boundary_free_phases(k: int) -> Array:
+	var at := _loc(k)
+	var out := []
+	var d := (ball["pos"] as Vector2).distance_to(at)
+	if d > 2.0:
+		var shape := _flight_shape("kick", d)
+		out.append({"t": "flight", "to": at, "dur": shape.x, "apex": shape.y,
+				"recv": -1, "mode": "stoppage"})
+	out += [{"t": "emit", "log": true}, {"t": "wait", "dur": 0.35, "ease": true}]
+	return out
+
+
 func _tackle_phases(k: int) -> Array:
 	var ev: Dictionary = events[k]
 	var tk := _actor_id(ev)
@@ -692,12 +741,18 @@ func _loc(k: int) -> Vector2:
 			a = _actor_id(events[nk])
 	var ry: float = (tokens[a]["pos"] as Vector2).y if a >= 0 else src.y
 	var p: Vector2
-	if kind in ["goal", "behind", "rebound", "tackle", "pressure", "free", "ballup"]:
+	if kind in ["throwin", "last_disposal", "out_on_full"]:
+		p = _boundary_point(x, src.y)
+	elif kind in ["goal", "behind", "rebound", "tackle", "pressure", "free", "ballup"]:
 		p = Vector2(x, src.y)
 	elif _possession(kind) and _restart(k) == "centre":
 		p = Vector2(0.0, signf(ry if ry != 0.0 else 1.0) * 3.5)
 	elif _possession(kind) and _restart(k) == "kickin":
 		p = Vector2(x, 0.0)   # the goal square: MatchSim logs the kick-in there
+	elif _possession(kind) and _restart(k) == "throwin":
+		# A boundary throw-in lands well inside the line, at the same
+		# longitudinal field position as the crossing.
+		p = Vector2(x, src.y * 0.78)
 	elif _possession(kind) and _restart(k) in ["ballup", "free", "loose"]:
 		p = Vector2(x, src.y + _rng.randf_range(-6.0, 6.0))
 	else:
@@ -719,6 +774,9 @@ func _loc(k: int) -> Vector2:
 		p = Vector2(x, y)
 		if hb and p.distance_to(src) < 3.0:
 			p.y += 4.0 * (1.0 if _rng.randf() < 0.5 else -1.0)
+	if kind in ["throwin", "last_disposal", "out_on_full"]:
+		_locs[k] = p
+		return p
 	if absf(p.x) > 62.0:
 		p.y = clampf(p.y, -26.0, 26.0)
 	var ymax := (MatchMotion.HALF_WID - 4.0) * sqrt(maxf(0.0,
@@ -852,8 +910,14 @@ func _lead_receivers(k: int, cur: int) -> void:
 		if kind == "tackle" or kind == "pressure":
 			t += 1.2
 			continue
-		if kind == "free":
+		if kind in ["free", "last_disposal", "out_on_full"]:
 			t += 0.8
+			continue
+		if kind == "throwin":
+			var atb := _loc(j)
+			t += _flight_shape("kick", prev_loc.distance_to(atb)).x + 1.0
+			prev_loc = atb
+			prev_kind = kind
 			continue
 		if kind == "ballup":
 			var at := _loc(j)
@@ -1167,6 +1231,18 @@ func _emit(p: Dictionary) -> void:
 	# Anything drawn before this in the same beat was the lead-up.
 	emitted = k + 1
 	_out.append(ev)
+
+
+## Point on the oval boundary for longitudinal field position x. Keep a
+## stable side of the ground when play is already near one boundary; otherwise
+## choose one from the presentation RNG (replay deterministic, simulation-free).
+func _boundary_point(x: float, source_y: float) -> Vector2:
+	var nx := clampf(x / MatchMotion.HALF_LEN, -1.0, 1.0)
+	var y := MatchMotion.HALF_WID * sqrt(maxf(0.0, 1.0 - nx * nx))
+	var side := signf(source_y)
+	if absf(source_y) < 2.0:
+		side = -1.0 if _rng.randf() < 0.5 else 1.0
+	return Vector2(x, side * y * 0.985)
 
 
 func _log_arrival(k: int) -> void:

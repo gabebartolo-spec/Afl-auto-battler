@@ -25,7 +25,16 @@ var fp := 0.0
 var next_side := -1          # -1 => the stoppage is contested
 var at_centre := true
 var kick_in := false         # the next chain is a kick-in after a behind
+var boundary_throw_in := false # the next chain restarts with a boundary throw-in
 const GOAL_SQUARE_DEPTH := 9.0  # metres; kick-ins are taken from inside it
+## With no lateral simulation coordinate, boundary exits are rolled as a real
+## chain outcome at the ball's current longitudinal position. The rate is
+## deliberately modest: roughly the amount needed to produce AFL-like
+## boundary stoppages without turning the game into a boundary simulator.
+const BOUNDARY_EXIT_P := 0.008
+const BOUNDARY_RUSHED_BONUS := 0.004
+const OUT_ON_FULL_SHARE := 0.12
+const BOUNDARY_TOUCHED_SHARE := 0.28
 var tactics := [{}, {}]      # per side: gameplan, focus_id, tag_id, pep
 ## How well each side's match-day players suit each plan (PlanFit): the
 ## plan's upside is scaled by it, its costs are not.
@@ -97,6 +106,10 @@ var stat_rng := RandomNumberGenerator.new()
 ## Whether a mark inside 50 ends in a set shot and from where (SET_BANDS):
 ## its own stream, so the rest of the match draws exactly as before.
 var shot_rng := RandomNumberGenerator.new()
+## Boundary law rolls are isolated from the calibrated play RNG. Adding or
+## tuning boundary frequency therefore does not silently re-roll ordinary
+## disposals in chains that stay in play.
+var boundary_rng := RandomNumberGenerator.new()
 ## The chain being played: how it began (centre, stoppage, kick_in, free,
 ## turnover, general) and who touched the ball in it, for score sources and
 ## score involvements. How the last chain ended decides the next's origin.
@@ -150,6 +163,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	moment_rng.seed = seed * 7 + 13
 	stat_rng.seed = seed * 11 + 5
 	shot_rng.seed = seed * 13 + 3
+	boundary_rng.seed = seed * 17 + 19
 	injury_rng.seed = seed * 13 + 7
 	for side in range(2):
 		synergies[side] = Traits.active((squads[side] as Squad).ground)
@@ -992,6 +1006,61 @@ func _stoppage(side: int, opp: int, from_bounce: bool) -> void:
 
 
 # ---------------------------------------------------------------------------
+# Boundary laws
+# ---------------------------------------------------------------------------
+## 2026 AFL last-disposal rule: a kick or handball that crosses the boundary
+## between the 50m arcs is a free to the opposition. If it was touched or the
+## exit was otherwise contested, it remains a throw-in. Out on the full is a
+## free anywhere on the ground.
+static func boundary_restart(cross_fp: float, f50: float, disposal_kind: String,
+		out_on_full: bool, touched: bool) -> String:
+	if out_on_full:
+		return "free"
+	if absf(cross_fp) < f50 and ["kick", "handball"].has(disposal_kind) and not touched:
+		return "free"
+	return "throwin"
+
+
+## A disposal leaves the oval. MatchSim has one field-position axis, so the
+## lateral crossing itself is probabilistic; the restart and crossing spot are
+## real state. Returns {} when the ball stays in.
+func _boundary_exit(side: int, cross_fp: float, carrier, disposal_kind: String,
+		rushed: bool, marked: bool) -> Dictionary:
+	if marked:
+		return {}
+	var chance := BOUNDARY_EXIT_P + (BOUNDARY_RUSHED_BONUS if rushed else 0.0)
+	if boundary_rng.randf() >= chance:
+		return {}
+	var out_on_full := disposal_kind == "kick" and boundary_rng.randf() < OUT_ON_FULL_SHARE
+	var touched := not out_on_full and boundary_rng.randf() < BOUNDARY_TOUCHED_SHARE
+	var restart := boundary_restart(cross_fp, float(Ratings.T["forward50_line"]),
+			disposal_kind, out_on_full, touched)
+	if restart == "throwin":
+		_emit("throwin", -1, cross_fp, null, "Boundary throw-in")
+		var bev: Dictionary = events[events.size() - 1]
+		bev["last_side"] = side
+		bev["disposal_kind"] = disposal_kind
+		bev["touched"] = touched
+		return {"outcome": "boundary", "fp": cross_fp, "actor": carrier}
+
+	var opp := 1 - side
+	var recipient = _free_to(opp, cross_fp if side == 0 else -cross_fp)
+	_t(opp, "frees_for")
+	_p(recipient, "frees_for")
+	_t(side, "frees_against")
+	_p(carrier, "frees_against")
+	var kind := "out_on_full" if out_on_full else "last_disposal"
+	var who := GameDB.player_display_name(recipient) if recipient != null else "the opposition"
+	var why := "Out on the full" if out_on_full else "Last disposal out"
+	_emit(kind, opp, cross_fp, recipient, "%s - free kick to %s" % [why, who])
+	var fev: Dictionary = events[events.size() - 1]
+	fev["against_id"] = "" if carrier == null else str(carrier.get("id", ""))
+	fev["against_name"] = "" if carrier == null else GameDB.player_display_name(carrier)
+	fev["disposal_kind"] = disposal_kind
+	return {"outcome": "free", "fp": cross_fp, "actor": recipient}
+
+
+# ---------------------------------------------------------------------------
 # One possession chain
 # ---------------------------------------------------------------------------
 func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) -> Dictionary:
@@ -1030,6 +1099,8 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 
 		var hb_bias: float = (0.85
 				+ 0.30 * (100.0 - _a(carrier, "marking")) / 100.0)
+		var disposal_kind := "handball"
+		var marked := false
 		# A kick-in is kicked: no handball roll for its first disposal.
 		if not (from_kick_in and touches == 1) \
 				and rng.randf() < float(T["handball_share"]) * hb_bias:
@@ -1037,11 +1108,12 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_p(carrier, "handballs")
 			_emit("handball", side, fp, carrier, "%s handballs" % GameDB.player_display_name(carrier))
 		else:
+			disposal_kind = "kick"
 			_t(side, "kicks")
 			_p(carrier, "kicks")
 			var mark_p: float = (float(T["mark_share_of_kicks"])
 					* (0.75 + 0.50 * _a(carrier, "marking") / 100.0))
-			var marked := rng.randf() < mark_p
+			marked = rng.randf() < mark_p
 			if marked:
 				_t(side, "marks")
 				_p(carrier, "marks")
@@ -1130,6 +1202,10 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		fp = clampf(fp, -gline, gline)
 		atk_fp = fp if side == 0 else -fp
 		_metres(side, carrier, atk_fp - prev_atk_fp)
+
+		var boundary := _boundary_exit(side, fp, carrier, disposal_kind, rushed, marked)
+		if not boundary.is_empty():
+			return boundary
 
 		# Rebound 50: winning it out of your own defensive arc.
 		if prev_atk_fp < float(T["rebound_from"]) and atk_fp > float(T["rebound_to"]):
@@ -1608,6 +1684,7 @@ func begin_quarter() -> void:
 	# Every quarter starts with a centre bounce.
 	at_centre = true
 	kick_in = false
+	boundary_throw_in = false
 
 
 ## Play on until the quarter's chains are done (true) or a moment needs the
@@ -1677,17 +1754,20 @@ func run_extra_time() -> Dictionary:
 	var per_half: int = maxi(4, roundi(float(T["chains_per_game"]) / 4.0 * 0.15))
 	at_centre = true
 	kick_in = false
+	boundary_throw_in = false
 	_play_chains(per_half, 120, 4)
 	_emit("quarter", -1, fp, null, "Extra time, half time - %s %d | %s %d" % [
 			squads[0].name, score(0), squads[1].name, score(1)])
 	at_centre = true
 	kick_in = false
+	boundary_throw_in = false
 	_play_chains(per_half, 124, 4)
 	if score(0) == score(1):
 		_emit("quarter", -1, fp, null, "Still level - next score wins!")
 		# A new period: it opens with a centre bounce like any other.
 		at_centre = true
 		kick_in = false
+		boundary_throw_in = false
 		var guard := 0
 		while score(0) == score(1) and guard < GOLDEN_POINT_CHAINS:
 			current_minute = 128 + int(guard / 4)
@@ -1718,9 +1798,13 @@ func _play_chains(count: int, minute_base: int, span: int) -> void:
 
 func _play_one_chain(T: Dictionary) -> void:
 	# A kick-in after a behind is not a stoppage: no ruck contest, no clearance.
+	# A boundary throw-in is: it always starts with a contested stoppage.
 	var from_kick_in := kick_in
+	var from_boundary := boundary_throw_in
 	kick_in = false
-	var stoppage := at_centre or (not from_kick_in and rng.randf() < float(T["stoppage_share"]))
+	boundary_throw_in = false
+	var stoppage := at_centre or from_boundary \
+			or (not from_kick_in and rng.randf() < float(T["stoppage_share"]))
 	var side: int
 	var start_fp: float
 	if stoppage:
@@ -1730,7 +1814,9 @@ func _play_one_chain(T: Dictionary) -> void:
 		start_fp = 0.0 if at_centre else fp
 		_ruck_tap()
 		side = contest_winner(false, start_fp)
-		if not at_centre:
+		if not at_centre and not from_boundary:
+			# Boundary exits already logged the throw-in when the ball crossed;
+			# this chain is just the contested restart at that same spot.
 			_emit("ballup", -1, start_fp, null, "Ball-up")
 	else:
 		start_fp = fp
@@ -1755,13 +1841,18 @@ func _play_one_chain(T: Dictionary) -> void:
 		return
 
 	# Goal: centre bounce. Behind: the other side kicks in (fp is already the
-	# goal square). Turnover: the other side plays on from here.
+	# goal square). A free gives the other side possession at the crossing;
+	# a boundary exit restarts with a contested throw-in at the same fp.
 	at_centre = (outcome == "score")
 	kick_in = (outcome == "behind")
-	next_side = (1 - side) if outcome == "turnover" or outcome == "behind" else -1
+	boundary_throw_in = (outcome == "boundary")
+	next_side = (1 - side) if ["turnover", "behind", "free"].has(outcome) else -1
 	_prev_end = outcome
 	if outcome == "score":
 		fp = 0.0
+	if outcome == "boundary" or outcome == "free":
+		_after_chain()
+		return
 
 	# End-of-chain error: a clanger, sometimes a free kick against.
 	var cw := _clanger_weights(side)
