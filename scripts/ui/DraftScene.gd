@@ -653,7 +653,7 @@ func _player_row(p: Dictionary) -> Control:
 				int(p.get("potential", p["overall"]))]
 	else:
 		var short := GameDB.club_short(str(p["club"]))
-		detail = "%s · $%d · %d OVR · %d POT" % [short, int(p["value"]), int(p["overall"]),
+		detail = "%s · %s · %d OVR · %d POT" % [short, Contracts.money(int(p["value"])), int(p["overall"]),
 				int(p.get("potential", p["overall"]))]
 	if taken:
 		var entry := _draft.pick_details(str(p["id"]))
@@ -670,7 +670,7 @@ func _player_row(p: Dictionary) -> Control:
 	_ignore_mouse(face)
 	var can_pick := _draft.can_pick_player(p)
 	var text := "+ " + role
-	var reason := "Draft %s for $%d" % [GameDB.player_display_name(p), int(p["value"])]
+	var reason := "Draft %s for %s" % [GameDB.player_display_name(p), Contracts.money(int(p["value"]))]
 	if _draft.intake_mode:
 		reason = "Sign %s at projected %d OVR" % 				[GameDB.player_display_name(p), int(p["overall"])]
 	if taken:
@@ -914,7 +914,7 @@ func _open_player(id: String) -> void:
 	if not _draft.has(id):
 		var who_name := GameDB.player_display_name(p)
 		var act := UiKit.btn("Sign " + who_name if _draft.intake_mode
-				else "Draft %s  ·  $%d" % [who_name, int(p["value"])], 15, true)
+				else "Draft %s  ·  %s" % [who_name, Contracts.money(int(p["value"]))], 15, true)
 		act.name = "DetailDraft"
 		act.clip_text = true
 		act.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1133,8 +1133,8 @@ func _refresh_mine() -> void:
 				var v := UiKit.vbox(2)
 				p.add_child(v)
 				v.add_child(UiKit.ellipsis(GameDB.player_display_name(player), 16, UiKit.TEXT, true))
-				v.add_child(UiKit.lbl("Pick #%d · %d OVR · $%d" % [
-					int(entry.get("pick", 0)), int(player["overall"]), int(player["value"])], 12, UiKit.MUTED))
+				v.add_child(UiKit.lbl("Pick #%d · %d OVR · %s" % [
+					int(entry.get("pick", 0)), int(player["overall"]), Contracts.money(int(player["value"]))], 12, UiKit.MUTED))
 				if stuck:
 					var row := UiKit.hbox(8)
 					v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
