@@ -837,6 +837,17 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	if season != null:
 		Workload.reset(season.lists)
 		Injuries.heal_all(season.lists)
+	# Brownlow eligibility is season-specific. A new season starts clean.
+	var seen_brownlow := {}
+	for code in league_lists:
+		for p in league_lists[code]:
+			var id := str(p.get("id", ""))
+			if seen_brownlow.has(id):
+				continue
+			seen_brownlow[id] = true
+			p.erase("brownlow_ineligible")
+	for p in free_agents:
+		p.erase("brownlow_ineligible")
 	season_tally = {}
 	form_log = {}
 	season_team = {}
@@ -2267,13 +2278,18 @@ func _process_discipline(results: Array) -> void:
 			var code := codes[side]
 			item["club"] = code
 			last_mro.append(item)
-			if str(item.get("outcome", "")) != "suspension" or not season.lists.has(code):
+			if not season.lists.has(code):
 				continue
 			for p in season.lists[code]:
 				if str(p.get("id", "")) != str(item.get("id", "")):
 					continue
-				p["suspension_weeks"] = maxi(int(p.get("suspension_weeks", 0)),
-						int(item.get("weeks", 0)))
+				# User rule: any MRO sanction makes him Brownlow-ineligible.
+				# Votes continue to accrue; Awards only checks this at winner time.
+				if str(item.get("outcome", "")) != "no_action":
+					p["brownlow_ineligible"] = true
+				if str(item.get("outcome", "")) == "suspension":
+					p["suspension_weeks"] = maxi(int(p.get("suspension_weeks", 0)),
+							int(item.get("weeks", 0)))
 				break
 
 
@@ -2292,6 +2308,90 @@ func my_mro_lines() -> Array:
 			"fine":
 				out.append("%s fined for %s" % [name, str(row.get("reason", "rough conduct"))])
 	return out
+
+
+## User-club sanctions from the round that can still be challenged before the
+## next match. The case strength describes the charge, not the hidden verdict.
+func pending_mro_challenges() -> Array:
+	var out := []
+	for row in last_mro:
+		if str(row.get("club", "")) != my_club 				or str(row.get("outcome", "")) == "no_action" 				or bool(row.get("challenged", false)):
+			continue
+		var copy: Dictionary = (row as Dictionary).duplicate(true)
+		copy["case"] = tribunal_case(row)
+		out.append(copy)
+	return out
+
+
+static func tribunal_chance(row: Dictionary) -> float:
+	if str(row.get("outcome", "")) == "fine":
+		return 0.42
+	match int(row.get("weeks", 0)):
+		1:
+			return 0.34
+		2:
+			return 0.22
+		_:
+			return 0.12
+
+
+static func tribunal_case(row: Dictionary) -> String:
+	var chance := tribunal_chance(row)
+	if chance >= 0.35:
+		return "Arguable"
+	if chance >= 0.20:
+		return "Difficult"
+	return "Long shot"
+
+
+## One Tribunal challenge per MRO sanction. The evidence roll was stored in
+## MatchSim when the incident happened, so save/reload cannot fish for a new
+## result. A successful challenge clears the sanction and restores Brownlow
+## eligibility exactly as requested; votes themselves are never altered.
+func challenge_mro(player_id: String) -> Dictionary:
+	var target := {}
+	for row in last_mro:
+		if str(row.get("club", "")) == my_club 				and str(row.get("id", "")) == player_id 				and str(row.get("outcome", "")) != "no_action" 				and not bool(row.get("challenged", false)):
+			target = row
+			break
+	if target.is_empty():
+		return {"ok": false, "reason": "There is no MRO sanction left to challenge."}
+	target["challenged"] = true
+	var success := float(target.get("tribunal_roll", 1.0)) < tribunal_chance(target)
+	target["challenge_result"] = "overturned" if success else "upheld"
+	var p := list_player(player_id)
+	var name := str(target.get("name", player_id)) if p.is_empty() else GameDB.player_display_name(p)
+	if success:
+		# Another sanction for the same player in this round can still keep him
+		# out/ineligible; recompute from the remaining live sanctions.
+		var remaining_weeks := 0
+		var still_ineligible := false
+		for row in last_mro:
+			if str(row.get("id", "")) != player_id or str(row.get("outcome", "")) == "no_action":
+				continue
+			if str(row.get("challenge_result", "")) == "overturned":
+				continue
+			still_ineligible = true
+			if str(row.get("outcome", "")) == "suspension":
+				remaining_weeks = maxi(remaining_weeks, int(row.get("weeks", 0)))
+		if not p.is_empty():
+			if remaining_weeks > 0:
+				p["suspension_weeks"] = remaining_weeks
+			else:
+				p.erase("suspension_weeks")
+			if still_ineligible:
+				p["brownlow_ineligible"] = true
+			else:
+				p.erase("brownlow_ineligible")
+		add_news("tribunal", "%s has successfully challenged the MRO sanction at the Tribunal and is Brownlow-eligible again." % name)
+		mark_dirty()
+		return {"ok": true, "success": true,
+				"reason": "%s wins the Tribunal challenge. The sanction is overturned and Brownlow eligibility is restored." % name}
+
+	add_news("tribunal", "%s's Tribunal challenge failed; the MRO sanction stands." % name)
+	mark_dirty()
+	return {"ok": true, "success": false,
+			"reason": "%s's Tribunal challenge fails. The original sanction stands." % name}
 
 
 ## Your club's new injuries from the last round, as readable lines.
