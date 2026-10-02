@@ -32,6 +32,8 @@ func go(key: String) -> void:
 	var err := get_tree().change_scene_to_file(path)
 	if err != OK:
 		push_error("Router: change_scene_to_file failed (%d) for %s" % [err, path])
+		return
+	MusicManager.set_context(key)
 
 
 ## Replace the current entry instead of pushing - used for boot -> menu.
