@@ -75,12 +75,18 @@ static func season_awards(tally: Dictionary, players: Dictionary, year: int) -> 
 		rows.append({"id": str(id), "club": str(t["club"]), "games": int(t["games"]),
 				"goals": int(t["goals_ha"]), "votes": int(t["votes"]), "coaches": int(t.get("coaches", 0)), "bf": int(t["bf"]),
 				"avg": float(t["influence"]) / float(maxi(1, int(t["games"]))),
-				"role": str(p.get("role", "MID")), "age": float(p.get("age", 30.0))})
+				"role": str(p.get("role", "MID")), "age": float(p.get("age", 30.0)),
+				"brownlow_eligible": not bool(p.get("brownlow_ineligible", false))})
 	var by_votes := rows.duplicate()
 	by_votes.sort_custom(func(a, b):
 		if int(a["votes"]) != int(b["votes"]):
 			return int(a["votes"]) > int(b["votes"])
 		return float(a["avg"]) > float(b["avg"]))
+	var brownlow_winner := {}
+	for r in by_votes:
+		if bool(r.get("brownlow_eligible", true)):
+			brownlow_winner = r
+			break
 	var by_coaches := rows.duplicate()
 	by_coaches.sort_custom(func(a, b):
 		if int(a["coaches"]) != int(b["coaches"]):
@@ -111,7 +117,10 @@ static func season_awards(tally: Dictionary, players: Dictionary, year: int) -> 
 		bf[code] = club_rows.slice(0, 3)
 	return {
 		"year": year,
+		# The vote table stays in raw vote order so an ineligible player never
+		# loses votes or disappears from history. Winner is selected separately.
 		"brownlow": by_votes.slice(0, 10),
+		"brownlow_winner": brownlow_winner,
 		"coleman": by_goals.slice(0, 10),
 		"coaches_award": by_coaches.slice(0, 10),
 		"rising_star": rising.slice(0, 3),
