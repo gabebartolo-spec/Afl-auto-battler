@@ -69,6 +69,10 @@ var fa_closed_year := 0          # the season whose free agency has closed
 ## "name", "to", "salary", "years", "value", "after"}], slotted into the
 ## national draft when it opens (Contracts.compensation_after).
 var compensation: Array = []
+## Traded draft picks: "year:round:origin club" -> the club that owns it. A
+## pick not listed still belongs to its own club. Saved; a draft year's
+## entries go once that draft is done.
+var pick_owner := {}
 var offseason_log: Array = []    # what happened in the off-season, for news
 var offseason_staff := {}        # your staff (job -> cid) when the off-season opened
 ## Annual discretionary department funding for the coming season. It is an
@@ -332,6 +336,7 @@ func save_career() -> bool:
 		"offseason_year": offseason_year,
 		"fa_closed_year": fa_closed_year,
 		"compensation": compensation,
+		"pick_owner": pick_owner,
 		"offseason_staff": offseason_staff,
 		"department_budget": department_budget,
 		"department_budget_year": department_budget_year,
@@ -445,6 +450,7 @@ func load_career() -> bool:
 	offseason_year = int(state.get("offseason_year", 0))
 	fa_closed_year = int(state.get("fa_closed_year", 0))
 	compensation = state.get("compensation", [])
+	pick_owner = state.get("pick_owner", {})
 	offseason_staff = state.get("offseason_staff", {})
 	department_budget = state.get("department_budget", ClubBudget.defaults())
 	department_budget_year = int(state.get("department_budget_year", season_year))
@@ -688,6 +694,7 @@ func reset() -> void:
 	offseason_year = 0
 	fa_closed_year = 0
 	compensation = []
+	pick_owner = {}
 	offseason_log = []
 	offseason_staff = {}
 	department_budget = ClubBudget.defaults()
@@ -822,6 +829,7 @@ func begin_intake_draft() -> bool:
 	for c in compensation:
 		if active.has(str(c["club"])):
 			comps.append(c)
+	draft.set_pick_owners(draft_pick_owners(season_year))
 	draft.add_compensation(comps)
 	draft.start_for_user(my_club)
 	autosave()
@@ -834,6 +842,10 @@ func begin_intake_draft() -> bool:
 func finish_intake_draft() -> bool:
 	if draft == null or not draft.intake_mode or not draft.is_finished():
 		return false
+	# This year's picks are spent.
+	for key in pick_owner.keys():
+		if int(str(key).split(":")[0]) <= season_year:
+			pick_owner.erase(key)
 	_ensure_league_lists()
 	var next_year := season_year + 1
 	var merged := 0
@@ -3159,25 +3171,157 @@ func projected_compensation(p: Dictionary) -> Dictionary:
 			"reason": "If he signs elsewhere, expect a pick around %s." % Contracts.pick_words(after, clubs)}
 
 
-## Would `club` accept your `mine` (ids) for its `theirs` (ids)?
+# ---------------------------------------------------------------------------
+# Draft picks as trade assets
+# ---------------------------------------------------------------------------
+## Rounds of a draft that can be traded: deeper picks rarely matter.
+const TRADE_PICK_ROUNDS := 3
+
+
+## The draft years whose picks can be traded now: this year's national
+## draft while the off-season is open.
+func trade_pick_years() -> Array:
+	return [season_year] if offseason_open() else []
+
+
+func pick_id(year: int, rnd: int, origin: String) -> String:
+	return "pick:%d:%d:%s" % [year, rnd, origin]
+
+
+func pick_owner_of(year: int, rnd: int, origin: String) -> String:
+	return str(pick_owner.get("%d:%d:%s" % [year, rnd, origin], origin))
+
+
+## A pick as a trade asset, or {} if the id isn't a tradeable pick: {"pick",
+## "id", "year", "round", "origin", "owner", "positions", "name"}. This year's
+## spot is exact - the season is over, the order is the reversed ladder.
+func pick_asset(id: String) -> Dictionary:
+	var parts := id.split(":")
+	if parts.size() != 4 or parts[0] != "pick":
+		return {}
+	var year := int(parts[1])
+	var rnd := int(parts[2])
+	var origin := str(parts[3])
+	if not trade_pick_years().has(year) or rnd < 1 or rnd > trade_pick_rounds(year) \
+			or not GameDB.active_clubs(season_year).has(origin):
+		return {}
+	var at := draft_spot(year, rnd, origin)
+	return {"pick": true, "id": id, "year": year, "round": rnd, "origin": origin,
+			"owner": pick_owner_of(year, rnd, origin), "positions": [[at, 1.0]],
+			"name": _pick_name(year, rnd, origin, at)}
+
+
+## The overall pick a club's pick in `rnd` will be in this year's national
+## draft: the reversed ladder, snaking back each round.
+func draft_spot(year: int, rnd: int, origin: String) -> int:
+	var order := []
+	for row in season.ladder_sorted():
+		order.append(str(row["code"]))
+	order.reverse()
+	var n := order.size()
+	var i := order.find(origin)
+	var in_round := i + 1 if rnd % 2 == 1 else n - i
+	return (rnd - 1) * n + in_round
+
+
+func _pick_name(year: int, rnd: int, origin: String, at: int) -> String:
+	var nth: String = ["first", "second", "third", "fourth"][clampi(rnd - 1, 0, 3)]
+	return "%s %d %s-round pick (No. %d)" % [GameDB.club_name(origin) + ("'" if GameDB.club_name(origin).ends_with("s") else "'s"),
+			year, nth, at]
+
+
+## The tradeable picks `code` owns, earliest first.
+func club_picks(code: String) -> Array:
+	var out := []
+	for year in trade_pick_years():
+		for rnd in range(1, trade_pick_rounds(int(year)) + 1):
+			for origin in GameDB.active_clubs(season_year):
+				if pick_owner_of(int(year), rnd, str(origin)) == code:
+					out.append(pick_asset(pick_id(int(year), rnd, str(origin))))
+	out.sort_custom(func(a, b): return int(a["positions"][0][0]) < int(b["positions"][0][0]))
+	return out
+
+
+## This draft year's traded picks for the draft: {"round:origin": owner}.
+func draft_pick_owners(year: int) -> Dictionary:
+	var out := {}
+	for key in pick_owner:
+		var parts := str(key).split(":")
+		if int(parts[0]) == year:
+			out["%s:%s" % [parts[1], parts[2]]] = str(pick_owner[key])
+	return out
+
+
+## The draft classes a club can see, best first: {year: [prospects]}. This
+## year's open class (not the players tied to a club).
+func trade_prospects() -> Dictionary:
+	var out := {}
+	for year in trade_pick_years():
+		out[str(year)] = TradeValue.rank_prospects(_open_class(int(year)))
+	return out
+
+
+func _open_class(year: int) -> Array:
+	var pool := []
+	for p in draftee_pool:
+		if drafted_draftees.has(str(p["id"])) or int(p.get("draft_year", year)) != year:
+			continue
+		if str(p.get("tied_club", "")) != "" and int(p.get("draft_year", 0)) == year:
+			continue
+		pool.append(p)
+	return pool
+
+
+## Rounds of `year`'s draft that can be traded: the rounds it will run (as
+## many as the class fills, Draft.build_intake), at most TRADE_PICK_ROUNDS.
+func trade_pick_rounds(year: int) -> int:
+	var clubs := maxi(1, GameDB.active_clubs(season_year).size())
+	var rounds := clampi(ceili(float(_open_class(year).size()) / float(clubs)), 1, 4)
+	return mini(TRADE_PICK_ROUNDS, rounds)
+
+
+## Players and picks for a trade, by id: {"assets": [...], "error": ""}.
+## Every asset must belong to `owner`, and none may appear twice.
+func _trade_assets(ids: Array, owner: String) -> Dictionary:
+	var out := []
+	var seen := {}
+	for id in ids:
+		var key := str(id)
+		if seen.has(key):
+			return {"assets": [], "error": "Each player or pick can only go in once."}
+		seen[key] = true
+		if key.begins_with("pick:"):
+			var pk := pick_asset(key)
+			if pk.is_empty() or str(pk["owner"]) != owner:
+				return {"assets": [], "error": "That pick isn't theirs to trade." if owner != my_club else "That pick isn't yours to trade."}
+			out.append(pk)
+		else:
+			var found := {}
+			for p in season.lists.get(owner, []):
+				if str(p["id"]) == key:
+					found = p
+			if found.is_empty():
+				return {"assets": [], "error": "That player isn't on their list." if owner != my_club else "That player isn't on your list."}
+			out.append(found)
+	return {"assets": out, "error": ""}
+
+
+## Would `club` accept your `mine` (player and pick ids) for its `theirs`?
 func evaluate_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
 	if not offseason_open():
 		return {"ok": false, "reason": "Trades are only open in the off-season."}
-	var give := []
-	for id in theirs:
-		for p in season.lists.get(club, []):
-			if str(p["id"]) == str(id):
-				give.append(p)
-	var take := []
-	for id in mine:
-		var p := list_player(str(id))
-		if not p.is_empty():
-			take.append(p)
+	var g := _trade_assets(theirs, club)
+	var t := _trade_assets(mine, my_club)
+	if str(g["error"]) != "" or str(t["error"]) != "":
+		return {"ok": false, "reason": str(g["error"]) if str(g["error"]) != "" else str(t["error"])}
+	var give: Array = g["assets"]
+	var take: Array = t["assets"]
 	var ctx := trade_context(club)
 	var names := {}
 	for p in give + take:
-		names[str(p["id"])] = GameDB.player_display_name(p)
+		names[str(p["id"])] = str(p["name"]) if Contracts.is_pick(p) else GameDB.player_display_name(p)
 	ctx["names"] = names
+	ctx["prospects"] = trade_prospects()
 	return Contracts.evaluate_trade(season.lists.get(club, []), give, take,
 			salary_cap, my_list, salary_cap, float(difficulty_rules()["trade_margin"]), ctx)
 
@@ -3255,25 +3399,17 @@ func _club_phase(club: String) -> String:
 	return TradeValue.phase(finish_t, strength_t, ages / float(maxi(1, n)))
 
 
+## Do the trade if `club` accepts: players change lists, picks change owners.
 func make_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
 	var verdict := evaluate_trade(club, mine, theirs)
 	if not bool(verdict["ok"]):
 		return verdict
-	var incoming := []
-	for id in theirs:
-		for p in (season.lists[club] as Array).duplicate():
-			if str(p["id"]) == str(id):
-				(season.lists[club] as Array).erase(p)
-				incoming.append(p)
-	var outgoing := []
-	for id in mine:
-		var p := list_player(str(id))
-		my_list.erase(p)
-		outgoing.append(p)
-	for p in incoming:
-		_join(my_club, p)
-	for p in outgoing:
-		_join(club, p)
+	var incoming: Array = _trade_assets(theirs, club)["assets"]
+	var outgoing: Array = _trade_assets(mine, my_club)["assets"]
+	for a in incoming:
+		_move_asset(a, club, my_club)
+	for a in outgoing:
+		_move_asset(a, my_club, club)
 	for sel_key in ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH", "OUT"]:
 		var sel := my_selection()
 		if sel.has(sel_key):
@@ -3284,6 +3420,20 @@ func make_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
 			_names(incoming), GameDB.club_name(club), _names(outgoing)])
 	mark_dirty()
 	return {"ok": true, "reason": "Trade done."}
+
+
+## One traded asset from `from` to `to`: a player changes lists, a pick
+## changes owner (a pick back with its own club needs no entry).
+func _move_asset(a: Dictionary, from: String, to: String) -> void:
+	if Contracts.is_pick(a):
+		var key := "%d:%d:%s" % [int(a["year"]), int(a["round"]), str(a["origin"])]
+		if to == str(a["origin"]):
+			pick_owner.erase(key)
+		else:
+			pick_owner[key] = to
+		return
+	(season.lists[from] as Array).erase(a)
+	_join(to, a)
 
 
 ## At the rollover: your undecided expiring players are re-signed for two
@@ -3993,7 +4143,7 @@ func _find_player(id: String) -> Dictionary:
 func _names(players: Array) -> String:
 	var out: PackedStringArray = []
 	for p in players:
-		out.append(GameDB.player_display_name(p))
+		out.append(str(p["name"]) if Contracts.is_pick(p) else GameDB.player_display_name(p))
 	return ", ".join(out)
 
 
