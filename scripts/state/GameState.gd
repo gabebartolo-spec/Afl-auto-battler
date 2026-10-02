@@ -79,6 +79,7 @@ var losing_streak := 0
 ## defender id}, on top of the default set-up. Cleared after each of your
 ## matches - every opponent is a new problem.
 var my_matchups := {}
+var my_spare_id := ""            # defender licensed to roam as the spare next match
 var last_side: Array = []       # ids of your players who took the field in your last match
 ## What the event cards have already raised this season (ClubLife.pick_event
 ## memory): "extension|id", "media|id" -> true, "unhappy|id" -> round.
@@ -296,6 +297,7 @@ func save_career() -> bool:
 		"week_event": week_event,
 		"losing_streak": losing_streak,
 		"my_matchups": my_matchups,
+		"my_spare_id": my_spare_id,
 		"last_side": last_side,
 		"event_memory": event_memory,
 		"db_draftees": GameDB.draftees,
@@ -404,6 +406,7 @@ func load_career() -> bool:
 	week_event = state.get("week_event", {})
 	losing_streak = int(state.get("losing_streak", 0))
 	my_matchups = state.get("my_matchups", {})
+	my_spare_id = str(state.get("my_spare_id", ""))
 	last_side = state.get("last_side", [])
 	event_memory = state.get("event_memory", {})
 	difficulty = str(state.get("difficulty", "normal"))
@@ -643,6 +646,7 @@ func reset() -> void:
 	week_event = {}
 	losing_streak = 0
 	my_matchups = {}
+	my_spare_id = ""
 	last_side = []
 	event_memory = {}
 	difficulty = new_career_difficulty()
@@ -1222,7 +1226,10 @@ func prepare_interactive_match() -> bool:
 	CoachEffects.apply(away)
 	pending_sim = MatchSim.new(home, away, season.next_seed(99))
 	pending_sim.moment_side = 0 if str(pending_match["home"]) == my_club else 1
-	pending_sim.set_tactics(pending_sim.moment_side, {"gameplan": club_plan})
+	var my_tactics := {"gameplan": club_plan}
+	if my_spare_id != "":
+		my_tactics["spare_id"] = my_spare_id
+	pending_sim.set_tactics(pending_sim.moment_side, my_tactics)
 	pending_sim.set_matchups(pending_sim.moment_side, my_matchups)
 	pending_phase = "regular"
 	pending_label = str(pending_match["label"])
@@ -1280,7 +1287,10 @@ func _prepare_interactive_final() -> bool:
 	pending_sim = MatchSim.new(home, away, season.finals_seed(mine))
 	pending_sim.finals_mode = true
 	pending_sim.moment_side = 0 if str(fm["home"]) == my_club else 1
-	pending_sim.set_tactics(pending_sim.moment_side, {"gameplan": club_plan})
+	var my_tactics := {"gameplan": club_plan}
+	if my_spare_id != "":
+		my_tactics["spare_id"] = my_spare_id
+	pending_sim.set_tactics(pending_sim.moment_side, my_tactics)
 	pending_sim.set_matchups(pending_sim.moment_side, my_matchups)
 	pending_phase = "finals"
 	pending_label = str(fm["label"])
@@ -1681,6 +1691,29 @@ func set_my_matchup(fwd_id: String, def_id: String) -> void:
 	my_matchups[fwd_id] = def_id
 	_sync_club_plan()
 	mark_dirty()
+
+
+func set_my_spare(def_id: String) -> void:
+	if def_id != "":
+		var valid := false
+		for p in my_squad().ground:
+			if str(p.get("id", "")) == def_id and str(p.get("role", "")) == "DEF":
+				valid = true
+				break
+		if not valid:
+			return
+	my_spare_id = def_id
+	_sync_club_plan()
+	mark_dirty()
+
+
+func my_spare() -> Dictionary:
+	if my_spare_id == "":
+		return {}
+	for p in my_squad().ground:
+		if str(p.get("id", "")) == my_spare_id:
+			return p
+	return {}
 
 
 ## Your own side's week worth knowing (Matchup.own_notes).
@@ -4398,6 +4431,7 @@ func _sync_club_plan() -> void:
 	if season != null:
 		season.plans = {my_club: club_plan} if club_plan != "balanced" else {}
 		season.matchups = {my_club: my_matchups} if not my_matchups.is_empty() else {}
+		season.structures = {my_club: {"spare_id": my_spare_id}} if my_spare_id != "" else {}
 
 
 ## After each match: your players' last three Player Ratings, and every
@@ -4422,8 +4456,9 @@ func _note_form_and_team(res: Dictionary) -> void:
 		season_team[codes[side]] = row
 	if not is_my_match(res):
 		return
-	# This week's match-ups were for this opponent.
+	# This week's match-ups/structure were for this opponent.
 	my_matchups = {}
+	my_spare_id = ""
 	_sync_club_plan()
 	var side := 0 if codes[0] == my_club else 1
 	var roster: Array = res.get("roster", [[], []])
