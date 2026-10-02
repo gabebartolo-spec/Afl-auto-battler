@@ -774,6 +774,9 @@ func _loc(k: int) -> Vector2:
 		p = Vector2(x, y)
 		if hb and p.distance_to(src) < 3.0:
 			p.y += 4.0 * (1.0 if _rng.randf() < 0.5 else -1.0)
+	if kind in ["throwin", "last_disposal", "out_on_full"]:
+		_locs[k] = p
+		return p
 	if absf(p.x) > 62.0:
 		p.y = clampf(p.y, -26.0, 26.0)
 	var ymax := (MatchMotion.HALF_WID - 4.0) * sqrt(maxf(0.0,
