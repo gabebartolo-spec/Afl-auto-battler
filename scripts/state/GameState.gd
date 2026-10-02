@@ -476,6 +476,7 @@ func load_career() -> bool:
 	career_seed = int(state.get("career_seed", 0))
 	class_tiers = state.get("class_tiers", {})
 	_recompute_ratings()
+	_migrate_money_units()
 	if int(state.get("career_version", 0)) < CAREER_VERSION:
 		_migrate_careers()
 	_migrate_train_plans()
@@ -557,10 +558,13 @@ func _recompute_ratings() -> void:
 				continue
 			var old := int(p.get("overall", 0))
 			var ov := Ratings.rate_overall(p["attr"], str(p["role"]), Ratings.effective_games(p))
+			# Salary value is derived data too. Always refresh it so old saves
+			# cannot retain the retired 1-10 cap-point scale when OVR itself
+			# happens not to change.
+			p["value"] = Ratings.salary_value(ov)
 			if ov == old:
 				continue
 			p["overall"] = ov
-			p["value"] = Ratings.salary_value(ov)
 			if p.has("potential"):
 				p["potential"] = clampi(int(p["potential"]) + ov - old, 1, Potential.MAX_POT)
 			if p.has("season_start_ov"):
@@ -589,6 +593,65 @@ func _backfill_potential() -> void:
 					p["rehab"] = true
 			else:
 				Potential.assign(p)
+
+
+## Saves written before the real-money conversion stored salary/cap values
+## as tiny 1-10 points. Convert every live copy plus in-progress negotiation
+## state deterministically. This is intentionally detection-based rather than
+## tied to the general career version: a mid-opening-draft save can have no
+## season cap yet but still carries an old tiny draft budget.
+func _migrate_money_units() -> void:
+	var old_units := salary_cap > 0 and salary_cap < 100000
+	if draft != null and draft.league_mode and int(draft.budget) > 0 and int(draft.budget) < 100000:
+		old_units = true
+
+	var groups: Array = [my_list, free_agents, draftee_pool, GameDB.draftees, GameDB.late_draftees]
+	if season != null:
+		for code in season.lists:
+			groups.append(season.lists[code])
+	for code in league_lists:
+		groups.append(league_lists[code])
+	if draft != null:
+		groups.append(draft.pool)
+		for code in draft.club_lists:
+			groups.append(draft.club_lists[code])
+
+	var seen := {}
+	for arr in groups:
+		for p in arr:
+			if not (p is Dictionary):
+				continue
+			var id := str(p.get("id", ""))
+			var token := id if id != "" else str(p.get_instance_id()) if p is Object else str(p)
+			if seen.has(token):
+				continue
+			seen[token] = true
+			if p.has("overall"):
+				p["value"] = Ratings.salary_value(int(p["overall"]))
+			if old_units and int(p.get("salary", 0)) > 0 and int(p.get("salary", 0)) <= 10:
+				p["salary"] = Contracts.old_points_to_salary(int(p["salary"]))
+			var talks: Dictionary = p.get("talks", {})
+			if old_units and int(talks.get("counter", 0)) > 0 and int(talks.get("counter", 0)) <= 20:
+				talks["counter"] = Contracts.old_points_to_salary(clampi(int(talks["counter"]), 1, 10))
+				p["talks"] = talks
+			if old_units:
+				for o in p.get("offers", []):
+					if int(o.get("salary", 0)) > 0 and int(o.get("salary", 0)) <= 20:
+						o["salary"] = Contracts.old_points_to_salary(clampi(int(o["salary"]), 1, 10))
+
+	if old_units:
+		salary_cap = Contracts.salary_cap_for_year(maxi(GameDB.START_YEAR, season_year))
+		for row in compensation:
+			if int(row.get("salary", 0)) > 0 and int(row.get("salary", 0)) <= 20:
+				row["salary"] = Contracts.old_points_to_salary(clampi(int(row["salary"]), 1, 10))
+		if draft != null and draft.league_mode:
+			draft.budget = Contracts.salary_cap_for_year(GameDB.START_YEAR)
+			for code in draft.club_lists:
+				draft.club_spend[code] = 0
+				for p in draft.club_lists[code]:
+					draft.club_spend[code] = int(draft.club_spend[code]) + int(p.get("value", Ratings.salary_value(int(p.get("overall", 50)))))
+			for entry in draft.pick_history:
+				entry["value"] = Ratings.salary_value(int(entry.get("overall", 50)))
 
 
 func delete_saved_career() -> void:
@@ -865,7 +928,7 @@ func finish_intake_draft() -> bool:
 			p["draft_pick"] = int(entry.get("pick", 0))
 			p["draft_round"] = int(entry.get("round", 0))
 			_mark_drafted(p, "national", int(entry.get("pick", 0)))
-			Contracts.rookie_deal(p)
+			Contracts.rookie_deal(p, season_year + 1)
 			if code == my_club:
 				_wrap_picks.append([id, int(entry.get("pick", 0))])
 			arr.append(p)
@@ -957,6 +1020,8 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	# entry for every club so saves and rollovers never miss a key.
 	season = Season.new(GameDB.active_clubs(next_year).duplicate(), lists,
 			int(Time.get_unix_time_from_system()) % 1000000)
+	# The cap moves with the new season before contracts are assigned.
+	salary_cap = Contracts.salary_cap_for_year(next_year)
 	# Expansion lists are born here, so their contracts must be assigned
 	# here too (start_season does the same for the first season).
 	ensure_contracts()
@@ -1161,7 +1226,7 @@ func _assign_draftee(code: String, p: Dictionary, kind: String) -> void:
 	p["num"] = _next_jumper_number(arr)
 	p["draft_pick"] = 0
 	_mark_drafted(p, kind, 0)
-	Contracts.rookie_deal(p)
+	Contracts.rookie_deal(p, season_year + 1)
 	arr.append(p)
 	drafted_draftees[str(p["id"])] = code
 	intake_assignments.append({
@@ -1226,7 +1291,7 @@ func start_season(club_code: String, list: Array) -> void:
 	# Fixtures, ladders and finals cover only the clubs active this year.
 	season = Season.new(GameDB.active_clubs(season_year).duplicate(), lists,
 			int(Time.get_unix_time_from_system()) % 1000000)
-	salary_cap = draft.budget if draft != null and draft.league_mode else 0
+	salary_cap = Contracts.salary_cap_for_year(season_year)
 	ensure_contracts()
 	# The coaching world from its Round 1 2026 source, carried into this
 	# career's first season with you in your club's top job.
@@ -2421,18 +2486,16 @@ func _weeks_text(w: int) -> String:
 # ---------------------------------------------------------------------------
 # Contracts, free agency and trades
 # ---------------------------------------------------------------------------
-## Everyone on a list has a contract, and there is a cap. Old saves and the
-## test fallback (no career draft) get them here: the cap is then the
-## biggest payroll in the league, so every club starts under it.
+## Everyone on a list has a contract, and every club works to the same
+## season cap. The first playable season is anchored to the real 2027 TPP
+## limit; later game-world seasons use Contracts.salary_cap_for_year().
 func ensure_contracts() -> void:
 	if season == null:
 		return
-	var biggest := 0
 	for code in season.lists:
 		Contracts.assign_initial(season.lists[code])
-		biggest = maxi(biggest, Contracts.payroll(season.lists[code]))
 	if salary_cap <= 0:
-		salary_cap = biggest
+		salary_cap = Contracts.salary_cap_for_year(season_year)
 
 
 func my_payroll() -> int:
