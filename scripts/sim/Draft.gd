@@ -38,6 +38,9 @@ var seed := 0
 
 var club_lists := {}              # code -> Array[player dict]
 var club_spend := {}              # code -> int
+## National Draft scouting uncertainty by club. Clubs not listed use Standard
+## (1.0); the user's multiplier comes from the annual Recruiting allocation.
+var scouting_mults := {}
 var picked := {}                  # globally drafted player id -> player dict
 var order: Array = []             # user's player ids, in pick order
 ## Successful selections only, in league-wide pick order. Kept in the model so
@@ -597,9 +600,14 @@ var _ai_avail := {}      # role -> worths of available players, best first
 var _ai_share := {}      # role -> share of the league's remaining demand
 
 
+func scouting_mult_for(code: String) -> float:
+	return maxf(0.25, float(scouting_mults.get(code, 1.0)))
+
+
 func _ai_score(code: String, p: Dictionary) -> float:
 	_refresh_ai_cache()
-	var base := _worth(p)
+	var base := DraftScouting.scouted_worth(p, code, seed, AI_POT_WEIGHT_INTAKE,
+			scouting_mult_for(code)) if intake_mode else _worth(p)
 	var err := _eval_error(code, p)
 	var best := -INF
 	var roles := [[str(p["role"]), 1.0]]
@@ -755,7 +763,19 @@ func _need_weight(code: String, role: String) -> float:
 ## rivals pick in between, and roughly their share of those picks goes to
 ## this position.
 func _replacement(code: String, role: String) -> float:
-	var avail: Array = _ai_avail.get(role, [])
+	var avail: Array = []
+	if intake_mode:
+		# A National Draft club judges the depth behind a prospect through the
+		# same imperfect scouting view as the prospect itself.
+		for p in pool:
+			if picked.has(str(p["id"])) or not Ratings.plays_role(p, role):
+				continue
+			avail.append(DraftScouting.scouted_worth(p, code, seed,
+					AI_POT_WEIGHT_INTAKE, scouting_mult_for(code)))
+		avail.sort()
+		avail.reverse()
+	else:
+		avail = _ai_avail.get(role, [])
 	if avail.is_empty():
 		return 0.0
 	var gap := 0
@@ -1056,7 +1076,13 @@ func board(role := "", club := "", search := "", sort := "overall",
 		out.append(p)
 	match sort:
 		"overall":
-			out.sort_custom(func(a, b): return a["overall"] > b["overall"])
+			if intake_mode:
+				out.sort_custom(func(a, b):
+					return DraftScouting.estimated_overall(a, user_club, seed,
+							scouting_mult_for(user_club)) > DraftScouting.estimated_overall(
+							b, user_club, seed, scouting_mult_for(user_club)))
+			else:
+				out.sort_custom(func(a, b): return a["overall"] > b["overall"])
 		"value":
 			out.sort_custom(func(a, b):
 				if a["value"] != b["value"]:
@@ -1065,10 +1091,22 @@ func board(role := "", club := "", search := "", sort := "overall",
 		"name":
 			out.sort_custom(func(a, b): return GameDB.player_sort_name(a) < GameDB.player_sort_name(b))
 		"potential":
-			out.sort_custom(func(a, b):
-				if int(a.get("potential", 0)) != int(b.get("potential", 0)):
-					return int(a.get("potential", 0)) > int(b.get("potential", 0))
-				return a["overall"] > b["overall"])
+			if intake_mode:
+				out.sort_custom(func(a, b):
+					var ap := DraftScouting.estimated_potential(a, user_club, seed,
+							scouting_mult_for(user_club))
+					var bp := DraftScouting.estimated_potential(b, user_club, seed,
+							scouting_mult_for(user_club))
+					if ap != bp:
+						return ap > bp
+					return DraftScouting.estimated_overall(a, user_club, seed,
+							scouting_mult_for(user_club)) > DraftScouting.estimated_overall(
+							b, user_club, seed, scouting_mult_for(user_club)))
+			else:
+				out.sort_custom(func(a, b):
+					if int(a.get("potential", 0)) != int(b.get("potential", 0)):
+						return int(a.get("potential", 0)) > int(b.get("potential", 0))
+					return a["overall"] > b["overall"])
 		"goals":
 			out.sort_custom(func(a, b): return a["gl"] > b["gl"])
 		"disposals":
