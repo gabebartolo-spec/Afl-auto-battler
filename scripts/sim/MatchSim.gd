@@ -190,7 +190,8 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	discipline_rng.seed = seed * 41 + 43
 	mro_rng.seed = seed * 47 + 53
 	restart_rng.seed = seed * 59 + 61
-	free_rng.seed = seed * 67 + 71	_speccy_quota = speccy_quota(seed)
+	free_rng.seed = seed * 67 + 71
+	_speccy_quota = speccy_quota(seed)
 	boundary_rng.seed = seed * 17 + 19
 	injury_rng.seed = seed * 13 + 7
 	for side in range(2):
