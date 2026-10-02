@@ -767,6 +767,9 @@ func begin_intake_draft() -> bool:
 	var seed := int(Time.get_unix_time_from_system()) % 1000000
 	draft = Draft.build_intake(open_pool, active.duplicate(), order,
 			seed, sizes, role_counts, role_pairs)
+	# Recruiting funding narrows only our club's uncertainty; rivals use the
+	# same scouting model at Standard rather than hidden true ratings.
+	draft.scouting_mults[my_club] = recruiting_uncertainty_mult()
 	var comps := []
 	for c in compensation:
 		if active.has(str(c["club"])):
