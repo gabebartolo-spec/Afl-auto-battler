@@ -444,26 +444,26 @@ func _tribunal_card() -> Control:
 			sanction = "%d-match suspension" % w
 		else:
 			sanction = "MRO fine"
-		var line := UiKit.lbl("%s — %s. Case: %s." % [
-				name, sanction, str(row.get("case", "Difficult"))], 13, UiKit.TEXT, true)
+		var stage := str(row.get("stage", "tribunal"))
+		var hearing := "Appeals Board" if stage == "appeal" else "Tribunal"
+		var line := UiKit.lbl("%s — %s. %s case: %s." % [
+				name, sanction, hearing, str(row.get("case", "Difficult"))], 13, UiKit.TEXT, true)
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(line)
-		var status := UiKit.lbl("Brownlow: ineligible unless the challenge succeeds.", 12, UiKit.MUTED, true)
+		var status := UiKit.lbl("Brownlow: ineligible unless the %s succeeds." % (
+				"appeal" if stage == "appeal" else "challenge"), 12, UiKit.MUTED, true)
 		status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(status)
-		var b := UiKit.btn("Challenge at Tribunal", 14, false)
+		var b := UiKit.btn("Appeal to Appeals Board" if stage == "appeal" else "Challenge at Tribunal",
+				14, false)
 		b.custom_minimum_size.y = 44
-		var verdict := UiKit.lbl("", 13, UiKit.TEXT, true)
-		verdict.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		b.pressed.connect(func():
-			var result := GameState.challenge_mro(str(row.get("id", "")))
-			b.disabled = true
-			b.visible = false
-			verdict.text = str(result.get("reason", ""))
-			verdict.add_theme_color_override("font_color",
-					UiKit.GOOD if bool(result.get("success", false)) else UiKit.BAD))
+			if stage == "appeal":
+				GameState.appeal_mro(str(row.get("id", "")))
+			else:
+				GameState.challenge_mro(str(row.get("id", "")))
+			_build.call_deferred())
 		v.add_child(b)
-		v.add_child(verdict)
 	return panel
 
 
