@@ -1055,6 +1055,11 @@ func _test_trade_picks() -> void:
 			used_by = d.drafted_by(str(id))
 	_check(used_by == rival, "The player taken with the traded pick goes to its new owner")
 	_check(GameState.finish_intake_draft() and GameState.pick_owner.is_empty(), "Spent picks leave the ownership record")
+	var wrap_ok := true
+	for row in (GameState.season_wrap.get("ins", []) as Array) + (GameState.season_wrap.get("outs", []) as Array):
+		wrap_ok = wrap_ok and not str(row["id"]).begins_with("pick:")
+	_check(wrap_ok and (GameState.season_wrap.get("outs", []) as Array).size() > 0,
+			"The pre-season wrap lists the players who came and went, not the picks")
 
 
 func _run_draft() -> void:
