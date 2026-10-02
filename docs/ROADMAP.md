@@ -2887,7 +2887,8 @@ The same scroll-preservation rule now applies across Contracts, Free agents and 
 - Light mode uses warm neutral paper/ink colours while club colours and the football ground remain unchanged.
 - Career Settings adds **New career**. It opens setup without deleting the existing save; the existing replacement confirmation remains the destructive gate, so backing out can still resume the save.
 - Delete this career retains its explicit confirmation and uses the shared danger treatment.
-- No audio, UI-scale or reduced-motion toggles were invented without a real system behind them.
+- **Mute sounds** persists and mutes Godot's Master audio bus, so incoming music and SFX automatically honour it.
+- UI scale and reduced motion remain out until they have real systems to control.
 
 ### Implementation record (2026-09-28, branch `claude/options`)
 - **One Settings sheet** (`scripts/ui/OptionsSheet.gd`), opened from the main menu (Settings) and from a new top-right Settings on the hub. It holds:
@@ -2900,7 +2901,7 @@ The same scroll-preservation rule now applies across Contracts, Free agents and 
   - Delete this career. It asks first ("This deletes your saved career for good. It cannot be undone.", with Keep it / Delete career), then removes the save and returns to the menu.
   - Quit game stays on the menu's sheet (desktop only).
   - Back closes the sheet.
-- **Originally left out:** light/dark, audio, UI scale and reduced motion. PR #205 now adds light/dark; audio, UI scale and reduced motion remain out until they have real systems to control.
+- **Originally left out:** light/dark, audio, UI scale and reduced motion. PR #205 now adds light/dark and the now-relevant global Mute sounds control; UI scale and reduced motion remain out until they have real systems to control.
 - **Also fixed:** the hub's four-button bottom row cut "Sim round" short at 360 px. Below 380 px it uses 13 px type and tighter padding.
 - **Tests:** `run_career_ui_tests.gd` covers:
   - Settings on the hub's top bar;
