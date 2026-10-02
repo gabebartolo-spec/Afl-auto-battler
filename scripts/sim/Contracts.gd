@@ -65,7 +65,10 @@ static func old_points_to_salary(points: int) -> int:
 		1: 155000, 2: 225000, 3: 325000, 4: 425000, 5: 525000,
 		6: 650000, 7: 775000, 8: 900000, 9: 1050000, 10: 1250000,
 	}
-	return int(map.get(clampi(points, 1, 10), SENIOR_MIN_2027))
+	if points <= 10:
+		return int(map.get(maxi(1, points), SENIOR_MIN_2027))
+	# Old negotiations could push a star beyond the 10-point base tier.
+	return 1250000 + (points - 10) * 100000
 
 
 ## Salary represented on the old roughly 1-10 market scale. Free-agent
