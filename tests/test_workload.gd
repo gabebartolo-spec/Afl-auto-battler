@@ -5,6 +5,7 @@ var checks := 0
 
 
 func run() -> void:
+	_test_budget_model()
 	_test_recovery()
 	_test_match()
 	_test_selection()
@@ -20,6 +21,32 @@ func _check(ok: bool, message: String) -> void:
 	if not ok:
 		failures.append(message)
 		push_error(message)
+
+
+func _test_budget_model() -> void:
+	var standard := ClubBudget.defaults()
+	_check(is_equal_approx(ClubBudget.total_m(standard), ClubBudget.ANNUAL_M),
+			"Standard funding in all four departments exactly fills the annual budget")
+	var rebuild := {
+		"recruiting": 2, "development": 2,
+		"high_performance": 0, "football": 0,
+	}
+	_check(is_equal_approx(ClubBudget.total_m(rebuild), ClubBudget.ANNUAL_M),
+			"A rebuild can fund Recruiting and Development strongly by cutting the other two")
+	_check(ClubBudget.development_mult(3) > ClubBudget.development_mult(2)
+			and ClubBudget.development_mult(2) > ClubBudget.development_mult(1)
+			and ClubBudget.development_mult(1) > ClubBudget.development_mult(0),
+			"More Development funding always has a larger, diminishing XP benefit")
+	_check(ClubBudget.benefit_text("recruiting", 2).contains("20% narrower")
+			and ClubBudget.benefit_text("high_performance", 3).contains("20% higher"),
+			"Funding benefits are stated as exact effects, not hidden scores")
+
+	var normal := {"id": "normal", "age": 25, "attr": {"durability": 70}, "workload": 50.0}
+	var funded := {"id": "funded", "age": 25, "attr": {"durability": 70}, "workload": 50.0}
+	Workload.advance_week({"A": [normal], "B": [funded]}, [], "budget",
+			{"B": ClubBudget.recovery_mult(3)})
+	_check(Workload.value(funded) < Workload.value(normal),
+			"Elite High performance produces more weekly recovery than Standard")
 
 
 func _test_recovery() -> void:
