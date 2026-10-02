@@ -97,10 +97,12 @@ func _restore_scroll(scroll: ScrollContainer, offset: int) -> void:
 
 
 func _budget(body: VBoxContainer) -> void:
-	var year := GameState.department_budget_year if GameState.department_budget_year > 0 			else GameState.season_year + 1
+	var year := GameState.department_budget_year if GameState.department_budget_year > 0 \
+			else GameState.season_year + 1
 	body.add_child(UiKit.lbl("Club budget · %d" % year, 17, UiKit.EMPH, true))
 	body.add_child(_para(
-			"$%.1fm to allocate for the football year. It resets next off-season; there is no bank balance to hoard." 			% ClubBudget.ANNUAL_M, 13, UiKit.MUTED))
+			"$%.1fm to allocate for the football year. It resets next off-season; there is no bank balance to hoard." \
+			% ClubBudget.ANNUAL_M, 13, UiKit.MUTED))
 	var spent := GameState.department_budget_spent_m()
 	var remaining := GameState.department_budget_remaining_m()
 	var summary := UiKit.lbl("$%.1fm allocated  ·  $%.1fm remaining" % [spent, maxf(0.0, remaining)],
@@ -128,17 +130,8 @@ func _budget(body: VBoxContainer) -> void:
 		current.name = "BudgetBenefit_" + area
 		v.add_child(current)
 
-		var controls := UiKit.hbox(6)
-		v.add_child(controls)
-		var lower := UiKit.btn("Lower", 13)
-		lower.name = "BudgetLower_" + area
-		lower.custom_minimum_size.y = 44
-		lower.disabled = level <= 0
-		lower.pressed.connect(_change_budget.bind(area, level - 1))
-		controls.add_child(lower)
-
 		var next_text := UiKit.lbl("", 12, UiKit.MUTED)
-		next_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		next_text.name = "BudgetNext_" + area
 		next_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		if level < ClubBudget.LEVELS.size() - 1:
 			next_text.text = "Raise to %s ($%.1fm): %s" % [
@@ -146,12 +139,24 @@ func _budget(body: VBoxContainer) -> void:
 					ClubBudget.benefit_text(area, level + 1)]
 		else:
 			next_text.text = "Maximum funding."
-		controls.add_child(next_text)
+		v.add_child(next_text)
+
+		var controls := UiKit.hbox(6)
+		v.add_child(controls)
+		var lower := UiKit.btn("Lower", 13)
+		lower.name = "BudgetLower_" + area
+		lower.custom_minimum_size.y = 44
+		lower.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lower.disabled = level <= 0
+		lower.pressed.connect(_change_budget.bind(area, level - 1))
+		controls.add_child(lower)
 
 		var raise := UiKit.btn("Raise", 13)
 		raise.name = "BudgetRaise_" + area
 		raise.custom_minimum_size.y = 44
-		raise.disabled = level >= ClubBudget.LEVELS.size() - 1 				or not GameState.can_set_department_budget(area, level + 1)
+		raise.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		raise.disabled = level >= ClubBudget.LEVELS.size() - 1 \
+				or not GameState.can_set_department_budget(area, level + 1)
 		raise.pressed.connect(_change_budget.bind(area, level + 1))
 		controls.add_child(raise)
 
