@@ -247,10 +247,6 @@ static func _start_energy(p: Dictionary) -> float:
 func set_matchup(def_side: int, fwd_id: String, def_id: String, during := true) -> bool:
 	if def_side < 0 or def_side > 1:
 		return false
-	# A defender cannot be both the nominated loose man and a strict direct
-	# opponent. Putting him back on someone removes the roaming instruction.
-	if str(interceptor[def_side]) == def_id:
-		set_interceptor(def_side, "", during)
 	var att: Squad = squads[1 - def_side]
 	var own: Squad = squads[def_side]
 	var fwd_ok := false
@@ -263,6 +259,10 @@ func set_matchup(def_side: int, fwd_id: String, def_id: String, during := true) 
 			def_ok = true
 	if not fwd_ok or not def_ok:
 		return false
+	# A defender cannot be both the nominated loose man and a strict direct
+	# opponent. Putting him back on someone removes the roaming instruction.
+	if str(interceptor[def_side]) == def_id:
+		set_interceptor(def_side, "", during)
 	var d: Dictionary = duels[def_side]
 	if str(d.get(fwd_id, "")) == def_id:
 		return true
@@ -3377,6 +3377,21 @@ func ai_tactics(side: int) -> Dictionary:
 		# not working, so it chases. Only what a coach sees - the scoreboard.
 		plan = "attacking"
 	var t := {"gameplan": plan, "pep": "fire_up" if margin <= -12 and current_quarter >= 3 else "steady"}
+	var spare := Matchups.best_interceptor((squads[side] as Squad).ground)
+	if not spare.is_empty() and not (margin <= -react and current_quarter >= 3):
+		t["interceptor_id"] = str(spare["id"])
+	else:
+		t["interceptor_id"] = ""
+
+	# The AI never reads the opponent's hidden structural call. It only makes
+	# the spare accountable after the match log/stats show that player has
+	# actually influenced enough aerial contests.
+	var opp_spare := _roaming_interceptor(opp)
+	if not opp_spare.is_empty():
+		var ost: Dictionary = player_stats.get(str(opp_spare.get("id", "")), {})
+		if int(ost.get("roam_wins", 0)) >= 2:
+			t["spare_accountable"] = true
+
 	var tagger = tagger_for((squads[side] as Squad).ground)
 	if current_quarter >= (2 if read >= 0.4 else 3) and tagger != null and Roles.is_tagger(tagger):
 		var best := ""
