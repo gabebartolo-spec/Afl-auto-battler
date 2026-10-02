@@ -1002,10 +1002,14 @@ func _build_season_wrap(year: int) -> void:
 						how = "free agent; compensation pick after pick %d" % int(comp_after[str(e["id"])])
 					outs.append({"id": str(e["id"]), "how": how})
 			"trade":
+				# Players only: a traded pick shows up as the player it
+				# becomes at the draft.
 				for id in e.get("in", []):
-					ins.append({"id": str(id), "how": "trade"})
+					if not str(id).begins_with("pick:"):
+						ins.append({"id": str(id), "how": "trade"})
 				for id in e.get("out", []):
-					outs.append({"id": str(id), "how": "trade"})
+					if not str(id).begins_with("pick:"):
+						outs.append({"id": str(id), "how": "trade"})
 	for a in intake_assignments:
 		if str(a.get("club", "")) == my_club:
 			ins.append({"id": str(a["player_id"]), "how": "NGA" if str(a.get("kind", "")) == "nga" else str(a.get("kind", "")), "name": str(a.get("player_name", ""))})
