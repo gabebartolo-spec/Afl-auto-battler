@@ -862,7 +862,9 @@ func _maybe_report(side: int, offender, victim) -> void:
 		chance *= 1.75
 	if mro_rng.randf() >= clampf(chance, 0.001, 0.014):
 		return
-	var severity := mro_rng.randf() + (50.0 - discipline) / 500.0 			+ (0.06 if _trait(offender, "hothead") else 0.0)
+	var severity := mro_rng.randf() + (50.0 - discipline) / 500.0 \
+			+ (0.06 if _trait(offender, "hothead") else 0.0)
+	var tribunal_roll := mro_rng.randf()
 	var outcome := "no_action"
 	var weeks := 0
 	if severity >= 0.985:
@@ -887,6 +889,8 @@ func _maybe_report(side: int, offender, victim) -> void:
 		"reason": "rough conduct",
 		"outcome": outcome,
 		"weeks": weeks,
+		"tribunal_roll": tribunal_roll,
+		"challenged": false,
 	})
 
 
