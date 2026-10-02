@@ -251,3 +251,34 @@ func _test_ui() -> void:
 			"The profile explains how the coach can help a tired player recover")
 	screen.queue_free()
 	await tree.process_frame
+
+	# The annual allocation must remain readable and tappable on the same
+	# narrow portrait viewport used for the Android playtest.
+	GameState.season.round_index = GameState.season.fixture.size()
+	GameState.open_offseason()
+	var offseason: Control = load("res://scenes/OffseasonScene.tscn").instantiate()
+	tree.root.add_child(offseason)
+	for i in range(4):
+		await tree.process_frame
+	var budget_tab := offseason.find_child("Tab_budget", true, false) as Button
+	_check(budget_tab != null, "The off-season exposes the annual Budget tab")
+	if budget_tab != null:
+		budget_tab.emit_signal("pressed")
+		for i in range(4):
+			await tree.process_frame
+	var budget_summary := offseason.find_child("BudgetSummary", true, false) as Label
+	var benefit := offseason.find_child("BudgetBenefit_recruiting", true, false) as Label
+	var next_benefit := offseason.find_child("BudgetNext_recruiting", true, false) as Label
+	var lower := offseason.find_child("BudgetLower_recruiting", true, false) as Button
+	var raise := offseason.find_child("BudgetRaise_recruiting", true, false) as Button
+	_check(budget_summary != null and budget_summary.text.contains("$12.0m allocated"),
+			"The Budget tab states exactly how much is allocated")
+	_check(benefit != null and benefit.text.contains("standard")
+			and next_benefit != null and next_benefit.text.contains("20% narrower"),
+			"Current and next Recruiting effects are visible before spending")
+	_check(next_benefit != null and next_benefit.autowrap_mode != TextServer.AUTOWRAP_OFF
+			and lower != null and raise != null
+			and lower.custom_minimum_size.y >= 44 and raise.custom_minimum_size.y >= 44,
+			"Budget choices wrap cleanly and keep phone-sized touch targets")
+	offseason.queue_free()
+	await tree.process_frame
