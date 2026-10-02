@@ -33,6 +33,7 @@ func run() -> void:
 	_test_m2_stats()
 	_test_no_role_gates()
 	_test_spoils_and_crumbs()
+	_test_roaming_interceptor()
 	_test_hot_player_moment()
 	_test_matchups()
 	_test_key_duel_balance()
@@ -1134,6 +1135,10 @@ func _test_spoils_and_crumbs() -> void:
 	var crumbs := 0
 	var crumbs_fwd := 0
 	var by_def := 0.0
+	var general_spoils := 0
+	var general_spoil_loose := true
+	var free_causes := {}
+	var contextual_free_stats := 0
 	# 150 matches: crumbed goals are rare (about one a match). Forwards kick
 	# about 64% of them over 300 matches; a 60-match sample swung to 54%,
 	# under the 55% bar, on noise alone.
@@ -1155,14 +1160,108 @@ func _test_spoils_and_crumbs() -> void:
 			for r in res["roster"][side]:
 				role[str(r["id"])] = str(r["role"])
 		for e in res["events"]:
-			if str(e.get("kind", "")) == "goal" and bool(e.get("crumb", false)):
+			var kind := str(e.get("kind", ""))
+			if kind == "goal" and bool(e.get("crumb", false)):
 				crumbs += 1
 				if str(role.get(str(e.get("player_id", "")), "")) == "FWD":
 					crumbs_fwd += 1
+			if kind == "spoil" and bool(e.get("general_play", false)):
+				general_spoils += 1
+				var sid := int(e.get("side", -1))
+				var pid := str(e.get("player_id", ""))
+				var pst: Dictionary = res["players"].get(pid, {})
+				general_spoil_loose = general_spoil_loose and sid >= 0 \
+						and float(pst.get("spoils", 0.0)) > 0.0 \
+						and float(pst.get("one_percenters", 0.0)) > 0.0
+			if kind == "free":
+				var cause := str(e.get("free_cause", ""))
+				free_causes[cause] = int(free_causes.get(cause, 0)) + 1
+		for side in range(2):
+			var team: Dictionary = res["team"][side]
+			for cause in ["holding_ball", "high_contact", "marking", "general"]:
+				contextual_free_stats += int(team.get("free_" + cause, 0))
 	_check(sums_ok and spoils > 0.0, "Spoils are credited, and players' spoils add up to the team's")
 	_check(by_def >= 0.7 * spoils, "Spoils are made by defenders (rotations aside) (%d of %d)" % [by_def, spoils])
 	_check(crumbs > 0 and float(crumbs_fwd) >= 0.55 * float(crumbs),
 			"Goals are crumbed off spoils, mostly by forwards (%d of %d)" % [crumbs_fwd, crumbs])
+	_check(general_spoils > 0 and general_spoil_loose,
+			"General-play long kicks produce real credited spoils and loose balls (%d)" % general_spoils)
+	_check(free_causes.has("holding_ball") and free_causes.has("high_contact")
+			and free_causes.has("marking") and free_causes.has("general"),
+			"Free kicks carry real causes from tackles/marking contests plus a smaller general bucket (%s)" % str(free_causes))
+	var event_free_total := 0
+	for cause in free_causes:
+		event_free_total += int(free_causes[cause])
+	_check(contextual_free_stats == event_free_total,
+			"Every contextual/general free event reconciles to its team cause stat (%d)" % event_free_total)
+
+
+## ARD-M4-004: a loose interceptor is one real defender leaving his man,
+## not an extra player or flat stat buff. Another defender absorbs the job,
+## his impact comes from actual aerial contests, and both sides can respond.
+func _test_roaming_interceptor() -> void:
+	var sim := _sim(8101, "ADE", "SYD")
+	var defs := Matchups.interceptor_candidates((sim.squads[1] as Squad).ground)
+	_check(not defs.is_empty() and Matchups.interceptor_score(defs[0]) >= Matchups.interceptor_score(defs[-1]),
+			"Interceptor suitability is ordered by intercept/marking/pressure football fit")
+
+	# Pick a defender who currently owns a direct matchup, so making him loose
+	# proves that somebody else absorbs the forward rather than creating #19.
+	var fid := str((sim.duels[1] as Dictionary).keys()[0])
+	var loose_id := str((sim.duels[1] as Dictionary)[fid])
+	var before_jobs := (sim.duels[1] as Dictionary).size()
+	_check(sim.set_interceptor(1, loose_id, false) and str(sim.interceptor[1]) == loose_id,
+			"A real defender can be nominated to roam behind the ball")
+	var reassigned := true
+	for k in (sim.duels[1] as Dictionary):
+		reassigned = reassigned and str((sim.duels[1] as Dictionary)[k]) != loose_id
+	_check(reassigned and (sim.duels[1] as Dictionary).size() == before_jobs,
+			"Making him loose removes his direct job and another defender absorbs it")
+	_check(not sim.set_matchup(1, fid, "NOPE", false) and str(sim.interceptor[1]) == loose_id,
+			"An invalid matchup cannot accidentally cancel the loose-defender call")
+
+	var base_chance := sim._roam_chance(1)
+	sim.set_tactics(0, {"gameplan": "balanced", "spare_accountable": true})
+	var accountable_chance := sim._roam_chance(1)
+	_check(base_chance > 0.0 and accountable_chance < base_chance * 0.5,
+			"Making the spare accountable sharply reduces his chance to arrive (%.2f -> %.2f)" % [
+					base_chance, accountable_chance])
+
+	var contests := 0
+	var wins := 0
+	var losses := 0
+	for seed in range(8120, 8140):
+		var m := _sim(seed, "ADE", "SYD")
+		var best := Matchups.best_interceptor((m.squads[1] as Squad).ground, 0.0)
+		m.set_interceptor(1, str(best.get("id", "")), false)
+		var res := m.run()
+		var st: Dictionary = res["players"].get(str(best.get("id", "")), {})
+		contests += int(st.get("roam_contests", 0))
+		wins += int(st.get("roam_wins", 0))
+		losses += int(st.get("roam_losses", 0))
+	_check(contests > 0 and wins > 0 and losses > 0,
+			"The roaming defender reaches real aerial contests and can both win and lose them (%d: %d-%d)" % [
+					contests, wins, losses])
+
+	# AI uses the same role from personnel and scoreboard state.
+	var ai := _sim(8201, "GEE", "COL")
+	var best_ai := Matchups.best_interceptor((ai.squads[1] as Squad).ground)
+	var ait := ai.ai_tactics(1)
+	_check(best_ai.is_empty() or str(ait.get("interceptor_id", "")) == str(best_ai.get("id", "")),
+			"AI clubs use a suitable loose interceptor under the same personnel rule")
+	# And its counter is evidence-led: two recorded roam wins are enough even
+	# without reading a currently selected hidden interceptor field.
+	var observed: Dictionary = (ai.squads[0] as Squad).ground[0]
+	ai.player_stats[str(observed["id"])] = {"roam_wins": 2}
+	ai.interceptor[0] = ""
+	_check(bool(ai.ai_tactics(1).get("spare_accountable", false)),
+			"AI makes a spare accountable only after observable roaming wins, not a hidden user call")
+
+	var fake := {"roster": [[{"id":"D","name":"Defender"}], []],
+			"players": {"D":{"roam_contests":5,"roam_wins":4,"roam_losses":1}}}
+	var story := MatchNotes.interceptor_story(fake, 0)
+	_check(story.size() == 1 and str(story[0]).contains("controlled the air"),
+			"Full time explains a spare only when real roaming contests support it")
 
 
 ## A tag is a midfield job: a forward kicking a bag never gets a tag card
