@@ -1,8 +1,8 @@
 class_name OptionsSheet
 extends RefCounted
-## Settings, from the main menu and from the hub's top bar: the
-## display and flow preferences, which apply at once, and - inside a career -
-## the way back to the main menu and deleting this career (asked twice).
+## Settings, from the main menu and from the hub's top bar: display and flow
+## preferences apply at once; career actions keep destructive changes behind
+## an explicit confirmation.
 
 const APPEARANCE_OPTIONS := [["dark", "Dark"], ["light", "Light"]]
 const NAME_OPTIONS := [["generated", "Generated"], ["real", "Real"]]
