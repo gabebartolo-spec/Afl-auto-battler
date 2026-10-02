@@ -1079,9 +1079,9 @@ func _history_row(entry: Dictionary) -> Control:
 		tag = "released"
 	club_row.add_child(UiKit.ellipsis(tag, 11, UiKit.EMPH if mine else UiKit.MUTED))
 	h.add_child(UiKit.role_chip(str(entry["role"])))
-	p.tooltip_text = "Pick #%d · Round %d\n%s drafted %s from %s\n%d OVR · $%d" % [
+	p.tooltip_text = "Pick #%d · Round %d\n%s drafted %s from %s\n%d OVR · %s" % [
 		entry["pick"], entry["round"], GameDB.club_name(str(entry["club"])), _entry_player_name(entry),
-		GameDB.club_name(str(entry["source_club"])), entry["overall"], entry["value"]]
+		GameDB.club_name(str(entry["source_club"])), entry["overall"], Contracts.money(int(entry["value"]))]
 	_ignore_mouse(h)
 	return p
 
@@ -1097,8 +1097,8 @@ func _refresh_mine() -> void:
 			"Rookies join the list you kept. No cap at the intake draft - list space is the limit.",
 			13, UiKit.MUTED))
 	else:
-		_mine_box.add_child(UiKit.lbl("%d / %d signed · $%d of $%d spent" % [
-			_draft.count(), _draft.target_size, _draft.spent(), _draft.budget], 15, UiKit.EMPH, true))
+		_mine_box.add_child(UiKit.lbl("%d / %d signed · %s of %s spent" % [
+			_draft.count(), _draft.target_size, Contracts.money(_draft.spent()), Contracts.money(_draft.budget)], 15, UiKit.EMPH, true))
 		_mine_box.add_child(UiKit.lbl(
 			"Cover 6 DEF, 6 MID and 6 FWD for the ground. Carry at least 2 RUCK. The bench is flexible; other needs are guidance, not limits.",
 			13, UiKit.MUTED))
