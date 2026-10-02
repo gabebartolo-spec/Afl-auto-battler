@@ -44,9 +44,18 @@ func _logo_art() -> TextureRect:
 	_logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_logo.size_flags_horizontal = Control.SIZE_FILL
 	_logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var mat := CanvasItemMaterial.new()
-	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	_logo.material = mat
+	if UiKit.appearance() == "light":
+		# The supplied placeholder has a black ground. In light mode key only
+		# that near-black ground out so the lettering keeps its real colours.
+		var shader := Shader.new()
+		shader.code = "shader_type canvas_item;\nvoid fragment(){ vec4 c=texture(TEXTURE,UV); float hi=max(c.r,max(c.g,c.b)); c.a*=smoothstep(0.04,0.16,hi); COLOR=c; }"
+		var mat := ShaderMaterial.new()
+		mat.shader = shader
+		_logo.material = mat
+	else:
+		var mat := CanvasItemMaterial.new()
+		mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		_logo.material = mat
 	_fit_logo()
 	return _logo
 
@@ -69,6 +78,9 @@ func _notification(what: int) -> void:
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	if GameState.new_career_setup_requested:
+		GameState.new_career_setup_requested = false
+		_mode = "setup"
 	_pick_real = GameState.show_real_names
 	_pick_difficulty = GameState.new_career_difficulty()
 	# The oval stays as a faint ground; the logo and buttons carry the screen.
@@ -79,7 +91,8 @@ func _ready() -> void:
 	_pitch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_pitch)
 	var shade := ColorRect.new()
-	shade.color = Color(0.07, 0.066, 0.06, 0.78)
+	shade.color = UiKit.BG
+	shade.color.a = 0.92 if UiKit.appearance() == "light" else 0.78
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(shade)
