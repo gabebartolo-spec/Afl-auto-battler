@@ -486,14 +486,14 @@ func reserve_for(code: String) -> int:
 
 
 var _reserve_at := -1
-var _reserve_cache := 1.0
+var _reserve_cache := float(Contracts.SENIOR_MIN_2027)
 
 
 ## The average price of the cheapest players still available, taking as many
 ## as the league still has list spots to fill. Rebuilt once per pick.
 func _reserve_per_spot() -> float:
 	if intake_mode:
-		return 1.0
+		return float(Contracts.SENIOR_MIN_2027)
 	if _reserve_at == pick_index:
 		return _reserve_cache
 	_reserve_at = pick_index
@@ -507,12 +507,12 @@ func _reserve_per_spot() -> float:
 	values.sort()
 	var n := mini(open, values.size())
 	if n <= 0:
-		_reserve_cache = 1.0
+		_reserve_cache = float(Contracts.SENIOR_MIN_2027)
 		return _reserve_cache
 	var total := 0
 	for i in range(n):
 		total += int(values[i])
-	_reserve_cache = maxf(1.0, float(total) / float(n))
+	_reserve_cache = maxf(float(Contracts.SENIOR_MIN_2027), float(total) / float(n))
 	return _reserve_cache
 
 
@@ -582,7 +582,8 @@ const AI_VORP_WEIGHT := 1.5
 ## A scarce position is a reason to reach, not to take the 4th-best player
 ## first: the edge over replacement counts for at most this much.
 const AI_VORP_CAP := 10.0
-## Average cap left per open list spot below which a pick is marked down.
+## Average cap left per open list spot below which a pick is marked down,
+## expressed on Contracts.salary_score's old 1-10-equivalent scale.
 const AI_CAP_FLOOR := 3.0
 const AI_POT_WEIGHT_LEAGUE := 0.25
 const AI_POT_WEIGHT_INTAKE := 0.65
@@ -785,13 +786,15 @@ func _replacement(code: String, role: String) -> float:
 func _cap_penalty(code: String, p: Dictionary) -> float:
 	if intake_mode:
 		return 0.0
-	var value := float(p["value"])
+	var salary := int(p["value"])
+	var value := Contracts.salary_score(salary)
 	var spots_after := target_size - count_for(code) - 1
 	if spots_after <= 0:
 		return value * 0.3
-	var left := float(budget - int(club_spend.get(code, 0))) - value
-	var per_spot := left / float(spots_after)
-	return maxf(0.0, AI_CAP_FLOOR - per_spot) * 12.0 + value * 0.3
+	var left := float(budget - int(club_spend.get(code, 0)) - salary)
+	var per_spot := int(left / float(spots_after))
+	var per_spot_score := Contracts.salary_score(per_spot)
+	return maxf(0.0, AI_CAP_FLOOR - per_spot_score) * 12.0 + value * 0.3
 
 
 ## Available worths by position and each position's share of what the
@@ -943,9 +946,9 @@ func pick_block_reason(p: Dictionary) -> String:
 		if not _can_afford_for(user_club, p):
 			var slots_after := target_size - count() - 1
 			if slots_after <= 0:
-				return "Not enough salary cap: he costs $%d and you have $%d left." % [int(p["value"]), remaining()]
-			return "This selection would leave too little salary cap to complete your list. He costs $%d; you have $%d left, and after keeping about $%d for your other %d places, $%d is free for this pick." % [
-					int(p["value"]), remaining(), reserve_for(user_club), slots_after, maxi(0, usable_cap_for(user_club))]
+				return "Not enough salary cap: he costs %s and you have %s left." % [Contracts.money(int(p["value"])), Contracts.money(remaining())]
+			return "This selection would leave too little salary cap to complete your list. He costs %s; you have %s left, and after keeping about %s for your other %d places, %s is free for this pick." % [
+					Contracts.money(int(p["value"])), Contracts.money(remaining()), Contracts.money(reserve_for(user_club)), slots_after, Contracts.money(maxi(0, usable_cap_for(user_club)))]
 		var forced := _forced_role(user_club)
 		if forced != "" and not Ratings.plays_role(p, forced):
 			return "Your remaining places must go to rucks: every list needs two."
