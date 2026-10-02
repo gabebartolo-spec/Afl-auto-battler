@@ -32,6 +32,7 @@ var finals := {}               # finals series state, empty until started
 var selections := {}           # code -> chosen match-day side (empty = auto)
 var plans := {}                # code -> standing game plan (absent = balanced)
 var matchups := {}             # code -> {their forward id: your defender id} (Matchups)
+var structures := {}           # code -> {"spare_id": defender id}; structural roles
 
 
 func _init(club_codes: Array, club_lists: Dictionary, p_seed: int = 0) -> void:
@@ -127,8 +128,12 @@ func match_sim(home_code: String, away_code: String, match_seed: int,
 	sim.finals_mode = is_final
 	for side in range(2):
 		var plan := str(plans.get([home_code, away_code][side], ""))
-		if plan != "":
-			sim.set_tactics(side, {"gameplan": plan})
+		var structure: Dictionary = structures.get([home_code, away_code][side], {})
+		if plan != "" or not structure.is_empty():
+			var t := {"gameplan": plan if plan != "" else "balanced"}
+			if str(structure.get("spare_id", "")) != "":
+				t["spare_id"] = str(structure["spare_id"])
+			sim.set_tactics(side, t)
 		var mu: Dictionary = matchups.get([home_code, away_code][side], {})
 		if not mu.is_empty():
 			sim.set_matchups(side, mu)
