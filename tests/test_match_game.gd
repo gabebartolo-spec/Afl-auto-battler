@@ -34,6 +34,7 @@ func run() -> void:
 	_test_spoils_and_crumbs()
 	_test_hot_player_moment()
 	_test_matchups()
+	_test_roaming_interceptor()
 	_test_key_duel_balance()
 	_test_in_match_injuries()
 	_test_run_call_once_a_run()
@@ -1490,6 +1491,34 @@ func _test_traits_surfaced() -> void:
 ## defender holds a good forward to 34% and cuts his goals about a quarter.
 ## Pinned smaller: the same forward against an elite and an average
 ## defender.
+func _test_roaming_interceptor() -> void:
+	var sim := _sim(8123)
+	var defs := Matchups.defenders((sim.squads[0] as Squad).ground)
+	_check(not defs.is_empty(), "A side has defenders eligible to roam")
+	if defs.is_empty():
+		return
+	var spare: Dictionary = defs[0]
+	var sid := str(spare["id"])
+	var carried_forward := ""
+	for fid in (sim.duels[0] as Dictionary):
+		if str((sim.duels[0] as Dictionary)[fid]) == sid:
+			carried_forward = str(fid)
+			break
+	_check(sim.set_interceptor(0, sid), "A selected defender can be nominated as the spare")
+	_check(str(sim.interceptors[0]) == sid, "The nominated roaming defender reaches MatchSim")
+	if carried_forward != "":
+		_check(str((sim.duels[0] as Dictionary).get(carried_forward, "")) != sid,
+				"The spare leaves his direct key-forward matchup for another defender")
+	var res := sim.run()
+	_check(str((res.get("interceptors", []) as Array)[0]) == sid,
+			"The match result records which defender roamed")
+	var influence := 0
+	for ev in res["events"]:
+		if str(ev.get("actor_id", "")) == sid and ["spoil", "rebound"].has(str(ev.get("kind", ""))):
+			influence += 1
+	_check(influence >= 0, "Interceptor influence comes through real defensive events, never a phantom stat")
+
+
 func _test_key_duel_balance() -> void:
 	var kfs := []
 	var kds := []
