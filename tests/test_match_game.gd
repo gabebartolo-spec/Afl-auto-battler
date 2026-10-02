@@ -12,6 +12,7 @@ func run() -> void:
 	GameDB.reload()
 	_test_auto_sim_untouched()
 	_test_stoppage_location()
+	_test_boundary_rules()
 	_test_legs_and_rotations()
 	_test_moments()
 	_test_set_shot()
@@ -133,6 +134,52 @@ func _test_stoppage_location() -> void:
 		uncontested = uncontested and ["kick", "mark"].has(str(first.get("kind", ""))) \
 				and int(first.get("side", -1)) == 1
 	_check(uncontested, "A kick-in is uncontested: the defending side kicks, no hit-out or clearance")
+
+
+## 2026 boundary law: last disposal between the arcs is a free; touched or
+## contested exits and ordinary OOB inside either 50 are throw-ins; out on the
+## full is a free anywhere. Real matches must also produce and restart them.
+func _test_boundary_rules() -> void:
+	var f50 := float(Ratings.T["forward50_line"])
+	_check(MatchSim.boundary_restart(0.0, f50, "kick", false, false) == "free",
+			"A kick out between the arcs is a last-disposal free")
+	_check(MatchSim.boundary_restart(0.0, f50, "handball", false, false) == "free",
+			"A handball out between the arcs is a last-disposal free")
+	_check(MatchSim.boundary_restart(0.0, f50, "kick", false, true) == "throwin",
+			"A touched/contested exit between the arcs is a throw-in")
+	_check(MatchSim.boundary_restart(f50 + 5.0, f50, "kick", false, false) == "throwin",
+			"Ordinary out of bounds inside a 50m arc is a throw-in")
+	_check(MatchSim.boundary_restart(f50 + 5.0, f50, "kick", true, false) == "free",
+			"Out on the full is a free anywhere on the ground")
+
+	var counts := {"throwin": 0, "last_disposal": 0, "out_on_full": 0}
+	var legal_last := true
+	var throwin_spot := true
+	for seed in range(8):
+		var evs: Array = _sim(6100 + seed).run()["events"]
+		for i in range(evs.size()):
+			var ev: Dictionary = evs[i]
+			var kind := str(ev.get("kind", ""))
+			if counts.has(kind):
+				counts[kind] = int(counts[kind]) + 1
+			if kind == "last_disposal":
+				legal_last = legal_last and absf(float(ev["fp"])) < f50
+			if kind != "throwin":
+				continue
+			# If the throw-in is not swallowed by the quarter siren, the first
+			# disposal after it starts at the same longitudinal crossing point.
+			var j := i + 1
+			while j < evs.size() and ["sub", "injury", "moment"].has(str(evs[j].get("kind", ""))):
+				j += 1
+			if j >= evs.size() or ["quarter", "final"].has(str(evs[j].get("kind", ""))):
+				continue
+			var nx: Dictionary = evs[j]
+			if ["kick", "handball", "mark"].has(str(nx.get("kind", ""))):
+				throwin_spot = throwin_spot and is_equal_approx(float(nx["fp"]), float(ev["fp"]))
+	_check(int(counts["throwin"]) > 0 and int(counts["last_disposal"]) > 0 and int(counts["out_on_full"]) > 0,
+			"Seeded matches produce throw-ins, last-disposal frees and out-on-full frees (%s)" % str(counts))
+	_check(legal_last, "Every last-disposal free is paid between the 50m arcs")
+	_check(throwin_spot, "Boundary throw-ins restart at the crossing field position")
 
 
 func _test_legs_and_rotations() -> void:
