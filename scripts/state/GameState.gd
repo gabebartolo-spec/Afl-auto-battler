@@ -152,6 +152,7 @@ func _ready() -> void:
 	if cfg.load(settings_path) == OK:
 		show_real_names = bool(cfg.get_value("display", "real_names", false))
 	UiKit.apply_appearance(str(cfg.get_value("ui", "appearance", "dark")))
+	_apply_sound_mute(bool(cfg.get_value("ui", "mute_sounds", false)))
 
 
 func _exit_tree() -> void:
@@ -194,6 +195,23 @@ func set_appearance(mode: String) -> bool:
 	set_setting("appearance", mode)
 	UiKit.apply_appearance(mode)
 	return changed
+
+
+func sounds_muted() -> bool:
+	return bool(get_setting("mute_sounds", false))
+
+
+func set_sounds_muted(muted: bool) -> void:
+	set_setting("mute_sounds", muted)
+	_apply_sound_mute(muted)
+
+
+## Mute the Master bus so future music and SFX automatically honour the same
+## setting even if they later gain their own child buses.
+func _apply_sound_mute(muted: bool) -> void:
+	var master := AudioServer.get_bus_index("Master")
+	if master >= 0:
+		AudioServer.set_bus_mute(master, muted)
 
 
 ## Ask before Sim round plays your match without you. On by default.
