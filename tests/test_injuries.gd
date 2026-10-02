@@ -200,14 +200,22 @@ func _test_tribunal_challenge() -> void:
 	var upheld_id := str(upheld["id"])
 	var fail_report := {"side": 0, "id": upheld_id, "name": GameDB.player_display_name(upheld),
 			"victim_id": "v2", "victim_name": "Victim", "reason": "rough conduct",
-			"outcome": "suspension", "weeks": 2, "tribunal_roll": 0.99, "challenged": false}
+			"outcome": "suspension", "weeks": 2, "tribunal_roll": 0.99, "appeal_roll": 0.0,
+			"challenged": false, "appealed": false}
 	GameState._process_discipline([{"home": "GEE", "away": "COL", "reports": [fail_report]}])
 	var loss := GameState.challenge_mro(upheld_id)
 	_check(not bool(loss.get("success", true)) and int(upheld.get("suspension_weeks", 0)) == 2
 			and bool(upheld.get("brownlow_ineligible", false)),
 			"A failed Tribunal challenge leaves the original ban and Brownlow ineligibility intact")
+	var appeal_pending := GameState.pending_mro_challenges()
+	_check(appeal_pending.size() == 1 and str(appeal_pending[0].get("stage", "")) == "appeal",
+			"A failed Tribunal suspension can be taken once to the Appeals Board")
+	var appeal := GameState.appeal_mro(upheld_id)
+	_check(bool(appeal.get("success", false)) and Ratings.available(upheld)
+			and not bool(upheld.get("brownlow_ineligible", false)),
+			"A successful appeal overturns the suspension and restores Brownlow eligibility")
 	_check(GameState.pending_mro_challenges().is_empty(),
-			"A failed challenge is also final")
+			"A resolved Appeals Board case cannot be appealed twice")
 
 
 ## Playtest impression: players get hurt more when the round is simulated
