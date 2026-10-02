@@ -1227,15 +1227,20 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		var carrier = kick_in_taker(side) if is_kick_in else pick_carrier(side, fp)
 		var kick_in_play_on := _kick_in_play_on(carrier) if is_kick_in else false
 		_chain_touch[str(carrier["id"])] = carrier
-		_t(side, "disposals")
-		_p(carrier, "disposals")
+		# Champion Data: a kick straight from the goal square is a team
+		# kick-in, not a player disposal. Once the taker plays on it is his
+		# disposal like ordinary play.
+		var counts_disposal := not is_kick_in or kick_in_play_on
+		if counts_disposal:
+			_t(side, "disposals")
+			_p(carrier, "disposals")
 		if is_kick_in:
 			_t(side, "kick_ins")
 			_p(carrier, "kick_ins")
 			if kick_in_play_on:
 				_t(side, "kick_in_play_ons")
 				_p(carrier, "kick_in_play_ons")
-		pending = carrier
+		pending = carrier if counts_disposal else null
 
 		var hb_bias: float = (0.85
 				+ 0.30 * (100.0 - _a(carrier, "marking")) / 100.0)
@@ -1249,8 +1254,9 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_emit("handball", side, fp, carrier, "%s handballs" % GameDB.player_display_name(carrier))
 		else:
 			disposal_kind = "kick"
-			_t(side, "kicks")
-			_p(carrier, "kicks")
+			if counts_disposal:
+				_t(side, "kicks")
+				_p(carrier, "kicks")
 			var mark_p: float = (float(T["mark_share_of_kicks"])
 					* (0.75 + 0.50 * _a(carrier, "marking") / 100.0))
 			marked = false if is_kick_in else rng.randf() < mark_p
