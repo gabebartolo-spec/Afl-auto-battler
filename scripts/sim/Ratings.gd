@@ -567,9 +567,11 @@ static func select_22(list_players: Array) -> Dictionary:
 	return {"ground": ground, "bench": bench}
 
 
-## True when a player can take the field (not injured).
+## True when a player can take the field (not injured, suspended or rested).
 static func available(p: Dictionary) -> bool:
-	return int(p.get("injury_weeks", 0)) <= 0 and not bool(p.get("rested", false))
+	return int(p.get("injury_weeks", 0)) <= 0 \
+			and int(p.get("suspension_weeks", 0)) <= 0 \
+			and not bool(p.get("rested", false))
 
 
 ## The match-day 22. With an empty selection the best available side is
