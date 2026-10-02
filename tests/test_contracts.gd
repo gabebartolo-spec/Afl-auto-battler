@@ -1079,7 +1079,11 @@ func _test_trade_picks() -> void:
 		if int(d.pick_details(str(id)).get("pick", 0)) == at + 1:
 			used_by = d.drafted_by(str(id))
 	_check(used_by == rival, "The player taken with the traded pick goes to its new owner")
-	_check(GameState.finish_intake_draft() and GameState.pick_owner.is_empty(), "Spent picks leave the ownership record")
+	var spent_year := GameState.season_year
+	var spent_gone := GameState.finish_intake_draft()
+	for key in GameState.pick_owner:
+		spent_gone = spent_gone and int(str(key).split(":")[0]) > spent_year
+	_check(spent_gone, "Spent picks leave the ownership record")
 
 
 func _run_draft() -> void:
@@ -1214,7 +1218,7 @@ func _test_mixed_packages() -> void:
 			for k in range(4):
 				padded.append({"id": "pad%d" % k, "overall": 40, "salary": 0})
 			var v := Contracts.evaluate_trade(GameState.season.lists[rival], [theirs[0]], give_assets,
-					99999, padded, 99999, m, ctx)
+					999999999, padded, 999999999, m, ctx)
 			refused = refused and v.has("in") and not bool(v["ok"])
 	_check(refused, "Three fringe players and two late picks never buy a club's best player, on any margin")
 

@@ -317,7 +317,8 @@ func _phone_match(sz: Vector2i) -> void:
 			or verdict.text == "Draw"), "Full time leads with the result (%s: %s)" % [tag, verdict.text if verdict else "-"])
 	for n in ["MatchFactors", "BestPlayers", "KeyStats", "FinalScore_0", "FinalScore_1", "StandoutRating"]:
 		_check(ft_box != null and ft_box.find_child(n, true, false) != null, "Full time shows %s (%s)" % [n, tag])
-	_check(not ft.contains("pts") and not ft.contains("Expected points") and not ft.contains("Possession chains"),
+	_check(RegEx.create_from_string("\\bpts\\b").search(ft) == null and not ft.contains("Expected points")
+			and not ft.contains("Possession chains"),
 			"The full-time screen keeps the analysis a tap away (%s)" % tag)
 	_check(not ft.contains(" XP"), "Development reads in words at full time, not XP (%s)" % tag)
 	# One review, two tabs, one way out: the Summary is the one report.

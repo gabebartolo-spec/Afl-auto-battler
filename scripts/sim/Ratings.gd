@@ -483,21 +483,19 @@ static func plays_role(p: Dictionary, role: String) -> bool:
 ## football money: depth at the senior floor, established players in the
 ## hundreds of thousands, and genuine stars above $1m.
 static func salary_value(overall: int) -> int:
-	var steps := [
-		[90, 1150000],
-		[85, 950000],
-		[79, 800000],
-		[73, 680000],
-		[67, 560000],
-		[61, 450000],
-		[55, 365000],
-		[48, 285000],
-		[41, 205000],
-	]
-	for s in steps:
-		if overall >= s[0]:
-			return s[1]
-	return 155000
+	# Annual salary the market pays for a rating: it rises smoothly between
+	# these points (no cliff for one rating point), from the senior minimum.
+	var points := [[40, 155000], [48, 255000], [55, 335000], [61, 415000],
+			[67, 515000], [73, 625000], [79, 740000], [85, 875000], [90, 1030000], [99, 1250000]]
+	if overall <= int(points[0][0]):
+		return int(points[0][1])
+	for i in range(1, points.size()):
+		if overall <= int(points[i][0]):
+			var lo: Array = points[i - 1]
+			var hi: Array = points[i]
+			var t := float(overall - int(lo[0])) / float(int(hi[0]) - int(lo[0]))
+			return int(round(lerpf(float(lo[1]), float(hi[1]), t) / 5000.0)) * 5000
+	return int(points[points.size() - 1][1])
 
 
 # ---------------------------------------------------------------------------

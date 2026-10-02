@@ -189,8 +189,9 @@ func _run() -> void:
 	if light_setting != null:
 		light_setting.emit_signal("pressed")
 		await _settle()
-	_check(_state.appearance() == "light" and UiKit.appearance() == "light"
-			and UiKit.BG.r > 0.8 and _router.current() == "main",
+	var kit = load("res://scripts/ui/UiKit.gd")
+	_check(_state.appearance() == "light" and kit.appearance() == "light"
+			and kit.BG.r > 0.8 and _router.current() == "main",
 			"Light appearance applies immediately and rebuilds the current screen")
 	current_scene.find_child("MenuSettings", true, false).emit_signal("pressed")
 	await _settle()
@@ -198,8 +199,8 @@ func _run() -> void:
 	if dark_setting != null:
 		dark_setting.emit_signal("pressed")
 		await _settle()
-	_check(_state.appearance() == "dark" and UiKit.appearance() == "dark"
-			and UiKit.BG.r < 0.2, "Dark appearance restores the original palette")
+	_check(_state.appearance() == "dark" and kit.appearance() == "dark"
+			and kit.BG.r < 0.2, "Dark appearance restores the original palette")
 	current_scene.find_child("MenuSettings", true, false).emit_signal("pressed")
 	await _settle()
 	var real_setting: Button = current_scene.find_child("SettingsNames_real", true, false)

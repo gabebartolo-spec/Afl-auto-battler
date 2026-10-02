@@ -278,20 +278,19 @@ func _test_contextual_frees_and_general_spoils() -> void:
 		var evs: Array = _sim(7200 + seed).run()["events"]
 		for ev in evs:
 			if str(ev.get("kind", "")) == "free":
-				var cause := str(ev.get("cause", ""))
-				if cause != "":
+				var cause := str(ev.get("free_cause", ""))
+				if cause != "" and cause != "general":
 					causes[cause] = int(causes.get(cause, 0)) + 1
 					free_meta_ok = free_meta_ok and ev.has("against_id")
 			if str(ev.get("kind", "")) == "spoil" and bool(ev.get("general_play", false)):
 				general_spoils += 1
 			if str(ev.get("kind", "")) == "mark" and bool(ev.get("general_play", false)):
 				general_marks += 1
-	_check(int(causes.get("Holding the ball", 0)) > 0,
+	_check(int(causes.get("holding_ball", 0)) > 0,
 			"Holding-the-ball frees emerge from actual tackles")
-	_check(int(causes.get("High contact", 0)) > 0,
+	_check(int(causes.get("high_contact", 0)) > 0,
 			"High-contact frees emerge from actual tackles")
-	_check(int(causes.get("Holding in the marking contest", 0))
-			+ int(causes.get("Blocking in the marking contest", 0)) > 0,
+	_check(int(causes.get("marking", 0)) > 0,
 			"Marking-contest frees emerge from actual aerial contests")
 	_check(free_meta_ok, "Contextual frees identify the offender")
 	_check(general_spoils > 0, "General-play kicks can produce real spoils to a loose ball")

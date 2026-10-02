@@ -31,7 +31,9 @@ const TRADE_MARGIN := 0.04
 const CAP_2027 := 18440415
 const SENIOR_MIN_2027 := 155000
 const ROOKIE_MIN_2027 := 105000
-const SALARY_STEP := 25000
+## One step in a contract offer - about what one point of the old 1-10
+## salary scale was worth, so a step means as much to a player as it did.
+const SALARY_STEP := 100000
 const FUTURE_GROWTH := 1.03
 
 
