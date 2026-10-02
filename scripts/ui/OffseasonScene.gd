@@ -503,9 +503,9 @@ func _pick_grid(list: Array, chosen: Array, prefix: String) -> Control:
 	for p in sorted:
 		var id := str(p["id"])
 		var on := chosen.has(id)
-		var b := UiKit.tab("%s  ·  %s  ·  %d OVR  ·  %d POT  ·  $%d" % [GameDB.player_display_name(p),
+		var b := UiKit.tab("%s  ·  %s  ·  %d OVR  ·  %d POT  ·  %s" % [GameDB.player_display_name(p),
 				Ratings.role_tag(p), int(p["overall"]), int(p.get("potential", p["overall"])),
-				int(p.get("salary", 0))], on)
+				Contracts.money(int(p.get("salary", 0)))], on)
 		b.name = prefix + id
 		b.custom_minimum_size = Vector2(0, 40)
 		b.clip_text = true
