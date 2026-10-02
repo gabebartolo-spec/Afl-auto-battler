@@ -19,6 +19,7 @@ func run() -> void:
 	_test_plausible_names()
 	_test_cap_guard()
 	_test_stuck_draft_recovery()
+	_test_funded_scouting()
 	_test_asset_valuation()
 	print("Draft tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -529,6 +530,43 @@ func _test_position_status() -> void:
 	_check(Draft.need_word({"short": 0, "light": 3}, "MID") == "light 3"
 			and Draft.need_word({"short": 0, "light": 0}, "MID") == "covered",
 			"Depth below a full list reads light; otherwise covered")
+
+
+## Recruiting funding narrows a club's National Draft uncertainty without
+## changing the hidden player underneath. Rival clubs default to Standard.
+func _test_funded_scouting() -> void:
+	var pool: Array = Prospects.generate_class(2028, 611)
+	var p: Dictionary = pool[10]
+	var minimal := DraftScouting.projection(p, "A", 90210, ClubBudget.scouting_mult(0))
+	var elite := DraftScouting.projection(p, "A", 90210, ClubBudget.scouting_mult(3))
+	var minimal_width := int(minimal["overall"][1]) - int(minimal["overall"][0]) 			+ int(minimal["potential"][1]) - int(minimal["potential"][0])
+	var elite_width := int(elite["overall"][1]) - int(elite["overall"][0]) 			+ int(elite["potential"][1]) - int(elite["potential"][0])
+	_check(elite_width < minimal_width,
+			"Elite Recruiting produces narrower OVR/POT ranges than Minimal (%d v %d)" % [
+			elite_width, minimal_width])
+	_check(absi(int(elite["overall_mid"]) - int(p["overall"]))
+			<= absi(int(minimal["overall_mid"]) - int(p["overall"])),
+			"Better Recruiting cannot increase the same club/prospect OVR error")
+
+	var clubs := ["A", "B"]
+	var sizes := {"A": 34, "B": 34}
+	var counts := {
+		"A": {"RUCK": 2, "MID": 13, "DEF": 9, "FWD": 10},
+		"B": {"RUCK": 2, "MID": 13, "DEF": 9, "FWD": 10},
+	}
+	var d := Draft.build_intake(pool.slice(0, 18), clubs, clubs, 90210, sizes, counts)
+	d.start_for_user("A")
+	d.scouting_mults["A"] = ClubBudget.scouting_mult(3)
+	_check(is_equal_approx(d.scouting_mult_for("A"), ClubBudget.scouting_mult(3))
+			and is_equal_approx(d.scouting_mult_for("B"), 1.0),
+			"The funded club gets its Recruiting accuracy; rivals default to Standard")
+	var rated: Array = d.board("", "", "", "overall", true)
+	var ordered := true
+	for i in range(1, rated.size()):
+		if DraftScouting.estimated_overall(rated[i - 1], "A", d.seed, d.scouting_mult_for("A")) 				< DraftScouting.estimated_overall(rated[i], "A", d.seed, d.scouting_mult_for("A")):
+			ordered = false
+			break
+	_check(ordered, "National Draft Best rated follows the club's scouted view, not hidden OVR")
 
 
 ## ARD-M5-012: the top of a draft goes to the best long-term assets. Need
