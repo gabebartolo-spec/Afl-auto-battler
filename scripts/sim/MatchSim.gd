@@ -31,8 +31,8 @@ const GOAL_SQUARE_DEPTH := 9.0  # metres; kick-ins are taken from inside it
 ## chain outcome at the ball's current longitudinal position. The rate is
 ## deliberately modest: roughly the amount needed to produce AFL-like
 ## boundary stoppages without turning the game into a boundary simulator.
-const BOUNDARY_EXIT_P := 0.027
-const BOUNDARY_RUSHED_BONUS := 0.010
+const BOUNDARY_EXIT_P := 0.008
+const BOUNDARY_RUSHED_BONUS := 0.004
 const OUT_ON_FULL_SHARE := 0.12
 const BOUNDARY_TOUCHED_SHARE := 0.28
 var tactics := [{}, {}]      # per side: gameplan, focus_id, tag_id, pep
