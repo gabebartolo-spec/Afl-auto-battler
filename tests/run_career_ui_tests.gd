@@ -718,6 +718,14 @@ func _run() -> void:
 	_check(current_scene.find_children("GetRow_*", "", true, false).is_empty()
 			and current_scene.find_children("GiveRow_*", "", true, false).size() == 1,
 			"A new club clears what you'd get from the old one and keeps what you give")
+	# One thing on your side and nothing on theirs: put it on the trade table.
+	var table_btn = current_scene.find_child("TradeTable", true, false)
+	_check(table_btn != null and not (table_btn as Button).disabled, "With one of yours and nothing back, it can go on the trade table")
+	if table_btn != null:
+		table_btn.emit_signal("pressed")
+		await _settle()
+		_check(_screen_text().contains("offer") and current_scene.find_children("GiveRow_*", "", true, false).is_empty(),
+				"The trade table says who came, and clears what you give")
 	# Picking a player rebuilds the tab but keeps your place in a long list.
 	var box: ScrollContainer = current_scene.get("_scroll_box")
 	box.scroll_vertical = 600

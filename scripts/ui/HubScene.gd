@@ -57,6 +57,15 @@ func _show_season_wrap() -> void:
 			l.name = "%s_%d" % [part[2], i]
 			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(l)
+	var trades: Array = w.get("trades", [])
+	if not trades.is_empty():
+		v.add_child(UiKit.spacer(4))
+		v.add_child(UiKit.lbl("Trade period", 14, UiKit.MUTED, true))
+		for i in range(trades.size()):
+			var l := UiKit.lbl(str(trades[i]), 14, UiKit.TEXT)
+			l.name = "WrapTrade_%d" % i
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(l)
 	var staff: Array = w.get("staff", [])
 	if not staff.is_empty():
 		v.add_child(UiKit.spacer(4))
