@@ -2197,9 +2197,10 @@ func _close_season_awards() -> void:
 		"year": season_year,
 		"premier": premier(),
 		"runner_up": str(season.finals.get("runner_up", "")),
-		"brownlow": (season_awards["brownlow"] as Array).slice(0, 1),
+		"brownlow": [season_awards["brownlow_winner"]] if not (season_awards.get("brownlow_winner", {}) as Dictionary).is_empty() else [],
 		"coleman": (season_awards["coleman"] as Array).slice(0, 1),
 		"rising_star": (season_awards["rising_star"] as Array).slice(0, 1),
+		"coaches_award": (season_awards["coaches_award"] as Array).slice(0, 1),
 		"my_bf": mine_bf.slice(0, 1),
 		"my_club": my_club,
 		"my_position": my_position(),
@@ -2265,6 +2266,19 @@ func coleman_leaders(n := 5) -> Array:
 		rows.append({"id": str(id), "club": str(season_tally[id]["club"]),
 				"goals": int(season_tally[id]["goals_ha"])})
 	rows.sort_custom(func(a, b): return int(a["goals"]) > int(b["goals"]))
+	return rows.slice(0, n)
+
+
+## Live coaches award leaders: accumulated home-and-away coaches votes.
+func coaches_award_leaders(n := 5) -> Array:
+	var rows := []
+	for id in season_tally:
+		rows.append({"id": str(id), "club": str(season_tally[id]["club"]),
+				"votes": int(season_tally[id].get("coaches", 0))})
+	rows.sort_custom(func(a, b):
+		if int(a["votes"]) != int(b["votes"]):
+			return int(a["votes"]) > int(b["votes"])
+		return str(a["id"]) < str(b["id"]))
 	return rows.slice(0, n)
 
 
@@ -3744,10 +3758,15 @@ func _development_pick(code: String, p: Dictionary, best: Dictionary) -> Diction
 
 
 func _season_news() -> void:
-	var top: Array = season_awards.get("brownlow", [])
-	if not top.is_empty():
+	var brownlow_winner: Dictionary = season_awards.get("brownlow_winner", {})
+	if not brownlow_winner.is_empty():
 		add_news("award", "%s (%s) won the Brownlow Medal with %d votes." % [
-				award_name(top[0]), GameDB.club_name(str(top[0]["club"])), int(top[0]["votes"])])
+				award_name(brownlow_winner), GameDB.club_name(str(brownlow_winner["club"])),
+				int(brownlow_winner["votes"])])
+	var coaches_top: Array = season_awards.get("coaches_award", [])
+	if not coaches_top.is_empty():
+		add_news("award", "%s (%s) won the Coaches Award with %d votes." % [
+				award_name(coaches_top[0]), GameDB.club_name(str(coaches_top[0]["club"])), int(coaches_top[0]["coaches"])])
 	var gk: Array = season_awards.get("coleman", [])
 	if not gk.is_empty():
 		add_news("award", "%s (%s) won the Coleman Medal with %d goals." % [

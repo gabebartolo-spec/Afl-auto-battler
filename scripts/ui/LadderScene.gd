@@ -62,6 +62,17 @@ func _build() -> void:
 			coleman.custom_minimum_size.x = 460
 		body.add_child(inset)
 
+	var coaches := _coaches_award()
+	if coaches != null:
+		var cinset := MarginContainer.new()
+		cinset.add_theme_constant_override("margin_left", 12)
+		cinset.add_theme_constant_override("margin_right", 12)
+		cinset.add_child(coaches)
+		if _content_width() > 640.0:
+			cinset.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			coaches.custom_minimum_size.x = 460
+		body.add_child(cinset)
+
 	if not season.finals.is_empty():
 		body.add_child(UiKit.lbl("Finals Series", 18, UiKit.EMPH, true))
 		var fp := UiKit.panel(UiKit.PANEL, 12)
@@ -75,6 +86,37 @@ func _build() -> void:
 					str(season.finals["premier"])), 17, UiKit.TEXT, true))
 		else:
 			fv.add_child(UiKit.ellipsis("Next: %s" % _next_finals_label(), 13, UiKit.MUTED))
+
+
+## The Coaches Award race: accumulated through the home-and-away season.
+func _coaches_award() -> Control:
+	var leaders := GameState.coaches_award_leaders(5)
+	if leaders.is_empty() or int(leaders[0]["votes"]) <= 0:
+		return null
+	var v := UiKit.vbox(4)
+	v.name = "CoachesAwardLeaders"
+	v.add_child(UiKit.section("Coaches Award"))
+	var header := UiKit.hbox(10)
+	for column in [["Rank", 32], ["Player", 0], ["Club", 72], ["Votes", 40]]:
+		var label := UiKit.line(str(column[0]), 12, UiKit.MUTED)
+		label.custom_minimum_size.x = float(column[1])
+		if column[0] == "Player": label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		elif column[0] == "Votes": label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		header.add_child(label)
+	v.add_child(header)
+	var rank := 0
+	for i in range(leaders.size()):
+		var r: Dictionary = leaders[i]
+		if int(r["votes"]) <= 0: break
+		if i == 0 or int(r["votes"]) != int(leaders[i - 1]["votes"]): rank = i + 1
+		var h := UiKit.hbox(10)
+		h.name = "CoachesAward_%d" % (i + 1)
+		var n := UiKit.line(str(rank), 15, UiKit.MUTED); n.custom_minimum_size.x = 32; h.add_child(n)
+		var who := UiKit.ellipsis(GameState.award_name(r), 16, UiKit.TEXT, str(r["club"]) == GameState.my_club); who.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(who)
+		var club := UiKit.ellipsis(GameDB.club_short(str(r["club"])), 14, UiKit.MUTED); club.custom_minimum_size.x = 72; h.add_child(club)
+		var votes := UiKit.line(str(int(r["votes"])), 17, UiKit.TEXT, true); votes.custom_minimum_size.x = 40; votes.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT; h.add_child(votes)
+		v.add_child(h)
+	return v
 
 
 ## The Coleman Medal race: the leading goalkickers, one to a row. Null
