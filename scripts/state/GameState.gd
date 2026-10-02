@@ -628,24 +628,26 @@ func _migrate_money_units() -> void:
 			seen[token] = true
 			if p.has("overall"):
 				p["value"] = Ratings.salary_value(int(p["overall"]))
-			if old_units and int(p.get("salary", 0)) > 0 and int(p.get("salary", 0)) <= 10:
+			if old_units and int(p.get("salary", 0)) > 0 and int(p.get("salary", 0)) < 1000:
 				p["salary"] = Contracts.old_points_to_salary(int(p["salary"]))
 			var talks: Dictionary = p.get("talks", {})
-			if old_units and int(talks.get("counter", 0)) > 0 and int(talks.get("counter", 0)) <= 20:
-				talks["counter"] = Contracts.old_points_to_salary(clampi(int(talks["counter"]), 1, 10))
+			if old_units and int(talks.get("counter", 0)) > 0 and int(talks.get("counter", 0)) < 1000:
+				talks["counter"] = Contracts.old_points_to_salary(int(talks["counter"]))
 				p["talks"] = talks
 			if old_units:
 				for o in p.get("offers", []):
-					if int(o.get("salary", 0)) > 0 and int(o.get("salary", 0)) <= 20:
-						o["salary"] = Contracts.old_points_to_salary(clampi(int(o["salary"]), 1, 10))
+					if int(o.get("salary", 0)) > 0 and int(o.get("salary", 0)) < 1000:
+						o["salary"] = Contracts.old_points_to_salary(int(o["salary"]))
 
 	if old_units:
 		salary_cap = Contracts.salary_cap_for_year(maxi(GameDB.START_YEAR, season_year))
 		for row in compensation:
-			if int(row.get("salary", 0)) > 0 and int(row.get("salary", 0)) <= 20:
-				row["salary"] = Contracts.old_points_to_salary(clampi(int(row["salary"]), 1, 10))
+			if int(row.get("salary", 0)) > 0 and int(row.get("salary", 0)) < 1000:
+				row["salary"] = Contracts.old_points_to_salary(int(row["salary"]))
 		if draft != null and draft.league_mode:
 			draft.budget = Contracts.salary_cap_for_year(GameDB.START_YEAR)
+			draft._reserve_at = -1
+			draft._reserve_cache = float(Contracts.SENIOR_MIN_2027)
 			for code in draft.club_lists:
 				draft.club_spend[code] = 0
 				for p in draft.club_lists[code]:
