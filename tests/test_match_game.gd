@@ -23,6 +23,7 @@ func run() -> void:
 	_test_lockdown_midfielder()
 	_test_traits()
 	_test_metres_and_efficiency()
+	_test_gps_distance()
 	_test_ruck_integrity()
 	_test_ruck_taps()
 	_test_stat_credits()
@@ -643,6 +644,51 @@ func _test_metres_and_efficiency() -> void:
 			100.0 * fwd[0] / fwd[1], 100.0 * dfn[0] / dfn[1]])
 	_check(MatchSim.disposal_efficiency({"disposals": 20.0, "effective_disposals": 15.0}) == 75
 			and MatchSim.disposal_efficiency({}) == 0, "Disposal efficiency is effective over total")
+
+
+## GPS distance is real match behaviour, not metres gained: every on-ground
+## chain adds running by role and instructions, and the player/team totals
+## reconcile. Faster plans must visibly cost more kilometres.
+func _test_gps_distance() -> void:
+	var res := _sim(9050).run()
+	var sums_ok := true
+	var averages_ok := true
+	for side in range(2):
+		var total := 0.0
+		var roster: Array = res["roster"][side]
+		for r in roster:
+			total += float((res["players"].get(str(r["id"]), {}) as Dictionary).get("distance_run", 0.0))
+		if absf(total - float((res["team"][side] as Dictionary).get("distance_run", 0.0))) > 0.5:
+			sums_ok = false
+		var avg := total / float(maxi(1, roster.size()))
+		if avg < 8000.0 or avg > 15000.0:
+			averages_ok = false
+	_check(sums_ok, "Players' GPS distance adds up to the team's")
+	_check(averages_ok, "GPS distance sits in a believable match-day range")
+
+	var fast := _sim(9051)
+	fast.set_tactics(0, {"gameplan": "attacking"})
+	var fast_km := float((fast.run()["team"][0] as Dictionary).get("distance_run", 0.0))
+	var slow := _sim(9051)
+	slow.set_tactics(0, {"gameplan": "controlled"})
+	var slow_km := float((slow.run()["team"][0] as Dictionary).get("distance_run", 0.0))
+	_check(fast_km > slow_km * 1.10,
+			"Attack corridor covers more ground than Controlled tempo (%.0f km v %.0f km)" % [
+			fast_km / 1000.0, slow_km / 1000.0])
+
+	var plain := _sim(9052)
+	var focus_id := ""
+	for p in (plain.squads[0] as Squad).ground:
+		if str(p["role"]) == "MID":
+			focus_id = str(p["id"])
+			break
+	var plain_km := float((plain.run()["players"].get(focus_id, {}) as Dictionary).get("distance_run", 0.0))
+	var through := _sim(9052)
+	through.set_tactics(0, {"focus_id": focus_id})
+	var through_km := float((through.run()["players"].get(focus_id, {}) as Dictionary).get("distance_run", 0.0))
+	_check(focus_id != "" and through_km > plain_km,
+			"Playing through a midfielder makes him work farther (%.1f km v %.1f km)" % [
+			through_km / 1000.0, plain_km / 1000.0])
 
 
 ## Phone playtest: a huge hit-out win came with a narrow clearance count,
