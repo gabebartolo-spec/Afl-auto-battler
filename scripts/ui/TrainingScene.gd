@@ -6,6 +6,7 @@ extends Control
 const ROLES := ["", "DEF", "MID", "RUCK", "FWD"]
 const ROLE_NOUN := {"RUCK": "ruck", "MID": "midfielder", "DEF": "defender", "FWD": "forward"}
 const ROLE_TABS := [["", "ALL"], ["DEF", "DEFS"], ["MID", "MIDS"], ["RUCK", "RUCKS"], ["FWD", "FWDS"]]
+const LONG_PRESS_SECONDS := 0.45
 
 var _role := ""
 var _query := ""
@@ -14,6 +15,12 @@ var _showing_detail := false
 var _notice := ""
 var _advanced := false
 var _wide := false
+## Long-press one player to enter group selection. Once active, ordinary
+## taps add/remove players; the group picker only offers plans valid for all.
+var _bulk_selected := {}
+var _hold_tokens := {}
+var _suppress_open := {}
+var _hold_serial := 0
 var _root: VBoxContainer
 var _list_scroll: ScrollContainer
 var _detail_scroll: ScrollContainer
@@ -49,6 +56,11 @@ func handle_back() -> bool:
 	if is_instance_valid(_overlay):
 		_overlay.queue_free()
 		_overlay = null
+		return true
+	if not _bulk_selected.is_empty():
+		_bulk_selected.clear()
+		_notice = ""
+		_build()
 		return true
 	if _showing_detail:
 		_showing_detail = false
@@ -210,6 +222,10 @@ func _list_panel() -> Control:
 		_query = text
 		_refresh_rows())
 	v.add_child(search)
+	if _bulk_selected.is_empty():
+		v.add_child(UiKit.lbl("Long-press a player to select several.", 12, UiKit.MUTED))
+	else:
+		v.add_child(_bulk_panel())
 	var rows := UiKit.vbox(4)
 	rows.name = "TrainingRows"
 	_list_scroll = UiKit.scroll(rows)
@@ -221,6 +237,125 @@ func _list_panel() -> Control:
 func _set_role(role: String) -> void:
 	_role = role
 	_build()
+
+
+## Group training stays deliberately small: select players, then choose one
+## plan that makes sense for every player in the group. A mixed-position
+## group therefore gets Position plan / Manual rather than nonsense such as
+## putting a ruck on a key-forward plan.
+func _bulk_panel() -> Control:
+	var panel := UiKit.panel(UiKit.PANEL_ALT, 8, 6)
+	panel.name = "BulkTraining"
+	var v := UiKit.vbox(4)
+	panel.add_child(v)
+	var h := UiKit.hbox(8)
+	v.add_child(h)
+	var count := _bulk_selected.size()
+	var head := UiKit.lbl("%d %s selected" % [count, "player" if count == 1 else "players"],
+			14, UiKit.TEXT, true)
+	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(head)
+	var clear := UiKit.btn("Clear", 13)
+	clear.name = "ClearBulk"
+	clear.custom_minimum_size = Vector2(72, 44)
+	clear.pressed.connect(func():
+		_bulk_selected.clear()
+		_notice = ""
+		_build())
+	h.add_child(clear)
+	v.add_child(UiKit.lbl("Apply one development focus to the group.", 12, UiKit.MUTED))
+	var options := []
+	for key in _bulk_plans():
+		var label := GameState.train_plan_label(str(key))
+		if str(key) == "manual":
+			label = "Manual"
+		options.append([str(key), label])
+	var picker := UiKit.choice_grid("GroupPlan", options, "", 2, _apply_bulk_plan)
+	v.add_child(picker)
+	if _notice != "":
+		var note := UiKit.lbl(_notice, 12, UiKit.GOOD)
+		note.name = "BulkNotice"
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(note)
+	return panel
+
+
+func _bulk_plans() -> Array:
+	var ids: Array = _bulk_selected.keys()
+	if ids.is_empty():
+		return []
+	var first := GameState.list_player(str(ids[0]))
+	if first.is_empty():
+		return []
+	var common: Array = GameState.plans_for(first).duplicate()
+	for raw_id in ids.slice(1):
+		var p := GameState.list_player(str(raw_id))
+		if p.is_empty():
+			continue
+		var valid: Array = GameState.plans_for(p)
+		common = common.filter(func(key): return valid.has(key))
+	return common
+
+
+func _apply_bulk_plan(key: String) -> void:
+	var changed := 0
+	var spent := 0
+	for raw_id in _bulk_selected.keys():
+		var id := str(raw_id)
+		var p := GameState.list_player(id)
+		if p.is_empty() or not GameState.plan_valid_for(p, key):
+			continue
+		var before_xp := int(p.get("xp", 0))
+		GameState.set_player_plan(id, key)
+		spent += maxi(0, before_xp - int(GameState.list_player(id).get("xp", 0)))
+		changed += 1
+	var label := GameState.train_plan_label(key)
+	_notice = "%s applied to %d %s." % [label, changed, "player" if changed == 1 else "players"]
+	if spent > 0:
+		_notice += " Banked XP was spent under the new focus."
+	if is_inside_tree():
+		_build()
+
+
+func _toggle_bulk(id: String) -> void:
+	if _bulk_selected.has(id):
+		_bulk_selected.erase(id)
+	else:
+		_bulk_selected[id] = true
+	_showing_detail = false
+	_notice = ""
+	if is_inside_tree():
+		_build()
+
+
+## The held button may be rebuilt as soon as the long press fires. A
+## suppression flag prevents its eventual pressed signal from immediately
+## undoing the selection; the next fresh button-down clears that flag.
+func _begin_player_hold(id: String) -> void:
+	_suppress_open.erase(id)
+	_hold_serial += 1
+	var token := _hold_serial
+	_hold_tokens[id] = token
+	await get_tree().create_timer(LONG_PRESS_SECONDS).timeout
+	if int(_hold_tokens.get(id, -1)) != token:
+		return
+	_hold_tokens.erase(id)
+	_suppress_open[id] = true
+	_toggle_bulk(id)
+
+
+func _end_player_hold(id: String) -> void:
+	_hold_tokens.erase(id)
+
+
+func _press_player(id: String) -> void:
+	if _suppress_open.has(id):
+		_suppress_open.erase(id)
+		return
+	if not _bulk_selected.is_empty():
+		_toggle_bulk(id)
+		return
+	_open_player(id)
 
 
 func _refresh_rows() -> void:
@@ -270,7 +405,7 @@ func _matches(p: Dictionary) -> bool:
 
 func _player_row(p: Dictionary) -> Control:
 	var id := str(p["id"])
-	var selected := id == _selected
+	var selected := _bulk_selected.has(id) or (_bulk_selected.is_empty() and id == _selected)
 	var b := UiKit.btn("", 14)
 	b.name = "Trainee_" + id
 	b.custom_minimum_size.y = 58
@@ -309,7 +444,9 @@ func _player_row(p: Dictionary) -> Control:
 	ov.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(ov)
 	_ignore_mouse(h)
-	b.pressed.connect(_open_player.bind(id))
+	b.button_down.connect(_begin_player_hold.bind(id))
+	b.button_up.connect(_end_player_hold.bind(id))
+	b.pressed.connect(_press_player.bind(id))
 	return b
 
 
