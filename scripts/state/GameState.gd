@@ -2144,7 +2144,7 @@ func _close_season_awards() -> void:
 		"year": season_year,
 		"premier": premier(),
 		"runner_up": str(season.finals.get("runner_up", "")),
-		"brownlow": (season_awards["brownlow"] as Array).slice(0, 1),
+		"brownlow": [season_awards["brownlow_winner"]] if not (season_awards.get("brownlow_winner", {}) as Dictionary).is_empty() else [],
 		"coleman": (season_awards["coleman"] as Array).slice(0, 1),
 		"rising_star": (season_awards["rising_star"] as Array).slice(0, 1),
 		"coaches_award": (season_awards["coaches_award"] as Array).slice(0, 1),
@@ -3648,10 +3648,11 @@ func _development_pick(code: String, p: Dictionary, best: Dictionary) -> Diction
 
 
 func _season_news() -> void:
-	var top: Array = season_awards.get("brownlow", [])
-	if not top.is_empty():
+	var brownlow_winner: Dictionary = season_awards.get("brownlow_winner", {})
+	if not brownlow_winner.is_empty():
 		add_news("award", "%s (%s) won the Brownlow Medal with %d votes." % [
-				award_name(top[0]), GameDB.club_name(str(top[0]["club"])), int(top[0]["votes"])])
+				award_name(brownlow_winner), GameDB.club_name(str(brownlow_winner["club"])),
+				int(brownlow_winner["votes"])])
 	var coaches_top: Array = season_awards.get("coaches_award", [])
 	if not coaches_top.is_empty():
 		add_news("award", "%s (%s) won the Coaches Award with %d votes." % [
