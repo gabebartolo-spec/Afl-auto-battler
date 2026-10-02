@@ -64,6 +64,9 @@ var _injury_plan: Array = []
 ## The injuries that happened: [{"side", "id", "q", "min", "weeks", "kind",
 ## "on"}] ("on": who came on for him, "" for none).
 var injuries: Array = []
+## Reportable incidents that happened in real match contact. The MRO outcome
+## is decided here once and applied to league lists after the round.
+var reports: Array = []
 ## Players gone off injured, per side; they take no further part.
 var injured_off := [[], []]
 ## Who won the ball back for the chain being played ({"side", "id"}), so a
@@ -113,6 +116,7 @@ var smother_rng := RandomNumberGenerator.new()
 var speccy_rng := RandomNumberGenerator.new()
 ## Post-free 50m infringements are independent of ordinary play rolls.
 var discipline_rng := RandomNumberGenerator.new()
+var mro_rng := RandomNumberGenerator.new()
 var _speccy_quota := 0
 var _speccies := 0
 ## Boundary law rolls are isolated from the calibrated play RNG. Adding or
@@ -175,6 +179,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	smother_rng.seed = seed * 23 + 29
 	speccy_rng.seed = seed * 31 + 37
 	discipline_rng.seed = seed * 41 + 43
+	mro_rng.seed = seed * 47 + 53
 	var speccy_bucket := posmod(hash("speccy|%d" % seed), 10)
 	_speccy_quota = 0 if speccy_bucket < 3 else (1 if speccy_bucket < 9 else 2)
 	boundary_rng.seed = seed * 17 + 19
@@ -785,6 +790,9 @@ const HOTHEAD_ERRORS := 1.5
 const HOTHEAD_BASE := 1.10
 ## Roughly one 50m penalty every couple of matches at ordinary discipline.
 const FIFTY_BASE := 0.012
+## A reportable tackle is rare. Poor discipline and Hothead raise the chance,
+## but neither can turn ordinary aggression into a weekly suspension machine.
+const REPORT_BASE := 0.0035
 
 
 ## Who gives away a side's clanger: poor discipline makes it likelier, a
@@ -830,6 +838,45 @@ func _maybe_fifty(receiving_side: int, mark_fp: float, offender, recipient) -> f
 	ev["against_id"] = str(offender.get("id", ""))
 	ev["against_name"] = GameDB.player_display_name(offender)
 	return new_fp
+
+
+## A tackle can become a reportable rough-conduct incident. It is attached to
+## the real tackler/victim and current quarter/minute; no post-match re-roll.
+func _maybe_report(side: int, offender, victim) -> void:
+	if offender == null or victim == null:
+		return
+	var discipline := _a(offender, "discipline")
+	var chance := REPORT_BASE * (1.30 - 0.60 * discipline / 100.0)
+	if _trait(offender, "hothead"):
+		chance *= 1.75
+	if mro_rng.randf() >= clampf(chance, 0.001, 0.014):
+		return
+	var severity := mro_rng.randf() + (50.0 - discipline) / 500.0 			+ (0.06 if _trait(offender, "hothead") else 0.0)
+	var outcome := "no_action"
+	var weeks := 0
+	if severity >= 0.985:
+		outcome = "suspension"
+		weeks = 3
+	elif severity >= 0.94:
+		outcome = "suspension"
+		weeks = 2
+	elif severity >= 0.76:
+		outcome = "suspension"
+		weeks = 1
+	elif severity >= 0.52:
+		outcome = "fine"
+	reports.append({
+		"side": side,
+		"id": str(offender.get("id", "")),
+		"name": GameDB.player_display_name(offender),
+		"victim_id": str(victim.get("id", "")),
+		"victim_name": GameDB.player_display_name(victim),
+		"q": current_quarter,
+		"min": current_minute,
+		"reason": "rough conduct",
+		"outcome": outcome,
+		"weeks": weeks,
+	})
 
 
 ## A won stoppage is worth about a possession chain's points.
@@ -1199,6 +1246,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		var rushed := false
 		if press_roll < pressure:
 			var tackler = _pick_presser(opp, zone)
+			_maybe_report(opp, tackler, carrier)
 			_t(opp, "tackles")
 			_p(tackler, "tackles")
 			_t(opp, "pressure_acts")
@@ -2035,6 +2083,7 @@ func result() -> Dictionary:
 		"duel_changes": duel_changes.duplicate(true),
 		"matchups": duels.duplicate(true),
 		"injuries": injuries.duplicate(true),
+		"reports": reports.duplicate(true),
 		"synergies": synergies.duplicate(true),
 	}
 
