@@ -4,6 +4,7 @@ extends RefCounted
 ## display and flow preferences, which apply at once, and - inside a career -
 ## the way back to the main menu and deleting this career (asked twice).
 
+const APPEARANCE_OPTIONS := [["dark", "Dark"], ["light", "Light"]]
 const NAME_OPTIONS := [["generated", "Generated"], ["real", "Real"]]
 const NAMES_INFO := "Real shows each player's AFL name; generated names are invented. Ratings and results are the same either way."
 const SPEED_OPTIONS := [["1", "1x"], ["2", "2x"], ["4", "4x"], ["8", "8x"]]
@@ -19,6 +20,12 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 	v.add_theme_constant_override("separation", 6)
 	v.add_child(UiKit.heading("Settings", UiKit.H1))
 
+	_row(v, "Appearance", "SettingsAppearance", APPEARANCE_OPTIONS,
+			GameState.appearance(), "Changes the interface only; club colours and the football ground stay as they are.",
+			func(k):
+				if GameState.set_appearance(k):
+					overlay.queue_free()
+					host.get_tree().call_deferred("reload_current_scene"))
 	_row(v, "Player names", "SettingsNames", NAME_OPTIONS,
 			"real" if GameState.show_real_names else "generated", NAMES_INFO,
 			func(k): GameState.set_show_real_names(k == "real"))
@@ -40,10 +47,18 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 			overlay.queue_free()
 			Router.to_main_menu())
 		v.add_child(menu)
+		var fresh := UiKit.btn("New career", 16)
+		fresh.name = "OptionsNewCareer"
+		fresh.custom_minimum_size = Vector2(0, 44)
+		fresh.tooltip_text = "Your current save is kept until you confirm the new career."
+		fresh.pressed.connect(func():
+			overlay.queue_free()
+			Router.to_new_career_setup())
+		v.add_child(fresh)
 		var confirm := UiKit.vbox(6)
 		confirm.name = "DeleteConfirm"
 		confirm.visible = false
-		var del := UiKit.btn("Delete this career", 16)
+		var del := UiKit.danger_btn("Delete this career", 16)
 		del.name = "OptionsDelete"
 		del.custom_minimum_size = Vector2(0, 44)
 		del.pressed.connect(func():
