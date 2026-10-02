@@ -439,6 +439,8 @@ func _this_week() -> Control:
 		mv.add_child(UiKit.lbl("Their key forwards", UiKit.BODY, UiKit.TEXT, true))
 		for m in mus:
 			mv.add_child(_matchup_row(m))
+	v.add_child(UiKit.spacer(6))
+	v.add_child(_spare_row())
 	var style := GameState.their_style(code)
 	var usual := GameState.usual_plan(code)
 	if usual != "balanced":
@@ -511,6 +513,59 @@ func _close_matchup() -> void:
 	if _matchup_overlay != null and is_instance_valid(_matchup_overlay):
 		_matchup_overlay.queue_free()
 	_matchup_overlay = null
+
+
+func _spare_row() -> Control:
+	var h := UiKit.hbox(8)
+	h.name = "SpareDefenderRow"
+	var text := UiKit.vbox(1)
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(text)
+	var spare := GameState.my_spare()
+	var who := "None" if spare.is_empty() else GameDB.player_display_name(spare)
+	text.add_child(_para("Spare defender: %s" % who, 14, UiKit.TEXT))
+	text.add_child(_para("Roams to attack aerial balls; leaves one fewer body around general contests.",
+			12, UiKit.MUTED))
+	var b := UiKit.btn("Change", 14)
+	b.custom_minimum_size = Vector2(104, 44)
+	b.pressed.connect(_show_spare)
+	h.add_child(b)
+	return h
+
+
+func _show_spare() -> void:
+	_close_matchup()
+	var box := UiKit.modal_box(self, 480.0, 0.0)
+	_matchup_overlay = box["overlay"]
+	_matchup_overlay.name = "SpareDefenderChooser"
+	var v: VBoxContainer = box["body"]
+	v.add_theme_constant_override("separation", 6)
+	v.add_child(UiKit.lbl("Roaming interceptor", UiKit.H1, UiKit.TEXT, true))
+	v.add_child(_para("He leaves his direct opponent to read the ball and attack aerial contests. "
+			+ "You gain intercept presence but give up a body around general contests.", 13, UiKit.MUTED))
+	var none := UiKit.btn("No spare — hold the structure", 15)
+	UiKit.paint_choice(none, GameState.my_spare_id == "")
+	none.pressed.connect(func():
+		GameState.set_my_spare("")
+		_close_matchup()
+		_build())
+	v.add_child(none)
+	for p in Matchups.defenders(GameState.my_squad().ground):
+		var b := UiKit.btn("", 15)
+		b.custom_minimum_size = Vector2(0, 56)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.text = "%s\n%s" % [GameDB.player_display_name(p), Matchups.describe(p)]
+		UiKit.paint_choice(b, str(p["id"]) == GameState.my_spare_id)
+		var pid := str(p["id"])
+		b.pressed.connect(func():
+			GameState.set_my_spare(pid)
+			_close_matchup()
+			_build())
+		v.add_child(b)
+	var done := UiKit.btn("Close", 16)
+	done.custom_minimum_size = Vector2(0, 48)
+	done.pressed.connect(_close_matchup)
+	box["footer"].add_child(done)
 
 
 ## The game plan you take into the match, and the way to change it.
