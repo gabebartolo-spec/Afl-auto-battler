@@ -46,12 +46,13 @@ func _test_vote_arithmetic() -> void:
 	var tally := {}
 	Awards.tally_match(tally, res, true)
 	_check(_sum(tally, "votes") == 6, "A home-and-away match hands out 3-2-1 votes")
+	_check(_sum(tally, "coaches") == 15, "A home-and-away match hands out 5-4-3-2-1 coaches votes")
 	_check(_sum(tally, "bf", "GEE") == 15 and _sum(tally, "bf", "HAW") == 15,
 			"Each side hands out 5-4-3-2-1 best-and-fairest points")
 	var finals := {}
 	Awards.tally_match(finals, res, false)
-	_check(_sum(finals, "votes") == 0 and _sum(finals, "goals_ha") == 0,
-			"Finals give no Brownlow votes and no Coleman goals")
+	_check(_sum(finals, "votes") == 0 and _sum(finals, "coaches") == 0 and _sum(finals, "goals_ha") == 0,
+			"Finals give no Brownlow/coaches votes and no Coleman goals")
 	_check(_sum(finals, "goals") > 0, "Finals goals still count in the season tally")
 
 
@@ -67,6 +68,9 @@ func _test_full_season() -> void:
 	var brownlow: Array = aw.get("brownlow", [])
 	_check(not brownlow.is_empty() and int(brownlow[0]["votes"]) >= 15,
 			"A Brownlow medallist with a real tally (%d)" % (int(brownlow[0]["votes"]) if not brownlow.is_empty() else 0))
+	var coaches: Array = aw.get("coaches_award", [])
+	_check(not coaches.is_empty() and int(coaches[0]["coaches"]) > 0,
+			"A Coaches Award winner comes from accumulated match votes")
 	var coleman: Array = aw.get("coleman", [])
 	_check(not coleman.is_empty() and int(coleman[0]["goals"]) >= 30,
 			"A Coleman medallist with a real tally (%d)" % (int(coleman[0]["goals"]) if not coleman.is_empty() else 0))
