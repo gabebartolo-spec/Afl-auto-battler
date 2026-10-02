@@ -565,8 +565,42 @@ func _trade(body: VBoxContainer) -> void:
 	body.add_child(go)
 	body.add_child(UiKit.lbl("Their list (pick up to 2)", 15, UiKit.EMPH, true))
 	body.add_child(_pick_grid(GameState.season.lists.get(_trade_club, []), _theirs, "Their_"))
+	_draft_picks(body, "Their draft picks", _trade_club, _theirs, "Their_")
 	body.add_child(UiKit.lbl("Your list (pick up to 2)", 15, UiKit.EMPH, true))
 	body.add_child(_pick_grid(GameState.my_list, _mine, "Mine_"))
+	_draft_picks(body, "Your draft picks", GameState.my_club, _mine, "Mine_")
+
+
+## A club's tradeable draft picks, earliest first: "2027 first round, No. 3",
+## and the club it came from if it was traded in.
+func _draft_picks(body: VBoxContainer, title: String, code: String, chosen: Array, prefix: String) -> void:
+	var picks := GameState.club_picks(code)
+	if picks.is_empty():
+		return
+	body.add_child(UiKit.lbl(title, 15, UiKit.EMPH, true))
+	var v := UiKit.vbox(3)
+	for pk in picks:
+		var id := str(pk["id"])
+		var b := UiKit.tab(_pick_label(pk), chosen.has(id))
+		b.name = prefix + id.replace(":", "_")
+		b.custom_minimum_size = Vector2(0, 40)
+		b.clip_text = true
+		b.pressed.connect(func():
+			if chosen.has(id):
+				chosen.erase(id)
+			elif chosen.filter(func(x): return str(x).begins_with("pick:")).size() < 3:
+				chosen.append(id)
+			_build())
+		v.add_child(b)
+	body.add_child(v)
+
+
+func _pick_label(pk: Dictionary) -> String:
+	var nth: String = ["first", "second", "third", "fourth"][clampi(int(pk["round"]) - 1, 0, 3)]
+	var text := "%d %s round, No. %d" % [int(pk["year"]), nth, int(pk["positions"][0][0])]
+	if str(pk["origin"]) != str(pk["owner"]):
+		text += " (via %s)" % GameDB.club_name(str(pk["origin"]))
+	return text
 
 
 func _pick_grid(list: Array, chosen: Array, prefix: String) -> Control:
@@ -585,7 +619,7 @@ func _pick_grid(list: Array, chosen: Array, prefix: String) -> Control:
 		b.pressed.connect(func():
 			if chosen.has(id):
 				chosen.erase(id)
-			elif chosen.size() < 2:
+			elif chosen.filter(func(x): return not str(x).begins_with("pick:")).size() < 2:
 				chosen.append(id)
 			_build())
 		v.add_child(b)
@@ -595,6 +629,11 @@ func _pick_grid(list: Array, chosen: Array, prefix: String) -> Control:
 func _names(ids: Array, club: String) -> String:
 	var out := []
 	for id in ids:
+		if str(id).begins_with("pick:"):
+			var pk := GameState.pick_asset(str(id))
+			if not pk.is_empty():
+				out.append(str(pk["name"]))
+			continue
 		for p in GameState.season.lists.get(club, []):
 			if str(p["id"]) == str(id):
 				out.append(GameDB.player_display_name(p))
