@@ -118,6 +118,7 @@ var speccy_rng := RandomNumberGenerator.new()
 var discipline_rng := RandomNumberGenerator.new()
 var mro_rng := RandomNumberGenerator.new()
 var restart_rng := RandomNumberGenerator.new()
+var free_rng := RandomNumberGenerator.new()
 var _speccy_quota := 0
 var _speccies := 0
 ## Boundary law rolls are isolated from the calibrated play RNG. Adding or
@@ -182,6 +183,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	discipline_rng.seed = seed * 41 + 43
 	mro_rng.seed = seed * 47 + 53
 	restart_rng.seed = seed * 59 + 61
+	free_rng.seed = seed * 67 + 71
 	_speccy_quota = speccy_quota(seed)
 	boundary_rng.seed = seed * 17 + 19
 	injury_rng.seed = seed * 13 + 7
@@ -821,6 +823,54 @@ func _clanger_weights(side: int) -> Array:
 	return [weights, w_all / w_base if w_base > 0.0 else 1.0]
 
 
+## Pay a contextual free at the actual contest. Every free records a cause,
+## offender and recipient, and shares the normal post-free 50m path.
+func _pay_free(receiving_side: int, mark_fp: float, offender, recipient, cause: String) -> Dictionary:
+	if recipient == null:
+		recipient = _free_to(receiving_side, mark_fp if receiving_side == 0 else -mark_fp)
+	_t(receiving_side, "frees_for")
+	_p(recipient, "frees_for")
+	_t(1 - receiving_side, "frees_against")
+	_p(offender, "frees_against")
+	var who := GameDB.player_display_name(recipient) if recipient != null else "the opposition"
+	_emit("free", receiving_side, mark_fp, recipient, "%s — free kick to %s" % [cause, who])
+	var ev: Dictionary = events[events.size() - 1]
+	ev["cause"] = cause
+	ev["against_id"] = "" if offender == null else str(offender.get("id", ""))
+	ev["against_name"] = "" if offender == null else GameDB.player_display_name(offender)
+	var restart_fp := _maybe_fifty(receiving_side, mark_fp, offender, recipient)
+	return {"outcome": "free", "fp": restart_fp, "actor": recipient}
+
+
+func _tackle_free(side: int, carrier, tackler, mark_fp: float, retained: bool) -> Dictionary:
+	if carrier == null or tackler == null:
+		return {}
+	var high_p := 0.035 * (1.25 - 0.50 * _a(tackler, "discipline") / 100.0)
+	if _trait(tackler, "hothead"):
+		high_p *= 1.35
+	if free_rng.randf() < clampf(high_p, 0.012, 0.055):
+		return _pay_free(side, mark_fp, tackler, carrier, "High contact")
+	if not retained:
+		var htb_p := clampf(0.16 + 0.16 * _a(tackler, "pressure") / 100.0
+				- 0.10 * _a(carrier, "contested") / 100.0, 0.10, 0.25)
+		if free_rng.randf() < htb_p:
+			return _pay_free(1 - side, mark_fp, carrier, tackler, "Holding the ball")
+	return {}
+
+
+func _marking_free(side: int, mark_fp: float, forward, defender) -> Dictionary:
+	if forward == null or defender == null:
+		return {}
+	var def_p := 0.055 * (1.20 - 0.45 * _a(defender, "discipline") / 100.0)
+	var fwd_p := 0.018 * (1.20 - 0.45 * _a(forward, "discipline") / 100.0)
+	var roll := free_rng.randf()
+	if roll < clampf(def_p, 0.025, 0.075):
+		return _pay_free(side, mark_fp, defender, forward, "Holding in the marking contest")
+	if roll < clampf(def_p + fwd_p, 0.04, 0.10):
+		return _pay_free(1 - side, mark_fp, forward, defender, "Blocking in the marking contest")
+	return {}
+
+
 ## A free can be marched 50 for dissent, encroachment or delay. We do not
 ## pretend to simulate umpire micromanagement: discipline and Hothead only
 ## alter a small post-free risk. Returns the new mark for the free.
@@ -1322,7 +1372,11 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 					* (0.75 + 0.50 * _a(carrier, "contested") / 100.0))
 			if _trait(carrier, "bull"):
 				retain *= 1.10
-			if rng.randf() < retain:
+			var retained := rng.randf() < retain
+			var tackle_free := _tackle_free(side, carrier, tackler, fp, retained)
+			if not tackle_free.is_empty():
+				return tackle_free
+			if retained:
 				var before_fp := fp
 				fp = clampf(fp + rng.randf_range(4.0, 12.0) * dir, -gline, gline)
 				_metres(side, carrier, (fp - before_fp) * dir)
@@ -1454,6 +1508,10 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	if not matched.is_empty():
 		defender = matched
 		duel_shift = Matchups.mark_shift(shooter, matched)
+
+	var marking_free := _marking_free(side, fp, shooter, defender)
+	if not marking_free.is_empty():
+		return marking_free
 
 	var mark_edge := 0.06 if _trait(shooter, "aerial") else 0.0
 	# A named contest can be lopsided: a great forward on a small defender
@@ -2077,7 +2135,7 @@ func _play_one_chain(T: Dictionary) -> void:
 		_p(err, "clangers")
 		_emit("clanger", side, fp, err,
 				"%s gives away a clanger" % GameDB.player_display_name(err))
-		if rng.randf() < float(T["clanger_is_free"]):
+		if rng.randf() < float(T["clanger_is_free"]) * 0.35:
 			var recipient = _free_to(1 - side, fp if side == 0 else -fp)
 			_t(1 - side, "frees_for")
 			_p(recipient, "frees_for")
@@ -2086,7 +2144,11 @@ func _play_one_chain(T: Dictionary) -> void:
 			next_side = 1 - side
 			_prev_end = "free"
 			_emit("free", 1 - side, fp, recipient,
-					"Free kick against %s" % GameDB.player_display_name(err))
+					"Other infringement — free kick against %s" % GameDB.player_display_name(err))
+			var fev: Dictionary = events[events.size() - 1]
+			fev["cause"] = "Other infringement"
+			fev["against_id"] = str(err.get("id", ""))
+			fev["against_name"] = GameDB.player_display_name(err)
 			fp = _maybe_fifty(1 - side, fp, err, recipient)
 	_after_chain()
 
