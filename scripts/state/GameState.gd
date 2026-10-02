@@ -79,6 +79,7 @@ var losing_streak := 0
 ## defender id}, on top of the default set-up. Cleared after each of your
 ## matches - every opponent is a new problem.
 var my_matchups := {}
+var my_interceptor := ""       # defender roaming as the spare this week
 var last_side: Array = []       # ids of your players who took the field in your last match
 ## What the event cards have already raised this season (ClubLife.pick_event
 ## memory): "extension|id", "media|id" -> true, "unhappy|id" -> round.
@@ -296,6 +297,7 @@ func save_career() -> bool:
 		"week_event": week_event,
 		"losing_streak": losing_streak,
 		"my_matchups": my_matchups,
+		"my_interceptor": my_interceptor,
 		"last_side": last_side,
 		"event_memory": event_memory,
 		"db_draftees": GameDB.draftees,
@@ -404,6 +406,7 @@ func load_career() -> bool:
 	week_event = state.get("week_event", {})
 	losing_streak = int(state.get("losing_streak", 0))
 	my_matchups = state.get("my_matchups", {})
+	my_interceptor = str(state.get("my_interceptor", ""))
 	last_side = state.get("last_side", [])
 	event_memory = state.get("event_memory", {})
 	difficulty = str(state.get("difficulty", "normal"))
@@ -1681,6 +1684,24 @@ func set_my_matchup(fwd_id: String, def_id: String) -> void:
 	my_matchups[fwd_id] = def_id
 	_sync_club_plan()
 	mark_dirty()
+
+
+## Give one selected defender licence to roam the backline. "" removes it.
+func set_my_interceptor(def_id: String) -> void:
+	if def_id != "":
+		var p := list_player(def_id)
+		if p.is_empty() or str(p.get("role", "")) != "DEF":
+			return
+	my_interceptor = def_id
+	_sync_club_plan()
+	mark_dirty()
+
+
+func interceptor_options() -> Array:
+	var out := []
+	for p in Matchups.defenders(my_squad().ground):
+		out.append(p)
+	return out
 
 
 ## Your own side's week worth knowing (Matchup.own_notes).
@@ -4398,6 +4419,7 @@ func _sync_club_plan() -> void:
 	if season != null:
 		season.plans = {my_club: club_plan} if club_plan != "balanced" else {}
 		season.matchups = {my_club: my_matchups} if not my_matchups.is_empty() else {}
+		season.interceptors = {my_club: my_interceptor} if my_interceptor != "" else {}
 
 
 ## After each match: your players' last three Player Ratings, and every
@@ -4424,6 +4446,7 @@ func _note_form_and_team(res: Dictionary) -> void:
 		return
 	# This week's match-ups were for this opponent.
 	my_matchups = {}
+	my_interceptor = ""
 	_sync_club_plan()
 	var side := 0 if codes[0] == my_club else 1
 	var roster: Array = res.get("roster", [[], []])
