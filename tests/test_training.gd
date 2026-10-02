@@ -483,7 +483,7 @@ func _test_training_multiselect() -> void:
 	for p in GameState.my_list:
 		if str(p.get("role", "")) == "MID" and mids.size() < 2:
 			mids.append(p)
-		elif str(p.get("role", "")) == "DEF" and defender.is_empty():
+		elif str(p.get("role", "")) == "DEF" and str(p.get("role2", "")) != "MID" and defender.is_empty():
 			defender = p
 	_check(mids.size() == 2 and not defender.is_empty(), "(setup) group training has two mids and a defender")
 
