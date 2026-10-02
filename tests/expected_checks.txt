@@ -29,7 +29,7 @@ achievements 153
 contracts 100
 league 19
 club 98
-match_game 122
+match_game 130
 pressure 21
 workload 32
 match_visual 55
