@@ -136,6 +136,20 @@ func _run() -> void:
 		real_setting.emit_signal("pressed")
 		await _settle()
 	_check(_state.show_real_names, "Choosing Real in Settings shows real names straight away")
+	var mute_on: Button = current_scene.find_child("SettingsMuteSounds_on", true, false)
+	var mute_off: Button = current_scene.find_child("SettingsMuteSounds_off", true, false)
+	_check(mute_on != null and mute_off != null, "Settings offers Mute sounds")
+	if mute_on != null:
+		mute_on.emit_signal("pressed")
+	var master_bus := AudioServer.get_bus_index("Master")
+	_check(_state.sounds_muted()
+			and (master_bus < 0 or AudioServer.is_bus_mute(master_bus)),
+			"Mute sounds immediately mutes the Master audio bus")
+	if mute_off != null:
+		mute_off.emit_signal("pressed")
+	_check(not _state.sounds_muted()
+			and (master_bus < 0 or not AudioServer.is_bus_mute(master_bus)),
+			"Sounds can be switched back on")
 	_check(OS.has_feature("web") or current_scene.find_child("QuitGame", true, false) != null,
 			"Quit lives in Settings")
 	current_scene.find_child("SettingsNames_generated", true, false).emit_signal("pressed")
