@@ -147,6 +147,28 @@ func _build() -> void:
 	if not GameState.season_awards.is_empty():
 		page.add_child(_awards_panel())
 
+
+	# --- history -------------------------------------------------------------
+	var history_lines := GameState.history_record_lines()
+	var honours := GameState.recent_honours(5)
+	if not history_lines.is_empty() or not honours.is_empty():
+		var hp := UiKit.panel(UiKit.PANEL, 14)
+		hp.name = "HistoryRecords"
+		page.add_child(hp)
+		var hv := UiKit.vbox(5)
+		hp.add_child(hv)
+		hv.add_child(UiKit.lbl("History & records", 17, UiKit.EMPH, true))
+		for line in history_lines:
+			hv.add_child(UiKit.lbl(str(line), 13, UiKit.TEXT))
+		if not honours.is_empty():
+			hv.add_child(UiKit.spacer(4))
+			hv.add_child(UiKit.lbl("Recent premiers", 12, UiKit.MUTED, true))
+			for h in honours:
+				var premier_code := str((h as Dictionary).get("premier", ""))
+				if premier_code != "":
+					hv.add_child(UiKit.lbl("%d  %s" % [int((h as Dictionary).get("year", 0)),
+							GameDB.club_name(premier_code)], 13, UiKit.TEXT))
+
 	# --- club achievements ----------------------------------------------------
 	page.add_child(_achievements_panel())
 
