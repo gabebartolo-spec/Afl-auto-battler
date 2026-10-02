@@ -14,6 +14,7 @@ func run() -> void:
 	checks = 0
 	GameDB.reload()
 	_test_vote_arithmetic()
+	_test_brownlow_eligibility()
 	_test_full_season()
 	GameState.delete_saved_career()
 	print("Awards tests: %d checks, %d failures" % [checks, failures.size()])
@@ -56,6 +57,32 @@ func _test_vote_arithmetic() -> void:
 	_check(_sum(finals, "goals") > 0, "Finals goals still count in the season tally")
 
 
+## Ineligibility changes only who can receive the medal. Votes remain in
+## raw order, and a successful challenge (flag cleared) restores eligibility.
+func _test_brownlow_eligibility() -> void:
+	var tally := {
+		"reported": {"club": "GEE", "games": 20, "goals_ha": 10, "votes": 30,
+				"coaches": 40, "bf": 50, "influence": 160.0},
+		"eligible": {"club": "HAW", "games": 20, "goals_ha": 8, "votes": 24,
+				"coaches": 35, "bf": 45, "influence": 150.0},
+	}
+	var players := {
+		"reported": {"role": "MID", "age": 26.0, "brownlow_ineligible": true},
+		"eligible": {"role": "MID", "age": 25.0},
+	}
+	var aw := Awards.season_awards(tally, players, 2030)
+	var count: Array = aw["brownlow"]
+	_check(str(count[0]["id"]) == "reported" and int(count[0]["votes"]) == 30
+			and not bool(count[0]["brownlow_eligible"]),
+			"An ineligible player keeps every vote and stays in raw vote order")
+	_check(str((aw["brownlow_winner"] as Dictionary).get("id", "")) == "eligible",
+			"The medal goes to the highest eligible poller")
+	(players["reported"] as Dictionary).erase("brownlow_ineligible")
+	var appealed := Awards.season_awards(tally, players, 2030)
+	_check(str((appealed["brownlow_winner"] as Dictionary).get("id", "")) == "reported",
+			"A successful appeal restores Brownlow eligibility without changing votes")
+
+
 func _test_full_season() -> void:
 	GameState.reset()
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
@@ -66,8 +93,9 @@ func _test_full_season() -> void:
 	var aw: Dictionary = GameState.season_awards
 	_check(int(aw.get("year", 0)) == GameDB.START_YEAR, "The season's awards are decided at the Grand Final")
 	var brownlow: Array = aw.get("brownlow", [])
-	_check(not brownlow.is_empty() and int(brownlow[0]["votes"]) >= 15,
-			"A Brownlow medallist with a real tally (%d)" % (int(brownlow[0]["votes"]) if not brownlow.is_empty() else 0))
+	var brownlow_winner: Dictionary = aw.get("brownlow_winner", {})
+	_check(not brownlow_winner.is_empty() and int(brownlow_winner["votes"]) >= 15,
+			"A Brownlow medallist with a real tally (%d)" % (int(brownlow_winner.get("votes", 0))))
 	var coaches: Array = aw.get("coaches_award", [])
 	_check(not coaches.is_empty() and int(coaches[0]["coaches"]) > 0,
 			"A Coaches Award winner comes from accumulated match votes")
@@ -112,7 +140,7 @@ func _test_full_season() -> void:
 	_check(games_ok, "All-Australians played 12+ games")
 	_check(GameState.honour_roll.size() == 1 and not GameState.records.is_empty(),
 			"The honour roll and records are written")
-	_check(GameState.award_name(brownlow[0]) != "", "Award winners have names")
+	_check(GameState.award_name(brownlow_winner) != "", "Award winners have names")
 	GameState.save_career()
 	GameState.load_career()
 	_check(int(GameState.season_awards.get("year", 0)) == GameDB.START_YEAR and GameState.honour_roll.size() == 1,
