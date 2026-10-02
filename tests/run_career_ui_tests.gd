@@ -75,6 +75,46 @@ func test_media_conference_rules() -> void:
 	_check(stage._ready, "Media vignette can skip its play-in to the question")
 
 
+func _test_player_goal_milestones() -> void:
+	var p := {"id": "milestone_test", "name": "Milestone Test", "club": "MEL",
+			"career": {"games": 12, "goals": 0, "stints": [], "through": _state.season_year - 1, "unknown": []}}
+	var old_season := _state.season
+	var old_tally := _state.season_tally
+	var old_news := _state.news
+	var SeasonScript = load("res://scripts/sim/Season.gd")
+	_state.season = SeasonScript.new(["MEL", "CAR"], {"MEL": [p], "CAR": []})
+	_state.season_tally = {"milestone_test": {"club": "MEL", "games": 1, "goals": 1, "goals_ha": 1}}
+	_state.news = []
+	_state._player_milestone_news({"home": "MEL", "away": "CAR",
+			"roster": [[{"id": "milestone_test"}], []],
+			"players": {"milestone_test": {"goals": 1}}})
+	_check(_state.news.size() == 1 and str(_state.news[0].get("text", "")).contains("first AFL goal"),
+			"A provable first AFL goal is recorded as a milestone")
+	p["career"]["unknown"] = [[2020, 2021]]
+	_state.news = []
+	_state._player_milestone_news({"home": "MEL", "away": "CAR",
+			"roster": [[{"id": "milestone_test"}], []],
+			"players": {"milestone_test": {"goals": 1}}})
+	_check(_state.news.is_empty(), "Unknown historical seasons never fabricate a first-goal milestone")
+	_state.season = old_season
+	_state.season_tally = old_tally
+	_state.news = old_news
+
+func _test_history_records_are_stored_facts() -> void:
+	var old_records := _state.records
+	var old_roll := _state.honour_roll
+	_state.records = {"highest_score": {"value": 151, "club": "MEL", "opp": "CAR", "year": 2028},
+			"biggest_win": {"value": 72, "club": "MEL", "opp": "CAR", "year": 2029}}
+	_state.honour_roll = [{"year": 2028, "premier": "COL"}, {"year": 2029, "premier": "MEL"}]
+	var lines := _state.history_record_lines()
+	_check(lines.size() == 2 and str(lines[0]).contains("151") and str(lines[1]).contains("72"),
+			"History surface reads the stored league records")
+	var honours := _state.recent_honours(1)
+	_check(honours.size() == 1 and int(honours[0]["year"]) == 2029,
+			"History surface reads the stored honour roll newest first")
+	_state.records = old_records
+	_state.honour_roll = old_roll
+
 func _check(condition: bool, message: String) -> void:
 	_checks += 1
 	if not condition:
@@ -106,6 +146,8 @@ func _run() -> void:
 	_state = root.get_node("GameState")
 	_router = root.get_node("Router")
 	_db = root.get_node("GameDB")
+	_test_history_records_are_stored_facts()
+	_test_player_goal_milestones()
 	test_media_conference_rules()
 	# Never touch a real career save or settings file from a test run.
 	_state.autosave_enabled = false
