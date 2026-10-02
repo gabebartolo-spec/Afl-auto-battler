@@ -87,7 +87,7 @@ static func build_intake(all_players: Array, p_clubs: Array, p_order: Array,
 	d.existing_roles = p_existing_roles
 	# Rookie deals sit outside the list cap the career draft enforces; money is
 	# not the constraint here, list space is.
-	d.budget = 999999
+	d.budget = 999999999
 	return d
 
 
