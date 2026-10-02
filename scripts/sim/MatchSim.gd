@@ -47,6 +47,10 @@ var standing := ["balanced", "balanced"]
 ## Named match-ups (Matchups, Gate 1.12): per defending side, which defender
 ## stands on each of the other side's key forwards. {forward id: defender id}.
 var duels := [{}, {}]
+## Defender given licence to leave his man and hunt aerial balls behind play.
+## This is a role/assignment, not an extra player.
+var interceptor := ["", ""]
+var interceptor_changes: Array = []
 ## Every contest a matched forward and his direct opponent played:
 ## forward id -> {"side": attacking side, "contests": [[q, defender id,
 ## forward marked, goal from it]]}.
@@ -208,6 +212,13 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 		for p in (squads[side] as Squad).bench:
 			energy_caps[str(p["id"])] = Workload.energy_cap(p)
 			energy[str(p["id"])] = _start_energy(p)
+	# AI clubs with the personnel start with a genuine loose interceptor; the
+	# human side starts neutral and can choose one in the coach box.
+	for side in range(2):
+		if (squads[side] as Squad).ai_plans:
+			var best := Matchups.best_interceptor((squads[side] as Squad).ground)
+			if not best.is_empty():
+				set_interceptor(side, str(best["id"]), false)
 	_plan_injuries()
 
 
@@ -236,6 +247,10 @@ static func _start_energy(p: Dictionary) -> float:
 func set_matchup(def_side: int, fwd_id: String, def_id: String, during := true) -> bool:
 	if def_side < 0 or def_side > 1:
 		return false
+	# A defender cannot be both the nominated loose man and a strict direct
+	# opponent. Putting him back on someone removes the roaming instruction.
+	if str(interceptor[def_side]) == def_id:
+		set_interceptor(def_side, "", during)
 	var att: Squad = squads[1 - def_side]
 	var own: Squad = squads[def_side]
 	var fwd_ok := false
@@ -280,6 +295,86 @@ func set_matchups(def_side: int, m: Dictionary) -> void:
 		set_matchup(def_side, str(fid), str(m[fid]), false)
 
 
+## Nominate one defender to roam behind the ball. If he had a direct forward,
+## another available defender inherits that job; with nobody spare, that
+## forward becomes unassigned. No extra player is created.
+func set_interceptor(def_side: int, def_id: String, during := true) -> bool:
+	if def_side < 0 or def_side > 1:
+		return false
+	if def_id != "":
+		var found := false
+		for p in (squads[def_side] as Squad).ground + (squads[def_side] as Squad).bench:
+			if str(p.get("id", "")) == def_id and str(p.get("role", "")) == "DEF":
+				found = true
+				break
+		if not found:
+			return false
+	if str(interceptor[def_side]) == def_id:
+		return true
+	var old := str(interceptor[def_side])
+	interceptor[def_side] = def_id
+
+	if def_id != "":
+		var d: Dictionary = duels[def_side]
+		var used := {}
+		for fid in d.keys():
+			var did := str(d[fid])
+			if did != def_id:
+				used[did] = true
+		for fid in d.keys().duplicate():
+			if str(d.get(fid, "")) != def_id:
+				continue
+			var replacement := ""
+			for p in Matchups.defenders((squads[def_side] as Squad).ground):
+				var pid := str(p.get("id", ""))
+				if pid != def_id and not used.has(pid):
+					replacement = pid
+					used[pid] = true
+					break
+			if replacement == "":
+				d.erase(fid)
+			else:
+				d[fid] = replacement
+
+	if during:
+		var from := maxi(1, current_quarter)
+		for i in range(interceptor_changes.size() - 1, -1, -1):
+			var ch: Dictionary = interceptor_changes[i]
+			if int(ch.get("from", 0)) == from and int(ch.get("side", -1)) == def_side:
+				interceptor_changes.remove_at(i)
+		interceptor_changes.append({"q": maxi(1, current_quarter), "from": from,
+				"side": def_side, "from_id": old, "id": def_id})
+	return true
+
+
+func _roaming_interceptor(side: int) -> Dictionary:
+	if side < 0 or side > 1:
+		return {}
+	var id := str(interceptor[side])
+	if id == "":
+		return {}
+	var p := _on_ground(side, id)
+	if p.is_empty() or str(p.get("role", "")) != "DEF":
+		return {}
+	return p
+
+
+## Chance the loose defender actually reaches this aerial contest. Making him
+## accountable drags him away and sharply reduces it, at a cost to the attack.
+func _roam_chance(def_side: int) -> float:
+	var p := _roaming_interceptor(def_side)
+	if p.is_empty():
+		return 0.0
+	var chance := clampf(0.10 + Matchups.interceptor_score(p) / 430.0, 0.20, 0.38)
+	if bool((tactics[1 - def_side] as Dictionary).get("spare_accountable", false)):
+		chance *= 0.40
+	return chance
+
+
+func _spare_accountable(attacking_side: int) -> bool:
+	return bool((tactics[attacking_side] as Dictionary).get("spare_accountable", false)) 			and not _roaming_interceptor(1 - attacking_side).is_empty()
+
+
 ## An AI club moves a key defender when their forward has had the better of
 ## him: three or more contests last quarter and two in three won. It tries
 ## the next defender a coach would, not the ideal one.
@@ -306,6 +401,8 @@ func set_tactics(side: int, t: Dictionary) -> void:
 	if side < 0 or side > 1:
 		return
 	tactics[side] = t.duplicate()
+	if t.has("interceptor_id"):
+		set_interceptor(side, str(t.get("interceptor_id", "")), current_quarter > 1 or _q_active)
 	# A tag needs its man still in the match.
 	var tag := str(t.get("tag_id", ""))
 	if tag != "" and not taking_part(1 - side, tag):
@@ -2046,7 +2143,7 @@ func begin_quarter() -> void:
 	# have seen (no dice: replays are unchanged).
 	for side in range(2):
 		if (squads[side] as Squad).ai_plans:
-			tactics[side] = ai_tactics(side)
+			set_tactics(side, ai_tactics(side))
 			if current_quarter > 1:
 				_ai_rematch(side)
 	_q_active = true
@@ -2324,6 +2421,8 @@ func result() -> Dictionary:
 		"duels": duel_log.duplicate(true),
 		"duel_changes": duel_changes.duplicate(true),
 		"matchups": duels.duplicate(true),
+		"interceptor": interceptor.duplicate(),
+		"interceptor_changes": interceptor_changes.duplicate(true),
 		"injuries": injuries.duplicate(true),
 		"reports": reports.duplicate(true),
 		"synergies": synergies.duplicate(true),
