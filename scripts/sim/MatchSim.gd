@@ -1872,6 +1872,16 @@ const ENERGY_BENCH_RECOVER := 4.0    # per chain on the bench
 const ENERGY_BREAK_RECOVER := 20.0   # at each quarter break
 const ROTATE_EVERY := 3              # chains between rotation checks
 const ROLE_DRAIN := {"MID": 1.25, "RUCK": 1.15, "DEF": 0.85, "FWD": 0.9}
+## GPS-style distance covered. A full-game player at the base rate covers
+## about 14.8 km before role and tactical modifiers; rotations bring the
+## typical match-day player into the AFL-like 10-14 km range.
+const GPS_METRES_PER_CHAIN := 82.0
+const GPS_ROLE_MULT := {"MID": 1.08, "RUCK": 1.00, "DEF": 0.95, "FWD": 0.92}
+const GPS_WING_MULT := 1.12
+const GPS_TOUCH_MULT := 1.04
+const GPS_FOCUS_MULT := 1.06
+const GPS_TAGGER_MULT := 1.08
+const GPS_TAGGED_MULT := 1.06
 const STAR_OVR := 80
 ## Riding the stars, a star this cooked brings the one tired call of the match.
 const TIRED_CALL := 45.0
@@ -1942,16 +1952,49 @@ func _after_chain() -> void:
 	momentum *= MOMENTUM_DECAY
 	for side in range(2):
 		var sq: Squad = squads[side]
-		var pace := _pv(side, "pace") * _pep_mult(side, "pace")
+		# Distance and fatigue both respond to the plan's tempo, pep talk and
+		# "throw numbers at it". Running Machine / Engine reduce fatigue only:
+		# good runners still log the kilometres they actually cover.
+		var movement_pace := _pv(side, "pace") * _pep_mult(side, "pace")
 		if _burst(side, "surge"):
-			pace *= 1.3
+			movement_pace *= 1.3
+		var fatigue_pace := movement_pace
 		if synergies[side].has("running_machine"):
-			pace *= 0.70
+			fatigue_pace *= 0.70
+		var tagger_id := ""
+		if _tag_id(side) != "":
+			var tagger = tagger_for(sq.ground)
+			if tagger != null:
+				tagger_id = str(tagger["id"])
 		for p in sq.ground:
 			var id := str(p["id"])
+			var role := str(p["role"])
+			var gps := GPS_METRES_PER_CHAIN * float(GPS_ROLE_MULT.get(role, 1.0)) * movement_pace
+			if Roles.on_wing(p):
+				gps *= GPS_WING_MULT
+			if _chain_touch.has(id):
+				gps *= GPS_TOUCH_MULT
+			if id == _focus_id(side):
+				gps *= GPS_FOCUS_MULT
+			if id == tagger_id:
+				gps *= GPS_TAGGER_MULT
+			if id == _tag_id(1 - side):
+				gps *= GPS_TAGGED_MULT
+			# Short-term calls move specific lines as football would: slowing
+			# down cuts running; a flood asks backs/mids to fold behind the
+			# ball; stacking a stoppage pulls mids/rucks into the contest.
+			if _burst(side, "hold"):
+				gps *= 0.84
+			elif _burst(side, "flood"):
+				gps *= 1.10 if role == "MID" else (1.07 if role == "DEF" or role == "RUCK" else 0.94)
+			elif _burst(side, "stack"):
+				gps *= 1.08 if role == "MID" or role == "RUCK" else 0.98
+			_t(side, "distance_run", gps)
+			_p(p, "distance_run", gps)
+
 			var dur := float((p["attr"] as Dictionary).get("durability", 70.0))
-			var d := ENERGY_DRAIN * float(ROLE_DRAIN.get(str(p["role"]), 1.0)) \
-					* (1.2 - 0.4 * dur / 100.0) * pace
+			var d := ENERGY_DRAIN * float(ROLE_DRAIN.get(role, 1.0)) \
+					* (1.2 - 0.4 * dur / 100.0) * fatigue_pace
 			if _trait(p, "engine"):
 				d *= 0.75
 			exertion[id] = float(exertion.get(id, 0.0)) + d
