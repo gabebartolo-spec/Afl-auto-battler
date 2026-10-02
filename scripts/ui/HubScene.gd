@@ -349,9 +349,12 @@ func _week_section(season: Season) -> Control:
 		nv.add_child(UiKit.ellipsis("Runners-up: %s" % GameDB.club_name(ru),
 				13, UiKit.MUTED))
 		var medal: Array = GameState.season_awards.get("brownlow", [])
-		if not medal.is_empty():
+		var medallist: Dictionary = GameState.season_awards.get("brownlow_winner", {})
+		if medallist.is_empty() and not medal.is_empty():
+			medallist = medal[0]
+		if not medallist.is_empty():
 			nv.add_child(UiKit.ellipsis("Brownlow: %s (%d votes)" % [
-					GameState.award_name(medal[0]), int(medal[0]["votes"])], 13, UiKit.TEXT))
+					GameState.award_name(medallist), int(medallist["votes"])], 13, UiKit.TEXT))
 	elif _upcoming_match().is_empty():
 		match GameState.my_finals_status():
 			"bye":
