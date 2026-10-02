@@ -13,6 +13,7 @@ func run() -> void:
 	_test_auto_sim_untouched()
 	_test_stoppage_location()
 	_test_boundary_rules()
+	_test_authenticity_events()
 	_test_legs_and_rotations()
 	_test_moments()
 	_test_set_shot()
@@ -180,6 +181,89 @@ func _test_boundary_rules() -> void:
 			"Seeded matches produce throw-ins, last-disposal frees and out-on-full frees (%s)" % str(counts))
 	_check(legal_last, "Every last-disposal free is paid between the 50m arcs")
 	_check(throwin_spot, "Boundary throw-ins restart at the crossing field position")
+
+
+## Smothers, speccies, 50s, MRO incidents and kick-ins are all football
+## events/state, not presentation guesses.
+func _test_authenticity_events() -> void:
+	var smothers := 0
+	var speccies := 0
+	var speccy_ok := true
+	var max_speccies := 0
+	var kick_in_ok := true
+	var kick_styles := {}
+	for seed in range(6200, 6224):
+		var sim := _sim(seed)
+		var expected_kicker := str(sim.kick_in_taker(1).get("id", ""))
+		var res: Dictionary = sim.run()
+		var match_speccies := 0
+		for ev in res["events"]:
+			var kind := str(ev.get("kind", ""))
+			if kind == "smother":
+				smothers += 1
+				var id := str(ev.get("player_id", ""))
+				var st: Dictionary = (res["players"] as Dictionary).get(id, {})
+				speccy_ok = speccy_ok and float(st.get("smothers", 0.0)) > 0.0 \
+						and float(st.get("one_percenters", 0.0)) >= float(st.get("smothers", 0.0))
+			if kind == "mark" and bool(ev.get("speccy", false)):
+				speccies += 1
+				match_speccies += 1
+				speccy_ok = speccy_ok and bool(ev.get("contested", false))
+			if kind == "kick" and bool(ev.get("kick_in", false)):
+				kick_styles[str(ev.get("kick_in_style", ""))] = true
+		max_speccies = maxi(max_speccies, match_speccies)
+
+		# A manually staged behind restart uses the same nominated rebounder
+		# and is never a ruck contest.
+		var k := _sim(seed + 100)
+		expected_kicker = str(k.kick_in_taker(1).get("id", ""))
+		k.fp = k.kick_in_fp(0)
+		k.kick_in = true
+		k.next_side = 1
+		k.at_centre = false
+		var n := k.events.size()
+		var before_ho := float((k.team_stats[1] as Dictionary).get("hitouts", 0.0))
+		k._play_one_chain(Ratings.T)
+		var first: Dictionary = k.events[n] if k.events.size() > n else {}
+		kick_in_ok = kick_in_ok and str(first.get("kind", "")) == "kick" \
+				and bool(first.get("kick_in", false)) \
+				and str(first.get("player_id", "")) == expected_kicker \
+				and float((k.team_stats[1] as Dictionary).get("hitouts", 0.0)) == before_ho
+		if bool(first.get("kick_in", false)):
+			kick_styles[str(first.get("kick_in_style", ""))] = true
+
+	_check(smothers > 0 and speccy_ok, "Smothers are real one-percenters in the match log (%d)" % smothers)
+	_check(speccies > 0 and max_speccies <= 2,
+			"Speccies are genuine contested marks, never more than two a match (%d in sample)" % speccies)
+	_check(kick_in_ok, "A behind restarts with the side's designated rebounding defender, no ruck contest")
+	_check(kick_styles.has("safe") and kick_styles.has("play_on"),
+			"Kick-ins include both safer exits and play-on exits (%s)" % str(kick_styles))
+
+	var goal_line := float(Ratings.T["goal_line"])
+	_check(is_equal_approx(MatchSim.fifty_mark(0, 0.0, goal_line), 50.0)
+			and is_equal_approx(MatchSim.fifty_mark(1, 10.0, goal_line), -40.0),
+			"A 50-metre penalty advances exactly 50m toward the receiving side's goal")
+	_check(is_equal_approx(MatchSim.fifty_mark(0, 70.0, goal_line), goal_line),
+			"A 50 stops at the goal line rather than marching through it")
+
+	var mro := _sim(7001)
+	var offender: Dictionary = (mro.squads[0] as Squad).ground[0]
+	var victim: Dictionary = (mro.squads[1] as Squad).ground[0]
+	(offender["attr"] as Dictionary)["discipline"] = 1
+	for i in range(800):
+		mro._maybe_report(0, offender, victim)
+	var valid_mro := not mro.reports.is_empty()
+	var suspended := 0
+	for row in mro.reports:
+		valid_mro = valid_mro and ["no_action", "fine", "suspension"].has(str(row.get("outcome", ""))) \
+				and str(row.get("id", "")) == str(offender["id"]) \
+				and str(row.get("victim_id", "")) == str(victim["id"])
+		if str(row.get("outcome", "")) == "suspension":
+			var w := int(row.get("weeks", 0))
+			valid_mro = valid_mro and w >= 1 and w <= 3
+			suspended += 1
+	_check(valid_mro and suspended > 0,
+			"Reportable tackles resolve once to no action, fine or 1-3 match suspension (%d reports)" % mro.reports.size())
 
 
 func _test_legs_and_rotations() -> void:
