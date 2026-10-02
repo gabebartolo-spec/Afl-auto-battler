@@ -1814,9 +1814,10 @@ func _play_one_chain(T: Dictionary) -> void:
 		start_fp = 0.0 if at_centre else fp
 		_ruck_tap()
 		side = contest_winner(false, start_fp)
-		if not at_centre:
-			_emit("throwin" if from_boundary else "ballup", -1, start_fp, null,
-					"Boundary throw-in" if from_boundary else "Ball-up")
+		if not at_centre and not from_boundary:
+			# Boundary exits already logged the throw-in when the ball crossed;
+			# this chain is just the contested restart at that same spot.
+			_emit("ballup", -1, start_fp, null, "Ball-up")
 	else:
 		start_fp = fp
 		side = next_side if next_side >= 0 else contest_winner(true, fp)
