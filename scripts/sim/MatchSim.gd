@@ -382,6 +382,32 @@ func _tag_id(side: int) -> String:
 	return str((tactics[side] as Dictionary).get("tag_id", ""))
 
 
+func _spare_id(side: int) -> String:
+	var id := str((tactics[side] as Dictionary).get("spare_id", ""))
+	return id if id != "" and not _on_ground(side, id).is_empty() else ""
+
+
+## A defender suitable to roam as the spare: reading play and winning it in
+## the air matter more than OVR. Deterministic, and used by the AI too.
+static func interceptor_value(p: Dictionary) -> float:
+	var a: Dictionary = p.get("attr", {})
+	return 0.50 * float(a.get("intercept", 0.0)) + 0.30 * float(a.get("marking", 0.0)) \
+			+ 0.20 * float(a.get("disposal", 0.0))
+
+
+static func best_interceptor(ground: Array) -> Dictionary:
+	var best := {}
+	var best_v := -INF
+	for p in ground:
+		if str(p.get("role", "")) != "DEF":
+			continue
+		var v := interceptor_value(p)
+		if best.is_empty() or v > best_v:
+			best = p
+			best_v = v
+	return best
+
+
 ## A tag in the midfield battle: contest points `side` loses to tags this
 ## chain. Their tag on one of ours takes that share of his game (1 - the tag
 ## share) out of our midfield - the better he is, the more it hurts. Our own
@@ -717,6 +743,12 @@ func contest_winner(use_fp: bool, fp: float) -> int:
 	p_home += momentum_edge * momentum
 	var b0 := _contest_bonus(0, not use_fp)
 	var b1 := _contest_bonus(1, not use_fp)
+	# Keeping a defender loose behind the ball means one fewer body around
+	# general contests. That is the structural price for his intercept licence.
+	if _spare_id(0) != "":
+		b0 -= 0.018
+	if _spare_id(1) != "":
+		b1 -= 0.018
 	p_home += b0 - b1
 	_credit_contest(0, not use_fp)
 	_credit_contest(1, not use_fp)
@@ -1037,10 +1069,20 @@ func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bo
 	if receiver == null or defenders.is_empty():
 		return {}
 	var defender = _weighted(defenders, "intercept", 2.0, opp, "defender")
+	var spare := _on_ground(opp, _spare_id(opp))
+	if not spare.is_empty():
+		# The spare is deliberately allowed to leave his man and attack the
+		# aerial ball. He does not materialise as a 19th player: the contest
+		# cost above is what his side gives up elsewhere.
+		if aerial_rng.randf() < clampf(0.42 + interceptor_value(spare) / 220.0, 0.55, 0.82):
+			defender = spare
 	var receive := _a(receiver, "marking")
 	var stop := 0.62 * _a(defender, "intercept") + 0.38 * _a(defender, "marking")
 	var mark_p := clampf(0.34 + (receive - stop) / 240.0
 			+ (0.05 if _trait(receiver, "aerial") else 0.0), 0.16, 0.55)
+	var marking_free := _marking_free(side, mark_fp, receiver, defender)
+	if not marking_free.is_empty():
+		return marking_free
 	var roll := aerial_rng.randf()
 	if roll < mark_p:
 		_t(side, "marks")
@@ -1056,7 +1098,8 @@ func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bo
 		mev["general_play"] = true
 		return {"outcome": "mark", "actor": receiver}
 	var spoil_p := clampf(0.36 + (stop - receive) / 220.0
-			+ (0.07 if _trait(defender, "interceptor") else 0.0), 0.20, 0.65)
+			+ (0.07 if _trait(defender, "interceptor") else 0.0)
+			+ (0.08 if str(defender.get("id", "")) == _spare_id(opp) else 0.0), 0.20, 0.73)
 	if roll < mark_p + spoil_p:
 		_t(opp, "spoils")
 		_p(defender, "spoils")
@@ -1558,6 +1601,9 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	if dgroup.is_empty():
 		dgroup = dfn.ground
 	var defender = _weighted(dgroup, "intercept", 2.0, opp, "defender")
+	var spare := _on_ground(opp, _spare_id(opp))
+	if not spare.is_empty() and rng.randf() < clampf(0.35 + interceptor_value(spare) / 250.0, 0.48, 0.72):
+		defender = spare
 	# A forward with a direct opponent contests it with him: their aerial
 	# games decide it on top of the lines (Matchups).
 	_duel = {}
@@ -1609,6 +1655,8 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		mev["contested"] = contested
 		mev["speccy"] = speccy
 	var spoil_edge := 0.05 if defender != null and _trait(defender, "interceptor") else 0.0
+	if defender != null and str(defender.get("id", "")) == _spare_id(opp):
+		spoil_edge += 0.08
 	var spoil_read := dfn.def_intercept
 	if not matched.is_empty():
 		# His own reading of the ball, alongside the line's.
@@ -2193,21 +2241,13 @@ func _play_one_chain(T: Dictionary) -> void:
 		_p(err, "clangers")
 		_emit("clanger", side, fp, err,
 				"%s gives away a clanger" % GameDB.player_display_name(err))
-		if rng.randf() < float(T["clanger_is_free"]) * 0.35:
-			var recipient = _free_to(1 - side, fp if side == 0 else -fp)
-			_t(1 - side, "frees_for")
-			_p(recipient, "frees_for")
-			_t(side, "frees_against")
-			_p(err, "frees_against")
+		# Small residual bucket for laws the event model does not explicitly
+		# simulate. Most frees now come from actual tackles/marking/boundary play.
+		if rng.randf() < float(T["clanger_is_free"]) * 0.18:
+			var other := _pay_free(1 - side, fp, err, null, "Other infringement")
 			next_side = 1 - side
 			_prev_end = "free"
-			_emit("free", 1 - side, fp, recipient,
-					"Other infringement — free kick against %s" % GameDB.player_display_name(err))
-			var fev: Dictionary = events[events.size() - 1]
-			fev["cause"] = "Other infringement"
-			fev["against_id"] = str(err.get("id", ""))
-			fev["against_name"] = GameDB.player_display_name(err)
-			fp = _maybe_fifty(1 - side, fp, err, recipient)
+			fp = float(other.get("fp", fp))
 	_after_chain()
 
 
@@ -3088,6 +3128,11 @@ func ai_tactics(side: int) -> Dictionary:
 		# not working, so it chases. Only what a coach sees - the scoreboard.
 		plan = "attacking"
 	var t := {"gameplan": plan, "pep": "fire_up" if margin <= -12 and current_quarter >= 3 else "steady"}
+	# AI uses the same structure from visible personnel, not the user's hidden
+	# choice. It only frees a genuinely strong reader of the ball.
+	var spare := best_interceptor((squads[side] as Squad).ground)
+	if not spare.is_empty() and interceptor_value(spare) >= 72.0 and margin >= -12:
+		t["spare_id"] = str(spare["id"])
 	var tagger = tagger_for((squads[side] as Squad).ground)
 	if current_quarter >= (2 if read >= 0.4 else 3) and tagger != null and Roles.is_tagger(tagger):
 		var best := ""
