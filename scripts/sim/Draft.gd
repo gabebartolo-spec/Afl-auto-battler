@@ -7,7 +7,6 @@ extends RefCounted
 ## list. The human chooses on their club's turns; the rival clubs auto-pick
 ## between those turns from the same remaining pool and under the same cap.
 
-const CAP_FRACTION := 0.58
 
 ## End-of-season intake (rookie) draft: clubs KEEP their existing lists and
 ## take turns from a small prospect pool only. The salary cap is a formality
@@ -95,13 +94,11 @@ static func build_intake(all_players: Array, p_clubs: Array, p_order: Array,
 	return d
 
 
-## What the best `list_size` players would cost, scaled down. Deterministic.
-static func compute_budget(sorted_pool: Array, list_size: int = Ratings.LIST_SIZE) -> int:
-	var n := mini(list_size, sorted_pool.size())
-	var total := 0
-	for i in range(n):
-		total += int(sorted_pool[i]["value"])
-	return maxi(n, int(round(total * CAP_FRACTION)))
+## The opening league draft uses the same 2027 cap the career will use.
+## Keeping one cap across draft -> season means "$18.44m" is real rather
+## than a UI label over a separate draft-points economy.
+static func compute_budget(_sorted_pool: Array, _list_size: int = Ratings.LIST_SIZE) -> int:
+	return Contracts.salary_cap_for_year(GameDB.START_YEAR)
 
 
 func _init_league_draft() -> void:
