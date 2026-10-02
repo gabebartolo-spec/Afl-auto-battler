@@ -125,9 +125,7 @@ var speccy_rng := RandomNumberGenerator.new()
 var discipline_rng := RandomNumberGenerator.new()
 var mro_rng := RandomNumberGenerator.new()
 var restart_rng := RandomNumberGenerator.new()
-var free_rng := RandomNumberGenerator.new()
-var aerial_rng := RandomNumberGenerator.new()
-var _speccy_quota := 0
+var free_rng := RandomNumberGenerator.new()var _speccy_quota := 0
 var _speccies := 0
 ## Boundary law rolls are isolated from the calibrated play RNG. Adding or
 ## tuning boundary frequency therefore does not silently re-roll ordinary
@@ -192,9 +190,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	discipline_rng.seed = seed * 41 + 43
 	mro_rng.seed = seed * 47 + 53
 	restart_rng.seed = seed * 59 + 61
-	free_rng.seed = seed * 67 + 71
-	aerial_rng.seed = seed * 73 + 79
-	_speccy_quota = speccy_quota(seed)
+	free_rng.seed = seed * 67 + 71	_speccy_quota = speccy_quota(seed)
 	boundary_rng.seed = seed * 17 + 19
 	injury_rng.seed = seed * 13 + 7
 	for side in range(2):
