@@ -2709,6 +2709,47 @@ Acceptance:
 Split into smaller authorised subphases when started.
 
 
+### Real AFL money scale — replace cap points with annual dollars
+**Status:** `TODO / BLOCKED ON TRADE STACK` — implement immediately after the current ARD-M6-004 trade PR stack lands, because it touches the same contract/cap/UI/test paths.
+
+The contracts system currently uses abstract 1–10 salary/cap points and inherits the opening cap from the league re-draft budget. That makes contract figures feel like game tokens rather than AFL list management. Convert the **underlying economy**, not just the formatting, to plausible annual Australian-dollar salaries.
+
+**Real-world anchors for the career start:**
+- the playable career starts in **2027** (2026 is the source/history season);
+- 2027 AFL Total Player Payments limit: **$18,440,415 per club**;
+- 2027 standard senior minimum base payment: **$155,000** (match payments remain outside this simplified game model);
+- 2027 first-year National Draft base payments:
+  - picks 1–10: **$150,000**
+  - picks 11–20: **$140,000**
+  - picks 21–50: **$130,000**
+  - pick 51+: **$125,000**
+- 2027 Category A/B rookie minimum base: **$105,000**;
+- the AFLPA's CBA announcement projects the 2027 average AFL player salary at about **$519,000**. Use that as a calibration check for the generated league, not as a forced salary for every list.
+
+**Implementation direction:**
+- replace `Ratings.salary_value()`'s 1–10 output with annual-dollar salary values calibrated so the 2027 league-wide distribution looks like AFL football: minimum/list-depth players around the regulated floor, established players in the hundreds of thousands, elite stars plausibly around the $1m+ range;
+- set the opening club cap to the real **$18,440,415** rather than deriving it from the fantasy league-draft pool;
+- preserve competitive balance: measure the 2027 player pool/list distribution before finalising the salary curve so a normal 37–44 player list fits the cap and league average pay is in the right neighbourhood;
+- National Draft first contracts should use the regulated pick bands above rather than a generic 1/2-point rookie wage;
+- keep the model deliberately simple: salaries are **annual football payments for list-management purposes**. Do not add match-payment accounting, ASAs, marketing payments, club revenue, profit/loss or a football-department budget in this pass;
+- after 2027, grow the cap and regulated salary anchors by a modest explicit game-world index until a future real CBA is represented; do not pretend unknown future AFL cap figures are factual;
+- salary negotiation controls must move in football-sized increments (for example **$25,000**) rather than incrementing by one dollar;
+- use compact football money formatting on mobile: **$155k**, **$650k**, **$1.20m**, **$18.44m cap**. Avoid printing seven-digit raw integers everywhere;
+- compensation/free-agency/trade formulas that currently treat salary as a 1–10 value must be rescaled/normalised so moving to dollars does not accidentally make salary dominate every valuation;
+- salary cap checks remain hard constraints for both human and AI clubs.
+
+**Save migration is mandatory.** Existing careers may contain 1–10 salaries, a cap measured in old points, saved contract counters/offers, free-agent offers and compensation records. Detect and convert old-unit values deterministically on load. Never interpret an old `salary: 8` as eight dollars or silently invalidate an existing career.
+
+**Acceptance:**
+- a new 2027 career opens with a **$18.44m** AFL-style cap and dollar-denominated contracts;
+- ordinary senior salaries never read like abstract points and no established senior player is presented below the applicable simplified floor;
+- first-year draftee salaries follow the real 2027 draft bands;
+- league-wide average pay and top-end salaries are plausible against the 2027 AFL anchors;
+- every club can still build/maintain a legal list and AI clubs operate under the same cap;
+- negotiations, free agency, compensation and trades behave materially the same after rescaling rather than being distorted by six-figure inputs;
+- all contract/cap UI uses compact dollar formatting and remains readable at 360px portrait;
+- old point-based saves load into equivalent real-dollar contracts/cap without losing contract years, offers, list state or cap legality.
+
 ### Contract/off-season copy cleanup
 Phone playtesting exposed awkward/dehumanising wording at the top of Trades & Contracts: **“Anything you leave undecided is re-signed for two seasons if the cap allows.”** “Anything” appears to refer to players/contracts and reads strangely.
 
