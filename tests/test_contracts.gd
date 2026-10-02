@@ -10,6 +10,7 @@ func run() -> void:
 	checks = 0
 	GameDB.reload()
 	_test_initial_contracts()
+	_test_real_money_scale()
 	_test_offseason_flow()
 	_test_negotiation_rules()
 	_test_negotiation()
@@ -45,6 +46,26 @@ func _to_offseason() -> void:
 	GameState.ensure_finals()
 	while not GameState.season.is_season_over():
 		GameState.advance()
+
+
+func _test_real_money_scale() -> void:
+	_new_season()
+	_check(GameState.salary_cap == Contracts.CAP_2027,
+			"A 2027 career uses the real $18.44m AFL cap (%d)" % GameState.salary_cap)
+	_check(Ratings.salary_value(40) == Contracts.SENIOR_MIN_2027
+			and Ratings.salary_value(90) >= 1000000,
+			"The salary curve runs from the senior floor to $1m+ stars")
+	_check(Contracts.money(155000) == "$155k" and Contracts.money(1200000) == "$1.2m"
+			and Contracts.money(Contracts.CAP_2027).begins_with("$18.44m"),
+			"Money is compact enough for a phone")
+	for row in [[1, 150000], [11, 140000], [21, 130000], [51, 125000]]:
+		var p := {"draft_pick": int(row[0])}
+		Contracts.rookie_deal(p, 2027)
+		_check(int(p["salary"]) == int(row[1]),
+				"Pick %d gets the 2027 first-year base (%d)" % [int(row[0]), int(p["salary"])])
+	_check(Contracts.old_points_to_salary(1) == 155000
+			and Contracts.old_points_to_salary(10) == 1250000,
+			"Old 1-10 salary points have a deterministic dollar migration")
 
 
 func _test_initial_contracts() -> void:
@@ -94,7 +115,7 @@ func _test_offseason_flow() -> void:
 	GameState.salary_cap = saved_cap
 	# Sign the best free agent we can afford.
 	var signed := false
-	GameState.salary_cap += 40
+	GameState.salary_cap += 5000000
 	# A free agent no other club has offered for signs at his asking price;
 	# where rivals have offered, your offer goes on the table instead.
 	for fa in GameState.free_agents.duplicate():
@@ -180,10 +201,11 @@ func _test_negotiation_rules() -> void:
 			and Contracts.stance(star).contains("won't take less") and Contracts.stance(fringe).contains("fighting"),
 			"Better and younger players have more leverage, and he says so")
 	var ask := Contracts.asking_salary(regular)
-	_check(Contracts.lowest(star, 3) == Contracts.asking_salary(star) and Contracts.lowest(regular, 3) == ask - 1
-			and Contracts.lowest(regular, 4) == ask - 1 and Contracts.lowest(regular, 1) == ask + 1
+	_check(Contracts.lowest(star, 3) == Contracts.asking_salary(star) and Contracts.lowest(regular, 3) < ask
+			and Contracts.lowest(regular, 4) == Contracts.lowest(regular, 3)
+			and Contracts.lowest(regular, 1) == ask + Contracts.SALARY_STEP
 			and Contracts.lowest(fringe, 2) < Contracts.asking_salary(fringe),
-			"A star won't take less; others give a little for security; a short deal costs a point")
+			"A star won't take less; others give a little for security; a short deal costs one $25k step")
 	# No cliff: leverage moves smoothly with rating, and one rating point never
 	# moves his lowest price by more than a point.
 	var smooth := true
@@ -191,20 +213,21 @@ func _test_negotiation_rules() -> void:
 	for ovr in range(55, 92):
 		var q := {"id": "n_s", "overall": ovr, "potential": ovr, "age": 26.0, "morale": 70}
 		if not prev.is_empty():
-			if Contracts.leverage(q) - Contracts.leverage(prev) > 0.05 or absi(Contracts.lowest(q, 3) - Contracts.lowest(prev, 3)) > 1:
+			if Contracts.leverage(q) - Contracts.leverage(prev) > 0.05 or absi(Contracts.lowest(q, 3) - Contracts.lowest(prev, 3)) > 200000:
 				smooth = false
 		prev = q
 	_check(smooth, "Leverage and price scale smoothly with rating: no threshold where the rules change")
-	_check(str(Contracts.respond(regular, ask - 1, 3)["answer"]) == "accept"
-			and str(Contracts.respond(regular, ask - 2, 3)["answer"]) == "counter"
-			and int(Contracts.respond(regular, ask - 2, 3)["salary"]) == ask - 1,
+	_check(str(Contracts.respond(regular, Contracts.lowest(regular, 3), 3)["answer"]) == "accept"
+			and str(Contracts.respond(regular, Contracts.lowest(regular, 3) - Contracts.SALARY_STEP, 3)["answer"]) == "counter"
+			and int(Contracts.respond(regular, Contracts.lowest(regular, 3) - Contracts.SALARY_STEP, 3)["salary"]) == Contracts.lowest(regular, 3),
 			"An offer at his lowest is accepted; below it he counts with his lowest")
 	_check(str(Contracts.respond(regular, ask, 1)["answer"]) == "counter",
 			"His asking price over a shorter term than he wants gets a counter")
-	_check(bool(Contracts.respond(regular, 1, 3)["insult"]) and str(Contracts.respond(regular, 1, 3, 1)["answer"]) == "walk"
-			and str(Contracts.respond(regular, ask - 2, 3, Contracts.MAX_OFFERS - 1)["answer"]) == "walk",
+	_check(bool(Contracts.respond(regular, Contracts.SENIOR_MIN_2027, 3)["insult"])
+			and str(Contracts.respond(regular, Contracts.SENIOR_MIN_2027, 3, 1)["answer"]) == "walk"
+			and str(Contracts.respond(regular, Contracts.lowest(regular, 3) - Contracts.SALARY_STEP, 3, Contracts.MAX_OFFERS - 1)["answer"]) == "walk",
 			"An insulting offer counts double, and too many failed offers end the talks")
-	_check(str(Contracts.respond(regular, ask - 2, 3)) == str(Contracts.respond(regular, ask - 2, 3)),
+	_check(str(Contracts.respond(regular, Contracts.lowest(regular, 3) - Contracts.SALARY_STEP, 3)) == str(Contracts.respond(regular, Contracts.lowest(regular, 3) - Contracts.SALARY_STEP, 3)),
 			"No dice: the same offer gets the same answer")
 
 
@@ -222,11 +245,11 @@ func _test_negotiation() -> void:
 				if int(p["salary"]) != Contracts.lowest(p, years):
 					ai_fair = false
 	_check(ai_fair, "Rivals re-sign at the least each player takes for that term")
-	GameState.salary_cap += 40
+	GameState.salary_cap += 5000000
 	var talkers := []
 	for p in Contracts.expiring(GameState.my_list):
 		var w := Contracts.wants(p)
-		if Contracts.lowest(p, int(w["years"])) < int(w["salary"]) and int(w["salary"]) >= 3:
+		if Contracts.lowest(p, int(w["years"])) < int(w["salary"]) and int(w["salary"]) >= Contracts.SENIOR_MIN_2027:
 			talkers.append(p)
 	_check(talkers.size() >= 2, "Two of your out-of-contract players can be negotiated with (%d)" % talkers.size())
 	if talkers.size() < 2:
@@ -236,7 +259,7 @@ func _test_negotiation() -> void:
 	var years := int(Contracts.wants(a)["years"])
 	var floor_price := Contracts.lowest(a, years)
 	var before := int(a["salary"])
-	var r := GameState.offer_contract(id, floor_price - 1, years)
+	var r := GameState.offer_contract(id, floor_price - Contracts.SALARY_STEP, years)
 	_check(str(r["answer"]) == "counter" and int(r["salary"]) == floor_price
 			and int(a["salary"]) == before and not bool(a.get("resigned", false)),
 			"An offer under his lowest gets a counter and signs nothing")
@@ -251,13 +274,13 @@ func _test_negotiation() -> void:
 	var b: Dictionary = GameState.list_player(str(talkers[1]["id"]))
 	var bid := str(b["id"])
 	var morale_before := ClubLife.morale(b)
-	r = GameState.offer_contract(bid, 1, 3)
+	r = GameState.offer_contract(bid, Contracts.SENIOR_MIN_2027, 3)
 	_check(ClubLife.morale(b) < morale_before and str(r["reason"]).begins_with("He's insulted"),
 			"An insulting offer costs morale and he says so")
-	r = GameState.offer_contract(bid, 1, 3)
+	r = GameState.offer_contract(bid, Contracts.SENIOR_MIN_2027, 3)
 	_check(str(r["answer"]) == "walk" and bool(GameState.contract_talks(bid).get("walked", false)),
 			"Too many failed offers and he walks")
-	_check(not bool(GameState.offer_contract(bid, 99, 3)["ok"]), "No more offers once talks break down")
+	_check(not bool(GameState.offer_contract(bid, Contracts.asking_salary(b), 3)["ok"]), "No more offers once talks break down")
 	var size_before := GameState.my_list.size()
 	GameState._close_contracts()
 	if size_before > Contracts.MIN_LIST:
@@ -280,37 +303,38 @@ func _test_free_agent_terms() -> void:
 	var ask := Contracts.asking_salary(p)
 	var o := func(salary: int, years: int, role: String, t: float) -> Dictionary:
 		return {"salary": salary, "years": years, "role": role, "finish_t": t}
-	_check(Contracts.prefers(p, o.call(ask + 1, 3, "bench", 0.5), o.call(ask, 3, "bench", 0.5))
-			and Contracts.offer_view(p, o.call(ask + 1, 3, "bench", 0.5), o.call(ask, 3, "bench", 0.5), "X") == "Best financial offer.",
+	_check(Contracts.prefers(p, o.call(ask + Contracts.SALARY_STEP, 3, "bench", 0.5), o.call(ask, 3, "bench", 0.5))
+			and Contracts.offer_view(p, o.call(ask + Contracts.SALARY_STEP, 3, "bench", 0.5), o.call(ask, 3, "bench", 0.5), "X") == "Best financial offer.",
 			"Salary matters in a close decision, and he says so")
 	_check(Contracts.prefers(p, o.call(ask, 3, "bench", 0.5), o.call(ask, 1, "bench", 0.5))
 			and Contracts.offer_view(p, o.call(ask, 3, "bench", 0.5), o.call(ask, 1, "bench", 0.5), "X") == "More contract security.",
 			"Contract security matters in a close decision")
-	_check(Contracts.prefers(p, o.call(ask, 3, "ground", 0.5), o.call(ask + 1, 3, "depth", 0.5))
-			and Contracts.offer_view(p, o.call(ask, 3, "ground", 0.5), o.call(ask + 1, 3, "depth", 0.5), "X") == "Clearer path into the best 22.",
+	_check(Contracts.prefers(p, o.call(ask, 3, "ground", 0.5), o.call(ask + Contracts.SALARY_STEP, 3, "depth", 0.5))
+			and Contracts.offer_view(p, o.call(ask, 3, "ground", 0.5), o.call(ask + Contracts.SALARY_STEP, 3, "depth", 0.5), "X") == "Clearer path into the best 22.",
 			"A spot in the best 22 beats one more salary point to sit in the twos")
 	_check(Contracts.prefers(p, o.call(ask, 3, "bench", 0.0), o.call(ask, 3, "bench", 1.0))
 			and Contracts.offer_view(p, o.call(ask, 3, "bench", 0.0), o.call(ask, 3, "bench", 1.0), "Carlton").contains("Carlton's offer after their stronger season"),
 			"The club's last season counts when all else is level")
-	_check(Contracts.prefers(p, o.call(ask + 3, 3, "depth", 0.5), o.call(ask, 3, "ground", 0.5)),
+	_check(Contracts.prefers(p, o.call(ask + 3 * Contracts.SALARY_STEP, 3, "depth", 0.5), o.call(ask, 3, "ground", 0.5)),
 			"Enough money still wins: nothing is absolute")
 	# Equal in his eyes: more money first, never a list position.
-	var a: Dictionary = o.call(8, 3, "depth", 0.5)
-	var b: Dictionary = o.call(7, 3, "bench", 0.1875)
+	var a: Dictionary = o.call(ask + Contracts.SALARY_STEP, 3, "depth", 0.5)
+	var b: Dictionary = o.call(ask, 3, "bench", 0.1875)
 	_check(Contracts.prefers(p, a, b) and not Contracts.prefers(p, b, a), "A dead heat goes to the bigger salary")
 	# Club valuations come from his role there, and stop at the cap.
-	_check(Contracts.club_max(p, "ground", 99) == ask + 2 and Contracts.club_max(p, "bench", 99) == ask + 1
-			and Contracts.club_max(p, "depth", 99) == Contracts.lowest(p, Contracts.ai_years(p))
-			and Contracts.club_max(p, "ground", 3) == 3, "A club pays a starter more than a depth player, never past its cap room")
+	_check(Contracts.club_max(p, "ground", ask + 10 * Contracts.SALARY_STEP) == ask + 2 * Contracts.SALARY_STEP
+			and Contracts.club_max(p, "bench", ask + 10 * Contracts.SALARY_STEP) == ask + Contracts.SALARY_STEP
+			and Contracts.club_max(p, "depth", ask + 10 * Contracts.SALARY_STEP) == Contracts.lowest(p, Contracts.ai_years(p))
+			and Contracts.club_max(p, "ground", ask + Contracts.SALARY_STEP) == ask + Contracts.SALARY_STEP, "A club pays a starter more than a depth player, never past its cap room")
 	# Rival answers.
-	var match_r := Contracts.rival_response(p, o.call(ask, 3, "ground", 0.5), o.call(ask + 2, 3, "ground", 0.6), ask + 3)
-	_check(str(match_r["action"]) == "match" and int(match_r["salary"]) == ask + 2, "A rival can match the leading salary")
-	var up := Contracts.rival_response(p, o.call(ask, 3, "bench", 0.5), o.call(ask + 1, 3, "bench", 0.5), ask + 3)
-	_check(str(up["action"]) == "improve" and int(up["salary"]) == ask + 2, "A rival improves just enough to lead")
-	var out := Contracts.rival_response(p, o.call(ask, 3, "ground", 0.5), o.call(ask + 4, 3, "ground", 0.5), ask + 2)
+	var match_r := Contracts.rival_response(p, o.call(ask, 3, "ground", 0.5), o.call(ask + 2 * Contracts.SALARY_STEP, 3, "ground", 0.6), ask + 3 * Contracts.SALARY_STEP)
+	_check(str(match_r["action"]) == "match" and int(match_r["salary"]) == ask + 2 * Contracts.SALARY_STEP, "A rival can match the leading salary")
+	var up := Contracts.rival_response(p, o.call(ask, 3, "bench", 0.5), o.call(ask + Contracts.SALARY_STEP, 3, "bench", 0.5), ask + 3)
+	_check(str(up["action"]) == "improve" and int(up["salary"]) == ask + 2 * Contracts.SALARY_STEP, "A rival improves just enough to lead")
+	var out := Contracts.rival_response(p, o.call(ask, 3, "ground", 0.5), o.call(ask + 4 * Contracts.SALARY_STEP, 3, "ground", 0.5), ask + 2 * Contracts.SALARY_STEP)
 	_check(str(out["action"]) == "withdraw", "A rival withdraws once the price passes what he's worth to it")
-	var stay := Contracts.rival_response(p, o.call(ask - 1, 1, "depth", 1.0), o.call(ask - 1, 3, "ground", 0.0), ask - 1)
-	_check(str(stay["action"]) == "hold" and int(stay["salary"]) == ask - 1, "A rival that can't win but isn't priced out holds")
+	var stay := Contracts.rival_response(p, o.call(ask - Contracts.SALARY_STEP, 1, "depth", 1.0), o.call(ask - Contracts.SALARY_STEP, 3, "ground", 0.0), ask - Contracts.SALARY_STEP)
+	_check(str(stay["action"]) == "hold" and int(stay["salary"]) == ask - Contracts.SALARY_STEP, "A rival that can't win but isn't priced out holds")
 
 
 func _test_free_agents() -> void:
@@ -411,11 +435,11 @@ func _test_free_agents() -> void:
 			refused = fa
 			break
 	if not refused.is_empty():
-		var r0 := GameState.offer_free_agent(str(refused["id"]), 50, 3)
+		var r0 := GameState.offer_free_agent(str(refused["id"]), Contracts.asking_salary(refused) + 1000000, 3)
 		_check(not bool(r0["ok"]) and str(r0["answer"]) == "reject" and GameState.free_agents.has(refused),
 				"A player who won't come turns down even a big offer, and says why")
 	# Bidding against rivals for a player who would start for you.
-	GameState.salary_cap += 80
+	GameState.salary_cap += 10000000
 	var target := {}
 	for fa in GameState.free_agents:
 		if GameState.fa_role(fa, me) == "ground" and (fa.get("offers", []) as Array).size() >= 1:
@@ -430,11 +454,11 @@ func _test_free_agents() -> void:
 	var id := str(target["id"])
 	var years := int(Contracts.wants(target)["years"])
 	var low := Contracts.lowest(target, years)
-	var r := GameState.offer_free_agent(id, low - 1, years)
+	var r := GameState.offer_free_agent(id, low - Contracts.SALARY_STEP, years)
 	_check(str(r["answer"]) == "counter" and GameState.fa_offers(id).filter(func(x): return bool(x["mine"])).is_empty(),
 			"Under his lowest price he counters, and nothing goes on the table")
 	var top: Dictionary = GameState.fa_offers(id)[0]
-	var bid := int(top["salary"]) + 1
+	var bid := int(top["salary"]) + Contracts.SALARY_STEP
 	r = GameState.offer_free_agent(id, bid, years)
 	_check(str(r["answer"]) == "table" and not (r["responses"] as Array).is_empty(),
 			"Your offer goes on the table and the rivals you overtook answer it (%s)" % str(r["responses"]))
@@ -448,7 +472,7 @@ func _test_free_agents() -> void:
 	_check(GameState.save_career() and GameState.load_career() and str(GameState.fa_offers(id)) == book
 			and GameState.fa_market_stage(id) == "final", "A save keeps every offer and where the talks stand")
 	var lead: Dictionary = GameState.fa_offers(id)[0]
-	var final_salary := int(lead["salary"]) + (0 if bool(lead["mine"]) else 1)
+	var final_salary := int(lead["salary"]) + (0 if bool(lead["mine"]) else Contracts.SALARY_STEP)
 	var r1 := GameState.offer_free_agent(id, final_salary, years)
 	var won := str(r1["answer"])
 	var where := ""
@@ -486,9 +510,9 @@ func _test_free_agents() -> void:
 	var offers_now := GameState.fa_offers(sid)
 	if not offers_now.is_empty():
 		var lead2: Dictionary = offers_now[0]
-		GameState.offer_free_agent(sid, int(lead2["salary"]) + 1, int(Contracts.wants(star)["years"]))
+		GameState.offer_free_agent(sid, int(lead2["salary"]) + Contracts.SALARY_STEP, int(Contracts.wants(star)["years"]))
 		var lead3: Dictionary = GameState.fa_offers(sid)[0]
-		GameState.offer_free_agent(sid, int(lead3["salary"]) + (0 if bool(lead3["mine"]) else 1), int(Contracts.wants(star)["years"]))
+		GameState.offer_free_agent(sid, int(lead3["salary"]) + (0 if bool(lead3["mine"]) else Contracts.SALARY_STEP), int(Contracts.wants(star)["years"]))
 	var signed_for := []
 	var signed_with := ""
 	for code in GameState.season.lists:
@@ -534,18 +558,18 @@ func _test_compensation_rules() -> void:
 	var clubs := 18
 	var star := {"id": "c_star", "overall": 86, "age": 25.0}
 	var fringe := {"id": "c_fringe", "overall": 56, "age": 30.0}
-	var v_star := Contracts.compensation_value(star, 9, 3)
-	var v_fringe := Contracts.compensation_value(fringe, 3, 1)
+	var v_star := Contracts.compensation_value(star, Contracts.old_points_to_salary(9), 3)
+	var v_fringe := Contracts.compensation_value(fringe, Contracts.old_points_to_salary(3), 1)
 	var a_star := Contracts.compensation_after(v_star, clubs)
 	var a_fringe := Contracts.compensation_after(v_fringe, clubs)
 	_check(a_star > 0 and (a_fringe == 0 or a_fringe > a_star),
 			"Losing a star earns a far better pick than losing a fringe player (after %d v %d)" % [a_star, a_fringe])
 	var mid := {"id": "c_mid", "overall": 72, "age": 27.0}
-	var base := Contracts.compensation_value(mid, 6, 2)
+	var base := Contracts.compensation_value(mid, Contracts.old_points_to_salary(6), 2)
 	var young := mid.duplicate()
 	young["age"] = 23.0
-	_check(Contracts.compensation_value(young, 6, 2) > base and Contracts.compensation_value(mid, 7, 2) > base
-			and Contracts.compensation_value(mid, 6, 4) > base,
+	_check(Contracts.compensation_value(young, Contracts.old_points_to_salary(6), 2) > base and Contracts.compensation_value(mid, Contracts.old_points_to_salary(7), 2) > base
+			and Contracts.compensation_value(mid, Contracts.old_points_to_salary(6), 4) > base,
 			"A younger player, a bigger salary and a longer deal each earn more")
 	# No cliffs: walk the ratings with the salary the market would pay; the
 	# pick never moves more than three spots for one rating point, never gets
@@ -628,7 +652,7 @@ func _test_compensation_draft_order() -> void:
 func _test_compensation_flow() -> void:
 	_new_season()
 	_to_offseason()
-	GameState.salary_cap += 80
+	GameState.salary_cap += 10000000
 	var me := GameState.my_club
 	var rivals := []
 	for code in GameState.season.lists:
@@ -753,7 +777,7 @@ func _trade(ai_list: Array, give: Array, take: Array, phase: String, margin := 0
 		ai.erase(spare.pop_front())
 	var mine: Array = GameDB.club_list("GEE").duplicate()
 	mine.append_array(take)
-	return Contracts.evaluate_trade(ai, give, take, 999, mine, 999, margin, {"phase": phase})
+	return Contracts.evaluate_trade(ai, give, take, 99999999, mine, 99999999, margin, {"phase": phase})
 
 
 func _test_trade_value() -> void:
@@ -763,7 +787,7 @@ func _test_trade_value() -> void:
 	# ruck, Adelaide down to two rucks, the easiest trade margin.
 	var ade: Array = GameDB.club_list("ADE").duplicate()
 	var butler := _with(_by_name(GameDB.draftees, "Butler", "Arki"),
-			{"overall": 72, "potential": 92, "age": 19.0, "salary": 2, "contract_years": 2, "club": "ADE"})
+			{"overall": 72, "potential": 92, "age": 19.0, "salary": Contracts.old_points_to_salary(2), "contract_years": 2, "club": "ADE"})
 	ade.append(butler)
 	var rucks := ade.filter(func(q): return str(q["role"]) == "RUCK")
 	rucks.sort_custom(func(x, y): return int(x["overall"]) < int(y["overall"]))
