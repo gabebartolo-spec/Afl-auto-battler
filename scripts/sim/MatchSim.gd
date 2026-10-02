@@ -119,6 +119,7 @@ var discipline_rng := RandomNumberGenerator.new()
 var mro_rng := RandomNumberGenerator.new()
 var restart_rng := RandomNumberGenerator.new()
 var free_rng := RandomNumberGenerator.new()
+var aerial_rng := RandomNumberGenerator.new()
 var _speccy_quota := 0
 var _speccies := 0
 ## Boundary law rolls are isolated from the calibrated play RNG. Adding or
@@ -184,6 +185,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	mro_rng.seed = seed * 47 + 53
 	restart_rng.seed = seed * 59 + 61
 	free_rng.seed = seed * 67 + 71
+	aerial_rng.seed = seed * 73 + 79
 	_speccy_quota = speccy_quota(seed)
 	boundary_rng.seed = seed * 17 + 19
 	injury_rng.seed = seed * 13 + 7
@@ -1023,6 +1025,52 @@ func _pick_presser(side: int, zone: int):
 	return _pick(group, weights)
 
 
+## General-play aerial contest on an unmarked kick. We only create one when
+## the kick has enough length to plausibly be contested. A spoil is a fist to
+## a real contest and leaves the ball loose; it is never automatic possession.
+func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bool) -> Dictionary:
+	if rushed or gain < 18.0 or aerial_rng.randf() >= 0.22:
+		return {}
+	var opp := 1 - side
+	var receiver = pick_carrier(side, mark_fp)
+	var defenders := _by_roles((squads[opp] as Squad).ground, ["DEF", "MID"])
+	if receiver == null or defenders.is_empty():
+		return {}
+	var defender = _weighted(defenders, "intercept", 2.0, opp, "defender")
+	var receive := _a(receiver, "marking")
+	var stop := 0.62 * _a(defender, "intercept") + 0.38 * _a(defender, "marking")
+	var mark_p := clampf(0.34 + (receive - stop) / 240.0
+			+ (0.05 if _trait(receiver, "aerial") else 0.0), 0.16, 0.55)
+	var roll := aerial_rng.randf()
+	if roll < mark_p:
+		_t(side, "marks")
+		_p(receiver, "marks")
+		var contested := aerial_rng.randf() < 0.55
+		if contested:
+			_t(side, "contested_marks")
+			_p(receiver, "contested_marks")
+		_emit("mark", side, mark_fp, receiver,
+				"%s marks in general play" % GameDB.player_display_name(receiver))
+		var mev: Dictionary = events[events.size() - 1]
+		mev["contested"] = contested
+		mev["general_play"] = true
+		return {"outcome": "mark", "actor": receiver}
+	var spoil_p := clampf(0.36 + (stop - receive) / 220.0
+			+ (0.07 if _trait(defender, "interceptor") else 0.0), 0.20, 0.65)
+	if roll < mark_p + spoil_p:
+		_t(opp, "spoils")
+		_p(defender, "spoils")
+		_t(opp, "one_percenters")
+		_p(defender, "one_percenters")
+		_emit("spoil", opp, mark_fp, defender,
+				"%s spoils the aerial contest" % GameDB.player_display_name(defender))
+		var sev: Dictionary = events[events.size() - 1]
+		sev["general_play"] = true
+		sev["against_id"] = str(receiver.get("id", ""))
+		return {"outcome": "loose", "actor": defender}
+	return {}
+
+
 func pick_carrier(side: int, fp: float):
 	var T := Ratings.T
 	var sq: Squad = squads[side]
@@ -1443,6 +1491,16 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		var boundary := _boundary_exit(side, fp, carrier, disposal_kind, rushed, marked)
 		if not boundary.is_empty():
 			return boundary
+
+		if disposal_kind == "kick" and not marked and not is_kick_in:
+			var aerial := _general_aerial(side, fp, carrier, gain, rushed)
+			if not aerial.is_empty():
+				if str(aerial.get("outcome", "")) == "loose":
+					return {"outcome": "loose", "fp": fp, "actor": aerial.get("actor")}
+				# A mark keeps the same side's chain alive at the new field
+				# position. It is not another disposal by the original kicker.
+				pending = carrier
+				continue
 
 		# Rebound 50: winning it out of your own defensive arc.
 		if prev_atk_fp < float(T["rebound_from"]) and atk_fp > float(T["rebound_to"]):
