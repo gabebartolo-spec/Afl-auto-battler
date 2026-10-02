@@ -29,6 +29,10 @@ var user_club := ""
 var draft_order: Array = []       # randomised round-one order
 var pick_sequence: Array = []     # serpentine club code for every pick
 var pick_rounds: Array = []       # round of every pick (compensation picks count in their round)
+var pick_origin: Array = []       # the club each pick came from (differs from its owner when traded)
+## Traded picks: "round:origin club" -> owner. A pick not listed is its own
+## club's. See set_pick_owners.
+var pick_owners := {}
 ## Free-agency compensation picks in this draft: [{"index" (0-based pick),
 ## "club", "after", "player", "name", "to", ...}]. See add_compensation.
 var comp_picks: Array = []
@@ -148,17 +152,18 @@ func _build_sequence(comps: Array) -> void:
 		if r % 2 == 1:
 			round_order.reverse()
 		for code in round_order:
-			slots.append([code, r + 1, {}])
+			var owner := str(pick_owners.get("%d:%s" % [r + 1, code], code))
+			slots.append([owner, r + 1, {}, code])
 			regular += 1
 			for c in by_after.get(regular, []):
-				slots.append([str(c["club"]), r + 1, c])
+				slots.append([str(c["club"]), r + 1, c, str(c["club"])])
 	# A pick placed after one the draft never reaches goes at the very end.
 	var ks := by_after.keys()
 	ks.sort()
 	for after in ks:
 		if int(after) > regular:
 			for c in by_after[after]:
-				slots.append([str(c["club"]), target_size, c])
+				slots.append([str(c["club"]), target_size, c, str(c["club"])])
 	# Too many picks for the pool: drop regular picks from the end.
 	var k := slots.size() - 1
 	while slots.size() > pool.size() and k >= 0:
@@ -169,6 +174,7 @@ func _build_sequence(comps: Array) -> void:
 		slots.resize(pool.size())
 	pick_sequence = []
 	pick_rounds = []
+	pick_origin = []
 	comp_picks = []
 	for slot in slots:
 		if not (slot[2] as Dictionary).is_empty():
@@ -177,6 +183,16 @@ func _build_sequence(comps: Array) -> void:
 			comp_picks.append(entry)
 		pick_sequence.append(slot[0])
 		pick_rounds.append(slot[1])
+		pick_origin.append(slot[3])
+
+
+## Who owns this year's traded picks: {"round:origin club": owner}. Set
+## before the first pick (the order is rebuilt by add_compensation).
+func set_pick_owners(owners: Dictionary) -> void:
+	if pick_index != 0:
+		return
+	pick_owners = owners.duplicate()
+	_build_sequence(comp_picks.map(func(c): return c))
 
 
 ## Slot this year's compensation picks into the order (before any pick is
@@ -853,12 +869,21 @@ func count() -> int:
 	return count_for(user_club)
 
 
-## Picks a club may make: one a round, plus any compensation picks.
+## Picks a club may make: one a round, plus any compensation picks and picks
+## it traded for, less those it traded away.
 func pick_limit(code: String) -> int:
 	var n := target_size
 	for c in comp_picks:
 		if str(c["club"]) == code:
 			n += 1
+	for key in pick_owners:
+		var parts := str(key).split(":")
+		if int(parts[0]) > target_size:
+			continue
+		if str(pick_owners[key]) == code:
+			n += 1
+		if str(parts[1]) == code:
+			n -= 1
 	return n
 
 
