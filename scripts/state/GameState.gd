@@ -2537,12 +2537,17 @@ func my_mro_lines() -> Array:
 			continue
 		var p := list_player(str(row.get("id", "")))
 		var name := str(row.get("name", "")) if p.is_empty() else GameDB.player_display_name(p)
+		if str(row.get("challenge_result", "")) == "overturned":
+			out.append("%s cleared at the Tribunal" % name)
+			continue
 		match str(row.get("outcome", "")):
 			"suspension":
 				var w := int(row.get("weeks", 0))
-				out.append("%s suspended for %d match%s" % [name, w, "" if w == 1 else "es"])
+				out.append("%s suspended for %d match%s%s" % [name, w, "" if w == 1 else "es",
+						" — challenge failed" if str(row.get("challenge_result", "")) == "upheld" else ""])
 			"fine":
-				out.append("%s fined for %s" % [name, str(row.get("reason", "rough conduct"))])
+				out.append("%s fined for %s%s" % [name, str(row.get("reason", "rough conduct")),
+						" — challenge failed" if str(row.get("challenge_result", "")) == "upheld" else ""])
 	return out
 
 
