@@ -976,7 +976,7 @@ func pick_block_reason(p: Dictionary) -> String:
 	if count() >= target_size:
 		return "Your list is full."
 	if remaining() < int(p["value"]):
-		return "Not enough salary cap: he costs $%d and you have $%d left." % [int(p["value"]), remaining()]
+		return "Not enough salary cap: he costs %s and you have %s left." % [Contracts.money(int(p["value"])), Contracts.money(remaining())]
 	return ""
 
 
