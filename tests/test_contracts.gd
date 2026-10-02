@@ -25,6 +25,7 @@ func run() -> void:
 	_test_trade_picks()
 	_test_future_picks()
 	_test_mixed_packages()
+	_test_trade_market()
 	GameState.delete_saved_career()
 	print("Contracts tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -1216,6 +1217,202 @@ func _test_mixed_packages() -> void:
 					99999, padded, 99999, m, ctx)
 			refused = refused and v.has("in") and not bool(v["ok"])
 	_check(refused, "Three fringe players and two late picks never buy a club's best player, on any margin")
+
+
+## The market moving on its own when the off-season opens: rival clubs
+## trading with each other, offers to you, and counters - all by the same
+## rules, deterministic, and never churning.
+func _market_snapshot() -> String:
+	var out := []
+	for e in GameState.offseason_log:
+		if str(e.get("kind", "")) == "ai_trade":
+			out.append(str(e["text"]))
+	for o in GameState.trade_offers:
+		out.append("%s %s %s" % [str(o["club"]), str(o["give"]), str(o["take"])])
+	return " / ".join(out)
+
+
+func _test_trade_market() -> void:
+	_new_season()
+	_to_offseason()
+	var me := GameState.my_club
+	var first := _market_snapshot()
+	var deals := GameState.offseason_log.filter(func(e): return str(e.get("kind", "")) == "ai_trade")
+	var clubs_in := {}
+	var once := true
+	for e in deals:
+		for c in [str(e["club"]), str(e["with"])]:
+			once = once and not clubs_in.has(c) and c != me
+			clubs_in[c] = true
+	_check(deals.size() <= GameState.MAX_AI_TRADES and once,
+			"Rival clubs make at most %d trades with each other, each club in one at most, never you (%d)" % [GameState.MAX_AI_TRADES, deals.size()])
+	var lists_ok := true
+	for code in GameState.season.lists:
+		var l: Array = GameState.season.lists[code]
+		lists_ok = lists_ok and l.size() >= Contracts.MIN_LIST and l.size() <= Contracts.MAX_LIST \
+				and Contracts.payroll(l) <= GameState.salary_cap
+	_check(lists_ok, "After the rivals' trades every list is within its size limits and under the cap")
+	var owners_ok := true
+	for key in GameState.pick_owner:
+		var parts := str(key).split(":")
+		owners_ok = owners_ok and str(parts[2]) != str(GameState.pick_owner[key]) \
+				and GameDB.active_clubs(GameState.season_year).has(str(GameState.pick_owner[key]))
+	_check(owners_ok, "Every traded pick has one owner, a club other than its own")
+	_check(GameState.trade_offers.size() <= GameState.MAX_OFFERS, "No more than %d offers come your way" % GameState.MAX_OFFERS)
+	var prospects := GameState.trade_prospects()
+	_check(_offers_genuine(GameState.trade_offers, prospects), "Every offer is one they'd stand by, priced within what they think it worth")
+	# The same league, the same market: from one saved state, the rivals'
+	# trades and the offers come out the same both times.
+	_check(GameState.save_career(), "Saved before replaying the market")
+	var replay := []
+	for k in range(2):
+		GameState.load_career()
+		GameState.offseason_log = []
+		GameState.trade_offers = []
+		GameState._freeze_league(true)
+		GameState._ai_trades(GameState.trade_prospects())
+		GameState._make_trade_offers(GameState.trade_prospects())
+		GameState._freeze_league(false)
+		replay.append(_market_snapshot())
+	_check(replay[0] == replay[1], "The market comes out the same from the same league: %s" % str(replay[0]))
+	GameState.load_career()
+
+	# What each kind of club wants.
+	var phase_ok := true
+	var tried := 0
+	for code in GameState.season.lists:
+		if code == me:
+			continue
+		var target := GameState._trade_target(code, GameState.my_list, {})
+		if target.is_empty():
+			continue
+		tried += 1
+		var bars := TradeValue.selection_bars(GameState.season.lists[code])
+		if GameState.club_phase(code) == "rebuilding":
+			phase_ok = phase_ok and float(target["age"]) <= 23.0
+		else:
+			phase_ok = phase_ok and TradeValue.fit(target, bars) >= 1.15 and float(target["age"]) <= 31.0
+	_check(tried > 0 and phase_ok, "Rebuilders want young players still growing; the rest want a clear upgrade (%d clubs)" % tried)
+
+	# An offer: force one from a club that wants someone, then turn it down.
+	GameState.trade_offers = []
+	GameState._make_trade_offers(prospects)
+	var open := GameState.open_trade_offers()
+	_check(not open.is_empty(), "A club with a real need puts an offer to you")
+	if not open.is_empty():
+		var i: int = open[0]
+		var text := GameState.trade_offer_text(i)
+		_check(text.contains(" offer ") and text.contains(" for ") and not text.contains("pick:"),
+				"An offer reads as a sentence: %s" % text)
+		var o: Dictionary = GameState.trade_offers[i]
+		var keep := (GameState.trade_offers as Array).duplicate(true)
+		GameState.decline_trade_offer(i)
+		_check(str(o["status"]) == "declined" and not GameState.open_trade_offers().has(i), "No thanks takes it off the table")
+		GameState.trade_offers = []
+		GameState._make_trade_offers(prospects)
+		var again := false
+		for q in GameState.trade_offers:
+			again = again or (str(q["club"]) == str(o["club"]) and str(q["take"]) == str(o["take"]))
+		_check(not again, "A club doesn't make the same offer again after you turn it down")
+		# Accept the original offer (it still stands: nothing in it moved).
+		keep[i]["status"] = "open"
+		GameState.trade_offers = keep
+		var q: Dictionary = GameState.trade_offers[i]
+		var acc := GameState.accept_trade_offer(i)
+		_check(bool(acc["ok"]) and str(q["status"]) == "accepted"
+				and str(GameState._find_player(str(q["take"][0])).get("club", "")) == str(q["club"]),
+				"Accepting an offer makes the trade (%s)" % str(acc["reason"]))
+
+	# Counters: refused on value, the one change that gets it done.
+	var rival := "COL"
+	var theirs := (GameState.season.lists[rival] as Array).duplicate()
+	theirs.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+	var mine := GameState.my_list.duplicate()
+	mine.sort_custom(func(a, b): return int(a["overall"]) < int(b["overall"]))
+	var countered := 0
+	var good := true
+	for k in [6, 10, 14]:
+		var ask := [str(theirs[k]["id"])]
+		var offer := [str(mine[k]["id"])]
+		var v := GameState.evaluate_trade(rival, offer, ask)
+		if bool(v["ok"]) or not v.has("in"):
+			continue
+		var c := GameState.trade_counter(rival, offer, ask)
+		if c.is_empty():
+			continue
+		countered += 1
+		good = good and bool(GameState.evaluate_trade(rival, c["mine"], c["theirs"])["ok"]) \
+				and (str(c["say"]).begins_with("“We'd need") or str(c["say"]).begins_with("“We could do it without")) \
+				and not str(c["say"]).contains("pick:")
+	_check(countered > 0 and good, "A refused offer gets a counter in their words, and making that change gets it done (%d)" % countered)
+	_check(GameState.trade_counter(rival, [str(mine[mine.size() - 1]["id"])], [str(theirs[theirs.size() - 1]["id"])]).is_empty(),
+			"An offer they'd take needs no counter")
+
+	# The trade table: put a player or a pick on it and see who comes.
+	var shop_list := GameState.my_list.duplicate()
+	shop_list.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+	var shop := str(shop_list[5]["id"])
+	var before := GameState.trade_offers.size()
+	var r := GameState.put_on_trade_table(shop)
+	var came: Array = GameState.trade_offers.slice(before)
+	_check(bool(r["ok"]) and int(r["offers"]) == came.size() and came.size() <= GameState.MAX_TABLE_OFFERS,
+			"On the trade table: %s" % str(r["reason"]))
+	_check(came.size() > 0, "A good player on the trade table draws offers")
+	var distinct := true
+	var seen := {}
+	for o in came:
+		distinct = distinct and str(o["take"]) == str([shop]) and not seen.has(str(o["club"])) and str(o["club"]) != me
+		seen[str(o["club"])] = true
+	_check(distinct and _offers_genuine(came, prospects),
+			"Each offer comes from a different club, priced by its own valuation and one it would stand by")
+	# Rivals can't see your club's sums: a bid stays the same whatever your
+	# club's own view of the player.
+	var bidder := str(came[0]["club"]) if not came.is_empty() else "COL"
+	var asset := GameState.list_player(shop)
+	var worth := GameState._worth_to(bidder, asset, prospects)
+	var bid_a := GameState._bid(bidder, asset, worth, GameState.UNASKED_BID, prospects)
+	GameState.club_phase(me)
+	var mine_was := GameState.club_phase(me)
+	GameState._phase_cache[me] = "rebuilding" if mine_was != "rebuilding" else "contending"
+	var bid_b := GameState._bid(bidder, asset, worth, GameState.UNASKED_BID, prospects)
+	GameState._phase_cache = {}
+	_check(not bid_a.is_empty() and str(bid_a) == str(bid_b), "A rival's bid doesn't depend on how your club values the player")
+	_check(not bool(GameState.put_on_trade_table(shop)["ok"]), "A player goes on the trade table once an off-season")
+	var pick_r := GameState.put_on_trade_table(GameState.pick_id(GameState.season_year + 1, 1, me))
+	_check(bool(pick_r["ok"]) and str(pick_r["reason"]).contains("first-round pick"),
+			"A pick can go on the trade table too: %s" % str(pick_r["reason"]))
+	_check(not bool(GameState.put_on_trade_table(GameState.pick_id(GameState.season_year + 1, 1, rival))["ok"]),
+			"Only your own players and picks go on the trade table")
+
+	# The story: the trade period goes into the pre-season wrap, and the
+	# offers survive a save.
+	var declined_before := GameState.trade_declined.size()
+	_check(GameState.save_career() and GameState.load_career() and GameState.trade_declined.size() == declined_before
+			and declined_before > 0, "Offers and the ones you turned down survive a save and load")
+	_check(GameState.begin_intake_draft(), "The draft opens after the trade period")
+	_run_draft()
+	GameState.finish_intake_draft()
+	var lines: Array = GameState.season_wrap.get("trades", [])
+	var told := lines.any(func(l): return str(l).begins_with("You turned down"))
+	_check(told and lines.size() >= 1 + deals.size(), "The pre-season wrap tells the trade period: %s" % str(lines))
+
+
+## Offers a club would stand by, each worth to it no more than the most it
+## would pay for what it asks for (its own valuation, less its margin).
+func _offers_genuine(offers: Array, prospects: Dictionary) -> bool:
+	var ok := true
+	var margin := float(GameState.difficulty_rules()["trade_margin"])
+	for o in offers:
+		var club := str(o["club"])
+		ok = ok and bool(GameState.evaluate_trade(club, o["take"], o["give"])["ok"])
+		var asked: Dictionary = GameState._trade_assets(o["take"], GameState.my_club)["assets"][0]
+		var most := GameState._worth_to(club, asked, prospects) / (1.0 + margin)
+		var priced := 0.0
+		for bid in GameState._bids(club, most, prospects):
+			if str(bid[0].map(func(q): return str(q["id"]))) == str(o["give"]):
+				priced = float(bid[1])
+		ok = ok and priced > 0.0 and priced <= most
+	return ok
 	var wrap_ok := true
 	for row in (GameState.season_wrap.get("ins", []) as Array) + (GameState.season_wrap.get("outs", []) as Array):
 		wrap_ok = wrap_ok and not str(row["id"]).begins_with("pick:")
