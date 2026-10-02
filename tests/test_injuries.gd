@@ -16,6 +16,7 @@ func run() -> void:
 	_test_heal_at_rollover()
 	_test_concussion()
 	_test_suspension()
+	_test_tribunal_challenge()
 	_test_played_and_simulated_alike()
 	print("Injuries tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -168,6 +169,45 @@ func _test_suspension() -> void:
 	_check(Ratings.available(back) and int(back.get("suspension_weeks", 0)) == 0,
 			"After the second club match the player is available again")
 	GameState.delete_saved_career()
+
+
+## Tribunal challenges are one-shot and deterministic. An MRO sanction
+## makes the player Brownlow-ineligible while votes remain elsewhere; a
+## successful challenge clears both the sanction and that ineligibility.
+func _test_tribunal_challenge() -> void:
+	GameState.reset()
+	GameState.autosave_enabled = false
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var cleared: Dictionary = GameState.my_list[0]
+	var cleared_id := str(cleared["id"])
+	var success_report := {"side": 0, "id": cleared_id, "name": GameDB.player_display_name(cleared),
+			"victim_id": "v1", "victim_name": "Victim", "reason": "rough conduct",
+			"outcome": "suspension", "weeks": 1, "tribunal_roll": 0.0, "challenged": false}
+	GameState._process_discipline([{"home": "GEE", "away": "COL", "reports": [success_report]}])
+	_check(bool(cleared.get("brownlow_ineligible", false)) and not Ratings.available(cleared),
+			"An MRO suspension immediately makes the player unavailable and Brownlow-ineligible")
+	var pending := GameState.pending_mro_challenges()
+	_check(pending.size() == 1 and str(pending[0].get("case", "")) != "",
+			"A live MRO sanction exposes one Tribunal challenge with a case assessment")
+	var win := GameState.challenge_mro(cleared_id)
+	_check(bool(win.get("success", false)) and Ratings.available(cleared)
+			and not bool(cleared.get("brownlow_ineligible", false)),
+			"A successful Tribunal challenge clears the ban and restores Brownlow eligibility")
+	_check(GameState.pending_mro_challenges().is_empty(),
+			"A Tribunal sanction cannot be challenged twice")
+
+	var upheld: Dictionary = GameState.my_list[1]
+	var upheld_id := str(upheld["id"])
+	var fail_report := {"side": 0, "id": upheld_id, "name": GameDB.player_display_name(upheld),
+			"victim_id": "v2", "victim_name": "Victim", "reason": "rough conduct",
+			"outcome": "suspension", "weeks": 2, "tribunal_roll": 0.99, "challenged": false}
+	GameState._process_discipline([{"home": "GEE", "away": "COL", "reports": [fail_report]}])
+	var loss := GameState.challenge_mro(upheld_id)
+	_check(not bool(loss.get("success", true)) and int(upheld.get("suspension_weeks", 0)) == 2
+			and bool(upheld.get("brownlow_ineligible", false)),
+			"A failed Tribunal challenge leaves the original ban and Brownlow ineligibility intact")
+	_check(GameState.pending_mro_challenges().is_empty(),
+			"A failed challenge is also final")
 
 
 ## Playtest impression: players get hurt more when the round is simulated
