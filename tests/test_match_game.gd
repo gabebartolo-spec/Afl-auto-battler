@@ -14,6 +14,7 @@ func run() -> void:
 	_test_stoppage_location()
 	_test_boundary_rules()
 	_test_authenticity_events()
+	_test_contextual_frees_and_general_spoils()
 	_test_legs_and_rotations()
 	_test_moments()
 	_test_set_shot()
@@ -265,6 +266,35 @@ func _test_authenticity_events() -> void:
 			suspended += 1
 	_check(valid_mro and suspended > 0,
 			"Reportable tackles resolve once to no action, fine or 1-3 match suspension (%d reports)" % mro.reports.size())
+
+
+func _test_contextual_frees_and_general_spoils() -> void:
+	var causes := {}
+	var general_spoils := 0
+	var general_marks := 0
+	var free_meta_ok := true
+	for seed in range(24):
+		var evs: Array = _sim(7200 + seed).run()["events"]
+		for ev in evs:
+			if str(ev.get("kind", "")) == "free":
+				var cause := str(ev.get("cause", ""))
+				if cause != "":
+					causes[cause] = int(causes.get(cause, 0)) + 1
+					free_meta_ok = free_meta_ok and ev.has("against_id")
+			if str(ev.get("kind", "")) == "spoil" and bool(ev.get("general_play", false)):
+				general_spoils += 1
+			if str(ev.get("kind", "")) == "mark" and bool(ev.get("general_play", false)):
+				general_marks += 1
+	_check(int(causes.get("Holding the ball", 0)) > 0,
+			"Holding-the-ball frees emerge from actual tackles")
+	_check(int(causes.get("High contact", 0)) > 0,
+			"High-contact frees emerge from actual tackles")
+	_check(int(causes.get("Holding in the marking contest", 0))
+			+ int(causes.get("Blocking in the marking contest", 0)) > 0,
+			"Marking-contest frees emerge from actual aerial contests")
+	_check(free_meta_ok, "Contextual frees identify the offender")
+	_check(general_spoils > 0, "General-play kicks can produce real spoils to a loose ball")
+	_check(general_marks > 0, "The same general-play aerial model can produce marks")
 
 
 func _test_legs_and_rotations() -> void:
