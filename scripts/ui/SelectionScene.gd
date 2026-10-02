@@ -212,6 +212,13 @@ func _formation_player(id: String, placed_as: String, auto: bool) -> Control:
 	var spot := UiKit.line(_formation_label(placed_as), 11, UiKit.MUTED)
 	spot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(spot)
+	if Ratings.available(p):
+		var readiness := _para(Workload.label(p), 11,
+				UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
+		readiness.name = "Readiness_" + id
+		readiness.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(readiness)
+		b.custom_minimum_size.y = 72
 	_ignore_mouse(box)
 	if auto:
 		b.pressed.connect(_open_profile.bind(id))
