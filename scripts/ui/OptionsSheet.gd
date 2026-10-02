@@ -29,6 +29,10 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 	_row(v, "Player names", "SettingsNames", NAME_OPTIONS,
 			"real" if GameState.show_real_names else "generated", NAMES_INFO,
 			func(k): GameState.set_show_real_names(k == "real"))
+	_row(v, "Mute sounds", "SettingsMuteSounds", [["off", "Off"], ["on", "On"]],
+			"on" if GameState.sounds_muted() else "off",
+			"Mutes all music and sound effects.",
+			func(k): GameState.set_sounds_muted(k == "on"))
 	_row(v, "Confirm before simming a round", "SettingsSimConfirm", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.confirm_sim_round() else "off",
 			"Sim round plays your own match for you. With this on, it asks first.",
