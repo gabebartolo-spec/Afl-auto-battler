@@ -802,6 +802,17 @@ func _run() -> void:
 			"Picking players shows the other club's verdict")
 	_check(current_scene.find_child("TradeClubPhase", true, false) != null,
 			"The trade tab says where the other club is in its cycle")
+	var pick_btns := current_scene.find_children("Mine_pick_*", "Button", true, false)
+	_check(pick_btns.size() >= 1 and str((pick_btns[0] as Button).text).contains("first round"),
+			"Your draft picks can be put in a trade")
+	if not pick_btns.is_empty():
+		pick_btns[0].emit_signal("pressed")
+		await _settle()
+		verdict = current_scene.find_child("TradeVerdict", true, false)
+		_check(verdict != null and str(verdict.text).contains("first-round pick"),
+				"A pick in the trade shows in what you give")
+		current_scene.find_children("Mine_pick_*", "Button", true, false)[0].emit_signal("pressed")
+		await _settle()
 	# Picking a player rebuilds the tab but keeps your place in a long list.
 	var box: ScrollContainer = current_scene.get("_scroll_box")
 	box.scroll_vertical = 600
