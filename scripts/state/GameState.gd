@@ -61,7 +61,7 @@ var rivalry_history := {}        # canonical club pair -> emergent rivalry evide
 ## Club achievements unlocked this career: id -> {"year", "detail"}.
 ## Definitions live in scripts/sim/Achievements.gd.
 var achievements := {}
-var salary_cap := 0              # cap points every club's payroll counts against
+var salary_cap := 0              # annual-dollar TPP cap every club's payroll counts against
 var free_agents: Array = []      # off-season: players no club kept
 var offseason_year := 0          # the season whose off-season has opened
 var fa_closed_year := 0          # the season whose free agency has closed
@@ -622,7 +622,7 @@ func _migrate_money_units() -> void:
 			if not (p is Dictionary):
 				continue
 			var id := str(p.get("id", ""))
-			var token := id if id != "" else str(p.get_instance_id()) if p is Object else str(p)
+			var token := id if id != "" else str(hash(p))
 			if seen.has(token):
 				continue
 			seen[token] = true
@@ -2654,9 +2654,9 @@ func offer_contract(player_id: String, salary: int, years: int) -> Dictionary:
 	if bool(talks.get("walked", false)):
 		return {"ok": false, "answer": "walk", "reason": "Talks have broken down: he will test free agency."}
 	years = clampi(years, 1, Contracts.MAX_YEARS)
-	salary = maxi(1, salary)
+	salary = maxi(Contracts.SENIOR_MIN_2027, salary)
 	if my_payroll() - int(p.get("salary", 0)) + salary > salary_cap:
-		return {"ok": false, "answer": "", "reason": "Not enough cap room for %d a season." % salary}
+		return {"ok": false, "answer": "", "reason": "Not enough cap room for %s a season." % Contracts.money(salary)}
 	var name := GameDB.player_display_name(p)
 	var reply := Contracts.respond(p, salary, years, int(talks.get("failed", 0)))
 	var out := {"ok": false, "answer": str(reply["answer"]), "salary": int(reply["salary"])}
@@ -2664,14 +2664,14 @@ func offer_contract(player_id: String, salary: int, years: int) -> Dictionary:
 		"accept":
 			_resign(p, years, salary)
 			out["ok"] = true
-			out["reason"] = "%s re-signs for %d season%s at %d." % [name, years, "" if years == 1 else "s", salary]
+			out["reason"] = "%s re-signs for %d season%s at %s." % [name, years, "" if years == 1 else "s", Contracts.money(salary)]
 		"counter":
 			talks["failed"] = int(talks.get("failed", 0)) + (2 if bool(reply["insult"]) else 1)
 			talks["counter"] = int(reply["salary"])
 			talks["years"] = years
 			p["talks"] = talks
 			out["reason"] = ("He's insulted. " if bool(reply["insult"]) else "") + \
-					"He'd sign for %d a season over %d season%s." % [int(reply["salary"]), years, "" if years == 1 else "s"]
+					"He'd sign for %s a season over %d season%s." % [Contracts.money(int(reply["salary"])), years, "" if years == 1 else "s"]
 		"walk":
 			talks["walked"] = true
 			p["talks"] = talks
@@ -3076,7 +3076,7 @@ func offer_free_agent(player_id: String, salary: int, years: int) -> Dictionary:
 	if int(p.get("market_round", 0)) >= Contracts.FA_ROUNDS:
 		return {"ok": false, "answer": "", "reason": "You have made your final offer."}
 	years = clampi(years, 1, Contracts.MAX_YEARS)
-	salary = maxi(1, salary)
+	salary = maxi(Contracts.SENIOR_MIN_2027, salary)
 	var name := GameDB.player_display_name(p)
 	var terms := free_agent_terms(player_id)
 	if bool(terms["refuse"]):
@@ -3092,7 +3092,7 @@ func offer_free_agent(player_id: String, salary: int, years: int) -> Dictionary:
 			talks["years"] = years
 			p["talks"] = talks
 			out["reason"] = ("He's insulted. " if bool(reply["insult"]) else "") + \
-					"He'd want at least %d a season over %d season%s." % [int(reply["salary"]), years, "" if years == 1 else "s"]
+					"He'd want at least %s a season over %d season%s." % [Contracts.money(int(reply["salary"])), years, "" if years == 1 else "s"]
 		else:
 			talks["walked"] = true
 			p["talks"] = talks
@@ -3119,7 +3119,7 @@ func offer_free_agent(player_id: String, salary: int, years: int) -> Dictionary:
 		_sign_fa(p, my_club, salary, years)
 		mark_dirty()
 		return {"ok": true, "answer": "signed", "salary": salary,
-				"reason": "%s signs for %d season%s at %d." % [name, years, "" if years == 1 else "s", salary], "responses": []}
+				"reason": "%s signs for %d season%s at %s." % [name, years, "" if years == 1 else "s", Contracts.money(salary)], "responses": []}
 	p["market_round"] = int(p.get("market_round", 0)) + 1
 	var lines := []
 	var leader := Contracts.best_offer(p, p["offers"])
@@ -3133,7 +3133,7 @@ func offer_free_agent(player_id: String, salary: int, years: int) -> Dictionary:
 		var club := _decide_fa(p)
 		out["answer"] = "signed" if club == my_club else "lost"
 		out["ok"] = club == my_club
-		out["reason"] = ("%s signs with you: %d for %d season%s." % [name, salary, years, "" if years == 1 else "s"]) if club == my_club \
+		out["reason"] = ("%s signs with you: %s for %d season%s." % [name, Contracts.money(salary), years, "" if years == 1 else "s"]) if club == my_club \
 				else "%s chooses %s." % [name, GameDB.club_name(club)] if club != "" else "%s stays on the market." % name
 	else:
 		var lead := Contracts.best_offer(p, p["offers"])
