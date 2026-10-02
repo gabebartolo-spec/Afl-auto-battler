@@ -342,6 +342,8 @@ func _start_beat(k: int) -> void:
 			_phases = [{"t": "emit"}, {"t": "wait", "dur": 0.5, "ease": true}]
 		"last_disposal", "out_on_full":
 			_phases = _boundary_free_phases(k)
+		"fifty":
+			_phases = _fifty_phases(k)
 		"throwin":
 			_phases = _throwin_phases(k)
 		"tackle":
@@ -411,7 +413,7 @@ func _restart(k: int) -> String:
 			return "ballup"
 		"throwin":
 			return "throwin"
-		"free", "last_disposal", "out_on_full":
+		"free", "last_disposal", "out_on_full", "fifty":
 			return "free"
 		"clanger", "tackle", "smother":
 			# No stoppage logged: the ball is won where it fell.
@@ -614,6 +616,19 @@ func _boundary_free_phases(k: int) -> Array:
 	return out
 
 
+## Walk the mark 50m toward goal. The recipient does not take possession
+## until the following free-kick restart beat.
+func _fifty_phases(k: int) -> Array:
+	var at := _loc(k)
+	var d := (ball["pos"] as Vector2).distance_to(at)
+	var out := []
+	if d > 1.0:
+		out.append({"t": "flight", "to": at, "dur": clampf(0.35 + d / 110.0, 0.35, 0.9),
+				"apex": 1.2, "recv": -1, "mode": "stoppage"})
+	out += [{"t": "emit", "log": true}, {"t": "wait", "dur": 0.25, "ease": true}]
+	return out
+
+
 func _tackle_phases(k: int) -> Array:
 	var ev: Dictionary = events[k]
 	var tk := _actor_id(ev)
@@ -757,7 +772,7 @@ func _loc(k: int) -> Vector2:
 	var p: Vector2
 	if kind in ["throwin", "last_disposal", "out_on_full"]:
 		p = _boundary_point(x, src.y)
-	elif kind in ["goal", "behind", "rebound", "tackle", "pressure", "free", "ballup"]:
+	elif kind in ["goal", "behind", "rebound", "tackle", "pressure", "free", "fifty", "ballup"]:
 		p = Vector2(x, src.y)
 	elif _possession(kind) and _restart(k) == "centre":
 		p = Vector2(0.0, signf(ry if ry != 0.0 else 1.0) * 3.5)
@@ -924,7 +939,7 @@ func _lead_receivers(k: int, cur: int) -> void:
 		if kind == "tackle" or kind == "pressure":
 			t += 1.2
 			continue
-		if kind in ["free", "last_disposal", "out_on_full"]:
+		if kind in ["free", "last_disposal", "out_on_full", "fifty"]:
 			t += 0.8
 			continue
 		if kind == "throwin":
