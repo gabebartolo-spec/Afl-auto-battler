@@ -292,12 +292,16 @@ func _awards_panel() -> Control:
 	var intro := UiKit.lbl("Awards night", 13, UiKit.MUTED)
 	v.add_child(intro)
 	var brownlow: Array = aw.get("brownlow", [])
+	var brownlow_winner: Dictionary = aw.get("brownlow_winner", {})
+	if not brownlow_winner.is_empty():
+		v.add_child(_award_line("Brownlow Medal", brownlow_winner,
+				"%d votes" % int(brownlow_winner["votes"]), true))
 	if not brownlow.is_empty():
-		v.add_child(_award_line("Brownlow Medal", brownlow[0], "%d votes" % int(brownlow[0]["votes"]), true))
 		var rest := []
-		for r in brownlow.slice(1, 5):
-			rest.append("%s %d" % [GameState.award_name(r), int(r["votes"])])
-		v.add_child(_small("Then: " + ", ".join(rest)))
+		for r in brownlow.slice(0, 5):
+			var tag := " (ineligible)" if not bool(r.get("brownlow_eligible", true)) else ""
+			rest.append("%s %d%s" % [GameState.award_name(r), int(r["votes"]), tag])
+		v.add_child(_small("Vote count: " + ", ".join(rest)))
 	var coaches: Array = aw.get("coaches_award", [])
 	if not coaches.is_empty():
 		v.add_child(_award_line("Coaches Award", coaches[0], "%d votes" % int(coaches[0]["coaches"]), true))
@@ -423,7 +427,10 @@ func _open_awards_program() -> void:
 		body.add_child(UiKit.section("Brownlow Medal"))
 		for i in range(mini(10, brownlow.size())):
 			var r: Dictionary = brownlow[i]
-			body.add_child(_small("%d. %s (%s) — %d votes" % [i + 1, GameState.award_name(r), GameDB.club_short(str(r["club"])), int(r["votes"])]))
+			var status := " — ineligible" if not bool(r.get("brownlow_eligible", true)) else ""
+			body.add_child(_small("%d. %s (%s) — %d votes%s" % [
+					i + 1, GameState.award_name(r), GameDB.club_short(str(r["club"])),
+					int(r["votes"]), status]))
 	var rising: Array = aw.get("rising_star", [])
 	if not rising.is_empty():
 		body.add_child(UiKit.section("Rising Star"))
