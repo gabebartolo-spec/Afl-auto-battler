@@ -119,6 +119,37 @@ static func defaults(attack_ground: Array, defence_ground: Array) -> Dictionary:
 	return out
 
 
+## Suitability to roam as the spare: reading the ball and marking first,
+## defensive pressure second. OVR and height are deliberately not inputs.
+static func interceptor_score(p: Dictionary) -> float:
+	var score := 0.55 * _a(p, "intercept") + 0.30 * _a(p, "marking") + 0.15 * _a(p, "pressure")
+	var traits: Array = Traits.of(p)
+	if traits.has("interceptor"):
+		score += 6.0
+	return score
+
+
+## Defenders who can be used loose, best football fit first.
+static func interceptor_candidates(ground: Array) -> Array:
+	var out := defenders(ground)
+	out.sort_custom(func(a, b):
+		var sa := interceptor_score(a)
+		var sb := interceptor_score(b)
+		if not is_equal_approx(sa, sb):
+			return sa > sb
+		return str(a.get("id", "")) < str(b.get("id", "")))
+	return out
+
+
+## Empty when the side has nobody credible enough to justify sacrificing a
+## direct assignment for the role.
+static func best_interceptor(ground: Array, minimum := 66.0) -> Dictionary:
+	var candidates := interceptor_candidates(ground)
+	if candidates.is_empty() or interceptor_score(candidates[0]) < minimum:
+		return {}
+	return candidates[0]
+
+
 ## A player in a coach's words for a match-up: "Key defender, 196 cm".
 static func describe(p: Dictionary) -> String:
 	var bits := PackedStringArray([PlayerProfile.player_type(p)])
