@@ -484,15 +484,15 @@ static func plays_role(p: Dictionary, role: String) -> bool:
 ## hundreds of thousands, and genuine stars above $1m.
 static func salary_value(overall: int) -> int:
 	var steps := [
-		[90, 1250000],
-		[85, 1050000],
-		[79, 900000],
-		[73, 775000],
-		[67, 650000],
-		[61, 525000],
-		[55, 425000],
-		[48, 325000],
-		[41, 225000],
+		[90, 1150000],
+		[85, 950000],
+		[79, 800000],
+		[73, 680000],
+		[67, 560000],
+		[61, 450000],
+		[55, 365000],
+		[48, 285000],
+		[41, 205000],
 	]
 	for s in steps:
 		if overall >= s[0]:

@@ -53,18 +53,18 @@ func test_media_conference_rules() -> void:
 	var MediaConferenceScript = load("res://scripts/sim/MediaConference.gd")
 	var VignetteScript = load("res://scripts/ui/MediaConferenceVignette.gd")
 	var recent := {}
-	var heavy := MediaConferenceScript.pick({"club": "COL", "opponent_name": "Carlton", "round": 8,
+	var heavy: Dictionary = MediaConferenceScript.pick({"club": "COL", "opponent_name": "Carlton", "round": 8,
 			"result": {"home": "COL", "away": "CAR", "score": [55, 101]}}, recent)
 	_check(str(heavy.get("key", "")) == "heavy_loss", "Heavy loss earns a factual media question")
 	_check((heavy.get("options", []) as Array).size() == 3, "Media question offers three responses")
 	recent["heavy_loss"] = 8
-	var repeat := MediaConferenceScript.pick({"club": "COL", "opponent_name": "Carlton", "round": 10,
+	var repeat: Dictionary = MediaConferenceScript.pick({"club": "COL", "opponent_name": "Carlton", "round": 10,
 			"result": {"home": "COL", "away": "CAR", "score": [55, 101]}}, recent)
 	_check(repeat.is_empty(), "Same media angle respects its cooldown")
-	var ordinary := MediaConferenceScript.pick({"club": "COL", "opponent_name": "Carlton", "round": 15,
+	var ordinary: Dictionary = MediaConferenceScript.pick({"club": "COL", "opponent_name": "Carlton", "round": 15,
 			"result": {"home": "COL", "away": "CAR", "score": [88, 72]}}, {})
 	_check(ordinary.is_empty(), "Ordinary matches do not force a press conference")
-	var close := MediaConferenceScript.pick({"club": "CAR", "opponent_name": "Collingwood", "round": 16,
+	var close: Dictionary = MediaConferenceScript.pick({"club": "CAR", "opponent_name": "Collingwood", "round": 16,
 			"result": {"home": "COL", "away": "CAR", "score": [84, 86]}}, {})
 	_check(str(close.get("key", "")) == "close_game", "Close finishes can drive the press conference")
 	var stage = VignetteScript.new()
@@ -78,9 +78,9 @@ func test_media_conference_rules() -> void:
 func _test_player_goal_milestones() -> void:
 	var p := {"id": "milestone_test", "name": "Milestone Test", "club": "MEL",
 			"career": {"games": 12, "goals": 0, "stints": [], "through": _state.season_year - 1, "unknown": []}}
-	var old_season := _state.season
-	var old_tally := _state.season_tally
-	var old_news := _state.news
+	var old_season = _state.season
+	var old_tally = _state.season_tally
+	var old_news = _state.news
 	var SeasonScript = load("res://scripts/sim/Season.gd")
 	_state.season = SeasonScript.new(["MEL", "CAR"], {"MEL": [p], "CAR": []})
 	_state.season_tally = {"milestone_test": {"club": "MEL", "games": 1, "goals": 1, "goals_ha": 1}}
@@ -101,15 +101,15 @@ func _test_player_goal_milestones() -> void:
 	_state.news = old_news
 
 func _test_history_records_are_stored_facts() -> void:
-	var old_records := _state.records
-	var old_roll := _state.honour_roll
+	var old_records = _state.records
+	var old_roll = _state.honour_roll
 	_state.records = {"highest_score": {"value": 151, "club": "MEL", "opp": "CAR", "year": 2028},
 			"biggest_win": {"value": 72, "club": "MEL", "opp": "CAR", "year": 2029}}
 	_state.honour_roll = [{"year": 2028, "premier": "COL"}, {"year": 2029, "premier": "MEL"}]
-	var lines := _state.history_record_lines()
+	var lines: Array = _state.history_record_lines()
 	_check(lines.size() == 2 and str(lines[0]).contains("151") and str(lines[1]).contains("72"),
 			"History surface reads the stored league records")
-	var honours := _state.recent_honours(1)
+	var honours: Array = _state.recent_honours(1)
 	_check(honours.size() == 1 and int(honours[0]["year"]) == 2029,
 			"History surface reads the stored honour roll newest first")
 	_state.records = old_records

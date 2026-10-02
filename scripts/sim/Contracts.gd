@@ -36,6 +36,8 @@ const FUTURE_GROWTH := 1.03
 
 
 static func salary_cap_for_year(year: int) -> int:
+	if year <= 2027:
+		return CAP_2027
 	var cap := float(CAP_2027)
 	for y in range(2028, year + 1):
 		cap *= FUTURE_GROWTH

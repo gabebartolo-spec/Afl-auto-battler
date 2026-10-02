@@ -54,7 +54,7 @@ static func range_text(values: Array) -> String:
 ## A short Combine report built only from attributes the football model
 ## actually uses. We deliberately do not invent fake 20m-sprint seconds or
 ## vertical-jump centimetres that the simulation does not model.
-static func combine_lines(p: Dictionary, club: String, seed: int) -> Array:
+static func combine_lines(p: Dictionary, club: String, seed: int, uncertainty_mult := 1.0) -> Array:
 	var a: Dictionary = p.get("attr", {})
 	if a.is_empty():
 		return []
@@ -80,15 +80,16 @@ static func combine_lines(p: Dictionary, club: String, seed: int) -> Array:
 			craft = 0.70 * float(a.get("ruck", 50)) + 0.20 * float(a.get("contested", 50)) + 0.10 * height_score
 			aerial = 0.45 * float(a.get("ruck", 50)) + 0.30 * float(a.get("contested", 50)) + 0.15 * float(a.get("marking", 50)) + 0.10 * height_score
 	return [
-		_line("Movement", movement, p, club, seed, "move"),
-		_line("Repeat effort", repeat, p, club, seed, "repeat"),
-		_line("Aerial / contest", aerial, p, club, seed, "aerial"),
-		_line(craft_label, craft, p, club, seed, "craft"),
+		_line("Movement", movement, p, club, seed, "move", uncertainty_mult),
+		_line("Repeat effort", repeat, p, club, seed, "repeat", uncertainty_mult),
+		_line("Aerial / contest", aerial, p, club, seed, "aerial", uncertainty_mult),
+		_line(craft_label, craft, p, club, seed, "craft", uncertainty_mult),
 	]
 
 
-static func _line(label: String, score: float, p: Dictionary, club: String, seed: int, suffix: String) -> Dictionary:
-	var seen := clampf(score + _normal(_key(p, club, seed, suffix)) * COMBINE_NOISE, 1.0, 99.0)
+static func _line(label: String, score: float, p: Dictionary, club: String, seed: int, suffix: String,
+		uncertainty_mult := 1.0) -> Dictionary:
+	var seen := clampf(score + _normal(_key(p, club, seed, suffix)) * COMBINE_NOISE * maxf(0.25, uncertainty_mult), 1.0, 99.0)
 	return {"label": label, "grade": _grade(seen)}
 
 

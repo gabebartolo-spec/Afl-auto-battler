@@ -500,7 +500,7 @@ func _test_career_stage_filters(ui: Control) -> void:
 	var combined_ok := not rows.is_empty()
 	for p in rows:
 		combined_ok = combined_ok and (
-				Ratings.plays_role(p, "MID")
+				load("res://scripts/sim/Ratings.gd").plays_role(p, "MID")
 				and str(ui.call("_career_stage_for_age", float(p.get("age", 0.0)))) == "rookie")
 	_check(combined_ok, "Career stage combines with the existing position filter")
 
