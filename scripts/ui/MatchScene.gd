@@ -1631,7 +1631,8 @@ func _ft_summary(v: VBoxContainer) -> void:
 
 	# The key match-ups: who had the better of whom, from the contests.
 	if mine:
-		_glance_section(v, "Key match-ups", "FullTimeMatchups", MatchNotes.duel_story(_res, me).slice(0, 3))
+		var matchup_lines: Array = MatchNotes.interceptor_story(_res, me) + MatchNotes.duel_story(_res, me)
+		_glance_section(v, "Key match-ups", "FullTimeMatchups", matchup_lines.slice(0, 3))
 		# Your synergies: the stat each one shows up in, from this match.
 		_glance_section(v, "Your synergies", "FullTimeSynergies", MatchNotes.synergy_lines(_res, me).slice(0, 3))
 
