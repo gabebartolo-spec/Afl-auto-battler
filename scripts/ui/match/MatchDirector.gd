@@ -350,6 +350,8 @@ func _start_beat(k: int) -> void:
 			_phases = _tackle_phases(k)
 		"smother":
 			_phases = _smother_phases(k)
+		"spoil":
+			_phases = _spoil_phases(k)
 		"pressure":
 			_phases = _pressure_phases(k)
 		"inside50":
@@ -415,7 +417,7 @@ func _restart(k: int) -> String:
 			return "throwin"
 		"free", "last_disposal", "out_on_full", "fifty":
 			return "free"
-		"clanger", "tackle", "smother":
+		"clanger", "tackle", "smother", "spoil":
 			# No stoppage logged: the ball is won where it fell.
 			return "loose"
 	return "open"
@@ -658,6 +660,23 @@ func _smother_phases(k: int) -> Array:
 		return [{"t": "emit", "log": true}, {"t": "fumble", "dur": 0.25}]
 	return [{"t": "chase", "who": who, "victim": victim, "max": 0.8},
 			{"t": "emit", "log": true}, {"t": "fumble", "dur": 0.25}]
+
+
+## A spoil happens at the drop of the ball and leaves it alive on the deck.
+func _spoil_phases(k: int) -> Array:
+	var ev: Dictionary = events[k]
+	var who := _actor_id(ev)
+	var loc := _loc(k)
+	var out := []
+	var d := (ball["pos"] as Vector2).distance_to(loc)
+	if d > 1.0:
+		var shape := _flight_shape("kick", d)
+		out.append({"t": "flight", "to": loc, "dur": shape.x, "apex": shape.y,
+				"recv": -1, "mode": "open"})
+	if who >= 0:
+		out.append({"t": "collect", "who": who, "max": 0.18})
+	out += [{"t": "emit", "log": true}, {"t": "fumble", "dur": 0.28}]
+	return out
 
 
 func _pressure_phases(k: int) -> Array:
