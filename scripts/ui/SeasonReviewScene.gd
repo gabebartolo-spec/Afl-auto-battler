@@ -411,44 +411,44 @@ func _small(text: String) -> Label:
 func _open_awards_program() -> void:
 	var aw: Dictionary = GameState.season_awards
 	if aw.is_empty(): return
-	var overlay := UiKit.modal(self, "AwardsProgramModal")
-	var box := UiKit.vbox(8)
-	overlay.add_child(box)
-	box.add_child(UiKit.heading("%d Awards program" % int(aw.get("year", GameState.season_year)), 22))
-	box.add_child(UiKit.lbl("The results are already settled. Reveal them at your pace.", 13, UiKit.MUTED, true))
-	var scroll_body := UiKit.vbox(8)
-	box.add_child(UiKit.scroll(scroll_body))
+	var modal := UiKit.modal_box(self, 560.0)
+	var overlay: Control = modal["overlay"]
+	overlay.name = "AwardsProgramModal"
+	var body: VBoxContainer = modal["body"]
+	var footer: VBoxContainer = modal["footer"]
+	body.add_child(UiKit.heading("%d Awards program" % int(aw.get("year", GameState.season_year)), 22))
+	body.add_child(UiKit.lbl("Season honours — settled from the matches already played.", 13, UiKit.MUTED, true))
 	var brownlow: Array = aw.get("brownlow", [])
 	if not brownlow.is_empty():
-		scroll_body.add_child(UiKit.section("Brownlow Medal"))
+		body.add_child(UiKit.section("Brownlow Medal"))
 		for i in range(mini(10, brownlow.size())):
 			var r: Dictionary = brownlow[i]
-			scroll_body.add_child(_small("%d. %s (%s) — %d votes" % [i + 1, GameState.award_name(r), GameDB.club_short(str(r["club"])), int(r["votes"])]))
+			body.add_child(_small("%d. %s (%s) — %d votes" % [i + 1, GameState.award_name(r), GameDB.club_short(str(r["club"])), int(r["votes"])]))
 	var rising: Array = aw.get("rising_star", [])
 	if not rising.is_empty():
-		scroll_body.add_child(UiKit.section("Rising Star"))
-		scroll_body.add_child(_award_line("Winner", rising[0], "age %d" % int(rising[0]["age"]), true))
+		body.add_child(UiKit.section("Rising Star"))
+		body.add_child(_award_line("Winner", rising[0], "age %d" % int(rising[0]["age"]), true))
 	var coaches: Array = aw.get("coaches_award", [])
 	if not coaches.is_empty():
-		scroll_body.add_child(UiKit.section("Coaches Award"))
+		body.add_child(UiKit.section("Coaches Award"))
 		for i in range(mini(5, coaches.size())):
 			var r: Dictionary = coaches[i]
-			scroll_body.add_child(_small("%d. %s (%s) — %d votes" % [i + 1, GameState.award_name(r), GameDB.club_short(str(r["club"])), int(r["coaches"])]))
+			body.add_child(_small("%d. %s (%s) — %d votes" % [i + 1, GameState.award_name(r), GameDB.club_short(str(r["club"])), int(r["coaches"])]))
 	var mine: Array = (aw.get("best_and_fairest", {}) as Dictionary).get(GameState.my_club, [])
 	if not mine.is_empty():
-		scroll_body.add_child(UiKit.section("%s best & fairest" % GameDB.club_name(GameState.my_club)))
+		body.add_child(UiKit.section("%s best & fairest" % GameDB.club_name(GameState.my_club)))
 		for i in range(mine.size()):
 			var r: Dictionary = mine[i]
-			scroll_body.add_child(_small("%d. %s — %d votes" % [i + 1, GameState.award_name(r), int(r["bf"])]))
+			body.add_child(_small("%d. %s — %d votes" % [i + 1, GameState.award_name(r), int(r["bf"])]))
 	var aa: Array = aw.get("all_australian", [])
 	if not aa.is_empty():
-		scroll_body.add_child(UiKit.section("All-Australian team"))
+		body.add_child(UiKit.section("All-Australian team"))
 		for slot in [["DEF","Defence"],["MID","Midfield"],["RUCK","Ruck"],["FWD","Forwards"],["BENCH","Interchange"]]:
 			var names := []
 			for r in aa:
 				if str(r["slot"]) == str(slot[0]): names.append("%s (%s)" % [GameState.award_name(r), GameDB.club_short(str(r["club"]))])
-			scroll_body.add_child(_small("%s: %s" % [str(slot[1]), ", ".join(names)]))
+			body.add_child(_small("%s: %s" % [str(slot[1]), ", ".join(names)]))
 	var close := UiKit.btn("Done", 16, true)
 	close.custom_minimum_size.y = 48
 	close.pressed.connect(func(): overlay.queue_free())
-	box.add_child(close)
+	footer.add_child(close)
