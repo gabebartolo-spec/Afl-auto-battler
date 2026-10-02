@@ -490,6 +490,8 @@ func _show_coach_box() -> void:
 		"gameplan": _current_plan(sim),
 		"tag_id": str((sim.tactics[_my_side] as Dictionary).get("tag_id", _last_tactics.get("tag_id", ""))),
 		"focus_id": str(_last_tactics.get("focus_id", "")),
+		"interceptor_id": str(sim.interceptor[_my_side]),
+		"spare_counter": "accountable" if bool((sim.tactics[_my_side] as Dictionary).get("spare_accountable", false)) else "ignore",
 		"pep": "steady",
 		"rotation": _rotation,
 	}
@@ -556,6 +558,38 @@ func _show_coach_box() -> void:
 		more.add_child(sl)
 
 	var mine := _roster_side(_my_side)
+
+	# Structural defence: one real defender can roam as the spare. Picking him
+	# releases him from a direct opponent; the engine reallocates that matchup.
+	var def_ground: Array = []
+	for p in my_ground:
+		if str(p.get("role", "")) == "DEF":
+			def_ground.append(p)
+	var interceptors := Matchups.interceptor_candidates(def_ground)
+	var roam_first: Array = interceptors.slice(0, mini(3, interceptors.size()))
+	var roam := _player_choice("InterceptorPicker", "No loose defender", def_ground, roam_first,
+			calls, "interceptor_id", "Who roams behind the ball?")
+	more.add_child(_call_block("Loose interceptor", roam))
+	var roam_note := UiKit.lbl(
+			"He leaves his direct man to attack aerial balls. Another defender covers where possible; if he flies and loses, space opens behind him.",
+			UiKit.SMALL, UiKit.MUTED)
+	roam_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	more.add_child(roam_note)
+
+	# Counter an opposition spare only when one is visibly being used. This
+	# makes a forward accountable to him: less third-man influence, but also
+	# less forward presence in the air.
+	var opp_spare := sim._roaming_interceptor(1 - _my_side)
+	if not opp_spare.is_empty():
+		var counter_opts := [["ignore", "Keep our shape"], ["accountable", "Make him accountable"]]
+		var counter := _choice_grid("SpareCounter", counter_opts, calls, "spare_counter", 2)
+		more.add_child(_call_block("Their loose defender", counter))
+		var counter_note := UiKit.lbl(
+				"%s is roaming behind the ball. Making him accountable drags him away from contests, but costs you a forward in the air." % GameDB.player_display_name(opp_spare),
+				UiKit.SMALL, UiKit.MUTED)
+		counter_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		more.add_child(counter_note)
+
 	var focus := _player_choice("FocusPicker", "No one", mine, _in_the_game(mine, 4), calls, "focus_id",
 			"Play through which player?")
 	var focus_block := _call_block("Play through", focus)
@@ -599,6 +633,8 @@ func _show_coach_box() -> void:
 			"gameplan": str(calls["gameplan"]),
 			"focus_id": str(calls["focus_id"]),
 			"tag_id": str(calls["tag_id"]),
+			"interceptor_id": str(calls["interceptor_id"]),
+			"spare_accountable": str(calls["spare_counter"]) == "accountable",
 			"pep": str(calls["pep"]),
 			"rotation": _rotation,
 		}
@@ -1110,6 +1146,11 @@ func _show_setup(t: Dictionary) -> void:
 	var focus_id := str(t.get("focus_id", ""))
 	if focus_id != "":
 		bits.append("through " + GameDB.player_display_name_by_id(focus_id, "your player"))
+	var intercept_id := str(t.get("interceptor_id", ""))
+	if intercept_id != "":
+		bits.append(GameDB.player_display_name_by_id(intercept_id, "your defender") + " loose behind the ball")
+	if bool(t.get("spare_accountable", false)):
+		bits.append("making their spare accountable")
 	_setup_line.text = "  ·  ".join(bits)
 	_setup_line.visible = true
 
@@ -1905,6 +1946,20 @@ func _matchups_view(sim: MatchSim, q: int) -> Control:
 	v.name = "BreakMatchups"
 	v.add_child(UiKit.spacer(4))
 	v.add_child(UiKit.lbl("Key match-ups", UiKit.BODY, UiKit.TEXT, true))
+	var their_spare := sim._roaming_interceptor(1 - _my_side)
+	if not their_spare.is_empty():
+		var loose := UiKit.lbl("%s is roaming loose behind their backline." % GameDB.player_display_name(their_spare),
+				UiKit.BODY, UiKit.TEXT)
+		loose.name = "OppInterceptor"
+		loose.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(loose)
+	var our_spare := sim._roaming_interceptor(_my_side)
+	if not our_spare.is_empty():
+		var loose2 := UiKit.lbl("Yours: %s is roaming as the spare." % GameDB.player_display_name(our_spare),
+				UiKit.SMALL, UiKit.MUTED)
+		loose2.name = "MyInterceptor"
+		loose2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(loose2)
 	for fid in theirs.keys():
 		var row := UiKit.hbox(8)
 		row.name = "BreakMatchup_" + str(fid)
