@@ -134,6 +134,18 @@ func match_sim(home_code: String, away_code: String, match_seed: int,
 		if not mu.is_empty():
 			sim.set_matchups(side, mu)
 		var spare := str(interceptors.get(code, ""))
+		if spare == "" and code != GameState.my_club:
+			# AI parity without psychic counter-picking: use a loose defender
+			# only when this club's own personnel clearly suit it.
+			var best := {}
+			var best_v := 0.0
+			for p in Matchups.defenders((sim.squads[side] as Squad).ground):
+				var v := 0.65 * float(p["attr"].get("intercept", 0)) + 0.35 * float(p["attr"].get("marking", 0))
+				if v > best_v:
+					best = p
+					best_v = v
+			if not best.is_empty() and best_v >= 76.0:
+				spare = str(best["id"])
 		if spare != "":
 			sim.set_interceptor(side, spare)
 	return sim
