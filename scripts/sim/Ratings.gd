@@ -10,7 +10,7 @@ extends RefCounted
 ## Tunables - single source of truth for match balance. Mirrored in
 ## tools/sim_harness.py (dict `T`).
 const T := {
-	"chains_per_game": 180,          # possession chains across BOTH teams
+	"chains_per_game": 200,          # possession chains across BOTH teams
 	"max_touches_per_chain": 14,
 	"forward50_line": 35.0,          # metres from the centre square
 	"goal_line": 85.0,
@@ -23,7 +23,7 @@ const T := {
 	"handball_share": 0.44,
 	"inside50_goal": 0.269,          # of inside-50 entries
 	"inside50_behind": 0.180,
-	"stoppage_share": 0.465,         # chains that begin at a genuine stoppage
+	"stoppage_share": 0.42,          # chains that begin at a genuine stoppage
 	"hitouts_per_stoppage": 0.81,    # split between the two rucks
 	"clearance_per_stoppage": 0.815,  # to the team that wins the stoppage
 	"one_percenter_share": 0.83,     # of inside-50 entries that yield a 1%
@@ -476,14 +476,26 @@ static func plays_role(p: Dictionary, role: String) -> bool:
 	return str(p.get("role", "")) == role or str(p.get("role2", "")) == role
 
 
-## Draft salary-cap cost (1-10) derived from the overall rating.
+## Plausible annual AFL salary from the overall rating. This is the simple
+## list-management base salary used by the game, not a claim to reproduce
+## every real AFL payment (match payments/ASAs are deliberately out of scope).
+## The curve preserves the old 1-10 salary tiers while expressing them in
+## football money: depth at the senior floor, established players in the
+## hundreds of thousands, and genuine stars above $1m.
 static func salary_value(overall: int) -> int:
-	var steps := [[90, 10], [85, 9], [79, 8], [73, 7], [67, 6],
-			[61, 5], [55, 4], [48, 3], [41, 2]]
-	for s in steps:
-		if overall >= s[0]:
-			return s[1]
-	return 1
+	# Annual salary the market pays for a rating: it rises smoothly between
+	# these points (no cliff for one rating point), from the senior minimum.
+	var points := [[40, 155000], [48, 255000], [55, 335000], [61, 415000],
+			[67, 515000], [73, 625000], [79, 740000], [85, 875000], [90, 1030000], [99, 1250000]]
+	if overall <= int(points[0][0]):
+		return int(points[0][1])
+	for i in range(1, points.size()):
+		if overall <= int(points[i][0]):
+			var lo: Array = points[i - 1]
+			var hi: Array = points[i]
+			var t := float(overall - int(lo[0])) / float(int(hi[0]) - int(lo[0]))
+			return int(round(lerpf(float(lo[1]), float(hi[1]), t) / 5000.0)) * 5000
+	return int(points[points.size() - 1][1])
 
 
 # ---------------------------------------------------------------------------
@@ -567,9 +579,11 @@ static func select_22(list_players: Array) -> Dictionary:
 	return {"ground": ground, "bench": bench}
 
 
-## True when a player can take the field (not injured).
+## True when a player can take the field (not injured, suspended or rested).
 static func available(p: Dictionary) -> bool:
-	return int(p.get("injury_weeks", 0)) <= 0 and not bool(p.get("rested", false))
+	return int(p.get("injury_weeks", 0)) <= 0 \
+			and int(p.get("suspension_weeks", 0)) <= 0 \
+			and not bool(p.get("rested", false))
 
 
 ## The match-day 22. With an empty selection the best available side is

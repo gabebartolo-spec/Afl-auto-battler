@@ -256,6 +256,15 @@ static func _renamed(s: String) -> String:
 	return s
 
 
+## Packed string arrays (club pairs) are values, so they're replaced, not
+## edited in place.
+static func _renamed_all(v: PackedStringArray) -> PackedStringArray:
+	var out := PackedStringArray()
+	for x in v:
+		out.append(_renamed(x))
+	return out
+
+
 static func _migrate_in_place(v: Variant) -> void:
 	if v is Dictionary:
 		var d: Dictionary = v
@@ -263,6 +272,8 @@ static func _migrate_in_place(v: Variant) -> void:
 			var val = d[k]
 			if val is String:
 				d[k] = _renamed(val)
+			elif val is PackedStringArray:
+				d[k] = _renamed_all(val)
 			else:
 				_migrate_in_place(val)
 			if k is String:
@@ -275,5 +286,7 @@ static func _migrate_in_place(v: Variant) -> void:
 		for idx in range(a.size()):
 			if a[idx] is String:
 				a[idx] = _renamed(a[idx])
+			elif a[idx] is PackedStringArray:
+				a[idx] = _renamed_all(a[idx])
 			else:
 				_migrate_in_place(a[idx])

@@ -47,7 +47,9 @@ func _narrow() -> bool:
 	return UiKit.view_width(self) < 560.0
 
 
-func _wrapped(text: String, fs := UiKit.BODY, col := UiKit.TEXT) -> Label:
+func _wrapped(text: String, fs := UiKit.BODY, col := UiKit.AUTO_COLOUR) -> Label:
+	if col == UiKit.AUTO_COLOUR:
+		col = UiKit.TEXT
 	var l := UiKit.lbl(text, fs, col)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
@@ -211,7 +213,7 @@ func _list_and_cap() -> Control:
 	var line := "%d players on the list" % GameState.my_list.size()
 	if GameState.salary_cap > 0:
 		var room := GameState.cap_room()
-		line += "  ·  payroll %d of %d  ·  %s" % [GameState.my_payroll(), GameState.salary_cap,
+		line += "  ·  payroll %s of %s  ·  %s" % [Contracts.money(GameState.my_payroll()), Contracts.money(GameState.salary_cap),
 				("%d under the cap" % room) if room >= 0 else ("%d over the cap" % -room)]
 	var l := _wrapped(line)
 	l.name = "CapLine"

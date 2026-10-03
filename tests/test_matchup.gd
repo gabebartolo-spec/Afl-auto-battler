@@ -18,6 +18,7 @@ func run() -> void:
 	_test_missing_player()
 	_test_danger()
 	_test_danger_needs_a_lever()
+	_test_interceptor_fact()
 	_test_form()
 	_test_unusual_data()
 	_test_own_notes()
@@ -178,9 +179,22 @@ func _test_danger_needs_a_lever() -> void:
 			"DEF": dfn = p
 			"RUCK": ruck = p
 	var keys: Array = Matchups.key_forwards(ground)
+	var spare := Matchups.best_interceptor(ground)
+	var plain_def := {}
+	for p in Matchups.defenders(ground):
+		if spare.is_empty() or str(p.get("id", "")) != str(spare.get("id", "")):
+			plain_def = p
+			break
 	_check(Matchup.has_lever(mid, ground), "A midfielder can be tagged")
 	_check(not keys.is_empty() and Matchup.has_lever(keys[0], ground), "A key forward gets a defender put on him")
-	_check(not Matchup.has_lever(dfn, ground), "A defender has no match-day answer")
+	if not spare.is_empty():
+		_check(Matchup.has_lever(spare, ground), "A genuine loose interceptor can be made accountable")
+	else:
+		_check(true, "This side has no genuine loose-interceptor candidate")
+	if not plain_def.is_empty():
+		_check(not Matchup.has_lever(plain_def, ground), "An ordinary defender is not called a danger without a match-day lever")
+	else:
+		_check(true, "Every defender in this unusual side is structurally answerable")
 	_check(not Matchup.has_lever(ruck, ground), "A ruck has no match-day answer")
 	# Every club: "the danger" only ever names someone with an answer.
 	var ok := true
@@ -197,6 +211,25 @@ func _test_danger_needs_a_lever() -> void:
 			if says_danger != Matchup.has_lever(him, sq.ground):
 				ok = false
 	_check(ok, "Only a player with an answer is called the danger")
+
+
+func _test_interceptor_fact() -> void:
+	var lists := _league()
+	var found := false
+	var clean := true
+	for code in lists:
+		var sq := Squad.new(code, lists[code], false, code)
+		var spare := Matchups.best_interceptor(sq.ground)
+		var facts := Matchup.facts(code, lists)
+		for x in facts:
+			if str(x.get("key", "")) != "interceptor":
+				continue
+			found = true
+			clean = clean and not spare.is_empty() \
+					and str(x.get("player_id", "")) == str(spare.get("id", "")) \
+					and str(x.get("text", "")).contains("roam behind the ball")
+	_check(found, "Opponent preparation can surface a genuine roaming-interceptor threat")
+	_check(clean, "The roaming-interceptor fact names the same football-fit defender MatchSim can use")
 
 
 func _test_form() -> void:

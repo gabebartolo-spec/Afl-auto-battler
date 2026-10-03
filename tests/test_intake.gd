@@ -52,7 +52,7 @@ func _test_draft_class_data() -> void:
 		_check(bool(p.get("projected", false)), "Prospects are flagged as projections")
 		var ov := int(p["overall"])
 		_check(ov >= 36 and ov <= 76, "Projected overall %d sits in the rookie band" % ov)
-		_check(int(p["value"]) >= 1 and int(p["value"]) <= 10, "Salary value stays 1-10")
+		_check(int(p["value"]) >= Contracts.SENIOR_MIN_2027 and int(p["value"]) <= Ratings.salary_value(99), "Salary value stays on the AFL scale")
 		var a: Dictionary = p["attr"]
 		var attrs_ok := a.size() == Prospects.ATTR_KEYS.size()
 		for key in Prospects.ATTR_KEYS:

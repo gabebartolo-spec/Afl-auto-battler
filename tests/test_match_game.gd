@@ -12,6 +12,9 @@ func run() -> void:
 	GameDB.reload()
 	_test_auto_sim_untouched()
 	_test_stoppage_location()
+	_test_boundary_rules()
+	_test_authenticity_events()
+	_test_contextual_frees_and_general_spoils()
 	_test_legs_and_rotations()
 	_test_moments()
 	_test_set_shot()
@@ -23,12 +26,14 @@ func run() -> void:
 	_test_lockdown_midfielder()
 	_test_traits()
 	_test_metres_and_efficiency()
+	_test_gps_distance()
 	_test_ruck_integrity()
 	_test_ruck_taps()
 	_test_stat_credits()
 	_test_m2_stats()
 	_test_no_role_gates()
 	_test_spoils_and_crumbs()
+	_test_roaming_interceptor()
 	_test_hot_player_moment()
 	_test_matchups()
 	_test_key_duel_balance()
@@ -133,6 +138,163 @@ func _test_stoppage_location() -> void:
 		uncontested = uncontested and ["kick", "mark"].has(str(first.get("kind", ""))) \
 				and int(first.get("side", -1)) == 1
 	_check(uncontested, "A kick-in is uncontested: the defending side kicks, no hit-out or clearance")
+
+
+## 2026 boundary law: last disposal between the arcs is a free; touched or
+## contested exits and ordinary OOB inside either 50 are throw-ins; out on the
+## full is a free anywhere. Real matches must also produce and restart them.
+func _test_boundary_rules() -> void:
+	var f50 := float(Ratings.T["forward50_line"])
+	_check(MatchSim.boundary_restart(0.0, f50, "kick", false, false) == "free",
+			"A kick out between the arcs is a last-disposal free")
+	_check(MatchSim.boundary_restart(0.0, f50, "handball", false, false) == "free",
+			"A handball out between the arcs is a last-disposal free")
+	_check(MatchSim.boundary_restart(0.0, f50, "kick", false, true) == "throwin",
+			"A touched/contested exit between the arcs is a throw-in")
+	_check(MatchSim.boundary_restart(f50 + 5.0, f50, "kick", false, false) == "throwin",
+			"Ordinary out of bounds inside a 50m arc is a throw-in")
+	_check(MatchSim.boundary_restart(f50 + 5.0, f50, "kick", true, false) == "free",
+			"Out on the full is a free anywhere on the ground")
+
+	var counts := {"throwin": 0, "last_disposal": 0, "out_on_full": 0}
+	var legal_last := true
+	var throwin_spot := true
+	for seed in range(8):
+		var evs: Array = _sim(6100 + seed).run()["events"]
+		for i in range(evs.size()):
+			var ev: Dictionary = evs[i]
+			var kind := str(ev.get("kind", ""))
+			if counts.has(kind):
+				counts[kind] = int(counts[kind]) + 1
+			if kind == "last_disposal":
+				legal_last = legal_last and absf(float(ev["fp"])) < f50
+			if kind != "throwin":
+				continue
+			# If the throw-in is not swallowed by the quarter siren, the first
+			# disposal after it starts at the same longitudinal crossing point.
+			var j := i + 1
+			while j < evs.size() and ["sub", "injury", "moment"].has(str(evs[j].get("kind", ""))):
+				j += 1
+			if j >= evs.size() or ["quarter", "final"].has(str(evs[j].get("kind", ""))):
+				continue
+			var nx: Dictionary = evs[j]
+			if ["kick", "handball", "mark"].has(str(nx.get("kind", ""))):
+				throwin_spot = throwin_spot and is_equal_approx(float(nx["fp"]), float(ev["fp"]))
+	_check(int(counts["throwin"]) > 0 and int(counts["last_disposal"]) > 0 and int(counts["out_on_full"]) > 0,
+			"Seeded matches produce throw-ins, last-disposal frees and out-on-full frees (%s)" % str(counts))
+	_check(legal_last, "Every last-disposal free is paid between the 50m arcs")
+	_check(throwin_spot, "Boundary throw-ins restart at the crossing field position")
+
+
+## Smothers, speccies, 50s, MRO incidents and kick-ins are all football
+## events/state, not presentation guesses.
+func _test_authenticity_events() -> void:
+	var smothers := 0
+	var speccies := 0
+	var speccy_ok := true
+	var max_speccies := 0
+	var kick_in_ok := true
+	var kick_styles := {}
+	for seed in range(6200, 6224):
+		var sim := _sim(seed)
+		var expected_kicker := str(sim.kick_in_taker(1).get("id", ""))
+		var res: Dictionary = sim.run()
+		var match_speccies := 0
+		for ev in res["events"]:
+			var kind := str(ev.get("kind", ""))
+			if kind == "smother":
+				smothers += 1
+				var id := str(ev.get("player_id", ""))
+				var st: Dictionary = (res["players"] as Dictionary).get(id, {})
+				speccy_ok = speccy_ok and float(st.get("smothers", 0.0)) > 0.0 \
+						and float(st.get("one_percenters", 0.0)) >= float(st.get("smothers", 0.0))
+			if kind == "mark" and bool(ev.get("speccy", false)):
+				speccies += 1
+				match_speccies += 1
+				speccy_ok = speccy_ok and bool(ev.get("contested", false))
+			if kind == "kick" and bool(ev.get("kick_in", false)):
+				kick_styles[str(ev.get("kick_in_style", ""))] = true
+		max_speccies = maxi(max_speccies, match_speccies)
+
+		# A manually staged behind restart uses the same nominated rebounder
+		# and is never a ruck contest.
+		var k := _sim(seed + 100)
+		expected_kicker = str(k.kick_in_taker(1).get("id", ""))
+		k.fp = k.kick_in_fp(0)
+		k.kick_in = true
+		k.next_side = 1
+		k.at_centre = false
+		var n := k.events.size()
+		var before_ho := float((k.team_stats[1] as Dictionary).get("hitouts", 0.0))
+		k._play_one_chain(Ratings.T)
+		var first: Dictionary = k.events[n] if k.events.size() > n else {}
+		kick_in_ok = kick_in_ok and str(first.get("kind", "")) == "kick" \
+				and bool(first.get("kick_in", false)) \
+				and str(first.get("player_id", "")) == expected_kicker \
+				and float((k.team_stats[1] as Dictionary).get("hitouts", 0.0)) == before_ho
+		if bool(first.get("kick_in", false)):
+			kick_styles[str(first.get("kick_in_style", ""))] = true
+
+	_check(smothers > 0 and speccy_ok, "Smothers are real one-percenters in the match log (%d)" % smothers)
+	_check(speccies > 0 and max_speccies <= 2,
+			"Speccies are genuine contested marks, never more than two a match (%d in sample)" % speccies)
+	_check(kick_in_ok, "A behind restarts with the side's designated rebounding defender, no ruck contest")
+	_check(kick_styles.has("safe") and kick_styles.has("play_on"),
+			"Kick-ins include both safer exits and play-on exits (%s)" % str(kick_styles))
+
+	var goal_line := float(Ratings.T["goal_line"])
+	_check(is_equal_approx(MatchSim.fifty_mark(0, 0.0, goal_line), 50.0)
+			and is_equal_approx(MatchSim.fifty_mark(1, 10.0, goal_line), -40.0),
+			"A 50-metre penalty advances exactly 50m toward the receiving side's goal")
+	_check(is_equal_approx(MatchSim.fifty_mark(0, 70.0, goal_line), goal_line),
+			"A 50 stops at the goal line rather than marching through it")
+
+	var mro := _sim(7001)
+	var offender: Dictionary = (mro.squads[0] as Squad).ground[0]
+	var victim: Dictionary = (mro.squads[1] as Squad).ground[0]
+	(offender["attr"] as Dictionary)["discipline"] = 1
+	for i in range(800):
+		mro._maybe_report(0, offender, victim)
+	var valid_mro := not mro.reports.is_empty()
+	var suspended := 0
+	for row in mro.reports:
+		valid_mro = valid_mro and ["no_action", "fine", "suspension"].has(str(row.get("outcome", ""))) \
+				and str(row.get("id", "")) == str(offender["id"]) \
+				and str(row.get("victim_id", "")) == str(victim["id"])
+		if str(row.get("outcome", "")) == "suspension":
+			var w := int(row.get("weeks", 0))
+			valid_mro = valid_mro and w >= 1 and w <= 3
+			suspended += 1
+	_check(valid_mro and suspended > 0,
+			"Reportable tackles resolve once to no action, fine or 1-3 match suspension (%d reports)" % mro.reports.size())
+
+
+func _test_contextual_frees_and_general_spoils() -> void:
+	var causes := {}
+	var general_spoils := 0
+	var general_marks := 0
+	var free_meta_ok := true
+	for seed in range(24):
+		var evs: Array = _sim(7200 + seed).run()["events"]
+		for ev in evs:
+			if str(ev.get("kind", "")) == "free":
+				var cause := str(ev.get("free_cause", ""))
+				if cause != "" and cause != "general":
+					causes[cause] = int(causes.get(cause, 0)) + 1
+					free_meta_ok = free_meta_ok and ev.has("against_id")
+			if str(ev.get("kind", "")) == "spoil" and bool(ev.get("general_play", false)):
+				general_spoils += 1
+			if str(ev.get("kind", "")) == "mark" and bool(ev.get("general_play", false)):
+				general_marks += 1
+	_check(int(causes.get("holding_ball", 0)) > 0,
+			"Holding-the-ball frees emerge from actual tackles")
+	_check(int(causes.get("high_contact", 0)) > 0,
+			"High-contact frees emerge from actual tackles")
+	_check(int(causes.get("marking", 0)) > 0,
+			"Marking-contest frees emerge from actual aerial contests")
+	_check(free_meta_ok, "Contextual frees identify the offender")
+	_check(general_spoils > 0, "General-play kicks can produce real spoils to a loose ball")
+	_check(general_marks > 0, "The same general-play aerial model can produce marks")
 
 
 func _test_legs_and_rotations() -> void:
@@ -645,6 +807,51 @@ func _test_metres_and_efficiency() -> void:
 			and MatchSim.disposal_efficiency({}) == 0, "Disposal efficiency is effective over total")
 
 
+## GPS distance is real match behaviour, not metres gained: every on-ground
+## chain adds running by role and instructions, and the player/team totals
+## reconcile. Faster plans must visibly cost more kilometres.
+func _test_gps_distance() -> void:
+	var res := _sim(9050).run()
+	var sums_ok := true
+	var averages_ok := true
+	for side in range(2):
+		var total := 0.0
+		var roster: Array = res["roster"][side]
+		for r in roster:
+			total += float((res["players"].get(str(r["id"]), {}) as Dictionary).get("distance_run", 0.0))
+		if absf(total - float((res["team"][side] as Dictionary).get("distance_run", 0.0))) > 0.5:
+			sums_ok = false
+		var avg := total / float(maxi(1, roster.size()))
+		if avg < 8000.0 or avg > 15000.0:
+			averages_ok = false
+	_check(sums_ok, "Players' GPS distance adds up to the team's")
+	_check(averages_ok, "GPS distance sits in a believable match-day range")
+
+	var fast := _sim(9051)
+	fast.set_tactics(0, {"gameplan": "attacking"})
+	var fast_km := float((fast.run()["team"][0] as Dictionary).get("distance_run", 0.0))
+	var slow := _sim(9051)
+	slow.set_tactics(0, {"gameplan": "controlled"})
+	var slow_km := float((slow.run()["team"][0] as Dictionary).get("distance_run", 0.0))
+	_check(fast_km > slow_km * 1.10,
+			"Attack corridor covers more ground than Controlled tempo (%.0f km v %.0f km)" % [
+			fast_km / 1000.0, slow_km / 1000.0])
+
+	var plain := _sim(9052)
+	var focus_id := ""
+	for p in (plain.squads[0] as Squad).ground:
+		if str(p["role"]) == "MID":
+			focus_id = str(p["id"])
+			break
+	var plain_km := float((plain.run()["players"].get(focus_id, {}) as Dictionary).get("distance_run", 0.0))
+	var through := _sim(9052)
+	through.set_tactics(0, {"focus_id": focus_id})
+	var through_km := float((through.run()["players"].get(focus_id, {}) as Dictionary).get("distance_run", 0.0))
+	_check(focus_id != "" and through_km > plain_km,
+			"Playing through a midfielder makes him work farther (%.1f km v %.1f km)" % [
+			through_km / 1000.0, plain_km / 1000.0])
+
+
 ## Phone playtest: a huge hit-out win came with a narrow clearance count,
 ## and one ruck was beaten far too heavily. The tap now decides where a
 ## stoppage goes (a tap to advantage swings it; mids still win the rest),
@@ -927,6 +1134,10 @@ func _test_spoils_and_crumbs() -> void:
 	var crumbs := 0
 	var crumbs_fwd := 0
 	var by_def := 0.0
+	var general_spoils := 0
+	var general_spoil_loose := true
+	var free_causes := {}
+	var contextual_free_stats := 0
 	# 150 matches: crumbed goals are rare (about one a match). Forwards kick
 	# about 64% of them over 300 matches; a 60-match sample swung to 54%,
 	# under the 55% bar, on noise alone.
@@ -948,14 +1159,108 @@ func _test_spoils_and_crumbs() -> void:
 			for r in res["roster"][side]:
 				role[str(r["id"])] = str(r["role"])
 		for e in res["events"]:
-			if str(e.get("kind", "")) == "goal" and bool(e.get("crumb", false)):
+			var kind := str(e.get("kind", ""))
+			if kind == "goal" and bool(e.get("crumb", false)):
 				crumbs += 1
 				if str(role.get(str(e.get("player_id", "")), "")) == "FWD":
 					crumbs_fwd += 1
+			if kind == "spoil" and bool(e.get("general_play", false)):
+				general_spoils += 1
+				var sid := int(e.get("side", -1))
+				var pid := str(e.get("player_id", ""))
+				var pst: Dictionary = res["players"].get(pid, {})
+				general_spoil_loose = general_spoil_loose and sid >= 0 \
+						and float(pst.get("spoils", 0.0)) > 0.0 \
+						and float(pst.get("one_percenters", 0.0)) > 0.0
+			if kind == "free":
+				var cause := str(e.get("free_cause", ""))
+				free_causes[cause] = int(free_causes.get(cause, 0)) + 1
+		for side in range(2):
+			var team: Dictionary = res["team"][side]
+			for cause in ["holding_ball", "high_contact", "marking", "general"]:
+				contextual_free_stats += int(team.get("free_" + cause, 0))
 	_check(sums_ok and spoils > 0.0, "Spoils are credited, and players' spoils add up to the team's")
 	_check(by_def >= 0.7 * spoils, "Spoils are made by defenders (rotations aside) (%d of %d)" % [by_def, spoils])
 	_check(crumbs > 0 and float(crumbs_fwd) >= 0.55 * float(crumbs),
 			"Goals are crumbed off spoils, mostly by forwards (%d of %d)" % [crumbs_fwd, crumbs])
+	_check(general_spoils > 0 and general_spoil_loose,
+			"General-play long kicks produce real credited spoils and loose balls (%d)" % general_spoils)
+	_check(free_causes.has("holding_ball") and free_causes.has("high_contact")
+			and free_causes.has("marking") and free_causes.has("general"),
+			"Free kicks carry real causes from tackles/marking contests plus a smaller general bucket (%s)" % str(free_causes))
+	var event_free_total := 0
+	for cause in free_causes:
+		event_free_total += int(free_causes[cause])
+	_check(contextual_free_stats == event_free_total,
+			"Every contextual/general free event reconciles to its team cause stat (%d)" % event_free_total)
+
+
+## ARD-M4-004: a loose interceptor is one real defender leaving his man,
+## not an extra player or flat stat buff. Another defender absorbs the job,
+## his impact comes from actual aerial contests, and both sides can respond.
+func _test_roaming_interceptor() -> void:
+	var sim := _sim(8101, "ADE", "SYD")
+	var defs := Matchups.interceptor_candidates((sim.squads[1] as Squad).ground)
+	_check(not defs.is_empty() and Matchups.interceptor_score(defs[0]) >= Matchups.interceptor_score(defs[-1]),
+			"Interceptor suitability is ordered by intercept/marking/pressure football fit")
+
+	# Pick a defender who currently owns a direct matchup, so making him loose
+	# proves that somebody else absorbs the forward rather than creating #19.
+	var fid := str((sim.duels[1] as Dictionary).keys()[0])
+	var loose_id := str((sim.duels[1] as Dictionary)[fid])
+	var before_jobs := (sim.duels[1] as Dictionary).size()
+	_check(sim.set_interceptor(1, loose_id, false) and str(sim.interceptor[1]) == loose_id,
+			"A real defender can be nominated to roam behind the ball")
+	var reassigned := true
+	for k in (sim.duels[1] as Dictionary):
+		reassigned = reassigned and str((sim.duels[1] as Dictionary)[k]) != loose_id
+	_check(reassigned and (sim.duels[1] as Dictionary).size() == before_jobs,
+			"Making him loose removes his direct job and another defender absorbs it")
+	_check(not sim.set_matchup(1, fid, "NOPE", false) and str(sim.interceptor[1]) == loose_id,
+			"An invalid matchup cannot accidentally cancel the loose-defender call")
+
+	var base_chance := sim._roam_chance(1)
+	sim.set_tactics(0, {"gameplan": "balanced", "spare_accountable": true})
+	var accountable_chance := sim._roam_chance(1)
+	_check(base_chance > 0.0 and accountable_chance < base_chance * 0.5,
+			"Making the spare accountable sharply reduces his chance to arrive (%.2f -> %.2f)" % [
+					base_chance, accountable_chance])
+
+	var contests := 0
+	var wins := 0
+	var losses := 0
+	for seed in range(8120, 8140):
+		var m := _sim(seed, "ADE", "SYD")
+		var best := Matchups.best_interceptor((m.squads[1] as Squad).ground, 0.0)
+		m.set_interceptor(1, str(best.get("id", "")), false)
+		var res := m.run()
+		var st: Dictionary = res["players"].get(str(best.get("id", "")), {})
+		contests += int(st.get("roam_contests", 0))
+		wins += int(st.get("roam_wins", 0))
+		losses += int(st.get("roam_losses", 0))
+	_check(contests > 0 and wins > 0 and losses > 0,
+			"The roaming defender reaches real aerial contests and can both win and lose them (%d: %d-%d)" % [
+					contests, wins, losses])
+
+	# AI uses the same role from personnel and scoreboard state.
+	var ai := _sim(8201, "GEE", "COL")
+	var best_ai := Matchups.best_interceptor((ai.squads[1] as Squad).ground)
+	var ait := ai.ai_tactics(1)
+	_check(best_ai.is_empty() or str(ait.get("interceptor_id", "")) == str(best_ai.get("id", "")),
+			"AI clubs use a suitable loose interceptor under the same personnel rule")
+	# And its counter is evidence-led: two recorded roam wins are enough even
+	# without reading a currently selected hidden interceptor field.
+	var observed: Dictionary = (ai.squads[0] as Squad).ground[0]
+	ai.player_stats[str(observed["id"])] = {"roam_wins": 2}
+	ai.interceptor[0] = ""
+	_check(bool(ai.ai_tactics(1).get("spare_accountable", false)),
+			"AI makes a spare accountable only after observable roaming wins, not a hidden user call")
+
+	var fake := {"roster": [[{"id":"D","name":"Defender"}], []],
+			"players": {"D":{"roam_contests":5,"roam_wins":4,"roam_losses":1}}}
+	var story := MatchNotes.interceptor_story(fake, 0)
+	_check(story.size() == 1 and str(story[0]).contains("controlled the air"),
+			"Full time explains a spare only when real roaming contests support it")
 
 
 ## A tag is a midfield job: a forward kicking a bag never gets a tag card

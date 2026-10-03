@@ -158,6 +158,16 @@ func _test_man_management() -> void:
 func _test_in_career() -> void:
 	GameState.reset()
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	GameState.department_budget["football"] = 0
+	GameState._refresh_coach_tactics()
+	var lean_exec := float((CoachEffects.table[GameState.my_club] as Dictionary)["exec"])
+	GameState.department_budget["football"] = 3
+	GameState._refresh_coach_tactics()
+	var elite_exec := float((CoachEffects.table[GameState.my_club] as Dictionary)["exec"])
+	_check(elite_exec > lean_exec,
+			"Football department funding directly changes gameplan execution (%.2f to %.2f)" % [
+			lean_exec, elite_exec])
+	GameState.department_budget["football"] = ClubBudget.STANDARD
 	GameState.advance()
 	_check(not CoachEffects.table.is_empty() and CoachEffects.table.has("SYD") and bool(CoachEffects.table["SYD"]["ai"])
 			and not bool(CoachEffects.table["GEE"]["ai"]), "Every club's tactics are read from its staff; yours are your calls")

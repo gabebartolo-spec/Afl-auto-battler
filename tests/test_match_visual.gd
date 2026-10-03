@@ -588,7 +588,8 @@ func _test_broadcast_vignettes() -> void:
 		"kind": "goal", "side": 0, "q": 3, "set_shot": false,
 		"goals": [8, 7], "behinds": [6, 8], "num": 23,
 	}
-	var mark := {"kind": "mark", "side": 0, "q": 2, "num": 4}
+	var mark := {"kind": "mark", "side": 0, "q": 2, "num": 4, "speccy": true}
+	var ordinary_mark := {"kind": "mark", "side": 0, "q": 2, "num": 5, "speccy": false}
 	var front := {"actor_pos": Vector2(10, 2), "ball_pos": Vector2(10, 2), "nearby": 4}
 	var flank := {"actor_pos": Vector2(18, 31), "ball_pos": Vector2(18, 31), "nearby": 4}
 	var defensive := {"actor_pos": Vector2(-32, 4), "ball_pos": Vector2(-32, 4), "nearby": 4}
@@ -601,8 +602,10 @@ func _test_broadcast_vignettes() -> void:
 	easy_set["goals"] = [15, 9]
 	_check(BroadcastVignette.pick_kind(easy_set, {}, final, front) != BroadcastVignette.AFTER_SIREN,
 			"A comfortable final set shot is not dressed up as a dramatic final kick")
+	_check(BroadcastVignette.pick_kind(ordinary_mark, {}, {}, front) == "",
+			"An ordinary crowded mark is not silently promoted to a speccy")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, front) == BroadcastVignette.SPECCY_FRONT,
-			"A crowded mark through the corridor gets the front-on speccy shot")
+			"A real speccy through the corridor gets the front-on speccy shot")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, flank) == BroadcastVignette.SPECCY_SIDE,
 			"A crowded mark near the flank gets the side-sit speccy shot")
 	_check(BroadcastVignette.pick_kind(mark, {}, {}, defensive) == BroadcastVignette.SPECCY_DEFENSIVE,
@@ -615,20 +618,17 @@ func _test_broadcast_vignettes() -> void:
 			== BroadcastVignette.category(BroadcastVignette.SPECCY_SIDE),
 			"Speccy variations share one frequency category")
 
-	var scene = load("res://scripts/ui/MatchScene.gd").new()
 	var quotas := []
 	var quota_total := 0
 	for i in range(200):
-		scene._res = {"home": "COL", "away": "CAR", "label": "Fixture %d" % i}
-		var q: int = scene._speccy_quota()
+		var q := MatchSim.speccy_quota(8100 + i)
 		quotas.append(q)
 		quota_total += q
 	var mean := float(quota_total) / float(quotas.size())
 	_check(quotas.min() >= 0 and quotas.max() <= 2,
-			"Speccies are hard-capped at two in every match")
+			"MatchSim hard-caps speccies at two in every match")
 	_check(mean >= 0.65 and mean <= 0.95,
-			"The deterministic speccy allowance averages about 0.8 per match (%.2f)" % mean)
-	scene.free()
+			"The deterministic MatchSim allowance averages about 0.8 per match (%.2f)" % mean)
 
 	var all := [
 		BroadcastVignette.SPECCY_FRONT, BroadcastVignette.SPECCY_SIDE,

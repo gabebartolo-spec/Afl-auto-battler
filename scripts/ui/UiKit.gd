@@ -13,19 +13,58 @@ const FONT := preload("res://assets/fonts/Barlow-Regular.ttf")
 const BOLD := preload("res://assets/fonts/Barlow-SemiBold.ttf")
 const DISPLAY := preload("res://assets/fonts/BarlowCondensed-Bold.ttf")
 
-## Palette: warm near-black ink, paper-white text, one red for the action.
-const BG := Color("121110")
-const PANEL := Color("1b1a17")       # a grouped surface
-const PANEL_ALT := Color("24221e")   # a surface on a surface - sparingly
-const INK := Color("0d0c0b")         # inputs and wells
-const LINE := Color("363229")        # rules and outlines
-const TEXT := Color("f1eee6")
-const MUTED := Color("a39e93")
-const FAINT := Color("6e695f")       # disabled
-const EMPH := TEXT                   # emphasis is weight, not a colour
-const GOOD := Color("8cc49a")        # a genuinely good state (won, met, rising) - never decoration
-const BAD := Color("e38b73")
-const ACCENT := Color("c8412b")      # the primary action, and nothing else
+## Shared palette. Dark is the default so boot/import remains identical until
+## GameState reads the user's appearance preference. These are runtime values
+## rather than constants so every screen can rebuild cleanly in light mode.
+const AUTO_COLOUR := Color(-1, -1, -1, -1)
+static var BG := Color("121110")
+static var PANEL := Color("1b1a17")       # a grouped surface
+static var PANEL_ALT := Color("24221e")   # a surface on a surface - sparingly
+static var INK := Color("0d0c0b")         # inputs and wells
+static var LINE := Color("363229")        # rules and outlines
+static var TEXT := Color("f1eee6")
+static var MUTED := Color("a39e93")
+static var FAINT := Color("6e695f")       # disabled
+static var EMPH := Color("f1eee6")        # emphasis is weight, not a colour
+static var GOOD := Color("8cc49a")        # a genuinely good state, never decoration
+static var BAD := Color("e38b73")
+static var ACCENT := Color("c8412b")      # the primary action, and nothing else
+static var _appearance := "dark"
+
+
+static func apply_appearance(mode: String) -> void:
+	_appearance = "light" if mode == "light" else "dark"
+	if _appearance == "light":
+		BG = Color("f3f0e8")
+		PANEL = Color("e9e4da")
+		PANEL_ALT = Color("ddd7cb")
+		INK = Color("ffffff")
+		LINE = Color("c4bbad")
+		TEXT = Color("1d1a16")
+		MUTED = Color("6f685f")
+		FAINT = Color("9a9287")
+		EMPH = TEXT
+		GOOD = Color("3f7650")
+		BAD = Color("a74734")
+		ACCENT = Color("b63c29")
+	else:
+		BG = Color("121110")
+		PANEL = Color("1b1a17")
+		PANEL_ALT = Color("24221e")
+		INK = Color("0d0c0b")
+		LINE = Color("363229")
+		TEXT = Color("f1eee6")
+		MUTED = Color("a39e93")
+		FAINT = Color("6e695f")
+		EMPH = TEXT
+		GOOD = Color("8cc49a")
+		BAD = Color("e38b73")
+		ACCENT = Color("c8412b")
+	RenderingServer.set_default_clear_color(BG)
+
+
+static func appearance() -> String:
+	return _appearance
 
 ## Type scale for a phone. Pick from these before inventing a size.
 const H1 := 24      # screen title / the one big fact on a screen
@@ -88,7 +127,9 @@ static func scroll(child: Control) -> ScrollContainer:
 	return s
 
 
-static func style(bg: Color, pad := 12, radius := RADIUS, border := LINE) -> StyleBoxFlat:
+static func style(bg: Color, pad := 12, radius := RADIUS, border := AUTO_COLOUR) -> StyleBoxFlat:
+	if border == AUTO_COLOUR:
+		border = LINE
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.set_corner_radius_all(mini(radius, RADIUS))
@@ -99,7 +140,9 @@ static func style(bg: Color, pad := 12, radius := RADIUS, border := LINE) -> Sty
 
 
 ## A flat surface that groups related things: no border, small corners.
-static func panel(colour := PANEL, pad := 14, radius := RADIUS) -> PanelContainer:
+static func panel(colour := AUTO_COLOUR, pad := 14, radius := RADIUS) -> PanelContainer:
+	if colour == AUTO_COLOUR:
+		colour = PANEL
 	var p := PanelContainer.new()
 	p.mouse_filter = Control.MOUSE_FILTER_PASS
 	var sb := style(colour, pad, radius)
@@ -136,7 +179,9 @@ static func clear(container: Node) -> void:
 		child.queue_free()
 
 
-static func lbl(text: String, fs := 16, color := TEXT, bold := false) -> Label:
+static func lbl(text: String, fs := 16, color := AUTO_COLOUR, bold := false) -> Label:
+	if color == AUTO_COLOUR:
+		color = TEXT
 	var l := Label.new()
 	l.text = text
 	l.add_theme_font_override("font", BOLD if bold else FONT)
@@ -149,13 +194,17 @@ static func lbl(text: String, fs := 16, color := TEXT, bold := false) -> Label:
 ## Unwrapped metadata in horizontal rows must keep its intrinsic width.
 ## A wrapped label's minimum width is only one pixel, which can otherwise
 ## turn a cap value or club name into a column of single letters.
-static func line(text: String, fs := 16, color := TEXT, bold := false) -> Label:
+static func line(text: String, fs := 16, color := AUTO_COLOUR, bold := false) -> Label:
+	if color == AUTO_COLOUR:
+		color = TEXT
 	var l := lbl(text, fs, color, bold)
 	l.autowrap_mode = TextServer.AUTOWRAP_OFF
 	return l
 
 
-static func ellipsis(text: String, fs := 16, color := TEXT, bold := false) -> Label:
+static func ellipsis(text: String, fs := 16, color := AUTO_COLOUR, bold := false) -> Label:
+	if color == AUTO_COLOUR:
+		color = TEXT
 	var l := lbl(text, fs, color, bold)
 	l.autowrap_mode = TextServer.AUTOWRAP_OFF
 	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -175,7 +224,9 @@ static func title(text: String) -> Label:
 
 
 ## Big numbers - a score, a rating - in the scoreboard face.
-static func figure(text: String, fs := 30, color := TEXT) -> Label:
+static func figure(text: String, fs := 30, color := AUTO_COLOUR) -> Label:
+	if color == AUTO_COLOUR:
+		color = TEXT
 	var l := line(text, fs, color)
 	l.add_theme_font_override("font", DISPLAY)
 	return l

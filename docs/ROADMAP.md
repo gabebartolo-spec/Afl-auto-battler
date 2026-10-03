@@ -2025,7 +2025,7 @@ This is the canonical item for the user's previously requested secondary-positio
 ---
 
 ## ARD-M5-004 — Training multi-select
-**Status:** `IN PROGRESS` — long-press group selection and shared valid plans are implemented in PR #192.  
+**Status:** `DONE` — long-press group selection and shared valid plans merged in PR #192.  
 **Priority:** `P2`  
 **Autonomy:** `SAFE`
 
@@ -2161,7 +2161,7 @@ Overall rating should be meaningfully aligned with what Squad/MatchSim reward.
 ---
 
 ## ARD-M5-011 — League Draft career-stage filters
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — implemented in consolidated PR #208; awaiting CI/merge.  
 **Priority:** `P2`  
 **Autonomy:** `SAFE`
 
@@ -2199,6 +2199,8 @@ Before implementation, inspect the actual 2027 League Draft age distribution and
 - existing position/search filters combine correctly,
 - Back/profile navigation preserves the selected band,
 - narrow Android portrait remains usable.
+
+Implementation in #208 keeps this as a view-only opening-League-Draft filter. The 2027 pool supports clean **18–23 / 24–28 / 29+** bands (252 / 248 / 169 players respectively), exposed as **Rookies / Prime / Veterans** inside the existing advanced filter area. It does not touch draft eligibility, AI valuation, cap logic or National Draft scouting.
 
 ---
 
@@ -2877,10 +2879,18 @@ The same scroll-preservation rule now applies across Contracts, Free agents and 
 
 
 ## ARD-M6-005 — Options / settings
-**Status:** `DONE`  
-**Merged:** PR #86 as `ebc570d`; one Settings sheet now serves the menu and career hub, with relevant current options and destructive-action confirmation.  
+**Status:** `IN PROGRESS` — core Settings merged in #86; the requested light/dark appearance and direct safe New career action are implemented in PR #205 pending validation/merge.  
+**Merged:** PR #86 as `ebc570d`; one Settings sheet serves the menu and career hub, with relevant current options and destructive-action confirmation.  
 **Priority:** `P1`  
 **Autonomy:** `SAFE`
+
+### Follow-up (2026-10-02, PR #205)
+- Dark / Light is now a real persisted shared-palette choice; changing it rebuilds the current screen immediately.
+- Light mode uses warm neutral paper/ink colours while club colours and the football ground remain unchanged.
+- Career Settings adds **New career**. It opens setup without deleting the existing save; the existing replacement confirmation remains the destructive gate, so backing out can still resume the save.
+- Delete this career retains its explicit confirmation and uses the shared danger treatment.
+- **Mute sounds** persists and mutes Godot's Master audio bus, so incoming music and SFX automatically honour it.
+- UI scale and reduced motion remain out until they have real systems to control.
 
 ### Implementation record (2026-09-28, branch `claude/options`)
 - **One Settings sheet** (`scripts/ui/OptionsSheet.gd`), opened from the main menu (Settings) and from a new top-right Settings on the hub. It holds:
@@ -2893,10 +2903,7 @@ The same scroll-preservation rule now applies across Contracts, Free agents and 
   - Delete this career. It asks first ("This deletes your saved career for good. It cannot be undone.", with Keep it / Delete career), then removes the save and returns to the menu.
   - Quit game stays on the menu's sheet (desktop only).
   - Back closes the sheet.
-- **Left out, as not yet relevant:**
-  - light/dark theme and UI scale: one palette and type scale, and a change there is project-wide;
-  - audio: none yet;
-  - reduced motion: the match view already has 1x to 8x and Skip.
+- **Originally left out:** light/dark, audio, UI scale and reduced motion. PR #205 now adds light/dark and the now-relevant global Mute sounds control; UI scale and reduced motion remain out until they have real systems to control.
 - **Also fixed:** the hub's four-button bottom row cut "Sim round" short at 360 px. Below 380 px it uses 13 px type and tighter padding.
 - **Tests:** `run_career_ui_tests.gd` covers:
   - Settings on the hub's top bar;
@@ -3117,8 +3124,8 @@ Presentation/identity first. Avoid arbitrary gameplay bonuses.
 ---
 
 ## ARD-M7-003 — Player milestones
-**Status:** `IN PROGRESS` — career-game foundation is merged in #100; factual first-goal/goal-threshold expansion is in PR #186.  
-**Merged foundation:** PR #100 as `12aae17`; career-game milestones (50/100/150 etc.) and club-tenure context are live, while first-goal/career-high style milestones remain future work.  
+**Status:** `IN PROGRESS` — career-game foundation is merged in #100; the factual first-goal/goal-threshold expansion from closed PR #186 is carried by consolidated PR #208.  
+**Merged foundation:** PR #100 as `12aae17`; career-game milestones (50/100/150 etc.) and club-tenure context are live, while career-high style milestones remain future work.  
 **Priority:** `P2`  
 **Autonomy:** `SAFE` once career stats are stable
 
@@ -3166,6 +3173,14 @@ Canonical umbrella for:
 - honours,
 - Hall of Fame / legends where justified,
 - famous finals/dynasties/droughts.
+
+### Awards ceremony implementation — 2026-10-02
+**Status:** `IN PROGRESS` — branch `chatgpt/season-awards`; pending PR CI and phone playtest.
+- Brownlow, Coleman, All-Australian and club best and fairest are presented over the existing Season Review, with B&F last.
+- One reusable stage walk-on/medal vignette reads the actual winner and all 20 clubs' genuine colour bands; it reuses BroadcastVignette's silhouette figures. No separate scenes per club, fabricated likeness, votes or outcomes.
+- All-Australian is scrollable; controls reveal immediately, finish animation, advance, or skip to the review. Replay is read-only; viewed state lives in the already-saved season_awards dictionary.
+- Uses existing stored placings (including existing tiebreak order), rather than inventing shared medals or a round-by-round count. B&F currently stores three placings; does not invent fifth/fourth.
+- Validation: career_ui 178 checks, save 57 checks, awards 17 checks; zero failures. Actual Godot/OpenGL portrait capture inspected at 360×800. UI regressions cover 320/360/430 widths. Phone check still required for pacing, touch and Android Back.
 
 ### End-of-season awards presentation — fanfare, not summary cards
 The current Season Review collapses Brownlow, Coleman, Rising Star, club best & fairest and All-Australian into a single static awards panel. That is too flat for awards that should feel like major season payoffs. Keep the **season story/campaign recap separate** from awards night.
@@ -3384,7 +3399,7 @@ Do not perform a movement-engine rewrite without evidence that local fixes are i
 ---
 
 ## ARD-M8-004 — Main menu / onboarding
-**Status:** `TODO`  
+**Status:** `IN PROGRESS` — the minimal main menu already exists; #208 adds the one-time contextual Hub weekly-loop onboarding and tests, awaiting CI/merge.  
 **Priority:** `P2`  
 **Autonomy:** `SAFE`
 
@@ -3906,6 +3921,7 @@ This is primarily flavour/presentation, not a request to make the underlying MRO
 
 Hold this idea for the eventual MRO/tribunal design work. Do not implement it merely because it is recorded here.
 
+---
 
 ## Design idea — GOAT prospect
 
@@ -3924,6 +3940,8 @@ Guardrails: this is **not tied to super drafts**; do not guarantee the GOAT is o
 # 10. Roadmap Maintenance Log
 
 - **2026-10-02:** Added the ultra-rare GOAT prospect concept: roughly once per 30 seasons, independent of super drafts, foreshadowed anonymously through draft whispers/Combine clues, with superstar salary and godfather-offer trade economics if he develops.
+
+- **2026-10-02:** Added the requested SAFE roadmap batch to the existing consolidated #208 branch instead of opening another stack: League Draft career-stage filtering (M5-011) and contextual first-Hub weekly-loop onboarding completing the M8-004 menu/onboarding intent. Refreshed stale SAFE-item references: training multi-select (#192) is already merged, the milestone expansion from closed #186 is carried by #208, and Android app identity remains a device-verification item rather than new code.
 
 - **2026-10-02:** Full progress reconciliation against current `main` plus open/merged PRs. Corrected stale statuses for M3/M5/M6/M7/M8, replaced the near-term queue with the actual merge/finish stacks, recorded GPS distance tracking (#195) as ARD-M2-010, recorded real AFL money (#198) under M6-004, and normalised several legacy compound statuses to the canonical status vocabulary.
 

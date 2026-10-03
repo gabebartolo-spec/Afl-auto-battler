@@ -32,15 +32,21 @@ static func tally_match(tally: Dictionary, res: Dictionary, regular: bool) -> vo
 			var st: Dictionary = stats_all.get(id, {})
 			var inf := CoachReport.influence(st)
 			var t: Dictionary = tally.get(id, {"club": codes[side], "games": 0, "goals": 0,
-					"goals_ha": 0, "disposals": 0, "influence": 0.0, "votes": 0, "bf": 0,
-					"polled": 0})
+					"goals_ha": 0, "disposals": 0, "distance_run": 0.0, "influence": 0.0, "votes": 0, "bf": 0,
+					"polled": 0, "coaches": 0})
 			t["club"] = codes[side]
 			t["games"] = int(t["games"]) + 1
 			t["goals"] = int(t["goals"]) + int(st.get("goals", 0))
 			if regular:
 				t["goals_ha"] = int(t["goals_ha"]) + int(st.get("goals", 0))
 			t["disposals"] = int(t["disposals"]) + int(st.get("disposals", 0))
+			t["distance_run"] = float(t.get("distance_run", 0.0)) + float(st.get("distance_run", 0.0))
 			t["influence"] = float(t["influence"]) + inf
+			# AFL Coaches Association-style award: each coach effectively names a top five;
+			# the combined 10-8-6-4-2 scale preserves the same ordering without inventing
+			# a second performance model. Home-and-away only, like the live season race.
+			if not t.has("coaches"):
+				t["coaches"] = 0
 			tally[id] = t
 			side_rows.append([id, inf])
 			everyone.append([id, inf])
@@ -54,6 +60,10 @@ static func tally_match(tally: Dictionary, res: Dictionary, regular: bool) -> vo
 			var t: Dictionary = tally[str(everyone[i][0])]
 			t["votes"] = int(t["votes"]) + (3 - i)
 			t["polled"] = int(t["polled"]) + 1
+		# Ten coaches-award votes per match, 5-4-3-2-1 to the five best players.
+		for i in range(mini(5, everyone.size())):
+			var t: Dictionary = tally[str(everyone[i][0])]
+			t["coaches"] = int(t.get("coaches", 0)) + (5 - i)
 
 
 ## The season's awards. `players` maps id -> player dict (role, age) for
@@ -64,13 +74,24 @@ static func season_awards(tally: Dictionary, players: Dictionary, year: int) -> 
 		var t: Dictionary = tally[id]
 		var p: Dictionary = players.get(id, {})
 		rows.append({"id": str(id), "club": str(t["club"]), "games": int(t["games"]),
-				"goals": int(t["goals_ha"]), "votes": int(t["votes"]), "bf": int(t["bf"]),
+				"goals": int(t["goals_ha"]), "votes": int(t["votes"]), "coaches": int(t.get("coaches", 0)), "bf": int(t["bf"]),
 				"avg": float(t["influence"]) / float(maxi(1, int(t["games"]))),
-				"role": str(p.get("role", "MID")), "age": float(p.get("age", 30.0))})
+				"role": str(p.get("role", "MID")), "age": float(p.get("age", 30.0)),
+				"brownlow_eligible": not bool(p.get("brownlow_ineligible", false))})
 	var by_votes := rows.duplicate()
 	by_votes.sort_custom(func(a, b):
 		if int(a["votes"]) != int(b["votes"]):
 			return int(a["votes"]) > int(b["votes"])
+		return float(a["avg"]) > float(b["avg"]))
+	var brownlow_winner := {}
+	for r in by_votes:
+		if bool(r.get("brownlow_eligible", true)):
+			brownlow_winner = r
+			break
+	var by_coaches := rows.duplicate()
+	by_coaches.sort_custom(func(a, b):
+		if int(a["coaches"]) != int(b["coaches"]):
+			return int(a["coaches"]) > int(b["coaches"])
 		return float(a["avg"]) > float(b["avg"]))
 	var by_goals := rows.duplicate()
 	by_goals.sort_custom(func(a, b):
@@ -97,8 +118,12 @@ static func season_awards(tally: Dictionary, players: Dictionary, year: int) -> 
 		bf[code] = club_rows.slice(0, 3)
 	return {
 		"year": year,
+		# The vote table stays in raw vote order so an ineligible player never
+		# loses votes or disappears from history. Winner is selected separately.
 		"brownlow": by_votes.slice(0, 10),
+		"brownlow_winner": brownlow_winner,
 		"coleman": by_goals.slice(0, 10),
+		"coaches_award": by_coaches.slice(0, 10),
 		"rising_star": rising.slice(0, 3),
 		"best_and_fairest": bf,
 		"all_australian": _all_australian(rows),

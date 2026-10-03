@@ -105,6 +105,14 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable()) 
 			UiKit.BODY, UiKit.TEXT if str(prod["line"]) != "" else UiKit.MUTED)
 	pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(pl)
+	var season_stats: Dictionary = GameState.season_tally.get(str(p.get("id", "")), {})
+	var season_games := int(season_stats.get("games", 0))
+	var season_distance := float(season_stats.get("distance_run", 0.0))
+	if season_games > 0 and season_distance > 0.0:
+		var gps := UiKit.lbl("This season: %.1f km covered per game" % [
+				season_distance / 1000.0 / float(season_games)], UiKit.SMALL, UiKit.MUTED)
+		gps.name = "ProfileGPS"
+		v.add_child(gps)
 
 	# His senior career (Career.gd): games and goals, and the clubs when he
 	# has played for more than one.

@@ -23,8 +23,10 @@ func run() -> void:
 	_test_old_plans_migrate()
 	_test_training_news()
 	_test_reserves_development()
+	_test_department_development()
 	_test_stat_guide_complete()
 	_test_dual_role_plans()
+	_test_training_multiselect()
 	GameState.delete_saved_career()
 	print("Training tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -321,6 +323,39 @@ func _test_reserves_development() -> void:
 	GameState.difficulty = "normal"
 
 
+func _test_department_development() -> void:
+	_new_season()
+	# Hold coach teaching at par so this check isolates the club allocation.
+	var staff := GameState.club_staff(GameState.my_club)
+	for coach in staff.values():
+		for key in ["teach", "tactics", "manage"]:
+			coach["skills"][key] = 70
+		coach["spec"] = {"MID": "MID", "FWD": "FWD", "DEF": "DEF", "DEV": "DEV"}.get(
+				str(coach["job"]), "")
+	var kid: Dictionary = GameState.my_list[0]
+	kid["age"] = 20
+	kid["xp"] = 0
+	var result := {"home": GameState.my_club, "away": "COL", "players": {}}
+
+	GameState.department_budget["development"] = 0
+	var low: Dictionary = GameState._grant_xp(GameState.my_club, GameState.my_list, result)
+	var low_gain := 0
+	for row in low["rows"]:
+		if str(row["id"]) == str(kid["id"]):
+			low_gain = int(row["xp"])
+	kid["xp"] = 0
+	GameState.department_budget["development"] = 3
+	var elite: Dictionary = GameState._grant_xp(GameState.my_club, GameState.my_list, result)
+	var elite_gain := 0
+	for row in elite["rows"]:
+		if str(row["id"]) == str(kid["id"]):
+			elite_gain = int(row["xp"])
+	_check(elite_gain > low_gain,
+			"Development funding directly changes a young player's XP (%d Minimal, %d Elite)" % [
+			low_gain, elite_gain])
+	GameState.department_budget["development"] = ClubBudget.STANDARD
+
+
 func _test_stat_guide_complete() -> void:
 	var complete := true
 	for row in GameState.TRAIN_STATS:
@@ -473,6 +508,51 @@ func _test_training_news() -> void:
 ## A dual-role player can train toward either of his roles: a ruck who also
 ## defends gets the Ruck plan and the defender archetypes; nobody gets a plan
 ## for a role he does not play.
+## Long-press group selection only offers a focus that makes sense for every
+## selected player, then applies that focus to the whole group.
+func _test_training_multiselect() -> void:
+	_new_season()
+	var mids := []
+	var defender := {}
+	for p in GameState.my_list:
+		if str(p.get("role", "")) == "MID" and mids.size() < 2:
+			mids.append(p)
+		elif str(p.get("role", "")) == "DEF" and str(p.get("role2", "")) != "MID" and defender.is_empty():
+			defender = p
+	_check(mids.size() == 2 and not defender.is_empty(), "(setup) group training has two mids and a defender")
+
+	var scene = load("res://scripts/ui/TrainingScene.gd").new()
+	scene._bulk_selected = {
+		str(mids[0]["id"]): true,
+		str(defender["id"]): true,
+	}
+	var mixed: Array = scene._bulk_plans()
+	_check(mixed.has("position") and mixed.has("manual")
+			and not mixed.has("inside_mid") and not mixed.has("key_def"),
+			"A mixed-position group only gets plans valid for everyone (%s)" % str(mixed))
+
+	scene._bulk_selected = {
+		str(mids[0]["id"]): true,
+		str(mids[1]["id"]): true,
+	}
+	var same_line: Array = scene._bulk_plans()
+	_check(same_line.has("inside_mid") and same_line.has("outside_mid"),
+			"Two midfielders can share a midfield development focus (%s)" % str(same_line))
+
+	for p in mids:
+		p["xp"] = 0
+	scene._apply_bulk_plan("inside_mid")
+	_check(GameState.plan_for(mids[0]) == "inside_mid" and GameState.plan_for(mids[1]) == "inside_mid",
+			"One group action assigns the plan to every selected player")
+	scene._toggle_bulk(str(mids[0]["id"]))
+	_check(scene._bulk_selected.size() == 1 and not scene._bulk_selected.has(str(mids[0]["id"])),
+			"Once group selection is active, a tap can remove a player")
+	scene._toggle_bulk(str(mids[0]["id"]))
+	_check(scene._bulk_selected.size() == 2,
+			"A player can be added back to the selected training group")
+	scene.free()
+
+
 func _test_dual_role_plans() -> void:
 	var balta := {}
 	for p in GameDB.players:

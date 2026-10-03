@@ -257,7 +257,7 @@ func _test_event_decisions() -> void:
 	_check(not offered_broke, "No extension card when the cap cannot carry it")
 	_check(not ClubLife.extension_wanted(star, {"extension|" + str(star["id"]): true}),
 			"He asks once a season, not every week")
-	GameState.salary_cap = 9999
+	GameState.salary_cap = 999999999
 	var sal_before := int(star["salary"])
 	GameState.week_event = ClubLife._extension(star)
 	GameState.resolve_week_event(1)
@@ -288,7 +288,7 @@ func _test_event_decisions() -> void:
 	GameState.resolve_week_event(0)
 	_check(int(late["contract_years"]) == 1 and ClubLife.morale(late) == 70,
 			"No cap room at resolution: he waits, and is not punished for it")
-	GameState.salary_cap = 9999
+	GameState.salary_cap = 999999999
 	# --- Sore player: playing is a real risk, resting a real cost ----------
 	var sore: Dictionary = GameState.my_list[1]
 	var base_risk := Injuries.chance(sore)

@@ -4,9 +4,11 @@ extends Control
 var _settings: Control
 var _root: VBoxContainer
 var _results_overlay: Control
+var _media_overlay: Control
 var _news_overlay: Control
 var _sim_confirm: Control
 var _quick_sim: Control
+var _onboarding_overlay: Control
 ## A long press on Sim round opens the quick-sim menu instead of a sim.
 var _hold_fired := false
 var _hold_id := 0
@@ -31,8 +33,54 @@ func _ready() -> void:
 	margin.add_child(_root)
 	get_viewport().size_changed.connect(_on_resize)
 	_build()
+	# The first visit's orientation comes before anything else waiting here;
+	# a pending press conference follows when it closes.
 	if GameState.needs_season_wrap():
 		_show_season_wrap()
+	elif not bool(GameState.get_setting("seen_weekly_loop_intro", false)):
+		_show_weekly_loop_intro()
+	elif GameState.media_conference_pending():
+		_show_media_conference()
+
+
+## A short first-hub orientation, shown where the weekly loop actually lives
+## instead of front-loading a tutorial on the main menu.
+func _show_weekly_loop_intro() -> void:
+	if bool(GameState.get_setting("seen_weekly_loop_intro", false)):
+		return
+	if _onboarding_overlay != null and is_instance_valid(_onboarding_overlay):
+		return
+	var box := UiKit.modal_box(self, 520.0, 0.0)
+	_onboarding_overlay = box["overlay"]
+	_onboarding_overlay.name = "WeeklyLoopIntro"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.heading("Your week", 24))
+	for line in [
+		"This is home base. Check the next opponent, then use Team to pick the side and Coaching if you want to change how you play.",
+		"Play match when you want the live coaching calls. Sim round moves the week on quickly; both use the same match simulation.",
+		"After the game, review what happened and change selection or training only when you have a reason. There is no weekly checklist to clear.",
+	]:
+		var l := UiKit.lbl(line, 14, UiKit.TEXT)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
+	var skip := UiKit.btn("Skip", 15)
+	skip.name = "SkipOnboarding"
+	skip.flat = true
+	skip.pressed.connect(_close_weekly_loop_intro)
+	(box["footer"] as VBoxContainer).add_child(skip)
+	var ok := UiKit.btn("Got it", 17, true)
+	ok.name = "FinishOnboarding"
+	ok.pressed.connect(_close_weekly_loop_intro)
+	(box["footer"] as VBoxContainer).add_child(ok)
+
+
+func _close_weekly_loop_intro() -> void:
+	GameState.set_setting("seen_weekly_loop_intro", true)
+	if _onboarding_overlay != null and is_instance_valid(_onboarding_overlay):
+		_onboarding_overlay.queue_free()
+	_onboarding_overlay = null
+	if GameState.media_conference_pending():
+		_show_media_conference()
 
 
 ## The off-season, wrapped up before Round 1 (ARD-M6-007): who came, who
@@ -55,6 +103,15 @@ func _show_season_wrap() -> void:
 			var r: Dictionary = rows[i]
 			var l := UiKit.lbl("%s  ·  %s" % [str(r["name"]), str(r["how"])], 14, UiKit.TEXT)
 			l.name = "%s_%d" % [part[2], i]
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(l)
+	var trades: Array = w.get("trades", [])
+	if not trades.is_empty():
+		v.add_child(UiKit.spacer(4))
+		v.add_child(UiKit.lbl("Trade period", 14, UiKit.MUTED, true))
+		for i in range(trades.size()):
+			var l := UiKit.lbl(str(trades[i]), 14, UiKit.TEXT)
+			l.name = "WrapTrade_%d" % i
 			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(l)
 	var staff: Array = w.get("staff", [])
@@ -336,6 +393,8 @@ func _week_section(season: Season) -> Control:
 	var notice := _staff_notice()
 	if notice != null:
 		nv.add_child(notice)
+	if not GameState.pending_mro_challenges().is_empty():
+		nv.add_child(_tribunal_card())
 	if season.is_season_over():
 		nv.add_child(UiKit.lbl("Season complete", UiKit.H1, UiKit.TEXT, true))
 		nv.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(GameState.premier()),
@@ -344,9 +403,12 @@ func _week_section(season: Season) -> Control:
 		nv.add_child(UiKit.ellipsis("Runners-up: %s" % GameDB.club_name(ru),
 				13, UiKit.MUTED))
 		var medal: Array = GameState.season_awards.get("brownlow", [])
-		if not medal.is_empty():
+		var medallist: Dictionary = GameState.season_awards.get("brownlow_winner", {})
+		if medallist.is_empty() and not medal.is_empty():
+			medallist = medal[0]
+		if not medallist.is_empty():
 			nv.add_child(UiKit.ellipsis("Brownlow: %s (%d votes)" % [
-					GameState.award_name(medal[0]), int(medal[0]["votes"])], 13, UiKit.TEXT))
+					GameState.award_name(medallist), int(medallist["votes"])], 13, UiKit.TEXT))
 	elif _upcoming_match().is_empty():
 		match GameState.my_finals_status():
 			"bye":
@@ -417,6 +479,46 @@ func _week_section(season: Season) -> Control:
 	nv.add_child(UiKit.spacer(4))
 	nv.add_child(_week_actions(season))
 	return nv
+
+
+## A live MRO sanction can be challenged once before the next round. Keep it
+## on the weekly hub rather than hiding the decision in the result popup.
+func _tribunal_card() -> Control:
+	var panel := UiKit.panel(UiKit.PANEL, 12)
+	panel.name = "TribunalCard"
+	var v := UiKit.vbox(6)
+	panel.add_child(v)
+	v.add_child(UiKit.lbl("Tribunal", UiKit.BODY, UiKit.TEXT, true))
+	for row in GameState.pending_mro_challenges():
+		var p := GameState.list_player(str(row.get("id", "")))
+		var name := str(row.get("name", "")) if p.is_empty() else GameDB.player_display_name(p)
+		var sanction := ""
+		if str(row.get("outcome", "")) == "suspension":
+			var w := int(row.get("weeks", 0))
+			sanction = "%d-match suspension" % w
+		else:
+			sanction = "MRO fine"
+		var stage := str(row.get("stage", "tribunal"))
+		var hearing := "Appeals Board" if stage == "appeal" else "Tribunal"
+		var line := UiKit.lbl("%s — %s. %s case: %s." % [
+				name, sanction, hearing, str(row.get("case", "Difficult"))], 13, UiKit.TEXT, true)
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(line)
+		var status := UiKit.lbl("Brownlow: ineligible unless the %s succeeds." % (
+				"appeal" if stage == "appeal" else "challenge"), 12, UiKit.MUTED, true)
+		status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(status)
+		var b := UiKit.btn("Appeal to Appeals Board" if stage == "appeal" else "Challenge at Tribunal",
+				14, false)
+		b.custom_minimum_size.y = 44
+		b.pressed.connect(func():
+			if stage == "appeal":
+				GameState.appeal_mro(str(row.get("id", "")))
+			else:
+				GameState.challenge_mro(str(row.get("id", "")))
+			_build.call_deferred())
+		v.add_child(b)
+	return panel
 
 
 ## Team form reads green when good, red when poor, muted when steady.
@@ -773,6 +875,9 @@ func _on_sim_to_end() -> void:
 func handle_back() -> bool:
 	if _pre_match != null:
 		return true     # the side is on its way out
+	if _onboarding_overlay != null and is_instance_valid(_onboarding_overlay):
+		_close_weekly_loop_intro()
+		return true
 	if _settings != null and is_instance_valid(_settings):
 		_settings.queue_free()
 		_settings = null
@@ -792,7 +897,68 @@ func handle_back() -> bool:
 		_results_overlay = null
 		_build()
 		return true
+	# Back skips the press conference, as its Skip button does (natural
+	# Android Back); an overlay opened over it closes first.
+	if _media_overlay != null and is_instance_valid(_media_overlay):
+		GameState.skip_media_conference()
+		_media_overlay.queue_free()
+		_media_overlay = null
+		_build()
+		return true
 	return false
+
+
+
+func _show_media_conference() -> void:
+	if not GameState.media_conference_pending():
+		return
+	if _media_overlay != null and is_instance_valid(_media_overlay):
+		return
+	var box := UiKit.modal_box(self, 560.0, 0.0)
+	_media_overlay = box["overlay"]
+	_media_overlay.name = "MediaConference"
+	var v: VBoxContainer = box["body"]
+	var stage := Control.new()
+	stage.name = "MediaConferenceStage"
+	stage.custom_minimum_size = Vector2(0, minf(300.0, get_viewport_rect().size.y * 0.38))
+	v.add_child(stage)
+	var scene := MediaConferenceVignette.open(stage, GameState.my_club)
+	var prompt := UiKit.vbox(6)
+	prompt.visible = false
+	v.add_child(prompt)
+	prompt.add_child(UiKit.lbl("Journalist", UiKit.SMALL, UiKit.MUTED, true))
+	var q := UiKit.lbl(str(GameState.media_conference.get("question", "")), 16, UiKit.TEXT)
+	q.name = "MediaQuestion"
+	q.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	prompt.add_child(q)
+	var footer: VBoxContainer = box["footer"]
+	footer.visible = false
+	var opts: Array = GameState.media_conference.get("options", [])
+	for i in range(opts.size()):
+		var b := UiKit.btn(str((opts[i] as Dictionary).get("label", "")), 15)
+		b.name = "MediaAnswer_%d" % i
+		b.custom_minimum_size = Vector2(0, 48)
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var choice := i
+		b.pressed.connect(func():
+			GameState.resolve_media_conference(choice)
+			_media_overlay.queue_free()
+			_media_overlay = null
+			_build())
+		footer.add_child(b)
+	var skip := UiKit.btn("Skip press conference", 14)
+	skip.name = "MediaSkip"
+	skip.flat = true
+	skip.custom_minimum_size = Vector2(0, 44)
+	skip.pressed.connect(func():
+		GameState.skip_media_conference()
+		_media_overlay.queue_free()
+		_media_overlay = null
+		_build())
+	footer.add_child(skip)
+	scene.ready_for_question.connect(func():
+		prompt.visible = true
+		footer.visible = true)
 
 
 func _show_results(results: Array) -> void:
@@ -836,7 +1002,9 @@ func _show_results(results: Array) -> void:
 	ok.pressed.connect(func():
 		overlay.queue_free()
 		_results_overlay = null
-		_build())
+		_build()
+		if GameState.media_conference_pending():
+			_show_media_conference())
 	box["footer"].add_child(ok)
 
 
@@ -875,6 +1043,11 @@ func _my_result(v: VBoxContainer, res: Dictionary) -> void:
 		var inj := UiKit.lbl("Injured: " + ", ".join(hurt), UiKit.SMALL, UiKit.BAD, true)
 		inj.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(inj)
+	var mro := GameState.my_mro_lines()
+	if not mro.is_empty():
+		var mr := UiKit.lbl("MRO: " + ", ".join(mro), UiKit.SMALL, UiKit.BAD, true)
+		mr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(mr)
 	if GameState.last_phase == "regular":
 		var moved := GameState.ladder_move_line(GameState.last_pos_before)
 		if moved != "":
@@ -945,7 +1118,9 @@ func _results_list(results: Array) -> Control:
 
 
 func _result_side(code: String, goals: int, behinds: int, col: Color, verdict: String,
-		vcol: Color = UiKit.TEXT) -> Control:
+		vcol: Color = UiKit.AUTO_COLOUR) -> Control:
+	if vcol == UiKit.AUTO_COLOUR:
+		vcol = UiKit.TEXT
 	var h := UiKit.hbox(6)
 	h.add_child(UiKit.club_badge(code, 13, true, true))
 	var score := UiKit.line(UiKit.scoreline(goals, behinds), 14, col, true)

@@ -52,17 +52,22 @@ static func recovery(p: Dictionary) -> float:
 ## Byes, omitted players and injured players all get the same week's
 ## recovery. Omitted players still have their existing reserves development;
 ## this models the extra load of senior football, not a second reserves sim.
-static func advance_week(lists: Dictionary, results: Array, week: String) -> void:
+static func advance_week(lists: Dictionary, results: Array, week: String,
+		recovery_mults: Dictionary = {}) -> void:
 	var effort := {}
 	for res in results:
 		for id in res.get("exertion", {}):
 			effort[str(id)] = float(effort.get(str(id), 0.0)) + float(res["exertion"][id])
 	for code in lists:
+		var recovery_mult := float(recovery_mults.get(code, 1.0))
 		for p in lists[code]:
 			if str(p.get("workload_week", "")) == week:
 				continue
 			var training := 6.0 if bool(p.get("heavy_legs", false)) else 0.0
-			var recover := recovery(p) + (8.0 if bool(p.get("fresh", false)) else 0.0)
+			# High-performance funding changes ordinary week-to-week recovery;
+			# an explicit fresh/rest week keeps its existing extra recovery.
+			var recover := recovery(p) * recovery_mult \
+					+ (8.0 if bool(p.get("fresh", false)) else 0.0)
 			p["workload"] = clampf(value(p) * WEEK_CARRY
 					+ maxf(0.0, float(effort.get(str(p["id"]), 0.0))) * EFFORT_LOAD
 					+ training - recover, 0.0, MAX_LOAD)

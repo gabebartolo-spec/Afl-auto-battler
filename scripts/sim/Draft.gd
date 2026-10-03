@@ -7,7 +7,6 @@ extends RefCounted
 ## list. The human chooses on their club's turns; the rival clubs auto-pick
 ## between those turns from the same remaining pool and under the same cap.
 
-const CAP_FRACTION := 0.58
 
 ## End-of-season intake (rookie) draft: clubs KEEP their existing lists and
 ## take turns from a small prospect pool only. The salary cap is a formality
@@ -29,6 +28,10 @@ var user_club := ""
 var draft_order: Array = []       # randomised round-one order
 var pick_sequence: Array = []     # serpentine club code for every pick
 var pick_rounds: Array = []       # round of every pick (compensation picks count in their round)
+var pick_origin: Array = []       # the club each pick came from (differs from its owner when traded)
+## Traded picks: "round:origin club" -> owner. A pick not listed is its own
+## club's. See set_pick_owners.
+var pick_owners := {}
 ## Free-agency compensation picks in this draft: [{"index" (0-based pick),
 ## "club", "after", "player", "name", "to", ...}]. See add_compensation.
 var comp_picks: Array = []
@@ -38,6 +41,9 @@ var seed := 0
 
 var club_lists := {}              # code -> Array[player dict]
 var club_spend := {}              # code -> int
+## National Draft scouting uncertainty by club. Clubs not listed use Standard
+## (1.0); the user's multiplier comes from the annual Recruiting allocation.
+var scouting_mults := {}
 var picked := {}                  # globally drafted player id -> player dict
 var order: Array = []             # user's player ids, in pick order
 ## Successful selections only, in league-wide pick order. Kept in the model so
@@ -84,17 +90,15 @@ static func build_intake(all_players: Array, p_clubs: Array, p_order: Array,
 	d.existing_roles = p_existing_roles
 	# Rookie deals sit outside the list cap the career draft enforces; money is
 	# not the constraint here, list space is.
-	d.budget = 999999
+	d.budget = 999999999
 	return d
 
 
-## What the best `list_size` players would cost, scaled down. Deterministic.
-static func compute_budget(sorted_pool: Array, list_size: int = Ratings.LIST_SIZE) -> int:
-	var n := mini(list_size, sorted_pool.size())
-	var total := 0
-	for i in range(n):
-		total += int(sorted_pool[i]["value"])
-	return maxi(n, int(round(total * CAP_FRACTION)))
+## The opening league draft uses the same 2027 cap the career will use.
+## Keeping one cap across draft -> season means "$18.44m" is real rather
+## than a UI label over a separate draft-points economy.
+static func compute_budget(_sorted_pool: Array, _list_size: int = Ratings.LIST_SIZE) -> int:
+	return Contracts.salary_cap_for_year(GameDB.START_YEAR)
 
 
 func _init_league_draft() -> void:
@@ -145,17 +149,18 @@ func _build_sequence(comps: Array) -> void:
 		if r % 2 == 1:
 			round_order.reverse()
 		for code in round_order:
-			slots.append([code, r + 1, {}])
+			var owner := str(pick_owners.get("%d:%s" % [r + 1, code], code))
+			slots.append([owner, r + 1, {}, code])
 			regular += 1
 			for c in by_after.get(regular, []):
-				slots.append([str(c["club"]), r + 1, c])
+				slots.append([str(c["club"]), r + 1, c, str(c["club"])])
 	# A pick placed after one the draft never reaches goes at the very end.
 	var ks := by_after.keys()
 	ks.sort()
 	for after in ks:
 		if int(after) > regular:
 			for c in by_after[after]:
-				slots.append([str(c["club"]), target_size, c])
+				slots.append([str(c["club"]), target_size, c, str(c["club"])])
 	# Too many picks for the pool: drop regular picks from the end.
 	var k := slots.size() - 1
 	while slots.size() > pool.size() and k >= 0:
@@ -166,6 +171,7 @@ func _build_sequence(comps: Array) -> void:
 		slots.resize(pool.size())
 	pick_sequence = []
 	pick_rounds = []
+	pick_origin = []
 	comp_picks = []
 	for slot in slots:
 		if not (slot[2] as Dictionary).is_empty():
@@ -174,6 +180,16 @@ func _build_sequence(comps: Array) -> void:
 			comp_picks.append(entry)
 		pick_sequence.append(slot[0])
 		pick_rounds.append(slot[1])
+		pick_origin.append(slot[3])
+
+
+## Who owns this year's traded picks: {"round:origin club": owner}. Set
+## before the first pick (the order is rebuilt by add_compensation).
+func set_pick_owners(owners: Dictionary) -> void:
+	if pick_index != 0:
+		return
+	pick_owners = owners.duplicate()
+	_build_sequence(comp_picks.map(func(c): return c))
 
 
 ## Slot this year's compensation picks into the order (before any pick is
@@ -473,14 +489,14 @@ func reserve_for(code: String) -> int:
 
 
 var _reserve_at := -1
-var _reserve_cache := 1.0
+var _reserve_cache := float(Contracts.SENIOR_MIN_2027)
 
 
 ## The average price of the cheapest players still available, taking as many
 ## as the league still has list spots to fill. Rebuilt once per pick.
 func _reserve_per_spot() -> float:
 	if intake_mode:
-		return 1.0
+		return float(Contracts.SENIOR_MIN_2027)
 	if _reserve_at == pick_index:
 		return _reserve_cache
 	_reserve_at = pick_index
@@ -494,12 +510,12 @@ func _reserve_per_spot() -> float:
 	values.sort()
 	var n := mini(open, values.size())
 	if n <= 0:
-		_reserve_cache = 1.0
+		_reserve_cache = float(Contracts.SENIOR_MIN_2027)
 		return _reserve_cache
 	var total := 0
 	for i in range(n):
 		total += int(values[i])
-	_reserve_cache = maxf(1.0, float(total) / float(n))
+	_reserve_cache = maxf(float(Contracts.SENIOR_MIN_2027), float(total) / float(n))
 	return _reserve_cache
 
 
@@ -569,7 +585,8 @@ const AI_VORP_WEIGHT := 1.5
 ## A scarce position is a reason to reach, not to take the 4th-best player
 ## first: the edge over replacement counts for at most this much.
 const AI_VORP_CAP := 10.0
-## Average cap left per open list spot below which a pick is marked down.
+## Average cap left per open list spot below which a pick is marked down,
+## expressed on Contracts.salary_score's old 1-10-equivalent scale.
 const AI_CAP_FLOOR := 3.0
 const AI_POT_WEIGHT_LEAGUE := 0.25
 const AI_POT_WEIGHT_INTAKE := 0.65
@@ -597,9 +614,14 @@ var _ai_avail := {}      # role -> worths of available players, best first
 var _ai_share := {}      # role -> share of the league's remaining demand
 
 
+func scouting_mult_for(code: String) -> float:
+	return maxf(0.25, float(scouting_mults.get(code, 1.0)))
+
+
 func _ai_score(code: String, p: Dictionary) -> float:
 	_refresh_ai_cache()
-	var base := _worth(p)
+	var base := DraftScouting.scouted_worth(p, code, seed, AI_POT_WEIGHT_INTAKE,
+			scouting_mult_for(code)) if intake_mode else _worth(p)
 	var err := _eval_error(code, p)
 	var best := -INF
 	var roles := [[str(p["role"]), 1.0]]
@@ -755,7 +777,19 @@ func _need_weight(code: String, role: String) -> float:
 ## rivals pick in between, and roughly their share of those picks goes to
 ## this position.
 func _replacement(code: String, role: String) -> float:
-	var avail: Array = _ai_avail.get(role, [])
+	var avail: Array = []
+	if intake_mode:
+		# A National Draft club judges the depth behind a prospect through the
+		# same imperfect scouting view as the prospect itself.
+		for p in pool:
+			if picked.has(str(p["id"])) or not Ratings.plays_role(p, role):
+				continue
+			avail.append(DraftScouting.scouted_worth(p, code, seed,
+					AI_POT_WEIGHT_INTAKE, scouting_mult_for(code)))
+		avail.sort()
+		avail.reverse()
+	else:
+		avail = _ai_avail.get(role, [])
 	if avail.is_empty():
 		return 0.0
 	var gap := 0
@@ -772,13 +806,15 @@ func _replacement(code: String, role: String) -> float:
 func _cap_penalty(code: String, p: Dictionary) -> float:
 	if intake_mode:
 		return 0.0
-	var value := float(p["value"])
+	var salary := int(p["value"])
+	var value := Contracts.salary_score(salary)
 	var spots_after := target_size - count_for(code) - 1
 	if spots_after <= 0:
 		return value * 0.3
-	var left := float(budget - int(club_spend.get(code, 0))) - value
-	var per_spot := left / float(spots_after)
-	return maxf(0.0, AI_CAP_FLOOR - per_spot) * 12.0 + value * 0.3
+	var left := float(budget - int(club_spend.get(code, 0)) - salary)
+	var per_spot := int(left / float(spots_after))
+	var per_spot_score := Contracts.salary_score(per_spot)
+	return maxf(0.0, AI_CAP_FLOOR - per_spot_score) * 12.0 + value * 0.3
 
 
 ## Available worths by position and each position's share of what the
@@ -833,12 +869,21 @@ func count() -> int:
 	return count_for(user_club)
 
 
-## Picks a club may make: one a round, plus any compensation picks.
+## Picks a club may make: one a round, plus any compensation picks and picks
+## it traded for, less those it traded away.
 func pick_limit(code: String) -> int:
 	var n := target_size
 	for c in comp_picks:
 		if str(c["club"]) == code:
 			n += 1
+	for key in pick_owners:
+		var parts := str(key).split(":")
+		if int(parts[0]) > target_size:
+			continue
+		if str(pick_owners[key]) == code:
+			n += 1
+		if str(parts[1]) == code:
+			n -= 1
 	return n
 
 
@@ -921,9 +966,9 @@ func pick_block_reason(p: Dictionary) -> String:
 		if not _can_afford_for(user_club, p):
 			var slots_after := target_size - count() - 1
 			if slots_after <= 0:
-				return "Not enough salary cap: he costs $%d and you have $%d left." % [int(p["value"]), remaining()]
-			return "This selection would leave too little salary cap to complete your list. He costs $%d; you have $%d left, and after keeping about $%d for your other %d places, $%d is free for this pick." % [
-					int(p["value"]), remaining(), reserve_for(user_club), slots_after, maxi(0, usable_cap_for(user_club))]
+				return "Not enough salary cap: he costs %s and you have %s left." % [Contracts.money(int(p["value"])), Contracts.money(remaining())]
+			return "This selection would leave too little salary cap to complete your list. He costs %s; you have %s left, and after keeping about %s for your other %d places, %s is free for this pick." % [
+					Contracts.money(int(p["value"])), Contracts.money(remaining()), Contracts.money(reserve_for(user_club)), slots_after, Contracts.money(maxi(0, usable_cap_for(user_club)))]
 		var forced := _forced_role(user_club)
 		if forced != "" and not Ratings.plays_role(p, forced):
 			return "Your remaining places must go to rucks: every list needs two."
@@ -931,7 +976,7 @@ func pick_block_reason(p: Dictionary) -> String:
 	if count() >= target_size:
 		return "Your list is full."
 	if remaining() < int(p["value"]):
-		return "Not enough salary cap: he costs $%d and you have $%d left." % [int(p["value"]), remaining()]
+		return "Not enough salary cap: he costs %s and you have %s left." % [Contracts.money(int(p["value"])), Contracts.money(remaining())]
 	return ""
 
 
@@ -1056,7 +1101,13 @@ func board(role := "", club := "", search := "", sort := "overall",
 		out.append(p)
 	match sort:
 		"overall":
-			out.sort_custom(func(a, b): return a["overall"] > b["overall"])
+			if intake_mode:
+				out.sort_custom(func(a, b):
+					return DraftScouting.estimated_overall(a, user_club, seed,
+							scouting_mult_for(user_club)) > DraftScouting.estimated_overall(
+							b, user_club, seed, scouting_mult_for(user_club)))
+			else:
+				out.sort_custom(func(a, b): return a["overall"] > b["overall"])
 		"value":
 			out.sort_custom(func(a, b):
 				if a["value"] != b["value"]:
@@ -1065,13 +1116,31 @@ func board(role := "", club := "", search := "", sort := "overall",
 		"name":
 			out.sort_custom(func(a, b): return GameDB.player_sort_name(a) < GameDB.player_sort_name(b))
 		"potential":
-			out.sort_custom(func(a, b):
-				if int(a.get("potential", 0)) != int(b.get("potential", 0)):
-					return int(a.get("potential", 0)) > int(b.get("potential", 0))
-				return a["overall"] > b["overall"])
+			if intake_mode:
+				out.sort_custom(func(a, b):
+					var ap := DraftScouting.estimated_potential(a, user_club, seed,
+							scouting_mult_for(user_club))
+					var bp := DraftScouting.estimated_potential(b, user_club, seed,
+							scouting_mult_for(user_club))
+					if ap != bp:
+						return ap > bp
+					return DraftScouting.estimated_overall(a, user_club, seed,
+							scouting_mult_for(user_club)) > DraftScouting.estimated_overall(
+							b, user_club, seed, scouting_mult_for(user_club)))
+			else:
+				out.sort_custom(func(a, b):
+					if int(a.get("potential", 0)) != int(b.get("potential", 0)):
+						return int(a.get("potential", 0)) > int(b.get("potential", 0))
+					return a["overall"] > b["overall"])
 		"goals":
-			out.sort_custom(func(a, b): return a["gl"] > b["gl"])
+			out.sort_custom(func(a, b):
+				if intake_mode:
+					return float(a.get("u18_gl", 0.0)) > float(b.get("u18_gl", 0.0))
+				return a["gl"] > b["gl"])
 		"disposals":
-			out.sort_custom(func(a, b): return a["di"] > b["di"])
+			out.sort_custom(func(a, b):
+				if intake_mode:
+					return float(a.get("u18_di", 0.0)) > float(b.get("u18_di", 0.0))
+				return a["di"] > b["di"])
 	return out
 

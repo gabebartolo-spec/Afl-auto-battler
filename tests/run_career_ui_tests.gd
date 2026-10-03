@@ -49,6 +49,72 @@ func _test_rivalry_catalogue() -> void:
 	_check(Rivalries.state(quiet, "NTH", "STK") == "",
 			"Routine meetings alone do not manufacture a rivalry")
 
+func test_media_conference_rules() -> void:
+	var MediaConferenceScript = load("res://scripts/sim/MediaConference.gd")
+	var VignetteScript = load("res://scripts/ui/MediaConferenceVignette.gd")
+	var recent := {}
+	var heavy: Dictionary = MediaConferenceScript.pick({"club": "COL", "opponent_name": "Carlton", "round": 8,
+			"result": {"home": "COL", "away": "CAR", "score": [55, 101]}}, recent)
+	_check(str(heavy.get("key", "")) == "heavy_loss", "Heavy loss earns a factual media question")
+	_check((heavy.get("options", []) as Array).size() == 3, "Media question offers three responses")
+	recent["heavy_loss"] = 8
+	var repeat: Dictionary = MediaConferenceScript.pick({"club": "COL", "opponent_name": "Carlton", "round": 10,
+			"result": {"home": "COL", "away": "CAR", "score": [55, 101]}}, recent)
+	_check(repeat.is_empty(), "Same media angle respects its cooldown")
+	var ordinary: Dictionary = MediaConferenceScript.pick({"club": "COL", "opponent_name": "Carlton", "round": 15,
+			"result": {"home": "COL", "away": "CAR", "score": [88, 72]}}, {})
+	_check(ordinary.is_empty(), "Ordinary matches do not force a press conference")
+	var close: Dictionary = MediaConferenceScript.pick({"club": "CAR", "opponent_name": "Collingwood", "round": 16,
+			"result": {"home": "COL", "away": "CAR", "score": [84, 86]}}, {})
+	_check(str(close.get("key", "")) == "close_game", "Close finishes can drive the press conference")
+	var stage = VignetteScript.new()
+	stage.size = Vector2(390, 300)
+	stage.club = "COL"
+	_check(not stage._ready, "Media vignette begins as a staged scene before the question")
+	stage.finish_now()
+	_check(stage._ready, "Media vignette can skip its play-in to the question")
+
+
+func _test_player_goal_milestones() -> void:
+	var p := {"id": "milestone_test", "name": "Milestone Test", "club": "MEL",
+			"career": {"games": 12, "goals": 0, "stints": [], "through": _state.season_year - 1, "unknown": []}}
+	var old_season = _state.season
+	var old_tally = _state.season_tally
+	var old_news = _state.news
+	var SeasonScript = load("res://scripts/sim/Season.gd")
+	_state.season = SeasonScript.new(["MEL", "CAR"], {"MEL": [p], "CAR": []})
+	_state.season_tally = {"milestone_test": {"club": "MEL", "games": 1, "goals": 1, "goals_ha": 1}}
+	_state.news = []
+	_state._player_milestone_news({"home": "MEL", "away": "CAR",
+			"roster": [[{"id": "milestone_test"}], []],
+			"players": {"milestone_test": {"goals": 1}}})
+	_check(_state.news.size() == 1 and str(_state.news[0].get("text", "")).contains("first AFL goal"),
+			"A provable first AFL goal is recorded as a milestone")
+	p["career"]["unknown"] = [[2020, 2021]]
+	_state.news = []
+	_state._player_milestone_news({"home": "MEL", "away": "CAR",
+			"roster": [[{"id": "milestone_test"}], []],
+			"players": {"milestone_test": {"goals": 1}}})
+	_check(_state.news.is_empty(), "Unknown historical seasons never fabricate a first-goal milestone")
+	_state.season = old_season
+	_state.season_tally = old_tally
+	_state.news = old_news
+
+func _test_history_records_are_stored_facts() -> void:
+	var old_records = _state.records
+	var old_roll = _state.honour_roll
+	_state.records = {"highest_score": {"value": 151, "club": "MEL", "opp": "CAR", "year": 2028},
+			"biggest_win": {"value": 72, "club": "MEL", "opp": "CAR", "year": 2029}}
+	_state.honour_roll = [{"year": 2028, "premier": "COL"}, {"year": 2029, "premier": "MEL"}]
+	var lines: Array = _state.history_record_lines()
+	_check(lines.size() == 2 and str(lines[0]).contains("151") and str(lines[1]).contains("72"),
+			"History surface reads the stored league records")
+	var honours: Array = _state.recent_honours(1)
+	_check(honours.size() == 1 and int(honours[0]["year"]) == 2029,
+			"History surface reads the stored honour roll newest first")
+	_state.records = old_records
+	_state.honour_roll = old_roll
+
 func _check(condition: bool, message: String) -> void:
 	_checks += 1
 	if not condition:
@@ -80,6 +146,9 @@ func _run() -> void:
 	_state = root.get_node("GameState")
 	_router = root.get_node("Router")
 	_db = root.get_node("GameDB")
+	_test_history_records_are_stored_facts()
+	_test_player_goal_milestones()
+	test_media_conference_rules()
 	# Never touch a real career save or settings file from a test run.
 	_state.autosave_enabled = false
 	_state.save_path = "user://test_career.save"
@@ -107,8 +176,31 @@ func _run() -> void:
 	_check(current_scene.find_child("MenuHelp", true, false) != null
 			and current_scene.find_child("MenuSettings", true, false) != null,
 			"How to play and Settings are on the menu")
+	var tagline: Label = current_scene.find_child("Tagline", true, false)
+	_check(tagline != null and tagline.text == "Build your dynasty.",
+			"The minimal menu uses the approved tagline")
 
-	# --- settings: player names apply at once --------------------------------
+	# --- settings: appearance and player names apply at once -----------------
+	current_scene.find_child("MenuSettings", true, false).emit_signal("pressed")
+	await _settle()
+	var light_setting: Button = current_scene.find_child("SettingsAppearance_light", true, false)
+	var dark_setting: Button = current_scene.find_child("SettingsAppearance_dark", true, false)
+	_check(light_setting != null and dark_setting != null, "Settings offers Dark and Light appearance")
+	if light_setting != null:
+		light_setting.emit_signal("pressed")
+		await _settle()
+	var kit = load("res://scripts/ui/UiKit.gd")
+	_check(_state.appearance() == "light" and kit.appearance() == "light"
+			and kit.BG.r > 0.8 and _router.current() == "main",
+			"Light appearance applies immediately and rebuilds the current screen")
+	current_scene.find_child("MenuSettings", true, false).emit_signal("pressed")
+	await _settle()
+	dark_setting = current_scene.find_child("SettingsAppearance_dark", true, false)
+	if dark_setting != null:
+		dark_setting.emit_signal("pressed")
+		await _settle()
+	_check(_state.appearance() == "dark" and kit.appearance() == "dark"
+			and kit.BG.r < 0.2, "Dark appearance restores the original palette")
 	current_scene.find_child("MenuSettings", true, false).emit_signal("pressed")
 	await _settle()
 	var real_setting: Button = current_scene.find_child("SettingsNames_real", true, false)
@@ -117,6 +209,20 @@ func _run() -> void:
 		real_setting.emit_signal("pressed")
 		await _settle()
 	_check(_state.show_real_names, "Choosing Real in Settings shows real names straight away")
+	var mute_on: Button = current_scene.find_child("SettingsMuteSounds_on", true, false)
+	var mute_off: Button = current_scene.find_child("SettingsMuteSounds_off", true, false)
+	_check(mute_on != null and mute_off != null, "Settings offers Mute sounds")
+	if mute_on != null:
+		mute_on.emit_signal("pressed")
+	var master_bus := AudioServer.get_bus_index("Master")
+	_check(_state.sounds_muted()
+			and (master_bus < 0 or AudioServer.is_bus_mute(master_bus)),
+			"Mute sounds immediately mutes the Master audio bus")
+	if mute_off != null:
+		mute_off.emit_signal("pressed")
+	_check(not _state.sounds_muted()
+			and (master_bus < 0 or not AudioServer.is_bus_mute(master_bus)),
+			"Sounds can be switched back on")
 	_check(OS.has_feature("web") or current_scene.find_child("QuitGame", true, false) != null,
 			"Quit lives in Settings")
 	current_scene.find_child("SettingsNames_generated", true, false).emit_signal("pressed")
@@ -174,6 +280,28 @@ func _run() -> void:
 	_check(_router.current() == "hub", "Continue Career opens the season hub")
 	_check(_state.season != null and _state.season.round_index == 2, "The saved round is loaded")
 	_check(_state.my_club == "SYD", "The saved club is loaded")
+	var intro: Control = current_scene.find_child("WeeklyLoopIntro", true, false)
+	var skip_intro: Button = current_scene.find_child("SkipOnboarding", true, false)
+	_check(intro != null and skip_intro != null
+			and _screen_text().contains("This is home base")
+			and _screen_text().contains("Play match")
+			and _screen_text().contains("After the game"),
+			"The first Hub visit explains the weekly loop in context and can be skipped")
+	if skip_intro != null:
+		skip_intro.emit_signal("pressed")
+		await _settle()
+	_check(current_scene.find_child("WeeklyLoopIntro", true, false) == null
+			and bool(_state.get_setting("seen_weekly_loop_intro", false)),
+			"Skipping onboarding closes it and remembers the choice")
+	current_scene.call("_show_weekly_loop_intro")
+	await _settle()
+	_check(current_scene.find_child("WeeklyLoopIntro", true, false) == null,
+			"Contextual onboarding does not nag after it has been dismissed")
+	# A press conference left from the saved round follows the intro.
+	var media_skip = current_scene.find_child("MediaSkip", true, false)
+	if media_skip != null:
+		media_skip.emit_signal("pressed")
+		await _settle()
 	# One player well above his season, one well below (GameState.player_form).
 	var hot_id := str(_state.my_list[0]["id"])
 	var cold_id := str(_state.my_list[1]["id"])
@@ -363,6 +491,12 @@ func _run() -> void:
 	overlay = current_scene.get("_results_overlay")
 	_check(_router.current() == "hub" and (overlay == null or not is_instance_valid(overlay)),
 			"Back closes the results popup and stays on the hub")
+	# The round may have raised a press conference: Back skips it.
+	if current_scene.find_child("MediaConference", true, false) != null:
+		_router.handle_back(true)
+		await _settle()
+		_check(_router.current() == "hub" and not _state.media_conference_pending(),
+				"Back skips the press conference and stays on the hub")
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "main", "Back from the hub goes to the main menu")
@@ -401,9 +535,9 @@ func _run() -> void:
 	await _settle()
 	_check(not _state.my_selection().is_empty(), "My selection starts from this week's side")
 	var first_mid := str(_state.my_selection()["MID"][0])
-	var slot_btn = current_scene.find_child("Slot_" + first_mid, true, false)
-	if slot_btn != null:
-		slot_btn.emit_signal("pressed")
+	var player_btn = current_scene.find_child("FormationPlayer_" + first_mid, true, false)
+	if player_btn != null:
+		player_btn.emit_signal("pressed")
 		await _settle()
 	var out_btn = current_scene.find_child("Move_" + first_mid, true, false)
 	out_btn = out_btn.find_child("To_OUT", true, false) if out_btn != null else null
@@ -679,25 +813,106 @@ func _run() -> void:
 				_router.handle_back(true)
 				await _settle()
 				_check(current_scene.find_child("ContractTalks", true, false) == null, "Back closes free-agent talks")
-	var theirs = null
-	var mine_pick = null
+	# The trade builder: one list at a time, what you give and get on top.
+	var theirs_btn = null
 	for n in current_scene.find_children("Their_*", "Button", true, false):
-		theirs = n
+		theirs_btn = n
 		break
-	for n in current_scene.find_children("Mine_*", "Button", true, false):
-		mine_pick = n
-		break
-	_check(theirs != null and mine_pick != null, "The trade tab lists both sides")
+	_check(theirs_btn != null and current_scene.find_child("TradeSide_mine", true, false) != null
+			and current_scene.find_children("Mine_*", "Button", true, false).is_empty(),
+			"The trade builder shows one list at a time: theirs, with yours a tap away")
+	var phone_rect := Rect2(Vector2.ZERO, root.get_visible_rect().size).grow(1)
+	var builder_fits := true
+	for nm in ["TradeClub", "MakeTrade", "TradeSide_theirs", "TradeSide_mine"]:
+		var c: Control = current_scene.find_child(nm, true, false)
+		builder_fits = builder_fits and c != null and c.get_global_rect().end.x <= phone_rect.end.x and c.size.y >= 40
+	_check(builder_fits, "The trade builder's controls fit a 360px phone at thumb size")
 	root.size = offseason_size_before
-	if theirs != null and mine_pick != null:
-		theirs.emit_signal("pressed")
+	await _settle()
+	var theirs_now := current_scene.find_children("Their_*", "Button", true, false)
+	if not theirs_now.is_empty():
+		theirs_now[0].emit_signal("pressed")
 		await _settle()
-		mine_pick = current_scene.find_children("Mine_*", "Button", true, false)[0]
-		mine_pick.emit_signal("pressed")
-		await _settle()
+	current_scene.find_child("TradeSide_mine", true, false).emit_signal("pressed")
+	await _settle()
+	for n in current_scene.find_children("Mine_*", "Button", true, false):
+		if not str(n.name).begins_with("Mine_pick_"):
+			n.emit_signal("pressed")
+			await _settle()
+			break
+	_check(current_scene.find_children("GiveRow_*", "", true, false).size() == 1
+			and current_scene.find_children("GetRow_*", "", true, false).size() == 1,
+			"What you give and what you get each show in their own section")
 	var verdict = current_scene.find_child("TradeVerdict", true, false)
-	_check(verdict != null and not str(verdict.text).contains("You give: -"),
-			"Picking players shows the other club's verdict")
+	_check(verdict != null and str(verdict.text) != "" and not str(verdict.text).contains("Put something on each side"),
+			"With something on each side, their answer shows")
+	var decimal := RegEx.create_from_string("\\d\\.\\d|%")
+	# Money is real AFL money ("$18.44m"); anything else with a decimal or a
+	# percentage would be a model value leaking out.
+	var no_money := RegEx.create_from_string("\\$[0-9][0-9.,]*[mk]?").sub(_screen_text(), "", true)
+	_check(decimal.search(no_money) == null, "The trade screen shows no internal values")
+	_check(current_scene.find_child("TradeClubPhase", true, false) != null,
+			"The trade tab says where the other club is in its cycle")
+	var pick_btns := current_scene.find_children("Mine_pick_*", "Button", true, false)
+	_check(pick_btns.size() >= 2 and str((pick_btns[0] as Button).text).contains("first round"),
+			"Your draft picks, this year's and next, can go in a trade")
+	if not pick_btns.is_empty():
+		pick_btns[0].emit_signal("pressed")
+		await _settle()
+		var pick_row = current_scene.find_child("GiveRow_pick_*", true, false)
+		_check(pick_row != null and current_scene.find_children("GiveRow_*", "", true, false).size() == 2,
+				"A pick joins what you give")
+		if pick_row != null:
+			pick_row.find_child("Remove", true, false).emit_signal("pressed")
+			await _settle()
+			_check(current_scene.find_children("GiveRow_*", "", true, false).size() == 1, "Remove takes it out")
+	# Changing club: every other club, two to a row; Back closes it.
+	current_scene.find_child("TradeClub", true, false).emit_signal("pressed")
+	await _settle()
+	var club_grid = current_scene.find_child("TradeClubChoice", true, false)
+	_check(club_grid != null and club_grid.get_child_count() == _db.active_clubs(_state.season_year).size() - 1
+			and int(club_grid.columns) == 2, "Change club lists every other club, two to a row")
+	_router.handle_back(true)
+	await _settle()
+	_check(_router.current() == "offseason" and current_scene.find_child("TradeClubChoice", true, false) == null
+			and current_scene.find_children("GiveRow_*", "", true, false).size() == 1,
+			"Back closes the club list and keeps the trade")
+	current_scene.find_child("TradeClub", true, false).emit_signal("pressed")
+	await _settle()
+	var other_club = null
+	for n in current_scene.find_child("TradeClubChoice", true, false).get_children():
+		if str(n.name) != "TradeClubChoice_" + str(current_scene.get("_trade_club")):
+			other_club = n
+			break
+	other_club.emit_signal("pressed")
+	await _settle()
+	_check(current_scene.find_children("GetRow_*", "", true, false).is_empty()
+			and current_scene.find_children("GiveRow_*", "", true, false).size() == 1,
+			"A new club clears what you'd get from the old one and keeps what you give")
+	# One thing on your side and nothing on theirs: put it on the trade table.
+	var table_btn = current_scene.find_child("TradeTable", true, false)
+	_check(table_btn != null and not (table_btn as Button).disabled, "With one of yours and nothing back, it can go on the trade table")
+	if table_btn != null:
+		table_btn.emit_signal("pressed")
+		await _settle()
+		_check(_screen_text().contains("offer") and current_scene.find_children("GiveRow_*", "", true, false).is_empty(),
+				"The trade table says who came, and clears what you give")
+	# Picking a player rebuilds the tab but keeps your place in a long list.
+	var box: ScrollContainer = current_scene.get("_scroll_box")
+	box.scroll_vertical = 600
+	await _settle()
+	var held := box.scroll_vertical
+	var deep = null
+	for n in current_scene.find_children("Mine_*", "Button", true, false):
+		deep = n
+	var found: bool = deep != null
+	if found:
+		deep.emit_signal("pressed")
+		await _settle()
+		await _settle()
+	var after: ScrollContainer = current_scene.get("_scroll_box")
+	_check(held > 0 and found and absi(after.scroll_vertical - held) <= 4,
+			"Picking a player keeps the trade list where it was (%d then %d)" % [held, after.scroll_vertical])
 	_router.handle_back(true)
 	await _settle()
 
@@ -803,14 +1018,35 @@ func _run() -> void:
 		await _settle()
 	var eight: Button = current_scene.find_child("SettingsSpeed_8", true, false)
 	_check(eight != null and current_scene.find_child("OptionsMainMenu", true, false) != null
+			and current_scene.find_child("OptionsNewCareer", true, false) != null
 			and current_scene.find_child("OptionsVersion", true, false) != null,
-			"Settings in a career has match speed, the main menu and the version")
+			"Settings in a career has speed, main menu, New career and version")
 	if eight != null:
 		eight.emit_signal("pressed")
 		await _settle()
 	_check(is_equal_approx(_state.match_speed(), 8.0), "Match speed is remembered")
 	_state.set_match_speed(4.0)
-	_check(_state.save_career(), "The career is saved before the delete test")
+	_check(_state.save_career(), "The career is saved before the destructive-action tests")
+	var new_from_settings: Button = current_scene.find_child("OptionsNewCareer", true, false)
+	if new_from_settings != null:
+		new_from_settings.emit_signal("pressed")
+		await _settle()
+	_check(_router.current() == "main"
+			and current_scene.find_child("NewCareerSetup", true, false) != null
+			and _state.has_saved_career(),
+			"New career opens setup without deleting the current save")
+	_router.handle_back(false)
+	await _settle()
+	var saved_continue: Button = current_scene.find_child("ContinueCareer", true, false)
+	if saved_continue != null:
+		saved_continue.emit_signal("pressed")
+		await _settle()
+	_check(_router.current() == "hub" and _state.season != null,
+			"Backing out of New career can still resume the saved career")
+	hub_settings = current_scene.find_child("HubSettings", true, false)
+	if hub_settings != null:
+		hub_settings.emit_signal("pressed")
+		await _settle()
 	current_scene.find_child("OptionsDelete", true, false).emit_signal("pressed")
 	await _settle()
 	current_scene.find_child("OptionsDeleteCancel", true, false).emit_signal("pressed")
@@ -826,6 +1062,63 @@ func _run() -> void:
 	_check(_router.current() == "main" and not _state.has_saved_career() and _state.season == null,
 			"Delete this career removes the save and returns to the menu")
 
+	await _test_season_awards()
 	_state.delete_saved_career()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
+
+
+func _test_season_awards() -> void:
+	_state.reset()
+	_state.start_season("COL", _db.club_list("COL"))
+	var player: Dictionary = _state.my_list[0]
+	var row := {"id": str(player["id"]), "club": "COL", "votes": 24, "goals": 71, "bf": 118, "slot": "MID"}
+	_state.season_awards = {"year": 2027, "brownlow": [row], "coleman": [row],
+		"all_australian": [row], "best_and_fairest": {"COL": [row]}}
+	var before := var_to_str(_state.season_awards)
+	var host := Control.new()
+	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(host)
+	root.size = Vector2i(360, 800)
+	var ceremony: Control = load("res://scripts/ui/SeasonAwards.gd").open(host)
+	await _settle()
+	var next: Button = ceremony.find_child("AwardsNext", true, false)
+	_check(next != null and next.size.y >= 44, "Awards actions remain thumb sized")
+	next.emit_signal("pressed")
+	await _settle()
+	var scene: Control = ceremony.find_child("AwardWinner", true, false)
+	_check(scene != null and scene.club == "COL", "The stored winner supplies the vignette club")
+	_check(scene.number == int(player["num"]), "The winner retains his actual jumper number")
+	for width in [320, 360, 430]:
+		root.size = Vector2i(width, 800)
+		await _settle()
+		var button_rect := next.get_global_rect()
+		_check(button_rect.position.x >= 0 and button_rect.end.x <= width and button_rect.end.y <= 800,
+			"Awards footer remains reachable at %d portrait width" % width)
+
+	next.emit_signal("pressed")
+	_check(scene._done, "A tap completes the winner animation without advancing the award")
+	_check(var_to_str(_state.season_awards) == before, "Revealing awards does not mutate votes or results")
+	for i in range(20):
+		if not is_instance_valid(ceremony):
+			break
+		next.emit_signal("pressed")
+		await _settle()
+	_check(not is_instance_valid(ceremony) and _state.season_awards.get("presentation_seen", false),
+		"Completing awards records viewing and returns to review")
+	_check(_state.save_career(), "Awards viewed state saves")
+	_check(_state.load_career() and _state.season_awards.get("presentation_seen", false), "Awards viewed state survives reload")
+	ceremony = load("res://scripts/ui/SeasonAwards.gd").open(host)
+	await _settle()
+	ceremony.find_child("AwardsSkip", true, false).emit_signal("pressed")
+	await _settle()
+	_check(not is_instance_valid(ceremony), "Replay can skip straight to review")
+	for code in _db.CLUB_ORDER:
+		var winner: Control = load("res://scripts/ui/match/AwardWinnerVignette.gd").new()
+		host.add_child(winner)
+		winner.setup_winner(code, 7)
+		winner.finish_now()
+		_check(winner._colours[0] == _db.club_marker_colours(code), "%s uses genuine club colours" % code)
+		winner.queue_free()
+	host.queue_free()
+	await _settle()

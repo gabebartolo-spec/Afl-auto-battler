@@ -11,7 +11,7 @@ const COLUMNS := [
 ]
 ## The rest of the line, shown when a row is opened.
 const DETAIL := [
-	["pressure_acts", "pressure acts"], ["kicks", "kicks"], ["handballs", "handballs"], ["metres_gained", "metres gained"],
+	["distance_run", "distance covered"], ["pressure_acts", "pressure acts"], ["kicks", "kicks"], ["handballs", "handballs"], ["metres_gained", "metres gained"],
 	["behinds", "behinds"], ["score_involvements", "score involvements"],
 	["goal_assists", "goal assists"], ["contested_marks", "contested marks"], ["intercepts", "intercepts"],
 	["cba", "centre bounce attendances"], ["inside50", "inside 50s"], ["rebounds", "rebound 50s"],
@@ -124,10 +124,16 @@ func _row(p: Dictionary) -> Control:
 	if _open == id:
 		var bits: PackedStringArray = []
 		for d in DETAIL:
-			var n := int(round(float(st.get(str(d[0]), 0.0))))
+			var key := str(d[0])
+			if key == "distance_run":
+				var metres := float(st.get(key, 0.0))
+				if metres > 0.0:
+					bits.append("%.1f km %s" % [metres / 1000.0, str(d[1])])
+				continue
+			var n := int(round(float(st.get(key, 0.0))))
 			if n > 0:
 				bits.append("%d %s" % [n, str(d[1])])
-			if str(d[0]) == "handballs" and st.has("effective_disposals") \
+			if key == "handballs" and st.has("effective_disposals") \
 					and float(st.get("disposals", 0.0)) > 0.0:
 				bits.append("%d%% disposal efficiency" % MatchSim.disposal_efficiency(st))
 		var more := UiKit.lbl(", ".join(bits) if not bits.is_empty() else "No other stats.",

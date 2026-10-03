@@ -42,7 +42,10 @@ func _selection_tests() -> void:
 	root.size = Vector2i(420, 860)
 	var ui := await _open()
 	var text := _screen_text(ui)
-	_check(text.contains("Wings  2/2") and text.contains("Midfield  3/3"), "The midfield reads as centre square and wings")
+	var midfield: Node = ui.find_child("Formation_Midfield", true, false)
+	var midfield_buttons := midfield.find_children("FormationPlayer_*", "Button", true, false) if midfield != null else []
+	_check(midfield != null and midfield_buttons.size() == 6 and text.contains("Wing") and text.contains("Ruck"),
+			"The midfield reads as centre square and wings")
 	# This week, line against line: both sides in the same words, no numbers.
 	var h2h: Node = ui.find_child("HeadToHead", true, false)
 	var digits := RegEx.new()
@@ -107,7 +110,8 @@ func _selection_tests() -> void:
 		await _settle()
 		_state.set_club_plan("balanced")
 	var rows := ui.find_children("RoleLabel", "Label", true, false)
-	_check(rows.size() >= 22, "Every player row says who he is (%d)" % rows.size())
+	var formation_players := ui.find_children("FormationPlayer_*", "Button", true, false)
+	_check(formation_players.size() == 22, "Every picked player appears in the formation (%d)" % formation_players.size())
 	var rx := RegEx.new()
 	rx.compile("%")
 	var leak := false
@@ -173,21 +177,22 @@ func _selection_tests() -> void:
 	for id in sel.get("MID", []):
 		target = str(id)
 		break
-	# One position button per row; the move choices are closed until tapped.
+	# The formation card is the position control: tapping one picked player
+	# opens only his existing move row below the formation.
 	_check(ui.find_children("To_*", "Button", true, false).is_empty(), "No move buttons until you ask for them")
-	var slot: Button = ui.find_child("Slot_" + target, true, false)
-	_check(slot != null and slot.size.y >= 44 and slot.text.begins_with("Mid"),
-			"Each row shows where he is, as a button (%s)" % (slot.text if slot else "-"))
+	var player_btn: Button = ui.find_child("FormationPlayer_" + target, true, false)
+	_check(player_btn != null and player_btn.size.y >= 44 and player_btn.tooltip_text == "Move him",
+			"Each formation player is a thumb-sized move target")
 	var sc: ScrollContainer = ui.find_child("SelectionScroll", true, false)
 	sc.scroll_vertical = 300
 	await _settle()
 	var at: int = sc.scroll_vertical
-	if slot != null:
-		slot.emit_signal("pressed")
+	if player_btn != null:
+		player_btn.emit_signal("pressed")
 		await _settle()
 	var move: Node = ui.find_child("Move_" + target, true, false)
 	var to_wing: Button = move.find_child("To_WING", true, false) if move != null else null
-	_check(to_wing != null and to_wing.size.y >= 44, "The position button opens his move choices")
+	_check(to_wing != null and to_wing.size.y >= 44, "The formation tap opens his move choices")
 	_check(ui.find_children("Move_*", "Node", true, false).size() == 1, "Only one player's choices are open")
 	var viewport := Rect2(Vector2.ZERO, Vector2(root.size))
 	var off := false

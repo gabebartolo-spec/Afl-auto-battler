@@ -3,9 +3,9 @@ extends RefCounted
 ## Contracts, the salary cap, free agency and trade valuation.
 ##
 ## A contract is `contract_years` (seasons left, counting the current one)
-## and `salary` (cap points, fixed when signed - a player's draft price,
-## Ratings.salary_value). Every club's payroll counts against the same cap
-## the career draft used, carried across seasons.
+## and `salary` (annual Australian dollars for list-management purposes,
+## fixed when signed). Match payments/ASAs are deliberately outside this
+## lightweight model. Every club's payroll counts against the same cap.
 ##
 ## Off-season (season over, before the national draft opens): contracts in
 ## their final year are up. Rivals decide straight away - keep a player who
@@ -24,6 +24,62 @@ const AI_FILL := 38
 const ROOKIE_YEARS := 2
 ## A trade has to leave the AI club at least this much better off.
 const TRADE_MARGIN := 0.04
+
+## 2027 is the first playable season. These are the real CBA anchors the
+## simplified economy starts from; unknown future years grow by a modest
+## game-world index rather than pretending future AFL agreements are known.
+const CAP_2027 := 18440415
+const SENIOR_MIN_2027 := 155000
+const ROOKIE_MIN_2027 := 105000
+## One step in a contract offer - about what one point of the old 1-10
+## salary scale was worth, so a step means as much to a player as it did.
+const SALARY_STEP := 100000
+const FUTURE_GROWTH := 1.03
+
+
+static func salary_cap_for_year(year: int) -> int:
+	if year <= 2027:
+		return CAP_2027
+	var cap := float(CAP_2027)
+	for y in range(2028, year + 1):
+		cap *= FUTURE_GROWTH
+	return int(round(cap / 1000.0)) * 1000
+
+
+static func indexed_money_2027(amount: int, year: int) -> int:
+	var value := float(amount)
+	for y in range(2028, year + 1):
+		value *= FUTURE_GROWTH
+	return int(round(value / 1000.0)) * 1000
+
+
+## Compact football money for phone UI.
+static func money(amount: int) -> String:
+	var n := maxi(0, amount)
+	if n >= 1000000:
+		var m := float(n) / 1000000.0
+		return "$%.2fm" % m if n % 100000 != 0 else ("$%.1fm" % m)
+	return "$%dk" % int(round(float(n) / 1000.0))
+
+
+## Convert one old 1-10 cap-point salary into the equivalent rung of the new
+## dollar curve. Used only for save migration.
+static func old_points_to_salary(points: int) -> int:
+	var map := {
+		1: 155000, 2: 225000, 3: 325000, 4: 425000, 5: 525000,
+		6: 650000, 7: 775000, 8: 900000, 9: 1050000, 10: 1250000,
+	}
+	if points <= 10:
+		return int(map.get(maxi(1, points), SENIOR_MIN_2027))
+	# Old negotiations could push a star beyond the 10-point base tier.
+	return 1250000 + (points - 10) * 100000
+
+
+## Salary represented on the old roughly 1-10 market scale. Free-agent
+## preference and compensation use this normalised value so moving to dollars
+## does not make money overwhelm role, security, rating or age.
+static func salary_score(salary: int) -> float:
+	return clampf(1.0 + 9.0 * (float(salary) - 155000.0) / (1250000.0 - 155000.0), 1.0, 12.0)
 
 
 ## First contracts for a list: younger players on longer deals. Seeded by
@@ -46,11 +102,21 @@ static func assign_initial(list: Array) -> void:
 		p["salary"] = int(p.get("value", 3))
 
 
-## A drafted rookie: two seasons on a rookie wage.
-static func rookie_deal(p: Dictionary) -> void:
+## A first-year National Draft deal. The 2027 CBA base bands are used as
+## the starting point and indexed in later game-world seasons.
+static func rookie_deal(p: Dictionary, year := 2027) -> void:
 	p["contract_years"] = ROOKIE_YEARS
-	var pick := int(p.get("draft_pick", 99))
-	p["salary"] = 2 if pick > 0 and pick <= 10 else 1
+	var pick := int(p.get("draft_pick", 0))
+	var base := 125000
+	if pick > 0 and pick <= 10:
+		base = 150000
+	elif pick <= 20 and pick > 0:
+		base = 140000
+	elif pick <= 50 and pick > 0:
+		base = 130000
+	elif pick <= 0:
+		base = ROOKIE_MIN_2027
+	p["salary"] = indexed_money_2027(base, year)
 
 
 ## What re-signing (or signing) this player costs now.
@@ -97,13 +163,13 @@ static func stance(p: Dictionary) -> String:
 
 ## The least he would sign for over `years`. Given the term he wants (or
 ## longer) he gives up to a fifth of his price, less the more leverage he has;
-## a shorter deal costs a point more for anyone.
+## a shorter deal costs one normal negotiation step more for anyone.
 static func lowest(p: Dictionary, years: int) -> int:
 	var want := wants(p)
 	var price := int(want["salary"])
 	if years < int(want["years"]):
-		return price + 1
-	return maxi(1, roundi(price * (1.0 - 0.2 * (1.0 - leverage(p)))))
+		return price + SALARY_STEP
+	return maxi(SENIOR_MIN_2027, int(round(float(price) * (1.0 - 0.2 * (1.0 - leverage(p))) / 5000.0)) * 5000)
 
 
 ## His answer to `salary` over `years`, given how many offers have already
@@ -151,14 +217,14 @@ const ROLE_WEIGHT := {"ground": 1.5, "bench": 0.75, "depth": 0.0}
 const ROLE_RANK := {"ground": 2, "bench": 1, "depth": 0}
 
 
-## How he rates an offer: salary in points, plus security (0.4 a year, up to
-## the term he wants), plus his role at the club (a starting spot is worth
-## a point and a half, a bench spot half that), plus up to 0.8 for a club
+## How he rates an offer: salary normalised back to the old market scale,
+## plus security (0.4 a year, up to the term he wants), role and club context.
+## This keeps the pre-conversion bargaining balance intact.
 ## that finished high last year (`finish_t`: 0 premiers, 1 wooden spoon).
 ## Never shown as a number; `offer_view` puts it in words.
 static func offer_score(p: Dictionary, o: Dictionary) -> float:
 	var wanted := int(wants(p)["years"])
-	return float(o["salary"]) + 0.4 * float(mini(int(o["years"]), wanted)) \
+	return salary_score(int(o["salary"])) + 0.4 * float(mini(int(o["years"]), wanted)) \
 			+ float(ROLE_WEIGHT.get(str(o.get("role", "depth")), 0.0)) \
 			+ 0.8 * (1.0 - clampf(float(o.get("finish_t", 0.5)), 0.0, 1.0))
 
@@ -194,12 +260,11 @@ static func best_offer(p: Dictionary, offers: Array) -> Dictionary:
 
 
 ## The most a club will pay him a season, from his role there and his
-## asking price - never his potential: a starter up to two points over his
-## asking price, a bench player one, a depth signing only his lowest. Never
-## more than the club's cap room.
+## asking price - never his potential: a starter up to two $25k steps over
+## his ask, a bench player one, a depth signing only his lowest.
 static func club_max(p: Dictionary, role: String, cap_room: int) -> int:
 	var ask := asking_salary(p)
-	var most := ask + 2 if role == "ground" else (ask + 1 if role == "bench" else lowest(p, ai_years(p)))
+	var most := ask + 2 * SALARY_STEP if role == "ground" else (ask + SALARY_STEP if role == "bench" else lowest(p, ai_years(p)))
 	return mini(most, cap_room)
 
 
@@ -221,7 +286,7 @@ static func rival_response(p: Dictionary, own: Dictionary, leader: Dictionary, m
 	var years_options := [int(own["years"])]
 	if wanted > int(own["years"]):
 		years_options.append(wanted)
-	for salary in range(int(own["salary"]), most + 1):
+	for salary in range(int(own["salary"]), most + 1, SALARY_STEP):
 		for years in years_options:
 			var trial: Dictionary = own.duplicate()
 			trial["salary"] = salary
@@ -243,7 +308,7 @@ static func offer_view(p: Dictionary, o: Dictionary, other: Dictionary, club_nam
 		return "The only offer."
 	var wanted := int(wants(p)["years"])
 	var gaps := {
-		"money": float(int(o["salary"]) - int(other["salary"])),
+		"money": salary_score(int(o["salary"])) - salary_score(int(other["salary"])),
 		"security": 0.4 * float(mini(int(o["years"]), wanted) - mini(int(other["years"]), wanted)),
 		"role": float(ROLE_WEIGHT.get(str(o.get("role", "depth")), 0.0)) - float(ROLE_WEIGHT.get(str(other.get("role", "depth")), 0.0)),
 		"club": 0.8 * (float(other.get("finish_t", 0.5)) - float(o.get("finish_t", 0.5))),
@@ -312,7 +377,7 @@ static func ai_years(p: Dictionary) -> int:
 ## longer deal and a younger player each count for more. Roughly 1 to 14.
 static func compensation_value(p: Dictionary, salary: int, years: int) -> float:
 	var rating := clampf((float(p.get("overall", 50)) - 35.0) / 5.5, 1.0, 10.0)
-	var base := 0.4 * float(salary) + 0.6 * rating
+	var base := 0.4 * salary_score(salary) + 0.6 * rating
 	var term := 0.85 + 0.1 * float(clampi(years, 1, MAX_YEARS))
 	var youth := clampf(1.0 + (27.0 - float(p.get("age", 27.0))) * 0.03, 0.85, 1.15)
 	return base * term * youth
@@ -342,7 +407,7 @@ static func pick_words(after: int, clubs: int) -> String:
 static func payroll(list: Array) -> int:
 	var total := 0
 	for p in list:
-		total += int(p.get("salary", p.get("value", 1)))
+		total += int(p.get("salary", p.get("value", SENIOR_MIN_2027)))
 	return total
 
 
@@ -364,30 +429,36 @@ static func worth(p: Dictionary) -> float:
 	return w
 
 
-## Stars are worth far more than two middling players: value grows steeply
-## with worth, so two 65s never buy an 85.
-static func trade_value(p: Dictionary) -> float:
-	return pow(maxf(1.0, worth(p)) / 70.0, 4.0)
-
-
 ## Would a rival keep this expiring player at his asking price? Keep good
 ## players the cap can carry; let the rest go.
 static func ai_keeps(p: Dictionary, list: Array, cap: int) -> bool:
 	return ai_release_reason(p, list, cap) == ""
 
+## A draft pick in a trade: {"pick": true, "id", "year", "round", "origin",
+## "owner", "positions": [[overall pick, weight]...]} (GameState.pick_asset).
+static func is_pick(a: Dictionary) -> bool:
+	return bool(a.get("pick", false))
 
-## Does the AI club accept `give` (its players, to you) for `take` (yours, to
-## it)? Returns {"ok": bool, "reason": String}.
+
+## Does the AI club accept `give` (its players and picks, to you) for `take`
+## (yours, to it)? Picks are valued as the prospect a club expects to get
+## with them (TradeValue.pick_value, from ctx "prospects": {year: ranked
+## class}) and join the package like players. It weighs both sides by TradeValue from its own position: `ctx` =
+## {"phase": its cycle, "games": {player id: last season's games}, "name":
+## its club name, "names": {player id: display name}}. What it receives is
+## judged against its side without the players it gives up, and counted as
+## a package (its lesser pieces for less); what it gives up is counted in
+## full. Returns {"ok": bool,
+## "reason": String, "in": value received, "out": value given}.
 static func evaluate_trade(ai_list: Array, give: Array, take: Array, cap: int,
-		my_list: Array, my_cap: int, margin := TRADE_MARGIN) -> Dictionary:
+		my_list: Array, my_cap: int, margin := TRADE_MARGIN, ctx := {}) -> Dictionary:
 	if give.is_empty() or take.is_empty():
-		return {"ok": false, "reason": "Pick a player from each side."}
-	var in_value := 0.0
-	var out_value := 0.0
-	for p in take:
-		in_value += trade_value(p) * _need_bonus(ai_list, give, str(p["role"]))
-	for p in give:
-		out_value += trade_value(p)
+		return {"ok": false, "reason": "Pick a player or a pick from each side."}
+	# Draft picks ride along with players: no list spot, no salary.
+	var give_picks := give.filter(func(a): return is_pick(a))
+	var take_picks := take.filter(func(a): return is_pick(a))
+	give = give.filter(func(a): return not is_pick(a))
+	take = take.filter(func(a): return not is_pick(a))
 	var ai_after := ai_list.size() - give.size() + take.size()
 	var my_after := my_list.size() - take.size() + give.size()
 	if ai_after > MAX_LIST or my_after > MAX_LIST:
@@ -400,17 +471,64 @@ static func evaluate_trade(ai_list: Array, give: Array, take: Array, cap: int,
 	var my_pay := payroll(my_list) - payroll(take) + payroll(give)
 	if my_pay > my_cap:
 		return {"ok": false, "reason": "You cannot fit the salary under your cap."}
+	var phase := str(ctx.get("phase", "building"))
+	var games: Dictionary = ctx.get("games", {})
+	var remaining := ai_list.filter(func(q): return not give.has(q))
+	# Newcomers are fitted one at a time, the most valuable first, each into
+	# the side with the earlier ones already in it: two players for one
+	# gap don't both fill it, and the order you pick them in changes nothing.
+	var ranked := take.duplicate()
+	var standalone := {}
+	var start_bars := TradeValue.selection_bars(remaining)
+	var start_proj := TradeValue.selection_bars(remaining, true)
+	for p in ranked:
+		standalone[str(p["id"])] = float(TradeValue.value(p, {"phase": phase, "bars": start_bars, "proj": start_proj,
+				"games": int(games.get(str(p["id"]), -1))})["total"])
+	ranked.sort_custom(func(a, b):
+		var va := float(standalone[str(a["id"])])
+		var vb := float(standalone[str(b["id"])])
+		if va != vb:
+			return va > vb
+		return str(a["id"]) < str(b["id"]))
+	var in_values := []
+	var benchwarmer := ""
+	var side := remaining.duplicate()
+	for p in ranked:
+		var bars := TradeValue.selection_bars(side)
+		var v := TradeValue.value(p, {"phase": phase, "bars": bars, "proj": TradeValue.selection_bars(side, true),
+				"games": int(games.get(str(p["id"]), -1))})
+		in_values.append(float(v["total"]))
+		if TradeValue.fit(p, bars) < 0.5 and benchwarmer == "":
+			benchwarmer = str((ctx.get("names", {}) as Dictionary).get(str(p["id"]), p.get("name", "")))
+		side.append(p)
+	var prospects: Dictionary = ctx.get("prospects", {})
+	for pk in take_picks:
+		in_values.append(TradeValue.pick_value(pk["positions"], prospects.get(str(pk["year"]), []), phase))
+	var in_value := TradeValue.package(in_values)
+	var out_value := 0.0
+	var cornerstone := ""
+	var best_future := 0.0
+	for p in give:
+		var without := ai_list.filter(func(q): return q != p)
+		var v := TradeValue.value(p, {"phase": phase, "bars": TradeValue.selection_bars(without),
+				"proj": TradeValue.selection_bars(without, true), "games": int(games.get(str(p["id"]), -1)), "own": true})
+		out_value += float(v["total"])
+		if float(v["future"]) > best_future and TradeValue.future_rating(p) > TradeValue.now_rating(p) + 3.0:
+			best_future = float(v["future"])
+			cornerstone = str((ctx.get("names", {}) as Dictionary).get(str(p["id"]), p.get("name", "")))
+	for pk in give_picks:
+		out_value += TradeValue.pick_value(pk["positions"], prospects.get(str(pk["year"]), []), phase)
+	var out := {"ok": false, "in": in_value, "out": out_value}
 	if in_value < out_value * (1.0 + margin):
-		var short := "a little short" if in_value >= 0.9 * out_value else "well short"
-		return {"ok": false, "reason": "They want more for that: your offer is %s of what they give up." % short}
-	return {"ok": true, "reason": "They accept."}
-
-
-## A club values a player more in a position it is short of.
-static func _need_bonus(list: Array, leaving: Array, role: String) -> float:
-	var have := 0
-	for p in list:
-		if str(p.get("role", "")) == role and not leaving.has(p):
-			have += 1
-	var ideal := {"RUCK": 3, "MID": 13, "DEF": 10, "FWD": 10}
-	return 1.15 if have < int(ideal.get(role, 10)) else 1.0
+		var club := str(ctx.get("name", "They"))
+		if phase == "rebuilding" and cornerstone != "":
+			out["reason"] = "%s are rebuilding: %s is part of their future." % [club, cornerstone]
+		elif benchwarmer != "" and in_value < 0.9 * out_value:
+			out["reason"] = "%s wouldn't get a game in their side." % benchwarmer
+		else:
+			var short := "a little short" if in_value >= 0.9 * out_value else "well short"
+			out["reason"] = "They want more for that: your offer is %s of what they give up." % short
+		return out
+	out["ok"] = true
+	out["reason"] = "They accept."
+	return out

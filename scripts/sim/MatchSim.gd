@@ -25,7 +25,16 @@ var fp := 0.0
 var next_side := -1          # -1 => the stoppage is contested
 var at_centre := true
 var kick_in := false         # the next chain is a kick-in after a behind
+var boundary_throw_in := false # the next chain restarts with a boundary throw-in
 const GOAL_SQUARE_DEPTH := 9.0  # metres; kick-ins are taken from inside it
+## With no lateral simulation coordinate, boundary exits are rolled as a real
+## chain outcome at the ball's current longitudinal position. The rate is
+## deliberately modest: roughly the amount needed to produce AFL-like
+## boundary stoppages without turning the game into a boundary simulator.
+const BOUNDARY_EXIT_P := 0.008
+const BOUNDARY_RUSHED_BONUS := 0.004
+const OUT_ON_FULL_SHARE := 0.12
+const BOUNDARY_TOUCHED_SHARE := 0.28
 var tactics := [{}, {}]      # per side: gameplan, focus_id, tag_id, pep
 ## How well each side's match-day players suit each plan (PlanFit): the
 ## plan's upside is scaled by it, its costs are not.
@@ -38,6 +47,10 @@ var standing := ["balanced", "balanced"]
 ## Named match-ups (Matchups, Gate 1.12): per defending side, which defender
 ## stands on each of the other side's key forwards. {forward id: defender id}.
 var duels := [{}, {}]
+## Defender given licence to leave his man and hunt aerial balls behind play.
+## This is a role/assignment, not an extra player.
+var interceptor := ["", ""]
+var interceptor_changes: Array = []
 ## Every contest a matched forward and his direct opponent played:
 ## forward id -> {"side": attacking side, "contests": [[q, defender id,
 ## forward marked, goal from it]]}.
@@ -55,6 +68,9 @@ var _injury_plan: Array = []
 ## The injuries that happened: [{"side", "id", "q", "min", "weeks", "kind",
 ## "on"}] ("on": who came on for him, "" for none).
 var injuries: Array = []
+## Reportable incidents that happened in real match contact. The MRO outcome
+## is decided here once and applied to league lists after the round.
+var reports: Array = []
 ## Players gone off injured, per side; they take no further part.
 var injured_off := [[], []]
 ## Who won the ball back for the chain being played ({"side", "id"}), so a
@@ -97,6 +113,25 @@ var stat_rng := RandomNumberGenerator.new()
 ## Whether a mark inside 50 ends in a set shot and from where (SET_BANDS):
 ## its own stream, so the rest of the match draws exactly as before.
 var shot_rng := RandomNumberGenerator.new()
+## Smothers alter possession but use their own stream, so ordinary disposal
+## outcomes keep the calibration RNG sequence they had before this feature.
+var smother_rng := RandomNumberGenerator.new()
+## General-play aerial contests alter real possession outcomes but use their
+## own stream so ordinary non-aerial play keeps its prior RNG ordering.
+var aerial_rng := RandomNumberGenerator.new()
+## Spectacular-mark selection is presentation/stat context only.
+var speccy_rng := RandomNumberGenerator.new()
+## Post-free 50m infringements are independent of ordinary play rolls.
+var discipline_rng := RandomNumberGenerator.new()
+var mro_rng := RandomNumberGenerator.new()
+var restart_rng := RandomNumberGenerator.new()
+var free_rng := RandomNumberGenerator.new()
+var _speccy_quota := 0
+var _speccies := 0
+## Boundary law rolls are isolated from the calibrated play RNG. Adding or
+## tuning boundary frequency therefore does not silently re-roll ordinary
+## disposals in chains that stay in play.
+var boundary_rng := RandomNumberGenerator.new()
 ## The chain being played: how it began (centre, stoppage, kick_in, free,
 ## turnover, general) and who touched the ball in it, for score sources and
 ## score involvements. How the last chain ended decides the next's origin.
@@ -150,6 +185,15 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	moment_rng.seed = seed * 7 + 13
 	stat_rng.seed = seed * 11 + 5
 	shot_rng.seed = seed * 13 + 3
+	smother_rng.seed = seed * 23 + 29
+	aerial_rng.seed = seed * 73 + 79
+	speccy_rng.seed = seed * 31 + 37
+	discipline_rng.seed = seed * 41 + 43
+	mro_rng.seed = seed * 47 + 53
+	restart_rng.seed = seed * 59 + 61
+	free_rng.seed = seed * 67 + 71
+	_speccy_quota = speccy_quota(seed)
+	boundary_rng.seed = seed * 17 + 19
 	injury_rng.seed = seed * 13 + 7
 	for side in range(2):
 		synergies[side] = Traits.active((squads[side] as Squad).ground)
@@ -166,10 +210,24 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 		for p in (squads[side] as Squad).bench:
 			energy_caps[str(p["id"])] = Workload.energy_cap(p)
 			energy[str(p["id"])] = _start_energy(p)
+	# AI clubs with the personnel start with a genuine loose interceptor; the
+	# human side starts neutral and can choose one in the coach box.
+	for side in range(2):
+		if (squads[side] as Squad).ai_plans:
+			var best := Matchups.best_interceptor((squads[side] as Squad).ground)
+			if not best.is_empty():
+				set_interceptor(side, str(best["id"]), false)
 	_plan_injuries()
 
 
-## Legs at the first bounce: a heavy week on the track, or playing sore,
+## Deterministic spectacular-mark allowance: 30% none, 60% one, 10% two.
+## Eligibility still requires a genuine contested mark in the match.
+static func speccy_quota(seed: int) -> int:
+	var bucket := posmod(hash("speccy|%d" % seed), 10)
+	return 0 if bucket < 3 else (1 if bucket < 9 else 2)
+
+
+## Legs at the first bounce: a heavy week on the track, or playing sore.
 ## starts him short of fresh.
 static func _start_energy(p: Dictionary) -> float:
 	var e := 100.0
@@ -199,6 +257,10 @@ func set_matchup(def_side: int, fwd_id: String, def_id: String, during := true) 
 			def_ok = true
 	if not fwd_ok or not def_ok:
 		return false
+	# A defender cannot be both the nominated loose man and a strict direct
+	# opponent. Putting him back on someone removes the roaming instruction.
+	if str(interceptor[def_side]) == def_id:
+		set_interceptor(def_side, "", during)
 	var d: Dictionary = duels[def_side]
 	if str(d.get(fwd_id, "")) == def_id:
 		return true
@@ -231,6 +293,86 @@ func set_matchups(def_side: int, m: Dictionary) -> void:
 		set_matchup(def_side, str(fid), str(m[fid]), false)
 
 
+## Nominate one defender to roam behind the ball. If he had a direct forward,
+## another available defender inherits that job; with nobody spare, that
+## forward becomes unassigned. No extra player is created.
+func set_interceptor(def_side: int, def_id: String, during := true) -> bool:
+	if def_side < 0 or def_side > 1:
+		return false
+	if def_id != "":
+		var found := false
+		for p in (squads[def_side] as Squad).ground + (squads[def_side] as Squad).bench:
+			if str(p.get("id", "")) == def_id and str(p.get("role", "")) == "DEF":
+				found = true
+				break
+		if not found:
+			return false
+	if str(interceptor[def_side]) == def_id:
+		return true
+	var old := str(interceptor[def_side])
+	interceptor[def_side] = def_id
+
+	if def_id != "":
+		var d: Dictionary = duels[def_side]
+		var used := {}
+		for fid in d.keys():
+			var did := str(d[fid])
+			if did != def_id:
+				used[did] = true
+		for fid in d.keys().duplicate():
+			if str(d.get(fid, "")) != def_id:
+				continue
+			var replacement := ""
+			for p in Matchups.defenders((squads[def_side] as Squad).ground):
+				var pid := str(p.get("id", ""))
+				if pid != def_id and not used.has(pid):
+					replacement = pid
+					used[pid] = true
+					break
+			if replacement == "":
+				d.erase(fid)
+			else:
+				d[fid] = replacement
+
+	if during:
+		var from := maxi(1, current_quarter)
+		for i in range(interceptor_changes.size() - 1, -1, -1):
+			var ch: Dictionary = interceptor_changes[i]
+			if int(ch.get("from", 0)) == from and int(ch.get("side", -1)) == def_side:
+				interceptor_changes.remove_at(i)
+		interceptor_changes.append({"q": maxi(1, current_quarter), "from": from,
+				"side": def_side, "from_id": old, "id": def_id})
+	return true
+
+
+func _roaming_interceptor(side: int) -> Dictionary:
+	if side < 0 or side > 1:
+		return {}
+	var id := str(interceptor[side])
+	if id == "":
+		return {}
+	var p := _on_ground(side, id)
+	if p.is_empty() or str(p.get("role", "")) != "DEF":
+		return {}
+	return p
+
+
+## Chance the loose defender actually reaches this aerial contest. Making him
+## accountable drags him away and sharply reduces it, at a cost to the attack.
+func _roam_chance(def_side: int) -> float:
+	var p := _roaming_interceptor(def_side)
+	if p.is_empty():
+		return 0.0
+	var chance := clampf(0.10 + Matchups.interceptor_score(p) / 430.0, 0.20, 0.38)
+	if bool((tactics[1 - def_side] as Dictionary).get("spare_accountable", false)):
+		chance *= 0.40
+	return chance
+
+
+func _spare_accountable(attacking_side: int) -> bool:
+	return bool((tactics[attacking_side] as Dictionary).get("spare_accountable", false)) 			and not _roaming_interceptor(1 - attacking_side).is_empty()
+
+
 ## An AI club moves a key defender when their forward has had the better of
 ## him: three or more contests last quarter and two in three won. It tries
 ## the next defender a coach would, not the ideal one.
@@ -257,6 +399,8 @@ func set_tactics(side: int, t: Dictionary) -> void:
 	if side < 0 or side > 1:
 		return
 	tactics[side] = t.duplicate()
+	if t.has("interceptor_id"):
+		set_interceptor(side, str(t.get("interceptor_id", "")), current_quarter > 1 or _q_active)
 	# A tag needs its man still in the match.
 	var tag := str(t.get("tag_id", ""))
 	if tag != "" and not taking_part(1 - side, tag):
@@ -755,6 +899,17 @@ const HOTHEAD_ERRORS := 1.5
 ## side gives away fewer than the benchmark and a side of hotheads more,
 ## while the league-wide clanger and free-kick rates stay calibrated.
 const HOTHEAD_BASE := 1.10
+## Roughly one 50m penalty every couple of matches at ordinary discipline.
+const FIFTY_BASE := 0.012
+## A reportable tackle is rare. Poor discipline and Hothead raise the chance,
+## but neither can turn ordinary aggression into a weekly suspension machine.
+const REPORT_BASE := 0.0035
+## Contextual frees replace part of the old generic clanger/free bucket.
+const HIGH_CONTACT_BASE := 0.022
+const HTB_NO_PRIOR := 0.10
+const HTB_PRIOR := 0.24
+const MARK_FREE_BASE := 0.020
+const GENERIC_FREE_MULT := 0.40
 
 
 ## Who gives away a side's clanger: poor discipline makes it likelier, a
@@ -773,6 +928,143 @@ func _clanger_weights(side: int) -> Array:
 		w_all += w
 		weights.append(w)
 	return [weights, w_all / w_base if w_base > 0.0 else 1.0]
+
+
+## Pay a football free with a real cause. Returns the mark after any 50.
+func _award_context_free(receiving_side: int, mark_fp: float, offender, recipient,
+		cause: String, label: String) -> float:
+	_t(receiving_side, "frees_for")
+	_p(recipient, "frees_for")
+	_t(1 - receiving_side, "frees_against")
+	_p(offender, "frees_against")
+	_t(receiving_side, "free_" + cause)
+	var who := GameDB.player_display_name(recipient) if recipient != null else "the opposition"
+	_emit("free", receiving_side, mark_fp, recipient, "%s — free kick to %s" % [label, who])
+	var ev: Dictionary = events[events.size() - 1]
+	ev["free_cause"] = cause
+	ev["against_id"] = "" if offender == null else str(offender.get("id", ""))
+	ev["against_name"] = "" if offender == null else GameDB.player_display_name(offender)
+	return _maybe_fifty(receiving_side, mark_fp, offender, recipient)
+
+
+## A tackle infringement against the tackler: high contact/rough conduct.
+func _high_contact_free(tackler) -> bool:
+	if tackler == null:
+		return false
+	var discipline := _a(tackler, "discipline")
+	var p := HIGH_CONTACT_BASE * (1.35 - 0.70 * discipline / 100.0)
+	if _trait(tackler, "hothead"):
+		p *= 1.45
+	return free_rng.randf() < clampf(p, 0.006, 0.045)
+
+
+## Holding the ball only exists after a legal tackle actually stops the carrier.
+## More prior opportunity (later in the chain) makes it more likely; clean
+## contested/disposal players are a little harder to catch.
+func _holding_ball_free(carrier, touches: int) -> bool:
+	if carrier == null:
+		return false
+	var p := HTB_PRIOR if touches > 1 else HTB_NO_PRIOR
+	p *= 1.18 - 0.30 * _a(carrier, "contested") / 100.0
+	p *= 1.12 - 0.24 * _a(carrier, "disposal") / 100.0
+	return free_rng.randf() < clampf(p, 0.05, 0.28)
+
+
+## A genuine aerial contest can be infringed by either side. Poor discipline
+## shifts who is more likely to hold/block; it never overwhelms the contest.
+func _marking_free(side: int, attacker, defender) -> Dictionary:
+	if attacker == null or defender == null:
+		return {}
+	var def_p := MARK_FREE_BASE * (1.35 - 0.65 * _a(defender, "discipline") / 100.0)
+	var att_p := MARK_FREE_BASE * 0.70 * (1.35 - 0.65 * _a(attacker, "discipline") / 100.0)
+	if _trait(defender, "hothead"):
+		def_p *= 1.35
+	if _trait(attacker, "hothead"):
+		att_p *= 1.35
+	var r := free_rng.randf()
+	if r < clampf(def_p, 0.004, 0.035):
+		return {"side": side, "offender": defender, "recipient": attacker,
+				"cause": "marking", "label": "Holding in the marking contest"}
+	if r < clampf(def_p, 0.004, 0.035) + clampf(att_p, 0.003, 0.025):
+		return {"side": 1 - side, "offender": attacker, "recipient": defender,
+				"cause": "marking", "label": "Blocking in the marking contest"}
+	return {}
+
+
+## A free can be marched 50 for dissent, encroachment or delay. We do not
+## pretend to simulate umpire micromanagement: discipline and Hothead only
+## alter a small post-free risk. Returns the new mark for the free.
+static func fifty_mark(receiving_side: int, mark_fp: float, goal_line: float) -> float:
+	var dir := 1.0 if receiving_side == 0 else -1.0
+	return clampf(mark_fp + 50.0 * dir, -goal_line, goal_line)
+
+
+func _maybe_fifty(receiving_side: int, mark_fp: float, offender, recipient) -> float:
+	if offender == null:
+		return mark_fp
+	var discipline := _a(offender, "discipline")
+	var chance := FIFTY_BASE * (1.35 - 0.70 * discipline / 100.0)
+	if _trait(offender, "hothead"):
+		chance *= 1.65
+	if discipline_rng.randf() >= clampf(chance, 0.002, 0.035):
+		return mark_fp
+	var new_fp := fifty_mark(receiving_side, mark_fp, float(Ratings.T["goal_line"]))
+	_t(receiving_side, "fifties_for")
+	_t(1 - receiving_side, "fifties_against")
+	_p(offender, "fifties_against")
+	_emit("fifty", receiving_side, new_fp, recipient,
+			"50-metre penalty against %s" % GameDB.player_display_name(offender))
+	var ev: Dictionary = events[events.size() - 1]
+	ev["from_fp"] = mark_fp
+	ev["against_id"] = str(offender.get("id", ""))
+	ev["against_name"] = GameDB.player_display_name(offender)
+	return new_fp
+
+
+## A tackle can become a reportable rough-conduct incident. It is attached to
+## the real tackler/victim and current quarter/minute; no post-match re-roll.
+func _maybe_report(side: int, offender, victim) -> void:
+	if offender == null or victim == null:
+		return
+	var discipline := _a(offender, "discipline")
+	var chance := REPORT_BASE * (1.30 - 0.60 * discipline / 100.0)
+	if _trait(offender, "hothead"):
+		chance *= 1.75
+	if mro_rng.randf() >= clampf(chance, 0.001, 0.014):
+		return
+	var severity := mro_rng.randf() + (50.0 - discipline) / 500.0 \
+			+ (0.06 if _trait(offender, "hothead") else 0.0)
+	var tribunal_roll := mro_rng.randf()
+	var appeal_roll := mro_rng.randf()
+	var outcome := "no_action"
+	var weeks := 0
+	if severity >= 0.985:
+		outcome = "suspension"
+		weeks = 3
+	elif severity >= 0.94:
+		outcome = "suspension"
+		weeks = 2
+	elif severity >= 0.76:
+		outcome = "suspension"
+		weeks = 1
+	elif severity >= 0.52:
+		outcome = "fine"
+	reports.append({
+		"side": side,
+		"id": str(offender.get("id", "")),
+		"name": GameDB.player_display_name(offender),
+		"victim_id": str(victim.get("id", "")),
+		"victim_name": GameDB.player_display_name(victim),
+		"q": current_quarter,
+		"min": current_minute,
+		"reason": "rough conduct",
+		"outcome": outcome,
+		"weeks": weeks,
+		"tribunal_roll": tribunal_roll,
+		"appeal_roll": appeal_roll,
+		"challenged": false,
+		"appealed": false,
+	})
 
 
 ## A won stoppage is worth about a possession chain's points.
@@ -810,6 +1102,15 @@ const PRESS_ZONE_EDGE := 20.0
 const PRESS_RUSH_RATIO := 2.0
 const PRESS_TURNOVER := 0.08
 const PRESS_RUSH_GAIN := 0.80
+## A close defender occasionally gets boot to ball. Around one or two per
+## match across both sides; pressure and the smotherer's ability move it.
+const SMOTHER_BASE := 0.008
+const SMOTHER_CAP := 0.022
+## A subset of genuine 15m+ kicks outside forward 50 become aerial contests.
+## Most ordinary kicks still use the calibrated chain model unchanged.
+const GENERAL_AERIAL_P := 0.040
+const GENERAL_SPOIL_BASE := 0.56
+const GENERAL_MARK_ROLES := {"FWD": 1.0, "MID": 0.85, "DEF": 0.65, "RUCK": 0.70}
 
 
 static func _press_zone(atk_fp: float) -> int:
@@ -847,6 +1148,52 @@ func _pick_presser(side: int, zone: int):
 	return _pick(group, weights)
 
 
+## General-play aerial contest on an unmarked kick. We only create one when
+## the kick has enough length to plausibly be contested. A spoil is a fist to
+## a real contest and leaves the ball loose; it is never automatic possession.
+func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bool) -> Dictionary:
+	if rushed or gain < 18.0 or aerial_rng.randf() >= 0.22:
+		return {}
+	var opp := 1 - side
+	var receiver = pick_carrier(side, mark_fp)
+	var defenders := _by_roles((squads[opp] as Squad).ground, ["DEF", "MID"])
+	if receiver == null or defenders.is_empty():
+		return {}
+	var defender = _weighted(defenders, "intercept", 2.0, opp, "defender")
+	var receive := _a(receiver, "marking")
+	var stop := 0.62 * _a(defender, "intercept") + 0.38 * _a(defender, "marking")
+	var mark_p := clampf(0.34 + (receive - stop) / 240.0
+			+ (0.05 if _trait(receiver, "aerial") else 0.0), 0.16, 0.55)
+	var roll := aerial_rng.randf()
+	if roll < mark_p:
+		_t(side, "marks")
+		_p(receiver, "marks")
+		var contested := aerial_rng.randf() < 0.55
+		if contested:
+			_t(side, "contested_marks")
+			_p(receiver, "contested_marks")
+		_emit("mark", side, mark_fp, receiver,
+				"%s marks in general play" % GameDB.player_display_name(receiver))
+		var mev: Dictionary = events[events.size() - 1]
+		mev["contested"] = contested
+		mev["general_play"] = true
+		return {"outcome": "mark", "actor": receiver}
+	var spoil_p := clampf(0.36 + (stop - receive) / 220.0
+			+ (0.07 if _trait(defender, "interceptor") else 0.0), 0.20, 0.65)
+	if roll < mark_p + spoil_p:
+		_t(opp, "spoils")
+		_p(defender, "spoils")
+		_t(opp, "one_percenters")
+		_p(defender, "one_percenters")
+		_emit("spoil", opp, mark_fp, defender,
+				"%s spoils the aerial contest" % GameDB.player_display_name(defender))
+		var sev: Dictionary = events[events.size() - 1]
+		sev["general_play"] = true
+		sev["against_id"] = str(receiver.get("id", ""))
+		return {"outcome": "loose", "actor": defender}
+	return {}
+
+
 func pick_carrier(side: int, fp: float):
 	var T := Ratings.T
 	var sq: Squad = squads[side]
@@ -869,6 +1216,109 @@ func pick_carrier(side: int, fp: float):
 		key = "disposal"
 		purpose = "transition"
 	return _weighted_roles(sq.ground, key, CARRY_ROLES[zone], 2.0, side, purpose)
+
+
+## The primary kick-in player: a defender who can use and carry the ball.
+## Deterministic within the match so a club has a recognisable rebounder
+## instead of a random player materialising in the goal square after each behind.
+func kick_in_taker(side: int):
+	var ground: Array = (squads[side] as Squad).ground
+	var pool := _by_roles(ground, ["DEF"])
+	if pool.is_empty():
+		pool = ground
+	var best = null
+	var best_v := -INF
+	for p in pool:
+		var v := 0.58 * _a(p, "carry") + 0.42 * _a(p, "disposal")
+		if best == null or v > best_v or (is_equal_approx(v, best_v)
+				and str(p.get("id", "")) < str(best.get("id", ""))):
+			best = p
+			best_v = v
+	return best
+
+
+func _kick_in_play_on(taker) -> bool:
+	if taker == null:
+		return false
+	var chance := clampf(0.30 + _a(taker, "carry") / 180.0, 0.42, 0.82)
+	return restart_rng.randf() < chance
+
+
+## A 15m+ kick in general play can bring two players to the drop. The result
+## is a real mark/spoil/free; a spoil leaves the ball loose rather than gifting
+## possession to the defender.
+func _general_aerial_contest(side: int, mark_fp: float, carrier) -> Dictionary:
+	var opp := 1 - side
+	var target = _weighted_roles((squads[side] as Squad).ground, "marking",
+			GENERAL_MARK_ROLES, 2.0, side, "aerial_target")
+	var defs := _by_roles((squads[opp] as Squad).ground, ["DEF"])
+	if defs.is_empty():
+		defs = (squads[opp] as Squad).ground
+	var defender = _weighted(defs, "intercept", 2.0, opp, "aerial_defender")
+	if target == null or defender == null:
+		return {}
+	var roaming := false
+	var roamer := _roaming_interceptor(opp)
+	if not roamer.is_empty() and str(roamer.get("id", "")) != str(defender.get("id", "")) 			and aerial_rng.randf() < _roam_chance(opp):
+		defender = roamer
+		roaming = true
+		_t(opp, "roam_contests")
+		_p(defender, "roam_contests")
+
+	var infringement := _marking_free(side, target, defender)
+	if not infringement.is_empty():
+		var free_side := int(infringement["side"])
+		var mark := _award_context_free(free_side, mark_fp,
+				infringement["offender"], infringement["recipient"],
+				str(infringement["cause"]), str(infringement["label"]))
+		if roaming:
+			if free_side == opp:
+				_p(defender, "roam_wins")
+			else:
+				_p(defender, "roam_losses")
+		return {"outcome": "free", "fp": mark, "actor": infringement["recipient"],
+				"free_side": free_side}
+
+	var mark_edge := (_a(target, "marking") - _a(defender, "intercept")) / 260.0
+	if _trait(target, "aerial"):
+		mark_edge += 0.05
+	var mark_p := clampf(0.42 + mark_edge, 0.18, 0.70)
+	if aerial_rng.randf() < mark_p:
+		_t(side, "marks")
+		_p(target, "marks")
+		_t(side, "contested_marks")
+		_p(target, "contested_marks")
+		_emit("mark", side, mark_fp, target,
+				"%s takes a contested mark" % GameDB.player_display_name(target))
+		var mev: Dictionary = events[events.size() - 1]
+		mev["contested"] = true
+		mev["general_play"] = true
+		mev["from_id"] = "" if carrier == null else str(carrier.get("id", ""))
+		if roaming:
+			mev["roaming_interceptor_id"] = str(defender.get("id", ""))
+			_p(defender, "roam_losses")
+		return {"outcome": "mark", "fp": mark_fp, "actor": target}
+
+	var spoil_p := clampf(GENERAL_SPOIL_BASE
+			+ (_a(defender, "intercept") - _a(target, "marking")) / 300.0
+			+ (0.06 if _trait(defender, "interceptor") else 0.0), 0.30, 0.82)
+	if aerial_rng.randf() < spoil_p:
+		_t(opp, "spoils")
+		_p(defender, "spoils")
+		_t(opp, "one_percenters")
+		_p(defender, "one_percenters")
+		_emit("spoil", opp, mark_fp, defender,
+				"%s spoils the marking contest" % GameDB.player_display_name(defender))
+		var sev: Dictionary = events[events.size() - 1]
+		sev["against_id"] = str(target.get("id", ""))
+		sev["general_play"] = true
+		if roaming:
+			sev["roaming_interceptor"] = true
+			_p(defender, "roam_wins")
+		return {"outcome": "loose", "fp": mark_fp, "actor": defender}
+	if roaming:
+		_p(defender, "roam_losses")
+	return {}
 
 
 # ---------------------------------------------------------------------------
@@ -992,6 +1442,62 @@ func _stoppage(side: int, opp: int, from_bounce: bool) -> void:
 
 
 # ---------------------------------------------------------------------------
+# Boundary laws
+# ---------------------------------------------------------------------------
+## 2026 AFL last-disposal rule: a kick or handball that crosses the boundary
+## between the 50m arcs is a free to the opposition. If it was touched or the
+## exit was otherwise contested, it remains a throw-in. Out on the full is a
+## free anywhere on the ground.
+static func boundary_restart(cross_fp: float, f50: float, disposal_kind: String,
+		out_on_full: bool, touched: bool) -> String:
+	if out_on_full:
+		return "free"
+	if absf(cross_fp) < f50 and ["kick", "handball"].has(disposal_kind) and not touched:
+		return "free"
+	return "throwin"
+
+
+## A disposal leaves the oval. MatchSim has one field-position axis, so the
+## lateral crossing itself is probabilistic; the restart and crossing spot are
+## real state. Returns {} when the ball stays in.
+func _boundary_exit(side: int, cross_fp: float, carrier, disposal_kind: String,
+		rushed: bool, marked: bool) -> Dictionary:
+	if marked:
+		return {}
+	var chance := BOUNDARY_EXIT_P + (BOUNDARY_RUSHED_BONUS if rushed else 0.0)
+	if boundary_rng.randf() >= chance:
+		return {}
+	var out_on_full := disposal_kind == "kick" and boundary_rng.randf() < OUT_ON_FULL_SHARE
+	var touched := not out_on_full and boundary_rng.randf() < BOUNDARY_TOUCHED_SHARE
+	var restart := boundary_restart(cross_fp, float(Ratings.T["forward50_line"]),
+			disposal_kind, out_on_full, touched)
+	if restart == "throwin":
+		_emit("throwin", -1, cross_fp, null, "Boundary throw-in")
+		var bev: Dictionary = events[events.size() - 1]
+		bev["last_side"] = side
+		bev["disposal_kind"] = disposal_kind
+		bev["touched"] = touched
+		return {"outcome": "boundary", "fp": cross_fp, "actor": carrier}
+
+	var opp := 1 - side
+	var recipient = _free_to(opp, cross_fp if side == 0 else -cross_fp)
+	_t(opp, "frees_for")
+	_p(recipient, "frees_for")
+	_t(side, "frees_against")
+	_p(carrier, "frees_against")
+	var kind := "out_on_full" if out_on_full else "last_disposal"
+	var who := GameDB.player_display_name(recipient) if recipient != null else "the opposition"
+	var why := "Out on the full" if out_on_full else "Last disposal out"
+	_emit(kind, opp, cross_fp, recipient, "%s - free kick to %s" % [why, who])
+	var fev: Dictionary = events[events.size() - 1]
+	fev["against_id"] = "" if carrier == null else str(carrier.get("id", ""))
+	fev["against_name"] = "" if carrier == null else GameDB.player_display_name(carrier)
+	fev["disposal_kind"] = disposal_kind
+	var restart_fp := _maybe_fifty(opp, cross_fp, carrier, recipient)
+	return {"outcome": "free", "fp": restart_fp, "actor": recipient}
+
+
+# ---------------------------------------------------------------------------
 # One possession chain
 # ---------------------------------------------------------------------------
 func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) -> Dictionary:
@@ -1022,14 +1528,29 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		if pending != null:
 			_effective(side, pending)
 			pending = null
-		var carrier = pick_carrier(side, fp)
+		var is_kick_in := from_kick_in and touches == 1
+		var carrier = kick_in_taker(side) if is_kick_in else pick_carrier(side, fp)
+		var kick_in_play_on := _kick_in_play_on(carrier) if is_kick_in else false
 		_chain_touch[str(carrier["id"])] = carrier
-		_t(side, "disposals")
-		_p(carrier, "disposals")
-		pending = carrier
+		# Champion Data: a kick straight from the goal square is a team
+		# kick-in, not a player disposal. Once the taker plays on it is his
+		# disposal like ordinary play.
+		var counts_disposal := not is_kick_in or kick_in_play_on
+		if counts_disposal:
+			_t(side, "disposals")
+			_p(carrier, "disposals")
+		if is_kick_in:
+			_t(side, "kick_ins")
+			_p(carrier, "kick_ins")
+			if kick_in_play_on:
+				_t(side, "kick_in_play_ons")
+				_p(carrier, "kick_in_play_ons")
+		pending = carrier if counts_disposal else null
 
 		var hb_bias: float = (0.85
 				+ 0.30 * (100.0 - _a(carrier, "marking")) / 100.0)
+		var disposal_kind := "handball"
+		var marked := false
 		# A kick-in is kicked: no handball roll for its first disposal.
 		if not (from_kick_in and touches == 1) \
 				and rng.randf() < float(T["handball_share"]) * hb_bias:
@@ -1037,17 +1558,24 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_p(carrier, "handballs")
 			_emit("handball", side, fp, carrier, "%s handballs" % GameDB.player_display_name(carrier))
 		else:
-			_t(side, "kicks")
-			_p(carrier, "kicks")
+			disposal_kind = "kick"
+			if counts_disposal:
+				_t(side, "kicks")
+				_p(carrier, "kicks")
 			var mark_p: float = (float(T["mark_share_of_kicks"])
 					* (0.75 + 0.50 * _a(carrier, "marking") / 100.0))
-			var marked := rng.randf() < mark_p
+			marked = false if is_kick_in else rng.randf() < mark_p
 			if marked:
 				_t(side, "marks")
 				_p(carrier, "marks")
 				_emit("mark", side, fp, carrier, "%s marks" % GameDB.player_display_name(carrier))
 			else:
 				_emit("kick", side, fp, carrier, "%s kicks" % GameDB.player_display_name(carrier))
+			if is_kick_in:
+				var kev: Dictionary = events[events.size() - 1]
+				kev["kick_in"] = true
+				kev["play_on"] = kick_in_play_on
+				kev["kick_in_style"] = "play_on" if kick_in_play_on else "safe"
 
 		# Pressure comes from whoever is near the ball: their forwards when we
 		# are coming out of defence, their midfield through the middle, their
@@ -1057,6 +1585,10 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		var pressure: float = (float(T["pressure_base"])
 				* (0.72 + 0.56 * _zone_pressure(opp, zone) / 100.0))
 		pressure *= 1.10 if atk_fp < 0.0 else 0.95
+		if is_kick_in:
+			# The conservative exit buys space; playing on gains ground but
+			# exposes the taker to more immediate pressure.
+			pressure *= 0.68 if not kick_in_play_on else 0.92
 		var p_base := pressure
 		pressure *= _press_on(side)
 		_credit(opp, "gameplan", (pressure - p_base) * TURNOVER_VALUE)
@@ -1079,10 +1611,17 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		var rushed := false
 		if press_roll < pressure:
 			var tackler = _pick_presser(opp, zone)
+			_maybe_report(opp, tackler, carrier)
 			_t(opp, "tackles")
 			_p(tackler, "tackles")
 			_t(opp, "pressure_acts")
 			_p(tackler, "pressure_acts")
+			# High contact belongs to the tackle itself. The ball carrier keeps
+			# possession via a free; the tackler is credited the infringement.
+			if _high_contact_free(tackler):
+				var mark := _award_context_free(side, fp, tackler, carrier,
+						"high_contact", "High contact")
+				return {"outcome": "free", "fp": mark, "actor": carrier, "free_side": side}
 			var retain: float = (float(T["tackle_retention"])
 					* (0.75 + 0.50 * _a(carrier, "contested") / 100.0))
 			if _trait(carrier, "bull"):
@@ -1093,6 +1632,12 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				_metres(side, carrier, (fp - before_fp) * dir)
 				continue
 			_t(opp, "pressure_wins")
+			# A legal tackle that stops him can be holding the ball; otherwise
+			# it remains the ball-up the engine already had.
+			if _holding_ball_free(carrier, touches):
+				var mark := _award_context_free(opp, fp, carrier, tackler,
+						"holding_ball", "Holding the ball")
+				return {"outcome": "free", "fp": mark, "actor": tackler, "free_side": opp}
 			_emit("tackle", opp, fp, tackler,
 					"%s tackles %s - ball up" % [GameDB.player_display_name(tackler), GameDB.player_display_name(carrier)])
 			return {"outcome": "stoppage", "fp": fp, "actor": carrier}
@@ -1115,6 +1660,24 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				return {"outcome": "turnover", "fp": fp, "actor": presser}
 			rushed = true
 
+		# A smother is a real blocked kick, not a decorative stat. It leaves
+		# the ball live at the contest, so the next chain is won as a loose
+		# ball rather than automatically handed to either side.
+		if disposal_kind == "kick" and not marked:
+			var smotherer = _pick_presser(opp, zone)
+			var smother_p := SMOTHER_BASE * (0.55 + 0.90 * _a(smotherer, "pressure") / 100.0)
+			smother_p *= 1.35 if rushed else 0.85
+			if smother_rng.randf() < minf(SMOTHER_CAP, smother_p):
+				_t(opp, "smothers")
+				_p(smotherer, "smothers")
+				_t(opp, "one_percenters")
+				_p(smotherer, "one_percenters")
+				_t(opp, "pressure_acts")
+				_p(smotherer, "pressure_acts")
+				_emit("smother", opp, fp, smotherer,
+						"%s smothers the kick" % GameDB.player_display_name(smotherer))
+				return {"outcome": "loose", "fp": fp, "actor": smotherer}
+
 		var prev_atk_fp := atk_fp
 		var gain: float = (float(T["metres_gain_mean"])
 				* (0.55 + 0.90 * _a(carrier, "carry") / 100.0))
@@ -1124,12 +1687,41 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		if _burst(side, "flood") or _burst(side, "hold"):
 			gain *= 0.85
 		gain *= rng.randf_range(0.45, 1.75)
+		if is_kick_in:
+			gain *= 0.82 if not kick_in_play_on else 1.12
 		if rushed:
 			gain *= PRESS_RUSH_GAIN
 		fp += gain * dir
 		fp = clampf(fp, -gline, gline)
 		atk_fp = fp if side == 0 else -fp
 		_metres(side, carrier, atk_fp - prev_atk_fp)
+
+		# Outside forward 50, a genuine long kick can become a contested
+		# aerial ball. A mark retains it; a spoil makes the next chain loose.
+		if disposal_kind == "kick" and not marked and gain >= 15.0 and atk_fp < f50 				and aerial_rng.randf() < GENERAL_AERIAL_P:
+			var aerial := _general_aerial_contest(side, fp, carrier)
+			if not aerial.is_empty():
+				match str(aerial["outcome"]):
+					"mark":
+						_effective(side, carrier)
+						pending = null
+						continue
+					"free", "loose":
+						return aerial
+
+		var boundary := _boundary_exit(side, fp, carrier, disposal_kind, rushed, marked)
+		if not boundary.is_empty():
+			return boundary
+
+		if disposal_kind == "kick" and not marked and not is_kick_in:
+			var aerial := _general_aerial(side, fp, carrier, gain, rushed)
+			if not aerial.is_empty():
+				if str(aerial.get("outcome", "")) == "loose":
+					return {"outcome": "loose", "fp": fp, "actor": aerial.get("actor")}
+				# A mark keeps the same side's chain alive at the new field
+				# position. It is not another disposal by the original kicker.
+				pending = carrier
+				continue
 
 		# Rebound 50: winning it out of your own defensive arc.
 		if prev_atk_fp < float(T["rebound_from"]) and atk_fp > float(T["rebound_to"]):
@@ -1143,8 +1735,12 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_emit("inside50", side, fp, carrier,
 					"%s sends it inside 50" % GameDB.player_display_name(carrier))
 			var entry := resolve_forward50(side, fp, carrier)
-			# An entry the defence rebounds is a turnover, not an effective kick.
-			if str(entry["outcome"]) != "turnover":
+			# A rebound or a free paid to the defence makes the entry
+			# ineffective. A free to the attacking side still retained the ball.
+			var effective_entry := str(entry["outcome"]) != "turnover"
+			if str(entry["outcome"]) == "free" and int(entry.get("free_side", side)) != side:
+				effective_entry = false
+			if effective_entry:
 				_effective(side, carrier)
 			return entry
 
@@ -1196,13 +1792,47 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		defender = matched
 		duel_shift = Matchups.mark_shift(shooter, matched)
 
+	# The loose interceptor can arrive as a third man. He is not a second
+	# direct matchup: another defender still owns the forward assignment.
+	var roaming := false
+	var roamer := _roaming_interceptor(opp)
+	var roam_shift := 0.0
+	if not roamer.is_empty() and str(roamer.get("id", "")) != str(defender.get("id", "")) 			and aerial_rng.randf() < _roam_chance(opp):
+		defender = roamer
+		roaming = true
+		roam_shift = -clampf((Matchups.interceptor_score(roamer) - 55.0) / 450.0, 0.0, 0.10)
+		_t(opp, "roam_contests")
+		_p(roamer, "roam_contests")
+
+	# A marking infringement is paid from the contest itself, not from a
+	# post-chain generic dice roll.
+	var infringement := _marking_free(side, shooter, defender)
+	if not infringement.is_empty():
+		var free_side := int(infringement["side"])
+		var mark_fp := _award_context_free(free_side, fp,
+				infringement["offender"], infringement["recipient"],
+				str(infringement["cause"]), str(infringement["label"]))
+		if roaming:
+			if free_side == opp:
+				_p(defender, "roam_wins")
+			else:
+				_p(defender, "roam_losses")
+		return {"outcome": "free", "fp": mark_fp, "actor": infringement["recipient"],
+				"free_side": free_side}
+
 	var mark_edge := 0.06 if _trait(shooter, "aerial") else 0.0
 	# A named contest can be lopsided: a great forward on a small defender
 	# marks nearly everything, so its ceiling is higher than the lines'.
 	var mark_cap := 0.78 if matched.is_empty() else Matchups.DUEL_CAP
+	# Sending a forward to make the spare accountable drags him away, but
+	# costs a little aerial presence of your own.
+	var accountable_cost := 0.035 if _spare_accountable(side) else 0.0
 	var marked := rng.randf() < clampf(
-			0.5 + (atk.fwd_mark - dfn.def_intercept) / 240.0 + mark_edge + duel_shift, 0.10, mark_cap)
-	if not matched.is_empty():
+			0.5 + (atk.fwd_mark - dfn.def_intercept) / 240.0 + mark_edge + duel_shift
+			+ roam_shift - accountable_cost, 0.10, mark_cap)
+	# A third-man arrival is not credited to the direct defender's 1v1 log.
+	# Interceptor contests have their own evidence/stats and story.
+	if not matched.is_empty() and not roaming:
 		var fid := str(shooter["id"])
 		if not duel_log.has(fid):
 			duel_log[fid] = {"side": side, "contests": []}
@@ -1214,12 +1844,33 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		_p(shooter, "marks")
 		# Most forward marks come on the lead; some are taken in a one-on-one
 		# (stat_rng, so play is unchanged).
-		if stat_rng.randf() < 0.35 + mark_edge:
+		var contested := stat_rng.randf() < 0.35 + mark_edge
+		if contested:
 			_t(side, "contested_marks")
 			_p(shooter, "contested_marks")
+		var speccy := false
+		if contested and _speccies < _speccy_quota:
+			# The quota gives the requested long-run shape: 30% none, 60% one,
+			# 10% up to two (mean 0.8, hard max two). Aerial/marking quality
+			# decides which genuine contested marks earn the spectacular tag.
+			var spectacular_p := clampf(0.28 + (_a(shooter, "marking") - 50.0) / 180.0
+					+ (0.12 if _trait(shooter, "aerial") else 0.0), 0.16, 0.62)
+			if speccy_rng.randf() < spectacular_p:
+				speccy = true
+				_speccies += 1
+		_emit("mark", side, fp, shooter,
+				"%s takes %smark" % [GameDB.player_display_name(shooter), "a spectacular " if speccy else "the "])
+		var mev: Dictionary = events[events.size() - 1]
+		mev["contested"] = contested
+		mev["speccy"] = speccy
+		if roaming:
+			mev["roaming_interceptor_id"] = str(defender.get("id", ""))
+			_p(defender, "roam_losses")
 	var spoil_edge := 0.05 if defender != null and _trait(defender, "interceptor") else 0.0
 	var spoil_read := dfn.def_intercept
-	if not matched.is_empty():
+	if roaming and defender != null:
+		spoil_read = 0.5 * dfn.def_intercept + 0.5 * Matchups.defender_air(defender)
+	elif not matched.is_empty():
 		# His own reading of the ball, alongside the line's.
 		spoil_read = 0.5 * dfn.def_intercept + 0.5 * Matchups.defender_air(matched)
 	# In a named contest the same aerial gap decides whether he gets a fist
@@ -1229,6 +1880,8 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		# He got a fist to it: a spoil (a credit only).
 		_t(opp, "spoils")
 		_p(defender, "spoils")
+		if roaming:
+			_p(defender, "roam_wins")
 	if rng.randf() < float(T["one_percenter_share"]):
 		_t(opp, "one_percenters")
 		_p(_one_percenter(opp), "one_percenters")
@@ -1236,6 +1889,13 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var goal_p := shot_chance(side, shooter, marked, spoilt, true, feeder, defender)
 	var behind_p: float = (float(T["inside50_behind"])
 			* (0.80 + 0.40 * _a(shooter, "goalkicking") / 100.0))
+	# If the spare flies and does not kill the ball, the space behind him is
+	# the price of the role: the resulting chance is slightly more dangerous.
+	if roaming and not spoilt:
+		goal_p *= 1.08 if marked else 1.04
+		behind_p *= 1.03
+		if not marked:
+			_p(defender, "roam_losses")
 	# Beaten in the air by his direct opponent, a key forward rarely gets the
 	# shot himself: the ball spills or the defender clears it.
 	if not matched.is_empty() and not marked:
@@ -1256,8 +1916,9 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 
 	if side == moment_side and not set_shot.is_empty() and _moment_ready():
 		var close := current_quarter >= 4 and absi(score(side) - score(opp)) <= 18
-		# Asked about as often as before: a set shot is under half the marks.
-		if moment_rng.randf() < (1.0 if close else 0.49):
+		# Asked about as often as before: a set shot is under half the marks,
+		# and a game has more chains than the 180 this was set for.
+		if moment_rng.randf() < (1.0 if close else 0.49 * 180.0 / float(T["chains_per_game"])):
 			_offer_set_shot(side, shot_fp, shooter, defender, set_shot, feeder)
 			return {"outcome": "moment", "fp": shot_fp, "actor": shooter}
 
@@ -1294,6 +1955,8 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	_t(opp, "rebounds")
 	_p(defender, "rebounds")
 	_intercept(opp, defender, not spoilt)
+	if roaming and not spoilt:
+		_p(defender, "roam_wins")
 	_emit("rebound", opp, fp, defender,
 			"%s rebounds it out of danger" % GameDB.player_display_name(defender))
 	return {"outcome": "turnover", "fp": fp, "actor": defender}
@@ -1598,7 +2261,7 @@ func begin_quarter() -> void:
 	# have seen (no dice: replays are unchanged).
 	for side in range(2):
 		if (squads[side] as Squad).ai_plans:
-			tactics[side] = ai_tactics(side)
+			set_tactics(side, ai_tactics(side))
 			if current_quarter > 1:
 				_ai_rematch(side)
 	_q_active = true
@@ -1608,6 +2271,7 @@ func begin_quarter() -> void:
 	# Every quarter starts with a centre bounce.
 	at_centre = true
 	kick_in = false
+	boundary_throw_in = false
 
 
 ## Play on until the quarter's chains are done (true) or a moment needs the
@@ -1677,17 +2341,20 @@ func run_extra_time() -> Dictionary:
 	var per_half: int = maxi(4, roundi(float(T["chains_per_game"]) / 4.0 * 0.15))
 	at_centre = true
 	kick_in = false
+	boundary_throw_in = false
 	_play_chains(per_half, 120, 4)
 	_emit("quarter", -1, fp, null, "Extra time, half time - %s %d | %s %d" % [
 			squads[0].name, score(0), squads[1].name, score(1)])
 	at_centre = true
 	kick_in = false
+	boundary_throw_in = false
 	_play_chains(per_half, 124, 4)
 	if score(0) == score(1):
 		_emit("quarter", -1, fp, null, "Still level - next score wins!")
 		# A new period: it opens with a centre bounce like any other.
 		at_centre = true
 		kick_in = false
+		boundary_throw_in = false
 		var guard := 0
 		while score(0) == score(1) and guard < GOLDEN_POINT_CHAINS:
 			current_minute = 128 + int(guard / 4)
@@ -1718,9 +2385,13 @@ func _play_chains(count: int, minute_base: int, span: int) -> void:
 
 func _play_one_chain(T: Dictionary) -> void:
 	# A kick-in after a behind is not a stoppage: no ruck contest, no clearance.
+	# A boundary throw-in is: it always starts with a contested stoppage.
 	var from_kick_in := kick_in
+	var from_boundary := boundary_throw_in
 	kick_in = false
-	var stoppage := at_centre or (not from_kick_in and rng.randf() < float(T["stoppage_share"]))
+	boundary_throw_in = false
+	var stoppage := at_centre or from_boundary \
+			or (not from_kick_in and rng.randf() < float(T["stoppage_share"]))
 	var side: int
 	var start_fp: float
 	if stoppage:
@@ -1730,7 +2401,9 @@ func _play_one_chain(T: Dictionary) -> void:
 		start_fp = 0.0 if at_centre else fp
 		_ruck_tap()
 		side = contest_winner(false, start_fp)
-		if not at_centre:
+		if not at_centre and not from_boundary:
+			# Boundary exits already logged the throw-in when the ball crossed;
+			# this chain is just the contested restart at that same spot.
 			_emit("ballup", -1, start_fp, null, "Ball-up")
 	else:
 		start_fp = fp
@@ -1755,13 +2428,18 @@ func _play_one_chain(T: Dictionary) -> void:
 		return
 
 	# Goal: centre bounce. Behind: the other side kicks in (fp is already the
-	# goal square). Turnover: the other side plays on from here.
+	# goal square). A free gives the other side possession at the crossing;
+	# a boundary exit restarts with a contested throw-in at the same fp.
 	at_centre = (outcome == "score")
 	kick_in = (outcome == "behind")
-	next_side = (1 - side) if outcome == "turnover" or outcome == "behind" else -1
+	boundary_throw_in = (outcome == "boundary")
+	next_side = (1 - side) if ["turnover", "behind", "free"].has(outcome) else -1
 	_prev_end = outcome
 	if outcome == "score":
 		fp = 0.0
+	if ["boundary", "free", "loose"].has(outcome):
+		_after_chain()
+		return
 
 	# End-of-chain error: a clanger, sometimes a free kick against.
 	var cw := _clanger_weights(side)
@@ -1787,15 +2465,16 @@ func _play_one_chain(T: Dictionary) -> void:
 		_p(err, "clangers")
 		_emit("clanger", side, fp, err,
 				"%s gives away a clanger" % GameDB.player_display_name(err))
-		if rng.randf() < float(T["clanger_is_free"]):
-			_t(1 - side, "frees_for")
-			_p(_free_to(1 - side, fp if side == 0 else -fp), "frees_for")
-			_t(side, "frees_against")
-			_p(err, "frees_against")
+		# After a behind the kick-in comes first: no free is paid over it.
+		if not kick_in and free_rng.randf() < float(T["clanger_is_free"]) * GENERIC_FREE_MULT:
+			var recipient = _free_to(1 - side, fp if side == 0 else -fp)
 			next_side = 1 - side
 			_prev_end = "free"
-			_emit("free", 1 - side, fp, err,
-					"Free kick against %s" % GameDB.player_display_name(err))
+			fp = _award_context_free(1 - side, fp, err, recipient,
+					"general", "General infringement")
+			# Play restarts from the free (and any 50), not another bounce.
+			at_centre = false
+			boundary_throw_in = false
 	_after_chain()
 
 
@@ -1859,7 +2538,10 @@ func result() -> Dictionary:
 		"duels": duel_log.duplicate(true),
 		"duel_changes": duel_changes.duplicate(true),
 		"matchups": duels.duplicate(true),
+		"interceptor": interceptor.duplicate(),
+		"interceptor_changes": interceptor_changes.duplicate(true),
 		"injuries": injuries.duplicate(true),
+		"reports": reports.duplicate(true),
 		"synergies": synergies.duplicate(true),
 	}
 
@@ -1872,6 +2554,16 @@ const ENERGY_BENCH_RECOVER := 4.0    # per chain on the bench
 const ENERGY_BREAK_RECOVER := 20.0   # at each quarter break
 const ROTATE_EVERY := 3              # chains between rotation checks
 const ROLE_DRAIN := {"MID": 1.25, "RUCK": 1.15, "DEF": 0.85, "FWD": 0.9}
+## GPS-style distance covered. A full-game player at the base rate covers
+## about 14.8 km before role and tactical modifiers; rotations bring the
+## typical match-day player into the AFL-like 10-14 km range.
+const GPS_METRES_PER_CHAIN := 82.0
+const GPS_ROLE_MULT := {"MID": 1.08, "RUCK": 1.00, "DEF": 0.95, "FWD": 0.92}
+const GPS_WING_MULT := 1.12
+const GPS_TOUCH_MULT := 1.04
+const GPS_FOCUS_MULT := 1.06
+const GPS_TAGGER_MULT := 1.08
+const GPS_TAGGED_MULT := 1.06
 const STAR_OVR := 80
 ## Riding the stars, a star this cooked brings the one tired call of the match.
 const TIRED_CALL := 45.0
@@ -1940,25 +2632,61 @@ func set_rotation_policy(side: int, key: String) -> void:
 
 func _after_chain() -> void:
 	momentum *= MOMENTUM_DECAY
+	# Distance, drain and recovery were set for 180 chains a game: a chain is
+	# a share of the game's minutes, so per-game loads stay the same.
+	var per_chain := 180.0 / float(Ratings.T["chains_per_game"])
 	for side in range(2):
 		var sq: Squad = squads[side]
-		var pace := _pv(side, "pace") * _pep_mult(side, "pace")
+		# Distance and fatigue both respond to the plan's tempo, pep talk and
+		# "throw numbers at it". Running Machine / Engine reduce fatigue only:
+		# good runners still log the kilometres they actually cover.
+		var movement_pace := _pv(side, "pace") * _pep_mult(side, "pace")
 		if _burst(side, "surge"):
-			pace *= 1.3
+			movement_pace *= 1.3
+		var fatigue_pace := movement_pace
 		if synergies[side].has("running_machine"):
-			pace *= 0.70
+			fatigue_pace *= 0.70
+		var tagger_id := ""
+		if _tag_id(side) != "":
+			var tagger = tagger_for(sq.ground)
+			if tagger != null:
+				tagger_id = str(tagger["id"])
 		for p in sq.ground:
 			var id := str(p["id"])
+			var role := str(p["role"])
+			var gps := GPS_METRES_PER_CHAIN * per_chain * float(GPS_ROLE_MULT.get(role, 1.0)) * movement_pace
+			if Roles.on_wing(p):
+				gps *= GPS_WING_MULT
+			if _chain_touch.has(id):
+				gps *= GPS_TOUCH_MULT
+			if id == _focus_id(side):
+				gps *= GPS_FOCUS_MULT
+			if id == tagger_id:
+				gps *= GPS_TAGGER_MULT
+			if id == _tag_id(1 - side):
+				gps *= GPS_TAGGED_MULT
+			# Short-term calls move specific lines as football would: slowing
+			# down cuts running; a flood asks backs/mids to fold behind the
+			# ball; stacking a stoppage pulls mids/rucks into the contest.
+			if _burst(side, "hold"):
+				gps *= 0.84
+			elif _burst(side, "flood"):
+				gps *= 1.10 if role == "MID" else (1.07 if role == "DEF" or role == "RUCK" else 0.94)
+			elif _burst(side, "stack"):
+				gps *= 1.08 if role == "MID" or role == "RUCK" else 0.98
+			_t(side, "distance_run", gps)
+			_p(p, "distance_run", gps)
+
 			var dur := float((p["attr"] as Dictionary).get("durability", 70.0))
-			var d := ENERGY_DRAIN * float(ROLE_DRAIN.get(str(p["role"]), 1.0)) \
-					* (1.2 - 0.4 * dur / 100.0) * pace
+			var d := ENERGY_DRAIN * per_chain * float(ROLE_DRAIN.get(role, 1.0)) \
+					* (1.2 - 0.4 * dur / 100.0) * fatigue_pace
 			if _trait(p, "engine"):
 				d *= 0.75
 			exertion[id] = float(exertion.get(id, 0.0)) + d
 			energy[id] = maxf(5.0, float(energy.get(id, 100.0)) - d)
 		for p in sq.bench:
 			var id := str(p["id"])
-			energy[id] = minf(float(energy_caps.get(id, 100.0)), float(energy.get(id, 100.0)) + ENERGY_BENCH_RECOVER)
+			energy[id] = minf(float(energy_caps.get(id, 100.0)), float(energy.get(id, 100.0)) + ENERGY_BENCH_RECOVER * per_chain)
 		var b: Dictionary = bursts[side]
 		for k in b.keys():
 			b[k] = int(b[k]) - 1
@@ -2675,6 +3403,22 @@ func ai_tactics(side: int) -> Dictionary:
 		# not working, so it chases. Only what a coach sees - the scoreboard.
 		plan = "attacking"
 	var t := {"gameplan": plan, "pep": "fire_up" if margin <= -12 and current_quarter >= 3 else "steady"}
+	var spare := Matchups.best_interceptor((squads[side] as Squad).ground)
+	if not spare.is_empty() and not (margin <= -react and current_quarter >= 3):
+		t["interceptor_id"] = str(spare["id"])
+	else:
+		t["interceptor_id"] = ""
+
+	# The AI never reads the opponent's hidden structural call. It only makes
+	# the spare accountable after the match log/stats show that player has
+	# actually influenced enough aerial contests.
+	var observed_spare_wins := 0
+	for p in (squads[opp] as Squad).ground:
+		var ost: Dictionary = player_stats.get(str(p.get("id", "")), {})
+		observed_spare_wins = maxi(observed_spare_wins, int(ost.get("roam_wins", 0)))
+	if observed_spare_wins >= 2:
+		t["spare_accountable"] = true
+
 	var tagger = tagger_for((squads[side] as Squad).ground)
 	if current_quarter >= (2 if read >= 0.4 else 3) and tagger != null and Roles.is_tagger(tagger):
 		var best := ""

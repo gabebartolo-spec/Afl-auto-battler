@@ -32,6 +32,8 @@ func go(key: String) -> void:
 	var err := get_tree().change_scene_to_file(path)
 	if err != OK:
 		push_error("Router: change_scene_to_file failed (%d) for %s" % [err, path])
+		return
+	MusicManager.set_context(key)
 
 
 ## Replace the current entry instead of pushing - used for boot -> menu.
@@ -102,5 +104,15 @@ func to_main_menu(wipe_save := true) -> void:
 	if wipe_save:
 		GameState.autosave()
 		GameState.reset()
+	stack = []
+	go("main")
+
+
+## Open New career setup from inside a career without deleting the existing
+## save. The normal New career confirmation remains the destructive gate.
+func to_new_career_setup() -> void:
+	GameState.autosave()
+	GameState.reset()
+	GameState.new_career_setup_requested = true
 	stack = []
 	go("main")

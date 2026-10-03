@@ -14,12 +14,15 @@ func run() -> void:
 	_test_dual_position_coverage()
 	_test_position_status()
 	_test_complete_small_draft()
+	_test_real_money_cap()
 	_test_real_pool()
 	_test_player_name_modes()
 	_test_plausible_names()
 	_test_cap_guard()
 	_test_stuck_draft_recovery()
+	_test_funded_scouting()
 	_test_asset_valuation()
+	_test_combine_scouting()
 	print("Draft tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -182,6 +185,14 @@ func _test_complete_small_draft() -> void:
 	_check(draft.board("", "", "", "overall", true).is_empty(), "Picked players leave the available pool")
 	_check(draft.board().size() == 20, "Turning off available-only includes taken players")
 	_verify_log(draft)
+
+
+func _test_real_money_cap() -> void:
+	var d := _career_draft(17)
+	_check(d.budget == Contracts.CAP_2027,
+			"The opening career draft uses the 2027 AFL cap")
+	_check(d.pool.all(func(p): return int(p["value"]) >= 125000),
+			"Draft costs are annual-dollar salaries, not 1-10 cap points")
 
 
 func _test_real_pool() -> void:
@@ -402,7 +413,7 @@ func _test_cap_guard() -> void:
 	d.club_spend[me] = int(d.club_spend[me]) + 1
 	_check(not d.can_pick_player(p) and d.pick_block_reason(p).begins_with("This selection would leave too little salary cap"),
 			"A dollar over and it is refused, in plain words")
-	_check(d.pick_block_reason(p).contains("$%d left" % d.remaining()), "The refusal shows the cap actually left")
+	_check(d.pick_block_reason(p).contains(Contracts.money(d.remaining()) + " left"), "The refusal shows the cap actually left")
 	d.club_spend[me] = real_spend
 	# The final place: nothing to keep back, every dollar left can be spent.
 	var guard := 0
@@ -459,7 +470,7 @@ func _test_stuck_draft_recovery() -> void:
 	# let it): every dollar gone with places still to fill.
 	if not d.user_stuck() and not d.is_finished() and d.is_user_turn():
 		d.club_spend[me] = d.budget
-	_check(d.user_stuck(), "An old save can leave you with no legal pick (%d signed, $%d left)" % [d.count(), d.remaining()])
+	_check(d.user_stuck(), "An old save can leave you with no legal pick (%d signed, %s left)" % [d.count(), Contracts.money(d.remaining())])
 	if not d.user_stuck():
 		return
 	_check(d.spent() <= d.budget, "Even stuck, the cap was never breached")
@@ -493,7 +504,7 @@ func _test_stuck_draft_recovery() -> void:
 		if p.is_empty() or not r.pick(p):
 			break
 	_check(r.is_finished() and r.count() == r.target_size and r.spent() <= r.budget and r.is_valid(),
-			"The draft then completes with a full, legal list (%d/%d, $%d of $%d)" % [r.count(), r.target_size, r.spent(), r.budget])
+			"The draft then completes with a full, legal list (%d/%d, %s of %s)" % [r.count(), r.target_size, Contracts.money(r.spent()), Contracts.money(r.budget)])
 	GameState.draft = null
 	GameState.delete_saved_career()
 
@@ -531,8 +542,108 @@ func _test_position_status() -> void:
 			"Depth below a full list reads light; otherwise covered")
 
 
+## Recruiting funding narrows a club's National Draft uncertainty without
+## changing the hidden player underneath. Rival clubs default to Standard.
+func _test_funded_scouting() -> void:
+	var pool: Array = Prospects.generate_class(2028, 611)
+	var p: Dictionary = pool[10]
+	var minimal := DraftScouting.projection(p, "A", 90210, ClubBudget.scouting_mult(0))
+	var elite := DraftScouting.projection(p, "A", 90210, ClubBudget.scouting_mult(3))
+	var minimal_width := int(minimal["overall"][1]) - int(minimal["overall"][0]) 			+ int(minimal["potential"][1]) - int(minimal["potential"][0])
+	var elite_width := int(elite["overall"][1]) - int(elite["overall"][0]) 			+ int(elite["potential"][1]) - int(elite["potential"][0])
+	_check(elite_width < minimal_width,
+			"Elite Recruiting produces narrower OVR/POT ranges than Minimal (%d v %d)" % [
+			elite_width, minimal_width])
+	_check(absi(int(elite["overall_mid"]) - int(p["overall"]))
+			<= absi(int(minimal["overall_mid"]) - int(p["overall"])),
+			"Better Recruiting cannot increase the same club/prospect OVR error")
+
+	var clubs := ["A", "B"]
+	var sizes := {"A": 34, "B": 34}
+	var counts := {
+		"A": {"RUCK": 2, "MID": 13, "DEF": 9, "FWD": 10},
+		"B": {"RUCK": 2, "MID": 13, "DEF": 9, "FWD": 10},
+	}
+	var d := Draft.build_intake(pool.slice(0, 18), clubs, clubs, 90210, sizes, counts)
+	d.start_for_user("A")
+	d.scouting_mults["A"] = ClubBudget.scouting_mult(3)
+	_check(is_equal_approx(d.scouting_mult_for("A"), ClubBudget.scouting_mult(3))
+			and is_equal_approx(d.scouting_mult_for("B"), 1.0),
+			"The funded club gets its Recruiting accuracy; rivals default to Standard")
+	var rated: Array = d.board("", "", "", "overall", true)
+	var ordered := true
+	for i in range(1, rated.size()):
+		if DraftScouting.estimated_overall(rated[i - 1], "A", d.seed, d.scouting_mult_for("A")) 				< DraftScouting.estimated_overall(rated[i], "A", d.seed, d.scouting_mult_for("A")):
+			ordered = false
+			break
+	_check(ordered, "National Draft Best rated follows the club's scouted view, not hidden OVR")
+
+
 ## ARD-M5-012: the top of a draft goes to the best long-term assets. Need
 ## and scarcity steer close calls; they never bury a much better player.
+## ARD-M5-014: the National Draft is a scouting decision, not access to the
+## hidden player dictionary. Human and AI clubs use the same deterministic
+## uncertainty model; combine evidence stays short and football-readable.
+func _test_combine_scouting() -> void:
+	var pool: Array = Prospects.generate_class(2028, 611)
+	var clubs := ["A", "B"]
+	var sizes := {"A": 34, "B": 34}
+	var counts := {
+		"A": {"RUCK": 2, "MID": 13, "DEF": 9, "FWD": 10},
+		"B": {"RUCK": 2, "MID": 13, "DEF": 9, "FWD": 10},
+	}
+	var d := Draft.build_intake(pool, clubs, clubs, 90210, sizes, counts)
+	d.start_for_user("A")
+	var p: Dictionary = pool[0]
+	var scouting = load("res://scripts/sim/DraftScouting.gd")
+	var first: Dictionary = scouting.projection(p, "A", d.seed)
+	var again: Dictionary = scouting.projection(p, "A", d.seed)
+	_check(first == again, "A club's scouting report is deterministic across reads")
+	_check((first["overall"] as Array).size() == 2 and int(first["overall"][0]) < int(first["overall"][1])
+			and (first["potential"] as Array).size() == 2 and int(first["potential"][0]) < int(first["potential"][1]),
+			"Prospect OVR and POT are scouting ranges, not exact single ratings")
+	_check(int(first["potential_mid"]) >= int(first["overall_mid"]),
+			"Scouted upside never falls below the current projection")
+
+	var disagreement := false
+	for q in pool.slice(0, mini(16, pool.size())):
+		if scouting.projection(q, "A", d.seed) != scouting.projection(q, "B", d.seed):
+			disagreement = true
+			break
+	_check(disagreement, "Different clubs can reasonably disagree on a prospect")
+
+	var combine: Array = scouting.combine_lines(p, "A", d.seed)
+	_check(combine.size() == 4, "The Combine stays to four useful reads")
+	var clean := true
+	for row in combine:
+		if str(row.get("label", "")) == "" or str(row.get("grade", "")) == "" or str(row.get("grade", "")).contains("%"):
+			clean = false
+	_check(clean, "Combine results are interpretable descriptors, not raw simulation numbers")
+
+	var rated: Array = d.board("", "", "", "overall", true)
+	var ordered := true
+	for i in range(1, rated.size()):
+		if scouting.estimated_overall(rated[i - 1], "A", d.seed) < scouting.estimated_overall(rated[i], "A", d.seed):
+			ordered = false
+			break
+	_check(ordered, "Best scouted sorts by the user's scouting view rather than hidden true OVR")
+
+	var by_goals: Array = d.board("", "", "", "goals", true)
+	var junior_ordered := true
+	for i in range(1, by_goals.size()):
+		if float(by_goals[i - 1].get("u18_gl", 0.0)) < float(by_goals[i].get("u18_gl", 0.0)):
+			junior_ordered = false
+			break
+	_check(junior_ordered, "National Draft goal sorting uses junior production")
+
+	var opinions_differ := false
+	for q in pool.slice(0, mini(20, pool.size())):
+		if absf(d._ai_score("A", q) - d._ai_score("B", q)) > 0.01:
+			opinions_differ = true
+			break
+	_check(opinions_differ, "AI clubs also draft through club-specific scouting rather than exact prospect truth")
+
+
 func _test_asset_valuation() -> void:
 	# National draft: every club already has its midfield covered, and the
 	# class's best prospect is a midfielder. He goes in the first few picks.

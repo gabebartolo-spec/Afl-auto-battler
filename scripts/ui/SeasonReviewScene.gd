@@ -3,6 +3,8 @@ extends Control
 ## ladder.
 
 var _root: VBoxContainer
+var _awards_overlay: Control
+var _awards_reveal := 0
 
 
 func _ready() -> void:
@@ -22,6 +24,18 @@ func _ready() -> void:
 		if is_inside_tree() and GameState.season != null:
 			_build())
 	_build()
+	if not GameState.season_awards.is_empty() and GameState.season.is_season_over() \
+			and not bool(GameState.season_awards.get("presentation_seen", false)):
+		_awards_overlay = SeasonAwards.open(self)
+
+
+func handle_back() -> bool:
+	if is_instance_valid(_awards_overlay):
+		var skip = _awards_overlay.find_child("AwardsSkip", true, false)
+		if skip != null:
+			skip.emit_signal("pressed")
+		return true
+	return false
 
 
 func _content_width() -> float:
@@ -132,6 +146,28 @@ func _build() -> void:
 	# --- awards -------------------------------------------------------------
 	if not GameState.season_awards.is_empty():
 		page.add_child(_awards_panel())
+
+
+	# --- history -------------------------------------------------------------
+	var history_lines := GameState.history_record_lines()
+	var honours := GameState.recent_honours(5)
+	if not history_lines.is_empty() or not honours.is_empty():
+		var hp := UiKit.panel(UiKit.PANEL, 14)
+		hp.name = "HistoryRecords"
+		page.add_child(hp)
+		var hv := UiKit.vbox(5)
+		hp.add_child(hv)
+		hv.add_child(UiKit.lbl("History & records", 17, UiKit.EMPH, true))
+		for line in history_lines:
+			hv.add_child(UiKit.lbl(str(line), 13, UiKit.TEXT))
+		if not honours.is_empty():
+			hv.add_child(UiKit.spacer(4))
+			hv.add_child(UiKit.lbl("Recent premiers", 12, UiKit.MUTED, true))
+			for h in honours:
+				var premier_code := str((h as Dictionary).get("premier", ""))
+				if premier_code != "":
+					hv.add_child(UiKit.lbl("%d  %s" % [int((h as Dictionary).get("year", 0)),
+							GameDB.club_name(premier_code)], 13, UiKit.TEXT))
 
 	# --- club achievements ----------------------------------------------------
 	page.add_child(_achievements_panel())
@@ -287,14 +323,31 @@ func _awards_panel() -> Control:
 	panel.name = "AwardsPanel"
 	var v := UiKit.vbox(5)
 	panel.add_child(v)
-	v.add_child(UiKit.heading("%d AWARDS" % int(aw.get("year", GameState.season_year)), 22))
+	v.add_child(UiKit.heading("%d awards" % int(aw.get("year", GameState.season_year)), 22))
+	var replay := UiKit.btn("Replay awards", 15)
+	replay.name = "ReplayAwards"
+	replay.custom_minimum_size.y = 44
+	replay.pressed.connect(func(): _awards_overlay = SeasonAwards.open(self))
+	v.add_child(replay)
+	var intro := UiKit.lbl("Awards night", 13, UiKit.MUTED)
+	v.add_child(intro)
 	var brownlow: Array = aw.get("brownlow", [])
+	var brownlow_winner: Dictionary = aw.get("brownlow_winner", {})
+	if not brownlow_winner.is_empty():
+		v.add_child(_award_line("Brownlow Medal", brownlow_winner,
+				"%d votes" % int(brownlow_winner["votes"]), true))
 	if not brownlow.is_empty():
-		v.add_child(_award_line("Brownlow Medal", brownlow[0], "%d votes" % int(brownlow[0]["votes"]), true))
 		var rest := []
-		for r in brownlow.slice(1, 5):
-			rest.append("%s %d" % [GameState.award_name(r), int(r["votes"])])
-		v.add_child(_small("Then: " + ", ".join(rest)))
+		for r in brownlow.slice(0, 5):
+			var tag := " (ineligible)" if not bool(r.get("brownlow_eligible", true)) else ""
+			rest.append("%s %d%s" % [GameState.award_name(r), int(r["votes"]), tag])
+		v.add_child(_small("Vote count: " + ", ".join(rest)))
+	var coaches: Array = aw.get("coaches_award", [])
+	if not coaches.is_empty():
+		v.add_child(_award_line("Coaches Award", coaches[0], "%d votes" % int(coaches[0]["coaches"]), true))
+		var crest := []
+		for r in coaches.slice(1, 5): crest.append("%s %d" % [GameState.award_name(r), int(r["coaches"])])
+		v.add_child(_small("Then: " + ", ".join(crest)))
 	var coleman: Array = aw.get("coleman", [])
 	if not coleman.is_empty():
 		v.add_child(_award_line("Coleman Medal", coleman[0], "%d goals" % int(coleman[0]["goals"]), true))
@@ -343,6 +396,11 @@ func _awards_panel() -> Control:
 					GameDB.club_short(str(h["premier"])),
 					GameState.award_name(b[0]) if not b.is_empty() else "-",
 					_ordinal(int(h.get("my_position", 0)))]))
+	var ceremony := UiKit.btn("Open awards program", 15, false)
+	ceremony.name = "AwardsProgram"
+	ceremony.custom_minimum_size.y = 44
+	ceremony.pressed.connect(_open_awards_program)
+	v.add_child(ceremony)
 	return panel
 
 
@@ -392,3 +450,52 @@ func _small(text: String) -> Label:
 	var l := UiKit.lbl(text, 12, UiKit.MUTED)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
+
+
+func _open_awards_program() -> void:
+	var aw: Dictionary = GameState.season_awards
+	if aw.is_empty(): return
+	var modal := UiKit.modal_box(self, 560.0)
+	var overlay: Control = modal["overlay"]
+	overlay.name = "AwardsProgramModal"
+	var body: VBoxContainer = modal["body"]
+	var footer: VBoxContainer = modal["footer"]
+	body.add_child(UiKit.heading("%d Awards program" % int(aw.get("year", GameState.season_year)), 22))
+	body.add_child(UiKit.lbl("Season honours — settled from the matches already played.", 13, UiKit.MUTED, true))
+	var brownlow: Array = aw.get("brownlow", [])
+	if not brownlow.is_empty():
+		body.add_child(UiKit.section("Brownlow Medal"))
+		for i in range(mini(10, brownlow.size())):
+			var r: Dictionary = brownlow[i]
+			var status := " — ineligible" if not bool(r.get("brownlow_eligible", true)) else ""
+			body.add_child(_small("%d. %s (%s) — %d votes%s" % [
+					i + 1, GameState.award_name(r), GameDB.club_short(str(r["club"])),
+					int(r["votes"]), status]))
+	var rising: Array = aw.get("rising_star", [])
+	if not rising.is_empty():
+		body.add_child(UiKit.section("Rising Star"))
+		body.add_child(_award_line("Winner", rising[0], "age %d" % int(rising[0]["age"]), true))
+	var coaches: Array = aw.get("coaches_award", [])
+	if not coaches.is_empty():
+		body.add_child(UiKit.section("Coaches Award"))
+		for i in range(mini(5, coaches.size())):
+			var r: Dictionary = coaches[i]
+			body.add_child(_small("%d. %s (%s) — %d votes" % [i + 1, GameState.award_name(r), GameDB.club_short(str(r["club"])), int(r["coaches"])]))
+	var mine: Array = (aw.get("best_and_fairest", {}) as Dictionary).get(GameState.my_club, [])
+	if not mine.is_empty():
+		body.add_child(UiKit.section("%s best & fairest" % GameDB.club_name(GameState.my_club)))
+		for i in range(mine.size()):
+			var r: Dictionary = mine[i]
+			body.add_child(_small("%d. %s — %d votes" % [i + 1, GameState.award_name(r), int(r["bf"])]))
+	var aa: Array = aw.get("all_australian", [])
+	if not aa.is_empty():
+		body.add_child(UiKit.section("All-Australian team"))
+		for slot in [["DEF","Defence"],["MID","Midfield"],["RUCK","Ruck"],["FWD","Forwards"],["BENCH","Interchange"]]:
+			var names := []
+			for r in aa:
+				if str(r["slot"]) == str(slot[0]): names.append("%s (%s)" % [GameState.award_name(r), GameDB.club_short(str(r["club"]))])
+			body.add_child(_small("%s: %s" % [str(slot[1]), ", ".join(names)]))
+	var close := UiKit.btn("Done", 16, true)
+	close.custom_minimum_size.y = 48
+	close.pressed.connect(func(): overlay.queue_free())
+	footer.add_child(close)
