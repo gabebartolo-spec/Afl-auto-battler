@@ -1916,8 +1916,9 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 
 	if side == moment_side and not set_shot.is_empty() and _moment_ready():
 		var close := current_quarter >= 4 and absi(score(side) - score(opp)) <= 18
-		# Asked about as often as before: a set shot is under half the marks.
-		if moment_rng.randf() < (1.0 if close else 0.49):
+		# Asked about as often as before: a set shot is under half the marks,
+		# and a game has more chains than the 180 this was set for.
+		if moment_rng.randf() < (1.0 if close else 0.49 * 180.0 / float(T["chains_per_game"])):
 			_offer_set_shot(side, shot_fp, shooter, defender, set_shot, feeder)
 			return {"outcome": "moment", "fp": shot_fp, "actor": shooter}
 
@@ -2464,7 +2465,8 @@ func _play_one_chain(T: Dictionary) -> void:
 		_p(err, "clangers")
 		_emit("clanger", side, fp, err,
 				"%s gives away a clanger" % GameDB.player_display_name(err))
-		if free_rng.randf() < float(T["clanger_is_free"]) * GENERIC_FREE_MULT:
+		# After a behind the kick-in comes first: no free is paid over it.
+		if not kick_in and free_rng.randf() < float(T["clanger_is_free"]) * GENERIC_FREE_MULT:
 			var recipient = _free_to(1 - side, fp if side == 0 else -fp)
 			next_side = 1 - side
 			_prev_end = "free"
@@ -2472,7 +2474,6 @@ func _play_one_chain(T: Dictionary) -> void:
 					"general", "General infringement")
 			# Play restarts from the free (and any 50), not another bounce.
 			at_centre = false
-			kick_in = false
 			boundary_throw_in = false
 	_after_chain()
 
@@ -2631,6 +2632,9 @@ func set_rotation_policy(side: int, key: String) -> void:
 
 func _after_chain() -> void:
 	momentum *= MOMENTUM_DECAY
+	# Distance, drain and recovery were set for 180 chains a game: a chain is
+	# a share of the game's minutes, so per-game loads stay the same.
+	var per_chain := 180.0 / float(Ratings.T["chains_per_game"])
 	for side in range(2):
 		var sq: Squad = squads[side]
 		# Distance and fatigue both respond to the plan's tempo, pep talk and
@@ -2650,7 +2654,7 @@ func _after_chain() -> void:
 		for p in sq.ground:
 			var id := str(p["id"])
 			var role := str(p["role"])
-			var gps := GPS_METRES_PER_CHAIN * float(GPS_ROLE_MULT.get(role, 1.0)) * movement_pace
+			var gps := GPS_METRES_PER_CHAIN * per_chain * float(GPS_ROLE_MULT.get(role, 1.0)) * movement_pace
 			if Roles.on_wing(p):
 				gps *= GPS_WING_MULT
 			if _chain_touch.has(id):
@@ -2674,7 +2678,7 @@ func _after_chain() -> void:
 			_p(p, "distance_run", gps)
 
 			var dur := float((p["attr"] as Dictionary).get("durability", 70.0))
-			var d := ENERGY_DRAIN * float(ROLE_DRAIN.get(role, 1.0)) \
+			var d := ENERGY_DRAIN * per_chain * float(ROLE_DRAIN.get(role, 1.0)) \
 					* (1.2 - 0.4 * dur / 100.0) * fatigue_pace
 			if _trait(p, "engine"):
 				d *= 0.75
@@ -2682,7 +2686,7 @@ func _after_chain() -> void:
 			energy[id] = maxf(5.0, float(energy.get(id, 100.0)) - d)
 		for p in sq.bench:
 			var id := str(p["id"])
-			energy[id] = minf(float(energy_caps.get(id, 100.0)), float(energy.get(id, 100.0)) + ENERGY_BENCH_RECOVER)
+			energy[id] = minf(float(energy_caps.get(id, 100.0)), float(energy.get(id, 100.0)) + ENERGY_BENCH_RECOVER * per_chain)
 		var b: Dictionary = bursts[side]
 		for k in b.keys():
 			b[k] = int(b[k]) - 1
