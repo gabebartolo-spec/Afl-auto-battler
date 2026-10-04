@@ -51,16 +51,20 @@ func setup_prematch(my_code: String, opp_code: String, my_ground: Array, opp_gro
 	title = heading
 	banner = GameDB.club_name(my_code)
 	_colours = [GameDB.club_colours(my_code), GameDB.club_colours(opp_code)]
+	_codes = [my_code, opp_code]
 	tokens.clear()
 	for p in my_ground.slice(0, MINE):
-		tokens.append({"side": 0, "mine": true, "slot": "", "tired": false, "num": int(p["num"])})
+		tokens.append({"side": 0, "mine": true, "slot": "", "tired": false, "num": int(p["num"]),
+				"look": GameDB.player_looks(p)})
 	for p in opp_ground.slice(0, THEIRS):
-		tokens.append({"side": 1, "mine": false, "slot": "", "tired": false, "num": int(p["num"])})
+		tokens.append({"side": 1, "mine": false, "slot": "", "tired": false, "num": int(p["num"]),
+				"look": GameDB.player_looks(p)})
 	_t = 0.0
 	_phase = WARM
 	_prev = WARM
 	_since = 0.0
 	_frozen = false
+	_dress()
 	queue_redraw()
 
 

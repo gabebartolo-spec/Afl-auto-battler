@@ -25,6 +25,11 @@ const DRAFTEES_CSV := "res://data/draftees_2026.csv"
 const POTENTIAL_CSV := "res://data/potential_overrides.csv"
 ## Draft pedigree and rated past seasons, built by tools/build_history.py.
 const HISTORY_CSV := "res://data/player_history_2026.csv"
+## How real players look on the vignette figures (Appearance.gd): skin tone and
+## hair colour, drafted from public photos and reviewed by the director.
+const APPEARANCE_CSV := "res://data/player_appearance.csv"
+## Curated looks needed before their mix replaces Appearance.DEFAULT_SKIN_MIX.
+const MIX_FROM := 100
 
 ## Numeric columns, in CSV order, after club/num/last/first. Single source of
 ## truth lives in Ratings (the prospect pipeline shares it).
@@ -107,6 +112,8 @@ var players := []          # Array of player dictionaries, ratings derived
 var players_by_club := {}  # code -> Array of player dictionaries
 var draftees := []         # the shipped draft class, projections applied
 var late_draftees := []    # generated future classes registered at runtime
+var appearance := {}       # "first|last|dob" -> {skin, hair, status, club}: curated looks
+var skin_mix: Array = Appearance.DEFAULT_SKIN_MIX
 var loaded := false
 ## The 2026 league's mean overall. Each rollover re-anchors the league to it
 ## (Prospects.renormalise_league), so ratings stay relative to the league.
@@ -138,6 +145,7 @@ func reload() -> void:
 	_alias_next = 0
 	_real_names = {}
 	players = _load_players()
+	_load_appearance()
 	Ratings.derive_all(players)
 	_apply_history(players)
 	for p in players:
@@ -201,6 +209,36 @@ const THREE_COLOUR_CLUBS := ["ADE", "BRL", "GCS", "GWS", "PAD", "STK", "WBD", "T
 func club_marker_colours(code: String) -> Array:
 	var cols := club_colours(code)
 	return cols if THREE_COLOUR_CLUBS.has(code) else cols.slice(0, 2)
+
+
+## Guernsey designs the vignette figures can wear, in figure.gdshader's numbering.
+const GUERNSEY_DESIGNS := ["plain", "stripes", "hoops", "sash", "yoke", "band", "chevrons", "panels",
+		"chevron", "sides", "tiers", "shoulders"]
+
+
+## A club's home kit, from data/clubs.csv's "guernsey" column:
+## "<design>:<base>/<pattern>/<pattern 2>[/<shorts>]". Each colour is p, s or a
+## (the club's primary, secondary or accent) or a #RRGGBB colour the club's
+## three don't cover (Port Adelaide's white chevron). The base colour is the
+## guernsey's and the socks'; the pattern colour draws the design and the sock
+## band; the second pattern colour is a design's third colour or trim. Shorts
+## left out are the secondary colour, a shade darker. Richmond is "sash:s/p/a":
+## a black guernsey with a yellow sash. Unknown or missing: plain.
+func club_guernsey(code: String) -> Dictionary:
+	var cols := club_colours(code)
+	var parts := str(clubs.get(code, {}).get("guernsey", "")).split(":")
+	var design := parts[0] if GUERNSEY_DESIGNS.has(parts[0]) else "plain"
+	var slots := (parts[1] if parts.size() > 1 else "p/s/a").split("/")
+	var pick := func(i: int, fallback: Color) -> Color:
+		if i >= slots.size():
+			return fallback
+		var token := str(slots[i])
+		if token.begins_with("#"):
+			return Color.from_string(token, fallback)
+		var at := "psa".find(token)
+		return cols[at] if at >= 0 and token.length() == 1 else fallback
+	return {"design": design, "base": pick.call(0, cols[0]), "pattern": pick.call(1, cols[1]),
+			"pattern2": pick.call(2, cols[2]), "shorts": pick.call(3, (cols[1] as Color).darkened(0.1))}
 
 
 func club_list(code: String) -> Array:
@@ -383,6 +421,55 @@ func count_by_role(list: Array) -> Dictionary:
 # ---------------------------------------------------------------------------
 # Parsing
 # ---------------------------------------------------------------------------
+## How a player looks on the vignette figures - {"skin": 0-5, "hair": 0-5},
+## indices into Appearance.SKIN and Appearance.HAIR. A real player's curated
+## row; a generated player's look drawn from his id alone (never from ratings or
+## traits); a real player not yet curated, Appearance.UNCURATED - never a guess.
+func player_looks(p: Dictionary) -> Dictionary:
+	var row: Dictionary = appearance.get(_look_key(p), {})
+	if not row.is_empty():
+		return {"skin": int(row["skin"]), "hair": int(row["hair"])}
+	if bool(p.get("generated", false)):
+		return Appearance.generated(str(p.get("id", "")), skin_mix)
+	return Appearance.UNCURATED
+
+
+static func _look_key(p: Dictionary) -> String:
+	return "%s|%s|%s" % [str(p.get("first", "")).to_lower(), str(p.get("last", "")).to_lower(), str(p.get("dob", ""))]
+
+
+## data/player_appearance.csv: first,last,dob,club,skin (1-6),hair (a HAIR_KEYS
+## key),status (draft / unsure / confirmed),source. Rows that don't parse are
+## skipped with an error; a missing file just means no curated looks yet.
+func _load_appearance() -> void:
+	appearance = {}
+	skin_mix = Appearance.DEFAULT_SKIN_MIX
+	if not FileAccess.file_exists(APPEARANCE_CSV):
+		return
+	var rows := _read_rows(APPEARANCE_CSV)
+	if rows.size() < 2:
+		return
+	var header: Array = rows[0]
+	var counts := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+	for i in range(1, rows.size()):
+		var cells: Array = rows[i]
+		if cells.size() < header.size():
+			continue
+		var r := {}
+		for j in range(header.size()):
+			r[str(header[j])] = str(cells[j]).strip_edges()
+		var skin := int(r.get("skin", "0")) - 1
+		var hair := Appearance.HAIR_KEYS.find(str(r.get("hair", "")))
+		if skin < 0 or skin >= Appearance.SKIN.size() or hair < 0:
+			push_error("GameDB: bad appearance row %d in %s" % [i + 1, APPEARANCE_CSV])
+			continue
+		appearance[_look_key(r)] = {"skin": skin, "hair": hair, "status": str(r.get("status", "draft")),
+				"club": str(r.get("club", ""))}
+		counts[skin] += 1.0
+	if appearance.size() >= MIX_FROM:
+		skin_mix = counts
+
+
 func _read_rows(path: String) -> Array:
 	if not FileAccess.file_exists(path):
 		push_error("GameDB: missing data file %s" % path)
