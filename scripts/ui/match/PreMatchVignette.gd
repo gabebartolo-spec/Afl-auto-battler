@@ -61,6 +61,7 @@ func setup_prematch(my_code: String, opp_code: String, my_ground: Array, opp_gro
 	_prev = WARM
 	_since = 0.0
 	_frozen = false
+	_dress()
 	queue_redraw()
 
 

@@ -461,6 +461,22 @@ func _bounce_close_up() -> void:
 			"Only the players at the bounce, both sides (%d)" % tokens.size())
 	_check(names_ok, "Every player in the close-up is on the ground in this match")
 	_check(tokens.filter(func(t): return str(t["slot"]) == "R").size() == 2, "Both rucks are at the bounce")
+	# The players are the pre-rendered figures, each side in its own club's colours.
+	var mat := vig.material as ShaderMaterial
+	var kits: Array = Array(mat.get_shader_parameter("kit_primary")) if mat != null else []
+	_check(kits.size() == 4
+			and kits[me] == db.club_colours(str(sim.squads[me].code))[0]
+			and kits[them] == db.club_colours(str(sim.squads[them].code))[0],
+			"The players are drawn as figures in both clubs' colours")
+	var moves_ok := true
+	for body in VignetteFigures.BODIES.values():
+		for anim in ["idle", "jog", "leap", "bounce"]:
+			for facing in ["front", "back"]:
+				var info: Dictionary = ((body["anims"] as Dictionary).get(anim, {}) as Dictionary).get(facing, {})
+				moves_ok = moves_ok and int(info.get("frames", 0)) > 0
+	_check(moves_ok and Vector2i((vig.FIGURE_SHADE as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
+			and Vector2i((vig.FIGURE_MASK as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE,
+			"The figure sheets hold every move the scene plays, front and back")
 	# It plays as a scene: the players run into the set-up before the freeze.
 	var before: Vector2 = vig.call("_pos", tokens[0])
 	for i in range(20):

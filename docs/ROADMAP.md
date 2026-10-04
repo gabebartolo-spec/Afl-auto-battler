@@ -3524,6 +3524,14 @@ Started on the director's direction, ahead of the §1.11 gate. The director aske
 - **Review:** `tools/visual/capture_vignette.gd` renders a contact sheet of the beats on a phone.
 - **Not built:** templates, other families, or a framework. These wait for the playtest below.
 
+### Figures (2026-10-05)
+On the director's direction, the drawn stick figures became pre-rendered 2.5D footballers - still 2D in the game, no 3D models.
+- **What:** one sprite sheet (`assets/vignette/figures_*.png`) of rigged footballers rendered offline from a front and a back camera pitched like the vignette's: an average build (midfielders, umpire) and a taller ruck build; idle, jog, ruck leap and the umpire's bounce. `figure.gdshader` recolours them per club at draw time, so one sheet serves all 20 clubs; your players show their numbers. `VignetteFigures.gd` (generated) holds the layout.
+- **Where they come from:** the separate `ard-asset-pipeline` repo (`build_vignette_figures.sh --install`), from a CC0 MPFB body; rebuilding reproduces the sheet exactly.
+- **Unchanged:** the camera, beats, positions, who is shown and MatchSim's authority. The pre-match scene uses the same figures.
+- **Still open:** every player still has the one default skin tone - the shader takes a skin and hair per figure, but the appearance data (the "Vignette player representation / appearance bug" item) is not built. Guernsey designs (stripes, hoops) need a design per club; today a guernsey is the club's primary colour.
+- **Tests:** `_bounce_close_up` checks the figures wear both clubs' colours and the sheet holds every move the scene plays.
+
 ### Acceptance test
 The feature earns further work only if a phone playtest shows that the player can explain **why the decision is being asked**, form a reasonable expectation before choosing, and finds the moment materially more engaging than the normal presentation.
 
