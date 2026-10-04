@@ -76,6 +76,11 @@ func _test_season_flow() -> void:
 	# the clock, so which card appears varies run to run. Measure the match alone.
 	GameState._settle_week_event()
 	var before := GameState.board_confidence()
+	var rival_before := {}
+	for code in GameState.season.lists:
+		if code != "GEE":
+			for p in GameState.season.lists[code]:
+				rival_before[str(p["id"])] = ClubLife.morale(p)
 	GameState.advance()
 	var res := GameState.last_match
 	var side := 0 if str(res["home"]) == "GEE" else 1
@@ -88,6 +93,31 @@ func _test_season_flow() -> void:
 		if ClubLife.morale(p) != ClubLife.MORALE_BASE:
 			changed = true
 	_check(changed, "Morale moves after a game")
+	# Morale moves match form, so a rival's players take the week by the same
+	# rule as yours: who played is lifted (more for a win), a fit player left
+	# out loses some. Run for your club alone it was a free edge every week.
+	var rival_ok := true
+	var played_count := 0
+	var left_out_count := 0
+	for r in GameState.last_results:
+		for s in range(2):
+			var code := str(r["home"] if s == 0 else r["away"])
+			if code == "GEE":
+				continue
+			var won := int(r["score"][s]) > int(r["score"][1 - s])
+			var on := {}
+			for row in (r["roster"] as Array)[s]:
+				on[str(row["id"])] = true
+			for p in GameState.season.lists[code]:
+				var was := int(rival_before.get(str(p["id"]), ClubLife.MORALE_BASE))
+				if on.has(str(p["id"])):
+					rival_ok = rival_ok and ClubLife.morale(p) == clampi(was + (4 if won else 1), 5, 100)
+					played_count += 1
+				elif int(p.get("injury_weeks", 0)) <= 0 and was > 5:
+					rival_ok = rival_ok and ClubLife.morale(p) < was
+					left_out_count += 1
+	_check(rival_ok and played_count > 100 and left_out_count > 0,
+			"Rival players' morale moves by your club's rule (%d played, %d left out)" % [played_count, left_out_count])
 	_check(GameState.club_goals.size() == GameState.season.ladder.size() and GameState.club_goals.has("GEE"),
 			"Every club gets a board goal")
 	var goals_before := str(GameState.club_goals)

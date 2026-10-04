@@ -2386,6 +2386,7 @@ func _after_round(results: Array) -> void:
 	_round_news(results)
 	_draft_class_news()
 	_board_after_round(results)
+	_rival_morale_after_round(results)
 	_prepare_media_conference(results)
 	if season != null and season.is_season_over() \
 			and int(season_awards.get("year", 0)) != season_year:
@@ -5122,6 +5123,35 @@ func _board_after_round(results: Array) -> void:
 			if not played.has(str(p["id"])) and int(p.get("injury_weeks", 0)) <= 0:
 				ClubLife.add_morale(p, -CoachEffects.softened(sting, float(soft.get(str(p["id"]), 0.0))))
 
+
+## Every rival club's players take the week the way yours do
+## (ClubLife.morale_after_match): who played gets a lift, more for a win; a
+## fit player left out loses some, softened by that club's own
+## man-managers. Morale moves match form (MatchSim.fit), so it follows the
+## same rule at every club - run for yours alone, it was a free edge in
+## every match (docs/COMPETITIVE_BALANCE.md).
+func _rival_morale_after_round(results: Array) -> void:
+	if season == null:
+		return
+	var staffs: Dictionary = CoachEffects.staffs(coaches) if not coaches.is_empty() else {}
+	for res in results:
+		var roster: Array = res.get("roster", [[], []])
+		var score: Array = res.get("score", [0, 0])
+		for side in range(2):
+			var code := str(res.get("home" if side == 0 else "away", ""))
+			if code == "" or code == my_club or not season.lists.has(code):
+				continue
+			var list: Array = season.lists[code]
+			var played := {}
+			if roster.size() > side:
+				for r in roster[side]:
+					played[str(r["id"])] = true
+			var soft := {}
+			var staff: Dictionary = staffs.get(code, {})
+			if not staff.is_empty():
+				for p in list:
+					soft[str(p["id"])] = CoachEffects.soften(staff, p)
+			ClubLife.morale_after_match(list, played, int(score[side]) > int(score[1 - side]), soft)
 
 
 ## A notable user match may produce one short press conference.
