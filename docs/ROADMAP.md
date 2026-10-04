@@ -3982,12 +3982,19 @@ Guardrails: this is **not tied to super drafts**; do not guarantee the GOAT is o
 - **Training touch handling — KNOWN UX BUG.** Player rows are too eager to register selection while the user is scrolling, causing accidental multi-selects. Add robust scroll-vs-tap/long-press discrimination and test rapid swipes, slow drags, taps and long-press on phone touch input.
 - **Training scrollbar — TODO / mobile polish.** The right-side scrollbar/thumb is awkward to grab. Increase its touch usability if retained, but prioritise normal swipe scrolling so grabbing the scrollbar is rarely necessary.
 
+## P2 / draft pathway depth
+
+- **Academies / NGA and tied prospects — TODO.** Add club academy / Next Generation Academy pathways so some draft prospects carry genuine club ties and enter the normal draft through appropriate bidding/matching mechanics. Academy status must affect real draft/list decisions rather than exist as flavour, obey the same non-psychic scouting uncertainty as other prospects, and become a permanent part of the player's career provenance/history. Implement only after the core draft pipeline is healthy: class depth, Combine/scouting uncertainty and AI drafting/list-building come first.
+
+
 ## P2 / presentation polish observed during playtest
 
 - **Money formatting consistency — TODO.** Raw values such as “1626750 under the cap”, “970000” and “1115500” were visible in player-facing UI. Use compact AFL-scale currency formatting consistently (for example $1.63m, $970k, $1.12m) without changing underlying values.
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-04:** Added Academies / NGA and tied-prospect draft mechanics as a later draft-pathway layer, explicitly downstream of core draft depth, Combine/scouting and AI drafting fixes.
 
 - **2026-10-04:** Consolidated the multi-season Android/Italy playtest findings: P0 bye/progression and football-sanity bugs; overall difficulty/list-profile/synergy calibration; fatigue parity, generated-player provenance, trade/potential and coaching-mobility audits; contract/off-season pressure; weekly selection and matchup decision support; mobile selection/training UX; and observed presentation formatting issues.
 
