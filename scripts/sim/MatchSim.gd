@@ -2248,12 +2248,6 @@ func quarter_in_progress() -> bool:
 
 func begin_quarter() -> void:
 	var T := Ratings.T
-	# Snapshot the plans before any rolls so the half-time report can say
-	# what each side actually used in Q1/Q2. Duplicates only, no RNG draws.
-	tactics_history.append({
-		"quarter": current_quarter,
-		"plans": [(tactics[0] as Dictionary).duplicate(), (tactics[1] as Dictionary).duplicate()],
-	})
 	if current_quarter > 1:
 		for id in energy:
 			energy[id] = minf(float(energy_caps.get(id, 100.0)), float(energy[id]) + ENERGY_BREAK_RECOVER)
@@ -2264,6 +2258,13 @@ func begin_quarter() -> void:
 			set_tactics(side, ai_tactics(side))
 			if current_quarter > 1:
 				_ai_rematch(side)
+	# Snapshot the plans in force this quarter - after the AI has picked its
+	# own, so the break says what they actually ran, not last quarter's plan.
+	# Before any rolls; duplicates only, no RNG draws.
+	tactics_history.append({
+		"quarter": current_quarter,
+		"plans": [(tactics[0] as Dictionary).duplicate(), (tactics[1] as Dictionary).duplicate()],
+	})
 	_q_active = true
 	_q_i = 0
 	_q_count = floori(float(T["chains_per_game"]) / 4.0)
@@ -2994,22 +2995,24 @@ func _boundary_moment() -> bool:
 		_asked[key] = true
 		if bag >= 3:
 			_asked["bag|" + str(fid)] = true
+		var fname := GameDB.player_display_name(hotf)
+		var cname := GameDB.player_display_name(cur)
 		var opts := []
 		for p in Matchups.defenders((squads[me] as Squad).ground):
 			if str(p["id"]) == str(cur["id"]) or opts.size() >= 2:
 				continue
-			opts.append({"key": "def:" + str(p["id"]), "label": "Put %s on him" % GameDB.player_display_name(p),
+			opts.append({"key": "def:" + str(p["id"]),
+					"label": "Put %s on %s" % [GameDB.player_display_name(p), fname],
 					"detail": Matchups.describe(p)})
 		if opts.is_empty():
 			continue
-		opts.append({"key": "keep", "label": "Keep %s on him" % GameDB.player_display_name(cur),
+		opts.append({"key": "keep", "label": "Keep %s on %s" % [cname, fname],
 				"detail": Matchups.describe(cur)})
-		var fname := GameDB.player_display_name(hotf)
 		_fire({"kind": "duel", "player_id": str(fid), "default": opts.size() - 1,
 			"title": ("%s has kicked %d" % [fname, bag]) if bag >= 3 else ("%s is getting on top" % fname),
 			"text": "%s has won %d contests in the air against %s this quarter." % [fname, wins,
-					GameDB.player_display_name(cur)] if wins > 0 else
-					"%s is on him. Change the match-up, or back him in." % GameDB.player_display_name(cur),
+					cname] if wins > 0 else
+					"%s is on %s. Change the match-up, or back %s in." % [cname, fname, cname],
 			"options": opts})
 		return true
 	# An opposition midfielder kicking a bag: a tag is a midfield job, so

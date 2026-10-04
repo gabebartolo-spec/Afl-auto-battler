@@ -30,6 +30,7 @@ func _run() -> void:
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
 	await _hub_tests()
+	await _regular_bye()
 	await _finals_week_by_week()
 	await _season_wrap()
 	await _season_review_scrolls()
@@ -160,6 +161,42 @@ func _hub_tests() -> void:
 	_check(hub.find_children("Fact_*", "Label", true, false).is_empty(), "No facts once the season is over")
 	_check(_button(hub.find_child("WeekActions", true, false), "National Draft") != null,
 			"The national draft is the next step")
+	hub.queue_free()
+	await _settle()
+
+
+## A home-and-away bye (an odd club count rotates one) is a week off, not
+## the end of the season: no "missed the finals" copy, no finals controls,
+## and simming it plays one round and brings the next match back.
+func _regular_bye() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("MEL", db.club_list("MEL"))
+	var season = _state.season
+	season.round_index = 14
+	var round_matches: Array = season.fixture[14]
+	for m in round_matches.duplicate():
+		if m["home"] == "MEL" or m["away"] == "MEL":
+			round_matches.erase(m)
+	root.size = Vector2i(390, 844)
+	var hub: Control = await _open_hub()
+	var text := _screen_text(hub)
+	_check(text.contains("Bye") and not text.contains("Season over for you")
+			and not text.contains("missed the top"), "A mid-season bye is not the end of the season")
+	var actions: Node = hub.find_child("WeekActions", true, false)
+	_check(actions != null and actions.find_child("SimToGrandFinal", true, false) == null
+			and actions.find_child("SimFinalsWeek", true, false) == null,
+			"No finals controls before the home-and-away season is done")
+	var sim: Button = actions.find_child("SimByeRound", true, false) if actions != null else null
+	_check(sim != null and sim.text == "Sim Round 15", "The bye round can be simmed on its own")
+	hub.call("_on_sim_to_end")
+	_check(season.round_index == 14, "Sim to Grand Final never runs through home-and-away rounds")
+	if sim != null:
+		sim.emit_signal("pressed")
+		await _settle()
+	_check(season.round_index == 15 and season.finals.is_empty(), "Simming the bye plays one round")
+	_check(not (hub.call("_upcoming_match") as Dictionary).is_empty(), "The next home-and-away match is back")
+	hub.call("handle_back")
 	hub.queue_free()
 	await _settle()
 

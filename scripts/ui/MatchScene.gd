@@ -658,9 +658,10 @@ func _quarter_view(q: int) -> Control:
 	# ones that carry on are under "What your calls did".
 	var lines: Array = MatchNotes.quarter_facts(_res, _my_side, q)
 	var opp_last := _opp_last_plan()
-	if opp_last != "" and opp_last != "balanced":
+	if opp_last != "":
 		lines = lines.slice(0, MatchNotes.MAX_FACTS - 1)
-		lines.append("They played %s." % CoachReport.plan_label(opp_last))
+		lines.append("They played a balanced game." if opp_last == "balanced"
+				else "They played %s." % CoachReport.plan_label(opp_last))
 	if lines.is_empty():
 		lines.append("An even quarter.")
 	for t in lines:
@@ -1985,7 +1986,7 @@ func _matchups_view(sim: MatchSim, q: int) -> Control:
 
 func _matchup_text(fid: String, did: String, q: int) -> String:
 	if q <= 1:
-		return "%s: %s on him." % [MatchNotes._pname(fid), MatchNotes._pname(did)]
+		return MatchNotes.matchup_line(MatchNotes._pname(fid), MatchNotes._pname(did))
 	return MatchNotes.duel_quarter_line(_res, fid, did, q - 1)
 
 
