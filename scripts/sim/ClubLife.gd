@@ -256,7 +256,7 @@ static func pick_event(ctx: Dictionary) -> Dictionary:
 		pool.append(_pressure())
 	for p in fit:
 		if float(p.get("age", 30.0)) <= 21.0 and int(p.get("potential", 0)) >= int(p["overall"]) + 8 \
-				and not selected.has(str(p["id"])):
+				and not selected.has(str(p["id"])) and not Backing.is_active(p):
 			pool.append(_young_gun(p))
 			break
 	for p in fit:
@@ -392,12 +392,14 @@ static func _pressure() -> Dictionary:
 
 static func _young_gun(p: Dictionary) -> Dictionary:
 	var n := GameDB.player_display_name(p)
+	var run := MatchNotes.count_word(Backing.RUN_GAMES)
 	return {"key": "young_gun", "player_id": str(p["id"]), "default": 1,
 		"title": "%s is pushing for games" % n,
 		"text": "The kid is flying at training and wants a senior game.",
 		"options": [
-			_opt("blood", "Give him a senior game",
-					"Nothing develops a player like AFL footy, and he is thrilled (morale +5) - but he expects to be picked. Leave him out and it stings (-10)."),
+			_opt("blood", "Back him for %s games" % run,
+					"Nothing develops a player like AFL footy, and he is thrilled (morale +%d) - but he expects to be picked for the next %s games. Leave him out while he is fit and the promise breaks (-%d)." % [
+							Backing.THRILL, run, Backing.STING]),
 			_opt("develop", "A week with the development coaches",
 					"+%d XP without taking a spot in the side, but no game at all this week." % DEV_WEEK_XP),
 		]}

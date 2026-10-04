@@ -346,13 +346,29 @@ func _restore_scroll(value: int) -> void:
 		_scroll_box.scroll_vertical = value
 
 
-## A player's profile over the list; closing it leaves the list untouched.
+## A player's profile over the list; closing it leaves the list untouched. A
+## player with few senior games can be backed from here (Backing).
 func _open_profile(id: String) -> void:
 	var p := GameState.list_player(id)
 	if p.is_empty():
 		return
 	_close_profile()
-	_sheet = PlayerSheet.open(self, p, func(): _sheet = null)
+	var actions := []
+	if GameState.can_back(p):
+		var run := MatchNotes.count_word(Backing.RUN_GAMES)
+		actions.append({"name": "BackRun", "label": "Back for %s games" % run,
+				"detail": "A run of %s senior games, starting with the next. Leave a fit player out and the promise breaks, and it stings." % run,
+				"run": _back.bind(id)})
+	_sheet = PlayerSheet.open(self, p, func(): _sheet = null, actions)
+
+
+## Promise a player a run: the profile closes and the screen says what changed.
+func _back(id: String) -> void:
+	var out := GameState.back_player(id)
+	_close_profile()
+	if out != "":
+		_notice = out
+	_build()
 
 
 func _close_profile() -> void:
@@ -545,6 +561,7 @@ func _this_week() -> Control:
 	var nxt := GameState.my_next_opponent()
 	if nxt.is_empty():
 		v.add_child(_strength_line())
+		_backing_lines(v)
 		v.add_child(UiKit.spacer(4))
 		v.add_child(_plan_row())
 		return v
@@ -560,7 +577,7 @@ func _this_week() -> Control:
 		lines.add_child(l)
 	var people := GameState.opponent_people(code)
 	var own := GameState.my_week_notes()
-	if not people.is_empty() or not own.is_empty():
+	if not people.is_empty() or not own.is_empty() or not GameState.backing_notes().is_empty():
 		v.add_child(UiKit.spacer(4))
 	for f in people:
 		v.add_child(_para(str(f["text"]), 13, UiKit.MUTED))
@@ -573,6 +590,7 @@ func _this_week() -> Control:
 			continue
 		# Only an injury is bad news; a milestone is just marked.
 		v.add_child(_para(str(f["text"]), 13, UiKit.BAD if str(f.get("key", "")) == "own_injury" else UiKit.TEXT))
+	_backing_lines(v)
 	# Their key forwards and who goes to them: your call, in names.
 	var mus := GameState.week_matchups(code)
 	if not mus.is_empty():
@@ -598,6 +616,16 @@ func _this_week() -> Control:
 	v.add_child(UiKit.spacer(6))
 	v.add_child(_plan_row())
 	return v
+
+
+## What you have promised: one line for each run you have given a player,
+## said as a fact (Backing). Not part of the team sheet's outs: a promise to a
+## player who is out still stands, and the line says it waits.
+func _backing_lines(v: VBoxContainer) -> void:
+	for f in GameState.backing_notes():
+		var l := _para(str(f["text"]), 13, UiKit.TEXT)
+		l.name = "Backing_" + str(f["player_id"])
+		v.add_child(l)
 
 
 ## "Curnow: Moore on him" with the way to change it.

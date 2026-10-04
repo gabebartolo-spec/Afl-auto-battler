@@ -655,6 +655,25 @@ table, shot conversion, every best and quiet player with his numbers and
   the home ground alone is 60.5%. Over 32 paired seasons (16 real-list, 16
   drafted) it widened the season-wins SD by 0.19 (3.52 to 3.71) with no rise
   in premiership concentration or long streaks.
+* **Backing a young player** (`Backing.gd`) — a promise of a run: the next three
+  senior games (`RUN_GAMES`). It is made from the young-gun weekly card ("Back him
+  for three games") or from a player's profile on Selection, offered to a player
+  with fewer than ten senior games (`FEW_GAMES`) on a career on record in full, who
+  is available, with a match to play and no run on already. The player is thrilled
+  (+5 mood). What you promised is kept as a ledger on the player (`p["backed"]`,
+  one entry for each time: year, round, games, played, state, and whether it was
+  his debut), which outlives the run. While a run is on, auto-pick names him ahead
+  of better players (`Ratings.select_22`, ruck included: the same rule as the
+  one-week promise a talk makes) and Selection says so in a line ("You promised
+  Calder a run: game two of three."). Every game he plays counts. Left out while
+  fit, the promise breaks, it costs mood once (`STING`, softened by your
+  man-managers like any player left out) and the run is over. An injury or
+  suspension makes it wait, judged as the week was played: it is noted at the start
+  of `_after_round`, before the week's injuries and suspensions tick down, so a
+  player healed by that very round is not "left out while fit". A run lapses at the
+  end of the season, for every list and for free agents, so it never carries to
+  another club. It touches no match rule: MatchSim never reads it, and AI clubs
+  never have one.
 * **Expansion** — clubs carry an `enter` year in `data/clubs.csv`; every
   fixture, ladder, draft, selection and finals path iterates
   `GameDB.active_clubs(year)` rather than the all-time club list, so a new club

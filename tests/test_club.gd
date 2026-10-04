@@ -13,6 +13,10 @@ func run() -> void:
 	_test_rules()
 	_test_season_flow()
 	_test_events()
+	_test_backing_rules()
+	_test_backing_flow()
+	_test_backing_card_guard()
+	_test_backing_lasts_the_season()
 	_test_sacking()
 	_test_team_form()
 	_test_board_confidence()
@@ -643,4 +647,274 @@ func _test_board_confidence() -> void:
 	GameState.week_event = {}
 	GameState.advance()
 	_check(GameState.board_why() != "" and GameState.board_state() != "", "After a match the board has a mood and a reason")
+	GameState.delete_saved_career()
+
+
+# ---------------------------------------------------------------------------
+# Backing a young player: a promised run (Backing.gd)
+# ---------------------------------------------------------------------------
+## A list player made ready to be backed: a career on record in full with
+## `games` senior games, fit, settled, and no run on.
+func _kid(p: Dictionary, games: int) -> Dictionary:
+	p["career"] = {"games": games, "goals": 0, "stints": [],
+			"through": GameState.season_year - 1, "unknown": []}
+	for key in ["backed", "expects_game", "injury_weeks", "injury_kind", "suspension_weeks", "rested"]:
+		p.erase(key)
+	p["morale"] = 70
+	return p
+
+
+## The lowest-rated player on your list who is not a ruck: one auto-pick would
+## not name on his own.
+func _spare_kid(skip := []) -> Dictionary:
+	var best := {}
+	for p in GameState.my_list:
+		if str(p["role"]) == "RUCK" or skip.has(str(p["id"])):
+			continue
+		if best.is_empty() or int(p["overall"]) < int(best["overall"]):
+			best = p
+	return best
+
+
+func _in_side(side: Dictionary, p: Dictionary) -> bool:
+	for k in side:
+		if (side[k] as Array).has(str(p["id"])):
+			return true
+	return false
+
+
+func _fresh_season() -> void:
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	GameState._settle_week_event()
+	GameState.week_event = {}
+
+
+## The rules: who can be backed, how a run moves and ends, what it says.
+func _test_backing_rules() -> void:
+	_fresh_season()
+	var kid := _kid(GameState.my_list[30], 3)
+	_check(Backing.can_back(kid, 3), "A player with few senior games can be backed")
+	_check(not Backing.can_back(kid, Backing.FEW_GAMES) and not Backing.can_back(kid, 80),
+			"A player with ten senior games is established, not a kid to back")
+	var unknown := _kid(GameState.my_list[29], 3)
+	unknown["career"]["unknown"] = [[2020, 2022]]
+	_check(not Backing.can_back(unknown, 3), "A career not on record in full cannot be counted")
+	var hurt := _kid(GameState.my_list[28], 3)
+	hurt["injury_weeks"] = 2
+	_check(not Backing.can_back(hurt, 3), "An injured player cannot be backed")
+	var run := Backing.start(kid, 2027, 7, 0)
+	_check(Backing.is_active(kid) and int(run["games"]) == Backing.RUN_GAMES and int(run["played"]) == 0
+			and bool(run["debut"]) and int(run["round"]) == 7, "A run starts active, and on his debut")
+	_check(not Backing.can_back(kid, 3), "No second run while one is on")
+	_check(Backing.note(kid) == "You promised %s a run: game one of three." % GameDB.player_display_name(kid),
+			"The reminder reads plainly (%s)" % Backing.note(kid))
+	_check(Backing.after_match(kid, true, true) == "active" and int(run["played"]) == 1
+			and Backing.note(kid).ends_with("game two of three."),
+			"A game played counts, and the reminder moves on")
+	kid["injury_weeks"] = 1
+	_check(Backing.after_match(kid, false, false) == "active" and int(run["played"]) == 1
+			and Backing.note(kid).ends_with("game two of three, when available."),
+			"Unable to play, the run waits and says so")
+	kid.erase("injury_weeks")
+	_check(Backing.after_match(kid, true, true) == "active" and Backing.after_match(kid, true, true) == "done"
+			and not Backing.is_active(kid) and Backing.note(kid) == "", "Three games complete the run")
+	var kid2 := _kid(GameState.my_list[27], 5)
+	Backing.start(kid2, 2027, 3, 5)
+	_check(not bool(Backing.ledger(kid2)[0]["debut"]), "A player with games behind him is not on debut")
+	_check(Backing.after_match(kid2, false, true) == "broken" and not Backing.is_active(kid2)
+			and Backing.after_match(kid2, false, true) == "",
+			"Left out while fit breaks the promise, once, and the run is over")
+	var kid3 := _kid(GameState.my_list[26], 5)
+	Backing.start(kid3, 2027, 20, 5)
+	Backing.lapse(kid3)
+	_check(str(Backing.ledger(kid3)[0]["state"]) == "lapsed" and not Backing.is_active(kid3),
+			"A run unfinished at the end of the season lapses")
+	Backing.start(kid2, 2028, 2, 5)
+	_check(Backing.ledger(kid2).size() == 2 and str(Backing.ledger(kid2)[0]["state"]) == "broken"
+			and Backing.is_active(kid2), "The ledger keeps what you did, and a new run can follow")
+	# Auto-pick treats a run as a promise, ruck included.
+	var list := []
+	for p in GameDB.club_list("COL"):
+		list.append((p as Dictionary).duplicate(true))
+	var rucks := []
+	for p in list:
+		if Ratings.plays_role(p, "RUCK"):
+			rucks.append(p)
+	rucks = Ratings.by_ruck(rucks)
+	if rucks.size() >= 2:
+		var backup: Dictionary = rucks[1]
+		var before := Ratings.select_22(list)
+		_check(str((before["ground"] as Array)[0]["id"]) == str((rucks[0] as Dictionary)["id"]),
+				"With no promise the better ruck takes the ruck spot")
+		Backing.start(backup, 2027, 1, 0)
+		var after := Ratings.select_22(list)
+		_check(str((after["ground"] as Array)[0]["id"]) == str(backup["id"]),
+				"A ruck on a run takes the ruck spot, as every other position's promise does")
+	else:
+		print("SKIP: COL has no second ruck to back")
+
+
+## Through a season: the card, the tap, auto-pick, three games, a broken
+## promise, an injury that waits, and what the screen is told.
+func _test_backing_flow() -> void:
+	_fresh_season()
+	# The card: back him for three games.
+	var kid := _kid(GameState.my_list[31], 0)
+	GameState.week_event = ClubLife._young_gun(kid)
+	GameState.resolve_week_event(0)
+	_check(Backing.is_active(kid) and ClubLife.morale(kid) == 70 + Backing.THRILL
+			and int(kid.get("expects_game", 0)) == Backing.STING and bool(Backing.current(kid)["debut"]),
+			"Backing a kid on the card starts a run on his debut: thrilled, and he expects to be picked")
+	_check(str(GameState.week_event.get("outcome", "")).contains("run of three games")
+			and str(GameState.week_event.get("outcome", "")).contains("Auto-pick names him"),
+			"The card says it is a run, and that auto-pick has him")
+	# The tap: a player auto-pick would not name.
+	var low := _kid(_spare_kid([str(kid["id"])]), 2)
+	_check(not _in_side(GameState.current_side(), low), "Auto-pick leaves the lowest-rated player out")
+	_check(GameState.can_back(low), "A player with two senior games can be backed from Selection")
+	var said := GameState.back_player(str(low["id"]))
+	_check(said == "%s has your word for three games. Auto-pick names the player this week." % GameDB.player_display_name(low),
+			"The tap says what changed (%s)" % said)
+	_check(_in_side(GameState.current_side(), low), "Auto-pick names a player on a run, ahead of better players")
+	_check(not GameState.can_back(low) and GameState.back_player(str(low["id"])) == "",
+			"A player on a run cannot be backed again")
+	var vet := _kid(GameState.my_list[3], 120)
+	_check(not GameState.can_back(vet) and GameState.back_player(str(vet["id"])) == "" and not Backing.is_active(vet),
+			"A player with a long record is not backed from Selection")
+	var notes := GameState.backing_notes()
+	var texts := []
+	for n in notes:
+		texts.append(str(n["text"]))
+	_check(notes.size() == 2 and texts.has(Backing.note(kid)) and texts.has(Backing.note(low)),
+			"Selection is told each run in a line (%s)" % str(texts))
+	# Three games: both play every week (healed between rounds so the run is
+	# not at the mercy of a random injury) and the runs are done.
+	for i in range(Backing.RUN_GAMES):
+		GameState.advance()
+		for q in [kid, low]:
+			for key in ["injury_weeks", "injury_kind", "suspension_weeks"]:
+				q.erase(key)
+	var kl: Dictionary = Backing.ledger(kid)[0]
+	var ll: Dictionary = Backing.ledger(low)[0]
+	_check(str(kl["state"]) == "done" and int(kl["played"]) == 3 and str(ll["state"]) == "done" and int(ll["played"]) == 3,
+			"Three games complete each run (%s %d, %s %d)" % [kl["state"], kl["played"], ll["state"], ll["played"]])
+	_check(not kid.has("expects_game") and not low.has("expects_game") and GameState.backing_notes().is_empty(),
+			"A finished run leaves no expectation and no line")
+
+	# Left out while fit: the promise breaks and it stings, once.
+	_fresh_season()
+	var k2 := _kid(_spare_kid(), 4)
+	var control := _kid(_spare_kid([str(k2["id"])]), 4)
+	GameState.back_player(str(k2["id"]))
+	var side := GameState.current_side()
+	for key in side:
+		(side[key] as Array).erase(str(k2["id"]))
+		(side[key] as Array).erase(str(control["id"]))
+	side["OUT"] = [str(k2["id"]), str(control["id"])]
+	GameState.set_selection(side)
+	var m0 := ClubLife.morale(k2)
+	var c0 := ClubLife.morale(control)
+	GameState.advance()
+	var m1 := ClubLife.morale(k2)
+	var c1 := ClubLife.morale(control)
+	_check(str(Backing.ledger(k2)[0]["state"]) == "broken" and not Backing.is_active(k2) and not k2.has("expects_game"),
+			"Left out while fit, the run is broken")
+	_check((m0 - m1) - (c0 - c1) >= 5,
+			"Breaking the promise costs more than being left out (%d v %d)" % [m0 - m1, c0 - c1])
+	GameState.advance()
+	var m2 := ClubLife.morale(k2)
+	var c2 := ClubLife.morale(control)
+	_check((m1 - m2) - (c1 - c2) <= 2, "It stings once: a second week costs no more than for anyone else left out")
+	GameState.set_selection({})
+
+	# Hurt: the run waits, even when the injury ends with this very round.
+	_fresh_season()
+	var k3 := _kid(_spare_kid(), 1)
+	GameState.back_player(str(k3["id"]))
+	k3["injury_weeks"] = 1
+	var run3: Dictionary = Backing.ledger(k3)[0]
+	var mm0 := ClubLife.morale(k3)
+	GameState.advance()
+	# The ordinary drift for a player not on the field is allowed; the sting is not.
+	_check(str(run3["state"]) == "active" and int(run3["played"]) == 0 and ClubLife.morale(k3) >= mm0 - 5,
+			"An injury that ends with the round does not break the run (%d -> %d)" % [mm0, ClubLife.morale(k3)])
+	_check(Backing.note(k3) != "" and not Backing.note(k3).contains("when available"),
+			"Fit again, the reminder is back to the plain line")
+	GameState.advance()
+	_check(int(run3["played"]) == 1, "Named again when he is fit, he plays game one")
+	GameState.delete_saved_career()
+
+
+## The young-gun card is not for a player who is already on a run.
+func _test_backing_card_guard() -> void:
+	_fresh_season()
+	var list := []
+	for i in range(8):
+		var p: Dictionary = (GameState.my_list[i] as Dictionary).duplicate(true)
+		p["age"] = 28.0
+		p.erase("injury_weeks")
+		list.append(p)
+	var young: Dictionary = (GameState.my_list[8] as Dictionary).duplicate(true)
+	young["age"] = 19.0
+	young["potential"] = int(young["overall"]) + 12
+	young.erase("injury_weeks")
+	list.append(young)
+	var drawn := 0
+	var drawn_backed := 0
+	for s in range(120):
+		var ctx := {"list": list, "round": 6, "seed": s, "losses": 0, "selected": {}, "cap_room": 0,
+				"memory": {}, "last_key": ""}
+		if str(ClubLife.pick_event(ctx).get("key", "")) == "young_gun":
+			drawn += 1
+	Backing.start(young, 2027, 6, 0)
+	for s in range(120):
+		var ctx := {"list": list, "round": 6, "seed": s, "losses": 0, "selected": {}, "cap_room": 0,
+				"memory": {}, "last_key": ""}
+		if str(ClubLife.pick_event(ctx).get("key", "")) == "young_gun":
+			drawn_backed += 1
+	_check(drawn > 0 and drawn_backed == 0,
+			"The kid-pushing-for-games card is not drawn for a player on a run (%d v %d)" % [drawn, drawn_backed])
+
+
+## A run is saved with the career, waits out a long injury, and lapses with the
+## season: it never carries into the next one.
+func _test_backing_lasts_the_season() -> void:
+	_fresh_season()
+	var ranked := GameState.my_list.duplicate()
+	ranked.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+	var kid := _kid(ranked[10], 2)
+	kid["age"] = 20.0
+	var id := str(kid["id"])
+	_check(GameState.back_player(id) != "", "A mid-list young player can be backed")
+	kid["injury_weeks"] = 60
+	GameState.advance()
+	GameState.save_career()
+	_check(GameState.load_career(), "The career loads")
+	var again: Dictionary = GameState.list_player(id)
+	_check(not again.is_empty() and Backing.is_active(again) and int(Backing.current(again)["played"]) == 0
+			and Backing.note(again).ends_with("when available."),
+			"The run is saved with the career, waiting on his injury")
+	var guard := 0
+	while not GameState.season.is_season_over() and guard < 60:
+		guard += 1
+		GameState.advance()
+	_check(Backing.is_active(GameState.list_player(id)), "A long injury keeps the run waiting through the season")
+	if GameState.begin_intake_draft():
+		var d: Draft = GameState.draft
+		var g2 := 0
+		while not d.is_finished() and g2 < 3000:
+			g2 += 1
+			var c := d._best_ai_pick(d.current_club())
+			if c.is_empty() or not d._draft_pick(d.current_club(), c):
+				d._skip_current_pick()
+		GameState.finish_intake_draft()
+	else:
+		GameState.start_next_season()
+	var next: Dictionary = GameState.list_player(id)
+	if next.is_empty():
+		print("SKIP: he left the list in the roll-over, so there is no run to lapse")
+	else:
+		_check(not Backing.is_active(next) and str(Backing.ledger(next)[0]["state"]) == "lapsed"
+				and not next.has("expects_game"), "The run lapses with the season")
 	GameState.delete_saved_career()
