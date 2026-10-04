@@ -76,6 +76,8 @@ STAT_KEYS = [
 # counted with midfield (1 RUCK + 5 MID). Keep in lockstep with
 # Ratings.GROUND_SLOTS.
 ROLE_CORRECTIONS = {"RIC|Maurice Rioli": "FWD", "WBD|Cody Weightman": "FWD"}
+# Ratings.ATTR_ADJUSTMENTS: director's named-player balance corrections.
+ATTR_ADJUSTMENTS = {"MEL|Harvey Langford": 1.15}
 GROUND_SLOTS = {"RUCK": 1, "MID": 5, "DEF": 6, "FWD": 6}
 INTERCHANGE = 4
 LIST_SIZE = 44
@@ -265,6 +267,9 @@ def derive_ratings(players):
         a["discipline"] = scale(0.62 * q["clangers_pg"] + 0.38 * q["frees_against_pg"])
         a["durability"] = scale(0.55 * q["games"] + 0.45 * q["time_on_ground"])
         a["star"] = scale(0.68 * q["brownlow_pg"] + 0.32 * q["disposals_pg"])
+        adj = ATTR_ADJUSTMENTS.get("%s|%s" % (p.get("club", ""), p.get("name", "")), 1.0)
+        if adj != 1.0:
+            a = {k: max(1, min(99, int(v * adj + 0.5))) for k, v in a.items()}  # GDScript rounds half up
         p["attr"] = a
 
         # ---- role classification -----------------------------------------
