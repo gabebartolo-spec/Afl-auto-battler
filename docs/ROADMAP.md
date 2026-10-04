@@ -3995,6 +3995,16 @@ Guardrails: this is **not tied to super drafts**; do not guarantee the GOAT is o
 
 - **Academies / NGA and tied prospects — TODO.** Add club academy / Next Generation Academy pathways so some draft prospects carry genuine club ties and enter the normal draft through appropriate bidding/matching mechanics. Academy status must affect real draft/list decisions rather than exist as flavour, obey the same non-psychic scouting uncertainty as other prospects, and become a permanent part of the player's career provenance/history. Implement only after the core draft pipeline is healthy: class depth, Combine/scouting uncertainty and AI drafting/list-building come first.
 
+## 2026-10-05 difficulty evidence and director decisions
+
+- **Difficulty / List Profile / extreme margins / early extensions — evidence, not tuned** (PR pending, `docs/DIFFICULTY_EVIDENCE_2026-10-05.md`). Seven five-season autopilot careers (8,281 matches): no policy (AI-style draft, greedy draft, greedy plus accepting every extension) produced a dynasty, with no premierships in 35 seasons. Unmanaged lists start #1 and fall to rank 16–20 by year five through the off-season, while in-season development matches the AI. Your one structural edge is League Draft information (exact board vs AI evaluation error, documented as intended). List Profile words are league ranks, so four Elite words mean genuine dominance, not loose bands. Margins: 100+ in 0.5% of matches, none 150+. Extension cards: about 1.7 a season, and accepting them did not slow the decline. **Conclusion:** the playtest dynasty must come from levers the harness does not pull: live-match calls, trades and free agency, and the year-one draft edge. **Director decisions (2026-10-05):** the unmanaged collapse is about right, so leave it and make active play less dominant instead; measure next: live-match call uplift (paired seeds), trade-market exploitability and free-agency advantage (TODO).
+- **Director decision — League Draft board:** your board shows scouted estimates (as the National Draft already does via `DraftScouting`, sharper with recruiting budget) instead of exact consensus ratings, removing the free first-season edge while good drafting still pays. TODO.
+- **Director decision — Opposition POT:** another club's player shows a POT *range* (draft-style scouting) that narrows with his time in the league and your recruiting budget; exact once he is on your list. TODO.
+- **Director decision — Club colours:** Claude proposes corrected primary/secondary/accent for every club with sources and a swatch sheet; apply plus a palette snapshot test only after sign-off. TODO.
+- **Director decision — Assistant contracts:** light layer. Assistants sign 2–3 season terms, so typically 1–2 expire per off-season; each is a one-tap Re-sign / Let go with a short ask; AI clubs follow the same rules. TODO.
+- **Director decision — How we play:** the points-from/conceded-on-turnover lines are removed (PR #214).
+
+
 
 ## P2 / presentation polish observed during playtest
 
