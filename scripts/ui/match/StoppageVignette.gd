@@ -28,14 +28,23 @@ const FIGURE := 1.6
 ## The camera sits a little to one side of the corridor, over a shoulder.
 const CAM_X := -3.0
 const GRASS := [Color(0.16, 0.39, 0.17), Color(0.18, 0.43, 0.19)]
-const SKIN := Color(0.87, 0.7, 0.57)
 const UMPIRE := Color(0.82, 0.93, 0.36)
 const BALL := Color(0.78, 0.13, 0.12)
+## The footballers are pre-rendered figures recoloured for each club
+## (VignetteFigures.gd has the sheet's layout, figure.gdshader the recolouring).
+const FIGURE_SHADE := preload("res://assets/vignette/figures_shade.png")
+const FIGURE_MASK := preload("res://assets/vignette/figures_mask.png")
+const FIGURE_DESIGN := preload("res://assets/vignette/figures_design.png")
+const FIGURE_SHADER := preload("res://assets/vignette/figure.gdshader")
+## Kits in the shader's palette: the two sides, then the umpire.
+const UMPIRE_KIT := 2
 
-var tokens: Array = []      # {side, mine, slot, name, num, tired, from, to, delay, dur}
+var tokens: Array = []      # {side, mine, slot, id, tall, look, name, num, tired, from, to, delay, dur}
 var facts: Array = []       # one or two lines of commentary, no numbers
 var title := ""
 var _colours := [[], []]
+var _codes := ["", ""]
+var _kits := []            # both sides' guernseys, as dressed
 var _t := 0.0
 var _frozen := false
 var _hold := 0.0            # time since the freeze, for the last push-in
@@ -49,11 +58,15 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 	for side in range(2):
 		var code := str((sim.squads[side] as Squad).code)
 		_colours[side] = GameDB.club_colours(code)
-		var ground: Array = (sim.squads[side] as Squad).ground
-		var ruck: Array = ground.filter(func(p): return str(p["role"]) == "RUCK")
-		var mids: Array = ground.filter(func(p): return str(p["role"]) == "MID" and not Roles.on_wing(p))
-		mids.sort_custom(func(a, b): return _stat(sim, a, "clearances") > _stat(sim, b, "clearances"))
-		var picks := {"R": ruck.slice(0, 1), "C": mids.slice(0, 1), "RR": mids.slice(1, 2), "RV": mids.slice(2, 3)}
+		_codes[side] = code
+		# MatchSim's own bounce: the ruck who goes up (a ruckman resting from the
+		# ruck spot still goes up; a midfielder standing in it does not) and the
+		# inside mids who attend. The scene never picks its own.
+		var at: Dictionary = sim.bounce_attendees(side)
+		var ruck: Dictionary = at["ruck"]
+		var mids: Array = at["mids"]
+		var picks := {"R": [] if ruck.is_empty() else [ruck],
+				"C": mids.slice(0, 1), "RR": mids.slice(1, 2), "RV": mids.slice(2, 3)}
 		var mine := side == my_side
 		# Your side attacks up the screen, away from the camera; theirs faces it.
 		var sgn := 1.0 if mine else -1.0
@@ -66,7 +79,8 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 					to = Vector2(-0.9 * sgn, -7.0 * sgn)    # backed off for the run at it
 				var from := to + Vector2(rng.randf_range(-9.0, 9.0), -sgn * rng.randf_range(14.0, 20.0))
 				var tired := float(sim.energy.get(str(p["id"]), 100.0)) < EMPTY
-				tokens.append({"side": side, "mine": mine, "slot": slot,
+				tokens.append({"side": side, "mine": mine, "slot": slot, "id": str(p["id"]),
+						"tall": MatchSim._is_ruckman(p), "look": GameDB.player_looks(p),
 						"name": _surname(GameDB.player_display_name(p)), "num": int(p["num"]),
 						"tired": tired, "from": from, "to": to,
 						"delay": rng.randf_range(0.0, 0.45),
@@ -75,7 +89,63 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 	_t = 0.0
 	_hold = 0.0
 	_frozen = false
+	_dress()
 	queue_redraw()
+
+
+## The figure material, with both clubs' guernseys and the umpire's. Everything
+## this Control draws goes through it; only the figures are recoloured.
+func _dress() -> void:
+	var kits := []
+	for side in range(2):
+		var code := str(_codes[side])
+		var cols: Array = _colours[side]
+		var trim: Color = cols[1] if cols.size() > 1 else Color.DIM_GRAY
+		var kit: Dictionary = GameDB.club_guernsey(code) if code != "" else {
+				"design": "plain", "base": cols[0] if cols.size() > 0 else Color.WHITE,
+				"pattern": trim, "pattern2": Color.WHITE, "shorts": trim.darkened(0.1)}
+		kits.append(kit)
+	_kits = kits
+	material = figure_material(kits + [UMPIRE_GEAR], material as ShaderMaterial)
+
+
+## The umpire has no player behind him: one fixed look.
+const UMPIRE_LOOK := {"skin": 1, "hair": 1}
+
+
+static func _eight(palette: Array) -> Array:
+	var out := palette.duplicate()
+	while out.size() < 8:
+		out.append(palette[palette.size() - 1])
+	return out
+
+
+## The umpire's kit, in the figures' palette.
+const UMPIRE_GEAR := {"design": "plain", "base": UMPIRE, "pattern": Color(0.66, 0.74, 0.29),
+		"pattern2": Color(0.66, 0.74, 0.29), "shorts": Color(0.1, 0.1, 0.12)}
+
+
+## A material that recolours the figure sheet: up to four kits ({design, base,
+## pattern, pattern2, shorts}), addressed by index in a figure's draw colour.
+## Reuses mat when given.
+static func figure_material(kits: Array, mat: ShaderMaterial = null) -> ShaderMaterial:
+	if mat == null or mat.shader != FIGURE_SHADER:
+		mat = ShaderMaterial.new()
+		mat.shader = FIGURE_SHADER
+		mat.set_shader_parameter("mask_tex", FIGURE_MASK)
+		mat.set_shader_parameter("design_tex", FIGURE_DESIGN)
+		mat.set_shader_parameter("sheet_size", VignetteFigures.SHEET_SIZE)
+		mat.set_shader_parameter("skin_tones", _eight(Appearance.SKIN))
+		mat.set_shader_parameter("hair_tones", _eight(Appearance.HAIR))
+	var fields := {"base": [], "pattern": [], "pattern2": [], "shorts": [], "design": []}
+	for i in range(4):
+		var kit: Dictionary = kits[mini(i, kits.size() - 1)]
+		for f in ["base", "pattern", "pattern2", "shorts"]:
+			fields[f].append(kit[f])
+		fields["design"].append(float(maxi(0, GameDB.GUERNSEY_DESIGNS.find(str(kit["design"])))))
+	for f in fields:
+		mat.set_shader_parameter("kit_" + f, fields[f])
+	return mat
 
 
 ## Straight to the frozen contest (a tap skips the play-in; tests).
@@ -328,45 +398,73 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	var ground := _project(at)
 	var m := base.z * FIGURE           # pixels per (larger than life) metre
 	var tired := not ump and bool(t["tired"])
-	var tall := 1.8 * (0.94 if tired else 1.0)
-	var shirt: Color = UMPIRE if ump else (_colours[int(t["side"])] as Array)[0]
-	var trim: Color = UMPIRE.darkened(0.3) if ump else (_colours[int(t["side"])] as Array)[1]
-	var shorts := Color(0.1, 0.1, 0.12) if ump else trim.darkened(0.1)
 	# Shadow on the ground, smaller as they leave it.
 	var sh := 0.38 * m * (1.0 - lift * 0.35)
 	draw_set_transform(Vector2(ground.x, ground.y), 0.0, Vector2(1.0, 0.32))
 	draw_circle(Vector2.ZERO, sh, Color(0, 0, 0, 0.35))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	var foot := Vector2(base.x, base.y)
-	# Legs: a stride while running, tucked in the air.
-	var stride := 0.0
-	if not ump and _moving(t) and lift <= 0.0:
-		stride = sin(_t * (9.0 if tired else 13.0) + float(t["num"])) * 0.16 * m
-	var hip := foot - Vector2(0, 0.5 * tall * m)
-	var w := maxf(1.5, 0.11 * m)
-	draw_line(hip + Vector2(-0.07 * m, 0), foot + Vector2(-0.08 * m + stride, 0), SKIN, w)
-	draw_line(hip + Vector2(0.07 * m, 0), foot + Vector2(0.08 * m - stride, 0), SKIN, w)
-	# Shorts and guernsey.
-	draw_rect(Rect2(hip - Vector2(0.2 * m, 0.14 * tall * m), Vector2(0.4 * m, 0.16 * tall * m)), shorts, true)
-	var chest := Rect2(hip - Vector2(0.24 * m, 0.46 * tall * m), Vector2(0.48 * m, 0.33 * tall * m))
-	draw_rect(chest, shirt, true)
-	draw_rect(Rect2(chest.position + Vector2(chest.size.x * 0.4, 0), Vector2(chest.size.x * 0.2, chest.size.y)), trim, true)
-	# Arms up for the ruck contest and the umpire's bounce, down otherwise.
-	var shoulder := chest.position + Vector2(0, 0.04 * m)
-	var up := (lift > 0.0) or (ump and _t >= BALL_UP - 0.5 and _t < BALL_UP)
-	for side in [0.0, 1.0]:
-		var s := shoulder + Vector2(chest.size.x * side, 0)
-		var dir := Vector2(0.08 * m * (side * 2.0 - 1.0), -0.5 * m) if up else Vector2(0.1 * m * (side * 2.0 - 1.0), 0.45 * m)
-		draw_line(s, s + dir, SKIN if not up else shirt, maxf(1.5, 0.09 * m))
-	draw_circle(chest.position + Vector2(chest.size.x * 0.5, -0.12 * m), 0.13 * m, SKIN)
-	if not ump and bool(t["mine"]) and m > 18.0:
-		# Your players have their backs to us: the number is on show.
+	# Your players have their backs to us; theirs and the umpire face the camera.
+	var body: Dictionary = VignetteFigures.BODIES[_body(t)]
+	var pick := _frame(t, lift)
+	var info: Dictionary = body["anims"][pick[0]]["back" if not ump and bool(t["mine"]) else "front"]
+	var frame := mini(int(pick[1]), int(info["frames"]) - 1)
+	var cell := VignetteFigures.FRAME
+	var src := Rect2(float(body["x"]) + frame * cell.x, int(info["row"]) * cell.y, cell.x, cell.y)
+	# Out on their feet: a touch smaller, stooped.
+	var k := m / VignetteFigures.PX_PER_M * (0.96 if tired else 1.0)
+	var origin := Vector2(base.x, base.y) - VignetteFigures.PIVOT * k
+	var kit := UMPIRE_KIT if ump else int(t["side"])
+	var look: Dictionary = t.get("look", UMPIRE_LOOK)
+	draw_texture_rect_region(FIGURE_SHADE, Rect2(origin, cell * k), src,
+			Color(kit / 4.0, int(look["skin"]) / 8.0, int(look["hair"]) / 8.0, 1.0))
+	var rects: Array = info["number_rects"]
+	if not ump and bool(t["mine"]) and m > 18.0 and frame < rects.size() and rects[frame] != null:
+		# The number on show, on the back of the guernsey.
+		var r: Array = rects[frame]
+		var back := Rect2(origin + Vector2(r[0], r[1]) * k, Vector2(r[2], r[3]) * k)
 		var num := str(t["num"])
-		var fs := int(chest.size.y * 0.55)
+		var fs := int(back.size.y * 0.42)
 		var font: Font = UiKit.DISPLAY
 		var nw := font.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		draw_string(font, chest.get_center() + Vector2(-nw * 0.5, fs * 0.36), num,
-				HORIZONTAL_ALIGNMENT_LEFT, -1, fs, _readable_on(shirt))
+		var shirt: Color = (_kits[int(t["side"])] as Dictionary)["base"]
+		var spot := Vector2(back.get_center().x - nw * 0.5, back.position.y + back.size.y * 0.42 + fs * 0.36)
+		# Edged in the guernsey's own colour, so it reads across stripes and panels.
+		draw_string_outline(font, spot, num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, maxi(2, fs / 6), shirt)
+		draw_string(font, spot, num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, _readable_on(shirt))
+
+
+## Ruckmen are the tall figures; everyone else - an emergency ruck from the
+## midfield included, and the umpire - the average build.
+static func _body(t: Dictionary) -> String:
+	return "ruck" if bool(t.get("tall", false)) else "average"
+
+
+## Which animation and frame a figure shows now: [anim, frame].
+func _frame(t: Dictionary, lift: float) -> Array:
+	if t.is_empty():
+		# The umpire walks in, raises the ball, bounces it and follows through.
+		if _t >= BALL_UP - 0.5 and _t < BALL_UP - 0.15:
+			return ["bounce", 1]
+		if _t >= BALL_UP - 0.15 and _t < BALL_UP:
+			return ["bounce", 2]
+		if _t >= BALL_UP and _t < BALL_UP + 0.4:
+			return ["bounce", 3]
+		if _t >= UMP_IN[0] and _t < UMP_IN[1]:
+			return ["jog", int(_t * 10.0) % 8]
+		return ["idle", 0]
+	if lift > 0.0:
+		return ["leap", int(roundf(clampf(lift / 1.1, 0.0, 1.0) * 5.0))]
+	if _moving(t):
+		# The same stride rate the scene always had; slower when they're out on their feet.
+		var strides := (9.0 if bool(t["tired"]) else 13.0) / TAU
+		return ["jog", int(_t * strides * 8.0 + float(t["num"])) % 8]
+	return ["idle", 0]
+
+
+## Height of a figure's head (or raised hands) above its feet, world metres.
+func _figure_top(t: Dictionary) -> float:
+	var tall := float(VignetteFigures.BODIES[_body(t)]["height_m"])
+	return (tall + (0.75 if _lift(t) > 0.0 else 0.1)) * FIGURE
 
 
 func _draw_ball(b: Vector3) -> void:
@@ -390,7 +488,7 @@ func _draw_names() -> void:
 		if not (str(t["slot"]) in ["R", "C"] or bool(t["tired"])):
 			continue
 		var at := _pos(t)
-		var head := _project(at, _lift(t) + 1.95 * FIGURE)
+		var head := _project(at, _lift(t) + _figure_top(t))
 		var name := str(t["name"])
 		var nw := font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var p := Vector2(clampf(head.x - nw * 0.5, 4.0, size.x - nw - 4.0), head.y - 6.0)

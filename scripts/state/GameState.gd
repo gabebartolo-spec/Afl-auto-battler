@@ -248,6 +248,17 @@ func set_confirm_sim_round(enabled: bool) -> void:
 	set_setting("confirm_sim_round", enabled)
 
 
+## Playtest aid (ARD-M8-007): the centre-bounce scene in every match you
+## coach, at the first centre bounce of the last quarter whatever the score.
+## Off by default; it changes when the call comes, not the football.
+func bounce_scene_every_match() -> bool:
+	return bool(get_setting("bounce_scene_every_match", false))
+
+
+func set_bounce_scene_every_match(enabled: bool) -> void:
+	set_setting("bounce_scene_every_match", enabled)
+
+
 ## How fast a watched match starts (1x, 2x, 4x or 8x). 4x by default.
 func match_speed() -> float:
 	var s := float(get_setting("match_speed", 4.0))
@@ -1408,6 +1419,7 @@ func prepare_interactive_match() -> bool:
 	CoachEffects.apply(away)
 	pending_sim = MatchSim.new(home, away, season.next_seed(99))
 	pending_sim.moment_side = 0 if str(pending_match["home"]) == my_club else 1
+	pending_sim.always_offer_bounce = bounce_scene_every_match()
 	pending_sim.set_tactics(pending_sim.moment_side, {"gameplan": club_plan})
 	pending_sim.set_matchups(pending_sim.moment_side, my_matchups)
 	pending_phase = "regular"
@@ -1466,6 +1478,7 @@ func _prepare_interactive_final() -> bool:
 	pending_sim = MatchSim.new(home, away, season.finals_seed(mine))
 	pending_sim.finals_mode = true
 	pending_sim.moment_side = 0 if str(fm["home"]) == my_club else 1
+	pending_sim.always_offer_bounce = bounce_scene_every_match()
 	pending_sim.set_tactics(pending_sim.moment_side, {"gameplan": club_plan})
 	pending_sim.set_matchups(pending_sim.moment_side, my_matchups)
 	pending_phase = "finals"
