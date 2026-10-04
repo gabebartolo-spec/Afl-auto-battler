@@ -15,6 +15,11 @@ extends SceneTree
 ##   --mode moments  your side coached as a rival club, without and then
 ##                   with the live match's moment cards (each taking its
 ##                   default call), both at morale 70
+##   --mode assistant your side left on Balanced with no match-ups, without
+##                   and then with your assistant's routine calls (the loose
+##                   defender and key defenders' match-ups), both at morale 70
+##   --mode rematch  as assistant, but the loose defender left out (no one
+##                   roams): only the key defenders' match-ups
 ##   --seed          the career draft (league_balance.gd "board" policy)
 ##   --reps          matches per opponent per setting, alternating home/away
 
@@ -57,8 +62,12 @@ func _run() -> void:
 			p["morale"] = morale
 		if mode == "coach":
 			coach_effects.table[user]["ai"] = bool(setting)
+			coach_effects.table[user]["assistant"] = false
 		elif mode == "moments":
 			coach_effects.table[user]["ai"] = true
+		elif mode == "assistant" or mode == "rematch":
+			coach_effects.table[user]["ai"] = false
+			coach_effects.table[user]["assistant"] = bool(setting)
 		var total := 0.0
 		var wins := 0.0
 		var n := 0
@@ -70,6 +79,8 @@ func _run() -> void:
 				var sim = gs.season.match_sim(home, away, 7000 + r * 131 + opps.find(o) * 17)
 				if mode == "moments" and bool(setting):
 					sim.moment_side = side
+				if mode == "rematch":
+					sim.coach_interceptor(side, "")
 				var res: Dictionary = sim.run()
 				var margin := int(res["score"][side]) - int(res["score"][1 - side])
 				total += float(margin)

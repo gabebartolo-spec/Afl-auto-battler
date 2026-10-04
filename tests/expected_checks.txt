@@ -13,7 +13,7 @@ career 71
 coaches 338
 coach_market 56
 coach_pathway 54
-coach_effects 24
+coach_effects 36
 career_ui 205
 potential 36
 ratings 27
@@ -21,7 +21,7 @@ ai 35
 training 59
 selection 14
 matchup 80
-matchday 319
+matchday 323
 roles 164
 injuries 29
 awards 22

@@ -221,6 +221,8 @@ func _phone_match(sz: Vector2i) -> void:
 	var myside := int(m.get("_my_side"))
 	var bm: Node = box.find_child("BreakMatchups", true, false)
 	_check(bm != null, "The break shows the key match-ups (%s)" % tag)
+	_check(bm != null and bm.find_child("AssistantNote", true, false) != null and qsim.assistant_active(myside),
+			"The break shows your assistant's set-up as your starting point (%s)" % tag)
 	var ch: Button = bm.find_child("ChangeMatchup", true, false) if bm != null else null
 	# Required: without a Change button the checks below would be skipped.
 	_check(ch != null, "The break offers a Change for their key forward (%s)" % tag)
@@ -243,6 +245,8 @@ func _phone_match(sz: Vector2i) -> void:
 			_check(str(qsim.duels[myside][fid]) == picked
 					and int(qsim.duel_changes[qsim.duel_changes.size() - 1]["from"]) == 2,
 					"The defender goes to him from the next quarter (%s)" % tag)
+			_check(((qsim._own[myside] as Dictionary)["duels"] as Dictionary).has(fid),
+					"A match-up you change stays your call (%s)" % tag)
 			var btext := _text(box)
 			_check(not btext.contains("%") and not btext.contains("pts"), "The match-ups show no engine numbers (%s)" % tag)
 	if more_btn != null:
