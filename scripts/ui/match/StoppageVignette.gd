@@ -36,6 +36,7 @@ const BALL := Color(0.78, 0.13, 0.12)
 ## (VignetteFigures.gd has the sheet's layout, figure.gdshader the recolouring).
 const FIGURE_SHADE := preload("res://assets/vignette/figures_shade.png")
 const FIGURE_MASK := preload("res://assets/vignette/figures_mask.png")
+const FIGURE_DESIGN := preload("res://assets/vignette/figures_design.png")
 const FIGURE_SHADER := preload("res://assets/vignette/figure.gdshader")
 ## Kits in the shader's palette: the two sides, then the umpire.
 const UMPIRE_KIT := 2
@@ -44,6 +45,8 @@ var tokens: Array = []      # {side, mine, slot, name, num, tired, from, to, del
 var facts: Array = []       # one or two lines of commentary, no numbers
 var title := ""
 var _colours := [[], []]
+var _codes := ["", ""]
+var _kits := []            # both sides' guernseys, as dressed
 var _t := 0.0
 var _frozen := false
 var _hold := 0.0            # time since the freeze, for the last push-in
@@ -57,6 +60,7 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 	for side in range(2):
 		var code := str((sim.squads[side] as Squad).code)
 		_colours[side] = GameDB.club_colours(code)
+		_codes[side] = code
 		var ground: Array = (sim.squads[side] as Squad).ground
 		var ruck: Array = ground.filter(func(p): return str(p["role"]) == "RUCK")
 		var mids: Array = ground.filter(func(p): return str(p["role"]) == "MID" and not Roles.on_wing(p))
@@ -87,34 +91,49 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 	queue_redraw()
 
 
-## The figure material, with both clubs' kits and the umpire's. Everything this
-## Control draws goes through it; only the figures are recoloured.
+## The figure material, with both clubs' guernseys and the umpire's. Everything
+## this Control draws goes through it; only the figures are recoloured.
 func _dress() -> void:
-	var mat := material as ShaderMaterial
+	var kits := []
+	for side in range(2):
+		var code := str(_codes[side])
+		var cols: Array = _colours[side]
+		var kit: Dictionary = GameDB.club_guernsey(code) if code != "" else {
+				"design": "plain", "base": cols[0] if cols.size() > 0 else Color.WHITE,
+				"pattern": cols[1] if cols.size() > 1 else Color.DIM_GRAY, "pattern2": Color.WHITE}
+		var trim: Color = cols[1] if cols.size() > 1 else Color.DIM_GRAY
+		kit["shorts"] = trim.darkened(0.1)
+		kits.append(kit)
+	_kits = kits
+	material = figure_material(kits + [UMPIRE_GEAR], material as ShaderMaterial)
+
+
+## The umpire's kit, in the figures' palette.
+const UMPIRE_GEAR := {"design": "plain", "base": UMPIRE, "pattern": Color(0.66, 0.74, 0.29),
+		"pattern2": Color(0.66, 0.74, 0.29), "shorts": Color(0.1, 0.1, 0.12)}
+
+
+## A material that recolours the figure sheet: up to four kits ({design, base,
+## pattern, pattern2, shorts}), addressed by index in a figure's draw colour.
+## Reuses mat when given.
+static func figure_material(kits: Array, mat: ShaderMaterial = null) -> ShaderMaterial:
 	if mat == null or mat.shader != FIGURE_SHADER:
 		mat = ShaderMaterial.new()
 		mat.shader = FIGURE_SHADER
 		mat.set_shader_parameter("mask_tex", FIGURE_MASK)
+		mat.set_shader_parameter("design_tex", FIGURE_DESIGN)
 		mat.set_shader_parameter("sheet_size", VignetteFigures.SHEET_SIZE)
 		mat.set_shader_parameter("skin_tones", [SKIN, SKIN, SKIN, SKIN, SKIN, SKIN, SKIN, SKIN])
 		mat.set_shader_parameter("hair_tones", [HAIR, HAIR, HAIR, HAIR, HAIR, HAIR, HAIR, HAIR])
-		material = mat
-	var primary := []
-	var secondary := []
-	var shorts := []
-	for side in range(2):
-		var cols: Array = _colours[side]
-		var shirt: Color = cols[0] if cols.size() > 0 else Color.WHITE
-		var trim: Color = cols[1] if cols.size() > 1 else Color.DIM_GRAY
-		primary.append(shirt)
-		secondary.append(trim)
-		shorts.append(trim.darkened(0.1))
-	primary.append_array([UMPIRE, UMPIRE])
-	secondary.append_array([UMPIRE.darkened(0.3), UMPIRE.darkened(0.3)])
-	shorts.append_array([Color(0.1, 0.1, 0.12), Color(0.1, 0.1, 0.12)])
-	mat.set_shader_parameter("kit_primary", primary)
-	mat.set_shader_parameter("kit_secondary", secondary)
-	mat.set_shader_parameter("kit_shorts", shorts)
+	var fields := {"base": [], "pattern": [], "pattern2": [], "shorts": [], "design": []}
+	for i in range(4):
+		var kit: Dictionary = kits[mini(i, kits.size() - 1)]
+		for f in ["base", "pattern", "pattern2", "shorts"]:
+			fields[f].append(kit[f])
+		fields["design"].append(float(maxi(0, GameDB.GUERNSEY_DESIGNS.find(str(kit["design"])))))
+	for f in fields:
+		mat.set_shader_parameter("kit_" + f, fields[f])
+	return mat
 
 
 ## Straight to the frozen contest (a tap skips the play-in; tests).
@@ -393,9 +412,11 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 		var fs := int(back.size.y * 0.42)
 		var font: Font = UiKit.DISPLAY
 		var nw := font.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var shirt: Color = (_colours[int(t["side"])] as Array)[0]
-		draw_string(font, Vector2(back.get_center().x - nw * 0.5, back.position.y + back.size.y * 0.42 + fs * 0.36),
-				num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, _readable_on(shirt))
+		var shirt: Color = (_kits[int(t["side"])] as Dictionary)["base"]
+		var spot := Vector2(back.get_center().x - nw * 0.5, back.position.y + back.size.y * 0.42 + fs * 0.36)
+		# Edged in the guernsey's own colour, so it reads across stripes and panels.
+		draw_string_outline(font, spot, num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, maxi(2, fs / 6), shirt)
+		draw_string(font, spot, num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, _readable_on(shirt))
 
 
 ## Rucks are the tall figures; everyone else, the umpire included, the average build.

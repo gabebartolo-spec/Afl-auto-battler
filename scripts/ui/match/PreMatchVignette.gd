@@ -51,6 +51,7 @@ func setup_prematch(my_code: String, opp_code: String, my_ground: Array, opp_gro
 	title = heading
 	banner = GameDB.club_name(my_code)
 	_colours = [GameDB.club_colours(my_code), GameDB.club_colours(opp_code)]
+	_codes = [my_code, opp_code]
 	tokens.clear()
 	for p in my_ground.slice(0, MINE):
 		tokens.append({"side": 0, "mine": true, "slot": "", "tired": false, "num": int(p["num"])})

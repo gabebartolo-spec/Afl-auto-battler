@@ -203,6 +203,26 @@ func club_marker_colours(code: String) -> Array:
 	return cols if THREE_COLOUR_CLUBS.has(code) else cols.slice(0, 2)
 
 
+## Guernsey designs the vignette figures can wear, in figure.gdshader's numbering.
+const GUERNSEY_DESIGNS := ["plain", "stripes", "hoops", "sash", "yoke", "band", "chevrons", "panels"]
+
+
+## A club's home guernsey, from data/clubs.csv's "guernsey" column:
+## "<design>:<base>/<pattern>/<pattern 2>", each colour p, s or a (the club's
+## primary, secondary or accent). The base colour is the guernsey's and the
+## socks'; the pattern colour draws the design and the sock band. Richmond is
+## "sash:s/p/a": a black guernsey with a yellow sash. Unknown or missing: plain.
+func club_guernsey(code: String) -> Dictionary:
+	var cols := club_colours(code)
+	var parts := str(clubs.get(code, {}).get("guernsey", "")).split(":")
+	var design := parts[0] if GUERNSEY_DESIGNS.has(parts[0]) else "plain"
+	var slots := (parts[1] if parts.size() > 1 else "p/s/a").split("/")
+	var pick := func(i: int) -> Color:
+		var at := "psa".find(slots[i]) if i < slots.size() else -1
+		return cols[at if at >= 0 else i]
+	return {"design": design, "base": pick.call(0), "pattern": pick.call(1), "pattern2": pick.call(2)}
+
+
 func club_list(code: String) -> Array:
 	return players_by_club.get(code, [])
 

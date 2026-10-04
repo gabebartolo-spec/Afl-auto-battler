@@ -463,11 +463,24 @@ func _bounce_close_up() -> void:
 	_check(tokens.filter(func(t): return str(t["slot"]) == "R").size() == 2, "Both rucks are at the bounce")
 	# The players are the pre-rendered figures, each side in its own club's colours.
 	var mat := vig.material as ShaderMaterial
-	var kits: Array = Array(mat.get_shader_parameter("kit_primary")) if mat != null else []
-	_check(kits.size() == 4
-			and kits[me] == db.club_colours(str(sim.squads[me].code))[0]
-			and kits[them] == db.club_colours(str(sim.squads[them].code))[0],
-			"The players are drawn as figures in both clubs' colours")
+	var kits: Array = Array(mat.get_shader_parameter("kit_base")) if mat != null else []
+	var designs: Array = Array(mat.get_shader_parameter("kit_design")) if mat != null else []
+	var mine: Dictionary = db.club_guernsey(str(sim.squads[me].code))
+	var theirs: Dictionary = db.club_guernsey(str(sim.squads[them].code))
+	_check(kits.size() == 4 and kits[me] == mine["base"] and kits[them] == theirs["base"]
+			and int(designs[me]) == db.GUERNSEY_DESIGNS.find(mine["design"])
+			and int(designs[them]) == db.GUERNSEY_DESIGNS.find(theirs["design"]),
+			"The players are drawn as figures in both clubs' guernseys")
+	# Every club's guernsey names a design the figures can wear, in that club's own colours.
+	var guernseys_ok := true
+	for code in db.clubs:
+		var row: String = str(db.clubs[code].get("guernsey", ""))
+		var g: Dictionary = db.club_guernsey(str(code))
+		var cols: Array = db.club_colours(str(code))
+		guernseys_ok = guernseys_ok and db.GUERNSEY_DESIGNS.has(row.split(":")[0]) \
+				and str(g["design"]) == row.split(":")[0] \
+				and cols.has(g["base"]) and cols.has(g["pattern"]) and cols.has(g["pattern2"])
+	_check(guernseys_ok and db.clubs.size() >= 18, "Every club's guernsey is a design the figures can wear")
 	var moves_ok := true
 	for body in VignetteFigures.BODIES.values():
 		for anim in ["idle", "jog", "leap", "bounce"]:
@@ -475,7 +488,8 @@ func _bounce_close_up() -> void:
 				var info: Dictionary = ((body["anims"] as Dictionary).get(anim, {}) as Dictionary).get(facing, {})
 				moves_ok = moves_ok and int(info.get("frames", 0)) > 0
 	_check(moves_ok and Vector2i((vig.FIGURE_SHADE as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
-			and Vector2i((vig.FIGURE_MASK as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE,
+			and Vector2i((vig.FIGURE_MASK as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
+			and Vector2i((vig.FIGURE_DESIGN as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE / 2,
 			"The figure sheets hold every move the scene plays, front and back")
 	# It plays as a scene: the players run into the set-up before the freeze.
 	var before: Vector2 = vig.call("_pos", tokens[0])
