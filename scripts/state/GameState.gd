@@ -5300,10 +5300,23 @@ func week_event_pending() -> bool:
 	return not week_event.is_empty() and not bool(week_event.get("resolved", false))
 
 
-## Before a round is played, an unanswered event takes its default.
+## Before a round is played, an unanswered card: no benefit comes without a
+## choice. It changes nothing unless not acting has its own consequence (the
+## card's "default", ClubLife.pick_event).
 func _settle_week_event() -> void:
-	if week_event_pending():
-		resolve_week_event(int(week_event.get("default", 0)))
+	if not week_event_pending():
+		return
+	var d := int(week_event.get("default", -1))
+	if d >= 0:
+		resolve_week_event(d)
+		return
+	var cost: Dictionary = week_event.get("unanswered", {})
+	if int(cost.get("board", 0)) != 0 and not board.is_empty():
+		board["confidence"] = clampi(board_confidence() + int(cost["board"]), 0, 100)
+	week_event["resolved"] = true
+	week_event["choice"] = -1
+	week_event["outcome"] = str(cost.get("text", "Business as usual."))
+	mark_dirty()
 
 
 ## Apply the chosen option. Returns what happened.

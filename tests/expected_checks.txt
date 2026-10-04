@@ -28,7 +28,7 @@ awards 22
 achievements 153
 contracts 177
 league 19
-club 99
+club 104
 match_game 155
 pressure 21
 workload 32
