@@ -204,23 +204,33 @@ func club_marker_colours(code: String) -> Array:
 
 
 ## Guernsey designs the vignette figures can wear, in figure.gdshader's numbering.
-const GUERNSEY_DESIGNS := ["plain", "stripes", "hoops", "sash", "yoke", "band", "chevrons", "panels"]
+const GUERNSEY_DESIGNS := ["plain", "stripes", "hoops", "sash", "yoke", "band", "chevrons", "panels",
+		"chevron", "sides", "tiers", "shoulders"]
 
 
-## A club's home guernsey, from data/clubs.csv's "guernsey" column:
-## "<design>:<base>/<pattern>/<pattern 2>", each colour p, s or a (the club's
-## primary, secondary or accent). The base colour is the guernsey's and the
-## socks'; the pattern colour draws the design and the sock band. Richmond is
-## "sash:s/p/a": a black guernsey with a yellow sash. Unknown or missing: plain.
+## A club's home kit, from data/clubs.csv's "guernsey" column:
+## "<design>:<base>/<pattern>/<pattern 2>[/<shorts>]". Each colour is p, s or a
+## (the club's primary, secondary or accent) or a #RRGGBB colour the club's
+## three don't cover (Port Adelaide's white chevron). The base colour is the
+## guernsey's and the socks'; the pattern colour draws the design and the sock
+## band; the second pattern colour is a design's third colour or trim. Shorts
+## left out are the secondary colour, a shade darker. Richmond is "sash:s/p/a":
+## a black guernsey with a yellow sash. Unknown or missing: plain.
 func club_guernsey(code: String) -> Dictionary:
 	var cols := club_colours(code)
 	var parts := str(clubs.get(code, {}).get("guernsey", "")).split(":")
 	var design := parts[0] if GUERNSEY_DESIGNS.has(parts[0]) else "plain"
 	var slots := (parts[1] if parts.size() > 1 else "p/s/a").split("/")
-	var pick := func(i: int) -> Color:
-		var at := "psa".find(slots[i]) if i < slots.size() else -1
-		return cols[at if at >= 0 else i]
-	return {"design": design, "base": pick.call(0), "pattern": pick.call(1), "pattern2": pick.call(2)}
+	var pick := func(i: int, fallback: Color) -> Color:
+		if i >= slots.size():
+			return fallback
+		var token := str(slots[i])
+		if token.begins_with("#"):
+			return Color.from_string(token, fallback)
+		var at := "psa".find(token)
+		return cols[at] if at >= 0 and token.length() == 1 else fallback
+	return {"design": design, "base": pick.call(0, cols[0]), "pattern": pick.call(1, cols[1]),
+			"pattern2": pick.call(2, cols[2]), "shorts": pick.call(3, (cols[1] as Color).darkened(0.1))}
 
 
 func club_list(code: String) -> Array:

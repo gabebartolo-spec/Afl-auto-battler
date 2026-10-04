@@ -98,11 +98,10 @@ func _dress() -> void:
 	for side in range(2):
 		var code := str(_codes[side])
 		var cols: Array = _colours[side]
+		var trim: Color = cols[1] if cols.size() > 1 else Color.DIM_GRAY
 		var kit: Dictionary = GameDB.club_guernsey(code) if code != "" else {
 				"design": "plain", "base": cols[0] if cols.size() > 0 else Color.WHITE,
-				"pattern": cols[1] if cols.size() > 1 else Color.DIM_GRAY, "pattern2": Color.WHITE}
-		var trim: Color = cols[1] if cols.size() > 1 else Color.DIM_GRAY
-		kit["shorts"] = trim.darkened(0.1)
+				"pattern": trim, "pattern2": Color.WHITE, "shorts": trim.darkened(0.1)}
 		kits.append(kit)
 	_kits = kits
 	material = figure_material(kits + [UMPIRE_GEAR], material as ShaderMaterial)

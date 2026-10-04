@@ -67,6 +67,19 @@ vec2 design(int d, vec3 g) {
 		float mid = over(g.x, 0.36) * over(0.64, g.x);
 		float right = over(0.36, g.x);
 		return vec2(mid, right);
+	} else if (d == 8) {   // chevron: a deep V from the shoulders, pattern colour outside, second colour inside
+		float c = g.y - 2.0 * abs(g.x - 0.5);
+		float band = over(c, 0.44) * over(0.76, c);
+		float inside = over(c, 0.60);
+		return vec2(band * (1.0 - inside), band * inside) * g.z;
+	} else if (d == 9) {   // sides: panels down each side, widening to the hem
+		return vec2(over(abs(g.x - 0.5), 0.33 - 0.06 * (1.0 - g.y)), 0.0);
+	} else if (d == 10) {  // tiers: the top in the pattern colour, a band below it, the base under that
+		float top = over(g.y, 0.62);
+		float band = over(g.y, 0.52) * over(0.62, g.y);
+		return vec2(top, band);
+	} else if (d == 11) {  // shoulders: panels over each shoulder, from beside the neck to the armpit
+		return vec2(over(g.y, 1.18 - 2.27 * abs(g.x - 0.5)), 0.0);
 	}
 	return vec2(0.0);
 }

@@ -471,15 +471,19 @@ func _bounce_close_up() -> void:
 			and int(designs[me]) == db.GUERNSEY_DESIGNS.find(mine["design"])
 			and int(designs[them]) == db.GUERNSEY_DESIGNS.find(theirs["design"]),
 			"The players are drawn as figures in both clubs' guernseys")
-	# Every club's guernsey names a design the figures can wear, in that club's own colours.
+	# Every club's guernsey names a design the figures can wear, and every colour in it
+	# is one of the club's own (p, s, a) or written out (#RRGGBB).
 	var guernseys_ok := true
 	for code in db.clubs:
 		var row: String = str(db.clubs[code].get("guernsey", ""))
-		var g: Dictionary = db.club_guernsey(str(code))
-		var cols: Array = db.club_colours(str(code))
-		guernseys_ok = guernseys_ok and db.GUERNSEY_DESIGNS.has(row.split(":")[0]) \
-				and str(g["design"]) == row.split(":")[0] \
-				and cols.has(g["base"]) and cols.has(g["pattern"]) and cols.has(g["pattern2"])
+		var parts := row.split(":")
+		var slots := parts[1].split("/") if parts.size() > 1 else PackedStringArray()
+		var colours_ok := slots.size() >= 3 and slots.size() <= 4
+		for token in slots:
+			colours_ok = colours_ok and (token in ["p", "s", "a"]
+					or (token.begins_with("#") and token.length() == 7 and Color.html_is_valid(token)))
+		guernseys_ok = guernseys_ok and colours_ok and db.GUERNSEY_DESIGNS.has(parts[0]) \
+				and str(db.club_guernsey(str(code))["design"]) == parts[0]
 	_check(guernseys_ok and db.clubs.size() >= 18, "Every club's guernsey is a design the figures can wear")
 	var moves_ok := true
 	for body in VignetteFigures.BODIES.values():
