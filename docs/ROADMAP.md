@@ -3937,7 +3937,59 @@ Guardrails: this is **not tied to super drafts**; do not guarantee the GOAT is o
 
 ---
 
+---
+
+# 9.1 Post-Italy / phone playtest findings — 2026-10-04
+
+**Status: TODO / playtest consolidation.** These findings came from a multi-season Android playtest. Treat the overall difficulty/list-management findings as the main balance priority; fix concrete progression and misleading-UX bugs before adding unrelated feature breadth. Preserve the global rules: no psychic AI, no hidden AI advantages, no best-move hints, mobile-first interaction, and no number-vomit.
+
+## P0 / correctness and trust
+
+- **Mid-season bye falsely enters post-season state — KNOWN BUG.** Observed at Round 15 of 24 while Melbourne was 2nd at 11–3: the Hub said “Season over for you / You missed the top 10” and exposed “Sim to Grand Final / Sim Wildcard Round”. Reproduce a user-club bye, distinguish “no fixture this round” from “no H&A fixtures remaining”, make finals controls impossible before H&A completion, and add regression coverage proving the next H&A match remains available.
+- **Season fatigue parity audit — VERIFY.** User squad appeared consistently more tired than opposition. Verify AI clubs accumulate and recover fatigue through the season under the same rules and constraints as the user; no hidden fatigue protection.
+- **Generated-player provenance / age sanity — VERIFY.** A fictional Joshua Robinson appeared age 28 only ~2–3 seasons into the save with 89 POT. Audit all non-draft/list-fill/emergency generation paths, initial ages, club assignment, age × potential logic and career-history provenance. Fictional players should have believable entry history; do not silently spawn implausible veteran high-potential players.
+- **Training role/classification sanity — VERIFY.** A small defender appeared as a Key Defender after KPD training. Determine whether the underlying role/eligibility actually changed or only the display heuristic changed. Training may improve relevant skills but must not mechanically convert physically unsuitable players into key-position archetypes; audit equivalent role-label transformations.
+- **Goal-line scramble vignette — KNOWN BUG / football sanity.** The current “scramble at the goal line” sequence reads as nonsense. Rework the event/presentation so the underlying football sequence is plausible rather than preserving the vignette for its own sake.
+- **Key-matchup copy/data binding — KNOWN BUG.** Observed repeated anonymous text such as “on him”, dangling colons and matchup rows that omit the opponent. Every assignment must clearly identify who is on whom with natural football copy.
+
+## P1 / difficulty, list building and meaningful management
+
+- **Overall difficulty is too low — BALANCE-GATED.** The playtest produced three consecutive premierships despite minimal engagement with training or list management. Audit why neglecting management carries too little cost. Do not solve this with hidden AI boosts, rubber-banding or psychic tactics. Measure low-engagement/autopilot seasons against actively managed seasons; training, development, ageing, contracts, cap pressure, depth, drafting, selection and AI list building must create meaningful long-term consequences without weekly busywork.
+- **List-profile top end is too easy to reach — BALANCE-GATED.** By roughly season 3 the user list showed Elite in Contest, Control, Running power and Aerial power and Strong in Pressure and Finishing. Tighten/calibrate league-relative profile bands so “Elite” means genuinely exceptional relative to the competition. Audit player development/attribute inflation as well as thresholds. Strong sides should normally retain identifiable weaknesses.
+- **Synergies should be build specialisations, not completion bonuses — TODO / BALANCE-GATED.** Nearly every synergy was unlocked by season 3. Make activation materially harder and effects materially stronger so pursuing a synergy resembles an RPG build specialisation: roster commitment, meaningful opportunity cost and distinct club identity. A balanced good list should not naturally unlock everything. AI clubs may pursue identities from their actual lists. Keep activation rules/effects transparent without recommending the optimal recruit or build.
+- **Extreme-margin calibration — BALANCE-GATED.** A 175–28 win (147 points) is possible football and must remain possible, but audit the frequency of 80+/100+/120+/150+ margins, especially for dominant user teams. Check compounding between ratings, synergies, gameplan, form/momentum and losing-side resistance. Preserve rare massacres; prevent routine runaway percentage farming. Include extreme individual-stat/rating sanity in the same measurement.
+- **Trade valuation / potential-by-age audit — VERIFY / BALANCE-GATED.** Review current OVR, realistic remaining development, age, contract, positional need and club strategy together. Potential must be age-adjusted in trade value; an identical POT number cannot imply the same future asset at 17 and 28. Reassess the observed Rozee-for-Robinson example only after the generated-player provenance issue is understood.
+- **Opposition POT information — VERIFY.** Audit whether exact opposition POT is being exposed without sufficient scouting certainty. Preserve the anti-psychic rule; where uncertainty is intended, show an earned estimate/range rather than omniscient exact potential.
+- **Full coaching mobility / off-season staff market — VERIFY then TODO if incomplete.** Staff appeared effectively static. Verify contracts, expiries, AI movement, internal promotion, retired-player entry and market circulation. The intended system is a second off-season roster-building layer: retain/release/promote/recruit staff under simple contracts, with assistants pursuing genuine promotions and AI clubs following the same market. Preserve the no-sideways-poaching design; avoid six tedious negotiations every year.
+- **Contract-talk events currently pre-solve the off-season — BALANCE-GATED.** Early extension requests occur often enough that stars are largely re-signed before the season ends. Reduce frequency and make requests contextual/notable. Most clubs should reach the off-season with meaningful contract decisions unresolved. Early security should have a real price/trade-off; stars should not conveniently remove the hardest cap decisions.
+- **Harvey Langford balance adjustment — TODO / BALANCE-GATED.** Increase Harvey Langford’s player attributes by approximately 15% as an explicit player-data balance correction; do not use this as justification to alter the broader generation model.
+
+## P1 / coaching decisions and weekly flow
+
+- **Gameplan choice still feels like a crapshoot — TODO.** Improve decision information and consequence legibility so the player can form a reasonable tactical hypothesis without being told the best move.
+- **Quarter-break opponent-plan reveal — KNOWN BUG / VERIFY.** The break does not consistently reveal the opponent plan used in the quarter that just finished. Make the intended retrospective information reliable.
+- **“X is hurting you” must connect to a lever — TODO.** Quarter-break coaching feedback can identify a dangerous opponent when no meaningful response is available. Either surface an appropriate matchup/tag/structural response or do not frame the observation as actionable advice.
+- **“How we get beaten” not learning — VERIFY.** It can still say “Nothing stands out yet” halfway through a season. Audit accumulation, sample requirements and thresholds. By mid-season it should normally identify genuine recurring patterns when evidence exists, but must not invent a trend merely to fill the panel.
+- **Weekly selection brief — TODO.** Before selection, surface only a short set of genuine pressures such as “X is pushing for selection”, “X needs a rest”, sustained poor senior form, or a player returning from injury/suspension. Make each item actionable into the relevant change/replacement flow. This is decision support, not an assistant that picks the team.
+- **Streamline Ins & Outs — TODO.** Selection should naturally support OUT → IN changes with a small set of suitable eligible replacements, while retaining a path to the full list. Do not declare a “best” replacement.
+- **Key match-ups need to be meaningful interventions — TODO.** Routine KPF/KPD pairings should generally be handled automatically rather than manufactured as coaching choices every match. Surface special matchup decisions for genuinely dangerous/hot players, interceptors, small forwards, midfielders, sacrificed attacking defenders, etc. It is acceptable for a match to have no special matchup decision. Connect this system to “X is hurting you” feedback.
+
+## P1 / mobile list and training UX
+
+- **My List → My Selection interaction flow — TODO.** Selecting a player currently requires scrolling to a distant action area. Put relevant actions at/near the selected player. Dropping a player should immediately offer a restrained set of suitable positional/role replacements plus full-list access.
+- **My List → Shape should be functional — TODO.** The formation screen is currently cosmetic. Make players directly tappable for move/reposition, swap and drop actions in context, with the same replacement flow. Treat Shape as a candidate primary mobile selection interface rather than maintaining a pretty read-only duplicate.
+- **My List → Full List traits — TODO.** Surface distinctive player traits without adding trait-vomit. Prefer a compact trait name/indicator with tap-to-inspect details so the list communicates player identity at a glance.
+- **Training touch handling — KNOWN UX BUG.** Player rows are too eager to register selection while the user is scrolling, causing accidental multi-selects. Add robust scroll-vs-tap/long-press discrimination and test rapid swipes, slow drags, taps and long-press on phone touch input.
+- **Training scrollbar — TODO / mobile polish.** The right-side scrollbar/thumb is awkward to grab. Increase its touch usability if retained, but prioritise normal swipe scrolling so grabbing the scrollbar is rarely necessary.
+
+## P2 / presentation polish observed during playtest
+
+- **Money formatting consistency — TODO.** Raw values such as “1626750 under the cap”, “970000” and “1115500” were visible in player-facing UI. Use compact AFL-scale currency formatting consistently (for example $1.63m, $970k, $1.12m) without changing underlying values.
+
+
 # 10. Roadmap Maintenance Log
+
+- **2026-10-04:** Consolidated the multi-season Android/Italy playtest findings: P0 bye/progression and football-sanity bugs; overall difficulty/list-profile/synergy calibration; fatigue parity, generated-player provenance, trade/potential and coaching-mobility audits; contract/off-season pressure; weekly selection and matchup decision support; mobile selection/training UX; and observed presentation formatting issues.
 
 - **2026-10-02:** Added the ultra-rare GOAT prospect concept: roughly once per 30 seasons, independent of super drafts, foreshadowed anonymously through draft whispers/Combine clues, with superstar salary and godfather-offer trade economics if he develops.
 
