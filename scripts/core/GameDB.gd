@@ -285,6 +285,11 @@ func player_display_name_by_id(id: String, fallback := "") -> String:
 	var player = player_by_id(id)
 	if player != null:
 		return player_display_name(player)
+	# A player who joined a list during the career: name him from the lists.
+	if id != "":
+		var listed := GameState.season_player_name(id)
+		if listed != "":
+			return listed
 	return fallback
 
 

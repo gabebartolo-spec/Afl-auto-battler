@@ -21,6 +21,11 @@ var _bulk_selected := {}
 var _hold_tokens := {}
 var _suppress_open := {}
 var _hold_serial := 0
+## Where the finger went down: a press that turns into a scroll is neither
+## a tap nor a long press.
+var _press_scroll := 0
+var _press_pos := Vector2.ZERO
+const DRAG_SLOP := 12.0   # the list's scroll deadzone
 var _root: VBoxContainer
 var _list_scroll: ScrollContainer
 var _detail_scroll: ScrollContainer
@@ -336,10 +341,14 @@ func _begin_player_hold(id: String) -> void:
 	_hold_serial += 1
 	var token := _hold_serial
 	_hold_tokens[id] = token
+	_press_scroll = _list_scroll.scroll_vertical if is_instance_valid(_list_scroll) else 0
+	_press_pos = get_global_mouse_position()
 	await get_tree().create_timer(LONG_PRESS_SECONDS).timeout
 	if int(_hold_tokens.get(id, -1)) != token:
 		return
 	_hold_tokens.erase(id)
+	if _moved_since_press():
+		return
 	_suppress_open[id] = true
 	_toggle_bulk(id)
 
@@ -352,10 +361,19 @@ func _press_player(id: String) -> void:
 	if _suppress_open.has(id):
 		_suppress_open.erase(id)
 		return
+	if _moved_since_press():
+		return
 	if not _bulk_selected.is_empty():
 		_toggle_bulk(id)
 		return
 	_open_player(id)
+
+
+## The list scrolled, or the finger travelled, since it went down.
+func _moved_since_press() -> bool:
+	if is_instance_valid(_list_scroll) and absi(_list_scroll.scroll_vertical - _press_scroll) > 2:
+		return true
+	return get_global_mouse_position().distance_to(_press_pos) > DRAG_SLOP
 
 
 func _refresh_rows() -> void:

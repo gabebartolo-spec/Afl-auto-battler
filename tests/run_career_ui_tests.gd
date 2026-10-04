@@ -651,6 +651,47 @@ func _run() -> void:
 		for n in current_scene.find_children(tid, "", true, false):
 			seen += 1
 		_check(seen == 1, "All lists him once")
+	# A press that turns into a scroll is neither a tap nor a long press: a
+	# slow swipe through the list opens and group-selects nobody, while a
+	# still hold and a still tap work as before.
+	var ls: ScrollContainer = current_scene.get("_list_scroll")
+	var trainees: Array = current_scene.find_children("Trainee_*", "Button", true, false)
+	_check(ls != null and trainees.size() >= 2, "The training list has rows to swipe")
+	if ls != null and trainees.size() >= 2:
+		var row: Button = trainees[1]
+		var pid := str(row.name).trim_prefix("Trainee_")
+		row.emit_signal("button_down")
+		ls.scroll_vertical += 120
+		await create_timer(0.6).timeout
+		# A long press that fired would have rebuilt the list and freed the row.
+		if is_instance_valid(row):
+			row.emit_signal("button_up")
+			row.emit_signal("pressed")
+		await _settle()
+		_check(ls.scroll_vertical > 0 and (current_scene.get("_bulk_selected") as Dictionary).is_empty()
+				and not bool(current_scene.get("_showing_detail")),
+				"A slow swipe through the training list selects nobody")
+		row = current_scene.find_child("Trainee_" + pid, true, false)
+		if row != null:
+			row.emit_signal("button_down")
+			await create_timer(0.6).timeout
+			if is_instance_valid(row):
+				row.emit_signal("button_up")
+		await _settle()
+		_check((current_scene.get("_bulk_selected") as Dictionary).has(pid), "A still long press starts a group")
+		current_scene.set("_bulk_selected", {})
+		current_scene.call("_build")
+		await _settle()
+		var row2: Button = current_scene.find_child("Trainee_" + pid, true, false)
+		if row2 != null:
+			row2.emit_signal("button_down")
+			row2.emit_signal("button_up")
+			row2.emit_signal("pressed")
+			await _settle()
+		_check(bool(current_scene.get("_showing_detail")), "A still tap still opens the player")
+		current_scene.set("_showing_detail", false)
+		current_scene.call("_build")
+		await _settle()
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "hub", "Back from a plain Training list leaves the screen")
