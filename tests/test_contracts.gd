@@ -956,6 +956,18 @@ func _test_trade_value() -> void:
 	var ctx := {"phase": "building", "bars": TradeValue.selection_bars(base)}
 	_check(float(TradeValue.value(old, ctx)["total"]) < 0.6 * float(TradeValue.value(prime, ctx)["total"]),
 			"A 34-year-old is worth well under a player in his prime of the same rating")
+	# His contract moves his value a little, by how far it is from his
+	# market price in real money - not all or nothing.
+	var fair := Ratings.salary_value(80)
+	var deal := func(salary: int) -> float:
+		return TradeValue.contract_factor({"overall": 80, "salary": salary, "contract_years": 3})
+	_check(is_equal_approx(deal.call(fair), 1.0) and absf(deal.call(fair - 5000) - 1.0) < 0.005
+			and absf(deal.call(fair + 5000) - 1.0) < 0.005,
+			"A contract a few thousand dollars from his market price barely moves his trade value")
+	_check(deal.call(fair - 250000) > 1.04 and deal.call(fair - 250000) < 1.08
+			and is_equal_approx(deal.call(fair + 2000000), 0.88),
+			"A bargain contract adds a little and a heavy one takes a little off (%.3f, %.3f)" % [
+			deal.call(fair - 250000), deal.call(fair + 2000000)])
 
 
 ## Packages are order-free and fit one newcomer at a time; current need and
@@ -1341,17 +1353,51 @@ func _test_trade_market() -> void:
 	# trades and the offers come out the same both times.
 	_check(GameState.save_career(), "Saved before replaying the market")
 	var replay := []
+	var starters_ok := true
 	for k in range(2):
 		GameState.load_career()
 		GameState.offseason_log = []
 		GameState.trade_offers = []
 		GameState._freeze_league(true)
+		var phase_of := {}
+		var starter_at := {}
+		for code in GameState.season.lists:
+			phase_of[code] = GameState.club_phase(code)
+			for q in Ratings.select_22(GameState.season.lists[code])["ground"]:
+				starter_at[str(q["id"])] = code
 		GameState._ai_trades(GameState.trade_prospects())
+		for e in GameState.offseason_log.filter(func(x): return str(x.get("kind", "")) == "ai_trade"):
+			if str(starter_at.get(str(e["in"][0]), "")) == str(e["with"]):
+				starters_ok = starters_ok and str(phase_of[e["club"]]) == "contending" \
+						and str(phase_of[e["with"]]) == "rebuilding"
 		GameState._make_trade_offers(GameState.trade_prospects())
 		GameState._freeze_league(false)
 		replay.append(_market_snapshot())
 	_check(replay[0] == replay[1], "The market comes out the same from the same league: %s" % str(replay[0]))
+	_check(starters_ok, "A rival takes another club's starter only as a contender buying from a rebuilding club")
 	GameState.load_career()
+	# Who is on offer: a rebuilding club's established players to a contender,
+	# as to you; otherwise only the players outside a club's starting side.
+	var by_phase := {}
+	for code in GameState.season.lists:
+		if code != me and not by_phase.has(GameState.club_phase(code)):
+			by_phase[GameState.club_phase(code)] = code
+	_check(by_phase.has("contending") and by_phase.has("rebuilding") and by_phase.has("building"),
+			"The league has contenders, builders and rebuilders: %s" % str(by_phase))
+	if by_phase.has("contending") and by_phase.has("rebuilding") and by_phase.has("building"):
+		var ids := func(list: Array) -> Array:
+			return list.map(func(q): return str(q["id"]))
+		var reb := str(by_phase["rebuilding"])
+		var bld := str(by_phase["building"])
+		var con := str(by_phase["contending"])
+		var reb_star := str(Ratings.select_22(GameState.season.lists[reb])["ground"][0]["id"])
+		var bld_star := str(Ratings.select_22(GameState.season.lists[bld])["ground"][0]["id"])
+		_check(ids.call(GameState._trade_pool(con, reb)).has(reb_star)
+				and not ids.call(GameState._fringe(reb)).has(reb_star),
+				"A contender can go after a rebuilding club's starter")
+		_check(not ids.call(GameState._trade_pool(bld, reb)).has(reb_star)
+				and not ids.call(GameState._trade_pool(con, bld)).has(bld_star),
+				"Otherwise only a club's fringe is on offer to a rival")
 
 	# What each kind of club wants.
 	var phase_ok := true

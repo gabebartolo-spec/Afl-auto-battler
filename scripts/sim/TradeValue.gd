@@ -58,12 +58,15 @@ static func availability(p: Dictionary, games: int) -> float:
 
 
 ## A contract that pays him less than his rating is worth adds a little; one
-## that overpays takes a little off, more the longer it runs.
+## that overpays takes a little off, more the longer it runs. The gap is read
+## on the market's 1-10 scale (Contracts.salary_score: a point is about
+## $120k), so a few thousand dollars either way counts for nothing.
 static func contract_factor(p: Dictionary) -> float:
-	var fair := float(Ratings.salary_value(int(p.get("overall", 50))))
-	var paid := float(p.get("salary", fair))
+	var fair := Ratings.salary_value(int(p.get("overall", 50)))
+	var paid := int(p.get("salary", fair))
 	var years := float(clampi(int(p.get("contract_years", 1)), 1, 4))
-	return 1.0 + 0.03 * clampf(fair - paid, -4.0, 4.0) * minf(years, 3.0) / 3.0
+	var gap := Contracts.salary_score(fair) - Contracts.salary_score(paid)
+	return 1.0 + 0.03 * clampf(gap, -4.0, 4.0) * minf(years, 3.0) / 3.0
 
 
 ## The weakest player a club picks in each position of its side, and on its

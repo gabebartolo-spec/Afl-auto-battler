@@ -26,7 +26,7 @@ roles 164
 injuries 29
 awards 22
 achievements 153
-contracts 183
+contracts 189
 league 19
 club 104
 match_game 155

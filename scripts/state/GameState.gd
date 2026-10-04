@@ -3864,6 +3864,8 @@ const TRADE_MAX := 5
 ## off-season: a market that moves, not one that churns.
 const MAX_OFFERS := 2
 const MAX_AI_TRADES := 3
+## Targets a rival buyer tries before it gives up on trading this year.
+const TARGET_TRIES := 3
 ## Most offers that come in for one player or pick on the trade table.
 const MAX_TABLE_OFFERS := 3
 ## How close to the most it would pay a club opens with nobody else bidding
@@ -4042,11 +4044,12 @@ func _bid(club: String, asset: Dictionary, worth: float, shade: float, prospects
 
 
 ## Rival clubs trade with each other when both come out ahead by their own
-## lights: a club with a real need and a player elsewhere who meets it but
-## isn't in his own club's starting side. The
-## buyer bids from its own valuation, cheapest first, and the seller takes
-## the first bid it values enough - neither sees the other's sums. A club does one deal at most; never
-## with you; at most MAX_AI_TRADES a year, often none.
+## lights: a club with a real need and a player elsewhere who meets it (see
+## _trade_pool for who is on offer). The buyer bids from its own valuation,
+## cheapest first, and the seller takes the first bid it values enough -
+## neither sees the other's sums. Turned down, the buyer tries its next
+## target, up to TARGET_TRIES. A club does one deal at most; never with you;
+## at most MAX_AI_TRADES a year, often none.
 func _ai_trades(prospects: Dictionary) -> void:
 	var done := 0
 	var busy := {my_club: true}
@@ -4060,26 +4063,41 @@ func _ai_trades(prospects: Dictionary) -> void:
 		for code in _club_order("sellers"):
 			if busy.has(code) or code == buyer:
 				continue
-			for q in _fringe(code):
+			for q in _trade_pool(buyer, code):
 				others.append(q)
 				club_of[str(q["id"])] = code
-		var target := _trade_target(buyer, others, {})
-		if target.is_empty():
-			continue
-		var seller := str(club_of[str(target["id"])])
-		var most := _worth_to(buyer, target, prospects) / (1.0 + Contracts.TRADE_MARGIN)
-		var pkg := _negotiate(buyer, seller, target, _bids(buyer, most, prospects), prospects)
-		if pkg.is_empty():
-			continue
-		_execute_trade(buyer, seller, pkg, [target])
-		var said := "%s get %s from %s for %s." % [GameDB.club_name(buyer),
-				_names([target]), GameDB.club_name(seller), _names(pkg)]
-		offseason_log.append({"kind": "ai_trade", "club": buyer, "with": seller,
-				"in": [str(target["id"])], "out": pkg.map(func(a): return str(a["id"])), "text": said})
-		add_news("trade", "Trade: " + said)
-		busy[buyer] = true
-		busy[seller] = true
-		done += 1
+		var tried := {}
+		for _try in range(TARGET_TRIES):
+			var target := _trade_target(buyer, others, tried)
+			if target.is_empty():
+				break
+			tried[str(target["id"])] = true
+			var seller := str(club_of[str(target["id"])])
+			var most := _worth_to(buyer, target, prospects) / (1.0 + Contracts.TRADE_MARGIN)
+			var pkg := _negotiate(buyer, seller, target, _bids(buyer, most, prospects), prospects)
+			if pkg.is_empty():
+				continue
+			_execute_trade(buyer, seller, pkg, [target])
+			var said := "%s get %s from %s for %s." % [GameDB.club_name(buyer),
+					_names([target]), GameDB.club_name(seller), _names(pkg)]
+			offseason_log.append({"kind": "ai_trade", "club": buyer, "with": seller,
+					"in": [str(target["id"])], "out": pkg.map(func(a): return str(a["id"])), "text": said})
+			add_news("trade", "Trade: " + said)
+			busy[buyer] = true
+			busy[seller] = true
+			done += 1
+			break
+
+
+## Who `buyer` may go after at `seller`: the players outside its starting
+## side, whom anyone can see aren't first picks there - and, for a contender
+## buying from a rebuilding club, anyone on the list, as for you. A
+## rebuilder's established players are on the market to every contender,
+## not only to you; its own valuation still decides what it lets go.
+func _trade_pool(buyer: String, seller: String) -> Array:
+	if club_phase(buyer) == "contending" and club_phase(seller) == "rebuilding":
+		return season.lists[seller]
+	return _fringe(seller)
 
 
 ## The players outside a club's starting side (its bench and beyond) - who
