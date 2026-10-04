@@ -33,6 +33,8 @@ func _run() -> void:
 		await _phone_match(sz)
 	await _plan_at_first_bounce()
 	await _bounce_close_up()
+	await _playtest_bounce_scene()
+	_appearance()
 	# Battery: nothing is redrawn unless it changes, and never above 60 fps.
 	_check(bool(ProjectSettings.get_setting("application/run/low_processor_mode", false))
 			and int(ProjectSettings.get_setting("application/run/max_fps", 0)) == 60,
@@ -461,6 +463,80 @@ func _bounce_close_up() -> void:
 			"Only the players at the bounce, both sides (%d)" % tokens.size())
 	_check(names_ok, "Every player in the close-up is on the ground in this match")
 	_check(tokens.filter(func(t): return str(t["slot"]) == "R").size() == 2, "Both rucks are at the bounce")
+	# The players at the bounce are MatchSim's own: its ruck contestant and centre-bounce attendees.
+	_check(_bounce_matches_sim(vig.tokens, sim), "The close-up shows MatchSim's rucks and centre-bounce mids")
+	var looks_ok := true
+	for t in vig.tokens:
+		for p in sim.squads[int(t["side"])].ground:
+			if str(p["id"]) == str(t["id"]):
+				looks_ok = looks_ok and t["look"] == db.player_looks(p)
+	_check(looks_ok, "Each player in the scene wears his own look")
+	# The resting-ruck case: a midfielder stands in the ruck spot while the ruckman rests
+	# up forward. MatchSim sends the ruckman up, so the scene must show him taking the tap.
+	var before_at: Dictionary = sim.bounce_attendees(them)
+	var resting: Dictionary = before_at["ruck"]
+	var stand_in = null
+	for p in before_at["mids"]:
+		if not sim._is_ruckman(p) and stand_in == null:
+			stand_in = p      # one of the inside mids steps into the ruck spot
+	if not resting.is_empty() and stand_in != null:
+		var saved := [str(resting["role"]), resting.get("own_role", null), str(stand_in["role"])]
+		resting["own_role"] = "RUCK"     # a listed ruckman, resting up forward
+		resting["role"] = "FWD"
+		stand_in["role"] = "RUCK"
+		vig.setup(sim, me, "")
+		var tapper: Array = (vig.tokens as Array).filter(
+				func(t): return int(t["side"]) == them and str(t["slot"]) == "R")
+		var tapper_is_ruckman := false
+		for p in sim.squads[them].ground:
+			if not tapper.is_empty() and str(p["id"]) == str(tapper[0]["id"]):
+				tapper_is_ruckman = sim._is_ruckman(p)
+		_check(tapper.size() == 1 and str(tapper[0]["id"]) != str(stand_in["id"]) and tapper_is_ruckman
+				and _bounce_matches_sim(vig.tokens, sim),
+				"A midfielder in the ruck spot doesn't take the tap: a ruckman does, as in MatchSim")
+		resting["role"] = saved[0]
+		if saved[1] == null:
+			resting.erase("own_role")
+		else:
+			resting["own_role"] = saved[1]
+		stand_in["role"] = saved[2]
+		vig.setup(sim, me, "")
+	else:
+		_check(false, "The resting-ruck case can be staged (a ruck and an inside mid at the bounce)")
+	# The players are the pre-rendered figures, each side in its own club's colours.
+	var mat := vig.material as ShaderMaterial
+	var kits: Array = Array(mat.get_shader_parameter("kit_base")) if mat != null else []
+	var designs: Array = Array(mat.get_shader_parameter("kit_design")) if mat != null else []
+	var mine: Dictionary = db.club_guernsey(str(sim.squads[me].code))
+	var theirs: Dictionary = db.club_guernsey(str(sim.squads[them].code))
+	_check(kits.size() == 4 and kits[me] == mine["base"] and kits[them] == theirs["base"]
+			and int(designs[me]) == db.GUERNSEY_DESIGNS.find(mine["design"])
+			and int(designs[them]) == db.GUERNSEY_DESIGNS.find(theirs["design"]),
+			"The players are drawn as figures in both clubs' guernseys")
+	# Every club's guernsey names a design the figures can wear, and every colour in it
+	# is one of the club's own (p, s, a) or written out (#RRGGBB).
+	var guernseys_ok := true
+	for code in db.clubs:
+		var row: String = str(db.clubs[code].get("guernsey", ""))
+		var parts := row.split(":")
+		var slots := parts[1].split("/") if parts.size() > 1 else PackedStringArray()
+		var colours_ok := slots.size() >= 3 and slots.size() <= 4
+		for token in slots:
+			colours_ok = colours_ok and (token in ["p", "s", "a"]
+					or (token.begins_with("#") and token.length() == 7 and Color.html_is_valid(token)))
+		guernseys_ok = guernseys_ok and colours_ok and db.GUERNSEY_DESIGNS.has(parts[0]) \
+				and str(db.club_guernsey(str(code))["design"]) == parts[0]
+	_check(guernseys_ok and db.clubs.size() >= 18, "Every club's guernsey is a design the figures can wear")
+	var moves_ok := true
+	for body in VignetteFigures.BODIES.values():
+		for anim in ["idle", "jog", "leap", "bounce"]:
+			for facing in ["front", "back"]:
+				var info: Dictionary = ((body["anims"] as Dictionary).get(anim, {}) as Dictionary).get(facing, {})
+				moves_ok = moves_ok and int(info.get("frames", 0)) > 0
+	_check(moves_ok and Vector2i((vig.FIGURE_SHADE as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
+			and Vector2i((vig.FIGURE_MASK as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
+			and Vector2i((vig.FIGURE_DESIGN as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE / 2,
+			"The figure sheets hold every move the scene plays, front and back")
 	# It plays as a scene: the players run into the set-up before the freeze.
 	var before: Vector2 = vig.call("_pos", tokens[0])
 	for i in range(20):
@@ -501,6 +577,120 @@ func _bounce_close_up() -> void:
 	_check(not is_instance_valid(card), "The scene is gone once it has faded")
 	m.queue_free()
 	await _settle()
+
+
+## The playtest switch (Settings, ARD-M8-007): the centre-bounce scene comes even
+## where no call could - early in the last quarter of a blowout, the quarter's calls
+## spent - and plays through the real match screen.
+func _playtest_bounce_scene() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(360, 740)
+	_state.set_bounce_scene_every_match(true)
+	_check(_state.prepare_interactive_match() and bool(_state.pending_sim.always_offer_bounce),
+			"The playtest switch reaches the match")
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	m.find_child("StartQuarter", true, false).emit_signal("pressed")
+	await _settle()
+	m.get("_pitch").pause()
+	var sim = _state.pending_sim
+	var me := int(m.get("_my_side"))
+	sim.pending_moment = {}
+	sim.moment_side = me
+	sim.current_quarter = 4
+	sim.current_minute = 91
+	sim.at_centre = true
+	sim.set("_moments_this_q", 2)
+	sim.set("_last_moment_chain", int(sim.get("_chain_no")))
+	for side in range(2):
+		(sim.team_stats[side] as Dictionary)["goals"] = 6.0 if side == me else 15.0
+		(sim.team_stats[side] as Dictionary)["behinds"] = 5.0
+	sim.always_offer_bounce = false
+	_check(not sim.call("_boundary_moment") and sim.pending_moment.is_empty(),
+			"Without the switch, a blowout early in the last quarter brings no call")
+	sim.always_offer_bounce = true
+	_check(sim.call("_boundary_moment") and str(sim.pending_moment.get("kind", "")) == "bounce"
+			and int(sim.get("_moments_this_q")) == 2,
+			"With it, the centre-bounce call comes anyway, outside the quarter's calls")
+	m.call("_show_moment")
+	await _settle()
+	_check(m.find_child("StoppageVignette", true, false) != null, "The playtest call opens the centre-bounce scene")
+	m.queue_free()
+	await _settle()
+	_state.set_bounce_scene_every_match(false)
+
+
+## How players look on the figures (Appearance.gd, data/player_appearance.csv):
+## presentation only, never a guess about a real person, never tied to a rating.
+func _appearance() -> void:
+	var db = root.get_node("GameDB")
+	# Generated players: from the id alone - stable, and the same whatever the ratings say.
+	var fake := {"id": "GEN_1", "generated": true, "overall": 50, "role": "MID"}
+	var again := {"id": "GEN_1", "generated": true, "overall": 95, "role": "RUCK", "potential": 99}
+	var counts := [0, 0, 0, 0, 0, 0]
+	for i in range(3000):
+		counts[int(db.player_looks({"id": "gen_%d" % i, "generated": true})["skin"])] += 1
+	var mix_ok := true
+	var total := 0.0
+	for w in db.skin_mix:
+		total += float(w)
+	for t in range(6):
+		mix_ok = mix_ok and absf(counts[t] / 3000.0 - float(db.skin_mix[t]) / total) < 0.03
+	_check(db.player_looks(fake) == db.player_looks(again) and mix_ok,
+			"Generated players' looks come from their id alone, spread like the league (%s)" % str(counts))
+	# Real players: their curated row, or the neutral look until one exists - never a random one.
+	var curated := 0
+	var uncurated_ok := true
+	for p in db.players:
+		var row: Dictionary = db.appearance.get(db._look_key(p), {})
+		if row.is_empty():
+			uncurated_ok = uncurated_ok and db.player_looks(p) == Appearance.UNCURATED
+		else:
+			curated += 1
+			uncurated_ok = uncurated_ok and db.player_looks(p) == {"skin": int(row["skin"]), "hair": int(row["hair"])}
+	_check(uncurated_ok, "Real players look as curated, or neutral until they are - never guessed")
+	# Every curated row is a real player, with a tone, a hair colour, a status and a source.
+	var keys := {}
+	for p in db.players + db.draftees:
+		keys[db._look_key(p)] = true
+	var rows_ok := true
+	var f := FileAccess.open("res://data/player_appearance.csv", FileAccess.READ)
+	var header := f.get_csv_line()
+	var n := 0
+	while not f.eof_reached():
+		var r := f.get_csv_line()
+		if r.size() < header.size() or (r.size() == 1 and r[0] == ""):
+			continue
+		n += 1
+		var d := {}
+		for j in range(header.size()):
+			d[header[j]] = r[j]
+		rows_ok = rows_ok and keys.has(db._look_key(d)) and int(d["skin"]) >= 1 and int(d["skin"]) <= 6 				and Appearance.HAIR_KEYS.has(d["hair"]) and d["status"] in ["draft", "unsure", "confirmed"] 				and str(d["source"]).begins_with("http")
+	_check(rows_ok and n == db.appearance.size() and curated == n,
+			"Every curated look is a real player's, complete and sourced (%d rows)" % n)
+
+
+## The bounce scene's players, side by side, are MatchSim's: the ruck in the R
+## spot and the attending mids in the C, RR and RV spots, in its order.
+func _bounce_matches_sim(tokens: Array, sim) -> bool:
+	for side in range(2):
+		var at: Dictionary = sim.bounce_attendees(side)
+		var want := []
+		if not (at["ruck"] as Dictionary).is_empty():
+			want.append(["R", str(at["ruck"]["id"])])
+		var mids: Array = at["mids"]
+		for i in range(mids.size()):
+			want.append([["C", "RR", "RV"][i], str(mids[i]["id"])])
+		var shown := []
+		for t in tokens:
+			if int(t["side"]) == side:
+				shown.append([str(t["slot"]), str(t["id"])])
+		if shown != want:
+			return false
+	return true
 
 
 func _settle() -> void:
