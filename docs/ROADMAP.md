@@ -124,13 +124,9 @@ Never mark an item `DONE` because code was written locally. It must be merged an
 
 This is the **authoritative near-term work order**. The milestone catalogue below is not a command to start more work while validated PRs are already in flight.
 
-1. **Close any genuine P0 phone-playtest failures first (§1.11).** A newly reproduced soft-lock, broken match flow, fake/no-op choice or major performance regression still jumps ahead of planned feature work.
-2. **Finish the active match-authenticity stack before starting adjacent M3 work.** PR #190 implements boundary/OOB/2026 last-disposal rules. PR #196 is stacked on it and implements smothers, genuine speccies, 50-metre penalties, MRO/suspensions/Tribunal flow and real kick-ins. Merge/sync in dependency order; do not duplicate these systems on another branch.
-3. **Finish the active Draft decision-support work.** M5-012, M5-013, the list-need strip and pre-draft meeting are merged. PR #188 is the remaining M5-014 Combine/scouting-uncertainty implementation. Do not start a second Combine/scouting model while it is open.
-4. **Finish ARD-M6-004 through the existing stack.** The trade redesign is already split into #182 (valuation/club strategy) → #191 (current picks) → #193 (future picks). PR #198 is stacked on #193 and converts the salary-cap/contracts economy from cap points to AFL-scale dollars. Free-agent browsing sort/scroll polish is already merged in #184. Finish and reconcile this stack before adding more list-management branches.
-5. **Clear the small independent mobile/gameplay PRs already in review.** #192 training multi-select, #194 football-shaped selection and #195 GPS distance covered are implemented and should be validated/merged rather than re-created. M5-001 (18 + 5 interchange) remains a separate TODO after the current match/selection changes settle.
-6. **Finish the post-season / long-save PRs already in flight before opening more presentation work.** #183 post-match media, #186 milestone expansion, #187 History & records, #189 coaches-award/season-honours program and #185 awards ceremony work are active. These are incremental pieces of M6-008/M7-003/M7-005, not proof that the whole umbrellas are complete.
-7. **Then resume genuinely unstarted catalogue work** from M3/M4/M5/M7/M8 according to player value and dependencies, rather than roadmap-number order.
+1. **Close any genuine P0 phone-playtest failures first (§1.11, §9.1).** A newly reproduced soft-lock, broken match flow, fake/no-op choice or major performance regression still jumps ahead of planned feature work.
+2. **The former in-flight stack has landed.** _Reconciled 2026-10-05:_ the match-authenticity work (#190 merged; #196 smothers/speccies/50s/MRO/kick-ins), Combine/scouting (#188), the trade/contracts stack (#182 → #191 → #193 → #198, real-money contracts), GPS distance (#195), post-match media (#183), milestones (#186), History & records (#187) and the awards ceremony (#185) were closed as separate PRs and carried onto `main` by the consolidated squash merge #208; #189, #192, #194 and #205 merged directly. Do not reopen or re-create them; treat follow-ups as ordinary work against `main`.
+3. **Then resume genuinely unstarted catalogue work** from M3/M4/M5/M7/M8 and the §9.1 playtest findings according to player value and dependencies, rather than roadmap-number order. M5-001 (18 + 5 interchange) remains a separate TODO now that selection changes have settled.
 
 ### Queue rules
 
@@ -374,7 +370,7 @@ The current phone playtest has exposed a core-loop problem more important than f
 - List/selection synergies are opaque enough that the user cannot reliably reason about why a combination should work.
 - Pre-match and in-match choices feel insufficiently informed: the user is often clicking an option and hoping rather than making a football decision from understandable evidence.
 - Results do not provide enough feedback to connect a decision to what subsequently happened, so the player cannot readily learn from wins/losses.
-- **Match-feed club identity bug:** injury lines can show a club that is not playing (for example, `Tim English (Bulldogs)` during Demons–Suns), even when ordinary scoring lines use the player's current in-save club correctly. Fix injury/story feed club labels so they are derived from the player's current match side/list context rather than stale source-data club metadata. Acceptance: moved players always show the club they represent in that match, and no uninvolved club can appear on their injury line; add targeted regression coverage. **Status:** fix is in open PR #120; not yet merged to `main`.
+- **Match-feed club identity bug:** injury lines can show a club that is not playing (for example, `Tim English (Bulldogs)` during Demons–Suns), even when ordinary scoring lines use the player's current in-save club correctly. Fix injury/story feed club labels so they are derived from the player's current match side/list context rather than stale source-data club metadata. Acceptance: moved players always show the club they represent in that match, and no uninvolved club can appear on their injury line; add targeted regression coverage. **Status:** fixed and merged in PR #120.
 - **Unavailable tag-target bug:** a player who has already been injured out of the match can still appear as a tag target at the next-quarter decision (for example, Jordan Dawson after the feed says he will not return). Tag-target eligibility must come from current match availability/on-ground state, not the pre-match opponent list. Acceptance: injured-off players and anyone else no longer taking part cannot be selected or retained as a tag target; if the current target leaves the match, clear/re-resolve the tag cleanly; add targeted regression coverage. **Status:** fixed and merged in PR #121.
 - **Three-game coaching trend gate bug:** after the user has completed three matches, Coaching can still show “After three games, how your side wins and gets beaten shows here.” Diagnose why `GameState.how_we_play()["games"]` is still below 3 or otherwise stale despite three completed user matches. Acceptance: the section unlocks immediately after the third completed match, persists correctly through save/load, and does not depend on unrelated clubs having played a particular number of matches; add targeted regression coverage.
 - **How-we-play data maturity / season-learning audit:** once `How we win / How we get beaten` unlocks after three matches, it can feel effectively fixed for the rest of the season instead of becoming a better read as evidence accumulates. Current code is **not literally frozen**: `_note_form_and_team()` adds every match to `season_team`, and `_style_found()` recomputes per-game differences against the current league average whenever the screen is read. The phone screenshots already show small numeric movement (for example ruck edge 12 → 10 hit-outs, turnover concession 7 → 6), so treat this as a quality/confidence problem rather than a stale-state bug unless testing proves otherwise. Audit whether the same top traits become too sticky after the initial three-game sample, whether early outlier games dominate too long, and whether new evidence can realistically promote/demote/reorder traits. The system should become **more trustworthy, not merely more verbose**, as the season grows. Prefer sample-size-aware thresholds/shrinkage or similarly simple statistical treatment over extra UI; if early-season uncertainty needs copy, keep it minimal (for example an 'early read' treatment rather than confidence bars/numbers). Acceptance: after each match the underlying profile is recomputed from all available season data; early three-game identities are appropriately provisional; materially changing team performance can change which traits are surfaced; stable genuine traits become harder to dislodge as evidence grows; and late-season `How we play` is demonstrably more reliable than the first three-game read. Add deterministic season-progression tests at 3, 6, 12 and 20+ games.
@@ -383,7 +379,7 @@ The current phone playtest has exposed a core-loop problem more important than f
 - **Match-up narrative consistency bug:** live quarter-break/report messaging and the post-match summary can tell conflicting stories about the same matchup (for example, live play says Jye Amiss is beating Blake Hardwick, while the post-match review says Hardwick's move onto Amiss "turned the contest" / was decisive). A changing matchup is valid, but the game must make the timeline explicit rather than sounding self-contradictory. Audit all live and post-match matchup verdicts so they are derived from the same underlying contest windows and thresholds. Acceptance: if a defender turns a matchup after previously losing it, the post-match copy says that clearly (e.g. "Amiss had the better of him early; Hardwick held him after the move") and never implies the earlier live assessment was wrong; if the evidence does not support a genuine turn, do not claim one. Add regression coverage for matchup narrative continuity across quarters and full-time.
 - **Quarter-break “What's happening” information vomit / tense problem:** the break screen currently mixes retrospective match facts, opponent-plan history, streaks and resolved in-play moments under a present-tense heading (“What's happening”), producing a dense, feed-like block that is awkward to read and visually ugly. Treat this as a presentation/decision-clarity issue, not a request for more data. Reframe the section as a concise record of **what happened in the quarter/half** and only surface the few facts that materially help the next decision. Avoid replaying resolved event-feed moments (for example a completed set shot) unless they matter tactically. Acceptance: at a break, the user can scan the section in a few seconds, understand the 2–3 most important developments from the period, and distinguish them cleanly from “What your calls did” and the next-quarter controls. Preserve football language; no stat dump and no duplicate story lines. **Status:** heading/tense part fixed in PR #123; the fact-selection/info-density part remains open.
 - **List Profile vs actual team strength validation:** the user's side can read as mostly Strong/Average across the five List Profile dimensions while losing every match heavily. The profile is not meant to predict every result, but if a side has no visible Weak area and repeatedly performs like a bottom side, the words may be overstating practical strength or omitting an important determinant of match performance. Audit the relationship between each profile label and realised match performance/results across clubs and repeated seeded matches. Do not turn this into an overall power rating or recommendation. Acceptance: Strong/Elite labels correspond to materially better outcomes in the football area they describe, and a side that is broadly above average across the profile does not routinely behave like a clearly weak team without an explainable cause visible elsewhere.
-- **Current-list club identity bug:** `My list` is still colouring each player's guernsey/number tile from `p["club"]`, which in a league re-draft can remain the player's original/source club. On the user's Melbourne list this produces a patchwork of old-team colours even though every player now represents Melbourne. Current-squad screens must use the player's **current club/list context**, not historical source-club metadata. On `My list`, every player should therefore carry Melbourne's red/blue identity (prefer the existing multi-band club marker where practical, not a single stale origin colour). Apply the same rule anywhere else that presents a player as a current member of a club: selection, training, match-day list/profile surfaces. Preserve original/source club only for explicit history/draft-origin contexts. Acceptance: after a league re-draft, no current-list screen visually implies a player still belongs to his former club; a Melbourne list reads consistently red/blue while career/history screens can still show past clubs when relevant. **Status:** fix is in open PR #118; not yet merged to `main`.
+- **Current-list club identity bug:** `My list` is still colouring each player's guernsey/number tile from `p["club"]`, which in a league re-draft can remain the player's original/source club. On the user's Melbourne list this produces a patchwork of old-team colours even though every player now represents Melbourne. Current-squad screens must use the player's **current club/list context**, not historical source-club metadata. On `My list`, every player should therefore carry Melbourne's red/blue identity (prefer the existing multi-band club marker where practical, not a single stale origin colour). Apply the same rule anywhere else that presents a player as a current member of a club: selection, training, match-day list/profile surfaces. Preserve original/source club only for explicit history/draft-origin contexts. Acceptance: after a league re-draft, no current-list screen visually implies a player still belongs to his former club; a Melbourne list reads consistently red/blue while career/history screens can still show past clubs when relevant. **Status:** fixed and merged in PR #118.
 - **Club marker colour accuracy audit:** the round-results screen exposes that a number of club colour markers do not convincingly match their real AFL identities. This screen is not inventing colours locally: `HubScene._results_list()` uses `UiKit.club_badge()` → `club_marker()` → `GameDB.club_marker_colours()`, which reads the hard-coded `primary/secondary/accent` values in `data/clubs.csv`; therefore audit the **source palette for every current AFL club**, not just this popup. Verify genuine club colours, ordering, two-vs-three-colour treatment and sufficiently accurate shades against authoritative club/AFL branding references. Do not use generic approximations simply because they are distinguishable. Obvious shade/order candidates should be checked rather than guessed (for example North Melbourne currently uses a very dark navy-like `#0C2340` as its primary despite its recognisable royal blue/white identity). Keep fictional/future clubs separate from the real-club audit. Acceptance: every 2027 AFL club marker is immediately recognisable to a footy fan across results, ladder, draft, selection and other shared badge surfaces; shared `club_marker` remains the single source of presentation; add a palette regression/snapshot fixture so later UI work cannot silently reintroduce wrong colours.
 - **St Kilda club code cleanup — `SKN` → `STK`:** the repository currently hard-codes St Kilda as `SKN` in `data/clubs.csv`, `GameDB.CLUB_ORDER`, the player datasets/history and therefore football-facing result rows. There is no good presentation reason for `SKN`; use the conventional **`STK`** abbreviation everywhere the user sees or reasons about club codes. Treat this as a data-key migration, not a one-line label patch: update canonical club/data keys and every dependent reference, and provide a save migration/alias so existing careers containing `SKN` continue to load correctly rather than losing St Kilda lists, history, fixtures or records. Acceptance: all new careers/data use `STK`; no user-facing screen emits `SKN`; an existing save made with `SKN` loads into the same St Kilda state under `STK`; tests cover fixture/list/history/save migration.
 - **Player role-allocation / draft-position distribution audit — REOPEN:** Gryan Miers is being labelled **Wing** in the user's list even though the source data explicitly lists him as `FWD`, and his real football role is a pure small/creative forward rather than a wing or pressure-forward. **Bodhi Uwland is also being treated as a Key defender despite being a 188 cm medium/rebounding defender who can take lockdown jobs but is not a key-position defender.** Code inspection shows both primary-role and subtype problems. `Ratings.derive_all()` chooses the primary role largely from season-stat role scores, then only applies two hard-coded forward corrections; a player read as `MID` can receive `FWD` only as a secondary role, and `Roles.is_wing()` can then mislabel him from stat shape. Separately, defender subtype classification currently ignores height/size entirely: `PlayerProfile.player_type()` picks between training archetypes, where **Key defender = intercept 3 + pressure 2** and **Rebounding defender = carry 3 + intercept 2**. That means a medium defender with strong intercept/one-percent/pressure numbers can become a 'Key defender' simply because he is less of a ball carrier. Do **not** fix these with one-off Miers/Uwland overrides alone. Re-audit the whole role classifier against football reality and source listed positions, especially MID↔FWD, MID↔DEF, and defender subtypes. Audit whether the current binary Key/Rebounding defender labels are themselves too coarse; a medium/general/lockdown identity may be needed if it better describes real usage, but prefer the smallest model that avoids false key-position labels. Measure source `real_pos` vs derived primary/secondary roles across the full 2026 pool; manually inspect representative archetypes (small forwards/creative forwards, key forwards, rebounding defenders, medium/lockdown defenders, true key defenders, genuine wings, inside mids); quantify draft-pool counts and match-day coverage by role before and after any change. Source listed position, height and actual football usage should be meaningful evidence, with stats used to refine dual-role capability/archetype rather than casually overwriting an unambiguous football role. Preserve legitimate dual-role players. Acceptance: Gryan Miers is a forward; Bodhi Uwland is not labelled Key defender; true key defenders require credible key-position evidence rather than merely high intercept/pressure; known pure forwards/defenders are not routinely converted into midfielders because of disposal volume; genuine wings such as Harvey Langford remain distinguishable from inside mids/forwards; the league draft has a plausible supply of FWD and DEF options without artificial quota stuffing; and regression tests cover representative named and archetypal cases.
@@ -1399,7 +1395,7 @@ Do not create fake precision from coordinates the simulation does not meaningful
 ---
 
 ## ARD-M2-010 — GPS distance covered / running output
-**Status:** `IN PROGRESS` — implemented in PR #195 and awaiting validation/merge.  
+**Status:** `DONE` — GPS distance covered is on `main` with tests; PR #195 was closed and carried by the consolidated squash merge #208. _(reconciled 2026-10-05)_  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -1520,7 +1516,7 @@ Forward-50 resolution has a partial spoil modifier but no complete spoil event/s
 ---
 
 ## ARD-M3-004 — Smothers
-**Status:** `IN PROGRESS` — implemented in stacked PR #196, pending validation/merge after #190.  
+**Status:** `DONE` — smothers are on `main` with tests; PR #196 was closed and carried by #208. _(reconciled 2026-10-05)_  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -1534,7 +1530,7 @@ Forward-50 resolution has a partial spoil modifier but no complete spoil event/s
 ---
 
 ## ARD-M3-005 — Speccies
-**Status:** `IN PROGRESS` — MatchSim-authored speccies and the 0–2/match quota are in stacked PR #196.  
+**Status:** `DONE` — MatchSim-authored speccies and the 0–2/match quota are on `main`; PR #196 was closed and carried by #208. _(reconciled 2026-10-05)_  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -1547,7 +1543,7 @@ Forward-50 resolution has a partial spoil modifier but no complete spoil event/s
 ---
 
 ## ARD-M3-006 — Boundary rules / OOB / out on full / last disposal
-**Status:** `IN PROGRESS` — implementation is in PR #190.  
+**Status:** `DONE` — merged in PR #190. _(reconciled 2026-10-05)_  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -1595,7 +1591,7 @@ Add real football causes where the event model supports them, e.g.:
 ---
 
 ## ARD-M3-008 — 50 metre penalties
-**Status:** `IN PROGRESS` — implementation is in stacked PR #196.  
+**Status:** `VERIFY` — 50-metre penalties are on `main` (PR #196 closed, carried by #208); confirm the long-run frequency/balance evidence before calling it done. _(reconciled 2026-10-05)_  
 **Priority:** `P2`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -1610,7 +1606,7 @@ Add real football causes where the event model supports them, e.g.:
 ---
 
 ## ARD-M3-009 — Kick-ins as real football
-**Status:** `IN PROGRESS` — existing restart foundation is extended with real kick-in takers/styles/stats in stacked PR #196.  
+**Status:** `DONE` — real kick-in takers/styles/stats are on `main`; PR #196 was closed and carried by #208. _(reconciled 2026-10-05)_  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -1643,7 +1639,7 @@ Behind → kick-in → exit; no phantom stoppage; correct end/direction after qu
 ---
 
 ## ARD-M3-011 — MRO / suspensions
-**Status:** `IN PROGRESS` — MRO, suspensions, Brownlow eligibility and Tribunal/Appeals flow are in stacked PR #196.  
+**Status:** `VERIFY` — MRO, suspensions, Brownlow eligibility and the Tribunal/Appeals flow are on `main` (PR #196 closed, carried by #208); confirm suspension frequency/balance evidence before calling it done. _(reconciled 2026-10-05)_  
 **Priority:** `P2`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -1981,7 +1977,7 @@ Audit:
 ---
 
 ## ARD-M5-002 — Visual oval/team-shape selection
-**Status:** `IN PROGRESS` — phone-first football formation is implemented in PR #194.  
+**Status:** `DONE` — merged in PR #194. The §9.1 playtest asks for Shape to become a functional selection surface; that is follow-up work, not this item. _(reconciled 2026-10-05)_  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 **Depends on:** stable role semantics. The fifth interchange player (M5-001) is a separate follow-up; #194 intentionally preserves the current bench size.
@@ -2161,7 +2157,7 @@ Overall rating should be meaningfully aligned with what Squad/MatchSim reward.
 ---
 
 ## ARD-M5-011 — League Draft career-stage filters
-**Status:** `IN PROGRESS` — implemented in consolidated PR #208; awaiting CI/merge.  
+**Status:** `DONE` — merged in PR #208. _(reconciled 2026-10-05)_  
 **Priority:** `P2`  
 **Autonomy:** `SAFE`
 
@@ -2305,7 +2301,7 @@ Questions to measure:
 
 
 ## ARD-M5-014 — National Draft decision support, combine & list-need clarity
-**Status:** `IN PROGRESS` — list-need strip (#150) and recruiting meeting (#152) are merged; Combine/scouting uncertainty is implemented in PR #188 and awaiting validation/merge.  
+**Status:** `VERIFY` — list-need strip (#150), recruiting meeting (#152) and Combine/scouting uncertainty (PR #188, closed and carried by #208) are all on `main`; a phone draft playtest remains. _(reconciled 2026-10-05)_  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -2691,7 +2687,7 @@ Acceptance:
 ---
 
 ## ARD-M6-004 — Contracts / trades / free agency
-**Status:** `IN PROGRESS` — contract talks/free agency/compensation/competitive offers are merged; free-agent sorting is merged in #184; trade redesign is active as #182 → #191 → #193, with the real-money conversion stacked on top as #198.  
+**Status:** `PARTIAL` — contract talks, free agency, compensation, competitive offers, free-agent sorting (#184), the trade redesign (#182 valuation, #191 current picks, #193 future picks) and real-money contracts (#198) are all on `main`; the stack PRs were closed and carried by #208. Open follow-ups are the §9.1 findings (trade value by age/potential, contract-talk frequency). _(reconciled 2026-10-05)_  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -2879,7 +2875,7 @@ The same scroll-preservation rule now applies across Contracts, Free agents and 
 
 
 ## ARD-M6-005 — Options / settings
-**Status:** `IN PROGRESS` — core Settings merged in #86; the requested light/dark appearance and direct safe New career action are implemented in PR #205 pending validation/merge.  
+**Status:** `DONE` — core Settings merged in #86; light/dark appearance and the safe New career action merged in PR #205. _(reconciled 2026-10-05)_  
 **Merged:** PR #86 as `ebc570d`; one Settings sheet serves the menu and career hub, with relevant current options and destructive-action confirmation.  
 **Priority:** `P1`  
 **Autonomy:** `SAFE`
@@ -3057,7 +3053,7 @@ A one-screen scroll or short staged flow is fine. No forced slideshow.
 - long saves retain a clear year-to-year sense of roster change without number vomit.
 
 ## ARD-M6-008 — Post-match media conference
-**Status:** `IN PROGRESS` — cinematic post-match conference implementation is in PR #183.  
+**Status:** `VERIFY` — the post-match media conference is on `main` (PR #183 closed, carried by #208); a phone playtest remains. _(reconciled 2026-10-05)_  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -3124,7 +3120,7 @@ Presentation/identity first. Avoid arbitrary gameplay bonuses.
 ---
 
 ## ARD-M7-003 — Player milestones
-**Status:** `IN PROGRESS` — career-game foundation is merged in #100; the factual first-goal/goal-threshold expansion from closed PR #186 is carried by consolidated PR #208.  
+**Status:** `PARTIAL` — career-game foundation merged in #100; the first-goal/goal-threshold expansion (closed PR #186) merged via #208. Career-high style milestones remain future work. _(reconciled 2026-10-05)_  
 **Merged foundation:** PR #100 as `12aae17`; career-game milestones (50/100/150 etc.) and club-tenure context are live, while career-high style milestones remain future work.  
 **Priority:** `P2`  
 **Autonomy:** `SAFE` once career stats are stable
@@ -3156,7 +3152,7 @@ Avoid blanket attribute boosts.
 ---
 
 ## ARD-M7-005 — History, records, leaders & recognition
-**Status:** `IN PROGRESS` — existing foundations are live; #187 adds History & records, #189 adds the coaches-award/season-honours program, and #185 contains awards-ceremony presentation work.  
+**Status:** `PARTIAL` — History & records (closed PR #187, via #208), the coaches-award/season-honours program (#189, merged) and the awards ceremony (closed PR #185, via #208) are on `main`; the rest of this umbrella remains open. _(reconciled 2026-10-05)_  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -3399,7 +3395,7 @@ Do not perform a movement-engine rewrite without evidence that local fixes are i
 ---
 
 ## ARD-M8-004 — Main menu / onboarding
-**Status:** `IN PROGRESS` — the minimal main menu already exists; #208 adds the one-time contextual Hub weekly-loop onboarding and tests, awaiting CI/merge.  
+**Status:** `DONE` — the minimal main menu exists and the one-time Hub weekly-loop onboarding merged in PR #208. _(reconciled 2026-10-05)_  
 **Priority:** `P2`  
 **Autonomy:** `SAFE`
 
@@ -3997,6 +3993,8 @@ Guardrails: this is **not tied to super drafts**; do not guarantee the GOAT is o
 - **2026-10-04:** Added Academies / NGA and tied-prospect draft mechanics as a later draft-pathway layer, explicitly downstream of core draft depth, Combine/scouting and AI drafting fixes.
 
 - **2026-10-04:** Consolidated the multi-season Android/Italy playtest findings: P0 bye/progression and football-sanity bugs; overall difficulty/list-profile/synergy calibration; fatigue parity, generated-player provenance, trade/potential and coaching-mobility audits; contract/off-season pressure; weekly selection and matchup decision support; mobile selection/training UX; and observed presentation formatting issues.
+
+- **2026-10-05:** Reconciled statuses for PRs closed without a direct merge. #182, #183, #185, #186, #187, #188, #191, #193, #195, #196 and #198 were carried onto `main` by the consolidated squash merge #208 (verified: their production code and tests are on `main`; #196's separate free-kick helpers were superseded by the #202 contextual-frees work in #208). Marked M2-010, M3-004, M3-005, M3-006, M3-009, M5-002, M5-011, M6-005 and M8-004 DONE; M3-008, M3-011, M5-014 and M6-008 VERIFY (balance evidence / phone playtest remain); M6-004, M7-003 and M7-005 PARTIAL. Recorded #118 and #120 as merged in §1.11, and collapsed the stale finish-the-stack steps in §0.4.1.
 
 - **2026-10-02:** Added the ultra-rare GOAT prospect concept: roughly once per 30 seasons, independent of super drafts, foreshadowed anonymously through draft whispers/Combine clues, with superstar salary and godfather-offer trade economics if he develops.
 
