@@ -17,6 +17,7 @@ func run() -> void:
 	_test_contextual_frees_and_general_spoils()
 	_test_legs_and_rotations()
 	_test_moments()
+	_test_playtest_bounce()
 	_test_set_shot()
 	_test_live_determinism()
 	_test_impact_and_ai()
@@ -386,6 +387,38 @@ func _test_moments() -> void:
 	var res := sim.run()
 	_check(not (res["moments"] as Array).is_empty() and sim.pending_moment.is_empty(),
 			"Skipping to full time answers pending moments with the default call")
+
+
+## The playtest centre-bounce call (Settings, ARD-M8-007): with it on, every live match
+## reaches the centre-bounce call in the last quarter, whatever the score - and answered
+## "Play it straight" (its default) the match ends exactly as it would have without it.
+func _test_playtest_bounce() -> void:
+	var reached := 0
+	var unchanged := 0
+	var games := 6
+	for i in range(games):
+		var plain := _live(700 + i, func(m): return int(m["default"]))
+		var sim := _sim(700 + i)
+		sim.moment_side = 0
+		sim.always_offer_bounce = true
+		while sim.current_quarter <= 4:
+			sim.begin_quarter()
+			while not sim.continue_quarter():
+				sim.resolve_moment(int(sim.pending_moment["default"]))
+			sim.end_quarter()
+		var q4 := (sim.moments as Array).filter(func(m): return str(m["kind"]) == "bounce" and int(m["q"]) == 4)
+		if not q4.is_empty():
+			reached += 1
+		var a := plain.result()
+		var b := sim.result()
+		var others_a := (plain.moments as Array).map(func(m): return [m["kind"], m["q"], m["min"]])
+		var others_b := (sim.moments as Array).map(func(m): return [m["kind"], m["q"], m["min"]])
+		others_b.erase(["bounce", 4, int((q4[0] as Dictionary)["min"])] if not q4.is_empty() else [])
+		if a["goals"] == b["goals"] and a["behinds"] == b["behinds"] and others_a == others_b:
+			unchanged += 1
+	_check(reached == games, "With the playtest switch on, every match reaches the centre-bounce call (%d of %d)" % [reached, games])
+	_check(unchanged == games,
+			"Played straight, the playtest call changes nothing: same score, same other calls (%d of %d)" % [unchanged, games])
 
 
 func _test_set_shot() -> void:

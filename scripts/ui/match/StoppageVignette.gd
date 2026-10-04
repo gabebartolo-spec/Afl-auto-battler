@@ -41,7 +41,7 @@ const FIGURE_SHADER := preload("res://assets/vignette/figure.gdshader")
 ## Kits in the shader's palette: the two sides, then the umpire.
 const UMPIRE_KIT := 2
 
-var tokens: Array = []      # {side, mine, slot, name, num, tired, from, to, delay, dur}
+var tokens: Array = []      # {side, mine, slot, id, tall, name, num, tired, from, to, delay, dur}
 var facts: Array = []       # one or two lines of commentary, no numbers
 var title := ""
 var _colours := [[], []]
@@ -61,11 +61,14 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 		var code := str((sim.squads[side] as Squad).code)
 		_colours[side] = GameDB.club_colours(code)
 		_codes[side] = code
-		var ground: Array = (sim.squads[side] as Squad).ground
-		var ruck: Array = ground.filter(func(p): return str(p["role"]) == "RUCK")
-		var mids: Array = ground.filter(func(p): return str(p["role"]) == "MID" and not Roles.on_wing(p))
-		mids.sort_custom(func(a, b): return _stat(sim, a, "clearances") > _stat(sim, b, "clearances"))
-		var picks := {"R": ruck.slice(0, 1), "C": mids.slice(0, 1), "RR": mids.slice(1, 2), "RV": mids.slice(2, 3)}
+		# MatchSim's own bounce: the ruck who goes up (a ruckman resting from the
+		# ruck spot still goes up; a midfielder standing in it does not) and the
+		# inside mids who attend. The scene never picks its own.
+		var at: Dictionary = sim.bounce_attendees(side)
+		var ruck: Dictionary = at["ruck"]
+		var mids: Array = at["mids"]
+		var picks := {"R": [] if ruck.is_empty() else [ruck],
+				"C": mids.slice(0, 1), "RR": mids.slice(1, 2), "RV": mids.slice(2, 3)}
 		var mine := side == my_side
 		# Your side attacks up the screen, away from the camera; theirs faces it.
 		var sgn := 1.0 if mine else -1.0
@@ -78,7 +81,8 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 					to = Vector2(-0.9 * sgn, -7.0 * sgn)    # backed off for the run at it
 				var from := to + Vector2(rng.randf_range(-9.0, 9.0), -sgn * rng.randf_range(14.0, 20.0))
 				var tired := float(sim.energy.get(str(p["id"]), 100.0)) < EMPTY
-				tokens.append({"side": side, "mine": mine, "slot": slot,
+				tokens.append({"side": side, "mine": mine, "slot": slot, "id": str(p["id"]),
+						"tall": MatchSim._is_ruckman(p),
 						"name": _surname(GameDB.player_display_name(p)), "num": int(p["num"]),
 						"tired": tired, "from": from, "to": to,
 						"delay": rng.randf_range(0.0, 0.45),
@@ -418,9 +422,10 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 		draw_string(font, spot, num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, _readable_on(shirt))
 
 
-## Rucks are the tall figures; everyone else, the umpire included, the average build.
+## Ruckmen are the tall figures; everyone else - an emergency ruck from the
+## midfield included, and the umpire - the average build.
 static func _body(t: Dictionary) -> String:
-	return "ruck" if str(t.get("slot", "")) == "R" else "average"
+	return "ruck" if bool(t.get("tall", false)) else "average"
 
 
 ## Which animation and frame a figure shows now: [anim, frame].

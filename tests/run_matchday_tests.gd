@@ -33,6 +33,7 @@ func _run() -> void:
 		await _phone_match(sz)
 	await _plan_at_first_bounce()
 	await _bounce_close_up()
+	await _playtest_bounce_scene()
 	# Battery: nothing is redrawn unless it changes, and never above 60 fps.
 	_check(bool(ProjectSettings.get_setting("application/run/low_processor_mode", false))
 			and int(ProjectSettings.get_setting("application/run/max_fps", 0)) == 60,
@@ -461,6 +462,40 @@ func _bounce_close_up() -> void:
 			"Only the players at the bounce, both sides (%d)" % tokens.size())
 	_check(names_ok, "Every player in the close-up is on the ground in this match")
 	_check(tokens.filter(func(t): return str(t["slot"]) == "R").size() == 2, "Both rucks are at the bounce")
+	# The players at the bounce are MatchSim's own: its ruck contestant and centre-bounce attendees.
+	_check(_bounce_matches_sim(vig.tokens, sim), "The close-up shows MatchSim's rucks and centre-bounce mids")
+	# The resting-ruck case: a midfielder stands in the ruck spot while the ruckman rests
+	# up forward. MatchSim sends the ruckman up, so the scene must show him taking the tap.
+	var before_at: Dictionary = sim.bounce_attendees(them)
+	var resting: Dictionary = before_at["ruck"]
+	var stand_in = null
+	for p in before_at["mids"]:
+		if not sim._is_ruckman(p) and stand_in == null:
+			stand_in = p      # one of the inside mids steps into the ruck spot
+	if not resting.is_empty() and stand_in != null:
+		var saved := [str(resting["role"]), resting.get("own_role", null), str(stand_in["role"])]
+		resting["own_role"] = "RUCK"     # a listed ruckman, resting up forward
+		resting["role"] = "FWD"
+		stand_in["role"] = "RUCK"
+		vig.setup(sim, me, "")
+		var tapper: Array = (vig.tokens as Array).filter(
+				func(t): return int(t["side"]) == them and str(t["slot"]) == "R")
+		var tapper_is_ruckman := false
+		for p in sim.squads[them].ground:
+			if not tapper.is_empty() and str(p["id"]) == str(tapper[0]["id"]):
+				tapper_is_ruckman = sim._is_ruckman(p)
+		_check(tapper.size() == 1 and str(tapper[0]["id"]) != str(stand_in["id"]) and tapper_is_ruckman
+				and _bounce_matches_sim(vig.tokens, sim),
+				"A midfielder in the ruck spot doesn't take the tap: a ruckman does, as in MatchSim")
+		resting["role"] = saved[0]
+		if saved[1] == null:
+			resting.erase("own_role")
+		else:
+			resting["own_role"] = saved[1]
+		stand_in["role"] = saved[2]
+		vig.setup(sim, me, "")
+	else:
+		_check(false, "The resting-ruck case can be staged (a ruck and an inside mid at the bounce)")
 	# The players are the pre-rendered figures, each side in its own club's colours.
 	var mat := vig.material as ShaderMaterial
 	var kits: Array = Array(mat.get_shader_parameter("kit_base")) if mat != null else []
@@ -535,6 +570,70 @@ func _bounce_close_up() -> void:
 	_check(not is_instance_valid(card), "The scene is gone once it has faded")
 	m.queue_free()
 	await _settle()
+
+
+## The playtest switch (Settings, ARD-M8-007): the centre-bounce scene comes even
+## where no call could - early in the last quarter of a blowout, the quarter's calls
+## spent - and plays through the real match screen.
+func _playtest_bounce_scene() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(360, 740)
+	_state.set_bounce_scene_every_match(true)
+	_check(_state.prepare_interactive_match() and bool(_state.pending_sim.always_offer_bounce),
+			"The playtest switch reaches the match")
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	m.find_child("StartQuarter", true, false).emit_signal("pressed")
+	await _settle()
+	m.get("_pitch").pause()
+	var sim = _state.pending_sim
+	var me := int(m.get("_my_side"))
+	sim.pending_moment = {}
+	sim.moment_side = me
+	sim.current_quarter = 4
+	sim.current_minute = 91
+	sim.at_centre = true
+	sim.set("_moments_this_q", 2)
+	sim.set("_last_moment_chain", int(sim.get("_chain_no")))
+	for side in range(2):
+		(sim.team_stats[side] as Dictionary)["goals"] = 6.0 if side == me else 15.0
+		(sim.team_stats[side] as Dictionary)["behinds"] = 5.0
+	sim.always_offer_bounce = false
+	_check(not sim.call("_boundary_moment") and sim.pending_moment.is_empty(),
+			"Without the switch, a blowout early in the last quarter brings no call")
+	sim.always_offer_bounce = true
+	_check(sim.call("_boundary_moment") and str(sim.pending_moment.get("kind", "")) == "bounce"
+			and int(sim.get("_moments_this_q")) == 2,
+			"With it, the centre-bounce call comes anyway, outside the quarter's calls")
+	m.call("_show_moment")
+	await _settle()
+	_check(m.find_child("StoppageVignette", true, false) != null, "The playtest call opens the centre-bounce scene")
+	m.queue_free()
+	await _settle()
+	_state.set_bounce_scene_every_match(false)
+
+
+## The bounce scene's players, side by side, are MatchSim's: the ruck in the R
+## spot and the attending mids in the C, RR and RV spots, in its order.
+func _bounce_matches_sim(tokens: Array, sim) -> bool:
+	for side in range(2):
+		var at: Dictionary = sim.bounce_attendees(side)
+		var want := []
+		if not (at["ruck"] as Dictionary).is_empty():
+			want.append(["R", str(at["ruck"]["id"])])
+		var mids: Array = at["mids"]
+		for i in range(mids.size()):
+			want.append([["C", "RR", "RV"][i], str(mids[i]["id"])])
+		var shown := []
+		for t in tokens:
+			if int(t["side"]) == side:
+				shown.append([str(t["slot"]), str(t["id"])])
+		if shown != want:
+			return false
+	return true
 
 
 func _settle() -> void:
