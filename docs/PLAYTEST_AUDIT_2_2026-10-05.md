@@ -37,7 +37,7 @@ The panel does learn: weak sides are named most of the time, and the read change
 
 **Fix (this PR):** after 10 games an empty part says so plainly, "No part of your game is costing you regularly." (or "No one part of your game stands above the league."). Before 10 games it still says "yet". No thresholds changed.
 
-**For a later decision, not changed:** the turnover-points lines almost never fire, because the club spread is only 1.5–2 points a game and the "never under a goal" floor is 6. Hit-outs sits at 1.6 spreads. Either accept that those lines are for extreme sides only, or drop them.
+**Decided and done (this PR):** the two points-from-turnover lines (scored from, and conceded on, turnovers) are removed, for both your side and opponents. The club spread is only 1.5–2 points a game against the deliberate 6-point floor, so they almost never fired; territory, clangers and pressure describe turnover play in more actionable terms. The season totals are still tracked. Hit-outs (1.6 spreads) is left as is.
 
 ---
 

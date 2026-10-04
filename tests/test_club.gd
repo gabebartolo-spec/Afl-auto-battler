@@ -516,9 +516,14 @@ func _test_how_we_play_reads() -> void:
 	var loud: Array = read.call({"for": 30.0}, 3)
 	_check(keys.call(loud) == ["for"] and int(loud[0]["n"]) >= 25,
 			"A big early gap is said at once, with the real margin (%s)" % str(loud))
-	var dup: Array = keys.call(read.call({"for": 15.0, "from_turnover": 12.0, "conceded_stoppage": 10.0}, 22))
-	_check(dup.has("for") and not dup.has("from_turnover") and dup.has("conceded_stoppage"),
+	var dup: Array = keys.call(read.call({"for": 15.0, "from_stoppage": 12.0, "conceded_stoppage": 10.0}, 22))
+	_check(dup.has("for") and not dup.has("from_stoppage") and dup.has("conceded_stoppage"),
 			"Where points come from is not repeated next to the total (%s)" % str(dup))
+	# Turnover points differ by a point or two between clubs, never a goal:
+	# they are not a line at all (territory, clangers and pressure say it).
+	var turnover: Array = keys.call(read.call({"from_turnover": 20.0, "conceded_turnover": 20.0}, 22))
+	_check(not GameState.STYLE_LINES.has("from_turnover") and not GameState.STYLE_LINES.has("conceded_turnover")
+			and turnover.is_empty(), "Points from turnovers are not a how-we-play line (%s)" % str(turnover))
 	GameState.reset()
 
 
