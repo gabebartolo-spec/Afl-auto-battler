@@ -18,6 +18,7 @@ func run() -> void:
 	_test_board_confidence()
 	_test_coaching_hub()
 	_test_how_we_play_reads()
+	_test_how_we_play_quiet()
 	_test_how_we_play_unlocks_on_the_third_game()
 	GameState.delete_saved_career()
 	print("Club tests: %d checks, %d failures" % [checks, failures.size()])
@@ -644,3 +645,14 @@ func _test_board_confidence() -> void:
 	GameState.advance()
 	_check(GameState.board_why() != "" and GameState.board_state() != "", "After a match the board has a mood and a reason")
 	GameState.delete_saved_career()
+
+
+## An empty How we get beaten says "yet" only early; past half a season a
+## side with no material weakness is told so, not left waiting.
+func _test_how_we_play_quiet() -> void:
+	var cs = load("res://scripts/ui/CoachingScene.gd")
+	_check(cs._quiet_line("beaten", 4) == "Nothing stands out yet.", "Early on, an empty read is provisional")
+	var settled: String = cs._quiet_line("beaten", 12)
+	_check(not settled.contains("yet") and settled.contains("costing you"),
+			"Half a season in, no weakness is said plainly (%s)" % settled)
+	_check(not str(cs._quiet_line("win", 12)).contains("yet"), "...and so is no stand-out strength")

@@ -18,7 +18,7 @@ career_ui 205
 potential 36
 ratings 27
 ai 35
-training 59
+training 62
 selection 14
 matchup 80
 matchday 319
@@ -28,7 +28,7 @@ awards 22
 achievements 153
 contracts 177
 league 19
-club 98
+club 101
 match_game 155
 pressure 21
 workload 32
