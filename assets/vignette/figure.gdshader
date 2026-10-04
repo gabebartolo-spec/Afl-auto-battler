@@ -80,6 +80,16 @@ vec2 design(int d, vec3 g) {
 		return vec2(top, band);
 	} else if (d == 11) {  // shoulders: panels over each shoulder, from beside the neck to the armpit
 		return vec2(over(g.y, 1.18 - 2.27 * abs(g.x - 0.5)), 0.0);
+	} else if (d == 12) {  // map: Tasmania on the chest in the pattern colour, a T on it in the second colour
+		float a = (g.x - 0.5) / 0.17;          // -1..1 across the map, west on the wearer's right
+		float b = (g.y - 0.47) / 0.35;         // 0 at the southern tip, 1 along the north coast
+		float lean = 0.12 * (1.0 - b);         // the south tip sits east of centre
+		float half_w = 1.0 - pow(1.0 - clamp(b, 0.0, 1.0), 2.6);   // full and blunt, not a shield
+		float land = over(half_w, abs(a - lean)) * over(b, 0.0) * over(1.0 - 0.06 * a, b) * g.z;
+		float bar = over(b, 0.62) * over(0.80, b) * over(0.55, abs(a));
+		float stem = over(b, 0.22) * over(0.80, b) * over(0.17, abs(a));
+		float t = max(bar, stem) * land;
+		return vec2(land - t, t);
 	}
 	return vec2(0.0);
 }

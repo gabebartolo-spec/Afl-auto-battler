@@ -5,7 +5,7 @@ draft 7800
 draft_ui 1113
 intake 2128
 intake_ui 493
-expansion 1168
+expansion 1172
 finals 109
 save 49
 chronology 28
@@ -16,7 +16,7 @@ coach_pathway 54
 coach_effects 25
 career_ui 209
 potential 36
-ratings 27
+ratings 30
 ai 35
 training 59
 selection 14
