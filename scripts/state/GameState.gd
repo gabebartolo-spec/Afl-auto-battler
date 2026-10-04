@@ -3876,8 +3876,10 @@ const TRADE_MAX := 5
 ## off-season: a market that moves, not one that churns.
 const MAX_OFFERS := 2
 const MAX_AI_TRADES := 3
-## Targets a rival buyer tries before it gives up on trading this year.
-const TARGET_TRIES := 3
+## Targets a rival buyer asks about, down its wish list, before it gives up
+## on trading this year. Its first asks are often the young stars nobody
+## sells; the deals that do get done come further down.
+const TARGET_TRIES := 15
 ## Most offers that come in for one player or pick on the trade table.
 const MAX_TABLE_OFFERS := 3
 ## How close to the most it would pay a club opens with nobody else bidding
