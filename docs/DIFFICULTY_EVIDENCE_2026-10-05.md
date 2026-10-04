@@ -61,6 +61,8 @@ Your club drew 0–4 early-extension cards a season (mean 1.7). Accepting every 
 
 ## Decisions for the director
 
+**Answered 2026-10-05:** (1) scouted estimates on your League Draft board; (2) measure live-match calls, the trade market and free agency; (3) the unmanaged collapse is about right.
+
 1. **League Draft information:** keep the exact board (a skill reward), or show your club scouted estimates, as the National Draft already does (`DraftScouting`)? The latter removes the structural edge but keeps drafting skill.
 2. **What to measure next:** the levers this harness does not pull, which is where a dynasty must come from:
    - live-match calls, by paired seeded matches (default calls vs a scripted sensible coach);
