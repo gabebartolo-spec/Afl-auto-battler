@@ -2,6 +2,10 @@
 """Summarise tools/balance/dynasty_run.gd JSON (docs/COMPETITIVE_BALANCE.md).
 
     python3 tools/balance/dynasty_report.py run_a.json [run_b.json ...]
+    python3 tools/balance/dynasty_report.py --compare a.json b.json [c.json ...]
+
+The first pools every file into one report; --compare puts your club's
+results from each file side by side (same seeds, one thing changed).
 """
 import json
 import statistics as st
@@ -120,7 +124,58 @@ def report(careers):
         print("  ", r)
 
 
+def user_summary(careers):
+    """Your club's results over a set of careers, for --compare."""
+    rows = [s for car in careers for s in car["seasons"]]
+    n_seasons = len(careers[0]["seasons"])
+    out = {}
+    out["careers / seasons"] = f"{len(careers)} / {len(rows)}"
+    for i in range(n_seasons):
+        snaps = [car["seasons"][i] for car in careers if len(car["seasons"]) > i]
+        out[f"strength rank, season {i + 1}"] = f"{st.mean(s['clubs'][s['user']]['rank'] for s in snaps):.1f}"
+    for i in range(n_seasons):
+        snaps = [car["seasons"][i] for car in careers if len(car["seasons"]) > i]
+        out[f"ladder, season {i + 1}"] = f"{st.mean(s['user_ladder'] for s in snaps):.1f}"
+    out["mean ladder"] = f"{st.mean(s['user_ladder'] for s in rows):.1f}"
+    out["finals (top 10)"] = str(sum(s["user_ladder"] <= 10 for s in rows))
+    out["top four"] = str(sum(s["user_ladder"] <= 4 for s in rows))
+    out["premierships"] = str(sum(s["premier"] == s["user"] for s in rows))
+    repeat = 0
+    for car in careers:
+        ss = car["seasons"]
+        repeat += sum(1 for i in range(1, len(ss)) if ss[i]["premier"] == ss[i]["user"] and ss[i - 1]["premier"] == ss[i - 1]["user"])
+    out["back-to-back premierships"] = str(repeat)
+    for i in (0, n_seasons - 1):
+        snaps = [car["seasons"][i] for car in careers if len(car["seasons"]) > i]
+        gap = [s["clubs"][s["user"]]["ovr22"] - st.mean(c["ovr22"] for c in s["clubs"].values()) for s in snaps]
+        out[f"best-22 rating vs league, season {i + 1}"] = f"{st.mean(gap):+.1f}"
+        out[f"best-22 age, season {i + 1}"] = f"{st.mean(s['clubs'][s['user']]['age22'] for s in snaps):.1f}"
+        out[f"payroll / cap, season {i + 1}"] = f"{st.mean(s['clubs'][s['user']]['payroll'] / s['cap'] for s in snaps):.2f}"
+    logs = [s["mgmt"] for s in rows if "mgmt" in s]
+    if logs:
+        for k in ("resigned", "released", "signed", "trades"):
+            out[f"per off-season: {k}"] = f"{st.mean(m.get(k, 0) for m in logs):.1f}"
+    return out
+
+
+def compare(paths):
+    cols = []
+    for path in paths:
+        with open(path) as f:
+            cols.append(user_summary(json.load(f)))
+    keys = list(cols[0].keys())
+    for c in cols[1:]:
+        keys += [k for k in c if k not in keys]
+    width = max(len(k) for k in keys)
+    print(" | ".join([" " * width] + [p.split("/")[-1] for p in paths]))
+    for k in keys:
+        print(" | ".join([k.ljust(width)] + [c.get(k, "-").rjust(len(p.split("/")[-1])) for c, p in zip(cols, paths)]))
+
+
 def main():
+    if len(sys.argv) > 2 and sys.argv[1] == "--compare":
+        compare(sys.argv[2:])
+        return
     careers = []
     for path in sys.argv[1:]:
         with open(path) as f:

@@ -1,7 +1,8 @@
 extends SceneTree
 ## CLI for tools/balance/dynasty.gd: runs seeded careers and writes JSON.
 ##   godot --headless --path . --script tools/balance/dynasty_run.gd -- \
-##       --seeds 301,302 --policy board --seasons 5 --out /tmp/dyn.json [--coach]
+##       --seeds 301,302 --policy board --seasons 5 --out /tmp/dyn.json [--coach] \
+##       [--manage none|list|full]
 
 
 func _initialize() -> void:
@@ -16,6 +17,7 @@ func _run() -> void:
 	var seasons := 5
 	var out_path := "user://dynasty.json"
 	var coach := args.has("--coach")
+	var manage := "none"
 	for i in range(args.size() - 1):
 		match str(args[i]):
 			"--seeds":
@@ -26,13 +28,20 @@ func _run() -> void:
 				seasons = int(args[i + 1])
 			"--out":
 				out_path = str(args[i + 1])
+			"--manage":
+				manage = str(args[i + 1])
 	root.get_node("GameDB").reload()
-	var dyn = load("res://tools/balance/dynasty.gd").new()
+	var lib: GDScript = load("res://tools/balance/dynasty.gd")
+	if lib == null or not lib.can_instantiate():
+		push_error("dynasty_run: tools/balance/dynasty.gd failed to load")
+		quit(1)
+		return
+	var dyn = lib.new()
 	var careers := []
 	for s in seeds:
 		var t := Time.get_ticks_msec()
-		var rec: Array = dyn.run_career(int(s), policy, seasons, 5, coach)
-		careers.append({"seed": int(s), "policy": policy, "coach": coach, "seasons": rec})
+		var rec: Array = dyn.run_career(int(s), policy, seasons, 5, coach, manage)
+		careers.append({"seed": int(s), "policy": policy, "coach": coach, "manage": manage, "seasons": rec})
 		var line := []
 		for snap in rec:
 			var u := str(snap["user"])

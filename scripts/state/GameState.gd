@@ -162,6 +162,10 @@ var settings_path := "user://settings.cfg"
 ## Autosave runs on every screen change, after every round and when the app
 ## is backgrounded or closed. Tests switch it off.
 var autosave_enabled := true
+## A new draft or season is seeded from the clock, so no two careers play
+## alike. Measurement tools set this so a career replays exactly: each of
+## those seeds then comes from it and the year (_clock_seed). 0 in the game.
+var replay_seed := 0
 ## Set by small edits (training, draft picks) that save on the next screen
 ## change or when the app is backgrounded, rather than on every tap.
 var _dirty := false
@@ -824,8 +828,16 @@ func _first_class(year: int) -> Array:
 	return Prospects.age_pool(generated, year, {})
 
 
+## The seed for a new draft or season: the clock, or with `replay_seed` set,
+## a fixed one for this year and `use`.
+func _clock_seed(use: int) -> int:
+	if replay_seed != 0:
+		return posmod(replay_seed * 7919 + season_year * 131 + use * 17, 1000000)
+	return int(Time.get_unix_time_from_system()) % 1000000
+
+
 func begin_draft() -> void:
-	var seed := int(Time.get_unix_time_from_system()) % 1000000
+	var seed := _clock_seed(1)
 	# The clubs of the first playable season (the founding eighteen in 2027;
 	# expansion clubs arrive later with their own lists). The pool is the
 	# league 2026 left behind: every listed player plus the 2026 draft class,
@@ -906,7 +918,7 @@ func begin_intake_draft() -> bool:
 	# arrives with its own generated list at its first season (see
 	# _start_next_season) rather than drafting into one.
 	var active := GameDB.active_clubs(season_year)
-	var seed := int(Time.get_unix_time_from_system()) % 1000000
+	var seed := _clock_seed(2)
 	draft = Draft.build_intake(open_pool, active.duplicate(), order,
 			seed, sizes, role_counts, role_pairs)
 	# Recruiting funding narrows only our club's uncertainty; rivals use the
@@ -1056,7 +1068,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	# The season simulates only this year's active clubs; `lists` keeps an
 	# entry for every club so saves and rollovers never miss a key.
 	season = Season.new(GameDB.active_clubs(next_year).duplicate(), lists,
-			int(Time.get_unix_time_from_system()) % 1000000)
+			_clock_seed(3))
 	# The cap moves with the new season before contracts are assigned.
 	salary_cap = Contracts.salary_cap_for_year(next_year)
 	# Expansion lists are born here, so their contracts must be assigned
@@ -1330,7 +1342,7 @@ func start_season(club_code: String, list: Array) -> void:
 						int(float(p.get("gm", 0.0))), int(float(p.get("gl", 0.0))))
 	# Fixtures, ladders and finals cover only the clubs active this year.
 	season = Season.new(GameDB.active_clubs(season_year).duplicate(), lists,
-			int(Time.get_unix_time_from_system()) % 1000000)
+			_clock_seed(4))
 	salary_cap = Contracts.salary_cap_for_year(season_year)
 	ensure_contracts()
 	# The coaching world from its Round 1 2026 source, carried into this

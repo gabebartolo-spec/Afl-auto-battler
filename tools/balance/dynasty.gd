@@ -6,29 +6,37 @@ extends RefCounted
 ## A career is the real career draft (your club's picks by `policy`, as in
 ## league_balance.gd), then for every season: GameState.advance() through
 ## every round and final, the off-season (rivals' contracts, trades and free
-## agency; your club does nothing - undecided contracts roll over the default
-## way), the National Draft (your club picks exactly as an AI club would), and
-## the rollover (ageing, development, retirement). Your club is on autopilot
+## agency; your club does nothing - undecided contracts settle the default
+## way as free agency closes), the National Draft (your club picks exactly as
+## an AI club would), and the rollover (ageing, development, retirement). A
+## career replays exactly from its draft seed. Your club is on autopilot
 ## throughout: default training plans, the auto-selected side, no trades, no
 ## free agents, no contract talks. That is the "barely engaging" playtest
 ## career. With `coach` your club also coaches on match day the way every AI
 ## club does (see _play_week): engaged with matches, not with the list.
+## With `manage` your club works its list every off-season as an attentive
+## human would (see _manage): "list" settles contracts and chases free
+## agents, "full" also trades up. "none" is the autopilot above.
 
 var lb = load("res://tools/balance/league_balance.gd").new()
 
 
 ## One career of `seasons` seasons. Returns one record per season (see
 ## `_snapshot`), each with the season's results attached.
-func run_career(draft_seed: int, policy: String, seasons: int, top_n := 5, coach := false) -> Array:
+func run_career(draft_seed: int, policy: String, seasons: int, top_n := 5, coach := false,
+		manage := "none") -> Array:
 	var gs := GameDB.get_tree().root.get_node("GameState")
 	gs.autosave_enabled = false
 	gs.reset()
+	# The game seeds generated classes, drafts and seasons from a random draw
+	# and the clock; a career here takes them from its draft seed, so it
+	# replays exactly.
+	gs.career_seed = draft_seed
+	gs.replay_seed = draft_seed
 	var d: Draft = make_upside_draft(draft_seed, top_n) if policy == "upside" else lb.make_draft(draft_seed, policy, top_n)
 	var user := d.user_club if d.user_club != "" else str(d.draft_order[0])
 	gs.draft = d
 	gs.start_season(user, [])
-	gs.season.seed = draft_seed * 1000 + 1
-	gs._next_week_event()
 	var out := []
 	for y in range(seasons):
 		var snap := _snapshot(gs, user)
@@ -59,10 +67,11 @@ func run_career(draft_seed: int, policy: String, seasons: int, top_n := 5, coach
 		out.append(snap)
 		if y == seasons - 1:
 			break
-		if not _offseason(gs, user):
+		var mgmt := _manage(gs, user, manage)
+		if not _offseason(gs, user, mgmt):
 			push_error("dynasty: off-season %d of seed %d did not complete" % [y, draft_seed])
 			break
-		gs.season.seed = draft_seed * 1000 + y + 2
+		snap["mgmt"] = mgmt
 	return out
 
 
@@ -102,10 +111,207 @@ func _has_match(gs, user: String) -> bool:
 	return false
 
 
-## The off-season with your club on autopilot: the National Draft (your
-## picks as the AI would make them), then the rollover.
-func _offseason(gs, user: String) -> bool:
-	if not gs.begin_intake_draft():
+# ---------------------------------------------------------------------------
+# The attentive human's off-season (`manage`)
+# ---------------------------------------------------------------------------
+## What a human who works the list does between the Grand Final and the
+## National Draft, through the same GameState calls the screens make and
+## judging every player only by what the screens show (age, rating, POT),
+## here as his expected rating next season (expected_overall). Simple,
+## stated rules, not an optimiser:
+##   contracts  keep an expiring player who will be in next season's best 26,
+##              or a kid (22 or under) with six points or more to grow;
+##              offer his asking price (meet a counter) over the term he
+##              asks for; let the rest go;
+##   trades     ("full") from each rival, the best player 30 or under who
+##              would walk into next season's side (3 points or more above
+##              its 22nd best): open with the pick a contender misses least,
+##              ask what they would need (trade_counter, the trade screen's
+##              question) and agree up to twice if it is spare - a pick, or a
+##              player outside next season's 26 who is not a kid; at most
+##              two trades an off-season;
+##   free agents the best on the market over the next two seasons who would
+##              make next season's 22: the term he asks for, 10% over his
+##              asking price and 5% over the best offer on the table, a final
+##              offer 5% over the leader when outbid; at most four, list kept
+##              under 41.
+## The National Draft, training plans, selection and the weekly cards stay
+## as they are for the autopilot club.
+func _manage(gs, user: String, manage: String) -> Dictionary:
+	var mgmt := {"resigned": 0, "released": 0, "signed": 0, "trades": 0, "trade_in": [], "trade_out": 0}
+	if manage == "none" or not gs.offseason_open():
+		return mgmt
+	_contracts(gs, mgmt)
+	if manage == "full":
+		_trade_up(gs, user, mgmt)
+	_free_agency(gs, mgmt)
+	return mgmt
+
+
+## The `n`th best expected rating next season on `list` (0 = best).
+static func nth_value(list: Array, n: int) -> float:
+	var values := list.map(func(p): return expected_overall(p, 1))
+	values.sort()
+	values.reverse()
+	return float(values[clampi(n, 0, values.size() - 1)]) if not values.is_empty() else 0.0
+
+
+## The term a human offers: the one the player asks for (the contract
+## screens show it, Contracts.wants).
+static func term_for(p: Dictionary) -> int:
+	return int(Contracts.wants(p)["years"])
+
+
+func _contracts(gs, mgmt: Dictionary) -> void:
+	var line := nth_value(gs.my_list, 25)
+	for p in Contracts.expiring(gs.my_list).duplicate():
+		if bool(p.get("resigned", false)):
+			continue
+		var id := str(p["id"])
+		if expected_overall(p, 1) >= line or _kid(p):
+			var years := term_for(p)
+			var r: Dictionary = gs.resign_player(id, years)
+			if str(r.get("answer", "")) == "counter":
+				r = gs.offer_contract(id, int(r.get("salary", 0)), years)
+			if bool(r.get("ok", false)):
+				mgmt["resigned"] += 1
+		elif gs.my_list.size() > Contracts.MIN_LIST:
+			if bool(gs.release_player(id).get("ok", false)):
+				mgmt["released"] += 1
+
+
+func _trade_up(gs, user: String, mgmt: Dictionary) -> void:
+	for club in GameDB.active_clubs(gs.season_year):
+		if str(club) == user or int(mgmt["trades"]) >= 2:
+			continue
+		var line22 := nth_value(gs.my_list, 21)
+		var line26 := nth_value(gs.my_list, 25)
+		var target := {}
+		for q in gs.season.lists.get(club, []):
+			var v := expected_overall(q, 1)
+			if v >= line22 + 3.0 and float(q.get("age", 30.0)) <= 30.0 \
+					and (target.is_empty() or v > expected_overall(target, 1)):
+				target = q
+		if target.is_empty():
+			continue
+		var tid := str(target["id"])
+		# Open with the pick a contender misses least, then ask what they'd
+		# need (trade_counter, the trade screen's own question) and agree
+		# only to spare assets: a pick, or a player outside next season's
+		# 26 who is not a kid still growing.
+		var picks: Array = gs.club_picks(user)
+		picks.sort_custom(func(a, b):
+			if int(a["round"]) != int(b["round"]):
+				return int(a["round"]) > int(b["round"])
+			return int(a["year"]) > int(b["year"]))
+		if picks.is_empty():
+			continue
+		var pkg := [str(picks[0]["id"])]
+		# A rival at the list minimum needs a body back.
+		if (gs.season.lists.get(club, []) as Array).size() <= Contracts.MIN_LIST:
+			var spares: Array = gs.my_list.filter(func(q): return _spare(q, line26))
+			if spares.is_empty():
+				continue
+			spares.sort_custom(func(a, b): return expected_overall(a, 1) < expected_overall(b, 1))
+			pkg.push_front(str(spares[0]["id"]))
+		var given_starter := false
+		for step in range(3):
+			if bool(gs.evaluate_trade(str(club), pkg, [tid]).get("ok", false)):
+				var gave := []
+				for id in pkg:
+					var q: Dictionary = gs.list_player(str(id))
+					gave.append(str(id) if q.is_empty() else "%d/%d age %d" % [int(q["overall"]),
+							int(q.get("potential", 0)), int(float(q.get("age", 0.0)))])
+				if bool(gs.make_trade(str(club), pkg, [tid]).get("ok", false)):
+					mgmt["trades"] += 1
+					mgmt["trade_in"].append(int(target["overall"]))
+					mgmt["trade_out"] += pkg.size()
+					mgmt["trade_log"] = mgmt.get("trade_log", []) + ["%s: %d/%d age %d for %s (%s)" % [str(club),
+							int(target["overall"]), int(target.get("potential", 0)), int(float(target.get("age", 0.0))),
+							", ".join(gave), gs.club_phase(str(club))]]
+				break
+			if step == 2:
+				break
+			var c: Dictionary = gs.trade_counter(str(club), pkg, [tid])
+			if c.is_empty() or not (c.get("theirs", []) as Array).has(tid):
+				break
+			# Agree if what they add is spare, or one of your starters the
+			# target is clearly better than (3 points or more next season):
+			# a lesser player and a pick for a better one.
+			var agree := true
+			for id in c["mine"]:
+				if pkg.has(id) or str(id).begins_with("pick:"):
+					continue
+				var q: Dictionary = gs.list_player(str(id))
+				if q.is_empty():
+					agree = false
+				elif not _spare(q, line26):
+					var upgrade := not _kid(q) and not given_starter \
+							and expected_overall(q, 1) <= expected_overall(target, 1) - 3.0
+					given_starter = given_starter or upgrade
+					agree = agree and upgrade
+			if not agree:
+				break
+			pkg = (c["mine"] as Array).duplicate()
+
+
+## A kid still growing: 22 or under with six points or more to his POT.
+static func _kid(q: Dictionary) -> bool:
+	return float(q.get("age", 25.0)) <= 22.0 and int(q.get("potential", 0)) - int(q.get("overall", 0)) >= 6
+
+
+## A player a club can spare: outside next season's best 26, and not a kid.
+static func _spare(q: Dictionary, line26: float) -> bool:
+	return expected_overall(q, 1) < line26 and not _kid(q)
+
+
+## A free agent as a human weighs him for the next two seasons.
+static func two_year_value(p: Dictionary) -> float:
+	return 0.5 * (expected_overall(p, 1) + expected_overall(p, 2))
+
+
+func _free_agency(gs, mgmt: Dictionary) -> void:
+	var offers := 0
+	var market: Array = gs.free_agents.duplicate()
+	market.sort_custom(func(a, b): return two_year_value(a) > two_year_value(b))
+	for p in market:
+		if offers >= 4 or gs.my_list.size() >= 41:
+			break
+		var id := str(p["id"])
+		if expected_overall(p, 1) <= nth_value(gs.my_list, 21) or gs.free_agent(id).is_empty() \
+				or bool(gs.free_agent_terms(id).get("refuse", false)):
+			continue
+		var years := term_for(p)
+		# Bid to win: over his asking price and over the best offer on the
+		# table (the market screen shows both).
+		var table: Array = gs.fa_offers(id)
+		var lead := int(table[0]["salary"]) if not table.is_empty() else 0
+		var bid := mini(gs.cap_room(), maxi(int(float(Contracts.asking_salary(p)) * 1.1), int(float(lead) * 1.05)))
+		if bid < Contracts.asking_salary(p):
+			continue
+		offers += 1
+		mgmt["bids"] = int(mgmt.get("bids", 0)) + 1
+		var r: Dictionary = gs.offer_free_agent(id, bid, years)
+		if str(r.get("answer", "")) == "counter" and int(r.get("salary", 0)) <= gs.cap_room():
+			r = gs.offer_free_agent(id, int(r["salary"]), years)
+		if str(r.get("answer", "")) == "table":
+			table = gs.fa_offers(id)
+			if not table.is_empty() and not bool(table[0]["mine"]):
+				var final_bid := mini(gs.cap_room(), int(float(table[0]["salary"]) * 1.05))
+				if final_bid > bid:
+					r = gs.offer_free_agent(id, final_bid, years)
+		mgmt["fa_answers"] = mgmt.get("fa_answers", []) + [str(r.get("answer", ""))]
+
+
+## The off-season's close: free agency settles (begin_intake_draft), the
+## National Draft (your picks as the AI would make them), then the rollover.
+## Your club's signings are counted into `mgmt` as free agency closes.
+func _offseason(gs, user: String, mgmt: Dictionary) -> bool:
+	var drafting: bool = gs.begin_intake_draft()
+	for e in gs.offseason_log:
+		if str(e.get("kind", "")) == "signed" and str(e.get("club", "")) == user:
+			mgmt["signed"] += 1
+	if not drafting:
 		return gs.start_next_season()
 	var d: Draft = gs.draft
 	var guard := 0
