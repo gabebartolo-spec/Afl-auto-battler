@@ -14,6 +14,7 @@ func run() -> void:
 	checks = 0
 	GameDB.reload()
 	_test_entry_gates()
+	_test_expansion_ceilings()
 	_test_2026_baseline()
 	_test_rollover_to_2028()
 	_test_2028_season_runs()
@@ -29,6 +30,34 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+
+# ---------------------------------------------------------------------------
+# The debut list's ceilings
+# ---------------------------------------------------------------------------
+## Only an expansion list's youngsters carry a draft prospect's room to grow;
+## a generated 27-year-old has the ceiling a listed 27-year-old has
+## (Potential.AGE_HEADROOM plus the usual roll), not 13-22 points above him.
+func _test_expansion_ceilings() -> void:
+	var older := 0
+	var older_ok := true
+	var young := 0
+	var young_room := 0.0
+	for code in ["TAS", "CANB"]:
+		for year in [2028, 2030]:
+			for p in Prospects.generate_expansion_list(code, year):
+				var age := float(p["age"])
+				var room := int(p["potential"]) - int(p["overall"])
+				if age >= Prospects.EXPANSION_PROSPECT_AGE:
+					older += 1
+					older_ok = older_ok and room >= 0 and room <= int(Potential._headroom(age)) + 3
+				else:
+					young += 1
+					young_room += float(room)
+	_check(older > 40 and older_ok,
+			"Expansion players past draft age have ceilings for their age (%d checked)" % older)
+	_check(young > 20 and young_room / float(young) >= 10.0,
+			"Expansion youngsters keep a draft prospect's room to grow (%.1f)" % (young_room / float(maxi(1, young))))
 
 
 # ---------------------------------------------------------------------------

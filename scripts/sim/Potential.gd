@@ -59,13 +59,16 @@ const MIN_STEP := 2.0
 
 
 ## Set p["potential"] unless an earlier call or a save already did.
-static func assign(p: Dictionary) -> void:
+## `by_age`: a generated player past draft age (an expansion list's older
+## players) takes the AFL-player rule although he was projected: his rating
+## plus the room his age leaves, not a draft prospect's ceiling.
+static func assign(p: Dictionary, by_age := false) -> void:
 	if p.has("potential"):
 		return
 	var ov := int(p.get("overall", 50))
 	var rng := _rng(p)
 	var pot: float
-	if bool(p.get("projected", false)):
+	if bool(p.get("projected", false)) and not by_age:
 		pot = _draftee_potential(p, rng)
 	else:
 		pot = float(ov) + _headroom(float(p.get("age", 26.0))) + rng.randf_range(-2.0, 3.0)

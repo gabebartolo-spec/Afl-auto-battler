@@ -16,7 +16,7 @@ below was measured through the shipped code.
 | List Profile "Elite" too easy | **Contradicted as a cause.** It is a rank (Elite: the top four of eighteen). Four Elite words and two Strong is a 0.6%-of-seasons profile: the playtest list was genuinely dominant. | [5](#5-what-the-code-contradicts) |
 | Synergies pile up | **Not reproduced league-wide.** About 1.4 of 6 per club, flat over five seasons. | [5](#5-what-the-code-contradicts) |
 | Training, fatigue, development, ageing favour you | **Contradicted.** One rule set for every club; the small user-only extras are listed. | [5](#5-what-the-code-contradicts) |
-| An age-28, 89-POT generated player | **Explained:** expansion lists give every age a draft prospect's ceiling. Not fixed here. | [6](#6-generated-players-expansion-lists) |
+| An age-28, 89-POT generated player | **Explained and fixed:** expansion lists gave every age a draft prospect's ceiling; a generated player past draft age now gets the ceiling a listed player of his age has. | [6](#6-generated-players-expansion-lists) |
 
 ## Tooling
 
@@ -234,13 +234,29 @@ question under Also noted.
 ## 6. Generated players (expansion lists)
 
 `Prospects.generate_expansion_list` draws ages 18 to 30 (a fifth aged 27-30)
-and projects every player as a draft prospect (`Prospects.project`), so each
-gets a draftee's ceiling (`Potential._draftee_potential`: rating plus 13-22 by
+and projected every player as a draft prospect (`Prospects.project`), so each
+got a draftee's ceiling (`Potential._draftee_potential`: rating plus 13-22 by
 list rank) whatever his age. That is the age-28, 89-POT player, and
-`Potential.growth` keeps pulling him toward it until he turns 28. His history
-says he came out of the under-18s in the expansion year. Not changed here: it
-belongs to the P0 generated-player provenance item (age-aware ceilings and a
-believable entry history).
+`Potential.growth` kept pulling him toward it until he turned 28.
+
+**Fix.** From age 20 (draft classes are 18 and 19) a generated expansion
+player takes the rule every listed AFL player already has: his rating plus
+the room his age leaves (`Potential.AGE_HEADROOM`), with the usual roll.
+Youngsters keep a prospect's ceiling. New expansion lists only: a saved
+career keeps the ceilings its players were given, as POT never moves once
+set. Regression check in the `expansion` suite.
+
+Expansion lists for two clubs in 2028 and 2030 (288 players):
+
+| Age at entry | Players | Room above rating, before → after | POT 85+, before → after |
+|---|---|---|---|
+| 17-20 | 125 | 17.5 → 16.0 | 41 → 28 |
+| 21-23 | 62 | 17.1 → 9.8 | 20 → 0 |
+| 24-26 | 66 | 17.4 → 3.9 | 23 → 0 |
+| 27-30 | 35 | 17.4 → 1.5 | 12 → 0 |
+
+Still open (the P0 provenance item): a generated veteran's history says he
+came out of the under-18s in the expansion year.
 
 ## Also noted
 
