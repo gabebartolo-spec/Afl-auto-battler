@@ -34,6 +34,7 @@ func _run() -> void:
 	await _plan_at_first_bounce()
 	await _bounce_close_up()
 	await _playtest_bounce_scene()
+	_appearance()
 	# Battery: nothing is redrawn unless it changes, and never above 60 fps.
 	_check(bool(ProjectSettings.get_setting("application/run/low_processor_mode", false))
 			and int(ProjectSettings.get_setting("application/run/max_fps", 0)) == 60,
@@ -464,6 +465,12 @@ func _bounce_close_up() -> void:
 	_check(tokens.filter(func(t): return str(t["slot"]) == "R").size() == 2, "Both rucks are at the bounce")
 	# The players at the bounce are MatchSim's own: its ruck contestant and centre-bounce attendees.
 	_check(_bounce_matches_sim(vig.tokens, sim), "The close-up shows MatchSim's rucks and centre-bounce mids")
+	var looks_ok := true
+	for t in vig.tokens:
+		for p in sim.squads[int(t["side"])].ground:
+			if str(p["id"]) == str(t["id"]):
+				looks_ok = looks_ok and t["look"] == db.player_looks(p)
+	_check(looks_ok, "Each player in the scene wears his own look")
 	# The resting-ruck case: a midfielder stands in the ruck spot while the ruckman rests
 	# up forward. MatchSim sends the ruckman up, so the scene must show him taking the tap.
 	var before_at: Dictionary = sim.bounce_attendees(them)
@@ -614,6 +621,56 @@ func _playtest_bounce_scene() -> void:
 	m.queue_free()
 	await _settle()
 	_state.set_bounce_scene_every_match(false)
+
+
+## How players look on the figures (Appearance.gd, data/player_appearance.csv):
+## presentation only, never a guess about a real person, never tied to a rating.
+func _appearance() -> void:
+	var db = root.get_node("GameDB")
+	# Generated players: from the id alone - stable, and the same whatever the ratings say.
+	var fake := {"id": "GEN_1", "generated": true, "overall": 50, "role": "MID"}
+	var again := {"id": "GEN_1", "generated": true, "overall": 95, "role": "RUCK", "potential": 99}
+	var counts := [0, 0, 0, 0, 0, 0]
+	for i in range(3000):
+		counts[int(db.player_looks({"id": "gen_%d" % i, "generated": true})["skin"])] += 1
+	var mix_ok := true
+	var total := 0.0
+	for w in db.skin_mix:
+		total += float(w)
+	for t in range(6):
+		mix_ok = mix_ok and absf(counts[t] / 3000.0 - float(db.skin_mix[t]) / total) < 0.03
+	_check(db.player_looks(fake) == db.player_looks(again) and mix_ok,
+			"Generated players' looks come from their id alone, spread like the league (%s)" % str(counts))
+	# Real players: their curated row, or the neutral look until one exists - never a random one.
+	var curated := 0
+	var uncurated_ok := true
+	for p in db.players:
+		var row: Dictionary = db.appearance.get(db._look_key(p), {})
+		if row.is_empty():
+			uncurated_ok = uncurated_ok and db.player_looks(p) == Appearance.UNCURATED
+		else:
+			curated += 1
+			uncurated_ok = uncurated_ok and db.player_looks(p) == {"skin": int(row["skin"]), "hair": int(row["hair"])}
+	_check(uncurated_ok, "Real players look as curated, or neutral until they are - never guessed")
+	# Every curated row is a real player, with a tone, a hair colour, a status and a source.
+	var keys := {}
+	for p in db.players + db.draftees:
+		keys[db._look_key(p)] = true
+	var rows_ok := true
+	var f := FileAccess.open("res://data/player_appearance.csv", FileAccess.READ)
+	var header := f.get_csv_line()
+	var n := 0
+	while not f.eof_reached():
+		var r := f.get_csv_line()
+		if r.size() < header.size() or (r.size() == 1 and r[0] == ""):
+			continue
+		n += 1
+		var d := {}
+		for j in range(header.size()):
+			d[header[j]] = r[j]
+		rows_ok = rows_ok and keys.has(db._look_key(d)) and int(d["skin"]) >= 1 and int(d["skin"]) <= 6 				and Appearance.HAIR_KEYS.has(d["hair"]) and d["status"] in ["draft", "unsure", "confirmed"] 				and str(d["source"]).begins_with("http")
+	_check(rows_ok and n == db.appearance.size() and curated == n,
+			"Every curated look is a real player's, complete and sourced (%d rows)" % n)
 
 
 ## The bounce scene's players, side by side, are MatchSim's: the ruck in the R

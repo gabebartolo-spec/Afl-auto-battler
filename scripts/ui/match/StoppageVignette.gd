@@ -28,8 +28,6 @@ const FIGURE := 1.6
 ## The camera sits a little to one side of the corridor, over a shoulder.
 const CAM_X := -3.0
 const GRASS := [Color(0.16, 0.39, 0.17), Color(0.18, 0.43, 0.19)]
-const SKIN := Color(0.87, 0.7, 0.57)
-const HAIR := Color(0.16, 0.1, 0.06)
 const UMPIRE := Color(0.82, 0.93, 0.36)
 const BALL := Color(0.78, 0.13, 0.12)
 ## The footballers are pre-rendered figures recoloured for each club
@@ -41,7 +39,7 @@ const FIGURE_SHADER := preload("res://assets/vignette/figure.gdshader")
 ## Kits in the shader's palette: the two sides, then the umpire.
 const UMPIRE_KIT := 2
 
-var tokens: Array = []      # {side, mine, slot, id, tall, name, num, tired, from, to, delay, dur}
+var tokens: Array = []      # {side, mine, slot, id, tall, look, name, num, tired, from, to, delay, dur}
 var facts: Array = []       # one or two lines of commentary, no numbers
 var title := ""
 var _colours := [[], []]
@@ -82,7 +80,7 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 				var from := to + Vector2(rng.randf_range(-9.0, 9.0), -sgn * rng.randf_range(14.0, 20.0))
 				var tired := float(sim.energy.get(str(p["id"]), 100.0)) < EMPTY
 				tokens.append({"side": side, "mine": mine, "slot": slot, "id": str(p["id"]),
-						"tall": MatchSim._is_ruckman(p),
+						"tall": MatchSim._is_ruckman(p), "look": GameDB.player_looks(p),
 						"name": _surname(GameDB.player_display_name(p)), "num": int(p["num"]),
 						"tired": tired, "from": from, "to": to,
 						"delay": rng.randf_range(0.0, 0.45),
@@ -111,6 +109,17 @@ func _dress() -> void:
 	material = figure_material(kits + [UMPIRE_GEAR], material as ShaderMaterial)
 
 
+## The umpire has no player behind him: one fixed look.
+const UMPIRE_LOOK := {"skin": 1, "hair": 1}
+
+
+static func _eight(palette: Array) -> Array:
+	var out := palette.duplicate()
+	while out.size() < 8:
+		out.append(palette[palette.size() - 1])
+	return out
+
+
 ## The umpire's kit, in the figures' palette.
 const UMPIRE_GEAR := {"design": "plain", "base": UMPIRE, "pattern": Color(0.66, 0.74, 0.29),
 		"pattern2": Color(0.66, 0.74, 0.29), "shorts": Color(0.1, 0.1, 0.12)}
@@ -126,8 +135,8 @@ static func figure_material(kits: Array, mat: ShaderMaterial = null) -> ShaderMa
 		mat.set_shader_parameter("mask_tex", FIGURE_MASK)
 		mat.set_shader_parameter("design_tex", FIGURE_DESIGN)
 		mat.set_shader_parameter("sheet_size", VignetteFigures.SHEET_SIZE)
-		mat.set_shader_parameter("skin_tones", [SKIN, SKIN, SKIN, SKIN, SKIN, SKIN, SKIN, SKIN])
-		mat.set_shader_parameter("hair_tones", [HAIR, HAIR, HAIR, HAIR, HAIR, HAIR, HAIR, HAIR])
+		mat.set_shader_parameter("skin_tones", _eight(Appearance.SKIN))
+		mat.set_shader_parameter("hair_tones", _eight(Appearance.HAIR))
 	var fields := {"base": [], "pattern": [], "pattern2": [], "shorts": [], "design": []}
 	for i in range(4):
 		var kit: Dictionary = kits[mini(i, kits.size() - 1)]
@@ -405,7 +414,9 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	var k := m / VignetteFigures.PX_PER_M * (0.96 if tired else 1.0)
 	var origin := Vector2(base.x, base.y) - VignetteFigures.PIVOT * k
 	var kit := UMPIRE_KIT if ump else int(t["side"])
-	draw_texture_rect_region(FIGURE_SHADE, Rect2(origin, cell * k), src, Color(kit / 4.0, 0.0, 0.0, 1.0))
+	var look: Dictionary = t.get("look", UMPIRE_LOOK)
+	draw_texture_rect_region(FIGURE_SHADE, Rect2(origin, cell * k), src,
+			Color(kit / 4.0, int(look["skin"]) / 8.0, int(look["hair"]) / 8.0, 1.0))
 	var rects: Array = info["number_rects"]
 	if not ump and bool(t["mine"]) and m > 18.0 and frame < rects.size() and rects[frame] != null:
 		# The number on show, on the back of the guernsey.
