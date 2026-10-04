@@ -2891,7 +2891,7 @@ func _resign(p: Dictionary, years: int, salary := -1) -> void:
 ## Off a list and into free agency. `wanted`: the club wanted him (he walked,
 ## or it could not fit his price) rather than delisting him, so losing him
 ## can earn a compensation pick - if he had been there long enough.
-func _release(code: String, p: Dictionary, wanted := false) -> void:
+func _release(code: String, p: Dictionary, wanted := false, announce := true) -> void:
 	(season.lists[code] as Array).erase(p)
 	p["released_by"] = code
 	p["comp_eligible"] = wanted and comp_tenure_ok(p)
@@ -2899,7 +2899,7 @@ func _release(code: String, p: Dictionary, wanted := false) -> void:
 	free_agents.append(p)
 	offseason_log.append({"kind": "released", "club": code, "id": str(p["id"]), "wanted": wanted,
 			"eligible": bool(p["comp_eligible"])})
-	if int(p.get("overall", 0)) >= NEWS_MIN_OVR:
+	if announce and int(p.get("overall", 0)) >= NEWS_MIN_OVR:
 		add_news("contract", "%s let %s (OVR %d) go to free agency." % [
 				GameDB.club_name(code), GameDB.player_display_name(p), int(p["overall"])])
 
@@ -3455,7 +3455,13 @@ func _sign_fa(p: Dictionary, code: String, salary: int, years: int) -> void:
 	free_agents.erase(p)
 	_bars.erase(code)
 	offseason_log.append({"kind": "signed", "club": code, "id": str(p["id"]), "salary": salary, "years": years})
-	if code == my_club or int(p.get("overall", 0)) >= NEWS_MIN_OVR:
+	if bool(p.get("tested", false)):
+		p.erase("tested")
+		var stayed := code == my_club
+		add_news("contract", ("%s tested free agency and re-signs with %s: %d for %d season%s." if stayed
+				else "%s tested free agency and leaves for %s: %d for %d season%s.") % [GameDB.player_display_name(p),
+				GameDB.club_name(code), salary, years, "" if years == 1 else "s"])
+	elif code == my_club or int(p.get("overall", 0)) >= NEWS_MIN_OVR:
 		add_news("contract", "%s sign free agent %s (OVR %d): %d for %d season%s." % [GameDB.club_name(code),
 				GameDB.player_display_name(p), int(p["overall"]), salary, years, "" if years == 1 else "s"])
 
@@ -4308,13 +4314,22 @@ func _close_contracts() -> void:
 
 ## Free agency closes when the national draft opens (or at the rollover if
 ## there is no draft), so compensation picks can go into that draft: your
-## undecided players are settled, rivals sign who they want, and anyone left
-## unsigned retires. Once per off-season.
+## undecided players are settled - a depth player re-signs if the cap allows,
+## one of your best 22 tests the market (_market_test) - rivals sign who they
+## want, and anyone left unsigned retires. Once per off-season.
 func _close_free_agency() -> void:
 	if season == null or fa_closed_year == season_year:
 		return
 	open_offseason()
 	fa_closed_year = season_year
+	var best22 := {}
+	var side := Ratings.select_22(my_list)
+	for q in (side["ground"] as Array) + (side["bench"] as Array):
+		best22[str(q["id"])] = true
+	var testing := []
+	# Cap room as you settle them: a standing offer is money you have set
+	# aside, so whoever takes yours can always be paid.
+	var room := salary_cap - my_payroll()
 	for p in Contracts.expiring(my_list).duplicate():
 		if bool(p.get("resigned", false)):
 			continue
@@ -4322,19 +4337,47 @@ func _close_free_agency() -> void:
 		if walked and my_list.size() <= Contracts.MIN_LIST:
 			_resign(p, 1)
 			continue
-		var cost := Contracts.asking_salary(p)
-		if not walked and (my_payroll() - int(p.get("salary", 0)) + cost <= salary_cap or my_list.size() <= Contracts.MIN_LIST):
+		var rise := Contracts.asking_salary(p) - int(p.get("salary", 0))
+		var fits := rise <= room
+		if not walked and fits and best22.has(str(p["id"])) and my_list.size() > Contracts.MIN_LIST:
+			_release(my_club, p, true, false)
+			testing.append(p)
+			room -= rise
+		elif not walked and (fits or my_list.size() <= Contracts.MIN_LIST):
 			_resign(p, 2)
+			room -= rise
 		else:
 			# He walked, or you could not fit him: you wanted him, as a rival
 			# that runs out of room does.
 			_release(my_club, p, true)
+	_market_test(testing)
 	_resolve_market()
 	# Nobody signed them: their AFL careers end here.
 	for p in free_agents:
 		_career_over(p)
 	free_agents = []
 	mark_dirty()
+
+
+## One of your best 22 you never settled tests the market as free agency
+## closes, as an out-of-contract player does: your standing offer is his
+## asking price over the term he wants, rivals make theirs, and those your
+## offer leads answer once; then he takes the offer he likes best
+## (_resolve_market) - money, security, his role and how the club finished.
+## Nobody in your best 22 re-signs just because you did nothing.
+func _market_test(players: Array) -> void:
+	if players.is_empty():
+		return
+	_open_market(players)
+	for p in players:
+		var want := Contracts.wants(p)
+		_add_offer(p, my_club, {"salary": int(want["salary"]), "years": int(want["years"])},
+				fa_role(p, my_club), _finish_t(my_club))
+		var mine := _offer_of(p, my_club)
+		if Contracts.best_offer(p, p.get("offers", [])) == mine:
+			p["market_log"] = _rival_round(p, mine)
+		p["market_round"] = Contracts.FA_ROUNDS
+		p["tested"] = true
 
 
 ## Free agency closes: every free agent still on the market gets offers

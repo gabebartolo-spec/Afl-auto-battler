@@ -12,6 +12,7 @@ func run() -> void:
 	_test_initial_contracts()
 	_test_real_money_scale()
 	_test_offseason_flow()
+	_test_market_test()
 	_test_negotiation_rules()
 	_test_negotiation()
 	_test_free_agent_terms()
@@ -186,6 +187,77 @@ func _test_offseason_flow() -> void:
 	_check(GameState.free_agents.is_empty(), "Unsigned free agents leave at the rollover")
 	_check(is_same(GameState.my_list, GameState.season.lists[GameState.my_club]),
 			"Your list is the season's list after the rollover")
+
+
+## One of your best 22 you never settle tests the market as free agency
+## closes: your standing offer is his asking price over the term he wants,
+## rivals may beat it, and he signs with one or the other - he never re-signs
+## just because you did nothing, and he never falls out of the game. A depth
+## player you never settle still re-signs when the cap allows. At the list
+## minimum nobody leaves: he re-signs, as a rival's player does.
+func _test_market_test() -> void:
+	_new_season()
+	_to_offseason()
+	GameState.salary_cap += 5000000
+	_check(GameState.my_list.size() == Contracts.MIN_LIST,
+			"The Geelong list starts at the minimum (%d players)" % GameState.my_list.size())
+	var floor_id := str(Ratings.select_22(GameState.my_list)["ground"][0]["id"])
+	var floor_star: Dictionary = GameState.my_list.filter(func(q): return str(q["id"]) == floor_id)[0]
+	floor_star["contract_years"] = 1
+	floor_star.erase("resigned")
+	GameState._close_free_agency()
+	_check(GameState.my_list.has(floor_star) and bool(floor_star.get("resigned", false))
+			and not floor_star.has("tested"),
+			"At the list minimum an unsettled best-22 player re-signs instead")
+	_new_season()
+	_to_offseason()
+	GameState.salary_cap += 5000000
+	# Room above the minimum: three more depth players under contract.
+	var spare: Array = GameState.my_list.duplicate()
+	spare.sort_custom(func(a, b): return int(a["overall"]) < int(b["overall"]))
+	for i in range(3):
+		var extra: Dictionary = (spare[i] as Dictionary).duplicate(true)
+		extra["id"] = "%s_spare%d" % [str(extra["id"]), i]
+		extra["contract_years"] = 3
+		GameState.my_list.append(extra)
+	var side := Ratings.select_22(GameState.my_list)
+	var in22 := {}
+	for q in (side["ground"] as Array) + (side["bench"] as Array):
+		in22[str(q["id"])] = true
+	var stars := []
+	var depth := []
+	for q in GameState.my_list:
+		if in22.has(str(q["id"])) and stars.size() < 3:
+			stars.append(q)
+		elif not in22.has(str(q["id"])) and depth.size() < 2:
+			depth.append(q)
+	for q in stars + depth:
+		q["contract_years"] = 1
+		q.erase("resigned")
+		q.erase("talks")
+	GameState._close_free_agency()
+	var placed := true
+	var stayed_at_ask := true
+	for q in stars:
+		var club := ""
+		for code in GameState.season.lists:
+			if (GameState.season.lists[code] as Array).has(q):
+				club = str(code)
+		placed = placed and club != ""
+		if club == GameState.my_club:
+			stayed_at_ask = stayed_at_ask and int(q["salary"]) == int(Contracts.wants(q)["salary"]) \
+					and int(q["contract_years"]) == int(Contracts.wants(q)["years"]) + 1
+	_check(placed, "An unsettled best-22 player signs somewhere when he tests the market")
+	_check(stayed_at_ask, "If he stays, it is on your standing offer: his asking price and term")
+	var tested_news := false
+	for item in GameState.news:
+		if str(item["text"]).contains("tested free agency"):
+			tested_news = true
+	_check(tested_news, "Testing free agency makes the news")
+	var kept := true
+	for q in depth:
+		kept = kept and GameState.my_list.has(q) and bool(q.get("resigned", false))
+	_check(kept, "An unsettled depth player re-signs when the cap allows")
 
 
 ## ARD-M6-004: what a player wants is shown; how far he bends follows his
