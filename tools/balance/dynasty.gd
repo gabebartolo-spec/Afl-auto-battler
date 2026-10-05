@@ -67,6 +67,9 @@ func run_career(draft_seed: int, policy: String, seasons: int, top_n := 5, coach
 		out.append(snap)
 		if y == seasons - 1:
 			break
+		# The rivals' own trades, made as the off-season opened.
+		snap["ai_trades"] = gs.offseason_log.filter(func(e): return str(e.get("kind", "")) == "ai_trade") \
+				.map(func(e): return str(e.get("text", "")))
 		var mgmt := _manage(gs, user, manage)
 		if not _offseason(gs, user, mgmt):
 			push_error("dynasty: off-season %d of seed %d did not complete" % [y, draft_seed])

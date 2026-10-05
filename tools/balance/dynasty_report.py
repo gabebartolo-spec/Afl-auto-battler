@@ -155,6 +155,9 @@ def user_summary(careers):
     if logs:
         for k in ("resigned", "released", "signed", "trades"):
             out[f"per off-season: {k}"] = f"{st.mean(m.get(k, 0) for m in logs):.1f}"
+    rival = [len(s["ai_trades"]) for s in rows if "ai_trades" in s]
+    if rival:
+        out["per off-season: trades between rivals"] = f"{st.mean(rival):.1f}"
     return out
 
 
