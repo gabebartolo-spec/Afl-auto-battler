@@ -208,7 +208,11 @@ func _test_events() -> void:
 	GameState.advance()
 	# ... but not acting has its consequences: a sore star nobody rested
 	# plays sore, and silence over an incident costs the board's confidence.
-	var sore_star: Dictionary = GameState.my_list[1]
+	var sore_star: Dictionary = {}
+	for q in GameState.my_list:
+		if int(q.get("injury_weeks", 0)) == 0 and not q.has("rested"):
+			sore_star = q  # a fit player: an injured one is "ruled out anyway"
+			break
 	GameState.week_event = ClubLife._sore_star(sore_star)
 	GameState._settle_week_event()
 	_check(bool(sore_star.get("sore", false)) and not bool(sore_star.get("rested", false)),
