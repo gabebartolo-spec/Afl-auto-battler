@@ -1736,7 +1736,7 @@ Every boundary type plus direction/end changes.
 ---
 
 ## ARD-M3-007 — Contextual free kicks
-**Status:** `PARTIAL`  
+**Status:** `PARTIAL` — the generic clanger free now has a football cause (ruck contest at ball-ups, a forward held in a marking contest in the forward 50, otherwise incorrect disposal); measured in [free kicks](FREE_KICKS_2026-10-06.md). _(2026-10-06)_  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 

@@ -15,6 +15,7 @@ func run() -> void:
 	_test_boundary_rules()
 	_test_authenticity_events()
 	_test_contextual_frees_and_general_spoils()
+	_test_free_causes_follow_the_play()
 	_test_legs_and_rotations()
 	_test_moments()
 	_test_playtest_bounce()
@@ -270,6 +271,47 @@ func _test_authenticity_events() -> void:
 			suspended += 1
 	_check(valid_mro and suspended > 0,
 			"Reportable tackles resolve once to no action, fine or 1-3 match suspension (%d reports)" % mro.reports.size())
+
+
+## ARD-M3-007: the free at the end of a chain follows where the chain was. A
+## ball-up chain's free is often the ruck contest, ruck against ruck; one in
+## the receiving side's forward 50 is often a forward held in a marking
+## contest; otherwise it is the erring player's incorrect disposal. Every free
+## names who gave it away.
+func _test_free_causes_follow_the_play() -> void:
+	var ruck_frees := 0
+	var ruck_to_ruck := true
+	var mark_frees := 0
+	var mark_to_fwd := 0
+	var named := true
+	for seed in range(40):
+		var sim := _sim(7600 + seed)
+		var who := {}
+		for side in range(2):
+			var sq: Squad = sim.squads[side]
+			for p in sq.ground + sq.bench:
+				who[str(p["id"])] = p
+		var res := sim.run()
+		for ev in res["events"]:
+			if str(ev.get("kind", "")) != "free":
+				continue
+			named = named and str(ev.get("against_id", "")) != ""
+			var cause := str(ev.get("free_cause", ""))
+			var to = who.get(str(ev.get("player_id", "")))
+			var by = who.get(str(ev.get("against_id", "")))
+			if cause == "ruck_contest":
+				ruck_frees += 1
+				ruck_to_ruck = ruck_to_ruck and to != null and by != null \
+						and MatchSim._is_ruckman(to) and MatchSim._is_ruckman(by)
+			elif cause == "marking" and str(ev.get("free_context", "")) == "forward50":
+				mark_frees += 1
+				if to != null and str(to.get("role", "")) == "FWD":
+					mark_to_fwd += 1
+	_check(ruck_frees > 0 and ruck_to_ruck,
+			"A ruck-contest free is paid ruckman to ruckman (%d frees)" % ruck_frees)
+	_check(mark_frees > 0 and float(mark_to_fwd) >= 0.5 * float(mark_frees),
+			"A chain-end marking-contest free in the forward 50 goes to a forward (%d of %d)" % [mark_to_fwd, mark_frees])
+	_check(named, "Every free kick names the player who gave it away")
 
 
 func _test_contextual_frees_and_general_spoils() -> void:
@@ -1270,7 +1312,7 @@ func _test_spoils_and_crumbs() -> void:
 				free_causes[cause] = int(free_causes.get(cause, 0)) + 1
 		for side in range(2):
 			var team: Dictionary = res["team"][side]
-			for cause in ["holding_ball", "high_contact", "marking", "general"]:
+			for cause in ["holding_ball", "high_contact", "marking", "ruck_contest", "incorrect_disposal", "general"]:
 				contextual_free_stats += int(team.get("free_" + cause, 0))
 	_check(sums_ok and spoils > 0.0, "Spoils are credited, and players' spoils add up to the team's")
 	_check(by_def >= 0.7 * spoils, "Spoils are made by defenders (rotations aside) (%d of %d)" % [by_def, spoils])
@@ -1280,8 +1322,9 @@ func _test_spoils_and_crumbs() -> void:
 	_check(general_spoils > 0 and general_spoil_loose,
 			"General-play long kicks produce real credited spoils and loose balls (%d)" % general_spoils)
 	_check(free_causes.has("holding_ball") and free_causes.has("high_contact")
-			and free_causes.has("marking") and free_causes.has("general"),
-			"Free kicks carry real causes from tackles/marking contests plus a smaller general bucket (%s)" % str(free_causes))
+			and free_causes.has("marking") and free_causes.has("ruck_contest")
+			and free_causes.has("incorrect_disposal") and not free_causes.has("general"),
+			"Every free kick has a football cause; none is a generic infringement (%s)" % str(free_causes))
 	var event_free_total := 0
 	for cause in free_causes:
 		event_free_total += int(free_causes[cause])
