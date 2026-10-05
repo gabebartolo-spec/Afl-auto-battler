@@ -536,9 +536,9 @@ func _bounce_close_up() -> void:
 	# What the scene plays: both builds stand, run and tap (the ruck contest, one-handed),
 	# facing either way; the umpire (the average build, facing the camera) bounces.
 	var moves_ok := _sheet_has(VignetteFigures.BODIES["average"], "bounce", ["front"])
-	for body in VignetteFigures.BODIES.values():
+	for build in ["average", "ruck"]:          # the footballers (the sheet also holds the coach)
 		for anim in ["idle", "jog", "tap"]:
-			moves_ok = moves_ok and _sheet_has(body, anim, ["front", "back"])
+			moves_ok = moves_ok and _sheet_has(VignetteFigures.BODIES[build], anim, ["front", "back"])
 	_check(moves_ok and Vector2i((vig.FIGURE_SHADE as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
 			and Vector2i((vig.FIGURE_MASK as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
 			and Vector2i((vig.FIGURE_DESIGN as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE / 2,
