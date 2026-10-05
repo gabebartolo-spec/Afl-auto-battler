@@ -444,7 +444,7 @@ func _player_row(p: Dictionary) -> Control:
 	if plan == "manual":
 		info.add_child(UiKit.ellipsis("Manual  ·  development paused", 12, UiKit.BAD))
 	else:
-		info.add_child(UiKit.ellipsis("%s  ·  %s" % [GameState.train_plan_label(plan),
+		info.add_child(UiKit.ellipsis("%s  ·  %s" % [_row_plan(plan),
 				GameState.development_state(p)], 12, UiKit.MUTED))
 	var duty := GameState.last_duty(id)
 	if int(p.get("injury_weeks", 0)) > 0:
@@ -466,6 +466,16 @@ func _player_row(p: Dictionary) -> Control:
 	b.button_up.connect(_end_player_hold.bind(id))
 	b.pressed.connect(_press_player.bind(id))
 	return b
+
+
+## The plan under his name, said as a plan: "Training as a key defender",
+## never a bare "Key defender" that reads as what he is.
+static func _row_plan(plan: String) -> String:
+	var label := GameState.train_plan_label(plan)
+	if plan == "position":
+		return label
+	var noun := label.to_lower()
+	return "Training as %s %s" % ["an" if noun.substr(0, 1) in ["a", "e", "i", "o", "u"] else "a", noun]
 
 
 ## [from, to] if training lifted his OVR after the last game, else [].
