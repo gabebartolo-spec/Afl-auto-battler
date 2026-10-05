@@ -229,7 +229,7 @@ func _list_and_cap() -> Control:
 	if GameState.salary_cap > 0:
 		var room := GameState.cap_room()
 		line += "  ·  payroll %s of %s  ·  %s" % [Contracts.money(GameState.my_payroll()), Contracts.money(GameState.salary_cap),
-				("%d under the cap" % room) if room >= 0 else ("%d over the cap" % -room)]
+				("%s under the cap" % Contracts.money(room)) if room >= 0 else ("%s over the cap" % Contracts.money(-room))]
 	var l := _wrapped(line)
 	l.name = "CapLine"
 	v.add_child(l)

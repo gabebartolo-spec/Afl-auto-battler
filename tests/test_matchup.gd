@@ -23,6 +23,7 @@ func run() -> void:
 	_test_unusual_data()
 	_test_own_notes()
 	_test_copy_helpers()
+	_test_matchup_copy()
 	print("Matchup tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -286,3 +287,30 @@ func _test_copy_helpers() -> void:
 			and GameState.ordinal(22) == "22nd", "Ladder positions read 1st, 2nd, 11th, 21st")
 	var line := GameState.form_line({"value": 0.42, "label": "Good", "last": "WWLWW"})
 	_check(line == "Form: Good  ·  WWLWW", "The form line has no internal number (%s)" % line)
+
+
+## Every key match-up line names both players - no "on him", no dangling
+## colon - and a player the database cannot resolve is named from the lists.
+func _test_matchup_copy() -> void:
+	var line := MatchNotes.matchup_line("Curnow", "Moore")
+	_check(line == "Moore is on Curnow.", "Who is on whom, both named (%s)" % line)
+	var none := MatchNotes.matchup_line("Curnow", "")
+	_check(none == "Nobody is on Curnow." and not none.contains(":"), "No gap where a defender is missing (%s)" % none)
+	var f: Dictionary = GameDB.club_list("CAR")[0]
+	var d: Dictionary = GameDB.club_list("CAR")[1]
+	var res := {"duels": {str(f["id"]): {"contests": [[1, str(d["id"]), true, false],
+			[1, str(d["id"]), false, false]]}}}
+	var q1 := MatchNotes.duel_quarter_line(res, str(f["id"]), str(d["id"]), 1)
+	_check(q1.begins_with("%s is on %s." % [GameDB.player_display_name(d), GameDB.player_display_name(f)])
+			and q1.contains("marked 1 of 2 in the first") and not q1.contains("on him"),
+			"A break line says who is on whom, then how it went (%s)" % q1)
+	var q2 := MatchNotes.duel_quarter_line(res, str(f["id"]), str(d["id"]), 2)
+	_check(q2.ends_with("No contests in the second."), "A quiet quarter says so (%s)" % q2)
+	# A player only on a career list (not in the database) still has a name.
+	GameState.reset()
+	GameState.start_season("CAR", GameDB.club_list("CAR"))
+	var kid: Dictionary = GameState.season.lists["CAR"][0]
+	kid["id"] = "career_only_test_id"
+	_check(MatchNotes._pname("career_only_test_id") == GameDB.player_display_name(kid),
+			"A career-list player is named in match-up lines")
+	GameState.reset()
