@@ -7,8 +7,8 @@ class_name VignetteFigures
 ## figures_design.png: (half size) R across the guernsey, G up it, B front/back - for club designs.
 ## Boots take the weight left over. Each body's moves are strips: one per animation and
 ## facing ("front" faces the camera; "back" shows the number; "back_r" is three-quarters
-## from behind, heading right; "side_l" nearly side-on, heading left - mirror a frame for
-## the other way), frames left to right from (col, row) in FRAME cells. pivot: the feet in
+## from behind, heading right; "side_l" nearly side-on, heading left; "front_r" three-
+## quarters from the front, heading right - mirror a frame for the other way), frames left to right from (col, row) in FRAME cells. pivot: the feet in
 ## the strip's frames, pixels. Numbers are printed on the guernsey by the shader
 ## (figures_digits.png), not placed here.
 
@@ -30,7 +30,7 @@ const BODIES := {
 				},
 				"back": {
 					"row": 5,
-					"col": 14,
+					"col": 15,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
 				},
@@ -69,6 +69,20 @@ const BODIES := {
 					"pivot": [64.0, 266.16],
 				},
 			},
+			"tap": {
+				"front": {
+					"row": 4,
+					"col": 0,
+					"frames": 6,
+					"pivot": [64.0, 266.16],
+				},
+				"back": {
+					"row": 4,
+					"col": 6,
+					"frames": 6,
+					"pivot": [64.0, 266.16],
+				},
+			},
 			"bounce": {
 				"front": {
 					"row": 3,
@@ -79,7 +93,7 @@ const BODIES := {
 			},
 			"kick": {
 				"back_r": {
-					"row": 4,
+					"row": 5,
 					"col": 0,
 					"frames": 6,
 					"pivot": [39.0, 266.16],
@@ -87,7 +101,7 @@ const BODIES := {
 			},
 			"snap": {
 				"back_r": {
-					"row": 5,
+					"row": 6,
 					"col": 6,
 					"frames": 5,
 					"pivot": [36.0, 266.16],
@@ -104,13 +118,13 @@ const BODIES := {
 			"lunge": {
 				"side_l": {
 					"row": 5,
-					"col": 11,
+					"col": 12,
 					"frames": 3,
 					"pivot": [64.0, 266.16],
 				},
 			},
 			"walk": {
-				"front": {
+				"front_r": {
 					"row": 1,
 					"col": 8,
 					"frames": 8,
@@ -119,8 +133,8 @@ const BODIES := {
 			},
 			"celebrate": {
 				"front": {
-					"row": 5,
-					"col": 15,
+					"row": 6,
+					"col": 11,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
 				},
@@ -133,13 +147,13 @@ const BODIES := {
 			"idle": {
 				"front": {
 					"row": 6,
-					"col": 0,
+					"col": 12,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
 					"row": 6,
-					"col": 1,
+					"col": 13,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
 				},
@@ -158,15 +172,15 @@ const BODIES := {
 					"pivot": [64.0, 266.16],
 				},
 			},
-			"leap": {
+			"tap": {
 				"front": {
-					"row": 4,
+					"row": 5,
 					"col": 6,
 					"frames": 6,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 5,
+					"row": 6,
 					"col": 0,
 					"frames": 6,
 					"pivot": [64.0, 266.16],
