@@ -1989,6 +1989,7 @@ func _crumb(side: int, fp: float) -> Dictionary:
 		_scored(side, 1, crumber)
 		q_behinds[current_quarter - 1][side] += 1
 		_emit("behind", side, fp, crumber, _scoreline(side, "Behind"))
+		events[events.size() - 1]["crumb"] = true
 		_tag_shot(false)
 		return {"outcome": "behind", "fp": kick_in_fp(side), "actor": crumber}
 	return {}
