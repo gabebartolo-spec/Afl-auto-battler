@@ -44,3 +44,30 @@ TIRED_REPS=8 godot --headless --path . --script tools/audit/run_audit.gd -- tire
 2. **No follow-through.** The break line should say what happened after the call (his disposals since, or who came on and what he did), not restate it. This is the M4-009 report's job, so it fits there rather than adding another panel.
 3. **Copy corrections** above: small, factual, no rule change.
 4. **Harness note.** Moments only fire when `moment_side` is set, which `MatchSim` leaves at −1 for simulated matches. Audits that want moment cards must set it (this one does).
+
+## After the change: each answer holds to the break (2026-10-06)
+
+**Director decision (2026-10-05):** make Rest and Keep a meaningful trade-off. The smallest change that does it:
+
+- **Rest him now:** the named bench player comes on, and the star stays on the bench until the break (the final siren in the last quarter), however fresh he gets. He starts the next quarter fresh.
+- **Keep him out there:** the rotations leave him on until the break, however cooked. He starts the next quarter on tired legs.
+- Both hold only to the break; the rotations take over again from the next bounce. The card names the player coming on and says how long each answer lasts. It is only offered when someone on the bench can come on. AI clubs are never asked (they do not ride their stars), so nothing changes for them.
+- **Follow-through:** the break now reports what happened after the call ("Petracca rested: Laurie-Thompson came on and had 3 disposals to the break." / "Petracca stayed out there: 2 disposals to the break, on empty legs.") instead of restating it.
+- The copy no longer says "the freshest bench player" when the engine picks by position first.
+
+Same 288 paired matches, same seeds:
+
+| Call in | Answer | Win % | Margin, call to break | Margin, call to siren | His disposals to the break | His energy at the next bounce |
+|---|---|---|---|---|---|---|
+| Q2 (n = 166) | Rest | 62.3% | +1.1 | +4.6 | 0.0 | 98 |
+| Q2 | Keep | 59.3% | +1.2 | +3.2 | 2.0 | 52 |
+| Q3 (n = 62) | Rest | 58.9% | −0.3 | +1.9 | 0.2 | 94 |
+| Q3 | Keep | 67.7% | +1.9 | +3.5 | 3.2 | 38 |
+| Q4 (n = 24) | Rest | 29.2% | +2.6 | +2.6 | 0.0 | – |
+| Q4 | Keep | 33.3% | +1.0 | +1.0 | 1.5 | – |
+
+Overall: Rest 58.3%, Keep 58.9%.
+
+- **The answers now lead to different matches.** Rested, he is gone for the rest of the quarter and back at 94–98 energy; kept on, he adds 2–3 disposals now and starts the next quarter at 38–52.
+- **Neither answer dominates, and the right one depends on the time.** Early (Q2) resting pays off over the second half; later (Q3), keeping him on does. Q3 and Q4 are small samples (a Q3 difference of this size is about one and a half standard errors), so read the direction, not the size.
+- No new coefficients: the change is when a call ends, not how strong anything is.
