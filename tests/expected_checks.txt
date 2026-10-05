@@ -10,8 +10,8 @@ finals 109
 save 49
 chronology 28
 career 71
-coaches 338
-coach_market 56
+coaches 340
+coach_market 63
 coach_pathway 54
 coach_effects 25
 career_ui 209

@@ -3997,7 +3997,7 @@ Guardrails: this is **not tied to super drafts**; do not guarantee the GOAT is o
 - **Director decision — League Draft board:** your board shows scouted estimates (as the National Draft already does via `DraftScouting`, sharper with recruiting budget) instead of exact consensus ratings, removing the free first-season edge while good drafting still pays. Done in PR #222, pending merge.
 - **Director decision — Opposition POT:** another club's player shows a POT *range* (draft-style scouting) that narrows with his time in the league and your recruiting budget; exact once he is on your list. Done in PR #222, pending merge.
 - **Director decision — Club colours:** Claude proposes corrected primary/secondary/accent for every club with sources and a swatch sheet; apply plus a palette snapshot test only after sign-off. TODO.
-- **Director decision — Assistant contracts:** light layer. Assistants sign 2–3 season terms, so typically 1–2 expire per off-season; each is a one-tap Re-sign / Let go with a short ask; AI clubs follow the same rules. TODO.
+- **Director decision — Assistant contracts:** light layer. Assistants sign 2–3 season terms, so typically 1–2 expire per off-season; each is a one-tap Re-sign / Let go with a short ask; AI clubs follow the same rules. Done in PR #225, pending merge.
 - **Director decision — How we play:** the points-from/conceded-on-turnover lines are removed (PR #214).
 
 

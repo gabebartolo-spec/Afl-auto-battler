@@ -23,6 +23,7 @@ func run() -> void:
 	_test_no_effects_yet()
 	_test_movement_is_visible()
 	await _test_ui()
+	await _test_ui_expiring()
 	GameState.delete_saved_career()
 	print("Coaches tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -360,4 +361,40 @@ func _test_movement_is_visible() -> void:
 	_check(coach_line.contains(GameDB.player_display_name(mine)) and coach_line.contains(GameDB.player_display_name(car_sc)),
 			"New senior coaches read who replaced whom (%s)" % coach_line)
 	_check(league.size() == 1, "Only clubs that changed senior coach are listed (%d)" % league.size())
+	GameState.reset()
+
+
+## The off-season: an assistant at the end of his term shows it, in words,
+## with a Re-sign beside Release; re-signing clears it.
+func _test_ui_expiring() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	_new_career("CAR")
+	var guard := 0
+	while not GameState.season.is_season_over() and guard < 60:
+		GameState.advance()
+		guard += 1
+	var staff := GameState.club_staff("CAR")
+	var job := ""
+	for j in ["FWD", "MID", "DEF", "DEV", "SA"]:
+		if staff.has(j):
+			job = j
+			break
+	staff[job]["contract_to"] = GameState.season_year
+	var scene: Control = load("res://scenes/StaffScene.tscn").instantiate()
+	tree.root.add_child(scene)
+	for i in range(3):
+		await tree.process_frame
+	var ends: Label = scene.find_child("ContractEnds_" + job, true, false)
+	var keep: Button = scene.find_child("Resign_" + job, true, false)
+	_check(ends != null and ends.text.begins_with("Contract ends") and keep != null
+			and scene.find_child("Release_" + job, true, false) != null,
+			"An expiring assistant shows his term ending, with Re-sign and Release")
+	if keep != null:
+		keep.emit_signal("pressed")
+		for i in range(2):
+			await tree.process_frame
+	_check(scene.find_child("ContractEnds_" + job, true, false) == null
+			and int(staff[job]["contract_to"]) > GameState.season_year, "Re-signing him clears it")
+	scene.queue_free()
+	await tree.process_frame
 	GameState.reset()
