@@ -3289,7 +3289,7 @@ Include as relevant:
 Destructive actions require clear confirmation.
 
 
-**User-requested follow-up — TODO (2026-10-06):** For now, **real names are the default**, rather than generated/fictive aliases for real players, when no name-display preference exists. Keep fictive names opt-in and preserve saved choices. Generated future players keep their generated names; custom prospects keep their entered names. Verify fresh/default settings and save/load. The existing Settings foundation remains DONE.
+**User-requested follow-up — TODO (2026-10-06):** For now, **real names are the default**, rather than generated/fictive aliases for real players, when no name-display preference exists. Keep fictive names opt-in and preserve saved choices. Generated future players keep their generated names; custom prospects keep their entered names. Verify fresh/default settings and save/load. The existing Settings foundation remains DONE. **Status (2026-10-06):** built in the real-names PR. `GameState.show_real_names` now defaults to true, both as the variable and in the settings read. The `real_names` key is written only when the player chooses, so no key means no choice; a saved choice of generated names is kept, and New Career's setup, Settings, the in-game help, the README and DESIGN all follow the new default. Generated players have no real name and keep theirs; custom prospects are not built yet. `test_league` covers a fresh game, a settings file with no name choice, a saved generated choice kept across a restart, choosing real again, and generated players keeping their names. The README had described fictional-by-default as a legal-presentation choice; it now says real by default "for now" and the legal side stays the director's.
 
 ---
 

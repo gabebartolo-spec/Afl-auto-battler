@@ -265,7 +265,7 @@ func register_draftees(list: Array) -> void:
 		late_draftees.append(p)
 
 
-## Fictional names are the default. Real-name mode shows the AFL name on its
+## Real names are the default, and fictional labels are opt-in. Real-name mode shows the AFL name on its
 ## own ("Jordan Dawson") — never "Squadmate 001 · plays like Jordan Dawson".
 ## Generated prospects have no real name, so they keep the fictional label.
 func player_display_name(player: Dictionary) -> String:
