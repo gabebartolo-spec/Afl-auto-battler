@@ -75,3 +75,7 @@ an uncontrolled redesign.
 like this game, or like any AI-generated sports-management app? If the latter,
 simplify it. Authored and restrained, not weird; never at the cost of
 usability.
+
+## Explicitly assigned flavour work — 2026-10-06
+
+The director reviewed and included FL-001–FL-008 for Claude's queue. Read [ROADMAP §9.3](docs/ROADMAP.md#93-approved-flavour-and-culture-work--director-decisions-2026-10-06) for scope, dependencies, statuses and validation. Audit decorative appearance so it is distinct from actual game information. Necessary new ritual/farewell vignette scenes are explicitly authorised; use the shared 2.5D art and preserve tactical-scene gates. Every addition has zero gameplay effects. This approval does not mark any implementation complete or authorise unrelated research candidates.

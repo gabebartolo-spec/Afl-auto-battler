@@ -136,28 +136,32 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 - Hot files: `scripts/sim/MatchSim.gd`, `scripts/state/GameState.gd`, `scripts/ui/UiKit.gd`, `scripts/ui/match/MatchNotes.gd`, `tests/expected_checks.txt` and this file. Keep hunks small and rebase on `main` just before you push.
 - `tests/expected_checks.txt` has one floor per suite, and two PRs that raise the same suite's floor collide. Raise only the lines for suites you changed.
 - In this file, edit only your own item. The maintenance log gets a new line at the top from nearly every PR, so a conflict there is normal: keep both sides.
-- Godot is the bottleneck when several agents run it at once. Locally, run only the 1–3 suites your change touches (`tools/run_tests.sh <suites>`); CI runs the rest, as four parallel shards in about ten minutes. Never run the full suite locally. Only one long local Godot run per agent at a time, with its own user data (`APPDATA=<scratch dir>` on Windows), because every checkout shares one `user://`.
+- Godot is the bottleneck when several agents run it at once. Locally, run only the 1–3 suites your change touches (`tools/run_tests.sh <suites>`); CI runs the rest, as five parallel shards in about eight minutes. Never run the full suite locally. Only one long local Godot run per agent at a time, with its own user data (`APPDATA=<scratch dir>` on Windows), because every checkout shares one `user://`.
 - Long audits (more than about five minutes) go to the audit workflow, not your machine: `gh workflow run audit.yml --ref <branch> -f impl=<name> -f env="KEY=VAL"`, then `gh run download <run-id> -n audit-<name>`.
 - A new suite needs a line in `tools/ci_shards.txt` as well as a floor in `tests/expected_checks.txt`; CI fails if a suite is in no shard.
-- Do not push to a branch while its CI runs unless you must: a push cancels the run and restarts about ten minutes of work. Ask the Low agent for a sync instead. The Low agent owns merges and cannot push to your branch, so sync your own branch when asked.
+- Do not push to a branch while its CI runs unless you must: a push cancels the run and restarts about eight minutes of work. Ask the Low agent for a sync instead. The Low agent owns merges and cannot push to your branch, so sync your own branch when asked.
 
 **`LOW`**
-- §9.1 Training scrollbar.
-- Verifying and closing work that is already on `main` (the Low agent does this as it finds it).
+- §9.3 FL-001 football voice and incidental humour.
+- Verifying and closing work that is already on `main` (the Low agent does this as it finds it). The §9.1 Training scrollbar is done and waits only on a phone check.
 
 **`MEDIUM`**
-- Match audits that need a measured seeded comparison, and a new mechanic only if the evidence demands one: ARD-M3-007 (free-kick rate), M3-008 (50-metre penalties), M3-011 (MRO and suspensions), M4-003 (tagging cost), M4-006 (game-state AI), M4-011 (Team Form), M5-006 (omitted-player development), and the §1.11 audits of run-of-goals calls, AI plan adaptation, key forward v key defender, sim-round blowouts, List Profile v results, and How-we-play maturity and materiality. In review: the autosim v played injury parity audit (#235) and the Coleman plausibility audit (#237).
+- §9.3 FL-002 milestone banners, FL-004 atmosphere/audio, FL-005 cosmetic identity, FL-006 truthful headlines and FL-008 club memories; use existing owners and honour their dependencies.
+- §9.4 RPG-001 connected backing story (start here: verify the Backing flow first), RPG-005 selective role observations, RPG-006 coaching identity through existing choices (audit before changing anything) and RPG-007 build-aware recruiting discussions.
+- Match audits that need a measured seeded comparison, and a new mechanic only if the evidence demands one: ARD-M3-007 (free-kick rate), M3-008 (50-metre penalties), M3-011 (MRO and suspensions), M4-003 (tagging cost), M4-006 (game-state AI), M4-011 (Team Form), M5-006 (omitted-player development), and the §1.11 audits of run-of-goals calls, AI plan adaptation, sim-round blowouts, List Profile v results, and How-we-play maturity and materiality. Done since sizing: the autosim v played injury parity audit (#235, parity holds), the Coleman plausibility audit (#237) and the key forward v key defender audit (#240: defenders contain; the verdict-copy fix is #246).
 - Features across sim, UI and tests: ARD-M2-009 (goal accuracy by shot context), M5-005 (emergency designations), M5-007 (selection continuity), M7-003 (career-high milestones need new tracking), M7-005 (history continuity check), M8-005 (5, 10 and 20-year career QA), the Grand Final climax screen, and from §9.1 the Weekly selection brief, Streamline Ins & Outs, My List → My Selection flow, Full List traits and contract-talk frequency.
-- Performance and flow: §1.11 battery drain, the residual far-away receiver, vignette reachability, and quarter-break fact selection. The round-sim and Play match timing audit is in review (#236); its recommended background no-presentation sim mode is `MEDIUM`, to start only once MatchSim is quiet.
+- Performance and flow: §1.11 battery drain, the residual far-away receiver, vignette reachability, and quarter-break fact selection. The round-sim and Play match timing audit is done (#236: nothing grows with the season, and the Play match tap is about 45 ms); the background no-presentation sim mode it recommends is `MEDIUM`, to start only once MatchSim is quiet.
 
 **`HIGH`**
+- §9.3 FL-003 sourced venue atmosphere and FL-007 rituals/farewells, including necessary new shared-style vignette scenes.
+- §9.4 RPG-002 recurring journalists and remembered media, RPG-003 private selection and role conversations (with the starred M5-003 development conversations), RPG-004 hybrid synergies, RPG-008 connected season narrative, RPG-009 restrained living characters and RPG-010 automatic familiarity as team synergy. §9.4 sets the order: Backing first, then one private scene and one media topic, synergy work reconciled before RPG-004 and RPG-010, and one combined balance audit at the end.
 - Scoring and contests: ARD-M3-001 (later variety), M3-002 (forward archetype scoring), M3-003 (spoils across the ground).
-- Coaching and tactics: ARD-M4-001 (decision gates; the tired-star Rest/Keep trade-off is in review, #233), M4-002 (broader key match-ups), M4-004 (structural choices), M4-005 (role instructions), M4-007 (late-game tempo), and from §9.1 Gameplan choice and Key match-ups as interventions.
+- Coaching and tactics: ARD-M4-001 (decision gates; the tired-star Rest/Keep trade-off is done, #233), M4-002 (broader key match-ups), M4-004 (structural choices), M4-005 (role instructions), M4-007 (late-game tempo), and from §9.1 Gameplan choice and Key match-ups as interventions.
 - Lists and selection: ARD-M5-001 (18 + 5), M5-003 (secondary positions), M5-008 (role-aware form), M5-016 (inherited 2026 lists), the §1.11 role-allocation re-audit, and from §9.1 My List → Shape as a selection surface and Academies / NGA.
 - Board, league and balance: ARD-M6-003 (fair expectations), M7-004 (captaincy), M7-006 (weather), M7-007 (ground dimensions), and from §9.1 overall difficulty with active-play levers, synergies as specialisations, and the GOAT prospect.
 - Content builds: ARD-M7-008 (custom prospect), M7-009 (expansion and Club Forge), M7-010 (Sir Doug Nicholls Round), M7-011 (AFL knowledge layer), M8-003 (match visualisation), M8-006 (release polish), M8-007 (vignette art-style replacement), the §1.11 Season story and long-save visual wishlist, and AFLW (deferred).
 
-**Waiting on the director** — nobody's to pick up: the phone checks on ARD-M5-014, M5-015, M6-006, M6-008, the awards ceremony, training touch and the playtest fixes marked `VERIFY` in §9.1; the Android launcher icon (M8-008, the app name is already set in the export preset); whether to keep the trade-value discount for unproven potential (§9.1); whether the Key defender plan should be offered to defenders under 191 cm; and whether the temporary Sim to finals button (ARD-M1-007) is still wanted.
+**Waiting on the director** — nobody's to pick up: the phone checks on ARD-M5-014, M5-015, M6-006, M6-008, the awards ceremony, training touch and the playtest fixes marked `VERIFY` in §9.1; the Android launcher icon (M8-008, the app name is already set in the export preset); whether to keep the trade-value discount for unproven potential (§9.1); whether the Key defender plan should be offered to defenders under 191 cm; whether the temporary Sim to finals button (ARD-M1-007) is still wanted; and the trailer (ARD-M8-010), which is hard-gated and only starts on the director's explicit go-ahead.
 
 ## 0.4.1 Current execution queue — overrides milestone order
 
@@ -167,6 +171,8 @@ This is the **authoritative near-term work order**. The milestone catalogue belo
 2. **The former in-flight stack has landed.** _Reconciled 2026-10-05:_ the match-authenticity work (#190 merged; #196 smothers/speccies/50s/MRO/kick-ins), Combine/scouting (#188), the trade/contracts stack (#182 → #191 → #193 → #198, real-money contracts), GPS distance (#195), post-match media (#183), milestones (#186), History & records (#187) and the awards ceremony (#185) were closed as separate PRs and carried onto `main` by the consolidated squash merge #208; #189, #192, #194 and #205 merged directly. Do not reopen or re-create them; treat follow-ups as ordinary work against `main`.
 3. **Reconcile the current active work before touching its systems.** At the 2026-10-05 checkpoint #223 (live-call/trade/free-agency evidence), #224 (unproven-potential trade discount), #226 (backed-player payoff, still targeting the oval-rings branch) and #206 (music) are open. #210/#213/#214 repairs and audits, #217 difficulty evidence, #220 backing, #221 rings, #222 scouting estimates and #225 assistant contracts are merged. Preserve remaining phone checks; do not create parallel valuation, promise or payoff systems.
 4. **Then resume genuinely unstarted catalogue work** from M3/M4/M5/M7/M8 and the §9.1 playtest findings according to player value and dependencies, rather than roadmap-number order. M5-001 (18 + 5 interchange) remains a separate TODO now that selection changes have settled.
+
+5. **Approved flavour and culture extensions FL-001–FL-008 (§9.3) are now in Claude's queue.** Work under their existing owners after urgent correctness/performance repairs and their specific dependencies. The director included all eight, required a visual distinction audit, and authorised necessary new ritual/farewell vignette scenes. Inspect overlapping implementation first; no new approval interview is required.
 
 ### Queue rules
 
@@ -382,6 +388,64 @@ Primary screens should answer:
 
 Deep analytics can exist in secondary screens. Do not turn coaching, reports or matchday UI into debug dashboards.
 
+### UI anti-slop reset — current concern
+**The current UI policy/implementation has drifted away from the project's anti-slop criteria and needs an explicit corrective pass.**
+
+This concern is specifically about **visual styling language**, not about information density or "visual vomit". A screen can be clean and sparse yet still look slop if it uses the wrong card geometry, corner treatment, colour palette and generic app-template styling.
+
+**Footy Redraft and AFCM are negative references for this specific aesthetic problem.** This is not criticism of their gameplay or information density; they are examples of the kind of generic management-game/mobile-app look this project should avoid.
+
+Anti-slop criteria:
+- avoid generic AI-template / app-template visual language,
+- avoid soft rounded cards as the default container shape,
+- avoid excessive corner radii, pill buttons and chip-heavy composition,
+- avoid generic muted-green/teal/blue SaaS-style palettes,
+- avoid decorative gradients, glows, glassmorphism and gratuitous shadows,
+- avoid every section being enclosed in its own rounded rectangle,
+- avoid generic "premium mobile dashboard" aesthetics,
+- avoid condensed display fonts or all-caps styling unless genuinely justified,
+- use sentence case and natural football language,
+- use flatter, sharper, more restrained geometry where possible,
+- let typography, spacing, rules/lines and club colours create hierarchy instead of rounded card stacks,
+- keep the visual language recognisably football-specific rather than resembling a finance/productivity app,
+- maintain mobile-first readability and touch clarity.
+
+The anti-slop test is primarily visual: **if the screen could plausibly belong to Footy Redraft, AFCM, a generic AI-generated sports manager, or a modern SaaS dashboard after swapping the logo, it has drifted too far.**
+
+When revisiting existing UI, Claude should inspect card shape, corner radius, button silhouette, palette, border treatment, typography and spacing before changing information architecture. Do not misread this note as an instruction to simply remove stats or reduce content.
+
+This note is not permission for a broad unreviewed redesign. Apply the anti-slop standard incrementally to authorised UI tasks and record larger systemic cleanup as its own scoped audit/repair item if needed.
+
+
+### Art-agent tooling permission for bespoke UI
+For authorised UI/art work, the art agent may investigate and use **free software only** to create bespoke interface assets, layouts, textures, panels, decorative elements, typography treatments, iconography and other presentation pieces that help the game escape generic app-template aesthetics.
+
+Rules:
+- Free/open-source tools are preferred.
+- No paid licences, subscriptions, paid plugins, marketplace packs or trials that later charge without separate explicit user approval.
+- The art agent may research, download and use suitable free software if its environment permits.
+- If the agent cannot install or operate a required free tool directly, it may ask the user to install it and should provide concise instructions.
+- Any new tool introduced should have its source/licence noted in the relevant implementation notes.
+- Tool adoption must serve the game's bespoke football-game visual identity; do not add software merely because it is fashionable or powerful.
+- Generated UI assets still need to obey the anti-slop criteria above and the project's existing licensing/copyright guardrails.
+
+This permission includes software for areas such as vector UI design, raster painting, icon creation, texture generation, layout mockups, motion/UI animation, sprite-sheet work and other custom interface production, provided the software itself is free to use.
+
+
+### Font-sourcing permission
+The art agent may also research, download and use **free fonts** for the game's UI and visual identity under the same free-only rules.
+
+Requirements:
+- Prefer fonts with clear permissive licences suitable for game distribution, such as OFL or similarly explicit free-use licences.
+- No paid font licences, subscription font services, marketplace font packs, or trials that later charge without separate explicit user approval.
+- Record the font source and licence in implementation notes.
+- Do not use a font merely because it is trendy; it must support the game's bespoke football-game identity and anti-slop criteria.
+- Avoid condensed display fonts, generic SaaS/productivity typography, or over-stylised novelty fonts unless there is a specific justified use.
+- Verify legibility at narrow Android portrait widths and in match/vignette overlays.
+- If the art agent cannot install/access a suitable free font directly, it may ask the user to install it and should provide concise instructions.
+
+Font choices should reinforce the principle that the interface feels like a **game**, not an application.
+
 ## 1.8 Australian football language
 
 Use natural AFL terminology in player-facing text.
@@ -437,7 +501,7 @@ The current phone playtest has exposed a core-loop problem more important than f
 - **Quarter-break “What's happening” information vomit / tense problem:** the break screen currently mixes retrospective match facts, opponent-plan history, streaks and resolved in-play moments under a present-tense heading (“What's happening”), producing a dense, feed-like block that is awkward to read and visually ugly. Treat this as a presentation/decision-clarity issue, not a request for more data. Reframe the section as a concise record of **what happened in the quarter/half** and only surface the few facts that materially help the next decision. Avoid replaying resolved event-feed moments (for example a completed set shot) unless they matter tactically. Acceptance: at a break, the user can scan the section in a few seconds, understand the 2–3 most important developments from the period, and distinguish them cleanly from “What your calls did” and the next-quarter controls. Preserve football language; no stat dump and no duplicate story lines. **Status:** heading/tense part fixed in PR #123; the fact-selection/info-density part remains open.
 - **List Profile vs actual team strength validation:** the user's side can read as mostly Strong/Average across the five List Profile dimensions while losing every match heavily. The profile is not meant to predict every result, but if a side has no visible Weak area and repeatedly performs like a bottom side, the words may be overstating practical strength or omitting an important determinant of match performance. Audit the relationship between each profile label and realised match performance/results across clubs and repeated seeded matches. Do not turn this into an overall power rating or recommendation. Acceptance: Strong/Elite labels correspond to materially better outcomes in the football area they describe, and a side that is broadly above average across the profile does not routinely behave like a clearly weak team without an explainable cause visible elsewhere.
 - **Current-list club identity bug:** `My list` is still colouring each player's guernsey/number tile from `p["club"]`, which in a league re-draft can remain the player's original/source club. On the user's Melbourne list this produces a patchwork of old-team colours even though every player now represents Melbourne. Current-squad screens must use the player's **current club/list context**, not historical source-club metadata. On `My list`, every player should therefore carry Melbourne's red/blue identity (prefer the existing multi-band club marker where practical, not a single stale origin colour). Apply the same rule anywhere else that presents a player as a current member of a club: selection, training, match-day list/profile surfaces. Preserve original/source club only for explicit history/draft-origin contexts. Acceptance: after a league re-draft, no current-list screen visually implies a player still belongs to his former club; a Melbourne list reads consistently red/blue while career/history screens can still show past clubs when relevant. **Status:** fixed and merged in PR #118.
-- **Club marker colour accuracy audit:** the round-results screen exposes that a number of club colour markers do not convincingly match their real AFL identities. This screen is not inventing colours locally: `HubScene._results_list()` uses `UiKit.club_badge()` → `club_marker()` → `GameDB.club_marker_colours()`, which reads the hard-coded `primary/secondary/accent` values in `data/clubs.csv`; therefore audit the **source palette for every current AFL club**, not just this popup. Verify genuine club colours, ordering, two-vs-three-colour treatment and sufficiently accurate shades against authoritative club/AFL branding references. Do not use generic approximations simply because they are distinguishable. Obvious shade/order candidates should be checked rather than guessed (for example North Melbourne currently uses a very dark navy-like `#0C2340` as its primary despite its recognisable royal blue/white identity). Keep fictional/future clubs separate from the real-club audit. Acceptance: every 2027 AFL club marker is immediately recognisable to a footy fan across results, ladder, draft, selection and other shared badge surfaces; shared `club_marker` remains the single source of presentation; add a palette regression/snapshot fixture so later UI work cannot silently reintroduce wrong colours.
+- **Club marker colour accuracy audit:** the round-results screen exposes that a number of club colour markers do not convincingly match their real AFL identities. This screen is not inventing colours locally: `HubScene._results_list()` uses `UiKit.club_badge()` → `club_marker()` → `GameDB.club_marker_colours()`, which reads the hard-coded `primary/secondary/accent` values in `data/clubs.csv`; therefore audit the **source palette for every current AFL club**, not just this popup. Verify genuine club colours, ordering, two-vs-three-colour treatment and sufficiently accurate shades against authoritative club/AFL branding references. Do not use generic approximations simply because they are distinguishable. Obvious shade/order candidates should be checked rather than guessed (for example North Melbourne currently uses a very dark navy-like `#0C2340` as its primary despite its recognisable royal blue/white identity). Keep fictional/future clubs separate from the real-club audit. Acceptance: every 2027 AFL club marker is immediately recognisable to a footy fan across results, ladder, draft, selection and other shared badge surfaces; shared `club_marker` remains the single source of presentation; add a palette regression/snapshot fixture so later UI work cannot silently reintroduce wrong colours. **Status (2026-10-06): fixed in PR #231, pending merge.** Every 2027 AFL club's `data/clubs.csv` palette is corrected to the clubs' sourced Pantone references with director sign-off (North Melbourne, Brisbane and the Bulldogs back to royal blue; Port Adelaide's teal), with Carlton and Melbourne keeping a lifted navy for on-pitch legibility; `club_marker` remains the single presentation source; `test_matchday._test_palette_snapshot` pins all 20 clubs. Fictional/future clubs (Tasmania, Canberra) unchanged. Phone legibility check remains.
 - **Authentic away/clash guernseys:** add alternate away/clash kits for real AFL clubs using colours and treatments genuinely associated with those clubs, rather than generic recolours. Examples include Melbourne variants using royal blue and GWS charcoal-based alternates. Research each club's real away/clash/history of alternate guernseys and build a small authentic palette/template set per club that can be used in match presentation and the guernsey system. Preserve recognisable club identity, avoid inventing colours with no real basis, and use alternates contextually when the home kit would clash.
 
 - **Heritage rounds and commemorative guernseys:** add authentic throwback and milestone-season strips for real AFL clubs. Research historically grounded designs, colour balances and eras rather than inventing novelty reskins. Support heritage rounds, anniversary seasons and club-specific commemorative variants where appropriate. Keep the system presentation-led: visual flavour and long-save identity, not arbitrary gameplay buffs.
@@ -493,7 +557,7 @@ The current phone playtest has exposed a core-loop problem more important than f
 - **Grand Final / premiership climax presentation:** phone playtesting confirms that `Sim to Grand Final` currently ends on the generic round-results modal: a small **Grand Final** label, `Premiers: Greater Western Sydney`, two score rows and a **Continue** button. Code inspection confirms `_show_results()` is the same generic results overlay used for ordinary rounds, with only one extra `Premiers:` line when the season is over. That is far too unceremonious for the climax of a full season, even when the user's own club has already been eliminated. Give the Grand Final a bespoke end-of-season result presentation with clear escalation and a proper premiership reveal: establish the matchup/result, reveal the winner as premiers, give the final score/margin enough visual weight, and then hand off cleanly into the season-story/awards sequence. Fanfare should come from pacing, hierarchy, club identity and a sense of occasion rather than generic particles or a giant stat dump. If the user fast-forwards the finals, they should still land on this climax rather than an ordinary round popup. Acceptance: the Grand Final can never be mistaken for a routine fixture result; the premier reveal feels like the culmination of the league season on phone; the result is still quick to read/skip on repeat careers; and `Continue` leads into the proper post-season flow rather than making the season simply stop.
 - **Season story / campaign recap — separate from awards night:** the existing `Season Review` is mostly a stat sheet plus league awards: finish/record/points, PF/PA/percentage, best win, worst loss, longest win streak, goals, a W/L strip, final ladder, board verdict, awards and achievements. That is useful, but it does **not** yet give the emotional/narrative payoff of finishing a long campaign. Add a concise **Your season / Season story** recap after the Grand Final that tells the story of the user's year in football language, separate from the awards panel. Treat it like completing a major RPG campaign: identify the season's arc rather than dumping every round. Candidate beats include the opening trajectory, longest/biggest winning and losing runs, a genuine finals push or collapse, defining wins/losses, key performers, important injuries that changed the side, major improvers/breakouts, and how the year ultimately ended. **Also include the football identity the player actually coached into the side across the year:** e.g. `We played through the corridor most weeks`, `Nick Daicos was our focal point in most matches`, `We were conservative with legs and rotated hard`, `We usually backed our contested game`, `We changed plans often rather than sticking to one style`. These tendencies must come from actual season usage, not generic flavour text. `MatchSim.result()` already exposes `tactics_history`, `stars`, `interchanges`, `moments`, `impact` and related match data, but `CareerSave.slim_results()` deliberately strips most of that from `season_log` on save/load; therefore if the recap needs to survive a reload, track a **small incremental season-story ledger** as matches finish (plan-quarter counts, play-through/focus usage, rotation philosophy counts, notable streaks/results, significant injuries, player development/performance candidates) instead of retaining giant match logs. Keep it curated: roughly 5–8 memorable beats plus a short `How we played` identity block, not a timeline dump. Do not conflate this with awards night; Brownlow/Coleman/AA/B&F remain separate recognition, while the story answers **what happened to us this season and what kind of side were we?** Acceptance: after a full season, the user can read the recap and recognise their own campaign and coaching habits; tendencies are quantitatively grounded in actual usage (e.g. majority-of-quarter/match thresholds rather than one isolated call); the same recap survives save/reload; major injuries/improvers only appear when genuinely season-defining; and the presentation avoids number vomit while preserving enough concrete detail to feel earned.
 - **AI plan adaptation / Controlled-tempo free-counter audit:** phone playtesting showed an opponent repeatedly using **Defensive press** across quarters while trailing, while the user could answer with **Controlled tempo** even with subpar ball users and seemingly counter it for free. Current code explains both concerns: `ai_tactics()` only abandons the AI club's standing plan when the margin crosses a tactics-read threshold (`18 - 8 * read` points), so a naturally defensive side can remain in Defensive press while losing by a smaller margin; meanwhile `PlanFit.gd` explicitly gives Controlled tempo **no list-fit requirement at all** (`fit == 1.0` for every list), even though its identity is about reducing pressure/clangers and should plausibly depend on ball use/composure. Audit, do not just make the AI psychic. Test AI plan choices by quarter, margin, standing-plan identity and recent observed match state using only information available to a coach; determine when a losing side should persist with its style versus chase the game. Separately test Controlled tempo with strong vs weak disposal/decision-making lists against Defensive press. Acceptance: a defensive AI can sensibly persist when appropriate but does not mechanically sit in a losing countered plan all game; Controlled tempo is not an equally effective press-counter for poor ball-use sides; and there remains no hidden direct read of the user's selected plan.
-- **Key-forward vs key-defender balance audit:** phone playtesting suggests good key forwards are consistently getting the better of good key defenders. Do not assume a nerf/buff yet; measure it. The current matchup system only sends a small explicit share of inside-50 entries through named key-forward matchups (`KEY_TARGET = 0.06`), while most forward-50 outcomes still come from broader line strength and shooter selection. On explicit duels, forward aerial ability is `70% marking + 30% height` while defender aerial ability is `45% intercept + 30% marking + 25% height`, then layered on top of team forward-mark vs defensive-intercept strength. Audit whether strong key forwards are over-performing overall, whether strong key defenders materially suppress them, and whether the named matchup system is too infrequent to matter. Run seeded matchup matrices across elite/good/average key forwards vs elite/good/average key defenders, tracking target share, mark win rate, shots, goals, spoils/intercepts and matchup-report verdicts. Acceptance: elite forwards can still win games, elite defenders can genuinely contain them, equal-quality matchups are not systematically tilted one way without evidence, and matchup presentation reflects the measured duel rather than reputation.
+- **Key-forward vs key-defender balance audit:** phone playtesting suggests good key forwards are consistently getting the better of good key defenders. Do not assume a nerf/buff yet; measure it. The current matchup system only sends a small explicit share of inside-50 entries through named key-forward matchups (`KEY_TARGET = 0.06`), while most forward-50 outcomes still come from broader line strength and shooter selection. On explicit duels, forward aerial ability is `70% marking + 30% height` while defender aerial ability is `45% intercept + 30% marking + 25% height`, then layered on top of team forward-mark vs defensive-intercept strength. Audit whether strong key forwards are over-performing overall, whether strong key defenders materially suppress them, and whether the named matchup system is too infrequent to matter. Run seeded matchup matrices across elite/good/average key forwards vs elite/good/average key defenders, tracking target share, mark win rate, shots, goals, spoils/intercepts and matchup-report verdicts. Acceptance: elite forwards can still win games, elite defenders can genuinely contain them, equal-quality matchups are not systematically tilted one way without evidence, and matchup presentation reflects the measured duel rather than reputation. **Status (2026-10-06):** measured over 864 drafted-league matches and 16,899 named contests ([evidence](KEY_MATCHUPS_AUDIT_2026-10-06.md)). Elite defenders do contain: an elite forward marks 76% against an average defender but 57% against an elite one, with goals down 23%. Named contests are 18.8% of inside 50s, so the `KEY_TARGET` 6% concern is out of date. Equal quality tilts to the forward at the top (elite v elite 57%, because forward air runs higher than defender air and `DUEL_CENTRE` centres the default pairing). The full-time line's 60%/40% cut on 4–5 contests turns that into "beat" 51% vs "held" 28%, which is the playtest impression. Options recorded (a minimum-contest verdict in MatchNotes after #233, or a balance-gated best-v-best centring); nothing changed.
 - **Coleman / individual goalkicker plausibility audit:** Round 18 phone playtesting has **Brodie Kemp leading the Coleman with 48 goals**, ahead of established spearheads. This is surprising enough to audit, but not automatically a bug: the shipped 2026 data already has Kemp at **39 goals from 25 games (1.56/game)** and listed as `FWD`, so the model has genuine source-season evidence that he can score; a redraft can also create unusual opportunity. The current calibration only checks **how concentrated** team goals are (top goalkicker ≈16% of club goals, top three ≈38%), not whether the players who become league-leading scorers are plausibly the best/most-used forwards. Add season-level validation across many drafted leagues: correlate goals/game and Coleman finishes with goalkicking, accuracy, marking/forward role, actual source scoring and team opportunity; inspect outlier Coleman leaders manually; and measure whether middling forwards can routinely become 60+ goal spearheads merely because shooter selection funnels chances to them. Preserve genuine breakout seasons and redraft weirdness — do not hard-code famous names or force the real-world Coleman order. Acceptance: unusual winners remain possible, but league-leading goal seasons are usually produced by players with a credible scoring profile and/or clearly explainable opportunity; strong source scorers are not systematically suppressed; and the long-run Coleman goal totals/distribution remain AFL-plausible. **Status (2026-10-06):** audited over 12 drafted leagues ([evidence](COLEMAN_AUDIT_2026-10-06.md)). Leaders are credible: every winner and top-five finisher is a genuine forward, no 50-goal season came from a sub-1.0-a-game real scorer, simulated vs real goals a game is Spearman 0.66, and Kemp (1.56 a game real) finishing high is legitimate redraft opportunity. **Defect found, not fixed:** `Ratings.build_norm_params` caps `goals_pg`/`marks_inside50_pg` at the whole pool's 98th percentile, so 10 forwards from 2.13 to 3.47 real goals a game all read goalkicking 99. Marking and OVR then decide the Coleman (Treacy, marking 96, wins 6 of 12; Curnow and Gunston one each), and 60+ goal seasons are thinner than real (2 a season vs 6). A headroom fix re-rates forward OVR, so it is BALANCE-GATED and awaits the director.
 - **Sim-round score / blowout plausibility audit:** phone playtesting produced some extreme-looking simulated results, including Melbourne 18.13 (121) defeating Port Adelaide 3.6 (24), a **97-point margin**, alongside several low losing totals in the same round. First clarify that Sim round is **not using a separate arcade score generator**: `Season.play_round()` calls `Season.simulate()` → `MatchSim.run()`, the same possession-chain engine used by watched matches, with AI/default tactics rather than live human interventions. Existing league-balance data says drafted leagues currently produce **60+ margins about 6.7–7.8% of matches and 100+ margins about 0.2–0.5%**, versus roughly 15.5% / 1.9% in the referenced real AFL season, so one 97-point result is not by itself evidence that blowouts are too common. Audit the **distribution and causes**, not the screenshot alone: compare full-season simulated score/margin distributions with real AFL and with watched-user matches; track 0–39, 40–59, 60–79, 80–99 and 100+ margins, team scores under 40/50 and over 120/140, quarter-by-quarter runaway frequency, and whether particular tactics/form/momentum/list mismatches create implausible snowballing. Use the same drafted league states and paired seeds where possible to compare `Season.simulate()` with equivalent live/default-call matches and confirm score generation is identical when decisions are held constant. Acceptance: no hidden fast-score path diverges from MatchSim; extreme scores occur at plausible long-run rates and for understandable football reasons; simmed rounds and equivalent watched/default-call matches have matching seeded outcomes/distributions; and any fix targets the actual causal mechanism rather than globally compressing scores.
 - **Autosim vs played-match injury-rate parity audit:** phone playtesting gives the impression that the user's players get injured more often when matches are autosimmed than when watched/played. Do not assume this is true; measure it. Code inspection finds **no explicit autosim injury multiplier**: both paths use `MatchSim`, `_plan_injuries()` calls the same `Injuries.roll()` with the same `BASE_CHANCE`, durability and weekly-risk modifiers, and current results always carry an `injuries` record so `Injuries.apply_match()` should not perform the legacy fallback roll a second time. However, there are two real path differences worth testing: (1) an interactively prepared user match currently uses `season.next_seed(99)` whereas a Sim-round user match uses the fixture-index seed, so the same fixture is not an injury-identical replay; and (2) injuries are planned for ground + bench but only actually occur once that player has taken part, so rotation philosophy/manual rests can change how many bench players are exposed. Run large paired tests from identical list/selection/soreness states comparing pure autosim with a live/default-call path, holding rotation policy constant, and report injuries per team-game, per player-game, initial-18 injuries, bench-player injuries, severity mix and concussion rate. Also test Normal/Hard/Ride-stars separately so participation exposure is understood. Acceptance: after controlling for players who actually took the field, autosim and played matches have statistically equivalent injury probability/severity; no result is double-rolled; any genuine difference is traced to an intentional exposure/input difference rather than hidden mode logic. If parity already holds, add a regression test and leave balance unchanged. **Status (2026-10-06):** audited; parity holds, balance unchanged ([evidence](INJURY_PARITY_2026-10-06.md)). Same fixture and seed: Sim round and a played match hurt the identical players in 900 of 900 drafted-league matches, under Normal, Rotate hard and Ride the stars alike (one extra bench exposure in 1,254 injuries under Rotate hard). The watched-match seed (`next_seed(99)`) is a different draw, not a bias (four seed schemes within one standard error). No double roll: new `test_injuries` checks that every injury landing on a list after a Sim-round week is one MatchSim recorded.
@@ -2060,6 +2124,9 @@ Detailed stats live in the Stats screen.
 
 **Validation:** event-to-copy fixtures, short/contradictory samples, watch/skip consistency and phone recall of the match's people/turning point. New replay/archive work remains an unselected candidate.
 
+
+**Approved flavour extension:** FL-006 (§9.3) adds sparse truthful editorial headlines within the existing report; the DONE report foundation remains DONE. Keep decorative copy distinct from tactical follow-through.
+
 ---
 
 ## ARD-M4-010 — In-match Momentum
@@ -2195,6 +2262,9 @@ This is the canonical item for the user's previously requested secondary-positio
 **Acceptance:** suitability improves without rewriting unrelated skills; physical eligibility remains credible; the time/usage cost is clear; progress survives save/load and remains distinct from current form. A player can gain another useful job without becoming best at everything.
 
 **Validation:** eligible/ineligible bodies, interruption and save/resume, selected/omitted usage and multi-season growth comparisons. Phone players can explain what is being learned and what they give up.
+
+
+**\* Claude to refine — development conversations (user-approved, 2026-10-06):** Connect existing training/retraining plans to short private player conversations and later factual follow-through. Discuss a plausible football goal and any explicitly agreed playing opportunity; later acknowledge the actual trial, continued development or changed plan. Reuse existing training, positional-learning and commitment rules; this adds personal continuity, not a new progression system or guaranteed success. Claude should refine the smallest useful scene, triggers and callback within existing development/player-dialogue work, preserving clear obligations and accurate save/load behaviour.
 
 ---
 
@@ -3193,6 +3263,9 @@ Include as relevant:
 
 Destructive actions require clear confirmation.
 
+
+**User-requested follow-up — TODO (2026-10-06):** For now, **real names are the default**, rather than generated/fictive aliases for real players, when no name-display preference exists. Keep fictive names opt-in and preserve saved choices. Generated future players keep their generated names; custom prospects keep their entered names. Verify fresh/default settings and save/load. The existing Settings foundation remains DONE.
+
 ---
 
 ## ARD-M6-006 — League-relative List Profile
@@ -3426,6 +3499,9 @@ Do not spam routine milestones.
 
 **Validation:** first/threshold/tie/repeat-load cases, imported versus simulated history, generated players and phone pacing. Ask whether the player remembers why this person mattered; counts of notifications are not enjoyment.
 
+
+**Approved flavour extensions:** FL-002/007 (§9.3) add genuine milestone banners and recognition treatments. Audit decorative appearance separately from actionable information; necessary new shared-style flavour scenes are explicitly authorised.
+
 ---
 
 ## ARD-M7-004 — Captaincy / leadership
@@ -3518,6 +3594,9 @@ Acceptance: Brownlow and the user's B&F can be watched as progressive counts wit
 **Acceptance:** stable IDs and genuine stints/honours survive decades and reload; an ageing contributor can remain remembered after losing a starting role; records never confuse another player with the same name or new guernsey. Recognise event-supported finals/dynasties without rewriting quiet seasons as dramatic ones. Where context is missing, make an earlier contribution and actual present role inspectable through existing facts, without inventing relationships.
 
 **Validation:** transferred/retired/generated players, imported 2026 history once, repeated reload, real/fictional-name preference and existing coach-player linkage; phone retrieval and multi-season recall. Broader narrative presentation remains review-only unless already accepted elsewhere.
+
+
+**Approved flavour extensions:** FL-005/006/007/008 (§9.3) cover harmless fictional profile identity, truthful headlines, rituals/farewells and factual visual club memories. Reuse the existing nickname/history/awards/alumni foundations.
 
 ---
 
@@ -4295,6 +4374,9 @@ Includes:
 Guardrail:
 Do not perform a movement-engine rewrite without evidence that local fixes are insufficient.
 
+
+**Approved flavour extension:** FL-003 (§9.3) adds sourced, readable atmosphere for existing venues. Ground dress changes no geometry, weather, home advantage or football outcome.
+
 ---
 
 ## ARD-M8-004 — Main menu / onboarding
@@ -4362,10 +4444,13 @@ Final pass:
 - remove debug UI,
 - ensure critical game actions are understandable without external explanation.
 
+
+**Approved flavour extensions:** FL-001/004 (§9.3) add sparse authentic voice and natural ground/crowd sound through existing writing/audio systems.
+
 ---
 
 ## ARD-M8-007 — Cinematic tactical vignettes
-**Status:** `VERIFY` — the prototype/broadcast-vignette foundation is merged (#153); phone playtest still decides whether the vignette library earns expansion.  
+**Status:** `VERIFY` — the prototype/broadcast-vignette foundation is merged (#153); phone playtest still decides tactical-library expansion. Necessary new flavour scenes are separately authorised in FL-007 (§9.3).  
 **Priority:** `P3`  
 **Autonomy:** `SUPERVISED`
 
@@ -4452,7 +4537,7 @@ On the director's direction, the drawn stick figures became pre-rendered 2.5D fo
 
 **Scope:** inventory every vignette renderer, scene, animation and fallback that still uses the old style. Migrate all of them to the shared new figure assets and rendering approach, extending poses or animations where a sequence needs them. Preserve each scene's purpose, pacing, authoritative participants, club guernseys, player numbers and appearance data. Replace the awards ceremony's legacy BroadcastVignette silhouette figures as part of this work. Retire obsolete rendering paths and unused assets once their replacements are verified.
 
-**Acceptance:** the inventory accounts for every existing vignette/sequence and each entry has been migrated and visually checked; no reachable scene or fallback displays the old art style. All scenes consistently use the new style, including awards and less frequent match moments. This is replacement of existing presentation, not approval to expand the vignette library.
+**Acceptance:** the inventory accounts for every existing vignette/sequence and each entry has been migrated and visually checked; no reachable scene or fallback displays the old art style. All scenes consistently use the new style, including awards and less frequent match moments. The migration requirement is replacement of existing presentation. The director's later FL-007 approval (§9.3, 2026-10-06) separately authorises necessary new flavour scenes; it does not authorise unrelated tactical-library expansion.
 
 **Validation:** deliberately reach or capture every sequence and relevant fallback, compare phone-sized stills and motion, and check transitions, club colours, player appearance and pose coverage. Verify phone performance, skip/touch/Back behaviour and unchanged football outcomes. Obtain director visual review before marking the migration complete; record any untested sequence as outstanding.
 
@@ -4461,7 +4546,7 @@ The feature earns further work only if a phone playtest shows that the player ca
 
 ### Research refinement — 2026-10-05
 
-**Dependencies / status boundary:** keep VERIFY and the §1.11 gate. The merged centre-bounce prototype is the current owner; no new library is authorised by this research.
+**Dependencies / status boundary:** keep VERIFY and the §1.11 gate. The merged centre-bounce prototype is the current tactical owner. The earlier research did not authorise a new library; the later FL-007 approval (§9.3) permits necessary new flavour scenes only.
 
 **Smallest scope:** test the existing scene against its authoritative participants, frozen state, choice and resumed events.
 
@@ -4469,7 +4554,10 @@ The feature earns further work only if a phone playtest shows that the player ca
 
 **Acceptance:** viewers can see the football opportunity and trade-off; skip and watch preserve the same choice/resolution; repeated entry/Back does not duplicate or drop a call; positive and negative outcomes both return cleanly to the oval.
 
-**Validation:** participant/event agreement, quiet/invalid contexts, 320/360/430-width review plus native Android touch, pacing, load time and performance. Expansion requires the director's phone finding that this presentation improves meaningful decisions.
+**Validation:** participant/event agreement, quiet/invalid contexts, 320/360/430-width review plus native Android touch, pacing, load time and performance. Tactical-scene expansion requires the director's phone finding that this presentation improves meaningful decisions. FL-007 flavour scenes have explicit director approval and are validated for recognition, visual distinction, pacing and gameplay neutrality instead.
+
+
+**Approved flavour extensions:** FL-002/003/007 (§9.3) use the shared art/rendering pipeline. The director expressly authorised necessary new ritual, milestone, retirement and awards scenes on 2026-10-06. This scoped flavour permission supersedes earlier no-expansion wording for those occasions only; unrelated tactical-scene expansion retains its decision-clarity gate.
 
 ---
 
@@ -4947,7 +5035,7 @@ Bulls in the midfield line alone after a season, ≥2 / ≥3 / ≥4: all clubs 5
 - **My List → Shape should be functional — TODO.** The formation screen is currently cosmetic. Make players directly tappable for move/reposition, swap and drop actions in context, with the same replacement flow. Treat Shape as a candidate primary mobile selection interface rather than maintaining a pretty read-only duplicate.
 - **My List → Full List traits — TODO.** Surface distinctive player traits without adding trait-vomit. Prefer a compact trait name/indicator with tap-to-inspect details so the list communicates player identity at a glance.
 - **Training touch handling — VERIFY (repair merged; phone follow-up).** Player rows are too eager to register selection while the user is scrolling, causing accidental multi-selects. Add robust scroll-vs-tap/long-press discrimination and test rapid swipes, slow drags, taps and long-press on phone touch input. **Status (2026-10-05):** fixed in merged PR #210; native phone follow-up remains. A press that turns into a scroll (list moved, or finger travelled past the scroll deadzone) is neither a tap nor a long press; still taps and holds behave as before. Covered by a career-UI test; still worth a phone check.
-- **Training scrollbar — TODO / mobile polish.** The right-side scrollbar/thumb is awkward to grab. Increase its touch usability if retained, but prioritise normal swipe scrolling so grabbing the scrollbar is rarely necessary.
+- **Training scrollbar — VERIFY (fix in PR; phone follow-up).** The right-side scrollbar/thumb is awkward to grab. Increase its touch usability if retained, but prioritise normal swipe scrolling so grabbing the scrollbar is rarely necessary. **Status (2026-10-06):** fixed in `UiKit.scroll`, so every scrolling list gets it, not only Training. The engine's scrollbar was 8 units wide (about 2 mm on a phone). It is now a 20-unit touch rail with a slim 6-unit thumb at its edge, never shorter than 48 units, brighter while held; the rows stop short of the rail instead of running under it. Swiping is unchanged (the #210 scroll-versus-tap handling stands). `career_ui` checks the Training list. The rail costs 12 units of row width on a long list; worth a phone check for feel and for any row that now truncates.
 
 ## P2 / draft pathway depth
 
@@ -4959,7 +5047,7 @@ Bulls in the midfield line alone after a season, ≥2 / ≥3 / ≥4: all clubs 5
 - **Active-play levers — evidence, not tuned** (`docs/LEVERS_EVIDENCE_2026-10-05.md`, PR #223). Live-match calls are worth about +3 points of win rate (counter-reading), and the 216-match Defensive press outlier (67.8% vs 61.1% Balanced) did not hold at 1,080 matches (62.2% vs 59.8%; reading the game 63.3%): it counters Attacking corridor and loses to a pressing AI, so it is not a dominant default. The trade market is exploitable: AI clubs give established stars for unproven teenagers (e.g. 83 OVR age 25 for two 67s aged 18) because `TradeValue.future_rating` treats 60% of a youngster's POT gap as certain. Free agency is not a lever (asking-price bids never lead; the pool is mostly 33+). **Director decisions (2026-10-05):** discount unproven potential in trade value by senior games played (done in PR #224, pending merge: prime-age stars no longer go for unproven kids; a rebuilder can still sell a 29-year-old star for two top kids). **Realised-value follow-up (2026-10-05, in #223):** over three eight-season trader careers the current projection matched the kids' realised peaks (−0.1 on average, n = 23) while #224's discount under-projected them (+1.4); traded stars declined and the trader collapsed to list rank 17–20 either way. Evidence does not support the discount: director to decide whether to close, soften or keep #224; rerun the calls test at about 1,000 matches before any Defensive press tuning (done: not dominant, no tuning recommended); next build after these: assistant contracts (merged #225).
 - **Director decision — League Draft board:** your board shows scouted estimates (as the National Draft already does via `DraftScouting`, sharper with recruiting budget) instead of exact consensus ratings, removing the free first-season edge while good drafting still pays. Done in merged PR #222; phone verification remains.
 - **Director decision — Opposition POT:** another club's player shows a POT *range* (draft-style scouting) that narrows with his time in the league and your recruiting budget; exact once he is on your list. Done in merged PR #222; phone verification remains.
-- **Director decision — Club colours:** Claude proposes corrected primary/secondary/accent for every club with sources and a swatch sheet; apply plus a palette snapshot test only after sign-off. TODO.
+- **Director decision — Club colours:** Claude proposes corrected primary/secondary/accent for every club with sources and a swatch sheet; apply plus a palette snapshot test only after sign-off. **Done in PR #231, pending merge.** Signed off 2026-10-05: all proposed changes applied to `data/clubs.csv` except Carlton's and Melbourne's navies, which keep the game's lifted navy so they don't read as Collingwood and Essendon on the pitch. Biggest corrections: Brisbane's, North Melbourne's and the Bulldogs' royal blues (were navy) and Port Adelaide's teal (was too green). Sources: Team Color Codes' per-club Pantone references (a third-party summary, not club brand guides). Tasmania and Canberra unchanged. Palette snapshot test in the matchday suite.
 - **Director decision — Assistant contracts:** light layer. Assistants sign 2–3 season terms, so typically 1–2 expire per off-season; each is a one-tap Re-sign / Let go with a short ask; AI clubs follow the same rules. Done in merged PR #225; phone verification remains.
 - **Director decision — How we play:** the points-from/conceded-on-turnover lines are removed (merged PR #214).
 
@@ -4994,7 +5082,92 @@ Prefer improving the existing experience when that answers the same need. This p
 
 ---
 
-## ARD-M8-009 — Trailer production gate
+# 9.3 Approved flavour and culture work — director decisions, 2026-10-06
+
+**Authority:** the director reviewed FL-001 through FL-008 one by one and included all eight. These are now **authorised Claude execution work**, sequenced by §0.4.1 and the dependencies below. No further include/exclude interview is needed. The research-only merge #254 did not implement these features.
+
+**Scope:** presentation and cosmetic identity only, with **zero gameplay effects**. Use the [research report](research/AFL_FLAVOUR_AND_CULTURE_RESEARCH.md), [source ledger](research/AFL_FLAVOUR_SOURCE_LEDGER.md) and [original sample copy](research/AFL_FLAVOUR_WRITING_SAMPLES.md). FL references identify accepted extensions within existing owners; do not create duplicate milestone, nickname, venue, news, audio or history systems. Existing parent-ticket statuses are not changed by approval; the extensions below are all TODO.
+
+| Reference | Director decision | Canonical owner | Extension status / effort |
+|---|---|---|---|
+| FL-001 | Include authentic football language and restrained Australian humour | M8-006 | TODO / LOW |
+| FL-002 | Include milestone banners; **audit their appearance so decorative content is distinct from actual game information** | M7-003 + M8-007 | TODO / MEDIUM |
+| FL-003 | Include recognisable ground atmosphere | M8-003/007; reuse M7-009 venue identity/presets where available | TODO / HIGH |
+| FL-004 | Include natural crowd sound, breathing room and volume controls | M8-006 + existing audio owner | TODO / MEDIUM |
+| FL-005 | Include persistent, harmless fictional-player nicknames and interests | M7-005 + existing M7-008/009 nickname/profile fields | TODO / MEDIUM |
+| FL-006 | Include characterful, truthful headlines distinct from game information | M4-009 + M7-005/011 and existing news/season-story surfaces | TODO / MEDIUM |
+| FL-007 | Include rituals and farewells; **build new vignette scenes as necessary** | M7-003/005 + M8-007 shared art/rendering | TODO / HIGH |
+| FL-008 | Include decorative club memories across decades | M7-005 + existing alumni/history presentation | TODO / MEDIUM |
+
+### Common dependencies, limits and acceptance
+
+1. Inspect current implementation and open PRs before starting. Reuse the active owner of any overlapping field, renderer, scene, news item or audio setting. Coordinate with current soundtrack work; do not assume PR #206 is merged or replace it with a competing system.
+2. Preserve P0 correctness, phone-playtest and performance priorities. Shared vignette art must use the approved pre-rendered 2.5D footballers; complete the required migration of reachable legacy styles. FL-007 explicitly authorises necessary new **flavour** scenes, but does not waive the art/readability/performance gates or authorise unrelated tactical scenes.
+3. Reflect authoritative facts. Do not modify ability, fatigue, injury, development, morale, relationships, board confidence, contracts, finances, scouting, AI, fixture rules, disciplinary outcomes or match results. Decorative interests/nicknames have no mechanical correlation. Do not invent private lives, quotations or scandals for real players.
+4. **Visual audit required:** decorative banners, captions, profile details, mementos and scene copy must be recognisable as atmosphere rather than tactical advice, interactive choices, stat changes, warnings or new rules. Use placement, hierarchy and scene context, not colour alone. Keep useful information primary and unchanged; use a concise contextual label only where needed. Do not turn the distinction into more panels or explanation spam.
+5. Compare the same seed and commands with flavour watched, skipped, muted, disabled and reloaded. Football events and canonical football state must agree; presentation preferences/viewed flags may differ. Cosmetic RNG/metadata must not consume the football generator stream or change draft generation.
+6. Inspect phone-sized stills and motion at narrow portrait widths and native Android. Verify contrast, names, ball/actor visibility, touch, natural Back, scrolling, skip/replay and no extra loading wait. Record which checks remain untested. Observed sessions must check that viewers can distinguish flavour from actionable information and do not infer hidden buffs.
+7. Prototype quantities in the report are starting budgets, not fixed content caps. Expand only within the approved purpose when the initial treatment works. Approval is not implementation: record evidence and outstanding work for each FL extension, without marking a completed parent foundation unfinished.
+
+### FL-001 — Football voice and restrained humour
+**Scope:** revise optional captions and incidental details in existing surfaces. Give reports, banners and fictional clubroom notices appropriate voices; essential action labels remain plain.
+**Dependencies:** UiKit writing/hierarchy and available event predicates.
+**Exclusions:** a new dialogue/news framework, copied catchphrase bank, forced slang dialect or manufactured real-player quotes.
+**Acceptance:** language feels natural, concise and affectionate; a newcomer understands controls; factual assertions have supported triggers; repeated jokes can be suppressed and silence is valid.
+**Validation:** contextual copy review, repeated-season samples and phone reading. Test predicates only where new selection logic is introduced; do not add tests that merely duplicate static text.
+
+### FL-002 — Personal milestone banners
+**Scope:** use the existing pre-match banner to honour the selected player's genuine achievement, name and club. Distinguish senior-career and club-tenure counts. Use the ordinary club banner when history is insufficient.
+**Dependencies:** M7-003 authoritative milestone facts, actual selection and the shared pre-match renderer.
+**Exclusions:** banner crafting, extra loading phases, fabricated firsts or a second milestone calculation.
+**Acceptance:** a late omission removes that player's message; imported history never creates an unsupported debut/first; long names remain readable. The director-requested visual audit demonstrates that the banner is celebration, clearly distinct from tactical/game information.
+**Validation:** count thresholds, omission, two eligible milestones, real/fictive names, reload and phone-scale still/motion comparison. No duplicate reward, event or football-state change.
+
+### FL-003 — Recognisable ground atmosphere
+**Scope:** make existing venues identifiable through a sourced, restrained stand/fence/background/light treatment. Reuse shared assets and venue presets; do not require the entire Club Forge/expansion feature to build one existing venue treatment.
+**Dependencies:** reliable venue identity, existing match context and approved art assets.
+**Exclusions:** new venue scheduling, explorable towns, pitch-geometry changes, weather generation, home bonuses or travel effects.
+**Acceptance:** a few accurate details establish place while players and ball remain primary; decorative conditions do not contradict available match facts; unknown time/weather uses a neutral fallback.
+**Validation:** venue-reference review, quiet/busy backgrounds, both themes, camera/actor occlusion and measured Android performance.
+
+### FL-004 — Natural sound and breathing room
+**Scope:** add restrained ground/crowd atmosphere and differentiated reactions to actual events. Reuse existing music/volume architecture and provide natural pauses plus atmosphere/music control and a quiet option.
+**Dependencies:** current audio work and authoritative event timing.
+**Exclusions:** constant announcements, music over every score, a second audio system or a licensed-song dependency.
+**Acceptance:** important information is equally clear when muted; routine and genuinely dramatic events sound appropriate; repetition and loudness remain comfortable; watch/skip/replay never repeats a football event.
+**Validation:** original/licensed asset provenance, controls, muted play, simultaneous sound cues, skip/reload, frame/load cost and listening after several matches.
+
+### FL-005 — Harmless fictional-player identity
+**Scope:** optional nicknames and one small personal-interest detail for generated fictional players, visible in existing profiles and natural presentation. Reuse the already-approved nickname/commentary-short-name field in M7-008/009 rather than introduce another alias. Nicknames can be changed/removed without a cost or consequence.
+**Dependencies:** stable player ID, displayed-name preference and backward-compatible cosmetic persistence.
+**Exclusions:** new personality ratings, inferred ethnicity/character from names, gameplay traits, real-player invented habits or a separate player editor.
+**Acceptance:** full-name records/search remain intact; nicknames/interests survive transfer and retirement; old saves remain valid and need not acquire invented histories; details are unmistakably cosmetic.
+**Validation:** generated/custom players, changed/removed nickname, name search, fictive mode, same-name players, save/load and multiple decades. Cosmetic metadata never shifts football RNG or prospect abilities.
+
+### FL-006 — Truthful characterful headlines
+**Scope:** sparse optional headlines in the existing match report, news feed and season recap. Coordinate with M7-011's veracity standard and existing season-story data; use a neutral fallback if a stronger claim lacks support.
+**Dependencies:** reliable result/story predicates and existing reporting surfaces.
+**Exclusions:** new feeds/apps, best-move advice, fake coach quotations or a bookmark/replay archive.
+**Acceptance:** close win, comeback, first, record and elimination claims are made only with the required facts; ties and quiet losses remain truthful. Editorial flavour is visually separate from scores, tactical feedback and actionable information.
+**Validation:** event-to-copy fixtures for thresholds, missing history, draws, transfers, repeat reload and scrolling; observed reading must not mistake a joke for a modifier or tactical recommendation.
+
+### FL-007 — Club rituals, recognition and farewells
+**Scope:** distinctive presentation for genuine first goals, milestones, retirements and awards. **The director explicitly authorises building new vignette scenes as necessary**, including scenes beyond the current tactical/pre-match set. Reuse existing scenes where suitable and the shared 2.5D figures/kit/appearance pipeline; build new scenes where the occasion needs a distinct treatment.
+**Dependencies:** known event and participants, current milestone/retirement/award owners, shared art migration and presentation flow.
+**Exclusions:** changed votes/winners, fabricated achievements, forced retirements, separate award engines, duplicated rewards or unrelated tactical-library expansion.
+**Acceptance:** first implement one complete event-to-scene-to-return path, then cover the approved occasions coherently. Every scene honours the correct person/event, is skippable/acceleratable, and returns cleanly without changing the football or awards. Routine repeats avoid lengthy ceremony; meaningful recognition can remain sincere.
+**Validation:** reachable scene inventory, new poses/assets, actual participants/club colours, factual triggers, once-only/replay handling, reload/Back/skip and native Android load/performance/pacing. The tactical decision-clarity gate remains for tactical scenes; a flavour scene is judged on recognition, visual distinction and enjoyment, not a nonexistent tactical choice.
+
+### FL-008 — Club memories across decades
+**Scope:** use existing club/history/profile surfaces and surroundings to retain factual visual reminders of premierships, notable players and alumni. Audit already-approved former-player links before building another treatment.
+**Dependencies:** stable stored years/stints/honours and actual coach-player links.
+**Exclusions:** collectible economies, another archive, fabricated family lineage, guaranteed coaching careers or new history aggregation.
+**Acceptance:** mementos evolve from genuine save events, remain clearly decorative, and preserve names/history after transfers and retirement. An anonymous/background character does not stay the same age for fifty years. Missing history gives a neutral fallback.
+**Validation:** long-save/reload fixtures, transferred/retired/generated players, same-name/number collisions, imported history once and phone retrieval. Ask whether the player recognises their own club's history without adding a wall of information.
+
+---
+
+## ARD-M8-010 — Trailer production gate
 **Status:** `DEFERRED`  
 **Priority:** `P3`  
 **Autonomy:** `SUPERVISED`
@@ -5110,9 +5283,96 @@ It is complete only when:
 
 ---
 
+
+# 9.4 Approved RPG refinements — director interview, 2026-10-06
+
+**Authority:** the director completed the one-by-one interview and requested actionable roadmap items. The ten selected refinements below are now in Claude's queue under existing owners, after correctness/phone gates and their stated dependencies. **Extension status: TODO**, not implemented; existing foundation statuses remain unchanged. Inspect current main and overlapping work before starting; do not recreate existing systems.
+
+**Selected-scope precedence:** this later approval supersedes earlier research-only exclusions of remembered media/private conversations and season narrative **only for the scopes below**. Unselected research candidates remain unselected. RPG work may have its specified gameplay consequences; FL-001–FL-008 (§9.3) retain their separate zero-gameplay-effect rules.
+
+## RPG-001 — Connected backing story
+**Owner:** existing Backing/payoff, M7-003/005. **Autonomy:** SUPERVISED.
+Connect the existing three-game promise to a short player conversation, clear selection obligation and remembered actual outcome. Reuse the promise ledger and its availability/season rules.
+**Acceptance:** kept, broken, interrupted/lapsed and disappointing-performance outcomes are truthful; a debut/first goal appears only when real. **Checks:** current payoff implementation, manual/auto-pick, single consequence, repeated viewing and save/load. No second promise system or guaranteed breakthrough.
+
+## RPG-002 — Recurring journalists and remembered media
+**Owner:** M6-008/current ClubLife. **Autonomy:** SUPERVISED.
+Contextual answers have topic-specific consequences and significant exchanges can inform later questions. Author specific recurring journalists with stable identities and the five approved types:
+- **The Muckraker:** controversy, contradictions and accountability from actual evidence.
+- **The Sycophant:** flattering/celebratory framing, without automatic free rewards.
+- **The Stats Geek:** trustworthy statistics and patterns, without invented causality.
+- **The Bogan:** blunt supporter perspective and restrained colloquial humour.
+- **The Philosopher:** club identity and long-term choices, expressed briefly.
+
+**Acceptance:** different personalities ask/follow up differently; answers do not always repeat the same board-versus-morale transaction. A substantive consequence may be a relevant effect, explicit commitment or remembered stance with real follow-through; neutral/noncommittal answers and neutral skip are legitimate. **Checks:** facts, cooldowns, all options, memory consistency and once-only/save behaviour. No compulsory weekly conference.
+
+## RPG-003 — Private selection/role conversations
+**Owner:** existing ClubLife/Backing, M6-003/004; M5-003 for development. **Autonomy:** SUPERVISED.
+Short conversations let a dropped veteran, overlooked youngster or returning player discuss their place. Offer explanations, explicit feasible commitments or honest refusals, with later factual follow-through.
+**Acceptance:** proportionate contextual reactions; refusal is valid; no repeated guessing puzzle or silent change to selection/training/contracts.
+**\* Claude to refine:** preserve the starred M5-003 concept: connect existing training/retraining plans and agreed opportunities to conversation/callbacks, not another progression system.
+**Checks:** changed plans, injury, omission, duplicate delivery and save/load.
+
+## RPG-004 — Hybrid synergies
+**Owner:** §9.1 synergy-specialisation work, M4-005/M5-009. **Autonomy:** BALANCE-GATED.
+Retain justified broad bonuses and add specific football interactions, starting with one audited existing combination such as a marking target/spill/crumber sequence.
+**Acceptance:** define eligibility, activation, cost/counter, stacking, rotation and fatigue; record observable football evidence. Avoid unrelated-shot boosts and a strong list unlocking everything.
+**Checks:** matched rosters/many seeds, event processes, AI parity, substitutions/absent players and combined bonus inflation.
+
+## RPG-005 — Selective role observations
+**Owner:** M5-008/M4-009. **Autonomy:** SUPERVISED.
+Highlight a few meaningful event-backed contributions and struggles, including actual synergy sequences where available.
+**Acceptance/checks:** useful low-disposal performances remain recognisable; no every-player report, automatic praise, invented causal attribution or overlap spam. Reuse existing report surfaces and distinguish FL-006 decoration. Depends on reliable stats/role evidence; verify phone pacing.
+
+## RPG-006 — Coaching identity through existing choices
+**Owner:** M6-001/002. **Autonomy:** BALANCE-GATED if effects change.
+Use existing staff composition and coaching choices to express philosophy; inspect live teaching/tactics/man-management effects and refine demonstrated gaps only.
+**Acceptance/checks:** understandable strengths/trade-offs with real effects, AI parity and bounded long-career benefits. **No new coach levelling/specialisation tree or XP economy.** Existing staff foundations remain DONE.
+
+## RPG-007 — Build-aware recruiting discussions
+**Owner:** M5-014/M6-006/current RecruitMeeting. **Autonomy:** SUPERVISED.
+Discuss contrasting prospects that complete the current structure or enable another style, using roster/role evidence and scouting uncertainty.
+**Acceptance/checks:** a few explainable alternatives, meaningful uncertainty/disagreement, no best-pick ranking or duplicate meeting. Verify changed picks/releases, physically feasible dual-role coverage, late picks and phone comprehension.
+
+## RPG-008 — Connected season narrative
+**Owner:** M7-005/existing season-story ledger. **Autonomy:** SUPERVISED.
+Connect actual opportunities, role changes, arrivals/departures and football turning points to recorded coaching decisions.
+**Acceptance/checks:** about 5–8 curated beats and concise football identity; separate from awards night; honest quiet/disappointing years and no forced redemption/causality. Capture needed facts before result compaction; preserve chronology after transfers and save/load.
+
+## RPG-009 — Restrained living characters
+**Owner:** existing ClubLife/M6-004, M7-005 and M6-002 continuity. **Autonomy:** BALANCE-GATED for decisions/effects.
+Use **Crusader Kings** for emergent stories and consistent living people: durable identity/history, modest motivations, remembered choices and independent credible careers at rival clubs too. Priorities may evolve for an explainable reason; use ordinary development/market rules.
+**Mandatory director caveat:** fun flavour, not complex busywork managing many personalities. Most behaviour stays quiet; only occasional meaningful situations surface. No personality dashboard, routine check-ins, relationship tending, conversation-energy currency or repeated reassurance.
+**Acceptance/checks:** start with one motivation/remembered decision in an existing event path; verify relevant downstream behaviour, contradictory requests, changed affiliations, injury exceptions and long AI careers. Measure interruption/repetition burden as well as morale/market balance. Cosmetic interests/nicknames stay mechanically separate.
+
+## RPG-010 — Automatic familiarity as team synergy
+**Owner:** M5-007 plus RPG-004. **Autonomy:** BALANCE-GATED.
+Relevant shared playing/training gradually improves specific teammate/unit coordination. No manual relationship maintenance or separate social system.
+**Acceptance/checks:** capped contextual effects, real eligible participants and actual exposure; define retention/decay without wiping history for one omission. Rotation, injuries, recruiting and rebuilds stay viable. Check stable/rotating/new/injury-affected sides, AI parity, storage/save compatibility and stacking. No invisible universal lineup bonus or compulsory pair-training chores.
+
+## Execution and shared validation
+Start by verifying the existing Backing flow, then connect one private scene and one media topic. Reconcile synergy work before one hybrid interaction/familiarity slice and its role observation. Extend recruiting and season stories from real available facts. Broaden motivations modestly only after pacing works. Independent supported slices may proceed without completing the whole list.
+
+Reuse stable IDs, existing state/consequence plumbing and small factual memories. Apply consequences once; never reroll/mutate matches to fit prose. Optional silence must not become hidden morale punishment; explicit existing obligations still matter. Keep scenes short on 360–390 px phones, rules inspectable and choices non-prescriptive. Esoteric Ebb/Baldur’s Gate inform dialogue/choice/individuality; sports RPGs inform team construction; no fantasy furniture.
+
+Run targeted functional/save/phone checks per slice and an **extensive combined synergy, progression, staff and long-career balance audit once related content is complete**. Approval here schedules work; it claims no implementation or successful balance result.
+
+
 # 10. Roadmap Maintenance Log
 
-- **2026-10-06:** Added ARD-M8-009 as a hard-gated late-project trailer task. Claude may recommend when the roadmap/visual polish are mature enough, but cannot begin trailer work without explicit user approval. Once approved, Claude may source/use free software only, or direct the user to install suitable free tools.
+- **2026-10-06:** Low agent, docs steward and CI owner. Added §0.4a: effort tags (`LOW` / `MEDIUM` / `HIGH`) with every open item sized into a lane, and the parallel-work rules for the agents working at once (hot files, check floors, local Godot use, no pushes mid-CI). Replaced 15 §1.11 observed-failure bullets that are built and tested on `main` with one "Closed from this list" line naming the evidence. CI now runs the Godot suites as parallel shards (`tools/ci_shards.txt`, plan job, extras job, the required check still `test`) and long audits run on GitHub (`audit.yml`). README, DESIGN and `tests/README.md` corrected against the code.
+
+- **2026-10-06:** After all eight director answers, authorised FL-001–FL-008 in §9.3 and the execution/effort queues under existing owners. Added the explicit visual-distinction audit and permission for necessary new ritual/farewell vignette scenes. Every addition is presentation-only with zero gameplay effects; existing feature statuses and unrelated review gates remain unchanged.
+
+- **2026-10-06:** Extended the art-agent tooling permission to fonts: it may research, download and use free/licensed fonts suitable for game distribution, or direct the user to install them. Paid font licences and subscription services remain disallowed without explicit approval.
+
+- **2026-10-06:** Granted the art agent permission to investigate and use free-only software for bespoke UI/art production, or direct the user to install suitable free tools when required. Paid software, subscriptions, paid plugins and charging trials remain disallowed without explicit approval.
+
+- **2026-10-06:** Clarified the anti-slop warning: the problem is specifically visual style (rounded-card geometry, corner radii, generic palette, button/card silhouettes and app-template aesthetics), not information density or "visual vomit". Footy Redraft and AFCM are explicit negative visual references for this criterion only.
+
+- **2026-10-06:** Added an explicit warning that the current UI policy/implementation has drifted from the project's anti-slop criteria. Reasserted restrained, mobile-first, football-specific UI guidance and instructed future UI work to remove unnecessary cards/chips/boxes/accents rather than layering on more template-style chrome.
+
+- **2026-10-06:** Added ARD-M8-010 as a hard-gated late-project trailer task. Claude may recommend when the roadmap/visual polish are mature enough, but cannot begin trailer work without explicit user approval. Once approved, Claude may source/use free software only, or direct the user to install suitable free tools.
 
 - **2026-10-05:** Tightened ARD-M7-011 with a footyhead-proof veracity standard: real AFL facts must be sourced and auditable, ambiguous/non-trivial claims should be cross-checked against multiple strong sources, and disputed or uncertain claims should be omitted rather than guessed.
 
