@@ -63,8 +63,8 @@ jobs:
       - name: Check the shards cover every suite
         id: shards
         run: |
-          tools/check_ci_shards.sh
-          echo "matrix=$(tools/check_ci_shards.sh --matrix)" >> "$GITHUB_OUTPUT"
+          bash tools/check_ci_shards.sh
+          echo "matrix=$(bash tools/check_ci_shards.sh --matrix)" >> "$GITHUB_OUTPUT"
 
   shard:
     name: shard ${{ matrix.shard }}
