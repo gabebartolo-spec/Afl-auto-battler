@@ -3506,9 +3506,10 @@ Player-facing choices should stay concise:
 - primary position,
 - optional secondary position where valid,
 - archetype / play style,
-- a small set of strengths and weaknesses.
+- a small set of strengths and weaknesses,
+- **sock height: Tall socks / Short socks** as a purely visual toggle.
 
-Do not expose exact underlying attributes, OVR, potential or draft rank as editable fields.
+Do not expose exact underlying attributes, OVR, potential or draft rank as editable fields. Sock height must not affect ratings, role suitability, stamina, injuries or any other football outcome.
 
 ### Draft integration
 - The custom player enters the **first national draft class** of the career, not the opening League Draft of established AFL players.
@@ -3723,6 +3724,8 @@ The created club:
 Move/route ARD-M7-008 through Club Forge so character creation and club creation share one bespoke creative destination.
 
 The player creator should expose identity/aesthetic and football-profile choices without exposing exact OVR/POT. Its hidden one-time POT roll, usable-role-player floor and rare S-tier outcome remain owned by ARD-M7-008.
+
+Appearance customisation should include a simple **Tall socks / Short socks** toggle. Persist this on the player and use it consistently anywhere the player's lower-leg kit is visible (match figures, vignettes, creator preview and future portrait/full-body presentation). It is cosmetic only and should also be available to generated-player appearance variation where practical so the league does not look uniform.
 
 ### 21-club fixture support
 A created club may take the competition to **21 clubs**.
@@ -4644,6 +4647,8 @@ Prefer improving the existing experience when that answers the same need. This p
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-05:** Added Tall socks / Short socks as a cosmetic player-appearance variant. It is a toggle in Club Forge character creation, persists per player, appears in match/vignette rendering where visible, and may also be used for generated-player visual variation. No gameplay effect.
 
 - **2026-10-05:** Clarified ARD-M7-010 Indigenous guernsey direction: Claude should learn the broad visual language and art-style vocabulary from extensive real-world research, then create original club-specific designs. The game does not need to copy specific artworks or fabricate cultural narratives/meanings for fictional guernseys.
 
