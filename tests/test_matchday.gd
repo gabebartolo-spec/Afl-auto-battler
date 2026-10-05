@@ -22,6 +22,7 @@ func run() -> void:
 	_test_feed(res)
 	_test_lead_and_breaks()
 	_test_quarter_facts(res)
+	_test_standout_levers()
 	_test_half_time_keys()
 	_test_legs_words()
 	_test_full_time()
@@ -166,6 +167,27 @@ func _test_quarter_facts(res: Dictionary) -> void:
 	_check(MatchNotes.quarter_facts(res, 0, 0).is_empty() and MatchNotes.quarter_facts({}, 0, 2).is_empty(),
 			"No quarter played, no facts")
 
+
+## "X is hurting you" only when a call reaches him, and it names that call:
+## the defender on him, your tagger, or that he can be tagged. Anyone no call
+## reaches is just their best for the quarter. (Roadmap §9.1.)
+func _test_standout_levers() -> void:
+	var res := {"roster": [[], [{"id": "X9", "name": "Sam Smith"}]]}
+	var now := {"players": {"X9": {"disposals": 12.0, "goals": 2.0, "kicks": 8.0, "marks": 4.0}}}
+	var line := func(answers: Dictionary) -> String:
+		return MatchNotes._standout(res, now, {}, 1, answers)
+	var plain: String = line.call({})
+	_check(plain.contains("was their best this quarter") and not plain.contains("hurting"),
+			"A player no call reaches is stated as a fact, not a problem to answer (%s)" % plain)
+	var mu: String = line.call({"X9": {"kind": "matchup", "who": "Moore"}})
+	_check(mu.contains("is hurting you") and mu.ends_with("Moore is on him."),
+			"A key forward hurting you is named with the defender on him (%s)" % mu)
+	var tagged: String = line.call({"X9": {"kind": "tagged", "who": "Sinclair"}})
+	_check(tagged.contains("with Sinclair tagging him"), "A tagged midfielder names your tagger (%s)" % tagged)
+	var can: String = line.call({"X9": {"kind": "tag"}})
+	_check(can.ends_with("He can be tagged."), "A midfielder you could tag says so (%s)" % can)
+	var other: String = line.call({"Y1": {"kind": "tag"}})
+	_check(other == plain, "Another player's lever does not attach to him")
 
 func _test_half_time_keys() -> void:
 	var bad := ""
