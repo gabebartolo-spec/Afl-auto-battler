@@ -5,123 +5,184 @@ class_name VignetteFigures
 ## figures_shade.png:  R lighting, G hair weight, B shorts weight, A coverage.
 ## figures_mask.png:   R guernsey base colour (guernsey + socks), G sock band, B skin, A guernsey alone.
 ## figures_design.png: (half size) R across the guernsey, G up it, B front/back - for club designs.
-## Boots take the weight left over. Each body is a block of rows: one row per
-## animation and facing ("front" faces the camera, "back" shows the number),
-## frames left to right. number_rects: where the number sits on a back-facing
-## frame, [x, y, w, h] in frame pixels.
+## Boots take the weight left over. Each body's moves are strips: one per animation and
+## facing ("front" faces the camera; "back" shows the number; "back_r" is three-quarters
+## from behind, heading right; "side_l" nearly side-on, heading left - mirror a frame for
+## the other way), frames left to right from (col, row) in FRAME cells. pivot: the feet in
+## the strip's frames, pixels. Numbers are printed on the guernsey by the shader
+## (figures_digits.png), not placed here.
 
-const SHEET_SIZE := Vector2i(2048, 2304)
+const SHEET_SIZE := Vector2i(2048, 2016)
 const FRAME := Vector2(128, 288)
-## World (0, 0, 0) - the feet - in every frame, pixels.
+## World (0, 0, 0) - the feet - in most strips, pixels (each strip carries its own).
 const PIVOT := Vector2(64.00, 266.16)
 const PX_PER_M := 100.0
 const BODIES := {
 	"average": {
-		"x": 0,
 		"height_m": 1.88,
 		"anims": {
 			"idle": {
 				"front": {
-					"row": 0,
+					"row": 4,
+					"col": 15,
 					"frames": 1,
-					"number_rects": [],
+					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 1,
+					"row": 5,
+					"col": 14,
 					"frames": 1,
-					"number_rects": [[43, 114, 42, 49]],
+					"pivot": [64.0, 266.16],
 				},
 			},
 			"jog": {
 				"front": {
-					"row": 2,
+					"row": 0,
+					"col": 0,
 					"frames": 8,
-					"number_rects": [],
+					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 3,
+					"row": 0,
+					"col": 8,
 					"frames": 8,
-					"number_rects": [[43, 111, 42, 50], [42, 119, 43, 49], [42, 124, 43, 49], [42, 119, 43, 49], [43, 111, 42, 50], [43, 119, 43, 49], [43, 124, 43, 49], [43, 119, 43, 49]],
+					"pivot": [64.0, 266.16],
+				},
+				"back_r": {
+					"row": 1,
+					"col": 0,
+					"frames": 8,
+					"pivot": [70.0, 266.16],
 				},
 			},
 			"leap": {
 				"front": {
-					"row": 4,
+					"row": 3,
+					"col": 0,
 					"frames": 6,
-					"number_rects": [],
+					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 5,
+					"row": 3,
+					"col": 6,
 					"frames": 6,
-					"number_rects": [[42, 129, 44, 49], [43, 116, 42, 50], [43, 114, 42, 50], [39, 114, 50, 50], [41, 114, 46, 50], [41, 114, 46, 41]],
+					"pivot": [64.0, 266.16],
 				},
 			},
 			"bounce": {
 				"front": {
-					"row": 6,
+					"row": 3,
+					"col": 12,
 					"frames": 4,
-					"number_rects": [],
+					"pivot": [64.0, 266.16],
 				},
-				"back": {
-					"row": 7,
-					"frames": 4,
-					"number_rects": [[43, 115, 42, 49], [43, 117, 42, 47], [42, 114, 44, 48], [42, 113, 44, 49]],
+			},
+			"kick": {
+				"back_r": {
+					"row": 4,
+					"col": 0,
+					"frames": 6,
+					"pivot": [39.0, 266.16],
+				},
+			},
+			"snap": {
+				"back_r": {
+					"row": 5,
+					"col": 6,
+					"frames": 5,
+					"pivot": [36.0, 266.16],
+				},
+			},
+			"gather": {
+				"back_r": {
+					"row": 4,
+					"col": 12,
+					"frames": 3,
+					"pivot": [64.0, 266.16],
+				},
+			},
+			"lunge": {
+				"side_l": {
+					"row": 5,
+					"col": 11,
+					"frames": 3,
+					"pivot": [64.0, 266.16],
+				},
+			},
+			"walk": {
+				"front": {
+					"row": 1,
+					"col": 8,
+					"frames": 8,
+					"pivot": [64.0, 266.16],
+				},
+			},
+			"celebrate": {
+				"front": {
+					"row": 5,
+					"col": 15,
+					"frames": 1,
+					"pivot": [64.0, 266.16],
 				},
 			},
 		},
 	},
 	"ruck": {
-		"x": 1024,
 		"height_m": 2.03,
 		"anims": {
 			"idle": {
 				"front": {
-					"row": 0,
+					"row": 6,
+					"col": 0,
 					"frames": 1,
-					"number_rects": [],
+					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 1,
+					"row": 6,
+					"col": 1,
 					"frames": 1,
-					"number_rects": [[41, 102, 46, 52]],
+					"pivot": [64.0, 266.16],
 				},
 			},
 			"jog": {
 				"front": {
 					"row": 2,
+					"col": 0,
 					"frames": 8,
-					"number_rects": [],
+					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 3,
+					"row": 2,
+					"col": 8,
 					"frames": 8,
-					"number_rects": [[41, 99, 46, 52], [41, 106, 46, 53], [41, 112, 46, 53], [41, 106, 46, 53], [41, 99, 46, 52], [41, 106, 46, 53], [41, 112, 46, 53], [41, 106, 46, 53]],
+					"pivot": [64.0, 266.16],
 				},
 			},
 			"leap": {
 				"front": {
 					"row": 4,
+					"col": 6,
 					"frames": 6,
-					"number_rects": [],
+					"pivot": [64.0, 266.16],
 				},
 				"back": {
 					"row": 5,
+					"col": 0,
 					"frames": 6,
-					"number_rects": [[41, 117, 46, 54], [41, 103, 46, 54], [42, 102, 44, 52], [37, 102, 54, 52], [39, 102, 50, 52], [39, 102, 50, 43]],
-				},
-			},
-			"bounce": {
-				"front": {
-					"row": 6,
-					"frames": 4,
-					"number_rects": [],
-				},
-				"back": {
-					"row": 7,
-					"frames": 4,
-					"number_rects": [[41, 103, 46, 51], [41, 105, 46, 49], [41, 101, 46, 52], [41, 100, 47, 53]],
+					"pivot": [64.0, 266.16],
 				},
 			},
 		},
 	},
 }
+
+
+## The strip for a body's move from one side: {"row", "col", "frames", "pivot"}.
+static func strip(body: String, anim: String, facing: String) -> Dictionary:
+	return BODIES[body]["anims"][anim][facing]
+
+
+## Where frame i of a strip sits in the sheet.
+static func source(s: Dictionary, i: int) -> Rect2:
+	var f := clampi(i, 0, int(s["frames"]) - 1)
+	return Rect2((int(s["col"]) + f) * FRAME.x, int(s["row"]) * FRAME.y, FRAME.x, FRAME.y)

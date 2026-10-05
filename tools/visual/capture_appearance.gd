@@ -47,9 +47,7 @@ func _run() -> void:
 	c.material = vignette.figure_material([kit])
 	root.add_child(c)
 	var font: Font = ThemeDB.fallback_font
-	var body: Dictionary = layout.BODIES["average"]
-	var info: Dictionary = body["anims"]["idle"]["front"]
-	var src := Rect2(float(body["x"]), int(info["row"]) * layout.FRAME.y, layout.FRAME.x, layout.FRAME.y)
+	var src: Rect2 = layout.source(layout.strip("average", "idle", "front"), 0)
 	c.draw.connect(func():
 		c.draw_string(font, Vector2(8, 16), "%s - skin tones 1-6 and hair colours" % club,
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
