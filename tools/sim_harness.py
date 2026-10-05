@@ -77,7 +77,7 @@ STAT_KEYS = [
 # Ratings.GROUND_SLOTS.
 ROLE_CORRECTIONS = {"RIC|Maurice Rioli": "FWD", "WBD|Cody Weightman": "FWD"}
 # Ratings.ATTR_ADJUSTMENTS: director's named-player balance corrections.
-ATTR_ADJUSTMENTS = {"MEL|Harvey Langford": 1.15}
+ATTR_ADJUSTMENTS = {"MEL|Harvey Langford": 1.15, "MEL|Jake Bowey": 1.022, "PAD|Connor Rozee": 1.10}
 GROUND_SLOTS = {"RUCK": 1, "MID": 5, "DEF": 6, "FWD": 6}
 INTERCHANGE = 4
 LIST_SIZE = 44
