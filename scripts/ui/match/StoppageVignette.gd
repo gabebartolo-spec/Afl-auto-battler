@@ -41,6 +41,12 @@ const FIGURE_DIGITS := preload("res://assets/vignette/figures_digits.png")
 ## Kits in the shader's palette: the two sides, then the umpire.
 const UMPIRE_KIT := 2
 
+## Tests switch this on to see which figure frames the vignettes ask for. A
+## frame past the end of a move would otherwise freeze on its last frame
+## without a word. Off in play.
+static var log_frames := false
+static var frame_log: Array = []  # {anim, facing, frames, wanted}
+
 var tokens: Array = []      # {side, mine, slot, id, tall, look, name, num, tired, from, to, delay, dur}
 var facts: Array = []       # one or two lines of commentary, no numbers
 var title := ""
@@ -408,8 +414,9 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# Your players have their backs to us; theirs and the umpire face the camera.
 	var pick := _frame(t, lift)
-	var info := VignetteFigures.strip(_body(t), pick[0], "back" if not ump and bool(t["mine"]) else "front")
-	var frame := mini(int(pick[1]), int(info["frames"]) - 1)
+	var facing := "back" if not ump and bool(t["mine"]) else "front"
+	var info := VignetteFigures.strip(_body(t), pick[0], facing)
+	var frame := figure_frame(info, int(pick[1]), pick[0], facing)
 	var cell := VignetteFigures.FRAME
 	var src := VignetteFigures.source(info, frame)
 	# Out on their feet: a touch smaller, stooped.
@@ -519,3 +526,12 @@ func _draw_bars(fade: float) -> void:
 func _readable_on(bg: Color) -> Color:
 	var lum := 0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b
 	return Color(0.08, 0.08, 0.1) if lum > 0.55 else Color(1, 1, 1)
+
+
+## The frame of a figure's move to draw: the one asked for, held on the last
+## when a move runs out (logged for tests; see log_frames).
+static func figure_frame(info: Dictionary, wanted: int, anim: String, facing: String) -> int:
+	var frames := int(info["frames"])
+	if log_frames:
+		frame_log.append({"anim": anim, "facing": facing, "frames": frames, "wanted": wanted})
+	return clampi(wanted, 0, frames - 1)
