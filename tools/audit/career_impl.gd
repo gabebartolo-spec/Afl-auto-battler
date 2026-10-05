@@ -6,6 +6,10 @@ extends RefCounted
 ##   policy "ai"     - you draft exactly as an AI club would (parity)
 ##   policy "greedy" - you take the best-rated player you can (a typical human)
 ##   policy "light"  - greedy, and you accept every early-extension card
+##   policy "trader" - AI-style draft; each off-season a trade bot takes any
+##                     deal an AI club accepts that lifts your best 22
+##   policy "fa"     - AI-style draft; each off-season you bid the asking price
+##                     for the best free agents the cap allows
 
 var policy := "ai"
 var club := "MEL"
@@ -28,6 +32,163 @@ func _rank_of(code: String, lists: Dictionary) -> int:
 		if str(c) != code and _strength(lists[c]) > mine:
 			r += 1
 	return r
+
+## Your best-22 mean if `out_ids` leave and `in_players` arrive.
+func _strength_after(out_ids: Dictionary, in_players: Array) -> float:
+	var l := []
+	for p in GameState.my_list:
+		if not out_ids.has(str(p["id"])):
+			l.append(p)
+	l.append_array(in_players)
+	return _next_strength(l)
+
+## Next season's best-22 mean, ageing in: a year older, past 29 he slips.
+func _next_strength(list: Array) -> float:
+	var ovr := []
+	for p in list:
+		ovr.append(float(p["overall"]) - 1.5 * maxf(0.0, float(p.get("age", 25.0)) + 1.0 - 29.0))
+	ovr.sort()
+	ovr.reverse()
+	var t := 0.0
+	for i in range(mini(22, ovr.size())):
+		t += ovr[i]
+	return t / 22.0
+
+var trades_done := 0
+## Every player in a completed trade: what TradeValue projected for him then,
+## and what he went on to be.
+var ledger := []
+
+func _find(id: String) -> Dictionary:
+	for c in GameState.season.lists:
+		for p in GameState.season.lists[c]:
+			if str(p["id"]) == id:
+				return p
+	for p in GameState.free_agents:
+		if str(p["id"]) == id:
+			return p
+	return {}
+
+func _games(p: Dictionary) -> int:
+	return int((p.get("career", {}) as Dictionary).get("games", 0))
+
+func _ledger_entry(p: Dictionary, side: String, year: int) -> Dictionary:
+	return {"id": str(p["id"]), "name": GameDB.player_display_name(p), "side": side, "year": year,
+		"age": float(p.get("age", 25.0)), "ovr": int(p["overall"]), "pot": int(p.get("potential", p["overall"])),
+		"projected": TradeValue.future_rating(p), "games_at": _games(p),
+		"peak": int(p["overall"]), "last": int(p["overall"]), "games_now": _games(p), "seen": true}
+
+## Each season's end: where every traded player has got to.
+func _ledger_update() -> void:
+	for e in ledger:
+		var p := _find(str(e["id"]))
+		if p.is_empty():
+			e["seen"] = false
+			continue
+		e["seen"] = true
+		e["last"] = int(p["overall"])
+		e["peak"] = maxi(int(e["peak"]), int(p["overall"]))
+		e["games_now"] = _games(p)
+
+func _ledger_report() -> void:
+	if ledger.is_empty():
+		return
+	print("%s seed %d REALISED (projected rating at the trade vs his peak OVR since; senior games since):" % [policy, seed_n])
+	for e in ledger:
+		print("%s seed %d      %d %s %-22s age %4.1f  OVR %d POT %d  projected %.1f  peak %d  last %d%s  games since %d" % [
+			policy, seed_n, int(e["year"]), str(e["side"]), str(e["name"]), float(e["age"]), int(e["ovr"]), int(e["pot"]),
+			float(e["projected"]), int(e["peak"]), int(e["last"]), "" if bool(e["seen"]) else " (gone)",
+			int(e["games_now"]) - int(e["games_at"])])
+	for side in ["got", "gave"]:
+		for band in [["21 and under", 0.0, 21.99], ["22 to 27", 22.0, 27.99], ["28 and over", 28.0, 99.0]]:
+			var n := 0
+			var proj := 0.0
+			var peak := 0.0
+			var games := 0
+			for e in ledger:
+				if str(e["side"]) == side and float(e["age"]) >= float(band[1]) and float(e["age"]) <= float(band[2]):
+					n += 1
+					proj += float(e["projected"])
+					peak += float(e["peak"])
+					games += int(e["games_now"]) - int(e["games_at"])
+			if n > 0:
+				print("%s seed %d REALISED %s %-12s n=%d  projected %.1f  peak %.1f  (%+.1f)  games since %.1f" % [
+					policy, seed_n, side, str(band[0]), n, proj / n, peak / n, (peak - proj) / n, float(games) / n])
+
+
+func _trade_bot() -> void:
+	var made := 0
+	for code in GameState.season.lists.keys():
+		if str(code) == club or made >= 4:
+			continue
+		var theirs: Array = (GameState.season.lists[code] as Array).duplicate()
+		theirs.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+		var mine: Array = GameState.my_list.duplicate()
+		mine.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+		var gives := []
+		for i in range(10, mini(40, mine.size())):
+			gives.append([mine[i]])
+		for i in range(12, mini(34, mine.size() - 1), 2):
+			gives.append([mine[i], mine[i + 1]])
+		var base := _next_strength(GameState.my_list)
+		var best := {}
+		var best_gain := 0.2
+		for t in theirs.filter(func(x): return float(x.get("age", 25.0)) <= 30.0).slice(0, 8):
+			for g in gives:
+				var out_ids := {}
+				for p in g:
+					out_ids[str(p["id"])] = true
+				var gain := _strength_after(out_ids, [t]) - base
+				if gain <= best_gain:
+					continue
+				var v: Dictionary = GameState.evaluate_trade(str(code), out_ids.keys(), [str(t["id"])])
+				if bool(v.get("ok", false)):
+					best_gain = gain
+					best = {"mine": out_ids.keys(), "theirs": [str(t["id"])], "gain": gain,
+						"desc": "%s (%d, age %d) for %s" % [GameDB.player_display_name(t), int(t["overall"]), int(t.get("age", 0)),
+							", ".join(g.map(func(p): return "%d/age %d" % [int(p["overall"]), int(p.get("age", 0))]))]}
+		if not best.is_empty():
+			var entries := []
+			for p in GameState.my_list:
+				if (best["mine"] as Array).has(str(p["id"])):
+					entries.append(_ledger_entry(p, "gave", GameState.season_year))
+			for p in GameState.season.lists[code]:
+				if (best["theirs"] as Array).has(str(p["id"])):
+					entries.append(_ledger_entry(p, "got", GameState.season_year))
+			var r := GameState.make_trade(str(code), best["mine"], best["theirs"])
+			if bool(r.get("ok", false)):
+				made += 1
+				trades_done += 1
+				ledger.append_array(entries)
+				print("%s seed %d      trade with %s: %s (+%.2f best-22)" % [policy, seed_n, code, best["desc"], float(best["gain"])])
+
+func _fa_bot() -> void:
+	var fas: Array = GameState.free_agents.duplicate()
+	fas.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+	var bids := 0
+	for p in fas.slice(0, 12):
+		if bids >= 4:
+			break
+		if int(p["overall"]) <= int(_weakest_22()):
+			continue
+		var terms: Dictionary = GameState.free_agent_terms(str(p["id"]))
+		if bool(terms.get("refuse", false)):
+			continue
+		var want: Dictionary = Contracts.wants(p)
+		var r: Dictionary = GameState.offer_free_agent(str(p["id"]), int(want["salary"]) + int(terms.get("premium", 0)), int(want["years"]))
+		if bool(r.get("ok", false)):
+			bids += 1
+			print("%s seed %d      FA bid: %s (%d, age %d) %s" % [policy, seed_n, GameDB.player_display_name(p), int(p["overall"]), int(p.get("age", 0)), str(r.get("reason", ""))])
+
+func _weakest_22() -> int:
+	var ovr := []
+	for p in GameState.my_list:
+		ovr.append(int(p["overall"]))
+	ovr.sort()
+	ovr.reverse()
+	return int(ovr[mini(21, ovr.size() - 1)])
+
+var seed_n := 0
 
 func _user_pick(d: Draft) -> void:
 	var c := {}
@@ -56,6 +217,7 @@ func run() -> void:
 	var args := OS.get_cmdline_user_args()
 	policy = str(args[1]) if args.size() > 1 else "ai"
 	var seed := int(args[2]) if args.size() > 2 else 1
+	seed_n = seed
 	club = str(args[3]) if args.size() > 3 else "MEL"
 	var seasons := int(args[4]) if args.size() > 4 else 5
 	GameState.reset()
@@ -110,6 +272,7 @@ func run() -> void:
 				ai_end += _strength(GameState.season.lists[c]) / float(GameState.season.lists.size() - 1)
 		print("%s seed %d %s %d | list rank %d (strength %.1f, best AI %.1f) | profile %s | finished %d%s | extension cards %d | in-season rise yours %+.1f, AI mean %+.1f" % [
 			policy, seed, club, year, rank_start, str_start, top_ai, str(words), pos, " PREMIERS" if premier else "", ext.size(), str_end - str_start, ai_end - ai_start])
+		_ledger_update()
 		if s == seasons - 1:
 			break
 		var before_off := _strength(GameState.season.lists[club])
@@ -117,6 +280,11 @@ func run() -> void:
 		for c in GameState.season.lists:
 			if str(c) != club:
 				ai_before += _strength(GameState.season.lists[c]) / float(GameState.season.lists.size() - 1)
+		GameState.open_offseason()
+		if policy == "trader":
+			_trade_bot()
+		elif policy == "fa":
+			_fa_bot()
 		if GameState.begin_intake_draft():
 			_run_draft(GameState.draft)
 			GameState.finish_intake_draft()
@@ -130,5 +298,6 @@ func run() -> void:
 				n_ai += 1
 		print("%s seed %d    off-season %d: your strength %+.1f, AI mean %+.1f" % [policy, seed, year,
 			_strength(GameState.season.lists[club]) - before_off, ai_after / float(maxi(1, n_ai)) - ai_before])
+	_ledger_report()
 	print("%s seed %d MARGINS all %d matches: %s | biggest %d" % [policy, seed, matches, str(margins), biggest])
 	print("%s seed %d MARGINS yours: %s" % [policy, seed, str(mine_m)])
