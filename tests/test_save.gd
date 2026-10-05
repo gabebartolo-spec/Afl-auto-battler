@@ -19,6 +19,7 @@ func run() -> void:
 	_test_intake_and_second_season()
 	_test_bad_file_is_ignored()
 	_test_old_club_code_migrates()
+	_test_safe_replacement()
 	GameState.delete_saved_career()
 	print("Save tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -253,6 +254,7 @@ func _test_intake_and_second_season() -> void:
 
 
 func _test_bad_file_is_ignored() -> void:
+	GameState.delete_saved_career()  # no backup to recover from
 	var f := FileAccess.open(GameState.save_path, FileAccess.WRITE)
 	f.store_var({"version": 999, "state": {}})
 	f.close()
@@ -308,3 +310,51 @@ static func _to_old(v: Variant) -> Variant:
 			out.append(_to_old(x))
 		return out
 	return v
+
+
+## A save is never lost to a failed or interrupted write (research G10): the
+## previous good save is set aside, not deleted, until the new one is in
+## place, and reading recovers the newest good save that survives.
+func _test_safe_replacement() -> void:
+	var path := "user://test_safe_replacement.save"
+	CareerSave.delete(path)
+	CareerSave.fail_at = ""
+	var a := {"which": "A"}
+	var b := {"which": "B"}
+	_check(CareerSave.write(a, {}, path) and CareerSave.write(b, {}, path)
+			and str(CareerSave.read(path).get("which", "")) == "B", "A normal save replaces the last one")
+	_check(FileAccess.file_exists(path + CareerSave.BACKUP_SUFFIX), "The previous good save is kept as a backup")
+	# Killed after the new save was written and checked, before the swap.
+	CareerSave.delete(path)
+	CareerSave.write(a, {}, path)
+	CareerSave.fail_at = "after_temp"
+	CareerSave.write(b, {}, path)
+	CareerSave.fail_at = ""
+	_check(str(CareerSave.read(path).get("which", "")) == "B", "Killed before the swap: the checked new save is recovered")
+	# Killed after the old save stepped aside: no file at the path at all.
+	CareerSave.delete(path)
+	CareerSave.write(a, {}, path)
+	CareerSave.fail_at = "after_backup"
+	CareerSave.write(b, {}, path)
+	CareerSave.fail_at = ""
+	_check(not FileAccess.file_exists(path) and CareerSave.exists(path)
+			and str(CareerSave.read(path).get("which", "")) == "B", "Killed mid-swap: the career is still there")
+	# Moving the new save into place fails: the previous one is put back.
+	CareerSave.delete(path)
+	CareerSave.write(a, {}, path)
+	CareerSave.fail_at = "swap"
+	var ok := CareerSave.write(b, {}, path)
+	CareerSave.fail_at = ""
+	DirAccess.remove_absolute(path + CareerSave.TEMP_SUFFIX)
+	_check(not ok and str(CareerSave.read(path).get("which", "")) == "A", "A failed swap reports failure and keeps the previous save")
+	# The save itself is corrupt: the previous good one is read instead.
+	CareerSave.delete(path)
+	CareerSave.write(a, {}, path)
+	CareerSave.write(b, {}, path)
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string("not a save")
+	f.close()
+	_check(str(CareerSave.read(path).get("which", "")) == "A", "A corrupt save falls back to the previous good one")
+	CareerSave.delete(path)
+	_check(not CareerSave.exists(path) and not FileAccess.file_exists(path + CareerSave.BACKUP_SUFFIX),
+			"Deleting a career removes its backup too")

@@ -37,13 +37,27 @@ var _tagged: Array = []
 var _decoded := {}      # sid -> live player dict (reading)
 
 
+## The previous good save, kept until the next one is safely in place.
+const BACKUP_SUFFIX := ".bak"
+const TEMP_SUFFIX := ".tmp"
+## Tests only: make write() stop at a step ("after_temp": as if the app were
+## killed once the new save is written; "after_backup": once the old one has
+## been moved aside; "swap": as if moving the new one into place failed).
+static var fail_at := ""
+
+
+## A usable save at `path`, or one to recover it from.
 static func exists(path := DEFAULT_PATH) -> bool:
-	return FileAccess.file_exists(path)
+	for p in [path, path + TEMP_SUFFIX, path + BACKUP_SUFFIX]:
+		if not _blob_at(p).is_empty():
+			return true
+	return false
 
 
 static func delete(path := DEFAULT_PATH) -> void:
-	if FileAccess.file_exists(path):
-		DirAccess.remove_absolute(path)
+	for p in [path, path + TEMP_SUFFIX, path + BACKUP_SUFFIX]:
+		if FileAccess.file_exists(p):
+			DirAccess.remove_absolute(p)
 
 
 ## Write `state` with a small readable `meta` header. Returns false (and
@@ -53,19 +67,40 @@ static func write(state: Dictionary, meta: Dictionary, path := DEFAULT_PATH) -> 
 	var body = enc._encode(state)
 	enc._untag()
 	var blob := {"version": VERSION, "meta": meta, "players": enc._players, "state": body}
-	var tmp := path + ".tmp"
+	var tmp := path + TEMP_SUFFIX
+	var bak := path + BACKUP_SUFFIX
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null:
 		push_warning("CareerSave: cannot write %s (%d)" % [tmp, FileAccess.get_open_error()])
 		return false
 	f.store_var(blob)
 	f.close()
-	# Write-then-swap, so a crash mid-write never leaves a half-written save.
+	# Read it back before trusting it: a short or garbled write never replaces
+	# a good save.
+	if _blob_at(tmp).is_empty():
+		push_warning("CareerSave: %s did not read back; the previous save is kept" % tmp)
+		DirAccess.remove_absolute(tmp)
+		return false
+	if fail_at == "after_temp":
+		return false
+	# Swap: the previous save steps aside as the backup (never deleted first),
+	# the new one moves in, and only then is the old backup let go. A failure
+	# at any step leaves a good save to read (read() falls back in order).
 	if FileAccess.file_exists(path):
-		DirAccess.remove_absolute(path)
-	var err := DirAccess.rename_absolute(tmp, path)
+		if FileAccess.file_exists(bak):
+			DirAccess.remove_absolute(bak)
+		var moved := DirAccess.rename_absolute(path, bak)
+		if moved != OK:
+			push_warning("CareerSave: cannot set the previous save aside (%d); it is kept" % moved)
+			DirAccess.remove_absolute(tmp)
+			return false
+	if fail_at == "after_backup":
+		return false
+	var err := DirAccess.rename_absolute(tmp, path) if fail_at != "swap" else ERR_CANT_CREATE
 	if err != OK:
-		push_warning("CareerSave: cannot move %s into place (%d)" % [tmp, err])
+		push_warning("CareerSave: cannot move %s into place (%d); restoring the previous save" % [tmp, err])
+		if FileAccess.file_exists(bak) and not FileAccess.file_exists(path):
+			DirAccess.rename_absolute(bak, path)
 		return false
 	return true
 
@@ -87,7 +122,20 @@ static func read_meta(path := DEFAULT_PATH) -> Dictionary:
 	return migrate_club_codes(blob.get("meta", {})) if not blob.is_empty() else {}
 
 
+## The newest good save. A checked save still waiting in the temp file is
+## newer than the file itself (every completed save moves it away), so it
+## comes first; then the file; then the previous good save.
 static func _read_blob(path: String) -> Dictionary:
+	for p in [path + TEMP_SUFFIX, path, path + BACKUP_SUFFIX]:
+		var blob := _blob_at(p)
+		if not blob.is_empty():
+			if p != path:
+				push_warning("CareerSave: recovered the career from %s" % p)
+			return blob
+	return {}
+
+
+static func _blob_at(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
 	var f := FileAccess.open(path, FileAccess.READ)
