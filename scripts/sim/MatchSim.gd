@@ -1084,7 +1084,7 @@ func _clanger_weights(side: int) -> Array:
 
 ## Pay a football free with a real cause. Returns the mark after any 50.
 func _award_context_free(receiving_side: int, mark_fp: float, offender, recipient,
-		cause: String, label: String) -> float:
+		cause: String, label: String, context := "") -> float:
 	_t(receiving_side, "frees_for")
 	_p(recipient, "frees_for")
 	_t(1 - receiving_side, "frees_against")
@@ -1094,6 +1094,8 @@ func _award_context_free(receiving_side: int, mark_fp: float, offender, recipien
 	_emit("free", receiving_side, mark_fp, recipient, "%s — free kick to %s" % [label, who])
 	var ev: Dictionary = events[events.size() - 1]
 	ev["free_cause"] = cause
+	if context != "":
+		ev["free_context"] = context
 	ev["against_id"] = "" if offender == null else str(offender.get("id", ""))
 	ev["against_name"] = "" if offender == null else GameDB.player_display_name(offender)
 	return _maybe_fifty(receiving_side, mark_fp, offender, recipient)
@@ -1141,6 +1143,66 @@ func _marking_free(side: int, attacker, defender) -> Dictionary:
 		return {"side": 1 - side, "offender": attacker, "recipient": defender,
 				"cause": "marking", "label": "Blocking in the marking contest"}
 	return {}
+
+
+## The free that ends a chain on a clanger used to be one generic "General
+## infringement". Its rate is unchanged; what it was for now follows where the
+## chain was (ARD-M3-007, docs/FREE_KICKS_2026-10-06.md):
+##  - a chain that began at a ball-up: often the ruck contest itself - one ruck
+##    held or blocked the other, paid at the stoppage, ruck to ruck;
+##  - the ball in the receiving side's forward 50: often a forward held or
+##    blocked in a marking contest by one of `side`'s defenders;
+##  - otherwise the player who erred dropped or threw it: incorrect disposal.
+## New picks draw only from free_rng, so the play dice are as they were.
+## {"cause", "label", "offender", "recipient", "fp", "context"}.
+const RUCK_FREE_SHARE := 0.48     # of the frees in a chain that began at a ball-up
+const F50_MARK_FREE_SHARE := 0.85 # of the frees in the receiving side's forward 50
+
+
+func _chain_free_cause(side: int, err, recipient, start_fp: float, end_fp: float) -> Dictionary:
+	var opp := 1 - side
+	if chain_origin == "centre" or chain_origin == "stoppage":
+		var mine := _contestant(squads[side])
+		var theirs := _contestant(squads[opp])
+		if not mine.is_empty() and not theirs.is_empty() and _is_ruckman(mine[0]) \
+				and _is_ruckman(theirs[0]) and free_rng.randf() < RUCK_FREE_SHARE:
+			var held := free_rng.randf() < 0.5
+			return {"cause": "ruck_contest", "label": "Holding in the ruck" if held else "Blocking in the ruck",
+					"offender": mine[0], "recipient": theirs[0], "fp": start_fp, "context": "ruck"}
+	var f50 := float(Ratings.T["forward50_line"])
+	var in_their_f50 := end_fp > f50 if opp == 0 else end_fp < -f50
+	if in_their_f50 and free_rng.randf() < F50_MARK_FREE_SHARE:
+		var dfd = _free_pick(squads[side].ground, "DEF", "discipline", true)
+		var fwd = _free_pick(squads[opp].ground, "FWD", "marking", false)
+		if dfd != null and fwd != null:
+			return {"cause": "marking", "label": "Holding in the marking contest",
+					"offender": dfd, "recipient": fwd, "fp": end_fp, "context": "forward50"}
+	return {"cause": "incorrect_disposal", "label": "Incorrect disposal",
+			"offender": err, "recipient": recipient, "fp": end_fp, "context": "error"}
+
+
+## One of a side's on-ground players in `role`, weighted on `key` (low values
+## weigh more when `low`), drawn from free_rng. null with nobody in the role.
+func _free_pick(ground: Array, role: String, key: String, low: bool):
+	var group := []
+	var weights := []
+	var total := 0.0
+	for p in ground:
+		if str(p.get("role", "")) != role:
+			continue
+		var v := _a(p, key)
+		var w := maxf(1.0, (101.0 - v) if low else v)
+		group.append(p)
+		weights.append(w)
+		total += w
+	if group.is_empty():
+		return null
+	var r := free_rng.randf() * total
+	for i in range(group.size()):
+		r -= float(weights[i])
+		if r <= 0.0:
+			return group[i]
+	return group[group.size() - 1]
 
 
 ## A free can be marched 50 for dissent, encroachment or delay. We do not
@@ -2680,8 +2742,9 @@ func _play_one_chain(T: Dictionary) -> void:
 			var recipient = _free_to(1 - side, fp if side == 0 else -fp)
 			next_side = 1 - side
 			_prev_end = "free"
-			fp = _award_context_free(1 - side, fp, err, recipient,
-					"general", "General infringement")
+			var why := _chain_free_cause(side, err, recipient, start_fp, fp)
+			fp = _award_context_free(1 - side, float(why["fp"]), why["offender"], why["recipient"],
+					str(why["cause"]), str(why["label"]), str(why["context"]))
 			# Play restarts from the free (and any 50), not another bounce.
 			at_centre = false
 			boundary_throw_in = false
