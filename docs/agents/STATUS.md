@@ -1,9 +1,9 @@
 # Agent status board
 
 Read this at the start of every task. Send changes to your own line to the
-medium agent, who keeps this file (other agents can't push to its branch).
+low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06 against main `08a9738` (since the last board: #258, #261–#272, #274, #275 merged)._
+_Updated 2026-10-06 against main `d586960` (since the last board: #266, #267, #268, #275, #278, #279, #280 merged; #272 and #274 merged before it)._
 
 ## Lanes
 | agent (session) | owns |
@@ -19,11 +19,11 @@ _Updated 2026-10-06 against main `08a9738` (since the last board: #258, #261–#
 | high | lead: assigns and directs; current branches as listed under Open PRs | ongoing |
 | medium | STYLE-01/02/04/05/06 engineering in `UiKit.gd` and the touched screens, landing order in the style inventory | after the director approves the art agent's dark-slice sheet |
 | medium (later) | MatchSim no-presentation perf mode | check with high first |
-| low | `UiKit.scroll` (training scrollbar); `.github/workflows` (audit.yml, sharded CI) | its PRs merge |
+| low | `TrainingScene._player_row` (3 lines, #277); new `tools/visual/capture_training_rows.gd`. `.github/workflows`, `tools/ci_shards.txt` and `UiKit.scroll` are merged: no claim | #277 merges, after the director approves its capture |
 | art | `BroadcastVignette.gd` (draw functions only; `pick_kind`, `DURATIONS` untouched); `VignetteFigures.gd`, `assets/vignette/figures_*.png` (sheet being regenerated); `StoppageVignette._draw_figure`; `tools/visual/capture_appearance.gd`, `capture_guernseys.gd`, new `capture_broadcast.gd`; standing: `figure.gdshader`, `clubs.csv` guernsey column, `GameDB.club_guernsey`, `player_appearance.csv`, `Appearance.gd`. Next, in order: `AwardWinnerVignette.gd`, `MediaConferenceVignette.gd` | M8-007 migration |
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- #277 training-row alignment (low; STYLE-01 KNOWN BUG), #276 press-conference figures (art).
+- Held for the director's visual approval (§9.5): #277 training-row alignment (low; STYLE-01 KNOWN BUG) and #276 press-conference figures (art). Both are green and clean; the low agent merges them once the director has approved the capture.
 
 ## Open PRs and dependencies
 | PR | owner | notes |
@@ -47,4 +47,5 @@ _Updated 2026-10-06 against main `08a9738` (since the last board: #258, #261–#
 - Don't push to a PR branch while its CI runs unless the merge needs it: a push cancels CI and restarts it.
 - A new test suite needs a line in `tools/ci_shards.txt`, or CI's plan job fails.
 - Before you next sync main, move aside any UNTRACKED copies of these 8 generated files, because main now tracks them and git will refuse the sync: `tools/audit/coleman_impl.gd.uid`, `gk_cap_impl.gd.uid`, `injury_seed_impl.gd.uid`, `round_perf_impl.gd.uid`, and `assets/audio/music/{draft_room_rain,hub_after_hours,long_season,matchday_morning}.wav.import`. Move them out of the repo, merge main, and keep the committed ones. Revert Godot `.import` churn with `git ls-files -m | grep '\.import$' | xargs git restore --`.
+- #274 tracks four more generated files; move aside untracked copies of `tools/audit/{kf_kd,synergy_career,synergy,synergy_on}_impl.gd.uid` the same way.
 - `audit.yml` dispatches run independently since #261, so there are no more lost runs. A branch made before #261 keeps the old workflow until it merges main.
