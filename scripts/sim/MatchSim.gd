@@ -1461,10 +1461,10 @@ func _contestant(sq: Squad) -> Array:
 	return [] if best == null else [best]
 
 
-## A ruckman by his own listing (first or second position), whatever spot
-## he is standing in today.
+## A ruckman by his own listing (any position he can be picked in), whatever
+## spot he is standing in today.
 static func _is_ruckman(p: Dictionary) -> bool:
-	return str(p.get("own_role", p.get("role", ""))) == "RUCK" or str(p.get("role2", "")) == "RUCK"
+	return Traits.plays(p, "RUCK")
 
 
 static func _ruck_of(contestant: Array) -> float:
@@ -2972,7 +2972,7 @@ func _bench_for(side: int, role: String, min_energy: float, rotation := false) -
 		var e := float(energy.get(str(p["id"]), 100.0))
 		if e < min_energy or (rotation and str(_held.get(str(p["id"]), "")) == "rest"):
 			continue
-		var fits := str(p.get("role", "")) == role or str(p.get("role2", "")) == role \
+		var fits := str(p.get("role", "")) == role or Traits.plays(p, role) \
 				or str(p.get("list_tag", "")) == role
 		var score := e + (100.0 if fits else 0.0)
 		if score > best_score:

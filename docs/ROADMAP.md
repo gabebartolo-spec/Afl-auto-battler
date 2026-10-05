@@ -2249,7 +2249,7 @@ Mobile portrait first.
 ---
 
 ## ARD-M5-003 — Secondary-position learning / retraining
-**Status:** `TODO`  
+**Status:** `IN REVIEW` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, on branch `claude/dev-project`.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -2273,6 +2273,21 @@ This is the canonical item for the user's previously requested secondary-positio
 
 **Validation:** eligible/ineligible bodies, interruption and save/resume, selected/omitted usage and multi-season growth comparisons. Phone players can explain what is being learned and what they give up.
 
+### Implementation record — learning a position (2026-10-06, branch `claude/dev-project`)
+The director chose ARD-RC-003 (a bounded development commitment with an opportunity cost) and placed it here.
+- **The project:** a "Learn to play <job>" training plan. For 8 fit weeks his XP trains the new position's game (injured weeks do not count). At the end he can be picked there if his rating there is within 3 of his own; otherwise it has not taken. One project per player a season, two at a time per club. Switching plan ends it and spends that season's chance.
+- **Who may try (director):** a plausible move only (his rating there within 6 of his own). The job follows his size: key forward from 192 cm, small forward up to 181 cm, key defender from 191 cm, ruck from 196 cm. POT 70+ for a second position and POT 90+ for a third (raised from 85 by the director after the first audit, so Unicorns stay rare).
+- **The price, stated exactly:** from the day he starts, training in his own position can lift him only 1 more that season (3 in a normal season). The new position's training still helps his own game where the two overlap.
+- **The Unicorn (director):** a player who can be picked at forward, midfield and back earns the Unicorn trait. On the ground he fills one missing place in one synergy (the first in rule order that he completes, in his line for a line synergy), never two.
+- **Rival clubs (director):** each runs one project a season, on its highest-POT candidate, by the same gates and weekly rules, with no news items.
+- **Endings:** a move to another club ends a project (the season's chance stays spent); a project still running when the season ends is judged where it stands. A learned third position counts wherever positions matter in a match (ruck contest, bench replacements, midfield checks). Its trade value waits for #228 (no trade-valuation changes until it is settled).
+- **Seeded evidence** (`tools/audit/devproj_impl.gd`, seeds 21–24, Melbourne and Geelong, 3 seasons, both project places kept busy):
+  - About 7 projects in a club's first season, then 0–1 a season, as eligible players run out of second positions. About 88% pass (about 94% for rivals); failures come from the longest moves.
+  - Own rating over the project season: +2.2 against +3.0 for eligible team-mates aged 27 or under on the club plan, so the project costs about 0.8 OVR.
+  - Unicorns: 3 of 8 user careers had one by season 3 (8 of 8 at POT 85); 3–5 league-wide, about one per 4–6 clubs. Rival clubs make 13–17 projects a season at first and nearly all pass.
+  - Once a side has a Unicorn, he completes a synergy in about 60% of weeks (median 20 of 29). This is the director's wildcard rule; rarity is the control.
+- **Open levers (not changed):** pass margin (3), reach (6) and the 0.8 OVR cost. If play shows projects are too sure a thing, tighten the pass margin first.
+- **Tests:** `test_training.gd` covers size jobs, POT gates, the club limit, injured weeks, the price, the Unicorn and wildcard, and rival projects; `run_roles_tests.gd` covers selection at a learned position.
 
 **\* Claude to refine — development conversations (user-approved, 2026-10-06):** Connect existing training/retraining plans to short private player conversations and later factual follow-through. Discuss a plausible football goal and any explicitly agreed playing opportunity; later acknowledge the actual trial, continued development or changed plan. Reuse existing training, positional-learning and commitment rules; this adds personal continuity, not a new progression system or guaranteed success. Claude should refine the smallest useful scene, triggers and callback within existing development/player-dialogue work, preserving clear obligations and accurate save/load behaviour.
 
@@ -4947,7 +4962,7 @@ Before adding any new roadmap line, check this table.
 
 ## Design idea — Unicorn as a synergy wildcard
 
-**Status: IDEA / hold for synergy-system design review.**
+**Status: DECIDED (director, 2026-10-06), in review with ARD-M5-003 on `claude/dev-project`.** Forward, midfield and back earn the Unicorn trait, and he fills one missing place in one synergy. Rarity (POT 90 for a third position) keeps it from becoming a universal buff, as the guardrail below asks.
 
 Explore making the **Unicorn** player archetype a wildcard for list synergies: a Unicorn could satisfy a required player/archetype slot for any synergy, reflecting an unusually versatile football skill set and making that player a flexible piece in the club's "party" composition.
 
