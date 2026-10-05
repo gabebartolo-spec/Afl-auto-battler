@@ -4,11 +4,13 @@
 # one shard; tools/check_ci_shards.sh checks that on every CI run, so a new
 # suite cannot quietly skip CI.
 #
-# Balanced on the suite times of one full green run (2026-10-06), about 400 s a
-# shard against 1595 s in a row: match_game 225, career 217, match_visual 163,
-# league_balance 123, balance 101, club 83, calibration 70, the rest under 55.
-# A new suite goes in the shortest shard; move a suite when it gets much slower.
-1: finals potential training injuries awards league match_game
-2: draft_ui chronology career coach_pathway matchup matchday contracts workload calibration
-3: save coaches coach_effects ratings ai selection roles club pressure match_visual
-4: draft intake intake_ui expansion coach_market career_ui achievements league_balance balance
+# Balanced on the suite times of the first sharded run on GitHub's runners
+# (2026-10-06), about 437 s a shard against 2184 s in a row. The runners are
+# slower than a developer machine: match_game 333, career 229, league_balance
+# 223, match_visual 210, balance 149, club 103, coach_market 95, the rest under 80.
+# A new suite goes in the shortest shard; re-balance when one gets much slower.
+1: draft_ui coach_pathway training roles awards match_game workload
+2: finals save chronology career career_ui matchup
+3: intake ai selection injuries contracts pressure league_balance
+4: draft expansion coach_market coach_effects ratings achievements match_visual
+5: intake_ui coaches potential matchday league club calibration balance
