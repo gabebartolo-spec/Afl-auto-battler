@@ -304,7 +304,11 @@ func _test_rivals_train() -> void:
 			earned = true
 	_check(untouched, "The AI never spends your players' XP")
 	_check(earned, "Your players still bank their XP")
-	var p0: Dictionary = rival[0]
+	var p0: Dictionary = (rival[0] as Dictionary).duplicate(true)
+	# Club-plan training only: a rival learning a position spends toward that
+	# (tested in test_training), and its season's cap is the project's.
+	for k in ["project", "project_year", "project_cap"]:
+		p0.erase(k)
 	# POT prices a rival's training exactly as it prices yours: no stop at it.
 	var at_pot := p0.duplicate(true)
 	at_pot["xp"] = 100000

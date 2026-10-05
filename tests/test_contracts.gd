@@ -12,6 +12,7 @@ func run() -> void:
 	_test_initial_contracts()
 	_test_real_money_scale()
 	_test_offseason_flow()
+	_test_market_test()
 	_test_negotiation_rules()
 	_test_negotiation()
 	_test_free_agent_terms()
@@ -98,9 +99,9 @@ func _test_offseason_flow() -> void:
 		if code == GameState.my_club:
 			continue
 		for p in Contracts.expiring(GameState.season.lists[code]):
-			if not bool(p.get("resigned", false)):
+			if not bool(p.get("resigned", false)) and not GameState.retiring_now(p):
 				ai_settled = false
-	_check(ai_settled, "Rivals settle every expiring contract at once")
+	_check(ai_settled, "Rivals settle every expiring contract at once (a retiring player retires)")
 	_check(GameState.free_agents.size() > 0, "Rivals let some players go to free agency")
 
 	# Re-sign one of yours, release another.
@@ -189,6 +190,77 @@ func _test_offseason_flow() -> void:
 	_check(GameState.free_agents.is_empty(), "Unsigned free agents leave at the rollover")
 	_check(is_same(GameState.my_list, GameState.season.lists[GameState.my_club]),
 			"Your list is the season's list after the rollover")
+
+
+## One of your best 22 you never settle tests the market as free agency
+## closes: your standing offer is his asking price over the term he wants,
+## rivals may beat it, and he signs with one or the other - he never re-signs
+## just because you did nothing, and he never falls out of the game. A depth
+## player you never settle still re-signs when the cap allows. At the list
+## minimum nobody leaves: he re-signs, as a rival's player does.
+func _test_market_test() -> void:
+	_new_season()
+	_to_offseason()
+	GameState.salary_cap += 5000000
+	_check(GameState.my_list.size() == Contracts.MIN_LIST,
+			"The Geelong list starts at the minimum (%d players)" % GameState.my_list.size())
+	var floor_id := str(Ratings.select_22(GameState.my_list)["ground"][0]["id"])
+	var floor_star: Dictionary = GameState.my_list.filter(func(q): return str(q["id"]) == floor_id)[0]
+	floor_star["contract_years"] = 1
+	floor_star.erase("resigned")
+	GameState._close_free_agency()
+	_check(GameState.my_list.has(floor_star) and bool(floor_star.get("resigned", false))
+			and not floor_star.has("tested"),
+			"At the list minimum an unsettled best-22 player re-signs instead")
+	_new_season()
+	_to_offseason()
+	GameState.salary_cap += 5000000
+	# Room above the minimum: three more depth players under contract.
+	var spare: Array = GameState.my_list.duplicate()
+	spare.sort_custom(func(a, b): return int(a["overall"]) < int(b["overall"]))
+	for i in range(3):
+		var extra: Dictionary = (spare[i] as Dictionary).duplicate(true)
+		extra["id"] = "%s_spare%d" % [str(extra["id"]), i]
+		extra["contract_years"] = 3
+		GameState.my_list.append(extra)
+	var side := Ratings.select_22(GameState.my_list)
+	var in22 := {}
+	for q in (side["ground"] as Array) + (side["bench"] as Array):
+		in22[str(q["id"])] = true
+	var stars := []
+	var depth := []
+	for q in GameState.my_list:
+		if in22.has(str(q["id"])) and stars.size() < 3:
+			stars.append(q)
+		elif not in22.has(str(q["id"])) and depth.size() < 2:
+			depth.append(q)
+	for q in stars + depth:
+		q["contract_years"] = 1
+		q.erase("resigned")
+		q.erase("talks")
+	GameState._close_free_agency()
+	var placed := true
+	var stayed_at_ask := true
+	for q in stars:
+		var club := ""
+		for code in GameState.season.lists:
+			if (GameState.season.lists[code] as Array).has(q):
+				club = str(code)
+		placed = placed and club != ""
+		if club == GameState.my_club:
+			stayed_at_ask = stayed_at_ask and int(q["salary"]) == int(Contracts.wants(q)["salary"]) \
+					and int(q["contract_years"]) == int(Contracts.wants(q)["years"]) + 1
+	_check(placed, "An unsettled best-22 player signs somewhere when he tests the market")
+	_check(stayed_at_ask, "If he stays, it is on your standing offer: his asking price and term")
+	var tested_news := false
+	for item in GameState.news:
+		if str(item["text"]).contains("tested free agency"):
+			tested_news = true
+	_check(tested_news, "Testing free agency makes the news")
+	var kept := true
+	for q in depth:
+		kept = kept and GameState.my_list.has(q) and bool(q.get("resigned", false))
+	_check(kept, "An unsettled depth player re-signs when the cap allows")
 
 
 ## ARD-M6-004: what a player wants is shown; how far he bends follows his
@@ -812,7 +884,9 @@ func _test_trade_value() -> void:
 			"A package of four ordinary players is worth about one good one")
 	# Bundles of ordinary or older players for a club's best young player.
 	var gee: Array = GameDB.club_list("GEE")
-	var ordinary := gee.filter(func(q): return int(q["overall"]) >= 58 and int(q["overall"]) <= 68 and float(q["age"]) >= 26.0)
+	# (Not a star in his rehab year: his rating is about to jump.)
+	var ordinary := gee.filter(func(q): return int(q["overall"]) >= 58 and int(q["overall"]) <= 68 and float(q["age"]) >= 26.0 \
+			and not bool(q.get("rehab", false)))
 	var bundles_refused := true
 	var tried := 0
 	for code in GameDB.CLUB_ORDER:
@@ -829,6 +903,31 @@ func _test_trade_value() -> void:
 					bundles_refused = false
 	_check(bundles_refused and tried >= 4,
 			"Bundles of two to four ordinary or older players never buy a club's elite young player (%d clubs)" % tried)
+	# A star in his rehab year (an injury-shortened season, shown on his
+	# profile) is judged on the rating he comes back at, not the one he
+	# carries now: the long-save probe saw a 62-rated, 92-POT 23-year-old
+	# sold for two fringe players and a second-round pick, then rated 86.
+	var rehab := {}
+	var rehab_club := ""
+	for code in GameDB.CLUB_ORDER:
+		for q in GameDB.club_list(code):
+			if bool(q.get("rehab", false)) and int(q["potential"]) - int(q["overall"]) >= 15 \
+					and (rehab.is_empty() or int(q["potential"]) > int(rehab["potential"])):
+				rehab = q
+				rehab_club = code
+	var back := float(rehab.get("overall", 0)) + (float(rehab.get("potential", 0)) - float(rehab.get("overall", 0))) * Potential.REHAB_PULL
+	_check(not rehab.is_empty() and absf(TradeValue.rating(rehab) - back) < 0.01
+			and TradeValue.now_rating(rehab) >= float(rehab["overall"]) + 10.0,
+			"A star in his rehab year is valued at the rating he comes back at (%s, %.0f)" % [
+			GameDB.player_display_name(rehab) if not rehab.is_empty() else "none", back])
+	var fringe := ordinary.slice(0, 2)
+	var rehab_refused := true
+	if not rehab.is_empty():
+		for ph in TradeValue.PHASES:
+			for m in [0.0, Contracts.TRADE_MARGIN, 0.12]:
+				rehab_refused = rehab_refused and not bool(_trade(GameDB.club_list(rehab_club), [rehab], fringe, ph, m)["ok"])
+	_check(not rehab.is_empty() and rehab_refused,
+			"Two ordinary players never buy a star in his rehab year, whatever the club's phase or the difficulty")
 	# Quality-aware needs: a club with a poor ruckman pays more for a good one;
 	# a club whose ruck is better than him barely wants him.
 	var base: Array = GameDB.club_list("COL")
@@ -887,6 +986,18 @@ func _test_trade_value() -> void:
 	var ctx := {"phase": "building", "bars": TradeValue.selection_bars(base)}
 	_check(float(TradeValue.value(old, ctx)["total"]) < 0.6 * float(TradeValue.value(prime, ctx)["total"]),
 			"A 34-year-old is worth well under a player in his prime of the same rating")
+	# His contract moves his value a little, by how far it is from his
+	# market price in real money - not all or nothing.
+	var fair := Ratings.salary_value(80)
+	var deal := func(salary: int) -> float:
+		return TradeValue.contract_factor({"overall": 80, "salary": salary, "contract_years": 3})
+	_check(is_equal_approx(deal.call(fair), 1.0) and absf(deal.call(fair - 5000) - 1.0) < 0.005
+			and absf(deal.call(fair + 5000) - 1.0) < 0.005,
+			"A contract a few thousand dollars from his market price barely moves his trade value")
+	_check(deal.call(fair - 250000) > 1.04 and deal.call(fair - 250000) < 1.08
+			and is_equal_approx(deal.call(fair + 2000000), 0.88),
+			"A bargain contract adds a little and a heavy one takes a little off (%.3f, %.3f)" % [
+			deal.call(fair - 250000), deal.call(fair + 2000000)])
 
 
 ## Packages are order-free and fit one newcomer at a time; current need and
@@ -895,7 +1006,9 @@ func _test_trade_packages_and_needs() -> void:
 	GameDB.reload()
 	var base: Array = GameDB.club_list("COL").duplicate()
 	var gee: Array = GameDB.club_list("GEE")
-	var ordinary := gee.filter(func(q): return int(q["overall"]) >= 58 and int(q["overall"]) <= 68 and float(q["age"]) >= 26.0)
+	# (Not a star in his rehab year: his rating is about to jump.)
+	var ordinary := gee.filter(func(q): return int(q["overall"]) >= 58 and int(q["overall"]) <= 68 and float(q["age"]) >= 26.0 \
+			and not bool(q.get("rehab", false)))
 	var young := base.filter(func(q): return float(q["age"]) <= 23.0)
 	young.sort_custom(func(x, y): return TradeValue.future_rating(x) > TradeValue.future_rating(y))
 	var same := true
@@ -1276,17 +1389,51 @@ func _test_trade_market() -> void:
 	# trades and the offers come out the same both times.
 	_check(GameState.save_career(), "Saved before replaying the market")
 	var replay := []
+	var starters_ok := true
 	for k in range(2):
 		GameState.load_career()
 		GameState.offseason_log = []
 		GameState.trade_offers = []
 		GameState._freeze_league(true)
+		var phase_of := {}
+		var starter_at := {}
+		for code in GameState.season.lists:
+			phase_of[code] = GameState.club_phase(code)
+			for q in Ratings.select_22(GameState.season.lists[code])["ground"]:
+				starter_at[str(q["id"])] = code
 		GameState._ai_trades(GameState.trade_prospects())
+		for e in GameState.offseason_log.filter(func(x): return str(x.get("kind", "")) == "ai_trade"):
+			if str(starter_at.get(str(e["in"][0]), "")) == str(e["with"]):
+				starters_ok = starters_ok and str(phase_of[e["club"]]) == "contending" \
+						and str(phase_of[e["with"]]) == "rebuilding"
 		GameState._make_trade_offers(GameState.trade_prospects())
 		GameState._freeze_league(false)
 		replay.append(_market_snapshot())
 	_check(replay[0] == replay[1], "The market comes out the same from the same league: %s" % str(replay[0]))
+	_check(starters_ok, "A rival takes another club's starter only as a contender buying from a rebuilding club")
 	GameState.load_career()
+	# Who is on offer: a rebuilding club's established players to a contender,
+	# as to you; otherwise only the players outside a club's starting side.
+	var by_phase := {}
+	for code in GameState.season.lists:
+		if code != me and not by_phase.has(GameState.club_phase(code)):
+			by_phase[GameState.club_phase(code)] = code
+	_check(by_phase.has("contending") and by_phase.has("rebuilding") and by_phase.has("building"),
+			"The league has contenders, builders and rebuilders: %s" % str(by_phase))
+	if by_phase.has("contending") and by_phase.has("rebuilding") and by_phase.has("building"):
+		var ids := func(list: Array) -> Array:
+			return list.map(func(q): return str(q["id"]))
+		var reb := str(by_phase["rebuilding"])
+		var bld := str(by_phase["building"])
+		var con := str(by_phase["contending"])
+		var reb_star := str(Ratings.select_22(GameState.season.lists[reb])["ground"][0]["id"])
+		var bld_star := str(Ratings.select_22(GameState.season.lists[bld])["ground"][0]["id"])
+		_check(ids.call(GameState._trade_pool(con, reb)).has(reb_star)
+				and not ids.call(GameState._fringe(reb)).has(reb_star),
+				"A contender can go after a rebuilding club's starter")
+		_check(not ids.call(GameState._trade_pool(bld, reb)).has(reb_star)
+				and not ids.call(GameState._trade_pool(con, bld)).has(bld_star),
+				"Otherwise only a club's fringe is on offer to a rival")
 
 	# What each kind of club wants.
 	var phase_ok := true

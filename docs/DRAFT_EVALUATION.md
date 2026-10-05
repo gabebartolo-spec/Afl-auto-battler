@@ -21,7 +21,8 @@ board and the human's picks.
   - It is a Gaussian error with SD `club_eval_sd(code)`, capped at ±2.5 SD.
   - It is 0 for your club, 0 in the intake (national) draft, and 0 outside a league draft.
 - `club_eval_sd(code)` is how sharp that club's scouting is. It is uniform on
-  `[AI_EVAL_SD_MIN, AI_EVAL_SD_MAX]` = **[1, 5]** rating points.
+  `[AI_EVAL_SD_MIN, AI_EVAL_SD_MAX]` = **[0, 4]** rating points (first
+  shipped as [1, 5]; see "Recalibrated: [0, 4]" below).
 - `_need_weight` has one new guard: a club with three rucks gives a fourth a
   weight of 0. The reason is under "Unintended effects" below.
 - Everything is a pure function of `(draft seed, club code, player id)`:
@@ -72,15 +73,49 @@ Two things from the calibration matter:
 
   \* Before the fourth-ruck guard. The U[0.5, 3] row is from the first calibration round, which applied the opinion in full whatever the need. Early rounds are almost identical either way, because need is 1 there.
 
-**Chosen range: U[1, 5].** Of the settings tested, it is the smallest that
-puts the all-AI league inside the season-one range. Narrower shapes with the
-same mean error fell short.
+**First chosen range: U[1, 5]** (now [0, 4], below). Of the settings tested,
+it is the smallest that puts the all-AI league inside the season-one range.
+Narrower shapes with the same mean error fell short.
 
 - Its draft-quality measures are no worse than U[2, 4] or a uniform SD of 3.
 - Wider ranges double the elite slides for no gain the season sample can detect.
 - A 24-season first pass could not separate U[0.5, 3] to U[1.5, 6] (all 45–47% ±4–6). The final comparison used 48 seasons each.
 
 Full tables: [draft_evaluation_calibration.md](draft_evaluation_calibration.md).
+
+### Recalibrated: [0, 4] (2026-10-04)
+
+Simply taking the best player left out-drafts the rivals: you see the
+consensus exactly while every rival errs (Unintended effects, 3).
+The competitive-balance pass (docs/COMPETITIVE_BALANCE.md §10) shrank that
+edge, keeping the spread of scouting sharpness that separates rival lists and
+lowering the size of the errors. Director's call, from these measurements:
+
+**Your edge** (a probe over 40 career drafts, seeds 301-340: your club's
+preseason strength rank of 18 when you take the best player left):
+
+| Rival SD range | Rank | Top-four lists of 40 |
+|---|---|---|
+| U[1, 5] | 6.6 | 19 |
+| **U[0, 4]** | **8.9** | **9** |
+| U[0.5, 2.5] | 10.1 | 6 |
+| none | 13.0 | 1 |
+
+**The league** (`draft_experiment --mode season`, all-AI, 16 leagues × 3
+seasons each, same seeds):
+
+| Rival SD range | Squad.strength SD | Stronger side wins | Skill share | r(strength, wins) | Premier from top-3 strength | Target |
+|---|---|---|---|---|---|---|
+| U[1, 5] | 2.36 | 58.3% | 59.0% ±2 | 0.49 | 39.6% | |
+| **U[0, 4]** | **2.22** | **57.6%** | **53.4% ±4** | **0.44** | **35.4%** | |
+| U[0.5, 2.5] | 1.96 | 56.0% | 56.2% ±3 | 0.35 | 35.4% | |
+| | | 57-61% | 45-60% | 0.45-0.65 | ≈40-60% | |
+
+Halving the range (the director's first choice) cut most of the edge but
+flattened the league well below the targets, as the first calibration found
+for narrower shapes. [0, 4] keeps the spread of sharpness (some rivals near
+perfect, some poor) and the league within or at the edge of every target,
+while taking about two thirds of the edge away.
 
 ## Before / after
 

@@ -8,7 +8,8 @@ extends RefCounted
 ## run you promised, Backing), then the calls: the player you play through,
 ## the tagger, the spare, the defenders on the forwards you matched up. Your
 ## own players only: a ring means one of yours that you have a say about, so
-## the match-ups the sim sets up by itself, and the man you tag, are not ringed.
+## the match-ups the sim sets up by itself, the calls your assistant makes for
+## you (MatchSim.coach_call), and the man you tag, are not ringed.
 
 ## The most rings on the oval at once.
 const MAX := 6
@@ -29,14 +30,15 @@ static func ids(sim: MatchSim, side: int, my_list: Array, my_matchups := {}) -> 
 		var tagger = MatchSim.tagger_for((sim.squads[side] as Squad).ground)
 		if tagger != null:
 			_add(out, str(tagger["id"]))
-	_add(out, str(sim.interceptor[side]))
+	if sim.coach_call(side):
+		_add(out, str(sim.interceptor[side]))
 	# The forwards you made a call on, before the bounce or during the match;
 	# whoever is on each now.
 	var chosen := {}
 	for fid in my_matchups:
 		chosen[str(fid)] = true
 	for ch in sim.duel_changes:
-		if int(ch["side"]) == side:
+		if int(ch["side"]) == side and sim.coach_call(side, str(ch["fwd"])):
 			chosen[str(ch["fwd"])] = true
 	var duels: Dictionary = sim.duels[side]
 	for fid in chosen:

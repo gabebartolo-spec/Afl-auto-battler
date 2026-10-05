@@ -219,6 +219,12 @@ static func team_form_label(f: float) -> String:
 ## Every card is a trade-off a coach could make either way, depending on
 ## the week: short term against long term, the board against the player,
 ## development against the side, certainty against flexibility.
+##
+## A card's "default" is what happens if it is left unanswered: no benefit
+## comes without a choice. -1 changes nothing ("unanswered" may add the cost
+## of saying nothing); an option index is the consequence of not acting - a
+## sore star plays sore, a contract request goes unanswered, the board's
+## patience thins.
 static func pick_event(ctx: Dictionary) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("event|%d|%d" % [int(ctx.get("seed", 0)), int(ctx.get("round", 0))])
@@ -290,11 +296,21 @@ const CLOSED_XP := 8
 const DEV_WEEK_XP := 26
 
 
-## Is this player the kind who asks to extend early: good, out of contract
-## at season's end, settled enough to want to stay, not asked yet this season.
+## Rating from which a player is a star who may ask to extend early (the
+## line MatchSim calls a star).
+const EXTENSION_MIN_OVR := 80
+
+
+## Is this player the kind who asks to extend early: a star, out of contract
+## at season's end, settled enough to want to stay - and nobody has asked yet
+## this season, so most contract calls wait for the off-season.
 static func extension_wanted(p: Dictionary, memory: Dictionary) -> bool:
-	return int(p.get("contract_years", 2)) <= 1 and int(p.get("overall", 0)) >= 72 \
-			and morale(p) >= 40 and not memory.has("extension|" + str(p["id"]))
+	if int(p.get("contract_years", 2)) > 1 or int(p.get("overall", 0)) < EXTENSION_MIN_OVR or morale(p) < 40:
+		return false
+	for key in memory:
+		if str(key).begins_with("extension|"):
+			return false
+	return true
 
 
 ## Signing now, a season early, costs a certainty premium on today's price:
@@ -334,7 +350,7 @@ static func _sore_star(p: Dictionary) -> Dictionary:
 
 
 static func _training() -> Dictionary:
-	return {"key": "training", "default": 1,
+	return {"key": "training", "default": -1,
 		"title": "Coaches want an extra session",
 		"text": "A heavy week on the track, or a week to freshen up?",
 		"options": [
@@ -344,7 +360,7 @@ static func _training() -> Dictionary:
 
 
 static func _fans() -> Dictionary:
-	return {"key": "fans", "default": 1,
+	return {"key": "fans", "default": -1,
 		"title": "Members want an open training day",
 		"text": "The fans would love it. The coaches would rather work.",
 		"options": [
@@ -355,7 +371,9 @@ static func _fans() -> Dictionary:
 
 static func _media(p: Dictionary) -> Dictionary:
 	var n := GameDB.player_display_name(p)
-	return {"key": "media", "player_id": str(p["id"]), "default": 1,
+	return {"key": "media", "player_id": str(p["id"]), "default": -1,
+		"unanswered": {"board": -4, "text": "You say nothing. The board wanted an answer (-4).",
+			"hint": "Say nothing: the board is unimpressed (-4)."},
 		"title": "%s is in the papers" % n,
 		"text": "An off-field incident. The board is watching how you handle it.",
 		"options": [
@@ -393,7 +411,7 @@ static func _pressure() -> Dictionary:
 static func _young_gun(p: Dictionary) -> Dictionary:
 	var n := GameDB.player_display_name(p)
 	var run := MatchNotes.count_word(Backing.RUN_GAMES)
-	return {"key": "young_gun", "player_id": str(p["id"]), "default": 1,
+	return {"key": "young_gun", "player_id": str(p["id"]), "default": -1,
 		"title": "%s is pushing for games" % n,
 		"text": "The kid is flying at training and wants a senior game.",
 		"options": [
@@ -407,7 +425,7 @@ static func _young_gun(p: Dictionary) -> Dictionary:
 
 static func _unhappy(p: Dictionary) -> Dictionary:
 	var n := GameDB.player_display_name(p)
-	return {"key": "unhappy", "player_id": str(p["id"]), "default": 1,
+	return {"key": "unhappy", "player_id": str(p["id"]), "default": -1,
 		"title": "%s is unhappy" % n,
 		"text": "He feels he is being overlooked. Unhappy players play below their best and cost more to re-sign.",
 		"options": [

@@ -1,0 +1,62 @@
+[
+  {
+    "treatment": "Light primary button",
+    "foreground": "1d1a16",
+    "background": "b63c29",
+    "ratio": 3.03
+  },
+  {
+    "treatment": "Dark primary button",
+    "foreground": "f1eee6",
+    "background": "c8412b",
+    "ratio": 4.26
+  },
+  {
+    "treatment": "Light role DEF on background",
+    "foreground": "8db9c0",
+    "background": "f3f0e8",
+    "ratio": 1.88
+  },
+  {
+    "treatment": "Light role RUCK on background",
+    "foreground": "d8c176",
+    "background": "f3f0e8",
+    "ratio": 1.56
+  },
+  {
+    "treatment": "Light faint on background",
+    "foreground": "9a9287",
+    "background": "f3f0e8",
+    "ratio": 2.7
+  },
+  {
+    "treatment": "Dark faint on background",
+    "foreground": "6e695f",
+    "background": "121110",
+    "ratio": 3.46
+  },
+  {
+    "treatment": "Light pitch label on grass",
+    "foreground": "1d1a16",
+    "background": "1e5522",
+    "ratio": 1.96
+  },
+  {
+    "treatment": "Dark pitch label on grass",
+    "foreground": "f1eee6",
+    "background": "1e5522",
+    "ratio": 7.62
+  },
+  {
+    "treatment": "Light body on background",
+    "foreground": "1d1a16",
+    "background": "f3f0e8",
+    "ratio": 15.22
+  },
+  {
+    "treatment": "Dark body on background",
+    "foreground": "f1eee6",
+    "background": "121110",
+    "ratio": 16.27
+  }
+]
