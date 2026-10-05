@@ -3507,9 +3507,12 @@ Player-facing choices should stay concise:
 - optional secondary position where valid,
 - archetype / play style,
 - a small set of strengths and weaknesses,
-- **sock height: Tall socks / Short socks** as a purely visual toggle.
+- **sock height: Tall socks / Short socks**,
+- **headband: On / Off**,
+- **bandaging: None / Light / Heavy** using restrained football-appropriate placements,
+- **tattoos: None / Light / Heavy** using original generic tattoo treatments rather than copied real-player or culturally specific designs.
 
-Do not expose exact underlying attributes, OVR, potential or draft rank as editable fields. Sock height must not affect ratings, role suitability, stamina, injuries or any other football outcome.
+All appearance choices are cosmetic only. They must not affect ratings, role suitability, stamina, injuries, aggression, personality or any other football outcome.
 
 ### Draft integration
 - The custom player enters the **first national draft class** of the career, not the opening League Draft of established AFL players.
@@ -3725,7 +3728,23 @@ Move/route ARD-M7-008 through Club Forge so character creation and club creation
 
 The player creator should expose identity/aesthetic and football-profile choices without exposing exact OVR/POT. Its hidden one-time POT roll, usable-role-player floor and rare S-tier outcome remain owned by ARD-M7-008.
 
-Appearance customisation should include a simple **Tall socks / Short socks** toggle. Persist this on the player and use it consistently anywhere the player's lower-leg kit is visible (match figures, vignettes, creator preview and future portrait/full-body presentation). It is cosmetic only and should also be available to generated-player appearance variation where practical so the league does not look uniform.
+Appearance customisation should include:
+- **Tall socks / Short socks**,
+- **Headband On / Off**,
+- **Bandaging None / Light / Heavy**,
+- **Tattoos None / Light / Heavy**.
+
+Persist these on the player and use them consistently anywhere visible: creator preview, match figures, vignettes and future portrait/full-body presentation.
+
+These are cosmetic only. They should also be available to generated-player appearance variation where practical so the league does not look uniform.
+
+### Appearance variation guardrails
+- Headbands should sit naturally with the hairstyle/figure rather than float as an overlay.
+- Bandages should use believable football placements such as shoulder/upper arm, wrist/forearm, thigh/knee or lower leg; avoid covering every limb at once unless a deliberately rare heavy preset is selected.
+- Tattoos should be **original generic designs**. Do not copy a real player's identifiable tattoo layout, Indigenous artwork, gang symbols, extremist imagery, copyrighted characters/logos or other protected/sensitive designs.
+- Use multiple tattoo placements/pattern families so "tattoos on" does not make every player look identical.
+- Appearance traits should remain visually legible at vignette scale without becoming noisy or overpowering the guernsey.
+
 
 ### 21-club fixture support
 A created club may take the competition to **21 clubs**.
@@ -4647,6 +4666,8 @@ Prefer improving the existing experience when that answers the same need. This p
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-05:** Expanded player appearance variation in Club Forge: headbands, bandaging and tattoos now join Tall/Short socks as persistent cosmetic options. These can also seed generated-player visual variety; all are gameplay-neutral, with original/non-copied tattoo art and restrained football-appropriate bandage placement.
 
 - **2026-10-05:** Added Tall socks / Short socks as a cosmetic player-appearance variant. It is a toggle in Club Forge character creation, persists per player, appears in match/vignette rendering where visible, and may also be used for generated-player visual variation. No gameplay effect.
 
