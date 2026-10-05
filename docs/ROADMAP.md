@@ -138,12 +138,33 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 **Working alongside the other agents**
 - Before taking an item, run `git worktree list` and `gh pr list`. A sibling worktree or an open PR on the same files means someone has it.
 - Hot files: `scripts/sim/MatchSim.gd`, `scripts/state/GameState.gd`, `scripts/ui/UiKit.gd`, `scripts/ui/match/MatchNotes.gd`, `tests/expected_checks.txt` and this file. Keep hunks small and rebase on `main` just before you push.
-- `tests/expected_checks.txt` has one floor per suite, and two PRs that raise the same suite's floor collide. Raise only the lines for suites you changed.
+- `tests/expected_checks.txt` has one floor per suite, and two PRs that raise the same suite's floor collide. Raise only the lines for suites you changed. When resolving a collision, the floor is the base plus both PRs' increments, checked against the suite's actual count on the merged result. Do not take the higher of the two, and never lower a floor to get green CI. Put the base and your increment in the merge note.
 - In this file, edit only your own item. The maintenance log gets a new line at the top from nearly every PR, so a conflict there is normal: keep both sides.
 - Godot is the bottleneck when several agents run it at once. Locally, run only the 1–3 suites your change touches (`tools/run_tests.sh <suites>`); CI runs the rest, as five parallel shards in about eight minutes. Never run the full suite locally. Only one long local Godot run per agent at a time, with its own user data (`APPDATA=<scratch dir>` on Windows), because every checkout shares one `user://`.
 - Long audits (more than about five minutes) go to the audit workflow, not your machine: `gh workflow run audit.yml --ref <branch> -f impl=<name> -f env="KEY=VAL"`, then `gh run download <run-id> -n audit-<name>`.
 - A new suite needs a line in `tools/ci_shards.txt` as well as a floor in `tests/expected_checks.txt`; CI fails if a suite is in no shard.
 - Do not push to a branch while its CI runs unless you must: a push cancels the run and restarts about eight minutes of work. Ask the Low agent for a sync instead. The Low agent owns merges and cannot push to your branch, so sync your own branch when asked.
+
+**Team workflow (director-approved research findings W1–W7, 2026-10-06)**
+- **Fresh sessions at task boundaries (W1).** When a substantial task is done (PR open, evidence in its body), or you switch to an unrelated task, write a short handoff and start a fresh session from it. Don't drag the whole transcript along.
+  - **Where:** the handoff goes in `../agent-handoffs/<role>.md`, outside the repo.
+  - **What it says:** the task; branch and commit; files you own; unfinished changes; acceptance evidence and where it lives; open decisions; dependencies; running jobs (local PIDs or Actions run ids).
+  - **Starting fresh:** begin from the handoff, CLAUDE.md, this section and the roadmap section you need, read by offset rather than whole.
+  - **Context size:** aim for roughly 50–100k for routine work, and look into growth past 150k. These are working targets, not billing limits; a hard task may need more.
+  - **Never** restart a session with undocumented in-flight work. **Don't** restart mid-task, either.
+- **Direct, actionable messages (W2).** Send a CI failure or a conflict straight to the branch's owner. Relay someone else's news only if you add interpretation, a dependency or a correction. Don't send "received" or "noted" acknowledgements, queue echoes or repeated inventories. Every message names its PR or task and commit. The lead gets decisions, blockers, substantive findings and changes of priority.
+- **Say which state you are in (W3).** The states are: working, running a check, awaiting director review, blocked, available. Waiting is a valid state when what remains depends on a result or an approval; don't make work to look busy.
+  - **Reading CI:** sharded CI posts its aggregate `test` check last, so "no `test` result yet" while shards run is not "CI never started". Read the shard jobs.
+- **Event-driven monitoring (W4).** Rely on the app's CI events, background-task completion and the existing PR watcher. Don't poll in model turns. A CI report gives:
+  - branch, commit and run id;
+  - the failed suite or check;
+  - whether it also fails on `main`;
+  - the next owner.
+- **Own your processes (W6).** Stop only processes you started: TaskStop your background task, or kill by the PID you recorded. Never kill Godot (or anything else) by image name; other agents run it on the same machine. Record the PID or Actions run id of every long run.
+- **Semantic review for lifecycle changes (W7).** A change that touches the save schema, season rollover or off-season, shared simulation rules, recruitment, or player identity gets a short review by another agent before merge.
+  - **Review packet:** the PR body names the lifecycle transitions it affects (club move, rollover, save and reload, retirement, injury) and the invariants that must hold.
+  - **Reviewer's job:** check the contract and its consequences, not just the explanation. One reviewer, not three.
+  - **Why:** a textually clean merge can still be wrong together. For example, a project survived a club move until review caught it.
 
 **`LOW`**
 - §9.5 STYLE-03 colour pairings, STYLE-07 desktop layout and STYLE-08 light maintenance; the latter two follow the approved dark slice. STYLE-01's narrow Training-row alignment repair is also LOW when it reproduces. Art-agent direction and final director appearance approval apply.
@@ -5403,6 +5424,19 @@ Relevant shared playing/training gradually improves specific teammate/unit coord
 **Acceptance/checks:** capped contextual effects, real eligible participants and actual exposure; define retention/decay without wiping history for one omission. Rotation, injuries, recruiting and rebuilds stay viable. Check stable/rotating/new/injury-affected sides, AI parity, storage/save compatibility and stacking. No invisible universal lineup bonus or compulsory pair-training chores.
 
 ## Execution and shared validation
+**Prerequisites (director-approved research findings G1 and G7, 2026-10-06):**
+- **G1, one interruption budget.** Before RPG-002, RPG-003, RPG-009 or RPG-008 surfaces anything, define one shared pacing rule for journalist questions, private conversations, personality incidents and story beats.
+  - **Rule contents:** event categories, priority, cooldown and deferral.
+  - **Urgent actionable events** (a decision with a deadline) come first. Flavour waits, or moves to the passive feed.
+  - **Ordinary weeks** can stay quiet. Skipping flavour never silently loses a required management action.
+  - **Setting the numbers:** don't invent a numeric cap; review a representative season first.
+  - **Checks:** collisions, quiet losing seasons, late-season pressure, and a user who skips dialogue.
+- **G7, one durable career-fact record.** The facts these features read (player identity, date, event, the coach's decision and its consequence) are stored in one consistent, queryable form, not one private memory per feature.
+  - **Already there:** Firsts, Career, the honour roll, the Backing ledger, `injury_log`, `retire_talk`, project history.
+  - **First step:** reconcile those before adding new memories.
+  - **Timing:** capture facts before results are slimmed for the save.
+  - **Checks:** trade, save and reload, a name change, and former-player coaching continuity.
+
 Start by verifying the existing Backing flow, then connect one private scene and one media topic. Reconcile synergy work before one hybrid interaction/familiarity slice and its role observation. Extend recruiting and season stories from real available facts. Broaden motivations modestly only after pacing works. Independent supported slices may proceed without completing the whole list.
 
 Reuse stable IDs, existing state/consequence plumbing and small factual memories. Apply consequences once; never reroll/mutate matches to fit prose. Optional silence must not become hidden morale punishment; explicit existing obligations still matter. Keep scenes short on 360–390 px phones, rules inspectable and choices non-prescriptive. Esoteric Ebb/Baldur’s Gate inform dialogue/choice/individuality; sports RPGs inform team construction; no fantasy furniture.
@@ -5552,6 +5586,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** The director approved implementing the best findings of the Codex research (project, workforce and art reports). §0.4a gains the team workflow rules W1–W7: fresh sessions at task boundaries with handoffs, direct messages, explicit states, event-driven monitoring, process ownership, semantic review for lifecycle changes, and the check-floor collision rule. §9.4 gains G1 (one interruption budget) and G7 (one career-fact record) as prerequisites. G10 (safe save replacement) is fixed in its own PR, and A4 (data textures stay lossless; colour atlases ASTC 4×4) in the art agent's.
 
 - **2026-10-06:** After the complete one-at-a-time interview, included all eight STYLE-01–STYLE-08 work packages in §9.5 and the execution/effort queues; no rejections. Added the director-confirmed Training player-row vertical-alignment defect, dark Android priority, art-agent visual authority and director approval of all final treatments. Extended existing owners rather than reopening DONE foundations or duplicating M8-007. Research/source evidence is preliminary; implementation and native Android verification remain outstanding.
 
