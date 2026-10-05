@@ -846,18 +846,33 @@ static func _duel_line(res: Dictionary, fid: String, theirs: bool, my_side: int)
 		return "%s; much the same on %s %s (%d of %d)." % [early, _pname(last), after, int(b[1]), int(b[0])]
 	var t := duel_tally(res, fid)
 	var dname := _pname(str(order[0])) if not order.is_empty() else "his man"
-	var r := float(t[1]) / float(maxi(1, int(t[0])))
 	# A quarter where he was on top of this man (what the live call said):
 	# the full-time line keeps that part of the story.
 	var hot_q := _on_top_quarter(res, fid, str(order[0]) if not order.is_empty() else "")
-	if r >= 0.60:
+	var verdict := duel_verdict(int(t[1]), int(t[0]))
+	if verdict > 0:
 		return "%s beat %s in the air: %d marks from %d contests%s." % [fname, dname, int(t[1]), int(t[0]), kicked]
-	if r <= 0.40:
+	if verdict < 0:
 		if hot_q > 0:
 			return "%s got on top of %s in %s, but %s held him over the match: %d marks from %d contests%s." % [
 					fname, dname, str(QUARTER_WORDS.get(hot_q, "one quarter")), dname, int(t[1]), int(t[0]), kicked]
 		return "%s held %s: %d marks from %d contests." % [dname, fname, int(t[1]), int(t[0])]
 	return "An even battle, %s and %s: %d marks from %d contests%s." % [fname, dname, int(t[1]), int(t[0]), kicked]
+
+
+## Who won a key match-up over a whole match, from the forward's marks in
+## `n` contests: 1 he beat his man, -1 his man held him, 0 an even battle.
+## A side needs two-thirds of the contests and two more than the other to
+## win it. Four or five contests is a small sample: on a straight 60/40 cut,
+## two evenly matched men produced a winner nearly three times in four, and
+## a slight aerial edge read as a forward who "beat" his man most weeks.
+static func duel_verdict(won: int, n: int) -> int:
+	var lost := n - won
+	if won - lost >= 2 and won * 3 >= n * 2:
+		return 1
+	if lost - won >= 2 and won * 3 <= n:
+		return -1
+	return 0
 
 
 ## Whether a side actually moved `def_id` onto `fid` (a recorded change,

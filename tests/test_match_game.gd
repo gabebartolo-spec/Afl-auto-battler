@@ -1482,6 +1482,22 @@ func _test_matchups() -> void:
 			[1, "A", true, false], [2, "B", false, false]]}}}
 	_check(str(MatchNotes.duel_story(thin, 0)[0]).contains("too few"),
 			"Too few contests after a change is said as such, not dressed up")
+	# A winner needs two-thirds of the contests and two clear. Evenly matched
+	# key men (the engine has an elite forward on an elite defender marking
+	# 57%, docs/KEY_MATCHUPS_AUDIT_2026-10-06.md) mostly read as even.
+	var reads := {}
+	for won_n in [[3, 5], [3, 4], [4, 6], [2, 4], [1, 4], [2, 5], [5, 7], [4, 7]]:
+		reads["%d/%d" % won_n] = MatchNotes.duel_verdict(int(won_n[0]), int(won_n[1]))
+	_check(reads["3/5"] == 0 and reads["2/4"] == 0 and reads["2/5"] == 0 and reads["4/7"] == 0,
+			"A one-contest edge is an even battle, not a win (%s)" % str(reads))
+	_check(reads["3/4"] == 1 and reads["4/6"] == 1 and reads["5/7"] == 1 and reads["1/4"] == -1,
+			"Two-thirds and two clear is a win either way (%s)" % str(reads))
+	var even := {"duels": {"F": {"side": 1, "contests": [
+			[1, "A", true, false], [1, "A", false, false], [2, "A", true, true],
+			[3, "A", false, false], [4, "A", true, false]]}}}
+	var line := str(MatchNotes.duel_story(even, 0)[0])
+	_check(line.begins_with("An even battle") and line.contains("3 marks from 5 contests"),
+			"3 marks from 5 against one man reads as an even battle (%s)" % line)
 
 
 ## Injuries happen during the match: the player goes off for good, the bench
