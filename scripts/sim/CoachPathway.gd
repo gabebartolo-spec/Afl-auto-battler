@@ -20,7 +20,9 @@ extends RefCounted
 ##   draft    [year, pick, type] or [] when unknown
 ##   pos      his listed position; pos2 a second one, "" if none
 ##   retired  his last season as a player
-##   honours  {"brownlow": n, "coleman": n}, in-game wins only, absent if none
+##   honours  {"brownlow": n, "coleman": n, "rising_star": n, "coaches": n,
+##            "bnf": {club: n}}, in-game wins only, absent if none. The save
+##            keeps the best and fairest for your club alone, so only yours.
 ## Nothing else from the player is kept: no attributes, ratings, contract,
 ## training, injuries or season stats.
 
@@ -71,24 +73,36 @@ static func snapshot(p: Dictionary, last_season: int, honour_roll: Array) -> Dic
 	return played
 
 
-## Brownlows and Colemans he won in this save (the honour roll names each
-## winner by id). Premierships are left out: the game does not record who
-## played in a Grand Final, and a guess is not an honour.
+## The awards he won in this save, from the honour roll, which names each
+## winner by id: Brownlow, Coleman, Rising Star, the Coaches Award and your
+## club's best and fairest (the only club the roll keeps). Premierships
+## are left out: the game does not record who played in a Grand Final, and a
+## guess is not an honour.
+const HONOUR_KEYS := {"brownlow": "brownlow", "coleman": "coleman",
+		"rising_star": "rising_star", "coaches_award": "coaches"}
+
 static func honours(player_id: String, honour_roll: Array) -> Dictionary:
 	var out := {}
 	for e in honour_roll:
-		for key in ["brownlow", "coleman"]:
+		for key in HONOUR_KEYS:
 			var top: Array = (e as Dictionary).get(key, [])
 			if not top.is_empty() and str((top[0] as Dictionary).get("id", "")) == player_id:
-				out[key] = int(out.get(key, 0)) + 1
+				var k := str(HONOUR_KEYS[key])
+				out[k] = int(out.get(k, 0)) + 1
+		var bf: Array = (e as Dictionary).get("my_bf", [])
+		var club := str((e as Dictionary).get("my_club", ""))
+		if club != "" and not bf.is_empty() and str((bf[0] as Dictionary).get("id", "")) == player_id:
+			var b: Dictionary = out.get("bnf", {})
+			b[club] = int(b.get(club, 0)) + 1
+			out["bnf"] = b
 	return out
 
 
+## The major medals, for the chance he coaches: a Brownlow or a Coleman.
+## (The other honours are shown on his profile but do not change the odds.)
 static func honour_count(played: Dictionary) -> int:
-	var n := 0
-	for k in (played.get("honours", {}) as Dictionary):
-		n += int(played["honours"][k])
-	return n
+	var h: Dictionary = played.get("honours", {})
+	return int(h.get("brownlow", 0)) + int(h.get("coleman", 0))
 
 
 ## The chance a retiree ever goes into coaching: modest, a little higher
