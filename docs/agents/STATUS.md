@@ -17,7 +17,7 @@ _Updated 2026-10-06 against main `4b715b7`._
 | agent | files | until |
 |---|---|---|
 | high | `Traits.gd`; `Ratings.gd` (positions, selection); GameState training section (`TRAIN_PLANS`..`_spend_with_weights`, `_grant_match_xp`); `TrainingScene.gd`; `SelectionScene.gd`; MatchSim synergy constants | branch `claude/dev-project` |
-| #233 owner | `MatchSim.gd`, `MatchNotes.gd` | #233 merges |
+| high (#233) | `MatchSim.gd`, `MatchNotes.gd` | #233 merges |
 | medium | `MatchNotes._duel_line` verdict (key match-up copy fix) | starts after #233 merges |
 | medium (later) | MatchSim no-presentation perf mode | after #233; check with high first |
 | low | `UiKit.scroll` (training scrollbar); `.github/workflows` (audit.yml, sharded CI) | its PRs merge |
@@ -26,16 +26,16 @@ _Updated 2026-10-06 against main `4b715b7`._
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
 1. **audit.yml / sharded CI** (low): first when opened; unblocks Actions audit runs.
 2. #233 tired-tradeoff: green.
-3. #231 club-palette: after #233, the owner syncs main and sets **`matchday 348`** in `tests/expected_checks.txt`.
+3. #231 club-palette: after #233, high syncs main, sets **`matchday 348`**, reruns matchday and pushes.
 4. #234 coach-alumni, #238 effort-tags (green), #239 vignette art inventory (green; docs).
 5. Medium's audits #235, #236, #237, #240: independent, any order. Each appends one sentence to a different §1.11 ROADMAP bullet. #235 raises `injuries` 29 → 31.
 
 ## Open PRs and dependencies
 | PR | owner | notes |
 |---|---|---|
-| #231 | high? (confirm) | `clubs.csv` colours; conflicts with #233 on the `matchday` floor (348) |
-| #233 | high? (confirm) | MatchSim, MatchNotes; floors `match_game` 229, `matchday` 347 |
-| #234 | high? (confirm) | `CoachPathway`, `CoachSheet`; clean |
+| #231 | high | `clubs.csv` colours; conflicts with #233 on the `matchday` floor (348) |
+| #233 | high | MatchSim, MatchNotes; floors `match_game` 229, `matchday` 347 |
+| #234 | high | `CoachPathway`, `CoachSheet`; clean |
 | #235 #236 #237 #240 | medium | audits; docs + `tools/audit` (+ `test_injuries` in #235) |
 | #238 | low | ROADMAP effort tags and lanes; dry-run clean against all |
 | #239 | art? (confirm) | `docs/VIGNETTE_ART_INVENTORY.md` |
