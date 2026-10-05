@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06 against main `c5d5743`. Merged today: #275, #276, #277, #282, #283, #284, #285, #286, #287, #288, #232, #292, #293, #294, #295, #296, #297 (#289 on green). #283 merged before its W7 review; the lead reviews it after the fact._
+_Updated 2026-10-06 against main `c5d5743`. Merged today: #275, #276, #277, #283, #285, #286, #287, #288, #232, #292, #293, #294, #295, #296, #297 (#289 on green). #283 merged before its W7 review; the lead reviews it after the fact._
 
 ## Lanes
 | agent (session) | owns |
@@ -26,7 +26,7 @@ _Updated 2026-10-06 against main `c5d5743`. Merged today: #275, #276, #277, #282
 - #289 (long-career audit tool, medium) on green. #291 is the director's Codex research: do not merge.
 - Coming: medium's free-keeps-possession PR (W7, held until the lead's reviewer comment is on the PR; match_game 243).
 - Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval).
-- On main, awaiting the director's look: #276 press conference, #277 Training-row alignment, #282 living players and crowds, #284 compressed figure sheets (phone check).
+- On main, awaiting the director's look: #276 press conference, #277 Training-row alignment. #282 (living players and crowds) and #284 (compressed figure sheets, phone check) never reached main; the art agent carries both in draft #299, awaiting the director's visual review.
 - STYLE-03: evidence in docs/research/STYLE03_DARK_PAIRINGS_EVIDENCE.md; dark component sheets at 320 and 390 sent to the art agent (tool: tools/visual/capture_component_states.gd).
 
 ## Open PRs and dependencies
