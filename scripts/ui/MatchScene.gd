@@ -657,7 +657,7 @@ func _quarter_view(q: int) -> Control:
 	# three, their plan kept (it is what the next quarter's calls answer).
 	# Moments already played out in the feed are not replayed here; the
 	# ones that carry on are under "What your calls did".
-	var lines: Array = MatchNotes.quarter_facts(_res, _my_side, q)
+	var lines: Array = MatchNotes.quarter_facts(_res, _my_side, q, _break_answers())
 	var opp_last := _opp_last_plan()
 	if opp_last != "":
 		lines = lines.slice(0, MatchNotes.MAX_FACTS - 1)
@@ -670,6 +670,28 @@ func _quarter_view(q: int) -> Control:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
 	return v
+
+
+## What a call can do about each of their players now: the defender on a key
+## forward, your tag, or a midfielder you could tag (only with a midfielder
+## of yours on the ground to send). Facts for the break, never advice.
+func _break_answers() -> Dictionary:
+	var out := {}
+	var sim: MatchSim = GameState.pending_sim
+	if sim == null:
+		return out
+	var tagger = MatchSim.tagger_for((sim.squads[_my_side] as Squad).ground)
+	if tagger != null:
+		var tag_id := str((sim.tactics[_my_side] as Dictionary).get("tag_id", ""))
+		for r in _roster_side(1 - _my_side):
+			if not _taggable_now(sim, r):
+				continue
+			var id := str(r["id"])
+			out[id] = {"kind": "tagged", "who": GameDB.player_display_name(tagger)} if id == tag_id 					else {"kind": "tag"}
+	var theirs: Dictionary = sim.duels[_my_side]
+	for fid in theirs:
+		out[str(fid)] = {"kind": "matchup", "who": MatchNotes._pname(str(theirs[fid]))}
+	return out
 
 
 func _synergy_line() -> String:
