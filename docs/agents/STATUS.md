@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 medium agent, who keeps this file (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06 against main `ca9baac` (merged today: #233, #238, #241, #239, #235)._
+_Updated 2026-10-06 against main `df3c395` (since the last board: #234, #236, #237, #244, #245 merged)._
 
 ## Lanes
 | agent (session) | owns |
@@ -17,26 +17,26 @@ _Updated 2026-10-06 against main `ca9baac` (merged today: #233, #238, #241, #239
 | agent | files | until |
 |---|---|---|
 | high | `Traits.gd`; `Ratings.gd` (positions, selection); GameState training section (`TRAIN_PLANS`..`_spend_with_weights`, `_grant_match_xp`); `TrainingScene.gd`; `SelectionScene.gd`; MatchSim synergy constants | branch `claude/dev-project` |
-| medium | `MatchNotes._duel_line` verdict (key match-up copy fix) | in progress |
+| medium | `MatchNotes._duel_line` / `duel_verdict` (key match-up copy) | #246 merges |
 | medium (later) | MatchSim no-presentation perf mode | after #233; check with high first |
 | low | `UiKit.scroll` (training scrollbar); `.github/workflows` (audit.yml, sharded CI) | its PRs merge |
 | art | `BroadcastVignette.gd` (draw functions only; `pick_kind`, `DURATIONS` untouched); `VignetteFigures.gd`, `assets/vignette/figures_*.png` (sheet being regenerated); `StoppageVignette._draw_figure`; `tools/visual/capture_appearance.gd`, `capture_guernseys.gd`, new `capture_broadcast.gd`; standing: `figure.gdshader`, `clubs.csv` guernsey column, `GameDB.club_guernsey`, `player_appearance.csv`, `Appearance.gd`. Next, in order: `AwardWinnerVignette.gd`, `MediaConferenceVignette.gd` | M8-007 migration |
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-Waiting on CI, merged in order as each goes green:
-1. #242 **audit.yml** (low): first; the sharded `tests.yml` PR follows within the hour.
-2. #231 club-palette (high; synced with `matchday 348`), #234 coach-alumni (high).
-3. Medium's #236, #237, #240 (one sentence each on a different §1.11 ROADMAP bullet), #243 (synergy evidence; docs + tools).
+Waiting on CI, merged as each goes green:
+1. #242 **audit.yml** (low) and #248 (5 CI shards, low).
+2. #231 club-palette (high), #247 training scrollbar (low).
+3. Medium's #240 (KF/KD audit; synced 1faf9df), #243 (synergy evidence), #246 (match-up verdict; `match_game` 232).
 
 ## Open PRs and dependencies
 | PR | owner | notes |
 |---|---|---|
-| #231 | high | `clubs.csv` colours; `matchday` 348 after #233 |
-| #234 | high | `CoachPathway`, `CoachSheet`; clean |
-| #236 #237 #240 #243 | medium | audits/evidence; docs + `tools/audit` only |
-| #242 | low | `audit.yml` (Actions audit runs) |
-| next: medium | medium | `claude/matchup-verdict`: MatchNotes verdict copy + `test_match_game` (raises `match_game`) |
-| next: high | high | `claude/synergy-specialisation`: new synergy needs and powers; medium validates |
+| #231 | high | `clubs.csv` colours; `matchday` 348 |
+| #240 #243 | medium | docs + `tools/audit` only |
+| #246 | medium | `MatchNotes.gd`, `test_match_game.gd`; `match_game` 229 → 232 |
+| #242 #248 | low | `audit.yml`; 5-shard `tests.yml` |
+| #247 | low | `UiKit.scroll` training scrollbar |
+| next: high | high | `claude/synergy-specialisation` (7b8b2ab): new needs/powers; medium validating |
 | #228, #206 | none | stale/superseded; the low agent recommends the director close them |
 | #232 | codex | research docs; conflicting |
 
@@ -51,4 +51,5 @@ Waiting on CI, merged in order as each goes green:
 - Revert `.import` churn before committing. Never commit another agent's untracked files.
 - Merge notes go in the PR body or a `[MERGE NOTE]` comment: hot files, floors raised, ordering, ROADMAP lines.
 - Owners sync their own branches. A floor conflict resolves to the sum of the increments.
-- Don't push to a PR branch while its CI runs unless the merge needs it: a push cancels CI and restarts the ~27-minute run.
+- Don't push to a PR branch while its CI runs unless the merge needs it: a push cancels CI and restarts it.
+- A new test suite needs a line in `tools/ci_shards.txt`, or CI's plan job fails.
