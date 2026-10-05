@@ -430,6 +430,21 @@ Rules:
 
 This permission includes software for areas such as vector UI design, raster painting, icon creation, texture generation, layout mockups, motion/UI animation, sprite-sheet work and other custom interface production, provided the software itself is free to use.
 
+
+### Font-sourcing permission
+The art agent may also research, download and use **free fonts** for the game's UI and visual identity under the same free-only rules.
+
+Requirements:
+- Prefer fonts with clear permissive licences suitable for game distribution, such as OFL or similarly explicit free-use licences.
+- No paid font licences, subscription font services, marketplace font packs, or trials that later charge without separate explicit user approval.
+- Record the font source and licence in implementation notes.
+- Do not use a font merely because it is trendy; it must support the game's bespoke football-game identity and anti-slop criteria.
+- Avoid condensed display fonts, generic SaaS/productivity typography, or over-stylised novelty fonts unless there is a specific justified use.
+- Verify legibility at narrow Android portrait widths and in match/vignette overlays.
+- If the art agent cannot install/access a suitable free font directly, it may ask the user to install it and should provide concise instructions.
+
+Font choices should reinforce the principle that the interface feels like a **game**, not an application.
+
 ## 1.8 Australian football language
 
 Use natural AFL terminology in player-facing text.
@@ -5241,6 +5256,8 @@ It is complete only when:
 # 10. Roadmap Maintenance Log
 
 - **2026-10-06:** After all eight director answers, authorised FL-001–FL-008 in §9.3 and the execution/effort queues under existing owners. Added the explicit visual-distinction audit and permission for necessary new ritual/farewell vignette scenes. Every addition is presentation-only with zero gameplay effects; existing feature statuses and unrelated review gates remain unchanged.
+
+- **2026-10-06:** Extended the art-agent tooling permission to fonts: it may research, download and use free/licensed fonts suitable for game distribution, or direct the user to install them. Paid font licences and subscription services remain disallowed without explicit approval.
 
 - **2026-10-06:** Granted the art agent permission to investigate and use free-only software for bespoke UI/art production, or direct the user to install suitable free tools when required. Paid software, subscriptions, paid plugins and charging trials remain disallowed without explicit approval.
 
