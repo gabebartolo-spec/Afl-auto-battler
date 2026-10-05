@@ -5326,6 +5326,11 @@ Use **Crusader Kings** for emergent stories and consistent living people: durabl
 **Mandatory director caveat:** fun flavour, not complex busywork managing many personalities. Most behaviour stays quiet; only occasional meaningful situations surface. No personality dashboard, routine check-ins, relationship tending, conversation-energy currency or repeated reassurance.
 **Acceptance/checks:** start with one motivation/remembered decision in an existing event path; verify relevant downstream behaviour, contradictory requests, changed affiliations, injury exceptions and long AI careers. Measure interruption/repetition burden as well as morale/market balance. Cosmetic interests/nicknames stay mechanically separate.
 
+
+### Retirement persuasion — director request, 2026-10-06
+**Status:** `TODO`. **Autonomy:** `BALANCE-GATED`.
+Offer a short chance to convince a player's own-club retiring veteran to play on **only while his OVR remains healthy**. Claude should define and validate a credible OVR eligibility threshold against current ratings/retirement rules; being merely above the automatic low-OVR retirement floor is insufficient. Present the conversation before retirement removes the player. Success is not guaranteed: respect the player's decision. Reuse private conversations and existing retirement/contracts/history rules; no OVR boost, erased decline or repeated persuasion spam. **Acceptance:** unhealthy-OVR retirees are ineligible; eligible success/refusal, normal ageing, roster/contract consequences and retirement/coaching handoff stay coherent and survive save/load without rerolls or duplicate outcomes.
+
 ## RPG-010 — Automatic familiarity as team synergy
 **Owner:** M5-007 plus RPG-004. **Autonomy:** BALANCE-GATED.
 Relevant shared playing/training gradually improves specific teammate/unit coordination. No manual relationship maintenance or separate social system.
