@@ -18,6 +18,7 @@ func run() -> void:
 	_test_suspension()
 	_test_tribunal_challenge()
 	_test_played_and_simulated_alike()
+	_test_no_second_roll()
 	print("Injuries tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -262,3 +263,38 @@ func _test_played_and_simulated_alike() -> void:
 		any = any or not (hurt[0] as Array).is_empty()
 		same = same and hurt[0] == hurt[1]
 	_check(any and same, "A match played and the same match simulated hurt the same players")
+
+
+## The other half of that impression: nothing between the match and the
+## list rolls again. Over real Sim-round weeks of a career, every injury that
+## lands on a list is one MatchSim recorded in that round's results, and
+## none is added on top (Injuries.apply_match falls back to the old
+## after-the-siren roll only for a result with no injury record at all).
+func _test_no_second_roll() -> void:
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var recorded := 0
+	var landed := 0
+	var only_recorded := true
+	for _week in range(6):
+		if not GameState.week_event.is_empty():
+			GameState.resolve_week_event(0)
+		GameState.advance()
+		var ids := {}
+		for res in GameState.last_results:
+			for inj in res.get("injuries", []):
+				ids[str(inj["id"])] = true
+				recorded += 1
+		for got in GameState.last_injuries:
+			landed += 1
+			only_recorded = only_recorded and ids.has(str(got["id"]))
+	_check(landed > 0 and landed <= recorded and only_recorded,
+			"Every injury on a list after a simulated round is one the match recorded (%d of %d)" % [landed, recorded])
+	var fragile := {"id": "x", "attr": {"durability": 1}, "sore": true, "heavy_legs": true}
+	var lists := {"GEE": [fragile], "COL": []}
+	var clean := {"home": "GEE", "away": "COL", "injuries": [], "roster": [[{"id": "x"}], []]}
+	var hurt := 0
+	for round_no in range(1, 200):
+		hurt += Injuries.apply_match(clean, lists, 7, round_no).size()
+	_check(hurt == 0 and int(fragile.get("injury_weeks", 0)) == 0,
+			"A match that recorded no injuries hurts nobody afterwards, however fragile")

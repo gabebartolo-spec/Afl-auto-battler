@@ -60,6 +60,21 @@ func _test_snapshot() -> void:
 	_check(str(s["pos"]) == "MID" and int(s["retired"]) == Y, "Position and retirement year are kept")
 	_check(int(s["honours"]["brownlow"]) == 1 and int(s["honours"]["coleman"]) == 1,
 			"A Brownlow and a Coleman won in the save are kept")
+	# RC-004: every award the save records for him, and only those.
+	var roll2 := roll + [{"year": 2032, "rising_star": [{"id": "P1"}], "coaches_award": [{"id": "P1"}],
+			"my_bf": [{"id": "P1"}], "my_club": "ADE"},
+			{"year": 2033, "coaches_award": [{"id": "P1"}], "my_bf": [{"id": "P1"}], "my_club": "ADE"},
+			{"year": 2034, "my_bf": [{"id": "X"}], "my_club": "ADE", "rising_star": [{"id": "X"}]}]
+	var h2: Dictionary = CoachPathway.snapshot(p, Y, roll2)["honours"]
+	_check(int(h2.get("rising_star", 0)) == 1 and int(h2.get("coaches", 0)) == 2
+			and int((h2.get("bnf", {}) as Dictionary).get("ADE", 0)) == 2,
+			"His Rising Star, Coaches Awards and best and fairests are kept (%s)" % str(h2))
+	var lines2 := CoachSheet.playing_lines({"games": 263, "goals": 187, "stints": [], "unknown": [], "honours": h2})
+	_check(lines2.has("Brownlow Medal") and lines2.has("2 Coaches Awards") and lines2.has("Rising Star")
+			and lines2.has("2 %s best and fairests" % GameDB.club_name("ADE")),
+			"His profile names each award in football words (%s)" % str(lines2))
+	_check(CoachPathway.honour_count({"honours": h2}) == 2,
+			"Only a Brownlow or Coleman changes the odds he coaches")
 	var leaked := false
 	for k in ["attr", "overall", "potential", "xp", "morale", "salary", "contract_years", "plan",
 			"injury", "history", "id", "age"]:
