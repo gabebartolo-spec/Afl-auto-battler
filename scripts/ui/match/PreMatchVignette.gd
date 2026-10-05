@@ -18,7 +18,14 @@ const BANNER_W := 7.5
 const MINE := 9
 const THEIRS := 6
 
-var copy := "Warming up"
+## The words under the scene, in the order they appear. Atmosphere only: none
+## of them says anything about the match. A final opens with its own line.
+const WORDS_WARM := "Warming up"
+const WORDS_FINALS := "Finals footy. Here we go."
+const WORDS_HUDDLE := "Final instructions"
+const WORDS_RUN := "Through the banner"
+
+var copy := WORDS_WARM
 var banner := ""
 var _phase := WARM
 var _prev := WARM
@@ -32,7 +39,7 @@ var _auto := -1.0          # play_through: seconds until the run (-1: off)
 ## The scene on its own layer over whatever is showing, so it stays up while
 ## the match screen replaces the hub underneath it.
 static func open(host: Node, my_code: String, opp_code: String, my_ground: Array,
-		opp_ground: Array, heading: String) -> PreMatchVignette:
+		opp_ground: Array, heading: String, final := false) -> PreMatchVignette:
 	var layer := CanvasLayer.new()
 	layer.name = "PreMatch"
 	layer.layer = 90
@@ -42,13 +49,21 @@ static func open(host: Node, my_code: String, opp_code: String, my_ground: Array
 	v.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(v)
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	v.setup_prematch(my_code, opp_code, my_ground, opp_ground, heading)
+	v.setup_prematch(my_code, opp_code, my_ground, opp_ground, heading, final)
 	return v
 
 
+## Finals footy: the fixture is a final. Every final's label says so ("Semi
+## Final 1", "Grand Final"); a home-and-away round's ("Round 24") never does,
+## and a missing label is not a final.
+static func is_final(label: String) -> bool:
+	return label.contains("Final")
+
+
 func setup_prematch(my_code: String, opp_code: String, my_ground: Array, opp_ground: Array,
-		heading: String) -> void:
+		heading: String, final := false) -> void:
 	title = heading
+	copy = WORDS_FINALS if final else WORDS_WARM
 	banner = GameDB.club_name(my_code)
 	_colours = [GameDB.club_colours(my_code), GameDB.club_colours(opp_code)]
 	_codes = [my_code, opp_code]
@@ -72,7 +87,7 @@ func setup_prematch(my_code: String, opp_code: String, my_ground: Array, opp_gro
 func set_progress(f: float) -> void:
 	_progress = f
 	if _phase == WARM and f >= 0.5:
-		_go(HUDDLE, "Final instructions")
+		_go(HUDDLE, WORDS_HUDDLE)
 
 
 ## Warm-up, final words, then through the banner after `seconds` on its
@@ -84,7 +99,7 @@ func play_through(seconds: float) -> void:
 ## The match is ready: through the banner, then `done`.
 func run_out() -> void:
 	if _phase != RUN:
-		_go(RUN, "Running through the banner")
+		_go(RUN, WORDS_RUN)
 
 
 func phase() -> String:

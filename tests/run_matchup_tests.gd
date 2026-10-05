@@ -35,6 +35,7 @@ func _run() -> void:
 	await _season_wrap()
 	await _season_review_scrolls()
 	await _pre_match_scene()
+	_pre_match_captions()
 	print("Matchup + hub tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -346,6 +347,34 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
 		push_error(message)
+
+
+## The words under the pre-match scene are atmosphere, and a final opens with
+## its own line. Only a real final counts as one: every final's label does, no
+## home-and-away round does, and a missing label is not a final. (Only the
+## selection is tested; the fixed words are not.)
+func _pre_match_captions() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	var ground: Array = _state.my_squad().ground
+	var pm = load("res://scripts/ui/match/PreMatchVignette.gd")
+	_check(pm.is_final("Wildcard Final 1") and pm.is_final("Qualifying Final 2")
+			and pm.is_final("Elimination Final 1") and pm.is_final("Semi Final 2")
+			and pm.is_final("Preliminary Final 1") and pm.is_final("Grand Final"),
+			"Every final's fixture label counts as a final")
+	_check(not pm.is_final("Round 1") and not pm.is_final("Round 24") and not pm.is_final(""),
+			"No round, and no missing label, counts as a final")
+	var final_scene = pm.new()
+	final_scene.setup_prematch("COL", "SYD", ground, ground, "Grand Final", true)
+	var round_scene = pm.new()
+	round_scene.setup_prematch("COL", "SYD", ground, ground, "Round 24", false)
+	_check(final_scene.copy == "Finals footy. Here we go.",
+			"A final opens with its own line (%s)" % final_scene.copy)
+	_check(round_scene.copy == "Warming up",
+			"An ordinary round still opens with Warming up (%s)" % round_scene.copy)
+	final_scene.free()
+	round_scene.free()
 
 
 ## Play match puts the pre-match scene up in the same frame as the tap:
