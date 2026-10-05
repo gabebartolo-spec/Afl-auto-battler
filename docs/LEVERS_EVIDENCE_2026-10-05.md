@@ -77,11 +77,11 @@ The research's market card asks for realised value, not only projected. `career_
 
 | Traded players, by age at the trade | Current valuation: projected → peak | With #224: projected → peak |
 |---|---|---|
-| Kids you gave away (21 and under) | 69.9 → 69.8 (−0.1, n = 23) | 66.1 → 67.4 (+1.3, n = 22) |
-| Stars you got (28 and over) | 73.5 → 73.5 (n = 18) | 74.0 → 74.0 (n = 17) |
+| Kids you gave away (21 and under) | 69.9 → 69.8 (−0.1, n = 23) | 67.8 → 69.2 (+1.4, n = 22) |
+| Stars you got (28 and over) | 73.5 → 73.5 (n = 18) | 73.6 → 73.6 (n = 17) |
 
 - **The current projection is accurate for kids.** Players like Elias Colombo (67, POT 85 at 18, projected 77.8) peaked at 79; across 23 kids the average miss is a tenth of a point. The 60% credit does not over-value youth on this evidence.
-- **#224's discount under-projects them.** With it, the same kind of kid beats his projection by more than a point (Colombo projected 75.2, still peaked at 78).
+- **#224's discount under-projects them.** With it, the same kind of kid beats his projection by about 1.4 points (Colombo projected 75.2, still peaked at 78).
 - **The stars do what their age says.** They never improve, and by the end most have dropped 10 to 15 points or left the game (Jarrod Simic 81 at 29, 66 and gone five years later; Elijah Lewis 83, 70 and gone).
 - **The "kids for a star" trade is a short-term deal, not an exploit.** The kids went on to 100 to 160 senior games each. The trader won early (premierships in year one or two in some careers) and then collapsed to list rank 17 to 20 in both valuations.
 - **Implication for #224 (needs a decision):** realised outcomes do not support discounting unproven potential. If the concern is that a human can buy a premiership window cheaply, that is a question about what a rebuilding club should accept for its future, not about projection error. Options: close #224, soften it, or keep it as a deliberate difficulty choice.
