@@ -5506,7 +5506,7 @@ Use **Crusader Kings** for emergent stories and consistent living people: durabl
 
 
 ### Retirement persuasion — director request, 2026-10-06
-**Status:** `IN REVIEW` (branch `claude/retirement-persuasion`). **Autonomy:** `BALANCE-GATED`.
+**Status:** `DONE` — merged in #275 (2026-10-06; intake floor 2190, later 2191 with #297); the balance and phone check remain with the director. **Autonomy:** `BALANCE-GATED`.
 Offer a short chance to convince a retiring veteran at the user's club to play on **only while his OVR remains healthy**. Claude should define and validate a credible OVR eligibility threshold against current ratings/retirement rules; being merely above the automatic low-OVR retirement floor is insufficient. Present the conversation before retirement removes the player. Players can reject the offer and retire. Acceptance/refusal must follow a consistent, explainable assessment of recorded circumstances—long injury history, a very recent injury, poor form, poor morale or similarly relevant career factors—not a random accept/reject roll. Healthy OVR permits the conversation but does not guarantee willingness to continue. Claude should refine the factor weights/thresholds, using only evidence actually recorded; do not invent injury history. Explain the main reason in football language. Reuse private conversations and existing retirement/contracts/history rules; no OVR boost, erased decline or repeated persuasion spam. **Acceptance:** unhealthy-OVR retirees are ineligible; eligible success/refusal, normal ageing, roster/contract consequences and retirement/coaching handoff stay coherent and survive save/load without rerolls or duplicate outcomes.
 
 **Implementation record (2026-10-06, branch `claude/retirement-persuasion`): `IN REVIEW`.**
