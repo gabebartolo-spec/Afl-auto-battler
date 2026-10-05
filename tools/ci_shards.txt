@@ -1,0 +1,16 @@
+# How CI splits the Godot test suites across parallel jobs
+# (.github/workflows/tests.yml). One line per shard: its number, a colon, then
+# the suites it runs. Every suite in tools/run_tests.sh must appear in exactly
+# one shard; tools/check_ci_shards.sh checks that on every CI run, so a new
+# suite cannot quietly skip CI.
+#
+# Balanced on the suite times of the first sharded run on GitHub's runners
+# (2026-10-06), about 437 s a shard against 2184 s in a row. The runners are
+# slower than a developer machine: match_game 333, career 229, league_balance
+# 223, match_visual 210, balance 149, club 103, coach_market 95, the rest under 80.
+# A new suite goes in the shortest shard; re-balance when one gets much slower.
+1: draft_ui coach_pathway training roles awards match_game workload
+2: finals save chronology career career_ui matchup
+3: intake ai selection injuries contracts pressure league_balance
+4: draft expansion coach_market coach_effects ratings achievements match_visual
+5: intake_ui coaches potential matchday league club calibration balance

@@ -1,4 +1,4 @@
-# Draft regression checks
+# Regression checks
 
 Use the standard Godot 4.7 editor/runtime. The quickest way to run
 everything CI runs (import, every suite below, the dataset check and the
@@ -13,6 +13,70 @@ GitHub Actions (`.github/workflows/tests.yml`) runs the same script on every
 pull request and every push to `main`, with Godot 4.7.2 downloaded and cached.
 A suite that hangs is stopped after 15 minutes (`SUITE_TIMEOUT`) and fails the
 run; a failing run uploads the logs as an artifact.
+
+CI runs the suites as five parallel shards, so a pull request takes about eight
+minutes instead of half an hour. `tools/ci_shards.txt` says which suites each
+shard runs; `tools/check_ci_shards.sh` fails the run if a suite in
+`tools/run_tests.sh` is in no shard, so **a new suite needs a line in
+`tools/ci_shards.txt`** (put it in the shortest shard) as well as a floor in
+`expected_checks.txt`. One more job runs the dataset, export-data and intake
+harness checks once (`EXTRAS_ONLY=1 tools/run_tests.sh`). The required check
+named `test` is the last job and passes only when every shard and that job did.
+
+Run only the suites your change touches while you work; CI runs the rest.
+
+### Which suite covers what
+
+Pick the suites for the code you changed and run just those (`tools/run_tests.sh <suites>`).
+Times are seconds on a CI runner, from the first sharded run; each suite's floor is in
+`expected_checks.txt`.
+
+| Suite | Covers | CI s |
+|---|---|---|
+| `draft` | The League Draft model: cap, snake order, rival picks, pick log | 24 |
+| `draft_ui` | The draft screen's layout and state: containers, widths, rotate and resume | 5 |
+| `intake` | The National Draft model: the 2026 class, projection, season rollover | 6 |
+| `intake_ui` | The National Draft on the shared draft screen | 4 |
+| `expansion` | Tasmania in 2028 and Canberra in 2030 | 53 |
+| `finals` | The wildcard finals bracket, extra time, draws | 68 |
+| `save` | Saving and loading a career, including old-save migrations | 29 |
+| `chronology` | 2026 is history, careers start in 2027, and every system agrees | 4 |
+| `career` | Games, goals and club stints across a dynasty | 229 |
+| `coaches` | The coaching world: six jobs a club, records, grades, the Staff screen | 35 |
+| `coach_market` | Coach moves, hiring, sackings, retirements, assistant contracts | 95 |
+| `coach_pathway` | Retired players becoming coaches, and the record they carry | 2 |
+| `coach_effects` | What coaching does: teaching, tactics, man-management | 5 |
+| `career_ui` | Main menu and save flow, Back, the Hub, Training, selection and trade screens, at 320, 360 and 430 wide | 70 |
+| `potential` | Potential (POT) rules, rehab years, draft pedigree | 5 |
+| `ratings` | The overall rating model | 2 |
+| `ai` | Rival clubs' drafting and selection | 58 |
+| `training` | Training plans and the stat guide | 32 |
+| `selection` | Team selection and named sides | 4 |
+| `matchup` | This week's opponent facts | 36 |
+| `matchday` | Match-day wording: the feed, quarter breaks, full time, the match screen | 21 |
+| `roles` | Roles, wings, taggers and rucks as real jobs | 8 |
+| `injuries` | Injury rates, durability, healing, and played v simulated parity | 78 |
+| `awards` | Brownlow, Coleman, best and fairest, All-Australian | 49 |
+| `achievements` | Club achievements | 48 |
+| `contracts` | Contracts, free agency and trades | 29 |
+| `league` | Difficulty and the league news feed | 52 |
+| `club` | The board, morale and the weekly event card | 103 |
+| `match_game` | Legs and rotations, match moments and calls, the rival coach, key match-ups | 333 |
+| `pressure` | Pressure acts and the team Pressure Rating | 38 |
+| `workload` | Workload across the campaign | 8 |
+| `match_visual` | The live match view is presentation only (PitchView, MatchDirector, MatchMotion) | 210 |
+| `league_balance` | Smoke checks for the balance harness in `tools/balance` | 223 |
+| `calibration` | The engine against real 2026 numbers (seeded matches) | 69 |
+| `balance` | A long-career guard: three seasons must not inflate the league | 149 |
+
+By area:
+
+- `MatchSim.gd`, `MatchNotes.gd`: `match_game`, `matchday`, `roles`; add `pressure` for pressure changes. `calibration` and `balance` only when you changed scoring or ratings (they are the slow ones).
+- `UiKit.gd` or any screen: `career_ui`, plus that screen's own suite (`draft_ui`, `intake_ui`, `matchday`, `match_visual`).
+- The draft, prospects or potential: `draft`, `intake`, `potential`, `ai`.
+- Contracts, money or trades: `contracts`, `save`.
+- Anything stored on a player or a club: `save` as well, so an old career still loads.
+- Coaches and staff: `coaches`, `coach_market`, `coach_pathway`, `coach_effects`.
 
 To run suites one at a time, from the repository root:
 

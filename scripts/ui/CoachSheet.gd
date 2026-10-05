@@ -87,8 +87,8 @@ static func open(host: Control, c: Dictionary, on_close: Callable = Callable()) 
 
 
 ## "Adelaide 2028–2043 · 263 games, 187 goals" per club, the career total
-## when he played for more than one, how he was drafted and any Brownlow or
-## Coleman he won.
+## when he played for more than one, how he was drafted and the awards he
+## won in this save.
 static func playing_lines(played: Dictionary) -> Array:
 	var out := Career.club_lines({"career": played}, func(code): return GameDB.club_name(code))
 	if (played.get("stints", []) as Array).size() > 1:
@@ -99,11 +99,16 @@ static func playing_lines(played: Dictionary) -> Array:
 	if draft != "":
 		out.append(draft)
 	var h: Dictionary = played.get("honours", {})
-	for key in ["brownlow", "coleman"]:
-		var n := int(h.get(key, 0))
+	for pair in [["brownlow", "Brownlow Medal", "Brownlow Medals"], ["coleman", "Coleman Medal", "Coleman Medals"],
+			["coaches", "Coaches Award", "Coaches Awards"], ["rising_star", "Rising Star", ""]]:
+		var n := int(h.get(pair[0], 0))
 		if n > 0:
-			var medal := "Brownlow Medal" if key == "brownlow" else "Coleman Medal"
-			out.append(medal if n == 1 else "%d %ss" % [n, medal])
+			out.append(str(pair[1]) if n == 1 or str(pair[2]) == "" else "%d %s" % [n, pair[2]])
+	var bnf: Dictionary = h.get("bnf", {})
+	for club in bnf:
+		var n := int(bnf[club])
+		out.append(("%s best and fairest" if n == 1 else "%d %s best and fairests") % (
+				[GameDB.club_name(str(club))] if n == 1 else [n, GameDB.club_name(str(club))]))
 	return out
 
 

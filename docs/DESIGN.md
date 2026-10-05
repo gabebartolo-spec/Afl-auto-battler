@@ -893,7 +893,7 @@ scripts/
     LadderScene.gd     full ladder + finals bracket
     ListScene.gd       your list, best 22, attributes, real season numbers
     SeasonReviewScene.gd  the flag, your record, final ladder, awards, club achievements
-scenes/                seven thin .tscn wrappers - a root Control + its script
+scenes/                thin .tscn wrappers - a root Control + its script
 tools/
   sim_harness.py       calibration harness (run this after any engine change)
   intake_harness.py    projection/intake/rollover harness + draft-class CSV checks

@@ -12,7 +12,7 @@ chronology 28
 career 71
 coaches 340
 coach_market 63
-coach_pathway 54
+coach_pathway 57
 coach_effects 25
 # career_ui: one check (Back skipping a press conference) only runs when the
 # simulated round raises one, so the floor is one under the usual count.
@@ -23,7 +23,7 @@ ai 35
 training 62
 selection 14
 matchup 91
-matchday 347
+matchday 348
 roles 179
 injuries 31
 awards 22
@@ -31,7 +31,7 @@ achievements 153
 contracts 187
 league 19
 club 199
-match_game 229
+match_game 232
 pressure 21
 workload 32
 match_visual 91
