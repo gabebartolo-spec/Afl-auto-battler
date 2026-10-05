@@ -36,6 +36,10 @@ const VARIANTS := {
 	# in how sharp clubs are.
 	"evn_2_4": {"eval_sd": [2.0, 4.0]},
 	"evn_3_3": {"eval_sd": [3.0, 3.0]},
+	# Shrinking the human's edge (docs/COMPETITIVE_BALANCE.md): half the
+	# shipped range, and a lower mean that keeps its spread of sharpness.
+	"evn_05_25": {"eval_sd": [0.5, 2.5]},
+	"evn_0_4": {"eval_sd": [0.0, 4.0]},
 	# Draft order, shipped AI
 	"linear": {"order": "linear"},
 	"random_round": {"order": "random_round"},

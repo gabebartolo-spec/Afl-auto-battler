@@ -290,8 +290,8 @@ func _last_match_button() -> Control:
 	return b
 
 
-## This week's decision. Answer it here; unanswered, it takes the default
-## when the round is played.
+## This week's decision. Answer it here; unanswered when the round is
+## played, it changes nothing - or costs what its hint says (ClubLife).
 func _event_card() -> Control:
 	var e: Dictionary = GameState.week_event
 	var card := UiKit.panel(UiKit.PANEL, 12)
@@ -320,6 +320,9 @@ func _event_card() -> Control:
 		var hints: PackedStringArray = []
 		for o in opts:
 			hints.append("%s: %s" % [str(o.get("label", "")), str(o.get("detail", ""))])
+		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
+		if silence != "":
+			hints.append(silence)
 		var h := UiKit.lbl("\n".join(hints), 11, UiKit.MUTED)
 		h.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(h)

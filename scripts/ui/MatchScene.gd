@@ -499,6 +499,7 @@ func _show_coach_box() -> void:
 		"pep": "steady",
 		"rotation": _rotation,
 	}
+	var loose_was := str(calls["interceptor_id"])
 	var narrow := UiKit.view_width(self) < 560.0
 
 	var plan_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
@@ -638,6 +639,7 @@ func _show_coach_box() -> void:
 			"focus_id": str(calls["focus_id"]),
 			"tag_id": str(calls["tag_id"]),
 			"interceptor_id": str(calls["interceptor_id"]),
+			"interceptor_set": str(calls["interceptor_id"]) != loose_was,
 			"spare_accountable": str(calls["spare_counter"]) == "accountable",
 			"pep": str(calls["pep"]),
 			"rotation": _rotation,
@@ -1157,6 +1159,10 @@ func _advance_segment() -> void:
 
 func _apply_quarter_tactics(t: Dictionary) -> void:
 	var sim: MatchSim = GameState.pending_sim
+	# A loose defender you picked yourself stays your call; one left as the
+	# assistant set it stays his to change at the breaks.
+	if bool(t.get("interceptor_set", false)):
+		sim.coach_interceptor(_my_side, str(t.get("interceptor_id", "")))
 	sim.set_tactics(_my_side, t)
 	sim.set_rotation_policy(_my_side, str(t.get("rotation", _rotation)))
 	# The rival coach plays its usual game, protects a lead, chases a
@@ -2037,6 +2043,13 @@ func _matchups_view(sim: MatchSim, q: int) -> Control:
 		var l2 := UiKit.lbl("Yours: " + _matchup_text(str(fid), str(ours[fid]), q), UiKit.SMALL, UiKit.MUTED)
 		l2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l2)
+	# Who made these calls: your assistant, until you make them yourself.
+	if sim.assistant_active(_my_side):
+		var a := UiKit.lbl("Your assistant sets the match-ups and the spare. Change one and it stays your call.",
+				UiKit.SMALL, UiKit.MUTED)
+		a.name = "AssistantNote"
+		a.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(a)
 	return v
 
 
@@ -2069,7 +2082,7 @@ func _show_break_matchup(sim: MatchSim, fid: String, line: Label, q: int) -> voi
 		UiKit.paint_choice(b, str(p["id"]) == cur)
 		var pid := str(p["id"])
 		b.pressed.connect(func():
-			sim.set_matchup(_my_side, fid, pid)
+			sim.coach_matchup(_my_side, fid, pid)
 			line.text = _matchup_text(fid, pid, 1).trim_suffix(".") + " from the next bounce."
 			_matchup_overlay.queue_free()
 			_matchup_overlay = null)
