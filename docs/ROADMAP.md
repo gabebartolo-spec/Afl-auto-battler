@@ -410,6 +410,21 @@ When revisiting existing UI, Claude should inspect card shape, corner radius, bu
 
 This note is not permission for a broad unreviewed redesign. Apply the anti-slop standard incrementally to authorised UI tasks and record larger systemic cleanup as its own scoped audit/repair item if needed.
 
+
+### Art-agent tooling permission for bespoke UI
+For authorised UI/art work, the art agent may investigate and use **free software only** to create bespoke interface assets, layouts, textures, panels, decorative elements, typography treatments, iconography and other presentation pieces that help the game escape generic app-template aesthetics.
+
+Rules:
+- Free/open-source tools are preferred.
+- No paid licences, subscriptions, paid plugins, marketplace packs or trials that later charge without separate explicit user approval.
+- The art agent may research, download and use suitable free software if its environment permits.
+- If the agent cannot install or operate a required free tool directly, it may ask the user to install it and should provide concise instructions.
+- Any new tool introduced should have its source/licence noted in the relevant implementation notes.
+- Tool adoption must serve the game's bespoke football-game visual identity; do not add software merely because it is fashionable or powerful.
+- Generated UI assets still need to obey the anti-slop criteria above and the project's existing licensing/copyright guardrails.
+
+This permission includes software for areas such as vector UI design, raster painting, icon creation, texture generation, layout mockups, motion/UI animation, sprite-sheet work and other custom interface production, provided the software itself is free to use.
+
 ## 1.8 Australian football language
 
 Use natural AFL terminology in player-facing text.
@@ -5116,6 +5131,8 @@ It is complete only when:
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Granted the art agent permission to investigate and use free-only software for bespoke UI/art production, or direct the user to install suitable free tools when required. Paid software, subscriptions, paid plugins and charging trials remain disallowed without explicit approval.
 
 - **2026-10-06:** Clarified the anti-slop warning: the problem is specifically visual style (rounded-card geometry, corner radii, generic palette, button/card silhouettes and app-template aesthetics), not information density or "visual vomit". Footy Redraft and AFCM are explicit negative visual references for this criterion only.
 
