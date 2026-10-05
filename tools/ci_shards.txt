@@ -10,7 +10,7 @@
 # 223, match_visual 210, balance 149, club 103, coach_market 95, the rest under 80.
 # A new suite goes in the shortest shard; re-balance when one gets much slower.
 1: draft_ui coach_pathway training roles awards match_game workload
-2: finals save chronology career career_ui matchup
+2: finals save chronology career career_ui matchup assets
 3: intake ai selection injuries contracts pressure league_balance
 4: draft expansion coach_market coach_effects ratings achievements match_visual
 5: intake_ui coaches potential matchday league club calibration balance

@@ -1,6 +1,19 @@
 # Genre enjoyment research — Aussie Rules Dynasties
 
-_Research and repository review: 5 October 2026. Baseline: main at `4b9eecc3858e970c46e25366701907f1cb4c6070`._
+_Initial review and intensive expansion: 5 October 2026. Publication base: main at `6573a8f619c8c00065964314db5fca6eb8364dcc`. The initial checkpoint is retained in historical evidence; refreshed status is below._
+
+## Intensive expansion — reading guide
+
+The director requested at least four times the research, with substantial attention to visual beauty and real player accounts. The earlier report had 12 comparator sections and 42 distinct web sources. This revision adds **129 substantively reviewed sources: 171 cumulative, 4.07 times the prior breadth**. Twenty named comparator sections now connect to focused research chapters. Counting is audited in the ledger; breadth is not a measure of causal certainty.
+
+- [Beautiful, readable football](research/AFL_VISUAL_DESIGN_RESEARCH.md): sports presentation, critical and forum contradictions, existing editorial identity, phone-scale tasks and visual authority.
+- [Agency and creative team building](research/AFL_AGENCY_AND_TEAM_BUILDING_RESEARCH.md): replayability after mastery, real costs, truthful consequence feedback, market trust and comparable AI rules.
+- [People, clubs and decades](research/AFL_LONG_CAREER_STORY_RESEARCH.md): persistent identity, evolving roles, meaningful season structure and restrained callbacks.
+- [Evidence ledger](research/AFL_RESEARCH_EVIDENCE_LEDGER.md): 129 new source cards, previous 42-source provenance, dates, evidence types and coverage limits.
+
+**AFCM is not a visual aspiration.** It supplies list-management questions and the director's experience of opacity. ARD's existing flat editorial design remains the visual foundation; useful principles from other games require adaptation, not copied layouts.
+
+The research proposed seven candidates; after individual director review RC-001/002 are excluded and RC-003–007 are accepted within existing owners. Existing accepted tickets are refined in place. It does not introduce a gameplay API, change a save format, assign implementation to Claude or satisfy Android gates.
 
 ## 1. Direction and authority
 
@@ -169,6 +182,40 @@ A difficulty discussion explains that reducing randomness can make strong player
 
 **Validation:** Check that every offered answer applies its promised effect exactly once, unavailable actions disappear, skip stays neutral and quiet contexts stay quiet. On a phone, can players explain what they chose, what changed and why it made football sense? Test changed personnel, thin evidence, repetition, reload and any selected later callback. Amusing copy with an ignored answer fails the agency test.
 
+### 3.13 Golden Lap — attractive abstraction does not guarantee depth
+
+Its official race/garage screenshots make competition and comparison central; critical accounts praise the look while questioning repeated micromanagement and longevity. Useful hierarchy must survive phone scaling. Deliberately withholding information can create guessing rather than meaningful uncertainty. [Visual observations and limits](research/AFL_VISUAL_DESIGN_RESEARCH.md#golden-lap-competition-takes-precedence), [critical account](https://www.overtake.gg/news/golden-lap-review-charming-70s-f1-manager.2458/).
+
+### 3.14 Super Mega Baseball — characterful sport, difficult roster access
+
+Stylised personalities and sporting detail can coexist, but selected player accounts describe comparison facts scattered across views. Less visible information can create more total work. ARD should retain relevant evidence and current context without copying an arcade aesthetic. [Comparison findings](research/AFL_VISUAL_DESIGN_RESEARCH.md#super-mega-baseball-charming-sport-fragmented-comparisons).
+
+### 3.15 Mini Metro — a coherent visual language still needs learning
+
+A network carries the game's information economically, yet a mobile critic describes initial learning before it becomes intelligible. ARD needs recognisable football meaning, not fewer symbols at any cost. Browser screenshot access failed; the chapter distinguishes that from reviewed textual evidence. [Analysis](research/AFL_VISUAL_DESIGN_RESEARCH.md#mini-metro-and-into-the-breach-design-constrained-by-legibility).
+
+### 3.16 art of rally — beautiful composition, real visibility limits
+
+Inspected imagery offers restrained geometry and subject separation; critics also identify camera visibility and hardware compromises. Still-image beauty does not establish playable legibility. Protect ball, actors and timing on Android before decorative atmosphere. [Analysis and platform limits](research/AFL_VISUAL_DESIGN_RESEARCH.md#art-of-rally-restraint-and-subject-separation).
+
+### 3.17 Circuit Superstars — readable conditions beneath small-scale sport
+
+A critical account finds meaningful grip, tyre and fuel decisions under stylised presentation and notes persistence friction. ARD should show the relevant football condition and preserve progress. Its direct driving simulation is not a coaching template. [Transfer](research/AFL_VISUAL_DESIGN_RESEARCH.md#circuit-superstars-the-environment-can-explain-a-condition).
+
+### 3.18 Into the Breach — clarity constrains design
+
+The developer's postmortem describes how readable intent constrained mechanics and led to cuts. Borrow coherent rules and distinct useful functions; reject exact next-play forecasts in stochastic football. [Postmortem application](research/AFL_VISUAL_DESIGN_RESEARCH.md#mini-metro-and-into-the-breach-design-constrained-by-legibility).
+
+### 3.19 Wildermyth — evolving people and conflicting continuity expectations
+
+Choices, capabilities, ageing and later recognition can connect a career. A separate legacy campaign deliberately resets aspects of continuity, which some players dislike. ARD's uninterrupted football timeline must preserve age and identity instead. [Career analysis](research/AFL_LONG_CAREER_STORY_RESEARCH.md#wildermyth-evolving-usefulness-and-continuity-expectations).
+
+### 3.20 Pyre — sport and narrative need to reinforce each other
+
+Opposing professional reviews disagree about the sporting/narrative connection. This counters an assumption that adding strong prose to competition guarantees attachment. ARD should measure whether actual decisions and persistent consequences become remembered stories. [Contradictory evidence](research/AFL_LONG_CAREER_STORY_RESEARCH.md#pyre-sport-and-story-can-reinforce-or-detach).
+
+ZenGM/Basketball GM and the forthcoming DDS Pro Basketball 27 supply additional system-specific comparisons in the agency and visual chapters; their evidence is not padded into whole-game deconstructions.
+
 ## 4. What this changes for ARD
 
 ### 4.1 A trustworthy decision-to-consequence chain
@@ -227,7 +274,7 @@ These recommendations refine accepted owners. They do not authorise parallel imp
 | Have a captain whose job matters | Accepted captaincy card; **M7-004** | One modest, explainable leadership context | Paired seeds, no blanket stat boost, same AI rule; phone understanding |
 | Enjoy decades without data drift | Careers, generated classes, contracts, CoachPathway; **M8-005** | A staged career test matrix checking identity and competing policies | 5/10/20-year runs plus longer integrity soak; no duplicate history, collapsing competition or save growth regression |
 | Make weekly changes comfortably | §9.1 selection brief, Shape and OUT → IN work | One nearby replacement flow plus full-list access | Android swipes in both directions, restored scroll, valid selection and no best-player ranking |
-| Answer a short, meaningful football question | Existing moments and ClubLife/media; **M4-001/M6-008**, event foundation **M1-011** DONE | Improve one existing prompt, answer-to-effect mapping and follow-through | Logical costs, state/copy agreement, neutral skip, repetition and phone reading; new callbacks remain review-only |
+| Answer a short, meaningful football question | Existing moments and ClubLife/media; **M4-001/M6-008**, event foundation **M1-011** DONE | Improve one existing prompt, answer-to-effect mapping and follow-through | Logical costs, state/copy agreement, neutral skip, repetition and phone reading; the selected bounded callback follows M6-008's scope |
 | Begin from a recognisable inherited club | Current opening League Draft redistributes all clubs; **M5-016** | Verified roster/pick manifest and dedicated opening-draft handoff | Complete registered rosters, no double ageing/history, checkpoint saves and both Android start flows |
 
 ### 5.1 Current status and overlap evidence
@@ -236,7 +283,7 @@ This research used code reads, GitHub merge records and the existing phone/audit
 
 - #210's bye, matchup-copy, retrospective plan, training-touch and money repairs are merged. #213's provenance/Langford work and fatigue audit are merged. #214's copy/training/staff audit is merged. Their remaining device checks stay open.
 - #217's difficulty report, #220's three-game backing promise, #221's oval rings, #222's scouting estimates and #225's assistant contracts are merged.
-- At the review checkpoint **#223** (live-call/trade/FA evidence), **#224** (unproven-potential trade discount), **#226** (backed-player payoff) and **#206** (music) are open. #226 still targets the oval-rings branch at this checkpoint. This documentation pass does not merge, retarget or duplicate that work.
+- **Refreshed checkpoint, main 6573a8f:** #223 (levers evidence), #224 (trade-value change), #226 (payoff), #230 (reachable break calls and tired-call audit) and #229 (real-crumb goal-line presentation) are merged. #206 (music), #228 (competitive balance/Trade E) and #231 (proposed club palettes) remain open. Do not treat open-proposal results as main behaviour or duplicate merged work. Phone verification remains open; the director has selected a meaningful tired-call trade-off. PR #231 already records palette approval.
 - M4-001's moments framework is already present; M4-003 has existing attacking costs; M4-004 and M4-006 contain implemented foundations. Old TODO labels should not cause a second implementation. Their status is reconciled to PARTIAL/VERIFY, leaving actual missing outcomes and validation explicit.
 - M6-004's currency-scale subsection and M7-005's ceremony subsection describe merged foundations as still in progress. Reconcile those local records without marking their entire umbrellas complete.
 
@@ -260,11 +307,13 @@ Reuse the current simplified National Draft rules, including the current order m
 
 Persist the start choice and opening progress. Old saves retain their existing interpretation. Preserve real/fictional-name preference. Tests must cover full rosters and unique ownership, list-space decisions, original player IDs, pick ownership, opening save/resume, 2027 ages/history, rookie assignment/contracts exactly once, repeated completion calls, expansion and subsequent normal rollover. Both starts require Android checks.
 
-## 7. Research candidates — awaiting director selection
+## 7. Research proposals — director decisions
 
-These are proposals, not accepted work. **ARD-RC IDs are research references, not execution tickets.** Each extends a named system if selected; do not build a parallel framework.
+**Completed director review, 2026-10-05:** RC-001/002 are excluded. RC-003–007 are accepted within their existing owners, with no duplicate player-to-coach pathway. **ARD-RC IDs preserve research provenance, not new milestone tickets.** The canonical roadmap now contains their scope, dependencies, exclusions, acceptance and validation. Historical prototype/evidence descriptions below are subject to these decisions.
 
 ### ARD-RC-001 — Optional tactical practice preview
+
+**Director decision, 2026-10-05: EXCLUDED.** Do not implement this mode or prototype. The proposal below is retained only as research provenance. Existing live-match clarity and structural coaching work remain accepted under their original owners.
 
 - **Evidence / benefit:** FM's visualiser suggests a way to learn what a structural instruction means before relying on it in a match.
 - **Overlap / owner:** M4-004 and M8-007; existing live calls remain the first priority.
@@ -274,6 +323,8 @@ These are proposals, not accepted work. **ARD-RC IDs are research references, no
 
 ### ARD-RC-002 — A saved match worth remembering
 
+**Director decision: EXCLUDED.** Do not implement saved-match bookmarking or an archive; ordinary reports/history remain accepted. Historical proposal retained below as provenance.
+
 - **Evidence / benefit:** The director values Footy Redraft's stories; RimWorld suggests remembering connected events rather than adding generic narrative.
 - **Overlap / owner:** M4-009 reports and M7-005 history.
 - **Prototype:** Let the player keep one existing match report with its real call, named moments and relevant career links. First test static event-backed storage; full replay is not part of the prototype.
@@ -281,6 +332,8 @@ These are proposals, not accepted work. **ARD-RC IDs are research references, no
 - **Selection evidence:** In a later session players use it to recall what happened and why it mattered. Compare against the existing history screen before adding a new destination.
 
 ### ARD-RC-003 — A bounded development commitment
+
+**Director decision: ACCEPTED within existing owners.** See the canonical roadmap for build scope and gates.
 
 - **Evidence / benefit:** OOTP's programmes suggest that choosing where to spend development time can create anticipation and sacrifice.
 - **Overlap / owner:** M5-003 retraining and existing training; may be unnecessary once those work.
@@ -290,6 +343,8 @@ These are proposals, not accepted work. **ARD-RC IDs are research references, no
 
 ### ARD-RC-004 — An alumni link across generations
 
+**Director decision: ACCEPTED within existing owners.** See the canonical roadmap for build scope and gates. This is a refinement of existing player-to-coach history, not a new pathway.
+
 - **Evidence / benefit:** Battle Brothers and RimWorld suggest that persistent individual identity can connect events; Crusader Kings adds inspectable reasons and remembered context. ARD already has former-player coaching pathways.
 - **Overlap / owner:** M7-005 history and M6-002's existing coaching/pathway foundation.
 - **Prototype:** One factual connection when an actual former player enters coaching: previous club stint and genuine achievement linked to the existing coach profile.
@@ -298,11 +353,37 @@ These are proposals, not accepted work. **ARD-RC IDs are research references, no
 
 ### ARD-RC-005 — One football answer remembered later
 
+**Director decision: ACCEPTED within existing owners.** See the canonical roadmap for build scope and gates.
+
 - **Evidence / benefit:** The director's Esoteric Ebb preference and its creator's choice-feedback rationale suggest that a later factual reference can make a small answer feel considered.
 - **Overlap / owner:** M6-008 media and M7-005 history, using current ClubLife effects; M4-001 already owns in-match follow-through. Keep #220/#226's backing promise/payoff with its existing owner.
 - **Prototype:** One existing media question, its current immediate morale/board effect and one brief later reference when the actual saved context makes it relevant. Remember the answer without fabricating a caused win, a grudge or a player's private motive.
 - **Trade-offs / exclusions:** Repetition, save flags and logic/testing cost. No new promise system, dialogue framework, personality score or gameplay bonus for completing a conversation.
 - **Selection evidence:** Players remember the answer and understand the callback; skip, changed clubs/personnel, no relevant later event, repeat delivery and reload behave correctly. Reject if the existing immediate response is enough or the callback feels forced.
+
+### ARD-RC-006 — A bounded comparison for one list decision
+
+**Director decision: ACCEPTED within existing owners.** See the canonical roadmap for build scope and gates.
+
+**Status: director-selected; execute only the scoped extension in its existing roadmap owner.** Benefit: compare two plausible football options without remembering several profiles. Evidence: [SMB roster feedback](https://www.reddit.com/r/SuperMegaBaseball/comments/13x6ny1), [ZenGM comparison](https://zengm.com/blog/2024/03/compare-players/) and the [visual chapter](research/AFL_VISUAL_DESIGN_RESEARCH.md).
+
+**Execution owner:** M5-014 or M6-004, within an existing draft/market view. **Dependencies:** correct player sheets, scouting estimates, contracts and originating-state preservation. **Prototype:** one task, two eligible options, aligned role/age/current assessment/cost and only genuinely relevant additional facts. First test whether consistent existing rows already solve it.
+
+**Trade-off:** adjacency reduces memory work but can overcrowd a narrow phone or imply an optimal recruit. **Exclusions:** a universal comparison dashboard, green-best ranking, new rating formula, new ready-queue dependency.
+
+**Review acceptance:** people can explain a football trade-off and act with fewer repeated lookups; neither option is labelled best; uncertain estimates retain their basis; Back restores the list. Test several portrait widths and native Android touch, veteran/prospect/depth choices and missing data. Director selection is recorded; existing implementation and phone/balance gates still apply.
+
+### ARD-RC-007 — One rival club's identity across generations
+
+**Director decision: ACCEPTED within existing owners.** See the canonical roadmap for build scope and gates.
+
+**Status: director-selected; execute only the scoped extension in its existing roadmap owner.** Benefit: the league feels inhabited beyond the user's club. Evidence: [FTG's persistent world](https://creoteam.com/huge-update-11/), [OOTP career accounts](https://www.reddit.com/r/OOTP/comments/1s3l3y5/how_hands_on_are_you_in_longterm_saves/) and the [career chapter](research/AFL_LONG_CAREER_STORY_RESEARCH.md).
+
+**Execution owner:** M7-005, using existing opponent preparation and AI/season records. **Dependencies:** accurate stints/results and actual AI list decisions; M8-005 checks; do not change in-flight #228 balance. **Prototype:** within an existing club surface, one concise comparison between its earlier and current squad or football pattern, only where recorded data supports it.
+
+**Trade-off:** useful context can become stale stereotyping or add browsing work. **Exclusions:** scripted rivals, immutable club bonuses, fictional feuds, a new world-simulation layer, new mandatory notifications or retrospective invented tactics.
+
+**Review acceptance:** the stated change matches the real saved lists/results; quiet or unchanged clubs receive no forced story; a player can describe a rival's changing problem and recognise a real returning individual. Simulated continuity plus observed multi-season recall is required. Broader league storytelling beyond this bounded extension remains unselected.
 
 ## 8. Validation: behaviour, understanding and enjoyment
 
@@ -342,6 +423,26 @@ A simulation can establish that choices change behaviour, expose an exploit or i
 
 ### 8.3 Delivery and follow-through
 
-This pass changes documentation only. Verify stable roadmap IDs, dependencies, overlap with active PRs, source links and current status evidence. Preserve the P0 correctness and Android playtest gates. Candidates stay outside the ready queue; no implementation task is sent to Claude.
+This pass changes documentation only. Verify stable roadmap IDs, dependencies, overlap with active PRs, source links and current status evidence. Preserve the P0 correctness and Android playtest gates. Only director-selected extensions enter existing owners; rejected proposals remain excluded. No implementation task is sent to Claude.
 
 Before implementing a refined card, re-read current code and PR state. Before calling it DONE, require the card's appropriate regression, balance, save and phone evidence. Research supports a testable design hypothesis; it does not replace the director's judgement.
+
+## 9. Intensive-pass conclusions and verification
+
+The evidence changes emphasis more than feature count. Keep **stable rules with changing football problems**, **a watched match that explains supported events**, **nearby decision evidence**, and **the same people across changing jobs and decades**. Beautiful minimal presentation fails if comparison facts are hidden; persistent characters fail if their past is inaccessible; extra choices fail if their effects converge into a no-op.
+
+The visual chapter takes roughly a third of the focused synthesis, with 48 new sources primarily classified as visual/usability. This includes sporting abstraction, critical praise and criticism, specific navigation/comparison complaints, accessibility references and direct screenshot inspection. AFCM remains outside the visual target.
+
+### Evaluation proposal
+
+Use formative Android sessions with football-literate newcomers and experienced sim players, followed by several-season recall. Treat cohort sizes, task durations and any thresholds as prototype assumptions until established. Record build/device/theme, source of confusion, repeated lookups, mistaken taps and observed completion; separately ask about appearance, football understanding, agency, attachment and voluntary desire to continue.
+
+A compact questionnaire can supplement observation. [miniPXI](https://pure.tue.nl/ws/portalfiles/portal/317193176/3549507.pdf) has qualified validity/reliability; it is not a magic enjoyment score. [Motivation research](https://selfdeterminationtheory.org/SDT/documents/2006_RyanRigbyPrzybylski_MandE.pdf) supports autonomy/competence questions but does not prove any particular ARD feature causes enjoyment. [GameFlow's abstract](https://doi.org/10.1145/1077246.1077253) provides a heuristic frame, not a substitute for measured behaviour.
+
+Validate effects and player interpretation separately. Seeded simulations compare policies, equal-resource compositions and long-career integrity; they do not establish enjoyment. Watch/skip agreement, event/visual authority, saved identity and current-club attribution remain correctness requirements.
+
+### Delivery boundary
+
+This expansion changes Markdown documentation only. Preserve all ticket IDs and the exact accepted M5-016 chronology. Refine existing owners without marking phone gates complete. RC-001/002 are excluded; RC-003–007 are accepted within existing owners and reflected in §0.4.1. Source/relative-link/status/overlap checks are documentation validation; no gameplay test or new Android playtest is claimed.
+
+Before building any refined owner, refresh its code and open PRs. Before publication, refresh main so concurrent roadmap changes are retained. The director has selected a meaningful tired-call trade-off; audit/phone validation still applies. Palette approval is already recorded in #231, independently of this research; do not approve additional visual changes by analogy.

@@ -4,6 +4,9 @@ extends SceneTree
 ## score, clock and leader at a glance, a feed of what matters, the breaks
 ## as "what happened, then your calls", and Back closing a report first.
 
+const Tap := preload("res://tests/tap.gd")
+const SUITE_SEED := 2027
+
 var _state: Node
 var _checks := 0
 var _failures: Array[String] = []
@@ -20,6 +23,9 @@ func _run() -> void:
 	_state.save_path = "user://test_career.save"
 	_state.settings_path = "user://test_settings.cfg"
 	_state.show_real_names = false
+	# Never the clock: every season in this suite starts from a fixed seed, so
+	# a run can't pass or fail on which opponent it happened to draw.
+	_state.replay_seed = SUITE_SEED
 	var script = load("res://tests/test_matchday.gd")
 	if script == null or not script.can_instantiate():
 		push_error("Could not load res://tests/test_matchday.gd")
@@ -29,8 +35,12 @@ func _run() -> void:
 	suite.run()
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
+	# A fixed season seed: the clock would pick a different opponent each run,
+	# and some field no key forward at quarter time (no match-up to change).
+	_state.replay_seed = 2026
 	for sz in [Vector2i(420, 860), Vector2i(360, 740)]:
 		await _phone_match(sz)
+	_state.replay_seed = SUITE_SEED
 	await _plan_at_first_bounce()
 	await _bounce_close_up()
 	await _playtest_bounce_scene()
@@ -233,7 +243,21 @@ func _phone_match(sz: Vector2i) -> void:
 	if ch != null:
 		var fid := str((qsim.duels[myside] as Dictionary).keys()[0])
 		var cur := str(qsim.duels[myside][fid])
-		ch.emit_signal("pressed")
+		# Real taps from here (tests/tap.gd): a touch on the screen, not a call
+		# to the handler. First, the tool itself: a sheet over the button must
+		# take the tap.
+		var cover := ColorRect.new()
+		cover.color = Color(0, 0, 0, 0)
+		cover.set_anchors_preset(Control.PRESET_FULL_RECT)
+		m.add_child(cover)
+		await _settle()
+		var blocked: String = await Tap.tap(ch)
+		_check(blocked != "" and m.find_child("MatchupChooser", true, false) == null,
+				"A tap on a covered button doesn't reach it (%s: %s)" % [tag, blocked])
+		cover.queue_free()
+		await _settle()
+		var why: String = await Tap.tap(ch)
+		_check(why == "", "A finger's tap on Change reaches it (%s: %s)" % [tag, why])
 		await _settle()
 		var chooser: Node = m.find_child("MatchupChooser", true, false)
 		var pick: Button = null
@@ -244,7 +268,8 @@ func _phone_match(sz: Vector2i) -> void:
 		_check(pick != null, "Your defenders are offered for their forward (%s)" % tag)
 		if pick != null:
 			var picked := str(pick.name).trim_prefix("Defender_")
-			pick.emit_signal("pressed")
+			var why2: String = await Tap.tap(pick)
+			_check(why2 == "", "A finger's tap picks the defender (%s: %s)" % [tag, why2])
 			await _settle()
 			_check(str(qsim.duels[myside][fid]) == picked
 					and int(qsim.duel_changes[qsim.duel_changes.size() - 1]["from"]) == 2,

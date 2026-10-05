@@ -37,7 +37,9 @@ docs/DESIGN.md             full design + engine docs  <- read this
 
 [Canonical roadmap](docs/ROADMAP.md) · [Genre enjoyment research](docs/GENRE_ENJOYMENT_RESEARCH.md)
 
-The research covers eight cross-genre references plus Footy Redraft, AFCM, Crusader Kings and Esoteric Ebb, focusing on visual football, creative team building, understandable match decisions and coherent careers over decades. **Zero microtransactions; commercialisation is outside the objective.**
+The intensive research now contains twenty named comparator sections and 171 cumulative sources (129 new), covering visual football, creative team building, understandable match decisions and coherent careers over decades. **Zero microtransactions; commercialisation is outside the objective. AFCM is not a visual aspiration.**
+
+Read the [visual design research](docs/research/AFL_VISUAL_DESIGN_RESEARCH.md), [agency/team-building research](docs/research/AFL_AGENCY_AND_TEAM_BUILDING_RESEARCH.md), [long-career storytelling research](docs/research/AFL_LONG_CAREER_STORY_RESEARCH.md) and [source ledger](docs/research/AFL_RESEARCH_EVIDENCE_LEDGER.md). Existing roadmap owners are refined. Director review excluded RC-001/002 and accepted RC-003–007 within existing owners; the roadmap records the decisions and gates.
 
 **Accepted future work, not current behaviour:** ARD-M5-016 will offer **Inherit 2026 lists** alongside the existing League redraft. It retains complete end-of-season 2026 club groups before later offseason changes, opens the 2026 National Draft and starts playable football in 2027. Complete rosters, source/pick provenance, a one-time opening handoff and save/Android checks are prerequisites. Research candidates await director selection.
 

@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06 against main `d586960` (since the last board: #266, #267, #268, #275, #278, #279, #280 merged; #272 and #274 merged before it)._
+_Updated 2026-10-06 against main `42114e4`. Merged today: #275, #276, #277, #282, #284, #285, #286, #287, #288, #232 and #292 (the director merged #276, #277, #282, #284 and #285-#288 directly)._
 
 ## Lanes
 | agent (session) | owns |
@@ -19,18 +19,23 @@ _Updated 2026-10-06 against main `d586960` (since the last board: #266, #267, #2
 | high | lead: assigns and directs; current branches as listed under Open PRs | ongoing |
 | medium | STYLE-01/02/04/05/06 engineering in `UiKit.gd` and the touched screens, landing order in the style inventory | after the director approves the art agent's dark-slice sheet |
 | medium (later) | MatchSim no-presentation perf mode | check with high first |
-| low | `TrainingScene._player_row` (3 lines, #277); new `tools/visual/capture_training_rows.gd`. `.github/workflows`, `tools/ci_shards.txt` and `UiKit.scroll` are merged: no claim | #277 merges, after the director approves its capture |
+| low | none now (`.github/workflows`, `tools/ci_shards.txt`, `UiKit.scroll` and the Training-row fix #277 are all merged); STATUS.md and the merge queue | ongoing |
 | art | `BroadcastVignette.gd` (draw functions only; `pick_kind`, `DURATIONS` untouched); `VignetteFigures.gd`, `assets/vignette/figures_*.png` (sheet being regenerated); `StoppageVignette._draw_figure`; `tools/visual/capture_appearance.gd`, `capture_guernseys.gd`, new `capture_broadcast.gd`; standing: `figure.gdshader`, `clubs.csv` guernsey column, `GameDB.club_guernsey`, `player_appearance.csv`, `Appearance.gd`. Next, in order: `AwardWinnerVignette.gd`, `MediaConferenceVignette.gd` | M8-007 migration |
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- Held for the director's visual approval (§9.5): #277 training-row alignment (low; STYLE-01 KNOWN BUG) and #276 press-conference figures (art). Both are green and clean; the low agent merges them once the director has approved the capture.
+- #283 (medium, being synced), #289 (long-career audit). #291 is the director's Codex research: do not merge, it says so.
+- Gates: do not merge a further visual or appearance PR without the director's explicit approval in the PR or chat; do not merge a PR that touches save, rollover, shared sim, recruitment or identity without its W7 review.
+- On main, awaiting the director's look (merged without visual or phone sign-off): #276 press conference, #277 Training-row alignment, #282 living players and crowds, #284 compressed figure sheets (phone check).
+- Main's Tests run 37383218176 (after #292) is the first to check; the earlier runs failed on a flaky matchday check (37362362173) or were cancelled (37369642589).
 
 ## Open PRs and dependencies
 | PR | owner | notes |
 |---|---|---|
-| #277 | low | `TrainingScene._player_row`: `info.alignment = CENTER`; dark 320/390 captures |
-| #276 | art | ARD-M8-007 press conference on the pre-rendered figures |
-| #232, #206 | director | research docs; #206 superseded by #208 |
+| #283 | medium | free kicks get a football cause (ARD-M3-007); being synced |
+| #289 | medium | long-career audit |
+| #291 | director | Codex research and playbook; do not merge |
+| #206 | director | superseded by #208; close |
+| soon | high | proof-checks PR from the #291 adopt items |
 
 ## Pending director decisions
 - Difficulty: autopilot slides to rank 18 by year 5; routine contract work holds about 6th; flags need trading (0 of 40 for contracts + FA, 3 for full management). Evidence: medium's managed-vs-autopilot doc. Is that the intended curve?
