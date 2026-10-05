@@ -13,6 +13,7 @@ func run() -> void:
 	checks = 0
 	_test_mid_season_round_trip()
 	_test_training_survives()
+	_test_adjusted_players_survive()
 	_test_no_save_mid_match()
 	_test_mid_draft_round_trip()
 	_test_intake_and_second_season()
@@ -98,6 +99,33 @@ func _test_training_survives() -> void:
 		if str(sp["id"]) == id:
 			in_season = sp
 	_check(is_same(in_season, q), "The trained player is one shared dict after loading")
+
+
+## The director's named-player corrections (Ratings.ATTR_ADJUSTMENTS) are in the
+## attributes a career saves, so a reload gives back exactly what was saved: the
+## correction is not applied again, and an older career keeps what it saved.
+func _test_adjusted_players_survive() -> void:
+	_new_season()
+	GameState.advance()
+	var names := {}
+	for key in Ratings.ATTR_ADJUSTMENTS:
+		names[str(key).split("|")[1]] = true
+	var before := {}
+	for p in GameDB.players:
+		var who := "%s %s" % [p["first"], p["last"]]
+		if names.has(who):
+			var live: Dictionary = GameState._find_player(str(p["id"]))
+			if not live.is_empty():
+				before[who] = {"id": str(p["id"]), "attr": (live["attr"] as Dictionary).duplicate(),
+						"overall": int(live["overall"])}
+	GameState.save_career()
+	GameState.load_career()
+	for who in names:
+		var was: Dictionary = before.get(who, {})
+		var q: Dictionary = GameState._find_player(str(was.get("id", "")))
+		_check(not was.is_empty() and not q.is_empty() and q["attr"] == was["attr"]
+				and int(q["overall"]) == int(was["overall"]),
+				"%s's corrected attributes survive a reload exactly" % who)
 
 
 func _test_no_save_mid_match() -> void:

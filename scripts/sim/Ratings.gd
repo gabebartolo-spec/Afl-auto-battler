@@ -304,6 +304,8 @@ const ROLE_CORRECTIONS := {
 ## reason to change the generation model. Mirrored in tools/sim_harness.py.
 const ATTR_ADJUSTMENTS := {
 	"MEL|Harvey Langford": 1.15,
+	"MEL|Jake Bowey": 1.10,
+	"PAD|Connor Rozee": 1.10,
 }
 
 

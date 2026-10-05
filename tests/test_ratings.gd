@@ -217,32 +217,48 @@ func _test_save_recomputes() -> void:
 	_check(agree, "Every loaded rating matches the current formula")
 
 
-## The director's Harvey Langford correction: every attribute about 15%
-## higher than his numbers alone give, capped at 99, and nobody else moves.
+## The director's named-player corrections (Ratings.ATTR_ADJUSTMENTS: Harvey
+## Langford 15%, Jake Bowey and Connor Rozee 10%): every attribute that much
+## higher than his numbers alone give, capped at 99, rated normally from there.
+## Each applies exactly once, and nobody else moves.
 func _test_attr_adjustment() -> void:
 	var with: Array = GameDB._load_players()
 	var without: Array = GameDB._load_players()
-	var i := -1
+	var named := {}    # index in the data -> his factor
 	for j in range(without.size()):
-		if str(without[j]["first"]) == "Harvey" and str(without[j]["last"]) == "Langford":
-			i = j
+		var key := "%s|%s %s" % [without[j]["club"], without[j]["first"], without[j]["last"]]
+		if Ratings.ATTR_ADJUSTMENTS.has(key):
+			named[j] = float(Ratings.ATTR_ADJUSTMENTS[key])
 			without[j]["club"] = "UNADJUSTED"
-	_check(i >= 0, "(setup) Harvey Langford is in the data")
-	if i < 0:
-		return
+	_check(named.size() == Ratings.ATTR_ADJUSTMENTS.size(),
+			"(setup) every corrected player is in the data (%d of %d)" % [named.size(), Ratings.ATTR_ADJUSTMENTS.size()])
 	Ratings.derive_all(with)
 	Ratings.derive_all(without)
-	var a: Dictionary = with[i]["attr"]
-	var raw: Dictionary = without[i]["attr"]
-	var exact := true
-	for k in raw:
-		exact = exact and int(a[k]) == clampi(int(round(float(raw[k]) * 1.15)), 1, 99)
-	_check(exact and int(with[i]["overall"]) > int(without[i]["overall"]),
-			"Harvey Langford's attributes are 15%% above his numbers (OVR %d, from %d)" % [
-				int(with[i]["overall"]), int(without[i]["overall"])])
+	for j in named:
+		var f: float = named[j]
+		var who := "%s %s" % [with[j]["first"], with[j]["last"]]
+		var a: Dictionary = with[j]["attr"]
+		var raw: Dictionary = without[j]["attr"]
+		var exact := true
+		for k in raw:
+			exact = exact and int(a[k]) == clampi(int(round(float(raw[k]) * f)), 1, 99)
+		_check(exact and int(with[j]["overall"]) > int(without[j]["overall"]),
+				"%s's attributes are %d%% above his numbers (OVR %d, from %d)" % [
+					who, int(round((f - 1.0) * 100.0)), int(with[j]["overall"]), int(without[j]["overall"])])
+		_check(str(with[j]["role"]) == str(without[j]["role"]), "%s's position is unchanged" % who)
 	var others_same := true
 	for j in range(with.size()):
-		if j != i and (with[j]["attr"] != without[j]["attr"] or int(with[j]["overall"]) != int(without[j]["overall"])):
+		if not named.has(j) and (with[j]["attr"] != without[j]["attr"]
+				or int(with[j]["overall"]) != int(without[j]["overall"])):
 			others_same = false
-	_check(others_same and str(with[i]["role"]) == str(without[i]["role"]),
-			"Nobody else's ratings move, and his position is unchanged")
+	_check(others_same, "Nobody else's ratings move")
+	# Applied once: rating the same players again scales from their stats, not
+	# from the corrected attributes, so nothing compounds.
+	var before := {}
+	for j in named:
+		before[j] = (with[j]["attr"] as Dictionary).duplicate()
+	Ratings.derive_all(with)
+	var stable := true
+	for j in named:
+		stable = stable and with[j]["attr"] == before[j]
+	_check(stable, "A second rating pass does not apply a correction twice")

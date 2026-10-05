@@ -7,7 +7,7 @@ intake 2128
 intake_ui 493
 expansion 1172
 finals 109
-save 49
+save 60
 chronology 28
 career 71
 coaches 340
@@ -18,7 +18,7 @@ coach_effects 25
 # simulated round raises one, so the floor is one under the usual count.
 career_ui 233
 potential 36
-ratings 30
+ratings 36
 ai 35
 training 62
 selection 14
