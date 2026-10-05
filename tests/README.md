@@ -14,7 +14,7 @@ pull request and every push to `main`, with Godot 4.7.2 downloaded and cached.
 A suite that hangs is stopped after 15 minutes (`SUITE_TIMEOUT`) and fails the
 run; a failing run uploads the logs as an artifact.
 
-CI runs the suites as four parallel shards, so a pull request takes about ten
+CI runs the suites as five parallel shards, so a pull request takes about eight
 minutes instead of half an hour. `tools/ci_shards.txt` says which suites each
 shard runs; `tools/check_ci_shards.sh` fails the run if a suite in
 `tools/run_tests.sh` is in no shard, so **a new suite needs a line in
