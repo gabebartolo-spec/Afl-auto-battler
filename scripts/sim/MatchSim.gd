@@ -1103,6 +1103,10 @@ const PRESS_ZONE_EDGE := 20.0
 ## Non-tackle pressure acts per tackle chance, the share of those that turn
 ## the ball over outright, and the ground a rushed disposal still gains.
 const PRESS_RUSH_RATIO := 2.0
+## The share of a pressure chance that is a tackle; the rest of it is a
+## rushed disposal instead (pressure acts unchanged). Calibrated to AFL
+## tackle counts (2026-10-06: tackles ran about 6% above).
+const PRESS_TACKLE_SHARE := 0.95
 const PRESS_TURNOVER := 0.08
 const PRESS_RUSH_GAIN := 0.80
 ## A close defender occasionally gets boot to ball. Around one or two per
@@ -1613,7 +1617,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		# or no pressure at all. Both of the first two are pressure acts.
 		var press_roll := rng.randf()
 		var rushed := false
-		if press_roll < pressure:
+		if press_roll < pressure * PRESS_TACKLE_SHARE:
 			var tackler = _pick_presser(opp, zone)
 			_maybe_report(opp, tackler, carrier)
 			_t(opp, "tackles")

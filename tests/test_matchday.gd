@@ -333,8 +333,8 @@ func _test_rating() -> void:
 	var by := {"DEF": [], "MID": [], "FWD": [], "RUCK": []}
 	var best := {}
 	var clubs := ["COL", "CAR", "GEE", "SYD", "BRL", "MEL", "HAW", "ESS", "FRE", "ADE", "GWS", "PAD"]
-	for i in range(8):
-		var res := _match(40 + i, clubs[i], clubs[i + 4])
+	for i in range(16):  # 16 games: 8 left the parity read to a few big days
+		var res := _match(40 + i, clubs[i % 8], clubs[i % 8 + 4])
 		for side in [0, 1]:
 			var rated := MatchNotes.rated_players(res, side)
 			for p in rated:
