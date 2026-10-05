@@ -3621,13 +3621,95 @@ Allow one custom club per career in V1.
 Player-facing customisation should include, at minimum:
 - club name,
 - short name / abbreviation,
-- home location / identity text where useful,
+- **home location chosen from a researched Australian football location library**,
 - primary / secondary / accent colours,
 - guernsey design using the existing procedural guernsey system,
 - shorts / socks where supported,
 - simple badge/marker identity built from the same visual language as existing club markers rather than imported trademarked logos.
 
 Do not turn V1 into a full vector-logo editor or stadium builder.
+
+#### Location library — real football geography first
+The location picker should not be a generic list of capital cities. Offer major suburbs, regional centres and football towns that do not already have an AFL club representing that exact place. Prefer locations with an established state-league / second-tier football identity when one exists.
+
+Minimum curated coverage should include candidates such as:
+
+- **Victoria:** Port Melbourne, Williamstown, Werribee, Frankston, Sandringham, Coburg and other major VFL/VFA football centres not already represented by an AFL club.
+- **New South Wales:** Newcastle, Wollongong/Illawarra, North Shore and other major Sydney/NSW football centres without an AFL club of their own.
+- **Queensland:** Southport, Broadbeach, Sunshine Coast/Maroochydore, Cairns and other established QAFL/Queensland football centres outside the existing Brisbane Lions and Gold Coast Suns identities.
+- **South Australia:** Norwood, Glenelg, Sturt/Unley, Central District/Elizabeth, South Adelaide/Noarlunga and other established SANFL centres distinct from Adelaide and Port Adelaide.
+- **Western Australia:** Peel/Mandurah, Claremont, Subiaco, East Perth, West Perth/Joondalup, Swan Districts/Bassendean and other WAFL centres distinct from Fremantle and West Coast.
+- **Tasmania:** Launceston, North Hobart/Hobart-region heritage centres, Devonport and Burnie where appropriate, while respecting the scheduled statewide Tasmania AFL club.
+- **ACT:** if the optional Canberra AFL club is enabled, avoid presenting a second generic 'Canberra' identity; use genuine local football districts such as Ainslie, Belconnen, Gungahlin, Tuggeranong, Weston Creek or Eastlake/Kingston where appropriate.
+- **Northern Territory:** **Darwin** and **Alice Springs** are mandatory choices. Additional NT football centres may be added where venue/list support is strong.
+
+Examples above are a seed list, not a hard-coded final catalogue. Claude should build the library from researched competition/club data and keep it data-driven so more places can be added without rewriting the creator UI.
+
+Where an existing lower-league club provides useful authenticity (for example **Southport, Norwood, Peel, Williamstown, Werribee, Port Melbourne, Claremont**), use its location, football history, colours/pattern vocabulary and home venue as research input. **Do not ship protected club logos, exact trademarks or unlicensed branded assets merely because the real club informed the preset.** Existing club names/nicknames should only be shipped verbatim if the project is comfortable with the licensing/trademark position; otherwise use the place and football tradition as inspiration while keeping the user's club name editable.
+
+#### Home grounds — researched venue mapping
+Each location preset should propose a real Australian-rules football ground wherever a credible venue exists.
+
+Store a stable/common venue identity separately from a changeable sponsorship name where possible, so saves do not become wrong every time naming rights change.
+
+Research anchors already confirmed for implementation include:
+- **Norwood:** Norwood Oval / current Coopers Stadium.
+- **Peel/Mandurah:** Rushton Park / current Lane Group Stadium.
+- **Southport:** Fankhauser Reserve.
+- **Port Melbourne:** North Port Oval / current ETU Stadium.
+- **Williamstown:** Point Gellibrand Oval / current DSV Stadium.
+- **Werribee:** Chirnside Park / current Melbourne Avalon Airport Oval.
+- **Alice Springs:** Traeger Park (also presented as TIO Traeger Park in AFLNT material).
+- **Darwin:** TIO Stadium as the major venue, with AFLNT also using Gardens Oval, Nightcliff Oval and other genuine NTFL grounds.
+- **Canberra districts:** use researched local grounds such as Alan Ray Oval (Ainslie), Aranda Oval (Belconnen), Kingston Oval (Eastlake), Amaroo Oval (Gungahlin), Isabella Oval (Tuggeranong) and Stirling Oval (Weston Creek) where the selected district maps naturally.
+
+Do not invent a stadium where a real football oval exists. If a region has several plausible grounds, offer a small venue choice rather than pretending one is canonical.
+
+#### Guernsey creator — state-league depth
+Expand the procedural guernsey system using researched VFL/VFA, SANFL, WAFL, QAFL, NTFL and Tasmanian football design language rather than only AFL templates.
+
+The point is **more construction vocabulary**, not copying protected artwork. Research traditional/home strips and encode reusable primitives such as:
+- plain body + trim,
+- vertical stripes of configurable count/width,
+- hoops,
+- sash / reverse sash,
+- yoke,
+- chest band,
+- V / chevron and stacked chevrons,
+- side panels,
+- shoulder panels,
+- central panel / contrasting back,
+- split / half-and-half body,
+- monogram/letter-zone placeholder where legally safe,
+- contrasting cuffs/collar,
+- sock hoops/bands,
+- independent shorts colour,
+- optional heritage-style narrow stripes or broad bars.
+
+Use real second-tier clubs as pattern references. Confirmed research examples include:
+- **Norwood:** traditional navy guernsey with red trim and red socks; the club itself documents those colours.
+- **Peel Thunder:** teal and navy are the club's documented colours.
+- **Williamstown:** royal blue and gold.
+- **Werribee:** black and gold.
+- **Port Melbourne:** long-standing red/blue identity; North Port Oval is its home.
+- **Claremont:** navy and old gold.
+- SANFL/VFL/WAFL clubs collectively provide strong references for stripes, hoops, sashes, yokes, bands, chevrons and contrasting trim; Claude should complete a sourced pattern audit before implementing new primitives.
+
+First Nations and commemorative guernseys are useful **research for how clubs layer story and geometry**, but their artwork must not be copied into a generic creator. Indigenous artwork is culturally specific, artist-owned work: do not turn it into a selectable decorative pattern unless an original/licensed design is created for the game.
+
+#### Data model
+Keep the creator data-driven:
+- location id,
+- display place,
+- state/territory,
+- optional football-region label,
+- canonical ground name,
+- current/sponsor ground alias where useful,
+- latitude/longitude only if later venue/weather systems need them,
+- researched colour/pattern inspiration tags,
+- optional lower-league heritage reference kept as internal/source metadata rather than necessarily player-facing branding.
+
+This library should be reusable by create-a-club, venue presentation, weather/ground dimensions and future generated-club features.
 
 The created club:
 - is an **additional competition member**, never a reskin/replacement of an existing club;
@@ -4419,6 +4501,8 @@ Prefer improving the existing experience when that answers the same need. This p
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-05:** Expanded ARD-M7-009 Club Forge with a researched Australian football location/venue library and deeper procedural guernsey vocabulary. Create-a-club should offer major unrepresented suburbs/football centres nationwide, explicitly including Darwin and Alice Springs and preferring established second-tier football locations such as Southport, Norwood and Peel. Added real-ground mapping, stable venue names separate from sponsor aliases, lower-league design research requirements, and licensing/cultural guardrails for club trademarks and First Nations artwork.
 
 - **2026-10-05:** Added ARD-M7-009 for expansion-club career setup: Tasmania 2028, optional Canberra 2030, real Tasmania-style premium draft concessions, a bespoke main-menu Club Forge for create-a-club/create-a-player, support for a 21st custom club and fair odd-club fixtures. Clarified that all AFL players must reach expansion years through normal ageing/development/list turnover rather than frozen-roster age jumps. Updated ARD-M7-008 so a custom prospect has a one-time hidden POT roll with a usable role-player floor and a rare S-tier ceiling.
 
