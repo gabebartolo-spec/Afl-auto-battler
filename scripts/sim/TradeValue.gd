@@ -26,9 +26,20 @@ static func curve(rating: float) -> float:
 	return pow(maxf(1.0, rating) / 70.0, 5.0)
 
 
+## His rating for the coming season. A star in his rehab year (back from an
+## injury-shortened season, shown on his profile) closes most of the gap to
+## his POT at the next rollover, by the rule every club's players follow
+## (Potential.REHAB_PULL): judge him on that, not on the season he missed.
+static func rating(p: Dictionary) -> float:
+	var ovr := float(p.get("overall", 50))
+	if bool(p.get("rehab", false)):
+		ovr += maxf(0.0, float(p.get("potential", ovr)) - ovr) * Potential.REHAB_PULL
+	return ovr
+
+
 ## His football now: rating less an ageing decline past 30.
 static func now_rating(p: Dictionary) -> float:
-	return float(p.get("overall", 50)) - 1.0 * maxf(0.0, float(p.get("age", 25.0)) - 30.0)
+	return rating(p) - 1.0 * maxf(0.0, float(p.get("age", 25.0)) - 30.0)
 
 
 ## What he could become: part of the gap to his potential, the younger the
@@ -36,7 +47,7 @@ static func now_rating(p: Dictionary) -> float:
 ## ceiling nobody has seen yet is not banked: with no senior games only half
 ## of that share counts, all of it once he has played PROVEN_GAMES.
 static func future_rating(p: Dictionary) -> float:
-	var ovr := float(p.get("overall", 50))
+	var ovr := rating(p)
 	var pot := maxf(ovr, float(p.get("potential", ovr)))
 	var youth := clampf((24.5 - float(p.get("age", 25.0))) / 5.0, 0.0, 1.0)
 	return ovr + (pot - ovr) * 0.6 * youth * proven(p) - 1.0 * maxf(0.0, float(p.get("age", 25.0)) - 30.0)
@@ -71,12 +82,15 @@ static func availability(p: Dictionary, games: int) -> float:
 
 
 ## A contract that pays him less than his rating is worth adds a little; one
-## that overpays takes a little off, more the longer it runs.
+## that overpays takes a little off, more the longer it runs. The gap is read
+## on the market's 1-10 scale (Contracts.salary_score: a point is about
+## $120k), so a few thousand dollars either way counts for nothing.
 static func contract_factor(p: Dictionary) -> float:
-	var fair := float(Ratings.salary_value(int(p.get("overall", 50))))
-	var paid := float(p.get("salary", fair))
+	var fair := Ratings.salary_value(roundi(rating(p)))
+	var paid := int(p.get("salary", fair))
 	var years := float(clampi(int(p.get("contract_years", 1)), 1, 4))
-	return 1.0 + 0.03 * clampf(fair - paid, -4.0, 4.0) * minf(years, 3.0) / 3.0
+	var gap := Contracts.salary_score(fair) - Contracts.salary_score(paid)
+	return 1.0 + 0.03 * clampf(gap, -4.0, 4.0) * minf(years, 3.0) / 3.0
 
 
 ## The weakest player a club picks in each position of its side, and on its
@@ -98,8 +112,8 @@ static func selection_bars(list: Array, projected := false) -> Dictionary:
 
 static func _bar_rating(q: Dictionary, projected: bool) -> int:
 	if not projected:
-		return int(q["overall"])
-	return maxi(int(q["overall"]), roundi(future_rating(q)))
+		return roundi(rating(q))
+	return maxi(roundi(rating(q)), roundi(future_rating(q)))
 
 
 ## Will he still have a place once the club's young players grow? His
@@ -122,7 +136,7 @@ static func cover(p: Dictionary, projected_bars: Dictionary) -> float:
 ## more for a good one. A bench player counts 0.65; a player who would not
 ## get a game, 0.4.
 static func fit(p: Dictionary, bars: Dictionary) -> float:
-	var ovr := int(p.get("overall", 0))
+	var ovr := roundi(rating(p))
 	var gain := -999
 	for r in [str(p.get("role", "")), str(p.get("role2", ""))]:
 		if r != "" and bars.has(r):

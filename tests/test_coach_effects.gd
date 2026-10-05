@@ -13,6 +13,7 @@ func run() -> void:
 	_test_teaching()
 	_test_tactics()
 	_test_man_management()
+	_test_assistant()
 	_test_in_career()
 	GameState.delete_saved_career()
 	CoachEffects.table = {}
@@ -171,6 +172,64 @@ func _test_man_management() -> void:
 	_check(ClubLife.morale(played) == 54, "Softening never touches what playing is worth")
 
 
+## Your assistant takes the routine calls you leave to him - the loose
+## defender and the key defenders' match-ups - by the rules a rival coach
+## uses, and leaves alone anything you set yourself.
+func _test_assistant() -> void:
+	var make := func(assist: bool, ai := false) -> MatchSim:
+		var a := Squad.new("GEE", GameDB.club_list("GEE"), true, "GEE")
+		a.assistant = assist
+		a.ai_plans = ai
+		return MatchSim.new(a, Squad.new("SYD", GameDB.club_list("SYD"), false, "SYD"), 321)
+	var off: MatchSim = make.call(false)
+	var on: MatchSim = make.call(true)
+	var best := Matchups.best_interceptor((on.squads[0] as Squad).ground)
+	_check(not best.is_empty(), "Geelong has a defender good enough to play loose")
+	_check(str(off.interceptor[0]) == "" and not off.assistant_active(0),
+			"Without an assistant your side starts with no loose defender")
+	_check(not best.is_empty() and str(on.interceptor[0]) == str(best["id"]) and on.assistant_active(0)
+			and not on.assistant_active(1), "Your assistant starts the loose defender a rival coach would")
+	_check(not (make.call(true, true) as MatchSim).assistant_active(0), "A club coached as a rival needs no assistant")
+	# A key defender beaten in the quarter just played is moved at the break.
+	var d: Dictionary = on.duels[0]
+	var fid := str(d.keys()[0]) if not d.is_empty() else ""
+	_check(fid != "", "Their key forward has one of your defenders on him")
+	if fid == "":
+		return
+	var beaten := str(d[fid])
+	var lost := {"side": 1, "contests": [[1, beaten, true, false], [1, beaten, true, true], [1, beaten, true, false],
+			[1, beaten, false, false]]}
+	on.duel_log[fid] = lost.duplicate(true)
+	on.current_quarter = 2
+	on._assistant_calls(0)
+	_check(str((on.duels[0] as Dictionary).get(fid, "")) != beaten,
+			"Your assistant moves a key defender who lost three of four contests last quarter")
+	# One you put there yourself stays, whatever the contests say.
+	var kept: MatchSim = make.call(true)
+	var mine := str((kept.duels[0] as Dictionary)[fid])
+	kept.coach_matchup(0, fid, mine)
+	kept.duel_log[fid] = {"side": 1, "contests": [[1, mine, true, false], [1, mine, true, true], [1, mine, true, false],
+			[1, mine, false, false]]}
+	kept.current_quarter = 2
+	kept._assistant_calls(0)
+	_check(str((kept.duels[0] as Dictionary).get(fid, "")) == mine, "A match-up you set yourself is never moved")
+	# Your set-up before the bounce is yours, and he picks the spare around it.
+	var setup: MatchSim = make.call(true)
+	setup.set_matchups(0, {fid: str(best["id"])})
+	_check(str((setup.duels[0] as Dictionary).get(fid, "")) == str(best["id"]) and str(setup.interceptor[0]) != str(best["id"]),
+			"He picks the loose defender from the defenders you have not put on someone")
+	# A loose defender you choose, or no loose defender, stays your call.
+	var loose: MatchSim = make.call(true)
+	loose.coach_interceptor(0, "")
+	loose.current_quarter = 2
+	loose._assistant_calls(0)
+	_check(str(loose.interceptor[0]) == "", "No loose defender, if that is your call, stays your call")
+	# The whole match runs with him, the same way twice.
+	var r1: Dictionary = (make.call(true) as MatchSim).run()
+	var r2: Dictionary = (make.call(true) as MatchSim).run()
+	_check(str(r1["score"]) == str(r2["score"]), "A match with your assistant replays identically from the same seed")
+
+
 func _test_in_career() -> void:
 	GameState.reset()
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
@@ -187,6 +246,11 @@ func _test_in_career() -> void:
 	GameState.advance()
 	_check(not CoachEffects.table.is_empty() and CoachEffects.table.has("SYD") and bool(CoachEffects.table["SYD"]["ai"])
 			and not bool(CoachEffects.table["GEE"]["ai"]), "Every club's tactics are read from its staff; yours are your calls")
+	_check(bool(CoachEffects.table["GEE"]["assistant"]) and not bool(CoachEffects.table["SYD"]["assistant"]),
+			"Only your club has an assistant taking its routine calls")
+	var simmed: MatchSim = GameState.season.match_sim("GEE", "SYD", 4242)
+	_check(simmed.assistant_active(0) and not simmed.assistant_active(1),
+			"A simulated round's match has your assistant on your side")
 	var res: Dictionary = GameState.my_last_result()
 	var before := 0
 	for p in GameState.my_list:

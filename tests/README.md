@@ -186,6 +186,33 @@ intake/development simulation over the real lists).
 Both runners exit nonzero on failure. They use the shipped GDScript, not a
 Python/JavaScript reimplementation.
 
+### Adding a suite
+
+1. Write `tests/test_<name>.gd` and a runner `tests/run_<name>_tests.gd` (copy a small one such as `run_league_tests.gd`, which points saves and settings at test files).
+2. Add `<name>` to `ALL_SUITES` in `tools/run_tests.sh`.
+3. Add its floor, the count it prints, to `tests/expected_checks.txt`. Raise a floor when a suite gains checks; two PRs that raise the same suite's floor collide, so whoever merges second sets the sum.
+4. Add it to the shortest shard in `tools/ci_shards.txt`, then run `bash tools/check_ci_shards.sh`. It prints `ok: N suites in M shards, each exactly once`, or says what is missing.
+5. Add a row to the table above.
+
+CI's `plan` job runs the same check, so a suite left out of every shard fails the run instead of quietly skipping CI.
+
+### Long audits on GitHub (`audit.yml`)
+
+A seeded audit in `tools/audit/` that takes more than a few minutes should not tie up a machine. Dispatch it against any branch:
+
+```sh
+gh workflow run audit.yml --ref <branch> -f impl=<name> -f env="KEY=VAL KEY2=VAL2" -f args=""
+gh run watch
+gh run download <run-id> -n audit-<name>
+```
+
+- `impl` is the file in `tools/audit` without `.gd`, the same word you pass to `tools/audit/run_audit.gd` after `--`. `args` is anything the script reads after it (optional).
+- `env` is space-separated `KEY=VALUE` pairs the script reads with `OS.get_environment`; values cannot contain spaces. Both are checked before the run starts.
+- The run summary shows the last 60 lines of the log; the whole log is the artifact `audit-<name>`, kept 14 days.
+- Every dispatch runs on its own, so variants of one audit can go at once. There is a 180 minute limit and a read-only token: the workflow only measures and never pushes or comments.
+- It runs the audit script as it is on the branch you pass to `--ref`.
+- For a short audit, run it locally: `godot --headless --path . --script tools/audit/run_audit.gd -- <name>`, with `APPDATA=<scratch dir>` on Windows so it does not share saves with another run.
+
 ## Automated coverage
 
 **Model:** initial rival selections; contiguous global pick numbers and rounds;

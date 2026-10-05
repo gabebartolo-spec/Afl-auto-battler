@@ -167,6 +167,10 @@ var settings_path := "user://settings.cfg"
 ## Autosave runs on every screen change, after every round and when the app
 ## is backgrounded or closed. Tests switch it off.
 var autosave_enabled := true
+## A new draft or season is seeded from the clock, so no two careers play
+## alike. Measurement tools set this so a career replays exactly: each of
+## those seeds then comes from it and the year (_clock_seed). 0 in the game.
+var replay_seed := 0
 ## Set by small edits (training, draft picks) that save on the next screen
 ## change or when the app is backgrounded, rather than on every tap.
 var _dirty := false
@@ -840,8 +844,16 @@ func _first_class(year: int) -> Array:
 	return Prospects.age_pool(generated, year, {})
 
 
+## The seed for a new draft or season: the clock, or with `replay_seed` set,
+## a fixed one for this year and `use`.
+func _clock_seed(use: int) -> int:
+	if replay_seed != 0:
+		return posmod(replay_seed * 7919 + season_year * 131 + use * 17, 1000000)
+	return int(Time.get_unix_time_from_system()) % 1000000
+
+
 func begin_draft() -> void:
-	var seed := int(Time.get_unix_time_from_system()) % 1000000
+	var seed := _clock_seed(1)
 	# The clubs of the first playable season (the founding eighteen in 2027;
 	# expansion clubs arrive later with their own lists). The pool is the
 	# league 2026 left behind: every listed player plus the 2026 draft class,
@@ -922,7 +934,7 @@ func begin_intake_draft() -> bool:
 	# arrives with its own generated list at its first season (see
 	# _start_next_season) rather than drafting into one.
 	var active := GameDB.active_clubs(season_year)
-	var seed := int(Time.get_unix_time_from_system()) % 1000000
+	var seed := _clock_seed(2)
 	draft = Draft.build_intake(open_pool, active.duplicate(), order,
 			seed, sizes, role_counts, role_pairs)
 	# Recruiting funding narrows only our club's uncertainty; rivals use the
@@ -1081,7 +1093,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	# The season simulates only this year's active clubs; `lists` keeps an
 	# entry for every club so saves and rollovers never miss a key.
 	season = Season.new(GameDB.active_clubs(next_year).duplicate(), lists,
-			int(Time.get_unix_time_from_system()) % 1000000)
+			_clock_seed(3))
 	# The cap moves with the new season before contracts are assigned.
 	salary_cap = Contracts.salary_cap_for_year(next_year)
 	# Expansion lists are born here, so their contracts must be assigned
@@ -1355,7 +1367,7 @@ func start_season(club_code: String, list: Array) -> void:
 						int(float(p.get("gm", 0.0))), int(float(p.get("gl", 0.0))))
 	# Fixtures, ladders and finals cover only the clubs active this year.
 	season = Season.new(GameDB.active_clubs(season_year).duplicate(), lists,
-			int(Time.get_unix_time_from_system()) % 1000000)
+			_clock_seed(4))
 	salary_cap = Contracts.salary_cap_for_year(season_year)
 	ensure_contracts()
 	# The coaching world from its Round 1 2026 source, carried into this
@@ -2708,6 +2720,7 @@ func _after_round(results: Array) -> void:
 	_note_firsts(results)
 	_draft_class_news()
 	_board_after_round(results)
+	_rival_morale_after_round(results)
 	_prepare_media_conference(results)
 	if season != null and season.is_season_over() \
 			and int(season_awards.get("year", 0)) != season_year:
@@ -3217,7 +3230,7 @@ func _resign(p: Dictionary, years: int, salary := -1) -> void:
 ## Off a list and into free agency. `wanted`: the club wanted him (he walked,
 ## or it could not fit his price) rather than delisting him, so losing him
 ## can earn a compensation pick - if he had been there long enough.
-func _release(code: String, p: Dictionary, wanted := false) -> void:
+func _release(code: String, p: Dictionary, wanted := false, announce := true) -> void:
 	(season.lists[code] as Array).erase(p)
 	p["released_by"] = code
 	p["comp_eligible"] = wanted and comp_tenure_ok(p)
@@ -3225,7 +3238,7 @@ func _release(code: String, p: Dictionary, wanted := false) -> void:
 	free_agents.append(p)
 	offseason_log.append({"kind": "released", "club": code, "id": str(p["id"]), "wanted": wanted,
 			"eligible": bool(p["comp_eligible"])})
-	if int(p.get("overall", 0)) >= NEWS_MIN_OVR:
+	if announce and int(p.get("overall", 0)) >= NEWS_MIN_OVR:
 		add_news("contract", "%s let %s (OVR %d) go to free agency." % [
 				GameDB.club_name(code), GameDB.player_display_name(p), int(p["overall"])])
 
@@ -3781,7 +3794,13 @@ func _sign_fa(p: Dictionary, code: String, salary: int, years: int) -> void:
 	free_agents.erase(p)
 	_bars.erase(code)
 	offseason_log.append({"kind": "signed", "club": code, "id": str(p["id"]), "salary": salary, "years": years})
-	if code == my_club or int(p.get("overall", 0)) >= NEWS_MIN_OVR:
+	if bool(p.get("tested", false)):
+		p.erase("tested")
+		var stayed := code == my_club
+		add_news("contract", ("%s tested free agency and re-signs with %s: %s for %d season%s." if stayed
+				else "%s tested free agency and leaves for %s: %s for %d season%s.") % [GameDB.player_display_name(p),
+				GameDB.club_name(code), Contracts.money(salary), years, "" if years == 1 else "s"])
+	elif code == my_club or int(p.get("overall", 0)) >= NEWS_MIN_OVR:
 		add_news("contract", "%s sign free agent %s (OVR %d): %s for %d season%s." % [GameDB.club_name(code),
 				GameDB.player_display_name(p), int(p["overall"]), Contracts.money(salary), years, "" if years == 1 else "s"])
 
@@ -4185,6 +4204,10 @@ const TRADE_MAX := 5
 ## off-season: a market that moves, not one that churns.
 const MAX_OFFERS := 2
 const MAX_AI_TRADES := 3
+## Targets a rival buyer asks about, down its wish list, before it gives up
+## on trading this year. Its first asks are often the young stars nobody
+## sells; the deals that do get done come further down.
+const TARGET_TRIES := 15
 ## Most offers that come in for one player or pick on the trade table.
 const MAX_TABLE_OFFERS := 3
 ## How close to the most it would pay a club opens with nobody else bidding
@@ -4363,11 +4386,12 @@ func _bid(club: String, asset: Dictionary, worth: float, shade: float, prospects
 
 
 ## Rival clubs trade with each other when both come out ahead by their own
-## lights: a club with a real need and a player elsewhere who meets it but
-## isn't in his own club's starting side. The
-## buyer bids from its own valuation, cheapest first, and the seller takes
-## the first bid it values enough - neither sees the other's sums. A club does one deal at most; never
-## with you; at most MAX_AI_TRADES a year, often none.
+## lights: a club with a real need and a player elsewhere who meets it (see
+## _trade_pool for who is on offer). The buyer bids from its own valuation,
+## cheapest first, and the seller takes the first bid it values enough -
+## neither sees the other's sums. Turned down, the buyer tries its next
+## target, up to TARGET_TRIES. A club does one deal at most; never with you;
+## at most MAX_AI_TRADES a year, often none.
 func _ai_trades(prospects: Dictionary) -> void:
 	var done := 0
 	var busy := {my_club: true}
@@ -4381,26 +4405,41 @@ func _ai_trades(prospects: Dictionary) -> void:
 		for code in _club_order("sellers"):
 			if busy.has(code) or code == buyer:
 				continue
-			for q in _fringe(code):
+			for q in _trade_pool(buyer, code):
 				others.append(q)
 				club_of[str(q["id"])] = code
-		var target := _trade_target(buyer, others, {})
-		if target.is_empty():
-			continue
-		var seller := str(club_of[str(target["id"])])
-		var most := _worth_to(buyer, target, prospects) / (1.0 + Contracts.TRADE_MARGIN)
-		var pkg := _negotiate(buyer, seller, target, _bids(buyer, most, prospects), prospects)
-		if pkg.is_empty():
-			continue
-		_execute_trade(buyer, seller, pkg, [target])
-		var said := "%s get %s from %s for %s." % [GameDB.club_name(buyer),
-				_names([target]), GameDB.club_name(seller), _names(pkg)]
-		offseason_log.append({"kind": "ai_trade", "club": buyer, "with": seller,
-				"in": [str(target["id"])], "out": pkg.map(func(a): return str(a["id"])), "text": said})
-		add_news("trade", "Trade: " + said)
-		busy[buyer] = true
-		busy[seller] = true
-		done += 1
+		var tried := {}
+		for _try in range(TARGET_TRIES):
+			var target := _trade_target(buyer, others, tried)
+			if target.is_empty():
+				break
+			tried[str(target["id"])] = true
+			var seller := str(club_of[str(target["id"])])
+			var most := _worth_to(buyer, target, prospects) / (1.0 + Contracts.TRADE_MARGIN)
+			var pkg := _negotiate(buyer, seller, target, _bids(buyer, most, prospects), prospects)
+			if pkg.is_empty():
+				continue
+			_execute_trade(buyer, seller, pkg, [target])
+			var said := "%s get %s from %s for %s." % [GameDB.club_name(buyer),
+					_names([target]), GameDB.club_name(seller), _names(pkg)]
+			offseason_log.append({"kind": "ai_trade", "club": buyer, "with": seller,
+					"in": [str(target["id"])], "out": pkg.map(func(a): return str(a["id"])), "text": said})
+			add_news("trade", "Trade: " + said)
+			busy[buyer] = true
+			busy[seller] = true
+			done += 1
+			break
+
+
+## Who `buyer` may go after at `seller`: the players outside its starting
+## side, whom anyone can see aren't first picks there - and, for a contender
+## buying from a rebuilding club, anyone on the list, as for you. A
+## rebuilder's established players are on the market to every contender,
+## not only to you; its own valuation still decides what it lets go.
+func _trade_pool(buyer: String, seller: String) -> Array:
+	if club_phase(buyer) == "contending" and club_phase(seller) == "rebuilding":
+		return season.lists[seller]
+	return _fringe(seller)
 
 
 ## The players outside a club's starting side (its bench and beyond) - who
@@ -4635,13 +4674,22 @@ func _close_contracts() -> void:
 
 ## Free agency closes when the national draft opens (or at the rollover if
 ## there is no draft), so compensation picks can go into that draft: your
-## undecided players are settled, rivals sign who they want, and anyone left
-## unsigned retires. Once per off-season.
+## undecided players are settled - a depth player re-signs if the cap allows,
+## one of your best 22 tests the market (_market_test) - rivals sign who they
+## want, and anyone left unsigned retires. Once per off-season.
 func _close_free_agency() -> void:
 	if season == null or fa_closed_year == season_year:
 		return
 	open_offseason()
 	fa_closed_year = season_year
+	var best22 := {}
+	var side := Ratings.select_22(my_list)
+	for q in (side["ground"] as Array) + (side["bench"] as Array):
+		best22[str(q["id"])] = true
+	var testing := []
+	# Cap room as you settle them: a standing offer is money you have set
+	# aside, so whoever takes yours can always be paid.
+	var room := salary_cap - my_payroll()
 	for p in Contracts.expiring(my_list).duplicate():
 		if bool(p.get("resigned", false)):
 			continue
@@ -4649,19 +4697,47 @@ func _close_free_agency() -> void:
 		if walked and my_list.size() <= Contracts.MIN_LIST:
 			_resign(p, 1)
 			continue
-		var cost := Contracts.asking_salary(p)
-		if not walked and (my_payroll() - int(p.get("salary", 0)) + cost <= salary_cap or my_list.size() <= Contracts.MIN_LIST):
+		var rise := Contracts.asking_salary(p) - int(p.get("salary", 0))
+		var fits := rise <= room
+		if not walked and fits and best22.has(str(p["id"])) and my_list.size() > Contracts.MIN_LIST:
+			_release(my_club, p, true, false)
+			testing.append(p)
+			room -= rise
+		elif not walked and (fits or my_list.size() <= Contracts.MIN_LIST):
 			_resign(p, 2)
+			room -= rise
 		else:
 			# He walked, or you could not fit him: you wanted him, as a rival
 			# that runs out of room does.
 			_release(my_club, p, true)
+	_market_test(testing)
 	_resolve_market()
 	# Nobody signed them: their AFL careers end here.
 	for p in free_agents:
 		_career_over(p)
 	free_agents = []
 	mark_dirty()
+
+
+## One of your best 22 you never settled tests the market as free agency
+## closes, as an out-of-contract player does: your standing offer is his
+## asking price over the term he wants, rivals make theirs, and those your
+## offer leads answer once; then he takes the offer he likes best
+## (_resolve_market) - money, security, his role and how the club finished.
+## Nobody in your best 22 re-signs just because you did nothing.
+func _market_test(players: Array) -> void:
+	if players.is_empty():
+		return
+	_open_market(players)
+	for p in players:
+		var want := Contracts.wants(p)
+		_add_offer(p, my_club, {"salary": int(want["salary"]), "years": int(want["years"])},
+				fa_role(p, my_club), _finish_t(my_club))
+		var mine := _offer_of(p, my_club)
+		if Contracts.best_offer(p, p.get("offers", [])) == mine:
+			p["market_log"] = _rival_round(p, mine)
+		p["market_round"] = Contracts.FA_ROUNDS
+		p["tested"] = true
 
 
 ## Free agency closes: every free agent still on the market gets offers
@@ -5554,6 +5630,35 @@ func _board_after_round(results: Array) -> void:
 				ClubLife.add_morale(p, -CoachEffects.softened(sting, float(soft.get(str(p["id"]), 0.0))))
 
 
+## Every rival club's players take the week the way yours do
+## (ClubLife.morale_after_match): who played gets a lift, more for a win; a
+## fit player left out loses some, softened by that club's own
+## man-managers. Morale moves match form (MatchSim.fit), so it follows the
+## same rule at every club - run for yours alone, it was a free edge in
+## every match (docs/COMPETITIVE_BALANCE.md).
+func _rival_morale_after_round(results: Array) -> void:
+	if season == null:
+		return
+	var staffs: Dictionary = CoachEffects.staffs(coaches) if not coaches.is_empty() else {}
+	for res in results:
+		var roster: Array = res.get("roster", [[], []])
+		var score: Array = res.get("score", [0, 0])
+		for side in range(2):
+			var code := str(res.get("home" if side == 0 else "away", ""))
+			if code == "" or code == my_club or not season.lists.has(code):
+				continue
+			var list: Array = season.lists[code]
+			var played := {}
+			if roster.size() > side:
+				for r in roster[side]:
+					played[str(r["id"])] = true
+			var soft := {}
+			var staff: Dictionary = staffs.get(code, {})
+			if not staff.is_empty():
+				for p in list:
+					soft[str(p["id"])] = CoachEffects.soften(staff, p)
+			ClubLife.morale_after_match(list, played, int(score[side]) > int(score[1 - side]), soft)
+
 
 ## A notable user match may produce one short press conference.
 func _prepare_media_conference(results: Array) -> void:
@@ -5701,10 +5806,23 @@ func week_event_pending() -> bool:
 	return not week_event.is_empty() and not bool(week_event.get("resolved", false))
 
 
-## Before a round is played, an unanswered event takes its default.
+## Before a round is played, an unanswered card: no benefit comes without a
+## choice. It changes nothing unless not acting has its own consequence (the
+## card's "default", ClubLife.pick_event).
 func _settle_week_event() -> void:
-	if week_event_pending():
-		resolve_week_event(int(week_event.get("default", 0)))
+	if not week_event_pending():
+		return
+	var d := int(week_event.get("default", -1))
+	if d >= 0:
+		resolve_week_event(d)
+		return
+	var cost: Dictionary = week_event.get("unanswered", {})
+	if int(cost.get("board", 0)) != 0 and not board.is_empty():
+		board["confidence"] = clampi(board_confidence() + int(cost["board"]), 0, 100)
+	week_event["resolved"] = true
+	week_event["choice"] = -1
+	week_event["outcome"] = str(cost.get("text", "Business as usual."))
+	mark_dirty()
 
 
 ## Apply the chosen option. Returns what happened.

@@ -94,6 +94,7 @@ static func set_table(coaches: Dictionary, clubs: Array, my_club: String) -> voi
 	for club in clubs:
 		table[club] = tactics(by.get(club, {}), club == my_club)
 		table[club]["ai"] = club != my_club
+		table[club]["assistant"] = club == my_club
 
 
 static func for_club(code: String) -> Dictionary:
@@ -108,6 +109,7 @@ static func apply(sq: Squad) -> void:
 	sq.tactics_exec = float(t["exec"])
 	sq.tactics_read = float(t["read"])
 	sq.ai_plans = bool(t["ai"])
+	sq.assistant = bool(t.get("assistant", false))
 
 
 ## club -> {job: record}, in one pass over the records.
