@@ -57,6 +57,11 @@ var interceptor_changes: Array = []
 var duel_log := {}
 ## Match-ups changed during the match: [{"q", "side" (defending), "fwd", "def"}].
 var duel_changes: Array = []
+## The calls a side's coach has made himself (coach_interceptor, coach_matchup,
+## his set-up before the bounce): his assistant leaves them alone for the
+## rest of the match (Squad.assistant). {"interceptor": bool, "duels":
+## {forward id: true}}.
+var _own := [{"interceptor": false, "duels": {}}, {"interceptor": false, "duels": {}}]
 ## The contest in play, attached to the score or rebound it produces.
 var _duel := {}
 ## Injuries during the match (Injuries.roll per player, from injury_rng so
@@ -213,13 +218,16 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 		for p in (squads[side] as Squad).bench:
 			energy_caps[str(p["id"])] = Workload.energy_cap(p)
 			energy[str(p["id"])] = _start_energy(p)
-	# AI clubs with the personnel start with a genuine loose interceptor; the
-	# human side starts neutral and can choose one in the coach box.
+	# AI clubs with the personnel start with a genuine loose interceptor, and
+	# so does your side when your assistant has it; you can change him in the
+	# coach box.
 	for side in range(2):
 		if (squads[side] as Squad).ai_plans:
 			var best := Matchups.best_interceptor((squads[side] as Squad).ground)
 			if not best.is_empty():
 				set_interceptor(side, str(best["id"]), false)
+		elif _assisted(side):
+			set_interceptor(side, _assistant_interceptor(side), false)
 	_plan_injuries()
 
 
@@ -290,10 +298,61 @@ func set_matchup(def_side: int, fwd_id: String, def_id: String, during := true) 
 
 
 ## Your set-up before the bounce: {forward id: defender id} on top of the
-## default. Not a change during the match.
+## default. Not a change during the match. These pairings are the coach's
+## own, so his assistant then picks a loose man from the defenders left.
 func set_matchups(def_side: int, m: Dictionary) -> void:
 	for fid in m:
+		((_own[def_side] as Dictionary)["duels"] as Dictionary)[str(fid)] = true
 		set_matchup(def_side, str(fid), str(m[fid]), false)
+	if not m.is_empty() and _assisted(def_side) and not bool((_own[def_side] as Dictionary)["interceptor"]):
+		set_interceptor(def_side, _assistant_interceptor(def_side), false)
+
+
+## The coach picks the loose defender himself ("" for none): it stays his
+## call for the rest of the match.
+func coach_interceptor(side: int, def_id: String) -> bool:
+	if side < 0 or side > 1:
+		return false
+	(_own[side] as Dictionary)["interceptor"] = true
+	return set_interceptor(side, def_id, current_quarter > 1 or _q_active)
+
+
+## The coach puts `def_id` on their forward `fwd_id` himself: that match-up
+## stays his call for the rest of the match.
+func coach_matchup(def_side: int, fwd_id: String, def_id: String) -> bool:
+	if def_side < 0 or def_side > 1:
+		return false
+	((_own[def_side] as Dictionary)["duels"] as Dictionary)[fwd_id] = true
+	return set_matchup(def_side, fwd_id, def_id)
+
+
+## Whether the assistant has any routine call left to make for `side`: on
+## your side until you have taken the loose man and every match-up yourself.
+func assistant_active(side: int) -> bool:
+	if not _assisted(side):
+		return false
+	var own: Dictionary = _own[side]
+	if not bool(own["interceptor"]):
+		return true
+	for fid in (duels[side] as Dictionary):
+		if not (own["duels"] as Dictionary).has(str(fid)):
+			return true
+	return false
+
+
+## Whether the coach made this call himself, rather than his assistant: the
+## loose defender (`fwd_id` "") or the match-up on `fwd_id`. Always true for
+## a side without an assistant.
+func coach_call(side: int, fwd_id := "") -> bool:
+	if side < 0 or side > 1 or not _assisted(side):
+		return true
+	var own: Dictionary = _own[side]
+	return bool(own["interceptor"]) if fwd_id == "" else (own["duels"] as Dictionary).has(fwd_id)
+
+
+func _assisted(side: int) -> bool:
+	var sq: Squad = squads[side]
+	return sq.assistant and not sq.ai_plans
 
 
 ## Nominate one defender to roam behind the ball. If he had a direct forward,
@@ -396,6 +455,56 @@ func _ai_rematch(def_side: int) -> void:
 			if str(p["id"]) != str(d[fid]):
 				set_matchup(def_side, str(fid), str(p["id"]))
 				break
+
+
+## Your assistant's routine calls for the quarter about to start, made at
+## the break so the coach box shows them as your starting point: the loose
+## defender a rival coach would pick, and a key defender moved off a forward
+## who has had the better of him (as _ai_rematch). Whatever you have set
+## yourself he leaves alone, and he never moves a defender you have put on
+## someone.
+func _assistant_calls(side: int) -> void:
+	var own: Dictionary = _own[side]
+	if not bool(own["interceptor"]):
+		set_interceptor(side, _assistant_interceptor(side), true)
+	var d: Dictionary = duels[side]
+	var held := {}
+	for fid in (own["duels"] as Dictionary):
+		if d.has(fid):
+			held[str(d[fid])] = true
+	if bool(own["interceptor"]) and str(interceptor[side]) != "":
+		held[str(interceptor[side])] = true
+	for fid in d.keys():
+		if (own["duels"] as Dictionary).has(str(fid)):
+			continue
+		var log: Dictionary = duel_log.get(str(fid), {})
+		var n := 0
+		var won := 0
+		for c in log.get("contests", []):
+			if int(c[0]) == current_quarter - 1 and str(c[1]) == str(d[fid]):
+				n += 1
+				if bool(c[2]):
+					won += 1
+		if n < 3 or float(won) / float(n) < 0.67:
+			continue
+		for p in Matchups.defenders((squads[side] as Squad).ground):
+			var pid := str(p["id"])
+			if pid != str(d[fid]) and not held.has(pid):
+				set_matchup(side, str(fid), pid)
+				break
+
+
+## The loose defender a rival coach would use (_ai_interceptor), from the
+## defenders you have not put on a forward yourself.
+func _assistant_interceptor(side: int) -> String:
+	var own_duels: Dictionary = (_own[side] as Dictionary)["duels"]
+	var d: Dictionary = duels[side]
+	var taken := {}
+	for fid in own_duels:
+		if d.has(fid):
+			taken[str(d[fid])] = true
+	var free := (squads[side] as Squad).ground.filter(func(p): return not taken.has(str(p["id"])))
+	return _ai_interceptor(side, free)
 
 
 func set_tactics(side: int, t: Dictionary) -> void:
@@ -850,7 +959,7 @@ func _contest_bonus(side: int, stoppage := false) -> float:
 
 
 func _contest_traits(side: int) -> float:
-	return 0.025 if synergies[side].has("engine_room") else 0.0
+	return Traits.power("engine_room") if synergies[side].has("engine_room") else 0.0
 
 
 func _contest_plan(side: int) -> float:
@@ -1103,6 +1212,10 @@ const PRESS_ZONE_EDGE := 20.0
 ## Non-tackle pressure acts per tackle chance, the share of those that turn
 ## the ball over outright, and the ground a rushed disposal still gains.
 const PRESS_RUSH_RATIO := 2.0
+## The share of a pressure chance that is a tackle; the rest of it is a
+## rushed disposal instead (pressure acts unchanged). Calibrated to AFL
+## tackle counts (2026-10-06: tackles ran about 6% above).
+const PRESS_TACKLE_SHARE := 0.95
 const PRESS_TURNOVER := 0.08
 const PRESS_RUSH_GAIN := 0.80
 ## A close defender occasionally gets boot to ball. Around one or two per
@@ -1596,8 +1709,9 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		pressure *= _press_on(side)
 		_credit(opp, "gameplan", (pressure - p_base) * TURNOVER_VALUE)
 		if synergies[opp].has("lockdown_unit"):
-			_credit(opp, "traits", pressure * 0.08 * TURNOVER_VALUE)
-			pressure *= 1.08
+			var lock := Traits.power("lockdown_unit")
+			_credit(opp, "traits", pressure * (lock - 1.0) * TURNOVER_VALUE)
+			pressure *= lock
 		p_base = pressure
 		pressure *= _pv(side, "taken")
 		_credit(side, "gameplan", (p_base - pressure) * TURNOVER_VALUE)
@@ -1612,7 +1726,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		# or no pressure at all. Both of the first two are pressure acts.
 		var press_roll := rng.randf()
 		var rushed := false
-		if press_roll < pressure:
+		if press_roll < pressure * PRESS_TACKLE_SHARE:
 			var tackler = _pick_presser(opp, zone)
 			_maybe_report(opp, tackler, carrier)
 			_t(opp, "tackles")
@@ -1686,7 +1800,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				* (0.55 + 0.90 * _a(carrier, "carry") / 100.0))
 		gain *= _pv(side, "gain") * _pep_mult(side, "gain")
 		if synergies[side].has("supply_line"):
-			gain *= 1.12
+			gain *= Traits.power("supply_line")
 		if _burst(side, "flood") or _burst(side, "hold"):
 			gain *= 0.85
 		gain *= rng.randf_range(0.45, 1.75)
@@ -2182,7 +2296,7 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	if feeder != null and _trait(feeder, "playmaker"):
 		tr *= 1.05
 	if synergies[side].has("tall_small"):
-		tr *= 1.08
+		tr *= Traits.power("tall_small")
 	goal_p *= tr
 	if credit:
 		_credit(side, "traits", 6.0 * (goal_p - before))
@@ -2193,7 +2307,7 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	elif not _midfield_minder(side, shooter).is_empty():
 		dtr *= 0.96
 	if synergies[opp].has("intercept_wall"):
-		dtr *= 0.91
+		dtr *= Traits.power("intercept_wall")
 	goal_p *= dtr
 	if credit:
 		_credit(opp, "traits", 6.0 * (before - goal_p))
@@ -2327,6 +2441,10 @@ func end_quarter() -> Dictionary:
 		quarter, squads[0].name, goals(0), behinds(0), score(0),
 		squads[1].name, goals(1), behinds(1), score(1)])
 	current_quarter += 1
+	if quarter < 4:
+		for side in range(2):
+			if _assisted(side):
+				_assistant_calls(side)
 	if quarter == 4:
 		if needs_extra_time():
 			# No siren: the pitch keeps going into extra time.
@@ -2662,7 +2780,7 @@ func _after_chain() -> void:
 			movement_pace *= 1.3
 		var fatigue_pace := movement_pace
 		if synergies[side].has("running_machine"):
-			fatigue_pace *= 0.70
+			fatigue_pace *= Traits.power("running_machine")
 		var tagger_id := ""
 		if _tag_id(side) != "":
 			var tagger = tagger_for(sq.ground)
@@ -3348,7 +3466,7 @@ func resolve_moment(choice: int) -> Dictionary:
 		"duel":
 			if key.begins_with("def:"):
 				var did := key.trim_prefix("def:")
-				set_matchup(side, str(m["player_id"]), did)
+				coach_matchup(side, str(m["player_id"]), did)
 				outcome = "%s goes to %s." % [GameDB.player_display_name(_on_ground(side, did)),
 						GameDB.player_display_name(_on_ground(1 - side, str(m["player_id"])))]
 			else:
@@ -3475,11 +3593,7 @@ func ai_tactics(side: int) -> Dictionary:
 		# not working, so it chases. Only what a coach sees - the scoreboard.
 		plan = "attacking"
 	var t := {"gameplan": plan, "pep": "fire_up" if margin <= -12 and current_quarter >= 3 else "steady"}
-	var spare := Matchups.best_interceptor((squads[side] as Squad).ground)
-	if not spare.is_empty() and not (margin <= -react and current_quarter >= 3):
-		t["interceptor_id"] = str(spare["id"])
-	else:
-		t["interceptor_id"] = ""
+	t["interceptor_id"] = _ai_interceptor(side, (squads[side] as Squad).ground)
 
 	# The AI never reads the opponent's hidden structural call. It only makes
 	# the spare accountable after the match log/stats show that player has
@@ -3505,6 +3619,18 @@ func ai_tactics(side: int) -> Dictionary:
 		if best != "":
 			t["tag_id"] = best
 	return t
+
+
+## A rival coach's loose defender for the quarter, from `ground`: his best
+## interceptor, unless he is chasing the game late and wants every man on a
+## forward. "" for none.
+func _ai_interceptor(side: int, ground: Array) -> String:
+	var react := 18.0 - 8.0 * float((squads[side] as Squad).tactics_read)
+	var margin := score(side) - score(1 - side)
+	var spare := Matchups.best_interceptor(ground)
+	if spare.is_empty() or (margin <= -react and current_quarter >= 3):
+		return ""
+	return str(spare["id"])
 
 
 ## Whether `side` was outscored in quarter `q` (1-4).

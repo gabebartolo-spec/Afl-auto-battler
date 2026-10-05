@@ -64,7 +64,7 @@ func _build() -> void:
 	if not GameState.offseason_open():
 		hv.add_child(_para("The off-season is closed: trades and contracts open when the season ends, until the national draft starts.", 13, UiKit.MUTED))
 	else:
-		hv.add_child(_para("Out-of-contract players you leave unsigned are re-signed for two seasons if the cap allows.", 12, UiKit.MUTED))
+		hv.add_child(_para("Leave one of your best 22 unsigned and he tests free agency: your offer stands at his asking price, but rivals can beat it. Other players re-sign for two seasons if the cap allows.", 12, UiKit.MUTED))
 	if _notice != "":
 		hv.add_child(_para(_notice, 13, UiKit.GOOD))
 	var tabs := UiKit.hbox(4)

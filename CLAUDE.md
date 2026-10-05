@@ -79,3 +79,10 @@ usability.
 ## Explicitly assigned flavour work — 2026-10-06
 
 The director reviewed and included FL-001–FL-008 for Claude's queue. Read [ROADMAP §9.3](docs/ROADMAP.md#93-approved-flavour-and-culture-work--director-decisions-2026-10-06) for scope, dependencies, statuses and validation. Audit decorative appearance so it is distinct from actual game information. Necessary new ritual/farewell vignette scenes are explicitly authorised; use the shared 2.5D art and preserve tactical-scene gates. Every addition has zero gameplay effects. This approval does not mark any implementation complete or authorise unrelated research candidates.
+
+
+## Explicitly assigned visual styling — 2026-10-06
+
+The director included all eight STYLE-01–STYLE-08 work packages after the complete interview. Read [ROADMAP §9.5](docs/ROADMAP.md#95-approved-visual-styling-work--director-interview-2026-10-06). Dark Android is primary; wide-screen and light maintenance follow. The Training **player-row** name/secondary-line stack is a confirmed vertical-alignment defect, independent of broad restyling. Inspect the current implementation/art branch before repairing audit-snapshot findings.
+
+The art agent has higher authority than ChatGPT on visual direction; Claude implements its treatment and reports constraints. **All final decisions go through the director.** Scope approval permits scoped prototypes/reviewable implementation, not final font, palette, geometry or layout selection. Obtain final director appearance approval before completing/merging visual treatments; ordinary green CI is insufficient. Preserve gameplay, information, touch/Back, existing 2.5D art and correctness/performance gates. No new scene authority or competing design system is added. No rejected style candidates remain.

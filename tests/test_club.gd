@@ -85,6 +85,11 @@ func _test_season_flow() -> void:
 	# the clock, so which card appears varies run to run. Measure the match alone.
 	GameState._settle_week_event()
 	var before := GameState.board_confidence()
+	var rival_before := {}
+	for code in GameState.season.lists:
+		if code != "GEE":
+			for p in GameState.season.lists[code]:
+				rival_before[str(p["id"])] = ClubLife.morale(p)
 	GameState.advance()
 	var res := GameState.last_match
 	var side := 0 if str(res["home"]) == "GEE" else 1
@@ -97,6 +102,31 @@ func _test_season_flow() -> void:
 		if ClubLife.morale(p) != ClubLife.MORALE_BASE:
 			changed = true
 	_check(changed, "Morale moves after a game")
+	# Morale moves match form, so a rival's players take the week by the same
+	# rule as yours: who played is lifted (more for a win), a fit player left
+	# out loses some. Run for your club alone it was a free edge every week.
+	var rival_ok := true
+	var played_count := 0
+	var left_out_count := 0
+	for r in GameState.last_results:
+		for s in range(2):
+			var code := str(r["home"] if s == 0 else r["away"])
+			if code == "GEE":
+				continue
+			var won := int(r["score"][s]) > int(r["score"][1 - s])
+			var on := {}
+			for row in (r["roster"] as Array)[s]:
+				on[str(row["id"])] = true
+			for p in GameState.season.lists[code]:
+				var was := int(rival_before.get(str(p["id"]), ClubLife.MORALE_BASE))
+				if on.has(str(p["id"])):
+					rival_ok = rival_ok and ClubLife.morale(p) == clampi(was + (4 if won else 1), 5, 100)
+					played_count += 1
+				elif int(p.get("injury_weeks", 0)) <= 0 and was > 5:
+					rival_ok = rival_ok and ClubLife.morale(p) < was
+					left_out_count += 1
+	_check(rival_ok and played_count > 100 and left_out_count > 0,
+			"Rival players' morale moves by your club's rule (%d played, %d left out)" % [played_count, left_out_count])
 	_check(GameState.club_goals.size() == GameState.season.ladder.size() and GameState.club_goals.has("GEE"),
 			"Every club gets a board goal")
 	var goals_before := str(GameState.club_goals)
@@ -159,12 +189,45 @@ func _test_events() -> void:
 	_check(bool(star.get("rested", false)) and not picked, "Resting a sore star keeps him out of the side")
 	GameState.advance()
 	_check(not star.has("rested"), "He is back for the next week")
-	# An unanswered card takes its default when the round is played.
+	# An unanswered card gives nothing for free: a training card left alone
+	# is a normal week (no XP, no morale, no fresh legs) ...
 	var ev := ClubLife._training()
 	GameState.week_event = ev
+	var xp_before := {}
+	var morale_before := {}
+	for q in GameState.my_list:
+		xp_before[str(q["id"])] = int(q.get("xp", 0))
+		morale_before[str(q["id"])] = ClubLife.morale(q)
+	GameState._settle_week_event()
+	var untouched := true
+	for q in GameState.my_list:
+		untouched = untouched and int(q.get("xp", 0)) == int(xp_before[str(q["id"])]) \
+				and ClubLife.morale(q) == int(morale_before[str(q["id"])]) and not q.has("fresh") and not q.has("heavy_legs")
+	_check(bool(ev.get("resolved", false)) and int(ev["choice"]) == -1 and untouched,
+			"An unanswered training card changes nothing")
 	GameState.advance()
-	_check(bool(ev.get("resolved", false)) and int(ev["choice"]) == int(ev["default"]),
-			"An unanswered card takes its default when the round is played")
+	# ... but not acting has its consequences: a sore star nobody rested
+	# plays sore, and silence over an incident costs the board's confidence.
+	var sore_star: Dictionary = {}
+	for q in GameState.my_list:
+		if int(q.get("injury_weeks", 0)) == 0 and not q.has("rested"):
+			sore_star = q  # a fit player: an injured one is "ruled out anyway"
+			break
+	GameState.week_event = ClubLife._sore_star(sore_star)
+	GameState._settle_week_event()
+	_check(bool(sore_star.get("sore", false)) and not bool(sore_star.get("rested", false)),
+			"A sore star nobody rests plays sore")
+	var conf_before := GameState.board_confidence()
+	var paper_man: Dictionary = GameState.my_list[2]
+	var paper_morale := ClubLife.morale(paper_man)
+	GameState.week_event = ClubLife._media(paper_man)
+	var silence: Dictionary = GameState.week_event["unanswered"]
+	_check(str(silence.get("hint", "")).contains("(%d)" % int(silence["board"])),
+			"The card says what saying nothing costs: %s" % str(silence.get("hint", "")))
+	GameState._settle_week_event()
+	_check(GameState.board_confidence() == clampi(conf_before - 4, 0, 100) and ClubLife.morale(paper_man) == paper_morale,
+			"Saying nothing about an incident costs the board, and lifts nobody")
+	GameState.advance()
 	var heavy := ClubLife._training()
 	GameState.week_event = heavy
 	GameState.resolve_week_event(0)
@@ -256,7 +319,12 @@ func _test_event_decisions() -> void:
 	var early := ClubLife.early_price(star)
 	_check(early >= ask + 1 and float(early) >= float(ask) * 1.12,
 			"Extending early costs materially more than today's price (%d v %d)" % [early, ask])
-	_check(ClubLife.extension_wanted(star, {}), "A good player out of contract asks to extend")
+	_check(ClubLife.extension_wanted(star, {}), "A star out of contract asks to extend")
+	var good: Dictionary = star.duplicate()
+	good["overall"] = ClubLife.EXTENSION_MIN_OVR - 4
+	_check(not ClubLife.extension_wanted(good, {}), "A good player below star level waits for the off-season")
+	_check(not ClubLife.extension_wanted(star, {"extension|someone_else": true}),
+			"Only one star asks to extend early in a season")
 	var offered_broke := false
 	for r in range(1, 40):
 		var ev := ClubLife.pick_event({"list": GameState.my_list, "round": r, "seed": 7,
