@@ -5,7 +5,7 @@ Follow-up to `docs/DIFFICULTY_EVIDENCE_2026-10-05.md`, which showed an unmanaged
 Reproduce:
 
 ```
-godot --headless --path . --script tools/audit/run_audit.gd -- calls_impl
+godot --headless --path . --script tools/audit/run_audit.gd -- calls_impl   # CALLS_REPS=30 for 1,080 matches
 godot --headless --path . --script tools/audit/run_audit.gd -- career_impl trader|fa <seed> <club> 5
 ```
 
@@ -26,6 +26,35 @@ godot --headless --path . --script tools/audit/run_audit.gd -- career_impl trade
 - **Reading the calls is worth about 3 points of win rate**, a real but modest lever. That's the intended scale: a good plan helps without guaranteeing anything.
 - **Defensive press all match is the outlier**: +6.7 points of win rate and double the margin. At n = 216 that is about two standard errors, so worth confirming on a larger sample before acting. If it holds, Defensive press is a dominant default against the AI.
 - A per-match "best plan in hindsight" figure (98.8%) is **not** a finding: each plan sends the match down a different random path, so the best of six afterwards is just the luckiest.
+
+### Rerun at 1,080 matches (director's request)
+
+Same set-up, five times the sample (`CALLS_REPS=30`):
+
+| Your calls | Win % | Mean margin |
+|---|---|---|
+| Balanced all match (no calls) | 59.8% | +7.5 |
+| Counter their last plan at each break | 63.3% | +10.9 |
+| Attacking corridor all match | 56.6% | +5.7 |
+| Defensive press all match | 62.2% | +12.0 |
+| Contested all match | 59.8% | +9.6 |
+| Controlled tempo all match | 56.5% | +6.4 |
+| Through the stars all match | 59.5% | +8.5 |
+
+By the plan the AI opened with (win %):
+
+| AI opens with | Balanced | Counter | Defensive press |
+|---|---|---|---|
+| Contested (n = 180) | 55.6% | 57.2% | 55.8% |
+| Attacking corridor (n = 240) | 55.6% | 71.7% | 68.3% |
+| Defensive press (n = 270) | 47.6% | 50.9% | 44.4% |
+| Balanced (n = 390) | 72.7% | 69.6% | 73.7% |
+
+- **Defensive press is not dominant.** The 216-match outlier shrank from +6.7 to +2.4 points over Balanced, about one and a half standard errors, and it sits below reading the game (+3.5).
+- **It behaves like a counter, not a default.** It beats an AI opening in Attacking corridor (+12.7 points) and loses ground against an AI that also presses (−3.2). That is the trade-off the plans are meant to have.
+- **Its margin is still the widest of the fixed plans** (+12.0 against +7.5). It wins by more when it wins rather than winning much more often; worth watching in the extreme-margin numbers, not a reason to tune.
+- **Reading the game remains the real lever**, worth about 3.5 points of win rate and +3.4 on the margin.
+- Paired seeds share a start, not a path: each plan consumes the random stream differently from the first call onwards.
 
 ## 2. Trade market
 
@@ -52,9 +81,9 @@ godot --headless --path . --script tools/audit/run_audit.gd -- career_impl trade
 
 ## Conclusion and decisions
 
-The levers that matter, in order: **the trade market** (exploitable through youth over-valuation), **the year-one draft edge** (removed by #222), then **live-match calls** (modest; check the Defensive press outlier). Free agency is not a lever.
+The levers that matter, in order: **the trade market** (exploitable through youth over-valuation), **the year-one draft edge** (removed by #222), then **live-match calls** (modest: about 3.5 points for reading the game; the Defensive press outlier did not hold at 1,080 matches). Free agency is not a lever.
 
 For the director:
 
 1. **Trade valuation:** discount unproven potential in `TradeValue` (proposal above)?
-2. **Defensive press:** rerun calls at about 1,000 matches to confirm before any tuning?
+2. **Defensive press:** rerun calls at about 1,000 matches to confirm before any tuning? **Done:** it did not hold (+2.4 points, a counter to Attacking corridor rather than a dominant default). No tuning recommended.
