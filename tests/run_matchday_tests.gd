@@ -29,8 +29,12 @@ func _run() -> void:
 	suite.run()
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
+	# A fixed season seed: the clock would pick a different opponent each run,
+	# and some field no key forward at quarter time (no match-up to change).
+	_state.replay_seed = 2026
 	for sz in [Vector2i(420, 860), Vector2i(360, 740)]:
 		await _phone_match(sz)
+	_state.replay_seed = 0
 	await _plan_at_first_bounce()
 	await _bounce_close_up()
 	await _playtest_bounce_scene()
@@ -536,9 +540,9 @@ func _bounce_close_up() -> void:
 	# What the scene plays: both builds stand, run and tap (the ruck contest, one-handed),
 	# facing either way; the umpire (the average build, facing the camera) bounces.
 	var moves_ok := _sheet_has(VignetteFigures.BODIES["average"], "bounce", ["front"])
-	for body in VignetteFigures.BODIES.values():
+	for build in ["average", "ruck"]:          # the footballers (the sheet also holds the coach)
 		for anim in ["idle", "jog", "tap"]:
-			moves_ok = moves_ok and _sheet_has(body, anim, ["front", "back"])
+			moves_ok = moves_ok and _sheet_has(VignetteFigures.BODIES[build], anim, ["front", "back"])
 	_check(moves_ok and Vector2i((vig.FIGURE_SHADE as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
 			and Vector2i((vig.FIGURE_MASK as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
 			and Vector2i((vig.FIGURE_DESIGN as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE / 2,

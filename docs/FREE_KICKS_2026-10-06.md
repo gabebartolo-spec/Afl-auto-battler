@@ -70,8 +70,8 @@ check, plus margins unchanged (frees feed scoring through possession and 50s).
 ## After the change (contextual-frees PR, 2026-10-06)
 
 The generic free keeps its rate; its cause now follows the chain: a ball-up
-chain's free is often the ruck contest (`RUCK_FREE_SHARE` 0.48, genuine
-ruckmen only, paid at the stoppage); in the receiving side's forward 50 it is
+chain's free is often the ruck contest (`RUCK_FREE_SHARE`, genuine
+ruckmen only, paid at the stoppage; see the revision below); in the receiving side's forward 50 it is
 usually a forward held in a marking contest by a defender
 (`F50_MARK_FREE_SHARE` 0.85); otherwise incorrect disposal by the player who
 erred. New picks use `free_rng` only. Two drafted leagues, same seeds:
@@ -96,3 +96,21 @@ Their marking-contest frees rose, but some of what they used to get from the
 generic pool now goes to rucks. Lifting it further means touching the
 marking-contest odds in `resolve_forward50`/`_marking_free`, which belong to
 the forward-archetype work.
+
+### Revised after merging main with #286 (forward archetypes)
+
+Paying a ruck free back at the stoppage after the chain had moved up the
+ground made the pitch view fly the ball 30 m+ backwards (match_visual). A
+ruck free is now paid only when the chain ended within 15 m of the contest
+(`RUCK_FREE_REACH`), and `RUCK_FREE_SHARE` rises from 0.48 to 0.90 to keep
+the rate. Four drafted leagues (drafts 21-24, 1,728 team-games) on main
+with #286:
+
+| | after #286, 0.48 share | revised | real 2026 |
+|---|---|---|---|
+| frees per team a match | 17.73 | 17.68 | 18.7 |
+| ruck contest frees per team | 0.74 | 0.79 | - |
+| RUCK for / against a game | 1.26 / 1.24 | 1.32 / 1.28 | 1.44 / 1.36 |
+| FWD for / against | 0.62 / 0.51 | 0.63 / 0.52 | 0.81 / 0.74 |
+
+match_game 240/0, match_visual 93/0, calibration 17/0.

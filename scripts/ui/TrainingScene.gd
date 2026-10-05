@@ -440,6 +440,9 @@ func _player_row(p: Dictionary) -> Control:
 	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
 	var info := UiKit.vbox(1)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# The name and plan stack is as tall as the row; centre it on the role and
+	# rating rather than leaving it hugging the top.
+	info.alignment = BoxContainer.ALIGNMENT_CENTER
 	h.add_child(info)
 	info.add_child(UiKit.ellipsis(GameDB.player_display_name(p), 15, UiKit.TEXT, true))
 	var plan := GameState.plan_for(p)

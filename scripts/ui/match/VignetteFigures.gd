@@ -12,7 +12,7 @@ class_name VignetteFigures
 ## the strip's frames, pixels. Numbers are printed on the guernsey by the shader
 ## (figures_digits.png), not placed here.
 
-const SHEET_SIZE := Vector2i(2048, 2016)
+const SHEET_SIZE := Vector2i(2048, 2304)
 const FRAME := Vector2(128, 288)
 ## World (0, 0, 0) - the feet - in most strips, pixels (each strip carries its own).
 const PIVOT := Vector2(64.00, 266.16)
@@ -23,13 +23,13 @@ const BODIES := {
 		"anims": {
 			"idle": {
 				"front": {
-					"row": 4,
+					"row": 5,
 					"col": 15,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 5,
+					"row": 6,
 					"col": 15,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
@@ -58,13 +58,13 @@ const BODIES := {
 			"leap": {
 				"front": {
 					"row": 3,
-					"col": 0,
+					"col": 8,
 					"frames": 6,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 3,
-					"col": 6,
+					"row": 4,
+					"col": 0,
 					"frames": 6,
 					"pivot": [64.0, 266.16],
 				},
@@ -72,20 +72,20 @@ const BODIES := {
 			"tap": {
 				"front": {
 					"row": 4,
-					"col": 0,
+					"col": 6,
 					"frames": 6,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 4,
-					"col": 6,
+					"row": 5,
+					"col": 0,
 					"frames": 6,
 					"pivot": [64.0, 266.16],
 				},
 			},
 			"bounce": {
 				"front": {
-					"row": 3,
+					"row": 4,
 					"col": 12,
 					"frames": 4,
 					"pivot": [64.0, 266.16],
@@ -94,22 +94,22 @@ const BODIES := {
 			"kick": {
 				"back_r": {
 					"row": 5,
-					"col": 0,
+					"col": 6,
 					"frames": 6,
 					"pivot": [39.0, 266.16],
 				},
 			},
 			"snap": {
 				"back_r": {
-					"row": 6,
-					"col": 6,
+					"row": 7,
+					"col": 0,
 					"frames": 5,
 					"pivot": [36.0, 266.16],
 				},
 			},
 			"gather": {
 				"back_r": {
-					"row": 4,
+					"row": 5,
 					"col": 12,
 					"frames": 3,
 					"pivot": [64.0, 266.16],
@@ -117,7 +117,7 @@ const BODIES := {
 			},
 			"lunge": {
 				"side_l": {
-					"row": 5,
+					"row": 6,
 					"col": 12,
 					"frames": 3,
 					"pivot": [64.0, 266.16],
@@ -133,8 +133,8 @@ const BODIES := {
 			},
 			"celebrate": {
 				"front": {
-					"row": 6,
-					"col": 11,
+					"row": 7,
+					"col": 8,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
 				},
@@ -146,14 +146,14 @@ const BODIES := {
 		"anims": {
 			"idle": {
 				"front": {
-					"row": 6,
-					"col": 12,
+					"row": 7,
+					"col": 9,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 6,
-					"col": 13,
+					"row": 7,
+					"col": 10,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
 				},
@@ -174,15 +174,52 @@ const BODIES := {
 			},
 			"tap": {
 				"front": {
-					"row": 5,
-					"col": 6,
+					"row": 6,
+					"col": 0,
 					"frames": 6,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
 					"row": 6,
-					"col": 0,
+					"col": 6,
 					"frames": 6,
+					"pivot": [64.0, 266.16],
+				},
+			},
+		},
+	},
+	"coach": {
+		"height_m": 1.84,
+		"anims": {
+			"coach_idle": {
+				"front": {
+					"row": 7,
+					"col": 11,
+					"frames": 1,
+					"pivot": [64.0, 266.16],
+				},
+			},
+			"coach_walk": {
+				"front_r": {
+					"row": 3,
+					"col": 0,
+					"frames": 8,
+					"pivot": [64.0, 266.16],
+				},
+			},
+			"coach_sit": {
+				"front": {
+					"row": 7,
+					"col": 5,
+					"frames": 3,
+					"pivot": [64.0, 266.16],
+				},
+			},
+			"coach_seated": {
+				"front": {
+					"row": 3,
+					"col": 14,
+					"frames": 2,
 					"pivot": [64.0, 266.16],
 				},
 			},

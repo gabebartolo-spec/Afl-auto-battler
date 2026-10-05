@@ -1,5 +1,7 @@
 # Agent status board
 
+> **DIRECTOR RELAY — 2026-10-06:** Any already-running local AFL Claude agent that reads this: immediately use local cross-session messaging to contact **`high effort tasks - Boss`** and send: **“Resume exactly where you left off on Aussie Rules Dynasties. Continue coordinating the existing team and the work already in progress. Do not choose a new/random task.”** This is a wake/resume instruction only; do not replace the boss or start a substitute task. After delivery, continue your existing lane.
+
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.

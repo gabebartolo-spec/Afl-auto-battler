@@ -54,6 +54,7 @@ func run() -> void:
 	_test_tag_tradeoff()
 	_test_through_stars()
 	_test_set_shot_bands()
+	_test_forward_archetypes()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -2187,3 +2188,54 @@ func _test_set_shot_bands() -> void:
 	for b in MatchSim.SET_BANDS:
 		named = named or str(asked.get("title", "")).ends_with(str(b["spot"]))
 	_check(named, "The set-shot call says where he kicks from (%s)" % str(asked.get("title", "")))
+
+
+## Forward archetypes (ARD-M3-002): a key forward takes his marks inside 50
+## and kicks more of his goals from set shots; a small forward wins it at
+## ground level and kicks more of his off the deck. Either can score both ways.
+func _test_forward_archetypes() -> void:
+	_check(MatchSim.fwd_size({"height_cm": 196.0}) == "key" and MatchSim.fwd_size({"height_cm": 178.0}) == "small"
+			and MatchSim.fwd_size({"height_cm": 187.0}) == "general", "A forward's type follows his height")
+	var i50 := {"key": 0, "small": 0}
+	var games := {"key": 0, "small": 0}
+	var goals := {"key": [0, 0, 0], "small": [0, 0, 0]}  # set, open, crumbed
+	var clubs := ["GEE", "COL", "SYD", "BRL", "MEL", "CAR", "HAW", "ESS"]
+	var f50 := float(Ratings.T["forward50_line"])
+	for i in range(40):
+		var sim := _sim(2600 + i, clubs[i % 8], clubs[(i + 3) % 8])
+		sim.run()
+		var size_of := {}
+		for side in [0, 1]:
+			for p in (sim.squads[side] as Squad).ground:
+				if str(p.get("role", "")) == "FWD":
+					var sz := MatchSim.fwd_size(p)
+					if games.has(sz):
+						size_of[str(p["id"])] = sz
+						games[sz] += 1
+		for ev in sim.events:
+			var id := str(ev.get("player_id", ""))
+			if not size_of.has(id):
+				continue
+			var sz: String = size_of[id]
+			var kind := str(ev.get("kind", ""))
+			if kind == "mark":
+				var afp := float(ev.get("fp", 0.0)) * (1.0 if int(ev.get("side", 0)) == 0 else -1.0)
+				if afp > f50:
+					i50[sz] += 1
+			elif kind == "goal":
+				var how := 2 if bool(ev.get("crumb", false)) else (0 if bool(ev.get("set_shot", false)) else 1)
+				goals[sz][how] += 1
+	var key_i50 := float(i50["key"]) / maxf(1.0, games["key"])
+	var small_i50 := float(i50["small"]) / maxf(1.0, games["small"])
+	# Drafted leagues run about 2.6x (fwd_archetype_impl); real 2026 lists, whose small
+	# forwards mark better, about 1.7x.
+	_check(key_i50 > 1.5 * small_i50, "Key forwards take their marks inside 50 (%.2f a game, small %.2f)" % [key_i50, small_i50])
+	var kg: Array = goals["key"]
+	var sg: Array = goals["small"]
+	var key_set := float(kg[0]) / maxf(1.0, kg[0] + kg[1] + kg[2])
+	var small_set := float(sg[0]) / maxf(1.0, sg[0] + sg[1] + sg[2])
+	var small_crumb := float(sg[2]) / maxf(1.0, sg[0] + sg[1] + sg[2])
+	var key_crumb := float(kg[2]) / maxf(1.0, kg[0] + kg[1] + kg[2])
+	_check(key_set > small_set + 0.15, "More of a key forward's goals come from set shots (%.0f%% vs %.0f%%)" % [100.0 * key_set, 100.0 * small_set])
+	_check(small_crumb > key_crumb + 0.08, "More of a small forward's come off the deck (%.0f%% vs %.0f%%)" % [100.0 * small_crumb, 100.0 * key_crumb])
+	_check(sg[0] > 0 and kg[1] + kg[2] > 0, "Either kind still scores the other way")
