@@ -404,6 +404,27 @@ The current phone playtest has exposed a core-loop problem more important than f
 - **List Profile vs actual team strength validation:** the user's side can read as mostly Strong/Average across the five List Profile dimensions while losing every match heavily. The profile is not meant to predict every result, but if a side has no visible Weak area and repeatedly performs like a bottom side, the words may be overstating practical strength or omitting an important determinant of match performance. Audit the relationship between each profile label and realised match performance/results across clubs and repeated seeded matches. Do not turn this into an overall power rating or recommendation. Acceptance: Strong/Elite labels correspond to materially better outcomes in the football area they describe, and a side that is broadly above average across the profile does not routinely behave like a clearly weak team without an explainable cause visible elsewhere.
 - **Current-list club identity bug:** `My list` is still colouring each player's guernsey/number tile from `p["club"]`, which in a league re-draft can remain the player's original/source club. On the user's Melbourne list this produces a patchwork of old-team colours even though every player now represents Melbourne. Current-squad screens must use the player's **current club/list context**, not historical source-club metadata. On `My list`, every player should therefore carry Melbourne's red/blue identity (prefer the existing multi-band club marker where practical, not a single stale origin colour). Apply the same rule anywhere else that presents a player as a current member of a club: selection, training, match-day list/profile surfaces. Preserve original/source club only for explicit history/draft-origin contexts. Acceptance: after a league re-draft, no current-list screen visually implies a player still belongs to his former club; a Melbourne list reads consistently red/blue while career/history screens can still show past clubs when relevant. **Status:** fixed and merged in PR #118.
 - **Club marker colour accuracy audit:** the round-results screen exposes that a number of club colour markers do not convincingly match their real AFL identities. This screen is not inventing colours locally: `HubScene._results_list()` uses `UiKit.club_badge()` → `club_marker()` → `GameDB.club_marker_colours()`, which reads the hard-coded `primary/secondary/accent` values in `data/clubs.csv`; therefore audit the **source palette for every current AFL club**, not just this popup. Verify genuine club colours, ordering, two-vs-three-colour treatment and sufficiently accurate shades against authoritative club/AFL branding references. Do not use generic approximations simply because they are distinguishable. Obvious shade/order candidates should be checked rather than guessed (for example North Melbourne currently uses a very dark navy-like `#0C2340` as its primary despite its recognisable royal blue/white identity). Keep fictional/future clubs separate from the real-club audit. Acceptance: every 2027 AFL club marker is immediately recognisable to a footy fan across results, ladder, draft, selection and other shared badge surfaces; shared `club_marker` remains the single source of presentation; add a palette regression/snapshot fixture so later UI work cannot silently reintroduce wrong colours.
+- **Authentic away/clash guernseys:** add alternate away/clash kits for real AFL clubs using colours and treatments genuinely associated with those clubs, rather than generic recolours. Examples include Melbourne variants using royal blue and GWS charcoal-based alternates. Research each club's real away/clash/history of alternate guernseys and build a small authentic palette/template set per club that can be used in match presentation and the guernsey system. Preserve recognisable club identity, avoid inventing colours with no real basis, and use alternates contextually when the home kit would clash.
+
+- **Heritage rounds and commemorative guernseys:** add authentic throwback and milestone-season strips for real AFL clubs. Research historically grounded designs, colour balances and eras rather than inventing novelty reskins. Support heritage rounds, anniversary seasons and club-specific commemorative variants where appropriate. Keep the system presentation-led: visual flavour and long-save identity, not arbitrary gameplay buffs.
+
+- **Coach appearance / card customisation:** add restrained visual customisation for the player coach, including portrait style, clothing presentation (for example suit, jacket or polo) and light long-career ageing/progression. Keep the system simple and readable rather than turning the game into a deep avatar editor. Preserve the football-management focus.
+
+- **Finals / premiership presentation variants:** strengthen visual presentation around finals and premiership status. Support finals/event branding, special guernsey markers or badges where appropriate, reigning-premier treatment in the following season, and stronger captain/leader presentation in major moments. Keep this cosmetic/presentational unless a separate gameplay rule explicitly exists.
+
+
+- **Trophy cabinet / honour board evolution:** make the club hub visibly accumulate history over long saves. Surface premierships, major individual awards, club champions, coaching honours and significant records through a restrained trophy-cabinet / honour-board presentation that grows as the career progresses. The visual state should reflect actual save history, not a static decoration screen, so a 30-year dynasty looks materially different from a new career. Keep it compact and integrated into the club/history experience rather than creating a separate collectible-management minigame.
+
+- **Stadium identity:** give venues recognisable visual character without building a stadium-construction system. Use venue-aware presentation such as boundary treatment, signage, crowd colour balance, roof/open-air feel and finals/event branding. Reuse shared match-presentation systems and avoid bespoke one-off UI that is expensive to maintain.
+
+- **Generated player visual identity:** give players simple, stylistically consistent visual identities using attributes such as age, hair, skin tone and facial hair, with visible ageing over long careers where practical. Prioritise consistency, readability and long-save flavour over photorealism. Generated visuals must remain stable enough that the same player still feels recognisable across seasons.
+
+- **Club-aware UI skinning:** allow restrained club-aware UI theming so headers, dividers, accent lines and similar presentation elements can reflect club identity. Preserve readability, accessibility and the anti-template visual guardrails; do not let club theming become colour vomit or reintroduce generic green-accent styling.
+
+- **User-designed guernseys:** add optional player-facing guernsey customisation, including home, away and clash variants. Allow users to create or edit club strips while preserving on-field readability and clear team differentiation. This can be especially valuable for expansion/custom clubs, but should not be artificially restricted to them.
+
+- **User-designed logos / badges:** add optional player-facing club logo/badge customisation. Support custom identity for expansion and fictional clubs and allow broader use where technically practical. Keep import/editor UX mobile-friendly and avoid forcing logo creation as a mandatory step.
+
 - **St Kilda club code cleanup — `SKN` → `STK`:** the repository currently hard-codes St Kilda as `SKN` in `data/clubs.csv`, `GameDB.CLUB_ORDER`, the player datasets/history and therefore football-facing result rows. There is no good presentation reason for `SKN`; use the conventional **`STK`** abbreviation everywhere the user sees or reasons about club codes. Treat this as a data-key migration, not a one-line label patch: update canonical club/data keys and every dependent reference, and provide a save migration/alias so existing careers containing `SKN` continue to load correctly rather than losing St Kilda lists, history, fixtures or records. Acceptance: all new careers/data use `STK`; no user-facing screen emits `SKN`; an existing save made with `SKN` loads into the same St Kilda state under `STK`; tests cover fixture/list/history/save migration.
 - **Player role-allocation / draft-position distribution audit — REOPEN:** Gryan Miers is being labelled **Wing** in the user's list even though the source data explicitly lists him as `FWD`, and his real football role is a pure small/creative forward rather than a wing or pressure-forward. **Bodhi Uwland is also being treated as a Key defender despite being a 188 cm medium/rebounding defender who can take lockdown jobs but is not a key-position defender.** Code inspection shows both primary-role and subtype problems. `Ratings.derive_all()` chooses the primary role largely from season-stat role scores, then only applies two hard-coded forward corrections; a player read as `MID` can receive `FWD` only as a secondary role, and `Roles.is_wing()` can then mislabel him from stat shape. Separately, defender subtype classification currently ignores height/size entirely: `PlayerProfile.player_type()` picks between training archetypes, where **Key defender = intercept 3 + pressure 2** and **Rebounding defender = carry 3 + intercept 2**. That means a medium defender with strong intercept/one-percent/pressure numbers can become a 'Key defender' simply because he is less of a ball carrier. Do **not** fix these with one-off Miers/Uwland overrides alone. Re-audit the whole role classifier against football reality and source listed positions, especially MID↔FWD, MID↔DEF, and defender subtypes. Audit whether the current binary Key/Rebounding defender labels are themselves too coarse; a medium/general/lockdown identity may be needed if it better describes real usage, but prefer the smallest model that avoids false key-position labels. Measure source `real_pos` vs derived primary/secondary roles across the full 2026 pool; manually inspect representative archetypes (small forwards/creative forwards, key forwards, rebounding defenders, medium/lockdown defenders, true key defenders, genuine wings, inside mids); quantify draft-pool counts and match-day coverage by role before and after any change. Source listed position, height and actual football usage should be meaningful evidence, with stats used to refine dual-role capability/archetype rather than casually overwriting an unambiguous football role. Preserve legitimate dual-role players. Acceptance: Gryan Miers is a forward; Bodhi Uwland is not labelled Key defender; true key defenders require credible key-position evidence rather than merely high intercept/pressure; known pure forwards/defenders are not routinely converted into midfielders because of disposal volume; genuine wings such as Harvey Langford remain distinguishable from inside mids/forwards; the league draft has a plausible supply of FWD and DEF options without artificial quota stuffing; and regression tests cover representative named and archetypal cases.
 - **Form streak colour bug:** in the hub/form string (for example `Form: Poor · LLWL`), wins should be visually distinguished from losses. Render `W` in the positive/green result colour while losses remain in the loss/negative colour; preserve accessibility/legibility and do not rely on colour alone if the surrounding UI ever removes the W/L letters. Acceptance: a mixed streak such as `LLWL` clearly shows the `W` in green/positive colour without changing the text content. **Status:** fixed and merged in PR #122.
@@ -1707,6 +1728,9 @@ No new decision engine, direct footballer control system, best-choice hints, for
 ### Validation
 Targeted trigger/resolution tests, invalid personnel and repeat-resolution coverage, seeded keep-current/context-informed/mismatched comparisons, watch/skip event agreement, and Android touch/Back checks. Check interruption frequency and option dominance across several match contexts; shared seeds do not imply identical later RNG consumption. In observed sessions the player should explain the expected benefit/cost and what actually changed. Simulations prove behaviour, not enjoyment.
 
+### Audit — the tired-star call (2026-10-05)
+Evidence in `docs/TIRED_CALL_AUDIT_2026-10-05.md` (PR #230, pending merge; 288 paired matches). Trigger, feasibility, single application and determinism all hold. But **Rest and Keep produce almost the same match** (59.9% v 59.3% wins, +0.8 margin, his output after nearly equal) because a kept star is rotated off at 25 energy anyway and a rested one comes back once fresh; under Ride the stars the call fires in 88% of matches; the break restates the choice instead of reporting what followed; two card details are slightly inaccurate. **Director decision needed:** make the trade-off real, drop the call or keep it as flavour. Follow-through belongs to M4-009.
+
 ---
 
 ## ARD-M4-002 — Key match-ups
@@ -2822,6 +2846,10 @@ Rules:
 - explain why it moved,
 - no opaque random swings,
 - sacking/job-security consequences come later after balance proves the confidence model.
+- **Player coach career after sacking:** being sacked does not immediately end the save. The player can continue their coaching career at another club if hired.
+- The player gets **one second chance** after their first sacking. A subsequent sacking normally ends the coaching career.
+- **Premiership reprieve:** winning a premiership earns/restores one additional sacking reprieve ("get out of jail" chance), allowing another continuation after a future sacking.
+- Make remaining reprieve status and the consequence of the next sacking clear to the player; do not hide career-ending risk behind an opaque board score.
 
 ### Phone-playtest follow-up — expectation fairness is part of the lose-state contract
 Board goals are **not randomly assigned** in the current implementation. At the start of each season, `GameState._open_board_season()` ranks every club by `Squad.strength()` and passes that rank into `ClubLife.board_goal()`:
@@ -3394,7 +3422,7 @@ Canonical umbrella for:
 ### Awards ceremony implementation — 2026-10-02
 **Status:** `VERIFY` — awards ceremony foundation merged via #208; native phone pacing/touch/Back verification remains. _(reconciled 2026-10-05)_
 - Brownlow, Coleman, All-Australian and club best and fairest are presented over the existing Season Review, with B&F last.
-- One reusable stage walk-on/medal vignette reads the actual winner and all 20 clubs' genuine colour bands; it reuses BroadcastVignette's silhouette figures. No separate scenes per club, fabricated likeness, votes or outcomes.
+- One reusable stage walk-on/medal vignette reads the actual winner and all 20 clubs' genuine colour bands; it currently reuses BroadcastVignette's silhouette figures. **These legacy figures must be replaced with the new pre-rendered 2.5D style under ARD-M8-007's complete art-style replacement requirement.** No separate scenes per club, fabricated likeness, votes or outcomes.
 - All-Australian is scrollable; controls reveal immediately, finish animation, advance, or skip to the review. Replay is read-only; viewed state lives in the already-saved season_awards dictionary.
 - Uses existing stored placings (including existing tiebreak order), rather than inventing shared medals or a round-by-round count. B&F currently stores three placings; does not invent fifth/fourth.
 - Validation: career_ui 178 checks, save 57 checks, awards 17 checks; zero failures. Actual Godot/OpenGL portrait capture inspected at 360×800. UI regressions cover 320/360/430 widths. Phone check still required for pacing, touch and Android Back.
@@ -3493,14 +3521,29 @@ At New Career setup, optionally create **one custom prospect** for that career.
 
 Player-facing choices should stay concise:
 - name,
+- **optional nickname / commentary short name**,
 - basic bio fields already supported by the player model,
 - height,
 - primary position,
 - optional secondary position where valid,
 - archetype / play style,
-- a small set of strengths and weaknesses.
+- a small set of strengths and weaknesses,
+- **dominant foot: Left / Right**,
+- **preferred guernsey number**,
+- **hair style** from a substantially expanded library, including **Bald**,
+- **hair colour**,
+- **facial hair** from a dedicated beard/moustache library,
+- **facial-hair colour** independently selectable from hair colour,
+- **skin tone**,
+- **freckles: None / Light / Heavy**,
+- **subtle scars: None / Light / Moderate**,
+- **boots** with a small set of silhouettes/colour treatments (black, white and restrained club-colour accents),
+- **sock height: Tall socks / Short socks**,
+- **headband: On / Off**,
+- **bandaging: None / Light / Heavy** using restrained football-appropriate placements,
+- **tattoos: None / Light / Heavy** using original generic tattoo treatments rather than copied real-player or culturally specific designs.
 
-Do not expose exact underlying attributes, OVR, potential or draft rank as editable fields.
+All appearance choices are cosmetic only **except dominant foot**, which may affect football behaviour as described below. Cosmetic options must not affect ratings, role suitability, stamina, injuries, aggression, personality or any other football outcome.
 
 ### Draft integration
 - The custom player enters the **first national draft class** of the career, not the opening League Draft of established AFL players.
@@ -3511,13 +3554,15 @@ Do not expose exact underlying attributes, OVR, potential or draft rank as edita
 - If undrafted, normal undrafted/carry-over rules apply.
 
 ### Generation / balance
-The user's choices shape **attribute distribution**, not total power.
+The user's choices shape **attribute distribution**, not a guaranteed ceiling.
 
-- Generate the player's overall talent from the same draft-class quality model as other prospects.
+- Generate the player's starting football ability inside a believable draft-prospect band, with a floor high enough that the created player is at least a genuinely usable AFL role-player prospect rather than a novelty dud.
 - Archetype, position, height, strengths and weaknesses redistribute that talent into a coherent football profile.
-- Potential remains hidden and is generated through the normal prospect/development model.
+- **Potential is hidden and randomly rolled once when the career is created.** The player cannot choose it, see it exactly, or reroll it.
+- Use a bounded distribution: most custom prospects should project somewhere from useful role player through good AFL player; strong/star outcomes should be uncommon; an **S-tier / generational ceiling is deliberately rare but possible**.
+- The rare elite outcome must still require normal development and opportunity. High POT is not guaranteed realised ability.
 - Do not grant special development speed, durability, consistency, personality, longevity or career outcomes because the player is custom.
-- The custom prospect should be statistically ordinary relative to the draft class except for the identity/profile choices the user made.
+- Preserve the roll in the save so reloads cannot fish for a better ceiling.
 
 A user-created key forward, winger or rebounding defender should feel meaningfully different without one archetype being an exploit.
 
@@ -3549,7 +3594,578 @@ A lightweight **Follow / Watch** affordance is preferred over extra bespoke dash
 - undrafted path remains valid,
 - career stats/history/milestones work after drafting,
 - real-name/fantasy-name setting does not replace the user-entered custom name,
-- old saves without custom-prospect data load safely.
+- old saves without custom-prospect data load safely,
+- POT is rolled once, survives save/load, cannot be rerolled by reload, respects the usable-role-player floor and can very rarely reach the S-tier ceiling.
+
+---
+
+## ARD-M7-009 — Expansion clubs, Canberra toggle & Club Forge
+**Status:** `TODO`  
+**Priority:** `P2`  
+**Autonomy:** `SUPERVISED`
+
+### Intent
+Make expansion a major long-career option rather than a background database event. Tasmania remains the grounded 19th club, Canberra is an optional 20th club, and the player may create one additional bespoke club that joins the competition as a 21st side.
+
+### New Career expansion setup
+Keep the ordinary New Career flow concise.
+
+- **Tasmania:** scheduled to enter in 2028.
+- **Canberra:** optional career toggle, **off by default**, scheduled to enter in 2030 when enabled.
+- Persist the Canberra choice at career creation because draft capital, list building, staff, fixtures and future-pick ownership need to prepare before entry.
+- Do not allow a mid-save Canberra toggle after expansion preparation has begun.
+- A created-club career adds the custom club as a new competition member rather than replacing an existing club.
+
+### Existing-player chronology before expansion
+Tasmania and Canberra enter years after the 2027 career baseline. By the time either club enters, **every existing AFL player must have reached that season through the normal career simulation**.
+
+- Do not load a frozen 2027 roster into a 2028/2030 expansion state and then merely add years to displayed ages.
+- Age, development, decline, injuries, contracts, trades, free agency, awards, club movement and career history must all reflect the seasons actually simulated before expansion.
+- Retirements, delistings, list turnover and replacement-generation need a robust lifecycle that preserves believable league population and career provenance. The exact retirement/delisting implementation is an engineering/design task for Claude when this item is actioned; do not fake continuity with silent respawns or retroactive history.
+- Expansion list building must draw from the league state that genuinely exists at the expansion date.
+- Long-save validation must prove that players present in 2028/2030 have coherent ages, histories and club stints, and that retired/delisted players are not resurrected accidentally.
+
+### Real-expansion draft model
+Use the AFL's confirmed Tasmania list-establishment package as the authenticity baseline rather than inventing a weak generic expansion draft.
+
+For Tasmania:
+- 2027 National Draft: picks **1, 3, 5, 7, 9, 11 and 13**, plus the first selection of each subsequent round.
+- Picks **5, 7, 11 and 13** are trade-required/rollable according to the real concession concept.
+- 2028: concession picks **5 and 9** plus the first selection of each subsequent round and the natural hand; pick 5 is trade-required/rollable.
+- 2029: concession picks **5 and 9** plus the natural hand; pick 5 is trade-required.
+- Where practical, later expansion work may also model the real package's mature-player access, rookie priorities and other list-building concessions, but first-round capital and real trade ownership are the minimum accepted foundation.
+
+For Canberra:
+- There is no confirmed real AFL Canberra expansion package to reproduce, so use the **same design philosophy as Tasmania**: heavy premium draft capital beginning before entry, spread across multiple drafts, with some premium selections required to be traded so the club must mix elite youth with established talent.
+- Tune the exact Canberra pick schedule against the game's entry year, draft order and competitive balance rather than pretending a fictional package is an AFL rule.
+- AI-controlled Canberra receives exactly the same concessions as a user-controlled Canberra.
+
+Expansion picks must be real persistent tradable assets in the normal trade/draft system. Do not fake concessions as hidden list-strength boosts or spawn a strong list without provenance.
+
+### Main-menu creation destination — Club Forge
+Add a bespoke main-menu destination named **Club Forge** as the current working title.
+
+Club Forge is the home for:
+1. **Create a club**
+2. **Create a player**
+
+It should feel purpose-built rather than like a debug/settings form, while remaining mobile-first and restrained.
+
+### Create a club
+Allow one custom club per career in V1.
+
+Player-facing customisation should include, at minimum:
+- club name,
+- short name / abbreviation,
+- **home location chosen from a researched Australian football location library**,
+- primary / secondary / accent colours,
+- guernsey design using the existing procedural guernsey system,
+- shorts / socks where supported,
+- simple badge/marker identity built from the same visual language as existing club markers rather than imported trademarked logos.
+
+Do not turn V1 into a full vector-logo editor or stadium builder.
+
+#### Location library — real football geography first
+The location picker should not be a generic list of capital cities. Offer major suburbs, regional centres and football towns that do not already have an AFL club representing that exact place. Prefer locations with an established state-league / second-tier football identity when one exists.
+
+Minimum curated coverage should include candidates such as:
+
+- **Victoria:** Port Melbourne, Williamstown, Werribee, Frankston, Sandringham, Coburg and other major VFL/VFA football centres not already represented by an AFL club.
+- **New South Wales:** Newcastle, Wollongong/Illawarra, North Shore and other major Sydney/NSW football centres without an AFL club of their own.
+- **Queensland:** Southport, Broadbeach, Sunshine Coast/Maroochydore, Cairns and other established QAFL/Queensland football centres outside the existing Brisbane Lions and Gold Coast Suns identities.
+- **South Australia:** Norwood, Glenelg, Sturt/Unley, Central District/Elizabeth, South Adelaide/Noarlunga and other established SANFL centres distinct from Adelaide and Port Adelaide.
+- **Western Australia:** Peel/Mandurah, Claremont, Subiaco, East Perth, West Perth/Joondalup, Swan Districts/Bassendean and other WAFL centres distinct from Fremantle and West Coast.
+- **Tasmania:** Launceston, North Hobart/Hobart-region heritage centres, Devonport and Burnie where appropriate, while respecting the scheduled statewide Tasmania AFL club.
+- **ACT:** if the optional Canberra AFL club is enabled, avoid presenting a second generic 'Canberra' identity; use genuine local football districts such as Ainslie, Belconnen, Gungahlin, Tuggeranong, Weston Creek or Eastlake/Kingston where appropriate.
+- **Northern Territory:** **Darwin** and **Alice Springs** are mandatory choices. Additional NT football centres may be added where venue/list support is strong.
+
+Examples above are a seed list, not a hard-coded final catalogue. Claude should build the library from researched competition/club data and keep it data-driven so more places can be added without rewriting the creator UI.
+
+Where an existing lower-league club provides useful authenticity (for example **Southport, Norwood, Peel, Williamstown, Werribee, Port Melbourne, Claremont**), use its location, football history, colours/pattern vocabulary and home venue as research input. **Do not ship protected club logos, exact trademarks or unlicensed branded assets merely because the real club informed the preset.** Existing club names/nicknames should only be shipped verbatim if the project is comfortable with the licensing/trademark position; otherwise use the place and football tradition as inspiration while keeping the user's club name editable.
+
+#### Home grounds — researched venue mapping
+Each location preset should propose a real Australian-rules football ground wherever a credible venue exists.
+
+Store a stable/common venue identity separately from a changeable sponsorship name where possible, so saves do not become wrong every time naming rights change.
+
+Research anchors already confirmed for implementation include:
+- **Norwood:** Norwood Oval / current Coopers Stadium.
+- **Peel/Mandurah:** Rushton Park / current Lane Group Stadium.
+- **Southport:** Fankhauser Reserve.
+- **Port Melbourne:** North Port Oval / current ETU Stadium.
+- **Williamstown:** Point Gellibrand Oval / current DSV Stadium.
+- **Werribee:** Chirnside Park / current Melbourne Avalon Airport Oval.
+- **Alice Springs:** Traeger Park (also presented as TIO Traeger Park in AFLNT material).
+- **Darwin:** TIO Stadium as the major venue, with AFLNT also using Gardens Oval, Nightcliff Oval and other genuine NTFL grounds.
+- **Canberra districts:** use researched local grounds such as Alan Ray Oval (Ainslie), Aranda Oval (Belconnen), Kingston Oval (Eastlake), Amaroo Oval (Gungahlin), Isabella Oval (Tuggeranong) and Stirling Oval (Weston Creek) where the selected district maps naturally.
+
+Do not invent a stadium where a real football oval exists. If a region has several plausible grounds, offer a small venue choice rather than pretending one is canonical.
+
+#### Guernsey creator — state-league depth
+Expand the procedural guernsey system using researched VFL/VFA, SANFL, WAFL, QAFL, NTFL and Tasmanian football design language rather than only AFL templates.
+
+The point is **more construction vocabulary**, not copying protected artwork. Research traditional/home strips and encode reusable primitives such as:
+- plain body + trim,
+- vertical stripes of configurable count/width,
+- hoops,
+- sash / reverse sash,
+- yoke,
+- chest band,
+- V / chevron and stacked chevrons,
+- side panels,
+- shoulder panels,
+- central panel / contrasting back,
+- split / half-and-half body,
+- monogram/letter-zone placeholder where legally safe,
+- contrasting cuffs/collar,
+- sock hoops/bands,
+- independent shorts colour,
+- optional heritage-style narrow stripes or broad bars.
+
+Use real second-tier clubs as pattern references. Confirmed research examples include:
+- **Norwood:** traditional navy guernsey with red trim and red socks; the club itself documents those colours.
+- **Peel Thunder:** teal and navy are the club's documented colours.
+- **Williamstown:** royal blue and gold.
+- **Werribee:** black and gold.
+- **Port Melbourne:** long-standing red/blue identity; North Port Oval is its home.
+- **Claremont:** navy and old gold.
+- SANFL/VFL/WAFL clubs collectively provide strong references for stripes, hoops, sashes, yokes, bands, chevrons and contrasting trim; Claude should complete a sourced pattern audit before implementing new primitives.
+
+First Nations and commemorative guernseys are useful **research for how clubs layer story and geometry**, but their artwork must not be copied into a generic creator. Indigenous artwork is culturally specific, artist-owned work: do not turn it into a selectable decorative pattern unless an original/licensed design is created for the game.
+
+#### Data model
+Keep the creator data-driven:
+- location id,
+- display place,
+- state/territory,
+- optional football-region label,
+- canonical ground name,
+- current/sponsor ground alias where useful,
+- latitude/longitude only if later venue/weather systems need them,
+- researched colour/pattern inspiration tags,
+- optional lower-league heritage reference kept as internal/source metadata rather than necessarily player-facing branding.
+
+This library should be reusable by create-a-club, venue presentation, weather/ground dimensions and future generated-club features.
+
+The created club:
+- is an **additional competition member**, never a reskin/replacement of an existing club;
+- participates in the same salary cap, list size, contracts, draft, trades, free agency, coaching, injuries, suspensions, development and AI rules;
+- gets an expansion-list establishment package comparable in opportunity to the other expansion clubs, with balance measured rather than guaranteed dominance;
+- stores its identity and colours in save data so every ladder, fixture, match, report, guernsey, history and long-career record uses the created identity consistently;
+- remains valid after reload and across decades of history.
+
+### Create a player
+Move/route ARD-M7-008 through Club Forge so character creation and club creation share one bespoke creative destination.
+
+The player creator should expose identity/aesthetic and football-profile choices without exposing exact OVR/POT. Its hidden one-time POT roll, usable-role-player floor and rare S-tier outcome remain owned by ARD-M7-008.
+
+Appearance customisation should include:
+- **Hair style** from a much larger library,
+- **Bald** as a proper explicit hair option rather than a missing-texture/default state,
+- **Hair colour**,
+- **Facial hair** from a dedicated beard/moustache library,
+- **Facial-hair colour**, independently selectable,
+- **Skin tone**,
+- **Freckles None / Light / Heavy**,
+- **Scars None / Light / Moderate**, kept subtle and believable,
+- **Boots** with a compact set of silhouettes and colour treatments,
+- **Tall socks / Short socks**,
+- **Headband On / Off**,
+- **Bandaging None / Light / Heavy**,
+- **Tattoos None / Light / Heavy**.
+
+Persist these on the player and use them consistently anywhere visible: creator preview, match figures, vignettes and future portrait/full-body presentation.
+
+These are cosmetic only. They should also be available to generated-player appearance variation where practical so the league does not look uniform. Hair and facial-hair colour may differ occasionally for generated players within a believable natural range.
+
+### Hair / facial-hair library
+Expand beyond a token set of cuts. The target should include enough silhouettes that players are recognisable at a glance even at vignette scale.
+
+Hair should cover a useful range such as:
+- bald / shaved,
+- very short buzz,
+- short crop,
+- crew cut,
+- side part,
+- textured short,
+- messy medium,
+- longer swept-back,
+- mullet variants,
+- curly/coily short,
+- curly/coily medium,
+- afro-style volume where supported by the art pipeline,
+- long hair / tied-back variants where supported.
+
+Facial hair should be independently selectable where the face/figure resolution supports it:
+- clean shaven,
+- light stubble,
+- heavy stubble,
+- moustache,
+- short beard,
+- full beard,
+- goatee / chin beard,
+- beard + moustache combinations.
+
+Do not tie beard availability to hairstyle. Hair colour and facial-hair colour should usually harmonise but do not need to be identical in every generated case.
+
+### Appearance variation guardrails
+- Headbands should sit naturally with the hairstyle/figure rather than float as an overlay.
+- Hair/headband combinations need compatibility rules so bald/shaved and bulky styles do not clip.
+- Beards/moustaches must not obscure player numbers, guernsey details or facial readability in close-up vignettes.
+- Bandages should use believable football placements such as shoulder/upper arm, wrist/forearm, thigh/knee or lower leg; avoid covering every limb at once unless a deliberately rare heavy preset is selected.
+- Tattoos should be **original generic designs**. Do not copy a real player's identifiable tattoo layout, Indigenous artwork, gang symbols, extremist imagery, copyrighted characters/logos or other protected/sensitive designs.
+- Use multiple tattoo placements/pattern families so "tattoos on" does not make every player look identical.
+- Appearance traits should remain visually legible at vignette scale without becoming noisy or overpowering the guernsey.
+
+
+### Dominant foot, number and nickname
+**Dominant foot** is the one creator choice here that can have modest football meaning.
+
+- Left/right foot should influence preferred kicking side, body orientation and appropriate vignette/animation facing where the presentation supports it.
+- It may slightly influence which side a player naturally opens the ground from, but must **not** become a hidden global accuracy bonus or make one foot objectively better.
+- Weak-foot use should remain possible; do not hard-lock players from ordinary AFL actions.
+- AI/generated players should also have a dominant foot so the system is not a user-only gimmick.
+
+**Preferred guernsey number**:
+- allow the user to nominate a number for the custom player,
+- if unavailable at the club that drafts/signs him, resolve the conflict transparently using the club's normal numbering rules,
+- preserve the preference so the player can receive it later if it becomes available where practical,
+- never duplicate active squad numbers.
+
+**Nickname / commentary short name**:
+- optional field for a custom player,
+- useful for long surnames or personal flavour,
+- may appear in commentary/vignettes where natural,
+- must not replace the legal/display surname in records, awards, history or contracts,
+- generated players do not require nicknames by default.
+
+
+
+### 21-club fixture support
+A created club may take the competition to **21 clubs**.
+
+- The fixture generator must support odd club counts cleanly.
+- Every club must receive an equal number of home-and-away matches.
+- Use a fair rotating bye structure; do not give the custom/user club a scheduling advantage.
+- Expanding the calendar beyond the current fixture length is allowed if required to keep equal games, sensible opponent coverage and clean bye rotation.
+- Revisit finals qualification and wildcard presentation only if the larger league makes the existing structure materially unfair; do not automatically add more finals teams just because the league grew.
+- Validate season rollover, draft order, ladder percentages/points, awards, contracts, fatigue and long-save performance with 19, 20 and 21 clubs.
+
+### UX guardrails
+- Main menu remains clean: Club Forge is one deliberate destination, not several creator buttons.
+- New Career should summarise expansion choices without number-vomit.
+- Creation must work comfortably in narrow portrait layouts.
+- Colour/guernsey controls should be tap-friendly; avoid dropdown-heavy forms.
+- Show enough preview to understand the club/player being created without telling the user the optimal football build.
+
+### Tests
+- Canberra off: career remains valid with Tasmania and no ghost Canberra data.
+- Canberra on: expansion preparation, entry, draft assets and fixtures survive save/reload.
+- Players reaching 2028/2030 have naturally evolved ages, histories and list states rather than frozen-start data with adjusted labels.
+- Retirement/delisting/list-turnover handling does not resurrect players or corrupt career history.
+- Created club is unique, persists through reload and uses its identity everywhere.
+- 19-, 20- and 21-club fixtures give every club equal games and fair byes.
+- Custom club obeys the same cap/list/contract/trade/draft/coaching rules as AI clubs.
+- Long-run simulation reaches multiple post-expansion seasons without fixture, draft-order, history or save corruption.
+
+---
+
+## ARD-M7-010 — Sir Doug Nicholls Round & Indigenous guernsey library
+**Status:** `TODO`  
+**Priority:** `P2`  
+**Autonomy:** `SUPERVISED`
+
+### Intent
+Make Sir Doug Nicholls Round a genuine annual competition event, not a cosmetic text label. The round should celebrate Aboriginal and Torres Strait Islander football culture through researched club-specific presentation, special guernseys and matchday visuals while treating the artwork, artists and cultural stories with care.
+
+The implementation should reflect the real AFL model: all clubs wear specifically designed Indigenous guernseys for Sir Doug Nicholls Round, with the real competition treating those guernseys as storytelling pieces created in collaboration with Aboriginal and Torres Strait Islander artists. Since 2014, all AFL clubs have worn dedicated designs for the round; recent editions run across two rounds.
+
+### Extensive research requirement
+Before implementation, Claude must perform a **club-by-club historical design audit** covering, where source material is available, every AFL Sir Doug Nicholls / Indigenous Round guernsey from **2014 onward**, plus selected AFLW, VFL/VFLW, SANFL, WAFL, QAFL, NTFL and Tasmanian examples where they materially expand the design vocabulary.
+
+For each researched design, record:
+- club and season,
+- artist/designer name,
+- artist's Nation/community where publicly stated,
+- whether a current/former player or family member was involved,
+- the story/theme explicitly published by the club/AFL,
+- base club colours retained or changed,
+- major layout structure,
+- reusable geometric/presentation ideas,
+- which elements are culturally specific and **must not be copied**,
+- source URL / provenance.
+
+Start from official AFL/club sources wherever possible. The AFL's Sir Doug Nicholls Round guernsey galleries, annual all-club roundups and club reveal articles are preferred over fan recreations or merchandise photos without story/provenance.
+
+### Cultural and IP guardrails
+Treat the research primarily as **visual-style and design-language study**, not as a source of specific artwork or stories to reproduce.
+
+Claude should learn from the broad visual vocabulary across many Indigenous guernseys — composition, flow, layering, connected forms, asymmetry, curved and concentric geometry, integration with club colours, and the way traditional football structures such as sashes, hoops, panels and yokes are reinterpreted — then create **new original designs** from that learned design language.
+
+- Do not copy, trace or closely reconstruct any real artist's guernsey artwork.
+- Do not lift a specific club design and merely recolour or rearrange it.
+- Do not reuse Dreaming stories, clan-specific symbols, sacred/culturally restricted imagery or an artist's distinctive composition.
+- Do not invent cultural narratives, Nations, symbolism or "meaning" for the game's fictional designs. **The designs do not need lore attached to them.**
+- Preserve artist/source attribution in the research record so Claude knows what it studied, even though the shipped design should be original.
+- If the project ever ships an exact real-world Sir Doug Nicholls guernsey, obtain the necessary club/artist rights first.
+- The default game should use **original, club-specific fictional Indigenous-round guernseys** informed by the broad art style and football-design traditions found in the research, without pretending those designs represent a real community, artist or story.
+- Prefer a future collaboration/commission with Aboriginal and Torres Strait Islander artists for a final commercial art pass if practical, but this is not required for prototyping the original in-game style.
+
+### Per-club design depth
+Target **5–10 unique Indigenous-round guernseys per club** over time.
+
+For the existing AFL clubs:
+- each club gets a rotating library rather than one permanent special strip;
+- designs should still read immediately as that club through colour hierarchy, silhouette and recurring club identity;
+- avoid simply recolouring the normal home guernsey with dots;
+- vary composition meaningfully: pathway/connection structures, meeting-place geometry, river/land-flow layouts, animal/totem-inspired *abstract* structure only where a fictional/original treatment is culturally safe, layered bands, mapped-country-style flow, concentric community structures, side panels, yokes, sashes, hoops/stripes transformed into connected organic systems, etc.;
+- no design should claim a real cultural story unless it is licensed from the people who own that story.
+
+Tasmania and optional Canberra should also receive their own researched/original pools once they enter the competition.
+
+For a user-created club:
+- provide a small pool of **original fictional Indigenous-round templates** using the same culturally safe design system;
+- the user may choose colours and broad composition but should not be asked to invent an Aboriginal story, Nation or sacred symbolism;
+- the custom-club design must not borrow exact artwork from an existing real club.
+
+### Seasonal rotation
+- Assign each club one Indigenous-round guernsey from its library for that season.
+- Rotate with enough memory that the same design does not appear every year.
+- Historical/recent designs may be weighted toward club identity, but no one pattern should dominate indefinitely.
+- Store the selected season design in the save so reloading cannot change it.
+- Long careers should cycle through the library naturally; once exhausted, reuse after a sensible gap unless new designs have been added.
+
+### Sir Doug Nicholls Round scheduling
+Implement a designated **Sir Doug Nicholls Round window** in the fixture, modelled on the modern AFL's two-round celebration.
+
+Core rule:
+- each club wears its Indigenous-round guernsey for its designated Sir Doug Nicholls match;
+- if a club has a **bye in the designated round**, that club wears its special guernsey in **its following match/round instead**;
+- in that catch-up match, the opponent **does not** automatically wear its Indigenous-round guernsey unless that opponent also missed its own designated match because of a bye;
+- therefore the guernsey state is tracked **per club**, not as a global "everyone this round" renderer switch;
+- a club wears the season's special guernsey exactly once for its designated/catch-up appearance unless a future explicit rule says otherwise.
+
+With odd-club competitions (19 or 21 clubs), the bye/catch-up logic is mandatory and must remain deterministic.
+
+### Match and vignette presentation
+For the club's actual Sir Doug Nicholls appearance:
+- all match vignettes, pre-match figures, close-ups and other player-facing kit renderers must use that club's selected Indigenous-round guernsey;
+- the normal home/away/clash readability rules still apply;
+- if both clubs are wearing special guernseys, resolve contrast using dedicated Indigenous home/clash variants where available or a restrained alternate treatment;
+- after that club's Sir Doug Nicholls appearance, immediately return to normal season guernseys for later matches.
+
+The vignette system must read the **actual match kit assignment**, not independently guess from the calendar. This prevents a player from appearing in the special strip in a normal match or vice versa.
+
+### Round presentation
+Keep presentation meaningful but not exploitative:
+- clearly label Sir Doug Nicholls Round in fixture/match presentation;
+- provide concise, factual educational context about Sir Doug Nicholls and the round;
+- where a design is an original fictional game design, say so rather than attaching a fabricated artist/story;
+- where licensed real artwork is ever added, display the artist/story attribution prominently and accurately;
+- avoid gamified rewards, stat buffs or arbitrary morale bonuses for the round.
+
+Optional later presentation may include special ball/umpire visual treatment if it can be implemented from licensed/original artwork and does not distract from the core guernsey work.
+
+### Data / implementation shape
+Create a data-driven guernsey catalogue rather than hard-coded season checks.
+
+Suggested fields:
+- design id,
+- club code,
+- variant type (home / clash / alternate),
+- colour mapping,
+- procedural pattern primitives / texture reference,
+- source/inspiration metadata,
+- real-vs-original flag,
+- artist attribution where applicable,
+- season eligibility,
+- copyright/licensing state,
+- cultural-review state.
+
+The normal match-kit resolver should receive the seasonal Sir Doug Nicholls assignment and choose the correct visual variant.
+
+### Acceptance
+- every active club has at least five distinct Indigenous-round designs available before the feature is marked complete; target 5–10 each,
+- every design has provenance/research notes and no unlicensed artwork is shipped accidentally,
+- the same club remains visually recognisable across its different special guernseys,
+- the special kit is visible in the actual match/vignette presentation and nowhere else,
+- bye clubs correctly defer their special kit to their next match without forcing the opponent into one,
+- 19-, 20- and 21-club fixtures all handle the rule,
+- save/reload preserves the year's design choice and whether the club has already worn it,
+- long careers rotate designs instead of showing the same one annually.
+
+### Validation
+Test:
+- normal two-club Sir Doug Nicholls match,
+- one club coming off a bye,
+- both clubs coming off byes,
+- a club with no bye,
+- 19/20/21-club seasons,
+- home/away/clash contrast,
+- watched match and simulated match,
+- every vignette/figure renderer,
+- save before round → reload → play,
+- save after one club has worn its strip but before another bye club's catch-up,
+- multiple seasons of rotation with no accidental annual reroll.
+
+Phone-review at narrow Android widths and visually inspect a representative sample from every club before marking complete.
+
+---
+
+## ARD-M7-011 — AFL knowledge layer: fun facts, records & player stories
+**Status:** `TODO`  
+**Priority:** `P3`  
+**Autonomy:** `SUPERVISED`
+
+### Intent
+Investigate low-friction places where the game can teach the player about Australian football history, quirks, records and notable real-player achievements **without turning the UI into trivia spam or a textbook**.
+
+This is deliberately speculative. Claude should first audit the current game flow and propose the smallest set of placements that feel natural, then implement only if the additions clearly improve flavour/understanding without slowing play.
+
+### Research scope
+Build a sourced pool of short factual material covering:
+- AFL/VFL records and historical milestones,
+- unusual rules/history of the competition,
+- famous finals/Grand Finals and landmark matches,
+- club records and long-standing rivalries,
+- notable draft/trade/free-agency stories where the facts are stable and appropriate,
+- real-player career achievements for players already present in the game's data,
+- positional/statistical curiosities that help explain football concepts,
+- venue/history facts tied to grounds already used in-game,
+- Sir Doug Nicholls Round / Indigenous football history where appropriate and carefully sourced,
+- expansion/history context relevant to Tasmania and other future league changes.
+
+Prefer official AFL, club, Hall of Fame, state-league and other high-quality historical sources.
+
+### Candidate surfaces to investigate
+Claude should inspect the current UX and recommend where these can appear **organically**.
+
+**Primary candidate: the existing news feed.** Enrich normal football stories with historical/statistical context only when the current save creates a reason to mention it.
+
+Secondary possibilities:
+- season review,
+- player profiles,
+- career-history / records pages,
+- fixture/marquee-round presentation,
+- venue presentation,
+- achievement unlocks,
+- rare post-match cards when a current player matches or breaks a historical mark,
+- onboarding/help moments where a fact directly explains a real AFL concept.
+
+Loading screens, halftime and other dead-time trivia are lower priority because they are more likely to feel bolted on.
+
+Do **not** add a permanent scrolling trivia feed, encyclopaedia dump or disconnected "fun fact" carousel merely to expose the research.
+
+### Real-player stories
+For real AFL players already represented in the game, allow concise factual callouts such as:
+- debut / games / goals milestones,
+- premierships,
+- Brownlows / Colemans / All-Australians / club awards,
+- notable draft origin or club history,
+- famous records or one-off achievements,
+- unusual career paths.
+
+Rules:
+- keep these factual and sourced;
+- avoid speculative personality claims, private-life gossip or sensationalism;
+- do not fabricate quotes;
+- do not overstate disputed stories;
+- where a fact can date quickly, store the source/date and avoid presenting stale copy as timeless truth.
+
+### Dynamic use
+The strongest version of this feature should connect facts to what the player is already doing **through existing game surfaces**, especially the news feed, rather than creating a separate trivia destination.
+
+Preferred pattern: turn historical/statistical context into an actual piece of football news generated by the save.
+
+Examples:
+- **"Essendon has won its first final in X days."** when the save genuinely ends a finals drought;
+- a player reaches 300 games → the news item notes the milestone and relevant historical context;
+- a forward kicks 10 → the match/news recap notes how rare the feat is or where it sits against known records;
+- a club ends a long premiership drought → the premiership story states the exact drought length;
+- a team records its biggest win / highest score / lowest score in decades → report it as part of the result story;
+- a match is at a historically notable ground → use one concise venue fact only when that venue is already being discussed;
+- a current real player reaches an achievement already known in the database → surface it naturally in profile/history/news;
+- a created/custom player breaks a real competition record → the news feed can frame it against the previous historical benchmark.
+
+The **news feed should be the primary candidate surface** because it already exists to explain what happened in the football world. Historical facts should make those stories richer, not behave like detached Wikipedia snippets.
+
+This should make the save feel connected to AFL history while preserving the fiction that the player is reading the living football world around their career.
+
+### Achievements
+Investigate whether some facts should be attached to achievements/trophies.
+
+Examples:
+- win a premiership with a club after an historically long drought,
+- break a famous individual season/career record,
+- coach a player past a major games/goals milestone,
+- complete unusual but authentic football feats.
+
+Achievements should celebrate play, not become the only place historical context exists.
+
+### Presentation guardrails
+- **One useful fact at a time.**
+- Prefer 1–2 concise sentences.
+- No number-vomit.
+- No repeated fact every week.
+- Track seen/recently-shown IDs so repetition is controlled.
+- Facts should never delay a critical interaction.
+- Player can dismiss/skip immediately.
+- Avoid "Did you know?" copy everywhere; write in natural football language.
+- Do not tell the player the optimal move.
+- Keep Australian spelling/terminology.
+
+### Data / provenance
+Use a data-driven fact library with fields such as:
+- fact id,
+- category,
+- relevant club/player/venue/rule/era tags,
+- text,
+- source,
+- source date,
+- confidence/verification state,
+- eligible surfaces,
+- trigger conditions,
+- repeat cooldown,
+- historical/current flag.
+
+Facts about real players should key to stable player IDs rather than names alone.
+
+### Veracity standard — footyhead-proof or don't ship it
+Claude must be **certain of the factual accuracy** of any real-world historical/statistical claim before it appears in-game.
+
+A knowledgeable AFL supporter will notice a wrong finals drought, record, milestone, venue fact, draft fact or player achievement immediately, and one bad claim damages trust in the whole system.
+
+Rules:
+- Prefer primary/authoritative sources: AFL, official club history, Australian Football Hall of Fame, state-league bodies, official venue/history records.
+- Where a claim is non-trivial, disputed, depends on VFL/AFL continuity, or could be interpreted multiple ways, verify it against **at least two strong independent sources** before shipping.
+- Record the exact basis of ambiguous counts such as "days since", "first since", "longest drought", "AFL era" versus VFL/AFL history, home-and-away versus finals, and club relocations/renames.
+- Do not round, simplify or rewrite a statistic in a way that changes its meaning.
+- If reliable sources disagree, do not guess. Either omit the fact, qualify it clearly, or leave it out of the player-facing game.
+- Time-sensitive facts must be sourced to a clear cutoff date and should not be treated as timeless if later real-world results could make them stale.
+- Dynamic claims generated from the save should be calculated from stored game history where possible, with real-world history used only as the baseline.
+- Every shipped fact should have enough provenance that Claude or a future maintainer can audit why the game believes it is true.
+
+The quality bar is: **if a true footyhead checks it, the fact should hold up.**
+
+### Acceptance
+This item only earns implementation if Claude's audit identifies placements that:
+- do not slow the weekly loop,
+- add genuine AFL flavour or understanding,
+- remain readable on phone,
+- avoid repeated trivia spam,
+- connect naturally to the player's current match/career state.
+
+### Validation
+Prototype a small sourced set first (for example 30–50 facts across players, clubs, venues and records) and test:
+- repeat suppression,
+- relevance of triggered facts,
+- phone readability,
+- save/load seen-state,
+- current-player ID mapping,
+- no stale/incorrect facts after season progression,
+- no interference with match/draft input.
+
+If the prototype feels bolted-on, leave the system deferred rather than forcing it into the game.
 
 ---
 
@@ -3773,6 +4389,18 @@ On the director's direction, the drawn stick figures became pre-rendered 2.5D fo
 - **Appearance:** each figure wears its player's skin tone and hair colour (`GameDB.player_looks`); see the "Vignette player representation / appearance bug" item for how the data is curated.
 - **Guernsey designs:** each club's home kit is a row in `data/clubs.csv` ("guernsey": `<design>:<base>/<pattern>/<pattern 2>[/<shorts>]`, each colour p, s or a - the club's primary, secondary or accent - or a written-out `#RRGGBB`; e.g. Richmond `sash:s/p/a`, Port Adelaide `chevron:s/#FFFFFF/p`). Designs: plain, stripes, hoops, sash, yoke, band, chevrons, panels, chevron, sides, tiers, shoulders, map. The shader draws the design from where each pixel sits on the guernsey; socks take the base colour with a band in the pattern colour; back numbers are edged in the base colour so they read across stripes. Shorts left out are the secondary colour, a shade darker. Club emblems on the guernsey (the GWS "G", the Eagles' eagle) are not drawn. `tools/visual/capture_guernseys.gd` shows every club, front and back (`--scale`, `--clubs`). Brisbane, Gold Coast, GWS, Port Adelaide and West Coast follow the director's reference images; Tasmania wears its 2024 foundation guernsey (`map:p/s/a/p`: myrtle green, the primrose map of Tasmania on the chest with a rose-red T, green shorts); Canberra (an expansion club) has none. Every club's shorts are set, from its home kit: navy for Adelaide, Carlton, Geelong and Melbourne; black for Collingwood, Essendon, Port Adelaide, Richmond and St Kilda; maroon for Brisbane, red for Gold Coast and Sydney, purple for Fremantle, charcoal for GWS, brown for Hawthorn, blue for North Melbourne, West Coast and the Bulldogs, green for Tasmania; Canberra in its navy.
 - **Tests:** `_bounce_close_up` checks the figures wear both clubs' colours and the sheet holds every move the scene plays.
+
+### Complete vignette art-style replacement — director requirement, 2026-10-05
+
+**Status:** `TODO` — required migration; the centre-bounce and pre-match conversion does not complete this work.
+
+**Direction:** entirely replace the old vignette art style with the new pre-rendered 2.5D footballer style described above. This applies to every existing vignette and cinematic sequence, including tactical/match moments, broadcast sequences, pre-match scenes and awards/medal walk-ons. No old stick-figure or silhouette-style vignette may remain in the player-facing game.
+
+**Scope:** inventory every vignette renderer, scene, animation and fallback that still uses the old style. Migrate all of them to the shared new figure assets and rendering approach, extending poses or animations where a sequence needs them. Preserve each scene's purpose, pacing, authoritative participants, club guernseys, player numbers and appearance data. Replace the awards ceremony's legacy BroadcastVignette silhouette figures as part of this work. Retire obsolete rendering paths and unused assets once their replacements are verified.
+
+**Acceptance:** the inventory accounts for every existing vignette/sequence and each entry has been migrated and visually checked; no reachable scene or fallback displays the old art style. All scenes consistently use the new style, including awards and less frequent match moments. This is replacement of existing presentation, not approval to expand the vignette library.
+
+**Validation:** deliberately reach or capture every sequence and relevant fallback, compare phone-sized stills and motion, and check transitions, club colours, player appearance and pose coverage. Verify phone performance, skip/touch/Back behaviour and unchanged football outcomes. Obtain director visual review before marking the migration complete; record any untested sequence as outstanding.
 
 ### Acceptance test
 The feature earns further work only if a phone playtest shows that the player can explain **why the decision is being asked**, form a reasonable expectation before choosing, and finds the moment materially more engaging than the normal presentation.
@@ -4211,7 +4839,7 @@ Guardrails: this is **not tied to super drafts**; do not guarantee the GOAT is o
 - **Season fatigue parity audit — VERIFY.** User squad appeared consistently more tired than opposition. Verify AI clubs accumulate and recover fatigue through the season under the same rules and constraints as the user; no hidden fatigue protection. **Status (2026-10-05):** audited in PR #213 (`docs/PLAYTEST_AUDIT_2026-10-05.md`): no parity defect. Every club runs the same Workload/MatchSim rules; the only differences are user-chosen levers (high-performance budget, Heavy/Recovery weeks, a fixed manual side, rotation policy). On default settings the user's match-day load was lower than the AI's (4.4–8.4 vs ~10). Nobody reached "Needs a break", so season workload barely bites, which is relevant to the difficulty finding.
 - **Generated-player provenance / age sanity — VERIFY.** A fictional Joshua Robinson appeared age 28 only ~2–3 seasons into the save with 89 POT. Audit all non-draft/list-fill/emergency generation paths, initial ages, club assignment, age × potential logic and career-history provenance. Fictional players should have believable entry history; do not silently spawn implausible veteran high-potential players. **Status (2026-10-05):** fixed in merged PR #213. Only expansion lists create older fictional players, and they were projected like draftees with a draft-rank ceiling (27–30-year-olds got +17–20 POT headroom vs +6.6 for real players; e.g. age 29, OVR 69, POT 91). Past 21 a projected player now gets the age-based ceiling real players use (+1.4–1.8 at 27–30); draft classes are unchanged. Entry history is left as is, since it only shows on draft screens.
 - **Training role/classification sanity — VERIFY.** A small defender appeared as a Key Defender after KPD training. Determine whether the underlying role/eligibility actually changed or only the display heuristic changed. Training may improve relevant skills but must not mechanically convert physically unsuitable players into key-position archetypes; audit equivalent role-label transformations. **Status (2026-10-05):** audited and fixed in merged PR #214. Across 1,292 training runs no player changed position and none under the height gates became a key-position type; the label the playtest saw was the training plan shown bare under the name. The Training list now reads "Training as a key defender". Open design question: whether the Key defender plan should be offered to sub-191 cm defenders.
-- **Goal-line scramble vignette — KNOWN BUG / football sanity.** The current “scramble at the goal line” sequence reads as nonsense. Rework the event/presentation so the underlying football sequence is plausible rather than preserving the vignette for its own sake.
+- **Goal-line scramble vignette — VERIFY (fix in PR; phone follow-up).** The current “scramble at the goal line” sequence reads as nonsense. Rework the event/presentation so the underlying football sequence is plausible rather than preserving the vignette for its own sake. **Status (2026-10-05):** fixed in PR #229, pending merge. Cause: the scene was chosen by where the ball ended up, and every score ends at the goals, so any open-play goal with players near the goal square (a 23 m snap, say) was shown as a scramble on the line. It now plays only for the sim's own crumb (a spoil spills to the ground and a small forward snaps it off the deck), goal or behind, and the scene shows that: the contest in front of goal, the spill, the gather and snap, and the ball through the goal posts or between goal and behind post. No change to match outcomes or RNG.
 - **Key-matchup copy/data binding — VERIFY (repair merged; phone follow-up).** Observed repeated anonymous text such as “on him”, dangling colons and matchup rows that omit the opponent. Every assignment must clearly identify who is on whom with natural football copy. **Status (2026-10-05):** fixed in merged PR #210; native phone follow-up remains. Every match-up line names both players ("Moore is on Curnow."; cards say "Put Moore on Curnow"); a missing defender reads "Nobody is on Curnow." rather than a gap; id-only name lookups fall back to the current lists so a career-only player is never blank.
 
 ## P1 / difficulty, list building and meaningful management
@@ -4230,7 +4858,7 @@ Guardrails: this is **not tied to super drafts**; do not guarantee the GOAT is o
 
 - **Gameplan choice still feels like a crapshoot — TODO.** Improve decision information and consequence legibility so the player can form a reasonable tactical hypothesis without being told the best move.
 - **Quarter-break opponent-plan reveal — VERIFY (repair merged; phone follow-up).** The break does not consistently reveal the opponent plan used in the quarter that just finished. Make the intended retrospective information reliable. **Status (2026-10-05):** fixed in merged PR #210; native phone follow-up remains. Cause: MatchSim recorded each quarter's plans before the AI chose its plan, so the break showed the previous quarter's plan. The record is now taken after the AI chooses (no RNG or outcome change), and the break always states the plan, including a balanced game.
-- **“X is hurting you” must connect to a lever — TODO.** Quarter-break coaching feedback can identify a dangerous opponent when no meaningful response is available. Either surface an appropriate matchup/tag/structural response or do not frame the observation as actionable advice.
+- **“X is hurting you” must connect to a lever — VERIFY (fix in PR; phone follow-up).** Quarter-break coaching feedback can identify a dangerous opponent when no meaningful response is available. Either surface an appropriate matchup/tag/structural response or do not frame the observation as actionable advice. **Status (2026-10-05):** fixed in PR #230, pending merge. The break says "X is hurting you" only when a call reaches him, and names it: the defender on a key forward ("Moore is on him."), your tagger ("with Sinclair tagging him"), or "He can be tagged." for a midfielder you could tag with a midfielder of yours on the ground. Anyone no call reaches reads as a fact: "X was their best this quarter: 11 disposals." No advice and no best call.
 - **“How we get beaten” not learning — VERIFY.** It can still say “Nothing stands out yet” halfway through a season. Audit accumulation, sample requirements and thresholds. By mid-season it should normally identify genuine recurring patterns when evidence exists, but must not invent a trend merely to fill the panel. **Status (2026-10-05):** audited and fixed in merged PR #214. On drafted leagues weak sides are named most of the time; a dominant side usually has no material weakness. The empty read now says so after 10 games instead of "Nothing stands out yet". Thresholds unchanged. Director decision (2026-10-05): the points-from/conceded-on-turnover lines are removed, since a 6-point floor against a 1.5–2 point club spread meant they almost never fired.
 - **Weekly selection brief — TODO.** Before selection, surface only a short set of genuine pressures such as “X is pushing for selection”, “X needs a rest”, sustained poor senior form, or a player returning from injury/suspension. Make each item actionable into the relevant change/replacement flow. This is decision support, not an assistant that picks the team.
 - **Streamline Ins & Outs — TODO.** Selection should naturally support OUT → IN changes with a small set of suitable eligible replacements, while retaining a path to the full list. Do not declare a “best” replacement.
@@ -4251,6 +4879,7 @@ Guardrails: this is **not tied to super drafts**; do not guarantee the GOAT is o
 ## 2026-10-05 difficulty evidence and director decisions
 
 - **Difficulty / List Profile / extreme margins / early extensions — evidence, not tuned** (merged PR #217, [difficulty report](DIFFICULTY_EVIDENCE_2026-10-05.md)). Seven five-season autopilot careers (8,281 matches): no policy (AI-style draft, greedy draft, greedy plus accepting every extension) produced a dynasty, with no premierships in 35 seasons. Unmanaged lists start #1 and fall to rank 16–20 by year five through the off-season, while in-season development matches the AI. Your one structural edge is League Draft information (exact board vs AI evaluation error, documented as intended). List Profile words are league ranks, so four Elite words mean genuine dominance, not loose bands. Margins: 100+ in 0.5% of matches, none 150+. Extension cards: about 1.7 a season, and accepting them did not slow the decline. **Working hypothesis, not established causation:** investigate levers the harness does not pull: live-match calls, trades and free agency, and the year-one draft edge. **Director decisions (2026-10-05):** the unmanaged collapse is about right, so leave it and make active play less dominant instead; measure next: live-match call uplift (paired seeds), trade-market exploitability and free-agency advantage. These measurements are in open PR #223 at this checkpoint; #224 addresses unproven-potential valuation. Reconcile their actual heads/results before changing the same systems.
+- **Active-play levers — evidence, not tuned** (`docs/LEVERS_EVIDENCE_2026-10-05.md`, PR #223). Live-match calls are worth about +3 points of win rate (counter-reading), and the 216-match Defensive press outlier (67.8% vs 61.1% Balanced) did not hold at 1,080 matches (62.2% vs 59.8%; reading the game 63.3%): it counters Attacking corridor and loses to a pressing AI, so it is not a dominant default. The trade market is exploitable: AI clubs give established stars for unproven teenagers (e.g. 83 OVR age 25 for two 67s aged 18) because `TradeValue.future_rating` treats 60% of a youngster's POT gap as certain. Free agency is not a lever (asking-price bids never lead; the pool is mostly 33+). **Director decisions (2026-10-05):** discount unproven potential in trade value by senior games played (done in PR #224, pending merge: prime-age stars no longer go for unproven kids; a rebuilder can still sell a 29-year-old star for two top kids). **Realised-value follow-up (2026-10-05, in #223):** over three eight-season trader careers the current projection matched the kids' realised peaks (−0.1 on average, n = 23) while #224's discount under-projected them (+1.4); traded stars declined and the trader collapsed to list rank 17–20 either way. Evidence does not support the discount: director to decide whether to close, soften or keep #224; rerun the calls test at about 1,000 matches before any Defensive press tuning (done: not dominant, no tuning recommended); next build after these: assistant contracts (merged #225).
 - **Director decision — League Draft board:** your board shows scouted estimates (as the National Draft already does via `DraftScouting`, sharper with recruiting budget) instead of exact consensus ratings, removing the free first-season edge while good drafting still pays. Done in merged PR #222; phone verification remains.
 - **Director decision — Opposition POT:** another club's player shows a POT *range* (draft-style scouting) that narrows with his time in the league and your recruiting budget; exact once he is on your list. Done in merged PR #222; phone verification remains.
 - **Director decision — Club colours:** Claude proposes corrected primary/secondary/accent for every club with sources and a swatch sheet; apply plus a palette snapshot test only after sign-off. **Done in PR #231, pending merge.** Signed off 2026-10-05: all proposed changes applied to `data/clubs.csv` except Carlton's and Melbourne's navies, which keep the game's lifted navy so they don't read as Collingwood and Essendon on the pitch. Biggest corrections: Brisbane's, North Melbourne's and the Bulldogs' royal blues (were navy) and Port Adelaide's teal (was too green). Sources: Team Color Codes' per-club Pantone references (a third-party summary, not club brand guides). Tasmania and Canberra unchanged. Palette snapshot test in the matchday suite.
@@ -4289,6 +4918,28 @@ Prefer improving the existing experience when that answers the same need. This p
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-05:** Tightened ARD-M7-011 with a footyhead-proof veracity standard: real AFL facts must be sourced and auditable, ambiguous/non-trivial claims should be cross-checked against multiple strong sources, and disputed or uncertain claims should be omitted rather than guessed.
+
+- **2026-10-05:** Refined ARD-M7-011 so historical facts/stats should primarily enrich the existing news feed and other natural football stories, e.g. “Essendon has won its first final in X days,” rather than appearing as detached Wikipedia-style trivia. Loading-screen/dead-time fact dumps are explicitly lower priority.
+
+- **2026-10-05:** Added speculative ARD-M7-011 for an AFL knowledge layer. Claude should investigate unobtrusive places to surface sourced fun facts, records, venue/competition history and factual achievements/stories of real AFL players already in the game, with dynamic context and strict anti-trivia-spam guardrails.
+
+- **2026-10-05:** Expanded Club Forge character creation with boots, independent hair/beard colours, skin tone, freckles, subtle scars, dominant foot, preferred guernsey number and an optional nickname/commentary short name. Dominant foot has modest football/presentation meaning; all other additions are cosmetic, and number conflicts must resolve through normal club numbering rules.
+
+- **2026-10-05:** Expanded Club Forge player appearance again: substantially more hairstyles including a proper Bald option, plus independent beard/moustache choices. Hair and facial-hair variation should also feed generated players, with compatibility rules for headbands and vignette-scale readability.
+
+- **2026-10-05:** Expanded player appearance variation in Club Forge: headbands, bandaging and tattoos now join Tall/Short socks as persistent cosmetic options. These can also seed generated-player visual variety; all are gameplay-neutral, with original/non-copied tattoo art and restrained football-appropriate bandage placement.
+
+- **2026-10-05:** Added Tall socks / Short socks as a cosmetic player-appearance variant. It is a toggle in Club Forge character creation, persists per player, appears in match/vignette rendering where visible, and may also be used for generated-player visual variation. No gameplay effect.
+
+- **2026-10-05:** Clarified ARD-M7-010 Indigenous guernsey direction: Claude should learn the broad visual language and art-style vocabulary from extensive real-world research, then create original club-specific designs. The game does not need to copy specific artworks or fabricate cultural narratives/meanings for fictional guernseys.
+
+- **2026-10-05:** Added ARD-M7-010 for a full Sir Doug Nicholls Round system: extensive official-source research of Indigenous guernsey history from 2014 onward, a 5–10 design rotating library per club, per-club bye/catch-up wearing logic, vignette integration, save-stable seasonal kit assignment, and strong cultural/IP safeguards against copying artist-owned or culturally specific artwork without permission.
+
+- **2026-10-05:** Expanded ARD-M7-009 Club Forge with a researched Australian football location/venue library and deeper procedural guernsey vocabulary. Create-a-club should offer major unrepresented suburbs/football centres nationwide, explicitly including Darwin and Alice Springs and preferring established second-tier football locations such as Southport, Norwood and Peel. Added real-ground mapping, stable venue names separate from sponsor aliases, lower-league design research requirements, and licensing/cultural guardrails for club trademarks and First Nations artwork.
+
+- **2026-10-05:** Added ARD-M7-009 for expansion-club career setup: Tasmania 2028, optional Canberra 2030, real Tasmania-style premium draft concessions, a bespoke main-menu Club Forge for create-a-club/create-a-player, support for a 21st custom club and fair odd-club fixtures. Clarified that all AFL players must reach expansion years through normal ageing/development/list turnover rather than frozen-roster age jumps. Updated ARD-M7-008 so a custom prospect has a one-time hidden POT roll with a usable role-player floor and a rare S-tier ceiling.
 
 - **2026-10-05:** Added independent genre enjoyment research covering eight cross-genre references plus Footy Redraft/AFCM, Crusader Kings and Esoteric Ebb, including the director's replayability/trust/storytelling and short-question preferences. Refined existing tactical, role, development, market, history and QA owners with dependencies, exclusions, observable outcomes and validation. Added accepted ARD-M5-016 (inherited end-2026 lists → 2026 National Draft → 2027), separate from review-only ARD-RC-001–005. Reconciled merged #210/#213/#214/#217/#220/#221/#222/#225 and open #206/#223/#224/#226 against main `4b9eecc3858e970c46e25366701907f1cb4c6070`; preserved phone and balance gates. Documentation only; no gameplay merge or Claude assignment.
 
@@ -4345,3 +4996,23 @@ Keep this short. Add only meaningful structural changes, not every code commit.
 - **2026-09-28:** Removed stale per-PR/phase approval gates. Claude now has standing authority to action ready roadmap work and merge clean validated PRs; supervised/balance labels are risk gates, not ceremonial user-approval gates.
 - **2026-09-28:** Converted roadmap from conversation-style backlog into a canonical execution roadmap with milestones, stable task IDs, dependency ordering, global guardrails, validation matrix, balance template, Claude task prompt and duplicate map.
 - **2026-09-28:** Consolidated repeated concepts including season momentum/team form, reports, opponent scouting, forward scoring, match-ups, history/records, simulation controls, AFL rules/restarters, rivalries, marquee games and secondary-position learning.
+
+
+# Stretch Goals
+
+## AFLW full implementation
+**Status:** `DEFERRED`  
+**Priority:** `P3`  
+**Autonomy:** `SUPERVISED`
+
+Long-term stretch goal: implement the AFLW as a fully playable competition, not a token side mode.
+
+Scope should eventually include:
+- full AFLW clubs, players, fixtures, ladder, finals, awards, records and history,
+- AFLW-specific list management, drafting, contracts, development and competition rules,
+- coaching, tactics, match simulation, presentation and long-save continuity,
+- club and league history that can develop independently over decades,
+- shared underlying systems with the AFL implementation where practical, without forcing AFL rules or data onto AFLW,
+- AFLW-specific research and validation for rules, competition structure, list sizes, season format, venues, uniforms and historical context.
+
+Guardrail: do not begin this until the core AFL game is stable and the shared systems are mature enough that AFLW can be implemented as a proper parallel competition rather than a shallow reskin.

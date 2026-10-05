@@ -101,6 +101,9 @@ func _ready() -> void:
 	_build()
 	_pitch.setup(_res)
 	_refresh_rings()
+	# Whose first AFL goal the feed can say, if it comes today (MatchNotes).
+	if _interactive:
+		_duel_mem["first_goal"] = GameState.first_goal_candidates()
 	_pitch.event_played.connect(_on_event)
 	_pitch.finished.connect(_on_finished)
 	_update_scoreboard({"q": 1, "min": 0, "score": [0, 0], "kind": "info"})
@@ -657,7 +660,7 @@ func _quarter_view(q: int) -> Control:
 	# three, their plan kept (it is what the next quarter's calls answer).
 	# Moments already played out in the feed are not replayed here; the
 	# ones that carry on are under "What your calls did".
-	var lines: Array = MatchNotes.quarter_facts(_res, _my_side, q)
+	var lines: Array = MatchNotes.quarter_facts(_res, _my_side, q, _break_answers())
 	var opp_last := _opp_last_plan()
 	if opp_last != "":
 		lines = lines.slice(0, MatchNotes.MAX_FACTS - 1)
@@ -670,6 +673,28 @@ func _quarter_view(q: int) -> Control:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
 	return v
+
+
+## What a call can do about each of their players now: the defender on a key
+## forward, your tag, or a midfielder you could tag (only with a midfielder
+## of yours on the ground to send). Facts for the break, never advice.
+func _break_answers() -> Dictionary:
+	var out := {}
+	var sim: MatchSim = GameState.pending_sim
+	if sim == null:
+		return out
+	var tagger = MatchSim.tagger_for((sim.squads[_my_side] as Squad).ground)
+	if tagger != null:
+		var tag_id := str((sim.tactics[_my_side] as Dictionary).get("tag_id", ""))
+		for r in _roster_side(1 - _my_side):
+			if not _taggable_now(sim, r):
+				continue
+			var id := str(r["id"])
+			out[id] = {"kind": "tagged", "who": GameDB.player_display_name(tagger)} if id == tag_id 					else {"kind": "tag"}
+	var theirs: Dictionary = sim.duels[_my_side]
+	for fid in theirs:
+		out[str(fid)] = {"kind": "matchup", "who": MatchNotes._pname(str(theirs[fid]))}
+	return out
 
 
 func _synergy_line() -> String:
@@ -1609,6 +1634,19 @@ func _ft_summary(v: VBoxContainer) -> void:
 				var nl := UiKit.lbl(nxt, UiKit.BODY, UiKit.MUTED)
 				nl.name = "NextFixture"
 				v.add_child(nl)
+		# The people it was about: a debut, a first goal, a promised run done.
+		# Said only when the facts kept on the players say it; otherwise silent.
+		if _interactive or _review:
+			var told := GameState.payoff_lines(_res)
+			if not told.is_empty():
+				v.add_child(UiKit.spacer(UiKit.GAP))
+				var payoffs := UiKit.vbox(4)
+				payoffs.name = "PayoffLines"
+				for line in told:
+					var pl := UiKit.lbl(str(line), UiKit.BODY, UiKit.TEXT)
+					pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+					payoffs.add_child(pl)
+				v.add_child(payoffs)
 
 	# How it went: the few things that decided it, in football words.
 	v.add_child(UiKit.spacer(UiKit.GAP))

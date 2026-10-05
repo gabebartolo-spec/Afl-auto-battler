@@ -35,6 +35,7 @@ func _run() -> void:
 	await _bounce_close_up()
 	await _playtest_bounce_scene()
 	await _rings_on_the_oval()
+	await _first_goal_line()
 	_appearance()
 	# Battery: nothing is redrawn unless it changes, and never above 60 fps.
 	_check(bool(ProjectSettings.get_setting("application/run/low_processor_mode", false))
@@ -679,6 +680,59 @@ func _rings_on_the_oval() -> void:
 		pitch._process(0.25)
 		guard += 1
 	_check(kid != "" and pitch.ringed(kid), "A player you promised a run is ringed as the next event plays")
+	m.queue_free()
+	await _settle()
+
+
+## The live feed says a first AFL goal for one of yours: the screen is told who it
+## could be (GameState.first_goal_candidates), and says it once, and only of them.
+func _first_goal_line() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(420, 860)
+	_check(_state.prepare_interactive_match(), "A live match is prepared (first goal)")
+	var sim = _state.pending_sim
+	var me := 0 if str(_state.pending_match["home"]) == _state.my_club else 1
+	# One of your side, on a career on record in full with no goal yet.
+	var kicker: Dictionary = sim.squads[me].ground[0]
+	var pid := str(kicker["id"])
+	var p: Dictionary = _state.list_player(pid)
+	p["career"] = {"games": 3, "goals": 0, "stints": [], "through": _state.season_year - 1, "unknown": []}
+	_state.season_tally.erase(pid)
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var told: Dictionary = m.get("_duel_mem").get("first_goal", {})
+	var opp_ids := {}
+	for r in sim.squads[1 - me].ground:
+		opp_ids[str(r["id"])] = true
+	var only_mine: bool = not told.is_empty()
+	for id in told:
+		if opp_ids.has(id):
+			only_mine = false
+	_check(told.has(pid) and only_mine, "The screen is told whose first goal it could be, and only yours")
+	var feed: Node = m.find_child("Feed", true, false)
+	var said := func() -> Array:
+		var out := []
+		for c in feed.get_children():
+			if str(c.get_meta("feed_kind", "")) == "StoryLine":
+				out.append(str(c.text))
+		return out
+	var goal := {"kind": "goal", "q": 1, "min": 3, "side": me, "player_id": pid, "name": "Test Kicker",
+			"score": [6, 0]}
+	m.call("_story_feed", goal)
+	var rows: Array = said.call()
+	_check(rows.size() == 1 and str(rows[0]).ends_with("First AFL goal for Test Kicker."),
+			"His first goal reaches the feed (%s)" % str(rows))
+	m.call("_story_feed", goal)
+	_check((said.call() as Array).size() == 1, "...once")
+	var theirs := goal.duplicate()
+	theirs["side"] = 1 - me
+	theirs["player_id"] = str((sim.squads[1 - me].ground[0] as Dictionary)["id"])
+	theirs["name"] = "Their Kicker"
+	m.call("_story_feed", theirs)
+	_check((said.call() as Array).size() == 1, "Nothing is said of the other side's first goals")
 	m.queue_free()
 	await _settle()
 

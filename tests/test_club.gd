@@ -17,6 +17,10 @@ func run() -> void:
 	_test_backing_flow()
 	_test_backing_card_guard()
 	_test_backing_lasts_the_season()
+	_test_firsts_rules()
+	_test_firsts_flow()
+	_test_firsts_goals()
+	_test_first_goal_candidates()
 	_test_sacking()
 	_test_team_form()
 	_test_board_confidence()
@@ -923,6 +927,230 @@ func _test_backing_lasts_the_season() -> void:
 	else:
 		_check(not Backing.is_active(next) and str(Backing.ledger(next)[0]["state"]) == "lapsed"
 				and not next.has("expects_game"), "The run lapses with the season")
+	GameState.delete_saved_career()
+
+
+# ---------------------------------------------------------------------------
+# The payoff: what a player did first for you (Firsts.gd)
+# ---------------------------------------------------------------------------
+## The rules and the words: written once, said where it happened, and "on your
+## say-so" only when a promise was kept.
+func _test_firsts_rules() -> void:
+	var p := {"id": "kid", "name": "Ari Bramble"}
+	_check(not Firsts.has(p, "debut") and Firsts.with_us_bits(p).is_empty(),
+			"A player with nothing on record has nothing to say")
+	_check(Firsts.note(p, "debut", 2028, "Round 7") and not Firsts.note(p, "debut", 2029, "Round 1"),
+			"A first is written once")
+	_check(Firsts.in_match(p, "debut", 2028, "Round 7") and not Firsts.in_match(p, "debut", 2028, "Round 8")
+			and not Firsts.in_match(p, "debut", 2029, "Round 7") and not Firsts.in_match(p, "goal", 2028, "Round 7"),
+			"...and which match it was")
+	for row in [["Round 7", "in Round 7, 2028"], ["Grand Final", "in the Grand Final, 2028"],
+			["Semi Final 2", "in a Semi Final, 2028"], ["Elimination Final 1", "in an Elimination Final, 2028"],
+			["Qualifying Final 1", "in a Qualifying Final, 2028"], ["Wildcard Final 2", "in a Wildcard Final, 2028"],
+			["", "in 2028"]]:
+		var said := Firsts.when_text({"year": 2028, "label": row[0]})
+		_check(said == row[1], "\"%s\" reads \"%s\" (%s)" % [row[0], row[1], said])
+	_check(Firsts.with_us_bits(p) == ["Debuted in Round 7, 2028."], "A debut says where, and nothing about a promise")
+	Firsts.note(p, "goal", 2028, "Round 9")
+	_check(Firsts.with_us_bits(p) == ["Debuted in Round 7, 2028.", "First goal in Round 9, 2028."],
+			"The first goal follows the debut (%s)" % str(Firsts.with_us_bits(p)))
+	var q := {"id": "kid2", "name": "Ben Carter"}
+	Firsts.note(q, "debut", 2028, "Round 7")
+	Firsts.note(q, "goal", 2028, "Round 7")
+	_check(Firsts.with_us_bits(q) == ["Debuted in Round 7, 2028.", "First goal on debut."],
+			"A goal in the debut game is one thing, not two (%s)" % str(Firsts.with_us_bits(q)))
+	Backing.start(q, 2028, 7, 0)
+	_check(Firsts.with_us_bits(q)[0] == "Debuted in Round 7, 2028.", "A promise not yet kept is not his say-so")
+	Backing.after_match(q, true, true)
+	_check(Firsts.with_us_bits(q)[0] == "Debuted in Round 7, 2028, on your say-so.",
+			"He debuted on the run you promised: on your say-so")
+	var vet := {"id": "vet", "name": "Dan Old"}
+	Backing.start(vet, 2028, 7, 40)
+	Backing.after_match(vet, true, true)
+	Firsts.note(vet, "debut", 2028, "Round 7")
+	_check(not Backing.debuted_on_run(vet) and not str(Firsts.with_us_bits(vet)[0]).contains("say-so"),
+			"A run for a player with games behind him is not a debut on a promise")
+	_check(Firsts.debut_line("Ari Bramble", 0) == "Ari Bramble debuted."
+			and Firsts.debut_line("Ari Bramble", 1) == "Ari Bramble kicked a goal on debut."
+			and Firsts.debut_line("Ari Bramble", 2) == "Ari Bramble kicked two on debut.",
+			"A debut is said with its goals, in words")
+	# Where a run ended: only the match that finished it.
+	var r := {"id": "run"}
+	Backing.start(r, 2028, 5, 0)
+	Backing.after_match(r, true, true, {"year": 2028, "label": "Round 5"})
+	Backing.after_match(r, false, false, {"year": 2028, "label": "Round 6"})
+	_check(not Backing.ledger(r)[0].has("ended"), "A run that is still on has not ended anywhere")
+	Backing.after_match(r, true, true, {"year": 2028, "label": "Round 7"})
+	Backing.after_match(r, true, true, {"year": 2028, "label": "Round 8"})
+	_check(not Backing.finished_in(r, 2028, "Round 8").is_empty() and Backing.finished_in(r, 2028, "Round 7").is_empty()
+			and Backing.finished_in(r, 2029, "Round 8").is_empty(),
+			"A finished run knows the match that finished it")
+	var b := {"id": "brk"}
+	Backing.start(b, 2028, 5, 3)
+	Backing.after_match(b, false, true, {"year": 2028, "label": "Round 5"})
+	_check(str(Backing.ledger(b)[0]["state"]) == "broken" and Backing.ledger(b)[0].has("ended")
+			and Backing.finished_in(b, 2028, "Round 5").is_empty(),
+			"A broken run keeps where it broke, and is not a finished one")
+	# Full time: a debut on your promise, a run done, any debut, a first goal;
+	# three at most, and silence for a match that settled nothing.
+	var people := {}
+	for row in [["a", "Ari Bramble"], ["b", "Ben Carter"], ["c", "Cal Dunn"], ["d", "Dev Evans"], ["e", "Eli Frost"]]:
+		people[row[0]] = {"id": row[0], "name": row[1]}
+	Firsts.note(people["a"], "debut", 2028, "Round 7")
+	Backing.start(people["a"], 2028, 7, 0)
+	Backing.after_match(people["a"], true, true)
+	Firsts.note(people["b"], "goal", 2028, "Round 7")
+	Backing.start(people["c"], 2028, 5, 6)
+	for label in ["Round 5", "Round 6", "Round 7"]:
+		Backing.after_match(people["c"], true, true, {"year": 2028, "label": label})
+	Firsts.note(people["d"], "debut", 2028, "Round 7")
+	var res := {"home": "GEE", "away": "COL", "label": "Round 7",
+			"roster": [[{"id": "a"}, {"id": "b"}, {"id": "c"}, {"id": "d"}, {"id": "e"}], []],
+			"players": {"a": {"goals": 2}, "b": {"goals": 1}, "d": {"goals": 0}}}
+	var find := func(id): return people.get(id, {})
+	var lines := Firsts.match_lines(res, 0, 2028, find)
+	_check(lines == ["Ari Bramble kicked two on debut.", "Cal Dunn's three-game run is done.", "Dev Evans debuted."],
+			"A debut on your promise, a finished run, then a debut; three at most (%s)" % str(lines))
+	people.erase("d")
+	lines = Firsts.match_lines(res, 0, 2028, find)
+	_check(lines == ["Ari Bramble kicked two on debut.", "Cal Dunn's three-game run is done.", "First AFL goal for Ben Carter."],
+			"A first goal is said when there is room (%s)" % str(lines))
+	var other := res.duplicate()
+	other["label"] = "Round 8"
+	_check(Firsts.match_lines(other, 0, 2028, find).is_empty() and Firsts.match_lines(res, 0, 2029, find).is_empty()
+			and Firsts.match_lines(res, 1, 2028, find).is_empty() and Firsts.match_lines(res, -1, 2028, find).is_empty(),
+			"Another match, another year, the other side, or none of yours: silence")
+
+
+## Through real rounds: the debut is kept when he plays it, "on your say-so"
+## follows the promise, full time says the run is done the day it was, and a
+## veteran or a career not on record in full is given nothing.
+func _test_firsts_flow() -> void:
+	_fresh_season()
+	var year := GameState.season_year
+	var kid := _kid(GameState.my_list[31], 0)
+	GameState.week_event = ClubLife._young_gun(kid)
+	GameState.resolve_week_event(0)
+	var vet := _kid(GameState.my_list[3], 120)
+	var unknown := _kid(GameState.my_list[29], 0)
+	unknown["career"]["unknown"] = [[2020, 2022]]
+	Backing.start(unknown, year, 0, 0)
+	var who := GameDB.player_display_name(kid)
+	var kid_id := str(kid["id"])
+	GameState.advance()
+	var d := Firsts.get_one(kid, "debut")
+	_check(not d.is_empty() and int(d["year"]) == year and str(d["label"]) == "Round 1",
+			"His first game is kept when he plays it (%s)" % str(d))
+	_check(not Firsts.has(vet, "debut") and not Firsts.has(unknown, "debut"),
+			"A veteran, and a career not on record in full, have no debut to keep")
+	var sheet := GameState.with_us_text(kid)
+	_check(sheet.contains("Debuted in Round 1, %d, on your say-so." % year),
+			"His sheet says he debuted, where, and on your say-so (%s)" % sheet)
+	var said_debut := false
+	for l in GameState.payoff_lines(GameState.last_match):
+		if str(l).begins_with(who) and str(l).contains("debut"):
+			said_debut = true
+	_check(said_debut, "Full time says he debuted (%s)" % str(GameState.payoff_lines(GameState.last_match)))
+	for i in range(Backing.RUN_GAMES - 1):
+		for key in ["injury_weeks", "injury_kind", "suspension_weeks"]:
+			kid.erase(key)
+		GameState.advance()
+	var last_round := "Round %d" % Backing.RUN_GAMES
+	_check(not Backing.finished_in(kid, year, last_round).is_empty(),
+			"The run knows it was finished in %s" % last_round)
+	_check(GameState.payoff_lines(GameState.last_match).has("%s's three-game run is done." % who),
+			"Full time says the run is done, the day it was (%s)" % str(GameState.payoff_lines(GameState.last_match)))
+	_check(str(Firsts.get_one(kid, "debut")["label"]) == "Round 1", "The debut stays where it happened")
+
+	# The facts are saved with the career.
+	var before := GameState.with_us_text(kid)
+	GameState.save_career()
+	_check(GameState.load_career(), "The career loads")
+	var again := GameState.list_player(kid_id)
+	_check(not again.is_empty() and GameState.with_us_text(again) == before and Firsts.has(again, "debut"),
+			"What he did first is saved with the career (%s)" % before)
+	GameState.delete_saved_career()
+
+
+## A first goal, by the same rule as the league news: a career on record in full
+## with none before the match. The season's tally holds the match once counted.
+func _test_firsts_goals() -> void:
+	_fresh_season()
+	var year := GameState.season_year
+	var scorer := _kid(GameState.my_list[30], 4)
+	var veteran := _kid(GameState.my_list[3], 120)
+	veteran["career"]["goals"] = 50
+	var debutant := _kid(GameState.my_list[29], 0)
+	var unknown := _kid(GameState.my_list[28], 0)
+	unknown["career"]["unknown"] = [[2020, 2022]]
+	var opp_id := str((GameDB.club_list("COL")[0] as Dictionary)["id"])
+	var sid := str(scorer["id"])
+	var res := {"home": "GEE", "away": "COL", "label": "Round 9",
+			"roster": [[{"id": sid}, {"id": str(veteran["id"])}, {"id": str(debutant["id"])},
+					{"id": str(unknown["id"])}], [{"id": opp_id}]],
+			"players": {sid: {"goals": 2}, str(veteran["id"]): {"goals": 1}, str(debutant["id"]): {"goals": 1},
+					str(unknown["id"]): {"goals": 1}, opp_id: {"goals": 3}}}
+	_check(GameState.career_goals_before(scorer) == 0 and GameState.career_goals_before(veteran) == 50,
+			"Career goals before a match: the record, and nothing counted twice")
+	Awards.tally_match(GameState.season_tally, res, true)
+	_check(GameState.career_goals_before(scorer, 2) == 0 and GameState.career_goals_before(veteran, 1) == 50,
+			"...once the match is in the tally, its goals are taken back out")
+	GameState._note_firsts([res])
+	_check(Firsts.in_match(scorer, "goal", year, "Round 9") and not Firsts.has(scorer, "debut"),
+			"A first goal is kept, and no debut for a player with games behind him")
+	_check(not Firsts.has(veteran, "goal") and not Firsts.has(veteran, "debut"),
+			"A goal for a player with goals behind him is no first")
+	_check(Firsts.in_match(debutant, "debut", year, "Round 9") and Firsts.in_match(debutant, "goal", year, "Round 9"),
+			"A debut and a goal in the same game are both kept")
+	_check(not Firsts.has(unknown, "goal") and not Firsts.has(unknown, "debut"),
+			"A career not on record in full is never given a first")
+	var opp := GameState._find_player(opp_id)
+	_check(not opp.is_empty() and not Firsts.has(opp, "goal") and not Firsts.has(opp, "debut"),
+			"Only your own players are given one")
+	_check(GameState.with_us_text(debutant).contains("Debuted in Round 9, %d. First goal on debut." % year),
+			"His sheet: a debut, and a goal in it (%s)" % GameState.with_us_text(debutant))
+	var told := GameState.payoff_lines(res)
+	_check(told.has("First AFL goal for %s." % GameDB.player_display_name(scorer))
+			and told.has("%s kicked a goal on debut." % GameDB.player_display_name(debutant)) and told.size() == 2,
+			"Full time says a first goal, and a goal on debut once (%s)" % str(told))
+	# A second match: the first goal stays where it was, and nothing new is a first.
+	var res2 := {"home": "GEE", "away": "COL", "label": "Round 10",
+			"roster": [[{"id": sid}], []], "players": {sid: {"goals": 1}}}
+	Awards.tally_match(GameState.season_tally, res2, true)
+	GameState._note_firsts([res2])
+	_check(str(Firsts.get_one(scorer, "goal")["label"]) == "Round 9" and GameState.payoff_lines(res2).is_empty(),
+			"A later goal is no first, and the first stays where it was")
+	GameState.delete_saved_career()
+
+
+## Who the live feed can say a first goal for: yours in the match about to be
+## played, with a career on record in full and no goal yet this career or season.
+func _test_first_goal_candidates() -> void:
+	_fresh_season()
+	_check(GameState.first_goal_candidates().is_empty(), "Nothing to say before a match is set up")
+	var fresh_kid := _kid(GameState.my_list[30], 4)
+	var scorer := _kid(GameState.my_list[3], 120)
+	scorer["career"]["goals"] = 50
+	var unknown := _kid(GameState.my_list[29], 0)
+	unknown["career"]["unknown"] = [[2020, 2022]]
+	var this_year := _kid(GameState.my_list[28], 10)
+	GameState.season_tally[str(this_year["id"])] = {"club": "GEE", "games": 2, "goals": 1, "goals_ha": 1}
+	# A run has auto-pick name them, so each is in the side.
+	for p in [fresh_kid, scorer, unknown, this_year]:
+		Backing.start(p, GameState.season_year, 0, 0)
+	_check(GameState.prepare_interactive_match(), "A live match is set up")
+	var cand := GameState.first_goal_candidates()
+	var mine := {}
+	for p in GameState.my_list:
+		mine[str(p["id"])] = p
+	var all_mine := not cand.is_empty()
+	for id in cand:
+		if not mine.has(id):
+			all_mine = false
+	_check(all_mine, "Only your own players are candidates")
+	_check(cand.has(str(fresh_kid["id"])), "A player with no goals on a complete career is a candidate")
+	_check(not cand.has(str(scorer["id"])) and not cand.has(str(unknown["id"])) and not cand.has(str(this_year["id"])),
+			"Not a goalkicker, a career not on record in full, or a goal already this season")
 	GameState.delete_saved_career()
 
 

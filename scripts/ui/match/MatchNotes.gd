@@ -158,7 +158,11 @@ static func run_line(club: String, n: int) -> String:
 # ---------------------------------------------------------------------------
 ## Up to MAX_FACTS things that stood out in quarter `q` (1-4), from the
 ## quarter snapshots MatchSim records. Problems and strengths, never advice.
-static func quarter_facts(res: Dictionary, my_side: int, q: int) -> Array:
+## answers: what you can do about their players right now, by player id -
+## {"kind": "matchup", "who": your defender on him}, {"kind": "tagged", "who":
+## your tagger} or {"kind": "tag"} - so a player hurting you is named with the
+## lever that reaches him, and one no call reaches is stated as a fact.
+static func quarter_facts(res: Dictionary, my_side: int, q: int, answers := {}) -> Array:
 	var snaps: Array = res.get("quarter_teams", [])
 	if q < 1 or snaps.size() < q:
 		return []
@@ -187,7 +191,7 @@ static func quarter_facts(res: Dictionary, my_side: int, q: int) -> Array:
 	if spare != "":
 		out.append(spare)
 
-	var standout := _standout(res, now, was, opp)
+	var standout := _standout(res, now, was, opp, answers)
 	if not standout.is_empty():
 		out.append(standout)
 
@@ -233,8 +237,10 @@ static func _roamer_quarter_fact(res: Dictionary, now: Dictionary, was: Dictiona
 			str(best.get("id", "")), str(best.get("name", "Player")))
 
 
-## Their player who hurt you most this quarter, if anyone clearly did.
-static func _standout(res: Dictionary, now: Dictionary, was: Dictionary, side: int) -> String:
+## Their player who hurt you most this quarter, if anyone clearly did. Said
+## as "hurting you" only when a call reaches him (the defender on him, your
+## tag, or a tag you could put on); otherwise just what he did.
+static func _standout(res: Dictionary, now: Dictionary, was: Dictionary, side: int, answers := {}) -> String:
 	var roster: Array = res.get("roster", [[], []])
 	if roster.size() <= side:
 		return ""
@@ -265,7 +271,16 @@ static func _standout(res: Dictionary, now: Dictionary, was: Dictionary, side: i
 		bits.append("%d disposals" % int(best["disp"]))
 	if int(best["goals"]) > 0:
 		bits.append("%d goal%s" % [int(best["goals"]), "" if int(best["goals"]) == 1 else "s"])
-	return "%s is hurting you: %s this quarter." % [who, " and ".join(bits)]
+	var did := " and ".join(bits)
+	var answer: Dictionary = answers.get(str(best["id"]), {})
+	match str(answer.get("kind", "")):
+		"matchup":
+			return "%s is hurting you: %s this quarter. %s is on him." % [who, did, str(answer.get("who", ""))]
+		"tagged":
+			return "%s is hurting you: %s this quarter, with %s tagging him." % [who, did, str(answer.get("who", ""))]
+		"tag":
+			return "%s is hurting you: %s this quarter. He can be tagged." % [who, did]
+	return "%s was their best this quarter: %s." % [who, did]
 
 
 ## What your calls did in quarter q, one line each, against the quarter
@@ -890,8 +905,9 @@ static func duel_feed_line(mem: Dictionary, ev: Dictionary) -> String:
 
 
 ## The match's other turning points in the feed, from the log: a player going
-## off hurt (always), a Big-game player's goal when he lifts (once a side), a
-## goal from an intercept that takes or levels the
+## off hurt (always), a first AFL goal for one of yours (always, once a player),
+## a Big-game player's goal when he lifts (once a side), a goal from an
+## intercept that takes or levels the
 ## lead, and a missed set shot in a close last quarter. At most one of each
 ## and MAX_STORY_LINES of them a quarter, so quiet games stay quiet. "" to
 ## leave it to the oval.
@@ -908,6 +924,15 @@ static func story_feed_line(mem: Dictionary, ev: Dictionary) -> String:
 		if on != "":
 			return "%s: %s comes on." % [hurt, _pname(on)]
 		return hurt + "."
+	# A first AFL goal for one of yours. mem["first_goal"] holds the ids it would
+	# be a first for (GameState.first_goal_candidates), so it is never said of
+	# the other side, and each is said once.
+	if kind == "goal" and who != "":
+		var firsts: Dictionary = mem.get("first_goal", {})
+		var kicker := str(ev.get("player_id", ""))
+		if kicker != "" and firsts.has(kicker):
+			firsts.erase(kicker)
+			return "First AFL goal for %s." % who
 	var text := ""
 	var side := int(ev.get("side", 0))
 	var score: Array = ev.get("score", [0, 0])
