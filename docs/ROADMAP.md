@@ -2,6 +2,7 @@
 
 _Last reorganised: 2026-09-28_
 _Last sanity-checked: 2026-10-02 against current `main`, merged PRs and the full open-PR set_
+_Research/status reconciliation: 2026-10-05 against `main` at `4b9eecc3858e970c46e25366701907f1cb4c6070`; see [genre enjoyment research](GENRE_ENJOYMENT_RESEARCH.md)._
 
 This file is the **single source of truth** for the project roadmap. It is deliberately written so Claude or another coding agent can read it, select an authorised task, inspect the repo, implement it, validate it, and update the roadmap with minimal extra guidance.
 
@@ -126,7 +127,8 @@ This is the **authoritative near-term work order**. The milestone catalogue belo
 
 1. **Close any genuine P0 phone-playtest failures first (§1.11, §9.1).** A newly reproduced soft-lock, broken match flow, fake/no-op choice or major performance regression still jumps ahead of planned feature work.
 2. **The former in-flight stack has landed.** _Reconciled 2026-10-05:_ the match-authenticity work (#190 merged; #196 smothers/speccies/50s/MRO/kick-ins), Combine/scouting (#188), the trade/contracts stack (#182 → #191 → #193 → #198, real-money contracts), GPS distance (#195), post-match media (#183), milestones (#186), History & records (#187) and the awards ceremony (#185) were closed as separate PRs and carried onto `main` by the consolidated squash merge #208; #189, #192, #194 and #205 merged directly. Do not reopen or re-create them; treat follow-ups as ordinary work against `main`.
-3. **Then resume genuinely unstarted catalogue work** from M3/M4/M5/M7/M8 and the §9.1 playtest findings according to player value and dependencies, rather than roadmap-number order. M5-001 (18 + 5 interchange) remains a separate TODO now that selection changes have settled.
+3. **Reconcile the current active work before touching its systems.** At the 2026-10-05 checkpoint #223 (live-call/trade/free-agency evidence), #224 (unproven-potential trade discount), #226 (backed-player payoff, still targeting the oval-rings branch) and #206 (music) are open. #210/#213/#214 repairs and audits, #217 difficulty evidence, #220 backing, #221 rings, #222 scouting estimates and #225 assistant contracts are merged. Preserve remaining phone checks; do not create parallel valuation, promise or payoff systems.
+4. **Then resume genuinely unstarted catalogue work** from M3/M4/M5/M7/M8 and the §9.1 playtest findings according to player value and dependencies, rather than roadmap-number order. M5-001 (18 + 5 interchange) remains a separate TODO now that selection changes have settled.
 
 ### Queue rules
 
@@ -136,6 +138,27 @@ This is the **authoritative near-term work order**. The milestone catalogue belo
 - Do not chase roadmap completion percentage. The objective is a good game, not a finished checklist.
 - Do not use a lower milestone number as justification to work on a lower-value task.
 - When a queue item is completed/merged, update this section so the next task is obvious without interpretation.
+
+## 0.4.2 Research integration — career first
+
+The director's priorities are visual simulation, creative team building, consistent careers over decades, evolving player roles, better emergent storytelling and meaningful coaching throughout matches and seasons. **Zero microtransactions; commercialisation is outside the objective.** Club salaries/budgets are in-game football resources.
+
+The [genre enjoyment research](GENRE_ENJOYMENT_RESEARCH.md) studies eight cross-genre references plus Footy Redraft, AFCM, Crusader Kings and Esoteric Ebb. The director values Footy Redraft's stories and AFCM's list decisions, but finds the former solvable through known best recruits and the latter too inscrutable, with weak narrative thrust in long saves. Treat these as director experience, not claims that a competitor's engine is defective.
+
+Refine the existing owners rather than adding another catalogue:
+
+- match-driven gates and visible consequences: M4-001/002/003/004/006/009;
+- competing roles, development and specialisations: M4-005, M5-003/006/008 and §9.1;
+- list pressures and active-market measurements: M6-004 and §9.1;
+- evolving individuals, genuine recognition and continuity: M7-003/004/005, the existing M6-002 former-player pathway and M8-005;
+- visual evidence: existing match presentation and M8-007, still behind the phone gate;
+- short questions with logical consequences: existing M4-001 gates and M6-008 media, preserving M1-011's DONE event foundation. Crusader Kings informs factual character continuity; Esoteric Ebb informs answer feedback and restrained humour. Neither authorises a new relationship or dialogue framework.
+
+A coach should understand the problem, choose a feasible response, see its application and observe consequences that may help, hurt or remain inconclusive. A good choice need not win the match. Do not substitute hidden bonuses, best-move recommendations or arbitrary scripted drama.
+
+**Accepted new work:** ARD-M5-016, inherited end-of-season 2026 lists followed by the 2026 National Draft and first playable season 2027. It follows correctness/phone gates and its source/save prerequisites.
+
+**Unselected ideas:** ARD-RC references in §9.2 and the research report are candidates for director review. They are not TODO execution tasks and standing authority does not authorise them before selection. This documentation pass does not assign Claude work or merge gameplay.
 
 ## 0.5 Claude execution contract
 
@@ -1658,35 +1681,31 @@ Behind → kick-in → exit; no phantom stoppage; correct end/direction after qu
 
 Goal: watching a match should involve genuine coaching choices without becoming manual-control football.
 
-## ARD-M4-001 — At least one meaningful live decision per quarter
-**Status:** `TODO`  
-**Priority:** `P1`  
+## ARD-M4-001 — Match-driven decision gates and observable consequences
+**Status:** `PARTIAL` — MatchSim already has context-triggered moments, resolution and a moments log; the end-to-end player outcome still needs verification/refinement. _(code reconciled 2026-10-05)_
+**Priority:** `P1`
 **Autonomy:** `SUPERVISED`
-**Depends on:** reliable match context from M2/M3
+**Depends on:** reliable M2/M3 events and §1.11's correctness/readability requirements. Repairs within that gate take priority; unrelated expansion waits for its phone checks. Reuse the existing duel/tag/interceptor mechanics; completion of the remaining matchup/structural scopes is not a prerequisite.
 
-### Target
-Typically 1–2 decisions per quarter, with at least one in a normal watched quarter.
+### Target and smallest useful slice
+Inspect the existing set-shot, tired-player, hot-midfielder, duel, momentum and late-bounce gates before adding one. Start with one existing gate from trigger through consequences. A normal watched match should offer useful coaching opportunities, but do not force a quota into a quiet quarter or manufacture routine matchups.
 
-### Examples
-- shoot vs pass,
-- ambitious back-half kick vs safe outlet,
-- flood/spare behind the ball,
-- keep attacking vs slow tempo,
-- play on vs take time off clock,
-- extra number at stoppage,
-- keep tired/star player on vs rotate.
+### Scope / acceptance
 
-### Rules
-- Trigger from actual match state.
-- Real trade-offs, not trivia/pop quizzes.
-- Avoid obviously dominant choices.
-- Avoid giant hidden bonuses.
-- Use actual players/context where possible.
-- AI makes equivalent decisions.
-- Record enough context for post-match explanation.
+- Trigger from the match actually being played: named people, current contests, score/time, workload or observed opposition influence. Test quiet and false-positive contexts.
+- Show feasible options with a football trade-off and a keep-current/default path. Do not offer an unavailable replacement or counter as if it can execute.
+- Record triggering evidence, choice, application time, affected players/structure, duration or cancellation rule and observed outcome using the existing event/moment model.
+- Resolve the action once. Applied state, oval presentation, event log, player/team statistics and summary agree. If application fails, explain why; never print success for a no-op.
+- Deliver football impact which can be positive or negative: changed contests, possessions, space, entries, shots, energy or uncovered responsibility. A subsequent win is not proof that the call caused it.
+- Show concise follow-through at the next relevant interval; longer-lived calls can remain inconclusive when the sample is thin. Explain actual observations rather than an invented counterfactual.
+- Keep meaningful negative consequences and uncertainty. AI uses equivalent mechanics and only observable/scouted information.
+- Preserve natural football language, phone flow and ordinary watching/skip behaviour. Short questions should arise from current evidence and offer logical responses; restrained humour must not hide a cost or suggest an effect the engine does not apply.
 
-### Tests
-Trigger frequency, choice diversity, no repeated spam, deterministic resolution under seed, no match-state corruption after a moment.
+### Exclusions
+No new decision engine, direct footballer control system, best-choice hints, forced close finishes, giant hidden buffs or added cinematic library. M8-007 remains a separate presentation gate.
+
+### Validation
+Targeted trigger/resolution tests, invalid personnel and repeat-resolution coverage, seeded keep-current/context-informed/mismatched comparisons, watch/skip event agreement, and Android touch/Back checks. Check interruption frequency and option dominance across several match contexts; shared seeds do not imply identical later RNG consumption. In observed sessions the player should explain the expected benefit/cost and what actually changed. Simulations prove behaviour, not enjoyment.
 
 ---
 
@@ -1726,10 +1745,22 @@ Acceptance:
 - live and post-match matchup commentary uses the correct type of contest rather than pretending every matchup is one-on-one;
 - the system still surfaces only a few high-value contests, not a full positional matrix.
 
+### Research refinement — 2026-10-05
+
+**Dependencies:** valid duel/contest events, current role/personnel eligibility and M4-001's application contract.
+
+**Smallest scope:** one genuinely dangerous contest with an available response, extending the merged forward/defender foundation. Include the relevant sacrificed responsibility; a hot interceptor or midfielder is not automatically a literal one-on-one.
+
+**Exclusions:** 18 assignment controls, routine pairing popups, fabricated danger or a recommended best defender.
+
+**Acceptance:** feedback names both people and the observed threat; the available counter changes an actual eligible assignment/structure; keeping the current approach remains valid; no special intervention is required in a quiet match. Following events can show both benefit and exposure elsewhere.
+
+**Validation:** positive/quiet/invalid-personnel cases, actual assignment and visual/log binding, AI parity, seeded contest/team comparisons and Android understanding/touch checks. Reuse §9.1 “X is hurting you” and matchup work; do not open another danger-feedback system.
+
 ---
 
 ## ARD-M4-003 — Tagging has an attacking cost
-**Status:** `TODO`  
+**Status:** `VERIFY` — attacking-cost constants and tagger/specialist handling already exist in MatchSim; inspect their measured effect and player feedback before changing them. _(code reconciled 2026-10-05)_  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -1743,10 +1774,22 @@ Check:
 - team-level net effect,
 - role/trait differences.
 
+### Research refinement — 2026-10-05
+
+**Dependencies:** current MatchSim tagging, Roles and event-backed influence/stat reporting.
+
+**Smallest scope:** verify one specialist and one non-specialist case; repair only an evidenced cost/feedback defect.
+
+**Exclusions:** another tag mechanic, universal player debuffs or a guaranteed team gain.
+
+**Acceptance:** the named target and stopper are correct; applied/removed tag timing is clear; actual attacking sacrifice and suppression match the rule, including specialist differences; thin evidence does not produce a confident causal claim.
+
+**Validation:** paired target/stopper involvement and team outcomes across personnel/score contexts; equal side rules; repeated application/removal; inspect Android feedback. A later defeat does not prove the tag failed, and a win does not establish its net benefit.
+
 ---
 
 ## ARD-M4-004 — Structural coaching choices
-**Status:** `TODO`  
+**Status:** `PARTIAL` — roaming-interceptor contests and accountable-spare response exist; broader structural outcomes and readable costs remain to validate/refine. _(code reconciled 2026-10-05)_  
 **Priority:** `P2`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -1781,6 +1824,18 @@ Acceptance:
 - AI parity applies;
 - post-match reporting can explain that the spare/interceptor controlled the backline when the event data supports it.
 
+### Research refinement — 2026-10-05
+
+**Dependencies:** M4-002 contest context, existing interceptor/roam events and M4-001 application/expiry records.
+
+**Smallest scope:** make one existing roaming-interceptor choice legible and verify its actual defensive responsibility/cost before expanding structures.
+
+**Exclusions:** flat free intercept buffs, a second formation engine, universal specialist roles or a new visual library.
+
+**Acceptance:** suitability comes from relevant football skills; the spare's extra involvement and the responsibility left elsewhere are observable; making him accountable acts through the existing football model; the oval and report agree with real events. Changed/invalid personnel cannot leave a phantom assignment.
+
+**Validation:** seeded equal-resource specialist/lockdown and accountable/not-accountable comparisons, event/visual binding, persistence where applicable and AI parity. Phone viewers should identify the relevant space and risk without an optimal-plan hint.
+
 ---
 
 ## ARD-M4-005 — Simple player role instructions
@@ -1795,10 +1850,22 @@ Keep small and readable:
 
 Extend the existing role/selection model; do not build a parallel tactical engine.
 
+### Research refinement — 2026-10-05
+
+**Dependencies:** current Roles/selection model (M5-009 foundation), reliable M2/M3 events and M4-001 follow-through.
+
+**Smallest scope:** one role instruction with a demonstrable benefit and competing responsibility; inspect current role effects before adding controls.
+
+**Exclusions:** a parallel tactics engine, fantasy classes, ability bars or arbitrary all-stat multipliers.
+
+**Acceptance:** suitable players can perform a distinctive job; relevant involvement/positioning changes while a real football trade-off remains; inactive/descriptive labels do not promise an engine effect. Role, selection, report and oval use the same underlying facts.
+
+**Validation:** matched personnel and opposing-composition comparisons, invalid/changed assignments, AI parity, save compatibility if persisted, and phone explanation of the chosen job/cost.
+
 ---
 
 ## ARD-M4-006 — Game-state tactical AI
-**Status:** `TODO`  
+**Status:** `PARTIAL` — score/quarter reactions, specialist tagging and responses to observed roaming wins already exist; broader timing/context validation remains. _(code reconciled 2026-10-05)_  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -1815,6 +1882,18 @@ Examples:
 - final-quarter urgency differs from Q1.
 
 AI must not play Q4 down 22 exactly like 0–0 in Q1.
+
+### Research refinement — 2026-10-05
+
+**Dependencies:** observed scoreboard/quarter/contest state and shared tactic effects.
+
+**Smallest scope:** test existing reactions in leading, chasing and quiet situations before adding a new policy.
+
+**Exclusions:** hidden AI boosts, reading concealed user calls or unrevealed potential, perfect counters and guaranteed drama.
+
+**Acceptance:** available personnel and visible history explain the reaction; changing concealed user choices while holding observable state fixed does not change the AI's response; AI calls incur the same costs and durations as user calls.
+
+**Validation:** deterministic visible-state fixtures, late/early-quarter and unavailable-specialist cases, hidden-information isolation and shared-effect tests. Use multi-club seeded samples for policy behaviour; do not turn a few wins into a balance conclusion.
 
 ---
 
@@ -1893,6 +1972,18 @@ Create **one** concise coaching report, not a compact report plus a giant full-r
 - irrelevant opposition strategy text.
 
 Detailed stats live in the Stats screen.
+
+### Research refinement — 2026-10-05
+
+**Status boundary:** the merged report remains DONE. These checks apply when M4-001/002/003/004 follow-through changes; do not rebuild or add a second report.
+
+**Dependencies / smallest scope:** use existing MatchNotes/CoachReport and authoritative moment/contest records to explain one changed call.
+
+**Exclusions:** more stat panels, a permanent full-report dump, generic praise or claims about an unplayed alternative.
+
+**Acceptance:** concise lines distinguish the applied instruction, observed effect and uncertainty; negative or absent evidence cannot be rewritten as success; quiet matches remain quiet. Named events and statistics agree.
+
+**Validation:** event-to-copy fixtures, short/contradictory samples, watch/skip consistency and phone recall of the match's people/turning point. New replay/archive work remains an unselected candidate.
 
 ---
 
@@ -2018,6 +2109,18 @@ This is the canonical item for the user's previously requested secondary-positio
 - Progress should be visible but low-admin.
 - Position learning should affect selection fit, not magically rewrite unrelated attributes.
 
+### Research refinement — 2026-10-05
+
+**Dependencies:** current Roles/M5-009 classifications, training/development and save persistence.
+
+**Smallest scope:** one plausible secondary role; sustain a visible training/usage commitment using the existing progression system.
+
+**Exclusions:** universal retraining, instant new archetypes, guaranteed POT fulfilment, extra weekly chores or the unselected development-project candidate.
+
+**Acceptance:** suitability improves without rewriting unrelated skills; physical eligibility remains credible; the time/usage cost is clear; progress survives save/load and remains distinct from current form. A player can gain another useful job without becoming best at everything.
+
+**Validation:** eligible/ineligible bodies, interruption and save/resume, selected/omitted usage and multi-season growth comparisons. Phone players can explain what is being learned and what they give up.
+
 ---
 
 ## ARD-M5-004 — Training multi-select
@@ -2065,6 +2168,18 @@ Players omitted from the senior side should still develop at a reduced rate.
 
 Balance omitted-player growth against selected senior players over multi-season sims.
 
+### Research refinement — 2026-10-05
+
+**Dependencies:** current XP/development, availability and normal season rollover.
+
+**Smallest scope:** verify existing reduced-rate omitted-player progression, then repair only an evidenced missing path or imbalance.
+
+**Exclusions:** playable reserves leagues, extra selection/fixture screens, guaranteed youth improvement or reserve-stat fabrication.
+
+**Acceptance:** healthy omitted players have a credible path to usefulness; senior opportunities retain value; injured/suspended cases obey existing availability rules; the player can distinguish passive growth from senior performance and other training.
+
+**Validation:** matched age/role/potential cohorts selected, omitted and injured over several seasons; stable identity and save/resume; check both stagnation and runaway growth. Observed sessions assess anticipation and selection trade-offs, not only XP.
+
 ---
 
 ## ARD-M5-007 — Selection continuity / cohesion
@@ -2097,6 +2212,18 @@ Use role expectations for:
 - later coaches' votes.
 
 Avoid disposal-count bias.
+
+### Research refinement — 2026-10-05
+
+**Dependencies:** trustworthy M2 statistics, current Roles, Awards/CoachReport and existing form handling.
+
+**Smallest scope:** compare one defensively useful low-disposal performance with role peers before broadening recognition.
+
+**Exclusions:** invented contribution statistics, a new ratings engine by accident, automatic praise or awarding every player a story.
+
+**Acceptance:** defenders, rucks, forwards and mids can earn recognition through actual relevant contributions; quiet or poor matches are not disguised; the recognition/form rule is understandable and uses the real job played. Check older specialists as well as prospects.
+
+**Validation:** seeded role fixtures and different squad compositions; bias/overlap with existing awards and backing recognition; save/history consistency and Android comprehension. A useful non-star should be recognisable without being rated as an elite all-rounder.
 
 ---
 
@@ -2399,6 +2526,52 @@ selection and player profiles. Regression suite: `workload` (32 checks).
 Measurement: `tools/workload_probe.gd`; validation record in
 `docs/WORKLOAD_VALIDATION.md`. Native phone playtesting remains a follow-up.
 
+## ARD-M5-016 — Inherited-list career: 2026 National Draft start
+**Status:** `TODO` — explicitly accepted by the director; documentation only in this pass.
+**Priority:** `P1`
+**Autonomy:** `SUPERVISED`
+**Depends on:** §1.11 correctness/phone gate; M1-010's merged chronology; the usable M5-014 National Draft/scouting foundation and M6-004 contract/pick persistence; a verified complete roster/pick manifest. Do not require unrelated parts of those umbrella tickets to be DONE. Full academy/father-son bidding is not a dependency.
+
+### Player benefit / smallest useful delivery
+Choose a familiar club with its actual inherited playing group, shape its future through the 2026 National Draft, then play 2027. Preserve the League redraft as a distinct existing option. First build the source manifest and dedicated opening-intake handoff; connect setup and persistence only once those are credible.
+
+### Scope
+
+- New-career setup offers **League redraft** and **Inherit 2026 lists**. Choose one of the 18 founding clubs; all 18 retain their inherited groups in this mode.
+- Use complete **end-of-season 2026 club lists, before subsequent offseason changes**, including registered players with zero senior appearances. Record the actual snapshot date/boundary and source dates; announcements/transactions after it must not silently alter this starting world.
+- The current 669-player appearance dataset is not proof of registered-list completeness. Reconcile official club/AFL lists, primary roster announcements and existing enriched data; maintain existing player IDs and an explicit mapping for additions. Record per-club counts, omissions/conflicts and rating basis for players without 2026 appearances. No fictional fillers.
+- Begin with preparation for the **2026 National Draft**, using the researched 2026 prospect cohort and sourced pick ownership/order corresponding to that snapshot. As of 5 October the real draft has not taken place; outcomes here remain the player's alternative history.
+- Reuse the current National Draft framework, including its simplified order and club-tie rules. Source pick ownership without claiming the simplified draft implements every AFL regulation.
+- Where list space is needed, present explicit pre-draft list decisions and resulting available places. Never silently cut inherited players, auto-empty a list or discard a pick/prospect to hide a full-list problem. Apply the same list-space rules to AI clubs; record their actual decisions.
+- Identify simulated contracts as estimates, preserve real/fictional-name preference and reuse existing budget/scouting UI.
+- Persist the chosen start mode, preparation state, list decisions, picks/ownership, draft progress and handoff completion. Older saves without the new fields retain their existing redraft/ongoing-career behaviour.
+
+### Opening-draft lifecycle
+Provide a dedicated opening-intake path. Current `begin_intake_draft()` expects a season context and completion normally invokes `_start_next_season()`; do not fake a completed 2026 season to satisfy it.
+
+1. Initialise inherited ownership, estimates, scouting and 2026 opening picks/prospects without running a season.
+2. Make list-space decisions, run the existing simplified intake and support save/resume at each stage.
+3. Commit rookie ownership, contracts and ledger exactly once, then initialise the first playable **2027** season. GameDB already dates existing ages to 2027; do not repeat ageing, development, retirement or the 2026 career-history import. Existing real 2026 history appears once, with no simulated 2026 season.
+4. After this one-time handoff, reuse normal seasons, contracts, development, subsequent drafts and scheduled Tasmania/Canberra expansion.
+
+### Exclusions
+No change to existing saves/redraft behaviour, full bidding reform, other historical start years, alternative league customisation, new economy, extra reserves competition or gameplay changes in the research PR. Do not mix the opening 2026 prospect class with a generated later-year class.
+
+### Observable acceptance
+
+- Before user/AI list decisions, every player in the signed-off roster manifest belongs to exactly one correct club, including zero-appearance players; every addition has provenance and a rating basis.
+- Setup clearly identifies start mode, snapshot, draft year and first playable year.
+- Full-list cases expose real choices and can complete the draft without silent loss or filler.
+- Saving/resuming during preparation, between picks and at completion preserves choices/ownership and cannot double-assign a rookie, repeat history or advance the year twice.
+- Existing players start with the correct 2027 age/history; 2027 produces the first simulated season record.
+- Both starts reach normal later drafts, rollover, contracts, development and scheduled expansion.
+
+### Validation
+Data fixtures for roster completeness/unique ownership/source-date boundary, zero-appearance players, original IDs and sourced pick ownership. Test full-list decisions and insufficient-space handling; save/resume at every opening stage; repeated finish/reload; one-time rookie assignment/contracts/ledger; 2027 ages and imported history once; complete 2027 plus a subsequent normal rollover/draft. Include old-save fixtures and expansion. Check **both start modes on Android** for setup, scrolling, Back, list decisions and resumed draft flow. Keep a concise provenance record in DATA_SOURCES.md when implementing.
+
+---
+
+
 # M6 — Coaching, Board & List Management
 
 Goal: strengthen the management loop around the football.
@@ -2694,7 +2867,7 @@ Acceptance:
 Build toward a complete AFL list-management ecosystem.
 
 ### Real AFL money scale
-**Status:** `IN PROGRESS` — implemented in PR #198, stacked on the trade-future-picks branch (#193).
+**Status:** `VERIFY` — the salary/cap migration and trade integration are on `main` via #208; retain phone/save follow-up rather than rebuilding the former stack. _(reconciled 2026-10-05)_
 
 The old 1–10 salary/cap-point economy is being replaced at the underlying system level, not merely reformatted:
 - playable 2027 starts from the AFL-scale **$18.44m** club cap;
@@ -2706,7 +2879,7 @@ The old 1–10 salary/cap-point economy is being replaced at the underlying syst
 - UI uses compact football money such as **$650k / $1.20m / $18.44m**;
 - match payments, ASAs and club profit/loss accounting remain deliberately out of scope.
 
-Do not create a separate economy subsystem for this. It is part of ARD-M6-004 and must land after/reconcile with the active trade stack.
+Do not create a separate economy subsystem for this. It is part of ARD-M6-004; its former trade/currency stack is already merged. “Real AFL money” means simulated club salaries and caps, not real-money purchases. The game has zero microtransactions.
 
 
 ### Contract negotiation — important decisions need ceremony and guardrails
@@ -2869,6 +3042,18 @@ Rebuild the trade interaction around **selected packages**, not two enormous ful
 
 The same scroll-preservation rule now applies across Contracts, Free agents and Trade.
 
+
+### Research refinement — 2026-10-05
+
+**Dependencies:** merged contract/trade/FA foundations and reconciliation of #223/#224 before overlapping valuation edits. Do not wait for unrelated media or presentation work.
+
+**Smallest scope:** one demonstrated market exploit or missing decision pressure, measured across several years; reuse §9.1 ownership rather than opening another trade redesign.
+
+**Exclusions:** club profit/loss expansion, MTX, psychic AI, hidden rival money, blanket harder-AI discounts or six routine negotiations every offseason.
+
+**Acceptance:** age, current ability, realistic remaining development, role need, cap and picks create understandable competing choices; estimated/scouted upside is not guaranteed value; AI cannot be repeatedly stripped through the same exploit. Useful weak-role players can remain worth retaining. Current and future contracts/pick commitments persist.
+
+**Validation:** reciprocal packages, young/unproven/prime/veteran assets, different club needs and cap states, save migration/in-progress offers, multi-season hold/trade-heavy/youth/veteran comparisons and Android flow. Report realised value as well as projected value. Existing autopilot evidence does not answer active-market advantage.
 
 ---
 
@@ -3079,6 +3264,18 @@ After a match, the coach faces the press in a short, dramatic vignette: a journa
 - Skipping is always possible and has a defined, neutral outcome.
 - Narrow Android portrait layouts remain usable.
 
+### Research refinement — 2026-10-05
+
+**Dependencies:** current ClubLife, morale/board effects, actual match/season context and phone checks. Preserve M1-011's DONE event trade-off foundation; verify M6-008's merged conference before adding content.
+
+**Smallest scope:** improve one existing question and its answer-to-effect mapping. Use a short, pointed football question with logical consequences and room for restrained humour; keep its immediate response readable.
+
+**Exclusions:** a new dialogue engine, personality quiz, compulsory weekly conferences, arbitrary permanent coach buffs or the unselected later-callback prototype. Do not duplicate #220/#226's backing promise/payoff.
+
+**Acceptance:** each answer applies its promised existing effect once; costs remain understandable, skip stays neutral, named people and circumstances come from current facts, and quiet matches need no conference. Do not claim real players' private intent or let amusing wording conceal an ignored answer.
+
+**Validation:** every answer and skip, thin/changed context, repetition suppression, saved effect state and repeat delivery; Android reading, touch and Back. Observed players should explain why the answer fits and what changed. New later callbacks require selection of RC-005 first.
+
 ---
 
 # M7 — Competition Identity & Long Careers
@@ -3135,6 +3332,18 @@ Surface lightly during matches and/or weekly flow.
 
 Do not spam routine milestones.
 
+### Research refinement — 2026-10-05
+
+**Dependencies:** stable career/event facts and M7-005 records; reconcile merged #220/#221 and open #226 before touching backed-player recognition.
+
+**Smallest scope:** only a genuinely missing milestone such as a supported career high, using existing presentation.
+
+**Exclusions:** another promise/payoff system, repeated praise, scripted breakthroughs or milestones invented from approximate imported history.
+
+**Acceptance:** recognition names the player and actual achievement, records it once, respects real/fictional-name preference and remains retrievable after club movement or retirement; a quiet game needs no milestone.
+
+**Validation:** first/threshold/tie/repeat-load cases, imported versus simulated history, generated players and phone pacing. Ask whether the player remembers why this person mattered; counts of notifications are not enjoyment.
+
 ---
 
 ## ARD-M7-004 — Captaincy / leadership
@@ -3148,6 +3357,18 @@ Give captaincy modest football meaning:
 - morale/leadership context.
 
 Avoid blanket attribute boosts.
+
+### Research refinement — 2026-10-05
+
+**Dependencies:** current player identity/morale and trustworthy match-state events.
+
+**Smallest scope:** one modest football leadership context with an observable effect.
+
+**Exclusions:** blanket attribute boosts, automatic captain-superstar status, forced comeback stories or a new relationship subsystem.
+
+**Acceptance:** the player understands the captain's role and its bounded limits; age/playing quality does not silently determine all leadership value; the same mechanics apply to AI clubs; captaincy transitions preserve earlier career facts.
+
+**Validation:** equal-personnel/seed comparisons, leading/chasing/quiet contexts, persistence and Android explanation. Distinguish a measured leadership effect from a coincidental late win.
 
 ---
 
@@ -3171,7 +3392,7 @@ Canonical umbrella for:
 - famous finals/dynasties/droughts.
 
 ### Awards ceremony implementation — 2026-10-02
-**Status:** `IN PROGRESS` — branch `chatgpt/season-awards`; pending PR CI and phone playtest.
+**Status:** `VERIFY` — awards ceremony foundation merged via #208; native phone pacing/touch/Back verification remains. _(reconciled 2026-10-05)_
 - Brownlow, Coleman, All-Australian and club best and fairest are presented over the existing Season Review, with B&F last.
 - One reusable stage walk-on/medal vignette reads the actual winner and all 20 clubs' genuine colour bands; it reuses BroadcastVignette's silhouette figures. No separate scenes per club, fabricated likeness, votes or outcomes.
 - All-Australian is scrollable; controls reveal immediately, finish animation, advance, or skip to the review. Replay is read-only; viewed state lives in the already-saved season_awards dictionary.
@@ -3203,6 +3424,18 @@ Acceptance: Brownlow and the user's B&F can be watched as progressive counts wit
 - no duplicate career aggregation on reload,
 - generated-player careers remain coherent over decades,
 - build from stored facts, not fabricated retrospective text.
+
+### Research refinement — 2026-10-05
+
+**Dependencies:** Career/Season stored facts, existing milestone/award systems and M6-002 former-player links. Keep #226 backed-player payoff as its current implementation owner.
+
+**Smallest scope:** verify continuity of one player's existing history from recruit to changed playing role, club movement, retirement and any actual coaching entry; repair a missing link/fact before adding presentation.
+
+**Exclusions:** a second archive, generic story cards, guaranteed career arcs, fabricated relationships, duplicate praise or the unselected alumni/bookmark candidates.
+
+**Acceptance:** stable IDs and genuine stints/honours survive decades and reload; an ageing contributor can remain remembered after losing a starting role; records never confuse another player with the same name or new guernsey. Recognise event-supported finals/dynasties without rewriting quiet seasons as dramatic ones. Where context is missing, make an earlier contribution and actual present role inspectable through existing facts, without inventing relationships.
+
+**Validation:** transferred/retired/generated players, imported 2026 history once, repeated reload, real/fictional-name preference and existing coach-player linkage; phone retrieval and multi-season recall. Broader narrative presentation remains review-only unless already accepted elsewhere.
 
 ---
 
@@ -3430,6 +3663,18 @@ Watch for:
 
 Use automated long-run simulation wherever practical.
 
+### Research refinement — 2026-10-05
+
+**Dependencies:** current save/season lifecycle, player generation/development, Contracts/Draft and Career/CoachPathway; add M5-016 opening-mode coverage when implemented, not as a prerequisite for all QA.
+
+**Smallest scope:** reproducible 5/10/20-year careers across contrasting club strengths and management policies before a longer integrity soak; preserve the existing 100+ year goal without rerunning it after every small change.
+
+**Exclusions:** using simulation as proof of enjoyment, forcing dynasty turnover, universal win-rate targets or hidden balance assistance.
+
+**Acceptance:** identity, ages, role histories, club stints, contracts/picks, honours and existing former-player links remain coherent; old saves load; no duplicate history, roster dead ends or unchecked stat/potential inflation; AI can sustain viable lists across generations. Save growth/loading and sim cost remain acceptable on the target phone.
+
+**Validation:** record commit, seeds, starting clubs, policies, failures and distributions; compare low-admin, hold, youth, veteran and trade-heavy careers. Trace individuals through changing jobs, retirement and actual coaching links. Pair with observed multi-season follow-up on difficult decisions, remembered people and desire to continue.
+
 ---
 
 ## ARD-M8-006 — Release polish
@@ -3526,11 +3771,23 @@ On the director's direction, the drawn stick figures became pre-rendered 2.5D fo
 - **Where they come from:** the separate `ard-asset-pipeline` repo (`build_vignette_figures.sh --install`), from a CC0 MPFB body; rebuilding reproduces the sheet exactly.
 - **Unchanged:** the camera, beats, positions, who is shown and MatchSim's authority. The pre-match scene uses the same figures.
 - **Appearance:** each figure wears its player's skin tone and hair colour (`GameDB.player_looks`); see the "Vignette player representation / appearance bug" item for how the data is curated.
-- **Guernsey designs:** each club's home kit is a row in `data/clubs.csv` ("guernsey": `<design>:<base>/<pattern>/<pattern 2>[/<shorts>]`, each colour p, s or a - the club's primary, secondary or accent - or a written-out `#RRGGBB`; e.g. Richmond `sash:s/p/a`, Port Adelaide `chevron:s/#FFFFFF/p`). Designs: plain, stripes, hoops, sash, yoke, band, chevrons, panels, chevron, sides, tiers, shoulders, map. The shader draws the design from where each pixel sits on the guernsey; socks take the base colour with a band in the pattern colour; back numbers are edged in the base colour so they read across stripes. Shorts left out are the secondary colour, a shade darker. Club emblems on the guernsey (the GWS "G", the Eagles' eagle) are not drawn. `tools/visual/capture_guernseys.gd` shows every club, front and back (`--scale`, `--clubs`). Brisbane, Gold Coast, GWS, Port Adelaide and West Coast follow the director's reference images; Tasmania wears its 2024 foundation guernsey (`map:p/s/a/p`: myrtle green, the primrose map of Tasmania on the chest with a rose-red T, green shorts); Canberra (an expansion club) has none. Shorts set so far: Adelaide, Collingwood, Essendon, Hawthorn, Melbourne, West Coast and Tasmania in their primary, the Bulldogs in white; the rest use the default.
+- **Guernsey designs:** each club's home kit is a row in `data/clubs.csv` ("guernsey": `<design>:<base>/<pattern>/<pattern 2>[/<shorts>]`, each colour p, s or a - the club's primary, secondary or accent - or a written-out `#RRGGBB`; e.g. Richmond `sash:s/p/a`, Port Adelaide `chevron:s/#FFFFFF/p`). Designs: plain, stripes, hoops, sash, yoke, band, chevrons, panels, chevron, sides, tiers, shoulders, map. The shader draws the design from where each pixel sits on the guernsey; socks take the base colour with a band in the pattern colour; back numbers are edged in the base colour so they read across stripes. Shorts left out are the secondary colour, a shade darker. Club emblems on the guernsey (the GWS "G", the Eagles' eagle) are not drawn. `tools/visual/capture_guernseys.gd` shows every club, front and back (`--scale`, `--clubs`). Brisbane, Gold Coast, GWS, Port Adelaide and West Coast follow the director's reference images; Tasmania wears its 2024 foundation guernsey (`map:p/s/a/p`: myrtle green, the primrose map of Tasmania on the chest with a rose-red T, green shorts); Canberra (an expansion club) has none. Every club's shorts are set, from its home kit: navy for Adelaide, Carlton, Geelong and Melbourne; black for Collingwood, Essendon, Port Adelaide, Richmond and St Kilda; maroon for Brisbane, red for Gold Coast and Sydney, purple for Fremantle, charcoal for GWS, brown for Hawthorn, blue for North Melbourne, West Coast and the Bulldogs, green for Tasmania; Canberra in its navy.
 - **Tests:** `_bounce_close_up` checks the figures wear both clubs' colours and the sheet holds every move the scene plays.
 
 ### Acceptance test
 The feature earns further work only if a phone playtest shows that the player can explain **why the decision is being asked**, form a reasonable expectation before choosing, and finds the moment materially more engaging than the normal presentation.
+
+### Research refinement — 2026-10-05
+
+**Dependencies / status boundary:** keep VERIFY and the §1.11 gate. The merged centre-bounce prototype is the current owner; no new library is authorised by this research.
+
+**Smallest scope:** test the existing scene against its authoritative participants, frozen state, choice and resumed events.
+
+**Exclusions:** 3D, narrative event cards, fabricated movement implying an unapplied tactic or a separate outcome model.
+
+**Acceptance:** viewers can see the football opportunity and trade-off; skip and watch preserve the same choice/resolution; repeated entry/Back does not duplicate or drop a call; positive and negative outcomes both return cleanly to the oval.
+
+**Validation:** participant/event agreement, quiet/invalid contexts, 320/360/430-width review plus native Android touch, pacing, load time and performance. Expansion requires the director's phone finding that this presentation improves meaningful decisions.
 
 ---
 
@@ -3946,35 +4203,35 @@ Guardrails: this is **not tied to super drafts**; do not guarantee the GOAT is o
 
 # 9.1 Post-Italy / phone playtest findings — 2026-10-04
 
-**Status: TODO / playtest consolidation.** These findings came from a multi-season Android playtest. Treat the overall difficulty/list-management findings as the main balance priority; fix concrete progression and misleading-UX bugs before adding unrelated feature breadth. Preserve the global rules: no psychic AI, no hidden AI advantages, no best-move hints, mobile-first interaction, and no number-vomit.
+**Status: PARTIAL / playtest consolidation.** These findings came from a multi-season Android playtest. Treat the overall difficulty/list-management findings as the main balance priority; fix concrete progression and misleading-UX bugs before adding unrelated feature breadth. Preserve the global rules: no psychic AI, no hidden AI advantages, no best-move hints, mobile-first interaction, and no number-vomit.
 
 ## P0 / correctness and trust
 
-- **Mid-season bye falsely enters post-season state — KNOWN BUG.** Observed at Round 15 of 24 while Melbourne was 2nd at 11–3: the Hub said “Season over for you / You missed the top 10” and exposed “Sim to Grand Final / Sim Wildcard Round”. Reproduce a user-club bye, distinguish “no fixture this round” from “no H&A fixtures remaining”, make finals controls impossible before H&A completion, and add regression coverage proving the next H&A match remains available. **Status (2026-10-05):** fixed in PR #210, pending merge. Cause: an odd (expansion) club count gives the user a home-and-away bye, and the Hub read "no match this week" as "missed the finals". The Hub now shows a bye with a one-round sim; Sim to Grand Final refuses to run before the home-and-away season ends; regression test in the matchup suite.
+- **Mid-season bye falsely enters post-season state — VERIFY (repair merged; phone follow-up).** Observed at Round 15 of 24 while Melbourne was 2nd at 11–3: the Hub said “Season over for you / You missed the top 10” and exposed “Sim to Grand Final / Sim Wildcard Round”. Reproduce a user-club bye, distinguish “no fixture this round” from “no H&A fixtures remaining”, make finals controls impossible before H&A completion, and add regression coverage proving the next H&A match remains available. **Status (2026-10-05):** fixed in merged PR #210; native phone follow-up remains. Cause: an odd (expansion) club count gives the user a home-and-away bye, and the Hub read "no match this week" as "missed the finals". The Hub now shows a bye with a one-round sim; Sim to Grand Final refuses to run before the home-and-away season ends; regression test in the matchup suite.
 - **Season fatigue parity audit — VERIFY.** User squad appeared consistently more tired than opposition. Verify AI clubs accumulate and recover fatigue through the season under the same rules and constraints as the user; no hidden fatigue protection. **Status (2026-10-05):** audited in PR #213 (`docs/PLAYTEST_AUDIT_2026-10-05.md`): no parity defect. Every club runs the same Workload/MatchSim rules; the only differences are user-chosen levers (high-performance budget, Heavy/Recovery weeks, a fixed manual side, rotation policy). On default settings the user's match-day load was lower than the AI's (4.4–8.4 vs ~10). Nobody reached "Needs a break", so season workload barely bites, which is relevant to the difficulty finding.
-- **Generated-player provenance / age sanity — VERIFY.** A fictional Joshua Robinson appeared age 28 only ~2–3 seasons into the save with 89 POT. Audit all non-draft/list-fill/emergency generation paths, initial ages, club assignment, age × potential logic and career-history provenance. Fictional players should have believable entry history; do not silently spawn implausible veteran high-potential players. **Status (2026-10-05):** fixed in PR #213, pending merge. Only expansion lists create older fictional players, and they were projected like draftees with a draft-rank ceiling (27–30-year-olds got +17–20 POT headroom vs +6.6 for real players; e.g. age 29, OVR 69, POT 91). Past 21 a projected player now gets the age-based ceiling real players use (+1.4–1.8 at 27–30); draft classes are unchanged. Entry history is left as is, since it only shows on draft screens.
-- **Training role/classification sanity — VERIFY.** A small defender appeared as a Key Defender after KPD training. Determine whether the underlying role/eligibility actually changed or only the display heuristic changed. Training may improve relevant skills but must not mechanically convert physically unsuitable players into key-position archetypes; audit equivalent role-label transformations. **Status (2026-10-05):** audited and fixed in PR #214, pending merge. Across 1,292 training runs no player changed position and none under the height gates became a key-position type; the label the playtest saw was the training plan shown bare under the name. The Training list now reads "Training as a key defender". Open design question: whether the Key defender plan should be offered to sub-191 cm defenders.
+- **Generated-player provenance / age sanity — VERIFY.** A fictional Joshua Robinson appeared age 28 only ~2–3 seasons into the save with 89 POT. Audit all non-draft/list-fill/emergency generation paths, initial ages, club assignment, age × potential logic and career-history provenance. Fictional players should have believable entry history; do not silently spawn implausible veteran high-potential players. **Status (2026-10-05):** fixed in merged PR #213. Only expansion lists create older fictional players, and they were projected like draftees with a draft-rank ceiling (27–30-year-olds got +17–20 POT headroom vs +6.6 for real players; e.g. age 29, OVR 69, POT 91). Past 21 a projected player now gets the age-based ceiling real players use (+1.4–1.8 at 27–30); draft classes are unchanged. Entry history is left as is, since it only shows on draft screens.
+- **Training role/classification sanity — VERIFY.** A small defender appeared as a Key Defender after KPD training. Determine whether the underlying role/eligibility actually changed or only the display heuristic changed. Training may improve relevant skills but must not mechanically convert physically unsuitable players into key-position archetypes; audit equivalent role-label transformations. **Status (2026-10-05):** audited and fixed in merged PR #214. Across 1,292 training runs no player changed position and none under the height gates became a key-position type; the label the playtest saw was the training plan shown bare under the name. The Training list now reads "Training as a key defender". Open design question: whether the Key defender plan should be offered to sub-191 cm defenders.
 - **Goal-line scramble vignette — KNOWN BUG / football sanity.** The current “scramble at the goal line” sequence reads as nonsense. Rework the event/presentation so the underlying football sequence is plausible rather than preserving the vignette for its own sake.
-- **Key-matchup copy/data binding — KNOWN BUG.** Observed repeated anonymous text such as “on him”, dangling colons and matchup rows that omit the opponent. Every assignment must clearly identify who is on whom with natural football copy. **Status (2026-10-05):** fixed in PR #210, pending merge. Every match-up line names both players ("Moore is on Curnow."; cards say "Put Moore on Curnow"); a missing defender reads "Nobody is on Curnow." rather than a gap; id-only name lookups fall back to the current lists so a career-only player is never blank.
+- **Key-matchup copy/data binding — VERIFY (repair merged; phone follow-up).** Observed repeated anonymous text such as “on him”, dangling colons and matchup rows that omit the opponent. Every assignment must clearly identify who is on whom with natural football copy. **Status (2026-10-05):** fixed in merged PR #210; native phone follow-up remains. Every match-up line names both players ("Moore is on Curnow."; cards say "Put Moore on Curnow"); a missing defender reads "Nobody is on Curnow." rather than a gap; id-only name lookups fall back to the current lists so a career-only player is never blank.
 
 ## P1 / difficulty, list building and meaningful management
 
 - **Overall difficulty is too low — BALANCE-GATED.** The playtest produced three consecutive premierships despite minimal engagement with training or list management. Audit why neglecting management carries too little cost. Do not solve this with hidden AI boosts, rubber-banding or psychic tactics. Measure low-engagement/autopilot seasons against actively managed seasons; training, development, ageing, contracts, cap pressure, depth, drafting, selection and AI list building must create meaningful long-term consequences without weekly busywork.
-- **List-profile top end is too easy to reach — BALANCE-GATED.** By roughly season 3 the user list showed Elite in Contest, Control, Running power and Aerial power and Strong in Pressure and Finishing. Tighten/calibrate league-relative profile bands so “Elite” means genuinely exceptional relative to the competition. Audit player development/attribute inflation as well as thresholds. Strong sides should normally retain identifiable weaknesses.
+- **List-profile top end is too easy to reach — BALANCE-GATED.** By roughly season 3 the user list showed Elite in Contest, Control, Running power and Aerial power and Strong in Pressure and Finishing. Verify league-relative bands against measured list strength before adjusting them; “Elite” should mean genuinely exceptional relative to the competition. The later #217 evidence below found these words already represent league ranks; it supersedes an assumption that the bands are loose. Audit player development/attribute inflation as well as thresholds. Strong sides should normally retain identifiable weaknesses.
 - **Synergies should be build specialisations, not completion bonuses — TODO / BALANCE-GATED.** Nearly every synergy was unlocked by season 3. Make activation materially harder and effects materially stronger so pursuing a synergy resembles an RPG build specialisation: roster commitment, meaningful opportunity cost and distinct club identity. A balanced good list should not naturally unlock everything. AI clubs may pursue identities from their actual lists. Keep activation rules/effects transparent without recommending the optimal recruit or build.
 - **Extreme-margin calibration — BALANCE-GATED.** A 175–28 win (147 points) is possible football and must remain possible, but audit the frequency of 80+/100+/120+/150+ margins, especially for dominant user teams. Check compounding between ratings, synergies, gameplan, form/momentum and losing-side resistance. Preserve rare massacres; prevent routine runaway percentage farming. Include extreme individual-stat/rating sanity in the same measurement.
-- **Trade valuation / potential-by-age audit — VERIFY / BALANCE-GATED.** Review current OVR, realistic remaining development, age, contract, positional need and club strategy together. Potential must be age-adjusted in trade value; an identical POT number cannot imply the same future asset at 17 and 28. Reassess the observed Rozee-for-Robinson example only after the generated-player provenance issue is understood. **Note (2026-10-05):** the inflated POT behind the Rozee-for-Robinson example came from the expansion-list ceiling fixed in PR #213; reassess trade valuation after that merges.
+- **Trade valuation / potential-by-age audit — VERIFY / BALANCE-GATED.** Review current OVR, realistic remaining development, age, contract, positional need and club strategy together. Potential must be age-adjusted in trade value; an identical POT number cannot imply the same future asset at 17 and 28. Reassess the observed Rozee-for-Robinson example only after the generated-player provenance issue is understood. **Note (2026-10-05):** the inflated POT behind the Rozee-for-Robinson example came from the expansion-list ceiling fixed in PR #213; reassess trade valuation against the merged provenance repair and reconcile open #223/#224 before further edits.
 - **Opposition POT information — VERIFY.** Audit whether exact opposition POT is being exposed without sufficient scouting certainty. Preserve the anti-psychic rule; where uncertainty is intended, show an earned estimate/range rather than omniscient exact potential.
-- **Full coaching mobility / off-season staff market — VERIFY then TODO if incomplete.** Staff appeared effectively static. Verify contracts, expiries, AI movement, internal promotion, retired-player entry and market circulation. The intended system is a second off-season roster-building layer: retain/release/promote/recruit staff under simple contracts, with assistants pursuing genuine promotions and AI clubs following the same market. Preserve the no-sideways-poaching design; avoid six tedious negotiations every year. **Status (2026-10-05):** verified in PR #214: the market exists (AI senior-coach contracts and sackings, upward promotions, poaching, retirements, a generated pool), but assistants have no contracts, so the user's original assistants stayed for ten seasons in measurement. TODO: the assistant-contract retain/release layer, which needs design decisions (term, decisions per off-season, asks).
+- **Full coaching mobility / off-season staff market — VERIFY then TODO if incomplete.** Staff appeared effectively static. Verify contracts, expiries, AI movement, internal promotion, retired-player entry and market circulation. The intended system is a second off-season roster-building layer: retain/release/promote/recruit staff under simple contracts, with assistants pursuing genuine promotions and AI clubs following the same market. Preserve the no-sideways-poaching design; avoid six tedious negotiations every year. **Status (2026-10-05):** verified in PR #214: the market exists (AI senior-coach contracts and sackings, upward promotions, poaching, retirements, a generated pool), but assistants have no contracts, so the user's original assistants stayed for ten seasons in measurement. The light assistant-contract retain/release layer is now merged in #225 (2–3 season terms, short asks, typically 1–2 expiries and one-tap decisions); verify the remaining Android/offseason experience rather than rebuilding it.
 - **Contract-talk events currently pre-solve the off-season — BALANCE-GATED.** Early extension requests occur often enough that stars are largely re-signed before the season ends. Reduce frequency and make requests contextual/notable. Most clubs should reach the off-season with meaningful contract decisions unresolved. Early security should have a real price/trade-off; stars should not conveniently remove the hardest cap decisions.
-- **Harvey Langford balance adjustment — TODO / BALANCE-GATED.** Increase Harvey Langford’s player attributes by approximately 15% as an explicit player-data balance correction; do not use this as justification to alter the broader generation model. **Status (2026-10-05):** done in PR #213, pending merge. A named-player `Ratings.ATTR_ADJUSTMENTS` entry scales every attribute ×1.15 (cap 99); OVR 57 → 64, POT 77 → 82, still a MID; nobody else moves. Existing careers keep saved attributes.
+- **Harvey Langford balance adjustment — DONE (merged #213).** Increase Harvey Langford’s player attributes by approximately 15% as an explicit player-data balance correction; do not use this as justification to alter the broader generation model. **Status (2026-10-05):** done in merged PR #213. A named-player `Ratings.ATTR_ADJUSTMENTS` entry scales every attribute ×1.15 (cap 99); OVR 57 → 64, POT 77 → 82, still a MID; nobody else moves. Existing careers keep saved attributes.
 
 ## P1 / coaching decisions and weekly flow
 
 - **Gameplan choice still feels like a crapshoot — TODO.** Improve decision information and consequence legibility so the player can form a reasonable tactical hypothesis without being told the best move.
-- **Quarter-break opponent-plan reveal — KNOWN BUG / VERIFY.** The break does not consistently reveal the opponent plan used in the quarter that just finished. Make the intended retrospective information reliable. **Status (2026-10-05):** fixed in PR #210, pending merge. Cause: MatchSim recorded each quarter's plans before the AI chose its plan, so the break showed the previous quarter's plan. The record is now taken after the AI chooses (no RNG or outcome change), and the break always states the plan, including a balanced game.
+- **Quarter-break opponent-plan reveal — VERIFY (repair merged; phone follow-up).** The break does not consistently reveal the opponent plan used in the quarter that just finished. Make the intended retrospective information reliable. **Status (2026-10-05):** fixed in merged PR #210; native phone follow-up remains. Cause: MatchSim recorded each quarter's plans before the AI chose its plan, so the break showed the previous quarter's plan. The record is now taken after the AI chooses (no RNG or outcome change), and the break always states the plan, including a balanced game.
 - **“X is hurting you” must connect to a lever — TODO.** Quarter-break coaching feedback can identify a dangerous opponent when no meaningful response is available. Either surface an appropriate matchup/tag/structural response or do not frame the observation as actionable advice.
-- **“How we get beaten” not learning — VERIFY.** It can still say “Nothing stands out yet” halfway through a season. Audit accumulation, sample requirements and thresholds. By mid-season it should normally identify genuine recurring patterns when evidence exists, but must not invent a trend merely to fill the panel. **Status (2026-10-05):** audited and fixed in PR #214, pending merge. On drafted leagues weak sides are named most of the time; a dominant side usually has no material weakness. The empty read now says so after 10 games instead of "Nothing stands out yet". Thresholds unchanged. Director decision (2026-10-05): the points-from/conceded-on-turnover lines are removed, since a 6-point floor against a 1.5–2 point club spread meant they almost never fired.
+- **“How we get beaten” not learning — VERIFY.** It can still say “Nothing stands out yet” halfway through a season. Audit accumulation, sample requirements and thresholds. By mid-season it should normally identify genuine recurring patterns when evidence exists, but must not invent a trend merely to fill the panel. **Status (2026-10-05):** audited and fixed in merged PR #214. On drafted leagues weak sides are named most of the time; a dominant side usually has no material weakness. The empty read now says so after 10 games instead of "Nothing stands out yet". Thresholds unchanged. Director decision (2026-10-05): the points-from/conceded-on-turnover lines are removed, since a 6-point floor against a 1.5–2 point club spread meant they almost never fired.
 - **Weekly selection brief — TODO.** Before selection, surface only a short set of genuine pressures such as “X is pushing for selection”, “X needs a rest”, sustained poor senior form, or a player returning from injury/suspension. Make each item actionable into the relevant change/replacement flow. This is decision support, not an assistant that picks the team.
 - **Streamline Ins & Outs — TODO.** Selection should naturally support OUT → IN changes with a small set of suitable eligible replacements, while retaining a path to the full list. Do not declare a “best” replacement.
 - **Key match-ups need to be meaningful interventions — TODO.** Routine KPF/KPD pairings should generally be handled automatically rather than manufactured as coaching choices every match. Surface special matchup decisions for genuinely dangerous/hot players, interceptors, small forwards, midfielders, sacrificed attacking defenders, etc. It is acceptable for a match to have no special matchup decision. Connect this system to “X is hurting you” feedback.
@@ -3984,7 +4241,7 @@ Guardrails: this is **not tied to super drafts**; do not guarantee the GOAT is o
 - **My List → My Selection interaction flow — TODO.** Selecting a player currently requires scrolling to a distant action area. Put relevant actions at/near the selected player. Dropping a player should immediately offer a restrained set of suitable positional/role replacements plus full-list access.
 - **My List → Shape should be functional — TODO.** The formation screen is currently cosmetic. Make players directly tappable for move/reposition, swap and drop actions in context, with the same replacement flow. Treat Shape as a candidate primary mobile selection interface rather than maintaining a pretty read-only duplicate.
 - **My List → Full List traits — TODO.** Surface distinctive player traits without adding trait-vomit. Prefer a compact trait name/indicator with tap-to-inspect details so the list communicates player identity at a glance.
-- **Training touch handling — KNOWN UX BUG.** Player rows are too eager to register selection while the user is scrolling, causing accidental multi-selects. Add robust scroll-vs-tap/long-press discrimination and test rapid swipes, slow drags, taps and long-press on phone touch input. **Status (2026-10-05):** fixed in PR #210, pending merge. A press that turns into a scroll (list moved, or finger travelled past the scroll deadzone) is neither a tap nor a long press; still taps and holds behave as before. Covered by a career-UI test; still worth a phone check.
+- **Training touch handling — VERIFY (repair merged; phone follow-up).** Player rows are too eager to register selection while the user is scrolling, causing accidental multi-selects. Add robust scroll-vs-tap/long-press discrimination and test rapid swipes, slow drags, taps and long-press on phone touch input. **Status (2026-10-05):** fixed in merged PR #210; native phone follow-up remains. A press that turns into a scroll (list moved, or finger travelled past the scroll deadzone) is neither a tap nor a long press; still taps and holds behave as before. Covered by a career-UI test; still worth a phone check.
 - **Training scrollbar — TODO / mobile polish.** The right-side scrollbar/thumb is awkward to grab. Increase its touch usability if retained, but prioritise normal swipe scrolling so grabbing the scrollbar is rarely necessary.
 
 ## P2 / draft pathway depth
@@ -3993,31 +4250,57 @@ Guardrails: this is **not tied to super drafts**; do not guarantee the GOAT is o
 
 ## 2026-10-05 difficulty evidence and director decisions
 
-- **Difficulty / List Profile / extreme margins / early extensions — evidence, not tuned** (PR pending, `docs/DIFFICULTY_EVIDENCE_2026-10-05.md`). Seven five-season autopilot careers (8,281 matches): no policy (AI-style draft, greedy draft, greedy plus accepting every extension) produced a dynasty, with no premierships in 35 seasons. Unmanaged lists start #1 and fall to rank 16–20 by year five through the off-season, while in-season development matches the AI. Your one structural edge is League Draft information (exact board vs AI evaluation error, documented as intended). List Profile words are league ranks, so four Elite words mean genuine dominance, not loose bands. Margins: 100+ in 0.5% of matches, none 150+. Extension cards: about 1.7 a season, and accepting them did not slow the decline. **Conclusion:** the playtest dynasty must come from levers the harness does not pull: live-match calls, trades and free agency, and the year-one draft edge. **Director decisions (2026-10-05):** the unmanaged collapse is about right, so leave it and make active play less dominant instead; measure next: live-match call uplift (paired seeds), trade-market exploitability and free-agency advantage (TODO).
-- **Active-play levers — evidence, not tuned** (`docs/LEVERS_EVIDENCE_2026-10-05.md`, PR pending). Live-match calls are worth about +3 points of win rate (counter-reading), but Defensive press all match won 67.8% vs 61.1% Balanced (about 2 SE, confirm at a larger sample). The trade market is exploitable: AI clubs give established stars for unproven teenagers (e.g. 83 OVR age 25 for two 67s aged 18) because `TradeValue.future_rating` treats 60% of a youngster's POT gap as certain. Free agency is not a lever (asking-price bids never lead; the pool is mostly 33+). **Director decisions (2026-10-05):** discount unproven potential in trade value by senior games played (done in PR #224, pending merge: prime-age stars no longer go for unproven kids; a rebuilder can still sell a 29-year-old star for two top kids); rerun the calls test at about 1,000 matches before any Defensive press tuning (TODO); next build after these: assistant contracts.
-- **Director decision — League Draft board:** your board shows scouted estimates (as the National Draft already does via `DraftScouting`, sharper with recruiting budget) instead of exact consensus ratings, removing the free first-season edge while good drafting still pays. TODO.
-- **Director decision — Opposition POT:** another club's player shows a POT *range* (draft-style scouting) that narrows with his time in the league and your recruiting budget; exact once he is on your list. TODO.
+- **Difficulty / List Profile / extreme margins / early extensions — evidence, not tuned** (merged PR #217, [difficulty report](DIFFICULTY_EVIDENCE_2026-10-05.md)). Seven five-season autopilot careers (8,281 matches): no policy (AI-style draft, greedy draft, greedy plus accepting every extension) produced a dynasty, with no premierships in 35 seasons. Unmanaged lists start #1 and fall to rank 16–20 by year five through the off-season, while in-season development matches the AI. Your one structural edge is League Draft information (exact board vs AI evaluation error, documented as intended). List Profile words are league ranks, so four Elite words mean genuine dominance, not loose bands. Margins: 100+ in 0.5% of matches, none 150+. Extension cards: about 1.7 a season, and accepting them did not slow the decline. **Working hypothesis, not established causation:** investigate levers the harness does not pull: live-match calls, trades and free agency, and the year-one draft edge. **Director decisions (2026-10-05):** the unmanaged collapse is about right, so leave it and make active play less dominant instead; measure next: live-match call uplift (paired seeds), trade-market exploitability and free-agency advantage. These measurements are in open PR #223 at this checkpoint; #224 addresses unproven-potential valuation. Reconcile their actual heads/results before changing the same systems.
+- **Active-play levers — evidence, not tuned** (`docs/LEVERS_EVIDENCE_2026-10-05.md`, PR #223). Live-match calls are worth about +3 points of win rate (counter-reading), but Defensive press all match won 67.8% vs 61.1% Balanced (about 2 SE, confirm at a larger sample). The trade market is exploitable: AI clubs give established stars for unproven teenagers (e.g. 83 OVR age 25 for two 67s aged 18) because `TradeValue.future_rating` treats 60% of a youngster's POT gap as certain. Free agency is not a lever (asking-price bids never lead; the pool is mostly 33+). **Director decisions (2026-10-05):** discount unproven potential in trade value by senior games played (done in PR #224, pending merge: prime-age stars no longer go for unproven kids; a rebuilder can still sell a 29-year-old star for two top kids); rerun the calls test at about 1,000 matches before any Defensive press tuning (TODO); next build after these: assistant contracts.
+- **Director decision — League Draft board:** your board shows scouted estimates (as the National Draft already does via `DraftScouting`, sharper with recruiting budget) instead of exact consensus ratings, removing the free first-season edge while good drafting still pays. Done in merged PR #222; phone verification remains.
+- **Director decision — Opposition POT:** another club's player shows a POT *range* (draft-style scouting) that narrows with his time in the league and your recruiting budget; exact once he is on your list. Done in merged PR #222; phone verification remains.
 - **Director decision — Club colours:** Claude proposes corrected primary/secondary/accent for every club with sources and a swatch sheet; apply plus a palette snapshot test only after sign-off. TODO.
-- **Director decision — Assistant contracts:** light layer. Assistants sign 2–3 season terms, so typically 1–2 expire per off-season; each is a one-tap Re-sign / Let go with a short ask; AI clubs follow the same rules. TODO.
-- **Director decision — How we play:** the points-from/conceded-on-turnover lines are removed (PR #214).
+- **Director decision — Assistant contracts:** light layer. Assistants sign 2–3 season terms, so typically 1–2 expire per off-season; each is a one-tap Re-sign / Let go with a short ask; AI clubs follow the same rules. Done in merged PR #225; phone verification remains.
+- **Director decision — How we play:** the points-from/conceded-on-turnover lines are removed (merged PR #214).
 
 
 
 ## P2 / presentation polish observed during playtest
 
-- **Money formatting consistency — TODO.** Raw values such as “1626750 under the cap”, “970000” and “1115500” were visible in player-facing UI. Use compact AFL-scale currency formatting consistently (for example $1.63m, $970k, $1.12m) without changing underlying values. **Status (2026-10-05):** fixed in PR #210, pending merge. The raw values came from the early-extension card (asking price and the 15% premium), the Coaching cap line, the cap-room refusal and two news/outcome lines; all now use `Contracts.money()` ($970k, $1.12m).
+- **Money formatting consistency — VERIFY (repair merged; phone follow-up).** Raw values such as “1626750 under the cap”, “970000” and “1115500” were visible in player-facing UI. Use compact AFL-scale currency formatting consistently (for example $1.63m, $970k, $1.12m) without changing underlying values. **Status (2026-10-05):** fixed in merged PR #210; native phone follow-up remains. The raw values came from the early-extension card (asking price and the 15% premium), the Coaching cap line, the cap-room refusal and two news/outcome lines; all now use `Contracts.money()` ($970k, $1.12m).
 
+
+## Research refinement — competing identities and weekly choices
+
+**Synergy owner:** keep the existing specialisation finding above. **Dependencies:** current Synergies, role/selection and valid match events. **Smallest scope:** measure present activation and outcomes, then refine one specialisation with a visible roster/selection sacrifice. **Exclusions:** another synergy engine, universal buffs, optimal-build/recruit hints or copy of TFT's trait thresholds. **Acceptance:** a balanced good list does not effortlessly activate every identity; several committed builds remain viable against different opponents; actual football strengths and weaknesses correspond to displayed rules. **Validation:** matched talent/cap/age/depth compositions, counter-opponents, activation and event outcomes across multiple seasons, AI parity and phone explanation. Thresholds/quantities remain prototype assumptions until measured.
+
+**Weekly selection owner:** keep Weekly selection brief, Ins & Outs and My List → Shape above as one coherent flow. **Dependencies:** true form/workload/availability and current selection/role eligibility. **Smallest scope:** one real selection pressure with a nearby OUT → IN action and full-list access. **Exclusions:** auto-picked best replacements, constant compulsory changes, extra duplicate list screens or invented reserves statistics. **Acceptance:** quiet weeks are quick; each displayed pressure has evidence; eligible options communicate role/trade-offs without choosing for the player; selection changes preserve scroll/context and the valid named side. **Validation:** injured/suspended/returning/omitted players, no-pressure weeks, rapid and slow Android swipes up and down, tap versus drag, Back, portrait widths and save/resume. Extend existing phone tickets, not a second selection redesign.
+
+# 9.2 Research candidates — awaiting director selection
+
+The detailed evidence, trade-offs and prototype tests are in [GENRE_ENJOYMENT_RESEARCH.md §7](GENRE_ENJOYMENT_RESEARCH.md#7-research-candidates--awaiting-director-selection).
+
+**ARD-RC references are not accepted TODOs, dependencies for shipping, or Claude execution work.** Standing authority applies only after the director selects a candidate and it is merged into the appropriate existing owner. No candidate is added to §0.4.1.
+
+| Reference | Review candidate | Existing owner if selected |
+|---|---|---|
+| ARD-RC-001 | Optional engine-backed tactical practice preview | M4-004 / M8-007 |
+| ARD-RC-002 | A saved match worth remembering, using factual existing report/events | M4-009 / M7-005 |
+| ARD-RC-003 | A bounded development commitment with an opportunity cost | M5-003 / existing training |
+| ARD-RC-004 | An alumni link across generations using actual former-player coaching records | M7-005 / M6-002 |
+| ARD-RC-005 | One existing football answer recalled later, using saved factual context | M6-008 / M7-005 |
+
+Prefer improving the existing experience when that answers the same need. This pass implements no gameplay and sends no implementation assignment.
+
+---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-05:** Added independent genre enjoyment research covering eight cross-genre references plus Footy Redraft/AFCM, Crusader Kings and Esoteric Ebb, including the director's replayability/trust/storytelling and short-question preferences. Refined existing tactical, role, development, market, history and QA owners with dependencies, exclusions, observable outcomes and validation. Added accepted ARD-M5-016 (inherited end-2026 lists → 2026 National Draft → 2027), separate from review-only ARD-RC-001–005. Reconciled merged #210/#213/#214/#217/#220/#221/#222/#225 and open #206/#223/#224/#226 against main `4b9eecc3858e970c46e25366701907f1cb4c6070`; preserved phone and balance gates. Documentation only; no gameplay merge or Claude assignment.
 
 - **2026-10-04:** Added Academies / NGA and tied-prospect draft mechanics as a later draft-pathway layer, explicitly downstream of core draft depth, Combine/scouting and AI drafting fixes.
 
 - **2026-10-04:** Consolidated the multi-season Android/Italy playtest findings: P0 bye/progression and football-sanity bugs; overall difficulty/list-profile/synergy calibration; fatigue parity, generated-player provenance, trade/potential and coaching-mobility audits; contract/off-season pressure; weekly selection and matchup decision support; mobile selection/training UX; and observed presentation formatting issues.
 
-- **2026-10-05:** Playtest audits part 2 (PR #214, pending merge): How we get beaten copy no longer says "yet" once settled; training rows name the plan as a plan; coaching mobility verified, with assistant contracts identified as the missing layer. Evidence in `docs/PLAYTEST_AUDIT_2_2026-10-05.md`.
-- **2026-10-05:** Playtest fix batch (PR #210, pending merge): mid-season bye no longer enters post-season; match-up copy names both players; the quarter break shows the plan the opposition actually ran; training rows ignore scrolls; player-facing money uses compact AFL formatting. Recorded the three-game Coaching gate, week-by-week finals and Season Review scroll as already fixed on `main`.
+- **2026-10-05:** Playtest audits part 2 (PR #214, now merged): How we get beaten copy no longer says "yet" once settled; training rows name the plan as a plan; coaching mobility verified, with assistant contracts identified as the missing layer. Evidence in `docs/PLAYTEST_AUDIT_2_2026-10-05.md`.
+- **2026-10-05:** Playtest fix batch (PR #210, now merged): mid-season bye no longer enters post-season; match-up copy names both players; the quarter break shows the plan the opposition actually ran; training rows ignore scrolls; player-facing money uses compact AFL formatting. Recorded the three-game Coaching gate, week-by-week finals and Season Review scroll as already fixed on `main`.
 - **2026-10-05:** Reconciled statuses for PRs closed without a direct merge. #182, #183, #185, #186, #187, #188, #191, #193, #195, #196 and #198 were carried onto `main` by the consolidated squash merge #208 (verified: their production code and tests are on `main`; #196's separate free-kick helpers were superseded by the #202 contextual-frees work in #208). Marked M2-010, M3-004, M3-005, M3-006, M3-009, M5-002, M5-011, M6-005 and M8-004 DONE; M3-008, M3-011, M5-014 and M6-008 VERIFY (balance evidence / phone playtest remain); M6-004, M7-003 and M7-005 PARTIAL. Recorded #118 and #120 as merged in §1.11, and collapsed the stale finish-the-stack steps in §0.4.1.
-- **2026-10-05:** Playtest audits and Langford (PR #213, pending merge): expansion lists no longer give seasoned players a draftee's POT ceiling (the generated-player provenance finding); season fatigue parity audited with no defect; Harvey Langford +15% attributes. Evidence in `docs/PLAYTEST_AUDIT_2026-10-05.md`.
+- **2026-10-05:** Playtest audits and Langford (PR #213, now merged): expansion lists no longer give seasoned players a draftee's POT ceiling (the generated-player provenance finding); season fatigue parity audited with no defect; Harvey Langford +15% attributes. Evidence in `docs/PLAYTEST_AUDIT_2026-10-05.md`.
 
 - **2026-10-02:** Added the ultra-rare GOAT prospect concept: roughly once per 30 seasons, independent of super drafts, foreshadowed anonymously through draft whispers/Combine clues, with superstar salary and godfather-offer trade economics if he develops.
 

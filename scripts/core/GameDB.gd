@@ -293,6 +293,22 @@ func player_display_name_by_id(id: String, fallback := "") -> String:
 	return fallback
 
 
+## A surname for a caption or a tight label: the real last name in real-name
+## mode, otherwise the last word of the fictional name. A long one is cut
+## ("Papaioannou" reads "Papaioann.").
+func player_surname(player: Dictionary) -> String:
+	var raw := ""
+	if GameState.show_real_names and str(player.get("last", "")) != "":
+		raw = str(player["last"])
+	else:
+		var generic := str(player.get("generic_name", player.get("name", "Player")))
+		var parts := generic.split(" ", false)
+		raw = parts[parts.size() - 1] if not parts.is_empty() else "Player"
+	if raw.length() > 10:
+		raw = raw.substr(0, 9) + "."
+	return raw
+
+
 ## Search can match the real name without showing it while fictional labels are on.
 func player_search_text(player: Dictionary) -> String:
 	return "%s %s" % [

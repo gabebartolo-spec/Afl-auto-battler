@@ -28,6 +28,7 @@ func run() -> void:
 	_test_boundary_collect(res)
 	_test_play_when_idle(res)
 	_test_numbers_readable()
+	_test_oval_people(res)
 	_test_broadcast_vignettes()
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -572,6 +573,170 @@ func _test_numbers_readable() -> void:
 			bad.append(str(code))
 	_check(bad.is_empty(), "Every club's player numbers stand out on the token (%s)" % ", ".join(bad))
 	pv.free()
+
+
+## Your people on the oval: every token knows its player, a substitute takes the
+## ring and the name with the slot, MatchRings picks the calls and the runs
+## (yours only, capped), and the view names a scorer, and a ringed player with
+## the ball, for a moment in real seconds. All of it presentation: nothing
+## here writes to the match.
+func _test_oval_people(res: Dictionary) -> void:
+	var before: Array = (res["events"] as Array).duplicate(true)
+	# Tokens carry the player, and a surname that fits a caption.
+	var played := _play(res, res["events"], 1.0 / 15.0, false)
+	var d: MatchDirector = played["director"]
+	var by_num := [{}, {}]
+	for side in range(2):
+		for r in (res["roster"] as Array)[side]:
+			(by_num[side] as Dictionary)[int(r["num"])] = str(r["id"])
+	var who_ok := not d.tokens.is_empty()
+	var swapped_ok := true
+	for t in d.tokens:
+		var sn := str(t.get("surname", ""))
+		if str(t.get("pid", "")) == "" or sn == "" or sn.length() > 10:
+			who_ok = false
+		# After every interchange, the token is the player on now.
+		if str((by_num[int(t["side"])] as Dictionary).get(int(t["num"]), "")) != str(t["pid"]):
+			swapped_ok = false
+	_check(who_ok, "Every token carries its player's id and a surname that fits a caption")
+	var subs := 0
+	for ev in res["events"]:
+		if str(ev.get("kind", "")) == "sub":
+			subs += 1
+	_check(subs > 0 and swapped_ok, "A substitute takes the ring and the name with the slot (%d interchanges)" % subs)
+	_check(GameDB.player_surname({"name": "Ari Bramble"}) == "Bramble"
+			and GameDB.player_surname({"name": "Jack Papaioannou"}) == "Papaioann."
+			and GameDB.player_surname({"name": ""}) == "Player",
+			"A surname is the last word, and a long one is cut")
+
+	# The ring: the runs, then the calls, yours only, no repeats, capped.
+	var sim := _sim(7)
+	var me := 0
+	var mine: Array = (sim.squads[me] as Squad).ground
+	var theirs: Array = (sim.squads[1] as Squad).ground
+	var their_mid := {}
+	var their_fwds := []
+	for p in theirs:
+		if their_mid.is_empty() and str(p["role"]) == "MID":
+			their_mid = p
+		if str(p["role"]) == "FWD":
+			their_fwds.append(p)
+	var defenders: Array = Matchups.defenders(mine)
+	# A forward, so he is none of the defenders below nor the midfielder who tags.
+	var focus := {}
+	for p in mine:
+		if focus.is_empty() and str(p["role"]) == "FWD":
+			focus = p
+	var on_sim := {}
+	for p in mine + (sim.squads[me] as Squad).bench:
+		on_sim[str(p["id"])] = true
+	var list := []
+	for p in GameDB.club_list("RIC"):
+		list.append((p as Dictionary).duplicate(true))
+	var tagger_id := str(MatchSim.tagger_for(mine)["id"])
+	sim.set_tactics(me, {"gameplan": "balanced", "focus_id": str(focus["id"]),
+			"tag_id": str(their_mid["id"]), "pep": "steady"})
+	# The sim sets up its own match-ups; those are not your calls, so not ringed.
+	_check(MatchRings.ids(sim, me, list) == [str(focus["id"]), tagger_id],
+			"With a play-through and a tag, the player and the tagger are ringed, not the default match-ups (%s)" % str(MatchRings.ids(sim, me, list)))
+	_check(sim.set_interceptor(me, str(defenders[0]["id"]), false)
+			and sim.set_matchup(me, str(their_fwds[0]["id"]), str(defenders[1]["id"]), false),
+			"A spare and a match-up are set on the sim")
+	var kid := {}
+	for p in list:
+		if not on_sim.has(str(p["id"])):
+			kid = p
+			break
+	Backing.start(kid, 2027, 1, 0)
+	var picks := {str(their_fwds[0]["id"]): str(defenders[1]["id"])}
+	var ids := MatchRings.ids(sim, me, list, picks)
+	_check(ids == [str(kid["id"]), str(focus["id"]), tagger_id, str(defenders[0]["id"]), str(defenders[1]["id"])],
+			"A run comes first, then the calls: play-through, tagger, spare, match-up (%s)" % str(ids))
+	# A defender not already on that forward, so it is a change (the sim records
+	# only a real one).
+	var on_him := str((sim.duels[me] as Dictionary).get(str(their_fwds[1]["id"]), ""))
+	var switched := {}
+	for p in defenders:
+		var pid := str(p["id"])
+		if switched.is_empty() and pid != on_him and pid != str(defenders[0]["id"]) \
+				and pid != str(defenders[1]["id"]):
+			switched = p
+	var changed := sim.set_matchup(me, str(their_fwds[1]["id"]), str(switched["id"]), true)
+	ids = MatchRings.ids(sim, me, list, picks)
+	_check(changed and ids.has(str(switched["id"])) and ids.size() == 6,
+			"A match-up changed during the match is ringed too (%s)" % str(ids))
+	var theirs_ids := {}
+	for p in (sim.squads[1] as Squad).ground + (sim.squads[1] as Squad).bench:
+		theirs_ids[str(p["id"])] = true
+	var only_mine := true
+	for id in ids:
+		if theirs_ids.has(str(id)):
+			only_mine = false
+	_check(only_mine, "Only your own players are ringed, never the man you tag or the forward you match up")
+	(sim.tactics[me] as Dictionary)["focus_id"] = str(defenders[0]["id"])
+	_check(MatchRings.ids(sim, me, list).count(str(defenders[0]["id"])) == 1,
+			"A player with two calls on him is ringed once")
+	for i in range(12):
+		Backing.start(list[i], 2027, 1, 0)
+	var capped := MatchRings.ids(sim, me, list)
+	_check(capped.size() == MatchRings.MAX, "The most rings on the oval is %d" % MatchRings.MAX)
+
+	# The view: rings, a scorer's name, a ringed player's name.
+	var pv := PitchView.new()
+	pv.size = Vector2(800, 600)
+	pv.setup(res)
+	var tok: Dictionary = pv.director.tokens[3]
+	pv.set_rings([tok["pid"]])
+	_check(pv.ringed(str(tok["pid"])) and not pv.ringed("nobody"), "The view rings the players it is given")
+	pv.set_rings([])
+	_check(not pv.ringed(str(tok["pid"])), "Clearing the rings clears them")
+	var named := [""]
+	var scorer := [""]
+	pv.event_played.connect(func(ev):
+		if str(ev.get("kind", "")) == "goal" and scorer[0] == "":
+			var k: int = pv.director.token_of(ev)
+			scorer[0] = str(pv.director.tokens[k]["surname"]) if k >= 0 else "?"
+			named[0] = pv.caption_text())
+	pv.set_speed(8.0)
+	pv.play()
+	var guard := 0
+	while scorer[0] == "" and guard < 60000:
+		guard += 1
+		pv._process(1.0 / 60.0)
+	_check(scorer[0] != "" and named[0] == scorer[0],
+			"A goal names its scorer on the oval (%s)" % named[0])
+	pv.pause()
+	for i in range(20):
+		pv._process(0.05)
+	_check(pv.caption_text() == scorer[0], "The name is still there a second later, whatever the playback speed")
+	for i in range(20):
+		pv._process(0.05)
+	_check(pv.caption_text() == "", "The name goes after a couple of seconds")
+	# A ringed player who gets the ball is named, and a goal's name outranks it.
+	var pv2 := PitchView.new()
+	pv2.size = Vector2(800, 600)
+	pv2.setup(res)
+	var a: Dictionary = pv2.director.tokens[5]
+	var b: Dictionary = pv2.director.tokens[6]
+	pv2.set_rings([a["pid"]])
+	pv2.director.actor = int(b["id"])
+	pv2._process(0.0)
+	_check(pv2.caption_text() == "", "A player with no ring is not named when he has the ball")
+	pv2.director.actor = int(a["id"])
+	pv2._process(0.0)
+	_check(pv2.caption_text() == str(a["surname"]), "A ringed player is named when he has the ball")
+	pv2.director.actor = int(b["id"])
+	pv2._process(0.5)
+	_check(pv2.caption_text() == str(a["surname"]), "His name stays long enough to read after the ball moves on")
+	pv2._process(0.6)
+	_check(pv2.caption_text() == "", "...and goes")
+	pv2._name_the_scorer({"kind": "goal", "side": int(b["side"]), "num": int(b["num"])})
+	pv2.director.actor = int(a["id"])
+	pv2._process(0.0)
+	_check(pv2.caption_text() == str(b["surname"]), "A goal's name outranks a touch")
+	pv.free()
+	pv2.free()
+	_check(res["events"] == before, "Rings and names never write to an event")
 
 
 

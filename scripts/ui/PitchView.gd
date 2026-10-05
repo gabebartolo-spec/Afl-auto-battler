@@ -37,6 +37,19 @@ var _drawn_zoom := -1.0
 ## Counts periods of play: every break (quarter time, half time, three
 ## quarter time, and the extra-time breaks) is a change of ends.
 var period := 1
+## Your people on the oval. `rings` are the players of yours with a call on them
+## or a run promised (MatchRings): a thin ring on their token. A name goes over
+## whoever has just kicked a goal, and over one of the ringed players when he has
+## the ball. The name is kept in real seconds, not match time, so it can be read
+## at any playback speed; the screen sets the rings, the view only draws.
+var rings := {}
+var _caption := {}             # {tok, text, left, goal}
+var _last_actor := -1
+const CAPTION_GOAL := 1.8
+const CAPTION_TOUCH := 1.0
+## The turf is green in both appearances, so the ring is the dark theme's text
+## colour fixed, not UiKit.TEXT, which turns dark in light mode.
+const RING_COLOUR := Color(0.945, 0.933, 0.902)
 
 
 func _ready() -> void:
@@ -57,6 +70,8 @@ func setup(p_result: Dictionary) -> void:
 	director = MatchDirector.new()
 	director.setup(p_result, events)
 	period = 1
+	_caption = {}
+	_last_actor = -1
 	_cam = Vector2.ZERO
 	_zoom = _target_zoom()
 	set_process(true)
@@ -110,6 +125,7 @@ func skip_to_end() -> void:
 	playing = false
 	for ev in director.flush():
 		_track_quarter(ev)
+	_caption = {}
 	queue_redraw()
 	finished.emit()
 
@@ -128,6 +144,7 @@ func _process(delta: float) -> void:
 		var out := director.advance(delta * speed)
 		for ev in out:
 			_track_quarter(ev)
+			_name_the_scorer(ev)
 			event_played.emit(ev)
 			if str((ev as Dictionary).get("kind", "")) == "final":
 				playing = false
@@ -136,9 +153,75 @@ func _process(delta: float) -> void:
 		if playing and director.idle():
 			playing = false
 			finished.emit()
+	_name_the_ball_carrier()
+	_age_caption(delta)
 	_update_camera(delta)
 	if playing or _cam.distance_to(_drawn_cam) > 0.05 or absf(_zoom - _drawn_zoom) > 0.002 \
-			or not director.flash.is_empty():
+			or not director.flash.is_empty() or not _caption.is_empty():
+		queue_redraw()
+
+
+# ---------------------------------------------------------------------------
+# Your people on the oval
+# ---------------------------------------------------------------------------
+## Ring these players (ids); [] clears them.
+func set_rings(ids: Array) -> void:
+	var next := {}
+	for id in ids:
+		next[str(id)] = true
+	var a := rings.keys()
+	var b := next.keys()
+	a.sort()
+	b.sort()
+	if a == b:
+		return
+	rings = next
+	queue_redraw()
+
+
+func ringed(pid: String) -> bool:
+	return rings.has(pid)
+
+
+## The name over a player right now, "" for none.
+func caption_text() -> String:
+	return str(_caption.get("text", ""))
+
+
+## A goal puts its scorer's name on the oval, either side's.
+func _name_the_scorer(ev: Dictionary) -> void:
+	if str(ev.get("kind", "")) != "goal":
+		return
+	var tok := director.token_of(ev)
+	if tok < 0 or tok >= director.tokens.size():
+		return
+	_caption = {"tok": tok, "text": str(director.tokens[tok].get("surname", "")),
+			"left": CAPTION_GOAL, "goal": true}
+
+
+## A ringed player of yours who gets the ball is named for a moment. A goal's
+## name outranks that, and a name already showing is not restarted.
+func _name_the_ball_carrier() -> void:
+	var act := director.actor
+	if act == _last_actor:
+		return
+	_last_actor = act
+	if act < 0 or act >= director.tokens.size():
+		return
+	var t: Dictionary = director.tokens[act]
+	if not rings.has(str(t.get("pid", ""))):
+		return
+	if not _caption.is_empty() and (bool(_caption["goal"]) or int(_caption["tok"]) == act):
+		return
+	_caption = {"tok": act, "text": str(t.get("surname", "")), "left": CAPTION_TOUCH, "goal": false}
+
+
+func _age_caption(delta: float) -> void:
+	if _caption.is_empty():
+		return
+	_caption["left"] = float(_caption["left"]) - delta
+	if float(_caption["left"]) <= 0.0:
+		_caption = {}
 		queue_redraw()
 
 
@@ -293,6 +376,7 @@ func _draw() -> void:
 	var tr := maxf(4.0, minf(r.size.x, r.size.y) * 0.5 * 0.030) * sqrt(_zoom)
 	_draw_tokens(0, GameDB.club_colours(home_code), tr)
 	_draw_tokens(1, GameDB.club_colours(away_code), tr)
+	_draw_rings(tr)
 
 	# Actor highlight
 	var act := director.actor
@@ -310,6 +394,45 @@ func _draw() -> void:
 		var col := Color(1.0, 0.92, 0.35) if fl["goal"] else Color(0.85, 0.9, 1.0)
 		col.a = (1.0 - t) * 0.85
 		draw_arc(_w2s(fl["pos"]), rad2, 0, TAU, 48, col, 4.0)
+	_draw_caption(tr)
+
+
+## A thin light ring on each of your players with a call on him or a run
+## promised. Quieter than the actor's ring, which stays the one that moves.
+func _draw_rings(tr: float) -> void:
+	if rings.is_empty():
+		return
+	for t in director.tokens:
+		if float(t["down"]) > 0.0 or not rings.has(str(t.get("pid", ""))):
+			continue
+		var p := _w2s(t["pos"])
+		if p.x < -tr * 3.0 or p.y < -tr * 3.0 or p.x > size.x + tr * 3.0 or p.y > size.y + tr * 3.0:
+			continue
+		draw_arc(p, tr * 1.5, 0, TAU, 28, Color(RING_COLOUR, 0.9), 1.6)
+
+
+## The name over a player, in the type the team shape uses: bold, outlined so it
+## reads on the turf, never smaller than a phone can read, and kept inside the
+## view.
+func _draw_caption(tr: float) -> void:
+	if _caption.is_empty():
+		return
+	var tok := int(_caption["tok"])
+	var text := str(_caption["text"])
+	if text == "" or tok < 0 or tok >= director.tokens.size():
+		return
+	var fs := clampi(int(tr * 1.6), 11, 15)
+	var width := UiKit.BOLD.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var p := _w2s(director.tokens[tok]["pos"])
+	var origin := p + Vector2(-width * 0.5, -tr * 2.4)
+	origin.x = clampf(origin.x, 4.0, maxf(4.0, size.x - width - 4.0))
+	origin.y = maxf(origin.y, float(fs) + 2.0)
+	# It fades over its last third of a second.
+	var fade := clampf(float(_caption["left"]) / 0.3, 0.0, 1.0)
+	for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
+		draw_string(UiKit.BOLD, origin + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
+				Color(0, 0, 0, 0.8 * fade))
+	draw_string(UiKit.BOLD, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(RING_COLOUR, fade))
 
 
 func _draw_ball(tr: float, s: float) -> void:

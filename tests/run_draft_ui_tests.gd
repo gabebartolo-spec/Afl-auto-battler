@@ -38,7 +38,8 @@ func _run() -> void:
 
 	var defender := {}
 	for candidate in _state.draft.board("DEF", "", "", "overall", true):
-		if str(candidate["role"]) == "DEF":
+		# A pure defender: a second position would count toward another need.
+		if str(candidate["role"]) == "DEF" and str(candidate.get("role2", "")) in ["", "DEF"]:
 			defender = candidate
 			break
 	ui.call("_on_pick", defender)
@@ -252,10 +253,13 @@ func _test_inspect(ui: Control) -> void:
 			"An established player shows his type (%s)" % (type_l.text if type_l else "-"))
 	var ovr: Control = ui.find_child("DetailOVR", true, false)
 	var pot: Control = ui.find_child("DetailPOT", true, false)
-	_check(ovr != null and (ovr.get_child(0) as Label).text == str(int(p["overall"]))
+	# Undrafted in the League Draft: your recruiters' read, as a range.
+	var read: Dictionary = draft.user_view(p)
+	_check(ovr != null and bool(read["scouted"])
+			and (ovr.get_child(0) as Label).text.contains(str(int(read["overall"][0])))
 			and (ovr.get_child(1) as Label).text == "OVR"
-			and pot != null and (pot.get_child(0) as Label).text == str(int(p.get("potential", p["overall"]))),
-			"His OVR and POT are shown")
+			and pot != null and (pot.get_child(0) as Label).text.contains(str(int(read["potential"][0]))),
+			"His OVR and POT are your recruiters' read")
 	var prod: Label = ui.find_child("DetailProduction", true, false)
 	_check(prod != null and prod.text == str(profile.production(p)["line"]) and prod.text.contains("disposals"),
 			"His real season production is shown (%s)" % (prod.text if prod else "-"))

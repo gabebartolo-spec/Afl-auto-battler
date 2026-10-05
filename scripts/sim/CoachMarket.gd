@@ -41,6 +41,10 @@ const SACKED_CLUB_COOLDOWN := 5    # seasons before a sacked coach returns to th
 const SACKED_SC_PENALTY_YEARS := 3
 const UNEMPLOYED_YEARS := 4        # then an unemployed coach leaves the game
 const MAX_POACHED_FROM_YOU := 2
+## AI clubs and expiring assistants: kept at this reputation, otherwise kept
+## this often.
+const ASSISTANT_KEEP_REP := 60
+const ASSISTANT_RENEW := 0.6
 const NEW_SC_REPLACES_SA := 0.5
 const RETIRE_FROM := 64
 const RETIRE_BY := 70
@@ -222,6 +226,9 @@ static func ensure_fields(c: Dictionary, year: int) -> void:
 			c["sc_since"] = year - 1
 		if not c.has("contract_to"):
 			c["contract_to"] = year + int(_roll(7, "con|" + cid) * 3.0)
+	elif str(c.get("status", "")) == "club" and not c.has("contract_to"):
+		# Assistants' terms are staggered: about a third end each season.
+		c["contract_to"] = year + int(_roll(7, "acon|" + cid) * 3.0)
 	for k in ["fail_streak", "protect_to"]:
 		if not c.has(k):
 			c[k] = 0
@@ -270,7 +277,8 @@ static func _appoint(c: Dictionary, club: String, job: String, year: int, seed: 
 		c["fail_streak"] = 0
 		c["contract_to"] = year + 2 + int(_roll(seed, "term|%d|%s" % [year, club]) * 3.0)
 	else:
-		c.erase("contract_to")
+		# An assistant signs for two or three seasons.
+		c["contract_to"] = year + 2 + int(_roll(seed, "aterm|%d|%s" % [year, str(c.get("cid", ""))]) * 2.0)
 
 
 # ---------------------------------------------------------------------------
@@ -359,6 +367,18 @@ static func offseason(ctx: Dictionary) -> Dictionary:
 				_leave_job(c, year)
 				log["expired"] += 1
 				news.append([2, "%s have not renewed %s's contract." % [GameDB.club_name(club), _name(c)]])
+	# Assistants at the end of their term (AI clubs; yours wait for you):
+	# a club keeps a well-regarded one, and most of the rest.
+	for cid in coaches.keys():
+		var c: Dictionary = coaches[cid]
+		if str(c.get("status", "")) != "club" or str(c.get("job", "")) == "SC" 				or str(c.get("club", "")) == my_club or int(c.get("contract_to", year + 1)) > year:
+			continue
+		var keep := int(c.get("rep", 0)) >= ASSISTANT_KEEP_REP 				or _roll(seed, "arenew|%d|%s" % [year, cid]) < ASSISTANT_RENEW
+		if keep:
+			c["contract_to"] = year + 2 + int(_roll(seed, "aterm|%d|%s" % [year, cid]) * 2.0)
+		else:
+			_leave_job(c, year)
+			log["assistant_expired"] = int(log.get("assistant_expired", 0)) + 1
 	sack_list.sort_custom(func(a, b): return int(a[0]) > int(b[0]))
 	for i in range(mini(MAX_SACKINGS, sack_list.size())):
 		var c: Dictionary = coaches[str(sack_list[i][1])]
@@ -818,6 +838,21 @@ static func auto_fill(coaches: Dictionary, my_club: String, job: String, year: i
 
 
 ## Release one of your assistants (offseason only): he joins the market.
+## Your assistant at the end of his term, in his own words: how long he will
+## sign for. {"key", "years", "text"}.
+static func assistant_stance(c: Dictionary, year: int) -> Dictionary:
+	if age(c, year + 1) >= RETIRE_FROM - 2:
+		return {"key": "winding", "years": 1, "text": "Near the end of his career: he will sign for one more season."}
+	if str(c.get("job", "")) in ["MID", "FWD", "DEF", "DEV"] and int(c.get("rep", 0)) >= ASSISTANT_KEEP_REP 			and tenure(c, year) >= MIN_TENURE:
+		return {"key": "ambitious", "years": 1, "text": "Wants a bigger role: he will only commit for a season."}
+	return {"key": "keen", "years": 2, "text": "Keen to stay: he will sign for two more seasons."}
+
+
+## Your assistant re-signs on his terms (assistant_stance).
+static func resign(c: Dictionary, year: int) -> void:
+	c["contract_to"] = year + int(assistant_stance(c, year)["years"])
+
+
 static func release(coaches: Dictionary, cid: String, year: int) -> String:
 	var c: Dictionary = coaches[cid]
 	var job := str(c.get("job", ""))
