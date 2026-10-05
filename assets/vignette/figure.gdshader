@@ -6,12 +6,16 @@ shader_type canvas_item;
 //
 // A figure's draw colour carries its looks, not a tint:
 //   r = kit index / 4, g = skin tone index / 8, b = hair index / 8, a = opacity.
+// Drawn a second time with g = 1 and b = (number + 1) / 128, the same frame prints
+// that number on the guernsey's back instead (digits_tex), in place on the fabric:
+// the same spot and size in every frame, following the shirt, hidden behind arms.
 // A kit is a guernsey: base colour (guernsey and socks), pattern colour (its design
 // and the sock band), a second pattern colour, the design (GameDB.GUERNSEY_DESIGNS)
 // and shorts. See VignetteFigures.gd for the sheet layout.
 
 uniform sampler2D mask_tex : filter_linear;
 uniform sampler2D design_tex : filter_linear;
+uniform sampler2D digits_tex : filter_linear, repeat_disable;   // 0-9: R fill, G outline
 uniform ivec2 sheet_size = ivec2(2048, 2304);
 uniform vec4 kit_base[4];
 uniform vec4 kit_pattern[4];
@@ -23,6 +27,11 @@ uniform vec4 hair_tones[8];
 uniform vec4 boots = vec4(0.06, 0.06, 0.07, 1.0);
 // The sheet's lighting is rendered a shade dark so highlights don't clip.
 uniform float gain = 1.3;
+
+// Where the number sits on the back, in guernsey coordinates (across from the
+// wearer's right, up from the hem): two digits share the width; one is centred.
+const vec2 NUMBER_ACROSS = vec2(0.24, 0.76);   // about 26 cm for two digits
+const vec2 NUMBER_UP = vec2(0.34, 0.80);       // about 27 cm tall, as AFL numbers are
 
 varying vec4 looks;
 
@@ -94,20 +103,46 @@ vec2 design(int d, vec3 g) {
 	return vec2(0.0);
 }
 
+// The number printed on the back: x = 1 where it's drawn (alpha), rgb its colour.
+vec4 number_on_back(int n, vec3 g, vec3 base) {
+	float x = (NUMBER_ACROSS.y - g.x) / (NUMBER_ACROSS.y - NUMBER_ACROSS.x);   // from behind, left to right
+	float y = (NUMBER_UP.y - g.y) / (NUMBER_UP.y - NUMBER_UP.x);             // top down
+	int digit = n;
+	float dx = (x - 0.25) * 2.0;
+	if (n >= 10) {
+		digit = x < 0.5 ? n / 10 : n % 10;
+		dx = x < 0.5 ? x * 2.0 : x * 2.0 - 1.0;
+	}
+	if (dx < 0.0 || dx > 1.0 || y < 0.0 || y > 1.0) {
+		return vec4(0.0);
+	}
+	vec4 d = texture(digits_tex, vec2((float(digit) + dx) / 10.0, y));
+	float lum = dot(base, vec3(0.299, 0.587, 0.114));
+	vec3 ink = lum > 0.58 ? vec3(0.06, 0.06, 0.07) : vec3(1.0);
+	// Edged in the guernsey's own colour, so it reads across stripes and panels.
+	return vec4(mix(base, ink, d.r), d.g * (1.0 - smoothstep(0.35, 0.6, g.z)));
+}
+
 void fragment() {
 	if (textureSize(TEXTURE, 0) == sheet_size) {
 		vec4 s = texture(TEXTURE, UV);     // lighting, hair, shorts, coverage
 		vec4 m = texture(mask_tex, UV);    // base colour, sock band, skin, guernsey alone
 		vec3 g = texture(design_tex, UV).rgb;
 		int kit = clamp(int(round(looks.r * 4.0)), 0, 3);
-		int tone = clamp(int(round(looks.g * 8.0)), 0, 7);
-		int hair = clamp(int(round(looks.b * 8.0)), 0, 7);
-		vec2 p = design(int(round(kit_design[kit])), g) * m.a;
-		vec3 base = kit_base[kit].rgb, pat = kit_pattern[kit].rgb, pat2 = kit_pattern2[kit].rgb;
-		vec3 kit_col = base * m.r + (pat - base) * p.x + (pat2 - base) * p.y;
-		float rest = clamp(1.0 - (m.r + m.g + m.b + s.g + s.b), 0.0, 1.0);
-		vec3 col = kit_col + pat * m.g + skin_tones[tone].rgb * m.b
-				+ hair_tones[hair].rgb * s.g + kit_shorts[kit].rgb * s.b + boots.rgb * rest;
-		COLOR = vec4(col * s.r * gain, s.a * looks.a);
+		if (looks.g > 0.95) {
+			int n = clamp(int(round(looks.b * 128.0)) - 1, 0, 99);
+			vec4 num = number_on_back(n, g, kit_base[kit].rgb);
+			COLOR = vec4(num.rgb * s.r * gain, num.a * m.a * s.a * looks.a);
+		} else {
+			int tone = clamp(int(round(looks.g * 8.0)), 0, 7);
+			int hair = clamp(int(round(looks.b * 8.0)), 0, 7);
+			vec2 p = design(int(round(kit_design[kit])), g) * m.a;
+			vec3 base = kit_base[kit].rgb, pat = kit_pattern[kit].rgb, pat2 = kit_pattern2[kit].rgb;
+			vec3 kit_col = base * m.r + (pat - base) * p.x + (pat2 - base) * p.y;
+			float rest = clamp(1.0 - (m.r + m.g + m.b + s.g + s.b), 0.0, 1.0);
+			vec3 col = kit_col + pat * m.g + skin_tones[tone].rgb * m.b
+					+ hair_tones[hair].rgb * s.g + kit_shorts[kit].rgb * s.b + boots.rgb * rest;
+			COLOR = vec4(col * s.r * gain, s.a * looks.a);
+		}
 	}
 }

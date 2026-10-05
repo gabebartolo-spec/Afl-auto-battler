@@ -529,12 +529,12 @@ func _bounce_close_up() -> void:
 		guernseys_ok = guernseys_ok and colours_ok and db.GUERNSEY_DESIGNS.has(parts[0]) \
 				and str(db.club_guernsey(str(code))["design"]) == parts[0]
 	_check(guernseys_ok and db.clubs.size() >= 18, "Every club's guernsey is a design the figures can wear")
-	var moves_ok := true
+	# What the scene plays: both builds stand, run and leap, facing either way; the umpire
+	# (the average build, facing the camera) bounces.
+	var moves_ok := _sheet_has(VignetteFigures.BODIES["average"], "bounce", ["front"])
 	for body in VignetteFigures.BODIES.values():
-		for anim in ["idle", "jog", "leap", "bounce"]:
-			for facing in ["front", "back"]:
-				var info: Dictionary = ((body["anims"] as Dictionary).get(anim, {}) as Dictionary).get(facing, {})
-				moves_ok = moves_ok and int(info.get("frames", 0)) > 0
+		for anim in ["idle", "jog", "leap"]:
+			moves_ok = moves_ok and _sheet_has(body, anim, ["front", "back"])
 	_check(moves_ok and Vector2i((vig.FIGURE_SHADE as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
 			and Vector2i((vig.FIGURE_MASK as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
 			and Vector2i((vig.FIGURE_DESIGN as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE / 2,
@@ -819,6 +819,15 @@ func _bounce_matches_sim(tokens: Array, sim) -> bool:
 func _settle() -> void:
 	for i in range(6):
 		await process_frame
+
+
+## True when a body on the figure sheet has the move from every one of those sides.
+func _sheet_has(body: Dictionary, anim: String, facings: Array) -> bool:
+	for facing in facings:
+		var info: Dictionary = ((body["anims"] as Dictionary).get(anim, {}) as Dictionary).get(facing, {})
+		if int(info.get("frames", 0)) <= 0:
+			return false
+	return true
 
 
 func _check(condition: bool, message: String) -> void:
