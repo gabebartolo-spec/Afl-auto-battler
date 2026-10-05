@@ -106,6 +106,11 @@ var last_side: Array = []       # ids of your players who took the field in your
 ## What the event cards have already raised this season (ClubLife.pick_event
 ## memory): "extension|id", "media|id" -> true, "unhappy|id" -> round.
 var event_memory := {}
+## Players on a promised run (Backing) who could not play this round, noted at
+## the start of _after_round before the week's injuries and suspensions tick
+## down, so a player healed by this very round is not "left out while fit".
+## Not saved: it is rebuilt every round.
+var _backing_unavailable := {}
 
 ## Career loop: season 1 is the 2026 season. Every completed season ends with
 ## a national intake draft (keep your list, sign the rookies), then the same
@@ -1009,6 +1014,14 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	if season != null:
 		Workload.reset(season.lists)
 		Injuries.heal_all(season.lists)
+	# A run you promised does not carry into the next season: it lapses, for
+	# every list and for free agents, so a player traded or released never
+	# takes it to another club.
+	for code in league_lists:
+		for p in league_lists[code]:
+			Backing.lapse(p)
+	for p in free_agents:
+		Backing.lapse(p)
 	# Brownlow eligibility is season-specific. A new season starts clean.
 	var seen_brownlow := {}
 	for code in league_lists:
@@ -2396,6 +2409,11 @@ func _short_name(id: String) -> String:
 ## Everything that follows a round: injuries, the awards tally, and - when
 ## the Grand Final has just been played - the season's awards.
 func _after_round(results: Array) -> void:
+	# Who on a promised run could not play this week, before anything ticks.
+	_backing_unavailable = {}
+	for p in my_list:
+		if Backing.is_active(p) and not Backing.fit(p):
+			_backing_unavailable[str(p["id"])] = true
 	if season != null:
 		var regular := last_phase == "regular"
 		var week := "%d|%s|%d" % [season_year, "R" if regular else "F",
@@ -5140,6 +5158,18 @@ func _board_after_round(results: Array) -> void:
 		for p in my_list:
 			soft[str(p["id"])] = CoachEffects.soften(staff, p)
 	ClubLife.morale_after_match(my_list, played, margin > 0, soft)
+	# A player promised a run (Backing): each game he plays counts towards it.
+	# Left out while fit, the promise breaks and it stings, once, and the run
+	# is over; unable to play, the run waits. His one-week expectation is
+	# settled here rather than by the loop below, so it never stings twice.
+	for p in my_list:
+		if not Backing.is_active(p):
+			continue
+		var pid := str(p["id"])
+		var run_state := Backing.after_match(p, played.has(pid), not _backing_unavailable.has(pid))
+		if run_state == "broken":
+			ClubLife.add_morale(p, -CoachEffects.softened(Backing.STING, float(soft.get(pid, 0.0))))
+		p.erase("expects_game")
 	# A player promised a game (a talk, or a kid given his chance): leaving
 	# him out fit sours it. Once: the promise ends with the round.
 	for p in my_list:
@@ -5387,12 +5417,13 @@ func resolve_week_event(choice: int) -> String:
 			apply_plan_to(p)
 			out = "%s spends the week with the development coaches: +%d XP." % [name, ClubLife.DEV_WEEK_XP]
 		"blood":
-			# His chance: he earns a senior game's XP by playing it - if you
-			# pick him. Leaving him out after this stings.
-			ClubLife.add_morale(p, 5)
-			p["expects_game"] = 10
-			out = ("%s is told he is in. Auto-pick names him this week." if my_selection().is_empty()
-					else "%s is told he is in. Pick him this week.") % name
+			# His chance: a run of senior games (Backing). He earns each game's
+			# XP by playing it - if you pick him. Leaving him out while fit
+			# breaks the promise, and that stings.
+			_start_backing(p)
+			var run := MatchNotes.count_word(Backing.RUN_GAMES)
+			out = ("%s is told he has a run of %s games. Auto-pick names him this week." if my_selection().is_empty()
+					else "%s is told he has a run of %s games. Pick him this week.") % [name, run]
 		"talk":
 			ClubLife.add_morale(p, 15)
 			p["expects_game"] = 12
@@ -5414,6 +5445,62 @@ func resolve_week_event(choice: int) -> String:
 	week_event["choice"] = choice
 	week_event["outcome"] = out
 	mark_dirty()
+	return out
+
+
+# ---------------------------------------------------------------------------
+# Backing a young player (Backing.gd)
+# ---------------------------------------------------------------------------
+## Can this player be backed from selection? Few senior games on a career on
+## record in full, available to play, no run on already, and a match to play.
+func can_back(p: Dictionary) -> bool:
+	if season == null or my_club == "" or list_player(str(p.get("id", ""))).is_empty():
+		return false
+	if my_next_opponent().is_empty():
+		return false
+	return Backing.can_back(p, games_played(p))
+
+
+## Promise a player a run, from selection. Returns what to tell the coach, or
+## "" when he cannot be backed.
+func back_player(player_id: String) -> String:
+	var p := list_player(player_id)
+	if p.is_empty() or not can_back(p):
+		return ""
+	var named := false
+	var side := current_side()
+	for k in side:
+		if (side[k] as Array).has(str(p["id"])):
+			named = true
+	_start_backing(p)
+	var out := "%s has your word for %s games." % [GameDB.player_display_name(p),
+			MatchNotes.count_word(Backing.RUN_GAMES)]
+	if not named:
+		out += " Auto-pick names the player this week." if my_selection().is_empty() \
+				else " Pick the player this week."
+	return out
+
+
+## Start a run for one of your players: the week's match is his first game if
+## he plays it. He is thrilled, and he expects to be picked: auto-pick names
+## him while the run is on.
+func _start_backing(p: Dictionary) -> void:
+	if Backing.is_active(p):
+		return
+	var round_no := 0 if season.is_regular_done() else season.round_index + 1
+	Backing.start(p, season_year, round_no, games_played(p))
+	ClubLife.add_morale(p, Backing.THRILL)
+	p["expects_game"] = Backing.STING
+	mark_dirty()
+
+
+## One line for each run you have promised, as Selection shows them.
+func backing_notes() -> Array:
+	var out := []
+	for p in my_list:
+		var line := Backing.note(p)
+		if line != "":
+			out.append({"key": "backing", "player_id": str(p["id"]), "text": line})
 	return out
 
 

@@ -22,13 +22,13 @@ training 62
 selection 14
 matchup 91
 matchday 332
-roles 164
+roles 179
 injuries 29
 awards 22
 achievements 153
 contracts 179
 league 19
-club 102
+club 152
 match_game 215
 pressure 21
 workload 32

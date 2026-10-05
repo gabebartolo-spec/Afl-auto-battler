@@ -249,8 +249,13 @@ func _test_reserves_development() -> void:
 	var s_gain := GameState.xp_gain_for(senior)
 	_check(bool(_row(senior).get("on_ground", false)) and not bool(_row(senior).get("reserves", true)),
 			"A selected player is on the ground, not in the reserves")
-	_check(s_gain >= GameState.XP_SQUAD + GameState.XP_SELECTED + GameState.XP_NAMED and s_gain > res_xp,
-			"A senior game pays the normal senior rate (%d)" % s_gain)
+	# A senior game is the senior base plus what he did on the day (0 to the cap),
+	# so a quiet game can pay less than the reserves' flat rate: the base is the
+	# only part the match cannot move. (This used to also demand more than the
+	# reserves, which failed whenever the player had a quiet game.)
+	_check(s_gain >= GameState.XP_SQUAD + GameState.XP_SELECTED + GameState.XP_NAMED
+			and s_gain <= GameState.XP_SENIOR_GAME,
+			"A senior game pays the senior base plus his game, up to the full rate (%d)" % s_gain)
 	_check(GameState.xp_gain_for(depth) == res_xp and bool(_row(depth)["reserves"]),
 			"A fit player left out earns reserves development (%d)" % GameState.xp_gain_for(depth))
 	_check(GameState.last_duty(depth) == "Reserves", "His duty reads Reserves")

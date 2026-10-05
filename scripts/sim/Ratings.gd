@@ -518,11 +518,16 @@ static func salary_value(overall: int) -> int:
 ## backfilled by overall rating so a team always fields 18.
 static func select_22(list_players: Array) -> Dictionary:
 	var pool := list_players.duplicate()
-	# A player promised a game this week (a kid given his chance, a talk)
-	# is first in line for his own position; then the best available.
+	# A player promised a game this week (a kid given his chance, a talk) or a
+	# run (Backing) is first in line for his own position; then the best
+	# available.
+	var promised := {}
+	for p in pool:
+		if p.has("expects_game") or Backing.is_active(p):
+			promised[p["id"]] = true
 	pool.sort_custom(func(a, b):
-		var pa: bool = a.has("expects_game")
-		if pa != b.has("expects_game"):
+		var pa: bool = promised.has(a["id"])
+		if pa != promised.has(b["id"]):
 			return pa
 		return float(a["overall"]) * Workload.selection_factor(a) > float(b["overall"]) * Workload.selection_factor(b))
 
@@ -540,7 +545,15 @@ static func select_22(list_players: Array) -> Dictionary:
 			for p in pool:
 				if plays_role(p, "RUCK") and not used.has(p["id"]):
 					recognised.append(p)
+			# The best tap player first, but a promised ruck is first in line.
+			var first := []
+			var others := []
 			for p in by_ruck(recognised):
+				if promised.has(p["id"]):
+					first.append(p)
+				else:
+					others.append(p)
+			for p in first + others:
 				if added >= need:
 					break
 				ground.append(_for_slot(p, role))
