@@ -4541,6 +4541,8 @@ On the director's direction, the drawn stick figures became pre-rendered 2.5D fo
 
 **Validation:** deliberately reach or capture every sequence and relevant fallback, compare phone-sized stills and motion, and check transitions, club colours, player appearance and pose coverage. Verify phone performance, skip/touch/Back behaviour and unchanged football outcomes. Obtain director visual review before marking the migration complete; record any untested sequence as outstanding.
 
+**Director-requested follow-up — TODO (2026-10-06):** Flesh out vignette **backgrounds and appropriate foregrounds** to remove uncanny voids/dead space. Include contextual crowds, rooms, audiences, furniture and atmospheric items; Brownlow/press-conference scenes can use foreground tables, silhouettes or microphones. Match the shared art style, preserve action/UI readability and phone performance. Inspect every scene in phone-sized stills and motion for coherent, inhabited settings.
+
 ### Acceptance test
 The feature earns further work only if a phone playtest shows that the player can explain **why the decision is being asked**, form a reasonable expectation before choosing, and finds the moment materially more engaging than the normal presentation.
 
