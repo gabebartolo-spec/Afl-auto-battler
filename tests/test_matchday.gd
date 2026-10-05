@@ -120,6 +120,18 @@ func _test_feed(res: Dictionary) -> void:
 		{"kind": "hot", "q": 2, "title": "Y has kicked 3", "choice_label": "Tag him", "outcome": "Z goes to him."}]}
 	_check(MatchNotes.lasting_moment_lines(played, 1) == ["X is running on empty: Rest him now. He comes off."],
 			"At the break, only the calls that carry on come back (%s)" % [MatchNotes.lasting_moment_lines(played, 1)])
+	# The tired call says what followed, to the break, not what was chosen.
+	var tired_res := {"quarter_teams": [{"players": {"S1": {"disposals": 14.0}, "B1": {"disposals": 3.0}}}],
+		"moments": [{"kind": "tired", "q": 1, "player_id": "S1", "on_id": "B1", "outcome": "x",
+			"disp_at": {"S1": 12.0, "B1": 0.0}}]}
+	var tl: Array = MatchNotes.lasting_moment_lines(tired_res, 1)
+	_check(tl.size() == 1 and str(tl[0]).ends_with("came on and had 3 disposals to the break."),
+			"Resting him: the break says who came on and what he did (%s)" % [tl])
+	(tired_res["moments"][0] as Dictionary).erase("on_id")
+	(tired_res["moments"][0] as Dictionary)["outcome"] = "He stays out there to the break."
+	tl = MatchNotes.lasting_moment_lines(tired_res, 1)
+	_check(tl.size() == 1 and str(tl[0]).ends_with("stayed out there: 2 disposals to the break, on empty legs."),
+			"Keeping him on: the break says what he did (%s)" % [tl])
 	_check(MatchNotes.run_line("CAR", 3) == "%s have kicked three in a row." % GameDB.club_name("CAR"),
 			"A run of goals reads in words")
 
