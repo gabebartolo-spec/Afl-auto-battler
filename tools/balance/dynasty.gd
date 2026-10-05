@@ -16,9 +16,19 @@ extends RefCounted
 ## club does (see _play_week): engaged with matches, not with the list.
 ## With `manage` your club works its list every off-season as an attentive
 ## human would (see _manage): "list" settles contracts and chases free
-## agents, "full" also trades up. "none" is the autopilot above.
+## agents, "full" also trades up, "exploit" settles contracts and free
+## agency as "list" and then offers every rival bundles of its ordinary and
+## older players for that club's best young talent, as often as it is
+## allowed (see _exploit). "none" is the autopilot above.
+##
+## Every off-season also records the trade market (see _market): every trade
+## and what changed hands, each club's tradeable picks, and whether the
+## National Draft gave each pick to the club that owns it.
 
 var lb = load("res://tools/balance/league_balance.gd").new()
+## Every player traded so far this career: each season start records where
+## he is and what he is rated (snap["traded"]), to see what deals became.
+var _traded := {}
 
 
 ## One career of `seasons` seasons. Returns one record per season (see
@@ -37,9 +47,17 @@ func run_career(draft_seed: int, policy: String, seasons: int, top_n := 5, coach
 	var user := d.user_club if d.user_club != "" else str(d.draft_order[0])
 	gs.draft = d
 	gs.start_season(user, [])
+	_traded = {}
 	var out := []
 	for y in range(seasons):
 		var snap := _snapshot(gs, user)
+		snap["best22"] = _best22_ids(gs)
+		var seen := {}
+		for id in _traded:
+			var q: Dictionary = gs._find_player(str(id))
+			if not q.is_empty():
+				seen[id] = int(q["overall"])
+		snap["traded"] = seen
 		var coached := 0
 		while not gs.season.is_season_over():
 			coached += 1 if _play_week(gs, user, coach) else 0
@@ -71,6 +89,7 @@ func run_career(draft_seed: int, policy: String, seasons: int, top_n := 5, coach
 		snap["ai_trades"] = gs.offseason_log.filter(func(e): return str(e.get("kind", "")) == "ai_trade") \
 				.map(func(e): return str(e.get("text", "")))
 		var mgmt := _manage(gs, user, manage)
+		snap["market"] = _market(gs, user, snap["best22"])
 		if not _offseason(gs, user, mgmt):
 			push_error("dynasty: off-season %d of seed %d did not complete" % [y, draft_seed])
 			break
@@ -147,6 +166,8 @@ func _manage(gs, user: String, manage: String) -> Dictionary:
 	_contracts(gs, mgmt)
 	if manage == "full":
 		_trade_up(gs, user, mgmt)
+	elif manage == "exploit":
+		_exploit(gs, user, mgmt)
 	_free_agency(gs, mgmt)
 	return mgmt
 
@@ -317,6 +338,7 @@ func _offseason(gs, user: String, mgmt: Dictionary) -> bool:
 	if not drafting:
 		return gs.start_next_season()
 	var d: Draft = gs.draft
+	mgmt["draft_check"] = _draft_check(gs, d)
 	var guard := 0
 	while not d.is_finished() and guard < 5000:
 		guard += 1
@@ -435,3 +457,141 @@ func make_upside_draft(seed: int, top_n := 3) -> Draft:
 			d._skip_current_pick()
 			d.auto_until_user_turn()
 	return d
+
+
+# ---------------------------------------------------------------------------
+# The trade market, recorded each off-season (Trade E)
+# ---------------------------------------------------------------------------
+## Every club's best 22 by id, as the season starts: who was a starter.
+func _best22_ids(gs) -> Dictionary:
+	var out := {}
+	for c in GameDB.active_clubs(gs.season_year):
+		var side := Ratings.select_22(gs.season.lists.get(c, []))
+		out[c] = ((side["ground"] as Array) + (side["bench"] as Array)).map(func(q): return str(q["id"]))
+	return out
+
+
+## The off-season's trades so far (rivals' and yours) and every club's
+## tradeable picks, once your club has done its business:
+## {"trades": [...], "picks": {club: {"YEAR:ROUND": n}}, "phase": {club: phase}}.
+## Each traded asset is judged the same neutral way for every club (a
+## building club's TradeValue, no list fit), so a run of one-sided deals
+## shows up whoever made them.
+func _market(gs, user: String, best22: Dictionary) -> Dictionary:
+	var prospects: Dictionary = gs.trade_prospects()
+	var phase := {}
+	var picks := {}
+	for c in GameDB.active_clubs(gs.season_year):
+		phase[c] = gs.club_phase(str(c))
+		var held := {}
+		for pk in gs.club_picks(str(c)):
+			var k := "%d:%d" % [int(pk["year"]), int(pk["round"])]
+			held[k] = int(held.get(k, 0)) + 1
+		picks[c] = held
+	var trades := []
+	for e in gs.offseason_log:
+		var kind := str(e.get("kind", ""))
+		if kind != "ai_trade" and kind != "trade":
+			continue
+		# A trade with you is logged from your side: "in" is what you got.
+		var buyer := str(e["club"]) if kind == "ai_trade" else user
+		var seller := str(e["with"]) if kind == "ai_trade" else str(e["club"])
+		trades.append({"kind": "rivals" if kind == "ai_trade" else "user",
+				"buyer": buyer, "seller": seller,
+				"buyer_phase": str(phase.get(buyer, "")), "seller_phase": str(phase.get(seller, "")),
+				"got": (e["in"] as Array).map(func(id): return _asset(gs, str(id), seller, best22, prospects)),
+				"gave": (e["out"] as Array).map(func(id): return _asset(gs, str(id), buyer, best22, prospects))})
+	return {"trades": trades, "picks": picks, "phase": phase}
+
+
+## A traded asset in plain terms: a player's rating, POT, age and whether he
+## was in his old club's best 22; a pick's year, round and likeliest spot.
+## "value": the neutral trade value (see _market).
+func _asset(gs, id: String, from: String, best22: Dictionary, prospects: Dictionary) -> Dictionary:
+	if id.begins_with("pick:"):
+		var parts := id.split(":")
+		var year := int(parts[1])
+		var rnd := int(parts[2])
+		var origin := str(parts[3])
+		var positions: Array = [[gs.draft_spot(year, rnd, origin), 1.0]] if year == gs.season_year \
+				else gs.future_spots(rnd, origin)
+		return {"pick": true, "year": year, "round": rnd, "origin": origin, "spot": int(positions[0][0]),
+				"value": snappedf(TradeValue.pick_value(positions, prospects.get(str(year), []), "building"), 0.01)}
+	var p: Dictionary = gs._find_player(id)
+	if p.is_empty():
+		return {"pick": false, "missing": true}
+	_traded[id] = true
+	return {"pick": false, "id": id, "ovr": int(p["overall"]), "pot": int(p.get("potential", 0)),
+			"age": snappedf(float(p.get("age", 0.0)), 0.1), "starter": (best22.get(from, []) as Array).has(id),
+			"value": snappedf(float(TradeValue.value(p, {"phase": "building"})["total"]), 0.01)}
+
+
+## Does the National Draft give every pick to the club that owns it? Before
+## the first pick: each regular slot's club against GameState's pick owner,
+## and each club's pick count against what it holds. {"slots", "wrong",
+## "traded"}: slots checked, slots with the wrong club, traded picks in it.
+func _draft_check(gs, d: Draft) -> Dictionary:
+	var wrong := 0
+	var traded := 0
+	var comp := {}
+	for c in d.comp_picks:
+		comp[int(c["index"])] = true
+	for i in range(d.pick_sequence.size()):
+		if comp.has(i):
+			continue
+		var origin := str(d.pick_origin[i])
+		var owner: String = gs.pick_owner_of(gs.season_year, int(d.pick_rounds[i]), origin)
+		if owner != origin:
+			traded += 1
+		if str(d.pick_sequence[i]) != owner:
+			wrong += 1
+	return {"slots": d.pick_sequence.size() - comp.size(), "wrong": wrong, "traded": traded}
+
+
+# ---------------------------------------------------------------------------
+# The junk-for-stars exploit (`manage` = "exploit")
+# ---------------------------------------------------------------------------
+## The familiar management-sim exploit, played as hard as the trade screen
+## allows: from every rival, its best young talent (24 or under, rated 80 or
+## with a POT of 86 or more), offered for bundles of your ordinary players
+## (outside next season's 26, not kids) and your older ones (30 and over,
+## starters included), two to five at a time, plus a late pick, keeping
+## your first-round picks and your young starters. Every bundle the club
+## takes is traded. Measures whether low-value bundles buy a superteam.
+func _exploit(gs, user: String, mgmt: Dictionary) -> void:
+	for club in GameDB.active_clubs(gs.season_year):
+		if str(club) == user:
+			continue
+		var targets: Array = (gs.season.lists.get(club, []) as Array).filter(func(q):
+			return float(q.get("age", 30.0)) <= 24.0 \
+					and (int(q["overall"]) >= 80 or int(q.get("potential", 0)) >= 86))
+		targets.sort_custom(func(a, b): return int(a.get("potential", 0)) > int(b.get("potential", 0)))
+		for target in targets.slice(0, 2):
+			var line26 := nth_value(gs.my_list, 25)
+			var junk: Array = gs.my_list.filter(func(q):
+				return _spare(q, line26) or float(q.get("age", 0.0)) >= 30.0)
+			# The best-looking junk first: the most a bundle can show.
+			junk.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+			var late: Array = gs.club_picks(user).filter(func(pk): return int(pk["round"]) >= 2)
+			var tid := str(target["id"])
+			var done := false
+			for n in range(2, mini(5, junk.size()) + 1):
+				var pkg: Array = junk.slice(0, n).map(func(q): return str(q["id"]))
+				var tries := [pkg]
+				if not late.is_empty() and n < 5:
+					tries.append(pkg + [str(late[0]["id"])])
+				for t in tries:
+					mgmt["exploit_tries"] = int(mgmt.get("exploit_tries", 0)) + 1
+					if not bool(gs.evaluate_trade(str(club), t, [tid]).get("ok", false)):
+						continue
+					if bool(gs.make_trade(str(club), t, [tid]).get("ok", false)):
+						mgmt["trades"] += 1
+						mgmt["trade_in"].append(int(target["overall"]))
+						mgmt["trade_out"] += t.size()
+						mgmt["trade_log"] = mgmt.get("trade_log", []) + ["%s: %d/%d age %d for %d assets (%s)" % [
+								str(club), int(target["overall"]), int(target.get("potential", 0)),
+								int(float(target.get("age", 0.0))), t.size(), gs.club_phase(str(club))]]
+						done = true
+					break
+				if done:
+					break

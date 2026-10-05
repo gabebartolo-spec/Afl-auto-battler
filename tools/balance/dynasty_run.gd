@@ -2,7 +2,7 @@ extends SceneTree
 ## CLI for tools/balance/dynasty.gd: runs seeded careers and writes JSON.
 ##   godot --headless --path . --script tools/balance/dynasty_run.gd -- \
 ##       --seeds 301,302 --policy board --seasons 5 --out /tmp/dyn.json [--coach] \
-##       [--manage none|list|full]
+##       [--manage none|list|full|exploit]
 
 
 func _initialize() -> void:
