@@ -42,6 +42,11 @@ Put this in the PR body (ROADMAP §0.4a, W7):
    | Draft and expansion clubs | Do new players and new clubs get the field initialised? |
    | Name change / real-names toggle | Is identity keyed by id, not display name? |
 
+   For a rule keyed on a player field (height, age, role, a trait), also check
+   that the players the game *generates* - draft classes, expansion lists,
+   rookies - actually reach the new thresholds. A rule for small forwards
+   means nothing if generated forwards are never small (#286's review found
+   exactly that).
 3. **Check parity and determinism.** The AI clubs get the same rules and
    information as the player's club (no psychic or exempt opponents). Seeded
    runs stay reproducible; nothing new reads the clock.
@@ -54,8 +59,12 @@ Put this in the PR body (ROADMAP §0.4a, W7):
 
 ## The report
 
-Reply to the PR's owner (and the lead if it blocks a merge). Per area: **fine**,
+Post the review as a comment on the PR (the record), and send its owner a short
+message with the verdict and any defect (the lead too if it blocks a merge). Per area: **fine**,
 or **defect** with the reproduction, what goes wrong for the player, and the
 smallest fix you'd suggest. Name what you didn't check. Don't rewrite the PR
-yourself; open a fix PR only when the owner or lead asks. Keep it short: the
+yourself; open a fix PR only when the owner or lead asks. If the PR has
+already merged (a review after the fact), a defect goes straight to a small fix
+PR with the reproduction as its test, since there's nothing left to request
+changes on. Keep it short: the
 owner needs decisions and repros, not a retelling of the diff.
