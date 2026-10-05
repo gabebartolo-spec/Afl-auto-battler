@@ -11,7 +11,7 @@ godot --headless --path . --script tools/audit/run_audit.gd -- career_impl trade
 
 ## 1. Live-match calls
 
-`tools/audit/calls_impl.gd`: 216 paired matches between neighbours in strength on four drafted leagues. You play at home; the opposition is an AI club picking its own plans. Every policy plays the same sides and seeds. Moment cards take their default.
+`tools/audit/calls_impl.gd`: 216 paired matches between neighbours in strength on four drafted leagues. You play at home; the opposition is an AI club picking its own plans. Every policy plays the same sides and seeds. No moment cards fire: the harness leaves `moment_side` unset, as for any simulated match, so these figures are the plans alone (set shots, tired stars and the other cards are not in them).
 
 | Your calls | Win % | Mean margin |
 |---|---|---|
