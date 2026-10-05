@@ -1654,7 +1654,7 @@ Seeded marked goal vs unmarked goal. Only the marked/set-shot path may trigger t
 ---
 
 ## ARD-M3-002 — Forward archetype scoring
-**Status:** `IN REVIEW` — branch `claude/forward-archetypes`.  
+**Status:** `PARTIAL` — forward archetypes (key forwards mark inside 50, small forwards crumb) merged in #286; #297 then let generated forwards include small forwards (172–203 cm, was 184–203). Balance measurement and the spoils-outside-the-50 gap (below) remain. _(2026-10-06)_  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 **Depends on:** ARD-M3-001, marking context
