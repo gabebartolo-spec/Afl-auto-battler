@@ -176,6 +176,13 @@ func _lift(_t_: Dictionary) -> float:
 	return 0.0
 
 
+## Gathered in, they watch the middle of the huddle; otherwise the play ahead.
+func _look_at(t: Dictionary) -> Vector2:
+	if bool(t["mine"]) and _phase == HUDDLE:
+		return Vector2(0.0, 5.5)
+	return Vector2(0.0, 60.0)
+
+
 func _set_camera() -> void:
 	# Low, just behind the last line of the warm-up, easing in a little.
 	_cam_d = lerpf(6.5, 5.0, _ease(clampf(_t / 4.0, 0.0, 1.0)))

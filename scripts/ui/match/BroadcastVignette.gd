@@ -211,11 +211,16 @@ func _draw_stadium() -> void:
 	var h := size.y
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.025, 0.03, 0.035), true)
 	var horizon := h * 0.31
-	# Crowd as dim bands rather than thousands of expensive nodes.
-	for i in range(5):
-		var y := horizon - 46.0 + float(i) * 10.0
-		var c := Color(0.16 + 0.02 * (i % 2), 0.16, 0.17, 1.0)
-		draw_rect(Rect2(0, y, w, 8), c, true)
+	# The stand behind the play under its roof, both clubs' supporters in it (one
+	# cached texture), and the fence and its boards at the boundary.
+	var top := maxf(h * 0.06, horizon - h * 0.2)
+	draw_rect(Rect2(0, top - 3.0, w, 3.0), Color(0.16, 0.16, 0.18), true)      # the roof's edge
+	VignetteCrowd.draw(self, Rect2(0, top, w, horizon - top - 6.0), _colours, _t, 11)
+	draw_rect(Rect2(0, horizon - 6.0, w, 6.0), Color(0.1, 0.1, 0.11), true)
+	var boards := maxi(4, int(w / 46.0))
+	for i in range(boards):
+		var bc: Color = (_colours[i % 2] as Array)[0] if not (_colours[i % 2] as Array).is_empty() else Color.DIM_GRAY
+		draw_rect(Rect2(w * float(i) / boards + 1.0, horizon - 5.0, w / boards - 2.0, 4.0), bc.darkened(0.25), true)
 	draw_rect(Rect2(0, horizon, w, h - horizon), Color(0.10, 0.27, 0.115), true)
 	# Mown broadcast stripes.
 	for i in range(7):
@@ -274,12 +279,18 @@ func _draw_speccy() -> void:
 
 	# The pack under him: the opposition, facing us, up on their toes as he climbs.
 	var pack_scale := 1.05 if kind == SPECCY_FRONT else 1.15
-	var pack_frame := mini(3, int(jump_t * 6.0)) if _t >= 0.42 else 0
-	var pack := "leap" if _t >= 0.42 else "idle"
-	_figure(Vector2(cx - 46, ground + 7), pack_scale, other, pack, "front", pack_frame)
-	_figure(Vector2(cx + 35, ground + 12), pack_scale, other, pack, "front", maxi(0, pack_frame - 1))
-	if kind != SPECCY_DEFENSIVE:
-		_figure(Vector2(cx + 4, ground + 18), 0.98, other, pack, "front", pack_frame)
+	# Before he climbs they're braced and watching the ball come; then up, each a
+	# beat apart and his own way round, so no two move as one.
+	var pack_frame := mini(3, int(jump_t * 6.0))
+	var pack_at := [Vector2(cx - 46, ground + 7), Vector2(cx + 35, ground + 12), Vector2(cx + 4, ground + 18)]
+	var pack_scales := [pack_scale, pack_scale, 0.98]
+	var pack_offsets := [0, -1, 1]
+	for i in range(2 if kind == SPECCY_DEFENSIVE else 3):
+		if _t < 0.42 + 0.06 * i:
+			_ready_figure(pack_at[i], pack_scales[i], other, "front", 11 + i * 7, i != 2, i == 1)
+		else:
+			_figure(pack_at[i], pack_scales[i], other, "leap", "front", clampi(pack_frame + pack_offsets[i], 0, 3),
+					0, EXTRA_LOOK, Vector2.INF, i == 1)
 
 	# The ball comes down into his hands, then he brings it in.
 	var hands := mark_pos + Vector2(0, 38.0 * 1.30 - 2.25 * PX_PER_M * 1.30)
@@ -315,13 +326,13 @@ func _draw_after_siren() -> void:
 		var bob := sin(_t * 8.0) * 2.5 if _t < 1.5 else 0.0
 		_draw_ball(_at(kicker, scale, Vector2(0.2, 0.95)) + Vector2(0, bob), 1.20)
 	if _t < 1.75:
-		_figure(kicker, scale, side, "idle", "back", 0, num, _look)
+		_ready_figure(kicker, scale, side, "back", 3, false, false, num, _look)
 	elif _t < KICK_START:
 		_figure(kicker, scale, side, "jog", "back_r", _stride(_t - 1.75), num, _look)
 	elif _t < 3.45:
 		_figure(kicker, scale, side, "kick", "back_r", _kick_frame(_t - KICK_START, 3.02 - KICK_START), num, _look)
 	else:
-		_figure(kicker, scale, side, "idle", "back", 0, num, _look)     # leg down, watching it go
+		_ready_figure(kicker, scale, side, "back", 3, false, false, num, _look)     # leg down, watching it go
 
 	if _t >= 2.92 and _t < 3.02:
 		# Dropped onto the boot.
@@ -362,11 +373,17 @@ func _draw_goal_line() -> void:
 	var lift := (ease(rise, -2.0) - ease(fall, 2.0)) * CONTEST_PEAK * PX_PER_M
 	var contest := int(roundf(rise * 5.0)) if fall <= 0.0 else int(roundf((1.0 - fall) * 4.0))
 	var landed := fall >= 1.0 and _t > 1.55      # back on their feet, standing
-	_figure(Vector2(w * 0.57, pack_ground - lift), 1.0, side, "idle" if landed else "leap", "back",
-			0 if landed else contest, 0, EXTRA_LOOK, Vector2(w * 0.57, pack_ground))
-	_figure(Vector2(w * 0.64, pack_ground - lift), 1.0, other, "idle" if landed else "leap", "front",
-			0 if landed else contest, 0, EXTRA_LOOK, Vector2(w * 0.64, pack_ground))
-	_figure(Vector2(w * 0.72, pack_ground + 6), 0.95, other, "idle", "front", 0)
+	# Once down they turn to the crumb, off to the screen's left: the forward (back to
+	# us) to his left, the defender (facing us) to his right. Up, the defender's a beat behind.
+	if landed:
+		_ready_figure(Vector2(w * 0.57, pack_ground), 1.0, side, "back", 5, true, false)
+		_ready_figure(Vector2(w * 0.64, pack_ground), 1.0, other, "front", 9, true, true)
+	else:
+		_figure(Vector2(w * 0.57, pack_ground - lift), 1.0, side, "leap", "back", contest, 0, EXTRA_LOOK,
+				Vector2(w * 0.57, pack_ground))
+		_figure(Vector2(w * 0.64, pack_ground - lift), 1.0, other, "leap", "front", maxi(0, contest - 1), 0, EXTRA_LOOK,
+				Vector2(w * 0.64, pack_ground))
+	_ready_figure(Vector2(w * 0.72, pack_ground + 6), 0.95, other, "front", 2, true, true)
 
 	# The crumber reads the fall of the ball, then snaps off the deck; a
 	# defender lunges at him.
@@ -376,12 +393,13 @@ func _draw_goal_line() -> void:
 	var lunge := clampf((_t - 1.4) / 0.5, 0.0, 1.0)
 	var lunger := Vector2(lerpf(w * 0.80, w * 0.64, lunge), crumb_ground - 10)
 	if _t < 1.4 or _t >= 2.25:
-		_figure(lunger, 1.05, other, "idle", "front", 0)      # waiting, then back on his feet
+		_ready_figure(lunger, 1.05, other, "front", 7, true, true)      # eyes on the crumber, then on his feet
 	else:
 		_figure(lunger, 1.05, other, "lunge", "side_l", mini(2, int(lunge * 3.0)))
 	var num := int(event.get("num", 0))
 	if _t < 0.6:
-		_figure(crumber, 1.25, side, "idle", "back", 0, num, _look)
+		# Reading the contest, off to his right.
+		_ready_figure(crumber, 1.25, side, "back", 4, true, true, num, _look)
 	elif _t < 1.4:
 		_figure(crumber, 1.25, side, "jog", "back_r", _stride(_t - 0.6), num, _look)
 	elif _t < SNAP_AT - 0.12:
@@ -392,7 +410,7 @@ func _draw_goal_line() -> void:
 		# Snapped around the body: the boot meets the ball at SNAP_AT.
 		_figure(crumber, 1.25, side, "snap", "back_r", mini(4, int((_t - SNAP_AT + 0.12) / 0.04)), num, _look)
 	else:
-		_figure(crumber, 1.25, side, "idle", "back", 0, num, _look)     # landed, watching it
+		_ready_figure(crumber, 1.25, side, "back", 4, false, false, num, _look)     # landed, watching it
 
 	var top := Vector2(w * 0.605, pack_ground - lift + 38.0 - 2.25 * PX_PER_M)
 	var deck := crumber + Vector2(0.34 * PX_PER_M * 1.25, 38.0 * 1.25 - 4.0)
@@ -451,13 +469,13 @@ func _draw_boundary_snap() -> void:
 	# Steadying, a few steps at goal, then the snap around the body; the ball
 	# leaves the boot at 1.35 s.
 	if _t < 0.45:
-		_figure(kicker, 1.28, side, "idle", "back", 0, num, _look)
+		_ready_figure(kicker, 1.28, side, "back", 6, false, false, num, _look)
 	elif _t < 1.05:
 		_figure(kicker, 1.28, side, "jog", "back_r", _stride(_t - 0.45), num, _look)
 	elif _t < 1.85:
 		_figure(kicker, 1.28, side, "snap", "back_r", mini(4, int((_t - 1.05) / 0.1)), num, _look)
 	else:
-		_figure(kicker, 1.28, side, "idle", "back", 0, num, _look)     # landed, watching it
+		_ready_figure(kicker, 1.28, side, "back", 6, false, false, num, _look)     # landed, watching it
 	if _t >= 1.25 and _t < 1.35:
 		_draw_ball(held.lerp(boot, (_t - 1.25) / 0.1), 1.10)      # dropped onto the boot
 	elif _t >= 1.35:
@@ -496,7 +514,7 @@ func _kick_frame(t: float, contact: float) -> int:
 ## standing on the turf, where his shadow falls (defaults to pos). Numbers show
 ## on back-facing frames.
 func _figure(pos: Vector2, scale: float, side: int, anim: String, facing: String, frame: int,
-		number := 0, look: Dictionary = EXTRA_LOOK, ground := Vector2.INF) -> void:
+		number := 0, look: Dictionary = EXTRA_LOOK, ground := Vector2.INF, mirror := false) -> void:
 	var feet := pos + Vector2(0, 38.0 * scale)
 	var pm := PX_PER_M * scale
 	var shadow_at := feet if ground == Vector2.INF else ground + Vector2(0, 38.0 * scale)
@@ -506,14 +524,19 @@ func _figure(pos: Vector2, scale: float, side: int, anim: String, facing: String
 	var info := VignetteFigures.strip(BODY, anim, facing)
 	var f := clampi(frame, 0, int(info["frames"]) - 1)
 	var k := pm / VignetteFigures.PX_PER_M
-	var origin := feet - Vector2(info["pivot"][0], info["pivot"][1]) * k
-	draw_texture_rect_region(StoppageVignette.FIGURE_SHADE, Rect2(origin, VignetteFigures.FRAME * k),
-			VignetteFigures.source(info, f),
-			Color(side / 4.0, int(look["skin"]) / 8.0, int(look["hair"]) / 8.0, 1.0))
-	if number > 0 and facing.begins_with("back") and pm >= 30.0:
-		# The number, printed on the back of the guernsey by the shader.
-		draw_texture_rect_region(StoppageVignette.FIGURE_SHADE, Rect2(origin, VignetteFigures.FRAME * k),
-				VignetteFigures.source(info, f), StoppageVignette.number_colour(side, number))
+	# The number, printed on the back of the guernsey by the shader.
+	var num := StoppageVignette.number_colour(side, number, 1.0, mirror) 			if number > 0 and facing.begins_with("back") and pm >= 30.0 else Color(0, 0, 0, 0)
+	StoppageVignette.draw_frame(self, feet, info, f, k, StoppageVignette.look_colour(side, look, mirror), mirror, num)
+
+
+## A man standing in the play: ready, not stiff - knees bent, bouncing at a rate
+## of his own (seed), looking ahead or turned to what he's watching (turn: the
+## ready_turn frames look to his left; mirror for his right).
+func _ready_figure(pos: Vector2, scale: float, side: int, facing: String, seed: int, turn := false,
+		mirror := false, number := 0, look: Dictionary = EXTRA_LOOK) -> void:
+	var rate := 2.4 + 0.25 * float(seed % 5)
+	var frame := int(_t * rate + seed * 0.61) % 3
+	_figure(pos, scale, side, "ready_turn" if turn else "ready", facing, frame, number, look, Vector2.INF, mirror)
 
 
 func _draw_ball(pos: Vector2, scale: float) -> void:

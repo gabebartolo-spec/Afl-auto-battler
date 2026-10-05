@@ -87,12 +87,29 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 						"tired": tired, "from": from, "to": to,
 						"delay": rng.randf_range(0.0, 0.45),
 						"dur": rng.randf_range(1.3, 1.7) * (1.6 if tired else 1.0)})
+	_style_rucks()
 	facts = _commentary(sim, my_side)
 	_t = 0.0
 	_hold = 0.0
 	_frozen = false
 	_dress()
 	queue_redraw()
+
+
+## The two ruckmen contest differently, so they never go up as twins: one taps
+## with an open hand, running straight at it; the other goes body-on, punching
+## with the other fist, a beat later, lower, and from wider. Which is which
+## follows the players (stable), not the side.
+const RUCK_STYLES := [
+	{"anim": "tap", "delay": 0.0, "peak": 1.1, "approach": -0.6},
+	{"anim": "tap_b", "delay": 0.07, "peak": 0.85, "approach": 0.4},
+]
+
+func _style_rucks() -> void:
+	var rucks := tokens.filter(func(t): return str(t["slot"]) == "R")
+	rucks.sort_custom(func(a, b): return hash(str(a["id"])) < hash(str(b["id"])))
+	for i in range(rucks.size()):
+		(rucks[i] as Dictionary)["ruck"] = RUCK_STYLES[i % RUCK_STYLES.size()]
 
 
 ## The figure material, with both clubs' guernseys and the umpire's. Everything
@@ -272,8 +289,9 @@ func _pos(t: Dictionary) -> Vector2:
 	var p := (t["from"] as Vector2).lerp(t["to"], _ease(k))
 	var sgn := 1.0 if bool(t["mine"]) else -1.0
 	if str(t["slot"]) == "R":
-		var run := clampf((_t - RUN_IN[0]) / (RUN_IN[1] - RUN_IN[0]), 0.0, 1.0)
-		p = p.lerp(Vector2(-0.6 * sgn, -1.0 * sgn), run * run)
+		var style: Dictionary = t.get("ruck", RUCK_STYLES[0])
+		var run := clampf((_t - RUN_IN[0] - float(style["delay"])) / (RUN_IN[1] - RUN_IN[0]), 0.0, 1.0)
+		p = p.lerp(Vector2(float(style["approach"]) * sgn, -1.0 * sgn), run * run)
 	elif k >= 1.0:
 		# Settled in the square: jostling for the front spot.
 		p.x += sin(_t * 3.1 + float(t["num"])) * 0.35
@@ -288,9 +306,13 @@ func _moving(t: Dictionary) -> bool:
 
 
 func _lift(t: Dictionary) -> float:
-	if str(t["slot"]) != "R" or _t < RUN_IN[1] - 0.1:
+	if str(t["slot"]) != "R":
 		return 0.0
-	return 1.1 * _ease(clampf((_t - (RUN_IN[1] - 0.1)) / 0.35, 0.0, 1.0))
+	var style: Dictionary = t.get("ruck", RUCK_STYLES[0])
+	var start := RUN_IN[1] - 0.1 + float(style["delay"])
+	if _t < start:
+		return 0.0
+	return float(style["peak"]) * _ease(clampf((_t - start) / 0.35, 0.0, 1.0))
 
 
 func _umpire() -> Vector2:
@@ -357,16 +379,25 @@ func _draw_ground() -> void:
 		draw_rect(Rect2(0, a.y, size.x, c.y - a.y + 1.0), GRASS[i % 2], true)
 		y = next
 		i += 1
-	# The crowd: a dark stand beyond the far wing, specks of colour.
+	# The crowd in the stand beyond the far wing, both clubs' people in it, over the
+	# fence and its boards (blank panels in the clubs' colours).
 	var edge := _project(Vector2(0, far)).y
 	if edge > 0.0:
-		draw_rect(Rect2(0, 0, size.x, edge), Color(0.1, 0.1, 0.12), true)
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 7
-		for n in range(int(size.x * edge / 90.0)):
-			var col: Color = (_colours[rng.randi() % 2] as Array)[0] if rng.randf() < 0.45 else Color(0.5, 0.5, 0.52)
-			draw_rect(Rect2(rng.randf() * size.x, rng.randf() * edge, 2, 2), Color(col, 0.55), true)
+		var fence := minf(edge, maxf(6.0, size.y * 0.018))
+		VignetteCrowd.draw(self, Rect2(0, 0, size.x, edge - fence), _colours, _t)
+		_draw_boards(Rect2(0, edge - fence, size.x, fence))
 	_draw_markings()
+
+
+## The boundary fence's boards: blank panels alternating the clubs' colours.
+func _draw_boards(r: Rect2) -> void:
+	draw_rect(r, Color(0.1, 0.1, 0.11), true)
+	var n := maxi(4, int(r.size.x / 46.0))
+	for i in range(n):
+		var c: Color = (_colours[i % 2] as Array)[0] if not (_colours[i % 2] as Array).is_empty() else Color.DIM_GRAY
+		var x := r.position.x + r.size.x * float(i) / float(n)
+		draw_rect(Rect2(x + 1.0, r.position.y + 1.0, r.size.x / float(n) - 2.0, r.size.y - 2.0), c.darkened(0.25), true)
+		draw_rect(Rect2(x + 1.0, r.position.y + 1.0, r.size.x / float(n) - 2.0, 1.0), Color(1, 1, 1, 0.15), true)
 
 
 func _draw_markings() -> void:
@@ -407,27 +438,48 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	draw_circle(Vector2.ZERO, sh, Color(0, 0, 0, 0.35))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# Your players have their backs to us; theirs and the umpire face the camera.
-	var pick := _frame(t, lift)
-	var info := VignetteFigures.strip(_body(t), pick[0], "back" if not ump and bool(t["mine"]) else "front")
+	var back := not ump and bool(t["mine"])
+	var pick := _frame(t, lift, at, back)
+	var info := VignetteFigures.strip(_body(t), pick[0], "back" if back else "front")
 	var frame := mini(int(pick[1]), int(info["frames"]) - 1)
-	var cell := VignetteFigures.FRAME
 	var src := VignetteFigures.source(info, frame)
 	# Out on their feet: a touch smaller, stooped.
 	var k := m / VignetteFigures.PX_PER_M * (0.96 if tired else 1.0)
-	var origin := Vector2(base.x, base.y) - Vector2(info["pivot"][0], info["pivot"][1]) * k
+	var mirror := bool(pick[2])
 	var kit := UMPIRE_KIT if ump else int(t["side"])
 	var look: Dictionary = t.get("look", UMPIRE_LOOK)
-	draw_texture_rect_region(FIGURE_SHADE, Rect2(origin, cell * k), src,
-			Color(kit / 4.0, int(look["skin"]) / 8.0, int(look["hair"]) / 8.0, 1.0))
-	if not ump and bool(t["mine"]) and m > 18.0:
-		# The number on show, printed on the back of the guernsey by the shader.
-		draw_texture_rect_region(FIGURE_SHADE, Rect2(origin, cell * k), src, number_colour(kit, int(t["num"])))
+	draw_frame(self, Vector2(base.x, base.y), info, frame, k, look_colour(kit, look, mirror), mirror,
+			number_colour(kit, int(t["num"]), 1.0, mirror) if back and m > 18.0 else Color(0, 0, 0, 0))
+
+
+## Draws frame f of a strip with its feet at feet, k screen pixels per frame pixel,
+## on ci (whose material must be the figure material). Mirrored, it faces the other
+## way: flipped about the feet by a draw transform (a negative-size rect isn't drawn).
+## number: a second pass that prints the number (number_colour), or alpha 0 for none.
+static func draw_frame(ci: CanvasItem, feet: Vector2, info: Dictionary, f: int, k: float, colour: Color,
+		mirror := false, number := Color(0, 0, 0, 0)) -> void:
+	var pivot := Vector2(info["pivot"][0], info["pivot"][1])
+	var dest := Rect2(feet - pivot * k, VignetteFigures.FRAME * k)
+	var src := VignetteFigures.source(info, f)
+	if mirror:
+		ci.draw_set_transform(Vector2(2.0 * feet.x, 0.0), 0.0, Vector2(-1.0, 1.0))
+	ci.draw_texture_rect_region(FIGURE_SHADE, dest, src, colour)
+	if number.a > 0.0:
+		ci.draw_texture_rect_region(FIGURE_SHADE, dest, src, number)
+	if mirror:
+		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## The draw colour that recolours a figure: its kit, skin and hair, and whether
+## the frame is mirrored (figure.gdshader).
+static func look_colour(kit: int, look: Dictionary, mirror := false, alpha := 1.0) -> Color:
+	return Color((kit * 2 + (1 if mirror else 0)) / 8.0, int(look["skin"]) / 8.0, int(look["hair"]) / 8.0, alpha)
 
 
 ## The draw colour that prints a number (0-99) on a figure's back instead of
 ## drawing the figure (figure.gdshader): draw the same frame again with it.
-static func number_colour(kit: int, number: int, alpha := 1.0) -> Color:
-	return Color(kit / 4.0, 1.0, (clampi(number, 0, 99) + 1) / 128.0, alpha)
+static func number_colour(kit: int, number: int, alpha := 1.0, mirror := false) -> Color:
+	return Color((kit * 2 + (1 if mirror else 0)) / 8.0, 1.0, (clampi(number, 0, 99) + 1) / 128.0, alpha)
 
 
 ## Ruckmen are the tall figures; everyone else - an emergency ruck from the
@@ -436,27 +488,57 @@ static func _body(t: Dictionary) -> String:
 	return "ruck" if bool(t.get("tall", false)) else "average"
 
 
-## Which animation and frame a figure shows now: [anim, frame].
-func _frame(t: Dictionary, lift: float) -> Array:
+## Which animation and frame a figure shows now, and whether it's mirrored:
+## [anim, frame, mirror]. at: where he stands; back: his back is to us.
+func _frame(t: Dictionary, lift: float, at := Vector2.ZERO, back := false) -> Array:
 	if t.is_empty():
 		# The umpire walks in, raises the ball, bounces it and follows through.
 		if _t >= BALL_UP - 0.5 and _t < BALL_UP - 0.15:
-			return ["bounce", 1]
+			return ["bounce", 1, false]
 		if _t >= BALL_UP - 0.15 and _t < BALL_UP:
-			return ["bounce", 2]
+			return ["bounce", 2, false]
 		if _t >= BALL_UP and _t < BALL_UP + 0.4:
-			return ["bounce", 3]
+			return ["bounce", 3, false]
 		if _t >= UMP_IN[0] and _t < UMP_IN[1]:
-			return ["jog", int(_t * 10.0) % 8]
-		return ["idle", 0]
+			return ["jog", int(_t * 10.0) % 8, false]
+		return _ready_pick({"num": 0, "id": "umpire"}, at, false)
 	if lift > 0.0:
-		# The ruck contest: a ruckman taps one-handed, the other arm working his man.
-		return ["tap", int(roundf(clampf(lift / 1.1, 0.0, 1.0) * 5.0))]
+		# The ruck contest, one-handed, each ruckman his own way (RUCK_STYLES).
+		var style: Dictionary = t.get("ruck", RUCK_STYLES[0])
+		var frames := 6 if str(style["anim"]) == "tap" else 4
+		var k := clampf(lift / float(style["peak"]), 0.0, 1.0)
+		return [style["anim"], int(roundf(k * (frames - 1))), false]
 	if _moving(t):
-		# The same stride rate the scene always had; slower when they're out on their feet.
-		var strides := (9.0 if bool(t["tired"]) else 13.0) / TAU
-		return ["jog", int(_t * strides * 8.0 + float(t["num"])) % 8]
-	return ["idle", 0]
+		# Each man at his own stride; slower when they're out on their feet.
+		var strides := (9.0 if bool(t["tired"]) else 13.0) / TAU * _rate(t, 0.9, 1.1)
+		return ["jog", int(_t * strides * 8.0 + float(t["num"])) % 8, false]
+	return _ready_pick(t, at, back)
+
+
+## Standing, he's ready, not stiff: knees bent and bouncing at his own rate, his
+## head and shoulders turned to what he's watching when it's off to one side
+## (mirrored for his right). Two men side by side never move as one.
+func _ready_pick(t: Dictionary, at: Vector2, back: bool) -> Array:
+	var cycle := int(_t * 3.0 * _rate(t, 0.7, 1.15) + float(t["num"]) * 0.37 + _rate(t, 0.0, 3.0)) % 3
+	var to := _look_at(t) - at
+	# Across his line of sight: his back to us, his left is the screen's left.
+	var across := -to.x if back else to.x
+	if absf(to.x) < 0.35 * absf(to.y) + 1.0:
+		# Looking ahead; mirrored on a whim of his own so a row isn't a row of clones.
+		return ["ready", cycle, _rate(t, 0.0, 1.0) > 0.5]
+	return ["ready_turn", cycle, across < 0.0]
+
+
+## What a standing man watches: the ball (the pre-match scene overrides it).
+func _look_at(_t_: Dictionary) -> Vector2:
+	var b := _ball()
+	return Vector2(b.x, b.y)
+
+
+## A number of his own between lo and hi, stable for the man.
+static func _rate(t: Dictionary, lo: float, hi: float) -> float:
+	var h := hash(str(t.get("id", t.get("num", 0))) + "|rate")
+	return lo + (hi - lo) * float(absi(h) % 1000) / 999.0
 
 
 ## Height of a figure's head (or raised hands) above its feet, world metres.

@@ -8,6 +8,8 @@ extends SceneTree
 ## after the siren, goal-line crumb, boundary snap), one column per beat, each
 ## cell the whole portrait screen at --scale. Collingwood (your side, a real
 ## player featured) against Carlton; nothing here touches a save.
+## --film KIND: instead writes <out>_KIND_NNN.png, the whole of that kind at 12
+## frames a second, for checking motion.
 
 const KINDS := ["speccy_front", "speccy_side", "speccy_defensive", "after_siren", "goal_line", "boundary_snap"]
 ## Seconds into each kind worth a still: wind-up, the moment, the ball's flight.
@@ -29,12 +31,14 @@ func _run() -> void:
 	var out := "/tmp/broadcast"
 	var width := 360
 	var scale := 0.5
+	var film := ""
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size() - 1):
 		match str(a[i]):
 			"--out": out = str(a[i + 1])
 			"--width": width = int(a[i + 1])
 			"--scale": scale = float(a[i + 1])
+			"--film": film = str(a[i + 1])
 	await process_frame
 	var db = root.get_node("GameDB")
 	var w := width
@@ -57,6 +61,15 @@ func _run() -> void:
 		vig.setup(kind, ev, {}, {"home": "COL", "away": "CAR"})
 		vig.set_process(false)
 		var beats: Array = BEATS[kind]
+		if film != "":
+			if kind != film:
+				vig.queue_free()
+				continue
+			beats = []
+			var ft := 0.0
+			while ft < vig.duration_for(kind):
+				beats.append(ft)
+				ft += 1.0 / 12.0
 		for c in range(beats.size()):
 			vig.set("_t", float(beats[c]))
 			vig.modulate.a = 1.0
@@ -65,10 +78,17 @@ func _run() -> void:
 				await process_frame
 			var img: Image = root.get_viewport().get_texture().get_image()
 			img.convert(Image.FORMAT_RGBA8)
+			if film != "":
+				img.save_png("%s_%s_%03d.png" % [out, kind, c])
+				continue
 			img.resize(cw, ch, Image.INTERPOLATE_LANCZOS)
 			sheet.blit_rect(img, Rect2i(0, 0, cw, ch), Vector2i(c * cw, r * ch))
 		vig.queue_free()
 		await process_frame
+	if film != "":
+		print("filmed ", film)
+		quit(0)
+		return
 	var path := "%s_%d.png" % [out, width]
 	sheet.save_png(path)
 	print("wrote ", path)
