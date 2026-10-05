@@ -2836,6 +2836,9 @@ Acceptance:
 - significant coaching changes are visible to the player;
 - the user's first offseason being quiet is explainable by the measured system rather than assumed correct because tests pass.
 
+### RC-004 verification — the former player on his coach profile (2026-10-06)
+**Verified, one repair (PR #234, pending merge).** The existing pathway already keeps the same person: `CoachPathway.snapshot` captures his clubs, games, goals, draft and position at retirement under his own name and alias, and the coach profile (`CoachSheet`) shows a "Playing career" section above his coaching stints; appointment news names his old club. **Missing link repaired:** only Brownlows and Colemans were carried over, though the save's honour roll also names the Rising Star, the Coaches Award winner and your club's best and fairest. The profile now lists those too ("Coaches Award", "Rising Star", "3 Adelaide best and fairests"). Other clubs' best and fairests and All-Australian selections are not kept season to season, so they are not claimed. The chance he goes into coaching still counts Brownlows and Colemans only (no balance change). Checked at 360 px; `coach_pathway` 57 checks.
+
 ## ARD-M6-003 — Board Confidence
 **Status:** `PARTIAL` — the core confidence system is merged in #84; the explicitly listed smaller follow-up inputs remain optional/open.  
 **Merged:** PR #84 as `48a805d`; confidence now moves relative to expectations, surfaces qualitative states, and explains why it changed.  
