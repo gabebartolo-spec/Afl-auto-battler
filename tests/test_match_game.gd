@@ -22,6 +22,7 @@ func run() -> void:
 	_test_live_determinism()
 	_test_impact_and_ai()
 	_test_pep_talks()
+	_test_tired_call_holds()
 	_test_play_through()
 	_test_hothead()
 	_test_lockdown_midfielder()
@@ -587,6 +588,57 @@ func _test_impact_and_ai() -> void:
 			_check(subbed, "Normal rotations take the cooked star off by themselves")
 		else:
 			_check(calls == 1, "Riding the stars: one tired call a match, not one a quarter (%d)" % calls)
+
+
+## The tired-star call is a real choice because each answer holds to the
+## break: rested, he stays on the bench even once fresh; kept on, the
+## rotations leave him out there however cooked. The card names who comes on.
+## Director decision 2026-10-05 (roadmap M4-001).
+func _test_tired_call_holds() -> void:
+	for answer in ["rest", "keep"]:
+		var sim := _sim(902)
+		sim.moment_side = 0
+		sim.set_rotation_policy(0, "stars")
+		var star: Dictionary = {}
+		for p in sim.squads[0].ground:
+			if int(p["overall"]) >= MatchSim.STAR_OVR:
+				star = p
+		if star.is_empty():
+			_check(false, "Club 902 fields a star")
+			return
+		var sid := str(star["id"])
+		sim.begin_quarter()
+		sim.energy[sid] = 40.0
+		var fired := {}
+		var guard := 0
+		while guard < 60:
+			if sim.continue_quarter():
+				break
+			var m := sim.pending_moment
+			if str(m.get("kind", "")) == "tired" and fired.is_empty():
+				fired = m.duplicate(true)
+				sim.resolve_moment(0 if answer == "rest" else 1)
+				if answer == "keep":
+					sim.energy[sid] = 12.0   # cooked: the rotations would take him
+			else:
+				sim.resolve_moment(int(m.get("default", 0)))
+			guard += 1
+		_check(not fired.is_empty(), "Riding the stars, a cooked star brings the call (%s)" % answer)
+		if fired.is_empty():
+			continue
+		var on_ground := not sim._on_ground(0, sid).is_empty()
+		if answer == "rest":
+			var sub_name := GameDB.player_display_name_by_id(str(fired.get("sub_id", "")), "")
+			var detail := str((fired["options"] as Array)[0]["detail"])
+			_check(sub_name != "" and detail.begins_with(sub_name + " comes on."),
+					"Rest names who comes on (%s)" % detail)
+			_check(not on_ground and float(sim.energy.get(sid, 0.0)) >= 85.0,
+					"Rested, he sits out the quarter even once fresh (energy %.0f)" % float(sim.energy.get(sid, 0.0)))
+		else:
+			_check(on_ground, "Kept on, he is still out there at the break however cooked")
+		sim.end_quarter()
+		sim.begin_quarter()
+		_check(sim._held.is_empty(), "The call ends at the break (%s)" % answer)
 
 
 ## Calm the group is a live option: a milder, quarter-long Slow it down,

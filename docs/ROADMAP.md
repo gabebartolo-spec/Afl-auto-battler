@@ -1756,6 +1756,8 @@ Targeted trigger/resolution tests, invalid personnel and repeat-resolution cover
 ### Audit — the tired-star call (2026-10-05)
 Evidence in `docs/TIRED_CALL_AUDIT_2026-10-05.md` (PR #230, pending merge; 288 paired matches). Trigger, feasibility, single application and determinism all hold. But **Rest and Keep produce almost the same match** (59.9% v 59.3% wins, +0.8 margin, his output after nearly equal) because a kept star is rotated off at 25 energy anyway and a rested one comes back once fresh; under Ride the stars the call fires in 88% of matches; the break restates the choice instead of reporting what followed; two card details are slightly inaccurate. **Director decision needed:** make the trade-off real, drop the call or keep it as flavour. Follow-through belongs to M4-009.
 
+**Built (2026-10-06, PR #233 pending merge):** each answer now holds to the break: rested, the star sits out the rest of the quarter (the match in Q4) and starts the next fresh; kept, the rotations leave him on however cooked and he starts the next quarter tired. The card names who comes on and the duration; the break reports what followed. Re-measured on the same 288 matches: his output and next-quarter energy now diverge (0 v 2–3 disposals to the break; 94–98 v 38–52 energy), overall wins 58.3% v 58.9%, with resting better after a Q2 call and keeping better after a Q3 call (small sample). Evidence appended to `docs/TIRED_CALL_AUDIT_2026-10-05.md`. Phone check remains.
+
 ---
 
 ## ARD-M4-002 — Key match-ups
