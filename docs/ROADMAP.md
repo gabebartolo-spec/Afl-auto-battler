@@ -382,6 +382,30 @@ Primary screens should answer:
 
 Deep analytics can exist in secondary screens. Do not turn coaching, reports or matchday UI into debug dashboards.
 
+### UI anti-slop reset — current concern
+**The current UI policy/implementation has drifted away from the project's anti-slop criteria and needs an explicit corrective pass.**
+
+Treat this as a standing design warning for all future UI work and as a prompt to audit existing screens before adding more visual complexity.
+
+Anti-slop criteria:
+- avoid generic AI-template UI patterns,
+- avoid excessive rounded cards, chips, pills and boxed containers,
+- avoid decorative gradients, glows, glassmorphism and gratuitous shadows,
+- avoid generic green accents,
+- avoid all-caps labels and condensed display-font styling unless genuinely justified,
+- use sentence case and natural football language,
+- use restrained colour with club colours carrying identity where appropriate,
+- prefer hierarchy, spacing and typography over extra borders/boxes,
+- keep primary screens sparse and decision-focused,
+- avoid repeating the same information in multiple panels,
+- avoid "dashboard" composition unless the screen truly needs it,
+- do not add visual chrome merely to make a screen look "designed",
+- maintain mobile-first readability and touch clarity.
+
+When revisiting existing UI, Claude should challenge whether each container, badge, chip, divider, accent and label is actually necessary. If removing an element improves clarity without losing meaning, removal is preferred.
+
+This note is not permission for a broad unreviewed redesign. Apply the anti-slop standard incrementally to authorised UI tasks and record larger systemic cleanup as its own scoped audit/repair item if needed.
+
 ## 1.8 Australian football language
 
 Use natural AFL terminology in player-facing text.
@@ -5088,6 +5112,8 @@ It is complete only when:
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Added an explicit warning that the current UI policy/implementation has drifted from the project's anti-slop criteria. Reasserted restrained, mobile-first, football-specific UI guidance and instructed future UI work to remove unnecessary cards/chips/boxes/accents rather than layering on more template-style chrome.
 
 - **2026-10-06:** Added ARD-M8-009 as a hard-gated late-project trailer task. Claude may recommend when the roadmap/visual polish are mature enough, but cannot begin trailer work without explicit user approval. Once approved, Claude may source/use free software only, or direct the user to install suitable free tools.
 
