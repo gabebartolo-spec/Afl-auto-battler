@@ -28,9 +28,12 @@ SUITE_TIMEOUT="${SUITE_TIMEOUT:-900}"
 # The check floors (tools/test_run_tests.sh points this at its own file).
 EXPECTED_CHECKS="${EXPECTED_CHECKS:-tests/expected_checks.txt}"
 # SUITES_ONLY=1 skips the dataset, export and harness steps after the suites.
+# EXTRAS_ONLY=1 runs only those steps (and the harness self-test), no suites.
+# CI splits the work this way: shards run SUITES_ONLY, one job runs EXTRAS_ONLY.
 SUITES_ONLY="${SUITES_ONLY:-0}"
 ALL_SUITES=(draft draft_ui intake intake_ui expansion finals save chronology career coaches coach_market coach_pathway coach_effects career_ui potential ratings ai training selection matchup matchday roles injuries awards achievements contracts league club match_game pressure workload match_visual league_balance calibration balance)
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
+[ "${EXTRAS_ONLY:-0}" = 1 ] && SUITES=()
 
 LOG_DIR="${LOG_DIR:-$(mktemp -d)}"
 mkdir -p "$LOG_DIR"
@@ -64,7 +67,7 @@ else
 	summary+=("| import | pass | |")
 fi
 
-for suite in "${SUITES[@]}"; do
+for suite in ${SUITES[@]+"${SUITES[@]}"}; do
 	runner="tests/run_${suite}_tests.gd"
 	log="$LOG_DIR/$suite.log"
 	start=$(date +%s)
