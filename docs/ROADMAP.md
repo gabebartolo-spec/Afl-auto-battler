@@ -412,6 +412,9 @@ The current phone playtest has exposed a core-loop problem more important than f
 
 - **Finals / premiership presentation variants:** strengthen visual presentation around finals and premiership status. Support finals/event branding, special guernsey markers or badges where appropriate, reigning-premier treatment in the following season, and stronger captain/leader presentation in major moments. Keep this cosmetic/presentational unless a separate gameplay rule explicitly exists.
 
+
+- **Trophy cabinet / honour board evolution:** make the club hub visibly accumulate history over long saves. Surface premierships, major individual awards, club champions, coaching honours and significant records through a restrained trophy-cabinet / honour-board presentation that grows as the career progresses. The visual state should reflect actual save history, not a static decoration screen, so a 30-year dynasty looks materially different from a new career. Keep it compact and integrated into the club/history experience rather than creating a separate collectible-management minigame.
+
 - **Stadium identity:** give venues recognisable visual character without building a stadium-construction system. Use venue-aware presentation such as boundary treatment, signage, crowd colour balance, roof/open-air feel and finals/event branding. Reuse shared match-presentation systems and avoid bespoke one-off UI that is expensive to maintain.
 
 - **Generated player visual identity:** give players simple, stylistically consistent visual identities using attributes such as age, hair, skin tone and facial hair, with visible ageing over long careers where practical. Prioritise consistency, readability and long-save flavour over photorealism. Generated visuals must remain stable enough that the same player still feels recognisable across seasons.
