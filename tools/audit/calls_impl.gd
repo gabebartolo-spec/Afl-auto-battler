@@ -9,6 +9,9 @@ extends RefCounted
 ## "best fixed" is, per match, the best of the fixed plans in hindsight:
 ## an upper bound on one plan choice.
 
+var last_ai_plan := ""
+var by_ai := {}   # AI's Q1 plan -> policy -> [wins, n]
+
 const PLAN_KEYS := ["balanced", "attacking", "defensive", "contest", "controlled", "through_stars"]
 const COUNTER := {"controlled": "attacking", "defensive": "controlled", "press": "controlled",
 		"attacking": "defensive", "fast": "defensive"}
@@ -31,6 +34,7 @@ func _play(home: Array, away: Array, hcode: String, acode: String, seed: int, po
 		while not sim.continue_quarter():
 			sim.resolve_moment(int(sim.pending_moment.get("default", 0)))
 		sim.end_quarter()
+	last_ai_plan = str(((sim.tactics_history[0]["plans"] as Array)[1] as Dictionary).get("gameplan", "balanced"))
 	var res := sim.result()
 	var sc: Array = res["score"]
 	return int(sc[0]) - int(sc[1])
@@ -54,11 +58,18 @@ func run() -> void:
 		for i in range(0, codes.size() - 1, 2):
 			var h := str(codes[i])
 			var w := str(codes[i + 1])
-			for rep in range(6):
+			for rep in range(int(OS.get_environment("CALLS_REPS")) if OS.get_environment("CALLS_REPS") != "" else 6):
 				var seed: int = int(draft_seed) * 1000 + i * 10 + rep
 				var best := -9999
 				for pol in policies:
 					var m := _play(lists[h], lists[w], h, w, seed, pol)
+					if pol in ["default", "fixed:defensive", "counter"]:
+						var row: Dictionary = by_ai.get(last_ai_plan, {})
+						var c: Array = row.get(pol, [0.0, 0])
+						c[0] += 1.0 if m > 0 else (0.5 if m == 0 else 0.0)
+						c[1] += 1
+						row[pol] = c
+						by_ai[last_ai_plan] = row
 					var st: Array = stats[pol]
 					st[0] += 1.0 if m > 0 else (0.5 if m == 0 else 0.0)
 					st[1] += float(m)
@@ -74,3 +85,10 @@ func run() -> void:
 	for p in policies + ["best fixed"]:
 		var st: Array = stats[p]
 		print("    %-22s win %.1f%%  mean margin %+.1f" % [p, 100.0 * st[0] / st[2], st[1] / st[2]])
+	print("BY AI OPENING PLAN (win %):")
+	for k in by_ai:
+		var line := "    AI %-14s" % k
+		for pol in ["default", "counter", "fixed:defensive"]:
+			var c: Array = (by_ai[k] as Dictionary).get(pol, [0.0, 0])
+			line += "  %s %.1f%% (n=%d)" % [pol, 100.0 * float(c[0]) / maxf(1, int(c[1])), int(c[1])]
+		print(line)
