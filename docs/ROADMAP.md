@@ -3507,6 +3507,8 @@ Player-facing choices should stay concise:
 - optional secondary position where valid,
 - archetype / play style,
 - a small set of strengths and weaknesses,
+- **hair style** from a substantially expanded library, including **Bald**,
+- **facial hair** from a dedicated beard/moustache library,
 - **sock height: Tall socks / Short socks**,
 - **headband: On / Off**,
 - **bandaging: None / Light / Heavy** using restrained football-appropriate placements,
@@ -3729,6 +3731,9 @@ Move/route ARD-M7-008 through Club Forge so character creation and club creation
 The player creator should expose identity/aesthetic and football-profile choices without exposing exact OVR/POT. Its hidden one-time POT roll, usable-role-player floor and rare S-tier outcome remain owned by ARD-M7-008.
 
 Appearance customisation should include:
+- **Hair style** from a much larger library,
+- **Bald** as a proper explicit hair option rather than a missing-texture/default state,
+- **Facial hair** from a dedicated beard/moustache library,
 - **Tall socks / Short socks**,
 - **Headband On / Off**,
 - **Bandaging None / Light / Heavy**,
@@ -3738,8 +3743,40 @@ Persist these on the player and use them consistently anywhere visible: creator 
 
 These are cosmetic only. They should also be available to generated-player appearance variation where practical so the league does not look uniform.
 
+### Hair / facial-hair library
+Expand beyond a token set of cuts. The target should include enough silhouettes that players are recognisable at a glance even at vignette scale.
+
+Hair should cover a useful range such as:
+- bald / shaved,
+- very short buzz,
+- short crop,
+- crew cut,
+- side part,
+- textured short,
+- messy medium,
+- longer swept-back,
+- mullet variants,
+- curly/coily short,
+- curly/coily medium,
+- afro-style volume where supported by the art pipeline,
+- long hair / tied-back variants where supported.
+
+Facial hair should be independently selectable where the face/figure resolution supports it:
+- clean shaven,
+- light stubble,
+- heavy stubble,
+- moustache,
+- short beard,
+- full beard,
+- goatee / chin beard,
+- beard + moustache combinations.
+
+Do not tie beard availability to hairstyle. Hair colour and facial-hair colour should usually harmonise but do not need to be identical in every generated case.
+
 ### Appearance variation guardrails
 - Headbands should sit naturally with the hairstyle/figure rather than float as an overlay.
+- Hair/headband combinations need compatibility rules so bald/shaved and bulky styles do not clip.
+- Beards/moustaches must not obscure player numbers, guernsey details or facial readability in close-up vignettes.
 - Bandages should use believable football placements such as shoulder/upper arm, wrist/forearm, thigh/knee or lower leg; avoid covering every limb at once unless a deliberately rare heavy preset is selected.
 - Tattoos should be **original generic designs**. Do not copy a real player's identifiable tattoo layout, Indigenous artwork, gang symbols, extremist imagery, copyrighted characters/logos or other protected/sensitive designs.
 - Use multiple tattoo placements/pattern families so "tattoos on" does not make every player look identical.
@@ -4666,6 +4703,8 @@ Prefer improving the existing experience when that answers the same need. This p
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-05:** Expanded Club Forge player appearance again: substantially more hairstyles including a proper Bald option, plus independent beard/moustache choices. Hair and facial-hair variation should also feed generated players, with compatibility rules for headbands and vignette-scale readability.
 
 - **2026-10-05:** Expanded player appearance variation in Club Forge: headbands, bandaging and tattoos now join Tall/Short socks as persistent cosmetic options. These can also seed generated-player visual variety; all are gameplay-neutral, with original/non-copied tattoo art and restrained football-appropriate bandage placement.
 
