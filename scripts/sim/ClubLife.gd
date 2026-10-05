@@ -370,11 +370,11 @@ static func _extension(p: Dictionary) -> Dictionary:
 	var years := early_years(p)
 	return {"key": "extension", "player_id": str(p["id"]), "default": 1,
 		"title": "%s wants to talk contract" % n,
-		"text": "He is out of contract at season's end and wants security now. Today his rating is worth %d a season." % ask,
+		"text": "He is out of contract at season's end and wants security now. Today his rating is worth %s a season." % Contracts.money(ask),
 		"options": [
 			_opt("extend", "Extend him now",
-					"He signs on for %d more season%s at %d a season: a premium for certainty, locked in whatever he does next." % [
-						years - 1, "" if years == 2 else "s", early_price(p)]),
+					"He signs on for %d more season%s at %s a season: a premium for certainty, locked in whatever he does next." % [
+						years - 1, "" if years == 2 else "s", Contracts.money(early_price(p))]),
 			_opt("wait", "Wait for the off-season",
 					"No commitment yet. He asks what his rating is worth then - less if he drops, more if he improves. He is disappointed (morale -5)."),
 		]}

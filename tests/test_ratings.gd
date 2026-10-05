@@ -19,6 +19,7 @@ func run() -> void:
 	_test_scale()
 	_test_ovr_tracks_strength()
 	_test_save_recomputes()
+	_test_attr_adjustment()
 	GameState.delete_saved_career()
 	print("Ratings tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -214,3 +215,34 @@ func _test_save_recomputes() -> void:
 			if int(x["overall"]) != Ratings.rate_overall(x["attr"], str(x["role"]), Ratings.effective_games(x)):
 				agree = false
 	_check(agree, "Every loaded rating matches the current formula")
+
+
+## The director's Harvey Langford correction: every attribute about 15%
+## higher than his numbers alone give, capped at 99, and nobody else moves.
+func _test_attr_adjustment() -> void:
+	var with: Array = GameDB._load_players()
+	var without: Array = GameDB._load_players()
+	var i := -1
+	for j in range(without.size()):
+		if str(without[j]["first"]) == "Harvey" and str(without[j]["last"]) == "Langford":
+			i = j
+			without[j]["club"] = "UNADJUSTED"
+	_check(i >= 0, "(setup) Harvey Langford is in the data")
+	if i < 0:
+		return
+	Ratings.derive_all(with)
+	Ratings.derive_all(without)
+	var a: Dictionary = with[i]["attr"]
+	var raw: Dictionary = without[i]["attr"]
+	var exact := true
+	for k in raw:
+		exact = exact and int(a[k]) == clampi(int(round(float(raw[k]) * 1.15)), 1, 99)
+	_check(exact and int(with[i]["overall"]) > int(without[i]["overall"]),
+			"Harvey Langford's attributes are 15%% above his numbers (OVR %d, from %d)" % [
+				int(with[i]["overall"]), int(without[i]["overall"])])
+	var others_same := true
+	for j in range(with.size()):
+		if j != i and (with[j]["attr"] != without[j]["attr"] or int(with[j]["overall"]) != int(without[j]["overall"])):
+			others_same = false
+	_check(others_same and str(with[i]["role"]) == str(without[i]["role"]),
+			"Nobody else's ratings move, and his position is unchanged")

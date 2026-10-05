@@ -149,7 +149,9 @@ func _how_we_play() -> Control:
 		v.add_child(UiKit.spacer(4))
 		v.add_child(UiKit.lbl(str(part[0]), UiKit.BODY, UiKit.TEXT, true))
 		if lines.is_empty():
-			v.add_child(_wrapped("Nothing stands out yet.", UiKit.BODY, UiKit.MUTED))
+			var quiet := _wrapped(_quiet_line(str(part[1]), int(style["games"])), UiKit.BODY, UiKit.MUTED)
+			quiet.name = "%sNone" % part[2]
+			v.add_child(quiet)
 		for i in range(lines.size()):
 			var l := _wrapped(str(lines[i]))
 			l.name = "%s_%d" % [part[2], i]
@@ -203,6 +205,19 @@ func _form_row(row: Dictionary, kind: String) -> Control:
 	return b
 
 
+## An empty How we win / How we get beaten. Early on that is "yet"; once
+## half a season is in, nothing standing out is the answer, not a wait.
+static func _quiet_line(part: String, games: int) -> String:
+	if games < SETTLED_GAMES:
+		return "Nothing stands out yet."
+	if part == "beaten":
+		return "No part of your game is costing you regularly."
+	return "No one part of your game stands above the league."
+
+
+const SETTLED_GAMES := 10
+
+
 # ---------------------------------------------------------------------------
 # List and cap
 # ---------------------------------------------------------------------------
@@ -214,7 +229,7 @@ func _list_and_cap() -> Control:
 	if GameState.salary_cap > 0:
 		var room := GameState.cap_room()
 		line += "  ·  payroll %s of %s  ·  %s" % [Contracts.money(GameState.my_payroll()), Contracts.money(GameState.salary_cap),
-				("%d under the cap" % room) if room >= 0 else ("%d over the cap" % -room)]
+				("%s under the cap" % Contracts.money(room)) if room >= 0 else ("%s over the cap" % Contracts.money(-room))]
 	var l := _wrapped(line)
 	l.name = "CapLine"
 	v.add_child(l)

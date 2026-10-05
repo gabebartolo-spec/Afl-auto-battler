@@ -600,7 +600,7 @@ func _this_week() -> Control:
 	return v
 
 
-## "Curnow: Moore on him" with the way to change it.
+## "Moore is on Curnow." with the way to change it.
 func _matchup_row(m: Dictionary) -> Control:
 	var f: Dictionary = m["fwd"]
 	var h := UiKit.hbox(8)
@@ -608,8 +608,8 @@ func _matchup_row(m: Dictionary) -> Control:
 	var t := UiKit.vbox(0)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(t)
-	var who := _para("%s: %s on him" % [GameDB.player_display_name(f),
-			GameDB.player_display_name(m["def"])], 14, UiKit.TEXT)
+	var who := _para(MatchNotes.matchup_line(GameDB.player_display_name(f),
+			GameDB.player_display_name(m.get("def", {}))), 14, UiKit.TEXT)
 	who.name = "MatchupLine"
 	t.add_child(who)
 	t.add_child(_para(Matchups.describe(f), 12, UiKit.MUTED))

@@ -658,15 +658,24 @@ static func _pname(id: String) -> String:
 const QUARTER_WORDS := {1: "the first", 2: "the second", 3: "the third", 4: "the last"}
 
 
-## "Curnow on Maynard: 4 marks from 6 contests in the first." At a break, for
-## the quarter just played.
+## "Maynard is on Curnow. Curnow marked 4 of 6 in the first." At a break,
+## for the quarter just played.
 static func duel_quarter_line(res: Dictionary, fid: String, def_id: String, q: int) -> String:
 	var t := duel_tally(res, fid, q)
-	var who := "%s on %s" % [_pname(fid), _pname(def_id)]
+	var f := _pname(fid)
+	var who := matchup_line(f, _pname(def_id))
+	var when := str(QUARTER_WORDS.get(q, "that quarter"))
 	if int(t[0]) == 0:
-		return "%s: no contests in %s." % [who, str(QUARTER_WORDS.get(q, "that quarter"))]
-	return "%s: %d %s from %d %s in %s." % [who, int(t[1]), "mark" if int(t[1]) == 1 else "marks",
-			int(t[0]), "contest" if int(t[0]) == 1 else "contests", str(QUARTER_WORDS.get(q, "that quarter"))]
+		return "%s No contests in %s." % [who, when]
+	return "%s %s marked %d of %d in %s." % [who, f, int(t[1]), int(t[0]), when]
+
+
+## Who is on whom, both named: "Maynard is on Curnow." A defender who cannot
+## be named is left out rather than leaving a gap in the line.
+static func matchup_line(fwd_name: String, def_name: String) -> String:
+	if def_name == "":
+		return "Nobody is on %s." % fwd_name
+	return "%s is on %s." % [def_name, fwd_name]
 
 
 ## What a match-up change at the break did in quarter q: "Moore onto Curnow:

@@ -2165,6 +2165,20 @@ func _career_copies(source: Array) -> Array:
 	return out
 
 
+## A player's display name from any current list, for ids the database
+## cannot resolve (a player who joined a list during the career). "" if none.
+func season_player_name(player_id: String) -> String:
+	var groups: Array = [my_list, free_agents]
+	if season != null:
+		for code in season.lists:
+			groups.append(season.lists[code])
+	for arr in groups:
+		for p in arr:
+			if p is Dictionary and str(p.get("id", "")) == player_id:
+				return GameDB.player_display_name(p)
+	return ""
+
+
 func list_player(player_id: String) -> Dictionary:
 	for p in my_list:
 		if str(p.get("id", "")) == player_id:
@@ -3372,7 +3386,7 @@ func offer_free_agent(player_id: String, salary: int, years: int) -> Dictionary:
 	if bool(terms["refuse"]):
 		return {"ok": false, "answer": "reject", "reason": "%s turns you down. %s" % [name, str(terms["reasons"][0])]}
 	if salary > cap_room():
-		return {"ok": false, "answer": "", "reason": "Not enough cap room for %d a season." % salary}
+		return {"ok": false, "answer": "", "reason": "Not enough cap room for %s a season." % Contracts.money(salary)}
 	var reply := Contracts.respond(p, salary, years, int(talks.get("failed", 0)))
 	if str(reply["answer"]) != "accept":
 		var out := {"ok": false, "answer": str(reply["answer"]), "salary": int(reply["salary"])}
@@ -3468,8 +3482,8 @@ func _sign_fa(p: Dictionary, code: String, salary: int, years: int) -> void:
 	_bars.erase(code)
 	offseason_log.append({"kind": "signed", "club": code, "id": str(p["id"]), "salary": salary, "years": years})
 	if code == my_club or int(p.get("overall", 0)) >= NEWS_MIN_OVR:
-		add_news("contract", "%s sign free agent %s (OVR %d): %d for %d season%s." % [GameDB.club_name(code),
-				GameDB.player_display_name(p), int(p["overall"]), salary, years, "" if years == 1 else "s"])
+		add_news("contract", "%s sign free agent %s (OVR %d): %s for %d season%s." % [GameDB.club_name(code),
+				GameDB.player_display_name(p), int(p["overall"]), Contracts.money(salary), years, "" if years == 1 else "s"])
 
 
 func _join(code: String, p: Dictionary) -> void:
@@ -5354,8 +5368,8 @@ func resolve_week_event(choice: int) -> String:
 				p["salary"] = cost
 				p["contract_years"] = years
 				ClubLife.add_morale(p, 8)
-				out = "%s signs on for %d more season%s at %d." % [name, years - 1,
-						"" if years == 2 else "s", cost]
+				out = "%s signs on for %d more season%s at %s a season." % [name, years - 1,
+						"" if years == 2 else "s", Contracts.money(cost)]
 			else:
 				# The cap moved since the card was drawn: nobody's fault.
 				out = "The cap no longer has room to extend %s now; it waits for the off-season." % name
@@ -5744,14 +5758,13 @@ func _style_found(code: String) -> Array:
 const STYLE_MIN := {
 	"for": 9.0, "against": 8.0, "clearances": 2.5, "inside50": 3.0,
 	"pressure_acts": 9.0, "marks": 5.0, "clangers": 3.5, "hitouts": 7.0,
-	"from_turnover": 6.0, "from_stoppage": 6.0, "conceded_turnover": 6.0, "conceded_stoppage": 6.0,
+	"from_stoppage": 6.0, "conceded_stoppage": 6.0,
 }
 ## Early reads are provisional: the difference counts games / (games + this).
 const STYLE_SHRINK := 4
 ## A points-source line and the total it is part of.
 const STYLE_PART_OF := {
-	"from_turnover": "for", "from_stoppage": "for",
-	"conceded_turnover": "against", "conceded_stoppage": "against",
+	"from_stoppage": "for", "conceded_stoppage": "against",
 }
 
 
@@ -5765,9 +5778,7 @@ const THEIR_STYLE := {
 	"marks": ["They hold it by foot and mark it.", "They rarely take a mark."],
 	"clangers": ["They look after the ball.", "They turn it over."],
 	"hitouts": ["Their ruck wins the tap.", "They get beaten in the ruck."],
-	"from_turnover": ["They hurt sides on the turnover.", "They rarely score on the turnover."],
 	"from_stoppage": ["They score from the stoppages.", "They rarely score from the stoppages."],
-	"conceded_turnover": ["They rarely get caught on the turnover.", "They get caught on the turnover."],
 	"conceded_stoppage": ["They shut down stoppage scores.", "They give up scores from the stoppages."],
 }
 
@@ -5790,12 +5801,8 @@ const STYLE_LINES := {
 			"We turn it over: %d more clangers a game than the average side.", true],
 	"hitouts": ["Our ruck wins the tap: %d more hit-outs a game than the average side.",
 			"We are beaten in the ruck: %d fewer hit-outs a game than the average side.", false],
-	"from_turnover": ["We hurt sides on the turnover: %d more points a game from it than the average side.",
-			"We rarely score on the turnover: %d fewer points a game from it than the average side.", false],
 	"from_stoppage": ["We score from the stoppages: %d more points a game from them than the average side.",
 			"We rarely score from the stoppages: %d fewer points a game from them than the average side.", false],
-	"conceded_turnover": ["We rarely get caught on the turnover: %d fewer points a game conceded from it than the average side.",
-			"They hurt us on the turnover: %d more points a game conceded from it than the average side.", true],
 	"conceded_stoppage": ["We shut down their stoppage game: %d fewer points a game conceded from stoppages than the average side.",
 			"They hurt us from the stoppages: %d more points a game conceded from them than the average side.", true],
 }

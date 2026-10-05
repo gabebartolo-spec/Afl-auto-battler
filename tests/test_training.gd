@@ -27,6 +27,7 @@ func run() -> void:
 	_test_stat_guide_complete()
 	_test_dual_role_plans()
 	_test_training_multiselect()
+	_test_plan_is_not_identity()
 	GameState.delete_saved_career()
 	print("Training tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -578,3 +579,30 @@ func _test_dual_role_plans() -> void:
 			if not ok:
 				bad += 1
 	_check(bad == 0, "Every role a player plays has a plan of its own (%d missing)" % bad)
+
+
+## A training plan is a plan, not what the player is: the list row says
+## "Training as a key defender", and however hard a medium defender trains
+## on that plan he stays a defender who is not typed a key defender.
+func _test_plan_is_not_identity() -> void:
+	var scene = load("res://scripts/ui/TrainingScene.gd")
+	_check(scene._row_plan("key_def") == "Training as a key defender"
+			and scene._row_plan("inside_mid") == "Training as an inside midfielder"
+			and scene._row_plan("position") == "Position plan",
+			"The list row names the plan as a plan (%s)" % scene._row_plan("key_def"))
+	_new_season()
+	var small := {}
+	for p in GameState.my_list:
+		if str(p.get("role", "")) == "DEF" and float(p.get("height_cm", 0.0)) > 0.0 				and float(p["height_cm"]) < PlayerProfile.KEY_DEF_CM:
+			small = p
+			break
+	_check(not small.is_empty(), "(setup) a medium defender to train")
+	if small.is_empty():
+		return
+	GameState.set_player_plan(str(small["id"]), "key_def")
+	for i in range(12):
+		small["xp"] = int(small.get("xp", 0)) + 300
+		GameState.apply_train_plans()
+	_check(str(small["role"]) == "DEF" and PlayerProfile.player_type(small) != "Key defender",
+			"A %.0f cm defender on the key defender plan is still not a key defender (%s)" % [
+				float(small["height_cm"]), PlayerProfile.player_type(small)])
