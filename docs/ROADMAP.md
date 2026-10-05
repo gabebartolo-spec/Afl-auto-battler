@@ -148,19 +148,21 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 
 **`MEDIUM`**
 - §9.3 FL-002 milestone banners, FL-004 atmosphere/audio, FL-005 cosmetic identity, FL-006 truthful headlines and FL-008 club memories; use existing owners and honour their dependencies.
+- §9.4 RPG-001 connected backing story (start here: verify the Backing flow first), RPG-005 selective role observations, RPG-006 coaching identity through existing choices (audit before changing anything) and RPG-007 build-aware recruiting discussions.
 - Match audits that need a measured seeded comparison, and a new mechanic only if the evidence demands one: ARD-M3-007 (free-kick rate), M3-008 (50-metre penalties), M3-011 (MRO and suspensions), M4-003 (tagging cost), M4-006 (game-state AI), M4-011 (Team Form), M5-006 (omitted-player development), and the §1.11 audits of run-of-goals calls, AI plan adaptation, key forward v key defender, sim-round blowouts, List Profile v results, and How-we-play maturity and materiality. In review: the autosim v played injury parity audit (#235) and the Coleman plausibility audit (#237).
 - Features across sim, UI and tests: ARD-M2-009 (goal accuracy by shot context), M5-005 (emergency designations), M5-007 (selection continuity), M7-003 (career-high milestones need new tracking), M7-005 (history continuity check), M8-005 (5, 10 and 20-year career QA), the Grand Final climax screen, and from §9.1 the Weekly selection brief, Streamline Ins & Outs, My List → My Selection flow, Full List traits and contract-talk frequency.
 - Performance and flow: §1.11 battery drain, the residual far-away receiver, vignette reachability, and quarter-break fact selection. The round-sim and Play match timing audit is in review (#236); its recommended background no-presentation sim mode is `MEDIUM`, to start only once MatchSim is quiet.
 
 **`HIGH`**
 - §9.3 FL-003 sourced venue atmosphere and FL-007 rituals/farewells, including necessary new shared-style vignette scenes.
+- §9.4 RPG-002 recurring journalists and remembered media, RPG-003 private selection and role conversations (with the starred M5-003 development conversations), RPG-004 hybrid synergies, RPG-008 connected season narrative, RPG-009 restrained living characters and RPG-010 automatic familiarity as team synergy. §9.4 sets the order: Backing first, then one private scene and one media topic, synergy work reconciled before RPG-004 and RPG-010, and one combined balance audit at the end.
 - Scoring and contests: ARD-M3-001 (later variety), M3-002 (forward archetype scoring), M3-003 (spoils across the ground).
 - Coaching and tactics: ARD-M4-001 (decision gates; the tired-star Rest/Keep trade-off is in review, #233), M4-002 (broader key match-ups), M4-004 (structural choices), M4-005 (role instructions), M4-007 (late-game tempo), and from §9.1 Gameplan choice and Key match-ups as interventions.
 - Lists and selection: ARD-M5-001 (18 + 5), M5-003 (secondary positions), M5-008 (role-aware form), M5-016 (inherited 2026 lists), the §1.11 role-allocation re-audit, and from §9.1 My List → Shape as a selection surface and Academies / NGA.
 - Board, league and balance: ARD-M6-003 (fair expectations), M7-004 (captaincy), M7-006 (weather), M7-007 (ground dimensions), and from §9.1 overall difficulty with active-play levers, synergies as specialisations, and the GOAT prospect.
 - Content builds: ARD-M7-008 (custom prospect), M7-009 (expansion and Club Forge), M7-010 (Sir Doug Nicholls Round), M7-011 (AFL knowledge layer), M8-003 (match visualisation), M8-006 (release polish), M8-007 (vignette art-style replacement), the §1.11 Season story and long-save visual wishlist, and AFLW (deferred).
 
-**Waiting on the director** — nobody's to pick up: the phone checks on ARD-M5-014, M5-015, M6-006, M6-008, the awards ceremony, training touch and the playtest fixes marked `VERIFY` in §9.1; the Android launcher icon (M8-008, the app name is already set in the export preset); whether to keep the trade-value discount for unproven potential (§9.1); whether the Key defender plan should be offered to defenders under 191 cm; and whether the temporary Sim to finals button (ARD-M1-007) is still wanted.
+**Waiting on the director** — nobody's to pick up: the phone checks on ARD-M5-014, M5-015, M6-006, M6-008, the awards ceremony, training touch and the playtest fixes marked `VERIFY` in §9.1; the Android launcher icon (M8-008, the app name is already set in the export preset); whether to keep the trade-value discount for unproven potential (§9.1); whether the Key defender plan should be offered to defenders under 191 cm; whether the temporary Sim to finals button (ARD-M1-007) is still wanted; and the trailer (ARD-M8-010), which is hard-gated and only starts on the director's explicit go-ahead.
 
 ## 0.4.1 Current execution queue — overrides milestone order
 
@@ -5140,7 +5142,7 @@ Prefer improving the existing experience when that answers the same need. This p
 
 ---
 
-## ARD-M8-009 — Trailer production gate
+## ARD-M8-010 — Trailer production gate
 **Status:** `DEFERRED`  
 **Priority:** `P3`  
 **Autonomy:** `SUPERVISED`
@@ -5343,7 +5345,7 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 
 - **2026-10-06:** Added an explicit warning that the current UI policy/implementation has drifted from the project's anti-slop criteria. Reasserted restrained, mobile-first, football-specific UI guidance and instructed future UI work to remove unnecessary cards/chips/boxes/accents rather than layering on more template-style chrome.
 
-- **2026-10-06:** Added ARD-M8-009 as a hard-gated late-project trailer task. Claude may recommend when the roadmap/visual polish are mature enough, but cannot begin trailer work without explicit user approval. Once approved, Claude may source/use free software only, or direct the user to install suitable free tools.
+- **2026-10-06:** Added ARD-M8-010 as a hard-gated late-project trailer task. Claude may recommend when the roadmap/visual polish are mature enough, but cannot begin trailer work without explicit user approval. Once approved, Claude may source/use free software only, or direct the user to install suitable free tools.
 
 - **2026-10-05:** Tightened ARD-M7-011 with a footyhead-proof veracity standard: real AFL facts must be sourced and auditable, ambiguous/non-trivial claims should be cross-checked against multiple strong sources, and disputed or uncertain claims should be omitted rather than guessed.
 
