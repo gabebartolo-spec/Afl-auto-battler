@@ -26,6 +26,7 @@ run/max_fps=60
 [autoload]
 
 ScreenLayout="*res://scripts/core/ScreenLayout.gd"
+MusicManager="*res://scripts/core/MusicManager.gd"
 
 GameDB="*res://scripts/core/GameDB.gd"
 GameState="*res://scripts/state/GameState.gd"
