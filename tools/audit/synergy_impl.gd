@@ -108,15 +108,17 @@ func _activation(label: String, entries: Array) -> void:
 
 ## Share of clubs with at least k carriers of each trait in the line its
 ## synergy counts (k = 1..6), all clubs and the top-4 lists.
-const THRESHOLD_LINES := {"bull": "", "aerial": "FWD", "crumber": "FWD", "interceptor": "DEF",
-		"lockdown": "", "ball_magnet": "", "playmaker": "", "engine": ""}
+## [trait, line]: bull twice, the whole 18 and the midfield line alone.
+const THRESHOLD_LINES := [["bull", ""], ["bull", "MID"], ["aerial", "FWD"], ["crumber", "FWD"],
+		["interceptor", "DEF"], ["lockdown", ""], ["ball_magnet", ""], ["playmaker", ""], ["engine", ""]]
 
 
 func _thresholds(label: String, codes: Array, sides: Dictionary, top4: Dictionary) -> void:
 	print("")
 	print("### Carriers at or above k in the counted line, %s (all clubs | top-4 lists)" % label)
-	for t in THRESHOLD_LINES:
-		var line := str(THRESHOLD_LINES[t])
+	for tl in THRESHOLD_LINES:
+		var t := str(tl[0])
+		var line := str(tl[1])
 		var all_k := [0, 0, 0, 0, 0, 0]
 		var top_k := [0, 0, 0, 0, 0, 0]
 		for c in codes:
