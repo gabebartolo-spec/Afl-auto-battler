@@ -3518,20 +3518,29 @@ At New Career setup, optionally create **one custom prospect** for that career.
 
 Player-facing choices should stay concise:
 - name,
+- **optional nickname / commentary short name**,
 - basic bio fields already supported by the player model,
 - height,
 - primary position,
 - optional secondary position where valid,
 - archetype / play style,
 - a small set of strengths and weaknesses,
+- **dominant foot: Left / Right**,
+- **preferred guernsey number**,
 - **hair style** from a substantially expanded library, including **Bald**,
+- **hair colour**,
 - **facial hair** from a dedicated beard/moustache library,
+- **facial-hair colour** independently selectable from hair colour,
+- **skin tone**,
+- **freckles: None / Light / Heavy**,
+- **subtle scars: None / Light / Moderate**,
+- **boots** with a small set of silhouettes/colour treatments (black, white and restrained club-colour accents),
 - **sock height: Tall socks / Short socks**,
 - **headband: On / Off**,
 - **bandaging: None / Light / Heavy** using restrained football-appropriate placements,
 - **tattoos: None / Light / Heavy** using original generic tattoo treatments rather than copied real-player or culturally specific designs.
 
-All appearance choices are cosmetic only. They must not affect ratings, role suitability, stamina, injuries, aggression, personality or any other football outcome.
+All appearance choices are cosmetic only **except dominant foot**, which may affect football behaviour as described below. Cosmetic options must not affect ratings, role suitability, stamina, injuries, aggression, personality or any other football outcome.
 
 ### Draft integration
 - The custom player enters the **first national draft class** of the career, not the opening League Draft of established AFL players.
@@ -3750,7 +3759,13 @@ The player creator should expose identity/aesthetic and football-profile choices
 Appearance customisation should include:
 - **Hair style** from a much larger library,
 - **Bald** as a proper explicit hair option rather than a missing-texture/default state,
+- **Hair colour**,
 - **Facial hair** from a dedicated beard/moustache library,
+- **Facial-hair colour**, independently selectable,
+- **Skin tone**,
+- **Freckles None / Light / Heavy**,
+- **Scars None / Light / Moderate**, kept subtle and believable,
+- **Boots** with a compact set of silhouettes and colour treatments,
 - **Tall socks / Short socks**,
 - **Headband On / Off**,
 - **Bandaging None / Light / Heavy**,
@@ -3758,7 +3773,7 @@ Appearance customisation should include:
 
 Persist these on the player and use them consistently anywhere visible: creator preview, match figures, vignettes and future portrait/full-body presentation.
 
-These are cosmetic only. They should also be available to generated-player appearance variation where practical so the league does not look uniform.
+These are cosmetic only. They should also be available to generated-player appearance variation where practical so the league does not look uniform. Hair and facial-hair colour may differ occasionally for generated players within a believable natural range.
 
 ### Hair / facial-hair library
 Expand beyond a token set of cuts. The target should include enough silhouettes that players are recognisable at a glance even at vignette scale.
@@ -3798,6 +3813,29 @@ Do not tie beard availability to hairstyle. Hair colour and facial-hair colour s
 - Tattoos should be **original generic designs**. Do not copy a real player's identifiable tattoo layout, Indigenous artwork, gang symbols, extremist imagery, copyrighted characters/logos or other protected/sensitive designs.
 - Use multiple tattoo placements/pattern families so "tattoos on" does not make every player look identical.
 - Appearance traits should remain visually legible at vignette scale without becoming noisy or overpowering the guernsey.
+
+
+### Dominant foot, number and nickname
+**Dominant foot** is the one creator choice here that can have modest football meaning.
+
+- Left/right foot should influence preferred kicking side, body orientation and appropriate vignette/animation facing where the presentation supports it.
+- It may slightly influence which side a player naturally opens the ground from, but must **not** become a hidden global accuracy bonus or make one foot objectively better.
+- Weak-foot use should remain possible; do not hard-lock players from ordinary AFL actions.
+- AI/generated players should also have a dominant foot so the system is not a user-only gimmick.
+
+**Preferred guernsey number**:
+- allow the user to nominate a number for the custom player,
+- if unavailable at the club that drafts/signs him, resolve the conflict transparently using the club's normal numbering rules,
+- preserve the preference so the player can receive it later if it becomes available where practical,
+- never duplicate active squad numbers.
+
+**Nickname / commentary short name**:
+- optional field for a custom player,
+- useful for long surnames or personal flavour,
+- may appear in commentary/vignettes where natural,
+- must not replace the legal/display surname in records, awards, history or contracts,
+- generated players do not require nicknames by default.
+
 
 
 ### 21-club fixture support
@@ -4720,6 +4758,8 @@ Prefer improving the existing experience when that answers the same need. This p
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-05:** Expanded Club Forge character creation with boots, independent hair/beard colours, skin tone, freckles, subtle scars, dominant foot, preferred guernsey number and an optional nickname/commentary short name. Dominant foot has modest football/presentation meaning; all other additions are cosmetic, and number conflicts must resolve through normal club numbering rules.
 
 - **2026-10-05:** Expanded Club Forge player appearance again: substantially more hairstyles including a proper Bald option, plus independent beard/moustache choices. Hair and facial-hair variation should also feed generated players, with compatibility rules for headbands and vignette-scale readability.
 
