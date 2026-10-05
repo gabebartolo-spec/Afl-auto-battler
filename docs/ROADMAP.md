@@ -415,6 +415,31 @@ The current phone playtest has exposed a core-loop problem more important than f
 
 - **Trophy cabinet / honour board evolution:** make the club hub visibly accumulate history over long saves. Surface premierships, major individual awards, club champions, coaching honours and significant records through a restrained trophy-cabinet / honour-board presentation that grows as the career progresses. The visual state should reflect actual save history, not a static decoration screen, so a 30-year dynasty looks materially different from a new career. Keep it compact and integrated into the club/history experience rather than creating a separate collectible-management minigame.
 
+
+- **Premiership guernsey history:** preserve the exact club guernsey/logo identity associated with each premiership season so long-save history can visibly show different eras of the club. Link this to the existing guernsey/logo systems rather than storing decorative duplicates.
+
+- **Player career card evolution:** let a player's presentation mature with their career status — rookie, established player, captain/star, retired legend — while keeping the same underlying identity. Changes should be visual and status-driven, not stat buffs.
+
+- **Record-breaker presentation:** when a player or coach claims a major club/league record, give that achievement a persistent visual marker in profiles, history and relevant honour-board surfaces. Keep the treatment selective so genuine records feel important rather than becoming badge spam.
+
+- **Club legends wall:** create a rare, curated visual layer for truly exceptional club figures such as iconic players, premiership captains and dynasty coaches. Entry should be earned by major career achievements/history, not by generic OVR thresholds.
+
+- **Grand Final-specific presentation package:** give the Grand Final a clearly elevated visual treatment through crowd split, event branding, scoreboard framing, team entry/anthem/banner presentation and premiership-dais moments. Keep this focused on ceremony and identity rather than adding arbitrary gameplay modifiers.
+
+- **Draft class visual identity:** give each draft year a simple, recognisable presentation identity so historical draft classes remain easy to browse and distinguish over decades. Tie the presentation to the existing draft/history system rather than creating a separate collectible layer.
+
+- **Save-era photo / archive gallery:** preserve a small set of generated or captured archival moments for major career events such as first premiership, 300th game, record break or famous final. Keep it selective and history-led rather than turning the save into an automatic screenshot dump.
+
+- **Club museum / timeline view:** build a long-save visual timeline combining premierships, coaches, captains, major records, famous finals, logo/guernsey eras, expansion milestones and other significant club history. This should unify existing history systems into one readable visual destination rather than duplicate them.
+
+- **Retirement presentation variants:** scale farewell presentation to the player's actual career. Ordinary retirements should stay quiet; club champions, 300-gamers, record holders, captains and premiership greats should receive stronger presentation grounded in their history.
+
+- **Dynamic crowd identity:** make crowds visually reflect club support, home/away balance, rivalry intensity and finals context through colours, scarves/guernseys and density treatment where practical. Preserve readability and avoid expensive bespoke crowd simulation.
+
+- **Custom club typography / monogram treatment:** support restrained club-specific lettering/monogram identity for numbers, initials, badges and selected presentation surfaces, especially for expansion and user-created clubs. Keep typography readable and consistent with the anti-template visual guardrails.
+
+- **Season poster / yearbook cover:** at season end, create a compact archival season summary presentation featuring major outcomes such as premier, Brownlow, Coleman, ladder context and key storylines from that year. Treat it as a history artifact for long saves, not a stat-vomit report.
+
 - **Stadium identity:** give venues recognisable visual character without building a stadium-construction system. Use venue-aware presentation such as boundary treatment, signage, crowd colour balance, roof/open-air feel and finals/event branding. Reuse shared match-presentation systems and avoid bespoke one-off UI that is expensive to maintain.
 
 - **Generated player visual identity:** give players simple, stylistically consistent visual identities using attributes such as age, hair, skin tone and facial hair, with visible ageing over long careers where practical. Prioritise consistency, readability and long-save flavour over photorealism. Generated visuals must remain stable enough that the same player still feels recognisable across seasons.
