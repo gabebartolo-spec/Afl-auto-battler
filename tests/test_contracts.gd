@@ -882,7 +882,9 @@ func _test_trade_value() -> void:
 			"A package of four ordinary players is worth about one good one")
 	# Bundles of ordinary or older players for a club's best young player.
 	var gee: Array = GameDB.club_list("GEE")
-	var ordinary := gee.filter(func(q): return int(q["overall"]) >= 58 and int(q["overall"]) <= 68 and float(q["age"]) >= 26.0)
+	# (Not a star in his rehab year: his rating is about to jump.)
+	var ordinary := gee.filter(func(q): return int(q["overall"]) >= 58 and int(q["overall"]) <= 68 and float(q["age"]) >= 26.0 \
+			and not bool(q.get("rehab", false)))
 	var bundles_refused := true
 	var tried := 0
 	for code in GameDB.CLUB_ORDER:
@@ -899,6 +901,31 @@ func _test_trade_value() -> void:
 					bundles_refused = false
 	_check(bundles_refused and tried >= 4,
 			"Bundles of two to four ordinary or older players never buy a club's elite young player (%d clubs)" % tried)
+	# A star in his rehab year (an injury-shortened season, shown on his
+	# profile) is judged on the rating he comes back at, not the one he
+	# carries now: the long-save probe saw a 62-rated, 92-POT 23-year-old
+	# sold for two fringe players and a second-round pick, then rated 86.
+	var rehab := {}
+	var rehab_club := ""
+	for code in GameDB.CLUB_ORDER:
+		for q in GameDB.club_list(code):
+			if bool(q.get("rehab", false)) and int(q["potential"]) - int(q["overall"]) >= 15 \
+					and (rehab.is_empty() or int(q["potential"]) > int(rehab["potential"])):
+				rehab = q
+				rehab_club = code
+	var back := float(rehab.get("overall", 0)) + (float(rehab.get("potential", 0)) - float(rehab.get("overall", 0))) * Potential.REHAB_PULL
+	_check(not rehab.is_empty() and absf(TradeValue.rating(rehab) - back) < 0.01
+			and TradeValue.now_rating(rehab) >= float(rehab["overall"]) + 10.0,
+			"A star in his rehab year is valued at the rating he comes back at (%s, %.0f)" % [
+			GameDB.player_display_name(rehab) if not rehab.is_empty() else "none", back])
+	var fringe := ordinary.slice(0, 2)
+	var rehab_refused := true
+	if not rehab.is_empty():
+		for ph in TradeValue.PHASES:
+			for m in [0.0, Contracts.TRADE_MARGIN, 0.12]:
+				rehab_refused = rehab_refused and not bool(_trade(GameDB.club_list(rehab_club), [rehab], fringe, ph, m)["ok"])
+	_check(not rehab.is_empty() and rehab_refused,
+			"Two ordinary players never buy a star in his rehab year, whatever the club's phase or the difficulty")
 	# Quality-aware needs: a club with a poor ruckman pays more for a good one;
 	# a club whose ruck is better than him barely wants him.
 	var base: Array = GameDB.club_list("COL")
@@ -977,7 +1004,9 @@ func _test_trade_packages_and_needs() -> void:
 	GameDB.reload()
 	var base: Array = GameDB.club_list("COL").duplicate()
 	var gee: Array = GameDB.club_list("GEE")
-	var ordinary := gee.filter(func(q): return int(q["overall"]) >= 58 and int(q["overall"]) <= 68 and float(q["age"]) >= 26.0)
+	# (Not a star in his rehab year: his rating is about to jump.)
+	var ordinary := gee.filter(func(q): return int(q["overall"]) >= 58 and int(q["overall"]) <= 68 and float(q["age"]) >= 26.0 \
+			and not bool(q.get("rehab", false)))
 	var young := base.filter(func(q): return float(q["age"]) <= 23.0)
 	young.sort_custom(func(x, y): return TradeValue.future_rating(x) > TradeValue.future_rating(y))
 	var same := true
