@@ -780,6 +780,43 @@ const CARRY_ROLES := {
 	"attack": {"MID": 1.0, "FWD": 1.0, "DEF": 0.2, "RUCK": 0.3},
 	"inside": {"FWD": 1.0, "MID": 1.0, "RUCK": 0.3, "DEF": 0.05},
 }
+## Forward archetypes (ARD-M3-002), by size as Training's jobs: a key
+## forward from 192 cm, a small forward up to 181 cm, a general forward
+## between. Key forwards present in the air inside 50 and bring the ball to
+## ground; small forwards hunt it at ground level and run up the ground to
+## take their marks on the lead; either can still score the other way.
+const FWD_KEY_CM := 192.0
+const FWD_SMALL_CM := 181.0
+## Lead-up work in the middle and attack zones: small half-forwards get to
+## more of it, key forwards stay deeper.
+const LEAD_UP_SIZES := {"small": 1.7, "general": 1.15, "key": 0.6}
+## Who is at the fall of the ball when a contest spills or is spoiled.
+const GROUND_SIZES := {"small": 1.8, "general": 1.0, "key": 0.45}
+## His own game in the air moves an unmatched entry's mark chance by
+## (forward_air - FWD_AIR_CENTRE) / FWD_AIR_SCALE.
+const FWD_AIR_CENTRE := 58.0
+const FWD_AIR_SCALE := 170.0
+## An unmarked, unspoiled entry hits the deck this often (more off a tall
+## target), and a ground-ball forward gets the shot instead of the target.
+const SPILL_P := {"key": 0.45, "general": 0.30, "small": 0.18}
+## Entries are kicked to a target: a key forward is the one they look for
+## more often, a small forward less (he gets his off the deck).
+const TARGET_SIZES := {"key": 1.12, "general": 1.0, "small": 0.95}
+## Whether the first forward to a spill wins it at ground level (by size,
+## then his Pressure); lose it and the defence clears it. A forward line of
+## talls brings it down with nobody small to win it.
+const GROUND_WIN := {"small": 0.85, "general": 0.70, "key": 0.50}
+
+
+static func fwd_size(p: Dictionary) -> String:
+	var h := float(p.get("height_cm", 0.0))
+	if h >= FWD_KEY_CM:
+		return "key"
+	if h > 0.0 and h <= FWD_SMALL_CM:
+		return "small"
+	return "general"
+
+
 ## Who takes the shot from an entry: a resting ruck or a defender pushed
 ## forward kicks the odd goal.
 const SHOT_ROLES := {"FWD": 1.0, "MID": 1.0, "RUCK": 0.35, "DEF": 0.06}
@@ -790,13 +827,16 @@ const ONE_PCT_ROLES := {"DEF": 1.0, "RUCK": 0.5, "MID": 0.3, "FWD": 0.1}
 
 
 ## `_weighted` over a whole group, each player's weight scaled by his line.
-func _weighted_roles(group: Array, key: String, roles: Dictionary, power := 2.0, side := -1, purpose := ""):
+func _weighted_roles(group: Array, key: String, roles: Dictionary, power := 2.0, side := -1, purpose := "",
+		sizes: Dictionary = {}):
 	if group.is_empty():
 		return null
 	var ctx := _pick_ctx(side) if side >= 0 else {}
 	var weights := []
 	for p in group:
 		var w: float = float(roles.get(str(p["role"]), 0.0)) * pow(maxf(1.0, _a(p, key)), power)
+		if not sizes.is_empty() and str(p["role"]) == "FWD":
+			w *= float(sizes.get(fwd_size(p), 1.0))
 		if side >= 0:
 			w *= _tactic_player_mult(side, p, purpose, ctx)
 		weights.append(w)
@@ -1331,7 +1371,8 @@ func pick_carrier(side: int, fp: float):
 		zone = "middle"
 		key = "disposal"
 		purpose = "transition"
-	return _weighted_roles(sq.ground, key, CARRY_ROLES[zone], 2.0, side, purpose)
+	var sizes: Dictionary = LEAD_UP_SIZES if zone == "middle" or zone == "attack" else {}
+	return _weighted_roles(sq.ground, key, CARRY_ROLES[zone], 2.0, side, purpose, sizes)
 
 
 ## The primary kick-in player: a defender who can use and carry the ball.
@@ -1884,7 +1925,8 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var atk: Squad = squads[side]
 	var dfn: Squad = squads[opp]
 
-	var shooter = _weighted_roles(atk.ground, "goalkicking", SHOT_ROLES, float(T["shooter_power"]), side, "shooter")
+	var shooter = _weighted_roles(atk.ground, "goalkicking", SHOT_ROLES, float(T["shooter_power"]), side, "shooter",
+			TARGET_SIZES)
 	# Sides look for their key forwards on the way in: a share of entries go
 	# to one of them (the better one more often), into his match-up.
 	var keys := []
@@ -1944,8 +1986,13 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	# Sending a forward to make the spare accountable drags him away, but
 	# costs a little aerial presence of your own.
 	var accountable_cost := 0.035 if _spare_accountable(side) else 0.0
+	# Unmatched, his own game in the air counts too: a tall marking forward
+	# holds more of them, a small one fewer (a named contest has it already).
+	var air_shift := 0.0
+	if matched.is_empty():
+		air_shift = (Matchups.forward_air(shooter) - FWD_AIR_CENTRE) / FWD_AIR_SCALE
 	var marked := rng.randf() < clampf(
-			0.5 + (atk.fwd_mark - dfn.def_intercept) / 240.0 + mark_edge + duel_shift
+			0.5 + (atk.fwd_mark - dfn.def_intercept) / 240.0 + mark_edge + duel_shift + air_shift
 			+ roam_shift - accountable_cost, 0.10, mark_cap)
 	# A third-man arrival is not credited to the direct defender's 1v1 log.
 	# Interceptor contests have their own evidence/stats and story.
@@ -2003,9 +2050,23 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		_t(opp, "one_percenters")
 		_p(_one_percenter(opp), "one_percenters")
 
+	# Unmarked and unspoiled, the ball can hit the deck: a ground-ball forward
+	# gets to it first (more often off a tall target) and snaps instead.
+	var crumbed := false
+	var ground_lost := false
+	if not marked and not spoilt and matched.is_empty() 			and rng.randf() < float(SPILL_P.get(fwd_size(shooter) if str(shooter.get("role", "")) == "FWD" else "general", 0.30)):
+		var ground_fwd = _ground_forward(side, str(shooter["id"]))
+		if ground_fwd != null:
+			shooter = ground_fwd
+			crumbed = true
+			var size: String = fwd_size(ground_fwd) if str(ground_fwd.get("role", "")) == "FWD" else "general"
+			ground_lost = rng.randf() >= float(GROUND_WIN[size]) * (0.85 + 0.30 * _a(ground_fwd, "pressure") / 100.0)
 	var goal_p := shot_chance(side, shooter, marked, spoilt, true, feeder, defender)
 	var behind_p: float = (float(T["inside50_behind"])
 			* (0.80 + 0.40 * _a(shooter, "goalkicking") / 100.0))
+	if ground_lost:
+		goal_p = 0.0  # beaten to it at ground level: the defence clears
+		behind_p = 0.0
 	# If the spare flies and does not kill the ball, the space behind him is
 	# the price of the role: the resulting chance is slightly more dangerous.
 	if roaming and not spoilt:
@@ -2049,6 +2110,8 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		_score_run(side)
 		_emit("goal", side, shot_fp, shooter, _scoreline(side, "GOAL"))
 		events[events.size() - 1]["set"] = not set_shot.is_empty()
+		if crumbed:
+			events[events.size() - 1]["crumb"] = true
 		_trait_note(shooter)
 		_tag_shot(not set_shot.is_empty())
 		return {"outcome": "score", "fp": 0.0, "actor": shooter}
@@ -2059,6 +2122,8 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		q_behinds[current_quarter - 1][side] += 1
 		_emit("behind", side, shot_fp, shooter, _scoreline(side, "Behind"))
 		events[events.size() - 1]["set"] = not set_shot.is_empty()
+		if crumbed:
+			events[events.size() - 1]["crumb"] = true
 		_tag_shot(not set_shot.is_empty())
 		return {"outcome": "behind", "fp": kick_in_fp(side), "actor": shooter}
 
@@ -2083,7 +2148,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 ## small forwards who hunt it) wins it now and then and snaps. {} when the
 ## defence clears it or the snap misses everything.
 func _crumb(side: int, fp: float) -> Dictionary:
-	var crumber = _weighted_roles((squads[side] as Squad).ground, "pressure", CRUMB_ROLES, 2.0, side, "crumb")
+	var crumber = _ground_forward(side)
 	if crumber == null or rng.randf() >= CRUMB_P * (0.7 + 0.6 * _a(crumber, "pressure") / 100.0):
 		return {}
 	var snap := shot_chance(side, crumber, false, false) * CRUMB_SNAP
@@ -2110,6 +2175,16 @@ func _crumb(side: int, fp: float) -> Dictionary:
 		_tag_shot(false)
 		return {"outcome": "behind", "fp": kick_in_fp(side), "actor": crumber}
 	return {}
+
+
+## Who is first to a ball on the deck inside 50: forwards first (small ones
+## most), a mid at the fall of the ball; not `exclude`, who brought it down.
+func _ground_forward(side: int, exclude := ""):
+	var group := []
+	for p in (squads[side] as Squad).ground:
+		if str(p["id"]) != exclude:
+			group.append(p)
+	return _weighted_roles(group, "pressure", CRUMB_ROLES, 2.0, side, "crumb", GROUND_SIZES)
 
 
 ## Who crumbs off a spoil: forwards first, a mid at the fall of the ball.

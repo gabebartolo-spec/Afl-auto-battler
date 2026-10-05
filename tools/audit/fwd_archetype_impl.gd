@@ -17,7 +17,8 @@ var DRAFTS: Array = _env_ints("FA_DRAFTS", [21, 22, 23, 24])
 var REPS: int = int(OS.get_environment("FA_REPS")) if OS.get_environment("FA_REPS") != "" else 4
 
 var tally := {}      # archetype -> {games, goals, behinds, set_g, set_b, open_g, open_b, crumb_g, crumb_b, marks, cmarks}
-var lines := {}      # key forwards on ground -> [team-games, goals, behinds]
+var lines := {}
+var i50_total := 0      # key forwards on ground -> [team-games, goals, behinds]
 
 
 static func _env_ints(key: String, fallback: Array) -> Array:
@@ -42,7 +43,7 @@ static func archetype(p: Dictionary) -> String:
 func _row(a: String) -> Dictionary:
 	if not tally.has(a):
 		tally[a] = {"games": 0, "goals": 0, "behinds": 0, "set_g": 0, "set_b": 0, "open_g": 0, "open_b": 0,
-				"crumb_g": 0, "crumb_b": 0, "marks": 0, "cmarks": 0}
+				"crumb_g": 0, "crumb_b": 0, "marks": 0, "cmarks": 0, "i50": 0}
 	return tally[a]
 
 
@@ -69,8 +70,15 @@ func _match(lists: Dictionary, a: String, b: String, seed: int) -> void:
 		l[1] += int(res["goals"][side])
 		l[2] += int(res["behinds"][side])
 		lines[keys] = l
+	var f50 := float(Ratings.T["forward50_line"])
 	for ev in sim.events:
 		var kind := str(ev.get("kind", ""))
+		if kind == "mark" and fwd_of.has(str(ev.get("player_id", ""))):
+			var afp := float(ev.get("fp", 0.0)) * (1.0 if int(ev.get("side", 0)) == 0 else -1.0)
+			if afp > f50:
+				_row(str(fwd_of[str(ev["player_id"])]))["i50"] += 1
+				i50_total += 1
+			continue
 		if kind != "goal" and kind != "behind":
 			continue
 		var id := str(ev.get("player_id", ""))
@@ -101,16 +109,17 @@ func run() -> void:
 		print("draft %d done" % int(d))
 	print("")
 	print("## Forward archetypes over %d matches (per forward-game on the ground)" % n)
-	print("archetype  games  goals  behinds  acc%   set%  open%  crumb%  marks  cmarks")
+	print("forward marks inside 50: %.2f a team-game" % (float(i50_total) / maxf(1.0, 2.0 * n)))
+	print("archetype  games  goals  behinds  acc%   set%  open%  crumb%  marks  cmarks  i50")
 	for a in ["key", "general", "small"]:
 		var r: Dictionary = _row(a)
 		var gm := maxf(1.0, float(r["games"]))
 		var shots := maxf(1.0, float(r["goals"] + r["behinds"]))
 		var gl := maxf(1.0, float(r["goals"]))
-		print("%-9s %6d  %5.2f  %7.2f  %4.0f  %5.0f  %5.0f  %6.0f  %5.2f  %6.2f" % [a, int(r["games"]),
+		print("%-9s %6d  %5.2f  %7.2f  %4.0f  %5.0f  %5.0f  %6.0f  %5.2f  %6.2f  %4.2f" % [a, int(r["games"]),
 				r["goals"] / gm, r["behinds"] / gm, 100.0 * r["goals"] / shots,
 				100.0 * r["set_g"] / gl, 100.0 * r["open_g"] / gl, 100.0 * r["crumb_g"] / gl,
-				r["marks"] / gm, r["cmarks"] / gm])
+				r["marks"] / gm, r["cmarks"] / gm, r["i50"] / gm])
 	print("")
 	print("## Team scoring by key forwards on the ground")
 	var ks := lines.keys()
