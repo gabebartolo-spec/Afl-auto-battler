@@ -25,7 +25,7 @@ selection 14
 matchup 91
 matchday 347
 roles 179
-injuries 29
+injuries 31
 awards 22
 achievements 153
 contracts 187
