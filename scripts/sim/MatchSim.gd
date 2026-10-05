@@ -419,20 +419,47 @@ func _roaming_interceptor(side: int) -> Dictionary:
 	return p
 
 
-## Chance the loose defender actually reaches this aerial contest. Making him
-## accountable drags him away and sharply reduces it, at a cost to the attack.
+## Chance the loose defender actually reaches this aerial contest. A forward
+## sent to him drags him away: a Defensive forward keeps him out of most
+## contests, any other forward follows him less well (MINDER_ROAM).
 func _roam_chance(def_side: int) -> float:
 	var p := _roaming_interceptor(def_side)
 	if p.is_empty():
 		return 0.0
 	var chance := clampf(0.10 + Matchups.interceptor_score(p) / 430.0, 0.20, 0.38)
-	if bool((tactics[1 - def_side] as Dictionary).get("spare_accountable", false)):
-		chance *= 0.40
+	var minder := _spare_minder(1 - def_side)
+	if not minder.is_empty():
+		chance *= float(MINDER_ROAM["specialist" if Traits.has(minder, "def_forward") else "other"])
 	return chance
 
 
+## Making their loose defender accountable is one of your forwards' job
+## (ARD-M4-004, director 2026-10-06): he goes up the ground with him, so he is
+## seldom a target inside 50 himself (MINDER_INVOLVE) - the cost is that
+## forward's game, not a hidden penalty on the whole line.
+const MINDER_ROAM := {"specialist": 0.40, "other": 0.70}
+const MINDER_INVOLVE := 0.25
+
+
 func _spare_accountable(attacking_side: int) -> bool:
-	return bool((tactics[attacking_side] as Dictionary).get("spare_accountable", false)) 			and not _roaming_interceptor(1 - attacking_side).is_empty()
+	return not _spare_minder(attacking_side).is_empty()
+
+
+## The forward `attacking_side` has sent to the opposition's loose defender:
+## the one named, or - when he is off the ground or none was named - the next
+## a coach would send (Matchups.minder_candidates). {} with no call made or no
+## loose defender to go to.
+func _spare_minder(attacking_side: int) -> Dictionary:
+	if attacking_side < 0 or attacking_side > 1:
+		return {}
+	var t: Dictionary = tactics[attacking_side]
+	if not bool(t.get("spare_accountable", false)) or _roaming_interceptor(1 - attacking_side).is_empty():
+		return {}
+	var named := _on_ground(attacking_side, str(t.get("spare_minder_id", "")))
+	if not named.is_empty() and str(named.get("role", "")) == "FWD":
+		return named
+	var cands := Matchups.minder_candidates((squads[attacking_side] as Squad).ground)
+	return {} if cands.is_empty() else cands[0]
 
 
 ## An AI club moves a key defender when their forward has had the better of
@@ -869,7 +896,8 @@ func _pick_ctx(side: int) -> Dictionary:
 		if tagger != null:
 			tagger_id = str(tagger["id"])
 	var plan := _plan(side)
-	return {"focus": _focus_id(side), "their_tag": their_tag,
+	var minder := _spare_minder(side)
+	return {"focus": _focus_id(side), "their_tag": their_tag, "minder": str(minder.get("id", "")),
 			"tag_share": _tag_share(1 - side) if their_tag != "" else 1.0,
 			"tagger": tagger_id, "stars": plan == "through_stars",
 			"star_ball": _pv(side, "star_ball") if plan == "through_stars" else 1.0}
@@ -906,6 +934,9 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String, ctx: Diction
 	# Our tagger is playing the man, not the ball.
 	if carrying and id == str(ctx["tagger"]):
 		out *= TAGGER_BALL
+	# Our forward minding their loose defender is up the ground with him.
+	if id == str(ctx.get("minder", "")) and purpose in ["shooter", "aerial_target", "crumb", "carrier"]:
+		out *= MINDER_INVOLVE
 	if bool(ctx["stars"]) and (stars[side] as Dictionary).has(id):
 		out *= float(ctx["star_ball"])
 	if carrying:
@@ -1998,7 +2029,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var keys := []
 	for fid in (duels[opp] as Dictionary):
 		var kf := _on_ground(side, str(fid))
-		if not kf.is_empty():
+		if not kf.is_empty() and kf != _spare_minder(side):
 			keys.append(kf)
 	if not keys.is_empty() and rng.randf() < Matchups.KEY_TARGET:
 		keys.sort_custom(func(a, b): return Matchups.forward_air(a) > Matchups.forward_air(b))
@@ -2049,9 +2080,6 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	# A named contest can be lopsided: a great forward on a small defender
 	# marks nearly everything, so its ceiling is higher than the lines'.
 	var mark_cap := 0.78 if matched.is_empty() else Matchups.DUEL_CAP
-	# Sending a forward to make the spare accountable drags him away, but
-	# costs a little aerial presence of your own.
-	var accountable_cost := 0.035 if _spare_accountable(side) else 0.0
 	# Unmatched, his own game in the air counts too: a tall marking forward
 	# holds more of them, a small one fewer (a named contest has it already).
 	var air_shift := 0.0
@@ -2059,7 +2087,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		air_shift = (Matchups.forward_air(shooter) - FWD_AIR_CENTRE) / FWD_AIR_SCALE
 	var marked := rng.randf() < clampf(
 			0.5 + (atk.fwd_mark - dfn.def_intercept) / 240.0 + mark_edge + duel_shift + air_shift
-			+ roam_shift - accountable_cost, 0.10, mark_cap)
+			+ roam_shift, 0.10, mark_cap)
 	# A third-man arrival is not credited to the direct defender's 1v1 log.
 	# Interceptor contests have their own evidence/stats and story.
 	if not matched.is_empty() and not roaming:
@@ -3746,6 +3774,9 @@ func ai_tactics(side: int) -> Dictionary:
 		observed_spare_wins = maxi(observed_spare_wins, int(ost.get("roam_wins", 0)))
 	if observed_spare_wins >= 2:
 		t["spare_accountable"] = true
+		var minders := Matchups.minder_candidates((squads[side] as Squad).ground)
+		if not minders.is_empty():
+			t["spare_minder_id"] = str(minders[0]["id"])
 
 	var tagger = tagger_for((squads[side] as Squad).ground)
 	if current_quarter >= (2 if read >= 0.4 else 3) and tagger != null and Roles.is_tagger(tagger):

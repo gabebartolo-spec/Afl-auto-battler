@@ -495,7 +495,7 @@ func _show_coach_box() -> void:
 		"tag_id": str((sim.tactics[_my_side] as Dictionary).get("tag_id", _last_tactics.get("tag_id", ""))),
 		"focus_id": str(_last_tactics.get("focus_id", "")),
 		"interceptor_id": str(sim.interceptor[_my_side]),
-		"spare_counter": "accountable" if bool((sim.tactics[_my_side] as Dictionary).get("spare_accountable", false)) else "ignore",
+		"minder_id": str((sim.tactics[_my_side] as Dictionary).get("spare_minder_id", "")) 				if bool((sim.tactics[_my_side] as Dictionary).get("spare_accountable", false)) else "",
 		"pep": "steady",
 		"rotation": _rotation,
 	}
@@ -542,6 +542,24 @@ func _show_coach_box() -> void:
 	var mv := _matchups_view(sim, q)
 	if mv != null:
 		v.add_child(mv)
+	# Their loose defender, answered by a person: one of your forwards goes up
+	# the ground with him. Facts only - who is a Defensive forward shows on
+	# his name; the choice is yours.
+	var opp_spare := sim._roaming_interceptor(1 - _my_side)
+	if not opp_spare.is_empty():
+		var fwds := Matchups.minder_candidates(my_ground)
+		var minder := _player_choice("SpareMinderPicker", "Nobody", fwds, fwds.slice(0, mini(3, fwds.size())),
+				calls, "minder_id", "Who goes to him?")
+		v.add_child(_call_block("Their loose defender", minder))
+		var dfs := fwds.filter(func(p): return Traits.has(p, "def_forward")).map(func(p): return GameDB.player_display_name(p))
+		var who := ("Defensive forwards on the ground: %s." % ", ".join(dfs)) if not dfs.is_empty() 				else "No Defensive forward on the ground."
+		var minder_note := UiKit.lbl(
+				"%s is roaming behind the ball. The forward you send goes up the ground with him: he keeps him out of contests, a Defensive forward best, and stops being a target himself. %s" % [
+						GameDB.player_display_name(opp_spare), who],
+				UiKit.SMALL, UiKit.MUTED)
+		minder_note.name = "MinderNote"
+		minder_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(minder_note)
 
 	# The rest of the calls, one tap away: the plan and the tag are the
 	# decisions most breaks turn on.
@@ -580,20 +598,6 @@ func _show_coach_box() -> void:
 			UiKit.SMALL, UiKit.MUTED)
 	roam_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	more.add_child(roam_note)
-
-	# Counter an opposition spare only when one is visibly being used. This
-	# makes a forward accountable to him: less third-man influence, but also
-	# less forward presence in the air.
-	var opp_spare := sim._roaming_interceptor(1 - _my_side)
-	if not opp_spare.is_empty():
-		var counter_opts := [["ignore", "Keep our shape"], ["accountable", "Make him accountable"]]
-		var counter := _choice_grid("SpareCounter", counter_opts, calls, "spare_counter", 2)
-		more.add_child(_call_block("Their loose defender", counter))
-		var counter_note := UiKit.lbl(
-				"%s is roaming behind the ball. Making him accountable drags him away from contests, but costs you a forward in the air." % GameDB.player_display_name(opp_spare),
-				UiKit.SMALL, UiKit.MUTED)
-		counter_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		more.add_child(counter_note)
 
 	var focus := _player_choice("FocusPicker", "No one", mine, _in_the_game(mine, 4), calls, "focus_id",
 			"Play through which player?")
@@ -640,7 +644,8 @@ func _show_coach_box() -> void:
 			"tag_id": str(calls["tag_id"]),
 			"interceptor_id": str(calls["interceptor_id"]),
 			"interceptor_set": str(calls["interceptor_id"]) != loose_was,
-			"spare_accountable": str(calls["spare_counter"]) == "accountable",
+			"spare_accountable": str(calls["minder_id"]) != "",
+			"spare_minder_id": str(calls["minder_id"]),
 			"pep": str(calls["pep"]),
 			"rotation": _rotation,
 		}
@@ -1185,7 +1190,7 @@ func _show_setup(t: Dictionary) -> void:
 	if intercept_id != "":
 		bits.append(GameDB.player_display_name_by_id(intercept_id, "your defender") + " loose behind the ball")
 	if bool(t.get("spare_accountable", false)):
-		bits.append("making their spare accountable")
+		bits.append(GameDB.player_display_name_by_id(str(t.get("spare_minder_id", "")), "a forward") + " on their spare")
 	_setup_line.text = "  ·  ".join(bits)
 	_setup_line.visible = true
 
