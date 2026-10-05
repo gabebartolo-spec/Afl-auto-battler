@@ -76,8 +76,10 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	v.add_child(UiKit.spacer(4))
 	var nums := UiKit.hbox(18)
 	v.add_child(nums)
-	for pair in [[int(p["overall"]), "OVR"], [int(p.get("potential", p["overall"])), "POT"]]:
+	# POT as your club knows it: exact for yours, a recruiters' range for anyone else.
+	for pair in [[str(int(p["overall"])), "OVR"], [str(GameState.pot_view(p)["text"]), "POT"]]:
 		var nb := UiKit.vbox(0)
+		nb.name = "Profile" + str(pair[1])
 		nb.add_child(UiKit.figure(str(pair[0]), 30, UiKit.TEXT))
 		nb.add_child(UiKit.lbl(str(pair[1]), UiKit.SMALL, UiKit.MUTED))
 		nums.add_child(nb)

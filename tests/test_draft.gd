@@ -23,6 +23,7 @@ func run() -> void:
 	_test_funded_scouting()
 	_test_asset_valuation()
 	_test_combine_scouting()
+	_test_scouted_league_board()
 	print("Draft tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -696,3 +697,50 @@ func _test_asset_valuation() -> void:
 		if top.has(str(first["id"])):
 			credible += 1
 	_check(credible >= 11, "The first pick of a career draft is one of the consensus top eight (%d of 12)" % credible)
+
+
+## The League Draft board is your recruiters' read, not the consensus: a
+## player you have not drafted shows a range around your estimate, the board
+## sorts by that estimate, the league's proven best are read almost exactly,
+## and a player is known exactly once he is yours. AI drafting is unchanged.
+func _test_scouted_league_board() -> void:
+	var draft := Draft.new(GameDB.all_players_sorted(), GameDB.active_clubs(2026).duplicate(), 777)
+	var mine := str(draft.draft_order[8])
+	draft.start_for_user(mine)
+	var board: Array = draft.board("", "", "", "overall", true)
+	var scouted := 0
+	var off := 0
+	var top_wide := 0
+	var mids := []
+	for i in range(board.size()):
+		var p: Dictionary = board[i]
+		var v := draft.user_view(p)
+		if bool(v["scouted"]):
+			scouted += 1
+		if int(v["overall_mid"]) != int(p["overall"]):
+			off += 1
+		if i < 10 and int(v["overall"][1]) - int(v["overall"][0]) > 2:
+			top_wide += 1
+		mids.append(int(v["overall_mid"]))
+	var sorted_ok := true
+	for i in range(1, mids.size()):
+		if mids[i] > mids[i - 1]:
+			sorted_ok = false
+	_check(scouted == board.size(), "Every undrafted League Draft player is a scouted read (%d/%d)" % [scouted, board.size()])
+	_check(off > board.size() / 4, "Your read differs from the consensus for many players (%d)" % off)
+	_check(sorted_ok, "The board sorts by your recruiters' estimate")
+	_check(top_wide == 0, "The league's proven best are read within a couple of points")
+	var pick: Dictionary = {}
+	for p in board:
+		if draft.can_pick_player(p):
+			pick = p
+			break
+	_check(not pick.is_empty() and draft.pick(pick), "(setup) you draft a player")
+	if not pick.is_empty():
+		var v := draft.user_view(pick)
+		_check(not bool(v["scouted"]) and int(v["overall_mid"]) == int(pick["overall"]),
+				"Once drafted he is known exactly")
+	var same := Draft.new(GameDB.all_players_sorted(), GameDB.active_clubs(2026).duplicate(), 777)
+	same.start_for_user(mine)
+	_check(same.pick_history.map(func(e): return e["player_id"]) == draft.pick_history.slice(0, same.pick_history.size()).map(func(e): return e["player_id"]),
+			"Rival picks are unchanged by your recruiters' read")

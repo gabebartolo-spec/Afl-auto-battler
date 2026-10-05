@@ -722,13 +722,18 @@ func _player_row(p: Dictionary) -> Control:
 					int(p.get("potential", p["overall"]))]
 	else:
 		var short := GameDB.club_short(str(p["club"]))
-		detail = "%s · %s · %d OVR · %d POT" % [short, Contracts.money(int(p["value"])), int(p["overall"]),
-				int(p.get("potential", p["overall"]))]
+		var view := _draft.user_view(p)
+		if bool(view["scouted"]):
+			detail = "%s · %s · %s OVR · %s POT" % [short, Contracts.money(int(p["value"])),
+					DraftScouting.range_text(view["overall"]), DraftScouting.range_text(view["potential"])]
+		else:
+			detail = "%s · %s · %d OVR · %d POT" % [short, Contracts.money(int(p["value"])), int(p["overall"]),
+					int(p.get("potential", p["overall"]))]
 	if taken:
 		var entry := _draft.pick_details(str(p["id"]))
 		detail = "#%d to %s" % [int(entry.get("pick", 0)),
 				GameDB.club_short(_draft.drafted_by(str(p["id"])))]
-		if not (bool(p.get("projected", false)) and _draft.intake_mode):
+		if not bool(_draft.user_view(p)["scouted"]):
 			detail += " · %d OVR" % int(p["overall"])
 	var traits: Array = Traits.of(p)
 	if not traits.is_empty():
@@ -861,6 +866,10 @@ func _open_player(id: String) -> void:
 	var v: VBoxContainer = box["body"]
 	var projected := bool(p.get("projected", false))
 	var scouted := projected and _draft.intake_mode
+	# Your club's read: a range for anyone you have not drafted (League Draft
+	# players too), exact once he is yours.
+	var view := _draft.user_view(p)
+	var read := bool(view["scouted"])
 
 	# Who he is.
 	var name_l := UiKit.lbl(GameDB.player_display_name(p), 22, UiKit.TEXT, true)
@@ -890,16 +899,14 @@ func _open_player(id: String) -> void:
 	# club's scouting view rather than revealing hidden true ratings.
 	var nums := UiKit.hbox(18)
 	v.add_child(nums)
-	if scouted:
-		var scout := DraftScouting.projection(p, _club, _draft.seed,
-				_draft.scouting_mult_for(_club))
-		nums.add_child(_big_range(scout["overall"], "Projected OVR", "DetailOVR"))
-		nums.add_child(_big_range(scout["potential"], "POT", "DetailPOT"))
+	if read:
+		nums.add_child(_big_range(view["overall"], "Projected OVR" if projected else "OVR", "DetailOVR"))
+		nums.add_child(_big_range(view["potential"], "POT", "DetailPOT"))
 	else:
 		nums.add_child(_big_number(int(p["overall"]), "Projected OVR" if projected else "OVR", "DetailOVR"))
 		nums.add_child(_big_number(int(p.get("potential", p["overall"])), "POT", "DetailPOT"))
-	var room := UiKit.lbl("Scouting estimate" if scouted else GameState.development_state(p), 14,
-			UiKit.MUTED if scouted else UiKit.TEXT)
+	var room := UiKit.lbl("Scouting estimate" if read else GameState.development_state(p), 14,
+			UiKit.MUTED if read else UiKit.TEXT)
 	room.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	room.size_flags_vertical = Control.SIZE_SHRINK_END
 	room.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1202,9 +1209,14 @@ func _history_row(entry: Dictionary) -> Control:
 				entry["pick"], entry["round"], GameDB.club_name(str(entry["club"])), _entry_player_name(entry),
 				str(entry.get("source_club", "")), rating]
 	else:
-		p.tooltip_text = "Pick #%d · Round %d\n%s drafted %s from %s\n%d OVR · %s" % [
+		# Another club's pick is still your recruiters' read of him.
+		var seen := str(entry["overall"])
+		var who := _player_by_id(str(entry.get("player_id", "")))
+		if not who.is_empty() and bool(_draft.user_view(who)["scouted"]):
+			seen = DraftScouting.range_text(_draft.user_view(who)["overall"])
+		p.tooltip_text = "Pick #%d · Round %d\n%s drafted %s from %s\n%s OVR · %s" % [
 			entry["pick"], entry["round"], GameDB.club_name(str(entry["club"])), _entry_player_name(entry),
-			GameDB.club_name(str(entry["source_club"])), entry["overall"], Contracts.money(int(entry["value"]))]
+			GameDB.club_name(str(entry["source_club"])), seen, Contracts.money(int(entry["value"]))]
 	_ignore_mouse(h)
 	return p
 

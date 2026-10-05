@@ -26,6 +26,7 @@ func run() -> void:
 	_test_future_picks()
 	_test_mixed_packages()
 	_test_trade_market()
+	_test_opposition_pot()
 	_test_money_copy()
 	GameState.delete_saved_career()
 	print("Contracts tests: %d checks, %d failures" % [checks, failures.size()])
@@ -1440,3 +1441,34 @@ func _test_money_copy() -> void:
 			"The extension card prices him in AFL money (%s)" % " | ".join(bad))
 	_check(Contracts.money(970000) == "$970k" and Contracts.money(1115500) == "$1.12m"
 			and Contracts.money(1626750) == "$1.63m", "Compact money reads as a footy fan expects")
+
+
+## Another club's player shows his potential as your recruiters' range: wide
+## for a player new to the league, narrow for a long-serving one; your own
+## players are exact.
+func _test_opposition_pot() -> void:
+	GameState.reset()
+	GameState.start_season("COL", GameDB.club_list("COL"))
+	var own: Dictionary = GameState.my_list[0]
+	var ov := GameState.pot_view(own)
+	_check(bool(ov["exact"]) and str(ov["text"]) == str(maxi(int(own["overall"]), int(own.get("potential", own["overall"])))),
+			"Your own player's POT is exact (%s)" % str(ov["text"]))
+	var fresh := {}
+	var veteran := {}
+	for p in GameState.season.lists["GEE"]:
+		var g := int((p.get("career", {}) as Dictionary).get("games", p.get("gm", 0)))
+		if g <= 5 and fresh.is_empty():
+			fresh = p
+		if g >= 150 and veteran.is_empty():
+			veteran = p
+	_check(not fresh.is_empty() and not veteran.is_empty(), "(setup) a new and a long-serving rival player")
+	if fresh.is_empty() or veteran.is_empty():
+		return
+	var fv := GameState.pot_view(fresh)
+	var vv := GameState.pot_view(veteran)
+	var fw := int(fv["range"][1]) - int(fv["range"][0])
+	var vw := int(vv["range"][1]) - int(vv["range"][0])
+	_check(not bool(fv["exact"]) and str(fv["text"]).contains("-"), "A rival's POT is a range (%s)" % str(fv["text"]))
+	_check(fw > vw, "The range narrows with time in the league (%d new vs %d long-serving)" % [fw, vw])
+	_check(GameState.pot_view(fresh)["text"] == fv["text"], "The read is stable while you look at him")
+	GameState.reset()

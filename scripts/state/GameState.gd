@@ -2192,6 +2192,20 @@ func season_player_name(player_id: String) -> String:
 	return ""
 
 
+## His potential as your club knows it: exact for your own players, a
+## recruiters' range for anyone else (DraftScouting.pot_read). {"mid",
+## "range", "exact"}; "text" is ready to show ("82" or "78-84").
+func pot_view(p: Dictionary) -> Dictionary:
+	var pot := maxi(int(p.get("overall", 50)), int(p.get("potential", p.get("overall", 50))))
+	if not list_player(str(p.get("id", ""))).is_empty():
+		return {"mid": pot, "range": [pot, pot], "exact": true, "text": str(pot)}
+	var r := DraftScouting.pot_read(p, my_club, career_seed,
+			ClubBudget.scouting_mult(department_budget_level("recruiting")))
+	var rg: Array = r["range"]
+	return {"mid": int(r["mid"]), "range": rg, "exact": false,
+			"text": str(rg[0]) if int(rg[0]) == int(rg[1]) else DraftScouting.range_text(rg)}
+
+
 func list_player(player_id: String) -> Dictionary:
 	for p in my_list:
 		if str(p.get("id", "")) == player_id:
