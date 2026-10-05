@@ -408,6 +408,13 @@ log or its quarter snapshots, never decided by the screen.
   "none" and the four players most in the game so far (before the bounce,
   the best rated), plus "Other player..." for the whole side on the ground.
   The order is a convenience - nobody is filtered out.
+- **Your people on the oval.** The players of yours you have a say about wear
+  a thin ring: a run you promised, the player you play through, your tagger,
+  the spare, and the defender on each forward you matched up (six at most; the
+  match-ups the engine sets up itself and the man you tag are not ringed). A
+  surname goes up for a moment over a goal-scorer, and over a ringed player
+  when he gets the ball. Presentation only (`MatchRings`, `PitchView`): see
+  `docs/MATCH_VIEW.md`.
 - **Full time.** The conclusion, easy to scan: the result first and big
   (won or lost by how much, both scores), then what it means (finals, the
   ladder, who is next), "How it went" (up to three reasons from the result: a

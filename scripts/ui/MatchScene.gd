@@ -100,6 +100,7 @@ func _ready() -> void:
 		return
 	_build()
 	_pitch.setup(_res)
+	_refresh_rings()
 	_pitch.event_played.connect(_on_event)
 	_pitch.finished.connect(_on_finished)
 	_update_scoreboard({"q": 1, "min": 0, "score": [0, 0], "kind": "info"})
@@ -1123,6 +1124,8 @@ func _advance_segment() -> void:
 		_res = sim.result()
 	_stamp_match_meta()
 	_append_new_events()
+	# Your calls are in force from here, so the rings are up for the bounce.
+	_refresh_rings()
 	_pitch.play()
 	_sync_controls()
 
@@ -1174,9 +1177,24 @@ func _append_new_events() -> void:
 # ---------------------------------------------------------------------------
 # Playback hooks
 # ---------------------------------------------------------------------------
+## The ring on the oval: the players of yours you have made a call on or
+## promised a run (MatchRings). Calls change at the breaks and at the moments,
+## so it is read again with every event: a few lookups, and the view only
+## redraws when the set moved. Only a match you coach has calls to show.
+func _refresh_rings() -> void:
+	if _pitch == null:
+		return
+	if _interactive and GameState.pending_sim != null:
+		_pitch.set_rings(MatchRings.ids(GameState.pending_sim, _my_side, GameState.my_list,
+				GameState.my_matchups))
+	else:
+		_pitch.set_rings([])
+
+
 func _on_event(ev: Dictionary) -> void:
 	var event_index := _playback_event_index
 	_playback_event_index += 1
+	_refresh_rings()
 	_update_scoreboard(ev)
 	_track_momentum(ev)
 	_feed_add(ev)
