@@ -1619,7 +1619,7 @@ Seeded marked goal vs unmarked goal. Only the marked/set-shot path may trigger t
 ---
 
 ## ARD-M3-002 — Forward archetype scoring
-**Status:** `TODO`  
+**Status:** `IN REVIEW` — branch `claude/forward-archetypes`.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 **Depends on:** ARD-M3-001, marking context
@@ -1640,6 +1640,33 @@ Empower different forward types naturally.
 - marking dominance,
 - volatility,
 - mixed forward line vs one-dimensional forward line.
+
+### Implementation record (2026-10-06, branch `claude/forward-archetypes`)
+**Director's note:** small half-forwards take many of their marks running up the ground into the midfield. Key forwards take theirs inside 50, unless they present up the ground for a contested mark.
+
+**Changes:** all in MatchSim `resolve_forward50`, `pick_carrier` and the crumb pick. Archetypes are by height, as in Training's jobs: key from 192 cm, small up to 181 cm.
+- **Marking:** on an unmatched entry, the target's own game in the air (marking and height, `Matchups.forward_air`) moves his mark chance. A named key match-up already did this.
+- **Spills:** an unmarked, unspoiled entry can spill, more often off a tall. The first forward to it is weighted toward small forwards, Crumbers and Pressure. He wins it at ground level (by size and Pressure) and snaps, or the defence clears it.
+- **Crumbs:** crumbs off spoils are weighted the same way.
+- **Targeting:** entries lean a little toward key forwards.
+- **Lead-up work:** small and general forwards do more of it in the middle and attack zones.
+- **Calibration:** `inside50_goal` goes from 0.269 to 0.279 so league scoring holds.
+
+**Evidence** (`tools/audit/fwd_archetype_impl.gd`, 576 matches on drafted leagues, seeds 21–24, the same seeds before and after), per forward-game:
+
+| | Goals | Set-shot share | Crumb share | Marks inside 50 | All marks |
+|---|---|---|---|---|---|
+| Key, before → after | 1.14 → 1.28 | 54 → 57% | 4 → 3% | — → 3.00 | 4.80 → 4.67 |
+| General, before → after | 0.84 → 0.85 | 47 → 41% | 6 → 12% | — → 1.53 | 4.60 → 4.42 |
+| Small, before → after | 0.94 → 0.92 | 44 → 26% | 8 → 23% | — → 1.16 | 4.19 → 4.14 |
+
+Small forwards keep their total marks because more of them now come on the lead up the ground. Calibration passes: goals 0.96–0.98 of real, marks 1.03–1.04, rebound 50s 1.05–1.06. The top-3 goalkicker share is 0.42 against a real 0.38, inside tolerance but more concentrated than before.
+
+**Not resolved:** sides with four or five key forwards still score slightly more (13.4 goals against 12.0–12.6). That was already true before the change (13.5), and those lists are probably stronger overall. A controlled mixed-versus-tall comparison belongs with RPG-004's audited Tall-small sequence.
+
+**M3-001 (later variety):** spills and ground balls now produce a distinct open-play crumb or snap, tagged on the event. Running shots, soccered goals, dribbles and long bombs remain.
+
+**Tests:** `test_match_game.gd` covers size classes, key forwards' marks inside 50 (at least 1.5× small forwards'), set-shot and crumb shares by archetype, and that either archetype still scores the other way.
 
 ---
 
