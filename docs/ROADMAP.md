@@ -5088,6 +5088,7 @@ Prefer improving the existing experience when that answers the same need. This p
 **Exclusions:** a new dialogue/news framework, copied catchphrase bank, forced slang dialect or manufactured real-player quotes.
 **Acceptance:** language feels natural, concise and affectionate; a newcomer understands controls; factual assertions have supported triggers; repeated jokes can be suppressed and silence is valid.
 **Validation:** contextual copy review, repeated-season samples and phone reading. Test predicates only where new selection logic is introduced; do not add tests that merely duplicate static text.
+**Status (2026-10-06):** first slice done, in the FL-001 PR. The two approved lines that have a truthful trigger today: on a final (the fixture label says so; no round does) the pre-match scene opens with "Finals footy. Here we go." instead of "Warming up", and the run-out caption is "Through the banner". Outstanding, and waiting on the director's copy review before anyone writes it: every other surface (reports, banners, clubroom notices, headlines). Nothing else in FL-001 is built.
 
 ### FL-002 — Personal milestone banners
 **Scope:** use the existing pre-match banner to honour the selected player's genuine achievement, name and club. Distinguish senior-career and club-tenure counts. Use the ordinary club banner when history is insufficient.

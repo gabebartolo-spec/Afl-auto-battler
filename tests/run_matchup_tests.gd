@@ -351,8 +351,8 @@ func _check(condition: bool, message: String) -> void:
 
 ## The words under the pre-match scene are atmosphere, and a final opens with
 ## its own line. Only a real final counts as one: every final's label does, no
-## home-and-away round does, and a missing label is not a final. Every later
-## caption is the same either way.
+## home-and-away round does, and a missing label is not a final. (Only the
+## selection is tested; the fixed words are not.)
 func _pre_match_captions() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
@@ -373,14 +373,6 @@ func _pre_match_captions() -> void:
 			"A final opens with its own line (%s)" % final_scene.copy)
 	_check(round_scene.copy == "Warming up",
 			"An ordinary round still opens with Warming up (%s)" % round_scene.copy)
-	for s in [final_scene, round_scene]:
-		s.set_progress(0.6)
-	_check(final_scene.copy == "Final instructions" and round_scene.copy == "Final instructions",
-			"Both then gather for final instructions")
-	for s in [final_scene, round_scene]:
-		s.run_out()
-	_check(final_scene.copy == "Through the banner" and round_scene.copy == "Through the banner",
-			"And both run through the banner (%s, %s)" % [final_scene.copy, round_scene.copy])
 	final_scene.free()
 	round_scene.free()
 
