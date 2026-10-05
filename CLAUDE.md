@@ -14,6 +14,7 @@ supplies the vision, taste, AFL knowledge, priorities and final judgement.
 - **No number vomit.** Show a number only when it helps the player understand
   or decide. No hidden modifiers, coefficients or diagnostics; detail lives
   behind deliberate drill-downs.
+- **Visual references are selective.** AFCM is not a visual aspiration. Preserve the established editorial design; clean screens must still expose the facts needed for the current choice. Read the focused chapters linked from [genre research](docs/GENRE_ENJOYMENT_RESEARCH.md); director decisions and scoped accepted extensions are recorded in roadmap §9.2.
 - **No UI vomit.** One clear job per screen. If two elements answer the same
   question, keep the better one. Do not build UI just because data exists.
 - **No generic AI-template design** (details below).
