@@ -4,6 +4,16 @@ shader_type canvas_item;
 // is recognised by its size - so the ground, text and letterbox the same Control
 // draws pass straight through.
 //
+// Known limitation: a draw is taken to be a figure purely by its texture's size
+// (sheet_size). Any other texture with exactly those dimensions drawn through this
+// material - a future background, a crowd texture at that size - would be misread as
+// figures and recoloured. Nothing in the game has that size today; if one ever does,
+// tell the shader explicitly (a flag in the draw colour or a uniform) instead.
+//
+// The shade and mask sheets are imported VRAM compressed, high quality (ASTC 4x4 on
+// Android, BPTC on desktop): ETC2 breaks their weights and coordinates. The design
+// sheet (guernsey coordinates: stripes, numbers) stays lossless.
+//
 // A figure's draw colour carries its looks, not a tint:
 //   r = (kit index * 2 + mirrored) / 8, g = skin tone index / 8, b = hair index / 8,
 //   a = opacity. "Mirrored" (the frame drawn flipped, to face the other way) only
