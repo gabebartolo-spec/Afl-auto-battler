@@ -11,7 +11,7 @@ _Updated 2026-10-06 against main `4b715b7`._
 | high ("high effort tasks - Boss") | lead: direction, task assignment, synergy/position work |
 | medium ("medium effort tasks") | medium tasks, measured audits, this board, team information flow |
 | low ("low effort tasks") | CI and merges, the merge queue, low-effort tasks, effort tags |
-| art ("art agent") | vignette figures, guernseys and shorts, player appearance, asset pipeline |
+| art ("art agent") | vignette figures, guernseys and shorts, player appearance, asset pipeline; now: ARD-M8-007 broadcast family migration (in progress) |
 
 ## File claims (don't edit another agent's claim; message them)
 | agent | files | until |
@@ -21,7 +21,7 @@ _Updated 2026-10-06 against main `4b715b7`._
 | medium | `MatchNotes._duel_line` verdict (key match-up copy fix) | starts after #233 merges |
 | medium (later) | MatchSim no-presentation perf mode | after #233; check with high first |
 | low | `UiKit.scroll` (training scrollbar); `.github/workflows` (audit.yml, sharded CI) | its PRs merge |
-| art | `assets/vignette/figures_*`, `VignetteFigures.gd`, `figure.gdshader`, `clubs.csv` guernsey column, `GameDB.club_guernsey`, `player_appearance.csv`, `Appearance.gd` | standing |
+| art | `BroadcastVignette.gd` (draw functions only; `pick_kind`, `DURATIONS` untouched); `VignetteFigures.gd`, `assets/vignette/figures_*.png` (sheet being regenerated); `StoppageVignette._draw_figure`; `tools/visual/capture_appearance.gd`, `capture_guernseys.gd`, new `capture_broadcast.gd`; standing: `figure.gdshader`, `clubs.csv` guernsey column, `GameDB.club_guernsey`, `player_appearance.csv`, `Appearance.gd`. Next, in order: `AwardWinnerVignette.gd`, `MediaConferenceVignette.gd` | M8-007 migration |
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
 1. **audit.yml / sharded CI** (low): first when opened; unblocks Actions audit runs.
@@ -38,7 +38,7 @@ _Updated 2026-10-06 against main `4b715b7`._
 | #234 | high | `CoachPathway`, `CoachSheet`; clean |
 | #235 #236 #237 #240 | medium | audits; docs + `tools/audit` (+ `test_injuries` in #235) |
 | #238 | low | ROADMAP effort tags and lanes; dry-run clean against all |
-| #239 | art? (confirm) | `docs/VIGNETTE_ART_INVENTORY.md` |
+| #239 | art | `docs/VIGNETTE_ART_INVENTORY.md` (M8-007 step 1, docs only) |
 | #228, #206 | none | stale/superseded; the low agent recommends the director close them |
 | #232 | codex | research docs; conflicting |
 
