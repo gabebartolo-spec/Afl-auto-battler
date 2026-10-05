@@ -371,9 +371,11 @@ static func offseason(ctx: Dictionary) -> Dictionary:
 	# a club keeps a well-regarded one, and most of the rest.
 	for cid in coaches.keys():
 		var c: Dictionary = coaches[cid]
-		if str(c.get("status", "")) != "club" or str(c.get("job", "")) == "SC" 				or str(c.get("club", "")) == my_club or int(c.get("contract_to", year + 1)) > year:
+		if str(c.get("status", "")) != "club" or str(c.get("job", "")) == "SC" \
+				or str(c.get("club", "")) == my_club or int(c.get("contract_to", year + 1)) > year:
 			continue
-		var keep := int(c.get("rep", 0)) >= ASSISTANT_KEEP_REP 				or _roll(seed, "arenew|%d|%s" % [year, cid]) < ASSISTANT_RENEW
+		var keep := int(c.get("rep", 0)) >= ASSISTANT_KEEP_REP \
+				or _roll(seed, "arenew|%d|%s" % [year, cid]) < ASSISTANT_RENEW
 		if keep:
 			c["contract_to"] = year + 2 + int(_roll(seed, "aterm|%d|%s" % [year, cid]) * 2.0)
 		else:
@@ -843,7 +845,8 @@ static func auto_fill(coaches: Dictionary, my_club: String, job: String, year: i
 static func assistant_stance(c: Dictionary, year: int) -> Dictionary:
 	if age(c, year + 1) >= RETIRE_FROM - 2:
 		return {"key": "winding", "years": 1, "text": "Near the end of his career: he will sign for one more season."}
-	if str(c.get("job", "")) in ["MID", "FWD", "DEF", "DEV"] and int(c.get("rep", 0)) >= ASSISTANT_KEEP_REP 			and tenure(c, year) >= MIN_TENURE:
+	if str(c.get("job", "")) in ["MID", "FWD", "DEF", "DEV"] and int(c.get("rep", 0)) >= ASSISTANT_KEEP_REP \
+			and tenure(c, year) >= MIN_TENURE:
 		return {"key": "ambitious", "years": 1, "text": "Wants a bigger role: he will only commit for a season."}
 	return {"key": "keen", "years": 2, "text": "Keen to stay: he will sign for two more seasons."}
 
