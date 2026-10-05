@@ -1,7 +1,7 @@
 # Checks each suite must run (tools/run_tests.sh). A suite reporting fewer
 # fails the run: checks went missing. Raise a floor when a suite gains
 # checks; lower one only on purpose, in the PR that removes checks.
-draft 7800
+draft 7807
 draft_ui 1113
 intake 2128
 intake_ui 493
@@ -26,7 +26,7 @@ roles 179
 injuries 29
 awards 22
 achievements 153
-contracts 179
+contracts 184
 league 19
 club 152
 match_game 215
