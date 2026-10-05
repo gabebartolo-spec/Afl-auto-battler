@@ -14,6 +14,9 @@ var show_real_names := true
 ## Transient navigation request. Settings can send the user straight to New
 ## career setup without touching the existing save.
 var new_career_setup_requested := false
+## The career's custom prospect (Club Forge, ARD-M7-008): his id once made,
+## one per career. Followed through drafts and career history.
+var custom_prospect_id := ""
 
 var my_club := ""
 var my_list: Array = []
@@ -398,6 +401,7 @@ func save_career() -> bool:
 		"draft_meeting_year": draft_meeting_year,
 		"career_seed": career_seed,
 		"class_tiers": class_tiers,
+		"custom_prospect_id": custom_prospect_id,
 		# Players carry p["career"]; saves without this mark predate it.
 		"career_version": CAREER_VERSION,
 	}
@@ -514,6 +518,7 @@ func load_career() -> bool:
 	# Saves from before class tiers use seed 0: still one fixed roll per year.
 	career_seed = int(state.get("career_seed", 0))
 	class_tiers = state.get("class_tiers", {})
+	custom_prospect_id = str(state.get("custom_prospect_id", ""))
 	_recompute_ratings()
 	_migrate_money_units()
 	if int(state.get("career_version", 0)) < CAREER_VERSION:
@@ -824,6 +829,7 @@ func reset() -> void:
 	last_training_report = {}
 	_xp_grant_key = ""
 	new_career_setup_requested = false
+	custom_prospect_id = ""
 	_dirty = false
 	default_train_plan = "position"
 	season_year = GameDB.START_YEAR
@@ -834,6 +840,30 @@ func reset() -> void:
 	# League Draft pool); the first class drafted in the career is 2027's,
 	# made exactly as a rollover makes the next year's class.
 	draftee_pool = _first_class(season_year)
+
+
+## Create the career's custom prospect from `spec` (Prospects.custom_problem
+## lists what it needs). He joins the first National Draft class, drafted at
+## this season's end, like any other prospect: no club, pick, OVR or POT is
+## chosen, and no club is told to take him or leave him. One per career, made
+## before the career's first season starts. Returns "" or what's wrong.
+func add_custom_prospect(spec: Dictionary) -> String:
+	if custom_prospect_id != "":
+		return "This career already has its own prospect."
+	if season != null:
+		return "Create him before the career starts."
+	var why := Prospects.custom_problem(spec)
+	if why != "":
+		return why
+	var p := Prospects.make_custom(spec, season_year, career_seed)
+	var aged := Prospects.age_pool([p], season_year, {})
+	if aged.is_empty():
+		return "He is too old for the draft."
+	GameDB.register_draftees(aged)
+	draftee_pool.append(aged[0])
+	custom_prospect_id = str(aged[0]["id"])
+	mark_dirty()
+	return ""
 
 
 ## The draft class a career starting in `year` drafts at that season's end:
