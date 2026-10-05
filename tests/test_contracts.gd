@@ -26,6 +26,7 @@ func run() -> void:
 	_test_future_picks()
 	_test_mixed_packages()
 	_test_trade_market()
+	_test_unproven_potential()
 	_test_money_copy()
 	GameState.delete_saved_career()
 	print("Contracts tests: %d checks, %d failures" % [checks, failures.size()])
@@ -920,8 +921,10 @@ func _test_trade_packages_and_needs() -> void:
 	var solo := float(_trade(base, [base[6]], [s1], "building", 0.0)["in"])
 	var pair := float(_trade(base, [base[6]], [s1, s2], "building", 0.0)["in"])
 	_check(pair > solo * 1.4, "Two starters at separate weak spots both count (%.2f v %.2f alone)" % [pair, solo])
-	# A promising young forward line that is weak now.
-	var kids := base.map(func(q): return _with(q, {"overall": 58, "potential": 86, "age": 20.0}) if str(q["role"]) == "FWD" else q)
+	# A promising young forward line that is weak now - and has shown it:
+	# an unseen ceiling is only half banked (TradeValue.proven).
+	var kids := base.map(func(q): return _with(q, {"overall": 58, "potential": 86, "age": 20.0,
+			"career": {"games": 60}}) if str(q["role"]) == "FWD" else q)
 	var vet := _with(base.filter(func(q): return str(q["role"]) == "FWD")[0], {"id": "t_vetfwd", "overall": 72, "potential": 72, "age": 27.0, "role2": ""})
 	var now_bars := TradeValue.selection_bars(kids)
 	var proj_bars := TradeValue.selection_bars(kids, true)
@@ -1004,7 +1007,9 @@ func _test_trade_picks() -> void:
 	var mid := TradeValue.pick_value([[n / 2, 1.0]], prospects, "building")
 	var late := TradeValue.pick_value([[2 * n, 1.0]], prospects, "building")
 	_check(first > mid and mid > late and late > 0.0, "An earlier pick is worth more (%.2f, %.2f, %.2f)" % [first, mid, late])
-	_check(TradeValue.pick_value([[3, 1.0]], prospects, "rebuilding") > TradeValue.pick_value([[3, 1.0]], prospects, "contending") * 1.3,
+	# A pick is an unproven prospect, so its ceiling is only half banked
+	# (TradeValue.proven): a rebuilder still values it clearly more.
+	_check(TradeValue.pick_value([[3, 1.0]], prospects, "rebuilding") > TradeValue.pick_value([[3, 1.0]], prospects, "contending") * 1.15,
 			"A rebuilding club values a high pick well above a contender")
 	_check(TradeValue.pick_value([[prospects.size() + 1, 1.0]], prospects, "building") == 0.0,
 			"A pick past the end of the class is worth nothing")
@@ -1440,3 +1445,24 @@ func _test_money_copy() -> void:
 			"The extension card prices him in AFL money (%s)" % " | ".join(bad))
 	_check(Contracts.money(970000) == "$970k" and Contracts.money(1115500) == "$1.12m"
 			and Contracts.money(1626750) == "$1.63m", "Compact money reads as a footy fan expects")
+
+
+## A ceiling nobody has seen is not banked: two unproven 18-year-olds no
+## longer buy an established 25-year-old star from a rebuilding club, while
+## the same two with fifty senior games behind them still carry real value.
+func _test_unproven_potential() -> void:
+	var star := {"id": "S", "overall": 83, "potential": 85, "age": 25.0, "role": "MID",
+			"attr": {"durability": 80}, "career": {"games": 110}}
+	var kid := func(ovr: int, games: int) -> Dictionary:
+		return {"id": "K%d%d" % [ovr, games], "overall": ovr, "potential": 90, "age": 18.0, "role": "MID",
+				"attr": {"durability": 70}, "career": {"games": games}}
+	_check(is_equal_approx(TradeValue.proven(kid.call(67, 0)), 0.5)
+			and is_equal_approx(TradeValue.proven(kid.call(67, 60)), 1.0), "Proven runs from a half to all of the ceiling")
+	var ctx := {"phase": "rebuilding"}
+	var star_v := float(TradeValue.value(star, ctx)["total"])
+	var fresh := TradeValue.package([float(TradeValue.value(kid.call(67, 0), ctx)["total"]),
+			float(TradeValue.value(kid.call(68, 0), ctx)["total"])])
+	var played := TradeValue.package([float(TradeValue.value(kid.call(67, 60), ctx)["total"]),
+			float(TradeValue.value(kid.call(68, 60), ctx)["total"])])
+	_check(fresh < star_v, "Two unproven 18-year-olds no longer outweigh an 83-rated star (%.2f vs %.2f)" % [fresh, star_v])
+	_check(played > fresh * 1.3, "The same kids with senior games behind them are worth far more (%.2f vs %.2f)" % [played, fresh])
