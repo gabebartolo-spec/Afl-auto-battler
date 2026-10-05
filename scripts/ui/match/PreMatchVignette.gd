@@ -16,6 +16,8 @@ const RUN_TIME := 0.75
 const BANNER_Y := 16.0
 const BANNER_W := 7.5
 const MINE := 9
+## Where the huddle gathers (metres across, ahead of the camera's ground point).
+const HUDDLE_AT := Vector2(0.0, 5.5)
 const THEIRS := 6
 
 ## The words under the scene, in the order they appear. Atmosphere only: none
@@ -152,7 +154,7 @@ func _at(t: Dictionary, i: int, p: int) -> Vector2:
 	match p:
 		HUDDLE:
 			var a := TAU * float(i) / float(MINE) + 0.3
-			return Vector2(cos(a) * 1.7 + sin(_t * 1.7 + i) * 0.1, 5.5 + sin(a) * 1.2)
+			return HUDDLE_AT + Vector2(cos(a) * 1.7 + sin(_t * 1.7 + i) * 0.1, sin(a) * 1.2)
 		RUN:
 			var k := clampf((_t - _since) / RUN_TIME, 0.0, 1.0)
 			var from := _at(t, i, _prev if _prev != RUN else HUDDLE)
@@ -179,17 +181,24 @@ func _lift(_t_: Dictionary) -> float:
 ## Gathered in, they watch the middle of the huddle; otherwise the play ahead.
 func _look_at(t: Dictionary) -> Vector2:
 	if bool(t["mine"]) and _phase == HUDDLE:
-		return Vector2(0.0, 5.5)
+		return HUDDLE_AT
 	return Vector2(0.0, 60.0)
 
 
 func _set_camera() -> void:
-	# Low, just behind the last line of the warm-up, easing in a little.
-	_cam_d = lerpf(6.5, 5.0, _ease(clampf(_t / 4.0, 0.0, 1.0)))
+	# Low, just behind the last line of the warm-up, zooming in a little on the huddle. The
+	# camera stays put and only the lens moves (it used to move 1.5 m closer, which at this
+	# range bent the whole scene as it came), so the huddle's centre holds its place on
+	# screen and everything scales about it.
+	_cam_d = 6.5
 	_cam_h = 6.5
 	_cam_x = 0.0       # square on to the banner
-	_focal = maxf(size.x * 1.3, size.y * 0.62)
-	_horizon = size.y * 0.3
+	var base := maxf(size.x * 1.3, size.y * 0.62)
+	_zoom = lerpf(1.0, 1.15, _ease(clampf(_t / 4.0, 0.0, 1.0)))
+	_focal = base * _zoom
+	var depth := HUDDLE_AT.y + _cam_d
+	var pin := size.y * 0.3 + base * (_cam_h - 1.0) / depth      # the huddle's chest height
+	_horizon = pin - _focal * (_cam_h - 1.0) / depth
 
 
 func _draw_markings() -> void:

@@ -23,6 +23,7 @@ var heading := "Post-match press conference"
 var _colours := []
 var _t := 0.0
 var _ready := false
+var _view := Transform2D.IDENTITY   # the camera this frame (VignetteCamera)
 
 static func open(host: Node, club_code: String) -> MediaConferenceVignette:
 	var v := MediaConferenceVignette.new()
@@ -71,11 +72,17 @@ func _draw() -> void:
 	var desk_y := h * 0.66
 	var feet_y := h * 0.86                  # behind the desk: his chair's on the floor there
 	var pm := h * 0.62 / 1.84               # pixels per metre: standing, he's about 0.62 of the frame
-	_draw_wall(w, h, desk_y)
-	_draw_camera_rig(w, h)
 	# The coach: in from the left behind the desk, sits at the middle microphones.
 	var k := 1.0 - pow(1.0 - clampf(_t / WALK_END, 0.0, 1.0), 3.0)
 	var x := lerpf(w * 0.08, w * 0.5, k)
+	# The camera at the back of the room: following him in, then creeping in on him
+	# through the questions, the way the press-room camera does (VignetteCamera).
+	var G := VignetteCamera
+	var zoom: float = G.glide(1.12, 1.24, _t, SIT_END, SIT_END + 9.0)
+	_view = G.view(size, Vector2(x, desk_y - h * 0.12) + G.breathe(_t, size, 0.006), zoom)
+	draw_set_transform_matrix(_view)
+	_draw_wall(w, h, desk_y)
+	_draw_camera_rig(w, h)
 	if _t < WALK_END:
 		_coach(Vector2(x, feet_y), pm, "coach_walk", "front_r", int(_t * 7.0) % 8)
 	elif _t < SIT_END:
@@ -86,6 +93,7 @@ func _draw() -> void:
 		_coach(Vector2(x, feet_y), pm, "coach_seated", "front", 1 if talking else 0)
 	_draw_desk(w, h, desk_y)
 	_draw_press(w, h)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 	# A camera flash now and then from the pack.
 	var f := fmod(_t + 0.3, 1.9)
 	if _t > 0.5 and f < 0.07:
@@ -107,7 +115,7 @@ func _coach(feet: Vector2, pm: float, anim: String, facing: String, frame: int) 
 	var info := VignetteFigures.strip(BODY, anim, facing)
 	var k := pm / VignetteFigures.PX_PER_M
 	var origin := feet - Vector2(info["pivot"][0], info["pivot"][1]) * k
-	draw_texture_rect_region(StoppageVignette.FIGURE_SHADE, Rect2(origin, VignetteFigures.FRAME * k),
+	draw_texture_rect_region(StoppageVignette.FIGURE_SHADE, Rect2(origin, VignetteFigures.frame_size(info) * k),
 			VignetteFigures.source(info, frame),
 			Color(0.0, int(COACH_LOOK["skin"]) / 8.0, int(COACH_LOOK["hair"]) / 8.0, 1.0))
 
@@ -216,7 +224,7 @@ func _draw_press(w: float, h: float) -> void:
 				at + Vector2(r * 1.6, r * 1.6)])
 		draw_colored_polygon(shoulders, body)
 		var head := at + Vector2(tilt * r * 2.0, -r * 1.0 + sway)
-		draw_set_transform(head, tilt, Vector2(0.86, 1.0))
+		draw_set_transform_matrix(_view * Transform2D(tilt, Vector2(0.86, 1.0), 0.0, head))
 		draw_circle(Vector2.ZERO, r * 0.62, body)
 		draw_arc(Vector2.ZERO, r * 0.62, PI * 1.15, PI * 1.85, 10, rim, maxf(1.0, r * 0.1))
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		draw_set_transform_matrix(_view)

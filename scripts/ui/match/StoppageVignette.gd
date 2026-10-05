@@ -253,21 +253,33 @@ static func _surname(full: String) -> String:
 
 
 # ---------------------------------------------------------------------------
-# The camera: low behind your end, pushing in on the square.
+# The camera: the broadcast camera high behind your end, on a long lens, zooming in on
+# the square and panning with the ruckmen. It stays where it is: only the lens moves, so
+# the picture scales as one and nothing changes shape (it used to travel in from 34 m to
+# 18 m, and the square and the players warped as it came - director).
 # ---------------------------------------------------------------------------
-var _cam_d := 40.0
-var _cam_h := 7.0
+const CAM_D := 46.0               # metres behind the centre
+const CAM_H := 12.0               # and up (low enough that the stand stays in the zoom)
+## The zoom: the square at the start's framing (as the old camera at 34 m) out to the
+## ruck contest's (as at 17 m), then a last punch-in on the freeze.
+const ZOOM := [46.0 / 34.0, 46.0 / 18.5, 46.0 / 17.0]
+var _cam_d := CAM_D
+var _cam_h := CAM_H
 var _focal := 400.0
 var _horizon := 0.0
 var _cam_x := CAM_X
+var _zoom := 1.0                  # how far the lens has zoomed since the start
 
 
 func _set_camera() -> void:
 	var k := _ease(clampf(_t / FREEZE, 0.0, 1.0))
 	var punch := _ease(clampf(_hold / 0.4, 0.0, 1.0))
-	_cam_d = lerpf(34.0, 20.0, k) - 1.5 * punch
-	_cam_h = lerpf(12.0, 9.0, k)
-	_focal = maxf(size.x * 1.5, size.y * 0.7)
+	var base := maxf(size.x * 1.5, size.y * 0.7)
+	var z: float = lerpf(lerpf(ZOOM[0], ZOOM[1], k), ZOOM[2], punch)
+	_focal = base * z
+	_zoom = z / ZOOM[0]
+	# Panning across from where your players run in to the contest.
+	_cam_x = lerpf(CAM_X, CAM_X * 0.35, k)
 	# The centre of the ground sits above the middle, clear of the call.
 	_horizon = size.y * 0.46 - _focal * _cam_h / _cam_d
 
@@ -384,20 +396,23 @@ func _draw_ground() -> void:
 	# fence and its boards (blank panels in the clubs' colours).
 	var edge := _project(Vector2(0, far)).y
 	if edge > 0.0:
-		var fence := minf(edge, maxf(6.0, size.y * 0.018))
-		# The stand is far away: as the camera pushes in it slides, it doesn't grow
-		# (rescaling a texture of tiny heads shimmered). Above it, the roof's shadow.
-		var stand := size.y * 0.24
+		var fence := minf(edge, maxf(6.0, size.y * 0.018) * _zoom)
+		# The stand and the fence zoom with everything else (one fixed texture, scaled up:
+		# it never repaints) and pan with the ground. Above them, the roof's shadow.
+		var stand := size.y * 0.24 * _zoom
+		var across := size.x * _zoom * 1.2          # a margin, so the pan never shows its end
+		var left := _project(Vector2(0.0, far)).x - across * 0.5
 		draw_rect(Rect2(0, 0, size.x, edge), Color(0.05, 0.05, 0.06), true)
-		VignetteCrowd.draw(self, Rect2(0, edge - fence - stand, size.x, stand), _colours, _t)
-		_draw_boards(Rect2(0, edge - fence, size.x, fence))
+		VignetteCrowd.draw(self, Rect2(left, edge - fence - stand, across, stand), _colours, _t)
+		_draw_boards(Rect2(left, edge - fence, across, fence), 46.0 * _zoom)
 	_draw_markings()
 
 
-## The boundary fence's boards: blank panels alternating the clubs' colours.
-func _draw_boards(r: Rect2) -> void:
+## The boundary fence's boards: blank panels alternating the clubs' colours, about
+## panel pixels wide.
+func _draw_boards(r: Rect2, panel := 46.0) -> void:
 	draw_rect(r, Color(0.1, 0.1, 0.11), true)
-	var n := maxi(4, int(r.size.x / 46.0))
+	var n := maxi(4, int(roundf(r.size.x / panel)))
 	for i in range(n):
 		var c: Color = (_colours[i % 2] as Array)[0] if not (_colours[i % 2] as Array).is_empty() else Color.DIM_GRAY
 		var x := r.position.x + r.size.x * float(i) / float(n)
@@ -464,18 +479,19 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 ## on ci (whose material must be the figure material). Mirrored, it faces the other
 ## way: flipped about the feet by a draw transform (a negative-size rect isn't drawn).
 ## number: a second pass that prints the number (number_colour), or alpha 0 for none.
+## view: the vignette's camera (VignetteCamera) that ci is drawing through.
 static func draw_frame(ci: CanvasItem, feet: Vector2, info: Dictionary, f: int, k: float, colour: Color,
-		mirror := false, number := Color(0, 0, 0, 0)) -> void:
+		mirror := false, number := Color(0, 0, 0, 0), view := Transform2D.IDENTITY) -> void:
 	var pivot := Vector2(info["pivot"][0], info["pivot"][1])
-	var dest := Rect2(feet - pivot * k, VignetteFigures.FRAME * k)
+	var dest := Rect2(feet - pivot * k, VignetteFigures.frame_size(info) * k)
 	var src := VignetteFigures.source(info, f)
 	if mirror:
-		ci.draw_set_transform(Vector2(2.0 * feet.x, 0.0), 0.0, Vector2(-1.0, 1.0))
+		ci.draw_set_transform_matrix(view * Transform2D(0.0, Vector2(-1.0, 1.0), 0.0, Vector2(2.0 * feet.x, 0.0)))
 	ci.draw_texture_rect_region(FIGURE_SHADE, dest, src, colour)
 	if number.a > 0.0:
 		ci.draw_texture_rect_region(FIGURE_SHADE, dest, src, number)
 	if mirror:
-		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		ci.draw_set_transform_matrix(view)
 
 
 ## The draw colour that recolours a figure: its kit, skin and hair, and whether
@@ -536,8 +552,11 @@ func _ready_pick(t: Dictionary, at: Vector2, back: bool) -> Array:
 	# Across his line of sight: his back to us, his left is the screen's left.
 	var across := -to.x if back else to.x
 	if absf(to.x) < 0.35 * absf(to.y) + 1.0:
-		# Looking ahead; mirrored on a whim of his own so a row isn't a row of clones.
-		return ["ready", cycle, _rate(t, 0.0, 1.0) > 0.5]
+		# Looking ahead, in one of two stances of his own (a third of men side-on and low,
+		# arms out), mirrored on a whim so a row isn't a row of clones.
+		var stance := "ready_b" if _rate(t, 0.0, 1.0) < 0.35 and VignetteFigures.has(_body(t), "ready_b", "back" if back else "front") \
+				else "ready"
+		return [stance, cycle, _rate(t, 0.0, 1.0) > 0.5 if stance == "ready" else _rate(t, 0.0, 1.0) < 0.17]
 	return ["ready_turn", cycle, across < 0.0]
 
 

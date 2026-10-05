@@ -10,7 +10,7 @@ static var _cache := {}
 
 
 ## The stand as a texture for two clubs' colours, painted once at a fixed size and
-## stretched to fit: as a camera pushes in the stand only scales, it never repaints
+## stretched to fit: as a camera zooms the stand only scales, it never repaints
 ## (repainting at each new size reshuffled the whole crowd every frame).
 const STAND_W := 512
 const STAND_H := 160
@@ -78,14 +78,17 @@ static func draw(ci: CanvasItem, rect: Rect2, colours: Array, t: float, seed := 
 	# A stir: arms up here and there, moving through the crowd.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed + 99
-	for n in range(int(rect.size.x / 70.0)):
+	# Counted and sized by the stand's shape and height, not the screen's pixels: when a
+	# camera zooms the stand, the same people stay in their seats, only larger.
+	var unit := rect.size.y / 190.0
+	for n in range(maxi(3, int(rect.size.x / rect.size.y * 2.7))):
 		var px := rng.randf() * rect.size.x
 		var py := rng.randf_range(0.45, 0.95) * rect.size.y
 		var phase := rng.randf() * TAU
 		# Up for about a second in every five, easing up and down.
 		var up := smoothstep(0.75, 0.95, sin(t * 1.2 + phase))
 		if up > 0.0:
-			var size := lerpf(1.2, 2.6, py / rect.size.y)
+			var size := lerpf(1.2, 2.6, py / rect.size.y) * unit
 			var col: Color = (colours[n % colours.size()] as Array)[0] if not colours.is_empty() else Color.WHITE
 			ci.draw_rect(Rect2(rect.position + Vector2(px, py - size * 2.0 * up), Vector2(size * 0.6, size * 1.4)),
 					Color(col.darkened(0.3), 0.6 * up), true)

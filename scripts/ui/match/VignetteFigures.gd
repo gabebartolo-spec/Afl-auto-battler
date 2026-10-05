@@ -8,14 +8,13 @@ class_name VignetteFigures
 ## Boots take the weight left over. Each body's moves are strips: one per animation and
 ## facing ("front" faces the camera; "back" shows the number; "back_r" is three-quarters
 ## from behind, heading right; "side_l" nearly side-on, heading left; "front_r" three-
-## quarters from the front, heading right - mirror a frame for the other way), frames left to right from (col, row) in FRAME cells. pivot: the feet in
-## the strip's frames, pixels. Numbers are printed on the guernsey by the shader
-## (figures_digits.png), not placed here.
+## quarters from the front, heading right - mirror a frame for the other way). A strip's
+## frames sit left to right from (x, y), each `size` pixels (cropped to the move's figures,
+## so strips differ in size). pivot: the feet in the strip's frames, pixels. reach: per
+## frame, the figure's highest point above its feet, metres (a leap's hands). Numbers are
+## printed on the guernsey by the shader (figures_digits.png), not placed here.
 
-const SHEET_SIZE := Vector2i(2048, 4032)
-const FRAME := Vector2(128, 288)
-## World (0, 0, 0) - the feet - in most strips, pixels (each strip carries its own).
-const PIVOT := Vector2(64.00, 266.16)
+const SHEET_SIZE := Vector2i(2048, 2672)
 const PX_PER_M := 100.0
 const BODIES := {
 	"average": {
@@ -23,162 +22,232 @@ const BODIES := {
 		"anims": {
 			"idle": {
 				"front": {
-					"row": 11,
-					"col": 15,
+					"x": 1936,
+					"y": 254,
+					"size": [68, 196],
 					"frames": 1,
-					"pivot": [64.0, 266.16],
+					"pivot": [34.0, 184.16],
+					"reach": [1.782],
 				},
 				"back": {
-					"row": 12,
-					"col": 15,
+					"x": 1858,
+					"y": 722,
+					"size": [68, 190],
 					"frames": 1,
-					"pivot": [64.0, 266.16],
+					"pivot": [34.0, 186.16],
+					"reach": [1.812],
 				},
 			},
 			"jog": {
 				"front": {
-					"row": 0,
-					"col": 0,
+					"x": 0,
+					"y": 1550,
+					"size": [68, 196],
 					"frames": 8,
-					"pivot": [64.0, 266.16],
+					"pivot": [34.0, 180.16],
+					"reach": [1.752, 1.712, 1.682, 1.712, 1.752, 1.712, 1.682, 1.712],
 				},
 				"back": {
-					"row": 0,
-					"col": 8,
+					"x": 544,
+					"y": 1550,
+					"size": [68, 196],
 					"frames": 8,
-					"pivot": [64.0, 266.16],
+					"pivot": [34.0, 190.16],
+					"reach": [1.842, 1.802, 1.772, 1.802, 1.842, 1.802, 1.772, 1.802],
 				},
 				"back_r": {
-					"row": 1,
-					"col": 0,
+					"x": 0,
+					"y": 1354,
+					"size": [114, 196],
 					"frames": 8,
-					"pivot": [70.0, 266.16],
+					"pivot": [62.0, 188.16],
+					"reach": [1.832, 1.792, 1.762, 1.792, 1.832, 1.792, 1.762, 1.792],
+				},
+				"side_l": {
+					"x": 0,
+					"y": 1746,
+					"size": [152, 194],
+					"frames": 8,
+					"pivot": [66.0, 184.16],
+					"reach": [1.772, 1.742, 1.712, 1.742, 1.772, 1.742, 1.712, 1.742],
 				},
 			},
 			"leap": {
 				"front": {
-					"row": 5,
-					"col": 0,
+					"x": 1168,
+					"y": 254,
+					"size": [104, 236],
 					"frames": 6,
-					"pivot": [64.0, 266.16],
+					"pivot": [52.0, 222.16],
+					"reach": [1.482, 1.692, 1.772, 2.002, 2.152, 2.152],
 				},
 				"back": {
-					"row": 5,
-					"col": 6,
+					"x": 1050,
+					"y": 492,
+					"size": [104, 228],
 					"frames": 6,
-					"pivot": [64.0, 266.16],
+					"pivot": [52.0, 222.16],
+					"reach": [1.662, 1.792, 1.812, 2.162, 2.022, 2.022],
 				},
 			},
 			"tap": {
 				"front": {
-					"row": 6,
-					"col": 0,
+					"x": 496,
+					"y": 254,
+					"size": [112, 236],
 					"frames": 6,
-					"pivot": [64.0, 266.16],
+					"pivot": [56.0, 222.16],
+					"reach": [1.482, 1.692, 1.772, 1.982, 2.172, 2.172],
 				},
 				"back": {
-					"row": 6,
-					"col": 6,
+					"x": 378,
+					"y": 492,
+					"size": [112, 228],
 					"frames": 6,
-					"pivot": [64.0, 266.16],
+					"pivot": [56.0, 222.16],
+					"reach": [1.662, 1.792, 1.812, 2.162, 2.062, 2.062],
 				},
 			},
 			"tap_b": {
 				"front": {
-					"row": 5,
-					"col": 12,
+					"x": 0,
+					"y": 722,
+					"size": [116, 220],
 					"frames": 4,
-					"pivot": [64.0, 266.16],
+					"pivot": [58.0, 206.16],
+					"reach": [1.452, 1.762, 1.912, 2.012],
 				},
 				"back": {
-					"row": 6,
-					"col": 12,
+					"x": 464,
+					"y": 722,
+					"size": [116, 220],
 					"frames": 4,
-					"pivot": [64.0, 266.16],
+					"pivot": [58.0, 214.16],
+					"reach": [1.652, 1.812, 2.082, 1.992],
 				},
 			},
 			"ready": {
 				"front": {
-					"row": 10,
-					"col": 4,
+					"x": 0,
+					"y": 2314,
+					"size": [84, 182],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [42.0, 168.16],
+					"reach": [1.612, 1.592, 1.632],
 				},
 				"back": {
-					"row": 10,
-					"col": 7,
+					"x": 1760,
+					"y": 1354,
+					"size": [84, 186],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [42.0, 186.16],
+					"reach": [1.782, 1.772, 1.792],
 				},
 			},
 			"ready_turn": {
 				"front": {
-					"row": 10,
-					"col": 10,
+					"x": 252,
+					"y": 2314,
+					"size": [82, 182],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [38.0, 168.16],
+					"reach": [1.612, 1.592, 1.632],
 				},
 				"back": {
-					"row": 10,
-					"col": 13,
+					"x": 1760,
+					"y": 1940,
+					"size": [82, 184],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [44.0, 184.16],
+					"reach": [1.782, 1.772, 1.792],
+				},
+			},
+			"ready_b": {
+				"front": {
+					"x": 1698,
+					"y": 2314,
+					"size": [104, 178],
+					"frames": 3,
+					"pivot": [42.0, 168.16],
+					"reach": [1.582, 1.602, 1.612],
+				},
+				"back": {
+					"x": 1216,
+					"y": 1746,
+					"size": [104, 190],
+					"frames": 3,
+					"pivot": [62.0, 186.16],
+					"reach": [1.792, 1.802, 1.812],
 				},
 			},
 			"bounce": {
 				"front": {
-					"row": 7,
-					"col": 12,
+					"x": 1674,
+					"y": 492,
+					"size": [72, 214],
 					"frames": 4,
-					"pivot": [64.0, 266.16],
+					"pivot": [36.0, 202.16],
+					"reach": [1.772, 1.972, 1.692, 1.592],
 				},
 			},
 			"kick": {
 				"back_r": {
-					"row": 7,
-					"col": 0,
+					"x": 1088,
+					"y": 1550,
+					"size": [126, 190],
 					"frames": 6,
-					"pivot": [43.0, 266.16],
+					"pivot": [47.0, 188.16],
+					"reach": [1.812, 1.812, 1.812, 1.812, 1.792, 1.762],
 				},
 			},
 			"snap": {
 				"back_r": {
-					"row": 9,
-					"col": 6,
+					"x": 1528,
+					"y": 1746,
+					"size": [102, 188],
 					"frames": 5,
-					"pivot": [36.0, 266.16],
+					"pivot": [32.0, 186.16],
+					"reach": [1.812, 1.812, 1.802, 1.802, 1.782],
 				},
 			},
 			"gather": {
 				"back_r": {
-					"row": 11,
-					"col": 0,
+					"x": 720,
+					"y": 1152,
+					"size": [116, 198],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [54.0, 180.16],
+					"reach": [1.682, 1.312, 1.752],
 				},
 			},
 			"lunge": {
 				"side_l": {
-					"row": 11,
-					"col": 3,
+					"x": 0,
+					"y": 492,
+					"size": [126, 230],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [58.0, 220.16],
+					"reach": [1.792, 2.142, 2.092],
 				},
 			},
 			"walk": {
 				"front_r": {
-					"row": 1,
-					"col": 8,
+					"x": 1152,
+					"y": 942,
+					"size": [110, 202],
 					"frames": 8,
-					"pivot": [64.0, 266.16],
+					"pivot": [48.0, 184.16],
+					"reach": [1.772, 1.742, 1.712, 1.742, 1.772, 1.742, 1.712, 1.742],
 				},
 			},
 			"celebrate": {
 				"front": {
-					"row": 13,
-					"col": 8,
+					"x": 1936,
+					"y": 0,
+					"size": [100, 222],
 					"frames": 1,
-					"pivot": [64.0, 266.16],
+					"pivot": [50.0, 210.16],
+					"reach": [2.032],
 				},
 			},
 		},
@@ -188,86 +257,128 @@ const BODIES := {
 		"anims": {
 			"idle": {
 				"front": {
-					"row": 13,
-					"col": 9,
+					"x": 1792,
+					"y": 254,
+					"size": [72, 212],
 					"frames": 1,
-					"pivot": [64.0, 266.16],
+					"pivot": [36.0, 198.16],
+					"reach": [1.922],
 				},
 				"back": {
-					"row": 13,
-					"col": 10,
+					"x": 1864,
+					"y": 254,
+					"size": [72, 206],
 					"frames": 1,
-					"pivot": [64.0, 266.16],
+					"pivot": [36.0, 202.16],
+					"reach": [1.962],
 				},
 			},
 			"jog": {
 				"front": {
-					"row": 2,
-					"col": 0,
+					"x": 0,
+					"y": 942,
+					"size": [72, 210],
 					"frames": 8,
-					"pivot": [64.0, 266.16],
+					"pivot": [36.0, 194.16],
+					"reach": [1.892, 1.842, 1.812, 1.842, 1.892, 1.842, 1.812, 1.842],
 				},
 				"back": {
-					"row": 2,
-					"col": 8,
+					"x": 576,
+					"y": 942,
+					"size": [72, 210],
 					"frames": 8,
-					"pivot": [64.0, 266.16],
+					"pivot": [36.0, 204.16],
+					"reach": [1.992, 1.942, 1.912, 1.942, 1.992, 1.942, 1.912, 1.942],
 				},
 			},
 			"tap": {
 				"front": {
-					"row": 7,
-					"col": 6,
+					"x": 0,
+					"y": 0,
+					"size": [120, 254],
 					"frames": 6,
-					"pivot": [64.0, 266.16],
+					"pivot": [60.0, 240.16],
+					"reach": [1.602, 1.822, 1.922, 2.142, 2.352, 2.352],
 				},
 				"back": {
-					"row": 8,
-					"col": 0,
+					"x": 720,
+					"y": 0,
+					"size": [120, 246],
 					"frames": 6,
-					"pivot": [64.0, 266.16],
+					"pivot": [60.0, 240.16],
+					"reach": [1.792, 1.942, 1.952, 2.352, 2.232, 2.232],
 				},
 			},
 			"tap_b": {
 				"front": {
-					"row": 8,
-					"col": 12,
+					"x": 1440,
+					"y": 0,
+					"size": [124, 238],
 					"frames": 4,
-					"pivot": [64.0, 266.16],
+					"pivot": [62.0, 224.16],
+					"reach": [1.562, 1.902, 2.072, 2.182],
 				},
 				"back": {
-					"row": 10,
-					"col": 0,
+					"x": 0,
+					"y": 254,
+					"size": [124, 238],
 					"frames": 4,
-					"pivot": [64.0, 266.16],
+					"pivot": [62.0, 232.16],
+					"reach": [1.782, 1.962, 2.262, 2.162],
 				},
 			},
 			"ready": {
 				"front": {
-					"row": 11,
-					"col": 6,
+					"x": 1068,
+					"y": 1152,
+					"size": [88, 198],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [44.0, 182.16],
+					"reach": [1.742, 1.722, 1.762],
 				},
 				"back": {
-					"row": 11,
-					"col": 9,
+					"x": 192,
+					"y": 1152,
+					"size": [88, 200],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [44.0, 200.16],
+					"reach": [1.932, 1.912, 1.942],
 				},
 			},
 			"ready_turn": {
 				"front": {
-					"row": 11,
-					"col": 12,
+					"x": 1332,
+					"y": 1152,
+					"size": [88, 198],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [40.0, 182.16],
+					"reach": [1.742, 1.722, 1.762],
 				},
 				"back": {
-					"row": 12,
-					"col": 0,
+					"x": 456,
+					"y": 1152,
+					"size": [88, 200],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [48.0, 200.16],
+					"reach": [1.922, 1.912, 1.932],
+				},
+			},
+			"ready_b": {
+				"front": {
+					"x": 1596,
+					"y": 1152,
+					"size": [110, 190],
+					"frames": 3,
+					"pivot": [44.0, 180.16],
+					"reach": [1.712, 1.742, 1.752],
+				},
+				"back": {
+					"x": 1528,
+					"y": 722,
+					"size": [110, 204],
+					"frames": 3,
+					"pivot": [66.0, 200.16],
+					"reach": [1.932, 1.952, 1.952],
 				},
 			},
 		},
@@ -277,82 +388,130 @@ const BODIES := {
 		"anims": {
 			"jog": {
 				"front": {
-					"row": 3,
-					"col": 0,
+					"x": 1216,
+					"y": 1940,
+					"size": [68, 186],
 					"frames": 8,
-					"pivot": [64.0, 266.16],
+					"pivot": [34.0, 172.16],
+					"reach": [1.662, 1.622, 1.602, 1.622, 1.662, 1.622, 1.602, 1.622],
 				},
 				"back": {
-					"row": 3,
-					"col": 8,
+					"x": 0,
+					"y": 2128,
+					"size": [68, 186],
 					"frames": 8,
-					"pivot": [64.0, 266.16],
+					"pivot": [34.0, 180.16],
+					"reach": [1.742, 1.712, 1.692, 1.712, 1.742, 1.712, 1.692, 1.712],
 				},
 				"back_r": {
-					"row": 4,
-					"col": 0,
+					"x": 0,
+					"y": 1940,
+					"size": [110, 188],
 					"frames": 8,
-					"pivot": [70.0, 266.16],
+					"pivot": [60.0, 180.16],
+					"reach": [1.732, 1.702, 1.682, 1.702, 1.732, 1.702, 1.682, 1.702],
+				},
+				"side_l": {
+					"x": 544,
+					"y": 2128,
+					"size": [144, 184],
+					"frames": 8,
+					"pivot": [64.0, 174.16],
+					"reach": [1.682, 1.652, 1.622, 1.652, 1.682, 1.652, 1.622, 1.652],
 				},
 			},
 			"leap": {
 				"back": {
-					"row": 8,
-					"col": 6,
+					"x": 928,
+					"y": 722,
+					"size": [100, 216],
 					"frames": 6,
-					"pivot": [64.0, 266.16],
+					"pivot": [50.0, 210.16],
+					"reach": [1.582, 1.702, 1.712, 2.042, 1.912, 1.912],
 				},
 			},
 			"ready": {
 				"front": {
-					"row": 12,
-					"col": 3,
+					"x": 480,
+					"y": 2496,
+					"size": [80, 174],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [40.0, 160.16],
+					"reach": [1.532, 1.512, 1.542],
 				},
 				"back": {
-					"row": 12,
-					"col": 6,
+					"x": 0,
+					"y": 2496,
+					"size": [80, 176],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [40.0, 176.16],
+					"reach": [1.692, 1.682, 1.702],
 				},
 			},
 			"ready_turn": {
 				"front": {
-					"row": 12,
-					"col": 9,
+					"x": 720,
+					"y": 2496,
+					"size": [80, 174],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [36.0, 160.16],
+					"reach": [1.532, 1.512, 1.552],
 				},
 				"back": {
-					"row": 12,
-					"col": 12,
+					"x": 240,
+					"y": 2496,
+					"size": [80, 176],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [44.0, 176.16],
+					"reach": [1.692, 1.682, 1.702],
+				},
+			},
+			"ready_b": {
+				"front": {
+					"x": 960,
+					"y": 2496,
+					"size": [100, 168],
+					"frames": 3,
+					"pivot": [40.0, 158.16],
+					"reach": [1.502, 1.522, 1.532],
+				},
+				"back": {
+					"x": 1696,
+					"y": 2128,
+					"size": [100, 182],
+					"frames": 3,
+					"pivot": [60.0, 178.16],
+					"reach": [1.692, 1.712, 1.712],
 				},
 			},
 			"kick": {
 				"back_r": {
-					"row": 9,
-					"col": 0,
+					"x": 498,
+					"y": 2314,
+					"size": [120, 180],
 					"frames": 6,
-					"pivot": [43.0, 266.16],
+					"pivot": [45.0, 178.16],
+					"reach": [1.722, 1.722, 1.722, 1.722, 1.702, 1.672],
 				},
 			},
 			"snap": {
 				"back_r": {
-					"row": 9,
-					"col": 11,
+					"x": 1218,
+					"y": 2314,
+					"size": [96, 180],
 					"frames": 5,
-					"pivot": [36.0, 266.16],
+					"pivot": [30.0, 178.16],
+					"reach": [1.712, 1.712, 1.712, 1.702, 1.692],
 				},
 			},
 			"gather": {
 				"back_r": {
-					"row": 13,
-					"col": 0,
+					"x": 880,
+					"y": 1940,
+					"size": [112, 188],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [52.0, 172.16],
+					"reach": [1.592, 1.242, 1.662],
 				},
 			},
 		},
@@ -362,34 +521,42 @@ const BODIES := {
 		"anims": {
 			"coach_idle": {
 				"front": {
-					"row": 13,
-					"col": 11,
+					"x": 1962,
+					"y": 492,
+					"size": [64, 192],
 					"frames": 1,
-					"pivot": [64.0, 266.16],
+					"pivot": [32.0, 180.16],
+					"reach": [1.752],
 				},
 			},
 			"coach_walk": {
 				"front_r": {
-					"row": 4,
-					"col": 8,
+					"x": 912,
+					"y": 1354,
+					"size": [106, 196],
 					"frames": 8,
-					"pivot": [64.0, 266.16],
+					"pivot": [48.0, 180.16],
+					"reach": [1.752, 1.722, 1.692, 1.722, 1.752, 1.722, 1.692, 1.722],
 				},
 			},
 			"coach_sit": {
 				"front": {
-					"row": 13,
-					"col": 3,
+					"x": 0,
+					"y": 1152,
+					"size": [64, 202],
 					"frames": 3,
-					"pivot": [64.0, 266.16],
+					"pivot": [32.0, 180.16],
+					"reach": [1.752, 1.482, 1.292],
 				},
 			},
 			"coach_seated": {
 				"front": {
-					"row": 13,
-					"col": 6,
+					"x": 1844,
+					"y": 1550,
+					"size": [74, 156],
 					"frames": 2,
-					"pivot": [64.0, 266.16],
+					"pivot": [38.0, 134.16],
+					"reach": [1.292, 1.292],
 				},
 			},
 		},
@@ -397,17 +564,29 @@ const BODIES := {
 }
 
 
-## The strip for a body's move from one side: {"row", "col", "frames", "pivot"}.
+## The strip for a body's move from one side: {"x", "y", "size", "frames", "pivot", "reach"}.
 static func strip(body: String, anim: String, facing: String) -> Dictionary:
 	return BODIES[body]["anims"][anim][facing]
 
 
 ## Whether a body has a move from that side (small men don't play every move).
 static func has(body: String, anim: String, facing: String) -> bool:
-	return BODIES.has(body) and (BODIES[body]["anims"] as Dictionary).has(anim) 			and (BODIES[body]["anims"][anim] as Dictionary).has(facing)
+	return BODIES.has(body) and (BODIES[body]["anims"] as Dictionary).has(anim) \
+			and (BODIES[body]["anims"][anim] as Dictionary).has(facing)
 
 
 ## Where frame i of a strip sits in the sheet.
 static func source(s: Dictionary, i: int) -> Rect2:
 	var f := clampi(i, 0, int(s["frames"]) - 1)
-	return Rect2((int(s["col"]) + f) * FRAME.x, int(s["row"]) * FRAME.y, FRAME.x, FRAME.y)
+	var sz := frame_size(s)
+	return Rect2(int(s["x"]) + f * sz.x, int(s["y"]), sz.x, sz.y)
+
+
+## A strip's frame size, pixels.
+static func frame_size(s: Dictionary) -> Vector2:
+	return Vector2(s["size"][0], s["size"][1])
+
+
+## Frame i's highest point above the feet, metres (a leap's hands).
+static func reach(s: Dictionary, i: int) -> float:
+	return float(s["reach"][clampi(i, 0, int(s["frames"]) - 1)])
