@@ -123,7 +123,7 @@ static func _bar_rating(q: Dictionary, projected: bool) -> int:
 ## projections are not promises.
 static func cover(p: Dictionary, projected_bars: Dictionary) -> float:
 	var fut := roundi(future_rating(p))
-	for r in [str(p.get("role", "")), str(p.get("role2", ""))]:
+	for r in [str(p.get("role", ""))] + Traits.positions_of(p):  # learned positions count too
 		if r != "" and projected_bars.has(r) and fut > int(projected_bars[r]):
 			return 1.0
 	return 0.85 if fut > int(projected_bars.get("bench", 0)) else 0.7
@@ -138,7 +138,7 @@ static func cover(p: Dictionary, projected_bars: Dictionary) -> float:
 static func fit(p: Dictionary, bars: Dictionary) -> float:
 	var ovr := roundi(rating(p))
 	var gain := -999
-	for r in [str(p.get("role", "")), str(p.get("role2", ""))]:
+	for r in [str(p.get("role", ""))] + Traits.positions_of(p):  # learned positions count too
 		if r != "" and bars.has(r):
 			gain = maxi(gain, ovr - int(bars[r]))
 	if gain > 0:
