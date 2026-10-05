@@ -63,7 +63,7 @@ func _selection_tests() -> void:
 	# Their key forwards, and who you put on them.
 	var km: Node = ui.find_child("KeyMatchups", true, false)
 	_check(km != null and km.find_child("MatchupLine", true, false) != null
-			and str(km.find_child("MatchupLine", true, false).text).contains(" on him"),
+			and str(km.find_child("MatchupLine", true, false).text).contains(" is on "),
 			"Selection names their key forwards and who is on them")
 	var chm: Button = km.find_child("ChangeMatchup", true, false) if km != null else null
 	if chm != null:

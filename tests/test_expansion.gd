@@ -19,6 +19,7 @@ func run() -> void:
 	_test_2028_season_runs()
 	_test_rollover_to_2030()
 	_test_save_load_across_expansion()
+	_test_expansion_ceilings()
 	GameState.reset()
 	GameState.delete_saved_career()
 	print("Expansion tests: %d checks, %d failures" % [checks, failures.size()])
@@ -229,3 +230,28 @@ func _test_save_load_across_expansion() -> void:
 	_check(not GameState.season.finals.is_empty()
 			or not GameState.season.is_regular_done(),
 			"The loaded season is still playable")
+
+
+## An expansion list's seasoned players have the ceiling of their age, not
+## of an 18-year-old draft pick; its young players keep the draft-style one.
+func _test_expansion_ceilings() -> void:
+	for spec in [["TAS", 2028], ["CANB", 2030]]:
+		var lst: Array = Prospects.generate_expansion_list(str(spec[0]), int(spec[1]))
+		var old_ok := true
+		var old_n := 0
+		var young_room := 0.0
+		var young_n := 0
+		for p in lst:
+			var age := float(p["age"])
+			var room := int(p["potential"]) - int(p["overall"])
+			if age > Potential.MAX_PROSPECT_AGE:
+				old_n += 1
+				if room > int(Potential._headroom(age)) + 3:
+					old_ok = false
+			else:
+				young_room += float(room)
+				young_n += 1
+		_check(old_n > 0 and old_ok,
+				"%s %d: no seasoned expansion player has a draftee's ceiling (%d over 21)" % [spec[0], spec[1], old_n])
+		_check(young_n > 0 and young_room / young_n >= 10.0,
+				"%s %d: young expansion players keep real upside (mean +%.1f)" % [spec[0], spec[1], young_room / maxf(1, young_n)])

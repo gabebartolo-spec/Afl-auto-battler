@@ -213,7 +213,7 @@ func club_marker_colours(code: String) -> Array:
 
 ## Guernsey designs the vignette figures can wear, in figure.gdshader's numbering.
 const GUERNSEY_DESIGNS := ["plain", "stripes", "hoops", "sash", "yoke", "band", "chevrons", "panels",
-		"chevron", "sides", "tiers", "shoulders"]
+		"chevron", "sides", "tiers", "shoulders", "map"]
 
 
 ## A club's home kit, from data/clubs.csv's "guernsey" column:
@@ -285,6 +285,11 @@ func player_display_name_by_id(id: String, fallback := "") -> String:
 	var player = player_by_id(id)
 	if player != null:
 		return player_display_name(player)
+	# A player who joined a list during the career: name him from the lists.
+	if id != "":
+		var listed := GameState.season_player_name(id)
+		if listed != "":
+			return listed
 	return fallback
 
 
