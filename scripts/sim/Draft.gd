@@ -657,11 +657,9 @@ func _ai_score(code: String, p: Dictionary) -> float:
 ## It only steers rival clubs' choices. Ratings, the board, the cap and your
 ## club's picks are untouched (your club gets no error), and the intake
 ## draft keeps its shared valuation. Calibrated with the drafted-league
-## harness (docs/DRAFT_EVALUATION.md): the spread of sharpness separates
-## rival lists, and the size of the errors is what a human gains by taking
-## the best player left, so the range keeps the first and shrinks the second.
-const AI_EVAL_SD_MIN := 0.0
-const AI_EVAL_SD_MAX := 4.0
+## harness: docs/DRAFT_EVALUATION.md.
+const AI_EVAL_SD_MIN := 1.0
+const AI_EVAL_SD_MAX := 5.0
 ## Errors are capped at this many of the club's SDs, so no club rates a
 ## fringe player as a star.
 const AI_EVAL_CLAMP := 2.5

@@ -20,7 +20,7 @@ from that evidence. Everything below was measured through the shipped code.
 | Training, fatigue, development, ageing favour you | **Contradicted.** One rule set for every club; the small user-only extras are listed. | [5](#5-what-the-code-contradicts) |
 | An age-28, 89-POT generated player | **Explained and fixed:** expansion lists gave every age a draft prospect's ceiling; a generated player past draft age now gets the ceiling a listed player of his age has. | [6](#6-generated-players-expansion-lists) |
 | Trades buy flags | **Confirmed and changed.** Only you could buy a rebuilding club's starters, and a contract-value bug skewed every price; contending rivals now compete for them. | [7](#7-active-management-against-autopilot), [11](#11-trades-changed) |
-| You out-draft the rivals | **Confirmed and reduced.** Rival scouting error 0-4 (was 1-5): a top-four opening list in 9 of 40 careers, down from 19. | [10](#10-opening-draft-what-rivals-know-changed) |
+| You out-draft the rivals | **Confirmed; reduced by #222 instead.** Rival scouting error 0-4 was chosen here, then withdrawn (2026-10-06): #222's recruiters' read already removed most of the edge, and both together put a sensible drafter about 12th of 18. Rivals stay at 1-5. | [10](#10-opening-draft-what-rivals-know-changed) |
 | A passive coach concedes the routine calls | **Changed.** Your assistant makes them by the rivals' rules; worth nothing either way. | [12](#12-match-day-your-assistant-changed) |
 
 ## Tooling
@@ -420,6 +420,14 @@ two thirds (rank 6.6 to 8.9, top four in 9 of 40 careers instead of 19), and
 the league stays within or at the edge of every target. A careful human
 still out-drafts the rivals on average, and rivals still draft only on
 what their own scouts think.
+
+**Withdrawn (2026-10-06, director).** #222, merged after this was measured,
+replaced your exact League Draft board with your recruiters' read. Measured
+together on the scouted board (8 seeds, 18 clubs), 0-4 put a human drafting
+off his board about 12th of 18 by list strength (14th for a looser drafter),
+against about 8th with #222 alone. The director kept 1-5; the 0-4 variant
+stays in the draft experiment as tooling. Evidence:
+[DRAFT_EDGE_EVIDENCE_2026-10-06.md](DRAFT_EDGE_EVIDENCE_2026-10-06.md).
 
 ## 11. Trades (changed)
 
