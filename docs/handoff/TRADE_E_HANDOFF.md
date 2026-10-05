@@ -116,3 +116,19 @@ after the rehab fix): healthy. Every brief §9 check passes.
    shows scouted estimates" (TODO). This branch already cut the rival
    scouting error to 0-4 for the same first-season edge. Doing both may
    overcorrect, so ask which to keep.
+
+## Status at archive (2026-10-05, 09:30 UTC)
+
+- **PR #228** (this branch to main) is open and **not merged**.
+- **Full suite** passed locally on the rehab fix (35 of 35 suites).
+- **CI failed on the merged head `4ce353e`**: one check in the matchday
+  suite, "No one is ringed before you have made a call".
+  - Cause: main's #221 rings the players your calls involve. This branch's
+    assistant picks the loose defender (and match-up changes at the breaks)
+    for you, so the rings counted his calls as yours.
+- **Fix pushed after `4ce353e`, untested locally.** `MatchSim.coach_call(side,
+  fwd_id)` says whether the coach made a call himself; MatchRings rings the
+  loose defender and in-match match-up changes only when it is true.
+- **To finish:**
+  1. Run `tools/run_tests.sh matchday match_visual coach_effects`.
+  2. Once CI on PR #228 is green, merge it.

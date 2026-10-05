@@ -337,6 +337,16 @@ func assistant_active(side: int) -> bool:
 	return false
 
 
+## Whether the coach made this call himself, rather than his assistant: the
+## loose defender (`fwd_id` "") or the match-up on `fwd_id`. Always true for
+## a side without an assistant.
+func coach_call(side: int, fwd_id := "") -> bool:
+	if side < 0 or side > 1 or not _assisted(side):
+		return true
+	var own: Dictionary = _own[side]
+	return bool(own["interceptor"]) if fwd_id == "" else (own["duels"] as Dictionary).has(fwd_id)
+
+
 func _assisted(side: int) -> bool:
 	var sq: Squad = squads[side]
 	return sq.assistant and not sq.ai_plans
