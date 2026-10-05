@@ -987,7 +987,8 @@ func _start_next_season(next_year: int, signed: int) -> void:
 		var table := season.ladder_sorted()
 		for k in range(table.size()):
 			_last_finish[str(table[k]["code"])] = k + 1
-	# The new season never starts with one of your staff jobs empty.
+	# Undecided assistants stay; then no staff job starts the season empty.
+	_settle_staff_contracts()
 	_fill_open_staff()
 	# The season's close normally counted careers already (Career skips a
 	# season it has seen); this covers a season rolled on without one.
@@ -2219,6 +2220,20 @@ func season_player_name(player_id: String) -> String:
 			if p is Dictionary and str(p.get("id", "")) == player_id:
 				return GameDB.player_display_name(p)
 	return ""
+
+
+## His potential as your club knows it: exact for your own players, a
+## recruiters' range for anyone else (DraftScouting.pot_read). {"mid",
+## "range", "exact"}; "text" is ready to show ("82" or "78-84").
+func pot_view(p: Dictionary) -> Dictionary:
+	var pot := maxi(int(p.get("overall", 50)), int(p.get("potential", p.get("overall", 50))))
+	if not list_player(str(p.get("id", ""))).is_empty():
+		return {"mid": pot, "range": [pot, pot], "exact": true, "text": str(pot)}
+	var r := DraftScouting.pot_read(p, my_club, career_seed,
+			ClubBudget.scouting_mult(department_budget_level("recruiting")))
+	var rg: Array = r["range"]
+	return {"mid": int(r["mid"]), "range": rg, "exact": false,
+			"text": str(rg[0]) if int(rg[0]) == int(rg[1]) else DraftScouting.range_text(rg)}
 
 
 func list_player(player_id: String) -> Dictionary:
@@ -5709,6 +5724,42 @@ func release_staff(cid: String) -> void:
 	var job := CoachMarket.release(coaches, cid, season_year)
 	staff_vacancies.append({"job": job, "reason": "You released %s." % GameDB.player_display_name(c)})
 	_dirty = true
+
+
+## Your assistants whose term ends with this season, in the off-season:
+## each waits for Re-sign or Release. Coach records, by job order.
+func expiring_staff() -> Array:
+	var out := []
+	if not can_release_staff():
+		return out
+	for job in Coaches.JOBS:
+		if job == "SC":
+			continue
+		var c: Dictionary = club_staff(my_club).get(job, {})
+		if c.is_empty():
+			continue
+		CoachMarket.ensure_fields(c, season_year)
+		if int(c.get("contract_to", season_year + 1)) <= season_year:
+			out.append(c)
+	return out
+
+
+## Re-sign your expiring assistant on his terms (CoachMarket.assistant_stance).
+func resign_staff(cid: String) -> void:
+	if not coaches.has(cid):
+		return
+	var c: Dictionary = coaches[cid]
+	if str(c.get("club", "")) != my_club or not expiring_staff().has(c):
+		return
+	CoachMarket.resign(c, season_year)
+	_dirty = true
+
+
+## At the rollover an assistant you did not decide on stays, on his terms -
+## as an expiring player you leave alone is re-signed.
+func _settle_staff_contracts() -> void:
+	for c in expiring_staff():
+		CoachMarket.resign(c, season_year)
 
 
 ## A season never starts a staff member short: open jobs are auto-filled.

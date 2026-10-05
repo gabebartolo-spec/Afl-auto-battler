@@ -45,6 +45,20 @@ static func scouted_worth(p: Dictionary, club: String, seed: int, pot_weight: fl
 	return ov * (1.0 - pot_weight) + pot * pot_weight
 
 
+## Another club's player, read by your recruiters: his potential as a range
+## centred on their estimate. Fresh to the league it is as wide as a
+## prospect's; every senior game narrows it, to under a third by 150 games,
+## and the recruiting budget sharpens or blurs it ({"mid", "range"}).
+static func pot_read(p: Dictionary, club: String, seed: int, uncertainty_mult := 1.0) -> Dictionary:
+	var ov := int(p.get("overall", 50))
+	var pot := maxi(ov, int(p.get("potential", ov)))
+	var games := float((p.get("career", {}) as Dictionary).get("games", p.get("gm", 0.0)))
+	var sd := POT_SD * clampf(1.0 - games / 150.0, 0.3, 1.0) * maxf(0.25, float(uncertainty_mult))
+	var mid := clampi(int(round(float(pot) + _normal(_key(p, club, seed, "seasonpot")) * sd)), ov, 99)
+	var half := maxi(1, int(round(sd * 0.8)))
+	return {"mid": mid, "range": [maxi(ov, mid - half), mini(99, mid + half)]}
+
+
 static func range_text(values: Array) -> String:
 	if values.size() < 2:
 		return "-"
