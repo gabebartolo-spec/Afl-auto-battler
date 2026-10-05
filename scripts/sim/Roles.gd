@@ -51,7 +51,7 @@ static func centre_fit(p: Dictionary) -> float:
 
 
 static func is_mid(p: Dictionary) -> bool:
-	return str(p.get("role", "")) == "MID" or str(p.get("role2", "")) == "MID"
+	return str(p.get("role", "")) == "MID" or Traits.plays(p, "MID")
 
 
 ## A natural wing: a midfielder whose running game (against other 2026

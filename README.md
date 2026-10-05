@@ -478,12 +478,12 @@ suites are in `tests/`; see [tests/README.md](tests/README.md) for commands and
 remaining device checks. Native Android/iOS sensor rotation and safe-area insets
 still need an on-device check.
 
-The game starts in a fictional-label mode: players appear under generated random
-names such as `Ari Bramble`, while their 2026 stats and ratings remain unchanged.
-Numbered placeholders are never used. **Player names** (in the New Career
-setup, or Settings on the main menu) switches those labels to the real AFL name (`Jordan Dawson`) when you want that
-context — the name alone, not a "plays like" comparison. Generated prospects
-keep a fictional name. Club names remain
+The game shows real AFL names by default (`Jordan Dawson`): the name alone, not a
+"plays like" comparison. **Player names** (in the New Career setup, or Settings
+on the main menu) switches to generated fictional labels such as `Ari Bramble`
+instead; ratings and results are the same either way, and a choice you make is
+kept. Numbered placeholders are never used. Generated prospects and custom
+players keep the names they were given. Club names remain
 visible, but no club badges, guernsey designs or player imagery are reproduced —
 guernseys are two
 circles in each club's registered colours. This presentation choice is not legal

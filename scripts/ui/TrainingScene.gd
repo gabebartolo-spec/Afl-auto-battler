@@ -194,6 +194,8 @@ func _plan_picker(p: Dictionary, on_pick: Callable) -> Control:
 			label = "Position plan (%s)" % PlayerProfile.role_word(first).to_lower()
 		elif key == "manual":
 			label = "Manual"
+		elif key.begins_with(GameState.LEARN_PREFIX):
+			label = "Learn " + str(GameState.LEARN_JOBS[key.trim_prefix(GameState.LEARN_PREFIX)]["word"])
 		options.append([key, label])
 	return UiKit.choice_grid("PlayerPlan", options, GameState.plan_for(p), 2, on_pick)
 
@@ -474,6 +476,8 @@ static func _row_plan(plan: String) -> String:
 	var label := GameState.train_plan_label(plan)
 	if plan == "position":
 		return label
+	if plan.begins_with(GameState.LEARN_PREFIX):
+		return "Learning to play %s" % str(GameState.LEARN_JOBS[plan.trim_prefix(GameState.LEARN_PREFIX)]["word"])
 	var noun := label.to_lower()
 	return "Training as %s %s" % ["an" if noun.substr(0, 1) in ["a", "e", "i", "o", "u"] else "a", noun]
 
@@ -553,6 +557,12 @@ func _detail_panel() -> Control:
 	meaning.name = "FocusMeaning"
 	meaning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	fv.add_child(meaning)
+	var progress := _project_line(p)
+	if progress != "":
+		var pl := UiKit.lbl(progress, 13, UiKit.TEXT, true)
+		pl.name = "ProjectProgress"
+		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		fv.add_child(pl)
 	if plan != "manual":
 		var working := _working_on(p)
 		if working != "":
@@ -615,6 +625,22 @@ func _detail_panel() -> Control:
 		for r in rows:
 			body.add_child(_stat_row(p, str(r[0]), str(r[1]), bool(r[2])))
 	return panel
+
+
+## "Week 3 of 8. As a key forward he rates 66, his own game 71: within 3 by
+## week 8 and he can be picked there." The standard he is chasing, plainly.
+static func _project_line(p: Dictionary) -> String:
+	var job := GameState.project_job(p)
+	if job == "":
+		return ""
+	var role := GameState.project_role(p)
+	var there := GameState.rating_as(p, role)
+	var own := int(p.get("overall", 0))
+	var head := "%s. As a %s he rates %d, his own game %d: " % [
+		GameState.project_progress(p), str(GameState.LEARN_JOBS[job]["word"]), there, own]
+	if there >= own - GameState.PROJECT_PASS:
+		return head + "up to the standard, so he can be picked there after week %d." % GameState.PROJECT_WEEKS
+	return head + "within %d by week %d and he can be picked there." % [GameState.PROJECT_PASS, GameState.PROJECT_WEEKS]
 
 
 ## "Contested 72 · Disposal 64": what his plan is spending on.

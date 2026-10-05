@@ -238,7 +238,12 @@ static func age_league(lists: Dictionary, year: int) -> Dictionary:
 		var keep: Array = []
 		var dropped := 0
 		for p in arr:
-			if should_retire(p, year) and arr.size() - dropped > MIN_LIST and dropped < MAX_RETIRE_PER_CLUB:
+			# Decided at the off-season (Retirement) when it opened; a player
+			# talked round plays one more season.
+			var go := should_retire(p, year) or int(p.get("retiring", 0)) == year
+			if int(p.get("play_on", 0)) == year:
+				go = false
+			if go and arr.size() - dropped > MIN_LIST and dropped < MAX_RETIRE_PER_CLUB:
 				dropped += 1
 				retired.append({"id": str(p["id"]), "name": str(p.get("generic_name", p.get("name", "Player"))),
 						"club": str(code), "age": float(p.get("age", 26.0)),

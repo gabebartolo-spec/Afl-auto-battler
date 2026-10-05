@@ -5,11 +5,12 @@ extends Node
 ## Every scene reads from here and nothing else, so scene changes never lose
 ## the season.
 
-## Name presentation is a player preference rather than a career setting. The
-## game starts with generated fictional labels; the optional real-name view
-## shows each AFL name on its own, without changing the simulation or IDs.
+## Name presentation is a player preference rather than a career setting. With
+## no saved choice the game shows each AFL name on its own; generated fictional
+## labels are opt-in. Neither changes the simulation or IDs. Generated and custom
+## players have no real name and keep the name they were given.
 signal player_names_changed
-var show_real_names := false
+var show_real_names := true
 ## Transient navigation request. Settings can send the user straight to New
 ## career setup without touching the existing save.
 var new_career_setup_requested := false
@@ -179,7 +180,7 @@ var _dirty := false
 func _ready() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(settings_path) == OK:
-		show_real_names = bool(cfg.get_value("display", "real_names", false))
+		show_real_names = bool(cfg.get_value("display", "real_names", true))
 	UiKit.apply_appearance(str(cfg.get_value("ui", "appearance", "dark")))
 	_apply_sound_mute(bool(cfg.get_value("ui", "mute_sounds", false)))
 
@@ -2296,6 +2297,7 @@ func _grant_match_xp(res: Dictionary) -> void:
 	last_training_report = grant_match_xp(res)
 	# Training plans spend the fresh XP straight away.
 	last_training_report["auto"] = apply_train_plans()
+	last_training_report["projects"] = _advance_projects()
 
 
 ## Every player on the list is paid. Named players and good games earn more;
@@ -2404,6 +2406,237 @@ const TRAIN_PLANS := [
 	{"key": "manual", "label": "Manual (development paused)", "roles": [],
 			"text": "Nothing is trained automatically. His XP banks until you spend it by hand - banked XP does not make him better."},
 ]
+# ---------------------------------------------------------------------------
+# Learning another position (roadmap M5-003, director-selected RC-003)
+# ---------------------------------------------------------------------------
+## A bounded development project: for PROJECT_WEEKS fit weeks his training
+## goes into another position's game instead of his own - his own rating
+## grows more slowly, the price - then he either plays there well enough to be
+## picked there or it has not taken. Built on the ordinary training plan: the
+## same XP and season limit, no new currency, nothing guaranteed.
+## Who may try (director, 2026-10-06): a plausible move only (his rating there
+## within PROJECT_REACH of his own); the job follows his size - key forward,
+## key defender and ruck take height, a small forward or small defender has
+## to be small; POT 70+ for a second position and POT 90+ for a third (made
+## rarer by the director, 2026-10-06, so Unicorns stay rare).
+## Three positions across forward, midfield and back make him a Unicorn
+## (Traits). One project per player a season, PROJECT_MAX a club at once.
+## The price is explicit: from the day he starts, training in his own position
+## can lift him only PROJECT_OWN_GAIN more that season (the new position's
+## training can still help his own game where the two overlap).
+## Rival clubs learn positions too, sparingly: AI_PROJECTS a season each, by
+## the same gates (_ai_projects).
+const LEARN_PREFIX := "learn_"
+const PROJECT_WEEKS := 8
+const PROJECT_REACH := 6
+const PROJECT_PASS := 3
+const PROJECT_MAX := 2
+const PROJECT_OWN_GAIN := 1
+const AI_PROJECTS := 1
+const PROJECT_POT := {1: 70, 2: 90}      # positions he has -> POT to learn another
+const MAX_POSITIONS := 3
+const KEY_FWD_CM := 192.0
+const SMALL_FWD_CM := 181.0
+const KEY_DEF_CM := PlayerProfile.KEY_DEF_CM
+const RUCK_CM := 196.0
+## The jobs a player can learn, by line, with what each trains.
+const LEARN_JOBS := {
+	"mid": {"role": "MID", "word": "midfielder", "weights": {"contested": 3.0, "disposal": 1.0, "carry": 1.0}},
+	"key_fwd": {"role": "FWD", "word": "key forward", "weights": {"marking": 3.0, "goalkicking": 3.0, "accuracy": 1.0}},
+	"fwd": {"role": "FWD", "word": "forward", "weights": {"goalkicking": 3.0, "marking": 2.0, "accuracy": 1.0, "pressure": 1.0}},
+	"small_fwd": {"role": "FWD", "word": "small forward", "weights": {"goalkicking": 3.0, "accuracy": 2.0, "carry": 1.0, "creating": 1.0}},
+	"key_def": {"role": "DEF", "word": "key defender", "weights": {"intercept": 3.0, "pressure": 2.0}},
+	"small_def": {"role": "DEF", "word": "small defender", "weights": {"pressure": 3.0, "carry": 2.0, "intercept": 1.0}},
+	"ruck": {"role": "RUCK", "word": "ruck", "weights": {"ruck": 3.0, "contested": 1.0}},
+}
+
+
+## The job he is learning ("key_fwd"), or "".
+func project_job(p: Dictionary) -> String:
+	return str((p.get("project", {}) as Dictionary).get("job", ""))
+
+
+## The position he is learning ("FWD"), or "".
+func project_role(p: Dictionary) -> String:
+	var job := project_job(p)
+	return str((LEARN_JOBS.get(job, {}) as Dictionary).get("role", ""))
+
+
+## His rating were he to play `role`, from his attributes (the scale his own
+## rating is on).
+func rating_as(p: Dictionary, role: String) -> int:
+	return Ratings.rate_overall(p["attr"], role, Ratings.effective_games(p))
+
+
+func active_projects() -> int:
+	var n := 0
+	for q in my_list:
+		if project_job(q) != "":
+			n += 1
+	return n
+
+
+## The job his size gives him in a line: tall players learn the key jobs, small
+## ones the small jobs, the rest the line's general job. "" = not for him.
+static func learn_job_for(p: Dictionary, role: String) -> String:
+	var h := float(p.get("height_cm", 0.0))
+	match role:
+		"MID":
+			return "mid"
+		"FWD":
+			if h >= KEY_FWD_CM:
+				return "key_fwd"
+			if h > 0.0 and h <= SMALL_FWD_CM:
+				return "small_fwd"
+			return "fwd"
+		"DEF":
+			return "key_def" if h >= KEY_DEF_CM else "small_def"
+		"RUCK":
+			return "ruck" if h >= RUCK_CM else ""
+	return ""
+
+
+## The POT he needs to learn one more position, or -1 when he has all he may.
+static func learn_pot_needed(p: Dictionary) -> int:
+	var have := Ratings.positions(p).size()
+	if have >= MAX_POSITIONS:
+		return -1
+	return int(PROJECT_POT.get(have, 999))
+
+
+## The jobs he could set out to learn now ([] while he is learning one, has
+## tried this season, falls short of the POT, or the club runs PROJECT_MAX).
+func learnable_jobs(p: Dictionary) -> Array:
+	var out := []
+	if active_projects() >= PROJECT_MAX:
+		return out
+	return _jobs_open(p)
+
+
+## The jobs open to him by his own gates (POT, size, how far the move is, one
+## a season), whatever his club is already running.
+func _jobs_open(p: Dictionary) -> Array:
+	var out := []
+	if project_job(p) != "" or bool(p.get("projected", false)) or (p.get("attr", {}) as Dictionary).is_empty():
+		return out
+	if int(p.get("project_year", 0)) == season_year:
+		return out
+	var need := learn_pot_needed(p)
+	if need < 0 or int(p.get("potential", p.get("overall", 0))) < need:
+		return out
+	var have := Ratings.positions(p)
+	var own := int(p.get("overall", 0))
+	for role in ["MID", "FWD", "DEF", "RUCK"]:
+		if have.has(role):
+			continue
+		var job := learn_job_for(p, role)
+		if job != "" and own - rating_as(p, role) <= PROJECT_REACH:
+			out.append(job)
+	return out
+
+
+## "Week 3 of 8" while he learns, else "".
+func project_progress(p: Dictionary) -> String:
+	if project_job(p) == "":
+		return ""
+	return "Week %d of %d" % [int(p["project"].get("weeks", 0)), PROJECT_WEEKS]
+
+
+func _start_project(p: Dictionary, job: String) -> void:
+	var role := str(LEARN_JOBS[job]["role"])
+	p["project_cap"] = mini(season_ceiling(p), int(p.get("overall", 0)) + PROJECT_OWN_GAIN)
+	p["project"] = {"job": job, "weeks": 0, "year": season_year,
+			"start_own": int(p.get("overall", 0)), "start_there": rating_as(p, role),
+			"ceiling": rating_as(p, role) + SEASON_TRAIN_GAIN}
+	p["project_year"] = season_year
+
+
+## One week of his project (a week he is fit). At PROJECT_WEEKS he earns the
+## position if his rating there is within PROJECT_PASS of his own, or it has
+## not taken; either way he goes back to the club plan. {} or a result row.
+func _project_week(p: Dictionary, announce := true) -> Dictionary:
+	var job := project_job(p)
+	if job == "" or int(p.get("injury_weeks", 0)) > 0:
+		return {}
+	var pr: Dictionary = p["project"]
+	pr["weeks"] = int(pr.get("weeks", 0)) + 1
+	if int(pr["weeks"]) < PROJECT_WEEKS:
+		return {}
+	return _finish_project(p, announce)
+
+
+## The verdict on his project, at PROJECT_WEEKS or when the season ends first:
+## learned if his rating there is within PROJECT_PASS of his own.
+func _finish_project(p: Dictionary, announce := true) -> Dictionary:
+	var job := project_job(p)
+	var role := project_role(p)
+	var own := int(p.get("overall", 0))
+	var there := rating_as(p, role)
+	var learned := there >= own - PROJECT_PASS
+	var was_unicorn := Traits.of(p).has("unicorn")
+	if learned:
+		if str(p.get("role2", "")) == "":
+			p["role2"] = role
+		else:
+			var more: Array = p.get("learned", [])
+			more.append(role)
+			p["learned"] = more
+	p.erase("project")
+	p.erase("train_plan")
+	if not announce:
+		return {"id": str(p["id"]), "job": job, "learned": learned, "own": own, "there": there}
+	var name := GameDB.player_display_name(p)
+	var word := str(LEARN_JOBS[job]["word"])
+	var a := "an" if word.substr(0, 1) in ["a", "e", "i", "o", "u"] else "a"
+	if learned:
+		add_news("training", "%s has learned to play as %s %s: he can be picked there now." % [name, a, word])
+		if not was_unicorn and Traits.of(p).has("unicorn"):
+			add_news("training", "%s can now play forward, midfield and back: a Unicorn." % name)
+	else:
+		add_news("training", "%s's time training as %s %s has not taken: he is not ready to be picked there." % [name, a, word])
+	return {"id": str(p["id"]), "job": job, "learned": learned, "own": own, "there": there}
+
+
+## A rival club's projects for one game: it starts AI_PROJECTS a season, on
+## its highest-POT candidate (a job in a line he does not have yet where he
+## has one), and its learners' weeks count as yours do. No news.
+func _ai_projects(list: Array) -> void:
+	var started := 0
+	for p in list:
+		if int(p.get("project_year", 0)) == season_year:
+			started += 1
+	if started < AI_PROJECTS:
+		var best := {}
+		var best_jobs := []
+		for p in list:
+			var jobs := _jobs_open(p)
+			if not jobs.is_empty() and (best.is_empty() or int(p.get("potential", 0)) > int(best.get("potential", 0))):
+				best = p
+				best_jobs = jobs
+		if not best.is_empty():
+			var have := Ratings.positions(best)
+			var job := str(best_jobs[0])
+			for j in best_jobs:
+				var role := str(LEARN_JOBS[j]["role"])
+				if role in ["FWD", "MID", "DEF"] and not have.has(role):
+					job = str(j)
+					break
+			_start_project(best, job)
+	for p in list:
+		_project_week(p, false)
+
+
+func _advance_projects() -> Array:
+	var out := []
+	for p in my_list:
+		var r := _project_week(p)
+		if not r.is_empty():
+			out.append(r)
+	if not out.is_empty():
+		mark_dirty()
+	return out
+
+
 ## What the Position plan means for each role.
 const POSITION_PLAN_TEXT := {
 	"MID": "Mostly contested ball, with disposal and carry - what wins a midfielder's games.",
@@ -2608,8 +2841,22 @@ func _process_injuries(results: Array) -> void:
 			if season.lists.has(code):
 				Injuries.tick(season.lists[code])
 	for res in results:
-		last_injuries += Injuries.apply_match(res, season.lists, season.seed,
+		var rows := Injuries.apply_match(res, season.lists, season.seed,
 				int(res.get("round", season.round_index)))
+		last_injuries += rows
+		_log_injuries(rows)
+
+
+## Each new injury goes on the player's record (the season it happened), so
+## later decisions can cite his real history - only what this career saw.
+func _log_injuries(rows: Array) -> void:
+	for r in rows:
+		for p in season.lists.get(str(r["club"]), []):
+			if str(p["id"]) == str(r["id"]):
+				var log: Array = p.get("injury_log", [])
+				log.append(season_year)
+				p["injury_log"] = log
+				break
 
 
 ## Suspensions count down when that player's club plays, then this round's
@@ -2947,6 +3194,11 @@ func open_offseason() -> void:
 	if season == null or offseason_year == season_year:
 		return
 	ensure_contracts()
+	# The season is over: every unfinished project is judged where it stands.
+	for code in season.lists:
+		for p in season.lists[code]:
+			if project_job(p) != "":
+				_finish_project(p, str(code) == my_club)
 	offseason_year = season_year
 	# The board funds a fresh operating year. Last season's choices do not
 	# become permanent upgrades or compound into a tech tree.
@@ -2955,12 +3207,15 @@ func open_offseason() -> void:
 	offseason_log = []
 	compensation = []
 	offseason_staff = Coaches.staff(coaches, my_club) if not coaches.is_empty() else {}
+	_decide_retirements()
 	free_agents = []
 	for code in season.lists:
 		if code == my_club:
 			continue
 		var list: Array = season.lists[code]
 		for p in Contracts.expiring(list).duplicate():
+			if retiring_now(p):
+				continue  # he retires at the rollover: no contract, no free agency
 			var why := Contracts.ai_release_reason(p, list, salary_cap)
 			if why == "" or list.size() <= Contracts.MIN_LIST:
 				# Rivals bargain by the same rules: the least he takes for that term.
@@ -2979,6 +3234,69 @@ func open_offseason() -> void:
 	market_stats = {}
 	_open_market(free_agents)
 	mark_dirty()
+
+
+## Who retires at this rollover is decided now, by the ageing rules, so a
+## club can talk a healthy veteran round first (Retirement). Rival clubs ask
+## by the same rules straight away; yours waits for you (talk_round).
+func _decide_retirements() -> void:
+	var year := season_year + 1
+	for code in season.lists:
+		var list: Array = season.lists[code]
+		for p in list:
+			if not Retirement.intends(p, year):
+				continue
+			p["retiring"] = year
+			if str(code) == my_club or not Retirement.can_ask(p, list, year):
+				continue
+			var res := Retirement.answer(p, season_year, season_games(str(p["id"])))
+			Retirement.apply(p, res, year)
+			if bool(res["stays"]) and int(p.get("overall", 0)) >= NEWS_MIN_OVR:
+				add_news("retirement", "%s (%s) has decided to play on in %d." % [
+						GameDB.player_display_name(p), GameDB.club_name(str(code)), year])
+
+
+## Retiring at the coming rollover, and not talked round.
+func retiring_now(p: Dictionary) -> bool:
+	var year := season_year + 1
+	return int(p.get("retiring", 0)) == year and int(p.get("play_on", 0)) != year
+
+
+## Games he played this season (0 when he did not play).
+func season_games(player_id: String) -> int:
+	return int((season_tally.get(player_id, {}) as Dictionary).get("games", 0))
+
+
+## Your players retiring at this rollover, best first:
+## [{"p": player, "can_ask": bool, "talk": {} or his answer}].
+func retiring_players() -> Array:
+	var year := season_year + 1
+	var out := []
+	for p in my_list:
+		if int(p.get("retiring", 0)) == year and int(p.get("play_on", 0)) != year:
+			out.append({"p": p, "can_ask": Retirement.can_ask(p, my_list, year),
+					"talk": (p.get("retire_talk", {}) as Dictionary) if int((p.get("retire_talk", {}) as Dictionary).get("year", 0)) == year else {}})
+	for p in my_list:
+		if int(p.get("play_on", 0)) == year:
+			out.append({"p": p, "can_ask": false, "talk": p.get("retire_talk", {})})
+	out.sort_custom(func(a, b): return int(a["p"].get("overall", 0)) > int(b["p"].get("overall", 0)))
+	return out
+
+
+## Ask him to go around again. His answer: {"stays", "reason"}, or {} when
+## he cannot be asked.
+func talk_round(player_id: String) -> Dictionary:
+	var p := list_player(player_id)
+	var year := season_year + 1
+	if p.is_empty() or not offseason_open() or not Retirement.can_ask(p, my_list, year):
+		return {}
+	var res := Retirement.answer(p, season_year, season_games(player_id))
+	Retirement.apply(p, res, year)
+	var name := GameDB.player_display_name(p)
+	add_news("retirement", ("%s will go around again in %d." % [name, year]) if bool(res["stays"])
+			else ("%s is sticking with his decision to retire." % name))
+	mark_dirty()
+	return res
 
 
 ## Re-sign for `years` more seasons at `salary` (his asking price when not
@@ -3177,6 +3495,12 @@ const FILLER_CAP := 3
 
 
 func _open_market(players: Array) -> void:
+	# A player retiring at this rollover is not on the market: his career ends.
+	for p in players.duplicate():
+		if retiring_now(p):
+			players.erase(p)
+			free_agents.erase(p)
+			_career_over(p)
 	_bars = {}
 	var depth_held := {}
 	var targets_held := {}
@@ -3575,6 +3899,7 @@ func _join(code: String, p: Dictionary) -> void:
 	p["club"] = code
 	p["num"] = _next_jumper_number(list)
 	p.erase("train_plan")
+	p.erase("project")  # a new club ends it; his season's chance stays spent
 	p.erase("released_by")
 	p.erase("comp_eligible")
 	list.append(p)
@@ -4453,7 +4778,7 @@ func _close_free_agency() -> void:
 	# aside, so whoever takes yours can always be paid.
 	var room := salary_cap - my_payroll()
 	for p in Contracts.expiring(my_list).duplicate():
-		if bool(p.get("resigned", false)):
+		if bool(p.get("resigned", false)) or retiring_now(p):
 			continue
 		var walked := bool(p.get("talks", {}).get("walked", false))
 		if walked and my_list.size() <= Contracts.MIN_LIST:
@@ -4581,6 +4906,16 @@ func train_plan_options() -> Array:
 
 
 func _plan_row(key: String) -> Dictionary:
+	if key.begins_with(LEARN_PREFIX):
+		var job := key.trim_prefix(LEARN_PREFIX)
+		if not LEARN_JOBS.has(job):
+			return {}
+		var row: Dictionary = LEARN_JOBS[job]
+		var word := str(row["word"])
+		return {"key": key, "label": "Learn to play %s" % word, "roles": [],
+				"text": "%d weeks training as %s %s instead of in his own position, and his own game barely moves for the rest of the season. If he is close enough to the standard at the end, he can be picked there too; if not, it has not taken." % [
+					PROJECT_WEEKS, "an" if word.substr(0, 1) in ["a", "e", "i", "o", "u"] else "a", word],
+				"weights": row["weights"]}
 	for row in TRAIN_PLANS:
 		if str(row["key"]) == key:
 			return row
@@ -4603,16 +4938,32 @@ func train_plan_description(key: String, role := "") -> String:
 
 
 ## The plans that make sense for this player: Position plan, the archetypes
-## of his role (and his second role), and Manual.
+## of his role (and his second role), a position he could learn, and Manual.
 func plans_for(p: Dictionary) -> Array:
 	var out := []
 	for row in TRAIN_PLANS:
 		if plan_valid_for(p, str(row["key"])):
 			out.append(str(row["key"]))
+	var learn := []
+	var current := project_job(p)
+	if current != "":
+		learn.append(LEARN_PREFIX + current)
+	for job in learnable_jobs(p):
+		learn.append(LEARN_PREFIX + str(job))
+	var at := out.find("manual")
+	for k in learn:
+		if at >= 0:
+			out.insert(at, k)
+			at += 1
+		else:
+			out.append(k)
 	return out
 
 
 func plan_valid_for(p: Dictionary, key: String) -> bool:
+	if key.begins_with(LEARN_PREFIX):
+		var job := key.trim_prefix(LEARN_PREFIX)
+		return project_job(p) == job or learnable_jobs(p).has(job)
 	var row := _plan_row(key)
 	if row.is_empty():
 		return false
@@ -4646,10 +4997,17 @@ func set_player_plan(player_id: String, key: String) -> Dictionary:
 	var p := list_player(player_id)
 	if p.is_empty():
 		return {}
+	var learning := project_job(p)
 	if key == "" or not plan_valid_for(p, key):
 		p.erase("train_plan")
 	else:
 		p["train_plan"] = key
+	# Moving off a project ends it, unfinished; this season's chance is spent.
+	var now := str(p.get("train_plan", ""))
+	if learning != "" and now != LEARN_PREFIX + learning:
+		p.erase("project")
+	if now.begins_with(LEARN_PREFIX) and project_job(p) == "":
+		_start_project(p, now.trim_prefix(LEARN_PREFIX))
 	mark_dirty()
 	return apply_plan_to(p)
 
@@ -4712,6 +5070,14 @@ func apply_train_plans() -> Dictionary:
 func apply_plan_to(p: Dictionary) -> Dictionary:
 	if plan_for(p) == "manual":
 		return {}
+	var job := project_job(p)
+	if job != "" and plan_for(p) == LEARN_PREFIX + job:
+		# Learning: the same season limit, counted in the new position.
+		var learnt := _spend_with_weights(p, plan_weights(p), true,
+				int(p["project"].get("ceiling", 0)), project_role(p))
+		if not learnt.is_empty():
+			mark_dirty()
+		return learnt
 	var gains := _spend_with_weights(p, plan_weights(p), true, season_ceiling(p))
 	if not gains.is_empty():
 		mark_dirty()
@@ -4761,13 +5127,14 @@ func development_state(p: Dictionary) -> String:
 ## POT prices every point the same way for every club; `ceiling` is a
 ## season limit (SEASON_TRAIN_GAIN, every club alike), not his potential.
 func _spend_with_weights(p: Dictionary, weights: Dictionary, stop_at_pot: bool,
-		ceiling := -1) -> Dictionary:
+		ceiling := -1, rate_role := "") -> Dictionary:
 	var gains := {}
 	var games := float(p.get("gm", 18.0))
 	var attr: Dictionary = p.get("attr", {})
 	var stop_at := ceiling if ceiling >= 0 else int(p.get("potential", 0))
 	while true:
-		if stop_at_pot and int(p.get("overall", 0)) >= stop_at:
+		var rated := int(p.get("overall", 0)) if rate_role == "" else rating_as(p, rate_role)
+		if stop_at_pot and rated >= stop_at:
 			break
 		var best_key := ""
 		var best_ratio := 0.0
@@ -4811,6 +5178,7 @@ func _train_rivals(results: Array) -> void:
 			for p in list:
 				ai_spend_xp(p)
 				best = _development_pick(code, p, best)
+			_ai_projects(list)
 	# One development story a round: the best player to reach his season's
 	# ceiling. Every rival doing so would drown the feed.
 	if not best.is_empty():
@@ -4829,15 +5197,26 @@ func _train_rivals(results: Array) -> void:
 const SEASON_TRAIN_GAIN := 3
 
 
-## The rating a player's training can take him to this season.
+## The rating a player's training can take him to this season (less once he
+## starts on another position).
 func season_ceiling(p: Dictionary) -> int:
 	if not p.has("season_start_ov"):
 		p["season_start_ov"] = int(p.get("overall", 0))
-	return int(p["season_start_ov"]) + SEASON_TRAIN_GAIN
+	var full := int(p["season_start_ov"]) + SEASON_TRAIN_GAIN
+	if int(p.get("project_year", 0)) == season_year and p.has("project_cap"):
+		return mini(full, int(p["project_cap"]))
+	return full
 
 
 ## Spend a rival player's XP. Returns the attribute points bought.
 func ai_spend_xp(p: Dictionary) -> int:
+	var job := project_job(p)
+	if job != "":
+		var learnt := 0
+		for n in _spend_with_weights(p, LEARN_JOBS[job]["weights"], true,
+				int(p["project"].get("ceiling", 0)), project_role(p)).values():
+			learnt += int(n)
+		return learnt
 	var ceiling := season_ceiling(p)
 	if int(p.get("overall", 0)) >= ceiling:
 		return 0

@@ -28,6 +28,10 @@ func run() -> void:
 	_test_dual_role_plans()
 	_test_training_multiselect()
 	_test_plan_is_not_identity()
+	_test_learning_a_position()
+	_test_unicorn()
+	_test_rival_projects()
+	_test_project_endings()
 	GameState.delete_saved_career()
 	print("Training tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -611,3 +615,224 @@ func _test_plan_is_not_identity() -> void:
 	_check(str(small["role"]) == "DEF" and PlayerProfile.player_type(small) != "Key defender",
 			"A %.0f cm defender on the key defender plan is still not a key defender (%s)" % [
 				float(small["height_cm"]), PlayerProfile.player_type(small)])
+
+
+## Learning another position (M5-003 / RC-003, director rules 2026-10-06): a
+## plausible job for his size, POT 70 for a second position and 90 for a
+## third, PROJECT_WEEKS fit weeks, then he earns it within PROJECT_PASS of his
+## own rating or it has not taken. Two at once a club, one a season a player.
+func _test_learning_a_position() -> void:
+	# The job follows his size.
+	var tall := {"height_cm": 200.0}
+	var mid_h := {"height_cm": 187.0}
+	var small := {"height_cm": 177.0}
+	_check(GameState.learn_job_for(tall, "FWD") == "key_fwd" and GameState.learn_job_for(small, "FWD") == "small_fwd"
+			and GameState.learn_job_for(mid_h, "FWD") == "fwd", "A forward's job follows his height")
+	_check(GameState.learn_job_for(tall, "DEF") == "key_def" and GameState.learn_job_for(small, "DEF") == "small_def"
+			and GameState.learn_job_for(mid_h, "DEF") == "small_def", "Only a tall player learns key defence; under 191 cm it is small defence")
+	_check(GameState.learn_job_for(mid_h, "RUCK") == "" and GameState.learn_job_for(tall, "RUCK") == "ruck",
+			"The ruck takes a ruckman's height")
+	# POT gates.
+	_new_season()
+	var cand := {}
+	for q in GameState.my_list:
+		if str(q.get("role2", "")) == "" and int(q.get("potential", 0)) >= 70 and not GameState.learnable_jobs(q).is_empty():
+			cand = q
+			break
+	_check(not cand.is_empty(), "Someone on the list can learn a position")
+	if cand.is_empty():
+		return
+	var pot := int(cand["potential"])
+	cand["potential"] = 69
+	_check(GameState.learnable_jobs(cand).is_empty(), "Under POT 70 a player cannot learn a second position")
+	cand["potential"] = pot
+	var job: String = GameState.learnable_jobs(cand)[0]
+	var role: String = GameState.LEARN_JOBS[job]["role"]
+	_check(GameState.plans_for(cand).has(GameState.LEARN_PREFIX + job), "Training offers it as a plan")
+	GameState.set_player_plan(str(cand["id"]), GameState.LEARN_PREFIX + job)
+	_check(GameState.project_job(cand) == job and GameState.project_progress(cand) == "Week 0 of %d" % GameState.PROJECT_WEEKS,
+			"Choosing it starts the project")
+	_check(GameState.learnable_jobs(cand).is_empty(), "One project at a time")
+	var line: String = load("res://scripts/ui/TrainingScene.gd")._project_line(cand)
+	var ahead := GameState.rating_as(cand, role) >= int(cand["overall"]) - GameState.PROJECT_PASS
+	_check(line.begins_with("Week 0 of %d" % GameState.PROJECT_WEEKS)
+			and line.contains("up to the standard" if ahead else "within %d by week" % GameState.PROJECT_PASS),
+			"Training shows the standard he is chasing, or that he has reached it (%s)" % line)
+	_check(GameState.season_ceiling(cand) == mini(int(cand["season_start_ov"]) + GameState.SEASON_TRAIN_GAIN,
+			int(cand["overall"]) + GameState.PROJECT_OWN_GAIN),
+			"The price: for the rest of the season his own position's training lifts him only %d more" % GameState.PROJECT_OWN_GAIN)
+	var mate := {}
+	for q in GameState.my_list:
+		if q != cand and GameState.project_job(q) == "":
+			mate = q
+			break
+	_check(mate.is_empty() or GameState.season_ceiling(mate) == int(mate["season_start_ov"]) + GameState.SEASON_TRAIN_GAIN,
+			"Team-mates on the club plan keep the full season's growth")
+	# Club limit.
+	var started := 1
+	for q in GameState.my_list:
+		if started >= GameState.PROJECT_MAX or q == cand:
+			continue
+		var jobs := GameState.learnable_jobs(q)
+		if not jobs.is_empty():
+			GameState.set_player_plan(str(q["id"]), GameState.LEARN_PREFIX + str(jobs[0]))
+			started += 1
+	var more := 0
+	for q in GameState.my_list:
+		more += GameState.learnable_jobs(q).size()
+	_check(started < GameState.PROJECT_MAX or more == 0, "A club runs at most %d at once" % GameState.PROJECT_MAX)
+	# Injured weeks do not count.
+	cand["injury_weeks"] = 2
+	GameState._project_week(cand)
+	_check(int(cand["project"]["weeks"]) == 0, "A week injured does not count")
+	cand["injury_weeks"] = 0
+	# A project survives a save.
+	GameState.save_career()
+	GameState.load_career()
+	cand = GameState.list_player(str(cand["id"]))
+	_check(GameState.project_job(cand) == job, "The project survives a save")
+	# Pass: rate him within PROJECT_PASS there, run the weeks out.
+	var attr: Dictionary = cand["attr"]
+	for k in Ratings.ROLE_WEIGHTS[role]:
+		attr[k] = maxi(int(attr[k]), 90)
+	var res := {}
+	for i in range(GameState.PROJECT_WEEKS):
+		res = GameState._project_week(cand)
+	_check(bool(res.get("learned", false)) and str(cand.get("role2", "")) == role and Ratings.plays_role(cand, role),
+			"Close enough at the end: he can be picked there (%s)" % str(res))
+	_check(GameState.project_job(cand) == "" and str(cand.get("train_plan", "")) == "", "Then he goes back to the club plan")
+	_check(GameState.learnable_jobs(cand).is_empty(), "One project a season")
+	# Fail: a fresh player, kept well short.
+	var other := {}
+	for q in GameState.my_list:
+		if q != cand and GameState.project_job(q) != "":
+			other = q
+	if not other.is_empty():
+		var orole := GameState.project_role(other)
+		var oattr: Dictionary = other["attr"]
+		for k in Ratings.ROLE_WEIGHTS[orole]:
+			oattr[k] = 20
+		var r2 := {}
+		other["injury_weeks"] = 0
+		for i in range(GameState.PROJECT_WEEKS):
+			r2 = GameState._project_week(other)
+		_check(not bool(r2.get("learned", true)) and not Ratings.plays_role(other, orole),
+				"Well short at the end: it has not taken (%s)" % str(r2))
+	# Switching away ends it.
+	_new_season()
+	var s2 := {}
+	for q in GameState.my_list:
+		if not GameState.learnable_jobs(q).is_empty():
+			s2 = q
+			break
+	if not s2.is_empty():
+		GameState.set_player_plan(str(s2["id"]), GameState.LEARN_PREFIX + str(GameState.learnable_jobs(s2)[0]))
+		GameState.set_player_plan(str(s2["id"]), "position")
+		_check(GameState.project_job(s2) == "" and GameState.learnable_jobs(s2).is_empty(),
+				"Switching plan ends the project; this season's chance is spent")
+
+
+## Forward, midfield and back make a Unicorn (POT 90 for the third), and on
+## the ground he fills one missing place in one synergy, in his line for a
+## line synergy.
+func _test_unicorn() -> void:
+	var u := {"id": "U1", "role": "MID", "role2": "FWD", "potential": 89, "overall": 70, "attr": {"contested": 60}}
+	_check(GameState.learn_pot_needed(u) == 90 and int(u["potential"]) < 90,
+			"A third position takes POT 90")
+	u["learned"] = ["DEF"]
+	_check(Traits.is_unicorn(u) and Traits.of(u).has("unicorn") and Ratings.role_tag(u) == "MID/FWD/DEF",
+			"Midfield, forward and back: a Unicorn")
+	_check(GameState.learn_pot_needed(u) == -1, "Three positions is the most")
+	# Built from the synergy rules, so the test holds whatever the counts are.
+	var er: Dictionary = Traits.SYNERGIES["engine_room"]["needs"]
+	var bulls := []
+	for i in range(int(er["bull"]) - 1):
+		bulls.append({"id": "B%d" % i, "role": "MID", "attr": {"contested": 99}})
+	_check(not Traits.active(bulls).has("engine_room"), "One contested bull short is not an Engine room")
+	var with_u := Traits.active(bulls + [u])
+	_check(with_u.has("engine_room"), "A Unicorn fills the missing bull (%s)" % str(with_u))
+	_check(Traits.wildcards(bulls + [u]).size() == 1, "...and fills only one synergy")
+	# A forward-line synergy one short: the Unicorn counts only playing forward.
+	var ts: Dictionary = Traits.SYNERGIES["tall_small"]["needs"]
+	var fwds := []
+	for i in range(int(ts["aerial"])):
+		fwds.append({"id": "A%d" % i, "role": "FWD", "attr": {"marking": 99}})
+	for i in range(int(ts["crumber"]) - 1):
+		fwds.append({"id": "C%d" % i, "role": "FWD", "attr": {"goalkicking": 99, "marking": 30}})
+	var u_mid := u.duplicate(true)
+	u_mid["id"] = "U2"
+	_check(not Traits.active(fwds + [u_mid]).has("tall_small"), "A Unicorn in the midfield cannot fill a forward-line synergy")
+	var u_fwd := u.duplicate(true)
+	u_fwd["role"] = "FWD"
+	u_fwd["own_role"] = "MID"
+	_check(Traits.active(fwds + [u_fwd]).has("tall_small"), "Playing forward, he can")
+
+
+## Rival clubs learn positions too, one player a season, by the same gates.
+func _test_rival_projects() -> void:
+	_new_season()
+	var list := []
+	for code in GameState.season.lists:
+		if str(code) != GameState.my_club:
+			list = GameState.season.lists[code]
+			break
+	GameState._ai_projects(list)
+	var learners := []
+	for q in list:
+		if GameState.project_job(q) != "":
+			learners.append(q)
+	_check(learners.size() == GameState.AI_PROJECTS, "A rival club starts %d project a season" % GameState.AI_PROJECTS)
+	if learners.is_empty():
+		return
+	var l: Dictionary = learners[0]
+	_check(int(l.get("potential", 0)) >= GameState.PROJECT_POT[1], "Rivals keep to the POT gate")
+	l["injury_weeks"] = 0
+	var w := int(l["project"]["weeks"])
+	GameState._ai_projects(list)
+	var n := 0
+	for q in list:
+		if int(q.get("project_year", 0)) == GameState.season_year:
+			n += 1
+	_check(n == GameState.AI_PROJECTS and int(l["project"]["weeks"]) == w + 1, "No second start; his weeks count game by game")
+
+
+## A project survives a save mid-way, ends when he changes clubs (his chance
+## for the season stays spent), and is judged where it stands when the
+## season ends. A learned third position counts wherever positions matter.
+func _test_project_endings() -> void:
+	_new_season()
+	var learners := []
+	for q in GameState.my_list:
+		var jobs := GameState.learnable_jobs(q)
+		if not jobs.is_empty():
+			GameState.set_player_plan(str(q["id"]), GameState.LEARN_PREFIX + str(jobs[0]))
+			learners.append(q)
+	_check(learners.size() == GameState.PROJECT_MAX, "(setup) two projects under way")
+	if learners.size() < 2:
+		return
+	learners[0]["project"]["weeks"] = 3
+	var id0 := str(learners[0]["id"])
+	GameState.save_career()
+	GameState.load_career()
+	var back := GameState.list_player(id0)
+	_check(GameState.project_job(back) != "" and int(back["project"]["weeks"]) == 3
+			and back.has("project_cap"), "A project survives a save mid-way")
+	# A move to another club ends it; the season's chance stays spent.
+	var mover := GameState.list_player(str(learners[1]["id"]))
+	var other := ""
+	for code in GameState.season.lists:
+		if str(code) != GameState.my_club:
+			other = str(code)
+			break
+	GameState.my_list.erase(mover)
+	GameState._join(other, mover)
+	_check(GameState.project_job(mover) == "" and int(mover.get("project_year", 0)) == GameState.season_year
+			and GameState.active_projects() == 1, "A new club ends his project; the chance is spent")
+	(GameState.season.lists[other] as Array).erase(mover)
+	# The season ends before week 8: he is judged where he stands.
+	GameState.open_offseason()
+	_check(GameState.project_job(back) == "", "An unfinished project is judged when the season ends")
+	# A third position learned counts for the ruck, the bench and the midfield.
+	var u := {"id": "U2", "role": "FWD", "role2": "DEF", "learned": ["RUCK"]}
+	_check(MatchSim._is_ruckman(u) and Roles.is_mid({"role": "FWD", "role2": "DEF", "learned": ["MID"]}),
+			"A learned third position counts as his own")
