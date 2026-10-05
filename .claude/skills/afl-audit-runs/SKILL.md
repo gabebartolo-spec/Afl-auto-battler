@@ -1,6 +1,6 @@
 ---
 name: afl-audit-runs
-description: How to answer a balance or behaviour question in the AFL project with a seeded audit - writing a tools/audit/<name>_impl.gd script, running many careers or matches on GitHub's runners through audit.yml instead of this machine, comparing arms on paired seeds, and collecting the results into an evidence doc. Use it whenever a question needs more than a handful of matches or seasons (calibration, difficulty, flags, levers, rates against real AFL), whenever you'd otherwise run a long Godot loop locally, or before proposing any balance change.
+description: How to answer a balance or behaviour question in the AFL project with a seeded audit - writing a tools/audit name_impl.gd script, running many careers or matches on GitHub's runners through audit.yml instead of this machine, comparing arms on paired seeds, and collecting the results into an evidence doc. Use it whenever a question needs more than a handful of matches or seasons (calibration, difficulty, flags, levers, rates against real AFL), whenever you'd otherwise run a long Godot loop locally, or before proposing any balance change.
 ---
 
 # Audit runs

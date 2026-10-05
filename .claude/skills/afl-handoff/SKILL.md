@@ -1,6 +1,6 @@
 ---
 name: afl-handoff
-description: Writing and starting from an agent handoff in the AFL team (rule W1) - the file in ../agent-handoffs/<role>.md that lets a fresh session continue without the old transcript. Use it when a substantial task is done or you switch to unrelated work, when your context is getting long, before the director restarts or clears a session, and at the start of any new session for a lead, medium, low or art role.
+description: Writing and starting from an agent handoff in the AFL team (rule W1) - the file in ../agent-handoffs/ROLE.md that lets a fresh session continue without the old transcript. Use it when a substantial task is done or you switch to unrelated work, when your context is getting long, before the director restarts or clears a session, and at the start of any new session for a lead, medium, low or art role.
 ---
 
 # Handoffs (W1)
