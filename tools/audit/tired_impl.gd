@@ -19,6 +19,8 @@ func _play(home: Array, away: Array, hcode: String, acode: String, seed: int, an
 	var star := ""
 	for q in range(4):
 		sim.begin_quarter()
+		if star != "" and sim.current_quarter == int(out["q"]) + 1:
+			out["energy_next"] = float(sim.energy.get(star, 100.0))
 		while not sim.continue_quarter():
 			var m: Dictionary = sim.pending_moment
 			var choice := int(m.get("default", 0))
@@ -38,6 +40,11 @@ func _play(home: Array, away: Array, hcode: String, acode: String, seed: int, an
 				out["on_after"] = not sim._on_ground(0, star).is_empty()
 				continue
 			sim.resolve_moment(choice)
+		if star != "" and sim.current_quarter == int(out["q"]):
+			# To the break: the span both answers hold for.
+			out["margin_qend"] = sim.score(0) - sim.score(1)
+			out["disp_qend"] = float((sim.player_stats.get(star, {}) as Dictionary).get("disposals", 0.0)) - float(out["disp_at"])
+			out["energy_qend"] = float(sim.energy.get(star, 100.0))
 		if star != "":
 			# Is he out there at the end of each quarter after the call?
 			var key := "on_q%d" % sim.current_quarter
@@ -65,6 +72,7 @@ func run() -> void:
 	var agree := true
 	var t := {"rest": [0.0, 0.0, 0.0, 0.0, 0.0, 0], "keep": [0.0, 0.0, 0.0, 0.0, 0.0, 0]}  # wins, margin after, disp after, goals after, on at end, n
 	var deterministic := true
+	var by_cq := {}   # call quarter -> answer -> [wins, margin to siren, margin to break, his disp to break, energy next q, n]
 	for draft_seed in [31, 32, 33, 34]:
 		var lists: Dictionary = lb.drafted_lists(draft_seed)["lists"]
 		var codes: Array = lb.clubs()
@@ -100,6 +108,16 @@ func run() -> void:
 					row[3] += float(r["goals_after"])
 					row[4] += 1.0 if bool(r.get("on_q4", false)) else 0.0
 					row[5] += 1
+					var cq: Dictionary = by_cq.get(int(r["q"]), {})
+					var c: Array = cq.get(k, [0.0, 0.0, 0.0, 0.0, 0.0, 0])
+					c[0] += 1.0 if int(r["margin"]) > 0 else (0.5 if int(r["margin"]) == 0 else 0.0)
+					c[1] += float(int(r["margin"]) - int(r["margin_at"]))
+					c[2] += float(int(r.get("margin_qend", r["margin_at"])) - int(r["margin_at"]))
+					c[3] += float(r.get("disp_qend", 0.0))
+					c[4] += float(r.get("energy_next", r.get("energy_qend", 0.0)))
+					c[5] += 1
+					cq[k] = c
+					by_cq[int(r["q"])] = cq
 	print("TIRED CALL over %d matches riding the stars (evenly matched drafted sides, you at home):" % games)
 	print("    fired in %d (%.0f%%), by quarter %s, his energy when asked %.0f on average" % [
 			fired, 100.0 * fired / maxf(1, games), str(by_q), energy_sum / maxf(1, fired)])
@@ -110,3 +128,13 @@ func run() -> void:
 		var n := maxf(1, row[5])
 		print("    %-4s  win %.1f%%  margin from the call %+.1f  his disposals after %.1f  goals after %.2f  on at the final siren %.0f%%" % [
 				k, 100.0 * row[0] / n, row[1] / n, row[2] / n, row[3] / n, 100.0 * row[4] / n])
+	print("BY THE QUARTER OF THE CALL (margin to the break / to the siren; his disposals to the break; his energy at the next bounce):")
+	var qs := by_cq.keys()
+	qs.sort()
+	for cqk in qs:
+		for k in ["rest", "keep"]:
+			var c: Array = (by_cq[cqk] as Dictionary).get(k, [0.0, 0.0, 0.0, 0.0, 0.0, 0])
+			var n := maxf(1, c[5])
+			print("    Q%d %-4s n=%d  win %.1f%%  to break %+.1f  to siren %+.1f  his disposals %.1f  energy next %s" % [
+					int(cqk), k, int(c[5]), 100.0 * c[0] / n, c[2] / n, c[1] / n, c[3] / n,
+					"-" if int(cqk) == 4 else "%.0f" % (c[4] / n)])

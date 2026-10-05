@@ -140,8 +140,33 @@ static func lasting_moment_lines(res: Dictionary, q: int) -> Array:
 	var out := []
 	for m in res.get("moments", []):
 		if int(m.get("q", 0)) == q and LASTING_MOMENTS.has(str(m.get("kind", ""))):
-			out.append(moment_line(m))
+			var t := tired_follow_through(res, m) if str(m.get("kind", "")) == "tired" else ""
+			out.append(t if t != "" else moment_line(m))
 	return out
+
+
+## What followed a tired-star call, to the break: who played and what he
+## did. Facts only - never whether it was the right call.
+static func tired_follow_through(res: Dictionary, m: Dictionary) -> String:
+	var q := int(m.get("q", 0))
+	var snaps: Array = res.get("quarter_teams", [])
+	var at: Dictionary = m.get("disp_at", {})
+	if q < 1 or snaps.size() < q or at.is_empty():
+		return ""
+	var players: Dictionary = (snaps[q - 1] as Dictionary).get("players", {})
+	var since := func(id: String) -> int:
+		return int(float((players.get(id, {}) as Dictionary).get("disposals", 0.0)) - float(at.get(id, 0.0)))
+	var star := str(m.get("player_id", ""))
+	var on := str(m.get("on_id", ""))
+	if on != "":
+		var n: int = since.call(on)
+		return "%s rested: %s came on and had %d disposal%s to the break." % [
+			_pname(star), _pname(on), n, "" if n == 1 else "s"]
+	if str(m.get("outcome", "")).begins_with("He stays"):
+		var k: int = since.call(star)
+		return "%s stayed out there: %d disposal%s to the break, on empty legs." % [
+			_pname(star), k, "" if k == 1 else "s"]
+	return ""
 
 
 static func count_word(n: int) -> String:
