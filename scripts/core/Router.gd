@@ -28,6 +28,7 @@ func go(key: String) -> void:
 	if not ResourceLoader.exists(path):
 		push_error("Router: scene not found for '%s' (%s)" % [key, path])
 		return
+	MusicManager.set_route(path)
 	stack.append(key)
 	var err := get_tree().change_scene_to_file(path)
 	if err != OK:
