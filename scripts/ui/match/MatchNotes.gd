@@ -890,8 +890,9 @@ static func duel_feed_line(mem: Dictionary, ev: Dictionary) -> String:
 
 
 ## The match's other turning points in the feed, from the log: a player going
-## off hurt (always), a Big-game player's goal when he lifts (once a side), a
-## goal from an intercept that takes or levels the
+## off hurt (always), a first AFL goal for one of yours (always, once a player),
+## a Big-game player's goal when he lifts (once a side), a goal from an
+## intercept that takes or levels the
 ## lead, and a missed set shot in a close last quarter. At most one of each
 ## and MAX_STORY_LINES of them a quarter, so quiet games stay quiet. "" to
 ## leave it to the oval.
@@ -908,6 +909,15 @@ static func story_feed_line(mem: Dictionary, ev: Dictionary) -> String:
 		if on != "":
 			return "%s: %s comes on." % [hurt, _pname(on)]
 		return hurt + "."
+	# A first AFL goal for one of yours. mem["first_goal"] holds the ids it would
+	# be a first for (GameState.first_goal_candidates), so it is never said of
+	# the other side, and each is said once.
+	if kind == "goal" and who != "":
+		var firsts: Dictionary = mem.get("first_goal", {})
+		var kicker := str(ev.get("player_id", ""))
+		if kicker != "" and firsts.has(kicker):
+			firsts.erase(kicker)
+			return "First AFL goal for %s." % who
 	var text := ""
 	var side := int(ev.get("side", 0))
 	var score: Array = ev.get("score", [0, 0])

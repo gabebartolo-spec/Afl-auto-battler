@@ -393,9 +393,11 @@ log or its quarter snapshots, never decided by the screen.
 
 - **Feed.** Goals (their own row), behinds, the breaks ("Quarter time:
   Melbourne by 7"), your coach's calls, and runs of three or more goals in a
-  row. Routine play (marks, kicks, tackles, entries, rebounds, clangers)
-  stays on the oval. A result word ("defeated") only ever describes a final
-  result. The clock is the minute of the quarter, like a ground's.
+  row. A first AFL goal for one of yours gets a line of its own, once a player
+  ("First AFL goal for Calder."). Routine play (marks, kicks, tackles, entries,
+  rebounds, clangers) stays on the oval. A result word ("defeated") only ever
+  describes a final result. The clock is the minute of the quarter, like a
+  ground's.
 - **Quarter breaks.** What happened, then your calls. Up to three facts
   about the quarter (their midfield on top at the stoppages, most of the ball
   going forward, a player hurting you, wayward kicking), what they played,
@@ -417,7 +419,10 @@ log or its quarter snapshots, never decided by the screen.
   `docs/MATCH_VIEW.md`.
 - **Full time.** The conclusion, easy to scan: the result first and big
   (won or lost by how much, both scores), then what it means (finals, the
-  ladder, who is next), "How it went" (up to three reasons from the result: a
+  ladder, who is next), what the match settled for your people when it did
+  (a debut, a first goal, a promised run done: "Calder kicked two on debut.",
+  "Calder's three-game run is done."; three lines at most, and nothing when
+  nothing was settled), "How it went" (up to three reasons from the result: a
   run of unanswered goals, a quarter that swung it, the stoppages, territory
   read against the result, kicking, pressure), the best players - three of
   yours and their best - with their game in a few words and their rating,
@@ -668,8 +673,9 @@ table, shot conversion, every best and quiet player with his numbers and
   with fewer than ten senior games (`FEW_GAMES`) on a career on record in full, who
   is available, with a match to play and no run on already. The player is thrilled
   (+5 mood). What you promised is kept as a ledger on the player (`p["backed"]`,
-  one entry for each time: year, round, games, played, state, and whether it was
-  his debut), which outlives the run. While a run is on, auto-pick names him ahead
+  one entry for each time: year, round, games, played, state, whether it was his
+  debut, and the match that ended it), which outlives the run. While a run is on,
+  auto-pick names him ahead
   of better players (`Ratings.select_22`, ruck included: the same rule as the
   one-week promise a talk makes) and Selection says so in a line ("You promised
   Calder a run: game two of three."). Every game he plays counts. Left out while
@@ -681,6 +687,20 @@ table, shot conversion, every best and quiet player with his numbers and
   end of the season, for every list and for free agents, so it never carries to
   another club. It touches no match rule: MatchSim never reads it, and AI clubs
   never have one.
+* **What a player did first for you** (`Firsts.gd`) — the payoff of a debut and a
+  first goal, kept on the player (`p["firsts"]`: the debut and the first goal,
+  each with its year and the match's label, written once after your match). Only
+  for a career on record in full, so "first" is a fact; only your own players in
+  your own matches. The first goal is the league news' rule
+  (`GameState.career_goals_before`: no goals before the match), so the feed, the
+  record and the news cannot disagree. Three places say it, each only when the
+  facts do: the live feed ("First AFL goal for Calder.", from
+  `GameState.first_goal_candidates` through `MatchNotes.story_feed_line`), full
+  time (`Firsts.match_lines`, in the order a debut on your promise, a finished run,
+  any debut, a first goal; three at most) and the player sheet's "With us" line
+  ("Debuted in Round 7, 2028, on your say-so. First goal in Round 9, 2028."). "On
+  your say-so" is a debut that came on a run you promised (`Backing.debuted_on_run`).
+  It touches no match rule: MatchSim never reads it.
 * **Expansion** — clubs carry an `enter` year in `data/clubs.csv`; every
   fixture, ladder, draft, selection and finals path iterates
   `GameDB.active_clubs(year)` rather than the all-time club list, so a new club

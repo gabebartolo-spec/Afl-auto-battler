@@ -428,11 +428,24 @@ func _run() -> void:
 	var log_before: int = _state.season_log.size()
 	var rv: Button = popup.find_child("ReviewMatch", true, false) if popup != null else null
 	_check(rv != null and rv.size.y >= 44, "Review match is one thumb-sized tap")
+	# A first this match settled, as the round would have kept it (Firsts.gd):
+	# full time says so, now and after a reload.
+	var mine_side := 0 if str(_state.last_match["home"]) == _state.my_club else 1
+	var debutant: Dictionary = _state.list_player(str((_state.last_match["roster"][mine_side] as Array)[0]["id"]))
+	load("res://scripts/sim/Firsts.gd").note(debutant, "debut", _state.season_year, str(_state.last_match["label"]))
+	var debutant_name: String = _db.player_display_name(debutant)
 	if rv != null:
 		rv.emit_signal("pressed")
 		await _settle()
 	var ft = current_scene.find_child("FullTime", true, false)
 	_check(_router.current() == "match" and ft != null, "Review match opens the full-time summary")
+	var payoff = ft.find_child("PayoffLines", true, false) if ft != null else null
+	var payoff_text := ""
+	if payoff != null:
+		for l in payoff.find_children("*", "Label", true, false):
+			payoff_text += str(l.text) + "\n"
+	_check(payoff != null and payoff_text.contains(debutant_name) and payoff_text.contains("debut"),
+			"Full time says what the match settled: a debut (%s)" % payoff_text.strip_edges())
 	for n in ["Verdict", "MatchFactors", "BestPlayers", "YourWeek", "ReviewTab_stats"]:
 		_check(ft != null and ft.find_child(n, true, false) != null, "The review shows %s" % n)
 	var ft_text := ""
@@ -475,6 +488,8 @@ func _run() -> void:
 		again.emit_signal("pressed")
 		await _settle()
 		_check(current_scene.find_child("BestPlayers", true, false) != null, "...and opens at full time")
+		_check(current_scene.find_child("PayoffLines", true, false) != null,
+				"...with what the match settled, kept with the career")
 		_router.handle_back(true)
 		await _settle()
 		if _router.current() == "match":

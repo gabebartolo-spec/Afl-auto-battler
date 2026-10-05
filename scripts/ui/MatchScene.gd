@@ -101,6 +101,9 @@ func _ready() -> void:
 	_build()
 	_pitch.setup(_res)
 	_refresh_rings()
+	# Whose first AFL goal the feed can say, if it comes today (MatchNotes).
+	if _interactive:
+		_duel_mem["first_goal"] = GameState.first_goal_candidates()
 	_pitch.event_played.connect(_on_event)
 	_pitch.finished.connect(_on_finished)
 	_update_scoreboard({"q": 1, "min": 0, "score": [0, 0], "kind": "info"})
@@ -1609,6 +1612,19 @@ func _ft_summary(v: VBoxContainer) -> void:
 				var nl := UiKit.lbl(nxt, UiKit.BODY, UiKit.MUTED)
 				nl.name = "NextFixture"
 				v.add_child(nl)
+		# The people it was about: a debut, a first goal, a promised run done.
+		# Said only when the facts kept on the players say it; otherwise silent.
+		if _interactive or _review:
+			var told := GameState.payoff_lines(_res)
+			if not told.is_empty():
+				v.add_child(UiKit.spacer(UiKit.GAP))
+				var payoffs := UiKit.vbox(4)
+				payoffs.name = "PayoffLines"
+				for line in told:
+					var pl := UiKit.lbl(str(line), UiKit.BODY, UiKit.TEXT)
+					pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+					payoffs.add_child(pl)
+				v.add_child(payoffs)
 
 	# How it went: the few things that decided it, in football words.
 	v.add_child(UiKit.spacer(UiKit.GAP))
