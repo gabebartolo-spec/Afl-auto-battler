@@ -138,8 +138,7 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 - In this file, edit only your own item. The maintenance log gets a new line at the top from nearly every PR, so a conflict there is normal: keep both sides.
 
 **`LOW`**
-- §9.1 Training scrollbar.
-- Verifying and closing work that is already on `main` (the Low agent does this as it finds it).
+- Verifying and closing work that is already on `main` (the Low agent does this as it finds it). No other open item is sized `LOW` right now; the §9.1 Training scrollbar was the last and waits only on a phone check.
 
 **`MEDIUM`**
 - Match audits that need a measured seeded comparison, and a new mechanic only if the evidence demands one: ARD-M3-007 (free-kick rate), M3-008 (50-metre penalties), M3-011 (MRO and suspensions), M4-003 (tagging cost), M4-006 (game-state AI), M4-011 (Team Form), M5-006 (omitted-player development), and the §1.11 audits of run-of-goals calls, AI plan adaptation, key forward v key defender, sim-round blowouts, List Profile v results, and How-we-play maturity and materiality. In review: the autosim v played injury parity audit (#235) and the Coleman plausibility audit (#237).
@@ -4917,7 +4916,7 @@ Guardrails: this is **not tied to super drafts**; do not guarantee the GOAT is o
 - **My List → Shape should be functional — TODO.** The formation screen is currently cosmetic. Make players directly tappable for move/reposition, swap and drop actions in context, with the same replacement flow. Treat Shape as a candidate primary mobile selection interface rather than maintaining a pretty read-only duplicate.
 - **My List → Full List traits — TODO.** Surface distinctive player traits without adding trait-vomit. Prefer a compact trait name/indicator with tap-to-inspect details so the list communicates player identity at a glance.
 - **Training touch handling — VERIFY (repair merged; phone follow-up).** Player rows are too eager to register selection while the user is scrolling, causing accidental multi-selects. Add robust scroll-vs-tap/long-press discrimination and test rapid swipes, slow drags, taps and long-press on phone touch input. **Status (2026-10-05):** fixed in merged PR #210; native phone follow-up remains. A press that turns into a scroll (list moved, or finger travelled past the scroll deadzone) is neither a tap nor a long press; still taps and holds behave as before. Covered by a career-UI test; still worth a phone check.
-- **Training scrollbar — TODO / mobile polish.** The right-side scrollbar/thumb is awkward to grab. Increase its touch usability if retained, but prioritise normal swipe scrolling so grabbing the scrollbar is rarely necessary.
+- **Training scrollbar — VERIFY (fix in PR; phone follow-up).** The right-side scrollbar/thumb is awkward to grab. Increase its touch usability if retained, but prioritise normal swipe scrolling so grabbing the scrollbar is rarely necessary. **Status (2026-10-06):** fixed in `UiKit.scroll`, so every scrolling list gets it, not only Training. The engine's scrollbar was 8 units wide (about 2 mm on a phone). It is now a 20-unit touch rail with a slim 6-unit thumb at its edge, never shorter than 48 units, brighter while held; the rows stop short of the rail instead of running under it. Swiping is unchanged (the #210 scroll-versus-tap handling stands). `career_ui` checks the Training list. The rail costs 12 units of row width on a long list; worth a phone check for feel and for any row that now truncates.
 
 ## P2 / draft pathway depth
 
