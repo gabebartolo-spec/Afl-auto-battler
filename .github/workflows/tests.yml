@@ -6,7 +6,7 @@ name: Tests
 # If a PR changes both docs and game files, the tests still run.
 #
 # The suites run as parallel shards (tools/ci_shards.txt), so a pull request
-# finishes in about ten minutes instead of half an hour. One more job runs the
+# finishes in about eight minutes instead of half an hour. One more job runs the
 # dataset, export-data and harness checks once. tools/run_tests.sh is the same
 # script you run locally, on every suite or on some of them.
 #

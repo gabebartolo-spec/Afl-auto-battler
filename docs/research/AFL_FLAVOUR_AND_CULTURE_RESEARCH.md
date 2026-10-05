@@ -6,7 +6,7 @@ Research date: 5 October 2026. Project: **Aussie Rules Dynasties**.
 
 The strongest opportunity is a few specific, affectionate details that belong to *this club and this save*: a milestone on the banner, a familiar nickname beside a full name, a room carrying its actual history, a crowd allowed to be heard, and a farewell that remembers where someone began. More text, more jokes and more interruptions are not the goal.
 
-This is a focused research supplement to [the genre report](../GENRE_ENJOYMENT_RESEARCH.md), [visual design research](https://github.com/gabebartolo-spec/Afl-auto-battler/blob/b796b2181ccfb2f1eaef677375b0b0fd3572c60f/docs/research/AFL_VISUAL_DESIGN_RESEARCH.md) and [long-career research](https://github.com/gabebartolo-spec/Afl-auto-battler/blob/b796b2181ccfb2f1eaef677375b0b0fd3572c60f/docs/research/AFL_LONG_CAREER_STORY_RESEARCH.md). The latter two are in the separate intensive-research PR [#232](https://github.com/gabebartolo-spec/Afl-auto-battler/pull/232) at this checkpoint. New FL proposals below are **unselected research candidates**, outside Claude's execution queue. Existing approvals and exclusions remain intact.
+This is a focused research supplement to [the genre report](../GENRE_ENJOYMENT_RESEARCH.md), [visual design research](https://github.com/gabebartolo-spec/Afl-auto-battler/blob/b796b2181ccfb2f1eaef677375b0b0fd3572c60f/docs/research/AFL_VISUAL_DESIGN_RESEARCH.md) and [long-career research](https://github.com/gabebartolo-spec/Afl-auto-battler/blob/b796b2181ccfb2f1eaef677375b0b0fd3572c60f/docs/research/AFL_LONG_CAREER_STORY_RESEARCH.md). The latter two are in the separate intensive-research PR [#232](https://github.com/gabebartolo-spec/Afl-auto-battler/pull/232) at this checkpoint. **Director review completed 6 October 2026: FL-001–FL-008 are all included in Claude's queue.** The [canonical roadmap §9.3](../ROADMAP.md#93-approved-flavour-and-culture-work--director-decisions-2026-10-06) records the decisions, dependencies and acceptance criteria. Existing unrelated approvals and exclusions remain intact.
 
 ## 1. Scope and evidence
 
@@ -25,12 +25,12 @@ Repository checkpoint: main at [b07a785](https://github.com/gabebartolo-spec/Afl
 | Existing foundation | What this pass can use | Boundary |
 |---|---|---|
 | PreMatchVignette already warms up, gathers players and runs through a banner; its banner text is the club name | A genuinely relevant banner message and a little material detail | Do not rebuild the introduction or extend the unavoidable loading wait |
-| BroadcastVignette already selects scenes from authoritative events and has finish controls | Better atmosphere around existing scenes | No added fictional highlights, altered targets or a new cinematic library |
+| BroadcastVignette already selects scenes from authoritative events and has finish controls | Better atmosphere around existing scenes | No fictional highlights or altered targets; necessary new flavour scenes are authorised under FL-007 |
 | SeasonAwards already reveals actual winners and allows finishing/skipping to review | Warmer recognition of a known winner | Preserve stored results and the existing viewed flag |
 | M7-001 rivalries and M7-002 marquee identity are DONE | Present existing context accurately | No new rivalry engine, fixture changes or rivalry bonuses |
 | M7-003 milestones are PARTIAL; M7-005 history and awards have substantial merged foundations | Show existing facts in evocative ways | No new awards calculation, bookmark archive or duplicate biography system |
 | M8-009 plausible generated names is DONE | Optional identity details alongside those names | Do not reopen the name-generator replacement |
-| Director requires complete migration of old vignette figures to the shared pre-rendered 2.5D style | Use that established art direction | New flavour is not permission to retain legacy silhouettes or expand scenes |
+| Director requires complete migration of old vignette figures to the shared pre-rendered 2.5D style | Use that established art direction | Never retain legacy silhouettes; FL-007 authorises necessary new shared-style flavour scenes |
 | PR #206 contains soundtrack work | Coordinate any atmosphere/audio proposal with it | Do not introduce a second sound system or assume it is merged |
 
 The season story recap, awards improvements and former-player coaching continuity are already roadmap work. This pass proposes cultural treatment and smaller content details within those surfaces, not another framework.
@@ -137,6 +137,8 @@ Gather Round's documented community activity suggests how an existing festival f
 
 Use the existing flat editorial UI. The cultural references are content and composition references; **AFCM is not a visual aspiration**.
 
+**Director visual-audit requirement, 6 October:** decorative banners and flavour must be clearly distinct from actual game information. Audit phone-sized composition and motion for placement, hierarchy and context; do not rely on colour alone, copy tactical-card styles or imply stat changes. Apply the same distinction to optional headlines, identity details and mementos. Useful information remains primary.
+
 - One focal subject per scene. Give figures room; background detail sits behind the action.
 - One short optional sentence where a sentence earns its place. Do not add a flavour-card stack to the Hub.
 - A banner can be handmade; the navigation must remain professionally typeset. Never put essential data into illegible handwriting.
@@ -147,35 +149,35 @@ Use the existing flat editorial UI. The cultural references are content and comp
 
 All content quantities and pacing below are **prototype assumptions**, not research findings or settled production targets.
 
-## 5. Unselected candidates for director review
+## 5. Approved extensions — director review completed
 
-FL IDs are research references, not new execution-ticket IDs. The owners show where selected work would fit. DONE foundations remain DONE; an accepted extension would need its own clearly stated outstanding scope inside the owner.
+The director included all eight proposals, one by one. FL IDs identify accepted extensions inside existing owners, not duplicate feature tickets. DONE foundations remain DONE; each extension is outstanding TODO work tracked in roadmap §9.3. Prototype content quantities remain assumptions.
 
-| ID | Candidate and player benefit | Existing owner / smallest prototype | Evidence and trade-off |
+| ID | Approved extension and player benefit | Existing owner / initial prototype | Evidence and trade-off |
 |---|---|---|---|
 | FL-001 | Sparse footy voice: warmer language without obscuring meaning | M8-006; revise twelve optional lines in existing surfaces | F01/F12/F13/F14. Humour is subjective; factual/action copy wins every conflict |
 | FL-002 | Milestone banner: one player visibly belongs to the club | M7-003 + M8-007; one supported milestone in the existing pre-match banner | F04/F03. Avoid extra waiting, false firsts and tiny names |
 | FL-003 | Ground atmosphere: a recognisable place to play | M8-003/007; one sourced venue background and reusable dress | F19/F20. Art effort and performance; no new venues or home advantage |
 | FL-004 | Natural sound and breathing room: football feels present | M8-006 + existing audio work; one atmosphere mix | F05/F06/F07/F21. Repetition and sensory fatigue; avoid licensed-song dependency |
-| FL-005 | Optional fictional identity details: remember people beyond OVR | M7-005 presentation, preserve M8-009; twelve fictional profiles with optional nickname and one harmless interest | F08/F09/F10. Persistence cost and misleading trait inference; no personality system |
-| FL-006 | Truthful short headlines: your actual week has a voice | Existing match report and season-story recap / M4-009 + M7-005; six conditional templates | F01/F13/F22. Can exaggerate or become repetitive; no newspaper app/feed |
-| FL-007 | Small club rituals: arrival, first goal, farewell and recognition feel different | M7-003/005 + existing scenes; one milestone and one genuine farewell treatment | F03/F04/F07/F17. Preserve skip/pacing; no forced ceremony or new awards engine |
+| FL-005 | Optional fictional identity details: remember people beyond OVR | M7-005 and existing M7-008/009 nickname fields; twelve fictional profiles with optional nickname and one harmless interest | F08/F09/F10. Persistence cost and misleading trait inference; no personality system |
+| FL-006 | Truthful short headlines: your actual week has a voice | Existing report/news/season-story / M4-009 + M7-005/011; six conditional templates | F01/F13/F22. Can exaggerate or become repetitive; no newspaper app/feed |
+| FL-007 | Small club rituals: arrival, first goal, farewell and recognition feel different | M7-003/005 + M8-007 shared art; necessary new scenes authorised, start with one complete occasion | F03/F04/F07/F17. Preserve skip/pacing; no forced ceremony or new awards engine |
 | FL-008 | Club memory in the surroundings: decades feel accumulated | M7-005 + approved alumni refinement; one existing profile/history surface with a factual visual memento | F02/F03/F09/F20. Avoid a collectible/archive system or unsupported family claims |
 
-### Minimum acceptance if a candidate is selected
+### Minimum acceptance for approved work
 
 Every candidate needs the common purity and phone checks in §6. Additional observable acceptance:
 
 - **FL-001:** action labels retain their meaning; humour has a plain alternative; no attributed real-player quote is invented; repeat lines can be suppressed.
-- **FL-002:** correct selected player, club, count and scope; unsupported imported firsts fall back; name readable before the existing transition ends.
+- **FL-002:** correct selected player, club, count and scope; unsupported imported firsts fall back; name readable before the existing transition ends. The director specifically requires a visual audit showing that decorative banner content is distinct from actual gameplay information.
 - **FL-003:** environment matches the referenced venue and available match facts; no altered pitch geometry or reduced actor/ball visibility; low-end phone cost measured.
 - **FL-004:** silence and muted play are valid; existing match cues remain intelligible; no music masks a meaningful crowd reaction; licensing/provenance recorded for actual assets.
 - **FL-005:** metadata is explicitly cosmetic, stable across reload/transfer/retirement and independent of football generation; full-name search works; nickname removal is harmless; old saves need not acquire invented personal histories.
 - **FL-006:** each factual assertion has a supported predicate; comeback/career-high/first/record claims require the necessary data; ties, draws, losses and empty context have neutral alternatives.
-- **FL-007:** treatment follows the known event once; actual achievement is clear; routine events do not gain lengthy ceremony; replay is cosmetic and optional.
+- **FL-007:** treatment follows the known event once; actual achievement is clear; routine events do not gain lengthy ceremony; replay is cosmetic and optional. Build new vignette scenes as necessary for genuine first goals, milestones, retirements and awards, using the shared approved art. This is explicit director authorisation, not a restriction to existing scenes.
 - **FL-008:** names, stints, years and awards match stored history; no invented family, coaching appointment or trophy; new data missing after reload produces a neutral fallback.
 
-For review, FL-001 and FL-002 are the lowest-scope starting pair. This is a recommendation, not approval. FL-005 and persistent background characters require more care because stable cosmetic metadata must survive decades. FL-008 should first check the already-approved alumni/history presentation and avoid adding what exists.
+FL-001 and FL-002 remain a sensible initial pair after the queue's correctness/dependency gates; all eight are approved, so that order is a recommendation rather than a further approval gate. FL-005 and persistent background characters require more care because stable cosmetic metadata must survive decades. FL-008 should first check the already-approved alumni/history presentation and avoid adding what exists.
 
 ## 6. Validation: enjoyment and absolute gameplay neutrality
 
@@ -205,10 +207,10 @@ Record recognition, confusion, repeats, skips, reading time, audio comfort and p
 - No assumption that every venue is a country oval, every supporter drinks, or all northern competitions use the same season.
 - No decorative claims that exceed known facts: precise attendance, inherited family lineage, unprecedented records or unseen training effort.
 - No copied song lyrics, borrowed film catchphrase bank or autogenerated imitation cultural artwork.
-- No expanded vignette library before the approved art migration, correctness and phone gates.
+- Necessary new FL-007 flavour scenes are approved; they use the shared art and retain correctness, readability and Android performance/verification gates. Unrelated tactical-library expansion is not added by this decision.
 
 ## 8. Delivery and next step
 
-This revision is documentation only. It adds this report, its evidence ledger and original sample copy. It changes no gameplay, APIs, save formats, ticket statuses or Claude execution priorities.
+The initial research-only merge #254 added this report, its evidence ledger and sample copy without changing Claude's queue. This 6 October decision revision updates the canonical roadmap and Claude's queue after the director's eight answers. It changes no gameplay, APIs or save formats and preserves existing parent-ticket statuses.
 
-The eight FL candidates remain available for the director to include, exclude or refine. Implement selected details under existing owners after the current correctness, art-migration and Android verification gates; preserve the established review decisions in PR #232.
+All eight FL extensions are approved. Implement under the existing owners and roadmap §9.3, preserving correctness, shared art and Android verification gates and unrelated decisions in PR #232. The director added a visual-distinction audit and explicitly authorised necessary new ritual/farewell vignettes; no new include/exclude interview is required.

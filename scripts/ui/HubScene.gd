@@ -742,7 +742,7 @@ func _on_play_match() -> void:
 	var heading := "%s  ·  %s v %s" % [str(m["label"]), GameDB.club_name(str(m["home"])),
 			GameDB.club_name(str(m["away"]))]
 	_pre_match = PreMatchVignette.open(get_tree().root, mine, opp, GameState.my_squad().ground,
-			opp_ground, heading)
+			opp_ground, heading, PreMatchVignette.is_final(str(m["label"])))
 	# Home-and-away rounds and finals both play live with the coach box.
 	await get_tree().process_frame
 	if not GameState.prepare_interactive_match():
