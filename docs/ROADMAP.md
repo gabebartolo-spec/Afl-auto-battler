@@ -385,24 +385,28 @@ Deep analytics can exist in secondary screens. Do not turn coaching, reports or 
 ### UI anti-slop reset — current concern
 **The current UI policy/implementation has drifted away from the project's anti-slop criteria and needs an explicit corrective pass.**
 
-Treat this as a standing design warning for all future UI work and as a prompt to audit existing screens before adding more visual complexity.
+This concern is specifically about **visual styling language**, not about information density or "visual vomit". A screen can be clean and sparse yet still look slop if it uses the wrong card geometry, corner treatment, colour palette and generic app-template styling.
+
+**Footy Redraft and AFCM are negative references for this specific aesthetic problem.** This is not criticism of their gameplay or information density; they are examples of the kind of generic management-game/mobile-app look this project should avoid.
 
 Anti-slop criteria:
-- avoid generic AI-template UI patterns,
-- avoid excessive rounded cards, chips, pills and boxed containers,
+- avoid generic AI-template / app-template visual language,
+- avoid soft rounded cards as the default container shape,
+- avoid excessive corner radii, pill buttons and chip-heavy composition,
+- avoid generic muted-green/teal/blue SaaS-style palettes,
 - avoid decorative gradients, glows, glassmorphism and gratuitous shadows,
-- avoid generic green accents,
-- avoid all-caps labels and condensed display-font styling unless genuinely justified,
+- avoid every section being enclosed in its own rounded rectangle,
+- avoid generic "premium mobile dashboard" aesthetics,
+- avoid condensed display fonts or all-caps styling unless genuinely justified,
 - use sentence case and natural football language,
-- use restrained colour with club colours carrying identity where appropriate,
-- prefer hierarchy, spacing and typography over extra borders/boxes,
-- keep primary screens sparse and decision-focused,
-- avoid repeating the same information in multiple panels,
-- avoid "dashboard" composition unless the screen truly needs it,
-- do not add visual chrome merely to make a screen look "designed",
+- use flatter, sharper, more restrained geometry where possible,
+- let typography, spacing, rules/lines and club colours create hierarchy instead of rounded card stacks,
+- keep the visual language recognisably football-specific rather than resembling a finance/productivity app,
 - maintain mobile-first readability and touch clarity.
 
-When revisiting existing UI, Claude should challenge whether each container, badge, chip, divider, accent and label is actually necessary. If removing an element improves clarity without losing meaning, removal is preferred.
+The anti-slop test is primarily visual: **if the screen could plausibly belong to Footy Redraft, AFCM, a generic AI-generated sports manager, or a modern SaaS dashboard after swapping the logo, it has drifted too far.**
+
+When revisiting existing UI, Claude should inspect card shape, corner radius, button silhouette, palette, border treatment, typography and spacing before changing information architecture. Do not misread this note as an instruction to simply remove stats or reduce content.
 
 This note is not permission for a broad unreviewed redesign. Apply the anti-slop standard incrementally to authorised UI tasks and record larger systemic cleanup as its own scoped audit/repair item if needed.
 
@@ -5112,6 +5116,8 @@ It is complete only when:
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Clarified the anti-slop warning: the problem is specifically visual style (rounded-card geometry, corner radii, generic palette, button/card silhouettes and app-template aesthetics), not information density or "visual vomit". Footy Redraft and AFCM are explicit negative visual references for this criterion only.
 
 - **2026-10-06:** Added an explicit warning that the current UI policy/implementation has drifted from the project's anti-slop criteria. Reasserted restrained, mobile-first, football-specific UI guidance and instructed future UI work to remove unnecessary cards/chips/boxes/accents rather than layering on more template-style chrome.
 
