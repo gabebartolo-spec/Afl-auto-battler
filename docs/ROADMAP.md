@@ -24,6 +24,10 @@ Before adding a new item:
 4. Create a new task only if it has a genuinely different player-facing purpose or implementation boundary.
 5. Do not create duplicate tasks because the wording changed.
 
+### Visual authority — director clarification, 2026-10-06
+
+The art agent has higher authority than ChatGPT on visual direction. All final decisions go through the director. For the explicitly included STYLE-01–08 work (§9.5), Claude may prepare the scoped prototypes and reviewable implementation; final visual treatment and completion require director approval. This newer visual gate takes precedence over ordinary standing merge authority for unapproved appearance changes.
+
 ### Standing development authority — 2026-09-28
 
 The user has granted Claude standing authority to action this roadmap as the project's primary development agent. A ready roadmap item does **not** require a fresh bespoke prompt or a separate per-PR permission check.
@@ -142,10 +146,14 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 - Do not push to a branch while its CI runs unless you must: a push cancels the run and restarts about eight minutes of work. Ask the Low agent for a sync instead. The Low agent owns merges and cannot push to your branch, so sync your own branch when asked.
 
 **`LOW`**
+- §9.5 STYLE-03 colour pairings, STYLE-07 desktop layout and STYLE-08 light maintenance; the latter two follow the approved dark slice. STYLE-01's narrow Training-row alignment repair is also LOW when it reproduces. Art-agent direction and final director appearance approval apply.
+
 - §9.3 FL-001 football voice and incidental humour.
 - Verifying and closing work that is already on `main` (the Low agent does this as it finds it). The §9.1 Training scrollbar is done and waits only on a phone check.
 
 **`MEDIUM`**
+- §9.5 STYLE-01 bespoke controls, STYLE-02 typography, STYLE-04 oval/match composition, STYLE-05 headers/number marks and STYLE-06 integration with existing 2.5D scenes. Coordinate hot files and existing M8-007 ownership; no competing redesign or new-scene permission.
+
 - §9.3 FL-002 milestone banners, FL-004 atmosphere/audio, FL-005 cosmetic identity, FL-006 truthful headlines and FL-008 club memories; use existing owners and honour their dependencies.
 - §9.4 RPG-001 connected backing story (start here: verify the Backing flow first), RPG-005 selective role observations, RPG-006 coaching identity through existing choices (audit before changing anything) and RPG-007 build-aware recruiting discussions.
 - Match audits that need a measured seeded comparison, and a new mechanic only if the evidence demands one: ARD-M3-007 (free-kick rate), M3-008 (50-metre penalties), M3-011 (MRO and suspensions), M4-003 (tagging cost), M4-006 (game-state AI), M4-011 (Team Form), M5-006 (omitted-player development), and the §1.11 audits of run-of-goals calls, AI plan adaptation, sim-round blowouts, List Profile v results, and How-we-play maturity and materiality. Done since sizing: the autosim v played injury parity audit (#235, parity holds), the Coleman plausibility audit (#237) and the key forward v key defender audit (#240: defenders contain; the verdict-copy fix is #246).
@@ -173,6 +181,8 @@ This is the **authoritative near-term work order**. The milestone catalogue belo
 4. **Then resume genuinely unstarted catalogue work** from M3/M4/M5/M7/M8 and the §9.1 playtest findings according to player value and dependencies, rather than roadmap-number order. M5-001 (18 + 5 interchange) remains a separate TODO now that selection changes have settled.
 
 5. **Approved flavour and culture extensions FL-001–FL-008 (§9.3) are now in Claude's queue.** Work under their existing owners after urgent correctness/performance repairs and their specific dependencies. The director included all eight, required a visual distinction audit, and authorised necessary new ritual/farewell vignette scenes. Inspect overlapping implementation first; no new approval interview is required.
+
+6. **Approved visual styling STYLE-01–STYLE-08 (§9.5) is now in Claude's queue under the art agent's visual leadership.** All eight were included by the director after the complete interview; no rejected candidates remain. Verify/repair the confirmed Training player-row alignment independently, then develop a coherent dark Android slice before wide-screen and light-mode maintenance. Reconcile shared art/UI work first; these slices need not wait for unrelated flavour work. P0 correctness/performance and the director's final visual approval remain gates.
 
 ### Queue rules
 
@@ -4445,6 +4455,8 @@ Final pass:
 - ensure critical game actions are understandable without external explanation.
 
 
+**Approved visual styling:** STYLE-01–08 (§9.5) extend the existing UI/art owners with a dark-mode-first pass. STYLE-06 refines the existing M8-007 migration, not a new vignette system. See §9.5 for scope, dependencies, director decisions and completion gates.
+
 **Approved flavour extensions:** FL-001/004 (§9.3) add sparse authentic voice and natural ground/crowd sound through existing writing/audio systems.
 
 ---
@@ -5368,7 +5380,148 @@ Reuse stable IDs, existing state/consequence plumbing and small factual memories
 Run targeted functional/save/phone checks per slice and an **extensive combined synergy, progression, staff and long-career balance audit once related content is complete**. Approval here schedules work; it claims no implementation or successful balance result.
 
 
+# 9.5 Approved visual styling work — director interview, 2026-10-06
+
+**Decision record:** the director answered **Include** to STYLE-01 through STYLE-08, in order, after asking for a one-at-a-time interview. All eight are accepted; there were **no rejections** to retain in a candidate queue. The director separately confirmed the off-centre **player-row text** in the dark Training capture as a defect. This is not a complaint about the Training heading.
+
+**Status boundary:** inclusion authorises the scoped work below, not its final appearance or a claim of implementation. Initial status is `TODO`, with a `KNOWN BUG` alignment subtask. Inspect current code, the art agent's work and open PRs before changing a captured problem; the research snapshot predates later commits. Existing DONE foundations remain DONE. Reuse these IDs when recording progress rather than opening parallel styling systems.
+
+**Authority:** the art agent has higher authority than ChatGPT on visual direction. Claude implements the art agent's treatment and reports engineering constraints rather than substituting its own taste. **All final decisions go through the director.** Accepted scope permits concrete mockups, prototypes and reviewable implementation; final font, palette, geometry, positioning and scene treatment require the director's approval. Do not merge an unapproved final visual treatment merely because ordinary CI passes. This is an explicit task-specific visual gate, not a request to re-interview the accepted scope.
+
+**Priority:** Android portrait **dark mode first**. STYLE-07 desktop and STYLE-08 light mode follow the approved dark slice; they are not shipping prerequisites for dark improvements. Preserve urgent P0 correctness, phone and performance gates. Coordinate hot files (`UiKit.gd`, shared layout, MatchScene and vignette overlays) with the existing art work; no competing redesign branch.
+
+**Research:** [dark-mode audit](research/AFL_UI_STYLE_AUDIT_AND_RESEARCH.md) and [player-led source ledger](research/AFL_UI_STYLE_SOURCE_LEDGER.md). Competitor screenshots/claims are evidence and options, not approved templates. AFCM and Footy Redraft remain negative aesthetic references. The Windows render audit is preliminary evidence, not a completed native Android playtest or Claude engineering audit.
+
+## STYLE-01 — Bespoke dark-mode controls and Training-row alignment
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`  
+**Existing owner:** §1.7 anti-slop reset/shared UiKit, Training and Selection; presentation follow-up under M8-006. Do not reopen M8-002's completed neutral-colour foundation.
+
+**Goal/scope:** have the art agent design Training and Selection row/button treatments with less repetitive outlined-box styling and a recognisably football-specific identity. Preserve the same information, selection semantics and comfortable touch areas; typography, rules and purposeful silhouettes may replace visual enclosures.
+
+**Confirmed alignment subtask — `KNOWN BUG`:** in the audited dark Training rows the name/secondary-line stack sits too high while the role/rating sit nearer the row middle. Inspect `TrainingScene._player_row` against the current build; repair the stack's vertical alignment while retaining left-aligned names and stable columns. Do not centre every line horizontally or mistake this for a heading complaint. This repair is not conditional on adopting a broader row restyle.
+
+**Dependencies:** art-agent ownership/current-branch reconciliation; coordinate type/colour decisions with STYLE-02/03. A narrow alignment repair may proceed independently.
+
+**Exclusions:** changing training, selection, ratings, data quantity or information architecture; new UI frameworks or extra icons/cards merely for decoration.
+
+**Acceptance:** approved row/action grammar is consistent across the chosen slice; names/secondary stacks are vertically balanced against roles/ratings; normal, selected, pressed and disabled states are distinct without becoming card piles; no lost content or reduced hit area.
+
+**Validation:** dark 320/390 captures, native narrow/common Android portrait, long/short names, one/two/extra-line states, injury/reserve/status labels, bulk selection and scroll-versus-tap behaviour. Use relevant Training/selection/UI checks for changed behaviour, not tests that only assert a preferred hex value. Director reviews final appearance.
+
+## STYLE-02 — Dark-mode typography and numeral refinement
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`  
+**Existing owner:** §1.7 typography/free-font remit, shared UiKit; M8-006 presentation.
+
+**Scope:** establish consistent roles for fonts, size, weight, line spacing and casing in dark mode. Test names, ratings, scores and draft rows with the current Barlow family as a baseline, not a mandatory final choice. The art agent may propose suitable free/licensed replacements under existing tooling rules; the director chooses.
+
+**Dependencies:** shared-font/component inventory and art-agent treatment; feeds STYLE-01/04/05. Do not invent a font system per screen.
+
+**Exclusions:** paid fonts, novelty or condensed body copy without a specific approved reason, global text enlargement without composition review, rewriting player-facing content or reducing data to fit a specimen.
+
+**Acceptance:** approved type roles are implemented consistently; 1/I/l, 6/8/9 and 0/O remain distinguishable in their real contexts; player names, score forms such as `12.8 (80)` and money amounts render without unintended clipping or wrapping; display exceptions such as score numerals are deliberate; source/licence is recorded for new fonts.
+
+**Validation:** actual rendered 320/390 roster/score/draft specimens, real Android rasterisation at ordinary viewing distance, long names, scaling and theme rebuild. Run relevant layout/font-import checks when changing those paths. Director approves the completed typography treatment.
+
+## STYLE-03 — Dark text/action/club-colour pairings
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`  
+**Existing owner:** §1.7 colour/shared UiKit and Match score presentation; extends M8-001/002 foundations without changing their DONE status.
+
+**Scope:** refine red-button ink, secondary/active labels and club-coloured score figures while retaining a restrained dark palette. Colour must not accidentally imply that active information is disabled or one side's score has greater game significance.
+
+**Dependencies:** verify current component foreground/background pairs, approved palette/typography treatment and art-agent ownership.
+
+**Exclusions:** recolouring club guernseys, changing score/result semantics, making every label an accent, and claiming a token-level contrast calculation certifies the whole game.
+
+**Acceptance:** final pairings work on their actual surfaces; active secondary text is recognisable; selected/disabled/danger states preserve their meaning; both teams' scores have comparable legibility across contrasting club palettes; primary actions retain the approved identity.
+
+**Validation:** render normal/hover-or-pressed/disabled/selected components and several club pairings, including the audited COL–ESS case; calculate relevant contrast on actual fills as supporting evidence and review on Android. No need for simulation balancing when only rendering changes. Director approves final colour choices.
+
+## STYLE-04 — Formation oval and match-screen composition
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`  
+**Existing owner:** List/FormationView and existing Match presentation; §1.6/1.7 and M8-006. Coordinate M8-003/007 art without replacing those systems.
+
+**Scope:** refine player-name placement/scale around the formation oval and the proportion/position of match field, commentary area and controls. Blank space should feel deliberate. Compare opening, quiet, busy, scoring, break and decision states before choosing a layout; the audit's empty opening well is not evidence of an empty feed throughout play.
+
+**Dependencies:** existing authoritative match/formation inputs, STYLE-01–03's relevant approved treatments, current art-agent work.
+
+**Exclusions:** new gameplay, removing names/commentary/controls, an additional match engine, best-choice hints or 3D presentation.
+
+**Acceptance:** same football identities and information remain available; names/tokens and field/control proportions are optically balanced on phones; the chosen layout works in quiet and busy states, not just a hero still; actions stay reachable and selection/match events remain unchanged.
+
+**Validation:** native Android narrow/common/wide portrait, long names, various scores, system bars, commentary bursts, paused/break/decision states and scene return. Check relevant match/layout behaviour, event/result agreement, frame time and touch/Back. Director approves final composition.
+
+## STYLE-05 — Distinctive headers and roster-number marks
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`  
+**Existing owner:** §1.7 bespoke art/shared headers and club markers; M8-004's menu foundation and M8-001 remain DONE.
+
+**Scope:** start with Main, Hub and Full list. Create a consistent bespoke football identity through typography, restrained club accents, header composition and player-number marks. Keep the menu's existing content and navigation; placeholder branding is a reference, not a final approved asset.
+
+**Dependencies:** art-agent identity proposal, STYLE-02/03, current shared-component ownership.
+
+**Exclusions:** new portraits, invented personal histories, unlicensed club logos, additional menu destinations, decorative badge piles or a competing identity system.
+
+**Acceptance:** the approved family is recognisable across the three screens; number marks remain distinct from ratings and real status; headers have explicit alignment anchors and work with asymmetric side controls; every club's accents remain usable in dark mode; essential navigation/touch areas survive.
+
+**Validation:** phone captures with short/long headings, side actions, names/numbers and several club colours; first-use/returning menu, Hub prompt/no-prompt and scroll states. Check navigation/safe areas and final director appearance review.
+
+## STYLE-06 — Consistent UI and existing football-scene styling
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`  
+**Existing owner:** **extend ARD-M8-007's existing art migration**, plus approved FL overlay/scene integration. This is not a duplicate vignette ticket.
+
+**Scope:** align match overlays and transitions with the approved pre-rendered 2.5D figures so football scenes and menus feel like one game. Refine existing scenes and their entry/exit treatment only. Approved FL-007 permissions remain separate; STYLE-06 itself adds no new-scene authority.
+
+**Dependencies:** approved shared 2.5D art and relevant STYLE-01–05 visual treatment; current M8-007 sequence inventory. Validate coherent supported slices without waiting for unrelated future scene families.
+
+**Exclusions:** new tactical scenes, 3D, a second outcome model, fake participants/results or decoration that can be confused with factual game state.
+
+**Acceptance:** existing overlays follow the approved UI language; transitions preserve participant/club identity, score/decision state and legibility; watch/skip/Back paths converge on the same authoritative outcomes; existing flavour remains visibly distinct from actionable match information.
+
+**Validation:** capture stills and motion for the touched existing sequences, transitions and fallbacks; verify correct participants, appearances/kits, skip/touch/Back, event/outcome agreement, Android frame time/load time and existing vignette tests. Director approves final scene/overlay treatment before completion.
+
+## STYLE-07 — Wide-screen optical layout polish
+**Status:** `TODO` · **Priority:** `P2` · **Autonomy:** `SUPERVISED`  
+**Existing owner:** shared responsive layout, Coaching/List, M8-006.
+
+**Scope:** after the approved dark Android slice, refine desktop layouts where related labels/values stretch too far apart, particularly Coaching. Use deliberate group widths, columns and gutters while preserving information and visual identity.
+
+**Dependencies:** established dark-phone treatment and responsive behaviour. Desktop work must not delay or redefine the Android priority.
+
+**Exclusions:** desktop-only features, more analytics, reducing data, a second design system or forcing phone controls to desktop proportions.
+
+**Acceptance:** label/value pairing is visually coherent at wide sizes; gutters are purposeful; resizing preserves content, input and the approved phone layout.
+
+**Validation:** 1280×720 plus another representative wide/resized view, long labels and scroll states; verify narrow portrait remains unchanged. Relevant responsive checks and director review of final wide layout.
+
+## STYLE-08 — Lower-priority light-mode maintenance
+**Status:** `TODO` · **Priority:** `P2` · **Autonomy:** `SUPERVISED`  
+**Existing owner:** shared theme/illustration foregrounds and M8-006.
+
+**Scope:** after dark work, repair identified light-theme logo/button/role-label/grass-label/score-ink pairings that still reproduce. Use dedicated foreground/background pairs so fixed-colour football art does not inherit inappropriate global text. The director included this maintenance while retaining a strong dark preference.
+
+**Dependencies:** established dark styling, current theme inventory and art-agent approval path. Not a dependency for shipping an approved dark slice.
+
+**Exclusions:** a fresh light redesign, changing the default/user theme preference, inventing a second identity, or diverting the primary dark-mode budget.
+
+**Acceptance:** the identified pairings are legible and coherent; theme switching/rebuild preserves control states and dark appearance; final light treatment remains in the same approved family.
+
+**Validation:** representative light phone captures, fixed-grass labels, logo and contrasting club scores, active/disabled buttons, theme toggle/reload and targeted appearance checks. Recheck affected dark components. Director approves the final maintenance result.
+
+## Shared execution and completion gate
+
+Complete the narrow Training-row alignment diagnosis first where it still reproduces. Then have the art agent lead a coherent dark typography/colour/control slice (STYLE-01–03), extend composition/identity (STYLE-04/05) and integrate existing scenes (STYLE-06). Supported independent slices may proceed after their own prerequisites. Desktop/light work follow; this is not a mandate to complete a global redesign before delivering a useful repair.
+
+Hold content/state constant when comparing style treatments. Keep normal, selected, pressed, disabled, short/long, empty/busy and real club variants. Player sessions can assess perceived polish and readability; simulations do not establish beauty or enjoyment. Styling must not modify football results, save formats, draft/contract state or progress.
+
+For each slice record current-code evidence, art-agent direction, director's final decision, changed files, relevant checks, phone findings and merged commit. Use targeted engineering checks and the existing CI/phone gates; do not create pixel-exact tests that merely encode subjective taste. `DONE` requires approved appearance, validated implementation and verified `main`, not approval of this roadmap.
+
+The eight includes are the complete decision record. There are no rejected style candidates to leave in Claude's queue, and no new gameplay or flavour candidates are authorised by this interview.
+
+
+
+
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** After the complete one-at-a-time interview, included all eight STYLE-01–STYLE-08 work packages in §9.5 and the execution/effort queues; no rejections. Added the director-confirmed Training player-row vertical-alignment defect, dark Android priority, art-agent visual authority and director approval of all final treatments. Extended existing owners rather than reopening DONE foundations or duplicating M8-007. Research/source evidence is preliminary; implementation and native Android verification remain outstanding.
 
 - **2026-10-06:** Low agent, docs steward and CI owner. Added §0.4a: effort tags (`LOW` / `MEDIUM` / `HIGH`) with every open item sized into a lane, and the parallel-work rules for the agents working at once (hot files, check floors, local Godot use, no pushes mid-CI). Replaced 15 §1.11 observed-failure bullets that are built and tested on `main` with one "Closed from this list" line naming the evidence. CI now runs the Godot suites as parallel shards (`tools/ci_shards.txt`, plan job, extras job, the required check still `test`) and long audits run on GitHub (`audit.yml`). README, DESIGN and `tests/README.md` corrected against the code.
 
