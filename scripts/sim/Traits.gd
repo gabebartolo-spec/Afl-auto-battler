@@ -124,6 +124,16 @@ static func _positions(p: Dictionary) -> Array:
 	return out
 
 
+## Every position he can be picked in.
+static func positions_of(p: Dictionary) -> Array:
+	return _positions(p)
+
+
+## Whether he can be picked at `role`: his own, second or a learned position.
+static func plays(p: Dictionary, role: String) -> bool:
+	return _positions(p).has(role)
+
+
 ## Forward, midfield and back all among the positions he can be picked in.
 static func is_unicorn(p: Dictionary) -> bool:
 	var have := _positions(p)

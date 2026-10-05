@@ -2549,6 +2549,13 @@ func _project_week(p: Dictionary, announce := true) -> Dictionary:
 	pr["weeks"] = int(pr.get("weeks", 0)) + 1
 	if int(pr["weeks"]) < PROJECT_WEEKS:
 		return {}
+	return _finish_project(p, announce)
+
+
+## The verdict on his project, at PROJECT_WEEKS or when the season ends first:
+## learned if his rating there is within PROJECT_PASS of his own.
+func _finish_project(p: Dictionary, announce := true) -> Dictionary:
+	var job := project_job(p)
 	var role := project_role(p)
 	var own := int(p.get("overall", 0))
 	var there := rating_as(p, role)
@@ -3159,6 +3166,11 @@ func open_offseason() -> void:
 	if season == null or offseason_year == season_year:
 		return
 	ensure_contracts()
+	# The season is over: every unfinished project is judged where it stands.
+	for code in season.lists:
+		for p in season.lists[code]:
+			if project_job(p) != "":
+				_finish_project(p, str(code) == my_club)
 	offseason_year = season_year
 	# The board funds a fresh operating year. Last season's choices do not
 	# become permanent upgrades or compound into a tech tree.
@@ -3781,6 +3793,7 @@ func _join(code: String, p: Dictionary) -> void:
 	p["club"] = code
 	p["num"] = _next_jumper_number(list)
 	p.erase("train_plan")
+	p.erase("project")  # a new club ends it; his season's chance stays spent
 	p.erase("released_by")
 	p.erase("comp_eligible")
 	list.append(p)
@@ -4737,9 +4750,8 @@ func _plan_row(key: String) -> Dictionary:
 		var row: Dictionary = LEARN_JOBS[job]
 		var word := str(row["word"])
 		return {"key": key, "label": "Learn to play %s" % word, "roles": [],
-				"text": "%d weeks training as %s %s instead of in his own position, and for the rest of the season training in his own position can lift him only %d more (up to %d in a normal season). If he is close enough to the standard at the end, he can be picked there too; if not, it has not taken." % [
-					PROJECT_WEEKS, "an" if word.substr(0, 1) in ["a", "e", "i", "o", "u"] else "a", word,
-					PROJECT_OWN_GAIN, SEASON_TRAIN_GAIN],
+				"text": "%d weeks training as %s %s instead of in his own position, and his own game barely moves for the rest of the season. If he is close enough to the standard at the end, he can be picked there too; if not, it has not taken." % [
+					PROJECT_WEEKS, "an" if word.substr(0, 1) in ["a", "e", "i", "o", "u"] else "a", word],
 				"weights": row["weights"]}
 	for row in TRAIN_PLANS:
 		if str(row["key"]) == key:

@@ -31,6 +31,7 @@ func run() -> void:
 	_test_learning_a_position()
 	_test_unicorn()
 	_test_rival_projects()
+	_test_project_endings()
 	GameState.delete_saved_career()
 	print("Training tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -793,3 +794,45 @@ func _test_rival_projects() -> void:
 		if int(q.get("project_year", 0)) == GameState.season_year:
 			n += 1
 	_check(n == GameState.AI_PROJECTS and int(l["project"]["weeks"]) == w + 1, "No second start; his weeks count game by game")
+
+
+## A project survives a save mid-way, ends when he changes clubs (his chance
+## for the season stays spent), and is judged where it stands when the
+## season ends. A learned third position counts wherever positions matter.
+func _test_project_endings() -> void:
+	_new_season()
+	var learners := []
+	for q in GameState.my_list:
+		var jobs := GameState.learnable_jobs(q)
+		if not jobs.is_empty():
+			GameState.set_player_plan(str(q["id"]), GameState.LEARN_PREFIX + str(jobs[0]))
+			learners.append(q)
+	_check(learners.size() == GameState.PROJECT_MAX, "(setup) two projects under way")
+	if learners.size() < 2:
+		return
+	learners[0]["project"]["weeks"] = 3
+	var id0 := str(learners[0]["id"])
+	GameState.save_career()
+	GameState.load_career()
+	var back := GameState.list_player(id0)
+	_check(GameState.project_job(back) != "" and int(back["project"]["weeks"]) == 3
+			and back.has("project_cap"), "A project survives a save mid-way")
+	# A move to another club ends it; the season's chance stays spent.
+	var mover := GameState.list_player(str(learners[1]["id"]))
+	var other := ""
+	for code in GameState.season.lists:
+		if str(code) != GameState.my_club:
+			other = str(code)
+			break
+	GameState.my_list.erase(mover)
+	GameState._join(other, mover)
+	_check(GameState.project_job(mover) == "" and int(mover.get("project_year", 0)) == GameState.season_year
+			and GameState.active_projects() == 1, "A new club ends his project; the chance is spent")
+	(GameState.season.lists[other] as Array).erase(mover)
+	# The season ends before week 8: he is judged where he stands.
+	GameState.open_offseason()
+	_check(GameState.project_job(back) == "", "An unfinished project is judged when the season ends")
+	# A third position learned counts for the ruck, the bench and the midfield.
+	var u := {"id": "U2", "role": "FWD", "role2": "DEF", "learned": ["RUCK"]}
+	_check(MatchSim._is_ruckman(u) and Roles.is_mid({"role": "FWD", "role2": "DEF", "learned": ["MID"]}),
+			"A learned third position counts as his own")
