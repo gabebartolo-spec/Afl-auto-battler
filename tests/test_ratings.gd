@@ -218,9 +218,10 @@ func _test_save_recomputes() -> void:
 
 
 ## The director's named-player corrections (Ratings.ATTR_ADJUSTMENTS: Harvey
-## Langford 15%, Jake Bowey and Connor Rozee 10%): every attribute that much
-## higher than his numbers alone give, capped at 99, rated normally from there.
-## Each applies exactly once, and nobody else moves.
+## Langford 15%, Connor Rozee 10%, Jake Bowey 2.2%, the least that lifts his OVR
+## 5%): every attribute that much higher than his numbers alone give, capped at
+## 99, rated normally from there. Each applies exactly once, and nobody else
+## moves. Bowey's POT is 5% up too (data/potential_overrides.csv).
 func _test_attr_adjustment() -> void:
 	var with: Array = GameDB._load_players()
 	var without: Array = GameDB._load_players()
@@ -246,6 +247,22 @@ func _test_attr_adjustment() -> void:
 				"%s's attributes are %d%% above his numbers (OVR %d, from %d)" % [
 					who, int(round((f - 1.0) * 100.0)), int(with[j]["overall"]), int(without[j]["overall"])])
 		_check(str(with[j]["role"]) == str(without[j]["role"]), "%s's position is unchanged" % who)
+	for j in named:
+		if str(with[j]["last"]) == "Bowey":
+			_check(int(without[j]["overall"]) == 68 and int(with[j]["overall"]) == 71,
+					"Jake Bowey's OVR goes 68 to 71, 5%% up (it is %d, from %d)" % [
+						int(with[j]["overall"]), int(without[j]["overall"])])
+			var smaller := float(Ratings.ATTR_ADJUSTMENTS["MEL|Jake Bowey"]) - 0.001
+			var a: Dictionary = {}
+			for k in without[j]["attr"]:
+				a[k] = clampi(int(round(float(without[j]["attr"][k]) * smaller)), 1, 99)
+			_check(Ratings.rate_overall(a, str(with[j]["role"]), Ratings.effective_games(with[j])) < 71,
+					"Jake Bowey's factor is the smallest that gives 71")
+	var bowey_pot := 0
+	for p in GameDB.players:
+		if str(p["club"]) == "MEL" and str(p["last"]) == "Bowey":
+			bowey_pot = int(p["potential"])
+	_check(bowey_pot == 76, "Jake Bowey's POT is 76, 5%% up from 72 (it is %d)" % bowey_pot)
 	var others_same := true
 	for j in range(with.size()):
 		if not named.has(j) and (with[j]["attr"] != without[j]["attr"]

@@ -302,9 +302,11 @@ const ROLE_CORRECTIONS := {
 ## Director's player-data balance corrections: every attribute scaled by the
 ## factor, capped at 99, before OVR is rated. Named players only; never a
 ## reason to change the generation model. Mirrored in tools/sim_harness.py.
+## Bowey's factor is the smallest that lifts his OVR 5% (68 to 71); his POT 5%
+## (72 to 76) is set in data/potential_overrides.csv.
 const ATTR_ADJUSTMENTS := {
 	"MEL|Harvey Langford": 1.15,
-	"MEL|Jake Bowey": 1.10,
+	"MEL|Jake Bowey": 1.022,
 	"PAD|Connor Rozee": 1.10,
 }
 

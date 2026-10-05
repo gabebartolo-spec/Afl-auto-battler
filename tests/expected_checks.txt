@@ -18,7 +18,7 @@ coach_effects 25
 # simulated round raises one, so the floor is one under the usual count.
 career_ui 233
 potential 36
-ratings 36
+ratings 39
 ai 35
 training 62
 selection 14

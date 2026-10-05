@@ -117,15 +117,15 @@ func _test_adjusted_players_survive() -> void:
 			var live: Dictionary = GameState._find_player(str(p["id"]))
 			if not live.is_empty():
 				before[who] = {"id": str(p["id"]), "attr": (live["attr"] as Dictionary).duplicate(),
-						"overall": int(live["overall"])}
+						"overall": int(live["overall"]), "potential": int(live["potential"])}
 	GameState.save_career()
 	GameState.load_career()
 	for who in names:
 		var was: Dictionary = before.get(who, {})
 		var q: Dictionary = GameState._find_player(str(was.get("id", "")))
 		_check(not was.is_empty() and not q.is_empty() and q["attr"] == was["attr"]
-				and int(q["overall"]) == int(was["overall"]),
-				"%s's corrected attributes survive a reload exactly" % who)
+				and int(q["overall"]) == int(was["overall"]) and int(q["potential"]) == int(was["potential"]),
+				"%s's corrected attributes and POT survive a reload exactly" % who)
 
 
 func _test_no_save_mid_match() -> void:
