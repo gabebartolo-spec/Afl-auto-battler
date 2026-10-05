@@ -2009,6 +2009,22 @@ This should be a real structural choice, not a flat intercept-stat buff:
 
 The roaming interceptor should also be eligible to appear as a **key matchup / opposition danger** even though he is not assigned to one forward. If he is controlling the air, the player should have football-appropriate counters available (for example changing forward structure, making him accountable, lowering/altering entries, or moving the spare), rather than being told he is a danger with no response.
 
+### Director addition — defensive forward archetype / trait
+
+Add a **Defensive forward** as a genuine player archetype/trait and make it relevant to this exact problem: when an opposition loose/intercept defender is hurting you, a suitable defensive forward should be deployable to make him accountable rather than the response being only an abstract team button.
+
+This is a design brief, not a fully specified mechanic. **Claude should ponder and propose the smallest football-credible implementation** before coding the deeper behaviour. Work out how the identity should be represented in the existing archetype/trait/role model, what makes a player genuinely suited to it, and how it interacts with live matchup/structural calls without creating another redundant role system.
+
+Intent:
+- a defensive forward sacrifices some attacking freedom/output to apply pressure, occupy or follow a dangerous defender and reduce that defender's ability to roam uncontested;
+- this should create a recognisable player identity and list-building option, not a universal instruction that any forward performs equally well;
+- deploying one against a loose defender should be a meaningful response available from the matchup UI when suitable personnel exist;
+- the trade-off must remain real: making the interceptor accountable can cost forward potency, aerial presence, spacing or some other football-relevant attacking value;
+- the opponent/AI gets equivalent access under the same personnel and information rules;
+- it is **not** a magic “turn off their interceptor” counter, a flat hidden debuff or an optimal-move hint.
+
+Claude has discretion over the final implementation details and may recommend whether this is best expressed as a player archetype, trait plus role instruction, or the smallest compatible extension of the existing systems. Preserve the director's core requirement that **Defensive forward exists as a distinct football identity** and can be deliberately deployed against loose/intercept defenders. Do not reopen the completed general role-classification pass except where this new identity genuinely requires an extension.
+
 Do not literally create an extra player. Moving numbers to one area must reduce presence elsewhere.
 
 Prefer situational/live choices before adding permanent micromanagement.
@@ -5629,6 +5645,8 @@ The eight includes are the complete decision record. There are no rejected style
 # 10. Roadmap Maintenance Log
 
 - **2026-10-06:** The director approved implementing the best findings of the Codex research (project, workforce and art reports). §0.4a gains the team workflow rules W1–W7: fresh sessions at task boundaries with handoffs, direct messages, explicit states, event-driven monitoring, process ownership, semantic review for lifecycle changes, and the check-floor collision rule. §9.4 gains G1 (one interruption budget) and G7 (one career-fact record) as prerequisites. G10 (safe save replacement) is fixed in its own PR, and A4 (data textures stay lossless; colour atlases ASTC 4×4) in the art agent's.
+
+- **2026-10-06:** Added a director-requested **Defensive forward** archetype/trait under ARD-M4-004. It should provide a personnel-dependent way to make a damaging loose/intercept defender accountable, with a real attacking sacrifice rather than a magic debuff. Claude is explicitly asked to ponder and propose the smallest football-credible implementation and how it fits the existing archetype/trait/role systems before expanding mechanics.
 
 - **2026-10-06:** Added two phone-playtest follow-ups: simplify the text-heavy “This week v …” comparison into a faster visual read without prescribing red/green or violating anti-slop/anti-psychic rules; and allow an assigned specialist tagger to remain selectable/assigned while on the bench, with sensible interchange shadowing of his target rather than on-field-only eligibility.
 
