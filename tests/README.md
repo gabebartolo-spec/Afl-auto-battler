@@ -25,6 +25,8 @@ named `test` is the last job and passes only when every shard and that job did.
 
 Run only the suites your change touches while you work; CI runs the rest.
 
+**Taps and seeds.** A test that stands for a player's tap uses `tests/tap.gd` (`await Tap.tap(button)` returns "" when the tap reached it). It sends a touch at the button's place on screen, so a covering sheet or an off-screen button fails. A test that starts a season sets `GameState.replay_seed` first: a clock seed makes a different match every run (ROADMAP §0.4a, proof practices).
+
 ### Which suite covers what
 
 Pick the suites for the code you changed and run just those (`tools/run_tests.sh <suites>`).
@@ -68,6 +70,7 @@ Times are seconds on a CI runner, from the first sharded run; each suite's floor
 | `league_balance` | Smoke checks for the balance harness in `tools/balance` | 223 |
 | `calibration` | The engine against real 2026 numbers (seeded matches) | 69 |
 | `balance` | A long-career guard: three seasons must not inflate the league | 149 |
+| `assets` | The art and music as shipped: figure-sheet frames against the layout, vignettes playing their moves through, music files, levels and the player | 3 |
 
 By area:
 

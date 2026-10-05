@@ -166,6 +166,20 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
   - **Reviewer's job:** check the contract and its consequences, not just the explanation. One reviewer, not three.
   - **Why:** a textually clean merge can still be wrong together. For example, a project survived a club move until review caught it.
 
+**Proof practices (director-approved #291 adopt items, 2026-10-06)**
+- **Taps, not handler calls, for touch flows (C1/C3).** A UI test that stands for a player's tap uses `tests/tap.gd`. The touch goes in at the button's place on screen and through the GUI, so an overlay, sheet or off-screen button fails the test. `emit_signal("pressed")` still suits checks of the handler's logic alone.
+- **Prove the intended art ran (C2/C11).** A check on art or motion asserts the asset the game actually used, not just that a picture appeared.
+  - **Example:** the `assets` suite checks every figure-sheet frame against `VignetteFigures.gd`, and that each vignette plays its moves through (`StoppageVignette.figure_frame` logs a frame asked for past the end of a move).
+  - **Self-test:** a new check is shown failing on a known-broken input (a blank frame, a misplaced mask, a covered button, a clipped track) before it is trusted.
+- **Audio evidence (C12).** The `assets` suite checks what a machine can check:
+  - every track loads and is in the playlist;
+  - no clipping, no gap at the start, the tracks at one level;
+  - pause for a match, resume, next track, Mute.
+  How the music sounds (fidelity, repetition, mood) is the director's to judge by ear. Never report "sounds fine" from a measurement.
+- **Change the evidence after repeated failure (C7).** After two or three similar fixes have failed, stop patching. Gather different evidence first: a minimal reproduction, the last good commit, the actual runtime state or the event path. This is a trigger to change method, not a time limit.
+- **Never the clock in a test (C15).** A test that starts a season or draft sets `GameState.replay_seed` (or uses a seeded `MatchSim`), so a run can't pass or fail on which opponent it drew. Older suites still on the clock are fixed when touched. A flaky failure is a seed to pin, not a rerun.
+- **Say what wasn't exercised.** A PR's evidence names what it didn't cover (device touch, real-time performance, listening) instead of leaving it implied.
+
 **`LOW`**
 - §9.5 STYLE-03 colour pairings, STYLE-07 desktop layout and STYLE-08 light maintenance; the latter two follow the approved dark slice. STYLE-01's narrow Training-row alignment repair is also LOW when it reproduces. Art-agent direction and final director appearance approval apply.
 

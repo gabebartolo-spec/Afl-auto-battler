@@ -504,7 +504,7 @@ func _figure(pos: Vector2, scale: float, side: int, anim: String, facing: String
 	draw_circle(Vector2.ZERO, 0.4 * pm, Color(0, 0, 0, 0.32))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var info := VignetteFigures.strip(BODY, anim, facing)
-	var f := clampi(frame, 0, int(info["frames"]) - 1)
+	var f := StoppageVignette.figure_frame(info, frame, anim, facing)
 	var k := pm / VignetteFigures.PX_PER_M
 	var origin := feet - Vector2(info["pivot"][0], info["pivot"][1]) * k
 	draw_texture_rect_region(StoppageVignette.FIGURE_SHADE, Rect2(origin, VignetteFigures.FRAME * k),
