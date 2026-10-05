@@ -820,3 +820,26 @@ func _test_broadcast_vignettes() -> void:
 	BroadcastVignette.pick_kind(ordinary_snap, {}, {}, line)
 	var got := [randi(), randi(), randi()]
 	_check(got == expect, "Vignette selection draws nothing from the match/global RNG")
+
+	# The close-ups are drawn with the pre-rendered figures (ARD-M8-007), not
+	# silhouettes: the sheet holds every move they play, from the side they play it.
+	var moves := {"idle": ["front", "back"], "jog": ["back_r"], "leap": ["front", "back"],
+			"kick": ["back_r"], "snap": ["back_r"], "gather": ["back_r"], "lunge": ["side_l"]}
+	var sheet_ok := true
+	for anim in moves:
+		for facing in moves[anim]:
+			var strip: Dictionary = ((VignetteFigures.BODIES["average"]["anims"] as Dictionary).get(anim, {}) \
+					as Dictionary).get(facing, {})
+			sheet_ok = sheet_ok and int(strip.get("frames", 0)) > 0
+	_check(sheet_ok, "The figure sheet holds every move the broadcast close-ups play")
+	# Both clubs wear their own guernseys; the featured player wears his own look.
+	var star: Dictionary = GameDB.club_list("COL")[0]
+	var vig := BroadcastVignette.new()
+	vig.setup(BroadcastVignette.GOAL_LINE, {"kind": "goal", "side": 0, "crumb": true,
+			"num": int(star["num"]), "player_id": str(star["id"])}, {}, {"home": "COL", "away": "CAR"})
+	var bases: Array = (vig.material as ShaderMaterial).get_shader_parameter("kit_base")
+	_check(bases.size() == 4 and bases[0] == GameDB.club_guernsey("COL")["base"]
+			and bases[1] == GameDB.club_guernsey("CAR")["base"]
+			and vig.get("_look") == GameDB.player_looks(star),
+			"A broadcast close-up dresses both clubs and shows the featured player's own look")
+	vig.free()
