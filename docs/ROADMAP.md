@@ -3781,16 +3781,18 @@ For each researched design, record:
 Start from official AFL/club sources wherever possible. The AFL's Sir Doug Nicholls Round guernsey galleries, annual all-club roundups and club reveal articles are preferred over fan recreations or merchandise photos without story/provenance.
 
 ### Cultural and IP guardrails
-This feature must **not** turn Aboriginal and Torres Strait Islander visual culture into a generic "dot-art skin generator".
+Treat the research primarily as **visual-style and design-language study**, not as a source of specific artwork or stories to reproduce.
 
-- Do not copy or trace a real artist's Indigenous artwork into the game without explicit permission/licensing.
-- Do not lift Dreaming stories, clan-specific symbols, sacred/culturally restricted imagery or an artist's distinctive composition and remix it as generic decoration.
-- Do not infer meanings for motifs that the published source does not state.
-- Preserve artist attribution in the research record even when the shipped game uses an original design rather than the source artwork.
-- If the project ever ships exact real-world Sir Doug Nicholls guernseys, obtain the necessary club/artist rights first.
-- For the default game, use the research to build **original, club-specific fictional Indigenous-round guernseys** whose geometry, colour use and storytelling structure are informed by the history but whose artwork is newly created for the game.
-- Prefer commissioning / collaborating with Aboriginal and Torres Strait Islander artists for any final commercial art pass. Until then, keep the generated/original designs respectful, abstract and clearly fictional rather than pretending they represent a real Nation or story.
-- Do not use sacred terminology or invented "Dreaming" explanations to make fictional artwork sound authentic.
+Claude should learn from the broad visual vocabulary across many Indigenous guernseys — composition, flow, layering, connected forms, asymmetry, curved and concentric geometry, integration with club colours, and the way traditional football structures such as sashes, hoops, panels and yokes are reinterpreted — then create **new original designs** from that learned design language.
+
+- Do not copy, trace or closely reconstruct any real artist's guernsey artwork.
+- Do not lift a specific club design and merely recolour or rearrange it.
+- Do not reuse Dreaming stories, clan-specific symbols, sacred/culturally restricted imagery or an artist's distinctive composition.
+- Do not invent cultural narratives, Nations, symbolism or "meaning" for the game's fictional designs. **The designs do not need lore attached to them.**
+- Preserve artist/source attribution in the research record so Claude knows what it studied, even though the shipped design should be original.
+- If the project ever ships an exact real-world Sir Doug Nicholls guernsey, obtain the necessary club/artist rights first.
+- The default game should use **original, club-specific fictional Indigenous-round guernseys** informed by the broad art style and football-design traditions found in the research, without pretending those designs represent a real community, artist or story.
+- Prefer a future collaboration/commission with Aboriginal and Torres Strait Islander artists for a final commercial art pass if practical, but this is not required for prototyping the original in-game style.
 
 ### Per-club design depth
 Target **5–10 unique Indigenous-round guernseys per club** over time.
@@ -4642,6 +4644,8 @@ Prefer improving the existing experience when that answers the same need. This p
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-05:** Clarified ARD-M7-010 Indigenous guernsey direction: Claude should learn the broad visual language and art-style vocabulary from extensive real-world research, then create original club-specific designs. The game does not need to copy specific artworks or fabricate cultural narratives/meanings for fictional guernseys.
 
 - **2026-10-05:** Added ARD-M7-010 for a full Sir Doug Nicholls Round system: extensive official-source research of Indigenous guernsey history from 2014 onward, a 5–10 design rotating library per club, per-club bye/catch-up wearing logic, vignette integration, save-stable seasonal kit assignment, and strong cultural/IP safeguards against copying artist-owned or culturally specific artwork without permission.
 
