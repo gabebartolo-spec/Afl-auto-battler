@@ -5364,8 +5364,23 @@ Use **Crusader Kings** for emergent stories and consistent living people: durabl
 
 
 ### Retirement persuasion — director request, 2026-10-06
-**Status:** `TODO`. **Autonomy:** `BALANCE-GATED`.
+**Status:** `IN REVIEW` (branch `claude/retirement-persuasion`). **Autonomy:** `BALANCE-GATED`.
 Offer a short chance to convince a retiring veteran at the user's club to play on **only while his OVR remains healthy**. Claude should define and validate a credible OVR eligibility threshold against current ratings/retirement rules; being merely above the automatic low-OVR retirement floor is insufficient. Present the conversation before retirement removes the player. Players can reject the offer and retire. Acceptance/refusal must follow a consistent, explainable assessment of recorded circumstances—long injury history, a very recent injury, poor form, poor morale or similarly relevant career factors—not a random accept/reject roll. Healthy OVR permits the conversation but does not guarantee willingness to continue. Claude should refine the factor weights/thresholds, using only evidence actually recorded; do not invent injury history. Explain the main reason in football language. Reuse private conversations and existing retirement/contracts/history rules; no OVR boost, erased decline or repeated persuasion spam. **Acceptance:** unhealthy-OVR retirees are ineligible; eligible success/refusal, normal ageing, roster/contract consequences and retirement/coaching handoff stay coherent and survive save/load without rerolls or duplicate outcomes.
+
+**Implementation record (2026-10-06, branch `claude/retirement-persuasion`): `IN REVIEW`.**
+- **When it is decided:** every club's retirements are decided when the off-season opens, by the existing ageing rules and seeds (`Retirement.intends`). The rollover then does exactly what was shown, so nothing is re-rolled.
+- **Eligibility (director):** a veteran picked in his club's best 22 and at or above its weakest player at his position. That's about 7 a season league-wide, and one for your club about every other season ([evidence](RETIREMENT_EVIDENCE_2026-10-06.md)).
+- **Once a career (director):** a yes means one more season. The next time he decides to go, he goes.
+- **His answer follows his record, never a roll.** He refuses if he is:
+  - still injured (the injury is named);
+  - three injuries in two seasons;
+  - unhappy (morale under 40);
+  - out of the side (under 8 games this year).
+  Otherwise he goes around again. Injuries now go on the player's record (`injury_log`) from this career onward, so no history is invented.
+- **Rival clubs (director):** they ask their own healthy veterans by the same rules. A notable one who plays on makes the news.
+- **Fixed alongside (the medium agent's evidence):** 28% of retirements were veterans signed in that off-season's free agency who retired before playing a game. A player retiring at the rollover is now neither re-signed nor released, and he never reaches the free-agent market.
+- **Surface:** a "Retiring" section at the top of the off-season Contracts tab, with "Ask him to go around again" and his answer in football words. Checked at 390 px (`tools/visual/capture_retiring.gd`).
+- **Tests:** `test_intake.gd` covers the decision, eligibility, once only, each refusal reason, determinism, rival clubs, save mid-off-season, the rollover, and staying out of free agency. `test_contracts.gd` allows for a retiring rival's expiring contract.
 
 ## RPG-010 — Automatic familiarity as team synergy
 **Owner:** M5-007 plus RPG-004. **Autonomy:** BALANCE-GATED.
