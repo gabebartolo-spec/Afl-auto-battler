@@ -173,7 +173,8 @@ func _change_budget(area: String, level: int) -> void:
 
 
 func _contracts(body: VBoxContainer) -> void:
-	var expiring := Contracts.expiring(GameState.my_list)
+	# A retiring player is in Retiring above, not up for a contract.
+	var expiring := Contracts.expiring(GameState.my_list).filter(func(q): return not GameState.retiring_now(q))
 	var clubs := GameDB.active_clubs(GameState.season_year).size()
 	for c in GameState.compensation:
 		if str(c["club"]) == GameState.my_club:

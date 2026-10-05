@@ -9,9 +9,13 @@ extends RefCounted
 ## in football words. One more season, once a career; rival clubs ask by the
 ## same rules.
 
-## His OVR has to hold a place in his club's best 22 (HEALTHY_RANK); being
-## merely above the low-OVR retirement floor is not enough.
-const HEALTHY_RANK := 22
+## Healthy enough to ask (director, 2026-10-06): in his club's best 22 and
+## at or above the weakest player it picks at his position. Being merely above
+## the low-OVR retirement floor is not enough. Measured: about 7 a season
+## league-wide, one for a club about every other season
+## (docs/RETIREMENT_EVIDENCE_2026-10-06.md).
+const HEALTHY_RULE := "best 22, at or above his position's bar"
+
 ## Recorded injuries across this season and last that tell him it is time.
 const INJURY_LIMIT := 3
 ## Games this season below which he sees no role for himself.
@@ -30,16 +34,19 @@ static func intends(p: Dictionary, year: int) -> bool:
 	return Prospects.should_retire(dup, year)
 
 
-## Still good enough to be worth asking: in his club's best 22 by OVR.
+## Still good enough to be worth asking: picked in his club's best 22 and
+## at or above its bar at his position.
 static func healthy(p: Dictionary, list: Array) -> bool:
-	var ovr := []
-	for q in list:
-		ovr.append(int(q.get("overall", 0)))
-	ovr.sort()
-	ovr.reverse()
-	if ovr.size() < HEALTHY_RANK:
-		return true
-	return int(p.get("overall", 0)) >= int(ovr[HEALTHY_RANK - 1])
+	var side := Ratings.select_22(list)
+	var picked := false
+	for q in (side["ground"] as Array) + (side["bench"] as Array):
+		if str(q["id"]) == str(p["id"]):
+			picked = true
+			break
+	if not picked:
+		return false
+	var bars := TradeValue.selection_bars(list)
+	return int(p.get("overall", 0)) >= int(bars.get(str(p.get("role", "")), bars.get("bench", 0)))
 
 
 ## Whether a club may ask him: retiring this rollover, healthy, never talked

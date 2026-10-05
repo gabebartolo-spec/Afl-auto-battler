@@ -448,6 +448,15 @@ func _test_retirement_talk() -> void:
 	sore["injury_weeks"] = 4
 	sore["injury_kind"] = "hamstring"
 	fringe["overall"] = 40
+	sore["contract_years"] = 1
+	# A rival veteran out of contract and retiring: not for free agency.
+	var rival_vet := {}
+	for code in GameState.season.lists:
+		if str(code) != GameState.my_club:
+			rival_vet = (GameState.season.lists[code] as Array)[0]
+			break
+	rival_vet["age"] = 37.0
+	rival_vet["contract_years"] = 1
 	var season: Season = GameState.season
 	season.round_index = season.fixture.size()
 	GameState.open_offseason()
@@ -488,6 +497,9 @@ func _test_retirement_talk() -> void:
 			if int((p.get("retire_talk", {}) as Dictionary).get("year", 0)) == year:
 				rival_asked += 1
 	_check(rival_asked >= 0, "Rival clubs' healthy veterans are asked too (%d)" % rival_asked)
+	_check(not GameState.free_agents.has(rival_vet), "A retiring veteran is not put on the free-agent market")
+	var expiring_shown := Contracts.expiring(GameState.my_list).filter(func(q): return not GameState.retiring_now(q))
+	_check(not expiring_shown.has(sore), "A retiring player is not up for a contract")
 	# Save mid-off-season: the decisions hold.
 	GameState.save_career()
 	GameState.load_career()
@@ -507,6 +519,7 @@ func _test_retirement_talk() -> void:
 	_check(not gone.has(str(keen["id"])) and not GameState.list_player(str(keen["id"])).is_empty(),
 			"The veteran you talked round plays on")
 	_check(gone.has(str(sore["id"])) and gone.has(str(fringe["id"])), "The others retire as shown")
+	_check(not bool(sore.get("resigned", false)), "Nobody re-signed a player who was retiring")
 	# Once a career: next year he goes.
 	var k2 := GameState.list_player(str(keen["id"]))
 	_check(not Retirement.can_ask(k2, GameState.my_list, GameState.season_year + 1),

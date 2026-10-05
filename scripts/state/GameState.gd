@@ -2963,6 +2963,8 @@ func open_offseason() -> void:
 			continue
 		var list: Array = season.lists[code]
 		for p in Contracts.expiring(list).duplicate():
+			if retiring_now(p):
+				continue  # he retires at the rollover: no contract, no free agency
 			var why := Contracts.ai_release_reason(p, list, salary_cap)
 			if why == "" or list.size() <= Contracts.MIN_LIST:
 				# Rivals bargain by the same rules: the least he takes for that term.
@@ -3001,6 +3003,12 @@ func _decide_retirements() -> void:
 			if bool(res["stays"]) and int(p.get("overall", 0)) >= NEWS_MIN_OVR:
 				add_news("retirement", "%s (%s) has decided to play on in %d." % [
 						GameDB.player_display_name(p), GameDB.club_name(str(code)), year])
+
+
+## Retiring at the coming rollover, and not talked round.
+func retiring_now(p: Dictionary) -> bool:
+	var year := season_year + 1
+	return int(p.get("retiring", 0)) == year and int(p.get("play_on", 0)) != year
 
 
 ## Games he played this season (0 when he did not play).
@@ -3236,6 +3244,12 @@ const FILLER_CAP := 3
 
 
 func _open_market(players: Array) -> void:
+	# A player retiring at this rollover is not on the market: his career ends.
+	for p in players.duplicate():
+		if retiring_now(p):
+			players.erase(p)
+			free_agents.erase(p)
+			_career_over(p)
 	_bars = {}
 	var depth_held := {}
 	var targets_held := {}
@@ -4477,7 +4491,7 @@ func _close_free_agency() -> void:
 	open_offseason()
 	fa_closed_year = season_year
 	for p in Contracts.expiring(my_list).duplicate():
-		if bool(p.get("resigned", false)):
+		if bool(p.get("resigned", false)) or retiring_now(p):
 			continue
 		var walked := bool(p.get("talks", {}).get("walked", false))
 		if walked and my_list.size() <= Contracts.MIN_LIST:
