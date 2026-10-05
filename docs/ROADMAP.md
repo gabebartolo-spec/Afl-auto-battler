@@ -3263,6 +3263,9 @@ Include as relevant:
 
 Destructive actions require clear confirmation.
 
+
+**User-requested follow-up — TODO (2026-10-06):** For now, **real names are the default**, rather than generated/fictive aliases for real players, when no name-display preference exists. Keep fictive names opt-in and preserve saved choices. Generated future players keep their generated names; custom prospects keep their entered names. Verify fresh/default settings and save/load. The existing Settings foundation remains DONE.
+
 ---
 
 ## ARD-M6-006 — League-relative List Profile
