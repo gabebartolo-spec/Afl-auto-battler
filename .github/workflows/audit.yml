@@ -1,0 +1,139 @@
+name: Audit
+
+# Runs one tools/audit/<impl>.gd on GitHub's runner, so a long seeded run does
+# not tie up a developer's machine. Start it by hand against any branch:
+#
+#   gh workflow run audit.yml --ref <branch> -f impl=tired_impl \
+#       -f env="TIRED_REPS=8" -f args=""
+#   gh run watch            # or wait; then:
+#   gh run download <run-id> -n audit-tired_impl
+#
+# impl  the script in tools/audit, without .gd (the same word you would pass to
+#       tools/audit/run_audit.gd after --)
+# args  anything the script reads after the impl name (optional)
+# env   space-separated KEY=VALUE pairs the script reads with OS.get_environment
+#       (optional; values cannot contain spaces)
+#
+# The log is uploaded as the artifact audit-<impl>, and its last 60 lines are in
+# the run summary. This workflow only measures: it never pushes or comments.
+on:
+  workflow_dispatch:
+    inputs:
+      impl:
+        description: "Audit script in tools/audit, without .gd (for example tired_impl)"
+        required: true
+        type: string
+      args:
+        description: "Extra arguments after the impl name (optional)"
+        required: false
+        default: ""
+        type: string
+      env:
+        description: "Environment as KEY=VALUE pairs separated by spaces (optional)"
+        required: false
+        default: ""
+        type: string
+
+# No concurrency group on purpose. An audit only measures, so any number of runs,
+# variants of one audit included, can go at once. (A group per ref and audit let
+# one run and one pending run exist, and a third dispatch silently cancelled the
+# pending one: three variant runs were lost that way.) GitHub's own runner limit
+# still queues the surplus.
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GODOT_VERSION: "4.7.2"
+      # Inputs reach the shell as environment variables, never as text pasted
+      # into the script, so an input cannot become a command.
+      IMPL: ${{ inputs.impl }}
+      ARGS: ${{ inputs.args }}
+      AUDIT_ENV: ${{ inputs.env }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the inputs
+        run: |
+          if ! [[ "$IMPL" =~ ^[A-Za-z0-9_]+$ ]]; then
+            echo "::error::impl must be letters, digits and underscores: a file in tools/audit, without .gd"
+            exit 1
+          fi
+          if [ ! -f "tools/audit/$IMPL.gd" ]; then
+            echo "::error::tools/audit/$IMPL.gd does not exist on this ref. Available:"
+            ls tools/audit | grep '\.gd$' | sed 's/\.gd$//'
+            exit 1
+          fi
+          if [ -n "$AUDIT_ENV" ] && ! [[ "$AUDIT_ENV" =~ ^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*( [A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*)*$ ]]; then
+            echo "::error::env must be KEY=VALUE pairs separated by single spaces"
+            exit 1
+          fi
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download Godot ${{ env.GODOT_VERSION }}
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          name="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          curl -fsSL --retry 3 -o godot.zip \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${name}.zip" \
+          || curl -fsSL --retry 3 -o godot.zip \
+            "https://downloads.godotengine.org/?version=${GODOT_VERSION}&flavor=stable&slug=linux.x86_64.zip&platform=linux.64"
+          unzip -q godot.zip && rm godot.zip
+          mv "${name}" godot && chmod +x godot
+
+      # The same one-time import tools/run_tests.sh does, so class names resolve
+      # before the audit script loads anything.
+      - name: Import the project
+        run: |
+          timeout 600 "$HOME/godot/godot" --headless --path . --editor --import > import.log 2>&1 || true
+          if grep -qE "SCRIPT ERROR|Parse Error|Compile Error" import.log; then
+            grep -E -A3 "SCRIPT ERROR|Parse Error|Compile Error" import.log | head -40
+            echo "::error::scripts failed to compile during import"
+            exit 1
+          fi
+
+      - name: Run the audit
+        id: run
+        run: |
+          set -f            # a value with * in it stays a value
+          set +e
+          # AUDIT_ENV and ARGS are split on spaces on purpose.
+          env $AUDIT_ENV "$HOME/godot/godot" --headless --path . \
+            --script tools/audit/run_audit.gd -- "$IMPL" $ARGS > audit.log 2>&1
+          code=$?
+          echo "exit=$code" >> audit.log
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit "$code"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Audit \`$IMPL\`"
+            echo "ref \`${GITHUB_REF_NAME}\` at \`${GITHUB_SHA::7}\`${AUDIT_ENV:+, env \`$AUDIT_ENV\`}${ARGS:+, args \`$ARGS\`}"
+            echo
+            echo "Last 60 lines of the log; the whole log is the artifact \`audit-$IMPL\`."
+            echo '```'
+            if [ -f audit.log ]; then tail -n 60 audit.log; else echo "(the audit did not start)"; fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-${{ inputs.impl }}
+          path: audit.log
+          if-no-files-found: ignore
+          retention-days: 14

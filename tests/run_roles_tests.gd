@@ -154,8 +154,8 @@ func _selection_tests() -> void:
 		prog.compile("\\d/\\d")
 		_check(prog.search(gtext) == null and not gtext.to_lower().contains("one more") and not gtext.contains("%"),
 				"The rules carry no progress counts, advice or percentages")
-		_check(gtext.contains("Requires 2 Contested bulls on the ground.")
-				and gtext.contains("Requires 1 Aerial threat and 1 Crumber in the forward line."),
+		_check(gtext.contains("Requires 4 Contested bulls on the ground.")
+				and gtext.contains("Requires 2 Aerial threats and 2 Crumbers in the forward line."),
 				"Requirements read in plain words")
 		_check(ui.call("handle_back") == true and not is_instance_valid(ui.get("_synergy_overlay")),
 				"Back closes the synergy guide first")

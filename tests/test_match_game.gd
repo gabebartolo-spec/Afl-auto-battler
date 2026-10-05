@@ -826,10 +826,14 @@ func _test_traits() -> void:
 	var near: Array = Traits.near(close)
 	_check(not near.is_empty() and str(near[0]["key"]) == "sharpshooter" and int(near[0]["gap"]) == 3,
 			"Training shows how close a player is to a trait")
-	var ground := [_fake("b1", "MID", {"contested": 90}), _fake("b2", "MID", {"contested": 88})]
-	_check(Traits.active(ground).has("engine_room"), "Two contested bulls switch on the engine room")
-	_check(not Traits.active([ground[0]]).has("engine_room"), "One is not enough")
-	var rows := Traits.progress([ground[0]])
+	var need_bulls := int((Traits.SYNERGIES["engine_room"]["needs"] as Dictionary)["bull"])
+	var ground := []
+	for i in need_bulls:
+		ground.append(_fake("b%d" % i, "MID", {"contested": 90 - i}))
+	_check(Traits.active(ground).has("engine_room"), "Enough contested bulls switch on the engine room")
+	var short := ground.slice(0, need_bulls - 1)
+	_check(not Traits.active(short).has("engine_room"), "One short is not enough")
+	var rows := Traits.progress(short)
 	var er := {}
 	for r in rows:
 		if str(r["key"]) == "engine_room":
@@ -1482,6 +1486,22 @@ func _test_matchups() -> void:
 			[1, "A", true, false], [2, "B", false, false]]}}}
 	_check(str(MatchNotes.duel_story(thin, 0)[0]).contains("too few"),
 			"Too few contests after a change is said as such, not dressed up")
+	# A winner needs two-thirds of the contests and two clear. Evenly matched
+	# key men (the engine has an elite forward on an elite defender marking
+	# 57%, docs/KEY_MATCHUPS_AUDIT_2026-10-06.md) mostly read as even.
+	var reads := {}
+	for won_n in [[3, 5], [3, 4], [4, 6], [2, 4], [1, 4], [2, 5], [5, 7], [4, 7]]:
+		reads["%d/%d" % won_n] = MatchNotes.duel_verdict(int(won_n[0]), int(won_n[1]))
+	_check(reads["3/5"] == 0 and reads["2/4"] == 0 and reads["2/5"] == 0 and reads["4/7"] == 0,
+			"A one-contest edge is an even battle, not a win (%s)" % str(reads))
+	_check(reads["3/4"] == 1 and reads["4/6"] == 1 and reads["5/7"] == 1 and reads["1/4"] == -1,
+			"Two-thirds and two clear is a win either way (%s)" % str(reads))
+	var even := {"duels": {"F": {"side": 1, "contests": [
+			[1, "A", true, false], [1, "A", false, false], [2, "A", true, true],
+			[3, "A", false, false], [4, "A", true, false]]}}}
+	var line := str(MatchNotes.duel_story(even, 0)[0])
+	_check(line.begins_with("An even battle") and line.contains("3 marks from 5 contests"),
+			"3 marks from 5 against one man reads as an even battle (%s)" % line)
 
 
 ## Injuries happen during the match: the player goes off for good, the bench
