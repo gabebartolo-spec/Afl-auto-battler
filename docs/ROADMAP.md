@@ -4012,6 +4012,137 @@ Phone-review at narrow Android widths and visually inspect a representative samp
 
 ---
 
+## ARD-M7-011 — AFL knowledge layer: fun facts, records & player stories
+**Status:** `TODO`  
+**Priority:** `P3`  
+**Autonomy:** `SUPERVISED`
+
+### Intent
+Investigate low-friction places where the game can teach the player about Australian football history, quirks, records and notable real-player achievements **without turning the UI into trivia spam or a textbook**.
+
+This is deliberately speculative. Claude should first audit the current game flow and propose the smallest set of placements that feel natural, then implement only if the additions clearly improve flavour/understanding without slowing play.
+
+### Research scope
+Build a sourced pool of short factual material covering:
+- AFL/VFL records and historical milestones,
+- unusual rules/history of the competition,
+- famous finals/Grand Finals and landmark matches,
+- club records and long-standing rivalries,
+- notable draft/trade/free-agency stories where the facts are stable and appropriate,
+- real-player career achievements for players already present in the game's data,
+- positional/statistical curiosities that help explain football concepts,
+- venue/history facts tied to grounds already used in-game,
+- Sir Doug Nicholls Round / Indigenous football history where appropriate and carefully sourced,
+- expansion/history context relevant to Tasmania and other future league changes.
+
+Prefer official AFL, club, Hall of Fame, state-league and other high-quality historical sources.
+
+### Candidate surfaces to investigate
+Claude should inspect the current UX and recommend where these can appear **organically**, such as:
+- loading/simulating screens,
+- pre-match or halftime dead time,
+- draft/combine downtime,
+- season review,
+- player profiles,
+- career-history / records pages,
+- fixture/marquee-round presentation,
+- venue screens,
+- achievement unlocks,
+- rare post-match cards when a current player matches or breaks a historical mark,
+- onboarding/help moments where a fact explains a real AFL concept.
+
+Do **not** add a permanent scrolling trivia feed to the main hub unless testing proves it adds value.
+
+### Real-player stories
+For real AFL players already represented in the game, allow concise factual callouts such as:
+- debut / games / goals milestones,
+- premierships,
+- Brownlows / Colemans / All-Australians / club awards,
+- notable draft origin or club history,
+- famous records or one-off achievements,
+- unusual career paths.
+
+Rules:
+- keep these factual and sourced;
+- avoid speculative personality claims, private-life gossip or sensationalism;
+- do not fabricate quotes;
+- do not overstate disputed stories;
+- where a fact can date quickly, store the source/date and avoid presenting stale copy as timeless truth.
+
+### Dynamic use
+The strongest version of this feature should connect facts to what the player is already doing.
+
+Examples:
+- a player reaches 300 games → show a short note about how rare that is and relevant record context;
+- a forward kicks 10 → mention comparable historical feats;
+- a club reaches a long premiership drought → surface factual drought history;
+- a match is at a historically notable ground → show one concise venue fact;
+- a current real player reaches an achievement already known in the database → surface it in profile/history;
+- a created/custom player breaks a real competition record → compare against the historical benchmark.
+
+This should make the save feel connected to AFL history rather than merely dumping trivia.
+
+### Achievements
+Investigate whether some facts should be attached to achievements/trophies.
+
+Examples:
+- win a premiership with a club after an historically long drought,
+- break a famous individual season/career record,
+- coach a player past a major games/goals milestone,
+- complete unusual but authentic football feats.
+
+Achievements should celebrate play, not become the only place historical context exists.
+
+### Presentation guardrails
+- **One useful fact at a time.**
+- Prefer 1–2 concise sentences.
+- No number-vomit.
+- No repeated fact every week.
+- Track seen/recently-shown IDs so repetition is controlled.
+- Facts should never delay a critical interaction.
+- Player can dismiss/skip immediately.
+- Avoid "Did you know?" copy everywhere; write in natural football language.
+- Do not tell the player the optimal move.
+- Keep Australian spelling/terminology.
+
+### Data / provenance
+Use a data-driven fact library with fields such as:
+- fact id,
+- category,
+- relevant club/player/venue/rule/era tags,
+- text,
+- source,
+- source date,
+- confidence/verification state,
+- eligible surfaces,
+- trigger conditions,
+- repeat cooldown,
+- historical/current flag.
+
+Facts about real players should key to stable player IDs rather than names alone.
+
+### Acceptance
+This item only earns implementation if Claude's audit identifies placements that:
+- do not slow the weekly loop,
+- add genuine AFL flavour or understanding,
+- remain readable on phone,
+- avoid repeated trivia spam,
+- connect naturally to the player's current match/career state.
+
+### Validation
+Prototype a small sourced set first (for example 30–50 facts across players, clubs, venues and records) and test:
+- repeat suppression,
+- relevance of triggered facts,
+- phone readability,
+- save/load seen-state,
+- current-player ID mapping,
+- no stale/incorrect facts after season progression,
+- no interference with match/draft input.
+
+If the prototype feels bolted-on, leave the system deferred rather than forcing it into the game.
+
+---
+
 # M8 — Presentation, Identity & Release Quality
 
 Goal: make the game coherent, readable and robust enough to ship/play for very long careers.
@@ -4761,6 +4892,8 @@ Prefer improving the existing experience when that answers the same need. This p
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-05:** Added speculative ARD-M7-011 for an AFL knowledge layer. Claude should investigate unobtrusive places to surface sourced fun facts, records, venue/competition history and factual achievements/stories of real AFL players already in the game, with dynamic context and strict anti-trivia-spam guardrails.
 
 - **2026-10-05:** Expanded Club Forge character creation with boots, independent hair/beard colours, skin tone, freckles, subtle scars, dominant foot, preferred guernsey number and an optional nickname/commentary short name. Dominant foot has modest football/presentation meaning; all other additions are cosmetic, and number conflicts must resolve through normal club numbering rules.
 
