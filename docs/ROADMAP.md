@@ -4703,3 +4703,23 @@ Keep this short. Add only meaningful structural changes, not every code commit.
 - **2026-09-28:** Removed stale per-PR/phase approval gates. Claude now has standing authority to action ready roadmap work and merge clean validated PRs; supervised/balance labels are risk gates, not ceremonial user-approval gates.
 - **2026-09-28:** Converted roadmap from conversation-style backlog into a canonical execution roadmap with milestones, stable task IDs, dependency ordering, global guardrails, validation matrix, balance template, Claude task prompt and duplicate map.
 - **2026-09-28:** Consolidated repeated concepts including season momentum/team form, reports, opponent scouting, forward scoring, match-ups, history/records, simulation controls, AFL rules/restarters, rivalries, marquee games and secondary-position learning.
+
+
+# Stretch Goals
+
+## AFLW full implementation
+**Status:** `DEFERRED`  
+**Priority:** `P3`  
+**Autonomy:** `SUPERVISED`
+
+Long-term stretch goal: implement the AFLW as a fully playable competition, not a token side mode.
+
+Scope should eventually include:
+- full AFLW clubs, players, fixtures, ladder, finals, awards, records and history,
+- AFLW-specific list management, drafting, contracts, development and competition rules,
+- coaching, tactics, match simulation, presentation and long-save continuity,
+- club and league history that can develop independently over decades,
+- shared underlying systems with the AFL implementation where practical, without forcing AFL rules or data onto AFLW,
+- AFLW-specific research and validation for rules, competition structure, list sizes, season format, venues, uniforms and historical context.
+
+Guardrail: do not begin this until the core AFL game is stable and the shared systems are mature enough that AFLW can be implemented as a proper parallel competition rather than a shallow reskin.
