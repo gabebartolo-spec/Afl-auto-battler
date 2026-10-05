@@ -774,10 +774,14 @@ func _test_traits() -> void:
 	var near: Array = Traits.near(close)
 	_check(not near.is_empty() and str(near[0]["key"]) == "sharpshooter" and int(near[0]["gap"]) == 3,
 			"Training shows how close a player is to a trait")
-	var ground := [_fake("b1", "MID", {"contested": 90}), _fake("b2", "MID", {"contested": 88})]
-	_check(Traits.active(ground).has("engine_room"), "Two contested bulls switch on the engine room")
-	_check(not Traits.active([ground[0]]).has("engine_room"), "One is not enough")
-	var rows := Traits.progress([ground[0]])
+	var need_bulls := int((Traits.SYNERGIES["engine_room"]["needs"] as Dictionary)["bull"])
+	var ground := []
+	for i in need_bulls:
+		ground.append(_fake("b%d" % i, "MID", {"contested": 90 - i}))
+	_check(Traits.active(ground).has("engine_room"), "Enough contested bulls switch on the engine room")
+	var short := ground.slice(0, need_bulls - 1)
+	_check(not Traits.active(short).has("engine_room"), "One short is not enough")
+	var rows := Traits.progress(short)
 	var er := {}
 	for r in rows:
 		if str(r["key"]) == "engine_room":

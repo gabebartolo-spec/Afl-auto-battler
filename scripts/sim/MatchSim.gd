@@ -847,7 +847,7 @@ func _contest_bonus(side: int, stoppage := false) -> float:
 
 
 func _contest_traits(side: int) -> float:
-	return 0.025 if synergies[side].has("engine_room") else 0.0
+	return Traits.power("engine_room") if synergies[side].has("engine_room") else 0.0
 
 
 func _contest_plan(side: int) -> float:
@@ -1593,8 +1593,9 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		pressure *= _press_on(side)
 		_credit(opp, "gameplan", (pressure - p_base) * TURNOVER_VALUE)
 		if synergies[opp].has("lockdown_unit"):
-			_credit(opp, "traits", pressure * 0.08 * TURNOVER_VALUE)
-			pressure *= 1.08
+			var lock := Traits.power("lockdown_unit")
+			_credit(opp, "traits", pressure * (lock - 1.0) * TURNOVER_VALUE)
+			pressure *= lock
 		p_base = pressure
 		pressure *= _pv(side, "taken")
 		_credit(side, "gameplan", (p_base - pressure) * TURNOVER_VALUE)
@@ -1683,7 +1684,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				* (0.55 + 0.90 * _a(carrier, "carry") / 100.0))
 		gain *= _pv(side, "gain") * _pep_mult(side, "gain")
 		if synergies[side].has("supply_line"):
-			gain *= 1.12
+			gain *= Traits.power("supply_line")
 		if _burst(side, "flood") or _burst(side, "hold"):
 			gain *= 0.85
 		gain *= rng.randf_range(0.45, 1.75)
@@ -2179,7 +2180,7 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	if feeder != null and _trait(feeder, "playmaker"):
 		tr *= 1.05
 	if synergies[side].has("tall_small"):
-		tr *= 1.08
+		tr *= Traits.power("tall_small")
 	goal_p *= tr
 	if credit:
 		_credit(side, "traits", 6.0 * (goal_p - before))
@@ -2190,7 +2191,7 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	elif not _midfield_minder(side, shooter).is_empty():
 		dtr *= 0.96
 	if synergies[opp].has("intercept_wall"):
-		dtr *= 0.91
+		dtr *= Traits.power("intercept_wall")
 	goal_p *= dtr
 	if credit:
 		_credit(opp, "traits", 6.0 * (before - goal_p))
@@ -2657,7 +2658,7 @@ func _after_chain() -> void:
 			movement_pace *= 1.3
 		var fatigue_pace := movement_pace
 		if synergies[side].has("running_machine"):
-			fatigue_pace *= 0.70
+			fatigue_pace *= Traits.power("running_machine")
 		var tagger_id := ""
 		if _tag_id(side) != "":
 			var tagger = tagger_for(sq.ground)

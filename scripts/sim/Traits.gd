@@ -53,23 +53,23 @@ const DEFS := {
 ## key -> label, the line it needs ("" = the whole 18), the traits needed,
 ## the match effect, and the same in football words ("about", "does").
 const SYNERGIES := {
-	"engine_room": {"label": "Engine room", "line": "", "needs": {"bull": 2},
-			"text": "+2.5% stoppage wins.",
+	"engine_room": {"label": "Engine room", "line": "", "needs": {"bull": 4}, "power": 0.05,
+			"text": "+5% stoppage wins.",
 			"about": "Contested bulls who win the stoppages together.", "does": "Wins more of the stoppages."},
-	"tall_small": {"label": "Tall-small forward line", "line": "FWD", "needs": {"aerial": 1, "crumber": 1},
-			"text": "+8% goal chance on every forward-50 shot.",
-			"about": "An aerial threat up forward with a crumber at his feet.", "does": "More goals from forward-50 entries."},
-	"intercept_wall": {"label": "Intercept wall", "line": "DEF", "needs": {"interceptor": 2},
-			"text": "-9% on the opposition's goal chance.",
+	"tall_small": {"label": "Tall-small forward line", "line": "FWD", "needs": {"aerial": 2, "crumber": 2}, "power": 1.15,
+			"text": "+15% goal chance on every forward-50 shot.",
+			"about": "Aerial threats up forward with crumbers at their feet.", "does": "More goals from forward-50 entries."},
+	"intercept_wall": {"label": "Intercept wall", "line": "DEF", "needs": {"interceptor": 2}, "power": 0.84,
+			"text": "-16% on the opposition's goal chance.",
 			"about": "Interceptors who read the ball in the air down back.", "does": "The opposition kick fewer goals."},
-	"lockdown_unit": {"label": "Lockdown unit", "line": "", "needs": {"lockdown": 3},
-			"text": "+8% pressure on the opposition.",
+	"lockdown_unit": {"label": "Lockdown unit", "line": "", "needs": {"lockdown": 3}, "power": 1.15,
+			"text": "+15% pressure on the opposition.",
 			"about": "A side full of stoppers who squeeze the opposition.", "does": "Puts more pressure on the ball."},
-	"supply_line": {"label": "Supply line", "line": "", "needs": {"ball_magnet": 2, "playmaker": 1},
-			"text": "+12% metres gained per disposal.",
-			"about": "Ball-users feeding a playmaker going forward.", "does": "Gains more ground with every disposal."},
-	"running_machine": {"label": "Running machine", "line": "", "needs": {"engine": 3},
-			"text": "The whole side tires 30% slower.",
+	"supply_line": {"label": "Supply line", "line": "", "needs": {"ball_magnet": 2, "playmaker": 2}, "power": 1.22,
+			"text": "+22% metres gained per disposal.",
+			"about": "Ball-users feeding playmakers going forward.", "does": "Gains more ground with every disposal."},
+	"running_machine": {"label": "Running machine", "line": "", "needs": {"engine": 3}, "power": 0.50,
+			"text": "The whole side tires 50% slower.",
 			"about": "A side of endurance runners.", "does": "The whole side tires more slowly."},
 }
 
@@ -83,6 +83,12 @@ const EARNED := {
 			"scout": "Can play anywhere on the ground."},
 }
 const UNICORN_LINES := ["FWD", "MID", "DEF"]
+
+## A synergy's match effect, as MatchSim applies it ("power" in SYNERGIES):
+## an added stoppage-win share for the Engine room, a multiplier for the rest.
+static func power(key: String) -> float:
+	return float((SYNERGIES.get(key, {}) as Dictionary).get("power", 1.0))
+
 
 const MAX_GOOD := 2
 const LINE_NAMES := {"RUCK": "ruck", "MID": "midfield", "DEF": "defence", "FWD": "forward line"}
@@ -259,8 +265,8 @@ static func progress(ground: Array) -> Array:
 	return out
 
 
-## The rule in full, no progress: "Requires 2 Contested bulls on the
-## ground." / "Requires 1 Aerial threat and 1 Crumber in the forward line."
+## The rule in full, no progress: "Requires 4 Contested bulls on the
+## ground." / "Requires 2 Aerial threats and 2 Crumbers in the forward line."
 static func requirement_text(key: String) -> String:
 	var s: Dictionary = SYNERGIES.get(key, {})
 	if s.is_empty():
