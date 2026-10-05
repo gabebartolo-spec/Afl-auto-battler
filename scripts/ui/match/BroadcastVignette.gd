@@ -653,7 +653,7 @@ func _figure(pos: Vector2, scale: float, side: int, anim: String, facing: String
 	draw_circle(Vector2.ZERO, 0.4 * pm, Color(0, 0, 0, 0.32))
 	draw_set_transform_matrix(_view)
 	var info := VignetteFigures.strip(build, anim, facing)
-	var f := clampi(frame, 0, int(info["frames"]) - 1)
+	var f := StoppageVignette.figure_frame(info, frame, anim, facing)
 	var k := pm / VignetteFigures.PX_PER_M
 	# The number, printed on the back of the guernsey by the shader.
 	var num := StoppageVignette.number_colour(side, number, 1.0, mirror) 			if number > 0 and facing.begins_with("back") and pm >= 30.0 else Color(0, 0, 0, 0)

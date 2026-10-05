@@ -113,6 +113,7 @@ func _draw() -> void:
 ## The coach figure, feet at feet (hidden behind the desk), pm pixels per metre.
 func _coach(feet: Vector2, pm: float, anim: String, facing: String, frame: int) -> void:
 	var info := VignetteFigures.strip(BODY, anim, facing)
+	frame = StoppageVignette.figure_frame(info, frame, anim, facing)
 	var k := pm / VignetteFigures.PX_PER_M
 	var origin := feet - Vector2(info["pivot"][0], info["pivot"][1]) * k
 	draw_texture_rect_region(StoppageVignette.FIGURE_SHADE, Rect2(origin, VignetteFigures.frame_size(info) * k),

@@ -41,6 +41,12 @@ const FIGURE_DIGITS := preload("res://assets/vignette/figures_digits.png")
 ## Kits in the shader's palette: the two sides, then the umpire.
 const UMPIRE_KIT := 2
 
+## Tests switch this on to see which figure frames the vignettes ask for. A
+## frame past the end of a move would otherwise freeze on its last frame
+## without a word. Off in play.
+static var log_frames := false
+static var frame_log: Array = []  # {anim, facing, frames, wanted}
+
 var tokens: Array = []      # {side, mine, slot, id, tall, look, name, num, tired, from, to, delay, dur}
 var facts: Array = []       # one or two lines of commentary, no numbers
 var title := ""
@@ -269,6 +275,7 @@ var _focal := 400.0
 var _horizon := 0.0
 var _cam_x := CAM_X
 var _zoom := 1.0                  # how far the lens has zoomed since the start
+var _pan := 0.0                   # pixels the camera has turned across, at this zoom
 
 
 func _set_camera() -> void:
@@ -278,8 +285,12 @@ func _set_camera() -> void:
 	var z: float = lerpf(lerpf(ZOOM[0], ZOOM[1], k), ZOOM[2], punch)
 	_focal = base * z
 	_zoom = z / ZOOM[0]
-	# Panning across from where your players run in to the contest.
-	_cam_x = lerpf(CAM_X, CAM_X * 0.35, k)
+	# Panning across from where your players run in to the contest. A pan turns the
+	# camera on its head, which moves the whole picture as one; the camera itself stays
+	# at CAM_X (sliding it across would move the near turf more than the far, and the
+	# painted lines would skew as it went - director).
+	_cam_x = CAM_X
+	_pan = _focal * (CAM_X * 0.35 - CAM_X) / (_cam_d + 5.0) * k
 	# The centre of the ground sits above the middle, clear of the call.
 	_horizon = size.y * 0.46 - _focal * _cam_h / _cam_d
 
@@ -287,7 +298,7 @@ func _set_camera() -> void:
 ## World (x across, y towards your goal, h up) to screen, and metres to pixels there.
 func _project(p: Vector2, h := 0.0) -> Vector3:
 	var z := maxf(0.5, p.y + _cam_d)
-	return Vector3(size.x * 0.5 + _focal * (p.x - _cam_x) / z, _horizon + _focal * (_cam_h - h) / z, _focal / z)
+	return Vector3(size.x * 0.5 - _pan + _focal * (p.x - _cam_x) / z, _horizon + _focal * (_cam_h - h) / z, _focal / z)
 
 
 static func _ease(k: float) -> float:
@@ -459,12 +470,13 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# Your players have their backs to us; theirs and the umpire face the camera.
 	var back := not ump and bool(t["mine"])
+	var facing := "back" if back else "front"
 	var pick := _frame(t, lift, at, back)
 	var build := _body(t)
-	if not VignetteFigures.has(build, pick[0], "back" if back else "front"):
+	if not VignetteFigures.has(build, pick[0], facing):
 		build = "average"
-	var info := VignetteFigures.strip(build, pick[0], "back" if back else "front")
-	var frame := mini(int(pick[1]), int(info["frames"]) - 1)
+	var info := VignetteFigures.strip(build, pick[0], facing)
+	var frame := figure_frame(info, int(pick[1]), pick[0], facing)
 	var src := VignetteFigures.source(info, frame)
 	# Out on their feet: a touch smaller, stooped.
 	var k := m / VignetteFigures.PX_PER_M * (0.96 if tired else 1.0)
@@ -632,3 +644,12 @@ func _draw_bars(fade: float) -> void:
 func _readable_on(bg: Color) -> Color:
 	var lum := 0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b
 	return Color(0.08, 0.08, 0.1) if lum > 0.55 else Color(1, 1, 1)
+
+
+## The frame of a figure's move to draw: the one asked for, held on the last
+## when a move runs out (logged for tests; see log_frames).
+static func figure_frame(info: Dictionary, wanted: int, anim: String, facing: String) -> int:
+	var frames := int(info["frames"])
+	if log_frames:
+		frame_log.append({"anim": anim, "facing": facing, "frames": frames, "wanted": wanted})
+	return clampi(wanted, 0, frames - 1)
