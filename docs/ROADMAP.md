@@ -142,15 +142,18 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 - Do not push to a branch while its CI runs unless you must: a push cancels the run and restarts about ten minutes of work. Ask the Low agent for a sync instead. The Low agent owns merges and cannot push to your branch, so sync your own branch when asked.
 
 **`LOW`**
+- §9.3 FL-001 football voice and incidental humour.
 - §9.1 Training scrollbar.
 - Verifying and closing work that is already on `main` (the Low agent does this as it finds it).
 
 **`MEDIUM`**
+- §9.3 FL-002 milestone banners, FL-004 atmosphere/audio, FL-005 cosmetic identity, FL-006 truthful headlines and FL-008 club memories; use existing owners and honour their dependencies.
 - Match audits that need a measured seeded comparison, and a new mechanic only if the evidence demands one: ARD-M3-007 (free-kick rate), M3-008 (50-metre penalties), M3-011 (MRO and suspensions), M4-003 (tagging cost), M4-006 (game-state AI), M4-011 (Team Form), M5-006 (omitted-player development), and the §1.11 audits of run-of-goals calls, AI plan adaptation, key forward v key defender, sim-round blowouts, List Profile v results, and How-we-play maturity and materiality. In review: the autosim v played injury parity audit (#235) and the Coleman plausibility audit (#237).
 - Features across sim, UI and tests: ARD-M2-009 (goal accuracy by shot context), M5-005 (emergency designations), M5-007 (selection continuity), M7-003 (career-high milestones need new tracking), M7-005 (history continuity check), M8-005 (5, 10 and 20-year career QA), the Grand Final climax screen, and from §9.1 the Weekly selection brief, Streamline Ins & Outs, My List → My Selection flow, Full List traits and contract-talk frequency.
 - Performance and flow: §1.11 battery drain, the residual far-away receiver, vignette reachability, and quarter-break fact selection. The round-sim and Play match timing audit is in review (#236); its recommended background no-presentation sim mode is `MEDIUM`, to start only once MatchSim is quiet.
 
 **`HIGH`**
+- §9.3 FL-003 sourced venue atmosphere and FL-007 rituals/farewells, including necessary new shared-style vignette scenes.
 - Scoring and contests: ARD-M3-001 (later variety), M3-002 (forward archetype scoring), M3-003 (spoils across the ground).
 - Coaching and tactics: ARD-M4-001 (decision gates; the tired-star Rest/Keep trade-off is in review, #233), M4-002 (broader key match-ups), M4-004 (structural choices), M4-005 (role instructions), M4-007 (late-game tempo), and from §9.1 Gameplan choice and Key match-ups as interventions.
 - Lists and selection: ARD-M5-001 (18 + 5), M5-003 (secondary positions), M5-008 (role-aware form), M5-016 (inherited 2026 lists), the §1.11 role-allocation re-audit, and from §9.1 My List → Shape as a selection surface and Academies / NGA.
@@ -167,6 +170,8 @@ This is the **authoritative near-term work order**. The milestone catalogue belo
 2. **The former in-flight stack has landed.** _Reconciled 2026-10-05:_ the match-authenticity work (#190 merged; #196 smothers/speccies/50s/MRO/kick-ins), Combine/scouting (#188), the trade/contracts stack (#182 → #191 → #193 → #198, real-money contracts), GPS distance (#195), post-match media (#183), milestones (#186), History & records (#187) and the awards ceremony (#185) were closed as separate PRs and carried onto `main` by the consolidated squash merge #208; #189, #192, #194 and #205 merged directly. Do not reopen or re-create them; treat follow-ups as ordinary work against `main`.
 3. **Reconcile the current active work before touching its systems.** At the 2026-10-05 checkpoint #223 (live-call/trade/free-agency evidence), #224 (unproven-potential trade discount), #226 (backed-player payoff, still targeting the oval-rings branch) and #206 (music) are open. #210/#213/#214 repairs and audits, #217 difficulty evidence, #220 backing, #221 rings, #222 scouting estimates and #225 assistant contracts are merged. Preserve remaining phone checks; do not create parallel valuation, promise or payoff systems.
 4. **Then resume genuinely unstarted catalogue work** from M3/M4/M5/M7/M8 and the §9.1 playtest findings according to player value and dependencies, rather than roadmap-number order. M5-001 (18 + 5 interchange) remains a separate TODO now that selection changes have settled.
+
+5. **Approved flavour and culture extensions FL-001–FL-008 (§9.3) are now in Claude's queue.** Work under their existing owners after urgent correctness/performance repairs and their specific dependencies. The director included all eight, required a visual distinction audit, and authorised necessary new ritual/farewell vignette scenes. Inspect overlapping implementation first; no new approval interview is required.
 
 ### Queue rules
 
@@ -2103,6 +2108,9 @@ Detailed stats live in the Stats screen.
 
 **Validation:** event-to-copy fixtures, short/contradictory samples, watch/skip consistency and phone recall of the match's people/turning point. New replay/archive work remains an unselected candidate.
 
+
+**Approved flavour extension:** FL-006 (§9.3) adds sparse truthful editorial headlines within the existing report; the DONE report foundation remains DONE. Keep decorative copy distinct from tactical follow-through.
+
 ---
 
 ## ARD-M4-010 — In-match Momentum
@@ -3469,6 +3477,9 @@ Do not spam routine milestones.
 
 **Validation:** first/threshold/tie/repeat-load cases, imported versus simulated history, generated players and phone pacing. Ask whether the player remembers why this person mattered; counts of notifications are not enjoyment.
 
+
+**Approved flavour extensions:** FL-002/007 (§9.3) add genuine milestone banners and recognition treatments. Audit decorative appearance separately from actionable information; necessary new shared-style flavour scenes are explicitly authorised.
+
 ---
 
 ## ARD-M7-004 — Captaincy / leadership
@@ -3561,6 +3572,9 @@ Acceptance: Brownlow and the user's B&F can be watched as progressive counts wit
 **Acceptance:** stable IDs and genuine stints/honours survive decades and reload; an ageing contributor can remain remembered after losing a starting role; records never confuse another player with the same name or new guernsey. Recognise event-supported finals/dynasties without rewriting quiet seasons as dramatic ones. Where context is missing, make an earlier contribution and actual present role inspectable through existing facts, without inventing relationships.
 
 **Validation:** transferred/retired/generated players, imported 2026 history once, repeated reload, real/fictional-name preference and existing coach-player linkage; phone retrieval and multi-season recall. Broader narrative presentation remains review-only unless already accepted elsewhere.
+
+
+**Approved flavour extensions:** FL-005/006/007/008 (§9.3) cover harmless fictional profile identity, truthful headlines, rituals/farewells and factual visual club memories. Reuse the existing nickname/history/awards/alumni foundations.
 
 ---
 
@@ -4338,6 +4352,9 @@ Includes:
 Guardrail:
 Do not perform a movement-engine rewrite without evidence that local fixes are insufficient.
 
+
+**Approved flavour extension:** FL-003 (§9.3) adds sourced, readable atmosphere for existing venues. Ground dress changes no geometry, weather, home advantage or football outcome.
+
 ---
 
 ## ARD-M8-004 — Main menu / onboarding
@@ -4405,10 +4422,13 @@ Final pass:
 - remove debug UI,
 - ensure critical game actions are understandable without external explanation.
 
+
+**Approved flavour extensions:** FL-001/004 (§9.3) add sparse authentic voice and natural ground/crowd sound through existing writing/audio systems.
+
 ---
 
 ## ARD-M8-007 — Cinematic tactical vignettes
-**Status:** `VERIFY` — the prototype/broadcast-vignette foundation is merged (#153); phone playtest still decides whether the vignette library earns expansion.  
+**Status:** `VERIFY` — the prototype/broadcast-vignette foundation is merged (#153); phone playtest still decides tactical-library expansion. Necessary new flavour scenes are separately authorised in FL-007 (§9.3).  
 **Priority:** `P3`  
 **Autonomy:** `SUPERVISED`
 
@@ -4495,7 +4515,7 @@ On the director's direction, the drawn stick figures became pre-rendered 2.5D fo
 
 **Scope:** inventory every vignette renderer, scene, animation and fallback that still uses the old style. Migrate all of them to the shared new figure assets and rendering approach, extending poses or animations where a sequence needs them. Preserve each scene's purpose, pacing, authoritative participants, club guernseys, player numbers and appearance data. Replace the awards ceremony's legacy BroadcastVignette silhouette figures as part of this work. Retire obsolete rendering paths and unused assets once their replacements are verified.
 
-**Acceptance:** the inventory accounts for every existing vignette/sequence and each entry has been migrated and visually checked; no reachable scene or fallback displays the old art style. All scenes consistently use the new style, including awards and less frequent match moments. This is replacement of existing presentation, not approval to expand the vignette library.
+**Acceptance:** the inventory accounts for every existing vignette/sequence and each entry has been migrated and visually checked; no reachable scene or fallback displays the old art style. All scenes consistently use the new style, including awards and less frequent match moments. The migration requirement is replacement of existing presentation. The director's later FL-007 approval (§9.3, 2026-10-06) separately authorises necessary new flavour scenes; it does not authorise unrelated tactical-library expansion.
 
 **Validation:** deliberately reach or capture every sequence and relevant fallback, compare phone-sized stills and motion, and check transitions, club colours, player appearance and pose coverage. Verify phone performance, skip/touch/Back behaviour and unchanged football outcomes. Obtain director visual review before marking the migration complete; record any untested sequence as outstanding.
 
@@ -4504,7 +4524,7 @@ The feature earns further work only if a phone playtest shows that the player ca
 
 ### Research refinement — 2026-10-05
 
-**Dependencies / status boundary:** keep VERIFY and the §1.11 gate. The merged centre-bounce prototype is the current owner; no new library is authorised by this research.
+**Dependencies / status boundary:** keep VERIFY and the §1.11 gate. The merged centre-bounce prototype is the current tactical owner. The earlier research did not authorise a new library; the later FL-007 approval (§9.3) permits necessary new flavour scenes only.
 
 **Smallest scope:** test the existing scene against its authoritative participants, frozen state, choice and resumed events.
 
@@ -4512,7 +4532,10 @@ The feature earns further work only if a phone playtest shows that the player ca
 
 **Acceptance:** viewers can see the football opportunity and trade-off; skip and watch preserve the same choice/resolution; repeated entry/Back does not duplicate or drop a call; positive and negative outcomes both return cleanly to the oval.
 
-**Validation:** participant/event agreement, quiet/invalid contexts, 320/360/430-width review plus native Android touch, pacing, load time and performance. Expansion requires the director's phone finding that this presentation improves meaningful decisions.
+**Validation:** participant/event agreement, quiet/invalid contexts, 320/360/430-width review plus native Android touch, pacing, load time and performance. Tactical-scene expansion requires the director's phone finding that this presentation improves meaningful decisions. FL-007 flavour scenes have explicit director approval and are validated for recognition, visual distinction, pacing and gameplay neutrality instead.
+
+
+**Approved flavour extensions:** FL-002/003/007 (§9.3) use the shared art/rendering pipeline. The director expressly authorised necessary new ritual, milestone, retirement and awards scenes on 2026-10-06. This scoped flavour permission supersedes earlier no-expansion wording for those occasions only; unrelated tactical-scene expansion retains its decision-clarity gate.
 
 ---
 
@@ -5014,6 +5037,91 @@ Prefer improving the existing experience when that answers the same need. This p
 
 ---
 
+# 9.3 Approved flavour and culture work — director decisions, 2026-10-06
+
+**Authority:** the director reviewed FL-001 through FL-008 one by one and included all eight. These are now **authorised Claude execution work**, sequenced by §0.4.1 and the dependencies below. No further include/exclude interview is needed. The research-only merge #254 did not implement these features.
+
+**Scope:** presentation and cosmetic identity only, with **zero gameplay effects**. Use the [research report](research/AFL_FLAVOUR_AND_CULTURE_RESEARCH.md), [source ledger](research/AFL_FLAVOUR_SOURCE_LEDGER.md) and [original sample copy](research/AFL_FLAVOUR_WRITING_SAMPLES.md). FL references identify accepted extensions within existing owners; do not create duplicate milestone, nickname, venue, news, audio or history systems. Existing parent-ticket statuses are not changed by approval; the extensions below are all TODO.
+
+| Reference | Director decision | Canonical owner | Extension status / effort |
+|---|---|---|---|
+| FL-001 | Include authentic football language and restrained Australian humour | M8-006 | TODO / LOW |
+| FL-002 | Include milestone banners; **audit their appearance so decorative content is distinct from actual game information** | M7-003 + M8-007 | TODO / MEDIUM |
+| FL-003 | Include recognisable ground atmosphere | M8-003/007; reuse M7-009 venue identity/presets where available | TODO / HIGH |
+| FL-004 | Include natural crowd sound, breathing room and volume controls | M8-006 + existing audio owner | TODO / MEDIUM |
+| FL-005 | Include persistent, harmless fictional-player nicknames and interests | M7-005 + existing M7-008/009 nickname/profile fields | TODO / MEDIUM |
+| FL-006 | Include characterful, truthful headlines distinct from game information | M4-009 + M7-005/011 and existing news/season-story surfaces | TODO / MEDIUM |
+| FL-007 | Include rituals and farewells; **build new vignette scenes as necessary** | M7-003/005 + M8-007 shared art/rendering | TODO / HIGH |
+| FL-008 | Include decorative club memories across decades | M7-005 + existing alumni/history presentation | TODO / MEDIUM |
+
+### Common dependencies, limits and acceptance
+
+1. Inspect current implementation and open PRs before starting. Reuse the active owner of any overlapping field, renderer, scene, news item or audio setting. Coordinate with current soundtrack work; do not assume PR #206 is merged or replace it with a competing system.
+2. Preserve P0 correctness, phone-playtest and performance priorities. Shared vignette art must use the approved pre-rendered 2.5D footballers; complete the required migration of reachable legacy styles. FL-007 explicitly authorises necessary new **flavour** scenes, but does not waive the art/readability/performance gates or authorise unrelated tactical scenes.
+3. Reflect authoritative facts. Do not modify ability, fatigue, injury, development, morale, relationships, board confidence, contracts, finances, scouting, AI, fixture rules, disciplinary outcomes or match results. Decorative interests/nicknames have no mechanical correlation. Do not invent private lives, quotations or scandals for real players.
+4. **Visual audit required:** decorative banners, captions, profile details, mementos and scene copy must be recognisable as atmosphere rather than tactical advice, interactive choices, stat changes, warnings or new rules. Use placement, hierarchy and scene context, not colour alone. Keep useful information primary and unchanged; use a concise contextual label only where needed. Do not turn the distinction into more panels or explanation spam.
+5. Compare the same seed and commands with flavour watched, skipped, muted, disabled and reloaded. Football events and canonical football state must agree; presentation preferences/viewed flags may differ. Cosmetic RNG/metadata must not consume the football generator stream or change draft generation.
+6. Inspect phone-sized stills and motion at narrow portrait widths and native Android. Verify contrast, names, ball/actor visibility, touch, natural Back, scrolling, skip/replay and no extra loading wait. Record which checks remain untested. Observed sessions must check that viewers can distinguish flavour from actionable information and do not infer hidden buffs.
+7. Prototype quantities in the report are starting budgets, not fixed content caps. Expand only within the approved purpose when the initial treatment works. Approval is not implementation: record evidence and outstanding work for each FL extension, without marking a completed parent foundation unfinished.
+
+### FL-001 — Football voice and restrained humour
+**Scope:** revise optional captions and incidental details in existing surfaces. Give reports, banners and fictional clubroom notices appropriate voices; essential action labels remain plain.
+**Dependencies:** UiKit writing/hierarchy and available event predicates.
+**Exclusions:** a new dialogue/news framework, copied catchphrase bank, forced slang dialect or manufactured real-player quotes.
+**Acceptance:** language feels natural, concise and affectionate; a newcomer understands controls; factual assertions have supported triggers; repeated jokes can be suppressed and silence is valid.
+**Validation:** contextual copy review, repeated-season samples and phone reading. Test predicates only where new selection logic is introduced; do not add tests that merely duplicate static text.
+
+### FL-002 — Personal milestone banners
+**Scope:** use the existing pre-match banner to honour the selected player's genuine achievement, name and club. Distinguish senior-career and club-tenure counts. Use the ordinary club banner when history is insufficient.
+**Dependencies:** M7-003 authoritative milestone facts, actual selection and the shared pre-match renderer.
+**Exclusions:** banner crafting, extra loading phases, fabricated firsts or a second milestone calculation.
+**Acceptance:** a late omission removes that player's message; imported history never creates an unsupported debut/first; long names remain readable. The director-requested visual audit demonstrates that the banner is celebration, clearly distinct from tactical/game information.
+**Validation:** count thresholds, omission, two eligible milestones, real/fictive names, reload and phone-scale still/motion comparison. No duplicate reward, event or football-state change.
+
+### FL-003 — Recognisable ground atmosphere
+**Scope:** make existing venues identifiable through a sourced, restrained stand/fence/background/light treatment. Reuse shared assets and venue presets; do not require the entire Club Forge/expansion feature to build one existing venue treatment.
+**Dependencies:** reliable venue identity, existing match context and approved art assets.
+**Exclusions:** new venue scheduling, explorable towns, pitch-geometry changes, weather generation, home bonuses or travel effects.
+**Acceptance:** a few accurate details establish place while players and ball remain primary; decorative conditions do not contradict available match facts; unknown time/weather uses a neutral fallback.
+**Validation:** venue-reference review, quiet/busy backgrounds, both themes, camera/actor occlusion and measured Android performance.
+
+### FL-004 — Natural sound and breathing room
+**Scope:** add restrained ground/crowd atmosphere and differentiated reactions to actual events. Reuse existing music/volume architecture and provide natural pauses plus atmosphere/music control and a quiet option.
+**Dependencies:** current audio work and authoritative event timing.
+**Exclusions:** constant announcements, music over every score, a second audio system or a licensed-song dependency.
+**Acceptance:** important information is equally clear when muted; routine and genuinely dramatic events sound appropriate; repetition and loudness remain comfortable; watch/skip/replay never repeats a football event.
+**Validation:** original/licensed asset provenance, controls, muted play, simultaneous sound cues, skip/reload, frame/load cost and listening after several matches.
+
+### FL-005 — Harmless fictional-player identity
+**Scope:** optional nicknames and one small personal-interest detail for generated fictional players, visible in existing profiles and natural presentation. Reuse the already-approved nickname/commentary-short-name field in M7-008/009 rather than introduce another alias. Nicknames can be changed/removed without a cost or consequence.
+**Dependencies:** stable player ID, displayed-name preference and backward-compatible cosmetic persistence.
+**Exclusions:** new personality ratings, inferred ethnicity/character from names, gameplay traits, real-player invented habits or a separate player editor.
+**Acceptance:** full-name records/search remain intact; nicknames/interests survive transfer and retirement; old saves remain valid and need not acquire invented histories; details are unmistakably cosmetic.
+**Validation:** generated/custom players, changed/removed nickname, name search, fictive mode, same-name players, save/load and multiple decades. Cosmetic metadata never shifts football RNG or prospect abilities.
+
+### FL-006 — Truthful characterful headlines
+**Scope:** sparse optional headlines in the existing match report, news feed and season recap. Coordinate with M7-011's veracity standard and existing season-story data; use a neutral fallback if a stronger claim lacks support.
+**Dependencies:** reliable result/story predicates and existing reporting surfaces.
+**Exclusions:** new feeds/apps, best-move advice, fake coach quotations or a bookmark/replay archive.
+**Acceptance:** close win, comeback, first, record and elimination claims are made only with the required facts; ties and quiet losses remain truthful. Editorial flavour is visually separate from scores, tactical feedback and actionable information.
+**Validation:** event-to-copy fixtures for thresholds, missing history, draws, transfers, repeat reload and scrolling; observed reading must not mistake a joke for a modifier or tactical recommendation.
+
+### FL-007 — Club rituals, recognition and farewells
+**Scope:** distinctive presentation for genuine first goals, milestones, retirements and awards. **The director explicitly authorises building new vignette scenes as necessary**, including scenes beyond the current tactical/pre-match set. Reuse existing scenes where suitable and the shared 2.5D figures/kit/appearance pipeline; build new scenes where the occasion needs a distinct treatment.
+**Dependencies:** known event and participants, current milestone/retirement/award owners, shared art migration and presentation flow.
+**Exclusions:** changed votes/winners, fabricated achievements, forced retirements, separate award engines, duplicated rewards or unrelated tactical-library expansion.
+**Acceptance:** first implement one complete event-to-scene-to-return path, then cover the approved occasions coherently. Every scene honours the correct person/event, is skippable/acceleratable, and returns cleanly without changing the football or awards. Routine repeats avoid lengthy ceremony; meaningful recognition can remain sincere.
+**Validation:** reachable scene inventory, new poses/assets, actual participants/club colours, factual triggers, once-only/replay handling, reload/Back/skip and native Android load/performance/pacing. The tactical decision-clarity gate remains for tactical scenes; a flavour scene is judged on recognition, visual distinction and enjoyment, not a nonexistent tactical choice.
+
+### FL-008 — Club memories across decades
+**Scope:** use existing club/history/profile surfaces and surroundings to retain factual visual reminders of premierships, notable players and alumni. Audit already-approved former-player links before building another treatment.
+**Dependencies:** stable stored years/stints/honours and actual coach-player links.
+**Exclusions:** collectible economies, another archive, fabricated family lineage, guaranteed coaching careers or new history aggregation.
+**Acceptance:** mementos evolve from genuine save events, remain clearly decorative, and preserve names/history after transfers and retirement. An anonymous/background character does not stay the same age for fifty years. Missing history gives a neutral fallback.
+**Validation:** long-save/reload fixtures, transferred/retired/generated players, same-name/number collisions, imported history once and phone retrieval. Ask whether the player recognises their own club's history without adding a wall of information.
+
+---
+
 ## ARD-M8-009 — Trailer production gate
 **Status:** `DEFERRED`  
 **Priority:** `P3`  
@@ -5131,6 +5239,8 @@ It is complete only when:
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** After all eight director answers, authorised FL-001–FL-008 in §9.3 and the execution/effort queues under existing owners. Added the explicit visual-distinction audit and permission for necessary new ritual/farewell vignette scenes. Every addition is presentation-only with zero gameplay effects; existing feature statuses and unrelated review gates remain unchanged.
 
 - **2026-10-06:** Granted the art agent permission to investigate and use free-only software for bespoke UI/art production, or direct the user to install suitable free tools when required. Paid software, subscriptions, paid plugins and charging trials remain disallowed without explicit approval.
 

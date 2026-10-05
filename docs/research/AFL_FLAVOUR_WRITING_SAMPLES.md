@@ -1,6 +1,6 @@
 # Original flavour samples and content rules
 
-Companion to [the research report](AFL_FLAVOUR_AND_CULTURE_RESEARCH.md). These are original prototype examples, not implemented copy, real-player quotations or approved execution tasks. All quantities and pacing are prototype assumptions.
+Companion to [the research report](AFL_FLAVOUR_AND_CULTURE_RESEARCH.md). The director approved the eight flavour extensions on 6 October 2026; see [roadmap §9.3](../ROADMAP.md#93-approved-flavour-and-culture-work--director-decisions-2026-10-06). These are original prototype examples within that scope, not implemented copy or real-player quotations. Exact wording remains subject to contextual review. All quantities and pacing are prototype assumptions.
 
 ## Voice
 
@@ -86,7 +86,7 @@ Potential details in already-existing scenes:
 - The trophy presentation gives the winner a brief readable pause.
 - A crowd reaction rises and then falls, leaving a little room after it.
 
-These are optional art directions. They create no chores, currency, morale, attendance figures or extra decision prompts. Actual historic trophy shapes, club assets and cultural designs require their own sourced/usable assets; neutral original props suffice for prototypes.
+These are illustrative art directions within the approved scope. They create no chores, currency, morale, attendance figures or extra decision prompts. Actual historic trophy shapes, club assets and cultural designs require their own sourced/usable assets; neutral original props suffice for prototypes.
 
 Possible original notices on a fictional clubroom wall:
 
@@ -116,6 +116,6 @@ Keep this as a small authored presentation corpus. It is not approval for a dial
 
 ## 7. Review standard
 
-Read every line at phone size in context, with the real score and controls present. Ask whether it sounds natural, whether a newcomer understands it, whether it implies hidden effects, and whether it still feels welcome on the tenth encounter. Revise or remove lines that need an explanatory paragraph to make the joke work.
+Read every line at phone size in context, with the real score and controls present. The director requires a visual appearance audit: decorative banners and flavour must be clearly distinct from actual game information, using hierarchy, placement and context rather than colour alone. Ask whether it sounds natural, whether a newcomer understands it, whether it implies hidden effects, and whether it still feels welcome on the tenth encounter. Revise or remove lines that need an explanatory paragraph to make the joke work.
 
 No samples require mandatory profanity, copied film catchphrases, song lyrics, brand slogans or fake real-player anecdotes. Genuine match drama and the player's actual history remain the source of emotional weight.
