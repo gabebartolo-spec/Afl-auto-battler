@@ -318,6 +318,17 @@ func _test_career_rollover() -> void:
 	for i in range(mini(10, repeats.size())):
 		_check(int(repeats[i]["overall"]) == int(next_class[i]["overall"]),
 				"Class generation is deterministic in ratings")
+	# Forward lines need all three sizes (MatchSim.fwd_size): over five
+	# generated classes there are small, general and key forwards.
+	var fwd_sizes := {}
+	for y in range(2028, 2033):
+		for p in Prospects.generate_class(y):
+			if str(p["role"]) == "FWD":
+				var sz := MatchSim.fwd_size(p)
+				fwd_sizes[sz] = int(fwd_sizes.get(sz, 0)) + 1
+	_check(int(fwd_sizes.get("small", 0)) >= 5 and int(fwd_sizes.get("general", 0)) >= 5
+			and int(fwd_sizes.get("key", 0)) >= 5,
+			"Generated classes bring small, general and key forwards (%s)" % str(fwd_sizes))
 	GameState.draftee_pool = next_class
 	GameState.season.round_index = GameState.season.fixture.size()
 	_check(GameState.begin_intake_draft(), "The loop reaches a second intake draft")
