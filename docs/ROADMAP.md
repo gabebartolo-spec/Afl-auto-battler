@@ -2515,6 +2515,36 @@ Overall rating should be meaningfully aligned with what Squad/MatchSim reward.
 - Preserve role-specific value; one generic OVR should not erase archetypes.
 - Named-player sanity checks are evidence, not the model. Fix the general cause where possible rather than building a patch list of famous names.
 
+### Director follow-up — career-stage OVR economy
+
+**Status:** `TODO / BALANCE-GATED` — phone playtesting shows the current OVR economy can make brand-new high-POT rookies look immediately better than too many established AFL players.
+
+The intended shape is:
+- **high-potential youngsters should generally enter with more development headroom:** a high POT prospect can be exciting without already carrying an established-pro OVR;
+- **most genuinely established veterans/pros should read slightly stronger in current OVR than they do now when their demonstrated senior performance supports it;**
+- POT is future ceiling/upside, not permission for current OVR to collapse toward POT at draft generation;
+- exceptional young players may already be excellent, and declining/poor veterans may genuinely be weak. Do **not** apply a blind age bonus/penalty.
+
+This is a league-wide calibration problem, not a request for hand-authored veteran buffs. Claude should first measure OVR/POT distributions by career stage and source senior experience, then identify whether the distortion comes from generated rookie starting attributes, real-player rating normalisation, age/development assumptions, or several of those together.
+
+Required audit:
+- compare National Draft rookie OVR/POT distributions against established 24–28 and veteran 29+ players by position/role;
+- inspect how often first-year rookies immediately outrank proven regulars and best-22 veterans before any development;
+- separate genuinely elite ready-made prospects from ordinary high-upside projects;
+- check whether established players with multiple seasons of credible AFL production are being compressed too low by the ratings model;
+- verify that lowering rookie starting OVR does not accidentally lower their POT or long-term ability to become stars;
+- verify that any veteran/pro correction reflects demonstrated football ability rather than age alone.
+
+Acceptance:
+- a high-POT draftee usually looks like **future value plus development headroom**, not an instant established star;
+- the majority of competent established AFL players are not routinely rated below unproven new draftees;
+- rare AFL-ready top prospects remain possible and visibly special;
+- weak/declining veterans can still be weak;
+- career progression has a believable arc from prospect → established player → decline rather than beginning near the finished product;
+- salary, selection, draft AI, trade value, development rate and long-save list turnover remain coherent after recalibration.
+
+Keep ARD-M5-010's original match-strength correlation requirement intact: current OVR must still describe current football strength. Do not solve this by making OVR lie about MatchSim strength or by adding a cosmetic age modifier.
+
 ---
 
 ## ARD-M5-011 — League Draft career-stage filters
@@ -5648,6 +5678,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Added a BALANCE-GATED career-stage OVR economy follow-up under ARD-M5-010. Phone playtesting shows too many high-POT rookies can enter looking stronger than established AFL professionals. Audit rookie starting OVR, established-player compression and age/development assumptions; create more development headroom for most prospects and modestly strengthen genuinely established players where performance evidence supports it, without blind age modifiers or making OVR cease to represent current strength.
 
 - **2026-10-06:** Added a phone-playtest correctness defect for the post-match **Needs a lift** section: injured/injury-shortened players are being mistaken for poor performers. Exclude reduced-opportunity injury cases from criticism, keep injuries in their own surfaces, and allow the section to be empty when nobody genuinely underperformed.
 
