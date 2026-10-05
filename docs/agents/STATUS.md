@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06 against main `42114e4`. Merged today: #275, #276, #277, #282, #284, #285, #286, #287, #288, #232 and #292 (the director merged #276, #277, #282, #284 and #285-#288 directly)._
+_Updated 2026-10-06 against main `c5d5743`. Merged today: #275, #276, #277, #282, #283, #284, #285, #286, #287, #288, #232, #292, #293, #294, #295, #296, #297 (#289 on green). #283 merged before its W7 review; the lead reviews it after the fact._
 
 ## Lanes
 | agent (session) | owns |
@@ -23,19 +23,18 @@ _Updated 2026-10-06 against main `42114e4`. Merged today: #275, #276, #277, #282
 | art | `BroadcastVignette.gd` (draw functions only; `pick_kind`, `DURATIONS` untouched); `VignetteFigures.gd`, `assets/vignette/figures_*.png` (sheet being regenerated); `StoppageVignette._draw_figure`; `tools/visual/capture_appearance.gd`, `capture_guernseys.gd`, new `capture_broadcast.gd`; standing: `figure.gdshader`, `clubs.csv` guernsey column, `GameDB.club_guernsey`, `player_appearance.csv`, `Appearance.gd`. Next, in order: `AwardWinnerVignette.gd`, `MediaConferenceVignette.gd` | M8-007 migration |
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- #283 (medium, being synced), #289 (long-career audit). #291 is the director's Codex research: do not merge, it says so.
-- Gates: do not merge a further visual or appearance PR without the director's explicit approval in the PR or chat; do not merge a PR that touches save, rollover, shared sim, recruitment or identity without its W7 review.
-- On main, awaiting the director's look (merged without visual or phone sign-off): #276 press conference, #277 Training-row alignment, #282 living players and crowds, #284 compressed figure sheets (phone check).
-- Main's Tests run 37383218176 (after #292) is the first to check; the earlier runs failed on a flaky matchday check (37362362173) or were cancelled (37369642589).
+- #289 (long-career audit tool, medium) on green. #291 is the director's Codex research: do not merge.
+- Coming: medium's free-keeps-possession PR (W7, held until the lead's reviewer comment is on the PR; match_game 243).
+- Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval).
+- On main, awaiting the director's look: #276 press conference, #277 Training-row alignment, #282 living players and crowds, #284 compressed figure sheets (phone check).
+- STYLE-03: evidence in docs/research/STYLE03_DARK_PAIRINGS_EVIDENCE.md; dark component sheets at 320 and 390 sent to the art agent (tool: tools/visual/capture_component_states.gd).
 
 ## Open PRs and dependencies
 | PR | owner | notes |
 |---|---|---|
-| #283 | medium | free kicks get a football cause (ARD-M3-007); being synced |
-| #289 | medium | long-career audit |
+| #289 | medium | tools/audit/long_career_impl.gd only |
 | #291 | director | Codex research and playbook; do not merge |
 | #206 | director | superseded by #208; close |
-| soon | high | proof-checks PR from the #291 adopt items |
 
 ## Pending director decisions
 - Difficulty: autopilot slides to rank 18 by year 5; routine contract work holds about 6th; flags need trading (0 of 40 for contracts + FA, 3 for full management). Evidence: medium's managed-vs-autopilot doc. Is that the intended curve?
