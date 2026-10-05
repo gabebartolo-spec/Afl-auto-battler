@@ -634,9 +634,13 @@ static func _project_line(p: Dictionary) -> String:
 	if job == "":
 		return ""
 	var role := GameState.project_role(p)
-	return "%s. As a %s he rates %d, his own game %d: within %d by week %d and he can be picked there." % [
-		GameState.project_progress(p), str(GameState.LEARN_JOBS[job]["word"]),
-		GameState.rating_as(p, role), int(p.get("overall", 0)), GameState.PROJECT_PASS, GameState.PROJECT_WEEKS]
+	var there := GameState.rating_as(p, role)
+	var own := int(p.get("overall", 0))
+	var head := "%s. As a %s he rates %d, his own game %d: " % [
+		GameState.project_progress(p), str(GameState.LEARN_JOBS[job]["word"]), there, own]
+	if there >= own - GameState.PROJECT_PASS:
+		return head + "up to the standard, so he can be picked there after week %d." % GameState.PROJECT_WEEKS
+	return head + "within %d by week %d and he can be picked there." % [GameState.PROJECT_PASS, GameState.PROJECT_WEEKS]
 
 
 ## "Contested 72 · Disposal 64": what his plan is spending on.

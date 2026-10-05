@@ -652,6 +652,11 @@ func _test_learning_a_position() -> void:
 	_check(GameState.project_job(cand) == job and GameState.project_progress(cand) == "Week 0 of %d" % GameState.PROJECT_WEEKS,
 			"Choosing it starts the project")
 	_check(GameState.learnable_jobs(cand).is_empty(), "One project at a time")
+	var line: String = load("res://scripts/ui/TrainingScene.gd")._project_line(cand)
+	var ahead := GameState.rating_as(cand, role) >= int(cand["overall"]) - GameState.PROJECT_PASS
+	_check(line.begins_with("Week 0 of %d" % GameState.PROJECT_WEEKS)
+			and line.contains("up to the standard" if ahead else "within %d by week" % GameState.PROJECT_PASS),
+			"Training shows the standard he is chasing, or that he has reached it (%s)" % line)
 	_check(GameState.season_ceiling(cand) == mini(int(cand["season_start_ov"]) + GameState.SEASON_TRAIN_GAIN,
 			int(cand["overall"]) + GameState.PROJECT_OWN_GAIN),
 			"The price: for the rest of the season his own position's training lifts him only %d more" % GameState.PROJECT_OWN_GAIN)
