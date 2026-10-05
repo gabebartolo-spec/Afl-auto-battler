@@ -2117,6 +2117,16 @@ func _centre_attendees(side: int) -> Array:
 	return out
 
 
+## The centre bounce for `side` as MatchSim will play it: the ruck who goes up
+## ({} with no one to) and the inside midfielders who attend, best first. The
+## centre-bounce scene shows exactly these players and never picks its own.
+## Read-only: no dice.
+func bounce_attendees(side: int) -> Dictionary:
+	var ruck := _contestant(squads[side])
+	return {"ruck": ruck[0] if not ruck.is_empty() else {},
+			"mids": _centre_attendees(side).slice(ruck.size())}
+
+
 ## Possession won from the opposition (a forced turnover, a rebound out of
 ## defence): an intercept, and an intercept mark when he took it cleanly -
 ## judged from stat_rng, so play is unchanged.
@@ -2347,12 +2357,6 @@ func quarter_in_progress() -> bool:
 
 func begin_quarter() -> void:
 	var T := Ratings.T
-	# Snapshot the plans before any rolls so the half-time report can say
-	# what each side actually used in Q1/Q2. Duplicates only, no RNG draws.
-	tactics_history.append({
-		"quarter": current_quarter,
-		"plans": [(tactics[0] as Dictionary).duplicate(), (tactics[1] as Dictionary).duplicate()],
-	})
 	if current_quarter > 1:
 		for id in energy:
 			energy[id] = minf(float(energy_caps.get(id, 100.0)), float(energy[id]) + ENERGY_BREAK_RECOVER)
@@ -2363,6 +2367,13 @@ func begin_quarter() -> void:
 			set_tactics(side, ai_tactics(side))
 			if current_quarter > 1:
 				_ai_rematch(side)
+	# Snapshot the plans in force this quarter - after the AI has picked its
+	# own, so the break says what they actually ran, not last quarter's plan.
+	# Before any rolls; duplicates only, no RNG draws.
+	tactics_history.append({
+		"quarter": current_quarter,
+		"plans": [(tactics[0] as Dictionary).duplicate(), (tactics[1] as Dictionary).duplicate()],
+	})
 	_q_active = true
 	_q_i = 0
 	_q_count = floori(float(T["chains_per_game"]) / 4.0)
@@ -3025,20 +3036,46 @@ func _bounce_moment(margin: int) -> bool:
 	if current_quarter == 4 and at_centre and current_minute >= 100 and absi(margin) <= 12 \
 			and int(_asked.get("bounce", 0)) < 2:
 		_asked["bounce"] = int(_asked.get("bounce", 0)) + 1
-		var state := "level" if margin == 0 else ("%d up" % margin if margin > 0 else "%d down" % -margin)
-		_fire({"kind": "bounce", "default": 2,
-			"title": "Centre bounce - %s with %d minutes left" % [state, 120 - current_minute],
-			"text": "Set up for the rest of the game.",
-			"options": [
-				{"key": "stack", "label": "Stack the stoppage",
-					"detail": "Extra numbers at the bounce: win far more clearances, but they score more easily if they get out."},
-				{"key": "flood", "label": "Flood behind the ball",
-					"detail": "Protect the lead: they score far less, and so do you."},
-				{"key": "none", "label": "Play it straight",
-					"detail": "No change."},
-			]})
+		_fire_bounce(margin)
 		return true
 	return false
+
+
+## Playtest aid (ARD-M8-007; Settings, "Centre-bounce scene every match"): the
+## centre-bounce call comes at the first centre bounce of the last quarter,
+## whatever the score or the minute, once a match. It sits outside the
+## quarter's calls - their budget and spacing are put back - so every other
+## call comes exactly when it would have, and "Play it straight" leaves the
+## match as it was. Off by default; set from GameState.
+var always_offer_bounce := false
+
+
+func _playtest_bounce() -> bool:
+	if not always_offer_bounce or moment_side < 0 or current_quarter != 4 or not at_centre \
+			or _asked.has("bounce_playtest"):
+		return false
+	_asked["bounce_playtest"] = true
+	var calls := _moments_this_q
+	var last := _last_moment_chain
+	_fire_bounce(score(moment_side) - score(1 - moment_side))
+	_moments_this_q = calls
+	_last_moment_chain = last
+	return true
+
+
+func _fire_bounce(margin: int) -> void:
+	var state := "level" if margin == 0 else ("%d up" % margin if margin > 0 else "%d down" % -margin)
+	_fire({"kind": "bounce", "default": 2,
+		"title": "Centre bounce - %s with %d minutes left" % [state, 120 - current_minute],
+		"text": "Set up for the rest of the game.",
+		"options": [
+			{"key": "stack", "label": "Stack the stoppage",
+				"detail": "Extra numbers at the bounce: win far more clearances, but they score more easily if they get out."},
+			{"key": "flood", "label": "Flood behind the ball",
+				"detail": "Protect the lead: they score far less, and so do you."},
+			{"key": "none", "label": "Play it straight",
+				"detail": "No change."},
+		]})
 
 
 func _late_bounce_ready() -> bool:
@@ -3049,6 +3086,8 @@ func _late_bounce_ready() -> bool:
 ## Situations spotted between chains: a tired star, a hot opposition
 ## forward, a run of goals against, a tight last-quarter centre bounce.
 func _boundary_moment() -> bool:
+	if _playtest_bounce():
+		return true
 	if not _moment_ready():
 		# The quarter's calls can be spent before a tight finish arrives: the
 		# last quarter keeps one more for the centre bounce, so a close game
@@ -3097,22 +3136,24 @@ func _boundary_moment() -> bool:
 		_asked[key] = true
 		if bag >= 3:
 			_asked["bag|" + str(fid)] = true
+		var fname := GameDB.player_display_name(hotf)
+		var cname := GameDB.player_display_name(cur)
 		var opts := []
 		for p in Matchups.defenders((squads[me] as Squad).ground):
 			if str(p["id"]) == str(cur["id"]) or opts.size() >= 2:
 				continue
-			opts.append({"key": "def:" + str(p["id"]), "label": "Put %s on him" % GameDB.player_display_name(p),
+			opts.append({"key": "def:" + str(p["id"]),
+					"label": "Put %s on %s" % [GameDB.player_display_name(p), fname],
 					"detail": Matchups.describe(p)})
 		if opts.is_empty():
 			continue
-		opts.append({"key": "keep", "label": "Keep %s on him" % GameDB.player_display_name(cur),
+		opts.append({"key": "keep", "label": "Keep %s on %s" % [cname, fname],
 				"detail": Matchups.describe(cur)})
-		var fname := GameDB.player_display_name(hotf)
 		_fire({"kind": "duel", "player_id": str(fid), "default": opts.size() - 1,
 			"title": ("%s has kicked %d" % [fname, bag]) if bag >= 3 else ("%s is getting on top" % fname),
 			"text": "%s has won %d contests in the air against %s this quarter." % [fname, wins,
-					GameDB.player_display_name(cur)] if wins > 0 else
-					"%s is on him. Change the match-up, or back him in." % GameDB.player_display_name(cur),
+					cname] if wins > 0 else
+					"%s is on %s. Change the match-up, or back %s in." % [cname, fname, cname],
 			"options": opts})
 		return true
 	# An opposition midfielder kicking a bag: a tag is a midfield job, so

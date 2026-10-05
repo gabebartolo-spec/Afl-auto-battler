@@ -46,6 +46,8 @@ const PEAK_FROM_YEAR := 2023
 const PEAK_AGE_EASE := 1.5
 
 ## Growth room above the current rating, by age.
+## Oldest age that still gets a draft-rank ceiling (_draftee_potential).
+const MAX_PROSPECT_AGE := 21.0
 const AGE_HEADROOM := [[20.0, 16.0], [22.0, 12.0], [24.0, 8.0], [26.0, 4.0], [28.0, 2.0]]
 
 ## Share of the gap to POT closed in one off-season, by age. Young players
@@ -59,16 +61,13 @@ const MIN_STEP := 2.0
 
 
 ## Set p["potential"] unless an earlier call or a save already did.
-## `by_age`: a generated player past draft age (an expansion list's older
-## players) takes the AFL-player rule although he was projected: his rating
-## plus the room his age leaves, not a draft prospect's ceiling.
-static func assign(p: Dictionary, by_age := false) -> void:
+static func assign(p: Dictionary) -> void:
 	if p.has("potential"):
 		return
 	var ov := int(p.get("overall", 50))
 	var rng := _rng(p)
 	var pot: float
-	if bool(p.get("projected", false)) and not by_age:
+	if bool(p.get("projected", false)):
 		pot = _draftee_potential(p, rng)
 	else:
 		pot = float(ov) + _headroom(float(p.get("age", 26.0))) + rng.randf_range(-2.0, 3.0)
@@ -192,6 +191,12 @@ static func _headroom(age: float) -> float:
 ## Room above the projection by draft rank: +22 for the top pick, about +8
 ## at the end of a 56-player class (a late pick can still be a gem).
 static func _draftee_potential(p: Dictionary, rng: RandomNumberGenerator) -> float:
+	# A seasoned player on an expansion list is projected like a draftee but
+	# is not an 18-year-old pick: past 21 his ceiling is the one any player
+	# his age has. Draft classes are 18-19, so they never reach this.
+	var age := float(p.get("age", 18.0))
+	if age > MAX_PROSPECT_AGE:
+		return float(int(p.get("overall", 50))) + _headroom(age) + rng.randf_range(-2.0, 3.0)
 	var rank := clampi(int(p.get("draft_rank", 40)), 1, 80)
 	var room := maxf(6.0, 22.0 - 0.25 * float(rank - 1))
 	# A strong or weak generated class moves its best prospects' ceilings

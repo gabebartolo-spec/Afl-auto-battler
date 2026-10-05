@@ -253,14 +253,17 @@ got a draftee's ceiling (`Potential._draftee_potential`: rating plus 13-22 by
 list rank) whatever his age. That is the age-28, 89-POT player, and
 `Potential.growth` kept pulling him toward it until he turned 28.
 
-**Fix.** From age 20 (draft classes are 18 and 19) a generated expansion
-player takes the rule every listed AFL player already has: his rating plus
-the room his age leaves (`Potential.AGE_HEADROOM`), with the usual roll.
-Youngsters keep a prospect's ceiling. New expansion lists only: a saved
-career keeps the ceilings its players were given, as POT never moves once
-set. Regression check in the `expansion` suite.
+**Fix.** Past draft age a generated expansion player takes the rule every
+listed AFL player already has: his rating plus the room his age leaves
+(`Potential.AGE_HEADROOM`), with the usual roll; youngsters keep a
+prospect's ceiling. New expansion lists only: a saved career keeps the
+ceilings its players were given, as POT never moves once set. This branch
+first made the change from age 20; main fixed the same bug independently
+in PR #213 (inside `Potential._draftee_potential`, past 21), and the merge
+keeps main's version. Regression check in the `expansion` suite.
 
-Expansion lists for two clubs in 2028 and 2030 (288 players):
+Expansion lists for two clubs in 2028 and 2030 (288 players), as this
+branch's version measured it (main's differs only at ages 20-21):
 
 | Age at entry | Players | Room above rating, before → after | POT 85+, before → after |
 |---|---|---|---|

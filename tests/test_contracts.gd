@@ -27,6 +27,7 @@ func run() -> void:
 	_test_future_picks()
 	_test_mixed_packages()
 	_test_trade_market()
+	_test_money_copy()
 	GameState.delete_saved_career()
 	print("Contracts tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -1540,3 +1541,20 @@ func _offers_genuine(offers: Array, prospects: Dictionary) -> bool:
 		wrap_ok = wrap_ok and not str(row["id"]).begins_with("pick:")
 	_check(wrap_ok and (GameState.season_wrap.get("outs", []) as Array).size() > 0,
 			"The pre-season wrap lists the players who came and went, not the picks")
+
+
+## Money a player reads is compact AFL money ($970k, $1.12m), never a raw
+## dollar count such as "970000" or "1115500".
+func _test_money_copy() -> void:
+	var raw := RegEx.new()
+	raw.compile("[0-9]{5,}")
+	var p: Dictionary = GameDB.club_list("COL")[0].duplicate(true)
+	var card: Dictionary = ClubLife._extension(p)
+	var words: Array = [str(card["text"])]
+	for o in card["options"]:
+		words.append(str(o.get("detail", "")))
+	var bad := words.filter(func(t): return raw.search(str(t)) != null)
+	_check(bad.is_empty() and str(card["text"]).contains("$"),
+			"The extension card prices him in AFL money (%s)" % " | ".join(bad))
+	_check(Contracts.money(970000) == "$970k" and Contracts.money(1115500) == "$1.12m"
+			and Contracts.money(1626750) == "$1.63m", "Compact money reads as a footy fan expects")

@@ -256,6 +256,10 @@ static func derive_all(players: Array) -> Array:
 				+ 0.45 * q["time_on_ground"])
 		a["star"] = scale_attr(0.68 * q["brownlow_pg"]
 				+ 0.32 * q["disposals_pg"])
+		var adj := float(ATTR_ADJUSTMENTS.get("%s|%s %s" % [p.get("club", ""), p.get("first", ""), p.get("last", "")], 1.0))
+		if adj != 1.0:
+			for k in a:
+				a[k] = clampi(int(round(float(a[k]) * adj)), 1, 99)
 		p["attr"] = a
 
 		# ---- role classification ------------------------------------------
@@ -292,6 +296,14 @@ static func derive_all(players: Array) -> Array:
 const ROLE_CORRECTIONS := {
 	"RIC|Maurice Rioli": "FWD",
 	"WBD|Cody Weightman": "FWD",
+}
+
+
+## Director's player-data balance corrections: every attribute scaled by the
+## factor, capped at 99, before OVR is rated. Named players only; never a
+## reason to change the generation model. Mirrored in tools/sim_harness.py.
+const ATTR_ADJUSTMENTS := {
+	"MEL|Harvey Langford": 1.15,
 }
 
 
@@ -506,11 +518,16 @@ static func salary_value(overall: int) -> int:
 ## backfilled by overall rating so a team always fields 18.
 static func select_22(list_players: Array) -> Dictionary:
 	var pool := list_players.duplicate()
-	# A player promised a game this week (a kid given his chance, a talk)
-	# is first in line for his own position; then the best available.
+	# A player promised a game this week (a kid given his chance, a talk) or a
+	# run (Backing) is first in line for his own position; then the best
+	# available.
+	var promised := {}
+	for p in pool:
+		if p.has("expects_game") or Backing.is_active(p):
+			promised[p["id"]] = true
 	pool.sort_custom(func(a, b):
-		var pa: bool = a.has("expects_game")
-		if pa != b.has("expects_game"):
+		var pa: bool = promised.has(a["id"])
+		if pa != promised.has(b["id"]):
 			return pa
 		return float(a["overall"]) * Workload.selection_factor(a) > float(b["overall"]) * Workload.selection_factor(b))
 
@@ -528,7 +545,15 @@ static func select_22(list_players: Array) -> Dictionary:
 			for p in pool:
 				if plays_role(p, "RUCK") and not used.has(p["id"]):
 					recognised.append(p)
+			# The best tap player first, but a promised ruck is first in line.
+			var first := []
+			var others := []
 			for p in by_ruck(recognised):
+				if promised.has(p["id"]):
+					first.append(p)
+				else:
+					others.append(p)
+			for p in first + others:
 				if added >= need:
 					break
 				ground.append(_for_slot(p, role))

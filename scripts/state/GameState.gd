@@ -106,6 +106,11 @@ var last_side: Array = []       # ids of your players who took the field in your
 ## What the event cards have already raised this season (ClubLife.pick_event
 ## memory): "extension|id", "media|id" -> true, "unhappy|id" -> round.
 var event_memory := {}
+## Players on a promised run (Backing) who could not play this round, noted at
+## the start of _after_round before the week's injuries and suspensions tick
+## down, so a player healed by this very round is not "left out while fit".
+## Not saved: it is rebuilt every round.
+var _backing_unavailable := {}
 
 ## Career loop: season 1 is the 2026 season. Every completed season ends with
 ## a national intake draft (keep your list, sign the rookies), then the same
@@ -245,6 +250,17 @@ func confirm_sim_round() -> bool:
 
 func set_confirm_sim_round(enabled: bool) -> void:
 	set_setting("confirm_sim_round", enabled)
+
+
+## Playtest aid (ARD-M8-007): the centre-bounce scene in every match you
+## coach, at the first centre bounce of the last quarter whatever the score.
+## Off by default; it changes when the call comes, not the football.
+func bounce_scene_every_match() -> bool:
+	return bool(get_setting("bounce_scene_every_match", false))
+
+
+func set_bounce_scene_every_match(enabled: bool) -> void:
+	set_setting("bounce_scene_every_match", enabled)
 
 
 ## How fast a watched match starts (1x, 2x, 4x or 8x). 4x by default.
@@ -1010,6 +1026,14 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	if season != null:
 		Workload.reset(season.lists)
 		Injuries.heal_all(season.lists)
+	# A run you promised does not carry into the next season: it lapses, for
+	# every list and for free agents, so a player traded or released never
+	# takes it to another club.
+	for code in league_lists:
+		for p in league_lists[code]:
+			Backing.lapse(p)
+	for p in free_agents:
+		Backing.lapse(p)
 	# Brownlow eligibility is season-specific. A new season starts clean.
 	var seen_brownlow := {}
 	for code in league_lists:
@@ -1407,6 +1431,7 @@ func prepare_interactive_match() -> bool:
 	CoachEffects.apply(away)
 	pending_sim = MatchSim.new(home, away, season.next_seed(99))
 	pending_sim.moment_side = 0 if str(pending_match["home"]) == my_club else 1
+	pending_sim.always_offer_bounce = bounce_scene_every_match()
 	pending_sim.set_tactics(pending_sim.moment_side, {"gameplan": club_plan})
 	pending_sim.set_matchups(pending_sim.moment_side, my_matchups)
 	pending_phase = "regular"
@@ -1465,6 +1490,7 @@ func _prepare_interactive_final() -> bool:
 	pending_sim = MatchSim.new(home, away, season.finals_seed(mine))
 	pending_sim.finals_mode = true
 	pending_sim.moment_side = 0 if str(fm["home"]) == my_club else 1
+	pending_sim.always_offer_bounce = bounce_scene_every_match()
 	pending_sim.set_tactics(pending_sim.moment_side, {"gameplan": club_plan})
 	pending_sim.set_matchups(pending_sim.moment_side, my_matchups)
 	pending_phase = "finals"
@@ -2164,6 +2190,20 @@ func _career_copies(source: Array) -> Array:
 	return out
 
 
+## A player's display name from any current list, for ids the database
+## cannot resolve (a player who joined a list during the career). "" if none.
+func season_player_name(player_id: String) -> String:
+	var groups: Array = [my_list, free_agents]
+	if season != null:
+		for code in season.lists:
+			groups.append(season.lists[code])
+	for arr in groups:
+		for p in arr:
+			if p is Dictionary and str(p.get("id", "")) == player_id:
+				return GameDB.player_display_name(p)
+	return ""
+
+
 func list_player(player_id: String) -> Dictionary:
 	for p in my_list:
 		if str(p.get("id", "")) == player_id:
@@ -2381,6 +2421,11 @@ func _short_name(id: String) -> String:
 ## Everything that follows a round: injuries, the awards tally, and - when
 ## the Grand Final has just been played - the season's awards.
 func _after_round(results: Array) -> void:
+	# Who on a promised run could not play this week, before anything ticks.
+	_backing_unavailable = {}
+	for p in my_list:
+		if Backing.is_active(p) and not Backing.fit(p):
+			_backing_unavailable[str(p["id"])] = true
 	if season != null:
 		var regular := last_phase == "regular"
 		var week := "%d|%s|%d" % [season_year, "R" if regular else "F",
@@ -3372,7 +3417,7 @@ func offer_free_agent(player_id: String, salary: int, years: int) -> Dictionary:
 	if bool(terms["refuse"]):
 		return {"ok": false, "answer": "reject", "reason": "%s turns you down. %s" % [name, str(terms["reasons"][0])]}
 	if salary > cap_room():
-		return {"ok": false, "answer": "", "reason": "Not enough cap room for %d a season." % salary}
+		return {"ok": false, "answer": "", "reason": "Not enough cap room for %s a season." % Contracts.money(salary)}
 	var reply := Contracts.respond(p, salary, years, int(talks.get("failed", 0)))
 	if str(reply["answer"]) != "accept":
 		var out := {"ok": false, "answer": str(reply["answer"]), "salary": int(reply["salary"])}
@@ -3470,12 +3515,12 @@ func _sign_fa(p: Dictionary, code: String, salary: int, years: int) -> void:
 	if bool(p.get("tested", false)):
 		p.erase("tested")
 		var stayed := code == my_club
-		add_news("contract", ("%s tested free agency and re-signs with %s: %d for %d season%s." if stayed
-				else "%s tested free agency and leaves for %s: %d for %d season%s.") % [GameDB.player_display_name(p),
-				GameDB.club_name(code), salary, years, "" if years == 1 else "s"])
+		add_news("contract", ("%s tested free agency and re-signs with %s: %s for %d season%s." if stayed
+				else "%s tested free agency and leaves for %s: %s for %d season%s.") % [GameDB.player_display_name(p),
+				GameDB.club_name(code), Contracts.money(salary), years, "" if years == 1 else "s"])
 	elif code == my_club or int(p.get("overall", 0)) >= NEWS_MIN_OVR:
-		add_news("contract", "%s sign free agent %s (OVR %d): %d for %d season%s." % [GameDB.club_name(code),
-				GameDB.player_display_name(p), int(p["overall"]), salary, years, "" if years == 1 else "s"])
+		add_news("contract", "%s sign free agent %s (OVR %d): %s for %d season%s." % [GameDB.club_name(code),
+				GameDB.player_display_name(p), int(p["overall"]), Contracts.money(salary), years, "" if years == 1 else "s"])
 
 
 func _join(code: String, p: Dictionary) -> void:
@@ -5189,6 +5234,18 @@ func _board_after_round(results: Array) -> void:
 		for p in my_list:
 			soft[str(p["id"])] = CoachEffects.soften(staff, p)
 	ClubLife.morale_after_match(my_list, played, margin > 0, soft)
+	# A player promised a run (Backing): each game he plays counts towards it.
+	# Left out while fit, the promise breaks and it stings, once, and the run
+	# is over; unable to play, the run waits. His one-week expectation is
+	# settled here rather than by the loop below, so it never stings twice.
+	for p in my_list:
+		if not Backing.is_active(p):
+			continue
+		var pid := str(p["id"])
+		var run_state := Backing.after_match(p, played.has(pid), not _backing_unavailable.has(pid))
+		if run_state == "broken":
+			ClubLife.add_morale(p, -CoachEffects.softened(Backing.STING, float(soft.get(pid, 0.0))))
+		p.erase("expects_game")
 	# A player promised a game (a talk, or a kid given his chance): leaving
 	# him out fit sours it. Once: the promise ends with the round.
 	for p in my_list:
@@ -5459,8 +5516,8 @@ func resolve_week_event(choice: int) -> String:
 				p["salary"] = cost
 				p["contract_years"] = years
 				ClubLife.add_morale(p, 8)
-				out = "%s signs on for %d more season%s at %d." % [name, years - 1,
-						"" if years == 2 else "s", cost]
+				out = "%s signs on for %d more season%s at %s a season." % [name, years - 1,
+						"" if years == 2 else "s", Contracts.money(cost)]
 			else:
 				# The cap moved since the card was drawn: nobody's fault.
 				out = "The cap no longer has room to extend %s now; it waits for the off-season." % name
@@ -5478,12 +5535,13 @@ func resolve_week_event(choice: int) -> String:
 			apply_plan_to(p)
 			out = "%s spends the week with the development coaches: +%d XP." % [name, ClubLife.DEV_WEEK_XP]
 		"blood":
-			# His chance: he earns a senior game's XP by playing it - if you
-			# pick him. Leaving him out after this stings.
-			ClubLife.add_morale(p, 5)
-			p["expects_game"] = 10
-			out = ("%s is told he is in. Auto-pick names him this week." if my_selection().is_empty()
-					else "%s is told he is in. Pick him this week.") % name
+			# His chance: a run of senior games (Backing). He earns each game's
+			# XP by playing it - if you pick him. Leaving him out while fit
+			# breaks the promise, and that stings.
+			_start_backing(p)
+			var run := MatchNotes.count_word(Backing.RUN_GAMES)
+			out = ("%s is told he has a run of %s games. Auto-pick names him this week." if my_selection().is_empty()
+					else "%s is told he has a run of %s games. Pick him this week.") % [name, run]
 		"talk":
 			ClubLife.add_morale(p, 15)
 			p["expects_game"] = 12
@@ -5505,6 +5563,62 @@ func resolve_week_event(choice: int) -> String:
 	week_event["choice"] = choice
 	week_event["outcome"] = out
 	mark_dirty()
+	return out
+
+
+# ---------------------------------------------------------------------------
+# Backing a young player (Backing.gd)
+# ---------------------------------------------------------------------------
+## Can this player be backed from selection? Few senior games on a career on
+## record in full, available to play, no run on already, and a match to play.
+func can_back(p: Dictionary) -> bool:
+	if season == null or my_club == "" or list_player(str(p.get("id", ""))).is_empty():
+		return false
+	if my_next_opponent().is_empty():
+		return false
+	return Backing.can_back(p, games_played(p))
+
+
+## Promise a player a run, from selection. Returns what to tell the coach, or
+## "" when he cannot be backed.
+func back_player(player_id: String) -> String:
+	var p := list_player(player_id)
+	if p.is_empty() or not can_back(p):
+		return ""
+	var named := false
+	var side := current_side()
+	for k in side:
+		if (side[k] as Array).has(str(p["id"])):
+			named = true
+	_start_backing(p)
+	var out := "%s has your word for %s games." % [GameDB.player_display_name(p),
+			MatchNotes.count_word(Backing.RUN_GAMES)]
+	if not named:
+		out += " Auto-pick names the player this week." if my_selection().is_empty() \
+				else " Pick the player this week."
+	return out
+
+
+## Start a run for one of your players: the week's match is his first game if
+## he plays it. He is thrilled, and he expects to be picked: auto-pick names
+## him while the run is on.
+func _start_backing(p: Dictionary) -> void:
+	if Backing.is_active(p):
+		return
+	var round_no := 0 if season.is_regular_done() else season.round_index + 1
+	Backing.start(p, season_year, round_no, games_played(p))
+	ClubLife.add_morale(p, Backing.THRILL)
+	p["expects_game"] = Backing.STING
+	mark_dirty()
+
+
+## One line for each run you have promised, as Selection shows them.
+func backing_notes() -> Array:
+	var out := []
+	for p in my_list:
+		var line := Backing.note(p)
+		if line != "":
+			out.append({"key": "backing", "player_id": str(p["id"]), "text": line})
 	return out
 
 
@@ -5849,14 +5963,13 @@ func _style_found(code: String) -> Array:
 const STYLE_MIN := {
 	"for": 9.0, "against": 8.0, "clearances": 2.5, "inside50": 3.0,
 	"pressure_acts": 9.0, "marks": 5.0, "clangers": 3.5, "hitouts": 7.0,
-	"from_turnover": 6.0, "from_stoppage": 6.0, "conceded_turnover": 6.0, "conceded_stoppage": 6.0,
+	"from_stoppage": 6.0, "conceded_stoppage": 6.0,
 }
 ## Early reads are provisional: the difference counts games / (games + this).
 const STYLE_SHRINK := 4
 ## A points-source line and the total it is part of.
 const STYLE_PART_OF := {
-	"from_turnover": "for", "from_stoppage": "for",
-	"conceded_turnover": "against", "conceded_stoppage": "against",
+	"from_stoppage": "for", "conceded_stoppage": "against",
 }
 
 
@@ -5870,9 +5983,7 @@ const THEIR_STYLE := {
 	"marks": ["They hold it by foot and mark it.", "They rarely take a mark."],
 	"clangers": ["They look after the ball.", "They turn it over."],
 	"hitouts": ["Their ruck wins the tap.", "They get beaten in the ruck."],
-	"from_turnover": ["They hurt sides on the turnover.", "They rarely score on the turnover."],
 	"from_stoppage": ["They score from the stoppages.", "They rarely score from the stoppages."],
-	"conceded_turnover": ["They rarely get caught on the turnover.", "They get caught on the turnover."],
 	"conceded_stoppage": ["They shut down stoppage scores.", "They give up scores from the stoppages."],
 }
 
@@ -5895,12 +6006,8 @@ const STYLE_LINES := {
 			"We turn it over: %d more clangers a game than the average side.", true],
 	"hitouts": ["Our ruck wins the tap: %d more hit-outs a game than the average side.",
 			"We are beaten in the ruck: %d fewer hit-outs a game than the average side.", false],
-	"from_turnover": ["We hurt sides on the turnover: %d more points a game from it than the average side.",
-			"We rarely score on the turnover: %d fewer points a game from it than the average side.", false],
 	"from_stoppage": ["We score from the stoppages: %d more points a game from them than the average side.",
 			"We rarely score from the stoppages: %d fewer points a game from them than the average side.", false],
-	"conceded_turnover": ["We rarely get caught on the turnover: %d fewer points a game conceded from it than the average side.",
-			"They hurt us on the turnover: %d more points a game conceded from it than the average side.", true],
 	"conceded_stoppage": ["We shut down their stoppage game: %d fewer points a game conceded from stoppages than the average side.",
 			"They hurt us from the stoppages: %d more points a game conceded from them than the average side.", true],
 }

@@ -122,6 +122,22 @@ func _test_tactics() -> void:
 			if plan != "balanced" and not MatchSim.PLANS.has(plan):
 				valid = false
 	_check(valid and m2.tactics_history.size() >= 4, "AI clubs only ever pick real plans")
+	# The record of each quarter is the plan the AI actually ran in it, not
+	# the one it carried in from the quarter before (the break reads this).
+	var m4 := MatchSim.new(Squad.new("GEE", GameDB.club_list("GEE"), true, "GEE"), Squad.new("SYD", GameDB.club_list("SYD"), false, "SYD"), 9)
+	(m4.squads[0] as Squad).ai_plans = true
+	(m4.squads[1] as Squad).ai_plans = true
+	var in_force := true
+	for q in range(4):
+		m4.begin_quarter()
+		var rec: Array = m4.tactics_history[m4.tactics_history.size() - 1]["plans"]
+		for side in range(2):
+			if str((rec[side] as Dictionary).get("gameplan", "")) != str((m4.tactics[side] as Dictionary).get("gameplan", "")):
+				in_force = false
+		while not m4.continue_quarter():
+			m4.resolve_moment(int(m4.pending_moment.get("default", 0)))
+		m4.end_quarter()
+	_check(in_force and m4.tactics_history.size() == 4, "Each quarter records the plan the AI ran in it")
 	# A sharp tactician reacts to a smaller margin than a poor one.
 	var r3 := MatchSim.new(Squad.new("GEE", GameDB.club_list("GEE"), true, "GEE"), Squad.new("SYD", GameDB.club_list("SYD"), false, "SYD"), 5)
 	r3.team_stats[0]["goals"] = 2.0

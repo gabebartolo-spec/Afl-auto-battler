@@ -5,11 +5,12 @@ name: Tests
 # harness. Documentation-only changes skip this expensive game test run.
 # If a PR changes both docs and game files, the tests still run.
 # tools/run_tests.sh is the same script you run locally.
+#
+# "test" is a required check on main, so every PR runs the job: a docs-only
+# PR passes it in a few seconds without running the game tests. Pushes to
+# main that only touch docs don't start it at all.
 on:
   pull_request:
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
   push:
     branches: [main]
     paths-ignore:
@@ -32,12 +33,29 @@ jobs:
       GODOT_VERSION: "4.7.2"
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2     # the PR merge commit and the base it merges into
+
+      # Anything outside docs/ and *.md files counts as code.
+      - name: Check for code changes
+        id: changes
+        run: |
+          code=true
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            if ! git diff --name-only HEAD^1 HEAD | grep -qvE '^docs/|\.md$'; then
+              code=false
+              echo "Documentation-only change: skipping the game tests."
+            fi
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-python@v5
+        if: steps.changes.outputs.code == 'true'
         with:
           python-version: "3.11"
 
       - name: Cache Godot
+        if: steps.changes.outputs.code == 'true'
         id: godot-cache
         uses: actions/cache@v4
         with:
@@ -45,7 +63,7 @@ jobs:
           key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
 
       - name: Download Godot ${{ env.GODOT_VERSION }}
-        if: steps.godot-cache.outputs.cache-hit != 'true'
+        if: steps.changes.outputs.code == 'true' && steps.godot-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p ~/godot && cd ~/godot
           name="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
@@ -57,6 +75,7 @@ jobs:
           mv "${name}" godot && chmod +x godot
 
       - name: Run tests
+        if: steps.changes.outputs.code == 'true'
         run: GODOT="$HOME/godot/godot" LOG_DIR="$RUNNER_TEMP/test-logs" tools/run_tests.sh
 
       - name: Upload test logs

@@ -412,6 +412,11 @@ func _week_section(season: Season) -> Control:
 		if not medallist.is_empty():
 			nv.add_child(UiKit.ellipsis("Brownlow: %s (%d votes)" % [
 					GameState.award_name(medallist), int(medallist["votes"])], 13, UiKit.TEXT))
+	elif _regular_bye(season):
+		nv.add_child(UiKit.lbl("Bye", UiKit.H1, UiKit.TEXT, true))
+		nv.add_child(UiKit.lbl(
+				"No game for you in Round %d. The rest of the league plays on." % (season.round_index + 1),
+				UiKit.BODY, UiKit.MUTED))
 	elif _upcoming_match().is_empty():
 		match GameState.my_finals_status():
 			"bye":
@@ -563,6 +568,12 @@ func _week_actions(season: Season) -> Control:
 			buttons.append(_nav_button("Trades & Contracts", func(): Router.go("offseason")))
 		buttons.append(_nav_button("Resume national draft" if resume
 				else "%d National Draft" % GameState.season_year, _on_intake_draft, true))
+	elif _regular_bye(season):
+		# A home-and-away bye: the season goes on, one round at a time.
+		buttons.append(_nav_button("Team", func(): Router.go("selection")))
+		var bye := _nav_button("Sim Round %d" % (season.round_index + 1), _on_sim_round, true)
+		bye.name = "SimByeRound"
+		buttons.append(bye)
 	elif _upcoming_match().is_empty() and GameState.my_finals_status() == "bye":
 		# Still alive: sim only this week, never past your own final.
 		buttons.append(_nav_button("Team", func(): Router.go("selection")))
@@ -672,6 +683,13 @@ func _finals_label() -> String:
 	var w := int(GameState.season.finals.get("week", 1))
 	return ["Wildcard Round", "Qualifying & Elimination", "Semi Finals",
 			"Preliminary Finals", "Grand Final"][clampi(w - 1, 0, 4)]
+
+
+## A home-and-away round your club sits out: an odd club count (expansion)
+## rotates a bye. Not the end of your season - that is only once the
+## home-and-away rounds are done.
+func _regular_bye(season: Season) -> bool:
+	return season != null and not season.is_season_over() 			and not season.is_regular_done() and _upcoming_match().is_empty()
 
 
 ## The match you are about to play, or {} if you have none coming up
@@ -865,6 +883,9 @@ func _on_sim_round() -> void:
 
 ## You are out of the finals: run the remaining weeks out and show the winner.
 func _on_sim_to_end() -> void:
+	# Only ever the finals: never sim through home-and-away rounds.
+	if not GameState.season.is_regular_done():
+		return
 	var guard := 0
 	while not GameState.season.is_season_over() and guard < 10:
 		GameState.advance()

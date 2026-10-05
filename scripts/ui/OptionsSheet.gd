@@ -40,6 +40,10 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 	_row(v, "Match speed", "SettingsSpeed", SPEED_OPTIONS,
 			str(int(GameState.match_speed())), "How fast a match you watch starts. You can change it during the game.",
 			func(k): GameState.set_match_speed(float(k)))
+	_row(v, "Centre-bounce scene every match", "SettingsBounceScene", [["off", "Off"], ["on", "On"]],
+			"on" if GameState.bounce_scene_every_match() else "off",
+			"For playtesting: the centre-bounce call comes at the first centre bounce of every last quarter you coach, whatever the score.",
+			func(k): GameState.set_bounce_scene_every_match(k == "on"))
 
 	if in_career:
 		v.add_child(UiKit.spacer(UiKit.GAP))

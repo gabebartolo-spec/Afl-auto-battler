@@ -21,6 +21,11 @@ var _bulk_selected := {}
 var _hold_tokens := {}
 var _suppress_open := {}
 var _hold_serial := 0
+## Where the finger went down: a press that turns into a scroll is neither
+## a tap nor a long press.
+var _press_scroll := 0
+var _press_pos := Vector2.ZERO
+const DRAG_SLOP := 12.0   # the list's scroll deadzone
 var _root: VBoxContainer
 var _list_scroll: ScrollContainer
 var _detail_scroll: ScrollContainer
@@ -336,10 +341,14 @@ func _begin_player_hold(id: String) -> void:
 	_hold_serial += 1
 	var token := _hold_serial
 	_hold_tokens[id] = token
+	_press_scroll = _list_scroll.scroll_vertical if is_instance_valid(_list_scroll) else 0
+	_press_pos = get_global_mouse_position()
 	await get_tree().create_timer(LONG_PRESS_SECONDS).timeout
 	if int(_hold_tokens.get(id, -1)) != token:
 		return
 	_hold_tokens.erase(id)
+	if _moved_since_press():
+		return
 	_suppress_open[id] = true
 	_toggle_bulk(id)
 
@@ -352,10 +361,19 @@ func _press_player(id: String) -> void:
 	if _suppress_open.has(id):
 		_suppress_open.erase(id)
 		return
+	if _moved_since_press():
+		return
 	if not _bulk_selected.is_empty():
 		_toggle_bulk(id)
 		return
 	_open_player(id)
+
+
+## The list scrolled, or the finger travelled, since it went down.
+func _moved_since_press() -> bool:
+	if is_instance_valid(_list_scroll) and absi(_list_scroll.scroll_vertical - _press_scroll) > 2:
+		return true
+	return get_global_mouse_position().distance_to(_press_pos) > DRAG_SLOP
 
 
 func _refresh_rows() -> void:
@@ -426,7 +444,7 @@ func _player_row(p: Dictionary) -> Control:
 	if plan == "manual":
 		info.add_child(UiKit.ellipsis("Manual  ·  development paused", 12, UiKit.BAD))
 	else:
-		info.add_child(UiKit.ellipsis("%s  ·  %s" % [GameState.train_plan_label(plan),
+		info.add_child(UiKit.ellipsis("%s  ·  %s" % [_row_plan(plan),
 				GameState.development_state(p)], 12, UiKit.MUTED))
 	var duty := GameState.last_duty(id)
 	if int(p.get("injury_weeks", 0)) > 0:
@@ -448,6 +466,16 @@ func _player_row(p: Dictionary) -> Control:
 	b.button_up.connect(_end_player_hold.bind(id))
 	b.pressed.connect(_press_player.bind(id))
 	return b
+
+
+## The plan under his name, said as a plan: "Training as a key defender",
+## never a bare "Key defender" that reads as what he is.
+static func _row_plan(plan: String) -> String:
+	var label := GameState.train_plan_label(plan)
+	if plan == "position":
+		return label
+	var noun := label.to_lower()
+	return "Training as %s %s" % ["an" if noun.substr(0, 1) in ["a", "e", "i", "o", "u"] else "a", noun]
 
 
 ## [from, to] if training lifted his OVR after the last game, else [].

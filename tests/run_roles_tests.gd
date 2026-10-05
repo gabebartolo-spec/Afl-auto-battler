@@ -31,6 +31,7 @@ func _run() -> void:
 	_failures.append_array(suite.failures)
 	await _selection_tests()
 	await _team_changes_tests()
+	await _backing_ui_tests()
 	print("Roles + selection tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -62,7 +63,7 @@ func _selection_tests() -> void:
 	# Their key forwards, and who you put on them.
 	var km: Node = ui.find_child("KeyMatchups", true, false)
 	_check(km != null and km.find_child("MatchupLine", true, false) != null
-			and str(km.find_child("MatchupLine", true, false).text).contains(" on him"),
+			and str(km.find_child("MatchupLine", true, false).text).contains(" is on "),
 			"Selection names their key forwards and who is on them")
 	var chm: Button = km.find_child("ChangeMatchup", true, false) if km != null else null
 	if chm != null:
@@ -374,6 +375,96 @@ func _team_changes_tests() -> void:
 	ui.queue_free()
 	var kid := {"id": "KID", "career": {"games": 0, "goals": 0, "stints": [], "through": 2026, "unknown": []}}
 	_check(_state.games_note(kid) == "debut", "A player yet to play a senior game is on debut")
+	await _settle()
+
+
+## Selection: a player with few senior games can be backed from his profile;
+## the screen then says what was promised, and the profile says so too. A
+## player with a long record is not offered it.
+func _backing_ui_tests() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(420, 860)
+	var kid: Dictionary = {}
+	var best: Dictionary = {}
+	for p in _state.my_list:
+		if str(p["role"]) != "RUCK" and (kid.is_empty() or int(p["overall"]) < int(kid["overall"])):
+			kid = p
+		if best.is_empty() or int(p["overall"]) > int(best["overall"]):
+			best = p
+	var through: int = _state.season_year - 1
+	kid["career"] = {"games": 2, "goals": 0, "stints": [], "through": through, "unknown": []}
+	best["career"] = {"games": 150, "goals": 0, "stints": [], "through": through, "unknown": []}
+	var kid_id := str(kid["id"])
+	var digits := RegEx.new()
+	digits.compile("\\d")
+	var ui := await _open()
+	var tile: Node = ui.find_child("FormationPlayer_" + str(best["id"]), true, false)
+	_check(tile != null, "The best player is on the field")
+	if tile != null:
+		tile.emit_signal("pressed")
+		await _settle()
+		var sheet: Node = ui.find_child("PlayerProfile", true, false)
+		_check(sheet != null and sheet.find_child("BackRun", true, false) == null,
+				"A player with a long record is not offered a run")
+		ui.call("handle_back")
+		await _settle()
+	var row: Node = ui.find_child("Profile_" + kid_id, true, false)
+	_check(row != null and ui.find_child("Backing_" + kid_id, true, false) == null,
+			"The kid is in the list, with nothing promised yet")
+	if row != null:
+		row.emit_signal("pressed")
+		await _settle()
+		var sheet2: Node = ui.find_child("PlayerProfile", true, false)
+		var act: Node = sheet2.find_child("BackRun", true, false) if sheet2 != null else null
+		var detail: Node = sheet2.find_child("Detail_BackRun", true, false) if sheet2 != null else null
+		_check(act != null and str(act.text) == "Back for three games" and act.size.y >= 44,
+				"A player with few senior games is offered a run, as a thumb-sized outline button")
+		_check(detail != null and digits.search(str(detail.text)) == null and str(detail.text).contains("breaks"),
+				"The action says what it costs, in words")
+		if act != null:
+			# On a small phone the action and Close both still sit on screen.
+			root.size = Vector2i(360, 740)
+			await _settle()
+			var screen := Rect2(Vector2.ZERO, Vector2(360, 740))
+			var close: Node = null
+			for b in sheet2.find_children("*", "Button", true, false):
+				if str(b.text) == "Close":
+					close = b
+			_check(close != null and screen.encloses(act.get_global_rect()) and screen.encloses(close.get_global_rect()),
+					"The run and Close both sit on screen at 360 wide")
+			root.size = Vector2i(420, 860)
+			await _settle()
+			act.emit_signal("pressed")
+			await _settle()
+			_check(ui.find_child("PlayerProfile", true, false) == null, "Backing him closes his profile")
+			# (No direct class reference here: this runner compiles before the
+			# autoloads exist, so it reads the ledger as data.)
+			var ledger: Array = kid.get("backed", [])
+			_check(ledger.size() == 1 and str(ledger[0]["state"]) == "active", "He is on a run")
+			_check(_screen_text(ui).contains("has your word for three games"), "Selection says what changed")
+			var line: Label = ui.find_child("Backing_" + kid_id, true, false)
+			_check(line != null and line.text == "You promised %s a run: game one of three." % db.player_display_name(kid)
+					and digits.search(line.text) == null, "Selection reminds you of the run, in words (%s)" % (line.text if line else "-"))
+			var tile2: Node = ui.find_child("FormationPlayer_" + kid_id, true, false)
+			_check(tile2 != null, "Auto-pick now names him")
+			if tile2 != null:
+				tile2.emit_signal("pressed")
+				await _settle()
+				var sheet3: Node = ui.find_child("PlayerProfile", true, false)
+				_check(sheet3 != null and sheet3.find_child("ProfileBacking", true, false) != null
+						and sheet3.find_child("BackRun", true, false) == null,
+						"His profile says what you promised and offers no second run")
+				ui.call("handle_back")
+				await _settle()
+	ui.queue_free()
+	await _settle()
+	# With no next opponent (the finals), a run still on is said all the same.
+	_state.season.round_index = _state.season.fixture.size()
+	var fin := await _open()
+	_check(fin.find_child("Backing_" + kid_id, true, false) != null, "A run still on is said in the finals too")
+	fin.queue_free()
 	await _settle()
 
 

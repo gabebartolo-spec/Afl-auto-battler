@@ -510,11 +510,6 @@ static func class_shifts(tier: String, rank: int) -> Array:
 	return [0.0, 0.0]
 
 
-## From this age an expansion player's ceiling follows the rule for listed
-## players, not a draft prospect's: draft classes are 18 and 19.
-const EXPANSION_PROSPECT_AGE := 20.0
-
-
 ## The full list an expansion club fields in its first season: a real
 ## expansion roster mixes state-league youngsters with a core of seasoned
 ## players, so this one spans the full age range (unlike a rookie class) at
@@ -597,12 +592,6 @@ static func generate_expansion_list(code: String, year: int, size := 36) -> Arra
 		p["weight_kg"] = 0.0
 		p["real_pos"] = Ratings.ROLE_SHORT_TO_POS.get(str(p["role"]), "MID")
 		project(p)
-		# Past draft age he is not a draft prospect: a 27-year-old keeps the
-		# ceiling a listed 27-year-old has (Potential.AGE_HEADROOM), not a
-		# draftee's 13-22 points of room.
-		if float(p["age"]) >= EXPANSION_PROSPECT_AGE:
-			p.erase("potential")
-			Potential.assign(p, true)
 		out.append(p)
 	GameDB.assign_aliases(out)
 	return out

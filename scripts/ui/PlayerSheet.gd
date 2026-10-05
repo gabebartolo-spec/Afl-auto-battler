@@ -2,8 +2,10 @@ class_name PlayerSheet
 extends RefCounted
 ## A player's profile over whatever screen you are on: who he is, his state,
 ## how good and how much room, what he is picked for, his season, then the
-## attributes behind the rating. Read-only; Close or Back returns you to the
-## screen underneath exactly as it was. Used by My list and Team selection.
+## attributes behind the rating. Read-only apart from any action the host
+## offers (Selection offers backing a young player); Close or Back returns you
+## to the screen underneath exactly as it was. Used by My list and Team
+## selection.
 
 const ATTR_ROWS := [
 	["disposal", "Disposal"], ["contested", "Contested"], ["marking", "Marking"],
@@ -15,8 +17,11 @@ const ATTR_ROWS := [
 
 
 ## Opens the sheet over `host` and returns its overlay (the host keeps it to
-## close on Back). `on_close` runs when Close is pressed.
-static func open(host: Control, p: Dictionary, on_close: Callable = Callable()) -> Control:
+## close on Back). `on_close` runs when Close is pressed. `actions` are what the
+## host offers for this player, each {"name", "label", "detail", "run"}: a line
+## of what it does and an outline button above Close.
+static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
+		actions: Array = []) -> Control:
 	var box := UiKit.modal_box(host, 560.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "PlayerProfile"
@@ -59,6 +64,13 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable()) 
 		readiness.name = "ProfileReadiness"
 		readiness.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(readiness)
+	# A run you have promised him (Backing): a fact, not advice.
+	var promise := Backing.note(p)
+	if promise != "":
+		var pl := UiKit.lbl(promise, UiKit.BODY, UiKit.TEXT)
+		pl.name = "ProfileBacking"
+		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(pl)
 
 	# How good, and how much room.
 	v.add_child(UiKit.spacer(4))
@@ -151,6 +163,17 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable()) 
 	for r in ATTR_ROWS:
 		grid.add_child(attr_bar(str(r[0]), str(r[1]), float(attr.get(r[0], 0.0))))
 
+	for a in actions:
+		var action: Dictionary = a
+		var detail := UiKit.lbl(str(action.get("detail", "")), UiKit.SMALL, UiKit.MUTED)
+		detail.name = "Detail_" + str(action.get("name", ""))
+		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box["footer"].add_child(detail)
+		var act := UiKit.btn(str(action.get("label", "")), 16)
+		act.name = str(action.get("name", "Action"))
+		act.custom_minimum_size = Vector2(0, 48)
+		act.pressed.connect(action["run"])
+		box["footer"].add_child(act)
 	var close := UiKit.btn("Close", 16, true)
 	close.custom_minimum_size = Vector2(0, 48)
 	close.pressed.connect(func():
