@@ -4130,6 +4130,23 @@ Use a data-driven fact library with fields such as:
 
 Facts about real players should key to stable player IDs rather than names alone.
 
+### Veracity standard — footyhead-proof or don't ship it
+Claude must be **certain of the factual accuracy** of any real-world historical/statistical claim before it appears in-game.
+
+A knowledgeable AFL supporter will notice a wrong finals drought, record, milestone, venue fact, draft fact or player achievement immediately, and one bad claim damages trust in the whole system.
+
+Rules:
+- Prefer primary/authoritative sources: AFL, official club history, Australian Football Hall of Fame, state-league bodies, official venue/history records.
+- Where a claim is non-trivial, disputed, depends on VFL/AFL continuity, or could be interpreted multiple ways, verify it against **at least two strong independent sources** before shipping.
+- Record the exact basis of ambiguous counts such as "days since", "first since", "longest drought", "AFL era" versus VFL/AFL history, home-and-away versus finals, and club relocations/renames.
+- Do not round, simplify or rewrite a statistic in a way that changes its meaning.
+- If reliable sources disagree, do not guess. Either omit the fact, qualify it clearly, or leave it out of the player-facing game.
+- Time-sensitive facts must be sourced to a clear cutoff date and should not be treated as timeless if later real-world results could make them stale.
+- Dynamic claims generated from the save should be calculated from stored game history where possible, with real-world history used only as the baseline.
+- Every shipped fact should have enough provenance that Claude or a future maintainer can audit why the game believes it is true.
+
+The quality bar is: **if a true footyhead checks it, the fact should hold up.**
+
 ### Acceptance
 This item only earns implementation if Claude's audit identifies placements that:
 - do not slow the weekly loop,
@@ -4901,6 +4918,8 @@ Prefer improving the existing experience when that answers the same need. This p
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-05:** Tightened ARD-M7-011 with a footyhead-proof veracity standard: real AFL facts must be sourced and auditable, ambiguous/non-trivial claims should be cross-checked against multiple strong sources, and disputed or uncertain claims should be omitted rather than guessed.
 
 - **2026-10-05:** Refined ARD-M7-011 so historical facts/stats should primarily enrich the existing news feed and other natural football stories, e.g. “Essendon has won its first final in X days,” rather than appearing as detached Wikipedia-style trivia. Loading-screen/dead-time fact dumps are explicitly lower priority.
 
