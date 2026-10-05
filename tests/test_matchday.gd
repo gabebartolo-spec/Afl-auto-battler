@@ -31,6 +31,7 @@ func run() -> void:
 	_test_report_glance()
 	_test_no_green_decoration()
 	_test_club_markers()
+	_test_palette_snapshot()
 	print("Matchday tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -333,8 +334,8 @@ func _test_rating() -> void:
 	var by := {"DEF": [], "MID": [], "FWD": [], "RUCK": []}
 	var best := {}
 	var clubs := ["COL", "CAR", "GEE", "SYD", "BRL", "MEL", "HAW", "ESS", "FRE", "ADE", "GWS", "PAD"]
-	for i in range(8):
-		var res := _match(40 + i, clubs[i], clubs[i + 4])
+	for i in range(16):  # 16 games: 8 left the parity read to a few big days
+		var res := _match(40 + i, clubs[i % 8], clubs[i % 8 + 4])
 		for side in [0, 1]:
 			var rated := MatchNotes.rated_players(res, side)
 			for p in rated:
@@ -432,3 +433,43 @@ func _test_club_markers() -> void:
 			and badge.find_child("ClubMarker", true, false).get_child(0).get_child_count() == 3,
 			"The club badge uses the marker (the Bulldogs in three colours)")
 	badge.free()
+
+
+## Club colours are a director-approved palette (2026-10-05, sourced to the
+## clubs' Pantone references; Carlton and Melbourne keep a navy lifted off
+## black so they don't read as Collingwood and Essendon). Any change to
+## data/clubs.csv's colours must update this snapshot deliberately.
+const PALETTE := {
+	"ADE": ["#002B5C", "#E21937", "#FFD200"],
+	"BRL": ["#A30046", "#0055A3", "#FDBE57"],
+	"CAR": ["#0B1F4B", "#FFFFFF", "#7FA7E0"],
+	"COL": ["#141414", "#FFFFFF", "#BFBFBF"],
+	"ESS": ["#1A1A1A", "#CC2031", "#FFFFFF"],
+	"FRE": ["#2A0D54", "#FFFFFF", "#A67FC1"],
+	"GEE": ["#002B5C", "#FFFFFF", "#8FB4E3"],
+	"GCS": ["#E02112", "#FFDD00", "#0079C1"],
+	"GWS": ["#F47920", "#3C3C3B", "#FFFFFF"],
+	"HAW": ["#4D2004", "#FBBF15", "#FFFFFF"],
+	"MEL": ["#0A1F44", "#CC2031", "#FFFFFF"],
+	"NTH": ["#1A3B8E", "#FFFFFF", "#C4D1E5"],
+	"PAD": ["#008AAB", "#1A1A1A", "#C0C0C0"],
+	"RIC": ["#FFD200", "#1A1A1A", "#FFFFFF"],
+	"STK": ["#ED1B2F", "#1A1A1A", "#FFFFFF"],
+	"SYD": ["#E1251B", "#FFFFFF", "#1A1A1A"],
+	"WCE": ["#003087", "#F2A900", "#FFFFFF"],
+	"WBD": ["#BD002B", "#20539D", "#FFFFFF"],
+	"TAS": ["#2C5530", "#E8D44D", "#C2274D"],
+	"CANB": ["#1B3B6F", "#FFFFFF", "#F5B301"],
+}
+
+
+func _test_palette_snapshot() -> void:
+	var off := []
+	for code in PALETTE:
+		var want: Array = PALETTE[code]
+		var got: Array = GameDB.club_colours(code)
+		for i in range(3):
+			if ("#" + (got[i] as Color).to_html(false)).to_upper() != str(want[i]):
+				off.append("%s %d" % [code, i])
+	_check(off.is_empty() and PALETTE.size() == GameDB.CLUB_ORDER.size(),
+			"Every club's colours match the approved palette (%s)" % ", ".join(off))

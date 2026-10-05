@@ -36,6 +36,8 @@ const FIGURE_SHADE := preload("res://assets/vignette/figures_shade.png")
 const FIGURE_MASK := preload("res://assets/vignette/figures_mask.png")
 const FIGURE_DESIGN := preload("res://assets/vignette/figures_design.png")
 const FIGURE_SHADER := preload("res://assets/vignette/figure.gdshader")
+## Digits the shader prints players' numbers with, on the guernsey itself.
+const FIGURE_DIGITS := preload("res://assets/vignette/figures_digits.png")
 ## Kits in the shader's palette: the two sides, then the umpire.
 const UMPIRE_KIT := 2
 
@@ -134,6 +136,7 @@ static func figure_material(kits: Array, mat: ShaderMaterial = null) -> ShaderMa
 		mat.shader = FIGURE_SHADER
 		mat.set_shader_parameter("mask_tex", FIGURE_MASK)
 		mat.set_shader_parameter("design_tex", FIGURE_DESIGN)
+		mat.set_shader_parameter("digits_tex", FIGURE_DIGITS)
 		mat.set_shader_parameter("sheet_size", VignetteFigures.SHEET_SIZE)
 		mat.set_shader_parameter("skin_tones", _eight(Appearance.SKIN))
 		mat.set_shader_parameter("hair_tones", _eight(Appearance.HAIR))
@@ -404,33 +407,27 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	draw_circle(Vector2.ZERO, sh, Color(0, 0, 0, 0.35))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# Your players have their backs to us; theirs and the umpire face the camera.
-	var body: Dictionary = VignetteFigures.BODIES[_body(t)]
 	var pick := _frame(t, lift)
-	var info: Dictionary = body["anims"][pick[0]]["back" if not ump and bool(t["mine"]) else "front"]
+	var info := VignetteFigures.strip(_body(t), pick[0], "back" if not ump and bool(t["mine"]) else "front")
 	var frame := mini(int(pick[1]), int(info["frames"]) - 1)
 	var cell := VignetteFigures.FRAME
-	var src := Rect2(float(body["x"]) + frame * cell.x, int(info["row"]) * cell.y, cell.x, cell.y)
+	var src := VignetteFigures.source(info, frame)
 	# Out on their feet: a touch smaller, stooped.
 	var k := m / VignetteFigures.PX_PER_M * (0.96 if tired else 1.0)
-	var origin := Vector2(base.x, base.y) - VignetteFigures.PIVOT * k
+	var origin := Vector2(base.x, base.y) - Vector2(info["pivot"][0], info["pivot"][1]) * k
 	var kit := UMPIRE_KIT if ump else int(t["side"])
 	var look: Dictionary = t.get("look", UMPIRE_LOOK)
 	draw_texture_rect_region(FIGURE_SHADE, Rect2(origin, cell * k), src,
 			Color(kit / 4.0, int(look["skin"]) / 8.0, int(look["hair"]) / 8.0, 1.0))
-	var rects: Array = info["number_rects"]
-	if not ump and bool(t["mine"]) and m > 18.0 and frame < rects.size() and rects[frame] != null:
-		# The number on show, on the back of the guernsey.
-		var r: Array = rects[frame]
-		var back := Rect2(origin + Vector2(r[0], r[1]) * k, Vector2(r[2], r[3]) * k)
-		var num := str(t["num"])
-		var fs := int(back.size.y * 0.42)
-		var font: Font = UiKit.DISPLAY
-		var nw := font.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var shirt: Color = (_kits[int(t["side"])] as Dictionary)["base"]
-		var spot := Vector2(back.get_center().x - nw * 0.5, back.position.y + back.size.y * 0.42 + fs * 0.36)
-		# Edged in the guernsey's own colour, so it reads across stripes and panels.
-		draw_string_outline(font, spot, num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, maxi(2, fs / 6), shirt)
-		draw_string(font, spot, num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, _readable_on(shirt))
+	if not ump and bool(t["mine"]) and m > 18.0:
+		# The number on show, printed on the back of the guernsey by the shader.
+		draw_texture_rect_region(FIGURE_SHADE, Rect2(origin, cell * k), src, number_colour(kit, int(t["num"])))
+
+
+## The draw colour that prints a number (0-99) on a figure's back instead of
+## drawing the figure (figure.gdshader): draw the same frame again with it.
+static func number_colour(kit: int, number: int, alpha := 1.0) -> Color:
+	return Color(kit / 4.0, 1.0, (clampi(number, 0, 99) + 1) / 128.0, alpha)
 
 
 ## Ruckmen are the tall figures; everyone else - an emergency ruck from the

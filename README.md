@@ -28,7 +28,7 @@ scripts/sim/               ratings model, match engine, squad, season, draft
 scripts/core/              GameDB (data loader), Router (navigation)
 scripts/state/             GameState (the season you are playing)
 scripts/ui/                the oval animation and every screen
-scenes/                    seven thin .tscn wrappers - all UI is built in code
+scenes/                    thin .tscn wrappers - all UI is built in code
 tools/sim_harness.py       calibration harness (Python mirror of the engine)
 docs/DESIGN.md             full design + engine docs  <- read this
 ```
@@ -62,7 +62,7 @@ translations, pick *Keep File* again in the Import dock.
 | Step | What happens |
 |---|---|
 | **Choose a club** | All 18 lists start empty. Choose your club with its randomly assigned first pick shown up front. |
-| **The draft** | All clubs take turns from the same pool in snake order, under the same cap (58% of the cost of the best target-sized list). Track rival selections in the pick log. Carry at least two rucks; the other position targets are coverage guidance. Filter by position, original club or name, and sort by rating, price, goals or disposals. |
+| **The draft** | All clubs take turns from the same pool in snake order, under the real 2027 salary cap ($18.44m), the same cap the season uses. Track rival selections in the pick log. Carry at least two rucks; the other position targets are coverage guidance. Filter by position, original club or name, and sort by rating, price, goals or disposals. |
 | **Home and away** | 24 rounds, a full double round-robin. Each round you can **Play Match** and watch it on the oval, or **Sim Round** and just read the results. |
 | **Finals** | The top ten play a wildcard finals series: 7v10 and 8v9 in week one, with the winners reseeded by their original ladder position into the 7th and 8th seeds, who meet 5th and 6th in the elimination finals while 1-4 play the qualifying finals; then semis, prelims and the Grand Final. The higher seed hosts every final except the Grand Final, which is always at the MCG: there a club has its home-ground edge only if the MCG is its home ground (Collingwood, Hawthorn, Melbourne and Richmond), whichever club is listed first, and two MCG clubs cancel out. Your finals play live with the quarter-by-quarter coach box, just like a home-and-away match. A final level at full time goes to extra time (two short halves, then next score wins). After each final the game tells you where you stand: a second chance after a wildcard or qualifying loss, a week off, or knocked out. |
 | **Team** | The best 22 by position are picked automatically, around injuries. Switch to **My selection** on the Team screen to name your own ruck, midfield, defence, forwards and bench, or leave players out. Gaps (an injury, a trade) are filled for you. |
@@ -393,8 +393,9 @@ league records: most goals, most votes, highest score, biggest win.
 
 ## Contracts, free agency and trades
 
-Every player has a contract (seasons left) and a salary in cap points. Every
-club's payroll counts against the cap the career draft used. When the season
+Every player has a contract (seasons left) and a salary in dollars. Every
+club's payroll counts against the salary cap: $18.44m in 2027, the cap the league
+draft used, then growing about 3% a year. When the season
 ends, contracts in their final year are up: rivals keep players worth their
 new price and release the rest into free agency, and you decide yours on
 **Trades & Contracts** (re-sign for 1-4 seasons at today's price, or
@@ -464,8 +465,9 @@ to keep UI units readable instead of shrinking a 1280px canvas onto a phone.
 The draft room reflows on resize and accounts for mobile safe-area insets.
 Touch/mouse emulation is enabled both ways for fingers and cursors.
 
-`export_presets.cfg` is deliberately not checked in: it holds machine-specific
-paths and signing material. Generate it in the editor.
+`export_presets.cfg` is checked in: it holds the Android Debug preset described
+below, with no keystore, password or SDK path in it. Those stay in the editor's
+settings on each machine.
 
 ## Note
 

@@ -56,23 +56,16 @@ func _run() -> void:
 			for k in range(group.size()):
 				var n := start + k
 				var cell := Vector2((n % COLS) * cell_size.x, (n / COLS) * cell_size.y)
-				var body: Dictionary = layout.BODIES["average"]
 				for f in range(2):
 					var facing := "front" if f == 0 else "back"
-					var info: Dictionary = body["anims"]["idle"][facing]
-					var src := Rect2(float(body["x"]), int(info["row"]) * layout.FRAME.y, layout.FRAME.x, layout.FRAME.y)
+					var info: Dictionary = layout.strip("average", "idle", facing)
+					var src: Rect2 = layout.source(info, 0)
 					var at := cell + Vector2(4 + f * 80 * scale / SCALE, 18)
 					c.draw_texture_rect_region(vignette.FIGURE_SHADE, Rect2(at, layout.FRAME * scale), src,
 							Color(k / 4.0, 0.0, 0.0, 1.0))
 					if facing == "back":
-						var r: Array = info["number_rects"][0]
-						var fs := int(r[3] * scale * 0.42)
-						var base: Color = kits[k]["base"]
-						var ink := Color(0.08, 0.08, 0.1) if base.get_luminance() > 0.55 else Color.WHITE
-						var pos := at + Vector2(r[0], r[1] + r[3] * 0.62) * scale
-						c.draw_string_outline(font, pos, str(n + 1), HORIZONTAL_ALIGNMENT_CENTER, r[2] * scale,
-								fs, maxi(2, fs / 6), base)
-						c.draw_string(font, pos, str(n + 1), HORIZONTAL_ALIGNMENT_CENTER, r[2] * scale, fs, ink)
+						c.draw_texture_rect_region(vignette.FIGURE_SHADE, Rect2(at, layout.FRAME * scale), src,
+								vignette.number_colour(k, n + 1))
 				var label := "%s  %s" % [codes[n], kits[k]["design"]]
 				c.draw_string(font, cell + Vector2(6, 14), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE))
 		c.queue_redraw()
