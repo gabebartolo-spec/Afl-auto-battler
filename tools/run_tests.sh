@@ -33,7 +33,11 @@ EXPECTED_CHECKS="${EXPECTED_CHECKS:-tests/expected_checks.txt}"
 SUITES_ONLY="${SUITES_ONLY:-0}"
 ALL_SUITES=(draft draft_ui intake intake_ui expansion finals save chronology career coaches coach_market coach_pathway coach_effects career_ui potential ratings ai training selection matchup matchday roles injuries awards achievements contracts league club match_game pressure workload match_visual league_balance calibration balance)
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
-[ "${EXTRAS_ONLY:-0}" = 1 ] && SUITES=()
+# Read once and clear it: the harness self-test runs this script again, and a
+# child that inherited EXTRAS_ONLY would run no suites and pass a short one.
+extras_only="${EXTRAS_ONLY:-0}"
+unset EXTRAS_ONLY
+[ "$extras_only" = 1 ] && SUITES=()
 
 LOG_DIR="${LOG_DIR:-$(mktemp -d)}"
 mkdir -p "$LOG_DIR"
