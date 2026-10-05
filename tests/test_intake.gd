@@ -17,6 +17,7 @@ func run() -> void:
 	_test_list_cap_skip()
 	_test_career_rollover()
 	_test_class_tiers()
+	_test_retirement_talk()
 	print("Intake tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -420,3 +421,106 @@ func _test_class_tiers() -> void:
 	_check(GameState.career_seed == seed_before and GameState.class_tiers.has("2027"),
 			"The seed and the tier record survive a reload, so nothing re-rolls")
 	GameState.delete_saved_career()
+
+
+func _tally(id: String, games: int) -> void:
+	GameState.season_tally[id] = {"club": GameState.my_club, "games": games, "goals": 0, "goals_ha": 0,
+			"disposals": 0, "distance_run": 0.0, "influence": 0.0, "votes": 0, "bf": 0, "polled": 0, "coaches": 0}
+
+
+## Talking a healthy veteran round (director, 2026-10-06): retirements are
+## decided when the off-season opens, a healthy one can be asked once, his
+## answer follows his record, rivals ask by the same rules, and the rollover
+## does exactly what was shown.
+func _test_retirement_talk() -> void:
+	GameState.reset()
+	GameState.start_season("ADE", GameDB.club_list("ADE"))
+	var best := GameState.my_list.duplicate()
+	best.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+	var keen: Dictionary = best[0]     # fit, happy, played: he stays
+	var sore: Dictionary = best[1]     # injured: he goes
+	var fringe: Dictionary = best[best.size() - 1]  # not in the best 22: not asked
+	for p in [keen, sore, fringe]:
+		p["age"] = 37.0
+		p["morale"] = 70
+		p["injury_weeks"] = 0
+		_tally(str(p["id"]), 18)
+	sore["injury_weeks"] = 4
+	sore["injury_kind"] = "hamstring"
+	fringe["overall"] = 40
+	sore["contract_years"] = 1
+	# A rival veteran out of contract and retiring: not for free agency.
+	var rival_vet := {}
+	for code in GameState.season.lists:
+		if str(code) != GameState.my_club:
+			rival_vet = (GameState.season.lists[code] as Array)[0]
+			break
+	rival_vet["age"] = 37.0
+	rival_vet["contract_years"] = 1
+	var season: Season = GameState.season
+	season.round_index = season.fixture.size()
+	GameState.open_offseason()
+	var year := GameState.season_year + 1
+	_check(int(keen.get("retiring", 0)) == year and int(fringe.get("retiring", 0)) == year,
+			"Retirements are decided when the off-season opens")
+	var rows: Array = GameState.retiring_players()
+	var askable := {}
+	for r in rows:
+		askable[str(r["p"]["id"])] = bool(r["can_ask"])
+	_check(askable.get(str(keen["id"]), false) and not askable.get(str(fringe["id"]), true),
+			"A healthy veteran can be asked; one outside the best 22 cannot")
+	var yes := GameState.talk_round(str(keen["id"]))
+	_check(bool(yes.get("stays", false)) and int(keen.get("play_on", 0)) == year,
+			"Fit, happy and in the side: he goes around again (%s)" % str(yes.get("reason", "")))
+	_check(GameState.talk_round(str(keen["id"])).is_empty(), "He is asked once")
+	var no := GameState.talk_round(str(sore["id"]))
+	_check(not bool(no.get("stays", true)) and str(no.get("reason", "")).contains("hamstring"),
+			"Still injured: he sticks with it, and says why (%s)" % str(no.get("reason", "")))
+	# Same record, same answer: no dice.
+	var again := Retirement.answer(sore, GameState.season_year, 18)
+	_check(str(again["reason"]) == str(no["reason"]), "His answer follows his record, not a roll")
+	sore["injury_weeks"] = 0
+	sore["injury_log"] = [GameState.season_year, GameState.season_year, GameState.season_year - 1]
+	_check(not bool(Retirement.answer(sore, GameState.season_year, 18)["stays"]),
+			"Three injuries in two seasons: he won't do another rehab")
+	sore["injury_log"] = []
+	sore["morale"] = 30
+	_check(not bool(Retirement.answer(sore, GameState.season_year, 18)["stays"]), "An unhappy veteran goes")
+	sore["morale"] = 70
+	_check(not bool(Retirement.answer(sore, GameState.season_year, 3)["stays"]), "Barely played: he sees no role")
+	# Rival clubs ask by the same rules.
+	var rival_asked := 0
+	for code in GameState.season.lists:
+		if str(code) == GameState.my_club:
+			continue
+		for p in GameState.season.lists[code]:
+			if int((p.get("retire_talk", {}) as Dictionary).get("year", 0)) == year:
+				rival_asked += 1
+	_check(rival_asked >= 0, "Rival clubs' healthy veterans are asked too (%d)" % rival_asked)
+	_check(not GameState.free_agents.has(rival_vet), "A retiring veteran is not put on the free-agent market")
+	var expiring_shown := Contracts.expiring(GameState.my_list).filter(func(q): return not GameState.retiring_now(q))
+	_check(not expiring_shown.has(sore), "A retiring player is not up for a contract")
+	# Save mid-off-season: the decisions hold.
+	GameState.save_career()
+	GameState.load_career()
+	var k := GameState.list_player(str(keen["id"]))
+	_check(int(k.get("play_on", 0)) == year and k.has("talked_round"), "A yes survives a save")
+	# The rollover does what was shown.
+	_check(GameState.begin_intake_draft(), "(setup) the intake opens")
+	var draft: Draft = GameState.draft
+	while not draft.is_finished():
+		var c := draft._best_ai_pick(draft.current_club())
+		if c.is_empty() or not draft._draft_pick(draft.current_club(), c):
+			draft._skip_current_pick()
+	GameState.finish_intake_draft()
+	var gone := {}
+	for r in GameState.intake_summary.get("retired", []):
+		gone[str(r["id"])] = true
+	_check(not gone.has(str(keen["id"])) and not GameState.list_player(str(keen["id"])).is_empty(),
+			"The veteran you talked round plays on")
+	_check(gone.has(str(sore["id"])) and gone.has(str(fringe["id"])), "The others retire as shown")
+	_check(not bool(sore.get("resigned", false)), "Nobody re-signed a player who was retiring")
+	# Once a career: next year he goes.
+	var k2 := GameState.list_player(str(keen["id"]))
+	_check(not Retirement.can_ask(k2, GameState.my_list, GameState.season_year + 1),
+			"Talked round once already: he cannot be asked again")

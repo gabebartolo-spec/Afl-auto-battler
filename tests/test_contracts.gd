@@ -99,9 +99,9 @@ func _test_offseason_flow() -> void:
 		if code == GameState.my_club:
 			continue
 		for p in Contracts.expiring(GameState.season.lists[code]):
-			if not bool(p.get("resigned", false)):
+			if not bool(p.get("resigned", false)) and not GameState.retiring_now(p):
 				ai_settled = false
-	_check(ai_settled, "Rivals settle every expiring contract at once")
+	_check(ai_settled, "Rivals settle every expiring contract at once (a retiring player retires)")
 	_check(GameState.free_agents.size() > 0, "Rivals let some players go to free agency")
 
 	# Re-sign one of yours, release another.
