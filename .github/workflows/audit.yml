@@ -34,11 +34,11 @@ on:
         default: ""
         type: string
 
-# Two runs of the same audit on the same ref queue rather than cancel each
-# other: a half-finished measurement is worth nothing.
-concurrency:
-  group: audit-${{ github.ref }}-${{ inputs.impl }}
-  cancel-in-progress: false
+# No concurrency group on purpose. An audit only measures, so any number of runs,
+# variants of one audit included, can go at once. (A group per ref and audit let
+# one run and one pending run exist, and a third dispatch silently cancelled the
+# pending one: three variant runs were lost that way.) GitHub's own runner limit
+# still queues the surplus.
 
 permissions:
   contents: read
