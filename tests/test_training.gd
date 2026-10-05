@@ -30,6 +30,7 @@ func run() -> void:
 	_test_plan_is_not_identity()
 	_test_learning_a_position()
 	_test_unicorn()
+	_test_rival_projects()
 	GameState.delete_saved_career()
 	print("Training tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -616,7 +617,7 @@ func _test_plan_is_not_identity() -> void:
 
 
 ## Learning another position (M5-003 / RC-003, director rules 2026-10-06): a
-## plausible job for his size, POT 70 for a second position and 85 for a
+## plausible job for his size, POT 70 for a second position and 90 for a
 ## third, PROJECT_WEEKS fit weeks, then he earns it within PROJECT_PASS of his
 ## own rating or it has not taken. Two at once a club, one a season a player.
 func _test_learning_a_position() -> void:
@@ -651,6 +652,16 @@ func _test_learning_a_position() -> void:
 	_check(GameState.project_job(cand) == job and GameState.project_progress(cand) == "Week 0 of %d" % GameState.PROJECT_WEEKS,
 			"Choosing it starts the project")
 	_check(GameState.learnable_jobs(cand).is_empty(), "One project at a time")
+	_check(GameState.season_ceiling(cand) == mini(int(cand["season_start_ov"]) + GameState.SEASON_TRAIN_GAIN,
+			int(cand["overall"]) + GameState.PROJECT_OWN_GAIN),
+			"The price: for the rest of the season his own position's training lifts him only %d more" % GameState.PROJECT_OWN_GAIN)
+	var mate := {}
+	for q in GameState.my_list:
+		if q != cand and GameState.project_job(q) == "":
+			mate = q
+			break
+	_check(mate.is_empty() or GameState.season_ceiling(mate) == int(mate["season_start_ov"]) + GameState.SEASON_TRAIN_GAIN,
+			"Team-mates on the club plan keep the full season's growth")
 	# Club limit.
 	var started := 1
 	for q in GameState.my_list:
@@ -715,13 +726,13 @@ func _test_learning_a_position() -> void:
 				"Switching plan ends the project; this season's chance is spent")
 
 
-## Forward, midfield and back make a Unicorn (POT 85 for the third), and on
+## Forward, midfield and back make a Unicorn (POT 90 for the third), and on
 ## the ground he fills one missing place in one synergy, in his line for a
 ## line synergy.
 func _test_unicorn() -> void:
-	var u := {"id": "U1", "role": "MID", "role2": "FWD", "potential": 84, "overall": 70, "attr": {"contested": 60}}
-	_check(GameState.learn_pot_needed(u) == 85 and int(u["potential"]) < 85,
-			"A third position takes POT 85")
+	var u := {"id": "U1", "role": "MID", "role2": "FWD", "potential": 89, "overall": 70, "attr": {"contested": 60}}
+	_check(GameState.learn_pot_needed(u) == 90 and int(u["potential"]) < 90,
+			"A third position takes POT 90")
 	u["learned"] = ["DEF"]
 	_check(Traits.is_unicorn(u) and Traits.of(u).has("unicorn") and Ratings.role_tag(u) == "MID/FWD/DEF",
 			"Midfield, forward and back: a Unicorn")
@@ -749,3 +760,31 @@ func _test_unicorn() -> void:
 	u_fwd["role"] = "FWD"
 	u_fwd["own_role"] = "MID"
 	_check(Traits.active(fwds + [u_fwd]).has("tall_small"), "Playing forward, he can")
+
+
+## Rival clubs learn positions too, one player a season, by the same gates.
+func _test_rival_projects() -> void:
+	_new_season()
+	var list := []
+	for code in GameState.season.lists:
+		if str(code) != GameState.my_club:
+			list = GameState.season.lists[code]
+			break
+	GameState._ai_projects(list)
+	var learners := []
+	for q in list:
+		if GameState.project_job(q) != "":
+			learners.append(q)
+	_check(learners.size() == GameState.AI_PROJECTS, "A rival club starts %d project a season" % GameState.AI_PROJECTS)
+	if learners.is_empty():
+		return
+	var l: Dictionary = learners[0]
+	_check(int(l.get("potential", 0)) >= GameState.PROJECT_POT[1], "Rivals keep to the POT gate")
+	l["injury_weeks"] = 0
+	var w := int(l["project"]["weeks"])
+	GameState._ai_projects(list)
+	var n := 0
+	for q in list:
+		if int(q.get("project_year", 0)) == GameState.season_year:
+			n += 1
+	_check(n == GameState.AI_PROJECTS and int(l["project"]["weeks"]) == w + 1, "No second start; his weeks count game by game")

@@ -2404,16 +2404,23 @@ const TRAIN_PLANS := [
 ## Who may try (director, 2026-10-06): a plausible move only (his rating there
 ## within PROJECT_REACH of his own); the job follows his size - key forward,
 ## key defender and ruck take height, a small forward or small defender has
-## to be small; POT 70+ for a second position and POT 85+ (elite) for a third.
+## to be small; POT 70+ for a second position and POT 90+ for a third (made
+## rarer by the director, 2026-10-06, so Unicorns stay rare).
 ## Three positions across forward, midfield and back make him a Unicorn
 ## (Traits). One project per player a season, PROJECT_MAX a club at once.
-## Rival clubs train their Position plan, as always.
+## The price is explicit: from the day he starts, training in his own position
+## can lift him only PROJECT_OWN_GAIN more that season (the new position's
+## training can still help his own game where the two overlap).
+## Rival clubs learn positions too, sparingly: AI_PROJECTS a season each, by
+## the same gates (_ai_projects).
 const LEARN_PREFIX := "learn_"
 const PROJECT_WEEKS := 8
 const PROJECT_REACH := 6
 const PROJECT_PASS := 3
 const PROJECT_MAX := 2
-const PROJECT_POT := {1: 70, 2: 85}      # positions he has -> POT to learn another
+const PROJECT_OWN_GAIN := 1
+const AI_PROJECTS := 1
+const PROJECT_POT := {1: 70, 2: 90}      # positions he has -> POT to learn another
 const MAX_POSITIONS := 3
 const KEY_FWD_CM := 192.0
 const SMALL_FWD_CM := 181.0
@@ -2488,9 +2495,18 @@ static func learn_pot_needed(p: Dictionary) -> int:
 ## tried this season, falls short of the POT, or the club runs PROJECT_MAX).
 func learnable_jobs(p: Dictionary) -> Array:
 	var out := []
+	if active_projects() >= PROJECT_MAX:
+		return out
+	return _jobs_open(p)
+
+
+## The jobs open to him by his own gates (POT, size, how far the move is, one
+## a season), whatever his club is already running.
+func _jobs_open(p: Dictionary) -> Array:
+	var out := []
 	if project_job(p) != "" or bool(p.get("projected", false)) or (p.get("attr", {}) as Dictionary).is_empty():
 		return out
-	if int(p.get("project_year", 0)) == season_year or active_projects() >= PROJECT_MAX:
+	if int(p.get("project_year", 0)) == season_year:
 		return out
 	var need := learn_pot_needed(p)
 	if need < 0 or int(p.get("potential", p.get("overall", 0))) < need:
@@ -2515,6 +2531,7 @@ func project_progress(p: Dictionary) -> String:
 
 func _start_project(p: Dictionary, job: String) -> void:
 	var role := str(LEARN_JOBS[job]["role"])
+	p["project_cap"] = mini(season_ceiling(p), int(p.get("overall", 0)) + PROJECT_OWN_GAIN)
 	p["project"] = {"job": job, "weeks": 0, "year": season_year,
 			"start_own": int(p.get("overall", 0)), "start_there": rating_as(p, role),
 			"ceiling": rating_as(p, role) + SEASON_TRAIN_GAIN}
@@ -2524,7 +2541,7 @@ func _start_project(p: Dictionary, job: String) -> void:
 ## One week of his project (a week he is fit). At PROJECT_WEEKS he earns the
 ## position if his rating there is within PROJECT_PASS of his own, or it has
 ## not taken; either way he goes back to the club plan. {} or a result row.
-func _project_week(p: Dictionary) -> Dictionary:
+func _project_week(p: Dictionary, announce := true) -> Dictionary:
 	var job := project_job(p)
 	if job == "" or int(p.get("injury_weeks", 0)) > 0:
 		return {}
@@ -2546,6 +2563,8 @@ func _project_week(p: Dictionary) -> Dictionary:
 			p["learned"] = more
 	p.erase("project")
 	p.erase("train_plan")
+	if not announce:
+		return {"id": str(p["id"]), "job": job, "learned": learned, "own": own, "there": there}
 	var name := GameDB.player_display_name(p)
 	var word := str(LEARN_JOBS[job]["word"])
 	var a := "an" if word.substr(0, 1) in ["a", "e", "i", "o", "u"] else "a"
@@ -2556,6 +2575,35 @@ func _project_week(p: Dictionary) -> Dictionary:
 	else:
 		add_news("training", "%s's time training as %s %s has not taken: he is not ready to be picked there." % [name, a, word])
 	return {"id": str(p["id"]), "job": job, "learned": learned, "own": own, "there": there}
+
+
+## A rival club's projects for one game: it starts AI_PROJECTS a season, on
+## its highest-POT candidate (a job in a line he does not have yet where he
+## has one), and its learners' weeks count as yours do. No news.
+func _ai_projects(list: Array) -> void:
+	var started := 0
+	for p in list:
+		if int(p.get("project_year", 0)) == season_year:
+			started += 1
+	if started < AI_PROJECTS:
+		var best := {}
+		var best_jobs := []
+		for p in list:
+			var jobs := _jobs_open(p)
+			if not jobs.is_empty() and (best.is_empty() or int(p.get("potential", 0)) > int(best.get("potential", 0))):
+				best = p
+				best_jobs = jobs
+		if not best.is_empty():
+			var have := Ratings.positions(best)
+			var job := str(best_jobs[0])
+			for j in best_jobs:
+				var role := str(LEARN_JOBS[j]["role"])
+				if role in ["FWD", "MID", "DEF"] and not have.has(role):
+					job = str(j)
+					break
+			_start_project(best, job)
+	for p in list:
+		_project_week(p, false)
 
 
 func _advance_projects() -> Array:
@@ -4689,8 +4737,9 @@ func _plan_row(key: String) -> Dictionary:
 		var row: Dictionary = LEARN_JOBS[job]
 		var word := str(row["word"])
 		return {"key": key, "label": "Learn to play %s" % word, "roles": [],
-				"text": "%d weeks training as %s %s instead of in his own position, so his own game grows more slowly. If he is close enough to the standard at the end, he can be picked there too; if not, it has not taken." % [
-					PROJECT_WEEKS, "an" if word.substr(0, 1) in ["a", "e", "i", "o", "u"] else "a", word],
+				"text": "%d weeks training as %s %s instead of in his own position, and for the rest of the season training in his own position can lift him only %d more (up to %d in a normal season). If he is close enough to the standard at the end, he can be picked there too; if not, it has not taken." % [
+					PROJECT_WEEKS, "an" if word.substr(0, 1) in ["a", "e", "i", "o", "u"] else "a", word,
+					PROJECT_OWN_GAIN, SEASON_TRAIN_GAIN],
 				"weights": row["weights"]}
 	for row in TRAIN_PLANS:
 		if str(row["key"]) == key:
@@ -4954,6 +5003,7 @@ func _train_rivals(results: Array) -> void:
 			for p in list:
 				ai_spend_xp(p)
 				best = _development_pick(code, p, best)
+			_ai_projects(list)
 	# One development story a round: the best player to reach his season's
 	# ceiling. Every rival doing so would drown the feed.
 	if not best.is_empty():
@@ -4972,15 +5022,26 @@ func _train_rivals(results: Array) -> void:
 const SEASON_TRAIN_GAIN := 3
 
 
-## The rating a player's training can take him to this season.
+## The rating a player's training can take him to this season (less once he
+## starts on another position).
 func season_ceiling(p: Dictionary) -> int:
 	if not p.has("season_start_ov"):
 		p["season_start_ov"] = int(p.get("overall", 0))
-	return int(p["season_start_ov"]) + SEASON_TRAIN_GAIN
+	var full := int(p["season_start_ov"]) + SEASON_TRAIN_GAIN
+	if int(p.get("project_year", 0)) == season_year and p.has("project_cap"):
+		return mini(full, int(p["project_cap"]))
+	return full
 
 
 ## Spend a rival player's XP. Returns the attribute points bought.
 func ai_spend_xp(p: Dictionary) -> int:
+	var job := project_job(p)
+	if job != "":
+		var learnt := 0
+		for n in _spend_with_weights(p, LEARN_JOBS[job]["weights"], true,
+				int(p["project"].get("ceiling", 0)), project_role(p)).values():
+			learnt += int(n)
+		return learnt
 	var ceiling := season_ceiling(p)
 	if int(p.get("overall", 0)) >= ceiling:
 		return 0
