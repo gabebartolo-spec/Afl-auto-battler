@@ -2254,6 +2254,9 @@ This is the canonical item for the user's previously requested secondary-positio
 
 **Validation:** eligible/ineligible bodies, interruption and save/resume, selected/omitted usage and multi-season growth comparisons. Phone players can explain what is being learned and what they give up.
 
+
+**\* Claude to refine — development conversations (user-approved, 2026-10-06):** Connect existing training/retraining plans to short private player conversations and later factual follow-through. Discuss a plausible football goal and any explicitly agreed playing opportunity; later acknowledge the actual trial, continued development or changed plan. Reuse existing training, positional-learning and commitment rules; this adds personal continuity, not a new progression system or guaranteed success. Claude should refine the smallest useful scene, triggers and callback within existing development/player-dialogue work, preserving clear obligations and accurate save/load behaviour.
+
 ---
 
 ## ARD-M5-004 — Training multi-select
