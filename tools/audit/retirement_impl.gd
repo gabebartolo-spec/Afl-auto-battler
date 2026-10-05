@@ -45,6 +45,10 @@ func _snapshot() -> Dictionary:
 				"form": ClubLife.form(p), "in22": in22.has(str(p["id"])),
 				"bar": int(bars.get(role, 0)),
 			}
+	for p in GameState.free_agents:
+		if not out.has(str(p["id"])):
+			out[str(p["id"])] = {"free_agent": true, "age": float(p.get("age", 0.0)),
+					"ovr": int(p.get("overall", 0)), "games": int((p.get("career", {}) as Dictionary).get("games", 0))}
 	return out
 
 
@@ -92,8 +96,11 @@ func run() -> void:
 			var id := str(r["id"])
 			var sn: Dictionary = snap.get(id, {})
 			clubs[str(r["club"])] = true
-			if sn.is_empty():
-				print("RET seed %d %d | %s | no snapshot" % [seed, year, id])
+			if sn.is_empty() or bool(sn.get("free_agent", false)):
+				print("RETFA seed %d %d | %s | club %s | age %.0f | OVR %d | %s | games %d | rule: %s" % [seed, year, id, str(r["club"]),
+						float(r["age"]), int(r["overall"]),
+						"free agent at season's end, signed in the off-season" if not sn.is_empty() else "on no list or free-agent pool at season's end",
+						int(sn.get("games", -1)), _rule(float(r["age"]), int(r["overall"]))])
 				continue
 			print("RET seed %d %d | club %s | %s | age %.0f | OVR %d (end of season %d) | POT %d | games %d | in best 22 %s | bar %d (OVR-bar %+d) | injury_weeks %d %s | rehab %s | morale %d form %+.3f | rule: %s" % [
 					seed, year, str(r["club"]), sn["role"], float(r["age"]), int(r["overall"]), int(sn["ovr"]),
