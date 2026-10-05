@@ -2327,7 +2327,7 @@ Mobile portrait first.
 ---
 
 ## ARD-M5-003 — Secondary-position learning / retraining
-**Status:** `IN REVIEW` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, on branch `claude/dev-project`.  
+**Status:** `DONE` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, merged in #266 (2026-10-06). Phone feel and balance measurement remain with the director.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -5086,7 +5086,7 @@ Before adding any new roadmap line, check this table.
 
 ## Design idea — Unicorn as a synergy wildcard
 
-**Status: DECIDED (director, 2026-10-06), in review with ARD-M5-003 on `claude/dev-project`.** Forward, midfield and back earn the Unicorn trait, and he fills one missing place in one synergy. Rarity (POT 90 for a third position) keeps it from becoming a universal buff, as the guardrail below asks.
+**Status: DECIDED (director, 2026-10-06), merged with ARD-M5-003 in #266.** Forward, midfield and back earn the Unicorn trait, and he fills one missing place in one synergy. Rarity (POT 90 for a third position) keeps it from becoming a universal buff, as the guardrail below asks.
 
 Explore making the **Unicorn** player archetype a wildcard for list synergies: a Unicorn could satisfy a required player/archetype slot for any synergy, reflecting an unusually versatile football skill set and making that player a flexible piece in the club's "party" composition.
 
