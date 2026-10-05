@@ -2595,8 +2595,22 @@ func _process_injuries(results: Array) -> void:
 			if season.lists.has(code):
 				Injuries.tick(season.lists[code])
 	for res in results:
-		last_injuries += Injuries.apply_match(res, season.lists, season.seed,
+		var rows := Injuries.apply_match(res, season.lists, season.seed,
 				int(res.get("round", season.round_index)))
+		last_injuries += rows
+		_log_injuries(rows)
+
+
+## Each new injury goes on the player's record (the season it happened), so
+## later decisions can cite his real history - only what this career saw.
+func _log_injuries(rows: Array) -> void:
+	for r in rows:
+		for p in season.lists.get(str(r["club"]), []):
+			if str(p["id"]) == str(r["id"]):
+				var log: Array = p.get("injury_log", [])
+				log.append(season_year)
+				p["injury_log"] = log
+				break
 
 
 ## Suspensions count down when that player's club plays, then this round's
@@ -2942,6 +2956,7 @@ func open_offseason() -> void:
 	offseason_log = []
 	compensation = []
 	offseason_staff = Coaches.staff(coaches, my_club) if not coaches.is_empty() else {}
+	_decide_retirements()
 	free_agents = []
 	for code in season.lists:
 		if code == my_club:
@@ -2966,6 +2981,63 @@ func open_offseason() -> void:
 	market_stats = {}
 	_open_market(free_agents)
 	mark_dirty()
+
+
+## Who retires at this rollover is decided now, by the ageing rules, so a
+## club can talk a healthy veteran round first (Retirement). Rival clubs ask
+## by the same rules straight away; yours waits for you (talk_round).
+func _decide_retirements() -> void:
+	var year := season_year + 1
+	for code in season.lists:
+		var list: Array = season.lists[code]
+		for p in list:
+			if not Retirement.intends(p, year):
+				continue
+			p["retiring"] = year
+			if str(code) == my_club or not Retirement.can_ask(p, list, year):
+				continue
+			var res := Retirement.answer(p, season_year, season_games(str(p["id"])))
+			Retirement.apply(p, res, year)
+			if bool(res["stays"]) and int(p.get("overall", 0)) >= NEWS_MIN_OVR:
+				add_news("retirement", "%s (%s) has decided to play on in %d." % [
+						GameDB.player_display_name(p), GameDB.club_name(str(code)), year])
+
+
+## Games he played this season (0 when he did not play).
+func season_games(player_id: String) -> int:
+	return int((season_tally.get(player_id, {}) as Dictionary).get("games", 0))
+
+
+## Your players retiring at this rollover, best first:
+## [{"p": player, "can_ask": bool, "talk": {} or his answer}].
+func retiring_players() -> Array:
+	var year := season_year + 1
+	var out := []
+	for p in my_list:
+		if int(p.get("retiring", 0)) == year and int(p.get("play_on", 0)) != year:
+			out.append({"p": p, "can_ask": Retirement.can_ask(p, my_list, year),
+					"talk": (p.get("retire_talk", {}) as Dictionary) if int((p.get("retire_talk", {}) as Dictionary).get("year", 0)) == year else {}})
+	for p in my_list:
+		if int(p.get("play_on", 0)) == year:
+			out.append({"p": p, "can_ask": false, "talk": p.get("retire_talk", {})})
+	out.sort_custom(func(a, b): return int(a["p"].get("overall", 0)) > int(b["p"].get("overall", 0)))
+	return out
+
+
+## Ask him to go around again. His answer: {"stays", "reason"}, or {} when
+## he cannot be asked.
+func talk_round(player_id: String) -> Dictionary:
+	var p := list_player(player_id)
+	var year := season_year + 1
+	if p.is_empty() or not offseason_open() or not Retirement.can_ask(p, my_list, year):
+		return {}
+	var res := Retirement.answer(p, season_year, season_games(player_id))
+	Retirement.apply(p, res, year)
+	var name := GameDB.player_display_name(p)
+	add_news("retirement", ("%s will go around again in %d." % [name, year]) if bool(res["stays"])
+			else ("%s is sticking with his decision to retire." % name))
+	mark_dirty()
+	return res
 
 
 ## Re-sign for `years` more seasons at `salary` (his asking price when not

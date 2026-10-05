@@ -181,6 +181,7 @@ func _contracts(body: VBoxContainer) -> void:
 					Contracts.pick_words(int(c["after"]), clubs), str(c["name"]), GameDB.club_name(str(c["to"]))], 13, UiKit.TEXT)
 			got.name = "CompReceived"
 			body.add_child(got)
+	_retiring(body)
 	body.add_child(UiKit.lbl("Out of contract  (%d)" % expiring.size(), 15, UiKit.EMPH, true))
 	if expiring.is_empty():
 		body.add_child(_para("Nobody is out of contract this year.", 13, UiKit.MUTED))
@@ -225,6 +226,37 @@ func _contracts(body: VBoxContainer) -> void:
 		body.add_child(_para("%s  ·  %d OVR  ·  %s  ·  %d season%s left" % [
 				GameDB.player_display_name(p), int(p["overall"]), Contracts.money(int(p.get("salary", 0))),
 				int(p.get("contract_years", 1)), "" if int(p.get("contract_years", 1)) == 1 else "s"], 12, UiKit.TEXT))
+
+
+## Your players retiring at the end of the off-season. A healthy one can be
+## asked once to go around again; his answer, and its reason, stays shown.
+func _retiring(body: VBoxContainer) -> void:
+	var rows: Array = GameState.retiring_players()
+	if rows.is_empty():
+		return
+	body.add_child(UiKit.lbl("Retiring  (%d)" % rows.size(), 15, UiKit.EMPH, true))
+	for r in rows:
+		var p: Dictionary = r["p"]
+		var card := _player_card(p, "%d OVR  ·  age %d  ·  %d games this year" % [
+				int(p["overall"]), int(p.get("age", 0)), GameState.season_games(str(p["id"]))])
+		card.name = "Retiring_" + str(p["id"])
+		body.add_child(card)
+		var v := card.get_child(0) as VBoxContainer
+		var talk: Dictionary = r["talk"]
+		if not talk.is_empty():
+			var said := _para(str(talk["reason"]), 13, UiKit.GOOD if bool(talk["stays"]) else UiKit.TEXT)
+			said.name = "RetireAnswer"
+			v.add_child(said)
+		elif bool(r["can_ask"]):
+			var ask := UiKit.btn("Ask him to go around again", 13)
+			ask.name = "TalkRound"
+			ask.custom_minimum_size = Vector2(0, 44)
+			ask.pressed.connect(func():
+				GameState.talk_round(str(p["id"]))
+				_build())
+			v.add_child(ask)
+		elif p.has("talked_round"):
+			v.add_child(_para("He went around again once already: this time he's going.", 12, UiKit.MUTED))
 
 
 func _confirm_release(p: Dictionary) -> void:
