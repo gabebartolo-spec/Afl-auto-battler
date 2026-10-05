@@ -33,6 +33,14 @@ tools/sim_harness.py       calibration harness (Python mirror of the engine)
 docs/DESIGN.md             full design + engine docs  <- read this
 ```
 
+## Career roadmap and research
+
+[Canonical roadmap](docs/ROADMAP.md) · [Genre enjoyment research](docs/GENRE_ENJOYMENT_RESEARCH.md)
+
+The research covers eight cross-genre references plus Footy Redraft, AFCM, Crusader Kings and Esoteric Ebb, focusing on visual football, creative team building, understandable match decisions and coherent careers over decades. **Zero microtransactions; commercialisation is outside the objective.**
+
+**Accepted future work, not current behaviour:** ARD-M5-016 will offer **Inherit 2026 lists** alongside the existing League redraft. It retains complete end-of-season 2026 club groups before later offseason changes, opens the 2026 National Draft and starts playable football in 2027. Complete rosters, source/pick provenance, a one-time opening handoff and save/Android checks are prerequisites. Research candidates await director selection.
+
 ## Running it
 
 1. Install [Godot 4.7](https://godotengine.org/download) (the standard build, not
