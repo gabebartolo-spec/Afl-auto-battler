@@ -29,8 +29,12 @@ func _run() -> void:
 	suite.run()
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
+	# A fixed season seed: the clock would pick a different opponent each run,
+	# and some field no key forward at quarter time (no match-up to change).
+	_state.replay_seed = 2026
 	for sz in [Vector2i(420, 860), Vector2i(360, 740)]:
 		await _phone_match(sz)
+	_state.replay_seed = 0
 	await _plan_at_first_bounce()
 	await _bounce_close_up()
 	await _playtest_bounce_scene()

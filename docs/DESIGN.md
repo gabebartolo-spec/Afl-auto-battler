@@ -17,7 +17,9 @@ The [canonical roadmap](ROADMAP.md) owns execution and status. The [genre enjoym
 
 The director's priorities are a legible visual simulation, creative team construction, consistent decades-long saves, evolving individual roles and meaningful coaching during matches and seasons. A match-triggered decision must connect actual evidence to a feasible choice, applied state and observable consequences; success can be positive, negative or inconclusive. Presentation, events, statistics and histories must agree. Preserve uncertainty, transparent rules, AI parity, natural football language and Android-first layouts; no best-move recommendations or psychic opponents.
 
-**Zero microtransactions; commercialisation is outside the objective.** Football contracts/caps are simulated resources. Research candidates remain outside the execution queue until selected.
+**Zero microtransactions; commercialisation is outside the objective.** Football contracts/caps are simulated resources. Director-selected RC-003–007 now extend existing owners; RC-001/002 are excluded. See roadmap §9.2 for scope and gates.
+
+**Visual direction:** extremely clean, readable and bespoke; preserve the established flat editorial identity, typography, alignment and restrained club colours. AFCM is a list-management/friction reference, expressly not a visual aspiration. Beauty must support actual football and decisions without hiding necessary comparisons. The [visual research](research/AFL_VISUAL_DESIGN_RESEARCH.md), [agency research](research/AFL_AGENCY_AND_TEAM_BUILDING_RESEARCH.md) and [career research](research/AFL_LONG_CAREER_STORY_RESEARCH.md) refine existing owners; the [evidence ledger](research/AFL_RESEARCH_EVIDENCE_LEDGER.md) records 129 new sources and their limits. No new visual framework or gameplay/save change is implied.
 
 Crusader Kings informs persistent identities and inspectable historical context across generations, with restrained complexity. Esoteric Ebb informs simple, characterful questions with logical answer feedback. Refine existing match gates, media and history first; these references do not introduce a new relationship or dialogue framework.
 

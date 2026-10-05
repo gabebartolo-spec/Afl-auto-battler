@@ -682,6 +682,22 @@ func _run() -> void:
 		var rows_box := ls.get_child(0) as Control
 		_check(rows_box != null and rows_box.size.x <= ls.size.x - bar.size.x + 0.5,
 				"The training rows stop short of the scrollbar (%.0f of %.0f)" % [rows_box.size.x if rows_box else -1.0, ls.size.x])
+	# The name and plan lines sit level with the role and the rating, not
+	# hugging the top of the row.
+	if not trainees.is_empty():
+		var first_row: Button = trainees[0]
+		var stacks := first_row.find_children("*", "VBoxContainer", true, false)
+		var stack: Control = stacks[0] if not stacks.is_empty() else null
+		var rating: Control = stack.get_parent().get_child(-1) if stack != null else null
+		if stack != null and rating != null and stack.get_child_count() > 0:
+			var top := (stack.get_child(0) as Control).global_position.y
+			var last := stack.get_child(-1) as Control
+			var stack_mid := (top + last.global_position.y + last.size.y) * 0.5
+			var rating_mid := rating.global_position.y + rating.size.y * 0.5
+			_check(absf(stack_mid - rating_mid) <= 2.0,
+					"A training row's name lines sit level with its rating (%.1f against %.1f)" % [stack_mid, rating_mid])
+		else:
+			_check(false, "A training row has its name lines and its rating to compare")
 	if ls != null and trainees.size() >= 2:
 		var row: Button = trainees[1]
 		var pid := str(row.name).trim_prefix("Trainee_")

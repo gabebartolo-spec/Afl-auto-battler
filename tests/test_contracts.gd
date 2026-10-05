@@ -946,6 +946,14 @@ func _test_trade_value() -> void:
 	var needy := TradeValue.fit(ruck, TradeValue.selection_bars(GameDB.club_list(weakest)))
 	var full := TradeValue.fit(ruck, TradeValue.selection_bars(GameDB.club_list(strongest)))
 	_check(needy >= 1.2 and full <= 0.65, "A club short of a ruckman values a good one far more than a club with a better one (%.2f v %.2f)" % [needy, full])
+	# A position he learned in training counts in a trade like his own: a
+	# forward who can also play back is worth more to a club short in defence.
+	var bars := {"FWD": 90, "MID": 90, "DEF": 50, "RUCK": 90, "bench": 60}
+	var versatile := {"id": "t_learn", "role": "FWD", "role2": "MID", "overall": 70, "age": 25.0, "potential": 72}
+	var before_learning := TradeValue.fit(versatile, bars)
+	versatile["learned"] = ["DEF"]
+	_check(TradeValue.fit(versatile, bars) > before_learning,
+			"A learned position counts in a trade (%.2f v %.2f)" % [TradeValue.fit(versatile, bars), before_learning])
 	# A strong, young forward line: another forward wouldn't get a game.
 	var fwd_bar := int(TradeValue.selection_bars(base).get("FWD", 60))
 	var forward := _with(base.filter(func(q): return str(q["role"]) == "FWD")[0], {"id": "t_fwd", "overall": fwd_bar + 3, "age": 28.0, "role2": ""})
