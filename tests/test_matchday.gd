@@ -22,6 +22,7 @@ func run() -> void:
 	_test_feed(res)
 	_test_lead_and_breaks()
 	_test_quarter_facts(res)
+	_test_standout_levers()
 	_test_half_time_keys()
 	_test_legs_words()
 	_test_full_time()
@@ -119,6 +120,18 @@ func _test_feed(res: Dictionary) -> void:
 		{"kind": "hot", "q": 2, "title": "Y has kicked 3", "choice_label": "Tag him", "outcome": "Z goes to him."}]}
 	_check(MatchNotes.lasting_moment_lines(played, 1) == ["X is running on empty: Rest him now. He comes off."],
 			"At the break, only the calls that carry on come back (%s)" % [MatchNotes.lasting_moment_lines(played, 1)])
+	# The tired call says what followed, to the break, not what was chosen.
+	var tired_res := {"quarter_teams": [{"players": {"S1": {"disposals": 14.0}, "B1": {"disposals": 3.0}}}],
+		"moments": [{"kind": "tired", "q": 1, "player_id": "S1", "on_id": "B1", "outcome": "x",
+			"disp_at": {"S1": 12.0, "B1": 0.0}}]}
+	var tl: Array = MatchNotes.lasting_moment_lines(tired_res, 1)
+	_check(tl.size() == 1 and str(tl[0]).ends_with("came on and had 3 disposals to the break."),
+			"Resting him: the break says who came on and what he did (%s)" % [tl])
+	(tired_res["moments"][0] as Dictionary).erase("on_id")
+	(tired_res["moments"][0] as Dictionary)["outcome"] = "He stays out there to the break."
+	tl = MatchNotes.lasting_moment_lines(tired_res, 1)
+	_check(tl.size() == 1 and str(tl[0]).ends_with("stayed out there: 2 disposals to the break, on empty legs."),
+			"Keeping him on: the break says what he did (%s)" % [tl])
 	_check(MatchNotes.run_line("CAR", 3) == "%s have kicked three in a row." % GameDB.club_name("CAR"),
 			"A run of goals reads in words")
 
@@ -166,6 +179,27 @@ func _test_quarter_facts(res: Dictionary) -> void:
 	_check(MatchNotes.quarter_facts(res, 0, 0).is_empty() and MatchNotes.quarter_facts({}, 0, 2).is_empty(),
 			"No quarter played, no facts")
 
+
+## "X is hurting you" only when a call reaches him, and it names that call:
+## the defender on him, your tagger, or that he can be tagged. Anyone no call
+## reaches is just their best for the quarter. (Roadmap §9.1.)
+func _test_standout_levers() -> void:
+	var res := {"roster": [[], [{"id": "X9", "name": "Sam Smith"}]]}
+	var now := {"players": {"X9": {"disposals": 12.0, "goals": 2.0, "kicks": 8.0, "marks": 4.0}}}
+	var line := func(answers: Dictionary) -> String:
+		return MatchNotes._standout(res, now, {}, 1, answers)
+	var plain: String = line.call({})
+	_check(plain.contains("was their best this quarter") and not plain.contains("hurting"),
+			"A player no call reaches is stated as a fact, not a problem to answer (%s)" % plain)
+	var mu: String = line.call({"X9": {"kind": "matchup", "who": "Moore"}})
+	_check(mu.contains("is hurting you") and mu.ends_with("Moore is on him."),
+			"A key forward hurting you is named with the defender on him (%s)" % mu)
+	var tagged: String = line.call({"X9": {"kind": "tagged", "who": "Sinclair"}})
+	_check(tagged.contains("with Sinclair tagging him"), "A tagged midfielder names your tagger (%s)" % tagged)
+	var can: String = line.call({"X9": {"kind": "tag"}})
+	_check(can.ends_with("He can be tagged."), "A midfielder you could tag says so (%s)" % can)
+	var other: String = line.call({"Y1": {"kind": "tag"}})
+	_check(other == plain, "Another player's lever does not attach to him")
 
 func _test_half_time_keys() -> void:
 	var bad := ""

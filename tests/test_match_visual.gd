@@ -777,8 +777,16 @@ func _test_broadcast_vignettes() -> void:
 			"A crowded mark running back in defence gets the defensive-mark shot")
 	_check(BroadcastVignette.pick_kind(ordinary_snap, {}, {}, boundary) == BroadcastVignette.BOUNDARY_SNAP,
 			"An open-play score from the pocket gets the boundary-snap shot")
-	_check(BroadcastVignette.pick_kind(ordinary_snap, {}, {}, line) == BroadcastVignette.GOAL_LINE,
-			"A crowded open-play score on the line gets the goal-line scramble")
+	_check(BroadcastVignette.pick_kind(ordinary_snap, {}, {}, line) == "",
+			"A snap from 23 metres is not a goal-line scramble, however crowded the goal square")
+	var crumb := ordinary_snap.duplicate(true)
+	crumb["crumb"] = true
+	_check(BroadcastVignette.pick_kind(crumb, {}, {}, line) == BroadcastVignette.GOAL_LINE,
+			"A crumb off a spoil gets the goal-line scramble")
+	var crumb_behind := crumb.duplicate(true)
+	crumb_behind["kind"] = "behind"
+	_check(BroadcastVignette.pick_kind(crumb_behind, {}, {}, line) == BroadcastVignette.GOAL_LINE,
+			"A crumb that misses gets the same scene")
 	_check(BroadcastVignette.category(BroadcastVignette.SPECCY_FRONT)
 			== BroadcastVignette.category(BroadcastVignette.SPECCY_SIDE),
 			"Speccy variations share one frequency category")

@@ -2032,8 +2032,10 @@ func with_us(p: Dictionary) -> Dictionary:
 	return out
 
 
-## "With us since 2027: 87 games, 42 goals. Best and fairest 2029.
-## Premiership 2030." "" for someone yet to play for you.
+## "With us since 2028: 3 games, 1 goal. Debuted in Round 7, 2028, on your
+## say-so. First goal in Round 9, 2028. Best and fairest 2029. Premiership
+## 2030." "" for someone yet to play for you. The debut and the first goal are
+## what Firsts kept when they happened.
 func with_us_text(p: Dictionary) -> String:
 	var w := with_us(p)
 	if int(w["games"]) <= 0:
@@ -2042,6 +2044,7 @@ func with_us_text(p: Dictionary) -> String:
 	var gl := int(w["goals"])
 	var bits := PackedStringArray(["With us since %d: %d game%s, %s." % [int(w["since"]), g,
 			"" if g == 1 else "s", "no goals" if gl == 0 else "%d goal%s" % [gl, "" if gl == 1 else "s"]]])
+	bits.append_array(PackedStringArray(Firsts.with_us_bits(p)))
 	if not (w["bf"] as Array).is_empty():
 		bits.append("Best and fairest %s." % ", ".join(PackedStringArray((w["bf"] as Array).map(func(y): return str(y)))))
 	if not (w["flags"] as Array).is_empty():
@@ -2049,6 +2052,32 @@ func with_us_text(p: Dictionary) -> String:
 		bits.append("%s %s." % ["Premiership" if f.size() == 1 else "Premierships",
 				", ".join(PackedStringArray(f.map(func(y): return str(y))))])
 	return " ".join(bits)
+
+
+## Players of yours in the match about to be played for whom a goal would be a
+## first AFL goal: a career on record in full with none yet. {id: true}. The
+## live feed says it when one of them kicks it (MatchNotes.story_feed_line).
+func first_goal_candidates() -> Dictionary:
+	var out := {}
+	if pending_sim == null or pending_match.is_empty() or my_club == "":
+		return out
+	var side := 0 if str(pending_match.get("home", "")) == my_club else 1
+	var squad: Squad = pending_sim.squads[side]
+	for row in squad.ground + squad.bench:
+		var p := list_player(str(row["id"]))
+		if not p.is_empty() and Career.complete(p) and career_goals_before(p) == 0:
+			out[str(p["id"])] = true
+	return out
+
+
+## What a match of yours settled, for full time: a debut, a first goal, a
+## promised run done (Firsts.match_lines). [] for a match that is not yours or
+## settled nothing.
+func payoff_lines(res: Dictionary) -> Array:
+	if my_club == "":
+		return []
+	var me := 0 if str(res.get("home", "")) == my_club else (1 if str(res.get("away", "")) == my_club else -1)
+	return Firsts.match_lines(res, me, season_year, list_player)
 
 
 ## A club's ladder position in words: "3rd".
@@ -2456,6 +2485,7 @@ func _after_round(results: Array) -> void:
 		Awards.tally_match(season_tally, res, not res.has("tag"))
 		_note_form_and_team(res)
 	_round_news(results)
+	_note_firsts(results)
 	_draft_class_news()
 	_board_after_round(results)
 	_rival_morale_after_round(results)
@@ -5015,6 +5045,45 @@ func _draft_class_news() -> void:
 
 
 
+## What your players did first in this round's match of yours, kept on them
+## (Firsts): the debut and the first goal. Only a career on record in full, so
+## "first" is a fact; the tally already holds the match, so a debut is the
+## first game on it with none before.
+func _note_firsts(results: Array) -> void:
+	if my_club == "":
+		return
+	for res in results:
+		var side := 0 if str(res.get("home", "")) == my_club else (1 if str(res.get("away", "")) == my_club else -1)
+		var roster: Array = res.get("roster", [])
+		if side < 0 or roster.size() <= side:
+			continue
+		var label := str(res.get("label", ""))
+		var stats_all: Dictionary = res.get("players", {})
+		for r in roster[side]:
+			var id := str(r.get("id", ""))
+			var p := list_player(id)
+			if p.is_empty() or not Career.complete(p):
+				continue
+			if games_played(p) == 1:
+				Firsts.note(p, "debut", season_year, label)
+			var goals := int((stats_all.get(id, {}) as Dictionary).get("goals", 0))
+			if goals > 0 and career_goals_before(p, goals) == 0:
+				Firsts.note(p, "goal", season_year, label)
+
+
+## His career goals before the match being played or just played: the record,
+## plus this season's goals so far when the record stops short of the season.
+## `this_match` is what the season's tally already holds of that match (0 before
+## it is played, his goals in it once it is counted).
+func career_goals_before(p: Dictionary, this_match := 0) -> int:
+	var c := Career.of(p)
+	var before := int(c.get("goals", 0))
+	if int(c.get("through", 0)) < season_year:
+		var tally := int((season_tally.get(str(p.get("id", "")), {}) as Dictionary).get("goals", 0))
+		before += maxi(0, tally - this_match)
+	return before
+
+
 ## Durable player milestones that can be proven from the save. Historical real
 ## players only get career-total milestones when Career.complete() says there
 ## are no unknown seasons; first goals are only announced for players whose
@@ -5035,10 +5104,7 @@ func _player_milestone_news(res: Dictionary) -> void:
 				continue
 			var t: Dictionary = season_tally.get(id, {})
 			var season_goals := int(t.get("goals", 0))
-			var career := Career.of(p)
-			var previous_career_goals := int(career.get("goals", 0))
-			if int(career.get("through", 0)) < season_year:
-				previous_career_goals += maxi(0, season_goals - goals)
+			var previous_career_goals := career_goals_before(p, goals)
 			if Career.complete(p) and previous_career_goals == 0:
 				add_news("milestone", "%s kicked his first AFL goal for %s." % [
 						GameDB.player_display_name(p), GameDB.club_name(code)])
@@ -5257,7 +5323,8 @@ func _board_after_round(results: Array) -> void:
 		if not Backing.is_active(p):
 			continue
 		var pid := str(p["id"])
-		var run_state := Backing.after_match(p, played.has(pid), not _backing_unavailable.has(pid))
+		var run_state := Backing.after_match(p, played.has(pid), not _backing_unavailable.has(pid),
+				{"year": season_year, "label": str(res.get("label", ""))})
 		if run_state == "broken":
 			ClubLife.add_morale(p, -CoachEffects.softened(Backing.STING, float(soft.get(pid, 0.0))))
 		p.erase("expects_game")

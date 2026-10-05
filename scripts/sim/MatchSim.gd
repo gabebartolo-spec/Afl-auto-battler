@@ -153,6 +153,9 @@ var _moments_this_q := 0
 var _last_moment_chain := -100
 var _run := [0, 0]           # unanswered goals
 var _asked := {}             # one-off moment keys already offered
+## The tired-star call holds until the break: player id -> "rest" (he stays
+## on the bench) or "keep" (the rotations leave him out there).
+var _held := {}
 var _traits := {}            # player id -> Traits.of(), cached
 var synergies := [[], []]    # side -> active synergy keys (the starting 18)
 ## Team form (-1..1) from each club's recent results (Season.club_form), set
@@ -2098,6 +2101,7 @@ func _crumb(side: int, fp: float) -> Dictionary:
 		_scored(side, 1, crumber)
 		q_behinds[current_quarter - 1][side] += 1
 		_emit("behind", side, fp, crumber, _scoreline(side, "Behind"))
+		events[events.size() - 1]["crumb"] = true
 		_tag_shot(false)
 		return {"outcome": "behind", "fp": kick_in_fp(side), "actor": crumber}
 	return {}
@@ -2367,6 +2371,8 @@ func quarter_in_progress() -> bool:
 
 func begin_quarter() -> void:
 	var T := Ratings.T
+	# A tired-star call lasts to the break.
+	_held.clear()
 	if current_quarter > 1:
 		for id in energy:
 			energy[id] = minf(float(energy_caps.get(id, 100.0)), float(energy[id]) + ENERGY_BREAK_RECOVER)
@@ -2935,6 +2941,8 @@ func _auto_rotate(side: int) -> void:
 	var worst_e := 101.0
 	for i in range(sq.ground.size()):
 		var p: Dictionary = sq.ground[i]
+		if str(_held.get(str(p["id"]), "")) == "keep":
+			continue
 		var e := float(energy.get(str(p["id"]), 100.0))
 		var line := float(policy["star"]) if int(p["overall"]) >= STAR_OVR else float(policy["role"])
 		if e < line and e < worst_e:
@@ -2942,21 +2950,22 @@ func _auto_rotate(side: int) -> void:
 			worst_e = e
 	if worst < 0:
 		return
-	var bi := _bench_for(side, str((sq.ground[worst] as Dictionary)["role"]), 85.0)
+	var bi := _bench_for(side, str((sq.ground[worst] as Dictionary)["role"]), 85.0, true)
 	if bi >= 0:
 		_swap(side, worst, bi)
 
 
 ## The freshest bench player (at or above `min_energy`) for a ground role,
 ## or -1. Natural or secondary role first; any bench player as a fallback.
-func _bench_for(side: int, role: String, min_energy: float) -> int:
+## `rotation`: a routine interchange, which leaves a rested star on the bench.
+func _bench_for(side: int, role: String, min_energy: float, rotation := false) -> int:
 	var sq: Squad = squads[side]
 	var best := -1
 	var best_score := -1.0
 	for i in range(sq.bench.size()):
 		var p: Dictionary = sq.bench[i]
 		var e := float(energy.get(str(p["id"]), 100.0))
-		if e < min_energy:
+		if e < min_energy or (rotation and str(_held.get(str(p["id"]), "")) == "rest"):
 			continue
 		var fits := str(p.get("role", "")) == role or str(p.get("role2", "")) == role \
 				or str(p.get("list_tag", "")) == role
@@ -3116,15 +3125,23 @@ func _boundary_moment() -> bool:
 		var id := str(p["id"])
 		var e := float(energy.get(id, 100.0))
 		if int(p["overall"]) >= STAR_OVR and e < TIRED_CALL and not _asked.has("tired"):
+			# Only a real choice: someone on the bench has to be able to come on.
+			var bi := _bench_for(me, str(p["role"]), 0.0)
+			if bi < 0:
+				continue
 			_asked["tired"] = true
-			_fire({"kind": "tired", "player_id": id, "default": 1,
+			var sub: Dictionary = (squads[me] as Squad).bench[bi]
+			var last := current_quarter >= 4
+			_fire({"kind": "tired", "player_id": id, "default": 1, "sub_id": str(sub["id"]),
 				"title": "%s is running on empty" % GameDB.player_display_name(p),
 				"text": "Your star's legs are gone. Tired players win less of the ball and kick fewer goals.",
 				"options": [
 					{"key": "rest", "label": "Rest him now",
-						"detail": "The freshest bench player takes his spot; he recovers on the bench."},
+						"detail": ("%s comes on. He sits out the rest of the match." if last
+								else "%s comes on. He sits out the rest of the quarter and starts the next one fresh.") % GameDB.player_display_name(sub)},
 					{"key": "keep", "label": "Keep him out there",
-						"detail": "He stays on and keeps tiring."},
+						"detail": "He plays on to the final siren, slowing as he goes." if last
+								else "He plays on to the break, slowing as he goes, and starts the next quarter on tired legs."},
 				]})
 			return true
 	# An opposition key forward getting on top: kicked a bag, or won three
@@ -3405,20 +3422,34 @@ func resolve_moment(choice: int) -> Dictionary:
 			outcome = str(res["text"])
 			points = int(res["points"])
 		"tired":
+			# Both answers hold to the break (the siren in the last quarter).
+			var star_id := str(m["player_id"])
+			m["disp_at"] = {star_id: float((player_stats.get(star_id, {}) as Dictionary).get("disposals", 0.0))}
 			if key == "rest":
 				var gi := -1
 				var sq: Squad = squads[side]
 				for i in range(sq.ground.size()):
-					if str((sq.ground[i] as Dictionary)["id"]) == str(m["player_id"]):
+					if str((sq.ground[i] as Dictionary)["id"]) == star_id:
 						gi = i
-				var bi := _bench_for(side, str((sq.ground[gi] as Dictionary)["role"]) if gi >= 0 else "MID", 0.0)
+				var bi := -1
+				for i in range(sq.bench.size()):
+					if str((sq.bench[i] as Dictionary)["id"]) == str(m.get("sub_id", "")):
+						bi = i
+				if bi < 0 and gi >= 0:
+					bi = _bench_for(side, str((sq.ground[gi] as Dictionary)["role"]), 0.0)
 				if gi >= 0 and bi >= 0:
+					var on_id := str((sq.bench[bi] as Dictionary)["id"])
 					_swap(side, gi, bi)
-					outcome = "Rested. He will be back fresher."
+					_held[star_id] = "rest"
+					m["on_id"] = on_id
+					m["disp_at"][on_id] = float((player_stats.get(on_id, {}) as Dictionary).get("disposals", 0.0))
+					outcome = "%s comes on; he sits out %s." % [GameDB.player_display_name(_on_ground(side, on_id)),
+							"the rest of the match" if current_quarter >= 4 else "the rest of the quarter"]
 				else:
 					outcome = "No one on the bench to bring on."
 			else:
-				outcome = "He stays on."
+				_held[star_id] = "keep"
+				outcome = "He stays out there to the %s." % ("final siren" if current_quarter >= 4 else "break")
 		"hot":
 			if key == "tag":
 				var t: Dictionary = (tactics[side] as Dictionary).duplicate()

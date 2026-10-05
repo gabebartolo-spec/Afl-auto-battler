@@ -63,7 +63,6 @@ static func pick_kind(ev: Dictionary, prev_ev: Dictionary, next_ev: Dictionary, 
 	var ek := str(ev.get("kind", ""))
 	var side := clampi(int(ev.get("side", 0)), 0, 1)
 	var actor: Vector2 = snap.get("actor_pos", Vector2.ZERO)
-	var ball: Vector2 = snap.get("ball_pos", Vector2.ZERO)
 	var nearby := int(snap.get("nearby", 0))
 	var direction := 1.0 if side == 0 else -1.0
 	var attack_x := actor.x * direction
@@ -79,11 +78,13 @@ static func pick_kind(ev: Dictionary, prev_ev: Dictionary, next_ev: Dictionary, 
 		return SPECCY_FRONT
 
 	if ek == "goal" or ek == "behind":
+		# The goal-line scene is the sim's own crumb: a spoil spills to the
+		# ground and a small forward snaps it off the deck. Where the ball
+		# finished says nothing (every score ends at the goals).
+		if bool(ev.get("crumb", false)):
+			return GOAL_LINE
 		if not bool(ev.get("set_shot", false)) and attack_x > 32.0 and absf(actor.y) > 30.0:
 			return BOUNDARY_SNAP
-		var ball_attack := ball.x * direction
-		if not bool(ev.get("set_shot", false)) and ball_attack > 78.0 and nearby >= 3:
-			return GOAL_LINE
 
 	return ""
 
@@ -263,30 +264,70 @@ func _draw_after_siren() -> void:
 			draw_arc(finish, 24.0, 0, TAU, 28, Color(1, 1, 1, 0.65), 2.0)
 
 
+## The crumb, as MatchSim plays it: a marking contest in front of goal, the
+## spoil spills to the ground, the small forward gathers at the fall of the
+## ball and snaps. The ball goes between the goal posts for a goal, between a
+## goal post and a behind post for a behind.
 func _draw_goal_line() -> void:
 	var w := size.x
 	var h := size.y
 	var side := clampi(int(event.get("side", 0)), 0, 1)
 	var other := 1 - side
-	var line_y := h * 0.64
-	_draw_posts(w * 0.50, line_y - h * 0.19, 1.15)
-	draw_line(Vector2(w * 0.08, line_y), Vector2(w * 0.92, line_y),
-			Color(1, 1, 1, 0.9), 3.0)
+	# Posts in the distance, standing on the goal line.
+	var post_scale := 0.80
+	var line_y := h * 0.47
+	var cx := w * 0.50
+	_draw_posts(cx, line_y - 78.0 * post_scale, post_scale)
+	draw_line(Vector2(w * 0.10, line_y), Vector2(w * 0.90, line_y), Color(1, 1, 1, 0.85), 2.0)
 
-	var scramble := clampf((_t - 0.35) / 1.55, 0.0, 1.0)
-	var sway := sin(scramble * PI * 3.0) * 10.0
-	_draw_player(Vector2(w * 0.36 + sway, line_y + 84), 1.15, _colours[side], int(event.get("num", 0)), -0.20)
-	_draw_player(Vector2(w * 0.49 - sway * 0.5, line_y + 92), 1.10, _colours[other], 0, 0.18)
-	_draw_player(Vector2(w * 0.62 + sway * 0.3, line_y + 82), 1.06, _colours[other], 0, -0.05)
-	_draw_player(Vector2(w * 0.25, line_y + 104), 0.96, _colours[side], 0, 0.08)
+	# The marking contest: a forward and a defender up together, the defender's
+	# fist getting there first.
+	var pack_ground := h * 0.70
+	var rise := clampf(_t / 0.85, 0.0, 1.0)
+	var fall := clampf((_t - 0.95) / 0.45, 0.0, 1.0)
+	var lift := (ease(rise, -2.0) - ease(fall, 2.0)) * h * 0.09
+	_draw_player(Vector2(w * 0.72, pack_ground + 6), 0.95, _colours[other], 0, -0.06)
+	_draw_player(Vector2(w * 0.57, pack_ground - lift), 1.0, _colours[side], 0, 0.06, rise > 0.3 and fall < 1.0)
+	_draw_player(Vector2(w * 0.64, pack_ground - lift), 1.0, _colours[other], 0, -0.10, rise > 0.3 and fall < 1.0)
 
-	var cross := clampf((_t - 1.05) / 1.35, 0.0, 1.0)
-	var result_x := w * 0.50 if str(event.get("kind", "")) == "goal" else w * 0.68
-	var bx := lerpf(w * 0.44, result_x, cross)
-	var by := lerpf(line_y + 40, line_y - 18, cross)
-	_draw_ball(Vector2(bx, by), 1.05)
-	if _t > 2.25:
-		draw_arc(Vector2(result_x, line_y - 14), 28, 0, TAU, 30, Color(1, 1, 1, 0.58), 2.0)
+	# The crumber reads the fall of the ball, then snaps off the deck; a
+	# defender lunges at him.
+	var crumb_ground := h * 0.80
+	var run := clampf((_t - 0.6) / 1.1, 0.0, 1.0)
+	var crumber := Vector2(lerpf(w * 0.24, w * 0.42, ease(run, -1.6)), crumb_ground)
+	var snapping := _t >= 1.75
+	_draw_player(crumber, 1.25, _colours[side], int(event.get("num", 0)), 0.22 if snapping else 0.10)
+	var lunge := clampf((_t - 1.4) / 0.5, 0.0, 1.0)
+	_draw_player(Vector2(lerpf(w * 0.80, w * 0.64, lunge), crumb_ground - 10), 1.05, _colours[other], 0, -0.35 * lunge)
+
+	var top := Vector2(w * 0.605, pack_ground - lift - 104.0)
+	var deck := Vector2(crumber.x + 14.0, crumb_ground - 4.0)
+	var hands := crumber + Vector2(16.0, -46.0)
+	var goal := str(event.get("kind", "")) == "goal"
+	var target := Vector2(cx + (0.0 if goal else 28.0 * post_scale), line_y - 62.0 * post_scale)
+	if _t < 0.95:
+		_draw_ball(Vector2(top.x, lerpf(h * 0.18, top.y, clampf(_t / 0.95, 0.0, 1.0))), 1.0)
+		return
+	if _t < 1.55:
+		# Off the spoil, one bounce, toward the crumber's feet.
+		var u := clampf((_t - 0.95) / 0.6, 0.0, 1.0)
+		var bounce := Vector2((top.x + deck.x) * 0.5, deck.y - 28.0)
+		var p := _quad(top, Vector2(top.x - 20.0, top.y + 30.0), bounce, minf(u / 0.7, 1.0)) if u < 0.7 \
+				else bounce.lerp(deck, (u - 0.7) / 0.3)
+		_draw_ball(p, 1.05)
+		if _t < 1.05:
+			draw_arc(top, 22, 0, TAU, 24, Color(1, 1, 1, 0.55), 2.0)
+		return
+	if _t < 1.85:
+		_draw_ball(deck.lerp(hands, clampf((_t - 1.55) / 0.3, 0.0, 1.0)), 1.1)
+		return
+	var flight := clampf((_t - 1.85) / 1.15, 0.0, 1.0)
+	# Straight at the target, rising then dropping into it, so a goal never
+	# looks like it went through the pocket.
+	var control := Vector2(target.x, target.y - h * 0.08)
+	_draw_ball(_quad(hands, control, target, flight), lerpf(1.1, 0.55, flight))
+	if flight > 0.92:
+		draw_arc(target, 20, 0, TAU, 26, Color(1, 1, 1, 0.6), 2.0)
 
 
 func _draw_boundary_snap() -> void:

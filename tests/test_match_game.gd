@@ -22,6 +22,7 @@ func run() -> void:
 	_test_live_determinism()
 	_test_impact_and_ai()
 	_test_pep_talks()
+	_test_tired_call_holds()
 	_test_play_through()
 	_test_hothead()
 	_test_lockdown_midfielder()
@@ -44,6 +45,7 @@ func run() -> void:
 	_test_current_club_identity()
 	_test_tag_ends_with_injury()
 	_test_match_story()
+	_test_first_goal_feed()
 	_test_traits_surfaced()
 	_test_momentum()
 	_test_moment_calls_matter()
@@ -586,6 +588,57 @@ func _test_impact_and_ai() -> void:
 			_check(subbed, "Normal rotations take the cooked star off by themselves")
 		else:
 			_check(calls == 1, "Riding the stars: one tired call a match, not one a quarter (%d)" % calls)
+
+
+## The tired-star call is a real choice because each answer holds to the
+## break: rested, he stays on the bench even once fresh; kept on, the
+## rotations leave him out there however cooked. The card names who comes on.
+## Director decision 2026-10-05 (roadmap M4-001).
+func _test_tired_call_holds() -> void:
+	for answer in ["rest", "keep"]:
+		var sim := _sim(902)
+		sim.moment_side = 0
+		sim.set_rotation_policy(0, "stars")
+		var star: Dictionary = {}
+		for p in sim.squads[0].ground:
+			if int(p["overall"]) >= MatchSim.STAR_OVR:
+				star = p
+		if star.is_empty():
+			_check(false, "Club 902 fields a star")
+			return
+		var sid := str(star["id"])
+		sim.begin_quarter()
+		sim.energy[sid] = 40.0
+		var fired := {}
+		var guard := 0
+		while guard < 60:
+			if sim.continue_quarter():
+				break
+			var m := sim.pending_moment
+			if str(m.get("kind", "")) == "tired" and fired.is_empty():
+				fired = m.duplicate(true)
+				sim.resolve_moment(0 if answer == "rest" else 1)
+				if answer == "keep":
+					sim.energy[sid] = 12.0   # cooked: the rotations would take him
+			else:
+				sim.resolve_moment(int(m.get("default", 0)))
+			guard += 1
+		_check(not fired.is_empty(), "Riding the stars, a cooked star brings the call (%s)" % answer)
+		if fired.is_empty():
+			continue
+		var on_ground := not sim._on_ground(0, sid).is_empty()
+		if answer == "rest":
+			var sub_name := GameDB.player_display_name_by_id(str(fired.get("sub_id", "")), "")
+			var detail := str((fired["options"] as Array)[0]["detail"])
+			_check(sub_name != "" and detail.begins_with(sub_name + " comes on."),
+					"Rest names who comes on (%s)" % detail)
+			_check(not on_ground and float(sim.energy.get(sid, 0.0)) >= 85.0,
+					"Rested, he sits out the quarter even once fresh (energy %.0f)" % float(sim.energy.get(sid, 0.0)))
+		else:
+			_check(on_ground, "Kept on, he is still out there at the break however cooked")
+		sim.end_quarter()
+		sim.begin_quarter()
+		_check(sim._held.is_empty(), "The call ends at the break (%s)" % answer)
 
 
 ## Calm the group is a live option: a milder, quarter-long Slow it down,
@@ -1166,6 +1219,7 @@ func _test_spoils_and_crumbs() -> void:
 	var spoils := 0.0
 	var crumbs := 0
 	var crumbs_fwd := 0
+	var crumb_behinds := 0
 	var by_def := 0.0
 	var general_spoils := 0
 	var general_spoil_loose := true
@@ -1197,6 +1251,8 @@ func _test_spoils_and_crumbs() -> void:
 				crumbs += 1
 				if str(role.get(str(e.get("player_id", "")), "")) == "FWD":
 					crumbs_fwd += 1
+			if kind == "behind" and bool(e.get("crumb", false)):
+				crumb_behinds += 1
 			if kind == "spoil" and bool(e.get("general_play", false)):
 				general_spoils += 1
 				var sid := int(e.get("side", -1))
@@ -1216,6 +1272,7 @@ func _test_spoils_and_crumbs() -> void:
 	_check(by_def >= 0.7 * spoils, "Spoils are made by defenders (rotations aside) (%d of %d)" % [by_def, spoils])
 	_check(crumbs > 0 and float(crumbs_fwd) >= 0.55 * float(crumbs),
 			"Goals are crumbed off spoils, mostly by forwards (%d of %d)" % [crumbs_fwd, crumbs])
+	_check(crumb_behinds > 0, "A crumb that misses is logged as a crumb too (%d)" % crumb_behinds)
 	_check(general_spoils > 0 and general_spoil_loose,
 			"General-play long kicks produce real credited spoils and loose balls (%d)" % general_spoils)
 	_check(free_causes.has("holding_ball") and free_causes.has("high_contact")
@@ -1627,6 +1684,33 @@ func _test_match_story() -> void:
 	var calm := MatchNotes.turning_points({"home": "MEL", "away": "CAR", "score": [80, 20], "events": [
 		{"kind": "goal", "q": 1, "min": 3, "side": 0, "name": "A", "score": [6, 0]}]}, 0)
 	_check(calm.is_empty(), "A match led from the first goal has no turning point to invent")
+
+
+## A first AFL goal for one of yours reaches the feed: once a player, never
+## of the other side, and not held back by the quarter's cap on story lines.
+func _test_first_goal_feed() -> void:
+	var goal := {"kind": "goal", "q": 2, "min": 40, "side": 0, "player_id": "p1", "name": "Ari Bramble",
+			"score": [40, 30]}
+	var mem := {"first_goal": {"p1": true}}
+	_check(MatchNotes.story_feed_line(mem, goal) == "First AFL goal for Ari Bramble.",
+			"A first AFL goal for one of yours reaches the feed")
+	_check(MatchNotes.story_feed_line(mem, goal) == "", "...once")
+	var other := goal.duplicate()
+	other["player_id"] = "p2"
+	other["name"] = "Dan Other"
+	_check(MatchNotes.story_feed_line({"first_goal": {"p1": true}}, other) == "",
+			"Nothing for a player it is no first for, which is everyone on the other side")
+	_check(MatchNotes.story_feed_line({}, goal) == "", "Nothing without a list of who it could be a first for")
+	var busy := {"first_goal": {"p1": true}, "story_q": {2: MatchNotes.MAX_STORY_LINES}}
+	_check(MatchNotes.story_feed_line(busy, goal) == "First AFL goal for Ari Bramble.",
+			"A quarter's cap on story lines does not hold it back")
+	# A Big-game player's lift is still there for his next goal.
+	var big := goal.duplicate()
+	big["trait"] = "big_game"
+	var both := {"first_goal": {"p1": true}}
+	_check(MatchNotes.story_feed_line(both, big) == "First AFL goal for Ari Bramble."
+			and MatchNotes.story_feed_line(both, big) == "Ari Bramble lifts when it matters.",
+			"The first goal comes first, and the Big-game line is still said for the next")
 
 
 ## Traits and synergies say when they were at work, from the log.
