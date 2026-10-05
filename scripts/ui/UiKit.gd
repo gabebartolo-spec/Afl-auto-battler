@@ -115,6 +115,13 @@ static func hbox(sep := 8) -> HBoxContainer:
 	return h
 
 
+## A scrolling list. Swiping the list does the real work; the scrollbar is the
+## fast way down a long one, so its touch area is a finger wide (the engine's
+## own rail is 8 units).
+const SCROLL_RAIL := 20       # the touch area, in units
+const SCROLL_THUMB := 6       # the line you see inside it
+const SCROLL_THUMB_MIN := 48  # never shorter than a fingertip
+
 static func scroll(child: Control) -> ScrollContainer:
 	var s := ScrollContainer.new()
 	s.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -122,9 +129,34 @@ static func scroll(child: Control) -> ScrollContainer:
 	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	s.follow_focus = true
 	s.scroll_deadzone = 12
+	style_scrollbar(s.get_v_scroll_bar())
 	child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	s.add_child(child)
 	return s
+
+
+## A slim thumb in a wide touch area, flat like everything else: no track, the
+## thumb picks up when it is touched, and it is never too short to grab.
+static func style_scrollbar(bar: ScrollBar) -> void:
+	# The container sets aside the bar's style width, not its custom size, so
+	# the rail is reserved through the (invisible) track.
+	var track := StyleBoxEmpty.new()
+	track.content_margin_left = SCROLL_RAIL
+	bar.add_theme_stylebox_override("scroll", track)
+	bar.add_theme_stylebox_override("grabber", _thumb(Color(MUTED, 0.55)))
+	bar.add_theme_stylebox_override("grabber_highlight", _thumb(Color(MUTED, 0.85)))
+	bar.add_theme_stylebox_override("grabber_pressed", _thumb(TEXT))
+
+
+static func _thumb(colour: Color) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = colour
+	sb.set_corner_radius_all(SCROLL_THUMB / 2)
+	# The thumb hugs the right edge; the rest of the rail is touch area.
+	sb.expand_margin_left = -(SCROLL_RAIL - SCROLL_THUMB)
+	sb.content_margin_top = SCROLL_THUMB_MIN / 2.0
+	sb.content_margin_bottom = SCROLL_THUMB_MIN / 2.0
+	return sb
 
 
 static func style(bg: Color, pad := 12, radius := RADIUS, border := AUTO_COLOUR) -> StyleBoxFlat:

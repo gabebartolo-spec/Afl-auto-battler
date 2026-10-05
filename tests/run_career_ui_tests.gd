@@ -672,6 +672,16 @@ func _run() -> void:
 	var ls: ScrollContainer = current_scene.get("_list_scroll")
 	var trainees: Array = current_scene.find_children("Trainee_*", "Button", true, false)
 	_check(ls != null and trainees.size() >= 2, "The training list has rows to swipe")
+	# The scrollbar is a thumb you can grab: a touch area wider than the
+	# engine's 8 units, a thumb never shorter than a fingertip, and the rows
+	# set clear of it rather than running underneath.
+	if ls != null:
+		var bar := ls.get_v_scroll_bar()
+		_check(bar.visible and bar.size.x >= 20.0 and bar.get_combined_minimum_size().y >= 48.0,
+				"The training list's scrollbar is a finger wide and never shorter than a fingertip (%s)" % str(bar.size))
+		var rows_box := ls.get_child(0) as Control
+		_check(rows_box != null and rows_box.size.x <= ls.size.x - bar.size.x + 0.5,
+				"The training rows stop short of the scrollbar (%.0f of %.0f)" % [rows_box.size.x if rows_box else -1.0, ls.size.x])
 	if ls != null and trainees.size() >= 2:
 		var row: Button = trainees[1]
 		var pid := str(row.name).trim_prefix("Trainee_")
