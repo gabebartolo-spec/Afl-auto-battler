@@ -2825,6 +2825,10 @@ Rules:
 - explain why it moved,
 - no opaque random swings,
 - sacking/job-security consequences come later after balance proves the confidence model.
+- **Player coach career after sacking:** being sacked does not immediately end the save. The player can continue their coaching career at another club if hired.
+- The player gets **one second chance** after their first sacking. A subsequent sacking normally ends the coaching career.
+- **Premiership reprieve:** winning a premiership earns/restores one additional sacking reprieve ("get out of jail" chance), allowing another continuation after a future sacking.
+- Make remaining reprieve status and the consequence of the next sacking clear to the player; do not hide career-ending risk behind an opaque board score.
 
 ### Phone-playtest follow-up — expectation fairness is part of the lose-state contract
 Board goals are **not randomly assigned** in the current implementation. At the start of each season, `GameState._open_board_season()` ranks every club by `Squad.strength()` and passes that rank into `ClubLife.board_goal()`:
