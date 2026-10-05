@@ -32,12 +32,25 @@ static func now_rating(p: Dictionary) -> float:
 
 
 ## What he could become: part of the gap to his potential, the younger the
-## more of it (none from 24 and a half), less the same ageing decline.
+## more of it (none from 24 and a half), less the same ageing decline. A
+## ceiling nobody has seen yet is not banked: with no senior games only half
+## of that share counts, all of it once he has played PROVEN_GAMES.
 static func future_rating(p: Dictionary) -> float:
 	var ovr := float(p.get("overall", 50))
 	var pot := maxf(ovr, float(p.get("potential", ovr)))
 	var youth := clampf((24.5 - float(p.get("age", 25.0))) / 5.0, 0.0, 1.0)
-	return ovr + (pot - ovr) * 0.6 * youth - 1.0 * maxf(0.0, float(p.get("age", 25.0)) - 30.0)
+	return ovr + (pot - ovr) * 0.6 * youth * proven(p) - 1.0 * maxf(0.0, float(p.get("age", 25.0)) - 30.0)
+
+
+const PROVEN_GAMES := 50.0
+
+
+## How much of his ceiling a club banks: 0.5 before a senior game, 1 by
+## PROVEN_GAMES (career games; the season's games when there is no record).
+static func proven(p: Dictionary) -> float:
+	var c = p.get("career", null)
+	var games := float((c as Dictionary).get("games", 0)) if c is Dictionary else float(p.get("gm", 0.0))
+	return 0.5 + 0.5 * clampf(games / PROVEN_GAMES, 0.0, 1.0)
 
 
 ## The share of a full career he has left: 1 under 26, falling to 0.15 at 33.
