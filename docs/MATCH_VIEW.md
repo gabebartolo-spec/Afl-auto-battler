@@ -81,6 +81,27 @@ What that showed, and what the view does about it:
   and turns take time and paths curve. Sprint speed comes from the `carry`
   rating (presentation only).
 
+## Your people on the oval
+
+Two marks say who is yours. PitchView draws both from what the match screen
+hands it, and neither writes to the match.
+
+- **A ring** (`MatchRings.ids`) on the players of yours you have a say about:
+  a run you promised (Backing), the player you play through, the tagger, the
+  spare, and the defender on each forward you matched up, before the bounce or
+  during the match. Your own players only, at most six, and only in a match
+  you coach. The match-ups the sim sets up itself are not rings, and neither is
+  the man you tag. `MatchScene` reads the set again with every released event,
+  so a call made at a break shows from the next event; the view redraws only
+  when the set changes.
+- **A surname** over a goal-scorer (either side) and, for a moment, over a
+  ringed player when he gets the ball. A goal's name outranks a touch. Names
+  run on real seconds (1.8 for a goal, 1 for a touch), so they read the same at
+  4x and 8x, and `skip_to_end()` clears them.
+
+Tokens carry the player's id and surname. A substitute takes both with the
+slot, which is what the ring and the name follow.
+
 ## Pace
 
 Presentation time runs `MatchDirector.TEMPO` (1.65) times faster than the
@@ -98,7 +119,9 @@ movement model's clock. A full match takes about 4 to 5 minutes at the default
   - the ball is at the logged spot on release;
   - global RNG isolation;
   - appended segments;
-  - the PitchView API contract.
+  - the PitchView API contract;
+  - rings and names: who is ringed (and who is not), a substitute taking the
+    ring with the slot, a goal naming its scorer, no write to an event.
 - `tools/visual/capture_match.gd` renders a contact sheet and a movement-trail
   image for any window of a match. Run it under `xvfb-run`; the header lists
   the options.

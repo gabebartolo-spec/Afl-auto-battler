@@ -716,6 +716,55 @@ func _eval_sd_range() -> Array:
 	return [AI_EVAL_SD_MIN, AI_EVAL_SD_MAX]
 
 
+# ---------------------------------------------------------------------------
+# What your club sees
+# ---------------------------------------------------------------------------
+## Your recruiters are an average club's: the middle of the rival range,
+## sharper or blunter with the recruiting budget.
+const USER_EVAL_SD := 3.0
+
+
+## A player as your club sees him: {"scouted", "overall", "potential" (each
+## [low, high]), "overall_mid", "potential_mid"}. A National Draft prospect
+## is a scouting projection; in the League Draft a player you have not
+## drafted is your recruiters' read, as every rival club has its own; your
+## own picks are known exactly. The player underneath never changes.
+func user_view(p: Dictionary) -> Dictionary:
+	var ov := int(p.get("overall", 50))
+	var pot := maxi(ov, int(p.get("potential", ov)))
+	if intake_mode and bool(p.get("projected", false)):
+		var proj := DraftScouting.projection(p, user_club, seed, scouting_mult_for(user_club))
+		proj["scouted"] = true
+		return proj
+	if not league_mode or intake_mode or drafted_by(str(p["id"])) == user_club:
+		return {"scouted": false, "overall": [ov, ov], "potential": [pot, pot],
+				"overall_mid": ov, "potential_mid": pot}
+	var sd := USER_EVAL_SD * scouting_mult_for(user_club) * _eval_certainty(p)
+	var ov_mid := clampi(int(round(float(ov) + _user_error(p, "ovr") * sd)), 1, 99)
+	var pot_mid := clampi(int(round(float(pot) + _user_error(p, "pot") * sd * 1.5)), ov_mid, 99)
+	var half := maxi(1, int(round(sd * 0.7)))
+	return {"scouted": true, "overall": [maxi(1, ov_mid - half), mini(99, ov_mid + half)],
+			"potential": [maxi(ov_mid, pot_mid - half - 2), mini(99, pot_mid + half + 2)],
+			"overall_mid": ov_mid, "potential_mid": pot_mid}
+
+
+## user_view for a whole board at once, by id, so a sort reads each once.
+func _views(players: Array) -> Dictionary:
+	var out := {}
+	for p in players:
+		out[p["id"]] = user_view(p)
+	return out
+
+
+## A standard-normal draw fixed per draft, player and stat: your read of him
+## does not change while you look at him.
+func _user_error(p: Dictionary, what: String) -> float:
+	var key := "%d|user|%s|%s" % [seed, str(p["id"]), what]
+	var u1 := maxf(1e-9, _hash01("a|" + key))
+	var u2 := _hash01("b|" + key)
+	return clampf(sqrt(-2.0 * log(u1)) * cos(TAU * u2), -AI_EVAL_CLAMP, AI_EVAL_CLAMP)
+
+
 ## A uniform [0, 1) from a string: its hash, avalanched (murmur3 finaliser)
 ## so near-identical keys give unrelated values.
 static func _hash01(key: String) -> float:
@@ -1108,6 +1157,10 @@ func board(role := "", club := "", search := "", sort := "overall",
 					return DraftScouting.estimated_overall(a, user_club, seed,
 							scouting_mult_for(user_club)) > DraftScouting.estimated_overall(
 							b, user_club, seed, scouting_mult_for(user_club)))
+			elif league_mode:
+				var seen := _views(out)
+				out.sort_custom(func(a, b):
+					return int(seen[a["id"]]["overall_mid"]) > int(seen[b["id"]]["overall_mid"]))
 			else:
 				out.sort_custom(func(a, b): return a["overall"] > b["overall"])
 		"value":
@@ -1129,6 +1182,14 @@ func board(role := "", club := "", search := "", sort := "overall",
 					return DraftScouting.estimated_overall(a, user_club, seed,
 							scouting_mult_for(user_club)) > DraftScouting.estimated_overall(
 							b, user_club, seed, scouting_mult_for(user_club)))
+			elif league_mode:
+				var seen := _views(out)
+				out.sort_custom(func(a, b):
+					var va: Dictionary = seen[a["id"]]
+					var vb: Dictionary = seen[b["id"]]
+					if int(va["potential_mid"]) != int(vb["potential_mid"]):
+						return int(va["potential_mid"]) > int(vb["potential_mid"])
+					return int(va["overall_mid"]) > int(vb["overall_mid"]))
 			else:
 				out.sort_custom(func(a, b):
 					if int(a.get("potential", 0)) != int(b.get("potential", 0)):

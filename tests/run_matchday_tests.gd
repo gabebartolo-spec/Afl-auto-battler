@@ -34,6 +34,7 @@ func _run() -> void:
 	await _plan_at_first_bounce()
 	await _bounce_close_up()
 	await _playtest_bounce_scene()
+	await _rings_on_the_oval()
 	_appearance()
 	# Battery: nothing is redrawn unless it changes, and never above 60 fps.
 	_check(bool(ProjectSettings.get_setting("application/run/low_processor_mode", false))
@@ -625,6 +626,74 @@ func _playtest_bounce_scene() -> void:
 	m.queue_free()
 	await _settle()
 	_state.set_bounce_scene_every_match(false)
+
+
+## Your calls ring your people on the oval (MatchRings, drawn by PitchView): no
+## one before you have made a call, then the player you play through and the
+## player who goes to your tag from the bounce, never the man you tag, and a run
+## you promised as the next event plays.
+func _rings_on_the_oval() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(420, 860)
+	_check(_state.prepare_interactive_match(), "A live match is prepared (rings)")
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var pitch = m.get("_pitch")
+	var sim = _state.pending_sim
+	var me := int(m.get("_my_side"))
+	_check(pitch.rings.is_empty(), "No one is ringed before you have made a call")
+	var box: Node = m.find_child("CoachBox", true, false)
+	var focus_id := _first_pick(box, "FocusPickerGrid_")
+	var tag_id := _first_pick(box, "TagPickerGrid_")
+	_check(focus_id != "" and tag_id != "", "A play-through and a tag are on offer")
+	if focus_id == "" or tag_id == "":
+		m.queue_free()
+		return
+	box.find_child("FocusPickerGrid_" + focus_id, true, false).emit_signal("pressed")
+	box.find_child("TagPickerGrid_" + tag_id, true, false).emit_signal("pressed")
+	box.find_child("StartQuarter", true, false).emit_signal("pressed")
+	await _settle()
+	_check(pitch.ringed(focus_id), "The player you play through is ringed from the bounce")
+	var tagger = load("res://scripts/sim/MatchSim.gd").tagger_for(sim.squads[me].ground)
+	_check(tagger != null and pitch.ringed(str(tagger["id"])), "So is the player who goes to your tag")
+	_check(not pitch.ringed(tag_id), "The man you tag is not ringed")
+	var mine := {}
+	for r in (m.get("_res")["roster"][me] as Array):
+		mine[str(r["id"])] = true
+	var only_mine: bool = not pitch.rings.is_empty()
+	for id in pitch.rings:
+		if not mine.has(str(id)):
+			only_mine = false
+	_check(only_mine, "Only your own players are ringed")
+	# A run you promise shows from the next event.
+	var kid := ""
+	for r in sim.squads[me].ground:
+		if not pitch.ringed(str(r["id"])):
+			kid = str(r["id"])
+			break
+	var backing = load("res://scripts/sim/Backing.gd")
+	for p in _state.my_list:
+		if str(p["id"]) == kid:
+			backing.start(p, 2027, 1, 0)
+	var guard := 0
+	while not pitch.ringed(kid) and guard < 400:
+		pitch._process(0.25)
+		guard += 1
+	_check(kid != "" and pitch.ringed(kid), "A player you promised a run is ringed as the next event plays")
+	m.queue_free()
+	await _settle()
+
+
+## The first player a call offers: the id behind a "<prefix><id>" button.
+func _first_pick(box: Node, prefix: String) -> String:
+	for b in box.find_children(prefix + "*", "Button", true, false):
+		var id := str(b.name).trim_prefix(prefix)
+		if id != "":
+			return id
+	return ""
 
 
 ## How players look on the figures (Appearance.gd, data/player_appearance.csv):

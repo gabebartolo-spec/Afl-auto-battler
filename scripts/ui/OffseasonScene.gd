@@ -309,8 +309,8 @@ func _show_talks() -> void:
 	_talk_overlay.name = "ContractTalks"
 	var v: VBoxContainer = box["body"]
 	v.add_child(_para(GameDB.player_display_name(p), 20, UiKit.TEXT))
-	v.add_child(_para("Age %d  ·  %d OVR  ·  %d POT  ·  on %s now" % [int(p.get("age", 0)), int(p["overall"]),
-			int(p.get("potential", p["overall"])), Contracts.money(int(p.get("salary", 0)))], 13, UiKit.MUTED))
+	v.add_child(_para("Age %d  ·  %d OVR  ·  %s POT  ·  on %s now" % [int(p.get("age", 0)), int(p["overall"]),
+			str(GameState.pot_view(p)["text"]), Contracts.money(int(p.get("salary", 0)))], 13, UiKit.MUTED))
 	# For a free agent his terms include what his options add.
 	var meet_salary := int(want["salary"]) + int(terms.get("premium", 0))
 	v.add_child(_para("He wants %s a season for %d seasons. %s" % [Contracts.money(meet_salary), int(want["years"]),
@@ -486,8 +486,8 @@ func _agents(body: VBoxContainer) -> void:
 				av = float(a.get("overall", 0))
 				bv = float(b.get("overall", 0))
 			"potential":
-				av = float(a.get("potential", a.get("overall", 0)))
-				bv = float(b.get("potential", b.get("overall", 0)))
+				av = float(GameState.pot_view(a)["mid"])
+				bv = float(GameState.pot_view(b)["mid"])
 			"age":
 				av = float(a.get("age", 0))
 				bv = float(b.get("age", 0))
@@ -501,8 +501,8 @@ func _agents(body: VBoxContainer) -> void:
 		body.add_child(_para("No free agents right now. Rivals let players go when the season ends.", 13, UiKit.MUTED))
 	for p in fas:
 		var want := Contracts.wants(p)
-		var card := _player_card(p, "%d OVR  ·  %d POT  ·  age %d  ·  wants %s for %d seasons  ·  from %s" % [
-				int(p["overall"]), int(p.get("potential", p["overall"])), int(p.get("age", 0)),
+		var card := _player_card(p, "%d OVR  ·  %s POT  ·  age %d  ·  wants %s for %d seasons  ·  from %s" % [
+				int(p["overall"]), str(GameState.pot_view(p)["text"]), int(p.get("age", 0)),
 				Contracts.money(int(want["salary"])), int(want["years"]),
 				GameDB.club_short(str(p.get("released_by", "")))])
 		var offers := GameState.fa_offers(str(p["id"]))
@@ -742,8 +742,8 @@ func _pick_grid(body: VBoxContainer, list: Array, chosen: Array, prefix: String)
 		return str(a["id"]) < str(b["id"]))
 	for p in sorted:
 		var id := str(p["id"])
-		var b := _asset_button("%s  ·  %s  ·  %d OVR  ·  %d POT  ·  %d" % [GameDB.player_display_name(p),
-				Ratings.role_tag(p), int(p["overall"]), int(p.get("potential", p["overall"])),
+		var b := _asset_button("%s  ·  %s  ·  %d OVR  ·  %s POT  ·  %d" % [GameDB.player_display_name(p),
+				Ratings.role_tag(p), int(p["overall"]), str(GameState.pot_view(p)["text"]),
 				int(p.get("age", 0))], chosen.has(id))
 		b.name = prefix + id
 		b.pressed.connect(_toggle.bind(chosen, id))

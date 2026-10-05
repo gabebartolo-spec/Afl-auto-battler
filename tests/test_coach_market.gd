@@ -23,6 +23,8 @@ func run() -> void:
 	_test_generation_and_expansion()
 	_test_long_run()
 	_test_game_flow()
+	_test_assistant_contracts()
+	_test_your_expiring_staff()
 	GameState.delete_saved_career()
 	print("Coach market tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -181,6 +183,10 @@ func _test_senior_coach_decisions() -> void:
 
 func _test_retirement_and_pruning() -> void:
 	var coaches := _league()
+	# No term ends this year, so no extra job opens for the long-unemployed.
+	for cid in coaches:
+		if str(coaches[cid].get("status", "")) == "club":
+			coaches[cid]["contract_to"] = Y + 5
 	coaches["ESS_FWD"]["born"] = Y + 1 - 70
 	coaches["FREE_3"]["unemployed_since"] = Y + 1 - CoachMarket.UNEMPLOYED_YEARS
 	coaches["FREE_10"]["unemployed_since"] = Y + 1 - CoachMarket.UNEMPLOYED_YEARS   # a former senior coach
@@ -350,3 +356,72 @@ func _test_game_flow() -> void:
 	GameState._fill_open_staff()
 	_check(GameState.staff_vacancies.is_empty() and GameState.club_staff("GEE").size() == 5,
 			"A new season never starts with one of your jobs empty")
+
+
+## Assistants have terms: staggered so about a third end each season, two
+## or three seasons on appointment, and an AI club keeps a well-regarded one
+## and most of the rest. Yours wait for you.
+func _test_assistant_contracts() -> void:
+	var coaches: Dictionary = Coaches.seed("GEE")
+	var ends := {}
+	var assistants := 0
+	for cid in coaches:
+		var c: Dictionary = coaches[cid]
+		CoachMarket.ensure_fields(c, Y)
+		if str(c.get("status", "")) == "club" and str(c.get("job", "")) != "SC":
+			assistants += 1
+			var t := int(c.get("contract_to", -1)) - Y
+			ends[t] = int(ends.get(t, 0)) + 1
+	var share := float(ends.get(0, 0)) / maxf(1, assistants)
+	_check(ends.keys().all(func(k): return int(k) >= 0 and int(k) <= 2) and share > 0.2 and share < 0.5,
+			"Assistants' terms are staggered: about a third end this season (%s)" % str(ends))
+	var mine_before := {}
+	for cid in coaches:
+		var c: Dictionary = coaches[cid]
+		if str(c.get("club", "")) == "GEE" and str(c.get("job", "")) != "SC":
+			mine_before[cid] = int(c["contract_to"])
+	var out := CoachMarket.offseason({"coaches": coaches, "archive": {}, "year": Y, "my_club": "GEE",
+			"clubs": GameDB.active_clubs(Y + 1), "results": _results(true), "premier": "", "seed": SEED})
+	var lapsed := int(out["log"].get("assistant_expired", 0))
+	_check(lapsed > 0 and lapsed < int(ends.get(0, 0)), "Some AI assistants are let go at the end of a term, most are kept (%d)" % lapsed)
+	var untouched := true
+	for cid in mine_before:
+		var c: Dictionary = coaches[cid]
+		if str(c.get("club", "")) == "GEE" and int(c.get("contract_to", -9)) != int(mine_before[cid]):
+			untouched = false
+	_check(untouched, "Your assistants' terms wait for you")
+	var fresh := _coach("NEWA", "free", "", "", [70, 70, 70], "MID")
+	coaches["NEWA"] = fresh
+	CoachMarket._appoint(fresh, "CAR", "MID", Y, SEED)
+	var term := int(fresh.get("contract_to", 0)) - Y
+	_check(term == 2 or term == 3, "An appointed assistant signs for two or three seasons (%d)" % term)
+	var old := _coach("OLDA", "club", "CAR", "DEF")
+	old["born"] = Y - 63
+	_check(int(CoachMarket.assistant_stance(old, Y)["years"]) == 1, "An assistant near retirement signs for one more season")
+
+
+## In the off-season your expiring assistants show; re-signing keeps him on
+## his terms, and one you leave undecided stays when the next season starts.
+func _test_your_expiring_staff() -> void:
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	_check(GameState.expiring_staff().is_empty(), "No contract talk during the season")
+	var guard := 0
+	while not GameState.season.is_season_over() and guard < 60:
+		GameState.advance()
+		guard += 1
+	var staff := GameState.club_staff("GEE")
+	var jobs := staff.keys().filter(func(j): return str(j) != "SC")
+	var a: Dictionary = staff[jobs[0]]
+	var b: Dictionary = staff[jobs[1]]
+	a["contract_to"] = GameState.season_year
+	b["contract_to"] = GameState.season_year
+	var exp := GameState.expiring_staff()
+	_check(exp.has(a) and exp.has(b), "Your assistants at the end of their term are listed")
+	GameState.resign_staff(str(a["cid"]))
+	_check(int(a["contract_to"]) > GameState.season_year and not GameState.expiring_staff().has(a),
+			"Re-signing keeps him for at least another season")
+	var y := GameState.season_year
+	GameState._settle_staff_contracts()
+	_check(int(b["contract_to"]) > y and str(b.get("club", "")) == "GEE", "An undecided assistant stays on his terms")
+	GameState.reset()
