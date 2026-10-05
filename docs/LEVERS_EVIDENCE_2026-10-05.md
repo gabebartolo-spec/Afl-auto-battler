@@ -6,7 +6,7 @@ Reproduce:
 
 ```
 godot --headless --path . --script tools/audit/run_audit.gd -- calls_impl   # CALLS_REPS=30 for 1,080 matches
-godot --headless --path . --script tools/audit/run_audit.gd -- career_impl trader|fa <seed> <club> 5
+godot --headless --path . --script tools/audit/run_audit.gd -- career_impl trader|fa <seed> <club> 5   # 8 seasons for the realised-value ledger
 ```
 
 ## 1. Live-match calls
@@ -70,6 +70,22 @@ By the plan the AI opened with (win %):
 - **The exploitable pattern: "kids for a prime star".** For example, GWS gave **Jordy Carr (83 OVR, age 25) for two 18-year-olds rated 67 and 68**, and St Kilda gave a 76-rated 28-year-old for one 71-rated 20-year-old.
 - **Cause:** `TradeValue.future_rating` credits 60% of a young player's gap to POT as if it were certain, with no allowance for players who never reach it. On the steep value curve (`(rating/70)^5`), two unproven 18-year-olds then outweigh an established star.
 - **Proposed fix (needs sign-off):** discount the future part by how proven the player is (for example by senior games played), so an 18-year-old's ceiling counts for less until he has shown it. This also interacts with #222: rival POT is now a range, which makes these targets harder to spot.
+
+## 2b. Realised versus projected trade value (director's follow-up)
+
+The research's market card asks for realised value, not only projected. `career_impl trader <seed> <club> 8` now keeps a ledger: every player in a completed trade, what `TradeValue.future_rating` projected for him at the trade, and his peak OVR and senior games afterwards. Three eight-season careers (seed 1 MEL, 2 COL, 3 GEE) were run twice: with the current valuation and with #224's unproven-potential discount (same seeds; the trades differ once the valuation does). Peaks are measured to the end of 2034, so later trades have shorter windows.
+
+| Traded players, by age at the trade | Current valuation: projected → peak | With #224: projected → peak |
+|---|---|---|
+| Kids you gave away (21 and under) | 69.9 → 69.8 (−0.1, n = 23) | 66.1 → 67.4 (+1.3, n = 22) |
+| Stars you got (28 and over) | 73.5 → 73.5 (n = 18) | 74.0 → 74.0 (n = 17) |
+
+- **The current projection is accurate for kids.** Players like Elias Colombo (67, POT 85 at 18, projected 77.8) peaked at 79; across 23 kids the average miss is a tenth of a point. The 60% credit does not over-value youth on this evidence.
+- **#224's discount under-projects them.** With it, the same kind of kid beats his projection by more than a point (Colombo projected 75.2, still peaked at 78).
+- **The stars do what their age says.** They never improve, and by the end most have dropped 10 to 15 points or left the game (Jarrod Simic 81 at 29, 66 and gone five years later; Elijah Lewis 83, 70 and gone).
+- **The "kids for a star" trade is a short-term deal, not an exploit.** The kids went on to 100 to 160 senior games each. The trader won early (premierships in year one or two in some careers) and then collapsed to list rank 17 to 20 in both valuations.
+- **Implication for #224 (needs a decision):** realised outcomes do not support discounting unproven potential. If the concern is that a human can buy a premiership window cheaply, that is a question about what a rebuilding club should accept for its future, not about projection error. Options: close #224, soften it, or keep it as a deliberate difficulty choice.
+- Sample: three careers, about 23 kids per valuation. Directionally clear, not precise.
 
 ## 3. Free agency
 
