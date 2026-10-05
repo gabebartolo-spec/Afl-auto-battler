@@ -86,13 +86,15 @@ volunteer-maintained archive. The AFL, its clubs and Champion Data do not endors
 this project, and no player imagery or club badges are reproduced.
 
 ### Fictional / real player labels
-The shipped data keeps each real name for the optional real-name view, but the
-player presentation defaults to a deterministic shuffle of generated random names
-(`Ari Bramble`, `Bex Cinder`, and so on). Every player gets a generated name —
-numbered placeholders such as `Squadmate 001` are never shown. **Player
-names** (New career setup, or Settings on the main menu) switches to the real AFL name on its own, such as
-`Jordan Dawson`. It does not prefix a fictional alias or a "plays like"
-comparison, and it does not change IDs, ratings, draft logic or match results.
+The shipped data keeps each real name and a deterministic shuffle of generated
+random names (`Ari Bramble`, `Bex Cinder`, and so on). With no saved choice the
+player presentation shows the real AFL name on its own, such as `Jordan Dawson`
+(the director's choice of 2026-10-06, "for now"). **Player names** (New career
+setup, or Settings on the main menu) switches to the generated names instead, and
+a saved choice is kept. Every player has a generated name; numbered placeholders
+such as `Squadmate 001` are never shown. The real name is never prefixed with a
+fictional alias or a "plays like" comparison, and the mode does not change IDs,
+ratings, draft logic or match results.
 Players with no real-world counterpart (generated future draft classes) keep
 their fictional name in both modes. Draft history resolves labels by player ID
 so switching the mode never leaves an old name in a row or tooltip. This is a

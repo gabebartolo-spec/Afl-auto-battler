@@ -5,11 +5,12 @@ extends Node
 ## Every scene reads from here and nothing else, so scene changes never lose
 ## the season.
 
-## Name presentation is a player preference rather than a career setting. The
-## game starts with generated fictional labels; the optional real-name view
-## shows each AFL name on its own, without changing the simulation or IDs.
+## Name presentation is a player preference rather than a career setting. With
+## no saved choice the game shows each AFL name on its own; generated fictional
+## labels are opt-in. Neither changes the simulation or IDs. Generated and custom
+## players have no real name and keep the name they were given.
 signal player_names_changed
-var show_real_names := false
+var show_real_names := true
 ## Transient navigation request. Settings can send the user straight to New
 ## career setup without touching the existing save.
 var new_career_setup_requested := false
@@ -175,7 +176,7 @@ var _dirty := false
 func _ready() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(settings_path) == OK:
-		show_real_names = bool(cfg.get_value("display", "real_names", false))
+		show_real_names = bool(cfg.get_value("display", "real_names", true))
 	UiKit.apply_appearance(str(cfg.get_value("ui", "appearance", "dark")))
 	_apply_sound_mute(bool(cfg.get_value("ui", "mute_sounds", false)))
 
