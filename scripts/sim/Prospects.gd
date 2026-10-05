@@ -15,6 +15,11 @@ extends RefCounted
 
 const MIN_LIST := 32
 const MAX_RETIRE_PER_CLUB := 8
+## Generated forwards run from small (172 cm) to key (203 cm), about a third
+## of each by MatchSim.fwd_size, as in a real draft class: from 184 cm there
+## were no small forwards, and over a career the league's forward lines
+## turned tall (ARD-M3-002).
+const FWD_MIN_CM := 172
 
 const ATTR_KEYS := ["disposal", "contested", "marking", "pressure", "intercept",
 		"carry", "goalkicking", "accuracy", "creating", "ruck", "discipline",
@@ -424,7 +429,7 @@ static func generate_class(year: int, career_seed := 0) -> Array:
 		var height := 0.0
 		match role:
 			"RUCK": height = float(rng.randi_range(197, 208))
-			"FWD": height = float(rng.randi_range(184, 203))
+			"FWD": height = float(rng.randi_range(FWD_MIN_CM, 203))
 			"DEF": height = float(rng.randi_range(182, 198))
 			_: height = float(rng.randi_range(173, 192))
 		p["height_cm"] = height
@@ -541,7 +546,7 @@ static func generate_expansion_list(code: String, year: int, size := 36) -> Arra
 		var height := 0.0
 		match role:
 			"RUCK": height = float(rng.randi_range(197, 208))
-			"FWD": height = float(rng.randi_range(184, 203))
+			"FWD": height = float(rng.randi_range(FWD_MIN_CM, 203))
 			"DEF": height = float(rng.randi_range(182, 198))
 			_: height = float(rng.randi_range(173, 192))
 		p["height_cm"] = height
