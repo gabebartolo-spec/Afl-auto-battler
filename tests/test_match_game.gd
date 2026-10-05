@@ -1166,6 +1166,7 @@ func _test_spoils_and_crumbs() -> void:
 	var spoils := 0.0
 	var crumbs := 0
 	var crumbs_fwd := 0
+	var crumb_behinds := 0
 	var by_def := 0.0
 	var general_spoils := 0
 	var general_spoil_loose := true
@@ -1197,6 +1198,8 @@ func _test_spoils_and_crumbs() -> void:
 				crumbs += 1
 				if str(role.get(str(e.get("player_id", "")), "")) == "FWD":
 					crumbs_fwd += 1
+			if kind == "behind" and bool(e.get("crumb", false)):
+				crumb_behinds += 1
 			if kind == "spoil" and bool(e.get("general_play", false)):
 				general_spoils += 1
 				var sid := int(e.get("side", -1))
@@ -1216,6 +1219,7 @@ func _test_spoils_and_crumbs() -> void:
 	_check(by_def >= 0.7 * spoils, "Spoils are made by defenders (rotations aside) (%d of %d)" % [by_def, spoils])
 	_check(crumbs > 0 and float(crumbs_fwd) >= 0.55 * float(crumbs),
 			"Goals are crumbed off spoils, mostly by forwards (%d of %d)" % [crumbs_fwd, crumbs])
+	_check(crumb_behinds > 0, "A crumb that misses is logged as a crumb too (%d)" % crumb_behinds)
 	_check(general_spoils > 0 and general_spoil_loose,
 			"General-play long kicks produce real credited spoils and loose balls (%d)" % general_spoils)
 	_check(free_causes.has("holding_ball") and free_causes.has("high_contact")
