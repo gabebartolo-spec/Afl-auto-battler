@@ -3514,13 +3514,15 @@ Do not expose exact underlying attributes, OVR, potential or draft rank as edita
 - If undrafted, normal undrafted/carry-over rules apply.
 
 ### Generation / balance
-The user's choices shape **attribute distribution**, not total power.
+The user's choices shape **attribute distribution**, not a guaranteed ceiling.
 
-- Generate the player's overall talent from the same draft-class quality model as other prospects.
+- Generate the player's starting football ability inside a believable draft-prospect band, with a floor high enough that the created player is at least a genuinely usable AFL role-player prospect rather than a novelty dud.
 - Archetype, position, height, strengths and weaknesses redistribute that talent into a coherent football profile.
-- Potential remains hidden and is generated through the normal prospect/development model.
+- **Potential is hidden and randomly rolled once when the career is created.** The player cannot choose it, see it exactly, or reroll it.
+- Use a bounded distribution: most custom prospects should project somewhere from useful role player through good AFL player; strong/star outcomes should be uncommon; an **S-tier / generational ceiling is deliberately rare but possible**.
+- The rare elite outcome must still require normal development and opportunity. High POT is not guaranteed realised ability.
 - Do not grant special development speed, durability, consistency, personality, longevity or career outcomes because the player is custom.
-- The custom prospect should be statistically ordinary relative to the draft class except for the identity/profile choices the user made.
+- Preserve the roll in the save so reloads cannot fish for a better ceiling.
 
 A user-created key forward, winger or rebounding defender should feel meaningfully different without one archetype being an exploit.
 
@@ -3552,7 +3554,115 @@ A lightweight **Follow / Watch** affordance is preferred over extra bespoke dash
 - undrafted path remains valid,
 - career stats/history/milestones work after drafting,
 - real-name/fantasy-name setting does not replace the user-entered custom name,
-- old saves without custom-prospect data load safely.
+- old saves without custom-prospect data load safely,
+- POT is rolled once, survives save/load, cannot be rerolled by reload, respects the usable-role-player floor and can very rarely reach the S-tier ceiling.
+
+---
+
+## ARD-M7-009 — Expansion clubs, Canberra toggle & Club Forge
+**Status:** `TODO`  
+**Priority:** `P2`  
+**Autonomy:** `SUPERVISED`
+
+### Intent
+Make expansion a major long-career option rather than a background database event. Tasmania remains the grounded 19th club, Canberra is an optional 20th club, and the player may create one additional bespoke club that joins the competition as a 21st side.
+
+### New Career expansion setup
+Keep the ordinary New Career flow concise.
+
+- **Tasmania:** scheduled to enter in 2028.
+- **Canberra:** optional career toggle, **off by default**, scheduled to enter in 2030 when enabled.
+- Persist the Canberra choice at career creation because draft capital, list building, staff, fixtures and future-pick ownership need to prepare before entry.
+- Do not allow a mid-save Canberra toggle after expansion preparation has begun.
+- A created-club career adds the custom club as a new competition member rather than replacing an existing club.
+
+### Existing-player chronology before expansion
+Tasmania and Canberra enter years after the 2027 career baseline. By the time either club enters, **every existing AFL player must have reached that season through the normal career simulation**.
+
+- Do not load a frozen 2027 roster into a 2028/2030 expansion state and then merely add years to displayed ages.
+- Age, development, decline, injuries, contracts, trades, free agency, awards, club movement and career history must all reflect the seasons actually simulated before expansion.
+- Retirements, delistings, list turnover and replacement-generation need a robust lifecycle that preserves believable league population and career provenance. The exact retirement/delisting implementation is an engineering/design task for Claude when this item is actioned; do not fake continuity with silent respawns or retroactive history.
+- Expansion list building must draw from the league state that genuinely exists at the expansion date.
+- Long-save validation must prove that players present in 2028/2030 have coherent ages, histories and club stints, and that retired/delisted players are not resurrected accidentally.
+
+### Real-expansion draft model
+Use the AFL's confirmed Tasmania list-establishment package as the authenticity baseline rather than inventing a weak generic expansion draft.
+
+For Tasmania:
+- 2027 National Draft: picks **1, 3, 5, 7, 9, 11 and 13**, plus the first selection of each subsequent round.
+- Picks **5, 7, 11 and 13** are trade-required/rollable according to the real concession concept.
+- 2028: concession picks **5 and 9** plus the first selection of each subsequent round and the natural hand; pick 5 is trade-required/rollable.
+- 2029: concession picks **5 and 9** plus the natural hand; pick 5 is trade-required.
+- Where practical, later expansion work may also model the real package's mature-player access, rookie priorities and other list-building concessions, but first-round capital and real trade ownership are the minimum accepted foundation.
+
+For Canberra:
+- There is no confirmed real AFL Canberra expansion package to reproduce, so use the **same design philosophy as Tasmania**: heavy premium draft capital beginning before entry, spread across multiple drafts, with some premium selections required to be traded so the club must mix elite youth with established talent.
+- Tune the exact Canberra pick schedule against the game's entry year, draft order and competitive balance rather than pretending a fictional package is an AFL rule.
+- AI-controlled Canberra receives exactly the same concessions as a user-controlled Canberra.
+
+Expansion picks must be real persistent tradable assets in the normal trade/draft system. Do not fake concessions as hidden list-strength boosts or spawn a strong list without provenance.
+
+### Main-menu creation destination — Club Forge
+Add a bespoke main-menu destination named **Club Forge** as the current working title.
+
+Club Forge is the home for:
+1. **Create a club**
+2. **Create a player**
+
+It should feel purpose-built rather than like a debug/settings form, while remaining mobile-first and restrained.
+
+### Create a club
+Allow one custom club per career in V1.
+
+Player-facing customisation should include, at minimum:
+- club name,
+- short name / abbreviation,
+- home location / identity text where useful,
+- primary / secondary / accent colours,
+- guernsey design using the existing procedural guernsey system,
+- shorts / socks where supported,
+- simple badge/marker identity built from the same visual language as existing club markers rather than imported trademarked logos.
+
+Do not turn V1 into a full vector-logo editor or stadium builder.
+
+The created club:
+- is an **additional competition member**, never a reskin/replacement of an existing club;
+- participates in the same salary cap, list size, contracts, draft, trades, free agency, coaching, injuries, suspensions, development and AI rules;
+- gets an expansion-list establishment package comparable in opportunity to the other expansion clubs, with balance measured rather than guaranteed dominance;
+- stores its identity and colours in save data so every ladder, fixture, match, report, guernsey, history and long-career record uses the created identity consistently;
+- remains valid after reload and across decades of history.
+
+### Create a player
+Move/route ARD-M7-008 through Club Forge so character creation and club creation share one bespoke creative destination.
+
+The player creator should expose identity/aesthetic and football-profile choices without exposing exact OVR/POT. Its hidden one-time POT roll, usable-role-player floor and rare S-tier outcome remain owned by ARD-M7-008.
+
+### 21-club fixture support
+A created club may take the competition to **21 clubs**.
+
+- The fixture generator must support odd club counts cleanly.
+- Every club must receive an equal number of home-and-away matches.
+- Use a fair rotating bye structure; do not give the custom/user club a scheduling advantage.
+- Expanding the calendar beyond the current fixture length is allowed if required to keep equal games, sensible opponent coverage and clean bye rotation.
+- Revisit finals qualification and wildcard presentation only if the larger league makes the existing structure materially unfair; do not automatically add more finals teams just because the league grew.
+- Validate season rollover, draft order, ladder percentages/points, awards, contracts, fatigue and long-save performance with 19, 20 and 21 clubs.
+
+### UX guardrails
+- Main menu remains clean: Club Forge is one deliberate destination, not several creator buttons.
+- New Career should summarise expansion choices without number-vomit.
+- Creation must work comfortably in narrow portrait layouts.
+- Colour/guernsey controls should be tap-friendly; avoid dropdown-heavy forms.
+- Show enough preview to understand the club/player being created without telling the user the optimal football build.
+
+### Tests
+- Canberra off: career remains valid with Tasmania and no ghost Canberra data.
+- Canberra on: expansion preparation, entry, draft assets and fixtures survive save/reload.
+- Players reaching 2028/2030 have naturally evolved ages, histories and list states rather than frozen-start data with adjusted labels.
+- Retirement/delisting/list-turnover handling does not resurrect players or corrupt career history.
+- Created club is unique, persists through reload and uses its identity everywhere.
+- 19-, 20- and 21-club fixtures give every club equal games and fair byes.
+- Custom club obeys the same cap/list/contract/trade/draft/coaching rules as AI clubs.
+- Long-run simulation reaches multiple post-expansion seasons without fixture, draft-order, history or save corruption.
 
 ---
 
@@ -4305,6 +4415,8 @@ Prefer improving the existing experience when that answers the same need. This p
 ---
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-05:** Added ARD-M7-009 for expansion-club career setup: Tasmania 2028, optional Canberra 2030, real Tasmania-style premium draft concessions, a bespoke main-menu Club Forge for create-a-club/create-a-player, support for a 21st custom club and fair odd-club fixtures. Clarified that all AFL players must reach expansion years through normal ageing/development/list turnover rather than frozen-roster age jumps. Updated ARD-M7-008 so a custom prospect has a one-time hidden POT roll with a usable role-player floor and a rare S-tier ceiling.
 
 - **2026-10-05:** Added independent genre enjoyment research covering eight cross-genre references plus Footy Redraft/AFCM, Crusader Kings and Esoteric Ebb, including the director's replayability/trust/storytelling and short-question preferences. Refined existing tactical, role, development, market, history and QA owners with dependencies, exclusions, observable outcomes and validation. Added accepted ARD-M5-016 (inherited end-2026 lists → 2026 National Draft → 2027), separate from review-only ARD-RC-001–005. Reconciled merged #210/#213/#214/#217/#220/#221/#222/#225 and open #206/#223/#224/#226 against main `4b9eecc3858e970c46e25366701907f1cb4c6070`; preserved phone and balance gates. Documentation only; no gameplay merge or Claude assignment.
 
