@@ -45,12 +45,17 @@ func _run() -> void:
 	var h := int(round(width * 2.2))       # a tall phone in portrait
 	root.size = Vector2i(w, h)
 	DisplayServer.window_set_size(Vector2i(w, h))
-	var star: Dictionary = db.club_list("COL")[0]
+	# A real small forward for the crumb and the pocket snap, a key forward for the rest.
+	var squad: Array = db.club_list("COL").duplicate()
+	squad.sort_custom(func(x, y): return float(x.get("height_cm", 0)) < float(y.get("height_cm", 0)))
+	var small: Dictionary = squad.filter(func(x): return float(x.get("height_cm", 0)) > 0)[0]
+	var tall: Dictionary = squad[squad.size() - 4]
 	var cw := int(w * scale)
 	var ch := int(h * scale)
 	var sheet := Image.create(cw * 6, ch * KINDS.size(), false, Image.FORMAT_RGBA8)
 	for r in range(KINDS.size()):
 		var kind: String = KINDS[r]
+		var star: Dictionary = small if kind in ["goal_line", "boundary_snap"] else tall
 		var ev := {"kind": "goal", "side": 0, "num": int(star.get("num", 7)), "player_id": str(star["id"]),
 				"club": "COL", "q": 4, "set_shot": kind == "after_siren", "crumb": kind == "goal_line"}
 		if kind.begins_with("speccy"):

@@ -83,6 +83,7 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 				var tired := float(sim.energy.get(str(p["id"]), 100.0)) < EMPTY
 				tokens.append({"side": side, "mine": mine, "slot": slot, "id": str(p["id"]),
 						"tall": MatchSim._is_ruckman(p), "look": GameDB.player_looks(p),
+						"height_cm": float(p.get("height_cm", 0.0)),
 						"name": _surname(GameDB.player_display_name(p)), "num": int(p["num"]),
 						"tired": tired, "from": from, "to": to,
 						"delay": rng.randf_range(0.0, 0.45),
@@ -384,7 +385,11 @@ func _draw_ground() -> void:
 	var edge := _project(Vector2(0, far)).y
 	if edge > 0.0:
 		var fence := minf(edge, maxf(6.0, size.y * 0.018))
-		VignetteCrowd.draw(self, Rect2(0, 0, size.x, edge - fence), _colours, _t)
+		# The stand is far away: as the camera pushes in it slides, it doesn't grow
+		# (rescaling a texture of tiny heads shimmered). Above it, the roof's shadow.
+		var stand := size.y * 0.24
+		draw_rect(Rect2(0, 0, size.x, edge), Color(0.05, 0.05, 0.06), true)
+		VignetteCrowd.draw(self, Rect2(0, edge - fence - stand, size.x, stand), _colours, _t)
 		_draw_boards(Rect2(0, edge - fence, size.x, fence))
 	_draw_markings()
 
@@ -440,7 +445,10 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	# Your players have their backs to us; theirs and the umpire face the camera.
 	var back := not ump and bool(t["mine"])
 	var pick := _frame(t, lift, at, back)
-	var info := VignetteFigures.strip(_body(t), pick[0], "back" if back else "front")
+	var build := _body(t)
+	if not VignetteFigures.has(build, pick[0], "back" if back else "front"):
+		build = "average"
+	var info := VignetteFigures.strip(build, pick[0], "back" if back else "front")
 	var frame := mini(int(pick[1]), int(info["frames"]) - 1)
 	var src := VignetteFigures.source(info, frame)
 	# Out on their feet: a touch smaller, stooped.
@@ -482,10 +490,14 @@ static func number_colour(kit: int, number: int, alpha := 1.0, mirror := false) 
 	return Color((kit * 2 + (1 if mirror else 0)) / 8.0, 1.0, (clampi(number, 0, 99) + 1) / 128.0, alpha)
 
 
-## Ruckmen are the tall figures; everyone else - an emergency ruck from the
-## midfield included, and the umpire - the average build.
+## Ruckmen are the tall figures; small men (BroadcastVignette.SMALL_CM) the small
+## build; everyone else - an emergency ruck from the midfield included, and the
+## umpire - the average build.
 static func _body(t: Dictionary) -> String:
-	return "ruck" if bool(t.get("tall", false)) else "average"
+	if bool(t.get("tall", false)):
+		return "ruck"
+	var cm := float(t.get("height_cm", 0.0))
+	return "small" if cm > 0.0 and cm < BroadcastVignette.SMALL_CM else "average"
 
 
 ## Which animation and frame a figure shows now, and whether it's mirrored:

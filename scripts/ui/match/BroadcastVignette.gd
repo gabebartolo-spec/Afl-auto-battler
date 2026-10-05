@@ -33,6 +33,7 @@ var _done := false
 var _colours := [[], []]
 var _kits := []               # each side's guernsey
 var _look := Appearance.UNCURATED   # the featured player's look
+var _build := "average"             # and his build, from his real height (build_for)
 
 ## The figures are the vignettes' pre-rendered footballers (VignetteFigures,
 ## figure.gdshader), sized as the old drawn figures were: about this many
@@ -44,6 +45,18 @@ const BODY := "average"
 ## Extras (the pack, a defender) aren't named by MatchSim: one neutral look, so
 ## no real player is implied; their club's kit still shows whose they are.
 const EXTRA_LOOK := Appearance.UNCURATED
+## Under this height a player is drawn on the small build (1.78 m): the league's
+## shortest fifth - the crumbers and small forwards.
+const SMALL_CM := 182.0
+
+
+## Which build a player is drawn on, from his real height. The small build only has
+## the moves a small man plays, so a move it lacks falls back to the average build.
+static func build_for(p: Dictionary) -> String:
+	var cm := float(p.get("height_cm", 0.0))
+	return "small" if cm > 0.0 and cm < SMALL_CM else "average"
+
+
 ## Jog strides per second, matching the centre-bounce scene.
 const STRIDES := 13.0 / TAU
 ## When the set shot's kick begins: the ball leaves the boot at 3.02 s.
@@ -57,6 +70,9 @@ const SNAP_BOOT := Vector2(0.62, 0.63)
 const SPECCY_PEAK := 1.05
 const SPECCY_SETTLE := 0.45
 const CONTEST_PEAK := 0.55
+## The crumber's scale: nearer the camera than the marking contest, so a little larger
+## on screen - but a small forward, not a giant (he's drawn on his own build too).
+const CRUMB_SCALE := 1.08
 ## The crumb: the snap's boot meets the ball (the ball's flight starts) at this time.
 const SNAP_AT := 1.85
 
@@ -81,6 +97,7 @@ func setup(p_kind: String, p_event: Dictionary, p_scene: Dictionary, p_result: D
 	_dress([home, away])
 	var p = GameDB.player_by_id(str(event.get("player_id", "")))
 	_look = GameDB.player_looks(p) if p is Dictionary else Appearance.UNCURATED
+	_build = build_for(p if p is Dictionary else {})
 	queue_redraw()
 
 
@@ -262,9 +279,31 @@ func _draw_speccy() -> void:
 	if contact_hold:
 		lift = peak
 
+	# The pack: everyone faces the ball coming in, so their backs are to us, just upfield
+	# of the marker. Each contests his own way: the man he climbs goes up with both
+	# hands; one punches with a fist (a spoil); one stays down, body-on, bracing.
+	# Further away, they're drawn first, a touch smaller.
+	var pack := [
+		{"at": Vector2(cx + 6, ground - 16), "scale": 1.18, "how": "leap", "delay": 0.0, "lift": 0.45},
+		{"at": Vector2(cx - 46, ground - 6), "scale": 1.22, "how": "tap_b", "delay": 0.12, "lift": 0.3},
+		{"at": Vector2(cx + 44, ground - 24), "scale": 1.12, "how": "ready_turn", "delay": 0.0, "lift": 0.0},
+	]
+	for i in range(2 if kind == SPECCY_DEFENSIVE else 3):
+		var m: Dictionary = pack[i]
+		var at: Vector2 = m["at"]
+		var k := clampf((_t - 0.42 - float(m["delay"])) / 0.9, 0.0, 1.0)
+		var up := sin(k * PI) * float(m["lift"]) * peak
+		if str(m["how"]) == "ready_turn" or k <= 0.0:
+			# Waiting on it, or holding his ground body-on: watching the ball, his own rhythm.
+			_ready_figure(at, float(m["scale"]), other, "back", 13 + i * 5, i == 2, i == 2)
+		else:
+			var frames := 6 if str(m["how"]) == "leap" else 4
+			_figure(at - Vector2(0, up), float(m["scale"]), other, str(m["how"]), "back",
+					mini(frames - 1, int(k * frames * 1.4)), 0, EXTRA_LOOK, at, i == 1)
+
 	# The marker, back to us so his number shows, comes over the pack from behind
-	# (drawn first, so they're in front of him): crouch on the turf, spring, arms
-	# up for the ball and the knee in a back, then down with it held to his chest.
+	# (drawn last, nearest): crouch on the turf, spring, arms up for the ball and the
+	# knee in a back, then down with it held to his chest.
 	var num := int(event.get("num", 0))
 	var mark_pos := Vector2(cx, ground - lift)
 	var leap_frame := 0
@@ -275,22 +314,7 @@ func _draw_speccy() -> void:
 			leap_frame = 2 + int(roundf(clampf((jump_t - 0.08) / 0.4, 0.0, 1.0) * 3.0))
 		if _t > 1.78:
 			leap_frame = 2                                         # ball in to the chest
-	_figure(mark_pos, 1.30, side, "leap", "back", leap_frame, num, _look, Vector2(cx, ground))
-
-	# The pack under him: the opposition, facing us, up on their toes as he climbs.
-	var pack_scale := 1.05 if kind == SPECCY_FRONT else 1.15
-	# Before he climbs they're braced and watching the ball come; then up, each a
-	# beat apart and his own way round, so no two move as one.
-	var pack_frame := mini(3, int(jump_t * 6.0))
-	var pack_at := [Vector2(cx - 46, ground + 7), Vector2(cx + 35, ground + 12), Vector2(cx + 4, ground + 18)]
-	var pack_scales := [pack_scale, pack_scale, 0.98]
-	var pack_offsets := [0, -1, 1]
-	for i in range(2 if kind == SPECCY_DEFENSIVE else 3):
-		if _t < 0.42 + 0.06 * i:
-			_ready_figure(pack_at[i], pack_scales[i], other, "front", 11 + i * 7, i != 2, i == 1)
-		else:
-			_figure(pack_at[i], pack_scales[i], other, "leap", "front", clampi(pack_frame + pack_offsets[i], 0, 3),
-					0, EXTRA_LOOK, Vector2.INF, i == 1)
+	_figure(mark_pos, 1.30, side, "leap", "back", leap_frame, num, _look, Vector2(cx, ground), false, _build)
 
 	# The ball comes down into his hands, then he brings it in.
 	var hands := mark_pos + Vector2(0, 38.0 * 1.30 - 2.25 * PX_PER_M * 1.30)
@@ -326,13 +350,13 @@ func _draw_after_siren() -> void:
 		var bob := sin(_t * 8.0) * 2.5 if _t < 1.5 else 0.0
 		_draw_ball(_at(kicker, scale, Vector2(0.2, 0.95)) + Vector2(0, bob), 1.20)
 	if _t < 1.75:
-		_ready_figure(kicker, scale, side, "back", 3, false, false, num, _look)
+		_ready_figure(kicker, scale, side, "back", 3, false, false, num, _look, _build)
 	elif _t < KICK_START:
-		_figure(kicker, scale, side, "jog", "back_r", _stride(_t - 1.75), num, _look)
+		_figure(kicker, scale, side, "jog", "back_r", _stride(_t - 1.75), num, _look, Vector2.INF, false, _build)
 	elif _t < 3.45:
-		_figure(kicker, scale, side, "kick", "back_r", _kick_frame(_t - KICK_START, 3.02 - KICK_START), num, _look)
+		_figure(kicker, scale, side, "kick", "back_r", _kick_frame(_t - KICK_START, 3.02 - KICK_START), num, _look, Vector2.INF, false, _build)
 	else:
-		_ready_figure(kicker, scale, side, "back", 3, false, false, num, _look)     # leg down, watching it go
+		_ready_figure(kicker, scale, side, "back", 3, false, false, num, _look, _build)     # leg down, watching it go
 
 	if _t >= 2.92 and _t < 3.02:
 		# Dropped onto the boot.
@@ -399,23 +423,23 @@ func _draw_goal_line() -> void:
 	var num := int(event.get("num", 0))
 	if _t < 0.6:
 		# Reading the contest, off to his right.
-		_ready_figure(crumber, 1.25, side, "back", 4, true, true, num, _look)
+		_ready_figure(crumber, CRUMB_SCALE, side, "back", 4, true, true, num, _look, _build)
 	elif _t < 1.4:
-		_figure(crumber, 1.25, side, "jog", "back_r", _stride(_t - 0.6), num, _look)
+		_figure(crumber, CRUMB_SCALE, side, "jog", "back_r", _stride(_t - 0.6), num, _look, Vector2.INF, false, _build)
 	elif _t < SNAP_AT - 0.12:
 		# Down over the ball as it reaches him, up with it into the chest.
 		var g := 0 if _t < 1.5 else (1 if _t < 1.62 else 2)
-		_figure(crumber, 1.25, side, "gather", "back_r", g, num, _look)
+		_figure(crumber, CRUMB_SCALE, side, "gather", "back_r", g, num, _look, Vector2.INF, false, _build)
 	elif _t < 2.3:
 		# Snapped around the body: the boot meets the ball at SNAP_AT.
-		_figure(crumber, 1.25, side, "snap", "back_r", mini(4, int((_t - SNAP_AT + 0.12) / 0.04)), num, _look)
+		_figure(crumber, CRUMB_SCALE, side, "snap", "back_r", mini(4, int((_t - SNAP_AT + 0.12) / 0.04)), num, _look, Vector2.INF, false, _build)
 	else:
-		_ready_figure(crumber, 1.25, side, "back", 4, false, false, num, _look)     # landed, watching it
+		_ready_figure(crumber, CRUMB_SCALE, side, "back", 4, false, false, num, _look, _build)     # landed, watching it
 
 	var top := Vector2(w * 0.605, pack_ground - lift + 38.0 - 2.25 * PX_PER_M)
-	var deck := crumber + Vector2(0.34 * PX_PER_M * 1.25, 38.0 * 1.25 - 4.0)
-	var hands := _at(crumber, 1.25, Vector2(0.25, 0.95))
-	var boot := _at(crumber, 1.25, SNAP_BOOT)
+	var deck := crumber + Vector2(0.34 * PX_PER_M * CRUMB_SCALE, 38.0 * CRUMB_SCALE - 4.0)
+	var hands := _at(crumber, CRUMB_SCALE, Vector2(0.25, 0.95))
+	var boot := _at(crumber, CRUMB_SCALE, SNAP_BOOT)
 	var goal := str(event.get("kind", "")) == "goal"
 	var target := Vector2(cx + (0.0 if goal else 28.0 * post_scale), line_y - 62.0 * post_scale)
 	if _t < 0.95:
@@ -469,13 +493,13 @@ func _draw_boundary_snap() -> void:
 	# Steadying, a few steps at goal, then the snap around the body; the ball
 	# leaves the boot at 1.35 s.
 	if _t < 0.45:
-		_ready_figure(kicker, 1.28, side, "back", 6, false, false, num, _look)
+		_ready_figure(kicker, 1.28, side, "back", 6, false, false, num, _look, _build)
 	elif _t < 1.05:
-		_figure(kicker, 1.28, side, "jog", "back_r", _stride(_t - 0.45), num, _look)
+		_figure(kicker, 1.28, side, "jog", "back_r", _stride(_t - 0.45), num, _look, Vector2.INF, false, _build)
 	elif _t < 1.85:
-		_figure(kicker, 1.28, side, "snap", "back_r", mini(4, int((_t - 1.05) / 0.1)), num, _look)
+		_figure(kicker, 1.28, side, "snap", "back_r", mini(4, int((_t - 1.05) / 0.1)), num, _look, Vector2.INF, false, _build)
 	else:
-		_ready_figure(kicker, 1.28, side, "back", 6, false, false, num, _look)     # landed, watching it
+		_ready_figure(kicker, 1.28, side, "back", 6, false, false, num, _look, _build)     # landed, watching it
 	if _t >= 1.25 and _t < 1.35:
 		_draw_ball(held.lerp(boot, (_t - 1.25) / 0.1), 1.10)      # dropped onto the boot
 	elif _t >= 1.35:
@@ -514,14 +538,17 @@ func _kick_frame(t: float, contact: float) -> int:
 ## standing on the turf, where his shadow falls (defaults to pos). Numbers show
 ## on back-facing frames.
 func _figure(pos: Vector2, scale: float, side: int, anim: String, facing: String, frame: int,
-		number := 0, look: Dictionary = EXTRA_LOOK, ground := Vector2.INF, mirror := false) -> void:
+		number := 0, look: Dictionary = EXTRA_LOOK, ground := Vector2.INF, mirror := false,
+		build := BODY) -> void:
+	if not VignetteFigures.has(build, anim, facing):
+		build = BODY
 	var feet := pos + Vector2(0, 38.0 * scale)
 	var pm := PX_PER_M * scale
 	var shadow_at := feet if ground == Vector2.INF else ground + Vector2(0, 38.0 * scale)
 	draw_set_transform(shadow_at, 0.0, Vector2(1.0, 0.3))
 	draw_circle(Vector2.ZERO, 0.4 * pm, Color(0, 0, 0, 0.32))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	var info := VignetteFigures.strip(BODY, anim, facing)
+	var info := VignetteFigures.strip(build, anim, facing)
 	var f := clampi(frame, 0, int(info["frames"]) - 1)
 	var k := pm / VignetteFigures.PX_PER_M
 	# The number, printed on the back of the guernsey by the shader.
@@ -533,10 +560,10 @@ func _figure(pos: Vector2, scale: float, side: int, anim: String, facing: String
 ## of his own (seed), looking ahead or turned to what he's watching (turn: the
 ## ready_turn frames look to his left; mirror for his right).
 func _ready_figure(pos: Vector2, scale: float, side: int, facing: String, seed: int, turn := false,
-		mirror := false, number := 0, look: Dictionary = EXTRA_LOOK) -> void:
+		mirror := false, number := 0, look: Dictionary = EXTRA_LOOK, build := BODY) -> void:
 	var rate := 2.4 + 0.25 * float(seed % 5)
 	var frame := int(_t * rate + seed * 0.61) % 3
-	_figure(pos, scale, side, "ready_turn" if turn else "ready", facing, frame, number, look, Vector2.INF, mirror)
+	_figure(pos, scale, side, "ready_turn" if turn else "ready", facing, frame, number, look, Vector2.INF, mirror, build)
 
 
 func _draw_ball(pos: Vector2, scale: float) -> void:

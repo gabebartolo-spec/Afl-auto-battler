@@ -12,7 +12,7 @@ class_name VignetteFigures
 ## the strip's frames, pixels. Numbers are printed on the guernsey by the shader
 ## (figures_digits.png), not placed here.
 
-const SHEET_SIZE := Vector2i(2048, 3168)
+const SHEET_SIZE := Vector2i(2048, 4032)
 const FRAME := Vector2(128, 288)
 ## World (0, 0, 0) - the feet - in most strips, pixels (each strip carries its own).
 const PIVOT := Vector2(64.00, 266.16)
@@ -23,13 +23,13 @@ const BODIES := {
 		"anims": {
 			"idle": {
 				"front": {
-					"row": 8,
+					"row": 11,
 					"col": 15,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 9,
+					"row": 12,
 					"col": 15,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
@@ -57,41 +57,41 @@ const BODIES := {
 			},
 			"leap": {
 				"front": {
-					"row": 3,
-					"col": 8,
+					"row": 5,
+					"col": 0,
 					"frames": 6,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 4,
-					"col": 0,
+					"row": 5,
+					"col": 6,
 					"frames": 6,
 					"pivot": [64.0, 266.16],
 				},
 			},
 			"tap": {
 				"front": {
-					"row": 4,
-					"col": 6,
+					"row": 6,
+					"col": 0,
 					"frames": 6,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 5,
-					"col": 0,
+					"row": 6,
+					"col": 6,
 					"frames": 6,
 					"pivot": [64.0, 266.16],
 				},
 			},
 			"tap_b": {
 				"front": {
-					"row": 4,
+					"row": 5,
 					"col": 12,
 					"frames": 4,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 5,
+					"row": 6,
 					"col": 12,
 					"frames": 4,
 					"pivot": [64.0, 266.16],
@@ -99,35 +99,35 @@ const BODIES := {
 			},
 			"ready": {
 				"front": {
-					"row": 7,
-					"col": 13,
+					"row": 10,
+					"col": 4,
 					"frames": 3,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 8,
-					"col": 0,
+					"row": 10,
+					"col": 7,
 					"frames": 3,
 					"pivot": [64.0, 266.16],
 				},
 			},
 			"ready_turn": {
 				"front": {
-					"row": 8,
-					"col": 3,
+					"row": 10,
+					"col": 10,
 					"frames": 3,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 8,
-					"col": 6,
+					"row": 10,
+					"col": 13,
 					"frames": 3,
 					"pivot": [64.0, 266.16],
 				},
 			},
 			"bounce": {
 				"front": {
-					"row": 6,
+					"row": 7,
 					"col": 12,
 					"frames": 4,
 					"pivot": [64.0, 266.16],
@@ -135,32 +135,32 @@ const BODIES := {
 			},
 			"kick": {
 				"back_r": {
-					"row": 5,
-					"col": 6,
+					"row": 7,
+					"col": 0,
 					"frames": 6,
-					"pivot": [39.0, 266.16],
+					"pivot": [43.0, 266.16],
 				},
 			},
 			"snap": {
 				"back_r": {
-					"row": 7,
-					"col": 0,
+					"row": 9,
+					"col": 6,
 					"frames": 5,
 					"pivot": [36.0, 266.16],
 				},
 			},
 			"gather": {
 				"back_r": {
-					"row": 8,
-					"col": 9,
+					"row": 11,
+					"col": 0,
 					"frames": 3,
 					"pivot": [64.0, 266.16],
 				},
 			},
 			"lunge": {
 				"side_l": {
-					"row": 8,
-					"col": 12,
+					"row": 11,
+					"col": 3,
 					"frames": 3,
 					"pivot": [64.0, 266.16],
 				},
@@ -175,8 +175,8 @@ const BODIES := {
 			},
 			"celebrate": {
 				"front": {
-					"row": 10,
-					"col": 0,
+					"row": 13,
+					"col": 8,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
 				},
@@ -188,14 +188,14 @@ const BODIES := {
 		"anims": {
 			"idle": {
 				"front": {
-					"row": 10,
-					"col": 1,
+					"row": 13,
+					"col": 9,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 10,
-					"col": 2,
+					"row": 13,
+					"col": 10,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
 				},
@@ -216,56 +216,141 @@ const BODIES := {
 			},
 			"tap": {
 				"front": {
-					"row": 6,
-					"col": 0,
+					"row": 7,
+					"col": 6,
 					"frames": 6,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 6,
-					"col": 6,
+					"row": 8,
+					"col": 0,
 					"frames": 6,
 					"pivot": [64.0, 266.16],
 				},
 			},
 			"tap_b": {
 				"front": {
-					"row": 7,
-					"col": 5,
+					"row": 8,
+					"col": 12,
 					"frames": 4,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 7,
-					"col": 9,
+					"row": 10,
+					"col": 0,
 					"frames": 4,
 					"pivot": [64.0, 266.16],
 				},
 			},
 			"ready": {
 				"front": {
-					"row": 9,
-					"col": 0,
+					"row": 11,
+					"col": 6,
 					"frames": 3,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 9,
-					"col": 3,
+					"row": 11,
+					"col": 9,
 					"frames": 3,
 					"pivot": [64.0, 266.16],
 				},
 			},
 			"ready_turn": {
 				"front": {
-					"row": 9,
-					"col": 6,
+					"row": 11,
+					"col": 12,
 					"frames": 3,
 					"pivot": [64.0, 266.16],
 				},
 				"back": {
-					"row": 9,
+					"row": 12,
+					"col": 0,
+					"frames": 3,
+					"pivot": [64.0, 266.16],
+				},
+			},
+		},
+	},
+	"small": {
+		"height_m": 1.78,
+		"anims": {
+			"jog": {
+				"front": {
+					"row": 3,
+					"col": 0,
+					"frames": 8,
+					"pivot": [64.0, 266.16],
+				},
+				"back": {
+					"row": 3,
+					"col": 8,
+					"frames": 8,
+					"pivot": [64.0, 266.16],
+				},
+				"back_r": {
+					"row": 4,
+					"col": 0,
+					"frames": 8,
+					"pivot": [70.0, 266.16],
+				},
+			},
+			"leap": {
+				"back": {
+					"row": 8,
+					"col": 6,
+					"frames": 6,
+					"pivot": [64.0, 266.16],
+				},
+			},
+			"ready": {
+				"front": {
+					"row": 12,
+					"col": 3,
+					"frames": 3,
+					"pivot": [64.0, 266.16],
+				},
+				"back": {
+					"row": 12,
+					"col": 6,
+					"frames": 3,
+					"pivot": [64.0, 266.16],
+				},
+			},
+			"ready_turn": {
+				"front": {
+					"row": 12,
 					"col": 9,
+					"frames": 3,
+					"pivot": [64.0, 266.16],
+				},
+				"back": {
+					"row": 12,
+					"col": 12,
+					"frames": 3,
+					"pivot": [64.0, 266.16],
+				},
+			},
+			"kick": {
+				"back_r": {
+					"row": 9,
+					"col": 0,
+					"frames": 6,
+					"pivot": [43.0, 266.16],
+				},
+			},
+			"snap": {
+				"back_r": {
+					"row": 9,
+					"col": 11,
+					"frames": 5,
+					"pivot": [36.0, 266.16],
+				},
+			},
+			"gather": {
+				"back_r": {
+					"row": 13,
+					"col": 0,
 					"frames": 3,
 					"pivot": [64.0, 266.16],
 				},
@@ -277,32 +362,32 @@ const BODIES := {
 		"anims": {
 			"coach_idle": {
 				"front": {
-					"row": 10,
-					"col": 3,
+					"row": 13,
+					"col": 11,
 					"frames": 1,
 					"pivot": [64.0, 266.16],
 				},
 			},
 			"coach_walk": {
 				"front_r": {
-					"row": 3,
-					"col": 0,
+					"row": 4,
+					"col": 8,
 					"frames": 8,
 					"pivot": [64.0, 266.16],
 				},
 			},
 			"coach_sit": {
 				"front": {
-					"row": 9,
-					"col": 12,
+					"row": 13,
+					"col": 3,
 					"frames": 3,
 					"pivot": [64.0, 266.16],
 				},
 			},
 			"coach_seated": {
 				"front": {
-					"row": 3,
-					"col": 14,
+					"row": 13,
+					"col": 6,
 					"frames": 2,
 					"pivot": [64.0, 266.16],
 				},
@@ -315,6 +400,11 @@ const BODIES := {
 ## The strip for a body's move from one side: {"row", "col", "frames", "pivot"}.
 static func strip(body: String, anim: String, facing: String) -> Dictionary:
 	return BODIES[body]["anims"][anim][facing]
+
+
+## Whether a body has a move from that side (small men don't play every move).
+static func has(body: String, anim: String, facing: String) -> bool:
+	return BODIES.has(body) and (BODIES[body]["anims"] as Dictionary).has(anim) 			and (BODIES[body]["anims"][anim] as Dictionary).has(facing)
 
 
 ## Where frame i of a strip sits in the sheet.

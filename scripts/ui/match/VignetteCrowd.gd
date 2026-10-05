@@ -9,12 +9,16 @@ extends RefCounted
 static var _cache := {}
 
 
-## The stand as a texture, w x h pixels, for two clubs' colours. Cached by size
-## and colours, so a scene asks for it every frame for free.
-static func stand(w: int, h: int, colours: Array, seed := 7) -> ImageTexture:
-	w = maxi(8, w)
-	h = maxi(8, h)
-	var key := "%d|%d|%s|%d" % [w, h, str(colours), seed]
+## The stand as a texture for two clubs' colours, painted once at a fixed size and
+## stretched to fit: as a camera pushes in the stand only scales, it never repaints
+## (repainting at each new size reshuffled the whole crowd every frame).
+const STAND_W := 512
+const STAND_H := 160
+
+static func stand(colours: Array, seed := 7) -> ImageTexture:
+	var w := STAND_W
+	var h := STAND_H
+	var key := "%s|%d" % [str(colours), seed]
 	if _cache.has(key):
 		return _cache[key]
 	if _cache.size() > 8:
@@ -36,7 +40,7 @@ static func stand(w: int, h: int, colours: Array, seed := 7) -> ImageTexture:
 	var row := 0
 	while y < h:
 		var depth := y / float(h)                    # 0 at the back, 1 at the front
-		var head := lerpf(1.6, 4.2, depth)
+		var head := lerpf(1.2, 3.0, depth)
 		var pitch := head * 2.3
 		# Kept well under the players: the stand sits back, softer and darker than the play.
 		var light := lerpf(0.35, 0.7, depth)
@@ -61,13 +65,12 @@ static func stand(w: int, h: int, colours: Array, seed := 7) -> ImageTexture:
 	return tex
 
 
-## Draw the stand into rect on ci, with a stir through it now and then: a few
-## supporters' arms up (t: the scene's clock). Light falls from the stadium's
-## lights across the top.
+## Draw the stand into rect on ci. Now and then a supporter stands with an arm up
+## and sits again, slowly (t: the scene's clock) - a few at a time, not a shimmer.
 static func draw(ci: CanvasItem, rect: Rect2, colours: Array, t: float, seed := 7) -> void:
 	if rect.size.x < 4.0 or rect.size.y < 4.0:
 		return
-	ci.draw_texture_rect(stand(int(rect.size.x), int(rect.size.y), colours, seed), rect, false)
+	ci.draw_texture_rect(stand(colours, seed), rect, false)
 	# Haze from the light towers over the far rows.
 	for i in range(4):
 		ci.draw_rect(Rect2(rect.position, Vector2(rect.size.x, rect.size.y * (0.25 - 0.05 * i))),
@@ -75,13 +78,14 @@ static func draw(ci: CanvasItem, rect: Rect2, colours: Array, t: float, seed := 
 	# A stir: arms up here and there, moving through the crowd.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed + 99
-	for n in range(int(rect.size.x / 30.0)):
+	for n in range(int(rect.size.x / 70.0)):
 		var px := rng.randf() * rect.size.x
-		var py := rng.randf_range(0.35, 0.95) * rect.size.y
+		var py := rng.randf_range(0.45, 0.95) * rect.size.y
 		var phase := rng.randf() * TAU
-		var up := maxf(0.0, sin(t * 2.2 + phase))
-		if up > 0.6:
-			var size := lerpf(1.5, 3.5, py / rect.size.y)
+		# Up for about a second in every five, easing up and down.
+		var up := smoothstep(0.75, 0.95, sin(t * 1.2 + phase))
+		if up > 0.0:
+			var size := lerpf(1.2, 2.6, py / rect.size.y)
 			var col: Color = (colours[n % colours.size()] as Array)[0] if not colours.is_empty() else Color.WHITE
-			ci.draw_rect(Rect2(rect.position + Vector2(px, py - size * 2.2 * up), Vector2(size * 0.6, size * 1.6)),
-					Color(col.lightened(0.15), 0.7), true)
+			ci.draw_rect(Rect2(rect.position + Vector2(px, py - size * 2.0 * up), Vector2(size * 0.6, size * 1.4)),
+					Color(col.darkened(0.3), 0.6 * up), true)
