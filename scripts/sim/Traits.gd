@@ -73,21 +73,58 @@ const SYNERGIES := {
 			"about": "A side of endurance runners.", "does": "The whole side tires more slowly."},
 }
 
+## Earned, not rated: a player who can be picked at forward, midfield and back
+## (his own position plus ones learned in training). On the ground he also
+## fills one missing slot in one synergy (director, 2026-10-06): the first, in
+## SYNERGIES order, that it completes, in his line for a line synergy. He never
+## switches on two, and never one that needs more than the one slot.
+const EARNED := {
+	"unicorn": {"label": "Unicorn", "text": "Plays forward, midfield and back. On the ground he can fill one missing place in one synergy.",
+			"scout": "Can play anywhere on the ground."},
+}
+const UNICORN_LINES := ["FWD", "MID", "DEF"]
+
 const MAX_GOOD := 2
 const LINE_NAMES := {"RUCK": "ruck", "MID": "midfield", "DEF": "defence", "FWD": "forward line"}
 
 
+static func _def(key: String) -> Dictionary:
+	return DEFS.get(key, EARNED.get(key, SYNERGIES.get(key, {})))
+
+
 static func label(key: String) -> String:
-	return str((DEFS.get(key, SYNERGIES.get(key, {})) as Dictionary).get("label", key))
+	return str(_def(key).get("label", key))
 
 
 static func text(key: String) -> String:
-	return str((DEFS.get(key, SYNERGIES.get(key, {})) as Dictionary).get("text", ""))
+	return str(_def(key).get("text", ""))
 
 
 ## The trait in a recruiter's words, for scouting a player (no numbers).
 static func scout(key: String) -> String:
-	return str((DEFS.get(key, {}) as Dictionary).get("scout", text(key)))
+	return str((DEFS.get(key, EARNED.get(key, {})) as Dictionary).get("scout", text(key)))
+
+
+## His own position, second position and any learned (as Ratings.positions;
+## kept here so Traits stays free of other scripts for the test runners).
+static func _positions(p: Dictionary) -> Array:
+	var out := [str(p.get("own_role", p.get("role", "")))]
+	var r2 := str(p.get("role2", ""))
+	if r2 != "" and not out.has(r2):
+		out.append(r2)
+	for r in p.get("learned", []):
+		if not out.has(str(r)):
+			out.append(str(r))
+	return out
+
+
+## Forward, midfield and back all among the positions he can be picked in.
+static func is_unicorn(p: Dictionary) -> bool:
+	var have := _positions(p)
+	for line in UNICORN_LINES:
+		if not have.has(line):
+			return false
+	return true
 
 
 static func is_bad(key: String) -> bool:
@@ -98,7 +135,7 @@ static func is_bad(key: String) -> bool:
 ## first), then Hothead if it applies.
 static func of(p: Dictionary) -> Array:
 	var attr: Dictionary = p.get("attr", {})
-	var roles := [str(p.get("role", "")), str(p.get("role2", "")), str(p.get("list_tag", ""))]
+	var roles := [str(p.get("role", "")), str(p.get("list_tag", ""))] + _positions(p)
 	var good := []
 	var bad := []
 	for key in DEFS:
@@ -123,6 +160,8 @@ static func of(p: Dictionary) -> Array:
 		good.append([key, v - int(d["min"])])
 	good.sort_custom(func(a, b): return int(a[1]) > int(b[1]))
 	var out := []
+	if is_unicorn(p):
+		out.append("unicorn")
 	for g in good.slice(0, MAX_GOOD):
 		out.append(g[0])
 	out.append_array(bad)
@@ -149,23 +188,62 @@ static func _counts(ground: Array) -> Dictionary:
 ## Synergies a side's on-ground players switch on.
 static func active(ground: Array) -> Array:
 	var counts := _counts(ground)
+	var wild := wildcards(ground)
 	var out := []
 	for key in SYNERGIES:
 		var s: Dictionary = SYNERGIES[key]
 		var have: Dictionary = counts[str(s["line"])]
 		var ok := true
 		for t in s["needs"]:
-			if int(have.get(t, 0)) < int(s["needs"][t]):
+			if int(have.get(t, 0)) + _filled(wild, key, str(t)) < int(s["needs"][t]):
 				ok = false
 		if ok:
 			out.append(key)
 	return out
 
 
+## Which synergy slots the Unicorns on the ground fill: {synergy: [trait,
+## player]}. Each Unicorn fills at most one slot, in the first synergy (in
+## SYNERGIES order) that his slot completes and that is not already on; a
+## line synergy only when he is playing in that line.
+static func wildcards(ground: Array) -> Dictionary:
+	var out := {}
+	var unicorns := []
+	for p in ground:
+		if is_unicorn(p):
+			unicorns.append(p)
+	if unicorns.is_empty():
+		return out
+	var counts := _counts(ground)
+	for u in unicorns:
+		for key in SYNERGIES:
+			if out.has(key):
+				continue
+			var s: Dictionary = SYNERGIES[key]
+			var line := str(s["line"])
+			if line != "" and str(u.get("role", "")) != line:
+				continue
+			var have: Dictionary = counts[line]
+			var short := []
+			for t in s["needs"]:
+				var gap := int(s["needs"][t]) - int(have.get(t, 0))
+				if gap > 0:
+					short.append([str(t), gap])
+			if short.size() == 1 and int(short[0][1]) == 1 and not of(u).has(str(short[0][0])):
+				out[key] = [str(short[0][0]), u]
+				break
+	return out
+
+
+static func _filled(wild: Dictionary, key: String, t: String) -> int:
+	return 1 if wild.has(key) and str(wild[key][0]) == t else 0
+
+
 ## Every synergy with how close the side is: [{key, active, have: {t: n},
 ## needs: {t: n}}], active ones first, then the nearest.
 static func progress(ground: Array) -> Array:
 	var counts := _counts(ground)
+	var wild := wildcards(ground)
 	var out := []
 	for key in SYNERGIES:
 		var s: Dictionary = SYNERGIES[key]
@@ -173,7 +251,7 @@ static func progress(ground: Array) -> Array:
 		var have := {}
 		var missing := 0
 		for t in s["needs"]:
-			have[t] = mini(int(have_line.get(t, 0)), int(s["needs"][t]))
+			have[t] = mini(int(have_line.get(t, 0)) + _filled(wild, key, str(t)), int(s["needs"][t]))
 			missing += int(s["needs"][t]) - int(have[t])
 		out.append({"key": key, "active": missing == 0, "missing": missing,
 				"have": have, "needs": s["needs"]})
@@ -206,6 +284,7 @@ static func carriers(key: String, ground: Array) -> Array:
 	if s.is_empty():
 		return []
 	var line := str(s["line"])
+	var wild := wildcards(ground)
 	var out := []
 	for t in s["needs"]:
 		var names := []
@@ -214,6 +293,8 @@ static func carriers(key: String, ground: Array) -> Array:
 				continue
 			if of(p).has(str(t)):
 				names.append(p)
+		if _filled(wild, key, str(t)) > 0:
+			names.append(wild[key][1])
 		out.append([str(t), names])
 	return out
 

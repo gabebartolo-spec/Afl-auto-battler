@@ -476,16 +476,39 @@ static func _secondary_ok(p: Dictionary, primary: String, role: String, sc: floa
 
 static func role_tag(p: Dictionary) -> String:
 	var primary := str(p.get("role", ""))
-	var secondary := str(p.get("role2", ""))
-	if secondary == "" or secondary == primary:
-		return primary
-	return "%s/%s" % [primary, secondary]
+	var tag := primary
+	for r in second_positions(p):
+		if str(r) != primary:
+			tag += "/" + str(r)
+	return tag
+
+
+## Every position he can be picked in: his own, his second, and any he has
+## learned in training (GameState: learning another position).
+static func positions(p: Dictionary) -> Array:
+	var out := [str(p.get("own_role", p.get("role", "")))]
+	for r in second_positions(p):
+		if not out.has(r):
+			out.append(r)
+	return out
+
+
+## His second position and any learned after it.
+static func second_positions(p: Dictionary) -> Array:
+	var out := []
+	var r2 := str(p.get("role2", ""))
+	if r2 != "":
+		out.append(r2)
+	for r in p.get("learned", []):
+		if str(r) != "" and not out.has(str(r)):
+			out.append(str(r))
+	return out
 
 
 static func plays_role(p: Dictionary, role: String) -> bool:
 	if role == "":
 		return true
-	return str(p.get("role", "")) == role or str(p.get("role2", "")) == role
+	return str(p.get("role", "")) == role or second_positions(p).has(role)
 
 
 ## Plausible annual AFL salary from the overall rating. This is the simple
@@ -571,7 +594,7 @@ static func select_22(list_players: Array) -> Dictionary:
 			for p in pool:
 				if added >= need:
 					break
-				if str(p.get("role2", "")) == role and not used.has(p["id"]):
+				if second_positions(p).has(role) and not used.has(p["id"]):
 					ground.append(_for_slot(p, role))
 					used[p["id"]] = true
 					added += 1
@@ -688,7 +711,7 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 						var id := str(p["id"])
 						if used.has(id) or int(tier.get(id, 0)) != pass_tier:
 							continue
-						if str(p.get(key, "")) == role:
+						if (str(p.get("role", "")) == role) if key == "role" else second_positions(p).has(role):
 							ground.append(_for_slot(p, role))
 							used[id] = true
 							have += 1

@@ -455,8 +455,7 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 			var fl := UiKit.line(fit, 12, UiKit.MUTED)
 			fl.name = "Fit"
 			h.add_child(fl)
-	elif placed_as != "" and placed_as != "BENCH" and str(p["role"]) != placed_as \
-			and str(p.get("role2", "")) != placed_as:
+	elif placed_as != "" and placed_as != "BENCH" and not Ratings.plays_role(p, placed_as):
 		h.add_child(UiKit.line("Out of position", 12, UiKit.MUTED))
 	# His rating sits outside the tap area, beside the position button, so a
 	# long trait line never runs under either.
