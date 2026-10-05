@@ -4971,7 +4971,125 @@ Prefer improving the existing experience when that answers the same need. This p
 
 ---
 
+## ARD-M8-009 — Trailer production gate
+**Status:** `DEFERRED`  
+**Priority:** `P3`  
+**Autonomy:** `SUPERVISED`
+
+### Intent
+Create a polished trailer for Aussie Rules Dynasties only when the game itself is sufficiently mature that the trailer can represent the real product rather than advertise unfinished systems or placeholder presentation.
+
+This is a **hard-gated late-project item**.
+
+### Start conditions
+Claude must **not begin trailer production** until all of the following are true:
+- the roadmap is **mostly complete**,
+- major visual/presentation work is substantially finished,
+- the game's visual polish is close to the intended shipping quality,
+- the core loop, matchday presentation, Club Forge/customisation, long-career systems and other major player-facing features intended for the trailer are stable enough to capture,
+- there are no known major placeholder visuals that would make the trailer misleading or immediately obsolete,
+- the user has given **explicit go-ahead to start trailer work**.
+
+Roadmap status alone does **not** authorise work on the trailer.
+
+### Explicit approval gate
+Claude has **no standing authority** to initiate this item.
+
+Even if every technical prerequisite is satisfied, Claude must stop and wait until the user explicitly says to proceed with the trailer.
+
+Do not:
+- begin editing,
+- capture footage,
+- install trailer-production tools,
+- create music specifically for the trailer,
+- render title cards,
+- assemble cuts,
+- or open a trailer PR
+
+before that explicit approval.
+
+### High-effort agent responsibility
+A high-effort Claude run should periodically reassess whether the project has reached the point where a trailer is sensible.
+
+When Claude believes the roadmap is mostly complete and visual polish has reached a strong enough level, Claude should **tell the user that it believes the trailer gate is ready** and briefly explain why.
+
+That message is a recommendation only. It does **not** authorise trailer production.
+
+### Software permission
+Once the user explicitly authorises trailer work, Claude may source additional software needed for trailer production under these constraints:
+
+- **Free software only.**
+- Open-source tools are preferred.
+- No paid licences, subscriptions, trials that will later charge, or purchases without separate explicit user approval.
+- Claude may research, download and use suitable free software if its environment permits.
+- If Claude cannot install/use a required free tool directly, it should give the user concise instructions for obtaining/installing it and then continue once available.
+- Record any new tool and its licence/source in the trailer implementation notes.
+
+Potential categories include:
+- video capture,
+- editing,
+- transcoding,
+- audio cleanup/mixing,
+- motion graphics,
+- image compositing,
+- subtitle/title-card production.
+
+Do not lock the roadmap to one editor in advance; choose the simplest suitable free tool at production time.
+
+### Trailer goals
+The trailer should sell the actual strengths of the finished game:
+- building and shaping a club over decades,
+- meaningful matchday coaching decisions,
+- recognisable players and evolving careers,
+- drafts, trades and list construction,
+- expansion/custom-club identity where visually mature,
+- polished match vignettes and club visual identity,
+- emergent stories rather than scripted fake drama.
+
+Do not manufacture gameplay outcomes that the real game cannot produce.
+
+### Capture rules
+- Capture from a build representative of the intended release quality.
+- Prefer genuine gameplay and real in-engine presentation.
+- Do not hide major limitations with deceptive editing.
+- Avoid debug UI, placeholder art and temporary assets.
+- Use real game audio/music only if it is cleared for trailer use.
+- If custom trailer music is required, it must also comply with the free/licensed-use rule.
+
+### Pre-production deliverable
+After the user explicitly approves trailer work, Claude should first produce a short trailer plan before editing:
+- target length,
+- audience,
+- story arc,
+- shot list,
+- required game states/saves,
+- capture list,
+- music/audio approach,
+- title-card copy,
+- output formats,
+- distribution targets.
+
+The user should be able to review this plan before significant editing effort is spent.
+
+### Acceptance
+The trailer item can only move out of `DEFERRED` after:
+1. Claude recommends that the gate is ready,
+2. the user explicitly authorises trailer production.
+
+It is complete only when:
+- the trailer accurately represents current gameplay,
+- footage is visually polished,
+- audio levels are clean,
+- text is readable on mobile and desktop,
+- no unlicensed material is present,
+- final exports are produced in suitable release formats,
+- the user has reviewed the finished cut.
+
+---
+
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Added ARD-M8-009 as a hard-gated late-project trailer task. Claude may recommend when the roadmap/visual polish are mature enough, but cannot begin trailer work without explicit user approval. Once approved, Claude may source/use free software only, or direct the user to install suitable free tools.
 
 - **2026-10-05:** Tightened ARD-M7-011 with a footyhead-proof veracity standard: real AFL facts must be sourced and auditable, ambiguous/non-trivial claims should be cross-checked against multiple strong sources, and disputed or uncertain claims should be omitted rather than guessed.
 
