@@ -1,0 +1,37 @@
+diff --git a/scripts/sim/TradeValue.gd b/scripts/sim/TradeValue.gd
+index 8d6043c..c4d4347 100644
+--- a/scripts/sim/TradeValue.gd
++++ b/scripts/sim/TradeValue.gd
+@@ -42,13 +42,26 @@ static func now_rating(p: Dictionary) -> float:
+ 	return rating(p) - 1.0 * maxf(0.0, float(p.get("age", 25.0)) - 30.0)
+ 
+ 
+-## What he could become: part of the gap to his potential, the younger the
+-## more of it (none from 24 and a half), less the same ageing decline.
++## What he could become: his rating played forward by the development rule
++## every club's players follow (Potential.growth, each off-season to 28),
++## counting 60% of that growth - projections are not promises - less the
++## same ageing decline. The same rule and caution at 19 as at 25.
+ static func future_rating(p: Dictionary) -> float:
+-	var ovr := rating(p)
+-	var pot := maxf(ovr, float(p.get("potential", ovr)))
+-	var youth := clampf((24.5 - float(p.get("age", 25.0))) / 5.0, 0.0, 1.0)
+-	return ovr + (pot - ovr) * 0.6 * youth - 1.0 * maxf(0.0, float(p.get("age", 25.0)) - 30.0)
++	var now := rating(p)
++	var age := float(p.get("age", 25.0))
++	var q := {"overall": roundi(now), "potential": maxi(roundi(now), int(p.get("potential", roundi(now))))}
++	var a := age
++	for _y in range(12):
++		a += 1.0
++		var step := Potential.growth(q, a)
++		if step <= 0.0:
++			break
++		q["overall"] = mini(int(q["potential"]), int(q["overall"]) + roundi(step))
++	return now + (float(q["overall"]) - roundi(now)) * GROWTH_COUNTED - 1.0 * maxf(0.0, age - 30.0)
++
++
++## The share of projected growth a club banks on (see future_rating).
++const GROWTH_COUNTED := 0.6
+ 
+ 
+ ## The share of a full career he has left: 1 under 26, falling to 0.15 at 33.

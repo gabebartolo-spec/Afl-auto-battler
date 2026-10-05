@@ -21,6 +21,9 @@ var form := 0.0
 var tactics_exec := 1.0
 var tactics_read := 0.0
 var ai_plans := false
+## Your club: the assistant takes the routine match-day calls you leave to
+## him - the loose defender and the key defenders' match-ups (MatchSim).
+var assistant := false
 
 ## Role-group strengths
 var ruck := 45.0
