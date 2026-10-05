@@ -4442,10 +4442,22 @@ Includes:
 - open-play shots remain live,
 - believable winger width/work rate,
 - correct kick-ins/stoppages/boundary restarts,
-- camera/pacing improvements where they improve football readability.
+- camera/pacing improvements where they improve football readability,
+- **tactical shape must be visibly truthful:** choices such as **Flood the backline** must materially change where the relevant players set up and move on the visualiser. Verify the underlying MatchSim/tactical effect first; if the tactic is not actually changing occupation/shape, fix the football behaviour rather than faking a presentation-only formation shift. Other structural calls should obey the same rule,
+- **no self-propelled / receiver-seeking ball:** investigate cases where a loose/bouncing ball appears to change course or travel implausibly into the hands of a player some distance away. Ball motion must follow the authoritative event and a believable kick/handball/deflection/bounce path; ownership changes must not look like teleportation,
+- **no unexplained disposals into empty space:** investigate why players frequently kick/handball toward no plausible teammate, contest or tactical target. Empty-space disposals are acceptable only when the event has a football reason (e.g. territory, pressure, hacked clearance, deliberate leading space, spoil/deflection); presentation must not invent a receiver that the simulation did not select,
+- **remove distant-contest wait states:** play still pauses too often while a far-away player runs to the contest before action resumes. Audit which event/participant requirement is causing the hold, explicitly including whether the visualiser is waiting for the designated ruckman to reach a stoppage. Localise the fix rather than hiding the pause with faster animation,
+- **persistent identity for important live roles:** players who are currently tactically or narratively important — at minimum taggers and their targets, hot/in-form players, roaming interceptors/spares, and equivalent special matchup actors — should keep their names visible on the visualiser rather than requiring the viewer to infer who matters from anonymous tokens. Keep this restrained: persistent labels are for meaningful actors, not all 36 players.
+
+Acceptance additions:
+- a structural coaching call that should alter team shape is recognisably visible within the next relevant phase of play and agrees with the authoritative simulation state;
+- sampled ball movements have an explainable origin, target/contest and path, with no unexplained receiver-seeking bounce or snap-to-player behaviour;
+- sampled disposals into space can be traced to a legitimate event reason or are fixed;
+- stoppages do not routinely freeze while an unnecessarily distant participant crosses the ground; required ruck/contest participants arrive through believable positioning/pacing rather than a dead wait;
+- named special-role/hot-player labels remain readable on phone without creating name-vomit or obscuring the ball/contest.
 
 Guardrail:
-Do not perform a movement-engine rewrite without evidence that local fixes are insufficient.
+Do not perform a movement-engine rewrite without evidence that local fixes are insufficient. Do not paper over authoritative simulation defects with presentation-only fakery.
 
 
 **Approved flavour extension:** FL-003 (§9.3) adds sourced, readable atmosphere for existing venues. Ground dress changes no geometry, weather, home advantage or football outcome.
@@ -5615,6 +5627,8 @@ The eight includes are the complete decision record. There are no rejected style
 # 10. Roadmap Maintenance Log
 
 - **2026-10-06:** The director approved implementing the best findings of the Codex research (project, workforce and art reports). §0.4a gains the team workflow rules W1–W7: fresh sessions at task boundaries with handoffs, direct messages, explicit states, event-driven monitoring, process ownership, semantic review for lifecycle changes, and the check-floor collision rule. §9.4 gains G1 (one interruption budget) and G7 (one career-fact record) as prerequisites. G10 (safe save replacement) is fixed in its own PR, and A4 (data textures stay lossless; colour atlases ASTC 4×4) in the art agent's.
+
+- **2026-10-06:** Expanded ARD-M8-003 from general authenticity polish into a concrete visualiser truthfulness pass from phone playtesting: tactical calls such as Flood the backline must visibly alter authoritative team shape; investigate receiver-seeking ball movement, unexplained disposals into empty space and distant-player contest wait states (including possible ruck-arrival waits); and keep tactically important actors such as taggers, hot players and roaming interceptors named on the visualiser. Presentation must expose real simulation behaviour, not fake it.
 
 - **2026-10-06:** After the complete one-at-a-time interview, included all eight STYLE-01–STYLE-08 work packages in §9.5 and the execution/effort queues; no rejections. Added the director-confirmed Training player-row vertical-alignment defect, dark Android priority, art-agent visual authority and director approval of all final treatments. Extended existing owners rather than reopening DONE foundations or duplicating M8-007. Research/source evidence is preliminary; implementation and native Android verification remain outstanding.
 
