@@ -99,6 +99,10 @@ vec2 design(int d, vec3 g) {
 		float stem = over(b, 0.22) * over(0.80, b) * over(0.17, abs(a));
 		float t = max(bar, stem) * land;
 		return vec2(land - t, t);
+	} else if (d == 13) {  // suit (the coach): the jacket open at the collar on the shirt (pattern), a tie (second colour)
+		float open = over(g.y, 0.58 + 1.9 * abs(g.x - 0.5)) * g.z;
+		float tie = open * over(0.028, abs(g.x - 0.5)) * over(0.93, g.y);
+		return vec2(open - tie, tie);
 	}
 	return vec2(0.0);
 }

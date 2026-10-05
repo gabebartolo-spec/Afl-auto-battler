@@ -213,7 +213,7 @@ func club_marker_colours(code: String) -> Array:
 
 ## Guernsey designs the vignette figures can wear, in figure.gdshader's numbering.
 const GUERNSEY_DESIGNS := ["plain", "stripes", "hoops", "sash", "yoke", "band", "chevrons", "panels",
-		"chevron", "sides", "tiers", "shoulders", "map"]
+		"chevron", "sides", "tiers", "shoulders", "map", "suit"]   # suit: the coach, not a club
 
 
 ## A club's home kit, from data/clubs.csv's "guernsey" column:
