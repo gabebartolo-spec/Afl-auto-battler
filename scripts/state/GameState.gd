@@ -5758,14 +5758,13 @@ func _style_found(code: String) -> Array:
 const STYLE_MIN := {
 	"for": 9.0, "against": 8.0, "clearances": 2.5, "inside50": 3.0,
 	"pressure_acts": 9.0, "marks": 5.0, "clangers": 3.5, "hitouts": 7.0,
-	"from_turnover": 6.0, "from_stoppage": 6.0, "conceded_turnover": 6.0, "conceded_stoppage": 6.0,
+	"from_stoppage": 6.0, "conceded_stoppage": 6.0,
 }
 ## Early reads are provisional: the difference counts games / (games + this).
 const STYLE_SHRINK := 4
 ## A points-source line and the total it is part of.
 const STYLE_PART_OF := {
-	"from_turnover": "for", "from_stoppage": "for",
-	"conceded_turnover": "against", "conceded_stoppage": "against",
+	"from_stoppage": "for", "conceded_stoppage": "against",
 }
 
 
@@ -5779,9 +5778,7 @@ const THEIR_STYLE := {
 	"marks": ["They hold it by foot and mark it.", "They rarely take a mark."],
 	"clangers": ["They look after the ball.", "They turn it over."],
 	"hitouts": ["Their ruck wins the tap.", "They get beaten in the ruck."],
-	"from_turnover": ["They hurt sides on the turnover.", "They rarely score on the turnover."],
 	"from_stoppage": ["They score from the stoppages.", "They rarely score from the stoppages."],
-	"conceded_turnover": ["They rarely get caught on the turnover.", "They get caught on the turnover."],
 	"conceded_stoppage": ["They shut down stoppage scores.", "They give up scores from the stoppages."],
 }
 
@@ -5804,12 +5801,8 @@ const STYLE_LINES := {
 			"We turn it over: %d more clangers a game than the average side.", true],
 	"hitouts": ["Our ruck wins the tap: %d more hit-outs a game than the average side.",
 			"We are beaten in the ruck: %d fewer hit-outs a game than the average side.", false],
-	"from_turnover": ["We hurt sides on the turnover: %d more points a game from it than the average side.",
-			"We rarely score on the turnover: %d fewer points a game from it than the average side.", false],
 	"from_stoppage": ["We score from the stoppages: %d more points a game from them than the average side.",
 			"We rarely score from the stoppages: %d fewer points a game from them than the average side.", false],
-	"conceded_turnover": ["We rarely get caught on the turnover: %d fewer points a game conceded from it than the average side.",
-			"They hurt us on the turnover: %d more points a game conceded from it than the average side.", true],
 	"conceded_stoppage": ["We shut down their stoppage game: %d fewer points a game conceded from stoppages than the average side.",
 			"They hurt us from the stoppages: %d more points a game conceded from them than the average side.", true],
 }
