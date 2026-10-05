@@ -1,18 +1,46 @@
 # AFL Auto-Battler — Design
 
-An auto-battler where the "battles" are simulated AFL matches. You draft a full
-44-player list from **real 2026 AFL season statistics**, then play a 24-round
-home-and-away season plus finals on an animated oval.
+An auto-battler where the "battles" are simulated AFL matches. The current
+opening League Draft builds **40-player lists** from 669 appearance-based
+2026 players plus 56 researched 2026 prospects. The first playable season
+is **2027**: a 24-round home-and-away season and wildcard finals on an
+animated oval. The accepted inherited-list alternative is specified below;
+it is not implemented by this documentation revision.
 
 Built for **Godot 4.7** (GDScript), targeting **PC and mobile**.
 
 ---
 
+## Career direction and research — 2026-10-05
+
+The [canonical roadmap](ROADMAP.md) owns execution and status. The [genre enjoyment research](GENRE_ENJOYMENT_RESEARCH.md) connects observed mechanics, developer interpretations and player/director accounts to testable ARD hypotheses.
+
+The director's priorities are a legible visual simulation, creative team construction, consistent decades-long saves, evolving individual roles and meaningful coaching during matches and seasons. A match-triggered decision must connect actual evidence to a feasible choice, applied state and observable consequences; success can be positive, negative or inconclusive. Presentation, events, statistics and histories must agree. Preserve uncertainty, transparent rules, AI parity, natural football language and Android-first layouts; no best-move recommendations or psychic opponents.
+
+**Zero microtransactions; commercialisation is outside the objective.** Football contracts/caps are simulated resources. Research candidates remain outside the execution queue until selected.
+
+Crusader Kings informs persistent identities and inspectable historical context across generations, with restrained complexity. Esoteric Ebb informs simple, characterful questions with logical answer feedback. Refine existing match gates, media and history first; these references do not introduce a new relationship or dialogue framework.
+
+### Accepted future start option — not implemented by this revision
+
+[ARD-M5-016](ROADMAP.md#ard-m5-016--inherited-list-career-2026-national-draft-start) adds **Inherit 2026 lists** beside **League redraft**. Inherited mode retains complete end-of-season 2026 registered lists for all 18 founding clubs before subsequent offseason changes, including zero-appearance players; it opens preparation for the 2026 National Draft and plays its first season in 2027.
+
+Use sourced snapshot pick ownership and the researched prospect cohort with the existing simplified draft framework. Full academy/father-son bidding reform is separate. Show pre-draft list-space decisions; never silently cut players or add fictional fillers. Record roster completeness, source dates and missing-player rating bases; simulated contracts remain estimates.
+
+Use a dedicated opening-draft handoff: current ages already refer to 2027, so this start must not simulate a completed 2026 season or repeat ageing, development, retirement or imported career history. Persist the mode/opening checkpoint, preserve older-save/redraft behaviour and normal later seasons/expansion. The complete acceptance and Android/save tests live in M5-016.
+
+The existing data/engine sections below describe implemented foundations; they are not a completeness claim for the future inherited-roster snapshot.
+
+---
+
+
 ## 1. Data
 
 `data/players_2026.csv` — real 2026 AFL season totals per player, harvested from
-[AFL Tables](https://afltables.com/afl/stats/2026.html). Target depth is the top
-~30 players per club by disposals (≈540 players across all 18 clubs).
+[AFL Tables](https://afltables.com/afl/stats/2026.html). The current file covers
+669 players with 2026 appearances across all 18 clubs; it is not a complete
+registered-list manifest. GameDB loads the enriched player dataset at runtime;
+this totals file also supports the calibration harness.
 
 Columns (all season totals unless noted):
 
@@ -408,6 +436,13 @@ log or its quarter snapshots, never decided by the screen.
   "none" and the four players most in the game so far (before the bounce,
   the best rated), plus "Other player..." for the whole side on the ground.
   The order is a convenience - nobody is filtered out.
+- **Your people on the oval.** The players of yours you have a say about wear
+  a thin ring: a run you promised, the player you play through, your tagger,
+  the spare, and the defender on each forward you matched up (six at most; the
+  match-ups the engine sets up itself and the man you tag are not ringed). A
+  surname goes up for a moment over a goal-scorer, and over a ringed player
+  when he gets the ball. Presentation only (`MatchRings`, `PitchView`): see
+  `docs/MATCH_VIEW.md`.
 - **Full time.** The conclusion, easy to scan: the result first and big
   (won or lost by how much, both scores), then what it means (finals, the
   ladder, who is next), "How it went" (up to three reasons from the result: a

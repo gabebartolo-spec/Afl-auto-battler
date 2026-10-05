@@ -400,16 +400,7 @@ func _draw_label(text: String, pos: Vector2, fs: int, col: Color, align: Horizon
 
 
 func _short_name(p: Dictionary) -> String:
-	var raw := ""
-	if GameState.show_real_names and str(p.get("last", "")) != "":
-		raw = str(p["last"])
-	else:
-		var generic := str(p.get("generic_name", p.get("name", "Player")))
-		var parts := generic.split(" ", false)
-		raw = parts[parts.size() - 1] if not parts.is_empty() else "Player"
-	if raw.length() > 10:
-		raw = raw.substr(0, 9) + "."
-	return raw
+	return GameDB.player_surname(p)
 
 
 func _full_name(p: Dictionary) -> String:

@@ -238,6 +238,9 @@ func _make_token(p: Dictionary, side: int, role: String, slot: String, base: Vec
 	t["side"] = side
 	t["num"] = int(p.get("num", 0))
 	t["name"] = GameDB.player_display_name_by_id(str(p.get("id", "")), str(p.get("name", "Player")))
+	# Who he is, for the ring and the name over him (PitchView).
+	t["pid"] = str(p.get("id", ""))
+	t["surname"] = _surname(str(t["pid"]), str(t["name"]))
 	t["role"] = role
 	t["slot"] = slot
 	t["base"] = base
@@ -1317,6 +1320,11 @@ func _sub(ev: Dictionary) -> void:
 	var t: Dictionary = tokens[id]
 	t["num"] = int(ev.get("num", t["num"]))
 	t["name"] = str(ev.get("name", t["name"]))
+	# The player on takes the ring and the name with the slot.
+	var on_id := str(ev.get("player_id", ""))
+	if on_id != "":
+		t["pid"] = on_id
+		t["surname"] = _surname(on_id, str(t["name"]))
 	ids[int(t["num"])] = id
 
 
@@ -1541,6 +1549,20 @@ func _actor_id(ev: Dictionary) -> int:
 	if side < 0 or side > 1:
 		return -1
 	return int((_ids[side] as Dictionary).get(int(ev.get("num", -1)), -1))
+
+
+## The token an event is about (-1 for none): the scorer of a goal, say.
+func token_of(ev: Dictionary) -> int:
+	return _actor_id(ev)
+
+
+## A surname for a name over a player: the database row when there is one (real
+## names carry their own last name), else the last word of what the log says.
+func _surname(pid: String, display: String) -> String:
+	var pl = GameDB.player_by_id(pid)
+	if pl != null:
+		return GameDB.player_surname(pl)
+	return GameDB.player_surname({"name": display})
 
 
 func _nearest(at: Vector2, side: int, n: int, exclude: Array) -> Array:

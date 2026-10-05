@@ -113,12 +113,30 @@ func _coach_row(job: String, c: Dictionary, releasable := false) -> Control:
 	for n in v.find_children("*", "Control", true, false):
 		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.pressed.connect(func(): _sheet = CoachSheet.open(self, c))
+	var expiring := releasable and GameState.expiring_staff().has(c)
+	if expiring:
+		var stance := CoachMarket.assistant_stance(c, GameState.season_year)
+		var term := UiKit.lbl("Contract ends. " + str(stance["text"]), UiKit.SMALL, UiKit.EMPH)
+		term.name = "ContractEnds_" + job
+		term.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(term)
+		b.custom_minimum_size.y = 92
 	if not releasable:
 		return b
-	# The offseason: an assistant can be let go (no payout, no negotiation).
+	# The offseason: an assistant can be let go (no payout, no negotiation);
+	# one whose term is up can also be kept, on his terms.
 	var h := UiKit.hbox(8)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(b)
+	if expiring:
+		var keep := UiKit.btn("Re-sign", 14)
+		keep.name = "Resign_" + job
+		keep.custom_minimum_size = Vector2(92, 44)
+		keep.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		keep.pressed.connect(func():
+			GameState.resign_staff(str(c["cid"]))
+			_build())
+		h.add_child(keep)
 	var rel := UiKit.btn("Release", 14)
 	rel.name = "Release_" + job
 	rel.custom_minimum_size = Vector2(92, 44)
