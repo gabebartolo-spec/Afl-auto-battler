@@ -516,44 +516,6 @@ func _figure(pos: Vector2, scale: float, side: int, anim: String, facing: String
 				VignetteFigures.source(info, f), StoppageVignette.number_colour(side, number))
 
 
-## LEGACY: the old drawn figure, still used by the awards walk-on
-## (AwardWinnerVignette) until it moves to the figures too (ARD-M8-007).
-func _draw_player(pos: Vector2, scale: float, cols: Array, number: int,
-		lean := 0.0, arms_up := false) -> void:
-	var primary: Color = cols[0] if cols.size() > 0 else Color(0.25, 0.25, 0.28)
-	var secondary: Color = cols[1] if cols.size() > 1 else Color.WHITE
-	var body := pos + Vector2(lean * 22.0 * scale, -44.0 * scale)
-	var hip := pos + Vector2.ZERO
-	var shoulder_l := body + Vector2(-14, -12) * scale
-	var shoulder_r := body + Vector2(14, -12) * scale
-	var hand_y := -42.0 if arms_up else 18.0
-	draw_line(hip + Vector2(-6, 0) * scale, hip + Vector2(-15, 38) * scale,
-			Color(0.055, 0.06, 0.07), 7.0 * scale, true)
-	draw_line(hip + Vector2(6, 0) * scale, hip + Vector2(15, 38) * scale,
-			Color(0.055, 0.06, 0.07), 7.0 * scale, true)
-	var torso := PackedVector2Array([
-		body + Vector2(-16, -16) * scale,
-		body + Vector2(16, -16) * scale,
-		body + Vector2(13, 24) * scale,
-		body + Vector2(-13, 24) * scale,
-	])
-	draw_colored_polygon(torso, primary)
-	draw_line(body + Vector2(-13, 7) * scale, body + Vector2(13, 7) * scale, secondary, 5.0 * scale)
-	var hand_l := shoulder_l + Vector2(-16, hand_y) * scale
-	var hand_r := shoulder_r + Vector2(16, hand_y) * scale
-	draw_line(shoulder_l, hand_l, primary.darkened(0.18), 6.0 * scale, true)
-	draw_line(shoulder_r, hand_r, primary.darkened(0.18), 6.0 * scale, true)
-	# Neutral silhouette head: no invented ethnicity or skin tone.
-	draw_circle(body + Vector2(0, -29) * scale, 8.5 * scale, Color(0.10, 0.095, 0.09))
-	if number > 0 and scale >= 0.9:
-		var font := ThemeDB.fallback_font
-		var fs := maxi(8, int(12.0 * scale))
-		var label := str(number)
-		var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
-		draw_string(font, body + Vector2(-tw * 0.5, 5 * scale), label,
-				HORIZONTAL_ALIGNMENT_LEFT, -1, fs, _readable_on(primary))
-
-
 func _draw_ball(pos: Vector2, scale: float) -> void:
 	var a := 9.0 * scale
 	var b := 6.0 * scale
@@ -580,8 +542,3 @@ func _ellipse(c: Vector2, a: float, b: float, n: int) -> PackedVector2Array:
 func _quad(a: Vector2, b: Vector2, c: Vector2, t: float) -> Vector2:
 	var u := 1.0 - t
 	return a * u * u + b * 2.0 * u * t + c * t * t
-
-
-func _readable_on(bg: Color) -> Color:
-	var lum := 0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b
-	return Color(0.06, 0.06, 0.07) if lum > 0.58 else Color.WHITE

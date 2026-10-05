@@ -63,13 +63,13 @@ static func open(host: Control) -> Control:
 			var code := str(winner.get("club", GameState.my_club))
 			var scene := AwardWinnerVignette.new()
 			scene.name = "AwardWinner"
-			scene.custom_minimum_size = Vector2(0, 190)
+			scene.custom_minimum_size = Vector2(0, 240)   # the stage and the room in front of it
 			body.add_child(scene)
 			var jumper := 0
 			for p in GameState.season.lists.get(code, []) if GameState.season != null else []:
 				if str(p.get("id", "")) == str(winner.get("id", "")):
 					jumper = int(p.get("num", 0))
-			scene.setup_winner(code, jumper)
+			scene.setup_winner(code, jumper, str(winner.get("id", "")))
 			state["vignette"] = scene
 			body.add_child(_words(GameState.award_name(winner), UiKit.TEXT, 24))
 			body.add_child(_words("%s · %d %s" % [GameDB.club_name(code), int(winner.get(metric, 0)),

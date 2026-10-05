@@ -450,7 +450,8 @@ func _frame(t: Dictionary, lift: float) -> Array:
 			return ["jog", int(_t * 10.0) % 8]
 		return ["idle", 0]
 	if lift > 0.0:
-		return ["leap", int(roundf(clampf(lift / 1.1, 0.0, 1.0) * 5.0))]
+		# The ruck contest: a ruckman taps one-handed, the other arm working his man.
+		return ["tap", int(roundf(clampf(lift / 1.1, 0.0, 1.0) * 5.0))]
 	if _moving(t):
 		# The same stride rate the scene always had; slower when they're out on their feet.
 		var strides := (9.0 if bool(t["tired"]) else 13.0) / TAU
