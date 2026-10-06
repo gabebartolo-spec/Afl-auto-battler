@@ -237,6 +237,8 @@ This is the **authoritative near-term work order**. The milestone catalogue belo
 
 **High-priority quality/performance follow-up (director, 2026-10-06):** free texture improvement, artefact reduction, anti-aliasing and frame-rate/loading/battery optimisation are also `P1`. Take the next available relevant art/rendering/performance slots after P0 blockers, preserving in-flight owners. First establish native baselines and correct data/edge artefacts, then local AA/filtering and unnecessary-work reductions, then texture/shader polish. Extend ARD-M8-007 LS/A4 and §1.11; optional expensive effects remain experiments, not default scope.
 
+**Highest immediate playtest priority (director, 2026-10-06): Club Forge usability repair (`P0`, §1.11 / ARD-M7-009).** Colour deselection, live creation preview and a compact usable flow are required; deliver a runnable fix for director testing ASAP. Coordinate with STYLE-07 and preserve other P0 correctness blockers.
+
 1. **Immediate director priority: repair unreadable PC fullscreen/maximised UI (STYLE-07, §1.11).** This is a `P0` usability blocker, promoted above planned features, cosmetic content and general styling on 2026-10-06. Start the next available development slot with shared desktop scaling and fit-to-screen repair; do not defer it behind the dark-phone styling programme. Preserve already-in-flight work and genuine soft-lock repairs. Other P0 phone-playtest failures (§1.11, §9.1) remain urgent.
 2. **The former in-flight stack has landed.** _Reconciled 2026-10-05:_ the match-authenticity work (#190 merged; #196 smothers/speccies/50s/MRO/kick-ins), Combine/scouting (#188), the trade/contracts stack (#182 → #191 → #193 → #198, real-money contracts), GPS distance (#195), post-match media (#183), milestones (#186), History & records (#187) and the awards ceremony (#185) were closed as separate PRs and carried onto `main` by the consolidated squash merge #208; #189, #192, #194 and #205 merged directly. Do not reopen or re-create them; treat follow-ups as ordinary work against `main`.
 3. **Reconcile the current active work before touching its systems.** At the 2026-10-05 checkpoint #223 (live-call/trade/free-agency evidence), #224 (unproven-potential trade discount), #226 (backed-player payoff, still targeting the oval-rings branch) and #206 (music) are open. #210/#213/#214 repairs and audits, #217 difficulty evidence, #220 backing, #221 rings, #222 scouting estimates and #225 assistant contracts are merged. Preserve remaining phone checks; do not create parallel valuation, promise or payoff systems.
@@ -554,6 +556,22 @@ Do not tune purely until one screenshot "looks right".
 ---
 
 ## 1.11 Current playtest gate — match flow and decision clarity
+
+### Club Forge usability repair — highest director priority, ready to playtest ASAP
+
+**Status:** `TODO` — urgent next playable UI fix. **Priority:** `P0` (highest; director-promoted above planned features and cosmetic work, 2026-10-06). **Scope:** existing ARD-M7-009 Club Forge, coordinated with STYLE-07 desktop scaling and current UI/art owners. Deliver a focused playable fix for the director as soon as possible, before a broad cosmetic redesign.
+
+**Player evidence:** the director's fullscreen Club Forge screenshots show sprawling grids of home/place choices, three colour palettes and text-only guernsey options. Colour blocks cannot be deselected, there is no visible preview while configuring the club, and excessive controls obscure the content being created. The director calls the flow seriously unintuitive and wants to test the repair ASAP.
+
+**Required outcome / acceptance:**
+- Make optional colour slots explicitly clearable (`None`/clear or toggle-off); make selected colours and slot labels obvious. Explain any genuinely required base colour rather than trapping the player in an unexplained selection. Allow changing choices without restarting.
+- Keep a live club/guernsey preview visible while editing colours and pattern; update it immediately on each relevant selection. Show the actual selected design with the existing game rendering/assets, not a disconnected placeholder. Include the club name/identity as it is entered.
+- Replace the wall of oversized controls with a compact, clearly ordered creation flow. Group identity, colours and kit options; disclose secondary choices when needed. Provide clear Back/Save actions and useful validation while retaining existing creation choices.
+- Verify both desktop fullscreen and target phone layouts: readable text, sensible spacing, accessible touch targets, preview and active controls usable together, no excessive scrolling through empty or repetitive UI.
+- Prove save/reopen preserves the chosen identity, colours and guernsey and the in-game club matches the preview. Supply a runnable playtest build plus a short before/after walkthrough to the director ASAP; screenshots alone do not establish that selecting, clearing and previewing work.
+
+This is an explicitly requested usability fix, not an optional Art Agent resource. Preserve existing saved clubs and coordinate shared UI files; do not wait for unrelated feature or art polish work.
+
 
 **Status:** `IN PROGRESS`  
 **Priority:** `P0`  
