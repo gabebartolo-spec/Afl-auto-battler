@@ -4,6 +4,10 @@ For the director. FL-001 (football voice and restrained humour, [roadmap §9.3](
 
 Answer each row with **Keep** (leave the current words), **Use** (the approved candidate), **Edit** (write the line) or **Skip**.
 
+## Director decisions after the copy audit — 2026-10-06
+
+Use **“200 games. Take a bow, {display_name}.”** for the genuine 200-career-game banner. The director removed the first-goal flavour headline, vague defender headline and tape notice from the samples. These decisions supersede the affected earlier candidates. Preserve existing factual milestone reporting; no pre-match banner may anticipate a future goal. A defender headline should state the actual supported achievement.
+
 ## 1. Already on main (slice 1, PR #258)
 
 | Surface | Words | Shown only when |
@@ -26,7 +30,7 @@ These are the surfaces I found that carry optional words (not controls, not scor
 | 5 | Full time (`MatchNotes.gd` ~78) | "Full time: {club} win by {n}" | the final score | none: the sample says keep the exact score and outcome easy to find, and neutral reporting is usually preferable to a joke | |
 | 6 | Offseason empty states (`OffseasonScene.gd` ~186, ~400, ~501) | "Nobody is out of contract this year." / "No club has made an offer." / "No free agents right now. Rivals let players go when the season ends." | the list is actually empty | none | |
 | 7 | Season Review, no achievements (`SeasonReviewScene.gd` ~429) | "Nothing unlocked yet - every club's achievement is a piece of its history." | none unlocked | none; already in voice | |
-| 8 | Milestone news lines (`GameState._player_milestone_news`) | "{name} kicked his first AFL goal for {club}." / "{name} reached 100 career goals." | complete career on record (already required) | "First goal. Properly on the board." (sample §2) | |
+| 8 | Milestone news lines (`GameState._player_milestone_news`) | "{name} kicked his first AFL goal for {club}." / "{name} reached 100 career goals." | complete career on record (already required) | none; director removed the first-goal flavour candidate on 2026-10-06 | |
 | 9 | Clubroom notices | no such surface exists | n/a | none; the samples only imagine one as a background art detail | |
 
 ## 3. What I found

@@ -4,7 +4,7 @@
 draft 7807
 draft_ui 1130
 intake 2191
-intake_ui 493
+intake_ui 500
 expansion 483
 finals 109
 save 68
@@ -21,9 +21,9 @@ potential 36
 ratings 39
 ai 35
 training 104
-selection 14
+selection 33
 matchup 95
-matchday 368
+matchday 367
 roles 179
 injuries 31
 awards 22

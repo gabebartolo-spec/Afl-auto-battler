@@ -11,6 +11,9 @@ var _db: Node
 var _checks := 0
 var _failures: Array[String] = []
 
+## Every season in this suite starts from a fixed seed (C15), never the clock.
+const SUITE_SEED := 2027
+
 
 func _initialize() -> void:
 	_run.call_deferred()
@@ -154,6 +157,7 @@ func _run() -> void:
 	_state.save_path = "user://test_career.save"
 	_state.settings_path = "user://test_settings.cfg"
 	_state.show_real_names = false
+	_state.replay_seed = SUITE_SEED
 	_state.delete_saved_career()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_settings.cfg"))
 
@@ -1147,6 +1151,7 @@ func _run() -> void:
 	await _test_season_awards()
 	_state.delete_saved_career()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
+	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
 
 
