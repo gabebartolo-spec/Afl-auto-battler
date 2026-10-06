@@ -14,8 +14,11 @@ var _hold_fired := false
 var _hold_id := 0
 var _pre_match: PreMatchVignette    # the scene over the wait after Play match
 const HOLD_SECONDS := 0.5
-## How long the pre-match scene runs before the side goes through the banner.
-const PRE_MATCH_SECONDS := 2.6
+## How long the pre-match scene runs before the side goes through the banner: a
+## moment of the warm-up, time to jog in to the huddle unhurried and stand together,
+## then the run - still a couple of seconds of match day, not a wait (a tap goes straight
+## to the run).
+const PRE_MATCH_SECONDS := 3.8
 
 
 func _ready() -> void:

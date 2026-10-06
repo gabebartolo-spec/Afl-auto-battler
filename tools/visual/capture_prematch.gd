@@ -9,8 +9,11 @@ extends SceneTree
 
 const W := 390
 const H := 844
-## [phase to be in, seconds into the scene]
-const BEATS := [["warm", 0.2], ["warm", 1.5], ["huddle", 2.9], ["run", 3.5], ["run", 4.2], ["run", 5.0]]
+## [phase to be in, seconds into the scene]: the warm-up, gathering in, gathered, the run.
+const BEATS := [["warm", 0.2], ["warm", 0.7], ["huddle", 1.8], ["huddle", 3.6], ["run", 4.3], ["run", 5.2]]
+## As the game plays it (HubScene.PRE_MATCH_SECONDS): they gather in, then go.
+const GATHER_AT := 0.76
+const RUN_AT := 3.8
 
 
 func _initialize() -> void:
@@ -46,10 +49,10 @@ func _run() -> void:
 	for beat in BEATS:
 		var t: float = beat[1]
 		if beat[0] == "huddle" and vig.phase() == "warm":
-			vig.set("_t", 2.0)
+			vig.set("_t", GATHER_AT)
 			vig.set_progress(0.6)
 		if beat[0] == "run" and vig.phase() != "run":
-			vig.set("_t", 3.05)
+			vig.set("_t", RUN_AT)
 			vig.run_out()
 		vig.set("_t", t)
 		vig.queue_redraw()
@@ -72,10 +75,10 @@ func _run() -> void:
 		vig.set_process(false)
 		var t := 0.0
 		var n := 0
-		while t < 5.4:
-			if t >= 2.0 and vig.phase() == "warm":
+		while t < RUN_AT + 2.4:
+			if t >= GATHER_AT and vig.phase() == "warm":
 				vig.set_progress(0.6)
-			if t >= 3.05 and vig.phase() != "run":
+			if t >= RUN_AT and vig.phase() != "run":
 				vig.run_out()
 			vig.set("_t", t)
 			vig.queue_redraw()

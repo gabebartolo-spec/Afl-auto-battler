@@ -14,7 +14,7 @@ class_name VignetteFigures
 ## frame, the figure's highest point above its feet, metres (a leap's hands). Numbers are
 ## printed on the guernsey by the shader (figures_digits.png), not placed here.
 
-const SHEET_SIZE := Vector2i(2048, 2672)
+const SHEET_SIZE := Vector2i(2048, 2680)
 const PX_PER_M := 100.0
 const BODIES := {
 	"average": {
@@ -41,7 +41,7 @@ const BODIES := {
 			"jog": {
 				"front": {
 					"x": 0,
-					"y": 1550,
+					"y": 1556,
 					"size": [68, 196],
 					"frames": 8,
 					"pivot": [34.0, 180.16],
@@ -49,7 +49,7 @@ const BODIES := {
 				},
 				"back": {
 					"x": 544,
-					"y": 1550,
+					"y": 1556,
 					"size": [68, 196],
 					"frames": 8,
 					"pivot": [34.0, 190.16],
@@ -57,7 +57,7 @@ const BODIES := {
 				},
 				"back_r": {
 					"x": 0,
-					"y": 1354,
+					"y": 1360,
 					"size": [114, 196],
 					"frames": 8,
 					"pivot": [62.0, 188.16],
@@ -65,7 +65,7 @@ const BODIES := {
 				},
 				"side_l": {
 					"x": 0,
-					"y": 1746,
+					"y": 1752,
 					"size": [152, 194],
 					"frames": 8,
 					"pivot": [66.0, 184.16],
@@ -74,25 +74,25 @@ const BODIES := {
 			},
 			"leap": {
 				"front": {
-					"x": 1168,
-					"y": 254,
-					"size": [104, 236],
-					"frames": 6,
-					"pivot": [52.0, 222.16],
-					"reach": [1.482, 1.692, 1.772, 2.002, 2.152, 2.152],
-				},
-				"back": {
 					"x": 1050,
 					"y": 492,
 					"size": [104, 228],
 					"frames": 6,
-					"pivot": [52.0, 222.16],
-					"reach": [1.662, 1.792, 1.812, 2.162, 2.022, 2.022],
+					"pivot": [52.0, 214.16],
+					"reach": [1.482, 1.692, 1.772, 1.812, 2.082, 2.082],
+				},
+				"back": {
+					"x": 0,
+					"y": 254,
+					"size": [104, 238],
+					"frames": 6,
+					"pivot": [52.0, 232.16],
+					"reach": [1.662, 1.792, 1.812, 2.172, 2.272, 2.272],
 				},
 			},
 			"tap": {
 				"front": {
-					"x": 496,
+					"x": 1120,
 					"y": 254,
 					"size": [112, 236],
 					"frames": 6,
@@ -110,7 +110,7 @@ const BODIES := {
 			},
 			"tap_b": {
 				"front": {
-					"x": 0,
+					"x": 600,
 					"y": 722,
 					"size": [116, 220],
 					"frames": 4,
@@ -118,7 +118,7 @@ const BODIES := {
 					"reach": [1.452, 1.762, 1.912, 2.012],
 				},
 				"back": {
-					"x": 464,
+					"x": 1064,
 					"y": 722,
 					"size": [116, 220],
 					"frames": 4,
@@ -129,7 +129,7 @@ const BODIES := {
 			"ready": {
 				"front": {
 					"x": 0,
-					"y": 2314,
+					"y": 2320,
 					"size": [84, 182],
 					"frames": 3,
 					"pivot": [42.0, 168.16],
@@ -137,7 +137,7 @@ const BODIES := {
 				},
 				"back": {
 					"x": 1760,
-					"y": 1354,
+					"y": 1360,
 					"size": [84, 186],
 					"frames": 3,
 					"pivot": [42.0, 186.16],
@@ -147,7 +147,7 @@ const BODIES := {
 			"ready_turn": {
 				"front": {
 					"x": 252,
-					"y": 2314,
+					"y": 2320,
 					"size": [82, 182],
 					"frames": 3,
 					"pivot": [38.0, 168.16],
@@ -155,7 +155,7 @@ const BODIES := {
 				},
 				"back": {
 					"x": 1760,
-					"y": 1940,
+					"y": 1946,
 					"size": [82, 184],
 					"frames": 3,
 					"pivot": [44.0, 184.16],
@@ -165,7 +165,7 @@ const BODIES := {
 			"ready_b": {
 				"front": {
 					"x": 1698,
-					"y": 2314,
+					"y": 2320,
 					"size": [104, 178],
 					"frames": 3,
 					"pivot": [42.0, 168.16],
@@ -173,7 +173,7 @@ const BODIES := {
 				},
 				"back": {
 					"x": 1216,
-					"y": 1746,
+					"y": 1752,
 					"size": [104, 190],
 					"frames": 3,
 					"pivot": [62.0, 186.16],
@@ -193,7 +193,7 @@ const BODIES := {
 			"kick": {
 				"back_r": {
 					"x": 1088,
-					"y": 1550,
+					"y": 1556,
 					"size": [126, 190],
 					"frames": 6,
 					"pivot": [47.0, 188.16],
@@ -203,7 +203,7 @@ const BODIES := {
 			"snap": {
 				"back_r": {
 					"x": 1528,
-					"y": 1746,
+					"y": 1752,
 					"size": [102, 188],
 					"frames": 5,
 					"pivot": [32.0, 186.16],
@@ -213,7 +213,7 @@ const BODIES := {
 			"gather": {
 				"back_r": {
 					"x": 720,
-					"y": 1152,
+					"y": 1158,
 					"size": [116, 198],
 					"frames": 3,
 					"pivot": [54.0, 180.16],
@@ -233,7 +233,7 @@ const BODIES := {
 			"walk": {
 				"front_r": {
 					"x": 1152,
-					"y": 942,
+					"y": 948,
 					"size": [110, 202],
 					"frames": 8,
 					"pivot": [48.0, 184.16],
@@ -276,7 +276,7 @@ const BODIES := {
 			"jog": {
 				"front": {
 					"x": 0,
-					"y": 942,
+					"y": 948,
 					"size": [72, 210],
 					"frames": 8,
 					"pivot": [36.0, 194.16],
@@ -284,7 +284,7 @@ const BODIES := {
 				},
 				"back": {
 					"x": 576,
-					"y": 942,
+					"y": 948,
 					"size": [72, 210],
 					"frames": 8,
 					"pivot": [36.0, 204.16],
@@ -319,7 +319,7 @@ const BODIES := {
 					"reach": [1.562, 1.902, 2.072, 2.182],
 				},
 				"back": {
-					"x": 0,
+					"x": 624,
 					"y": 254,
 					"size": [124, 238],
 					"frames": 4,
@@ -330,7 +330,7 @@ const BODIES := {
 			"ready": {
 				"front": {
 					"x": 1068,
-					"y": 1152,
+					"y": 1158,
 					"size": [88, 198],
 					"frames": 3,
 					"pivot": [44.0, 182.16],
@@ -338,7 +338,7 @@ const BODIES := {
 				},
 				"back": {
 					"x": 192,
-					"y": 1152,
+					"y": 1158,
 					"size": [88, 200],
 					"frames": 3,
 					"pivot": [44.0, 200.16],
@@ -348,7 +348,7 @@ const BODIES := {
 			"ready_turn": {
 				"front": {
 					"x": 1332,
-					"y": 1152,
+					"y": 1158,
 					"size": [88, 198],
 					"frames": 3,
 					"pivot": [40.0, 182.16],
@@ -356,7 +356,7 @@ const BODIES := {
 				},
 				"back": {
 					"x": 456,
-					"y": 1152,
+					"y": 1158,
 					"size": [88, 200],
 					"frames": 3,
 					"pivot": [48.0, 200.16],
@@ -366,7 +366,7 @@ const BODIES := {
 			"ready_b": {
 				"front": {
 					"x": 1596,
-					"y": 1152,
+					"y": 1158,
 					"size": [110, 190],
 					"frames": 3,
 					"pivot": [44.0, 180.16],
@@ -389,7 +389,7 @@ const BODIES := {
 			"jog": {
 				"front": {
 					"x": 1216,
-					"y": 1940,
+					"y": 1946,
 					"size": [68, 186],
 					"frames": 8,
 					"pivot": [34.0, 172.16],
@@ -397,7 +397,7 @@ const BODIES := {
 				},
 				"back": {
 					"x": 0,
-					"y": 2128,
+					"y": 2134,
 					"size": [68, 186],
 					"frames": 8,
 					"pivot": [34.0, 180.16],
@@ -405,7 +405,7 @@ const BODIES := {
 				},
 				"back_r": {
 					"x": 0,
-					"y": 1940,
+					"y": 1946,
 					"size": [110, 188],
 					"frames": 8,
 					"pivot": [60.0, 180.16],
@@ -413,7 +413,7 @@ const BODIES := {
 				},
 				"side_l": {
 					"x": 544,
-					"y": 2128,
+					"y": 2134,
 					"size": [144, 184],
 					"frames": 8,
 					"pivot": [64.0, 174.16],
@@ -422,18 +422,18 @@ const BODIES := {
 			},
 			"leap": {
 				"back": {
-					"x": 928,
+					"x": 0,
 					"y": 722,
-					"size": [100, 216],
+					"size": [100, 226],
 					"frames": 6,
-					"pivot": [50.0, 210.16],
-					"reach": [1.582, 1.702, 1.712, 2.042, 1.912, 1.912],
+					"pivot": [50.0, 220.16],
+					"reach": [1.582, 1.702, 1.712, 2.062, 2.142, 2.142],
 				},
 			},
 			"ready": {
 				"front": {
 					"x": 480,
-					"y": 2496,
+					"y": 2502,
 					"size": [80, 174],
 					"frames": 3,
 					"pivot": [40.0, 160.16],
@@ -441,7 +441,7 @@ const BODIES := {
 				},
 				"back": {
 					"x": 0,
-					"y": 2496,
+					"y": 2502,
 					"size": [80, 176],
 					"frames": 3,
 					"pivot": [40.0, 176.16],
@@ -451,7 +451,7 @@ const BODIES := {
 			"ready_turn": {
 				"front": {
 					"x": 720,
-					"y": 2496,
+					"y": 2502,
 					"size": [80, 174],
 					"frames": 3,
 					"pivot": [36.0, 160.16],
@@ -459,7 +459,7 @@ const BODIES := {
 				},
 				"back": {
 					"x": 240,
-					"y": 2496,
+					"y": 2502,
 					"size": [80, 176],
 					"frames": 3,
 					"pivot": [44.0, 176.16],
@@ -469,7 +469,7 @@ const BODIES := {
 			"ready_b": {
 				"front": {
 					"x": 960,
-					"y": 2496,
+					"y": 2502,
 					"size": [100, 168],
 					"frames": 3,
 					"pivot": [40.0, 158.16],
@@ -477,7 +477,7 @@ const BODIES := {
 				},
 				"back": {
 					"x": 1696,
-					"y": 2128,
+					"y": 2134,
 					"size": [100, 182],
 					"frames": 3,
 					"pivot": [60.0, 178.16],
@@ -487,7 +487,7 @@ const BODIES := {
 			"kick": {
 				"back_r": {
 					"x": 498,
-					"y": 2314,
+					"y": 2320,
 					"size": [120, 180],
 					"frames": 6,
 					"pivot": [45.0, 178.16],
@@ -497,7 +497,7 @@ const BODIES := {
 			"snap": {
 				"back_r": {
 					"x": 1218,
-					"y": 2314,
+					"y": 2320,
 					"size": [96, 180],
 					"frames": 5,
 					"pivot": [30.0, 178.16],
@@ -507,7 +507,7 @@ const BODIES := {
 			"gather": {
 				"back_r": {
 					"x": 880,
-					"y": 1940,
+					"y": 1946,
 					"size": [112, 188],
 					"frames": 3,
 					"pivot": [52.0, 172.16],
@@ -532,7 +532,7 @@ const BODIES := {
 			"coach_walk": {
 				"front_r": {
 					"x": 912,
-					"y": 1354,
+					"y": 1360,
 					"size": [106, 196],
 					"frames": 8,
 					"pivot": [48.0, 180.16],
@@ -542,7 +542,7 @@ const BODIES := {
 			"coach_sit": {
 				"front": {
 					"x": 0,
-					"y": 1152,
+					"y": 1158,
 					"size": [64, 202],
 					"frames": 3,
 					"pivot": [32.0, 180.16],
@@ -552,7 +552,7 @@ const BODIES := {
 			"coach_seated": {
 				"front": {
 					"x": 1844,
-					"y": 1550,
+					"y": 1556,
 					"size": [74, 156],
 					"frames": 2,
 					"pivot": [38.0, 134.16],

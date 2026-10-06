@@ -11,7 +11,15 @@ extends StoppageVignette
 signal done
 
 enum { WARM, HUDDLE, RUN }
-const BLEND := 0.7
+## The gathering: each man finishes what he's doing (up to GATHER_LAG s), then jogs
+## easy into his place in the huddle at his own pace (GATHER_PACE m/s on average), from
+## his own side of it - nearest in first, nobody sprinting or cutting across, and in
+## and still before they go (director: no bunching up right before the run).
+const GATHER_LAG := 0.4
+const GATHER_PACE := Vector2(3.0, 3.6)
+## Progress at which they gather in (set_progress): HubScene's PRE_MATCH_SECONDS gives
+## the furthest man time to get there and the huddle a moment together.
+const HUDDLE_FROM := 0.2
 ## Through the banner: they run, the camera follows them through, then black.
 const RUN_TIME := 2.4
 const BANNER_Y := 16.0
@@ -37,6 +45,8 @@ var banner := ""
 var _phase := WARM
 var _prev := WARM
 var _since := 0.0          # time the phase began
+var _huddle_since := -1.0  # when they began to gather in (-1: not yet)
+var _slots := []           # each of yours: his place in the huddle (Vector2, metres)
 var _progress := 0.0
 var _left_at := -1.0       # when the scene went black, waiting for the match
 var _scene_then: Node = null
@@ -88,6 +98,8 @@ func setup_prematch(my_code: String, opp_code: String, my_ground: Array, opp_gro
 	_phase = WARM
 	_prev = WARM
 	_since = 0.0
+	_huddle_since = -1.0
+	_slots = _huddle_slots()
 	_frozen = false
 	_dress()
 	queue_redraw()
@@ -112,10 +124,10 @@ static func banner_text(my_code: String, opp_code: String, heading: String, ctx 
 	return GameDB.club_name(my_code)
 
 
-## How far the preparation has got, 0..1: past halfway, they gather in.
+## How far the preparation has got, 0..1: a third of the way, they gather in.
 func set_progress(f: float) -> void:
 	_progress = f
-	if _phase == WARM and f >= 0.5:
+	if _phase == WARM and f >= HUDDLE_FROM:
 		_go(HUDDLE, WORDS_HUDDLE)
 
 
@@ -139,6 +151,8 @@ func _go(p: int, words: String) -> void:
 	_prev = _phase
 	_phase = p
 	_since = _t
+	if p == HUDDLE:
+		_huddle_since = _t
 	copy = words
 
 
@@ -178,37 +192,99 @@ func _at(t: Dictionary, i: int, p: int) -> Vector2:
 	if not bool(t["mine"]):
 		# Theirs: short shuttles up the far end, the whole time, in five lines.
 		return Vector2(-12.0 + (i % 5) * 6.0 + sin(_t * 1.1 + i) * 2.5, 46.0 + (i / 5) * 6.0)
-	match p:
-		HUDDLE:
-			# Two rings: the inner nine shoulder to shoulder, the rest round them.
-			var inner := i < 9
-			var n := 9 if inner else maxi(1, _mine - 9)
-			var a := TAU * float(i if inner else i - 9) / float(n) + (0.3 if inner else 0.0)
-			var r := Vector2(1.7, 1.2) if inner else Vector2(3.1, 2.3)
-			return HUDDLE_AT + Vector2(cos(a) * r.x + sin(_t * 0.6 + i) * 0.05, sin(a) * r.y)
-		RUN:
-			# Through the banner and out the other side, spreading again; the front of
-			# the huddle first, the back a few strides behind.
-			var path := _run_path(t, i)
-			var k := clampf((_t - _since - float(path[3])) / RUN_SPAN, 0.0, 1.0)
-			return _bezier(path[0], path[1], path[2], k)
-	# Warming up: five lines, each man at his own drill (_warm_drill): the joggers run
-	# easy shuttles across and back, the rest work where they stand.
-	var spot := Vector2(((i % 5) - 2) * 2.8, 2.5 + (i / 5) * 2.4)
+	if p == RUN:
+		# Through the banner and out the other side, spreading again; the front of
+		# the huddle first, the back a few strides behind.
+		var path := _run_path(t, i)
+		var k := clampf((_t - _since - float(path[3])) / RUN_SPAN, 0.0, 1.0)
+		return _bezier(path[0], path[1], path[2], k)
+	return _mine_at(t, i, _t)
+
+
+## One of yours before the run, at time `at`: at his drill, then on his way in to the
+## huddle (_gather), then in his place, shifting his feet.
+func _mine_at(t: Dictionary, i: int, at: float) -> Vector2:
+	var g := _gather(t, i)
+	if g.is_empty() or at < float(g[0]):
+		return _warm_at(i, at)
+	var k := clampf((at - float(g[0])) / float(g[1]), 0.0, 1.0)
+	var to := _slot(i) + Vector2(sin(at * 0.6 + i) * 0.05, 0.0)
+	return _warm_at(i, float(g[0])).lerp(to, k * k * (3.0 - 2.0 * k))
+
+
+## Warming up: five lines, each man at his own drill (_warm_drill): the joggers run
+## easy shuttles across and back, the rest work where they stand.
+func _warm_at(i: int, at: float) -> Vector2:
+	var spot := _warm_home(i)
 	if _warm_drill(i) == 0:
-		spot.x += sin(_t * 0.7 + (i / 5) * 0.9) * 1.4
+		spot.x += sin(at * 0.7 + (i / 5) * 0.9) * 1.4
 	return spot
 
 
-## A runner's way through the banner: [from, through, out, start delay], a curve that
-## crosses the banner near the middle (where they burst through) then fans out.
+static func _warm_home(i: int) -> Vector2:
+	return Vector2(((i % 5) - 2) * 2.8, 2.5 + (i / 5) * 2.4)
+
+
+func _slot(i: int) -> Vector2:
+	return _slots[i] if i < _slots.size() else HUDDLE_AT
+
+
+## One of yours gathering in: [when he sets off, how long he takes], or [] before they
+## gather. He finishes his rep first (his own lag), then jogs in at his own pace,
+## easing in and out of it.
+func _gather(t: Dictionary, i: int) -> Array:
+	if _huddle_since < 0.0:
+		return []
+	var start := _huddle_since + GATHER_LAG * _rate(t, 0.0, 1.0)
+	var dist := _warm_at(i, start).distance_to(_slot(i))
+	return [start, maxf(0.9, dist / _rate(t, GATHER_PACE.x, GATHER_PACE.y))]
+
+
+## Places in the huddle: two rings, the inner nine shoulder to shoulder, the rest round
+## them. The nearest nine take the inner ring; each ring is filled in order round the
+## huddle from the side each man comes from, so nobody runs across another's path.
+func _huddle_slots() -> Array:
+	var out := []
+	out.resize(_mine)
+	var order := range(_mine)
+	order.sort_custom(func(a, b): return _warm_home(a).distance_to(HUDDLE_AT) < _warm_home(b).distance_to(HUDDLE_AT))
+	var rings := [order.slice(0, 9), order.slice(9)]
+	for ring in range(2):
+		var men: Array = rings[ring]
+		if men.is_empty():
+			continue
+		men.sort_custom(func(a, b): return (_warm_home(a) - HUDDLE_AT).angle() < (_warm_home(b) - HUDDLE_AT).angle())
+		var r := Vector2(1.7, 1.2) if ring == 0 else Vector2(3.1, 2.3)
+		# The ring turned so the men have least ground to cover.
+		var best := INF
+		var a0 := 0.0
+		for k in range(72):
+			var cost := 0.0
+			for j in range(men.size()):
+				var a := TAU * (float(k) / 72.0 + float(j) / float(men.size()))
+				cost += _warm_home(men[j]).distance_squared_to(HUDDLE_AT + Vector2(cos(a) * r.x, sin(a) * r.y))
+			if cost < best:
+				best = cost
+				a0 = TAU * float(k) / 72.0
+		for j in range(men.size()):
+			var a := a0 + TAU * float(j) / float(men.size())
+			out[men[j]] = HUDDLE_AT + Vector2(cos(a) * r.x, sin(a) * r.y)
+	return out
+
+
+## A runner's way through the banner: [from, through, out, start delay]. They break
+## from the huddle together and run as a loose stream, each keeping his own line and
+## his room (no funnelling into a bunch before the paper - director): the front of the
+## huddle away first, those behind a stride or two later, crossing the banner across
+## its width and fanning out beyond it.
 const RUN_SPAN := 1.6
 
 func _run_path(t: Dictionary, i: int) -> Array:
-	var from := _at(t, i, _prev if _prev != RUN else HUDDLE)
-	var through := Vector2(from.x * 0.45, BANNER_Y)
-	var out := Vector2(from.x * 1.5 + ((i % 3) - 1) * 1.2, BANNER_Y + 9.0 + (i % 4) * 1.6)
-	return [from, through, out, 0.12 * float((i * 7) % 5) + (0.0 if i < 9 else 0.25)]
+	var from := _mine_at(t, i, _since)
+	var through := Vector2(from.x * 1.5, BANNER_Y)
+	var out := Vector2(from.x * 2.0 + ((i % 3) - 1) * 1.0, BANNER_Y + 9.0 + (i % 4) * 1.4)
+	var behind := (HUDDLE_AT.y + 2.5 - from.y) * 0.09          # the back of the huddle follows on
+	return [from, through, out, maxf(0.0, behind) + float((i * 37) % 10) * 0.012]
 
 
 static func _bezier(a: Vector2, b: Vector2, c: Vector2, t: float) -> Vector2:
@@ -217,14 +293,27 @@ static func _bezier(a: Vector2, b: Vector2, c: Vector2, t: float) -> Vector2:
 
 
 func _pos_i(t: Dictionary, i: int) -> Vector2:
-	var k := clampf((_t - _since) / BLEND, 0.0, 1.0)
-	if _phase == RUN or k >= 1.0 or not bool(t["mine"]):
-		return _at(t, i, _phase)
-	return _at(t, i, _prev).lerp(_at(t, i, _phase), _ease(k))
+	return _at(t, i, _phase)
+
+
+## One of yours on his way in to the huddle now.
+func _gathering(t: Dictionary) -> bool:
+	if not bool(t["mine"]) or _phase != HUDDLE:
+		return false
+	var g := _gather(t, int(t["i"]))
+	return not g.is_empty() and _t >= float(g[0]) and _t < float(g[0]) + float(g[1])
+
+
+## One of yours still at his drill, the huddle called but not yet on his way.
+func _drilling(t: Dictionary) -> bool:
+	if _phase == WARM:
+		return true
+	var g := _gather(t, int(t["i"]))
+	return _phase == HUDDLE and not g.is_empty() and _t < float(g[0])
 
 
 func _moving(t: Dictionary) -> bool:
-	return not bool(t["mine"]) or _phase != HUDDLE or _t - _since < BLEND
+	return not bool(t["mine"]) or _phase != HUDDLE or _gathering(t)
 
 
 ## Each man's warm-up drill: 0 shuttles, 1 kick-to-kick, 2 marking practice, 3 a word
@@ -249,7 +338,17 @@ func _frame(t: Dictionary, lift: float, at := Vector2.ZERO, back := false) -> Ar
 			return ["leap", 4 + int(_t * 10.0) % 2, r < 0.5]                          # up through it
 		var strides := 13.0 / TAU * _rate(t, 0.85, 1.2)
 		return ["jog", int(_t * strides * 8.0 + i * 2.7) % 8, r < 0.4]
-	if _phase == WARM and _t - _since >= 0.0:
+	if _gathering(t):
+		# Jogging in easy, facing the way he's going: side-on across the shot, his back
+		# to us going away, his front coming towards us.
+		var g := _gather(t, i)
+		var way := _slot(i) - _warm_at(i, float(g[0]))
+		var strides := 11.0 / TAU * _rate(t, 0.8, 1.0)
+		var f := int(_t * strides * 8.0 + i * 2.7) % 8
+		if absf(way.x) > absf(way.y) * 1.2:
+			return ["jog", f, way.x > 0.0, "side_l"]
+		return ["jog", f, r < 0.4, "back" if way.y > 0.0 else "front"]
+	if _drilling(t) and _t - _since >= 0.0:
 		# Facing where the drill has him facing - not all of them with their backs to us.
 		var faces := "front" if i % 2 == 1 else "back"
 		match _warm_drill(i):
