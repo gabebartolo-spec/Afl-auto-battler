@@ -196,6 +196,11 @@ def check_afl_ladders() -> list[str]:
     return problems
 
 
+# GameDB.GUERNSEY_DESIGNS, without the coach's suit and the Tasmania map.
+DESIGNS = {"plain", "stripes", "hoops", "sash", "yoke", "band", "chevrons", "panels",
+           "chevron", "sides", "tiers", "shoulders"}
+
+
 def check_forge_locations() -> list[str]:
     """data/forge_locations.json (Club Forge location library, ARD-M7-009):
     unique ids, the required fields, a ground and a source on every entry, the
@@ -227,6 +232,9 @@ def check_forge_locations() -> list[str]:
             problems.append(f"forge location {who}: an AFL club already represents it")
         if e.get("state") == "ACT" and "canberra" == e.get("place", "").strip().lower():
             problems.append(f"forge location {who}: ACT entries are districts")
+        for t in e.get("pattern_tags", []):
+            if t not in DESIGNS:
+                problems.append(f"forge location {who}: pattern tag {t!r} is not a guernsey design")
         for k in ("lat", "lng", "latitude", "longitude"):
             if k in e:
                 problems.append(f"forge location {who}: no coordinates ({k})")
