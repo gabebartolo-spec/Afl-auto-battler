@@ -145,7 +145,7 @@ func _selection_tests() -> void:
 	_check(Traits.short_text(lock.call(1)) == "" and Traits.short_text([]) == "",
 			"Two or more short says nothing")
 	var guide_copy := ""
-	for t in StatGuide.TOPICS:
+	for t in load("res://scripts/ui/StatGuide.gd").TOPICS:
 		if str(t[0]) == "Traits and synergies":
 			guide_copy = str(t[1])
 	_check(guide_copy.contains("a single player short") and guide_copy.contains(Traits.short_text(lock.call(2)).trim_suffix(".")),
