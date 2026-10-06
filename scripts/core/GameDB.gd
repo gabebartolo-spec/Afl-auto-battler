@@ -108,6 +108,9 @@ const FICTIONAL_LAST_NAMES := [
 const FICTIONAL_NAME_SEED := 260922
 
 var clubs := {}            # code -> {code,name,short,primary,secondary,accent,ground}
+## CLUB_ORDER plus a career's created club (Club Forge), in order. Anything that
+## walks every club walks this, so a created club is never missed.
+var club_order: Array = CLUB_ORDER.duplicate()
 var players := []          # Array of player dictionaries, ratings derived
 var players_by_club := {}  # code -> Array of player dictionaries
 var draftees := []         # the shipped draft class, projections applied
@@ -141,6 +144,7 @@ func _ready() -> void:
 
 func reload() -> void:
 	clubs = _load_clubs()
+	club_order = CLUB_ORDER.duplicate()
 	_alias_candidates = []
 	_alias_next = 0
 	_real_names = {}
@@ -155,7 +159,7 @@ func reload() -> void:
 	late_draftees = []
 
 	players_by_club = {}
-	for code in CLUB_ORDER:
+	for code in club_order:
 		players_by_club[code] = []
 	for p in players:
 		if not players_by_club.has(p["club"]):
@@ -208,7 +212,31 @@ const THREE_COLOUR_CLUBS := ["ADE", "BRL", "GCS", "GWS", "PAD", "STK", "WBD", "T
 ## The colours a club is known by, for its marker: two or three.
 func club_marker_colours(code: String) -> Array:
 	var cols := club_colours(code)
-	return cols if THREE_COLOUR_CLUBS.has(code) else cols.slice(0, 2)
+	if THREE_COLOUR_CLUBS.has(code) or bool(clubs.get(code, {}).get("custom", false)):
+		return cols
+	return cols.slice(0, 2)
+
+
+## Add a created club (ClubForge.make_club) to the competition, after the
+## clubs that ship. Registering it again replaces it.
+func register_club(row: Dictionary) -> void:
+	var code := str(row.get("code", ""))
+	if code == "":
+		return
+	clubs[code] = row
+	if not club_order.has(code):
+		club_order.append(code)
+	if not players_by_club.has(code):
+		players_by_club[code] = []
+
+
+## Take every created club out again (a new career, or loading another save).
+func unregister_custom_clubs() -> void:
+	for code in clubs.keys():
+		if bool(clubs[code].get("custom", false)):
+			clubs.erase(code)
+			club_order.erase(code)
+			players_by_club.erase(code)
 
 
 ## Guernsey designs the vignette figures can wear, in figure.gdshader's numbering.
@@ -544,12 +572,13 @@ func enter_year(code: String) -> int:
 	return int(clubs.get(code, {}).get("enter", 2026))
 
 
-## The clubs active in a given season year, in CLUB_ORDER. Fixtures, ladders,
+## The clubs active in a given season year, in club order. Fixtures, ladders,
 ## drafts and selections all iterate this - never CLUB_ORDER - so expansion
-## clubs join the competition on schedule without any club-specific code.
+## clubs (and a created one) join the competition on schedule without any
+## club-specific code.
 func active_clubs(year: int) -> Array:
 	var out := []
-	for code in CLUB_ORDER:
+	for code in club_order:
 		if enter_year(code) <= year:
 			out.append(code)
 	return out

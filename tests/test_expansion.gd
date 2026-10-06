@@ -25,6 +25,8 @@ func run() -> void:
 	_test_rollover_to_2030()
 	_test_save_load_across_expansion()
 	_test_expansion_ceilings()
+	_test_created_club_rules()
+	_test_created_club_career()
 	_test_club_count_defaults()
 	GameState.reset()
 	GameState.delete_saved_career()
@@ -213,14 +215,19 @@ func _test_rollover_to_2030() -> void:
 		_check((r as Array).size() == 10, "Twenty even clubs play ten a round")
 		break
 	# The league's lists never share a player and every club stays in band.
+	# One check for the whole league: the floor counts the rule, not how many
+	# players the lists happen to hold.
 	var seen := {}
+	var twice := ""
 	for code in season.ladder:
 		var arr: Array = season.lists[code]
 		_check(arr.size() >= Prospects.MIN_LIST and arr.size() <= Ratings.LIST_SIZE,
 				"%s stays in the list band in 2030 (%d)" % [code, arr.size()])
 		for p in arr:
-			_check(not seen.has(str(p["id"])), "No player on two lists (%s)" % str(p["id"]))
+			if seen.has(str(p["id"])):
+				twice += str(p["id"]) + " "
 			seen[str(p["id"])] = true
+	_check(twice == "", "No player on two lists (%s)" % twice)
 
 
 func _test_save_load_across_expansion() -> void:
@@ -263,6 +270,126 @@ func _test_expansion_ceilings() -> void:
 		_check(young_n > 0 and young_room / young_n >= 10.0,
 				"%s %d: young expansion players keep real upside (mean +%.1f)" % [spec[0], spec[1], young_room / maxf(1, young_n)])
 
+
+# ---------------------------------------------------------------------------
+# Club Forge: a created club (ARD-M7-009)
+# ---------------------------------------------------------------------------
+func _forge_spec(extra := {}) -> Dictionary:
+	var spec := {"name": "Port Melbourne", "short": "Borough", "code": "PMB",
+			"location": "port-melbourne", "primary": "#1B3A8C", "secondary": "#C8102E",
+			"accent": "#FFFFFF", "design": "hoops", "kit": "p/s/a"}
+	spec.merge(extra, true)
+	return spec
+
+
+func _test_created_club_rules() -> void:
+	GameState.reset()
+	_check(ClubForge.locations().size() >= 50, "Club Forge reads the location library")
+	_check(ClubForge.club_problem(_forge_spec()) == "", "A complete spec makes a club")
+	_check(ClubForge.club_problem(_forge_spec({"name": " "})) != "", "A club needs a name")
+	_check(ClubForge.club_problem(_forge_spec({"short": ""})) != "", "A club needs a nickname")
+	_check(ClubForge.club_problem(_forge_spec({"name": "Geelong"})) != "",
+			"A created club cannot share an AFL club's name")
+	for code in ["GEE", "TAS", "CANB", "BYE", "SKN", "pm", "P", "PORTM", "P1"]:
+		_check(ClubForge.club_problem(_forge_spec({"code": code})) != "",
+				"%s is not a free abbreviation" % code)
+	_check(ClubForge.club_problem(_forge_spec({"location": "melbourne"})) != "",
+			"The home must come from the location library")
+	_check(ClubForge.club_problem(_forge_spec({"ground": "The MCG"})) != "",
+			"The ground must be one of the place's own")
+	_check(ClubForge.club_problem(_forge_spec({"location": "williamstown",
+			"ground": "Williamstown Cricket Ground"})) == "",
+			"A place's alternative ground can be chosen")
+	_check(ClubForge.club_problem(_forge_spec({"design": "suit"})) != ""
+			and ClubForge.club_problem(_forge_spec({"design": "map"})) != "",
+			"The coach's suit and Tasmania's map are not club designs")
+	_check(ClubForge.club_problem(_forge_spec({"kit": "p/p/a"})) != "",
+			"The guernsey and its pattern are different colours")
+	_check(ClubForge.club_problem(_forge_spec({"secondary": "#1C3B8D"})) != "",
+			"A pattern too close to the guernsey's colour is refused")
+	_check(ClubForge.club_problem(_forge_spec({"design": "plain", "secondary": "#1C3B8D"})) == "",
+			"A plain guernsey needs no contrasting pattern")
+	_check(ClubForge.make_club(_forge_spec({"code": "GEE"})).is_empty(),
+			"No club is made from a spec with a problem")
+
+	_check(GameState.create_club(_forge_spec({"code": "GEE"})) != ""
+			and not GameDB.clubs.has("PMB") and GameDB.club_order.size() == GameDB.CLUB_ORDER.size(),
+			"A refused club changes nothing")
+	_check(GameState.create_club(_forge_spec()) == "", "The club is created")
+	var c: Dictionary = GameDB.club("PMB")
+	_check(GameDB.club_name("PMB") == "Port Melbourne" and GameDB.club_short("PMB") == "Borough",
+			"The created club answers to its name and nickname")
+	_check(str(c.get("ground", "")) == "North Port Oval" and str(c.get("state", "")) == "VIC",
+			"The created club plays at its place's ground")
+	var g: Dictionary = GameDB.club_guernsey("PMB")
+	_check(str(g["design"]) == "hoops" and g["base"] == Color.html("#1B3A8C")
+			and g["pattern"] == Color.html("#C8102E"),
+			"The created club wears its own guernsey")
+	_check(GameDB.club_marker_colours("PMB").size() == 3, "Its marker shows all three colours")
+	_check(GameDB.active_clubs(2027).size() == 19 and GameDB.active_clubs(2027).has("PMB"),
+			"A club entering with the career is the nineteenth in 2027")
+	_check(GameDB.active_clubs(2030).size() == 21, "With Tasmania and Canberra it is the 21st by 2030")
+	_check(GameDB.enter_year("PMB") == GameDB.START_YEAR
+			and ClubForge.make_club(_forge_spec({"enter": 2030}))["enter"] == GameDB.START_YEAR,
+			"A created club always enters with the career")
+	_check(GameState.create_club(_forge_spec({"name": "Port Melbourne Borough", "code": "PMFC"})) == ""
+			and not GameDB.clubs.has("PMB") and GameDB.clubs.has("PMFC")
+			and GameDB.active_clubs(2027).size() == 19,
+			"Making the club again replaces it: one created club a career")
+	GameState.reset()
+	_check(not GameDB.clubs.has("PMFC") and GameDB.club_order == GameDB.CLUB_ORDER
+			and GameState.custom_club.is_empty(),
+			"A new career starts without the created club")
+
+
+## A created club entering with the career drafts in the League Draft, plays,
+## and keeps its identity through a save.
+func _test_created_club_career() -> void:
+	GameState.reset()
+	_check(GameState.create_club(_forge_spec()) == "", "The club is created for a new career")
+	GameState.begin_draft()
+	_check(GameState.draft.clubs.size() == 19 and GameState.draft.clubs.has("PMB"),
+			"The created club takes part in the League Draft")
+	GameState.draft.start_for_user("PMB")
+	var draft: Draft = GameState.draft
+	var guard := 0
+	while not draft.is_finished() and guard < 5000:
+		guard += 1
+		var cand := draft._best_ai_pick(draft.current_club())
+		if cand.is_empty() or not draft._draft_pick(draft.current_club(), cand):
+			draft._skip_current_pick()
+	_check(draft.is_finished(), "The nineteen-club League Draft completes")
+	GameState.start_season("PMB", draft.list())
+	var season: Season = GameState.season
+	_check(GameState.my_club == "PMB" and season.ladder.size() == 19 and season.ladder.has("PMB"),
+			"You coach the created club on a nineteen-club ladder")
+	var mine: Array = season.lists["PMB"]
+	_check(mine.size() >= Prospects.MIN_LIST and mine.size() <= Ratings.LIST_SIZE,
+			"The created club drafts a full list (%d)" % mine.size())
+	var played := 0
+	var home_ground_ok := true
+	for i in range(3):
+		GameState.advance()
+		for res in GameState.last_results:
+			if str(res.get("home", "")) == "PMB" or str(res.get("away", "")) == "PMB":
+				played += 1
+			if str(res.get("home", "")) == "PMB" and res.has("venue"):
+				home_ground_ok = home_ground_ok and str(res["venue"]) == "North Port Oval"
+	_check(played >= 2, "The created club plays its matches (%d in three rounds)" % played)
+	_check(home_ground_ok, "Its home games are at its ground")
+	_check(GameState.save_career(), "A created-club career saves")
+	var meta := GameState.saved_career_meta()
+	_check(str(meta.get("club_name", "")) == "Port Melbourne",
+			"The main menu names the saved club before it loads")
+	GameState.reset()
+	_check(not GameDB.clubs.has("PMB"), "The created club leaves with the career")
+	_check(GameState.load_career(), "The created-club career loads")
+	_check(GameDB.club_name("PMB") == "Port Melbourne"
+			and str(GameDB.club_guernsey("PMB")["design"]) == "hoops"
+			and GameDB.active_clubs(GameState.season_year).has("PMB"),
+			"The loaded career brings its club back, guernsey and all")
+	_check(GameState.my_club == "PMB" and (GameState.season.lists["PMB"] as Array).size() == mine.size(),
+			"The created club's list survives the round trip")
 
 ## A club with no recorded expectation or goal position follows the club count,
 ## not 18 (a created club makes a league of 19 to 21).
