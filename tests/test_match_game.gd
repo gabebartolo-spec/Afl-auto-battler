@@ -925,6 +925,9 @@ func _test_traits() -> void:
 	_check(mt.has("wet_weather"), "A contested ball-winner with clean hands is a wet-weather player")
 	_check(not Traits.of(_fake("t4", "MID", {"contested": 90, "disposal": 70})).has("wet_weather"),
 			"Without clean hands he is not")
+	var named := _fake("t5", "DEF", {"contested": 36, "disposal": 74})
+	named["real_name"] = "Lachie Whitfield"
+	_check(Traits.of(named).has("wet_weather"), "A player the evidence names has it by name")
 	var close := _fake("t3", "FWD", {"accuracy": 68})
 	var near: Array = Traits.near(close)
 	_check(not near.is_empty() and str(near[0]["key"]) == "sharpshooter" and int(near[0]["gap"]) == 3,
