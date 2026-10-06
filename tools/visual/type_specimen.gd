@@ -63,7 +63,8 @@ func run() -> void:
 	state.reset()
 	state.start_season(MY, db.club_list(MY))
 
-	var treatments := [_current(), _barlow_set()]
+	# --faces-only: today's game beside our own faces, without the Barlow A.
+	var treatments := [_current()] if a.has("--faces-only") else [_current(), _barlow_set()]
 	if fonts_dir != "":
 		var b := _source(fonts_dir)
 		if not b.is_empty():
@@ -219,6 +220,14 @@ func _own(dir: String) -> Dictionary:
 		push_error("specimen: no Regular/Bold/Display.ttf in %s" % dir)
 		return {}
 	t["head"] = t["bold"]
+	# face.json beside the fonts: {"outline": 0.06, "shadow": [0.04, 0.04]} as a
+	# share of the font size - a guernsey keyline or a sign-writer's drop shade,
+	# drawn by Godot under the letters.
+	var hints_path := dir.path_join("face.json")
+	if FileAccess.file_exists(hints_path):
+		var hints = JSON.parse_string(FileAccess.get_file_as_string(hints_path))
+		if hints is Dictionary:
+			t["hints"] = hints
 	if built == ["Display"]:
 		# A numerals-and-capitals display face so far: it sets every number a
 		# player reads (scores, clock, ratings, guernsey numbers); words stay Barlow.
@@ -322,6 +331,7 @@ func _text(t: Dictionary, role: String, s: String, colour: Color, trim := true) 
 	var sp := int((t["spacing"] as Dictionary).get(role, 0))
 	if sp != 0:
 		l.add_theme_constant_override("line_spacing", sp)
+	_decorate(t, role, l, colour)
 	if trim:
 		l.autowrap_mode = TextServer.AUTOWRAP_OFF
 		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -652,3 +662,24 @@ func _lum(c: Color) -> float:
 	var ch := func(v: float) -> float:
 		return v / 12.92 if v <= 0.04045 else pow((v + 0.055) / 1.055, 2.4)
 	return 0.2126 * ch.call(c.r) + 0.7152 * ch.call(c.g) + 0.0722 * ch.call(c.b)
+
+
+## The roles a face's keyline or drop shade applies to: the display jobs, not
+## body copy.
+const DECORATED := ["title", "opponent", "score", "clock", "head", "l_num", "t_rating", "l_rating"]
+
+func _decorate(t: Dictionary, role: String, l: Label, colour: Color) -> void:
+	var hints: Dictionary = t.get("hints", {})
+	if hints.is_empty() or not DECORATED.has(role):
+		return
+	var fs := float(l.get_theme_font_size("font_size"))
+	if hints.has("outline"):
+		l.add_theme_constant_override("outline_size", maxi(1, roundi(fs * float(hints["outline"]) * 2.0)))
+		# The jumper's other colour: red on a light fill, the light ink on a dark one.
+		l.add_theme_color_override("font_outline_color",
+				Color("c8412b") if colour.get_luminance() > 0.5 else Color("f1eee6"))
+	if hints.has("shadow"):
+		var sh: Array = hints["shadow"]
+		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+		l.add_theme_constant_override("shadow_offset_x", maxi(1, roundi(fs * float(sh[0]))))
+		l.add_theme_constant_override("shadow_offset_y", maxi(1, roundi(fs * float(sh[1]))))
