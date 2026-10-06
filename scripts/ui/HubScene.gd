@@ -723,7 +723,9 @@ func _upcoming_match() -> Dictionary:
 		if m["home"] == GameState.my_club or m["away"] == GameState.my_club:
 			return {"home": m["home"], "away": m["away"],
 					"label": str(m["label"]), "tag": str(m["tag"]),
-					"venue": season.finals_venue(m)}
+					"venue": season.finals_venue(m),
+					"weather": season.weather_for(str(m["home"]), str(m["away"]),
+							Season.REGULAR_ROUNDS + int(season.finals["week"]), m)}
 	return {}
 
 
