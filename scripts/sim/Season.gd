@@ -3,9 +3,10 @@ extends RefCounted
 ## A 24-round home-and-away season plus a full AFL finals series.
 ##
 ## Fixture (build_fixture): 24 rounds and the same number of games for every
-## club. 18 or 20 clubs: one bye and 23 games each, as in a real season. 19
-## clubs (Tasmania, 2028-29): two byes and 22 games each. Home games within
-## one of half for everyone; byes and repeat opponents fall by the season seed.
+## club, 18 to 21 clubs (expansion or a created club). 18 or 20: one bye and
+## 23 games each, as in a real season. 19 or 21: two byes and 22 games each.
+## Home games within one of half for everyone; byes and repeat opponents fall
+## by the season seed.
 ##
 ## Finals (10 finalists):
 ##   Week 1  Wildcard: WC1 7v10, WC2 8v9
@@ -87,6 +88,10 @@ static func round_robin(codes: Array) -> Array:
 ## The most clubs the fair fixture handles (a created club can make 19, 20
 ## or 21 in any year); more falls back to the old builder.
 const FAIR_FIXTURE_MAX := 21
+## The bye rounds (0-based, inclusive): mid-season, as in the AFL, so the
+## opening rounds and the run home are full at an even count.
+const BYE_FIRST := 8
+const BYE_LAST := 19
 
 
 ## Every club plays the same number of games, home and away within one game
@@ -100,8 +105,9 @@ const FAIR_FIXTURE_MAX := 21
 ##    off with each other; at an even count no one needs it.
 ##  - the rounds go in a seeded order, then matches move into the thin
 ##    round until no round is more than one match short (21 clubs: fifteen
-##    rounds of ten and nine of nine). No round thinned in round 1 or the
-##    last two, and a club's two byes apart where the rounds allow it.
+##    rounds of ten and nine of nine). The thinned rounds are mid-season
+##    (rounds 9 to 20, as the AFL's byes are), and a club's two byes apart
+##    where the rounds allow it.
 ##  - venues: a pair met twice plays once at each ground; the pairs met once
 ##    are oriented along an Euler circuit, so every club is home in half of
 ##    them (within one game).
@@ -138,28 +144,35 @@ func build_fixture() -> Array:
 	for i in range(0, rested.size() - 1, 2):
 		if rested[i] != rested[i + 1]:
 			spare.append([rested[i], rested[i + 1]])
-	# A seeded order of rounds; of a few, the one with fewest clubs resting
-	# in back-to-back rounds (an odd count rests twice).
+	# A seeded order of rounds, levelled; of a few, the one with fewest
+	# byes outside the mid-season rounds (at an even count), then fewest
+	# clubs resting in back-to-back rounds (an odd count rests twice).
 	var best := []
-	var best_near := 1 << 30
-	for attempt in range(12):
-		var order_r := _shuffled(rounds, rng)
+	var best_score := 1 << 30
+	for attempt in range(16):
+		var order_r := []
+		for r in _shuffled(rounds, rng):
+			order_r.append((r as Array).duplicate())
 		if not spare.is_empty() or order_r.size() < REGULAR_ROUNDS:
-			order_r.insert(rng.randi_range(1, maxi(1, order_r.size() - 2)), spare.duplicate())
-		var near := 0
+			order_r.insert(rng.randi_range(BYE_FIRST, mini(BYE_LAST, order_r.size())), spare.duplicate())
+		order_r = _level_rounds(order_r, rng)
+		var score := 0
+		if clubs.size() % 2 == 0:
+			for ri in range(order_r.size()):
+				if (ri < BYE_FIRST or ri > BYE_LAST) and (order_r[ri] as Array).size() < clubs.size() / 2:
+					score += 1000
 		var rests := _rests(order_r)
 		for c in rests:
 			var rs: Array = rests[c]
-			for i in range(1, rs.size()):
-				if int(rs[i]) - int(rs[i - 1]) <= 1:
-					near += 1
-		if near < best_near:
+			for k in range(1, rs.size()):
+				if int(rs[k]) - int(rs[k - 1]) <= 1:
+					score += 1
+		if score < best_score:
 			best = order_r
-			best_near = near
-		if near == 0:
+			best_score = score
+		if score == 0:
 			break
-	rounds = best
-	return _assign_venues(_level_rounds(rounds, rng), rng)
+	return _assign_venues(best, rng)
 
 
 func _shuffled(arr: Array, rng: RandomNumberGenerator) -> Array:
@@ -174,8 +187,8 @@ func _shuffled(arr: Array, rng: RandomNumberGenerator) -> Array:
 
 ## No round more than one match short of full: a match moves from a full
 ## round into a thinner one where both clubs are free. Its clubs then rest
-## in the round it left: never round 1 or the last two, and apart from a
-## club's other rest where any move allows it.
+## in the round it left: mid-season (BYE_FIRST to BYE_LAST) and apart from a
+## club's other rest where any move allows it; further out only when none does.
 func _level_rounds(rounds: Array, rng: RandomNumberGenerator) -> Array:
 	var full := clubs.size() / 2
 	var last := rounds.size() - 2
@@ -193,11 +206,11 @@ func _level_rounds(rounds: Array, rng: RandomNumberGenerator) -> Array:
 			busy[m[1]] = true
 		var rests := _rests(rounds)
 		var best := []
-		# Byes apart and away from round 1 and the last two first; anywhere
-		# when nothing else moves.
-		for pass_i in range(3):
+		# Byes in the mid-season window and apart first; then anywhere but
+		# round 1 and the last two; anywhere when nothing else moves.
+		for pass_i in range(4):
 			var apart := pass_i == 0
-			var span := range(rounds.size()) if pass_i == 2 else range(1, last)
+			var span := range(BYE_FIRST, mini(BYE_LAST + 1, last)) if pass_i <= 1 					else (range(1, last) if pass_i == 2 else range(rounds.size()))
 			for fi in _shuffled(span, rng):
 				if fi == ti or (rounds[fi] as Array).size() < full:
 					continue

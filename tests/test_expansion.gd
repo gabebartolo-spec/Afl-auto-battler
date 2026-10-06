@@ -75,6 +75,8 @@ func _test_fair_fixture() -> void:
 					problems.append("round %d has %d matches" % [ri + 1, size])
 				if size < n / 2:
 					short += 1
+					if n % 2 == 0 and (ri < Season.BYE_FIRST or ri > Season.BYE_LAST):
+						problems.append("a bye in round %d, outside the mid-season rounds" % (ri + 1))
 				var seen := {}
 				for m in s.fixture[ri]:
 					var a := str(m["home"])
@@ -111,7 +113,7 @@ func _test_fair_fixture() -> void:
 			var again := Season.new(codes, lists, sd)
 			if str(again.fixture) != str(s.fixture):
 				problems.append("seed %d does not repeat" % sd)
-		_check(problems.is_empty(), "%d clubs: 23 games each (22 at an odd count), home within one of half, equal rests, every pair meets, no round more than a match short (%s)" % [
+		_check(problems.is_empty(), "%d clubs: 23 games each (22 at an odd count), home within one of half, equal rests, every pair meets, no round more than a match short, byes mid-season at an even count (%s)" % [
 				codes.size(), str(problems.slice(0, 4))])
 		if codes.size() % 2 == 1:
 			var who := {}
