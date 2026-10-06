@@ -4195,7 +4195,7 @@ Do not tie beard availability to hairstyle. Hair colour and facial-hair colour s
 ### 21-club fixture support
 A created club may take the competition to **21 clubs**.
 
-**Director decision (2026-10-06):** the 21-club season is 24 rounds, with 22 games and two byes for each club. With 18 and 20 clubs a club plays 23 games; with 19 clubs, 22.
+**Director decision (2026-10-06):** a 21-club season is 24 rounds, 22 games and two byes a club. (For reference, the existing fixture: 23 games at 18 and 20 clubs, 22 at 19.)
 
 - The fixture generator must support odd club counts cleanly.
 - Every club must receive an equal number of home-and-away matches.
@@ -5357,7 +5357,7 @@ Bulls in the midfield line alone after a season, ≥2 / ≥3 / ≥4: all clubs 5
 Relayed by the lead; the director's own wording is the authority if it differs.
 
 - **Club Forge: how a created club enters (ARD-M7-009).** A created club enters with the career and drafts its list in the League Draft like every other club. There is no separate concession package. The engine is in PR #340.
-- **21 clubs: the season shape (ARD-M7-009, fair fixture).** A 21-club season is 24 rounds, with 22 games and two byes for each club. With 18 and 20 clubs a club plays 23 games; with 19 clubs, 22. The medium agent's fair-fixture work implements this (evidence: [FIXTURE_SIZES_NOTE.md](FIXTURE_SIZES_NOTE.md)).
+- **21 clubs: the season shape (ARD-M7-009, fair fixture).** Director decision: a 21-club season is 24 rounds, 22 games and two byes a club. (For reference, the existing fixture: 23 games at 18 and 20 clubs, 22 at 19.) The medium agent's fair-fixture work implements this (evidence: [FIXTURE_SIZES_NOTE.md](FIXTURE_SIZES_NOTE.md)).
 
 
 # 9.2 Research candidates — awaiting director selection
@@ -5831,7 +5831,7 @@ The eight includes are the complete decision record. There are no rejected style
 
 # 10. Roadmap Maintenance Log
 
-- **2026-10-06:** Recorded two director decisions (§9.1 and ARD-M7-009): a created club enters with the career and drafts in the League Draft with no concession package; a 21-club season is 24 rounds of 22 games with two byes, and 18 or 20 clubs play 23 games, 19 clubs 22.
+- **2026-10-06:** Recorded two director decisions (§9.1 and ARD-M7-009): a created club enters with the career and drafts in the League Draft with no concession package; a 21-club season is 24 rounds, 22 games and two byes a club (for reference, the existing fixture: 23 games at 18 and 20 clubs, 22 at 19).
 
 - **2026-10-06:** Verified inherited 2026-list start and custom prospect are not implemented on main; promoted ARD-M5-016 to P0 and ARD-M7-008 to P1, with Alastair McNeil explicitly required as the first named custom-prospect use case under normal draft/generation rules.
 
