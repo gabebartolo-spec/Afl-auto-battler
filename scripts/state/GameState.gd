@@ -2005,6 +2005,140 @@ func milestone_notes() -> Array:
 	return out
 
 
+## The run-through banner's occasion for a match (Banners.pick reads it):
+## {home, away, us, round, marquee, final, must_win, spoon, first_game,
+## premiers, milestone, year, seed}. `match` is a fixture or finals entry
+## ({home, away} and a finals "tag"). Only what anyone at the ground knows:
+## the ladder, the fixture, the record books. Presentation only.
+##  - must_win: the last home-and-away round only, from the ladder (points,
+##    then percentage as it stands): a loss leaves this side out of the ten
+##    whatever else happens this round, and a win can still get it in.
+##  - spoon: both sides in the bottom three in the last six rounds.
+##  - first_game: an expansion club's first ever match.
+##  - premiers: the reigning premier in its first match of the season (the
+##    flag game), not every week.
+##  - milestone: someone in this side's 23 whose next game is his debut or
+##    a 50-game milestone (to 350), else a known farewell in the last
+##    round or a final.
+const BANNER_FINALS := {"WC": "wildcard", "QF": "qualifying", "EF": "elimination",
+		"SF": "semi", "PF": "preliminary", "GF": "grand"}
+const BANNER_MILESTONES := [50, 100, 150, 200, 250, 300, 350]
+
+
+func banner_context(match: Dictionary) -> Dictionary:
+	var home := str(match.get("home", ""))
+	var away := str(match.get("away", ""))
+	var us := my_club if (my_club == home or my_club == away) else home
+	var them := away if us == home else home
+	var tag := str(match.get("tag", ""))
+	var week := str(BANNER_FINALS.get(tag.substr(0, 2), "")) if tag != "" else ""
+	var regular := week == "" and season != null and not season.is_regular_done()
+	var last_round := regular and season.round_index == season.fixture.size() - 1
+	var round_label := str(match.get("label", "Round %d" % (season.round_index + 1) if season != null else ""))
+	var ctx := {
+		"home": home, "away": away, "us": us, "round": round_label,
+		"marquee": MarqueeGames.label(home, away), "final": week,
+		"must_win": last_round and _must_win(us, them),
+		"spoon": regular and season.round_index >= season.fixture.size() - 6 and _bottom(home, 3) and _bottom(away, 3),
+		"first_game": _first_game(home, away) if regular else "",
+		"premiers": _flag_game(home, away) if regular else "",
+		"milestone": _banner_milestone(us, last_round or week != ""),
+		"year": season_year,
+		"seed": hash([int(season.seed) if season != null else 0, season_year, round_label, home, away]),
+	}
+	return ctx
+
+
+func _ladder_ahead(row: Dictionary, pts: int, pct: float) -> bool:
+	var rp := int(row.get("pts", 0))
+	return rp > pts or (rp == pts and float(row.get("pct", 0.0)) > pct)
+
+
+## How many clubs finish above `us` on `pts` this round, at least (lowest)
+## or at most (highest), over every result of the round's other games.
+func _ahead_count(us: String, them: String, pts: int, lowest: bool) -> int:
+	var pct := float((season.ladder[us] as Dictionary).get("pct", 0.0))
+	var playing := {}
+	var n := 0
+	for m in season.fixture[season.round_index]:
+		var h := str(m["home"])
+		var a := str(m["away"])
+		playing[h] = true
+		playing[a] = true
+		if h == us or a == us:
+			continue
+		var rh: Dictionary = season.ladder[h]
+		var ra: Dictionary = season.ladder[a]
+		var h_win := int(_ladder_ahead({"pts": int(rh.get("pts", 0)) + 4, "pct": rh.get("pct", 0.0)}, pts, pct)) + int(_ladder_ahead(ra, pts, pct))
+		var a_win := int(_ladder_ahead(rh, pts, pct)) + int(_ladder_ahead({"pts": int(ra.get("pts", 0)) + 4, "pct": ra.get("pct", 0.0)}, pts, pct))
+		n += mini(h_win, a_win) if lowest else maxi(h_win, a_win)
+	for code in season.ladder:
+		if not playing.has(code) and _ladder_ahead(season.ladder[code], pts, pct):
+			n += 1
+	# Their side of our game: they lose if we win, and win if we lose.
+	if them != "" and season.ladder.has(them):
+		var rt: Dictionary = season.ladder[them]
+		var won := pts > int((season.ladder[us] as Dictionary).get("pts", 0))
+		n += int(_ladder_ahead(rt if won else {"pts": int(rt.get("pts", 0)) + 4, "pct": rt.get("pct", 0.0)}, pts, pct))
+	return n
+
+
+func _must_win(us: String, them: String) -> bool:
+	if season == null or not season.ladder.has(us):
+		return false
+	var pts := int((season.ladder[us] as Dictionary).get("pts", 0))
+	var out_if_lose := _ahead_count(us, them, pts, true) >= Season.FINALISTS
+	var in_if_win := _ahead_count(us, them, pts + 4, true) < Season.FINALISTS
+	return out_if_lose and in_if_win
+
+
+func _bottom(code: String, n: int) -> bool:
+	var rows := season.ladder_sorted()
+	for i in range(maxi(0, rows.size() - n), rows.size()):
+		if str(rows[i]["code"]) == code:
+			return true
+	return false
+
+
+func _first_game(home: String, away: String) -> String:
+	for code in [home, away]:
+		if GameDB.enter_year(code) == season_year and GameDB.enter_year(code) > 2026 \
+				and season.ladder.has(code) and int(season.ladder[code]["p"]) == 0:
+			return code
+	return ""
+
+
+## Last season's premier, in its first game of this season.
+func _flag_game(home: String, away: String) -> String:
+	var prem := ""
+	for entry in honour_roll:
+		if int(entry.get("year", 0)) == season_year - 1:
+			prem = str(entry.get("premier", ""))
+	if prem != "" and (prem == home or prem == away) and season.ladder.has(prem) \
+			and int(season.ladder[prem]["p"]) == 0:
+		return prem
+	return ""
+
+
+func _banner_milestone(code: String, farewell_ok: bool) -> Dictionary:
+	if season == null or not season.lists.has(code):
+		return {}
+	var sq: Squad = my_squad() if code == my_club else Squad.new(GameDB.club_name(code), season.lists[code], true, code)
+	var best := {}
+	var best_games := -1
+	var farewell := {}
+	for p in sq.ground + sq.bench:
+		var surname := str(GameDB.player_display_name(p)).split(" ")[-1]
+		var played := games_played(p)
+		var next := played + 1
+		if Career.complete(p) and (BANNER_MILESTONES.has(next) or played == 0) and next > best_games:
+			best = {"player": surname, "games": next}
+			best_games = next
+		elif farewell_ok and farewell.is_empty() and retiring_now(p):
+			farewell = {"player": surname, "games": "farewell"}
+	return best if not best.is_empty() else farewell
+
+
 ## What he has done for your club: {"games", "goals", "since", "bf": [years],
 ## "flags": [years]}. Games and goals count every spell at the club, this
 ## season included; "since" is when his current spell began.

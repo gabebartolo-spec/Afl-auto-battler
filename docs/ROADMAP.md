@@ -3698,6 +3698,29 @@ Give captaincy modest football meaning:
 
 Avoid blanket attribute boosts.
 
+### Director consideration — Leadership as a player stat
+Consider adding **Leadership as a numerical player stat, not a trait**, as part of this captaincy design. Claude should refine the concept and assess the smallest useful implementation before committing to exact values or effects.
+
+Represent football leadership independently of playing ability, OVR, age and captain appointment: a strong leader need not be the best player, and appointing a captain should not automatically grant high Leadership. Explore how the stat can support the bounded composure, late-game stability and morale contexts above, with credible costs/limits and equal rules for AI clubs. Avoid blanket team/attribute buffs, guaranteed comebacks, or making the highest Leadership an automatic optimal captain in every context.
+
+Define what the stat measures, how real and generated players receive credible values, whether/how it develops, and how it is shown on player profiles and captain selection. Be honest about uncertain real-player assessments rather than inventing precise evidence. Inspect the existing captaincy/player-stat foundations first; design appointment, replacement/absence and historical continuity together so the stat is not an isolated decorative number. If persisted, specify backward-compatible defaults for existing saves.
+
+**Director leadership ideas — concepts for Claude to refine, not fixed mechanics:**
+- **On-field coach:** a strong leader could increase gameplan potency through better organisation/execution. Tie any measured benefit to the actual chosen plan, relevant personnel and the leader's participation, rather than an unconditional team-wide boost.
+- **Leads by example:** leadership could support a captain's goal in a clutch moment or last-quarter heroics. Preserve the player's genuine football ability, opportunity and match events; influence tendencies/composure where justified, never script a guaranteed goal, win or comeback. Report a leadership moment only when it actually occurs.
+- **Club culture and appeal:** leadership could improve teammate morale, willingness to **re-sign** with the club, and the club's attractiveness to free agents or players considering a trade. Integrate with existing morale, contracts and recruitment decisions; leadership should be one bounded factor alongside money, opportunity, club direction and player preferences, never forced loyalty or guaranteed recruitment.
+
+These are possible expressions of the numerical Leadership stat, not a request to create three mandatory traits or parallel systems. Claude should assess overlap with coaches, existing composure/clutch behaviour, morale and club reputation before choosing the smallest useful design. Recruitment/retention effects must respect player agency, existing trade rules and AI parity; measure balance and long-save effects as well as match effects.
+
+**Director leadership-trait ideas — alongside the Leadership stat:**
+- **Tough:** teammates are slightly more effective while fatigued; modestly soften the existing fatigue penalty rather than erase fatigue, improve fresh-player performance or encourage unsafe injury behaviour.
+- **Drives Standards:** teammates gain a small amount of additional XP from actual training, through the existing training/development system and within normal potential/development limits.
+- **Unders Culture:** players may be slightly more willing to sign cheaper deals, through existing contract willingness/valuation. Preserve player choice, salary rules and other contract factors; no automatic discounts or forced acceptance.
+
+**All leadership buffs must be small**, including the gameplan, clutch, morale, retention and recruitment ideas above. These trait names/effects are design suggestions for Claude to refine, not immediate stat adjustments. Define who can carry a leadership trait and when its influence applies (captain/leadership role, active participation and absences); distinguish the quantitative Leadership stat from the style of influence. Keep effects transparent and bounded, avoid double-counting existing traits/coaches/culture, and cap stacking from multiple leaders or co-captains so several small bonuses cannot become a large team advantage. Validate fatigue curves, training progression and contract/long-save economy with AI parity before rollout.
+
+Acceptance for any eventual implementation: Leadership is a distinct readable stat; any claimed effect is modest, observable and measured in relevant match/morale contexts; captain assignment and transitions are understandable; invalid/absent captains and older saves are handled safely. Keep this a design follow-up, not an instruction to apply immediate ratings changes.
+
 ### Research refinement — 2026-10-05
 
 **Dependencies:** current player identity/morale and trustworthy match-state events.
@@ -4699,6 +4722,24 @@ Possible families:
 - wing/outside overlap,
 - forward stoppage,
 - late-game flood / protect-space situation.
+
+### Director addition — match vignette decision gates (2026-10-06)
+**Status:** `TODO` — requested roadmap candidates for Claude to refine; no implementation in this update.
+
+Extend the existing stoppage/kick-in/forward-entry/contact families with:
+- **Stoppage setup — body block on their star midfielder:** show a selected teammate setting a block/screen to impede the opposition star midfielder and create room for the intended ball winner. Make the target, blocker and space readable. The setup, contact, escape and any infringement/outcome must follow the actual football event and existing rules; it must not silently disable the star.
+- **Kick-out after a behind — torpedo down the centre:** show the kick-in set play, central receiving/contesting setup and a long torpedo through the middle. Show the genuine distance/territory opportunity and the central-turnover/exposed-defence risk where relevant. Do not assume a clean reception or invent a successful exit.
+- **Inside-50 kick into space — running forward chase, collect and shoot:** show the kicker placing the ball into open space inside 50, the actual forward racing toward it with the relevant opponent, the ground-ball collection and kick for goal when the authoritative sequence supports it. This is a kick into space and running collection, not a generic overhead mark; preserve believable bounce, timing and pursuit, and allow the real miss, turnover or defensive interruption rather than force a goal.
+
+- **Hip and shoulder — high-impact, risky bump:** a well-executed bump can be incredibly effective at removing an opposition player from the immediate play and opening space or preventing their involvement. This means taking them out of that contest/sequence, not guaranteeing an injury or removal from the match. Preserve the trade-off: a poorly executed or illegal bump can concede a free kick, with a **very small chance** of a report and potential suspension when the actual incident warrants it. Claude should refine effectiveness and risk using relevant player skills/traits, discipline, positioning and contact context; neither outcome should be a context-free random roll or a universally best call. Integrate legitimate contact, infringements and report/suspension consequences with ARD-M3-007 and ARD-M3-011 under their balance gates. The vignette must agree with the authoritative contact, free and report events; a report does not automatically imply a suspension, and any later ruling belongs to the existing MRO process.
+
+- **Switch — open player on the fat side:** show a credible kick to an open teammate on the opposite wing, shifting play toward the less congested side to open attacking avenues and create better looks inside 50. Make the receiver, opposition shift and available forward space readable before the choice. Retain a meaningful cost/risk such as the longer ball's interception exposure, time for the defence to recover or loss of a more direct opportunity; suitability follows actual space, pressure and kicking ability, not a universal switch bonus.
+
+**Director requirement: every concept above is a decision gate**, not merely an automatic highlight or post-event cinematic. Show the real setup/opportunity, freeze **before** the relevant call is committed, present meaningful alternatives and concise football trade-offs, and let the player's choice feed the authoritative MatchSim decision/outcome. For the running-forward scene, the gate comes before choosing the kick into space; the chase/collection/shot is the consequence only if it occurs. For contact, the gate comes before committing to the block/bump; for kick-out/switch, before choosing the disposal. If an appropriate gate or behaviour is missing, extend the existing decision system (ARD-M4-001) and football owner before illustrating it. Avoid repetitive prompts: trigger only at meaningful, context-valid opportunities and retain normal match pacing. Validate that alternatives genuinely change behaviour, risks can materialise, AI has equivalent football choices and outcomes are not predetermined by the vignette.
+
+**Success/failure endings where appropriate:** every applicable vignette should have alternative endings driven by the authoritative outcome roll after the player's decision. The vignette must consume that result, never reroll it, and save/reload must preserve it. Define success/failure relative to the chosen action, not merely whether the possession ultimately produces a goal. Examples: the block creates room versus the star escapes/the block infringes; the torpedo reaches the intended contest/receiver versus an intercept or failed exit; the running forward collects and converts versus being beaten to the ball, dispossessed or missing the shot; the bump removes the opponent from the play versus being evaded or conceding a free; the switch opens a useful attacking route versus being cut off or allowing the defence to reset. Support intermediate outcomes when the actual event requires them (for example a successful collection followed by a missed shot); do not fabricate a binary result that contradicts the football sequence. A rare report may follow the genuine incident and is separate from the later MRO ruling. Pure scene-setting/ceremony vignettes need no artificial success/failure roll. Validate forced/seeded success and failure branches, relevant intermediate outcomes and reload determinism.
+
+Use the existing pre-rendered 2.5D style, real participants/club identity and the same match ball colour throughout. Claude should inspect which sequences already exist and reuse their templates; any missing football behaviour belongs to the existing stoppage/coaching, kick-in (ARD-M3-009) or forward-entry/scoring owner, rather than a second cinematic simulation. Each scene must preview its meaningful decision and freeze at the appropriate point; any subsequent outcome sequence shows only what actually happened after the chosen call. Keep scenes brief/skippable and verify participant/event agreement, ball path, phone readability and performance under the existing vignette gates.
 
 ### Guardrails
 - MatchSim remains the authority. A vignette may illustrate state but must not invent a second football outcome.
@@ -5775,6 +5816,16 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Required success/failure vignette endings where appropriate, using the authoritative post-choice roll with intermediate outcomes and deterministic reloads; no separate cinematic reroll or artificial result for ceremonies.
+
+- **2026-10-06:** Added a fat-side switch vignette and explicitly made all five newly requested concepts decision gates: setup/readable trade-offs, pre-action pause, meaningful alternatives and authoritative consequences, with restrained triggering.
+
+- **2026-10-06:** Added a hip-and-shoulder vignette concept: potentially powerful removal from the immediate play, balanced by free-kick risk and a very small context-dependent chance of report/potential suspension through the existing MRO system.
+
+- **2026-10-06:** Added three requested match-vignette concepts under ARD-M8-007: blocking the opposition star midfielder at a stoppage, a torpedo kick-out down the centre after a behind, and an inside-50 kick into space for a running forward to collect and shoot.
+
+- **2026-10-06:** Added director consideration under ARD-M7-004 for Leadership as a numerical player stat (not a trait), independent of OVR/age/appointment, for Claude to refine alongside modest captaincy effects and save compatibility.
 
 - **2026-10-06:** Added red/yellow match-ball support under ARD-M8-007, including yellow balls in appropriate vignettes and one persistent, consistent colour across all scenes from the same match.
 
