@@ -185,6 +185,44 @@ The 16-career levers (6 seasons each, paired by seed; runs 37413111460 and
 The mechanism works (players learn, selection uses the new line), but the ladder
 effect is still inside its error.
 
+## Synergies: worth a lot, rarely on (2026-10-06)
+
+**Value per match.** `synergy_value_impl` plays the same match with every synergy off
+against one switched on for the home side: 792 matches, home margin within about 2
+points (runs 37430417125 and 37430420782, two runs of the same audit).
+
+| synergy | margin, run 1 | margin, run 2 |
+|---|---|---|
+| engine_room | +10.7 | +9.0 |
+| tall_small | +10.9 | +5.3 |
+| intercept_wall | +10.0 | +6.8 |
+| lockdown_unit | +9.8 | +6.5 |
+| supply_line | +9.5 | +3.0 |
+| running_machine | +5.8 | +5.5 |
+
+The real natural synergies come out at -0.7 and -1.9, not significant.
+
+**Reachability.** Naturally on in 22 to 110 of 792 side-matches. Of 20 clubs' best 22 at
+the start, how many can switch it on, and in brackets how many are one player short:
+
+| synergy | reachable (one short) |
+|---|---|
+| engine_room | 0 (0) |
+| tall_small | 1 (5) |
+| intercept_wall | 3 (9) |
+| lockdown_unit | 3 (3) |
+| supply_line | 1 (6) |
+| running_machine | 2 (4) |
+
+**Generated draftees, as drafted** (5 classes, 245 players): none with bull, aerial,
+ball_magnet, interceptor or engine; lockdown 35 and ruck_king 28. Whether they grow
+into them: pending (the medium agent is running it; the result goes here).
+
+**Selecting for synergies does not switch on more of them.** The lever audits
+(37413218886, 37413221957 and 37413224334) show the same count with the selection on.
+
+Reachability, not power. The options are with the director.
+
 ## Not exercised
 
 - The managed-list bots settle contracts, chase free agents and trade. They
