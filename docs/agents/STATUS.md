@@ -29,6 +29,11 @@ _Updated 2026-10-06. Since the last board merged: #289, #298, #301-#308, #310-#3
 - Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval).
 - On main, awaiting the director's look: #276 press conference, #277 Training-row alignment. #282 and #284 are in draft #299.
 
+## In progress
+- **P0, lead:** ARD-M5-001 18 on the ground plus 5 interchange (23 side), in review on `claude/interchange-five` (code, copy, README, DESIGN). Low follows with the other ROADMAP wording (draft #325) and the held C15 suites (selection, awards, injuries).
+- **Medium:** live fixture bugs found in docs/FIXTURE_SIZES_NOTE.md (#328): 19 clubs give unequal games (23 and 22), byes follow club-list order, home games run 7 to 17 at 18 clubs. The 21-club format (21 rounds x 20 games or 24 rounds x 22 games with two byes) goes to the director.
+- **Low:** role reference #327 and the fixture note #328 in review.
+
 ## Open PRs and dependencies
 | PR | owner | notes |
 |---|---|---|
