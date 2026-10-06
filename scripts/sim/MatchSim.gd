@@ -1470,7 +1470,7 @@ const LOOSE_READ := 0.5
 ## The director (2026-10-06): the best loose defenders sit near the real best,
 ## about 8 intercepts a game (Champion Data 2025: Sam Taylor 8.4), not 12.
 ## Scales how often he reaches an entry's contest.
-const ROAM_REACH := 0.45
+const ROAM_REACH := 0.2
 ## The power on intercept when picking the defender who meets an entry (main: 2).
 const ENTRY_READ := 1.5
 ## Of the contests the defender wins, the share he marks (an intercept
