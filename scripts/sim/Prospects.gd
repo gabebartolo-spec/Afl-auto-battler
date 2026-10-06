@@ -159,28 +159,30 @@ static func project(p: Dictionary) -> void:
 	target += float(p.get("class_shift", 0.0))
 	target = clampf(target, 38.0, 74.0)
 
-	# Attributes: centre on the target, apply the role template, then let the
-	# raw season numbers nudge the parts the projection actually claims.
+	# Attributes: centre on the target with the shape of a real player of his
+	# role (a specialist's spike and weak spot, not a flat template - director,
+	# 2026-10-06: "widen player spread"), then let the raw season numbers nudge
+	# the parts the projection actually claims. The fit below puts him back on
+	# his target, so only the shape is borrowed, never the level.
 	var a := {}
+	# Borrowed from someone at the level he's expected to grow to (his likely
+	# ceiling: Potential's draftee room), since development lifts every
+	# attribute alike - a grown prospect then looks like a real player there.
+	var level := target + maxf(6.0, 22.0 - 0.25 * float(clampi(rank, 1, 80) - 1)) \
+			+ float(p.get("class_ceiling", 0.0))
+	var shape := _shape_for(role, rng, level)
 	for key in ATTR_KEYS:
-		a[key] = target
-	var deltas: Dictionary = ROLE_DELTAS.get(role, ROLE_DELTAS["MID"])
-	for key in deltas:
-		a[key] = float(a[key]) + float(deltas[key])
+		a[key] = target + float(shape.get(key, 0.0))
 	if di > 0.0:
-		a["disposal"] = float(a["disposal"]) + clampf((di - 16.0) * 0.8, -4.0, 10.0)
+		a["disposal"] = float(a["disposal"]) + clampf((di - 16.0) * 0.4, -2.0, 5.0)
 	if gl > 0.0:
-		a["goalkicking"] = float(a["goalkicking"]) + clampf((gl - 1.2) * 2.2, -3.0, 12.0)
+		a["goalkicking"] = float(a["goalkicking"]) + clampf((gl - 1.2) * 1.1, -1.5, 6.0)
 	if mk > 0.0:
-		a["marking"] = float(a["marking"]) + clampf((mk - 3.0) * 1.5, -2.0, 8.0)
+		a["marking"] = float(a["marking"]) + clampf((mk - 3.0) * 0.75, -1.0, 4.0)
 	if ho > 0.0 and role == "RUCK":
-		a["ruck"] = float(a["ruck"]) + clampf((ho - 10.0) * 0.8, 0.0, 14.0)
+		a["ruck"] = float(a["ruck"]) + clampf((ho - 10.0) * 0.4, 0.0, 7.0)
 	if tk > 0.0:
-		a["pressure"] = float(a["pressure"]) + clampf((tk - 3.0) * 1.0, 0.0, 8.0)
-	# No Brownlow votes yet: star stays below the pack, durability is
-	# unproven by definition. Both are set before the fit, then rebalanced.
-	a["star"] = clampf(target - 10.0 + rng.randf_range(-4.0, 4.0), 20.0, 74.0)
-	a["durability"] = clampf(24.0 + gm * 1.8, 24.0, 62.0)
+		a["pressure"] = float(a["pressure"]) + clampf((tk - 3.0) * 0.5, 0.0, 4.0)
 
 	a = fit_attributes(a, role, target)
 	for key in a:
@@ -192,6 +194,44 @@ static func project(p: Dictionary) -> void:
 	p["value"] = Ratings.salary_value(int(p["overall"]))
 	p.erase("potential")  # re-projection re-derives it (deterministically)
 	Potential.assign(p)
+
+
+## Each role's real players' shapes: every attribute less his overall, and that
+## overall ("_ovr"), from the 2026 lists (GameDB's own rows, in list order, so
+## it's the same every run).
+static var _shapes := {}
+## How many of the nearest real players, by overall, a shape is drawn from.
+const SHAPE_NEAREST := 10
+
+
+## The shape of one of the real players of `role` nearest `level` overall,
+## picked by `rng`; the role template when there are no real players to
+## borrow from (a test database).
+static func _shape_for(role: String, rng: RandomNumberGenerator, level: float) -> Dictionary:
+	if _shapes.is_empty():
+		var db = Engine.get_main_loop().root.get_node_or_null("GameDB") if Engine.get_main_loop() is SceneTree else null
+		if db != null:
+			for code in db.club_order:
+				for q in db.club_list(code):
+					var at: Dictionary = q.get("attr", {})
+					if at.is_empty() or bool(q.get("generated", false)):
+						continue
+					var d := {}
+					for key in ATTR_KEYS:
+						d[key] = float(at.get(key, 0)) - float(q.get("overall", 0))
+					d["_ovr"] = float(q.get("overall", 0))
+					var r := str(q.get("role", "MID"))
+					if not _shapes.has(r):
+						_shapes[r] = []
+					(_shapes[r] as Array).append(d)
+	var pool: Array = (_shapes.get(role, []) as Array).duplicate()
+	if pool.is_empty():
+		return ROLE_DELTAS.get(role, ROLE_DELTAS["MID"])
+	pool.sort_custom(func(x, y): return absf(float(x["_ovr"]) - level) < absf(float(y["_ovr"]) - level))
+	var d: Dictionary = pool[rng.randi_range(0, mini(SHAPE_NEAREST, pool.size()) - 1)]
+	var out := d.duplicate()
+	out.erase("_ovr")
+	return out
 
 
 ## Shift every attribute by a uniform offset so rate_overall lands on target.
