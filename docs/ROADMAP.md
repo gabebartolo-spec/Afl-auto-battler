@@ -2290,7 +2290,28 @@ Consolidates existing team form with the requested winning-streak momentum conce
 Goal: make player deployment intuitive, footy-authentic and consequential.
 
 ## ARD-M5-001 — Matchday squad: 18 + 5 interchange
-**Status:** `TODO`  
+**Status:** `IN REVIEW` — implemented on `claude/interchange-five` (2026-10-06); the director has authorised the lead to merge on green.  
+
+**Implementation record (2026-10-06):**
+- **Squad:** `Ratings.INTERCHANGE := 5`, the match-day 23, no substitute role. Auto and AI selection pick 18 + 5, the Team screen has five bench slots, and an older save with four named on the bench keeps them and gets a fifth on match day.
+- **Bench make-up (auto/AI):** a forward, a defender and a midfielder first, then the best of the rest. Without it a midfielder relieved every tired forward, and crumbed goals by forwards fell below real (caught by match_game).
+- **Dual ruck (director):**
+  - Your call: 'One ruck / Dual ruck' on the Team screen, off until chosen, saved across seasons. With it on, your second ruck takes a bench spot.
+  - AI clubs run it by rule: when their spare ruck is within 5 OVR of the bench player he would replace.
+- **All-Australian team:** 23 (director).
+- **Wording:** best 22 becomes best 23 for the selected side, in the game's text and the docs. Dated evidence docs are left alone.
+- **Evidence:** `tools/audit/interchange_impl.gd`, run on GitHub (runs 37395368728 and 37395371529). The same 8 careers × 3 seasons a side, 18+4 (the old bench rules, `RULES=0`) against final 18+5, per team-match:
+  - goals 11.86 → 12.01, disposals 371.1 → 371.4, tackles 63.5 → 63.5, inside 50s 50.1 → 50.2;
+  - interchanges 41.1 → 47.0, players who took part 21.87 → 22.87;
+  - distance per player 13.22 → 12.62 km, injuries 0.80 → 0.84;
+  - in-season OVR rise +3.90 → +3.88, off-season OVR change −3.91 → −3.87.
+  - The fifth player plays and the running is shared; scoring, stats and development hold. No recalibration.
+- **Tests:**
+  - selection 33 (`_test_fifth_interchange`: all five come on and take part, the fifth earns a selected player's XP, a 4-man saved bench fills to 5; `_test_dual_ruck`); roles 23; awards 23.
+  - match_game: the boundary-free and Through-stars samples were widened (16 and 40 matches). They had sat on a one-event or two-SE margin; the medium agent diagnosed it.
+  - Calibration, workload, balance, injuries, pressure, matchday, save and career_ui pass locally.
+
+**Was:** `TODO`  
 **Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
 
