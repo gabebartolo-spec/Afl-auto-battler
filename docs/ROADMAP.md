@@ -2034,6 +2034,8 @@ Claude should refine the smallest football-credible design using the existing se
 
 Tie suitability into player identity rather than blanket solo/dual stat multipliers. **Ideas, not demands:** a "Ruck King" could operate better as the sole lead ruck, while an "Extra Midfielder" or "Unicorn"-type ruck could thrive in a complementary tandem. These names and exact behaviours are suggestions for Claude to assess; do not automatically add traits or redefine the existing Unicorn trait, which already has a separate multi-position synergy meaning. Reuse compatible existing traits/attributes where possible and avoid double-counting their benefits.
 
+**Director reference examples — Extra Midfielder rucks:** Luke Jackson, Brodie Grundy and Tristan Xerri. The intended distinction is stronger contested grunt around stoppages (ground-level ball winning, clearance involvement and pressure), with generally less aerial potency than tap-focused rucks. This does not mean they are poor ruckmen or cannot win taps; tap craft, aerial strength and contested midfield contribution are separate dimensions, and individual exceptions should remain possible. In the intended archetype contrast, tap-focused rucks are more likely to take intercept marks, while Extra Midfielder rucks are more likely to follow up forward-50 ruck contests and become involved in scoring chains. Express these as personnel-dependent tendencies through real positioning, contest follow-up and disposal/assist events, rather than guaranteed outcomes or fabricated credits; preserve individual exceptions. Use these players as archetype reference points, not instructions to force traits onto them, manually buff them or automatically make tandem play optimal. Claude should refine how this profile interacts with a complementary partner versus solo responsibility using the existing skills, traits and football model.
+
 Acceptance:
 - The choice is clear in match prep, names the relevant selected ruck(s), and explains the likely benefit and cost in concise football language without prescribing the best option.
 - Real selection, ruck responsibility, rotation/workload and off-ruck roles support the choice; no extra player, phantom second ruck, duplicate simultaneous contribution or cosmetic-only toggle.
@@ -3727,6 +3729,15 @@ The current Season Review collapses Brownlow, Coleman, Rising Star, club best & 
 - **Rising Star:** no separate ceremony required. Award/present the Rising Star during the Brownlow ceremony as part of the broader league awards night, with enough prominence to feel meaningful but without interrupting the Brownlow count's pacing.
 - Do not force every honour into its own ceremony: the distinct marquee experiences are the Brownlow count, the user's club B&F count, and the All-Australian unveiling; Coleman and Rising Star live naturally within the Brownlow awards-night presentation.
 
+### Director addition — Danny Frawley Golden Fist award
+**Status:** `TODO` — new season award.
+
+Add the **Danny Frawley Golden Fist** award for the **best defender of the season**. Give defensive excellence a distinct season honour, rather than relying on the Brownlow or general player ratings to recognise it.
+
+Claude should refine a transparent, role-aware selection rule using actual season defensive contributions and the existing award/recognition systems. Consider intercept marks, spoils, one-percenters, defensive contests/accountability and other reliably tracked defensive work; do not reduce "best defender" to the most spoils or generic disposal volume, or invent untracked statistics. Both lockdown and intercept defenders should have credible paths to winning.
+
+Define eligibility, home-and-away versus finals scope, and deterministic tie-breaking consistently with existing awards. Present the winner with a concise season-end reveal, and persist the honour in player/club career history and annual award records. Validate seeded contrasting defender profiles, repeat processing and save/reload so the award cannot duplicate or change its winner.
+
 Presentation guardrails:
 - fanfare should come from pacing, reveal, hierarchy and football context, not particle spam or UI clutter;
 - no fake suspense: reveal deterministic stored results only;
@@ -4630,6 +4641,13 @@ Final pass:
 Use short, deliberately higher-detail tactical vignettes for selected high-value in-match decisions so the player can **see the football problem or opportunity**, not just read about it.
 
 This is **not** a full 3D match engine or a replacement for the standard watched-match view.
+
+### Director addition — red/yellow match-ball colour consistency
+**Status:** `TODO`
+
+Support yellow footballs as well as red ones, including yellow balls in appropriate match vignettes. Choose the ball colour once from the match context and use that same value throughout the entire match: preparation/match intro, live match view, stoppages, scoring/action vignettes and any replay of that match. Do not choose a random colour independently for each scene or hard-code a red ball into shared vignette assets.
+
+Claude should refine the simplest appropriate selection rule from existing match scheduling/context (for example day versus night where that information exists), with a stable default for older saves or missing metadata. Preserve the colour through save/reload and reused scene templates; use a shared match value rather than separate presentation guesses. Validate one red-ball and one yellow-ball match across views and vignette transitions, including reload, so the ball never switches colour within a match.
 
 ### Dependency
 Do not prioritise this until the current §1.11 playtest gate has proved that the underlying decisions themselves are informed, meaningful and give useful feedback. Better presentation must not be used to disguise arbitrary choices.
@@ -5736,6 +5754,10 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Added red/yellow match-ball support under ARD-M8-007, including yellow balls in appropriate vignettes and one persistent, consistent colour across all scenes from the same match.
+
+- **2026-10-06:** Added the Danny Frawley Golden Fist season award for the best defender, with role-aware judging, season-end recognition and persistent career/award records.
 
 - **2026-10-06:** Added solo vs dual ruck match-prep follow-up under ARD-M4-004, with meaningful trade-offs, trait/personnel fit and AI parity. Ruck King, Extra Midfielder and Unicorn are optional design references for Claude to refine, not mandated traits or effects.
 
