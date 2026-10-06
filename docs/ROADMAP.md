@@ -3970,7 +3970,7 @@ A lightweight **Follow / Watch** affordance is preferred over extra bespoke dash
 ---
 
 ## ARD-M7-009 — Expansion clubs, Canberra toggle & Club Forge
-**Status:** `PARTIAL` — groundwork merged: the full player look (#305) and the location library, `data/forge_locations.json` with 53 researched places and a `tools/validate_data.py` check (#304). The pattern and colour research is merged (#343, #351): from each heritage club's Wikipedia infobox home kit, plus South Adelaide's own site (#351). 33 of 53 places have a pattern tag and 46 of 53 have colour tags; nothing is guessed. Still empty: 20 patterns (custom kit images, or the page is the town: werribee, shepparton, warrnambool, newcastle, wollongong, albury, maroochydore, morningside, norwood, sturt, woodville-west-torrens, claremont, subiaco, bunbury, ainslie, eastlake, tuggeranong, palmerston, weston-creek, alice-springs) and 7 colours (shepparton, southport, morningside, central-district, burnie, weston-creek, alice-springs). **Create a club, engine (merged in #340):** `ClubForge` turns a spec (name, nickname, 2-4 letter abbreviation, a library place and one of its grounds, three colours, a guernsey design and which colour goes where, entry season) into a club, refusing taken names and codes, unknown places and patterns that can't be told apart; `GameState.create_club` adds the one created club before the League Draft; `GameDB.club_order` replaces `CLUB_ORDER` wherever every club is walked; the club is saved with the career and comes back on load. Director decisions (2026-10-06): a created club **enters with the career** and drafts its list in the League Draft like every club (no separate concession package); a 21-club season is **24 rounds, 22 games and two byes a club**. The screen is built (#360, approved by the director in his words) and waits on #309 (Create a player), which needs the director's look at the player form, because it is stacked on both. The fair fixture for 18 to 21 clubs is #361. _(2026-10-06)_  
+**Status:** `PARTIAL` — groundwork merged: the full player look (#305) and the location library, `data/forge_locations.json` with 53 researched places and a `tools/validate_data.py` check (#304). The pattern and colour research is merged (#343, #351): from each heritage club's Wikipedia infobox home kit, plus South Adelaide's own site (#351). 33 of 53 places have a pattern tag and 46 of 53 have colour tags; nothing is guessed. Still empty: 20 patterns (custom kit images, or the page is the town: werribee, shepparton, warrnambool, newcastle, wollongong, albury, maroochydore, morningside, norwood, sturt, woodville-west-torrens, claremont, subiaco, bunbury, ainslie, eastlake, tuggeranong, palmerston, weston-creek, alice-springs) and 7 colours (shepparton, southport, morningside, central-district, burnie, weston-creek, alice-springs). **Create a club, engine (merged in #340):** `ClubForge` turns a spec (name, nickname, 2-4 letter abbreviation, a library place and one of its grounds, three colours, a guernsey design and which colour goes where, entry season) into a club, refusing taken names and codes, unknown places and patterns that can't be told apart; `GameState.create_club` adds the one created club before the League Draft; `GameDB.club_order` replaces `CLUB_ORDER` wherever every club is walked; the club is saved with the career and comes back on load. Director decisions (2026-10-06): a created club **enters with the career** and drafts its list in the League Draft like every club (no separate concession package); a 21-club season is **24 rounds, 22 games and two byes a club**. The screen is built (#360, approved by the director in his words) and waits on #309 (Create a player), which needs the director's look at the player form, because it is stacked on both. The fair fixture for 18 to 21 clubs is merged (#361): every club plays the same number of games, home games are within one of half, and byes follow the season seed (a 21-club season is 24 rounds, 22 games and two byes a club); the board goals and expectations follow the club count (#359). _(2026-10-06)_  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -5411,6 +5411,15 @@ From the director's chat with the lead, relayed with the director's words where 
 - **Create a club screen approved.** Director: "looks fantastic, well done". It merges after the Create a player form and the Create a club engine, because it is built on both.
 - **Freckles removed from the player look.** Confirmed in the director's own words: "i alreeady said to delete freckles from the game".
 
+## 2026-10-06 director decisions - animation, motion and the Stat Guide
+
+From the director's chat with the lead, relayed; the director's own wording is the authority if it differs.
+
+- **Centre-bounce framing prototype starts now** (the lead builds it). The set-shot kick and the press room queue behind the hair prototypes; the press room folds into LS-03.
+- **No reduced-motion setting for now.**
+- **The awards walk-on stays as it is:** no presenter, no handover.
+- **The Stat Guide uses words, not percentages.** Director: "Words instead". Counts the player acts on stay exact. Done in #398.
+
 # 9.2 Research candidates — awaiting director selection
 
 The detailed evidence, trade-offs and prototype tests are in [GENRE_ENJOYMENT_RESEARCH.md §7](GENRE_ENJOYMENT_RESEARCH.md#7-research-candidates--awaiting-director-selection).
@@ -5895,10 +5904,12 @@ The eight includes are the complete decision record. There are no rejected style
 # 10. Roadmap Maintenance Log
 
 - **2026-10-06:** ARD-M5-003: development projects made to matter is merged (#379).
+- **2026-10-06:** ARD-M7-009 status: the fair fixture for 18 to 21 clubs (#361) and the club-count board defaults (#359) are merged, with the Create a club engine (#340); the screen (#360) and Create a player (#309) wait on the director.
 
 - **2026-10-06:** STYLE-07 (PC fullscreen readability) is IN REVIEW in #371, with the cause and fix recorded; it is DONE only after the director's PC review.
 
 - **2026-10-06:** Recorded five more director decisions in §9.1: trades at real volume; synergy selection and development projects must have an impact; the clearance winner keeps the first disposal; the Create a club screen is approved; freckles removed (confirmed in the director's words).
+- **2026-10-06:** Recorded the director's animation and Stat Guide decisions in §9.1 (centre-bounce prototype now; kick and press room behind hair; no reduced-motion setting; awards walk-on unchanged; Stat Guide in words, #398).
 
 - **2026-10-06:** ARD-M7-009 Forge location research merged (#343, #351): 33 of 53 places have pattern tags and 46 of 53 have colour tags; the empties are listed in the status line.
 
