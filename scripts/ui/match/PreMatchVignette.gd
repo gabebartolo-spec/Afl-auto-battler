@@ -48,7 +48,7 @@ var _cross_cache := []     # where and when each of yours goes through the banne
 ## The scene on its own layer over whatever is showing, so it stays up while
 ## the match screen replaces the hub underneath it.
 static func open(host: Node, my_code: String, opp_code: String, my_ground: Array,
-		opp_ground: Array, heading: String, final := false) -> PreMatchVignette:
+		opp_ground: Array, heading: String, final := false, banner_ctx := {}) -> PreMatchVignette:
 	var layer := CanvasLayer.new()
 	layer.name = "PreMatch"
 	layer.layer = 90
@@ -58,7 +58,7 @@ static func open(host: Node, my_code: String, opp_code: String, my_ground: Array
 	v.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(v)
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	v.setup_prematch(my_code, opp_code, my_ground, opp_ground, heading, final)
+	v.setup_prematch(my_code, opp_code, my_ground, opp_ground, heading, final, banner_ctx)
 	return v
 
 
@@ -70,10 +70,10 @@ static func is_final(label: String) -> bool:
 
 
 func setup_prematch(my_code: String, opp_code: String, my_ground: Array, opp_ground: Array,
-		heading: String, final := false) -> void:
+		heading: String, final := false, banner_ctx := {}) -> void:
 	title = heading
 	copy = WORDS_FINALS if final else WORDS_WARM
-	banner = GameDB.club_name(my_code)
+	banner = banner_text(my_code, opp_code, heading, banner_ctx)
 	_colours = [GameDB.club_colours(my_code), GameDB.club_colours(opp_code)]
 	_codes = [my_code, opp_code]
 	tokens.clear()
@@ -91,6 +91,27 @@ func setup_prematch(my_code: String, opp_code: String, my_ground: Array, opp_gro
 	_frozen = false
 	_dress()
 	queue_redraw()
+
+
+## The words on the banner: a rhyme or a taunt for the occasion from Banners.pick (the
+## lead's banners data; ctx as Banners documents it, completed here with the clubs and
+## the round), or the club's name until the picker is in the game. Lines split on newlines.
+static func banner_text(my_code: String, opp_code: String, heading: String, ctx := {}) -> String:
+	const PICKER := "res://scripts/core/Banners.gd"
+	if ResourceLoader.exists(PICKER):
+		var c := ctx.duplicate()
+		if not c.has("home"):
+			c["home"] = my_code
+		if not c.has("away"):
+			c["away"] = opp_code
+		if not c.has("round"):
+			c["round"] = heading
+		if not c.has("seed"):
+			c["seed"] = hash(heading + my_code)
+		var text := str(load(PICKER).pick(c))
+		if text != "":
+			return text
+	return GameDB.club_name(my_code)
 
 
 ## How far the preparation has got, 0..1: past halfway, they gather in.
