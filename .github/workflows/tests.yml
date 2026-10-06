@@ -80,7 +80,12 @@ jobs:
         id: shards
         run: |
           bash tools/check_ci_shards.sh
-          echo "matrix=$(bash tools/check_ci_shards.sh --matrix)" >> "$GITHUB_OUTPUT"
+          matrix=$(bash tools/check_ci_shards.sh --matrix)
+          # Matchday runs once in the PR preflight, not again in a shard.
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            matrix=$(printf '%s' "$matrix" | python3 -c 'import json,sys; m=json.load(sys.stdin); [g.update(suites=" ".join(s for s in g["suites"].split() if s != "matchday")) for g in m["include"]]; print(json.dumps(m))')
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
       # Scheduling changes must retain complete coverage and balanced,
       # recent measured evidence. Never reduce assertions to speed CI up.
@@ -89,14 +94,52 @@ jobs:
           python3 tools/test_ci_balance.py
           python3 tools/check_ci_balance.py
 
+  # A reproducible shared failure should block expensive PR jobs immediately.
+  preflight:
+    needs: plan
+    if: needs.plan.outputs.code == 'true' && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download Godot ${{ env.GODOT_VERSION }}
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          name="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          curl -fsSL --retry 3 -o godot.zip \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${name}.zip" \
+          || curl -fsSL --retry 3 -o godot.zip \
+            "https://downloads.godotengine.org/?version=${GODOT_VERSION}&flavor=stable&slug=linux.x86_64.zip&platform=linux.64"
+          unzip -q godot.zip && rm godot.zip
+          mv "${name}" godot && chmod +x godot
+
+      - name: Early matchday gate
+        run: SUITES_ONLY=1 STOP_ON_FAILURE=1 GODOT="$HOME/godot/godot" LOG_DIR="$RUNNER_TEMP/test-logs" tools/run_tests.sh matchday
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-preflight
+          path: ${{ runner.temp }}/test-logs
+
   shard:
     name: shard ${{ matrix.shard }}
-    needs: plan
-    if: needs.plan.outputs.code == 'true'
+    needs: [plan, preflight]
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.code == 'true' && (needs.preflight.result == 'success' || needs.preflight.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
-      fail-fast: false       # a red shard should not hide the others' results
+      # PRs release runner slots promptly; main/manual diagnostics collect all failures.
+      fail-fast: ${{ github.event_name == 'pull_request' }}
       matrix: ${{ fromJSON(needs.plan.outputs.shards) }}
     steps:
       - uses: actions/checkout@v4
@@ -123,6 +166,7 @@ jobs:
       - name: Run the suites in this shard
         env:
           SUITES: ${{ matrix.suites }}
+          STOP_ON_FAILURE: ${{ github.event_name == 'pull_request' && '1' || '0' }}
         run: SUITES_ONLY=1 GODOT="$HOME/godot/godot" LOG_DIR="$RUNNER_TEMP/test-logs" tools/run_tests.sh $SUITES
 
       - name: Upload test logs
@@ -151,8 +195,8 @@ jobs:
   # build's data check, the intake harness and the runner's own self-test.
   extras:
     name: dataset and harness checks
-    needs: plan
-    if: needs.plan.outputs.code == 'true'
+    needs: [plan, preflight]
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.code == 'true' && (needs.preflight.result == 'success' || needs.preflight.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -193,27 +237,29 @@ jobs:
 
   # The required check. Its name stays "test" so branch protection is unchanged.
   test:
-    needs: [plan, shard, extras]
+    needs: [plan, preflight, shard, extras]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-        if: needs.plan.outputs.code == 'true' && needs.plan.result == 'success'
+        if: needs.plan.outputs.code == 'true' && needs.plan.result == 'success' && (needs.preflight.result == 'success' || needs.preflight.result == 'skipped')
 
       - uses: actions/download-artifact@v4
-        if: needs.plan.outputs.code == 'true' && needs.plan.result == 'success'
+        if: needs.plan.outputs.code == 'true' && needs.plan.result == 'success' && (needs.preflight.result == 'success' || needs.preflight.result == 'skipped')
         with:
           pattern: suite-timings-*
           path: ${{ runner.temp }}/suite-timings
           merge-multiple: true
 
       - name: Report observed shard imbalance
-        if: needs.plan.outputs.code == 'true' && needs.plan.result == 'success'
+        if: needs.plan.outputs.code == 'true' && needs.plan.result == 'success' && (needs.preflight.result == 'success' || needs.preflight.result == 'skipped')
         run: python3 tools/check_ci_balance.py --observed "$RUNNER_TEMP/suite-timings"
 
       - name: Every job passed
+        if: always()
         env:
+          PREFLIGHT: ${{ needs.preflight.result }}
           PLAN: ${{ needs.plan.result }}
           CODE: ${{ needs.plan.outputs.code }}
           REASON: ${{ needs.plan.outputs.reason }}
@@ -223,6 +269,10 @@ jobs:
           echo "plan=$PLAN code=$CODE shards=$SHARDS extras=$EXTRAS"
           if [ "$PLAN" != success ]; then
             echo "::error::the plan job failed: a suite is missing from tools/ci_shards.txt, or the checkout failed"
+            exit 1
+          fi
+          if [ "$PREFLIGHT" != success ] && [ "$PREFLIGHT" != skipped ]; then
+            echo "::error::the early matchday gate failed or was cancelled; full tests did not pass"
             exit 1
           fi
           if [ "$CODE" = true ]; then
