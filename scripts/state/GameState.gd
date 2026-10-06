@@ -599,6 +599,11 @@ func load_career() -> bool:
 	club_expect = state.get("club_expect", {})
 	club_goals = state.get("club_goals", {})
 	draft_meeting_year = int(state.get("draft_meeting_year", 0))
+	# A save from before the jumper fix (2026-10-07) may have two players in
+	# one number on a list: renumber the later ones, once.
+	if season != null:
+		for code in season.lists:
+			unique_jumpers(season.lists[code])
 	# A save from before the coaching world: seed it for this career now.
 	if season != null and coaches.is_empty():
 		coaches = Coaches.seed(my_club)
@@ -1456,6 +1461,37 @@ func _mark_drafted(p: Dictionary, kind: String, pick: int) -> void:
 		p.erase("drafted_pick")
 
 
+## One player per number on a list. The first to hold a number (list order:
+## the earliest pick in a League Draft) keeps it; anyone else wearing it, or
+## none, takes the next free one. Nobody else is renumbered. Returns how many
+## changed.
+static func unique_jumpers(list: Array) -> int:
+	var used := {}
+	var changed := 0
+	var clash := []
+	for p in list:
+		var n := int(p.get("num", 0))
+		if n <= 0 or used.has(n):
+			clash.append(p)
+		else:
+			used[n] = true
+	for p in clash:
+		var free := 99
+		for n in range(41, 90):
+			if not used.has(n):
+				free = n
+				break
+		if free == 99:
+			for n in range(1, 41):
+				if not used.has(n):
+					free = n
+					break
+		p["num"] = free
+		used[free] = true
+		changed += 1
+	return changed
+
+
 func _next_jumper_number(list: Array) -> int:
 	var used := {}
 	for p in list:
@@ -1478,6 +1514,9 @@ func start_season(club_code: String, list: Array) -> void:
 		league_lists = draft.all_lists()
 		for code in GameDB.club_order:
 			lists[code] = _career_copies(league_lists.get(code, []))
+			# Drafted players arrive in their old clubs' numbers: two 35s can
+			# land on one list (director's PC playtest, 2026-10-07).
+			unique_jumpers(lists[code])
 	else:
 		# Fallback for tests or old saves: your drafted list plus real AI lists.
 		for code in GameDB.club_order:
