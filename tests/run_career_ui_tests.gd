@@ -145,6 +145,41 @@ func _screen_text() -> String:
 	return " | ".join(out)
 
 
+## A short sheet is as tall as what it holds, its buttons right under the
+## words; a long one fills the screen and scrolls (the director's PC
+## playtest, 2026-10-07: the "Your week" sheet was mostly empty, flagged 4-5
+## times). Desktop and phone sizes.
+func _test_sheets_fit_their_content() -> void:
+	var kit = load("res://scripts/ui/UiKit.gd")
+	var before := root.size
+	for dims in [Vector2i(1280, 720), Vector2i(390, 844)]:
+		root.size = dims
+		var host := Control.new()
+		host.set_anchors_preset(Control.PRESET_FULL_RECT)
+		root.add_child(host)
+		await process_frame
+		var short: Dictionary = kit.modal_box(host, 520.0, 0.0)
+		for i in range(3):
+			var l: Label = kit.lbl("A short line of help, the kind a first visit shows.", 14, kit.TEXT)
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			(short["body"] as VBoxContainer).add_child(l)
+		(short["footer"] as VBoxContainer).add_child(kit.btn("Got it", 17, true))
+		var long: Dictionary = kit.modal_box(host, 520.0, 0.0)
+		for i in range(80):
+			(long["body"] as VBoxContainer).add_child(kit.lbl("Line %d" % i, 14, kit.TEXT))
+		for i in range(6):
+			await process_frame
+		var view := host.get_viewport_rect().size
+		var sh: Control = short["shell"]
+		var lh: Control = long["shell"]
+		_check(sh.size.y < view.y * 0.5, "%dx%d: a short sheet is as tall as its words (%d of %d px)" % [dims.x, dims.y, int(sh.size.y), int(view.y)])
+		_check(lh.size.y > view.y * 0.8 and lh.size.y <= view.y, "%dx%d: a long sheet fills the screen and scrolls (%d of %d px)" % [dims.x, dims.y, int(lh.size.y), int(view.y)])
+		host.queue_free()
+		await process_frame
+	root.size = before
+	await process_frame
+
+
 func _run() -> void:
 	_test_rivalry_catalogue()
 	await process_frame
@@ -152,6 +187,7 @@ func _run() -> void:
 	_router = root.get_node("Router")
 	_db = root.get_node("GameDB")
 	_test_history_records_are_stored_facts()
+	await _test_sheets_fit_their_content()
 	_test_player_goal_milestones()
 	test_media_conference_rules()
 	# Never touch a real career save or settings file from a test run.
