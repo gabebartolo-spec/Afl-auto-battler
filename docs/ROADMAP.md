@@ -563,9 +563,9 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
-### Press-conference motif: preserve the scene, refine its framing — PC playtest (2026-10-07)
+### Press-conference vignette: preserve the scene, refine its framing — PC playtest (2026-10-07)
 
-- The director considers the pictured post-match press-conference scene **arguably the game's best motif**. Preserve its visual concept and use it as a positive art-direction reference; this is not a request to replace the scene.
+- The director considers the pictured post-match press-conference scene **arguably the game's best vignette**. Preserve its visual concept and use it as a positive art-direction reference; this is not a request to replace the scene.
 - The black frame/bands create an awkward appearance. Rework or remove the heavy framing and integrate the scene, title and journalist/question area more naturally into the surrounding UI. Retain readable text and purposeful composition without unnecessary black strips, awkward boundaries or cropping the foreground audience. Verify the complete page in the exported PC build at relevant aspect ratios, with responsive treatment on mobile. Roadmap polish comment for Claude only; no game edits here.
 
 
