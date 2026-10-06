@@ -563,6 +563,14 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+### Vignette visual polish and centre ball-up framing — PC playtest (2026-10-07)
+
+- **Visible aberrant seams remain unresolved:** the close-up shows conspicuous pale/jagged lines at the orange guernsey's neckline/shoulder edges; similar lines are visible in the wider scene. Polish these artifacts out. Investigate the actual mesh/UV/material/texture-edge or rendering cause rather than assuming one from the screenshot, and verify across relevant kit designs, skin tones, poses and camera distances in the exported PC build. Do not hide the seams merely by avoiding a single camera angle.
+- **Textures look very flat and ugly:** improve the visual treatment of players, clothing and the scene with coherent material detail, shading, lighting and depth appropriate to the game's art direction. Assess the actual rendered assets, not just source textures. Prioritise a readable, cohesive result and preserve the performance constraints already recorded; this does not mandate expensive photorealism or a particular shader implementation.
+- **Centre ball-up vignette is excessively zoomed in and lacks drama:** the screenshot titled “Centre ball-up - 4 up with 16 minutes left” crops key participants and makes the action hard to understand. Recompose the camera to establish the stoppage, ball, ruck contest and nearby midfielders clearly, with purposeful dramatic framing and movement where useful. Wider context must be visible before any close-up; avoid excessive zoom and cropping that obscures the event. Check the usable scene area with the decision UI present, desktop aspect ratios/window sizes and actual motion, rather than approving a still with obscured participants. Apply responsive framing on mobile and honour the global vignette toggle.
+- These are roadmap playtest requirements for Claude only; no game code changed here.
+
+
 ### Visual simulation: flow, disposal clarity, possession and number uniqueness — PC playtest (2026-10-07)
 
 - **Repeated unresolved collection pauses — urgent regression:** the director reports yet again that play visibly pauses while a player runs over to collect the ball, despite repeated requests to remove this behaviour. Eliminate these artificial waits and maintain continuous believable movement during collection/loose-ball transitions. Investigate the actual scheduling/presentation cause; do not claim this fixed from a single isolated scene. Verify repeated ground-ball collections and turnovers in the exported PC build over a full match, preserving legitimate decision pauses and actual simulation outcomes. Treat this as an existing unresolved requirement, not a new low-priority polish suggestion.
