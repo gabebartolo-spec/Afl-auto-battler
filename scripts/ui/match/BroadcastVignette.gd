@@ -956,7 +956,7 @@ func _draw_ball(pos: Vector2, scale: float) -> void:
 	var a := 9.0 * scale
 	var b := 6.0 * scale
 	draw_colored_polygon(_ellipse(pos, a, b, 16), Color(0.79, 0.12, 0.10))
-	draw_polyline(_ellipse(pos, a, b, 16), Color(0.18, 0.05, 0.04), maxf(1.0, scale))
+	draw_polyline(_ellipse(pos, a, b, 16), Color(0.18, 0.05, 0.04), maxf(1.0, scale), true)
 
 
 func _ellipse(c: Vector2, a: float, b: float, n: int) -> PackedVector2Array:
