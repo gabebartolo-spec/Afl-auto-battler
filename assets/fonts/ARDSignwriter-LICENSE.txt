@@ -1,0 +1,6 @@
+ARD Signwriter (Regular, Bold, Display)
+
+An original typeface drawn for Aussie Rules Dynasties (2026) by the project's
+art agent, after the hand-lettered scoreboards and signage of Australian
+football grounds; built with tools/typeface/build_font.py and hinted with
+ttfautohint. Not derived from any existing font. Owned by the project.
