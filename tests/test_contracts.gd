@@ -1510,16 +1510,23 @@ func _test_trade_market() -> void:
 			phase_of[code] = GameState.club_phase(code)
 			for q in Ratings.select_22(GameState.season.lists[code])["ground"]:
 				starter_at[str(q["id"])] = code
+		var asked_before: Dictionary = (GameState.trade_requests as Dictionary).duplicate(true)
 		GameState._ai_trades(GameState.trade_prospects())
+		# A club that has already bought can find a starter pushed out of its
+		# side, and sell him as the fringe player he now is.
+		var bought := {}
 		for e in GameState.offseason_log.filter(func(x): return str(x.get("kind", "")) == "ai_trade"):
-			if str(starter_at.get(str(e["in"][0]), "")) == str(e["with"]):
+			var named := asked_before.has(str(e["in"][0])) \
+					and (asked_before[str(e["in"][0])]["to"] as Array).has(str(e["club"]))
+			if str(starter_at.get(str(e["in"][0]), "")) == str(e["with"]) and not named and not bought.has(str(e["with"])):
 				starters_ok = starters_ok and str(phase_of[e["club"]]) == "contending" \
 						and str(phase_of[e["with"]]) == "rebuilding"
+			bought[str(e["club"])] = true
 		GameState._make_trade_offers(GameState.trade_prospects())
 		GameState._freeze_league(false)
 		replay.append(_market_snapshot())
 	_check(replay[0] == replay[1], "The market comes out the same from the same league: %s // %s" % [str(replay[0]), str(replay[1])])
-	_check(starters_ok, "A rival takes another club's starter only as a contender buying from a rebuilding club")
+	_check(starters_ok, "A rival takes another club's starter only as a contender buying from a rebuilding club, or when he asked to go there")
 	GameState.load_career()
 	# Who is on offer: a rebuilding club's established players to a contender,
 	# as to you; otherwise only the players outside a club's starting side.

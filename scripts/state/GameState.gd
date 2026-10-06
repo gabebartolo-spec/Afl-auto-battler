@@ -4482,6 +4482,8 @@ const MAX_OFFERS := 2
 const MAX_AI_TRADES := 12
 ## Most trades one rival club makes with other rivals in an off-season.
 const DEALS_PER_CLUB := 2
+## Bids a buyer tries, dearest first, for one it would stand by.
+const NEGOTIATE_STEPS := 6
 ## Targets a rival buyer asks about, down its wish list, before it gives up
 ## on trading this year. Its first asks are often the young stars nobody
 ## sells; the deals that do get done come further down.
@@ -4671,11 +4673,16 @@ func _bid(club: String, asset: Dictionary, worth: float, shade: float, prospects
 ## _trade_pool for who is on offer). The buyer bids from its own valuation,
 ## cheapest first, and the seller takes the first bid it values enough -
 ## neither sees the other's sums. Turned down, the buyer tries its next
-## target, up to TARGET_TRIES. A club does one deal at most; never with you;
-## at most MAX_AI_TRADES a year, often none.
+## target, up to TARGET_TRIES. A club is in DEALS_PER_CLUB deals at most; never with you;
+## at most MAX_AI_TRADES a year, besides the ones players asked for.
 func _ai_trades(prospects: Dictionary) -> void:
 	var done := 0
-	for buyer in _club_order("ai_trades"):
+	# Every club gets a turn as a buyer, then a second turn: no club buys
+	# twice before the rest have had their chance.
+	var turns := []
+	for _round in range(DEALS_PER_CLUB):
+		turns.append_array(_club_order("ai_trades"))
+	for buyer in turns:
 		if done >= MAX_AI_TRADES:
 			break
 		if _deals(buyer) >= DEALS_PER_CLUB:
@@ -4783,8 +4790,29 @@ func _collect_trade_requests() -> void:
 				add_news("trade", _request_line(p, ask))
 
 
-## "Jack Smith has asked to be traded home to Western Australia." / "...
-## has asked for a trade to get a game."
+## The requests that concern you while trades are open: your players who
+## have asked out, and players elsewhere who named your club. Player ids.
+func my_trade_requests() -> Array:
+	if not offseason_open():
+		return []
+	var out := []
+	for id in trade_requests:
+		var r: Dictionary = trade_requests[id]
+		if str(r["club"]) == my_club or (r["to"] as Array).has(my_club):
+			out.append(str(id))
+	out.sort()
+	return out
+
+
+## A request in a line (see _request_line); "" if there is none.
+func trade_request_line(id: String) -> String:
+	if not trade_requests.has(id):
+		return ""
+	return _request_line(_find_player(id), trade_requests[id])
+
+
+## "Jack Smith (Carlton) has asked to be traded home: Adelaide or Port
+## Adelaide." / "... has asked for a trade to get a game: ..."
 func _request_line(p: Dictionary, ask: Dictionary) -> String:
 	var who := GameDB.player_display_name(p)
 	var at := GameDB.club_name(str(ask["club"]))
@@ -4867,26 +4895,36 @@ func _fringe(code: String) -> Array:
 	return _fringe_cache[code]
 
 
-## The buyer's best bid goes to the seller first; turned down, there's no
-## deal. Taken, the buyer works back down a handful of cheaper bids for the
-## least the seller would still take. Each side judges only by its own
-## valuation. [] when there's no deal.
+## The buyer's best bid it would stand by goes to the seller first: its
+## dearest, or failing that the next of a handful down the range (a package
+## priced against its own list can still look a little dear once the whole
+## trade is weighed). Turned down, there's no deal. Taken, the buyer works
+## back down a handful of cheaper bids for the least the seller would still
+## take. Each side judges only by its own valuation. [] when there's no deal.
 func _negotiate(buyer: String, seller: String, target: Dictionary, bids: Array, prospects: Dictionary) -> Array:
 	if bids.is_empty():
 		return []
-	var takes := func(pkg: Array) -> bool:
-		return bool(_club_verdict(seller, buyer, [target], pkg, Contracts.TRADE_MARGIN, prospects)["ok"]) \
-				and bool(_club_verdict(buyer, seller, pkg, [target], Contracts.TRADE_MARGIN, prospects)["ok"])
-	var best: Array = bids[bids.size() - 1][0]
-	if not takes.call(best):
+	var sells := func(pkg: Array) -> bool:
+		return bool(_club_verdict(seller, buyer, [target], pkg, Contracts.TRADE_MARGIN, prospects)["ok"])
+	var buys := func(pkg: Array) -> bool:
+		return bool(_club_verdict(buyer, seller, pkg, [target], Contracts.TRADE_MARGIN, prospects)["ok"])
+	var n := bids.size()
+	var top := -1
+	var tries := mini(NEGOTIATE_STEPS, n)
+	for k in range(tries):
+		var at := n - 1 - int(floor(float(k) * float(n - 1) / float(maxi(1, tries - 1))))
+		if buys.call(bids[at][0]):
+			top = at
+			break
+	if top < 0 or not sells.call(bids[top][0]):
 		return []
-	var steps := mini(6, bids.size() - 1)
+	var steps := mini(6, top)
 	for k in range(steps):
-		var at := int(floor(float(k) * float(bids.size() - 1) / float(maxi(1, steps))))
+		var at := int(floor(float(k) * float(top) / float(maxi(1, steps))))
 		var pkg: Array = bids[at][0]
-		if takes.call(pkg):
+		if sells.call(pkg) and buys.call(pkg):
 			return pkg
-	return best
+	return bids[top][0]
 
 
 ## A few rival clubs with a real need put an offer to you: one of your

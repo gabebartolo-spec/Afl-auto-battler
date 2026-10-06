@@ -983,6 +983,29 @@ func _run() -> void:
 		await _settle()
 		_check(_screen_text().contains("offer") and current_scene.find_children("GiveRow_*", "", true, false).is_empty(),
 				"The trade table says who came, and clears what you give")
+	# A player elsewhere who asked to be traded and named your club: a line
+	# under Asked to be traded, and one tap starts the trade for him.
+	var rival_code := ""
+	for code in _state.season.lists:
+		if str(code) != _state.my_club:
+			rival_code = str(code)
+			break
+	var asker: Dictionary = _state.season.lists[rival_code][0]
+	var keep_requests: Dictionary = (_state.trade_requests as Dictionary).duplicate(true)
+	_state.trade_requests = {str(asker["id"]): {"club": rival_code, "why": "home", "to": [_state.my_club]}}
+	current_scene.call("_build")
+	await _settle()
+	var req_btn = current_scene.find_child("RequestTrade", true, false)
+	_check(current_scene.find_child("Request_" + str(asker["id"]), true, false) != null and req_btn != null,
+			"A player who named your club shows under Asked to be traded")
+	if req_btn != null:
+		req_btn.emit_signal("pressed")
+		await _settle()
+	_check(str(current_scene.get("_trade_club")) == rival_code and str(current_scene.get("_theirs")) == str([str(asker["id"])]),
+			"Trade for him opens the trade with his club, him on their side")
+	_state.trade_requests = keep_requests
+	current_scene.call("_build")
+	await _settle()
 	# Picking a player rebuilds the tab but keeps your place in a long list.
 	var box: ScrollContainer = current_scene.get("_scroll_box")
 	box.scroll_vertical = 600
