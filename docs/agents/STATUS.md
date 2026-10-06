@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06. Since the last board merged: #321-#323, #326-#330, #332-#335 (docs #324, #329, #334, #335 from other agents). On main now: the run-through banners (#326, #330), the free-kick possession fix (#321), the role and team-match references (#327, #332), C15 seed batches 1 to 3._
+_Updated 2026-10-06. Since the last board merged: #331 (18 + 5 interchange, the All-Australian team of 23, dual ruck), #336, #337, #338, #339, #344 (docs and tests from low), #340 and #343 reviewed by medium (see Open PRs)._
 
 ## Lanes
 | agent (session) | owns |
@@ -23,24 +23,24 @@ _Updated 2026-10-06. Since the last board merged: #321-#323, #326-#330, #332-#33
 | art | `BroadcastVignette.gd` (draw functions only; `pick_kind`, `DURATIONS` untouched); `VignetteFigures.gd`, `assets/vignette/figures_*.png` (sheet being regenerated); `StoppageVignette._draw_figure`; `tools/visual/capture_appearance.gd`, `capture_guernseys.gd`, new `capture_broadcast.gd`; standing: `figure.gdshader`, `clubs.csv` guernsey column, `GameDB.club_guernsey`, `player_appearance.csv`, `Appearance.gd`. Next, in order: `AwardWinnerVignette.gd`, `MediaConferenceVignette.gd` | M8-007 migration |
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- Open and reviewable: #336 (C15 awards and injuries seeds), #337 (C15 batch 4: intake, chronology, coach_pathway, intake_ui, career_ui; intake_ui floor 493 to 500), #338 (six audit-script .uid files).
-- #331 (18 + 5 interchange): the lead's PR, CI being fixed for a match-day floor. When it merges low marks #325 ready (ROADMAP wording, drafted) and merges it on green, then seeds selection (roles and match_game stay with #331).
-- Held for the director's look: #303 (break-screen call; its match_game floor becomes 254 against the real count, main is 243), #309 (Club Forge Create a player), #299 (draft: vignette fixes). #291 is the director's Codex research: do not merge.
+- Low's next merges: #325 (ROADMAP match-day wording, ready now that #331 is on main), the `selection` seed PR, #345 (CI shard rebalance, re-timed after #331 before it merges).
+- Open for review: #340 (Club Forge Create a club engine, medium W7), #343 (location tags, medium W7), the medium agent's fair fixture.
+- Waiting on the director's look: #303 (break-screen call; its match_game floor becomes 254 against the real count, recount after #331), #309 (Club Forge Create a player), #299 (draft: vignette fixes), and the art agent's Forge hair contact sheet. #291 is the director's Codex research: do not merge.
 - Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval).
 - On main, awaiting the director's look: #276 press conference, #277 Training-row alignment.
 
 ## In progress
-- **P0, lead:** ARD-M5-001 18 on the ground plus 5 interchange (23 side), #331 (code, copy, README, DESIGN), plus the Club Forge Create a club engine.
-- **Medium:** the fair-fixture fix (19 clubs give unequal games, byes follow club-list order, home games run 7 to 17; docs/FIXTURE_SIZES_NOTE.md #328) and the location-tag research. The 21-club format goes to the director. Reviews low's PRs.
-- **Low:** the C15 seed batches (#336, #337), audit-script .uid files (#338), then #325 and selection once #331 lands.
+- **Lead:** the Club Forge Create a club engine (#340); next from the 18 + 5 follow-ups.
+- **Medium:** the fair-fixture fix (19 clubs give unequal games, byes follow club-list order, home games run 7 to 17; docs/FIXTURE_SIZES_NOTE.md #328). Director decision: a 21-club season is 24 rounds, 22 games and two byes a club (ROADMAP §9.1); 18 and 20 clubs keep 23 games, 19 keep 22. Also the location-tag research and reviews of low's PRs.
+- **Low:** #325 and the `selection` seeds, the shard rebalance (#345), then the next items the medium agent queues.
 
 ## Open PRs and dependencies
 | PR | owner | notes |
 |---|---|---|
-| #331 | lead | 18 + 5 interchange, 23 in all; CI fixing a match-day floor |
-| #325 | low | draft, ROADMAP match-day wording; ready after #331 |
-| #336, #337 | low | test-only seed batches |
-| #338 | low | six .uid files |
+| #325 | low | ROADMAP match-day wording; ready and merged on green |
+| #345 | low | CI shard rebalance, draft until re-timed |
+| #340 | lead | Club Forge Create a club engine; medium W7 |
+| #343 | medium | location tags; medium W7 |
 | #303 | medium | break-screen call; director's phone look |
 | #309 | lead | Club Forge Create a player; director's look |
 | #299 | art | draft, vignette fixes; director's look |
