@@ -6,10 +6,15 @@ extends RefCounted
 var failures: Array[String] = []
 var checks := 0
 
+## Every season and draft here is seeded (C15): a clock seed makes a different
+## league each run.
+const SUITE_SEED := 2027
+
 
 func run() -> void:
 	failures.clear()
 	checks = 0
+	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
 	_test_start_year()
 	_test_league_draft_pool()
@@ -18,6 +23,7 @@ func run() -> void:
 	_test_coaches()
 	_test_save_year()
 	_test_old_2026_career()
+	GameState.replay_seed = 0
 	print("Chronology tests: %d checks, %d failures" % [checks, failures.size()])
 
 

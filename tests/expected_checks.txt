@@ -4,7 +4,7 @@
 draft 7807
 draft_ui 1130
 intake 2191
-intake_ui 493
+intake_ui 500
 expansion 1172
 finals 109
 save 68
