@@ -163,7 +163,9 @@ func _test_training_discount() -> void:
 	var p := _real("Connor Rozee").duplicate(true)
 	var at_ceiling := p.duplicate(true)
 	at_ceiling["potential"] = int(at_ceiling["overall"])
-	_check(Potential.training_multiplier(p) <= 0.55, "A rehab player trains at about half price")
+	# POT is now what he can still reach (director, 2026-10-07), a little
+	# under his old peak, so the discount is a little smaller.
+	_check(Potential.training_multiplier(p) <= 0.65, "A rehab player trains well under full price (%.2f)" % Potential.training_multiplier(p))
 	var past := at_ceiling.duplicate(true)
 	past["potential"] = int(past["overall"]) - 2
 	var near := at_ceiling.duplicate(true)

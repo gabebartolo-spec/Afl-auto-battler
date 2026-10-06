@@ -747,10 +747,13 @@ func user_view(p: Dictionary) -> Dictionary:
 				"overall_mid": ov, "potential_mid": pot}
 	var sd := USER_EVAL_SD * scouting_mult_for(user_club) * _eval_certainty(p)
 	var ov_mid := clampi(int(round(float(ov) + _user_error(p, "ovr") * sd)), 1, 99)
-	var pot_mid := clampi(int(round(float(pot) + _user_error(p, "pot") * sd * 1.5)), ov_mid, 99)
+	# POT reads tightened (director, 2026-10-07): wide reads made elite talent
+	# look common. The read's miss is no bigger than OVR's, and the window is
+	# a point either side wider than OVR's.
+	var pot_mid := clampi(int(round(float(pot) + _user_error(p, "pot") * sd)), ov_mid, 99)
 	var half := maxi(1, int(round(sd * 0.7)))
 	return {"scouted": true, "overall": [maxi(1, ov_mid - half), mini(99, ov_mid + half)],
-			"potential": [maxi(ov_mid, pot_mid - half - 2), mini(99, pot_mid + half + 2)],
+			"potential": [maxi(ov_mid, pot_mid - half - 1), mini(99, pot_mid + half + 1)],
 			"overall_mid": ov_mid, "potential_mid": pot_mid}
 
 
@@ -813,10 +816,12 @@ func _club_worth(code: String, p: Dictionary) -> float:
 ## opinion) works as before. horizon_value off: the old blend of today's
 ## rating and POT (for paired audits).
 static var horizon_value := true
-const HORIZON_YEARS := 6
+## Building clubs look eight seasons ahead (director, 2026-10-07: "look
+## further ahead"), so the best kids are contested early.
+const HORIZON_YEARS := 8
 const HORIZON_WEIGHTS := {
-	"now": [1.0, 0.7, 0.25, 0.1, 0.0, 0.0],
-	"build": [1.0, 1.0, 0.95, 0.9, 0.8, 0.7],
+	"now": [1.0, 0.7, 0.25, 0.1, 0.0, 0.0, 0.0, 0.0],
+	"build": [1.0, 1.0, 1.0, 1.0, 0.95, 0.9, 0.85, 0.8],
 }
 ## Share of rival clubs going for the flag now; the rest build.
 const HORIZON_NOW_SHARE := 0.25

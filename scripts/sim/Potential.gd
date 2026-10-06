@@ -58,6 +58,14 @@ const GAP_PULL := [[21.0, 0.30], [24.0, 0.22], [28.0, 0.15]]
 ## at the next rollover, whatever his age.
 const REHAB_PULL := 0.9
 const MIN_STEP := 2.0
+## Past 30 a player comes back from an injury season less of the way: the
+## rehab pull eases this much per year, never below REHAB_PULL_FLOOR of it.
+const REHAB_AGE_EASE := 0.12
+const REHAB_PULL_FLOOR := 0.4
+
+
+static func rehab_pull(age: float) -> float:
+	return REHAB_PULL * clampf(1.0 - REHAB_AGE_EASE * maxf(0.0, age - 30.0), REHAB_PULL_FLOOR, 1.0)
 
 
 ## Set p["potential"] unless an earlier call or a save already did.
@@ -82,6 +90,25 @@ static func assign(p: Dictionary) -> void:
 			p["rehab"] = true
 	pot = maxf(pot, pedigree_potential(p, pot))
 	p["potential"] = clampi(int(round(pot)), ov, MAX_POT)
+	# POT is what he can still reach (director, 2026-10-07), not a ceiling
+	# from an old season: from 26, when growth is nearly done, it is the
+	# best his development can still take him to (a rehab year included).
+	# Younger players keep the projection their development pulls toward.
+	if float(p.get("age", 26.0)) >= REACHABLE_FROM_AGE:
+		p["potential"] = clampi(int(round(reachable_peak(p))), ov, MAX_POT)
+
+
+## From this age POT is the reachable peak (assign).
+const REACHABLE_FROM_AGE := 26.0
+
+
+## The best rating his development is expected to take him to from now
+## (outlook, ten seasons, breakouts aside).
+static func reachable_peak(p: Dictionary) -> float:
+	var best := float(p.get("overall", 0))
+	for season in outlook(p, 10):
+		best = maxf(best, float(season[0]))
+	return best
 
 
 ## Best recent season (8+ games), eased for age. 0 when there is none.
@@ -131,7 +158,7 @@ static func growth(p: Dictionary, age: float) -> float:
 			pull = float(band[1])
 			break
 	if bool(p.get("rehab", false)):
-		pull = maxf(pull, REHAB_PULL)
+		pull = maxf(pull, rehab_pull(age))
 		p.erase("rehab")
 	if pull <= 0.0:
 		return 0.0
@@ -182,7 +209,7 @@ static func outlook(p: Dictionary, years: int) -> Array:
 					pull = float(band[1])
 					break
 			if rehab:
-				pull = maxf(pull, REHAB_PULL)
+				pull = maxf(pull, rehab_pull(age))
 			if pull > 0.0:
 				d = maxf(d, maxf(gap * pull, minf(gap, MIN_STEP)))
 		rehab = false
