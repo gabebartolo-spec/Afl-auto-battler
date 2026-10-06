@@ -37,6 +37,12 @@ supplies the vision, taste, AFL knowledge, priorities and final judgement.
   branch, PR or follow-up until it is explicitly assigned. When an assigned
   task is done: stop, report, recommend the next step, wait.
 
+## Verification (director, 2026-10-06, from the #291 assessment)
+
+- **Real taps.** A UI flow is proven with a real tap at the control's position on screen, not only by calling its handler (`emit_signal("pressed")`): overlays and hit areas that block a finger only show up that way. New or changed touch flows get at least one real-tap check.
+- **The right art loaded.** A capture or test of a vignette or figure proves the intended sheet or atlas loaded, not a fallback.
+- **Change approach after repeated failure.** After two similar failed fixes of the same problem, stop patching: gather different evidence (a capture, a trace, a measurement) and rethink the approach before trying again.
+
 ## UI and writing
 
 The shared visual language lives in `scripts/ui/UiKit.gd`; use it before
