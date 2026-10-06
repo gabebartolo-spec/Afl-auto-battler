@@ -2377,7 +2377,7 @@ Mobile portrait first.
 ---
 
 ## ARD-M5-003 — Secondary-position learning / retraining
-**Status:** `DONE` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, merged in #266 (2026-10-06). Phone feel and balance measurement remain with the director. Made to matter (2026-10-06, claude/projects-matter): learned positions compete on merit in the auto-pick, a learned position pays back next season inside POT, and the in-season price is smaller.  
+**Status:** `DONE` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, merged in #266 (2026-10-06). Phone feel and balance measurement remain with the director. Made to matter (2026-10-06, merged in #379): learned positions compete on merit in the auto-pick, a learned position pays back next season inside POT, and the in-season price is smaller.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -5893,6 +5893,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** ARD-M5-003: development projects made to matter is merged (#379).
 
 - **2026-10-06:** STYLE-07 (PC fullscreen readability) is IN REVIEW in #371, with the cause and fix recorded; it is DONE only after the director's PC review.
 
