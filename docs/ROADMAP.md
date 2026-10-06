@@ -4642,6 +4642,13 @@ Use short, deliberately higher-detail tactical vignettes for selected high-value
 
 This is **not** a full 3D match engine or a replacement for the standard watched-match view.
 
+### Director addition — red/yellow match-ball colour consistency
+**Status:** `TODO`
+
+Support yellow footballs as well as red ones, including yellow balls in appropriate match vignettes. Choose the ball colour once from the match context and use that same value throughout the entire match: preparation/match intro, live match view, stoppages, scoring/action vignettes and any replay of that match. Do not choose a random colour independently for each scene or hard-code a red ball into shared vignette assets.
+
+Claude should refine the simplest appropriate selection rule from existing match scheduling/context (for example day versus night where that information exists), with a stable default for older saves or missing metadata. Preserve the colour through save/reload and reused scene templates; use a shared match value rather than separate presentation guesses. Validate one red-ball and one yellow-ball match across views and vignette transitions, including reload, so the ball never switches colour within a match.
+
 ### Dependency
 Do not prioritise this until the current §1.11 playtest gate has proved that the underlying decisions themselves are informed, meaningful and give useful feedback. Better presentation must not be used to disguise arbitrary choices.
 
@@ -5747,6 +5754,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Added red/yellow match-ball support under ARD-M8-007, including yellow balls in appropriate vignettes and one persistent, consistent colour across all scenes from the same match.
 
 - **2026-10-06:** Added the Danny Frawley Golden Fist season award for the best defender, with role-aware judging, season-end recognition and persistent career/award records.
 
