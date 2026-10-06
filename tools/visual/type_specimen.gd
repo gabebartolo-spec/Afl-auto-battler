@@ -212,6 +212,7 @@ func _own(dir: String) -> Dictionary:
 		if FileAccess.file_exists(path):
 			var f := FontFile.new()
 			if f.load_dynamic_font(path) == OK:
+				_rasterise(f, dir)
 				# Glyphs it lacks come from Barlow, not the engine's default.
 				f.fallbacks = [(t[k[0]] as FontVariation).base_font]
 				t[k[0]] = _tabular(f)
@@ -689,3 +690,19 @@ func _decorate(t: Dictionary, role: String, l: Label, colour: Color) -> void:
 		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
 		l.add_theme_constant_override("shadow_offset_x", maxi(1, roundi(fs * float(sh[0]))))
 		l.add_theme_constant_override("shadow_offset_y", maxi(1, roundi(fs * float(sh[1]))))
+
+
+## How small text is put on the pixel grid, from face.json's "hinting":
+## "none", "light" (Godot's default) or "normal" (the font's own hints, e.g.
+## from ttfautohint). Greyscale antialiasing: subpixel colour smears on phones.
+func _rasterise(f: FontFile, dir: String) -> void:
+	var hints_path := dir.path_join("face.json")
+	var mode := "light"
+	if FileAccess.file_exists(hints_path):
+		var h = JSON.parse_string(FileAccess.get_file_as_string(hints_path))
+		if h is Dictionary:
+			mode = str(h.get("hinting", "light"))
+	f.hinting = {"none": TextServer.HINTING_NONE, "normal": TextServer.HINTING_NORMAL}.get(mode, TextServer.HINTING_LIGHT)
+	f.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
+	f.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_AUTO
+	f.multichannel_signed_distance_field = false
