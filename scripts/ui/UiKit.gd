@@ -513,7 +513,9 @@ static func club_marker(code: String, size := 22.0) -> Control:
 	# A two-colour club's third colour is only a pitch tint: its trim is the
 	# second colour.
 	var trim: Color = cols[2] if GameDB.club_marker_colours(code).size() > 2 else cols[1]
-	return GuernseyCrest.make(g["base"], g["pattern"], trim, str(g["design"]), code, size)
+	# The old flag's footprint (size less its 2 px of frame), so lists of clubs
+	# - the ladder above all - keep their row heights.
+	return GuernseyCrest.make(g["base"], g["pattern"], trim, str(g["design"]), code, size - 2.0)
 
 
 ## The same guernsey from colours alone (Club Forge shows a club before it
