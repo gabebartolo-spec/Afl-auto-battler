@@ -746,8 +746,11 @@ func _rebuild_kit() -> void:
 	var row := GridContainer.new()
 	row.columns = 1 if narrow else 2
 	row.add_theme_constant_override("h_separation", 16)
+	row.add_theme_constant_override("v_separation", 8)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_kit_box.add_child(row)
 	var base_box := UiKit.vbox(4)
+	base_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	base_box.add_child(_sub("Guernsey colour"))
 	base_box.add_child(_slot_choices("ForgeBase", slots, str(kit[0]), func(k: String):
 		if k == str(kit[1]):
@@ -763,6 +766,7 @@ func _rebuild_kit() -> void:
 			if t != str(kit[0]):
 				others.append(t)
 		var pattern_box := UiKit.vbox(4)
+		pattern_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pattern_box.add_child(_sub("Pattern colour"))
 		pattern_box.add_child(_slot_choices("ForgePattern", others, str(kit[1]), func(k: String):
 			kit[1] = k
@@ -776,6 +780,7 @@ func _rebuild_kit() -> void:
 func _slot_choices(node_name: String, tokens: Array, current: String, on_pick: Callable) -> HBoxContainer:
 	var h := UiKit.hbox(6)
 	h.name = node_name
+	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var key_of := {"p": "primary", "s": "secondary", "a": "accent"}
 	for t in tokens:
 		var key: String = key_of[t]
