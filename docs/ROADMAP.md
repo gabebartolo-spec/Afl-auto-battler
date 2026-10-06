@@ -563,6 +563,12 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+### Late-game centre ball-up decision repeats — PC playtest bug/requirement (2026-10-07)
+
+- The director reports repeated appearances of the pictured late-game **Centre ball-up** decision (Stack the stoppage / Flood behind the ball / Play it straight), previously “4 up with 16 minutes left” and now “3 down with 10 minutes left”. **This event must be possible at most once per match**, regardless of score/margin changes or renewed trigger conditions. This cap applies to the decision event, not ordinary centre bounces or all other decision types.
+- Persist its consumed/triggered state for the match so save/load, resuming, changing vignette settings or branching choices cannot retrigger the same decision. Ensure selecting an option resolves it once and does not duplicate its effects. Reset eligibility for a new match, and verify both enabled and disabled vignette modes across a full late-game sequence. Roadmap requirement for Claude only; no game code changed here.
+
+
 ### Vignette visual polish and centre ball-up framing — PC playtest (2026-10-07)
 
 - **Umpire bounce animation: floating/rotating held ball:** the director reports that the football hovers in the umpire's hands and rotates oddly while he is meant to be holding it. Maintain convincing hand-to-ball contact and a stable orientation relative to the grip during the held phase, then transition naturally through the bounce release and ball motion. Verify the actual attachment/animation timing and transforms rather than assuming a cause. Check the complete animation in motion from the revised camera framing, including pickup/hold/release if present, and ensure free-flight spin does not incorrectly run while the ball is held. Audit shared held-ball behaviour alongside the already reported snap-for-goal hovering ball. Roadmap bug report only; Claude to implement.
