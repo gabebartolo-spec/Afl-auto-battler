@@ -70,11 +70,12 @@ const SNAP_BOOT := Vector2(0.62, 0.63)
 ## Heights in metres, so a leap is a footballer's leap on any screen: a speccy's
 ## knees in the pack's backs, a one-on-one contest.
 const SPECCY_PEAK := 1.05
-const SPECCY_SETTLE := 0.45
 ## The speccy: the ball between his palms, this far under his fingertips (the leap frame's
 ## reach), and when he has it in to his chest.
 const SPECCY_PALMS := 0.14
-const SPECCY_HELD := 1.94
+## He hangs at the top with it until SPECCY_DOWN, then drops, landing at SPECCY_LAND.
+const SPECCY_DOWN := 1.78
+const SPECCY_LAND := 2.2
 const CONTEST_PEAK := 0.55
 ## The crumber's scale: nearer the camera than the marking contest, so a little larger
 ## on screen - but a small forward, not a giant (he's drawn on his own build too).
@@ -526,10 +527,11 @@ func _draw_speccy() -> void:
 	if jump_t < 0.62:
 		lift = ease(jump_t / 0.62, -2.0) * SPECCY_PEAK
 	else:
-		lift = lerpf(SPECCY_PEAK, SPECCY_SETTLE, (jump_t - 0.62) / 0.38)
-	var contact_hold := _t >= 1.45 and _t <= 1.78
-	if contact_hold:
 		lift = SPECCY_PEAK
+	if _t > SPECCY_DOWN:
+		# Then straight down under gravity, square to us, and onto his feet.
+		var u := clampf((_t - SPECCY_DOWN) / (SPECCY_LAND - SPECCY_DOWN), 0.0, 1.0)
+		lift = SPECCY_PEAK * (1.0 - u * u)
 
 	# The pack: everyone faces the ball coming in, so their backs are to us, just upfield
 	# of the marker. Each contests his own way: the man he climbs goes up with both
@@ -544,8 +546,9 @@ func _draw_speccy() -> void:
 		var p: Dictionary = pack[i]
 		var k := clampf((_t - 0.42 - float(p["delay"])) / 0.9, 0.0, 1.0)
 		var up := sin(k * PI) * float(p["lift"]) * SPECCY_PEAK
-		if str(p["how"]) == "ready_turn" or k <= 0.0:
-			# Waiting on it, or holding his ground body-on: watching the ball, his own rhythm.
+		if str(p["how"]) == "ready_turn" or k <= 0.0 or k >= 1.0:
+			# Waiting on it, holding his ground body-on, or back down after the contest:
+			# watching the ball, his own rhythm (not frozen with his hands up).
 			_ready_player(p["at"], other, "back", 13 + i * 5, i == 2, i == 2)
 		else:
 			var frames := 6 if str(p["how"]) == "leap" else 4
@@ -562,12 +565,16 @@ func _draw_speccy() -> void:
 			leap_frame = 1                                         # the take-off crouch
 		else:
 			leap_frame = 2 + int(roundf(clampf((jump_t - 0.08) / 0.4, 0.0, 1.0) * 3.0))
-		if _t > 1.78:
+		if _t > SPECCY_DOWN:
 			leap_frame = 4                                         # both hands still on it
-	# Then the ball into his chest, turning a little as he comes down on the pack: arms
-	# folded round it (the gather's last frame). Raised hands mid-way down read as a
-	# man with nothing in them (director: the mark has to be held).
-	var held_in := _t >= SPECCY_HELD
+		# Bringing it in to his chest as he lands, then the landing crouch, then up out
+		# of it: square to us the whole way, the ball held in front of him (director: not
+		# landing on an angle as if he's about to run off).
+		if _t > SPECCY_LAND - 0.12:
+			leap_frame = 1
+		if _t > SPECCY_LAND and _t < SPECCY_LAND + 0.35:
+			leap_frame = 0
+	var held_in := _t > SPECCY_LAND - 0.12
 	# The ball comes down out of the night at a kick's pace (no easing to a stop above
 	# him) into his hands - between his palms, a hand's width under his fingertips (the
 	# frame's reach: the top of the figure) - and stays there. It is just beyond him all
@@ -582,14 +589,10 @@ func _draw_speccy() -> void:
 	var ball := Vector3(held.x, held.y, hands_h)
 	if _t < 1.45:
 		ball = from.lerp(ball, k)
-	var tucking := held_in and _t < SPECCY_HELD + 0.1          # hunched over it, pulling it in
 	if held_in:
-		ball = Vector3(held.x, held.y, lift + (0.85 if tucking else 1.2))   # at his chest: hidden by him
+		ball = Vector3(held.x, held.y, lift + (0.85 if leap_frame == 0 else 1.0))   # at his chest: hidden by him
 	_ball3(Vector2(ball.x, ball.y), ball.z)
-	if held_in:
-		_player(m, lift, side, "gather", "back_r", 1 if tucking else 2, num, _look, false, _build)
-	else:
-		_player(m, lift, side, "leap", "back", leap_frame, num, _look, false, _build)
+	_player(m, lift, side, "leap", "back", leap_frame, num, _look, false, _build)
 
 
 # ---------------------------------------------------------------------------
@@ -783,9 +786,9 @@ func _crumber_spot(t: float) -> Vector2:
 # ---------------------------------------------------------------------------
 ## The boundary snap's run: across the shot, left to right and a little away (infield, to
 ## open the angle), from RUN_FROM to RUN_TO seconds, carrying on a stride into the snap.
-const POCKET_RUN := [0.35, 1.25]
+const POCKET_RUN := [0.35, 1.1]
 ## The snap's boot meets the ball (frame 3, a frame every 0.1 s from the run's end).
-const POCKET_CONTACT := 1.55
+const POCKET_CONTACT := 1.4
 
 
 ## Screen-right on the ground for the scene's camera, turned a little away from it.
@@ -795,12 +798,61 @@ func _pocket_heading() -> Vector2:
 	return (Vector2(dir.y, -dir.x) + dir * 0.3).normalized()
 
 
+## The defenders waiting on his kick, clear of the protected area (director): that is
+## the corridor from the mark to him, 5 m either side, and 5 m round each end. He took
+## the mark at POCKET_MARK and stepped back from it; they stand off beyond it, goal-side,
+## on his angle to the posts - one a little infield, one deeper, near the goal square -
+## shuffle in as he runs and stop at the area's edge. Their pressure is what gets to his
+## kick: on a miss they've come right up to that edge.
+const POCKET_MARK := 2.0        # metres goal-side of POCKET_AT
+const PROTECT := 5.0
+
+func _pocket_defenders() -> Array:
+	var goal := Vector2(0.0, VignetteGround.GOAL_Y)
+	var k := _pocket_kicker()
+	var to_goal := (goal - POCKET_AT).normalized()
+	var infield := Vector2(to_goal.y, -to_goal.x)
+	if infield.x < 0.0:
+		infield = -infield
+	var mark := POCKET_AT + to_goal * POCKET_MARK
+	var miss := str(event.get("kind", "")) != "goal"
+	var close := clampf((_t - 0.2) / (POCKET_CONTACT - 0.2), 0.0, 1.0)
+	close = close * close * (3.0 - 2.0 * close) * (1.0 if miss else 0.55)
+	var out := []
+	for spot in [POCKET_AT + to_goal * 11.0 + infield * 3.5, POCKET_AT + to_goal * 18.0 + infield * 0.3]:
+		var p: Vector2 = spot
+		p = p + (k - p).normalized() * 3.0 * close
+		# Never inside the area: at least PROTECT + 0.6 from the mark-to-him corridor.
+		var seg := Geometry2D.get_closest_point_to_segment(p, k, mark)
+		if p.distance_to(seg) < PROTECT + 0.6:
+			p = seg + (p - seg).normalized() * (PROTECT + 0.6)
+		out.append(p)
+	return out
+
+
+func _draw_pressure(press: Array, side: int) -> void:
+	var opp := 1 - side
+	var miss := str(event.get("kind", "")) != "goal"
+	for i in range(2):
+		var p: Vector2 = press[i]
+		var shuffling := _t > 0.2 and _t < POCKET_CONTACT - 0.15
+		if i == 0 and _t >= POCKET_CONTACT - 0.15 and _t < POCKET_CONTACT + 0.45:
+			# Up at it: arms high to put him off (higher and nearer on a miss).
+			var u := clampf((_t - (POCKET_CONTACT - 0.15)) / 0.6, 0.0, 1.0)
+			var lift := sin(u * PI) * (0.35 if miss else 0.2)
+			_player(p, lift, opp, "leap", "front", 2 + mini(3, int(u * 6.0)), 0, Appearance.generated("pocket_d%d" % i), false)
+		elif shuffling:
+			_player(p, 0.0, opp, "jog", "front", int(_t * 11.0 + i * 3) % 8, 0, Appearance.generated("pocket_d%d" % i), i == 1)
+		else:
+			_ready_player(p, opp, "front", 21 + i * 4, i == 1, i == 1, 0, Appearance.generated("pocket_d%d" % i), BODY, i == 0)
+
+
 func _pocket_kicker() -> Vector2:
 	var head := _pocket_heading()
 	var run := clampf((_t - POCKET_RUN[0]) / (POCKET_RUN[1] - POCKET_RUN[0]), 0.0, 1.0)
 	var on := clampf((_t - POCKET_RUN[1]) / 0.35, 0.0, 1.0)
-	# Gets going (eased in), runs through, and carries on into the kick.
-	var d := -2.0 + 3.6 * (run * run * (1.5 - 0.5 * run)) + 0.5 * on * (2.0 - on)
+	# Three steps or so (director): gets going, runs through, carries on into the kick.
+	var d := -1.2 + 2.2 * (run * run * (1.5 - 0.5 * run)) + 0.4 * on * (2.0 - on)
 	return POCKET_AT + head * d
 
 
@@ -813,15 +865,15 @@ func _draw_boundary_snap() -> void:
 	var scale: float = hip[1]
 	var boot := _at(kicker, scale, SNAP_BOOT)
 	var held := _at(kicker, scale, Vector2(0.06, 0.95))     # in front of him: hidden by him
-	var tucked := _at(kicker, scale, Vector2(0.11, 1.0))    # side-on: against his belly
+	var carried := _at(kicker, scale, Vector2(0.2, 1.08))   # side-on: in his hands in front of him
 	var snap_from := POCKET_CONTACT - 0.3
-	_draw_extras([POCKET_AT, at])
+	var press := _pocket_defenders()
+	_draw_extras([POCKET_AT, at, press[0], press[1]])
+	_draw_pressure(press, side)
 	# Drawn before him: held into his body, the ball only shows past it.
 	if _t < POCKET_RUN[0]:
 		_draw_ball(held, scale * 0.9)
-	elif _t < snap_from:
-		_draw_ball(tucked, scale * 0.9)
-	elif _t < POCKET_CONTACT - 0.1:
+	elif _t >= snap_from and _t < POCKET_CONTACT - 0.1:
 		_draw_ball(held, scale * 0.9)
 	# Steadying, then a run across the shot, left to right (side-on, heading right:
 	# the left-heading frames mirrored), then he turns in and snaps around his body.
@@ -833,6 +885,9 @@ func _draw_boundary_snap() -> void:
 		_player(at, 0.0, side, "snap", "back_r", mini(4, int((_t - snap_from) / 0.1)), num, _look, false, _build)
 	else:
 		_ready_player(at, side, "back", 6, false, false, num, _look, _build)     # landed, watching it
+	if _t >= POCKET_RUN[0] and _t < snap_from:
+		# Running with it: carried in front of his chest, in plain sight (director).
+		_draw_ball(carried + Vector2(0, sin(_t * 23.0) * 1.5 * scale), scale * 0.9)
 	if _t >= POCKET_CONTACT - 0.1 and _t < POCKET_CONTACT:
 		_draw_ball(held.lerp(boot, (_t - (POCKET_CONTACT - 0.1)) / 0.1), scale * 0.9)      # dropped onto the boot
 	elif _t >= POCKET_CONTACT:
