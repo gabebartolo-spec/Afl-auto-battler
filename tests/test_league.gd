@@ -43,6 +43,20 @@ func _test_banner_context() -> void:
 	_check(str(ctx["us"]) == "GEE" and str(ctx["final"]) == "" and not bool(ctx["must_win"]) and not bool(ctx["spoon"]),
 			"A round-one match is an ordinary banner (%s)" % str(ctx))
 	_check(int(ctx["seed"]) == int(GameState.banner_context(m0)["seed"]), "The same match gives the same seed")
+	# FL-008: pennants for your flags of this career, newest first, at your own ground.
+	_check((ctx["flags"] as Array).is_empty(), "No flags yet, no pennants")
+	GameState.honour_roll = [{"year": yr - 3, "premier": "GEE"}, {"year": yr - 2, "premier": "CAR"},
+			{"year": yr - 1, "premier": "GEE"}]
+	var home := str(m0["home"]) == "GEE"
+	var fl: Array = GameState.banner_context(m0)["flags"]
+	_check(GameState.premiership_years("GEE") == [yr - 1, yr - 3] and GameState.premiership_years("CAR") == [yr - 2],
+			"A club's premierships of this career, newest first (%s)" % str(GameState.premiership_years("GEE")))
+	_check(fl == ([yr - 1, yr - 3] if home else []), "Pennants hang at your home games only (%s, home %s)" % [str(fl), str(home)])
+	var vig := PreMatchVignette.new()
+	vig.setup_prematch("GEE", "CAR", [], [], "Round 1", false, {"flags": range(2020, 2030)})
+	_check(vig.flags.size() == PreMatchVignette.PENNANTS, "A dynasty doesn't wallpaper the stand: %d pennants at most" % PreMatchVignette.PENNANTS)
+	vig.free()
+	GameState.honour_roll = []
 	_check(str(GameState.banner_context({"home": "GEE", "away": "COL", "tag": "GF", "label": "Grand Final"})["final"]) == "grand"
 			and str(GameState.banner_context({"home": "GEE", "away": "COL", "tag": "SF1"})["final"]) == "semi",
 			"A final carries its week")
@@ -107,11 +121,33 @@ func _test_banner_context() -> void:
 		c["games"] = 10
 		c["through"] = yr
 		c["unknown"] = []
+		c["stints"] = []
 	var star: Dictionary = side[0]
 	Career.of(star)["games"] = 349
 	var ms: Dictionary = GameState.banner_context(m0)["milestone"]
 	_check(int(ms.get("games", 0)) == 350 and str(GameDB.player_display_name(star)).ends_with(str(ms.get("player", "?"))),
 			"A 350th game is the banner's milestone (%s)" % str(ms))
+	# FL-002: the director's 200-game line, with his full displayed name.
+	Career.of(star)["games"] = 199
+	var ctx200 := GameState.banner_context(m0)
+	_check(Banners.pick(ctx200) == "200 games.\nTake a bow,\n%s." % GameDB.player_display_name(star),
+			"His 200th: '200 games. Take a bow, {name}.' (%s)" % Banners.pick(ctx200).replace("\n", " / "))
+	# A player who came from another club: his 100th game in these colours,
+	# not a career milestone.
+	Career.of(star)["games"] = 140
+	Career.of(star)["stints"] = [["XXX", yr - 10, yr - 6, 41, 0], [GameState.my_club, yr - 5, yr, 99, 0]]
+	var ctxc := GameState.banner_context(m0)
+	var msc: Dictionary = ctxc["milestone"]
+	_check(bool(msc.get("club", false)) and int(msc.get("games", 0)) == 100
+			and Banners.pick(ctxc) == "100 games\nin our colours.\n%s." % GameDB.player_display_name(star),
+			"His 100th for the club, not his career, is the club's banner (%s)" % str(msc))
+	# Out of the side: no message for him.
+	var on_list := GameState.list_player(str(star["id"]))
+	on_list["injury_weeks"] = 3
+	var msx: Dictionary = GameState.banner_context(m0)["milestone"]
+	_check(str(msx.get("name", "")) != GameDB.player_display_name(star), "Left out, his banner goes with him")
+	on_list["injury_weeks"] = 0
+	Career.of(star)["stints"] = []
 	Career.of(star)["games"] = 10
 	# The squad holds copies of the list's players: mark the list player.
 	for p in GameState.my_list:
