@@ -298,6 +298,9 @@ static func half_time_report(res: Dictionary, my_side: int) -> Dictionary:
 			"quarter_teams": res.get("quarter_teams", []),
 			"home": res.get("home", ""),
 			"away": res.get("away", ""),
+			# Only who was hurt by half-time.
+			"injuries": (res.get("injuries", []) as Array).filter(
+					func(i): return int((i as Dictionary).get("q", 5)) <= 2),
 		}
 		return _build_report(ht_res, my_side, 2)
 	return _build_report(res, my_side, _quarters_played(res))
@@ -324,6 +327,15 @@ static func _build_report(res: Dictionary, my_side: int, quarters: int) -> Dicti
 
 	var my_ranked := rank_side(my_roster, player_stats, quarters)
 	var opp_ranked := rank_side(opp_roster, player_stats, quarters)
+	# When a player was hurt, so Needs a lift can tell a short game from a
+	# poor one.
+	for inj in res.get("injuries", []):
+		var rec: Dictionary = inj
+		if int(rec.get("side", -1)) != my_side:
+			continue
+		for e in my_ranked:
+			if str(e["id"]) == str(rec.get("id", "")):
+				e["hurt_min"] = int(rec.get("min", 0))
 	var my_by_delta := _by_delta(my_ranked)
 	var opp_by_delta := _by_delta(opp_ranked)
 
@@ -630,6 +642,10 @@ const NOTE_TOPICS := {"clearances": "stoppages", "inside50": "going forward", "p
 ## A Player Rating below this over a full game is a quiet one (MatchNotes:
 ## an ordinary game is 50-80); scaled down for a half.
 const LIFT_BELOW := 50.0
+## Needs a lift is for a player who had the game to make an impact: one hurt
+## before this share of it is gone (minutes of 30 a quarter) had a short
+## game, not a poor one, and his injury is on the injury surfaces.
+const LIFT_MIN_SHARE := 0.75
 
 
 static func glance(report: Dictionary, full_time := false) -> Dictionary:
@@ -685,8 +701,11 @@ static func glance(report: Dictionary, full_time := false) -> Dictionary:
 	var lift_pool: Array = (report.get("my_ranked", []) as Array).duplicate()
 	lift_pool.sort_custom(func(a, b):
 		return MatchNotes.rating(a.get("stats", {})) < MatchNotes.rating(b.get("stats", {})))
+	var quarters := int(report.get("quarters", 4))
 	var quiet := func(d: Dictionary) -> bool:
-		return MatchNotes.rating(d.get("stats", {})) < LIFT_BELOW * float(int(report.get("quarters", 4))) / 4.0
+		if d.has("hurt_min") and float(d["hurt_min"]) < LIFT_MIN_SHARE * 30.0 * float(quarters):
+			return false
+		return MatchNotes.rating(d.get("stats", {})) < LIFT_BELOW * float(quarters) / 4.0
 	return {
 		"read": read.slice(0, 3),
 		"best": people.call(report.get("my_best", []), 2, always),
