@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06. Since the last board merged: #345, #349, #352, #357, #359, #363, #364, #366, #367 (the shard rebalance, the seed guard, free-kick and disposal evidence, the club-count defaults, no freckles, and the director's PC-readability and app-icon docs)._
+_Updated 2026-10-06. Since the last board merged: #299 (vignettes, director approved), #362, #365, #369, #370 (flags evidence, the director decisions in the roadmap, the free-kicks note and the board)._
 
 ## Lanes
 | agent (session) | owns |
@@ -24,11 +24,11 @@ _Updated 2026-10-06. Since the last board merged: #345, #349, #352, #357, #359, 
 
 ## Waiting on the director
 **Looks** (appearance or screens; the director's own words needed before they merge):
-- #360 Create a club screen: approved in the director's words, merges after #309 and #340. #303 break-screen call; #309 Club Forge Create a player (the player form).
+- #371 STYLE-07 PC readability (P0, lead): needs the director's look on a PC before it merges. #360 Create a club screen: approved in the director's words, merges after #309 and #340. #303 break-screen call; #309 Club Forge Create a player (the player form).
 - The art agent's Forge hair and face sheet and boot sheet.
 
 **Own-words confirmations** (the decision reached the agents second-hand; held until the director says it on the PR or in the chat):
-- #299 vignettes: the art agent relayed "fine, ship it"; no direct words yet. (#357 freckles is confirmed in the director's words and merged.)
+- None open. #299 vignettes were approved in the director's own words in chat and merged; #357 freckles was confirmed in the director's words and merged.
 
 **Decisions made, being built:** trades at real volume (lead); the clearance winner keeps the first disposal (medium, PR coming); synergy selection and development projects must have an impact (the projects proposal is with the lead). Recorded in ROADMAP §9.1 (#365). The lever table is done: neither lever clearly moves the ladder; development projects currently cost about 0.7 OVR in the season they run.
 
