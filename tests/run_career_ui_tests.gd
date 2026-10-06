@@ -286,7 +286,7 @@ func _run() -> void:
 	problem = current_scene.find_child("ForgeProblem", true, false)
 	_check(problem != null and problem.visible and _state.forge_club().is_empty(),
 			"A club without a name isn't saved, and the screen says why")
-	_press("ForgePlace_port-melbourne")
+	_choose("ForgePlace", "port-melbourne")
 	await _settle()
 	var club_name: LineEdit = current_scene.find_child("ForgeClubName", true, false)
 	var club_code: LineEdit = current_scene.find_child("ForgeClubCode", true, false)
@@ -295,9 +295,57 @@ func _run() -> void:
 	_type("ForgeClubNickname", "Borough")
 	_type("ForgeClubCode", "pmb")
 	_check(club_code != null and club_code.text == "PMB", "The abbreviation is written in capitals")
-	_press("ForgeColour_primary_red")
-	_press("ForgeColour_secondary_blue")
+	_press("ForgeSlot_primary")
+	await _settle()
+	_press("ForgeColour_red")
+	await _settle()
+	_press("ForgeSlot_secondary")
+	await _settle()
+	_press("ForgeColour_blue")
+	await _settle()
 	_press("ForgeDesign_hoops")
+	await _settle()
+	# The director's PC playtest (2026-10-07): colours change again and again
+	# on the same design, and the preview follows every change.
+	var preview: Control = current_scene.find_child("ForgePreview", true, false)
+	_check(preview != null and preview.is_visible_in_tree(), "Create a club shows the guernsey while you make it")
+	for c in [["primary", "green", "#1E6B3A"], ["primary", "red", "#C8102E"], ["secondary", "gold", "#F2B231"],
+			["secondary", "blue", "#1F4FA8"]]:
+		_press("ForgeSlot_" + str(c[0]))
+		await _settle()
+		_press("ForgeColour_" + str(c[1]))
+		await _settle()
+		preview = current_scene.find_child("ForgePreview", true, false)
+		_check(str(current_scene.get("_club")[c[0]]).to_upper() == str(c[2]) and preview != null
+				and str(preview.get("design")) == "hoops",
+				"%s colour changes to %s without touching the design" % [c[0], c[1]])
+	var base_label: Button = current_scene.find_child("ForgeBase_p", true, false)
+	_check(base_label != null and _screen_text().contains("Royal blue"),
+			"The guernsey colour choices name the colours just picked")
+	_check(preview != null and (preview.get("primary") as Color).is_equal_approx(Color.html("#C8102E"))
+			and (preview.get("secondary") as Color).is_equal_approx(Color.html("#1F4FA8")),
+			"The preview wears the guernsey and pattern colours as picked")
+	# The third colour is optional.
+	_press("ForgeSlot_accent")
+	await _settle()
+	_press("ForgeColour_none")
+	await _settle()
+	_check(_screen_text().contains("None") and current_scene.find_child("ForgeBase_a", true, false) == null,
+			"The third colour can be cleared, and the guernsey can't then wear it")
+	_press("ForgeColour_white")
+	await _settle()
+	_check(str(current_scene.get("_club")["accent"]).to_upper() == "#F5F5F5" and current_scene.find_child("ForgeBase_a", true, false) != null,
+			"A cleared third colour can be picked again")
+	_press("ForgePattern_a")
+	await _settle()
+	_press("ForgeColour_none")
+	await _settle()
+	var kit_after := str(current_scene.get("_club")["kit"]).split("/")
+	_check(kit_after[0] != "a" and kit_after[1] != "a" and kit_after[0] != kit_after[1],
+			"Clearing the third colour takes it off the guernsey (%s)" % "/".join(kit_after))
+	_press("ForgeSlot_accent")
+	await _settle()
+	_press("ForgeColour_gold")
 	await _settle()
 	var club_small := []
 	for b in current_scene.find_children("*", "Button", true, false):
@@ -1355,6 +1403,20 @@ func _press(node_name: String) -> void:
 	_check(b != null, "%s is on screen" % node_name)
 	if b != null:
 		b.emit_signal("pressed")
+
+
+## Pick the option whose metadata is `value` in an OptionButton.
+func _choose(node_name: String, value: String) -> void:
+	var o = current_scene.find_child(node_name, true, false)
+	_check(o != null, "%s is on screen" % node_name)
+	if o == null:
+		return
+	for i in (o as OptionButton).item_count:
+		if str((o as OptionButton).get_item_metadata(i)) == value:
+			(o as OptionButton).select(i)
+			(o as OptionButton).item_selected.emit(i)
+			return
+	_check(false, "%s offers %s" % [node_name, value])
 
 
 func _type(node_name: String, text: String) -> void:
