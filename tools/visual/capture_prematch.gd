@@ -6,6 +6,7 @@ extends SceneTree
 ## Writes <out>_sheet.png: warm-up, final instructions and the banner on a phone.
 ## --film: also writes <out>_film_NNN.png, the whole scene at 12 frames a second (the
 ## run through the banner included), for checking motion.
+## --flags 2031,2029,2028: premiership pennants for those years (FL-008).
 
 const W := 390
 const H := 844
@@ -24,9 +25,12 @@ func _run() -> void:
 	var out := "/tmp/prematch"
 	var a := OS.get_cmdline_user_args()
 	var film := a.has("--film")
+	var ctx := {}
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
+		if str(a[i]) == "--flags":
+			ctx["flags"] = Array(str(a[i + 1]).split(",")).map(func(y): return int(y))
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
@@ -43,7 +47,7 @@ func _run() -> void:
 	var opp_ground: Array = opp_squad.ground + opp_squad.bench
 	var vig = load("res://scripts/ui/match/PreMatchVignette.gd").open(root, "COL", opp,
 			state.my_squad().ground + state.my_squad().bench, opp_ground,
-			"Round 1  ·  Collingwood v Essendon")
+			"Round 1  ·  Collingwood v Essendon", false, ctx)
 	vig.set_process(false)
 	var shots := []
 	for beat in BEATS:

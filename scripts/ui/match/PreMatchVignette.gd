@@ -42,6 +42,9 @@ const WORDS_RUN := "Through the banner"
 
 var copy := WORDS_WARM
 var banner := ""
+## FL-008: the years of your premierships this career, newest first, on pennants
+## hanging from the stand behind the banner (decoration: nothing reads them).
+var flags: Array = []
 var _phase := WARM
 var _prev := WARM
 var _since := 0.0          # time the phase began
@@ -84,6 +87,7 @@ func setup_prematch(my_code: String, opp_code: String, my_ground: Array, opp_gro
 	title = heading
 	copy = WORDS_FINALS if final else WORDS_WARM
 	banner = banner_text(my_code, opp_code, heading, banner_ctx)
+	flags = (banner_ctx.get("flags", []) as Array).slice(0, PENNANTS)
 	_colours = [GameDB.club_colours(my_code), GameDB.club_colours(opp_code)]
 	_codes = [my_code, opp_code]
 	tokens.clear()
@@ -449,6 +453,7 @@ func _draw() -> void:
 	_set_camera()
 	var fade := clampf(_t / CUT_IN, 0.0, 1.0)
 	_draw_ground()
+	_draw_pennants()
 	var figs := []
 	for i in range(tokens.size()):
 		var idx := i if bool(tokens[i]["mine"]) else i - _mine
@@ -469,6 +474,67 @@ func _draw() -> void:
 		black = maxf(black, clampf((_t - _since - (RUN_TIME - 0.25)) / 0.25, 0.0, 1.0))
 	if black > 0.0:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, black), true)
+
+
+## Premiership pennants (FL-008; the art agent's spec): an old VFL pennant for each
+## flag, a long plain triangle hanging point down from the front of the stand's upper
+## tier, above the banner. A band at the top in the second colour carries the year;
+## the rest is the club colour, trimmed down both long edges in the second colour.
+## Newest in the middle, behind the race; at most PENNANTS. Each sways a little, so
+## the row isn't stamped out.
+const PENNANTS := 6
+const PENNANT_LEN := 7.0              # metres: about 0.6 of the banner's paper
+const PENNANT_AT := 104.0             # the stand's fascia: the fence, then the lower tier
+const PENNANT_TOP := 17.0
+const PENNANT_BAND := 0.22
+
+func _draw_pennants() -> void:
+	if flags.is_empty():
+		return
+	var cols: Array = _colours[0]
+	var main: Color = cols[0] if cols.size() > 0 else Color.WHITE
+	var second: Color = cols[1] if cols.size() > 1 else Color.WHITE
+	var band := second if _colour_gap(main, second) > 0.25 else Color.WHITE
+	var ink := main
+	for c in [Color.BLACK, Color.WHITE]:
+		if absf(c.get_luminance() - band.get_luminance()) > absf(ink.get_luminance() - band.get_luminance()):
+			ink = c
+	var w := PENNANT_LEN / 3.0
+	for k in range(flags.size()):
+		# Out from the middle: newest first, then one each side in turn.
+		var slot := (k + 1) / 2 * (1 if k % 2 == 1 else -1)
+		var x := float(slot) * w * 1.3
+		var top := _project(Vector2(x, PENNANT_AT), PENNANT_TOP)
+		if top.z <= 0.0:
+			continue
+		var px := top.z                   # pixels per metre there
+		var half := w * 0.5 * px
+		var length := PENNANT_LEN * px
+		var sway := deg_to_rad(2.5 * sin(float(flags[k]) * 1.7 + _t * 0.9))
+		var at := Vector2(top.x, top.y)
+		var rot := func(v: Vector2) -> Vector2: return at + v.rotated(sway)
+		var tip: Vector2 = rot.call(Vector2(0, length))
+		var l: Vector2 = rot.call(Vector2(-half, 0))
+		var r: Vector2 = rot.call(Vector2(half, 0))
+		draw_colored_polygon(PackedVector2Array([l, r, tip]), second)
+		var trim := maxf(1.0, 0.06 * px)
+		draw_colored_polygon(PackedVector2Array([rot.call(Vector2(-half + trim, 0)), rot.call(Vector2(half - trim, 0)),
+				rot.call(Vector2(0, length - trim * 3.0))]), main)
+		# The band: the top PENNANT_BAND of the length, across the triangle.
+		var bl := length * PENNANT_BAND
+		var bw := half * (1.0 - PENNANT_BAND)
+		draw_colored_polygon(PackedVector2Array([l, r, rot.call(Vector2(bw, bl)), rot.call(Vector2(-bw, bl))]), band)
+		var fs := int(round(bl * 0.55 / 0.7))      # cap height about 55% of the band
+		if fs >= 5:
+			var text := str(flags[k])
+			var tw := UiKit.DISPLAY.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			draw_set_transform(rot.call(Vector2(0, bl * 0.5)), sway)
+			draw_string(UiKit.DISPLAY, Vector2(-tw * 0.5, fs * 0.35), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, ink)
+			draw_set_transform(Vector2.ZERO)
+
+
+static func _colour_gap(a: Color, b: Color) -> float:
+	return Vector3(a.r - b.r, a.g - b.g, a.b - b.b).length()
 
 
 ## The banner across the race in your colours: crepe paper on two poles, torn apart by

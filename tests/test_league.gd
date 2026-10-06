@@ -43,6 +43,20 @@ func _test_banner_context() -> void:
 	_check(str(ctx["us"]) == "GEE" and str(ctx["final"]) == "" and not bool(ctx["must_win"]) and not bool(ctx["spoon"]),
 			"A round-one match is an ordinary banner (%s)" % str(ctx))
 	_check(int(ctx["seed"]) == int(GameState.banner_context(m0)["seed"]), "The same match gives the same seed")
+	# FL-008: pennants for your flags of this career, newest first, at your own ground.
+	_check((ctx["flags"] as Array).is_empty(), "No flags yet, no pennants")
+	GameState.honour_roll = [{"year": yr - 3, "premier": "GEE"}, {"year": yr - 2, "premier": "CAR"},
+			{"year": yr - 1, "premier": "GEE"}]
+	var home := str(m0["home"]) == "GEE"
+	var fl: Array = GameState.banner_context(m0)["flags"]
+	_check(GameState.premiership_years("GEE") == [yr - 1, yr - 3] and GameState.premiership_years("CAR") == [yr - 2],
+			"A club's premierships of this career, newest first (%s)" % str(GameState.premiership_years("GEE")))
+	_check(fl == ([yr - 1, yr - 3] if home else []), "Pennants hang at your home games only (%s, home %s)" % [str(fl), str(home)])
+	var vig := PreMatchVignette.new()
+	vig.setup_prematch("GEE", "CAR", [], [], "Round 1", false, {"flags": range(2020, 2030)})
+	_check(vig.flags.size() == PreMatchVignette.PENNANTS, "A dynasty doesn't wallpaper the stand: %d pennants at most" % PreMatchVignette.PENNANTS)
+	vig.free()
+	GameState.honour_roll = []
 	_check(str(GameState.banner_context({"home": "GEE", "away": "COL", "tag": "GF", "label": "Grand Final"})["final"]) == "grand"
 			and str(GameState.banner_context({"home": "GEE", "away": "COL", "tag": "SF1"})["final"]) == "semi",
 			"A final carries its week")

@@ -1984,6 +1984,17 @@ func history_record_lines() -> Array:
 	return out
 
 
+## The years `code` won the flag in this career, newest first (honour_roll: what
+## happened in this save, nothing imported or invented).
+func premiership_years(code: String) -> Array:
+	var out := []
+	for i in range(honour_roll.size() - 1, -1, -1):
+		var h: Dictionary = honour_roll[i]
+		if code != "" and str(h.get("premier", "")) == code:
+			out.append(int(h.get("year", 0)))
+	return out
+
+
 func recent_honours(limit := 5) -> Array:
 	var out := []
 	for i in range(honour_roll.size() - 1, -1, -1):
@@ -2068,6 +2079,8 @@ func banner_context(match: Dictionary) -> Dictionary:
 		"first_game": _first_game(home, away) if regular else "",
 		"premiers": _flag_game(home, away) if regular else "",
 		"milestone": _banner_milestone(us, last_round or week != ""),
+		# FL-008: your premierships of this career, on pennants round your own ground.
+		"flags": premiership_years(us) if us == home and us == my_club else [],
 		"year": season_year,
 		"seed": hash([int(season.seed) if season != null else 0, season_year, round_label, home, away]),
 	}
