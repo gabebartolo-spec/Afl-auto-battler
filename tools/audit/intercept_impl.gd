@@ -51,6 +51,13 @@ func run() -> void:
 			for m in season.fixture[ri]:
 				mi += 1
 				var sim: MatchSim = season.match_sim(str(m["home"]), str(m["away"]), int(d) * 100000 + ri * 100 + mi)
+				# Outside a career no club plays a loose man (CoachEffects sets
+				# ai_plans); in one, every AI side with a good enough reader does.
+				for side in range(2):
+					if str(sim.interceptor[side]) == "":
+						var best := Matchups.best_interceptor((sim.squads[side] as Squad).ground)
+						if not best.is_empty():
+							sim.set_interceptor(side, str(best["id"]), false)
 				var loose := [str(sim.interceptor[0]), str(sim.interceptor[1])]
 				var res := sim.run()
 				matches += 1
