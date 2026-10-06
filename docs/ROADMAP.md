@@ -5529,7 +5529,7 @@ From the director's chat with the lead, relayed with the director's words where 
 - **Trades at real volume.** Raise the trade period to real AFL volume so that a club which trades well reaches about 3rd to 4th on average. The real volume is measured and merged (#376, DraftGuru 2019 to 2025); the lead's trade market is in review (#383).
 - **Synergy selection and development projects must have an impact.** Director: "why do we have these features if they dont have an impact, fix them". Fix both so that using them lifts a club, then measure again with the same harness.
 - **Clearance winner keeps the first disposal** (option 1 of the ruck and midfield disposals evidence). Merged (#373): ruck disposals 8.0 to 12.0, with the calibration and finals re-run.
-- **Ruck clearances and middle-zone carrying, calibrated toward real 2026 per-role numbers.** The follow-up to #373: three weights (`CLEARANCE_ROLES` RUCK, `CARRY_ROLES` middle DEF and FWD), no new mechanism. Merged (#393) with the lead's W7.
+- **Ruck clearances and middle-zone carrying, calibrated toward real 2026 per-role numbers.** The follow-up to #373: three weights (`CLEARANCE_ROLES` RUCK, `CARRY_ROLES` middle DEF and FWD), no new mechanism. Merged (#393) with the lead's W7, then reverted (#443) when main went red on the matchday rating-parity check; being reworked.
 - **Create a club screen approved.** Director: "looks fantastic, well done". Merged (#360), after the Create a player form (#309) and the Create a club engine.
 - **Scars removed from the player look.** Director, in chat with the lead, 2026-10-06: "remove scarring from the game, unnecessary detail". The look keeps no scars key; old saves that carry one load fine and ignore it, and no generated player's look changes.
 - **Freckles removed from the player look.** Confirmed in the director's own words: "i alreeady said to delete freckles from the game". Merged (#357, #354); the saved-look cleanup (#382) is in review.
@@ -6124,7 +6124,7 @@ The eight includes are the complete decision record. There are no rejected style
 
 - **2026-10-06:** FL statuses in §9.3 set from what has merged: FL-002 (#400), FL-004 (#405, #409), FL-005 (#392), FL-006 (#395) and FL-008 (#406) are DONE with the director's approval; FL-001 is PARTIAL (#381 audit, #386 fixes); FL-003 and FL-007 stay TODO.
 
-- **2026-10-06:** Merged-PR status lines: #438 (ARD-M8-003 step 1, the truth fixes), #393 (ruck clearances and middle-zone carrying), #360 (the Create a club screen), #423 (STYLE-02 type roles at today's sizes) and #428 (audit seeding: `run_audit.gd` seeds the global RNG, `AUDIT_SEED` default 2026).
+- **2026-10-06:** Merged-PR status lines: #438 (ARD-M8-003 step 1, the truth fixes), #393 (ruck clearances and middle-zone carrying; reverted in #443 and being reworked), #360 (the Create a club screen), #423 (STYLE-02 type roles at today's sizes) and #428 (audit seeding: `run_audit.gd` seeds the global RNG, `AUDIT_SEED` default 2026).
 
 - **2026-10-06:** The director approved the ARD Signwriter typeface ("Approve and merge") and #419 is merged: STYLE-02's typeface is DONE. #408 (the type specimen) is closed as superseded.
 
