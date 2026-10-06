@@ -61,11 +61,15 @@ func _run() -> void:
 	scene._club["design"] = "hoops"
 	scene._build()
 	shots.append(await _shot())
-	if scene.has_method("_set_colour"):
-		scene._slot = "secondary"
-		scene._set_colour("secondary", "#F2B231")
-		scene._slot = "accent"
-		scene._rebuild_colours()
+	# Paint the hoops gold, then outline them as the pointer would.
+	scene._brush = "#F2B231"
+	scene._paint_part("pattern")
+	scene._brush = "#F5F5F5"
+	scene._rebuild_paint()
+	for c in scene.find_children("Forge*", "GuernseyCrest", true, false):
+		if c.mouse_filter == Control.MOUSE_FILTER_STOP:
+			c.highlight = "pattern"
+			c.queue_redraw()
 	await _scroll_to(scene, 0.45)
 	shots.append(await _shot())
 	await _scroll_to(scene, 1.0)
