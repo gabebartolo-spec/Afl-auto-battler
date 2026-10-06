@@ -66,7 +66,7 @@ func _build() -> void:
 	if premier != "":
 		champ_row.add_child(UiKit.club_badge(premier, 22, false, true))
 	var mine_won: bool = premier == GameState.my_club
-	cv.add_child(UiKit.lbl("Grand Final: %s" % _gf_line(season), 15,
+	cv.add_child(UiKit.lbl("Grand Final: %s" % _gf_line(season), UiKit.BODY,
 			UiKit.TEXT if mine_won else UiKit.MUTED, true))
 	cv.add_child(UiKit.lbl("PREMIERSHIP!" if mine_won else
 			"%s take the flag. You finished %s." % [GameDB.club_name(premier),
@@ -110,7 +110,7 @@ func _build() -> void:
 		var h := UiKit.hbox(6)
 		lv.add_child(h)
 		h.add_child(UiKit.ellipsis(row[0], 12, UiKit.MUTED))
-		h.add_child(UiKit.line(row[1], 13, UiKit.TEXT, true))
+		h.add_child(UiKit.line(row[1], UiKit.SECONDARY, UiKit.TEXT, true))
 
 	lv.add_child(UiKit.spacer(6))
 	lv.add_child(UiKit.lbl("Game by game", 12, UiKit.MUTED, true))
@@ -137,7 +137,7 @@ func _build() -> void:
 		bp.add_child(bv)
 		var hist: Array = GameState.board.get("history", [])
 		var last: Dictionary = hist[hist.size() - 1] if not hist.is_empty() else {}
-		bv.add_child(UiKit.lbl("The board: %s" % verdict, 16,
+		bv.add_child(UiKit.lbl("The board: %s" % verdict, UiKit.NAME,
 				UiKit.GOOD if bool(last.get("met", false)) else UiKit.BAD, true))
 		bv.add_child(UiKit.lbl("Goal: %s  -  %s  -  the board is %s" % [str(last.get("goal", "")),
 				"met" if bool(last.get("met", false)) else "missed", GameState.board_state().to_lower()], 13, UiKit.MUTED))
@@ -159,7 +159,7 @@ func _build() -> void:
 		hp.add_child(hv)
 		hv.add_child(UiKit.lbl("History & records", 17, UiKit.EMPH, true))
 		for line in history_lines:
-			hv.add_child(UiKit.lbl(str(line), 13, UiKit.TEXT))
+			hv.add_child(UiKit.lbl(str(line), UiKit.SECONDARY, UiKit.TEXT))
 		if not honours.is_empty():
 			hv.add_child(UiKit.spacer(4))
 			hv.add_child(UiKit.lbl("Recent premiers", 12, UiKit.MUTED, true))
@@ -181,14 +181,14 @@ func _build() -> void:
 	page.add_child(ctrl)
 
 	# The season ends the way the real AFL year does: with the national draft.
-	var draft_btn := UiKit.btn("%d NATIONAL DRAFT" % GameState.season_year, 18, true)
+	var draft_btn := UiKit.btn("%d NATIONAL DRAFT" % GameState.season_year, UiKit.HEADING, true)
 	draft_btn.name = "NationalDraft"
 	draft_btn.custom_minimum_size = Vector2(0, 48)
 	draft_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	draft_btn.pressed.connect(_on_intake_draft)
 	ctrl.add_child(draft_btn)
 
-	var again := UiKit.btn("New Career", 18, false)
+	var again := UiKit.btn("New Career", UiKit.HEADING, false)
 	again.name = "NewCareer"
 	again.custom_minimum_size = Vector2(0, 48)
 	again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -324,12 +324,12 @@ func _awards_panel() -> Control:
 	var v := UiKit.vbox(5)
 	panel.add_child(v)
 	v.add_child(UiKit.heading("%d awards" % int(aw.get("year", GameState.season_year)), 22))
-	var replay := UiKit.btn("Replay awards", 15)
+	var replay := UiKit.btn("Replay awards", UiKit.BODY)
 	replay.name = "ReplayAwards"
 	replay.custom_minimum_size.y = 44
 	replay.pressed.connect(func(): _awards_overlay = SeasonAwards.open(self))
 	v.add_child(replay)
-	var intro := UiKit.lbl("Awards night", 13, UiKit.MUTED)
+	var intro := UiKit.lbl("Awards night", UiKit.SECONDARY, UiKit.MUTED)
 	v.add_child(intro)
 	var brownlow: Array = aw.get("brownlow", [])
 	var brownlow_winner: Dictionary = aw.get("brownlow_winner", {})
@@ -363,11 +363,11 @@ func _awards_panel() -> Control:
 		var bf := []
 		for r in mine:
 			bf.append("%s (%d)" % [GameState.award_name(r), int(r["bf"])])
-		v.add_child(UiKit.lbl("%s best & fairest" % GameDB.club_name(GameState.my_club), 15, UiKit.EMPH, true))
+		v.add_child(UiKit.lbl("%s best & fairest" % GameDB.club_name(GameState.my_club), UiKit.BODY, UiKit.EMPH, true))
 		v.add_child(_small(", ".join(bf)))
 	var aa: Array = aw.get("all_australian", [])
 	if not aa.is_empty():
-		v.add_child(UiKit.lbl("All-Australian team", 15, UiKit.EMPH, true))
+		v.add_child(UiKit.lbl("All-Australian team", UiKit.BODY, UiKit.EMPH, true))
 		for slot in [["RUCK", "Ruck"], ["MID", "Midfield"], ["DEF", "Defence"], ["FWD", "Forwards"], ["BENCH", "Interchange"]]:
 			var names := []
 			for r in aa:
@@ -377,7 +377,7 @@ func _awards_panel() -> Control:
 			v.add_child(_small("%s: %s" % [str(slot[1]), ", ".join(names)]))
 	var rec := GameState.records
 	if not rec.is_empty():
-		v.add_child(UiKit.lbl("League records", 15, UiKit.EMPH, true))
+		v.add_child(UiKit.lbl("League records", UiKit.BODY, UiKit.EMPH, true))
 		for row in [["most_goals", "Most goals in a season", "goals"],
 				["most_votes", "Most Brownlow votes", "votes"],
 				["highest_score", "Highest score", "pts"],
@@ -389,14 +389,14 @@ func _awards_panel() -> Control:
 					else "%s v %s" % [GameDB.club_short(str(r["club"])), GameDB.club_short(str(r.get("opp", "")))]
 			v.add_child(_small("%s: %d %s - %s, %d" % [str(row[1]), int(r["value"]), str(row[2]), who, int(r["year"])]))
 	if GameState.honour_roll.size() > 1:
-		v.add_child(UiKit.lbl("Honour roll", 15, UiKit.EMPH, true))
+		v.add_child(UiKit.lbl("Honour roll", UiKit.BODY, UiKit.EMPH, true))
 		for h in GameState.honour_roll:
 			var b: Array = h.get("brownlow", [])
 			v.add_child(_small("%d  Premiers %s  ·  Brownlow %s  ·  you finished %s" % [int(h["year"]),
 					GameDB.club_short(str(h["premier"])),
 					GameState.award_name(b[0]) if not b.is_empty() else "-",
 					_ordinal(int(h.get("my_position", 0)))]))
-	var ceremony := UiKit.btn("Open awards program", 15, false)
+	var ceremony := UiKit.btn("Open awards program", UiKit.BODY, false)
 	ceremony.name = "AwardsProgram"
 	ceremony.custom_minimum_size.y = 44
 	ceremony.pressed.connect(_open_awards_program)
@@ -461,7 +461,7 @@ func _open_awards_program() -> void:
 	var body: VBoxContainer = modal["body"]
 	var footer: VBoxContainer = modal["footer"]
 	body.add_child(UiKit.heading("%d Awards program" % int(aw.get("year", GameState.season_year)), 22))
-	body.add_child(UiKit.lbl("Season honours — settled from the matches already played.", 13, UiKit.MUTED, true))
+	body.add_child(UiKit.lbl("Season honours — settled from the matches already played.", UiKit.SECONDARY, UiKit.MUTED, true))
 	var brownlow: Array = aw.get("brownlow", [])
 	if not brownlow.is_empty():
 		body.add_child(UiKit.section("Brownlow Medal"))
@@ -495,7 +495,7 @@ func _open_awards_program() -> void:
 			for r in aa:
 				if str(r["slot"]) == str(slot[0]): names.append("%s (%s)" % [GameState.award_name(r), GameDB.club_short(str(r["club"]))])
 			body.add_child(_small("%s: %s" % [str(slot[1]), ", ".join(names)]))
-	var close := UiKit.btn("Done", 16, true)
+	var close := UiKit.btn("Done", UiKit.NAME, true)
 	close.custom_minimum_size.y = 48
 	close.pressed.connect(func(): overlay.queue_free())
 	footer.add_child(close)

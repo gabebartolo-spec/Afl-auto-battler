@@ -101,6 +101,21 @@ const BODY := 15
 const SMALL := 13   # secondary lines
 const TINY := 11    # stamps and fine print only
 
+## Type roles (STYLE-02 prep): what a piece of text is, at today's sizes
+## exactly. Screens use these rather than a number, so the director's typeface
+## and its sizes are set here, once. The face is lbl's: BOLD when it's asked
+## for, else FONT; the figures (RATING, SCORE, NUMBER) are DISPLAY. Sizes still
+## written as numbers on screens are off this scale (14, 17, 12, 20...) - for
+## the typeface pass to place, not guessed at here.
+const TITLE := H1           # a screen's title, the one big fact
+const HEADING := H2         # a section heading
+const NAME := 16            # a player or club name leading a row; button text
+const SECONDARY := SMALL    # the line under it
+const FINE := TINY          # stamps and fine print
+const RATING := 30          # a rating as a figure (DISPLAY)
+const SCORE := 24           # a match score as a figure (DISPLAY)
+const NUMBER := 22          # a score in a list row (DISPLAY)
+
 ## Spacing and corners.
 const GAP := 8          # between rows
 const SECTION := 18     # between sections
@@ -536,6 +551,11 @@ static func top_bar(title_text: String, back := true, right: Control = null,
 ## and red for Melbourne; blue, red and white for the Bulldogs), with a
 ## faint edge so dark colours still read on the dark background.
 static func club_marker(code: String, size := 22.0) -> Control:
+	return colour_marker(GameDB.club_marker_colours(code), size)
+
+
+## The same flag from colours alone (Club Forge shows a club before it exists).
+static func colour_marker(cols: Array, size := 22.0) -> Control:
 	var frame := PanelContainer.new()
 	frame.name = "ClubMarker"
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -551,7 +571,6 @@ static func club_marker(code: String, size := 22.0) -> Control:
 	bands.add_theme_constant_override("separation", 0)
 	bands.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.add_child(bands)
-	var cols: Array = GameDB.club_marker_colours(code)
 	var w := roundf(size / float(cols.size()))
 	for c in cols:
 		var band := ColorRect.new()

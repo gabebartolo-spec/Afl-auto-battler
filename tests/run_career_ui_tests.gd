@@ -239,6 +239,7 @@ func _run() -> void:
 
 	# --- Club Forge: make a player, bring him into a career ------------------
 	_state.set_forge_player({})
+	_state.set_forge_club({})
 	var size_before := root.size
 	root.size = Vector2i(390, 844)
 	await _settle()
@@ -276,6 +277,42 @@ func _run() -> void:
 		if b.is_visible_in_tree() and b.size.y < 44:
 			small.append(b.name)
 	_check(small.is_empty(), "Every Forge button is thumb-sized (%s)" % str(small))
+
+	# Create a club: a refusal, a place's name and tradition, a save.
+	_press("ForgeCreateClub")
+	await _settle()
+	_press("ForgeSaveClub")
+	await _settle()
+	problem = current_scene.find_child("ForgeProblem", true, false)
+	_check(problem != null and problem.visible and _state.forge_club().is_empty(),
+			"A club without a name isn't saved, and the screen says why")
+	_press("ForgePlace_port-melbourne")
+	await _settle()
+	var club_name: LineEdit = current_scene.find_child("ForgeClubName", true, false)
+	var club_code: LineEdit = current_scene.find_child("ForgeClubCode", true, false)
+	_check(club_name != null and club_name.text == "Port Melbourne" and club_code != null and club_code.text == "PM",
+			"Picking a place fills in the club's name and an abbreviation")
+	_type("ForgeClubNickname", "Borough")
+	_type("ForgeClubCode", "pmb")
+	_check(club_code != null and club_code.text == "PMB", "The abbreviation is written in capitals")
+	_press("ForgeColour_primary_red")
+	_press("ForgeColour_secondary_blue")
+	_press("ForgeDesign_hoops")
+	await _settle()
+	var club_small := []
+	for b in current_scene.find_children("*", "Button", true, false):
+		if b.is_visible_in_tree() and b.size.y < 44:
+			club_small.append(b.name)
+	_check(club_small.is_empty(), "Every Create a club button is thumb-sized (%s)" % str(club_small))
+	_press("ForgeSaveClub")
+	await _settle()
+	var fc: Dictionary = _state.forge_club()
+	_check(str(fc.get("name", "")) == "Port Melbourne" and str(fc.get("short", "")) == "Borough"
+			and str(fc.get("code", "")) == "PMB" and str(fc.get("location", "")) == "port-melbourne"
+			and str(fc.get("ground", "")) == "North Port Oval" and str(fc.get("primary", "")).to_upper() == "#C8102E"
+			and str(fc.get("design", "")) == "hoops",
+			"The Forge saves the club as made (%s)" % str(fc))
+	_check(current_scene.find_child("ForgeClubTitle", true, false) != null, "The Forge shows your club")
 	_router.handle_back(false)
 	await _settle()
 	_check(_router.current() == "main", "Back leaves the Forge")
@@ -325,6 +362,7 @@ func _run() -> void:
 	await _settle()
 	current_scene.find_child("Difficulty_hard", true, false).emit_signal("pressed")
 	current_scene.find_child("NameMode_real", true, false).emit_signal("pressed")
+	_check(current_scene.find_child("ForgedClub_in", true, false) != null, "New career offers your Forge club")
 	current_scene.find_child("StartCareer", true, false).emit_signal("pressed")
 	await _settle()
 	_check(_router.current() == "draft", "Starting the career goes on to choosing a club")
@@ -334,7 +372,10 @@ func _run() -> void:
 	for d in _state.draftee_pool:
 		brought = brought or (str(d["id"]) == _state.custom_prospect_id and str(d.get("last", "")) == "Forge")
 	_check(brought, "Your Forge player is in this career's first National Draft class")
+	_check(_state.draft != null and _state.draft.clubs.has("PMB") and _db.club_name("PMB") == "Port Melbourne",
+			"Your Forge club is in this career's League Draft")
 	_state.set_forge_player({})
+	_state.set_forge_club({})
 	_state.set_new_career_difficulty("normal")
 	_state.set_show_real_names(false)
 	_state.reset()

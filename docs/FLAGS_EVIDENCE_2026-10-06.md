@@ -158,9 +158,18 @@ were near zero, because the 2026 lists had no home state yet.
 - Against about 21 real player moves a year, AI trades plus yours come to about 13
   in 2027 and about 10 in 2028. Still below a real trade period; what is left is
   deliberate (list size, the salary cap, "a clear upgrade on their fringe").
-- 2028 drops because the request roll is lumpier than its 4%: 3 of 306 eligible
-  players rolled under in 2028 against about 12 expected. Seeding an RNG with the
-  hash would spread it and stay reproducible. Not done; the lead's call.
+- 2028 dropped because the request roll was lumpier than its 4%: 3 of 306 eligible
+  players rolled under in 2028 against about 12 expected. #383 now draws the roll
+  from a generator seeded by the hash (52b12ac, with the director's yes), still
+  reproducible. Share of the 669 shipped ids under 4%, 2027 to 2036, expected 27:
+
+  | | 2027 | 2028 | 2029 | 2030 | 2031 | 2032 | 2033 | 2034 | 2035 | 2036 |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | before | 38 | 13 | 27 | 25 | 31 | 38 | 28 | 29 | 25 | 25 |
+  | after | 27 | 26 | 25 | 24 | 25 | 28 | 27 | 24 | 21 | 18 |
+
+  The by-year spread is much tighter. Its tail (21 and 18 in 2035 and 2036) is the
+  one place left a little under.
 
 ## Development projects (2026-10-06)
 
