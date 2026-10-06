@@ -307,8 +307,13 @@ func _test_plausible_names() -> void:
 	var collisions := []
 	var real_hits := []
 	var longest := ""
+	var mix := {}
+	var drafted := 0
 	for i in range(20):
 		var cls: Array = Prospects.generate_class(2027 + i, 4242)
+		for person in cls:
+			mix[str(person["role"])] = int(mix.get(str(person["role"]), 0)) + 1
+			drafted += 1
 		var surnames := {}
 		for person in cls:
 			var label := str(person["generic_name"])
@@ -324,6 +329,14 @@ func _test_plausible_names() -> void:
 			if label.length() > longest.length():
 				longest = label
 	GameDB._alias_next = saved_next
+	# The real lists' position mix (director: "Match real lists"): DEF 34%,
+	# FWD 30%, MID 28%, RUCK 7%, each within 5 points over twenty classes.
+	var mix_ok := true
+	for role in {"DEF": 34.0, "FWD": 30.0, "MID": 28.0, "RUCK": 7.0}.keys():
+		var want: float = {"DEF": 34.0, "FWD": 30.0, "MID": 28.0, "RUCK": 7.0}[role]
+		if absf(100.0 * float(mix.get(role, 0)) / float(maxi(1, drafted)) - want) > 5.0:
+			mix_ok = false
+	_check(mix_ok, "Draft classes match the real lists' position mix (%s of %d)" % [str(mix), drafted])
 	_check(class_repeats == 0, "No draft class recycles a surname (%d repeats over 20 classes)" % class_repeats)
 	_check(collisions.is_empty(), "No full name repeats across twenty years of drafts (%s)" % str(collisions))
 	_check(real_hits.is_empty(), "A generated player never takes a real player's name (%s)" % str(real_hits))

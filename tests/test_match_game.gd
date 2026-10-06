@@ -49,6 +49,8 @@ func run() -> void:
 	_test_in_match_injuries()
 	_test_run_call_once_a_run()
 	_test_late_bounce_reachable()
+	_test_bounce_once()
+	_test_ruck_never_tags()
 	_test_current_club_identity()
 	_test_tag_ends_with_injury()
 	_test_match_story()
@@ -490,14 +492,18 @@ func _test_playtest_bounce() -> void:
 			reached += 1
 		var a := plain.result()
 		var b := sim.result()
-		var others_a := (plain.moments as Array).map(func(m): return [m["kind"], m["q"], m["min"]])
-		var others_b := (sim.moments as Array).map(func(m): return [m["kind"], m["q"], m["min"]])
-		others_b.erase(["bounce", 4, int((q4[0] as Dictionary)["min"])] if not q4.is_empty() else [])
-		if a["goals"] == b["goals"] and a["behinds"] == b["behinds"] and others_a == others_b:
+		# Once a match (director, 2026-10-07): the playtest call takes the
+		# place of a later centre-bounce call, so bounce calls are left out of
+		# the comparison and counted instead.
+		var not_bounce := func(m): return str(m["kind"]) != "bounce"
+		var others_a := (plain.moments as Array).filter(not_bounce).map(func(m): return [m["kind"], m["q"], m["min"]])
+		var others_b := (sim.moments as Array).filter(not_bounce).map(func(m): return [m["kind"], m["q"], m["min"]])
+		var bounces := (sim.moments as Array).filter(func(m): return str(m["kind"]) == "bounce").size()
+		if a["goals"] == b["goals"] and a["behinds"] == b["behinds"] and others_a == others_b and bounces == 1:
 			unchanged += 1
 	_check(reached == games, "With the playtest switch on, every match reaches the centre-bounce call (%d of %d)" % [reached, games])
 	_check(unchanged == games,
-			"Played straight, the playtest call changes nothing: same score, same other calls (%d of %d)" % [unchanged, games])
+			"Played straight, the playtest call changes nothing: same score, same other calls, one centre-bounce call (%d of %d)" % [unchanged, games])
 
 
 func _test_set_shot() -> void:
@@ -1780,6 +1786,60 @@ func _test_late_bounce_reachable() -> void:
 	_check(not sim._boundary_moment(), "...and only in the last quarter")
 
 
+## A tag is a midfielder's job (the director's PC playtest, 2026-10-07: the
+## team's ruckman was sent to tag).
+func _test_ruck_never_tags() -> void:
+	var ruck: Dictionary = {}
+	var mid: Dictionary = {}
+	for p in GameDB.club_list("MEL"):
+		if ruck.is_empty() and str(p["role"]) == "RUCK" and not Ratings.second_positions(p).has("MID"):
+			ruck = p.duplicate(true)
+		if mid.is_empty() and str(p["role"]) == "MID" and not Roles.is_tagger(p):
+			mid = p.duplicate(true)
+	ruck["attr"]["pressure"] = 99
+	mid["attr"]["pressure"] = 40
+	var ruck_in_mid := Ratings._for_slot(ruck, "MID")
+	var ground := [ruck_in_mid, Ratings._for_slot(mid, "MID")]
+	var t = MatchSim.tagger_for(ground)
+	_check(t != null and str(t["id"]) == str(mid["id"]),
+			"A ruck picked in a midfield slot is never the fallback tagger, however hard he presses")
+	_check(not MatchSim.taggable(ruck_in_mid), "...nor someone to tag: a tag goes on a midfielder")
+	_check(MatchSim.tagger_for([ruck_in_mid]) == null, "With no midfielder to send, nobody tags")
+	var unicorn := ruck.duplicate(true)
+	unicorn["role2"] = "MID"
+	_check(MatchSim.tagger_for([Ratings._for_slot(unicorn, "MID")]) != null,
+			"A ruck who is also a midfielder by position can do the job in the midfield")
+
+
+## The centre-bounce call comes once a match at most (the director's PC
+## playtest, 2026-10-07: "4 up with 16 minutes left", then "3 down with 10
+## minutes left" in the same game), the playtest aid's included.
+func _test_bounce_once() -> void:
+	var sim := _sim(4401, "MEL", "CAR")
+	sim.moment_side = 0
+	sim.current_quarter = 4
+	sim.current_minute = 104
+	sim.at_centre = true
+	sim._chain_no = 200
+	sim._last_moment_chain = 100
+	sim._moments_this_q = 0
+	for side in range(2):
+		(sim.team_stats[side] as Dictionary)["goals"] = 10.0
+	_check(sim._bounce_moment(4), "A tight late centre bounce brings the call")
+	sim.pending_moment = {}
+	sim.current_minute = 110
+	_check(not sim._bounce_moment(-3), "...once: a second tight centre bounce later does not bring it again")
+	var aid := _sim(4402, "MEL", "CAR")
+	aid.always_offer_bounce = true
+	aid.moment_side = 0
+	aid.current_quarter = 4
+	aid.current_minute = 104
+	aid.at_centre = true
+	_check(aid._playtest_bounce(), "(the playtest aid offers it)")
+	aid.pending_moment = {}
+	_check(not aid._bounce_moment(0), "With the playtest aid's call made, the late call does not come too")
+
+
 func _test_in_match_injuries() -> void:
 	var n := 0
 	var hurt := 0
@@ -2468,12 +2528,19 @@ func _test_defensive_forward() -> void:
 			if Traits.has(p, "def_forward"):
 				df += 1
 	_check(df >= 18 and df <= 60, "Defensive forwards are a real minority of the league's forwards (%d of %d)" % [df, fwds])
+	# Like every trait, a prospect grows into it: count them five seasons on
+	# (at draft it is a handful, and noise).
 	var gen := 0
 	for y in range(2028, 2033):
 		for p in Prospects.generate_class(y):
-			if str(p["role"]) == "FWD" and Traits.has(p, "def_forward"):
+			if str(p["role"]) != "FWD":
+				continue
+			var q: Dictionary = p.duplicate(true)
+			for k in range(1, 6):
+				Prospects.age_player(q, y + k)
+			if Traits.has(q, "def_forward"):
 				gen += 1
-	_check(gen >= 3, "Draft classes bring Defensive forwards too (%d in five classes)" % gen)
+	_check(gen >= 4, "Draft classes bring Defensive forwards too (%d in five classes, five seasons on)" % gen)
 
 	var sim := _sim(8301, "ADE", "SYD")
 	var spare := Matchups.best_interceptor((sim.squads[1] as Squad).ground, 0.0)

@@ -444,17 +444,23 @@ func _week_section(season: Season) -> Control:
 		var ground := str(mine.get("venue", ""))
 		if ground == "":
 			ground = str(GameDB.club(str(mine["home"])).get("ground", ""))
+		# Who, then where: "Essendon", "Away · Marvel Stadium" (the director's
+		# PC playtest, 2026-10-07: "Marvel Stadium / at Essendon" read as if
+		# Essendon were the ground).
+		var who := UiKit.lbl(GameDB.club_name(opp), 26 if _narrow() else 30, UiKit.TEXT, true)
+		who.name = "Opponent"
+		who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		nv.add_child(who)
 		# The forecast is known in the week (ARD-M4-016): a fact beside the
 		# ground, not advice.
 		var wx := str(mine.get("weather", ""))
-		var where := ground if wx == "" else "%s  ·  %s" % [ground, Weather.label(wx)]
-		var ground_line := UiKit.ellipsis(where, UiKit.SMALL, UiKit.MUTED)
-		ground_line.name = "GroundLine"
-		nv.add_child(ground_line)
-		var who := UiKit.lbl("%s %s" % ["v" if is_home else "at", GameDB.club_name(opp)],
-				26 if _narrow() else 30, UiKit.TEXT, true)
-		who.name = "Opponent"
-		nv.add_child(who)
+		var where_text := "%s · %s" % ["Home" if is_home else "Away", ground]
+		if wx != "":
+			where_text += " · " + Weather.label(wx)
+		var where := UiKit.lbl(where_text, UiKit.BODY, UiKit.MUTED)
+		where.name = "MatchVenue"
+		where.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		nv.add_child(where)
 		var marquee := MarqueeGames.tradition(str(mine["home"]), str(mine["away"]))
 		if not marquee.is_empty():
 			var marquee_line := UiKit.lbl(str(marquee["name"]), UiKit.SMALL, UiKit.EMPH, true)
