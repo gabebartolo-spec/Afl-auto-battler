@@ -210,7 +210,8 @@ func _level_rounds(rounds: Array, rng: RandomNumberGenerator) -> Array:
 		# round 1 and the last two; anywhere when nothing else moves.
 		for pass_i in range(4):
 			var apart := pass_i == 0
-			var span := range(BYE_FIRST, mini(BYE_LAST + 1, last)) if pass_i <= 1 					else (range(1, last) if pass_i == 2 else range(rounds.size()))
+			var span := range(BYE_FIRST, mini(BYE_LAST + 1, last)) if pass_i <= 1 \
+					else (range(1, last) if pass_i == 2 else range(rounds.size()))
 			for fi in _shuffled(span, rng):
 				if fi == ti or (rounds[fi] as Array).size() < full:
 					continue
@@ -325,8 +326,8 @@ func _assign_venues(rounds: Array, rng: RandomNumberGenerator) -> Array:
 	return out
 
 
-## The builder before the fair fixture: kept for a 21st club until the
-## director chooses its season shape.
+## The builder before the fair fixture: only the fallback above 21 clubs
+## (FAIR_FIXTURE_MAX); the director chose the 21-club shape (2026-10-06).
 func _legacy_fixture() -> Array:
 	var first_half := round_robin(clubs)
 	var out := []
