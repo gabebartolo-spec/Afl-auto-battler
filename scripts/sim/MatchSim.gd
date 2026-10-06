@@ -3459,7 +3459,7 @@ func _offer_set_shot(side: int, p_fp: float, shooter: Dictionary, defender, band
 			"goal": pass_p * mate_goal, "pass": pass_p, "mate_goal": mate_goal,
 			"mate_id": str(mate["id"])})
 	options.append({"key": "bomb", "label": "Bomb it to the goal square",
-		"detail": "Now and then it falls for a goal; more often a behind or they rebound it.",
+		"detail": "Into the pack: a forward might mark it or a crumber snap it, but more often the defence clears it.",
 		"goal": bomb_goal, "behind": 0.30})
 	_fire({"kind": "set_shot", "default": 0, "player_id": str(shooter["id"]),
 		"defender_id": "" if defender == null else str(defender["id"]), "fp": p_fp,
@@ -3860,11 +3860,11 @@ func _pack_event(side: int, at: float, actor, outcome: String, ids: Dictionary, 
 ## marking - 0.12 defence intercept, out of 100).
 const PACK_THROUGH := 0.08       # sails over everyone
 const PACK_THROUGH_GOAL := 0.55  # and through the big sticks, else a behind
-const PACK_MARK := 0.20          # a forward marks it, level pack
-const PACK_DEFENCE := 0.30       # the defence marks or punches it, level pack
+const PACK_MARK := 0.30          # a forward marks it, level pack
+const PACK_DEFENCE := 0.25       # the defence marks or punches it, level pack
 const PACK_MARK_ACC := 0.92      # his shot from the square, an ordinary kick
 const PACK_CRUMB := 0.45         # spoiled: a crumber gathers, before pressure
-const PACK_RUSHED := 0.45        # not gathered: rushed through, else they clear it
+const PACK_RUSHED := 0.60        # not gathered: rushed through, else they clear it
 
 
 func _shot_turnover(side: int, defender: Dictionary, text: String) -> Dictionary:
