@@ -206,7 +206,8 @@ func _meta_line(meta: Dictionary) -> String:
 	var club := str(meta.get("club", ""))
 	var bits: PackedStringArray = []
 	if club != "":
-		bits.append(GameDB.club_name(club))
+		# A created club is only registered once its career loads.
+		bits.append(str(meta.get("club_name", "")) if str(meta.get("club_name", "")) != "" else GameDB.club_name(club))
 	bits.append(str(meta.get("year", "")))
 	if str(meta.get("stage", "")) != "":
 		bits.append(str(meta["stage"]))

@@ -3970,7 +3970,7 @@ A lightweight **Follow / Watch** affordance is preferred over extra bespoke dash
 ---
 
 ## ARD-M7-009 — Expansion clubs, Canberra toggle & Club Forge
-**Status:** `PARTIAL` — groundwork merged: the full player look (#305) and the location library, `data/forge_locations.json` with 53 researched places and a `tools/validate_data.py` check (#304). The pattern and colour research is merged (#343, #351): from each heritage club's Wikipedia infobox home kit, plus South Adelaide's own site (#351). 33 of 53 places have a pattern tag and 46 of 53 have colour tags; nothing is guessed. Still empty: 20 patterns (custom kit images, or the page is the town: werribee, shepparton, warrnambool, newcastle, wollongong, albury, maroochydore, morningside, norwood, sturt, woodville-west-torrens, claremont, subiaco, bunbury, ainslie, eastlake, tuggeranong, palmerston, weston-creek, alice-springs) and 7 colours (shepparton, southport, morningside, central-district, burnie, weston-creek, alice-springs). Nothing in the game reads the library yet. _(2026-10-06)_  
+**Status:** `PARTIAL` — groundwork merged: the full player look (#305) and the location library, `data/forge_locations.json` with 53 researched places and a `tools/validate_data.py` check (#304). The pattern and colour research is merged (#343, #351): from each heritage club's Wikipedia infobox home kit, plus South Adelaide's own site (#351). 33 of 53 places have a pattern tag and 46 of 53 have colour tags; nothing is guessed. Still empty: 20 patterns (custom kit images, or the page is the town: werribee, shepparton, warrnambool, newcastle, wollongong, albury, maroochydore, morningside, norwood, sturt, woodville-west-torrens, claremont, subiaco, bunbury, ainslie, eastlake, tuggeranong, palmerston, weston-creek, alice-springs) and 7 colours (shepparton, southport, morningside, central-district, burnie, weston-creek, alice-springs). **Create a club, engine (merged in #340):** `ClubForge` turns a spec (name, nickname, 2-4 letter abbreviation, a library place and one of its grounds, three colours, a guernsey design and which colour goes where, entry season) into a club, refusing taken names and codes, unknown places and patterns that can't be told apart; `GameState.create_club` adds the one created club before the League Draft; `GameDB.club_order` replaces `CLUB_ORDER` wherever every club is walked; the club is saved with the career and comes back on load. Director decisions (2026-10-06): a created club **enters with the career** and drafts its list in the League Draft like every club (no separate concession package); a 21-club season is **24 rounds, 22 games and two byes a club**. The screen is built (#360, approved by the director in his words) and waits on #309 (Create a player), which needs the director's look at the player form, because it is stacked on both. The fair fixture for 18 to 21 clubs is #361. _(2026-10-06)_  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -5841,8 +5841,10 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 **Validation:** capture stills and motion for the touched existing sequences, transitions and fallbacks; verify correct participants, appearances/kits, skip/touch/Back, event/outcome agreement, Android frame time/load time and existing vignette tests. Director approves final scene/overlay treatment before completion.
 
 ## STYLE-07 — PC fullscreen readability and fit-to-screen repair
-**Status:** `KNOWN BUG` · **Priority:** `P0` — **EXTREME / NEXT AVAILABLE DEVELOPMENT SLOT** · **Autonomy:** `SUPERVISED`  
+**Status:** `IN REVIEW` (#371; not DONE until the director's PC review) · **Priority:** `P0` — **EXTREME / NEXT AVAILABLE DEVELOPMENT SLOT** · **Autonomy:** `SUPERVISED`  
 **Existing owner:** shared responsive layout (`ScreenLayout.gd` / `UiKit.gd`), Main/New career and other desktop screens; M8-006.
+
+**Implementation record (2026-10-06, #371):** the director's PC is 3840x2160 with Windows DPI 288 (300%), and Godot's `screen_get_scale()` is 1.0 on Windows, so the logical canvas was the full physical size and the UI drew tiny. The fix is a desktop density of the larger of the operating system's DPI over 96 and the scale that fits 1280x720, and the first window now opens at the OS scale. Native before and after captures are in `docs/research/style07_*`; nine career_ui checks cover it. It closes only after the director has looked at it on the PC.
 
 **Director evidence (2026-10-06):** Windows near-4K capture (original image 3822×2022, `codex-clipboard-e07bf18b-b01f-4d23-9e26-47e942a98b8d.png`) shows a tiny central New career form inside an enormous mostly empty oval/background. The director reports the game is unreadable on PC in fullscreen. Reproduce both maximised and true fullscreen modes; the captured title bar alone does not establish which window mode was active.
 
@@ -5891,6 +5893,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** STYLE-07 (PC fullscreen readability) is IN REVIEW in #371, with the cause and fix recorded; it is DONE only after the director's PC review.
 
 - **2026-10-06:** Recorded five more director decisions in §9.1: trades at real volume; synergy selection and development projects must have an impact; the clearance winner keeps the first disposal; the Create a club screen is approved; freckles removed (confirmed in the director's words).
 
