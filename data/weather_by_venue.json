@@ -1,0 +1,599 @@
+{
+ "_about": "Monthly March to September climate means per AFL venue, from Bureau of Meteorology 'Climate statistics for Australian locations' station tables (https://www.bom.gov.au/climate/averages/tables/cw_<station>.shtml, fetched 2026-10-06). rain_days is BoM's 'Mean number of days of rain >= 1 mm'; rain is rain_days divided by the days in the month (a share of days). wind_3pm_kmh is BoM's 'Mean 3pm wind speed (km/h)' and mean_max_c is 'Mean maximum temperature (C)'. BoM's summary tables do not give days of strong wind or days over 25 C, so there is no wind or hot share here; those are the means. Marvel Stadium is roofed: always a perfect day (no data). Station and years per number are in 'sources'. See docs/research/WEATHER_EVIDENCE.md.",
+ "months": [
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep"
+ ],
+ "roofed": [
+  "Marvel Stadium"
+ ],
+ "stations": {
+  "086071": {
+   "name": "MELBOURNE REGIONAL OFFICE",
+   "years": "1855-2014",
+   "url": "https://www.bom.gov.au/climate/averages/tables/cw_086071.shtml"
+  },
+  "087184": {
+   "name": "BREAKWATER (GEELONG RACECOURSE)",
+   "years": "2011-2026",
+   "url": "https://www.bom.gov.au/climate/averages/tables/cw_087184.shtml"
+  },
+  "087113": {
+   "name": "AVALON AIRPORT",
+   "years": "mean max 1995-2026; 3pm wind 1965-2010",
+   "url": "https://www.bom.gov.au/climate/averages/tables/cw_087113.shtml"
+  },
+  "023000": {
+   "name": "ADELAIDE (WEST TERRACE / NGAYIRDAPIRA)",
+   "years": "max 1887-2026; rain 1839-2026; 3pm wind 1955-1977",
+   "url": "https://www.bom.gov.au/climate/averages/tables/cw_023000.shtml"
+  },
+  "040913": {
+   "name": "BRISBANE",
+   "years": "max and rain 1999-2026; 3pm wind 1999-2010",
+   "url": "https://www.bom.gov.au/climate/averages/tables/cw_040913.shtml"
+  },
+  "009021": {
+   "name": "PERTH AIRPORT M.O.",
+   "years": "max and rain 1944-2026; 3pm wind 1944-2010",
+   "url": "https://www.bom.gov.au/climate/averages/tables/cw_009021.shtml"
+  },
+  "040764": {
+   "name": "GOLD COAST SEAWAY",
+   "years": "max 1992-2026; rain 1994-2026; 3pm wind 1991-2010",
+   "url": "https://www.bom.gov.au/climate/averages/tables/cw_040764.shtml"
+  },
+  "066062": {
+   "name": "SYDNEY (OBSERVATORY HILL)",
+   "years": "max 1859-2020; rain 1858-2020; 3pm wind 1955-1991",
+   "url": "https://www.bom.gov.au/climate/averages/tables/cw_066062.shtml"
+  },
+  "066212": {
+   "name": "SYDNEY OLYMPIC PARK AWS (ARCHERY CENTRE)",
+   "years": "2011-2026",
+   "url": "https://www.bom.gov.au/climate/averages/tables/cw_066212.shtml"
+  },
+  "094029": {
+   "name": "HOBART (ELLERSLIE ROAD)",
+   "years": "max 1882-2026; rain 1893-2026; 3pm wind 1893-2010",
+   "url": "https://www.bom.gov.au/climate/averages/tables/cw_094029.shtml"
+  },
+  "070351": {
+   "name": "CANBERRA AIRPORT",
+   "years": "2008-2026",
+   "url": "https://www.bom.gov.au/climate/averages/tables/cw_070351.shtml"
+  },
+  "070014": {
+   "name": "CANBERRA AIRPORT COMPARISON",
+   "years": "1939-2010",
+   "url": "https://www.bom.gov.au/climate/averages/tables/cw_070014.shtml"
+  }
+ },
+ "venues": {
+  "MCG": {
+   "clubs": "COL, HAW, MEL, RIC",
+   "sources": {
+    "rain": "086071",
+    "mean_max": "086071",
+    "wind": "086071"
+   },
+   "months": {
+    "Mar": {
+     "rain_days": 6.1,
+     "rain": 0.197,
+     "wind_3pm_kmh": 13.1,
+     "mean_max_c": 23.9
+    },
+    "Apr": {
+     "rain_days": 7.9,
+     "rain": 0.263,
+     "wind_3pm_kmh": 12.9,
+     "mean_max_c": 20.3
+    },
+    "May": {
+     "rain_days": 9.7,
+     "rain": 0.313,
+     "wind_3pm_kmh": 12.5,
+     "mean_max_c": 16.7
+    },
+    "Jun": {
+     "rain_days": 9.4,
+     "rain": 0.313,
+     "wind_3pm_kmh": 12.6,
+     "mean_max_c": 14.1
+    },
+    "Jul": {
+     "rain_days": 9.7,
+     "rain": 0.313,
+     "wind_3pm_kmh": 14.1,
+     "mean_max_c": 13.5
+    },
+    "Aug": {
+     "rain_days": 10.4,
+     "rain": 0.335,
+     "wind_3pm_kmh": 15.2,
+     "mean_max_c": 15.0
+    },
+    "Sep": {
+     "rain_days": 10.4,
+     "rain": 0.347,
+     "wind_3pm_kmh": 15.8,
+     "mean_max_c": 17.3
+    }
+   }
+  },
+  "SCG": {
+   "clubs": "SYD",
+   "sources": {
+    "rain": "066062",
+    "mean_max": "066062",
+    "wind": "066062"
+   },
+   "months": {
+    "Mar": {
+     "rain_days": 9.9,
+     "rain": 0.319,
+     "wind_3pm_kmh": 15.2,
+     "mean_max_c": 24.8
+    },
+    "Apr": {
+     "rain_days": 8.9,
+     "rain": 0.297,
+     "wind_3pm_kmh": 13.8,
+     "mean_max_c": 22.5
+    },
+    "May": {
+     "rain_days": 8.6,
+     "rain": 0.277,
+     "wind_3pm_kmh": 12.7,
+     "mean_max_c": 19.5
+    },
+    "Jun": {
+     "rain_days": 8.8,
+     "rain": 0.293,
+     "wind_3pm_kmh": 13.6,
+     "mean_max_c": 17.0
+    },
+    "Jul": {
+     "rain_days": 7.4,
+     "rain": 0.239,
+     "wind_3pm_kmh": 15.3,
+     "mean_max_c": 16.4
+    },
+    "Aug": {
+     "rain_days": 7.1,
+     "rain": 0.229,
+     "wind_3pm_kmh": 17.6,
+     "mean_max_c": 17.9
+    },
+    "Sep": {
+     "rain_days": 7.1,
+     "rain": 0.237,
+     "wind_3pm_kmh": 18.3,
+     "mean_max_c": 20.1
+    }
+   }
+  },
+  "Adelaide Oval": {
+   "clubs": "ADE, PAD",
+   "sources": {
+    "rain": "023000",
+    "mean_max": "023000",
+    "wind": "023000"
+   },
+   "months": {
+    "Mar": {
+     "rain_days": 3.5,
+     "rain": 0.113,
+     "wind_3pm_kmh": 16.3,
+     "mean_max_c": 26.1
+    },
+    "Apr": {
+     "rain_days": 6.5,
+     "rain": 0.217,
+     "wind_3pm_kmh": 15.3,
+     "mean_max_c": 22.2
+    },
+    "May": {
+     "rain_days": 10.2,
+     "rain": 0.329,
+     "wind_3pm_kmh": 14.2,
+     "mean_max_c": 18.6
+    },
+    "Jun": {
+     "rain_days": 11.1,
+     "rain": 0.37,
+     "wind_3pm_kmh": 14.1,
+     "mean_max_c": 15.8
+    },
+    "Jul": {
+     "rain_days": 11.9,
+     "rain": 0.384,
+     "wind_3pm_kmh": 16.8,
+     "mean_max_c": 15.0
+    },
+    "Aug": {
+     "rain_days": 11.6,
+     "rain": 0.374,
+     "wind_3pm_kmh": 18.8,
+     "mean_max_c": 16.1
+    },
+    "Sep": {
+     "rain_days": 9.3,
+     "rain": 0.31,
+     "wind_3pm_kmh": 18.7,
+     "mean_max_c": 18.5
+    }
+   }
+  },
+  "The Gabba": {
+   "clubs": "BRL",
+   "sources": {
+    "rain": "040913",
+    "mean_max": "040913",
+    "wind": "040913"
+   },
+   "months": {
+    "Mar": {
+     "rain_days": 10.0,
+     "rain": 0.323,
+     "wind_3pm_kmh": 14.8,
+     "mean_max_c": 29.2
+    },
+    "Apr": {
+     "rain_days": 7.2,
+     "rain": 0.24,
+     "wind_3pm_kmh": 13.2,
+     "mean_max_c": 27.2
+    },
+    "May": {
+     "rain_days": 6.2,
+     "rain": 0.2,
+     "wind_3pm_kmh": 11.3,
+     "mean_max_c": 24.5
+    },
+    "Jun": {
+     "rain_days": 6.0,
+     "rain": 0.2,
+     "wind_3pm_kmh": 10.9,
+     "mean_max_c": 22.1
+    },
+    "Jul": {
+     "rain_days": 4.0,
+     "rain": 0.129,
+     "wind_3pm_kmh": 11.3,
+     "mean_max_c": 22.0
+    },
+    "Aug": {
+     "rain_days": 3.8,
+     "rain": 0.123,
+     "wind_3pm_kmh": 13.2,
+     "mean_max_c": 23.5
+    },
+    "Sep": {
+     "rain_days": 3.7,
+     "rain": 0.123,
+     "wind_3pm_kmh": 14.5,
+     "mean_max_c": 25.7
+    }
+   }
+  },
+  "Optus Stadium": {
+   "clubs": "FRE, WCE",
+   "sources": {
+    "rain": "009021",
+    "mean_max": "009021",
+    "wind": "009021"
+   },
+   "months": {
+    "Mar": {
+     "rain_days": 2.3,
+     "rain": 0.074,
+     "wind_3pm_kmh": 18.6,
+     "mean_max_c": 29.8
+    },
+    "Apr": {
+     "rain_days": 5.2,
+     "rain": 0.173,
+     "wind_3pm_kmh": 16.3,
+     "mean_max_c": 25.7
+    },
+    "May": {
+     "rain_days": 9.7,
+     "rain": 0.313,
+     "wind_3pm_kmh": 14.7,
+     "mean_max_c": 21.9
+    },
+    "Jun": {
+     "rain_days": 13.6,
+     "rain": 0.453,
+     "wind_3pm_kmh": 15.5,
+     "mean_max_c": 19.1
+    },
+    "Jul": {
+     "rain_days": 14.9,
+     "rain": 0.481,
+     "wind_3pm_kmh": 16.0,
+     "mean_max_c": 18.0
+    },
+    "Aug": {
+     "rain_days": 13.0,
+     "rain": 0.419,
+     "wind_3pm_kmh": 16.9,
+     "mean_max_c": 18.7
+    },
+    "Sep": {
+     "rain_days": 10.2,
+     "rain": 0.34,
+     "wind_3pm_kmh": 18.7,
+     "mean_max_c": 20.4
+    }
+   }
+  },
+  "GMHBA Stadium": {
+   "clubs": "GEE",
+   "sources": {
+    "rain": "087184",
+    "mean_max": "087113",
+    "wind": "087113"
+   },
+   "months": {
+    "Mar": {
+     "rain_days": 4.2,
+     "rain": 0.135,
+     "wind_3pm_kmh": 24.1,
+     "mean_max_c": 24.3
+    },
+    "Apr": {
+     "rain_days": 6.4,
+     "rain": 0.213,
+     "wind_3pm_kmh": 22.3,
+     "mean_max_c": 20.6
+    },
+    "May": {
+     "rain_days": 8.2,
+     "rain": 0.265,
+     "wind_3pm_kmh": 20.1,
+     "mean_max_c": 17.3
+    },
+    "Jun": {
+     "rain_days": 8.6,
+     "rain": 0.287,
+     "wind_3pm_kmh": 20.5,
+     "mean_max_c": 14.7
+    },
+    "Jul": {
+     "rain_days": 9.7,
+     "rain": 0.313,
+     "wind_3pm_kmh": 21.9,
+     "mean_max_c": 14.3
+    },
+    "Aug": {
+     "rain_days": 8.8,
+     "rain": 0.284,
+     "wind_3pm_kmh": 24.4,
+     "mean_max_c": 15.6
+    },
+    "Sep": {
+     "rain_days": 9.3,
+     "rain": 0.31,
+     "wind_3pm_kmh": 26.2,
+     "mean_max_c": 17.9
+    }
+   }
+  },
+  "People First Stadium": {
+   "clubs": "GCS",
+   "sources": {
+    "rain": "040764",
+    "mean_max": "040764",
+    "wind": "040764"
+   },
+   "months": {
+    "Mar": {
+     "rain_days": 11.3,
+     "rain": 0.365,
+     "wind_3pm_kmh": 25.6,
+     "mean_max_c": 28.0
+    },
+    "Apr": {
+     "rain_days": 9.0,
+     "rain": 0.3,
+     "wind_3pm_kmh": 23.0,
+     "mean_max_c": 26.0
+    },
+    "May": {
+     "rain_days": 8.7,
+     "rain": 0.281,
+     "wind_3pm_kmh": 20.3,
+     "mean_max_c": 23.6
+    },
+    "Jun": {
+     "rain_days": 6.6,
+     "rain": 0.22,
+     "wind_3pm_kmh": 19.1,
+     "mean_max_c": 21.4
+    },
+    "Jul": {
+     "rain_days": 5.4,
+     "rain": 0.174,
+     "wind_3pm_kmh": 19.9,
+     "mean_max_c": 21.2
+    },
+    "Aug": {
+     "rain_days": 4.5,
+     "rain": 0.145,
+     "wind_3pm_kmh": 22.4,
+     "mean_max_c": 22.2
+    },
+    "Sep": {
+     "rain_days": 5.2,
+     "rain": 0.173,
+     "wind_3pm_kmh": 24.4,
+     "mean_max_c": 24.0
+    }
+   }
+  },
+  "Engie Stadium": {
+   "clubs": "GWS",
+   "sources": {
+    "rain": "066212",
+    "mean_max": "066212",
+    "wind": "066062"
+   },
+   "months": {
+    "Mar": {
+     "rain_days": 11.6,
+     "rain": 0.374,
+     "wind_3pm_kmh": 15.2,
+     "mean_max_c": 26.8
+    },
+    "Apr": {
+     "rain_days": 7.4,
+     "rain": 0.247,
+     "wind_3pm_kmh": 13.8,
+     "mean_max_c": 24.5
+    },
+    "May": {
+     "rain_days": 5.6,
+     "rain": 0.181,
+     "wind_3pm_kmh": 12.7,
+     "mean_max_c": 21.4
+    },
+    "Jun": {
+     "rain_days": 6.9,
+     "rain": 0.23,
+     "wind_3pm_kmh": 13.6,
+     "mean_max_c": 18.4
+    },
+    "Jul": {
+     "rain_days": 6.4,
+     "rain": 0.206,
+     "wind_3pm_kmh": 15.3,
+     "mean_max_c": 18.6
+    },
+    "Aug": {
+     "rain_days": 5.9,
+     "rain": 0.19,
+     "wind_3pm_kmh": 17.6,
+     "mean_max_c": 19.9
+    },
+    "Sep": {
+     "rain_days": 5.7,
+     "rain": 0.19,
+     "wind_3pm_kmh": 18.3,
+     "mean_max_c": 22.8
+    }
+   }
+  },
+  "Bellerive Oval": {
+   "clubs": "TAS",
+   "sources": {
+    "rain": "094029",
+    "mean_max": "094029",
+    "wind": "094029"
+   },
+   "months": {
+    "Mar": {
+     "rain_days": 6.1,
+     "rain": 0.197,
+     "wind_3pm_kmh": 16.2,
+     "mean_max_c": 20.3
+    },
+    "Apr": {
+     "rain_days": 6.8,
+     "rain": 0.227,
+     "wind_3pm_kmh": 14.5,
+     "mean_max_c": 17.4
+    },
+    "May": {
+     "rain_days": 7.0,
+     "rain": 0.226,
+     "wind_3pm_kmh": 12.6,
+     "mean_max_c": 14.6
+    },
+    "Jun": {
+     "rain_days": 7.2,
+     "rain": 0.24,
+     "wind_3pm_kmh": 12.2,
+     "mean_max_c": 12.1
+    },
+    "Jul": {
+     "rain_days": 7.8,
+     "rain": 0.252,
+     "wind_3pm_kmh": 13.2,
+     "mean_max_c": 11.8
+    },
+    "Aug": {
+     "rain_days": 8.4,
+     "rain": 0.271,
+     "wind_3pm_kmh": 14.5,
+     "mean_max_c": 13.2
+    },
+    "Sep": {
+     "rain_days": 8.6,
+     "rain": 0.287,
+     "wind_3pm_kmh": 17.0,
+     "mean_max_c": 15.2
+    }
+   }
+  },
+  "Manuka Oval": {
+   "clubs": "CANB",
+   "sources": {
+    "rain": "070351",
+    "mean_max": "070351",
+    "wind": "070014"
+   },
+   "months": {
+    "Mar": {
+     "rain_days": 6.2,
+     "rain": 0.2,
+     "wind_3pm_kmh": 14.6,
+     "mean_max_c": 25.3
+    },
+    "Apr": {
+     "rain_days": 4.8,
+     "rain": 0.16,
+     "wind_3pm_kmh": 14.4,
+     "mean_max_c": 21.0
+    },
+    "May": {
+     "rain_days": 4.0,
+     "rain": 0.129,
+     "wind_3pm_kmh": 14.4,
+     "mean_max_c": 16.6
+    },
+    "Jun": {
+     "rain_days": 6.0,
+     "rain": 0.2,
+     "wind_3pm_kmh": 15.4,
+     "mean_max_c": 13.2
+    },
+    "Jul": {
+     "rain_days": 5.4,
+     "rain": 0.174,
+     "wind_3pm_kmh": 17.1,
+     "mean_max_c": 12.8
+    },
+    "Aug": {
+     "rain_days": 6.7,
+     "rain": 0.216,
+     "wind_3pm_kmh": 19.8,
+     "mean_max_c": 14.4
+    },
+    "Sep": {
+     "rain_days": 5.1,
+     "rain": 0.17,
+     "wind_3pm_kmh": 20.7,
+     "mean_max_c": 18.0
+    }
+   }
+  }
+ }
+}
