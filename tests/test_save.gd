@@ -25,6 +25,7 @@ func run() -> void:
 	_test_bad_file_is_ignored()
 	_test_old_club_code_migrates()
 	_test_safe_replacement()
+	_test_fictional_identity()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Save tests: %d checks, %d failures" % [checks, failures.size()])
@@ -386,3 +387,49 @@ func _test_safe_replacement() -> void:
 	CareerSave.delete(path)
 	_check(not CareerSave.exists(path) and not FileAccess.file_exists(path + CareerSave.BACKUP_SUFFIX),
 			"Deleting a career removes its backup too")
+
+
+## FL-005: a generated player's nickname and interest are cosmetic, the same
+## every time from his id, none for real players, and a nickname you change or
+## remove stays that way through a save.
+func _test_fictional_identity() -> void:
+	var gen := []
+	for k in range(400):
+		gen.append({"id": "fl5_%d" % k, "first": "Sam",
+				"last": str(GameDB.FICTIONAL_LAST_NAMES[k % GameDB.FICTIONAL_LAST_NAMES.size()]), "generated": true})
+	var nicks := 0
+	var interests := 0
+	var stable := true
+	for p in gen:
+		var before := str(p)
+		var n := FictionalIdentity.nickname(p)
+		if n != "":
+			nicks += 1
+		if FictionalIdentity.interest(p) != "":
+			interests += 1
+		var moved: Dictionary = p.duplicate()
+		moved["club"] = "COL"
+		if FictionalIdentity.nickname(moved) != n or str(p) != before:
+			stable = false
+	_check(nicks > 60 and nicks < 160 and interests > 150 and interests < 290,
+			"Some generated players have a nickname or an interest, not all (%d and %d of 400)" % [nicks, interests])
+	_check(stable, "They come from his id alone: the same after a move, and reading them changes nothing")
+	var real: Dictionary = GameDB.club_list("GEE")[0]
+	_check(FictionalIdentity.nickname(real) == "" and FictionalIdentity.interest(real) == "",
+			"A real player is given no invented nickname or interest")
+	_new_season()
+	var mine: Dictionary = GameState.my_list[0]
+	var name_before := GameDB.player_display_name(mine)
+	_check(GameState.set_player_nickname(str(mine["id"]), "  Moz ") == "Moz"
+			and GameDB.player_display_name(mine) == name_before,
+			"A nickname can be set; the full name stays his name")
+	GameState.save_career()
+	GameState.load_career()
+	mine = GameState.list_player(str(mine["id"]))
+	_check(FictionalIdentity.nickname(mine) == "Moz", "The nickname survives a save")
+	GameState.set_player_nickname(str(mine["id"]), "")
+	GameState.save_career()
+	GameState.load_career()
+	_check(FictionalIdentity.nickname(GameState.list_player(str(mine["id"]))) == "",
+			"Removing it costs nothing and it stays removed")
+

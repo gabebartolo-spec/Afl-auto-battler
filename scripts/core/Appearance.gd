@@ -17,7 +17,7 @@ const SKIN := [Color("#f6d8c2"), Color("#e2ad85"), Color("#b97e52"), Color("#8c5
 		Color("#5f361f"), Color("#3a2215")]
 const HAIR_KEYS := ["black", "dark_brown", "brown", "light_brown", "blond", "red"]
 const UNCURATED := {"skin": 2, "hair": 1}
-const HAIR := [Color("#16110e"), Color("#33211a"), Color("#563621"), Color("#86603a"),
+const HAIR := [Color("#241b16"), Color("#40291f"), Color("#563621"), Color("#86603a"),
 		Color("#c19a5b"), Color("#8a3b1d")]
 
 ## The league's mix of tones, for players without a curated look. Replaced by
@@ -69,14 +69,14 @@ const BEARDS := ["clean", "stubble_light", "stubble_heavy", "moustache", "short_
 const BOOTS := ["classic", "modern"]
 const SOCKS := ["tall", "short"]
 const TATTOO_PLACES := ["forearm_l", "forearm_r", "upper_arm_l", "upper_arm_r", "calf_l", "calf_r", "hand_r"]
-## None / light / heavy for scars and bandaging.
+## None / light / heavy for bandaging.
 const LEVELS := 3
 
 ## A look with nothing chosen: a short crop, clean shaven, tall socks, plain
 ## skin - what a real player shows until his look is curated (never a guess).
 const BASE_LOOK := {"hair_style": "short_crop", "beard": "clean", "beard_colour": -1,
 		"headband": false, "boots": "classic", "boot_colour": 0, "socks": "tall",
-		"tattoos": [], "scars": 0, "bandage": 0}
+		"tattoos": [], "bandage": 0}
 
 ## How often generated players have each, so a league doesn't look uniform.
 const HAIR_STYLE_MIX := {"bald": 4.0, "buzz": 12.0, "short_crop": 22.0, "crew": 10.0, "side_part": 6.0,
@@ -124,7 +124,7 @@ static func valid(key: String, value) -> bool:
 			return SOCKS.has(str(value))
 		"headband":
 			return value is bool
-		"scars", "bandage":
+		"bandage":
 			return value is int and int(value) >= 0 and int(value) < LEVELS
 		"tattoos":
 			if not value is Array:
@@ -159,10 +159,10 @@ static func _variety(id: String) -> Dictionary:
 		tats.append({"place": places[at], "design": "design_%d" % rng.randi_range(1, 12)})
 		places.remove_at(at)
 	out["tattoos"] = tats
-	# Freckles are gone (director, 2026-10-06); the roll stays so every other
-	# part of a generated player's look is as it was.
+	# Freckles and scars are gone (director, 2026-10-06); both rolls stay so every
+	# other part of a generated player's look is as it was.
 	rng.randf()
-	out["scars"] = _pick(rng.randf(), [88.0, 10.0, 2.0])
+	rng.randf()
 	out["bandage"] = _pick(rng.randf(), [85.0, 12.0, 3.0])
 	return out
 

@@ -16,6 +16,7 @@ var _logo: TextureRect
 ## The setup's choices, applied only when the career starts.
 var _pick_real := true
 var _pick_difficulty := "normal"
+var _pick_prospect := false
 
 ## Placeholder title art. Swap the file (same path) to replace it.
 const LOGO := preload("res://assets/ui/aussie_rules_dynasties_logo_placeholder.png")
@@ -177,6 +178,10 @@ func _show_home() -> void:
 	new_career.disabled = not GameDB.loaded
 	new_career.pressed.connect(_on_new_career)
 	col.add_child(new_career)
+	var forge := UiKit.btn("Club Forge", 17)
+	forge.name = "ClubForge"
+	forge.pressed.connect(func(): Router.go("forge"))
+	col.add_child(forge)
 
 	_content.add_child(UiKit.spacer(18))
 	var quiet := UiKit.hbox(4)
@@ -225,6 +230,7 @@ func _on_continue() -> void:
 func _on_new_career() -> void:
 	_pick_real = GameState.show_real_names
 	_pick_difficulty = GameState.new_career_difficulty()
+	_pick_prospect = not GameState.forge_player().is_empty()
 	_mode = "setup"
 	_render()
 
@@ -269,6 +275,15 @@ func _show_setup() -> void:
 	form.add_child(_choice("Difficulty", "Difficulty", diff_options, _pick_difficulty,
 			func(k): return str(GameState.DIFFICULTIES[k]["text"]),
 			func(k): _pick_difficulty = k))
+	# Your Club Forge player, if you made one: he enters this career's first
+	# National Draft like any other prospect.
+	var forged := GameState.forge_player()
+	if not forged.is_empty():
+		var who := "%s %s" % [forged.get("first", ""), forged.get("last", "")]
+		form.add_child(_choice("Your prospect", "Prospect", [["in", "Bring " + who], ["out", "Not this time"]],
+				"in" if _pick_prospect else "out",
+				func(_k): return "He enters this career's first National Draft. No club is told to take him; where he goes is up to the draft.",
+				func(k): _pick_prospect = k == "in"))
 	# The button follows the choices closely, set just apart from them.
 	var cta := MarginContainer.new()
 	cta.add_theme_constant_override("margin_top", 6)
@@ -346,6 +361,10 @@ func _start_new_career() -> void:
 	GameState.set_new_career_difficulty(_pick_difficulty)
 	GameState.delete_saved_career()
 	GameState.reset()
+	if _pick_prospect:
+		var forged := GameState.forge_player()
+		if not forged.is_empty():
+			GameState.add_custom_prospect(forged)
 	GameState.begin_draft()
 	Router.go("draft")
 

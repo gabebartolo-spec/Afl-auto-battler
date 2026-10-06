@@ -2290,6 +2290,97 @@ Consolidates existing team form with the requested winning-streak momentum conce
 
 Goal: make player deployment intuitive, footy-authentic and consequential.
 
+## ARD-M4-012 — Intercepts by zone: any player can intercept
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+
+**Director decision (2026-10-06, interview):** "any player can intercept, but the loose defender should get more intercepts if he's good at it." Today the general-play aerial pool is defenders and midfielders only, and forward-entry contests are defenders only. Neither pool looks at where the ball is, so forwards never pick off a rebound kick in their forward half.
+
+**Scope:**
+- Choose the intercepting player from the players near the ball's zone, weighted by their intercept and marking.
+- Keep the named loose defender's skill-scaled extra entry (`_roam_chance`, 0.20–0.38, scaled down when the attack makes him accountable).
+- Calibrate per position against real splits. The evidence is docs/research/INTERCEPT_EVIDENCE.md (#416), plus the Wheelo Ratings CSVs (download approved by the director).
+
+**Validation:**
+- paired seeded batches: intercepts by position against the evidence;
+- team intercepts, rebounds, scoring and margin unchanged within error;
+- determinism.
+
+## ARD-M4-013 — Set shots: three visibly different choices, and a real pack for the bomb
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+
+**Director decision (2026-10-06):** "should be 3 visibly different sequences, but also add a pack contest, also gives an opportunity for a crumber to pick up a spoiled ball if it is not marked."
+
+**Scope:**
+1. **Record the choice.** Put the choice (shoot, pass or bomb) and the teammate's id on the resulting score or rebound event; today `m["choice"]` stays on the decision (MatchSim.gd:3636).
+2. **Pass:** emit the pass and receive actions that are already resolved, without double-counting the disposal. The teammate shoots from his own spot.
+3. **Bomb:** becomes a real goal-square pack contest:
+   - a forward marks and shoots;
+   - or it's spoiled, and a crumber can gather and snap;
+   - or the defence marks or rebounds;
+   - or it goes through untouched.
+   Recalibrate against today's bomb goal rate so the choice keeps its trade-off.
+4. **Presentation (under M8-003):** three distinct sequences from these events, with no invented actors or stats.
+
+## ARD-M4-014 — Kick lanes that matter (corridor, switch, down the line)
+**Status:** `TODO` · **Priority:** `P2` · **Autonomy:** `SUPERVISED`
+
+**Director decision (2026-10-06):** lanes are recorded **and** affect play, not presentation only.
+
+**Scope:**
+- MatchSim picks a lane for each kick (corridor, switch, down the line), weighted by the gameplan: Attack corridor goes through the middle more, Controlled tempo switches and resets, Defensive press goes down the line.
+- A lane changes that kick's risk and reward, e.g. corridor gains more but turns over into open space.
+- It replaces part of the plans' flat multipliers, so effects aren't counted twice.
+- The director draws the recorded lane, so the random 10% "switch of play" goes.
+- Recalibrate plan balance and the counter triangle.
+
+**Dependencies:** M8-003 tactical timeline. Merge the plan names first (below).
+
+## ARD-M4-015 — Six gameplans, not eight names
+**Status:** `TODO` · **Priority:** `P2` · **Autonomy:** `SAFE`
+
+**Director decision (2026-10-06):** merge the duplicates. "Fast movement" becomes Attack corridor and "High press" becomes Defensive press; they're the same effects under older names (MatchSim `PLANS`, `PLAN_UPSIDE`, CoachReport). Old saves map across on load. No gameplay change.
+
+## ARD-M4-016 — Match-day weather: perfect day, wet, windy, hot
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+
+**Director decisions (2026-10-06):**
+- Rain affects play, calibrated against real stats, and has a look.
+- Conditions: perfect day, wet, windy and hot.
+- "Certain gameplans should work better in certain weather: contested footy is better in the wet as it's less precise; in dry weather ball handling is easier and it's easier to mark the ball."
+- The forecast is known during the week.
+- Windy has a breeze end per quarter.
+- A visible "Wet-weather player" trait.
+- Long sleeves: about 15% of a list wear them, up to 25% in the wet.
+
+**Evidence:** docs/research/WEATHER_EVIDENCE.md, the lead's own research and conclusions.
+
+**Scope:**
+1. **One condition per match,** seeded by venue and month from the real frequencies. Docklands is always a perfect day.
+2. **MatchSim effects through existing keys,** calibrated to the evidence ranges:
+   - wet: marks about −13%, contested possessions +7%, turnovers +11%, a small accuracy drop, and contested ball weighs more in the result;
+   - windy (20 km/h or more): fewer marks, more turnovers, lower accuracy, and a breeze end that swaps each quarter;
+   - hot: freer early, with heavier legs late.
+3. **Plan fit by condition:**
+   - wet favours Win contest and Defensive press, and hurts Attack corridor;
+   - windy favours Controlled tempo;
+   - hot favours Attack corridor, and Defensive press fades;
+   - a perfect day favours Attack corridor and Controlled tempo.
+   It's a rule the player can look up, not a recommendation label.
+4. **Forecast on the Hub during the week,** as a fact. The coach report and Stat Guide state each condition's rule in words.
+5. **The trait "Wet-weather player":** generated players and evidence-backed real players; it only matters when wet.
+6. **Look (with the art agent and the existing scenes):**
+   - rain on the pitch and vignettes;
+   - wind in flags and banners;
+   - heat haze and hard shadows;
+   - long sleeves per player (#368, backlog item).
+   Zero result effect from the look itself.
+
+**Validation:**
+- seeded batches per condition against WEATHER_EVIDENCE: scoring, marks, contested share, turnovers, accuracy;
+- the plan-by-condition matrix shows the intended edges with no dominant plan;
+- determinism;
+- old saves load as a perfect day.
+
 ## ARD-M5-001 — Matchday squad: 18 + 5 interchange
 **Status:** `DONE` — merged in #331 (`11e2f13`, 2026-10-06).  
 
@@ -2377,7 +2468,7 @@ Mobile portrait first.
 ---
 
 ## ARD-M5-003 — Secondary-position learning / retraining
-**Status:** `DONE` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, merged in #266 (2026-10-06). Phone feel and balance measurement remain with the director. Made to matter (2026-10-06, claude/projects-matter): learned positions compete on merit in the auto-pick, a learned position pays back next season inside POT, and the in-season price is smaller.  
+**Status:** `DONE` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, merged in #266 (2026-10-06). Phone feel and balance measurement remain with the director. Made to matter (2026-10-06, merged in #379): learned positions compete on merit in the auto-pick, a learned position pays back next season inside POT, and the in-season price is smaller.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -3906,7 +3997,6 @@ Player-facing choices should stay concise:
 - **facial hair** from a dedicated beard/moustache library,
 - **facial-hair colour** independently selectable from hair colour,
 - **skin tone**,
-- **subtle scars: None / Light / Moderate**,
 - **boots** with a small set of silhouettes/colour treatments (black, white and restrained club-colour accents),
 - **sock height: Tall socks / Short socks**,
 - **headband: On / Off**,
@@ -3970,7 +4060,7 @@ A lightweight **Follow / Watch** affordance is preferred over extra bespoke dash
 ---
 
 ## ARD-M7-009 — Expansion clubs, Canberra toggle & Club Forge
-**Status:** `PARTIAL` — groundwork merged: the full player look (#305) and the location library, `data/forge_locations.json` with 53 researched places and a `tools/validate_data.py` check (#304). The pattern and colour research is merged (#343, #351): from each heritage club's Wikipedia infobox home kit, plus South Adelaide's own site (#351). 33 of 53 places have a pattern tag and 46 of 53 have colour tags; nothing is guessed. Still empty: 20 patterns (custom kit images, or the page is the town: werribee, shepparton, warrnambool, newcastle, wollongong, albury, maroochydore, morningside, norwood, sturt, woodville-west-torrens, claremont, subiaco, bunbury, ainslie, eastlake, tuggeranong, palmerston, weston-creek, alice-springs) and 7 colours (shepparton, southport, morningside, central-district, burnie, weston-creek, alice-springs). **Create a club, engine (merged in #340):** `ClubForge` turns a spec (name, nickname, 2-4 letter abbreviation, a library place and one of its grounds, three colours, a guernsey design and which colour goes where, entry season) into a club, refusing taken names and codes, unknown places and patterns that can't be told apart; `GameState.create_club` adds the one created club before the League Draft; `GameDB.club_order` replaces `CLUB_ORDER` wherever every club is walked; the club is saved with the career and comes back on load. Director decisions (2026-10-06): a created club **enters with the career** and drafts its list in the League Draft like every club (no separate concession package); a 21-club season is **24 rounds, 22 games and two byes a club**. The screen is built (#360, approved by the director in his words) and waits on #309 (Create a player), which needs the director's look at the player form, because it is stacked on both. The fair fixture for 18 to 21 clubs is #361. _(2026-10-06)_  
+**Status:** `PARTIAL` — groundwork merged: the full player look (#305) and the location library, `data/forge_locations.json` with 53 researched places and a `tools/validate_data.py` check (#304). The pattern and colour research is merged (#343, #351): from each heritage club's Wikipedia infobox home kit, plus South Adelaide's own site (#351). 33 of 53 places have a pattern tag and 46 of 53 have colour tags; nothing is guessed. Still empty: 20 patterns (custom kit images, or the page is the town: werribee, shepparton, warrnambool, newcastle, wollongong, albury, maroochydore, morningside, norwood, sturt, woodville-west-torrens, claremont, subiaco, bunbury, ainslie, eastlake, tuggeranong, palmerston, weston-creek, alice-springs) and 7 colours (shepparton, southport, morningside, central-district, burnie, weston-creek, alice-springs). **Create a club, engine (merged in #340):** `ClubForge` turns a spec (name, nickname, 2-4 letter abbreviation, a library place and one of its grounds, three colours, a guernsey design and which colour goes where, entry season) into a club, refusing taken names and codes, unknown places and patterns that can't be told apart; `GameState.create_club` adds the one created club before the League Draft; `GameDB.club_order` replaces `CLUB_ORDER` wherever every club is walked; the club is saved with the career and comes back on load. Director decisions (2026-10-06): a created club **enters with the career** and drafts its list in the League Draft like every club (no separate concession package); a 21-club season is **24 rounds, 22 games and two byes a club**. The screen is built (#360, approved by the director in his words) and waits on #309 (Create a player), which needs the director's look at the player form, because it is stacked on both. The fair fixture for 18 to 21 clubs is merged (#361): every club plays the same number of games, home games are within one of half, and byes follow the season seed (a 21-club season is 24 rounds, 22 games and two byes a club); the board goals and expectations follow the club count (#359). _(2026-10-06)_  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -4138,7 +4228,6 @@ Appearance customisation should include:
 - **Facial hair** from a dedicated beard/moustache library,
 - **Facial-hair colour**, independently selectable,
 - **Skin tone**,
-- **Scars None / Light / Moderate**, kept subtle and believable,
 - **Boots** with a compact set of silhouettes and colour treatments,
 - **Tall socks / Short socks**,
 - **Headband On / Off**,
@@ -4639,6 +4728,26 @@ Acceptance additions:
 Guardrail:
 Do not perform a movement-engine rewrite without evidence that local fixes are insufficient. Do not paper over authoritative simulation defects with presentation-only fakery.
 
+
+**Interview of 2026-10-06 (the director, on the visualisation and tactics research in docs/research/AFL_MATCH_VISUALISATION_AND_TACTICS_RESEARCH.md):** the agreed sequence, in order.
+
+1. **Truth fixes, confirmed in code:**
+   - handballs over 18 m are drawn as kicks (MatchDirector.gd:454, 760, 987); stage a short handball and then the carry;
+   - the ball steers toward the collector within 8 m (`roll_to`, l.1243 and l.1383); fix the deflection or bounce destination at release;
+   - collect waits of up to 6 s, and flights stretched to wait for receivers; start receivers earlier and cap the wait;
+   - stage the set-shot choices from ARD-M4-013's events.
+2. **A tactical timeline:**
+   - record plans, bursts (with their real start and expiry) and named assignments per chain: the tagger and target, key-forward matchups, the loose interceptor, and the spare made accountable;
+   - the director uses the named players instead of slot pairs and its own half-back spare;
+   - snapshot them for replay and skip.
+3. **Two demonstrations first:**
+   - Flood behind the ball against ordinary coverage on an opposition entry;
+   - attacking against defensive centre setups at the **2026 centre ball-up**. The director chose "ball-up from 2026"; the copy is in #414.
+4. **Then corridor, switch and down-the-line** from ARD-M4-014's recorded lanes.
+5. **The 14-play library is held** until the demonstrations land; the director chose "only after the demos land".
+6. **No coaching-view overlay or route arrows.** The director chose "labels only"; the approved persistent labels for key players stand.
+
+Verify with `capture_match.gd` fixtures at 1×, 4× and 8×, on phone and fullscreen, and check that scores, stats and the event order are unchanged.
 
 **Approved flavour extension:** FL-003 (§9.3) adds sourced, readable atmosphere for existing venues. Ground dress changes no geometry, weather, home advantage or football outcome.
 
@@ -5405,11 +5514,23 @@ Relayed by the lead; the director's own wording is the authority if it differs.
 
 From the director's chat with the lead, relayed with the director's words where the lead had them. Evidence: [FLAGS_EVIDENCE_2026-10-06.md](FLAGS_EVIDENCE_2026-10-06.md), [RUCK_MID_DISPOSALS_2026-10-06.md](RUCK_MID_DISPOSALS_2026-10-06.md).
 
-- **Trades at real volume.** Raise the trade period to real AFL volume so that a club which trades well reaches about 3rd to 4th on average. The lead is implementing it.
+- **Trades at real volume.** Raise the trade period to real AFL volume so that a club which trades well reaches about 3rd to 4th on average. The real volume is measured and merged (#376, DraftGuru 2019 to 2025); the lead's trade market is in review (#383).
 - **Synergy selection and development projects must have an impact.** Director: "why do we have these features if they dont have an impact, fix them". Fix both so that using them lifts a club, then measure again with the same harness.
-- **Clearance winner keeps the first disposal** (option 1 of the ruck and midfield disposals evidence). The medium agent is implementing it, with a calibration and finals re-run.
+- **Clearance winner keeps the first disposal** (option 1 of the ruck and midfield disposals evidence). Merged (#373): ruck disposals 8.0 to 12.0, with the calibration and finals re-run.
 - **Create a club screen approved.** Director: "looks fantastic, well done". It merges after the Create a player form and the Create a club engine, because it is built on both.
-- **Freckles removed from the player look.** Confirmed in the director's own words: "i alreeady said to delete freckles from the game".
+- **Scars removed from the player look.** Director, in chat with the lead, 2026-10-06: "remove scarring from the game, unnecessary detail". The look keeps no scars key; old saves that carry one load fine and ignore it, and no generated player's look changes.
+- **Freckles removed from the player look.** Confirmed in the director's own words: "i alreeady said to delete freckles from the game". Merged (#357, #354); the saved-look cleanup (#382) is in review.
+- **Hair and beard look-dev stopped.** Director, in chat, 2026-10-06 (relayed by the lead): "this hair/beard stuff is no good". The current hair and beard library work stops; nothing from it is rolled out.
+- **The director's hair research is the brief.** The director's own research (Codex `outputs/Claude_Hair_Quality_Research.md`) is adopted as the brief for hair. Three prototypes (Fritsch-inspired, rooted dreadlocks, short textured) go through the production path, are reviewed in Blender and at game scale, and only then does any library rollout start. Appearance changes still merge only on the director's own approval.
+
+## 2026-10-06 director decisions - animation, motion and the Stat Guide
+
+From the director's chat with the lead, relayed; the director's own wording is the authority if it differs.
+
+- **Centre-bounce framing prototype starts now** (the lead builds it). The set-shot kick and the press room queue behind the hair prototypes; the press room folds into LS-03.
+- **No reduced-motion setting for now.**
+- **The awards walk-on stays as it is:** no presenter, no handover.
+- **The Stat Guide uses words, not percentages.** Director: "Words instead". Counts the player acts on stay exact. Done in #398.
 
 # 9.2 Research candidates — awaiting director selection
 
@@ -5841,7 +5962,7 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 **Validation:** capture stills and motion for the touched existing sequences, transitions and fallbacks; verify correct participants, appearances/kits, skip/touch/Back, event/outcome agreement, Android frame time/load time and existing vignette tests. Director approves final scene/overlay treatment before completion.
 
 ## STYLE-07 — PC fullscreen readability and fit-to-screen repair
-**Status:** `IN REVIEW` (#371; not DONE until the director's PC review) · **Priority:** `P0` — **EXTREME / NEXT AVAILABLE DEVELOPMENT SLOT** · **Autonomy:** `SUPERVISED`  
+**Status:** `DONE` (#371, merged; approved by the director, 2026-10-06) · **Priority:** `P0` — **EXTREME / NEXT AVAILABLE DEVELOPMENT SLOT** · **Autonomy:** `SUPERVISED`  
 **Existing owner:** shared responsive layout (`ScreenLayout.gd` / `UiKit.gd`), Main/New career and other desktop screens; M8-006.
 
 **Implementation record (2026-10-06, #371):** the director's PC is 3840x2160 with Windows DPI 288 (300%), and Godot's `screen_get_scale()` is 1.0 on Windows, so the logical canvas was the full physical size and the UI drew tiny. The fix is a desktop density of the larger of the operating system's DPI over 96 and the scale that fits 1280x720, and the first window now opens at the OS scale. Native before and after captures are in `docs/research/style07_*`; nine career_ui checks cover it. It closes only after the director has looked at it on the PC.
@@ -5894,9 +6015,23 @@ The eight includes are the complete decision record. There are no rejected style
 
 # 10. Roadmap Maintenance Log
 
+- **2026-10-06:** Added ARD-M4-016, match-day weather, from the director's decisions and the lead's evidence (docs/research/WEATHER_EVIDENCE.md).
+- **2026-10-06:** Recorded the director's interview on the match-visualisation research.
+  - ARD-M8-003 gains an agreed sequence: truth fixes, a tactical timeline, two demonstrations, then lanes. No overlay, and the play library is held.
+  - New items: ARD-M4-012 (intercepts by zone), ARD-M4-013 (set-shot choices and a real bomb pack), ARD-M4-014 (kick lanes that matter) and ARD-M4-015 (merge the plan names to six).
+  - 2026 centre ball-up approved.
+
+- **2026-10-06:** Scars removed from the player look (director, in chat with the lead: "remove scarring from the game, unnecessary detail"); the Club Forge look specification no longer lists them.
+- **2026-10-06:** Recorded two hair decisions in §9.1 (director, relayed by the lead): hair and beard look-dev stopped; the director's hair research adopted as the brief (three prototypes through the production path, reviewed in Blender and at game scale, before any rollout).
+- **2026-10-06:** ARD-M5-003: development projects made to matter is merged (#379).
+- **2026-10-06:** ARD-M7-009 status: the fair fixture for 18 to 21 clubs (#361) and the club-count board defaults (#359) are merged, with the Create a club engine (#340); the screen (#360) and Create a player (#309) wait on the director.
+
 - **2026-10-06:** STYLE-07 (PC fullscreen readability) is IN REVIEW in #371, with the cause and fix recorded; it is DONE only after the director's PC review.
+- **2026-10-06:** STYLE-07 (PC fullscreen readability) is DONE: #371 merged with the director's approval recorded on the PR.
 
 - **2026-10-06:** Recorded five more director decisions in §9.1: trades at real volume; synergy selection and development projects must have an impact; the clearance winner keeps the first disposal; the Create a club screen is approved; freckles removed (confirmed in the director's words).
+- **2026-10-06:** Merged-PR status lines in §9.1: trade volume data (#376), the clearance winner (#373) and freckles (#357).
+- **2026-10-06:** Recorded the director's animation and Stat Guide decisions in §9.1 (centre-bounce prototype now; kick and press room behind hair; no reduced-motion setting; awards walk-on unchanged; Stat Guide in words, #398).
 
 - **2026-10-06:** ARD-M7-009 Forge location research merged (#343, #351): 33 of 53 places have pattern tags and 46 of 53 have colour tags; the empties are listed in the status line.
 

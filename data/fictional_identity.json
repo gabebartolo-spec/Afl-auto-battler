@@ -1,0 +1,821 @@
+{
+ "_about": "FL-005 (ROADMAP 9.3): cosmetic identity for generated fictional players only - an optional nickname beside the full name and at most one small interest outside footy. Zero gameplay effect: nothing here is read by the match, development, morale, contracts or AI, and nothing correlates with ability. Nicknames are the ordinary name-play footy clubs use (clipping and -y/-o endings), taken from the surname alone and reviewed by hand; none describes a body, temperament, ability or background, and many players get none. Interests are everyday hobbies; none implies fitness, character or origin. Chosen by a cosmetic hash of the player's id, never the football RNG. The user can change or remove a nickname at no cost.",
+ "version": 1,
+ "nickname_share": 0.35,
+ "interest_share": 0.55,
+ "nicknames": {
+  "Anderson": [
+   "Ando"
+  ],
+  "Baker": [
+   "Bakes"
+  ],
+  "Bennett": [
+   "Benno"
+  ],
+  "Brooks": [
+   "Brooksy"
+  ],
+  "Brown": [
+   "Browny"
+  ],
+  "Campbell": [
+   "Cambo"
+  ],
+  "Carter": [
+   "Carts"
+  ],
+  "Clarke": [
+   "Clarkey"
+  ],
+  "Collins": [
+   "Collo"
+  ],
+  "Cook": [
+   "Cookie"
+  ],
+  "Cooper": [
+   "Coops"
+  ],
+  "Davies": [
+   "Davo"
+  ],
+  "Dixon": [
+   "Dicko"
+  ],
+  "Edwards": [
+   "Eddy"
+  ],
+  "Evans": [
+   "Evo"
+  ],
+  "Fisher": [
+   "Fish"
+  ],
+  "Fletcher": [
+   "Fletch"
+  ],
+  "Foster": [
+   "Fozz"
+  ],
+  "Graham": [
+   "Grahamy"
+  ],
+  "Grant": [
+   "Granty"
+  ],
+  "Hall": [
+   "Hally"
+  ],
+  "Harris": [
+   "Hazza"
+  ],
+  "Harrison": [
+   "Hazza"
+  ],
+  "Hayes": [
+   "Hayesy"
+  ],
+  "Henderson": [
+   "Hendo"
+  ],
+  "Hill": [
+   "Hilly"
+  ],
+  "Hughes": [
+   "Hughesy"
+  ],
+  "Hunter": [
+   "Hunts"
+  ],
+  "Jackson": [
+   "Jacko"
+  ],
+  "James": [
+   "Jamesy"
+  ],
+  "Jenkins": [
+   "Jenks"
+  ],
+  "Johnson": [
+   "Johnno"
+  ],
+  "Jones": [
+   "Jonesy"
+  ],
+  "Kelly": [
+   "Kel"
+  ],
+  "Kennedy": [
+   "Kenno"
+  ],
+  "King": [
+   "Kingy"
+  ],
+  "Knight": [
+   "Knighty"
+  ],
+  "Lane": [
+   "Laney"
+  ],
+  "Lawson": [
+   "Lawso"
+  ],
+  "Lewis": [
+   "Lewy"
+  ],
+  "Lloyd": [
+   "Lloydy"
+  ],
+  "Marshall": [
+   "Marsh"
+  ],
+  "Martin": [
+   "Marto"
+  ],
+  "Mason": [
+   "Mase"
+  ],
+  "Matthews": [
+   "Matty"
+  ],
+  "McDonald": [
+   "Macca"
+  ],
+  "McKenzie": [
+   "Kenz"
+  ],
+  "Miller": [
+   "Mills"
+  ],
+  "Mitchell": [
+   "Mitch"
+  ],
+  "Moore": [
+   "Moorey"
+  ],
+  "Morgan": [
+   "Morgs"
+  ],
+  "Morris": [
+   "Mozza"
+  ],
+  "Murphy": [
+   "Murph"
+  ],
+  "Murray": [
+   "Muz"
+  ],
+  "Nelson": [
+   "Nello"
+  ],
+  "Newman": [
+   "Newy"
+  ],
+  "Parker": [
+   "Parks"
+  ],
+  "Pearce": [
+   "Pearcey"
+  ],
+  "Phillips": [
+   "Phil"
+  ],
+  "Porter": [
+   "Ports"
+  ],
+  "Powell": [
+   "Powelly"
+  ],
+  "Price": [
+   "Pricey"
+  ],
+  "Richards": [
+   "Richo"
+  ],
+  "Roberts": [
+   "Robbo"
+  ],
+  "Robertson": [
+   "Robbo"
+  ],
+  "Robinson": [
+   "Robbo"
+  ],
+  "Rogers": [
+   "Rodge"
+  ],
+  "Ross": [
+   "Rossy"
+  ],
+  "Russell": [
+   "Russ"
+  ],
+  "Ryan": [
+   "Ry"
+  ],
+  "Saunders": [
+   "Saundo"
+  ],
+  "Scott": [
+   "Scotty"
+  ],
+  "Shaw": [
+   "Shawry"
+  ],
+  "Simpson": [
+   "Simmo"
+  ],
+  "Smith": [
+   "Smithy"
+  ],
+  "Spencer": [
+   "Spence"
+  ],
+  "Stewart": [
+   "Stewie"
+  ],
+  "Sullivan": [
+   "Sully"
+  ],
+  "Taylor": [
+   "Tayls"
+  ],
+  "Thomas": [
+   "Thommo"
+  ],
+  "Thompson": [
+   "Thommo"
+  ],
+  "Turner": [
+   "Turns"
+  ],
+  "Walker": [
+   "Walks"
+  ],
+  "Wallace": [
+   "Wally"
+  ],
+  "Ward": [
+   "Wardy"
+  ],
+  "Watson": [
+   "Watto"
+  ],
+  "Webb": [
+   "Webby"
+  ],
+  "Wells": [
+   "Wellsy"
+  ],
+  "White": [
+   "Whitey"
+  ],
+  "Williams": [
+   "Willo"
+  ],
+  "Wilson": [
+   "Willo"
+  ],
+  "Wood": [
+   "Woody"
+  ],
+  "Wright": [
+   "Wrighty"
+  ],
+  "Young": [
+   "Youngy"
+  ],
+  "Burke": [
+   "Burkey"
+  ],
+  "Byrne": [
+   "Byrnsey"
+  ],
+  "Doyle": [
+   "Doyley"
+  ],
+  "Fitzgerald": [
+   "Fitzy"
+  ],
+  "Flanagan": [
+   "Flanno"
+  ],
+  "Gallagher": [
+   "Gally"
+  ],
+  "Kavanagh": [
+   "Kav"
+  ],
+  "Lynch": [
+   "Lynchy"
+  ],
+  "McCarthy": [
+   "Macca"
+  ],
+  "McGrath": [
+   "Grath"
+  ],
+  "McMahon": [
+   "Macca"
+  ],
+  "Nolan": [
+   "Nols"
+  ],
+  "O'Brien": [
+   "Obie"
+  ],
+  "O'Connor": [
+   "Okka"
+  ],
+  "Ryder": [
+   "Ryda"
+  ],
+  "Sheehan": [
+   "Sheez"
+  ],
+  "Walsh": [
+   "Walshy"
+  ],
+  "Brennan": [
+   "Brenno"
+  ],
+  "Callaghan": [
+   "Cal"
+  ],
+  "Costello": [
+   "Cossie"
+  ],
+  "Delaney": [
+   "Del"
+  ],
+  "Donnelly": [
+   "Donners"
+  ],
+  "Fogarty": [
+   "Fog"
+  ],
+  "Hanlon": [
+   "Hanno"
+  ],
+  "Malone": [
+   "Malo"
+  ],
+  "Regan": [
+   "Rego"
+  ],
+  "Cullen": [
+   "Cully"
+  ],
+  "Hogan": [
+   "Hoges"
+  ],
+  "Rossi": [
+   "Rosso"
+  ],
+  "Russo": [
+   "Russ"
+  ],
+  "Romano": [
+   "Roma"
+  ],
+  "Marino": [
+   "Mars"
+  ],
+  "Bruno": [
+   "Bru"
+  ],
+  "Conti": [
+   "Conts"
+  ],
+  "Esposito": [
+   "Espo"
+  ],
+  "Mancini": [
+   "Manc"
+  ],
+  "Lombardi": [
+   "Lombo"
+  ],
+  "Moretti": [
+   "Moz"
+  ],
+  "Ferraro": [
+   "Ferra"
+  ],
+  "Caruso": [
+   "Caru"
+  ],
+  "Santoro": [
+   "Santo"
+  ],
+  "Colombo": [
+   "Colo"
+  ],
+  "Vitale": [
+   "Vits"
+  ],
+  "Pellegrino": [
+   "Pelle"
+  ],
+  "Palmieri": [
+   "Palms"
+  ],
+  "Papadopoulos": [
+   "Papa"
+  ],
+  "Georgiou": [
+   "Georgie"
+  ],
+  "Nikolaidis": [
+   "Niko"
+  ],
+  "Christou": [
+   "Christo"
+  ],
+  "Dimitriou": [
+   "Dimi"
+  ],
+  "Vlahos": [
+   "Vlah"
+  ],
+  "Andreou": [
+   "Andro"
+  ],
+  "Galanis": [
+   "Gala"
+  ],
+  "Kovac": [
+   "Kova"
+  ],
+  "Horvat": [
+   "Horvo"
+  ],
+  "Novak": [
+   "Novs"
+  ],
+  "Petrovic": [
+   "Petro"
+  ],
+  "Jankovic": [
+   "Janko"
+  ],
+  "Markovic": [
+   "Marko"
+  ],
+  "Vukovic": [
+   "Vuko"
+  ],
+  "Haddad": [
+   "Hads"
+  ],
+  "Khoury": [
+   "Kouz"
+  ],
+  "Saliba": [
+   "Sals"
+  ],
+  "Mansour": [
+   "Manny"
+  ],
+  "Abboud": [
+   "Abbo"
+  ],
+  "Nguyen": [
+   "Win"
+  ],
+  "Sharma": [
+   "Shaz"
+  ],
+  "Patel": [
+   "Pats"
+  ],
+  "Sandhu": [
+   "Sandy"
+  ],
+  "Chen": [
+   "Chenno"
+  ],
+  "Wong": [
+   "Wongy"
+  ],
+  "Thorne": [
+   "Thorny"
+  ],
+  "Hart": [
+   "Harty"
+  ],
+  "Ford": [
+   "Fordy"
+  ],
+  "Frost": [
+   "Frosty"
+  ],
+  "Holt": [
+   "Holty"
+  ],
+  "Lowe": [
+   "Lowey"
+  ],
+  "Marsh": [
+   "Marshy"
+  ],
+  "Nash": [
+   "Nashy"
+  ],
+  "Page": [
+   "Pagey"
+  ],
+  "Stone": [
+   "Stoney"
+  ],
+  "Swift": [
+   "Swifty"
+  ],
+  "Todd": [
+   "Toddy"
+  ],
+  "Wade": [
+   "Wadey"
+  ],
+  "Yates": [
+   "Yatesy"
+  ],
+  "Bishop": [
+   "Bish"
+  ],
+  "Booth": [
+   "Boothy"
+  ],
+  "Bolton": [
+   "Bolts"
+  ],
+  "Bowman": [
+   "Bowie"
+  ],
+  "Brady": [
+   "Brades"
+  ],
+  "Buckley": [
+   "Bucks"
+  ],
+  "Burgess": [
+   "Burgo"
+  ],
+  "Burton": [
+   "Burto"
+  ],
+  "Chapman": [
+   "Chappy"
+  ],
+  "Coleman": [
+   "Colesy"
+  ],
+  "Curtis": [
+   "Curto"
+  ],
+  "Dawson": [
+   "Daws"
+  ],
+  "Dean": [
+   "Deano"
+  ],
+  "Doherty": [
+   "Doc"
+  ],
+  "Draper": [
+   "Drapes"
+  ],
+  "Ellis": [
+   "Elly"
+  ],
+  "Farrell": [
+   "Faz"
+  ],
+  "Ferguson": [
+   "Fergo"
+  ],
+  "Finch": [
+   "Finchy"
+  ],
+  "Gibson": [
+   "Gibbo"
+  ],
+  "Gilbert": [
+   "Gilly"
+  ],
+  "Goodwin": [
+   "Goody"
+  ],
+  "Gordon": [
+   "Gordo"
+  ],
+  "Griffin": [
+   "Griff"
+  ],
+  "Hammond": [
+   "Hammo"
+  ],
+  "Hardy": [
+   "Hards"
+  ],
+  "Harper": [
+   "Harps"
+  ],
+  "Hawkins": [
+   "Hawk"
+  ],
+  "Hicks": [
+   "Hicksy"
+  ],
+  "Hodges": [
+   "Hodgo"
+  ],
+  "Holland": [
+   "Hollo"
+  ],
+  "Holmes": [
+   "Holmesy"
+  ],
+  "Hopkins": [
+   "Hoppa"
+  ],
+  "Howard": [
+   "Howie"
+  ],
+  "Hudson": [
+   "Hudso"
+  ],
+  "Jarvis": [
+   "Jarv"
+  ],
+  "Jennings": [
+   "Jenno"
+  ],
+  "Lambert": [
+   "Lambo"
+  ],
+  "Lawrence": [
+   "Lawro"
+  ],
+  "Lucas": [
+   "Luca"
+  ],
+  "Lyons": [
+   "Lyonsy"
+  ],
+  "Maxwell": [
+   "Maxy"
+  ],
+  "McLean": [
+   "Macca"
+  ],
+  "Mills": [
+   "Millsy"
+  ],
+  "Norris": [
+   "Nozza"
+  ],
+  "Osborne": [
+   "Ozzie"
+  ],
+  "Palmer": [
+   "Palms"
+  ],
+  "Parsons": [
+   "Parso"
+  ],
+  "Pearson": [
+   "Pearso"
+  ],
+  "Perry": [
+   "Pez"
+  ],
+  "Potter": [
+   "Potts"
+  ],
+  "Ramsay": [
+   "Ramo"
+  ],
+  "Reynolds": [
+   "Reyno"
+  ],
+  "Riley": [
+   "Rils"
+  ],
+  "Sanders": [
+   "Sando"
+  ],
+  "Stevens": [
+   "Stevo"
+  ],
+  "Sutton": [
+   "Sutto"
+  ],
+  "Sweeney": [
+   "Sweens"
+  ],
+  "Talbot": [
+   "Talby"
+  ],
+  "Tucker": [
+   "Tuck"
+  ],
+  "Vaughan": [
+   "Vaughny"
+  ],
+  "Walton": [
+   "Walts"
+  ],
+  "Warren": [
+   "Wazza"
+  ],
+  "Waters": [
+   "Watersy"
+  ],
+  "Wilkins": [
+   "Wilko"
+  ],
+  "Woods": [
+   "Woodsy"
+  ],
+  "Briggs": [
+   "Briggsy"
+  ],
+  "Bourke": [
+   "Bourkey"
+  ],
+  "Crowe": [
+   "Crowey"
+  ],
+  "Donovan": [
+   "Donno"
+  ],
+  "Hennessy": [
+   "Henno"
+  ],
+  "Kirby": [
+   "Kirbs"
+  ],
+  "Mahony": [
+   "Mahons"
+  ],
+  "Mulcahy": [
+   "Mulc"
+  ],
+  "Tobin": [
+   "Tobes"
+  ],
+  "Whelan": [
+   "Whelo"
+  ],
+  "Karimi": [
+   "Kaz"
+  ],
+  "Yusuf": [
+   "Yus"
+  ],
+  "Barakat": [
+   "Barra"
+  ],
+  "Coulter": [
+   "Coults"
+  ],
+  "Treloar": [
+   "Trelly"
+  ],
+  "Whitehead": [
+   "Whitey"
+  ]
+ },
+ "interests": [
+  "restores old radios",
+  "grows tomatoes on a balcony",
+  "learning guitar, slowly",
+  "weekend birdwatcher",
+  "cooks for the extended family",
+  "keeps a sketchbook nearby",
+  "early-morning fishing off the pier",
+  "plays social cricket in summer",
+  "collects vinyl records",
+  "reads crime novels on road trips",
+  "does the cryptic crossword",
+  "volunteers at the local junior club",
+  "makes his own coffee, carefully",
+  "builds model aircraft",
+  "camps whenever the season allows",
+  "plays chess online",
+  "keeps bees",
+  "photography, mostly sunsets",
+  "learning another language",
+  "bakes sourdough",
+  "restores an old ute",
+  "walks his dog along the river",
+  "pub trivia regular",
+  "plays the drums",
+  "tends a veggie patch",
+  "goes to the cricket with his old man",
+  "reads history",
+  "does woodwork in the shed"
+ ]
+}

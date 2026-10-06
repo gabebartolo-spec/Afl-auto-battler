@@ -23,6 +23,7 @@ func run() -> void:
 	_test_career_rollover()
 	_test_class_tiers()
 	_test_retirement_talk()
+	_test_custom_prospect()
 	GameState.replay_seed = 0
 	print("Intake tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -541,3 +542,93 @@ func _test_retirement_talk() -> void:
 	var k2 := GameState.list_player(str(keen["id"]))
 	_check(not Retirement.can_ask(k2, GameState.my_list, GameState.season_year + 1),
 			"Talked round once already: he cannot be asked again")
+
+## Club Forge "Create a player" (ARD-M7-008): one custom prospect a career,
+## made by the ordinary projection, into the first National Draft class. The
+## coach shapes the footballer, never his club, pick, OVR or POT.
+func _test_custom_prospect() -> void:
+	var spec := {"first": "Gabe", "last": "Tester", "nickname": "Tess", "role": "FWD", "role2": "MID",
+			"height_cm": 186, "style": "leading_forward", "strengths": ["marking"], "weaknesses": ["pressure"],
+			"foot": "L", "number_pref": 23, "look": {"hair_style": "mullet"}}
+	_check(Prospects.custom_problem(spec) == "", "A complete custom prospect is valid")
+	for bad in [{"height_cm": 150}, {"role2": "FWD"}, {"strengths": ["pressure"], "weaknesses": ["pressure"]},
+			{"last": " "}, {"style": "tap_ruck"}, {"strengths": ["a", "b", "c"]}]:
+		var b := spec.duplicate(true)
+		b.merge(bad, true)
+		_check(Prospects.custom_problem(b) != "", "An invalid custom prospect is turned away (%s)" % str(bad))
+
+	GameState.reset()
+	# A fixed career (C15): never the clock's.
+	GameState.career_seed = 424242
+	var seed: int = GameState.career_seed
+	_check(GameState.add_custom_prospect(spec) == "", "He is created at career setup")
+	_check(GameState.add_custom_prospect(spec) != "", "Only one per career")
+	var p: Dictionary = {}
+	for d in GameState.draftee_pool:
+		if str(d["id"]) == GameState.custom_prospect_id:
+			p = d
+	_check(not p.is_empty() and int(p["draft_year"]) == GameState.season_year and bool(p.get("user_created", false)),
+			"He joins the first National Draft class, marked as yours")
+	var named_ok := GameDB.player_display_name(p) == "Gabe Tester"
+	GameState.show_real_names = not GameState.show_real_names
+	named_ok = named_ok and GameDB.player_display_name(p) == "Gabe Tester"
+	GameState.show_real_names = not GameState.show_real_names
+	_check(named_ok, "His name is his in both name modes")
+	_check(str(p["role"]) == "FWD" and str(p["role2"]) == "MID" and int(p["height_cm"]) == 186
+			and str(p["foot"]) == "L" and int(p["number_pref"]) == 23
+			and GameDB.player_appearance(p)["hair_style"] == "mullet",
+			"Position, height, foot, number and look are as chosen")
+
+	# The roll: once per career - the same seed gives the same player - and a
+	# believable spread across careers, never chosen.
+	var again := Prospects.make_custom(spec, GameState.season_year, seed)
+	var first := Prospects.make_custom(spec, GameState.season_year, seed)
+	_check(int(again["overall"]) == int(first["overall"]) and int(again["potential"]) == int(first["potential"]),
+			"His ceiling is rolled once: the same career gives the same player")
+	var ovr := []
+	var stars := 0
+	var gen := 0
+	for s in range(1, 401):
+		var c := Prospects.make_custom(spec, GameState.season_year, s * 7919)
+		ovr.append(int(c["overall"]))
+		stars += 1 if int(c["potential"]) >= 85 else 0
+		gen += 1 if int(c["potential"]) >= 92 else 0
+	ovr.sort()
+	# Against the generated classes' own band across several careers (a class's
+	# tier moves its top and bottom a little).
+	var cls_ovr := []
+	for cs in [11, 22, 33, 44, 55]:
+		cls_ovr.append_array(Prospects.generate_class(GameState.season_year, cs).map(func(x): return int(x["overall"])))
+	_check(int(ovr[0]) >= int(cls_ovr.min()) - 2 and int(ovr[-1]) <= int(cls_ovr.max()) + 2,
+			"Custom prospects stay inside a class's power band (%d-%d vs %d-%d)" % [ovr[0], ovr[-1], cls_ovr.min(), cls_ovr.max()])
+	_check(int(ovr[40]) >= 45, "Even a modest one is a usable role-player prospect (10th percentile OVR %d)" % ovr[40])
+	_check(stars > 8 and stars < 140 and gen < 20,
+			"A star is uncommon and a generational ceiling rare (%d of 400 at POT 85+, %d at 92+)" % [stars, gen])
+
+	# Strengths reshape him, at the same overall.
+	var m := spec.duplicate(true)
+	m["strengths"] = ["marking"]
+	m["weaknesses"] = []
+	var g := spec.duplicate(true)
+	g["strengths"] = ["goalkicking"]
+	g["weaknesses"] = []
+	var pm := Prospects.make_custom(m, GameState.season_year, seed)
+	var pg := Prospects.make_custom(g, GameState.season_year, seed)
+	_check(int(pm["attr"]["marking"]) > int(pg["attr"]["marking"]) and int(pg["attr"]["goalkicking"]) > int(pm["attr"]["goalkicking"])
+			and absi(int(pm["overall"]) - int(pg["overall"])) <= 1,
+			"Strengths reshape the footballer without lifting his overall")
+
+	# He survives a reload with the same roll.
+	var before := [GameState.custom_prospect_id, int(p["overall"]), int(p["potential"])]
+	GameState.start_season("ADE", GameDB.club_list("ADE"))
+	GameState.save_career()
+	GameState.load_career()
+	var back: Dictionary = {}
+	for d in GameState.draftee_pool:
+		if str(d["id"]) == GameState.custom_prospect_id:
+			back = d
+	_check(GameState.custom_prospect_id == before[0] and not back.is_empty()
+			and int(back["overall"]) == before[1] and int(back["potential"]) == before[2],
+			"He and his roll survive a reload")
+	_check(GameState.add_custom_prospect(spec) != "", "No second prospect once the career has started")
+	GameState.reset()
