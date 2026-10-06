@@ -85,6 +85,8 @@ func _run() -> void:
 			ft += 1.0 / 12.0
 		print("filmed ", n, " frames")
 	var shots := []
+	if msaa:
+		root.msaa_2d = Viewport.MSAA_DISABLED
 	for t in BEATS:
 		vig.set("_t", t)
 		if t >= 3.8:
@@ -104,6 +106,18 @@ func _run() -> void:
 			for i in range(3):
 				await process_frame
 			root.get_viewport().get_texture().get_image().save_png("%s_beat%d_2x.png" % [out, shots.size() - 1])
+			if shots.size() == 2:
+				# Render time of this frame, MSAA off against 2x.
+				var vp := root.get_viewport_rid()
+				RenderingServer.viewport_set_measure_render_time(vp, true)
+				for mode in [Viewport.MSAA_DISABLED, Viewport.MSAA_2X]:
+					root.msaa_2d = mode
+					var gpu := 0.0
+					for f in range(200):
+						vig.queue_redraw()
+						await process_frame
+						gpu += RenderingServer.viewport_get_measured_render_time_gpu(vp)
+					print("VIG_TIME msaa %s | gpu %.3f ms (mean of 200 frames)" % ["2x" if mode == Viewport.MSAA_2X else "off", gpu / 200.0])
 			(shots[shots.size() - 1] as Image).save_png("%s_beat%d_off.png" % [out, shots.size() - 1])
 			root.msaa_2d = Viewport.MSAA_DISABLED
 			vig.set_process(t >= 3.8)
