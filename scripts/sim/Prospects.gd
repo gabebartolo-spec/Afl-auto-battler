@@ -493,6 +493,169 @@ static func generate_class(year: int, career_seed := 0) -> Array:
 	return out
 
 
+# ---------------------------------------------------------------------------
+# A custom prospect (Club Forge, ARD-M7-008)
+# ---------------------------------------------------------------------------
+## Strengths and weaknesses a coach can name, in football words, and the
+## attribute each moves. A play style is two strengths for one role.
+const CUSTOM_TRAITS := {
+	"marking": "marking", "kicking": "disposal", "goalkicking": "goalkicking",
+	"contested": "contested", "pressure": "pressure", "reading": "intercept",
+	"running": "carry", "vision": "creating", "ruckwork": "ruck",
+}
+const CUSTOM_STYLES := {
+	"FWD": {"key_forward": ["marking", "goalkicking"], "small_forward": ["goalkicking", "pressure"],
+			"defensive_forward": ["pressure", "contested"], "leading_forward": ["running", "marking"]},
+	"MID": {"inside": ["contested", "kicking"], "outside": ["running", "kicking"],
+			"tagger": ["pressure", "reading"], "playmaker": ["vision", "kicking"]},
+	"DEF": {"key_defender": ["marking", "reading"], "rebounder": ["running", "kicking"],
+			"lockdown": ["pressure", "contested"], "interceptor": ["reading", "marking"]},
+	"RUCK": {"tap_ruck": ["ruckwork", "contested"], "mobile_ruck": ["ruckwork", "running"]},
+}
+const CUSTOM_HEIGHT := {"RUCK": [197, 210], "FWD": [168, 205], "DEF": [175, 202], "MID": [168, 195]}
+## How hard a style, strength or weakness pushes its attribute before the
+## projection refits the whole profile to the same overall.
+const CUSTOM_STYLE_PUSH := 5.0
+const CUSTOM_TRAIT_PUSH := 7.0
+## Where a custom prospect sits in his class, rolled once per career: a
+## believable spread from late picks to the top three, so most are useful
+## role players to good players, a star is uncommon and a generational
+## ceiling (a top pick's room plus a good roll) is rare.
+const CUSTOM_RANKS := [[1, 1, 1.0], [2, 3, 3.0], [4, 10, 14.0], [11, 20, 22.0], [21, 35, 35.0], [36, 45, 25.0]]
+
+
+## Whether `spec` is a valid custom prospect: role, secondary, height,
+## style, strengths and weaknesses. "" when it is, else what's wrong.
+static func custom_problem(spec: Dictionary) -> String:
+	var role := str(spec.get("role", ""))
+	if not CUSTOM_STYLES.has(role):
+		return "Pick a position."
+	var role2 := str(spec.get("role2", ""))
+	if role2 != "" and (role2 == role or not CUSTOM_STYLES.has(role2)):
+		return "The second position must be a different one."
+	var h := int(spec.get("height_cm", 0))
+	var band: Array = CUSTOM_HEIGHT[role]
+	if h < int(band[0]) or h > int(band[1]):
+		return "Height for that position is %d to %d cm." % [band[0], band[1]]
+	if str(spec.get("style", "")) != "" and not (CUSTOM_STYLES[role] as Dictionary).has(str(spec["style"])):
+		return "That play style isn't one for this position."
+	var strengths: Array = spec.get("strengths", [])
+	var weaknesses: Array = spec.get("weaknesses", [])
+	if strengths.size() > 2 or weaknesses.size() > 2:
+		return "Up to two strengths and two weaknesses."
+	for t in strengths + weaknesses:
+		if not CUSTOM_TRAITS.has(str(t)):
+			return "Unknown strength or weakness."
+	for t in strengths:
+		if weaknesses.has(t):
+			return "A strength can't also be a weakness."
+	if str(spec.get("first", "")).strip_edges() == "" or str(spec.get("last", "")).strip_edges() == "":
+		return "He needs a first and last name."
+	return ""
+
+
+## The custom prospect for the class drafted in `year`, through the same
+## projection as every generated prospect (project, Potential.assign). His
+## standing in the class - and so his ceiling - is rolled once from the
+## career's seed: the coach shapes his profile, never his OVR or POT. Nothing
+## about him is special after this: same development, durability, ageing.
+static func make_custom(spec: Dictionary, year: int, career_seed: int) -> Dictionary:
+	var rng := _rng_for("custom|%d|%d" % [career_seed, year])
+	rng.randi()
+	var weights := []
+	for b in CUSTOM_RANKS:
+		weights.append(float(b[2]))
+	var band: Array = CUSTOM_RANKS[_weighted_index(rng.randf(), weights)]
+	var rank := rng.randi_range(int(band[0]), int(band[1]))
+	var role := str(spec["role"])
+	var p := {}
+	p["id"] = "C%d_%d" % [year, career_seed]
+	p["role"] = role
+	p["role2"] = str(spec.get("role2", ""))
+	p["height_cm"] = float(spec["height_cm"])
+	p["dob"] = str(spec.get("dob", "%04d-06-15" % (year - 18)))
+	p["age"] = float(days_between(str(p["dob"]), "%d-11-20" % year)) / 365.25
+	var team: Array = JUNIOR_TEAMS[rng.randi_range(0, JUNIOR_TEAMS.size() - 1)]
+	p["club"] = str(team[0])
+	p["draft_team"] = str(team[0])
+	p["draft_league"] = str(team[1])
+	p["draft_state"] = str(team[2])
+	p["state"] = str(team[2])
+	p["tied_club"] = ""
+	p["tied_type"] = ""
+	for key in ["u18_gm", "u18_di", "u18_gl", "u18_mk", "u18_tk", "u18_if50", "u18_ho"]:
+		p[key] = 0.0
+	p["u18_gm"] = float(rng.randi_range(8, 16))
+	p["note"] = ""
+	var full := "%s %s" % [str(spec["first"]).strip_edges(), str(spec["last"]).strip_edges()]
+	p["first"] = str(spec["first"]).strip_edges()
+	p["last"] = str(spec["last"]).strip_edges()
+	# His name is his in every display mode (real names or fictional).
+	p["real_name"] = full
+	p["generic_name"] = full
+	p["name"] = full
+	p["nickname"] = str(spec.get("nickname", "")).strip_edges()
+	p["foot"] = "L" if str(spec.get("foot", "R")) == "L" else "R"
+	p["number_pref"] = clampi(int(spec.get("number_pref", 0)), 0, 99)
+	if spec.get("look") is Dictionary:
+		p["look"] = (spec["look"] as Dictionary).duplicate(true)
+	p["src"] = "U18"
+	p["data_src"] = "generated"
+	p["draft_year"] = year
+	p["draft_rank"] = rank
+	p["generated"] = true
+	p["user_created"] = true
+	p["num"] = 0
+	p["class_shift"] = 0.0
+	p["class_ceiling"] = 0.0
+	for key in Ratings.STATS_ZERO_KEYS:
+		p[key] = 0.0
+	p["weight_kg"] = 0.0
+	p["real_pos"] = Ratings.ROLE_SHORT_TO_POS.get(role, "MID")
+	project(p)
+	_shape_custom(p, spec)
+	return p
+
+
+## Move the projected attributes toward his style and strengths and away from
+## his weaknesses, then refit to the same overall: a different footballer,
+## not a better one. Potential stays as projected.
+static func _shape_custom(p: Dictionary, spec: Dictionary) -> void:
+	var role := str(p["role"])
+	var a: Dictionary = (p["attr"] as Dictionary).duplicate()
+	var style := str(spec.get("style", ""))
+	if style != "":
+		for t in CUSTOM_STYLES[role][style]:
+			var k: String = CUSTOM_TRAITS[str(t)]
+			a[k] = float(a[k]) + CUSTOM_STYLE_PUSH
+	for t in spec.get("strengths", []):
+		var k: String = CUSTOM_TRAITS[str(t)]
+		a[k] = float(a[k]) + CUSTOM_TRAIT_PUSH
+	for t in spec.get("weaknesses", []):
+		var k: String = CUSTOM_TRAITS[str(t)]
+		a[k] = float(a[k]) - CUSTOM_TRAIT_PUSH
+	var target := float(p["overall"])
+	a = fit_attributes(a, role, target)
+	for key in a:
+		a[key] = int(a[key])
+	p["attr"] = a
+	p["overall"] = Ratings.rate_overall(a, role, 14.0)
+	p["value"] = Ratings.salary_value(int(p["overall"]))
+	p["potential"] = maxi(int(p.get("potential", p["overall"])), int(p["overall"]))
+
+
+static func _weighted_index(roll: float, weights: Array) -> int:
+	var total := 0.0
+	for w in weights:
+		total += float(w)
+	var at := roll * total
+	for i in range(weights.size()):
+		at -= float(weights[i])
+		if at < 0.0:
+			return i
+	return weights.size() - 1
+
+
 ## The quality tier of the class drafted in `year` in this career: one roll
 ## per career and year, so a reload never re-rolls it and two careers need
 ## not share their superdrafts.

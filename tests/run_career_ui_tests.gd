@@ -5,6 +5,8 @@ extends SceneTree
 ## Classes are reached through load() and autoload nodes: a --script runner
 ## compiles before the autoloads exist.
 
+const Tap := preload("res://tests/tap.gd")
+
 var _state: Node
 var _router: Node
 var _db: Node
@@ -235,6 +237,87 @@ func _run() -> void:
 	_check(_router.current() == "main" and current_scene.find_child("Settings", true, false) == null
 			and not _state.show_real_names, "Back closes Settings")
 
+	# --- Club Forge: make a player, bring him into a career ------------------
+	_state.set_forge_player({})
+	_state.set_forge_club({})
+	var size_before := root.size
+	root.size = Vector2i(390, 844)
+	await _settle()
+	var forge_btn: Button = current_scene.find_child("ClubForge", true, false)
+	_check(forge_btn != null, "The main menu has Club Forge")
+	var forge_tap: String = await Tap.tap(forge_btn) if forge_btn != null else "missing"
+	await _settle()
+	_check(forge_tap == "" and _router.current() == "forge", "A tap opens Club Forge (%s)" % forge_tap)
+	_press("ForgeCreatePlayer")
+	await _settle()
+	_press("ForgeSavePlayer")
+	await _settle()
+	var problem: Label = current_scene.find_child("ForgeProblem", true, false)
+	_check(problem != null and problem.visible and _state.forge_player().is_empty(),
+			"A player without a name isn't saved, and the screen says why")
+	_type("ForgeFirst", "Gabe")
+	_type("ForgeLast", "Forge")
+	_press("ForgeRole_FWD")
+	await _settle()
+	_press("ForgeStyle_small_forward")
+	_press("ForgeStrength_goalkicking")
+	await _settle()
+	_press("ForgeHair_mullet")
+	_press("ForgeFoot_L")
+	_press("ForgeSavePlayer")
+	await _settle()
+	var fp: Dictionary = _state.forge_player()
+	_check(str(fp.get("last", "")) == "Forge" and str(fp.get("role", "")) == "FWD" and str(fp.get("style", "")) == "small_forward"
+			and (fp.get("strengths", []) as Array) == ["goalkicking"] and str(fp["look"]["hair_style"]) == "mullet"
+			and str(fp.get("foot", "")) == "L",
+			"The Forge saves the player as made")
+	_check(current_scene.find_child("ForgePlayerName", true, false) != null, "The Forge shows your player")
+	var small := []
+	for b in current_scene.find_children("*", "Button", true, false):
+		if b.is_visible_in_tree() and b.size.y < 44:
+			small.append(b.name)
+	_check(small.is_empty(), "Every Forge button is thumb-sized (%s)" % str(small))
+
+	# Create a club: a refusal, a place's name and tradition, a save.
+	_press("ForgeCreateClub")
+	await _settle()
+	_press("ForgeSaveClub")
+	await _settle()
+	problem = current_scene.find_child("ForgeProblem", true, false)
+	_check(problem != null and problem.visible and _state.forge_club().is_empty(),
+			"A club without a name isn't saved, and the screen says why")
+	_press("ForgePlace_port-melbourne")
+	await _settle()
+	var club_name: LineEdit = current_scene.find_child("ForgeClubName", true, false)
+	var club_code: LineEdit = current_scene.find_child("ForgeClubCode", true, false)
+	_check(club_name != null and club_name.text == "Port Melbourne" and club_code != null and club_code.text == "PM",
+			"Picking a place fills in the club's name and an abbreviation")
+	_type("ForgeClubNickname", "Borough")
+	_type("ForgeClubCode", "pmb")
+	_check(club_code != null and club_code.text == "PMB", "The abbreviation is written in capitals")
+	_press("ForgeColour_primary_red")
+	_press("ForgeColour_secondary_blue")
+	_press("ForgeDesign_hoops")
+	await _settle()
+	var club_small := []
+	for b in current_scene.find_children("*", "Button", true, false):
+		if b.is_visible_in_tree() and b.size.y < 44:
+			club_small.append(b.name)
+	_check(club_small.is_empty(), "Every Create a club button is thumb-sized (%s)" % str(club_small))
+	_press("ForgeSaveClub")
+	await _settle()
+	var fc: Dictionary = _state.forge_club()
+	_check(str(fc.get("name", "")) == "Port Melbourne" and str(fc.get("short", "")) == "Borough"
+			and str(fc.get("code", "")) == "PMB" and str(fc.get("location", "")) == "port-melbourne"
+			and str(fc.get("ground", "")) == "North Port Oval" and str(fc.get("primary", "")).to_upper() == "#C8102E"
+			and str(fc.get("design", "")) == "hoops",
+			"The Forge saves the club as made (%s)" % str(fc))
+	_check(current_scene.find_child("ForgeClubTitle", true, false) != null, "The Forge shows your club")
+	_router.handle_back(false)
+	await _settle()
+	_check(_router.current() == "main", "Back leaves the Forge")
+	root.size = size_before
+	await _settle()
 	# --- desktop scale (STYLE-07): the PC shows the game bigger, not emptier ---
 	var layout = root.get_node("ScreenLayout")
 	var dens := func(w: float, h: float, os_scale: float, dpi: int) -> float:
@@ -279,11 +362,20 @@ func _run() -> void:
 	await _settle()
 	current_scene.find_child("Difficulty_hard", true, false).emit_signal("pressed")
 	current_scene.find_child("NameMode_real", true, false).emit_signal("pressed")
+	_check(current_scene.find_child("ForgedClub_in", true, false) != null, "New career offers your Forge club")
 	current_scene.find_child("StartCareer", true, false).emit_signal("pressed")
 	await _settle()
 	_check(_router.current() == "draft", "Starting the career goes on to choosing a club")
 	_check(_state.new_career_difficulty() == "hard" and _state.difficulty == "hard"
 			and _state.show_real_names, "The career starts with the picks made")
+	var brought := false
+	for d in _state.draftee_pool:
+		brought = brought or (str(d["id"]) == _state.custom_prospect_id and str(d.get("last", "")) == "Forge")
+	_check(brought, "Your Forge player is in this career's first National Draft class")
+	_check(_state.draft != null and _state.draft.clubs.has("PMB") and _db.club_name("PMB") == "Port Melbourne",
+			"Your Forge club is in this career's League Draft")
+	_state.set_forge_player({})
+	_state.set_forge_club({})
 	_state.set_new_career_difficulty("normal")
 	_state.set_show_real_names(false)
 	_state.reset()
@@ -1232,3 +1324,19 @@ func _test_season_awards() -> void:
 		winner.queue_free()
 	host.queue_free()
 	await _settle()
+
+
+## Press a named button in the current scene, or fail the check if it is missing.
+func _press(node_name: String) -> void:
+	var b = current_scene.find_child(node_name, true, false)
+	_check(b != null, "%s is on screen" % node_name)
+	if b != null:
+		b.emit_signal("pressed")
+
+
+func _type(node_name: String, text: String) -> void:
+	var f = current_scene.find_child(node_name, true, false)
+	_check(f != null, "%s is on screen" % node_name)
+	if f != null:
+		(f as LineEdit).text = text
+		(f as LineEdit).text_changed.emit(text)

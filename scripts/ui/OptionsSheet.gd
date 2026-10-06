@@ -33,6 +33,11 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 			"on" if GameState.sounds_muted() else "off",
 			"Mutes all music and sound effects.",
 			func(k): GameState.set_sounds_muted(k == "on"))
+	_row(v, "Music", "SettingsMusic", AudioLevels.LEVELS, GameState.music_level(),
+			"The music between matches.", func(k): GameState.set_music_level(k))
+	_row(v, "Crowd", "SettingsCrowd", AudioLevels.LEVELS, GameState.crowd_level(),
+			"The crowd at a match you watch. The match tells you the same either way.",
+			func(k): GameState.set_crowd_level(k))
 	_row(v, "Ask before playing a round for me", "SettingsSimConfirm", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.confirm_sim_round() else "off",
 			"Sim round plays your own match for you. With this on, it asks first.",
@@ -40,22 +45,22 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 	_row(v, "Match speed", "SettingsSpeed", SPEED_OPTIONS,
 			str(int(GameState.match_speed())), "How fast a match you watch starts. You can change it during the game.",
 			func(k): GameState.set_match_speed(float(k)))
-	_row(v, "Centre-bounce scene every match", "SettingsBounceScene", [["off", "Off"], ["on", "On"]],
+	_row(v, "Centre ball-up scene every match", "SettingsBounceScene", [["off", "Off"], ["on", "On"]],
 			"on" if GameState.bounce_scene_every_match() else "off",
-			"For playtesting: the centre-bounce call comes at the first centre bounce of every last quarter you coach, whatever the score.",
+			"For playtesting: the centre ball-up call comes at the first centre ball-up of every last quarter you coach, whatever the score.",
 			func(k): GameState.set_bounce_scene_every_match(k == "on"))
 
 	if in_career:
 		v.add_child(UiKit.spacer(UiKit.GAP))
 		v.add_child(UiKit.rule())
-		var menu := UiKit.btn("Main menu", 16)
+		var menu := UiKit.btn("Main menu", UiKit.NAME)
 		menu.name = "OptionsMainMenu"
 		menu.custom_minimum_size = Vector2(0, 44)
 		menu.pressed.connect(func():
 			overlay.queue_free()
 			Router.to_main_menu())
 		v.add_child(menu)
-		var fresh := UiKit.btn("New career", 16)
+		var fresh := UiKit.btn("New career", UiKit.NAME)
 		fresh.name = "OptionsNewCareer"
 		fresh.custom_minimum_size = Vector2(0, 44)
 		fresh.tooltip_text = "Your current save is kept until you confirm the new career."
@@ -66,7 +71,7 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 		var confirm := UiKit.vbox(6)
 		confirm.name = "DeleteConfirm"
 		confirm.visible = false
-		var del := UiKit.danger_btn("Delete this career", 16)
+		var del := UiKit.danger_btn("Delete this career", UiKit.NAME)
 		del.name = "OptionsDelete"
 		del.custom_minimum_size = Vector2(0, 44)
 		del.pressed.connect(func():
@@ -78,7 +83,7 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 		warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		confirm.add_child(warn)
 		var row := UiKit.hbox(8)
-		var keep := UiKit.btn("Keep it", 16)
+		var keep := UiKit.btn("Keep it", UiKit.NAME)
 		keep.name = "OptionsDeleteCancel"
 		keep.custom_minimum_size = Vector2(0, 44)
 		keep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -86,7 +91,7 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 			confirm.visible = false
 			del.visible = true)
 		row.add_child(keep)
-		var go := UiKit.btn("Delete career", 16, true)
+		var go := UiKit.btn("Delete career", UiKit.NAME, true)
 		go.name = "OptionsDeleteConfirm"
 		go.custom_minimum_size = Vector2(0, 44)
 		go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -111,7 +116,7 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 	done.pressed.connect(func(): overlay.queue_free())
 	box["footer"].add_child(done)
 	if quit and not OS.has_feature("web"):
-		var q := UiKit.btn("Quit game", 16)
+		var q := UiKit.btn("Quit game", UiKit.NAME)
 		q.name = "QuitGame"
 		q.pressed.connect(func(): host.get_tree().quit())
 		box["footer"].add_child(q)

@@ -233,7 +233,7 @@ func _list_and_cap() -> Control:
 	var l := _wrapped(line)
 	l.name = "CapLine"
 	v.add_child(l)
-	var b := UiKit.btn("My list", 15)
+	var b := UiKit.btn("My list", UiKit.BODY)
 	b.name = "OpenList"
 	b.custom_minimum_size = Vector2(0, 44)
 	b.pressed.connect(func(): Router.go("list"))
@@ -287,7 +287,7 @@ func _staff() -> Control:
 			v.add_child(_staff_row(job, staff[job]))
 	v.add_child(UiKit.spacer(6))
 	var jobs := GameState.staff_vacancies.size()
-	var b := UiKit.btn("Staff" if jobs == 0 else "Staff  ·  %d to fill" % jobs, 15, jobs > 0)
+	var b := UiKit.btn("Staff" if jobs == 0 else "Staff  ·  %d to fill" % jobs, UiKit.BODY, jobs > 0)
 	b.name = "OpenStaff"
 	b.custom_minimum_size = Vector2(0, 44)
 	b.pressed.connect(func(): Router.go("staff"))

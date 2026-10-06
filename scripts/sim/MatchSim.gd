@@ -3184,7 +3184,7 @@ const MOMENT_GAP := 8                # chains between moments
 ## card says "the next ten minutes" - and every call ends at the break.
 ## (They lasted 4-8 chains, about two minutes, and measured as no-ops.)
 const BURSTS := {
-	"stack": {"label": "Stack the stoppage", "chains": 12, "for": "for the next few centre bounces"},
+	"stack": {"label": "Stack the stoppage", "chains": 12, "for": "for the next few centre ball-ups"},
 	"flood": {"label": "Flood behind the ball", "chains": 45, "for": "for the rest of the quarter"},
 	"surge": {"label": "Throw numbers at it", "chains": 15, "for": "for the next ten minutes"},
 	"hold": {"label": "Slow it down", "chains": 15, "for": "for the next ten minutes"},
@@ -3246,7 +3246,7 @@ func _playtest_bounce() -> bool:
 func _fire_bounce(margin: int) -> void:
 	var state := "level" if margin == 0 else ("%d up" % margin if margin > 0 else "%d down" % -margin)
 	_fire({"kind": "bounce", "default": 2,
-		"title": "Centre bounce - %s with %d minutes left" % [state, 120 - current_minute],
+		"title": "Centre ball-up - %s with %d minutes left" % [state, 120 - current_minute],
 		"text": "Set up for the rest of the game.",
 		"options": [
 			{"key": "stack", "label": "Stack the stoppage",
