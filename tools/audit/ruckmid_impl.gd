@@ -11,7 +11,7 @@ extends RefCounted
 ## baseline (the first carrier from the whole ground; MatchSim.clearance_keeps).
 
 const ROLES := ["DEF", "MID", "FWD", "RUCK"]
-const STATS := ["disposals", "kicks", "handballs", "clearances", "hitouts", "marks", "goals",
+const STATS := ["disposals", "kicks", "handballs", "clearances", "hitouts", "marks",
 		"contested_marks", "tackles", "inside50", "rebounds", "cba"]
 
 
@@ -35,8 +35,6 @@ func run() -> void:
 	var clr_self := 0   # clearance winner also had the first disposal
 	var clr_n := 0
 	var htb := {}       # role -> holding-the-ball frees against
-	var team := {}      # team totals over every side-match
-	var sides := 0
 	for r in ROLES:
 		sums[r] = {}
 		pg[r] = 0
@@ -105,14 +103,6 @@ func run() -> void:
 						var hr := str(role_of.get(str(e.get("against_id", "")), ""))
 						htb[hr] = int(htb.get(hr, 0)) + 1
 				var res := sim.result()
-				for side in range(2):
-					sides += 1
-					var ts: Dictionary = (res.get("team", [{}, {}]) as Array)[side]
-					for k in ["disposals", "inside50", "clearances"]:
-						team[k] = float(team.get(k, 0.0)) + float(ts.get(k, 0.0))
-					team["goals"] = float(team.get("goals", 0.0)) + float(res["goals"][side])
-					team["score"] = float(team.get("score", 0.0)) + float(res["score"][side])
-					team["behinds"] = float(team.get("behinds", 0.0)) + float(res["score"][side]) - 6.0 * float(res["goals"][side])
 				for side_r in sim.rosters():
 					for p in side_r:
 						var id := str(p["id"])
@@ -148,11 +138,6 @@ func run() -> void:
 				100.0 * float(htb.get(r, 0)) / maxf(1.0, float(sums[r].get("disposals", 0.0)))])
 	print("| holding the ball against | %s |" % " | ".join(cells3))
 	print("")
-	print("TEAM per side-match: disposals %.1f | inside 50s %.1f | clearances %.1f | score %.1f | goals %.2f | accuracy %.1f%% (sides %d)" % [
-			float(team.get("disposals", 0.0)) / maxf(1, sides), float(team.get("inside50", 0.0)) / maxf(1, sides),
-			float(team.get("clearances", 0.0)) / maxf(1, sides), float(team.get("score", 0.0)) / maxf(1, sides),
-			float(team.get("goals", 0.0)) / maxf(1, sides),
-			100.0 * float(team.get("goals", 0.0)) / maxf(1.0, float(team.get("goals", 0.0)) + float(team.get("behinds", 0.0))), sides])
 	print("## Stoppage chains")
 	print("clearances %d; the clearance winner also had the chain's first disposal %.0f%%" % [clr_n, 100.0 * clr_self / maxf(1, clr_n)])
 	var tot_f := 0
