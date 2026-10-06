@@ -2271,10 +2271,12 @@ Goal: make player deployment intuitive, footy-authentic and consequential.
 
 ## ARD-M5-001 — Matchday squad: 18 + 5 interchange
 **Status:** `TODO`  
-**Priority:** `P1`  
+**Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
 
-Current known structure uses 18 + 4.
+**Director priority (2026-10-06):** Implement this next ahead of unrelated feature expansion and presentation work; urgent crash/save blockers still take precedence. This is an existing task promoted to priority, not a new duplicate.
+
+Verified on current main: `Ratings.gd` defines `INTERCHANGE := 4`, `SelectionScene.gd` renders four bench slots, and selection tests still expect 18 + 4. Five interchange players are not implemented yet.
 
 Migrate to:
 - 18 on ground,
@@ -2294,6 +2296,12 @@ Audit:
 - UI,
 - tests,
 - every hard-coded 22/4 assumption.
+
+Acceptance:
+- Manual and auto/AI selection produce 18 on ground + 5 interchange (23 total) for both teams, and the UI exposes all five bench slots.
+- The fifth player participates correctly in rotations, injury cover, match stats, XP/development and appearance/played-game tracking; no cosmetic-only extra slot.
+- Remove or update every relevant hard-coded 22-player/four-bench assumption, including tests and saved-squad compatibility, without losing existing save information.
+- Validate the squad migration with targeted selection/rotation tests and the required CI gates; use the existing balance-audit process for any resulting simulation effects.
 
 ---
 
@@ -5710,6 +5718,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Promoted ARD-M5-001 (18 + 5 interchange) to P0 at director request after verifying main still uses four bench players; added complete fifth-player participation and save-compatibility acceptance criteria.
 
 - **2026-10-06:** On the director's request, added free lighting/surface-detail findings and five scoped follow-ups under ARD-M8-007 (LS-01–05): offline lighting, restrained player materials, environment/prop surfaces, optional runtime 2D lighting and phone/performance review. Reuses the existing pipeline and shadow work; records free CC0 sources, Material Maker/Krita options and Laigter's paid-binary caveat. Final appearance remains subject to the existing art-agent/director gate; no art or game implementation marked complete.
 
