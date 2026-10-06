@@ -38,6 +38,7 @@ var _margin: MarginContainer
 var _stacked := false
 var _last_tactics := {}
 var _skipping := false
+var _crowd: CrowdSound = null    # FL-004: the crowd (presentation only)
 var _fulltime_shown := false
 var _coach_overlay: Control
 var _sheet_overlay: Control
@@ -98,6 +99,9 @@ func _ready() -> void:
 	if _res.is_empty():
 		Router.replace("hub")
 		return
+	_crowd = CrowdSound.new()
+	_crowd.name = "Crowd"
+	add_child(_crowd)
 	_build()
 	_pitch.setup(_res)
 	_refresh_rings()
@@ -1233,6 +1237,8 @@ func _on_event(ev: Dictionary) -> void:
 	if str(ev.get("kind", "")) == "goal":
 		_flash_score(int(ev.get("side", 0)))
 		_track_run(int(ev.get("side", 0)))
+	if _crowd != null and not _skipping:
+		_crowd.event(str(ev.get("kind", "")))
 	_queue_broadcast(ev, event_index)
 
 
@@ -1490,6 +1496,8 @@ func _on_finished() -> void:
 		return
 	_skipping = false
 	_finished = true
+	if _crowd != null:
+		_crowd.full_time()
 	_fulltime_shown = true
 	_close_coach()
 	if _res.has("goals") and _res.has("behinds"):
