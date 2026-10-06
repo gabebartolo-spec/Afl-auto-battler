@@ -343,8 +343,7 @@
       "One fifty up,\n{player}, you're gold,\nthe {us} cheer\nas the story's told"
     ],
     "200": [
-      "Two hundred games,\n{player}, a star,\nthe {us} know\nhow good you are",
-      "Double century,\n{player}, legend true,\nthe {us} run out\nthis one for you"
+      "200 games.\nTake a bow,\n{display_name}."
     ],
     "250": [
       "Two-fifty up,\n{player}'s still here,\nthe {us} faithful\nraise a cheer"
@@ -359,6 +358,9 @@
     "farewell": [
       "Last time out,\n{player}, thank you,\nthe {us} will\nalways remember you",
       "Thanks for the memories,\n{player}, farewell,\nthe {us} have\nstories to tell"
+    ],
+    "club": [
+      "{games} games\nin our colours.\n{display_name}."
     ]
   },
   "must_win": [

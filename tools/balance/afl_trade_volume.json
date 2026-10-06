@@ -1,0 +1,222 @@
+{
+ "_about": "Real AFL trade volume per trade period, counted from DraftGuru's per-year trade pages by tools/balance/build_trade_volume.py. player_trades = trades that moved at least one player; pick_only_trades = the rest. players_moved counts players, not draft picks. player_initiated (trade requests: going home, opportunity, out of contract) is null: it is not stated per year on these pages or by one source, so it is not guessed.",
+ "sources": [
+  "https://www.draftguru.com.au/trades/year/2019",
+  "https://www.draftguru.com.au/trades/year/2020",
+  "https://www.draftguru.com.au/trades/year/2021",
+  "https://www.draftguru.com.au/trades/year/2022",
+  "https://www.draftguru.com.au/trades/year/2023",
+  "https://www.draftguru.com.au/trades/year/2024",
+  "https://www.draftguru.com.au/trades/year/2025"
+ ],
+ "years": {
+  "2019": {
+   "total_trades": 52,
+   "player_trades": 25,
+   "pick_only_trades": 27,
+   "players_moved": 27,
+   "clubs_in_a_trade": 18,
+   "player_initiated": null
+  },
+  "2020": {
+   "total_trades": 48,
+   "player_trades": 24,
+   "pick_only_trades": 24,
+   "players_moved": 26,
+   "clubs_in_a_trade": 18,
+   "player_initiated": null
+  },
+  "2021": {
+   "total_trades": 29,
+   "player_trades": 13,
+   "pick_only_trades": 16,
+   "players_moved": 15,
+   "clubs_in_a_trade": 17,
+   "player_initiated": null
+  },
+  "2022": {
+   "total_trades": 38,
+   "player_trades": 26,
+   "pick_only_trades": 12,
+   "players_moved": 31,
+   "clubs_in_a_trade": 18,
+   "player_initiated": null
+  },
+  "2023": {
+   "total_trades": 43,
+   "player_trades": 24,
+   "pick_only_trades": 19,
+   "players_moved": 27,
+   "clubs_in_a_trade": 18,
+   "player_initiated": null
+  },
+  "2024": {
+   "total_trades": 33,
+   "player_trades": 13,
+   "pick_only_trades": 20,
+   "players_moved": 21,
+   "clubs_in_a_trade": 18,
+   "player_initiated": null
+  },
+  "2025": {
+   "total_trades": 43,
+   "player_trades": 25,
+   "pick_only_trades": 18,
+   "players_moved": 27,
+   "clubs_in_a_trade": 18,
+   "player_initiated": null
+  }
+ },
+ "player_requests": {
+  "_about": "Per trade that moved a player: did the player ask to go, and why, only where a public source says so. \"unknown\" means the source read does not say; nothing is inferred. Covers 2024 from one source (the ESPN trade tracker); 2025 is not done. The trade list is DraftGuru's.",
+  "2024": [
+   {
+    "trade": "Alex Neal-Bullen to Adelaide",
+    "players": [
+     "Alex Neal-Bullen"
+    ],
+    "player_requested": "unknown",
+    "reason": "going home",
+    "note": "ESPN: he \"will return home to South Australia\"; it does not say he asked to go.",
+    "source": "https://www.espn.com/afl/story/_/id/41541718/afl-2024-player-movement-tracker-free-agency-trades-draft-picks-latest-news-moves"
+   },
+   {
+    "trade": "Jack Darling to North Melbourne",
+    "players": [
+     "Jack Darling"
+    ],
+    "player_requested": "unknown",
+    "reason": "unknown",
+    "note": "",
+    "source": null
+   },
+   {
+    "trade": "Liam Baker and Matt Owies to West Coast",
+    "players": [
+     "Liam Baker"
+    ],
+    "player_requested": true,
+    "reason": "going to a preferred club",
+    "note": "ESPN (AAP): Baker \"has been granted his wish\" and went to the club he supported before joining Richmond. Owies, the other player in the trade: not stated.",
+    "source": "https://www.espn.com/afl/story/_/id/41541718/afl-2024-player-movement-tracker-free-agency-trades-draft-picks-latest-news-moves"
+   },
+   {
+    "trade": "Liam Baker and Matt Owies to West Coast",
+    "players": [
+     "Matt Owies"
+    ],
+    "player_requested": "unknown",
+    "reason": "unknown",
+    "note": "",
+    "source": null
+   },
+   {
+    "trade": "Dan Houston to Collingwood (five-player trade)",
+    "players": [
+     "Dan Houston",
+     "John Noble",
+     "Rory Atkins",
+     "Jack Lukosius",
+     "Joe Richards"
+    ],
+    "player_requested": "unknown",
+    "reason": "unknown",
+    "note": "",
+    "source": null
+   },
+   {
+    "trade": "Harry Sharp to Melbourne",
+    "players": [
+     "Harry Sharp"
+    ],
+    "player_requested": "unknown",
+    "reason": "unknown",
+    "note": "",
+    "source": null
+   },
+   {
+    "trade": "Shai Bolton to Fremantle",
+    "players": [
+     "Shai Bolton"
+    ],
+    "player_requested": "unknown",
+    "reason": "unknown",
+    "note": "",
+    "source": null
+   },
+   {
+    "trade": "Daniel Rioli to Gold Coast",
+    "players": [
+     "Daniel Rioli"
+    ],
+    "player_requested": true,
+    "reason": "unknown",
+    "note": "ESPN (AAP): he was \"desperate to follow them out the door after requesting a trade to Gold Coast\" and reunites with coach Damien Hardwick; the reason is not stated as such.",
+    "source": "https://www.espn.com/afl/story/_/id/41541718/afl-2024-player-movement-tracker-free-agency-trades-draft-picks-latest-news-moves"
+   },
+   {
+    "trade": "James Peatling to Adelaide",
+    "players": [
+     "James Peatling"
+    ],
+    "player_requested": "unknown",
+    "reason": "unknown",
+    "note": "",
+    "source": null
+   },
+   {
+    "trade": "Caleb Daniel to North Melbourne",
+    "players": [
+     "Caleb Daniel"
+    ],
+    "player_requested": "unknown",
+    "reason": "unknown",
+    "note": "",
+    "source": null
+   },
+   {
+    "trade": "Jacob Konstanty and Luke Parker to North Melbourne",
+    "players": [
+     "Jacob Konstanty",
+     "Luke Parker"
+    ],
+    "player_requested": "unknown",
+    "reason": "unknown",
+    "note": "",
+    "source": null
+   },
+   {
+    "trade": "Jake Stringer to GWS",
+    "players": [
+     "Jake Stringer"
+    ],
+    "player_requested": "unknown",
+    "reason": "unknown",
+    "note": "",
+    "source": null
+   },
+   {
+    "trade": "Tom Barrass to Hawthorn",
+    "players": [
+     "Tom Barrass"
+    ],
+    "player_requested": "unknown",
+    "reason": "unknown",
+    "note": "ESPN: Hawthorn's \"biggest trade target\"; it does not say whether he asked to go.",
+    "source": "https://www.espn.com/afl/story/_/id/41541718/afl-2024-player-movement-tracker-free-agency-trades-draft-picks-latest-news-moves"
+   },
+   {
+    "trade": "Bailey Smith to Geelong, Jack Macrae to St Kilda, Matt Kennedy to the Western Bulldogs",
+    "players": [
+     "Bailey Smith",
+     "Jack Macrae",
+     "Matt Kennedy"
+    ],
+    "player_requested": "unknown",
+    "reason": "unknown",
+    "note": "",
+    "source": null
+   }
+  ]
+ }
+}

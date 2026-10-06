@@ -532,7 +532,7 @@ func _filters() -> Control:
 		var present := {}
 		for p in _draft.pool:
 			present[str(p.get("club", ""))] = true
-		for code in GameDB.CLUB_ORDER:
+		for code in GameDB.club_order:
 			if present.has(code):
 				origin_values.append(code)
 		clubs.add_item("All original clubs")

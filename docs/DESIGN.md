@@ -368,7 +368,7 @@ A match is a sequence of **possession chains**, not a tick-based clock.
 
 Field position is metres from the centre square (`-85 .. +85`), forward-50 arc at
 `±35`. Each side fields **18** in a 6-6-6 shape (6 DEF, 6 MID — the ruck counted
-with midfield — and 6 FWD) plus 4 interchanges.
+with midfield — and 6 FWD) plus 5 interchanges (23 in all, no substitute).
 
 Restarts: a goal or a quarter break -> centre bounce. A behind -> the other
 side kicks in from its goal square (fp 4.5 m inside its goal line, first
@@ -739,8 +739,8 @@ table, shot conversion, every best and quiet player with his numbers and
   (Tasmania 2028, Canberra 2030) is inactive before its year and fully active
   from it. Its debut list is generated at the rollover into its first season
   (`Prospects.generate_expansion_list`), aged and renormalised like any other.
-* **List management** — the Best 22 screen draws the selected 18 on an oval in
-  match-day shape (full back through full forward) with the four interchange
+* **List management** — the Best 23 screen draws the selected 18 on an oval in
+  match-day shape (full back through full forward) with the five interchange
   players in a bay underneath. Tap a guernsey for the rating.
 * **Training** — after every game, every player on your list gains XP. Named
   players and strong games earn more (a full senior game is 37 XP: squad 4 +
@@ -895,7 +895,7 @@ scripts/
     HubScene.gd        the week: opponent + facts, your side's news, the match; then ladder
     MatchScene.gd      scoreboard, oval, match feed, quarter breaks, full time, Match stats (PlayerStatsTable)
     LadderScene.gd     full ladder + finals bracket
-    ListScene.gd       your list, best 22, attributes, real season numbers
+    ListScene.gd       your list, best 23, attributes, real season numbers
     SeasonReviewScene.gd  the flag, your record, final ladder, awards, club achievements
 scenes/                thin .tscn wrappers - a root Control + its script
 tools/

@@ -1,6 +1,7 @@
 extends RefCounted
 ## Legs and rotations, match moments, the impact readout and the rival
 ## coach. Run through tests/run_match_game_tests.gd.
+## Seeded by design: every MatchSim takes an explicit seed.
 
 var failures: Array[String] = []
 var checks := 0
@@ -165,7 +166,9 @@ func _test_boundary_rules() -> void:
 	var counts := {"throwin": 0, "last_disposal": 0, "out_on_full": 0}
 	var legal_last := true
 	var throwin_spot := true
-	for seed in range(8):
+	# 16 matches: an out-on-the-full is about one boundary kick in eight, so
+	# eight matches can come up empty (about 2%) on an unlucky stream.
+	for seed in range(16):
 		var evs: Array = _sim(6100 + seed).run()["events"]
 		for i in range(evs.size()):
 			var ev: Dictionary = evs[i]
@@ -1842,7 +1845,8 @@ func _test_traits_surfaced() -> void:
 ## average v average 50% of named contests to the forward); an elite
 ## defender holds a good forward to 34% and cuts his goals about a quarter.
 ## Pinned smaller: the same forward against an elite and an average
-## defender.
+## defender, over 60 matches each (30 left the gap to the seeds: 18 points
+## over 120 matches, under either clearance rule).
 func _test_key_duel_balance() -> void:
 	var kfs := []
 	var kds := []
@@ -1858,7 +1862,7 @@ func _test_key_duel_balance() -> void:
 	for dfn in [kds[1], kds[kds.size() / 2]]:
 		var contests := 0
 		var won := 0
-		for s in range(30):
+		for s in range(60):
 			var home := []
 			for p in GameDB.club_list("GEE"):
 				home.append(p.duplicate(true))
@@ -2111,7 +2115,9 @@ func _test_through_stars() -> void:
 	var d_off := 0.0
 	var g_on := 0.0
 	var g_off := 0.0
-	var n := 20
+	# 40 matches: at 20 the stars' edge (+4 to +5 a game, SE about 1.1)
+	# sat about two standard errors over the +2 bar (medium agent, 2026-10-06).
+	var n := 40
 	for i in range(n):
 		var on := _sim(760 + i)
 		on.set_tactics(0, {"gameplan": "through_stars"})

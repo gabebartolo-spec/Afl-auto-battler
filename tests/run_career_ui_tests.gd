@@ -5,11 +5,16 @@ extends SceneTree
 ## Classes are reached through load() and autoload nodes: a --script runner
 ## compiles before the autoloads exist.
 
+const Tap := preload("res://tests/tap.gd")
+
 var _state: Node
 var _router: Node
 var _db: Node
 var _checks := 0
 var _failures: Array[String] = []
+
+## Every season in this suite starts from a fixed seed (C15), never the clock.
+const SUITE_SEED := 2027
 
 
 func _initialize() -> void:
@@ -154,6 +159,7 @@ func _run() -> void:
 	_state.save_path = "user://test_career.save"
 	_state.settings_path = "user://test_settings.cfg"
 	_state.show_real_names = false
+	_state.replay_seed = SUITE_SEED
 	_state.delete_saved_career()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_settings.cfg"))
 
@@ -231,6 +237,71 @@ func _run() -> void:
 	_check(_router.current() == "main" and current_scene.find_child("Settings", true, false) == null
 			and not _state.show_real_names, "Back closes Settings")
 
+	# --- Club Forge: make a player, bring him into a career ------------------
+	_state.set_forge_player({})
+	var size_before := root.size
+	root.size = Vector2i(390, 844)
+	await _settle()
+	var forge_btn: Button = current_scene.find_child("ClubForge", true, false)
+	_check(forge_btn != null, "The main menu has Club Forge")
+	var forge_tap: String = await Tap.tap(forge_btn) if forge_btn != null else "missing"
+	await _settle()
+	_check(forge_tap == "" and _router.current() == "forge", "A tap opens Club Forge (%s)" % forge_tap)
+	_press("ForgeCreatePlayer")
+	await _settle()
+	_press("ForgeSavePlayer")
+	await _settle()
+	var problem: Label = current_scene.find_child("ForgeProblem", true, false)
+	_check(problem != null and problem.visible and _state.forge_player().is_empty(),
+			"A player without a name isn't saved, and the screen says why")
+	_type("ForgeFirst", "Gabe")
+	_type("ForgeLast", "Forge")
+	_press("ForgeRole_FWD")
+	await _settle()
+	_press("ForgeStyle_small_forward")
+	_press("ForgeStrength_goalkicking")
+	await _settle()
+	_press("ForgeHair_mullet")
+	_press("ForgeFoot_L")
+	_press("ForgeSavePlayer")
+	await _settle()
+	var fp: Dictionary = _state.forge_player()
+	_check(str(fp.get("last", "")) == "Forge" and str(fp.get("role", "")) == "FWD" and str(fp.get("style", "")) == "small_forward"
+			and (fp.get("strengths", []) as Array) == ["goalkicking"] and str(fp["look"]["hair_style"]) == "mullet"
+			and str(fp.get("foot", "")) == "L",
+			"The Forge saves the player as made")
+	_check(current_scene.find_child("ForgePlayerName", true, false) != null, "The Forge shows your player")
+	var small := []
+	for b in current_scene.find_children("*", "Button", true, false):
+		if b.is_visible_in_tree() and b.size.y < 44:
+			small.append(b.name)
+	_check(small.is_empty(), "Every Forge button is thumb-sized (%s)" % str(small))
+	_router.handle_back(false)
+	await _settle()
+	_check(_router.current() == "main", "Back leaves the Forge")
+	root.size = size_before
+	await _settle()
+	# --- desktop scale (STYLE-07): the PC shows the game bigger, not emptier ---
+	var layout = root.get_node("ScreenLayout")
+	var dens := func(w: float, h: float, os_scale: float, dpi: int) -> float:
+		return float(layout.desktop_density(Vector2(w, h), os_scale, dpi))
+	_check(is_equal_approx(dens.call(3840, 2160, 1.0, 288), 3.0),
+			"4K at Windows 300% (DPI 288, scale reported as 1) lays out on 1280 x 720")
+	_check(is_equal_approx(dens.call(3840, 2160, 1.0, 96), 3.0),
+			"4K at 100% still fits the 1280 x 720 canvas, not 3840 x 2160")
+	_check(is_equal_approx(dens.call(3840, 2160, 1.0, 144), 3.0),
+			"4K at 150% is not scaled twice (3, not 4.5)")
+	_check(is_equal_approx(dens.call(1920, 1080, 1.0, 96), 1.5) and is_equal_approx(dens.call(2560, 1440, 1.0, 96), 2.0),
+			"1080p and 1440p fit the same canvas")
+	_check(is_equal_approx(dens.call(3440, 1440, 1.0, 96), 2.0),
+			"Ultrawide fits by height and widens the canvas (1720 x 720)")
+	_check(is_equal_approx(dens.call(1280, 720, 1.0, 96), 1.0) and is_equal_approx(dens.call(900, 600, 1.0, 96), 1.0),
+			"A window at or under 1280 x 720 at 100% is drawn 1:1")
+	_check(is_equal_approx(dens.call(1280, 720, 1.0, 288), 3.0),
+			"A small window at 300% follows the OS scaling (the small-window floor then applies)")
+	_check(is_equal_approx(dens.call(2880, 1800, 2.0, 0), 2.25),
+			"A Mac reporting its own scale still fills the screen")
+
 	# --- new career setup: names and difficulty, applied only on start -------
 	current_scene.find_child("NewCareer", true, false).emit_signal("pressed")
 	await _settle()
@@ -259,6 +330,11 @@ func _run() -> void:
 	_check(_router.current() == "draft", "Starting the career goes on to choosing a club")
 	_check(_state.new_career_difficulty() == "hard" and _state.difficulty == "hard"
 			and _state.show_real_names, "The career starts with the picks made")
+	var brought := false
+	for d in _state.draftee_pool:
+		brought = brought or (str(d["id"]) == _state.custom_prospect_id and str(d.get("last", "")) == "Forge")
+	_check(brought, "Your Forge player is in this career's first National Draft class")
+	_state.set_forge_player({})
 	_state.set_new_career_difficulty("normal")
 	_state.set_show_real_names(false)
 	_state.reset()
@@ -506,12 +582,14 @@ func _run() -> void:
 	overlay = current_scene.get("_results_overlay")
 	_check(_router.current() == "hub" and (overlay == null or not is_instance_valid(overlay)),
 			"Back closes the results popup and stays on the hub")
-	# The round may have raised a press conference: Back skips it.
-	if current_scene.find_child("MediaConference", true, false) != null:
+	# The round may have raised a press conference: Back skips it. One check
+	# either way, so the floor does not move with the round's result.
+	var had_conference: bool = current_scene.find_child("MediaConference", true, false) != null
+	if had_conference:
 		_router.handle_back(true)
 		await _settle()
-		_check(_router.current() == "hub" and not _state.media_conference_pending(),
-				"Back skips the press conference and stays on the hub")
+	_check(not had_conference or (_router.current() == "hub" and not _state.media_conference_pending()),
+			"A press conference, if the round raised one, is skipped by Back and the hub stays")
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "main", "Back from the hub goes to the main menu")
@@ -1147,6 +1225,7 @@ func _run() -> void:
 	await _test_season_awards()
 	_state.delete_saved_career()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
+	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
 
 
@@ -1204,3 +1283,19 @@ func _test_season_awards() -> void:
 		winner.queue_free()
 	host.queue_free()
 	await _settle()
+
+
+## Press a named button in the current scene, or fail the check if it is missing.
+func _press(node_name: String) -> void:
+	var b = current_scene.find_child(node_name, true, false)
+	_check(b != null, "%s is on screen" % node_name)
+	if b != null:
+		b.emit_signal("pressed")
+
+
+func _type(node_name: String, text: String) -> void:
+	var f = current_scene.find_child(node_name, true, false)
+	_check(f != null, "%s is on screen" % node_name)
+	if f != null:
+		(f as LineEdit).text = text
+		(f as LineEdit).text_changed.emit(text)

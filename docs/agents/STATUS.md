@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06. Since the last board merged: #321-#323, #326-#330, #332-#335 (docs #324, #329, #334, #335 from other agents). On main now: the run-through banners (#326, #330), the free-kick possession fix (#321), the role and team-match references (#327, #332), C15 seed batches 1 to 3._
+_Updated 2026-10-06 (refresh 18). Since the last board merged: #309 (Create a player), #409 (the crowd at a watched match), #413 (player home states), #414 (centre ball-up copy), #416 and #418 (intercept evidence), #417 (roadmap: match visualisation and weather) and #420 (STYLE-02 typeface prototype recorded)._
 
 ## Lanes
 | agent (session) | owns |
@@ -22,30 +22,47 @@ _Updated 2026-10-06. Since the last board merged: #321-#323, #326-#330, #332-#33
 | low | none now (`.github/workflows`, `tools/ci_shards.txt`, `UiKit.scroll` and the Training-row fix #277 are all merged); STATUS.md and the merge queue | ongoing |
 | art | `BroadcastVignette.gd` (draw functions only; `pick_kind`, `DURATIONS` untouched); `VignetteFigures.gd`, `assets/vignette/figures_*.png` (sheet being regenerated); `StoppageVignette._draw_figure`; `tools/visual/capture_appearance.gd`, `capture_guernseys.gd`, new `capture_broadcast.gd`; standing: `figure.gdshader`, `clubs.csv` guernsey column, `GameDB.club_guernsey`, `player_appearance.csv`, `Appearance.gd`. Next, in order: `AwardWinnerVignette.gd`, `MediaConferenceVignette.gd` | M8-007 migration |
 
+## Waiting on the director
+Asked of the director one decision at a time (team rule 5). Open now:
+- #360 Create a club screen (approved; the lead's sync is being tested) and #385 club marker A (approved; retargets to main once #360 is in).
+- #419 ARD Signwriter typeface (a draft prototype; the director is playing it; light captures are on the PR) and #408 type specimen.
+- #422 centre bounce framing (medium; waits on the director's look), #394 hair review, #303 defensive forward.
+- #342 and #291 (the lead is putting them to the director).
+
+**Own-words confirmations:** none open.
+
+**Decisions made, being built:** the intercept evidence is merged (data, no code). All recorded in ROADMAP §9.1.
+
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- Open and reviewable: #336 (C15 awards and injuries seeds), #337 (C15 batch 4: intake, chronology, coach_pathway, intake_ui, career_ui; intake_ui floor 493 to 500), #338 (six audit-script .uid files).
-- #331 (18 + 5 interchange): the lead's PR, CI being fixed for a match-day floor. When it merges low marks #325 ready (ROADMAP wording, drafted) and merges it on green, then seeds selection (roles and match_game stay with #331).
-- Held for the director's look: #303 (break-screen call; its match_game floor becomes 254 against the real count, main is 243), #309 (Club Forge Create a player), #299 (draft: vignette fixes). #291 is the director's Codex research: do not merge.
-- Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval).
-- On main, awaiting the director's look: #276 press conference, #277 Training-row alignment.
+- In flight on CI: #421 (shard re-time) and #424 (trades evidence), both mine and docs/CI only.
+- Waiting on the lead's sync: #360 (CONFLICTING with main after #309 merged), then #385 retargets to main (its CI failed on `roles`: the Coleman race fits without scrolling at 360x740; the owner re-runs after the retarget).
+- Waiting on a W7 or a sync: #393 (ruck/DEF calibration, W7 from the lead), #383 (the trade market, CONFLICTING with main; its home requests use #413), #303 (CONFLICTING; medium item 13).
+- #342 (codex docs, CONFLICTING in ROADMAP only) and #368 (kit options, draft, CONFLICTING) need their owners. #291 is the director's Codex research: do not merge.
+- Gates: no appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR.
 
 ## In progress
-- **P0, lead:** ARD-M5-001 18 on the ground plus 5 interchange (23 side), #331 (code, copy, README, DESIGN), plus the Club Forge Create a club engine.
-- **Medium:** the fair-fixture fix (19 clubs give unequal games, byes follow club-list order, home games run 7 to 17; docs/FIXTURE_SIZES_NOTE.md #328) and the location-tag research. The 21-club format goes to the director. Reviews low's PRs.
-- **Low:** the C15 seed batches (#336, #337), audit-script .uid files (#338), then #325 and selection once #331 lands.
+- **Lead:** the Create a club chain (#360, #385); the trade market (#383); the hair review (#394).
+- **Medium:** the ruck/DEF calibration (#393); centre bounce framing (#422); STYLE-02 type roles (#423, waits on the lead's review).
+- **Low:** the merge queue, STATUS and the triage, the shard re-time (#421) and the next items the medium agent queues.
 
 ## Open PRs and dependencies
-| PR | owner | notes |
-|---|---|---|
-| #331 | lead | 18 + 5 interchange, 23 in all; CI fixing a match-day floor |
-| #325 | low | draft, ROADMAP match-day wording; ready after #331 |
-| #336, #337 | low | test-only seed batches |
-| #338 | low | six .uid files |
-| #303 | medium | break-screen call; director's phone look |
-| #309 | lead | Club Forge Create a player; director's look |
-| #299 | art | draft, vignette fixes; director's look |
-| #291 | director | Codex research and playbook; do not merge |
-| #206 | director | superseded by #208; close |
+Checked 2026-10-06 about 07:50 UTC. None has been quiet for 24 hours or more (oldest: #291, last touched the evening of 2026-10-05).
+| PR | owner | CI | conflict | waits on |
+|---|---|---|---|---|
+| #360 | lead | green | yes | the lead's sync, then merge |
+| #385 | lead | red (`roles`, Coleman race at 360x740) | no | #360, then retarget and re-run |
+| #383 | lead/medium | running | yes | W7, then a sync |
+| #393 | medium | green | no | W7 from the lead |
+| #303 | lead | green | yes | a sync (medium item 13) and the director's look |
+| #394 | lead | green | no | the director (hair review) |
+| #408 | lead | green | no | the director (type specimen) |
+| #419 | art/lead | green | no | the director (playing the typeface) |
+| #422 | medium | green | no | the director's look |
+| #423 | medium | running | no | the lead's review |
+| #421, #424 | low | running/green | no | CI, then low merges |
+| #342 | codex | green | yes | its owner (ROADMAP sync) and the director |
+| #368 | draft | green | yes | its owner |
+| #291 | director | green | no | do not merge; the director |
 
 ## Pending director decisions
 - Difficulty: autopilot slides to rank 18 by year 5; routine contract work holds about 6th; flags need trading (0 of 40 for contracts + FA, 3 for full management). Evidence: medium's managed-vs-autopilot doc. Is that the intended curve?
