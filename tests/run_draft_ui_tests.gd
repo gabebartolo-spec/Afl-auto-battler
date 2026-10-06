@@ -2,6 +2,7 @@ extends SceneTree
 ## godot --headless --path . --script tests/run_draft_ui_tests.gd
 ## Layout/state regressions using actual Godot containers. Browser/device touch
 ## smoke tests are documented separately in tests/README.md.
+## Seeded by design: the Draft is built with an explicit seed (12345).
 
 const VIEWPORTS := [
 	Vector2i(390, 844), Vector2i(844, 390), Vector2i(320, 568),
