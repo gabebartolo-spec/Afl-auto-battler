@@ -51,7 +51,10 @@ func _build() -> void:
 	_root.add_child(head)
 	var hv := UiKit.vbox(6)
 	head.add_child(hv)
-	var actions := UiKit.hbox(6)
+	# Wraps on a phone rather than pushing the screen wider.
+	var actions := HFlowContainer.new()
+	actions.add_theme_constant_override("h_separation", 6)
+	actions.add_theme_constant_override("v_separation", 6)
 	hv.add_child(actions)
 	# Auto-pick is an action, never a mode: choose a strategy and it sets the
 	# side; your moves after that stay yours (director, 2026-10-07).
@@ -95,7 +98,7 @@ func _build() -> void:
 				GameState.set_dual_ruck(k == "on")
 				_notice = "Dual ruck on: Auto-pick names a second ruck on the bench." if k == "on" else "One ruck: Auto-pick fills the bench with the best of the rest."
 				_build())
-	dual.custom_minimum_size.x = 220
+	dual.custom_minimum_size.x = 200
 	actions.add_child(dual)
 	hv.add_child(_lines_view())
 	if _notice != "":

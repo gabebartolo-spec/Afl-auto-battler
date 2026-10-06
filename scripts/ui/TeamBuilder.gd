@@ -19,6 +19,8 @@ const SPOTS := {
 	"FWD": ["FF", "HFFL", "HFFR", "FPL", "FPR", "HFF"],
 }
 const LINES := ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH"]
+const SPINE := {"CB": Vector2(-0.44, 0.0), "C": Vector2(-0.16, 0.0), "RUCK": Vector2(0.14, 0.0),
+		"HFF": Vector2(0.42, 0.0)}
 const ROLE_TABS := [["", "All"], ["DEF", "DEF"], ["MID", "MID"], ["RUCK", "RUCK"], ["FWD", "FWD"]]
 
 var _side := {}
@@ -42,6 +44,9 @@ func setup(side: Dictionary, wide: bool) -> void:
 	add_theme_constant_override("separation", 14)
 	for s in FormationView.SLOTS:
 		_spot_at[str(s["key"])] = s["at"]
+	# The spine (centre half-back, centre, ruck, centre half-forward) is
+	# spread wider than the formation view so its cards never touch.
+	_spot_at.merge(SPINE, true)
 	_build()
 
 
@@ -228,7 +233,11 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 		var n := UiKit.ellipsis(GameDB.player_display_name(p), 14, UiKit.TEXT, true)
 		n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(n)
-		row.add_child(UiKit.lbl("%d" % int(p["overall"]), 14, UiKit.TEXT, true))
+		var ovr := UiKit.lbl("%d" % int(p["overall"]), 14, UiKit.TEXT, true)
+		ovr.autowrap_mode = TextServer.AUTOWRAP_OFF
+		ovr.custom_minimum_size.x = 26
+		ovr.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(ovr)
 		var age := int(p.get("age", 0))
 		face.add_child(UiKit.ellipsis("%s · %s · %d yo" % [Ratings.role_tag(p), PlayerProfile.player_type(p), age],
 				12, UiKit.MUTED))
