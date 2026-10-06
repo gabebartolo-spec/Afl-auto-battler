@@ -19,10 +19,10 @@ const SPOTS := {
 	"FWD": ["FF", "HFFL", "HFFR", "FPL", "FPR", "HFF"],
 }
 const LINES := ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH"]
-const PHONE_MIDS := {"IL": Vector2(0.0, -0.42), "IR": Vector2(0.0, 0.42), "WL": Vector2(0.10, -0.86),
-		"WR": Vector2(0.10, 0.86)}
-const SPINE := {"CB": Vector2(-0.44, 0.0), "C": Vector2(-0.16, 0.0), "RUCK": Vector2(0.14, 0.0),
-		"HFF": Vector2(0.42, 0.0)}
+const PHONE_MIDS := {"IL": Vector2(0.0, -0.48), "IR": Vector2(0.0, 0.48), "WL": Vector2(0.10, -0.90),
+		"WR": Vector2(0.10, 0.90)}
+const SPINE := {"CB": Vector2(-0.50, 0.0), "C": Vector2(-0.18, 0.0), "RUCK": Vector2(0.16, 0.0),
+		"HFF": Vector2(0.48, 0.0)}
 const ROLE_TABS := [["", "All"], ["DEF", "DEF"], ["MID", "MID"], ["RUCK", "RUCK"], ["FWD", "FWD"]]
 
 var _side := {}
@@ -89,9 +89,12 @@ func _build() -> void:
 			card.set_meta("spot", str(keys[i]))
 			_pitch.add_child(card)
 	field.add_child(UiKit.lbl("Interchange", UiKit.SMALL, UiKit.MUTED, true))
-	var bench := HBoxContainer.new()
+	# A row of five on a PC; on a phone it wraps rather than widen the screen.
+	var bench := GridContainer.new()
 	bench.name = "Bench"
-	bench.add_theme_constant_override("separation", 6)
+	bench.columns = 5 if _wide else 3
+	bench.add_theme_constant_override("h_separation", 6)
+	bench.add_theme_constant_override("v_separation", 6)
 	field.add_child(bench)
 	var bench_ids: Array = _side["BENCH"]
 	for i in range(maxi(Ratings.INTERCHANGE, bench_ids.size())):
@@ -223,7 +226,7 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 		var sub := UiKit.lbl("%s %d" % [Ratings.role_tag(p), int(p["overall"])], 11, UiKit.MUTED)
 		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		face.add_child(sub)
-		b.custom_minimum_size = Vector2(92 if _wide else 70, 44)
+		b.custom_minimum_size = Vector2(84 if _wide else 70, 44)
 		if Workload.value(p) >= Workload.CARRYING:
 			# How fresh he is, on the card: no profile needed to see it.
 			var ready := UiKit.lbl(Workload.label(p), 10, UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
