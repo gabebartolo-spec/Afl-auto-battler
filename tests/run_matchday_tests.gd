@@ -849,9 +849,9 @@ func _appearance() -> void:
 					styles.size(), bald, clean, inked])
 	var chosen := {"id": "C_1", "look": {"skin": 5, "hair": 2, "hair_style": "afro", "beard": "nonsense", "scars": 9}}
 	var cf: Dictionary = db.player_appearance(chosen)
-	_check(cf["hair_style"] == "afro" and cf["beard"] == "clean" and int(cf["scars"]) == 0
+	_check(cf["hair_style"] == "afro" and cf["beard"] == "clean" and not cf.has("scars")
 			and db.player_looks(chosen) == {"skin": 5, "hair": 2} and int(cf["beard_colour"]) == 2,
-			"A chosen look is kept where valid, and its colours reach the figures")
+			"A chosen look is kept where valid, a stale scars key is ignored, and its colours reach the figures")
 	# Every curated row is a real player, with a tone, a hair colour, a status and a source.
 	var keys := {}
 	for p in db.players + db.draftees:

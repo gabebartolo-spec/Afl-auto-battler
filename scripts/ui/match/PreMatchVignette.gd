@@ -42,6 +42,9 @@ const WORDS_RUN := "Through the banner"
 
 var copy := WORDS_WARM
 var banner := ""
+## FL-008: the years of your premierships this career, newest first: one pennant
+## each, hanging from the stand behind the banner (decoration: nothing reads them).
+var flags: Array = []
 var _phase := WARM
 var _prev := WARM
 var _since := 0.0          # time the phase began
@@ -84,6 +87,7 @@ func setup_prematch(my_code: String, opp_code: String, my_ground: Array, opp_gro
 	title = heading
 	copy = WORDS_FINALS if final else WORDS_WARM
 	banner = banner_text(my_code, opp_code, heading, banner_ctx)
+	flags = (banner_ctx.get("flags", []) as Array).slice(0, PENNANTS)
 	_colours = [GameDB.club_colours(my_code), GameDB.club_colours(opp_code)]
 	_codes = [my_code, opp_code]
 	tokens.clear()
@@ -449,6 +453,7 @@ func _draw() -> void:
 	_set_camera()
 	var fade := clampf(_t / CUT_IN, 0.0, 1.0)
 	_draw_ground()
+	_draw_pennants()
 	var figs := []
 	for i in range(tokens.size()):
 		var idx := i if bool(tokens[i]["mine"]) else i - _mine
@@ -469,6 +474,75 @@ func _draw() -> void:
 		black = maxf(black, clampf((_t - _since - (RUN_TIME - 0.25)) / 0.25, 0.0, 1.0))
 	if black > 0.0:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, black), true)
+
+
+## Premiership pennants (FL-008; the art agent's spec): an old VFL pennant for each
+## flag, a long plain triangle hanging point down from the front of the stand's upper
+## tier, above the banner, with a solid band across the top in the second colour. No
+## year at this distance (it would be a smudge; the art agent): the band is what makes
+## it a pennant. A club colour as dark as the stand swaps with the band's. Newest in
+## the middle, behind the race; at most PENNANTS. So the row isn't stamped out, each
+## hangs a pixel or two higher or lower than the next and its tip droops, alternately
+## left and right. They hang from a wire across the stand. High enough on the upper tier that the run doesn't hide their tips
+## behind the banner (half a pennant is worse than none).
+const PENNANTS := 6
+const PENNANT_LEN := 9.0              # metres: about 42 px on a phone
+const PENNANT_GAP := 1.5              # pennant widths, centre to centre
+const PENNANT_AT := 116.0             # on the upper tier, behind the fence and the lower tier
+const PENNANT_TOP := 25.0
+const WIRE := Color(0.36, 0.36, 0.38)
+const PENNANT_DROOP := 8.0            # degrees: the last third of each, bent aside
+const PENNANT_BAND := 0.15
+## Roughly the value of the stand behind them: a colour within 0.15 of it vanishes.
+const STAND_VALUE := 0.1
+
+func _draw_pennants() -> void:
+	if flags.is_empty():
+		return
+	var cols: Array = _colours[0]
+	var body: Color = cols[0] if cols.size() > 0 else Color.WHITE
+	var band: Color = cols[1] if cols.size() > 1 else Color.WHITE
+	if _colour_gap(body, band) <= 0.25:
+		band = Color.WHITE
+	if absf(body.get_luminance() - STAND_VALUE) < 0.15:
+		var was := body
+		body = band
+		band = was
+	var w := PENNANT_LEN / 2.0
+	# The wire they hang from, a little past the outer two.
+	var reach := (float((flags.size()) / 2) + 0.6) * w * PENNANT_GAP
+	var wl := _project(Vector2(-reach, PENNANT_AT), PENNANT_TOP)
+	var wr := _project(Vector2(reach, PENNANT_AT), PENNANT_TOP)
+	if wl.z > 0.0:
+		draw_line(Vector2(wl.x, wl.y), Vector2(wr.x, wr.y), WIRE, 1.0)
+	for k in range(flags.size()):
+		# Out from the middle: newest first, then one each side in turn.
+		var slot := (k + 1) / 2 * (1 if k % 2 == 1 else -1)
+		var top := _project(Vector2(float(slot) * w * PENNANT_GAP, PENNANT_AT), PENNANT_TOP)
+		if top.z <= 0.0:
+			continue
+		var px := top.z                   # pixels per metre there
+		var half := w * 0.5 * px
+		var length := PENNANT_LEN * px
+		var sway := deg_to_rad(2.5 * sin(float(flags[k]) * 1.7 + _t * 0.9))
+		var at := Vector2(top.x, top.y + float(posmod(k * 7, 5) - 2))
+		var l := at + Vector2(-half, 0).rotated(sway)
+		var r := at + Vector2(half, 0).rotated(sway)
+		# Two thirds of the way down, the last third bends aside.
+		var bend := at + Vector2(0, length * 2.0 / 3.0).rotated(sway)
+		var side := half / 3.0
+		var droop := deg_to_rad(PENNANT_DROOP * (1.0 if k % 2 == 0 else -1.0))
+		var tip := bend + Vector2(0, length / 3.0).rotated(sway + droop)
+		draw_colored_polygon(PackedVector2Array([l, r, bend + Vector2(side, 0).rotated(sway), tip,
+				bend + Vector2(-side, 0).rotated(sway)]), body)
+		var bl := length * PENNANT_BAND
+		var bw := half * (1.0 - PENNANT_BAND)
+		draw_colored_polygon(PackedVector2Array([l, r, at + Vector2(bw, bl).rotated(sway),
+				at + Vector2(-bw, bl).rotated(sway)]), band)
+
+
+static func _colour_gap(a: Color, b: Color) -> float:
+	return Vector3(a.r - b.r, a.g - b.g, a.b - b.b).length()
 
 
 ## The banner across the race in your colours: crepe paper on two poles, torn apart by

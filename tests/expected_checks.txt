@@ -23,13 +23,13 @@ ai 35
 training 107
 selection 37
 matchup 95
-matchday 367
+matchday 384
 roles 179
 injuries 31
 awards 22
 achievements 153
 contracts 190
-league 43
+league 47
 club 199
 match_game 243
 pressure 21
