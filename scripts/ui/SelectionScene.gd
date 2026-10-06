@@ -272,9 +272,9 @@ func _slot_issue(sel: Dictionary, role: String, target: int) -> String:
 	return "%s: %d named; only %d can play there." % [label, named, target]
 
 
-## The line synergies your 18 switch on - what the side is good at - and
-## the full rules one tap away. No "one more X" counts here: the rules are
-## open, the choice is yours.
+## The line synergies your 18 switch on - what the side is good at - any
+## one it is a single player short of (a fact, never a suggested swap: the
+## choice is yours), and the full rules one tap away.
 func _synergy_view() -> Control:
 	var h := UiKit.hbox(8)
 	h.name = "Synergies"
@@ -284,8 +284,15 @@ func _synergy_view() -> Control:
 			on.append(Traits.with_effect(str(r["key"])))
 	var l := _para("Your side has: " + ", ".join(on) + "." if not on.is_empty()
 			else "No line synergies in this side.", 13, UiKit.GOOD if not on.is_empty() else UiKit.MUTED)
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(l)
+	var lines := UiKit.vbox(2)
+	lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lines.add_child(l)
+	var short := Traits.short_text(GameState.my_squad().ground)
+	if short != "":
+		var s := _para(short, 13, UiKit.MUTED)
+		s.name = "SynergyShort"
+		lines.add_child(s)
+	h.add_child(lines)
 	var rules := UiKit.btn("Synergies", 14)
 	rules.name = "SynergyRules"
 	rules.custom_minimum_size = Vector2(104, 44)

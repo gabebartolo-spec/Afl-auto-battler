@@ -646,6 +646,7 @@ func _test_truth(res: Dictionary) -> void:
 	var last_from := Vector2.INF
 	var collect_t := {}
 	var snaps := 0
+	var takes := 0
 	var prev_mode := str(d.ball["mode"])
 	var guard := 0
 	while not d.idle() and guard < 400000:
@@ -676,6 +677,7 @@ func _test_truth(res: Dictionary) -> void:
 				steer += 1
 		last_vel = d.ball["vel"] if d.ball.has("vel") else Vector2.ZERO
 		if mode == "held" and prev_mode != "held":
+			takes += 1
 			var holder: Dictionary = d.tokens[int(d.ball["holder"])]
 			if last_pos.distance_to(holder["pos"]) > 3.0:
 				snaps += 1
@@ -708,7 +710,8 @@ func _test_truth(res: Dictionary) -> void:
 	# Sim-sensitive, so a share and the hard cap, not an exact count.
 	_check(long4 * 40 <= collect_t.size() and worst <= MatchDirector.COLLECT_LIMIT + 0.1,
 			"The ball is rarely left waiting on its collector (%d of %d over 4 s, longest %.1f s)" % [long4, collect_t.size(), worst])
-	_check(snaps <= 10, "The ball rarely jumps into a player's hands (%d from more than 3 m)" % snaps)
+	# A share too: any sim change redraws the seeded match.
+	_check(snaps * 40 <= takes, "The ball rarely jumps into a player's hands (%d of %d takes from more than 3 m)" % [snaps, takes])
 
 
 ## Playtest freeze (mid play, live): resuming after a moment with no new

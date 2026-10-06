@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06 (refresh 20). Since refresh 19: #419 (the ARD Signwriter typeface, the director: "Approve and merge"), #443 (reverts #393 after main went red on matchday's rating-parity check), #441 (roadmap status lines), the evidence docs #444 and #448, #447 (README images in the new typeface) and the earlier housekeeping. #408 (type specimen) and #291 (Codex research) are closed._
+_Updated 2026-10-06 (refresh 21). Since refresh 20: #438 (match view truth fixes), #445 (tactical timeline), #442 (hair overlays), #383 (trades at real volume), #439 and #450 (weather data and evidence), #452 (CI skips drafts and tool-only changes), #440 and #446 (audits), #463 (set-shot audit) and the docs PRs #459, #460 and #461 (the 2026 rules). Roadmap status lines for the merges are in the docs PR that carries this refresh._
 
 ## Lanes
 | agent (session) | owns |
@@ -24,36 +24,34 @@ _Updated 2026-10-06 (refresh 20). Since refresh 19: #419 (the ARD Signwriter typ
 
 ## Waiting on the director
 Asked of the director one decision at a time (team rule 5). Open now:
-- #383 trade requests (the lead asks once the capture exists; medium captures), #303 defensive forward (after medium's sync and capture), #449 match-day weather (a draft; the lead captures after a local run).
-- #442 hair overlays: his selections are on the PR; it waits on CI and the merge order.
-- #385 club marker A and #438 and #445 (match view truth fixes, tactical timeline): approved, merge on green.
+- #303 defensive forward: the director said merge as built (forwards only); it waits on medium's sync with main. #449 match-day weather (a draft; the lead captures after a local run).
+- #385 club marker A: approved, merge on green once its owner syncs.
+- Nothing else open: #438, #442, #445 and #383 are merged.
 
 **Own-words confirmations:** none open.
 
 **Decisions made, being built:** synergies (widen the player spread; show "N short" on Team selection), the ruck/DEF rework after #393's revert, match-day weather (#449). All recorded in ROADMAP §9.1.
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- CI is backed up; order on green: #438 (truth fixes), then #445 (tactical timeline; it needs #438 first), then #442 (hair overlays). #439 (BoM weather data), #440 (traitdecay audit), #446 (parity audit) and #450 (weather evidence, as built) follow.
-- #385 (approved) waits on its owner's sync with main; #303 (conflicting) and #368 (kit options, a draft being rebuilt by the art agent) need their owners.
+- Merged today: #438, #445, #442, #383, #440, #446, #463 and the docs PRs. In the queue, on green: #458 (ruck rework, lead's W7 on the PR), #455 (synergy short), then #303 after its sync.
+- #385 (approved) waits on its owner's sync with main; #303 conflicts in `MatchSim.gd` and needs medium; #368 (kit options, a draft being rebuilt by the art agent) needs its owner.
 - Gates: no appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR.
 
 ## In progress
-- **Lead:** match-day weather (#449); the trade market (#383) waiting on a capture.
-- **Medium:** the specialist-spread synergy fix and its audits; the #393 rework (parity runs); #385's sync and the #303 and #383 captures.
-- **Art:** hair overlays (#442); the kit-options rebuild (#368) after the hair overlay.
-- **Low:** the merge queue, STATUS, evidence tables and the weather data.
+- **Lead:** match-day weather (#449); the ruck rework (#458).
+- **Medium:** #303's sync; #455; the synergy decay audits (#464 and #465, drafts).
+- **Art:** the kit-options rebuild (#368).
+- **Low:** the merge queue, STATUS, roadmap status lines, the set-shot audit baseline (run dispatched on main) and the synergy-count tables for #464 and #465.
 
 ## Open PRs and dependencies
-Checked 2026-10-06 about 12:00 UTC; none has been quiet for 24 hours.
+Checked 2026-10-06 about 10:45 UTC; none has been quiet for 24 hours.
 | PR | owner | CI | conflict | waits on |
 |---|---|---|---|---|
-| #438, #445 | lead | queued | no | CI, merge in that order |
-| #442 | art | queued | no | CI, then low merges |
-| #439, #450 | low | queued | keep-both in WEATHER_EVIDENCE.md between them | CI |
-| #440, #446 | medium and low | queued | no | CI |
-| #383 | lead | green | no | the director's look (capture first) |
+| #458 | lead | queued | no | CI |
+| #455 | medium | queued | no | CI |
+| #303 | medium | stale | yes (`MatchSim.gd`) | medium's sync |
+| #464, #465 | medium | drafts | no | the audit tables (low posts them) |
 | #385 | medium | green | yes | its owner's sync |
-| #303 | medium | green | yes | a sync and the director |
 | #449 | lead | draft | n/a | the lead's local run |
 | #368 | art | draft | yes | the art agent's rebuild |
 
