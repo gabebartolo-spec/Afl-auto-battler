@@ -3691,6 +3691,13 @@ Define what the stat measures, how real and generated players receive credible v
 
 These are possible expressions of the numerical Leadership stat, not a request to create three mandatory traits or parallel systems. Claude should assess overlap with coaches, existing composure/clutch behaviour, morale and club reputation before choosing the smallest useful design. Recruitment/retention effects must respect player agency, existing trade rules and AI parity; measure balance and long-save effects as well as match effects.
 
+**Director leadership-trait ideas — alongside the Leadership stat:**
+- **Tough:** teammates are slightly more effective while fatigued; modestly soften the existing fatigue penalty rather than erase fatigue, improve fresh-player performance or encourage unsafe injury behaviour.
+- **Drives Standards:** teammates gain a small amount of additional XP from actual training, through the existing training/development system and within normal potential/development limits.
+- **Unders Culture:** players may be slightly more willing to sign cheaper deals, through existing contract willingness/valuation. Preserve player choice, salary rules and other contract factors; no automatic discounts or forced acceptance.
+
+**All leadership buffs must be small**, including the gameplan, clutch, morale, retention and recruitment ideas above. These trait names/effects are design suggestions for Claude to refine, not immediate stat adjustments. Define who can carry a leadership trait and when its influence applies (captain/leadership role, active participation and absences); distinguish the quantitative Leadership stat from the style of influence. Keep effects transparent and bounded, avoid double-counting existing traits/coaches/culture, and cap stacking from multiple leaders or co-captains so several small bonuses cannot become a large team advantage. Validate fatigue curves, training progression and contract/long-save economy with AI parity before rollout.
+
 Acceptance for any eventual implementation: Leadership is a distinct readable stat; any claimed effect is modest, observable and measured in relevant match/morale contexts; captain assignment and transitions are understandable; invalid/absent captains and older saves are handled safely. Keep this a design follow-up, not an instruction to apply immediate ratings changes.
 
 ### Research refinement — 2026-10-05
