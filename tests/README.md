@@ -199,6 +199,17 @@ Python/JavaScript reimplementation.
 
 CI's `plan` job runs the same check, so a suite left out of every shard fails the run instead of quietly skipping CI.
 
+**A floor counts rules, not data.** A `_check` inside a loop over players, matches or list entries makes the count move whenever the engine or a seed changes how many there are, and the floor then fails for no real reason (it happened three times in one day: "Needs a lift" in matchday, "No player on two lists" in expansion, and a floor recount on the fair fixture). Write one check per case: collect the failures in the loop, then check once.
+
+```gdscript
+var twice := []
+for p in players:
+	if seen.has(p["id"]):
+		twice.append(p["id"])
+	seen[p["id"]] = true
+_check(twice.is_empty(), "No player is on two lists: %s" % str(twice))
+```
+
 ### Long audits on GitHub (`audit.yml`)
 
 A seeded audit in `tools/audit/` that takes more than a few minutes should not tie up a machine. Dispatch it against any branch:
