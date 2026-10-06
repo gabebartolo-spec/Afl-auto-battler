@@ -602,7 +602,8 @@ func _test_plan_is_not_identity() -> void:
 	_new_season()
 	var small := {}
 	for p in GameState.my_list:
-		if str(p.get("role", "")) == "DEF" and float(p.get("height_cm", 0.0)) > 0.0 				and float(p["height_cm"]) < PlayerProfile.KEY_DEF_CM:
+		if str(p.get("role", "")) == "DEF" and float(p.get("height_cm", 0.0)) > 0.0 \
+				and float(p["height_cm"]) < PlayerProfile.KEY_DEF_CM:
 			small = p
 			break
 	_check(not small.is_empty(), "(setup) a medium defender to train")

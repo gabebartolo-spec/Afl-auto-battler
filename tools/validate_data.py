@@ -196,6 +196,47 @@ def check_afl_ladders() -> list[str]:
     return problems
 
 
+def check_forge_locations() -> list[str]:
+    """data/forge_locations.json (Club Forge location library, ARD-M7-009):
+    unique ids, the required fields, a ground and a source on every entry, the
+    mandatory Northern Territory places present, ACT entries as districts, no
+    place an AFL club already represents, and no coordinates."""
+    import json
+
+    path = os.path.join(ROOT, "data", "forge_locations.json")
+    if not os.path.exists(path):
+        return []
+    problems: list[str] = []
+    with open(path, encoding="utf-8") as f:
+        places = json.load(f).get("locations", [])
+    afl = {"adelaide", "brisbane", "carlton", "collingwood", "essendon", "fremantle",
+           "geelong", "gold coast", "greater western sydney", "hawthorn", "melbourne",
+           "north melbourne", "port adelaide", "richmond", "st kilda", "sydney",
+           "west coast", "western bulldogs", "tasmania", "canberra"}
+    required = ("id", "place", "state", "ground", "heritage", "sources")
+    seen: set[str] = set()
+    for e in places:
+        who = e.get("id", "?")
+        for k in required:
+            if not e.get(k):
+                problems.append(f"forge location {who}: missing {k}")
+        if who in seen:
+            problems.append(f"forge location {who}: duplicate id")
+        seen.add(who)
+        if e.get("place", "").strip().lower() in afl:
+            problems.append(f"forge location {who}: an AFL club already represents it")
+        if e.get("state") == "ACT" and "canberra" == e.get("place", "").strip().lower():
+            problems.append(f"forge location {who}: ACT entries are districts")
+        for k in ("lat", "lng", "latitude", "longitude"):
+            if k in e:
+                problems.append(f"forge location {who}: no coordinates ({k})")
+    for must in ("darwin", "alice-springs"):
+        if must not in seen:
+            problems.append(f"forge location {must}: mandatory place missing")
+    print(f"  forge locations: {len(places)} entries checked")
+    return problems
+
+
 def main() -> int:
     with open(CSV_PATH, newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
@@ -262,6 +303,7 @@ def main() -> int:
 
     # --- bio / identity checks ---------------------------------------------
     problems.extend(check_afl_ladders())
+    problems.extend(check_forge_locations())
     problems.extend(check_identity_rules())
     problems.extend(check_bio())
 
