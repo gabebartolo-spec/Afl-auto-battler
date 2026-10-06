@@ -164,6 +164,34 @@ var synergies := [[], []]    # side -> active synergy keys (the starting 18)
 ## the home-ground edge at full form). 0 (the default, and every calibration
 ## match) changes nothing, and it draws nothing from the RNG.
 var form := [0.0, 0.0]
+## The day's weather (Weather.CONDITIONS, ARD-M4-016): the rates the match is
+## played at. "perfect" is the calibrated game, unchanged. The multipliers are
+## fitted to docs/research/WEATHER_EVIDENCE.md (wet: marks -13%, tackles +12%,
+## turnovers +11%, contested ball +7%, accuracy a point or two down; windy:
+## fewer marks, more turnovers, accuracy down; hot: freer early, heavier legs).
+var weather := "perfect":
+	set(v):
+		weather = v if WEATHER_RATES.has(v) or v == "perfect" else "perfect"
+		_rates_cache = {}
+const WEATHER_RATES := {
+	"wet": {"mark_share_of_kicks": 0.87, "pressure_base": 1.12, "clanger_per_chain": 1.10,
+			"stoppage_share": 1.08, "metres_gain_mean": 0.96, "inside50_goal": 0.965},
+	"windy": {"mark_share_of_kicks": 0.92, "clanger_per_chain": 1.06,
+			"metres_gain_mean": 1.03, "inside50_goal": 0.94},
+	"hot": {"pressure_base": 0.97, "stoppage_share": 0.95, "metres_gain_mean": 1.03},
+}
+## Hot days: legs go faster (the Heat Policy's longer breaks don't undo it).
+const HOT_DRAIN := 1.12
+var _rates_cache := {}
+
+
+func _rates() -> Dictionary:
+	if _rates_cache.is_empty():
+		_rates_cache = Ratings.T.duplicate()
+		var mult: Dictionary = WEATHER_RATES.get(weather, {})
+		for k in mult:
+			_rates_cache[k] = float(_rates_cache[k]) * float(mult[k])
+	return _rates_cache
 ## Momentum: who has the run of play, -1 (away on top) .. 1 (home on top).
 ## A goal swings it to the scorers, a behind a little; the swing shrinks as
 ## it nears the cap and a goal the other way pulls it back harder, so it can
@@ -953,7 +981,7 @@ func _pick(group: Array, weights: Array):
 ## bounce deep in your forward half slightly favours the home structure), and
 ## the result is clamped so no list is ever guaranteed the ball.
 func contest_winner(use_fp: bool, fp: float) -> int:
-	var T := Ratings.T
+	var T := _rates()
 	var lim := float(T["contest_clamp"])
 	# Midfield legs scale the contest strength; the Legs line gets the credit.
 	var drag0 := _tag_drag(0)
@@ -1422,7 +1450,7 @@ func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bo
 
 
 func pick_carrier(side: int, fp: float):
-	var T := Ratings.T
+	var T := _rates()
 	var sq: Squad = squads[side]
 	var atk_fp := fp if side == 0 else -fp
 	var zone: String
@@ -1599,7 +1627,7 @@ var _tap := {}
 
 
 func _ruck_tap() -> void:
-	var T := Ratings.T
+	var T := _rates()
 	var ruck := [_contestant(squads[0]), _contestant(squads[1])]
 	var king := 0.0
 	if not (ruck[0] as Array).is_empty() and _trait(ruck[0][0], "ruck_king"):
@@ -1628,7 +1656,7 @@ func _ruck_tap() -> void:
 func _stoppage(side: int, opp: int, from_bounce: bool):
 	if not from_bounce:
 		return null
-	var T := Ratings.T
+	var T := _rates()
 	var atk: Squad = squads[side]
 	var dfn: Squad = squads[opp]
 	var ruck_a := _contestant(atk)
@@ -1732,7 +1760,7 @@ func _boundary_exit(side: int, cross_fp: float, carrier, disposal_kind: String,
 # One possession chain
 # ---------------------------------------------------------------------------
 func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) -> Dictionary:
-	var T := Ratings.T
+	var T := _rates()
 	var opp := 1 - side
 	var atk: Squad = squads[side]
 	var dfn: Squad = squads[opp]
@@ -1996,7 +2024,7 @@ func kick_in_fp(side: int) -> float:
 ## Forward-50 entry resolution: contest the mark, then roll for goal / behind /
 ## rebound. This is where almost all of the scoring variance lives.
 func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
-	var T := Ratings.T
+	var T := _rates()
 	var opp := 1 - side
 	var atk: Squad = squads[side]
 	var dfn: Squad = squads[opp]
@@ -2228,7 +2256,7 @@ func _crumb(side: int, fp: float) -> Dictionary:
 	if crumber == null or rng.randf() >= CRUMB_P * (0.7 + 0.6 * _a(crumber, "pressure") / 100.0):
 		return {}
 	var snap := shot_chance(side, crumber, false, false) * CRUMB_SNAP
-	var behind_p: float = float(Ratings.T["inside50_behind"]) * (0.80 + 0.40 * _a(crumber, "goalkicking") / 100.0)
+	var behind_p: float = float(_rates()["inside50_behind"]) * (0.80 + 0.40 * _a(crumber, "goalkicking") / 100.0)
 	var r := rng.randf()
 	if r < snap:
 		_t(side, "goals")
@@ -2398,7 +2426,7 @@ const FEED_SLOPE := 0.12
 ## call multipliers are also logged as expected points in `impact`.
 func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, credit := false,
 		feeder = null, defender = null) -> float:
-	var T := Ratings.T
+	var T := _rates()
 	var opp := 1 - side
 	var atk: Squad = squads[side]
 	var dfn: Squad = squads[opp]
@@ -2526,7 +2554,7 @@ func quarter_in_progress() -> bool:
 
 
 func begin_quarter() -> void:
-	var T := Ratings.T
+	var T := _rates()
 	# A tired-star call lasts to the break.
 	_held.clear()
 	if current_quarter > 1:
@@ -2559,7 +2587,7 @@ func begin_quarter() -> void:
 ## Play on until the quarter's chains are done (true) or a moment needs the
 ## coach (false: see pending_moment, then resolve_moment()).
 func continue_quarter() -> bool:
-	var T := Ratings.T
+	var T := _rates()
 	while _q_i < _q_count:
 		if not pending_moment.is_empty():
 			return false
@@ -2623,7 +2651,7 @@ func run_extra_time() -> Dictionary:
 	current_quarter = 5
 	q_goals.append([0, 0])
 	q_behinds.append([0, 0])
-	var T := Ratings.T
+	var T := _rates()
 	var per_half: int = maxi(4, roundi(float(T["chains_per_game"]) / 4.0 * 0.15))
 	at_centre = true
 	kick_in = false
@@ -2663,7 +2691,7 @@ func _emit_full_time(prefix: String) -> void:
 ## from `minute_base`. Shared by the four quarters and extra time; the RNG
 ## call order is exactly the original quarter loop's.
 func _play_chains(count: int, minute_base: int, span: int) -> void:
-	var T := Ratings.T
+	var T := _rates()
 	for i in range(count):
 		current_minute = minute_base + int(span * i / maxi(1, count)) + 1
 		_play_one_chain(T)
@@ -2821,6 +2849,7 @@ func result() -> Dictionary:
 		"home": squads[0].code,
 		"away": squads[1].code,
 		"tactics_history": tactics_history.duplicate(true),
+		"weather": weather,
 		"quarter_teams": quarter_teams.duplicate(true),
 		"extra_time": extra_time_played,
 		"impact": impact.duplicate(true),
@@ -2935,6 +2964,8 @@ func _after_chain() -> void:
 		if _burst(side, "surge"):
 			movement_pace *= 1.3
 		var fatigue_pace := movement_pace
+		if weather == "hot":
+			fatigue_pace *= HOT_DRAIN
 		if synergies[side].has("running_machine"):
 			fatigue_pace *= Traits.power("running_machine")
 		var tagger_id := ""
