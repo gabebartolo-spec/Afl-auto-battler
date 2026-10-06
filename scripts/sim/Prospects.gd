@@ -173,6 +173,13 @@ static func project(p: Dictionary) -> void:
 	var shape := _shape_for(role, rng, level)
 	for key in ATTR_KEYS:
 		a[key] = target + float(shape.get(key, 0.0))
+	# Only the football skills are borrowed. Temperament is his own (a
+	# donor's poor discipline on a lesser prospect made hotheads of half the
+	# class), and there are no Brownlow votes or games yet: star stays below
+	# the pack and durability is unproven. All three are set before the fit.
+	a["discipline"] = target + float((ROLE_DELTAS.get(role, ROLE_DELTAS["MID"]) as Dictionary).get("discipline", 0.0))
+	a["star"] = clampf(target - 10.0 + rng.randf_range(-4.0, 4.0), 20.0, 74.0)
+	a["durability"] = clampf(24.0 + gm * 1.8, 24.0, 62.0)
 	if di > 0.0:
 		a["disposal"] = float(a["disposal"]) + clampf((di - 16.0) * 0.4, -2.0, 5.0)
 	if gl > 0.0:
