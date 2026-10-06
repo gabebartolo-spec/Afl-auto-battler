@@ -38,8 +38,8 @@ func run() -> void:
 	_test_numbers_readable()
 	_test_oval_people(res)
 	_test_broadcast_vignettes()
+	_test_set_shot_calls()
 	_test_role_labels(res)
-
 	_test_flood_shape(res)
 	_test_centre_setups(res)
 	GameState.replay_seed = 0
@@ -1048,6 +1048,94 @@ func _test_score_colour() -> void:
 			"A club whose accent reads keeps its own colour for its score")
 	UiKit.apply_appearance(was)
 
+
+## ARD-M4-013: the three set-shot calls are three visibly different
+## sequences, staged only from the players the log names.
+func _test_set_shot_calls() -> void:
+	var played_all := true
+	var pass_ok := 0
+	var pass_seen := 0
+	var pack_ok := 0
+	var pack_seen := 0
+	var outcomes := {}
+	for key in ["pass", "bomb"]:
+		var res := _set_call_match(String(key))
+		if res.is_empty():
+			played_all = false
+			continue
+		var evs: Array = res["events"]
+		var d := MatchDirector.new()
+		d.setup(res, evs)
+		for k in range(evs.size()):
+			var ev: Dictionary = evs[k]
+			var kind := str(ev.get("kind", ""))
+			if kind == "pass":
+				pass_seen += 1
+				var nk := d._next_real(k)
+				var want := d._actor_id(evs[nk]) if nk >= 0 else -1
+				for ph in d._pass_phases(k):
+					if str(ph["t"]) == "flight" and int(ph.get("recv", -1)) == want and want >= 0:
+						pass_ok += 1
+			elif kind == "pack":
+				pack_seen += 1
+				var out := str(ev.get("outcome", ""))
+				outcomes[out] = true
+				var phs: Array = d._pack_phases(k)
+				var members := []
+				var recv := -2
+				for ph in phs:
+					if str(ph["t"]) == "pack":
+						members = ph["members"]
+					if str(ph["t"]) == "flight":
+						recv = int(ph.get("recv", -1))
+				var good := members.size() >= 4
+				for id_key in ["marker_id", "spoiler_id", "defender_id"]:
+					var tk := d._token_by_pid(str(ev.get(id_key, "")))
+					if tk >= 0 and not members.has(tk):
+						good = false
+				if out == "marked":
+					good = good and recv == d._token_by_pid(str(ev.get("marker_id", "")))
+				if good:
+					pack_ok += 1
+		var played := _play(res, evs, 1.0 / 60.0 * 4.0, false)
+		if played["stalled"] or (played["out"] as Array).size() != evs.size():
+			played_all = false
+	_check(pass_seen > 0 and pass_ok == pass_seen,
+			"Playing on is a kick to the teammate leading up, or to the man who cuts it off (%d of %d)" % [pass_ok, pass_seen])
+	_check(pack_seen > 0 and pack_ok == pack_seen and outcomes.size() >= 2,
+			"A bomb goes up into a pack of the players the log names, and ends as logged (%d of %d, %s)" % [
+					pack_ok, pack_seen, str(outcomes.keys())])
+	_check(played_all, "Matches with every set-shot call play through to the end")
+
+
+## A live match where the home coach makes `key` at every set shot offered.
+func _set_call_match(key: String) -> Dictionary:
+	for i in range(40):
+		var sim := _sim(600 + i)
+		sim.moment_side = 0
+		var picked := 0
+		var guard := 0
+		while sim.current_quarter <= 4 and guard < 8:
+			guard += 1
+			sim.begin_quarter()
+			while not sim.continue_quarter():
+				var m := sim.pending_moment
+				var c := int(m.get("default", 0))
+				if str(m["kind"]) == "set_shot":
+					var opts: Array = m["options"]
+					for j in range(opts.size()):
+						if str((opts[j] as Dictionary).get("key", "")) == key:
+							c = j
+							picked += 1
+				sim.resolve_moment(c)
+			sim.end_quarter()
+		if picked >= 3:
+			var res := sim.result()
+			res["home"] = "RIC"
+			res["away"] = "SYD"
+			res["label"] = "Round 1"
+			return res
+	return {}
 
 ## ARD-M8-003 persistent identity: only the players whose job the match
 ## recorded are named on the oval (tagger and his man, the loose defender),

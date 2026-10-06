@@ -376,6 +376,12 @@ func _start_beat(k: int) -> void:
 			_phases = _shot_phases(k)
 		"rebound":
 			_phases = _rebound_phases(k)
+		"pass":
+			_phases = _pass_phases(k)
+		"receive":
+			_phases = _set_receive_phases(k)
+		"pack":
+			_phases = _pack_phases(k)
 		"clanger":
 			_phases = _clanger_phases(k)
 		"ballup":
@@ -738,10 +744,16 @@ func _shot_phases(k: int) -> Array:
 			else signf(_rng.randf() - 0.5) * _rng.randf_range(4.0, 8.5)
 	var target := Vector2(MatchMotion.GOAL_X * _dir(side), gy)
 	var out := []
+	# A bomb that sailed over the pack is still in the air: no new kick.
+	var pk := _prev_real(k)
+	var over := pk >= 0 and str((events[pk] as Dictionary).get("kind", "")) == "pack" \
+			and str((events[pk] as Dictionary).get("outcome", "")) == "through"
 	# A set shot (from a mark) is staged: he steps back and the ground holds.
 	# In open play he kicks on the move and everyone else keeps playing.
 	var set_shot := bool(ev.get("set_shot", true))
-	if s >= 0 and set_shot:
+	if over:
+		pass
+	elif s >= 0 and set_shot:
 		out += [{"t": "collect", "who": s}, {"t": "possess", "who": s, "quiet": true},
 				{"t": "hold", "who": s, "dur": 0.45, "carry": Vector2.INF, "back": true}]
 	elif s >= 0:
@@ -756,6 +768,108 @@ func _shot_phases(k: int) -> Array:
 			{"t": "emit", "log": true, "flash": "goal" if goal else "behind"},
 			{"t": "celebrate", "who": s, "dur": 1.2 if goal else 0.45}]
 	return out
+
+
+## ARD-M4-013: the coach's set-shot call, staged from what the log names.
+## Each call starts the same way, at the mark (he steps back, the ground
+## holds), then looks different: he shoots, plays on to a teammate leading
+## up, or bombs it high into a goal-square pack.
+func _set_up(who: int) -> Array:
+	if who < 0:
+		return []
+	return [{"t": "collect", "who": who}, {"t": "possess", "who": who, "quiet": true},
+			{"t": "hold", "who": who, "dur": 0.45, "carry": Vector2.INF, "back": true}]
+
+
+## Plays on: a short kick to the teammate leading up, or to the defender who
+## cuts it off (a rebound follows when it is intercepted).
+func _pass_phases(k: int) -> Array:
+	var s := _actor_id(events[k])
+	var out := _set_up(s) + [{"t": "emit", "log": true}]
+	var nk := _next_real(k)
+	if nk < 0:
+		return out
+	var nev: Dictionary = events[nk]
+	var r := _actor_id(nev)
+	if r < 0:
+		return out
+	var to: Vector2 = _loc(nk) if str(nev.get("kind", "")) == "receive" else (tokens[r]["pos"] as Vector2)
+	var d := (ball["pos"] as Vector2).distance_to(to)
+	var shape := _flight_shape("kick", d)
+	out.append({"t": "flight", "to": to, "dur": shape.x, "apex": shape.y, "recv": r,
+			"adapt": true, "h1": 2.4, "mode": "open"})
+	return out
+
+
+## He marks the pass on the lead: his own set shot follows.
+func _set_receive_phases(k: int) -> Array:
+	var a := _actor_id(events[k])
+	if a < 0:
+		return [{"t": "emit", "log": true}]
+	return [{"t": "collect", "who": a, "max": 0.3}, {"t": "possess", "who": a},
+			{"t": "emit", "log": true}]
+
+
+## Bombed into the goal square: the named players and the nearest of each
+## side form the pack under a high ball; it ends as the log says. "through"
+## leaves the ball with the kicker, whose own shot follows over the pack.
+func _pack_phases(k: int) -> Array:
+	var ev: Dictionary = events[k]
+	var side := int(ev.get("side", 0))
+	var outcome := str(ev.get("outcome", ""))
+	var kicker := int(ball["holder"])
+	if kicker < 0 and outcome == "through":
+		kicker = _actor_id(ev)
+	var at := Vector2(clampf(float(ev.get("fp", 0.0)), -MatchMotion.GOAL_X, MatchMotion.GOAL_X), 0.0)
+	var named := {}
+	for key in ["marker_id", "spoiler_id", "crumber_id", "defender_id"]:
+		var t := _token_by_pid(str(ev.get(key, "")))
+		if t >= 0:
+			named[key] = t
+	var members := []
+	for key in named:
+		if not members.has(named[key]) and key != "crumber_id":
+			members.append(named[key])
+	var skip := members + ([kicker] if kicker >= 0 else [])
+	members += _nearest(at, side, 2, skip) + _nearest(at, 1 - side, 2, skip)
+	var out := _set_up(kicker)
+	out.append({"t": "pack", "at": at, "members": members, "min": 0.3, "max": 1.0, "mode": "shot"})
+	# The crumber lurks at the front of the pack, not in it.
+	if named.has("crumber_id"):
+		var front := at - Vector2(6.0 * _dir(side), 0.0)
+		out.append({"t": "hold", "who": named["crumber_id"], "dur": 0.0, "carry": front})
+	var d := (ball["pos"] as Vector2).distance_to(at)
+	var flight := {"t": "flight", "to": at, "dur": 0.4 + d / 42.0, "apex": clampf(8.0 + d * 0.25, 10.0, 18.0),
+			"recv": -1, "h1": 2.6, "mode": "shot"}
+	match outcome:
+		"through":
+			# Over every hand in the pack: the score beat carries it on.
+			flight["h1"] = 5.5
+			out.append(flight)
+			return out + [{"t": "emit", "log": true}]
+		"marked", "defence":
+			var who := int(named.get("marker_id" if outcome == "marked" else "defender_id", -1))
+			flight["recv"] = who
+			out.append(flight)
+			if who >= 0:
+				out += [{"t": "possess", "who": who}]
+			return out + [{"t": "emit", "log": true}]
+		_:
+			# Spoiled: a fist in the pack and the ball spills to the deck.
+			out.append(flight)
+			var sp := int(named.get("spoiler_id", -1))
+			if sp >= 0:
+				out.append({"t": "collect", "who": sp, "max": 0.18})
+			return out + [{"t": "emit", "log": true}, {"t": "fumble", "dur": 0.28}]
+
+
+func _token_by_pid(pid: String) -> int:
+	if pid == "":
+		return -1
+	for t in tokens:
+		if str(t["pid"]) == pid:
+			return int(t["id"])
+	return -1
 
 
 func _rebound_phases(k: int) -> Array:

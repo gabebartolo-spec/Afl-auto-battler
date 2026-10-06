@@ -62,6 +62,7 @@ func run() -> void:
 	_test_tag_tradeoff()
 	_test_through_stars()
 	_test_set_shot_bands()
+	_test_set_shot_calls()
 	_test_forward_archetypes()
 	print("Match game tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -2420,6 +2421,101 @@ func _test_forward_archetypes() -> void:
 	_check(small_crumb > key_crumb + 0.08, "More of a small forward's come off the deck (%.0f%% vs %.0f%%)" % [100.0 * small_crumb, 100.0 * key_crumb])
 	_check(sg[0] > 0 and kg[1] + kg[2] > 0, "Either kind still scores the other way")
 
+
+## ARD-M4-013: each call plays out as its own sequence, and every event it
+## makes says which call it was (the view draws only who these name).
+func _test_set_shot_calls() -> void:
+	var keys := ["shoot", "pass", "bomb"]
+	var n := {"shoot": 0, "pass": 0, "bomb": 0}
+	var tagged := true
+	var result_flag := true
+	var leftover := true
+	var pass_ok := true
+	var pass_once := true
+	var pack_ok := true
+	var outcomes := {}
+	var turn := 0
+	for seed in range(4800, 4840):
+		var live := _sim(seed)
+		live.moment_side = 0
+		while live.current_quarter <= 4:
+			live.begin_quarter()
+			while not live.continue_quarter():
+				var m: Dictionary = live.pending_moment
+				if str(m["kind"]) != "set_shot":
+					live.resolve_moment(int(m.get("default", 0)))
+					continue
+				var key: String = keys[turn % 3]
+				turn += 1
+				var pick := -1
+				var opts: Array = m["options"]
+				for i in range(opts.size()):
+					if str(opts[i]["key"]) == key:
+						pick = i
+				if pick < 0:
+					live.resolve_moment(0)
+					continue
+				n[key] += 1
+				var shooter_id := str(m["player_id"])
+				var disp_before := float((live.player_stats.get(shooter_id, {}) as Dictionary).get("disposals", 0.0))
+				var from := live.events.size()
+				live.resolve_moment(pick)
+				var made := []
+				var after_moment := false
+				for k in range(from, live.events.size()):
+					var e: Dictionary = live.events[k]
+					if str(e["kind"]) == "moment":
+						after_moment = true
+						continue
+					if after_moment:
+						leftover = leftover and not e.has("choice")
+					elif e.has("choice"):
+						made.append(e)
+				for e in made:
+					tagged = tagged and str(e["choice"]) == key
+				var res: Dictionary = made[made.size() - 1] if not made.is_empty() else {}
+				result_flag = result_flag and ["goal", "behind", "rebound"].has(str(res.get("kind", ""))) 						and bool(res.get("setshot", false))
+				var kinds := made.map(func(e): return str(e["kind"]))
+				if key == "pass":
+					var disp_after := float((live.player_stats.get(shooter_id, {}) as Dictionary).get("disposals", 0.0))
+					pass_once = pass_once and is_equal_approx(disp_after - disp_before, 1.0)
+					pass_ok = pass_ok and kinds.size() >= 2 and kinds[0] == "pass"
+					if kinds.has("receive"):
+						var rec: Dictionary = made[kinds.find("receive")]
+						pass_ok = pass_ok and str(res.get("passer_id", "")) == shooter_id 								and str(res.get("to_id", "")) == str(rec["player_id"])
+				if key == "bomb":
+					var packs := made.filter(func(e): return str(e["kind"]) == "pack")
+					pack_ok = pack_ok and packs.size() == 1
+					if packs.size() == 1:
+						var pk: Dictionary = packs[0]
+						var oc := str(pk["outcome"])
+						outcomes[oc] = int(outcomes.get(oc, 0)) + 1
+						var scored := ["goal", "behind"].has(str(res.get("kind", "")))
+						match oc:
+							"marked":
+								pack_ok = pack_ok and str(pk["marker_id"]) != "" 										and (not scored or str(res["player_id"]) == str(pk["marker_id"]))
+							"spoiled":
+								pack_ok = pack_ok and str(pk["spoiler_id"]) != ""
+								if str(pk["crumber_id"]) != "" and scored:
+									pack_ok = pack_ok and str(res["player_id"]) == str(pk["crumber_id"]) 											and bool(res.get("crumb", false))
+							"defence":
+								pack_ok = pack_ok and str(pk["defender_id"]) != "" and str(res["kind"]) == "rebound"
+							"through":
+								pack_ok = pack_ok and scored and str(res["player_id"]) == str(m["player_id"])
+							_:
+								pack_ok = false
+			live.end_quarter()
+		if n["shoot"] >= 15 and n["pass"] >= 15 and n["bomb"] >= 25:
+			break
+	_check(n["shoot"] > 0 and n["pass"] > 0 and n["bomb"] > 0, "Each set-shot call gets played (%s)" % str(n))
+	_check(tagged, "Every event a set-shot call makes names that call")
+	_check(result_flag, "Each call ends in a goal, a behind or a rebound marked as the set shot's")
+	_check(leftover, "The call's tag stops when its chain does")
+	_check(pass_ok, "Playing on shows the pass, then the mark, and the shot names both men")
+	_check(pass_once, "Playing on counts the marker's kick once")
+	_check(pack_ok, "A bomb makes one pack, and its result belongs to who the pack names")
+	_check(outcomes.has("marked") and outcomes.has("spoiled") and outcomes.has("defence"),
+			"The pack is marked, spoiled to the deck or won by the defence (%s)" % str(outcomes))
 ## The Defensive forward (director, 2026-10-06): one of your forwards goes to
 ## their loose defender. A Defensive forward keeps him out of more contests
 ## than any other forward would; the cost is the forward's own game.
