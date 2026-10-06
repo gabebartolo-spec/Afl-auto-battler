@@ -5,6 +5,14 @@ low agent, who keeps this file from 2026-10-06 (other agents can't push to its b
 The director decides; the high agent directs the agents.
 _Updated 2026-10-06 (refresh 22). Since refresh 21: #303 (defensive forward), #455 (synergy short), #464 (synergy audits), #470 (snaps check as a share), #468 and #466 (docs). Since refresh 20: #438 (match view truth fixes), #445 (tactical timeline), #442 (hair overlays), #383 (trades at real volume), #439 and #450 (weather data and evidence), #452 (CI skips drafts and tool-only changes), #440 and #446 (audits), #463 (set-shot audit) and the docs PRs #459, #460 and #461 (the 2026 rules). Roadmap status lines for the merges are in the docs PR that carries this refresh._
 
+## Temporary merge-backlog policy — director instruction, 2026-10-06
+
+ChatGPT is managing the existing merge backlog during the Claude usage pause. Preserve all actual updates: do not delete branches, discard commits, overwrite another agent's work, lower test floors to hide missing checks, or bypass required validation.
+
+Until this backlog pass finishes, do not launch new speculative/exploratory audits. Keep the latest required PR checks, necessary balance evidence and before/after baseline comparisons. Re-run only a demonstrated failed check or a specifically identified missing merge gate; avoid duplicate whole-suite runs on unchanged commits. Existing independent seed runs are not duplicates merely because they share a branch.
+
+Cancellation record: capture-tool Tests run **37459603200** was superseded by conflict-resolved head checks **37462314537**; older kick-lane calibration audit **37460764077** was stopped while the newer branch-head audit **37460892048** continues. These cancellations stop execution only; source branches/commits are retained, and no completed evidence is deleted. Any distinct older calibration comparison can be resumed later if needed.
+
 ## Lanes
 | agent (session) | owns |
 |---|---|
