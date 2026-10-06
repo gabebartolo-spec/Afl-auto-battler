@@ -273,6 +273,9 @@ const CAM_H := 12.0               # and up (low enough that the stand stays in t
 ## The zoom: the square at the start's framing (as the old camera at 34 m) out to the
 ## ruck contest's (as at 17 m), then a last punch-in on the freeze.
 const ZOOM := [46.0 / 34.0, 46.0 / 18.5, 46.0 / 17.0]
+## The centre of the ground, as a share of the screen's height: while the play
+## builds, and once the call is up (it takes the bottom of the screen).
+const CENTRE_Y := [0.58, 0.46]
 var _cam_d := CAM_D
 var _cam_h := CAM_H
 var _focal := 400.0
@@ -295,8 +298,11 @@ func _set_camera() -> void:
 	# painted lines would skew as it went - director).
 	_cam_x = CAM_X
 	_pan = _focal * (CAM_X * 0.35 - CAM_X) / (_cam_d + 5.0) * k
-	# The centre of the ground sits above the middle, clear of the call.
-	_horizon = size.y * 0.46 - _focal * _cam_h / _cam_d
+	# Where the centre of the ground sits: low enough to fill the screen while the
+	# play builds, then lifted clear of the call as it slides up - the same push-in
+	# as the freeze, so one move makes room for the call rather than empty turf
+	# waiting for it all scene.
+	_horizon = size.y * lerpf(CENTRE_Y[0], CENTRE_Y[1], punch) - _focal * _cam_h / _cam_d
 
 
 ## World (x across, y towards your goal, h up) to screen, and metres to pixels there.
