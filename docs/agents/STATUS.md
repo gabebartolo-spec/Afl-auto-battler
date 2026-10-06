@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06. Since the last board merged: #376 (real-AFL trade volume), #380 (the board), #381 (the FL-001 copy audit) and #384 (the art pipeline skill)._
+_Updated 2026-10-06. Since the last board merged: #386 (three football-language copy fixes), #388 (the board), #391 (the roadmap, after #361 and #359), #397 (the scene baselines) and #399 (the director's decisions on animation and the Stat Guide). #379 (development projects matter) is on main._
 
 ## Lanes
 | agent (session) | owns |
@@ -33,9 +33,9 @@ _Updated 2026-10-06. Since the last board merged: #376 (real-AFL trade volume), 
 **Decisions made, being built:** trades at real volume (lead); synergy selection and development projects must have an impact (#379, medium, in review). The clearance rule is merged (#373). All recorded in ROADMAP §9.1 (#365).
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- In flight on CI: #378 (player origin, data, reviewed), #382 (remove scars: the lead confirms on the PR, then merge on green), #386 (three football-language copy fixes) and #387 (career_ui press-conference check counts once). #379 (development projects matter, medium) is in review; the lead's W7 is on it.
-- **Must not merge until the director has looked (prototypes):** #385 (club marker A, stacked on #360) and #392 (FL-005 nicknames and interests on the profile).
-- #393 (ruck/DEF calibration, medium): merge on green after the lead's W7.
+- In flight on CI: #378 (player origin, data, reviewed), #382 (remove scars: the lead confirms on the PR, then merge on green), #387 (career_ui press-conference check counts once), #396 (roadmap, M5-003), #398 (the Stat Guide in words, approved with two wording fixes made), #402 (tests/README floors) and #403 (roadmap status lines). #393 (ruck/DEF) and #383 (trade market) are green and wait on their W7.
+- **Must not merge until the director has looked (prototypes):** #385 (club marker A, stacked on #360), #392 (FL-005 nicknames and interests on the profile), #395 (FL-006 headlines), #400 (FL-002 milestone banners), #389 and #401 (the STYLE-08 light inventory and its part 3), #394 (hair review).
+- #390 (roadmap, hair decisions) conflicts with main and needs its owner to sync.
 - #342 (codex docs) conflicts with main and needs its owner to sync. #368 (kit options, draft) has no gate note yet.
 - Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval). #291 is the director's Codex research: do not merge.
 - On main, awaiting the director's look: #276 press conference, #277 Training-row alignment.
@@ -43,15 +43,15 @@ _Updated 2026-10-06. Since the last board merged: #376 (real-AFL trade volume), 
 ## In progress
 - **Lead:** P0 STYLE-07, unreadable PC fullscreen (#371); trades at real volume.
 - **Medium:** development projects (#379); the ruck and midfield calibration after the clearance rule; reviews of low's PRs.
-- **Low:** the merge queue, the board, the shard re-time after #340, #361 and #373, then the next items the medium agent queues.
+- **Low:** the merge queue, the board, the shard re-time after #340, #361 and #373 (waiting on a green main run), then the next items the medium agent queues.
 
 ## Open PRs and dependencies
 | PR | owner | notes |
 |---|---|---|
-| #378 | low | player origin (data only, reviewed) |
-| #382, #386, #387 | low | remove scars (lead confirms); copy fixes; career_ui flake |
+| #378, #402, #403 | low | player origin (data, reviewed); tests/README floors; roadmap status lines |
+| #382, #387, #396, #398 | low | remove scars (lead confirms); career_ui flake; roadmap M5-003; the Stat Guide in words (approved) |
 | #385 | medium | club marker A, a prototype on #360; the director's look before it merges |
-| #379 | medium | development projects matter; review |
+| #393, #383 | medium and lead | ruck/DEF calibration and the trade market; green, waiting on W7 |
 | #371 | lead | STYLE-07 PC readability; director's PC look |
 | #360 | lead | Create a club screen; approved, merges after #309 |
 | #309, #303 | lead and medium | director's look |
