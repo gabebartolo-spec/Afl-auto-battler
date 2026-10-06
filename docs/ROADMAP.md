@@ -3906,7 +3906,6 @@ Player-facing choices should stay concise:
 - **facial hair** from a dedicated beard/moustache library,
 - **facial-hair colour** independently selectable from hair colour,
 - **skin tone**,
-- **subtle scars: None / Light / Moderate**,
 - **boots** with a small set of silhouettes/colour treatments (black, white and restrained club-colour accents),
 - **sock height: Tall socks / Short socks**,
 - **headband: On / Off**,
@@ -4138,7 +4137,6 @@ Appearance customisation should include:
 - **Facial hair** from a dedicated beard/moustache library,
 - **Facial-hair colour**, independently selectable,
 - **Skin tone**,
-- **Scars None / Light / Moderate**, kept subtle and believable,
 - **Boots** with a compact set of silhouettes and colour treatments,
 - **Tall socks / Short socks**,
 - **Headband On / Off**,
@@ -5409,6 +5407,7 @@ From the director's chat with the lead, relayed with the director's words where 
 - **Synergy selection and development projects must have an impact.** Director: "why do we have these features if they dont have an impact, fix them". Fix both so that using them lifts a club, then measure again with the same harness.
 - **Clearance winner keeps the first disposal** (option 1 of the ruck and midfield disposals evidence). Merged (#373): ruck disposals 8.0 to 12.0, with the calibration and finals re-run.
 - **Create a club screen approved.** Director: "looks fantastic, well done". It merges after the Create a player form and the Create a club engine, because it is built on both.
+- **Scars removed from the player look.** Director, in chat with the lead, 2026-10-06: "remove scarring from the game, unnecessary detail". The look keeps no scars key; old saves that carry one load fine and ignore it, and no generated player's look changes.
 - **Freckles removed from the player look.** Confirmed in the director's own words: "i alreeady said to delete freckles from the game". Merged (#357, #354); the saved-look cleanup (#382) is in review.
 - **Hair and beard look-dev stopped.** Director, in chat, 2026-10-06 (relayed by the lead): "this hair/beard stuff is no good". The current hair and beard library work stops; nothing from it is rolled out.
 - **The director's hair research is the brief.** The director's own research (Codex `outputs/Claude_Hair_Quality_Research.md`) is adopted as the brief for hair. Three prototypes (Fritsch-inspired, rooted dreadlocks, short textured) go through the production path, are reviewed in Blender and at game scale, and only then does any library rollout start. Appearance changes still merge only on the director's own approval.
@@ -5905,6 +5904,7 @@ The eight includes are the complete decision record. There are no rejected style
 
 # 10. Roadmap Maintenance Log
 
+- **2026-10-06:** Scars removed from the player look (director, in chat with the lead: "remove scarring from the game, unnecessary detail"); the Club Forge look specification no longer lists them.
 - **2026-10-06:** Recorded two hair decisions in §9.1 (director, relayed by the lead): hair and beard look-dev stopped; the director's hair research adopted as the brief (three prototypes through the production path, reviewed in Blender and at game scale, before any rollout).
 - **2026-10-06:** ARD-M5-003: development projects made to matter is merged (#379).
 - **2026-10-06:** ARD-M7-009 status: the fair fixture for 18 to 21 clubs (#361) and the club-count board defaults (#359) are merged, with the Create a club engine (#340); the screen (#360) and Create a player (#309) wait on the director.
