@@ -6,7 +6,8 @@ extends SceneTree
 ## Writes <out>_sheet.png: warm-up, final instructions and the banner on a phone.
 ## --film: also writes <out>_film_NNN.png, the whole scene at 12 frames a second (the
 ## run through the banner included), for checking motion.
-## --flags 2031,2029,2028: premiership pennants for those years (FL-008).
+## --flags 2031,2029,2028: premiership pennants for those years (FL-008); --club CODE:
+## the home club (Collingwood by default).
 
 const W := 390
 const H := 844
@@ -26,9 +27,12 @@ func _run() -> void:
 	var a := OS.get_cmdline_user_args()
 	var film := a.has("--film")
 	var ctx := {}
+	var me := "COL"
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
+		if str(a[i]) == "--club":
+			me = str(a[i + 1])
 		if str(a[i]) == "--flags":
 			ctx["flags"] = Array(str(a[i + 1]).split(",")).map(func(y): return int(y))
 	await process_frame
@@ -38,16 +42,16 @@ func _run() -> void:
 	state.save_path = "user://capture.save"
 	state.settings_path = "user://capture_settings.cfg"
 	state.reset()
-	state.start_season("COL", db.club_list("COL"))
+	state.start_season(me, db.club_list(me))
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
 	var opp := "ESS"
 	# Everyone named, as the game passes them: the 18 and the interchange.
 	var opp_squad = load("res://scripts/sim/Squad.gd").new(opp, state.season.lists[opp], false, opp)
 	var opp_ground: Array = opp_squad.ground + opp_squad.bench
-	var vig = load("res://scripts/ui/match/PreMatchVignette.gd").open(root, "COL", opp,
+	var vig = load("res://scripts/ui/match/PreMatchVignette.gd").open(root, me, opp,
 			state.my_squad().ground + state.my_squad().bench, opp_ground,
-			"Round 1  ·  Collingwood v Essendon", false, ctx)
+			"Round 1  ·  %s v Essendon" % db.club_name(me), false, ctx)
 	vig.set_process(false)
 	var shots := []
 	for beat in BEATS:
