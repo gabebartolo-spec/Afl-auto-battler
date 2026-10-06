@@ -563,6 +563,14 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+### Rework opposition goal-run decision around concrete defensive actions — PC playtest (2026-10-07)
+
+- The director likes the defensive agency of “They have kicked 3 in a row” but finds Throw numbers at it / Slow it down / Ride it out arbitrary and poorly suited to interesting vignettes. **Redesign the event and its decisions**, rather than merely rewording the same abstract buffs. Preserve the opportunity to respond defensively to an opposition scoring run.
+- Ground the situation in observable match events and identifiable players, and offer understandable football actions with distinct, visible consequences and meaningful tradeoffs. Candidate directions for design review include adjusting a specific defensive matchup, moving a named spare behind the ball, or changing a concrete defensive structure; these are suggestions, not approved final options. Make the action, affected players, duration and tradeoff clear without claiming an automatic cure for the goal run. Respect the separate tagging, defensive-forward, key-matchup and interceptor eligibility rules and existing user overrides.
+- **No vignettes currently cover this event, per the director.** Design the choices and visual scenes together so every branch has relevant vignette coverage when enabled: show the actual defensive adjustment and subsequent relevant play, consistent with recorded outcomes. Avoid a generic unrelated cinematic or arbitrary statistical bonus disguised as an action. Retain the global Vignettes On/Off requirement: disabling presentation must preserve the decision and simulation. Follow up with concise, clearly scoped observed results so users can judge their call, without overstating causation.
+- Keep the panel compact and remove the pictured excessive empty space. Record this as a design/implementation requirement for Claude; no game code changed here.
+
+
 ### Every in-match decision requires a vignette; global toggle — PC playtest requirement (2026-10-07)
 
 - **Reaffirmed director requirement:** every in-match decision requires a vignette when vignettes are enabled. The pictured Jake Waterman mark from 45 metres on a slight angle presents only a text decision panel; cover this moment and its Take the shot / Play on to Dougie Cochrane / Bomb to the goal square branches with appropriate visual presentation. Audit all decision types and branches for missing coverage rather than fixing only this example. Show the actual named players, team appearance and relevant situation, and keep the presentation consistent with the chosen action and recorded outcome. Do not substitute a generic unrelated cinematic or leave uncovered decisions as text-only while claiming completion.
