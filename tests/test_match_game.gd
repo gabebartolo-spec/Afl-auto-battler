@@ -40,6 +40,7 @@ func run() -> void:
 	_test_no_role_gates()
 	_test_spoils_and_crumbs()
 	_test_roaming_interceptor()
+	_test_zone_intercepts()
 	_test_defensive_forward()
 	_test_hot_player_moment()
 	_test_matchups()
@@ -1466,6 +1467,54 @@ func _test_roaming_interceptor() -> void:
 	var story := MatchNotes.interceptor_story(fake, 0)
 	_check(story.size() == 1 and str(story[0]).contains("controlled the air"),
 			"Full time explains a spare only when real roaming contests support it")
+
+
+## ARD-M4-012 (the director: "any player can intercept, but the loose
+## defender should get more intercepts if he's good at it"). A long kick is
+## contested by whoever is in that part of the ground; the defender who wins it
+## can mark it, and the ball won off the other side's error is an intercept.
+func _test_zone_intercepts() -> void:
+	var sim := _sim(8300)
+	_check(sim._aerial_zone(0, -40.0) == "back" and sim._aerial_zone(0, 40.0) == "forward"
+			and sim._aerial_zone(1, 40.0) == "back" and sim._aerial_zone(1, 0.0) == "middle",
+			"An aerial contest's zone is read from the defending side's end")
+	var by_role := {}
+	var loose_ic := 0.0
+	var def_ic := 0.0
+	var def_games := 0
+	var marks_ok := true
+	var flagged := 0
+	var imk := 0.0
+	for seed in range(8300, 8316):
+		var m := _sim(seed, "ADE", "SYD")
+		var best := Matchups.best_interceptor((m.squads[1] as Squad).ground, 0.0)
+		m.set_interceptor(1, str(best.get("id", "")), false)
+		var res := m.run()
+		for side in range(2):
+			for p in (res["roster"][side] as Array):
+				var st: Dictionary = res["players"].get(str(p["id"]), {})
+				var n := float(st.get("intercepts", 0.0))
+				var role := str(p.get("role", ""))
+				by_role[role] = float(by_role.get(role, 0.0)) + n
+				imk += float(st.get("intercept_marks", 0.0))
+				if float(st.get("intercept_marks", 0.0)) > float(st.get("marks", 0.0)):
+					marks_ok = false
+				if side == 1 and str(p["id"]) == str(best.get("id", "")):
+					loose_ic += n
+				elif side == 1 and role == "DEF":
+					def_ic += n
+					def_games += 1
+		for ev in res["events"]:
+			if str(ev.get("kind", "")) == "mark" and bool(ev.get("intercept", false)):
+				flagged += 1
+	_check(float(by_role.get("FWD", 0.0)) > 0.0 and float(by_role.get("MID", 0.0)) > 0.0
+			and float(by_role.get("DEF", 0.0)) > float(by_role.get("MID", 0.0)),
+			"Any player can intercept, defenders most: %s" % str(by_role))
+	_check(imk > 0.0 and flagged > 0 and marks_ok,
+			"Intercept marks happen, are flagged in the log and count as marks (%d)" % int(imk))
+	_check(loose_ic / 16.0 > def_ic / float(maxi(1, def_games)),
+			"A good loose defender intercepts more than the other defenders (%.1f against %.1f a game)" % [
+					loose_ic / 16.0, def_ic / float(maxi(1, def_games))])
 
 
 ## A tag is a midfield job: a forward kicking a bag never gets a tag card
