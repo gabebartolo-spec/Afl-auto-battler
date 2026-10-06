@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06. Since the last board merged: #299 (vignettes, director approved), #362, #365, #369, #370 (flags evidence, the director decisions in the roadmap, the free-kicks note and the board)._
+_Updated 2026-10-06. Since the last board merged: #340 (Club Forge Create a club engine), #345 (shard rebalance), #361 (the fair fixture, 18 to 21 clubs), #362, #363, #365, #373 (the clearance winner keeps the first disposal), #374, #375, #377 (docs and evidence from low, medium and the lead)._
 
 ## Lanes
 | agent (session) | owns |
@@ -30,29 +30,29 @@ _Updated 2026-10-06. Since the last board merged: #299 (vignettes, director appr
 **Own-words confirmations** (the decision reached the agents second-hand; held until the director says it on the PR or in the chat):
 - None open. #299 vignettes were approved in the director's own words in chat and merged; #357 freckles was confirmed in the director's words and merged.
 
-**Decisions made, being built:** trades at real volume (lead); the clearance winner keeps the first disposal (medium, PR coming); synergy selection and development projects must have an impact (the projects proposal is with the lead). Recorded in ROADMAP §9.1 (#365). The lever table is done: neither lever clearly moves the ladder; development projects currently cost about 0.7 OVR in the season they run.
+**Decisions made, being built:** trades at real volume (lead); synergy selection and development projects must have an impact (#379, medium, in review). The clearance rule is merged (#373). All recorded in ROADMAP §9.1 (#365).
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- In flight on CI: #340 (Club Forge Create a club engine, lead; floor 486), then #365 (director decisions, docs), #369 (free-kicks note, docs). #361 (the fair fixture) follows once #340 is in: medium merges main and recounts the expansion floor. #362 (flags options) waits on the lead's sign-off.
+- In flight on CI: #376 (real-AFL trade volume, data) and #378 (player origin, a home state for the 2026 lists, data), both reviewed. #379 (development projects matter, medium) is in review.
 - #342 (codex docs) conflicts with main and needs its owner to sync. #368 (kit options, draft) has no gate note yet.
 - Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval). #291 is the director's Codex research: do not merge.
 - On main, awaiting the director's look: #276 press conference, #277 Training-row alignment.
 
 ## In progress
-- **Lead:** P0 STYLE-07, unreadable PC fullscreen (#366), branch `claude/style07-desktop-scale`; the Club Forge Create a club engine (#340); trades at real volume.
-- **Medium:** the fair fixture (#361) for 18 to 21 clubs (a created club can make any count from 18 to 21, ROADMAP §9.1); the clearance rule PR; the audits and reviews of low's PRs.
-- **Low:** the merge queue, the board, then the next items the medium agent queues.
+- **Lead:** P0 STYLE-07, unreadable PC fullscreen (#371); trades at real volume.
+- **Medium:** development projects (#379); the ruck and midfield calibration after the clearance rule; reviews of low's PRs.
+- **Low:** the merge queue, the board, the shard re-time after #340, #361 and #373, then the next items the medium agent queues.
 
 ## Open PRs and dependencies
 | PR | owner | notes |
 |---|---|---|
-| #352, #340, #349, #359 | low and lead | queue order above; #340 also needs #361 for 21 clubs |
-| #361 | medium | the fair fixture; recounts the expansion floor with #359 |
-| #345 | low | CI shard rebalance, re-timed |
-| #362, #363 | medium | evidence for the director's decisions |
+| #376, #378 | low | trade volume; player origin (data only, reviewed) |
+| #379 | medium | development projects matter; review |
+| #371 | lead | STYLE-07 PC readability; director's PC look |
+| #360 | lead | Create a club screen; approved, merges after #309 |
+| #309, #303 | lead and medium | director's look |
 | #342 | codex | favourite-club bios and quarter-break stats, ROADMAP only; needs a sync with main |
-| #299, #357 | art and medium | held for the director's own words |
-| #360, #303, #309 | lead and medium | director's look |
+| #368 | draft | kit options; no gate note yet |
 | #291 | director | Codex research and playbook; do not merge |
 | #206 | director | superseded by #208; close |
 
