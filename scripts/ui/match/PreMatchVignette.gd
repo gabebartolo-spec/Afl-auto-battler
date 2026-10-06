@@ -483,15 +483,16 @@ func _draw() -> void:
 ## it a pennant. A club colour as dark as the stand swaps with the band's. Newest in
 ## the middle, behind the race; at most PENNANTS. So the row isn't stamped out, each
 ## hangs a pixel or two higher or lower than the next and its tip droops, alternately
-## left and right. High enough on the upper tier that the run doesn't hide their tips
+## left and right. They hang from a wire across the stand. High enough on the upper tier that the run doesn't hide their tips
 ## behind the banner (half a pennant is worse than none).
 const PENNANTS := 6
 const PENNANT_LEN := 9.0              # metres: about 42 px on a phone
 const PENNANT_GAP := 1.5              # pennant widths, centre to centre
 const PENNANT_AT := 116.0             # on the upper tier, behind the fence and the lower tier
 const PENNANT_TOP := 25.0
+const WIRE := Color(0.36, 0.36, 0.38)
 const PENNANT_DROOP := 8.0            # degrees: the last third of each, bent aside
-const PENNANT_BAND := 0.22
+const PENNANT_BAND := 0.15
 ## Roughly the value of the stand behind them: a colour within 0.15 of it vanishes.
 const STAND_VALUE := 0.1
 
@@ -508,6 +509,12 @@ func _draw_pennants() -> void:
 		body = band
 		band = was
 	var w := PENNANT_LEN / 2.0
+	# The wire they hang from, a little past the outer two.
+	var reach := (float((flags.size()) / 2) + 0.6) * w * PENNANT_GAP
+	var wl := _project(Vector2(-reach, PENNANT_AT), PENNANT_TOP)
+	var wr := _project(Vector2(reach, PENNANT_AT), PENNANT_TOP)
+	if wl.z > 0.0:
+		draw_line(Vector2(wl.x, wl.y), Vector2(wr.x, wr.y), WIRE, 1.0)
 	for k in range(flags.size()):
 		# Out from the middle: newest first, then one each side in turn.
 		var slot := (k + 1) / 2 * (1 if k % 2 == 1 else -1)
