@@ -416,7 +416,7 @@ func _test_no_wrong_way_kicks(res: Dictionary) -> void:
 		pv.setup(r)
 		pv.playing = true
 		var events: Array = pv.events
-		var last := [Vector2.INF, Vector2.INF]
+		var last := [Vector2.INF, Vector2.INF, -2]
 		var flights := 0
 		var wrong := 0
 		var flipped := 0
@@ -431,12 +431,15 @@ func _test_no_wrong_way_kicks(res: Dictionary) -> void:
 				continue
 			var from: Vector2 = ball["from"]
 			var to: Vector2 = ball["to"]
-			if from == last[0] and to == last[1]:
+			# The same flight is the same beat too: two centre bounces either side
+			# of a break both fly (0,0) to (0,0) and are not one ball in the air.
+			var beat_k := int(pv.director._beat.get("k", -1))
+			if from == last[0] and to == last[1] and beat_k == int(last[2]):
 				if pv.period != period:
 					flipped += 1   # the ends changed with the ball in the air
 					period = pv.period
 				continue
-			last = [from, to]
+			last = [from, to, beat_k]
 			period = pv.period
 			flights += 1
 			var k := int(pv.director._beat.get("k", -1))

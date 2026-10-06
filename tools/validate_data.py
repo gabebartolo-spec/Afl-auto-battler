@@ -196,6 +196,11 @@ def check_afl_ladders() -> list[str]:
     return problems
 
 
+# GameDB.GUERNSEY_DESIGNS, without the coach's suit and the Tasmania map.
+DESIGNS = {"plain", "stripes", "hoops", "sash", "yoke", "band", "chevrons", "panels",
+           "chevron", "sides", "tiers", "shoulders"}
+
+
 def check_forge_locations() -> list[str]:
     """data/forge_locations.json (Club Forge location library, ARD-M7-009):
     unique ids, the required fields, a ground and a source on every entry, the
@@ -227,6 +232,9 @@ def check_forge_locations() -> list[str]:
             problems.append(f"forge location {who}: an AFL club already represents it")
         if e.get("state") == "ACT" and "canberra" == e.get("place", "").strip().lower():
             problems.append(f"forge location {who}: ACT entries are districts")
+        for t in e.get("pattern_tags", []):
+            if t not in DESIGNS:
+                problems.append(f"forge location {who}: pattern tag {t!r} is not a guernsey design")
         for k in ("lat", "lng", "latitude", "longitude"):
             if k in e:
                 problems.append(f"forge location {who}: no coordinates ({k})")
@@ -234,6 +242,72 @@ def check_forge_locations() -> list[str]:
         if must not in seen:
             problems.append(f"forge location {must}: mandatory place missing")
     print(f"  forge locations: {len(places)} entries checked")
+    return problems
+
+
+def check_role_rates() -> list[str]:
+    """tools/balance/afl_role_rates.json (real 2026 per-game rates by role):
+    all four roles present with players, and every rate in a sane range;
+    kicks plus handballs equal disposals."""
+    import json
+
+    path = os.path.join(ROOT, "tools", "balance", "afl_role_rates.json")
+    if not os.path.exists(path):
+        return []
+    problems: list[str] = []
+    with open(path, encoding="utf-8") as f:
+        doc = json.load(f)
+    ranges = {"disposals": (5, 35), "kicks": (2, 20), "handballs": (1, 20), "marks": (1, 8),
+              "tackles": (0.5, 6), "goals": (0, 3), "hitouts": (0, 30), "inside_50s": (0.3, 6),
+              "clearances": (0, 6), "rebound_50s": (0, 6), "frees_for": (0.2, 2.5),
+              "frees_against": (0.2, 2.5)}
+    for role in ("DEF", "MID", "FWD", "RUCK"):
+        r = doc.get("roles", {}).get(role)
+        if not r or int(r.get("players", 0)) < 10:
+            problems.append(f"afl_role_rates {role}: missing or too few players")
+            continue
+        rates = r["per_game"]
+        for k, (lo, hi) in ranges.items():
+            v = rates.get(k)
+            if v is None or not lo <= float(v) <= hi:
+                problems.append(f"afl_role_rates {role} {k}: {v} outside {lo}-{hi}")
+        if abs(float(rates.get("kicks", 0)) + float(rates.get("handballs", 0)) - float(rates.get("disposals", 0))) > 0.1:
+            problems.append(f"afl_role_rates {role}: kicks plus handballs differ from disposals")
+    if float(doc.get("roles", {}).get("RUCK", {}).get("per_game", {}).get("hitouts", 0)) < 10:
+        problems.append("afl_role_rates RUCK: hitouts below 10 a game")
+    print("  afl role rates: 4 roles checked")
+    return problems
+
+
+def check_team_rates() -> list[str]:
+    """tools/balance/afl_team_rates.json (real 2026 per-team-per-match
+    averages): every stat present and inside a sane range, min <= mean <= max,
+    and kicks plus handballs equal disposals."""
+    import json
+
+    path = os.path.join(ROOT, "tools", "balance", "afl_team_rates.json")
+    if not os.path.exists(path):
+        return []
+    problems: list[str] = []
+    with open(path, encoding="utf-8") as f:
+        rates = json.load(f).get("per_team_match", {})
+    ranges = {"disposals": (300, 430), "kicks": (160, 260), "handballs": (100, 200),
+              "marks": (60, 120), "contested_marks": (5, 14), "tackles": (40, 75),
+              "inside_50s": (40, 70), "clearances": (28, 45), "hitouts": (25, 50),
+              "frees_for": (12, 26), "goals": (8, 18), "behinds": (6, 14),
+              "rebound_50s": (30, 50)}
+    for k, (lo, hi) in ranges.items():
+        v = rates.get(k)
+        if not v:
+            problems.append(f"afl_team_rates {k}: missing")
+            continue
+        if not lo <= v["mean"] <= hi:
+            problems.append(f"afl_team_rates {k}: mean {v['mean']} outside {lo}-{hi}")
+        if not v["min"] <= v["mean"] <= v["max"]:
+            problems.append(f"afl_team_rates {k}: min, mean and max out of order")
+    if rates and abs(rates["kicks"]["mean"] + rates["handballs"]["mean"] - rates["disposals"]["mean"]) > 0.1:
+        problems.append("afl_team_rates: kicks plus handballs differ from disposals")
+    print("  afl team rates: %d stats checked" % len(rates))
     return problems
 
 
@@ -303,6 +377,8 @@ def main() -> int:
 
     # --- bio / identity checks ---------------------------------------------
     problems.extend(check_afl_ladders())
+    problems.extend(check_role_rates())
+    problems.extend(check_team_rates())
     problems.extend(check_forge_locations())
     problems.extend(check_identity_rules())
     problems.extend(check_bio())

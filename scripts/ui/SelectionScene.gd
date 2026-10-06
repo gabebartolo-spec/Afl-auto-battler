@@ -1,13 +1,13 @@
 extends Control
-## Team selection: your match-day 22. Auto-pick fields a sensible side
+## Team selection: your match-day 23. Auto-pick fields a sensible side
 ## every week; My selection lets you name the ruck, 5 midfielders, 6
-## defenders, 6 forwards and 4 on the bench - a 6-6-6 shape with the ruck
+## defenders, 6 forwards and 5 on the bench - a 6-6-6 shape with the ruck
 ## counted in midfield, and anyone in any position. A gap (an injured player,
 ## a short slot) is filled automatically on match day.
 
 ## The midfield is the centre square (3) and the two wings (Roles).
 const SLOTS := [["RUCK", "Ruck", 1], ["MID", "Midfield", 3], ["WING", "Wings", 2],
-		["DEF", "Defence", 6], ["FWD", "Forwards", 6], ["BENCH", "Interchange", 4]]
+		["DEF", "Defence", 6], ["FWD", "Forwards", 6], ["BENCH", "Interchange", Ratings.INTERCHANGE]]
 const CHOICES := [["RUCK", "Ruck"], ["MID", "Mid"], ["WING", "Wing"], ["DEF", "Def"],
 		["FWD", "Fwd"], ["BENCH", "Bench"], ["OUT", "Out"]]
 
@@ -68,12 +68,20 @@ func _build() -> void:
 	mine_btn.pressed.connect(func():
 		if GameState.my_selection().is_empty():
 			GameState.set_selection(GameState.current_side())
-			_notice = "Starting from the auto-picked 22. Tap a player's position to move him."
+			_notice = "Starting from the auto-picked 23. Tap a player's position to move him."
 		_build())
 	modes.add_child(mine_btn)
 	var help := "Auto-pick fields a sensible side by position and rating each week." if auto \
 			else "Your side plays every match. Injured players are replaced automatically."
 	hv.add_child(_para(help, 13, UiKit.MUTED))
+	# Dual ruck: your second ruck takes the fifth interchange spot.
+	if auto:
+		var dual := UiKit.choice_grid("DualRuck", [["off", "One ruck"], ["on", "Dual ruck"]],
+				"on" if GameState.dual_ruck() else "off", 2, func(k):
+					GameState.set_dual_ruck(k == "on")
+					_notice = "Dual ruck: your second ruck sits on the bench." if k == "on" else "One ruck: the bench covers forward, back and midfield, then the best of the rest."
+					_build())
+		hv.add_child(dual)
 	if _notice != "":
 		hv.add_child(_para(_notice, 13, UiKit.GOOD))
 	hv.add_child(_synergy_view())
@@ -140,7 +148,7 @@ func _formation(side: Dictionary, sel: Dictionary, auto: bool) -> Control:
 			if issue != "":
 				v.add_child(_para(issue, 12, UiKit.BAD))
 	_formation_group(v, "Defence", layout["defence"], "DEF", 3, auto, sel, 6)
-	_formation_group(v, "Interchange", layout["bench"], "BENCH", 2, auto, sel, 4)
+	_formation_group(v, "Interchange", layout["bench"], "BENCH", 2, auto, sel, Ratings.INTERCHANGE)
 	return panel
 
 

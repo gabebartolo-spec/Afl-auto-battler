@@ -16,6 +16,7 @@ func run() -> void:
 	_test_authenticity_events()
 	_test_contextual_frees_and_general_spoils()
 	_test_free_causes_follow_the_play()
+	_test_free_keeps_possession()
 	_test_legs_and_rotations()
 	_test_moments()
 	_test_playtest_bounce()
@@ -164,7 +165,9 @@ func _test_boundary_rules() -> void:
 	var counts := {"throwin": 0, "last_disposal": 0, "out_on_full": 0}
 	var legal_last := true
 	var throwin_spot := true
-	for seed in range(8):
+	# 16 matches: an out-on-the-full is about one boundary kick in eight, so
+	# eight matches can come up empty (about 2%) on an unlucky stream.
+	for seed in range(16):
 		var evs: Array = _sim(6100 + seed).run()["events"]
 		for i in range(evs.size()):
 			var ev: Dictionary = evs[i]
@@ -279,6 +282,31 @@ func _test_authenticity_events() -> void:
 ## the receiving side's forward 50 is often a forward held in a marking
 ## contest; otherwise it is the erring player's incorrect disposal. Every free
 ## names who gave it away.
+## A free is the ball to the side it was paid to: the next possession (before
+## any ball-up, throw-in or break) is theirs, whichever side had the ball -
+## high contact on the carrier and a forward held in a marking contest included.
+func _test_free_keeps_possession() -> void:
+	var kept := {}
+	var lost := {}
+	for seed in range(12):
+		var evs: Array = _sim(7700 + seed).run()["events"]
+		for i in range(evs.size()):
+			if str(evs[i].get("kind", "")) != "free":
+				continue
+			var cause := str(evs[i].get("free_cause", ""))
+			for j in range(i + 1, evs.size()):
+				var k := str(evs[j].get("kind", ""))
+				if k in ["ballup", "throwin", "quarter", "final"]:
+					break
+				if k in ["kick", "handball", "mark", "inside50", "goal", "behind"]:
+					var tally: Dictionary = kept if int(evs[j]["side"]) == int(evs[i]["side"]) else lost
+					tally[cause] = int(tally.get(cause, 0)) + 1
+					break
+	_check(lost.is_empty(), "The side paid a free has the next possession (lost: %s)" % str(lost))
+	_check(int(kept.get("high_contact", 0)) > 0, "High contact on the carrier is paid and keeps the ball (%s)" % str(kept))
+	_check(int(kept.get("marking", 0)) > 0, "Marking-contest frees keep the ball with the side paid (%s)" % str(kept))
+
+
 func _test_free_causes_follow_the_play() -> void:
 	var ruck_frees := 0
 	var ruck_to_ruck := true
@@ -549,6 +577,8 @@ func _test_impact_and_ai() -> void:
 		expect = "controlled"
 	elif margin <= -react:
 		expect = "attacking"
+	elif margin < 0 and live.current_quarter >= 3 and live._lost_quarter(1, live.current_quarter - 1):
+		expect = "attacking"   # behind after half time and still losing ground: it chases
 	_check(str(live.ai_tactics(1)["gameplan"]) == expect,
 			"Run Attack corridor twice: the rival coach keeps its usual game or plays the scoreboard (%s)" % expect)
 	live.set_tactics(0, {"gameplan": "controlled"})
@@ -2083,7 +2113,9 @@ func _test_through_stars() -> void:
 	var d_off := 0.0
 	var g_on := 0.0
 	var g_off := 0.0
-	var n := 20
+	# 40 matches: at 20 the stars' edge (+4 to +5 a game, SE about 1.1)
+	# sat about two standard errors over the +2 bar (medium agent, 2026-10-06).
+	var n := 40
 	for i in range(n):
 		var on := _sim(760 + i)
 		on.set_tactics(0, {"gameplan": "through_stars"})

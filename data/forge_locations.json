@@ -1,5 +1,5 @@
 {
- "_about": "Club Forge location library (ARD-M7-009). Places, not clubs: no place an AFL club already represents; ACT uses districts. 'heritage' is internal source metadata (never shown to players, no logos or trademarks shipped). ground is the stable common name; ground_sponsor_alias is the current naming-rights name. colour_tags come from the heritage club's Wikipedia infobox where it lists them (empty otherwise); pattern_tags are left empty until researched from club/league sites. No coordinates.",
+ "_about": "Club Forge location library (ARD-M7-009). Places, not clubs: no place an AFL club already represents; ACT uses districts. 'heritage' is internal source metadata (never shown to players, no logos or trademarks shipped). ground is the stable common name; ground_sponsor_alias is the current naming-rights name. colour_tags come from the heritage club's Wikipedia infobox where it lists them (empty otherwise); pattern_tags come from the heritage club's Wikipedia infobox home-kit pattern (or its article text where it states the design), mapped to the guernsey designs in GameDB.GUERNSEY_DESIGNS; empty where the article does not say. Where the infobox gave no colour names, colour_tags name its colour swatches. No coordinates.",
  "version": 1,
  "locations": [
   {
@@ -14,7 +14,9 @@
     "blue",
     "red"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "stripes"
+   ],
    "heritage": {
     "club": "Port Melbourne",
     "league": "VFL"
@@ -38,7 +40,9 @@
     "blue",
     "gold"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "sash"
+   ],
    "heritage": {
     "club": "Williamstown",
     "league": "VFL"
@@ -82,7 +86,9 @@
     "white",
     "red"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "stripes"
+   ],
    "heritage": {
     "club": "Frankston",
     "league": "VFA/Southern FNL"
@@ -105,7 +111,9 @@
     "gold",
     "blue"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "stripes"
+   ],
    "heritage": {
     "club": "Sandringham",
     "league": "VFL"
@@ -127,7 +135,9 @@
     "navy",
     "red"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "sash"
+   ],
    "heritage": {
     "club": "Coburg",
     "league": "VFL"
@@ -149,14 +159,17 @@
     "brown",
     "gold"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "stripes"
+   ],
    "heritage": {
     "club": "Box Hill",
     "league": "VFL"
    },
    "sources": [
     "https://en.wikipedia.org/wiki/Box_Hill_Football_Club",
-    "https://en.wikipedia.org/wiki/Box_Hill_City_Oval"
+    "https://en.wikipedia.org/wiki/Box_Hill_City_Oval",
+    "https://en.wikipedia.org/wiki/Box_Hill_Hawks"
    ]
   },
   {
@@ -171,7 +184,9 @@
     "red",
     "navy blue"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "yoke"
+   ],
    "heritage": {
     "club": "Casey Demons",
     "league": "VFL"
@@ -193,14 +208,17 @@
     "blue",
     "gold"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "stripes"
+   ],
    "heritage": {
     "club": "Bendigo",
     "league": "Bendigo FL"
    },
    "sources": [
     "https://en.wikipedia.org/wiki/Bendigo_Football_Club",
-    "https://en.wikipedia.org/wiki/Queen_Elizabeth_Oval"
+    "https://en.wikipedia.org/wiki/Queen_Elizabeth_Oval",
+    "https://en.wikipedia.org/wiki/Bendigo_Gold_Football_Club"
    ]
   },
   {
@@ -230,7 +248,10 @@
    "ground": "Reid Oval",
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
-   "colour_tags": [],
+   "colour_tags": [
+    "navy",
+    "white"
+   ],
    "pattern_tags": [],
    "heritage": {
     "club": "Warrnambool",
@@ -252,7 +273,9 @@
     "maroon",
     "white"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "sash"
+   ],
    "heritage": {
     "club": "Traralgon",
     "league": "Gippsland FL"
@@ -269,7 +292,10 @@
    "ground": "Newcastle Number 1 Sports Ground",
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
-   "colour_tags": [],
+   "colour_tags": [
+    "navy",
+    "white"
+   ],
    "pattern_tags": [],
    "heritage": {
     "club": "Newcastle City",
@@ -314,7 +340,9 @@
     "black",
     "red"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "sash"
+   ],
    "heritage": {
     "club": "North Shore",
     "league": "Sydney AFL"
@@ -331,8 +359,13 @@
    "ground": "Robertson Oval",
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
-   "colour_tags": [],
-   "pattern_tags": [],
+   "colour_tags": [
+    "black",
+    "gold"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
    "heritage": {
     "club": "Wagga Tigers",
     "league": "Riverina FL"
@@ -350,7 +383,10 @@
    "ground": "Albury Sports Ground",
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
-   "colour_tags": [],
+   "colour_tags": [
+    "black",
+    "gold"
+   ],
    "pattern_tags": [],
    "heritage": {
     "club": "Albury",
@@ -370,14 +406,17 @@
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
    "colour_tags": [],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "chevron"
+   ],
    "heritage": {
     "club": "Southport",
     "league": "QAFL"
    },
    "sources": [
     "https://en.wikipedia.org/wiki/Southport_Australian_Football_Club",
-    "https://en.wikipedia.org/wiki/Fankhauser_Reserve"
+    "https://en.wikipedia.org/wiki/Fankhauser_Reserve",
+    "https://en.wikipedia.org/wiki/Southport_Sharks"
    ]
   },
   {
@@ -388,8 +427,13 @@
    "ground": "Kombumerri Park",
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
-   "colour_tags": [],
-   "pattern_tags": [],
+   "colour_tags": [
+    "navy",
+    "white"
+   ],
+   "pattern_tags": [
+    "hoops"
+   ],
    "heritage": {
     "club": "Broadbeach",
     "league": "QAFL"
@@ -407,7 +451,10 @@
    "ground": "Maroochydore Multisports Complex",
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
-   "colour_tags": [],
+   "colour_tags": [
+    "green",
+    "gold"
+   ],
    "pattern_tags": [],
    "heritage": {
     "club": "Maroochydore",
@@ -415,7 +462,8 @@
    },
    "sources": [
     "https://en.wikipedia.org/wiki/Maroochydore_Australian_Football_Club",
-    "https://en.wikipedia.org/wiki/Maroochydore_Multisports_Complex"
+    "https://en.wikipedia.org/wiki/Maroochydore_Multisports_Complex",
+    "https://en.wikipedia.org/wiki/Maroochydore_Football_Club"
    ]
   },
   {
@@ -426,14 +474,20 @@
    "ground": "Enoggera Memorial Park",
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
-   "colour_tags": [],
-   "pattern_tags": [],
+   "colour_tags": [
+    "black",
+    "gold"
+   ],
+   "pattern_tags": [
+    "stripes"
+   ],
    "heritage": {
     "club": "Mayne",
     "league": "QAFL"
    },
    "sources": [
-    "https://en.wikipedia.org/wiki/Mayne_Football_Club"
+    "https://en.wikipedia.org/wiki/Mayne_Football_Club",
+    "https://en.wikipedia.org/wiki/Mayne_Australian_Football_Club"
    ]
   },
   {
@@ -463,8 +517,13 @@
    "ground": "Cooke-Murphy Oval",
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
-   "colour_tags": [],
-   "pattern_tags": [],
+   "colour_tags": [
+    "black",
+    "gold"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
    "heritage": {
     "club": "Labrador",
     "league": "QAFL"
@@ -508,7 +567,9 @@
     "black",
     "gold"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "sash"
+   ],
    "heritage": {
     "club": "Glenelg",
     "league": "SANFL"
@@ -549,7 +610,9 @@
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
    "colour_tags": [],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "hoops"
+   ],
    "heritage": {
     "club": "Central District",
     "league": "SANFL"
@@ -593,7 +656,9 @@
     "black",
     "red"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "sash"
+   ],
    "heritage": {
     "club": "West Adelaide",
     "league": "SANFL"
@@ -615,7 +680,9 @@
     "red",
     "white"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "chevron"
+   ],
    "heritage": {
     "club": "North Adelaide",
     "league": "SANFL"
@@ -661,7 +728,9 @@
     "white",
     "teal"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "chevron"
+   ],
    "heritage": {
     "club": "Peel Thunder",
     "league": "WAFL"
@@ -726,7 +795,9 @@
     "blue",
     "black"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "chevron"
+   ],
    "heritage": {
     "club": "East Perth",
     "league": "WAFL"
@@ -748,7 +819,9 @@
     "red",
     "blue"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "sash"
+   ],
    "heritage": {
     "club": "West Perth",
     "league": "WAFL"
@@ -769,7 +842,9 @@
     "black",
     "white"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "stripes"
+   ],
    "heritage": {
     "club": "Swan Districts",
     "league": "WAFL"
@@ -807,8 +882,13 @@
    "ground": "York Park",
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
-   "colour_tags": [],
-   "pattern_tags": [],
+   "colour_tags": [
+    "black",
+    "red"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
    "heritage": {
     "club": "North Launceston",
     "league": "TSL"
@@ -830,7 +910,9 @@
     "blue",
     "red"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "chevron"
+   ],
    "heritage": {
     "club": "North Hobart",
     "league": "TSL"
@@ -848,8 +930,14 @@
    "ground": "Devonport Oval",
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
-   "colour_tags": [],
-   "pattern_tags": [],
+   "colour_tags": [
+    "black",
+    "teal",
+    "white"
+   ],
+   "pattern_tags": [
+    "stripes"
+   ],
    "heritage": {
     "club": "Devonport",
     "league": "TSL"
@@ -868,7 +956,9 @@
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
    "colour_tags": [],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "chevrons"
+   ],
    "heritage": {
     "club": "Burnie Dockers",
     "league": "TSL"
@@ -890,7 +980,9 @@
     "black",
     "white"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "stripes"
+   ],
    "heritage": {
     "club": "Glenorchy",
     "league": "TSL"
@@ -908,8 +1000,13 @@
    "ground": "Bellerive Oval",
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
-   "colour_tags": [],
-   "pattern_tags": [],
+   "colour_tags": [
+    "red",
+    "white"
+   ],
+   "pattern_tags": [
+    "chevron"
+   ],
    "heritage": {
     "club": "Clarence",
     "league": "TSL"
@@ -927,7 +1024,11 @@
    "ground": "Alan Ray Oval",
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
-   "colour_tags": [],
+   "colour_tags": [
+    "red",
+    "white",
+    "black"
+   ],
    "pattern_tags": [],
    "heritage": {
     "club": "Ainslie",
@@ -947,8 +1048,14 @@
    "ground_alternatives": [
     "Kippax Oval"
    ],
-   "colour_tags": [],
-   "pattern_tags": [],
+   "colour_tags": [
+    "black",
+    "white",
+    "teal"
+   ],
+   "pattern_tags": [
+    "stripes"
+   ],
    "heritage": {
     "club": "Belconnen",
     "league": "AFL Canberra"
@@ -967,7 +1074,10 @@
    "ground_alternatives": [
     "Phillip Oval"
    ],
-   "colour_tags": [],
+   "colour_tags": [
+    "black",
+    "red"
+   ],
    "pattern_tags": [],
    "heritage": {
     "club": "Eastlake",
@@ -987,8 +1097,14 @@
    "ground_alternatives": [
     "Gungahlin Enclosed Oval"
    ],
-   "colour_tags": [],
-   "pattern_tags": [],
+   "colour_tags": [
+    "blue",
+    "white",
+    "black"
+   ],
+   "pattern_tags": [
+    "sides"
+   ],
    "heritage": {
     "club": "Gungahlin",
     "league": "AFL Canberra"
@@ -1007,14 +1123,18 @@
    "ground_alternatives": [
     "Greenway Oval"
    ],
-   "colour_tags": [],
+   "colour_tags": [
+    "red",
+    "blue"
+   ],
    "pattern_tags": [],
    "heritage": {
     "club": "Tuggeranong",
     "league": "AFL Canberra"
    },
    "sources": [
-    "https://en.wikipedia.org/wiki/Tuggeranong_Football_Club"
+    "https://en.wikipedia.org/wiki/Tuggeranong_Football_Club",
+    "https://en.wikipedia.org/wiki/Tuggeranong_Valley_Football_Club"
    ]
   },
   {
@@ -1046,8 +1166,13 @@
     "Gardens Oval",
     "Nightcliff Oval"
    ],
-   "colour_tags": [],
-   "pattern_tags": [],
+   "colour_tags": [
+    "black",
+    "gold"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
    "heritage": {
     "club": "Nightcliff",
     "league": "NTFL"
@@ -1083,7 +1208,10 @@
    "ground": "Cazalys Oval",
    "ground_sponsor_alias": null,
    "ground_alternatives": [],
-   "colour_tags": [],
+   "colour_tags": [
+    "black",
+    "white"
+   ],
    "pattern_tags": [],
    "heritage": {
     "club": "Palmerston",

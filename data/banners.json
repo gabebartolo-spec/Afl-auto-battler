@@ -1,0 +1,374 @@
+{
+  "about": "Run-through banners (PreMatchVignette). Each text is 2-4 lines, at most 28 characters a line once filled in (24 or fewer reads best at 360 px). Fill-ins: {us}/{them} = club nicknames (Magpies, Kangaroos), {player} = a surname, {games} = his game count, {year}. Light-hearted cheer-squad rhymes: rivals get ribbed, nobody gets abused. ANZAC Day and Dreamtime banners honour the day and taunt no one. Picked by Banners.pick.",
+  "general": [
+    "{us} by name,\n{us} by nature,\n{them} go home\nand see you later",
+    "Sing it loud\nand sing it proud,\nthe {us} are here\nto beat the crowd",
+    "Roses are red,\nthe Sherrin is too,\n{them} are fast asleep\nand we're coming through",
+    "Four quarters,\none plan:\nbeat the {them}\nevery man",
+    "Kick it long,\nkick it true,\n{them}, we've got\nnothing for you",
+    "Hands up high,\nheads down low,\n{them} watch\nand {us} go",
+    "No song for\nthe {them} today,\nthe {us} have\nthe final say",
+    "Run hard, tackle,\nnever stop,\n{us} today,\n{us} on top",
+    "Hear the siren,\nfeel the roar,\n{us} are back\nto kick the score",
+    "We came, we saw,\nwe'll kick a bag,\n{them} better\nwave the flag",
+    "Fresh legs,\nfull hearts,\nthis is where\nthe fun starts",
+    "Through this paper,\nover the line,\n{us} in front\nat quarter time",
+    "Twenty-three\nand one goal:\n{us} hearts\nin every soul",
+    "Spoil it, mark it,\nkick it straight,\n{them} find out\nit's {us} who rate",
+    "One more week,\none more fight,\n{us} colours\nunder lights",
+    "Chase and harass,\ntackle and run,\n{them}, today\nis no fun",
+    "Bring the noise\nand bring the pace,\n{them} can't keep\nup the chase",
+    "Long kick, big mark,\nset shot, goal,\nthat's how {us}\nplay this role",
+    "{us} faithful,\nnever doubt,\nhere's the team\nnow running out",
+    "We don't need luck,\nwe don't need fate,\n{them}: sit tight,\nit's getting late"
+  ],
+  "club": {
+    "ADE": [
+      "Crows fly high,\nCrows fly straight,\n{them} below,\nyou'll have to wait",
+      "Up from the Oval\ninto the sky,\nthe Crows today\nare flying by"
+    ],
+    "BRL": [
+      "Hear the Lions,\nhear them roar,\n{them} won't\nhear much more",
+      "From the Gabba\nwith a growl,\n{them} beware,\nthe Lions prowl"
+    ],
+    "CAR": [
+      "Old Dark Navy,\nproud and true,\nthe Blues today\nare coming through",
+      "Navy blue\nand Carlton made,\n{them} today\nwill be outplayed"
+    ],
+    "COL": [
+      "Black and white\nand loud and proud,\nthe Magpies love\na hostile crowd",
+      "Pies together,\nPies as one,\n{them} today\nwill come undone"
+    ],
+    "ESS": [
+      "Red and black,\nthe Bombers fly,\n{them} look up,\nyou'll wonder why",
+      "Dons in front\nand Dons in form,\n{them} brace\nfor the storm"
+    ],
+    "FRE": [
+      "Purple haze\nfrom Freo's shore,\nthe Dockers come\nto kick some more",
+      "Anchors up,\nwe sail today,\n{them} drift\nout of the way"
+    ],
+    "GEE": [
+      "Down the Highway\ncame the Cats,\n{them} better\nhold their hats",
+      "Nine lives,\none Kardinia roar,\nthe Cats are here\nto kick the score"
+    ],
+    "GCS": [
+      "Sun's out,\ntime to play,\n{them} burn\nout here today",
+      "From the Coast\nwith Sunshine bright,\n{them} better\nhold on tight"
+    ],
+    "GWS": [
+      "Orange and charcoal,\nbig and bold,\nthe Giants have\na game to hold",
+      "Fee-fi-fo-fum,\nthe Giants come,\n{them} hear\nthe Giant drum"
+    ],
+    "HAW": [
+      "Brown and gold,\nthe Hawks dive down,\n{them} have\nno shelter in town",
+      "Hawks circle,\nHawks strike,\n{them}, it's\nnot what you like"
+    ],
+    "MEL": [
+      "Red and blue,\nthe Demons rise,\n{them}, we'll\nsurprise your eyes",
+      "Oldest club\nand still the best,\nthe Dees today\nwill do the rest"
+    ],
+    "NTH": [
+      "Shinboners\nfrom Arden Street,\n{them} today\nare dead on their feet",
+      "Big Roo jumps,\nthe Roos all bound,\n{them} can't\nget off the ground"
+    ],
+    "PAD": [
+      "Power on,\nlights on, roar,\n{them}, we\nwant more",
+      "Teal and black\nfrom Alberton,\n{them} today\nare overrun"
+    ],
+    "RIC": [
+      "Yellow and black,\nthe Tigers bite,\n{them} won't\nsleep tonight",
+      "Tiger stripes\nand Tiger pride,\n{them} have\nnowhere to hide"
+    ],
+    "STK": [
+      "Red, white, black,\nthe Saints march in,\n{them} today\nwon't get a win",
+      "When the Saints\ngo marching through,\n{them}, there's\nno room for you"
+    ],
+    "SYD": [
+      "Bloods run deep,\nthe Swans take wing,\n{them} hear\nthe Bloods sing",
+      "Red and white\nfrom Harbour town,\nthe Swans today\nwon't let you down"
+    ],
+    "WCE": [
+      "Eagles soar\nabove the west,\n{them} are\nlike all the rest",
+      "Blue and gold\nfrom Perth they fly,\n{them} wave\nthe game goodbye"
+    ],
+    "WBD": [
+      "Out of the west,\nred, white and blue,\nthe Dogs today\nare coming for you",
+      "Bark and bite,\nthe Doggies run,\n{them} better\nhave their fun"
+    ],
+    "TAS": [
+      "Devils from\nthe Apple Isle,\n{them}, we'll\nbe here a while",
+      "Green and gold\nacross the Strait,\nthe Devils came,\nand they won't wait"
+    ],
+    "CANB": [
+      "Thunder rolls\nfrom the Capital,\n{them}, it's\ngetting dark for all",
+      "Hear the Thunder,\nsee it strike,\n{them}, it's\nnot what you like"
+    ]
+  },
+  "rivalry": [
+    {
+      "pair": [
+        "COL",
+        "CAR"
+      ],
+      "texts": [
+        "Pies and Blues,\nold as time,\nthe Blues today\nwon't toe the line",
+        "Blues and Pies,\na hundred years,\nthe Magpies come\nto bring the tears"
+      ]
+    },
+    {
+      "pair": [
+        "ADE",
+        "PAD"
+      ],
+      "texts": [
+        "Showdown day,\nthe town's split two,\nthe Crows today\nwill fly through you",
+        "Showdown day,\nthe Power's on,\nby full time\nthe Crows are gone"
+      ]
+    },
+    {
+      "pair": [
+        "HAW",
+        "GEE"
+      ],
+      "texts": [
+        "Hawks and Cats,\nthe old affair,\nthe Cats today\nwill find no air",
+        "Cats and Hawks,\nthe feud runs deep,\nthe Hawks today\nwill fall asleep"
+      ]
+    },
+    {
+      "pair": [
+        "FRE",
+        "WCE"
+      ],
+      "texts": [
+        "Derby day\nout in the west,\nthe Dockers show\nwho's Perth's best",
+        "Derby day,\nthe Eagles soar,\nthe Dockers sink\nto the ocean floor"
+      ]
+    },
+    {
+      "pair": [
+        "ESS",
+        "COL"
+      ],
+      "texts": [
+        "Bombers and Pies,\nthe big ones count,\nthe Pies today\nwill run out",
+        "Pies and Bombers,\nthe crowd's alive,\nthe Bombers fall\nby half past five"
+      ]
+    },
+    {
+      "pair": [
+        "RIC",
+        "CAR"
+      ],
+      "texts": [
+        "Tigers and Blues,\nRound One's call,\nthe Blues today\nwill take a fall",
+        "Blues and Tigers,\nback again,\nthe Tigers fade\nlike they did then"
+      ]
+    },
+    {
+      "pair": [
+        "SYD",
+        "GWS"
+      ],
+      "texts": [
+        "Sydney Derby,\nthe Harbour's ours,\nthe Giants wilt\nlike yesterday's flowers",
+        "Sydney Derby,\nGiants stand tall,\nthe Swans today\nare way too small"
+      ]
+    },
+    {
+      "pair": [
+        "BRL",
+        "GCS"
+      ],
+      "texts": [
+        "Q-Clash time,\nthe Lions roar,\nthe Suns go down\nlike nights before",
+        "Q-Clash time,\nthe Suns shine bright,\nthe Lions nap\nall day and night"
+      ]
+    },
+    {
+      "pair": [
+        "MEL",
+        "COL"
+      ],
+      "texts": [
+        "Dees and Pies,\nthe 'G is full,\nthe Pies today\nwill feel the pull",
+        "Pies and Dees,\nKing's Birthday cheer,\nthe Dees will wait\nanother year"
+      ]
+    },
+    {
+      "pair": [
+        "GWS",
+        "WBD"
+      ],
+      "texts": [
+        "Giants and Dogs,\nthe west's at stake,\nthe Dogs today\nare in our wake",
+        "Dogs and Giants,\nthe bark is loud,\nthe Giants shrink\nbefore our crowd"
+      ]
+    },
+    {
+      "pair": [
+        "WBD",
+        "COL"
+      ],
+      "texts": [
+        "Dogs and Pies,\nthe west wind blows,\nthe Pies today\nget on their toes",
+        "Pies and Dogs,\nthe kennel's shut,\nthe Dogs today\nare in a rut"
+      ]
+    },
+    {
+      "pair": [
+        "PAD",
+        "COL"
+      ],
+      "texts": [
+        "Power and Pies,\nwho wears the stripes?\nThe Pies today\nwill earn their gripes",
+        "Pies and Power,\nthe stripes are ours,\nthe Power fade\nin the final hours"
+      ]
+    }
+  ],
+  "marquee": [
+    {
+      "name": "ANZAC Day",
+      "texts": [
+        "Lest we forget,\nwe play today\nin their honour,\nthe ANZAC way",
+        "They gave all,\nwe give our best,\nANZAC Day,\nwe stand abreast"
+      ]
+    },
+    {
+      "name": "ANZAC Eve",
+      "texts": [
+        "On ANZAC Eve\nwe pause, we play,\nwe remember them\nin every way"
+      ]
+    },
+    {
+      "name": "Dreamtime at the 'G",
+      "texts": [
+        "Dreamtime at the 'G,\none land, one game,\nwe celebrate\nthe oldest flame",
+        "Dreamtime night,\nwe honour all\nwho first played\non this land's call"
+      ]
+    },
+    {
+      "name": "King's Birthday",
+      "texts": [
+        "King's Birthday,\nthe 'G is packed,\nthe {them} today\nare taking flak",
+        "Long weekend,\nbig crowd, big day,\nthe {us} are\nhere to play"
+      ]
+    },
+    {
+      "name": "King's Birthday Eve",
+      "texts": [
+        "The night before\nthe big one's start,\nthe {us} are here\nto break your heart"
+      ]
+    },
+    {
+      "name": "Easter Monday",
+      "texts": [
+        "Easter Monday,\neggs and goals,\nthe {them} today\nwill dig their holes",
+        "Hot cross buns\nand a big crowd's roar,\nEaster Monday,\nwe want more"
+      ]
+    }
+  ],
+  "final": {
+    "wildcard": [
+      "Wildcard week,\none chance, one game,\nthe {us} are here\nto stake our claim",
+      "Ten went in,\nnow just one shot,\nthe {them} are\ngoing home, we're not"
+    ],
+    "elimination": [
+      "Win or go home,\nthe season's call,\nthe {us} today\nwill give it all",
+      "Lose and it's over,\nwin and we're through,\n{them}, it's\nthe end for you"
+    ],
+    "qualifying": [
+      "Top four,\na week off to win,\n{them} today,\nwe're coming in",
+      "Qualifying final,\nthe big dance starts,\nthe {us} play\nwith all our hearts"
+    ],
+    "semi": [
+      "Semi-final,\nwinter's chill,\nthe {us} go in\nfor the kill",
+      "Two more wins\nto the Grand Final day,\nthe {them} are\nin our way"
+    ],
+    "preliminary": [
+      "One win from\nthe last Saturday,\nthe {them} are\nall that's in our way",
+      "Prelim day,\nsixty minutes away,\nthe {us} are going\nto the big day"
+    ],
+    "grand": [
+      "Grand Final day,\nthe best of all,\nthe {us} are here\nto take the call",
+      "One last game,\none last fight,\nthe cup is ours\nby tonight",
+      "Last Saturday,\nthe 'G is full,\nthe {us} feel\nthe premiership pull",
+      "Hundred thousand\nin the stand,\nthe cup today\nis in our hand"
+    ]
+  },
+  "spoon": [
+    "Spoon bowl day,\nboth teams in strife,\nthe {us} today\nwill find some life",
+    "Bottom of the ladder,\ntop of our game,\nthe {them} take\nthe spoon and shame",
+    "No finals here,\nbut pride's at stake,\nthe {us} play\nfor our own sake",
+    "Down at the bottom,\nlooking up,\nthe {them} can\nhave the wooden cup",
+    "Draft pick day,\nsome say we should lose,\nthe {us} today\nhave other views",
+    "We might be low,\nbut we won't stay,\nthe {us} rise\nfrom here today"
+  ],
+  "first_game": {
+    "TAS": [
+      "Devils at last,\nthe Island's day,\nTassie's own\nhave come to play",
+      "A hundred years\nwe waited here,\nthe Devils run\nand Tassie cheers",
+      "North to south\nthe Island's one,\nthe Devils' story\nhas begun"
+    ],
+    "CANB": [
+      "The Capital calls,\nthe Thunder's here,\nCanberra's first,\nlet's hear you cheer",
+      "Thunder rolls\nfor the first time,\nCanberra's team,\nCanberra's climb",
+      "From the Lake\nto the 'G, one roar,\nthe Thunder's first,\nwith many more"
+    ]
+  },
+  "premiers": [
+    "Here's the flag,\nhere's the cup,\nthe {us} are\nstill on top",
+    "Premiers last year,\npremiers again,\n{them}, you\ncan't stop these men",
+    "Unfurl the flag,\nlet it fly,\nthe {us} are\nstill riding high",
+    "Back to back?\nWe like the sound,\nthe {us} are\nholding ground"
+  ],
+  "premiers_opposition": [
+    "Premiers, you say?\nThat was last year,\nthe {us} are\nnow coming near",
+    "Take a look\nat your shiny cup,\nthe {us} today\nwill shake you up"
+  ],
+  "milestone": {
+    "debut": [
+      "Welcome, {player},\nyour first game,\nthe {us} today\nwill know your name",
+      "Game number one\nfor {player} today,\nrun out proud,\nrun out to play"
+    ],
+    "50": [
+      "Fifty for {player},\nhalf a ton,\nthe {us} say\nwell played, well done",
+      "{player} hits fifty,\nwell earned and won,\nmore to come,\nyou've just begun"
+    ],
+    "100": [
+      "{player}, a hundred,\nthe big one's here,\nthe {us} faithful\ngive a cheer",
+      "One hundred games,\n{player} stands tall,\nthe {us} salute\nthe best of all"
+    ],
+    "150": [
+      "One fifty up,\n{player}, you're gold,\nthe {us} cheer\nas the story's told"
+    ],
+    "200": [
+      "Two hundred games,\n{player}, a star,\nthe {us} know\nhow good you are",
+      "Double century,\n{player}, legend true,\nthe {us} run out\nthis one for you"
+    ],
+    "250": [
+      "Two-fifty up,\n{player}'s still here,\nthe {us} faithful\nraise a cheer"
+    ],
+    "300": [
+      "Three hundred games,\n{player}, the rare,\nfew have stood\nwhere you stand there",
+      "Triple century,\n{player}, what a ride,\nthe {us} run out\nwith you as guide"
+    ],
+    "350": [
+      "Three-fifty up,\n{player}, the great,\nthe record books\nwill have to wait"
+    ],
+    "farewell": [
+      "Last time out,\n{player}, thank you,\nthe {us} will\nalways remember you",
+      "Thanks for the memories,\n{player}, farewell,\nthe {us} have\nstories to tell"
+    ]
+  },
+  "must_win": [
+    "Must-win day,\nno second chance,\nthe {us} are here\nto join the dance",
+    "Win and we're in,\nlose and we're out,\nthe {us} leave\nno room for doubt",
+    "Eight is in reach,\nnine's on the line,\nthe {us} need\nfour quarters fine",
+    "Finals on the line,\nwinner takes the spot,\n{them}, you'll\nfind we want it a lot",
+    "Season on a knife,\none game to go,\nthe {us} put on\none more show",
+    "September's calling,\nwe pick up the phone,\nthe {them} can\nhead off home",
+    "All or nothing,\nhere and now,\nthe {us} will\nfind a way somehow",
+    "Ladder maths done,\nno more sums,\nwin today\nand September comes"
+  ]
+}

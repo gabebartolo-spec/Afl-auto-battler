@@ -54,7 +54,20 @@ const METRIC_SPECS := [
 ## counted with midfield (1 RUCK + 5 MID). Order matters - select_22() fills
 ## slots in this sequence.
 const GROUND_SLOTS := [["RUCK", 1], ["MID", 5], ["DEF", 6], ["FWD", 6]]
-const INTERCHANGE := 4
+## The match-day squad is 18 on the ground plus five interchange - 23, with
+## no substitute role (ARD-M5-001, director 2026-10-06). Every bench player
+## rotates, covers injuries and plays as fully as the other four.
+const INTERCHANGE := 5
+## The bench size selection uses: INTERCHANGE, changed only by audits that
+## compare squad sizes on the same seeds (tools/audit/interchange_impl.gd).
+static var bench_size := INTERCHANGE
+## Audits only: false reproduces the old bench (best of the rest, no line
+## cover, no dual ruck) for a before/after comparison.
+static var bench_rules := true
+## The lines an auto-picked bench covers before taking the best of the rest.
+const BENCH_COVER := ["FWD", "DEF", "MID"]
+## How close (OVR) a spare ruck must be for an AI club to run dual ruck.
+const DUAL_RUCK_MARGIN := 5.0
 const LIST_SIZE := 44
 
 ## Raw season columns every player dict carries. GameDB.STAT_KEYS must match;
@@ -540,10 +553,14 @@ static func salary_value(overall: int) -> int:
 # ---------------------------------------------------------------------------
 # Squad selection
 # ---------------------------------------------------------------------------
-## Best 18 on the ground respecting the 1R/7M/5D/5F structure, plus 4 on the
-## bench. Structural shortfalls (a list with no recognised ruckman, say) are
+## Best 18 on the ground respecting the 1R/5M/6D/6F structure, plus
+## INTERCHANGE (5) on the bench: the match-day 23. (The name predates the
+## fifth interchange.) Structural shortfalls (a list with no recognised ruckman, say) are
 ## backfilled by overall rating so a team always fields 18.
-static func select_22(list_players: Array) -> Dictionary:
+## `dual`: run a second ruck on the bench - 1 yes (a coach's call: he takes
+## the first bench spot), 0 no, -1 the AI's rule (only when the spare ruck is
+## within DUAL_RUCK_MARGIN of the bench player he would replace).
+static func select_22(list_players: Array, dual := -1) -> Dictionary:
 	var pool := list_players.duplicate()
 	# A player promised a game this week (a kid given his chance, a talk) or a
 	# run (Backing) is first in line for his own position; then the best
@@ -619,12 +636,43 @@ static func select_22(list_players: Array) -> Dictionary:
 			ground.append(_for_slot(p, str(p["role"])))
 			used[p["id"]] = true
 
+	# The bench covers the lines first - a forward, a defender and a
+	# midfielder, the best of each left - then the best of the rest, so a
+	# tired forward is relieved by a forward, as on a real interchange bench.
+	# Dual ruck: the second ruck takes the first spot.
 	var bench: Array = []
+	var spare_ruck: Dictionary = {}
+	for p in by_ruck(pool):
+		if not used.has(p["id"]) and str(p.get("role", "")) == "RUCK":
+			spare_ruck = p
+			break
+	if dual == 1 and bench_rules and not spare_ruck.is_empty():
+		bench.append(spare_ruck)
+		used[spare_ruck["id"]] = true
+	for line in (BENCH_COVER if bench_rules else []):
+		for p in pool:
+			if bench.size() >= bench_size:
+				break
+			if not used.has(p["id"]) and str(p.get("role", "")) == line:
+				bench.append(p)
+				used[p["id"]] = true
+				break
 	for p in pool:
-		if bench.size() >= INTERCHANGE:
+		if bench.size() >= bench_size:
 			break
 		if not used.has(p["id"]):
 			bench.append(p)
+			used[p["id"]] = true
+
+	# The AI's call: a second ruck earns the last spot when he is close to
+	# the player he'd replace.
+	if dual == -1 and bench_rules and not spare_ruck.is_empty() and not used.has(spare_ruck["id"]) \
+			and bench.size() >= bench_size and bench_size > BENCH_COVER.size():
+		var last: Dictionary = bench[bench.size() - 1]
+		if float(spare_ruck["overall"]) >= float(last["overall"]) - DUAL_RUCK_MARGIN:
+			used.erase(last["id"])
+			bench[bench.size() - 1] = spare_ruck
+			used[spare_ruck["id"]] = true
 
 	ground = ground.slice(0, 18)
 	Roles.mark_wings(ground)
@@ -652,8 +700,15 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 	for p in list_players:
 		if available(p):
 			pool.append(p)
+	# The dual-ruck call travels with the selection; a selection that is only
+	# that call is still the auto-pick.
+	var dual := -1
+	if selection.has("DUAL_RUCK"):
+		dual = 1 if bool(selection["DUAL_RUCK"]) else 0
+		selection = selection.duplicate()
+		selection.erase("DUAL_RUCK")
 	if selection.is_empty():
-		return select_22(pool)
+		return select_22(pool, dual)
 	pool.sort_custom(func(a, b):
 		return float(a["overall"]) * Workload.selection_factor(a) > float(b["overall"]) * Workload.selection_factor(b))
 	var by_id := {}
@@ -730,14 +785,14 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 				have += 1
 	var bench: Array = []
 	for id in selection.get("BENCH", []):
-		if bench.size() >= INTERCHANGE:
+		if bench.size() >= bench_size:
 			break
 		if by_id.has(str(id)) and not used.has(str(id)):
 			bench.append(by_id[str(id)])
 			used[str(id)] = true
 	for pass_tier in [0, 2]:
 		for p in pool:
-			if bench.size() >= INTERCHANGE:
+			if bench.size() >= bench_size:
 				break
 			var id := str(p["id"])
 			if not used.has(id) and int(tier.get(id, 0)) == pass_tier:
