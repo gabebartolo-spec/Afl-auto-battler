@@ -86,8 +86,8 @@ func _draw() -> void:
 		var medal_y := lerpf(chest.y - 0.2 * PX_PER_M * scale, chest.y, smoothstep(WALK_END, 1.9, _t))
 		var tie := Vector2(x, medal_y)
 		var ribbon := Color(0.85, 0.82, 0.72)
-		draw_line(neck + Vector2(-0.07, 0.0) * PX_PER_M * scale, tie, ribbon, maxf(1.5, scale))
-		draw_line(neck + Vector2(0.07, 0.0) * PX_PER_M * scale, tie, ribbon, maxf(1.5, scale))
+		draw_line(neck + Vector2(-0.07, 0.0) * PX_PER_M * scale, tie, ribbon, maxf(1.5, scale), true)
+		draw_line(neck + Vector2(0.07, 0.0) * PX_PER_M * scale, tie, ribbon, maxf(1.5, scale), true)
 		draw_circle(tie + Vector2(0, 0.04 * PX_PER_M * scale), 0.06 * PX_PER_M * scale, Color(0.75, 0.61, 0.34))
 	_draw_audience(w, h, stage_y)
 	draw_set_transform_matrix(Transform2D.IDENTITY)
@@ -120,9 +120,9 @@ func _draw_room(w: float, h: float, cols: Array, stage_y: float) -> void:
 		# Folds in the drapes.
 		for f in range(3):
 			var fx := w * 0.02 + i * band + band * (0.25 + 0.25 * f)
-			draw_line(Vector2(fx, top), Vector2(fx, stage_y), c.darkened(0.25), 1.0)
+			draw_line(Vector2(fx, top), Vector2(fx, stage_y), c.darkened(0.25), 1.0, true)
 			fx = w * 0.98 - (i + 1) * band + band * (0.25 + 0.25 * f)
-			draw_line(Vector2(fx, top), Vector2(fx, stage_y), c.darkened(0.25), 1.0)
+			draw_line(Vector2(fx, top), Vector2(fx, stage_y), c.darkened(0.25), 1.0, true)
 	draw_rect(panel, Color(0.16, 0.15, 0.19))
 	draw_rect(Rect2(panel.position + Vector2(0, panel.size.y * 0.08), Vector2(panel.size.x, 2.0)),
 			(cols[0] as Color).lightened(0.2))
@@ -149,7 +149,7 @@ func _draw_lectern(base: Vector2, scale: float) -> void:
 			base + Vector2(0.24, -1.05) * u, base + Vector2(-0.24, -1.05) * u])
 	draw_colored_polygon(body, Color(0.24, 0.2, 0.17))
 	draw_rect(Rect2(base + Vector2(-0.3, -1.12) * u, Vector2(0.6, 0.08) * u), Color(0.3, 0.25, 0.21))
-	draw_line(base + Vector2(0.14, -1.12) * u, base + Vector2(0.02, -1.42) * u, Color(0.6, 0.6, 0.62), maxf(1.0, scale))
+	draw_line(base + Vector2(0.14, -1.12) * u, base + Vector2(0.02, -1.42) * u, Color(0.6, 0.6, 0.62), maxf(1.0, scale), true)
 	draw_circle(base + Vector2(0.0, -1.45) * u, 0.045 * u, Color(0.12, 0.12, 0.13))
 
 
@@ -191,7 +191,7 @@ func _guest(at: Vector2, r: float, body: Color, rim: Color, clap: bool, seed: in
 	draw_colored_polygon(shoulders, body)
 	var head := at + Vector2(0, bob)
 	draw_circle(head, r * 0.62, body)
-	draw_arc(head, r * 0.62, PI * 1.15, PI * 1.85, 8, rim, maxf(1.0, r * 0.12))
+	draw_arc(head, r * 0.62, PI * 1.15, PI * 1.85, 8, rim, maxf(1.0, r * 0.12), true)
 	if clap:
 		var hands := at + Vector2(0, r * 0.2 + absf(sin(_t * 9.0 + seed)) * r * 0.25)
 		draw_circle(hands + Vector2(-r * 0.12, 0), r * 0.2, body)
