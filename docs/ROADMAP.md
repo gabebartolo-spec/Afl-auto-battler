@@ -563,6 +563,12 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+### Press-conference motif: preserve the scene, refine its framing — PC playtest (2026-10-07)
+
+- The director considers the pictured post-match press-conference scene **arguably the game's best motif**. Preserve its visual concept and use it as a positive art-direction reference; this is not a request to replace the scene.
+- The black frame/bands create an awkward appearance. Rework or remove the heavy framing and integrate the scene, title and journalist/question area more naturally into the surrounding UI. Retain readable text and purposeful composition without unnecessary black strips, awkward boundaries or cropping the foreground audience. Verify the complete page in the exported PC build at relevant aspect ratios, with responsive treatment on mobile. Roadmap polish comment for Claude only; no game edits here.
+
+
 ### Coaching notes: match-specific interest, not repetitive filler — PC playtest concern (2026-10-07)
 
 - The director finds the pictured Coaching notes acceptable in isolation (“They have had more of the ball going forward”) but worries it will repeat every game and never become interesting. This is a concern to investigate across multiple matches, not a confirmed claim that it already repeats every game.
