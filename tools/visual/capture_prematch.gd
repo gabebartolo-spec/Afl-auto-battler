@@ -9,6 +9,8 @@ extends SceneTree
 ## --milestone N: the banner for a player's Nth game (FL-002; 200 is the director's
 ## line), --club: games for this club rather than his career; --opp CODE: the
 ## opponent (Essendon by default, whose ANZAC banner outranks any milestone).
+## --flags 2031,2029,2028: premiership pennants for those years (FL-008); --home CODE:
+## the home club (Collingwood by default).
 
 const W := 390
 const H := 844
@@ -27,11 +29,17 @@ func _run() -> void:
 	var out := "/tmp/prematch"
 	var a := OS.get_cmdline_user_args()
 	var film := a.has("--film")
+	var ctx := {}
+	var me := "COL"
 	var ms_games := 0
 	var opp_arg := "ESS"
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
+		if str(a[i]) == "--home":
+			me = str(a[i + 1])
+		if str(a[i]) == "--flags":
+			ctx["flags"] = Array(str(a[i + 1]).split(",")).map(func(y): return int(y))
 		if str(a[i]) == "--milestone":
 			ms_games = int(a[i + 1])
 		if str(a[i]) == "--opp":
@@ -43,21 +51,20 @@ func _run() -> void:
 	state.save_path = "user://capture.save"
 	state.settings_path = "user://capture_settings.cfg"
 	state.reset()
-	state.start_season("COL", db.club_list("COL"))
+	state.start_season(me, db.club_list(me))
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
 	var opp := opp_arg
 	# Everyone named, as the game passes them: the 18 and the interchange.
 	var opp_squad = load("res://scripts/sim/Squad.gd").new(opp, state.season.lists[opp], false, opp)
 	var opp_ground: Array = opp_squad.ground + opp_squad.bench
-	var ctx := {}
 	if ms_games > 0:
 		var p: Dictionary = state.my_squad().ground[0]
 		ctx["milestone"] = {"games": ms_games, "player": str(p.get("last", "")),
 				"name": db.player_display_name(p), "club": a.has("--club")}
-	var vig = load("res://scripts/ui/match/PreMatchVignette.gd").open(root, "COL", opp,
+	var vig = load("res://scripts/ui/match/PreMatchVignette.gd").open(root, me, opp,
 			state.my_squad().ground + state.my_squad().bench, opp_ground,
-			"Round 1  ·  Collingwood v %s" % db.club_name(opp), false, ctx)
+			"Round 1  ·  %s v %s" % [db.club_name(me), db.club_name(opp)], false, ctx)
 	vig.set_process(false)
 	var shots := []
 	for beat in BEATS:
