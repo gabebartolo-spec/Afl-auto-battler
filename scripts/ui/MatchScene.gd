@@ -1205,7 +1205,7 @@ func _append_new_events() -> void:
 	var new_events := all_events.slice(_event_cursor)
 	_event_cursor = all_events.size()
 	if not new_events.is_empty():
-		_pitch.append_events(new_events)
+		_pitch.append_events(new_events, _res.get("timeline", []))
 
 
 # ---------------------------------------------------------------------------

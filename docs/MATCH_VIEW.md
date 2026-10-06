@@ -45,7 +45,15 @@ What that showed, and what the view does about it:
   forwards less) and compresses when defending.
 - **Everyone has an opponent.** Paired slots (FB/FF, BPL/FPL, wing/wing and so
   on) put players in twos. When defending, a player stands goal-side of his
-  opponent, and one half-back plays loose in the hole between ball and goal.
+  opponent, and the loose man plays in the hole between ball and goal.
+- **The match's own calls decide who is on whom.** MatchSim records a
+  timeline (`result["timeline"]`) whenever a side's calls change: its plan, the
+  bursts in force, the tagger and his man, the loose defender, a forward sent
+  to make him accountable, and the named match-ups. Recording draws no dice.
+  The view applies each entry from its event on, so a defender moved at
+  quarter time stands on his new forward from the next bounce, the tagger
+  sticks to his man, and the loose man is the one the coach named. Slot pairs
+  fill in only the players the match never assigned.
 - **Around the ball**, the nearest two defenders press (one on the ball, one
   goal-side) and the nearest two attackers offer options. These roles are
   chosen once per beat, so they don't flick between neighbours.
