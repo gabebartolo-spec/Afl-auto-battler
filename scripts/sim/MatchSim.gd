@@ -1397,10 +1397,12 @@ const LOOSE_READ := 0.5
 ## The director (2026-10-06): the best loose defenders sit near the real best,
 ## about 8 intercepts a game (Champion Data 2025: Sam Taylor 8.4), not 12.
 ## Scales how often he reaches an entry's contest.
-const ROAM_REACH := 0.65
+const ROAM_REACH := 0.45
 ## Of the contests the defender wins, the share he marks (an intercept
 ## mark, the ball turned over) rather than spoils; a better reader marks more.
 const INTERCEPT_MARK := 0.35
+## How often a long kick in general play is a real contest (main: 0.22).
+const AERIAL_CHANCE := 0.22
 ## Audits only: false plays the old contest (defenders and midfielders, no
 ## intercept marks) for a before/after on the same seeds.
 static var zone_intercepts := true
@@ -1435,7 +1437,7 @@ func _aerial_defender(def_side: int, fp: float):
 ## it either marks it (an intercept: the ball is turned over) or spoils it,
 ## which leaves the ball loose.
 func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bool) -> Dictionary:
-	if rushed or gain < 18.0 or aerial_rng.randf() >= 0.22:
+	if rushed or gain < 18.0 or aerial_rng.randf() >= (AERIAL_CHANCE if zone_intercepts else 0.22):
 		return {}
 	var opp := 1 - side
 	var receiver = pick_carrier(side, mark_fp)
@@ -2901,7 +2903,7 @@ func _clanger_taken(side: int, at: float) -> void:
 ## (the rest stay a contest: a fumble, a ball knocked loose), and of those, the
 ## share taken on the mark by an average reader. Calibrated with
 ## tools/audit/intercept_impl.gd against Champion Data 2025.
-const CLANGER_TAKEN := 0.5
+const CLANGER_TAKEN := 0.8
 const CLANGER_MARKED := 0.3
 
 
