@@ -99,11 +99,13 @@ const WET_CLANGERS := 0.80
 ## (docs/research/WET_WEATHER_PLAYERS.md, #444). They have it by name; everyone
 ## else earns it by the stat rule (the director: "Evidence + stats",
 ## 2026-10-06). Their wet record isn't in their ratings.
-const WET_NAMED := ["Lachie Whitfield", "Patrick Dangerfield"]
+## Keyed by the real list's id and name together, so a created player who
+## happens to share a name never inherits it.
+const WET_NAMED := {"GWS_6": "Lachie Whitfield", "GEE_35": "Patrick Dangerfield"}
 
 
 static func wet_weather(p: Dictionary) -> bool:
-	if WET_NAMED.has(str(p.get("real_name", ""))):
+	if str(WET_NAMED.get(str(p.get("id", "")), "-")) == str(p.get("real_name", "")):
 		return true
 	var attr: Dictionary = p.get("attr", {})
 	return int(attr.get("contested", 0)) >= int(WET_WEATHER["contested"]) 			and int(attr.get("disposal", 0)) >= int(WET_WEATHER["disposal"])
