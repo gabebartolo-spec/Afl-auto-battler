@@ -76,7 +76,7 @@ func _test_vocabulary() -> void:
 	var seen := {}
 	for p in GameDB.players:
 		seen[Roles.label(p)] = true
-	var allowed := ["Wing", "Tagger", "Inside midfielder", "Key defender", "Rebounding defender", "Defender",
+	var allowed := ["Wing", "Tagger", "Inside midfielder", "Key defender", "Small defender", "Defender",
 			"Key forward", "Small forward", "Forward", "Ruck"]
 	var clean := true
 	for l in seen:

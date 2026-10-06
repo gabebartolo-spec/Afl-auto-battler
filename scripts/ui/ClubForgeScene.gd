@@ -14,7 +14,7 @@ const ROLES := [["FWD", "Forward"], ["MID", "Midfield"], ["DEF", "Defence"], ["R
 const STYLE_LABELS := {
 	"key_forward": "Key forward", "small_forward": "Small forward", "defensive_forward": "Defensive forward",
 	"leading_forward": "Leading forward", "inside": "Inside midfielder", "outside": "Outside runner",
-	"tagger": "Tagger", "playmaker": "Playmaker", "key_defender": "Key defender", "rebounder": "Rebounder",
+	"tagger": "Tagger", "playmaker": "Playmaker", "key_defender": "Key defender", "rebounder": "Small defender",
 	"lockdown": "Lockdown defender", "interceptor": "Interceptor", "tap_ruck": "Tap ruck", "mobile_ruck": "Mobile ruck",
 }
 const TRAIT_LABELS := {
