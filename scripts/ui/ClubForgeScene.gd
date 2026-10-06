@@ -641,7 +641,11 @@ func _rebuild_colours() -> void:
 	_colour_box.add_child(slots)
 	var grid := GridContainer.new()
 	grid.name = "ForgePalette"
-	grid.columns = 8 if UiKit.view_width(self) < 520.0 else 16
+	# As many 44 px swatches as the screen takes, never wider than it.
+	var room := UiKit.view_width(self) - 40.0
+	if UiKit.view_width(self) >= 760.0 and UiKit.view_width(self) > UiKit.view_height(self):
+		room -= 280.0
+	grid.columns = clampi(int((room + 6.0) / 50.0), 4, 16)
 	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 6)
 	for c in ClubForge.PALETTE:
