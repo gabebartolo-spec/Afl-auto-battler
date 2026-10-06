@@ -19,6 +19,8 @@ const SPOTS := {
 	"FWD": ["FF", "HFFL", "HFFR", "FPL", "FPR", "HFF"],
 }
 const LINES := ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH"]
+const PHONE_MIDS := {"IL": Vector2(0.0, -0.42), "IR": Vector2(0.0, 0.42), "WL": Vector2(0.10, -0.86),
+		"WR": Vector2(0.10, 0.86)}
 const SPINE := {"CB": Vector2(-0.44, 0.0), "C": Vector2(-0.16, 0.0), "RUCK": Vector2(0.14, 0.0),
 		"HFF": Vector2(0.42, 0.0)}
 const ROLE_TABS := [["", "All"], ["DEF", "DEF"], ["MID", "MID"], ["RUCK", "RUCK"], ["FWD", "FWD"]]
@@ -47,6 +49,10 @@ func setup(side: Dictionary, wide: bool) -> void:
 	# The spine (centre half-back, centre, ruck, centre half-forward) is
 	# spread wider than the formation view so its cards never touch.
 	_spot_at.merge(SPINE, true)
+	if not wide:
+		# On a phone the midfield runs across a narrow screen: the inside mids
+		# and wings spread to its edges.
+		_spot_at.merge(PHONE_MIDS, true)
 	_build()
 
 
@@ -68,7 +74,7 @@ func _build() -> void:
 	_pitch = Control.new()
 	_pitch.name = "Pitch"
 	_pitch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_pitch.custom_minimum_size = Vector2(0, 430 if _wide else 520)
+	_pitch.custom_minimum_size = Vector2(0, 430 if _wide else 600)
 	_pitch.mouse_filter = Control.MOUSE_FILTER_PASS
 	_pitch.draw.connect(_draw_pitch)
 	_pitch.resized.connect(_place_spots)
@@ -217,7 +223,7 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 		var sub := UiKit.lbl("%s %d" % [Ratings.role_tag(p), int(p["overall"])], 11, UiKit.MUTED)
 		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		face.add_child(sub)
-		b.custom_minimum_size = Vector2(92 if _wide else 76, 44)
+		b.custom_minimum_size = Vector2(92 if _wide else 70, 44)
 		if Workload.value(p) >= Workload.CARRYING:
 			# How fresh he is, on the card: no profile needed to see it.
 			var ready := UiKit.lbl(Workload.label(p), 10, UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
