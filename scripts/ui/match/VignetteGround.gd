@@ -102,18 +102,22 @@ static func looking(pos: Vector2, height: float, target: Vector2, f: float, cx: 
 ## scene can put them behind its players.
 ## board: the match's score for the big screen ({codes: [home, away], goals, behinds,
 ## q}); empty, the screen shows the clubs' colours only.
-static func draw_ground(ci: CanvasItem, cam: Cam, stage: Rect2, colours: Array, seed := 7, board := {}) -> void:
+## weather: the day's (VignetteWeather; MatchSim.weather) and t the scene's time, for
+## what moves with it (flags in the wind).
+static func draw_ground(ci: CanvasItem, cam: Cam, stage: Rect2, colours: Array, seed := 7, board := {},
+		weather := "", t := 0.0) -> void:
 	ci.draw_rect(stage, SKY, true)
-	_draw_stands(ci, cam, colours, seed, board)
+	_draw_stands(ci, cam, colours, seed, board, weather, t)
 	var tri := Tris.new()
 	_fence_and_apron(tri, cam, colours)
 	# The oval and its mown stripes, across the ground every 12 m.
-	tri.poly(_clip(cam, _ellipse_ring(A, L, 0.0, 0.0, 180)), GRASS[0])
+	var grass := VignetteWeather.grass(weather, GRASS)
+	tri.poly(_clip(cam, _ellipse_ring(A, L, 0.0, 0.0, 180)), grass[0])
 	var y := -L
 	var n := 0
 	while y < L:
 		if n % 2 == 1:
-			tri.poly(_clip(cam, _band(y, minf(y + 12.0, L))), GRASS[1])
+			tri.poly(_clip(cam, _band(y, minf(y + 12.0, L))), grass[1])
 		y += 12.0
 		n += 1
 	# Worn turf where the game is heaviest: the goal squares and the centre circle.
@@ -125,6 +129,10 @@ static func draw_ground(ci: CanvasItem, cam: Cam, stage: Rect2, colours: Array, 
 	tri.poly(_clip(cam, _ellipse_ring(1.8, 1.4, 0.3, -0.2, 16)), WORN[1])
 	_markings(tri, cam)
 	tri.flush(ci)
+	if weather == VignetteWeather.WET:
+		VignetteWeather.draw_sheen(ci, cam, _tower_spots(), A, L)
+	elif weather == VignetteWeather.WINDY:
+		VignetteWeather.draw_wind(ci, cam, t)
 
 
 ## The goal posts at one end (end: +1 the far end of oval y, -1 the other), padded
@@ -282,7 +290,8 @@ static func _fence_and_apron(tri: Tris, cam: Cam, colours: Array) -> void:
 ## The stadium round the oval: two tiers of seats full of both clubs' people, a fascia
 ## between them in the clubs' colours, the roof's edge with its row of lights, the big
 ## screen above the far end, the light towers behind, and the haze the lights make.
-static func _draw_stands(ci: CanvasItem, cam: Cam, colours: Array, seed: int, board: Dictionary) -> void:
+static func _draw_stands(ci: CanvasItem, cam: Cam, colours: Array, seed: int, board: Dictionary,
+		weather := "", t := 0.0) -> void:
 	var tex := VignetteCrowd.seats(colours, seed)
 	if ci.texture_filter != CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS:
 		ci.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
@@ -310,6 +319,19 @@ static func _draw_stands(ci: CanvasItem, cam: Cam, colours: Array, seed: int, bo
 	_tier(ci, cam, ring, lower, tex, Color(0.95, 0.95, 0.97))
 	_tier(ci, cam, ring, upper, tex, Color(0.78, 0.78, 0.82))
 	lit.flush(ci)
+	# In the wind, the flags people hold up along the front rows stream out.
+	if VignetteWeather.wind(weather) > 0.0:
+		for i in range(1, ring.size(), 2):
+			var a: float = ring[i][0]
+			var off: float = lower[0] + 3.0 + float(i % 5) * 2.0
+			var p := Vector2(cos(a) * (A + FENCE + 2.0 + off), sin(a) * (L + FENCE + 2.0 + off))
+			var h: float = lower[2] + (off - lower[0]) * (lower[3] - lower[2]) / (lower[1] - lower[0]) + 1.6
+			var s := cam.oval(p, h)
+			if s.z <= 0.0:
+				continue
+			var home := (i / 2) % 2 == 0
+			VignetteWeather.draw_flag(ci, Vector2(s.x, s.y), 2.4 * s.z, 2.4 * s.z, 1.5 * s.z,
+					c0 if home else c1, t, float(i) * 1.3, 1.0, _second(colours, 0 if home else 1))
 	# Lights under the roof's edge, every few metres.
 	var lights := Tris.new()
 	for i in range(0, ring.size(), 2):
@@ -322,8 +344,20 @@ static func _draw_stands(ci: CanvasItem, cam: Cam, colours: Array, seed: int, bo
 		lights.poly([Vector2(s.x - r, s.y - r * 0.5), Vector2(s.x + r, s.y - r * 0.5),
 				Vector2(s.x + r, s.y + r * 0.5), Vector2(s.x - r, s.y + r * 0.5)], Color(1.0, 0.97, 0.88, 0.9))
 	lights.flush(ci)
+	# In the wind, the flags along the roofs stream out in the clubs' colours.
+	var wind := VignetteWeather.wind(weather)
+	if wind > 0.0:
+		for i in range(0, ring.size(), 9):
+			var a: float = ring[i][0]
+			var p := Vector2(cos(a) * (A + FENCE + 2.0 + upper[1] - 1.0), sin(a) * (L + FENCE + 2.0 + upper[1] - 1.0))
+			var s := cam.oval(p, upper[3] + 4.0)
+			if s.z <= 0.0:
+				continue
+			var home := (i / 9) % 2 == 0
+			VignetteWeather.draw_flag(ci, Vector2(s.x, s.y), 7.0 * s.z, 5.0 * s.z, 2.6 * s.z,
+					c0 if home else c1, t, float(i) * 0.7, wind, _second(colours, 0 if home else 1))
 	_screen(ci, cam, c0, c1, board)
-	_haze(ci, cam)
+	_haze(ci, cam, weather)
 
 
 const STAND_TILE := 35.0          # metres of stand per copy of the seats texture
@@ -406,9 +440,7 @@ static func _wall(tri: Tris, cam: Cam, a0: float, a1: float, o0: float, o1: floa
 ## The light towers outside the stands: a mast and a bank of lights at the top of each,
 ## glowing into the night.
 static func _towers(ci: CanvasItem, cam: Cam) -> void:
-	for k in range(6):
-		var a := TAU * (float(k) + 0.5) / 6.0
-		var p := Vector2(cos(a) * (A + 75.0), sin(a) * (L + 75.0))
+	for p in _tower_spots():
 		var base := cam.oval(p, 0.0)
 		if base.z <= 0.0:
 			continue
@@ -467,17 +499,33 @@ static func _screen(ci: CanvasItem, cam: Cam, home: Color, away: Color, board: D
 
 ## The haze the lights make over the far side: a soft band of light on the horizon, over
 ## the far stands and the far turf.
-static func _haze(ci: CanvasItem, cam: Cam) -> void:
+static func _haze(ci: CanvasItem, cam: Cam, weather := "") -> void:
 	var x0 := cam.cx - 4000.0
 	var x1 := cam.cx + 4000.0
 	var y := cam.hor
 	var band := 0.12 * cam.f
-	var clear := Color(0.85, 0.88, 1.0, 0.0)
-	var haze := Color(0.85, 0.88, 1.0, 0.13)
+	var haze := VignetteWeather.haze(weather)
+	var clear := Color(haze.r, haze.g, haze.b, 0.0)
 	ci.draw_polygon(PackedVector2Array([Vector2(x0, y - band * 2.0), Vector2(x1, y - band * 2.0), Vector2(x1, y), Vector2(x0, y)]),
 			PackedColorArray([clear, clear, haze, haze]))
 	ci.draw_polygon(PackedVector2Array([Vector2(x0, y), Vector2(x1, y), Vector2(x1, y + band * 0.6), Vector2(x0, y + band * 0.6)]),
 			PackedColorArray([haze, haze, clear, clear]))
+
+
+## A club's second colour (for the band on its flags), white if it has none.
+static func _second(colours: Array, side: int) -> Color:
+	if side < colours.size() and (colours[side] as Array).size() > 1:
+		return (colours[side] as Array)[1]
+	return Color(1, 1, 1)
+
+
+## Where the six light towers stand outside the stands (oval metres).
+static func _tower_spots() -> Array:
+	var out := []
+	for k in range(6):
+		var a := TAU * (float(k) + 0.5) / 6.0
+		out.append(Vector2(cos(a) * (A + 75.0), sin(a) * (L + 75.0)))
+	return out
 
 
 ## Oval points round an ellipse centred at (ox, oy).

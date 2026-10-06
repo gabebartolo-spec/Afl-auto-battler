@@ -91,6 +91,8 @@ func setup_prematch(my_code: String, opp_code: String, my_ground: Array, opp_gro
 	_colours = [GameDB.club_colours(my_code), GameDB.club_colours(opp_code)]
 	_codes = [my_code, opp_code]
 	tokens.clear()
+	# The day's weather, when the hub passes it.
+	weather = str(banner_ctx.get("weather", ""))
 	_mine = mini(SQUAD, my_ground.size())
 	for p in my_ground.slice(0, SQUAD):
 		tokens.append({"side": 0, "mine": true, "slot": "", "tired": false, "num": int(p["num"]),
@@ -467,6 +469,7 @@ func _draw() -> void:
 		_draw_figure(f["at"], f["t"])
 	if not banner_drawn:
 		_draw_banner()
+	VignetteWeather.draw_air(self, Rect2(Vector2.ZERO, size), _t, weather)
 	_draw_bars(fade)
 	_draw_copy(fade)
 	var black := 1.0 - fade
@@ -524,7 +527,10 @@ func _draw_pennants() -> void:
 		var px := top.z                   # pixels per metre there
 		var half := w * 0.5 * px
 		var length := PENNANT_LEN * px
-		var sway := deg_to_rad(2.5 * sin(float(flags[k]) * 1.7 + _t * 0.9))
+		# Stirring on a still night; in the wind they pull out to one side and flick.
+		var wind := VignetteWeather.wind(weather)
+		var sway := deg_to_rad(lerpf(2.5, 9.0, wind) * sin(float(flags[k]) * 1.7 + _t * lerpf(0.9, 4.5, wind))
+				+ 24.0 * wind)
 		var at := Vector2(top.x, top.y + float(posmod(k * 7, 5) - 2))
 		var l := at + Vector2(-half, 0).rotated(sway)
 		var r := at + Vector2(half, 0).rotated(sway)

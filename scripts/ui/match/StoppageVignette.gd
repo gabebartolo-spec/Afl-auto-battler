@@ -56,6 +56,8 @@ var _colours := [[], []]
 var _codes := ["", ""]
 var _board := {}           # the match's score, for the big screen at the end of the ground
 var _kits := []            # both sides' guernseys, as dressed
+## The day's weather (MatchSim.weather; VignetteWeather): how the ground and air look.
+var weather := ""
 var _t := 0.0
 var _frozen := false
 var _hold := 0.0            # time since the freeze, for the last push-in
@@ -64,6 +66,8 @@ var _hold := 0.0            # time since the freeze, for the last push-in
 func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 	title = heading
 	tokens.clear()
+	# The day's weather, when MatchSim has one.
+	weather = str(sim.get("weather")) if sim.get("weather") != null else ""
 	_board = {"codes": [str((sim.squads[0] as Squad).code), str((sim.squads[1] as Squad).code)],
 			"goals": [sim.goals(0), sim.goals(1)], "behinds": [sim.behinds(0), sim.behinds(1)],
 			"q": sim.current_quarter}
@@ -399,6 +403,7 @@ func _draw() -> void:
 		_draw_figure(f["at"], f["t"])
 	if not ball_drawn:
 		_draw_ball(b)
+	VignetteWeather.draw_air(self, Rect2(Vector2.ZERO, size), _t, weather)
 	if _frozen:
 		# The freeze: a flash on the cut, then the frame held a shade darker.
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.18), true)
@@ -415,7 +420,7 @@ func _draw() -> void:
 ## and the far goals - all seen in perspective, so they hold their shape as it zooms.
 func _draw_ground() -> void:
 	var cam := ground_cam()
-	VignetteGround.draw_ground(self, cam, Rect2(Vector2.ZERO, size), _colours, 7, _board)
+	VignetteGround.draw_ground(self, cam, Rect2(Vector2.ZERO, size), _colours, 7, _board, weather, _t)
 	VignetteGround.draw_goals(self, cam, 1, _pad_colour())
 	VignetteGround.draw_goals(self, cam, -1, _pad_colour())
 
@@ -456,7 +461,7 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	# Shadow on the ground, smaller as they leave it.
 	var sh := 0.38 * m * (1.0 - lift * 0.35)
 	draw_set_transform(Vector2(ground.x, ground.y), 0.0, Vector2(1.0, 0.32))
-	draw_circle(Vector2.ZERO, sh, Color(0, 0, 0, 0.35))
+	draw_circle(Vector2.ZERO, sh, Color(0, 0, 0, VignetteWeather.shadow_alpha(weather) + 0.03))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# Your players have their backs to us; theirs and the umpire face the camera.
 	var back := not ump and bool(t["mine"])
