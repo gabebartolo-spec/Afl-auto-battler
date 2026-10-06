@@ -95,6 +95,7 @@ func _run() -> void:
 	var finish: Button = ui.find_child("StartSeason", true, false)
 	_check(finish.disabled, "Season cannot start before a valid draft is complete")
 	await _test_side_shape(ui)
+	await _test_pick_keeps_scroll(ui)
 
 	# Reopening uses the same draft; it must not replay AI turns.
 	var history: Array = _state.draft.pick_history.duplicate(true)
@@ -644,6 +645,72 @@ func _check_layout(ui: Control, label: String) -> void:
 		for node in ui.find_children(prefix + "*", "Button", true, false):
 			if node.is_visible_in_tree():
 				_check(node.size.y >= 44, label + ": " + str(node.name) + " is touch-sized")
+
+
+## Drafting a player with a real click rebuilds the rows under the pointer.
+## The list must still hear that click end: if it doesn't, it stays mid-drag
+## and the next mouse move drags the pool back to where the click began
+## (director's PC playtest, 2026-10-07: "selecting a player breaks scrolling").
+func _test_pick_keeps_scroll(ui: Control) -> void:
+	ui.call("_select_tab", "pool")
+	await _settle()
+	var sc: ScrollContainer = ui.get("_board_scroll")
+	sc.scroll_vertical = 300
+	await _settle()
+	var view: Rect2 = sc.get_global_rect()
+	var pick: Button = null
+	for b in ui.find_children("Pick_*", "Button", true, false):
+		var r: Rect2 = (b as Control).get_global_rect()
+		if not (b as Button).disabled and r.position.y > view.position.y + 20 and r.end.y < view.end.y - 20:
+			pick = b
+			break
+	_check(pick != null, "A draftable player is on screen for the click")
+	if pick == null:
+		return
+	var count_before: int = _state.draft.count()
+	var at := pick.get_global_rect().get_center()
+	await _mouse_move(at)
+	await _mouse_button(at, MOUSE_BUTTON_LEFT, true)
+	await _mouse_button(at, MOUSE_BUTTON_LEFT, false)
+	await _settle()
+	_check(_state.draft.count() == count_before + 1, "A real click on + drafts the player")
+	sc = ui.get("_board_scroll")
+	var mid := sc.get_global_rect().get_center()
+	await _mouse_move(mid)
+	for i in range(8):
+		await _mouse_button(mid, MOUSE_BUTTON_WHEEL_DOWN, true)
+		await _mouse_button(mid, MOUSE_BUTTON_WHEEL_DOWN, false)
+	var scrolled := sc.scroll_vertical
+	for i in range(4):
+		await _mouse_move(mid + Vector2(i * 5, i * 2))
+	await _settle()
+	_check(scrolled > 300 and sc.scroll_vertical == scrolled,
+			"After drafting, the pool scrolls and stays put when the mouse moves (%d, then %d)"
+			% [scrolled, sc.scroll_vertical])
+
+
+func _mouse_button(at: Vector2, button: MouseButton, down: bool) -> void:
+	var ev := InputEventMouseButton.new()
+	ev.position = at
+	ev.global_position = at
+	ev.button_index = button
+	ev.pressed = down
+	ev.button_mask = MOUSE_BUTTON_MASK_LEFT if (down and button == MOUSE_BUTTON_LEFT) else 0
+	Input.parse_input_event(ev)
+	Input.flush_buffered_events()
+	await process_frame
+	await process_frame
+
+
+func _mouse_move(at: Vector2) -> void:
+	var ev := InputEventMouseMotion.new()
+	ev.position = at
+	ev.global_position = at
+	ev.relative = Vector2(0, 3)
+	Input.parse_input_event(ev)
+	Input.flush_buffered_events()
+	await process_frame
+	await process_frame
 
 
 func _settle() -> void:
