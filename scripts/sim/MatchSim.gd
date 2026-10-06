@@ -183,9 +183,9 @@ var weather := "perfect":
 		weather = v if WEATHER_RATES.has(v) or v == "perfect" else "perfect"
 		_rates_cache = {}
 const WEATHER_RATES := {
-	"wet": {"mark_share_of_kicks": 0.90, "pressure_base": 1.20, "clanger_per_chain": 1.15,
-			"stoppage_share": 1.05, "inside50_goal": 0.985, "inside50_behind": 1.08,
-			"one_percenter_share": 1.4, "metres_gain_mean": 1.10},
+	"wet": {"mark_share_of_kicks": 0.90, "pressure_base": 1.18, "clanger_per_chain": 1.15,
+			"stoppage_share": 1.05, "inside50_goal": 0.98, "inside50_behind": 1.07,
+			"one_percenter_share": 1.4, "metres_gain_mean": 1.12},
 	"windy": {"mark_share_of_kicks": 0.92, "clanger_per_chain": 1.06,
 			"metres_gain_mean": 1.03},
 	"hot": {"pressure_base": 0.97, "stoppage_share": 0.95, "metres_gain_mean": 1.03},
