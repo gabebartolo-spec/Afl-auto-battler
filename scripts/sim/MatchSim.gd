@@ -959,6 +959,8 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String, ctx: Diction
 		out *= 1.14
 	if carrying and _trait(p, "ball_magnet"):
 		out *= 1.10
+	if carrying and weather == "wet" and _trait(p, "wet_weather"):
+		out *= Traits.WET_BALL
 	if purpose == "clearance" and _trait(p, "bull"):
 		out *= 1.15
 	# A Crumber lives at the feet of the pack: he is there when it spills.
@@ -1140,6 +1142,8 @@ func _clanger_weights(side: int) -> Array:
 		w_base += w
 		if _trait(p, "hothead"):
 			w *= HOTHEAD_ERRORS
+		if weather == "wet" and _trait(p, "wet_weather"):
+			w *= Traits.WET_CLANGERS
 		w_all += w
 		weights.append(w)
 	return [weights, w_all / w_base if w_base > 0.0 else 1.0]
