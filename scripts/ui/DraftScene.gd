@@ -22,6 +22,11 @@ var _club_filter := ""
 var _search := ""
 var _sort := "overall"
 var _career_stage := ""
+## Playing style (PlayerProfile.player_type: Interceptor, Crumber, Wing...)
+## and trait (Tagger, Contested bull...) filters: the director's PC playtest,
+## 2026-10-07. "" is any.
+var _style := ""
+var _trait := ""
 var _available_only := true
 var _advanced_open := false
 var _history_club := ""
@@ -573,6 +578,41 @@ func _filters() -> Control:
 			_shown = PAGE_SIZE
 			_refresh_board(true))
 		stage_row.add_child(stage_option)
+	var kinds := UiKit.hbox(6)
+	_advanced.add_child(kinds)
+	var styles := []
+	var traits := []
+	for p in _draft.pool:
+		var st := PlayerProfile.player_type(p)
+		if st != "" and not styles.has(st):
+			styles.append(st)
+		for t in _traits_of(p):
+			if not traits.has(str(t)):
+				traits.append(str(t))
+	styles.sort()
+	traits.sort_custom(func(a, b): return _trait_label(a) < _trait_label(b))
+	var style_option := UiKit.option()
+	style_option.name = "StyleFilter"
+	style_option.add_item("Any playing style")
+	for st in styles:
+		style_option.add_item(str(st))
+	style_option.select(0 if _style.is_empty() else styles.find(_style) + 1)
+	style_option.item_selected.connect(func(idx: int):
+		_style = "" if idx == 0 else str(styles[idx - 1])
+		_shown = PAGE_SIZE
+		_refresh_board(true))
+	kinds.add_child(style_option)
+	var trait_option := UiKit.option()
+	trait_option.name = "TraitFilter"
+	trait_option.add_item("Any trait")
+	for t in traits:
+		trait_option.add_item(_trait_label(str(t)))
+	trait_option.select(0 if _trait.is_empty() else traits.find(_trait) + 1)
+	trait_option.item_selected.connect(func(idx: int):
+		_trait = "" if idx == 0 else str(traits[idx - 1])
+		_shown = PAGE_SIZE
+		_refresh_board(true))
+	kinds.add_child(trait_option)
 	var avail := UiKit.btn("Available only", 14)
 	avail.name = "AvailableOnly"
 	avail.toggle_mode = true
@@ -622,8 +662,25 @@ func _career_stage_label(key: String) -> String:
 	return ""
 
 
+## His traits, and Tagger when he is one (Roles: a role, read like a trait
+## when choosing players).
+func _traits_of(p: Dictionary) -> Array:
+	var out: Array = Traits.of(p).duplicate()
+	if Roles.is_tagger(p):
+		out.append("tagger")
+	return out
+
+
+func _trait_label(key: String) -> String:
+	return "Tagger" if key == "tagger" else Traits.label(key)
+
+
 func _board_rows() -> Array:
 	var rows := _draft.board(_role, _club_filter, _search.strip_edges(), _sort, _available_only)
+	if not _style.is_empty() or not _trait.is_empty():
+		rows = rows.filter(func(p):
+			return (_style.is_empty() or PlayerProfile.player_type(p) == _style) \
+					and (_trait.is_empty() or _traits_of(p).has(_trait)))
 	if not _draft.league_mode or _draft.intake_mode or _career_stage.is_empty():
 		return rows
 	var filtered := []
@@ -676,6 +733,8 @@ func _clear_filters() -> void:
 	_search = ""
 	_sort = "overall"
 	_career_stage = ""
+	_style = ""
+	_trait = ""
 	_available_only = true
 	_shown = PAGE_SIZE
 	_show_board()
@@ -695,7 +754,7 @@ func _player_row(p: Dictionary) -> Control:
 	inspect.focus_mode = Control.FOCUS_NONE
 	inspect.mouse_filter = Control.MOUSE_FILTER_PASS
 	inspect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	inspect.custom_minimum_size.y = 54
+	inspect.custom_minimum_size.y = 66
 	inspect.tooltip_text = "Inspect %s" % GameDB.player_display_name(p)
 	inspect.pressed.connect(_open_player.bind(str(p["id"])))
 	h.add_child(inspect)
@@ -743,13 +802,17 @@ func _player_row(p: Dictionary) -> Control:
 				GameDB.club_short(_draft.drafted_by(str(p["id"])))]
 		if not bool(_draft.user_view(p)["scouted"]):
 			detail += " · %d OVR" % int(p["overall"])
-	var traits: Array = Traits.of(p)
-	if not traits.is_empty():
-		var names: PackedStringArray = []
-		for t in traits:
-			names.append(Traits.label(str(t)))
-		detail += " · " + ", ".join(names)
+	# His age, so age against talent needs no profile (director, 2026-10-07).
+	if float(p.get("age", 0.0)) > 0.0 and not taken:
+		detail = "%d yo · %s" % [int(p["age"]), detail]
 	info.add_child(UiKit.ellipsis(detail, UiKit.SECONDARY, UiKit.MUTED))
+	# How he plays, on its own line so a phone never cuts it off.
+	var kind: PackedStringArray = [PlayerProfile.player_type(p)]
+	for t in _traits_of(p):
+		kind.append(_trait_label(str(t)))
+	var kind_line := UiKit.ellipsis(" · ".join(kind), UiKit.SECONDARY, UiKit.TEXT)
+	kind_line.name = "Kind_" + str(p["id"])
+	info.add_child(kind_line)
 	face.add_child(UiKit.line("›", 20, UiKit.MUTED, true))
 	_ignore_mouse(face)
 	var can_pick := _draft.can_pick_player(p)
