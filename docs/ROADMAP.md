@@ -563,6 +563,12 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+### Ruckman incorrectly chosen as fallback tagger — PC playtest correctness bug (2026-10-07)
+
+- Screenshot explicitly says “No specialist tagger on the ground: Harry Van Hattum goes to him and gives up his own game.” The director identifies Van Hattum as the team's ruckman and rejects ordinary rucks tagging opposition midfielders. **Tagging assignments should use eligible midfielders**, preferring a genuine specialist tagger when available. A rare “unicorn” dual-role ruck must qualify through actual midfield capability and deployment, not simply membership of the midfield group that also contains the ruck slot.
+- Audit automatic fallback selection, manual assignment eligibility and the actual simulation to prevent an ordinary designated ruck being pulled away from ruck duties to tag. Show who is tagging whom, their relevant capabilities/traits and the actual cost of the assignment. If no eligible midfielder is available, explain that clearly and allow no tag or a deliberate lineup change; do not silently choose an unsuitable ruck. Handle bench rotations, injuries and role changes without reverting to this invalid fallback. Verify the pictured Van Hattum case and specialist/non-specialist midfielder cases. This is a roadmap correctness report for Claude, no game edits here.
+
+
 ### “What your calls did”: clear matchup outcome and evidence — PC playtest (2026-10-07)
 
 - Screenshot wording: “Sam Taylor onto Daniel McStay: Daniel McStay marked 3 of 5.” The director cannot tell whether this means direct contests against Sam after the switch, all subsequent marking chances, or McStay's whole-match total. Verify the actual recorded statistic and denominator; explicitly label the matchup, period since the call and what the chances/contests represent. Do not present whole-match or non-matchup statistics as direct results against the newly assigned defender.
