@@ -3,9 +3,14 @@ extends RefCounted
 ## one home-and-away season each. Per plan: the home margin against the
 ## balanced plan's on the same matches, scoring, metres, intercepts, and the
 ## lane mix of its kicks. Env: LN_DRAFTS (default 21,22); LN_OFF=1 plays
-## without lanes (MatchSim.kick_lanes off) on the same seeds.
+## without lanes (MatchSim.kick_lanes off) on the same seeds. LN_TRI=1 plays
+## the counter triangle instead: each pair both ways round on every fixture,
+## so home ground cancels, reporting the margin of the plan meant to win.
 
 const PLANS := ["balanced", "attacking", "controlled", "defensive", "contest", "through_stars"]
+## Winner first: Attack corridor beats Controlled tempo, Controlled tempo
+## beats the Defensive press, the press beats Attack corridor.
+const TRIANGLE := [["attacking", "controlled"], ["controlled", "defensive"], ["defensive", "attacking"]]
 
 
 func run() -> void:
@@ -18,6 +23,10 @@ func run() -> void:
 			drafts.append(int(s))
 	MatchSim.kick_lanes = OS.get_environment("LN_OFF") != "1"
 	print("kick_lanes ", MatchSim.kick_lanes)
+	if OS.get_environment("LN_TRI") == "1":
+		_triangle(lb, codes, drafts)
+		MatchSim.kick_lanes = true
+		return
 	var rows := {}
 	for plan in PLANS:
 		rows[plan] = {"margin": 0.0, "score": 0.0, "metres": 0.0, "intercepts": 0.0, "inside50": 0.0,
@@ -61,3 +70,38 @@ func run() -> void:
 				float(r["score"]) / n, float(r["metres"]) / n, float(r["intercepts"]) / n, float(r["inside50"]) / n,
 				100.0 * float(lanes.get("corridor", 0)) / tot, 100.0 * float(lanes.get("switch", 0)) / tot,
 				100.0 * float(lanes.get("line", 0)) / tot])
+
+
+func _triangle(lb, codes: Array, drafts: Array) -> void:
+	var sums := []
+	var wins := []
+	for _p in TRIANGLE:
+		sums.append(0.0)
+		wins.append(0)
+	var n := 0
+	for d in drafts:
+		var lists: Dictionary = lb.drafted_lists(int(d))["lists"]
+		var season := Season.new(codes, lists, int(d) * 7 + 1)
+		for ri in range(season.fixture.size()):
+			var mi := 0
+			for m in season.fixture[ri]:
+				mi += 1
+				var seed := int(d) * 100000 + ri * 100 + mi
+				n += 2
+				for pi in range(TRIANGLE.size()):
+					var pair: Array = TRIANGLE[pi]
+					for flip in [0, 1]:
+						var sim: MatchSim = season.match_sim(str(m["home"]), str(m["away"]), seed)
+						var w: int = flip
+						sim.set_tactics(w, {"gameplan": pair[0]})
+						sim.set_tactics(1 - w, {"gameplan": pair[1]})
+						var res := sim.run()
+						var margin := float(res["score"][w]) - float(res["score"][1 - w])
+						sums[pi] = float(sums[pi]) + margin
+						if margin > 0.0:
+							wins[pi] = int(wins[pi]) + 1
+	print("lanes_impl triangle: %d matches per pair (drafts %s)" % [n, str(drafts)])
+	for pi in range(TRIANGLE.size()):
+		var pair: Array = TRIANGLE[pi]
+		print("%-11s over %-11s %+6.2f pts  wins %.1f%%" % [pair[0], pair[1],
+				float(sums[pi]) / float(maxi(1, n)), 100.0 * float(wins[pi]) / float(maxi(1, n))])
