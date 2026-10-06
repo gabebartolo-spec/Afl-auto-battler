@@ -14,6 +14,9 @@ var show_real_names := true
 ## Transient navigation request. Settings can send the user straight to New
 ## career setup without touching the existing save.
 var new_career_setup_requested := false
+## The career's custom prospect (Club Forge, ARD-M7-008): his id once made,
+## one per career. Followed through drafts and career history.
+var custom_prospect_id := ""
 ## Your dual-ruck call (ARD-M5-001): off until you make it, kept across
 ## seasons; copied into each season's selection for your club (_sync_dual).
 var user_dual_ruck := false
@@ -210,6 +213,17 @@ func get_setting(key: String, fallback = null):
 	return cfg.get_value("ui", key, fallback)
 
 
+## The player made in Club Forge (ARD-M7-008), kept outside any career so it
+## can be brought into the next one: a custom-prospect spec, or {}.
+func forge_player() -> Dictionary:
+	var v = get_setting("forge_player", {})
+	return (v as Dictionary).duplicate(true) if v is Dictionary else {}
+
+
+func set_forge_player(spec: Dictionary) -> void:
+	set_setting("forge_player", spec.duplicate(true))
+
+
 func set_setting(key: String, value) -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(settings_path)
@@ -404,6 +418,7 @@ func save_career() -> bool:
 		"draft_meeting_year": draft_meeting_year,
 		"career_seed": career_seed,
 		"class_tiers": class_tiers,
+		"custom_prospect_id": custom_prospect_id,
 		"custom_club": custom_club,
 		"user_dual_ruck": user_dual_ruck,
 		# Players carry p["career"]; saves without this mark predate it.
@@ -528,6 +543,7 @@ func load_career() -> bool:
 	# Saves from before class tiers use seed 0: still one fixed roll per year.
 	career_seed = int(state.get("career_seed", 0))
 	class_tiers = state.get("class_tiers", {})
+	custom_prospect_id = str(state.get("custom_prospect_id", ""))
 	user_dual_ruck = bool(state.get("user_dual_ruck", false))
 	_sync_dual()
 	_recompute_ratings()
@@ -841,6 +857,7 @@ func reset() -> void:
 	last_training_report = {}
 	_xp_grant_key = ""
 	new_career_setup_requested = false
+	custom_prospect_id = ""
 	user_dual_ruck = false
 	_dirty = false
 	default_train_plan = "position"
@@ -852,6 +869,30 @@ func reset() -> void:
 	# League Draft pool); the first class drafted in the career is 2027's,
 	# made exactly as a rollover makes the next year's class.
 	draftee_pool = _first_class(season_year)
+
+
+## Create the career's custom prospect from `spec` (Prospects.custom_problem
+## lists what it needs). He joins the first National Draft class, drafted at
+## this season's end, like any other prospect: no club, pick, OVR or POT is
+## chosen, and no club is told to take him or leave him. One per career, made
+## before the career's first season starts. Returns "" or what's wrong.
+func add_custom_prospect(spec: Dictionary) -> String:
+	if custom_prospect_id != "":
+		return "This career already has its own prospect."
+	if season != null:
+		return "Create him before the career starts."
+	var why := Prospects.custom_problem(spec)
+	if why != "":
+		return why
+	var p := Prospects.make_custom(spec, season_year, career_seed)
+	var aged := Prospects.age_pool([p], season_year, {})
+	if aged.is_empty():
+		return "He is too old for the draft."
+	GameDB.register_draftees(aged)
+	draftee_pool.append(aged[0])
+	custom_prospect_id = str(aged[0]["id"])
+	mark_dirty()
+	return ""
 
 
 ## The draft class a career starting in `year` drafts at that season's end:
