@@ -39,7 +39,7 @@ Times are seconds on a CI runner, from the first sharded run; each suite's floor
 | `draft_ui` | The draft screen's layout and state: containers, widths, rotate and resume | 5 |
 | `intake` | The National Draft model: the 2026 class, projection, season rollover | 6 |
 | `intake_ui` | The National Draft on the shared draft screen | 4 |
-| `expansion` | Tasmania in 2028 and Canberra in 2030 | 53 |
+| `expansion` | Tasmania in 2028 and Canberra in 2030, and a Club Forge club entering with the career | 53 |
 | `finals` | The wildcard finals bracket, extra time, draws | 68 |
 | `save` | Saving and loading a career, including old-save migrations and the safe write: a failed or interrupted write never loses the career, and a failed swap leaves the newer save readable | 29 |
 | `chronology` | 2026 is history, careers start in 2027, and every system agrees | 4 |
