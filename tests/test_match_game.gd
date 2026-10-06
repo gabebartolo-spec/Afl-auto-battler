@@ -254,7 +254,7 @@ func _test_authenticity_events() -> void:
 	_check(smothers > 0 and speccy_ok, "Smothers are real one-percenters in the match log (%d)" % smothers)
 	_check(speccies > 0 and max_speccies <= 2,
 			"Speccies are genuine contested marks, never more than two a match (%d in sample)" % speccies)
-	_check(kick_in_ok, "A behind restarts with the side's designated rebounding defender, no ruck contest")
+	_check(kick_in_ok, "A behind restarts with the side's designated kick-in taker, no ruck contest")
 	_check(kick_styles.has("safe") and kick_styles.has("play_on"),
 			"Kick-ins include both safer exits and play-on exits (%s)" % str(kick_styles))
 

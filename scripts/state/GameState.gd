@@ -2763,7 +2763,7 @@ const TRAIN_PLANS := [
 	{"key": "key_def", "label": "Key defender", "roles": ["DEF"],
 			"text": "Stops the opposition: spoils and marks inside 50, tackles hard.",
 			"weights": {"intercept": 3.0, "pressure": 2.0}},
-	{"key": "rebound_def", "label": "Rebounding defender", "roles": ["DEF"],
+	{"key": "rebound_def", "label": "Small defender", "roles": ["DEF"],
 			"text": "Wins it back, then runs it out of defence.",
 			"weights": {"carry": 3.0, "intercept": 2.0}},
 	{"key": "key_fwd", "label": "Key forward", "roles": ["FWD"],
