@@ -1,9 +1,7 @@
 # Intercept possessions by position: what the public record says (2026-10-06)
 
 For the director's "any player can intercept" decision. Research only, no code. The
-short answer: **the public pages give a few solid anchors but not the full table by
-position or the defensive-half against forward-half split.** The full table is one
-download away (below).
+short answer: **intercepting is mostly a defender's job, but not only: midfielders win about 2.5 a game and even key forwards about one.** The by-position table below is built from Champion Data's numbers on Wheelo Ratings (2025 and 2026). The defensive-half against forward-half split of *intercepts* is not published; the zone split exists only for all possessions.
 
 ## What was found
 
@@ -20,11 +18,7 @@ opponent's disposal in the air or on the ground (definition on the AFL's
 | Harrison Petty (Melbourne) | key defender | 3.6 | below average for key defenders |
 
 Source: [Fox Sports, "Every AFL club's improver and slider" (16 April 2026)](https://www.foxsports.com.au/afl/afl-2026-every-clubs-improver-and-slider-champion-data-analysis-column-trade-and-free-agency-recruits-performance-this-season-latest-news/news-story/b5b0e5f407868cfc2e1551db4b23bcda).
-Read: **an elite general defender is about 6 a game, an elite key defender is well
-under that (a key defender at 3.6 is below the average for his position), and 4.8 is
-enough to be called elite among midfielders.** That puts the position average for
-midfielders under 4.8 and for key defenders a little above 3.6, but the exact
-averages are not published on these pages.
+Read: these fit the full table below (the key-defender average is 5.5, so 3.6 is well under it).
 
 **Career-best examples (older, for the top end):** Nick Vlastuin averaged 7.5 a game
 in a season (Wikipedia, [Nick Vlastuin](https://en.wikipedia.org/wiki/Nick_Vlastuin));
