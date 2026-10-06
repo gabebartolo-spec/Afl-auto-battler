@@ -158,6 +158,44 @@ def check_bio() -> list[str]:
     return problems
 
 
+def check_afl_ladders() -> list[str]:
+    """tools/balance/afl_ladders.json (real-AFL reference): every season has
+    16-18 clubs, every premier and finals club is on that year's ladder
+    (2020 has no ladder here, so its clubs are only checked against its own
+    finals), and every finals winner is one of the two clubs or a draw."""
+    import json
+
+    path = os.path.join(ROOT, "tools", "balance", "afl_ladders.json")
+    if not os.path.exists(path):
+        return []
+    problems: list[str] = []
+    with open(path, encoding="utf-8") as f:
+        doc = json.load(f)
+    for year, rows in doc.get("seasons", {}).items():
+        if not 16 <= len(rows) <= 18:
+            problems.append(f"afl_ladders {year}: {len(rows)} clubs")
+    finals = doc.get("finals", {})
+    for year, games in finals.items():
+        for hi, lo, win in games:
+            if win not in (hi, lo, "draw"):
+                problems.append(f"afl_ladders {year}: winner {win} is not {hi} or {lo}")
+        clubs = {c for g in games for c in g[:2]}
+        prem = doc.get("premiers", {}).get(year)
+        if not prem:
+            problems.append(f"afl_ladders {year}: no premier")
+            continue
+        if prem["club"] not in clubs:
+            problems.append(f"afl_ladders {year}: premier {prem['club']} not in that year's finals")
+        n = len(doc["seasons"].get(year, [])) or 18
+        if not 1 <= prem["ladder_position"] <= n:
+            problems.append(f"afl_ladders {year}: premier ladder position {prem['ladder_position']}")
+    for year in doc.get("seasons", {}):
+        if year not in doc.get("premiers", {}) or year not in finals:
+            problems.append(f"afl_ladders {year}: season without premiers or finals")
+    print(f"  afl ladders: {len(doc.get('seasons', {}))} seasons, {len(finals)} finals series checked")
+    return problems
+
+
 def check_forge_locations() -> list[str]:
     """data/forge_locations.json (Club Forge location library, ARD-M7-009):
     unique ids, the required fields, a ground and a source on every entry, the
@@ -264,9 +302,10 @@ def main() -> int:
     print(f"\n  {checks - mismatches}/{checks} aggregate checks passed")
 
     # --- bio / identity checks ---------------------------------------------
+    problems.extend(check_afl_ladders())
+    problems.extend(check_forge_locations())
     problems.extend(check_identity_rules())
     problems.extend(check_bio())
-    problems.extend(check_forge_locations())
 
     if problems:
         print(f"\n{len(problems)} problem(s) found:")

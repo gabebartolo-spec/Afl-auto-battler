@@ -442,12 +442,25 @@ func count_by_role(list: Array) -> Dictionary:
 ## row; a generated player's look drawn from his id alone (never from ratings or
 ## traits); a real player not yet curated, Appearance.UNCURATED - never a guess.
 func player_looks(p: Dictionary) -> Dictionary:
+	# Colours chosen for him in Club Forge come first.
+	var chosen = p.get("look")
+	if chosen is Dictionary and Appearance.valid("skin", chosen.get("skin")) and Appearance.valid("hair", chosen.get("hair")):
+		return {"skin": int(chosen["skin"]), "hair": int(chosen["hair"])}
 	var row: Dictionary = appearance.get(_look_key(p), {})
 	if not row.is_empty():
 		return {"skin": int(row["skin"]), "hair": int(row["hair"])}
 	if bool(p.get("generated", false)):
 		return Appearance.generated(str(p.get("id", "")), skin_mix)
 	return Appearance.UNCURATED
+
+
+## A player's whole look (Appearance.full): his colours as player_looks gives
+## them, plus hair style, facial hair, boots, socks, tattoos and the rest -
+## what he was given in Club Forge (p["look"]), seeded variety for a generated
+## player, the plain base look for a real one.
+func player_appearance(p: Dictionary) -> Dictionary:
+	return Appearance.full(player_looks(p), str(p.get("id", "")), bool(p.get("generated", false)),
+			p.get("look", {}) if p.get("look") is Dictionary else {})
 
 
 static func _look_key(p: Dictionary) -> String:
