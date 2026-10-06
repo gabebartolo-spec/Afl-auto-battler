@@ -430,6 +430,8 @@ func _roam_chance(def_side: int) -> float:
 	if p.is_empty():
 		return 0.0
 	var chance := clampf(0.10 + Matchups.interceptor_score(p) / 430.0, 0.20, 0.38)
+	if zone_intercepts:
+		chance *= ROAM_REACH
 	if bool((tactics[1 - def_side] as Dictionary).get("spare_accountable", false)):
 		chance *= 0.40
 	return chance
@@ -1391,7 +1393,11 @@ const AERIAL_ROLES := {
 }
 ## The named loose defender reads it better in his own half and the middle:
 ## his weight grows with his intercept rating, up to double.
-const LOOSE_READ := 1.0
+const LOOSE_READ := 0.5
+## The director (2026-10-06): the best loose defenders sit near the real best,
+## about 8 intercepts a game (Champion Data 2025: Sam Taylor 8.4), not 12.
+## Scales how often he reaches an entry's contest.
+const ROAM_REACH := 0.65
 ## Of the contests the defender wins, the share he marks (an intercept
 ## mark, the ball turned over) rather than spoils; a better reader marks more.
 const INTERCEPT_MARK := 0.35
@@ -2396,6 +2402,9 @@ func _intercept(side: int, who, could_mark: bool) -> void:
 	if could_mark and stat_rng.randf() < 0.35 * (0.5 + _a(who, "intercept") / 100.0):
 		_t(side, "marks")
 		_p(who, "marks")
+		if zone_intercepts:
+			_t(side, "intercept_marks")
+			_p(who, "intercept_marks")
 		if stat_rng.randf() < 0.5:
 			_t(side, "contested_marks")
 			_p(who, "contested_marks")
@@ -2858,7 +2867,42 @@ func _play_one_chain(T: Dictionary) -> void:
 			# Play restarts from the free (and any 50), not another bounce.
 			at_centre = false
 			boundary_throw_in = false
+		elif zone_intercepts and next_side < 0 and not at_centre and not kick_in \
+				and rng.randf() < CLANGER_TAKEN:
+			_clanger_taken(side, fp)
 	_after_chain()
+
+
+## The director (2026-10-06): a kick that turns it over goes to the other side,
+## as in real football, not to a 50/50 loose ball. Whoever is in that part of
+## the ground takes it (AERIAL_ROLES), an intercept, and the better readers mark
+## it and take the kick.
+func _clanger_taken(side: int, at: float) -> void:
+	var opp := 1 - side
+	var taker = _aerial_defender(opp, at)
+	if taker == null:
+		return
+	_intercept(opp, taker, false)
+	next_side = opp
+	_prev_end = "turnover"
+	if rng.randf() < CLANGER_MARKED * (0.6 + 0.8 * _a(taker, "intercept") / 100.0):
+		_won_back["marked"] = true
+		_t(opp, "marks")
+		_p(taker, "marks")
+		_t(opp, "intercept_marks")
+		_p(taker, "intercept_marks")
+		_emit("mark", opp, at, taker, "%s intercepts it on the mark" % GameDB.player_display_name(taker))
+		var ev: Dictionary = events[events.size() - 1]
+		ev["general_play"] = true
+		ev["intercept"] = true
+
+
+## Of the clangers not paid as frees, the share the other side takes outright
+## (the rest stay a contest: a fumble, a ball knocked loose), and of those, the
+## share taken on the mark by an average reader. Calibrated with
+## tools/audit/intercept_impl.gd against Champion Data 2025.
+const CLANGER_TAKEN := 0.5
+const CLANGER_MARKED := 0.3
 
 
 ## The 18 on-ground players per side, so the pitch view can draw real
