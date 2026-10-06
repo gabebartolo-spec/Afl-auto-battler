@@ -3308,6 +3308,7 @@ Acceptance:
 ---
 
 ## ARD-M6-004 — Contracts / trades / free agency
+**Progress (2026-10-06):** trades at closer to real AFL volume merged in #383 (director: "increase trades as you say", and "looks good" on the look): players aged 20 to 29 can ask to be traded, to go home or for a game, and rivals trade more. Requests you are involved in show on the trade tab.  
 **Status:** `PARTIAL` — contract talks, free agency, compensation, competitive offers, free-agent sorting (#184), the trade redesign (#182 valuation, #191 current picks, #193 future picks) and real-money contracts (#198) are all on `main`; the stack PRs were closed and carried by #208. Open follow-ups are the §9.1 findings (trade value by age/potential, contract-talk frequency). _(reconciled 2026-10-05)_  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
@@ -4721,6 +4722,7 @@ Prefer shared theme changes over manually touching hundreds of controls.
 ## ARD-M8-003 — Match visualisation authenticity pass
 **Status:** `PARTIAL`  
 **Progress (2026-10-06):** step 1 of the visualisation sequence, the truth fixes (handballs stay handballs, the ball never steers), merged in #438 on the director's go ("Merge on green"). Presentation only; the sim, scores and event order are untouched.
+**Progress (2026-10-06, step 2):** the tactical timeline merged in #445: the match records each side's calls (plan, bursts, tagger, loose defender, named match-ups) and the view puts the match's named players on each other. Presentation only; it reads the sim and draws no dice. Step 3, the two demonstrations, follows.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -6175,6 +6177,7 @@ The eight includes are the complete decision record. There are no rejected style
 - **2026-10-06:** Added an explicit warning that the current UI policy/implementation has drifted from the project's anti-slop criteria. Reasserted restrained, mobile-first, football-specific UI guidance and instructed future UI work to remove unnecessary cards/chips/boxes/accents rather than layering on more template-style chrome.
 
 - **2026-10-06:** Added ARD-M8-010 as a hard-gated late-project trailer task. Claude may recommend when the roadmap/visual polish are mature enough, but cannot begin trailer work without explicit user approval. Once approved, Claude may source/use free software only, or direct the user to install suitable free tools.
+- **2026-10-06:** Merged-PR status lines: the tactical timeline (#445, M8-003 step 2), trades at real volume (#383), and the synergy-trait (#440) and rating-parity (#446) audits. ARD-M4-004 gets its line when #303 lands.
 
 - **2026-10-05:** Tightened ARD-M7-011 with a footyhead-proof veracity standard: real AFL facts must be sourced and auditable, ambiguous/non-trivial claims should be cross-checked against multiple strong sources, and disputed or uncertain claims should be omitted rather than guessed.
 
