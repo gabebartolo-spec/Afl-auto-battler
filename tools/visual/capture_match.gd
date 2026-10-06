@@ -16,6 +16,10 @@ extends SceneTree
 ##   --loose SIDE    that side plays its best interceptor loose
 ##   --tag SIDE      that side tags the other side's best midfielder
 
+##   --flood SIDE    that side floods behind the ball all match (0 home, 1 away)
+##   --stack SIDE    that side stacks every centre ball-up
+##   --kside S       with --kind, only events by side S
+
 const W := 900
 const H := 700
 
@@ -65,6 +69,16 @@ func _run() -> void:
 		mids.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
 		if not mids.is_empty():
 			sim.set_tactics(ts, {"gameplan": "balanced", "tag_id": str(mids[0]["id"])})
+
+	if args.has("flood"):
+		# --flood SIDE: that side floods behind the ball all match (the
+		# coach's "Flood behind the ball" call, held on), for the ARD-M8-003
+		# demonstration against ordinary coverage on the same seed.
+		(sim.bursts[int(args["flood"])] as Dictionary)["flood"] = 100000
+	if args.has("stack"):
+		# --stack SIDE: that side stacks every centre ball-up (the attacking
+		# setup, for the second demonstration).
+		(sim.bursts[int(args["stack"])] as Dictionary)["stack"] = 100000
 	var res: Dictionary = sim.run()
 	res["home"] = home_code
 	res["away"] = away_code
@@ -95,7 +109,7 @@ func _run() -> void:
 		# Start a few events before the n-th event of this kind.
 		var seen := 0
 		for i in range(res["events"].size()):
-			if str(res["events"][i]["kind"]) == str(args["kind"]):
+			if str(res["events"][i]["kind"]) == str(args["kind"]) 					and (not args.has("kside") or int(res["events"][i].get("side", -1)) == int(args["kside"])):
 				seen += 1
 				if seen == int(args.get("nth", "1")):
 					from = maxi(0, i - int(args.get("lead", "3")))
