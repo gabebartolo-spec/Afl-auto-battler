@@ -6,7 +6,6 @@ extends SceneTree
 ## Writes <out>_sheet.png: the Forge with no club; the form's home, name and
 ## colours; its guernsey; the Forge with the club saved; New career offering it.
 
-var classic := false
 var W := 390
 var H := 844
 
@@ -36,8 +35,6 @@ func _run() -> void:
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
-		if str(a[i]) == "--classic":
-			classic = true
 		if str(a[i]) == "--size":
 			var wh := str(a[i + 1]).split("x")
 			W = int(wh[0])
@@ -56,7 +53,6 @@ func _run() -> void:
 	var scene = load("res://scenes/ClubForgeScene.tscn").instantiate()
 	root.add_child(scene)
 	shots.append(await _shot())
-	scene.paint_mode = not classic
 	scene.find_child("ForgeCreateClub", true, false).emit_signal("pressed")
 	await process_frame
 	scene._pick_place("port-melbourne")
@@ -65,21 +61,15 @@ func _run() -> void:
 	scene._club["design"] = "hoops"
 	scene._build()
 	shots.append(await _shot())
-	if classic:
-		scene._slot = "secondary"
-		scene._set_colour("secondary", "#F2B231")
-		scene._slot = "accent"
-		scene._rebuild_colours()
-	else:
-		# Paint the hoops gold, then hover the trim with white chosen.
-		scene._brush = "#F2B231"
-		scene._paint_part("pattern")
-		scene._brush = "#F5F5F5"
-		scene._rebuild_paint()
-		for c in scene.find_children("Forge*", "GuernseyCrest", true, false):
-			if c.mouse_filter == Control.MOUSE_FILTER_STOP:
-				c.highlight = "pattern"
-				c.queue_redraw()
+	# Paint the hoops gold, then outline them as the pointer would.
+	scene._brush = "#F2B231"
+	scene._paint_part("pattern")
+	scene._brush = "#F5F5F5"
+	scene._rebuild_paint()
+	for c in scene.find_children("Forge*", "GuernseyCrest", true, false):
+		if c.mouse_filter == Control.MOUSE_FILTER_STOP:
+			c.highlight = "pattern"
+			c.queue_redraw()
 	await _scroll_to(scene, 0.45)
 	shots.append(await _shot())
 	await _scroll_to(scene, 1.0)
