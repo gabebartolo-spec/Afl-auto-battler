@@ -1,0 +1,85 @@
+{
+ "source": "data/players_2026.csv (AFL Tables 2026 totals) summed per club (finals included) and divided by the club's games (the most games any of its players played, home-and-away plus finals); for clubs that missed the finals goals match data/raw/standings_2026.json exactly. Behinds are player-credited and leave out rushed behinds (about 2 a game below a team's own total). Per team per match; mean, lowest, highest and spread across the 18 clubs. 2025 is not included: no 2025 per-player cache is in the repo. Regenerate with tools/balance/build_team_rates.py.",
+ "clubs": 18,
+ "team_games": 434,
+ "per_team_match": {
+  "disposals": {
+   "mean": 367.36,
+   "min": 335.87,
+   "max": 390.57,
+   "sd": 16.28
+  },
+  "kicks": {
+   "mean": 212.26,
+   "min": 191.52,
+   "max": 240.35,
+   "sd": 11.6
+  },
+  "handballs": {
+   "mean": 155.09,
+   "min": 124.48,
+   "max": 176.56,
+   "sd": 13.82
+  },
+  "marks": {
+   "mean": 91.63,
+   "min": 77.92,
+   "max": 109.08,
+   "sd": 7.84
+  },
+  "contested_marks": {
+   "mean": 9.0,
+   "min": 7.26,
+   "max": 10.88,
+   "sd": 1.13
+  },
+  "tackles": {
+   "mean": 57.34,
+   "min": 48.19,
+   "max": 66.4,
+   "sd": 4.36
+  },
+  "inside_50s": {
+   "mean": 52.97,
+   "min": 45.61,
+   "max": 60.36,
+   "sd": 3.94
+  },
+  "clearances": {
+   "mean": 36.09,
+   "min": 32.35,
+   "max": 39.92,
+   "sd": 1.84
+  },
+  "hitouts": {
+   "mean": 35.72,
+   "min": 28.16,
+   "max": 43.96,
+   "sd": 5.14
+  },
+  "frees_for": {
+   "mean": 18.74,
+   "min": 16.48,
+   "max": 20.76,
+   "sd": 1.15
+  },
+  "goals": {
+   "mean": 12.88,
+   "min": 9.09,
+   "max": 16.24,
+   "sd": 1.98
+  },
+  "behinds": {
+   "mean": 9.47,
+   "min": 7.7,
+   "max": 11.19,
+   "sd": 0.9
+  },
+  "rebound_50s": {
+   "mean": 39.31,
+   "min": 37.0,
+   "max": 41.88,
+   "sd": 1.5
+  }
+ }
+}

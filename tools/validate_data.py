@@ -271,6 +271,38 @@ def check_role_rates() -> list[str]:
     return problems
 
 
+def check_team_rates() -> list[str]:
+    """tools/balance/afl_team_rates.json (real 2026 per-team-per-match
+    averages): every stat present and inside a sane range, min <= mean <= max,
+    and kicks plus handballs equal disposals."""
+    import json
+
+    path = os.path.join(ROOT, "tools", "balance", "afl_team_rates.json")
+    if not os.path.exists(path):
+        return []
+    problems: list[str] = []
+    with open(path, encoding="utf-8") as f:
+        rates = json.load(f).get("per_team_match", {})
+    ranges = {"disposals": (300, 430), "kicks": (160, 260), "handballs": (100, 200),
+              "marks": (60, 120), "contested_marks": (5, 14), "tackles": (40, 75),
+              "inside_50s": (40, 70), "clearances": (28, 45), "hitouts": (25, 50),
+              "frees_for": (12, 26), "goals": (8, 18), "behinds": (6, 14),
+              "rebound_50s": (30, 50)}
+    for k, (lo, hi) in ranges.items():
+        v = rates.get(k)
+        if not v:
+            problems.append(f"afl_team_rates {k}: missing")
+            continue
+        if not lo <= v["mean"] <= hi:
+            problems.append(f"afl_team_rates {k}: mean {v['mean']} outside {lo}-{hi}")
+        if not v["min"] <= v["mean"] <= v["max"]:
+            problems.append(f"afl_team_rates {k}: min, mean and max out of order")
+    if rates and abs(rates["kicks"]["mean"] + rates["handballs"]["mean"] - rates["disposals"]["mean"]) > 0.1:
+        problems.append("afl_team_rates: kicks plus handballs differ from disposals")
+    print("  afl team rates: %d stats checked" % len(rates))
+    return problems
+
+
 def main() -> int:
     with open(CSV_PATH, newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
@@ -338,6 +370,7 @@ def main() -> int:
     # --- bio / identity checks ---------------------------------------------
     problems.extend(check_afl_ladders())
     problems.extend(check_role_rates())
+    problems.extend(check_team_rates())
     problems.extend(check_forge_locations())
     problems.extend(check_identity_rules())
     problems.extend(check_bio())
