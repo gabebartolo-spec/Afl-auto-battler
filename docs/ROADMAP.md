@@ -2290,6 +2290,97 @@ Consolidates existing team form with the requested winning-streak momentum conce
 
 Goal: make player deployment intuitive, footy-authentic and consequential.
 
+## ARD-M4-012 — Intercepts by zone: any player can intercept
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+
+**Director decision (2026-10-06, interview):** "any player can intercept, but the loose defender should get more intercepts if he's good at it." Today the general-play aerial pool is defenders and midfielders only, and forward-entry contests are defenders only. Neither pool looks at where the ball is, so forwards never pick off a rebound kick in their forward half.
+
+**Scope:**
+- Choose the intercepting player from the players near the ball's zone, weighted by their intercept and marking.
+- Keep the named loose defender's skill-scaled extra entry (`_roam_chance`, 0.20–0.38, scaled down when the attack makes him accountable).
+- Calibrate per position against real splits. The evidence is docs/research/INTERCEPT_EVIDENCE.md (#416), plus the Wheelo Ratings CSVs (download approved by the director).
+
+**Validation:**
+- paired seeded batches: intercepts by position against the evidence;
+- team intercepts, rebounds, scoring and margin unchanged within error;
+- determinism.
+
+## ARD-M4-013 — Set shots: three visibly different choices, and a real pack for the bomb
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+
+**Director decision (2026-10-06):** "should be 3 visibly different sequences, but also add a pack contest, also gives an opportunity for a crumber to pick up a spoiled ball if it is not marked."
+
+**Scope:**
+1. **Record the choice.** Put the choice (shoot, pass or bomb) and the teammate's id on the resulting score or rebound event; today `m["choice"]` stays on the decision (MatchSim.gd:3636).
+2. **Pass:** emit the pass and receive actions that are already resolved, without double-counting the disposal. The teammate shoots from his own spot.
+3. **Bomb:** becomes a real goal-square pack contest:
+   - a forward marks and shoots;
+   - or it's spoiled, and a crumber can gather and snap;
+   - or the defence marks or rebounds;
+   - or it goes through untouched.
+   Recalibrate against today's bomb goal rate so the choice keeps its trade-off.
+4. **Presentation (under M8-003):** three distinct sequences from these events, with no invented actors or stats.
+
+## ARD-M4-014 — Kick lanes that matter (corridor, switch, down the line)
+**Status:** `TODO` · **Priority:** `P2` · **Autonomy:** `SUPERVISED`
+
+**Director decision (2026-10-06):** lanes are recorded **and** affect play, not presentation only.
+
+**Scope:**
+- MatchSim picks a lane for each kick (corridor, switch, down the line), weighted by the gameplan: Attack corridor goes through the middle more, Controlled tempo switches and resets, Defensive press goes down the line.
+- A lane changes that kick's risk and reward, e.g. corridor gains more but turns over into open space.
+- It replaces part of the plans' flat multipliers, so effects aren't counted twice.
+- The director draws the recorded lane, so the random 10% "switch of play" goes.
+- Recalibrate plan balance and the counter triangle.
+
+**Dependencies:** M8-003 tactical timeline. Merge the plan names first (below).
+
+## ARD-M4-015 — Six gameplans, not eight names
+**Status:** `TODO` · **Priority:** `P2` · **Autonomy:** `SAFE`
+
+**Director decision (2026-10-06):** merge the duplicates. "Fast movement" becomes Attack corridor and "High press" becomes Defensive press; they're the same effects under older names (MatchSim `PLANS`, `PLAN_UPSIDE`, CoachReport). Old saves map across on load. No gameplay change.
+
+## ARD-M4-016 — Match-day weather: perfect day, wet, windy, hot
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+
+**Director decisions (2026-10-06):**
+- Rain affects play, calibrated against real stats, and has a look.
+- Conditions: perfect day, wet, windy and hot.
+- "Certain gameplans should work better in certain weather: contested footy is better in the wet as it's less precise; in dry weather ball handling is easier and it's easier to mark the ball."
+- The forecast is known during the week.
+- Windy has a breeze end per quarter.
+- A visible "Wet-weather player" trait.
+- Long sleeves: about 15% of a list wear them, up to 25% in the wet.
+
+**Evidence:** docs/research/WEATHER_EVIDENCE.md, the lead's own research and conclusions.
+
+**Scope:**
+1. **One condition per match,** seeded by venue and month from the real frequencies. Docklands is always a perfect day.
+2. **MatchSim effects through existing keys,** calibrated to the evidence ranges:
+   - wet: marks about −13%, contested possessions +7%, turnovers +11%, a small accuracy drop, and contested ball weighs more in the result;
+   - windy (20 km/h or more): fewer marks, more turnovers, lower accuracy, and a breeze end that swaps each quarter;
+   - hot: freer early, with heavier legs late.
+3. **Plan fit by condition:**
+   - wet favours Win contest and Defensive press, and hurts Attack corridor;
+   - windy favours Controlled tempo;
+   - hot favours Attack corridor, and Defensive press fades;
+   - a perfect day favours Attack corridor and Controlled tempo.
+   It's a rule the player can look up, not a recommendation label.
+4. **Forecast on the Hub during the week,** as a fact. The coach report and Stat Guide state each condition's rule in words.
+5. **The trait "Wet-weather player":** generated players and evidence-backed real players; it only matters when wet.
+6. **Look (with the art agent and the existing scenes):**
+   - rain on the pitch and vignettes;
+   - wind in flags and banners;
+   - heat haze and hard shadows;
+   - long sleeves per player (#368, backlog item).
+   Zero result effect from the look itself.
+
+**Validation:**
+- seeded batches per condition against WEATHER_EVIDENCE: scoring, marks, contested share, turnovers, accuracy;
+- the plan-by-condition matrix shows the intended edges with no dominant plan;
+- determinism;
+- old saves load as a perfect day.
+
 ## ARD-M5-001 — Matchday squad: 18 + 5 interchange
 **Status:** `DONE` — merged in #331 (`11e2f13`, 2026-10-06).  
 
@@ -4638,6 +4729,26 @@ Guardrail:
 Do not perform a movement-engine rewrite without evidence that local fixes are insufficient. Do not paper over authoritative simulation defects with presentation-only fakery.
 
 
+**Interview of 2026-10-06 (the director, on the visualisation and tactics research in docs/research/AFL_MATCH_VISUALISATION_AND_TACTICS_RESEARCH.md):** the agreed sequence, in order.
+
+1. **Truth fixes, confirmed in code:**
+   - handballs over 18 m are drawn as kicks (MatchDirector.gd:454, 760, 987); stage a short handball and then the carry;
+   - the ball steers toward the collector within 8 m (`roll_to`, l.1243 and l.1383); fix the deflection or bounce destination at release;
+   - collect waits of up to 6 s, and flights stretched to wait for receivers; start receivers earlier and cap the wait;
+   - stage the set-shot choices from ARD-M4-013's events.
+2. **A tactical timeline:**
+   - record plans, bursts (with their real start and expiry) and named assignments per chain: the tagger and target, key-forward matchups, the loose interceptor, and the spare made accountable;
+   - the director uses the named players instead of slot pairs and its own half-back spare;
+   - snapshot them for replay and skip.
+3. **Two demonstrations first:**
+   - Flood behind the ball against ordinary coverage on an opposition entry;
+   - attacking against defensive centre setups at the **2026 centre ball-up**. The director chose "ball-up from 2026"; the copy is in #414.
+4. **Then corridor, switch and down-the-line** from ARD-M4-014's recorded lanes.
+5. **The 14-play library is held** until the demonstrations land; the director chose "only after the demos land".
+6. **No coaching-view overlay or route arrows.** The director chose "labels only"; the approved persistent labels for key players stand.
+
+Verify with `capture_match.gd` fixtures at 1×, 4× and 8×, on phone and fullscreen, and check that scores, stats and the event order are unchanged.
+
 **Approved flavour extension:** FL-003 (§9.3) adds sourced, readable atmosphere for existing venues. Ground dress changes no geometry, weather, home advantage or football outcome.
 
 ---
@@ -5784,6 +5895,8 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 **Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`  
 **Existing owner:** §1.7 typography/free-font remit, shared UiKit; M8-006 presentation.
 
+**Prototype (2026-10-06):** the director chose the sign-writer scoreboard style, the art agent drew the family (`tools/typeface/build_font.py`, original font owned by the project), and draft #419 puts it in game project-wide so the director can play it. Not merged and not final: the status stays `TODO` until the director's own approval of the completed treatment.
+
 **Scope:** establish consistent roles for fonts, size, weight, line spacing and casing in dark mode. Test names, ratings, scores and draft rows with the current Barlow family as a baseline, not a mandatory final choice. The art agent may propose suitable free/licensed replacements under existing tooling rules; the director chooses.
 
 **Dependencies:** shared-font/component inventory and art-agent treatment; feeds STYLE-01/04/05. Do not invent a font system per screen.
@@ -5903,6 +6016,12 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Added ARD-M4-016, match-day weather, from the director's decisions and the lead's evidence (docs/research/WEATHER_EVIDENCE.md).
+- **2026-10-06:** Recorded the director's interview on the match-visualisation research.
+  - ARD-M8-003 gains an agreed sequence: truth fixes, a tactical timeline, two demonstrations, then lanes. No overlay, and the play library is held.
+  - New items: ARD-M4-012 (intercepts by zone), ARD-M4-013 (set-shot choices and a real bomb pack), ARD-M4-014 (kick lanes that matter) and ARD-M4-015 (merge the plan names to six).
+  - 2026 centre ball-up approved.
 
 - **2026-10-06:** Scars removed from the player look (director, in chat with the lead: "remove scarring from the game, unnecessary detail"); the Club Forge look specification no longer lists them.
 - **2026-10-06:** Recorded two hair decisions in §9.1 (director, relayed by the lead): hair and beard look-dev stopped; the director's hair research adopted as the brief (three prototypes through the production path, reviewed in Blender and at game scale, before any rollout).

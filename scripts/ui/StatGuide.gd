@@ -62,7 +62,7 @@ const STATS := {
 		"Small and medium forwards.",
 	],
 	"ruck": [
-		"Wins the hit-outs at every bounce and ball-up.",
+		"Wins the hit-outs at every centre ball-up and stoppage.",
 		"Hit-outs, plus clearances and contested marks.",
 		"Your starting ruck's rating decides your share of the hit-outs and is a good part of team Contest.",
 		"Rucks only - but every side fields one.",
