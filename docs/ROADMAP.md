@@ -557,6 +557,9 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+**Draft available-player list scroll reversal — director-observed usability bug (2026-10-07), `P0`, TODO:** scrolling down sometimes moves the list upward. Reproduce in the same draft list shown in the age request; inspect nested scroll containers/input propagation, hover/focus changes, row rebuilding and scroll-position restoration as hypotheses, not confirmed causes. Make wheel/trackpad/touch scrolling follow the intended direction consistently, preserve position through list refreshes where appropriate, and avoid competing scroll handlers. Verify repeated scrolling over row contents and blank space, both directions, near list boundaries and after sorting/filtering or picks. Include a meaningful regression check for the reproduced cause and a runnable desktop/phone interaction demonstration; screenshots cannot verify this bug. Coordinate the existing draft/UI owner and shared scroll infrastructure, and check other screens if the cause is global.
+
+
 **Draft player-row age — director playtest request (2026-10-07), `P1`, TODO:** show each available player's current in-career age directly in the draft list row beside existing role/club/salary/scouting information, so age-versus-talent decisions do not require opening every profile. Use the same authoritative age as the player sheet and current career year (not a frozen imported age). Keep it readable on phone and desktop without truncating essential information; verify consistency across initial league draft, later intake drafts and save/reload. Preserve scouting uncertainty for OVR/POT.
 
 
