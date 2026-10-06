@@ -2034,6 +2034,8 @@ Claude should refine the smallest football-credible design using the existing se
 
 Tie suitability into player identity rather than blanket solo/dual stat multipliers. **Ideas, not demands:** a "Ruck King" could operate better as the sole lead ruck, while an "Extra Midfielder" or "Unicorn"-type ruck could thrive in a complementary tandem. These names and exact behaviours are suggestions for Claude to assess; do not automatically add traits or redefine the existing Unicorn trait, which already has a separate multi-position synergy meaning. Reuse compatible existing traits/attributes where possible and avoid double-counting their benefits.
 
+**Director reference examples — Extra Midfielder rucks:** Luke Jackson, Brodie Grundy and Tristan Xerri. Use these players as reference points for the intended around-ground/midfield contribution and ruck identity when refining the concept. They are archetype examples, not instructions to assign an automatic tandem bonus or manually buff these players; solo/dual suitability must still follow the final evidence-based design and each player\'s relevant skills/traits.
+
 Acceptance:
 - The choice is clear in match prep, names the relevant selected ruck(s), and explains the likely benefit and cost in concise football language without prescribing the best option.
 - Real selection, ruck responsibility, rotation/workload and off-ruck roles support the choice; no extra player, phantom second ruck, duplicate simultaneous contribution or cosmetic-only toggle.
