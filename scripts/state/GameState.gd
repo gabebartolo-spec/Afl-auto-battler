@@ -536,7 +536,7 @@ func load_career() -> bool:
 	last_injuries = state.get("last_injuries", [])
 	last_mro = state.get("last_mro", [])
 	season_tally = state.get("season_tally", {})
-	club_plan = str(state.get("club_plan", "balanced"))
+	club_plan = MatchSim.plan_key(str(state.get("club_plan", "balanced")))
 	if not CLUB_PLANS.has(club_plan):
 		club_plan = "balanced"
 	form_log = state.get("form_log", {})

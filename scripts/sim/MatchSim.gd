@@ -605,17 +605,15 @@ func set_tactics(side: int, t: Dictionary) -> void:
 ## What each plan gains (scaled by how well the list suits it, PlanFit); the
 ## rest of its keys are what it gives up.
 const PLAN_UPSIDE := {
-	"attacking": ["goal", "gain"], "fast": ["goal", "gain"],
-	"defensive": ["press", "opp_goal"], "press": ["press", "opp_goal"],
+	"attacking": ["goal", "gain"],
+	"defensive": ["press", "opp_goal"],
 	"contest": ["contest"],
 	"controlled": ["taken", "clangers", "goal", "pace"],
 	"through_stars": ["star_ball", "star_goal", "clangers"],
 }
 const PLANS := {
 	"attacking": {"goal": 1.05, "gain": 1.06, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
-	"fast": {"goal": 1.05, "gain": 1.06, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
 	"defensive": {"press": 1.09, "opp_goal": 0.965, "goal": 0.96, "gain": 0.95, "pace": 1.12},
-	"press": {"press": 1.09, "opp_goal": 0.965, "goal": 0.96, "gain": 0.95, "pace": 1.12},
 	"contest": {"contest": 0.025, "gain": 0.95, "exposed": 1.04},
 	"controlled": {"taken": 0.96, "gain": 0.94, "goal": 1.01, "clangers": 0.93, "pace": 0.95},
 	# Through stars: the ball to the best three and their finishing (star_ball,
@@ -647,13 +645,23 @@ func _press_on(side: int) -> float:
 	if m > 1.0 and _plan(side) == "controlled":
 		var hold := clampf(float((plan_fit[side] as Dictionary).get("controlled", 1.0)), 0.0, 1.0)
 		m = 1.0 + (m - 1.0) * (1.0 - hold)
-	elif m > 1.0 and (_plan(side) == "attacking" or _plan(side) == "fast"):
+	elif m > 1.0 and _plan(side) == "attacking":
 		m *= 1.10
 	return m
 
 
 func _plan(side: int) -> String:
-	return str((tactics[side] as Dictionary).get("gameplan", "balanced"))
+	return plan_key(str((tactics[side] as Dictionary).get("gameplan", "balanced")))
+
+
+## ARD-M4-015 (the director, 2026-10-06: "merge the duplicates"): "Fast
+## movement" was Attack corridor and "High press" was Defensive press under
+## older names, the same effects. Old saves and replays map across.
+const PLAN_ALIAS := {"fast": "attacking", "press": "defensive"}
+
+
+static func plan_key(key: String) -> String:
+	return str(PLAN_ALIAS.get(key, key))
 
 
 func _pep(side: int) -> String:
