@@ -228,6 +228,12 @@ func _own(dir: String) -> Dictionary:
 		var hints = JSON.parse_string(FileAccess.get_file_as_string(hints_path))
 		if hints is Dictionary:
 			t["hints"] = hints
+	if built.size() == 3:
+		# A whole family: the display cut sets the big type - titles, the
+		# opponent, headlines and every number a player reads.
+		t["head"] = t["display"]
+		t["roles"].merge({"title": ["display", 22], "opponent": ["display", 32 if narrow else 36],
+				"t_rating": ["display", 22], "l_rating": ["display", 22], "clock": ["display", 19]}, true)
 	if built == ["Display"]:
 		# A numerals-and-capitals display face so far: it sets every number a
 		# player reads (scores, clock, ratings, guernsey numbers); words stay Barlow.
