@@ -1,0 +1,117 @@
+{
+  "broadcast_goal_line": {
+    "cpu_ms": {
+      "mean": 9.357,
+      "p95": 13.402
+    },
+    "draw_calls": {
+      "mean": 97.0,
+      "p95": 97.0
+    },
+    "figures": 17,
+    "gpu_ms": {
+      "mean": 0.127,
+      "p95": 0.131
+    },
+    "objects": {
+      "mean": 129.0,
+      "p95": 129.0
+    }
+  },
+  "broadcast_speccy_front": {
+    "cpu_ms": {
+      "mean": 10.377,
+      "p95": 13.75
+    },
+    "draw_calls": {
+      "mean": 105.0,
+      "p95": 105.0
+    },
+    "figures": 21,
+    "gpu_ms": {
+      "mean": 0.167,
+      "p95": 0.171
+    },
+    "objects": {
+      "mean": 135.0,
+      "p95": 135.0
+    }
+  },
+  "centre_bounce": {
+    "cpu_ms": {
+      "mean": 13.384,
+      "p95": 17.658
+    },
+    "draw_calls": {
+      "mean": 88.0,
+      "p95": 88.0
+    },
+    "figures": 9,
+    "gpu_ms": {
+      "mean": 0.142,
+      "p95": 0.144
+    },
+    "objects": {
+      "mean": 141.0,
+      "p95": 141.0
+    }
+  },
+  "prematch_huddle": {
+    "cpu_ms": {
+      "mean": 16.328,
+      "p95": 22.626
+    },
+    "draw_calls": {
+      "mean": 167.0,
+      "p95": 167.0
+    },
+    "figures": 46,
+    "gpu_ms": {
+      "mean": 0.209,
+      "p95": 0.213
+    },
+    "objects": {
+      "mean": 250.0,
+      "p95": 250.0
+    }
+  },
+  "prematch_run": {
+    "cpu_ms": {
+      "mean": 13.698,
+      "p95": 16.904
+    },
+    "draw_calls": {
+      "mean": 152.0,
+      "p95": 152.0
+    },
+    "figures": 46,
+    "gpu_ms": {
+      "mean": 0.208,
+      "p95": 0.213
+    },
+    "objects": {
+      "mean": 209.0,
+      "p95": 209.0
+    }
+  },
+  "prematch_warm": {
+    "cpu_ms": {
+      "mean": 16.827,
+      "p95": 21.189
+    },
+    "draw_calls": {
+      "mean": 167.0,
+      "p95": 167.0
+    },
+    "figures": 46,
+    "gpu_ms": {
+      "mean": 0.156,
+      "p95": 0.183
+    },
+    "objects": {
+      "mean": 234.0,
+      "p95": 234.0
+    }
+  },
+  "renderer": "NVIDIA GeForce RTX 4070 SUPER"
+}
