@@ -20,7 +20,7 @@ func _ready() -> void:
 	_player = AudioStreamPlayer.new()
 	_player.name = "BackgroundMusic"
 	_player.volume_db = MUSIC_DB
-	_player.bus = "Master"
+	_player.bus = AudioLevels.bus(AudioLevels.MUSIC)
 	_player.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_player)
 	_player.finished.connect(_on_finished)

@@ -76,7 +76,7 @@ static func open(host: Control, c: Dictionary, on_close: Callable = Callable()) 
 		if str(c.get("origin", "")) == "seed":
 			v.add_child(UiKit.lbl("Records begin at Round 1, 2026.", UiKit.SMALL, UiKit.MUTED))
 
-	var close := UiKit.btn("Close", 16, true)
+	var close := UiKit.btn("Close", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 48)
 	close.pressed.connect(func():
 		overlay.queue_free()

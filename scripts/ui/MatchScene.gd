@@ -38,6 +38,7 @@ var _margin: MarginContainer
 var _stacked := false
 var _last_tactics := {}
 var _skipping := false
+var _crowd: CrowdSound = null    # FL-004: the crowd (presentation only)
 var _fulltime_shown := false
 var _coach_overlay: Control
 var _sheet_overlay: Control
@@ -98,6 +99,9 @@ func _ready() -> void:
 	if _res.is_empty():
 		Router.replace("hub")
 		return
+	_crowd = CrowdSound.new()
+	_crowd.name = "Crowd"
+	add_child(_crowd)
 	_build()
 	_pitch.setup(_res)
 	_refresh_rings()
@@ -245,7 +249,7 @@ func _score_column(code: String, home: bool, narrow: bool) -> Control:
 	var v := UiKit.vbox(1)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var name_text := GameDB.club_short(code) if narrow else GameDB.club_name(code)
-	var name := UiKit.ellipsis(name_text, 13 if narrow else 16, UiKit.TEXT, true)
+	var name := UiKit.ellipsis(name_text, UiKit.SECONDARY if narrow else 16, UiKit.TEXT, true)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if home \
 			else HORIZONTAL_ALIGNMENT_LEFT
 	v.add_child(name)
@@ -295,7 +299,7 @@ func _controls() -> Control:
 
 	var row := UiKit.hbox(5)
 	v.add_child(row)
-	_play_btn = UiKit.btn("Pause", 13)
+	_play_btn = UiKit.btn("Pause", UiKit.SECONDARY)
 	_play_btn.custom_minimum_size = Vector2(0, 40)
 	_play_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_play_btn.clip_text = true
@@ -303,7 +307,7 @@ func _controls() -> Control:
 	row.add_child(_play_btn)
 
 	for s in SPEEDS:
-		var b := UiKit.btn("%dx" % int(s), 13)
+		var b := UiKit.btn("%dx" % int(s), UiKit.SECONDARY)
 		b.custom_minimum_size = Vector2(0, 40)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.clip_text = true
@@ -313,7 +317,7 @@ func _controls() -> Control:
 
 	var row2 := UiKit.hbox(5)
 	v.add_child(row2)
-	var skip := UiKit.btn("Skip to full time", 13)
+	var skip := UiKit.btn("Skip to full time", UiKit.SECONDARY)
 	skip.custom_minimum_size = Vector2(0, 40)
 	skip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	skip.pressed.connect(_on_skip)
@@ -321,7 +325,7 @@ func _controls() -> Control:
 
 	# Your own match cannot be left half way (Back says so); a replay can.
 	if not _interactive:
-		var leave := UiKit.btn("Back to hub", 13)
+		var leave := UiKit.btn("Back to hub", UiKit.SECONDARY)
 		leave.custom_minimum_size = Vector2(0, 40)
 		leave.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		leave.pressed.connect(func(): Router.back())
@@ -476,7 +480,7 @@ func _show_coach_box() -> void:
 				dv.add_child(dl)
 			v.add_child(dv)
 		if q == 3:
-			var report := UiKit.btn("Assistant's report", 15)
+			var report := UiKit.btn("Assistant's report", UiKit.BODY)
 			report.name = "HalfTimeReport"
 			report.custom_minimum_size = Vector2(0, 44)
 			report.pressed.connect(func(): _show_half_time_popup(CoachReport.half_time_report(_res, _my_side)))
@@ -547,7 +551,7 @@ func _show_coach_box() -> void:
 	var more := UiKit.vbox(8)
 	more.name = "MoreCalls"
 	more.visible = false
-	var more_btn := UiKit.btn("More calls", 15)
+	var more_btn := UiKit.btn("More calls", UiKit.BODY)
 	more_btn.name = "MoreCallsToggle"
 	more_btn.custom_minimum_size = Vector2(0, 44)
 	more_btn.pressed.connect(func():
@@ -628,7 +632,7 @@ func _show_coach_box() -> void:
 	sync_rot.call(_rotation)
 	more.add_child(_legs_view())
 
-	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", 18, true)
+	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", UiKit.HEADING, true)
 	start.name = "StartQuarter"
 	start.custom_minimum_size = Vector2(0, 48)
 	start.pressed.connect(func():
@@ -646,7 +650,7 @@ func _show_coach_box() -> void:
 		_close_coach()
 		_simulate_next_quarter(t))
 	box["footer"].add_child(start)
-	var skip := UiKit.btn("Skip to full time", 15)
+	var skip := UiKit.btn("Skip to full time", UiKit.BODY)
 	skip.custom_minimum_size = Vector2(0, 44)
 	skip.pressed.connect(_on_skip)
 	box["footer"].add_child(skip)
@@ -733,10 +737,10 @@ func _calls_view(q: int) -> Control:
 	for l in lines.slice(0, 5):
 		var pts := float(l["pts"])
 		var row := UiKit.hbox(8)
-		var name_l := UiKit.ellipsis(str(l["label"]), 13, UiKit.TEXT)
+		var name_l := UiKit.ellipsis(str(l["label"]), UiKit.SECONDARY, UiKit.TEXT)
 		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(name_l)
-		row.add_child(UiKit.line("%+.1f pts" % pts, 13, UiKit.GOOD if pts > 0 else UiKit.BAD, true))
+		row.add_child(UiKit.line("%+.1f pts" % pts, UiKit.SECONDARY, UiKit.GOOD if pts > 0 else UiKit.BAD, true))
 		v.add_child(row)
 	var moments: Array = _res.get("moments", [])
 	for m in moments:
@@ -1013,7 +1017,7 @@ func _player_sheet(title: String, roster: Array, current: String, on_pick: Calla
 			_close_sheet()
 			on_pick.call(id))
 		v.add_child(b)
-	var close := UiKit.btn("Close", 16)
+	var close := UiKit.btn("Close", UiKit.NAME)
 	close.custom_minimum_size = Vector2(0, 44)
 	close.pressed.connect(_close_sheet)
 	box["footer"].add_child(close)
@@ -1070,7 +1074,7 @@ func _show_half_time_popup(report: Dictionary) -> void:
 			if margin > 0 else "Half time, down by %d" % absi(margin))
 	v.add_child(UiKit.lbl(where, UiKit.SMALL, UiKit.MUTED))
 	v.add_child(_report_glance(report))
-	var close := UiKit.btn("Close report", 16, true)
+	var close := UiKit.btn("Close report", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 44)
 	close.pressed.connect(_close_report)
 	box["footer"].add_child(close)
@@ -1233,6 +1237,8 @@ func _on_event(ev: Dictionary) -> void:
 	if str(ev.get("kind", "")) == "goal":
 		_flash_score(int(ev.get("side", 0)))
 		_track_run(int(ev.get("side", 0)))
+	if _crowd != null and not _skipping:
+		_crowd.event(str(ev.get("kind", "")))
 	_queue_broadcast(ev, event_index)
 
 
@@ -1490,6 +1496,8 @@ func _on_finished() -> void:
 		return
 	_skipping = false
 	_finished = true
+	if _crowd != null:
+		_crowd.full_time()
 	_fulltime_shown = true
 	_close_coach()
 	if _res.has("goals") and _res.has("behinds"):
@@ -1532,7 +1540,7 @@ func _show_fulltime() -> void:
 	var away: String = _res["away"]
 	var mine := GameState.my_club != "" and (home == GameState.my_club or away == GameState.my_club)
 	if mine and (_interactive or _review):
-		var train := UiKit.btn("Training", 15)
+		var train := UiKit.btn("Training", UiKit.BODY)
 		train.name = "FullTimeTraining"
 		train.custom_minimum_size = Vector2(0, 44)
 		train.pressed.connect(func():
@@ -1540,7 +1548,7 @@ func _show_fulltime() -> void:
 			Router.replace("training"))
 		box["footer"].add_child(train)
 	# The week is over: back to the hub, where next week starts.
-	var leave := UiKit.btn("Continue", 18, true)
+	var leave := UiKit.btn("Continue", UiKit.HEADING, true)
 	leave.name = "FullTimeContinue"
 	leave.custom_minimum_size = Vector2(0, 48)
 	leave.pressed.connect(func(): Router.back())
@@ -1611,7 +1619,7 @@ func _ft_summary(v: VBoxContainer) -> void:
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(nm)
 		var fig := UiKit.figure(UiKit.scoreline(int(_res["goals"][side]), int(_res["behinds"][side])),
-				24, UiKit.TEXT if winner != 1 - side else UiKit.MUTED)
+				UiKit.SCORE, UiKit.TEXT if winner != 1 - side else UiKit.MUTED)
 		row.add_child(fig)
 		# Clear of the scrollbar.
 		row.add_child(UiKit.spacer(10))
@@ -2086,7 +2094,7 @@ func _show_break_matchup(sim: MatchSim, fid: String, line: Label, q: int) -> voi
 			_matchup_overlay.queue_free()
 			_matchup_overlay = null)
 		v.add_child(b)
-	var close := UiKit.btn("Close", 16)
+	var close := UiKit.btn("Close", UiKit.NAME)
 	close.custom_minimum_size = Vector2(0, 48)
 	close.pressed.connect(func():
 		_matchup_overlay.queue_free()

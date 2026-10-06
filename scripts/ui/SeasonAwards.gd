@@ -27,7 +27,7 @@ static func open(host: Control) -> Control:
 	skip.custom_minimum_size.y = 44
 	skip.pressed.connect(done)
 	footer.add_child(skip)
-	var next := UiKit.btn("Reveal results", 16, true)
+	var next := UiKit.btn("Reveal results", UiKit.NAME, true)
 	next.name = "AwardsNext"
 	next.custom_minimum_size.y = 48
 	footer.add_child(next)

@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06. Since the last board merged: #371 (STYLE-07, PC fullscreen readable), #378 (player origin data), #382 (scars removed), #387, #389 and #401 (STYLE-08 light inventory), #390, #392 (nicknames and interests), #395 (headlines), #396, #398 (Stat Guide in words), #400 (milestone banners), #402, #403, #405 (crowd sounds), #406 (club memories), #407 (live score colours), #411 (dark-hair lift) and #412 (flags evidence)._
+_Updated 2026-10-06 (refresh 19). Since refresh 18: #360 (Create a club), #393 (ruck/DEF calibration), #342 (favourite club and quarter-break stats, recorded as TODO), #422 (centre bounce framing, as built), #423 (UiKit type roles), #428 (audit seeding), #433 (CLAUDE.md verification rules), the evidence docs #424, #429, #430, #432 and #434, and the housekeeping #421 (shard re-time), #426, #427, #431 and #436._
 
 ## Lanes
 | agent (session) | owns |
@@ -24,36 +24,40 @@ _Updated 2026-10-06. Since the last board merged: #371 (STYLE-07, PC fullscreen 
 
 ## Waiting on the director
 Asked of the director one decision at a time (team rule 5). Open now:
-- #385 club marker A (a prototype stacked on #360; approved by the director, merges after #360 is in), #360 Create a club screen (approved; merges after #309), #309 Create a player (approved; needs the lead's sync).
-- #408 type specimen (the lead has the question), #394 hair review, #303 defensive forward.
-- #409 FL-004 crowd at a watched match (medium, a prototype): the director listens before it merges.
+- #385 club marker A (approved; its owner syncs it with main now that #360 is in).
+- #419 ARD Signwriter typeface (a draft prototype; the director is playing it; light captures are on the PR) and #408 type specimen.
+- #394 hair review and #303 defensive forward.
+- #291 (the director's Codex research; the three rules he chose are in CLAUDE.md).
 
 **Own-words confirmations:** none open.
 
-**Decisions made, being built:** the intercept evidence (data, no code). All recorded in ROADMAP §9.1.
+**Decisions made, being built:** synergies (widen the player spread; show "N short" on Team selection). All recorded in ROADMAP §9.1.
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- In flight on CI: #413 (player home states from the origin data) and #414 (copy: centre ball-up, 2026 rules).
-- Green and waiting on a W7 or a sync: #393 (ruck/DEF calibration, medium, W7 from the lead), #383 (the trade market, W7 from medium; its home requests use #413), #309 and #303 (owner syncs), #409 (medium merges main in).
-- #342 (codex docs) and #368 (kit options, draft) need their owners. #291 is the director's Codex research: do not merge.
+- In flight on CI: #435 (decision record, docs).
+- #383 (the trade market, W7 done) is in CI after its roll-spread fix; I merge it on green.
+- Waiting on an owner: #385 (sync with main, then the director's look), #303 (sync and the director's look), #368 (kit options, draft, conflicting).
+- #291 is the director's Codex research: do not merge.
 - Gates: no appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR.
 
 ## In progress
-- **Lead:** the Create a player and Create a club chain (#309, #360, #385); the trade market (#383); the hair review (#394).
-- **Medium:** the crowd at a watched match (#409); the ruck/DEF calibration (#393).
-- **Low:** the merge queue, the intercept evidence, the shard re-time after a green main run, then the next items the medium agent queues.
+- **Lead:** the trade market (#383); the hair review (#394); the typeface prototype (#419).
+- **Medium:** synergy "N short" on Team selection; the next restock from the lead.
+- **Low:** the merge queue, the flake hunt (ten suites, four runs each), STATUS and the next items the medium agent queues.
 
 ## Open PRs and dependencies
-| PR | owner | notes |
-|---|---|---|
-| #413, #414 | low | player home states; copy: centre ball-up |
-| #409 | medium | FL-004 crowd; prototype, the director listens |
-| #393, #383 | medium and lead | ruck/DEF calibration and the trade market; waiting on a W7 |
-| #385, #360, #309 | lead and medium | club marker A on the Create a club screen on the Create a player form; merge in that order from the bottom |
-| #408, #394, #303 | lead | type specimen, hair review, defensive forward |
-| #342 | codex | favourite-club bios, ROADMAP only; needs a sync |
-| #368 | draft | kit options |
-| #291 | director | Codex research and playbook; do not merge |
+Checked 2026-10-06 about 10:00 UTC.
+| PR | owner | CI | conflict | waits on |
+|---|---|---|---|---|
+| #383 | lead | running | unknown | CI, then low merges |
+| #385 | medium | green | yes | its owner's sync, then the director |
+| #303 | medium | green | unknown | a sync and the director's look |
+| #394 | lead | green | no | the director (hair review) |
+| #408 | lead | green | no | the director (type specimen) |
+| #419 | art/lead | green | no | the director (playing the typeface) |
+| #435 | low | green | no | low merges |
+| #368 | draft | green | yes | its owner |
+| #291 | director | green | no | do not merge; the director |
 
 ## Pending director decisions
 - Difficulty: autopilot slides to rank 18 by year 5; routine contract work holds about 6th; flags need trading (0 of 40 for contracts + FA, 3 for full management). Evidence: medium's managed-vs-autopilot doc. Is that the intended curve?

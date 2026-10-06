@@ -36,40 +36,40 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 |---|---|---:|---:|
 | `draft` | The League Draft model: cap, snake order, rival picks, pick log | 7807 | 24 |
 | `draft_ui` | The draft screen's layout and state: containers, widths, rotate and resume | 1130 | 5 |
-| `intake` | The National Draft model: the 2026 class, projection, season rollover | 2191 | 6 |
+| `intake` | The National Draft model: the 2026 class, projection, season rollover | 2210 | 6 |
 | `intake_ui` | The National Draft on the shared draft screen | 500 | 4 |
-| `expansion` | Tasmania in 2028 and Canberra in 2030, and a Club Forge club entering with the career | 485 | 53 |
+| `expansion` | Tasmania in 2028 and Canberra in 2030, and a Club Forge club entering with the career | 488 | 53 |
 | `finals` | The wildcard finals bracket, extra time, draws | 109 | 68 |
-| `save` | Saving and loading a career, including old-save migrations and the safe write: a failed or interrupted write never loses the career, and a failed swap leaves the newer save readable | 70 | 29 |
-| `chronology` | 2026 is history, careers start in 2027, and every system agrees | 28 | 4 |
+| `save` | Saving and loading a career, including old-save migrations and the safe write: a failed or interrupted write never loses the career, and a failed swap leaves the newer save readable | 76 | 29 |
+| `chronology` | 2026 is history, careers start in 2027, and every system agrees | 31 | 4 |
 | `career` | Games, goals and club stints across a dynasty | 71 | 229 |
 | `coaches` | The coaching world: six jobs a club, records, grades, the Staff screen | 340 | 35 |
 | `coach_market` | Coach moves, hiring, sackings, retirements, assistant contracts | 63 | 95 |
 | `coach_pathway` | Retired players becoming coaches, and the record they carry | 57 | 2 |
 | `coach_effects` | What coaching does: teaching, tactics, man-management | 36 | 5 |
-| `career_ui` | Main menu and save flow, Back, the Hub, Training, selection and trade screens, at 320, 360 and 430 wide | 234 | 70 |
+| `career_ui` | Main menu and save flow, Back, the Hub, Training, selection and trade screens, at 320, 360 and 430 wide | 277 | 70 |
 | `potential` | Potential (POT) rules, rehab years, draft pedigree | 36 | 5 |
 | `ratings` | The overall rating model | 39 | 2 |
 | `ai` | Rival clubs' drafting and selection | 35 | 58 |
 | `training` | Training plans and the stat guide | 107 | 32 |
 | `selection` | Team selection and named sides | 37 | 4 |
 | `matchup` | This week's opponent facts | 95 | 36 |
-| `matchday` | Match-day wording: the feed, quarter breaks, full time, the match screen | 367 | 21 |
+| `matchday` | Match-day wording: the feed, quarter breaks, full time, the match screen | 384 | 21 |
 | `roles` | Roles, wings, taggers and rucks as real jobs | 179 | 8 |
 | `injuries` | Injury rates, durability, healing, and played v simulated parity | 31 | 78 |
 | `awards` | Brownlow, Coleman, best and fairest, All-Australian | 22 | 49 |
 | `achievements` | Club achievements | 153 | 48 |
 | `contracts` | Contracts, free agency and trades (seeded: a clock seed once made the pick-limit check flaky) | 190 | 29 |
-| `league` | Difficulty and the league news feed | 40 | 52 |
+| `league` | Difficulty and the league news feed | 47 | 52 |
 | `club` | The board, morale and the weekly event card | 199 | 103 |
 | `match_game` | Legs and rotations, match moments and calls, the rival coach, key match-ups | 243 | 333 |
 | `pressure` | Pressure acts and the team Pressure Rating | 21 | 38 |
 | `workload` | Workload across the campaign | 32 | 8 |
-| `match_visual` | The live match view is presentation only (PitchView, MatchDirector, MatchMotion) | 94 | 210 |
+| `match_visual` | The live match view is presentation only (PitchView, MatchDirector, MatchMotion) | 97 | 210 |
 | `league_balance` | Smoke checks for the balance harness in `tools/balance` | 23 | 223 |
 | `calibration` | The engine against real 2026 numbers (seeded matches) | 17 | 69 |
 | `balance` | A long-career guard: three seasons must not inflate the league | 13 | 149 |
-| `assets` | The art and music as shipped: figure-sheet frames against the layout, vignettes playing their moves through, banners, music files, levels and the player | 71 | 3 |
+| `assets` | The art and music as shipped: figure-sheet frames against the layout, vignettes playing their moves through, banners, music files, levels and the player | 80 | 3 |
 
 By area:
 
