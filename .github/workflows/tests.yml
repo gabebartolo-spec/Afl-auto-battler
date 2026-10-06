@@ -9,7 +9,8 @@ name: Tests
 # audit or capture scripts (tools/audit, tools/visual), which no suite loads.
 #
 # The suites run as parallel shards (tools/ci_shards.txt), so a pull request
-# finishes in about eight minutes instead of half an hour. One more job runs the
+# spreads the workload across runners. Measured timing gates keep the layout
+# balanced; queue time and runner speed still vary. One more job runs the
 # dataset, export-data and harness checks once. tools/run_tests.sh is the same
 # script you run locally, on every suite or on some of them.
 #
@@ -81,6 +82,13 @@ jobs:
           bash tools/check_ci_shards.sh
           echo "matrix=$(bash tools/check_ci_shards.sh --matrix)" >> "$GITHUB_OUTPUT"
 
+      # Scheduling changes must retain complete coverage and balanced,
+      # recent measured evidence. Never reduce assertions to speed CI up.
+      - name: Enforce measured shard balance
+        run: |
+          python3 tools/test_ci_balance.py
+          python3 tools/check_ci_balance.py
+
   shard:
     name: shard ${{ matrix.shard }}
     needs: plan
@@ -123,6 +131,21 @@ jobs:
         with:
           name: test-logs-shard-${{ matrix.shard }}
           path: ${{ runner.temp }}/test-logs
+
+      - name: Preserve suite timings even when tests fail
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/timings"
+          if [ -f "$RUNNER_TEMP/test-logs/suite-timings.tsv" ]; then
+            cp "$RUNNER_TEMP/test-logs/suite-timings.tsv" "$RUNNER_TEMP/timings/shard-${{ matrix.shard }}.tsv"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: suite-timings-${{ matrix.shard }}
+          path: ${{ runner.temp }}/timings
+          if-no-files-found: warn
 
   # What run_tests.sh does after the suites: the dataset check, the exported
   # build's data check, the intake harness and the runner's own self-test.
@@ -175,6 +198,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
+        if: needs.plan.outputs.code == 'true' && needs.plan.result == 'success'
+
+      - uses: actions/download-artifact@v4
+        if: needs.plan.outputs.code == 'true' && needs.plan.result == 'success'
+        with:
+          pattern: suite-timings-*
+          path: ${{ runner.temp }}/suite-timings
+          merge-multiple: true
+
+      - name: Report observed shard imbalance
+        if: needs.plan.outputs.code == 'true' && needs.plan.result == 'success'
+        run: python3 tools/check_ci_balance.py --observed "$RUNNER_TEMP/suite-timings"
+
       - name: Every job passed
         env:
           PLAN: ${{ needs.plan.result }}

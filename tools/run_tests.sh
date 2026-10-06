@@ -78,6 +78,7 @@ for suite in ${SUITES[@]+"${SUITES[@]}"}; do
 	XDG_DATA_HOME="$RUN_DATA" timeout "$SUITE_TIMEOUT" "$GODOT" --headless --fixed-fps 60 --path . --script "$runner" > "$log" 2>&1
 	code=$?
 	secs=$(( $(date +%s) - start ))
+	printf '%s\t%s\n' "$suite" "$secs" >> "$LOG_DIR/suite-timings.tsv"
 	result=$(grep -E "[0-9]+ checks, [0-9]+ failures" "$log" | tail -1)
 	if [ "$code" = 124 ]; then
 		status="FAIL"; detail="timed out after ${SUITE_TIMEOUT}s"
