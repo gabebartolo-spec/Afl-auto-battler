@@ -19,8 +19,8 @@ const SPOTS := {
 	"FWD": ["FF", "HFFL", "HFFR", "FPL", "FPR", "HFF"],
 }
 const LINES := ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH"]
-const PHONE_MIDS := {"IL": Vector2(0.0, -0.48), "IR": Vector2(0.0, 0.48), "WL": Vector2(0.10, -0.90),
-		"WR": Vector2(0.10, 0.90)}
+const PHONE_MIDS := {"IL": Vector2(0.0, -0.48), "IR": Vector2(0.0, 0.48), "WL": Vector2(0.18, -0.90),
+		"WR": Vector2(0.18, 0.90), "CB": Vector2(-0.42, 0.0), "HFF": Vector2(0.42, 0.0)}
 const SPINE := {"CB": Vector2(-0.50, 0.0), "C": Vector2(-0.18, 0.0), "RUCK": Vector2(0.16, 0.0),
 		"HFF": Vector2(0.48, 0.0)}
 const ROLE_TABS := [["", "All"], ["DEF", "DEF"], ["MID", "MID"], ["RUCK", "RUCK"], ["FWD", "FWD"]]
