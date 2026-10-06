@@ -25,6 +25,9 @@ var playing := false
 var speed := 4.0
 ## A broadcast-style camera that follows play. Off, the whole oval shows.
 var camera_enabled := true
+## Smooth the edges of the lines and outlines drawn here (the oval, arcs,
+## rings, token outlines). Fills stay as they are.
+var antialias := true
 
 var director := MatchDirector.new()
 var _cam := Vector2.ZERO
@@ -348,28 +351,28 @@ func _draw() -> void:
 		draw_colored_polygon(_stripe(c, a, b, x0, x1), Color(0.133, 0.365, 0.149))
 
 	# Boundary
-	draw_polyline(_ellipse_points(c, a, b, 128), Color(1, 1, 1, 0.85), 2.5)
+	draw_polyline(_ellipse_points(c, a, b, 128), Color(1, 1, 1, 0.85), 2.5, antialias)
 
 	var line_col := Color(1, 1, 1, 0.55)
 	var lw := 1.6
 
 	# Centre square (50m) and centre circle (10m across)
 	var sq := 25.0 * s
-	draw_rect(Rect2(c - Vector2(sq, sq), Vector2(sq, sq) * 2.0), line_col, false, lw)
-	draw_arc(c, 5.0 * s, 0, TAU, 32, line_col, lw)
+	draw_rect(Rect2(c - Vector2(sq, sq), Vector2(sq, sq) * 2.0), line_col, false, lw, antialias)
+	draw_arc(c, 5.0 * s, 0, TAU, 32, line_col, lw, antialias)
 
 	# 50m arcs and goal squares at each end
 	for sgn in [-1.0, 1.0]:
 		var goal := _w2s(Vector2(sgn * GOAL_LINE_M, 0.0))
 		var rad := 50.0 * s
 		var span := _arc_span(c, a, b, goal, rad)
-		draw_arc(goal, rad, span.x, span.y, 48, line_col, lw)
+		draw_arc(goal, rad, span.x, span.y, 48, line_col, lw, antialias)
 		# Goal square: 9m deep, 6.4m wide across the goal line.
 		var depth := 9.0 * s
 		var width := 6.4 * s
 		var gx := goal.x - depth if goal.x > c.x else goal.x
 		draw_rect(Rect2(Vector2(gx, goal.y - width * 0.5), Vector2(depth, width)),
-				line_col, false, lw)
+				line_col, false, lw, antialias)
 		# Goal posts 6.4m apart, behind posts a further 6.4m out.
 		for py in [-1.0, 1.0]:
 			draw_circle(goal + Vector2(0, py * 3.2 * s), maxf(2.0, 0.55 * s), Color(1, 1, 1, 0.95))
@@ -384,7 +387,7 @@ func _draw() -> void:
 	var act := director.actor
 	if act >= 0 and act < director.tokens.size():
 		var p := _w2s(director.tokens[act]["pos"])
-		draw_arc(p, tr * 1.9, 0, TAU, 28, Color(1, 1, 0.55, 0.95), 2.0)
+		draw_arc(p, tr * 1.9, 0, TAU, 28, Color(1, 1, 0.55, 0.95), 2.0, antialias)
 
 	_draw_ball(tr, s)
 
@@ -395,7 +398,7 @@ func _draw() -> void:
 		var rad2 := lerpf(tr, minf(a, b) * 0.42, t)
 		var col := Color(1.0, 0.92, 0.35) if fl["goal"] else Color(0.85, 0.9, 1.0)
 		col.a = (1.0 - t) * 0.85
-		draw_arc(_w2s(fl["pos"]), rad2, 0, TAU, 48, col, 4.0)
+		draw_arc(_w2s(fl["pos"]), rad2, 0, TAU, 48, col, 4.0, antialias)
 	_draw_caption(tr)
 
 
@@ -410,7 +413,7 @@ func _draw_rings(tr: float) -> void:
 		var p := _w2s(t["pos"])
 		if p.x < -tr * 3.0 or p.y < -tr * 3.0 or p.x > size.x + tr * 3.0 or p.y > size.y + tr * 3.0:
 			continue
-		draw_arc(p, tr * 1.5, 0, TAU, 28, Color(RING_COLOUR, 0.9), 1.6)
+		draw_arc(p, tr * 1.5, 0, TAU, 28, Color(RING_COLOUR, 0.9), 1.6, antialias)
 
 
 ## The name over a player, in the type the team shape uses: bold, outlined so it
@@ -452,7 +455,7 @@ func _draw_ball(tr: float, s: float) -> void:
 	draw_colored_polygon(_ellipse_points(lift, tr * 0.42 * grow, tr * 0.30 * grow, 12),
 			Color(0.98, 0.93, 0.75))
 	draw_polyline(_ellipse_points(lift, tr * 0.42 * grow, tr * 0.30 * grow, 12),
-			Color(0.25, 0.12, 0.08), 1.0)
+			Color(0.25, 0.12, 0.08), 1.0, antialias)
 
 
 func _draw_tokens(side: int, colours: Array, tr: float) -> void:
@@ -471,14 +474,14 @@ func _draw_tokens(side: int, colours: Array, tr: float) -> void:
 		if float(t["down"]) > 0.0:
 			# On the ground after a tackle.
 			draw_colored_polygon(_ellipse_points(p, tr * 1.15, tr * 0.62, 16), primary.darkened(0.25))
-			draw_polyline(_ellipse_points(p, tr * 1.15, tr * 0.62, 16), Color(0, 0, 0, 0.4), 1.2)
+			draw_polyline(_ellipse_points(p, tr * 1.15, tr * 0.62, 16), Color(0, 0, 0, 0.4), 1.2, antialias)
 			continue
 		# Drop shadow keeps tokens readable on the stripes.
 		draw_circle(p + Vector2(0, tr * 0.22), tr, Color(0, 0, 0, 0.28))
 		draw_circle(p, tr, primary)
 		# An inner disc in the secondary colour so the two sides read apart at a glance.
 		draw_circle(p, tr * 0.62, secondary)
-		draw_circle(p, tr, Color(0, 0, 0, 0.35), false, 1.2)
+		draw_circle(p, tr, Color(0, 0, 0, 0.35), false, 1.2, antialias)
 		var label := str(t["num"])
 		var w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
 		draw_string(font, p + Vector2(-w * 0.5, fs * 0.36), label,
