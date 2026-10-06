@@ -207,6 +207,17 @@ func get_setting(key: String, fallback = null):
 	return cfg.get_value("ui", key, fallback)
 
 
+## The player made in Club Forge (ARD-M7-008), kept outside any career so it
+## can be brought into the next one: a custom-prospect spec, or {}.
+func forge_player() -> Dictionary:
+	var v = get_setting("forge_player", {})
+	return (v as Dictionary).duplicate(true) if v is Dictionary else {}
+
+
+func set_forge_player(spec: Dictionary) -> void:
+	set_setting("forge_player", spec.duplicate(true))
+
+
 func set_setting(key: String, value) -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(settings_path)
