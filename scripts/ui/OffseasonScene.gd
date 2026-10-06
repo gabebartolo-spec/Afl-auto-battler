@@ -573,6 +573,7 @@ func _trade(body: VBoxContainer) -> void:
 		_trade_club_sheet(body)
 		return
 	_offers(body)
+	_requests(body)
 	var who := UiKit.hbox(8)
 	who.add_child(UiKit.ellipsis("Trading with %s" % GameDB.club_name(_trade_club), UiKit.NAME, UiKit.TEXT, true))
 	who.get_child(0).size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -687,6 +688,36 @@ func _offers(body: VBoxContainer) -> void:
 					GameState.decline_trade_offer(i)
 				_build())
 			row.add_child(btn)
+		body.add_child(row)
+	body.add_child(UiKit.spacer(UiKit.SECTION - 6))
+
+
+## Players who have asked to be traded that concern you: yours, and those
+## elsewhere who named your club - one line each, and for theirs a way to
+## start the trade.
+func _requests(body: VBoxContainer) -> void:
+	var ids := GameState.my_trade_requests()
+	if ids.is_empty():
+		return
+	body.add_child(UiKit.lbl("Asked to be traded", 15, UiKit.EMPH, true))
+	for id in ids:
+		var club := str(GameState.trade_requests[id]["club"])
+		var row := UiKit.hbox(8)
+		row.name = "Request_" + str(id)
+		var text := _para(GameState.trade_request_line(str(id)), 14, UiKit.TEXT)
+		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(text)
+		if club != GameState.my_club:
+			var go := UiKit.btn("Trade for him", 13)
+			go.name = "RequestTrade"
+			go.custom_minimum_size = Vector2(0, 44)
+			go.pressed.connect(func():
+				_trade_club = club
+				_theirs = [str(id)]
+				_mine = []
+				_trade_side = "mine"
+				_build())
+			row.add_child(go)
 		body.add_child(row)
 	body.add_child(UiKit.spacer(UiKit.SECTION - 6))
 

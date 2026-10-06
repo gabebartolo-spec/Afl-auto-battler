@@ -211,7 +211,7 @@ Only jobs the engine rewards:
   On the oval the named wings take the wing slots (the match roster carries
   each player's `line`), holding width (about 30 m off centre against 7 m
   for the centre square), following the ball up and down the ground, and
-  setting up on the wings at centre bounces. The wing marking travels with
+  setting up on the wings at centre ball-ups. The wing marking travels with
   the player, not the position: when a wing rotates off, his replacement
   plays in the engine as a centre-square midfielder until the wing returns
   (a rule to revisit with rotations, not a presentation issue).
@@ -353,7 +353,7 @@ A match is a sequence of **possession chains**, not a tick-based clock.
 ```
 4 quarters x N chains
   each chain:
-    starts at a stoppage (centre bounce / ball-up)  -> ruck contest, hit-outs, clearance
+    starts at a stoppage (centre ball-up / ball-up)  -> ruck contest, hit-outs, clearance
       or continues from where the last chain died   -> turnover / defensive exit
     loop touches (max 11):
       pick carrier  (weighted by zone: intercept deep, carry mid, goalkicking inside 50)
@@ -370,7 +370,7 @@ Field position is metres from the centre square (`-85 .. +85`), forward-50 arc a
 `±35`. Each side fields **18** in a 6-6-6 shape (6 DEF, 6 MID — the ruck counted
 with midfield — and 6 FWD) plus 5 interchanges (23 in all, no substitute).
 
-Restarts: a goal or a quarter break -> centre bounce. A behind -> the other
+Restarts: a goal or a quarter break -> centre ball-up. A behind -> the other
 side kicks in from its goal square (fp 4.5 m inside its goal line, first
 disposal a kick), uncontested: no ruck contest, hit-out or clearance. Any
 other stoppage is balled up where play stopped, and MatchSim logs a `ballup`

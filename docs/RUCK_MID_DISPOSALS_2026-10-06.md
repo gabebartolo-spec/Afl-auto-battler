@@ -21,7 +21,7 @@ Diagnosis only. Nothing in the game changes here; the director decides on any ca
 | tackles | 1.9 (1.8) | 4.4 (3.6) | 1.8 (2.2) | 2.6 (2.6) |
 | inside 50s | **0.55** (1.55) | 3.8 (3.4) | 3.5 (2.2) | 0.65 (1.9) |
 | rebound 50s | 4.8 (3.2) | 0.53 (1.48) | 0.10 (0.34) | 0.29 (0.98) |
-| centre bounce attendances | 0.6 | 10.4 | 1.4 | 16.1 |
+| centre ball-up attendances | 0.6 | 10.4 | 1.4 | 16.1 |
 | time on ground (share of chains) | 83% | 76% | 82% | **65%** |
 
 The data has no contested and uncontested possession split, neither in the sim's box score nor in `afl_role_rates.json`, so that comparison can't be made.

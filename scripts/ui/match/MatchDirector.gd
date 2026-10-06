@@ -100,6 +100,11 @@ var _struct_ball := Vector2.ZERO
 var _poss := 0
 var _struct_timer := 0.0
 var _out: Array = []
+## The match's own calls over time (MatchSim.timeline) and how far into them
+## playback has got: per side, the entry in force.
+var _timeline: Array = []
+var _tl_i := 0
+var _tac := [{}, {}]
 
 
 # ---------------------------------------------------------------------------
@@ -119,6 +124,9 @@ func setup(result: Dictionary, p_events: Array) -> void:
 	_beat = {}
 	_phases = []
 	_out = []
+	_timeline = result.get("timeline", [])
+	_tl_i = 0
+	_tac = [{}, {}]
 	# Presentation stream: seeded from the fixture, never from MatchSim.
 	_rng.seed = hash("%s|%s|%s|view" % [result.get("home", ""), result.get("away", ""),
 			result.get("label", "")])
@@ -212,16 +220,20 @@ func _build_tokens(roster: Array) -> void:
 		var t: Dictionary = tokens[id]
 		t["id"] = id
 		(_ids[int(t["side"])] as Dictionary)[int(t["num"])] = id
-	# Direct opponents by paired slot.
+	# Direct opponents by paired slot, until the match's own calls say
+	# otherwise (_assign).
 	for t in tokens:
 		t["match"] = -1
+		t["loose"] = false
+		t["tagging"] = false
+		t["chasing"] = -1
 		var want := str(OPPOSITE.get(str(t["slot"]), ""))
-		if want == "":
-			continue
-		for o in tokens:
-			if int(o["side"]) != int(t["side"]) and str(o["slot"]) == want:
-				t["match"] = int(o["id"])
-				break
+		if want != "":
+			for o in tokens:
+				if int(o["side"]) != int(t["side"]) and str(o["slot"]) == want:
+					t["match"] = int(o["id"])
+					break
+		t["slot_match"] = t["match"]
 
 
 func _make_token(p: Dictionary, side: int, role: String, slot: String, base: Vector2) -> Dictionary:
@@ -324,6 +336,7 @@ func _run_phases(h: float) -> bool:
 # Beats
 # ---------------------------------------------------------------------------
 func _start_beat(k: int) -> void:
+	_apply_timeline(k)
 	var ev: Dictionary = events[k]
 	var kind := str(ev.get("kind", ""))
 	_beat = {"k": k, "kind": kind}
@@ -1472,6 +1485,7 @@ func _sub(ev: Dictionary) -> void:
 		t["pid"] = on_id
 		t["surname"] = _surname(on_id, str(t["name"]))
 	ids[int(t["num"])] = id
+	_assign()
 
 
 # ---------------------------------------------------------------------------
@@ -1535,6 +1549,87 @@ func _update_ball(h: float) -> void:
 
 
 # ---------------------------------------------------------------------------
+# Who is on whom (ARD-M8-003 tactical timeline)
+# ---------------------------------------------------------------------------
+## A live match's timeline grows each quarter; MatchScene hands it over with
+## the new events.
+func set_timeline(timeline: Array) -> void:
+	_timeline = timeline
+
+
+## Bring in every recorded call that applies by event `k`.
+func _apply_timeline(k: int) -> void:
+	var changed := false
+	while _tl_i < _timeline.size() and int((_timeline[_tl_i] as Dictionary).get("at", 0)) <= k:
+		var e: Dictionary = _timeline[_tl_i]
+		_tac[int(e.get("side", 0))] = e
+		_tl_i += 1
+		changed = true
+	if changed:
+		_assign()
+
+
+## Who plays on whom, from the match's own calls where it recorded them: the
+## named match-ups, the tagger on his man, the loose defender off his, and the
+## forward sent to make him accountable. Slot pairs fill in the rest.
+func _assign() -> void:
+	if _tac[0].is_empty() and _tac[1].is_empty():
+		return
+	var by_pid := {}
+	for t in tokens:
+		by_pid[str(t["pid"])] = int(t["id"])
+		t["match"] = int(t.get("slot_match", -1))
+		t["loose"] = false
+		t["tagging"] = false
+		t["chasing"] = -1
+	for side in range(2):
+		var e: Dictionary = _tac[side]
+		var duels: Dictionary = e.get("duels", {})
+		for fid in duels:
+			var f := int(by_pid.get(str(fid), -1))
+			var d := int(by_pid.get(str(duels[fid]), -1))
+			if f >= 0 and d >= 0:
+				_pair(d, f)
+	for side in range(2):
+		var e: Dictionary = _tac[side]
+		var tagger := int(by_pid.get(str(e.get("tagger", "")), -1))
+		var target := int(by_pid.get(str(e.get("tag", "")), -1))
+		if tagger >= 0 and target >= 0:
+			_pair(tagger, target)
+			tokens[tagger]["tagging"] = true
+		var loose := int(by_pid.get(str(e.get("loose", "")), -1))
+		if loose >= 0:
+			_unpair(loose)
+			tokens[loose]["loose"] = true
+	# A forward sent to the other side's loose man: the forward left without
+	# a direct opponent goes with him.
+	for side in range(2):
+		if not bool((_tac[side] as Dictionary).get("accountable", false)):
+			continue
+		var their_loose := int(by_pid.get(str((_tac[1 - side] as Dictionary).get("loose", "")), -1))
+		if their_loose < 0:
+			continue
+		for t in tokens:
+			if int(t["side"]) == side and str(t["role"]) == "FWD" and int(t["match"]) < 0:
+				t["chasing"] = their_loose
+				break
+
+
+func _unpair(a: int) -> void:
+	var o := int(tokens[a]["match"])
+	if o >= 0 and int(tokens[o]["match"]) == a:
+		tokens[o]["match"] = -1
+	tokens[a]["match"] = -1
+
+
+func _pair(a: int, b: int) -> void:
+	_unpair(a)
+	_unpair(b)
+	tokens[a]["match"] = b
+	tokens[b]["match"] = a
+
+
+# ---------------------------------------------------------------------------
 # Structure
 # ---------------------------------------------------------------------------
 func _refresh_structure() -> void:
@@ -1576,6 +1671,10 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 	var drift := Vector2(sin(time * 0.31 + float(t["phase"])), cos(time * 0.23 + float(t["phase"]) * 1.7)) * 2.0
 	var world := Vector2(x * dir, y) + (t["jitter"] as Vector2) + drift
 	var own_goal := Vector2(-MatchMotion.GOAL_X * dir, 0.0)
+	var chase := int(t.get("chasing", -1))
+	if has and chase >= 0:
+		# Sent to their loose man: he stands where the spare would sit.
+		world = world.lerp((tokens[chase]["goal"] as Vector2), 0.6)
 	if not has:
 		var o := int(t["match"])
 		if _is_loose(t, ball_p):
@@ -1587,13 +1686,19 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 			if og.distance_to(world) < 35.0:
 				var mark := og + (own_goal - og).normalized() * 2.5
 				var w := 0.65 if role == "DEF" else (0.45 if role == "MID" else 0.3)
+				if bool(t.get("tagging", false)):
+					w = 0.85   # a tagger plays the man
 				world = world.lerp(mark, w)
 	return MatchMotion.clamp_to_oval(world, 3.0)
 
 
-## One defender (the half-back whose forward is further from the ball) plays
-## loose while his side defends.
+## The loose defender while his side defends: the one the match named
+## (timeline), or for a result without one, the half-back whose forward is
+## further from the ball.
 func _is_loose(t: Dictionary, ball_p: Vector2) -> bool:
+	if not (_tac[int(t["side"])] as Dictionary).is_empty():
+		# The match recorded its calls: the loose man is the one it named.
+		return bool(t.get("loose", false))
 	var slot := str(t["slot"])
 	if slot != "HBL" and slot != "HBR":
 		return false
