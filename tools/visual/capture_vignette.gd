@@ -6,6 +6,8 @@ extends SceneTree
 ## Writes <out>_sheet.png: the scene at its beats on a phone, then the call.
 ## --film START END: also writes <out>_film_NNN.png, 12 frames a second from START
 ## to END seconds, for checking motion (turn them into a GIF to review).
+## --kit-options: shows the kit options - long sleeves on every one of your players,
+## hooped socks on the other side's kit.
 ## It stages a tight last-quarter centre bounce on a live match and lets
 ## MatchSim ask the call; nothing it draws changes the sim.
 
@@ -23,6 +25,7 @@ func _run() -> void:
 	var film := []
 	var msaa := false
 	var a := OS.get_cmdline_user_args()
+	var kit_options := a.has("--kit-options")
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
@@ -72,6 +75,18 @@ func _run() -> void:
 	m.call("_show_moment")
 	var vig = m.find_child("StoppageVignette", true, false)
 	vig.set_process(false)
+	if kit_options:
+		# Long sleeves are a player's own (his look); hoops are the kit's.
+		for t in vig.tokens:
+			if bool(t["mine"]):
+				t["look"]["long_sleeves"] = true
+		var kits: Array = []
+		for i in range((vig.get("_kits") as Array).size()):
+			var k: Dictionary = (vig.get("_kits")[i] as Dictionary).duplicate()
+			if i == 1:
+				k["sock_hoops"] = 2
+			kits.append(k)
+		vig.material = vig.figure_material(kits + [vig.UMPIRE_GEAR], vig.material)
 	if not film.is_empty():
 		var n := 0
 		var ft: float = film[0]
