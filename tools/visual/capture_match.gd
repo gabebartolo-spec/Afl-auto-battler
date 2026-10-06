@@ -13,6 +13,7 @@ extends SceneTree
 ##   --frames N      frames in the sheet (default 12)    --speed S (default 1)
 ##   --kind K [--nth N] [--lead L]  start L events before the N-th event of kind K
 ##   --nocam         whole oval, no camera (trails are in screen space)
+##   --call KEY      shoot, pass or bomb at every home set shot (live match)
 
 const W := 900
 const H := 700
@@ -49,7 +50,29 @@ func _run() -> void:
 	var sim = sim_script.new(squad_script.new(home_code, db.club_list(home_code), true, home_code),
 			squad_script.new(away_code, db.club_list(away_code), false, away_code),
 			int(args.get("seed", "42")))
-	var res: Dictionary = sim.run()
+	var res: Dictionary
+	var call := str(args.get("call", ""))
+	if call == "":
+		res = sim.run()
+	else:
+		# --call shoot|pass|bomb: the home coach makes that call at every
+		# set shot (ARD-M4-013), so --kind pack / pass finds one.
+		sim.moment_side = 0
+		var guard := 0
+		while sim.current_quarter <= 4 and guard < 8:
+			guard += 1
+			sim.begin_quarter()
+			while not sim.continue_quarter():
+				var m: Dictionary = sim.pending_moment
+				var c := int(m.get("default", 0))
+				if str(m["kind"]) == "set_shot":
+					var opts: Array = m["options"]
+					for j in range(opts.size()):
+						if str((opts[j] as Dictionary).get("key", "")) == call:
+							c = j
+				sim.resolve_moment(c)
+			sim.end_quarter()
+		res = sim.result()
 	res["home"] = home_code
 	res["away"] = away_code
 
