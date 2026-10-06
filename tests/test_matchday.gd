@@ -427,9 +427,13 @@ func _test_report_glance() -> void:
 		var by_name := {}
 		for e in ht.get("my_ranked", []):
 			by_name[str(e["name"])] = MatchNotes.rating(e.get("stats", {}))
+		# One check a match, however many need a lift: the floor counts the
+		# rule, not how many players a seed happens to flag.
+		var loud := ""
 		for p in g["lift"]:
-			_check(int(by_name.get(str(p["name"]), 999)) < CoachReport.LIFT_BELOW / 2.0,
-					"Needs a lift is a quiet game by the rating shown (%s %d)" % [str(p["name"]), int(by_name.get(str(p["name"]), -1))])
+			if int(by_name.get(str(p["name"]), 999)) >= CoachReport.LIFT_BELOW / 2.0:
+				loud += "%s %d; " % [str(p["name"]), int(by_name.get(str(p["name"]), -1))]
+		_check(loud == "", "Needs a lift is a quiet game by the rating shown (seed %d: %s)" % [seed, loud])
 		for n in g["notes"]:
 			var t := str(n)
 			for ch in "0123456789":

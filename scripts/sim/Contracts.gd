@@ -189,7 +189,7 @@ static func respond(p: Dictionary, salary: int, years: int, failed := 0, premium
 
 
 ## Would this free agent turn you down flat? A player who would not make
-## your best 22 won't come while a club that would play him has an offer on
+## your best 23 won't come while a club that would play him has an offer on
 ## the table. `facts` = {"in_best22": bool, "rivals": offers from clubs that
 ## would play him}. Returns {"refuse": bool, "reasons": [words]}. His price
 ## is settled by the offers themselves (see the market below).
@@ -199,9 +199,9 @@ static func free_agent_terms(_p: Dictionary, facts: Dictionary) -> Dictionary:
 	if not bool(facts.get("in_best22", true)):
 		if int(facts.get("rivals", 0)) > 0:
 			refuse = true
-			reasons.append("He wants senior football: he wouldn't make your best 22, and a club that would play him has made an offer.")
+			reasons.append("He wants senior football: he wouldn't make your best 23, and a club that would play him has made an offer.")
 		else:
-			reasons.append("He wouldn't make your best 22, but no club that would play him has made an offer.")
+			reasons.append("He wouldn't make your best 23, but no club that would play him has made an offer.")
 	return {"premium": 0, "refuse": refuse, "reasons": reasons}
 
 
@@ -321,7 +321,7 @@ static func offer_view(p: Dictionary, o: Dictionary, other: Dictionary, club_nam
 		"money":
 			return "Best financial offer."
 		"role":
-			return "Clearer path into the best 22."
+			return "Clearer path into the best 23."
 		"security":
 			return "More contract security."
 		"club":
