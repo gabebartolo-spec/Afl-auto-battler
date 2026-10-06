@@ -86,7 +86,7 @@ func _show_intro() -> void:
 	_overlay = box["overlay"]
 	_overlay.name = "TrainingIntro"
 	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.heading("How training works", 24))
+	v.add_child(UiKit.heading("How training works", UiKit.TITLE))
 	for line in [
 		"Pick what kind of footballer each player should become. His plan spends the XP he earns after every game on exactly that - an inside midfielder on winning the ball, a key forward on marking and goals.",
 		"Position plan is the safe default: it trains what his position is judged on. Change a plan whenever you like; banked XP is spent straight away.",
@@ -96,7 +96,7 @@ func _show_intro() -> void:
 		var l := UiKit.lbl(line, 14, UiKit.TEXT)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
-	var guide := UiKit.btn("Open stat guide", 16)
+	var guide := UiKit.btn("Open stat guide", UiKit.NAME)
 	guide.custom_minimum_size = Vector2(0, 44)
 	guide.pressed.connect(func():
 		_overlay.queue_free()
@@ -122,7 +122,7 @@ func _build() -> void:
 	UiKit.clear(_root)
 	_list_scroll = null
 	_detail_scroll = null
-	var guide := UiKit.btn("Stat guide", 13)
+	var guide := UiKit.btn("Stat guide", UiKit.SECONDARY)
 	guide.name = "StatGuideButton"
 	guide.custom_minimum_size = Vector2(96, 44)
 	guide.pressed.connect(_open_guide)
@@ -158,16 +158,16 @@ func _summary() -> Control:
 	if int(report.get("count", 0)) > 0:
 		v.add_child(UiKit.lbl(str(report.get("label", "Last game")), 15, UiKit.EMPH, true))
 		var line := GameState.training_summary_line()
-		var what := UiKit.lbl(line if line != "" else "Training: no rating changes from the last game.", 13,
+		var what := UiKit.lbl(line if line != "" else "Training: no rating changes from the last game.", UiKit.SECONDARY,
 				UiKit.GOOD if line != "" else UiKit.MUTED)
 		what.name = "TrainingNews"
 		what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(what)
 		var reserves := GameState.reserves_summary_line()
 		if reserves != "":
-			v.add_child(UiKit.lbl(reserves, 13, UiKit.MUTED))
+			v.add_child(UiKit.lbl(reserves, UiKit.SECONDARY, UiKit.MUTED))
 	else:
-		v.add_child(UiKit.lbl("No game played yet. Players develop after every match.", 15, UiKit.EMPH, true))
+		v.add_child(UiKit.lbl("No game played yet. Players develop after every match.", UiKit.BODY, UiKit.EMPH, true))
 	var paused := 0
 	for p in GameState.my_list:
 		if GameState.plan_for(p) == "manual":
@@ -216,7 +216,7 @@ func _list_panel() -> Control:
 		panel.custom_minimum_size.x = 280
 	var v := UiKit.vbox(6)
 	panel.add_child(v)
-	v.add_child(UiKit.heading("Your list", 24))
+	v.add_child(UiKit.heading("Your list", UiKit.TITLE))
 	var tabs := UiKit.hbox(2)
 	v.add_child(tabs)
 	for item in ROLE_TABS:
@@ -262,7 +262,7 @@ func _bulk_panel() -> Control:
 			14, UiKit.TEXT, true)
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(head)
-	var clear := UiKit.btn("Clear", 13)
+	var clear := UiKit.btn("Clear", UiKit.SECONDARY)
 	clear.name = "ClearBulk"
 	clear.custom_minimum_size = Vector2(72, 44)
 	clear.pressed.connect(func():
@@ -413,7 +413,7 @@ func _fill_rows(rows: Node) -> void:
 			rows.add_child(_player_row(p))
 			shown += 1
 	if shown == 0:
-		rows.add_child(UiKit.lbl("No players match.", 16, UiKit.TEXT, true))
+		rows.add_child(UiKit.lbl("No players match.", UiKit.NAME, UiKit.TEXT, true))
 
 
 func _matches(p: Dictionary) -> bool:
@@ -444,7 +444,7 @@ func _player_row(p: Dictionary) -> Control:
 	# rating rather than leaving it hugging the top.
 	info.alignment = BoxContainer.ALIGNMENT_CENTER
 	h.add_child(info)
-	info.add_child(UiKit.ellipsis(GameDB.player_display_name(p), 15, UiKit.TEXT, true))
+	info.add_child(UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true))
 	var plan := GameState.plan_for(p)
 	if plan == "manual":
 		info.add_child(UiKit.ellipsis("Manual  ·  development paused", 12, UiKit.BAD))
@@ -453,13 +453,13 @@ func _player_row(p: Dictionary) -> Control:
 				GameState.development_state(p)], 12, UiKit.MUTED))
 	var duty := GameState.last_duty(id)
 	if int(p.get("injury_weeks", 0)) > 0:
-		h.add_child(UiKit.line("INJ %dw" % int(p["injury_weeks"]), 11, UiKit.BAD, true))
+		h.add_child(UiKit.line("INJ %dw" % int(p["injury_weeks"]), UiKit.FINE, UiKit.BAD, true))
 	elif duty == "Interchange":
-		h.add_child(UiKit.line("INT", 11, UiKit.MUTED))
+		h.add_child(UiKit.line("INT", UiKit.FINE, UiKit.MUTED))
 	elif duty == "Reserves":
-		h.add_child(UiKit.line("RES", 11, UiKit.MUTED))
+		h.add_child(UiKit.line("RES", UiKit.FINE, UiKit.MUTED))
 	elif duty == "Not selected":
-		h.add_child(UiKit.line("OUT", 11, UiKit.MUTED))
+		h.add_child(UiKit.line("OUT", UiKit.FINE, UiKit.MUTED))
 	var rise := _last_rise(id)
 	var ov := UiKit.line(("▲ " if rise.size() > 0 else "") + str(int(p["overall"])), 17,
 			UiKit.GOOD if rise.size() > 0 else UiKit.TEXT, true)
@@ -516,11 +516,11 @@ func _detail_panel() -> Control:
 	panel.add_child(outer)
 	var p := GameState.list_player(_selected)
 	if p.is_empty():
-		outer.add_child(UiKit.lbl("Choose a player from the list.", 16, UiKit.TEXT, true))
-		outer.add_child(UiKit.lbl("Open a player to choose what kind of footballer he develops into.", 13, UiKit.MUTED))
+		outer.add_child(UiKit.lbl("Choose a player from the list.", UiKit.NAME, UiKit.TEXT, true))
+		outer.add_child(UiKit.lbl("Open a player to choose what kind of footballer he develops into.", UiKit.SECONDARY, UiKit.MUTED))
 		return panel
 	if not _wide:
-		var back := UiKit.btn("‹ All players", 15)
+		var back := UiKit.btn("‹ All players", UiKit.BODY)
 		back.pressed.connect(func():
 			_showing_detail = false
 			_build())
@@ -553,7 +553,7 @@ func _detail_panel() -> Control:
 	focus.add_child(fv)
 	fv.add_child(UiKit.lbl("Development focus", 12, UiKit.MUTED, true))
 	var plan := GameState.plan_for(p)
-	var plan_name := UiKit.lbl(GameState.train_plan_label(plan), 18, UiKit.BAD if plan == "manual" else UiKit.EMPH, true)
+	var plan_name := UiKit.lbl(GameState.train_plan_label(plan), UiKit.HEADING, UiKit.BAD if plan == "manual" else UiKit.EMPH, true)
 	plan_name.name = "FocusName"
 	fv.add_child(plan_name)
 	var meaning := UiKit.lbl(GameState.train_plan_description(plan, str(p.get("role", "MID"))), 13, UiKit.TEXT)
@@ -562,7 +562,7 @@ func _detail_panel() -> Control:
 	fv.add_child(meaning)
 	var progress := _project_line(p)
 	if progress != "":
-		var pl := UiKit.lbl(progress, 13, UiKit.TEXT, true)
+		var pl := UiKit.lbl(progress, UiKit.SECONDARY, UiKit.TEXT, true)
 		pl.name = "ProjectProgress"
 		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		fv.add_child(pl)
@@ -584,7 +584,7 @@ func _detail_panel() -> Control:
 		_build())
 	fv.add_child(pick)
 	if _notice != "":
-		fv.add_child(UiKit.lbl(_notice, 13, UiKit.GOOD, true))
+		fv.add_child(UiKit.lbl(_notice, UiKit.SECONDARY, UiKit.GOOD, true))
 	# What is close, and what happened.
 	var close: Array = Traits.near(p)
 	if not close.is_empty():
@@ -665,10 +665,10 @@ func _stat_row(p: Dictionary, key: String, label: String, useful := true) -> Con
 	var cost := GameState.train_cost(p, key)
 	var h := UiKit.hbox(8)
 	v.add_child(h)
-	var name := UiKit.ellipsis(label, 15, UiKit.TEXT, true)
+	var name := UiKit.ellipsis(label, UiKit.BODY, UiKit.TEXT, true)
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(name)
-	var value := UiKit.line(str(cur), 18, _attr_colour(float(cur)), true)
+	var value := UiKit.line(str(cur), UiKit.HEADING, _attr_colour(float(cur)), true)
 	value.custom_minimum_size.x = 32
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(value)
@@ -680,7 +680,7 @@ func _stat_row(p: Dictionary, key: String, label: String, useful := true) -> Con
 	v.add_child(_bar(cur))
 	var actions := UiKit.hbox(6)
 	v.add_child(actions)
-	var one := UiKit.btn("Maxed" if cost < 0 else "+1  ·  %d XP" % cost, 13)
+	var one := UiKit.btn("Maxed" if cost < 0 else "+1  ·  %d XP" % cost, UiKit.SECONDARY)
 	one.clip_text = true
 	one.custom_minimum_size = Vector2(0, 44)
 	one.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -689,7 +689,7 @@ func _stat_row(p: Dictionary, key: String, label: String, useful := true) -> Con
 	actions.add_child(one)
 	var batch := GameState.affordable_points(_selected, key, 5)
 	if batch >= 2:
-		var many := UiKit.btn("+%d" % batch, 13)
+		var many := UiKit.btn("+%d" % batch, UiKit.SECONDARY)
 		many.custom_minimum_size = Vector2(64, 44)
 		many.pressed.connect(_train.bind(_selected, key, batch))
 		actions.add_child(many)

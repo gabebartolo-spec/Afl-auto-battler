@@ -2221,6 +2221,17 @@ Create **one** concise coaching report, not a compact report plus a giant full-r
 
 Detailed stats live in the Stats screen.
 
+### Director addition — full match stats at every quarter break (2026-10-06)
+**Status:** `TODO` — explicit access requirement; audit existing break UI first and extend any missing access, preserving the completed report foundation.
+
+Make the **full match stats** available at **quarter time, half time and three-quarter time**, with the same team/player stat coverage available at full time. Include both teams' cumulative match-to-date statistics and available quarter scoring/breakdowns; values must come from the current authoritative match state, not a completed-match reconstruction or future results.
+
+Reuse the existing Stats screen/table in a clear tab/button accessible from each break. Keep the concise coaching/decision view as its own surface, so full statistics are available on demand without turning the break summary into a stat dump. Opening/closing stats must not resume the match, commit a call, discard pending tactical choices or advance the simulation; the user returns to the same paused break and can still make their decisions.
+
+Acceptance: full team and player stats can be opened at all three breaks, match the events played so far, and remain accessible regardless of whether the user watched or skipped the preceding quarter. Validate all three break states, missing/zero stats, back navigation, selected tactical choices, phone scrolling and final-time parity.
+
+
+
 ### Research refinement — 2026-10-05
 
 **Status boundary:** the merged report remains DONE. These checks apply when M4-001/002/003/004 follow-through changes; do not rebuild or add a second report.
@@ -4060,7 +4071,7 @@ A lightweight **Follow / Watch** affordance is preferred over extra bespoke dash
 ---
 
 ## ARD-M7-009 — Expansion clubs, Canberra toggle & Club Forge
-**Status:** `PARTIAL` — groundwork merged: the full player look (#305) and the location library, `data/forge_locations.json` with 53 researched places and a `tools/validate_data.py` check (#304). The pattern and colour research is merged (#343, #351): from each heritage club's Wikipedia infobox home kit, plus South Adelaide's own site (#351). 33 of 53 places have a pattern tag and 46 of 53 have colour tags; nothing is guessed. Still empty: 20 patterns (custom kit images, or the page is the town: werribee, shepparton, warrnambool, newcastle, wollongong, albury, maroochydore, morningside, norwood, sturt, woodville-west-torrens, claremont, subiaco, bunbury, ainslie, eastlake, tuggeranong, palmerston, weston-creek, alice-springs) and 7 colours (shepparton, southport, morningside, central-district, burnie, weston-creek, alice-springs). **Create a club, engine (merged in #340):** `ClubForge` turns a spec (name, nickname, 2-4 letter abbreviation, a library place and one of its grounds, three colours, a guernsey design and which colour goes where, entry season) into a club, refusing taken names and codes, unknown places and patterns that can't be told apart; `GameState.create_club` adds the one created club before the League Draft; `GameDB.club_order` replaces `CLUB_ORDER` wherever every club is walked; the club is saved with the career and comes back on load. Director decisions (2026-10-06): a created club **enters with the career** and drafts its list in the League Draft like every club (no separate concession package); a 21-club season is **24 rounds, 22 games and two byes a club**. The screen is built (#360, approved by the director in his words) and waits on #309 (Create a player), which needs the director's look at the player form, because it is stacked on both. The fair fixture for 18 to 21 clubs is merged (#361): every club plays the same number of games, home games are within one of half, and byes follow the season seed (a 21-club season is 24 rounds, 22 games and two byes a club); the board goals and expectations follow the club count (#359). _(2026-10-06)_  
+**Status:** `PARTIAL` — groundwork merged: the full player look (#305) and the location library, `data/forge_locations.json` with 53 researched places and a `tools/validate_data.py` check (#304). The pattern and colour research is merged (#343, #351): from each heritage club's Wikipedia infobox home kit, plus South Adelaide's own site (#351). 33 of 53 places have a pattern tag and 46 of 53 have colour tags; nothing is guessed. Still empty: 20 patterns (custom kit images, or the page is the town: werribee, shepparton, warrnambool, newcastle, wollongong, albury, maroochydore, morningside, norwood, sturt, woodville-west-torrens, claremont, subiaco, bunbury, ainslie, eastlake, tuggeranong, palmerston, weston-creek, alice-springs) and 7 colours (shepparton, southport, morningside, central-district, burnie, weston-creek, alice-springs). **Create a club, engine (merged in #340):** `ClubForge` turns a spec (name, nickname, 2-4 letter abbreviation, a library place and one of its grounds, three colours, a guernsey design and which colour goes where, entry season) into a club, refusing taken names and codes, unknown places and patterns that can't be told apart; `GameState.create_club` adds the one created club before the League Draft; `GameDB.club_order` replaces `CLUB_ORDER` wherever every club is walked; the club is saved with the career and comes back on load. Director decisions (2026-10-06): a created club **enters with the career** and drafts its list in the League Draft like every club (no separate concession package); a 21-club season is **24 rounds, 22 games and two byes a club**. The screen is built (#360, approved by the director in their own words); #309 (Create a player), which it is stacked on, is merged. The fair fixture for 18 to 21 clubs is merged (#361): every club plays the same number of games, home games are within one of half, and byes follow the season seed (a 21-club season is 24 rounds, 22 games and two byes a club); the board goals and expectations follow the club count (#359). _(2026-10-06)_  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -4700,6 +4711,7 @@ Prefer shared theme changes over manually touching hundreds of controls.
 
 ## ARD-M8-003 — Match visualisation authenticity pass
 **Status:** `PARTIAL`  
+**Progress (2026-10-06):** step 1 of the visualisation sequence, the truth fixes (handballs stay handballs, the ball never steers), merged in #438 on the director's go ("Merge on green"). Presentation only; the sim, scores and event order are untouched.
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -5517,7 +5529,8 @@ From the director's chat with the lead, relayed with the director's words where 
 - **Trades at real volume.** Raise the trade period to real AFL volume so that a club which trades well reaches about 3rd to 4th on average. The real volume is measured and merged (#376, DraftGuru 2019 to 2025); the lead's trade market is in review (#383).
 - **Synergy selection and development projects must have an impact.** Director: "why do we have these features if they dont have an impact, fix them". Fix both so that using them lifts a club, then measure again with the same harness.
 - **Clearance winner keeps the first disposal** (option 1 of the ruck and midfield disposals evidence). Merged (#373): ruck disposals 8.0 to 12.0, with the calibration and finals re-run.
-- **Create a club screen approved.** Director: "looks fantastic, well done". It merges after the Create a player form and the Create a club engine, because it is built on both.
+- **Ruck clearances and middle-zone carrying, calibrated toward real 2026 per-role numbers.** The follow-up to #373: three weights (`CLEARANCE_ROLES` RUCK, `CARRY_ROLES` middle DEF and FWD), no new mechanism. Merged (#393) with the lead's W7, then reverted (#443) when main went red on the matchday rating-parity check; being reworked.
+- **Create a club screen approved.** Director: "looks fantastic, well done". Merged (#360), after the Create a player form (#309) and the Create a club engine.
 - **Scars removed from the player look.** Director, in chat with the lead, 2026-10-06: "remove scarring from the game, unnecessary detail". The look keeps no scars key; old saves that carry one load fine and ignore it, and no generated player's look changes.
 - **Freckles removed from the player look.** Confirmed in the director's own words: "i alreeady said to delete freckles from the game". Merged (#357, #354); the saved-look cleanup (#382) is in review.
 - **Hair and beard look-dev stopped.** Director, in chat, 2026-10-06 (relayed by the lead): "this hair/beard stuff is no good". The current hair and beard library work stops; nothing from it is rolled out.
@@ -5531,6 +5544,13 @@ From the director's chat with the lead, relayed; the director's own wording is t
 - **No reduced-motion setting for now.**
 - **The awards walk-on stays as it is:** no presenter, no handover.
 - **The Stat Guide uses words, not percentages.** Director: "Words instead". Counts the player acts on stay exact. Done in #398.
+
+## 2026-10-06 director decisions - match framing, synergies and the #291 rules
+
+- **Centre bounce framing, as built (#422).** The director answered "Yes, as built": the contest sits higher on the push-in, leaving room above the call, and names stay off the ball.
+- **Synergies: widen the spread of players, and show "N short".** Not lower thresholds. Evidence: `docs/FLAGS_EVIDENCE_2026-10-06.md` ("Synergies: worth a lot, rarely on") and `docs/research/SYNERGY_UI_SURFACES.md`. On Team selection the fact is shown ("1 crumber short") with no suggested swap and no best-choice label, and the Stat Guide copy is made to match. Still to build.
+- **#291's rules adopted (now in CLAUDE.md, #433):** real-tap checks for touch flows, the art-loaded check, and change approach after repeated failure. No-clock-seeds was not chosen.
+- **#342 merged:** favourite club on bio cards and full match stats at every quarter break are recorded as TODO under their owners.
 
 # 9.2 Research candidates — awaiting director selection
 
@@ -5558,14 +5578,14 @@ Prefer improving the existing experience when that answers the same need. This p
 
 | Reference | Director decision | Canonical owner | Extension status / effort |
 |---|---|---|---|
-| FL-001 | Include authentic football language and restrained Australian humour | M8-006 | TODO / LOW |
-| FL-002 | Include milestone banners; **audit their appearance so decorative content is distinct from actual game information** | M7-003 + M8-007 | TODO / MEDIUM |
+| FL-001 | Include authentic football language and restrained Australian humour | M8-006 | PARTIAL (#381 audit, #386 fixes; other surfaces await copy review) / LOW |
+| FL-002 | Include milestone banners; **audit their appearance so decorative content is distinct from actual game information** | M7-003 + M8-007 | DONE (#400, director approved) / MEDIUM |
 | FL-003 | Include recognisable ground atmosphere | M8-003/007; reuse M7-009 venue identity/presets where available | TODO / HIGH |
-| FL-004 | Include natural crowd sound, breathing room and volume controls | M8-006 + existing audio owner | TODO / MEDIUM |
-| FL-005 | Include persistent, harmless fictional-player nicknames and interests | M7-005 + existing M7-008/009 nickname/profile fields | TODO / MEDIUM |
-| FL-006 | Include characterful, truthful headlines distinct from game information | M4-009 + M7-005/011 and existing news/season-story surfaces | TODO / MEDIUM |
+| FL-004 | Include natural crowd sound, breathing room and volume controls | M8-006 + existing audio owner | DONE (#405 sounds, #409 crowd; director approved) / MEDIUM |
+| FL-005 | Include persistent, harmless fictional-player nicknames and interests | M7-005 + existing M7-008/009 nickname/profile fields | DONE (#392, director approved) / MEDIUM |
+| FL-006 | Include characterful, truthful headlines distinct from game information | M4-009 + M7-005/011 and existing news/season-story surfaces | DONE (#395, director approved, losses included) / MEDIUM |
 | FL-007 | Include rituals and farewells; **build new vignette scenes as necessary** | M7-003/005 + M8-007 shared art/rendering | TODO / HIGH |
-| FL-008 | Include decorative club memories across decades | M7-005 + existing alumni/history presentation | TODO / MEDIUM |
+| FL-008 | Include decorative club memories across decades | M7-005 + existing alumni/history presentation | DONE (#406, director approved, home games only) / MEDIUM |
 
 ### Common dependencies, limits and acceptance
 
@@ -5613,6 +5633,18 @@ Prefer improving the existing experience when that answers the same need. This p
 **Exclusions:** new personality ratings, inferred ethnicity/character from names, gameplay traits, real-player invented habits or a separate player editor.
 **Acceptance:** full-name records/search remain intact; nicknames/interests survive transfer and retirement; old saves remain valid and need not acquire invented histories; details are unmistakably cosmetic.
 **Validation:** generated/custom players, changed/removed nickname, name search, fictive mode, same-name players, save/load and multiple decades. Cosmetic metadata never shifts football RNG or prospect abilities.
+
+#### Director addition — Favourite club on every player bio card (2026-10-06)
+**Status:** `TODO` — cosmetic profile detail; this explicitly extends the profile flavour scope to sourced real-player facts.
+
+Add a **Favourite club** field to all player bio cards, for example **Favourite club: Demons**. "Demons" is an example value, not a universal assignment. The field records the club the player supported **before being drafted**, not their current employer.
+
+- For real players, research and use their actual publicly documented pre-draft/childhood favourite club where available. Prefer player interviews and official club/AFL profiles; retain the source URL/date against the stable player ID and resolve conflicting accounts rather than guess.
+- If no reliable source is found, show a restrained unknown state such as "Not recorded"; never infer allegiance from current club, hometown, surname or the director's example.
+- Generated fictional players can have a persistent cosmetic favourite club; custom prospects can choose one. Keep this data separate from real-player research and preserve it through transfers, retirement, name-display changes and save/load.
+- Reuse the existing player profile/card and club-label systems, with a concise readable row on phone. This is flavour only: no effect on contracts, recruitment, trades, morale, loyalty or gameplay, and cosmetic generation must not disturb football RNG.
+
+Acceptance: every bio card supports the field; sourced real facts display correctly, unknowns remain honest, generated/custom values persist, and a transfer never changes the childhood allegiance. Validate phone layouts, old saves, fictive-name mode and stable-ID/source mapping.
 
 ### FL-006 — Truthful characterful headlines
 **Scope:** sparse optional headlines in the existing match report, news feed and season recap. Coordinate with M7-011's veracity standard and existing season-story data; use a neutral fallback if a stronger claim lacks support.
@@ -5895,7 +5927,9 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 **Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`  
 **Existing owner:** §1.7 typography/free-font remit, shared UiKit; M8-006 presentation.
 
-**Prototype (2026-10-06):** the director chose the sign-writer scoreboard style, the art agent drew the family (`tools/typeface/build_font.py`, original font owned by the project), and draft #419 puts it in game project-wide so the director can play it. Not merged and not final: the status stays `TODO` until the director's own approval of the completed treatment.
+**Preparation merged (2026-10-06):** the UiKit type roles at today's sizes (#423), with no visual change, so the typeface pass changes one place.
+
+**Typeface DONE (2026-10-06):** the ARD Signwriter family is the game's typeface (#419). The director, after seeing the game's screens in dark at phone portrait: "Approve and merge". Drawn by the art agent (`tools/typeface/build_font.py`, original font owned by the project) and swapped into UiKit project-wide. STYLE-02 stays `TODO` for the rest of its scope: the type roles, numeral refinement and the 1/I/l, 6/8/9 and 0/O checks in real contexts.
 
 **Scope:** establish consistent roles for fonts, size, weight, line spacing and casing in dark mode. Test names, ratings, scores and draft rows with the current Barlow family as a baseline, not a mandatory final choice. The art agent may propose suitable free/licensed replacements under existing tooling rules; the director chooses.
 
@@ -6017,6 +6051,7 @@ The eight includes are the complete decision record. There are no rejected style
 
 # 10. Roadmap Maintenance Log
 
+- **2026-10-06:** Added sourced pre-draft Favourite club bio-card flavour under FL-005, with honest unknowns and persistent cosmetic generated/custom values. Added full match-to-date Stats access at every quarter break under ARD-M4-009, reusing the existing stats view and preserving the paused decision flow.
 - **2026-10-06:** Added ARD-M4-016, match-day weather, from the director's decisions and the lead's evidence (docs/research/WEATHER_EVIDENCE.md).
 - **2026-10-06:** Recorded the director's interview on the match-visualisation research.
   - ARD-M8-003 gains an agreed sequence: truth fixes, a tactical timeline, two demonstrations, then lanes. No overlay, and the play library is held.
@@ -6086,6 +6121,12 @@ The eight includes are the complete decision record. There are no rejected style
 - **2026-10-06:** Low agent, docs steward and CI owner. Added §0.4a: effort tags (`LOW` / `MEDIUM` / `HIGH`) with every open item sized into a lane, and the parallel-work rules for the agents working at once (hot files, check floors, local Godot use, no pushes mid-CI). Replaced 15 §1.11 observed-failure bullets that are built and tested on `main` with one "Closed from this list" line naming the evidence. CI now runs the Godot suites as parallel shards (`tools/ci_shards.txt`, plan job, extras job, the required check still `test`) and long audits run on GitHub (`audit.yml`). README, DESIGN and `tests/README.md` corrected against the code.
 
 - **2026-10-06:** After all eight director answers, authorised FL-001–FL-008 in §9.3 and the execution/effort queues under existing owners. Added the explicit visual-distinction audit and permission for necessary new ritual/farewell vignette scenes. Every addition is presentation-only with zero gameplay effects; existing feature statuses and unrelated review gates remain unchanged.
+
+- **2026-10-06:** FL statuses in §9.3 set from what has merged: FL-002 (#400), FL-004 (#405, #409), FL-005 (#392), FL-006 (#395) and FL-008 (#406) are DONE with the director's approval; FL-001 is PARTIAL (#381 audit, #386 fixes); FL-003 and FL-007 stay TODO.
+
+- **2026-10-06:** Merged-PR status lines: #438 (ARD-M8-003 step 1, the truth fixes), #393 (ruck clearances and middle-zone carrying; reverted in #443 and being reworked), #360 (the Create a club screen), #423 (STYLE-02 type roles at today's sizes) and #428 (audit seeding: `run_audit.gd` seeds the global RNG, `AUDIT_SEED` default 2026).
+
+- **2026-10-06:** The director approved the ARD Signwriter typeface ("Approve and merge") and #419 is merged: STYLE-02's typeface is DONE. #408 (the type specimen) is closed as superseded.
 
 - **2026-10-06:** Extended the art-agent tooling permission to fonts: it may research, download and use free/licensed fonts suitable for game distribution, or direct the user to install them. Paid font licences and subscription services remain disallowed without explicit approval.
 

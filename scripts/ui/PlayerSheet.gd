@@ -81,7 +81,7 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	for pair in [[str(int(p["overall"])), "OVR"], [str(GameState.pot_view(p)["text"]), "POT"]]:
 		var nb := UiKit.vbox(0)
 		nb.name = "Profile" + str(pair[1])
-		nb.add_child(UiKit.figure(str(pair[0]), 30, UiKit.TEXT))
+		nb.add_child(UiKit.figure(str(pair[0]), UiKit.RATING, UiKit.TEXT))
 		nb.add_child(UiKit.lbl(str(pair[1]), UiKit.SMALL, UiKit.MUTED))
 		nums.add_child(nb)
 	var dev := UiKit.lbl(GameState.development_state(p), UiKit.BODY, UiKit.TEXT)
@@ -177,7 +177,7 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 		act.custom_minimum_size = Vector2(0, 48)
 		act.pressed.connect(action["run"])
 		box["footer"].add_child(act)
-	var close := UiKit.btn("Close", 16, true)
+	var close := UiKit.btn("Close", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 48)
 	close.pressed.connect(func():
 		overlay.queue_free()

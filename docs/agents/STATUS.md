@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06 (refresh 18). Since the last board merged: #309 (Create a player), #409 (the crowd at a watched match), #413 (player home states), #414 (centre ball-up copy), #416 and #418 (intercept evidence), #417 (roadmap: match visualisation and weather) and #420 (STYLE-02 typeface prototype recorded)._
+_Updated 2026-10-06 (refresh 19). Since refresh 18: #360 (Create a club), #393 (ruck/DEF calibration), #342 (favourite club and quarter-break stats, recorded as TODO), #422 (centre bounce framing, as built), #423 (UiKit type roles), #428 (audit seeding), #433 (CLAUDE.md verification rules), the evidence docs #424, #429, #430, #432 and #434, and the housekeeping #421 (shard re-time), #426, #427, #431 and #436._
 
 ## Lanes
 | agent (session) | owns |
@@ -24,43 +24,38 @@ _Updated 2026-10-06 (refresh 18). Since the last board merged: #309 (Create a pl
 
 ## Waiting on the director
 Asked of the director one decision at a time (team rule 5). Open now:
-- #360 Create a club screen (approved; the lead's sync is being tested) and #385 club marker A (approved; retargets to main once #360 is in).
+- #385 club marker A (approved; its owner syncs it with main now that #360 is in).
 - #419 ARD Signwriter typeface (a draft prototype; the director is playing it; light captures are on the PR) and #408 type specimen.
-- #422 centre bounce framing (medium; waits on the director's look), #394 hair review, #303 defensive forward.
-- #342 and #291 (the lead is putting them to the director).
+- #394 hair review and #303 defensive forward.
+- #291 (the director's Codex research; the three rules he chose are in CLAUDE.md).
 
 **Own-words confirmations:** none open.
 
-**Decisions made, being built:** the intercept evidence is merged (data, no code). All recorded in ROADMAP §9.1.
+**Decisions made, being built:** synergies (widen the player spread; show "N short" on Team selection). All recorded in ROADMAP §9.1.
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- In flight on CI: #421 (shard re-time) and #424 (trades evidence), both mine and docs/CI only.
-- Waiting on the lead's sync: #360 (CONFLICTING with main after #309 merged), then #385 retargets to main (its CI failed on `roles`: the Coleman race fits without scrolling at 360x740; the owner re-runs after the retarget).
-- Waiting on a W7 or a sync: #393 (ruck/DEF calibration, W7 from the lead), #383 (the trade market, CONFLICTING with main; its home requests use #413), #303 (CONFLICTING; medium item 13).
-- #342 (codex docs, CONFLICTING in ROADMAP only) and #368 (kit options, draft, CONFLICTING) need their owners. #291 is the director's Codex research: do not merge.
+- In flight on CI: #435 (decision record, docs).
+- #383 (the trade market, W7 done) is in CI after its roll-spread fix; I merge it on green.
+- Waiting on an owner: #385 (sync with main, then the director's look), #303 (sync and the director's look), #368 (kit options, draft, conflicting).
+- #291 is the director's Codex research: do not merge.
 - Gates: no appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR.
 
 ## In progress
-- **Lead:** the Create a club chain (#360, #385); the trade market (#383); the hair review (#394).
-- **Medium:** the ruck/DEF calibration (#393); centre bounce framing (#422); STYLE-02 type roles (#423, waits on the lead's review).
-- **Low:** the merge queue, STATUS and the triage, the shard re-time (#421) and the next items the medium agent queues.
+- **Lead:** the trade market (#383); the hair review (#394); the typeface prototype (#419).
+- **Medium:** synergy "N short" on Team selection; the next restock from the lead.
+- **Low:** the merge queue, the flake hunt (ten suites, four runs each), STATUS and the next items the medium agent queues.
 
 ## Open PRs and dependencies
-Checked 2026-10-06 about 07:50 UTC. None has been quiet for 24 hours or more (oldest: #291, last touched the evening of 2026-10-05).
+Checked 2026-10-06 about 10:00 UTC.
 | PR | owner | CI | conflict | waits on |
 |---|---|---|---|---|
-| #360 | lead | green | yes | the lead's sync, then merge |
-| #385 | lead | red (`roles`, Coleman race at 360x740) | no | #360, then retarget and re-run |
-| #383 | lead/medium | running | yes | W7, then a sync |
-| #393 | medium | green | no | W7 from the lead |
-| #303 | lead | green | yes | a sync (medium item 13) and the director's look |
+| #383 | lead | running | unknown | CI, then low merges |
+| #385 | medium | green | yes | its owner's sync, then the director |
+| #303 | medium | green | unknown | a sync and the director's look |
 | #394 | lead | green | no | the director (hair review) |
 | #408 | lead | green | no | the director (type specimen) |
 | #419 | art/lead | green | no | the director (playing the typeface) |
-| #422 | medium | green | no | the director's look |
-| #423 | medium | running | no | the lead's review |
-| #421, #424 | low | running/green | no | CI, then low merges |
-| #342 | codex | green | yes | its owner (ROADMAP sync) and the director |
+| #435 | low | green | no | low merges |
 | #368 | draft | green | yes | its owner |
 | #291 | director | green | no | do not merge; the director |
 
