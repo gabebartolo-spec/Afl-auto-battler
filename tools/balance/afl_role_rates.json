@@ -1,0 +1,78 @@
+{
+ "min_games": 5,
+ "roles": {
+  "DEF": {
+   "per_game": {
+    "clearances": 0.53,
+    "disposals": 16.58,
+    "frees_against": 0.74,
+    "frees_for": 0.63,
+    "goals": 0.1,
+    "handballs": 6.0,
+    "hitouts": 0.08,
+    "inside_50s": 1.55,
+    "kicks": 10.57,
+    "marks": 5.06,
+    "rebound_50s": 3.2,
+    "tackles": 1.84
+   },
+   "player_games": 3409,
+   "players": 203
+  },
+  "FWD": {
+   "per_game": {
+    "clearances": 0.67,
+    "disposals": 11.72,
+    "frees_against": 0.75,
+    "frees_for": 0.81,
+    "goals": 1.3,
+    "handballs": 4.59,
+    "hitouts": 0.48,
+    "inside_50s": 2.2,
+    "kicks": 7.13,
+    "marks": 3.56,
+    "rebound_50s": 0.34,
+    "tackles": 2.15
+   },
+   "player_games": 2752,
+   "players": 172
+  },
+  "MID": {
+   "per_game": {
+    "clearances": 3.23,
+    "disposals": 20.46,
+    "frees_against": 0.86,
+    "frees_for": 0.91,
+    "goals": 0.47,
+    "handballs": 9.86,
+    "hitouts": 0.02,
+    "inside_50s": 3.43,
+    "kicks": 10.6,
+    "marks": 3.56,
+    "rebound_50s": 1.48,
+    "tackles": 3.57
+   },
+   "player_games": 2964,
+   "players": 165
+  },
+  "RUCK": {
+   "per_game": {
+    "clearances": 3.56,
+    "disposals": 12.49,
+    "frees_against": 1.36,
+    "frees_for": 1.46,
+    "goals": 0.38,
+    "handballs": 6.33,
+    "hitouts": 21.09,
+    "inside_50s": 1.91,
+    "kicks": 6.16,
+    "marks": 2.53,
+    "rebound_50s": 0.98,
+    "tackles": 2.63
+   },
+   "player_games": 631,
+   "players": 38
+  }
+ },
+ "source": "data/players_2026.csv (AFL Tables 2026 season totals), players with at least 5 games, grouped by the game's primary role (Ratings.derive_all). Each rate is the pooled total divided by pooled games for that role. Regenerate with tools/balance/build_role_rates.gd."
+}

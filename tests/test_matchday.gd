@@ -29,6 +29,7 @@ func run() -> void:
 	_test_report_roles(res)
 	_test_rating()
 	_test_report_glance()
+	_test_lift_skips_short_games()
 	_test_no_green_decoration()
 	_test_club_markers()
 	_test_palette_snapshot()
@@ -356,6 +357,54 @@ func _test_rating() -> void:
 	_check(p90.size() >= 3 and hi - lo <= 30, "No position is shut out of big ratings (%s)" % str(p90))
 	_check(int(best.get("FWD", 0)) >= 1 and int(best.get("DEF", 0)) >= 1,
 			"Forwards and defenders make their side's top three (%s)" % str(best))
+
+
+## Needs a lift is a poor game by a player who had the game to make an
+## impact (director playtest): one hurt early had a short game, not a poor
+## one; a genuinely poor full game is named; when nobody had a poor game the
+## section is empty rather than manufacturing criticism.
+func _test_lift_skips_short_games() -> void:
+	var busy := {"kicks": 14, "handballs": 8, "marks": 5, "tackles": 4, "inside50": 3}  # rating 72
+	var poor := {"kicks": 4, "handballs": 3, "tackles": 1}                              # rating 13
+	var entry := func(id: String, st: Dictionary) -> Dictionary:
+		return {"id": id, "name": id, "stats": st}
+	var report := {"quarters": 4, "my_ranked": [
+			entry.call("Hurt early", poor), entry.call("Poor full game", poor), entry.call("Busy", busy)]}
+	report["my_ranked"][0]["hurt_min"] = 12
+	var names := (CoachReport.glance(report, true)["lift"] as Array).map(func(x): return str(x["name"]))
+	_check(not names.has("Hurt early"), "A player hurt early is not someone who needs a lift (%s)" % str(names))
+	_check(names.has("Poor full game"), "A genuinely poor full game is named (%s)" % str(names))
+	report["my_ranked"][0]["hurt_min"] = 115
+	names = (CoachReport.glance(report, true)["lift"] as Array).map(func(x): return str(x["name"]))
+	_check(names.has("Hurt early"), "Hurt in the last minutes, a poor game is still a poor game (%s)" % str(names))
+	var none := {"quarters": 4, "my_ranked": [entry.call("Busy", busy), entry.call("Also busy", busy)]}
+	_check((CoachReport.glance(none, true)["lift"] as Array).is_empty(),
+			"Nobody had a poor game: Needs a lift is empty")
+	# From a real match: whoever the sim hurt early is never in the section.
+	var named_hurt := ""
+	var hurt_seen := 0
+	for seed in range(40):
+		var sim := MatchSim.new(Squad.new("HAW", GameDB.club_list("HAW"), true, "HAW"),
+				Squad.new("BRL", GameDB.club_list("BRL"), false, "BRL"), 9100 + seed)
+		var res := sim.run()
+		res["home"] = "HAW"
+		res["away"] = "BRL"
+		var early := {}
+		for inj in res.get("injuries", []):
+			if int(inj["side"]) == 0 and int(inj["min"]) < 90:
+				early[str(inj["id"])] = true
+		if early.is_empty():
+			continue
+		hurt_seen += 1
+		var rep := CoachReport.match_report(res, 0)
+		var by_name := {}
+		for e in rep["my_ranked"]:
+			by_name[str(e["name"])] = str(e["id"])
+		for p in CoachReport.glance(rep, true)["lift"]:
+			if early.has(str(by_name.get(str(p["name"]), ""))):
+				named_hurt = str(p["name"])
+	_check(hurt_seen > 0 and named_hurt == "",
+			"No player hurt before the last quarter is in Needs a lift (%d matches with one; named %s)" % [hurt_seen, named_hurt])
 
 
 ## The half-time report at a glance: a few lines and a few players, in words.
