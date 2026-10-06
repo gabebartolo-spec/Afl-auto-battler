@@ -84,6 +84,7 @@ func _run() -> void:
 		ui.call("_select_tab", "pool")
 
 	await _test_career_stage_filters(ui)
+	await _test_style_and_trait_filters(ui)
 	await _test_position_filters(ui)
 
 	# No-results recovery resets controls as well as their backing values.
@@ -497,6 +498,86 @@ func _snapshot(ui: Control) -> Dictionary:
 
 # The opening League Draft can be narrowed by career stage without changing
 # the draft itself. The cut-offs are based on the actual 2027 pool.
+## Filter by how a player plays and by trait, with position, and every row
+## shows his age and playing style (director's PC playtest, 2026-10-07:
+## "Interceptor, Crumber", "Tagger", age on the row).
+func _test_style_and_trait_filters(ui: Control) -> void:
+	var profile = load("res://scripts/sim/PlayerProfile.gd")
+	var traits_lib = load("res://scripts/sim/Traits.gd")
+	var old_size := root.size
+	root.size = Vector2i(390, 844)
+	ui.set("_advanced_open", true)
+	ui.set("_role", "")
+	ui.set("_club_filter", "")
+	ui.set("_search", "")
+	ui.set("_career_stage", "")
+	ui.set("_available_only", false)
+	ui.call("_show_board")
+	await _settle()
+	var style_opt: OptionButton = ui.find_child("StyleFilter", true, false)
+	var trait_opt: OptionButton = ui.find_child("TraitFilter", true, false)
+	_check(style_opt != null and trait_opt != null, "The draft has playing-style and trait filters")
+	if style_opt == null or trait_opt == null:
+		root.size = old_size
+		return
+	var styles := []
+	for i in range(style_opt.item_count):
+		styles.append(style_opt.get_item_text(i))
+	var trait_names := []
+	for i in range(trait_opt.item_count):
+		trait_names.append(trait_opt.get_item_text(i))
+	_check(trait_names.has("Interceptor") and trait_names.has("Crumber") and trait_names.has("Tagger"),
+			"Traits to filter by include the director's examples (%s)" % ", ".join(trait_names))
+	_check(styles.has("Key forward") and styles.has("Wing"), "Playing styles are how a player plays (%s)" % ", ".join(styles))
+	var si := styles.find("Key forward")
+	style_opt.select(si)
+	style_opt.item_selected.emit(si)
+	await _settle()
+	var rows: Array = ui.call("_board_rows")
+	_check(not rows.is_empty() and rows.all(func(p): return profile.player_type(p) == "Key forward"),
+			"Playing style Key forward shows only key forwards (%d)" % rows.size())
+	ui.call("_set_role", "FWD")
+	await _settle()
+	rows = ui.call("_board_rows")
+	var ratings_lib = load("res://scripts/sim/Ratings.gd")
+	_check(rows.all(func(p): return profile.player_type(p) == "Key forward" and (str(p["role"]) == "FWD" or ratings_lib.second_positions(p).has("FWD"))),
+			"Style and position combine")
+	ui.call("_set_role", "")
+	style_opt = ui.find_child("StyleFilter", true, false)
+	style_opt.select(0)
+	style_opt.item_selected.emit(0)
+	await _settle()
+	trait_opt = ui.find_child("TraitFilter", true, false)
+	var ti := -1
+	for i in range(trait_opt.item_count):
+		if trait_opt.get_item_text(i) == "Tagger":
+			ti = i
+	_check(ti > 0, "Tagger is a trait to filter by")
+	if ti > 0:
+		trait_opt.select(ti)
+		trait_opt.item_selected.emit(ti)
+		await _settle()
+		rows = ui.call("_board_rows")
+		var roles_lib = load("res://scripts/sim/Roles.gd")
+		_check(not rows.is_empty() and rows.all(func(p): return roles_lib.is_tagger(p)),
+				"The Tagger filter finds players with the Tagger trait, not the word (%d)" % rows.size())
+	# The row: his age on the facts line, how he plays on its own line, and
+	# both fit a phone.
+	var row: Control = ui.find_child("Player_*", true, false)
+	var kind: Label = row.find_child("Kind_*", true, false) if row != null else null
+	var texts := []
+	_collect_texts(row, texts)
+	_check(kind != null and kind.text != "" and " ".join(texts).contains(" yo · "),
+			"A draft row shows his age and his playing style and traits")
+	_check(kind != null and kind.get_global_rect().end.x <= float(root.size.x) + 1.0,
+			"His playing style line fits a phone's width")
+	ui.call("_clear_filters")
+	await _settle()
+	_check(str(ui.get("_style")) == "" and str(ui.get("_trait")) == "", "Clear filters resets style and trait")
+	root.size = old_size
+	await _settle()
+
+
 func _test_career_stage_filters(ui: Control) -> void:
 	var counts := {"rookie": 0, "prime": 0, "veteran": 0}
 	var valid := true
