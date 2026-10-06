@@ -2299,6 +2299,11 @@ func _test_defensive_forward() -> void:
 	sim.set_interceptor(1, str(spare.get("id", "")), false)
 	var my_fwds := Matchups.minder_candidates((sim.squads[0] as Squad).ground)
 	_check(my_fwds.size() >= 2, "There are forwards to send")
+	# The director, 2026-10-06: "Other player" must not be a midfielder or
+	# defender. The quick picks and the full sheet both offer this list.
+	var off_line := my_fwds.filter(func(p): return str(p.get("role", "")) != "FWD")
+	_check(off_line.is_empty() and (sim.squads[0] as Squad).ground.any(func(p): return str(p.get("role", "")) != "FWD"),
+			"Only forwards are offered to go to their loose man, never a midfielder or defender")
 	if my_fwds.size() < 2:
 		return
 	# One forward made a Defensive forward, one made plainly not.

@@ -955,8 +955,9 @@ func _choice_grid(node_name: String, options: Array, calls: Dictionary, field: S
 
 
 ## A player call: "none", the few in the game so far, whoever is chosen,
-## and "Other player..." for the whole side on the ground. Nobody is left
-## out; the list is just ordered.
+## and "Other player..." for everyone in `roster` (the caller's choice: the
+## whole side for a tag, only forwards for their loose defender). Nobody in
+## it is left out; the list is just ordered.
 func _player_choice(node_name: String, none_label: String, roster: Array, first: Array,
 		calls: Dictionary, field: String, sheet_title: String) -> Control:
 	var box := UiKit.vbox(0)
