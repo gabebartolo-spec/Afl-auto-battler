@@ -9,7 +9,7 @@ extends RefCounted
 ##                            goals / scoring shots (accuracy), against the
 ##                            evidence's conversion by distance
 ##   SHARE                    set shots as a share of scoring shots
-## SETSHOT_REPS sets matches per pairing (default 4).
+## SETSHOT_REPS sets matches per pairing (default 4); AUDIT_SEED shifts the match seeds.
 
 func _play(home: Array, away: Array, hcode: String, acode: String, seed: int, call: String,
 		tally: Dictionary, roles: Dictionary) -> void:
@@ -61,6 +61,7 @@ func _play(home: Array, away: Array, hcode: String, acode: String, seed: int, ca
 func run() -> void:
 	var lb = load("res://tools/balance/league_balance.gd").new()
 	var reps := int(OS.get_environment("SETSHOT_REPS")) if OS.get_environment("SETSHOT_REPS") != "" else 4
+	var base := 100000 * int(OS.get_environment("AUDIT_SEED")) if OS.get_environment("AUDIT_SEED") != "" else 0
 	for call in ["shoot", "pass", "bomb"]:
 		var tally := {"call": {}, "pack": {}, "crumb": {}, "band": {}, "shots": [0, 0]}
 		for draft_seed in [21, 22]:
@@ -75,7 +76,7 @@ func run() -> void:
 			for i in range(0, codes.size() - 1, 2):
 				for rep in range(reps):
 					_play(lists[codes[i]], lists[codes[i + 1]], str(codes[i]), str(codes[i + 1]),
-							int(draft_seed) * 1000 + i * 10 + rep, call, tally, roles)
+							base + int(draft_seed) * 1000 + i * 10 + rep, call, tally, roles)
 		for key in tally["call"]:
 			var c: Array = tally["call"][key]
 			print("CALL %-5s forced %-5s n %4d | goal %5.1f%% behind %5.1f%% no score %5.1f%% | offered goal %5.1f%%" % [key, call, c[0],
