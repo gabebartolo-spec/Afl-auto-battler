@@ -1591,16 +1591,17 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 					w = 0.85   # a tagger plays the man
 				world = world.lerp(mark, w)
 		if flooding and role == "FWD":
-			# ...and the forwards push up toward the ball, so the numbers are
-			# behind it rather than waiting at the other end.
-			world.x = lerpf(world.x, ball_p.x, FLOOD_PUSH)
+			# ...and the half-forward line pushes up toward the ball, so the
+			# numbers are behind it; the full-forward line stays home.
+			var half := slot == "CHF" or slot == "HFL" or slot == "HFR"
+			world.x = lerpf(world.x, ball_p.x, FLOOD_PUSH if half else FLOOD_PUSH * 0.25)
 	return MatchMotion.clamp_to_oval(world, 3.0)
 
 
 ## How far back from the ball a flooding midfield sits (share of the way to
 ## its own goal), and how far its forwards come up toward the ball.
 const FLOOD_DEPTH := 0.35
-const FLOOD_PUSH := 0.45
+const FLOOD_PUSH := 0.35
 
 
 ## The side's recorded calls include a flood (MatchSim.BURSTS, on the timeline
