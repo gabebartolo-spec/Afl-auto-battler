@@ -2290,7 +2290,7 @@ Consolidates existing team form with the requested winning-streak momentum conce
 Goal: make player deployment intuitive, footy-authentic and consequential.
 
 ## ARD-M5-001 — Matchday squad: 18 + 5 interchange
-**Status:** `IN REVIEW` — implemented on `claude/interchange-five` (2026-10-06); the director has authorised the lead to merge on green.  
+**Status:** `DONE` — merged in #331 (`11e2f13`, 2026-10-06).  
 
 **Implementation record (2026-10-06):**
 - **Squad:** `Ratings.INTERCHANGE := 5`, the match-day 23, no substitute role. Auto and AI selection pick 18 + 5, the Team screen has five bench slots, and an older save with four named on the bench keeps them and gets a fifth on match day.
@@ -2317,7 +2317,7 @@ Goal: make player deployment intuitive, footy-authentic and consequential.
 
 **Director priority (2026-10-06):** Implement this next ahead of unrelated feature expansion and presentation work; urgent crash/save blockers still take precedence. This is an existing task promoted to priority, not a new duplicate.
 
-Verified on current main: `Ratings.gd` defines `INTERCHANGE := 4`, `SelectionScene.gd` renders four bench slots, and selection tests still expect 18 + 4. Five interchange players are not implemented yet.
+Before #331 (verified 2026-10-06): `Ratings.gd` defined `INTERCHANGE := 4`, `SelectionScene.gd` rendered four bench slots, and selection tests expected 18 + 4. The migration below is what #331 delivered.
 
 Migrate to:
 - 18 on ground,
@@ -5000,7 +5000,7 @@ These are here to stop Claude from rebuilding things that already exist. **Verif
 - Free kicks exist in simplified form.
 - Concussion now enforces a minimum two-match absence with AI parity and save persistence (PR #51).
 - Wildcard finals/top-10 finals structure already exists; do not add another wildcard-finals feature.
-- Matchday squad has historically been 18 + 4 interchange and needs migration to 18 + 5 unless already changed.
+- Matchday squad was 18 + 4 interchange; migrated to 18 + 5 in #331 (ARD-M5-001).
 - "Play through" now favours possession-chain/transition involvement without generic shooter bias (PR #48).
 - Player/team metres gained are accumulated from actual forward ball movement (PR #55).
 - Effective disposals and Disposal Efficiency are tracked from actual disposal outcomes (PR #55).
@@ -5851,6 +5851,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** ARD-M5-001 is DONE (#331, 18 + 5, All-Australian 23, dual ruck); match-day wording in the roadmap follows 18 plus five (best side, 23), with dated evidence left as it was.
 
 - **2026-10-06:** Recorded two director decisions (§9.1 and ARD-M7-009): a created club enters with the career and drafts in the League Draft with no concession package; a 21-club season is 24 rounds, 22 games and two byes a club (for reference, the existing fixture: 23 games at 18 and 20 clubs, 22 at 19).
 
