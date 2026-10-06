@@ -2290,7 +2290,7 @@ Consolidates existing team form with the requested winning-streak momentum conce
 Goal: make player deployment intuitive, footy-authentic and consequential.
 
 ## ARD-M5-001 — Matchday squad: 18 + 5 interchange
-**Status:** `IN REVIEW` — implemented on `claude/interchange-five` (2026-10-06); the director has authorised the lead to merge on green.  
+**Status:** `DONE` — merged in #331 (`11e2f13`, 2026-10-06).  
 
 **Implementation record (2026-10-06):**
 - **Squad:** `Ratings.INTERCHANGE := 5`, the match-day 23, no substitute role. Auto and AI selection pick 18 + 5, the Team screen has five bench slots, and an older save with four named on the bench keeps them and gets a fifth on match day.
@@ -2317,7 +2317,7 @@ Goal: make player deployment intuitive, footy-authentic and consequential.
 
 **Director priority (2026-10-06):** Implement this next ahead of unrelated feature expansion and presentation work; urgent crash/save blockers still take precedence. This is an existing task promoted to priority, not a new duplicate.
 
-Verified on current main: `Ratings.gd` defines `INTERCHANGE := 4`, `SelectionScene.gd` renders four bench slots, and selection tests still expect 18 + 4. Five interchange players are not implemented yet.
+Before #331 (verified 2026-10-06): `Ratings.gd` defined `INTERCHANGE := 4`, `SelectionScene.gd` rendered four bench slots, and selection tests expected 18 + 4. The migration below is what #331 delivered.
 
 Migrate to:
 - 18 on ground,
@@ -2592,7 +2592,7 @@ This is a league-wide calibration problem, not a request for hand-authored veter
 
 Required audit:
 - compare National Draft rookie OVR/POT distributions against established 24–28 and veteran 29+ players by position/role;
-- inspect how often first-year rookies immediately outrank proven regulars and best-22 veterans before any development;
+- inspect how often first-year rookies immediately outrank proven regulars and veterans in the best side before any development;
 - separate genuinely elite ready-made prospects from ordinary high-upside projects;
 - check whether established players with multiple seasons of credible AFL production are being compressed too low by the ratings model;
 - verify that lowering rookie starting OVR does not accidentally lower their POT or long-term ability to become stars;
@@ -3350,7 +3350,7 @@ AI trade value must depend on what the club is trying to do, using only its own 
 Give each club a simple, recalculated list-management phase such as:
 - **Rebuilding:** materially values high/current and future draft picks plus elite young/high-POT players; is reluctant to trade premium youth for established older stars; may move veterans for picks/youth.
 - **Building/rising:** values a mixture of young core and targeted established needs.
-- **In the premiership window / contending:** places less marginal value on future picks and is more willing to trade good picks/youth depth for established players who improve the best 22 now.
+- **In the premiership window / contending:** places less marginal value on future picks and is more willing to trade good picks/youth depth for established players who improve the best side (18 plus five interchange) now.
 
 Derive this from evidence such as recent ladder/expectation, list quality, age profile, elite-young core and competitive trajectory. Do not assign permanent hand-authored personalities. Recalculate as careers evolve.
 
@@ -5000,7 +5000,7 @@ These are here to stop Claude from rebuilding things that already exist. **Verif
 - Free kicks exist in simplified form.
 - Concussion now enforces a minimum two-match absence with AI parity and save persistence (PR #51).
 - Wildcard finals/top-10 finals structure already exists; do not add another wildcard-finals feature.
-- Matchday squad has historically been 18 + 4 interchange and needs migration to 18 + 5 unless already changed.
+- Matchday squad was 18 + 4 interchange; migrated to 18 + 5 in #331 (ARD-M5-001).
 - "Play through" now favours possession-chain/transition involvement without generic shooter bias (PR #48).
 - Player/team metres gained are accumulated from actual forward ball movement (PR #55).
 - Effective disposals and Disposal Efficiency are tracked from actual disposal outcomes (PR #55).
@@ -5435,6 +5435,7 @@ Prefer improving the existing experience when that answers the same need. This p
 **Status (2026-10-06):** first slice done, in the FL-001 PR. The two approved lines that have a truthful trigger today: on a final (the fixture label says so; no round does) the pre-match scene opens with "Finals footy. Here we go." instead of "Warming up", and the run-out caption is "Through the banner". Outstanding, and waiting on the director's copy review before anyone writes it: every other surface (reports, banners, clubroom notices, headlines). Nothing else in FL-001 is built. Review sheet for the director: [AFL_FLAVOUR_FL001_COPY_REVIEW.md](research/AFL_FLAVOUR_FL001_COPY_REVIEW.md). It recommends treating FL-001 as complete after slice 1 unless you want specific rewrites.
 
 ### FL-002 — Personal milestone banners
+**Director copy decisions (2026-10-06):** the approved 200-career-game line is **“200 games. Take a bow, {display_name}.”** Use the displayed real/fictive name and the authoritative milestone convention. Removed from the flavour samples: the first-goal headline, vague defender headline and tape notice. Do not restore those rejected lines; a defender headline under FL-006 must name the actual supported achievement. Pre-match banners may recognise only facts already known before the match, never predict goals or future events. Existing factual post-match milestone reports remain valid. See [updated writing samples](research/AFL_FLAVOUR_WRITING_SAMPLES.md).
 **Scope:** use the existing pre-match banner to honour the selected player's genuine achievement, name and club. Distinguish senior-career and club-tenure counts. Use the ordinary club banner when history is insufficient.
 **Dependencies:** M7-003 authoritative milestone facts, actual selection and the shared pre-match renderer.
 **Exclusions:** banner crafting, extra loading phases, fabricated firsts or a second milestone calculation.
@@ -5670,7 +5671,7 @@ Offer a short chance to convince a retiring veteran at the user's club to play o
 
 **Implementation record (2026-10-06, branch `claude/retirement-persuasion`): `IN REVIEW`.**
 - **When it is decided:** every club's retirements are decided when the off-season opens, by the existing ageing rules and seeds (`Retirement.intends`). The rollover then does exactly what was shown, so nothing is re-rolled.
-- **Eligibility (director):** a veteran picked in his club's best 22 and at or above its weakest player at his position. That's about 7 a season league-wide, and one for your club about every other season ([evidence](RETIREMENT_EVIDENCE_2026-10-06.md)).
+- **Eligibility (director):** a veteran picked in his club's best side (23 with five interchange) and at or above its weakest player at his position. That's about 7 a season league-wide, and one for your club about every other season ([evidence](RETIREMENT_EVIDENCE_2026-10-06.md)).
 - **Once a career (director):** a yes means one more season. The next time he decides to go, he goes.
 - **His answer follows his record, never a roll.** He refuses if he is:
   - still injured (the injury is named);
@@ -5851,6 +5852,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** ARD-M5-001 is DONE (#331, 18 + 5, All-Australian 23, dual ruck); match-day wording in the roadmap follows 18 plus five (best side, 23), with dated evidence left as it was.
 
 - **2026-10-06:** Recorded two director decisions (§9.1 and ARD-M7-009): a created club enters with the career and drafts in the League Draft with no concession package; a 21-club season is 24 rounds, 22 games and two byes a club (for reference, the existing fixture: 23 games at 18 and 20 clubs, 22 at 19).
 
