@@ -30,7 +30,6 @@ const BEARD_LABELS := {
 	"beard_moustache": "Beard and moustache",
 }
 const LEVEL_LABELS := [["0", "None"], ["1", "Light"], ["2", "Heavy"]]
-const SCAR_LABELS := [["0", "None"], ["1", "Light"], ["2", "Moderate"]]
 
 var _root: VBoxContainer
 var _spec := {}
@@ -126,7 +125,7 @@ func _default_spec() -> Dictionary:
 	return {"first": "", "last": "", "nickname": "", "role": "MID", "role2": "", "height_cm": 184,
 			"style": "", "strengths": [], "weaknesses": [], "foot": "R", "number_pref": 0,
 			"look": {"skin": 1, "hair": 1, "hair_style": "short_crop", "beard": "clean", "socks": "tall",
-					"headband": false, "scars": 0, "bandage": 0, "tattoos": []}}
+					"headband": false, "bandage": 0, "tattoos": []}}
 
 
 func _player_form(body: VBoxContainer) -> void:
@@ -200,8 +199,8 @@ func _player_form(body: VBoxContainer) -> void:
 	body.add_child(_sub("Headband"))
 	body.add_child(UiKit.choice_grid("ForgeHeadband", [["off", "Off"], ["on", "On"]], "on" if bool(look["headband"]) else "off", 2,
 			func(k): look["headband"] = k == "on"))
-	# No freckles: the director's call, an unnecessary detail.
-	for f in [["scars", "Scars", SCAR_LABELS], ["bandage", "Bandaging", LEVEL_LABELS]]:
+	# No freckles or scars: the director's call, unnecessary detail.
+	for f in [["bandage", "Bandaging", LEVEL_LABELS]]:
 		body.add_child(_sub(str(f[1])))
 		var key := str(f[0])
 		body.add_child(UiKit.choice_grid("Forge_" + key, f[2], str(int(look.get(key, 0))), 3,
