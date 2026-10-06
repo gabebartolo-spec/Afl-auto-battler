@@ -3,7 +3,9 @@ extends SceneTree
 ## of figure drawing (the hair overlays add a draw per figure). Each scene is held
 ## at a busy moment and redrawn for --frames frames with vsync off, at a phone's
 ## 390 x 844; it reports the figures drawn per frame (StoppageVignette.frame_log)
-## and the CPU frame time and the GPU's render time, mean and 95th percentile.
+## and the CPU frame time and the GPU's render time, mean and 95th percentile, and
+## the renderer's draw calls and objects per frame (Performance monitors): a figure
+## drawn from another texture than the one before it breaks the 2D batch.
 ## Needs a real renderer and a window (keep it off screen with an override.cfg):
 ##   godot --path . --script tools/visual/measure_vignettes.gd -- --out /tmp/perf.json [--frames 600]
 ## Run the same build of the tool on both trees, one after the other, on an idle machine.
@@ -98,6 +100,8 @@ func _measure(vig: Control, SV: GDScript, n: int) -> Dictionary:
 	var figures: int = SV.frame_log.size()
 	var cpu := []
 	var gpu := []
+	var calls := []
+	var objects := []
 	var last := Time.get_ticks_usec()
 	for i in range(n):
 		vig.queue_redraw()
@@ -106,9 +110,12 @@ func _measure(vig: Control, SV: GDScript, n: int) -> Dictionary:
 		cpu.append((now - last) / 1000.0)
 		last = now
 		gpu.append(RenderingServer.viewport_get_measured_render_time_gpu(root.get_viewport_rid()))
+		calls.append(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+		objects.append(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME))
 	vig.queue_free()
 	await process_frame
-	return {"figures": figures, "cpu_ms": _stats(cpu), "gpu_ms": _stats(gpu)}
+	return {"figures": figures, "cpu_ms": _stats(cpu), "gpu_ms": _stats(gpu),
+			"draw_calls": _stats(calls), "objects": _stats(objects)}
 
 
 func _stats(v: Array) -> Dictionary:
