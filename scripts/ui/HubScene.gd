@@ -14,8 +14,11 @@ var _hold_fired := false
 var _hold_id := 0
 var _pre_match: PreMatchVignette    # the scene over the wait after Play match
 const HOLD_SECONDS := 0.5
-## How long the pre-match scene runs before the side goes through the banner.
-const PRE_MATCH_SECONDS := 2.6
+## How long the pre-match scene runs before the side goes through the banner: a
+## moment of the warm-up, time to jog in to the huddle unhurried and stand together,
+## then the run - still a couple of seconds of match day, not a wait (a tap goes straight
+## to the run).
+const PRE_MATCH_SECONDS := 3.8
 
 
 func _ready() -> void:
@@ -738,12 +741,18 @@ func _on_play_match() -> void:
 	var mine := GameState.my_club
 	var opp := str(m["away"]) if str(m["home"]) == mine else str(m["home"])
 	var season: Season = GameState.season
-	var opp_ground: Array = Squad.new(opp, season.lists[opp], false, opp,
-			season.selections.get(opp, {})).ground
+	# Everyone named runs out: the 18 on the ground and the interchange.
+	var opp_squad := Squad.new(opp, season.lists[opp], false, opp, season.selections.get(opp, {}))
+	var opp_ground: Array = opp_squad.ground + opp_squad.bench
 	var heading := "%s  ·  %s v %s" % [str(m["label"]), GameDB.club_name(str(m["home"])),
 			GameDB.club_name(str(m["away"]))]
-	_pre_match = PreMatchVignette.open(get_tree().root, mine, opp, GameState.my_squad().ground,
-			opp_ground, heading, PreMatchVignette.is_final(str(m["label"])))
+	# The banner's occasion (Banners.pick): finals week, marquee game, must-win, spoon
+	# bowl, milestones (GameState.banner_context).
+	var label := str(m["label"])
+	var banner_ctx := GameState.banner_context(m)
+	_pre_match = PreMatchVignette.open(get_tree().root, mine, opp,
+			GameState.my_squad().ground + GameState.my_squad().bench, opp_ground, heading,
+			PreMatchVignette.is_final(label), banner_ctx)
 	# Home-and-away rounds and finals both play live with the coach box.
 	await get_tree().process_frame
 	if not GameState.prepare_interactive_match():

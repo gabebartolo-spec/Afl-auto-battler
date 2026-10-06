@@ -1,6 +1,7 @@
 extends RefCounted
 ## Legs and rotations, match moments, the impact readout and the rival
 ## coach. Run through tests/run_match_game_tests.gd.
+## Seeded by design: every MatchSim takes an explicit seed.
 
 var failures: Array[String] = []
 var checks := 0
