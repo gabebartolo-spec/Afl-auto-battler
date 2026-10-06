@@ -5851,7 +5851,7 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 **Validation:** capture stills and motion for the touched existing sequences, transitions and fallbacks; verify correct participants, appearances/kits, skip/touch/Back, event/outcome agreement, Android frame time/load time and existing vignette tests. Director approves final scene/overlay treatment before completion.
 
 ## STYLE-07 — PC fullscreen readability and fit-to-screen repair
-**Status:** `IN REVIEW` (#371; not DONE until the director's PC review) · **Priority:** `P0` — **EXTREME / NEXT AVAILABLE DEVELOPMENT SLOT** · **Autonomy:** `SUPERVISED`  
+**Status:** `DONE` (#371, merged; approved by the director, 2026-10-06) · **Priority:** `P0` — **EXTREME / NEXT AVAILABLE DEVELOPMENT SLOT** · **Autonomy:** `SUPERVISED`  
 **Existing owner:** shared responsive layout (`ScreenLayout.gd` / `UiKit.gd`), Main/New career and other desktop screens; M8-006.
 
 **Implementation record (2026-10-06, #371):** the director's PC is 3840x2160 with Windows DPI 288 (300%), and Godot's `screen_get_scale()` is 1.0 on Windows, so the logical canvas was the full physical size and the UI drew tiny. The fix is a desktop density of the larger of the operating system's DPI over 96 and the scale that fits 1280x720, and the first window now opens at the OS scale. Native before and after captures are in `docs/research/style07_*`; nine career_ui checks cover it. It closes only after the director has looked at it on the PC.
@@ -5910,6 +5910,7 @@ The eight includes are the complete decision record. There are no rejected style
 - **2026-10-06:** ARD-M7-009 status: the fair fixture for 18 to 21 clubs (#361) and the club-count board defaults (#359) are merged, with the Create a club engine (#340); the screen (#360) and Create a player (#309) wait on the director.
 
 - **2026-10-06:** STYLE-07 (PC fullscreen readability) is IN REVIEW in #371, with the cause and fix recorded; it is DONE only after the director's PC review.
+- **2026-10-06:** STYLE-07 (PC fullscreen readability) is DONE: #371 merged with the director's approval recorded on the PR.
 
 - **2026-10-06:** Recorded five more director decisions in §9.1: trades at real volume; synergy selection and development projects must have an impact; the clearance winner keeps the first disposal; the Create a club screen is approved; freckles removed (confirmed in the director's words).
 - **2026-10-06:** Merged-PR status lines in §9.1: trade volume data (#376), the clearance winner (#373) and freckles (#357).
