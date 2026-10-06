@@ -3406,7 +3406,7 @@ func free_agent(player_id: String) -> Dictionary:
 	return {}
 
 
-## Would he turn you down flat? Only when he would not make your best 22
+## Would he turn you down flat? Only when he would not make your best 23
 ## and a club that would play him has an offer on the table.
 func free_agent_terms(player_id: String) -> Dictionary:
 	var p := free_agent(player_id)
@@ -3433,7 +3433,7 @@ var market_stats := {}
 var _targets_signed := {}   # code -> targets signed while free agency closes
 
 
-## His role at `code`: "ground" (in its best 18), "bench" (in its 22) or
+## His role at `code`: "ground" (in its best 18), "bench" (in its 23) or
 ## "depth". The club's real selection sets the bar in each position: he is
 ## a starter if he beats its weakest starter in his position (or his second
 ## one), on the bench if he beats its weakest bench player.
@@ -3483,7 +3483,7 @@ func _offer_of(p: Dictionary, code: String) -> Dictionary:
 
 ## Rivals put offers on the table for `players`. Each club goes after the
 ## free agents who would improve its side most - up to two it would play
-## (in its best 22: the furthest above its bar in their position first) -
+## (in its best 23: the furthest above its bar in their position first) -
 ## plus one depth signing per spot it is short of its usual list size, best
 ## players first by what everyone can see (rating, then age). Only with the
 ## cap room, never the club that let him go, never by a club's place in any
@@ -4156,7 +4156,7 @@ func trade_context(club: String) -> Dictionary:
 
 ## Where a club is in its cycle - "rebuilding", "building" or "contending" -
 ## from what anyone can see: last season's finish, how its list ranks, and
-## how old its best 22 is (TradeValue.phase). Worked out afresh each time.
+## how old its best 23 is (TradeValue.phase). Worked out afresh each time.
 ## Phases worked out for one state of the league: {"key": fingerprint,
 ## club: phase}. The fingerprint covers everything a phase reads - every
 ## list (who, rating, potential, age) and the ladder - so any trade,
@@ -4762,7 +4762,7 @@ func _close_contracts() -> void:
 ## Free agency closes when the national draft opens (or at the rollover if
 ## there is no draft), so compensation picks can go into that draft: your
 ## undecided players are settled - a depth player re-signs if the cap allows,
-## one of your best 22 tests the market (_market_test) - rivals sign who they
+## one of your best 23 tests the market (_market_test) - rivals sign who they
 ## want, and anyone left unsigned retires. Once per off-season.
 func _close_free_agency() -> void:
 	if season == null or fa_closed_year == season_year:
@@ -4806,12 +4806,12 @@ func _close_free_agency() -> void:
 	mark_dirty()
 
 
-## One of your best 22 you never settled tests the market as free agency
+## One of your best 23 you never settled tests the market as free agency
 ## closes, as an out-of-contract player does: your standing offer is his
 ## asking price over the term he wants, rivals make theirs, and those your
 ## offer leads answer once; then he takes the offer he likes best
 ## (_resolve_market) - money, security, his role and how the club finished.
-## Nobody in your best 22 re-signs just because you did nothing.
+## Nobody in your best 23 re-signs just because you did nothing.
 func _market_test(players: Array) -> void:
 	if players.is_empty():
 		return
@@ -4862,7 +4862,7 @@ func _resolve_market() -> void:
 # ---------------------------------------------------------------------------
 # Team selection
 # ---------------------------------------------------------------------------
-## Your chosen side, or {} when the best 22 are picked automatically.
+## Your chosen side, or {} when the best 23 are picked automatically.
 func my_selection() -> Dictionary:
 	if season == null:
 		return {}

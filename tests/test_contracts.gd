@@ -371,8 +371,8 @@ func _test_negotiation() -> void:
 func _test_free_agent_terms() -> void:
 	var p := {"id": "fa_t", "overall": 70, "potential": 72, "age": 27.0, "morale": 70}
 	var bench := Contracts.free_agent_terms(p, {"in_best22": false, "rivals": 1})
-	_check(bool(bench["refuse"]) and str(bench["reasons"]).contains("best 22"),
-			"He won't sit outside your best 22 while a club that would play him has an offer")
+	_check(bool(bench["refuse"]) and str(bench["reasons"]).contains("best 23"),
+			"He won't sit outside your best 23 while a club that would play him has an offer")
 	var nowhere := Contracts.free_agent_terms(p, {"in_best22": false, "rivals": 0})
 	_check(not bool(nowhere["refuse"]), "With nowhere else to play, he'll come and fight for a spot")
 	# How he weighs offers: close decisions turn on each factor.
@@ -386,8 +386,8 @@ func _test_free_agent_terms() -> void:
 			and Contracts.offer_view(p, o.call(ask, 3, "bench", 0.5), o.call(ask, 1, "bench", 0.5), "X") == "More contract security.",
 			"Contract security matters in a close decision")
 	_check(Contracts.prefers(p, o.call(ask, 3, "ground", 0.5), o.call(ask + Contracts.SALARY_STEP, 3, "depth", 0.5))
-			and Contracts.offer_view(p, o.call(ask, 3, "ground", 0.5), o.call(ask + Contracts.SALARY_STEP, 3, "depth", 0.5), "X") == "Clearer path into the best 22.",
-			"A spot in the best 22 beats one more salary point to sit in the twos")
+			and Contracts.offer_view(p, o.call(ask, 3, "ground", 0.5), o.call(ask + Contracts.SALARY_STEP, 3, "depth", 0.5), "X") == "Clearer path into the best 23.",
+			"A spot in the best 23 beats one more salary point to sit in the twos")
 	_check(Contracts.prefers(p, o.call(ask, 3, "bench", 0.0), o.call(ask, 3, "bench", 1.0))
 			and Contracts.offer_view(p, o.call(ask, 3, "bench", 0.0), o.call(ask, 3, "bench", 1.0), "Carlton").contains("Carlton's offer after their stronger season"),
 			"The club's last season counts when all else is level")

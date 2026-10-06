@@ -110,8 +110,8 @@ func _test_formation_layout() -> void:
 			unique[str(id)] = true
 	_check(field.size() == 18 and unique.size() == 18,
 			"Every on-field player appears once in the formation")
-	_check((layout["bench"] as Array).size() == 4,
-			"The current four-player interchange sits below the oval")
+	_check((layout["bench"] as Array).size() == 5,
+			"The five-player interchange sits below the oval")
 	scene.free()
 
 
@@ -130,7 +130,7 @@ func _test_named_side() -> void:
 		roles[str(p["id"])] = str(p["role"])
 	_check(roles.get(fwd, "") == "MID" and roles.get(mid, "") == "FWD",
 			"Named players play where you put them, out of position too")
-	_check(squad.ground.size() == 18 and squad.bench.size() == 4, "It is still 18 plus 4")
+	_check(squad.ground.size() == 18 and squad.bench.size() == 5, "It is 18 plus 5")
 
 
 func _test_gaps_and_overflow() -> void:

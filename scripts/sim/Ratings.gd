@@ -54,7 +54,13 @@ const METRIC_SPECS := [
 ## counted with midfield (1 RUCK + 5 MID). Order matters - select_22() fills
 ## slots in this sequence.
 const GROUND_SLOTS := [["RUCK", 1], ["MID", 5], ["DEF", 6], ["FWD", 6]]
-const INTERCHANGE := 4
+## The match-day squad is 18 on the ground plus five interchange - 23, with
+## no substitute role (ARD-M5-001, director 2026-10-06). Every bench player
+## rotates, covers injuries and plays as fully as the other four.
+const INTERCHANGE := 5
+## The bench size selection uses: INTERCHANGE, changed only by audits that
+## compare squad sizes on the same seeds (tools/audit/interchange_impl.gd).
+static var bench_size := INTERCHANGE
 const LIST_SIZE := 44
 
 ## Raw season columns every player dict carries. GameDB.STAT_KEYS must match;
@@ -540,8 +546,9 @@ static func salary_value(overall: int) -> int:
 # ---------------------------------------------------------------------------
 # Squad selection
 # ---------------------------------------------------------------------------
-## Best 18 on the ground respecting the 1R/7M/5D/5F structure, plus 4 on the
-## bench. Structural shortfalls (a list with no recognised ruckman, say) are
+## Best 18 on the ground respecting the 1R/5M/6D/6F structure, plus
+## INTERCHANGE (5) on the bench: the match-day 23. (The name predates the
+## fifth interchange.) Structural shortfalls (a list with no recognised ruckman, say) are
 ## backfilled by overall rating so a team always fields 18.
 static func select_22(list_players: Array) -> Dictionary:
 	var pool := list_players.duplicate()
@@ -621,7 +628,7 @@ static func select_22(list_players: Array) -> Dictionary:
 
 	var bench: Array = []
 	for p in pool:
-		if bench.size() >= INTERCHANGE:
+		if bench.size() >= bench_size:
 			break
 		if not used.has(p["id"]):
 			bench.append(p)
@@ -730,14 +737,14 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 				have += 1
 	var bench: Array = []
 	for id in selection.get("BENCH", []):
-		if bench.size() >= INTERCHANGE:
+		if bench.size() >= bench_size:
 			break
 		if by_id.has(str(id)) and not used.has(str(id)):
 			bench.append(by_id[str(id)])
 			used[str(id)] = true
 	for pass_tier in [0, 2]:
 		for p in pool:
-			if bench.size() >= INTERCHANGE:
+			if bench.size() >= bench_size:
 				break
 			var id := str(p["id"])
 			if not used.has(id) and int(tier.get(id, 0)) == pass_tier:

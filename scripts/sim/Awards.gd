@@ -8,13 +8,15 @@ extends RefCounted
 ##   Coleman Medal    most home-and-away goals
 ##   Rising Star      best votes-then-influence among players 21 and under
 ##   Best & fairest   5-4-3-2-1 within each side every match, finals included
-##   All-Australian   the season's best 22 by position (12+ games)
+##   All-Australian   the season's best 23 by position (12+ games)
 ##
 ## Influence is the best-on-ground measure the match screens already use
 ## (CoachReport.influence).
 
 const AA_SLOTS := [["RUCK", 1], ["MID", 5], ["DEF", 6], ["FWD", 6]]
-const AA_BENCH := 4
+## The team is a match-day 23: 18 by position plus five on the bench
+## (director, 2026-10-06, with ARD-M5-001).
+const AA_BENCH := 5
 const AA_MIN_GAMES := 12
 const RISING_STAR_AGE := 21.0
 
@@ -130,7 +132,7 @@ static func season_awards(tally: Dictionary, players: Dictionary, year: int) -> 
 	}
 
 
-## The season's best 22 by natural position, then the best four left over.
+## The season's best 18 by natural position, then the best five left over.
 static func _all_australian(rows: Array) -> Array:
 	var eligible := []
 	for r in rows:

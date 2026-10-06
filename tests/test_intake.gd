@@ -479,7 +479,7 @@ func _test_retirement_talk() -> void:
 	for r in rows:
 		askable[str(r["p"]["id"])] = bool(r["can_ask"])
 	_check(askable.get(str(keen["id"]), false) and not askable.get(str(fringe["id"]), true),
-			"A healthy veteran can be asked; one outside the best 22 cannot")
+			"A healthy veteran can be asked; one outside the best 23 cannot")
 	var yes := GameState.talk_round(str(keen["id"]))
 	_check(bool(yes.get("stays", false)) and int(keen.get("play_on", 0)) == year,
 			"Fit, happy and in the side: he goes around again (%s)" % str(yes.get("reason", "")))
