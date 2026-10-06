@@ -74,7 +74,7 @@ func _figure_sheets() -> void:
 	if shade == null or mask == null or design == null:
 		return
 	_check(shade.get_size() == VignetteFigures.SHEET_SIZE and mask.get_size() == VignetteFigures.SHEET_SIZE
-			and design.get_size() == VignetteFigures.SHEET_SIZE / 2,
+			and design.get_size() == VignetteFigures.SHEET_SIZE / VignetteFigures.DESIGN_SCALE,
 			"The sheets are the size the layout says (%s, %s, %s)" % [shade.get_size(), mask.get_size(), design.get_size()])
 	var rects := []          # [rect, "anim facing"] for every frame
 	var empty := []
@@ -110,14 +110,15 @@ func _figure_sheets() -> void:
 			% [empty.size(), str(empty.slice(0, 5))])
 	_check(spill.is_empty(), "The colour mask lies on the figure, to the pixel, in every frame (same render): %s"
 			% str(spill.slice(0, 5)))
-	# The club-design sheet is half size: its guernsey must sit on the figure too.
+	# The club-design sheet (half or full size, DESIGN_SCALE): its guernsey must sit on the
+	# figure too.
 	var off := 0
 	var on := 0
 	for e in rects:
 		var r: Rect2i = e[0]
 		for y in range(r.position.y, r.end.y, 4):
 			for x in range(r.position.x, r.end.x, 4):
-				if design.get_pixel(x / 2, y / 2).a > 0.5:
+				if design.get_pixel(x / VignetteFigures.DESIGN_SCALE, y / VignetteFigures.DESIGN_SCALE).a > 0.5:
 					on += 1
 					if shade.get_pixel(x, y).a < 0.05:
 						off += 1

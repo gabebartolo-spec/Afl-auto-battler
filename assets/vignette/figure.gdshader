@@ -149,6 +149,25 @@ vec4 number_on_back(int n, vec3 g, vec3 base, bool mirrored) {
 	return vec4(mix(base, ink, d.r), d.g * (1.0 - smoothstep(0.35, 0.6, g.z)));
 }
 
+// The design sheet sampled with a cubic B-spline (four bilinear taps) instead of plain
+// bilinear: magnified on a phone, bilinear coordinates bend at every texel, which shows
+// as stair-steps along the stripe and number edges.
+vec3 design_at(vec2 uv) {
+	vec2 size = vec2(textureSize(design_tex, 0));
+	vec2 t = uv * size - 0.5;
+	vec2 f = fract(t);
+	vec2 i = t - f;
+	vec2 f2 = f * f, f3 = f2 * f;
+	vec2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
+	vec2 w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
+	vec2 w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
+	vec2 w3 = f3 / 6.0;
+	vec2 s0 = w0 + w1, s1 = w2 + w3;
+	vec2 c0 = (i - 0.5 + w1 / s0) / size, c1 = (i + 1.5 + w3 / s1) / size;
+	return s0.y * (s0.x * texture(design_tex, vec2(c0.x, c0.y)).rgb + s1.x * texture(design_tex, vec2(c1.x, c0.y)).rgb)
+		+ s1.y * (s0.x * texture(design_tex, vec2(c0.x, c1.y)).rgb + s1.x * texture(design_tex, vec2(c1.x, c1.y)).rgb);
+}
+
 bool is_hair(ivec2 size) {
 	for (int i = 0; i < 8; i++) {
 		if (i < hair_count && size == hair_sizes[i]) {
@@ -169,7 +188,7 @@ void fragment() {
 	} else if (tex_size == sheet_size) {
 		vec4 s = texture(TEXTURE, UV);     // lighting, hair, shorts, coverage
 		vec4 m = texture(mask_tex, UV);    // base colour, sock band, skin, guernsey alone
-		vec3 g = texture(design_tex, UV).rgb;
+		vec3 g = design_at(UV);
 		int code = int(round(looks.r * 8.0));
 		int kit = clamp(code / 2, 0, 3);
 		bool mirrored = (code % 2) == 1;
