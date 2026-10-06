@@ -563,6 +563,12 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+### Loose-defender/interceptor controls need live results — PC playtest (2026-10-07)
+
+- In the pictured Key match-ups section, “Zach Reid is roaming loose behind their backline” and “Yours: Harry Dean is roaming as the spare” give no evidence of whether the assignments are working. **Show intercepts gained alongside each named loose defender/spare**, for both teams, updating as the match progresses so the user can judge performance and readjust the lever.
+- Clearly distinguish the recorded whole-match total from intercepts gained **since the current assignment began**; do not attribute earlier intercepts to a new call. Use the actual recorded intercept event/stat and label its definition consistently (intercepts versus intercept marks if those are distinct). If the required stat is not yet recorded, implement accurate recording rather than deriving a fictional count from an attribute/rating. Keep the results compact and readable beside the relevant control; preserve access to player inspection and reassignment. Provide observed results without prescribing how to win or claiming the assignment caused every intercept. Roadmap only; Claude to implement.
+
+
 ### Ruckman incorrectly chosen as fallback tagger — PC playtest correctness bug (2026-10-07)
 
 - **Tag target eligibility — director clarification:** tagging must target opposition **midfielders**, not forwards or defenders. Forward/defender responsibilities belong to the existing key-matchup, defensive-forward and interceptor levers. Restrict both the suggested targets and “Other player…” chooser, and validate the actual assignment so an invalid target cannot persist through saves or role changes. Resolve dual-position players using their current deployed midfield role; a secondary MID label alone must not permit tagging a player currently deployed up forward or in defence. Keep the separate levers clearly named and explain unavailable targets without silently substituting another player. Check target eligibility again after rotations, injuries and positional switches, alongside the owned midfielder/tagger eligibility above. Roadmap only; Claude to implement.
