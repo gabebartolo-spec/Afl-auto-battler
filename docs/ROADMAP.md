@@ -3677,6 +3677,15 @@ Give captaincy modest football meaning:
 
 Avoid blanket attribute boosts.
 
+### Director consideration — Leadership as a player stat
+Consider adding **Leadership as a numerical player stat, not a trait**, as part of this captaincy design. Claude should refine the concept and assess the smallest useful implementation before committing to exact values or effects.
+
+Represent football leadership independently of playing ability, OVR, age and captain appointment: a strong leader need not be the best player, and appointing a captain should not automatically grant high Leadership. Explore how the stat can support the bounded composure, late-game stability and morale contexts above, with credible costs/limits and equal rules for AI clubs. Avoid blanket team/attribute buffs, guaranteed comebacks, or making the highest Leadership an automatic optimal captain in every context.
+
+Define what the stat measures, how real and generated players receive credible values, whether/how it develops, and how it is shown on player profiles and captain selection. Be honest about uncertain real-player assessments rather than inventing precise evidence. Inspect the existing captaincy/player-stat foundations first; design appointment, replacement/absence and historical continuity together so the stat is not an isolated decorative number. If persisted, specify backward-compatible defaults for existing saves.
+
+Acceptance for any eventual implementation: Leadership is a distinct readable stat; any claimed effect is modest, observable and measured in relevant match/morale contexts; captain assignment and transitions are understandable; invalid/absent captains and older saves are handled safely. Keep this a design follow-up, not an instruction to apply immediate ratings changes.
+
 ### Research refinement — 2026-10-05
 
 **Dependencies:** current player identity/morale and trustworthy match-state events.
@@ -5754,6 +5763,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Added director consideration under ARD-M7-004 for Leadership as a numerical player stat (not a trait), independent of OVR/age/appointment, for Claude to refine alongside modest captaincy effects and save compatibility.
 
 - **2026-10-06:** Added red/yellow match-ball support under ARD-M8-007, including yellow balls in appropriate vignettes and one persistent, consistent colour across all scenes from the same match.
 
