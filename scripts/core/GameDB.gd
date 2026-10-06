@@ -495,6 +495,13 @@ func player_appearance(p: Dictionary) -> Dictionary:
 			p.get("look", {}) if p.get("look") is Dictionary else {})
 
 
+## What a figure needs to draw him: his colours (player_looks) and his hair style.
+func figure_look(p: Dictionary) -> Dictionary:
+	var out := player_looks(p).duplicate()
+	out["hair_style"] = str(player_appearance(p)["hair_style"])
+	return out
+
+
 static func _look_key(p: Dictionary) -> String:
 	return "%s|%s|%s" % [str(p.get("first", "")).to_lower(), str(p.get("last", "")).to_lower(), str(p.get("dob", ""))]
 
