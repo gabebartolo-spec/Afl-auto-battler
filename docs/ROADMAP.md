@@ -4702,7 +4702,7 @@ Possible families:
 - forward stoppage,
 - late-game flood / protect-space situation.
 
-### Director addition — match vignette concepts (2026-10-06)
+### Director addition — match vignette decision gates (2026-10-06)
 **Status:** `TODO` — requested roadmap candidates for Claude to refine; no implementation in this update.
 
 Extend the existing stoppage/kick-in/forward-entry/contact families with:
@@ -4712,7 +4712,11 @@ Extend the existing stoppage/kick-in/forward-entry/contact families with:
 
 - **Hip and shoulder — high-impact, risky bump:** a well-executed bump can be incredibly effective at removing an opposition player from the immediate play and opening space or preventing their involvement. This means taking them out of that contest/sequence, not guaranteeing an injury or removal from the match. Preserve the trade-off: a poorly executed or illegal bump can concede a free kick, with a **very small chance** of a report and potential suspension when the actual incident warrants it. Claude should refine effectiveness and risk using relevant player skills/traits, discipline, positioning and contact context; neither outcome should be a context-free random roll or a universally best call. Integrate legitimate contact, infringements and report/suspension consequences with ARD-M3-007 and ARD-M3-011 under their balance gates. The vignette must agree with the authoritative contact, free and report events; a report does not automatically imply a suspension, and any later ruling belongs to the existing MRO process.
 
-Use the existing pre-rendered 2.5D style, real participants/club identity and the same match ball colour throughout. Claude should inspect which sequences already exist and reuse their templates; any missing football behaviour belongs to the existing stoppage/coaching, kick-in (ARD-M3-009) or forward-entry/scoring owner, rather than a second cinematic simulation. Refine whether each scene previews a meaningful tactical decision or illustrates an already resolved play; decision scenes freeze at the appropriate point and outcome scenes show only what actually happened. Keep scenes brief/skippable and verify participant/event agreement, ball path, phone readability and performance under the existing vignette gates.
+- **Switch — open player on the fat side:** show a credible kick to an open teammate on the opposite wing, shifting play toward the less congested side to open attacking avenues and create better looks inside 50. Make the receiver, opposition shift and available forward space readable before the choice. Retain a meaningful cost/risk such as the longer ball's interception exposure, time for the defence to recover or loss of a more direct opportunity; suitability follows actual space, pressure and kicking ability, not a universal switch bonus.
+
+**Director requirement: every concept above is a decision gate**, not merely an automatic highlight or post-event cinematic. Show the real setup/opportunity, freeze **before** the relevant call is committed, present meaningful alternatives and concise football trade-offs, and let the player's choice feed the authoritative MatchSim decision/outcome. For the running-forward scene, the gate comes before choosing the kick into space; the chase/collection/shot is the consequence only if it occurs. For contact, the gate comes before committing to the block/bump; for kick-out/switch, before choosing the disposal. If an appropriate gate or behaviour is missing, extend the existing decision system (ARD-M4-001) and football owner before illustrating it. Avoid repetitive prompts: trigger only at meaningful, context-valid opportunities and retain normal match pacing. Validate that alternatives genuinely change behaviour, risks can materialise, AI has equivalent football choices and outcomes are not predetermined by the vignette.
+
+Use the existing pre-rendered 2.5D style, real participants/club identity and the same match ball colour throughout. Claude should inspect which sequences already exist and reuse their templates; any missing football behaviour belongs to the existing stoppage/coaching, kick-in (ARD-M3-009) or forward-entry/scoring owner, rather than a second cinematic simulation. Each scene must preview its meaningful decision and freeze at the appropriate point; any subsequent outcome sequence shows only what actually happened after the chosen call. Keep scenes brief/skippable and verify participant/event agreement, ball path, phone readability and performance under the existing vignette gates.
 
 ### Guardrails
 - MatchSim remains the authority. A vignette may illustrate state but must not invent a second football outcome.
@@ -5789,6 +5793,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Added a fat-side switch vignette and explicitly made all five newly requested concepts decision gates: setup/readable trade-offs, pre-action pause, meaningful alternatives and authoritative consequences, with restrained triggering.
 
 - **2026-10-06:** Added a hip-and-shoulder vignette concept: potentially powerful removal from the immediate play, balanced by free-kick risk and a very small context-dependent chance of report/potential suspension through the existing MRO system.
 
