@@ -634,14 +634,17 @@
     "navy",
     "white"
    ],
-   "pattern_tags": [],
+   "pattern_tags": [
+    "plain"
+   ],
    "heritage": {
     "club": "South Adelaide",
     "league": "SANFL"
    },
    "sources": [
     "https://en.wikipedia.org/wiki/South_Adelaide_Football_Club",
-    "https://en.wikipedia.org/wiki/Flinders_University_Stadium"
+    "https://en.wikipedia.org/wiki/Flinders_University_Stadium",
+    "https://www.safc.com.au/blog/2026-guernseys"
    ]
   },
   {
