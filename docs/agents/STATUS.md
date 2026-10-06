@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06. Since the last board merged: #347, #351, #353-#355 (selection seed, South Adelaide's home design, the board refresh, the freckles line in the roadmap, and the free-kicks re-measure; low's docs and tests)._
+_Updated 2026-10-06. Since the last board merged: #345, #349, #352, #357, #359, #363, #364, #366, #367 (the shard rebalance, the seed guard, free-kick and disposal evidence, the club-count defaults, no freckles, and the director's PC-readability and app-icon docs)._
 
 ## Lanes
 | agent (session) | owns |
@@ -24,27 +24,24 @@ _Updated 2026-10-06. Since the last board merged: #347, #351, #353-#355 (selecti
 
 ## Waiting on the director
 **Looks** (appearance or screens; the director's own words needed before they merge):
-- #360 Create a club screen (draft); #303 break-screen call; #309 Club Forge Create a player.
+- #360 Create a club screen: approved in the director's words, merges after #309 and #340. #303 break-screen call; #309 Club Forge Create a player (the player form).
 - The art agent's Forge hair and face sheet and boot sheet.
 
 **Own-words confirmations** (the decision reached the agents second-hand; held until the director says it on the PR or in the chat):
-- #299 vignettes (the art agent relayed "fine, ship it"); #357 remove freckles from the player look. The roadmap line removing freckles (#354) is merged and says "relayed"; it is reverted if the director does not confirm.
+- #299 vignettes: the art agent relayed "fine, ship it"; no direct words yet. (#357 freckles is confirmed in the director's words and merged.)
 
-**Decisions** (evidence is in; each lists the lead's recommendation):
-- #362 flags: options for what makes management pay. The lead recommends the trade period at real volume (option 1).
-- #363 ruck and midfield disposals: should the clearance winner keep the first disposal? The lead recommends option 1.
-- The older decisions are under "Pending director decisions" below.
+**Decisions made, being built:** trades at real volume (lead); the clearance winner keeps the first disposal (medium, PR coming); synergy selection and development projects must have an impact (the projects proposal is with the lead). Recorded in ROADMAP §9.1 (#365). The lever table is done: neither lever clearly moves the ladder; development projects currently cost about 0.7 OVR in the season they run.
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- In flight on CI, in this order: #352 (ROADMAP ARD-M7-009 status), then #340 (Club Forge Create a club engine, lead; medium W7 done), #349 (C15 seed guard, plus roles pinned), #359 (board goals follow the club count), #345 (CI shard rebalance, merges only if it beats main's slowest shard in 2 of 3 runs), then #361 (the fair fixture, after medium's nits and the expansion-floor recount).
-- Review by the lead: #362, #363 (evidence docs, medium's); low posted a copy check on both. #342 (codex docs) conflicts with main and needs its owner to sync.
+- In flight on CI: #340 (Club Forge Create a club engine, lead; floor 486), then #365 (director decisions, docs), #369 (free-kicks note, docs). #361 (the fair fixture) follows once #340 is in: medium merges main and recounts the expansion floor. #362 (flags options) waits on the lead's sign-off.
+- #342 (codex docs) conflicts with main and needs its owner to sync. #368 (kit options, draft) has no gate note yet.
 - Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval). #291 is the director's Codex research: do not merge.
 - On main, awaiting the director's look: #276 press conference, #277 Training-row alignment.
 
 ## In progress
-- **Lead:** the Club Forge Create a club engine (#340, under W7); next from the 18 + 5 follow-ups.
-- **Medium:** the fair fixture (`claude/fair-fixture`, opening shortly) covering 18 to 21 clubs: a created club can make any count from 18 to 21 (director decision, ROADMAP §9.1, #344); a 21-club season is 24 rounds, 22 games and two byes a club, while 18 and 20 clubs keep 23 games and 19 keep 22 (docs/FIXTURE_SIZES_NOTE.md #328). Also the htb re-measure (audit run 37404572905, branch `claude/htb-audit`, leave alone), the lever audits (4 runs), and reviews of low's PRs.
-- **Low:** the merge queue above, the board, then the next items the medium agent queues.
+- **Lead:** P0 STYLE-07, unreadable PC fullscreen (#366), branch `claude/style07-desktop-scale`; the Club Forge Create a club engine (#340); trades at real volume.
+- **Medium:** the fair fixture (#361) for 18 to 21 clubs (a created club can make any count from 18 to 21, ROADMAP §9.1); the clearance rule PR; the audits and reviews of low's PRs.
+- **Low:** the merge queue, the board, then the next items the medium agent queues.
 
 ## Open PRs and dependencies
 | PR | owner | notes |
