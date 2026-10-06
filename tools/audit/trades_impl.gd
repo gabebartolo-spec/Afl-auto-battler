@@ -36,7 +36,7 @@ func _career(seed: int, seasons: int) -> void:
 		if y == seasons - 1:
 			break
 		gs.open_offseason()
-		var ai := gs.offseason_log.filter(func(e): return str(e.get("kind", "")) == "ai_trade")
+		var ai: Array = gs.offseason_log.filter(func(e): return str(e.get("kind", "")) == "ai_trade")
 		var ai_players := 0
 		var clubs_in := {}
 		for e in ai:
