@@ -50,5 +50,8 @@ pointing/emulate_mouse_from_touch=true
 
 renderer/rendering_method="mobile"
 renderer/rendering_method.mobile="mobile"
+; Smooth edges across the game (director, 2026-10-06): 2D MSAA 2x, plus
+; per-draw antialiasing on the lines the views draw themselves.
+anti_aliasing/quality/msaa_2d=1
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.071, 0.067, 0.063, 1)

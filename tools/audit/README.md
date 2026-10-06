@@ -39,3 +39,14 @@ way.
 ## Audits
 
 - `traitdecay_impl` (#440): one eight-season career from a seeded upside draft, printing one `DECAY` line a season: the synergies switched on across the league, then the count of players holding each synergy trait, real and generated players apart. `AUDIT_SEED` sets the career seed (default 301), so runs with the same seed pair.
+
+## Captures on GitHub
+
+`capture.yml` (#474) runs one `tools/visual/<tool>.gd` on GitHub's runner under a virtual display, so a capture never needs a window or the local Godot slot:
+
+```
+gh workflow run capture.yml --ref <branch> -f tool=capture_match -f args="--seed 42 --kind goal --nth 2"
+gh run download <run-id> -n capture-capture_match
+```
+
+`tool` is the script name without `.gd`; `args` is what it reads after `--` (the workflow adds `--out`). It uses software rendering, so it is right for layout, colour and motion, not for frame times.
