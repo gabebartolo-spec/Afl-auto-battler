@@ -5543,6 +5543,13 @@ From the director's chat with the lead, relayed; the director's own wording is t
 - **The awards walk-on stays as it is:** no presenter, no handover.
 - **The Stat Guide uses words, not percentages.** Director: "Words instead". Counts the player acts on stay exact. Done in #398.
 
+## 2026-10-06 director decisions - match framing, synergies and the #291 rules
+
+- **Centre bounce framing, as built (#422).** The director answered "Yes, as built": the contest sits higher on the push-in, leaving room above the call, and names stay off the ball.
+- **Synergies: widen the spread of players, and show "N short".** Not lower thresholds. Evidence: `docs/FLAGS_EVIDENCE_2026-10-06.md` ("Synergies: worth a lot, rarely on") and `docs/research/SYNERGY_UI_SURFACES.md`. On Team selection the fact is shown ("1 crumber short") with no suggested swap and no best-choice label, and the Stat Guide copy is made to match. Still to build.
+- **#291's rules adopted (now in CLAUDE.md, #433):** real-tap checks for touch flows, the art-loaded check, and change approach after repeated failure. No-clock-seeds was not chosen.
+- **#342 merged:** favourite club on bio cards and full match stats at every quarter break are recorded as TODO under their owners.
+
 # 9.2 Research candidates — awaiting director selection
 
 The detailed evidence, trade-offs and prototype tests are in [GENRE_ENJOYMENT_RESEARCH.md §7](GENRE_ENJOYMENT_RESEARCH.md#7-research-candidates--awaiting-director-selection).
