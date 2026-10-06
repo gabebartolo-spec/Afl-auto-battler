@@ -4003,6 +4003,8 @@ It should feel purpose-built rather than like a debug/settings form, while remai
 ### Create a club
 Allow one custom club per career in V1.
 
+**Director decision (2026-10-06):** a created club enters with the career and drafts its list in the League Draft like every club. There is no separate concession package.
+
 Player-facing customisation should include, at minimum:
 - club name,
 - short name / abbreviation,
@@ -4192,6 +4194,8 @@ Do not tie beard availability to hairstyle. Hair colour and facial-hair colour s
 
 ### 21-club fixture support
 A created club may take the competition to **21 clubs**.
+
+**Director decision (2026-10-06):** the 21-club season is 24 rounds, with 22 games and two byes for each club. With 18 and 20 clubs a club plays 23 games; with 19 clubs, 22.
 
 - The fixture generator must support odd club counts cleanly.
 - Every club must receive an equal number of home-and-away matches.
@@ -5348,6 +5352,14 @@ Bulls in the midfield line alone after a season, ≥2 / ≥3 / ≥4: all clubs 5
 
 **Weekly selection owner:** keep Weekly selection brief, Ins & Outs and My List → Shape above as one coherent flow. **Dependencies:** true form/workload/availability and current selection/role eligibility. **Smallest scope:** one real selection pressure with a nearby OUT → IN action and full-list access. **Exclusions:** auto-picked best replacements, constant compulsory changes, extra duplicate list screens or invented reserves statistics. **Acceptance:** quiet weeks are quick; each displayed pressure has evidence; eligible options communicate role/trade-offs without choosing for the player; selection changes preserve scroll/context and the valid named side. **Validation:** injured/suspended/returning/omitted players, no-pressure weeks, rapid and slow Android swipes up and down, tap versus drag, Back, portrait widths and save/resume. Extend existing phone tickets, not a second selection redesign.
 
+## 2026-10-06 director decisions - Club Forge entry and 21 clubs
+
+Relayed by the lead; the director's own wording is the authority if it differs.
+
+- **Club Forge: how a created club enters (ARD-M7-009).** A created club enters with the career and drafts its list in the League Draft like every other club. There is no separate concession package. The engine is in PR #340.
+- **21 clubs: the season shape (ARD-M7-009, fair fixture).** A 21-club season is 24 rounds, with 22 games and two byes for each club. With 18 and 20 clubs a club plays 23 games; with 19 clubs, 22. The medium agent's fair-fixture work implements this (evidence: [FIXTURE_SIZES_NOTE.md](FIXTURE_SIZES_NOTE.md)).
+
+
 # 9.2 Research candidates — awaiting director selection
 
 The detailed evidence, trade-offs and prototype tests are in [GENRE_ENJOYMENT_RESEARCH.md §7](GENRE_ENJOYMENT_RESEARCH.md#7-research-candidates--awaiting-director-selection).
@@ -5818,6 +5830,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Recorded two director decisions (§9.1 and ARD-M7-009): a created club enters with the career and drafts in the League Draft with no concession package; a 21-club season is 24 rounds of 22 games with two byes, and 18 or 20 clubs play 23 games, 19 clubs 22.
 
 - **2026-10-06:** Verified inherited 2026-list start and custom prospect are not implemented on main; promoted ARD-M5-016 to P0 and ARD-M7-008 to P1, with Alastair McNeil explicitly required as the first named custom-prospect use case under normal draft/generation rules.
 
