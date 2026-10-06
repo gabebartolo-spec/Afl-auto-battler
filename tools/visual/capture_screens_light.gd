@@ -5,7 +5,8 @@ extends SceneTree
 ##   godot --path . --rendering-method gl_compatibility --script tools/visual/capture_screens_light.gd
 ## Environment: CAP_OUT (path prefix, default "screens"), CAP_MODE ("light" default or "dark").
 ## Writes <prefix>_<mode>_<screen>.png for the hub, ladder, selection, training,
-## list and coaching screens of a fresh Melbourne career. Never touches a real save.
+## list and coaching screens of a fresh Melbourne career, then the offseason (the
+## season fast-forwarded to its end) and the League Draft. Never touches a real save.
 
 const W := 390
 const H := 844
@@ -55,4 +56,22 @@ func _run() -> void:
 		print("wrote ", path)
 		scene.queue_free()
 		await process_frame
+	# The offseason: the home-and-away season is done, the draft is next.
+	state.season.round_index = state.season.fixture.size()
+	state.open_offseason()
+	var off = load("res://scenes/OffseasonScene.tscn").instantiate()
+	root.add_child(off)
+	(await _shot()).save_png("%s_%s_offseason.png" % [out, mode])
+	print("wrote offseason")
+	off.queue_free()
+	await process_frame
+	# The League Draft, on a fresh career.
+	state.reset()
+	state.set_setting("seen_training_intro", true)
+	state.draft = load("res://scripts/sim/Draft.gd").new(db.all_players_sorted(), db.active_clubs(2026).duplicate(), 12345)
+	var draft = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(draft)
+	draft.call("_on_club_chosen", "MEL")
+	(await _shot()).save_png("%s_%s_draft.png" % [out, mode])
+	print("wrote draft")
 	quit(0)
