@@ -215,8 +215,17 @@ the start, how many can switch it on, and in brackets how many are one player sh
 | running_machine | 2 (4) |
 
 **Generated draftees, as drafted** (5 classes, 245 players): none with bull, aerial,
-ball_magnet, interceptor or engine; lockdown 35 and ruck_king 28. Whether they grow
-into them: pending (the medium agent is running it; the result goes here).
+ball_magnet, interceptor or engine; lockdown 35 and ruck_king 28.
+
+**Do they grow into them?** One 8-season career (seed 301, `traitdecay_impl`, the whole
+league, real and generated players, 2027 to 2034). Players holding the trait, start to
+end: ball_magnet 26 to 2, interceptor 20 to 3, aerial 25 to 4, playmaker 20 to 1,
+sharpshooter 29 to 3, engine 0 by 2031. Of 414 generated players by 2034, none hold
+ball_magnet, aerial, engine, playmaker or sharpshooter, and at most one holds
+interceptor. The traits that do grow: bull 23 to 64, crumber 15 to 112, lockdown 25
+to 36. Synergies switched on across the league: 5 in 2027, 14 in 2031, 10 in 2034.
+By about year six supply line, running machine, tall-small and intercept wall are
+effectively impossible: generated players don't reach those traits' thresholds.
 
 **Selecting for synergies does not switch on more of them.** The lever audits
 (37413218886, 37413221957 and 37413224334) show the same count with the selection on.
