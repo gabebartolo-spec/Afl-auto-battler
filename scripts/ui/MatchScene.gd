@@ -442,7 +442,7 @@ func _show_coach_box() -> void:
 	overlay.name = "CoachBox"
 	_coach_overlay = overlay
 	var v: VBoxContainer = box["body"]
-	var titles := {1: "Before the first bounce", 2: "Quarter time", 3: "Half time", 4: "Three-quarter time"}
+	var titles := {1: "Before the first ball-up", 2: "Quarter time", 3: "Half time", 4: "Three-quarter time"}
 	var title := UiKit.ellipsis(str(titles.get(q, "Quarter %d" % q)), UiKit.H1, UiKit.TEXT, true)
 	title.name = "BreakTitle"
 	v.add_child(title)
@@ -628,7 +628,7 @@ func _show_coach_box() -> void:
 	sync_rot.call(_rotation)
 	more.add_child(_legs_view())
 
-	var start := UiKit.btn("Start quarter" if q > 1 else "Bounce the ball", 18, true)
+	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", 18, true)
 	start.name = "StartQuarter"
 	start.custom_minimum_size = Vector2(0, 48)
 	start.pressed.connect(func():
