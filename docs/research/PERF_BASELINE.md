@@ -48,7 +48,7 @@ Reading it: the match view holds 60 frames a second on this PC with one slow fra
 
 ## Idle and redraw audit (medium, item 23)
 
-`tools/visual/measure_idle.gd` on branch `claude/idle-audit`: a live match screen (Collingwood career, MatchScene) at phone portrait 412 by 915, the project's renderer, low-processor mode on, 60 fps cap. Three-second windows count frames drawn, main-loop ticks, redraws per node and nodes with processing on; the per-tick cost of each processing node comes from timing its `_process` 2000 times.
+[`tools/visual/measure_idle.gd`](../../tools/visual/measure_idle.gd) (#476): a live match screen (Collingwood career, MatchScene) at phone portrait 412 by 915, the project's renderer, low-processor mode on, 60 fps cap. Three-second windows count frames drawn, main-loop ticks, redraws per node and nodes with processing on; the per-tick cost of each processing node comes from timing its `_process` 2000 times.
 
 | State | Frames drawn a second | Redraws a second | Processing |
 |---|---|---|---|
