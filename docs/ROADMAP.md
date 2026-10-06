@@ -557,6 +557,9 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+**Draft player-row age — director playtest request (2026-10-07), `P1`, TODO:** show each available player's current in-career age directly in the draft list row beside existing role/club/salary/scouting information, so age-versus-talent decisions do not require opening every profile. Use the same authoritative age as the player sheet and current career year (not a frozen imported age). Keep it readable on phone and desktop without truncating essential information; verify consistency across initial league draft, later intake drafts and save/reload. Preserve scouting uncertainty for OVR/POT.
+
+
 ### Club Forge usability repair — highest director priority, ready to playtest ASAP
 
 **Status:** `TODO` — urgent next playable UI fix. **Priority:** `P0` (highest; director-promoted above planned features and cosmetic work, 2026-10-06). **Scope:** existing ARD-M7-009 Club Forge, coordinated with STYLE-07 desktop scaling and current UI/art owners. Deliver a focused playable fix for the director as soon as possible, before a broad cosmetic redesign.
