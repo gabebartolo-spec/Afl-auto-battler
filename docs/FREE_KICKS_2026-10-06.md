@@ -114,3 +114,29 @@ with #286:
 | FWD for / against | 0.62 / 0.51 | 0.63 / 0.52 | 0.81 / 0.74 |
 
 match_game 240/0, match_visual 93/0, calibration 17/0.
+
+## Re-measured on 18 + 5 (2026-10-06)
+
+Source: audit run 37404572905 (branch `claude/htb-audit`, `tools/audit/htb_impl.gd`), on main after #331 (18 on the ground, five on the bench). Four drafted leagues (drafts 21 to 24), one home-and-away season each. Measurement only; the director decides on any calibration.
+
+**Holding-the-ball frees given away, per 100 disposals**, by where the player had the ball:
+
+| role | own 50 | back half | front half | forward 50 | all |
+|---|---|---|---|---|---|
+| DEF | 2.09 | 2.73 | 2.06 | 1.22 | 2.36 |
+| MID | 1.36 | 2.11 | 1.66 | 1.36 | 1.72 |
+| FWD | 2.42 | 2.47 | 2.18 | 1.42 | 2.06 |
+| RUCK | 1.49 | 1.64 | 1.40 | 0 | 1.48 |
+
+Before #331 the all-ground figures were DEF 2.35 and MID 1.68, so the rates are unchanged.
+
+**Disposals per player-game, the sim against real 2026** (`tools/balance/afl_role_rates.json`):
+
+| role | sim | real 2026 |
+|---|---|---|
+| DEF | 16.6 | 16.58 |
+| MID | 17.6 | 20.46 |
+| FWD | 8.4 | 11.72 |
+| RUCK | 6.7 | 12.49 |
+
+**Reading.** The defenders' excess of holding-the-ball frees is per disposal, and it peaks in the back half. The larger gap to real football is disposal volume for midfielders, forwards and rucks, not the free-kick rate.
