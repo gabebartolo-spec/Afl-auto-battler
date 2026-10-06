@@ -82,6 +82,10 @@ var injured_off := [[], []]
 ## goal from a turnover can say whose intercept it came from.
 var _won_back := {}
 var _chain_from := {}
+## The side whose disposal last went loose (spoiled, smothered) or astray (a
+## clanger): a loose-ball win off it in the next chain is an intercept.
+var _lost_by := -1
+var _ball_lost_by := -1
 # Assistant-coach audit trail. Snapshots never touch the RNG, so calibration
 # is unaffected. tactics_history[q] records the plans in force for that
 # quarter; quarter_teams[q] records the cumulative team totals afterwards.
@@ -436,6 +440,8 @@ func _roam_chance(def_side: int) -> float:
 	if p.is_empty():
 		return 0.0
 	var chance := clampf(0.10 + Matchups.interceptor_score(p) / 430.0, 0.20, 0.38)
+	if zone_intercepts:
+		chance *= ROAM_REACH
 	var minder := _spare_minder(1 - def_side)
 	if not minder.is_empty():
 		chance *= float(MINDER_ROAM["specialist" if Traits.has(minder, "def_forward") else "other"])
@@ -851,9 +857,11 @@ static func _by_roles(group: Array, roles: Array) -> Array:
 ## line can make any ordinary play, each leans where it belongs. The lines
 ## that could always do it keep full weight.
 ## Carrying by zone (from the carrying side's view).
+## Middle zone calibrated 2026-10-06 against real 2026 per-role disposals: a
+## defender carries less through the middle (0.45), a forward more (0.6).
 const CARRY_ROLES := {
 	"back": {"DEF": 1.0, "MID": 1.0, "RUCK": 0.3, "FWD": 0.12},
-	"middle": {"MID": 1.0, "RUCK": 1.0, "DEF": 1.0, "FWD": 0.3},
+	"middle": {"MID": 1.0, "RUCK": 1.0, "DEF": 0.45, "FWD": 0.6},
 	"attack": {"MID": 1.0, "FWD": 1.0, "DEF": 0.2, "RUCK": 0.3},
 	"inside": {"FWD": 1.0, "MID": 1.0, "RUCK": 0.3, "DEF": 0.05},
 }
@@ -898,7 +906,14 @@ static func fwd_size(p: Dictionary) -> String:
 ## forward kicks the odd goal.
 const SHOT_ROLES := {"FWD": 1.0, "MID": 1.0, "RUCK": 0.35, "DEF": 0.06}
 ## Who wins a clearance: forwards and defenders at a stoppage now and then.
-const CLEARANCE_ROLES := {"MID": 1.0, "RUCK": 1.0, "FWD": 0.12, "DEF": 0.10}
+## A ruck wins a quarter of what a midfielder would around the ground: he
+## taps it to them (calibrated 2026-10-06 to 3.8 a game, real 3.6; centre
+## bounces pick from the attendees by contested work alone).
+const CLEARANCE_ROLES := {"MID": 1.0, "RUCK": 0.25, "FWD": 0.12, "DEF": 0.10}
+## A ball-up inside a side's own forward 50 is the forwards' ground: they win
+## it as often as a midfielder would, so the stoppages the ruck now taps on
+## don't all go to midfielders (item 18, 2026-10-06: keeps rating parity).
+const CLEARANCE_ROLES_F50 := {"MID": 1.0, "RUCK": 0.25, "FWD": 1.0, "DEF": 0.10}
 ## The clearance winner takes the chain's first disposal, as a clearance is
 ## in real football (director, 2026-10-06; evidence #363). The carrier pick is
 ## still drawn, so the rest of the chain's dice are where they were. Off only
@@ -1456,18 +1471,79 @@ func _pick_presser(side: int, zone: int):
 	return _pick(group, weights)
 
 
+## Who contests a long kick in general play, by where it lands, from the
+## defending side's view (ARD-M4-012, the director: "any player can intercept,
+## but the loose defender should get more intercepts if he's good at it").
+## Champion Data 2025: defenders win about 57% of intercepts, midfielders 23%,
+## forwards 15% and rucks 4% (docs/research/INTERCEPT_EVIDENCE.md).
+const AERIAL_ROLES := {
+	"back": {"DEF": 1.0, "MID": 0.45, "RUCK": 0.3, "FWD": 0.05},
+	"middle": {"MID": 1.0, "DEF": 0.6, "RUCK": 0.5, "FWD": 0.35},
+	"forward": {"FWD": 1.0, "MID": 0.75, "RUCK": 0.3, "DEF": 0.1},
+}
+## The named loose defender reads it better in his own half and the middle:
+## his weight grows with his intercept rating, up to double.
+const LOOSE_READ := 0.5
+## The director (2026-10-06): the best loose defenders sit near the real best,
+## about 8 intercepts a game (Champion Data 2025: Sam Taylor 8.4), not 12.
+## Scales how often he reaches an entry's contest.
+const ROAM_REACH := 0.2
+## The power on intercept when picking the defender who meets an entry (main: 2).
+const ENTRY_READ := 1.5
+## Of the contests the defender wins, the share he marks (an intercept
+## mark, the ball turned over) rather than spoils; a better reader marks more.
+const INTERCEPT_MARK := 0.35
+## How often a long kick in general play is a real contest (main: 0.22).
+const AERIAL_CHANCE := 0.22
+## Audits only: false plays the old contest (defenders and midfielders, no
+## intercept marks) for a before/after on the same seeds.
+static var zone_intercepts := true
+
+
+## Where a contest at `fp` is, from `def_side`'s view: its back half, the
+## middle, or its forward half (the other side's back half).
+func _aerial_zone(def_side: int, fp: float) -> String:
+	var x := fp if def_side == 0 else -fp
+	if x < -35.0:
+		return "back"
+	return "middle" if x <= 35.0 else "forward"
+
+
+## The defending player in a general-play aerial contest at `fp`.
+func _aerial_defender(def_side: int, fp: float):
+	var zone := _aerial_zone(def_side, fp)
+	var roles: Dictionary = AERIAL_ROLES[zone]
+	var group: Array = (squads[def_side] as Squad).ground
+	var loose := str(interceptor[def_side])
+	var weights := []
+	for p in group:
+		var w := float(roles.get(str(p["role"]), 0.0)) * pow(maxf(1.0, _a(p, "intercept")), 2.0)
+		if loose != "" and str(p["id"]) == loose and zone != "forward":
+			w *= 1.0 + LOOSE_READ * _a(p, "intercept") / 100.0
+		weights.append(w)
+	return _pick(group, weights) if not group.is_empty() else null
+
+
 ## General-play aerial contest on an unmarked kick. We only create one when
-## the kick has enough length to plausibly be contested. A spoil is a fist to
-## a real contest and leaves the ball loose; it is never automatic possession.
+## the kick has enough length to plausibly be contested. The defender who wins
+## it either marks it (an intercept: the ball is turned over) or spoils it,
+## which leaves the ball loose.
 func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bool) -> Dictionary:
-	if rushed or gain < 18.0 or aerial_rng.randf() >= 0.22:
+	if rushed or gain < 18.0 or aerial_rng.randf() >= (AERIAL_CHANCE if zone_intercepts else 0.22):
 		return {}
 	var opp := 1 - side
 	var receiver = pick_carrier(side, mark_fp)
-	var defenders := _by_roles((squads[opp] as Squad).ground, ["DEF", "MID"])
-	if receiver == null or defenders.is_empty():
+	if receiver == null:
 		return {}
-	var defender = _weighted(defenders, "intercept", 2.0, opp, "defender")
+	var defender = null
+	if zone_intercepts:
+		defender = _aerial_defender(opp, mark_fp)
+	else:
+		var old := _by_roles((squads[opp] as Squad).ground, ["DEF", "MID"])
+		if not old.is_empty():
+			defender = _weighted(old, "intercept", 2.0, opp, "defender")
+	if defender == null:
+		return {}
 	var receive := _a(receiver, "marking")
 	var stop := 0.62 * _a(defender, "intercept") + 0.38 * _a(defender, "marking")
 	var mark_p := clampf(0.34 + (receive - stop) / 240.0
@@ -1489,6 +1565,19 @@ func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bo
 	var spoil_p := clampf(0.36 + (stop - receive) / 220.0
 			+ (0.07 if _trait(defender, "interceptor") else 0.0), 0.20, 0.65)
 	if roll < mark_p + spoil_p:
+		if zone_intercepts and aerial_rng.randf() < INTERCEPT_MARK * (0.6 + 0.8 * _a(defender, "intercept") / 100.0):
+			_intercept(opp, defender, false)
+			_won_back["marked"] = true
+			_t(opp, "marks")
+			_p(defender, "marks")
+			_t(opp, "intercept_marks")
+			_p(defender, "intercept_marks")
+			_emit("mark", opp, mark_fp, defender,
+					"%s intercepts it on the mark" % GameDB.player_display_name(defender))
+			var iev: Dictionary = events[events.size() - 1]
+			iev["general_play"] = true
+			iev["intercept"] = true
+			return {"outcome": "turnover", "fp": mark_fp, "actor": defender}
 		_t(opp, "spoils")
 		_p(defender, "spoils")
 		_t(opp, "one_percenters")
@@ -1706,7 +1795,7 @@ func _ruck_tap() -> void:
 	_tap = {"side": first, "hits": hits, "adv": adv, "edge": edge}
 
 ## Returns the player credited with the clearance, or null.
-func _stoppage(side: int, opp: int, from_bounce: bool):
+func _stoppage(side: int, opp: int, from_bounce: bool, in_f50 := false):
 	if not from_bounce:
 		return null
 	var T := Ratings.T
@@ -1747,7 +1836,7 @@ func _stoppage(side: int, opp: int, from_bounce: bool):
 			# A centre clearance goes to someone who was there.
 			mid = _weighted(attend[side], "contested", 2.0, side, "clearance")
 		else:
-			mid = _weighted_roles(atk.ground, "contested", CLEARANCE_ROLES, 2.0, side, "clearance")
+			mid = _weighted_roles(atk.ground, "contested", CLEARANCE_ROLES_F50 if in_f50 else CLEARANCE_ROLES, 2.0, side, "clearance")
 		_p(mid, "clearances")
 		return mid
 	return null
@@ -1822,9 +1911,8 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 	var gline := float(T["goal_line"])
 
 	_t(side, "chains")
-	var cleared = _stoppage(side, opp, from_bounce)
-
 	var atk_fp := fp if side == 0 else -fp
+	var cleared = _stoppage(side, opp, from_bounce, atk_fp >= f50)
 	# A chain that starts inside its forward 50 (a ball-up won there) goes
 	# through the normal entry below on its first disposal, so it can score.
 	var touched_i50 := false
@@ -1844,7 +1932,22 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		var carrier = kick_in_taker(side) if is_kick_in else pick_carrier(side, fp)
 		if touches == 1 and clearance_keeps and cleared != null and not is_kick_in:
 			carrier = cleared
+		# He marked it, so he takes the kick: the carrier pick is still drawn,
+		# so the rest of the chain's dice are where they were.
+		if touches == 1 and chain_origin == "turnover" and bool(_chain_from.get("marked", false)):
+			var marker := _on_ground(side, str(_chain_from.get("id", "")))
+			if not marker.is_empty():
+				carrier = marker
 		var kick_in_play_on := _kick_in_play_on(carrier) if is_kick_in else false
+		# The loose ball won off the other side's spoiled, smothered or
+		# astray disposal is an intercept possession (Champion Data), by
+		# whoever is there to take it: a forward in his forward half as much
+		# as a defender down back. Bookkeeping only.
+		if touches == 1 and zone_intercepts and chain_origin == "general" and _ball_lost_by == 1 - side \
+				and _chain_from.is_empty() and not from_bounce and not is_kick_in:
+			_t(side, "intercepts")
+			_p(carrier, "intercepts")
+			_chain_from = {"side": side, "id": str(carrier.get("id", ""))}
 		_chain_touch[str(carrier["id"])] = carrier
 		# Champion Data: a kick straight from the goal square is a team
 		# kick-in, not a player disposal. Once the taker plays on it is his
@@ -2033,6 +2136,8 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			if not aerial.is_empty():
 				if str(aerial.get("outcome", "")) == "loose":
 					return {"outcome": "loose", "fp": fp, "actor": aerial.get("actor")}
+				if str(aerial.get("outcome", "")) == "turnover":
+					return aerial
 				# A mark keeps the same side's chain alive at the new field
 				# position. It is not another disposal by the original kicker.
 				pending = carrier
@@ -2098,7 +2203,10 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var dgroup := _by_roles(dfn.ground, ["DEF"])
 	if dgroup.is_empty():
 		dgroup = dfn.ground
-	var defender = _weighted(dgroup, "intercept", 2.0, opp, "defender")
+	# Who meets the entry: the better readers more often, but not so much
+	# that one defender takes them all (the best real interceptors average
+	# about 8 a game, Champion Data 2025).
+	var defender = _weighted(dgroup, "intercept", ENTRY_READ if zone_intercepts else 2.0, opp, "defender")
 	# A forward with a direct opponent contests it with him: their aerial
 	# games decide it on top of the lines (Matchups).
 	_duel = {}
@@ -2387,6 +2495,9 @@ func _intercept(side: int, who, could_mark: bool) -> void:
 	if could_mark and stat_rng.randf() < 0.35 * (0.5 + _a(who, "intercept") / 100.0):
 		_t(side, "marks")
 		_p(who, "marks")
+		if zone_intercepts:
+			_t(side, "intercept_marks")
+			_p(who, "intercept_marks")
 		if stat_rng.randf() < 0.5:
 			_t(side, "contested_marks")
 			_p(who, "contested_marks")
@@ -2785,6 +2896,8 @@ func _play_one_chain(T: Dictionary) -> void:
 	_chain_touch = {}
 	_chain_from = _won_back if chain_origin == "turnover" else {}
 	_won_back = {}
+	_ball_lost_by = _lost_by if chain_origin == "general" else -1
+	_lost_by = -1
 	var res := play_chain(side, start_fp, stoppage, from_kick_in)
 	var outcome: String = res["outcome"]
 	fp = res["fp"]
@@ -2804,6 +2917,8 @@ func _play_one_chain(T: Dictionary) -> void:
 	if outcome == "free" and res.has("free_side"):
 		next_side = int(res["free_side"])
 	_prev_end = outcome
+	if outcome == "loose":
+		_lost_by = side
 	if outcome == "score":
 		fp = 0.0
 	if ["boundary", "free", "loose"].has(outcome):
@@ -2834,6 +2949,7 @@ func _play_one_chain(T: Dictionary) -> void:
 		_p(err, "clangers")
 		_emit("clanger", side, fp, err,
 				"%s gives away a clanger" % GameDB.player_display_name(err))
+		_lost_by = side
 		# After a behind the kick-in comes first: no free is paid over it.
 		if not kick_in and free_rng.randf() < float(T["clanger_is_free"]) * GENERIC_FREE_MULT:
 			var recipient = _free_to(1 - side, fp if side == 0 else -fp)
@@ -2845,7 +2961,42 @@ func _play_one_chain(T: Dictionary) -> void:
 			# Play restarts from the free (and any 50), not another bounce.
 			at_centre = false
 			boundary_throw_in = false
+		elif zone_intercepts and next_side < 0 and not at_centre and not kick_in \
+				and rng.randf() < CLANGER_TAKEN:
+			_clanger_taken(side, fp)
 	_after_chain()
+
+
+## The director (2026-10-06): a kick that turns it over goes to the other side,
+## as in real football, not to a 50/50 loose ball. Whoever is in that part of
+## the ground takes it (AERIAL_ROLES), an intercept, and the better readers mark
+## it and take the kick.
+func _clanger_taken(side: int, at: float) -> void:
+	var opp := 1 - side
+	var taker = _aerial_defender(opp, at)
+	if taker == null:
+		return
+	_intercept(opp, taker, false)
+	next_side = opp
+	_prev_end = "turnover"
+	if rng.randf() < CLANGER_MARKED * (0.6 + 0.8 * _a(taker, "intercept") / 100.0):
+		_won_back["marked"] = true
+		_t(opp, "marks")
+		_p(taker, "marks")
+		_t(opp, "intercept_marks")
+		_p(taker, "intercept_marks")
+		_emit("mark", opp, at, taker, "%s intercepts it on the mark" % GameDB.player_display_name(taker))
+		var ev: Dictionary = events[events.size() - 1]
+		ev["general_play"] = true
+		ev["intercept"] = true
+
+
+## Of the clangers not paid as frees, the share the other side takes outright
+## (the rest stay a contest: a fumble, a ball knocked loose), and of those, the
+## share taken on the mark by an average reader. Calibrated with
+## tools/audit/intercept_impl.gd against Champion Data 2025.
+const CLANGER_TAKEN := 1.0
+const CLANGER_MARKED := 0.3
 
 
 ## The 18 on-ground players per side, so the pitch view can draw real

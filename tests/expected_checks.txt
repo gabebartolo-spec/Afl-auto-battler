@@ -23,7 +23,7 @@ ai 35
 training 107
 selection 37
 matchup 95
-matchday 384
+matchday 387
 roles 184
 injuries 31
 awards 22
@@ -31,11 +31,11 @@ achievements 153
 contracts 233
 league 47
 club 199
-match_game 257
+match_game 260
 pressure 21
 workload 32
 match_visual 108
 league_balance 23
 calibration 17
 balance 13
-assets 95
+assets 97
