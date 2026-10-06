@@ -2372,12 +2372,19 @@ func _test_defensive_forward() -> void:
 			if Traits.has(p, "def_forward"):
 				df += 1
 	_check(df >= 18 and df <= 60, "Defensive forwards are a real minority of the league's forwards (%d of %d)" % [df, fwds])
+	# Like every trait, a prospect grows into it: count them five seasons on
+	# (at draft it is a handful, and noise).
 	var gen := 0
 	for y in range(2028, 2033):
 		for p in Prospects.generate_class(y):
-			if str(p["role"]) == "FWD" and Traits.has(p, "def_forward"):
+			if str(p["role"]) != "FWD":
+				continue
+			var q: Dictionary = p.duplicate(true)
+			for k in range(1, 6):
+				Prospects.age_player(q, y + k)
+			if Traits.has(q, "def_forward"):
 				gen += 1
-	_check(gen >= 3, "Draft classes bring Defensive forwards too (%d in five classes)" % gen)
+	_check(gen >= 4, "Draft classes bring Defensive forwards too (%d in five classes, five seasons on)" % gen)
 
 	var sim := _sim(8301, "ADE", "SYD")
 	var spare := Matchups.best_interceptor((sim.squads[1] as Squad).ground, 0.0)
