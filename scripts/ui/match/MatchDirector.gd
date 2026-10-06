@@ -820,7 +820,7 @@ func _pack_phases(k: int) -> Array:
 	var skip := members + ([kicker] if kicker >= 0 else [])
 	members += _nearest(at, side, 2, skip) + _nearest(at, 1 - side, 2, skip)
 	var out := _set_up(kicker)
-	out.append({"t": "pack", "at": at, "members": members, "mode": "shot"})
+	out.append({"t": "pack", "at": at, "members": members, "min": 0.3, "max": 1.0, "mode": "shot"})
 	# The crumber lurks at the front of the pack, not in it.
 	if named.has("crumber_id"):
 		var front := at - Vector2(6.0 * _dir(side), 0.0)
