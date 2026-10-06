@@ -134,6 +134,16 @@ else
 	summary+=("| validate_data | FAIL | see log |")
 fi
 
+echo "== Suite seeds"
+if tools/check_suite_seeds.sh > "$LOG_DIR/suite_seeds.log" 2>&1; then
+	summary+=("| suite_seeds | pass | |")
+else
+	cat "$LOG_DIR/suite_seeds.log"
+	note_error "tools/check_suite_seeds.sh: a suite starts from the clock"
+	failed=1
+	summary+=("| suite_seeds | FAIL | see log |")
+fi
+
 echo "== Exported-build data check"
 if GODOT="$GODOT" tools/check_export_data.sh > "$LOG_DIR/export_data.log" 2>&1; then
 	summary+=("| export_data | pass | |")
