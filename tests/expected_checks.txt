@@ -16,15 +16,15 @@ coach_pathway 57
 coach_effects 36
 # career_ui: one check (Back skipping a press conference) only runs when the
 # simulated round raises one, so the floor is one under the usual count.
-career_ui 311
+career_ui 310
 potential 36
 ratings 39
 ai 38
 training 107
-selection 37
+selection 47
 matchup 96
 matchday 388
-roles 184
+roles 190
 injuries 31
 awards 22
 achievements 153

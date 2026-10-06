@@ -93,35 +93,43 @@ func _test_ruck_selection_integrity() -> void:
 			"Auto-pick starts the best tap ruck, not the highest-OVR recognised ruck")
 
 
-## The selection screen lays the 18 out as football lines rather than a
-## serial list. The centre square keeps the two wings outside three mids
-## with the ruck in the middle.
+## The team builder places a selection on the field: the centre square is
+## MID (centre and two inside mids), the wings WING, and every line fills its
+## spots, 18 different players (director's PC playtest, 2026-10-07).
 func _test_formation_layout() -> void:
 	_new_season()
 	var side := GameState.current_side()
-	var scene = load("res://scripts/ui/SelectionScene.gd").new()
-	var layout: Dictionary = scene._formation_layout(side)
-	_check((layout["forwards"] as Array).size() == 6
-			and (layout["defence"] as Array).size() == 6
-			and (layout["midfield"] as Array).size() == 6,
-			"The formation is two six-player lines around a six-player midfield")
-	var mid: Array = layout["midfield"]
-	_check(str(mid[0]) == str(side["WING"][0]) and str(mid[2]) == str(side["WING"][1])
-			and str(mid[4]) == str(side["RUCK"][0]),
-			"The centre shape puts the wings outside and the ruck in the middle")
-	var field := []
-	field.append_array(layout["forwards"])
-	field.append_array(layout["midfield"])
-	field.append_array(layout["defence"])
+	var spots: Dictionary = load("res://scripts/ui/TeamBuilder.gd").SPOTS
+	_check((spots["MID"] as Array) == ["C", "IL", "IR"] and (spots["WING"] as Array) == ["WL", "WR"]
+			and (spots["RUCK"] as Array) == ["RUCK"], "The centre square, wings and ruck have their spots")
+	var n := 0
 	var unique := {}
-	for id in field:
-		if str(id) != "":
+	for line in ["RUCK", "MID", "WING", "DEF", "FWD"]:
+		_check((side[line] as Array).size() == (spots[line] as Array).size(),
+				"%s fills its %d spots" % [line, (spots[line] as Array).size()])
+		for id in side[line]:
+			n += 1
 			unique[str(id)] = true
-	_check(field.size() == 18 and unique.size() == 18,
-			"Every on-field player appears once in the formation")
-	_check((layout["bench"] as Array).size() == 5,
-			"The five-player interchange sits below the oval")
-	scene.free()
+	_check(n == 18 and unique.size() == 18, "Eighteen different players on the field")
+	# Auto-pick strategies and the saved Best 23 (GameState).
+	for strat in ["best", "rest", "youth"]:
+		var r: Dictionary = GameState.auto_pick(strat)
+		var count := 0
+		for k2 in r["side"]:
+			count += (r["side"][k2] as Array).size()
+		_check(count == 23 and str(r["note"]) != "", "Auto-pick %s fields 23 and says what it did" % strat)
+	_check((GameState.auto_pick("mine")["side"] as Dictionary).is_empty(), "No Best 23 until you save one")
+	GameState.set_best23(side)
+	var hurt: Dictionary = GameState.list_player(str(side["DEF"][0]))
+	hurt["injury_weeks"] = 2
+	var mine: Dictionary = GameState.auto_pick("mine")
+	_check(not (mine["side"]["DEF"] as Array).has(str(hurt["id"])) and str(mine["note"]).contains("unavailable"),
+			"Your Best 23 replaces an injured player, and says so")
+	hurt["injury_weeks"] = 0
+	_check(GameState.save_career(), "(save with a Best 23)")
+	var keep: Dictionary = GameState.best23.duplicate(true)
+	GameState.reset()
+	_check(GameState.load_career() and GameState.best23 == keep, "Your Best 23 survives a save and load")
 
 
 func _test_named_side() -> void:

@@ -133,6 +133,9 @@ var career_seed := 0
 ## Club Forge: the career's created club as its spec (ClubForge), or {}.
 ## Saved with the career and registered with GameDB whenever it loads.
 var custom_club := {}
+## "My Selected Best 23" (director, 2026-10-07): your saved recurring side, a
+## selection ({RUCK, MID, WING, DEF, FWD, BENCH} -> ids), or {} if none.
+var best23 := {}
 var class_tiers := {}             # draft year (string) -> tier key, as generated
 var draftee_pool: Array = []     # all prospects that have not been drafted yet
 var drafted_draftees := {}       # prospect id -> destination club
@@ -457,6 +460,7 @@ func save_career() -> bool:
 		"class_tiers": class_tiers,
 		"custom_prospect_id": custom_prospect_id,
 		"custom_club": custom_club,
+		"best23": best23,
 		"user_dual_ruck": user_dual_ruck,
 		# Players carry p["career"]; saves without this mark predate it.
 		"career_version": CAREER_VERSION,
@@ -492,6 +496,7 @@ func load_career() -> bool:
 	reset()
 	# A created club joins the competition before anything reads the clubs.
 	custom_club = state.get("custom_club", {})
+	best23 = state.get("best23", {})
 	if not custom_club.is_empty():
 		GameDB.register_club(ClubForge.row(custom_club))
 	season_year = int(state.get("season_year", 2026))
@@ -844,6 +849,7 @@ func reset() -> void:
 	# dataset, so reload the data files before rebuilding anything.
 	GameDB.reload()
 	custom_club = {}
+	best23 = {}
 	my_club = ""
 	my_list = []
 	season = null
@@ -5500,13 +5506,134 @@ func _sync_dual() -> void:
 ## The side that would take the field this week, as a selection.
 func current_side() -> Dictionary:
 	var squad := my_squad()
+	return _as_selection(squad.ground, squad.bench)
+
+
+func _as_selection(ground: Array, bench: Array) -> Dictionary:
 	var out := {"RUCK": [], "MID": [], "WING": [], "DEF": [], "FWD": [], "BENCH": []}
-	for p in squad.ground:
+	for p in ground:
 		var key := "WING" if Roles.on_wing(p) else str(p["role"])
 		(out[key] as Array).append(str(p["id"]))
-	for p in squad.bench:
+	for p in bench:
 		(out["BENCH"] as Array).append(str(p["id"]))
 	return out
+
+
+## Auto-pick strategies for the team builder (director, 2026-10-07). Each
+## returns {"side": selection, "note": what changed, in words}; applying one
+## is the builder's job, and your later moves stay yours until you choose
+## again.
+##   best   the best available side by rating and position (as rival clubs pick)
+##   rest   the same with anyone who needs a break left out, if the list can
+##          cover him
+##   youth  the best side, then up to three young players (21 and under) in
+##          for the lowest-rated starter in their line, when within 6 of him
+##   mine   your saved Best 23, with anyone unavailable replaced by the best
+##          available player of his line
+const YOUTH_AGE := 21.0
+const YOUTH_GAP := 6
+const YOUTH_MAX := 3
+
+
+func auto_pick(strategy: String) -> Dictionary:
+	var pool: Array = my_list.filter(func(p): return Ratings.available(p))
+	var dual := 1 if user_dual_ruck else 0
+	match strategy:
+		"rest":
+			var tired: Array = pool.filter(func(p): return Workload.value(p) >= Workload.NEEDS_BREAK)
+			var fresh: Array = pool.filter(func(p): return Workload.value(p) < Workload.NEEDS_BREAK)
+			var sel := Ratings.select_22(fresh if fresh.size() >= (18 + Ratings.INTERCHANGE) else pool, dual)
+			var side := _as_selection(sel["ground"], sel["bench"])
+			var rested: PackedStringArray = []
+			var in_side := _ids_in(side)
+			for p in tired:
+				if not in_side.has(str(p["id"])):
+					rested.append(GameDB.player_display_name(p))
+			var note := "Rested: %s." % ", ".join(rested) if not rested.is_empty() \
+					else "Nobody needs a break: this is your best side."
+			if not tired.is_empty() and fresh.size() < (18 + Ratings.INTERCHANGE):
+				note = "Not enough fresh players to rest anyone: this is your best side."
+			return {"side": side, "note": note}
+		"youth":
+			var sel2 := Ratings.select_22(pool, dual)
+			var side2 := _as_selection(sel2["ground"], sel2["bench"])
+			var ins: PackedStringArray = []
+			var by_id := {}
+			for p in pool:
+				by_id[str(p["id"])] = p
+			for _n in range(YOUTH_MAX):
+				var used := _ids_in(side2)
+				var best_swap := []
+				for line in ["DEF", "MID", "WING", "FWD"]:
+					var weakest := ""
+					for id in side2[line]:
+						if weakest == "" or int(by_id[str(id)]["overall"]) < int(by_id[weakest]["overall"]):
+							weakest = str(id)
+					if weakest == "":
+						continue
+					var role: String = "MID" if line == "WING" else line
+					for p in pool:
+						var pid := str(p["id"])
+						if used.has(pid) or float(p.get("age", 30.0)) > YOUTH_AGE or not Ratings.plays_role(p, role):
+							continue
+						var gap := int(by_id[weakest]["overall"]) - int(p["overall"])
+						if gap <= YOUTH_GAP and (best_swap.is_empty() or int(p["overall"]) > int(by_id[str(best_swap[2])]["overall"])):
+							best_swap = [line, weakest, pid]
+				if best_swap.is_empty():
+					break
+				var arr: Array = side2[best_swap[0]]
+				arr[arr.find(best_swap[1])] = best_swap[2]
+				ins.append("%s for %s" % [GameDB.player_display_name(by_id[best_swap[2]]),
+						GameDB.player_display_name(by_id[best_swap[1]])])
+			return {"side": side2, "note": ("Blooding: %s." % "; ".join(ins)) if not ins.is_empty()
+					else "No young player is close enough to a starter's spot: this is your best side."}
+		"mine":
+			if best23.is_empty():
+				return {"side": {}, "note": "No saved Best 23 yet: arrange a side and save it."}
+			var side3: Dictionary = best23.duplicate(true)
+			var by_id3 := {}
+			for p in my_list:
+				by_id3[str(p["id"])] = p
+			var swaps: PackedStringArray = []
+			for line in ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH"]:
+				var arr3: Array = side3.get(line, [])
+				for i in range(arr3.size()):
+					var id3 := str(arr3[i])
+					var p3 = by_id3.get(id3)
+					if p3 != null and Ratings.available(p3):
+						continue
+					var role3: String = "MID" if line in ["WING", "BENCH"] else line
+					var used3 := _ids_in(side3)
+					var best3 = null
+					for q in pool:
+						if used3.has(str(q["id"])) or (line != "BENCH" and not Ratings.plays_role(q, role3)):
+							continue
+						if best3 == null or int(q["overall"]) > int(best3["overall"]):
+							best3 = q
+					if best3 != null:
+						arr3[i] = str(best3["id"])
+						swaps.append("%s in for %s" % [GameDB.player_display_name(best3),
+								GameDB.player_display_name(p3) if p3 != null else "a departed player"])
+			return {"side": side3, "note": ("Your Best 23. %s (unavailable)." % "; ".join(swaps)) if not swaps.is_empty()
+					else "Your Best 23."}
+	var sel4 := Ratings.select_22(pool, dual)
+	return {"side": _as_selection(sel4["ground"], sel4["bench"]), "note": "Best side by rating and position."}
+
+
+func _ids_in(side: Dictionary) -> Dictionary:
+	var out := {}
+	for k in side:
+		for id in side[k]:
+			out[str(id)] = true
+	return out
+
+
+## Save the side as your recurring Best 23 (kept until you save another).
+func set_best23(side: Dictionary) -> void:
+	best23 = side.duplicate(true)
+	best23.erase("OUT")
+	best23.erase("DUAL_RUCK")
+	mark_dirty()
 
 
 func my_squad() -> Squad:
