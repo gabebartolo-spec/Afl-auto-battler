@@ -36,18 +36,30 @@ func _career(seed: int, seasons: int) -> void:
 		if y == seasons - 1:
 			break
 		gs.open_offseason()
-		var ai := gs.offseason_log.filter(func(e): return str(e.get("kind", "")) == "ai_trade")
+		var ai: Array = gs.offseason_log.filter(func(e): return str(e.get("kind", "")) == "ai_trade")
 		var ai_players := 0
 		var clubs_in := {}
 		for e in ai:
 			clubs_in[str(e["club"])] = true
 			clubs_in[str(e["with"])] = true
 			ai_players += (e.get("in", []) as Array).size()
+		var asked := {"home": 0, "games": 0}
+		var asked_mine := 0
+		for id in gs.trade_requests:
+			var r: Dictionary = gs.trade_requests[id]
+			asked[str(r["why"])] = int(asked[str(r["why"])]) + 1
+			asked_mine += 1 if str(r["club"]) == user else 0
+		var met := {"home": 0, "games": 0}
+		for e in ai:
+			if e.has("request"):
+				met[str(e["request"])] = int(met[str(e["request"])]) + 1
+				asked[str(e["request"])] = int(asked[str(e["request"])]) + 1
 		var offers: int = gs.open_trade_offers().size()
 		var reasons := _probe(gs, user)
 		var mgmt: Dictionary = dyn._manage(gs, user, "full")
-		print("trades seed %d %d %s | ai trades %d (clubs in one %d) | offers to you %d | yours %d | probe %s" % [
-				seed, gs.season_year, user, ai.size(), clubs_in.size(), offers, int(mgmt["trades"]), str(reasons)])
+		print("trades seed %d %d %s | ai trades %d (players %d, clubs in one %d) | asked %s, yours %d, met %s | offers to you %d | yours %d | probe %s" % [
+				seed, gs.season_year, user, ai.size(), ai_players, clubs_in.size(), str(asked), asked_mine, str(met),
+				offers, int(mgmt["trades"]), str(reasons)])
 		gs.set_selection({})
 		if not dyn._offseason(gs, user, mgmt):
 			push_error("trades: off-season %d of seed %d did not complete" % [y, seed])

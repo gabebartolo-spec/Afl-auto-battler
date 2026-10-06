@@ -32,6 +32,7 @@ func run() -> void:
 	_test_future_picks()
 	_test_mixed_packages()
 	_test_trade_market()
+	_test_trade_requests()
 	_test_unproven_potential()
 	_test_opposition_pot()
 	_test_money_copy()
@@ -1119,6 +1120,7 @@ func _test_trade_picks() -> void:
 	_new_season()
 	_check(GameState.club_picks(GameState.my_club).is_empty(), "No picks can be traded during the season")
 	_to_offseason()
+	GameState.trade_requests = {}  # who asks out has its own test (_test_trade_requests)
 	var me := GameState.my_club
 	var year := GameState.season_year
 	var rounds := GameState.trade_pick_rounds(year)
@@ -1383,6 +1385,83 @@ func _market_snapshot() -> String:
 	return " / ".join(out)
 
 
+## Players asking to be traded (TradeRequests): who asks, where he'll go,
+## what his club lets him go for, and the market meeting the request.
+func _test_trade_requests() -> void:
+	_check(TradeRequests.home_state({"draft_state": "VICM"}) == "VIC" and TradeRequests.home_state({"draft_state": "ACT"}) == "NSW"
+			and TradeRequests.home_state({"draft_state": "wa"}) == "WA" and TradeRequests.home_state({}) == "",
+			"A home state comes from where he was drafted: metro and country Victoria are Victoria, Canberra is Giants country")
+	var states := {"CAR": "VIC", "ADE": "SA", "PAD": "SA", "WCE": "WA"}
+	var p := {"id": "x1", "age": 24.0, "contract_years": 3, "draft_state": "SA"}
+	var year := 2027
+	while TradeRequests.roll(year, "x1", "home") >= TradeRequests.HOME_CHANCE:
+		year += 1
+	var ask := TradeRequests.asks(p, "CAR", year, states, [], true, 20)
+	_check(str(ask.get("why", "")) == "home" and str(ask.get("to", [])) == str(["ADE", "PAD"]),
+			"A South Australian at Carlton can ask to go home, naming the SA clubs (%s)" % str(ask))
+	_check(TradeRequests.asks(p, "ADE", year, states, [], true, 20).is_empty(), "Nobody asks to go home from home")
+	var out_of_contract := p.duplicate()
+	out_of_contract["contract_years"] = 1
+	var old := p.duplicate()
+	old["age"] = 31.0
+	_check(TradeRequests.asks(out_of_contract, "CAR", year, states, [], true, 20).is_empty()
+			and TradeRequests.asks(old, "CAR", year, states, [], true, 20).is_empty(),
+			"Only contracted players of 20-29 ask: the rest have free agency or are near the end")
+	_check(TradeRequests.asks(p, "CAR", year, states, [], true, 20) == ask, "The same player asks the same way however often it's worked out")
+	var fringe := {"id": "x2", "age": 23.0, "contract_years": 2}
+	var y2 := 2027
+	while TradeRequests.roll(y2, "x2", "games") >= TradeRequests.GAMES_CHANCE:
+		y2 += 1
+	var g := TradeRequests.asks(fringe, "CAR", y2, states, ["WCE", "ADE", "PAD", "COL"], false, 3)
+	_check(str(g.get("why", "")) == "games" and (g["to"] as Array).size() == TradeRequests.MAX_CLUBS,
+			"A fringe player who'd start elsewhere can ask for a trade to get a game, naming up to %d clubs" % TradeRequests.MAX_CLUBS)
+	_check(TradeRequests.asks(fringe, "CAR", y2, states, ["WCE"], true, 3).is_empty()
+			and TradeRequests.asks(fringe, "CAR", y2, states, ["WCE"], false, 15).is_empty()
+			and TradeRequests.asks(fringe, "CAR", y2, states, [], false, 3).is_empty(),
+			"A player in the side, playing games, or with nowhere he'd start doesn't ask for a game")
+
+	_new_season()
+	_to_offseason()
+	var me := GameState.my_club
+	var named_ok := true
+	for id in GameState.trade_requests:
+		var r: Dictionary = GameState.trade_requests[id]
+		var to: Array = r["to"]
+		named_ok = named_ok and not to.is_empty() and to.size() <= TradeRequests.MAX_CLUBS and not to.has(str(r["club"])) 				and (GameState.season.lists[str(r["club"])] as Array).any(func(q): return str(q["id"]) == str(id))
+	_check(named_ok, "Every request names 1-%d other clubs, and the player is still at his club (%d asked)" % [
+			TradeRequests.MAX_CLUBS, GameState.trade_requests.size()])
+	var met := GameState.offseason_log.filter(func(e): return e.has("request"))
+	var met_ok := true
+	for e in met:
+		met_ok = met_ok and str(e["request"]) in ["home", "games"]
+	_check(met_ok, "Trades that met a request say so (%d)" % met.size())
+	# His club lets him go for less, and only to a club he named.
+	var rival := ""
+	var their: Dictionary = {}
+	for code in GameState.season.lists:
+		if code != me and not (GameState.season.lists[code] as Array).is_empty():
+			rival = str(code)
+			their = Ratings.select_22(GameState.season.lists[code])["bench"][0]
+			break
+	var other := ""
+	for code in GameState.season.lists:
+		if code != me and str(code) != rival:
+			other = str(code)
+			break
+	var mine := [str(GameState.my_list[GameState.my_list.size() - 1]["id"])]
+	GameState.trade_requests = {}
+	var before := GameState.evaluate_trade(rival, mine, [str(their["id"])])
+	GameState.trade_requests = {str(their["id"]): {"club": rival, "why": "games", "to": [me]}}
+	var after := GameState.evaluate_trade(rival, mine, [str(their["id"])])
+	_check(before.has("out") and after.has("out") and absf(float(after["out"]) - TradeRequests.KEEP * float(before["out"])) < 0.001,
+			"A club counts a player who has asked out at %d%% of his value (%s / %s)" % [roundi(100 * TradeRequests.KEEP), str(before.get("out")), str(after.get("out"))])
+	GameState.trade_requests = {str(their["id"]): {"club": rival, "why": "games", "to": [other]}}
+	var refused := GameState.evaluate_trade(rival, mine, [str(their["id"])])
+	_check(not bool(refused["ok"]) and str(refused["reason"]).contains("has asked to go to"),
+			"A player who asked out goes only to a club he named: %s" % str(refused["reason"]))
+	GameState.trade_requests = {}
+
+
 func _test_trade_market() -> void:
 	_new_season()
 	_to_offseason()
@@ -1393,10 +1472,12 @@ func _test_trade_market() -> void:
 	var once := true
 	for e in deals:
 		for c in [str(e["club"]), str(e["with"])]:
-			once = once and not clubs_in.has(c) and c != me
-			clubs_in[c] = true
-	_check(deals.size() <= GameState.MAX_AI_TRADES and once,
-			"Rival clubs make at most %d trades with each other, each club in one at most, never you (%d)" % [GameState.MAX_AI_TRADES, deals.size()])
+			clubs_in[c] = int(clubs_in.get(c, 0)) + 1
+			once = once and int(clubs_in[c]) <= GameState.DEALS_PER_CLUB and c != me
+	var asked_deals := deals.filter(func(e): return e.has("request")).size()
+	_check(deals.size() - asked_deals <= GameState.MAX_AI_TRADES and once,
+			"Rival clubs make at most %d trades with each other besides the ones players asked for, each club in %d at most, never you (%d, %d asked for)" % [
+			GameState.MAX_AI_TRADES, GameState.DEALS_PER_CLUB, deals.size(), asked_deals])
 	var lists_ok := true
 	for code in GameState.season.lists:
 		var l: Array = GameState.season.lists[code]
@@ -1409,7 +1490,8 @@ func _test_trade_market() -> void:
 		owners_ok = owners_ok and str(parts[2]) != str(GameState.pick_owner[key]) \
 				and GameDB.active_clubs(GameState.season_year).has(str(GameState.pick_owner[key]))
 	_check(owners_ok, "Every traded pick has one owner, a club other than its own")
-	_check(GameState.trade_offers.size() <= GameState.MAX_OFFERS, "No more than %d offers come your way" % GameState.MAX_OFFERS)
+	_check(GameState.trade_offers.filter(func(o): return not o.has("request")).size() <= GameState.MAX_OFFERS,
+			"No more than %d offers come your way, besides the ones for players who asked out" % GameState.MAX_OFFERS)
 	var prospects := GameState.trade_prospects()
 	_check(_offers_genuine(GameState.trade_offers, prospects), "Every offer is one they'd stand by, priced within what they think it worth")
 	# The same league, the same market: from one saved state, the rivals'
@@ -1436,7 +1518,7 @@ func _test_trade_market() -> void:
 		GameState._make_trade_offers(GameState.trade_prospects())
 		GameState._freeze_league(false)
 		replay.append(_market_snapshot())
-	_check(replay[0] == replay[1], "The market comes out the same from the same league: %s" % str(replay[0]))
+	_check(replay[0] == replay[1], "The market comes out the same from the same league: %s // %s" % [str(replay[0]), str(replay[1])])
 	_check(starters_ok, "A rival takes another club's starter only as a contender buying from a rebuilding club")
 	GameState.load_career()
 	# Who is on offer: a rebuilding club's established players to a contender,
