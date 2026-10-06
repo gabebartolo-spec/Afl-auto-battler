@@ -13,6 +13,8 @@ extends SceneTree
 ##   --frames N      frames in the sheet (default 12)    --speed S (default 1)
 ##   --kind K [--nth N] [--lead L]  start L events before the N-th event of kind K
 ##   --nocam         whole oval, no camera (trails are in screen space)
+##   --call KEY      shoot, pass or bomb at every home set shot (live match)
+
 ##   --movie         also write every frame at 30 fps (<out>_f0000.png ...),
 ##                   for capture.yml to make <out>.mp4
 ##   --loose SIDE    that side plays its best interceptor loose
@@ -80,7 +82,29 @@ func _run() -> void:
 		# --stack SIDE: that side stacks every centre ball-up (the attacking
 		# setup, for the second demonstration).
 		(sim.bursts[int(args["stack"])] as Dictionary)["stack"] = 100000
-	var res: Dictionary = sim.run()
+	var res: Dictionary
+	var call := str(args.get("call", ""))
+	if call == "":
+		res = sim.run()
+	else:
+		# --call shoot|pass|bomb: the home coach makes that call at every
+		# set shot (ARD-M4-013), so --kind pack / pass finds one.
+		sim.moment_side = 0
+		var guard := 0
+		while sim.current_quarter <= 4 and guard < 8:
+			guard += 1
+			sim.begin_quarter()
+			while not sim.continue_quarter():
+				var m: Dictionary = sim.pending_moment
+				var c := int(m.get("default", 0))
+				if str(m["kind"]) == "set_shot":
+					var opts: Array = m["options"]
+					for j in range(opts.size()):
+						if str((opts[j] as Dictionary).get("key", "")) == call:
+							c = j
+				sim.resolve_moment(c)
+			sim.end_quarter()
+		res = sim.result()
 	res["home"] = home_code
 	res["away"] = away_code
 

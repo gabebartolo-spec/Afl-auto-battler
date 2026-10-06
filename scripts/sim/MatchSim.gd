@@ -82,6 +82,9 @@ var injured_off := [[], []]
 ## goal from a turnover can say whose intercept it came from.
 var _won_back := {}
 var _chain_from := {}
+## The coach's set-shot call while it plays out ({"key"}): every event it
+## produces carries "choice", and its result also "setshot".
+var _set_choice := {}
 ## The side whose disposal last went loose (spoiled, smothered) or astray (a
 ## clanger): a loose-ball win off it in the next chain is an intercept.
 var _lost_by := -1
@@ -887,6 +890,13 @@ func _emit(kind: String, side: int, fp: float, actor, text: String) -> void:
 		"behinds": [behinds(0), behinds(1)],
 		"mom": snappedf(momentum, 0.01),
 	})
+	if not _set_choice.is_empty():
+		events[events.size() - 1]["choice"] = str(_set_choice["key"])
+		if ["goal", "behind", "rebound"].has(kind):
+			events[events.size() - 1]["setshot"] = true
+			for k in ["passer_id", "to_id"]:
+				if _set_choice.has(k):
+					events[events.size() - 1][k] = str(_set_choice[k])
 	# A score from a turnover: whose intercept it came from.
 	if (kind == "goal" or kind == "behind") and not _chain_from.is_empty() \
 			and int(_chain_from["side"]) == side:
@@ -3753,7 +3763,7 @@ func _offer_set_shot(side: int, p_fp: float, shooter: Dictionary, defender, band
 			"goal": pass_p * mate_goal, "pass": pass_p, "mate_goal": mate_goal,
 			"mate_id": str(mate["id"])})
 	options.append({"key": "bomb", "label": "Bomb it to the goal square",
-		"detail": "Now and then it falls for a goal; more often a behind or they rebound it.",
+		"detail": "Into the pack: a forward might mark it or a crumber snap it, but more often the defence clears it.",
 		"goal": bomb_goal, "behind": 0.30})
 	_fire({"kind": "set_shot", "default": 0, "player_id": str(shooter["id"]),
 		"defender_id": "" if defender == null else str(defender["id"]), "fp": p_fp,
@@ -3961,19 +3971,50 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 	var assist = _on_ground(side, str(m.get("feeder_id", "")))
 	var goal_p := float(opt.get("goal", 0.3))
 	var behind_p := float(opt.get("behind", 0.2))
+	_set_choice = {"key": key}
+	if key == "bomb":
+		return _bomb(side, shooter, defender)
 	if key == "pass":
 		_t(side, "disposals")
 		_t(side, "kicks")
 		_p(shooter, "disposals")
 		_p(shooter, "kicks")
+		var mate := _on_ground(side, str(opt.get("mate_id", "")))
+		_emit("pass", side, fp, shooter, "%s plays on and looks for %s" % [GameDB.player_display_name(shooter),
+				GameDB.player_display_name(shooter if mate.is_empty() else mate)])
 		if rng.randf() >= float(opt.get("pass", 0.6)):
 			return _shot_turnover(side, defender, "%s's pass is intercepted" % GameDB.player_display_name(shooter))
-		kicker = _on_ground(side, str(opt.get("mate_id", "")))
-		if kicker.is_empty():
-			kicker = shooter
+		kicker = shooter if mate.is_empty() else mate
 		assist = shooter
 		goal_p = float(opt.get("mate_goal", 0.5))
 		behind_p = (1.0 - goal_p) * 0.6
+		# He leads up into space nearer goal and marks it there.
+		fp = _closer_spot(side, fp, PASS_GAIN)
+		_t(side, "marks")
+		_p(kicker, "marks")
+		_emit("receive", side, fp, kicker, "%s marks on the lead" % GameDB.player_display_name(kicker))
+		_set_choice["passer_id"] = str(shooter["id"])
+		_set_choice["to_id"] = str(kicker["id"])
+	return _set_result(side, kicker, assist, defender, goal_p, behind_p, false)
+
+
+## Where a teammate leads to: `gain` metres nearer goal, no closer than 10 m
+## and no further than 30 m out.
+func _closer_spot(side: int, from_fp: float, gain: float) -> float:
+	var dir := 1.0 if side == 0 else -1.0
+	var gl := float(Ratings.T["goal_line"])
+	var out := gl - absf(from_fp)
+	return dir * (gl - clampf(out - gain, 10.0, 30.0))
+
+
+## How far nearer goal a played-on pass finds the teammate, in metres.
+const PASS_GAIN := 15.0
+
+
+## A set shot's result: a goal, a behind or the defence rebounds it. Shared by
+## the three calls; `crumb` marks a snap off the deck.
+func _set_result(side: int, kicker: Dictionary, assist, defender: Dictionary, goal_p: float,
+		behind_p: float, crumb: bool) -> Dictionary:
 	var roll := rng.randf()
 	if roll < goal_p:
 		_t(side, "goals")
@@ -3983,9 +4024,9 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 		q_goals[current_quarter - 1][side] += 1
 		_score_run(side)
 		_emit("goal", side, fp, kicker, _scoreline(side, "GOAL"))
-		events[events.size() - 1]["set"] = true
+		_tag_result(crumb)
 		_trait_note(kicker)
-		_tag_shot(true)
+		_tag_shot(not crumb)
 		_end_moment_chain("score", 0.0, side)
 		return {"points": 6, "text": "GOAL to %s!" % GameDB.player_display_name(kicker)}
 	if roll < goal_p + behind_p:
@@ -3994,11 +4035,140 @@ func _resolve_shot(side: int, m: Dictionary, opt: Dictionary) -> Dictionary:
 		_scored(side, 1, kicker)
 		q_behinds[current_quarter - 1][side] += 1
 		_emit("behind", side, fp, kicker, _scoreline(side, "Behind"))
-		events[events.size() - 1]["set"] = true
-		_tag_shot(true)
+		_tag_result(crumb)
+		_tag_shot(not crumb)
 		_end_moment_chain("behind", kick_in_fp(side), side)
 		return {"points": 1, "text": "Just a behind from %s." % GameDB.player_display_name(kicker)}
 	return _shot_turnover(side, defender, "%s's shot is rebounded" % GameDB.player_display_name(kicker))
+
+
+## The last event is a set shot's score (or a snap off the pack): flag it.
+func _tag_result(crumb: bool) -> void:
+	var ev: Dictionary = events[events.size() - 1]
+	ev["set"] = not crumb
+	if crumb:
+		ev["crumb"] = true
+
+
+## Bombed into the goal square: a pack forms. A forward marks it and goes
+## back; or it is spoiled to the deck, where a crumber may snap it (or it is
+## rushed through, or the defence gathers); or the defence marks or punches
+## it clear; or it sails over everyone. Odds from the two sides' marking in
+## the pack, calibrated (PACK_*) to keep the old bomb's goal rate.
+func _bomb(side: int, shooter: Dictionary, defender: Dictionary) -> Dictionary:
+	var opp := 1 - side
+	var dir := 1.0 if side == 0 else -1.0
+	var sq_fp := dir * (float(Ratings.T["goal_line"]) - GOAL_SQUARE_DEPTH)
+	var name := GameDB.player_display_name(shooter)
+	var fwds := []
+	for p in _by_roles((squads[side] as Squad).ground, ["FWD", "RUCK"]):
+		if str(p["id"]) != str(shooter["id"]):
+			fwds.append(p)
+	var marker = _weighted(fwds, "marking", 2.0, side, "shooter")
+	var backs := _by_roles((squads[opp] as Squad).ground, ["DEF"])
+	if backs.is_empty():
+		backs = (squads[opp] as Squad).ground
+	var back: Dictionary = backs[0]
+	for p in backs:
+		if _pack_def(p) > _pack_def(back):
+			back = p
+	var att := 0.0 if marker == null else _a(marker, "marking")
+	var dfn := _pack_def(back)
+	var r := rng.randf()
+	# Over everyone: his own kick, so his shot.
+	if r < PACK_THROUGH:
+		_pack_event(side, sq_fp, shooter, "through", {}, "%s's kick sails over the pack" % name)
+		fp = sq_fp
+		return _set_result(side, shooter, null, back, PACK_THROUGH_GOAL, 1.0 - PACK_THROUGH_GOAL, false)
+	_t(side, "disposals")
+	_t(side, "kicks")
+	_p(shooter, "disposals")
+	_p(shooter, "kicks")
+	fp = sq_fp
+	var p_mark := clampf(PACK_MARK + (att - dfn) / 250.0, 0.08, 0.40) if marker != null else 0.0
+	var p_def := clampf(PACK_DEFENCE + (dfn - att) / 250.0, 0.15, 0.50)
+	r = rng.randf()
+	if r < p_mark:
+		_t(side, "marks")
+		_p(marker, "marks")
+		_t(side, "contested_marks")
+		_p(marker, "contested_marks")
+		_pack_event(side, sq_fp, marker, "marked", {"marker_id": str(marker["id"])},
+				"%s marks in the goal square" % GameDB.player_display_name(marker))
+		var g := clampf(PACK_MARK_ACC * shot_chance(side, marker, true, false) / SET_REF, 0.5, 0.97)
+		return _set_result(side, marker, shooter, back, g, (1.0 - g) * SET_MISS_BEHIND, false)
+	if r < p_mark + p_def:
+		# The defence wins it: a mark, or a fist that clears it.
+		if stat_rng.randf() < 0.5:
+			_t(opp, "marks")
+			_p(back, "marks")
+			_t(opp, "contested_marks")
+			_p(back, "contested_marks")
+			_pack_event(side, sq_fp, back, "defence", {"defender_id": str(back["id"])},
+					"%s marks in the goal square" % GameDB.player_display_name(back))
+		else:
+			_t(opp, "spoils")
+			_p(back, "spoils")
+			_t(opp, "one_percenters")
+			_p(back, "one_percenters")
+			_pack_event(side, sq_fp, back, "defence", {"defender_id": str(back["id"])},
+					"%s punches it clear of the pack" % GameDB.player_display_name(back))
+		return _shot_turnover(side, back, "Into the pack - the defence wins it")
+	# Spoiled to the deck: first to it is a forward, more often than not.
+	_t(opp, "spoils")
+	_p(back, "spoils")
+	_t(opp, "one_percenters")
+	_p(back, "one_percenters")
+	var crumber = _ground_forward(side, "" if marker == null else str(marker["id"]))
+	var gathers: bool = crumber != null and rng.randf() < PACK_CRUMB * (0.7 + 0.6 * _a(crumber, "pressure") / 100.0)
+	_pack_event(side, sq_fp, back, "spoiled",
+			{"spoiler_id": str(back["id"]), "crumber_id": str(crumber["id"]) if gathers else ""},
+			"%s spoils it to the deck%s" % [GameDB.player_display_name(back),
+				(" and %s gathers" % GameDB.player_display_name(crumber)) if gathers else ""])
+	if gathers:
+		_t(side, "disposals")
+		_t(side, "kicks")
+		_p(crumber, "disposals")
+		_p(crumber, "kicks")
+		var snap := shot_chance(side, crumber, false, false) * CRUMB_SNAP
+		var bh: float = float(Ratings.T["inside50_behind"]) * (0.80 + 0.40 * _a(crumber, "goalkicking") / 100.0)
+		return _set_result(side, crumber, null, back, snap, bh, true)
+	if rng.randf() < PACK_RUSHED:
+		# Rushed through for a behind: no one's shot.
+		_scored(side, 1, null)
+		_t(side, "behinds")
+		q_behinds[current_quarter - 1][side] += 1
+		_emit("behind", side, fp, null, _scoreline(side, "Rushed behind"))
+		events[events.size() - 1]["rushed"] = true
+		_tag_shot(false)
+		_end_moment_chain("behind", kick_in_fp(side), side)
+		return {"points": 1, "text": "Rushed through for a behind."}
+	return _shot_turnover(side, back, "Spoiled, and the defence gathers")
+
+
+## A defender in a goal-square pack: reading it first, then marking it.
+func _pack_def(p: Dictionary) -> float:
+	return 0.6 * _a(p, "intercept") + 0.4 * _a(p, "marking")
+
+
+func _pack_event(side: int, at: float, actor, outcome: String, ids: Dictionary, text: String) -> void:
+	_emit("pack", side, at, actor, text)
+	var ev: Dictionary = events[events.size() - 1]
+	ev["outcome"] = outcome
+	for k in ["marker_id", "spoiler_id", "crumber_id", "defender_id"]:
+		ev[k] = str(ids.get(k, ""))
+
+
+## The goal-square pack (_bomb). Calibrated by tools/audit/setshot_calls_impl.gd so
+## a bomb still scores about what it did before the pack (0.26 + 0.20 forward
+## marking - 0.12 defence intercept, out of 100).
+const PACK_THROUGH := 0.08       # sails over everyone
+const PACK_THROUGH_GOAL := 0.55  # and through the big sticks, else a behind
+const PACK_MARK := 0.30          # a forward marks it, level pack
+const PACK_DEFENCE := 0.25       # the defence marks or punches it, level pack
+const PACK_MARK_ACC := 0.92      # his shot from the square, an ordinary kick
+const PACK_CRUMB := 0.45         # spoiled: a crumber gathers, before pressure
+const PACK_RUSHED := 0.60        # not gathered: rushed through, else they clear it
 
 
 func _shot_turnover(side: int, defender: Dictionary, text: String) -> Dictionary:
@@ -4013,6 +4183,7 @@ func _shot_turnover(side: int, defender: Dictionary, text: String) -> Dictionary
 
 
 func _end_moment_chain(outcome: String, new_fp: float, side: int) -> void:
+	_set_choice = {}
 	fp = new_fp
 	at_centre = outcome == "score"
 	kick_in = outcome == "behind"
