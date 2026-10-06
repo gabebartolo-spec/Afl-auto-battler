@@ -79,7 +79,7 @@ func _build() -> void:
 		var dual := UiKit.choice_grid("DualRuck", [["off", "One ruck"], ["on", "Dual ruck"]],
 				"on" if GameState.dual_ruck() else "off", 2, func(k):
 					GameState.set_dual_ruck(k == "on")
-					_notice = "Dual ruck: your second ruck sits on the bench." if k == "on" else "One ruck: the bench is the best of the rest."
+					_notice = "Dual ruck: your second ruck sits on the bench." if k == "on" else "One ruck: the bench covers forward, back and midfield, then the best of the rest."
 					_build())
 		hv.add_child(dual)
 	if _notice != "":
