@@ -50,7 +50,11 @@ static func home_state(p: Dictionary) -> String:
 ## A roll in [0, 1) that is the same for a player in a season, however often
 ## it's asked: a request can't be rerolled by reloading.
 static func roll(year: int, id: String, why: String) -> float:
-	return float(absi(hash([year, "trade_request", why, id])) % 10000) / 10000.0
+	# The hash seeds a generator rather than being the roll itself: over
+	# sequential ids a raw hash clumps (one year 13 of 669 under 4%, the next 38).
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([year, "trade_request", why, id])
+	return rng.randf()
 
 
 ## Would `p` (on `club`'s list, contracted beyond this season) ask for a
