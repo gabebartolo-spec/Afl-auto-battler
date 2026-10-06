@@ -17,6 +17,7 @@ var _logo: TextureRect
 var _pick_real := true
 var _pick_difficulty := "normal"
 var _pick_prospect := false
+var _pick_club := false
 
 ## Placeholder title art. Swap the file (same path) to replace it.
 const LOGO := preload("res://assets/ui/aussie_rules_dynasties_logo_placeholder.png")
@@ -231,6 +232,7 @@ func _on_new_career() -> void:
 	_pick_real = GameState.show_real_names
 	_pick_difficulty = GameState.new_career_difficulty()
 	_pick_prospect = not GameState.forge_player().is_empty()
+	_pick_club = not GameState.forge_club().is_empty()
 	_mode = "setup"
 	_render()
 
@@ -284,6 +286,13 @@ func _show_setup() -> void:
 				"in" if _pick_prospect else "out",
 				func(_k): return "He enters this career's first National Draft. No club is told to take him; where he goes is up to the draft.",
 				func(k): _pick_prospect = k == "in"))
+	# Your Club Forge club, if you made one: an extra club in this career.
+	var club := GameState.forge_club()
+	if not club.is_empty():
+		form.add_child(_choice("Your club", "ForgedClub", [["in", "Bring " + str(club.get("name", ""))], ["out", "Not this time"]],
+				"in" if _pick_club else "out",
+				func(_k): return "It joins the competition as an extra club and drafts its list in the League Draft like everyone else. Choose it as your club next, or coach against it.",
+				func(k): _pick_club = k == "in"))
 	# The button follows the choices closely, set just apart from them.
 	var cta := MarginContainer.new()
 	cta.add_theme_constant_override("margin_top", 6)
@@ -361,6 +370,10 @@ func _start_new_career() -> void:
 	GameState.set_new_career_difficulty(_pick_difficulty)
 	GameState.delete_saved_career()
 	GameState.reset()
+	if _pick_club:
+		var club := GameState.forge_club()
+		if not club.is_empty():
+			GameState.create_club(club)
 	if _pick_prospect:
 		var forged := GameState.forge_player()
 		if not forged.is_empty():

@@ -1,10 +1,14 @@
 extends Control
-## Club Forge (ARD-M7-009): the main menu's creative destination. V1 holds
+## Club Forge (ARD-M7-009): the main menu's creative destination.
 ## Create a player (ARD-M7-008): a prospect the coach shapes - position,
 ## height, play style, strengths, foot, number and look - and can bring into a
 ## new career, where he enters the first National Draft like anyone else. His
-## OVR, POT, club and pick are never chosen here. Create a club joins later.
-## The player is kept in settings, outside any career (GameState.forge_player).
+## OVR, POT, club and pick are never chosen here.
+## Create a club: a club from a real football place - its name, ground,
+## colours and guernsey - that joins a new career as an extra club and drafts
+## its list in the League Draft like everyone else (ClubForge).
+## Both are kept in settings, outside any career (GameState.forge_player and
+## forge_club), and brought in from New career.
 
 const ROLES := [["FWD", "Forward"], ["MID", "Midfield"], ["DEF", "Defence"], ["RUCK", "Ruck"]]
 const STYLE_LABELS := {
@@ -30,11 +34,23 @@ const BEARD_LABELS := {
 	"beard_moustache": "Beard and moustache",
 }
 const LEVEL_LABELS := [["0", "None"], ["1", "Light"], ["2", "Heavy"]]
+const STATES := [["VIC", "Victoria"], ["SA", "South Australia"], ["WA", "Western Australia"],
+		["NSW", "New South Wales"], ["QLD", "Queensland"], ["TAS", "Tasmania"], ["ACT", "ACT"],
+		["NT", "Northern Territory"]]
+const DESIGN_LABELS := {
+	"plain": "Plain", "stripes": "Stripes", "hoops": "Hoops", "sash": "Sash", "yoke": "Yoke",
+	"band": "Chest band", "chevrons": "Chevrons", "panels": "Panels", "chevron": "V", "sides": "Side panels",
+	"tiers": "Tiers", "shoulders": "Shoulders",
+}
 
 var _root: VBoxContainer
 var _spec := {}
-var _editing := false
+var _club := {}
+var _club_state := "VIC"
+var _form := ""   # "", "player" or "club"
 var _problem: Label
+var _scroll: ScrollContainer
+var _scroll_form := ""
 
 
 func _ready() -> void:
@@ -52,9 +68,10 @@ func _ready() -> void:
 
 ## Back closes the form first, then leaves the Forge.
 func handle_back() -> bool:
-	if _editing:
-		_editing = false
+	if _form != "":
+		_form = ""
 		_spec = GameState.forge_player()
+		_club = GameState.forge_club()
 		_build()
 		return true
 	return false
@@ -63,16 +80,31 @@ func handle_back() -> bool:
 func _build() -> void:
 	if not is_inside_tree():
 		return
+	# A pick rebuilds the form; keep the thumb where it was on the same form.
+	var keep := _scroll.scroll_vertical if is_instance_valid(_scroll) and _scroll_form == _form else 0
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Club Forge", true, null, func(): return handle_back()))
 	var body := UiKit.vbox(UiKit.GAP)
 	body.name = "ForgeBody"
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if _editing:
+	if _form == "player":
 		_player_form(body)
+	elif _form == "club":
+		_club_form(body)
 	else:
 		_home(body)
-	_root.add_child(UiKit.scroll(body))
+		_club_home(body)
+	_scroll = UiKit.scroll(body)
+	_scroll_form = _form
+	_root.add_child(_scroll)
+	if keep > 0:
+		_restore_scroll.call_deferred(_scroll, keep)
+
+
+func _restore_scroll(sc: ScrollContainer, value: int) -> void:
+	await get_tree().process_frame
+	if is_instance_valid(sc):
+		sc.scroll_vertical = value
 
 
 func _home(body: VBoxContainer) -> void:
@@ -88,7 +120,7 @@ func _home(body: VBoxContainer) -> void:
 		make.custom_minimum_size.y = 48
 		make.pressed.connect(func():
 			_spec = _default_spec()
-			_editing = true
+			_form = "player"
 			_build())
 		body.add_child(make)
 		return
@@ -108,7 +140,7 @@ func _home(body: VBoxContainer) -> void:
 	edit.custom_minimum_size.y = 44
 	edit.pressed.connect(func():
 		_spec = saved.duplicate(true)
-		_editing = true
+		_form = "player"
 		_build())
 	body.add_child(edit)
 	var drop := UiKit.btn("Remove", 16)
@@ -236,7 +268,7 @@ func _on_save() -> void:
 		_problem.visible = true
 		return
 	GameState.set_forge_player(_spec)
-	_editing = false
+	_form = ""
 	_build()
 
 
@@ -338,3 +370,264 @@ func _swatches(node_name: String, colours: Array, look: Dictionary, key: String)
 			_build())
 		h.add_child(b)
 	return h
+
+
+# ---------------------------------------------------------------------------
+# Create a club
+# ---------------------------------------------------------------------------
+var _auto_code := ""
+var _kit_touched := false
+
+
+func _club_home(body: VBoxContainer) -> void:
+	body.add_child(_heading("Your club"))
+	var saved := GameState.forge_club()
+	if saved.is_empty():
+		var none := UiKit.lbl("Make a club from a real football place: its name, its ground, its colours and its guernsey. It joins a new career as an extra club and drafts its list in the League Draft like everyone else.",
+				UiKit.BODY, UiKit.MUTED)
+		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body.add_child(none)
+		var make := UiKit.btn("Create a club", 17)
+		make.name = "ForgeCreateClub"
+		make.custom_minimum_size.y = 48
+		make.pressed.connect(func():
+			_club = _default_club()
+			_club_state = "VIC"
+			_auto_code = ""
+			_kit_touched = false
+			_form = "club"
+			_build())
+		body.add_child(make)
+		return
+	var head := UiKit.hbox(10)
+	head.add_child(UiKit.colour_marker(_club_colours(saved), 30.0))
+	var title := UiKit.lbl(str(saved.get("name", "")), UiKit.H1, UiKit.TEXT, true)
+	title.name = "ForgeClubTitle"
+	head.add_child(title)
+	body.add_child(head)
+	var loc := ClubForge.location(str(saved.get("location", "")))
+	var ground := str(saved.get("ground", "")) if str(saved.get("ground", "")) != "" else str(loc.get("ground", ""))
+	var line := UiKit.lbl(" · ".join(PackedStringArray([str(saved.get("short", "")), str(saved.get("code", "")), ground])),
+			UiKit.BODY, UiKit.MUTED)
+	line.name = "ForgeClubLine"
+	body.add_child(line)
+	body.add_child(UiKit.lbl("Bring it into a career from New career.", UiKit.SMALL, UiKit.MUTED))
+	body.add_child(UiKit.spacer(8))
+	var edit := UiKit.btn("Edit club", 16)
+	edit.name = "ForgeEditClub"
+	edit.custom_minimum_size.y = 44
+	edit.pressed.connect(func():
+		_club = saved.duplicate(true)
+		_club_state = str(loc.get("state", "VIC"))
+		_auto_code = ""
+		_kit_touched = true
+		_form = "club"
+		_build())
+	body.add_child(edit)
+	var drop := UiKit.btn("Remove", 16)
+	drop.name = "ForgeRemoveClub"
+	drop.flat = true
+	drop.custom_minimum_size.y = 44
+	drop.pressed.connect(func():
+		GameState.set_forge_club({})
+		_build())
+	body.add_child(drop)
+
+
+func _default_club() -> Dictionary:
+	return {"name": "", "short": "", "code": "", "location": "", "ground": "",
+			"primary": ClubForge.palette_hex("navy"), "secondary": ClubForge.palette_hex("white"),
+			"accent": ClubForge.palette_hex("gold"), "design": "plain", "kit": "p/s/a"}
+
+
+func _club_form(body: VBoxContainer) -> void:
+	var cols := 2 if UiKit.view_width(self) < 520.0 else 4
+	body.add_child(_heading("Home"))
+	body.add_child(UiKit.choice_grid("ForgeState", STATES, _club_state, cols, func(k):
+		_club_state = k
+		_build()))
+	var places := []
+	for loc in ClubForge.locations():
+		if str(loc.get("state", "")) == _club_state:
+			places.append([str(loc["id"]), str(loc["place"])])
+	body.add_child(_sub("Place"))
+	body.add_child(UiKit.choice_grid("ForgePlace", places, str(_club["location"]), cols, func(k): _pick_place(k)))
+	var here := ClubForge.location(str(_club["location"]))
+	if not here.is_empty():
+		var grounds := ClubForge.grounds(here)
+		if grounds.size() > 1:
+			body.add_child(_sub("Ground"))
+			var opts := []
+			for i in grounds.size():
+				opts.append([str(i), grounds[i]])
+			body.add_child(UiKit.choice_grid("ForgeGround", opts, str(maxi(0, grounds.find(str(_club["ground"])))), 1,
+					func(k): _club["ground"] = grounds[int(k)]))
+		else:
+			body.add_child(_sub("Ground: %s" % grounds[0]))
+
+	body.add_child(_heading("Name"))
+	body.add_child(_field("ForgeClubName", "name", "Club name", ClubForge.NAME_MAX))
+	body.add_child(_field("ForgeClubNickname", "short", "Nickname, like the Magpies", ClubForge.SHORT_MAX))
+	body.add_child(_field("ForgeClubCode", "code", "Abbreviation, like COL", 4))
+
+	body.add_child(_heading("Colours"))
+	for slot in [["primary", "First colour"], ["secondary", "Second colour"], ["accent", "Third colour"]]:
+		body.add_child(_sub(str(slot[1])))
+		body.add_child(_palette("ForgeColour_" + str(slot[0]), str(slot[0])))
+
+	body.add_child(_heading("Guernsey"))
+	var designs := []
+	for d in ClubForge.DESIGNS:
+		designs.append([d, DESIGN_LABELS.get(d, d)])
+	body.add_child(UiKit.choice_grid("ForgeDesign", designs, str(_club["design"]), cols, func(k):
+		_club["design"] = k
+		_kit_touched = true
+		_build()))
+	var kit := Array(str(_club["kit"]).split("/"))
+	var slots := [["p", _colour_name(str(_club["primary"]), "First colour")],
+			["s", _colour_name(str(_club["secondary"]), "Second colour")],
+			["a", _colour_name(str(_club["accent"]), "Third colour")]]
+	body.add_child(_sub("Guernsey colour"))
+	body.add_child(UiKit.choice_grid("ForgeBase", slots, str(kit[0]), 3, func(k):
+		if k == str(kit[1]):
+			kit[1] = kit[0]
+		kit[0] = k
+		_set_kit(kit)
+		_build()))
+	if str(_club["design"]) != "plain":
+		var others := []
+		for s in slots:
+			if str(s[0]) != str(kit[0]):
+				others.append(s)
+		body.add_child(_sub("Pattern colour"))
+		body.add_child(UiKit.choice_grid("ForgePattern", others, str(kit[1]), 2, func(k):
+			kit[1] = k
+			_set_kit(kit)))
+
+	body.add_child(UiKit.spacer(10))
+	_problem = UiKit.lbl("", UiKit.SMALL, UiKit.BAD)
+	_problem.name = "ForgeProblem"
+	_problem.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_problem.visible = false
+	body.add_child(_problem)
+	var save := UiKit.btn("Save club", 17, true)
+	save.name = "ForgeSaveClub"
+	save.custom_minimum_size.y = 48
+	save.pressed.connect(_on_save_club)
+	body.add_child(save)
+
+
+## A place fills in what the coach hasn't made his own: the name (while it is
+## still the last place's), the abbreviation (while it is still the one we
+## suggested), the ground, and - until a colour or design is picked - the
+## place's traditional colours and pattern from the library.
+func _pick_place(id: String) -> void:
+	var before := ClubForge.location(str(_club["location"]))
+	var loc := ClubForge.location(id)
+	var name := str(_club["name"]).strip_edges()
+	if name == "" or name == str(before.get("place", "")):
+		_club["name"] = str(loc.get("place", ""))
+	var code := str(_club["code"]).strip_edges()
+	if code == "" or code == _auto_code:
+		_auto_code = _suggest_code(str(loc.get("place", "")))
+		_club["code"] = _auto_code
+	_club["location"] = id
+	_club["ground"] = str(loc.get("ground", ""))
+	if not _kit_touched:
+		_club.merge(ClubForge.preset(loc), true)
+	_build()
+
+
+## Initials for a place of two or more words (Port Melbourne: PM), else its
+## first three letters (Norwood: NOR).
+func _suggest_code(place: String) -> String:
+	var words := place.replace("-", " ").split(" ", false)
+	var out := ""
+	if words.size() >= 2:
+		for w in words:
+			out += w.left(1)
+	else:
+		out = place.left(3)
+	return out.to_upper().left(4)
+
+
+func _set_kit(kit: Array) -> void:
+	for t in ["p", "s", "a"]:
+		if not kit.slice(0, 2).has(t):
+			kit[2] = t
+	_club["kit"] = "/".join(kit.slice(0, 3))
+	_kit_touched = true
+
+
+func _on_save_club() -> void:
+	var why := ClubForge.club_problem(_club)
+	if why != "":
+		_problem.text = why
+		_problem.visible = true
+		return
+	GameState.set_forge_club(_club)
+	_form = ""
+	_build()
+
+
+func _field(node_name: String, key: String, placeholder: String, longest: int) -> LineEdit:
+	var f := UiKit.search_field(str(_club[key]), placeholder)
+	f.name = node_name
+	f.clear_button_enabled = false
+	f.max_length = longest
+	f.text_changed.connect(func(t: String):
+		if key == "code":
+			var up := t.to_upper()
+			if up != t:
+				f.text = up
+				f.caret_column = up.length()
+			t = up
+		_club[key] = t)
+	return f
+
+
+## The football palette as swatches; the chosen colour outlined. A pick
+## repaints the row in place (no rebuild: the form keeps its scroll).
+func _palette(node_name: String, key: String) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.name = node_name
+	grid.columns = 8 if UiKit.view_width(self) < 520.0 else 15
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	var buttons := {}
+	var paint := func():
+		for hex in buttons:
+			var on := str(_club[key]).to_lower() == str(hex).to_lower()
+			var sb := UiKit.style(Color.html(hex), 0, UiKit.RADIUS, UiKit.TEXT if on else Color(UiKit.TEXT, 0.18))
+			sb.set_border_width_all(3 if on else 1)
+			for st in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+				(buttons[hex] as Button).add_theme_stylebox_override(st, sb)
+	for c in ClubForge.PALETTE:
+		var b := Button.new()
+		b.name = "%s_%s" % [node_name, c[0]]
+		b.tooltip_text = str(c[1])
+		b.custom_minimum_size = Vector2(44, 44)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var hex := str(c[2])
+		b.pressed.connect(func():
+			_club[key] = hex
+			_kit_touched = true
+			paint.call())
+		buttons[hex] = b
+		grid.add_child(b)
+	paint.call()
+	return grid
+
+
+func _colour_name(hex: String, fallback: String) -> String:
+	for c in ClubForge.PALETTE:
+		if str(c[2]).to_lower() == hex.to_lower():
+			return str(c[1])
+	return fallback
+
+
+func _club_colours(spec: Dictionary) -> Array:
+	var out := []
+	for key in ["primary", "secondary", "accent"]:
+		out.append(Color.from_string(str(spec.get(key, "")), Color.WHITE))
+	return out

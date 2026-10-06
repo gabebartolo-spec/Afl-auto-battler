@@ -224,6 +224,17 @@ func set_forge_player(spec: Dictionary) -> void:
 	set_setting("forge_player", spec.duplicate(true))
 
 
+## The club made in Club Forge (ARD-M7-009), kept outside any career like the
+## player: a ClubForge spec, or {}. New career brings it in (create_club).
+func forge_club() -> Dictionary:
+	var v = get_setting("forge_club", {})
+	return (v as Dictionary).duplicate(true) if v is Dictionary else {}
+
+
+func set_forge_club(spec: Dictionary) -> void:
+	set_setting("forge_club", spec.duplicate(true))
+
+
 func set_setting(key: String, value) -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(settings_path)

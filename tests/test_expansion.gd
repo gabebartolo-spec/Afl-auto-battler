@@ -330,6 +330,15 @@ func _test_created_club_rules() -> void:
 			and not GameDB.clubs.has("PMB") and GameDB.clubs.has("PMFC")
 			and GameDB.active_clubs(2027).size() == 19,
 			"Making the club again replaces it: one created club a career")
+	var kit := ClubForge.preset({"colour_tags": ["Navy blue", "red"], "pattern_tags": ["unknown", "hoops"]})
+	_check(kit.get("primary") == ClubForge.palette_hex("navy") and kit.get("secondary") == ClubForge.palette_hex("red")
+			and kit.get("accent") == ClubForge.palette_hex("white") and kit.get("design") == "hoops",
+			"A place's tradition becomes a starting kit: its colours, a third, its pattern")
+	_check(ClubForge.preset({"colour_tags": ["blue"], "pattern_tags": []}).is_empty(),
+			"A place with one known colour gives no starting kit")
+	var preset_spec := _forge_spec()
+	preset_spec.merge(ClubForge.preset({"colour_tags": ["black", "white"], "pattern_tags": ["stripes"]}), true)
+	_check(ClubForge.club_problem(preset_spec) == "", "A starting kit makes a valid club")
 	GameState.reset()
 	_check(not GameDB.clubs.has("PMFC") and GameDB.club_order == GameDB.CLUB_ORDER
 			and GameState.custom_club.is_empty(),
