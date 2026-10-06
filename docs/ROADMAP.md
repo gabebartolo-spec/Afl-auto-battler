@@ -5552,6 +5552,19 @@ From the director's chat with the lead, relayed; the director's own wording is t
 - **#291's rules adopted (now in CLAUDE.md, #433):** real-tap checks for touch flows, the art-loaded check, and change approach after repeated failure. No-clock-seeds was not chosen.
 - **#342 merged:** favourite club on bio cards and full match stats at every quarter break are recorded as TODO under their owners.
 
+## 2026-10-06 director decisions - later answers
+
+Quoted as the lead and the art agent recorded them on the PRs.
+
+- **The typeface (#419):** "Approve and merge". The ARD Signwriter family is the game's typeface.
+- **Match view truth fixes (#438) and the tactical timeline (#445):** "Merge on green" for both.
+- **#394 (hair review prototypes):** "Close it". Closed.
+- **Trade requests section (#383):** "looks good". The capture showed Barlow only because the branch predated the typeface; it takes current main before it merges.
+- **Match-day weather forecast:** "Keep as built". The forecast stays a fact on the Hub, known in the week.
+- **Wet-weather players:** "Evidence + stats". Whitfield and Dangerfield are named (published, measured: `docs/research/WET_WEATHER_PLAYERS.md`); everyone else earns the trait from the stat rule (contested 78 and disposal 72 or more).
+- **The weather look (art):** "Push them stronger". The wet, windy and hot looks go further than the first pass.
+- **Order after the truth fixes:** "all in order": the tactical timeline (M8-003 step 2), then match-day weather (M4-016), then intercepts by zone (M4-012).
+
 # 9.2 Research candidates — awaiting director selection
 
 The detailed evidence, trade-offs and prototype tests are in [GENRE_ENJOYMENT_RESEARCH.md §7](GENRE_ENJOYMENT_RESEARCH.md#7-research-candidates--awaiting-director-selection).
