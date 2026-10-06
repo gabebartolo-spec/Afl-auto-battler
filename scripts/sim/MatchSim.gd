@@ -827,6 +827,10 @@ const SHOT_ROLES := {"FWD": 1.0, "MID": 1.0, "RUCK": 0.35, "DEF": 0.06}
 ## taps it to them (calibrated 2026-10-06 to 3.8 a game, real 3.6; centre
 ## bounces pick from the attendees by contested work alone).
 const CLEARANCE_ROLES := {"MID": 1.0, "RUCK": 0.25, "FWD": 0.12, "DEF": 0.10}
+## A ball-up inside a side's own forward 50 is the forwards' ground: they win
+## it as often as a midfielder would, so the stoppages the ruck now taps on
+## don't all go to midfielders (item 18, 2026-10-06: keeps rating parity).
+const CLEARANCE_ROLES_F50 := {"MID": 1.0, "RUCK": 0.25, "FWD": 1.0, "DEF": 0.10}
 ## The clearance winner takes the chain's first disposal, as a clearance is
 ## in real football (director, 2026-10-06; evidence #363). The carrier pick is
 ## still drawn, so the rest of the chain's dice are where they were. Off only
@@ -1630,7 +1634,7 @@ func _ruck_tap() -> void:
 	_tap = {"side": first, "hits": hits, "adv": adv, "edge": edge}
 
 ## Returns the player credited with the clearance, or null.
-func _stoppage(side: int, opp: int, from_bounce: bool):
+func _stoppage(side: int, opp: int, from_bounce: bool, in_f50 := false):
 	if not from_bounce:
 		return null
 	var T := Ratings.T
@@ -1671,7 +1675,7 @@ func _stoppage(side: int, opp: int, from_bounce: bool):
 			# A centre clearance goes to someone who was there.
 			mid = _weighted(attend[side], "contested", 2.0, side, "clearance")
 		else:
-			mid = _weighted_roles(atk.ground, "contested", CLEARANCE_ROLES, 2.0, side, "clearance")
+			mid = _weighted_roles(atk.ground, "contested", CLEARANCE_ROLES_F50 if in_f50 else CLEARANCE_ROLES, 2.0, side, "clearance")
 		_p(mid, "clearances")
 		return mid
 	return null
@@ -1746,9 +1750,8 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 	var gline := float(T["goal_line"])
 
 	_t(side, "chains")
-	var cleared = _stoppage(side, opp, from_bounce)
-
 	var atk_fp := fp if side == 0 else -fp
+	var cleared = _stoppage(side, opp, from_bounce, atk_fp >= f50)
 	# A chain that starts inside its forward 50 (a ball-up won there) goes
 	# through the normal entry below on its first disposal, so it can score.
 	var touched_i50 := false
