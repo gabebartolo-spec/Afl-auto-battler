@@ -5,8 +5,10 @@ extends RefCounted
 ##  - the box score against real 2026 (tools/balance/afl_role_rates.json);
 ##  - share of chains on the ground (time on ground);
 ##  - stoppage chains: who wins the clearance, who has the first disposal, and
-##    how often the clearance winner is the one who disposes of it.
-## Env: RM_DRAFTS (default 21,22).
+##    how often the clearance winner is the one who disposes of it;
+##  - holding-the-ball frees against, a game and per 100 disposals.
+## Env: RM_DRAFTS (default 21,22); CLEARANCE_KEEPS=0 runs the old rule as a
+## baseline (the first carrier from the whole ground; MatchSim.clearance_keeps).
 
 const ROLES := ["DEF", "MID", "FWD", "RUCK"]
 const STATS := ["disposals", "kicks", "handballs", "clearances", "hitouts", "marks",
@@ -21,6 +23,8 @@ func run() -> void:
 		drafts = []
 		for s in OS.get_environment("RM_DRAFTS").split(","):
 			drafts.append(int(s))
+	MatchSim.clearance_keeps = OS.get_environment("CLEARANCE_KEEPS") != "0"
+	print("clearance_keeps ", MatchSim.clearance_keeps)
 	var T := Ratings.T
 	var sums := {}      # role -> {stat: total}
 	var pg := {}        # role -> player-games
@@ -30,6 +34,7 @@ func run() -> void:
 	var first_role := {}  # role -> first disposals of stoppage chains
 	var clr_self := 0   # clearance winner also had the first disposal
 	var clr_n := 0
+	var htb := {}       # role -> holding-the-ball frees against
 	for r in ROLES:
 		sums[r] = {}
 		pg[r] = 0
@@ -93,6 +98,10 @@ func run() -> void:
 							var fr := str(role_of.get(first, ""))
 							first_role[fr] = int(first_role.get(fr, 0)) + 1
 					sim.end_quarter()
+				for e in sim.events:
+					if str(e.get("kind", "")) == "free" and str(e.get("free_cause", "")) == "holding_ball":
+						var hr := str(role_of.get(str(e.get("against_id", "")), ""))
+						htb[hr] = int(htb.get(hr, 0)) + 1
 				var res := sim.result()
 				for side_r in sim.rosters():
 					for p in side_r:
@@ -123,6 +132,11 @@ func run() -> void:
 	for r in ROLES:
 		cells2.append("%.0f%%" % (100.0 * float(on[r]) / maxf(1.0, float(avail[r]))))
 	print("| time on ground (chains) | %s |" % " | ".join(cells2))
+	var cells3 := PackedStringArray()
+	for r in ROLES:
+		cells3.append("%.2f a game, %.2f per 100 disposals" % [float(htb.get(r, 0)) / maxf(1.0, float(pg[r])),
+				100.0 * float(htb.get(r, 0)) / maxf(1.0, float(sums[r].get("disposals", 0.0)))])
+	print("| holding the ball against | %s |" % " | ".join(cells3))
 	print("")
 	print("## Stoppage chains")
 	print("clearances %d; the clearance winner also had the chain's first disposal %.0f%%" % [clr_n, 100.0 * clr_self / maxf(1, clr_n)])
