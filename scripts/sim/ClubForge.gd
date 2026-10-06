@@ -26,8 +26,56 @@ const SHORT_MAX := 16
 ## How far apart (RGB distance, 0-1.73) the guernsey and its pattern must be
 ## for the design to read on a small screen.
 const MIN_CONTRAST := 0.25
+## The football colours a created club picks from: [id, name, hex].
+const PALETTE := [
+	["navy", "Navy", "#13234B"], ["blue", "Royal blue", "#1F4FA8"], ["sky", "Light blue", "#6CACE4"],
+	["teal", "Teal", "#00808A"], ["green", "Green", "#1E6B3A"], ["maroon", "Maroon", "#6E1F2E"],
+	["red", "Red", "#C8102E"], ["orange", "Orange", "#E8762B"], ["gold", "Gold", "#F2B231"],
+	["yellow", "Yellow", "#F7D417"], ["brown", "Brown", "#5C3A21"], ["purple", "Purple", "#4B2A7B"],
+	["grey", "Grey", "#8A8D91"], ["black", "Black", "#111111"], ["white", "White", "#F5F5F5"],
+]
+## The location library's colour words, as palette ids.
+const TAG_COLOURS := {
+	"navy": "navy", "navy blue": "navy", "dark blue": "navy", "blue": "blue", "royal blue": "blue",
+	"light blue": "sky", "sky blue": "sky", "teal": "teal", "green": "green", "bottle green": "green",
+	"maroon": "maroon", "red": "red", "orange": "orange", "gold": "gold", "old gold": "gold",
+	"yellow": "yellow", "brown": "brown", "purple": "purple", "grey": "grey", "black": "black", "white": "white",
+}
 
 static var _locations: Array = []
+
+
+static func palette_hex(id: String) -> String:
+	for c in PALETTE:
+		if str(c[0]) == id:
+			return str(c[2])
+	return ""
+
+
+## A place's football tradition as a starting kit: its colours (the library's
+## tags, in order, a third added when it lists two) and its traditional
+## pattern - {primary, secondary, accent, design, kit} - or {} when the
+## library knows fewer than two of its colours.
+static func preset(loc: Dictionary) -> Dictionary:
+	var ids := []
+	for t in loc.get("colour_tags", []):
+		var id := str(TAG_COLOURS.get(str(t).to_lower(), ""))
+		if id != "" and not ids.has(id):
+			ids.append(id)
+	if ids.size() < 2:
+		return {}
+	for spare in ["white", "black", "gold"]:
+		if ids.size() >= 3:
+			break
+		if not ids.has(spare):
+			ids.append(spare)
+	var design := "plain"
+	for p in loc.get("pattern_tags", []):
+		if DESIGNS.has(str(p)):
+			design = str(p)
+			break
+	return {"primary": palette_hex(ids[0]), "secondary": palette_hex(ids[1]), "accent": palette_hex(ids[2]),
+			"design": design, "kit": "p/s/a"}
 
 
 static func locations() -> Array:
