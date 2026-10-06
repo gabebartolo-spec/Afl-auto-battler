@@ -4039,6 +4039,8 @@ Do not overpower player/team quality.
 
 ### Director playtest follow-up — strengths and weaknesses (2026-10-07)
 
+- **Tattoo and bandaging creator controls — required director correction (`P0` usability follow-up, 2026-10-07):** the shipped None/Light/Heavy controls expose only density, not the requested tattoo library. Reconcile creator controls with the existing rose, snake, barbed wire, bird, 666, love heart, Southern Cross and verified Asian-script lettering requirements. Audit which designs are actually rendered versus persistence/UI placeholders; report incomplete asset work honestly rather than presenting unsupported selections as finished. Provide visual design/placement choices and clear/remove controls, reflected immediately in the live character preview and preserved on save/reopen. Bandaging must allow head, knee, shoulder, elbow and broken-nose tape choices independently, with left/right where relevant and sensible combinations. These replace the Light/Heavy-only bandaging selector; all remain cosmetic. Coordinate renderer/assets with the Art Agent and verify preview-to-match consistency.
+
 - **Live character visualisation — required director usability fix, `P0`, ASAP playtest:** show the complete character throughout creation, using the game's actual player rendering and available appearance options. Update the preview immediately as appearance choices change (including body/height proportions where supported, skin, hair and kit), with enough detail to assess the result. Keep the preview visible alongside active controls on desktop and usable without losing editing context on phone. Display entered name and selected football profile alongside the character, without revealing hidden OVR/POT or implying strengths/weaknesses change physical appearance. The saved character's in-game appearance must match the preview. Verify repeated edits and save/reopen in a runnable playtest build; static screenshots alone are insufficient. Coordinate ARD-M7-008, Club Forge and existing art/UI ownership so both creation flows provide immediate visual feedback rather than walls of controls.
 
 - **Required UI fix:** exclude attributes already selected as strengths from the weakness choices, and vice versa. Update both lists immediately as selections change; deselecting an attribute makes it available in the opposite list again. Validate at save/creation too so an attribute cannot be both a strength and weakness. Preserve valid selections and verify repeated select/deselect interactions rather than relying on screenshots.
@@ -4086,8 +4088,8 @@ Player-facing choices should stay concise:
 - **boots** with a small set of silhouettes/colour treatments (black, white and restrained club-colour accents),
 - **sock height: Tall socks / Short socks**,
 - **headband: On / Off**,
-- **bandaging: None / Light / Heavy** using restrained football-appropriate placements,
-- **tattoos: None / Light / Heavy** using original generic tattoo treatments rather than copied real-player or culturally specific designs.
+- **bandaging: selectable head, knee, shoulder, elbow and broken-nose tape**, with clear/remove controls and individual placement choices (supersedes the Light/Heavy-only UI, director 2026-10-07),
+- **tattoos: selectable original designs and placements from the director-requested motif library below**, with None/remove controls; Light/Heavy density alone does not fulfil the design selector requirement.
 
 All appearance choices are cosmetic only **except dominant foot**, which may affect football behaviour as described below. Cosmetic options must not affect ratings, role suitability, stamina, injuries, aggression, personality or any other football outcome.
 
@@ -4317,8 +4319,8 @@ Appearance customisation should include:
 - **Boots** with a compact set of silhouettes and colour treatments,
 - **Tall socks / Short socks**,
 - **Headband On / Off**,
-- **Bandaging None / Light / Heavy**,
-- **Tattoos None / Light / Heavy**.
+- **Bandaging by location: head, knee, shoulder, elbow and broken-nose tape**,
+- **Tattoos by selectable original design and placement**, with optional density variation and None/remove controls.
 
 Persist these on the player and use them consistently anywhere visible: creator preview, match figures, vignettes and future portrait/full-body presentation.
 
