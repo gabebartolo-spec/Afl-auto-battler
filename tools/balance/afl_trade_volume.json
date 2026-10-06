@@ -1,0 +1,70 @@
+{
+ "_about": "Real AFL trade volume per trade period, counted from DraftGuru's per-year trade pages by tools/balance/build_trade_volume.py. player_trades = trades that moved at least one player; pick_only_trades = the rest. players_moved counts players, not draft picks. player_initiated (trade requests: going home, opportunity, out of contract) is null: it is not stated per year on these pages or by one source, so it is not guessed.",
+ "sources": [
+  "https://www.draftguru.com.au/trades/year/2019",
+  "https://www.draftguru.com.au/trades/year/2020",
+  "https://www.draftguru.com.au/trades/year/2021",
+  "https://www.draftguru.com.au/trades/year/2022",
+  "https://www.draftguru.com.au/trades/year/2023",
+  "https://www.draftguru.com.au/trades/year/2024",
+  "https://www.draftguru.com.au/trades/year/2025"
+ ],
+ "years": {
+  "2019": {
+   "total_trades": 52,
+   "player_trades": 25,
+   "pick_only_trades": 27,
+   "players_moved": 27,
+   "clubs_in_a_trade": 18,
+   "player_initiated": null
+  },
+  "2020": {
+   "total_trades": 48,
+   "player_trades": 24,
+   "pick_only_trades": 24,
+   "players_moved": 26,
+   "clubs_in_a_trade": 18,
+   "player_initiated": null
+  },
+  "2021": {
+   "total_trades": 29,
+   "player_trades": 13,
+   "pick_only_trades": 16,
+   "players_moved": 15,
+   "clubs_in_a_trade": 17,
+   "player_initiated": null
+  },
+  "2022": {
+   "total_trades": 38,
+   "player_trades": 26,
+   "pick_only_trades": 12,
+   "players_moved": 31,
+   "clubs_in_a_trade": 18,
+   "player_initiated": null
+  },
+  "2023": {
+   "total_trades": 43,
+   "player_trades": 24,
+   "pick_only_trades": 19,
+   "players_moved": 27,
+   "clubs_in_a_trade": 18,
+   "player_initiated": null
+  },
+  "2024": {
+   "total_trades": 33,
+   "player_trades": 13,
+   "pick_only_trades": 20,
+   "players_moved": 21,
+   "clubs_in_a_trade": 18,
+   "player_initiated": null
+  },
+  "2025": {
+   "total_trades": 43,
+   "player_trades": 25,
+   "pick_only_trades": 18,
+   "players_moved": 27,
+   "clubs_in_a_trade": 18,
+   "player_initiated": null
+  }
+ }
+}
