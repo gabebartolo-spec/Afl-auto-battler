@@ -3906,7 +3906,6 @@ Player-facing choices should stay concise:
 - **facial hair** from a dedicated beard/moustache library,
 - **facial-hair colour** independently selectable from hair colour,
 - **skin tone**,
-- **subtle scars: None / Light / Moderate**,
 - **boots** with a small set of silhouettes/colour treatments (black, white and restrained club-colour accents),
 - **sock height: Tall socks / Short socks**,
 - **headband: On / Off**,
@@ -4138,7 +4137,6 @@ Appearance customisation should include:
 - **Facial hair** from a dedicated beard/moustache library,
 - **Facial-hair colour**, independently selectable,
 - **Skin tone**,
-- **Scars None / Light / Moderate**, kept subtle and believable,
 - **Boots** with a compact set of silhouettes and colour treatments,
 - **Tall socks / Short socks**,
 - **Headband On / Off**,
@@ -5410,6 +5408,7 @@ From the director's chat with the lead, relayed with the director's words where 
 - **Clearance winner keeps the first disposal** (option 1 of the ruck and midfield disposals evidence). The medium agent is implementing it, with a calibration and finals re-run.
 - **Create a club screen approved.** Director: "looks fantastic, well done". It merges after the Create a player form and the Create a club engine, because it is built on both.
 - **Freckles removed from the player look.** Confirmed in the director's own words: "i alreeady said to delete freckles from the game".
+- **Scars removed from the player look.** Director, in chat with the lead, 2026-10-06: "remove scarring from the game, unnecessary detail". The look keeps no scars key; old saves that carry one load fine and ignore it, and no generated player's look changes.
 
 # 9.2 Research candidates — awaiting director selection
 
@@ -5893,6 +5892,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Scars removed from the player look (director, in chat with the lead: "remove scarring from the game, unnecessary detail"); the Club Forge look specification no longer lists them.
 
 - **2026-10-06:** STYLE-07 (PC fullscreen readability) is IN REVIEW in #371, with the cause and fix recorded; it is DONE only after the director's PC review.
 
