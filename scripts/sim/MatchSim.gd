@@ -2704,12 +2704,16 @@ func _play_one_chain(T: Dictionary) -> void:
 		return
 
 	# Goal: centre bounce. Behind: the other side kicks in (fp is already the
-	# goal square). A free gives the other side possession at the crossing;
-	# a boundary exit restarts with a contested throw-in at the same fp.
+	# goal square). A free goes to whoever it was paid to: usually the other
+	# side, but a free to the side in possession (high contact on the
+	# carrier, a forward held in a marking contest) keeps the ball with it.
+	# A boundary exit restarts with a contested throw-in at the same fp.
 	at_centre = (outcome == "score")
 	kick_in = (outcome == "behind")
 	boundary_throw_in = (outcome == "boundary")
 	next_side = (1 - side) if ["turnover", "behind", "free"].has(outcome) else -1
+	if outcome == "free" and res.has("free_side"):
+		next_side = int(res["free_side"])
 	_prev_end = outcome
 	if outcome == "score":
 		fp = 0.0
