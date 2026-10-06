@@ -27,6 +27,7 @@ func run() -> void:
 	_test_expansion_ceilings()
 	_test_created_club_rules()
 	_test_created_club_career()
+	_test_club_count_defaults()
 	GameState.reset()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
@@ -390,3 +391,12 @@ func _test_created_club_career() -> void:
 	_check(GameState.my_club == "PMB" and (GameState.season.lists["PMB"] as Array).size() == mine.size(),
 			"The created club's list survives the round trip")
 
+## A club with no recorded expectation or goal position follows the club count,
+## not 18 (a created club makes a league of 19 to 21).
+func _test_club_count_defaults() -> void:
+	_check(ClubLife.default_rank(18) == 9 and ClubLife.default_rank(21) == 10,
+			"With no expectation a club is taken as mid-table: 9 of 18, 10 of 21")
+	_check(ClubLife.goal_met({}, 21, 0, 21) and not ClubLife.goal_met({}, 19, 0),
+			"A goal with no position asks the club count: 21st of 21 meets it, 19th of 18 does not")
+	_check(ClubLife.goal_met({"pos": 12}, 12, 0, 21) and not ClubLife.goal_met({"pos": 12}, 13, 0, 21),
+			"A set goal position is not moved by the club count")

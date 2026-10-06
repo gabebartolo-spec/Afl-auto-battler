@@ -6022,7 +6022,7 @@ func _board_season_end() -> void:
 		return
 	var row := my_ladder_row()
 	var goal: Dictionary = board.get("goal", {})
-	var met := ClubLife.goal_met(goal, my_position(), int(row.get("w", 0)))
+	var met := ClubLife.goal_met(goal, my_position(), int(row.get("w", 0)), season.clubs.size())
 	var conf := ClubLife.after_season(board_confidence(), met, premier() == my_club)
 	var verdict := "The board is delighted." if met else "The board is disappointed."
 	if conf < ClubLife.WARN_LINE:
@@ -6308,14 +6308,15 @@ func _coaching_offseason() -> void:
 		return
 	var results := {}
 	var table := season.ladder_sorted()
+	var club_count := table.size()
 	for i in range(table.size()):
 		var row: Dictionary = table[i]
 		var code := str(row["code"])
-		var goal: Dictionary = club_goals.get(code, ClubLife.board_goal(int(club_expect.get(code, 9))))
+		var goal: Dictionary = club_goals.get(code, ClubLife.board_goal(int(club_expect.get(code, ClubLife.default_rank(club_count)))))
 		var pos := i + 1
-		var met := ClubLife.goal_met(goal, pos, int(row.get("w", 0)))
+		var met := ClubLife.goal_met(goal, pos, int(row.get("w", 0)), club_count)
 		results[code] = {"met": met, "finals": pos <= Season.FINALISTS,
-				"severe": not met and pos >= table.size() - 2 and int(club_expect.get(code, 18)) <= 10}
+				"severe": not met and pos >= table.size() - 2 and int(club_expect.get(code, club_count)) <= 10}
 	var out := CoachMarket.offseason({"coaches": coaches, "archive": coach_archive,
 			"year": season_year, "my_club": my_club, "clubs": GameDB.active_clubs(season_year + 1),
 			"results": results, "premier": premier(), "seed": career_seed})

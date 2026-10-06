@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06. Since the last board merged: #325, #331 (18 + 5, All-Australian 23, dual ruck), #336-#339, #343, #344, #346, #350 (docs and tests from low; #343 is the Forge location tags)._
+_Updated 2026-10-06. Since the last board merged: #347, #351, #353-#355 (selection seed, South Adelaide's home design, the board refresh, the freckles line in the roadmap, and the free-kicks re-measure; low's docs and tests)._
 
 ## Lanes
 | agent (session) | owns |
@@ -22,11 +22,23 @@ _Updated 2026-10-06. Since the last board merged: #325, #331 (18 + 5, All-Austra
 | low | none now (`.github/workflows`, `tools/ci_shards.txt`, `UiKit.scroll` and the Training-row fix #277 are all merged); STATUS.md and the merge queue | ongoing |
 | art | `BroadcastVignette.gd` (draw functions only; `pick_kind`, `DURATIONS` untouched); `VignetteFigures.gd`, `assets/vignette/figures_*.png` (sheet being regenerated); `StoppageVignette._draw_figure`; `tools/visual/capture_appearance.gd`, `capture_guernseys.gd`, new `capture_broadcast.gd`; standing: `figure.gdshader`, `clubs.csv` guernsey column, `GameDB.club_guernsey`, `player_appearance.csv`, `Appearance.gd`. Next, in order: `AwardWinnerVignette.gd`, `MediaConferenceVignette.gd` | M8-007 migration |
 
+## Waiting on the director
+**Looks** (appearance or screens; the director's own words needed before they merge):
+- #360 Create a club screen (draft); #303 break-screen call; #309 Club Forge Create a player.
+- The art agent's Forge hair and face sheet and boot sheet.
+
+**Own-words confirmations** (the decision reached the agents second-hand; held until the director says it on the PR or in the chat):
+- #299 vignettes (the art agent relayed "fine, ship it"); #357 remove freckles from the player look. The roadmap line removing freckles (#354) is merged and says "relayed"; it is reverted if the director does not confirm.
+
+**Decisions** (evidence is in; each lists the lead's recommendation):
+- #362 flags: options for what makes management pay. The lead recommends the trade period at real volume (option 1).
+- #363 ruck and midfield disposals: should the clearance winner keep the first disposal? The lead recommends option 1.
+- The older decisions are under "Pending director decisions" below.
+
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- In flight on CI, merged in this order: #347 (selection seed), #349 (C15 seed guard, plus roles pinned), #351 (South Adelaide home design), #352 (ROADMAP ARD-M7-009 status; combines with #340's wording if #340 lands first), then #345 (CI shard rebalance, re-timed after #331; medium W7).
-- Under review: #340 (Club Forge Create a club engine, lead; medium W7 posted; depends on the fair fixture for 21 clubs). #342 (codex docs: favourite-club bios and full stats at quarter breaks) is docs only but conflicts with main; its owner syncs it, then low merges on green.
-- Waiting on the director's look: #303 (break-screen call; its match_game floor becomes 254 against the real count, recount after #331), #309 (Club Forge Create a player), #299 (draft: vignette fixes), and the art agent's Forge hair contact sheet. #291 is the director's Codex research: do not merge.
-- Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval).
+- In flight on CI, in this order: #352 (ROADMAP ARD-M7-009 status), then #340 (Club Forge Create a club engine, lead; medium W7 done), #349 (C15 seed guard, plus roles pinned), #359 (board goals follow the club count), #345 (CI shard rebalance, merges only if it beats main's slowest shard in 2 of 3 runs), then #361 (the fair fixture, after medium's nits and the expansion-floor recount).
+- Review by the lead: #362, #363 (evidence docs, medium's); low posted a copy check on both. #342 (codex docs) conflicts with main and needs its owner to sync.
+- Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval). #291 is the director's Codex research: do not merge.
 - On main, awaiting the director's look: #276 press conference, #277 Training-row alignment.
 
 ## In progress
@@ -37,14 +49,13 @@ _Updated 2026-10-06. Since the last board merged: #325, #331 (18 + 5, All-Austra
 ## Open PRs and dependencies
 | PR | owner | notes |
 |---|---|---|
-| #347, #349 | low | selection seed; C15 guard (merge #347 first) |
-| #351, #352 | low | South Adelaide design; ARD-M7-009 status (#351 first) |
-| #345 | low | CI shard rebalance; medium W7 |
-| #340 | lead | Club Forge Create a club engine; W7 posted |
+| #352, #340, #349, #359 | low and lead | queue order above; #340 also needs #361 for 21 clubs |
+| #361 | medium | the fair fixture; recounts the expansion floor with #359 |
+| #345 | low | CI shard rebalance, re-timed |
+| #362, #363 | medium | evidence for the director's decisions |
 | #342 | codex | favourite-club bios and quarter-break stats, ROADMAP only; needs a sync with main |
-| #303 | medium | break-screen call; director's phone look |
-| #309 | lead | Club Forge Create a player; director's look |
-| #299 | art | draft, vignette fixes; director's look |
+| #299, #357 | art and medium | held for the director's own words |
+| #360, #303, #309 | lead and medium | director's look |
 | #291 | director | Codex research and playbook; do not merge |
 | #206 | director | superseded by #208; close |
 
