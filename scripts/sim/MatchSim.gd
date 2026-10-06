@@ -1375,18 +1375,71 @@ func _pick_presser(side: int, zone: int):
 	return _pick(group, weights)
 
 
+## Who contests a long kick in general play, by where it lands, from the
+## defending side's view (ARD-M4-012, the director: "any player can intercept,
+## but the loose defender should get more intercepts if he's good at it").
+## Champion Data 2025: defenders win about 57% of intercepts, midfielders 23%,
+## forwards 15% and rucks 4% (docs/research/INTERCEPT_EVIDENCE.md).
+const AERIAL_ROLES := {
+	"back": {"DEF": 1.0, "MID": 0.45, "RUCK": 0.3, "FWD": 0.05},
+	"middle": {"MID": 1.0, "DEF": 0.6, "RUCK": 0.5, "FWD": 0.35},
+	"forward": {"FWD": 1.0, "MID": 0.75, "RUCK": 0.3, "DEF": 0.1},
+}
+## The named loose defender reads it better in his own half and the middle:
+## his weight grows with his intercept rating, up to double.
+const LOOSE_READ := 1.0
+## Of the contests the defender wins, the share he marks (an intercept
+## mark, the ball turned over) rather than spoils; a better reader marks more.
+const INTERCEPT_MARK := 0.35
+## Audits only: false plays the old contest (defenders and midfielders, no
+## intercept marks) for a before/after on the same seeds.
+static var zone_intercepts := true
+
+
+## Where a contest at `fp` is, from `def_side`'s view: its back half, the
+## middle, or its forward half (the other side's back half).
+func _aerial_zone(def_side: int, fp: float) -> String:
+	var x := fp if def_side == 0 else -fp
+	if x < -35.0:
+		return "back"
+	return "middle" if x <= 35.0 else "forward"
+
+
+## The defending player in a general-play aerial contest at `fp`.
+func _aerial_defender(def_side: int, fp: float):
+	var zone := _aerial_zone(def_side, fp)
+	var roles: Dictionary = AERIAL_ROLES[zone]
+	var group: Array = (squads[def_side] as Squad).ground
+	var loose := str(interceptor[def_side])
+	var weights := []
+	for p in group:
+		var w := float(roles.get(str(p["role"]), 0.0)) * pow(maxf(1.0, _a(p, "intercept")), 2.0)
+		if loose != "" and str(p["id"]) == loose and zone != "forward":
+			w *= 1.0 + LOOSE_READ * _a(p, "intercept") / 100.0
+		weights.append(w)
+	return _pick(group, weights) if not group.is_empty() else null
+
+
 ## General-play aerial contest on an unmarked kick. We only create one when
-## the kick has enough length to plausibly be contested. A spoil is a fist to
-## a real contest and leaves the ball loose; it is never automatic possession.
+## the kick has enough length to plausibly be contested. The defender who wins
+## it either marks it (an intercept: the ball is turned over) or spoils it,
+## which leaves the ball loose.
 func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bool) -> Dictionary:
 	if rushed or gain < 18.0 or aerial_rng.randf() >= 0.22:
 		return {}
 	var opp := 1 - side
 	var receiver = pick_carrier(side, mark_fp)
-	var defenders := _by_roles((squads[opp] as Squad).ground, ["DEF", "MID"])
-	if receiver == null or defenders.is_empty():
+	if receiver == null:
 		return {}
-	var defender = _weighted(defenders, "intercept", 2.0, opp, "defender")
+	var defender = null
+	if zone_intercepts:
+		defender = _aerial_defender(opp, mark_fp)
+	else:
+		var old := _by_roles((squads[opp] as Squad).ground, ["DEF", "MID"])
+		if not old.is_empty():
+			defender = _weighted(old, "intercept", 2.0, opp, "defender")
+	if defender == null:
+		return {}
 	var receive := _a(receiver, "marking")
 	var stop := 0.62 * _a(defender, "intercept") + 0.38 * _a(defender, "marking")
 	var mark_p := clampf(0.34 + (receive - stop) / 240.0
@@ -1408,6 +1461,18 @@ func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bo
 	var spoil_p := clampf(0.36 + (stop - receive) / 220.0
 			+ (0.07 if _trait(defender, "interceptor") else 0.0), 0.20, 0.65)
 	if roll < mark_p + spoil_p:
+		if zone_intercepts and aerial_rng.randf() < INTERCEPT_MARK * (0.6 + 0.8 * _a(defender, "intercept") / 100.0):
+			_intercept(opp, defender, false)
+			_t(opp, "marks")
+			_p(defender, "marks")
+			_t(opp, "intercept_marks")
+			_p(defender, "intercept_marks")
+			_emit("mark", opp, mark_fp, defender,
+					"%s intercepts it on the mark" % GameDB.player_display_name(defender))
+			var iev: Dictionary = events[events.size() - 1]
+			iev["general_play"] = true
+			iev["intercept"] = true
+			return {"outcome": "turnover", "fp": mark_fp, "actor": defender}
 		_t(opp, "spoils")
 		_p(defender, "spoils")
 		_t(opp, "one_percenters")
@@ -1952,6 +2017,8 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			if not aerial.is_empty():
 				if str(aerial.get("outcome", "")) == "loose":
 					return {"outcome": "loose", "fp": fp, "actor": aerial.get("actor")}
+				if str(aerial.get("outcome", "")) == "turnover":
+					return aerial
 				# A mark keeps the same side's chain alive at the new field
 				# position. It is not another disposal by the original kicker.
 				pending = carrier

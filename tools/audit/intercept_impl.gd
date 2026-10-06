@@ -6,7 +6,8 @@ extends RefCounted
 ## defensive 50, defensive midfield, attacking midfield, forward 50), beside
 ## Champion Data's 2025 numbers (docs/research/INTERCEPT_EVIDENCE.md). The
 ## named loose defender (MatchSim.interceptor) is shown on his own line.
-## Env: IC_DRAFTS (default 21,22).
+## Env: IC_DRAFTS (default 21,22); IC_OLD=1 plays the old contest
+## (MatchSim.zone_intercepts off) on the same seeds, for a before/after.
 
 const ROLES := ["DEF", "MID", "FWD", "RUCK"]
 ## Champion Data 2025 (Wheelo): intercepts a game and share of all intercepts.
@@ -22,7 +23,11 @@ func run() -> void:
 		drafts = []
 		for s in OS.get_environment("IC_DRAFTS").split(","):
 			drafts.append(int(s))
+	MatchSim.zone_intercepts = OS.get_environment("IC_OLD") != "1"
+	print("zone_intercepts ", MatchSim.zone_intercepts)
 	var ic := {}
+	var imk := {}
+	var team := {"score": 0.0, "marks": 0.0, "intercepts": 0.0, "inside50": 0.0, "clangers": 0.0}
 	var games := {}
 	var zones := {}
 	var loose_ic := 0.0
@@ -31,6 +36,7 @@ func run() -> void:
 	var matches := 0
 	for r in ROLES:
 		ic[r] = 0.0
+		imk[r] = 0.0
 		games[r] = 0
 		zones[r] = {}
 	for d in drafts:
@@ -48,6 +54,9 @@ func run() -> void:
 				var loose := [str(sim.interceptor[0]), str(sim.interceptor[1])]
 				var res := sim.run()
 				matches += 1
+				for side in range(2):
+					for k in team:
+						team[k] = float(team[k]) + (float(res["score"][side]) if k == "score" else float((res["team"][side] as Dictionary).get(k, 0.0)))
 				var stats: Dictionary = res["players"]
 				for side in range(2):
 					for p in (res["roster"][side] as Array):
@@ -60,6 +69,7 @@ func run() -> void:
 							continue
 						var n := float(st.get("intercepts", 0.0))
 						ic[r] = float(ic[r]) + n
+						imk[r] = float(imk[r]) + float(st.get("intercept_marks", 0.0))
 						games[r] = int(games[r]) + 1
 						total += n
 						if id == loose[side]:
@@ -78,11 +88,16 @@ func run() -> void:
 					if zones.has(r2):
 						(zones[r2] as Dictionary)[z] = int((zones[r2] as Dictionary).get(z, 0)) + 1
 	print("intercept_impl: %d matches (drafts %s)" % [matches, str(drafts)])
-	print("%-6s %10s %10s %10s %10s" % ["role", "a game", "real", "share", "real"])
+	print("%-6s %10s %10s %10s %10s %12s" % ["role", "a game", "real", "share", "real", "int. marks"])
 	for r in ROLES:
 		var pg := float(ic[r]) / float(maxi(1, int(games[r])))
-		print("%-6s %10.2f %10.1f %9.0f%% %9.0f%%" % [r, pg, float(REAL[r][0]),
-				100.0 * float(ic[r]) / maxf(1.0, total), float(REAL[r][1])])
+		print("%-6s %10.2f %10.1f %9.0f%% %9.0f%% %12.2f" % [r, pg, float(REAL[r][0]),
+				100.0 * float(ic[r]) / maxf(1.0, total), float(REAL[r][1]),
+				float(imk[r]) / float(maxi(1, int(games[r])))])
+	var tl := "per team a game:"
+	for k in team:
+		tl += "  %s %.1f" % [k, float(team[k]) / float(maxi(1, matches * 2))]
+	print(tl)
 	print("loose defender: %.2f a game over %d games (real best ~8)" % [loose_ic / float(maxi(1, loose_games)), loose_games])
 	print("per team a game: %.1f" % (total / float(maxi(1, matches * 2))))
 	print("where (intercept events by role, share of that role's):")
