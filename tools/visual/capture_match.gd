@@ -53,14 +53,15 @@ func _run() -> void:
 			int(args.get("seed", "42")))
 	if args.has("loose"):
 		# --loose SIDE: that side plays its best interceptor loose.
+		# Loaded, not named: a --script tool compiles before the autoloads exist.
 		var ls := int(args["loose"])
-		var best := Matchups.best_interceptor((sim.squads[ls] as Squad).ground, 0.0)
+		var best: Dictionary = load("res://scripts/sim/Matchups.gd").best_interceptor(sim.squads[ls].ground, 0.0)
 		if not best.is_empty():
 			sim.set_interceptor(ls, str(best["id"]), false)
 	if args.has("tag"):
 		# --tag SIDE: that side tags the other side's best midfielder.
 		var ts := int(args["tag"])
-		var mids: Array = (sim.squads[1 - ts] as Squad).ground.filter(func(p): return str(p["role"]) == "MID")
+		var mids: Array = (sim.squads[1 - ts].ground as Array).filter(func(p): return str(p["role"]) == "MID")
 		mids.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
 		if not mids.is_empty():
 			sim.set_tactics(ts, {"gameplan": "balanced", "tag_id": str(mids[0]["id"])})
