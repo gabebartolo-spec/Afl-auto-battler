@@ -2037,6 +2037,7 @@ Check:
 
 ## ARD-M4-004 — Structural coaching choices
 **Status:** `PARTIAL` — roaming-interceptor contests and accountable-spare response exist; broader structural outcomes and readable costs remain to validate/refine. _(code reconciled 2026-10-05)_  
+**Progress (2026-10-06):** send a forward to the other side's loose defender merged in #303 (director: merge as built, forwards only; a check makes sure no midfielder or defender is offered).  
 **Priority:** `P2`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -2356,7 +2357,7 @@ Goal: make player deployment intuitive, footy-authentic and consequential.
 
 ## ARD-M4-013 — Set shots: three visibly different choices, and a real pack for the bomb
 **Status:** `IN PROGRESS` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
-**Progress (2026-10-06):** the sim half is a draft in #467 (medium; calibration audits running); the view half is the lead's, on `claude/set-shots-view`. Event contract: every event a set-shot call produces carries `"choice"` (shoot, pass or bomb), and its result also carries `"setshot": true`. A pass records a `"pass"` event, then either a rebound (intercept) or a `"receive"` mark with the teammate 15 m nearer goal (10 to 30 m out) shooting from there. A bomb records one `"pack"` event at the goal square with an `"outcome"` of marked, spoiled (a crumber may gather and snap), defence or through. Pack odds come from the forward's marking against the best pack defender. The AI never gets the call. The baseline audit (`setshot_impl`, #463) is the before.  
+**Progress (2026-10-06):** the sim half is #467 (medium) and the view half is #471 (the lead); the baseline audit (`setshot_impl`, #463) is the before. Event contract: every event a set-shot call produces carries `"choice"` (shoot, pass or bomb), and its result also carries `"setshot": true`. A pass records a `"pass"` event, then either a rebound (intercept) or a `"receive"` mark with the teammate 15 m nearer goal (10 to 30 m out) shooting from there. A bomb records one `"pack"` event at the goal square with an `"outcome"` of marked, spoiled (a crumber may gather and snap), defence or through. Pack odds come from the forward's marking against the best pack defender. The AI never gets the call. The baseline audit (`setshot_impl`, #463) is the before.  
 
 **Director decision (2026-10-06):** "should be 3 visibly different sequences, but also add a pack contest, also gives an opportunity for a crumber to pick up a spoiled ball if it is not marked."
 
@@ -2398,6 +2399,7 @@ Goal: make player deployment intuitive, footy-authentic and consequential.
 
 ## ARD-M4-016 — Match-day weather: perfect day, wet, windy, hot
 **Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+**Progress (2026-10-06):** wet is calibrated in #449: scoring down 5 to 6%, marks down 14%, clangers up 10%, one-percenters up 15%, accuracy down about 2 points; tackles are up 6% against a real 12%, documented. The look and the Hub forecast follow the director's decisions below.  
 
 **Director decisions (2026-10-06):**
 - Rain affects play, calibrated against real stats, and has a look.
@@ -4759,6 +4761,7 @@ Prefer shared theme changes over manually touching hundreds of controls.
 **Status:** `PARTIAL`  
 **Progress (2026-10-06):** step 1 of the visualisation sequence, the truth fixes (handballs stay handballs, the ball never steers), merged in #438 on the director's go ("Merge on green"). Presentation only; the sim, scores and event order are untouched.
 **Progress (2026-10-06, step 2):** the tactical timeline merged in #445: the match records each side's calls (plan, bursts, tagger, loose defender, named match-ups) and the view puts the match's named players on each other. Presentation only; it reads the sim and draws no dice. Step 3, the two demonstrations, follows.  
+**Progress (2026-10-06, step 3):** the two demonstrations are up as #475 (the flood behind the ball, and a stack against a flood at the 2026 centre ball-up, six-six-six checked), awaiting the director's look.  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -4886,6 +4889,7 @@ Final pass:
 
 ## ARD-M8-007 — Cinematic tactical vignettes
 **Status:** `VERIFY` — the prototype/broadcast-vignette foundation is merged (#153); phone playtest still decides tactical-library expansion. Necessary new flavour scenes are separately authorised in FL-007 (§9.3).  
+**Progress (2026-10-06, anti-aliasing):** per-draw anti-aliasing on the pitch (#472) and project-wide 2D MSAA 2x plus anti-aliased vignette lines (#478), director-approved; texture filtering and mipmaps passed to the art agent (`docs/research/PERF_BASELINE.md` has the import inventory and the GPU cost).  
 **Priority:** `P3`  
 **Autonomy:** `SUPERVISED`
 
@@ -5639,6 +5643,9 @@ Quoted as the lead and the art agent recorded them on the PRs.
 - **Wet-weather players:** "Evidence + stats". Whitfield and Dangerfield are named (published, measured: `docs/research/WET_WEATHER_PLAYERS.md`); everyone else earns the trait from the stat rule (contested 78 and disposal 72 or more).
 - **The weather look (art):** "Push them stronger". The wet, windy and hot looks go further than the first pass.
 - **Order after the truth fixes:** "all in order": the tactical timeline (M8-003 step 2), then match-day weather (M4-016), then intercepts by zone (M4-012).
+- **Intercepts by zone (M4-012), turnovers:** "Make it real". A kicked turnover goes to the opposition, taken by whoever is in that part of the ground and often marked, instead of a 50/50 loose ball. Scoring is re-checked before it merges (#462).
+- **Intercepts by zone (M4-012), the loose defender:** "Bring him to ~8". The named loose defender's intercepts are trimmed toward the real best, about 8 a game rather than 12 (#462).
+- **Device gate for the rendering and performance work:** "PC now, phone later". We baseline and compare on this PC's Mobile renderer. The director runs an Android build on his phone before anything merges and reports back. No Android device has been measured yet (`docs/research/PERF_BASELINE.md`).
 
 # 9.2 Research candidates — awaiting director selection
 
