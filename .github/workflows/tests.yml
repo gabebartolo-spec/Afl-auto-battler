@@ -4,6 +4,9 @@ name: Tests
 # project import, every Godot test suite, the dataset check and the intake
 # harness. Documentation-only changes skip this expensive game test run.
 # If a PR changes both docs and game files, the tests still run.
+# Two more cases skip the game tests (the plan job sets code=false): a draft PR
+# (a run starts when it is marked ready for review), and a PR that only touches
+# audit or capture scripts (tools/audit, tools/visual), which no suite loads.
 #
 # The suites run as parallel shards (tools/ci_shards.txt), so a pull request
 # finishes in about eight minutes instead of half an hour. One more job runs the
@@ -16,6 +19,7 @@ name: Tests
 # start this workflow at all.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
     paths-ignore:
@@ -40,24 +44,35 @@ jobs:
     timeout-minutes: 10
     outputs:
       code: ${{ steps.changes.outputs.code }}
+      reason: ${{ steps.changes.outputs.reason }}
       shards: ${{ steps.shards.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2     # the PR merge commit and the base it merges into
 
-      # Anything outside docs/ and *.md files counts as code.
+      # Anything outside docs/, *.md files and the audit and capture scripts
+      # (tools/audit/, tools/visual/) counts as code. A draft PR runs no game
+      # tests until it is marked ready for review.
       - name: Check for code changes
         id: changes
+        env:
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
         run: |
           code=true
+          reason=""
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            if ! git diff --name-only HEAD^1 HEAD | grep -qvE '^docs/|\.md$'; then
+            if [ "$IS_DRAFT" = "true" ]; then
               code=false
-              echo "Documentation-only change: skipping the game tests."
+              reason="draft pull request: the game tests run when it is marked ready for review"
+            elif ! git diff --name-only HEAD^1 HEAD | grep -qvE '^docs/|\.md$|^tools/audit/|^tools/visual/'; then
+              code=false
+              reason="documentation, audit or capture scripts only"
             fi
           fi
+          if [ "$code" = false ]; then echo "Skipping the game tests ($reason)."; fi
           echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
 
       # A suite missing from tools/ci_shards.txt would never run in CI.
       - name: Check the shards cover every suite
@@ -164,6 +179,7 @@ jobs:
         env:
           PLAN: ${{ needs.plan.result }}
           CODE: ${{ needs.plan.outputs.code }}
+          REASON: ${{ needs.plan.outputs.reason }}
           SHARDS: ${{ needs.shard.result }}
           EXTRAS: ${{ needs.extras.result }}
         run: |
@@ -178,5 +194,5 @@ jobs:
               exit 1
             fi
           else
-            echo "Documentation-only change: the game tests were skipped."
+            echo "The game tests were skipped ($REASON)."
           fi
