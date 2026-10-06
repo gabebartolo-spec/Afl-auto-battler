@@ -27,8 +27,8 @@ const EMPTY := 50.0
 const FIGURE := 1.6
 ## The camera sits a little to one side of the corridor, over a shoulder.
 const CAM_X := -3.0
-const GRASS := [Color(0.16, 0.39, 0.17), Color(0.18, 0.43, 0.19)]
-const UMPIRE := Color(0.82, 0.93, 0.36)
+## The field umpire's fluoro shirt: saturated, so it never reads as skin at a distance.
+const UMPIRE := Color(0.66, 0.96, 0.08)
 const BALL := Color(0.78, 0.13, 0.12)
 ## The footballers are pre-rendered figures recoloured for each club
 ## (VignetteFigures.gd has the sheet's layout, figure.gdshader the recolouring).
@@ -52,6 +52,7 @@ var facts: Array = []       # one or two lines of commentary, no numbers
 var title := ""
 var _colours := [[], []]
 var _codes := ["", ""]
+var _board := {}           # the match's score, for the big screen at the end of the ground
 var _kits := []            # both sides' guernseys, as dressed
 var _t := 0.0
 var _frozen := false
@@ -61,6 +62,9 @@ var _hold := 0.0            # time since the freeze, for the last push-in
 func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 	title = heading
 	tokens.clear()
+	_board = {"codes": [str((sim.squads[0] as Squad).code), str((sim.squads[1] as Squad).code)],
+			"goals": [sim.goals(0), sim.goals(1)], "behinds": [sim.behinds(0), sim.behinds(1)],
+			"q": sim.current_quarter}
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("%s|%d" % [str((sim.squads[0] as Squad).code), sim.current_minute])
 	for side in range(2):
@@ -89,16 +93,34 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 				var tired := float(sim.energy.get(str(p["id"]), 100.0)) < EMPTY
 				tokens.append({"side": side, "mine": mine, "slot": slot, "id": str(p["id"]),
 						"tall": MatchSim._is_ruckman(p), "look": GameDB.player_looks(p),
+						"height_cm": float(p.get("height_cm", 0.0)),
 						"name": _surname(GameDB.player_display_name(p)), "num": int(p["num"]),
 						"tired": tired, "from": from, "to": to,
 						"delay": rng.randf_range(0.0, 0.45),
 						"dur": rng.randf_range(1.3, 1.7) * (1.6 if tired else 1.0)})
+	_style_rucks()
 	facts = _commentary(sim, my_side)
 	_t = 0.0
 	_hold = 0.0
 	_frozen = false
 	_dress()
 	queue_redraw()
+
+
+## The two ruckmen contest differently, so they never go up as twins: one taps
+## with an open hand, running straight at it; the other goes body-on, punching
+## with the other fist, a beat later, lower, and from wider. Which is which
+## follows the players (stable), not the side.
+const RUCK_STYLES := [
+	{"anim": "tap", "delay": 0.0, "peak": 1.1, "approach": -0.6},
+	{"anim": "tap_b", "delay": 0.07, "peak": 0.85, "approach": 0.4},
+]
+
+func _style_rucks() -> void:
+	var rucks := tokens.filter(func(t): return str(t["slot"]) == "R")
+	rucks.sort_custom(func(a, b): return hash(str(a["id"])) < hash(str(b["id"])))
+	for i in range(rucks.size()):
+		(rucks[i] as Dictionary)["ruck"] = RUCK_STYLES[i % RUCK_STYLES.size()]
 
 
 ## The figure material, with both clubs' guernseys and the umpire's. Everything
@@ -129,8 +151,8 @@ static func _eight(palette: Array) -> Array:
 
 
 ## The umpire's kit, in the figures' palette.
-const UMPIRE_GEAR := {"design": "plain", "base": UMPIRE, "pattern": Color(0.66, 0.74, 0.29),
-		"pattern2": Color(0.66, 0.74, 0.29), "shorts": Color(0.1, 0.1, 0.12)}
+const UMPIRE_GEAR := {"design": "plain", "base": UMPIRE, "pattern": Color(0.42, 0.62, 0.05),
+		"pattern2": Color(0.42, 0.62, 0.05), "shorts": Color(0.1, 0.1, 0.12)}
 
 
 ## A material that recolours the figure sheet: up to four kits ({design, base,
@@ -241,21 +263,38 @@ static func _surname(full: String) -> String:
 
 
 # ---------------------------------------------------------------------------
-# The camera: low behind your end, pushing in on the square.
+# The camera: the broadcast camera high behind your end, on a long lens, zooming in on
+# the square and panning with the ruckmen. It stays where it is: only the lens moves, so
+# the picture scales as one and nothing changes shape (it used to travel in from 34 m to
+# 18 m, and the square and the players warped as it came - director).
 # ---------------------------------------------------------------------------
-var _cam_d := 40.0
-var _cam_h := 7.0
+const CAM_D := 46.0               # metres behind the centre
+const CAM_H := 12.0               # and up (low enough that the stand stays in the zoom)
+## The zoom: the square at the start's framing (as the old camera at 34 m) out to the
+## ruck contest's (as at 17 m), then a last punch-in on the freeze.
+const ZOOM := [46.0 / 34.0, 46.0 / 18.5, 46.0 / 17.0]
+var _cam_d := CAM_D
+var _cam_h := CAM_H
 var _focal := 400.0
 var _horizon := 0.0
 var _cam_x := CAM_X
+var _zoom := 1.0                  # how far the lens has zoomed since the start
+var _pan := 0.0                   # pixels the camera has turned across, at this zoom
 
 
 func _set_camera() -> void:
 	var k := _ease(clampf(_t / FREEZE, 0.0, 1.0))
 	var punch := _ease(clampf(_hold / 0.4, 0.0, 1.0))
-	_cam_d = lerpf(34.0, 20.0, k) - 1.5 * punch
-	_cam_h = lerpf(12.0, 9.0, k)
-	_focal = maxf(size.x * 1.5, size.y * 0.7)
+	var base := maxf(size.x * 1.5, size.y * 0.7)
+	var z: float = lerpf(lerpf(ZOOM[0], ZOOM[1], k), ZOOM[2], punch)
+	_focal = base * z
+	_zoom = z / ZOOM[0]
+	# Panning across from where your players run in to the contest. A pan turns the
+	# camera on its head, which moves the whole picture as one; the camera itself stays
+	# at CAM_X (sliding it across would move the near turf more than the far, and the
+	# painted lines would skew as it went - director).
+	_cam_x = CAM_X
+	_pan = _focal * (CAM_X * 0.35 - CAM_X) / (_cam_d + 5.0) * k
 	# The centre of the ground sits above the middle, clear of the call.
 	_horizon = size.y * 0.46 - _focal * _cam_h / _cam_d
 
@@ -263,7 +302,7 @@ func _set_camera() -> void:
 ## World (x across, y towards your goal, h up) to screen, and metres to pixels there.
 func _project(p: Vector2, h := 0.0) -> Vector3:
 	var z := maxf(0.5, p.y + _cam_d)
-	return Vector3(size.x * 0.5 + _focal * (p.x - _cam_x) / z, _horizon + _focal * (_cam_h - h) / z, _focal / z)
+	return Vector3(size.x * 0.5 - _pan + _focal * (p.x - _cam_x) / z, _horizon + _focal * (_cam_h - h) / z, _focal / z)
 
 
 static func _ease(k: float) -> float:
@@ -278,8 +317,9 @@ func _pos(t: Dictionary) -> Vector2:
 	var p := (t["from"] as Vector2).lerp(t["to"], _ease(k))
 	var sgn := 1.0 if bool(t["mine"]) else -1.0
 	if str(t["slot"]) == "R":
-		var run := clampf((_t - RUN_IN[0]) / (RUN_IN[1] - RUN_IN[0]), 0.0, 1.0)
-		p = p.lerp(Vector2(-0.6 * sgn, -1.0 * sgn), run * run)
+		var style: Dictionary = t.get("ruck", RUCK_STYLES[0])
+		var run := clampf((_t - RUN_IN[0] - float(style["delay"])) / (RUN_IN[1] - RUN_IN[0]), 0.0, 1.0)
+		p = p.lerp(Vector2(float(style["approach"]) * sgn, -1.0 * sgn), run * run)
 	elif k >= 1.0:
 		# Settled in the square: jostling for the front spot.
 		p.x += sin(_t * 3.1 + float(t["num"])) * 0.35
@@ -294,9 +334,13 @@ func _moving(t: Dictionary) -> bool:
 
 
 func _lift(t: Dictionary) -> float:
-	if str(t["slot"]) != "R" or _t < RUN_IN[1] - 0.1:
+	if str(t["slot"]) != "R":
 		return 0.0
-	return 1.1 * _ease(clampf((_t - (RUN_IN[1] - 0.1)) / 0.35, 0.0, 1.0))
+	var style: Dictionary = t.get("ruck", RUCK_STYLES[0])
+	var start := RUN_IN[1] - 0.1 + float(style["delay"])
+	if _t < start:
+		return 0.0
+	return float(style["peak"]) * _ease(clampf((_t - start) / 0.35, 0.0, 1.0))
 
 
 func _umpire() -> Vector2:
@@ -350,57 +394,43 @@ func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 1.0 - fade), true)
 
 
+## The ground (VignetteGround, to the AFL's dimensions) through this scene's camera: the
+## stands and the crowd, the fence, the boundary, the centre square and circles, the arcs
+## and the far goals - all seen in perspective, so they hold their shape as it zooms.
 func _draw_ground() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.07, 0.07, 0.08), true)
-	# Mowing stripes across the ground, the cheapest depth there is.
-	var far := 70.0
-	var y := far
-	var i := 0
-	while y > -_cam_d + 1.0:
-		var next := y - 7.0
-		var a := _project(Vector2(0, y))
-		var c := _project(Vector2(0, maxf(next, -_cam_d + 1.0)))
-		draw_rect(Rect2(0, a.y, size.x, c.y - a.y + 1.0), GRASS[i % 2], true)
-		y = next
-		i += 1
-	# The crowd: a dark stand beyond the far wing, specks of colour.
-	var edge := _project(Vector2(0, far)).y
-	if edge > 0.0:
-		draw_rect(Rect2(0, 0, size.x, edge), Color(0.1, 0.1, 0.12), true)
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 7
-		for n in range(int(size.x * edge / 90.0)):
-			var col: Color = (_colours[rng.randi() % 2] as Array)[0] if rng.randf() < 0.45 else Color(0.5, 0.5, 0.52)
-			draw_rect(Rect2(rng.randf() * size.x, rng.randf() * edge, 2, 2), Color(col, 0.55), true)
-	_draw_markings()
+	var cam := ground_cam()
+	VignetteGround.draw_ground(self, cam, Rect2(Vector2.ZERO, size), _colours, 7, _board)
+	VignetteGround.draw_goals(self, cam, 1, _pad_colour())
+	VignetteGround.draw_goals(self, cam, -1, _pad_colour())
 
 
-func _draw_markings() -> void:
-	var line := Color(1, 1, 1, 0.75)
-	# The centre square, the circles and the line through them.
-	_ground_poly([Vector2(-25, -25), Vector2(25, -25), Vector2(25, 25), Vector2(-25, 25)], line, true)
-	for r in [3.0, 10.0]:
-		var pts := []
-		for n in range(40):
-			pts.append(Vector2(cos(TAU * n / 40.0), sin(TAU * n / 40.0)) * r)
-		_ground_poly(pts, line, true)
-	_ground_poly([Vector2(-3, 0), Vector2(3, 0)], line, false)
+## This scene's camera, as the ground sees it.
+func ground_cam() -> VignetteGround.Cam:
+	var cam := VignetteGround.Cam.new()
+	cam.pos = Vector2(_cam_x, -_cam_d)
+	cam.height = _cam_h
+	cam.f = _focal
+	cam.cx = size.x * 0.5 - _pan
+	cam.hor = _horizon
+	cam.to_scene = _ground_to_scene()
+	return cam
 
 
-func _ground_poly(pts: Array, colour: Color, closed: bool) -> void:
-	var out := PackedVector2Array()
-	for p in pts:
-		if p.y + _cam_d < 1.0:
-			continue
-		var s := _project(p)
-		out.append(Vector2(s.x, s.y))
-	if closed and out.size() > 2:
-		out.append(out[0])
-	if out.size() > 1:
-		draw_polyline(out, colour, maxf(1.5, 0.12 * _focal / _cam_d), true)
+## Where the scene stands on the ground: oval coordinates to the scene's. The centre
+## bounce is at the centre of the ground, the length running away from the camera.
+func _ground_to_scene() -> Transform2D:
+	return Transform2D.IDENTITY
+
+
+## The padding round the goal posts: the home club's colour.
+func _pad_colour() -> Color:
+	var c: Array = _colours[0] if not _colours.is_empty() else []
+	return (c[0] as Color) if not c.is_empty() else Color(0.7, 0.7, 0.72)
 
 
 func _draw_figure(at: Vector2, t: Dictionary) -> void:
+	if at.y + _cam_d < 1.2:
+		return               # beside or behind the camera
 	var ump := t.is_empty()
 	var lift := 0.0 if ump else _lift(t)
 	var base := _project(at, lift)
@@ -413,57 +443,121 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	draw_circle(Vector2.ZERO, sh, Color(0, 0, 0, 0.35))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# Your players have their backs to us; theirs and the umpire face the camera.
-	var pick := _frame(t, lift)
-	var facing := "back" if not ump and bool(t["mine"]) else "front"
-	var info := VignetteFigures.strip(_body(t), pick[0], facing)
+	var back := not ump and bool(t["mine"])
+	var pick := _frame(t, lift, at, back)
+	# A move can name its own side (a fourth entry: the kick is only drawn from behind,
+	# three-quarters on).
+	var facing: String = str(pick[3]) if pick.size() > 3 else ("back" if back else "front")
+	var build := _body(t)
+	if not VignetteFigures.has(build, pick[0], facing):
+		build = "average"
+	var info := VignetteFigures.strip(build, pick[0], facing)
 	var frame := figure_frame(info, int(pick[1]), pick[0], facing)
-	var cell := VignetteFigures.FRAME
 	var src := VignetteFigures.source(info, frame)
 	# Out on their feet: a touch smaller, stooped.
 	var k := m / VignetteFigures.PX_PER_M * (0.96 if tired else 1.0)
-	var origin := Vector2(base.x, base.y) - Vector2(info["pivot"][0], info["pivot"][1]) * k
+	var mirror := bool(pick[2])
 	var kit := UMPIRE_KIT if ump else int(t["side"])
 	var look: Dictionary = t.get("look", UMPIRE_LOOK)
-	draw_texture_rect_region(FIGURE_SHADE, Rect2(origin, cell * k), src,
-			Color(kit / 4.0, int(look["skin"]) / 8.0, int(look["hair"]) / 8.0, 1.0))
-	if not ump and bool(t["mine"]) and m > 18.0:
-		# The number on show, printed on the back of the guernsey by the shader.
-		draw_texture_rect_region(FIGURE_SHADE, Rect2(origin, cell * k), src, number_colour(kit, int(t["num"])))
+	draw_frame(self, Vector2(base.x, base.y), info, frame, k, look_colour(kit, look, mirror), mirror,
+			number_colour(kit, int(t["num"]), 1.0, mirror) if facing.begins_with("back") and m > 18.0 else Color(0, 0, 0, 0))
+
+
+## Draws frame f of a strip with its feet at feet, k screen pixels per frame pixel,
+## on ci (whose material must be the figure material). Mirrored, it faces the other
+## way: flipped about the feet by a draw transform (a negative-size rect isn't drawn).
+## number: a second pass that prints the number (number_colour), or alpha 0 for none.
+## view: the vignette's camera (VignetteCamera) that ci is drawing through.
+static func draw_frame(ci: CanvasItem, feet: Vector2, info: Dictionary, f: int, k: float, colour: Color,
+		mirror := false, number := Color(0, 0, 0, 0), view := Transform2D.IDENTITY) -> void:
+	var pivot := Vector2(info["pivot"][0], info["pivot"][1])
+	var dest := Rect2(feet - pivot * k, VignetteFigures.frame_size(info) * k)
+	var src := VignetteFigures.source(info, f)
+	if mirror:
+		ci.draw_set_transform_matrix(view * Transform2D(0.0, Vector2(-1.0, 1.0), 0.0, Vector2(2.0 * feet.x, 0.0)))
+	ci.draw_texture_rect_region(FIGURE_SHADE, dest, src, colour)
+	if number.a > 0.0:
+		ci.draw_texture_rect_region(FIGURE_SHADE, dest, src, number)
+	if mirror:
+		ci.draw_set_transform_matrix(view)
+
+
+## The draw colour that recolours a figure: its kit, skin and hair, and whether
+## the frame is mirrored (figure.gdshader).
+static func look_colour(kit: int, look: Dictionary, mirror := false, alpha := 1.0) -> Color:
+	return Color((kit * 2 + (1 if mirror else 0)) / 8.0, int(look["skin"]) / 8.0, int(look["hair"]) / 8.0, alpha)
 
 
 ## The draw colour that prints a number (0-99) on a figure's back instead of
 ## drawing the figure (figure.gdshader): draw the same frame again with it.
-static func number_colour(kit: int, number: int, alpha := 1.0) -> Color:
-	return Color(kit / 4.0, 1.0, (clampi(number, 0, 99) + 1) / 128.0, alpha)
+static func number_colour(kit: int, number: int, alpha := 1.0, mirror := false) -> Color:
+	return Color((kit * 2 + (1 if mirror else 0)) / 8.0, 1.0, (clampi(number, 0, 99) + 1) / 128.0, alpha)
 
 
-## Ruckmen are the tall figures; everyone else - an emergency ruck from the
-## midfield included, and the umpire - the average build.
+## Ruckmen are the tall figures; small men (BroadcastVignette.SMALL_CM) the small
+## build; everyone else - an emergency ruck from the midfield included, and the
+## umpire - the average build.
 static func _body(t: Dictionary) -> String:
-	return "ruck" if bool(t.get("tall", false)) else "average"
+	if bool(t.get("tall", false)):
+		return "ruck"
+	var cm := float(t.get("height_cm", 0.0))
+	return "small" if cm > 0.0 and cm < BroadcastVignette.SMALL_CM else "average"
 
 
-## Which animation and frame a figure shows now: [anim, frame].
-func _frame(t: Dictionary, lift: float) -> Array:
+## Which animation and frame a figure shows now, and whether it's mirrored:
+## [anim, frame, mirror]. at: where he stands; back: his back is to us.
+func _frame(t: Dictionary, lift: float, at := Vector2.ZERO, back := false) -> Array:
 	if t.is_empty():
 		# The umpire walks in, raises the ball, bounces it and follows through.
 		if _t >= BALL_UP - 0.5 and _t < BALL_UP - 0.15:
-			return ["bounce", 1]
+			return ["bounce", 1, false]
 		if _t >= BALL_UP - 0.15 and _t < BALL_UP:
-			return ["bounce", 2]
+			return ["bounce", 2, false]
 		if _t >= BALL_UP and _t < BALL_UP + 0.4:
-			return ["bounce", 3]
+			return ["bounce", 3, false]
 		if _t >= UMP_IN[0] and _t < UMP_IN[1]:
-			return ["jog", int(_t * 10.0) % 8]
-		return ["idle", 0]
+			return ["jog", int(_t * 10.0) % 8, false]
+		return _ready_pick({"num": 0, "id": "umpire"}, at, false)
 	if lift > 0.0:
-		# The ruck contest: a ruckman taps one-handed, the other arm working his man.
-		return ["tap", int(roundf(clampf(lift / 1.1, 0.0, 1.0) * 5.0))]
+		# The ruck contest, one-handed, each ruckman his own way (RUCK_STYLES).
+		var style: Dictionary = t.get("ruck", RUCK_STYLES[0])
+		var frames := 6 if str(style["anim"]) == "tap" else 4
+		var k := clampf(lift / float(style["peak"]), 0.0, 1.0)
+		return [style["anim"], int(roundf(k * (frames - 1))), false]
 	if _moving(t):
-		# The same stride rate the scene always had; slower when they're out on their feet.
-		var strides := (9.0 if bool(t["tired"]) else 13.0) / TAU
-		return ["jog", int(_t * strides * 8.0 + float(t["num"])) % 8]
-	return ["idle", 0]
+		# Each man at his own stride; slower when they're out on their feet.
+		var strides := (9.0 if bool(t["tired"]) else 13.0) / TAU * _rate(t, 0.9, 1.1)
+		return ["jog", int(_t * strides * 8.0 + float(t["num"])) % 8, false]
+	return _ready_pick(t, at, back)
+
+
+## Standing, he's ready, not stiff: knees bent and bouncing at his own rate, his
+## head and shoulders turned to what he's watching when it's off to one side
+## (mirrored for his right). Two men side by side never move as one.
+func _ready_pick(t: Dictionary, at: Vector2, back: bool) -> Array:
+	var cycle := int(_t * 3.0 * _rate(t, 0.7, 1.15) + float(t["num"]) * 0.37 + _rate(t, 0.0, 3.0)) % 3
+	var to := _look_at(t) - at
+	# Across his line of sight: his back to us, his left is the screen's left.
+	var across := -to.x if back else to.x
+	if absf(to.x) < 0.35 * absf(to.y) + 1.0:
+		# Looking ahead, in one of two stances of his own (a third of men side-on and low,
+		# arms out), mirrored on a whim so a row isn't a row of clones.
+		var stance := "ready_b" if _rate(t, 0.0, 1.0) < 0.35 and VignetteFigures.has(_body(t), "ready_b", "back" if back else "front") \
+				else "ready"
+		return [stance, cycle, _rate(t, 0.0, 1.0) > 0.5 if stance == "ready" else _rate(t, 0.0, 1.0) < 0.17]
+	return ["ready_turn", cycle, across < 0.0]
+
+
+## What a standing man watches: the ball (the pre-match scene overrides it).
+func _look_at(_t_: Dictionary) -> Vector2:
+	var b := _ball()
+	return Vector2(b.x, b.y)
+
+
+## A number of his own between lo and hi, stable for the man.
+static func _rate(t: Dictionary, lo: float, hi: float) -> float:
+	var h := hash(str(t.get("id", t.get("num", 0))) + "|rate")
+	return lo + (hi - lo) * float(absi(h) % 1000) / 999.0
 
 
 ## Height of a figure's head (or raised hands) above its feet, world metres.

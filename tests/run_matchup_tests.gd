@@ -397,8 +397,11 @@ func _pre_match_scene() -> void:
 			hub.queue_free()
 			return
 		if not skip:
-			_check(vig.banner == db.club_name("COL") and str(vig.title).contains(db.club_name("COL")),
-					"The scene is your club's: its banner and this week's match (%s)" % str(vig.title))
+			# The banner is this match's rhyme (Banners.pick on GameState.banner_context).
+			var ctx: Dictionary = root.get_node("GameState").banner_context(hub._upcoming_match())
+			var want := str(load("res://scripts/core/Banners.gd").pick(ctx))
+			_check(vig.banner != "" and vig.banner == (want if want != "" else db.club_name("COL")) 					and str(vig.title).contains(db.club_name("COL")),
+					"The scene is your club's: this match's banner and this week's match (%s: %s)" % [str(vig.title), vig.banner])
 		var seen := {}
 		var frames_before_run := 0
 		var frames := 0
