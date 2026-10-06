@@ -120,11 +120,20 @@ func _test_offseason_flow() -> void:
 	_check(bool(r["ok"]) and int(keep["contract_years"]) == 4 and int(keep["salary"]) == Contracts.asking_salary(keep),
 			"Re-signing sets the new term and price")
 	var saved_cap := GameState.salary_cap
-	GameState.salary_cap = GameState.my_payroll()
 	var dear: Dictionary = mine[mine.size() - 1] if mine.size() > 1 else keep
-	if not bool(dear.get("resigned", false)) and Contracts.asking_salary(dear) > int(dear.get("salary", 0)):
-		_check(not bool(GameState.resign_player(str(dear["id"]), 2)["ok"]),
-				"A raise past the cap is refused")
+	# Always exercise the cap rejection, regardless of this seeded career's
+	# development or which expiring player happens to be last in the list.
+	var dear_before := dear.duplicate(true)
+	dear["contract_years"] = 1
+	dear["resigned"] = false
+	dear.erase("talks")
+	dear["salary"] = Contracts.asking_salary(dear) - 1000
+	GameState.salary_cap = GameState.my_payroll()
+	var over_cap := GameState.resign_player(str(dear["id"]), 2)
+	_check(not bool(over_cap["ok"]) and str(over_cap.get("reason", "")).begins_with("Not enough cap room"),
+			"A raise past the cap is refused")
+	dear.clear()
+	dear.merge(dear_before, true)
 	GameState.salary_cap = saved_cap
 	# Sign the best free agent we can afford.
 	var signed := false
