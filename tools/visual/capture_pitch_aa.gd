@@ -5,6 +5,9 @@ extends SceneTree
 ##   godot --path . --rendering-driver opengl3 --script tools/visual/capture_pitch_aa.gd -- --out /tmp/aa
 ## Writes <out>_off.png, <out>_on.png and <out>_crops.png, and prints
 ## AA_TIME lines (mean CPU and GPU render ms over --frames, default 300).
+## With --msaa it compares 2D MSAA instead (off, 2x, 4x; line antialiasing on):
+## <out>_msaa0.png, _msaa2.png, _msaa4.png and the crops of all three.
+## Run it on the game's own renderer (no --rendering-driver) for real timings.
 ##   --seed N (default 42)   --kind K (default goal): the frame is just before it
 ##   --w W --h H (default 412 x 915, a phone in portrait)
 
@@ -58,8 +61,13 @@ func _run() -> void:
 	var vp := root.get_viewport_rid()
 	RenderingServer.viewport_set_measure_render_time(vp, true)
 	var shots := {}
-	for mode in ["off", "on"]:
-		pitch.antialias = mode == "on"
+	var modes := ["msaa0", "msaa2", "msaa4"] if args.has("msaa") else ["off", "on"]
+	for mode in modes:
+		if args.has("msaa"):
+			pitch.antialias = true
+			root.msaa_2d = {"msaa0": Viewport.MSAA_DISABLED, "msaa2": Viewport.MSAA_2X, "msaa4": Viewport.MSAA_4X}[mode]
+		else:
+			pitch.antialias = mode == "on"
 		pitch.queue_redraw()
 		await process_frame
 		await process_frame
@@ -77,10 +85,10 @@ func _run() -> void:
 	# The same corner of each, 3x with nearest-neighbour, side by side.
 	var cw := w / 3
 	var ch := h / 4
-	var crops := Image.create(cw * 3 * 2 + 8, ch * 3, false, Image.FORMAT_RGBA8)
+	var crops := Image.create((cw * 3 + 8) * modes.size() - 8, ch * 3, false, Image.FORMAT_RGBA8)
 	crops.fill(Color(0, 0, 0))
 	var x := 0
-	for mode in ["off", "on"]:
+	for mode in modes:
 		var src: Image = shots[mode]
 		src.convert(Image.FORMAT_RGBA8)
 		var c := src.get_region(Rect2i(w / 3, h / 3, cw, ch))
