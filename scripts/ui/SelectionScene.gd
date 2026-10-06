@@ -224,8 +224,12 @@ func _show_report(code: String) -> void:
 	var sections := [["How they play", GameState.their_style(code, 3)], ["Who matters", GameState.opponent_people(code).map(func(f): return str(f["text"]))],
 			["What stands out", GameState.opponent_facts(code).map(func(f): return str(f["text"]) if f is Dictionary else str(f))]]
 	var said := 0
+	var seen := {}
 	for sec in sections:
-		var lines: Array = sec[1]
+		# Each fact once: who matters is not repeated under what stands out.
+		var lines: Array = (sec[1] as Array).filter(func(t): return not seen.has(str(t)))
+		for t in lines:
+			seen[str(t)] = true
 		if lines.is_empty():
 			continue
 		v.add_child(UiKit.spacer(6))
