@@ -3729,6 +3729,15 @@ The current Season Review collapses Brownlow, Coleman, Rising Star, club best & 
 - **Rising Star:** no separate ceremony required. Award/present the Rising Star during the Brownlow ceremony as part of the broader league awards night, with enough prominence to feel meaningful but without interrupting the Brownlow count's pacing.
 - Do not force every honour into its own ceremony: the distinct marquee experiences are the Brownlow count, the user's club B&F count, and the All-Australian unveiling; Coleman and Rising Star live naturally within the Brownlow awards-night presentation.
 
+### Director addition — Danny Frawley Golden Fist award
+**Status:** `TODO` — new season award.
+
+Add the **Danny Frawley Golden Fist** award for the **best defender of the season**. Give defensive excellence a distinct season honour, rather than relying on the Brownlow or general player ratings to recognise it.
+
+Claude should refine a transparent, role-aware selection rule using actual season defensive contributions and the existing award/recognition systems. Consider intercept marks, spoils, one-percenters, defensive contests/accountability and other reliably tracked defensive work; do not reduce "best defender" to the most spoils or generic disposal volume, or invent untracked statistics. Both lockdown and intercept defenders should have credible paths to winning.
+
+Define eligibility, home-and-away versus finals scope, and deterministic tie-breaking consistently with existing awards. Present the winner with a concise season-end reveal, and persist the honour in player/club career history and annual award records. Validate seeded contrasting defender profiles, repeat processing and save/reload so the award cannot duplicate or change its winner.
+
 Presentation guardrails:
 - fanfare should come from pacing, reveal, hierarchy and football context, not particle spam or UI clutter;
 - no fake suspense: reveal deterministic stored results only;
@@ -5738,6 +5747,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Added the Danny Frawley Golden Fist season award for the best defender, with role-aware judging, season-end recognition and persistent career/award records.
 
 - **2026-10-06:** Added solo vs dual ruck match-prep follow-up under ARD-M4-004, with meaningful trade-offs, trait/personnel fit and AI parity. Ruck King, Extra Midfielder and Unicorn are optional design references for Claude to refine, not mandated traits or effects.
 
