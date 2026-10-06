@@ -39,6 +39,7 @@ func run() -> void:
 	_test_no_role_gates()
 	_test_spoils_and_crumbs()
 	_test_roaming_interceptor()
+	_test_kick_lanes()
 	_test_zone_intercepts()
 	_test_defensive_forward()
 	_test_hot_player_moment()
@@ -2413,3 +2414,36 @@ func _test_defensive_forward() -> void:
 	_check(bool(t.get("spare_accountable", false)) and not expect.is_empty()
 			and str(t.get("spare_minder_id", "")) == str(expect[0]["id"]),
 			"An AI club names the forward a coach would send, by the same rule")
+
+
+## ARD-M4-014: every general-play kick has a lane, and each plan uses them
+## as written: Attack corridor goes through the middle more than Defensive
+## press, which goes down the line; Controlled tempo switches most.
+func _test_kick_lanes() -> void:
+	var share := func(plan: String) -> Dictionary:
+		var n := {"corridor": 0, "switch": 0, "line": 0}
+		var kicks := 0
+		for seed in range(9200, 9206):
+			var sim := _sim(seed)
+			sim.set_tactics(0, {"gameplan": plan})
+			var res := sim.run()
+			for ev in res["events"]:
+				if int(ev.get("side", -1)) != 0 or not (str(ev.get("kind", "")) in ["kick", "mark"]):
+					continue
+				if ev.get("kick_in", false):
+					continue
+				kicks += 1
+				if ev.has("lane"):
+					n[str(ev["lane"])] = int(n[str(ev["lane"])]) + 1
+		var tot := float(maxi(1, int(n["corridor"]) + int(n["switch"]) + int(n["line"])))
+		return {"corridor": float(n["corridor"]) / tot, "switch": float(n["switch"]) / tot,
+				"line": float(n["line"]) / tot, "laned": tot / float(maxi(1, kicks))}
+	var att: Dictionary = share.call("attacking")
+	var dfn: Dictionary = share.call("defensive")
+	var ctl: Dictionary = share.call("controlled")
+	_check(float(att["laned"]) > 0.95, "Every general-play kick has a lane (%.0f%%)" % (100.0 * float(att["laned"])))
+	_check(float(att["corridor"]) > float(dfn["corridor"]) + 0.15 and float(dfn["line"]) > float(att["line"]) + 0.15
+			and float(ctl["switch"]) > float(att["switch"]) + 0.15,
+			"Plans use the lanes as written (corridor %.2f/%.2f, line %.2f/%.2f, switch %.2f/%.2f)" % [
+					float(att["corridor"]), float(dfn["corridor"]), float(dfn["line"]), float(att["line"]),
+					float(ctl["switch"]), float(att["switch"])])

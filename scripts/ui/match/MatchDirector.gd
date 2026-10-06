@@ -836,8 +836,19 @@ func _loc(k: int) -> Vector2:
 			dy = clampf(dy_raw * 0.7, -32.0, 32.0) + _rng.randf_range(-5.0, 5.0)
 			if absf(x - src.x) < 12.0 and absf(dy) < 10.0:
 				dy = (signf(dy_raw) if dy_raw != 0.0 else 1.0) * _rng.randf_range(10.0, 18.0)
-			if absf(src.y) > 22.0 and _rng.randf() < 0.1:
-				dy = -src.y * 1.3 + _rng.randf_range(-5.0, 5.0)   # a switch of play
+			# The lane the match chose for this kick (ARD-M4-014), never an
+			# invented one: across the ground, through the middle, or down
+			# the side he is on.
+			var lane := str((events[pk] as Dictionary).get("lane", "")) if pk >= 0 else ""
+			match lane:
+				"switch":
+					var across := signf(-src.y) if src.y != 0.0 else (1.0 if _rng.randf() < 0.5 else -1.0)
+					dy = across * _rng.randf_range(22.0, 34.0) - src.y * 0.5
+				"corridor":
+					dy = -src.y * 0.8 + _rng.randf_range(-6.0, 6.0)
+				"line":
+					var wing := signf(src.y) if absf(src.y) > 4.0 else (signf(dy_raw) if dy_raw != 0.0 else 1.0)
+					dy = wing * maxf(absf(src.y), 24.0) - src.y + _rng.randf_range(-5.0, 5.0)
 		var y := src.y + dy
 		var side := int(ev.get("side", 0))
 		if x * _dir(side) < -45.0:

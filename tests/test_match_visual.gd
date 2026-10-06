@@ -38,6 +38,7 @@ func run() -> void:
 	_test_numbers_readable()
 	_test_oval_people(res)
 	_test_broadcast_vignettes()
+	_test_kick_lanes(res)
 	GameState.replay_seed = 0
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -1043,3 +1044,32 @@ func _test_score_colour() -> void:
 	_check(legible != "" and UiKit.score_colour(legible) == (GameDB.club_colours(legible) as Array)[2],
 			"A club whose accent reads keeps its own colour for its score")
 	UiKit.apply_appearance(was)
+
+
+## ARD-M4-014: the view draws the lane the match recorded for each kick. A
+## switch crosses the ground, a kick down the line stays on its side, and a
+## kick through the corridor comes to the middle; no switch is invented.
+func _test_kick_lanes(res: Dictionary) -> void:
+	var evs: Array = (res["events"] as Array).duplicate(true)
+	var bare := res.duplicate()
+	var d := MatchDirector.new()
+	d.setup(bare, evs)
+	var k := -1
+	for i in range(1, evs.size()):
+		var pk0 := d._prev_real(i)
+		if pk0 >= 0 and str((evs[pk0] as Dictionary).get("kind", "")) == "kick" 				and str((evs[i] as Dictionary).get("kind", "")) in ["mark", "kick", "handball"] 				and d._restart(i) == "open":
+			k = i
+			break
+	_check(k >= 0, "A match has open-play kicks to place")
+	if k < 0:
+		return
+	var pk := d._prev_real(k)
+	var out := {}
+	for lane in ["switch", "line", "corridor"]:
+		(evs[pk] as Dictionary)["lane"] = lane
+		d._locs.clear()
+		d._locs[pk] = Vector2(clampf(float((evs[pk] as Dictionary).get("fp", 0.0)), -40.0, 40.0), 28.0)
+		out[lane] = d._loc(k).y
+	_check(float(out["switch"]) < 0.0 and float(out["line"]) > 15.0 and absf(float(out["corridor"])) < 15.0,
+			"Each kick goes the way its lane says: switch %.0f, line %.0f, corridor %.0f (from 28)" % [
+					float(out["switch"]), float(out["line"]), float(out["corridor"])])
