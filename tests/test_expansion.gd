@@ -214,14 +214,19 @@ func _test_rollover_to_2030() -> void:
 		_check((r as Array).size() == 10, "Twenty even clubs play ten a round")
 		break
 	# The league's lists never share a player and every club stays in band.
+	# One check for the whole league: the floor counts the rule, not how many
+	# players the lists happen to hold.
 	var seen := {}
+	var twice := ""
 	for code in season.ladder:
 		var arr: Array = season.lists[code]
 		_check(arr.size() >= Prospects.MIN_LIST and arr.size() <= Ratings.LIST_SIZE,
 				"%s stays in the list band in 2030 (%d)" % [code, arr.size()])
 		for p in arr:
-			_check(not seen.has(str(p["id"])), "No player on two lists (%s)" % str(p["id"]))
+			if seen.has(str(p["id"])):
+				twice += str(p["id"]) + " "
 			seen[str(p["id"])] = true
+	_check(twice == "", "No player on two lists (%s)" % twice)
 
 
 func _test_save_load_across_expansion() -> void:
