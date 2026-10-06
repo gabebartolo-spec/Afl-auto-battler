@@ -357,6 +357,15 @@ func _test_safe_replacement() -> void:
 	CareerSave.fail_at = ""
 	DirAccess.remove_absolute(path + CareerSave.TEMP_SUFFIX)
 	_check(not ok and str(CareerSave.read(path).get("which", "")) == "A", "A failed swap reports failure and keeps the previous save")
+	# The same failure with the new save left in the temp file, as a real one
+	# would: the newer save is still recovered, and the career still exists.
+	CareerSave.delete(path)
+	CareerSave.write(a, {}, path)
+	CareerSave.fail_at = "swap"
+	CareerSave.write(b, {}, path)
+	CareerSave.fail_at = ""
+	_check(CareerSave.exists(path) and str(CareerSave.read(path).get("which", "")) == "B",
+			"A failed swap leaves the newer save in the temp file, and it is the one read")
 	# The save itself is corrupt: the previous good one is read instead.
 	CareerSave.delete(path)
 	CareerSave.write(a, {}, path)

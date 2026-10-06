@@ -851,7 +851,9 @@ func _appearance() -> void:
 		var d := {}
 		for j in range(header.size()):
 			d[header[j]] = r[j]
-		rows_ok = rows_ok and keys.has(db._look_key(d)) and int(d["skin"]) >= 1 and int(d["skin"]) <= 6 				and Appearance.HAIR_KEYS.has(d["hair"]) and d["status"] in ["draft", "unsure", "confirmed"] 				and str(d["source"]).begins_with("http")
+		rows_ok = rows_ok and keys.has(db._look_key(d)) and int(d["skin"]) >= 1 and int(d["skin"]) <= 6 \
+				and Appearance.HAIR_KEYS.has(d["hair"]) and d["status"] in ["draft", "unsure", "confirmed"] \
+				and str(d["source"]).begins_with("http")
 	_check(rows_ok and n == db.appearance.size() and curated == n,
 			"Every curated look is a real player's, complete and sourced (%d rows)" % n)
 
