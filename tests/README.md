@@ -25,7 +25,7 @@ named `test` is the last job and passes only when every shard and that job did.
 
 Run only the suites your change touches while you work; CI runs the rest.
 
-**Taps and seeds.** A test that stands for a player's tap uses `tests/tap.gd` (`await Tap.tap(button)` returns "" when the tap reached it). It sends a touch at the button's place on screen, so a covering sheet or an off-screen button fails. A test that starts a season sets `GameState.replay_seed` first: a clock seed makes a different match every run (ROADMAP §0.4a, proof practices).
+**Taps and seeds.** A test that stands for a player's tap uses `tests/tap.gd` (`await Tap.tap(button)` returns "" when the tap reached it). It sends a touch at the button's place on screen, so a covering sheet or an off-screen button fails. A test that starts a season sets `GameState.replay_seed` first: a clock seed makes a different match every run (ROADMAP §0.4a, proof practices). Every suite that starts a season or draft sets `SUITE_SEED` (a `const` in the suite, 2027) as `GameState.replay_seed` in `run()` and resets it to 0 before the summary line (C15); the held exceptions, `selection`, `awards` and `injuries`, follow once the 18 + 5 change lands. If a seeded suite fails, fix the code or report it to the suite's owner, do not edit the check to pass.
 
 ### Which suite covers what
 
@@ -41,7 +41,7 @@ Times are seconds on a CI runner, from the first sharded run; each suite's floor
 | `intake_ui` | The National Draft on the shared draft screen | 4 |
 | `expansion` | Tasmania in 2028 and Canberra in 2030 | 53 |
 | `finals` | The wildcard finals bracket, extra time, draws | 68 |
-| `save` | Saving and loading a career, including old-save migrations | 29 |
+| `save` | Saving and loading a career, including old-save migrations and the safe write: a failed or interrupted write never loses the career, and a failed swap leaves the newer save readable | 29 |
 | `chronology` | 2026 is history, careers start in 2027, and every system agrees | 4 |
 | `career` | Games, goals and club stints across a dynasty | 229 |
 | `coaches` | The coaching world: six jobs a club, records, grades, the Staff screen | 35 |
@@ -60,7 +60,7 @@ Times are seconds on a CI runner, from the first sharded run; each suite's floor
 | `injuries` | Injury rates, durability, healing, and played v simulated parity | 78 |
 | `awards` | Brownlow, Coleman, best and fairest, All-Australian | 49 |
 | `achievements` | Club achievements | 48 |
-| `contracts` | Contracts, free agency and trades | 29 |
+| `contracts` | Contracts, free agency and trades (seeded: a clock seed once made the pick-limit check flaky) | 29 |
 | `league` | Difficulty and the league news feed | 52 |
 | `club` | The board, morale and the weekly event card | 103 |
 | `match_game` | Legs and rotations, match moments and calls, the rival coach, key match-ups | 333 |
@@ -70,7 +70,7 @@ Times are seconds on a CI runner, from the first sharded run; each suite's floor
 | `league_balance` | Smoke checks for the balance harness in `tools/balance` | 223 |
 | `calibration` | The engine against real 2026 numbers (seeded matches) | 69 |
 | `balance` | A long-career guard: three seasons must not inflate the league | 149 |
-| `assets` | The art and music as shipped: figure-sheet frames against the layout, vignettes playing their moves through, music files, levels and the player | 3 |
+| `assets` | The art and music as shipped: figure-sheet frames against the layout, vignettes playing their moves through, banners, music files, levels and the player | 3 |
 
 By area:
 

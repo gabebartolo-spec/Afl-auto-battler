@@ -7,12 +7,17 @@ extends RefCounted
 var failures: Array[String] = []
 var checks := 0
 
+## Every season and draft here is seeded (C15): a clock seed makes a different
+## league each run.
+const SUITE_SEED := 2027
+
 const GAPS := {"BRL": "SA", "GEE": "DEF", "GCS": "SA", "MEL": "SA", "WCE": "SA"}
 
 
 func run() -> void:
 	failures.clear()
 	checks = 0
+	GameState.replay_seed = SUITE_SEED
 	_test_seed_structure()
 	_test_seed_integrity()
 	_test_names()
@@ -25,6 +30,7 @@ func run() -> void:
 	await _test_ui()
 	await _test_ui_expiring()
 	GameState.delete_saved_career()
+	GameState.replay_seed = 0
 	print("Coaches tests: %d checks, %d failures" % [checks, failures.size()])
 
 

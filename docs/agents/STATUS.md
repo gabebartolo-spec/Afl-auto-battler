@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06 against main `c5d5743`. Merged today: #275, #276, #277, #283, #285, #286, #287, #288, #232, #292, #293, #294, #295, #296, #297 (#289 on green). #283 merged before its W7 review; the lead reviews it after the fact._
+_Updated 2026-10-06. Since the last board merged: #289, #298, #301-#308, #310-#313, #315-#317, #319, #320 (docs #311, #314, #318, #319 from other agents). Seed sweep: #320 merged, #322 and #323 on CI._
 
 ## Lanes
 | agent (session) | owns |
@@ -23,16 +23,23 @@ _Updated 2026-10-06 against main `c5d5743`. Merged today: #275, #276, #277, #283
 | art | `BroadcastVignette.gd` (draw functions only; `pick_kind`, `DURATIONS` untouched); `VignetteFigures.gd`, `assets/vignette/figures_*.png` (sheet being regenerated); `StoppageVignette._draw_figure`; `tools/visual/capture_appearance.gd`, `capture_guernseys.gd`, new `capture_broadcast.gd`; standing: `figure.gdshader`, `clubs.csv` guernsey column, `GameDB.club_guernsey`, `player_appearance.csv`, `Appearance.gd`. Next, in order: `AwardWinnerVignette.gd`, `MediaConferenceVignette.gd` | M8-007 migration |
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- #289 (long-career audit tool, medium) on green. #291 is the director's Codex research: do not merge.
-- Coming: medium's free-keeps-possession PR (W7, held until the lead's reviewer comment is on the PR; match_game 243).
+- On CI: #321 (free keeps possession; the lead's W7 approval is on the PR; match_game floor collides with #303, whichever merges second sets 240 + 11 + 3 = 254 against the real count), #322 and #323 (C15 seed batches 2 and 3).
+- Held: #303 (break-screen call moved; waits for the director's phone look). #291 is the director's Codex research: do not merge.
+- Next for low: a draft docs PR updating ROADMAP lines that still say 18+4, four interchange or best 22 for the match-day side (All-Australian is 23 too), ready once the lead's 18+5 PR (claude/interchange-five) merges; then the held C15 suites (selection, awards, injuries).
 - Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval).
-- On main, awaiting the director's look: #276 press conference, #277 Training-row alignment. #282 (living players and crowds) and #284 (compressed figure sheets, phone check) never reached main; the art agent carries both in draft #299, awaiting the director's visual review.
-- STYLE-03: evidence in docs/research/STYLE03_DARK_PAIRINGS_EVIDENCE.md; dark component sheets at 320 and 390 sent to the art agent (tool: tools/visual/capture_component_states.gd).
+- On main, awaiting the director's look: #276 press conference, #277 Training-row alignment. #282 and #284 are in draft #299.
+
+## In progress
+- **P0, lead:** ARD-M5-001 18 on the ground plus 5 interchange (23 side), in review on `claude/interchange-five` (code, copy, README, DESIGN). Low follows with the other ROADMAP wording (draft #325) and the held C15 suites (selection, awards, injuries).
+- **Medium:** live fixture bugs found in docs/FIXTURE_SIZES_NOTE.md (#328): 19 clubs give unequal games (23 and 22), byes follow club-list order, home games run 7 to 17 at 18 clubs. The 21-club format (21 rounds x 20 games or 24 rounds x 22 games with two byes) goes to the director.
+- **Low:** role reference #327 and the fixture note #328 in review.
 
 ## Open PRs and dependencies
 | PR | owner | notes |
 |---|---|---|
-| #289 | medium | tools/audit/long_career_impl.gd only |
+| #321 | medium | free keeps possession (W7 approved by the lead) |
+| #322, #323 | low | test-only seed batches |
+| #303 | medium | break-screen call; director's phone look |
 | #291 | director | Codex research and playbook; do not merge |
 | #206 | director | superseded by #208; close |
 
