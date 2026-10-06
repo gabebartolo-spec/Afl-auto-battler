@@ -25,6 +25,7 @@ func run() -> void:
 	_test_rollover_to_2030()
 	_test_save_load_across_expansion()
 	_test_expansion_ceilings()
+	_test_club_count_defaults()
 	GameState.reset()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
@@ -261,3 +262,14 @@ func _test_expansion_ceilings() -> void:
 				"%s %d: no seasoned expansion player has a draftee's ceiling (%d over 21)" % [spec[0], spec[1], old_n])
 		_check(young_n > 0 and young_room / young_n >= 10.0,
 				"%s %d: young expansion players keep real upside (mean +%.1f)" % [spec[0], spec[1], young_room / maxf(1, young_n)])
+
+
+## A club with no recorded expectation or goal position follows the club count,
+## not 18 (a created club makes a league of 19 to 21).
+func _test_club_count_defaults() -> void:
+	_check(ClubLife.default_rank(18) == 9 and ClubLife.default_rank(21) == 10,
+			"With no expectation a club is taken as mid-table: 9 of 18, 10 of 21")
+	_check(ClubLife.goal_met({}, 21, 0, 21) and not ClubLife.goal_met({}, 19, 0),
+			"A goal with no position asks the club count: 21st of 21 meets it, 19th of 18 does not")
+	_check(ClubLife.goal_met({"pos": 12}, 12, 0, 21) and not ClubLife.goal_met({"pos": 12}, 13, 0, 21),
+			"A set goal position is not moved by the club count")

@@ -6,6 +6,7 @@ extends SceneTree
 ## Fails if any stat drifts outside TOLERANCE, so an engine change that
 ## quietly breaks realism turns CI red. Classes are reached through load():
 ## a --script runner compiles before the autoloads exist.
+## Seeded by design: explicit SEED and its own RandomNumberGenerator.
 
 const MATCHES := 400
 const SEED := 1234
