@@ -1109,6 +1109,13 @@ func _enter(p: Dictionary) -> void:
 					var id := int(t["id"])
 					MatchMotion.set_goal(t, at + Vector2(-0.8 * _dir(int(t["side"])), 0.0), 1.0, true)
 					_busy[id] = true
+			if p["t"] == "bounce":
+				# A stacked ball-up: the wings crash in as the ball goes up.
+				for t in tokens:
+					var s := str(t["slot"])
+					if (s == "WL" or s == "WR") and _centre_setup(int(t["side"])) == "stack":
+						MatchMotion.set_goal(t, at + Vector2(-4.0 * _dir(int(t["side"])), 6.0 * signf((t["pos"] as Vector2).y)), 1.0, true)
+						_busy[int(t["id"])] = true
 			if p.has("recv") and int(p["recv"]) >= 0 and p.has("loc"):
 				MatchMotion.set_goal(tokens[int(p["recv"])], p["loc"], 1.0, true)
 		"flight":
@@ -1656,7 +1663,39 @@ func _centre_spot(t: Dictionary, carrier: int) -> Vector2:
 			spot = Vector2(-3, 5 if spot.y >= 0.0 else -5) if SQUARE.has(cslot) else Vector2(-3, -5)
 		elif swap != "" and slot == swap:
 			spot = CENTRE.get(cslot, spot)
+	# The side's centre ball-up call, as the match recorded it (2026 rules:
+	# a ball-up, 6-6-6 still holds, so the wings stay outside the square and
+	# the forwards inside their arc until the ball is up).
+	if int(t["id"]) != carrier:
+		match _centre_setup(side):
+			"stack":
+				# Attacking: the wings on the square's edge, ready to crash
+				# the contest, and the half-forwards up to the arc.
+				if slot == "WL" or slot == "WR":
+					spot = Vector2(-2.0, 27.0 * signf(spot.y))
+				elif slot == "CHF" or slot == "HFL" or slot == "HFR":
+					spot.x = ARC_EDGE
+			"flood":
+				# Defensive: the wings goal-side of the square, and the
+				# centreman at its back edge, behind the ball.
+				if slot == "WL" or slot == "WR":
+					spot = Vector2(-18.0, 30.0 * signf(spot.y))
+				elif slot == "C":
+					spot = Vector2(-14.0, -4.0)
 	return Vector2(spot.x * _dir(side), spot.y)
+
+
+## Just inside the forward 50 arc, in a side's attacking frame.
+const ARC_EDGE := 37.0   # MatchMotion.GOAL_X (85) - 48
+
+
+## A side's centre ball-up setup from its recorded calls: "stack" (extra
+## numbers at the contest), "flood" (numbers behind the ball) or "".
+func _centre_setup(side: int) -> String:
+	var b: Array = (_tac[side] as Dictionary).get("bursts", [])
+	if b.has("stack"):
+		return "stack"
+	return "flood" if b.has("flood") else ""
 
 
 # ---------------------------------------------------------------------------
