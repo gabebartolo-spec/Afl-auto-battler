@@ -2377,7 +2377,7 @@ Mobile portrait first.
 ---
 
 ## ARD-M5-003 — Secondary-position learning / retraining
-**Status:** `DONE` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, merged in #266 (2026-10-06). Phone feel and balance measurement remain with the director.  
+**Status:** `DONE` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, merged in #266 (2026-10-06). Phone feel and balance measurement remain with the director. Made to matter (2026-10-06, claude/projects-matter): learned positions compete on merit in the auto-pick, a learned position pays back next season inside POT, and the in-season price is smaller.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -2405,7 +2405,7 @@ This is the canonical item for the user's previously requested secondary-positio
 The director chose ARD-RC-003 (a bounded development commitment with an opportunity cost) and placed it here.
 - **The project:** a "Learn to play <job>" training plan. For 8 fit weeks his XP trains the new position's game (injured weeks do not count). At the end he can be picked there if his rating there is within 3 of his own; otherwise it has not taken. One project per player a season, two at a time per club. Switching plan ends it and spends that season's chance.
 - **Who may try (director):** a plausible move only (his rating there within 6 of his own). The job follows his size: key forward from 192 cm, small forward up to 181 cm, key defender from 191 cm, ruck from 196 cm. POT 70+ for a second position and POT 90+ for a third (raised from 85 by the director after the first audit, so Unicorns stay rare).
-- **The price, stated exactly:** from the day he starts, training in his own position can lift him only 1 more that season (3 in a normal season). The new position's training still helps his own game where the two overlap.
+- **The price, stated exactly:** from the day he starts, training in his own position can lift him only 2 more that season (3 in a normal season; 1 until 2026-10-06). **The payback:** the season after he learns a position, his training limit is 1 higher, never past his POT; and the auto-pick plays him at a learned position whenever he rates higher there than the line's weakest starter (director, 2026-10-06: projects must have an impact). The new position's training still helps his own game where the two overlap.
 - **The Unicorn (director):** a player who can be picked at forward, midfield and back earns the Unicorn trait. On the ground he fills one missing place in one synergy (the first in rule order that he completes, in his line for a line synergy), never two.
 - **Rival clubs (director):** each runs one project a season, on its highest-POT candidate, by the same gates and weekly rules, with no news items.
 - **Endings:** a move to another club ends a project (the season's chance stays spent); a project still running when the season ends is judged where it stands. A learned third position counts wherever positions matter in a match (ruck contest, bench replacements, midfield checks). Its trade value waits for #228 (no trade-valuation changes until it is settled).

@@ -64,6 +64,11 @@ static var bench_size := INTERCHANGE
 ## Audits only: false reproduces the old bench (best of the rest, no line
 ## cover, no dual ruck) for a before/after comparison.
 static var bench_rules := true
+## A second position (natural or learned) earns a spot on merit: a player
+## left out who plays a line better than its weakest starter takes that spot
+## (director, 2026-10-06). Audits only: false gives the old order, where a
+## second position was used only once a line ran out of its own players.
+static var merit_lines := true
 ## The lines an auto-picked bench covers before taking the best of the rest.
 const BENCH_COVER := ["FWD", "DEF", "MID"]
 ## How close (OVR) a spare ruck must be for an AI club to run dual ruck.
@@ -629,6 +634,8 @@ static func select_22(list_players: Array, dual := -1) -> Dictionary:
 					ground.append(_for_slot(p, role))
 					used[p["id"]] = true
 					added += 1
+	if merit_lines:
+		_merit_swaps(pool, ground, used, promised)
 	for p in pool:
 		if ground.size() >= 18:
 			break
@@ -800,6 +807,63 @@ static func select_side(list_players: Array, selection: Dictionary = {}) -> Dict
 				used[id] = true
 	Roles.mark_wings(ground, selection.get("WING", []))
 	return {"ground": ground, "bench": bench}
+
+
+## His rating playing `line`: his own rating in his own line, else what his
+## attributes make him there.
+static func line_rating(p: Dictionary, line: String) -> float:
+	if str(p.get("role", "")) == line or (p.get("attr", {}) as Dictionary).is_empty():
+		return float(p.get("overall", 0))
+	return float(rate_overall(p["attr"], line, effective_games(p)))
+
+
+## The merit pass of the auto-pick: in the midfield, back and forward lines,
+## the best player left out who can play the line (a second position) takes
+## the place of its weakest starter when he rates higher there. A promised
+## starter keeps his place; the ruck slot, the dual ruck and the bench's line
+## cover are untouched (the dropped starter goes back to the pool and can make
+## the bench).
+static func _merit_swaps(pool: Array, ground: Array, used: Dictionary, promised: Dictionary) -> void:
+	var by_id := {}
+	for p in pool:
+		by_id[p["id"]] = p
+	for line in ["MID", "DEF", "FWD"]:
+		# Who is left out and can play the line, valued once (most lines have
+		# nobody, and the line is skipped without rating anyone).
+		var cands := {}
+		for p in pool:
+			if not used.has(p["id"]) and second_positions(p).has(line):
+				cands[p["id"]] = line_rating(p, line) * Workload.selection_factor(p)
+		if cands.is_empty():
+			continue
+		var starters := {}
+		for g in ground:
+			if str(g["role"]) == line and not promised.has(g["id"]) and by_id.has(g["id"]):
+				var q: Dictionary = by_id[g["id"]]
+				starters[g["id"]] = line_rating(q, line) * Workload.selection_factor(q)
+		for guard in range(6):
+			var weak := -1
+			var weak_v := INF
+			for i in range(ground.size()):
+				var id = ground[i]["id"]
+				if str(ground[i]["role"]) == line and starters.has(id) and float(starters[id]) < weak_v:
+					weak_v = float(starters[id])
+					weak = i
+			if weak < 0:
+				break
+			var best = null
+			var best_v := weak_v
+			for id in cands:
+				if not used.has(id) and float(cands[id]) > best_v:
+					best_v = float(cands[id])
+					best = id
+			if best == null:
+				break
+			used.erase(ground[weak]["id"])
+			starters.erase(ground[weak]["id"])
+			ground[weak] = _for_slot(by_id[best], line)
+			used[best] = true
+			starters[best] = best_v
 
 
 ## Players ordered by ruck work, best first (ties by overall), for filling
