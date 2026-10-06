@@ -14,6 +14,14 @@ Until this backlog pass finishes, do not launch new speculative/exploratory audi
 Cancellation record: capture-tool Tests run **37459603200** was superseded by conflict-resolved head checks **37462314537**; older kick-lane calibration audit **37460764077** was stopped while the newer branch-head audit **37460892048** continues. These cancellations stop execution only; source branches/commits are retained, and no completed evidence is deleted. Any distinct older calibration comparison can be resumed later if needed.
 
 ## Lanes
+### Director note for Claude: CI delays are limiting playtests (2026-10-06)
+
+Director-approved follow-up in #488: PRs stop after the first failed suite and cancel remaining matrix shards. Matchday runs once as an early prerequisite; expensive shards and dataset/harness jobs do not start if that gate fails. Main pushes and manual workflow_dispatch remain comprehensive diagnostic runs. Cancellation preserves code and completed logs; never treat skipped/cancelled required work as a green validation result.
+
+The director requests high-priority consideration of CI throughput: the merge/check backlog is now materially limiting hands-on playtests. Consider further free improvements based on measured queue, setup/import and suite times. Avoid repeated full runs on unchanged code; batch fixes before pushing, use failed-job reruns only for justified transient failures, and fix reproducible failures locally before another push. Preserve all actual updates, required checks, assertions and test floors.
+
+Codex PR #488 rebalances the existing five jobs using a complete 36-suite timing sample (longest estimated suite workload 778 → 604 seconds). It adds a required scheduling gate: every suite needs timing evidence, evidence must be refreshed within 30 days, and no estimated shard may exceed 120% of average workload. Each run preserves suite timings, and the final job warns when actual shard imbalance exceeds 135%; a noisy runtime measurement alone must not fail game validation. Claude should evaluate subsequent runs and improve this policy if it is creating unnecessary work rather than reducing waiting. This is an engineering priority, not permission to bypass validation.
+
 | agent (session) | owns |
 |---|---|
 | high ("high effort tasks - Boss") | lead: direction, task assignment, synergy/position work |

@@ -96,7 +96,10 @@ func _build() -> void:
 		_club_home(body)
 	_scroll = UiKit.scroll(body)
 	_scroll_form = _form
-	_root.add_child(_scroll)
+	if _form == "club":
+		_root.add_child(_club_workspace(_scroll))
+	else:
+		_root.add_child(_scroll)
 	if keep > 0:
 		_restore_scroll.call_deferred(_scroll, keep)
 
@@ -378,6 +381,14 @@ func _swatches(node_name: String, colours: Array, look: Dictionary, key: String)
 # ---------------------------------------------------------------------------
 var _auto_code := ""
 var _kit_touched := false
+## The colour slot the palette paints, and whether the club has no third
+## colour (it then follows the second).
+var _slot := "primary"
+var _accent_none := false
+var _colour_box: VBoxContainer
+var _kit_box: VBoxContainer
+## The live preview's crest and words.
+var _pv := {}
 
 
 func _club_home(body: VBoxContainer) -> void:
@@ -444,29 +455,54 @@ func _default_club() -> Dictionary:
 
 
 func _club_form(body: VBoxContainer) -> void:
-	var cols := 2 if UiKit.view_width(self) < 520.0 else 4
+	_accent_none = str(_club["accent"]).to_lower() == str(_club["secondary"]).to_lower()
 	body.add_child(_heading("Home"))
-	body.add_child(UiKit.choice_grid("ForgeState", STATES, _club_state, cols, func(k):
-		_club_state = k
-		_build()))
-	var places := []
+	var home := GridContainer.new()
+	home.name = "ForgeHome"
+	home.columns = 1 if UiKit.view_width(self) < 520.0 else 3
+	home.add_theme_constant_override("h_separation", 8)
+	home.add_theme_constant_override("v_separation", 6)
+	body.add_child(home)
+	var state := UiKit.option()
+	state.name = "ForgeState"
+	for s in STATES:
+		state.add_item(str(s[1]))
+		state.set_item_metadata(state.item_count - 1, str(s[0]))
+		if str(s[0]) == _club_state:
+			state.select(state.item_count - 1)
+	state.item_selected.connect(func(i: int):
+		_club_state = str(state.get_item_metadata(i))
+		_build())
+	home.add_child(state)
+	var place := UiKit.option()
+	place.name = "ForgePlace"
+	place.add_item("Choose a place")
+	place.set_item_metadata(0, "")
 	for loc in ClubForge.locations():
 		if str(loc.get("state", "")) == _club_state:
-			places.append([str(loc["id"]), str(loc["place"])])
-	body.add_child(_sub("Place"))
-	body.add_child(UiKit.choice_grid("ForgePlace", places, str(_club["location"]), cols, func(k): _pick_place(k)))
+			place.add_item(str(loc["place"]))
+			place.set_item_metadata(place.item_count - 1, str(loc["id"]))
+			if str(loc["id"]) == str(_club["location"]):
+				place.select(place.item_count - 1)
+	place.item_selected.connect(func(i: int):
+		var id := str(place.get_item_metadata(i))
+		if id != "":
+			_pick_place(id))
+	home.add_child(place)
 	var here := ClubForge.location(str(_club["location"]))
 	if not here.is_empty():
 		var grounds := ClubForge.grounds(here)
-		if grounds.size() > 1:
-			body.add_child(_sub("Ground"))
-			var opts := []
-			for i in grounds.size():
-				opts.append([str(i), grounds[i]])
-			body.add_child(UiKit.choice_grid("ForgeGround", opts, str(maxi(0, grounds.find(str(_club["ground"])))), 1,
-					func(k): _club["ground"] = grounds[int(k)]))
-		else:
-			body.add_child(_sub("Ground: %s" % grounds[0]))
+		var ground := UiKit.option()
+		ground.name = "ForgeGround"
+		for g in grounds:
+			ground.add_item(str(g))
+			if str(g) == str(_club["ground"]):
+				ground.select(ground.item_count - 1)
+		ground.disabled = grounds.size() < 2
+		ground.item_selected.connect(func(i: int):
+			_club["ground"] = grounds[i]
+			_refresh_preview())
+		home.add_child(ground)
 
 	body.add_child(_heading("Name"))
 	body.add_child(_field("ForgeClubName", "name", "Club name", ClubForge.NAME_MAX))
@@ -474,50 +510,329 @@ func _club_form(body: VBoxContainer) -> void:
 	body.add_child(_field("ForgeClubCode", "code", "Abbreviation, like COL", 4))
 
 	body.add_child(_heading("Colours"))
-	for slot in [["primary", "First colour"], ["secondary", "Second colour"], ["accent", "Third colour"]]:
-		body.add_child(_sub(str(slot[1])))
-		body.add_child(_palette("ForgeColour_" + str(slot[0]), str(slot[0])))
+	_colour_box = UiKit.vbox(6)
+	_colour_box.name = "ForgeColours"
+	body.add_child(_colour_box)
+	_rebuild_colours()
 
 	body.add_child(_heading("Guernsey"))
-	var designs := []
-	for d in ClubForge.DESIGNS:
-		designs.append([d, DESIGN_LABELS.get(d, d)])
-	body.add_child(UiKit.choice_grid("ForgeDesign", designs, str(_club["design"]), cols, func(k):
-		_club["design"] = k
-		_kit_touched = true
-		_build()))
-	var kit := Array(str(_club["kit"]).split("/"))
-	var slots := [["p", _colour_name(str(_club["primary"]), "First colour")],
-			["s", _colour_name(str(_club["secondary"]), "Second colour")],
-			["a", _colour_name(str(_club["accent"]), "Third colour")]]
-	body.add_child(_sub("Guernsey colour"))
-	body.add_child(UiKit.choice_grid("ForgeBase", slots, str(kit[0]), 3, func(k):
-		if k == str(kit[1]):
-			kit[1] = kit[0]
-		kit[0] = k
-		_set_kit(kit)
-		_build()))
-	if str(_club["design"]) != "plain":
-		var others := []
-		for s in slots:
-			if str(s[0]) != str(kit[0]):
-				others.append(s)
-		body.add_child(_sub("Pattern colour"))
-		body.add_child(UiKit.choice_grid("ForgePattern", others, str(kit[1]), 2, func(k):
-			kit[1] = k
-			_set_kit(kit)))
-
+	_kit_box = UiKit.vbox(6)
+	_kit_box.name = "ForgeKit"
+	body.add_child(_kit_box)
+	_rebuild_kit()
 	body.add_child(UiKit.spacer(10))
+
+
+## The club as it will look, kept in view while the form scrolls: beside it
+## on a wide screen, above it on a phone. Save sits with it, so it is always
+## one tap away.
+func _club_workspace(form: ScrollContainer) -> Control:
+	var wide := UiKit.view_width(self) >= 760.0 and UiKit.view_width(self) > UiKit.view_height(self)
+	var crest := GuernseyCrest.make(Color.WHITE, Color.WHITE, Color.WHITE, "plain", "", 200.0 if wide else 84.0)
+	crest.name = "ForgePreview"
+	var name_l := UiKit.lbl("", UiKit.H1 if wide else UiKit.H2, UiKit.TEXT, true)
+	name_l.name = "ForgePreviewName"
+	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var line := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	line.name = "ForgePreviewLine"
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_problem = UiKit.lbl("", UiKit.SMALL, UiKit.BAD)
 	_problem.name = "ForgeProblem"
 	_problem.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_problem.visible = false
-	body.add_child(_problem)
 	var save := UiKit.btn("Save club", 17, true)
 	save.name = "ForgeSaveClub"
-	save.custom_minimum_size.y = 48
+	save.custom_minimum_size = Vector2(120, 48)
 	save.pressed.connect(_on_save_club)
-	body.add_child(save)
+	_pv = {"crest": crest, "name": name_l, "line": line}
+	var out: BoxContainer
+	if wide:
+		out = UiKit.hbox(20)
+		var side := UiKit.vbox(10)
+		side.name = "ForgePreviewPanel"
+		side.custom_minimum_size.x = 260
+		var centre := CenterContainer.new()
+		centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		centre.add_child(crest)
+		side.add_child(centre)
+		side.add_child(name_l)
+		side.add_child(line)
+		side.add_child(UiKit.spacer(6))
+		side.add_child(_problem)
+		side.add_child(save)
+		out.add_child(side)
+		out.add_child(form)
+	else:
+		out = UiKit.vbox(8)
+		var strip := UiKit.hbox(10)
+		strip.name = "ForgePreviewPanel"
+		strip.add_child(crest)
+		var words := UiKit.vbox(2)
+		words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		words.add_child(name_l)
+		words.add_child(line)
+		strip.add_child(words)
+		save.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		strip.add_child(save)
+		out.add_child(strip)
+		out.add_child(_problem)
+		out.add_child(form)
+	out.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	out.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_refresh_preview()
+	return out
+
+
+func _refresh_preview() -> void:
+	var crest = _pv.get("crest")
+	if crest == null or not is_instance_valid(crest):
+		return
+	var cols := _kit_colours()
+	crest.primary = cols[0]
+	crest.secondary = cols[1]
+	crest.accent = cols[2]
+	crest.design = str(_club["design"])
+	crest.code = str(_club["code"]).strip_edges()
+	crest.queue_redraw()
+	var name := str(_club["name"]).strip_edges()
+	(_pv["name"] as Label).text = name if name != "" else "Your club"
+	var bits := PackedStringArray()
+	for key in ["short", "code", "ground"]:
+		var v := str(_club.get(key, "")).strip_edges()
+		if v != "":
+			bits.append(v)
+	(_pv["line"] as Label).text = " · ".join(bits) if not bits.is_empty() else "Choose a place to start"
+	if is_instance_valid(_problem):
+		_problem.visible = false
+
+
+## The guernsey's colours in the order the crest draws them: the guernsey,
+## its pattern, the trim.
+func _kit_colours() -> Array:
+	var kit := str(_club["kit"]).split("/")
+	var by := {"p": _club["primary"], "s": _club["secondary"], "a": _club["accent"]}
+	var out := []
+	for i in range(3):
+		var t := str(kit[i]) if i < kit.size() else "psa"[i]
+		out.append(Color.from_string(str(by.get(t, "#FFFFFF")), Color.WHITE))
+	return out
+
+
+## Three slots, one palette: tap a slot, then a colour. The third colour is
+## optional ("None" makes a two-colour club).
+func _rebuild_colours() -> void:
+	if not is_instance_valid(_colour_box):
+		return
+	UiKit.clear(_colour_box)
+	var slots := GridContainer.new()
+	slots.name = "ForgeSlots"
+	slots.columns = 3
+	slots.add_theme_constant_override("h_separation", 6)
+	for slot in [["primary", "First colour"], ["secondary", "Second colour"], ["accent", "Third colour"]]:
+		var key := str(slot[0])
+		var none := key == "accent" and _accent_none
+		var b := _swatch_button("ForgeSlot_" + key, str(slot[1]),
+				"None" if none else _colour_name(str(_club[key]), ""),
+				Color.TRANSPARENT if none else Color.from_string(str(_club[key]), Color.WHITE), _slot == key)
+		b.pressed.connect(func():
+			_slot = key
+			_rebuild_colours())
+		slots.add_child(b)
+	_colour_box.add_child(slots)
+	var grid := GridContainer.new()
+	grid.name = "ForgePalette"
+	# As many 44 px swatches as the screen takes, never wider than it.
+	var room := UiKit.view_width(self) - 40.0
+	if UiKit.view_width(self) >= 760.0 and UiKit.view_width(self) > UiKit.view_height(self):
+		room -= 280.0
+	grid.columns = clampi(int((room + 6.0) / 50.0), 4, 16)
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	for c in ClubForge.PALETTE:
+		var hex := str(c[2])
+		var on := not (_slot == "accent" and _accent_none) and str(_club[_slot]).to_lower() == hex.to_lower()
+		var b := Button.new()
+		b.name = "ForgeColour_" + str(c[0])
+		b.tooltip_text = str(c[1])
+		b.custom_minimum_size = Vector2(44, 44)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.mouse_filter = Control.MOUSE_FILTER_PASS
+		var sb := UiKit.style(Color.html(hex), 0, UiKit.RADIUS, UiKit.TEXT if on else Color(UiKit.TEXT, 0.18))
+		sb.set_border_width_all(3 if on else 1)
+		for st in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+			b.add_theme_stylebox_override(st, sb)
+		b.pressed.connect(_set_colour.bind(_slot, hex))
+		grid.add_child(b)
+	if _slot == "accent":
+		var clear := UiKit.btn("None", 13)
+		clear.name = "ForgeColour_none"
+		clear.tooltip_text = "No third colour"
+		clear.custom_minimum_size = Vector2(44, 44)
+		clear.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		clear.mouse_filter = Control.MOUSE_FILTER_PASS
+		UiKit.paint_choice(clear, _accent_none)
+		clear.pressed.connect(_set_colour.bind("accent", ""))
+		grid.add_child(clear)
+	_colour_box.add_child(grid)
+	var hint := "Tap a colour, then pick from the palette." if _slot != "accent" \
+			else "A third colour is optional: it trims the guernsey and can be its pattern."
+	_colour_box.add_child(_sub(hint))
+
+
+## Paint a slot. "" clears the third colour: it then follows the second.
+func _set_colour(key: String, hex: String) -> void:
+	if key == "accent" and hex == "":
+		_accent_none = true
+		_club["accent"] = _club["secondary"]
+		# Nothing on the guernsey may wear a colour that no longer exists.
+		var kit := Array(str(_club["kit"]).split("/"))
+		for i in range(2):
+			if kit[i] == "a":
+				kit[i] = "p" if kit[1 - i] != "p" else "s"
+		_set_kit(kit)
+	else:
+		_club[key] = hex
+		if key == "accent":
+			_accent_none = false
+		elif key == "secondary" and _accent_none:
+			_club["accent"] = hex
+	_kit_touched = true
+	_rebuild_colours()
+	_rebuild_kit()
+	_refresh_preview()
+
+
+## The design, shown as the guernsey itself in the club's colours, then which
+## colour is the guernsey and which the pattern.
+func _rebuild_kit() -> void:
+	if not is_instance_valid(_kit_box):
+		return
+	UiKit.clear(_kit_box)
+	var narrow := UiKit.view_width(self) < 520.0
+	var designs := GridContainer.new()
+	designs.name = "ForgeDesign"
+	designs.columns = 4 if narrow else 6
+	designs.add_theme_constant_override("h_separation", 6)
+	designs.add_theme_constant_override("v_separation", 6)
+	var cols := _kit_colours()
+	for d in ClubForge.DESIGNS:
+		var b := Button.new()
+		b.name = "ForgeDesign_" + str(d)
+		b.tooltip_text = str(DESIGN_LABELS.get(d, d))
+		b.custom_minimum_size = Vector2(0, 78)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.mouse_filter = Control.MOUSE_FILTER_PASS
+		UiKit.paint_choice(b, str(_club["design"]) == str(d))
+		var face := UiKit.vbox(2)
+		face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		face.alignment = BoxContainer.ALIGNMENT_CENTER
+		var centre := CenterContainer.new()
+		centre.add_child(GuernseyCrest.make(cols[0], cols[1], cols[2], str(d), "", 44.0))
+		face.add_child(centre)
+		var label := UiKit.lbl(str(DESIGN_LABELS.get(d, d)), 12, UiKit.MUTED)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		face.add_child(label)
+		_ignore_mouse(face)
+		b.add_child(face)
+		b.pressed.connect(func():
+			_club["design"] = str(d)
+			_kit_touched = true
+			_rebuild_kit()
+			_refresh_preview())
+		designs.add_child(b)
+	_kit_box.add_child(designs)
+	var kit := Array(str(_club["kit"]).split("/"))
+	var slots := []
+	for t in ["p", "s", "a"]:
+		if t == "a" and _accent_none:
+			continue
+		slots.append(t)
+	var row := GridContainer.new()
+	row.columns = 1 if narrow else 2
+	row.add_theme_constant_override("h_separation", 16)
+	row.add_theme_constant_override("v_separation", 8)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_kit_box.add_child(row)
+	var base_box := UiKit.vbox(4)
+	base_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	base_box.add_child(_sub("Guernsey colour"))
+	base_box.add_child(_slot_choices("ForgeBase", slots, str(kit[0]), func(k: String):
+		if k == str(kit[1]):
+			kit[1] = kit[0]
+		kit[0] = k
+		_set_kit(kit)
+		_rebuild_kit()
+		_refresh_preview()))
+	row.add_child(base_box)
+	if str(_club["design"]) != "plain":
+		var others := []
+		for t in slots:
+			if t != str(kit[0]):
+				others.append(t)
+		var pattern_box := UiKit.vbox(4)
+		pattern_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pattern_box.add_child(_sub("Pattern colour"))
+		pattern_box.add_child(_slot_choices("ForgePattern", others, str(kit[1]), func(k: String):
+			kit[1] = k
+			_set_kit(kit)
+			_rebuild_kit()
+			_refresh_preview()))
+		row.add_child(pattern_box)
+
+
+## Which of the club's colours: each named and shown, the chosen one outlined.
+func _slot_choices(node_name: String, tokens: Array, current: String, on_pick: Callable) -> HBoxContainer:
+	var h := UiKit.hbox(6)
+	h.name = node_name
+	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var key_of := {"p": "primary", "s": "secondary", "a": "accent"}
+	for t in tokens:
+		var key: String = key_of[t]
+		var b := _swatch_button("%s_%s" % [node_name, t], "", _colour_name(str(_club[key]), "Colour"),
+				Color.from_string(str(_club[key]), Color.WHITE), str(t) == current)
+		b.pressed.connect(func(): on_pick.call(str(t)))
+		h.add_child(b)
+	return h
+
+
+## A choice that carries its colour: a swatch, then its words.
+func _swatch_button(node_name: String, title: String, colour_name: String, colour: Color, on: bool) -> Button:
+	var b := Button.new()
+	b.name = node_name
+	b.custom_minimum_size = Vector2(0, 48 if title != "" else 44)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.mouse_filter = Control.MOUSE_FILTER_PASS
+	UiKit.paint_choice(b, on)
+	var face := UiKit.hbox(8)
+	face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	face.add_theme_constant_override("separation", 8)
+	var pad := Control.new()
+	pad.custom_minimum_size.x = 2
+	face.add_child(pad)
+	var chip := Panel.new()
+	chip.custom_minimum_size = Vector2(22, 22)
+	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var sb := UiKit.style(colour, 0, 4, Color(UiKit.TEXT, 0.35))
+	sb.set_border_width_all(1)
+	chip.add_theme_stylebox_override("panel", sb)
+	face.add_child(chip)
+	var words := UiKit.vbox(0)
+	words.alignment = BoxContainer.ALIGNMENT_CENTER
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if title != "":
+		words.add_child(UiKit.lbl(title, 12, UiKit.MUTED))
+	words.add_child(UiKit.ellipsis(colour_name, 14, UiKit.TEXT if on else UiKit.MUTED, on))
+	face.add_child(words)
+	_ignore_mouse(face)
+	b.add_child(face)
+	return b
+
+
+func _ignore_mouse(n: Node) -> void:
+	if n is Control:
+		(n as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c in n.get_children():
+		_ignore_mouse(c)
 
 
 ## A place fills in what the coach hasn't made his own: the name (while it is
@@ -585,41 +900,9 @@ func _field(node_name: String, key: String, placeholder: String, longest: int) -
 				f.text = up
 				f.caret_column = up.length()
 			t = up
-		_club[key] = t)
+		_club[key] = t
+		_refresh_preview())
 	return f
-
-
-## The football palette as swatches; the chosen colour outlined. A pick
-## repaints the row in place (no rebuild: the form keeps its scroll).
-func _palette(node_name: String, key: String) -> GridContainer:
-	var grid := GridContainer.new()
-	grid.name = node_name
-	grid.columns = 5 if UiKit.view_width(self) < 520.0 else 15
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
-	var buttons := {}
-	var paint := func():
-		for hex in buttons:
-			var on := str(_club[key]).to_lower() == str(hex).to_lower()
-			var sb := UiKit.style(Color.html(hex), 0, UiKit.RADIUS, UiKit.TEXT if on else Color(UiKit.TEXT, 0.18))
-			sb.set_border_width_all(3 if on else 1)
-			for st in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
-				(buttons[hex] as Button).add_theme_stylebox_override(st, sb)
-	for c in ClubForge.PALETTE:
-		var b := Button.new()
-		b.name = "%s_%s" % [node_name, c[0]]
-		b.tooltip_text = str(c[1])
-		b.custom_minimum_size = Vector2(44, 44)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var hex := str(c[2])
-		b.pressed.connect(func():
-			_club[key] = hex
-			_kit_touched = true
-			paint.call())
-		buttons[hex] = b
-		grid.add_child(b)
-	paint.call()
-	return grid
 
 
 func _colour_name(hex: String, fallback: String) -> String:

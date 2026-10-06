@@ -566,7 +566,7 @@ func _bounce_close_up() -> void:
 			moves_ok = moves_ok and _sheet_has(VignetteFigures.BODIES[build], anim, ["front", "back"])
 	_check(moves_ok and Vector2i((vig.FIGURE_SHADE as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
 			and Vector2i((vig.FIGURE_MASK as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
-			and Vector2i((vig.FIGURE_DESIGN as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE / 2,
+			and Vector2i((vig.FIGURE_DESIGN as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE / VignetteFigures.DESIGN_SCALE,
 			"The figure sheets hold every move the scene plays, front and back")
 	# Living players: the two ruckmen never go up as twins, and men standing in the
 	# square are ready (not stock-still) and never all in step.

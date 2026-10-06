@@ -13,8 +13,7 @@ var last_ai_plan := ""
 var by_ai := {}   # AI's Q1 plan -> policy -> [wins, n]
 
 const PLAN_KEYS := ["balanced", "attacking", "defensive", "contest", "controlled", "through_stars"]
-const COUNTER := {"controlled": "attacking", "defensive": "controlled", "press": "controlled",
-		"attacking": "defensive", "fast": "defensive"}
+const COUNTER := {"controlled": "attacking", "defensive": "controlled", "attacking": "defensive"}
 
 func _play(home: Array, away: Array, hcode: String, acode: String, seed: int, policy: String) -> int:
 	var a := Squad.new(hcode, home, true, hcode)

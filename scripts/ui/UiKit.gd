@@ -253,7 +253,21 @@ static func spacer(px := 6) -> Control:
 ## Remove immediately from layout; freeing at frame end avoids deleting the
 ## button currently emitting pressed. No duplicate rows during a refresh.
 static func clear(container: Node) -> void:
+	# A tap that rebuilds the list it sits in (drafting a player, say) must still
+	# reach the ScrollContainer around the list. Taking the tapped row out of the
+	# tree mid-tap ends the event there: the scroll never hears the release,
+	# stays mid-drag, and every later mouse move drags the list back to where
+	# the tap began. So the row under the pointer leaves at the end of the
+	# frame instead, hidden and renamed so its replacement can take its name.
+	var under: Control = null
+	if container.is_inside_tree():
+		under = container.get_viewport().gui_get_hovered_control()
 	for child in container.get_children():
+		if under != null and child is CanvasItem and (child == under or child.is_ancestor_of(under)):
+			child.name = "Leaving_%d" % child.get_instance_id()
+			(child as CanvasItem).hide()
+			child.queue_free()
+			continue
 		container.remove_child(child)
 		child.queue_free()
 
