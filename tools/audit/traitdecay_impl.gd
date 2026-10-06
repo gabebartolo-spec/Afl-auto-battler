@@ -22,8 +22,12 @@ func run() -> void:
 		var nr := 0
 		var ng := 0
 		var syn := 0
+		var by_syn := {}
 		for c in gs.season.lists:
-			syn += Traits.active(Ratings.select_22(gs.season.lists[c])["ground"]).size()
+			var on: Array = Traits.active(Ratings.select_22(gs.season.lists[c])["ground"])
+			syn += on.size()
+			for k in on:
+				by_syn[k] = int(by_syn.get(k, 0)) + 1
 			for p in gs.season.lists[c]:
 				var bucket: Dictionary = gen if bool(p.get("generated", false)) else real
 				if bool(p.get("generated", false)):
@@ -33,6 +37,7 @@ func run() -> void:
 				for t in Traits.of(p):
 					bucket[t] = int(bucket.get(t, 0)) + 1
 		print("DECAY %d | synergies on across the league %d | real %d: %s | generated %d: %s" % [gs.season_year, syn, nr, str(real), ng, str(gen)])
+		print("SYN %d | %s" % [gs.season_year, str(by_syn)])
 		while not gs.season.is_season_over():
 			dyn._play_week(gs, user, true)
 		var mgmt: Dictionary = dyn._manage(gs, user, "full")
