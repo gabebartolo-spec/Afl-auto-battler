@@ -692,7 +692,8 @@ func _finals_label() -> String:
 ## rotates a bye. Not the end of your season - that is only once the
 ## home-and-away rounds are done.
 func _regular_bye(season: Season) -> bool:
-	return season != null and not season.is_season_over() 			and not season.is_regular_done() and _upcoming_match().is_empty()
+	return season != null and not season.is_season_over() \
+			and not season.is_regular_done() and _upcoming_match().is_empty()
 
 
 ## The match you are about to play, or {} if you have none coming up

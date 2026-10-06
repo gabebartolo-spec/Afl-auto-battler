@@ -55,6 +55,7 @@ func _run() -> void:
 	await _vignettes_play_through()
 	_music_files()
 	_music_player()
+	_banners()
 	print("Assets tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(1 if not _failures.is_empty() else 0)
 
@@ -361,6 +362,108 @@ func _music_player() -> void:
 	_check(AudioServer.is_bus_mute(AudioServer.get_bus_index("Master")), "Mute silences the music")
 	_state.set_sounds_muted(false)
 	_check(not AudioServer.is_bus_mute(AudioServer.get_bus_index("Master")), "Sound back on brings it back")
+
+
+# ---------------------------------------------------------------------------
+# Run-through banners (data/banners.json, Banners.pick)
+# ---------------------------------------------------------------------------
+## The longest fill-ins: a nickname, a 12-letter surname, a 300-game
+## milestone and a year.
+const BANNER_LONGEST := {"{us}": "Kangaroos", "{them}": "Kangaroos", "{player}": "Wwwwwwwwwwww",
+		"{games}": "300", "{year}": "2031"}
+
+
+func _banners() -> void:
+	var B: GDScript = load("res://scripts/core/Banners.gd")
+	var d: Dictionary = B.data()
+	_check(not d.is_empty(), "The banner rhymes load")
+	if d.is_empty():
+		return
+	# Every text in the file, wherever it sits.
+	var all := []
+	for k in d:
+		var v = d[k]
+		if v is Array:
+			for x in v:
+				if x is String:
+					all.append(x)
+				elif x is Dictionary:
+					all.append_array(x.get("texts", []))
+		elif v is Dictionary:
+			for kk in v:
+				all.append_array(v[kk])
+	var bad_lines := []
+	var too_long := []
+	var unknown := []
+	var re := RegEx.new()
+	re.compile("\\{[a-z_]+\\}")
+	for t in all:
+		var lines := str(t).split("\n")
+		if lines.size() < 2 or lines.size() > 4:
+			bad_lines.append(t)
+		for m in re.search_all(str(t)):
+			if not BANNER_LONGEST.has(m.get_string()):
+				unknown.append(m.get_string())
+		var filled := str(t)
+		for ph in BANNER_LONGEST:
+			filled = filled.replace(ph, BANNER_LONGEST[ph])
+		for line in filled.split("\n"):
+			if line.length() > 28:
+				too_long.append(line)
+	_check(all.size() >= 140, "The banner file holds its rhymes (%d)" % all.size())
+	_check(bad_lines.is_empty(), "Every banner is 2 to 4 lines (%s)" % str(bad_lines.slice(0, 3)))
+	_check(too_long.is_empty(), "Every line fits 28 characters with the longest names filled in (%s)" % str(too_long.slice(0, 3)))
+	_check(unknown.is_empty(), "Banners use only the known fill-ins (%s)" % str(unknown))
+	var missing := []
+	for code in root.get_node("GameDB").clubs:
+		if not (d.get("club", {}) as Dictionary).has(code) or (d["club"][code] as Array).is_empty():
+			missing.append(code)
+	for r in d.get("rivalry", []):
+		if (r.get("pair", []) as Array).size() != 2 or (r.get("texts", []) as Array).is_empty():
+			missing.append(str(r.get("pair", [])))
+	for week in ["wildcard", "elimination", "qualifying", "semi", "preliminary", "grand"]:
+		if (d.get("final", {}) as Dictionary).get(week, []).is_empty():
+			missing.append(week)
+	for key in ["debut", "50", "100", "150", "200", "250", "300", "350", "farewell"]:
+		if (d.get("milestone", {}) as Dictionary).get(key, []).is_empty():
+			missing.append(key)
+	for t in MarqueeGames.TRADITIONS:
+		if B._marquee(d, str(t["name"])).is_empty():
+			missing.append(str(t["name"]))
+	_check(missing.is_empty(), "Every club, rivalry, final week, milestone and marquee game has its banners (%s)" % str(missing))
+	# The days of remembrance honour the day: no taunt at the opponent.
+	var taunts := []
+	for name in B.RESPECTFUL:
+		for t in B._marquee(d, name):
+			if str(t).contains("{them}"):
+				taunts.append(t)
+	_check(taunts.is_empty(), "ANZAC and Dreamtime banners name no opponent to taunt (%s)" % str(taunts))
+	# Which set, in order: each occasion beats everything below it.
+	var full := {"home": "TAS", "away": "NTH", "round": "Round 1", "final": "grand", "must_win": true,
+			"spoon": true, "first_game": "TAS", "premiers": "NTH", "milestone": {"player": "Smith", "games": 100},
+			"year": 2028, "seed": 7}
+	var order := []
+	var ctx := full.duplicate(true)
+	for drop in ["first_game", "milestone", "final", "must_win", "premiers", "spoon"]:
+		order.append(str(B.texts_for(ctx)[0]))
+		ctx.erase(drop)
+	order.append(str(B.texts_for(ctx)[0]))
+	_check(order == ["first_game", "milestone", "final", "must_win", "premiers_opposition", "spoon", "club"],
+			"Banners follow the occasion's priority (%s)" % str(order))
+	var riv := {"home": "CAR", "away": "COL", "round": "Round 3", "seed": 3}
+	_check(str(B.texts_for(riv)[0]) == "rivalry" and str(B.texts_for({"home": "COL", "away": "CAR", "seed": 3})[0]) == "rivalry",
+			"A rivalry is a rivalry in either order")
+	_check(str(B.texts_for({"home": "HAW", "away": "GEE", "us": "GEE"})[0]) == "marquee",
+			"A marquee game gets its own banner")
+	var anzac := {"home": "ESS", "away": "COL", "round": "Round 7", "must_win": true, "premiers": "COL",
+			"milestone": {"player": "Smith", "games": 200}, "seed": 1}
+	var anzac_texts: Array = B._marquee(d, "ANZAC Day")
+	_check(anzac_texts.has(str(B.texts_for(anzac)[1][0])) and str(B.texts_for(anzac)[0]) == "marquee",
+			"ANZAC Day only ever gets its own banner")
+	var a: String = B.pick(riv)
+	_check(a != "" and a == B.pick(riv), "The same match always gets the same banner")
+	var ms: String = B.pick({"home": "COL", "away": "ESS", "milestone": {"player": "Smith", "games": 100}, "seed": 2})
+	_check(not ms.contains("{") and ms.split("\n").size() >= 2, "A picked banner is filled in, in lines (%s)" % ms)
 
 
 func _check(condition: bool, message: String) -> void:

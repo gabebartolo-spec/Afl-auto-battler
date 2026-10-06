@@ -7,10 +7,15 @@ extends RefCounted
 var failures: Array[String] = []
 var checks := 0
 
+## Every season and draft here is seeded (C15): a clock seed makes a different
+## league each run.
+const SUITE_SEED := 2027
+
 
 func run() -> void:
 	failures.clear()
 	checks = 0
+	GameState.replay_seed = SUITE_SEED
 	_test_mid_season_round_trip()
 	_test_training_survives()
 	_test_adjusted_players_survive()
@@ -21,6 +26,7 @@ func run() -> void:
 	_test_old_club_code_migrates()
 	_test_safe_replacement()
 	GameState.delete_saved_career()
+	GameState.replay_seed = 0
 	print("Save tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -100,6 +106,16 @@ func _test_training_survives() -> void:
 		if str(sp["id"]) == id:
 			in_season = sp
 	_check(is_same(in_season, q), "The trained player is one shared dict after loading")
+	# A look chosen in Club Forge is part of the player and comes back as set.
+	var look := {"skin": 4, "hair": 0, "hair_style": "mullet", "beard": "full_beard", "headband": true,
+			"tattoos": [{"place": "calf_l", "design": "design_3"}], "freckles": 1}
+	GameState.list_player(id)["look"] = look.duplicate(true)
+	GameState.save_career()
+	GameState.load_career()
+	var full := GameDB.player_appearance(GameState.list_player(id))
+	_check(full["hair_style"] == "mullet" and full["beard"] == "full_beard" and bool(full["headband"])
+			and int(full["skin"]) == 4 and (full["tattoos"] as Array).size() == 1 and int(full["freckles"]) == 1,
+			"A chosen look survives a reload")
 
 
 ## The director's named-player corrections (Ratings.ATTR_ADJUSTMENTS) are in the
@@ -347,6 +363,15 @@ func _test_safe_replacement() -> void:
 	CareerSave.fail_at = ""
 	DirAccess.remove_absolute(path + CareerSave.TEMP_SUFFIX)
 	_check(not ok and str(CareerSave.read(path).get("which", "")) == "A", "A failed swap reports failure and keeps the previous save")
+	# The same failure with the new save left in the temp file, as a real one
+	# would: the newer save is still recovered, and the career still exists.
+	CareerSave.delete(path)
+	CareerSave.write(a, {}, path)
+	CareerSave.fail_at = "swap"
+	CareerSave.write(b, {}, path)
+	CareerSave.fail_at = ""
+	_check(CareerSave.exists(path) and str(CareerSave.read(path).get("which", "")) == "B",
+			"A failed swap leaves the newer save in the temp file, and it is the one read")
 	# The save itself is corrupt: the previous good one is read instead.
 	CareerSave.delete(path)
 	CareerSave.write(a, {}, path)

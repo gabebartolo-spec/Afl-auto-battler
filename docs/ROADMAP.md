@@ -1654,7 +1654,7 @@ Seeded marked goal vs unmarked goal. Only the marked/set-shot path may trigger t
 ---
 
 ## ARD-M3-002 — Forward archetype scoring
-**Status:** `IN REVIEW` — branch `claude/forward-archetypes`.  
+**Status:** `PARTIAL` — forward archetypes (key forwards mark inside 50, small forwards crumb) merged in #286; #297 then let generated forwards include small forwards (172–203 cm, was 184–203). Balance measurement and the spoils-outside-the-50 gap (below) remain. _(2026-10-06)_  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 **Depends on:** ARD-M3-001, marking context
@@ -2023,6 +2023,26 @@ This should be a real structural choice, not a flat intercept-stat buff:
 
 The roaming interceptor should also be eligible to appear as a **key matchup / opposition danger** even though he is not assigned to one forward. If he is controlling the air, the player should have football-appropriate counters available (for example changing forward structure, making him accountable, lowering/altering entries, or moving the spare), rather than being told he is a danger with no response.
 
+### Director addition — match preparation: solo vs dual ruck
+**Status:** `TODO` — design and implementation follow-up; covered by this item's balance gate.
+
+Give match preparation a meaningful **solo ruck vs dual ruck** choice, connected to the selected players' traits, skills and complementary roles. Both approaches must have benefits and drawbacks; neither should be a universally superior button.
+
+Claude should refine the smallest football-credible design using the existing selection, workload, role and synergy systems. Candidate trade-offs to investigate, not prescribed numerical effects:
+- **Solo:** more room for another midfielder/runner or other specialist, and concentrated responsibility for a dominant ruck; costs may include workload/fatigue, reduced genuine ruck cover and exposure if the sole ruck is injured or beaten.
+- **Dual:** shared ruck workload, genuine cover and complementary around-ground/forward contributions; costs may include a selected-player opportunity cost, reduced running/pressure or poorer spacing when the two players do not complement one another.
+
+Tie suitability into player identity rather than blanket solo/dual stat multipliers. **Ideas, not demands:** a "Ruck King" could operate better as the sole lead ruck, while an "Extra Midfielder" or "Unicorn"-type ruck could thrive in a complementary tandem. These names and exact behaviours are suggestions for Claude to assess; do not automatically add traits or redefine the existing Unicorn trait, which already has a separate multi-position synergy meaning. Reuse compatible existing traits/attributes where possible and avoid double-counting their benefits.
+
+**Director reference examples — Extra Midfielder rucks:** Luke Jackson, Brodie Grundy and Tristan Xerri. The intended distinction is stronger contested grunt around stoppages (ground-level ball winning, clearance involvement and pressure), with generally less aerial potency than tap-focused rucks. This does not mean they are poor ruckmen or cannot win taps; tap craft, aerial strength and contested midfield contribution are separate dimensions, and individual exceptions should remain possible. In the intended archetype contrast, tap-focused rucks are more likely to take intercept marks, while Extra Midfielder rucks are more likely to follow up forward-50 ruck contests and become involved in scoring chains. Express these as personnel-dependent tendencies through real positioning, contest follow-up and disposal/assist events, rather than guaranteed outcomes or fabricated credits; preserve individual exceptions. Use these players as archetype reference points, not instructions to force traits onto them, manually buff them or automatically make tandem play optimal. Claude should refine how this profile interacts with a complementary partner versus solo responsibility using the existing skills, traits and football model.
+
+Acceptance:
+- The choice is clear in match prep, names the relevant selected ruck(s), and explains the likely benefit and cost in concise football language without prescribing the best option.
+- Real selection, ruck responsibility, rotation/workload and off-ruck roles support the choice; no extra player, phantom second ruck, duplicate simultaneous contribution or cosmetic-only toggle.
+- Both structures can succeed or struggle depending on personnel, complementarity and opponent; AI operates under the same rules.
+- Invalid selections/injuries and emergency cover follow existing ruck-integrity rules (ARD-M1-002); integrate with the five-interchange migration (ARD-M5-001) and workload work (ARD-M5-015).
+- Validate matched-resource solo/dual comparisons across dominant specialists, mobile/hybrid rucks and poorly complementary pairs. Demonstrate meaningful advantages and costs, and use actual match evidence for feedback rather than invented tactical success claims.
+
 ### Director addition — defensive forward archetype / trait
 
 Add a **Defensive forward** as a genuine player archetype/trait and make it relevant to this exact problem: when an opposition loose/intercept defender is hurting you, a suitable defensive forward should be deployable to make him accountable rather than the response being only an abstract team button.
@@ -2271,10 +2291,12 @@ Goal: make player deployment intuitive, footy-authentic and consequential.
 
 ## ARD-M5-001 — Matchday squad: 18 + 5 interchange
 **Status:** `TODO`  
-**Priority:** `P1`  
+**Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
 
-Current known structure uses 18 + 4.
+**Director priority (2026-10-06):** Implement this next ahead of unrelated feature expansion and presentation work; urgent crash/save blockers still take precedence. This is an existing task promoted to priority, not a new duplicate.
+
+Verified on current main: `Ratings.gd` defines `INTERCHANGE := 4`, `SelectionScene.gd` renders four bench slots, and selection tests still expect 18 + 4. Five interchange players are not implemented yet.
 
 Migrate to:
 - 18 on ground,
@@ -2294,6 +2316,12 @@ Audit:
 - UI,
 - tests,
 - every hard-coded 22/4 assumption.
+
+Acceptance:
+- Manual and auto/AI selection produce 18 on ground + 5 interchange (23 total) for both teams, and the UI exposes all five bench slots.
+- The fifth player participates correctly in rotations, injury cover, match stats, XP/development and appearance/played-game tracking; no cosmetic-only extra slot.
+- Remove or update every relevant hard-coded 22-player/four-bench assumption, including tests and saved-squad compatibility, without losing existing save information.
+- Validate the squad migration with targeted selection/rotation tests and the required CI gates; use the existing balance-audit process for any resulting simulation effects.
 
 ---
 
@@ -2327,7 +2355,7 @@ Mobile portrait first.
 ---
 
 ## ARD-M5-003 — Secondary-position learning / retraining
-**Status:** `IN REVIEW` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, on branch `claude/dev-project`.  
+**Status:** `DONE` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, merged in #266 (2026-10-06). Phone feel and balance measurement remain with the director.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -3649,6 +3677,29 @@ Give captaincy modest football meaning:
 
 Avoid blanket attribute boosts.
 
+### Director consideration — Leadership as a player stat
+Consider adding **Leadership as a numerical player stat, not a trait**, as part of this captaincy design. Claude should refine the concept and assess the smallest useful implementation before committing to exact values or effects.
+
+Represent football leadership independently of playing ability, OVR, age and captain appointment: a strong leader need not be the best player, and appointing a captain should not automatically grant high Leadership. Explore how the stat can support the bounded composure, late-game stability and morale contexts above, with credible costs/limits and equal rules for AI clubs. Avoid blanket team/attribute buffs, guaranteed comebacks, or making the highest Leadership an automatic optimal captain in every context.
+
+Define what the stat measures, how real and generated players receive credible values, whether/how it develops, and how it is shown on player profiles and captain selection. Be honest about uncertain real-player assessments rather than inventing precise evidence. Inspect the existing captaincy/player-stat foundations first; design appointment, replacement/absence and historical continuity together so the stat is not an isolated decorative number. If persisted, specify backward-compatible defaults for existing saves.
+
+**Director leadership ideas — concepts for Claude to refine, not fixed mechanics:**
+- **On-field coach:** a strong leader could increase gameplan potency through better organisation/execution. Tie any measured benefit to the actual chosen plan, relevant personnel and the leader's participation, rather than an unconditional team-wide boost.
+- **Leads by example:** leadership could support a captain's goal in a clutch moment or last-quarter heroics. Preserve the player's genuine football ability, opportunity and match events; influence tendencies/composure where justified, never script a guaranteed goal, win or comeback. Report a leadership moment only when it actually occurs.
+- **Club culture and appeal:** leadership could improve teammate morale, willingness to **re-sign** with the club, and the club's attractiveness to free agents or players considering a trade. Integrate with existing morale, contracts and recruitment decisions; leadership should be one bounded factor alongside money, opportunity, club direction and player preferences, never forced loyalty or guaranteed recruitment.
+
+These are possible expressions of the numerical Leadership stat, not a request to create three mandatory traits or parallel systems. Claude should assess overlap with coaches, existing composure/clutch behaviour, morale and club reputation before choosing the smallest useful design. Recruitment/retention effects must respect player agency, existing trade rules and AI parity; measure balance and long-save effects as well as match effects.
+
+**Director leadership-trait ideas — alongside the Leadership stat:**
+- **Tough:** teammates are slightly more effective while fatigued; modestly soften the existing fatigue penalty rather than erase fatigue, improve fresh-player performance or encourage unsafe injury behaviour.
+- **Drives Standards:** teammates gain a small amount of additional XP from actual training, through the existing training/development system and within normal potential/development limits.
+- **Unders Culture:** players may be slightly more willing to sign cheaper deals, through existing contract willingness/valuation. Preserve player choice, salary rules and other contract factors; no automatic discounts or forced acceptance.
+
+**All leadership buffs must be small**, including the gameplan, clutch, morale, retention and recruitment ideas above. These trait names/effects are design suggestions for Claude to refine, not immediate stat adjustments. Define who can carry a leadership trait and when its influence applies (captain/leadership role, active participation and absences); distinguish the quantitative Leadership stat from the style of influence. Keep effects transparent and bounded, avoid double-counting existing traits/coaches/culture, and cap stacking from multiple leaders or co-captains so several small bonuses cannot become a large team advantage. Validate fatigue curves, training progression and contract/long-save economy with AI parity before rollout.
+
+Acceptance for any eventual implementation: Leadership is a distinct readable stat; any claimed effect is modest, observable and measured in relevant match/morale contexts; captain assignment and transitions are understandable; invalid/absent captains and older saves are handled safely. Keep this a design follow-up, not an instruction to apply immediate ratings changes.
+
 ### Research refinement — 2026-10-05
 
 **Dependencies:** current player identity/morale and trustworthy match-state events.
@@ -3700,6 +3751,15 @@ The current Season Review collapses Brownlow, Coleman, Rising Star, club best & 
 - **Coleman Medal:** the race should also accumulate visibly throughout the season, just like coaches' votes and the existing ladder Coleman panel. It does **not** need its own bespoke countdown ceremony at season's end because the user has already watched the race develop week by week. Give the final Coleman winner a short, prestigious presentation/mention during the Brownlow ceremony.
 - **Rising Star:** no separate ceremony required. Award/present the Rising Star during the Brownlow ceremony as part of the broader league awards night, with enough prominence to feel meaningful but without interrupting the Brownlow count's pacing.
 - Do not force every honour into its own ceremony: the distinct marquee experiences are the Brownlow count, the user's club B&F count, and the All-Australian unveiling; Coleman and Rising Star live naturally within the Brownlow awards-night presentation.
+
+### Director addition — Danny Frawley Golden Fist award
+**Status:** `TODO` — new season award.
+
+Add the **Danny Frawley Golden Fist** award for the **best defender of the season**. Give defensive excellence a distinct season honour, rather than relying on the Brownlow or general player ratings to recognise it.
+
+Claude should refine a transparent, role-aware selection rule using actual season defensive contributions and the existing award/recognition systems. Consider intercept marks, spoils, one-percenters, defensive contests/accountability and other reliably tracked defensive work; do not reduce "best defender" to the most spoils or generic disposal volume, or invent untracked statistics. Both lockdown and intercept defenders should have credible paths to winning.
+
+Define eligibility, home-and-away versus finals scope, and deterministic tie-breaking consistently with existing awards. Present the winner with a concise season-end reveal, and persist the honour in player/club career history and annual award records. Validate seeded contrasting defender profiles, repeat processing and save/reload so the award cannot duplicate or change its winner.
 
 Presentation guardrails:
 - fanfare should come from pacing, reveal, hierarchy and football context, not particle spam or UI clutter;
@@ -3866,7 +3926,7 @@ A lightweight **Follow / Watch** affordance is preferred over extra bespoke dash
 ---
 
 ## ARD-M7-009 — Expansion clubs, Canberra toggle & Club Forge
-**Status:** `TODO`  
+**Status:** `PARTIAL` — groundwork merged: the full player look (#305) and the location library, `data/forge_locations.json` with 53 researched places and a `tools/validate_data.py` check (#304). Colour tags are empty for 25 places and pattern tags for all (not guessed; research pass pending); nothing in the game reads the library yet. _(2026-10-06)_  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -4605,6 +4665,13 @@ Use short, deliberately higher-detail tactical vignettes for selected high-value
 
 This is **not** a full 3D match engine or a replacement for the standard watched-match view.
 
+### Director addition — red/yellow match-ball colour consistency
+**Status:** `TODO`
+
+Support yellow footballs as well as red ones, including yellow balls in appropriate match vignettes. Choose the ball colour once from the match context and use that same value throughout the entire match: preparation/match intro, live match view, stoppages, scoring/action vignettes and any replay of that match. Do not choose a random colour independently for each scene or hard-code a red ball into shared vignette assets.
+
+Claude should refine the simplest appropriate selection rule from existing match scheduling/context (for example day versus night where that information exists), with a stable default for older saves or missing metadata. Preserve the colour through save/reload and reused scene templates; use a shared match value rather than separate presentation guesses. Validate one red-ball and one yellow-ball match across views and vignette transitions, including reload, so the ball never switches colour within a match.
+
 ### Dependency
 Do not prioritise this until the current §1.11 playtest gate has proved that the underlying decisions themselves are informed, meaningful and give useful feedback. Better presentation must not be used to disguise arbitrary choices.
 
@@ -4634,6 +4701,24 @@ Possible families:
 - wing/outside overlap,
 - forward stoppage,
 - late-game flood / protect-space situation.
+
+### Director addition — match vignette decision gates (2026-10-06)
+**Status:** `TODO` — requested roadmap candidates for Claude to refine; no implementation in this update.
+
+Extend the existing stoppage/kick-in/forward-entry/contact families with:
+- **Stoppage setup — body block on their star midfielder:** show a selected teammate setting a block/screen to impede the opposition star midfielder and create room for the intended ball winner. Make the target, blocker and space readable. The setup, contact, escape and any infringement/outcome must follow the actual football event and existing rules; it must not silently disable the star.
+- **Kick-out after a behind — torpedo down the centre:** show the kick-in set play, central receiving/contesting setup and a long torpedo through the middle. Show the genuine distance/territory opportunity and the central-turnover/exposed-defence risk where relevant. Do not assume a clean reception or invent a successful exit.
+- **Inside-50 kick into space — running forward chase, collect and shoot:** show the kicker placing the ball into open space inside 50, the actual forward racing toward it with the relevant opponent, the ground-ball collection and kick for goal when the authoritative sequence supports it. This is a kick into space and running collection, not a generic overhead mark; preserve believable bounce, timing and pursuit, and allow the real miss, turnover or defensive interruption rather than force a goal.
+
+- **Hip and shoulder — high-impact, risky bump:** a well-executed bump can be incredibly effective at removing an opposition player from the immediate play and opening space or preventing their involvement. This means taking them out of that contest/sequence, not guaranteeing an injury or removal from the match. Preserve the trade-off: a poorly executed or illegal bump can concede a free kick, with a **very small chance** of a report and potential suspension when the actual incident warrants it. Claude should refine effectiveness and risk using relevant player skills/traits, discipline, positioning and contact context; neither outcome should be a context-free random roll or a universally best call. Integrate legitimate contact, infringements and report/suspension consequences with ARD-M3-007 and ARD-M3-011 under their balance gates. The vignette must agree with the authoritative contact, free and report events; a report does not automatically imply a suspension, and any later ruling belongs to the existing MRO process.
+
+- **Switch — open player on the fat side:** show a credible kick to an open teammate on the opposite wing, shifting play toward the less congested side to open attacking avenues and create better looks inside 50. Make the receiver, opposition shift and available forward space readable before the choice. Retain a meaningful cost/risk such as the longer ball's interception exposure, time for the defence to recover or loss of a more direct opportunity; suitability follows actual space, pressure and kicking ability, not a universal switch bonus.
+
+**Director requirement: every concept above is a decision gate**, not merely an automatic highlight or post-event cinematic. Show the real setup/opportunity, freeze **before** the relevant call is committed, present meaningful alternatives and concise football trade-offs, and let the player's choice feed the authoritative MatchSim decision/outcome. For the running-forward scene, the gate comes before choosing the kick into space; the chase/collection/shot is the consequence only if it occurs. For contact, the gate comes before committing to the block/bump; for kick-out/switch, before choosing the disposal. If an appropriate gate or behaviour is missing, extend the existing decision system (ARD-M4-001) and football owner before illustrating it. Avoid repetitive prompts: trigger only at meaningful, context-valid opportunities and retain normal match pacing. Validate that alternatives genuinely change behaviour, risks can materialise, AI has equivalent football choices and outcomes are not predetermined by the vignette.
+
+**Success/failure endings where appropriate:** every applicable vignette should have alternative endings driven by the authoritative outcome roll after the player's decision. The vignette must consume that result, never reroll it, and save/reload must preserve it. Define success/failure relative to the chosen action, not merely whether the possession ultimately produces a goal. Examples: the block creates room versus the star escapes/the block infringes; the torpedo reaches the intended contest/receiver versus an intercept or failed exit; the running forward collects and converts versus being beaten to the ball, dispossessed or missing the shot; the bump removes the opponent from the play versus being evaded or conceding a free; the switch opens a useful attacking route versus being cut off or allowing the defence to reset. Support intermediate outcomes when the actual event requires them (for example a successful collection followed by a missed shot); do not fabricate a binary result that contradicts the football sequence. A rare report may follow the genuine incident and is separate from the later MRO ruling. Pure scene-setting/ceremony vignettes need no artificial success/failure roll. Validate forced/seeded success and failure branches, relevant intermediate outcomes and reload determinism.
+
+Use the existing pre-rendered 2.5D style, real participants/club identity and the same match ball colour throughout. Claude should inspect which sequences already exist and reuse their templates; any missing football behaviour belongs to the existing stoppage/coaching, kick-in (ARD-M3-009) or forward-entry/scoring owner, rather than a second cinematic simulation. Each scene must preview its meaningful decision and freeze at the appropriate point; any subsequent outcome sequence shows only what actually happened after the chosen call. Keep scenes brief/skippable and verify participant/event agreement, ball path, phone readability and performance under the existing vignette gates.
 
 ### Guardrails
 - MatchSim remains the authority. A vignette may illustrate state but must not invent a second football outcome.
@@ -4693,6 +4778,24 @@ On the director's direction, the drawn stick figures became pre-rendered 2.5D fo
 **Validation:** deliberately reach or capture every sequence and relevant fallback, compare phone-sized stills and motion, and check transitions, club colours, player appearance and pose coverage. Verify phone performance, skip/touch/Back behaviour and unchanged football outcomes. Obtain director visual review before marking the migration complete; record any untested sequence as outstanding.
 
 **Director-requested follow-up — TODO (2026-10-06):** Flesh out vignette **backgrounds and appropriate foregrounds** to remove uncanny voids/dead space. Include contextual crowds, rooms, audiences, furniture and atmospheric items; Brownlow/press-conference scenes can use foreground tables, silhouettes or microphones. Match the shared art style, preserve action/UI readability and phone performance. Inspect every scene in phone-sized stills and motion for coherent, inhabited settings.
+
+### Free lighting and surface detail — director follow-up, 2026-10-06
+
+**Status:** `TODO` — findings recorded; no lighting/material prototype or rollout completed. **Priority:** `P2`. **Autonomy:** `SUPERVISED`. **Owner:** art agent, with Claude handling pipeline/render integration. Extends this task's existing figure/style and background/foreground work; do not create a competing art system. [Research and free options](research/AFL_Free_Lighting_and_Surface_Detail_Research.md).
+
+**Goal:** improve volume, grounding and material distinction in players, environments and appropriate props while retaining the approved 2.5D style, club/player identity, action/UI readability and Android budget. Current source inspection found material roughness already differs for boots/skin/fabric; the shade atlas carries a single grayscale lighting multiplier. The sun's cast shadows were disabled because of acne, and the stoppage scene already supplies lift-aware ground ellipses. Inspect current art branches before treating these observations as missing features.
+
+**Actionable sequence:**
+
+- **ARD-M8-007-LS-01 — Baseline and offline lighting pilot:** reconcile the active art branch and installed Blender/API version; preserve current captures and material/channel settings. Compare the existing light rig with softer key/fill and optional free HDRI-assisted lighting on one standing and one moving figure. A small Cycles reference is optional; keep production rendering reproducible. Improve contact/crease shading without blindly restoring the sun-shadow acne. Reuse/refine existing ground shadows and keep them coherent with lift, light and environment. Choose settings from rendered evidence, not assumed quality from a renderer name.
+- **ARD-M8-007-LS-02 — Restrained material detail:** prototype fabric relief/roughness, boots, hair and subtle skin variation using Blender procedural nodes first. Prefer visible folds/seams/highlight separation over noisy microdetail. Details follow body/garment coordinates through animation; retain masks, club patterns/numbers and curated player appearance. Specify how any colour detail survives the current grayscale shade pass. No uniform noise overlay, screen-space texture swimming or new atlas channel without a documented contract.
+- **ARD-M8-007-LS-03 — Environment/prop materials:** improve one existing outdoor scene and one existing awards/press setting, coordinating with the already-requested scene dressing. Use a small coherent palette of grass/soil, fabric, wood, walls/floors and relevant foreground surfaces, with actor/background light direction and contact shading matched. Compare reusable texture/procedural or offline-rendered treatments; no mandatory conversion of all drawn scenery and no live 3D migration.
+- **ARD-M8-007-LS-04 — Optional runtime-lighting experiment:** only where LS-01–03 leave a meaningful gap, compare a small Godot 2D normal/specular-lighting prototype with the cheaper baked result. Adapt the custom packed-data figure shader deliberately, preserve UI light isolation and avoid lighting baked shade twice. Verify per-frame alignment, mirrored/facing normal orientation, actual mobile renderer and memory/frame-time costs. Colour-derived relief may mistake dark kit stripes for dents; do not feed packed masks/design data to automatic normal generation. This is an experiment, not a committed new atlas or renderer dependency.
+- **ARD-M8-007-LS-05 — Review, budgets and selective rollout:** provide lighting-only, detail-only and combined before/after comparisons at fixed state and phone scale, including motion, light/dark club kits, representative skin/hair and multiple facings. Record build time, atlas sizes/count, decoded texture memory, loading, draw calls and representative real-time frame time; preserve the project's existing phone/performance gates. Reuse capture/check tooling. Expand only after the art-agent recommendation and director's final appearance decision; record validated implementation and merged commit before DONE.
+
+**Free options verified:** [Poly Haven](https://polyhaven.com/license) HDRIs/material assets and [ambientCG](https://docs.ambientcg.com/license/) assets are CC0; use free individual downloads and record asset IDs, licences and scale/settings. [Material Maker](https://rodzilla.itch.io/material-maker) has a zero-cost name-your-own-price release and can author reusable static textures; Blender already covers the first experiments and [Krita](https://docs.krita.org/en/reference_manual/brushes/brush_engines/tangen_normal_brush_engine.html) is an optional painting/normal-map route. Check community recipe licences separately. No paid subscriptions, asset generators or integrations required. **Laigter is not a free-binary recommendation:** its current developer page says binaries are paid despite the older Godot documentation wording; source compilation is optional and unnecessary for the baseline.
+
+**Completion/guardrails:** research inclusion does not approve a final look. Follow the existing art-agent authority and director appearance gate. No MatchSim/gameplay/save changes, new tactical families, UI-wide grain/glow, photorealistic style shift, baked-club-colour duplication or full-roster regeneration before a representative approved sample. Validate animation/alpha edges, guernsey and number legibility, silhouette/skin identity, compression shimmer, and text/ball/action clarity. An offline movie is visual evidence, not real-time Android performance proof. Preserve existing migration, FL-007 and STYLE-01–08 boundaries.
 
 ### Acceptance test
 The feature earns further work only if a phone playtest shows that the player can explain **why the decision is being asked**, form a reasonable expectation before choosing, and finds the moment materially more engaging than the normal presentation.
@@ -5086,7 +5189,7 @@ Before adding any new roadmap line, check this table.
 
 ## Design idea — Unicorn as a synergy wildcard
 
-**Status: DECIDED (director, 2026-10-06), in review with ARD-M5-003 on `claude/dev-project`.** Forward, midfield and back earn the Unicorn trait, and he fills one missing place in one synergy. Rarity (POT 90 for a third position) keeps it from becoming a universal buff, as the guardrail below asks.
+**Status: DECIDED (director, 2026-10-06), merged with ARD-M5-003 in #266.** Forward, midfield and back earn the Unicorn trait, and he fills one missing place in one synergy. Rarity (POT 90 for a third position) keeps it from becoming a universal buff, as the guardrail below asks.
 
 Explore making the **Unicorn** player archetype a wildcard for list synergies: a Unicorn could satisfy a required player/archetype slot for any synergy, reflecting an unusually versatile football skill set and making that player a flexible piece in the club's "party" composition.
 
@@ -5506,7 +5609,7 @@ Use **Crusader Kings** for emergent stories and consistent living people: durabl
 
 
 ### Retirement persuasion — director request, 2026-10-06
-**Status:** `IN REVIEW` (branch `claude/retirement-persuasion`). **Autonomy:** `BALANCE-GATED`.
+**Status:** `DONE` — merged in #275 (2026-10-06; intake floor 2190, later 2191 with #297); the balance and phone check remain with the director. **Autonomy:** `BALANCE-GATED`.
 Offer a short chance to convince a retiring veteran at the user's club to play on **only while his OVR remains healthy**. Claude should define and validate a credible OVR eligibility threshold against current ratings/retirement rules; being merely above the automatic low-OVR retirement floor is insufficient. Present the conversation before retirement removes the player. Players can reject the offer and retire. Acceptance/refusal must follow a consistent, explainable assessment of recorded circumstances—long injury history, a very recent injury, poor form, poor morale or similarly relevant career factors—not a random accept/reject roll. Healthy OVR permits the conversation but does not guarantee willingness to continue. Claude should refine the factor weights/thresholds, using only evidence actually recorded; do not invent injury history. Explain the main reason in football language. Reuse private conversations and existing retirement/contracts/history rules; no OVR boost, erased decline or repeated persuasion spam. **Acceptance:** unhealthy-OVR retirees are ineligible; eligible success/refusal, normal ageing, roster/contract consequences and retirement/coaching handoff stay coherent and survive save/load without rerolls or duplicate outcomes.
 
 **Implementation record (2026-10-06, branch `claude/retirement-persuasion`): `IN REVIEW`.**
@@ -5692,6 +5795,26 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Required success/failure vignette endings where appropriate, using the authoritative post-choice roll with intermediate outcomes and deterministic reloads; no separate cinematic reroll or artificial result for ceremonies.
+
+- **2026-10-06:** Added a fat-side switch vignette and explicitly made all five newly requested concepts decision gates: setup/readable trade-offs, pre-action pause, meaningful alternatives and authoritative consequences, with restrained triggering.
+
+- **2026-10-06:** Added a hip-and-shoulder vignette concept: potentially powerful removal from the immediate play, balanced by free-kick risk and a very small context-dependent chance of report/potential suspension through the existing MRO system.
+
+- **2026-10-06:** Added three requested match-vignette concepts under ARD-M8-007: blocking the opposition star midfielder at a stoppage, a torpedo kick-out down the centre after a behind, and an inside-50 kick into space for a running forward to collect and shoot.
+
+- **2026-10-06:** Added director consideration under ARD-M7-004 for Leadership as a numerical player stat (not a trait), independent of OVR/age/appointment, for Claude to refine alongside modest captaincy effects and save compatibility.
+
+- **2026-10-06:** Added red/yellow match-ball support under ARD-M8-007, including yellow balls in appropriate vignettes and one persistent, consistent colour across all scenes from the same match.
+
+- **2026-10-06:** Added the Danny Frawley Golden Fist season award for the best defender, with role-aware judging, season-end recognition and persistent career/award records.
+
+- **2026-10-06:** Added solo vs dual ruck match-prep follow-up under ARD-M4-004, with meaningful trade-offs, trait/personnel fit and AI parity. Ruck King, Extra Midfielder and Unicorn are optional design references for Claude to refine, not mandated traits or effects.
+
+- **2026-10-06:** Promoted ARD-M5-001 (18 + 5 interchange) to P0 at director request after verifying main still uses four bench players; added complete fifth-player participation and save-compatibility acceptance criteria.
+
+- **2026-10-06:** On the director's request, added free lighting/surface-detail findings and five scoped follow-ups under ARD-M8-007 (LS-01–05): offline lighting, restrained player materials, environment/prop surfaces, optional runtime 2D lighting and phone/performance review. Reuses the existing pipeline and shadow work; records free CC0 sources, Material Maker/Krita options and Laigter's paid-binary caveat. Final appearance remains subject to the existing art-agent/director gate; no art or game implementation marked complete.
 
 - **2026-10-06:** Added a BALANCE-GATED career-stage OVR economy follow-up under ARD-M5-010. Phone playtesting shows too many high-POT rookies can enter looking stronger than established AFL professionals. Audit rookie starting OVR, established-player compression and age/development assumptions; create more development headroom for most prospects and modestly strengthen genuinely established players where performance evidence supports it, without blind age modifiers or making OVR cease to represent current strength.
 

@@ -57,6 +57,7 @@ func _run() -> void:
 			"Position badges do not block touch scrolling")
 	badge.free()
 	await _test_inspect(ui)
+	await _test_projected_row(ui)
 	ui.set("_role", "DEF")
 	ui.set("_search", "Jack")
 	ui.set("_sort", "value")
@@ -224,6 +225,42 @@ func _test_side_shape(ui: Control) -> void:
 
 
 ## Inspecting a player is read-only; only the explicit Draft button picks.
+## A League Draft row for a projected prospect shows your recruiters' range,
+## as every other undrafted player does, never his exact stored OVR and POT.
+func _test_projected_row(ui: Control) -> void:
+	var draft = _state.draft
+	var rows: Array = draft.board("MID", "", "", "overall", true)
+	var p: Dictionary = rows[1]
+	p["projected"] = true
+	p["draft_team"] = "COL"
+	ui.set("_search", "")
+	ui.set("_role", "MID")
+	ui.call("_show_board")
+	await _settle()
+	var row: Node = ui.find_child("Inspect_" + str(p["id"]), true, false)
+	var texts := []
+	if row != null:
+		_collect_texts(row, texts)
+	var line := " | ".join(texts)
+	var view: Dictionary = draft.user_view(p)
+	var scouting = load("res://scripts/sim/DraftScouting.gd")
+	_check(row != null and bool(view["scouted"]) and line.contains("projected")
+			and line.contains(scouting.range_text(view["potential"]) + " POT")
+			and line.contains(scouting.range_text(view["overall"]) + " OVR"),
+			"A League Draft projected prospect's row shows a scouted range (%s)" % line)
+	p.erase("projected")
+	p.erase("draft_team")
+	ui.call("_show_board")
+	await _settle()
+
+
+func _collect_texts(n: Node, out: Array) -> void:
+	if n is Label:
+		out.append((n as Label).text)
+	for c in n.get_children():
+		_collect_texts(c, out)
+
+
 func _test_inspect(ui: Control) -> void:
 	var draft = _state.draft
 	ui.set("_search", "")
