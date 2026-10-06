@@ -233,6 +233,30 @@ DESIGNS = {"plain", "stripes", "hoops", "sash", "yoke", "band", "chevrons", "pan
            "chevron", "sides", "tiers", "shoulders"}
 
 
+def check_player_origin() -> list[str]:
+    """data/player_origin_2026.csv (tools/build_player_origin.py): one row per
+    player in data/players_2026.csv, each state a known one or blank, a source
+    wherever a state is set. Coverage is printed."""
+    problems: list[str] = []
+    states = {"VIC", "SA", "WA", "NSW", "QLD", "TAS", "NT", "ACT", "INT", ""}
+    with open(os.path.join(ROOT, "data", "player_origin_2026.csv"), encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    with open(os.path.join(ROOT, "data", "players_2026.csv"), encoding="utf-8", newline="") as f:
+        players = {(r["club"], r["num"]) for r in csv.DictReader(f)}
+    seen = {(r["club"], r["num"]) for r in rows}
+    if seen != players:
+        problems.append(f"player origin: {len(players - seen)} players missing, {len(seen - players)} not on a list")
+    for r in rows:
+        who = f"{r['club']} {r['num']} {r['first']} {r['last']}"
+        if r["state"] not in states:
+            problems.append(f"player origin {who}: state {r['state']!r} is not one of VIC SA WA NSW QLD TAS NT ACT INT or blank")
+        if r["state"] and not r["source"]:
+            problems.append(f"player origin {who}: a state with no source")
+    have = sum(1 for r in rows if r["state"])
+    print(f"  player origin: {have} of {len(rows)} players have a state ({100 * have // max(1, len(rows))}%)")
+    return problems
+
+
 def check_trade_volume() -> list[str]:
     """tools/balance/afl_trade_volume.json: real AFL trade volume per year
     (DraftGuru). Counts must be sane: at least one player moved per player
@@ -437,6 +461,7 @@ def main() -> int:
     problems.extend(check_role_rates())
     problems.extend(check_team_rates())
     problems.extend(check_trade_volume())
+    problems.extend(check_player_origin())
     problems.extend(check_forge_locations())
     problems.extend(check_identity_rules())
     problems.extend(check_bio())
