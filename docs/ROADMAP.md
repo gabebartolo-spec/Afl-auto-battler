@@ -2571,7 +2571,7 @@ This is a league-wide calibration problem, not a request for hand-authored veter
 
 Required audit:
 - compare National Draft rookie OVR/POT distributions against established 24–28 and veteran 29+ players by position/role;
-- inspect how often first-year rookies immediately outrank proven regulars and best-22 veterans before any development;
+- inspect how often first-year rookies immediately outrank proven regulars and veterans in the best side before any development;
 - separate genuinely elite ready-made prospects from ordinary high-upside projects;
 - check whether established players with multiple seasons of credible AFL production are being compressed too low by the ratings model;
 - verify that lowering rookie starting OVR does not accidentally lower their POT or long-term ability to become stars;
@@ -3327,7 +3327,7 @@ AI trade value must depend on what the club is trying to do, using only its own 
 Give each club a simple, recalculated list-management phase such as:
 - **Rebuilding:** materially values high/current and future draft picks plus elite young/high-POT players; is reluctant to trade premium youth for established older stars; may move veterans for picks/youth.
 - **Building/rising:** values a mixture of young core and targeted established needs.
-- **In the premiership window / contending:** places less marginal value on future picks and is more willing to trade good picks/youth depth for established players who improve the best 22 now.
+- **In the premiership window / contending:** places less marginal value on future picks and is more willing to trade good picks/youth depth for established players who improve the best side (18 plus five interchange) now.
 
 Derive this from evidence such as recent ladder/expectation, list quality, age profile, elite-young core and competitive trajectory. Do not assign permanent hand-authored personalities. Recalculate as careers evolve.
 
@@ -5573,7 +5573,7 @@ Offer a short chance to convince a retiring veteran at the user's club to play o
 
 **Implementation record (2026-10-06, branch `claude/retirement-persuasion`): `IN REVIEW`.**
 - **When it is decided:** every club's retirements are decided when the off-season opens, by the existing ageing rules and seeds (`Retirement.intends`). The rollover then does exactly what was shown, so nothing is re-rolled.
-- **Eligibility (director):** a veteran picked in his club's best 22 and at or above its weakest player at his position. That's about 7 a season league-wide, and one for your club about every other season ([evidence](RETIREMENT_EVIDENCE_2026-10-06.md)).
+- **Eligibility (director):** a veteran picked in his club's best side (23 with five interchange) and at or above its weakest player at his position. That's about 7 a season league-wide, and one for your club about every other season ([evidence](RETIREMENT_EVIDENCE_2026-10-06.md)).
 - **Once a career (director):** a yes means one more season. The next time he decides to go, he goes.
 - **His answer follows his record, never a roll.** He refuses if he is:
   - still injured (the injury is named);
