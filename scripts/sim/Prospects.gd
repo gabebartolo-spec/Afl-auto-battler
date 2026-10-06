@@ -458,7 +458,11 @@ static func generate_class(year: int, career_seed := 0) -> Array:
 	var tier := class_tier(career_seed, year)
 	var rng := _rng_for("class-%d" % year)
 	var size := 46 + int(rng.randi_range(0, 10))
-	var role_bag := ["MID", "MID", "MID", "FWD", "FWD", "DEF", "DEF", "RUCK"]
+	# The real lists' mix (director, 2026-10-06: "Match real lists"): about
+	# DEF 34%, FWD 30%, MID 28%, RUCK 7%. Every twelfth pick is a ruck (8%);
+	# the rest come from this bag, so a class runs DEF 35, FWD 28, MID 28.
+	var role_bag := ["DEF", "DEF", "DEF", "DEF", "DEF", "FWD", "FWD", "FWD", "FWD",
+			"MID", "MID", "MID", "MID"]
 	var out := []
 	var rucks := 0
 	for r in range(1, size + 1):
