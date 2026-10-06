@@ -77,12 +77,16 @@ func _run() -> void:
 	res["away"] = away_code
 
 	root.size = Vector2i(W, H)
+	await process_frame
+	# The project stretches canvas items (base 1280x720), so the window's
+	# canvas is not W x H units: fill what is actually visible.
+	var vis: Vector2 = root.get_visible_rect().size
 	var pitch = load("res://scripts/ui/PitchView.gd").new()
 	pitch.position = Vector2.ZERO
-	pitch.size = Vector2(W, H)
+	pitch.size = vis
 	root.add_child(pitch)
 	var overlay = load("res://tools/visual/trail_overlay.gd").new()
-	overlay.size = Vector2(W, H)
+	overlay.size = vis
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(overlay)
 	await process_frame
