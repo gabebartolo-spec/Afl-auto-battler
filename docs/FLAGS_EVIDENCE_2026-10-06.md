@@ -139,25 +139,28 @@ Real AFL, 2019 to 2025: about 41 trades a year, about 21 of them moving a player
 with every club in at least one (#376, DraftGuru). The sim allowed 3
 rival-to-rival trades a season.
 
-The trade market change (#383, in review) lets players ask to be traded and lifts
-the rival cap. Audit: 8 seeds (301 to 308), 3 seasons each, 24 trade periods
-(runs 37416971318 and 37416974435).
+The trade market change (#383) lets players ask to be traded and lifts the rival
+cap. Two audits, 8 careers each (seeds 301 to 308), paired on the same seeds.
 
-| | per trade period |
-|---|---|
-| AI-AI trades, before (main) | 2.6 |
-| AI-AI trades, after | 7.8 (min 3, max 15) |
-| Real AFL, trades moving a player | about 21 |
-| Players who asked to be traded | 5.7 (1.9 going home, 3.8 for games) |
-| ...met by a trade | 2.7 |
-| Requests from your list | 0.42 |
-| Offers to you | 2.3 |
+**First audit, before home states** (3 seasons, 24 trade periods, runs 37416971318
+and 37416974435): AI-AI trades went from 2.6 to 7.8 a period. Going-home requests
+were near zero, because the 2026 lists had no home state yet.
 
-- Going-home requests are near zero in 2027 and 2028 because the 2026 lists have no
-  home state yet (the player-origin data, #378, fixes that), then rise to 5 to 7 a
-  period by 2029 as drafted players with a home state come through.
-- It is still below a real trade period. What is left is deliberate: list size,
-  the salary cap and "a clear upgrade on their fringe".
+**After the home states and the determinism fix** (#413, run 37428896024, branch at
+12a7e05), mean over 8 careers:
+
+| off-season | AI trades | asked to go home (met) | asked for games (met) | your players asking | offers to you | trades you made |
+|---|---|---|---|---|---|---|
+| 2027 | 12.5 (11 to 15) | 16.6 (7.4) | 3.8 (1.8) | 1.1 | 3.0 | 0.4 |
+| 2028 | 9.6 (4 to 14) | 4.4 (2.1) | 1.5 (1.3) | 0.8 | 2.6 | 0.3 |
+
+- Going-home requests now appear from the first season, and about 45% are met.
+- Against about 21 real player moves a year, AI trades plus yours come to about 13
+  in 2027 and about 10 in 2028. Still below a real trade period; what is left is
+  deliberate (list size, the salary cap, "a clear upgrade on their fringe").
+- 2028 drops because the request roll is lumpier than its 4%: 3 of 306 eligible
+  players rolled under in 2028 against about 12 expected. Seeding an RNG with the
+  hash would spread it and stay reproducible. Not done; the lead's call.
 
 ## Development projects (2026-10-06)
 
