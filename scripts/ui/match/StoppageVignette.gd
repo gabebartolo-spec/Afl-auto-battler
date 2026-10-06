@@ -589,6 +589,11 @@ func _draw_names() -> void:
 	var font: Font = UiKit.BOLD
 	var fs := int(clampf(size.x / 26.0, 12.0, 17.0))
 	var placed: Array[Rect2] = []
+	# The ball is the point of the frame: no name sits on it.
+	var b := _ball()
+	var bs := _project(Vector2(b.x, b.y), b.z)
+	var br := maxf(3.0, 0.2 * bs.z * FIGURE) + 4.0
+	placed.append(Rect2(bs.x - br, bs.y - br, br * 2.0, br * 2.0))
 	for t in tokens:
 		if not (str(t["slot"]) in ["R", "C"] or bool(t["tired"])):
 			continue
@@ -597,13 +602,23 @@ func _draw_names() -> void:
 		var name := str(t["name"])
 		var nw := font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var p := Vector2(clampf(head.x - nw * 0.5, 4.0, size.x - nw - 4.0), head.y - 6.0)
-		# Stack names that would sit on top of each other.
+		# Over his head; failing that beside it, left or right, then stacked
+		# upward - never over another name or the ball.
 		var box := Rect2(p - Vector2(0, fs), Vector2(nw, fs + 2))
+		var free := func(r: Rect2) -> bool: return not placed.any(func(q): return q.intersects(r))
+		if not free.call(box):
+			var side := box
+			for dx in [-(nw * 0.5 + 10.0), nw * 0.5 + 10.0]:
+				var c := Rect2(Vector2(clampf(head.x - nw * 0.5 + dx, 4.0, size.x - nw - 4.0), box.position.y + fs * 0.6), box.size)
+				if free.call(c):
+					side = c
+					break
+			box = side
 		var tries := 0
-		while tries < 4 and placed.any(func(r): return r.intersects(box)):
+		while tries < 4 and not free.call(box):
 			box.position.y -= fs + 3
 			tries += 1
-		p.y = box.position.y + fs
+		p = Vector2(box.position.x, box.position.y + fs)
 		placed.append(box)
 		draw_string(font, p + Vector2(1, 1), name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.6))
 		draw_string(font, p, name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
