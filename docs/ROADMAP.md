@@ -563,6 +563,13 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+### Every in-match decision requires a vignette; global toggle — PC playtest requirement (2026-10-07)
+
+- **Reaffirmed director requirement:** every in-match decision requires a vignette when vignettes are enabled. The pictured Jake Waterman mark from 45 metres on a slight angle presents only a text decision panel; cover this moment and its Take the shot / Play on to Dougie Cochrane / Bomb to the goal square branches with appropriate visual presentation. Audit all decision types and branches for missing coverage rather than fixing only this example. Show the actual named players, team appearance and relevant situation, and keep the presentation consistent with the chosen action and recorded outcome. Do not substitute a generic unrelated cinematic or leave uncovered decisions as text-only while claiming completion.
+- **Add a clearly labelled Vignettes On/Off menu setting**, accessible through game settings and persistent across sessions, so players can disable vignette presentation entirely during long saves and re-enable it later. Apply it to all game vignettes, not only set shots or one event type. Enabled is the normal presentation; disabled bypasses vignette playback while retaining every coaching decision, its information, match events and outcomes. Do not interpret disabling vignettes as auto-selecting decisions or skipping match simulation. Keep this separate from tutorial and sound settings.
+- Validate complete decision coverage with the setting on, absence of vignette playback with it off, re-enabling, loading long-running saves and changing the setting without stuck input, duplicate decisions or repeated outcomes. Preserve the already requested Start → banner → opening bounce flow; do not reintroduce a setup interruption to provide vignette coverage. Record as roadmap requirements for Claude, with no game-code edits in this update.
+
+
 ### Neutral styling for tactical observations in the match feed — PC playtest (2026-10-07)
 
 - The pictured “Q2 2' Jake Waterman is getting on top of Nic Newman in the air” line is hard to pick out from ordinary commentary. Give tactical/matchup observations a distinct **neutral informational colour**, such as a readable blue, so they are easy to scan. Blue is a suggested direction, not a mandatory exact colour. Use a consistent small label/icon or accent as well as colour, with sufficient contrast against the dark background.
