@@ -38,7 +38,7 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `draft_ui` | The draft screen's layout and state: containers, widths, rotate and resume | 1130 | 5 |
 | `intake` | The National Draft model: the 2026 class, projection, season rollover | 2210 | 6 |
 | `intake_ui` | The National Draft on the shared draft screen | 500 | 4 |
-| `expansion` | Tasmania in 2028 and Canberra in 2030, and a Club Forge club entering with the career | 485 | 53 |
+| `expansion` | Tasmania in 2028 and Canberra in 2030, and a Club Forge club entering with the career | 488 | 53 |
 | `finals` | The wildcard finals bracket, extra time, draws | 109 | 68 |
 | `save` | Saving and loading a career, including old-save migrations and the safe write: a failed or interrupted write never loses the career, and a failed swap leaves the newer save readable | 76 | 29 |
 | `chronology` | 2026 is history, careers start in 2027, and every system agrees | 31 | 4 |
@@ -47,7 +47,7 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `coach_market` | Coach moves, hiring, sackings, retirements, assistant contracts | 63 | 95 |
 | `coach_pathway` | Retired players becoming coaches, and the record they carry | 57 | 2 |
 | `coach_effects` | What coaching does: teaching, tactics, man-management | 36 | 5 |
-| `career_ui` | Main menu and save flow, Back, the Hub, Training, selection and trade screens, at 320, 360 and 430 wide | 261 | 70 |
+| `career_ui` | Main menu and save flow, Back, the Hub, Training, selection and trade screens, at 320, 360 and 430 wide | 277 | 70 |
 | `potential` | Potential (POT) rules, rehab years, draft pedigree | 36 | 5 |
 | `ratings` | The overall rating model | 39 | 2 |
 | `ai` | Rival clubs' drafting and selection | 35 | 58 |
