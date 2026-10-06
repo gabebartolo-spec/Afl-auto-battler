@@ -718,8 +718,16 @@ func _player_row(p: Dictionary) -> Control:
 					DraftScouting.range_text(scout["overall"]),
 					DraftScouting.range_text(scout["potential"])]
 		else:
-			detail = "%s · projected %d OVR · %d POT" % [team_name, int(p["overall"]),
-					int(p.get("potential", p["overall"]))]
+			# Your recruiters' read, as for every other League Draft player: a
+			# range until he is yours.
+			var proj_view := _draft.user_view(p)
+			if bool(proj_view["scouted"]):
+				detail = "%s · projected %s OVR · %s POT" % [team_name,
+						DraftScouting.range_text(proj_view["overall"]),
+						DraftScouting.range_text(proj_view["potential"])]
+			else:
+				detail = "%s · projected %d OVR · %d POT" % [team_name, int(p["overall"]),
+						int(p.get("potential", p["overall"]))]
 	else:
 		var short := GameDB.club_short(str(p["club"]))
 		var view := _draft.user_view(p)
