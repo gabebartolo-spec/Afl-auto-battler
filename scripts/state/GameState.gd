@@ -14,6 +14,12 @@ var show_real_names := true
 ## Transient navigation request. Settings can send the user straight to New
 ## career setup without touching the existing save.
 var new_career_setup_requested := false
+## The career's custom prospect (Club Forge, ARD-M7-008): his id once made,
+## one per career. Followed through drafts and career history.
+var custom_prospect_id := ""
+## Your dual-ruck call (ARD-M5-001): off until you make it, kept across
+## seasons; copied into each season's selection for your club (_sync_dual).
+var user_dual_ruck := false
 
 var my_club := ""
 var my_list: Array = []
@@ -120,6 +126,9 @@ var season_year := 2026
 ## Rolled once per career: decides each generated draft class's quality tier
 ## (Prospects.class_tier), so a reload never re-rolls a class.
 var career_seed := 0
+## Club Forge: the career's created club as its spec (ClubForge), or {}.
+## Saved with the career and registered with GameDB whenever it loads.
+var custom_club := {}
 var class_tiers := {}             # draft year (string) -> tier key, as generated
 var draftee_pool: Array = []     # all prospects that have not been drafted yet
 var drafted_draftees := {}       # prospect id -> destination club
@@ -183,6 +192,8 @@ func _ready() -> void:
 		show_real_names = bool(cfg.get_value("display", "real_names", true))
 	UiKit.apply_appearance(str(cfg.get_value("ui", "appearance", "dark")))
 	_apply_sound_mute(bool(cfg.get_value("ui", "mute_sounds", false)))
+	AudioLevels.apply(AudioLevels.MUSIC, AudioLevels.valid(str(cfg.get_value("ui", "music_level", "normal"))))
+	AudioLevels.apply(AudioLevels.CROWD, AudioLevels.valid(str(cfg.get_value("ui", "crowd_level", "normal"))))
 
 
 func _exit_tree() -> void:
@@ -202,6 +213,28 @@ func get_setting(key: String, fallback = null):
 	if cfg.load(settings_path) != OK:
 		return fallback
 	return cfg.get_value("ui", key, fallback)
+
+
+## The player made in Club Forge (ARD-M7-008), kept outside any career so it
+## can be brought into the next one: a custom-prospect spec, or {}.
+func forge_player() -> Dictionary:
+	var v = get_setting("forge_player", {})
+	return (v as Dictionary).duplicate(true) if v is Dictionary else {}
+
+
+func set_forge_player(spec: Dictionary) -> void:
+	set_setting("forge_player", spec.duplicate(true))
+
+
+## The club made in Club Forge (ARD-M7-009), kept outside any career like the
+## player: a ClubForge spec, or {}. New career brings it in (create_club).
+func forge_club() -> Dictionary:
+	var v = get_setting("forge_club", {})
+	return (v as Dictionary).duplicate(true) if v is Dictionary else {}
+
+
+func set_forge_club(spec: Dictionary) -> void:
+	set_setting("forge_club", spec.duplicate(true))
 
 
 func set_setting(key: String, value) -> void:
@@ -234,6 +267,25 @@ func sounds_muted() -> bool:
 func set_sounds_muted(muted: bool) -> void:
 	set_setting("mute_sounds", muted)
 	_apply_sound_mute(muted)
+
+
+## FL-004: "off", "quiet" or "normal" for the music and for the crowd.
+func music_level() -> String:
+	return AudioLevels.valid(str(get_setting("music_level", "normal")))
+
+
+func set_music_level(level: String) -> void:
+	set_setting("music_level", AudioLevels.valid(level))
+	AudioLevels.apply(AudioLevels.MUSIC, AudioLevels.valid(level))
+
+
+func crowd_level() -> String:
+	return AudioLevels.valid(str(get_setting("crowd_level", "normal")))
+
+
+func set_crowd_level(level: String) -> void:
+	set_setting("crowd_level", AudioLevels.valid(level))
+	AudioLevels.apply(AudioLevels.CROWD, AudioLevels.valid(level))
 
 
 ## Mute the Master bus so future music and SFX automatically honour the same
@@ -398,6 +450,9 @@ func save_career() -> bool:
 		"draft_meeting_year": draft_meeting_year,
 		"career_seed": career_seed,
 		"class_tiers": class_tiers,
+		"custom_prospect_id": custom_prospect_id,
+		"custom_club": custom_club,
+		"user_dual_ruck": user_dual_ruck,
 		# Players carry p["career"]; saves without this mark predate it.
 		"career_version": CAREER_VERSION,
 	}
@@ -416,7 +471,8 @@ func _save_meta() -> Dictionary:
 			stage = "Finals"
 		else:
 			stage = "Round %d" % (season.round_index + 1)
-	return {"club": my_club if my_club != "" else (draft.user_club if draft != null else ""),
+	var club := my_club if my_club != "" else (draft.user_club if draft != null else "")
+	return {"club": club, "club_name": GameDB.club_name(club) if club != "" else "",
 			"year": season_year, "stage": stage,
 			"saved_at": Time.get_datetime_string_from_system()}
 
@@ -429,12 +485,17 @@ func load_career() -> bool:
 		return false
 	state = CareerSave.migrate_club_codes(state)
 	reset()
+	# A created club joins the competition before anything reads the clubs.
+	custom_club = state.get("custom_club", {})
+	if not custom_club.is_empty():
+		GameDB.register_club(ClubForge.row(custom_club))
 	season_year = int(state.get("season_year", 2026))
 	my_club = str(state.get("my_club", ""))
 	if state.get("season") is Dictionary:
 		var sv: Dictionary = state["season"]
 		season = Season.new(sv["clubs"], sv["lists"], int(sv["seed"]))
 		CareerSave.apply_vars(season, sv)
+		_sync_dual()
 		# Saves written under the old eight-finalist bracket cannot be
 		# restored into the wildcard series (different slots, different
 		# weeks), so the finals restart from the ladder as it was saved.
@@ -514,6 +575,9 @@ func load_career() -> bool:
 	# Saves from before class tiers use seed 0: still one fixed roll per year.
 	career_seed = int(state.get("career_seed", 0))
 	class_tiers = state.get("class_tiers", {})
+	custom_prospect_id = str(state.get("custom_prospect_id", ""))
+	user_dual_ruck = bool(state.get("user_dual_ruck", false))
+	_sync_dual()
 	_recompute_ratings()
 	_migrate_money_units()
 	if int(state.get("career_version", 0)) < CAREER_VERSION:
@@ -758,6 +822,7 @@ func reset() -> void:
 	# ageing, XP training). A new career must start from the pristine 2026
 	# dataset, so reload the data files before rebuilding anything.
 	GameDB.reload()
+	custom_club = {}
 	my_club = ""
 	my_list = []
 	season = null
@@ -824,6 +889,8 @@ func reset() -> void:
 	last_training_report = {}
 	_xp_grant_key = ""
 	new_career_setup_requested = false
+	custom_prospect_id = ""
+	user_dual_ruck = false
 	_dirty = false
 	default_train_plan = "position"
 	season_year = GameDB.START_YEAR
@@ -834,6 +901,30 @@ func reset() -> void:
 	# League Draft pool); the first class drafted in the career is 2027's,
 	# made exactly as a rollover makes the next year's class.
 	draftee_pool = _first_class(season_year)
+
+
+## Create the career's custom prospect from `spec` (Prospects.custom_problem
+## lists what it needs). He joins the first National Draft class, drafted at
+## this season's end, like any other prospect: no club, pick, OVR or POT is
+## chosen, and no club is told to take him or leave him. One per career, made
+## before the career's first season starts. Returns "" or what's wrong.
+func add_custom_prospect(spec: Dictionary) -> String:
+	if custom_prospect_id != "":
+		return "This career already has its own prospect."
+	if season != null:
+		return "Create him before the career starts."
+	var why := Prospects.custom_problem(spec)
+	if why != "":
+		return why
+	var p := Prospects.make_custom(spec, season_year, career_seed)
+	var aged := Prospects.age_pool([p], season_year, {})
+	if aged.is_empty():
+		return "He is too old for the draft."
+	GameDB.register_draftees(aged)
+	draftee_pool.append(aged[0])
+	custom_prospect_id = str(aged[0]["id"])
+	mark_dirty()
+	return ""
 
 
 ## The draft class a career starting in `year` drafts at that season's end:
@@ -851,6 +942,21 @@ func _clock_seed(use: int) -> int:
 	if replay_seed != 0:
 		return posmod(replay_seed * 7919 + season_year * 131 + use * 17, 1000000)
 	return int(Time.get_unix_time_from_system()) % 1000000
+
+
+## Club Forge: add the career's one created club, before the League Draft: it
+## enters with the career and drafts its list like everyone else. Making it
+## again replaces it. Returns what is wrong with the spec, or "".
+func create_club(spec: Dictionary) -> String:
+	if draft != null or season != null:
+		return "The club is made before the League Draft."
+	var problem := ClubForge.club_problem(spec)
+	if problem != "":
+		return problem
+	GameDB.unregister_custom_clubs()
+	custom_club = spec.duplicate(true)
+	GameDB.register_club(ClubForge.row(custom_club))
+	return ""
 
 
 func begin_draft() -> void:
@@ -918,7 +1024,7 @@ func begin_intake_draft() -> bool:
 	var sizes := {}
 	var role_counts := {}
 	var role_pairs := {}
-	for code in GameDB.CLUB_ORDER:
+	for code in GameDB.club_order:
 		var arr: Array = league_lists.get(code, [])
 		sizes[code] = arr.size()
 		var c := {"RUCK": 0, "MID": 0, "DEF": 0, "FWD": 0}
@@ -965,7 +1071,7 @@ func finish_intake_draft() -> bool:
 	_ensure_league_lists()
 	var next_year := season_year + 1
 	var merged := 0
-	for code in GameDB.CLUB_ORDER:
+	for code in GameDB.club_order:
 		var arr: Array = league_lists.get(code, [])
 		for p in (draft.club_lists.get(code, []) as Array):
 			var id := str(p["id"])
@@ -1072,7 +1178,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	# Expansion: any club whose first season is next_year arrives with a
 	# generated list (aged across the full range, not just a rookie class),
 	# so it ages, drafts, trains and simulates like every other club.
-	for code in GameDB.CLUB_ORDER:
+	for code in GameDB.club_order:
 		if GameDB.enter_year(code) != next_year:
 			continue
 		if not (league_lists.get(code, []) as Array).is_empty():
@@ -1086,7 +1192,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	# One array per club from here on: the season, the league lists and your
 	# list are the same arrays, so trades and signings touch them all.
 	var lists := {}
-	for code in GameDB.CLUB_ORDER:
+	for code in GameDB.club_order:
 		lists[code] = league_lists.get(code, [])
 		for p in lists[code]:
 			p["season_start_ov"] = int(p["overall"])
@@ -1095,6 +1201,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	# entry for every club so saves and rollovers never miss a key.
 	season = Season.new(GameDB.active_clubs(next_year).duplicate(), lists,
 			_clock_seed(3))
+	_sync_dual()
 	# The cap moves with the new season before contracts are assigned.
 	salary_cap = Contracts.salary_cap_for_year(next_year)
 	# Expansion lists are born here, so their contracts must be assigned
@@ -1347,11 +1454,11 @@ func start_season(club_code: String, list: Array) -> void:
 	var lists := {}
 	if draft != null and draft.league_mode and draft.is_finished():
 		league_lists = draft.all_lists()
-		for code in GameDB.CLUB_ORDER:
+		for code in GameDB.club_order:
 			lists[code] = _career_copies(league_lists.get(code, []))
 	else:
 		# Fallback for tests or old saves: your drafted list plus real AI lists.
-		for code in GameDB.CLUB_ORDER:
+		for code in GameDB.club_order:
 			var source: Array = list if code == club_code else GameDB.club_list(code)
 			lists[code] = _career_copies(source)
 	# Career copies, not the shared database rows. Training must not rewrite
@@ -1369,6 +1476,7 @@ func start_season(club_code: String, list: Array) -> void:
 	# Fixtures, ladders and finals cover only the clubs active this year.
 	season = Season.new(GameDB.active_clubs(season_year).duplicate(), lists,
 			_clock_seed(4))
+	_sync_dual()
 	salary_cap = Contracts.salary_cap_for_year(season_year)
 	ensure_contracts()
 	# The coaching world from its Round 1 2026 source, carried into this
@@ -1949,6 +2057,17 @@ func history_record_lines() -> Array:
 	return out
 
 
+## The years `code` won the flag in this career, newest first (honour_roll: what
+## happened in this save, nothing imported or invented).
+func premiership_years(code: String) -> Array:
+	var out := []
+	for i in range(honour_roll.size() - 1, -1, -1):
+		var h: Dictionary = honour_roll[i]
+		if code != "" and str(h.get("premier", "")) == code:
+			out.append(int(h.get("year", 0)))
+	return out
+
+
 func recent_honours(limit := 5) -> Array:
 	var out := []
 	for i in range(honour_roll.size() - 1, -1, -1):
@@ -1995,27 +2114,187 @@ func milestone_notes() -> Array:
 	return out
 
 
+## The run-through banner's occasion for a match (Banners.pick reads it):
+## {home, away, us, round, marquee, final, must_win, spoon, first_game,
+## premiers, milestone, year, seed}. `match` is a fixture or finals entry
+## ({home, away} and a finals "tag"). Only what anyone at the ground knows:
+## the ladder, the fixture, the record books. Presentation only.
+##  - must_win: the last home-and-away round only, from the ladder (points,
+##    then percentage as it stands): a loss leaves this side out of the ten
+##    whatever else happens this round, and a win can still get it in.
+##  - spoon: both sides in the bottom three in the last six rounds.
+##  - first_game: an expansion club's first ever match.
+##  - premiers: the reigning premier in its first match of the season (the
+##    flag game), not every week.
+##  - milestone: someone in this side's 23 whose next game is his debut or
+##    a 50-game milestone (to 350), else a known farewell in the last
+##    round or a final.
+const BANNER_FINALS := {"WC": "wildcard", "QF": "qualifying", "EF": "elimination",
+		"SF": "semi", "PF": "preliminary", "GF": "grand"}
+const BANNER_MILESTONES := [50, 100, 150, 200, 250, 300, 350]
+## Games for one club that its banner honours (FL-002), when they aren't
+## also a career milestone: a player who came from another club.
+const BANNER_CLUB_MILESTONES := [100, 150, 200, 250, 300]
+
+
+func banner_context(match: Dictionary) -> Dictionary:
+	var home := str(match.get("home", ""))
+	var away := str(match.get("away", ""))
+	var us := my_club if (my_club == home or my_club == away) else home
+	var them := away if us == home else home
+	var tag := str(match.get("tag", ""))
+	var week := str(BANNER_FINALS.get(tag.substr(0, 2), "")) if tag != "" else ""
+	var regular := week == "" and season != null and not season.is_regular_done()
+	var last_round := regular and season.round_index == season.fixture.size() - 1
+	var round_label := str(match.get("label", "Round %d" % (season.round_index + 1) if season != null else ""))
+	var ctx := {
+		"home": home, "away": away, "us": us, "round": round_label,
+		"marquee": MarqueeGames.label(home, away), "final": week,
+		"must_win": last_round and _must_win(us, them),
+		"spoon": regular and season.round_index >= season.fixture.size() - 6 and _bottom(home, 3) and _bottom(away, 3),
+		"first_game": _first_game(home, away) if regular else "",
+		"premiers": _flag_game(home, away) if regular else "",
+		"milestone": _banner_milestone(us, last_round or week != ""),
+		# FL-008: your premierships of this career, on pennants round your own ground.
+		"flags": premiership_years(us) if us == home and us == my_club else [],
+		"year": season_year,
+		"seed": hash([int(season.seed) if season != null else 0, season_year, round_label, home, away]),
+	}
+	return ctx
+
+
+func _ladder_ahead(row: Dictionary, pts: int, pct: float) -> bool:
+	var rp := int(row.get("pts", 0))
+	return rp > pts or (rp == pts and float(row.get("pct", 0.0)) > pct)
+
+
+## How many clubs finish above `us` on `pts` this round, at least (lowest)
+## or at most (highest), over every result of the round's other games.
+func _ahead_count(us: String, them: String, pts: int, lowest: bool) -> int:
+	var pct := float((season.ladder[us] as Dictionary).get("pct", 0.0))
+	var playing := {}
+	var n := 0
+	for m in season.fixture[season.round_index]:
+		var h := str(m["home"])
+		var a := str(m["away"])
+		playing[h] = true
+		playing[a] = true
+		if h == us or a == us:
+			continue
+		var rh: Dictionary = season.ladder[h]
+		var ra: Dictionary = season.ladder[a]
+		var h_win := int(_ladder_ahead({"pts": int(rh.get("pts", 0)) + 4, "pct": rh.get("pct", 0.0)}, pts, pct)) + int(_ladder_ahead(ra, pts, pct))
+		var a_win := int(_ladder_ahead(rh, pts, pct)) + int(_ladder_ahead({"pts": int(ra.get("pts", 0)) + 4, "pct": ra.get("pct", 0.0)}, pts, pct))
+		n += mini(h_win, a_win) if lowest else maxi(h_win, a_win)
+	for code in season.ladder:
+		if not playing.has(code) and _ladder_ahead(season.ladder[code], pts, pct):
+			n += 1
+	# Their side of our game: they lose if we win, and win if we lose.
+	if them != "" and season.ladder.has(them):
+		var rt: Dictionary = season.ladder[them]
+		var won := pts > int((season.ladder[us] as Dictionary).get("pts", 0))
+		n += int(_ladder_ahead(rt if won else {"pts": int(rt.get("pts", 0)) + 4, "pct": rt.get("pct", 0.0)}, pts, pct))
+	return n
+
+
+func _must_win(us: String, them: String) -> bool:
+	if season == null or not season.ladder.has(us):
+		return false
+	var pts := int((season.ladder[us] as Dictionary).get("pts", 0))
+	var out_if_lose := _ahead_count(us, them, pts, true) >= Season.FINALISTS
+	var in_if_win := _ahead_count(us, them, pts + 4, true) < Season.FINALISTS
+	return out_if_lose and in_if_win
+
+
+func _bottom(code: String, n: int) -> bool:
+	var rows := season.ladder_sorted()
+	for i in range(maxi(0, rows.size() - n), rows.size()):
+		if str(rows[i]["code"]) == code:
+			return true
+	return false
+
+
+func _first_game(home: String, away: String) -> String:
+	for code in [home, away]:
+		if GameDB.enter_year(code) == season_year and GameDB.enter_year(code) > 2026 \
+				and season.ladder.has(code) and int(season.ladder[code]["p"]) == 0:
+			return code
+	return ""
+
+
+## Last season's premier, in its first game of this season.
+func _flag_game(home: String, away: String) -> String:
+	var prem := ""
+	for entry in honour_roll:
+		if int(entry.get("year", 0)) == season_year - 1:
+			prem = str(entry.get("premier", ""))
+	if prem != "" and (prem == home or prem == away) and season.ladder.has(prem) \
+			and int(season.ladder[prem]["p"]) == 0:
+		return prem
+	return ""
+
+
+func _banner_milestone(code: String, farewell_ok: bool) -> Dictionary:
+	if season == null or not season.lists.has(code):
+		return {}
+	var sq: Squad = my_squad() if code == my_club else Squad.new(GameDB.club_name(code), season.lists[code], true, code)
+	var best := {}
+	var best_games := -1
+	var club := {}
+	var club_games := -1
+	var farewell := {}
+	for p in sq.ground + sq.bench:
+		var name := str(GameDB.player_display_name(p))
+		var surname := name.split(" ")[-1]
+		var played := games_played(p)
+		var next := played + 1
+		if Career.complete(p) and (BANNER_MILESTONES.has(next) or played == 0) and next > best_games:
+			best = {"player": surname, "name": name, "games": next}
+			best_games = next
+		elif Career.complete(p):
+			var here := int(club_tally(p, code)["games"]) + 1
+			if BANNER_CLUB_MILESTONES.has(here) and here > club_games:
+				club = {"player": surname, "name": name, "games": here, "club": true}
+				club_games = here
+		if farewell_ok and farewell.is_empty() and retiring_now(p):
+			farewell = {"player": surname, "name": name, "games": "farewell"}
+	if not best.is_empty():
+		return best
+	return club if not club.is_empty() else farewell
+
+
 ## What he has done for your club: {"games", "goals", "since", "bf": [years],
 ## "flags": [years]}. Games and goals count every spell at the club, this
 ## season included; "since" is when his current spell began.
+## His games and goals for one club, every spell, this season included:
+## {"games", "goals", "spells": [[from, to], ...]}.
+func club_tally(p: Dictionary, code: String) -> Dictionary:
+	var out := {"games": 0, "goals": 0, "spells": []}
+	var c := Career.of(p)
+	for st in c.get("stints", []):
+		if str(st[0]) == code:
+			out["games"] = int(out["games"]) + int(st[3])
+			out["goals"] = int(out["goals"]) + int(st[4])
+			(out["spells"] as Array).append([int(st[1]), int(st[2])])
+	var t: Dictionary = season_tally.get(str(p.get("id", "")), {})
+	if int(c.get("through", 0)) < season_year and str(t.get("club", "")) == code:
+		out["games"] = int(out["games"]) + int(t.get("games", 0))
+		out["goals"] = int(out["goals"]) + int(t.get("goals", 0))
+		var sp: Array = out["spells"]
+		if sp.is_empty() or int(sp[-1][1]) < season_year - 1:
+			sp.append([season_year, season_year])
+	return out
+
+
 func with_us(p: Dictionary) -> Dictionary:
 	var out := {"games": 0, "goals": 0, "since": 0, "bf": [], "flags": []}
 	if my_club == "":
 		return out
 	var id := str(p.get("id", ""))
-	var c := Career.of(p)
-	var spells := []
-	for st in c.get("stints", []):
-		if str(st[0]) == my_club:
-			out["games"] = int(out["games"]) + int(st[3])
-			out["goals"] = int(out["goals"]) + int(st[4])
-			spells.append([int(st[1]), int(st[2])])
-	var t: Dictionary = season_tally.get(id, {})
-	if int(c.get("through", 0)) < season_year and str(t.get("club", "")) == my_club:
-		out["games"] = int(out["games"]) + int(t.get("games", 0))
-		out["goals"] = int(out["goals"]) + int(t.get("goals", 0))
-		if spells.is_empty() or int(spells[-1][1]) < season_year - 1:
-			spells.append([season_year, season_year])
+	var tally := club_tally(p, my_club)
+	out["games"] = tally["games"]
+	out["goals"] = tally["goals"]
+	var spells: Array = tally["spells"]
 	if not spells.is_empty():
 		out["since"] = int(spells[-1][0])
 	for entry in honour_roll:
@@ -2256,6 +2535,19 @@ func list_player(player_id: String) -> Dictionary:
 	return {}
 
 
+## FL-005: change or remove one of your players' nicknames (cosmetic only, no
+## cost). "" removes it; it stays removed. Returns the nickname now shown.
+const NICKNAME_MAX := 16
+
+
+func set_player_nickname(player_id: String, text: String) -> String:
+	var p := list_player(player_id)
+	if p.is_empty():
+		return ""
+	p["nickname"] = text.strip_edges().left(NICKNAME_MAX)
+	return FictionalIdentity.nickname(p)
+
+
 func train_stat_label(key: String) -> String:
 	for row in TRAIN_STATS:
 		if str(row[0]) == key:
@@ -2422,7 +2714,8 @@ const TRAIN_PLANS := [
 ## Three positions across forward, midfield and back make him a Unicorn
 ## (Traits). One project per player a season, PROJECT_MAX a club at once.
 ## The price is explicit: from the day he starts, training in his own position
-## can lift him only PROJECT_OWN_GAIN more that season (the new position's
+## can lift him only PROJECT_OWN_GAIN more that season (and a learned position
+## gives LEARN_PAYBACK back the season after) (the new position's
 ## training can still help his own game where the two overlap).
 ## Rival clubs learn positions too, sparingly: AI_PROJECTS a season each, by
 ## the same gates (_ai_projects).
@@ -2431,7 +2724,11 @@ const PROJECT_WEEKS := 8
 const PROJECT_REACH := 6
 const PROJECT_PASS := 3
 const PROJECT_MAX := 2
-const PROJECT_OWN_GAIN := 1
+const PROJECT_OWN_GAIN := 2
+## A position learned pays back: the next season his training can lift his own
+## rating LEARN_PAYBACK more than the usual limit, never past his POT
+## (director, 2026-10-06: projects must matter).
+const LEARN_PAYBACK := 1
 const AI_PROJECTS := 1
 const PROJECT_POT := {1: 70, 2: 90}      # positions he has -> POT to learn another
 const MAX_POSITIONS := 3
@@ -2575,6 +2872,7 @@ func _finish_project(p: Dictionary, announce := true) -> Dictionary:
 	var learned := there >= own - PROJECT_PASS
 	var was_unicorn := Traits.of(p).has("unicorn")
 	if learned:
+		p["learn_payback_year"] = season_year + 1
 		if str(p.get("role2", "")) == "":
 			p["role2"] = role
 		else:
@@ -2775,7 +3073,7 @@ func _close_season_achievements() -> void:
 		if str(entry.get("premier", "")) != "":
 			history.append([int(entry.get("year", 0)), str(entry.get("premier", ""))])
 	var enter := {}
-	for code in GameDB.CLUB_ORDER:
+	for code in GameDB.club_order:
 		enter[code] = GameDB.enter_year(code)
 	var ctx := {
 		"year": season_year,
@@ -3033,7 +3331,10 @@ func _recompute_mro_player(player_id: String, cleared_case_id: String) -> void:
 func challenge_mro(player_id: String) -> Dictionary:
 	var target := {}
 	for row in last_mro:
-		if str(row.get("club", "")) == my_club 				and str(row.get("id", "")) == player_id 				and str(row.get("outcome", "")) != "no_action" 				and not bool(row.get("challenged", false)):
+		if str(row.get("club", "")) == my_club \
+				and str(row.get("id", "")) == player_id \
+				and str(row.get("outcome", "")) != "no_action" \
+				and not bool(row.get("challenged", false)):
 			target = row
 			break
 	if target.is_empty():
@@ -3406,7 +3707,7 @@ func free_agent(player_id: String) -> Dictionary:
 	return {}
 
 
-## Would he turn you down flat? Only when he would not make your best 22
+## Would he turn you down flat? Only when he would not make your best 23
 ## and a club that would play him has an offer on the table.
 func free_agent_terms(player_id: String) -> Dictionary:
 	var p := free_agent(player_id)
@@ -3433,7 +3734,7 @@ var market_stats := {}
 var _targets_signed := {}   # code -> targets signed while free agency closes
 
 
-## His role at `code`: "ground" (in its best 18), "bench" (in its 22) or
+## His role at `code`: "ground" (in its best 18), "bench" (in its 23) or
 ## "depth". The club's real selection sets the bar in each position: he is
 ## a starter if he beats its weakest starter in his position (or his second
 ## one), on the bench if he beats its weakest bench player.
@@ -3483,7 +3784,7 @@ func _offer_of(p: Dictionary, code: String) -> Dictionary:
 
 ## Rivals put offers on the table for `players`. Each club goes after the
 ## free agents who would improve its side most - up to two it would play
-## (in its best 22: the furthest above its bar in their position first) -
+## (in its best 23: the furthest above its bar in their position first) -
 ## plus one depth signing per spot it is short of its usual list size, best
 ## players first by what everyone can see (rating, then age). Only with the
 ## cap room, never the club that let him go, never by a club's place in any
@@ -4156,7 +4457,7 @@ func trade_context(club: String) -> Dictionary:
 
 ## Where a club is in its cycle - "rebuilding", "building" or "contending" -
 ## from what anyone can see: last season's finish, how its list ranks, and
-## how old its best 22 is (TradeValue.phase). Worked out afresh each time.
+## how old its best 23 is (TradeValue.phase). Worked out afresh each time.
 ## Phases worked out for one state of the league: {"key": fingerprint,
 ## club: phase}. The fingerprint covers everything a phase reads - every
 ## list (who, rating, potential, age) and the ladder - so any trade,
@@ -4734,8 +5035,11 @@ func _execute_trade(a: String, b: String, a_gives: Array, b_gives: Array) -> voi
 	if _frozen_fingerprint != "":
 		_freeze_league(true)
 	var leaving := a_gives if a == my_club else (b_gives if b == my_club else [])
+	# The stored selection itself (my_selection() is a copy without the
+	# dual-ruck call).
+	var stored: Dictionary = season.selections.get(my_club, {}) if season != null else {}
 	for sel_key in ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH", "OUT"]:
-		var sel := my_selection()
+		var sel := stored
 		if sel.has(sel_key):
 			for p in leaving:
 				(sel[sel_key] as Array).erase(str(p["id"]))
@@ -4762,7 +5066,7 @@ func _close_contracts() -> void:
 ## Free agency closes when the national draft opens (or at the rollover if
 ## there is no draft), so compensation picks can go into that draft: your
 ## undecided players are settled - a depth player re-signs if the cap allows,
-## one of your best 22 tests the market (_market_test) - rivals sign who they
+## one of your best 23 tests the market (_market_test) - rivals sign who they
 ## want, and anyone left unsigned retires. Once per off-season.
 func _close_free_agency() -> void:
 	if season == null or fa_closed_year == season_year:
@@ -4806,12 +5110,12 @@ func _close_free_agency() -> void:
 	mark_dirty()
 
 
-## One of your best 22 you never settled tests the market as free agency
+## One of your best 23 you never settled tests the market as free agency
 ## closes, as an out-of-contract player does: your standing offer is his
 ## asking price over the term he wants, rivals make theirs, and those your
 ## offer leads answer once; then he takes the offer he likes best
 ## (_resolve_market) - money, security, his role and how the club finished.
-## Nobody in your best 22 re-signs just because you did nothing.
+## Nobody in your best 23 re-signs just because you did nothing.
 func _market_test(players: Array) -> void:
 	if players.is_empty():
 		return
@@ -4862,11 +5166,13 @@ func _resolve_market() -> void:
 # ---------------------------------------------------------------------------
 # Team selection
 # ---------------------------------------------------------------------------
-## Your chosen side, or {} when the best 22 are picked automatically.
+## Your chosen side, or {} when the best 23 are picked automatically.
 func my_selection() -> Dictionary:
 	if season == null:
 		return {}
-	return season.selections.get(my_club, {})
+	var sel: Dictionary = (season.selections.get(my_club, {}) as Dictionary).duplicate(true)
+	sel.erase("DUAL_RUCK")
+	return sel
 
 
 ## Set your side ({} = auto-pick every week). Stored on the season, so it is
@@ -4874,11 +5180,33 @@ func my_selection() -> Dictionary:
 func set_selection(selection: Dictionary) -> void:
 	if season == null:
 		return
-	if selection.is_empty():
-		season.selections.erase(my_club)
-	else:
-		season.selections[my_club] = selection.duplicate(true)
+	var keep := selection.duplicate(true)
+	keep["DUAL_RUCK"] = user_dual_ruck
+	season.selections[my_club] = keep
 	mark_dirty()
+
+
+## Dual ruck (ARD-M5-001, director 2026-10-06): your second ruck takes the
+## fifth interchange spot. Your call, off until you make it; AI clubs decide
+## by their own rule (Ratings.select_22).
+func dual_ruck() -> bool:
+	return user_dual_ruck
+
+
+func set_dual_ruck(on: bool) -> void:
+	user_dual_ruck = on
+	_sync_dual()
+	mark_dirty()
+
+
+## Your club's selection carries your dual-ruck call, so its auto-pick never
+## falls under the AI clubs' rule.
+func _sync_dual() -> void:
+	if season == null or my_club == "":
+		return
+	var sel: Dictionary = (season.selections.get(my_club, {}) as Dictionary).duplicate(true)
+	sel["DUAL_RUCK"] = user_dual_ruck
+	season.selections[my_club] = sel
 
 
 ## The side that would take the field this week, as a selection.
@@ -4894,7 +5222,8 @@ func current_side() -> Dictionary:
 
 
 func my_squad() -> Squad:
-	return Squad.new(GameDB.club_name(my_club), my_list, true, my_club, my_selection())
+	return Squad.new(GameDB.club_name(my_club), my_list, true, my_club,
+			season.selections.get(my_club, {}) if season != null else {})
 
 
 ## Every plan: [[key, label], ...].
@@ -5203,6 +5532,9 @@ func season_ceiling(p: Dictionary) -> int:
 	if not p.has("season_start_ov"):
 		p["season_start_ov"] = int(p.get("overall", 0))
 	var full := int(p["season_start_ov"]) + SEASON_TRAIN_GAIN
+	# The season after he learns a position: a little more room, inside POT.
+	if int(p.get("learn_payback_year", 0)) == season_year:
+		full = maxi(full, mini(full + LEARN_PAYBACK, int(p.get("potential", 0))))
 	if int(p.get("project_year", 0)) == season_year and p.has("project_cap"):
 		return mini(full, int(p["project_cap"]))
 	return full
@@ -5822,7 +6154,7 @@ func _board_season_end() -> void:
 		return
 	var row := my_ladder_row()
 	var goal: Dictionary = board.get("goal", {})
-	var met := ClubLife.goal_met(goal, my_position(), int(row.get("w", 0)))
+	var met := ClubLife.goal_met(goal, my_position(), int(row.get("w", 0)), season.clubs.size())
 	var conf := ClubLife.after_season(board_confidence(), met, premier() == my_club)
 	var verdict := "The board is delighted." if met else "The board is disappointed."
 	if conf < ClubLife.WARN_LINE:
@@ -6108,14 +6440,15 @@ func _coaching_offseason() -> void:
 		return
 	var results := {}
 	var table := season.ladder_sorted()
+	var club_count := table.size()
 	for i in range(table.size()):
 		var row: Dictionary = table[i]
 		var code := str(row["code"])
-		var goal: Dictionary = club_goals.get(code, ClubLife.board_goal(int(club_expect.get(code, 9))))
+		var goal: Dictionary = club_goals.get(code, ClubLife.board_goal(int(club_expect.get(code, ClubLife.default_rank(club_count)))))
 		var pos := i + 1
-		var met := ClubLife.goal_met(goal, pos, int(row.get("w", 0)))
+		var met := ClubLife.goal_met(goal, pos, int(row.get("w", 0)), club_count)
 		results[code] = {"met": met, "finals": pos <= Season.FINALISTS,
-				"severe": not met and pos >= table.size() - 2 and int(club_expect.get(code, 18)) <= 10}
+				"severe": not met and pos >= table.size() - 2 and int(club_expect.get(code, club_count)) <= 10}
 	var out := CoachMarket.offseason({"coaches": coaches, "archive": coach_archive,
 			"year": season_year, "my_club": my_club, "clubs": GameDB.active_clubs(season_year + 1),
 			"results": results, "premier": premier(), "seed": career_seed})

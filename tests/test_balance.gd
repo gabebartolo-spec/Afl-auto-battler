@@ -11,10 +11,15 @@ const TOP_TOLERANCE := 3.5
 var failures: Array[String] = []
 var checks := 0
 
+## Every season and draft here is seeded (C15): a clock seed makes a different
+## league each run.
+const SUITE_SEED := 2027
+
 
 func run() -> void:
 	failures.clear()
 	checks = 0
+	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
 	_test_sim_round_is_the_match_engine()
 	GameState.reset()
@@ -47,6 +52,7 @@ func run() -> void:
 				GameState.season_year, float(now["top50"]), float(start["top50"])])
 		_check(int(now["max"]) >= 85, "%d still has a star rated 85+ (%d)" % [
 				GameState.season_year, int(now["max"])])
+	GameState.replay_seed = 0
 	print("Balance tests: %d checks, %d failures" % [checks, failures.size()])
 
 

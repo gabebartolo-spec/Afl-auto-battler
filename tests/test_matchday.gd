@@ -29,9 +29,11 @@ func run() -> void:
 	_test_report_roles(res)
 	_test_rating()
 	_test_report_glance()
+	_test_lift_skips_short_games()
 	_test_no_green_decoration()
 	_test_club_markers()
 	_test_palette_snapshot()
+	_test_headlines()
 	print("Matchday tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -358,6 +360,54 @@ func _test_rating() -> void:
 			"Forwards and defenders make their side's top three (%s)" % str(best))
 
 
+## Needs a lift is a poor game by a player who had the game to make an
+## impact (director playtest): one hurt early had a short game, not a poor
+## one; a genuinely poor full game is named; when nobody had a poor game the
+## section is empty rather than manufacturing criticism.
+func _test_lift_skips_short_games() -> void:
+	var busy := {"kicks": 14, "handballs": 8, "marks": 5, "tackles": 4, "inside50": 3}  # rating 72
+	var poor := {"kicks": 4, "handballs": 3, "tackles": 1}                              # rating 13
+	var entry := func(id: String, st: Dictionary) -> Dictionary:
+		return {"id": id, "name": id, "stats": st}
+	var report := {"quarters": 4, "my_ranked": [
+			entry.call("Hurt early", poor), entry.call("Poor full game", poor), entry.call("Busy", busy)]}
+	report["my_ranked"][0]["hurt_min"] = 12
+	var names := (CoachReport.glance(report, true)["lift"] as Array).map(func(x): return str(x["name"]))
+	_check(not names.has("Hurt early"), "A player hurt early is not someone who needs a lift (%s)" % str(names))
+	_check(names.has("Poor full game"), "A genuinely poor full game is named (%s)" % str(names))
+	report["my_ranked"][0]["hurt_min"] = 115
+	names = (CoachReport.glance(report, true)["lift"] as Array).map(func(x): return str(x["name"]))
+	_check(names.has("Hurt early"), "Hurt in the last minutes, a poor game is still a poor game (%s)" % str(names))
+	var none := {"quarters": 4, "my_ranked": [entry.call("Busy", busy), entry.call("Also busy", busy)]}
+	_check((CoachReport.glance(none, true)["lift"] as Array).is_empty(),
+			"Nobody had a poor game: Needs a lift is empty")
+	# From a real match: whoever the sim hurt early is never in the section.
+	var named_hurt := ""
+	var hurt_seen := 0
+	for seed in range(40):
+		var sim := MatchSim.new(Squad.new("HAW", GameDB.club_list("HAW"), true, "HAW"),
+				Squad.new("BRL", GameDB.club_list("BRL"), false, "BRL"), 9100 + seed)
+		var res := sim.run()
+		res["home"] = "HAW"
+		res["away"] = "BRL"
+		var early := {}
+		for inj in res.get("injuries", []):
+			if int(inj["side"]) == 0 and int(inj["min"]) < 90:
+				early[str(inj["id"])] = true
+		if early.is_empty():
+			continue
+		hurt_seen += 1
+		var rep := CoachReport.match_report(res, 0)
+		var by_name := {}
+		for e in rep["my_ranked"]:
+			by_name[str(e["name"])] = str(e["id"])
+		for p in CoachReport.glance(rep, true)["lift"]:
+			if early.has(str(by_name.get(str(p["name"]), ""))):
+				named_hurt = str(p["name"])
+	_check(hurt_seen > 0 and named_hurt == "",
+			"No player hurt before the last quarter is in Needs a lift (%d matches with one; named %s)" % [hurt_seen, named_hurt])
+
+
 ## The half-time report at a glance: a few lines and a few players, in words.
 func _test_report_glance() -> void:
 	var bad := ""
@@ -378,9 +428,13 @@ func _test_report_glance() -> void:
 		var by_name := {}
 		for e in ht.get("my_ranked", []):
 			by_name[str(e["name"])] = MatchNotes.rating(e.get("stats", {}))
+		# One check a match, however many need a lift: the floor counts the
+		# rule, not how many players a seed happens to flag.
+		var loud := ""
 		for p in g["lift"]:
-			_check(int(by_name.get(str(p["name"]), 999)) < CoachReport.LIFT_BELOW / 2.0,
-					"Needs a lift is a quiet game by the rating shown (%s %d)" % [str(p["name"]), int(by_name.get(str(p["name"]), -1))])
+			if int(by_name.get(str(p["name"]), 999)) >= CoachReport.LIFT_BELOW / 2.0:
+				loud += "%s %d; " % [str(p["name"]), int(by_name.get(str(p["name"]), -1))]
+		_check(loud == "", "Needs a lift is a quiet game by the rating shown (seed %d: %s)" % [seed, loud])
 		for n in g["notes"]:
 			var t := str(n)
 			for ch in "0123456789":
@@ -473,3 +527,57 @@ func _test_palette_snapshot() -> void:
 				off.append("%s %d" % [code, i])
 	_check(off.is_empty() and PALETTE.size() == GameDB.CLUB_ORDER.size(),
 			"Every club's colours match the approved palette (%s)" % ", ".join(off))
+
+
+## FL-006: a headline is said only when the match's own facts support it. Each
+## fixture is a result with quarter-by-quarter scores (home first).
+func _hl(home: String, away: String, q: Array) -> Dictionary:
+	var s := [0, 0]
+	for x in q:
+		s[0] += int(x[0])
+		s[1] += int(x[1])
+	return {"home": home, "away": away, "quarters": q, "score": s}
+
+
+func _test_headlines() -> void:
+	# Down 26 at half-time, won by 8.
+	var back := _hl("GEE", "MEL", [[10, 20], [6, 22], [30, 6], [20, 10]])
+	_check(Headlines.for_match(back, 0) == "From 26 points down at half-time.",
+			"A comeback names the deficit and the break (%s)" % Headlines.for_match(back, 0))
+	_check(Headlines.for_match(back, 1) == "Led by 26 at half-time.",
+			"The side that lost it is told plainly where it led (%s)" % Headlines.for_match(back, 1))
+	# Losses (director: losses too, from the facts, never mocked).
+	var fought := _hl("GEE", "MEL", [[6, 30], [10, 20], [30, 10], [20, 10]])
+	_check(Headlines.for_match(fought, 0) == "Fought back from 34 down at half-time.",
+			"Lost narrowly after trailing big: fought back (%s)" % Headlines.for_match(fought, 0))
+	var kick := _hl("GEE", "MEL", [[18, 20], [17, 15], [16, 14], [14, 20]])
+	_check(Headlines.for_match(kick, 0) == "A kick the difference.", "A loss by 6 or less (%s)" % Headlines.for_match(kick, 0))
+	var held := _hl("GEE", "MEL", [[25, 20], [7, 30], [8, 25], [3, 30]])
+	held["q_goals"] = [[4, 3], [1, 4], [1, 4], [0, 5]]
+	_check(Headlines.for_match(held, 0) == "Held to two goals after quarter-time.",
+			"Held to two goals after quarter-time (%s)" % Headlines.for_match(held, 0))
+	held["q_goals"] = [[4, 3], [1, 4], [0, 4], [0, 5]]
+	_check(Headlines.for_match(held, 0) == "Held to one goal after quarter-time.", "One goal, singular")
+	held["q_goals"] = [[4, 3], [1, 4], [1, 4], [0, 5], [0, 1]]
+	_check(Headlines.for_match(held, 0) == "", "Extra time: no goals-after-quarter-time claim")
+	var thrashed := _hl("GEE", "MEL", [[10, 30], [12, 25], [15, 30], [20, 25]])
+	_check(Headlines.for_match(thrashed, 0) == "", "A plain heavy loss: nothing is piled on")
+	# Up 35 at three-quarter time, won by 9.
+	var close_call := _hl("GEE", "MEL", [[30, 6], [20, 10], [10, 9], [6, 32]])
+	_check(Headlines.for_match(close_call, 0) == "We made that interesting.",
+			"Holding a big lead and winning narrowly is 'interesting' (%s)" % Headlines.for_match(close_call, 0))
+	var tight := _hl("GEE", "MEL", [[20, 18], [15, 17], [14, 16], [20, 14]])
+	_check(Headlines.for_match(tight, 0) == "Not much room to breathe.", "A win by 6 or less is close")
+	var derby := _hl("ADE", "PAD", [[30, 10], [25, 15], [20, 12], [18, 16]])
+	_check(Headlines.for_match(derby, 0) == "The neighbours heard that one.", "A real rivalry win")
+	_check(Headlines.for_match(derby, 1) == "", "A rivalry loss gets no joke")
+	var plain := _hl("GEE", "WCE", [[30, 10], [25, 15], [20, 12], [18, 16]])
+	_check(Headlines.for_match(plain, 0) == "", "An ordinary win needs no headline")
+	var level := _hl("GEE", "MEL", [[20, 18], [15, 17], [14, 16], [20, 18]])
+	_check(Headlines.for_match(level, 0) == "Nothing between them." and Headlines.for_match(level, 1) == "Nothing between them.",
+			"A draw is a draw for both sides")
+	# Extra time: the quarters no longer add up to the score - no break claims.
+	var et := back.duplicate(true)
+	et["score"] = [int(et["score"][0]) + 7, int(et["score"][1]) + 1]
+	_check(Headlines.for_match(et, 0) == "", "Without a complete score history it claims no comeback")
+

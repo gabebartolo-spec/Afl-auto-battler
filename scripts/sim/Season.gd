@@ -2,10 +2,11 @@ class_name Season
 extends RefCounted
 ## A 24-round home-and-away season plus a full AFL finals series.
 ##
-## Fixture: with 18 clubs, 9 matches a round and no byes, 24 rounds gives
-## every club 24 games: a single round-robin (17 rounds) plus the first seven
-## rounds of the return fixture with home/away flipped. An odd club count
-## (expansion) rotates a virtual BYE, so every club still plays 24 games.
+## Fixture (build_fixture): 24 rounds and the same number of games for every
+## club, 18 to 21 clubs (expansion or a created club). 18 or 20: one bye and
+## 23 games each, as in a real season. 19 or 21: two byes and 22 games each.
+## Home games within one of half for everyone; byes and repeat opponents fall
+## by the season seed.
 ##
 ## Finals (10 finalists):
 ##   Week 1  Wildcard: WC1 7v10, WC2 8v9
@@ -84,7 +85,250 @@ static func round_robin(codes: Array) -> Array:
 	return rounds
 
 
+## The most clubs the fair fixture handles (a created club can make 19, 20
+## or 21 in any year); more falls back to the old builder.
+const FAIR_FIXTURE_MAX := 21
+## The bye rounds (0-based, inclusive): mid-season, as in the AFL, so the
+## opening rounds and the run home are full at an even count.
+const BYE_FIRST := 8
+const BYE_LAST := 19
+
+
+## Every club plays the same number of games, home and away within one game
+## of half, and byes and repeat opponents fall by the season seed - not by a
+## club's place in the list, and the same for your club as for any other.
+##  - 18 or 20 clubs: 23 games and one bye each, as in a real 24-round
+##    season. 19 or 21: 22 games and two byes (n x 23 is odd for an odd
+##    count, so 23 each cannot be done).
+##  - a round-robin, then a seeded choice of its rounds again (return
+##    games). At an odd count the clubs those return rounds rest are paired
+##    off with each other; at an even count no one needs it.
+##  - the rounds go in a seeded order, then matches move into the thin
+##    round until no round is more than one match short (21 clubs: fifteen
+##    rounds of ten and nine of nine). The thinned rounds are mid-season
+##    (rounds 9 to 20, as the AFL's byes are), and a club's two byes apart
+##    where the rounds allow it.
+##  - venues: a pair met twice plays once at each ground; the pairs met once
+##    are oriented along an Euler circuit, so every club is home in half of
+##    them (within one game).
 func build_fixture() -> Array:
+	if clubs.size() > FAIR_FIXTURE_MAX or clubs.size() < 2:
+		return _legacy_fixture()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(["fixture", seed, clubs.size()])
+	var order := _shuffled(clubs, rng)
+	# Pairings only first: [[a, b], ...] a round.
+	var base := []
+	for r in round_robin(order):
+		base.append(r.map(func(m): return [str(m["home"]), str(m["away"])]))
+	var target := REGULAR_ROUNDS - 1 if clubs.size() % 2 == 0 else REGULAR_ROUNDS - 2
+	var picks := _shuffled(range(base.size()), rng)
+	var rounds := []
+	for r in base:
+		rounds.append((r as Array).duplicate())
+	var rested := []
+	# Each club meets every other once (n - 1 games), then the return rounds.
+	for k in range(target - (clubs.size() - 1)):
+		var again: Array = (base[picks[k % picks.size()]] as Array).duplicate()
+		rounds.append(again)
+		var playing := {}
+		for m in again:
+			playing[m[0]] = true
+			playing[m[1]] = true
+		for c in clubs:
+			if not playing.has(c):
+				rested.append(str(c))
+	# The last round: the rested clubs of the return rounds, paired off.
+	var spare := []
+	rested = _shuffled(rested, rng)
+	for i in range(0, rested.size() - 1, 2):
+		if rested[i] != rested[i + 1]:
+			spare.append([rested[i], rested[i + 1]])
+	# A seeded order of rounds, levelled; of a few, the one with fewest
+	# byes outside the mid-season rounds (at an even count), then fewest
+	# clubs resting in back-to-back rounds (an odd count rests twice).
+	var best := []
+	var best_score := 1 << 30
+	for attempt in range(16):
+		var order_r := []
+		for r in _shuffled(rounds, rng):
+			order_r.append((r as Array).duplicate())
+		if not spare.is_empty() or order_r.size() < REGULAR_ROUNDS:
+			order_r.insert(rng.randi_range(BYE_FIRST, mini(BYE_LAST, order_r.size())), spare.duplicate())
+		order_r = _level_rounds(order_r, rng)
+		var score := 0
+		if clubs.size() % 2 == 0:
+			for ri in range(order_r.size()):
+				if (ri < BYE_FIRST or ri > BYE_LAST) and (order_r[ri] as Array).size() < clubs.size() / 2:
+					score += 1000
+		var rests := _rests(order_r)
+		for c in rests:
+			var rs: Array = rests[c]
+			for k in range(1, rs.size()):
+				if int(rs[k]) - int(rs[k - 1]) <= 1:
+					score += 1
+		if score < best_score:
+			best = order_r
+			best_score = score
+		if score == 0:
+			break
+	return _assign_venues(best, rng)
+
+
+func _shuffled(arr: Array, rng: RandomNumberGenerator) -> Array:
+	var out := arr.duplicate()
+	for i in range(out.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var t = out[i]
+		out[i] = out[j]
+		out[j] = t
+	return out
+
+
+## No round more than one match short of full: a match moves from a full
+## round into a thinner one where both clubs are free. Its clubs then rest
+## in the round it left: mid-season (BYE_FIRST to BYE_LAST) and apart from a
+## club's other rest where any move allows it; further out only when none does.
+func _level_rounds(rounds: Array, rng: RandomNumberGenerator) -> Array:
+	var full := clubs.size() / 2
+	var last := rounds.size() - 2
+	while true:
+		var ti := -1
+		for i in range(rounds.size()):
+			if (rounds[i] as Array).size() < full - 1:
+				ti = i
+				break
+		if ti < 0:
+			break
+		var busy := {}
+		for m in rounds[ti]:
+			busy[m[0]] = true
+			busy[m[1]] = true
+		var rests := _rests(rounds)
+		var best := []
+		# Byes in the mid-season window and apart first; then anywhere but
+		# round 1 and the last two; anywhere when nothing else moves.
+		for pass_i in range(4):
+			var apart := pass_i == 0
+			var span := range(BYE_FIRST, mini(BYE_LAST + 1, last)) if pass_i <= 1 \
+					else (range(1, last) if pass_i == 2 else range(rounds.size()))
+			for fi in _shuffled(span, rng):
+				if fi == ti or (rounds[fi] as Array).size() < full:
+					continue
+				for mi in range((rounds[fi] as Array).size()):
+					var m: Array = rounds[fi][mi]
+					if busy.has(m[0]) or busy.has(m[1]):
+						continue
+					var near := false
+					if apart:
+						for c in m:
+							for r in rests.get(c, []):
+								if absi(int(r) - fi) <= 1:
+									near = true
+					if not near:
+						best = [fi, mi]
+						break
+				if not best.is_empty():
+					break
+			if not best.is_empty():
+				break
+		if best.is_empty():
+			break
+		(rounds[ti] as Array).append(rounds[best[0]][best[1]])
+		(rounds[best[0]] as Array).remove_at(best[1])
+	return rounds
+
+
+func _rests(rounds: Array) -> Dictionary:
+	var out := {}
+	for ri in range(rounds.size()):
+		var playing := {}
+		for m in rounds[ri]:
+			playing[m[0]] = true
+			playing[m[1]] = true
+		for c in clubs:
+			if not playing.has(c):
+				if not out.has(c):
+					out[c] = []
+				(out[c] as Array).append(ri)
+	return out
+
+
+## Home and away: a pair met twice is home once each (the first meeting's
+## host by the seed); the pairs met once follow an Euler circuit of their
+## graph (odd-degree clubs joined through a dummy), so each club hosts half
+## of them, within one.
+func _assign_venues(rounds: Array, rng: RandomNumberGenerator) -> Array:
+	var meetings := {}   # "a|b" (sorted) -> [[round, index], ...]
+	for ri in range(rounds.size()):
+		for mi in range((rounds[ri] as Array).size()):
+			var m: Array = rounds[ri][mi]
+			var key := "%s|%s" % ([m[0], m[1]] if str(m[0]) < str(m[1]) else [m[1], m[0]])
+			if not meetings.has(key):
+				meetings[key] = []
+			(meetings[key] as Array).append([ri, mi])
+	var host := {}       # "round:index" -> home club
+	var adj := {}        # club -> [edge id]
+	var edges := []      # [a, b, slot]
+	for key in meetings:
+		var ab: PackedStringArray = str(key).split("|")
+		var slots: Array = meetings[key]
+		if slots.size() >= 2:
+			var first := ab[0] if rng.randf() < 0.5 else ab[1]
+			var second := ab[1] if first == ab[0] else ab[0]
+			for si in range(slots.size()):
+				host["%d:%d" % [slots[si][0], slots[si][1]]] = first if si % 2 == 0 else second
+		else:
+			edges.append([ab[0], ab[1], "%d:%d" % [slots[0][0], slots[0][1]]])
+	# Join odd-degree clubs to a dummy so every degree is even.
+	var deg := {}
+	for e in edges:
+		deg[e[0]] = int(deg.get(e[0], 0)) + 1
+		deg[e[1]] = int(deg.get(e[1], 0)) + 1
+	for c in deg:
+		if int(deg[c]) % 2 == 1:
+			edges.append([c, "~", ""])
+	for i in range(edges.size()):
+		for c in [edges[i][0], edges[i][1]]:
+			if not adj.has(c):
+				adj[c] = []
+			(adj[c] as Array).append(i)
+	var used := {}
+	var starts := adj.keys()
+	starts.sort()
+	for start in starts:
+		# Hierholzer: walk unused edges, orienting each from where we stand.
+		var stack := [start]
+		while not stack.is_empty():
+			var v = stack[stack.size() - 1]
+			var next_e := -1
+			for ei in adj[v]:
+				if not used.has(ei):
+					next_e = int(ei)
+					break
+			if next_e < 0:
+				stack.pop_back()
+				continue
+			used[next_e] = true
+			var e: Array = edges[next_e]
+			var w = e[1] if e[0] == v else e[0]
+			if str(e[2]) != "":
+				host[str(e[2])] = str(v)
+			stack.append(w)
+	var out := []
+	for ri in range(rounds.size()):
+		var r := []
+		for mi in range((rounds[ri] as Array).size()):
+			var m: Array = rounds[ri][mi]
+			var h := str(host.get("%d:%d" % [ri, mi], m[0]))
+			r.append({"home": h, "away": m[1] if h == m[0] else m[0]})
+		out.append(r)
+	return out
+
+
+## The builder before the fair fixture: only the fallback above 21 clubs
+## (FAIR_FIXTURE_MAX); the director chose the 21-club shape (2026-10-06).
+func _legacy_fixture() -> Array:
 	var first_half := round_robin(clubs)
 	var out := []
 	for r in first_half:

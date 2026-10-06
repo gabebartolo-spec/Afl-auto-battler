@@ -25,52 +25,51 @@ named `test` is the last job and passes only when every shard and that job did.
 
 Run only the suites your change touches while you work; CI runs the rest.
 
-**Taps and seeds.** A test that stands for a player's tap uses `tests/tap.gd` (`await Tap.tap(button)` returns "" when the tap reached it). It sends a touch at the button's place on screen, so a covering sheet or an off-screen button fails. A test that starts a season sets `GameState.replay_seed` first: a clock seed makes a different match every run (ROADMAP §0.4a, proof practices).
+**Taps and seeds.** A test that stands for a player's tap uses `tests/tap.gd` (`await Tap.tap(button)` returns "" when the tap reached it). It sends a touch at the button's place on screen, so a covering sheet or an off-screen button fails. A test that starts a season sets `GameState.replay_seed` first: a clock seed makes a different match every run (ROADMAP §0.4a, proof practices). Every suite that starts a season or draft sets `SUITE_SEED` (a `const` in the suite, 2027) as `GameState.replay_seed` in `run()` and resets it to 0 before the summary line (C15). A suite already deterministic another way (explicit `MatchSim` or `Draft` seeds) says so in one line, `## Seeded by design: <why>`; `tools/check_suite_seeds.sh` runs with the dataset checks and fails, naming the suite, if a suite has neither. If a seeded suite fails, fix the code or report it to the suite's owner, do not edit the check to pass.
 
 ### Which suite covers what
 
 Pick the suites for the code you changed and run just those (`tools/run_tests.sh <suites>`).
-Times are seconds on a CI runner, from the first sharded run; each suite's floor is in
-`expected_checks.txt`.
+Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite reporting fewer fails the run). Times are seconds on a CI runner, from the first sharded run.
 
-| Suite | Covers | CI s |
-|---|---|---|
-| `draft` | The League Draft model: cap, snake order, rival picks, pick log | 24 |
-| `draft_ui` | The draft screen's layout and state: containers, widths, rotate and resume | 5 |
-| `intake` | The National Draft model: the 2026 class, projection, season rollover | 6 |
-| `intake_ui` | The National Draft on the shared draft screen | 4 |
-| `expansion` | Tasmania in 2028 and Canberra in 2030 | 53 |
-| `finals` | The wildcard finals bracket, extra time, draws | 68 |
-| `save` | Saving and loading a career, including old-save migrations | 29 |
-| `chronology` | 2026 is history, careers start in 2027, and every system agrees | 4 |
-| `career` | Games, goals and club stints across a dynasty | 229 |
-| `coaches` | The coaching world: six jobs a club, records, grades, the Staff screen | 35 |
-| `coach_market` | Coach moves, hiring, sackings, retirements, assistant contracts | 95 |
-| `coach_pathway` | Retired players becoming coaches, and the record they carry | 2 |
-| `coach_effects` | What coaching does: teaching, tactics, man-management | 5 |
-| `career_ui` | Main menu and save flow, Back, the Hub, Training, selection and trade screens, at 320, 360 and 430 wide | 70 |
-| `potential` | Potential (POT) rules, rehab years, draft pedigree | 5 |
-| `ratings` | The overall rating model | 2 |
-| `ai` | Rival clubs' drafting and selection | 58 |
-| `training` | Training plans and the stat guide | 32 |
-| `selection` | Team selection and named sides | 4 |
-| `matchup` | This week's opponent facts | 36 |
-| `matchday` | Match-day wording: the feed, quarter breaks, full time, the match screen | 21 |
-| `roles` | Roles, wings, taggers and rucks as real jobs | 8 |
-| `injuries` | Injury rates, durability, healing, and played v simulated parity | 78 |
-| `awards` | Brownlow, Coleman, best and fairest, All-Australian | 49 |
-| `achievements` | Club achievements | 48 |
-| `contracts` | Contracts, free agency and trades | 29 |
-| `league` | Difficulty and the league news feed | 52 |
-| `club` | The board, morale and the weekly event card | 103 |
-| `match_game` | Legs and rotations, match moments and calls, the rival coach, key match-ups | 333 |
-| `pressure` | Pressure acts and the team Pressure Rating | 38 |
-| `workload` | Workload across the campaign | 8 |
-| `match_visual` | The live match view is presentation only (PitchView, MatchDirector, MatchMotion) | 210 |
-| `league_balance` | Smoke checks for the balance harness in `tools/balance` | 223 |
-| `calibration` | The engine against real 2026 numbers (seeded matches) | 69 |
-| `balance` | A long-career guard: three seasons must not inflate the league | 149 |
-| `assets` | The art and music as shipped: figure-sheet frames against the layout, vignettes playing their moves through, music files, levels and the player | 3 |
+| Suite | Covers | Floor | CI s |
+|---|---|---:|---:|
+| `draft` | The League Draft model: cap, snake order, rival picks, pick log | 7807 | 24 |
+| `draft_ui` | The draft screen's layout and state: containers, widths, rotate and resume | 1130 | 5 |
+| `intake` | The National Draft model: the 2026 class, projection, season rollover | 2210 | 6 |
+| `intake_ui` | The National Draft on the shared draft screen | 500 | 4 |
+| `expansion` | Tasmania in 2028 and Canberra in 2030, and a Club Forge club entering with the career | 488 | 53 |
+| `finals` | The wildcard finals bracket, extra time, draws | 109 | 68 |
+| `save` | Saving and loading a career, including old-save migrations and the safe write: a failed or interrupted write never loses the career, and a failed swap leaves the newer save readable | 76 | 29 |
+| `chronology` | 2026 is history, careers start in 2027, and every system agrees | 31 | 4 |
+| `career` | Games, goals and club stints across a dynasty | 71 | 229 |
+| `coaches` | The coaching world: six jobs a club, records, grades, the Staff screen | 340 | 35 |
+| `coach_market` | Coach moves, hiring, sackings, retirements, assistant contracts | 63 | 95 |
+| `coach_pathway` | Retired players becoming coaches, and the record they carry | 57 | 2 |
+| `coach_effects` | What coaching does: teaching, tactics, man-management | 36 | 5 |
+| `career_ui` | Main menu and save flow, Back, the Hub, Training, selection and trade screens, at 320, 360 and 430 wide | 277 | 70 |
+| `potential` | Potential (POT) rules, rehab years, draft pedigree | 36 | 5 |
+| `ratings` | The overall rating model | 39 | 2 |
+| `ai` | Rival clubs' drafting and selection | 35 | 58 |
+| `training` | Training plans and the stat guide | 107 | 32 |
+| `selection` | Team selection and named sides | 37 | 4 |
+| `matchup` | This week's opponent facts | 95 | 36 |
+| `matchday` | Match-day wording: the feed, quarter breaks, full time, the match screen | 384 | 21 |
+| `roles` | Roles, wings, taggers and rucks as real jobs | 179 | 8 |
+| `injuries` | Injury rates, durability, healing, and played v simulated parity | 31 | 78 |
+| `awards` | Brownlow, Coleman, best and fairest, All-Australian | 22 | 49 |
+| `achievements` | Club achievements | 153 | 48 |
+| `contracts` | Contracts, free agency and trades (seeded: a clock seed once made the pick-limit check flaky) | 190 | 29 |
+| `league` | Difficulty and the league news feed | 47 | 52 |
+| `club` | The board, morale and the weekly event card | 199 | 103 |
+| `match_game` | Legs and rotations, match moments and calls, the rival coach, key match-ups | 243 | 333 |
+| `pressure` | Pressure acts and the team Pressure Rating | 21 | 38 |
+| `workload` | Workload across the campaign | 32 | 8 |
+| `match_visual` | The live match view is presentation only (PitchView, MatchDirector, MatchMotion) | 97 | 210 |
+| `league_balance` | Smoke checks for the balance harness in `tools/balance` | 23 | 223 |
+| `calibration` | The engine against real 2026 numbers (seeded matches) | 17 | 69 |
+| `balance` | A long-career guard: three seasons must not inflate the league | 13 | 149 |
+| `assets` | The art and music as shipped: figure-sheet frames against the layout, vignettes playing their moves through, banners, music files, levels and the player | 80 | 3 |
 
 By area:
 
@@ -198,6 +197,17 @@ Python/JavaScript reimplementation.
 5. Add a row to the table above.
 
 CI's `plan` job runs the same check, so a suite left out of every shard fails the run instead of quietly skipping CI.
+
+**A floor counts rules, not data.** A `_check` inside a loop over players, matches or list entries makes the count move whenever the engine or a seed changes how many there are, and the floor then fails for no real reason (it happened three times in one day: "Needs a lift" in matchday, "No player on two lists" in expansion, and a floor recount on the fair fixture). Write one check per case: collect the failures in the loop, then check once.
+
+```gdscript
+var twice := []
+for p in players:
+	if seen.has(p["id"]):
+		twice.append(p["id"])
+	seen[p["id"]] = true
+_check(twice.is_empty(), "No player is on two lists: %s" % str(twice))
+```
 
 ### Long audits on GitHub (`audit.yml`)
 

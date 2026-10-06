@@ -562,12 +562,29 @@ func _bounce_close_up() -> void:
 	# facing either way; the umpire (the average build, facing the camera) bounces.
 	var moves_ok := _sheet_has(VignetteFigures.BODIES["average"], "bounce", ["front"])
 	for build in ["average", "ruck"]:          # the footballers (the sheet also holds the coach)
-		for anim in ["idle", "jog", "tap"]:
+		for anim in ["idle", "jog", "tap", "tap_b", "ready", "ready_turn"]:
 			moves_ok = moves_ok and _sheet_has(VignetteFigures.BODIES[build], anim, ["front", "back"])
 	_check(moves_ok and Vector2i((vig.FIGURE_SHADE as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
 			and Vector2i((vig.FIGURE_MASK as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
 			and Vector2i((vig.FIGURE_DESIGN as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE / 2,
 			"The figure sheets hold every move the scene plays, front and back")
+	# Living players: the two ruckmen never go up as twins, and men standing in the
+	# square are ready (not stock-still) and never all in step.
+	var rucks: Array = tokens.filter(func(t): return str(t["slot"]) == "R")
+	_check(rucks.size() < 2 or str((rucks[0]["ruck"] as Dictionary)["anim"]) != str((rucks[1]["ruck"] as Dictionary)["anim"]),
+			"The two ruckmen contest with different techniques")
+	vig.set("_t", 2.5)
+	var picks := {}
+	var standing := 0
+	for t in tokens:
+		if str(t["slot"]) == "R" or bool(vig.call("_moving", t)):
+			continue
+		var pick: Array = vig.call("_frame", t, 0.0, vig.call("_pos", t), bool(t["mine"]))
+		standing += 1
+		picks["%s/%d/%s" % [pick[0], pick[1], pick[2]]] = true
+		moves_ok = moves_ok and str(pick[0]).begins_with("ready")
+	_check(standing < 2 or (picks.size() > 1 and moves_ok), "Men standing in the square are ready, and not all in step")
+	vig.set("_t", 0.0)
 	# It plays as a scene: the players run into the set-up before the freeze.
 	var before: Vector2 = vig.call("_pos", tokens[0])
 	for i in range(20):
@@ -804,6 +821,37 @@ func _appearance() -> void:
 			curated += 1
 			uncurated_ok = uncurated_ok and db.player_looks(p) == {"skin": int(row["skin"]), "hair": int(row["hair"])}
 	_check(uncurated_ok, "Real players look as curated, or neutral until they are - never guessed")
+	# The full look (Club Forge): a real player's style is the plain base,
+	# never a guess; a generated one's varies with his id and nothing else.
+	var real_ok := true
+	for p in db.players.slice(0, 40):
+		var full: Dictionary = db.player_appearance(p)
+		for k in Appearance.BASE_LOOK:
+			if k != "beard_colour":
+				real_ok = real_ok and full[k] == Appearance.BASE_LOOK[k]
+	_check(real_ok, "A real player's style is the plain base look until it is chosen")
+	var styles := {}
+	var bald := 0
+	var clean := 0
+	var inked := 0
+	var valid_ok := true
+	for i in range(3000):
+		var g: Dictionary = db.player_appearance({"id": "gen_%d" % i, "generated": true})
+		styles[g["hair_style"]] = true
+		bald += 1 if g["hair_style"] == "bald" else 0
+		clean += 1 if g["beard"] == "clean" else 0
+		inked += 1 if not (g["tattoos"] as Array).is_empty() else 0
+		for k in g:
+			valid_ok = valid_ok and Appearance.valid(k, g[k])
+	_check(db.player_appearance(fake) == db.player_appearance(again) and styles.size() >= 12
+			and bald > 30 and bald < 240 and clean > 1200 and clean < 1600 and inked > 600 and inked < 1200 and valid_ok,
+			"Generated players vary across the library from their id alone (%d styles, %d bald, %d clean-shaven, %d inked)" % [
+					styles.size(), bald, clean, inked])
+	var chosen := {"id": "C_1", "look": {"skin": 5, "hair": 2, "hair_style": "afro", "beard": "nonsense", "scars": 9}}
+	var cf: Dictionary = db.player_appearance(chosen)
+	_check(cf["hair_style"] == "afro" and cf["beard"] == "clean" and not cf.has("scars")
+			and db.player_looks(chosen) == {"skin": 5, "hair": 2} and int(cf["beard_colour"]) == 2,
+			"A chosen look is kept where valid, a stale scars key is ignored, and its colours reach the figures")
 	# Every curated row is a real player, with a tone, a hair colour, a status and a source.
 	var keys := {}
 	for p in db.players + db.draftees:
@@ -820,7 +868,9 @@ func _appearance() -> void:
 		var d := {}
 		for j in range(header.size()):
 			d[header[j]] = r[j]
-		rows_ok = rows_ok and keys.has(db._look_key(d)) and int(d["skin"]) >= 1 and int(d["skin"]) <= 6 				and Appearance.HAIR_KEYS.has(d["hair"]) and d["status"] in ["draft", "unsure", "confirmed"] 				and str(d["source"]).begins_with("http")
+		rows_ok = rows_ok and keys.has(db._look_key(d)) and int(d["skin"]) >= 1 and int(d["skin"]) <= 6 \
+				and Appearance.HAIR_KEYS.has(d["hair"]) and d["status"] in ["draft", "unsure", "confirmed"] \
+				and str(d["source"]).begins_with("http")
 	_check(rows_ok and n == db.appearance.size() and curated == n,
 			"Every curated look is a real player's, complete and sourced (%d rows)" % n)
 

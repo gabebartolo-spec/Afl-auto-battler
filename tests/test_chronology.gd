@@ -6,10 +6,15 @@ extends RefCounted
 var failures: Array[String] = []
 var checks := 0
 
+## Every season and draft here is seeded (C15): a clock seed makes a different
+## league each run.
+const SUITE_SEED := 2027
+
 
 func run() -> void:
 	failures.clear()
 	checks = 0
+	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
 	_test_start_year()
 	_test_league_draft_pool()
@@ -18,6 +23,8 @@ func run() -> void:
 	_test_coaches()
 	_test_save_year()
 	_test_old_2026_career()
+	_test_home_states()
+	GameState.replay_seed = 0
 	print("Chronology tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -204,3 +211,25 @@ func _test_old_2026_career() -> void:
 			real_class = false
 	_check(real_class, "...and drafts the real 2026 class, as before")
 	GameState.reset()
+
+
+## Players load with a home state from data/player_origin_2026.csv, and a
+## player whose state is blank has none.
+func _test_home_states() -> void:
+	GameDB.reload()
+	var dawson: Dictionary = {}
+	var with_state := 0
+	var blank_has_one := false
+	var blanks := 0
+	for p in GameDB.players:
+		if str(p["club"]) == "ADE" and int(p["num"]) == 12 and str(p["last"]) == "Dawson":
+			dawson = p
+		if p.has("home_state"):
+			with_state += 1
+		else:
+			blanks += 1
+		if p.has("home_state") and str(p["home_state"]) == "":
+			blank_has_one = true
+	_check(not dawson.is_empty() and str(dawson.get("home_state", "")) == "SA", "A known row loads: Jordan Dawson's home state is SA")
+	_check(with_state > 600 and blanks > 0, "Most 2026 players load with a home state, and some have none (%d with, %d without)" % [with_state, blanks])
+	_check(not blank_has_one, "A player with no state in the data has no home_state, not an empty one")

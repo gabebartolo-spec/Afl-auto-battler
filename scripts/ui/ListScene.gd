@@ -1,5 +1,5 @@
 extends Control
-## Your list: how the side stacks up, the best 22 on an oval, and every
+## Your list: how the side stacks up, the best 23 on an oval, and every
 ## player in one line each - who he is, whether he is available, how good.
 ## Tap a player for his profile: role, state, development, strengths,
 ## season and the attributes behind his rating.
@@ -99,8 +99,8 @@ func _shape_panel() -> Control:
 	var lv := UiKit.vbox(5)
 	lv.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left.add_child(lv)
-	lv.add_child(UiKit.lbl("Best 22", UiKit.H2, UiKit.EMPH, true))
-	var shape_note := UiKit.lbl("Six defenders, six midfielders (ruck included), six forwards and four on the bench. Tap a guernsey.",
+	lv.add_child(UiKit.lbl("Best 23", UiKit.H2, UiKit.EMPH, true))
+	var shape_note := UiKit.lbl("Six defenders, six midfielders (ruck included), six forwards and five on the bench. Tap a guernsey.",
 			UiKit.SMALL, UiKit.MUTED)
 	shape_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lv.add_child(shape_note)
@@ -146,14 +146,14 @@ func _full_list_panel() -> Control:
 func _team_row(p: Dictionary, ground: bool) -> Control:
 	var h := UiKit.hbox(6)
 	h.add_child(_guernsey(p))
-	var nm := UiKit.lbl(GameDB.player_display_name(p), 13, UiKit.TEXT if ground else UiKit.MUTED)
+	var nm := UiKit.lbl(GameDB.player_display_name(p), UiKit.SECONDARY, UiKit.TEXT if ground else UiKit.MUTED)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	h.add_child(nm)
 	h.add_child(UiKit.role_chip(_player_tag(p)))
 	if int(p.get("injury_weeks", 0)) > 0:
-		h.add_child(UiKit.line("INJ", 11, UiKit.BAD, true))
+		h.add_child(UiKit.line("INJ", UiKit.FINE, UiKit.BAD, true))
 	h.add_child(UiKit.line(str(int(p["overall"])), 14, UiKit.EMPH, true))
 	h.add_child(UiKit.line("/%d" % int(p.get("potential", p["overall"])), 11,
 			UiKit.GOOD if bool(p.get("rehab", false)) else UiKit.MUTED))

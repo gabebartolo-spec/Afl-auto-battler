@@ -2,6 +2,10 @@
 
 Companion to [the research report](AFL_FLAVOUR_AND_CULTURE_RESEARCH.md). The director approved the eight flavour extensions on 6 October 2026; see [roadmap §9.3](../ROADMAP.md#93-approved-flavour-and-culture-work--director-decisions-2026-10-06). These are original prototype examples within that scope, not implemented copy or real-player quotations. Exact wording remains subject to contextual review. All quantities and pacing are prototype assumptions.
 
+## Director copy decisions — 6 October 2026
+
+The 200-career-game banner is **“200 games. Take a bow, {display_name}.”** Use the current displayed name. The first-goal headline, vague defender headline and tape notice have been removed at the director's request; do not restore them or treat the earlier samples as approved copy. Banners can recognise only facts known before the match; they must never predict a first goal or another future match event. Where a defender's achievement warrants a post-match headline, use **“{display_name}: {supported_fact}”** with the actual recorded achievement rather than a generic joke.
+
 ## Voice
 
 Warm, specific, economical. The football should carry the drama. Use dry humour occasionally; let meaningful achievements remain sincere. Instructions stay plain.
@@ -21,7 +25,7 @@ Names in templates mean the current displayed real/fictive name. Do not leak rea
 | Existing pre-match transition | **Warming up** | Already supported phase. Do not claim loading complete |
 | Existing pre-match transition | **Final instructions** | Existing huddle phase; no implied tactical bonus |
 | Existing run-out | **Through the banner** | Current run-out. No additional waiting |
-| Milestone banner | **200 games. Still one of us.** | Exactly 200 senior career games for a selected player; name accompanies it. If milestone conventions count the upcoming match, apply the existing milestone convention once |
+| Milestone banner | **200 games. Take a bow, {display_name}.** | Exactly 200 senior career games for a selected player; name accompanies it. If milestone conventions count the upcoming match, apply the existing milestone convention once |
 | Club-tenure banner | **100 games in our colours.** | Club games, not league total; accurate display name and club |
 | First senior appearance | **Welcome to senior footy, {display_name}.** | Genuine senior debut known from complete history, not merely first match in this save |
 | Existing finals fixture | **Finals footy. Here we go.** | Fixture is actually a final; never put it on a late-season home-and-away match |
@@ -35,8 +39,6 @@ A caption should not promise dominance, a reward or a performance increase. A la
 |---|---|---|
 | **We made that interesting.** | Won narrowly after holding a clearly larger lead; thresholds explicitly defined and supported by saved score history | **Won by {margin} points** |
 | **The neighbours heard that one.** | A real rivalry victory, used as figurative editorial copy, not measured sound/attendance | **Won against {opponent}** |
-| **A good week to know a defender.** | Report is about a selected defender's verified notable defensive event/output; no invented unseen blocks | **{display_name}: {supported_fact}** |
-| **First goal. Properly on the board.** | A genuine first senior goal, complete history available | **First senior goal for {display_name}** |
 | **Not much room to breathe.** | Close final margin; says nothing about fatigue | **Decided by {margin} points** |
 | **A long season, a place in the finals.** | The club actually qualifies, not merely remains mathematically possible | **Finals qualification confirmed** |
 | **A year worth remembering.** | Only paired with specific true campaign beats; not automatically every season | **Your {season_year} season** |
@@ -92,7 +94,6 @@ Possible original notices on a fictional clubroom wall:
 
 - **Please return the good scissors.**
 - **Lost property: one boot. Owner still hopeful.**
-- **Banner night: bring tape. More tape than that.**
 - **Tea roster: volunteers welcome. Expert opinions already supplied.**
 
 These are background prop jokes about ordinary club activity. They are not quests, player equipment losses, staff assignments or resource requirements. Use at most one readable notice in a prototype scene; the real controls remain visually primary.

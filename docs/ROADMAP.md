@@ -181,7 +181,7 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 - **Say what wasn't exercised.** A PR's evidence names what it didn't cover (device touch, real-time performance, listening) instead of leaving it implied.
 
 **`LOW`**
-- §9.5 STYLE-03 colour pairings, STYLE-07 desktop layout and STYLE-08 light maintenance; the latter two follow the approved dark slice. STYLE-01's narrow Training-row alignment repair is also LOW when it reproduces. Art-agent direction and final director appearance approval apply.
+- §9.5 STYLE-03 colour pairings and STYLE-08 light maintenance; light maintenance follows the approved dark slice. STYLE-01's narrow Training-row alignment repair is also LOW when it reproduces. STYLE-07's urgent shared desktop-scaling repair is MEDIUM, not deferred LOW polish. Art-agent direction and final director appearance approval apply.
 
 - §9.3 FL-001 football voice and incidental humour.
 - Verifying and closing work that is already on `main` (the Low agent does this as it finds it). The §9.1 Training scrollbar is done and waits only on a phone check.
@@ -204,13 +204,13 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 - Board, league and balance: ARD-M6-003 (fair expectations), M7-004 (captaincy), M7-006 (weather), M7-007 (ground dimensions), and from §9.1 overall difficulty with active-play levers, synergies as specialisations, and the GOAT prospect.
 - Content builds: ARD-M7-008 (custom prospect), M7-009 (expansion and Club Forge), M7-010 (Sir Doug Nicholls Round), M7-011 (AFL knowledge layer), M8-003 (match visualisation), M8-006 (release polish), M8-007 (vignette art-style replacement), the §1.11 Season story and long-save visual wishlist, and AFLW (deferred).
 
-**Waiting on the director** — nobody's to pick up: the phone checks on ARD-M5-014, M5-015, M6-006, M6-008, the awards ceremony, training touch and the playtest fixes marked `VERIFY` in §9.1; the Android launcher icon (M8-008, the app name is already set in the export preset); whether to keep the trade-value discount for unproven potential (§9.1); whether the Key defender plan should be offered to defenders under 191 cm; whether the temporary Sim to finals button (ARD-M1-007) is still wanted; and the trailer (ARD-M8-010), which is hard-gated and only starts on the director's explicit go-ahead.
+**Waiting on the director** — nobody's to pick up: the phone checks on ARD-M5-014, M5-015, M6-006, M6-008, the awards ceremony, training touch and the playtest fixes marked `VERIFY` in §9.1; whether to keep the trade-value discount for unproven potential (§9.1); whether the Key defender plan should be offered to defenders under 191 cm; whether the temporary Sim to finals button (ARD-M1-007) is still wanted; and the trailer (ARD-M8-010), which is hard-gated and only starts on the director's explicit go-ahead.
 
 ## 0.4.1 Current execution queue — overrides milestone order
 
 This is the **authoritative near-term work order**. The milestone catalogue below is not a command to start more work while validated PRs are already in flight.
 
-1. **Close any genuine P0 phone-playtest failures first (§1.11, §9.1).** A newly reproduced soft-lock, broken match flow, fake/no-op choice or major performance regression still jumps ahead of planned feature work.
+1. **Immediate director priority: repair unreadable PC fullscreen/maximised UI (STYLE-07, §1.11).** This is a `P0` usability blocker, promoted above planned features, cosmetic content and general styling on 2026-10-06. Start the next available development slot with shared desktop scaling and fit-to-screen repair; do not defer it behind the dark-phone styling programme. Preserve already-in-flight work and genuine soft-lock repairs. Other P0 phone-playtest failures (§1.11, §9.1) remain urgent.
 2. **The former in-flight stack has landed.** _Reconciled 2026-10-05:_ the match-authenticity work (#190 merged; #196 smothers/speccies/50s/MRO/kick-ins), Combine/scouting (#188), the trade/contracts stack (#182 → #191 → #193 → #198, real-money contracts), GPS distance (#195), post-match media (#183), milestones (#186), History & records (#187) and the awards ceremony (#185) were closed as separate PRs and carried onto `main` by the consolidated squash merge #208; #189, #192, #194 and #205 merged directly. Do not reopen or re-create them; treat follow-ups as ordinary work against `main`.
 3. **Reconcile the current active work before touching its systems.** At the 2026-10-05 checkpoint #223 (live-call/trade/free-agency evidence), #224 (unproven-potential trade discount), #226 (backed-player payoff, still targeting the oval-rings branch) and #206 (music) are open. #210/#213/#214 repairs and audits, #217 difficulty evidence, #220 backing, #221 rings, #222 scouting estimates and #225 assistant contracts are merged. Preserve remaining phone checks; do not create parallel valuation, promise or payoff systems.
 4. **Then resume genuinely unstarted catalogue work** from M3/M4/M5/M7/M8 and the §9.1 playtest findings according to player value and dependencies, rather than roadmap-number order. M5-001 (18 + 5 interchange) remains a separate TODO now that selection changes have settled.
@@ -535,6 +535,7 @@ Do not tune purely until one screenshot "looks right".
 The current phone playtest has exposed a core-loop problem more important than feature expansion. **Pause unrelated new feature work until this gate is addressed.** Existing PRs may finish through CI/merge, but the next development work should focus on the failures below rather than advancing the roadmap for completion's sake.
 
 ### Observed failures
+- **PC fullscreen/maximised UI unreadable — extreme priority (`P0`, 2026-10-06):** the director's near-4K Windows capture shows New career as a tiny central form surrounded by mostly empty space, with text, option buttons and Back too small to use comfortably. Repair global desktop scaling and responsive fit under **STYLE-07** immediately; verify all principal screens rather than enlarging this one form alone. The screenshot is evidence of a current usability defect, not a request for additional decorative polish.
 - **Closed from this list** (checked against `main` on 2026-10-06; the original write-ups are in git history): match-feed club labels (#120); unavailable tag targets (#121); the three-game Coaching gate (`test_club.gd`); recent-games form copy (#117); form-streak colour (#122); the tired-star rotation prompt (#119); week-by-week finals for a club that is out; the Season Review scroll; centre-bounce vignette participants; St Kilda `SKN` → `STK` (data and code, with `CareerSave.RENAMED_CLUBS` and a `test_save.gd` check that an old save loads into the same St Kilda); the pre-match scene on every Play match (#143, `PreMatchVignette`); match-up narrative continuity (`MatchNotes.duel_story`, `test_match_game.gd`); set-shot chances by distance and angle (`MatchSim.set_bands`, calibrated to AFL rates and tested); draw frequency (`test_league_balance.gd`, and finals never end level in `test_finals.gd`); and the 'hurting you' lever (#230, `test_matchday.gd`).
 - Match simulation can freeze/stall.
 - **Residual far-away receiver / loose-ball wait bug:** phone playtesting still shows occasional pauses where the visualisation waits for a distant predetermined player to reach the ball while nearer players stand off, despite the earlier match-flow repair. Treat this as an unresolved core-flow defect rather than closed work. Capture concrete occurrences and trace whether the delay comes from MatchSim selecting an implausibly distant next actor, MatchDirector/Motion over-honouring a predetermined event actor, or presentation failing to hand the loose ball to a locally plausible contestant. Prefer the smallest fix that preserves MatchSim authority and existing balance; do not silently change football outcomes just to make the animation look smoother. Acceptance: loose-ball sequences no longer visibly stall for a far-away player when a nearby eligible player could plausibly contest/collect, and any unavoidable long run has a football reason visible in the simulation state. Add targeted regression/replay coverage for the previously observed failure pattern.
@@ -1654,7 +1655,7 @@ Seeded marked goal vs unmarked goal. Only the marked/set-shot path may trigger t
 ---
 
 ## ARD-M3-002 — Forward archetype scoring
-**Status:** `IN REVIEW` — branch `claude/forward-archetypes`.  
+**Status:** `PARTIAL` — forward archetypes (key forwards mark inside 50, small forwards crumb) merged in #286; #297 then let generated forwards include small forwards (172–203 cm, was 184–203). Balance measurement and the spoils-outside-the-50 gap (below) remain. _(2026-10-06)_  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 **Depends on:** ARD-M3-001, marking context
@@ -2023,6 +2024,26 @@ This should be a real structural choice, not a flat intercept-stat buff:
 
 The roaming interceptor should also be eligible to appear as a **key matchup / opposition danger** even though he is not assigned to one forward. If he is controlling the air, the player should have football-appropriate counters available (for example changing forward structure, making him accountable, lowering/altering entries, or moving the spare), rather than being told he is a danger with no response.
 
+### Director addition — match preparation: solo vs dual ruck
+**Status:** `TODO` — design and implementation follow-up; covered by this item's balance gate.
+
+Give match preparation a meaningful **solo ruck vs dual ruck** choice, connected to the selected players' traits, skills and complementary roles. Both approaches must have benefits and drawbacks; neither should be a universally superior button.
+
+Claude should refine the smallest football-credible design using the existing selection, workload, role and synergy systems. Candidate trade-offs to investigate, not prescribed numerical effects:
+- **Solo:** more room for another midfielder/runner or other specialist, and concentrated responsibility for a dominant ruck; costs may include workload/fatigue, reduced genuine ruck cover and exposure if the sole ruck is injured or beaten.
+- **Dual:** shared ruck workload, genuine cover and complementary around-ground/forward contributions; costs may include a selected-player opportunity cost, reduced running/pressure or poorer spacing when the two players do not complement one another.
+
+Tie suitability into player identity rather than blanket solo/dual stat multipliers. **Ideas, not demands:** a "Ruck King" could operate better as the sole lead ruck, while an "Extra Midfielder" or "Unicorn"-type ruck could thrive in a complementary tandem. These names and exact behaviours are suggestions for Claude to assess; do not automatically add traits or redefine the existing Unicorn trait, which already has a separate multi-position synergy meaning. Reuse compatible existing traits/attributes where possible and avoid double-counting their benefits.
+
+**Director reference examples — Extra Midfielder rucks:** Luke Jackson, Brodie Grundy and Tristan Xerri. The intended distinction is stronger contested grunt around stoppages (ground-level ball winning, clearance involvement and pressure), with generally less aerial potency than tap-focused rucks. This does not mean they are poor ruckmen or cannot win taps; tap craft, aerial strength and contested midfield contribution are separate dimensions, and individual exceptions should remain possible. In the intended archetype contrast, tap-focused rucks are more likely to take intercept marks, while Extra Midfielder rucks are more likely to follow up forward-50 ruck contests and become involved in scoring chains. Express these as personnel-dependent tendencies through real positioning, contest follow-up and disposal/assist events, rather than guaranteed outcomes or fabricated credits; preserve individual exceptions. Use these players as archetype reference points, not instructions to force traits onto them, manually buff them or automatically make tandem play optimal. Claude should refine how this profile interacts with a complementary partner versus solo responsibility using the existing skills, traits and football model.
+
+Acceptance:
+- The choice is clear in match prep, names the relevant selected ruck(s), and explains the likely benefit and cost in concise football language without prescribing the best option.
+- Real selection, ruck responsibility, rotation/workload and off-ruck roles support the choice; no extra player, phantom second ruck, duplicate simultaneous contribution or cosmetic-only toggle.
+- Both structures can succeed or struggle depending on personnel, complementarity and opponent; AI operates under the same rules.
+- Invalid selections/injuries and emergency cover follow existing ruck-integrity rules (ARD-M1-002); integrate with the five-interchange migration (ARD-M5-001) and workload work (ARD-M5-015).
+- Validate matched-resource solo/dual comparisons across dominant specialists, mobile/hybrid rucks and poorly complementary pairs. Demonstrate meaningful advantages and costs, and use actual match evidence for feedback rather than invented tactical success claims.
+
 ### Director addition — defensive forward archetype / trait
 
 **Status (2026-10-06):** `IN REVIEW`. Implemented as the director approved: a **Defensive forward** trait (a forward's own position, Pressure 44+, about 1–2 a club) and a person-based answer to their loose defender. At a break, "Their loose defender" sits with the key match-ups and asks who goes to him. A Defensive forward cuts his reach to contests to 40%, any other forward to 70%. The forward sent is up the ground, so he is seldom a target, a shooter or a crumber himself (25%); that replaces the old flat −3.5% on the whole forward line. The AI names its forward by the same rule, after observable roam wins. Tests: `test_match_game.gd` `_test_defensive_forward`.
@@ -2202,6 +2223,17 @@ Create **one** concise coaching report, not a compact report plus a giant full-r
 
 Detailed stats live in the Stats screen.
 
+### Director addition — full match stats at every quarter break (2026-10-06)
+**Status:** `TODO` — explicit access requirement; audit existing break UI first and extend any missing access, preserving the completed report foundation.
+
+Make the **full match stats** available at **quarter time, half time and three-quarter time**, with the same team/player stat coverage available at full time. Include both teams' cumulative match-to-date statistics and available quarter scoring/breakdowns; values must come from the current authoritative match state, not a completed-match reconstruction or future results.
+
+Reuse the existing Stats screen/table in a clear tab/button accessible from each break. Keep the concise coaching/decision view as its own surface, so full statistics are available on demand without turning the break summary into a stat dump. Opening/closing stats must not resume the match, commit a call, discard pending tactical choices or advance the simulation; the user returns to the same paused break and can still make their decisions.
+
+Acceptance: full team and player stats can be opened at all three breaks, match the events played so far, and remain accessible regardless of whether the user watched or skipped the preceding quarter. Validate all three break states, missing/zero stats, back navigation, selected tactical choices, phone scrolling and final-time parity.
+
+
+
 ### Research refinement — 2026-10-05
 
 **Status boundary:** the merged report remains DONE. These checks apply when M4-001/002/003/004 follow-through changes; do not rebuild or add a second report.
@@ -2271,12 +2303,126 @@ Consolidates existing team form with the requested winning-streak momentum conce
 
 Goal: make player deployment intuitive, footy-authentic and consequential.
 
+## ARD-M4-012 — Intercepts by zone: any player can intercept
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+
+**Director decision (2026-10-06, interview):** "any player can intercept, but the loose defender should get more intercepts if he's good at it." Today the general-play aerial pool is defenders and midfielders only, and forward-entry contests are defenders only. Neither pool looks at where the ball is, so forwards never pick off a rebound kick in their forward half.
+
+**Scope:**
+- Choose the intercepting player from the players near the ball's zone, weighted by their intercept and marking.
+- Keep the named loose defender's skill-scaled extra entry (`_roam_chance`, 0.20–0.38, scaled down when the attack makes him accountable).
+- Calibrate per position against real splits. The evidence is docs/research/INTERCEPT_EVIDENCE.md (#416), plus the Wheelo Ratings CSVs (download approved by the director).
+
+**Validation:**
+- paired seeded batches: intercepts by position against the evidence;
+- team intercepts, rebounds, scoring and margin unchanged within error;
+- determinism.
+
+## ARD-M4-013 — Set shots: three visibly different choices, and a real pack for the bomb
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+
+**Director decision (2026-10-06):** "should be 3 visibly different sequences, but also add a pack contest, also gives an opportunity for a crumber to pick up a spoiled ball if it is not marked."
+
+**Scope:**
+1. **Record the choice.** Put the choice (shoot, pass or bomb) and the teammate's id on the resulting score or rebound event; today `m["choice"]` stays on the decision (MatchSim.gd:3636).
+2. **Pass:** emit the pass and receive actions that are already resolved, without double-counting the disposal. The teammate shoots from his own spot.
+3. **Bomb:** becomes a real goal-square pack contest:
+   - a forward marks and shoots;
+   - or it's spoiled, and a crumber can gather and snap;
+   - or the defence marks or rebounds;
+   - or it goes through untouched.
+   Recalibrate against today's bomb goal rate so the choice keeps its trade-off.
+4. **Presentation (under M8-003):** three distinct sequences from these events, with no invented actors or stats.
+
+## ARD-M4-014 — Kick lanes that matter (corridor, switch, down the line)
+**Status:** `TODO` · **Priority:** `P2` · **Autonomy:** `SUPERVISED`
+
+**Director decision (2026-10-06):** lanes are recorded **and** affect play, not presentation only.
+
+**Scope:**
+- MatchSim picks a lane for each kick (corridor, switch, down the line), weighted by the gameplan: Attack corridor goes through the middle more, Controlled tempo switches and resets, Defensive press goes down the line.
+- A lane changes that kick's risk and reward, e.g. corridor gains more but turns over into open space.
+- It replaces part of the plans' flat multipliers, so effects aren't counted twice.
+- The director draws the recorded lane, so the random 10% "switch of play" goes.
+- Recalibrate plan balance and the counter triangle.
+
+**Dependencies:** M8-003 tactical timeline. Merge the plan names first (below).
+
+## ARD-M4-015 — Six gameplans, not eight names
+**Status:** `TODO` · **Priority:** `P2` · **Autonomy:** `SAFE`
+
+**Director decision (2026-10-06):** merge the duplicates. "Fast movement" becomes Attack corridor and "High press" becomes Defensive press; they're the same effects under older names (MatchSim `PLANS`, `PLAN_UPSIDE`, CoachReport). Old saves map across on load. No gameplay change.
+
+## ARD-M4-016 — Match-day weather: perfect day, wet, windy, hot
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+
+**Director decisions (2026-10-06):**
+- Rain affects play, calibrated against real stats, and has a look.
+- Conditions: perfect day, wet, windy and hot.
+- "Certain gameplans should work better in certain weather: contested footy is better in the wet as it's less precise; in dry weather ball handling is easier and it's easier to mark the ball."
+- The forecast is known during the week.
+- Windy has a breeze end per quarter.
+- A visible "Wet-weather player" trait.
+- Long sleeves: about 15% of a list wear them, up to 25% in the wet.
+
+**Evidence:** docs/research/WEATHER_EVIDENCE.md, the lead's own research and conclusions.
+
+**Scope:**
+1. **One condition per match,** seeded by venue and month from the real frequencies. Docklands is always a perfect day.
+2. **MatchSim effects through existing keys,** calibrated to the evidence ranges:
+   - wet: marks about −13%, contested possessions +7%, turnovers +11%, a small accuracy drop, and contested ball weighs more in the result;
+   - windy (20 km/h or more): fewer marks, more turnovers, lower accuracy, and a breeze end that swaps each quarter;
+   - hot: freer early, with heavier legs late.
+3. **Plan fit by condition:**
+   - wet favours Win contest and Defensive press, and hurts Attack corridor;
+   - windy favours Controlled tempo;
+   - hot favours Attack corridor, and Defensive press fades;
+   - a perfect day favours Attack corridor and Controlled tempo.
+   It's a rule the player can look up, not a recommendation label.
+4. **Forecast on the Hub during the week,** as a fact. The coach report and Stat Guide state each condition's rule in words.
+5. **The trait "Wet-weather player":** generated players and evidence-backed real players; it only matters when wet.
+6. **Look (with the art agent and the existing scenes):**
+   - rain on the pitch and vignettes;
+   - wind in flags and banners;
+   - heat haze and hard shadows;
+   - long sleeves per player (#368, backlog item).
+   Zero result effect from the look itself.
+
+**Validation:**
+- seeded batches per condition against WEATHER_EVIDENCE: scoring, marks, contested share, turnovers, accuracy;
+- the plan-by-condition matrix shows the intended edges with no dominant plan;
+- determinism;
+- old saves load as a perfect day.
+
 ## ARD-M5-001 — Matchday squad: 18 + 5 interchange
-**Status:** `TODO`  
-**Priority:** `P1`  
+**Status:** `DONE` — merged in #331 (`11e2f13`, 2026-10-06).  
+
+**Implementation record (2026-10-06):**
+- **Squad:** `Ratings.INTERCHANGE := 5`, the match-day 23, no substitute role. Auto and AI selection pick 18 + 5, the Team screen has five bench slots, and an older save with four named on the bench keeps them and gets a fifth on match day.
+- **Bench make-up (auto/AI):** a forward, a defender and a midfielder first, then the best of the rest. Without it a midfielder relieved every tired forward, and crumbed goals by forwards fell below real (caught by match_game).
+- **Dual ruck (director):**
+  - Your call: 'One ruck / Dual ruck' on the Team screen, off until chosen, saved across seasons. With it on, your second ruck takes a bench spot.
+  - AI clubs run it by rule: when their spare ruck is within 5 OVR of the bench player he would replace.
+- **All-Australian team:** 23 (director).
+- **Wording:** best 22 becomes best 23 for the selected side, in the game's text and the docs. Dated evidence docs are left alone.
+- **Evidence:** `tools/audit/interchange_impl.gd`, run on GitHub (runs 37395368728 and 37395371529). The same 8 careers × 3 seasons a side, 18+4 (the old bench rules, `RULES=0`) against final 18+5, per team-match:
+  - goals 11.86 → 12.01, disposals 371.1 → 371.4, tackles 63.5 → 63.5, inside 50s 50.1 → 50.2;
+  - interchanges 41.1 → 47.0, players who took part 21.87 → 22.87;
+  - distance per player 13.22 → 12.62 km, injuries 0.80 → 0.84;
+  - in-season OVR rise +3.90 → +3.88, off-season OVR change −3.91 → −3.87.
+  - The fifth player plays and the running is shared; scoring, stats and development hold. No recalibration.
+- **Tests:**
+  - selection 33 (`_test_fifth_interchange`: all five come on and take part, the fifth earns a selected player's XP, a 4-man saved bench fills to 5; `_test_dual_ruck`); roles 23; awards 23.
+  - match_game: the boundary-free and Through-stars samples were widened (16 and 40 matches). They had sat on a one-event or two-SE margin; the medium agent diagnosed it.
+  - Calibration, workload, balance, injuries, pressure, matchday, save and career_ui pass locally.
+
+**Was:** `TODO`  
+**Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
 
-Current known structure uses 18 + 4.
+**Director priority (2026-10-06):** Implement this next ahead of unrelated feature expansion and presentation work; urgent crash/save blockers still take precedence. This is an existing task promoted to priority, not a new duplicate.
+
+Before #331 (verified 2026-10-06): `Ratings.gd` defined `INTERCHANGE := 4`, `SelectionScene.gd` rendered four bench slots, and selection tests expected 18 + 4. The migration below is what #331 delivered.
 
 Migrate to:
 - 18 on ground,
@@ -2296,6 +2442,12 @@ Audit:
 - UI,
 - tests,
 - every hard-coded 22/4 assumption.
+
+Acceptance:
+- Manual and auto/AI selection produce 18 on ground + 5 interchange (23 total) for both teams, and the UI exposes all five bench slots.
+- The fifth player participates correctly in rotations, injury cover, match stats, XP/development and appearance/played-game tracking; no cosmetic-only extra slot.
+- Remove or update every relevant hard-coded 22-player/four-bench assumption, including tests and saved-squad compatibility, without losing existing save information.
+- Validate the squad migration with targeted selection/rotation tests and the required CI gates; use the existing balance-audit process for any resulting simulation effects.
 
 ---
 
@@ -2329,7 +2481,7 @@ Mobile portrait first.
 ---
 
 ## ARD-M5-003 — Secondary-position learning / retraining
-**Status:** `IN REVIEW` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, on branch `claude/dev-project`.  
+**Status:** `DONE` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, merged in #266 (2026-10-06). Phone feel and balance measurement remain with the director. Made to matter (2026-10-06, merged in #379): learned positions compete on merit in the auto-pick, a learned position pays back next season inside POT, and the in-season price is smaller.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -2357,7 +2509,7 @@ This is the canonical item for the user's previously requested secondary-positio
 The director chose ARD-RC-003 (a bounded development commitment with an opportunity cost) and placed it here.
 - **The project:** a "Learn to play <job>" training plan. For 8 fit weeks his XP trains the new position's game (injured weeks do not count). At the end he can be picked there if his rating there is within 3 of his own; otherwise it has not taken. One project per player a season, two at a time per club. Switching plan ends it and spends that season's chance.
 - **Who may try (director):** a plausible move only (his rating there within 6 of his own). The job follows his size: key forward from 192 cm, small forward up to 181 cm, key defender from 191 cm, ruck from 196 cm. POT 70+ for a second position and POT 90+ for a third (raised from 85 by the director after the first audit, so Unicorns stay rare).
-- **The price, stated exactly:** from the day he starts, training in his own position can lift him only 1 more that season (3 in a normal season). The new position's training still helps his own game where the two overlap.
+- **The price, stated exactly:** from the day he starts, training in his own position can lift him only 2 more that season (3 in a normal season; 1 until 2026-10-06). **The payback:** the season after he learns a position, his training limit is 1 higher, never past his POT; and the auto-pick plays him at a learned position whenever he rates higher there than the line's weakest starter (director, 2026-10-06: projects must have an impact). The new position's training still helps his own game where the two overlap.
 - **The Unicorn (director):** a player who can be picked at forward, midfield and back earns the Unicorn trait. On the ground he fills one missing place in one synergy (the first in rule order that he completes, in his line for a line synergy), never two.
 - **Rival clubs (director):** each runs one project a season, on its highest-POT candidate, by the same gates and weekly rules, with no news items.
 - **Endings:** a move to another club ends a project (the season's chance stays spent); a project still running when the season ends is judged where it stands. A learned third position counts wherever positions matter in a match (ruck contest, bench replacements, midfield checks). Its trade value waits for #228 (no trade-valuation changes until it is settled).
@@ -2545,7 +2697,7 @@ This is a league-wide calibration problem, not a request for hand-authored veter
 
 Required audit:
 - compare National Draft rookie OVR/POT distributions against established 24–28 and veteran 29+ players by position/role;
-- inspect how often first-year rookies immediately outrank proven regulars and best-22 veterans before any development;
+- inspect how often first-year rookies immediately outrank proven regulars and veterans in the best side before any development;
 - separate genuinely elite ready-made prospects from ordinary high-upside projects;
 - check whether established players with multiple seasons of credible AFL production are being compressed too low by the ratings model;
 - verify that lowering rookie starting OVR does not accidentally lower their POT or long-term ability to become stars;
@@ -2808,9 +2960,11 @@ Measurement: `tools/workload_probe.gd`; validation record in
 
 ## ARD-M5-016 — Inherited-list career: 2026 National Draft start
 **Status:** `TODO` — explicitly accepted by the director; documentation only in this pass.
-**Priority:** `P1`
+**Priority:** `P0`
 **Autonomy:** `SUPERVISED`
 **Depends on:** §1.11 correctness/phone gate; M1-010's merged chronology; the usable M5-014 National Draft/scouting foundation and M6-004 contract/pick persistence; a verified complete roster/pick manifest. Do not require unrelated parts of those umbrella tickets to be DONE. Full academy/father-son bidding is not a dependency.
+
+**Director priority (2026-10-06):** Still missing on main; promote this to the next major career-start feature priority ahead of unrelated content/presentation expansion. Urgent correctness/save blockers and the already-prioritised five-interchange migration remain ahead; preserve the specific source-data, opening-draft and save prerequisites below without waiting for unrelated umbrella work to finish.
 
 ### Player benefit / smallest useful delivery
 Choose a familiar club with its actual inherited playing group, shape its future through the 2026 National Draft, then play 2027. Preserve the League redraft as a distinct existing option. First build the source manifest and dedicated opening-intake handoff; connect setup and persistence only once those are credible.
@@ -3301,7 +3455,7 @@ AI trade value must depend on what the club is trying to do, using only its own 
 Give each club a simple, recalculated list-management phase such as:
 - **Rebuilding:** materially values high/current and future draft picks plus elite young/high-POT players; is reluctant to trade premium youth for established older stars; may move veterans for picks/youth.
 - **Building/rising:** values a mixture of young core and targeted established needs.
-- **In the premiership window / contending:** places less marginal value on future picks and is more willing to trade good picks/youth depth for established players who improve the best 22 now.
+- **In the premiership window / contending:** places less marginal value on future picks and is more willing to trade good picks/youth depth for established players who improve the best side (18 plus five interchange) now.
 
 Derive this from evidence such as recent ladder/expectation, list quality, age profile, elite-young core and competitive trajectory. Do not assign permanent hand-authored personalities. Recalculate as careers evolve.
 
@@ -3604,6 +3758,20 @@ Represent appropriate competition traditions such as King's Birthday and other m
 
 Presentation/identity first. Avoid arbitrary gameplay bonuses.
 
+### Director addition — Gather Round
+**Status:** `TODO` — follow-up under this existing marquee-fixture owner; the completed general marquee-game implementation remains DONE.
+
+Add **Gather Round** to the season calendar, fixture identity and match presentation. Represent the round as a shared league event staged at appropriate host venues, rather than simply adding a label to normal home-ground fixtures.
+
+Implementation scope:
+- Inspect the current fixture/event system and source the appropriate round and host venues for supported real starting seasons. Reference: [official AFL Gather Round](https://www.afl.com.au/gather-round) and [AFL host agreement update](https://www.afl.com.au/news/1513707/south-australia-locks-in-gather-round-for-a-further-three-years). South Australia is the current reference; do not hard-code one year's round number, dates or nine-match total into every future season.
+- Assign actual event venues consistently across fixtures, match prep, live matches and relevant vignettes; distinguish nominal home/away designation from the venue actually used. Audit existing home-ground/familiarity handling rather than accidentally giving a relocated team a normal home-venue advantage.
+- Give the round a clear, restrained Gather Round identity in the calendar/Hub, match intro and reports, with host-ground atmosphere through existing art/venue systems. No arbitrary event stat buffs.
+- Preserve valid season totals, opponent scheduling, byes and finals progression. Define a coherent policy for generated future seasons and expansion/odd club counts, including Tasmania, optional Canberra and custom clubs; do not force every club to play simultaneously when the league has an odd number of teams.
+- Persist the event/venue identity through save/reload and use backward-compatible defaults for existing careers.
+
+Acceptance: Gather Round is recognisable and correctly hosted; the user's match and the rest of the league agree on the event round/venues; ordinary fixtures remain intact; no duplicated/missing games or false season-end on a bye. Validate normal and expanded leagues, host/non-host clubs and reloads. Keep any venue/home-advantage simulation change under the existing balance gate (ARD-M7-007).
+
 ---
 
 ## ARD-M7-003 — Player milestones
@@ -3650,6 +3818,29 @@ Give captaincy modest football meaning:
 - morale/leadership context.
 
 Avoid blanket attribute boosts.
+
+### Director consideration — Leadership as a player stat
+Consider adding **Leadership as a numerical player stat, not a trait**, as part of this captaincy design. Claude should refine the concept and assess the smallest useful implementation before committing to exact values or effects.
+
+Represent football leadership independently of playing ability, OVR, age and captain appointment: a strong leader need not be the best player, and appointing a captain should not automatically grant high Leadership. Explore how the stat can support the bounded composure, late-game stability and morale contexts above, with credible costs/limits and equal rules for AI clubs. Avoid blanket team/attribute buffs, guaranteed comebacks, or making the highest Leadership an automatic optimal captain in every context.
+
+Define what the stat measures, how real and generated players receive credible values, whether/how it develops, and how it is shown on player profiles and captain selection. Be honest about uncertain real-player assessments rather than inventing precise evidence. Inspect the existing captaincy/player-stat foundations first; design appointment, replacement/absence and historical continuity together so the stat is not an isolated decorative number. If persisted, specify backward-compatible defaults for existing saves.
+
+**Director leadership ideas — concepts for Claude to refine, not fixed mechanics:**
+- **On-field coach:** a strong leader could increase gameplan potency through better organisation/execution. Tie any measured benefit to the actual chosen plan, relevant personnel and the leader's participation, rather than an unconditional team-wide boost.
+- **Leads by example:** leadership could support a captain's goal in a clutch moment or last-quarter heroics. Preserve the player's genuine football ability, opportunity and match events; influence tendencies/composure where justified, never script a guaranteed goal, win or comeback. Report a leadership moment only when it actually occurs.
+- **Club culture and appeal:** leadership could improve teammate morale, willingness to **re-sign** with the club, and the club's attractiveness to free agents or players considering a trade. Integrate with existing morale, contracts and recruitment decisions; leadership should be one bounded factor alongside money, opportunity, club direction and player preferences, never forced loyalty or guaranteed recruitment.
+
+These are possible expressions of the numerical Leadership stat, not a request to create three mandatory traits or parallel systems. Claude should assess overlap with coaches, existing composure/clutch behaviour, morale and club reputation before choosing the smallest useful design. Recruitment/retention effects must respect player agency, existing trade rules and AI parity; measure balance and long-save effects as well as match effects.
+
+**Director leadership-trait ideas — alongside the Leadership stat:**
+- **Tough:** teammates are slightly more effective while fatigued; modestly soften the existing fatigue penalty rather than erase fatigue, improve fresh-player performance or encourage unsafe injury behaviour.
+- **Drives Standards:** teammates gain a small amount of additional XP from actual training, through the existing training/development system and within normal potential/development limits.
+- **Unders Culture:** players may be slightly more willing to sign cheaper deals, through existing contract willingness/valuation. Preserve player choice, salary rules and other contract factors; no automatic discounts or forced acceptance.
+
+**All leadership buffs must be small**, including the gameplan, clutch, morale, retention and recruitment ideas above. These trait names/effects are design suggestions for Claude to refine, not immediate stat adjustments. Define who can carry a leadership trait and when its influence applies (captain/leadership role, active participation and absences); distinguish the quantitative Leadership stat from the style of influence. Keep effects transparent and bounded, avoid double-counting existing traits/coaches/culture, and cap stacking from multiple leaders or co-captains so several small bonuses cannot become a large team advantage. Validate fatigue curves, training progression and contract/long-save economy with AI parity before rollout.
+
+Acceptance for any eventual implementation: Leadership is a distinct readable stat; any claimed effect is modest, observable and measured in relevant match/morale contexts; captain assignment and transitions are understandable; invalid/absent captains and older saves are handled safely. Keep this a design follow-up, not an instruction to apply immediate ratings changes.
 
 ### Research refinement — 2026-10-05
 
@@ -3702,6 +3893,15 @@ The current Season Review collapses Brownlow, Coleman, Rising Star, club best & 
 - **Coleman Medal:** the race should also accumulate visibly throughout the season, just like coaches' votes and the existing ladder Coleman panel. It does **not** need its own bespoke countdown ceremony at season's end because the user has already watched the race develop week by week. Give the final Coleman winner a short, prestigious presentation/mention during the Brownlow ceremony.
 - **Rising Star:** no separate ceremony required. Award/present the Rising Star during the Brownlow ceremony as part of the broader league awards night, with enough prominence to feel meaningful but without interrupting the Brownlow count's pacing.
 - Do not force every honour into its own ceremony: the distinct marquee experiences are the Brownlow count, the user's club B&F count, and the All-Australian unveiling; Coleman and Rising Star live naturally within the Brownlow awards-night presentation.
+
+### Director addition — Danny Frawley Golden Fist award
+**Status:** `TODO` — new season award.
+
+Add the **Danny Frawley Golden Fist** award for the **best defender of the season**. Give defensive excellence a distinct season honour, rather than relying on the Brownlow or general player ratings to recognise it.
+
+Claude should refine a transparent, role-aware selection rule using actual season defensive contributions and the existing award/recognition systems. Consider intercept marks, spoils, one-percenters, defensive contests/accountability and other reliably tracked defensive work; do not reduce "best defender" to the most spoils or generic disposal volume, or invent untracked statistics. Both lockdown and intercept defenders should have credible paths to winning.
+
+Define eligibility, home-and-away versus finals scope, and deterministic tie-breaking consistently with existing awards. Present the winner with a concise season-end reveal, and persist the honour in player/club career history and annual award records. Validate seeded contrasting defender profiles, repeat processing and save/reload so the award cannot duplicate or change its winner.
 
 Presentation guardrails:
 - fanfare should come from pacing, reveal, hierarchy and football context, not particle spam or UI clutter;
@@ -3772,8 +3972,15 @@ Do not overpower player/team quality.
 
 ## ARD-M7-008 — Create a custom draft prospect
 **Status:** `TODO`  
-**Priority:** `P2`  
+**Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
+
+### Director first named use case — Alastair McNeil (2026-10-06)
+**Status:** `TODO` — checked main's prospect data and current generation/setup; Alastair McNeil is not present and the custom-prospect feature is not yet implemented.
+
+Include the director's custom **Alastair McNeil** prospect through this feature, with that exact entered name preserved through draft, club moves and career/history screens. Prioritise a minimal functioning named-prospect path rather than waiting for the entire cosmetic library. Use the established custom-prospect generation, one-time hidden POT roll and ordinary National Draft rules; no guaranteed user-club access or special development buffs. Do not substitute the real Lachlan McNeil, fabricate Alastair as a sourced real AFL player, or insert him into official inherited 2026 club lists. Reuse any director-supplied profile details if recorded; where bio/position/appearance choices are unspecified, obtain them through the existing setup choices rather than invent a fixed elite profile.
+
+Ensure the named prospect works in both League-redraft and inherited-list starts, using each mode's proper first National Draft cohort (including the opening 2026 intake for inherited lists). Verify exact-name preservation, single creation, normal AI evaluation and save/resume without duplicate entry.
 
 ### Intent
 Let the player create a self-insert or fictional prospect who enters the normal AFL draft ecosystem, creating a personal long-term story without turning the feature into a cheat-character creator.
@@ -3803,8 +4010,6 @@ Player-facing choices should stay concise:
 - **facial hair** from a dedicated beard/moustache library,
 - **facial-hair colour** independently selectable from hair colour,
 - **skin tone**,
-- **freckles: None / Light / Heavy**,
-- **subtle scars: None / Light / Moderate**,
 - **boots** with a small set of silhouettes/colour treatments (black, white and restrained club-colour accents),
 - **sock height: Tall socks / Short socks**,
 - **headband: On / Off**,
@@ -3868,7 +4073,7 @@ A lightweight **Follow / Watch** affordance is preferred over extra bespoke dash
 ---
 
 ## ARD-M7-009 — Expansion clubs, Canberra toggle & Club Forge
-**Status:** `TODO`  
+**Status:** `PARTIAL` — groundwork merged: the full player look (#305) and the location library, `data/forge_locations.json` with 53 researched places and a `tools/validate_data.py` check (#304). The pattern and colour research is merged (#343, #351): from each heritage club's Wikipedia infobox home kit, plus South Adelaide's own site (#351). 33 of 53 places have a pattern tag and 46 of 53 have colour tags; nothing is guessed. Still empty: 20 patterns (custom kit images, or the page is the town: werribee, shepparton, warrnambool, newcastle, wollongong, albury, maroochydore, morningside, norwood, sturt, woodville-west-torrens, claremont, subiaco, bunbury, ainslie, eastlake, tuggeranong, palmerston, weston-creek, alice-springs) and 7 colours (shepparton, southport, morningside, central-district, burnie, weston-creek, alice-springs). **Create a club, engine (merged in #340):** `ClubForge` turns a spec (name, nickname, 2-4 letter abbreviation, a library place and one of its grounds, three colours, a guernsey design and which colour goes where, entry season) into a club, refusing taken names and codes, unknown places and patterns that can't be told apart; `GameState.create_club` adds the one created club before the League Draft; `GameDB.club_order` replaces `CLUB_ORDER` wherever every club is walked; the club is saved with the career and comes back on load. Director decisions (2026-10-06): a created club **enters with the career** and drafts its list in the League Draft like every club (no separate concession package); a 21-club season is **24 rounds, 22 games and two byes a club**. The screen is built (#360, approved by the director in their own words); #309 (Create a player), which it is stacked on, is merged. The fair fixture for 18 to 21 clubs is merged (#361): every club plays the same number of games, home games are within one of half, and byes follow the season seed (a 21-club season is 24 rounds, 22 games and two byes a club); the board goals and expectations follow the club count (#359). _(2026-10-06)_  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -3921,6 +4126,8 @@ It should feel purpose-built rather than like a debug/settings form, while remai
 
 ### Create a club
 Allow one custom club per career in V1.
+
+**Director decision (2026-10-06):** a created club enters with the career and drafts its list in the League Draft like every club. There is no separate concession package.
 
 Player-facing customisation should include, at minimum:
 - club name,
@@ -4034,8 +4241,6 @@ Appearance customisation should include:
 - **Facial hair** from a dedicated beard/moustache library,
 - **Facial-hair colour**, independently selectable,
 - **Skin tone**,
-- **Freckles None / Light / Heavy**,
-- **Scars None / Light / Moderate**, kept subtle and believable,
 - **Boots** with a compact set of silhouettes and colour treatments,
 - **Tall socks / Short socks**,
 - **Headband On / Off**,
@@ -4050,6 +4255,7 @@ These are cosmetic only. They should also be available to generated-player appea
 Expand beyond a token set of cuts. The target should include enough silhouettes that players are recognisable at a glance even at vignette scale.
 
 Hair should cover a useful range such as:
+- **“Bailey Fritsch” haircut** — add a Bailey Fritsch–inspired option to the shared hairstyle library for player creation/customisation and generated-player variety. Use visual references to capture the recognisable silhouette in the existing art style; persist it like other hairstyles and use it consistently in previews and vignettes. Cosmetic only.
 - bald / shaved,
 - very short buzz,
 - short crop,
@@ -4061,6 +4267,7 @@ Hair should cover a useful range such as:
 - mullet variants,
 - curly/coily short,
 - curly/coily medium,
+- **dreadlocks (locs)** — add a distinct selectable hairstyle to the shared library for player creation/customisation and generated-player variety. Persist the choice and show it consistently in previews and vignettes; cosmetic only, with readable silhouettes and headband compatibility where supported.
 - afro-style volume where supported by the art pipeline,
 - long hair / tied-back variants where supported.
 
@@ -4083,8 +4290,19 @@ Do not tie beard availability to hairstyle. Hair colour and facial-hair colour s
 - Bandages should use believable football placements such as shoulder/upper arm, wrist/forearm, thigh/knee or lower leg; avoid covering every limb at once unless a deliberately rare heavy preset is selected.
 - Tattoos should be **original generic designs**. Do not copy a real player's identifiable tattoo layout, Indigenous artwork, gang symbols, extremist imagery, copyrighted characters/logos or other protected/sensitive designs.
 - Use multiple tattoo placements/pattern families so "tattoos on" does not make every player look identical.
+- **Director-requested tattoo motifs (2026-10-06):** rose, snake, barbed wire, bird, **666**, love heart, **Southern Cross stars**, and **Asian-script lettering**. Include these in the selectable/shared tattoo library alongside similar original designs, with placement and density variations. For lettering, use real characters with checked meanings rather than invented glyphs; the choice is cosmetic and independent of player ethnicity or football traits. Reuse the existing tattoo persistence and preview/vignette rendering.
 - Appearance traits should remain visually legible at vignette scale without becoming noisy or overpowering the guernsey.
 
+
+### Premiership-year tattoos — director addition (2026-10-06)
+**Status:** TODO — cosmetic implementation for Claude.
+- **Only some players get one.** An eligible premiership player may adopt a tattoo of the winning year on their bicep; other players remain without one. This is an occasional cosmetic detail, not a mandatory tattoo for every premiership player or a management chore.
+- **Once adopted, continue automatically:** every subsequent AFL premiership the player personally wins adds that year to the bicep/sleeve. Do not reroll adoption for later flags.
+- Use the existing authoritative player-premiership honours after the Grand Final result is final; do not treat every member of the winning club list as a premiership player. Preserve actual imported honours, but do not infer a real person's pre-existing tattoo from their honours alone.
+- Persist adoption and a unique chronological year list on the player. Save/reload must preserve the tattoo rather than erase it or reroll the decision; transfers retain earlier years and later flags at another club extend the same sleeve. A new career uses its own history.
+- Use a separate cosmetic decision/seed, original year-digit artwork and the shared appearance/rendering pipeline. Keep added years legible in close previews/vignettes, with no gameplay effects or football-RNG changes.
+- Validate adoption and non-adoption, subsequent wins, deduplication when a result is processed twice, transfers, reload and several years on one arm.
+**Research handoff:** Codex researched 13 named player examples, placements, branded-art exclusions and the distinction between source evidence and usable original art in [AFL_TATTOO_REFERENCES.md](research/AFL_TATTOO_REFERENCES.md). Claude should use that handoff to integrate the requested motifs rather than repeat the research.
 
 ### Dominant foot, number and nickname
 **Dominant foot** is the one creator choice here that can have modest football meaning.
@@ -4111,6 +4329,8 @@ Do not tie beard availability to hairstyle. Hair colour and facial-hair colour s
 
 ### 21-club fixture support
 A created club may take the competition to **21 clubs**.
+
+**Director decision (2026-10-06):** a 21-club season is 24 rounds, 22 games and two byes a club. (For reference, the existing fixture: 23 games at 18 and 20 clubs, 22 at 19.)
 
 - The fixture generator must support odd club counts cleanly.
 - Every club must receive an equal number of home-and-away matches.
@@ -4522,6 +4742,26 @@ Guardrail:
 Do not perform a movement-engine rewrite without evidence that local fixes are insufficient. Do not paper over authoritative simulation defects with presentation-only fakery.
 
 
+**Interview of 2026-10-06 (the director, on the visualisation and tactics research in docs/research/AFL_MATCH_VISUALISATION_AND_TACTICS_RESEARCH.md):** the agreed sequence, in order.
+
+1. **Truth fixes, confirmed in code:**
+   - handballs over 18 m are drawn as kicks (MatchDirector.gd:454, 760, 987); stage a short handball and then the carry;
+   - the ball steers toward the collector within 8 m (`roll_to`, l.1243 and l.1383); fix the deflection or bounce destination at release;
+   - collect waits of up to 6 s, and flights stretched to wait for receivers; start receivers earlier and cap the wait;
+   - stage the set-shot choices from ARD-M4-013's events.
+2. **A tactical timeline:**
+   - record plans, bursts (with their real start and expiry) and named assignments per chain: the tagger and target, key-forward matchups, the loose interceptor, and the spare made accountable;
+   - the director uses the named players instead of slot pairs and its own half-back spare;
+   - snapshot them for replay and skip.
+3. **Two demonstrations first:**
+   - Flood behind the ball against ordinary coverage on an opposition entry;
+   - attacking against defensive centre setups at the **2026 centre ball-up**. The director chose "ball-up from 2026"; the copy is in #414.
+4. **Then corridor, switch and down-the-line** from ARD-M4-014's recorded lanes.
+5. **The 14-play library is held** until the demonstrations land; the director chose "only after the demos land".
+6. **No coaching-view overlay or route arrows.** The director chose "labels only"; the approved persistent labels for key players stand.
+
+Verify with `capture_match.gd` fixtures at 1×, 4× and 8×, on phone and fullscreen, and check that scores, stats and the event order are unchanged.
+
 **Approved flavour extension:** FL-003 (§9.3) adds sourced, readable atmosphere for existing venues. Ground dress changes no geometry, weather, home advantage or football outcome.
 
 ---
@@ -4607,6 +4847,13 @@ Use short, deliberately higher-detail tactical vignettes for selected high-value
 
 This is **not** a full 3D match engine or a replacement for the standard watched-match view.
 
+### Director addition — red/yellow match-ball colour consistency
+**Status:** `TODO`
+
+Support yellow footballs as well as red ones, including yellow balls in appropriate match vignettes. Choose the ball colour once from the match context and use that same value throughout the entire match: preparation/match intro, live match view, stoppages, scoring/action vignettes and any replay of that match. Do not choose a random colour independently for each scene or hard-code a red ball into shared vignette assets.
+
+Claude should refine the simplest appropriate selection rule from existing match scheduling/context (for example day versus night where that information exists), with a stable default for older saves or missing metadata. Preserve the colour through save/reload and reused scene templates; use a shared match value rather than separate presentation guesses. Validate one red-ball and one yellow-ball match across views and vignette transitions, including reload, so the ball never switches colour within a match.
+
 ### Dependency
 Do not prioritise this until the current §1.11 playtest gate has proved that the underlying decisions themselves are informed, meaningful and give useful feedback. Better presentation must not be used to disguise arbitrary choices.
 
@@ -4636,6 +4883,24 @@ Possible families:
 - wing/outside overlap,
 - forward stoppage,
 - late-game flood / protect-space situation.
+
+### Director addition — match vignette decision gates (2026-10-06)
+**Status:** `TODO` — requested roadmap candidates for Claude to refine; no implementation in this update.
+
+Extend the existing stoppage/kick-in/forward-entry/contact families with:
+- **Stoppage setup — body block on their star midfielder:** show a selected teammate setting a block/screen to impede the opposition star midfielder and create room for the intended ball winner. Make the target, blocker and space readable. The setup, contact, escape and any infringement/outcome must follow the actual football event and existing rules; it must not silently disable the star.
+- **Kick-out after a behind — torpedo down the centre:** show the kick-in set play, central receiving/contesting setup and a long torpedo through the middle. Show the genuine distance/territory opportunity and the central-turnover/exposed-defence risk where relevant. Do not assume a clean reception or invent a successful exit.
+- **Inside-50 kick into space — running forward chase, collect and shoot:** show the kicker placing the ball into open space inside 50, the actual forward racing toward it with the relevant opponent, the ground-ball collection and kick for goal when the authoritative sequence supports it. This is a kick into space and running collection, not a generic overhead mark; preserve believable bounce, timing and pursuit, and allow the real miss, turnover or defensive interruption rather than force a goal.
+
+- **Hip and shoulder — high-impact, risky bump:** a well-executed bump can be incredibly effective at removing an opposition player from the immediate play and opening space or preventing their involvement. This means taking them out of that contest/sequence, not guaranteeing an injury or removal from the match. Preserve the trade-off: a poorly executed or illegal bump can concede a free kick, with a **very small chance** of a report and potential suspension when the actual incident warrants it. Claude should refine effectiveness and risk using relevant player skills/traits, discipline, positioning and contact context; neither outcome should be a context-free random roll or a universally best call. Integrate legitimate contact, infringements and report/suspension consequences with ARD-M3-007 and ARD-M3-011 under their balance gates. The vignette must agree with the authoritative contact, free and report events; a report does not automatically imply a suspension, and any later ruling belongs to the existing MRO process.
+
+- **Switch — open player on the fat side:** show a credible kick to an open teammate on the opposite wing, shifting play toward the less congested side to open attacking avenues and create better looks inside 50. Make the receiver, opposition shift and available forward space readable before the choice. Retain a meaningful cost/risk such as the longer ball's interception exposure, time for the defence to recover or loss of a more direct opportunity; suitability follows actual space, pressure and kicking ability, not a universal switch bonus.
+
+**Director requirement: every concept above is a decision gate**, not merely an automatic highlight or post-event cinematic. Show the real setup/opportunity, freeze **before** the relevant call is committed, present meaningful alternatives and concise football trade-offs, and let the player's choice feed the authoritative MatchSim decision/outcome. For the running-forward scene, the gate comes before choosing the kick into space; the chase/collection/shot is the consequence only if it occurs. For contact, the gate comes before committing to the block/bump; for kick-out/switch, before choosing the disposal. If an appropriate gate or behaviour is missing, extend the existing decision system (ARD-M4-001) and football owner before illustrating it. Avoid repetitive prompts: trigger only at meaningful, context-valid opportunities and retain normal match pacing. Validate that alternatives genuinely change behaviour, risks can materialise, AI has equivalent football choices and outcomes are not predetermined by the vignette.
+
+**Success/failure endings where appropriate:** every applicable vignette should have alternative endings driven by the authoritative outcome roll after the player's decision. The vignette must consume that result, never reroll it, and save/reload must preserve it. Define success/failure relative to the chosen action, not merely whether the possession ultimately produces a goal. Examples: the block creates room versus the star escapes/the block infringes; the torpedo reaches the intended contest/receiver versus an intercept or failed exit; the running forward collects and converts versus being beaten to the ball, dispossessed or missing the shot; the bump removes the opponent from the play versus being evaded or conceding a free; the switch opens a useful attacking route versus being cut off or allowing the defence to reset. Support intermediate outcomes when the actual event requires them (for example a successful collection followed by a missed shot); do not fabricate a binary result that contradicts the football sequence. A rare report may follow the genuine incident and is separate from the later MRO ruling. Pure scene-setting/ceremony vignettes need no artificial success/failure roll. Validate forced/seeded success and failure branches, relevant intermediate outcomes and reload determinism.
+
+Use the existing pre-rendered 2.5D style, real participants/club identity and the same match ball colour throughout. Claude should inspect which sequences already exist and reuse their templates; any missing football behaviour belongs to the existing stoppage/coaching, kick-in (ARD-M3-009) or forward-entry/scoring owner, rather than a second cinematic simulation. Each scene must preview its meaningful decision and freeze at the appropriate point; any subsequent outcome sequence shows only what actually happened after the chosen call. Keep scenes brief/skippable and verify participant/event agreement, ball path, phone readability and performance under the existing vignette gates.
 
 ### Guardrails
 - MatchSim remains the authority. A vignette may illustrate state but must not invent a second football outcome.
@@ -4696,6 +4961,24 @@ On the director's direction, the drawn stick figures became pre-rendered 2.5D fo
 
 **Director-requested follow-up — TODO (2026-10-06):** Flesh out vignette **backgrounds and appropriate foregrounds** to remove uncanny voids/dead space. Include contextual crowds, rooms, audiences, furniture and atmospheric items; Brownlow/press-conference scenes can use foreground tables, silhouettes or microphones. Match the shared art style, preserve action/UI readability and phone performance. Inspect every scene in phone-sized stills and motion for coherent, inhabited settings.
 
+### Free lighting and surface detail — director follow-up, 2026-10-06
+
+**Status:** `TODO` — findings recorded; no lighting/material prototype or rollout completed. **Priority:** `P2`. **Autonomy:** `SUPERVISED`. **Owner:** art agent, with Claude handling pipeline/render integration. Extends this task's existing figure/style and background/foreground work; do not create a competing art system. [Research and free options](research/AFL_Free_Lighting_and_Surface_Detail_Research.md).
+
+**Goal:** improve volume, grounding and material distinction in players, environments and appropriate props while retaining the approved 2.5D style, club/player identity, action/UI readability and Android budget. Current source inspection found material roughness already differs for boots/skin/fabric; the shade atlas carries a single grayscale lighting multiplier. The sun's cast shadows were disabled because of acne, and the stoppage scene already supplies lift-aware ground ellipses. Inspect current art branches before treating these observations as missing features.
+
+**Actionable sequence:**
+
+- **ARD-M8-007-LS-01 — Baseline and offline lighting pilot:** reconcile the active art branch and installed Blender/API version; preserve current captures and material/channel settings. Compare the existing light rig with softer key/fill and optional free HDRI-assisted lighting on one standing and one moving figure. A small Cycles reference is optional; keep production rendering reproducible. Improve contact/crease shading without blindly restoring the sun-shadow acne. Reuse/refine existing ground shadows and keep them coherent with lift, light and environment. Choose settings from rendered evidence, not assumed quality from a renderer name.
+- **ARD-M8-007-LS-02 — Restrained material detail:** prototype fabric relief/roughness, boots, hair and subtle skin variation using Blender procedural nodes first. Prefer visible folds/seams/highlight separation over noisy microdetail. Details follow body/garment coordinates through animation; retain masks, club patterns/numbers and curated player appearance. Specify how any colour detail survives the current grayscale shade pass. No uniform noise overlay, screen-space texture swimming or new atlas channel without a documented contract.
+- **ARD-M8-007-LS-03 — Environment/prop materials:** improve one existing outdoor scene and one existing awards/press setting, coordinating with the already-requested scene dressing. Use a small coherent palette of grass/soil, fabric, wood, walls/floors and relevant foreground surfaces, with actor/background light direction and contact shading matched. Compare reusable texture/procedural or offline-rendered treatments; no mandatory conversion of all drawn scenery and no live 3D migration.
+- **ARD-M8-007-LS-04 — Optional runtime-lighting experiment:** only where LS-01–03 leave a meaningful gap, compare a small Godot 2D normal/specular-lighting prototype with the cheaper baked result. Adapt the custom packed-data figure shader deliberately, preserve UI light isolation and avoid lighting baked shade twice. Verify per-frame alignment, mirrored/facing normal orientation, actual mobile renderer and memory/frame-time costs. Colour-derived relief may mistake dark kit stripes for dents; do not feed packed masks/design data to automatic normal generation. This is an experiment, not a committed new atlas or renderer dependency.
+- **ARD-M8-007-LS-05 — Review, budgets and selective rollout:** provide lighting-only, detail-only and combined before/after comparisons at fixed state and phone scale, including motion, light/dark club kits, representative skin/hair and multiple facings. Record build time, atlas sizes/count, decoded texture memory, loading, draw calls and representative real-time frame time; preserve the project's existing phone/performance gates. Reuse capture/check tooling. Expand only after the art-agent recommendation and director's final appearance decision; record validated implementation and merged commit before DONE.
+
+**Free options verified:** [Poly Haven](https://polyhaven.com/license) HDRIs/material assets and [ambientCG](https://docs.ambientcg.com/license/) assets are CC0; use free individual downloads and record asset IDs, licences and scale/settings. [Material Maker](https://rodzilla.itch.io/material-maker) has a zero-cost name-your-own-price release and can author reusable static textures; Blender already covers the first experiments and [Krita](https://docs.krita.org/en/reference_manual/brushes/brush_engines/tangen_normal_brush_engine.html) is an optional painting/normal-map route. Check community recipe licences separately. No paid subscriptions, asset generators or integrations required. **Laigter is not a free-binary recommendation:** its current developer page says binaries are paid despite the older Godot documentation wording; source compilation is optional and unnecessary for the baseline.
+
+**Completion/guardrails:** research inclusion does not approve a final look. Follow the existing art-agent authority and director appearance gate. No MatchSim/gameplay/save changes, new tactical families, UI-wide grain/glow, photorealistic style shift, baked-club-colour duplication or full-roster regeneration before a representative approved sample. Validate animation/alpha edges, guernsey and number legibility, silhouette/skin identity, compression shimmer, and text/ball/action clarity. An offline movie is visual evidence, not real-time Android performance proof. Preserve existing migration, FL-007 and STYLE-01–08 boundaries.
+
 ### Acceptance test
 The feature earns further work only if a phone playtest shows that the player can explain **why the decision is being asked**, form a reasonable expectation before choosing, and finds the moment materially more engaging than the normal presentation.
 
@@ -4717,20 +5000,28 @@ The feature earns further work only if a phone playtest shows that the player ca
 ---
 
 
-## ARD-M8-008 — Android app identity: name and launcher icon
-**Status:** `VERIFY` — implementation merged in PR #173; verify the installed Android name/icon on the next phone build.  
-**Priority:** `P1`  
-**Autonomy:** `SAFE`
+## ARD-M8-008 — Cross-platform app identity and icon redesign
+**Status:** `PARTIAL` — Android identity foundation merged in PR #173; installed name/icon still needs verification. **New all-platform icon redesign: TODO (director request, 2026-10-06).**  
+**Priority:** `P1` — follows urgent P0 usability repairs.  
+**Autonomy:** `SUPERVISED` — art agent leads; director approves the final icon.
 
 ### Goal
-Replace the leftover prototype identity shown by Android. The installed app must use the current game name, **Aussie Rules Dynasties**, rather than **AFL Auto-Battler**, and the launcher/app-info icon must be purpose-built for the Aussie Rules Dynasties identity rather than the current generic football-field placeholder.
+Every supported platform's packaged application/executable and launcher icon must use a coherent **Aussie Rules Dynasties** identity. Replace the existing placeholder/icon treatment with a purpose-built icon in the director's supplied logo style.
 
-### Acceptance
-- Android launcher and App info show **Aussie Rules Dynasties**.
-- Android launcher/adaptive icon is visually tied to the game's title/identity and remains legible at phone icon size.
-- Remove visible legacy **AFL Auto-Battler** branding from Android export metadata where it is user-facing.
-- Do not redesign the in-game title/logo as part of this task unless required to share the same approved identity assets.
+### Director's visual reference — 2026-10-06
+Reference image: `codex-clipboard-cafc14a1-721a-458a-bc79-c0000e778e1f.png`. Match its recognisable visual language: bold condensed cream/off-white block lettering, energetic red brush-script accent, and very dark background. Adapt that identity for an icon rather than squeezing the wide title artwork into a square.
 
+- Prefer the full title only where it is genuinely readable. **“ARD” is explicitly authorised as the compact icon lettering if the full name will not fit/read well.** Abbreviation affects the icon artwork, not the installed app's full name.
+- Make icon-scale variants from one coherent master treatment. Simplify texture/detail as needed so the letters remain recognisable at small launcher/taskbar sizes and within platform masks/crops.
+- Cover all supported exports: Windows EXE/file/shortcut/taskbar icon, macOS app/Dock icon, Linux launcher icon, Android launcher/adaptive icon, iOS app icon and web favicon/install icon where those builds are supported. Update actual export/package metadata and platform assets, not just the in-game title image or project editor preview.
+- Reuse the established logo/style and usable fonts/assets; do not redesign the full in-game title or introduce a competing branding system. Preserve the existing save location/project identity when updating visible branding.
+
+### Acceptance and validation
+- Installed app name remains **Aussie Rules Dynasties**; remove remaining visible legacy **AFL Auto-Battler** branding where applicable.
+- The redesigned icon is visibly related to the supplied reference, readable at native small sizes, and consistently used by packaged builds across supported platforms.
+- Inspect the built Windows EXE plus shortcut/taskbar and available installed platform builds, not only source assets. Check small/large sizes, dark/light launcher surfaces and adaptive rounded/circular crops; handle OS icon caching during verification.
+- Provide icon-scale previews of full-title versus ARD candidates to the director. Art-agent direction and final director approval are required before marking the redesign DONE.
+- Keep the existing Android name/launcher verification open until an installed phone build confirms it.
 
 ---
 
@@ -4851,7 +5142,7 @@ These are here to stop Claude from rebuilding things that already exist. **Verif
 - Free kicks exist in simplified form.
 - Concussion now enforces a minimum two-match absence with AI parity and save persistence (PR #51).
 - Wildcard finals/top-10 finals structure already exists; do not add another wildcard-finals feature.
-- Matchday squad has historically been 18 + 4 interchange and needs migration to 18 + 5 unless already changed.
+- Matchday squad was 18 + 4 interchange; migrated to 18 + 5 in #331 (ARD-M5-001).
 - "Play through" now favours possession-chain/transition involvement without generic shooter bias (PR #48).
 - Player/team metres gained are accumulated from actual forward ball movement (PR #55).
 - Effective disposals and Disposal Efficiency are tracked from actual disposal outcomes (PR #55).
@@ -5069,7 +5360,7 @@ Before adding any new roadmap line, check this table.
 | Sim confirmation / skip rounds / don't ask again | ARD-M1-007 Simulation controls |
 | Settings / options menu | ARD-M6-005 Options |
 | Club colours / green UI / game visual style | ARD-M8-001/002 |
-| Android app name / launcher icon / installed app identity | ARD-M8-008 |
+| Cross-platform app/executable/launcher icons and installed app identity | ARD-M8-008 |
 | End swaps / wrong-way movement / shot freeze | ARD-M1-004/005 + ARD-M8-003 |
 | OOB / last disposal / throw-in / OOF / 50m / frees | M3 AFL Rules & Match Authenticity |
 | Wind / rain | ARD-M7-006 Weather |
@@ -5088,7 +5379,7 @@ Before adding any new roadmap line, check this table.
 
 ## Design idea — Unicorn as a synergy wildcard
 
-**Status: DECIDED (director, 2026-10-06), in review with ARD-M5-003 on `claude/dev-project`.** Forward, midfield and back earn the Unicorn trait, and he fills one missing place in one synergy. Rarity (POT 90 for a third position) keeps it from becoming a universal buff, as the guardrail below asks.
+**Status: DECIDED (director, 2026-10-06), merged with ARD-M5-003 in #266.** Forward, midfield and back earn the Unicorn trait, and he fills one missing place in one synergy. Rarity (POT 90 for a third position) keeps it from becoming a universal buff, as the guardrail below asks.
 
 Explore making the **Unicorn** player archetype a wildcard for list synergies: a Unicorn could satisfy a required player/archetype slot for any synergy, reflecting an unusually versatile football skill set and making that player a flexible piece in the club's "party" composition.
 
@@ -5224,6 +5515,43 @@ Bulls in the midfield line alone after a season, ≥2 / ≥3 / ≥4: all clubs 5
 
 **Weekly selection owner:** keep Weekly selection brief, Ins & Outs and My List → Shape above as one coherent flow. **Dependencies:** true form/workload/availability and current selection/role eligibility. **Smallest scope:** one real selection pressure with a nearby OUT → IN action and full-list access. **Exclusions:** auto-picked best replacements, constant compulsory changes, extra duplicate list screens or invented reserves statistics. **Acceptance:** quiet weeks are quick; each displayed pressure has evidence; eligible options communicate role/trade-offs without choosing for the player; selection changes preserve scroll/context and the valid named side. **Validation:** injured/suspended/returning/omitted players, no-pressure weeks, rapid and slow Android swipes up and down, tap versus drag, Back, portrait widths and save/resume. Extend existing phone tickets, not a second selection redesign.
 
+## 2026-10-06 director decisions - Club Forge entry and 21 clubs
+
+Relayed by the lead; the director's own wording is the authority if it differs.
+
+- **Club Forge: how a created club enters (ARD-M7-009).** A created club enters with the career and drafts its list in the League Draft like every other club. There is no separate concession package. The engine is in PR #340.
+- **21 clubs: the season shape (ARD-M7-009, fair fixture).** Director decision: a 21-club season is 24 rounds, 22 games and two byes a club. (For reference, the existing fixture: 23 games at 18 and 20 clubs, 22 at 19.) The medium agent's fair-fixture work implements this (evidence: [FIXTURE_SIZES_NOTE.md](FIXTURE_SIZES_NOTE.md)).
+
+
+## 2026-10-06 director decisions - flags, clearances, Create a club screen, freckles
+
+From the director's chat with the lead, relayed with the director's words where the lead had them. Evidence: [FLAGS_EVIDENCE_2026-10-06.md](FLAGS_EVIDENCE_2026-10-06.md), [RUCK_MID_DISPOSALS_2026-10-06.md](RUCK_MID_DISPOSALS_2026-10-06.md).
+
+- **Trades at real volume.** Raise the trade period to real AFL volume so that a club which trades well reaches about 3rd to 4th on average. The real volume is measured and merged (#376, DraftGuru 2019 to 2025); the lead's trade market is in review (#383).
+- **Synergy selection and development projects must have an impact.** Director: "why do we have these features if they dont have an impact, fix them". Fix both so that using them lifts a club, then measure again with the same harness.
+- **Clearance winner keeps the first disposal** (option 1 of the ruck and midfield disposals evidence). Merged (#373): ruck disposals 8.0 to 12.0, with the calibration and finals re-run.
+- **Create a club screen approved.** Director: "looks fantastic, well done". It merges after the Create a player form and the Create a club engine, because it is built on both.
+- **Scars removed from the player look.** Director, in chat with the lead, 2026-10-06: "remove scarring from the game, unnecessary detail". The look keeps no scars key; old saves that carry one load fine and ignore it, and no generated player's look changes.
+- **Freckles removed from the player look.** Confirmed in the director's own words: "i alreeady said to delete freckles from the game". Merged (#357, #354); the saved-look cleanup (#382) is in review.
+- **Hair and beard look-dev stopped.** Director, in chat, 2026-10-06 (relayed by the lead): "this hair/beard stuff is no good". The current hair and beard library work stops; nothing from it is rolled out.
+- **The director's hair research is the brief.** The director's own research (Codex `outputs/Claude_Hair_Quality_Research.md`) is adopted as the brief for hair. Three prototypes (Fritsch-inspired, rooted dreadlocks, short textured) go through the production path, are reviewed in Blender and at game scale, and only then does any library rollout start. Appearance changes still merge only on the director's own approval.
+
+## 2026-10-06 director decisions - animation, motion and the Stat Guide
+
+From the director's chat with the lead, relayed; the director's own wording is the authority if it differs.
+
+- **Centre-bounce framing prototype starts now** (the lead builds it). The set-shot kick and the press room queue behind the hair prototypes; the press room folds into LS-03.
+- **No reduced-motion setting for now.**
+- **The awards walk-on stays as it is:** no presenter, no handover.
+- **The Stat Guide uses words, not percentages.** Director: "Words instead". Counts the player acts on stay exact. Done in #398.
+
+## 2026-10-06 director decisions - match framing, synergies and the #291 rules
+
+- **Centre bounce framing, as built (#422).** The director answered "Yes, as built": the contest sits higher on the push-in, leaving room above the call, and names stay off the ball.
+- **Synergies: widen the spread of players, and show "N short".** Not lower thresholds. Evidence: `docs/FLAGS_EVIDENCE_2026-10-06.md` ("Synergies: worth a lot, rarely on") and `docs/research/SYNERGY_UI_SURFACES.md`. On Team selection the fact is shown ("1 crumber short") with no suggested swap and no best-choice label, and the Stat Guide copy is made to match. Still to build.
+- **#291's rules adopted (now in CLAUDE.md, #433):** real-tap checks for touch flows, the art-loaded check, and change approach after repeated failure. No-clock-seeds was not chosen.
+- **#342 merged:** favourite club on bio cards and full match stats at every quarter break are recorded as TODO under their owners.
+
 # 9.2 Research candidates — awaiting director selection
 
 The detailed evidence, trade-offs and prototype tests are in [GENRE_ENJOYMENT_RESEARCH.md §7](GENRE_ENJOYMENT_RESEARCH.md#7-research-candidates--awaiting-director-selection).
@@ -5250,14 +5578,14 @@ Prefer improving the existing experience when that answers the same need. This p
 
 | Reference | Director decision | Canonical owner | Extension status / effort |
 |---|---|---|---|
-| FL-001 | Include authentic football language and restrained Australian humour | M8-006 | TODO / LOW |
-| FL-002 | Include milestone banners; **audit their appearance so decorative content is distinct from actual game information** | M7-003 + M8-007 | TODO / MEDIUM |
+| FL-001 | Include authentic football language and restrained Australian humour | M8-006 | PARTIAL (#381 audit, #386 fixes; other surfaces await copy review) / LOW |
+| FL-002 | Include milestone banners; **audit their appearance so decorative content is distinct from actual game information** | M7-003 + M8-007 | DONE (#400, director approved) / MEDIUM |
 | FL-003 | Include recognisable ground atmosphere | M8-003/007; reuse M7-009 venue identity/presets where available | TODO / HIGH |
-| FL-004 | Include natural crowd sound, breathing room and volume controls | M8-006 + existing audio owner | TODO / MEDIUM |
-| FL-005 | Include persistent, harmless fictional-player nicknames and interests | M7-005 + existing M7-008/009 nickname/profile fields | TODO / MEDIUM |
-| FL-006 | Include characterful, truthful headlines distinct from game information | M4-009 + M7-005/011 and existing news/season-story surfaces | TODO / MEDIUM |
+| FL-004 | Include natural crowd sound, breathing room and volume controls | M8-006 + existing audio owner | DONE (#405 sounds, #409 crowd; director approved) / MEDIUM |
+| FL-005 | Include persistent, harmless fictional-player nicknames and interests | M7-005 + existing M7-008/009 nickname/profile fields | DONE (#392, director approved) / MEDIUM |
+| FL-006 | Include characterful, truthful headlines distinct from game information | M4-009 + M7-005/011 and existing news/season-story surfaces | DONE (#395, director approved, losses included) / MEDIUM |
 | FL-007 | Include rituals and farewells; **build new vignette scenes as necessary** | M7-003/005 + M8-007 shared art/rendering | TODO / HIGH |
-| FL-008 | Include decorative club memories across decades | M7-005 + existing alumni/history presentation | TODO / MEDIUM |
+| FL-008 | Include decorative club memories across decades | M7-005 + existing alumni/history presentation | DONE (#406, director approved, home games only) / MEDIUM |
 
 ### Common dependencies, limits and acceptance
 
@@ -5278,6 +5606,7 @@ Prefer improving the existing experience when that answers the same need. This p
 **Status (2026-10-06):** first slice done, in the FL-001 PR. The two approved lines that have a truthful trigger today: on a final (the fixture label says so; no round does) the pre-match scene opens with "Finals footy. Here we go." instead of "Warming up", and the run-out caption is "Through the banner". Outstanding, and waiting on the director's copy review before anyone writes it: every other surface (reports, banners, clubroom notices, headlines). Nothing else in FL-001 is built. Review sheet for the director: [AFL_FLAVOUR_FL001_COPY_REVIEW.md](research/AFL_FLAVOUR_FL001_COPY_REVIEW.md). It recommends treating FL-001 as complete after slice 1 unless you want specific rewrites.
 
 ### FL-002 — Personal milestone banners
+**Director copy decisions (2026-10-06):** the approved 200-career-game line is **“200 games. Take a bow, {display_name}.”** Use the displayed real/fictive name and the authoritative milestone convention. Removed from the flavour samples: the first-goal headline, vague defender headline and tape notice. Do not restore those rejected lines; a defender headline under FL-006 must name the actual supported achievement. Pre-match banners may recognise only facts already known before the match, never predict goals or future events. Existing factual post-match milestone reports remain valid. See [updated writing samples](research/AFL_FLAVOUR_WRITING_SAMPLES.md).
 **Scope:** use the existing pre-match banner to honour the selected player's genuine achievement, name and club. Distinguish senior-career and club-tenure counts. Use the ordinary club banner when history is insufficient.
 **Dependencies:** M7-003 authoritative milestone facts, actual selection and the shared pre-match renderer.
 **Exclusions:** banner crafting, extra loading phases, fabricated firsts or a second milestone calculation.
@@ -5304,6 +5633,18 @@ Prefer improving the existing experience when that answers the same need. This p
 **Exclusions:** new personality ratings, inferred ethnicity/character from names, gameplay traits, real-player invented habits or a separate player editor.
 **Acceptance:** full-name records/search remain intact; nicknames/interests survive transfer and retirement; old saves remain valid and need not acquire invented histories; details are unmistakably cosmetic.
 **Validation:** generated/custom players, changed/removed nickname, name search, fictive mode, same-name players, save/load and multiple decades. Cosmetic metadata never shifts football RNG or prospect abilities.
+
+#### Director addition — Favourite club on every player bio card (2026-10-06)
+**Status:** `TODO` — cosmetic profile detail; this explicitly extends the profile flavour scope to sourced real-player facts.
+
+Add a **Favourite club** field to all player bio cards, for example **Favourite club: Demons**. "Demons" is an example value, not a universal assignment. The field records the club the player supported **before being drafted**, not their current employer.
+
+- For real players, research and use their actual publicly documented pre-draft/childhood favourite club where available. Prefer player interviews and official club/AFL profiles; retain the source URL/date against the stable player ID and resolve conflicting accounts rather than guess.
+- If no reliable source is found, show a restrained unknown state such as "Not recorded"; never infer allegiance from current club, hometown, surname or the director's example.
+- Generated fictional players can have a persistent cosmetic favourite club; custom prospects can choose one. Keep this data separate from real-player research and preserve it through transfers, retirement, name-display changes and save/load.
+- Reuse the existing player profile/card and club-label systems, with a concise readable row on phone. This is flavour only: no effect on contracts, recruitment, trades, morale, loyalty or gameplay, and cosmetic generation must not disturb football RNG.
+
+Acceptance: every bio card supports the field; sourced real facts display correctly, unknowns remain honest, generated/custom values persist, and a transfer never changes the childhood allegiance. Validate phone layouts, old saves, fictive-name mode and stable-ID/source mapping.
 
 ### FL-006 — Truthful characterful headlines
 **Scope:** sparse optional headlines in the existing match report, news feed and season recap. Coordinate with M7-011's veracity standard and existing season-story data; use a neutral fallback if a stronger claim lacks support.
@@ -5508,12 +5849,12 @@ Use **Crusader Kings** for emergent stories and consistent living people: durabl
 
 
 ### Retirement persuasion — director request, 2026-10-06
-**Status:** `IN REVIEW` (branch `claude/retirement-persuasion`). **Autonomy:** `BALANCE-GATED`.
+**Status:** `DONE` — merged in #275 (2026-10-06; intake floor 2190, later 2191 with #297); the balance and phone check remain with the director. **Autonomy:** `BALANCE-GATED`.
 Offer a short chance to convince a retiring veteran at the user's club to play on **only while his OVR remains healthy**. Claude should define and validate a credible OVR eligibility threshold against current ratings/retirement rules; being merely above the automatic low-OVR retirement floor is insufficient. Present the conversation before retirement removes the player. Players can reject the offer and retire. Acceptance/refusal must follow a consistent, explainable assessment of recorded circumstances—long injury history, a very recent injury, poor form, poor morale or similarly relevant career factors—not a random accept/reject roll. Healthy OVR permits the conversation but does not guarantee willingness to continue. Claude should refine the factor weights/thresholds, using only evidence actually recorded; do not invent injury history. Explain the main reason in football language. Reuse private conversations and existing retirement/contracts/history rules; no OVR boost, erased decline or repeated persuasion spam. **Acceptance:** unhealthy-OVR retirees are ineligible; eligible success/refusal, normal ageing, roster/contract consequences and retirement/coaching handoff stay coherent and survive save/load without rerolls or duplicate outcomes.
 
 **Implementation record (2026-10-06, branch `claude/retirement-persuasion`): `IN REVIEW`.**
 - **When it is decided:** every club's retirements are decided when the off-season opens, by the existing ageing rules and seeds (`Retirement.intends`). The rollover then does exactly what was shown, so nothing is re-rolled.
-- **Eligibility (director):** a veteran picked in his club's best 22 and at or above its weakest player at his position. That's about 7 a season league-wide, and one for your club about every other season ([evidence](RETIREMENT_EVIDENCE_2026-10-06.md)).
+- **Eligibility (director):** a veteran picked in his club's best side (23 with five interchange) and at or above its weakest player at his position. That's about 7 a season league-wide, and one for your club about every other season ([evidence](RETIREMENT_EVIDENCE_2026-10-06.md)).
 - **Once a career (director):** a yes means one more season. The next time he decides to go, he goes.
 - **His answer follows his record, never a roll.** He refuses if he is:
   - still injured (the injury is named);
@@ -5562,7 +5903,7 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 
 **Authority:** the art agent has higher authority than ChatGPT on visual direction. Claude implements the art agent's treatment and reports engineering constraints rather than substituting its own taste. **All final decisions go through the director.** Accepted scope permits concrete mockups, prototypes and reviewable implementation; final font, palette, geometry, positioning and scene treatment require the director's approval. Do not merge an unapproved final visual treatment merely because ordinary CI passes. This is an explicit task-specific visual gate, not a request to re-interview the accepted scope.
 
-**Priority:** Android portrait **dark mode first**. STYLE-07 desktop and STYLE-08 light mode follow the approved dark slice; they are not shipping prerequisites for dark improvements. Preserve urgent P0 correctness, phone and performance gates. Coordinate hot files (`UiKit.gd`, shared layout, MatchScene and vignette overlays) with the existing art work; no competing redesign branch.
+**Priority:** **STYLE-07's unreadable PC fullscreen repair is an immediate P0 override** under §0.4.1. Beyond that repair, Android portrait dark mode leads the broader styling programme; remaining desktop polish and STYLE-08 light mode follow the approved dark slice. Preserve urgent P0 correctness, phone and performance gates. Coordinate hot files (`UiKit.gd`, shared layout, MatchScene and vignette overlays) with the existing art work; no competing redesign branch.
 
 **Research:** [dark-mode audit](research/AFL_UI_STYLE_AUDIT_AND_RESEARCH.md) and [player-led source ledger](research/AFL_UI_STYLE_SOURCE_LEDGER.md). Competitor screenshots/claims are evidence and options, not approved templates. AFCM and Footy Redraft remain negative aesthetic references. The Windows render audit is preliminary evidence, not a completed native Android playtest or Claude engineering audit.
 
@@ -5585,6 +5926,8 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 ## STYLE-02 — Dark-mode typography and numeral refinement
 **Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`  
 **Existing owner:** §1.7 typography/free-font remit, shared UiKit; M8-006 presentation.
+
+**Prototype (2026-10-06):** the director chose the sign-writer scoreboard style, the art agent drew the family (`tools/typeface/build_font.py`, original font owned by the project), and draft #419 puts it in game project-wide so the director can play it. Not merged and not final: the status stays `TODO` until the director's own approval of the completed treatment.
 
 **Scope:** establish consistent roles for fonts, size, weight, line spacing and casing in dark mode. Test names, ratings, scores and draft rows with the current Barlow family as a baseline, not a mandatory final choice. The art agent may propose suitable free/licensed replacements under existing tooling rules; the director chooses.
 
@@ -5652,19 +5995,30 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 
 **Validation:** capture stills and motion for the touched existing sequences, transitions and fallbacks; verify correct participants, appearances/kits, skip/touch/Back, event/outcome agreement, Android frame time/load time and existing vignette tests. Director approves final scene/overlay treatment before completion.
 
-## STYLE-07 — Wide-screen optical layout polish
-**Status:** `TODO` · **Priority:** `P2` · **Autonomy:** `SUPERVISED`  
-**Existing owner:** shared responsive layout, Coaching/List, M8-006.
+## STYLE-07 — PC fullscreen readability and fit-to-screen repair
+**Status:** `DONE` (#371, merged; approved by the director, 2026-10-06) · **Priority:** `P0` — **EXTREME / NEXT AVAILABLE DEVELOPMENT SLOT** · **Autonomy:** `SUPERVISED`  
+**Existing owner:** shared responsive layout (`ScreenLayout.gd` / `UiKit.gd`), Main/New career and other desktop screens; M8-006.
 
-**Scope:** after the approved dark Android slice, refine desktop layouts where related labels/values stretch too far apart, particularly Coaching. Use deliberate group widths, columns and gutters while preserving information and visual identity.
+**Implementation record (2026-10-06, #371):** the director's PC is 3840x2160 with Windows DPI 288 (300%), and Godot's `screen_get_scale()` is 1.0 on Windows, so the logical canvas was the full physical size and the UI drew tiny. The fix is a desktop density of the larger of the operating system's DPI over 96 and the scale that fits 1280x720, and the first window now opens at the OS scale. Native before and after captures are in `docs/research/style07_*`; nine career_ui checks cover it. It closes only after the director has looked at it on the PC.
 
-**Dependencies:** established dark-phone treatment and responsive behaviour. Desktop work must not delay or redefine the Android priority.
+**Director evidence (2026-10-06):** Windows near-4K capture (original image 3822×2022, `codex-clipboard-e07bf18b-b01f-4d23-9e26-47e942a98b8d.png`) shows a tiny central New career form inside an enormous mostly empty oval/background. The director reports the game is unreadable on PC in fullscreen. Reproduce both maximised and true fullscreen modes; the captured title bar alone does not establish which window mode was active.
 
-**Exclusions:** desktop-only features, more analytics, reducing data, a second design system or forcing phone controls to desktop proportions.
+**Priority override:** promoted from deferred P2 wide-screen polish to an immediate P0 broken-UX repair. This specific directive supersedes the earlier instruction to do desktop work only after the dark Android styling slice. Keep phone usability intact, but do not use mobile-first sequencing to postpone making PC playable. Coordinate current shared-file owners and the art agent; existing final appearance-review gates remain applicable.
 
-**Acceptance:** label/value pairing is visually coherent at wide sizes; gutters are purposeful; resizing preserves content, input and the approved phone layout.
+**Diagnosis lead — verify at runtime:** `project.godot` configures a 1280×720 canvas with canvas-item scaling, but `ScreenLayout._update_scale()` replaces `window.content_scale_size` with physical window pixels divided by reported density. Desktop density uses `DisplayServer.screen_get_scale()`, with a minimum of 1. If Windows reports 1 on a large/high-resolution display, the logical viewport grows to nearly physical resolution and fixed UI type/control sizes remain tiny relative to the screen. `UiKit` has a 15-unit body / 24-unit H1, and `Main._show_setup()` caps the form at 440 logical units. This fits the symptom but is a code-based hypothesis, not a measured diagnosis of the director's machine. Capture window size, actual logical viewport, effective scale, OS DPI and display scale before selecting the fix.
 
-**Validation:** 1280×720 plus another representative wide/resized view, long labels and scroll states; verify narrow portrait remains unchanged. Relevant responsive checks and director review of final wide layout.
+**Scope:**
+- Repair the shared desktop scaling policy so default text, controls, Back and dialogs are comfortably readable at normal monitor viewing distance in fullscreen/maximised mode, including high-resolution screens and Windows scaling settings.
+- Fit content purposefully to the available screen. A short setup form may remain centred with sensible margins, but must not stay a tiny island; wider information screens should use deliberate group widths, columns and gutters, with coherent label/value pairing.
+- Use one consistent scaling/layout route across menus, club selection, hub, lists, coaching, training, match preparation, match/quarter breaks, results and settings. Avoid one-screen font overrides, double DPI scaling, distorted aspect ratios or stretching every paragraph across the entire monitor.
+- Handle fullscreen/windowed transitions, resizing and monitor/DPI changes without losing selections, scrolling, modal state or click alignment.
+- Preserve Android portrait/landscape layout, touch targets, safe areas and mobile text sizing. Preserve the established visual identity and football/save state.
+
+**Dependencies:** inspect current shared layout and relevant in-flight UI changes. The broader STYLE-01–06 redesign is not a prerequisite for this bounded repair.
+
+**Acceptance:** PC is readable by default without reducing desktop resolution or shrinking the game window. The New career form and primary actions are appropriately sized, all essential content is reachable, no important text/control is clipped, and mouse hitboxes align with visuals. Resizing and fullscreen toggling retain usability and state. Long labels, names, dialogs and busy screens fit or scroll deliberately. Phone presentation remains usable.
+
+**Validation:** native Windows before/after captures at 1920×1080, 2560×1440 and 3840×2160, plus a smaller window and representative ultrawide aspect; check available Windows display scaling settings (100%, 125%, 150%, 200%) without applying scale twice. Include maximised and true fullscreen, a mode toggle, New career plus representative dense screens and a modal, long names, scroll and click/focus checks. Recheck narrow phone portrait and landscape. Use focused shared-layout tests and existing required CI; headless viewport checks alone cannot prove native DPI readability. Obtain the director's final PC appearance/usability review before marking DONE.
 
 ## STYLE-08 — Lower-priority light-mode maintenance
 **Status:** `TODO` · **Priority:** `P2` · **Autonomy:** `SUPERVISED`  
@@ -5682,7 +6036,7 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 
 ## Shared execution and completion gate
 
-Complete the narrow Training-row alignment diagnosis first where it still reproduces. Then have the art agent lead a coherent dark typography/colour/control slice (STYLE-01–03), extend composition/identity (STYLE-04/05) and integrate existing scenes (STYLE-06). Supported independent slices may proceed after their own prerequisites. Desktop/light work follow; this is not a mandate to complete a global redesign before delivering a useful repair.
+Start immediately with STYLE-07's P0 PC readability repair under §0.4.1. After urgent repairs, complete the narrow Training-row alignment diagnosis where it still reproduces, then have the art agent lead a coherent dark typography/colour/control slice (STYLE-01–03), extend composition/identity (STYLE-04/05) and integrate existing scenes (STYLE-06). Supported independent slices may proceed after their own prerequisites. STYLE-07's director-reported P0 PC readability repair starts immediately under §0.4.1; remaining desktop polish and light work follow. This is not a mandate to complete a global redesign before delivering a useful repair.
 
 Hold content/state constant when comparing style treatments. Keep normal, selected, pressed, disabled, short/long, empty/busy and real club variants. Player sessions can assess perceived polish and readability; simulations do not establish beauty or enjoyment. Styling must not modify football results, save formats, draft/contract state or progress.
 
@@ -5694,6 +6048,57 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Added sourced pre-draft Favourite club bio-card flavour under FL-005, with honest unknowns and persistent cosmetic generated/custom values. Added full match-to-date Stats access at every quarter break under ARD-M4-009, reusing the existing stats view and preserving the paused decision flow.
+- **2026-10-06:** Added ARD-M4-016, match-day weather, from the director's decisions and the lead's evidence (docs/research/WEATHER_EVIDENCE.md).
+- **2026-10-06:** Recorded the director's interview on the match-visualisation research.
+  - ARD-M8-003 gains an agreed sequence: truth fixes, a tactical timeline, two demonstrations, then lanes. No overlay, and the play library is held.
+  - New items: ARD-M4-012 (intercepts by zone), ARD-M4-013 (set-shot choices and a real bomb pack), ARD-M4-014 (kick lanes that matter) and ARD-M4-015 (merge the plan names to six).
+  - 2026 centre ball-up approved.
+
+- **2026-10-06:** Scars removed from the player look (director, in chat with the lead: "remove scarring from the game, unnecessary detail"); the Club Forge look specification no longer lists them.
+- **2026-10-06:** Recorded two hair decisions in §9.1 (director, relayed by the lead): hair and beard look-dev stopped; the director's hair research adopted as the brief (three prototypes through the production path, reviewed in Blender and at game scale, before any rollout).
+- **2026-10-06:** ARD-M5-003: development projects made to matter is merged (#379).
+- **2026-10-06:** ARD-M7-009 status: the fair fixture for 18 to 21 clubs (#361) and the club-count board defaults (#359) are merged, with the Create a club engine (#340); the screen (#360) and Create a player (#309) wait on the director.
+
+- **2026-10-06:** STYLE-07 (PC fullscreen readability) is IN REVIEW in #371, with the cause and fix recorded; it is DONE only after the director's PC review.
+- **2026-10-06:** STYLE-07 (PC fullscreen readability) is DONE: #371 merged with the director's approval recorded on the PR.
+
+- **2026-10-06:** Recorded five more director decisions in §9.1: trades at real volume; synergy selection and development projects must have an impact; the clearance winner keeps the first disposal; the Create a club screen is approved; freckles removed (confirmed in the director's words).
+- **2026-10-06:** Merged-PR status lines in §9.1: trade volume data (#376), the clearance winner (#373) and freckles (#357).
+- **2026-10-06:** Recorded the director's animation and Stat Guide decisions in §9.1 (centre-bounce prototype now; kick and press room behind hair; no reduced-motion setting; awards walk-on unchanged; Stat Guide in words, #398).
+
+- **2026-10-06:** ARD-M7-009 Forge location research merged (#343, #351): 33 of 53 places have pattern tags and 46 of 53 have colour tags; the empties are listed in the status line.
+
+- **2026-10-06:** Freckles removed from the player look (director, 2026-10-06, relayed by the lead): unnecessary detail. The Club Forge look specification no longer lists them; the 2026-10-05 entry below is history.
+
+- **2026-10-06:** ARD-M5-001 is DONE (#331, 18 + 5, All-Australian 23, dual ruck); match-day wording in the roadmap follows 18 plus five (best side, 23), with dated evidence left as it was.
+
+- **2026-10-06:** Recorded two director decisions (§9.1 and ARD-M7-009): a created club enters with the career and drafts in the League Draft with no concession package; a 21-club season is 24 rounds, 22 games and two byes a club (for reference, the existing fixture: 23 games at 18 and 20 clubs, 22 at 19).
+
+- **2026-10-06:** Verified inherited 2026-list start and custom prospect are not implemented on main; promoted ARD-M5-016 to P0 and ARD-M7-008 to P1, with Alastair McNeil explicitly required as the first named custom-prospect use case under normal draft/generation rules.
+
+- **2026-10-06:** Added Gather Round as a TODO follow-up under ARD-M7-002, covering hosted fixtures, calendar/match identity, venue consistency, expansion/bye-safe scheduling and persistent event data.
+
+- **2026-10-06:** Required success/failure vignette endings where appropriate, using the authoritative post-choice roll with intermediate outcomes and deterministic reloads; no separate cinematic reroll or artificial result for ceremonies.
+
+- **2026-10-06:** Added a fat-side switch vignette and explicitly made all five newly requested concepts decision gates: setup/readable trade-offs, pre-action pause, meaningful alternatives and authoritative consequences, with restrained triggering.
+
+- **2026-10-06:** Added a hip-and-shoulder vignette concept: potentially powerful removal from the immediate play, balanced by free-kick risk and a very small context-dependent chance of report/potential suspension through the existing MRO system.
+
+- **2026-10-06:** Added three requested match-vignette concepts under ARD-M8-007: blocking the opposition star midfielder at a stoppage, a torpedo kick-out down the centre after a behind, and an inside-50 kick into space for a running forward to collect and shoot.
+
+- **2026-10-06:** Added director consideration under ARD-M7-004 for Leadership as a numerical player stat (not a trait), independent of OVR/age/appointment, for Claude to refine alongside modest captaincy effects and save compatibility.
+
+- **2026-10-06:** Added red/yellow match-ball support under ARD-M8-007, including yellow balls in appropriate vignettes and one persistent, consistent colour across all scenes from the same match.
+
+- **2026-10-06:** Added the Danny Frawley Golden Fist season award for the best defender, with role-aware judging, season-end recognition and persistent career/award records.
+
+- **2026-10-06:** Added solo vs dual ruck match-prep follow-up under ARD-M4-004, with meaningful trade-offs, trait/personnel fit and AI parity. Ruck King, Extra Midfielder and Unicorn are optional design references for Claude to refine, not mandated traits or effects.
+
+- **2026-10-06:** Promoted ARD-M5-001 (18 + 5 interchange) to P0 at director request after verifying main still uses four bench players; added complete fifth-player participation and save-compatibility acceptance criteria.
+
+- **2026-10-06:** On the director's request, added free lighting/surface-detail findings and five scoped follow-ups under ARD-M8-007 (LS-01–05): offline lighting, restrained player materials, environment/prop surfaces, optional runtime 2D lighting and phone/performance review. Reuses the existing pipeline and shadow work; records free CC0 sources, Material Maker/Krita options and Laigter's paid-binary caveat. Final appearance remains subject to the existing art-agent/director gate; no art or game implementation marked complete.
 
 - **2026-10-06:** Added a BALANCE-GATED career-stage OVR economy follow-up under ARD-M5-010. Phone playtesting shows too many high-POT rookies can enter looking stronger than established AFL professionals. Audit rookie starting OVR, established-player compression and age/development assumptions; create more development headroom for most prospects and modestly strengthen genuinely established players where performance evidence supports it, without blind age modifiers or making OVR cease to represent current strength.
 
@@ -5714,6 +6119,8 @@ The eight includes are the complete decision record. There are no rejected style
 - **2026-10-06:** Low agent, docs steward and CI owner. Added §0.4a: effort tags (`LOW` / `MEDIUM` / `HIGH`) with every open item sized into a lane, and the parallel-work rules for the agents working at once (hot files, check floors, local Godot use, no pushes mid-CI). Replaced 15 §1.11 observed-failure bullets that are built and tested on `main` with one "Closed from this list" line naming the evidence. CI now runs the Godot suites as parallel shards (`tools/ci_shards.txt`, plan job, extras job, the required check still `test`) and long audits run on GitHub (`audit.yml`). README, DESIGN and `tests/README.md` corrected against the code.
 
 - **2026-10-06:** After all eight director answers, authorised FL-001–FL-008 in §9.3 and the execution/effort queues under existing owners. Added the explicit visual-distinction audit and permission for necessary new ritual/farewell vignette scenes. Every addition is presentation-only with zero gameplay effects; existing feature statuses and unrelated review gates remain unchanged.
+
+- **2026-10-06:** FL statuses in §9.3 set from what has merged: FL-002 (#400), FL-004 (#405, #409), FL-005 (#392), FL-006 (#395) and FL-008 (#406) are DONE with the director's approval; FL-001 is PARTIAL (#381 audit, #386 fixes); FL-003 and FL-007 stay TODO.
 
 - **2026-10-06:** Extended the art-agent tooling permission to fonts: it may research, download and use free/licensed fonts suitable for game distribution, or direct the user to install them. Paid font licences and subscription services remain disallowed without explicit approval.
 

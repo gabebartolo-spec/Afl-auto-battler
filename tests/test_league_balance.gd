@@ -7,10 +7,15 @@ extends RefCounted
 var failures: Array[String] = []
 var checks := 0
 
+## Every season and draft here is seeded (C15): a clock seed makes a different
+## league each run.
+const SUITE_SEED := 2027
+
 
 func run() -> void:
 	failures.clear()
 	checks = 0
+	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
 	var lb = load("res://tools/balance/league_balance.gd").new()
 	_test_stats(lb)
@@ -19,6 +24,7 @@ func run() -> void:
 	_test_season(lb)
 	_test_sensitivity(lb)
 	_test_draw_rate(lb)
+	GameState.replay_seed = 0
 	print("League balance tests: %d checks, %d failures" % [checks, failures.size()])
 
 

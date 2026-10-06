@@ -1,6 +1,6 @@
 class_name Squad
 extends RefCounted
-## A match-day side: the best 18 of a drafted list plus four on the bench,
+## A match-day side: the best 18 of a drafted list plus five on the bench,
 ## rolled up into the handful of team strengths the match engine actually uses.
 ##
 ## Port of tools/sim_harness.py::Squad. The aggregate weights below were tuned

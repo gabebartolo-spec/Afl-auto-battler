@@ -8,6 +8,9 @@ var _state: Node
 var _checks := 0
 var _failures: Array[String] = []
 
+## Every season in this suite starts from a fixed seed (C15), never the clock.
+const SUITE_SEED := 2027
+
 
 func _initialize() -> void:
 	_run.call_deferred()
@@ -20,6 +23,7 @@ func _run() -> void:
 	_state.save_path = "user://test_career.save"
 	_state.settings_path = "user://test_settings.cfg"
 	_state.show_real_names = false
+	_state.replay_seed = SUITE_SEED
 	var script = load("res://tests/test_roles.gd")
 	if script == null or not script.can_instantiate():
 		push_error("Could not load res://tests/test_roles.gd")
@@ -33,6 +37,7 @@ func _run() -> void:
 	await _team_changes_tests()
 	await _backing_ui_tests()
 	print("Roles + selection tests: %d checks, %d failures" % [_checks, _failures.size()])
+	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
 
 
@@ -112,7 +117,7 @@ func _selection_tests() -> void:
 		_state.set_club_plan("balanced")
 	var rows := ui.find_children("RoleLabel", "Label", true, false)
 	var formation_players := ui.find_children("FormationPlayer_*", "Button", true, false)
-	_check(formation_players.size() == 22, "Every picked player appears in the formation (%d)" % formation_players.size())
+	_check(formation_players.size() == 23, "Every picked player appears in the formation (%d)" % formation_players.size())
 	var rx := RegEx.new()
 	rx.compile("%")
 	var leak := false
@@ -163,7 +168,7 @@ func _selection_tests() -> void:
 	var recipe := RegEx.new()
 	recipe.compile("\\d/\\d [A-Z][a-z]")
 	_check(recipe.search(text) == null, "Synergies are not a recipe: no 'one more X' counts")
-	_check(not text.to_lower().contains("best available") and not text.contains("best 22"),
+	_check(not text.to_lower().contains("best available") and not text.contains("best 23"),
 			"Auto-pick is described as sensible, not best")
 	_check(ui.find_child("SelectionHint", true, false) == null and not text.contains("could tag")
 			and not text.contains("coach box"), "Selection surfaces the problem, not the answer")

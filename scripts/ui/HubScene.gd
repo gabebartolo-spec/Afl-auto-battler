@@ -14,8 +14,11 @@ var _hold_fired := false
 var _hold_id := 0
 var _pre_match: PreMatchVignette    # the scene over the wait after Play match
 const HOLD_SECONDS := 0.5
-## How long the pre-match scene runs before the side goes through the banner.
-const PRE_MATCH_SECONDS := 2.6
+## How long the pre-match scene runs before the side goes through the banner: a
+## moment of the warm-up, time to jog in to the huddle unhurried and stand together,
+## then the run - still a couple of seconds of match day, not a wait (a tap goes straight
+## to the run).
+const PRE_MATCH_SECONDS := 3.8
 
 
 func _ready() -> void:
@@ -54,16 +57,16 @@ func _show_weekly_loop_intro() -> void:
 	_onboarding_overlay = box["overlay"]
 	_onboarding_overlay.name = "WeeklyLoopIntro"
 	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.heading("Your week", 24))
+	v.add_child(UiKit.heading("Your week", UiKit.TITLE))
 	for line in [
 		"This is home base. Check the next opponent, then use Team to pick the side and Coaching if you want to change how you play.",
-		"Play match when you want the live coaching calls. Sim round moves the week on quickly; both use the same match simulation.",
+		"Play match when you want the live coaching calls. Sim round moves the week on quickly; the match itself is the same either way.",
 		"After the game, review what happened and change selection or training only when you have a reason. There is no weekly checklist to clear.",
 	]:
 		var l := UiKit.lbl(line, 14, UiKit.TEXT)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
-	var skip := UiKit.btn("Skip", 15)
+	var skip := UiKit.btn("Skip", UiKit.BODY)
 	skip.name = "SkipOnboarding"
 	skip.flat = true
 	skip.pressed.connect(_close_weekly_loop_intro)
@@ -134,14 +137,14 @@ func _show_season_wrap() -> void:
 	if str(w.get("goal", "")) != "":
 		v.add_child(UiKit.spacer(4))
 		v.add_child(UiKit.lbl("The board expects", 14, UiKit.MUTED, true))
-		var goal := UiKit.lbl(str(w["goal"]), 16, UiKit.TEXT, true)
+		var goal := UiKit.lbl(str(w["goal"]), UiKit.NAME, UiKit.TEXT, true)
 		goal.name = "WrapGoal"
 		goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(goal)
 		var why := UiKit.lbl(str(w.get("reason", "")), 14, UiKit.MUTED)
 		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(why)
-	var go := UiKit.btn("Begin season", 15, true)
+	var go := UiKit.btn("Begin season", UiKit.BODY, true)
 	go.name = "BeginSeason"
 	go.custom_minimum_size.y = 48
 	go.pressed.connect(func():
@@ -323,7 +326,7 @@ func _event_card() -> Control:
 		var silence := str((e.get("unanswered", {}) as Dictionary).get("hint", ""))
 		if silence != "":
 			hints.append(silence)
-		var h := UiKit.lbl("\n".join(hints), 11, UiKit.MUTED)
+		var h := UiKit.lbl("\n".join(hints), UiKit.FINE, UiKit.MUTED)
 		h.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(h)
 	else:
@@ -336,7 +339,7 @@ func _sacked_card() -> Control:
 	card.name = "SackedCard"
 	var v := UiKit.vbox(8)
 	card.add_child(v)
-	v.add_child(UiKit.lbl("You have been sacked", 24, UiKit.BAD, true))
+	v.add_child(UiKit.lbl("You have been sacked", UiKit.TITLE, UiKit.BAD, true))
 	var t := UiKit.lbl("Two seasons short of the board's goals. Your time at %s is over. Start a new career and prove them wrong." % GameDB.club_name(GameState.my_club), 14, UiKit.TEXT)
 	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(t)
@@ -376,9 +379,9 @@ func _show_news() -> void:
 	for item in GameState.news:
 		var when := "%d  %s" % [int(item["year"]), str(item["when"])]
 		if when != last_when:
-			v.add_child(UiKit.lbl(when, 13, UiKit.EMPH, true))
+			v.add_child(UiKit.lbl(when, UiKit.SECONDARY, UiKit.EMPH, true))
 			last_when = when
-		var l := UiKit.lbl(str(item["text"]), 13, UiKit.TEXT)
+		var l := UiKit.lbl(str(item["text"]), UiKit.SECONDARY, UiKit.TEXT)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
 	var ok := UiKit.btn("Close", 17, true)
@@ -404,7 +407,7 @@ func _week_section(season: Season) -> Control:
 				16, UiKit.TEXT))
 		var ru: String = str(season.finals.get("runner_up", ""))
 		nv.add_child(UiKit.ellipsis("Runners-up: %s" % GameDB.club_name(ru),
-				13, UiKit.MUTED))
+				UiKit.SECONDARY, UiKit.MUTED))
 		var medal: Array = GameState.season_awards.get("brownlow", [])
 		var medallist: Dictionary = GameState.season_awards.get("brownlow_winner", {})
 		if medallist.is_empty() and not medal.is_empty():
@@ -651,7 +654,7 @@ func _staff_notice() -> Control:
 		var l := UiKit.lbl(r, UiKit.BODY, UiKit.TEXT)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
-	var go := UiKit.btn("Appoint a replacement" if reasons.size() == 1 else "Appoint replacements", 15)
+	var go := UiKit.btn("Appoint a replacement" if reasons.size() == 1 else "Appoint replacements", UiKit.BODY)
 	go.name = "StaffNoticeGo"
 	go.custom_minimum_size = Vector2(0, 44)
 	go.pressed.connect(func(): Router.go("staff"))
@@ -670,7 +673,7 @@ func _coaching_button() -> Button:
 
 
 func _nav_button(text: String, cb: Callable, primary := false) -> Button:
-	var b := UiKit.btn(text, 16, primary)
+	var b := UiKit.btn(text, UiKit.NAME, primary)
 	b.custom_minimum_size = Vector2(0, 48)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.clip_text = true
@@ -689,7 +692,8 @@ func _finals_label() -> String:
 ## rotates a bye. Not the end of your season - that is only once the
 ## home-and-away rounds are done.
 func _regular_bye(season: Season) -> bool:
-	return season != null and not season.is_season_over() 			and not season.is_regular_done() and _upcoming_match().is_empty()
+	return season != null and not season.is_season_over() \
+			and not season.is_regular_done() and _upcoming_match().is_empty()
 
 
 ## The match you are about to play, or {} if you have none coming up
@@ -737,12 +741,18 @@ func _on_play_match() -> void:
 	var mine := GameState.my_club
 	var opp := str(m["away"]) if str(m["home"]) == mine else str(m["home"])
 	var season: Season = GameState.season
-	var opp_ground: Array = Squad.new(opp, season.lists[opp], false, opp,
-			season.selections.get(opp, {})).ground
+	# Everyone named runs out: the 18 on the ground and the interchange.
+	var opp_squad := Squad.new(opp, season.lists[opp], false, opp, season.selections.get(opp, {}))
+	var opp_ground: Array = opp_squad.ground + opp_squad.bench
 	var heading := "%s  ·  %s v %s" % [str(m["label"]), GameDB.club_name(str(m["home"])),
 			GameDB.club_name(str(m["away"]))]
-	_pre_match = PreMatchVignette.open(get_tree().root, mine, opp, GameState.my_squad().ground,
-			opp_ground, heading, PreMatchVignette.is_final(str(m["label"])))
+	# The banner's occasion (Banners.pick): finals week, marquee game, must-win, spoon
+	# bowl, milestones (GameState.banner_context).
+	var label := str(m["label"])
+	var banner_ctx := GameState.banner_context(m)
+	_pre_match = PreMatchVignette.open(get_tree().root, mine, opp,
+			GameState.my_squad().ground + GameState.my_squad().bench, opp_ground, heading,
+			PreMatchVignette.is_final(label), banner_ctx)
 	# Home-and-away rounds and finals both play live with the coach box.
 	await get_tree().process_frame
 	if not GameState.prepare_interactive_match():
@@ -780,12 +790,12 @@ func _on_sim_round_pressed() -> void:
 		_close_sim_confirm()
 		_on_sim_round())
 	box["footer"].add_child(go)
-	var cancel := UiKit.btn("Cancel", 16)
+	var cancel := UiKit.btn("Cancel", UiKit.NAME)
 	cancel.name = "SimConfirmCancel"
 	cancel.custom_minimum_size = Vector2(0, 44)
 	cancel.pressed.connect(_close_sim_confirm)
 	box["footer"].add_child(cancel)
-	var never := UiKit.btn("Don't ask again", 16)
+	var never := UiKit.btn("Don't ask again", UiKit.NAME)
 	never.name = "SimConfirmNever"
 	never.custom_minimum_size = Vector2(0, 44)
 	never.pressed.connect(func():
@@ -846,14 +856,14 @@ func _open_quick_sim() -> void:
 		["QuickSimAll", "Skip to the end of the home and away (after Round %d)" % last, -1],
 	]
 	for o in options:
-		var b := UiKit.btn(str(o[1]), 15)
+		var b := UiKit.btn(str(o[1]), UiKit.BODY)
 		b.name = str(o[0])
 		b.custom_minimum_size = Vector2(0, 48)
 		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		var n := int(o[2])
 		b.pressed.connect(func(): _run_quick_sim(n))
 		box["footer"].add_child(b)
-	var cancel := UiKit.btn("Cancel", 15)
+	var cancel := UiKit.btn("Cancel", UiKit.BODY)
 	cancel.name = "QuickSimCancel"
 	cancel.custom_minimum_size = Vector2(0, 44)
 	cancel.pressed.connect(_close_quick_sim)
@@ -1011,7 +1021,7 @@ func _show_results(results: Array) -> void:
 		v.add_child(review)
 	var outlook := GameState.finals_outcome_line(res)
 	if outlook != "":
-		v.add_child(UiKit.lbl(outlook, 15, UiKit.EMPH, true))
+		v.add_child(UiKit.lbl(outlook, UiKit.BODY, UiKit.EMPH, true))
 	if GameState.season.is_season_over():
 		v.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(GameState.premier()),
 				18, UiKit.TEXT, true))
@@ -1053,8 +1063,16 @@ func _my_result(v: VBoxContainer, res: Dictionary) -> void:
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(nm)
 		row.add_child(UiKit.figure(UiKit.scoreline(int(res["goals"][side]), int(res["behinds"][side])),
-				22, UiKit.MUTED if lost_side else UiKit.TEXT))
+				UiKit.NUMBER, UiKit.MUTED if lost_side else UiKit.TEXT))
 		v.add_child(row)
+	# FL-006: editorial flavour, only when the match's facts support it - quiet
+	# text under the facts, never coloured like a result.
+	var line := Headlines.for_match(res, me)
+	if line != "":
+		var hl := UiKit.lbl(line, UiKit.BODY, UiKit.MUTED)
+		hl.name = "MyHeadline"
+		hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(hl)
 	var best := MatchNotes.standouts(res, me, 1)
 	if not best.is_empty():
 		var bl := UiKit.ellipsis("Best: %s %s  ·  %s" % [str(best[0]["name"]),
@@ -1133,7 +1151,7 @@ func _results_list(results: Array) -> Control:
 			h.add_child(asc)
 			h.add_child(UiKit.club_badge(str(res["away"]), 13, true, true))
 			if verdict != "":
-				var tag := UiKit.line(verdict, 13,
+				var tag := UiKit.line(verdict, UiKit.SECONDARY,
 						UiKit.MUTED if drew else UiKit.margin_colour(won), true)
 				tag.custom_minimum_size = Vector2(48, 0)
 				h.add_child(tag)
@@ -1152,7 +1170,7 @@ func _result_side(code: String, goals: int, behinds: int, col: Color, verdict: S
 	score.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(score)
 	# Every row keeps the verdict column, so the scores line up.
-	var tag := UiKit.line(verdict, 13, vcol, true)
+	var tag := UiKit.line(verdict, UiKit.SECONDARY, vcol, true)
 	tag.custom_minimum_size = Vector2(40, 0)
 	h.add_child(tag)
 	return h

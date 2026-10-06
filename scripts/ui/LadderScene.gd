@@ -74,7 +74,7 @@ func _build() -> void:
 		body.add_child(cinset)
 
 	if not season.finals.is_empty():
-		body.add_child(UiKit.lbl("Finals Series", 18, UiKit.EMPH, true))
+		body.add_child(UiKit.lbl("Finals Series", UiKit.HEADING, UiKit.EMPH, true))
 		var fp := UiKit.panel(UiKit.PANEL, 12)
 		body.add_child(fp)
 		var fv := UiKit.vbox(4)
@@ -85,7 +85,7 @@ func _build() -> void:
 			fv.add_child(UiKit.ellipsis("Premiers: %s" % GameDB.club_name(
 					str(season.finals["premier"])), 17, UiKit.TEXT, true))
 		else:
-			fv.add_child(UiKit.ellipsis("Next: %s" % _next_finals_label(), 13, UiKit.MUTED))
+			fv.add_child(UiKit.ellipsis("Next: %s" % _next_finals_label(), UiKit.SECONDARY, UiKit.MUTED))
 
 
 ## The Coaches Award race: accumulated through the home-and-away season.
@@ -111,8 +111,8 @@ func _coaches_award() -> Control:
 		if i == 0 or int(r["votes"]) != int(leaders[i - 1]["votes"]): rank = i + 1
 		var h := UiKit.hbox(10)
 		h.name = "CoachesAward_%d" % (i + 1)
-		var n := UiKit.line(str(rank), 15, UiKit.MUTED); n.custom_minimum_size.x = 32; h.add_child(n)
-		var who := UiKit.ellipsis(GameState.award_name(r), 16, UiKit.TEXT, str(r["club"]) == GameState.my_club); who.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(who)
+		var n := UiKit.line(str(rank), UiKit.BODY, UiKit.MUTED); n.custom_minimum_size.x = 32; h.add_child(n)
+		var who := UiKit.ellipsis(GameState.award_name(r), UiKit.NAME, UiKit.TEXT, str(r["club"]) == GameState.my_club); who.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(who)
 		var club := UiKit.ellipsis(GameDB.club_short(str(r["club"])), 14, UiKit.MUTED); club.custom_minimum_size.x = 72; h.add_child(club)
 		var votes := UiKit.line(str(int(r["votes"])), 17, UiKit.TEXT, true); votes.custom_minimum_size.x = 40; votes.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT; h.add_child(votes)
 		v.add_child(h)
@@ -149,10 +149,10 @@ func _coleman() -> Control:
 		var mine := str(r["club"]) == GameState.my_club
 		var h := UiKit.hbox(10)
 		h.name = "Coleman_%d" % (i + 1)
-		var n := UiKit.line(str(rank), 15, UiKit.MUTED)
+		var n := UiKit.line(str(rank), UiKit.BODY, UiKit.MUTED)
 		n.custom_minimum_size.x = 32
 		h.add_child(n)
-		var who := UiKit.ellipsis(GameState.award_name(r), 16, UiKit.TEXT, mine)
+		var who := UiKit.ellipsis(GameState.award_name(r), UiKit.NAME, UiKit.TEXT, mine)
 		who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(who)
 		var club := UiKit.ellipsis(GameDB.club_short(str(r["club"])), 14, UiKit.MUTED)
@@ -214,7 +214,7 @@ func _finals_row(res: Dictionary, narrow: bool) -> Control:
 	h.add_child(asc)
 	h.add_child(UiKit.club_badge(str(res["away"]), 13, narrow, true))
 	if bool(res.get("extra_time", false)) and not narrow:
-		h.add_child(UiKit.ellipsis("(aet)", 11, UiKit.MUTED))
+		h.add_child(UiKit.ellipsis("(aet)", UiKit.FINE, UiKit.MUTED))
 	if bool(res.get("decided_on_ladder", false)) and not narrow:
-		h.add_child(UiKit.ellipsis("(level - higher seed advances)", 11, UiKit.MUTED))
+		h.add_child(UiKit.ellipsis("(level: the higher-placed side goes through)", UiKit.FINE, UiKit.MUTED))
 	return h

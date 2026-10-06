@@ -16,6 +16,8 @@ var _logo: TextureRect
 ## The setup's choices, applied only when the career starts.
 var _pick_real := true
 var _pick_difficulty := "normal"
+var _pick_prospect := false
+var _pick_club := false
 
 ## Placeholder title art. Swap the file (same path) to replace it.
 const LOGO := preload("res://assets/ui/aussie_rules_dynasties_logo_placeholder.png")
@@ -177,6 +179,10 @@ func _show_home() -> void:
 	new_career.disabled = not GameDB.loaded
 	new_career.pressed.connect(_on_new_career)
 	col.add_child(new_career)
+	var forge := UiKit.btn("Club Forge", 17)
+	forge.name = "ClubForge"
+	forge.pressed.connect(func(): Router.go("forge"))
+	col.add_child(forge)
 
 	_content.add_child(UiKit.spacer(18))
 	var quiet := UiKit.hbox(4)
@@ -188,7 +194,7 @@ func _show_home() -> void:
 
 ## A secondary action that reads as text: no box, muted until pressed.
 func _quiet_btn(text: String, node_name: String, cb := Callable()) -> Button:
-	var b := UiKit.btn(text, 15)
+	var b := UiKit.btn(text, UiKit.BODY)
 	b.name = node_name
 	b.flat = true
 	b.custom_minimum_size = Vector2(120, 44)
@@ -206,7 +212,8 @@ func _meta_line(meta: Dictionary) -> String:
 	var club := str(meta.get("club", ""))
 	var bits: PackedStringArray = []
 	if club != "":
-		bits.append(GameDB.club_name(club))
+		# A created club is only registered once its career loads.
+		bits.append(str(meta.get("club_name", "")) if str(meta.get("club_name", "")) != "" else GameDB.club_name(club))
 	bits.append(str(meta.get("year", "")))
 	if str(meta.get("stage", "")) != "":
 		bits.append(str(meta["stage"]))
@@ -224,6 +231,8 @@ func _on_continue() -> void:
 func _on_new_career() -> void:
 	_pick_real = GameState.show_real_names
 	_pick_difficulty = GameState.new_career_difficulty()
+	_pick_prospect = not GameState.forge_player().is_empty()
+	_pick_club = not GameState.forge_club().is_empty()
 	_mode = "setup"
 	_render()
 
@@ -268,6 +277,22 @@ func _show_setup() -> void:
 	form.add_child(_choice("Difficulty", "Difficulty", diff_options, _pick_difficulty,
 			func(k): return str(GameState.DIFFICULTIES[k]["text"]),
 			func(k): _pick_difficulty = k))
+	# Your Club Forge player, if you made one: he enters this career's first
+	# National Draft like any other prospect.
+	var forged := GameState.forge_player()
+	if not forged.is_empty():
+		var who := "%s %s" % [forged.get("first", ""), forged.get("last", "")]
+		form.add_child(_choice("Your prospect", "Prospect", [["in", "Bring " + who], ["out", "Not this time"]],
+				"in" if _pick_prospect else "out",
+				func(_k): return "He enters this career's first National Draft. No club is told to take him; where he goes is up to the draft.",
+				func(k): _pick_prospect = k == "in"))
+	# Your Club Forge club, if you made one: an extra club in this career.
+	var club := GameState.forge_club()
+	if not club.is_empty():
+		form.add_child(_choice("Your club", "ForgedClub", [["in", "Bring " + str(club.get("name", ""))], ["out", "Not this time"]],
+				"in" if _pick_club else "out",
+				func(_k): return "It joins the competition as an extra club and drafts its list in the League Draft like everyone else. Choose it as your club next, or coach against it.",
+				func(k): _pick_club = k == "in"))
 	# The button follows the choices closely, set just apart from them.
 	var cta := MarginContainer.new()
 	cta.add_theme_constant_override("margin_top", 6)
@@ -315,7 +340,7 @@ func _choice(title: String, prefix: String, options: Array, current: String,
 		note.text = str(info.call(state["key"]))
 	for opt in options:
 		var key := str(opt[0])
-		var b := UiKit.btn(str(opt[1]), 16)
+		var b := UiKit.btn(str(opt[1]), UiKit.NAME)
 		b.name = "%s_%s" % [prefix, key]
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(func():
@@ -345,6 +370,14 @@ func _start_new_career() -> void:
 	GameState.set_new_career_difficulty(_pick_difficulty)
 	GameState.delete_saved_career()
 	GameState.reset()
+	if _pick_club:
+		var club := GameState.forge_club()
+		if not club.is_empty():
+			GameState.create_club(club)
+	if _pick_prospect:
+		var forged := GameState.forge_player()
+		if not forged.is_empty():
+			GameState.add_custom_prospect(forged)
 	GameState.begin_draft()
 	Router.go("draft")
 
@@ -368,7 +401,7 @@ func _confirm_new_career() -> void:
 		_close_confirm()
 		_start_new_career())
 	box["footer"].add_child(go)
-	var cancel := UiKit.btn("Cancel", 16)
+	var cancel := UiKit.btn("Cancel", UiKit.NAME)
 	cancel.custom_minimum_size = Vector2(0, 44)
 	cancel.pressed.connect(_close_confirm)
 	box["footer"].add_child(cancel)
@@ -442,7 +475,7 @@ func _show_help() -> void:
 			+ "2. Draft from one shared player pool under the same cap. The random order reverses each round. Rivals pick between your turns. Tap a player to see what kind of footballer he is; only the Draft button picks him.\n\n"
 			+ "3. Track every selection in Picks. The position cards in the pool show your list's coverage; tap one to filter the pool. Carry at least two rucks.\n\n"
 			+ "4. Play 24 rounds, with matches driven by your players' rated abilities. Set your tactics in the coach box. After each game every player develops: his training plan (Position plan to start) turns his XP into the kind of footballer you choose, and fit players you leave out develop in the reserves at about half the senior rate. Choose plans in Training.\n\n"
-			+ "5. Pick your own side on the Team screen, or let the best 22 be picked around injuries. Two of your five midfielders play the wings: a runner suits it, a ball-winner is wasted there. A tagger makes a tag bite.\n\n"
+			+ "5. Pick your own side on the Team screen, or let the best 23 be picked around injuries. Two of your five midfielders play the wings: a runner suits it, a ball-winner is wasted there. A tagger makes a tag bite.\n\n"
 			+ ("6. Finish in the top %d to play finals and chase the flag. The top four start in the qualifying finals, 5-10 in the wildcards and eliminations. The season's awards, the honour roll and league records are in the Season Review.\n\n"
 			% Season.FINALISTS)
 			+ "7. In the off-season, re-sign, release, sign free agents and trade in Trades & Contracts, then draft the next class. The hub's League news follows the whole league.\n\n"

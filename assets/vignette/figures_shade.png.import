@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://w75ajkjfi0bo"
-path="res://.godot/imported/figures_shade.png-c668c45d1a2ff4d63bd4259841a70122.ctex"
+path.bptc="res://.godot/imported/figures_shade.png-c668c45d1a2ff4d63bd4259841a70122.bptc.ctex"
+path.astc="res://.godot/imported/figures_shade.png-c668c45d1a2ff4d63bd4259841a70122.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/vignette/figures_shade.png"
-dest_files=["res://.godot/imported/figures_shade.png-c668c45d1a2ff4d63bd4259841a70122.ctex"]
+dest_files=["res://.godot/imported/figures_shade.png-c668c45d1a2ff4d63bd4259841a70122.bptc.ctex", "res://.godot/imported/figures_shade.png-c668c45d1a2ff4d63bd4259841a70122.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

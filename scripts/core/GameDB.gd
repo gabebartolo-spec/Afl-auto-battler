@@ -28,6 +28,9 @@ const HISTORY_CSV := "res://data/player_history_2026.csv"
 ## How real players look on the vignette figures (Appearance.gd): skin tone and
 ## hair colour, drafted from public photos and reviewed by the director.
 const APPEARANCE_CSV := "res://data/player_appearance.csv"
+## Where each 2026 player came from (a state, or INT), from his recruiting source;
+## built by tools/build_player_origin.py. A blank state is left unset.
+const ORIGIN_CSV := "res://data/player_origin_2026.csv"
 ## Curated looks needed before their mix replaces Appearance.DEFAULT_SKIN_MIX.
 const MIX_FROM := 100
 
@@ -108,6 +111,9 @@ const FICTIONAL_LAST_NAMES := [
 const FICTIONAL_NAME_SEED := 260922
 
 var clubs := {}            # code -> {code,name,short,primary,secondary,accent,ground}
+## CLUB_ORDER plus a career's created club (Club Forge), in order. Anything that
+## walks every club walks this, so a created club is never missed.
+var club_order: Array = CLUB_ORDER.duplicate()
 var players := []          # Array of player dictionaries, ratings derived
 var players_by_club := {}  # code -> Array of player dictionaries
 var draftees := []         # the shipped draft class, projections applied
@@ -141,11 +147,13 @@ func _ready() -> void:
 
 func reload() -> void:
 	clubs = _load_clubs()
+	club_order = CLUB_ORDER.duplicate()
 	_alias_candidates = []
 	_alias_next = 0
 	_real_names = {}
 	players = _load_players()
 	_load_appearance()
+	_apply_origin(players)
 	Ratings.derive_all(players)
 	_apply_history(players)
 	for p in players:
@@ -155,7 +163,7 @@ func reload() -> void:
 	late_draftees = []
 
 	players_by_club = {}
-	for code in CLUB_ORDER:
+	for code in club_order:
 		players_by_club[code] = []
 	for p in players:
 		if not players_by_club.has(p["club"]):
@@ -208,7 +216,31 @@ const THREE_COLOUR_CLUBS := ["ADE", "BRL", "GCS", "GWS", "PAD", "STK", "WBD", "T
 ## The colours a club is known by, for its marker: two or three.
 func club_marker_colours(code: String) -> Array:
 	var cols := club_colours(code)
-	return cols if THREE_COLOUR_CLUBS.has(code) else cols.slice(0, 2)
+	if THREE_COLOUR_CLUBS.has(code) or bool(clubs.get(code, {}).get("custom", false)):
+		return cols
+	return cols.slice(0, 2)
+
+
+## Add a created club (ClubForge.make_club) to the competition, after the
+## clubs that ship. Registering it again replaces it.
+func register_club(row: Dictionary) -> void:
+	var code := str(row.get("code", ""))
+	if code == "":
+		return
+	clubs[code] = row
+	if not club_order.has(code):
+		club_order.append(code)
+	if not players_by_club.has(code):
+		players_by_club[code] = []
+
+
+## Take every created club out again (a new career, or loading another save).
+func unregister_custom_clubs() -> void:
+	for code in clubs.keys():
+		if bool(clubs[code].get("custom", false)):
+			clubs.erase(code)
+			club_order.erase(code)
+			players_by_club.erase(code)
 
 
 ## Guernsey designs the vignette figures can wear, in figure.gdshader's numbering.
@@ -442,6 +474,10 @@ func count_by_role(list: Array) -> Dictionary:
 ## row; a generated player's look drawn from his id alone (never from ratings or
 ## traits); a real player not yet curated, Appearance.UNCURATED - never a guess.
 func player_looks(p: Dictionary) -> Dictionary:
+	# Colours chosen for him in Club Forge come first.
+	var chosen = p.get("look")
+	if chosen is Dictionary and Appearance.valid("skin", chosen.get("skin")) and Appearance.valid("hair", chosen.get("hair")):
+		return {"skin": int(chosen["skin"]), "hair": int(chosen["hair"])}
 	var row: Dictionary = appearance.get(_look_key(p), {})
 	if not row.is_empty():
 		return {"skin": int(row["skin"]), "hair": int(row["hair"])}
@@ -450,8 +486,48 @@ func player_looks(p: Dictionary) -> Dictionary:
 	return Appearance.UNCURATED
 
 
+## A player's whole look (Appearance.full): his colours as player_looks gives
+## them, plus hair style, facial hair, boots, socks, tattoos and the rest -
+## what he was given in Club Forge (p["look"]), seeded variety for a generated
+## player, the plain base look for a real one.
+func player_appearance(p: Dictionary) -> Dictionary:
+	return Appearance.full(player_looks(p), str(p.get("id", "")), bool(p.get("generated", false)),
+			p.get("look", {}) if p.get("look") is Dictionary else {})
+
+
 static func _look_key(p: Dictionary) -> String:
 	return "%s|%s|%s" % [str(p.get("first", "")).to_lower(), str(p.get("last", "")).to_lower(), str(p.get("dob", ""))]
+
+
+## Set p["home_state"] from data/player_origin_2026.csv, matched on club,
+## number, first and last name. A player with no row or a blank state keeps
+## no home_state.
+func _apply_origin(list: Array) -> void:
+	var rows := _read_rows(ORIGIN_CSV)
+	if rows.size() < 2:
+		return
+	var header: Array = rows[0]
+	var idx := {}
+	for j in range(header.size()):
+		idx[str(header[j]).strip_edges()] = j
+	for key in ["club", "num", "first", "last", "state"]:
+		if not idx.has(key):
+			push_error("GameDB: %s has no '%s' column" % [ORIGIN_CSV, key])
+			return
+	var state_of := {}
+	for i in range(1, rows.size()):
+		var cells: Array = rows[i]
+		if cells.size() < header.size():
+			continue
+		var st := str(cells[idx["state"]]).strip_edges()
+		if st == "":
+			continue
+		state_of["%s|%s|%s|%s" % [str(cells[idx["club"]]), str(cells[idx["num"]]),
+				str(cells[idx["first"]]), str(cells[idx["last"]])]] = st
+	for p in list:
+		var key := "%s|%d|%s|%s" % [str(p["club"]), int(p["num"]), str(p["first"]), str(p["last"])]
+		if state_of.has(key):
+			p["home_state"] = state_of[key]
 
 
 ## data/player_appearance.csv: first,last,dob,club,skin (1-6),hair (a HAIR_KEYS
@@ -531,12 +607,13 @@ func enter_year(code: String) -> int:
 	return int(clubs.get(code, {}).get("enter", 2026))
 
 
-## The clubs active in a given season year, in CLUB_ORDER. Fixtures, ladders,
+## The clubs active in a given season year, in club order. Fixtures, ladders,
 ## drafts and selections all iterate this - never CLUB_ORDER - so expansion
-## clubs join the competition on schedule without any club-specific code.
+## clubs (and a created one) join the competition on schedule without any
+## club-specific code.
 func active_clubs(year: int) -> Array:
 	var out := []
-	for code in CLUB_ORDER:
+	for code in club_order:
 		if enter_year(code) <= year:
 			out.append(code)
 	return out

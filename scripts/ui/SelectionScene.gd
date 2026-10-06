@@ -1,13 +1,13 @@
 extends Control
-## Team selection: your match-day 22. Auto-pick fields a sensible side
+## Team selection: your match-day 23. Auto-pick fields a sensible side
 ## every week; My selection lets you name the ruck, 5 midfielders, 6
-## defenders, 6 forwards and 4 on the bench - a 6-6-6 shape with the ruck
+## defenders, 6 forwards and 5 on the bench - a 6-6-6 shape with the ruck
 ## counted in midfield, and anyone in any position. A gap (an injured player,
 ## a short slot) is filled automatically on match day.
 
 ## The midfield is the centre square (3) and the two wings (Roles).
 const SLOTS := [["RUCK", "Ruck", 1], ["MID", "Midfield", 3], ["WING", "Wings", 2],
-		["DEF", "Defence", 6], ["FWD", "Forwards", 6], ["BENCH", "Interchange", 4]]
+		["DEF", "Defence", 6], ["FWD", "Forwards", 6], ["BENCH", "Interchange", Ratings.INTERCHANGE]]
 const CHOICES := [["RUCK", "Ruck"], ["MID", "Mid"], ["WING", "Wing"], ["DEF", "Def"],
 		["FWD", "Fwd"], ["BENCH", "Bench"], ["OUT", "Out"]]
 
@@ -68,12 +68,20 @@ func _build() -> void:
 	mine_btn.pressed.connect(func():
 		if GameState.my_selection().is_empty():
 			GameState.set_selection(GameState.current_side())
-			_notice = "Starting from the auto-picked 22. Tap a player's position to move him."
+			_notice = "Starting from the auto-picked 23. Tap a player's position to move him."
 		_build())
 	modes.add_child(mine_btn)
 	var help := "Auto-pick fields a sensible side by position and rating each week." if auto \
 			else "Your side plays every match. Injured players are replaced automatically."
 	hv.add_child(_para(help, 13, UiKit.MUTED))
+	# Dual ruck: your second ruck takes the fifth interchange spot.
+	if auto:
+		var dual := UiKit.choice_grid("DualRuck", [["off", "One ruck"], ["on", "Dual ruck"]],
+				"on" if GameState.dual_ruck() else "off", 2, func(k):
+					GameState.set_dual_ruck(k == "on")
+					_notice = "Dual ruck: your second ruck sits on the bench." if k == "on" else "One ruck: the bench covers forward, back and midfield, then the best of the rest."
+					_build())
+		hv.add_child(dual)
 	if _notice != "":
 		hv.add_child(_para(_notice, 13, UiKit.GOOD))
 	hv.add_child(_synergy_view())
@@ -140,7 +148,7 @@ func _formation(side: Dictionary, sel: Dictionary, auto: bool) -> Control:
 			if issue != "":
 				v.add_child(_para(issue, 12, UiKit.BAD))
 	_formation_group(v, "Defence", layout["defence"], "DEF", 3, auto, sel, 6)
-	_formation_group(v, "Interchange", layout["bench"], "BENCH", 2, auto, sel, 4)
+	_formation_group(v, "Interchange", layout["bench"], "BENCH", 2, auto, sel, Ratings.INTERCHANGE)
 	return panel
 
 
@@ -193,7 +201,7 @@ func _formation_group(v: VBoxContainer, title: String, ids: Array, placed_as: St
 
 func _formation_player(id: String, placed_as: String, auto: bool) -> Control:
 	var p := GameState.list_player(id)
-	var b := UiKit.btn("", 13)
+	var b := UiKit.btn("", UiKit.SECONDARY)
 	b.name = "FormationPlayer_" + id
 	b.custom_minimum_size = Vector2(0, 58)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -206,10 +214,10 @@ func _formation_player(id: String, placed_as: String, auto: bool) -> Control:
 	box.offset_top = 5
 	box.offset_bottom = -5
 	b.add_child(box)
-	var name := UiKit.ellipsis(GameDB.player_display_name(p), 13, UiKit.TEXT, true)
+	var name := UiKit.ellipsis(GameDB.player_display_name(p), UiKit.SECONDARY, UiKit.TEXT, true)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(name)
-	var spot := UiKit.line(_formation_label(placed_as), 11, UiKit.MUTED)
+	var spot := UiKit.line(_formation_label(placed_as), UiKit.FINE, UiKit.MUTED)
 	spot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(spot)
 	if Ratings.available(p):
@@ -311,7 +319,7 @@ func _show_synergies() -> void:
 		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		head.add_child(name_l)
 		if bool(active.get(key, false)):
-			head.add_child(UiKit.line("On", 13, UiKit.GOOD, true))
+			head.add_child(UiKit.line("On", UiKit.SECONDARY, UiKit.GOOD, true))
 		row.add_child(_para("%s %s" % [str(s.get("about", "")), str(s.get("does", ""))], 13, UiKit.TEXT))
 		var req := _para(Traits.requirement_text(str(key)), 13, UiKit.MUTED)
 		req.name = "Requires"
@@ -327,7 +335,7 @@ func _show_synergies() -> void:
 		var wl := _para("\n".join(who), 13, UiKit.TEXT)
 		wl.name = "Carriers"
 		row.add_child(wl)
-	var close := UiKit.btn("Close", 16, true)
+	var close := UiKit.btn("Close", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 48)
 	close.pressed.connect(_close_synergies)
 	box["footer"].add_child(close)
@@ -430,14 +438,14 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	var h := UiKit.hbox(6)
 	who_box.add_child(h)
 	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
-	var nm := UiKit.ellipsis(GameDB.player_display_name(p), 15, UiKit.TEXT, true)
+	var nm := UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(nm)
 	var weeks := int(p.get("injury_weeks", 0))
 	var suspended := int(p.get("suspension_weeks", 0))
 	var m := ClubLife.morale(p)
 	if m < 40:
-		h.add_child(UiKit.line("Unhappy", 11, UiKit.BAD))
+		h.add_child(UiKit.line("Unhappy", UiKit.FINE, UiKit.BAD))
 	if bool(p.get("rested", false)):
 		h.add_child(UiKit.line("Rested", 12, UiKit.MUTED))
 	if suspended > 0:
@@ -459,7 +467,7 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 		h.add_child(UiKit.line("Out of position", 12, UiKit.MUTED))
 	# His rating sits outside the tap area, beside the position button, so a
 	# long trait line never runs under either.
-	var ovr := UiKit.line("%d" % int(p["overall"]), 16, UiKit.TEXT, true)
+	var ovr := UiKit.line("%d" % int(p["overall"]), UiKit.NAME, UiKit.TEXT, true)
 	ovr.name = "Ovr"
 	ovr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	ovr.custom_minimum_size.x = 28
@@ -467,7 +475,7 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	top.add_child(ovr)
 	# Who he is, then his traits: one quiet line.
 	var about := UiKit.trait_chips(p)
-	var who := UiKit.line(Roles.label(p), 13, UiKit.TEXT)
+	var who := UiKit.line(Roles.label(p), UiKit.SECONDARY, UiKit.TEXT)
 	who.name = "RoleLabel"
 	about.add_child(who)
 	about.move_child(who, 0)
@@ -660,7 +668,7 @@ func _show_matchup(fwd: Dictionary, current: Dictionary) -> void:
 	v.add_child(UiKit.lbl("Who goes to %s?" % GameDB.player_display_name(fwd), UiKit.H1, UiKit.TEXT, true))
 	v.add_child(_para(Matchups.describe(fwd), 13, UiKit.MUTED))
 	for p in Matchups.defenders(GameState.my_squad().ground):
-		var b := UiKit.btn("", 15)
+		var b := UiKit.btn("", UiKit.BODY)
 		b.name = "Defender_" + str(p["id"])
 		b.custom_minimum_size = Vector2(0, 56)
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -672,7 +680,7 @@ func _show_matchup(fwd: Dictionary, current: Dictionary) -> void:
 			_close_matchup()
 			_build())
 		v.add_child(b)
-	var done := UiKit.btn("Close", 16)
+	var done := UiKit.btn("Close", UiKit.NAME)
 	done.custom_minimum_size = Vector2(0, 48)
 	done.pressed.connect(_close_matchup)
 	box["footer"].add_child(done)
@@ -729,7 +737,7 @@ func _show_plan() -> void:
 	v.add_child(note)
 	v.add_child(fit)
 	v.add_child(_para("Every match starts on this plan. Change it at any break.", 13, UiKit.MUTED))
-	var done := UiKit.btn("Done", 16, true)
+	var done := UiKit.btn("Done", UiKit.NAME, true)
 	done.name = "PlanDone"
 	done.custom_minimum_size = Vector2(0, 48)
 	done.pressed.connect(_close_plan)

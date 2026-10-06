@@ -7,10 +7,15 @@ extends RefCounted
 var failures: Array[String] = []
 var checks := 0
 
+## Every season and draft here is seeded (C15): a clock seed makes a different
+## league each run.
+const SUITE_SEED := 2027
+
 
 func run() -> void:
 	failures.clear()
 	checks = 0
+	GameState.replay_seed = SUITE_SEED
 	_test_mid_season_round_trip()
 	_test_training_survives()
 	_test_adjusted_players_survive()
@@ -20,7 +25,9 @@ func run() -> void:
 	_test_bad_file_is_ignored()
 	_test_old_club_code_migrates()
 	_test_safe_replacement()
+	_test_fictional_identity()
 	GameState.delete_saved_career()
+	GameState.replay_seed = 0
 	print("Save tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -100,6 +107,19 @@ func _test_training_survives() -> void:
 		if str(sp["id"]) == id:
 			in_season = sp
 	_check(is_same(in_season, q), "The trained player is one shared dict after loading")
+	# A look chosen in Club Forge is part of the player and comes back as set.
+	# "freckles" is from an older save (freckles are gone): it loads and is
+	# ignored.
+	var look := {"skin": 4, "hair": 0, "hair_style": "mullet", "beard": "full_beard", "headband": true,
+			"tattoos": [{"place": "calf_l", "design": "design_3"}], "freckles": 1}
+	GameState.list_player(id)["look"] = look.duplicate(true)
+	GameState.save_career()
+	GameState.load_career()
+	var full := GameDB.player_appearance(GameState.list_player(id))
+	_check(full["hair_style"] == "mullet" and full["beard"] == "full_beard" and bool(full["headband"])
+			and int(full["skin"]) == 4 and (full["tattoos"] as Array).size() == 1,
+			"A chosen look survives a reload")
+	_check(not full.has("freckles"), "An old save's freckles load cleanly and are dropped")
 
 
 ## The director's named-player corrections (Ratings.ATTR_ADJUSTMENTS) are in the
@@ -347,6 +367,15 @@ func _test_safe_replacement() -> void:
 	CareerSave.fail_at = ""
 	DirAccess.remove_absolute(path + CareerSave.TEMP_SUFFIX)
 	_check(not ok and str(CareerSave.read(path).get("which", "")) == "A", "A failed swap reports failure and keeps the previous save")
+	# The same failure with the new save left in the temp file, as a real one
+	# would: the newer save is still recovered, and the career still exists.
+	CareerSave.delete(path)
+	CareerSave.write(a, {}, path)
+	CareerSave.fail_at = "swap"
+	CareerSave.write(b, {}, path)
+	CareerSave.fail_at = ""
+	_check(CareerSave.exists(path) and str(CareerSave.read(path).get("which", "")) == "B",
+			"A failed swap leaves the newer save in the temp file, and it is the one read")
 	# The save itself is corrupt: the previous good one is read instead.
 	CareerSave.delete(path)
 	CareerSave.write(a, {}, path)
@@ -358,3 +387,49 @@ func _test_safe_replacement() -> void:
 	CareerSave.delete(path)
 	_check(not CareerSave.exists(path) and not FileAccess.file_exists(path + CareerSave.BACKUP_SUFFIX),
 			"Deleting a career removes its backup too")
+
+
+## FL-005: a generated player's nickname and interest are cosmetic, the same
+## every time from his id, none for real players, and a nickname you change or
+## remove stays that way through a save.
+func _test_fictional_identity() -> void:
+	var gen := []
+	for k in range(400):
+		gen.append({"id": "fl5_%d" % k, "first": "Sam",
+				"last": str(GameDB.FICTIONAL_LAST_NAMES[k % GameDB.FICTIONAL_LAST_NAMES.size()]), "generated": true})
+	var nicks := 0
+	var interests := 0
+	var stable := true
+	for p in gen:
+		var before := str(p)
+		var n := FictionalIdentity.nickname(p)
+		if n != "":
+			nicks += 1
+		if FictionalIdentity.interest(p) != "":
+			interests += 1
+		var moved: Dictionary = p.duplicate()
+		moved["club"] = "COL"
+		if FictionalIdentity.nickname(moved) != n or str(p) != before:
+			stable = false
+	_check(nicks > 60 and nicks < 160 and interests > 150 and interests < 290,
+			"Some generated players have a nickname or an interest, not all (%d and %d of 400)" % [nicks, interests])
+	_check(stable, "They come from his id alone: the same after a move, and reading them changes nothing")
+	var real: Dictionary = GameDB.club_list("GEE")[0]
+	_check(FictionalIdentity.nickname(real) == "" and FictionalIdentity.interest(real) == "",
+			"A real player is given no invented nickname or interest")
+	_new_season()
+	var mine: Dictionary = GameState.my_list[0]
+	var name_before := GameDB.player_display_name(mine)
+	_check(GameState.set_player_nickname(str(mine["id"]), "  Moz ") == "Moz"
+			and GameDB.player_display_name(mine) == name_before,
+			"A nickname can be set; the full name stays his name")
+	GameState.save_career()
+	GameState.load_career()
+	mine = GameState.list_player(str(mine["id"]))
+	_check(FictionalIdentity.nickname(mine) == "Moz", "The nickname survives a save")
+	GameState.set_player_nickname(str(mine["id"]), "")
+	GameState.save_career()
+	GameState.load_career()
+	_check(FictionalIdentity.nickname(GameState.list_player(str(mine["id"]))) == "",
+			"Removing it costs nothing and it stays removed")
+
