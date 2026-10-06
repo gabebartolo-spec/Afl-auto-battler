@@ -30,6 +30,7 @@ func run() -> void:
 	_test_hothead()
 	_test_lockdown_midfielder()
 	_test_traits()
+	_test_weather()
 	_test_metres_and_efficiency()
 	_test_gps_distance()
 	_test_ruck_integrity()
@@ -880,6 +881,30 @@ func _test_lockdown_midfielder() -> void:
 			"A Lockdown midfielder does not mind their forwards")
 
 
+## Match-day weather (ARD-M4-016).
+func _test_weather() -> void:
+	_check(Weather.condition("MCG", 4, 12345) == Weather.condition("MCG", 4, 12345),
+			"The same match always has the same weather: the forecast is what's played")
+	var dry := true
+	for k in range(200):
+		if Weather.condition("Marvel Stadium", 4, k) != "perfect":
+			dry = false
+	_check(dry, "Under the roof it's always a perfect day")
+	var a := _sim(91)
+	var b := _sim(91)
+	b.weather = "perfect"
+	_check(a.run()["events"] == b.run()["events"], "A perfect day is the game exactly as calibrated")
+	var marks := [0.0, 0.0]
+	for i in range(6):
+		for c in range(2):
+			var s := _sim(300 + i)
+			s.weather = ["perfect", "wet"][c]
+			var res := s.run()
+			for side in range(2):
+				marks[c] += float((res["team"][side] as Dictionary).get("marks", 0.0))
+	_check(marks[1] < marks[0] * 0.95, "Fewer marks stick in the wet (%.0f against %.0f)" % [marks[1], marks[0]])
+
+
 func _fake(id: String, role: String, attr: Dictionary) -> Dictionary:
 	var base := {"disposal": 50, "contested": 50, "marking": 50, "pressure": 45, "intercept": 45,
 			"carry": 50, "goalkicking": 40, "accuracy": 55, "creating": 45, "ruck": 10,
@@ -896,9 +921,19 @@ func _test_traits() -> void:
 	var mt := Traits.of(many)
 	var good := 0
 	for k in mt:
-		if not Traits.is_bad(k):
+		if not Traits.is_bad(k) and not ["unicorn", "wet_weather"].has(k):
 			good += 1
 	_check(good == Traits.MAX_GOOD and mt.has("hothead"), "At most two good traits, plus Hothead for poor discipline")
+	# The wet-weather player (M4-016) sits on top of the two, never in place of one.
+	_check(mt.has("wet_weather"), "A contested ball-winner with clean hands is a wet-weather player")
+	_check(not Traits.of(_fake("t4", "MID", {"contested": 90, "disposal": 70})).has("wet_weather"),
+			"Without clean hands he is not")
+	var named := _fake("GWS_6", "DEF", {"contested": 36, "disposal": 74})
+	named["real_name"] = "Lachie Whitfield"
+	_check(Traits.of(named).has("wet_weather"), "A player the evidence names has it by name")
+	var namesake := _fake("FORGE_1", "DEF", {"contested": 36, "disposal": 74})
+	namesake["real_name"] = "Lachie Whitfield"
+	_check(not Traits.of(namesake).has("wet_weather"), "A created player with the same name does not")
 	var close := _fake("t3", "FWD", {"accuracy": 68})
 	var near: Array = Traits.near(close)
 	_check(not near.is_empty() and str(near[0]["key"]) == "sharpshooter" and int(near[0]["gap"]) == 3,

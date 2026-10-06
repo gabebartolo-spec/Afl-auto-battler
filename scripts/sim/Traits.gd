@@ -87,6 +87,33 @@ const EARNED := {
 }
 const UNICORN_LINES := ["FWD", "MID", "DEF"]
 
+## The wet-weather player (ARD-M4-016, the director's call): a contested
+## ball-winner with clean hands. Earned from the stats like any trait, but on
+## top of the two, so it never pushes another trait or a synergy out; it does
+## something only when it's wet.
+const WET_WEATHER := {"label": "Wet-weather player", "contested": 78, "disposal": 72,
+		"text": "In the wet: wins 10% more of the ball and makes 20% fewer clangers.",
+		"scout": "Thrives when it's greasy."}
+const WET_BALL := 1.10
+const WET_CLANGERS := 0.80
+
+
+## Real players the published evidence names as better in the wet
+## (docs/research/WET_WEATHER_PLAYERS.md, #444). They have it by name; everyone
+## else earns it by the stat rule (the director: "Evidence + stats",
+## 2026-10-06). Their wet record isn't in their ratings.
+## Keyed by the real list's id and name together, so a created player who
+## happens to share a name never inherits it.
+const WET_NAMED := {"GWS_6": "Lachie Whitfield", "GEE_35": "Patrick Dangerfield"}
+
+
+static func wet_weather(p: Dictionary) -> bool:
+	if str(WET_NAMED.get(str(p.get("id", "")), "-")) == str(p.get("real_name", "")):
+		return true
+	var attr: Dictionary = p.get("attr", {})
+	return int(attr.get("contested", 0)) >= int(WET_WEATHER["contested"]) 			and int(attr.get("disposal", 0)) >= int(WET_WEATHER["disposal"])
+
+
 ## A synergy's match effect, as MatchSim applies it ("power" in SYNERGIES):
 ## an added stoppage-win share for the Engine room, a multiplier for the rest.
 static func power(key: String) -> float:
@@ -98,6 +125,8 @@ const LINE_NAMES := {"RUCK": "ruck", "MID": "midfield", "DEF": "defence", "FWD":
 
 
 static func _def(key: String) -> Dictionary:
+	if key == "wet_weather":
+		return WET_WEATHER
 	return DEFS.get(key, EARNED.get(key, SYNERGIES.get(key, {})))
 
 
@@ -111,7 +140,7 @@ static func text(key: String) -> String:
 
 ## The trait in a recruiter's words, for scouting a player (no numbers).
 static func scout(key: String) -> String:
-	return str((DEFS.get(key, EARNED.get(key, {})) as Dictionary).get("scout", text(key)))
+	return str(_def(key).get("scout", text(key)))
 
 
 ## His own position, second position and any learned (as Ratings.positions;
@@ -185,6 +214,8 @@ static func of(p: Dictionary) -> Array:
 		out.append("unicorn")
 	for g in good.slice(0, MAX_GOOD):
 		out.append(g[0])
+	if wet_weather(p):
+		out.append("wet_weather")
 	out.append_array(bad)
 	return out
 

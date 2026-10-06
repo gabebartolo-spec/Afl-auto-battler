@@ -177,6 +177,50 @@ var synergies := [[], []]    # side -> active synergy keys (the starting 18)
 ## the home-ground edge at full form). 0 (the default, and every calibration
 ## match) changes nothing, and it draws nothing from the RNG.
 var form := [0.0, 0.0]
+## The day's weather (Weather.CONDITIONS, ARD-M4-016): the rates the match is
+## played at. "perfect" is the calibrated game, unchanged. The multipliers are
+## fitted to docs/research/WEATHER_EVIDENCE.md (wet: marks -13%, tackles +12%,
+## turnovers +11%, contested ball +7%, accuracy a point or two down; windy:
+## fewer marks, more turnovers, accuracy down; hot: freer early, heavier legs).
+var weather := "perfect":
+	set(v):
+		weather = v if WEATHER_RATES.has(v) or v == "perfect" else "perfect"
+		_rates_cache = {}
+const WEATHER_RATES := {
+	"wet": {"mark_share_of_kicks": 0.90, "pressure_base": 1.18, "clanger_per_chain": 1.15,
+			"stoppage_share": 1.05, "inside50_goal": 0.98, "inside50_behind": 1.07,
+			"one_percenter_share": 1.4, "metres_gain_mean": 1.12},
+	"windy": {"mark_share_of_kicks": 0.92, "clanger_per_chain": 1.06,
+			"metres_gain_mean": 1.03},
+	"hot": {"pressure_base": 0.97, "stoppage_share": 0.95, "metres_gain_mean": 1.03},
+}
+## A windy day has a breeze end (the "five-goal breeze"): shots kicked with
+## it are a little easier, against it much harder, about 5% fewer goals overall
+## (OUW: about -5 points a game at 20 km/h and over). The sides change ends each
+## quarter, so it helps one side in the first and third, the other in the
+## second and fourth; which one starts with it comes from the match seed.
+const BREEZE_WITH := 1.04
+const BREEZE_AGAINST := 0.89
+var breeze_side := 0
+
+
+## Whether `side` kicks with the breeze this quarter (windy days only).
+func with_breeze(side: int) -> bool:
+	return (side == breeze_side) == (current_quarter % 2 == 1)
+
+
+## Hot days: legs go faster (the Heat Policy's longer breaks don't undo it).
+const HOT_DRAIN := 1.12
+var _rates_cache := {}
+
+
+func _rates() -> Dictionary:
+	if _rates_cache.is_empty():
+		_rates_cache = Ratings.T.duplicate()
+		var mult: Dictionary = WEATHER_RATES.get(weather, {})
+		for k in mult:
+			_rates_cache[k] = float(_rates_cache[k]) * float(mult[k])
+	return _rates_cache
 ## Momentum: who has the run of play, -1 (away on top) .. 1 (home on top).
 ## A goal swings it to the scorers, a behind a little; the swing shrinks as
 ## it nears the cap and a goal the other way pulls it back harder, so it can
@@ -216,6 +260,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	_speccy_quota = speccy_quota(seed)
 	boundary_rng.seed = seed * 17 + 19
 	injury_rng.seed = seed * 13 + 7
+	breeze_side = posmod(hash("breeze|%d" % seed), 2)
 	for side in range(2):
 		synergies[side] = Traits.active((squads[side] as Squad).ground)
 		standing[side] = PlanFit.standing_plan((squads[side] as Squad).ground)
@@ -622,6 +667,19 @@ const PLANS := {
 }
 
 
+## How much of a plan's upside the day allows (ARD-M4-016, the director:
+## "contested footy is better in the wet as it's less precise; in dry weather
+## ball handling is easier and it's easier to mark the ball"). A perfect day is
+## the calibrated game, so the dry plans' edge there is what the wet takes
+## away. The rule is shown to the player in words, never as a recommendation.
+const WEATHER_PLAN := {
+	"wet": {"contest": 1.35, "defensive": 1.2, "press": 1.2, "attacking": 0.6, "fast": 0.6,
+			"controlled": 0.85},
+	"windy": {"controlled": 1.25, "attacking": 0.85, "fast": 0.85},
+	"hot": {"attacking": 1.2, "fast": 1.2, "defensive": 0.8, "press": 0.8},
+}
+
+
 ## A plan's value for this side. Its upside grows with how well the players
 ## suit it (PlanFit) and how sharply the coaches execute it
 ## (Squad.tactics_exec, 1.0 = as written); what it gives up is the plan's
@@ -632,7 +690,8 @@ func _pv(side: int, key: String, fallback := 1.0) -> float:
 	var scale := 1.0
 	if (PLAN_UPSIDE.get(plan, []) as Array).has(key):
 		scale = float((squads[side] as Squad).tactics_exec) \
-				* float((plan_fit[side] as Dictionary).get(plan, 1.0))
+				* float((plan_fit[side] as Dictionary).get(plan, 1.0)) \
+				* float((WEATHER_PLAN.get(weather, {}) as Dictionary).get(plan, 1.0))
 	return fallback + (v - fallback) * scale
 
 
@@ -994,6 +1053,8 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String, ctx: Diction
 		out *= 1.14
 	if carrying and _trait(p, "ball_magnet"):
 		out *= 1.10
+	if carrying and weather == "wet" and _trait(p, "wet_weather"):
+		out *= Traits.WET_BALL
 	if purpose == "clearance" and _trait(p, "bull"):
 		out *= 1.15
 	# A Crumber lives at the feet of the pack: he is there when it spills.
@@ -1049,7 +1110,7 @@ func _pick(group: Array, weights: Array):
 ## bounce deep in your forward half slightly favours the home structure), and
 ## the result is clamped so no list is ever guaranteed the ball.
 func contest_winner(use_fp: bool, fp: float) -> int:
-	var T := Ratings.T
+	var T := _rates()
 	var lim := float(T["contest_clamp"])
 	# Midfield legs scale the contest strength; the Legs line gets the credit.
 	var drag0 := _tag_drag(0)
@@ -1178,6 +1239,8 @@ func _clanger_weights(side: int) -> Array:
 		w_base += w
 		if _trait(p, "hothead"):
 			w *= HOTHEAD_ERRORS
+		if weather == "wet" and _trait(p, "wet_weather"):
+			w *= Traits.WET_CLANGERS
 		w_all += w
 		weights.append(w)
 	return [weights, w_all / w_base if w_base > 0.0 else 1.0]
@@ -1592,7 +1655,7 @@ func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bo
 
 
 func pick_carrier(side: int, fp: float):
-	var T := Ratings.T
+	var T := _rates()
 	var sq: Squad = squads[side]
 	var atk_fp := fp if side == 0 else -fp
 	var zone: String
@@ -1769,7 +1832,7 @@ var _tap := {}
 
 
 func _ruck_tap() -> void:
-	var T := Ratings.T
+	var T := _rates()
 	var ruck := [_contestant(squads[0]), _contestant(squads[1])]
 	var king := 0.0
 	if not (ruck[0] as Array).is_empty() and _trait(ruck[0][0], "ruck_king"):
@@ -1798,7 +1861,7 @@ func _ruck_tap() -> void:
 func _stoppage(side: int, opp: int, from_bounce: bool, in_f50 := false):
 	if not from_bounce:
 		return null
-	var T := Ratings.T
+	var T := _rates()
 	var atk: Squad = squads[side]
 	var dfn: Squad = squads[opp]
 	var ruck_a := _contestant(atk)
@@ -1902,7 +1965,7 @@ func _boundary_exit(side: int, cross_fp: float, carrier, disposal_kind: String,
 # One possession chain
 # ---------------------------------------------------------------------------
 func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) -> Dictionary:
-	var T := Ratings.T
+	var T := _rates()
 	var opp := 1 - side
 	var atk: Squad = squads[side]
 	var dfn: Squad = squads[opp]
@@ -2182,7 +2245,7 @@ func kick_in_fp(side: int) -> float:
 ## Forward-50 entry resolution: contest the mark, then roll for goal / behind /
 ## rebound. This is where almost all of the scoring variance lives.
 func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
-	var T := Ratings.T
+	var T := _rates()
 	var opp := 1 - side
 	var atk: Squad = squads[side]
 	var dfn: Squad = squads[opp]
@@ -2414,7 +2477,7 @@ func _crumb(side: int, fp: float) -> Dictionary:
 	if crumber == null or rng.randf() >= CRUMB_P * (0.7 + 0.6 * _a(crumber, "pressure") / 100.0):
 		return {}
 	var snap := shot_chance(side, crumber, false, false) * CRUMB_SNAP
-	var behind_p: float = float(Ratings.T["inside50_behind"]) * (0.80 + 0.40 * _a(crumber, "goalkicking") / 100.0)
+	var behind_p: float = float(_rates()["inside50_behind"]) * (0.80 + 0.40 * _a(crumber, "goalkicking") / 100.0)
 	var r := rng.randf()
 	if r < snap:
 		_t(side, "goals")
@@ -2587,11 +2650,17 @@ const FEED_SLOPE := 0.12
 ## call multipliers are also logged as expected points in `impact`.
 func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, credit := false,
 		feeder = null, defender = null) -> float:
-	var T := Ratings.T
+	var T := _rates()
 	var opp := 1 - side
 	var atk: Squad = squads[side]
 	var dfn: Squad = squads[opp]
 	var goal_p := float(T["inside50_goal"])
+	if weather == "windy":
+		if current_quarter > 4:
+			# Extra time is two short halves, an end each: the breeze evens out.
+			goal_p *= (BREEZE_WITH + BREEZE_AGAINST) * 0.5
+		else:
+			goal_p *= BREEZE_WITH if with_breeze(side) else BREEZE_AGAINST
 	goal_p *= 0.80 + 0.40 * _a(shooter, "goalkicking") / 100.0
 	goal_p *= 1.16 if marked else 0.74
 	goal_p *= 0.82 + 0.36 * _a(shooter, "accuracy") / 100.0
@@ -2715,7 +2784,7 @@ func quarter_in_progress() -> bool:
 
 
 func begin_quarter() -> void:
-	var T := Ratings.T
+	var T := _rates()
 	# A tired-star call lasts to the break.
 	_held.clear()
 	if current_quarter > 1:
@@ -2748,7 +2817,7 @@ func begin_quarter() -> void:
 ## Play on until the quarter's chains are done (true) or a moment needs the
 ## coach (false: see pending_moment, then resolve_moment()).
 func continue_quarter() -> bool:
-	var T := Ratings.T
+	var T := _rates()
 	while _q_i < _q_count:
 		if not pending_moment.is_empty():
 			return false
@@ -2812,7 +2881,7 @@ func run_extra_time() -> Dictionary:
 	current_quarter = 5
 	q_goals.append([0, 0])
 	q_behinds.append([0, 0])
-	var T := Ratings.T
+	var T := _rates()
 	var per_half: int = maxi(4, roundi(float(T["chains_per_game"]) / 4.0 * 0.15))
 	at_centre = true
 	kick_in = false
@@ -2852,7 +2921,7 @@ func _emit_full_time(prefix: String) -> void:
 ## from `minute_base`. Shared by the four quarters and extra time; the RNG
 ## call order is exactly the original quarter loop's.
 func _play_chains(count: int, minute_base: int, span: int) -> void:
-	var T := Ratings.T
+	var T := _rates()
 	for i in range(count):
 		current_minute = minute_base + int(span * i / maxi(1, count)) + 1
 		_play_one_chain(T)
@@ -3051,6 +3120,7 @@ func result() -> Dictionary:
 		"home": squads[0].code,
 		"away": squads[1].code,
 		"tactics_history": tactics_history.duplicate(true),
+		"weather": weather,
 		"timeline": timeline.duplicate(true),
 		"quarter_teams": quarter_teams.duplicate(true),
 		"extra_time": extra_time_played,
@@ -3166,6 +3236,8 @@ func _after_chain() -> void:
 		if _burst(side, "surge"):
 			movement_pace *= 1.3
 		var fatigue_pace := movement_pace
+		if weather == "hot":
+			fatigue_pace *= HOT_DRAIN
 		if synergies[side].has("running_machine"):
 			fatigue_pace *= Traits.power("running_machine")
 		var tagger_id := ""
