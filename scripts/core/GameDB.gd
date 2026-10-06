@@ -293,6 +293,11 @@ func player_by_id(id: String):
 ## Generated future classes register here so pick logs and box scores can still
 ## resolve their names by stable id after a season rollover.
 func register_draftees(list: Array) -> void:
+	# A class made again (a new seed) replaces its first version, by id.
+	var ids := {}
+	for p in list:
+		ids[str(p.get("id", ""))] = true
+	late_draftees = late_draftees.filter(func(q): return not ids.has(str(q.get("id", ""))))
 	for p in list:
 		late_draftees.append(p)
 
@@ -493,6 +498,13 @@ func player_looks(p: Dictionary) -> Dictionary:
 func player_appearance(p: Dictionary) -> Dictionary:
 	return Appearance.full(player_looks(p), str(p.get("id", "")), bool(p.get("generated", false)),
 			p.get("look", {}) if p.get("look") is Dictionary else {})
+
+
+## What a figure needs to draw him: his colours (player_looks) and his hair style.
+func figure_look(p: Dictionary) -> Dictionary:
+	var out := player_looks(p).duplicate()
+	out["hair_style"] = str(player_appearance(p)["hair_style"])
+	return out
 
 
 static func _look_key(p: Dictionary) -> String:

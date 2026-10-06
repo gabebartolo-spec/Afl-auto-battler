@@ -24,11 +24,18 @@ shader_type canvas_item;
 // A kit is a guernsey: base colour (guernsey and socks), pattern colour (its design
 // and the sock band), a second pattern colour, the design (GameDB.GUERNSEY_DESIGNS)
 // and shorts. See VignetteFigures.gd for the sheet layout.
+//
+// Hair overlays (VignetteFigures.HAIR_TEXTURES): the figures are bald, and each one's
+// hair is drawn straight after it from its style's atlas (R lighting, A coverage),
+// recognised by size like the sheet (hair_sizes). Its draw colour: g = skin tone / 8,
+// b = hair index / 8, r = 1 to tint it the skin colour (a bare scalp), else the hair.
 
 uniform sampler2D mask_tex : filter_linear;
 uniform sampler2D design_tex : filter_linear;
 uniform sampler2D digits_tex : filter_linear, repeat_disable;   // 0-9: R fill, G outline
 uniform ivec2 sheet_size = ivec2(2048, 2304);
+uniform ivec2 hair_sizes[8];
+uniform int hair_count = 0;
 uniform vec4 kit_base[4];
 uniform vec4 kit_pattern[4];
 uniform vec4 kit_pattern2[4];
@@ -142,8 +149,24 @@ vec4 number_on_back(int n, vec3 g, vec3 base, bool mirrored) {
 	return vec4(mix(base, ink, d.r), d.g * (1.0 - smoothstep(0.35, 0.6, g.z)));
 }
 
+bool is_hair(ivec2 size) {
+	for (int i = 0; i < 8; i++) {
+		if (i < hair_count && size == hair_sizes[i]) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void fragment() {
-	if (textureSize(TEXTURE, 0) == sheet_size) {
+	ivec2 tex_size = textureSize(TEXTURE, 0);
+	if (tex_size != sheet_size && is_hair(tex_size)) {
+		vec4 s = texture(TEXTURE, UV);     // lighting, -, -, coverage
+		int tone = clamp(int(round(looks.g * 8.0)), 0, 7);
+		int hair = clamp(int(round(looks.b * 8.0)), 0, 7);
+		vec3 col = looks.r > 0.5 ? skin_tones[tone].rgb : hair_tones[hair].rgb;
+		COLOR = vec4(col * s.r * gain, s.a * looks.a);
+	} else if (tex_size == sheet_size) {
 		vec4 s = texture(TEXTURE, UV);     // lighting, hair, shorts, coverage
 		vec4 m = texture(mask_tex, UV);    // base colour, sock band, skin, guernsey alone
 		vec3 g = texture(design_tex, UV).rgb;
