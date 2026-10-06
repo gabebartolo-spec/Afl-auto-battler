@@ -204,7 +204,7 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 - Board, league and balance: ARD-M6-003 (fair expectations), M7-004 (captaincy), M7-006 (weather), M7-007 (ground dimensions), and from §9.1 overall difficulty with active-play levers, synergies as specialisations, and the GOAT prospect.
 - Content builds: ARD-M7-008 (custom prospect), M7-009 (expansion and Club Forge), M7-010 (Sir Doug Nicholls Round), M7-011 (AFL knowledge layer), M8-003 (match visualisation), M8-006 (release polish), M8-007 (vignette art-style replacement), the §1.11 Season story and long-save visual wishlist, and AFLW (deferred).
 
-**Waiting on the director** — nobody's to pick up: the phone checks on ARD-M5-014, M5-015, M6-006, M6-008, the awards ceremony, training touch and the playtest fixes marked `VERIFY` in §9.1; the Android launcher icon (M8-008, the app name is already set in the export preset); whether to keep the trade-value discount for unproven potential (§9.1); whether the Key defender plan should be offered to defenders under 191 cm; whether the temporary Sim to finals button (ARD-M1-007) is still wanted; and the trailer (ARD-M8-010), which is hard-gated and only starts on the director's explicit go-ahead.
+**Waiting on the director** — nobody's to pick up: the phone checks on ARD-M5-014, M5-015, M6-006, M6-008, the awards ceremony, training touch and the playtest fixes marked `VERIFY` in §9.1; whether to keep the trade-value discount for unproven potential (§9.1); whether the Key defender plan should be offered to defenders under 191 cm; whether the temporary Sim to finals button (ARD-M1-007) is still wanted; and the trailer (ARD-M8-010), which is hard-gated and only starts on the director's explicit go-ahead.
 
 ## 0.4.1 Current execution queue — overrides milestone order
 
@@ -4878,20 +4878,28 @@ The feature earns further work only if a phone playtest shows that the player ca
 ---
 
 
-## ARD-M8-008 — Android app identity: name and launcher icon
-**Status:** `VERIFY` — implementation merged in PR #173; verify the installed Android name/icon on the next phone build.  
-**Priority:** `P1`  
-**Autonomy:** `SAFE`
+## ARD-M8-008 — Cross-platform app identity and icon redesign
+**Status:** `PARTIAL` — Android identity foundation merged in PR #173; installed name/icon still needs verification. **New all-platform icon redesign: TODO (director request, 2026-10-06).**  
+**Priority:** `P1` — follows urgent P0 usability repairs.  
+**Autonomy:** `SUPERVISED` — art agent leads; director approves the final icon.
 
 ### Goal
-Replace the leftover prototype identity shown by Android. The installed app must use the current game name, **Aussie Rules Dynasties**, rather than **AFL Auto-Battler**, and the launcher/app-info icon must be purpose-built for the Aussie Rules Dynasties identity rather than the current generic football-field placeholder.
+Every supported platform's packaged application/executable and launcher icon must use a coherent **Aussie Rules Dynasties** identity. Replace the existing placeholder/icon treatment with a purpose-built icon in the director's supplied logo style.
 
-### Acceptance
-- Android launcher and App info show **Aussie Rules Dynasties**.
-- Android launcher/adaptive icon is visually tied to the game's title/identity and remains legible at phone icon size.
-- Remove visible legacy **AFL Auto-Battler** branding from Android export metadata where it is user-facing.
-- Do not redesign the in-game title/logo as part of this task unless required to share the same approved identity assets.
+### Director's visual reference — 2026-10-06
+Reference image: `codex-clipboard-cafc14a1-721a-458a-bc79-c0000e778e1f.png`. Match its recognisable visual language: bold condensed cream/off-white block lettering, energetic red brush-script accent, and very dark background. Adapt that identity for an icon rather than squeezing the wide title artwork into a square.
 
+- Prefer the full title only where it is genuinely readable. **“ARD” is explicitly authorised as the compact icon lettering if the full name will not fit/read well.** Abbreviation affects the icon artwork, not the installed app's full name.
+- Make icon-scale variants from one coherent master treatment. Simplify texture/detail as needed so the letters remain recognisable at small launcher/taskbar sizes and within platform masks/crops.
+- Cover all supported exports: Windows EXE/file/shortcut/taskbar icon, macOS app/Dock icon, Linux launcher icon, Android launcher/adaptive icon, iOS app icon and web favicon/install icon where those builds are supported. Update actual export/package metadata and platform assets, not just the in-game title image or project editor preview.
+- Reuse the established logo/style and usable fonts/assets; do not redesign the full in-game title or introduce a competing branding system. Preserve the existing save location/project identity when updating visible branding.
+
+### Acceptance and validation
+- Installed app name remains **Aussie Rules Dynasties**; remove remaining visible legacy **AFL Auto-Battler** branding where applicable.
+- The redesigned icon is visibly related to the supplied reference, readable at native small sizes, and consistently used by packaged builds across supported platforms.
+- Inspect the built Windows EXE plus shortcut/taskbar and available installed platform builds, not only source assets. Check small/large sizes, dark/light launcher surfaces and adaptive rounded/circular crops; handle OS icon caching during verification.
+- Provide icon-scale previews of full-title versus ARD candidates to the director. Art-agent direction and final director approval are required before marking the redesign DONE.
+- Keep the existing Android name/launcher verification open until an installed phone build confirms it.
 
 ---
 
@@ -5230,7 +5238,7 @@ Before adding any new roadmap line, check this table.
 | Sim confirmation / skip rounds / don't ask again | ARD-M1-007 Simulation controls |
 | Settings / options menu | ARD-M6-005 Options |
 | Club colours / green UI / game visual style | ARD-M8-001/002 |
-| Android app name / launcher icon / installed app identity | ARD-M8-008 |
+| Cross-platform app/executable/launcher icons and installed app identity | ARD-M8-008 |
 | End swaps / wrong-way movement / shot freeze | ARD-M1-004/005 + ARD-M8-003 |
 | OOB / last disposal / throw-in / OOF / 50m / frees | M3 AFL Rules & Match Authenticity |
 | Wind / rain | ARD-M7-006 Weather |
