@@ -563,6 +563,12 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+### Neutral styling for tactical observations in the match feed — PC playtest (2026-10-07)
+
+- The pictured “Q2 2' Jake Waterman is getting on top of Nic Newman in the air” line is hard to pick out from ordinary commentary. Give tactical/matchup observations a distinct **neutral informational colour**, such as a readable blue, so they are easy to scan. Blue is a suggested direction, not a mandatory exact colour. Use a consistent small label/icon or accent as well as colour, with sufficient contrast against the dark background.
+- Keep these observations visually distinct from the already requested positive own-goal feedback, negative opposition-goal feedback and neutral behinds. Informational styling identifies the type of event; it should not imply a coaching recommendation or automatically celebrate/warn based on which player is named. Preserve time, names and concise football wording, and avoid adding another paragraph or intrusive notification. Validate readability in the exported PC feed and maintain compact mobile presentation. Roadmap only; Claude to implement.
+
+
 ### Streamline the live key-matchup block — PC playtest UI request (2026-10-07)
 
 - The director rejects the pictured text-heavy block: repeated “X is on Y. Y marked N of M in the first” sentences, confusing “Yours” lines for opposition defenders, oversized Change controls and a permanent paragraph explaining assistant defaults. Simplify or remove this prose rather than adding more explanatory paragraphs.
