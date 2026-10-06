@@ -16,7 +16,7 @@ const SIT_END := 1.45
 ## appearance (roadmap "coach appearance").
 const COACH_SUIT := Color(0.16, 0.17, 0.2)
 const COACH_SHIRT := Color(0.93, 0.93, 0.95)
-const COACH_LOOK := {"skin": 1, "hair": 2}
+const COACH_LOOK := {"skin": 1, "hair": 2, "hair_style": "short_crop"}
 const BODY := "coach"
 var club := ""
 var heading := "Post-match press conference"
@@ -116,9 +116,10 @@ func _coach(feet: Vector2, pm: float, anim: String, facing: String, frame: int) 
 	frame = StoppageVignette.figure_frame(info, frame, anim, facing)
 	var k := pm / VignetteFigures.PX_PER_M
 	var origin := feet - Vector2(info["pivot"][0], info["pivot"][1]) * k
+	var look := Color(0.0, int(COACH_LOOK["skin"]) / 8.0, int(COACH_LOOK["hair"]) / 8.0, 1.0)
 	draw_texture_rect_region(StoppageVignette.FIGURE_SHADE, Rect2(origin, VignetteFigures.frame_size(info) * k),
-			VignetteFigures.source(info, frame),
-			Color(0.0, int(COACH_LOOK["skin"]) / 8.0, int(COACH_LOOK["hair"]) / 8.0, 1.0))
+			VignetteFigures.source(info, frame), look)
+	StoppageVignette.draw_hair(self, origin, info, frame, k, look, str(COACH_LOOK["hair_style"]))
 
 ## The media wall: a step-and-repeat of plain club-colour tiles (no invented logos),
 ## lit from the front, and the room's dark edges.

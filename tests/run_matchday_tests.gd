@@ -500,7 +500,7 @@ func _bounce_close_up() -> void:
 	for t in vig.tokens:
 		for p in sim.squads[int(t["side"])].ground:
 			if str(p["id"]) == str(t["id"]):
-				looks_ok = looks_ok and t["look"] == db.player_looks(p)
+				looks_ok = looks_ok and t["look"] == db.figure_look(p)
 	_check(looks_ok, "Each player in the scene wears his own look")
 	# The resting-ruck case: a midfielder stands in the ruck spot while the ruckman rests
 	# up forward. MatchSim sends the ruckman up, so the scene must show him taking the tap.

@@ -63,7 +63,7 @@ static func _pick(roll: float, weights: Array) -> int:
 # ---------------------------------------------------------------------------
 const HAIR_STYLES := ["bald", "buzz", "short_crop", "crew", "side_part", "textured_short",
 		"messy_medium", "swept_back", "mullet", "mullet_long", "curly_short", "curly_medium",
-		"afro", "long", "tied_back"]
+		"afro", "long", "tied_back", "dreadlocks"]
 const BEARDS := ["clean", "stubble_light", "stubble_heavy", "moustache", "short_beard",
 		"full_beard", "goatee", "beard_moustache"]
 const BOOTS := ["classic", "modern"]
