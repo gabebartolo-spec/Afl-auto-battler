@@ -100,7 +100,7 @@ static func plan_effect(key: String) -> String:
 
 
 static func plan_summary(key: String) -> String:
-	return str(PLAN_SUMMARY.get(key, PLAN_SUMMARY["balanced"]))
+	return str(PLAN_SUMMARY.get(MatchSim.plan_key(key), PLAN_SUMMARY["balanced"]))
 
 
 static func pep_summary(key: String) -> String:
