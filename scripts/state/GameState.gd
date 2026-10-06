@@ -536,7 +536,7 @@ func load_career() -> bool:
 	last_injuries = state.get("last_injuries", [])
 	last_mro = state.get("last_mro", [])
 	season_tally = state.get("season_tally", {})
-	club_plan = str(state.get("club_plan", "balanced"))
+	club_plan = MatchSim.plan_key(str(state.get("club_plan", "balanced")))
 	if not CLUB_PLANS.has(club_plan):
 		club_plan = "balanced"
 	form_log = state.get("form_log", {})
@@ -602,6 +602,16 @@ func load_career() -> bool:
 	# A save from before the coaching world: seed it for this career now.
 	if season != null and coaches.is_empty():
 		coaches = Coaches.seed(my_club)
+	# A save whose created club started with every job vacant (before the
+	# director's 2026-10-07 playtest fix): staff it now. Only a club with
+	# nobody at all is touched, and not yours while you have jobs to fill.
+	if season != null:
+		var bare := []
+		for club in GameDB.active_clubs(season_year):
+			if club == my_club and not staff_vacancies.is_empty():
+				continue
+			bare.append(club)
+		CoachMarket.staff_new_clubs(coaches, bare, my_club, season_year - 1, career_seed)
 	return true
 
 
@@ -1501,6 +1511,9 @@ func start_season(club_code: String, list: Array) -> void:
 	# The coaching world from its Round 1 2026 source, carried into this
 	# career's first season with you in your club's top job.
 	coaches = Coaches.seed(my_club)
+	# A created club has no 2026 staff to seed: it hires now, as an expansion
+	# club does before its first season.
+	CoachMarket.staff_new_clubs(coaches, GameDB.active_clubs(season_year), my_club, season_year - 1, career_seed)
 	_ensure_department_budget()
 	if department_budget_year <= 0:
 		department_budget_year = season_year
@@ -1559,6 +1572,7 @@ func prepare_interactive_match() -> bool:
 	CoachEffects.apply(home)
 	CoachEffects.apply(away)
 	pending_sim = MatchSim.new(home, away, season.next_seed(99))
+	pending_sim.weather = season.weather_for(str(pending_match["home"]), str(pending_match["away"]), season.round_index)
 	pending_sim.moment_side = 0 if str(pending_match["home"]) == my_club else 1
 	pending_sim.always_offer_bounce = bounce_scene_every_match()
 	pending_sim.set_tactics(pending_sim.moment_side, {"gameplan": club_plan})
@@ -1618,6 +1632,8 @@ func _prepare_interactive_final() -> bool:
 	CoachEffects.apply(away)
 	pending_sim = MatchSim.new(home, away, season.finals_seed(mine))
 	pending_sim.finals_mode = true
+	pending_sim.weather = season.weather_for(str(fm["home"]), str(fm["away"]),
+			Season.REGULAR_ROUNDS + int(season.finals["week"]), fm)
 	pending_sim.moment_side = 0 if str(fm["home"]) == my_club else 1
 	pending_sim.always_offer_bounce = bounce_scene_every_match()
 	pending_sim.set_tactics(pending_sim.moment_side, {"gameplan": club_plan})
@@ -2429,16 +2445,16 @@ func my_record() -> String:
 	return "%d-%d-%d" % [int(r["w"]), int(r["l"]), int(r["d"])]
 
 
-## Your next opponent and venue, for the fixture card.
+## Your next opponent, venue and forecast (ARD-M4-016), for the fixture card.
 func my_next_opponent() -> Dictionary:
 	if season == null or season.is_regular_done():
 		return {}
 	var round_matches: Array = season.fixture[season.round_index]
 	for m in round_matches:
-		if m["home"] == my_club:
-			return {"code": m["away"], "venue": "home"}
-		if m["away"] == my_club:
-			return {"code": m["home"], "venue": "away"}
+		if m["home"] == my_club or m["away"] == my_club:
+			var home: bool = m["home"] == my_club
+			return {"code": m["away"] if home else m["home"], "venue": "home" if home else "away",
+					"weather": season.weather_for(str(m["home"]), str(m["away"]), season.round_index)}
 	return {}
 
 

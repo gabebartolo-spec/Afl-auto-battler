@@ -240,6 +240,10 @@ static func _shape_for(role: String, rng: RandomNumberGenerator, level: float) -
 
 ## Shift every attribute by a uniform offset so rate_overall lands on target.
 ## Bisection over a monotone function - at most ~14 cheap evaluations.
+## Attributes outside the overall rating: a refit leaves them where they are.
+const UNRATED_KEYS := ["discipline"]
+
+
 static func fit_attributes(a: Dictionary, role: String, target: float,
 		games: float = 14.0) -> Dictionary:
 	var lo := -40.0
@@ -253,6 +257,12 @@ static func fit_attributes(a: Dictionary, role: String, target: float,
 	var offset := (lo + hi) * 0.5
 	var out := {}
 	for key in a:
+		# Temperament isn't in the rating, so refitting the rating must not
+		# move it: shifting it with every decline and every league re-anchor
+		# made hotheads of a third of the real players by 2034 (backlog 21).
+		if key in UNRATED_KEYS:
+			out[key] = clampi(int(round(float(a[key]))), 1, 99)
+			continue
 		out[key] = clampi(int(round(float(a[key]) + offset)), 1, 99)
 	return out
 

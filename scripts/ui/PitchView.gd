@@ -399,6 +399,7 @@ func _draw() -> void:
 		var col := Color(1.0, 0.92, 0.35) if fl["goal"] else Color(0.85, 0.9, 1.0)
 		col.a = (1.0 - t) * 0.85
 		draw_arc(_w2s(fl["pos"]), rad2, 0, TAU, 48, col, 4.0, antialias)
+	_draw_role_labels(tr)
 	_draw_caption(tr)
 
 
@@ -419,6 +420,29 @@ func _draw_rings(tr: float) -> void:
 ## The name over a player, in the type the team shape uses: bold, outlined so it
 ## reads on the turf, never smaller than a phone can read, and kept inside the
 ## view.
+## The players with a recorded job (MatchDirector.role_labels) carry their
+## surname under the token, small and quiet, so the viewer can follow the
+## tagger, the loose man and his minder without a coaching overlay. The
+## passing caption (a goal, a ringed player's touch) still sits above.
+func _draw_role_labels(tr: float) -> void:
+	var fs := clampi(int(tr * 1.15), 9, 12)
+	for id in director.role_labels():
+		var t: Dictionary = director.tokens[id]
+		if float(t.get("down", 0.0)) > 0.0:
+			continue
+		var text := str(t.get("surname", ""))
+		if text == "":
+			continue
+		var width := UiKit.BOLD.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var p := _w2s(t["pos"])
+		if p.x < -width or p.y < 0.0 or p.x > size.x + width or p.y > size.y + float(fs) * 2.0:
+			continue
+		var origin := p + Vector2(-width * 0.5, tr * 1.25 + float(fs))
+		for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
+			draw_string(UiKit.BOLD, origin + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.7))
+		draw_string(UiKit.BOLD, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.85))
+
+
 func _draw_caption(tr: float) -> void:
 	if _caption.is_empty():
 		return
