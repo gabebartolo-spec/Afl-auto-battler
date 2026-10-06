@@ -8,10 +8,16 @@ extends RefCounted
 ##          more synergies, giving up at most SYN_MAX_DROP OVR a swap
 ##   proj - keep both development-project places busy (highest POT first,
 ##          preferring a job in a line he doesn't have yet)
+##   train - each preseason, a player within reach of a trait a synergy
+##          needs (Traits.near) trains the plan that builds it (TRAIN_FOR)
 ## Args after the impl name: seeds (comma-separated) seasons. Prints each
 ## season and a SUMMARY per career.
 
 const SYN_MAX_DROP := 6
+## The training plan that builds each synergy trait (no plan trains durability,
+## so Engine is left out).
+const TRAIN_FOR := {"bull": "inside_mid", "interceptor": "key_def", "lockdown": "key_def",
+		"aerial": "key_fwd", "crumber": "small_fwd", "ball_magnet": "outside_mid", "playmaker": "outside_mid"}
 const LINES := ["RUCK", "MID", "WING", "DEF", "FWD"]
 
 var dyn = load("res://tools/balance/dynasty.gd").new()
@@ -68,6 +74,20 @@ func _select_for_synergies(gs) -> int:
 	return best
 
 
+func _train_for_synergies(gs) -> int:
+	var n := 0
+	for p in gs.my_list:
+		if str(p.get("train_plan", "")).begins_with(gs.LEARN_PREFIX):
+			continue
+		for t in Traits.near(p):
+			var plan := str(TRAIN_FOR.get(str(t["key"]), ""))
+			if plan != "" and gs.plan_valid_for(p, plan):
+				gs.set_player_plan(str(p["id"]), plan)
+				n += 1
+				break
+	return n
+
+
 func _fill_projects(gs) -> void:
 	while gs.active_projects() < gs.PROJECT_MAX:
 		var cands := []
@@ -118,6 +138,8 @@ func _career(seed: int, seasons: int) -> void:
 	var weeks := 0
 	var unicorns := 0
 	for y in range(seasons):
+		if levers.has("train"):
+			_train_for_synergies(gs)
 		var season_syn := 0.0
 		var season_weeks := 0
 		while not gs.season.is_season_over():
