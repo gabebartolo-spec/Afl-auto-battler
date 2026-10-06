@@ -4164,6 +4164,7 @@ Hair should cover a useful range such as:
 - mullet variants,
 - curly/coily short,
 - curly/coily medium,
+- **dreadlocks (locs)** — add a distinct selectable hairstyle to the shared library for player creation/customisation and generated-player variety. Persist the choice and show it consistently in previews and vignettes; cosmetic only, with readable silhouettes and headband compatibility where supported.
 - afro-style volume where supported by the art pipeline,
 - long hair / tied-back variants where supported.
 
@@ -4186,8 +4187,19 @@ Do not tie beard availability to hairstyle. Hair colour and facial-hair colour s
 - Bandages should use believable football placements such as shoulder/upper arm, wrist/forearm, thigh/knee or lower leg; avoid covering every limb at once unless a deliberately rare heavy preset is selected.
 - Tattoos should be **original generic designs**. Do not copy a real player's identifiable tattoo layout, Indigenous artwork, gang symbols, extremist imagery, copyrighted characters/logos or other protected/sensitive designs.
 - Use multiple tattoo placements/pattern families so "tattoos on" does not make every player look identical.
+- **Director-requested tattoo motifs (2026-10-06):** rose, snake, barbed wire, bird, **666**, love heart, **Southern Cross stars**, and **Asian-script lettering**. Include these in the selectable/shared tattoo library alongside similar original designs, with placement and density variations. For lettering, use real characters with checked meanings rather than invented glyphs; the choice is cosmetic and independent of player ethnicity or football traits. Reuse the existing tattoo persistence and preview/vignette rendering.
 - Appearance traits should remain visually legible at vignette scale without becoming noisy or overpowering the guernsey.
 
+
+### Premiership-year tattoos — director addition (2026-10-06)
+**Status:** TODO — cosmetic implementation for Claude.
+- **Only some players get one.** An eligible premiership player may adopt a tattoo of the winning year on their bicep; other players remain without one. This is an occasional cosmetic detail, not a mandatory tattoo for every premiership player or a management chore.
+- **Once adopted, continue automatically:** every subsequent AFL premiership the player personally wins adds that year to the bicep/sleeve. Do not reroll adoption for later flags.
+- Use the existing authoritative player-premiership honours after the Grand Final result is final; do not treat every member of the winning club list as a premiership player. Preserve actual imported honours, but do not infer a real person's pre-existing tattoo from their honours alone.
+- Persist adoption and a unique chronological year list on the player. Save/reload must preserve the tattoo rather than erase it or reroll the decision; transfers retain earlier years and later flags at another club extend the same sleeve. A new career uses its own history.
+- Use a separate cosmetic decision/seed, original year-digit artwork and the shared appearance/rendering pipeline. Keep added years legible in close previews/vignettes, with no gameplay effects or football-RNG changes.
+- Validate adoption and non-adoption, subsequent wins, deduplication when a result is processed twice, transfers, reload and several years on one arm.
+**Research handoff:** Codex researched 13 named player examples, placements, branded-art exclusions and the distinction between source evidence and usable original art in [AFL_TATTOO_REFERENCES.md](research/AFL_TATTOO_REFERENCES.md). Claude should use that handoff to integrate the requested motifs rather than repeat the research.
 
 ### Dominant foot, number and nickname
 **Dominant foot** is the one creator choice here that can have modest football meaning.
