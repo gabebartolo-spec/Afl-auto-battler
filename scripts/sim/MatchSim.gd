@@ -1463,6 +1463,7 @@ func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bo
 	if roll < mark_p + spoil_p:
 		if zone_intercepts and aerial_rng.randf() < INTERCEPT_MARK * (0.6 + 0.8 * _a(defender, "intercept") / 100.0):
 			_intercept(opp, defender, false)
+			_won_back["marked"] = true
 			_t(opp, "marks")
 			_p(defender, "marks")
 			_t(opp, "intercept_marks")
@@ -1828,6 +1829,12 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		var carrier = kick_in_taker(side) if is_kick_in else pick_carrier(side, fp)
 		if touches == 1 and clearance_keeps and cleared != null and not is_kick_in:
 			carrier = cleared
+		# He marked it, so he takes the kick: the carrier pick is still drawn,
+		# so the rest of the chain's dice are where they were.
+		if touches == 1 and chain_origin == "turnover" and bool(_chain_from.get("marked", false)):
+			var marker := _on_ground(side, str(_chain_from.get("id", "")))
+			if not marker.is_empty():
+				carrier = marker
 		var kick_in_play_on := _kick_in_play_on(carrier) if is_kick_in else false
 		# The ball won off the other side's error is an intercept possession
 		# (Champion Data), by whoever is there to take it: a forward in his

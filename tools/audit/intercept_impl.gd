@@ -100,6 +100,7 @@ func run() -> void:
 	print(tl)
 	print("loose defender: %.2f a game over %d games (real best ~8)" % [loose_ic / float(maxi(1, loose_games)), loose_games])
 	print("per team a game: %.1f" % (total / float(maxi(1, matches * 2))))
+	MatchSim.zone_intercepts = true   # a static: don't leak the old contest
 	print("where (intercept events by role, share of that role's):")
 	for r in ROLES:
 		var zs: Dictionary = zones[r]
