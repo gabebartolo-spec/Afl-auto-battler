@@ -216,5 +216,5 @@ func _finals_row(res: Dictionary, narrow: bool) -> Control:
 	if bool(res.get("extra_time", false)) and not narrow:
 		h.add_child(UiKit.ellipsis("(aet)", 11, UiKit.MUTED))
 	if bool(res.get("decided_on_ladder", false)) and not narrow:
-		h.add_child(UiKit.ellipsis("(level - higher seed advances)", 11, UiKit.MUTED))
+		h.add_child(UiKit.ellipsis("(level: the higher-placed side goes through)", 11, UiKit.MUTED))
 	return h
