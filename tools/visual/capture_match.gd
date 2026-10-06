@@ -13,9 +13,10 @@ extends SceneTree
 ##   --frames N      frames in the sheet (default 12)    --speed S (default 1)
 ##   --kind K [--nth N] [--lead L]  start L events before the N-th event of kind K
 ##   --nocam         whole oval, no camera (trails are in screen space)
+##   --movie         also write every frame at 30 fps (<out>_f0000.png ...),
+##                   for capture.yml to make <out>.mp4
 ##   --loose SIDE    that side plays its best interceptor loose
 ##   --tag SIDE      that side tags the other side's best midfielder
-
 ##   --flood SIDE    that side floods behind the ball all match (0 home, 1 away)
 ##   --stack SIDE    that side stacks every centre ball-up
 ##   --kside S       with --kind, only events by side S
@@ -124,6 +125,9 @@ func _run() -> void:
 	var every := maxi(1, steps / maxi(1, frames))
 	var out := str(args.get("out", "/tmp/cap"))
 
+	var movie := args.has("movie")
+	var movie_every := maxi(1, int(round((1.0 / 30.0) / dt / float(pitch.speed))))
+	var movie_n := 0
 	var tiles: Array = []
 	var paths := {}       # key -> Array of Vector2
 	var colours := {}
@@ -142,6 +146,16 @@ func _run() -> void:
 			paths["ball"] = []
 			colours["ball"] = Color(1, 1, 1, 1)
 		(paths["ball"] as Array).append(snap["ball"])
+		if movie and s % movie_every == 0:
+			# --movie: every frame of the window at 30 fps, full size, for the
+			# capture workflow to stitch into a clip (the director judges
+			# motion from clips, not sheets).
+			pitch.queue_redraw()
+			await process_frame
+			await process_frame
+			var mf: Image = root.get_viewport().get_texture().get_image()
+			mf.save_png("%s_f%04d.png" % [out, movie_n])
+			movie_n += 1
 		if s % every == 0 and tiles.size() < frames:
 			pitch.queue_redraw()
 			await process_frame
