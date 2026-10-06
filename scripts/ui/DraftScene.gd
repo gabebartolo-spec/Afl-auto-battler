@@ -767,50 +767,50 @@ func _player_row(p: Dictionary) -> Control:
 	face.add_child(info)
 	info.add_child(UiKit.ellipsis(GameDB.player_display_name(p), 17, UiKit.TEXT, true))
 	var taken := _draft.has(str(p["id"]))
-	var detail := ""
+	# Line two: what decides a pick, first so a phone never cuts it off -
+	# his age, the read of his OVR and POT, his price. Line three: where he
+	# comes from and how he plays (director's PC playtest, 2026-10-07).
+	var where := ""
+	var read := ""
 	if bool(p.get("projected", false)):
-		var team_name := str(p.get("draft_team", p["club"]))
+		where = str(p.get("draft_team", p["club"]))
 		if _draft.intake_mode:
 			var scout := DraftScouting.projection(p, _club, _draft.seed,
 					_draft.scouting_mult_for(_club))
-			detail = "%s · scouted %s OVR · %s POT" % [team_name,
-					DraftScouting.range_text(scout["overall"]),
+			read = "scouted %s OVR · %s POT" % [DraftScouting.range_text(scout["overall"]),
 					DraftScouting.range_text(scout["potential"])]
 		else:
 			# Your recruiters' read, as for every other League Draft player: a
 			# range until he is yours.
 			var proj_view := _draft.user_view(p)
 			if bool(proj_view["scouted"]):
-				detail = "%s · projected %s OVR · %s POT" % [team_name,
-						DraftScouting.range_text(proj_view["overall"]),
+				read = "projected %s OVR · %s POT" % [DraftScouting.range_text(proj_view["overall"]),
 						DraftScouting.range_text(proj_view["potential"])]
 			else:
-				detail = "%s · projected %d OVR · %d POT" % [team_name, int(p["overall"]),
-						int(p.get("potential", p["overall"]))]
+				read = "projected %d OVR · %d POT" % [int(p["overall"]), int(p.get("potential", p["overall"]))]
 	else:
-		var short := GameDB.club_short(str(p["club"]))
+		where = GameDB.club_short(str(p["club"]))
 		var view := _draft.user_view(p)
 		if bool(view["scouted"]):
-			detail = "%s · %s · %s OVR · %s POT" % [short, Contracts.money(int(p["value"])),
-					DraftScouting.range_text(view["overall"]), DraftScouting.range_text(view["potential"])]
+			read = "%s OVR · %s POT" % [DraftScouting.range_text(view["overall"]),
+					DraftScouting.range_text(view["potential"])]
 		else:
-			detail = "%s · %s · %d OVR · %d POT" % [short, Contracts.money(int(p["value"])), int(p["overall"]),
-					int(p.get("potential", p["overall"]))]
+			read = "%d OVR · %d POT" % [int(p["overall"]), int(p.get("potential", p["overall"]))]
+		read += " · " + Contracts.money(int(p["value"]))
+	var facts := read
+	if float(p.get("age", 0.0)) > 0.0:
+		facts = "%d yo · %s" % [int(p["age"]), read]
 	if taken:
 		var entry := _draft.pick_details(str(p["id"]))
-		detail = "#%d to %s" % [int(entry.get("pick", 0)),
+		facts = "#%d to %s" % [int(entry.get("pick", 0)),
 				GameDB.club_short(_draft.drafted_by(str(p["id"])))]
 		if not bool(_draft.user_view(p)["scouted"]):
-			detail += " · %d OVR" % int(p["overall"])
-	# His age, so age against talent needs no profile (director, 2026-10-07).
-	if float(p.get("age", 0.0)) > 0.0 and not taken:
-		detail = "%d yo · %s" % [int(p["age"]), detail]
-	info.add_child(UiKit.ellipsis(detail, UiKit.SECONDARY, UiKit.MUTED))
-	# How he plays, on its own line so a phone never cuts it off.
-	var kind: PackedStringArray = [PlayerProfile.player_type(p)]
+			facts += " · %d OVR" % int(p["overall"])
+	info.add_child(UiKit.ellipsis(facts, UiKit.SECONDARY, UiKit.TEXT))
+	var kind: PackedStringArray = [where, PlayerProfile.player_type(p)]
 	for t in _traits_of(p):
 		kind.append(_trait_label(str(t)))
-	var kind_line := UiKit.ellipsis(" · ".join(kind), UiKit.SECONDARY, UiKit.TEXT)
+	var kind_line := UiKit.ellipsis(" · ".join(kind), UiKit.SECONDARY, UiKit.MUTED)
 	kind_line.name = "Kind_" + str(p["id"])
 	info.add_child(kind_line)
 	face.add_child(UiKit.line("›", 20, UiKit.MUTED, true))
