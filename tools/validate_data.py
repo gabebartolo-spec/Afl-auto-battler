@@ -26,6 +26,7 @@ import collections
 import csv
 import json
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -127,6 +128,36 @@ def check_identity_rules() -> list[str]:
         problems.append("identity rule: -1 / 0 heights must read as unknown")
     if enrich.age_on("2005-11-18") != "20" or enrich.age_on("1998-08-29") != "28":
         problems.append("identity rule: age_on is off")
+    return problems
+
+
+def check_fictional_identity() -> list[str]:
+    """data/fictional_identity.json (FL-005): cosmetic nicknames for the
+    fictional surnames and harmless interests. Every surname key is one the
+    game generates, nicknames are short single words, interests are lower-case
+    phrases with no full stop (the profile adds it), and the shares are 0-1."""
+    problems: list[str] = []
+    path = os.path.join(ROOT, "data", "fictional_identity.json")
+    with open(path, encoding="utf-8") as f:
+        d = json.load(f)
+    with open(os.path.join(ROOT, "scripts", "core", "GameDB.gd"), encoding="utf-8") as f:
+        gd = f.read()
+    block = gd[gd.index("const FICTIONAL_LAST_NAMES"):]
+    block = block[:block.index("]")]
+    surnames = set(re.findall(r'"([^"]+)"', block))
+    for last, opts in d["nicknames"].items():
+        if last not in surnames:
+            problems.append(f"fictional identity: {last} is not a fictional surname")
+        for n in opts:
+            if not (2 <= len(n) <= 16) or " " in n:
+                problems.append(f"fictional identity: nickname {n!r} for {last} is not one short word")
+    for i in d["interests"]:
+        if i != i.strip() or i.endswith(".") or not i[:1].islower():
+            problems.append(f"fictional identity: interest {i!r} should be a lower-case phrase without a full stop")
+    for k in ("nickname_share", "interest_share"):
+        if not 0 <= float(d[k]) <= 1:
+            problems.append(f"fictional identity: {k} out of range")
+    print(f"  fictional identity: {len(d['nicknames'])} surnames with a nickname, {len(d['interests'])} interests")
     return problems
 
 
@@ -409,6 +440,7 @@ def main() -> int:
     problems.extend(check_forge_locations())
     problems.extend(check_identity_rules())
     problems.extend(check_bio())
+    problems.extend(check_fictional_identity())
 
     if problems:
         print(f"\n{len(problems)} problem(s) found:")

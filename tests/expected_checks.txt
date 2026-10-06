@@ -7,7 +7,7 @@ intake 2191
 intake_ui 500
 expansion 485
 finals 109
-save 70
+save 76
 chronology 28
 career 71
 coaches 340
@@ -16,7 +16,7 @@ coach_pathway 57
 coach_effects 36
 # career_ui: one check (Back skipping a press conference) only runs when the
 # simulated round raises one, so the floor is one under the usual count.
-career_ui 234
+career_ui 235
 potential 36
 ratings 39
 ai 35
@@ -29,7 +29,7 @@ injuries 31
 awards 22
 achievements 153
 contracts 190
-league 44
+league 47
 club 199
 match_game 243
 pressure 21
