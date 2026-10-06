@@ -2466,7 +2466,11 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	var dfn: Squad = squads[opp]
 	var goal_p := float(T["inside50_goal"])
 	if weather == "windy":
-		goal_p *= BREEZE_WITH if with_breeze(side) else BREEZE_AGAINST
+		if current_quarter > 4:
+			# Extra time is two short halves, an end each: the breeze evens out.
+			goal_p *= (BREEZE_WITH + BREEZE_AGAINST) * 0.5
+		else:
+			goal_p *= BREEZE_WITH if with_breeze(side) else BREEZE_AGAINST
 	goal_p *= 0.80 + 0.40 * _a(shooter, "goalkicking") / 100.0
 	goal_p *= 1.16 if marked else 0.74
 	goal_p *= 0.82 + 0.36 * _a(shooter, "accuracy") / 100.0
