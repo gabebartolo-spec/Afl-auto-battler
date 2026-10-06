@@ -20,6 +20,10 @@ blank otherwise (never guessed):
     and Tasmanian state league clubs, ACT and NSW clubs by name;
   - a school or club labelled with its state, e.g. "(SA)";
   - Papua New Guinea, New Zealand, the USA and Irish counties: INT.
+  - A club academy or zone on the pick (Swans and GWS: NSW; Brisbane and Gold
+    Coast: QLD; the Fremantle, West Coast and Port Adelaide next-generation
+    academies: WA, WA, SA; "Scholarship (NSW)": NSW). It is used when the
+    sources before it settle nothing, or only the two-state NSW-ACT program.
 A player's sources run from his earliest club to his latest: the first source
 that settles a state wins (so a player who moved states later keeps his
 first), and the NSW-ACT program before any settled source leaves him blank.
@@ -56,6 +60,10 @@ CLUBS = {
 }
 LABEL_STATE = {u: s for s, names in CLUBS.items() for u in names.split(";")}
 LABEL_STATE.update(U18)
+ACADEMY_CLUB = {"sydney": "NSW", "greater-western-sydney": "NSW", "brisbane": "QLD", "gold-coast": "QLD"}
+ACADEMY_CAT = re.compile(r"^(Academy|Zone)\s*(\((Sydney|GWS|Brisbane|Gold Coast)\))?$|^Academy \(NG\) \((Fremantle|West Coast|Port Adelaide)\)$|^Scholarship \(NSW\)$")
+ACADEMY_NAME = {"Sydney": "NSW", "GWS": "NSW", "Brisbane": "QLD", "Gold Coast": "QLD",
+                "Fremantle": "WA", "West Coast": "WA", "Port Adelaide": "SA"}
 SUFFIX = re.compile(r"\((SA|WA|NSW|ACT|QLD|TAS|NT)\)\s*$")
 
 
@@ -72,6 +80,16 @@ def label_state(label: str) -> str:
         return "WA"
     m = SUFFIX.search(label)
     return m.group(1) if m else ""
+
+
+def academy_state(category: str, club: str) -> str:
+    m = ACADEMY_CAT.match(category)
+    if not m:
+        return ""
+    if category.startswith("Scholarship"):
+        return "NSW"
+    name = m.group(3) or m.group(4)
+    return ACADEMY_NAME[name] if name else ACADEMY_CLUB.get(club, "")
 
 
 def norm(name: str) -> str:
@@ -98,24 +116,27 @@ def parse(page: str, year: int) -> list[dict]:
         num = re.search(r'<td class="number">(.*?)</td>', tr, re.S)
         pl = re.search(r'<td class="player"[^>]*><a href="[^"]+">(.*?)</a>', tr, re.S)
         fc = re.search(r'<td class="from-club">(.*?)</td>', tr, re.S)
+        cats = re.findall(r'<td class="category">\s*(.*?)\s*</td>', tr, re.S)
+        club = re.search(r'<td class="club"><a href="/clubs/([^"]+)">', tr)
         if not (dr and pl):
             continue
         clean = lambda s: html.unescape(re.sub(r"<.*?>", "", s)).replace("\xa0", " ").strip()
         labels = [html.unescape(b) for _, b in re.findall(r'<a href="/from/([^"]+)">(.*?)</a>', fc.group(1))] if fc else []
         out.append({"year": year, "draft": clean(dr.group(1)), "num": clean(num.group(1)) if num else "",
-                    "name": norm(clean(pl.group(1))), "labels": labels})
+                    "name": norm(clean(pl.group(1))), "labels": labels,
+                    "academy": academy_state(clean(cats[1]) if len(cats) > 1 else "", club.group(1) if club else "")})
     return out
 
 
-def state_of(labels: list[str]) -> str:
+def state_of(labels: list[str], academy: str = "") -> str:
     """The sources run from the earliest club to the latest, so the first one
     that settles a state is where he grew up; a player who moved states later
     keeps his first. An ambiguous program before any settled one leaves him blank."""
     for label in labels:
         st = label_state(label)
         if st:
-            return "" if st == "AMBIGUOUS" else st
-    return ""
+            return academy if st == "AMBIGUOUS" else st
+    return academy
 
 
 def main() -> None:
@@ -144,8 +165,8 @@ def main() -> None:
             year = found[0]["year"] if found else 0
         # Same name under several different sources: not certain who he is.
         state = ""
-        if found and len({tuple(r["labels"]) for r in found}) == 1:
-            state = state_of(found[0]["labels"])
+        if found and len({(tuple(r["labels"]), r["academy"]) for r in found}) == 1:
+            state = state_of(found[0]["labels"], found[0]["academy"])
         src = f"https://www.draftguru.com.au/years/{year}" if found else ""
         out.append([p["club"], p["num"], p["first"], p["last"], state, src])
     path = os.path.join(ROOT, "data", "player_origin_2026.csv")
