@@ -439,6 +439,7 @@ func _roam_chance(def_side: int) -> float:
 ## forward's game, not a hidden penalty on the whole line.
 const MINDER_ROAM := {"specialist": 0.40, "other": 0.70}
 const MINDER_INVOLVE := 0.25
+var _minder_memo := [{}, {}]
 
 
 func _spare_accountable(attacking_side: int) -> bool:
@@ -458,8 +459,18 @@ func _spare_minder(attacking_side: int) -> Dictionary:
 	var named := _on_ground(attacking_side, str(t.get("spare_minder_id", "")))
 	if not named.is_empty() and str(named.get("role", "")) == "FWD":
 		return named
+	# The stand-in, worked out once and kept while he is still out there and
+	# the call is the same (every pick asks; the candidates sort the line).
+	var key := str(t.get("spare_minder_id", ""))
+	var memo: Dictionary = _minder_memo[attacking_side]
+	if str(memo.get("key", "-")) == key:
+		var kept := _on_ground(attacking_side, str(memo.get("id", "")))
+		if not kept.is_empty() and str(kept.get("role", "")) == "FWD":
+			return kept
 	var cands := Matchups.minder_candidates((squads[attacking_side] as Squad).ground)
-	return {} if cands.is_empty() else cands[0]
+	var pick: Dictionary = {} if cands.is_empty() else cands[0]
+	_minder_memo[attacking_side] = {"key": key, "id": str(pick.get("id", ""))}
+	return pick
 
 
 ## An AI club moves a key defender when their forward has had the better of

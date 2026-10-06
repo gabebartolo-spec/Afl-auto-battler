@@ -1190,7 +1190,11 @@ func _show_setup(t: Dictionary) -> void:
 	if intercept_id != "":
 		bits.append(GameDB.player_display_name_by_id(intercept_id, "your defender") + " loose behind the ball")
 	if bool(t.get("spare_accountable", false)):
-		bits.append(GameDB.player_display_name_by_id(str(t.get("spare_minder_id", "")), "a forward") + " on their spare")
+		# Whoever is on him now: the named forward, or his stand-in if he's off.
+		var sim_now = GameState.pending_sim
+		var on_him: Dictionary = sim_now._spare_minder(_my_side) if sim_now != null else {}
+		var who := GameDB.player_display_name(on_him) if not on_him.is_empty() 				else GameDB.player_display_name_by_id(str(t.get("spare_minder_id", "")), "a forward")
+		bits.append(who + " on their spare")
 	_setup_line.text = "  ·  ".join(bits)
 	_setup_line.visible = true
 
