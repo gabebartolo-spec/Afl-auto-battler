@@ -4164,6 +4164,7 @@ Hair should cover a useful range such as:
 - mullet variants,
 - curly/coily short,
 - curly/coily medium,
+- **dreadlocks (locs)** — add a distinct selectable hairstyle to the shared library for player creation/customisation and generated-player variety. Persist the choice and show it consistently in previews and vignettes; cosmetic only, with readable silhouettes and headband compatibility where supported.
 - afro-style volume where supported by the art pipeline,
 - long hair / tied-back variants where supported.
 
@@ -4186,6 +4187,7 @@ Do not tie beard availability to hairstyle. Hair colour and facial-hair colour s
 - Bandages should use believable football placements such as shoulder/upper arm, wrist/forearm, thigh/knee or lower leg; avoid covering every limb at once unless a deliberately rare heavy preset is selected.
 - Tattoos should be **original generic designs**. Do not copy a real player's identifiable tattoo layout, Indigenous artwork, gang symbols, extremist imagery, copyrighted characters/logos or other protected/sensitive designs.
 - Use multiple tattoo placements/pattern families so "tattoos on" does not make every player look identical.
+- **Director-requested tattoo motifs (2026-10-06):** rose, snake, barbed wire, bird, **666**, love heart, **Southern Cross stars**, and **Asian-script lettering**. Include these in the selectable/shared tattoo library alongside similar original designs, with placement and density variations. For lettering, use real characters with checked meanings rather than invented glyphs; the choice is cosmetic and independent of player ethnicity or football traits. Reuse the existing tattoo persistence and preview/vignette rendering.
 - Appearance traits should remain visually legible at vignette scale without becoming noisy or overpowering the guernsey.
 
 
