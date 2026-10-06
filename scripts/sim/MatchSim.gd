@@ -85,6 +85,9 @@ var _chain_from := {}
 ## The coach's set-shot call while it plays out ({"key"}): every event it
 ## produces carries "choice", and its result also "setshot".
 var _set_choice := {}
+## Who the last free kick was paid to ({"side", "id"}): inside his forward 50
+## he takes it as a set shot (_free_set_shot).
+var _free_taker := {}
 # Assistant-coach audit trail. Snapshots never touch the RNG, so calibration
 # is unaffected. tactics_history[q] records the plans in force for that
 # quarter; quarter_teams[q] records the cumulative team totals afterwards.
@@ -1180,6 +1183,7 @@ func _award_context_free(receiving_side: int, mark_fp: float, offender, recipien
 	_t(receiving_side, "free_" + cause)
 	var who := GameDB.player_display_name(recipient) if recipient != null else "the opposition"
 	_emit("free", receiving_side, mark_fp, recipient, "%s — free kick to %s" % [label, who])
+	_free_taker = {"side": receiving_side, "id": "" if recipient == null else str(recipient.get("id", ""))}
 	var ev: Dictionary = events[events.size() - 1]
 	ev["free_cause"] = cause
 	if context != "":
@@ -2787,7 +2791,13 @@ func _play_one_chain(T: Dictionary) -> void:
 	_chain_touch = {}
 	_chain_from = _won_back if chain_origin == "turnover" else {}
 	_won_back = {}
-	var res := play_chain(side, start_fp, stoppage, from_kick_in)
+	var res := {}
+	var taker := _free_set_taker(side, start_fp) if chain_origin == "free" else {}
+	_free_taker = {}
+	if not taker.is_empty():
+		res = _free_set_shot(side, start_fp, taker)
+	else:
+		res = play_chain(side, start_fp, stoppage, from_kick_in)
 	var outcome: String = res["outcome"]
 	fp = res["fp"]
 	if outcome == "moment":
@@ -3559,7 +3569,7 @@ const SET_BANDS := [
 const SET_REF := 0.34
 ## Of the marks inside 50, the share that end in a set shot from the mark;
 ## the rest go on (a play-on, a switch, a turnover) and score less.
-const SET_SHOT_SHARE := 0.45
+const SET_SHOT_SHARE := 0.55
 ## A missed set shot is usually a behind; now and then it falls short or
 ## goes out on the full.
 const SET_MISS_BEHIND := 0.70
@@ -3925,6 +3935,76 @@ func _pack_event(side: int, at: float, actor, outcome: String, ids: Dictionary, 
 	ev["outcome"] = outcome
 	for k in ["marker_id", "spoiler_id", "crumber_id", "defender_id"]:
 		ev[k] = str(ids.get(k, ""))
+
+
+## A free kick paid inside the forward 50 is a set shot from where it was
+## paid (ARD backlog item 24: real set shots are about 55% of shots, and the
+## frees in 50 are a big part of them). The taker is whoever it was paid to.
+func _free_set_taker(side: int, at_fp: float) -> Dictionary:
+	if int(_free_taker.get("side", -1)) != side:
+		return {}
+	var atk_fp := at_fp if side == 0 else -at_fp
+	if atk_fp < float(Ratings.T["forward50_line"]):
+		return {}
+	return _on_ground(side, str(_free_taker.get("id", "")))
+
+
+## Set-shot conversion by distance alone (docs/research/SET_SHOT_EVIDENCE.md:
+## 97% at 0-15 m falling to 36% beyond 50 m), for an ordinary kick.
+const FREE_SET_ACC := [[10.0, 0.97], [20.0, 0.92], [30.0, 0.80], [40.0, 0.62], [50.0, 0.45], [60.0, 0.33]]
+
+
+static func free_set_acc(metres: float) -> float:
+	var pts: Array = FREE_SET_ACC
+	if metres <= float(pts[0][0]):
+		return float(pts[0][1])
+	for i in range(1, pts.size()):
+		if metres <= float(pts[i][0]):
+			var t := (metres - float(pts[i - 1][0])) / (float(pts[i][0]) - float(pts[i - 1][0]))
+			return lerpf(float(pts[i - 1][1]), float(pts[i][1]), t)
+	return float(pts[pts.size() - 1][1])
+
+
+func _free_set_shot(side: int, at_fp: float, taker: Dictionary) -> Dictionary:
+	_t(side, "chains")
+	_chain_touch[str(taker["id"])] = taker
+	fp = at_fp
+	var metres := float(Ratings.T["goal_line"]) - (at_fp if side == 0 else -at_fp)
+	var goal_p := clampf(free_set_acc(metres) * shot_chance(side, taker, true, false) / SET_REF, 0.03, 0.97)
+	var behind_p := (1.0 - goal_p) * SET_MISS_BEHIND
+	var roll := rng.randf()
+	if roll < goal_p:
+		_t(side, "goals")
+		_p(taker, "goals")
+		_scored(side, 6, taker)
+		q_goals[current_quarter - 1][side] += 1
+		_score_run(side)
+		_emit("goal", side, fp, taker, _scoreline(side, "GOAL"))
+		events[events.size() - 1]["set"] = true
+		events[events.size() - 1]["from_free"] = true
+		_trait_note(taker)
+		_tag_shot(true)
+		return {"outcome": "score", "fp": 0.0, "actor": taker}
+	if roll < goal_p + behind_p:
+		_t(side, "behinds")
+		_p(taker, "behinds")
+		_scored(side, 1, taker)
+		q_behinds[current_quarter - 1][side] += 1
+		_emit("behind", side, fp, taker, _scoreline(side, "Behind"))
+		events[events.size() - 1]["set"] = true
+		events[events.size() - 1]["from_free"] = true
+		_tag_shot(true)
+		return {"outcome": "behind", "fp": kick_in_fp(side), "actor": taker}
+	# Short or out on the full: the defence has it.
+	var opp := 1 - side
+	var backs := _by_roles((squads[opp] as Squad).ground, ["DEF"])
+	var back = _weighted(backs if not backs.is_empty() else (squads[opp] as Squad).ground, "marking", 2.0, opp, "defender")
+	_t(opp, "rebounds")
+	_p(back, "rebounds")
+	_intercept(opp, back, false)
+	_emit("rebound", opp, fp, back, "%s's set shot falls short; %s marks it" % [
+			GameDB.player_display_name(taker), GameDB.player_display_name(back)])
+	return {"outcome": "turnover", "fp": fp, "actor": back}
 
 
 ## The goal-square pack (_bomb). Calibrated by tools/audit/setshot_calls_impl.gd so
