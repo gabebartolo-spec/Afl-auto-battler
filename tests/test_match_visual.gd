@@ -38,6 +38,7 @@ func run() -> void:
 	_test_numbers_readable()
 	_test_oval_people(res)
 	_test_broadcast_vignettes()
+	_test_role_labels(res)
 	GameState.replay_seed = 0
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -1043,3 +1044,33 @@ func _test_score_colour() -> void:
 	_check(legible != "" and UiKit.score_colour(legible) == (GameDB.club_colours(legible) as Array)[2],
 			"A club whose accent reads keeps its own colour for its score")
 	UiKit.apply_appearance(was)
+
+
+## ARD-M8-003 persistent identity: only the players whose job the match
+## recorded are named on the oval (tagger and his man, the loose defender),
+## and nobody is when the match recorded no jobs.
+func _test_role_labels(res: Dictionary) -> void:
+	var plain := MatchDirector.new()
+	var bare := res.duplicate()
+	bare["timeline"] = []
+	plain.setup(bare, res["events"])
+	_check(plain.role_labels().is_empty(), "No recorded jobs, no names on the oval")
+	var d := MatchDirector.new()
+	d.setup(bare, res["events"])
+	var pick := func(side: int, role: String) -> Dictionary:
+		for t in d.tokens:
+			if int(t["side"]) == side and str(t["role"]) == role:
+				return t
+		return {}
+	var tagger: Dictionary = pick.call(1, "MID")
+	var target: Dictionary = pick.call(0, "MID")
+	var loose: Dictionary = pick.call(1, "DEF")
+	d._tac[1] = {"side": 1, "bursts": [], "tagger": str(tagger["pid"]), "tag": str(target["pid"]),
+			"loose": str(loose["pid"]), "duels": {}}
+	d._assign()
+	var got: Array = d.role_labels()
+	var want := [int(tagger["id"]), int(target["id"]), int(loose["id"])]
+	var same := got.size() == want.size()
+	for id in want:
+		same = same and got.has(id)
+	_check(same, "The tagger, his man and the loose defender are named, and only them (%s against %s)" % [str(got), str(want)])
