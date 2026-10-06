@@ -141,6 +141,66 @@ static func growth(p: Dictionary, age: float) -> float:
 	return maxf(gap * pull, minf(gap, MIN_STEP))
 
 
+## What a player is expected to be worth, season by season, from now: the
+## game's own development (Prospects.age_player's age bands and growth toward
+## POT, rehab year included) and retirement (Prospects.should_retire), taken
+## at their expected values instead of rolled. [[rating, chance he is still
+## playing], ...] for `years` seasons, the first the one about to be played.
+## Breakouts are left out: nobody can plan on one.
+static func outlook(p: Dictionary, years: int) -> Array:
+	var r := float(p.get("overall", 50))
+	var pot := maxf(r, float(p.get("potential", r)))
+	var age := float(p.get("age", 26.0))
+	var rehab := bool(p.get("rehab", false))
+	var alive := 1.0
+	var out := []
+	for t in range(years):
+		out.append([r, alive])
+		age += 1.0
+		var d := 0.0
+		if age <= 20.0:
+			d = 4.25
+		elif age <= 23.0:
+			d = 2.5
+		elif age <= 27.0:
+			d = 1.0
+		elif age <= 30.0:
+			d = 0.0
+		elif age <= 33.0:
+			d = -1.5
+		else:
+			d = -3.75
+		if age <= 25.0 and r < 55.0:
+			d += 1.0
+		if age <= 23.0 and r >= 80.0:
+			d += 1.0
+		var gap := pot - r
+		if gap > 0.0:
+			var pull := 0.0
+			for band in GAP_PULL:
+				if age <= float(band[0]):
+					pull = float(band[1])
+					break
+			if rehab:
+				pull = maxf(pull, REHAB_PULL)
+			if pull > 0.0:
+				d = maxf(d, maxf(gap * pull, minf(gap, MIN_STEP)))
+		rehab = false
+		var next := clampf(r + d, 25.0, 93.0)
+		if d > 0.0:
+			next = minf(next, maxf(r, pot))
+		r = next
+		var go := 0.0
+		if r <= 32.0 or age >= 37.0:
+			go = 1.0
+		elif age >= 35.0:
+			go = 0.70
+		elif age >= 33.0 and r < 42.0:
+			go = 0.30
+		alive *= 1.0 - go
+	return out
+
+
 ## Training price against POT, the same for every club. Well below it a
 ## stat comes cheaper (down to half price); over the last few points it gets
 ## dearer; at POT it costs PAST_POT_BASE and every point beyond multiplies
