@@ -4747,8 +4747,11 @@ func _execute_trade(a: String, b: String, a_gives: Array, b_gives: Array) -> voi
 	if _frozen_fingerprint != "":
 		_freeze_league(true)
 	var leaving := a_gives if a == my_club else (b_gives if b == my_club else [])
+	# The stored selection itself (my_selection() is a copy without the
+	# dual-ruck call).
+	var stored: Dictionary = season.selections.get(my_club, {}) if season != null else {}
 	for sel_key in ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH", "OUT"]:
-		var sel := my_selection()
+		var sel := stored
 		if sel.has(sel_key):
 			for p in leaving:
 				(sel[sel_key] as Array).erase(str(p["id"]))
