@@ -327,17 +327,17 @@ func _draw() -> void:
 		var x0 := c.x - a + (2.0 * a) * float(i) / float(stripes)
 		var x1 := c.x - a + (2.0 * a) * float(i + 1) / float(stripes)
 		draw_colored_polygon(_stripe(c, a, b, x0, x1), Color(0.133, 0.365, 0.149))
-	draw_polyline(_ellipse_points(c, a, b, 96), Color(1, 1, 1, 0.85), 2.0)
+	draw_polyline(_ellipse_points(c, a, b, 96), Color(1, 1, 1, 0.85), 2.0, true)
 
 	var line_col := Color(1, 1, 1, 0.5)
 	var sq := (22.5 / GOAL_LINE_M) * a
 	draw_rect(Rect2(c - Vector2(sq, sq), Vector2(sq, sq) * 2.0), line_col, false, 1.4)
-	draw_arc(c, (3.0 / GOAL_LINE_M) * a, 0, TAU, 24, line_col, 1.4)
+	draw_arc(c, (3.0 / GOAL_LINE_M) * a, 0, TAU, 24, line_col, 1.4, true)
 	for sgn in [-1.0, 1.0]:
 		var goal := Vector2(c.x + sgn * a * 0.97, c.y)
 		var rad := (50.0 / GOAL_LINE_M) * a
 		var span := _arc_span(c, a, b, goal, rad)
-		draw_arc(goal, rad, span.x, span.y, 40, line_col, 1.3)
+		draw_arc(goal, rad, span.x, span.y, 40, line_col, 1.3, true)
 		var depth := (9.0 / GOAL_LINE_M) * a
 		var width := (6.44 / GOAL_LINE_M) * a
 		var gx := goal.x - depth if sgn > 0.0 else goal.x
@@ -366,11 +366,11 @@ func _draw() -> void:
 		var px: Vector2 = tokens[i]["px"]
 		var selected := i == _selected
 		if selected:
-			draw_arc(px, tr * 1.85, 0, TAU, 24, UiKit.EMPH, 2.0)
+			draw_arc(px, tr * 1.85, 0, TAU, 24, UiKit.EMPH, 2.0, true)
 		draw_circle(px + Vector2(0, tr * 0.18), tr, Color(0, 0, 0, 0.28))
 		draw_circle(px, tr, primary)
 		draw_circle(px, tr * 0.62, secondary)
-		draw_arc(px, tr, 0, TAU, 20, Color(0, 0, 0, 0.4), 1.2)
+		draw_arc(px, tr, 0, TAU, 20, Color(0, 0, 0, 0.4), 1.2, true)
 		var num := str(int(p.get("num", 0)))
 		var fs := int(clampf(tr * 0.95, 8.0, 14.0))
 		var num_w := UiKit.BOLD.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
