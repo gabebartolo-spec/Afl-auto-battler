@@ -156,7 +156,8 @@ const UMPIRE_GEAR := {"design": "plain", "base": UMPIRE, "pattern": Color(0.42, 
 
 
 ## A material that recolours the figure sheet: up to four kits ({design, base,
-## pattern, pattern2, shorts}), addressed by index in a figure's draw colour.
+## pattern, pattern2, shorts}, and optionally long_sleeves and sock_hoops 0-3), addressed
+## by index in a figure's draw colour.
 ## Reuses mat when given.
 static func figure_material(kits: Array, mat: ShaderMaterial = null) -> ShaderMaterial:
 	if mat == null or mat.shader != FIGURE_SHADER:
@@ -168,12 +169,15 @@ static func figure_material(kits: Array, mat: ShaderMaterial = null) -> ShaderMa
 		mat.set_shader_parameter("sheet_size", VignetteFigures.SHEET_SIZE)
 		mat.set_shader_parameter("skin_tones", _eight(Appearance.SKIN))
 		mat.set_shader_parameter("hair_tones", _eight(Appearance.HAIR))
-	var fields := {"base": [], "pattern": [], "pattern2": [], "shorts": [], "design": []}
+	var fields := {"base": [], "pattern": [], "pattern2": [], "shorts": [], "design": [], "extra": []}
 	for i in range(4):
 		var kit: Dictionary = kits[mini(i, kits.size() - 1)]
 		for f in ["base", "pattern", "pattern2", "shorts"]:
 			fields[f].append(kit[f])
 		fields["design"].append(float(maxi(0, GameDB.GUERNSEY_DESIGNS.find(str(kit["design"])))))
+		# Options a kit may carry: long sleeves, and hoops on the socks (0: the usual band).
+		fields["extra"].append(Vector4(1.0 if bool(kit.get("long_sleeves", false)) else 0.0,
+				float(clampi(int(kit.get("sock_hoops", 0)), 0, 3)), 0.0, 0.0))
 	for f in fields:
 		mat.set_shader_parameter("kit_" + f, fields[f])
 	return mat

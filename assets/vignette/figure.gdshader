@@ -34,6 +34,9 @@ uniform vec4 kit_pattern[4];
 uniform vec4 kit_pattern2[4];
 uniform vec4 kit_shorts[4];
 uniform float kit_design[4];
+// Kit options: x = long sleeves (1: the arm in the guernsey's base colour down to the
+// wrist), y = sock hoops (0: the single band baked into the sheet; 1-3: hoops up the sock).
+uniform vec4 kit_extra[4];
 uniform vec4 skin_tones[8];
 uniform vec4 hair_tones[8];
 uniform vec4 boots = vec4(0.06, 0.06, 0.07, 1.0);
@@ -161,8 +164,23 @@ void fragment() {
 			vec3 base = kit_base[kit].rgb, pat = kit_pattern[kit].rgb, pat2 = kit_pattern2[kit].rgb;
 			vec3 kit_col = base * m.r + (pat - base) * p.x + (pat2 - base) * p.y;
 			float rest = clamp(1.0 - (m.r + m.g + m.b + s.g + s.b), 0.0, 1.0);
-			vec3 col = kit_col + pat * m.g + skin_tones[tone].rgb * m.b
+			// Off the guernsey the design sheet carries R = how much is arm, G = height up
+			// the sock (0 at the boot, 1 at its top).
+			float off = 1.0 - smoothstep(0.35, 0.65, m.a);
+			float sleeve = kit_extra[kit].x * smoothstep(0.35, 0.65, g.r) * off;
+			vec3 skin = mix(skin_tones[tone].rgb, base, sleeve);
+			vec3 col = kit_col + pat * m.g + skin * m.b
 					+ hair_tones[hair].rgb * s.g + kit_shorts[kit].rgb * s.b + boots.rgb * rest;
+			int hoops = int(round(kit_extra[kit].y));
+			if (hoops > 0) {
+				// Hoops round the top of the sock in the pattern colour, in place of the band.
+				float sock_out = max(m.r - m.a, 0.0);
+				float sock_w = sock_out + m.g;
+				float t = (g.g - 0.42) / 0.58;
+				float seg = t * float(2 * hoops - 1);
+				float on = (1.0 - mod(floor(seg), 2.0)) * step(0.0, t) * step(t, 1.0) * off;
+				col += sock_w * mix(base, pat, on) - (base * sock_out + pat * m.g);
+			}
 			COLOR = vec4(col * s.r * gain, s.a * looks.a);
 		}
 	}
