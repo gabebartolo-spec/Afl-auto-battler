@@ -4,11 +4,16 @@ extends RefCounted
 var failures: Array[String] = []
 var checks := 0
 
+## Every season and draft here is seeded (C15): with the clock, a different
+## league each run drew a different off-season trade market.
+const SUITE_SEED := 2027
+
 
 func run() -> void:
 	failures.clear()
 	checks = 0
 	GameDB.reload()
+	GameState.replay_seed = SUITE_SEED
 	_test_initial_contracts()
 	_test_real_money_scale()
 	_test_offseason_flow()
@@ -31,6 +36,7 @@ func run() -> void:
 	_test_opposition_pot()
 	_test_money_copy()
 	GameState.delete_saved_career()
+	GameState.replay_seed = 0
 	print("Contracts tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -1193,8 +1199,21 @@ func _test_trade_picks() -> void:
 	_check(at >= 0 and str(d.pick_sequence[at]) == rival, "Your traded first-round pick is theirs in the draft order")
 	var my_comps := d.comp_picks.filter(func(c): return str(c["club"]) == me).size()
 	var their_comps := d.comp_picks.filter(func(c): return str(c["club"]) == rival).size()
-	_check(d.pick_limit(me) == d.target_size - 1 + my_comps and d.pick_limit(rival) == d.target_size + 1 + their_comps,
-			"You make one pick fewer; they make one more")
+	# Picks the AI clubs traded in the off-season market count too: only
+	# this trade's first-rounder is the one pick that should move.
+	var others := {me: 0, rival: 0}
+	for key in d.pick_owners:
+		var parts := str(key).split(":")
+		if int(parts[0]) > d.target_size or str(key) == "1:" + me:
+			continue
+		for code in others:
+			if str(d.pick_owners[key]) == code:
+				others[code] += 1
+			if str(parts[1]) == code:
+				others[code] -= 1
+	_check(d.pick_limit(me) == d.target_size - 1 + my_comps + int(others[me])
+			and d.pick_limit(rival) == d.target_size + 1 + their_comps + int(others[rival]),
+			"You make one pick fewer; they make one more (other traded picks %s)" % str(others))
 	_check(GameState.save_career() and GameState.load_career() and str(GameState.draft.pick_sequence[at]) == rival
 			and str(GameState.draft.pick_origin[at]) == me, "The draft keeps the traded pick through a save")
 	d = GameState.draft
