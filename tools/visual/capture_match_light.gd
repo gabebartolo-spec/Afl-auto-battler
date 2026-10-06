@@ -2,7 +2,7 @@ extends SceneTree
 ## Light-mode capture of the live match screen on a phone (390x844): the pre-bounce
 ## coach box, then play. Needs a real renderer:
 ##   godot --path . --rendering-method gl_compatibility --script tools/visual/capture_match_light.gd
-## Environment: CAP_OUT (path prefix, default "match"), CAP_MODE ("light" default or "dark").
+## `--out PREFIX` and `--mode light|dark` after `--` (capture.yml passes them) beat the environment. Environment: CAP_OUT (path prefix, default "match"), CAP_MODE ("light" default or "dark").
 ## Writes <prefix>_<mode>_prebounce.png and <prefix>_<mode>_play.png. Never touches a real save.
 
 const W := 390
@@ -24,6 +24,12 @@ func _shot(frames: int = 6) -> Image:
 func _run() -> void:
 	var out := OS.get_environment("CAP_OUT") if OS.get_environment("CAP_OUT") != "" else "match"
 	var mode := OS.get_environment("CAP_MODE") if OS.get_environment("CAP_MODE") != "" else "light"
+	var cli := OS.get_cmdline_user_args()
+	for i in range(cli.size() - 1):
+		if str(cli[i]) == "--out":
+			out = str(cli[i + 1])
+		if str(cli[i]) == "--mode":
+			mode = str(cli[i + 1])
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
