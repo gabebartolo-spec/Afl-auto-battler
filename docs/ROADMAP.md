@@ -4702,13 +4702,15 @@ Possible families:
 - forward stoppage,
 - late-game flood / protect-space situation.
 
-### Director addition — three match vignette concepts (2026-10-06)
+### Director addition — match vignette concepts (2026-10-06)
 **Status:** `TODO` — requested roadmap candidates for Claude to refine; no implementation in this update.
 
-Extend the existing stoppage/kick-in/forward-entry families with:
+Extend the existing stoppage/kick-in/forward-entry/contact families with:
 - **Stoppage setup — body block on their star midfielder:** show a selected teammate setting a block/screen to impede the opposition star midfielder and create room for the intended ball winner. Make the target, blocker and space readable. The setup, contact, escape and any infringement/outcome must follow the actual football event and existing rules; it must not silently disable the star.
 - **Kick-out after a behind — torpedo down the centre:** show the kick-in set play, central receiving/contesting setup and a long torpedo through the middle. Show the genuine distance/territory opportunity and the central-turnover/exposed-defence risk where relevant. Do not assume a clean reception or invent a successful exit.
 - **Inside-50 kick into space — running forward chase, collect and shoot:** show the kicker placing the ball into open space inside 50, the actual forward racing toward it with the relevant opponent, the ground-ball collection and kick for goal when the authoritative sequence supports it. This is a kick into space and running collection, not a generic overhead mark; preserve believable bounce, timing and pursuit, and allow the real miss, turnover or defensive interruption rather than force a goal.
+
+- **Hip and shoulder — high-impact, risky bump:** a well-executed bump can be incredibly effective at removing an opposition player from the immediate play and opening space or preventing their involvement. This means taking them out of that contest/sequence, not guaranteeing an injury or removal from the match. Preserve the trade-off: a poorly executed or illegal bump can concede a free kick, with a **very small chance** of a report and potential suspension when the actual incident warrants it. Claude should refine effectiveness and risk using relevant player skills/traits, discipline, positioning and contact context; neither outcome should be a context-free random roll or a universally best call. Integrate legitimate contact, infringements and report/suspension consequences with ARD-M3-007 and ARD-M3-011 under their balance gates. The vignette must agree with the authoritative contact, free and report events; a report does not automatically imply a suspension, and any later ruling belongs to the existing MRO process.
 
 Use the existing pre-rendered 2.5D style, real participants/club identity and the same match ball colour throughout. Claude should inspect which sequences already exist and reuse their templates; any missing football behaviour belongs to the existing stoppage/coaching, kick-in (ARD-M3-009) or forward-entry/scoring owner, rather than a second cinematic simulation. Refine whether each scene previews a meaningful tactical decision or illustrates an already resolved play; decision scenes freeze at the appropriate point and outcome scenes show only what actually happened. Keep scenes brief/skippable and verify participant/event agreement, ball path, phone readability and performance under the existing vignette gates.
 
@@ -5787,6 +5789,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Added a hip-and-shoulder vignette concept: potentially powerful removal from the immediate play, balanced by free-kick risk and a very small context-dependent chance of report/potential suspension through the existing MRO system.
 
 - **2026-10-06:** Added three requested match-vignette concepts under ARD-M8-007: blocking the opposition star midfielder at a stoppage, a torpedo kick-out down the centre after a behind, and an inside-50 kick into space for a running forward to collect and shoot.
 
