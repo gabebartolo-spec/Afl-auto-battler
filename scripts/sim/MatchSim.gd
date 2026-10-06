@@ -774,9 +774,11 @@ static func _by_roles(group: Array, roles: Array) -> Array:
 ## line can make any ordinary play, each leans where it belongs. The lines
 ## that could always do it keep full weight.
 ## Carrying by zone (from the carrying side's view).
+## Middle zone calibrated 2026-10-06 against real 2026 per-role disposals: a
+## defender carries less through the middle (0.45), a forward more (0.6).
 const CARRY_ROLES := {
 	"back": {"DEF": 1.0, "MID": 1.0, "RUCK": 0.3, "FWD": 0.12},
-	"middle": {"MID": 1.0, "RUCK": 1.0, "DEF": 1.0, "FWD": 0.3},
+	"middle": {"MID": 1.0, "RUCK": 1.0, "DEF": 0.45, "FWD": 0.6},
 	"attack": {"MID": 1.0, "FWD": 1.0, "DEF": 0.2, "RUCK": 0.3},
 	"inside": {"FWD": 1.0, "MID": 1.0, "RUCK": 0.3, "DEF": 0.05},
 }
@@ -821,7 +823,10 @@ static func fwd_size(p: Dictionary) -> String:
 ## forward kicks the odd goal.
 const SHOT_ROLES := {"FWD": 1.0, "MID": 1.0, "RUCK": 0.35, "DEF": 0.06}
 ## Who wins a clearance: forwards and defenders at a stoppage now and then.
-const CLEARANCE_ROLES := {"MID": 1.0, "RUCK": 1.0, "FWD": 0.12, "DEF": 0.10}
+## A ruck wins a quarter of what a midfielder would around the ground: he
+## taps it to them (calibrated 2026-10-06 to 3.8 a game, real 3.6; centre
+## bounces pick from the attendees by contested work alone).
+const CLEARANCE_ROLES := {"MID": 1.0, "RUCK": 0.25, "FWD": 0.12, "DEF": 0.10}
 ## The clearance winner takes the chain's first disposal, as a clearance is
 ## in real football (director, 2026-10-06; evidence #363). The carrier pick is
 ## still drawn, so the rest of the chain's dice are where they were. Off only
