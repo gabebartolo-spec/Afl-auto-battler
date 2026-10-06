@@ -66,6 +66,34 @@ static func apply_appearance(mode: String) -> void:
 static func appearance() -> String:
 	return _appearance
 
+
+## The WCAG contrast ratio of two colours (1 to 21).
+static func contrast(a: Color, b: Color) -> float:
+	var la := _relative_luminance(a)
+	var lb := _relative_luminance(b)
+	return (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
+
+
+static func _relative_luminance(c: Color) -> float:
+	var ch := func(v: float) -> float:
+		return v / 12.92 if v <= 0.03928 else pow((v + 0.055) / 1.055, 2.4)
+	return 0.2126 * ch.call(c.r) + 0.7152 * ch.call(c.g) + 0.0722 * ch.call(c.b)
+
+
+## A club's colour for a live score on `surface` (the panel by default): the
+## club's accent, else its second colour, else its first, whichever is the
+## first to read at 4.5:1; plain text when none of them does. A club's own
+## colour stays wherever it can be read (Sydney's black accent cannot be, on a
+## dark panel).
+static func score_colour(code: String, surface := AUTO_COLOUR) -> Color:
+	if surface == AUTO_COLOUR:
+		surface = PANEL
+	var cols: Array = GameDB.club_colours(code)
+	for i in [2, 1, 0]:
+		if contrast(cols[i], surface) >= 4.5:
+			return cols[i]
+	return TEXT
+
 ## Type scale for a phone. Pick from these before inventing a size.
 const H1 := 24      # screen title / the one big fact on a screen
 const H2 := 18      # section heading

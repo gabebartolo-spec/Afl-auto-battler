@@ -28,6 +28,9 @@ const HISTORY_CSV := "res://data/player_history_2026.csv"
 ## How real players look on the vignette figures (Appearance.gd): skin tone and
 ## hair colour, drafted from public photos and reviewed by the director.
 const APPEARANCE_CSV := "res://data/player_appearance.csv"
+## Where each 2026 player came from (a state, or INT), from his recruiting source;
+## built by tools/build_player_origin.py. A blank state is left unset.
+const ORIGIN_CSV := "res://data/player_origin_2026.csv"
 ## Curated looks needed before their mix replaces Appearance.DEFAULT_SKIN_MIX.
 const MIX_FROM := 100
 
@@ -150,6 +153,7 @@ func reload() -> void:
 	_real_names = {}
 	players = _load_players()
 	_load_appearance()
+	_apply_origin(players)
 	Ratings.derive_all(players)
 	_apply_history(players)
 	for p in players:
@@ -493,6 +497,37 @@ func player_appearance(p: Dictionary) -> Dictionary:
 
 static func _look_key(p: Dictionary) -> String:
 	return "%s|%s|%s" % [str(p.get("first", "")).to_lower(), str(p.get("last", "")).to_lower(), str(p.get("dob", ""))]
+
+
+## Set p["home_state"] from data/player_origin_2026.csv, matched on club,
+## number, first and last name. A player with no row or a blank state keeps
+## no home_state.
+func _apply_origin(list: Array) -> void:
+	var rows := _read_rows(ORIGIN_CSV)
+	if rows.size() < 2:
+		return
+	var header: Array = rows[0]
+	var idx := {}
+	for j in range(header.size()):
+		idx[str(header[j]).strip_edges()] = j
+	for key in ["club", "num", "first", "last", "state"]:
+		if not idx.has(key):
+			push_error("GameDB: %s has no '%s' column" % [ORIGIN_CSV, key])
+			return
+	var state_of := {}
+	for i in range(1, rows.size()):
+		var cells: Array = rows[i]
+		if cells.size() < header.size():
+			continue
+		var st := str(cells[idx["state"]]).strip_edges()
+		if st == "":
+			continue
+		state_of["%s|%s|%s|%s" % [str(cells[idx["club"]]), str(cells[idx["num"]]),
+				str(cells[idx["first"]]), str(cells[idx["last"]])]] = st
+	for p in list:
+		var key := "%s|%d|%s|%s" % [str(p["club"]), int(p["num"]), str(p["first"]), str(p["last"])]
+		if state_of.has(key):
+			p["home_state"] = state_of[key]
 
 
 ## data/player_appearance.csv: first,last,dob,club,skin (1-6),hair (a HAIR_KEYS

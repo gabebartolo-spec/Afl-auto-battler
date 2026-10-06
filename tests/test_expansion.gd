@@ -19,6 +19,7 @@ func run() -> void:
 	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
 	_test_entry_gates()
+	_test_fair_fixture()
 	_test_2026_baseline()
 	_test_rollover_to_2028()
 	_test_2028_season_runs()
@@ -27,6 +28,7 @@ func run() -> void:
 	_test_expansion_ceilings()
 	_test_created_club_rules()
 	_test_created_club_career()
+	_test_club_count_defaults()
 	GameState.reset()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
@@ -38,6 +40,89 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
 		push_error(message)
+
+
+## A fair fixture at 18, 19 and 20 clubs, over several seeds: every club
+## plays the same number of games, hosts half of them (within one), rests the
+## same number of times, and the byes and repeats follow the seed, not the
+## club list (Season.build_fixture).
+func _test_fair_fixture() -> void:
+	# 18 to 21 clubs: a created club (Club Forge) can make any of them in any
+	# year, so the counts are built here, not taken from the calendar.
+	var all_clubs: Array = GameDB.active_clubs(2030)
+	for n in [18, 19, 20, 21]:
+		var codes: Array = all_clubs.slice(0, mini(n, all_clubs.size()))
+		while codes.size() < n:
+			codes.append("NEW%d" % codes.size())
+		var lists := {}
+		for c in codes:
+			lists[c] = GameDB.club_list(str(c))
+		var problems := []
+		var first_rest := {}
+		for sd in [11, 222, 3333, 44444]:
+			var s := Season.new(codes, lists, sd)
+			var games := {}
+			var home := {}
+			var rests := {}
+			var pairs := {}
+			for c in codes:
+				games[c] = 0
+				home[c] = 0
+				rests[c] = []
+			if s.fixture.size() != Season.REGULAR_ROUNDS:
+				problems.append("%d rounds" % s.fixture.size())
+			var short := 0
+			for ri in range(s.fixture.size()):
+				var size := (s.fixture[ri] as Array).size()
+				if size < n / 2 - 1:
+					problems.append("round %d has %d matches" % [ri + 1, size])
+				if size < n / 2:
+					short += 1
+					if n % 2 == 0 and (ri < Season.BYE_FIRST or ri > Season.BYE_LAST):
+						problems.append("a bye in round %d, outside the mid-season rounds" % (ri + 1))
+				var seen := {}
+				for m in s.fixture[ri]:
+					var a := str(m["home"])
+					var b := str(m["away"])
+					if seen.has(a) or seen.has(b) or a == b:
+						problems.append("round %d plays a club twice" % (ri + 1))
+					seen[a] = true
+					seen[b] = true
+					games[a] += 1
+					games[b] += 1
+					home[a] += 1
+					pairs[a + "|" + b if a < b else b + "|" + a] = true
+				for c in codes:
+					if not seen.has(c):
+						(rests[c] as Array).append(ri)
+			# Matches a full round can't hold: 18 clubs nine rounds of eight; 21
+			# clubs nine of nine.
+			var g0 := int(games[codes[0]])
+			if short != Season.REGULAR_ROUNDS * (n / 2) - n * g0 / 2:
+				problems.append("%d rounds a match short" % short)
+			if g0 != (23 if codes.size() % 2 == 0 else 22):
+				problems.append("%d games, not 23 (22 for an odd count)" % g0)
+			for c in codes:
+				if int(games[c]) != g0:
+					problems.append("%s plays %d, %s plays %d" % [codes[0], g0, c, games[c]])
+				if absf(float(home[c]) - float(games[c]) / 2.0) > 1.0:
+					problems.append("%s hosts %d of %d" % [c, home[c], games[c]])
+				if (rests[c] as Array).size() != (rests[codes[0]] as Array).size():
+					problems.append("%s rests %d times" % [c, (rests[c] as Array).size()])
+			if pairs.size() != codes.size() * (codes.size() - 1) / 2:
+				problems.append("%d pairs meet" % pairs.size())
+			if codes.size() % 2 == 1:
+				first_rest[sd] = str(codes.filter(func(c): return (rests[c] as Array).has(0))[0])
+			var again := Season.new(codes, lists, sd)
+			if str(again.fixture) != str(s.fixture):
+				problems.append("seed %d does not repeat" % sd)
+		_check(problems.is_empty(), "%d clubs: 23 games each (22 at an odd count), home within one of half, equal rests, every pair meets, no round more than a match short, byes mid-season at an even count (%s)" % [
+				codes.size(), str(problems.slice(0, 4))])
+		if codes.size() % 2 == 1:
+			var who := {}
+			for sd in first_rest:
+				who[first_rest[sd]] = true
+			_check(who.size() >= 2, "%d clubs: who rests first follows the seed, not the club list (%s)" % [codes.size(), str(first_rest)])
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +182,8 @@ func _test_2026_baseline() -> void:
 	_check(season.ladder.size() == 18, "The 2027 ladder has eighteen clubs")
 	_check(season.fixture.size() == Season.REGULAR_ROUNDS, "24 rounds in 2027")
 	for r in season.fixture:
-		_check((r as Array).size() == 9, "Eighteen clubs play nine matches a round")
+		_check((r as Array).size() == 9 or (r as Array).size() == 8,
+				"Eighteen clubs play nine matches a round, eight in a bye round")
 
 
 ## Finish the current season's intake draft the same way a career would.
@@ -148,15 +234,15 @@ func _test_rollover_to_2028() -> void:
 	_check(ages / float(tas.size()) > 19.0 and ages / float(tas.size()) < 27.0,
 			"The debut list mixes ages (%.1f)" % (ages / float(tas.size())))
 
-	# The odd-club fixture: 24 rounds, a bye rotating so every club plays
-	# 22 or 23 games, and every pair meets at least once.
+	# The odd-club fixture: 24 rounds, two byes each so every club plays 22
+	# games, and every pair meets at least once.
 	_check(season.fixture.size() == Season.REGULAR_ROUNDS, "24 rounds in 2028")
 	var games := {}
 	var pairs := {}
 	for r in season.fixture:
 		var round: Array = r
-		_check(round.size() == 9 or round.size() == 10,
-				"A 2028 round has nine or ten matches (%d)" % round.size())
+		_check(round.size() == 8 or round.size() == 9,
+				"A 2028 round has eight or nine matches (%d)" % round.size())
 		for m in round:
 			var a := str(m["home"])
 			var b := str(m["away"])
@@ -168,8 +254,7 @@ func _test_rollover_to_2028() -> void:
 	_check(pairs.size() == 171, "Every pair of the 19 clubs meets at least once")
 	for code in season.ladder:
 		var n: int = games.get(code, 0)
-		_check(n == 22 or n == 23,
-				"%s plays 22 or 23 games in 2028 (%d)" % [code, n])
+		_check(n == 22, "%s plays 22 games in 2028 (%d)" % [code, n])
 
 
 func _test_2028_season_runs() -> void:
@@ -399,3 +484,12 @@ func _test_created_club_career() -> void:
 	_check(GameState.my_club == "PMB" and (GameState.season.lists["PMB"] as Array).size() == mine.size(),
 			"The created club's list survives the round trip")
 
+## A club with no recorded expectation or goal position follows the club count,
+## not 18 (a created club makes a league of 19 to 21).
+func _test_club_count_defaults() -> void:
+	_check(ClubLife.default_rank(18) == 9 and ClubLife.default_rank(21) == 10,
+			"With no expectation a club is taken as mid-table: 9 of 18, 10 of 21")
+	_check(ClubLife.goal_met({}, 21, 0, 21) and not ClubLife.goal_met({}, 19, 0),
+			"A goal with no position asks the club count: 21st of 21 meets it, 19th of 18 does not")
+	_check(ClubLife.goal_met({"pos": 12}, 12, 0, 21) and not ClubLife.goal_met({"pos": 12}, 13, 0, 21),
+			"A set goal position is not moved by the club count")

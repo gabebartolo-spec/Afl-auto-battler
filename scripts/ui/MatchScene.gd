@@ -38,6 +38,7 @@ var _margin: MarginContainer
 var _stacked := false
 var _last_tactics := {}
 var _skipping := false
+var _crowd: CrowdSound = null    # FL-004: the crowd (presentation only)
 var _fulltime_shown := false
 var _coach_overlay: Control
 var _sheet_overlay: Control
@@ -98,6 +99,9 @@ func _ready() -> void:
 	if _res.is_empty():
 		Router.replace("hub")
 		return
+	_crowd = CrowdSound.new()
+	_crowd.name = "Crowd"
+	add_child(_crowd)
 	_build()
 	_pitch.setup(_res)
 	_refresh_rings()
@@ -249,8 +253,7 @@ func _score_column(code: String, home: bool, narrow: bool) -> Control:
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if home \
 			else HORIZONTAL_ALIGNMENT_LEFT
 	v.add_child(name)
-	var cols: Array = GameDB.club_colours(code)
-	var score := UiKit.figure("0.0 (0)", 30 if narrow else 36, cols[2])
+	var score := UiKit.figure("0.0 (0)", 30 if narrow else 36, UiKit.score_colour(code))
 	score.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if home \
 			else HORIZONTAL_ALIGNMENT_LEFT
 	# A fixed minimum wider than the phone column is what shoved the oval
@@ -443,7 +446,7 @@ func _show_coach_box() -> void:
 	overlay.name = "CoachBox"
 	_coach_overlay = overlay
 	var v: VBoxContainer = box["body"]
-	var titles := {1: "Before the first bounce", 2: "Quarter time", 3: "Half time", 4: "Three-quarter time"}
+	var titles := {1: "Before the first ball-up", 2: "Quarter time", 3: "Half time", 4: "Three-quarter time"}
 	var title := UiKit.ellipsis(str(titles.get(q, "Quarter %d" % q)), UiKit.H1, UiKit.TEXT, true)
 	title.name = "BreakTitle"
 	v.add_child(title)
@@ -629,7 +632,7 @@ func _show_coach_box() -> void:
 	sync_rot.call(_rotation)
 	more.add_child(_legs_view())
 
-	var start := UiKit.btn("Start quarter" if q > 1 else "Bounce the ball", 18, true)
+	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", 18, true)
 	start.name = "StartQuarter"
 	start.custom_minimum_size = Vector2(0, 48)
 	start.pressed.connect(func():
@@ -1234,6 +1237,8 @@ func _on_event(ev: Dictionary) -> void:
 	if str(ev.get("kind", "")) == "goal":
 		_flash_score(int(ev.get("side", 0)))
 		_track_run(int(ev.get("side", 0)))
+	if _crowd != null and not _skipping:
+		_crowd.event(str(ev.get("kind", "")))
 	_queue_broadcast(ev, event_index)
 
 
@@ -1491,6 +1496,8 @@ func _on_finished() -> void:
 		return
 	_skipping = false
 	_finished = true
+	if _crowd != null:
+		_crowd.full_time()
 	_fulltime_shown = true
 	_close_coach()
 	if _res.has("goals") and _res.has("behinds"):
