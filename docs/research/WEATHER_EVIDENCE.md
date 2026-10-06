@@ -116,4 +116,4 @@ Choices to note:
 - Perth uses Perth Airport, about 10 km inland from Optus Stadium. Brisbane, Gold Coast, Adelaide, Hobart and Melbourne use the station of the same name.
 - Wind rows from the older stations end in 2010, and most are 1955-era or later. They are long-term means, not the match-day values.
 
-Rain shares check against the match-based figures above: the MCG's March to September rain days run about 20 to 34% of days, against 28.6% of games that were wet [BB].
+Rain shares check against the match-based figures above: the MCG's March to September rain days run about 20 to 35% of days, against 28.6% of games that were wet [BB].
