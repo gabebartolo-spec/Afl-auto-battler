@@ -2081,6 +2081,8 @@ Acceptance:
 
 ### Director addition — defensive forward archetype / trait
 
+**Status (2026-10-06):** `IN REVIEW`. Implemented as the director approved: a **Defensive forward** trait (a forward's own position, Pressure 44+, about 1–2 a club) and a person-based answer to their loose defender. At a break, "Their loose defender" sits with the key match-ups and asks who goes to him. A Defensive forward cuts his reach to contests to 40%, any other forward to 70%. The forward sent is up the ground, so he is seldom a target, a shooter or a crumber himself (25%); that replaces the old flat −3.5% on the whole forward line. The AI names its forward by the same rule, after observable roam wins. Tests: `test_match_game.gd` `_test_defensive_forward`.
+
 Add a **Defensive forward** as a genuine player archetype/trait and make it relevant to this exact problem: when an opposition loose/intercept defender is hurting you, a suitable defensive forward should be deployable to make him accountable rather than the response being only an abstract team button.
 
 This is a design brief, not a fully specified mechanic. **Claude should ponder and propose the smallest football-credible implementation** before coding the deeper behaviour. Work out how the identity should be represented in the existing archetype/trait/role model, what makes a player genuinely suited to it, and how it interacts with live matchup/structural calls without creating another redundant role system.
