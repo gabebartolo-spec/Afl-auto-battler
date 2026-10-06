@@ -62,6 +62,20 @@ Reading it: the match view holds 60 frames a second on this PC with one slow fra
 
 Nothing redraws when nothing changes. The main loop still ticks 60 times a second in every state, even with nothing processing (Godot's own low-processor loop); only rendering stops. Nothing measured needs a fix, so no code changed. Not measured: a real phone, and Android's own pause, where the OS stops the loop.
 
+## Anti-aliasing cost (medium, #472 and #478)
+
+GPU time for a frame of the pitch and of the stoppage vignette, on this PC's Mobile renderer, measured with the method in #472 (line anti-aliasing, step 1) and #478 (whole-game anti-aliasing).
+
+| Case | GPU time |
+|---|---|
+| Pitch, no anti-aliasing | 0.087 ms |
+| Pitch, line anti-aliasing | 0.117 ms |
+| Pitch, 2x MSAA | 0.157 ms |
+| Stoppage vignette, before | 0.097 ms |
+| Stoppage vignette, 2x MSAA | 0.170 ms |
+
+These are PC numbers. A phone's GPU will cost more per frame, so the phone check before merge is the real test.
+
 ## Texture import inventory (for the art agent)
 
 Every texture under `assets/vignette` and `assets/ui`, from the committed `.import` files (`python3 tools/perf/texture_inventory.py`). Filtering is not an import setting in Godot 4; it comes from the project default unless a node or shader overrides it. The figure shader sets `filter_linear` on the mask, design and digits samplers.
