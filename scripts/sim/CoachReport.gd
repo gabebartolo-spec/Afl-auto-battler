@@ -14,8 +14,6 @@ const PLAN_NAMES := {
 	"contest": "Win contest",
 	"controlled": "Controlled tempo",
 	"through_stars": "Through stars",
-	"fast": "Fast movement",
-	"press": "High press",
 }
 
 const PEP_NAMES := {
@@ -41,8 +39,6 @@ const PLAN_SUMMARY := {
 	"contest": "Numbers at the stoppage: win more of the clearances, but the ball moves a little slower and you are a little exposed on the rebound. Leans on your ball-winners and ruck.",
 	"controlled": "Keep the ball: fewer errors, less rattled by pressure and fresher legs, but less ground gained. Asks nothing special of your list. Plays through a Defensive press; Attack corridor runs past it.",
 	"through_stars": "Go through your best three: they see more of the ball and finish better, with fewer errors, but they know where it's going and the pressure comes. Worth more the further they stand above the rest.",
-	"fast": "Go through the corridor: more ground and better shots, but more turnovers, heavier legs, and they score more on the rebound.",
-	"press": "Press up the ground: harder to score against, but fewer numbers forward and heavier legs.",
 }
 
 const PEP_SUMMARY := {
@@ -96,7 +92,7 @@ static func _imp(arr: Array, side: int, cause: String) -> float:
 
 
 static func plan_label(key: String) -> String:
-	return str(PLAN_NAMES.get(key, "Balanced"))
+	return str(PLAN_NAMES.get(MatchSim.plan_key(key), "Balanced"))
 
 
 static func plan_effect(key: String) -> String:

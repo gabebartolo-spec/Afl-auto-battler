@@ -334,13 +334,13 @@ static func calls_lines(res: Dictionary, my_side: int, q: int) -> Array:
 	var prev := (" in the %s" % QUARTER_NAMES[q - 2]) if q >= 2 else ""
 	var n := func(d: Dictionary, k: String) -> int: return int(d.get(k, 0.0))
 	var out := []
-	var plan := str(calls.get("gameplan", "balanced"))
+	var plan := MatchSim.plan_key(str(calls.get("gameplan", "balanced")))
 	var label := CoachReport.plan_label(plan)
 	match plan:
-		"attacking", "fast":
+		"attacking":
 			out.append(("%s: %d inside 50s and %s" % [label, n.call(mine, "inside50"), _goals_word(n.call(mine, "goals"))])
 					+ ((", from %d and %d%s." % [n.call(p_mine, "inside50"), n.call(p_mine, "goals"), prev]) if q >= 2 else "."))
-		"defensive", "press":
+		"defensive":
 			out.append(("%s: they had %d inside 50s and kicked %s" % [label, n.call(theirs, "inside50"), _goals_word(n.call(theirs, "goals"))])
 					+ ((", from %d and %d%s." % [n.call(p_theirs, "inside50"), n.call(p_theirs, "goals"), prev]) if q >= 2 else "."))
 		"contest":
