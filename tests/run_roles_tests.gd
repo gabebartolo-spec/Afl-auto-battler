@@ -129,6 +129,13 @@ func _selection_tests() -> void:
 	# The synergy rules are one tap away, in full, without progress counts.
 	var rules_btn: Button = ui.find_child("SynergyRules", true, false)
 	_check(rules_btn != null and rules_btn.size.y >= 44, "A Synergies button opens the rules")
+	# The nearest synergy the side doesn't have, as a fact (director: "Build it").
+	var short_l: Label = ui.find_child("SynergyShort", true, false)
+	var short_want := Traits.short_text(_state.my_squad().ground)
+	_check((short_l == null and short_want == "") or (short_l != null and short_l.text == short_want),
+			"Selection says the nearest synergy and what it's short (%s)" % short_want)
+	_check(Traits.short_text([]) == "Intercept wall: 2 interceptors and 1 lockdown player short.",
+			"With nobody, the nearest is the first of the fewest-short: %s" % Traits.short_text([]))
 	if rules_btn != null:
 		rules_btn.emit_signal("pressed")
 		await _settle()
