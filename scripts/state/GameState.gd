@@ -861,9 +861,14 @@ func reset() -> void:
 	draftee_pool = _first_class(season_year)
 
 
+## The career seed the first class was made from (see start_season).
+var _first_class_seed := 0
+
+
 ## The draft class a career starting in `year` drafts at that season's end:
 ## generated and aged the way _start_next_season prepares next year's.
 func _first_class(year: int) -> Array:
+	_first_class_seed = career_seed
 	var generated := Prospects.generate_class(year, career_seed)
 	class_tiers[str(year)] = Prospects.class_tier(career_seed, year)
 	GameDB.register_draftees(generated)
@@ -1398,6 +1403,11 @@ func start_season(club_code: String, list: Array) -> void:
 	# Career copies, not the shared database rows. Training must not rewrite
 	# the draft pool for the next career.
 	my_list = lists.get(my_club, [])
+	# reset() made the first class from the seed it rolled; a career whose seed
+	# was set since (a replay, an audit) makes it from its own, or two runs of
+	# the same seed draft different classes.
+	if drafted_draftees.is_empty() and _first_class_seed != career_seed:
+		draftee_pool = _first_class(season_year)
 	Workload.reset(lists)
 	# The real 2026 season is history before the career starts: every real
 	# player's record runs through 2026, at the club he played it for. A

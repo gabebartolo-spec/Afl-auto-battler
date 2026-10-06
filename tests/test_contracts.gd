@@ -33,6 +33,7 @@ func run() -> void:
 	_test_mixed_packages()
 	_test_trade_market()
 	_test_trade_requests()
+	_test_seeded_market_repeats()
 	_test_unproven_potential()
 	_test_opposition_pot()
 	_test_money_copy()
@@ -1397,7 +1398,7 @@ func _test_trade_requests() -> void:
 	while TradeRequests.roll(year, "x1", "home") >= TradeRequests.HOME_CHANCE:
 		year += 1
 	var ask := TradeRequests.asks(p, "CAR", year, states, [], true, 20)
-	_check(str(ask.get("why", "")) == "home" and str(ask.get("to", [])) == str(["ADE", "PAD"]),
+	_check(str(ask.get("why", "")) == "home" and (ask.get("to", []) as Array).size() == 2 and (ask["to"] as Array).has("ADE") and (ask["to"] as Array).has("PAD"),
 			"A South Australian at Carlton can ask to go home, naming the SA clubs (%s)" % str(ask))
 	_check(TradeRequests.asks(p, "ADE", year, states, [], true, 20).is_empty(), "Nobody asks to go home from home")
 	var out_of_contract := p.duplicate()
@@ -1462,6 +1463,27 @@ func _test_trade_requests() -> void:
 	GameState.trade_requests = {}
 
 
+## The same career seed makes the same off-season (the #383 W7 caught two
+## identical audit runs trading differently): reset() rolls a seed and makes
+## the first draft class from it, so a career whose seed is set afterwards
+## must make its class again from its own, or pick values - and every trade
+## priced with a pick - change from run to run.
+func _test_seeded_market_repeats() -> void:
+	var logs := []
+	var tiers := []
+	for k in range(2):
+		GameState.reset()
+		GameState.career_seed = 4711     # the same seed, whatever reset() rolled
+		GameState.replay_seed = 4711
+		GameState.start_season("GEE", GameDB.club_list("GEE"))
+		tiers.append(str(GameState.class_tiers.get(str(GameState.season_year), "")))
+		_check(str(tiers[k]) == Prospects.class_tier(4711, GameState.season_year),
+				"The first draft class is made from the career's own seed (%s)" % str(tiers[k]))
+		_to_offseason()
+		logs.append(JSON.stringify(GameState.offseason_log) + JSON.stringify(GameState.trade_requests))
+	_check(logs[0] == logs[1], "The same seed trades the same way twice")
+
+
 func _test_trade_market() -> void:
 	_new_season()
 	_to_offseason()
@@ -1499,6 +1521,7 @@ func _test_trade_market() -> void:
 	_check(GameState.save_career(), "Saved before replaying the market")
 	var replay := []
 	var starters_ok := true
+	var offenders := []
 	for k in range(2):
 		GameState.load_career()
 		GameState.offseason_log = []
@@ -1513,20 +1536,25 @@ func _test_trade_market() -> void:
 		var asked_before: Dictionary = (GameState.trade_requests as Dictionary).duplicate(true)
 		GameState._ai_trades(GameState.trade_prospects())
 		# A club that has already bought can find a starter pushed out of its
-		# side, and sell him as the fringe player he now is.
+		# side, and sell him as the fringe player he now is; and a buyer's
+		# first deal can make it a contender for its second (DEALS_PER_CLUB),
+		# judged then, not at the start.
 		var bought := {}
 		for e in GameState.offseason_log.filter(func(x): return str(x.get("kind", "")) == "ai_trade"):
 			var named := asked_before.has(str(e["in"][0])) \
 					and (asked_before[str(e["in"][0])]["to"] as Array).has(str(e["club"]))
-			if str(starter_at.get(str(e["in"][0]), "")) == str(e["with"]) and not named and not bought.has(str(e["with"])):
-				starters_ok = starters_ok and str(phase_of[e["club"]]) == "contending" \
-						and str(phase_of[e["with"]]) == "rebuilding"
+			if str(starter_at.get(str(e["in"][0]), "")) == str(e["with"]) and not named and not bought.has(str(e["with"])) \
+					and not bought.has(str(e["club"])):
+				var fine: bool = str(phase_of[e["club"]]) == "contending" and str(phase_of[e["with"]]) == "rebuilding"
+				starters_ok = starters_ok and fine
+				if not fine:
+					offenders.append("%s (%s) from %s (%s): %s" % [e["club"], phase_of[e["club"]], e["with"], phase_of[e["with"]], str(e["in"][0])])
 			bought[str(e["club"])] = true
 		GameState._make_trade_offers(GameState.trade_prospects())
 		GameState._freeze_league(false)
 		replay.append(_market_snapshot())
 	_check(replay[0] == replay[1], "The market comes out the same from the same league: %s // %s" % [str(replay[0]), str(replay[1])])
-	_check(starters_ok, "A rival takes another club's starter only as a contender buying from a rebuilding club, or when he asked to go there")
+	_check(starters_ok, "A rival takes another club's starter only as a contender buying from a rebuilding club, or when he asked to go there %s" % str(offenders))
 	GameState.load_career()
 	# Who is on offer: a rebuilding club's established players to a contender,
 	# as to you; otherwise only the players outside a club's starting side.

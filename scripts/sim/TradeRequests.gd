@@ -70,7 +70,9 @@ static func asks(p: Dictionary, club: String, year: int, states: Dictionary,
 		for c in states:
 			if str(states[c]) == home and str(c) != club:
 				there.append(str(c))
-		there.sort()
+		# His own order of the clubs at home, not the alphabet's: otherwise
+		# every Victorian names the same three.
+		there.sort_custom(func(x, y): return roll(year, id, "home " + str(x)) < roll(year, id, "home " + str(y)))
 		if not there.is_empty() and roll(year, id, "home") < HOME_CHANCE:
 			return {"why": "home", "to": there.slice(0, MAX_CLUBS)}
 	if not in_side and games <= FRINGE_GAMES and not starts_at.is_empty() \
