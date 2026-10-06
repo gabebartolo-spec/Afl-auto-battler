@@ -10,7 +10,7 @@ extends Node
 ## Colours, selection and control shapes are held constant: only type changes.
 ## A comparison for the art agent and the director, never a rollout.
 ##   godot --path . --rendering-driver opengl3 --script tools/visual/capture_type_specimen.gd \
-##       -- --out /tmp/type_390 [--col 390] [--scale 1] [--text 1.0] [--fonts DIR] [--face DIR]
+##       -- --out /tmp/type_390 [--col 390] [--scale 1] [--text 1.0] [--fonts DIR] [--face DIR]...
 ## --col: logical width of one column (320 and 390 phone, 640 desktop).
 ## --scale: pixels per logical unit (2 for a 2x phone or a fullscreen 2560
 ##   desktop under STYLE-07's density). --text: every text size times this, the
@@ -42,7 +42,7 @@ func run() -> void:
 	var out := "/tmp/type_specimen"
 	var scale := 1.0
 	var fonts_dir := ""
-	var face_dir := ""
+	var faces := []
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size() - 1):
 		match str(a[i]):
@@ -51,7 +51,7 @@ func run() -> void:
 			"--scale": scale = float(a[i + 1])
 			"--text": text_k = float(a[i + 1])
 			"--fonts": fonts_dir = str(a[i + 1])
-			"--face": face_dir = str(a[i + 1])
+			"--face": faces.append(str(a[i + 1]))
 	narrow = col_w < 640
 	ts = TextServerManager.get_primary_interface()
 	await get_tree().process_frame
@@ -68,8 +68,8 @@ func run() -> void:
 		var b := _source(fonts_dir)
 		if not b.is_empty():
 			treatments.append(b)
-	if face_dir != "":
-		var own := _own(face_dir)
+	for f in faces:
+		var own := _own(str(f))
 		if not own.is_empty():
 			treatments.append(own)
 	for t in treatments:
@@ -219,8 +219,12 @@ func _own(dir: String) -> Dictionary:
 		push_error("specimen: no Regular/Bold/Display.ttf in %s" % dir)
 		return {}
 	t["head"] = t["bold"]
-	t["name"] = "C  Our face"
-	t["note"] = "%s ours; the rest Barlow" % "/".join(built)
+	if built == ["Display"]:
+		# A numerals-and-capitals display face so far: it sets every number a
+		# player reads (scores, clock, ratings, guernsey numbers); words stay Barlow.
+		t["roles"].merge({"t_rating": ["display", 22], "l_rating": ["display", 22], "clock": ["display", 19]}, true)
+	t["name"] = "Ours: %s" % dir.trim_suffix("/").get_file()
+	t["note"] = "numbers in our face; words Barlow" if built == ["Display"] else "%s ours; the rest Barlow" % "/".join(built)
 	return t
 
 
