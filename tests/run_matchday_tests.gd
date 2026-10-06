@@ -562,12 +562,29 @@ func _bounce_close_up() -> void:
 	# facing either way; the umpire (the average build, facing the camera) bounces.
 	var moves_ok := _sheet_has(VignetteFigures.BODIES["average"], "bounce", ["front"])
 	for build in ["average", "ruck"]:          # the footballers (the sheet also holds the coach)
-		for anim in ["idle", "jog", "tap"]:
+		for anim in ["idle", "jog", "tap", "tap_b", "ready", "ready_turn"]:
 			moves_ok = moves_ok and _sheet_has(VignetteFigures.BODIES[build], anim, ["front", "back"])
 	_check(moves_ok and Vector2i((vig.FIGURE_SHADE as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
 			and Vector2i((vig.FIGURE_MASK as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
 			and Vector2i((vig.FIGURE_DESIGN as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE / 2,
 			"The figure sheets hold every move the scene plays, front and back")
+	# Living players: the two ruckmen never go up as twins, and men standing in the
+	# square are ready (not stock-still) and never all in step.
+	var rucks: Array = tokens.filter(func(t): return str(t["slot"]) == "R")
+	_check(rucks.size() < 2 or str((rucks[0]["ruck"] as Dictionary)["anim"]) != str((rucks[1]["ruck"] as Dictionary)["anim"]),
+			"The two ruckmen contest with different techniques")
+	vig.set("_t", 2.5)
+	var picks := {}
+	var standing := 0
+	for t in tokens:
+		if str(t["slot"]) == "R" or bool(vig.call("_moving", t)):
+			continue
+		var pick: Array = vig.call("_frame", t, 0.0, vig.call("_pos", t), bool(t["mine"]))
+		standing += 1
+		picks["%s/%d/%s" % [pick[0], pick[1], pick[2]]] = true
+		moves_ok = moves_ok and str(pick[0]).begins_with("ready")
+	_check(standing < 2 or (picks.size() > 1 and moves_ok), "Men standing in the square are ready, and not all in step")
+	vig.set("_t", 0.0)
 	# It plays as a scene: the players run into the set-up before the freeze.
 	var before: Vector2 = vig.call("_pos", tokens[0])
 	for i in range(20):

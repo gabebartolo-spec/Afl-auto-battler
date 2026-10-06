@@ -4,11 +4,19 @@ extends SceneTree
 ##   xvfb-run -a -s "-screen 0 1280x900x24" godot --path . --rendering-driver opengl3 \
 ##       --script tools/visual/capture_prematch.gd -- --out /tmp/prematch
 ## Writes <out>_sheet.png: warm-up, final instructions and the banner on a phone.
+## --film: also writes <out>_film_NNN.png, the whole scene at 12 frames a second (the
+## run through the banner included), for checking motion.
+## --milestone N: the banner for a player's Nth game (FL-002; 200 is the director's
+## line), --club: games for this club rather than his career; --opp CODE: the
+## opponent (Essendon by default, whose ANZAC banner outranks any milestone).
 
 const W := 390
 const H := 844
-## [phase to be in, seconds into the scene]
-const BEATS := [["warm", 0.2], ["warm", 1.0], ["warm", 1.8], ["huddle", 2.9], ["run", 3.3], ["run", 3.55]]
+## [phase to be in, seconds into the scene]: the warm-up, gathering in, gathered, the run.
+const BEATS := [["warm", 0.2], ["warm", 0.7], ["huddle", 1.8], ["huddle", 3.6], ["run", 4.3], ["run", 5.2]]
+## As the game plays it (HubScene.PRE_MATCH_SECONDS): they gather in, then go.
+const GATHER_AT := 0.76
+const RUN_AT := 3.8
 
 
 func _initialize() -> void:
@@ -18,9 +26,16 @@ func _initialize() -> void:
 func _run() -> void:
 	var out := "/tmp/prematch"
 	var a := OS.get_cmdline_user_args()
+	var film := a.has("--film")
+	var ms_games := 0
+	var opp_arg := "ESS"
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
+		if str(a[i]) == "--milestone":
+			ms_games = int(a[i + 1])
+		if str(a[i]) == "--opp":
+			opp_arg = str(a[i + 1])
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
@@ -31,19 +46,27 @@ func _run() -> void:
 	state.start_season("COL", db.club_list("COL"))
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
-	var opp := "ESS"
-	var opp_ground: Array = load("res://scripts/sim/Squad.gd").new(opp, state.season.lists[opp], false, opp).ground
-	var vig = load("res://scripts/ui/match/PreMatchVignette.gd").open(root, "COL", opp, state.my_squad().ground, opp_ground,
-			"Round 1  ·  Collingwood v Essendon")
+	var opp := opp_arg
+	# Everyone named, as the game passes them: the 18 and the interchange.
+	var opp_squad = load("res://scripts/sim/Squad.gd").new(opp, state.season.lists[opp], false, opp)
+	var opp_ground: Array = opp_squad.ground + opp_squad.bench
+	var ctx := {}
+	if ms_games > 0:
+		var p: Dictionary = state.my_squad().ground[0]
+		ctx["milestone"] = {"games": ms_games, "player": str(p.get("last", "")),
+				"name": db.player_display_name(p), "club": a.has("--club")}
+	var vig = load("res://scripts/ui/match/PreMatchVignette.gd").open(root, "COL", opp,
+			state.my_squad().ground + state.my_squad().bench, opp_ground,
+			"Round 1  ·  Collingwood v %s" % db.club_name(opp), false, ctx)
 	vig.set_process(false)
 	var shots := []
 	for beat in BEATS:
 		var t: float = beat[1]
 		if beat[0] == "huddle" and vig.phase() == "warm":
-			vig.set("_t", 2.0)
+			vig.set("_t", GATHER_AT)
 			vig.set_progress(0.6)
 		if beat[0] == "run" and vig.phase() != "run":
-			vig.set("_t", 3.05)
+			vig.set("_t", RUN_AT)
 			vig.run_out()
 		vig.set("_t", t)
 		vig.queue_redraw()
@@ -57,4 +80,27 @@ func _run() -> void:
 		sheet.blit_rect(img, Rect2i(0, 0, W, H), Vector2i((i % 3) * W, (i / 3) * H))
 	sheet.save_png(out + "_sheet.png")
 	print("wrote ", out + "_sheet.png")
+	if film:
+		# A fresh scene: the stills above have already sent this one through the banner.
+		vig.get_parent().queue_free()
+		await process_frame
+		vig = load("res://scripts/ui/match/PreMatchVignette.gd").open(root, "COL", opp,
+				state.my_squad().ground + state.my_squad().bench, opp_ground, "Round 1  ·  Collingwood v Essendon")
+		vig.set_process(false)
+		var t := 0.0
+		var n := 0
+		while t < RUN_AT + 2.4:
+			if t >= GATHER_AT and vig.phase() == "warm":
+				vig.set_progress(0.6)
+			if t >= RUN_AT and vig.phase() != "run":
+				vig.run_out()
+			vig.set("_t", t)
+			vig.queue_redraw()
+			for i in range(2):
+				await process_frame
+			var img: Image = root.get_viewport().get_texture().get_image()
+			img.save_png("%s_film_%03d.png" % [out, n])
+			n += 1
+			t += 1.0 / 12.0
+		print("filmed ", n)
 	quit(0)

@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06. Since the last board merged: #347, #351, #353-#355 (selection seed, South Adelaide's home design, the board refresh, the freckles line in the roadmap, and the free-kicks re-measure; low's docs and tests)._
+_Updated 2026-10-06. Since the last board merged: #386 (three football-language copy fixes), #388 (the board), #391 (the roadmap, after #361 and #359), #397 (the scene baselines) and #399 (the director's decisions on animation and the Stat Guide). #379 (development projects matter) is on main._
 
 ## Lanes
 | agent (session) | owns |
@@ -24,38 +24,39 @@ _Updated 2026-10-06. Since the last board merged: #347, #351, #353-#355 (selecti
 
 ## Waiting on the director
 **Looks** (appearance or screens; the director's own words needed before they merge):
-- #360 Create a club screen (draft); #303 break-screen call; #309 Club Forge Create a player.
+- #371 STYLE-07 PC readability (P0, lead): needs the director's look on a PC before it merges. #360 Create a club screen: approved in the director's words, merges after #309 and #340. #303 break-screen call; #309 Club Forge Create a player (the player form).
 - The art agent's Forge hair and face sheet and boot sheet.
 
 **Own-words confirmations** (the decision reached the agents second-hand; held until the director says it on the PR or in the chat):
-- #299 vignettes (the art agent relayed "fine, ship it"); #357 remove freckles from the player look. The roadmap line removing freckles (#354) is merged and says "relayed"; it is reverted if the director does not confirm.
+- None open. #299 vignettes were approved in the director's own words in chat and merged; #357 freckles was confirmed in the director's words and merged.
 
-**Decisions** (evidence is in; each lists the lead's recommendation):
-- #362 flags: options for what makes management pay. The lead recommends the trade period at real volume (option 1).
-- #363 ruck and midfield disposals: should the clearance winner keep the first disposal? The lead recommends option 1.
-- The older decisions are under "Pending director decisions" below.
+**Decisions made, being built:** trades at real volume (lead); synergy selection and development projects must have an impact (#379, medium, in review). The clearance rule is merged (#373). All recorded in ROADMAP §9.1 (#365).
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- In flight on CI, in this order: #352 (ROADMAP ARD-M7-009 status), then #340 (Club Forge Create a club engine, lead; medium W7 done), #349 (C15 seed guard, plus roles pinned), #359 (board goals follow the club count), #345 (CI shard rebalance, merges only if it beats main's slowest shard in 2 of 3 runs), then #361 (the fair fixture, after medium's nits and the expansion-floor recount).
-- Review by the lead: #362, #363 (evidence docs, medium's); low posted a copy check on both. #342 (codex docs) conflicts with main and needs its owner to sync.
+- In flight on CI: #378 (player origin, data, reviewed), #382 (remove scars: the lead confirms on the PR, then merge on green), #387 (career_ui press-conference check counts once), #396 (roadmap, M5-003), #398 (the Stat Guide in words, approved with two wording fixes made), #402 (tests/README floors) and #403 (roadmap status lines). #393 (ruck/DEF) and #383 (trade market) are green and wait on their W7.
+- **Must not merge until the director has looked (prototypes):** #385 (club marker A, stacked on #360), #392 (FL-005 nicknames and interests on the profile), #395 (FL-006 headlines), #400 (FL-002 milestone banners), #389 and #401 (the STYLE-08 light inventory and its part 3), #394 (hair review).
+- #390 (roadmap, hair decisions) conflicts with main and needs its owner to sync.
+- #342 (codex docs) conflicts with main and needs its owner to sync. #368 (kit options, draft) has no gate note yet.
 - Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval). #291 is the director's Codex research: do not merge.
 - On main, awaiting the director's look: #276 press conference, #277 Training-row alignment.
 
 ## In progress
-- **Lead:** the Club Forge Create a club engine (#340, under W7); next from the 18 + 5 follow-ups.
-- **Medium:** the fair fixture (`claude/fair-fixture`, opening shortly) covering 18 to 21 clubs: a created club can make any count from 18 to 21 (director decision, ROADMAP §9.1, #344); a 21-club season is 24 rounds, 22 games and two byes a club, while 18 and 20 clubs keep 23 games and 19 keep 22 (docs/FIXTURE_SIZES_NOTE.md #328). Also the htb re-measure (audit run 37404572905, branch `claude/htb-audit`, leave alone), the lever audits (4 runs), and reviews of low's PRs.
-- **Low:** the merge queue above, the board, then the next items the medium agent queues.
+- **Lead:** P0 STYLE-07, unreadable PC fullscreen (#371); trades at real volume.
+- **Medium:** development projects (#379); the ruck and midfield calibration after the clearance rule; reviews of low's PRs.
+- **Low:** the merge queue, the board, the shard re-time after #340, #361 and #373 (waiting on a green main run), then the next items the medium agent queues.
 
 ## Open PRs and dependencies
 | PR | owner | notes |
 |---|---|---|
-| #352, #340, #349, #359 | low and lead | queue order above; #340 also needs #361 for 21 clubs |
-| #361 | medium | the fair fixture; recounts the expansion floor with #359 |
-| #345 | low | CI shard rebalance, re-timed |
-| #362, #363 | medium | evidence for the director's decisions |
+| #378, #402, #403 | low | player origin (data, reviewed); tests/README floors; roadmap status lines |
+| #382, #387, #396, #398 | low | remove scars (lead confirms); career_ui flake; roadmap M5-003; the Stat Guide in words (approved) |
+| #385 | medium | club marker A, a prototype on #360; the director's look before it merges |
+| #393, #383 | medium and lead | ruck/DEF calibration and the trade market; green, waiting on W7 |
+| #371 | lead | STYLE-07 PC readability; director's PC look |
+| #360 | lead | Create a club screen; approved, merges after #309 |
+| #309, #303 | lead and medium | director's look |
 | #342 | codex | favourite-club bios and quarter-break stats, ROADMAP only; needs a sync with main |
-| #299, #357 | art and medium | held for the director's own words |
-| #360, #303, #309 | lead and medium | director's look |
+| #368 | draft | kit options; no gate note yet |
 | #291 | director | Codex research and playbook; do not merge |
 | #206 | director | superseded by #208; close |
 

@@ -531,12 +531,14 @@ func _run() -> void:
 	overlay = current_scene.get("_results_overlay")
 	_check(_router.current() == "hub" and (overlay == null or not is_instance_valid(overlay)),
 			"Back closes the results popup and stays on the hub")
-	# The round may have raised a press conference: Back skips it.
-	if current_scene.find_child("MediaConference", true, false) != null:
+	# The round may have raised a press conference: Back skips it. One check
+	# either way, so the floor does not move with the round's result.
+	var had_conference: bool = current_scene.find_child("MediaConference", true, false) != null
+	if had_conference:
 		_router.handle_back(true)
 		await _settle()
-		_check(_router.current() == "hub" and not _state.media_conference_pending(),
-				"Back skips the press conference and stays on the hub")
+	_check(not had_conference or (_router.current() == "hub" and not _state.media_conference_pending()),
+			"A press conference, if the round raised one, is skipped by Back and the hub stays")
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "main", "Back from the hub goes to the main menu")
