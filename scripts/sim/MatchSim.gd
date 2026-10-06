@@ -1398,6 +1398,8 @@ const LOOSE_READ := 0.5
 ## about 8 intercepts a game (Champion Data 2025: Sam Taylor 8.4), not 12.
 ## Scales how often he reaches an entry's contest.
 const ROAM_REACH := 0.45
+## The power on intercept when picking the defender who meets an entry (main: 2).
+const ENTRY_READ := 1.5
 ## Of the contests the defender wins, the share he marks (an intercept
 ## mark, the ball turned over) rather than spoils; a better reader marks more.
 const INTERCEPT_MARK := 0.35
@@ -2112,7 +2114,10 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	var dgroup := _by_roles(dfn.ground, ["DEF"])
 	if dgroup.is_empty():
 		dgroup = dfn.ground
-	var defender = _weighted(dgroup, "intercept", 2.0, opp, "defender")
+	# Who meets the entry: the better readers more often, but not so much
+	# that one defender takes them all (the best real interceptors average
+	# about 8 a game, Champion Data 2025).
+	var defender = _weighted(dgroup, "intercept", ENTRY_READ if zone_intercepts else 2.0, opp, "defender")
 	# A forward with a direct opponent contests it with him: their aerial
 	# games decide it on top of the lines (Matchups).
 	_duel = {}
@@ -2903,7 +2908,7 @@ func _clanger_taken(side: int, at: float) -> void:
 ## (the rest stay a contest: a fumble, a ball knocked loose), and of those, the
 ## share taken on the mark by an average reader. Calibrated with
 ## tools/audit/intercept_impl.gd against Champion Data 2025.
-const CLANGER_TAKEN := 0.8
+const CLANGER_TAKEN := 1.0
 const CLANGER_MARKED := 0.3
 
 
