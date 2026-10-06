@@ -82,6 +82,10 @@ var injured_off := [[], []]
 ## goal from a turnover can say whose intercept it came from.
 var _won_back := {}
 var _chain_from := {}
+## The side whose disposal last went loose (spoiled, smothered) or astray (a
+## clanger): a loose-ball win off it in the next chain is an intercept.
+var _lost_by := -1
+var _ball_lost_by := -1
 # Assistant-coach audit trail. Snapshots never touch the RNG, so calibration
 # is unaffected. tactics_history[q] records the plans in force for that
 # quarter; quarter_teams[q] records the cumulative team totals afterwards.
@@ -1836,11 +1840,12 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			if not marker.is_empty():
 				carrier = marker
 		var kick_in_play_on := _kick_in_play_on(carrier) if is_kick_in else false
-		# The ball won off the other side's error is an intercept possession
-		# (Champion Data), by whoever is there to take it: a forward in his
-		# forward half as much as a defender down back. Bookkeeping only.
-		if touches == 1 and zone_intercepts and chain_origin == "turnover" and _chain_from.is_empty() \
-				and not from_bounce and not is_kick_in:
+		# The loose ball won off the other side's spoiled, smothered or
+		# astray disposal is an intercept possession (Champion Data), by
+		# whoever is there to take it: a forward in his forward half as much
+		# as a defender down back. Bookkeeping only.
+		if touches == 1 and zone_intercepts and chain_origin == "general" and _ball_lost_by == 1 - side \
+				and _chain_from.is_empty() and not from_bounce and not is_kick_in:
 			_t(side, "intercepts")
 			_p(carrier, "intercepts")
 			_chain_from = {"side": side, "id": str(carrier.get("id", ""))}
@@ -2788,6 +2793,8 @@ func _play_one_chain(T: Dictionary) -> void:
 	_chain_touch = {}
 	_chain_from = _won_back if chain_origin == "turnover" else {}
 	_won_back = {}
+	_ball_lost_by = _lost_by if chain_origin == "general" else -1
+	_lost_by = -1
 	var res := play_chain(side, start_fp, stoppage, from_kick_in)
 	var outcome: String = res["outcome"]
 	fp = res["fp"]
@@ -2807,6 +2814,8 @@ func _play_one_chain(T: Dictionary) -> void:
 	if outcome == "free" and res.has("free_side"):
 		next_side = int(res["free_side"])
 	_prev_end = outcome
+	if outcome == "loose":
+		_lost_by = side
 	if outcome == "score":
 		fp = 0.0
 	if ["boundary", "free", "loose"].has(outcome):
@@ -2837,6 +2846,7 @@ func _play_one_chain(T: Dictionary) -> void:
 		_p(err, "clangers")
 		_emit("clanger", side, fp, err,
 				"%s gives away a clanger" % GameDB.player_display_name(err))
+		_lost_by = side
 		# After a behind the kick-in comes first: no free is paid over it.
 		if not kick_in and free_rng.randf() < float(T["clanger_is_free"]) * GENERIC_FREE_MULT:
 			var recipient = _free_to(1 - side, fp if side == 0 else -fp)
