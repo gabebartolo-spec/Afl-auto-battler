@@ -355,7 +355,8 @@ func _test_rating() -> void:
 	for role in ["DEF", "MID", "FWD"]:
 		lo = mini(lo, int(p90.get(role, 0)))
 		hi = maxi(hi, int(p90.get(role, 0)))
-	_check(p90.size() >= 3 and hi - lo <= 30, "No position is shut out of big ratings (%s)" % str(p90))
+	# Limit widened to 32: #462 gives defenders real intercept credit, which lifts their p90.
+	_check(p90.size() >= 3 and hi - lo <= 32, "No position is shut out of big ratings (%s)" % str(p90))
 	_check(int(best.get("FWD", 0)) >= 1 and int(best.get("DEF", 0)) >= 1,
 			"Forwards and defenders make their side's top three (%s)" % str(best))
 
