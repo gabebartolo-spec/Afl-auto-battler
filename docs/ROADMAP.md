@@ -4152,6 +4152,7 @@ These are cosmetic only. They should also be available to generated-player appea
 Expand beyond a token set of cuts. The target should include enough silhouettes that players are recognisable at a glance even at vignette scale.
 
 Hair should cover a useful range such as:
+- **“Bailey Fritsch” haircut** — add a Bailey Fritsch–inspired option to the shared hairstyle library for player creation/customisation and generated-player variety. Use visual references to capture the recognisable silhouette in the existing art style; persist it like other hairstyles and use it consistently in previews and vignettes. Cosmetic only.
 - bald / shaved,
 - very short buzz,
 - short crop,
