@@ -621,7 +621,7 @@ func scouting_mult_for(code: String) -> float:
 func _ai_score(code: String, p: Dictionary) -> float:
 	_refresh_ai_cache()
 	var base := DraftScouting.scouted_worth(p, code, seed, AI_POT_WEIGHT_INTAKE,
-			scouting_mult_for(code)) if intake_mode else _worth(p)
+			scouting_mult_for(code)) if intake_mode else _club_worth(code, p)
 	var err := _eval_error(code, p)
 	var best := -INF
 	var roles := [[str(p["role"]), 1.0]]
@@ -631,6 +631,10 @@ func _ai_score(code: String, p: Dictionary) -> float:
 	for entry in roles:
 		var role: String = entry[0]
 		var need := _need_weight(code, role)
+		if role == "RUCK" and _has_first_ruck(code) and int(p["overall"]) >= RUCK_FIRST_CHOICE:
+			# One ruck plays at a time: a club with its first-choice ruck
+			# looks for a second, not another star to sit behind him.
+			need *= SECOND_STAR_RUCK
 		# A club's own opinion counts in full for a starting spot it is
 		# filling; for depth and surplus picks it leans on the consensus.
 		var worth := base + err * need
@@ -699,10 +703,14 @@ var _consensus_rank := {}
 
 func _eval_certainty(p: Dictionary) -> float:
 	if _consensus_rank.is_empty():
+		# Clubs agree on what a player has shown, not on what he is worth to
+		# them: with horizons, a 35-year-old star is still read exactly.
+		var shown := func(p: Dictionary) -> float:
+			return float(p["overall"]) if league_mode and not intake_mode and horizon_value else _worth(p)
 		var by_worth := pool.duplicate()
 		by_worth.sort_custom(func(a, b):
-			if not is_equal_approx(_worth(a), _worth(b)):
-				return _worth(a) > _worth(b)
+			if not is_equal_approx(shown.call(a), shown.call(b)):
+				return shown.call(a) > shown.call(b)
 			return str(a["id"]) < str(b["id"]))
 		for i in range(by_worth.size()):
 			_consensus_rank[str(by_worth[i]["id"])] = i + 1
@@ -739,10 +747,13 @@ func user_view(p: Dictionary) -> Dictionary:
 				"overall_mid": ov, "potential_mid": pot}
 	var sd := USER_EVAL_SD * scouting_mult_for(user_club) * _eval_certainty(p)
 	var ov_mid := clampi(int(round(float(ov) + _user_error(p, "ovr") * sd)), 1, 99)
-	var pot_mid := clampi(int(round(float(pot) + _user_error(p, "pot") * sd * 1.5)), ov_mid, 99)
+	# POT reads tightened (director, 2026-10-07): wide reads made elite talent
+	# look common. The read's miss is no bigger than OVR's, and the window is
+	# a point either side wider than OVR's.
+	var pot_mid := clampi(int(round(float(pot) + _user_error(p, "pot") * sd)), ov_mid, 99)
 	var half := maxi(1, int(round(sd * 0.7)))
 	return {"scouted": true, "overall": [maxi(1, ov_mid - half), mini(99, ov_mid + half)],
-			"potential": [maxi(ov_mid, pot_mid - half - 2), mini(99, pot_mid + half + 2)],
+			"potential": [maxi(ov_mid, pot_mid - half - 1), mini(99, pot_mid + half + 1)],
 			"overall_mid": ov_mid, "potential_mid": pot_mid}
 
 
@@ -776,10 +787,68 @@ static func _hash01(key: String) -> float:
 
 
 func _worth(p: Dictionary) -> float:
+	if league_mode and not intake_mode and horizon_value:
+		return horizon_worth(p, "build")
 	var ov := float(p["overall"])
 	var pot := maxf(ov, float(p.get("potential", ov)))
 	var w := AI_POT_WEIGHT_INTAKE if intake_mode else AI_POT_WEIGHT_LEAGUE
 	return ov * (1.0 - w) + pot * w
+
+
+## A club's own view of a player's worth: its horizon in the League Draft.
+func _club_worth(code: String, p: Dictionary) -> float:
+	if league_mode and not intake_mode and horizon_value:
+		return horizon_worth(p, club_horizon(code))
+	return _worth(p)
+
+
+# ---------------------------------------------------------------------------
+# League Draft: a club's horizon (director's PC playtest, 2026-10-07)
+# ---------------------------------------------------------------------------
+## A player is worth the seasons he will give, not his rating today alone:
+## his expected rating each coming season (Potential.outlook), above what a
+## club could find anywhere (HORIZON_REPLACEMENT), counted only while he is
+## still playing, and weighted by the club's horizon. A club chasing the flag
+## now counts next season and the one after; a club building counts the long
+## run, so a 35-year-old is a fine pick for the first and a poor one for the
+## second, and a 19-year-old with a big ceiling the other way round. In
+## rating points, so the rest of the AI (need, scarcity, cap, its own
+## opinion) works as before. horizon_value off: the old blend of today's
+## rating and POT (for paired audits).
+static var horizon_value := true
+## Building clubs look eight seasons ahead (director, 2026-10-07: "look
+## further ahead"), so the best kids are contested early.
+const HORIZON_YEARS := 8
+const HORIZON_WEIGHTS := {
+	"now": [1.0, 0.7, 0.25, 0.1, 0.0, 0.0, 0.0, 0.0],
+	"build": [1.0, 1.0, 1.0, 1.0, 0.95, 0.9, 0.85, 0.8],
+}
+## Share of rival clubs going for the flag now; the rest build.
+const HORIZON_NOW_SHARE := 0.25
+const HORIZON_REPLACEMENT := 58.0
+var _horizon_cache := {}
+
+
+## "now" or "build", fixed for a club in a draft by its seed.
+func club_horizon(code: String) -> String:
+	return "now" if _hash01("%d|horizon|%s" % [seed, code]) < HORIZON_NOW_SHARE else "build"
+
+
+func horizon_worth(p: Dictionary, horizon: String) -> float:
+	var key := "%s|%s" % [str(p["id"]), horizon]
+	if _horizon_cache.has(key):
+		return float(_horizon_cache[key])
+	var weights: Array = HORIZON_WEIGHTS[horizon]
+	var total := 0.0
+	var above := 0.0
+	var seasons := Potential.outlook(p, HORIZON_YEARS)
+	for t in range(HORIZON_YEARS):
+		var w := float(weights[t])
+		total += w
+		above += w * float(seasons[t][1]) * (float(seasons[t][0]) - HORIZON_REPLACEMENT)
+	var v := HORIZON_REPLACEMENT + above / maxf(0.001, total)
+	_horizon_cache[key] = v
+	return v
 
 
 func _ideal_counts(code: String) -> Dictionary:
@@ -798,6 +867,21 @@ func _ideal_counts(code: String) -> Dictionary:
 ## A national-draft prospect at a position the club already has covered is
 ## worth this share: a few rating points, enough to separate near-equals.
 const INTAKE_COVERED := 0.92
+
+
+## A first-choice ruck (League Draft): rated this or better and young enough
+## to be one for the seasons ahead.
+const RUCK_FIRST_CHOICE := 65
+const SECOND_STAR_RUCK := 0.6
+
+
+func _has_first_ruck(code: String) -> bool:
+	if intake_mode:
+		return false
+	for p in club_lists.get(code, []):
+		if str(p["role"]) == "RUCK" and int(p["overall"]) >= RUCK_FIRST_CHOICE and float(p.get("age", 30.0)) < 33.0:
+			return true
+	return false
 
 
 func _need_weight(code: String, role: String) -> float:
