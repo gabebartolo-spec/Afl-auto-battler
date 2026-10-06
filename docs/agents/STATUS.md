@@ -31,7 +31,7 @@ _Updated 2026-10-06. Since the last board merged: #331 (18 + 5 interchange, the 
 
 ## In progress
 - **Lead:** the Club Forge Create a club engine (#340); next from the 18 + 5 follow-ups.
-- **Medium:** the fair-fixture fix (19 clubs give unequal games, byes follow club-list order, home games run 7 to 17; docs/FIXTURE_SIZES_NOTE.md #328). Director decision: a 21-club season is 24 rounds, 22 games and two byes a club (ROADMAP §9.1); 18 and 20 clubs keep 23 games, 19 keep 22. Also the location-tag research and reviews of low's PRs.
+- **Medium:** the fair-fixture fix (`claude/fair-fixture`, opening soon) covering 18 to 21 clubs: a created club can make any count from 18 to 21 (director decision, ROADMAP §9.1, #344). Behind it: 19 clubs give unequal games, byes follow club-list order, home games run 7 to 17 (docs/FIXTURE_SIZES_NOTE.md #328). A 21-club season is 24 rounds, 22 games and two byes a club; 18 and 20 clubs keep 23 games, 19 keep 22. Also the location-tag research and reviews of low's PRs.
 - **Low:** #325 and the `selection` seeds, the shard rebalance (#345), then the next items the medium agent queues.
 
 ## Open PRs and dependencies
