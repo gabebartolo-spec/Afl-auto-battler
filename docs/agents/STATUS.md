@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06. Since the last board merged: #340 (Club Forge Create a club engine), #345 (shard rebalance), #361 (the fair fixture, 18 to 21 clubs), #362, #363, #365, #373 (the clearance winner keeps the first disposal), #374, #375, #377 (docs and evidence from low, medium and the lead)._
+_Updated 2026-10-06. Since the last board merged: #376 (real-AFL trade volume), #380 (the board), #381 (the FL-001 copy audit) and #384 (the art pipeline skill)._
 
 ## Lanes
 | agent (session) | owns |
@@ -33,7 +33,8 @@ _Updated 2026-10-06. Since the last board merged: #340 (Club Forge Create a club
 **Decisions made, being built:** trades at real volume (lead); synergy selection and development projects must have an impact (#379, medium, in review). The clearance rule is merged (#373). All recorded in ROADMAP §9.1 (#365).
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- In flight on CI: #376 (real-AFL trade volume, data) and #378 (player origin, a home state for the 2026 lists, data), both reviewed. #379 (development projects matter, medium) is in review.
+- In flight on CI: #378 (player origin, data, reviewed), #382 (remove scars: the lead confirms on the PR, then merge on green), #386 (three football-language copy fixes) and #387 (career_ui press-conference check counts once). #379 (development projects matter, medium) is in review; the lead's W7 is on it.
+- **Must not merge until the director has looked: #385 (club marker A, a prototype stacked on #360).**
 - #342 (codex docs) conflicts with main and needs its owner to sync. #368 (kit options, draft) has no gate note yet.
 - Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval). #291 is the director's Codex research: do not merge.
 - On main, awaiting the director's look: #276 press conference, #277 Training-row alignment.
@@ -46,7 +47,9 @@ _Updated 2026-10-06. Since the last board merged: #340 (Club Forge Create a club
 ## Open PRs and dependencies
 | PR | owner | notes |
 |---|---|---|
-| #376, #378 | low | trade volume; player origin (data only, reviewed) |
+| #378 | low | player origin (data only, reviewed) |
+| #382, #386, #387 | low | remove scars (lead confirms); copy fixes; career_ui flake |
+| #385 | medium | club marker A, a prototype on #360; the director's look before it merges |
 | #379 | medium | development projects matter; review |
 | #371 | lead | STYLE-07 PC readability; director's PC look |
 | #360 | lead | Create a club screen; approved, merges after #309 |
