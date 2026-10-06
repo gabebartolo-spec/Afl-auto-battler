@@ -563,6 +563,11 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+### Best players panel: friendly/opposition visual identification — PC playtest (2026-10-07)
+
+- Apply consistent **friendly versus opposition colour language** to the pictured Best players panel so managed-club players (Rangers here) and opposition players (Bombers here) are distinguishable at a glance. Use readable restrained accents, labels/badges or grouped headings alongside colour; retain club names, contributions, performance scores and best-on-ground recognition. Determine allegiance from the managed club, including custom teams, rather than home/away or kit colour. Coordinate with the scoring-feedback palette without locking in the still-tentative green/red choice. Colour identifies affiliation here, not whether an individual performed well or badly; preserve honest recognition of opposition performances. Roadmap only; Claude to implement.
+
+
 ### Match-summary injury wording and scoring-run context — PC playtest (2026-10-07)
 
 - Screenshot says “You lost Nick Daicos to a hand in the second quarter.” Use natural, complete injury wording: **“You lost Nick Daicos to a hand injury in the second quarter.”** Audit other injury summaries so body-part identifiers are not inserted as incomplete injury descriptions; preserve accurate injury type and timing.
