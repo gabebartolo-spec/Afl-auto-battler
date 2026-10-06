@@ -4036,6 +4036,12 @@ Do not overpower player/team quality.
 ---
 
 ## ARD-M7-008 — Create a custom draft prospect
+
+### Director playtest follow-up — strengths and weaknesses (2026-10-07)
+
+- **Required UI fix:** exclude attributes already selected as strengths from the weakness choices, and vice versa. Update both lists immediately as selections change; deselecting an attribute makes it available in the opposite list again. Validate at save/creation too so an attribute cannot be both a strength and weakness. Preserve valid selections and verify repeated select/deselect interactions rather than relying on screenshots.
+- **Balance investigation, not an approved rule change:** consider requiring at least one weakness, with a second optional (currently "Weaknesses (up to two)"). Assess whether this creates meaningful tradeoffs across roles/archetypes and the existing hidden talent budget, without granting extra overall power or allowing inconsequential weaknesses to evade the cost. Bring the recommendation and evidence to the director before making a compulsory weakness the default. If adopted, explain the requirement clearly and validate creation with no weakness selected.
+
 **Status:** `TODO`  
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
