@@ -2023,6 +2023,24 @@ This should be a real structural choice, not a flat intercept-stat buff:
 
 The roaming interceptor should also be eligible to appear as a **key matchup / opposition danger** even though he is not assigned to one forward. If he is controlling the air, the player should have football-appropriate counters available (for example changing forward structure, making him accountable, lowering/altering entries, or moving the spare), rather than being told he is a danger with no response.
 
+### Director addition — match preparation: solo vs dual ruck
+**Status:** `TODO` — design and implementation follow-up; covered by this item's balance gate.
+
+Give match preparation a meaningful **solo ruck vs dual ruck** choice, connected to the selected players' traits, skills and complementary roles. Both approaches must have benefits and drawbacks; neither should be a universally superior button.
+
+Claude should refine the smallest football-credible design using the existing selection, workload, role and synergy systems. Candidate trade-offs to investigate, not prescribed numerical effects:
+- **Solo:** more room for another midfielder/runner or other specialist, and concentrated responsibility for a dominant ruck; costs may include workload/fatigue, reduced genuine ruck cover and exposure if the sole ruck is injured or beaten.
+- **Dual:** shared ruck workload, genuine cover and complementary around-ground/forward contributions; costs may include a selected-player opportunity cost, reduced running/pressure or poorer spacing when the two players do not complement one another.
+
+Tie suitability into player identity rather than blanket solo/dual stat multipliers. **Ideas, not demands:** a "Ruck King" could operate better as the sole lead ruck, while an "Extra Midfielder" or "Unicorn"-type ruck could thrive in a complementary tandem. These names and exact behaviours are suggestions for Claude to assess; do not automatically add traits or redefine the existing Unicorn trait, which already has a separate multi-position synergy meaning. Reuse compatible existing traits/attributes where possible and avoid double-counting their benefits.
+
+Acceptance:
+- The choice is clear in match prep, names the relevant selected ruck(s), and explains the likely benefit and cost in concise football language without prescribing the best option.
+- Real selection, ruck responsibility, rotation/workload and off-ruck roles support the choice; no extra player, phantom second ruck, duplicate simultaneous contribution or cosmetic-only toggle.
+- Both structures can succeed or struggle depending on personnel, complementarity and opponent; AI operates under the same rules.
+- Invalid selections/injuries and emergency cover follow existing ruck-integrity rules (ARD-M1-002); integrate with the five-interchange migration (ARD-M5-001) and workload work (ARD-M5-015).
+- Validate matched-resource solo/dual comparisons across dominant specialists, mobile/hybrid rucks and poorly complementary pairs. Demonstrate meaningful advantages and costs, and use actual match evidence for feedback rather than invented tactical success claims.
+
 ### Director addition — defensive forward archetype / trait
 
 Add a **Defensive forward** as a genuine player archetype/trait and make it relevant to this exact problem: when an opposition loose/intercept defender is hurting you, a suitable defensive forward should be deployable to make him accountable rather than the response being only an abstract team button.
@@ -5718,6 +5736,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Added solo vs dual ruck match-prep follow-up under ARD-M4-004, with meaningful trade-offs, trait/personnel fit and AI parity. Ruck King, Extra Midfielder and Unicorn are optional design references for Claude to refine, not mandated traits or effects.
 
 - **2026-10-06:** Promoted ARD-M5-001 (18 + 5 interchange) to P0 at director request after verifying main still uses four bench players; added complete fifth-player participation and save-compatibility acceptance criteria.
 
