@@ -100,14 +100,12 @@ static func banner_text(my_code: String, opp_code: String, heading: String, ctx 
 	const PICKER := "res://scripts/core/Banners.gd"
 	if ResourceLoader.exists(PICKER):
 		var c := ctx.duplicate()
+		c["us"] = c.get("us", my_code)
 		if not c.has("home"):
 			c["home"] = my_code
-		if not c.has("away"):
 			c["away"] = opp_code
-		if not c.has("round"):
-			c["round"] = heading
-		if not c.has("seed"):
-			c["seed"] = hash(heading + my_code)
+		c["round"] = c.get("round", heading)
+		c["seed"] = c.get("seed", hash(heading + my_code))
 		var text := str(load(PICKER).pick(c))
 		if text != "":
 			return text

@@ -742,8 +742,19 @@ func _on_play_match() -> void:
 	var opp_ground: Array = opp_squad.ground + opp_squad.bench
 	var heading := "%s  ·  %s v %s" % [str(m["label"]), GameDB.club_name(str(m["home"])),
 			GameDB.club_name(str(m["away"]))]
+	# The banner's occasion (Banners.pick): the fixture as it is - whose ground, which
+	# round, which week of the finals.
+	var label := str(m["label"])
+	var week := ""
+	for key in ["wildcard", "elimination", "qualifying", "semi", "preliminary", "grand"]:
+		if label.to_lower().contains(key):
+			week = key
+	var banner_ctx := {"home": str(m["home"]), "away": str(m["away"]), "us": mine, "round": label,
+			"final": week, "year": GameState.season_year,
+			"seed": hash("%s|%s|%s" % [label, str(m["home"]), str(m["away"])])}
 	_pre_match = PreMatchVignette.open(get_tree().root, mine, opp,
-			GameState.my_squad().ground + GameState.my_squad().bench, opp_ground, heading, PreMatchVignette.is_final(str(m["label"])))
+			GameState.my_squad().ground + GameState.my_squad().bench, opp_ground, heading,
+			PreMatchVignette.is_final(label), banner_ctx)
 	# Home-and-away rounds and finals both play live with the coach box.
 	await get_tree().process_frame
 	if not GameState.prepare_interactive_match():
