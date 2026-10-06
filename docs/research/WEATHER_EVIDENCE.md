@@ -96,3 +96,45 @@ Each evidence point beside the constant that implements it, as of #449's head 2e
 | Hot: fatigue and cramp; the Heat Policy's longer breaks [ABC] | `MatchSim.HOT_DRAIN` 1.12 on leg fatigue | calibrating (weather_impl) |
 | Hot favours Attack corridor (the director) | `WEATHER_PLAN` hot (attacking and fast 1.2, defensive and press 0.8) | the director's rule; calibrating (weather_impl) |
 | Some players do better in poor weather [SI] (see WET_WEATHER_PLAYERS.md) | `Traits.WET_WEATHER` (contested 78 or more and disposal 72 or more), `WET_BALL` 1.10, `WET_CLANGERS` 0.80 | thresholds and effect sizes chosen, not sourced; calibrating (weather_impl) |
+## Climate data per venue (`data/weather_by_venue.json`)
+
+Monthly March to September means from the Bureau of Meteorology's "Climate statistics for Australian locations" tables, fetched 2026-10-06 (URL pattern `https://www.bom.gov.au/climate/averages/tables/cw_<station>.shtml`). Three numbers a month for each venue: **rain days** (BoM's "Mean number of days of rain >= 1 mm"; the file also holds it as a share of the month's days), **mean 3pm wind speed** (km/h) and **mean maximum temperature** (C). Marvel Stadium is roofed, so it is always a perfect day and has no data.
+
+What BoM's summary tables do not give: days of strong wind and days over 25 C. The file therefore carries the means, not wind or hot shares. Turning them into the four conditions needs a calibration decision (for example against the 14% windy figure above), which is not made here.
+
+| Venue (clubs) | Rain days | Mean max | 3pm wind |
+|---|---|---|---|
+| MCG (COL, HAW, MEL, RIC) | 086071 | 086071 | 086071 |
+| SCG (SYD) | 066062 | 066062 | 066062 |
+| Adelaide Oval (ADE, PAD) | 023000 | 023000 | 023000 |
+| The Gabba (BRL) | 040913 | 040913 | 040913 |
+| Optus Stadium (FRE, WCE) | 009021 | 009021 | 009021 |
+| GMHBA Stadium (GEE) | 087184 | 087113 | 087113 |
+| People First Stadium (GCS) | 040764 | 040764 | 040764 |
+| Engie Stadium (GWS) | 066212 | 066212 | 066062 |
+| Bellerive Oval (TAS) | 094029 | 094029 | 094029 |
+| Manuka Oval (CANB) | 070351 | 070351 | 070014 |
+
+| Station | Name | Years | Page |
+|---|---|---|---|
+| 086071 | MELBOURNE REGIONAL OFFICE | 1855-2014 | [cw_086071](https://www.bom.gov.au/climate/averages/tables/cw_086071.shtml) |
+| 087184 | BREAKWATER (GEELONG RACECOURSE) | 2011-2026 | [cw_087184](https://www.bom.gov.au/climate/averages/tables/cw_087184.shtml) |
+| 087113 | AVALON AIRPORT | mean max 1995-2026; 3pm wind 1965-2010 | [cw_087113](https://www.bom.gov.au/climate/averages/tables/cw_087113.shtml) |
+| 023000 | ADELAIDE (WEST TERRACE / NGAYIRDAPIRA) | max 1887-2026; rain 1839-2026; 3pm wind 1955-1977 | [cw_023000](https://www.bom.gov.au/climate/averages/tables/cw_023000.shtml) |
+| 040913 | BRISBANE | max and rain 1999-2026; 3pm wind 1999-2010 | [cw_040913](https://www.bom.gov.au/climate/averages/tables/cw_040913.shtml) |
+| 009021 | PERTH AIRPORT M.O. | max and rain 1944-2026; 3pm wind 1944-2010 | [cw_009021](https://www.bom.gov.au/climate/averages/tables/cw_009021.shtml) |
+| 040764 | GOLD COAST SEAWAY | max 1992-2026; rain 1994-2026; 3pm wind 1991-2010 | [cw_040764](https://www.bom.gov.au/climate/averages/tables/cw_040764.shtml) |
+| 066062 | SYDNEY (OBSERVATORY HILL) | max 1859-2020; rain 1858-2020; 3pm wind 1955-1991 | [cw_066062](https://www.bom.gov.au/climate/averages/tables/cw_066062.shtml) |
+| 066212 | SYDNEY OLYMPIC PARK AWS (ARCHERY CENTRE) | 2011-2026 | [cw_066212](https://www.bom.gov.au/climate/averages/tables/cw_066212.shtml) |
+| 094029 | HOBART (ELLERSLIE ROAD) | max 1882-2026; rain 1893-2026; 3pm wind 1893-2010 | [cw_094029](https://www.bom.gov.au/climate/averages/tables/cw_094029.shtml) |
+| 070351 | CANBERRA AIRPORT | 2008-2026 | [cw_070351](https://www.bom.gov.au/climate/averages/tables/cw_070351.shtml) |
+| 070014 | CANBERRA AIRPORT COMPARISON | 1939-2010 | [cw_070014](https://www.bom.gov.au/climate/averages/tables/cw_070014.shtml) |
+
+Choices to note:
+- Geelong's rain days come from Breakwater (Geelong Racecourse), which has no maximum temperature or wind rows; those two come from Avalon Airport, about 30 km away.
+- Engie Stadium (Sydney Olympic Park) takes rain and temperature from its own station, which has no 3pm wind, so its wind is Sydney Observatory Hill's.
+- Manuka's wind is from the old Canberra Airport station (1939 to 2010); the current one has no 3pm wind row. Rain and temperature are from the current Canberra Airport.
+- Perth uses Perth Airport, about 10 km inland from Optus Stadium. Brisbane, Gold Coast, Adelaide, Hobart and Melbourne use the station of the same name.
+- Wind rows from the older stations end in 2010, and most are 1955-era or later. They are long-term means, not the match-day values.
+
+Rain shares check against the match-based figures above: the MCG's March to September rain days run about 20 to 35% of days, against 28.6% of games that were wet [BB].
