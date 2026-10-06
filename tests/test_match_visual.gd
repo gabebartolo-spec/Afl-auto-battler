@@ -33,6 +33,7 @@ func run() -> void:
 	_test_match_flow(res)
 	_test_boundary_collect(res)
 	_test_tactical_timeline()
+	_test_truth(res)
 	_test_play_when_idle(res)
 	_test_numbers_readable()
 	_test_oval_people(res)
@@ -626,6 +627,88 @@ func _test_boundary_collect(res: Dictionary) -> void:
 	pv.free()
 	_check(all_done and worst <= MatchDirector.COLLECT_LIMIT + 0.1,
 			"A ball against the fence is always collected, never a freeze (longest %.1f s)" % worst)
+
+
+## Research truth fixes (ARD-M8-003 step 1): a handball is drawn as a
+## handball, a bobbling ball never steers toward its collector, and the ball is
+## not left waiting long on a receiver.
+func _test_truth(res: Dictionary) -> void:
+	var d := MatchDirector.new()
+	d.setup(res, res["events"])
+	var h := 1.0 / 30.0
+	var hb_total := 0
+	var hb_as_kick := 0
+	var hb_dists := []
+	var steer := 0
+	var roll_ticks := 0
+	var last_vel := Vector2.ZERO
+	var last_pos: Vector2 = d.ball["pos"]
+	var last_from := Vector2.INF
+	var collect_t := {}
+	var snaps := 0
+	var prev_mode := str(d.ball["mode"])
+	var guard := 0
+	while not d.idle() and guard < 400000:
+		guard += 1
+		d.advance(h)
+		var mode := str(d.ball["mode"])
+		var pos: Vector2 = d.ball["pos"]
+		if mode == "flight" and (d.ball["from"] as Vector2) != last_from:
+			last_from = d.ball["from"]
+			var k := int(d._beat.get("k", -1))
+			var pk: int = d._prev_real(k) if k >= 0 else -1
+			if pk >= 0 and str((d.events[pk] as Dictionary).get("kind", "")) == "handball" 					and MatchDirector.DISPOSALS.has(str((d.events[k] as Dictionary).get("kind", ""))) 					and d._restart(k) == "open":
+				hb_total += 1
+				var dist := (d.ball["from"] as Vector2).distance_to(d.ball["to"])
+				hb_dists.append(dist)
+				if float(d.ball["apex"]) >= 2.5:
+					hb_as_kick += 1
+		# A ball on the ground runs straight: its heading changes only when it
+		# is pushed afresh (a knock, a bobble) or slides along the fence, never
+		# by bending toward a player.
+		if mode == "roll_to":
+			roll_ticks += 1
+		if mode == "loose" and prev_mode == "loose":
+			var v: Vector2 = d.ball["vel"]
+			var pushed := v.distance_to(last_vel * exp(-3.0 * h * MatchDirector.TEMPO)) > 0.05 * maxf(1.0, v.length())
+			var fence := not MatchMotion.inside_oval(pos, 2.0)
+			if not pushed and not fence and v.length() > 0.5 and last_vel.length() > 0.5 					and absf(v.angle_to(last_vel)) > 0.05:
+				steer += 1
+		last_vel = d.ball["vel"] if d.ball.has("vel") else Vector2.ZERO
+		if mode == "held" and prev_mode != "held":
+			var holder: Dictionary = d.tokens[int(d.ball["holder"])]
+			if last_pos.distance_to(holder["pos"]) > 3.0:
+				snaps += 1
+		var ph: Dictionary = d._phases[d._pi] if d._pi < d._phases.size() else {}
+		if str(ph.get("t", "")) == "collect" and ph.has("roll"):
+			var key := "%d:%d" % [int(d._beat.get("k", -1)), d._pi]
+			collect_t[key] = float(collect_t.get(key, 0.0)) + h * MatchDirector.TEMPO
+		last_pos = pos
+		prev_mode = mode
+	var long2 := 0
+	var long4 := 0
+	var worst := 0.0
+	for key in collect_t:
+		var t := float(collect_t[key])
+		worst = maxf(worst, t)
+		if t > 2.0:
+			long2 += 1
+		if t > 4.0:
+			long4 += 1
+	hb_dists.sort()
+	var med := float(hb_dists[hb_dists.size() / 2]) if not hb_dists.is_empty() else 0.0
+	var p90 := float(hb_dists[int(hb_dists.size() * 0.9)]) if not hb_dists.is_empty() else 0.0
+	print("TRUTH handballs %d, drawn as kicks %d, median %.1f m, p90 %.1f m" % [hb_total, hb_as_kick, med, p90])
+	print("TRUTH homing ticks %d, unpushed turns %d" % [roll_ticks, steer])
+	print("TRUTH collects %d, over 2 s %d, over 4 s %d, longest %.1f s; snaps into hands %d" % [collect_t.size(), long2, long4, worst, snaps])
+	_check(hb_total > 100 and hb_as_kick <= hb_total / 50,
+			"A handball is drawn as a handball: run down and dished off short (%d of %d drawn as kicks)" % [hb_as_kick, hb_total])
+	_check(roll_ticks == 0 and steer == 0,
+			"A ball on the ground never bends toward a player (%d homing ticks, %d turns without a push)" % [roll_ticks, steer])
+	# Sim-sensitive, so a share and the hard cap, not an exact count.
+	_check(long4 * 40 <= collect_t.size() and worst <= MatchDirector.COLLECT_LIMIT + 0.1,
+			"The ball is rarely left waiting on its collector (%d of %d over 4 s, longest %.1f s)" % [long4, collect_t.size(), worst])
+	_check(snaps <= 10, "The ball rarely jumps into a player's hands (%d from more than 3 m)" % snaps)
 
 
 ## Playtest freeze (mid play, live): resuming after a moment with no new
