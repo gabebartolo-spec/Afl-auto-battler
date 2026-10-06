@@ -2085,7 +2085,9 @@ func _test_through_stars() -> void:
 	var d_off := 0.0
 	var g_on := 0.0
 	var g_off := 0.0
-	var n := 20
+	# 40 matches: at 20 the stars' edge (+4 to +5 a game, SE about 1.1)
+	# sat about two standard errors over the +2 bar (medium agent, 2026-10-06).
+	var n := 40
 	for i in range(n):
 		var on := _sim(760 + i)
 		on.set_tactics(0, {"gameplan": "through_stars"})
