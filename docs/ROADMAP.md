@@ -5895,6 +5895,8 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 **Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`  
 **Existing owner:** §1.7 typography/free-font remit, shared UiKit; M8-006 presentation.
 
+**Prototype (2026-10-06):** the director chose the sign-writer scoreboard style, the art agent drew the family (`tools/typeface/build_font.py`, original font owned by the project), and draft #419 puts it in game project-wide so the director can play it. Not merged and not final: the status stays `TODO` until the director's own approval of the completed treatment.
+
 **Scope:** establish consistent roles for fonts, size, weight, line spacing and casing in dark mode. Test names, ratings, scores and draft rows with the current Barlow family as a baseline, not a mandatory final choice. The art agent may propose suitable free/licensed replacements under existing tooling rules; the director chooses.
 
 **Dependencies:** shared-font/component inventory and art-agent treatment; feeds STYLE-01/04/05. Do not invent a font system per screen.
