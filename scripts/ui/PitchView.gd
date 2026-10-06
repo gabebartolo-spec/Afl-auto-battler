@@ -340,15 +340,17 @@ func _draw() -> void:
 
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.043, 0.09, 0.047), true)
 
-	# Turf + mown stripes
-	draw_colored_polygon(_ellipse_points(c, a, b, 128), Color(0.118, 0.333, 0.133))
+	# Turf + mown stripes, as the day's weather leaves them (VignetteWeather).
+	var weather := str(result.get("weather", ""))
+	var grass := VignetteWeather.grass(weather, [Color(0.118, 0.333, 0.133), Color(0.133, 0.365, 0.149)])
+	draw_colored_polygon(_ellipse_points(c, a, b, 128), grass[0])
 	var stripes := 9
 	for i in range(stripes):
 		if i % 2 == 1:
 			continue
 		var x0 := c.x - a + (2.0 * a) * float(i) / float(stripes)
 		var x1 := c.x - a + (2.0 * a) * float(i + 1) / float(stripes)
-		draw_colored_polygon(_stripe(c, a, b, x0, x1), Color(0.133, 0.365, 0.149))
+		draw_colored_polygon(_stripe(c, a, b, x0, x1), grass[1])
 
 	# Boundary
 	draw_polyline(_ellipse_points(c, a, b, 128), Color(1, 1, 1, 0.85), 2.5, antialias)
@@ -378,6 +380,11 @@ func _draw() -> void:
 			draw_circle(goal + Vector2(0, py * 3.2 * s), maxf(2.0, 0.55 * s), Color(1, 1, 1, 0.95))
 			draw_circle(goal + Vector2(0, py * 9.6 * s), maxf(1.5, 0.4 * s), Color(1, 1, 1, 0.7))
 
+	# Rain falls and wind blows over the ground, under the players and the ball.
+	var now := float(Time.get_ticks_msec()) / 1000.0
+	VignetteWeather.draw_air(self, r, now, weather)
+	if weather == VignetteWeather.WINDY:
+		VignetteWeather.draw_wind_flat(self, r, now)
 	var tr := maxf(4.0, minf(r.size.x, r.size.y) * 0.5 * 0.030) * sqrt(_zoom)
 	_draw_tokens(0, GameDB.club_colours(home_code), tr)
 	_draw_tokens(1, GameDB.club_colours(away_code), tr)

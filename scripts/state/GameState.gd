@@ -2233,6 +2233,8 @@ func banner_context(match: Dictionary) -> Dictionary:
 		"flags": premiership_years(us) if us == home and us == my_club else [],
 		"year": season_year,
 		"seed": hash([int(season.seed) if season != null else 0, season_year, round_label, home, away]),
+		# The day's weather (the hub's upcoming match carries it), for the pre-match scene.
+		"weather": str(match.get("weather", "")),
 	}
 	return ctx
 

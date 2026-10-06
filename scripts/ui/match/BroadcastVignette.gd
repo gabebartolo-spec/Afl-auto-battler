@@ -36,6 +36,7 @@ var _look := Appearance.UNCURATED   # the featured player's look
 var _build := "average"             # and his build, from his real height (build_for)
 var _view := Transform2D.IDENTITY   # the camera this frame (VignetteCamera)
 var _board := {}                    # the match's score, for the big screen (if the shot sees it)
+var weather := ""                   # the day's (VignetteWeather): the ground, the air, the shadows
 
 ## The figures are the vignettes' pre-rendered footballers (VignetteFigures,
 ## figure.gdshader), sized as the old drawn figures were: about this many
@@ -107,6 +108,8 @@ func setup(p_kind: String, p_event: Dictionary, p_scene: Dictionary, p_result: D
 	_colours[1] = GameDB.club_colours(away) if away != "" else [Color(0.5, 0.5, 0.5), Color.BLACK, Color.WHITE]
 	_dress([home, away])
 	var p = GameDB.player_by_id(str(event.get("player_id", "")))
+	# The match's weather, when it has one.
+	weather = str(result.get("weather", ""))
 	_look = GameDB.figure_look(p) if p is Dictionary else Appearance.UNCURATED
 	_build = build_for(p if p is Dictionary else {})
 	_board = {}
@@ -242,6 +245,7 @@ func _draw() -> void:
 		BOUNDARY_SNAP:
 			_draw_boundary_snap()
 	draw_set_transform_matrix(Transform2D.IDENTITY)
+	VignetteWeather.draw_air(self, Rect2(Vector2.ZERO, size), _t, weather)
 	_draw_letterbox()
 
 
@@ -502,7 +506,7 @@ func _camera_aim() -> Array:
 ## The ground itself (VignetteGround): stands, fence, the oval and its markings, and the
 ## goals at this end.
 func _draw_stadium() -> void:
-	VignetteGround.draw_ground(self, _ground, _stage(), _colours, 11, _board)
+	VignetteGround.draw_ground(self, _ground, _stage(), _colours, 11, _board, weather, _t)
 	var pad: Color = (_colours[0] as Array)[0] if not (_colours[0] as Array).is_empty() else Color(0.7, 0.7, 0.72)
 	VignetteGround.draw_goals(self, _ground, 1, pad)
 
@@ -929,7 +933,7 @@ func _figure(pos: Vector2, scale: float, side: int, anim: String, facing: String
 	var pm := PX_PER_M * scale
 	var shadow_at := feet if ground == Vector2.INF else ground + Vector2(0, 38.0 * scale)
 	draw_set_transform_matrix(_view * Transform2D(0.0, Vector2(1.0, 0.3), 0.0, shadow_at))
-	draw_circle(Vector2.ZERO, 0.4 * pm, Color(0, 0, 0, 0.32))
+	draw_circle(Vector2.ZERO, 0.4 * pm, Color(0, 0, 0, VignetteWeather.shadow_alpha(weather)))
 	draw_set_transform_matrix(_view)
 	var info := VignetteFigures.strip(build, anim, facing)
 	var f := StoppageVignette.figure_frame(info, frame, anim, facing)
