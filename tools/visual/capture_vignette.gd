@@ -4,6 +4,8 @@ extends SceneTree
 ##   xvfb-run -a -s "-screen 0 1280x900x24" godot --path . --rendering-driver opengl3 \
 ##       --script tools/visual/capture_vignette.gd -- --out /tmp/vignette
 ## Writes <out>_sheet.png: the scene at its beats on a phone, then the call.
+## --film START END: also writes <out>_film_NNN.png, 12 frames a second from START
+## to END seconds, for checking motion (turn them into a GIF to review).
 ## It stages a tight last-quarter centre bounce on a live match and lets
 ## MatchSim ask the call; nothing it draws changes the sim.
 
@@ -18,10 +20,13 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var out := "/tmp/vignette"
+	var film := []
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
+		elif str(a[i]) == "--film" and i + 2 < a.size():
+			film = [float(a[i + 1]), float(a[i + 2])]
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
@@ -64,6 +69,18 @@ func _run() -> void:
 	m.call("_show_moment")
 	var vig = m.find_child("StoppageVignette", true, false)
 	vig.set_process(false)
+	if not film.is_empty():
+		var n := 0
+		var ft: float = film[0]
+		while ft <= float(film[1]) + 0.001:
+			vig.set("_t", ft)
+			vig.queue_redraw()
+			for i in range(2):
+				await process_frame
+			root.get_viewport().get_texture().get_image().save_png("%s_film_%03d.png" % [out, n])
+			n += 1
+			ft += 1.0 / 12.0
+		print("filmed ", n, " frames")
 	var shots := []
 	for t in BEATS:
 		vig.set("_t", t)
