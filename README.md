@@ -67,7 +67,7 @@ translations, pick *Keep File* again in the Import dock.
 | **The draft** | All clubs take turns from the same pool in snake order, under the real 2027 salary cap ($18.44m), the same cap the season uses. Track rival selections in the pick log. Carry at least two rucks; the other position targets are coverage guidance. Filter by position, original club or name, and sort by rating, price, goals or disposals. |
 | **Home and away** | 24 rounds, a full double round-robin. Each round you can **Play Match** and watch it on the oval, or **Sim Round** and just read the results. |
 | **Finals** | The top ten play a wildcard finals series: 7v10 and 8v9 in week one, with the winners reseeded by their original ladder position into the 7th and 8th seeds, who meet 5th and 6th in the elimination finals while 1-4 play the qualifying finals; then semis, prelims and the Grand Final. The higher seed hosts every final except the Grand Final, which is always at the MCG: there a club has its home-ground edge only if the MCG is its home ground (Collingwood, Hawthorn, Melbourne and Richmond), whichever club is listed first, and two MCG clubs cancel out. Your finals play live with the quarter-by-quarter coach box, just like a home-and-away match. A final level at full time goes to extra time (two short halves, then next score wins). After each final the game tells you where you stand: a second chance after a wildcard or qualifying loss, a week off, or knocked out. |
-| **Team** | The best 22 by position are picked automatically, around injuries. Switch to **My selection** on the Team screen to name your own ruck, midfield, defence, forwards and bench, or leave players out. Gaps (an injury, a trade) are filled for you. |
+| **Team** | The best 23 by position (18 on the ground, five on the bench) are picked automatically, around injuries. Switch to **My selection** on the Team screen to name your own ruck, midfield, defence, forwards and bench, or leave players out. Gaps (an injury, a trade) are filled for you. |
 | **Off-season** | After the Grand Final, **Trades & Contracts** opens: re-sign or release players whose contracts are up, sign free agents rivals let go, and offer trades. |
 | **Review** | The flag, your record, best win, worst loss, longest streak, a game-by-game form strip, the season's awards, the honour roll and league records. |
 | **National Draft** | The career keeps going. Father-son and NGA prospects land at their clubs, then every list - yours included - drafts that year's class over the reversed ladder, worst club first (the first is the generated 2027 class; the real 2026 class was already taken in the League Draft). Prospects have no AFL stats; they arrive with **projected ratings** built from draft rank, position and U18 production, so a top pick starts rotation-grade and develops from there. |
@@ -118,7 +118,7 @@ Actual Godot captures after six user selections:
 
 `scripts/ui/PitchView.gd` draws the ground entirely with `_draw()` — no sprites,
 no textures, so it scales cleanly from a phone to a 4K monitor. Mown stripes are
-polygons clipped to the ellipse, and the 22 players on each side are the real
+polygons clipped to the ellipse, and the players on each side are the real
 18 selected for that match, arranged 6-6-6 — six defenders, six midfielders
 (ruck included) and six forwards — in club colours with their guernsey numbers.
 

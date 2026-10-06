@@ -16,6 +16,9 @@ var _db: Node
 var _checks := 0
 var _failures: Array[String] = []
 
+## Every season in this suite starts from a fixed seed (C15), never the clock.
+const SUITE_SEED := 2027
+
 
 func _initialize() -> void:
 	_run.call_deferred()
@@ -29,6 +32,7 @@ func _run() -> void:
 	_state.save_path = "user://test_career.save"
 	_state.settings_path = "user://test_settings.cfg"
 	_state.show_real_names = false
+	_state.replay_seed = SUITE_SEED
 	_db = root.get_node("GameDB")
 	_state.reset()
 	var first_year := int(_state.season_year)
@@ -215,6 +219,7 @@ func _run() -> void:
 	_check(all_landed, "Every intake signing is on the new list")
 	ui.queue_free()
 	print("Intake UI tests: %d checks, %d failures" % [_checks, _failures.size()])
+	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
 
 
