@@ -405,6 +405,8 @@ func _club_home(body: VBoxContainer) -> void:
 	head.add_child(UiKit.colour_marker(_club_colours(saved), 30.0))
 	var title := UiKit.lbl(str(saved.get("name", "")), UiKit.H1, UiKit.TEXT, true)
 	title.name = "ForgeClubTitle"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	head.add_child(title)
 	body.add_child(head)
 	var loc := ClubForge.location(str(saved.get("location", "")))
@@ -593,7 +595,7 @@ func _field(node_name: String, key: String, placeholder: String, longest: int) -
 func _palette(node_name: String, key: String) -> GridContainer:
 	var grid := GridContainer.new()
 	grid.name = node_name
-	grid.columns = 8 if UiKit.view_width(self) < 520.0 else 15
+	grid.columns = 5 if UiKit.view_width(self) < 520.0 else 15
 	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 6)
 	var buttons := {}
