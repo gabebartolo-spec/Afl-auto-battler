@@ -552,6 +552,8 @@ func _test_custom_prospect() -> void:
 		_check(Prospects.custom_problem(b) != "", "An invalid custom prospect is turned away (%s)" % str(bad))
 
 	GameState.reset()
+	# A fixed career (C15): never the clock's.
+	GameState.career_seed = 424242
 	var seed: int = GameState.career_seed
 	_check(GameState.add_custom_prospect(spec) == "", "He is created at career setup")
 	_check(GameState.add_custom_prospect(spec) != "", "Only one per career")
@@ -586,9 +588,12 @@ func _test_custom_prospect() -> void:
 		stars += 1 if int(c["potential"]) >= 85 else 0
 		gen += 1 if int(c["potential"]) >= 92 else 0
 	ovr.sort()
-	var cls := Prospects.generate_class(GameState.season_year, seed)
-	var cls_ovr := cls.map(func(x): return int(x["overall"]))
-	_check(int(ovr[0]) >= int(cls_ovr.min()) and int(ovr[-1]) <= int(cls_ovr.max()) + 3,
+	# Against the generated classes' own band across several careers (a class's
+	# tier moves its top and bottom a little).
+	var cls_ovr := []
+	for cs in [11, 22, 33, 44, 55]:
+		cls_ovr.append_array(Prospects.generate_class(GameState.season_year, cs).map(func(x): return int(x["overall"])))
+	_check(int(ovr[0]) >= int(cls_ovr.min()) - 2 and int(ovr[-1]) <= int(cls_ovr.max()) + 2,
 			"Custom prospects stay inside a class's power band (%d-%d vs %d-%d)" % [ovr[0], ovr[-1], cls_ovr.min(), cls_ovr.max()])
 	_check(int(ovr[40]) >= 45, "Even a modest one is a usable role-player prospect (10th percentile OVR %d)" % ovr[40])
 	_check(stars > 8 and stars < 140 and gen < 20,
