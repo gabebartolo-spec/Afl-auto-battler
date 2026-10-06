@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06 (refresh 19). Since refresh 18: #360 (Create a club), #393 (ruck/DEF calibration), #342 (favourite club and quarter-break stats, recorded as TODO), #422 (centre bounce framing, as built), #423 (UiKit type roles), #428 (audit seeding), #433 (CLAUDE.md verification rules), the evidence docs #424, #429, #430, #432 and #434, and the housekeeping #421 (shard re-time), #426, #427, #431 and #436._
+_Updated 2026-10-06 (refresh 21). Since refresh 20: #438 (match view truth fixes), #445 (tactical timeline), #442 (hair overlays), #383 (trades at real volume), #439 and #450 (weather data and evidence), #452 (CI skips drafts and tool-only changes), #440 and #446 (audits), #463 (set-shot audit) and the docs PRs #459, #460 and #461 (the 2026 rules). Roadmap status lines for the merges are in the docs PR that carries this refresh._
 
 ## Lanes
 | agent (session) | owns |
@@ -24,40 +24,36 @@ _Updated 2026-10-06 (refresh 19). Since refresh 18: #360 (Create a club), #393 (
 
 ## Waiting on the director
 Asked of the director one decision at a time (team rule 5). Open now:
-- #385 club marker A (approved; its owner syncs it with main now that #360 is in).
-- #419 ARD Signwriter typeface (a draft prototype; the director is playing it; light captures are on the PR) and #408 type specimen.
-- #394 hair review and #303 defensive forward.
-- #291 (the director's Codex research; the three rules he chose are in CLAUDE.md).
+- #303 defensive forward: the director said merge as built (forwards only); it waits on medium's sync with main. #449 match-day weather (a draft; the lead captures after a local run).
+- #385 club marker A: approved, merge on green once its owner syncs.
+- Nothing else open: #438, #442, #445 and #383 are merged.
 
 **Own-words confirmations:** none open.
 
-**Decisions made, being built:** synergies (widen the player spread; show "N short" on Team selection). All recorded in ROADMAP §9.1.
+**Decisions made, being built:** synergies (widen the player spread; show "N short" on Team selection), the ruck/DEF rework after #393's revert, match-day weather (#449). All recorded in ROADMAP §9.1.
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- In flight on CI: #435 (decision record, docs).
-- #383 (the trade market, W7 done) is in CI after its roll-spread fix; I merge it on green.
-- Waiting on an owner: #385 (sync with main, then the director's look), #303 (sync and the director's look), #368 (kit options, draft, conflicting).
-- #291 is the director's Codex research: do not merge.
+- Merged today: #438, #445, #442, #383, #440, #446, #463 and the docs PRs. In the queue, on green: #458 (ruck rework, lead's W7 on the PR), #455 (synergy short), then #303 after its sync.
+- #385 (approved) waits on its owner's sync with main; #303 conflicts in `MatchSim.gd` and needs medium; #368 (kit options, a draft being rebuilt by the art agent) needs its owner.
 - Gates: no appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR.
 
 ## In progress
-- **Lead:** the trade market (#383); the hair review (#394); the typeface prototype (#419).
-- **Medium:** synergy "N short" on Team selection; the next restock from the lead.
-- **Low:** the merge queue, the flake hunt (ten suites, four runs each), STATUS and the next items the medium agent queues.
+- **Lead:** match-day weather (#449); the ruck rework (#458).
+- **Medium:** #303's sync; #455; the synergy decay audits (#464 and #465, drafts).
+- **Art:** the kit-options rebuild (#368).
+- **Low:** the merge queue, STATUS, roadmap status lines, the set-shot audit baseline (run dispatched on main) and the synergy-count tables for #464 and #465.
 
 ## Open PRs and dependencies
-Checked 2026-10-06 about 10:00 UTC.
+Checked 2026-10-06 about 10:45 UTC; none has been quiet for 24 hours.
 | PR | owner | CI | conflict | waits on |
 |---|---|---|---|---|
-| #383 | lead | running | unknown | CI, then low merges |
-| #385 | medium | green | yes | its owner's sync, then the director |
-| #303 | medium | green | unknown | a sync and the director's look |
-| #394 | lead | green | no | the director (hair review) |
-| #408 | lead | green | no | the director (type specimen) |
-| #419 | art/lead | green | no | the director (playing the typeface) |
-| #435 | low | green | no | low merges |
-| #368 | draft | green | yes | its owner |
-| #291 | director | green | no | do not merge; the director |
+| #458 | lead | queued | no | CI |
+| #455 | medium | queued | no | CI |
+| #303 | medium | stale | yes (`MatchSim.gd`) | medium's sync |
+| #464, #465 | medium | drafts | no | the audit tables (low posts them) |
+| #385 | medium | green | yes | its owner's sync |
+| #449 | lead | draft | n/a | the lead's local run |
+| #368 | art | draft | yes | the art agent's rebuild |
 
 ## Pending director decisions
 - Difficulty: autopilot slides to rank 18 by year 5; routine contract work holds about 6th; flags need trading (0 of 40 for contracts + FA, 3 for full management). Evidence: medium's managed-vs-autopilot doc. Is that the intended curve?

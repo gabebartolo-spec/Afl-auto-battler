@@ -107,7 +107,7 @@ func setup(p_kind: String, p_event: Dictionary, p_scene: Dictionary, p_result: D
 	_colours[1] = GameDB.club_colours(away) if away != "" else [Color(0.5, 0.5, 0.5), Color.BLACK, Color.WHITE]
 	_dress([home, away])
 	var p = GameDB.player_by_id(str(event.get("player_id", "")))
-	_look = GameDB.player_looks(p) if p is Dictionary else Appearance.UNCURATED
+	_look = GameDB.figure_look(p) if p is Dictionary else Appearance.UNCURATED
 	_build = build_for(p if p is Dictionary else {})
 	_board = {}
 	if event.has("goals") and event.has("behinds") and home != "" and away != "":
@@ -936,7 +936,8 @@ func _figure(pos: Vector2, scale: float, side: int, anim: String, facing: String
 	var k := pm / VignetteFigures.PX_PER_M
 	# The number, printed on the back of the guernsey by the shader.
 	var num := StoppageVignette.number_colour(side, number, 1.0, mirror) 			if number > 0 and facing.begins_with("back") and pm >= 30.0 else Color(0, 0, 0, 0)
-	StoppageVignette.draw_frame(self, feet, info, f, k, StoppageVignette.look_colour(side, look, mirror), mirror, num, _view)
+	StoppageVignette.draw_frame(self, feet, info, f, k, StoppageVignette.look_colour(side, look, mirror), mirror, num, _view,
+			str(look.get("hair_style", VignetteFigures.HAIR_BASE)))
 
 
 ## A man standing in the play: ready, not stiff - knees bent, bouncing at a rate

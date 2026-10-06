@@ -508,11 +508,13 @@ static func evaluate_trade(ai_list: Array, give: Array, take: Array, cap: int,
 	var out_value := 0.0
 	var cornerstone := ""
 	var best_future := 0.0
+	var asked: Dictionary = ctx.get("asked", {})
 	for p in give:
 		var without := ai_list.filter(func(q): return q != p)
 		var v := TradeValue.value(p, {"phase": phase, "bars": TradeValue.selection_bars(without),
 				"proj": TradeValue.selection_bars(without, true), "games": int(games.get(str(p["id"]), -1)), "own": true})
-		out_value += float(v["total"])
+		# A player who has asked out can't be kept happy: he goes for less.
+		out_value += float(v["total"]) * (TradeRequests.KEEP if asked.has(str(p["id"])) else 1.0)
 		if float(v["future"]) > best_future and TradeValue.future_rating(p) > TradeValue.now_rating(p) + 3.0:
 			best_future = float(v["future"])
 			cornerstone = str((ctx.get("names", {}) as Dictionary).get(str(p["id"]), p.get("name", "")))

@@ -87,6 +87,15 @@ var _chain_from := {}
 # quarter; quarter_teams[q] records the cumulative team totals afterwards.
 var tactics_history: Array = []
 var quarter_teams: Array = []
+## What each side is playing, for the match view (ARD-M8-003 tactical
+## timeline): an entry whenever it changes, applying from the event index `at`.
+## {"at", "side", "plan", "bursts" (sorted kinds in force), "tag" (the
+## opposition player tagged), "tagger", "loose" (the roaming interceptor),
+## "accountable" (a forward sent to the other side's loose man), "duels"
+## ({their forward id: our defender id})}. Read only: it draws no dice, so the
+## match is the same with or without it.
+var timeline: Array = []
+var _timeline_last := ["", ""]
 ## Finals cannot be drawn. With finals_mode on, a level score at the end of
 ## Q4 leads to extra time instead of the full-time siren.
 var finals_mode := false
@@ -429,6 +438,29 @@ func _roam_chance(def_side: int) -> float:
 	if bool((tactics[1 - def_side] as Dictionary).get("spare_accountable", false)):
 		chance *= 0.40
 	return chance
+
+
+## Add a timeline entry for each side whose calls changed since the last one.
+func _note_tactics() -> void:
+	for side in range(2):
+		var tag := _tag_id(side)
+		var tagger := ""
+		if tag != "":
+			var t = tagger_for((squads[side] as Squad).ground)
+			if t != null:
+				tagger = str(t["id"])
+		var kinds: Array = (bursts[side] as Dictionary).keys()
+		kinds.sort()
+		var entry := {"side": side, "plan": _plan(side), "bursts": kinds, "tag": tag,
+				"tagger": tagger, "loose": str((_roaming_interceptor(side)).get("id", "")),
+				"accountable": _spare_accountable(side),
+				"duels": (duels[side] as Dictionary).duplicate()}
+		var key := var_to_str(entry)
+		if key == str(_timeline_last[side]):
+			continue
+		_timeline_last[side] = key
+		entry["at"] = events.size()
+		timeline.append(entry)
 
 
 func _spare_accountable(attacking_side: int) -> bool:
@@ -2670,6 +2702,7 @@ func _play_chains(count: int, minute_base: int, span: int) -> void:
 
 
 func _play_one_chain(T: Dictionary) -> void:
+	_note_tactics()
 	# A kick-in after a behind is not a stoppage: no ruck contest, no clearance.
 	# A boundary throw-in is: it always starts with a contested stoppage.
 	var from_kick_in := kick_in
@@ -2821,6 +2854,7 @@ func result() -> Dictionary:
 		"home": squads[0].code,
 		"away": squads[1].code,
 		"tactics_history": tactics_history.duplicate(true),
+		"timeline": timeline.duplicate(true),
 		"quarter_teams": quarter_teams.duplicate(true),
 		"extra_time": extra_time_played,
 		"impact": impact.duplicate(true),

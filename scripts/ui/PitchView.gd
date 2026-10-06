@@ -78,8 +78,10 @@ func setup(p_result: Dictionary) -> void:
 	queue_redraw()
 
 
-func append_events(new_events: Array) -> void:
+func append_events(new_events: Array, timeline: Array = []) -> void:
 	events.append_array(new_events)
+	if not timeline.is_empty() and director != null:
+		director.set_timeline(timeline)
 	queue_redraw()
 
 

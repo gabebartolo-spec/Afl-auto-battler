@@ -105,8 +105,9 @@ freshness alongside ability for every club; a named selection remains yours.
   Returning to the menu offers **Resume Draft**, and the draft is saved to disk
   with the rest of the career (see *Saving* below).
 
-The draft UI uses locally bundled Barlow fonts, with SIL OFL licences under
-`assets/fonts/`. No network access is required by the game.
+The UI uses the project's own ARD Signwriter typeface (Regular and Bold for text, a Display cut
+for scores and figures), bundled under `assets/fonts/` with its licence. The Barlow files
+still in that folder are no longer used by the UI. No network access is required by the game.
 
 Actual Godot captures after six user selections:
 
@@ -125,7 +126,7 @@ polygons clipped to the ellipse, and the players on each side are the real
 The match is simulated in full before you see it, as a log of ~1,100 events
 (every disposal, mark, tackle, inside 50, clanger and shot). The pitch replays
 that log: the ball travels to the recorded field position, both structures shift
-up and down the ground with it, the carrier is ringed in gold, and goals flare.
+up and down the ground with it, your players with a call on them or a run promised wear a ring, a name goes up over a goal scorer, and goals flare.
 Routine handballs tick by quickly; scores and quarter breaks get room to land.
 Speed controls run 1x–8x with a skip-to-full-time button — about ninety seconds
 at the default 4x.
