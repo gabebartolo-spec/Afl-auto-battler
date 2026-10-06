@@ -189,6 +189,8 @@ func _ready() -> void:
 		show_real_names = bool(cfg.get_value("display", "real_names", true))
 	UiKit.apply_appearance(str(cfg.get_value("ui", "appearance", "dark")))
 	_apply_sound_mute(bool(cfg.get_value("ui", "mute_sounds", false)))
+	AudioLevels.apply(AudioLevels.MUSIC, AudioLevels.valid(str(cfg.get_value("ui", "music_level", "normal"))))
+	AudioLevels.apply(AudioLevels.CROWD, AudioLevels.valid(str(cfg.get_value("ui", "crowd_level", "normal"))))
 
 
 func _exit_tree() -> void:
@@ -240,6 +242,25 @@ func sounds_muted() -> bool:
 func set_sounds_muted(muted: bool) -> void:
 	set_setting("mute_sounds", muted)
 	_apply_sound_mute(muted)
+
+
+## FL-004: "off", "quiet" or "normal" for the music and for the crowd.
+func music_level() -> String:
+	return AudioLevels.valid(str(get_setting("music_level", "normal")))
+
+
+func set_music_level(level: String) -> void:
+	set_setting("music_level", AudioLevels.valid(level))
+	AudioLevels.apply(AudioLevels.MUSIC, AudioLevels.valid(level))
+
+
+func crowd_level() -> String:
+	return AudioLevels.valid(str(get_setting("crowd_level", "normal")))
+
+
+func set_crowd_level(level: String) -> void:
+	set_setting("crowd_level", AudioLevels.valid(level))
+	AudioLevels.apply(AudioLevels.CROWD, AudioLevels.valid(level))
 
 
 ## Mute the Master bus so future music and SFX automatically honour the same

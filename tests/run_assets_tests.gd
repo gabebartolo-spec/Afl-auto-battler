@@ -362,6 +362,39 @@ func _music_player() -> void:
 	_check(AudioServer.is_bus_mute(AudioServer.get_bus_index("Master")), "Mute silences the music")
 	_state.set_sounds_muted(false)
 	_check(not AudioServer.is_bus_mute(AudioServer.get_bus_index("Master")), "Sound back on brings it back")
+	# FL-004: music and crowd levels, each on its own bus under Master, saved.
+	_check(player.bus == "Music" and AudioServer.get_bus_send(AudioServer.get_bus_index("Music")) == "Master",
+			"The music has its own level, under Mute sounds")
+	var crowd := AudioServer.get_bus_index(AudioLevels.bus(AudioLevels.CROWD))
+	_state.set_crowd_level("quiet")
+	_check(_state.crowd_level() == "quiet" and is_equal_approx(AudioServer.get_bus_volume_db(crowd), AudioLevels.QUIET_DB)
+			and not AudioServer.is_bus_mute(crowd), "Crowd: quiet turns it down and is remembered")
+	_state.set_crowd_level("off")
+	_check(AudioServer.is_bus_mute(crowd), "Crowd: off silences it")
+	_state.set_music_level("off")
+	_check(AudioServer.is_bus_mute(AudioServer.get_bus_index("Music")) and _state.music_level() == "off", "Music: off silences it")
+	_state.set_crowd_level("nonsense")
+	_check(_state.crowd_level() == "normal" and not AudioServer.is_bus_mute(crowd)
+			and is_equal_approx(AudioServer.get_bus_volume_db(crowd), 0.0), "A level it doesn't know is normal")
+	_state.set_music_level("normal")
+	# The crowd says each thing once, and a behind doesn't cut off a roar.
+	var cs := CrowdSound.new()
+	root.add_child(cs)
+	cs.event("goal")
+	var roar := cs.cue()
+	cs.event("behind")
+	_check(roar == "crowd_goal.wav" and cs.cue() == "crowd_goal.wav", "A goal roars, and a behind doesn't cut the roar off (%s, %s)" % [roar, cs.cue()])
+	cs.event("mark")
+	_check(cs.cue() == "crowd_goal.wav", "Only goals, behinds and the siren are cues")
+	cs.full_time()
+	var siren := cs.cue()
+	cs.event("goal")
+	cs.full_time()
+	_check(siren == "crowd_siren.wav", "The siren at full time (%s)" % siren)
+	var bed: AudioStreamPlayer = cs.get_child(0)
+	_check(bed.bus == "Crowd" and bed.stream != null and (bed.stream as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_FORWARD,
+			"The murmur under it all loops on the crowd's level")
+	cs.queue_free()
 
 
 # ---------------------------------------------------------------------------
