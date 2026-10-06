@@ -2425,6 +2425,19 @@ func list_player(player_id: String) -> Dictionary:
 	return {}
 
 
+## FL-005: change or remove one of your players' nicknames (cosmetic only, no
+## cost). "" removes it; it stays removed. Returns the nickname now shown.
+const NICKNAME_MAX := 16
+
+
+func set_player_nickname(player_id: String, text: String) -> String:
+	var p := list_player(player_id)
+	if p.is_empty():
+		return ""
+	p["nickname"] = text.strip_edges().left(NICKNAME_MAX)
+	return FictionalIdentity.nickname(p)
+
+
 func train_stat_label(key: String) -> String:
 	for row in TRAIN_STATS:
 		if str(row[0]) == key:
