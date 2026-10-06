@@ -120,6 +120,9 @@ var season_year := 2026
 ## Rolled once per career: decides each generated draft class's quality tier
 ## (Prospects.class_tier), so a reload never re-rolls a class.
 var career_seed := 0
+## Club Forge: the career's created club as its spec (ClubForge), or {}.
+## Saved with the career and registered with GameDB whenever it loads.
+var custom_club := {}
 var class_tiers := {}             # draft year (string) -> tier key, as generated
 var draftee_pool: Array = []     # all prospects that have not been drafted yet
 var drafted_draftees := {}       # prospect id -> destination club
@@ -398,6 +401,7 @@ func save_career() -> bool:
 		"draft_meeting_year": draft_meeting_year,
 		"career_seed": career_seed,
 		"class_tiers": class_tiers,
+		"custom_club": custom_club,
 		# Players carry p["career"]; saves without this mark predate it.
 		"career_version": CAREER_VERSION,
 	}
@@ -416,7 +420,8 @@ func _save_meta() -> Dictionary:
 			stage = "Finals"
 		else:
 			stage = "Round %d" % (season.round_index + 1)
-	return {"club": my_club if my_club != "" else (draft.user_club if draft != null else ""),
+	var club := my_club if my_club != "" else (draft.user_club if draft != null else "")
+	return {"club": club, "club_name": GameDB.club_name(club) if club != "" else "",
 			"year": season_year, "stage": stage,
 			"saved_at": Time.get_datetime_string_from_system()}
 
@@ -429,6 +434,10 @@ func load_career() -> bool:
 		return false
 	state = CareerSave.migrate_club_codes(state)
 	reset()
+	# A created club joins the competition before anything reads the clubs.
+	custom_club = state.get("custom_club", {})
+	if not custom_club.is_empty():
+		GameDB.register_club(ClubForge.row(custom_club))
 	season_year = int(state.get("season_year", 2026))
 	my_club = str(state.get("my_club", ""))
 	if state.get("season") is Dictionary:
@@ -758,6 +767,7 @@ func reset() -> void:
 	# ageing, XP training). A new career must start from the pristine 2026
 	# dataset, so reload the data files before rebuilding anything.
 	GameDB.reload()
+	custom_club = {}
 	my_club = ""
 	my_list = []
 	season = null
@@ -853,6 +863,22 @@ func _clock_seed(use: int) -> int:
 	return int(Time.get_unix_time_from_system()) % 1000000
 
 
+## Club Forge: add the career's one created club, before the League Draft so
+## a club entering with the career drafts its list like everyone else (a later
+## "enter" season brings an expansion list at that rollover instead). Making
+## it again replaces it. Returns what is wrong with the spec, or "".
+func create_club(spec: Dictionary) -> String:
+	if draft != null or season != null:
+		return "The club is made before the League Draft."
+	var problem := ClubForge.club_problem(spec)
+	if problem != "":
+		return problem
+	GameDB.unregister_custom_clubs()
+	custom_club = spec.duplicate(true)
+	GameDB.register_club(ClubForge.row(custom_club))
+	return ""
+
+
 func begin_draft() -> void:
 	var seed := _clock_seed(1)
 	# The clubs of the first playable season (the founding eighteen in 2027;
@@ -918,7 +944,7 @@ func begin_intake_draft() -> bool:
 	var sizes := {}
 	var role_counts := {}
 	var role_pairs := {}
-	for code in GameDB.CLUB_ORDER:
+	for code in GameDB.club_order:
 		var arr: Array = league_lists.get(code, [])
 		sizes[code] = arr.size()
 		var c := {"RUCK": 0, "MID": 0, "DEF": 0, "FWD": 0}
@@ -965,7 +991,7 @@ func finish_intake_draft() -> bool:
 	_ensure_league_lists()
 	var next_year := season_year + 1
 	var merged := 0
-	for code in GameDB.CLUB_ORDER:
+	for code in GameDB.club_order:
 		var arr: Array = league_lists.get(code, [])
 		for p in (draft.club_lists.get(code, []) as Array):
 			var id := str(p["id"])
@@ -1072,7 +1098,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	# Expansion: any club whose first season is next_year arrives with a
 	# generated list (aged across the full range, not just a rookie class),
 	# so it ages, drafts, trains and simulates like every other club.
-	for code in GameDB.CLUB_ORDER:
+	for code in GameDB.club_order:
 		if GameDB.enter_year(code) != next_year:
 			continue
 		if not (league_lists.get(code, []) as Array).is_empty():
@@ -1086,7 +1112,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	# One array per club from here on: the season, the league lists and your
 	# list are the same arrays, so trades and signings touch them all.
 	var lists := {}
-	for code in GameDB.CLUB_ORDER:
+	for code in GameDB.club_order:
 		lists[code] = league_lists.get(code, [])
 		for p in lists[code]:
 			p["season_start_ov"] = int(p["overall"])
@@ -1347,11 +1373,11 @@ func start_season(club_code: String, list: Array) -> void:
 	var lists := {}
 	if draft != null and draft.league_mode and draft.is_finished():
 		league_lists = draft.all_lists()
-		for code in GameDB.CLUB_ORDER:
+		for code in GameDB.club_order:
 			lists[code] = _career_copies(league_lists.get(code, []))
 	else:
 		# Fallback for tests or old saves: your drafted list plus real AI lists.
-		for code in GameDB.CLUB_ORDER:
+		for code in GameDB.club_order:
 			var source: Array = list if code == club_code else GameDB.club_list(code)
 			lists[code] = _career_copies(source)
 	# Career copies, not the shared database rows. Training must not rewrite
@@ -2909,7 +2935,7 @@ func _close_season_achievements() -> void:
 		if str(entry.get("premier", "")) != "":
 			history.append([int(entry.get("year", 0)), str(entry.get("premier", ""))])
 	var enter := {}
-	for code in GameDB.CLUB_ORDER:
+	for code in GameDB.club_order:
 		enter[code] = GameDB.enter_year(code)
 	var ctx := {
 		"year": season_year,
