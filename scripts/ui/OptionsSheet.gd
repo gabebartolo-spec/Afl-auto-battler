@@ -33,7 +33,7 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 			"on" if GameState.sounds_muted() else "off",
 			"Mutes all music and sound effects.",
 			func(k): GameState.set_sounds_muted(k == "on"))
-	_row(v, "Confirm before simming a round", "SettingsSimConfirm", [["on", "On"], ["off", "Off"]],
+	_row(v, "Ask before playing a round for me", "SettingsSimConfirm", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.confirm_sim_round() else "off",
 			"Sim round plays your own match for you. With this on, it asks first.",
 			func(k): GameState.set_confirm_sim_round(k == "on"))
