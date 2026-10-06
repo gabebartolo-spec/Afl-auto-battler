@@ -383,6 +383,7 @@ static func _build_report(res: Dictionary, my_side: int, quarters: int) -> Dicti
 		"opp_plans": plans["opp"],
 		"opp_observed": opp_observed,
 		"keys": keys,
+		"weather": str(res.get("weather", "perfect")),
 	}
 
 
@@ -684,6 +685,10 @@ static func glance(report: Dictionary, full_time := false) -> Dictionary:
 					str((opp_plans[0] as Dictionary).get("gameplan_label", q1)).to_lower(), span])
 	if read.is_empty():
 		read.append("An even %s: neither side is on top anywhere in particular." % span)
+	# The conditions, when they weren't a perfect day (ARD-M4-016).
+	var wx := Weather.report_line(str(report.get("weather", "perfect")))
+	if wx != "":
+		read.insert(0, wx)
 	var people := func(list: Array, n: int, keep: Callable) -> Array:
 		var out := []
 		for e in list:

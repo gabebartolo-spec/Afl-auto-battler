@@ -92,5 +92,17 @@ static func condition(venue: String, m: int, key: int, state := "") -> String:
 	return "perfect"
 
 
+## The day in a coach's words, for the match report (none on a perfect day).
+const REPORT := {
+	"wet": "A wet day: contested ball counted for more, and fewer marks stuck.",
+	"windy": "A windy day: the breeze end mattered, and the ball was hard to hold.",
+	"hot": "A hot day: open, running footy, and legs went late.",
+}
+
+
+static func report_line(condition_id: String) -> String:
+	return str(REPORT.get(condition_id, ""))
+
+
 static func label(condition_id: String) -> String:
 	return str(LABELS.get(condition_id, LABELS["perfect"]))
