@@ -34,7 +34,8 @@ _Updated 2026-10-06. Since the last board merged: #376 (real-AFL trade volume), 
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
 - In flight on CI: #378 (player origin, data, reviewed), #382 (remove scars: the lead confirms on the PR, then merge on green), #386 (three football-language copy fixes) and #387 (career_ui press-conference check counts once). #379 (development projects matter, medium) is in review; the lead's W7 is on it.
-- **Must not merge until the director has looked: #385 (club marker A, a prototype stacked on #360).**
+- **Must not merge until the director has looked (prototypes):** #385 (club marker A, stacked on #360) and #392 (FL-005 nicknames and interests on the profile).
+- #393 (ruck/DEF calibration, medium): merge on green after the lead's W7.
 - #342 (codex docs) conflicts with main and needs its owner to sync. #368 (kit options, draft) has no gate note yet.
 - Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval). #291 is the director's Codex research: do not merge.
 - On main, awaiting the director's look: #276 press conference, #277 Training-row alignment.
