@@ -243,6 +243,11 @@ def check_player_origin() -> list[str]:
         rows = list(csv.DictReader(f))
     with open(os.path.join(ROOT, "data", "players_2026.csv"), encoding="utf-8", newline="") as f:
         players = {(r["club"], r["num"]) for r in csv.DictReader(f)}
+    with open(os.path.join(ROOT, "data", "players_enriched_2026.csv"), encoding="utf-8", newline="") as f:
+        loaded = {(r["club"], r["num"], r["first"], r["last"]) for r in csv.DictReader(f)}
+    for r in rows:
+        if (r["club"], r["num"], r["first"], r["last"]) not in loaded:
+            problems.append(f"player origin {r['club']} {r['num']} {r['first']} {r['last']}: no such player in players_enriched_2026.csv (the game matches on club, number and name)")
     seen = {(r["club"], r["num"]) for r in rows}
     if seen != players:
         problems.append(f"player origin: {len(players - seen)} players missing, {len(seen - players)} not on a list")

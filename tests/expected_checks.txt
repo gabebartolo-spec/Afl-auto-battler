@@ -8,7 +8,7 @@ intake_ui 500
 expansion 485
 finals 109
 save 76
-chronology 28
+chronology 31
 career 71
 coaches 340
 coach_market 63
