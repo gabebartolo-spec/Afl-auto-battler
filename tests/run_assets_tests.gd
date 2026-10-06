@@ -52,6 +52,7 @@ func _run() -> void:
 	_state.replay_seed = 2027
 	SV = load("res://scripts/ui/match/StoppageVignette.gd")
 	_figure_sheets()
+	_hair_atlases()
 	await _vignettes_play_through()
 	_music_files()
 	_music_player()
@@ -166,6 +167,79 @@ func _body_near(shade: Image, x: int, y: int, r: Rect2i) -> bool:
 	return false
 
 
+# ---------------------------------------------------------------------------
+# Hair overlays: the bald figures' hair, one atlas per style (VignetteFigures)
+# ---------------------------------------------------------------------------
+func _hair_atlases() -> void:
+	var files: Array = VignetteFigures.HAIR_FILES
+	var index: Dictionary = VignetteFigures.HAIR_STYLE_INDEX
+	_check(files.size() > 0 and files.size() == index.size() and files.size() == VignetteFigures.HAIR_TEXTURES.size()
+			and index.has(VignetteFigures.HAIR_BASE),
+			"The hair overlays list their atlases, with the base look (%s)" % str(index.keys()))
+	var bad_ids := index.keys().filter(func(id): return not Appearance.HAIR_STYLES.has(id))
+	var odd := (VignetteFigures.HAIR_NONE + VignetteFigures.HAIR_TINT_SKIN).filter(func(id): return not Appearance.HAIR_STYLES.has(id))
+	_check(bad_ids.is_empty() and odd.is_empty(), "Every hair id is a style a player can have: %s" % str(bad_ids + odd))
+	# The right art loaded (director's rule, 2026-10-06): each atlas is the file it names,
+	# imported VRAM compressed like the figure sheets, and the size the layout was made for.
+	var images := []
+	var wrong := []
+	for i in files.size():
+		var tex: Texture2D = VignetteFigures.HAIR_TEXTURES[i]
+		var path := "res://assets/vignette/%s" % files[i]
+		var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+		var cfg := ConfigFile.new()
+		var vram := cfg.load(path + ".import") == OK and int(cfg.get_value("params", "compress/mode", -1)) == 2 				and not bool(cfg.get_value("params", "mipmaps/generate", true))
+		if tex == null or tex.resource_path != path or img == null or Vector2i(tex.get_size()) != img.get_size() or not vram:
+			wrong.append(files[i])
+			img = null
+		else:
+			img.convert(Image.FORMAT_RGBA8)
+		images.append(img)
+	_check(wrong.is_empty(), "Every hair atlas is loaded from its own file, VRAM compressed, no mipmaps: %s" % str(wrong))
+	# Every move of every body has the base look's hair; every cell lies in its atlas and has hair.
+	var missing := []
+	var outside := []
+	var empty := []
+	var cells := 0
+	for body in VignetteFigures.BODIES:
+		var anims: Dictionary = VignetteFigures.BODIES[body]["anims"]
+		for anim in anims:
+			for facing in anims[anim]:
+				var s := VignetteFigures.strip(body, anim, facing)
+				if VignetteFigures.hair_for(s, VignetteFigures.HAIR_BASE).is_empty():
+					missing.append("%s %s %s" % [body, anim, facing])
+				for id in (s.get("hair", {}) as Dictionary):
+					var h: Dictionary = s["hair"][id]
+					var img: Image = images[int(h["atlas"])]
+					if int(h["frames"]) != int(s["frames"]):
+						outside.append("%s %s %s %s: frames" % [id, body, anim, facing])
+					for i in int(h["frames"]):
+						cells += 1
+						var r := Rect2i(VignetteFigures.hair_source(h, i))
+						if img == null or not Rect2i(Vector2i.ZERO, img.get_size()).encloses(r):
+							outside.append("%s %s %s %s #%d" % [id, body, anim, facing, i])
+							continue
+						var any := false
+						for y in range(r.position.y, r.end.y, 2):
+							for x in range(r.position.x, r.end.x, 2):
+								if img.get_pixel(x, y).a > 0.5:
+									any = true
+									break
+							if any:
+								break
+						if not any:
+							empty.append("%s %s %s %s #%d" % [id, body, anim, facing, i])
+	_check(missing.is_empty(), "Every move of every body has the base look's hair: %s" % str(missing.slice(0, 5)))
+	_check(cells > 0 and outside.is_empty(), "Every hair cell (%d) sits inside its atlas: %s" % [cells, str(outside.slice(0, 5))])
+	_check(empty.is_empty(), "Every hair cell has hair in it: %s" % str(empty.slice(0, 5)))
+	# Fallbacks: a style with no art draws the base look; buzz draws none (the bald base's stubble).
+	var probe := VignetteFigures.strip("average", "idle", "front")
+	_check(VignetteFigures.hair_for(probe, "afro") == VignetteFigures.hair_for(probe, VignetteFigures.HAIR_BASE)
+			and VignetteFigures.hair_for(probe, "buzz").is_empty()
+			and VignetteFigures.hair_for(probe, "dreadlocks") != VignetteFigures.hair_for(probe, VignetteFigures.HAIR_BASE),
+			"A style without art draws the base look; buzz draws only the stubble; dreadlocks its own")
+
+
 func _source_image(which: String) -> Image:
 	var path := ProjectSettings.globalize_path(SHEETS % which)
 	if not FileAccess.file_exists(path):
@@ -222,6 +296,7 @@ func _vignettes_play_through() -> void:
 ## several frames showed more than one.
 func _play(vig: Control, what: String, seconds: float) -> void:
 	SV.frame_log.clear()
+	SV.hair_log.clear()
 	vig.set_process(false)
 	var t := 0.0
 	while t <= seconds:
@@ -233,6 +308,11 @@ func _play(vig: Control, what: String, seconds: float) -> void:
 	await process_frame
 	var log: Array = SV.frame_log
 	_check(not log.is_empty(), "The %s draws its footballers" % what)
+	# Their hair is drawn from the hair atlases (the right art, not a fallback).
+	var hair: Array = SV.hair_log
+	var stray := hair.filter(func(e): return not VignetteFigures.HAIR_TEXTURES.has(e["texture"]))
+	_check(not hair.is_empty() and stray.is_empty(),
+			"The %s draws its footballers' hair from the hair atlases (%d draws)" % [what, hair.size()])
 	var over := _overruns()
 	_check(over.is_empty(), "The %s never asks for a frame past the end of a move: %s" % [what, str(over.slice(0, 4))])
 	var seen := {}

@@ -94,10 +94,10 @@ func setup_prematch(my_code: String, opp_code: String, my_ground: Array, opp_gro
 	_mine = mini(SQUAD, my_ground.size())
 	for p in my_ground.slice(0, SQUAD):
 		tokens.append({"side": 0, "mine": true, "slot": "", "tired": false, "num": int(p["num"]),
-				"look": GameDB.player_looks(p), "i": tokens.size(), "id": str(p.get("id", tokens.size()))})
+				"look": GameDB.figure_look(p), "i": tokens.size(), "id": str(p.get("id", tokens.size()))})
 	for p in opp_ground.slice(0, SQUAD):
 		tokens.append({"side": 1, "mine": false, "slot": "", "tired": false, "num": int(p["num"]),
-				"look": GameDB.player_looks(p), "i": tokens.size(), "id": str(p.get("id", tokens.size()))})
+				"look": GameDB.figure_look(p), "i": tokens.size(), "id": str(p.get("id", tokens.size()))})
 	_t = 0.0
 	_phase = WARM
 	_prev = WARM

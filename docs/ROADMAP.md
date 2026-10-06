@@ -4713,6 +4713,7 @@ Prefer shared theme changes over manually touching hundreds of controls.
 
 ## ARD-M8-003 — Match visualisation authenticity pass
 **Status:** `PARTIAL`  
+**Progress (2026-10-06):** step 1 of the visualisation sequence, the truth fixes (handballs stay handballs, the ball never steers), merged in #438 on the director's go ("Merge on green"). Presentation only; the sim, scores and event order are untouched.
 **Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
 
@@ -5530,7 +5531,8 @@ From the director's chat with the lead, relayed with the director's words where 
 - **Trades at real volume.** Raise the trade period to real AFL volume so that a club which trades well reaches about 3rd to 4th on average. The real volume is measured and merged (#376, DraftGuru 2019 to 2025); the lead's trade market is in review (#383).
 - **Synergy selection and development projects must have an impact.** Director: "why do we have these features if they dont have an impact, fix them". Fix both so that using them lifts a club, then measure again with the same harness.
 - **Clearance winner keeps the first disposal** (option 1 of the ruck and midfield disposals evidence). Merged (#373): ruck disposals 8.0 to 12.0, with the calibration and finals re-run.
-- **Create a club screen approved.** Director: "looks fantastic, well done". It merges after the Create a player form and the Create a club engine, because it is built on both.
+- **Ruck clearances and middle-zone carrying, calibrated toward real 2026 per-role numbers.** The follow-up to #373: three weights (`CLEARANCE_ROLES` RUCK, `CARRY_ROLES` middle DEF and FWD), no new mechanism. Merged (#393) with the lead's W7, then reverted (#443) when main went red on the matchday rating-parity check; being reworked.
+- **Create a club screen approved.** Director: "looks fantastic, well done". Merged (#360), after the Create a player form (#309) and the Create a club engine.
 - **Scars removed from the player look.** Director, in chat with the lead, 2026-10-06: "remove scarring from the game, unnecessary detail". The look keeps no scars key; old saves that carry one load fine and ignore it, and no generated player's look changes.
 - **Freckles removed from the player look.** Confirmed in the director's own words: "i alreeady said to delete freckles from the game". Merged (#357, #354); the saved-look cleanup (#382) is in review.
 - **Hair and beard look-dev stopped.** Director, in chat, 2026-10-06 (relayed by the lead): "this hair/beard stuff is no good". The current hair and beard library work stops; nothing from it is rolled out.
@@ -5927,7 +5929,9 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 **Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`  
 **Existing owner:** §1.7 typography/free-font remit, shared UiKit; M8-006 presentation.
 
-**Prototype (2026-10-06):** the director chose the sign-writer scoreboard style, the art agent drew the family (`tools/typeface/build_font.py`, original font owned by the project), and draft #419 puts it in game project-wide so the director can play it. Not merged and not final: the status stays `TODO` until the director's own approval of the completed treatment.
+**Preparation merged (2026-10-06):** the UiKit type roles at today's sizes (#423), with no visual change, so the typeface pass changes one place.
+
+**Typeface DONE (2026-10-06):** the ARD Signwriter family is the game's typeface (#419). The director, after seeing the game's screens in dark at phone portrait: "Approve and merge". Drawn by the art agent (`tools/typeface/build_font.py`, original font owned by the project) and swapped into UiKit project-wide. STYLE-02 stays `TODO` for the rest of its scope: the type roles, numeral refinement and the 1/I/l, 6/8/9 and 0/O checks in real contexts.
 
 **Scope:** establish consistent roles for fonts, size, weight, line spacing and casing in dark mode. Test names, ratings, scores and draft rows with the current Barlow family as a baseline, not a mandatory final choice. The art agent may propose suitable free/licensed replacements under existing tooling rules; the director chooses.
 
@@ -6121,6 +6125,10 @@ The eight includes are the complete decision record. There are no rejected style
 - **2026-10-06:** After all eight director answers, authorised FL-001–FL-008 in §9.3 and the execution/effort queues under existing owners. Added the explicit visual-distinction audit and permission for necessary new ritual/farewell vignette scenes. Every addition is presentation-only with zero gameplay effects; existing feature statuses and unrelated review gates remain unchanged.
 
 - **2026-10-06:** FL statuses in §9.3 set from what has merged: FL-002 (#400), FL-004 (#405, #409), FL-005 (#392), FL-006 (#395) and FL-008 (#406) are DONE with the director's approval; FL-001 is PARTIAL (#381 audit, #386 fixes); FL-003 and FL-007 stay TODO.
+
+- **2026-10-06:** Merged-PR status lines: #438 (ARD-M8-003 step 1, the truth fixes), #393 (ruck clearances and middle-zone carrying; reverted in #443 and being reworked), #360 (the Create a club screen), #423 (STYLE-02 type roles at today's sizes) and #428 (audit seeding: `run_audit.gd` seeds the global RNG, `AUDIT_SEED` default 2026).
+
+- **2026-10-06:** The director approved the ARD Signwriter typeface ("Approve and merge") and #419 is merged: STYLE-02's typeface is DONE. #408 (the type specimen) is closed as superseded.
 
 - **2026-10-06:** Extended the art-agent tooling permission to fonts: it may research, download and use free/licensed fonts suitable for game distribution, or direct the user to install them. Paid font licences and subscription services remain disallowed without explicit approval.
 

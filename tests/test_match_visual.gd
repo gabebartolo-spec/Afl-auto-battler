@@ -855,7 +855,7 @@ func _test_broadcast_vignettes() -> void:
 	var bases: Array = (vig.material as ShaderMaterial).get_shader_parameter("kit_base")
 	_check(bases.size() == 4 and bases[0] == GameDB.club_guernsey("COL")["base"]
 			and bases[1] == GameDB.club_guernsey("CAR")["base"]
-			and vig.get("_look") == GameDB.player_looks(star),
+			and vig.get("_look") == GameDB.figure_look(star),
 			"A broadcast close-up dresses both clubs and shows the featured player's own look")
 	vig.free()
 

@@ -21,7 +21,7 @@ func setup_winner(code: String, jumper := 0, player_id := "") -> void:
 	_colours[0] = GameDB.club_marker_colours(code)
 	_dress([code, ""])
 	var p = GameDB.player_by_id(player_id) if player_id != "" else null
-	_look = GameDB.player_looks(p) if p is Dictionary else Appearance.UNCURATED
+	_look = GameDB.figure_look(p) if p is Dictionary else Appearance.UNCURATED
 	_t = 0.0
 	_done = false
 	set_process(true)
