@@ -4949,7 +4949,8 @@ func trade_request_line(id: String) -> String:
 func _request_line(p: Dictionary, ask: Dictionary) -> String:
 	var who := GameDB.player_display_name(p)
 	var at := GameDB.club_name(str(ask["club"]))
-	var to := " or ".join((ask["to"] as Array).map(func(c): return GameDB.club_name(str(c))))
+	var names: Array = (ask["to"] as Array).map(func(c): return GameDB.club_name(str(c)))
+	var to := str(names[-1]) if names.size() < 2 else ", ".join(names.slice(0, -1)) + " or " + str(names[-1])
 	if str(ask["why"]) == "home":
 		return "%s (%s) has asked to be traded home: %s." % [who, at, to]
 	return "%s (%s) has asked for a trade to get a game: %s." % [who, at, to]
