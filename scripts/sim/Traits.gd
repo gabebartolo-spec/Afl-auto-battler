@@ -39,6 +39,9 @@ const DEFS := {
 	"lockdown": {"label": "Lockdown", "stat": "pressure", "min": 64, "roles": ["DEF", "MID"],
 			"text": "His opponent's shots are 4% less likely to be goals (a midfielder picks up their best midfielder).",
 			"scout": "Can shut down a dangerous opponent."},
+	"def_forward": {"label": "Defensive forward", "stat": "pressure", "min": 44, "roles": ["FWD"], "own_role": true,
+			"text": "Sent to their loose defender, he keeps him out of most contests (another forward follows him less well).",
+			"scout": "Works up the ground and keeps a loose defender honest."},
 	"engine": {"label": "Engine", "stat": "durability", "min": 91, "roles": [],
 			"text": "Tires 25% slower.",
 			"scout": "Runs all day."},
@@ -159,7 +162,9 @@ static func of(p: Dictionary) -> Array:
 		var need_roles: Array = d["roles"]
 		if not need_roles.is_empty():
 			var ok := false
-			for r in roles:
+			# A forward's own job, not one he can also cover: a midfielder who
+			# also plays forward isn't a Defensive forward.
+			for r in ([str(p.get("role", ""))] if bool(d.get("own_role", false)) else roles):
 				if need_roles.has(r):
 					ok = true
 			if not ok:
@@ -325,6 +330,27 @@ static func with_effect(key: String) -> String:
 
 
 const PLURALS := {"lockdown": "Lockdown players", "big_game": "Big-game players"}
+
+
+## A synergy the side is one player short of, as a fact: "Tall-small forward
+## line: 1 crumber short." (director, 2026-10-06: "Build it"). The first in
+## SYNERGIES order; "" when none is exactly one player short (on, or two or
+## more short). No swap is suggested: who to bring in is the player's call.
+static func short_text(ground: Array) -> String:
+	var rows := {}
+	for r in progress(ground):
+		rows[str(r["key"])] = r
+	for key in SYNERGIES:
+		var r: Dictionary = rows[key]
+		if int(r["missing"]) != 1:
+			continue
+		for t in r["needs"]:
+			if int(r["have"][t]) < int(r["needs"][t]):
+				var name := str(PLURALS.get(str(t), "")).trim_suffix("s")
+				if name == "":
+					name = label(str(t))
+				return "%s: 1 %s short." % [label(str(key)), name.to_lower()]
+	return ""
 
 
 ## "2/2 Contested bull (midfield)" style summary for one synergy row.

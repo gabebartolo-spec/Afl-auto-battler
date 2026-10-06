@@ -35,3 +35,7 @@ way.
 - Paired runs only pair if every run in both arms sets both seeds. Check this
   before reading a difference: the same seed in two runs should print the same
   first-season ladder.
+
+## Audits
+
+- `traitdecay_impl` (#440): one eight-season career from a seeded upside draft, printing one `DECAY` line a season: the synergies switched on across the league, then the count of players holding each synergy trait, real and generated players apart. `AUDIT_SEED` sets the career seed (default 301), so runs with the same seed pair.

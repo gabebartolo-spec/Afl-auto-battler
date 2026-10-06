@@ -47,7 +47,7 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `coach_market` | Coach moves, hiring, sackings, retirements, assistant contracts | 63 | 95 |
 | `coach_pathway` | Retired players becoming coaches, and the record they carry | 57 | 2 |
 | `coach_effects` | What coaching does: teaching, tactics, man-management | 36 | 5 |
-| `career_ui` | Main menu and save flow, Back, the Hub, Training, selection and trade screens, at 320, 360 and 430 wide | 277 | 70 |
+| `career_ui` | Main menu and save flow, Back, the Hub, Training, selection and trade screens, at 320, 360 and 430 wide | 280 | 70 |
 | `potential` | Potential (POT) rules, rehab years, draft pedigree | 36 | 5 |
 | `ratings` | The overall rating model | 39 | 2 |
 | `ai` | Rival clubs' drafting and selection | 35 | 58 |
@@ -59,17 +59,17 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `injuries` | Injury rates, durability, healing, and played v simulated parity | 31 | 78 |
 | `awards` | Brownlow, Coleman, best and fairest, All-Australian | 22 | 49 |
 | `achievements` | Club achievements | 153 | 48 |
-| `contracts` | Contracts, free agency and trades (seeded: a clock seed once made the pick-limit check flaky) | 190 | 29 |
+| `contracts` | Contracts, free agency and trades (seeded: a clock seed once made the pick-limit check flaky) | 233 | 29 |
 | `league` | Difficulty and the league news feed | 47 | 52 |
 | `club` | The board, morale and the weekly event card | 199 | 103 |
 | `match_game` | Legs and rotations, match moments and calls, the rival coach, key match-ups | 243 | 333 |
 | `pressure` | Pressure acts and the team Pressure Rating | 21 | 38 |
 | `workload` | Workload across the campaign | 32 | 8 |
-| `match_visual` | The live match view is presentation only (PitchView, MatchDirector, MatchMotion) | 97 | 210 |
+| `match_visual` | The live match view is presentation only (PitchView, MatchDirector, MatchMotion) | 108 | 210 |
 | `league_balance` | Smoke checks for the balance harness in `tools/balance` | 23 | 223 |
 | `calibration` | The engine against real 2026 numbers (seeded matches) | 17 | 69 |
 | `balance` | A long-career guard: three seasons must not inflate the league | 13 | 149 |
-| `assets` | The art and music as shipped: figure-sheet frames against the layout, vignettes playing their moves through, banners, music files, levels and the player | 80 | 3 |
+| `assets` | The art and music as shipped: figure-sheet frames against the layout, vignettes playing their moves through, banners, music files, levels and the player | 95 | 3 |
 
 By area:
 

@@ -293,6 +293,11 @@ func player_by_id(id: String):
 ## Generated future classes register here so pick logs and box scores can still
 ## resolve their names by stable id after a season rollover.
 func register_draftees(list: Array) -> void:
+	# A class made again (a new seed) replaces its first version, by id.
+	var ids := {}
+	for p in list:
+		ids[str(p.get("id", ""))] = true
+	late_draftees = late_draftees.filter(func(q): return not ids.has(str(q.get("id", ""))))
 	for p in list:
 		late_draftees.append(p)
 
