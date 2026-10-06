@@ -135,7 +135,7 @@ else
 fi
 
 echo "== Suite seeds"
-if tools/check_suite_seeds.sh > "$LOG_DIR/suite_seeds.log" 2>&1; then
+if bash tools/check_suite_seeds.sh > "$LOG_DIR/suite_seeds.log" 2>&1; then
 	summary+=("| suite_seeds | pass | |")
 else
 	cat "$LOG_DIR/suite_seeds.log"
