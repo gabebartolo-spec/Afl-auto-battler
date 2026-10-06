@@ -563,6 +563,13 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+### Coaching notes: match-specific interest, not repetitive filler — PC playtest concern (2026-10-07)
+
+- The director finds the pictured Coaching notes acceptable in isolation (“They have had more of the ball going forward”) but worries it will repeat every game and never become interesting. This is a concern to investigate across multiple matches, not a confirmed claim that it already repeats every game.
+- Generate concise notes from genuinely distinctive recorded match events and patterns: significant changes over quarters, notable matchup outcomes, injury/rotation context, scoring runs or unusual contributions where supported. Explain a useful observation with brief evidence and an explicit period, rather than restating an obvious aggregate or cycling synonyms for the same generic sentence. Prefer fewer meaningful notes; omit filler when nothing noteworthy is supported. Audit repetition across a season and similar/different match states, and verify claims against actual records.
+- Preserve player agency: observations should inform, not prescribe a winning tactic or assert unsupported causation. Coordinate with the requested quarter-break full stats and streamlined reports so these notes add information rather than duplicate tables. Roadmap comment only; Claude to implement.
+
+
 ### Best players panel: friendly/opposition visual identification — PC playtest (2026-10-07)
 
 - Apply consistent **friendly versus opposition colour language** to the pictured Best players panel so managed-club players (Rangers here) and opposition players (Bombers here) are distinguishable at a glance. Use readable restrained accents, labels/badges or grouped headings alongside colour; retain club names, contributions, performance scores and best-on-ground recognition. Determine allegiance from the managed club, including custom teams, rather than home/away or kit colour. Coordinate with the scoring-feedback palette without locking in the still-tentative green/red choice. Colour identifies affiliation here, not whether an individual performed well or badly; preserve honest recognition of opposition performances. Roadmap only; Claude to implement.
