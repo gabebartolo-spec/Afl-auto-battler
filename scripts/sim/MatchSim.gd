@@ -593,6 +593,19 @@ const PLANS := {
 }
 
 
+## How much of a plan's upside the day allows (ARD-M4-016, the director:
+## "contested footy is better in the wet as it's less precise; in dry weather
+## ball handling is easier and it's easier to mark the ball"). A perfect day is
+## the calibrated game, so the dry plans' edge there is what the wet takes
+## away. The rule is shown to the player in words, never as a recommendation.
+const WEATHER_PLAN := {
+	"wet": {"contest": 1.35, "defensive": 1.2, "press": 1.2, "attacking": 0.6, "fast": 0.6,
+			"controlled": 0.85},
+	"windy": {"controlled": 1.25, "attacking": 0.85, "fast": 0.85},
+	"hot": {"attacking": 1.2, "fast": 1.2, "defensive": 0.8, "press": 0.8},
+}
+
+
 ## A plan's value for this side. Its upside grows with how well the players
 ## suit it (PlanFit) and how sharply the coaches execute it
 ## (Squad.tactics_exec, 1.0 = as written); what it gives up is the plan's
@@ -603,7 +616,8 @@ func _pv(side: int, key: String, fallback := 1.0) -> float:
 	var scale := 1.0
 	if (PLAN_UPSIDE.get(plan, []) as Array).has(key):
 		scale = float((squads[side] as Squad).tactics_exec) \
-				* float((plan_fit[side] as Dictionary).get(plan, 1.0))
+				* float((plan_fit[side] as Dictionary).get(plan, 1.0)) \
+				* float((WEATHER_PLAN.get(weather, {}) as Dictionary).get(plan, 1.0))
 	return fallback + (v - fallback) * scale
 
 
