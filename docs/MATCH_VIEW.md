@@ -77,6 +77,12 @@ What that showed, and what the view does about it:
 - **Kicks arc and handballs stay flat.** Flight time grows with distance and
   stretches, within limits, to give the receiver time to arrive. Forward-50
   entries land in a marking contest.
+- **A handball is short.** When the next possession is more than 15 m away,
+  the carrier runs it down and dishes off from about 9 m, so a long handball
+  chain never shows as a kick.
+- **The ball never steers.** A receiver still short of a landed ball gets
+  one straight bobble his way, aimed when it is released, and runs onto it.
+  It doesn't bend toward him.
 - **Movement** has acceleration, braking and reaction delays, so starts, stops
   and turns take time and paths curve. Sprint speed comes from the `carry`
   rating (presentation only).

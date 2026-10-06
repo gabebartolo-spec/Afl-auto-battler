@@ -105,8 +105,9 @@ freshness alongside ability for every club; a named selection remains yours.
   Returning to the menu offers **Resume Draft**, and the draft is saved to disk
   with the rest of the career (see *Saving* below).
 
-The draft UI uses locally bundled Barlow fonts, with SIL OFL licences under
-`assets/fonts/`. No network access is required by the game.
+The UI uses the project's own ARD Signwriter typeface (Regular and Bold for text, a Display cut
+for scores and figures), bundled under `assets/fonts/` with its licence. The Barlow files
+still in that folder are no longer used by the UI. No network access is required by the game.
 
 Actual Godot captures after six user selections:
 
