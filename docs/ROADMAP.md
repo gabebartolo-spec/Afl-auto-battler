@@ -2221,6 +2221,17 @@ Create **one** concise coaching report, not a compact report plus a giant full-r
 
 Detailed stats live in the Stats screen.
 
+### Director addition — full match stats at every quarter break (2026-10-06)
+**Status:** `TODO` — explicit access requirement; audit existing break UI first and extend any missing access, preserving the completed report foundation.
+
+Make the **full match stats** available at **quarter time, half time and three-quarter time**, with the same team/player stat coverage available at full time. Include both teams' cumulative match-to-date statistics and available quarter scoring/breakdowns; values must come from the current authoritative match state, not a completed-match reconstruction or future results.
+
+Reuse the existing Stats screen/table in a clear tab/button accessible from each break. Keep the concise coaching/decision view as its own surface, so full statistics are available on demand without turning the break summary into a stat dump. Opening/closing stats must not resume the match, commit a call, discard pending tactical choices or advance the simulation; the user returns to the same paused break and can still make their decisions.
+
+Acceptance: full team and player stats can be opened at all three breaks, match the events played so far, and remain accessible regardless of whether the user watched or skipped the preceding quarter. Validate all three break states, missing/zero stats, back navigation, selected tactical choices, phone scrolling and final-time parity.
+
+
+
 ### Research refinement — 2026-10-05
 
 **Status boundary:** the merged report remains DONE. These checks apply when M4-001/002/003/004 follow-through changes; do not rebuild or add a second report.
@@ -5614,6 +5625,18 @@ Prefer improving the existing experience when that answers the same need. This p
 **Acceptance:** full-name records/search remain intact; nicknames/interests survive transfer and retirement; old saves remain valid and need not acquire invented histories; details are unmistakably cosmetic.
 **Validation:** generated/custom players, changed/removed nickname, name search, fictive mode, same-name players, save/load and multiple decades. Cosmetic metadata never shifts football RNG or prospect abilities.
 
+#### Director addition — Favourite club on every player bio card (2026-10-06)
+**Status:** `TODO` — cosmetic profile detail; this explicitly extends the profile flavour scope to sourced real-player facts.
+
+Add a **Favourite club** field to all player bio cards, for example **Favourite club: Demons**. "Demons" is an example value, not a universal assignment. The field records the club the player supported **before being drafted**, not their current employer.
+
+- For real players, research and use their actual publicly documented pre-draft/childhood favourite club where available. Prefer player interviews and official club/AFL profiles; retain the source URL/date against the stable player ID and resolve conflicting accounts rather than guess.
+- If no reliable source is found, show a restrained unknown state such as "Not recorded"; never infer allegiance from current club, hometown, surname or the director's example.
+- Generated fictional players can have a persistent cosmetic favourite club; custom prospects can choose one. Keep this data separate from real-player research and preserve it through transfers, retirement, name-display changes and save/load.
+- Reuse the existing player profile/card and club-label systems, with a concise readable row on phone. This is flavour only: no effect on contracts, recruitment, trades, morale, loyalty or gameplay, and cosmetic generation must not disturb football RNG.
+
+Acceptance: every bio card supports the field; sourced real facts display correctly, unknowns remain honest, generated/custom values persist, and a transfer never changes the childhood allegiance. Validate phone layouts, old saves, fictive-name mode and stable-ID/source mapping.
+
 ### FL-006 — Truthful characterful headlines
 **Scope:** sparse optional headlines in the existing match report, news feed and season recap. Coordinate with M7-011's veracity standard and existing season-story data; use a neutral fallback if a stronger claim lacks support.
 **Dependencies:** reliable result/story predicates and existing reporting surfaces.
@@ -6017,6 +6040,7 @@ The eight includes are the complete decision record. There are no rejected style
 
 # 10. Roadmap Maintenance Log
 
+- **2026-10-06:** Added sourced pre-draft Favourite club bio-card flavour under FL-005, with honest unknowns and persistent cosmetic generated/custom values. Added full match-to-date Stats access at every quarter break under ARD-M4-009, reusing the existing stats view and preserving the paused decision flow.
 - **2026-10-06:** Added ARD-M4-016, match-day weather, from the director's decisions and the lead's evidence (docs/research/WEATHER_EVIDENCE.md).
 - **2026-10-06:** Recorded the director's interview on the match-visualisation research.
   - ARD-M8-003 gains an agreed sequence: truth fixes, a tactical timeline, two demonstrations, then lanes. No overlay, and the play library is held.
