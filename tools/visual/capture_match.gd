@@ -13,6 +13,8 @@ extends SceneTree
 ##   --frames N      frames in the sheet (default 12)    --speed S (default 1)
 ##   --kind K [--nth N] [--lead L]  start L events before the N-th event of kind K
 ##   --nocam         whole oval, no camera (trails are in screen space)
+##   --loose SIDE    that side plays its best interceptor loose
+##   --tag SIDE      that side tags the other side's best midfielder
 
 const W := 900
 const H := 700
@@ -49,17 +51,34 @@ func _run() -> void:
 	var sim = sim_script.new(squad_script.new(home_code, db.club_list(home_code), true, home_code),
 			squad_script.new(away_code, db.club_list(away_code), false, away_code),
 			int(args.get("seed", "42")))
+	if args.has("loose"):
+		# --loose SIDE: that side plays its best interceptor loose.
+		var ls := int(args["loose"])
+		var best := Matchups.best_interceptor((sim.squads[ls] as Squad).ground, 0.0)
+		if not best.is_empty():
+			sim.set_interceptor(ls, str(best["id"]), false)
+	if args.has("tag"):
+		# --tag SIDE: that side tags the other side's best midfielder.
+		var ts := int(args["tag"])
+		var mids: Array = (sim.squads[1 - ts] as Squad).ground.filter(func(p): return str(p["role"]) == "MID")
+		mids.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+		if not mids.is_empty():
+			sim.set_tactics(ts, {"gameplan": "balanced", "tag_id": str(mids[0]["id"])})
 	var res: Dictionary = sim.run()
 	res["home"] = home_code
 	res["away"] = away_code
 
 	root.size = Vector2i(W, H)
+	await process_frame
+	# The project stretches canvas items (base 1280x720), so the window's
+	# canvas is not W x H units: fill what is actually visible.
+	var vis: Vector2 = root.get_visible_rect().size
 	var pitch = load("res://scripts/ui/PitchView.gd").new()
 	pitch.position = Vector2.ZERO
-	pitch.size = Vector2(W, H)
+	pitch.size = vis
 	root.add_child(pitch)
 	var overlay = load("res://tools/visual/trail_overlay.gd").new()
-	overlay.size = Vector2(W, H)
+	overlay.size = vis
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(overlay)
 	await process_frame
