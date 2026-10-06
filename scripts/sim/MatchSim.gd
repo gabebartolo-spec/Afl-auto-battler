@@ -822,10 +822,11 @@ static func fwd_size(p: Dictionary) -> String:
 const SHOT_ROLES := {"FWD": 1.0, "MID": 1.0, "RUCK": 0.35, "DEF": 0.06}
 ## Who wins a clearance: forwards and defenders at a stoppage now and then.
 const CLEARANCE_ROLES := {"MID": 1.0, "RUCK": 1.0, "FWD": 0.12, "DEF": 0.10}
-## Audit switch (#363, measurement only): the clearance winner takes the
-## chain's first disposal, as a clearance is in real football. Off, the chain's
-## first carrier is picked from the whole ground as before, draw for draw.
-static var clearance_keeps := false
+## The clearance winner takes the chain's first disposal, as a clearance is
+## in real football (director, 2026-10-06; evidence #363). The carrier pick is
+## still drawn, so the rest of the chain's dice are where they were. Off only
+## as the audit baseline (the old rule: the first carrier from the whole ground).
+static var clearance_keeps := true
 ## Who is credited a one-percenter (a spoil, smother or shepherd).
 const ONE_PCT_ROLES := {"DEF": 1.0, "RUCK": 0.5, "MID": 0.3, "FWD": 0.1}
 
