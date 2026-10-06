@@ -3905,7 +3905,6 @@ Player-facing choices should stay concise:
 - **facial hair** from a dedicated beard/moustache library,
 - **facial-hair colour** independently selectable from hair colour,
 - **skin tone**,
-- **freckles: None / Light / Heavy**,
 - **subtle scars: None / Light / Moderate**,
 - **boots** with a small set of silhouettes/colour treatments (black, white and restrained club-colour accents),
 - **sock height: Tall socks / Short socks**,
@@ -4138,7 +4137,6 @@ Appearance customisation should include:
 - **Facial hair** from a dedicated beard/moustache library,
 - **Facial-hair colour**, independently selectable,
 - **Skin tone**,
-- **Freckles None / Light / Heavy**,
 - **Scars None / Light / Moderate**, kept subtle and believable,
 - **Boots** with a compact set of silhouettes and colour treatments,
 - **Tall socks / Short socks**,
@@ -4154,6 +4152,7 @@ These are cosmetic only. They should also be available to generated-player appea
 Expand beyond a token set of cuts. The target should include enough silhouettes that players are recognisable at a glance even at vignette scale.
 
 Hair should cover a useful range such as:
+- **“Bailey Fritsch” haircut** — add a Bailey Fritsch–inspired option to the shared hairstyle library for player creation/customisation and generated-player variety. Use visual references to capture the recognisable silhouette in the existing art style; persist it like other hairstyles and use it consistently in previews and vignettes. Cosmetic only.
 - bald / shaved,
 - very short buzz,
 - short crop,
@@ -5854,6 +5853,8 @@ The eight includes are the complete decision record. There are no rejected style
 # 10. Roadmap Maintenance Log
 
 - **2026-10-06:** ARD-M7-009 Forge location research merged (#343, #351): 33 of 53 places have pattern tags and 46 of 53 have colour tags; the empties are listed in the status line.
+
+- **2026-10-06:** Freckles removed from the player look (director, 2026-10-06, relayed by the lead): unnecessary detail. The Club Forge look specification no longer lists them; the 2026-10-05 entry below is history.
 
 - **2026-10-06:** ARD-M5-001 is DONE (#331, 18 + 5, All-Australian 23, dual ruck); match-day wording in the roadmap follows 18 plus five (best side, 23), with dated evidence left as it was.
 
