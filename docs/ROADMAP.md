@@ -5411,6 +5411,15 @@ From the director's chat with the lead, relayed with the director's words where 
 - **Create a club screen approved.** Director: "looks fantastic, well done". It merges after the Create a player form and the Create a club engine, because it is built on both.
 - **Freckles removed from the player look.** Confirmed in the director's own words: "i alreeady said to delete freckles from the game".
 
+## 2026-10-06 director decisions - animation, motion and the Stat Guide
+
+From the director's chat with the lead, relayed; the director's own wording is the authority if it differs.
+
+- **Centre-bounce framing prototype starts now** (the lead builds it). The set-shot kick and the press room queue behind the hair prototypes; the press room folds into LS-03.
+- **No reduced-motion setting for now.**
+- **The awards walk-on stays as it is:** no presenter, no handover.
+- **The Stat Guide uses words, not percentages.** Director: "Words instead". Counts the player acts on stay exact. Done in #398.
+
 # 9.2 Research candidates — awaiting director selection
 
 The detailed evidence, trade-offs and prototype tests are in [GENRE_ENJOYMENT_RESEARCH.md §7](GENRE_ENJOYMENT_RESEARCH.md#7-research-candidates--awaiting-director-selection).
@@ -5899,6 +5908,7 @@ The eight includes are the complete decision record. There are no rejected style
 - **2026-10-06:** STYLE-07 (PC fullscreen readability) is IN REVIEW in #371, with the cause and fix recorded; it is DONE only after the director's PC review.
 
 - **2026-10-06:** Recorded five more director decisions in §9.1: trades at real volume; synergy selection and development projects must have an impact; the clearance winner keeps the first disposal; the Create a club screen is approved; freckles removed (confirmed in the director's words).
+- **2026-10-06:** Recorded the director's animation and Stat Guide decisions in §9.1 (centre-bounce prototype now; kick and press room behind hair; no reduced-motion setting; awards walk-on unchanged; Stat Guide in words, #398).
 
 - **2026-10-06:** ARD-M7-009 Forge location research merged (#343, #351): 33 of 53 places have pattern tags and 46 of 53 have colour tags; the empties are listed in the status line.
 
