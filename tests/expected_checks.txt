@@ -21,7 +21,7 @@ potential 36
 ratings 39
 ai 35
 training 104
-selection 14
+selection 33
 matchup 95
 matchday 365
 roles 179
