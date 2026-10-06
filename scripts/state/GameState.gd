@@ -2566,7 +2566,8 @@ const TRAIN_PLANS := [
 ## Three positions across forward, midfield and back make him a Unicorn
 ## (Traits). One project per player a season, PROJECT_MAX a club at once.
 ## The price is explicit: from the day he starts, training in his own position
-## can lift him only PROJECT_OWN_GAIN more that season (the new position's
+## can lift him only PROJECT_OWN_GAIN more that season (and a learned position
+## gives LEARN_PAYBACK back the season after) (the new position's
 ## training can still help his own game where the two overlap).
 ## Rival clubs learn positions too, sparingly: AI_PROJECTS a season each, by
 ## the same gates (_ai_projects).
@@ -2575,7 +2576,11 @@ const PROJECT_WEEKS := 8
 const PROJECT_REACH := 6
 const PROJECT_PASS := 3
 const PROJECT_MAX := 2
-const PROJECT_OWN_GAIN := 1
+const PROJECT_OWN_GAIN := 2
+## A position learned pays back: the next season his training can lift his own
+## rating LEARN_PAYBACK more than the usual limit, never past his POT
+## (director, 2026-10-06: projects must matter).
+const LEARN_PAYBACK := 1
 const AI_PROJECTS := 1
 const PROJECT_POT := {1: 70, 2: 90}      # positions he has -> POT to learn another
 const MAX_POSITIONS := 3
@@ -2719,6 +2724,7 @@ func _finish_project(p: Dictionary, announce := true) -> Dictionary:
 	var learned := there >= own - PROJECT_PASS
 	var was_unicorn := Traits.of(p).has("unicorn")
 	if learned:
+		p["learn_payback_year"] = season_year + 1
 		if str(p.get("role2", "")) == "":
 			p["role2"] = role
 		else:
@@ -5378,6 +5384,9 @@ func season_ceiling(p: Dictionary) -> int:
 	if not p.has("season_start_ov"):
 		p["season_start_ov"] = int(p.get("overall", 0))
 	var full := int(p["season_start_ov"]) + SEASON_TRAIN_GAIN
+	# The season after he learns a position: a little more room, inside POT.
+	if int(p.get("learn_payback_year", 0)) == season_year:
+		full = maxi(full, mini(full + LEARN_PAYBACK, int(p.get("potential", 0))))
 	if int(p.get("project_year", 0)) == season_year and p.has("project_cap"):
 		return mini(full, int(p["project_cap"]))
 	return full
