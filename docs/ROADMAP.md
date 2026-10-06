@@ -2339,7 +2339,8 @@ Consolidates existing team form with the requested winning-streak momentum conce
 Goal: make player deployment intuitive, footy-authentic and consequential.
 
 ## ARD-M4-012 — Intercepts by zone: any player can intercept
-**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+**Status:** `DONE` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+**Merged (2026-10-06):** PR #462. Defenders intercept 4.9 a game and the loose defender 8.4, with scoring unchanged. Midfield intercepts sit at 1.4 against 2.5 in the real numbers; the director said "Merge, gap later", so closing it is backlog item 25, not part of this item.
 
 **Director decision (2026-10-06, interview):** "any player can intercept, but the loose defender should get more intercepts if he's good at it." Today the general-play aerial pool is defenders and midfielders only, and forward-entry contests are defenders only. Neither pool looks at where the ball is, so forwards never pick off a rebound kick in their forward half.
 
