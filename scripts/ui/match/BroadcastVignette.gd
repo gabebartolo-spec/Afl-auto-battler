@@ -399,6 +399,50 @@ func _ready_player(p: Vector2, side: int, facing: String, seed: int, turn := fal
 
 
 ## The hip and scale of a player at a spot, lift metres up (for points on his figure, _at).
+## A man's palms on screen in this frame of a move, as _player draws him: Vector3(x, y, 1 when
+## his hands are in front of him or 0 behind), between his two hands. Vector3.INF when the move
+## has no hand data. A held ball goes here, so it moves with his arms.
+func _palms(p: Vector2, lift: float, anim: String, facing: String, frame: int, mirror := false,
+		build := BODY) -> Vector3:
+	var s := _ground.project(p)
+	if s.z <= 0.0:
+		return Vector3.INF
+	if not VignetteFigures.has(build, anim, facing):
+		build = BODY
+	var info := VignetteFigures.strip(build, anim, facing)
+	var h := VignetteFigures.hands(info, StoppageVignette.figure_frame(info, frame, anim, facing))
+	if h.is_empty():
+		return Vector3.INF
+	var k := s.z / VignetteFigures.PX_PER_M
+	var off := (((h[0] as Vector2) + (h[1] as Vector2)) * 0.5 - Vector2(info["pivot"][0], info["pivot"][1])) * k
+	if mirror:
+		off.x = -off.x
+	return Vector3(s.x + off.x, s.y - lift * s.z + off.y, float(h[2]))
+
+
+## A man running with the ball (the carry), the ball between his hands: behind him when his
+## hands are, else over him with his near hand drawn over it again (the move's "_near"
+## overlay), so the far hand is behind the ball and the near one in front (director).
+func _carrier(p: Vector2, side: int, anim: String, facing: String, frame: int, number := 0,
+		look: Dictionary = EXTRA_LOOK, mirror := false, build := BODY) -> void:
+	var at := _palms(p, 0.0, anim, facing, frame, mirror, build)
+	var scale := _ground.project(p).z / PX_PER_M
+	if at != Vector3.INF and at.z < 0.5:
+		_draw_ball(Vector2(at.x, at.y), scale * 0.9)
+	_player(p, 0.0, side, anim, facing, frame, number, look, mirror, build)
+	if at == Vector3.INF or at.z < 0.5:
+		return
+	_draw_ball(Vector2(at.x, at.y), scale * 0.9)
+	if not VignetteFigures.has(build, anim, facing):
+		build = BODY
+	if VignetteFigures.has(build, anim + "_near", facing):
+		var s := _ground.project(p)
+		var info := VignetteFigures.strip(build, anim + "_near", facing)
+		StoppageVignette.draw_frame(self, Vector2(s.x, s.y), info, StoppageVignette.figure_frame(info, frame, anim, facing),
+				s.z / VignetteFigures.PX_PER_M, StoppageVignette.look_colour(side, look, mirror), mirror,
+				Color(0, 0, 0, 0), _view, "")
+
+
 func _hip(p: Vector2, lift := 0.0) -> Array:
 	var s := _ground.project(p)
 	var scale := s.z / PX_PER_M
@@ -719,27 +763,46 @@ func _draw_goal_line() -> void:
 	var at := _crumber_spot(_t)
 	var run_at := 1.65
 	var snap_from := SNAP_AT - 0.12
-	if _t < 1.35:
-		_ready_player(at, side, "back", 4, true, true, num, _look, _build, true)
-	elif _t < run_at:
-		# Down over the ball as it reaches him, up with it into the chest.
-		var g := 0 if _t < 1.45 else (1 if _t < 1.56 else 2)
-		_player(at, 0.0, side, "gather", "back_r", g, num, _look, true, _build)
-	elif _t < snap_from:
-		# Away from us and to the left: three-quarters from behind, heading left.
-		_player(at, 0.0, side, "jog", "back_r", int((_t - run_at) * 15.0) % 8, num, _look, true, _build)
-	elif _t < SNAP_AT + 0.45:
-		# Snapped around the body: the boot meets the ball at SNAP_AT.
-		_player(at, 0.0, side, "snap", "back_r", mini(4, int((_t - snap_from) / 0.04)), num, _look, true, _build)
-	else:
-		_ready_player(at, side, "back", 4, true, true, num, _look, _build)     # watching it go
-
 	var hip: Array = _hip(at)
 	var crumber: Vector2 = hip[0]
 	var scale: float = hip[1]
 	var hands := _at(crumber, scale, Vector2(-0.3, 1.0))
 	var boot := _at(crumber, scale, Vector2(-SNAP_BOOT.x, SNAP_BOOT.y))     # snapping heading left: mirrored
 	var deck := CRUMB_GATHER - right * 0.34
+	# Gathered into his hands, then (after the carry) dropped onto the boot: the ball in his
+	# palms in each frame, behind his body when his hands are (drawn before him), else over him.
+	var g := 0 if _t < 1.45 else (1 if _t < 1.56 else 2)
+	var sf := mini(4, int((_t - snap_from) / 0.04))
+	var held := Vector2.INF
+	var behind := false
+	if (_t >= 1.45 and _t < run_at) or (_t >= snap_from and _t < SNAP_AT):
+		var gathering := _t < run_at
+		var palm := _palms(at, 0.0, "gather" if gathering else "snap", "back_r", g if gathering else sf, true, _build)
+		var in_hands := Vector2(palm.x, palm.y) if palm != Vector3.INF else hands
+		var d := _ground.project(deck, 0.15)
+		var up := clampf((_t - 1.45) / 0.15, 0.0, 1.0)
+		var drop := clampf((_t - (SNAP_AT - 0.08)) / 0.08, 0.0, 1.0)
+		held = Vector2(d.x, d.y).lerp(in_hands, up).lerp(boot, drop)
+		behind = palm != Vector3.INF and palm.z < 0.5 and up >= 1.0 and drop <= 0.0
+	if held != Vector2.INF and behind:
+		_draw_ball(held, scale * 0.9)
+	if _t < 1.35:
+		_ready_player(at, side, "back", 4, true, true, num, _look, _build, true)
+	elif _t < run_at:
+		# Down over the ball as it reaches him, up with it into the chest.
+		_player(at, 0.0, side, "gather", "back_r", g, num, _look, true, _build)
+	elif _t < snap_from:
+		# Away from us and to the left: three-quarters from behind, heading left, the ball
+		# in both hands.
+		_carrier(at, side, "carry", "back_r", int((_t - run_at) * 15.0) % 8, num, _look, true, _build)
+	elif _t < SNAP_AT + 0.45:
+		# Snapped around the body: the boot meets the ball at SNAP_AT.
+		_player(at, 0.0, side, "snap", "back_r", sf, num, _look, true, _build)
+	else:
+		_ready_player(at, side, "back", 4, true, true, num, _look, _build)     # watching it go
+	if held != Vector2.INF and not behind:
+		_draw_ball(held, scale * 0.9)
+
 	# Kicked in from upfield (over the camera) to the contest, where the fist meets it.
 	var hit := CONTEST_AT + fwd * 0.4
 	var top := Vector3(hit.x, hit.y, CONTEST_PEAK * 1.25 + 2.4)
@@ -757,12 +820,7 @@ func _draw_goal_line() -> void:
 		_ball3(Vector2(p.x, p.y), p.z)
 		return
 	if _t < SNAP_AT:
-		# Gathered into the hands, carried, then dropped onto the boot.
-		var d := _ground.project(deck, 0.15)
-		var up := clampf((_t - 1.45) / 0.15, 0.0, 1.0)
-		var drop := clampf((_t - (SNAP_AT - 0.08)) / 0.08, 0.0, 1.0)
-		_draw_ball(Vector2(d.x, d.y).lerp(hands, up).lerp(boot, drop), scale * 0.9)
-		return
+		return                       # in his hands: drawn with him above
 	var flight := clampf((_t - SNAP_AT) / 1.15, 0.0, 1.0)
 	var goal := str(event.get("kind", "")) == "goal"
 	# Curling back from his left to the target, rising then dropping into it.
@@ -865,7 +923,6 @@ func _draw_boundary_snap() -> void:
 	var scale: float = hip[1]
 	var boot := _at(kicker, scale, SNAP_BOOT)
 	var held := _at(kicker, scale, Vector2(0.06, 0.95))     # in front of him: hidden by him
-	var carried := _at(kicker, scale, Vector2(0.2, 1.08))   # side-on: in his hands in front of him
 	var snap_from := POCKET_CONTACT - 0.3
 	var press := _pocket_defenders()
 	_draw_extras([POCKET_AT, at, press[0], press[1]])
@@ -880,14 +937,12 @@ func _draw_boundary_snap() -> void:
 	if _t < POCKET_RUN[0]:
 		_ready_player(at, side, "back", 6, false, false, num, _look, _build)
 	elif _t < snap_from:
-		_player(at, 0.0, side, "jog", "side_l", int((_t - POCKET_RUN[0]) * 15.0) % 8, num, _look, true, _build)
+		# Running with it in both hands, in plain sight (director), the near hand over it.
+		_carrier(at, side, "carry", "side_l", int((_t - POCKET_RUN[0]) * 15.0) % 8, num, _look, true, _build)
 	elif _t < snap_from + 0.8:
 		_player(at, 0.0, side, "snap", "back_r", mini(4, int((_t - snap_from) / 0.1)), num, _look, false, _build)
 	else:
 		_ready_player(at, side, "back", 6, false, false, num, _look, _build)     # landed, watching it
-	if _t >= POCKET_RUN[0] and _t < snap_from:
-		# Running with it: carried in front of his chest, in plain sight (director).
-		_draw_ball(carried + Vector2(0, sin(_t * 23.0) * 1.5 * scale), scale * 0.9)
 	if _t >= POCKET_CONTACT - 0.1 and _t < POCKET_CONTACT:
 		_draw_ball(held.lerp(boot, (_t - (POCKET_CONTACT - 0.1)) / 0.1), scale * 0.9)      # dropped onto the boot
 	elif _t >= POCKET_CONTACT:

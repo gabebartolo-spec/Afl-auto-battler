@@ -58,6 +58,7 @@ var _kits := []            # both sides' guernseys, as dressed
 var _t := 0.0
 var _frozen := false
 var _hold := 0.0            # time since the freeze, for the last push-in
+var _released_from := Vector2.INF   # where the umpire let the ball go, on screen (the bounce)
 
 
 func setup(sim: MatchSim, my_side: int, heading := "") -> void:
@@ -365,6 +366,10 @@ func _umpire() -> Vector2:
 	return at.lerp(Vector2(4.5, 2.5), _ease(clampf((_t - BALL_UP) / 0.6, 0.0, 1.0)))
 
 
+## The ball leaves the umpire's hands this long before it hits the turf.
+const RELEASE := BALL_UP - 0.1
+
+
 func _ball() -> Vector3:
 	# x, y on the ground and height: in the umpire's hand, raised, down, then up.
 	var u := Vector2(1.2, 0.4) if _t >= BALL_UP else _umpire()
@@ -390,7 +395,8 @@ func _draw() -> void:
 	figures.append({"at": _umpire(), "t": {}})
 	figures.sort_custom(func(a, b): return (a["at"] as Vector2).y > (b["at"] as Vector2).y)
 	var b := _ball()
-	var ball_drawn := false
+	# In the umpire's hands until the bounce: drawn with him (_draw_held), not here.
+	var ball_drawn := _t < RELEASE
 	for f in figures:
 		if not ball_drawn and (f["at"] as Vector2).y < b.y:
 			_draw_ball(b)
@@ -474,9 +480,33 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	var mirror := bool(pick[2])
 	var kit := UMPIRE_KIT if ump else int(t["side"])
 	var look: Dictionary = t.get("look", UMPIRE_LOOK)
+	var held := Vector3.INF
+	if ump and _t < RELEASE:
+		held = _held_ball(info, frame, Vector2(base.x, base.y), k, mirror, str(pick[0]) == "bounce")
+		if held.z < 0.5:
+			VignetteBall.draw(self, Vector2(held.x, held.y), 0.4 * m)     # behind him: his body covers it
 	draw_frame(self, Vector2(base.x, base.y), info, frame, k, look_colour(kit, look, mirror), mirror,
 			number_colour(kit, int(t["num"]), 1.0, mirror) if facing.begins_with("back") and m > 18.0 else Color(0, 0, 0, 0),
 			Transform2D.IDENTITY, str(look.get("hair_style", VignetteFigures.HAIR_BASE)))
+	if held != Vector3.INF and held.z >= 0.5:
+		VignetteBall.draw(self, Vector2(held.x, held.y), 0.4 * m)        # in front of him, in his hands
+
+
+## The ball in the umpire's hands, on screen (x, y) and whether it's in front of him (z 1)
+## or behind (0): at his palms in this frame (VignetteFigures.hands), so it moves with his
+## arms. Raising and bringing it down (both: the bounce) it sits between his hands; walking
+## in and standing, in his right hand. Never spinning: it only spins once it's bounced.
+func _held_ball(info: Dictionary, frame: int, feet: Vector2, k: float, mirror: bool, both: bool) -> Vector3:
+	var h := VignetteFigures.hands(info, frame)
+	if h.is_empty():
+		return Vector3(feet.x, feet.y - 1.1 * k * VignetteFigures.PX_PER_M, 1.0)
+	var pivot := Vector2(info["pivot"][0], info["pivot"][1])
+	var palm: Vector2 = ((h[0] as Vector2) + (h[1] as Vector2)) * 0.5 if both else (h[1] as Vector2)
+	var off := (palm - pivot) * k
+	if mirror:
+		off.x = -off.x
+	_released_from = feet + off
+	return Vector3(feet.x + off.x, feet.y + off.y, float(h[2]) if both else 1.0)
 
 
 ## Draws frame f of a strip with its feet at feet, k screen pixels per frame pixel,
@@ -610,8 +640,12 @@ func _draw_ball(b: Vector3) -> void:
 	draw_set_transform(Vector2(g.x, g.y), 0.0, Vector2(1.0, 0.35))
 	draw_circle(Vector2.ZERO, r * (1.0 - clampf(b.z / 10.0, 0.0, 0.6)), Color(0, 0, 0, 0.3))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	# The Sherrin (VignetteBall), spinning once it's up off the umpire's bounce.
-	VignetteBall.draw(self, Vector2(s.x, s.y), 2.0 * r, _t, b.z > 0.6)
+	var at := Vector2(s.x, s.y)
+	if _t < BALL_UP and _released_from != Vector2.INF:
+		# Thrown down from where his hands let it go, to the bounce.
+		at = _released_from.lerp(Vector2(g.x, g.y), clampf((_t - RELEASE) / (BALL_UP - RELEASE), 0.0, 1.0))
+	# The Sherrin (VignetteBall): spinning once it's up off the umpire's bounce, never before.
+	VignetteBall.draw(self, at, 2.0 * r, _t, _t >= BALL_UP)
 
 
 ## At the freeze: who is who, for the rucks, the first midfielder each side and
