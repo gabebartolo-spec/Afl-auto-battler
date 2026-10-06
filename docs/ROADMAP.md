@@ -2834,9 +2834,11 @@ Measurement: `tools/workload_probe.gd`; validation record in
 
 ## ARD-M5-016 — Inherited-list career: 2026 National Draft start
 **Status:** `TODO` — explicitly accepted by the director; documentation only in this pass.
-**Priority:** `P1`
+**Priority:** `P0`
 **Autonomy:** `SUPERVISED`
 **Depends on:** §1.11 correctness/phone gate; M1-010's merged chronology; the usable M5-014 National Draft/scouting foundation and M6-004 contract/pick persistence; a verified complete roster/pick manifest. Do not require unrelated parts of those umbrella tickets to be DONE. Full academy/father-son bidding is not a dependency.
+
+**Director priority (2026-10-06):** Still missing on main; promote this to the next major career-start feature priority ahead of unrelated content/presentation expansion. Urgent correctness/save blockers and the already-prioritised five-interchange migration remain ahead; preserve the specific source-data, opening-draft and save prerequisites below without waiting for unrelated umbrella work to finish.
 
 ### Player benefit / smallest useful delivery
 Choose a familiar club with its actual inherited playing group, shape its future through the 2026 National Draft, then play 2027. Preserve the League redraft as a distinct existing option. First build the source manifest and dedicated opening-intake handoff; connect setup and persistence only once those are credible.
@@ -3630,6 +3632,20 @@ Represent appropriate competition traditions such as King's Birthday and other m
 
 Presentation/identity first. Avoid arbitrary gameplay bonuses.
 
+### Director addition — Gather Round
+**Status:** `TODO` — follow-up under this existing marquee-fixture owner; the completed general marquee-game implementation remains DONE.
+
+Add **Gather Round** to the season calendar, fixture identity and match presentation. Represent the round as a shared league event staged at appropriate host venues, rather than simply adding a label to normal home-ground fixtures.
+
+Implementation scope:
+- Inspect the current fixture/event system and source the appropriate round and host venues for supported real starting seasons. Reference: [official AFL Gather Round](https://www.afl.com.au/gather-round) and [AFL host agreement update](https://www.afl.com.au/news/1513707/south-australia-locks-in-gather-round-for-a-further-three-years). South Australia is the current reference; do not hard-code one year's round number, dates or nine-match total into every future season.
+- Assign actual event venues consistently across fixtures, match prep, live matches and relevant vignettes; distinguish nominal home/away designation from the venue actually used. Audit existing home-ground/familiarity handling rather than accidentally giving a relocated team a normal home-venue advantage.
+- Give the round a clear, restrained Gather Round identity in the calendar/Hub, match intro and reports, with host-ground atmosphere through existing art/venue systems. No arbitrary event stat buffs.
+- Preserve valid season totals, opponent scheduling, byes and finals progression. Define a coherent policy for generated future seasons and expansion/odd club counts, including Tasmania, optional Canberra and custom clubs; do not force every club to play simultaneously when the league has an odd number of teams.
+- Persist the event/venue identity through save/reload and use backward-compatible defaults for existing careers.
+
+Acceptance: Gather Round is recognisable and correctly hosted; the user's match and the rest of the league agree on the event round/venues; ordinary fixtures remain intact; no duplicated/missing games or false season-end on a bye. Validate normal and expanded leagues, host/non-host clubs and reloads. Keep any venue/home-advantage simulation change under the existing balance gate (ARD-M7-007).
+
 ---
 
 ## ARD-M7-003 — Player milestones
@@ -3830,8 +3846,15 @@ Do not overpower player/team quality.
 
 ## ARD-M7-008 — Create a custom draft prospect
 **Status:** `TODO`  
-**Priority:** `P2`  
+**Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
+
+### Director first named use case — Alastair McNeil (2026-10-06)
+**Status:** `TODO` — checked main's prospect data and current generation/setup; Alastair McNeil is not present and the custom-prospect feature is not yet implemented.
+
+Include the director's custom **Alastair McNeil** prospect through this feature, with that exact entered name preserved through draft, club moves and career/history screens. Prioritise a minimal functioning named-prospect path rather than waiting for the entire cosmetic library. Use the established custom-prospect generation, one-time hidden POT roll and ordinary National Draft rules; no guaranteed user-club access or special development buffs. Do not substitute the real Lachlan McNeil, fabricate Alastair as a sourced real AFL player, or insert him into official inherited 2026 club lists. Reuse any director-supplied profile details if recorded; where bio/position/appearance choices are unspecified, obtain them through the existing setup choices rather than invent a fixed elite profile.
+
+Ensure the named prospect works in both League-redraft and inherited-list starts, using each mode's proper first National Draft cohort (including the opening 2026 intake for inherited lists). Verify exact-name preservation, single creation, normal AI evaluation and save/resume without duplicate entry.
 
 ### Intent
 Let the player create a self-insert or fictional prospect who enters the normal AFL draft ecosystem, creating a personal long-term story without turning the feature into a cheat-character creator.
@@ -5795,6 +5818,10 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Verified inherited 2026-list start and custom prospect are not implemented on main; promoted ARD-M5-016 to P0 and ARD-M7-008 to P1, with Alastair McNeil explicitly required as the first named custom-prospect use case under normal draft/generation rules.
+
+- **2026-10-06:** Added Gather Round as a TODO follow-up under ARD-M7-002, covering hosted fixtures, calendar/match identity, venue consistency, expansion/bye-safe scheduling and persistent event data.
 
 - **2026-10-06:** Required success/failure vignette endings where appropriate, using the authoritative post-choice roll with intermediate outcomes and deterministic reloads; no separate cinematic reroll or artificial result for ceremonies.
 
