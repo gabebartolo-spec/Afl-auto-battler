@@ -44,7 +44,19 @@ func _run() -> void:
 	state.settings_path = "user://capture_screens.cfg"
 	state.reset()
 	state.set_setting("seen_training_intro", true)
+	state.set_setting("seen_weekly_loop_intro", true)
 	state.start_season("MEL", db.club_list("MEL"))
+	# CAP_WEATHER=wet (or windy, hot): start at the first round whose forecast
+	# for your match is that, so the hub shows it.
+	var want_wx := OS.get_environment("CAP_WEATHER")
+	if want_wx != "":
+		var found := -1
+		for r in range(state.season.fixture.size()):
+			for m in state.season.fixture[r]:
+				if found < 0 and (m["home"] == "MEL" or m["away"] == "MEL") and state.season.weather_for(str(m["home"]), str(m["away"]), r) == want_wx:
+					found = r
+		if found >= 0:
+			state.season.round_index = found
 	UK.apply_appearance(mode)
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))

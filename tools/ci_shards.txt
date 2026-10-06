@@ -4,19 +4,15 @@
 # one shard; tools/check_ci_shards.sh checks that on every CI run, so a new
 # suite cannot quietly skip CI.
 #
-# Re-timed (2026-10-06) on main run 37428447120: shard 2 had grown to 668 s of suite
-# time (match_game alone 407 s) against a 463 s mean. Moved finals to 3, matchup to 4
-# and training, injuries and achievements to 5; expected 440 to 505 s a shard.
-#
-# Earlier balance on the mean per-suite time of three full runs on
-# GitHub's runners (two before #331, one after): about 528 s of suite time a
-# shard, plus about 130 s of import and setup. Runner speed varies a lot between
-# runs (career took 274 to 408 s), so treat these as rough. Slowest suites:
-# career 361, match_visual 274, match_game 285, league_balance 226, balance 164,
-# club 161, calibration 124, coach_market 104; the rest under 90.
-# A new suite goes in the shortest shard; re-balance when one gets much slower.
-1: intake_ui expansion save career
-2: draft_ui assets coach_effects match_game
-3: draft chronology coach_market coach_pathway matchday roles contracts match_visual finals
-4: career_ui potential ratings awards league league_balance calibration matchup
-5: intake coaches ai selection club pressure workload balance training injuries achievements
+# Rebalanced from all 37 suite durations in completed run 37460575183
+# (2026-10-06). Previous suite totals: 347, 489, 778, 734, 768 seconds.
+# Longest-first allocation keeps the same five jobs and every suite once;
+# estimated totals on that run: 603, 603, 604, 603, 603 seconds.
+# This removes about 174 seconds from the longest shard's suite workload.
+# Setup, import, queue time and runner variation are additional costs.
+# Re-measure after CI: these estimates are not a wall-clock guarantee.
+1: match_game pressure league intake chronology ratings
+2: match_visual ai matchup awards assets roles intake_ui
+3: career contracts injuries coaches training save draft_ui
+4: league_balance calibration finals matchday expansion draft selection coach_pathway
+5: club balance coach_market career_ui achievements workload coach_effects potential

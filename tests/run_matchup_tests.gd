@@ -202,7 +202,7 @@ func _regular_bye() -> void:
 			and actions.find_child("SimFinalsWeek", true, false) == null,
 			"No finals controls before the home-and-away season is done")
 	var sim: Button = actions.find_child("SimByeRound", true, false) if actions != null else null
-	_check(sim != null and sim.text == "Sim Round %d" % (r0 + 1), "The bye round can be simmed on its own")
+	_check(sim != null and sim.text == "Play Round %d" % (r0 + 1), "The bye round can be simmed on its own")
 	hub.call("_on_sim_to_end")
 	_check(season.round_index == r0, "Sim to Grand Final never runs through home-and-away rounds")
 	if sim != null:

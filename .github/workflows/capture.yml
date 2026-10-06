@@ -26,6 +26,11 @@ on:
         required: false
         default: ""
         type: string
+      movie:
+        description: "Also make an MP4 clip (the tool must support --movie, e.g. capture_match)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -38,6 +43,7 @@ jobs:
       GODOT_VERSION: "4.7.2"
       TOOL: ${{ inputs.tool }}
       ARGS: ${{ inputs.args }}
+      MOVIE: ${{ inputs.movie }}
     steps:
       - uses: actions/checkout@v4
 
@@ -60,7 +66,7 @@ jobs:
       - name: Virtual display and software GL
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 > /dev/null
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 ffmpeg > /dev/null
 
       - name: Cache Godot
         id: godot-cache
@@ -94,11 +100,19 @@ jobs:
         run: |
           set -f
           mkdir -p out
+          extra=""
+          if [ "$MOVIE" = "true" ]; then extra="--movie"; fi
           # ARGS is split on spaces on purpose; it was checked above.
           LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1280x1000x24" \
             "$HOME/godot/godot" --path . --rendering-method gl_compatibility \
-            --script "tools/visual/$TOOL.gd" -- $ARGS --out "$PWD/out/$TOOL" > capture.log 2>&1
+            --script "tools/visual/$TOOL.gd" -- $ARGS $extra --out "$PWD/out/$TOOL" > capture.log 2>&1
           code=$?
+          set +f
+          if [ "$MOVIE" = "true" ] && ls out/"$TOOL"_f*.png > /dev/null 2>&1; then
+            ffmpeg -loglevel error -y -framerate 30 -i "out/${TOOL}_f%04d.png" \
+              -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -pix_fmt yuv420p "out/$TOOL.mp4"
+            rm -f out/"$TOOL"_f*.png
+          fi
           tail -n 30 capture.log
           ls -la out
           exit "$code"

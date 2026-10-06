@@ -1508,6 +1508,24 @@ func _assign() -> void:
 				break
 
 
+## ARD-M8-003, persistent identity for important live roles (the director,
+## 2026-10-06: "Build it"): the players whose job the match recorded keep
+## their names on the oval while the job is on - the tagger and his man, each
+## side's loose defender, and the forward sent to him. Only those few, never
+## the 36. Token ids, in a stable order.
+func role_labels() -> Array:
+	var out := []
+	for t in tokens:
+		var id := int(t["id"])
+		var tagged := false
+		var o := int(t.get("match", -1))
+		if o >= 0 and bool(tokens[o].get("tagging", false)):
+			tagged = true
+		if bool(t.get("tagging", false)) or tagged or bool(t.get("loose", false)) 				or int(t.get("chasing", -1)) >= 0:
+			out.append(id)
+	return out
+
+
 func _unpair(a: int) -> void:
 	var o := int(tokens[a]["match"])
 	if o >= 0 and int(tokens[o]["match"]) == a:

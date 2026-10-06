@@ -13,6 +13,10 @@ extends SceneTree
 ##   --frames N      frames in the sheet (default 12)    --speed S (default 1)
 ##   --kind K [--nth N] [--lead L]  start L events before the N-th event of kind K
 ##   --nocam         whole oval, no camera (trails are in screen space)
+##   --movie         also write every frame at 30 fps (<out>_f0000.png ...),
+##                   for capture.yml to make <out>.mp4
+##   --loose SIDE    that side plays its best interceptor loose
+##   --tag SIDE      that side tags the other side's best midfielder
 ##   --flood SIDE    that side floods behind the ball all match (0 home, 1 away)
 ##   --stack SIDE    that side stacks every centre ball-up
 ##   --kside S       with --kind, only events by side S
@@ -52,6 +56,21 @@ func _run() -> void:
 	var sim = sim_script.new(squad_script.new(home_code, db.club_list(home_code), true, home_code),
 			squad_script.new(away_code, db.club_list(away_code), false, away_code),
 			int(args.get("seed", "42")))
+	if args.has("loose"):
+		# --loose SIDE: that side plays its best interceptor loose.
+		# Loaded, not named: a --script tool compiles before the autoloads exist.
+		var ls := int(args["loose"])
+		var best: Dictionary = load("res://scripts/sim/Matchups.gd").best_interceptor(sim.squads[ls].ground, 0.0)
+		if not best.is_empty():
+			sim.set_interceptor(ls, str(best["id"]), false)
+	if args.has("tag"):
+		# --tag SIDE: that side tags the other side's best midfielder.
+		var ts := int(args["tag"])
+		var mids: Array = (sim.squads[1 - ts].ground as Array).filter(func(p): return str(p["role"]) == "MID")
+		mids.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+		if not mids.is_empty():
+			sim.set_tactics(ts, {"gameplan": "balanced", "tag_id": str(mids[0]["id"])})
+
 	if args.has("flood"):
 		# --flood SIDE: that side floods behind the ball all match (the
 		# coach's "Flood behind the ball" call, held on), for the ARD-M8-003
@@ -106,6 +125,9 @@ func _run() -> void:
 	var every := maxi(1, steps / maxi(1, frames))
 	var out := str(args.get("out", "/tmp/cap"))
 
+	var movie := args.has("movie")
+	var movie_every := maxi(1, int(round((1.0 / 30.0) / dt / float(pitch.speed))))
+	var movie_n := 0
 	var tiles: Array = []
 	var paths := {}       # key -> Array of Vector2
 	var colours := {}
@@ -124,6 +146,16 @@ func _run() -> void:
 			paths["ball"] = []
 			colours["ball"] = Color(1, 1, 1, 1)
 		(paths["ball"] as Array).append(snap["ball"])
+		if movie and s % movie_every == 0:
+			# --movie: every frame of the window at 30 fps, full size, for the
+			# capture workflow to stitch into a clip (the director judges
+			# motion from clips, not sheets).
+			pitch.queue_redraw()
+			await process_frame
+			await process_frame
+			var mf: Image = root.get_viewport().get_texture().get_image()
+			mf.save_png("%s_f%04d.png" % [out, movie_n])
+			movie_n += 1
 		if s % every == 0 and tiles.size() < frames:
 			pitch.queue_redraw()
 			await process_frame

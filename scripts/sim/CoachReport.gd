@@ -14,8 +14,6 @@ const PLAN_NAMES := {
 	"contest": "Win contest",
 	"controlled": "Controlled tempo",
 	"through_stars": "Through stars",
-	"fast": "Fast movement",
-	"press": "High press",
 }
 
 const PEP_NAMES := {
@@ -41,8 +39,6 @@ const PLAN_SUMMARY := {
 	"contest": "Numbers at the stoppage: win more of the clearances, but the ball moves a little slower and you are a little exposed on the rebound. Leans on your ball-winners and ruck.",
 	"controlled": "Keep the ball: fewer errors, less rattled by pressure and fresher legs, but less ground gained. Asks nothing special of your list. Plays through a Defensive press; Attack corridor runs past it.",
 	"through_stars": "Go through your best three: they see more of the ball and finish better, with fewer errors, but they know where it's going and the pressure comes. Worth more the further they stand above the rest.",
-	"fast": "Go through the corridor: more ground and better shots, but more turnovers, heavier legs, and they score more on the rebound.",
-	"press": "Press up the ground: harder to score against, but fewer numbers forward and heavier legs.",
 }
 
 const PEP_SUMMARY := {
@@ -96,7 +92,7 @@ static func _imp(arr: Array, side: int, cause: String) -> float:
 
 
 static func plan_label(key: String) -> String:
-	return str(PLAN_NAMES.get(key, "Balanced"))
+	return str(PLAN_NAMES.get(MatchSim.plan_key(key), "Balanced"))
 
 
 static func plan_effect(key: String) -> String:
@@ -104,7 +100,7 @@ static func plan_effect(key: String) -> String:
 
 
 static func plan_summary(key: String) -> String:
-	return str(PLAN_SUMMARY.get(key, PLAN_SUMMARY["balanced"]))
+	return str(PLAN_SUMMARY.get(MatchSim.plan_key(key), PLAN_SUMMARY["balanced"]))
 
 
 static func pep_summary(key: String) -> String:
@@ -383,6 +379,7 @@ static func _build_report(res: Dictionary, my_side: int, quarters: int) -> Dicti
 		"opp_plans": plans["opp"],
 		"opp_observed": opp_observed,
 		"keys": keys,
+		"weather": str(res.get("weather", "perfect")),
 	}
 
 
@@ -684,6 +681,10 @@ static func glance(report: Dictionary, full_time := false) -> Dictionary:
 					str((opp_plans[0] as Dictionary).get("gameplan_label", q1)).to_lower(), span])
 	if read.is_empty():
 		read.append("An even %s: neither side is on top anywhere in particular." % span)
+	# The conditions, when they weren't a perfect day (ARD-M4-016).
+	var wx := Weather.report_line(str(report.get("weather", "perfect")))
+	if wx != "":
+		read.insert(0, wx)
 	var people := func(list: Array, n: int, keep: Callable) -> Array:
 		var out := []
 		for e in list:

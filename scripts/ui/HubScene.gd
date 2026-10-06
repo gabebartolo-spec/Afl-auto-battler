@@ -9,7 +9,7 @@ var _news_overlay: Control
 var _sim_confirm: Control
 var _quick_sim: Control
 var _onboarding_overlay: Control
-## A long press on Sim round opens the quick-sim menu instead of a sim.
+## A long press on Play round opens the play-ahead menu instead of playing one round.
 var _hold_fired := false
 var _hold_id := 0
 var _pre_match: PreMatchVignette    # the scene over the wait after Play match
@@ -60,7 +60,7 @@ func _show_weekly_loop_intro() -> void:
 	v.add_child(UiKit.heading("Your week", UiKit.TITLE))
 	for line in [
 		"This is home base. Check the next opponent, then use Team to pick the side and Coaching if you want to change how you play.",
-		"Play match when you want the live coaching calls. Sim round moves the week on quickly; the match itself is the same either way.",
+		"Play match when you want the live coaching calls. Play round plays the week out for you quickly; the match itself is the same either way.",
 		"After the game, review what happened and change selection or training only when you have a reason. There is no weekly checklist to clear.",
 	]:
 		var l := UiKit.lbl(line, 14, UiKit.TEXT)
@@ -430,12 +430,12 @@ func _week_section(season: Season) -> Control:
 			"eliminated":
 				nv.add_child(UiKit.lbl("Knocked out", UiKit.H1, UiKit.BAD, true))
 				nv.add_child(UiKit.lbl(
-						"Your finals campaign is over. Sim the rest of the series to see who lifts the cup.",
+						"Your finals campaign is over. Play out the rest of the series to see who lifts the cup.",
 						UiKit.BODY, UiKit.MUTED))
 			_:
 				nv.add_child(UiKit.lbl("Season over for you", UiKit.H1, UiKit.BAD, true))
 				nv.add_child(UiKit.lbl(
-						"You missed the top %d. Sim the finals series to see who lifts the cup." % Season.FINALISTS,
+						"You missed the top %d. Play out the finals series to see who lifts the cup." % Season.FINALISTS,
 						UiKit.BODY, UiKit.MUTED))
 	else:
 		var mine: Dictionary = _upcoming_match()
@@ -451,7 +451,13 @@ func _week_section(season: Season) -> Control:
 		who.name = "Opponent"
 		who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		nv.add_child(who)
-		var where := UiKit.lbl("%s · %s" % ["Home" if is_home else "Away", ground], UiKit.BODY, UiKit.MUTED)
+		# The forecast is known in the week (ARD-M4-016): a fact beside the
+		# ground, not advice.
+		var wx := str(mine.get("weather", ""))
+		var where_text := "%s · %s" % ["Home" if is_home else "Away", ground]
+		if wx != "":
+			where_text += " · " + Weather.label(wx)
+		var where := UiKit.lbl(where_text, UiKit.BODY, UiKit.MUTED)
 		where.name = "MatchVenue"
 		where.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		nv.add_child(where)
@@ -580,21 +586,21 @@ func _week_actions(season: Season) -> Control:
 	elif _regular_bye(season):
 		# A home-and-away bye: the season goes on, one round at a time.
 		buttons.append(_nav_button("Team", func(): Router.go("selection")))
-		var bye := _nav_button("Sim Round %d" % (season.round_index + 1), _on_sim_round, true)
+		var bye := _nav_button("Play Round %d" % (season.round_index + 1), _on_sim_round, true)
 		bye.name = "SimByeRound"
 		buttons.append(bye)
 	elif _upcoming_match().is_empty() and GameState.my_finals_status() == "bye":
 		# Still alive: sim only this week, never past your own final.
 		buttons.append(_nav_button("Team", func(): Router.go("selection")))
-		buttons.append(_nav_button("Sim %s" % _finals_label(), _on_sim_round, true))
+		buttons.append(_nav_button("Play %s" % _finals_label(), _on_sim_round, true))
 	elif _upcoming_match().is_empty():
 		# Out of the finals, the league still plays them week by week: each
 		# week's results come up before the next, and the rest of the series
 		# is one tap further if you would rather skip it.
-		var skip := _nav_button("Sim to Grand Final", _on_sim_to_end)
+		var skip := _nav_button("Play to Grand Final", _on_sim_to_end)
 		skip.name = "SimToGrandFinal"
 		buttons.append(skip)
-		var week := _nav_button("Sim %s" % _finals_label(), _on_sim_round, true)
+		var week := _nav_button("Play %s" % _finals_label(), _on_sim_round, true)
 		week.name = "SimFinalsWeek"
 		buttons.append(week)
 	else:
@@ -620,7 +626,7 @@ func _footer(season: Season) -> Control:
 		buttons.append(_nav_button("My list", func(): Router.go("list")))
 		buttons.append(_coaching_button())
 		if not _upcoming_match().is_empty():
-			var sim := _nav_button("Sim round", _on_sim_round_pressed)
+			var sim := _nav_button("Play round", _on_sim_round_pressed)
 			sim.name = "SimRound"
 			_wire_long_press(sim)
 			buttons.append(sim)
@@ -714,7 +720,8 @@ func _upcoming_match() -> Dictionary:
 		for m in round_matches:
 			if m["home"] == GameState.my_club or m["away"] == GameState.my_club:
 				return {"home": m["home"], "away": m["away"],
-						"label": "Round %d" % (season.round_index + 1), "tag": ""}
+						"label": "Round %d" % (season.round_index + 1), "tag": "",
+						"weather": season.weather_for(str(m["home"]), str(m["away"]), season.round_index)}
 		return {}
 	for m in season.finals_week_matches():
 		if str(m["home"]) == "" or str(m["away"]) == "":
@@ -722,7 +729,9 @@ func _upcoming_match() -> Dictionary:
 		if m["home"] == GameState.my_club or m["away"] == GameState.my_club:
 			return {"home": m["home"], "away": m["away"],
 					"label": str(m["label"]), "tag": str(m["tag"]),
-					"venue": season.finals_venue(m)}
+					"venue": season.finals_venue(m),
+					"weather": season.weather_for(str(m["home"]), str(m["away"]),
+							Season.REGULAR_ROUNDS + int(season.finals["week"]), m)}
 	return {}
 
 
@@ -785,11 +794,11 @@ func _on_sim_round_pressed() -> void:
 	_sim_confirm = box["overlay"]
 	_sim_confirm.name = "SimConfirm"
 	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.heading("Simulate %s?" % str(m["label"]), UiKit.H1))
-	var why := UiKit.lbl("Your match will be simulated instead of played.", UiKit.BODY, UiKit.TEXT)
+	v.add_child(UiKit.heading("Play %s?" % str(m["label"]), UiKit.H1))
+	var why := UiKit.lbl("Your match will be played out without you.", UiKit.BODY, UiKit.TEXT)
 	why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(why)
-	var go := UiKit.btn("Sim round", 17, true)
+	var go := UiKit.btn("Play round", 17, true)
 	go.name = "SimConfirmGo"
 	go.custom_minimum_size = Vector2(0, 48)
 	go.pressed.connect(func():
@@ -849,14 +858,14 @@ func _open_quick_sim() -> void:
 	_quick_sim = box["overlay"]
 	_quick_sim.name = "QuickSim"
 	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.heading("Quick sim", UiKit.H1))
-	var why := UiKit.lbl("Your matches are simulated. It always stops before the finals.",
+	v.add_child(UiKit.heading("Play ahead", UiKit.H1))
+	var why := UiKit.lbl("Your matches are played out for you. It always stops before the finals.",
 			UiKit.SMALL, UiKit.MUTED)
 	why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(why)
 	var four_to := mini(now + 3, last)
 	var options := [
-		["QuickSimOne", "Sim this round (Round %d)" % now, 1],
+		["QuickSimOne", "Play this round (Round %d)" % now, 1],
 		["QuickSimFour", "Skip to Round %d" % (four_to + 1) if four_to < last
 				else "Skip to the end of the home and away", 4],
 		["QuickSimAll", "Skip to the end of the home and away (after Round %d)" % last, -1],
