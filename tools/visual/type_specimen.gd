@@ -10,7 +10,7 @@ extends Node
 ## Colours, selection and control shapes are held constant: only type changes.
 ## A comparison for the art agent and the director, never a rollout.
 ##   godot --path . --rendering-driver opengl3 --script tools/visual/capture_type_specimen.gd \
-##       -- --out /tmp/type_390 [--col 390] [--scale 1] [--text 1.0] [--fonts DIR]
+##       -- --out /tmp/type_390 [--col 390] [--scale 1] [--text 1.0] [--fonts DIR] [--face DIR]
 ## --col: logical width of one column (320 and 390 phone, 640 desktop).
 ## --scale: pixels per logical unit (2 for a 2x phone or a fullscreen 2560
 ##   desktop under STYLE-07's density). --text: every text size times this, the
@@ -42,6 +42,7 @@ func run() -> void:
 	var out := "/tmp/type_specimen"
 	var scale := 1.0
 	var fonts_dir := ""
+	var face_dir := ""
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size() - 1):
 		match str(a[i]):
@@ -50,6 +51,7 @@ func run() -> void:
 			"--scale": scale = float(a[i + 1])
 			"--text": text_k = float(a[i + 1])
 			"--fonts": fonts_dir = str(a[i + 1])
+			"--face": face_dir = str(a[i + 1])
 	narrow = col_w < 640
 	ts = TextServerManager.get_primary_interface()
 	await get_tree().process_frame
@@ -66,6 +68,10 @@ func run() -> void:
 		var b := _source(fonts_dir)
 		if not b.is_empty():
 			treatments.append(b)
+	if face_dir != "":
+		var own := _own(face_dir)
+		if not own.is_empty():
+			treatments.append(own)
 	for t in treatments:
 		_report_font(t)
 	_report_contrast()
@@ -190,6 +196,31 @@ func _source(dir: String) -> Dictionary:
 	# The art agent: the serif a tenth smaller than A's headline, so it reads
 	# as the same publication rather than a second one.
 	t["roles"]["head"] = ["head", 23]
+	return t
+
+
+## The game's own typeface (the director's decision, 2026-10-06), built by
+## tools/typeface/build_font.py into DIR as Regular.ttf, Bold.ttf and
+## Display.ttf. A style not built yet falls back to Barlow, and the column
+## says which, so an early numerals-only face can already be judged in place.
+func _own(dir: String) -> Dictionary:
+	var t := _barlow_set()
+	var built := []
+	for k in [["reg", "Regular.ttf"], ["bold", "Bold.ttf"], ["display", "Display.ttf"]]:
+		var path := dir.path_join(k[1])
+		if FileAccess.file_exists(path):
+			var f := FontFile.new()
+			if f.load_dynamic_font(path) == OK:
+				# Glyphs it lacks come from Barlow, not the engine's default.
+				f.fallbacks = [(t[k[0]] as FontVariation).base_font]
+				t[k[0]] = _tabular(f)
+				built.append(k[1].get_basename())
+	if built.is_empty():
+		push_error("specimen: no Regular/Bold/Display.ttf in %s" % dir)
+		return {}
+	t["head"] = t["bold"]
+	t["name"] = "C  Our face"
+	t["note"] = "%s ours; the rest Barlow" % "/".join(built)
 	return t
 
 
