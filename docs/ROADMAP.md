@@ -563,6 +563,8 @@ Do not tune purely until one screenshot "looks right".
 
 ### Team pitch becomes the primary interactive team builder — director requirement (2026-10-07)
 
+**Explicit replacement instruction:** replace the existing **Team selection → My selection** wall of large player cards shown in the director's latest screenshot with the interactive field view described below. This is a replacement of the primary selection interface, not another optional tab beside the same card grid. Use one shared authoritative team builder for weekly and pre-game entry points. Keep auto-pick as an explicit action/mode that does not overwrite manual choices without clear intent; retain fitness/availability, positional fit, bench selection and synergy information in compact usable form. Arrange players on the field with a usable interchange and available-player list, live header assessments and actionable synergy guidance. Preserve accessibility with click/tap swaps alongside dragging. Verify both entry points edit the same lineup and that match start uses it.
+
 **Priority:** `P0`, highest-priority team-selection usability / mechanic completion. **Status:** `TODO`. Extend existing team-selection, synergy and STYLE-07 work; coordinate their current owners rather than create a disconnected second selection system.
 
 **Evidence:** director screenshots show Best 23 pitch beside Full list, but the pitch feels cosmetic and offers no useful lineup editing. A Hayden Young information popup with only a few lines expands into a very tall empty black rectangle, obscuring the pitch and interchange.
