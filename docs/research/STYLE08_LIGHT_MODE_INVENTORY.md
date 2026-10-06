@@ -6,7 +6,7 @@ Inventory only, as the roadmap asks (§9.5 STYLE-08): no fix is made here, and n
 
 **Screens captured (part 2).** The ladder, team selection, training and my-list screens of a fresh Melbourne career, at 390 wide, with `tools/visual/capture_screens_light.gd` (new: `CAP_MODE=light` or `dark`). Also the offseason and the League Draft. Not captured: the match screen and the Club Forge screens.
 
-## Defects, worst first
+## Defects, worst first (seven)
 
 | # | Pairing | Ratio | Against | What it does |
 |---|---|---|---|---|
@@ -16,6 +16,7 @@ Inventory only, as the roadmap asks (§9.5 STYLE-08): no fix is made here, and n
 | 4 | Disabled text: FAINT on the page | 2.70 | 4.5 | Disabled buttons nearly vanish (visible on the sheet's Disabled column). |
 | 5 | MUTED on a panel | 4.34 on a panel, 3.84 on a panel inside a panel | 4.5 | Secondary labels dip under on every panelled surface. On the bare page MUTED is 4.83 and passes. |
 | 6 | GOOD on a panel | 4.23 | 4.5 | Green state text on panels. On the page it is 4.71 and passes. |
+| 7 | Position tags (`UiKit.ROLE_COLOUR`, one fixed colour per line in both themes) | DEF 1.69; MID 1.51; RUCK 1.40; FWD 1.61 on a panel | 4.5 | The tags on every list, draft and offseason screen are the palest text on the page. They were chosen for the dark theme and are not adapted for light. On the page: DEF 1.88; MID 1.68; RUCK 1.56; FWD 1.79. |
 
 Passing: TEXT on the page, a panel and a panel inside a panel (15.22, 13.68, 12.10); BAD on the page and a panel (5.13, 4.61); the secondary and selected button fills (13.00 and above); the selected outline (15.22).
 
@@ -34,13 +35,13 @@ Seen in [ladder](style08_light_screen_ladder.png), [selection](style08_light_scr
 
 | Screen | Defect | Pairing behind it |
 |---|---|---|
-| Training, list rows | The role tags ("RUCK/MID" in gold, "MID" in green) are pale on the panel and hard to read. | Role ink on a panel; not in the table above, a role colour measured against the light panel is the next number to take. |
+| Training, list rows | The role tags ("RUCK/MID" in gold, "MID" in green) are pale on the panel and hard to read. | Position tags on a panel (defect 7). |
 | Training, role tabs | "DEFS", "MIDS", "RUCKS", "FWDS" and the row sub-lines ("Position plan · Developing") are faint. | MUTED on a panel (4.34, defect 5). |
 | Team selection | "Your side has: Lockdown unit..." in green on the panel, and the unselected "Dual ruck" and "My selection" look disabled. | GOOD on a panel (4.23, defect 6) and MUTED on a panel (defect 5). |
 | My list, the oval | Player names and position codes on the grass are dark text on dark green; the Interchange strip is a dark translucent panel with dark labels. This is the "grass label" case the roadmap names. | Fixed-colour football art inheriting the theme text colour, which is exactly what STYLE-08 says to avoid by giving the art its own foreground and background. |
 | Ladder | Reads well. The column headers ("Club", "W-L", "Pts") and zero records are the MUTED-on-panel dip only. | Defect 5. |
-| League Draft | The position tags (MID green, DEF blue, FWD salmon, RUCK gold) and the line chips ("DEF 0 short 6", "RUCK 0 need 2") are pale on the panel; "Start season" (disabled) nearly vanishes. | Role colours on a panel; FAINT on the page (defect 4). |
-| Offseason | The green payroll summary and the pale role tags on the contract cards; secondary lines ("60 OVR · age 34 · 0 games this year") dip. | GOOD on a panel (defect 6), role colours on a panel, MUTED on a panel (defect 5). |
+| League Draft | The position tags (MID green, DEF blue, FWD salmon, RUCK gold) and the line chips ("DEF 0 short 6", "RUCK 0 need 2") are pale on the panel; "Start season" (disabled) nearly vanishes. | Position tags on a panel (defect 7); FAINT on the page (defect 4). |
+| Offseason | The green payroll summary and the pale role tags on the contract cards; secondary lines ("60 OVR · age 34 · 0 games this year") dip. | GOOD on a panel (defect 6), position tags on a panel (defect 7), MUTED on a panel (defect 5). |
 | Intro sheet (hub) | The red "Got it" button has dark ink on red. | Defect 2 (3.03). |
 
-Still to do from here: the match and Club Forge screens, then the art agent's call on the fixes. The one cross-cutting number still to take is each position colour (DEF, MID, FWD, RUCK) measured against the light panel: the role tags are the most common pale text on every list screen.
+Still to do from here: the match and Club Forge screens, then the art agent's call on the fixes. The position-colour numbers are now in defect 7.
