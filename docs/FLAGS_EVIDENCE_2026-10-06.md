@@ -133,6 +133,55 @@ and each one would be measured with the same harness before it ships.
   flags at real rates (see above), so this would help every club equally and
   move the game away from real football.
 
+## Trades at real volume (2026-10-06)
+
+Real AFL, 2019 to 2025: about 41 trades a year, about 21 of them moving a player,
+with every club in at least one (#376, DraftGuru). The sim allowed 3
+rival-to-rival trades a season.
+
+The trade market change (#383, in review) lets players ask to be traded and lifts
+the rival cap. Audit: 8 seeds (301 to 308), 3 seasons each, 24 trade periods
+(runs 37416971318 and 37416974435).
+
+| | per trade period |
+|---|---|
+| AI-AI trades, before (main) | 2.6 |
+| AI-AI trades, after | 7.8 (min 3, max 15) |
+| Real AFL, trades moving a player | about 21 |
+| Players who asked to be traded | 5.7 (1.9 going home, 3.8 for games) |
+| ...met by a trade | 2.7 |
+| Requests from your list | 0.42 |
+| Offers to you | 2.3 |
+
+- Going-home requests are near zero in 2027 and 2028 because the 2026 lists have no
+  home state yet (the player-origin data, #378, fixes that), then rise to 5 to 7 a
+  period by 2029 as drafted players with a home state come through.
+- It is still below a real trade period. What is left is deliberate: list size,
+  the salary cap and "a clear upgrade on their fringe".
+
+## Development projects (2026-10-06)
+
+Learning a second position (#379): a learned player now plays the new line on merit,
+and the time spent pays back, inside his POT. Measured on 8 careers, each project
+player paired with his no-project self (run 37413106427): 54 projects, 44 learned.
+
+- Against his no-project self, a project player is **-0.39 +- 0.07** OVR at season's
+  end (the weeks spent learning) and **+0.19 +- 0.19** two seasons on (n = 43). POT
+  is unchanged.
+- Learned players spend +0.55 +- 0.22 more weeks out of their own line, so selection
+  now uses the second position.
+
+The 16-career levers (6 seasons each, paired by seed; runs 37413111460 and
+37413116625):
+
+- Mean ladder place with projects: **-0.20 +- 0.65 places** (standard error), no
+  measurable effect on the ladder. Before #379 it was +0.25 +- 0.47.
+- Top four: 39 without projects, 36 with. Flags: 9 without, 14 with. The flags gap
+  is suggestive, not significant at this size.
+
+The mechanism works (players learn, selection uses the new line), but the ladder
+effect is still inside its error.
+
 ## Not exercised
 
 - The managed-list bots settle contracts, chase free agents and trade. They

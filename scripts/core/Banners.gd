@@ -18,7 +18,7 @@ extends RefCounted
 ## taunt no one.
 
 const PATH := "res://data/banners.json"
-const PLACEHOLDERS := ["{us}", "{them}", "{player}", "{games}", "{year}"]
+const PLACEHOLDERS := ["{us}", "{them}", "{player}", "{display_name}", "{games}", "{year}"]
 ## Marquee games whose banner is always the day's own, whatever else applies.
 const RESPECTFUL := ["ANZAC Day", "ANZAC Eve", "Dreamtime at the 'G"]
 const MILESTONES := [50, 100, 150, 200, 250, 300, 350]
@@ -98,7 +98,8 @@ static func fill(text: String, ctx: Dictionary) -> String:
 	var them := away if us == home else home
 	var ms: Dictionary = ctx.get("milestone", {}) if ctx.get("milestone") is Dictionary else {}
 	return text.replace("{us}", GameDB.club_short(us)).replace("{them}", GameDB.club_short(them)) \
-			.replace("{player}", str(ms.get("player", ""))).replace("{games}", str(ms.get("games", ""))) \
+			.replace("{player}", str(ms.get("player", ""))).replace("{display_name}", str(ms.get("name", ms.get("player", "")))) \
+			.replace("{games}", str(ms.get("games", ""))) \
 			.replace("{year}", str(ctx.get("year", "")))
 
 
@@ -114,6 +115,9 @@ static func _milestone_key(ms) -> String:
 	if not (ms is Dictionary) or (ms as Dictionary).is_empty():
 		return ""
 	var g = ms.get("games", 0)
+	# Games in this club's colours (FL-002), not a career count.
+	if bool(ms.get("club", false)):
+		return "club"
 	if str(g) == "farewell" or bool(ms.get("farewell", false)):
 		return "farewell"
 	if int(g) == 1:

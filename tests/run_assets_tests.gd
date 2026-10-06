@@ -400,9 +400,9 @@ func _music_player() -> void:
 # ---------------------------------------------------------------------------
 # Run-through banners (data/banners.json, Banners.pick)
 # ---------------------------------------------------------------------------
-## The longest fill-ins: a nickname, a 12-letter surname, a 300-game
+## The longest fill-ins: a nickname, a 12-letter surname, a full name, a 300-game
 ## milestone and a year.
-const BANNER_LONGEST := {"{us}": "Kangaroos", "{them}": "Kangaroos", "{player}": "Wwwwwwwwwwww",
+const BANNER_LONGEST := {"{us}": "Kangaroos", "{them}": "Kangaroos", "{player}": "Wwwwwwwwwwww", "{display_name}": "Wwwwwwwwwww Wwwwwwwwwwww",
 		"{games}": "300", "{year}": "2031"}
 
 

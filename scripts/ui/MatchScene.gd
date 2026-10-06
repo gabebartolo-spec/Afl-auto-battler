@@ -253,8 +253,7 @@ func _score_column(code: String, home: bool, narrow: bool) -> Control:
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if home \
 			else HORIZONTAL_ALIGNMENT_LEFT
 	v.add_child(name)
-	var cols: Array = GameDB.club_colours(code)
-	var score := UiKit.figure("0.0 (0)", 30 if narrow else 36, cols[2])
+	var score := UiKit.figure("0.0 (0)", 30 if narrow else 36, UiKit.score_colour(code))
 	score.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if home \
 			else HORIZONTAL_ALIGNMENT_LEFT
 	# A fixed minimum wider than the phone column is what shoved the oval

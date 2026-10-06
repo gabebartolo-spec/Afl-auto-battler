@@ -3,7 +3,7 @@
 Read this at the start of every task. Send changes to your own line to the
 low agent, who keeps this file from 2026-10-06 (other agents can't push to its branch).
 The director decides; the high agent directs the agents.
-_Updated 2026-10-06. Since the last board merged: #376 (real-AFL trade volume), #380 (the board), #381 (the FL-001 copy audit) and #384 (the art pipeline skill)._
+_Updated 2026-10-06. Since the last board merged: #371 (STYLE-07, PC fullscreen readable), #378 (player origin data), #382 (scars removed), #387, #389 and #401 (STYLE-08 light inventory), #390, #392 (nicknames and interests), #395 (headlines), #396, #398 (Stat Guide in words), #400 (milestone banners), #402, #403, #405 (crowd sounds), #406 (club memories), #407 (live score colours), #411 (dark-hair lift) and #412 (flags evidence)._
 
 ## Lanes
 | agent (session) | owns |
@@ -23,42 +23,37 @@ _Updated 2026-10-06. Since the last board merged: #376 (real-AFL trade volume), 
 | art | `BroadcastVignette.gd` (draw functions only; `pick_kind`, `DURATIONS` untouched); `VignetteFigures.gd`, `assets/vignette/figures_*.png` (sheet being regenerated); `StoppageVignette._draw_figure`; `tools/visual/capture_appearance.gd`, `capture_guernseys.gd`, new `capture_broadcast.gd`; standing: `figure.gdshader`, `clubs.csv` guernsey column, `GameDB.club_guernsey`, `player_appearance.csv`, `Appearance.gd`. Next, in order: `AwardWinnerVignette.gd`, `MediaConferenceVignette.gd` | M8-007 migration |
 
 ## Waiting on the director
-**Looks** (appearance or screens; the director's own words needed before they merge):
-- #371 STYLE-07 PC readability (P0, lead): needs the director's look on a PC before it merges. #360 Create a club screen: approved in the director's words, merges after #309 and #340. #303 break-screen call; #309 Club Forge Create a player (the player form).
-- The art agent's Forge hair and face sheet and boot sheet.
+Asked of the director one decision at a time (team rule 5). Open now:
+- #385 club marker A (a prototype stacked on #360; approved by the director, merges after #360 is in), #360 Create a club screen (approved; merges after #309), #309 Create a player (approved; needs the lead's sync).
+- #408 type specimen (the lead has the question), #394 hair review, #303 defensive forward.
+- #409 FL-004 crowd at a watched match (medium, a prototype): the director listens before it merges.
 
-**Own-words confirmations** (the decision reached the agents second-hand; held until the director says it on the PR or in the chat):
-- None open. #299 vignettes were approved in the director's own words in chat and merged; #357 freckles was confirmed in the director's words and merged.
+**Own-words confirmations:** none open.
 
-**Decisions made, being built:** trades at real volume (lead); synergy selection and development projects must have an impact (#379, medium, in review). The clearance rule is merged (#373). All recorded in ROADMAP §9.1 (#365).
+**Decisions made, being built:** the intercept evidence (data, no code). All recorded in ROADMAP §9.1.
 
 ## Merge queue (low agent runs it: green CI on the exact head + clean against main)
-- In flight on CI: #378 (player origin, data, reviewed), #382 (remove scars: the lead confirms on the PR, then merge on green), #386 (three football-language copy fixes) and #387 (career_ui press-conference check counts once). #379 (development projects matter, medium) is in review; the lead's W7 is on it.
-- **Must not merge until the director has looked (prototypes):** #385 (club marker A, stacked on #360) and #392 (FL-005 nicknames and interests on the profile).
-- #393 (ruck/DEF calibration, medium): merge on green after the lead's W7.
-- #342 (codex docs) conflicts with main and needs its owner to sync. #368 (kit options, draft) has no gate note yet.
-- Gates: no further visual or appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR (not a relayed approval). #291 is the director's Codex research: do not merge.
-- On main, awaiting the director's look: #276 press conference, #277 Training-row alignment.
+- In flight on CI: #413 (player home states from the origin data) and #414 (copy: centre ball-up, 2026 rules).
+- Green and waiting on a W7 or a sync: #393 (ruck/DEF calibration, medium, W7 from the lead), #383 (the trade market, W7 from medium; its home requests use #413), #309 and #303 (owner syncs), #409 (medium merges main in).
+- #342 (codex docs) and #368 (kit options, draft) need their owners. #291 is the director's Codex research: do not merge.
+- Gates: no appearance PR without the director's explicit approval in the PR or chat; no PR touching save, rollover, shared sim, recruitment or identity without a reviewer's comment on the PR.
 
 ## In progress
-- **Lead:** P0 STYLE-07, unreadable PC fullscreen (#371); trades at real volume.
-- **Medium:** development projects (#379); the ruck and midfield calibration after the clearance rule; reviews of low's PRs.
-- **Low:** the merge queue, the board, the shard re-time after #340, #361 and #373, then the next items the medium agent queues.
+- **Lead:** the Create a player and Create a club chain (#309, #360, #385); the trade market (#383); the hair review (#394).
+- **Medium:** the crowd at a watched match (#409); the ruck/DEF calibration (#393).
+- **Low:** the merge queue, the intercept evidence, the shard re-time after a green main run, then the next items the medium agent queues.
 
 ## Open PRs and dependencies
 | PR | owner | notes |
 |---|---|---|
-| #378 | low | player origin (data only, reviewed) |
-| #382, #386, #387 | low | remove scars (lead confirms); copy fixes; career_ui flake |
-| #385 | medium | club marker A, a prototype on #360; the director's look before it merges |
-| #379 | medium | development projects matter; review |
-| #371 | lead | STYLE-07 PC readability; director's PC look |
-| #360 | lead | Create a club screen; approved, merges after #309 |
-| #309, #303 | lead and medium | director's look |
-| #342 | codex | favourite-club bios and quarter-break stats, ROADMAP only; needs a sync with main |
-| #368 | draft | kit options; no gate note yet |
+| #413, #414 | low | player home states; copy: centre ball-up |
+| #409 | medium | FL-004 crowd; prototype, the director listens |
+| #393, #383 | medium and lead | ruck/DEF calibration and the trade market; waiting on a W7 |
+| #385, #360, #309 | lead and medium | club marker A on the Create a club screen on the Create a player form; merge in that order from the bottom |
+| #408, #394, #303 | lead | type specimen, hair review, defensive forward |
+| #342 | codex | favourite-club bios, ROADMAP only; needs a sync |
+| #368 | draft | kit options |
 | #291 | director | Codex research and playbook; do not merge |
-| #206 | director | superseded by #208; close |
 
 ## Pending director decisions
 - Difficulty: autopilot slides to rank 18 by year 5; routine contract work holds about 6th; flags need trading (0 of 40 for contracts + FA, 3 for full management). Evidence: medium's managed-vs-autopilot doc. Is that the intended curve?

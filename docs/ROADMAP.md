@@ -2377,7 +2377,7 @@ Mobile portrait first.
 ---
 
 ## ARD-M5-003 — Secondary-position learning / retraining
-**Status:** `DONE` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, merged in #266 (2026-10-06). Phone feel and balance measurement remain with the director. Made to matter (2026-10-06, claude/projects-matter): learned positions compete on merit in the auto-pick, a learned position pays back next season inside POT, and the in-season price is smaller.  
+**Status:** `DONE` — learning a position as a bounded development project (the director's ARD-RC-003 pick), with the Unicorn, merged in #266 (2026-10-06). Phone feel and balance measurement remain with the director. Made to matter (2026-10-06, merged in #379): learned positions compete on merit in the auto-pick, a learned position pays back next season inside POT, and the in-season price is smaller.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
 
@@ -3906,7 +3906,6 @@ Player-facing choices should stay concise:
 - **facial hair** from a dedicated beard/moustache library,
 - **facial-hair colour** independently selectable from hair colour,
 - **skin tone**,
-- **subtle scars: None / Light / Moderate**,
 - **boots** with a small set of silhouettes/colour treatments (black, white and restrained club-colour accents),
 - **sock height: Tall socks / Short socks**,
 - **headband: On / Off**,
@@ -4138,7 +4137,6 @@ Appearance customisation should include:
 - **Facial hair** from a dedicated beard/moustache library,
 - **Facial-hair colour**, independently selectable,
 - **Skin tone**,
-- **Scars None / Light / Moderate**, kept subtle and believable,
 - **Boots** with a compact set of silhouettes and colour treatments,
 - **Tall socks / Short socks**,
 - **Headband On / Off**,
@@ -5405,11 +5403,14 @@ Relayed by the lead; the director's own wording is the authority if it differs.
 
 From the director's chat with the lead, relayed with the director's words where the lead had them. Evidence: [FLAGS_EVIDENCE_2026-10-06.md](FLAGS_EVIDENCE_2026-10-06.md), [RUCK_MID_DISPOSALS_2026-10-06.md](RUCK_MID_DISPOSALS_2026-10-06.md).
 
-- **Trades at real volume.** Raise the trade period to real AFL volume so that a club which trades well reaches about 3rd to 4th on average. The lead is implementing it.
+- **Trades at real volume.** Raise the trade period to real AFL volume so that a club which trades well reaches about 3rd to 4th on average. The real volume is measured and merged (#376, DraftGuru 2019 to 2025); the lead's trade market is in review (#383).
 - **Synergy selection and development projects must have an impact.** Director: "why do we have these features if they dont have an impact, fix them". Fix both so that using them lifts a club, then measure again with the same harness.
-- **Clearance winner keeps the first disposal** (option 1 of the ruck and midfield disposals evidence). The medium agent is implementing it, with a calibration and finals re-run.
+- **Clearance winner keeps the first disposal** (option 1 of the ruck and midfield disposals evidence). Merged (#373): ruck disposals 8.0 to 12.0, with the calibration and finals re-run.
 - **Create a club screen approved.** Director: "looks fantastic, well done". It merges after the Create a player form and the Create a club engine, because it is built on both.
-- **Freckles removed from the player look.** Confirmed in the director's own words: "i alreeady said to delete freckles from the game".
+- **Scars removed from the player look.** Director, in chat with the lead, 2026-10-06: "remove scarring from the game, unnecessary detail". The look keeps no scars key; old saves that carry one load fine and ignore it, and no generated player's look changes.
+- **Freckles removed from the player look.** Confirmed in the director's own words: "i alreeady said to delete freckles from the game". Merged (#357, #354); the saved-look cleanup (#382) is in review.
+- **Hair and beard look-dev stopped.** Director, in chat, 2026-10-06 (relayed by the lead): "this hair/beard stuff is no good". The current hair and beard library work stops; nothing from it is rolled out.
+- **The director's hair research is the brief.** The director's own research (Codex `outputs/Claude_Hair_Quality_Research.md`) is adopted as the brief for hair. Three prototypes (Fritsch-inspired, rooted dreadlocks, short textured) go through the production path, are reviewed in Blender and at game scale, and only then does any library rollout start. Appearance changes still merge only on the director's own approval.
 
 ## 2026-10-06 director decisions - animation, motion and the Stat Guide
 
@@ -5850,7 +5851,7 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 **Validation:** capture stills and motion for the touched existing sequences, transitions and fallbacks; verify correct participants, appearances/kits, skip/touch/Back, event/outcome agreement, Android frame time/load time and existing vignette tests. Director approves final scene/overlay treatment before completion.
 
 ## STYLE-07 — PC fullscreen readability and fit-to-screen repair
-**Status:** `IN REVIEW` (#371; not DONE until the director's PC review) · **Priority:** `P0` — **EXTREME / NEXT AVAILABLE DEVELOPMENT SLOT** · **Autonomy:** `SUPERVISED`  
+**Status:** `DONE` (#371, merged; approved by the director, 2026-10-06) · **Priority:** `P0` — **EXTREME / NEXT AVAILABLE DEVELOPMENT SLOT** · **Autonomy:** `SUPERVISED`  
 **Existing owner:** shared responsive layout (`ScreenLayout.gd` / `UiKit.gd`), Main/New career and other desktop screens; M8-006.
 
 **Implementation record (2026-10-06, #371):** the director's PC is 3840x2160 with Windows DPI 288 (300%), and Godot's `screen_get_scale()` is 1.0 on Windows, so the logical canvas was the full physical size and the UI drew tiny. The fix is a desktop density of the larger of the operating system's DPI over 96 and the scale that fits 1280x720, and the first window now opens at the OS scale. Native before and after captures are in `docs/research/style07_*`; nine career_ui checks cover it. It closes only after the director has looked at it on the PC.
@@ -5903,11 +5904,16 @@ The eight includes are the complete decision record. There are no rejected style
 
 # 10. Roadmap Maintenance Log
 
+- **2026-10-06:** Scars removed from the player look (director, in chat with the lead: "remove scarring from the game, unnecessary detail"); the Club Forge look specification no longer lists them.
+- **2026-10-06:** Recorded two hair decisions in §9.1 (director, relayed by the lead): hair and beard look-dev stopped; the director's hair research adopted as the brief (three prototypes through the production path, reviewed in Blender and at game scale, before any rollout).
+- **2026-10-06:** ARD-M5-003: development projects made to matter is merged (#379).
 - **2026-10-06:** ARD-M7-009 status: the fair fixture for 18 to 21 clubs (#361) and the club-count board defaults (#359) are merged, with the Create a club engine (#340); the screen (#360) and Create a player (#309) wait on the director.
 
 - **2026-10-06:** STYLE-07 (PC fullscreen readability) is IN REVIEW in #371, with the cause and fix recorded; it is DONE only after the director's PC review.
+- **2026-10-06:** STYLE-07 (PC fullscreen readability) is DONE: #371 merged with the director's approval recorded on the PR.
 
 - **2026-10-06:** Recorded five more director decisions in §9.1: trades at real volume; synergy selection and development projects must have an impact; the clearance winner keeps the first disposal; the Create a club screen is approved; freckles removed (confirmed in the director's words).
+- **2026-10-06:** Merged-PR status lines in §9.1: trade volume data (#376), the clearance winner (#373) and freckles (#357).
 - **2026-10-06:** Recorded the director's animation and Stat Guide decisions in §9.1 (centre-bounce prototype now; kick and press room behind hair; no reduced-motion setting; awards walk-on unchanged; Stat Guide in words, #398).
 
 - **2026-10-06:** ARD-M7-009 Forge location research merged (#343, #351): 33 of 53 places have pattern tags and 46 of 53 have colour tags; the empties are listed in the status line.
