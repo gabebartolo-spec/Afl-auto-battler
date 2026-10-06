@@ -389,6 +389,13 @@ var _colour_box: VBoxContainer
 var _kit_box: VBoxContainer
 ## The live preview's crest and words.
 var _pv := {}
+## The director's flow (2026-10-07): name the club, pick the design, then
+## pick a colour and click the part of the guernsey to paint. Off: the slot
+## and palette form, kept for side-by-side review.
+var paint_mode := true
+var _brush := ""
+const PART_KEY := {"body": "primary", "pattern": "secondary", "trim": "accent"}
+const PART_LABEL := {"body": "Main colour", "pattern": "Pattern colour", "trim": "Trim colour"}
 
 
 func _club_home(body: VBoxContainer) -> void:
@@ -509,6 +516,20 @@ func _club_form(body: VBoxContainer) -> void:
 	body.add_child(_field("ForgeClubNickname", "short", "Nickname, like the Magpies", ClubForge.SHORT_MAX))
 	body.add_child(_field("ForgeClubCode", "code", "Abbreviation, like COL", 4))
 
+	if paint_mode:
+		_one_colour_each()
+		body.add_child(_heading("Guernsey"))
+		_kit_box = UiKit.vbox(6)
+		_kit_box.name = "ForgeKit"
+		body.add_child(_kit_box)
+		_rebuild_kit()
+		body.add_child(_heading("Colours"))
+		_colour_box = UiKit.vbox(8)
+		_colour_box.name = "ForgeColours"
+		body.add_child(_colour_box)
+		_rebuild_paint()
+		body.add_child(UiKit.spacer(10))
+		return
 	body.add_child(_heading("Colours"))
 	_colour_box = UiKit.vbox(6)
 	_colour_box.name = "ForgeColours"
@@ -555,6 +576,9 @@ func _club_workspace(form: ScrollContainer) -> Control:
 		centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		centre.add_child(crest)
 		side.add_child(centre)
+		if paint_mode:
+			_paintable(crest)
+			side.add_child(_sub("Pick a colour, then click the part of the guernsey to paint."))
 		side.add_child(name_l)
 		side.add_child(line)
 		side.add_child(UiKit.spacer(6))
@@ -594,6 +618,14 @@ func _refresh_preview() -> void:
 	crest.design = str(_club["design"])
 	crest.code = str(_club["code"]).strip_edges()
 	crest.queue_redraw()
+	var canvas = _pv.get("paint")
+	if canvas != null and is_instance_valid(canvas):
+		canvas.primary = cols[0]
+		canvas.secondary = cols[1]
+		canvas.accent = cols[2]
+		canvas.design = str(_club["design"])
+		canvas.code = crest.code
+		canvas.queue_redraw()
 	var name := str(_club["name"]).strip_edges()
 	(_pv["name"] as Label).text = name if name != "" else "Your club"
 	var bits := PackedStringArray()
@@ -616,6 +648,117 @@ func _kit_colours() -> Array:
 		var t := str(kit[i]) if i < kit.size() else "psa"[i]
 		out.append(Color.from_string(str(by.get(t, "#FFFFFF")), Color.WHITE))
 	return out
+
+
+## The paint flow keeps the club's colours in guernsey order - main,
+## pattern, trim - so painting a part is painting one colour.
+func _one_colour_each() -> void:
+	var cols := _kit_colours()
+	_club["primary"] = "#" + (cols[0] as Color).to_html(false).to_upper()
+	_club["secondary"] = "#" + (cols[1] as Color).to_html(false).to_upper()
+	_club["accent"] = "#" + (cols[2] as Color).to_html(false).to_upper()
+	_club["kit"] = "p/s/a"
+
+
+## A guernsey you paint: the part under the pointer is outlined; a click or
+## tap paints it with the chosen colour.
+func _paintable(c: GuernseyCrest) -> void:
+	c.mouse_filter = Control.MOUSE_FILTER_STOP
+	c.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	c.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseMotion:
+			var part := c.part_at((ev as InputEventMouseMotion).position)
+			if part == "pattern" and str(_club["design"]) == "plain":
+				part = ""
+			if part != c.highlight:
+				c.highlight = part
+				c.queue_redraw()
+		elif ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed \
+				and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			var part := c.part_at((ev as InputEventMouseButton).position)
+			if part != "":
+				_paint_part(part)
+				c.accept_event())
+	c.mouse_exited.connect(func():
+		c.highlight = ""
+		c.queue_redraw())
+
+
+func _paint_part(part: String) -> void:
+	if part == "pattern" and str(_club["design"]) == "plain":
+		return
+	if _brush == "":
+		_problem.text = "Pick a colour first, then click the guernsey."
+		_problem.visible = true
+		return
+	_club[PART_KEY[part]] = _brush
+	_kit_touched = true
+	_rebuild_kit()
+	_rebuild_paint()
+	_refresh_preview()
+
+
+## The palette (the colour you paint with, outlined), a guernsey to paint on
+## a phone (on a wide screen the preview beside the form is it), and what
+## each part wears, each also a tap target.
+func _rebuild_paint() -> void:
+	if not is_instance_valid(_colour_box):
+		return
+	UiKit.clear(_colour_box)
+	var wide := UiKit.view_width(self) >= 760.0 and UiKit.view_width(self) > UiKit.view_height(self)
+	var grid := GridContainer.new()
+	grid.name = "ForgePalette"
+	var room := UiKit.view_width(self) - 40.0 - (280.0 if wide else 0.0)
+	grid.columns = clampi(int((room + 6.0) / 50.0), 4, 15)
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	for c in ClubForge.PALETTE:
+		var hex := str(c[2])
+		var on := _brush.to_lower() == hex.to_lower()
+		var b := Button.new()
+		b.name = "ForgeColour_" + str(c[0])
+		b.tooltip_text = str(c[1])
+		b.custom_minimum_size = Vector2(44, 44)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.mouse_filter = Control.MOUSE_FILTER_PASS
+		var sb := UiKit.style(Color.html(hex), 0, UiKit.RADIUS, UiKit.TEXT if on else Color(UiKit.TEXT, 0.18))
+		sb.set_border_width_all(3 if on else 1)
+		for st in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+			b.add_theme_stylebox_override(st, sb)
+		b.pressed.connect(func():
+			_brush = hex
+			if is_instance_valid(_problem):
+				_problem.visible = false
+			_rebuild_paint())
+		grid.add_child(b)
+	_colour_box.add_child(grid)
+	var brush_name := _colour_name(_brush, "")
+	_colour_box.add_child(_sub(("Painting with %s: click the part of the guernsey to colour." % brush_name)
+			if brush_name != "" else "Pick a colour, then click the part of the guernsey to colour."))
+	if not wide:
+		var cols := _kit_colours()
+		var canvas := GuernseyCrest.make(cols[0], cols[1], cols[2], str(_club["design"]),
+				str(_club["code"]).strip_edges(), 200.0)
+		canvas.name = "ForgePaint"
+		_paintable(canvas)
+		_pv["paint"] = canvas
+		var centre := CenterContainer.new()
+		centre.add_child(canvas)
+		_colour_box.add_child(centre)
+	var parts := GridContainer.new()
+	parts.name = "ForgeParts"
+	parts.columns = 1 if UiKit.view_width(self) < 520.0 else 3
+	parts.add_theme_constant_override("h_separation", 6)
+	parts.add_theme_constant_override("v_separation", 6)
+	for part in ["body", "pattern", "trim"]:
+		if part == "pattern" and str(_club["design"]) == "plain":
+			continue
+		var key: String = PART_KEY[part]
+		var b := _swatch_button("ForgePart_" + part, str(PART_LABEL[part]), _colour_name(str(_club[key]), "Colour"),
+				Color.from_string(str(_club[key]), Color.WHITE), false)
+		b.pressed.connect(_paint_part.bind(part))
+		parts.add_child(b)
+	_colour_box.add_child(parts)
 
 
 ## Three slots, one palette: tap a slot, then a colour. The third colour is
@@ -738,9 +881,13 @@ func _rebuild_kit() -> void:
 			_club["design"] = str(d)
 			_kit_touched = true
 			_rebuild_kit()
+			if paint_mode:
+				_rebuild_paint()
 			_refresh_preview())
 		designs.add_child(b)
 	_kit_box.add_child(designs)
+	if paint_mode:
+		return
 	var kit := Array(str(_club["kit"]).split("/"))
 	var slots := []
 	for t in ["p", "s", "a"]:
