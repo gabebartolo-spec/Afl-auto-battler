@@ -4,7 +4,7 @@ Inventory only, as the roadmap asks (§9.5 STYLE-08): no fix is made here, and n
 
 **How it was measured.** The contrast of the actual light-theme pairs in `UiKit` (the same colours the screens use), by the WCAG ratio: 4.5 for normal text, 3.0 for large text and outlines. The capture is the shared component sheet in light mode ([style08_light_component_states.png](style08_light_component_states.png), 390 wide): buttons in each state, tabs, and club-coloured scores. Every ratio below comes from the game's colour constants, not from reading an image.
 
-**What was not done.** A capture of every screen in light mode. Only the shared components were captured; the screens are built from them, so the defects below will reach the screens, but a screen-by-screen pass is still to do and is the next step.
+**Screens captured (part 2).** The ladder, team selection, training and my-list screens of a fresh Melbourne career, at 390 wide, with `tools/visual/capture_screens_light.gd` (new: `CAP_MODE=light` or `dark`). Not captured: the match screen, offseason, draft and the Club Forge screens.
 
 ## Defects, worst first
 
@@ -27,3 +27,18 @@ The same accent-colour scores are painted in dark mode too. The dark inventory i
 
 1. The screen-by-screen light capture, with the existing capture tools (`tools/visual/capture_*.gd`, `CAP_MODE=light` on the component sheet; the others need a career set up).
 2. The art agent's call on the primary button ink (white on the red, or a different accent in light), the outline colour and the score ink rule. These are appearance decisions and go through the director.
+
+## What the screens show (part 2)
+
+Seen in [ladder](style08_light_screen_ladder.png), [selection](style08_light_screen_selection.png), [training](style08_light_screen_training.png) and [my list](style08_light_screen_list.png):
+
+| Screen | Defect | Pairing behind it |
+|---|---|---|
+| Training, list rows | The role tags ("RUCK/MID" in gold, "MID" in green) are pale on the panel and hard to read. | Role ink on a panel; not in the table above, a role colour measured against the light panel is the next number to take. |
+| Training, role tabs | "DEFS", "MIDS", "RUCKS", "FWDS" and the row sub-lines ("Position plan · Developing") are faint. | MUTED on a panel (4.34, defect 5). |
+| Team selection | "Your side has: Lockdown unit..." in green on the panel, and the unselected "Dual ruck" and "My selection" look disabled. | GOOD on a panel (4.23, defect 6) and MUTED on a panel (defect 5). |
+| My list, the oval | Player names and position codes on the grass are dark text on dark green; the Interchange strip is a dark translucent panel with dark labels. This is the "grass label" case the roadmap names. | Fixed-colour football art inheriting the theme text colour, which is exactly what STYLE-08 says to avoid by giving the art its own foreground and background. |
+| Ladder | Reads well. The column headers ("Club", "W-L", "Pts") and zero records are the MUTED-on-panel dip only. | Defect 5. |
+| Intro sheet (hub) | The red "Got it" button has dark ink on red. | Defect 2 (3.03). |
+
+Still to do from here: the match, offseason, draft and Club Forge screens, then the art agent's call on the fixes.
