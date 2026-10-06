@@ -103,7 +103,7 @@ func _home(body: VBoxContainer) -> void:
 	var note := UiKit.lbl("Bring him into a career from New career.", UiKit.SMALL, UiKit.MUTED)
 	body.add_child(note)
 	body.add_child(UiKit.spacer(8))
-	var edit := UiKit.btn("Edit", 16)
+	var edit := UiKit.btn("Edit", UiKit.NAME)
 	edit.name = "ForgeEditPlayer"
 	edit.custom_minimum_size.y = 44
 	edit.pressed.connect(func():
@@ -111,7 +111,7 @@ func _home(body: VBoxContainer) -> void:
 		_editing = true
 		_build())
 	body.add_child(edit)
-	var drop := UiKit.btn("Remove", 16)
+	var drop := UiKit.btn("Remove", UiKit.NAME)
 	drop.name = "ForgeRemovePlayer"
 	drop.flat = true
 	drop.custom_minimum_size.y = 44
@@ -278,7 +278,7 @@ func _stepper(node_name: String, key: String, fmt: String, band: Array, zero_lab
 		var v := int(_spec[key])
 		value.text = zero_label if v == 0 and zero_label != "" else fmt % v
 	for d in [-1, 1]:
-		var b := UiKit.btn("−" if d < 0 else "+", 18)
+		var b := UiKit.btn("−" if d < 0 else "+", UiKit.HEADING)
 		b.name = node_name + ("Down" if d < 0 else "Up")
 		b.custom_minimum_size = Vector2(56, 44)
 		b.pressed.connect(func():

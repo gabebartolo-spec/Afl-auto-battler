@@ -193,7 +193,7 @@ func _show_home() -> void:
 
 ## A secondary action that reads as text: no box, muted until pressed.
 func _quiet_btn(text: String, node_name: String, cb := Callable()) -> Button:
-	var b := UiKit.btn(text, 15)
+	var b := UiKit.btn(text, UiKit.BODY)
 	b.name = node_name
 	b.flat = true
 	b.custom_minimum_size = Vector2(120, 44)
@@ -331,7 +331,7 @@ func _choice(title: String, prefix: String, options: Array, current: String,
 		note.text = str(info.call(state["key"]))
 	for opt in options:
 		var key := str(opt[0])
-		var b := UiKit.btn(str(opt[1]), 16)
+		var b := UiKit.btn(str(opt[1]), UiKit.NAME)
 		b.name = "%s_%s" % [prefix, key]
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(func():
@@ -388,7 +388,7 @@ func _confirm_new_career() -> void:
 		_close_confirm()
 		_start_new_career())
 	box["footer"].add_child(go)
-	var cancel := UiKit.btn("Cancel", 16)
+	var cancel := UiKit.btn("Cancel", UiKit.NAME)
 	cancel.custom_minimum_size = Vector2(0, 44)
 	cancel.pressed.connect(_close_confirm)
 	box["footer"].add_child(cancel)
