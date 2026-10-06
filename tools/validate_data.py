@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import collections
 import csv
+import json
 import os
 import sys
 
@@ -199,6 +200,31 @@ def check_afl_ladders() -> list[str]:
 # GameDB.GUERNSEY_DESIGNS, without the coach's suit and the Tasmania map.
 DESIGNS = {"plain", "stripes", "hoops", "sash", "yoke", "band", "chevrons", "panels",
            "chevron", "sides", "tiers", "shoulders"}
+
+
+def check_trade_volume() -> list[str]:
+    """tools/balance/afl_trade_volume.json: real AFL trade volume per year
+    (DraftGuru). Counts must be sane: at least one player moved per player
+    trade, player trades plus pick-only trades equal the total, 18 clubs at
+    most, and a player-initiated count (when given) cannot exceed the players."""
+    problems: list[str] = []
+    path = os.path.join(ROOT, "tools", "balance", "afl_trade_volume.json")
+    with open(path, encoding="utf-8") as f:
+        years = json.load(f)["years"]
+    for y, v in years.items():
+        if v["player_trades"] + v["pick_only_trades"] != v["total_trades"]:
+            problems.append(f"trade volume {y}: player + pick-only trades != total")
+        if v["players_moved"] < v["player_trades"]:
+            problems.append(f"trade volume {y}: players moved {v['players_moved']} < player trades {v['player_trades']}")
+        if not 10 <= v["total_trades"] <= 100:
+            problems.append(f"trade volume {y}: {v['total_trades']} trades is not a sane year")
+        if not 1 <= v["clubs_in_a_trade"] <= 18:
+            problems.append(f"trade volume {y}: {v['clubs_in_a_trade']} clubs in a trade")
+        pi = v.get("player_initiated")
+        if pi is not None and not 0 <= pi <= v["players_moved"]:
+            problems.append(f"trade volume {y}: player-initiated {pi} out of range")
+    print(f"  trade volume: {len(years)} years checked")
+    return problems
 
 
 def check_forge_locations() -> list[str]:
@@ -379,6 +405,7 @@ def main() -> int:
     problems.extend(check_afl_ladders())
     problems.extend(check_role_rates())
     problems.extend(check_team_rates())
+    problems.extend(check_trade_volume())
     problems.extend(check_forge_locations())
     problems.extend(check_identity_rules())
     problems.extend(check_bio())
