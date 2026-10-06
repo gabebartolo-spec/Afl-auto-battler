@@ -27,7 +27,6 @@ func run() -> void:
 	_test_expansion_ceilings()
 	_test_created_club_rules()
 	_test_created_club_career()
-	_test_created_club_later_entry()
 	GameState.reset()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
@@ -324,6 +323,9 @@ func _test_created_club_rules() -> void:
 	_check(GameDB.active_clubs(2027).size() == 19 and GameDB.active_clubs(2027).has("PMB"),
 			"A club entering with the career is the nineteenth in 2027")
 	_check(GameDB.active_clubs(2030).size() == 21, "With Tasmania and Canberra it is the 21st by 2030")
+	_check(GameDB.enter_year("PMB") == GameDB.START_YEAR
+			and ClubForge.make_club(_forge_spec({"enter": 2030}))["enter"] == GameDB.START_YEAR,
+			"A created club always enters with the career")
 	_check(GameState.create_club(_forge_spec({"name": "Port Melbourne Borough", "code": "PMFC"})) == ""
 			and not GameDB.clubs.has("PMB") and GameDB.clubs.has("PMFC")
 			and GameDB.active_clubs(2027).size() == 19,
@@ -383,24 +385,3 @@ func _test_created_club_career() -> void:
 	_check(GameState.my_club == "PMB" and (GameState.season.lists["PMB"] as Array).size() == mine.size(),
 			"The created club's list survives the round trip")
 
-
-## A club that enters later arrives at that rollover with an expansion list,
-## the way Tasmania does.
-func _test_created_club_later_entry() -> void:
-	GameState.reset()
-	_check(GameState.create_club(_forge_spec({"enter": 2028})) == "", "A club can enter in 2028")
-	_check(not GameDB.active_clubs(2027).has("PMB"), "It is not in the 2027 season")
-	GameState.start_season("GEE", GameDB.club_list("GEE"))
-	_check(not GameState.season.ladder.has("PMB"), "The 2027 ladder does not have it")
-	_rollover()
-	var season: Season = GameState.season
-	_check(season.ladder.size() == 20 and season.ladder.has("PMB") and season.ladder.has("TAS"),
-			"It joins with Tasmania in 2028: twenty clubs")
-	var lst: Array = season.lists["PMB"]
-	_check(lst.size() >= Prospects.MIN_LIST and lst.size() <= Ratings.LIST_SIZE,
-			"It arrives with a full expansion list (%d)" % lst.size())
-	var news_ok := false
-	for item in GameState.news:
-		if str(item["kind"]) == "expansion" and str(item["text"]).contains("Port Melbourne"):
-			news_ok = true
-	_check(news_ok, "Its entry made the news")

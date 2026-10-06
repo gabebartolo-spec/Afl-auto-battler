@@ -2,10 +2,9 @@ class_name ClubForge
 extends RefCounted
 ## Club Forge, Create a club (ARD-M7-009): the identity of the one club a
 ## career may add. A created club is an extra member of the competition, never
-## a reskin of an existing one. Once registered with GameDB it is a club like
-## any other: active from its "enter" season (GameDB.active_clubs), in the
-## League Draft when it enters with the career, or arriving with an expansion
-## list when it enters later (GameState's rollover, as Tasmania does).
+## a reskin of an existing one. It enters with the career (director,
+## 2026-10-06): it drafts its list in the League Draft like everyone else, and
+## from then on it is a club like any other.
 ##
 ## A spec is plain save data:
 ##   {"name", "short" (nickname), "code" (2-4 letters), "location" (an id in
@@ -13,8 +12,7 @@ extends RefCounted
 ##    alternatives; default the place's ground), "primary", "secondary",
 ##    "accent" ("#RRGGBB"), "design" (a guernsey design), "kit" (which colour
 ##    is the guernsey, the pattern, the pattern's second colour and the shorts:
-##    "p/s/a" or "p/s/a/s", tokens p, s or a), "enter" (season; default
-##    GameDB.START_YEAR)}.
+##    "p/s/a" or "p/s/a/s", tokens p, s or a)}.
 
 const LOCATIONS_PATH := "res://data/forge_locations.json"
 ## Codes that already mean something: the fixture's bye and renamed old codes.
@@ -124,7 +122,7 @@ static func row(spec: Dictionary) -> Dictionary:
 		"short": str(spec["short"]).strip_edges(),
 		"primary": cols[0], "secondary": cols[1], "accent": cols[2],
 		"ground": ground if ground != "" else str(loc.get("ground", "")),
-		"enter": int(spec.get("enter", GameDB.START_YEAR)),
+		"enter": GameDB.START_YEAR,
 		"guernsey": "%s:%s" % [str(spec.get("design", "plain")), "/".join(kit if not kit.is_empty() else ["p", "s", "a"])],
 		"location": str(spec.get("location", "")),
 		"place": str(loc.get("place", "")),

@@ -863,10 +863,9 @@ func _clock_seed(use: int) -> int:
 	return int(Time.get_unix_time_from_system()) % 1000000
 
 
-## Club Forge: add the career's one created club, before the League Draft so
-## a club entering with the career drafts its list like everyone else (a later
-## "enter" season brings an expansion list at that rollover instead). Making
-## it again replaces it. Returns what is wrong with the spec, or "".
+## Club Forge: add the career's one created club, before the League Draft: it
+## enters with the career and drafts its list like everyone else. Making it
+## again replaces it. Returns what is wrong with the spec, or "".
 func create_club(spec: Dictionary) -> String:
 	if draft != null or season != null:
 		return "The club is made before the League Draft."
