@@ -514,7 +514,7 @@ func _draw_pennants() -> void:
 	var wl := _project(Vector2(-reach, PENNANT_AT), PENNANT_TOP)
 	var wr := _project(Vector2(reach, PENNANT_AT), PENNANT_TOP)
 	if wl.z > 0.0:
-		draw_line(Vector2(wl.x, wl.y), Vector2(wr.x, wr.y), WIRE, 1.0)
+		draw_line(Vector2(wl.x, wl.y), Vector2(wr.x, wr.y), WIRE, 1.0, true)
 	for k in range(flags.size()):
 		# Out from the middle: newest first, then one each side in turn.
 		var slot := (k + 1) / 2 * (1 if k % 2 == 1 else -1)
@@ -566,7 +566,7 @@ func _draw_banner() -> void:
 	for sx in [-1.0, 1.0]:
 		var a := _project(Vector2(sx * (BANNER_W + 0.3), BANNER_Y), 0.0)
 		var b := _project(Vector2(sx * (BANNER_W + 0.3), BANNER_Y), BANNER_TOP + 0.5)
-		draw_line(Vector2(a.x, a.y), Vector2(b.x, b.y), pole, maxf(2.0, 0.12 * a.z))
+		draw_line(Vector2(a.x, a.y), Vector2(b.x, b.y), pole, maxf(2.0, 0.12 * a.z), true)
 	var crossings := _cross_cache
 	var pts := PackedVector2Array()
 	var uvs := PackedVector2Array()
@@ -692,7 +692,7 @@ func _paint_face(c: Control) -> void:
 	c.draw_rect(Rect2(0, 0, w, h * 0.06), second, true)
 	c.draw_rect(Rect2(0, h * 0.9, w, h * 0.1), second, true)
 	for x in range(0, FACE.x, 7):
-		c.draw_line(Vector2(x, 0), Vector2(x, h), Color(0, 0, 0, 0.05), 2.0)
+		c.draw_line(Vector2(x, 0), Vector2(x, h), Color(0, 0, 0, 0.05), 2.0, true)
 	var lines := banner.split("\n", false)
 	if lines.is_empty():
 		return

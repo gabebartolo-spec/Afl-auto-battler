@@ -156,7 +156,7 @@ func _draw_desk(w: float, h: float, desk_y: float) -> void:
 	draw_rect(Rect2(w * 0.1, desk_y, w * 0.8, h * 0.24), skirt, true)
 	for i in range(9):
 		var fx := w * (0.13 + 0.093 * i)
-		draw_line(Vector2(fx, desk_y + 2.0), Vector2(fx, desk_y + h * 0.24), skirt.darkened(0.3), 1.5)
+		draw_line(Vector2(fx, desk_y + 2.0), Vector2(fx, desk_y + h * 0.24), skirt.darkened(0.3), 1.5, true)
 	draw_rect(Rect2(w * 0.1, desk_y, w * 0.8, h * 0.035), Color(1, 1, 1, 0.08), true)
 	var trim: Color = _colours[1] if _colours.size() > 1 else skirt.lightened(0.4)
 	draw_rect(Rect2(w * 0.1, desk_y + h * 0.05, w * 0.8, 2.0), Color(trim, 0.6), true)
@@ -171,7 +171,7 @@ func _draw_desk(w: float, h: float, desk_y: float) -> void:
 		var bx := w * (0.4 + 0.05 * i) + (i % 2) * 3.0
 		var tip := Vector2(w * 0.5 + (bx - w * 0.5) * 0.55, desk_y - mic_h - (i % 3) * 2.0)
 		var base := Vector2(bx, desk_y - h * 0.012)
-		draw_line(base, tip, Color(0.18, 0.18, 0.2), 2.0)
+		draw_line(base, tip, Color(0.18, 0.18, 0.2), 2.0, true)
 		draw_rect(Rect2(base + Vector2(-4, -4), Vector2(8, 4)), Color(0.1, 0.1, 0.11), true)
 		var flag := Rect2(tip.lerp(base, 0.28) - Vector2(5, 4), Vector2(10, 8))
 		draw_rect(flag, flags[i], true)
@@ -187,7 +187,7 @@ func _draw_camera_rig(w: float, h: float) -> void:
 	var head := Vector2(w * 0.9, h * 0.5)
 	var leg := Color(0.09, 0.09, 0.1)
 	for dx in [-0.05, 0.0, 0.05]:
-		draw_line(head + Vector2(0, h * 0.04), Vector2(head.x + w * dx, h * 0.93), leg, 2.0)
+		draw_line(head + Vector2(0, h * 0.04), Vector2(head.x + w * dx, h * 0.93), leg, 2.0, true)
 	var body := Rect2(head - Vector2(w * 0.07, h * 0.06), Vector2(w * 0.12, h * 0.1))
 	draw_rect(body, Color(0.15, 0.15, 0.17), true)
 	draw_rect(Rect2(body.position, Vector2(body.size.x, 2.0)), Color(1, 1, 1, 0.15), true)   # rim light
@@ -214,7 +214,7 @@ func _draw_press(w: float, h: float) -> void:
 		if hold > 0:
 			# Arm up holding a phone or recorder towards the desk, screen lit.
 			var hand := at + Vector2(r * (0.9 if tilt >= 0.0 else -0.9), -r * 1.9 + sway)
-			draw_line(at + Vector2(r * 0.6 * signf(hand.x - at.x), -r * 0.2), hand, body, r * 0.32)
+			draw_line(at + Vector2(r * 0.6 * signf(hand.x - at.x), -r * 0.2), hand, body, r * 0.32, true)
 			if hold == 1:
 				draw_rect(Rect2(hand - Vector2(r * 0.3, r * 0.55), Vector2(r * 0.6, r * 1.0)), body, true)
 				draw_rect(Rect2(hand - Vector2(r * 0.24, r * 0.48), Vector2(r * 0.48, r * 0.86)), Color(0.55, 0.65, 0.8, 0.55), true)
@@ -228,5 +228,5 @@ func _draw_press(w: float, h: float) -> void:
 		var head := at + Vector2(tilt * r * 2.0, -r * 1.0 + sway)
 		draw_set_transform_matrix(_view * Transform2D(tilt, Vector2(0.86, 1.0), 0.0, head))
 		draw_circle(Vector2.ZERO, r * 0.62, body)
-		draw_arc(Vector2.ZERO, r * 0.62, PI * 1.15, PI * 1.85, 10, rim, maxf(1.0, r * 0.1))
+		draw_arc(Vector2.ZERO, r * 0.62, PI * 1.15, PI * 1.85, 10, rim, maxf(1.0, r * 0.1), true)
 		draw_set_transform_matrix(_view)
