@@ -68,3 +68,34 @@ No change to the sim. Any of the following is a director decision, and each woul
 - the clearance weights;
 - the defenders' middle-zone carrying weight;
 - the ruck's rotations.
+
+## After: the clearance winner takes the first disposal (director, 2026-10-06)
+
+The director chose option 1. `MatchSim.clearance_keeps` makes it the rule on claude/clearance-keeps; the old rule is kept only as the audit baseline.
+
+**Runs:** 37407388468 (new rule) and 37407395096 (old rule), four drafted leagues (21–24), `ruckmid_impl`.
+
+**Per player-game:** new rule (old rule), real 2026
+
+| stat | DEF | MID | FWD | RUCK |
+|---|---|---|---|---|
+| disposals | 19.2 (20.1), real 16.6 | 22.6 (21.3), real 20.5 | 9.5 (10.3), real 11.7 | **12.0** (8.0), real 12.5 |
+| clearances | 0.25 (0.25), real 0.53 | 3.8 (3.9), real 3.2 | 0.47 (0.48), real 0.67 | 5.3 (5.2), real 3.6 |
+| inside 50s | 0.62 (0.54), real 1.55 | 4.3 (3.9), real 3.4 | 2.8 (3.5), real 2.2 | 1.5 (0.66), real 1.9 |
+| marks | 4.4 (4.6), real 5.1 | 4.7 (4.5), real 3.6 | 3.8 (4.0), real 3.6 | 2.7 (2.0), real 2.5 |
+| holding the ball against, per 100 disposals | 2.07 (1.95) | 1.35 (1.39) | 1.75 (1.70) | 1.03 (1.26) |
+
+- **The clearance winner keeps it:** he has the chain's first disposal 83% of the time (6% before).
+- **First disposal from a stoppage, by line:** DEF 14%, MID 56%, FWD 13%, RUCK 17%. Before: DEF 36%, MID 35%, FWD 25%, RUCK 4%.
+
+**What moved**
+- **Ruck:** his disposals are now about real (12.0 against 12.5). His inside 50s and marks moved towards real too.
+- **Defenders:** they lose a disposal (20.1 to 19.2) but are still 2.6 over real. Their holding-the-ball rate is unchanged within noise (about 2 per 100).
+- **Midfielders:** they gain 1.3 disposals and are now 2.2 over real.
+- **Forwards:** they lose 0.8 and are 2.2 under real.
+- **Unchanged:** time on ground (ruck 65%), hitouts and tackles.
+
+**Not changed, for the director:**
+- The ruck still wins too many clearances (5.3 against 3.6), because `CLEARANCE_ROLES` gives RUCK the same weight as MID. Trimming that weight would bring both the ruck and the midfield nearer real.
+- Defenders' middle-zone carrying (2.6 disposals over) and forwards' volume are the other gaps.
+- Calibration (17 checks) still passes under the rule.
