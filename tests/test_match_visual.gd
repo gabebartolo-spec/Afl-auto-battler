@@ -841,6 +841,11 @@ func _test_broadcast_vignettes() -> void:
 					as Dictionary).get(facing, {})
 			sheet_ok = sheet_ok and int(strip.get("frames", 0)) > 0
 	_check(sheet_ok, "The figure sheet holds every move the broadcast close-ups play")
+	# Small men are drawn small: a crumber is a small forward, from his real height.
+	var small_ok := BroadcastVignette.build_for({"height_cm": 178.0}) == "small" 			and BroadcastVignette.build_for({"height_cm": 190.0}) == "average" 			and BroadcastVignette.build_for({}) == "average"
+	for anim in ["ready", "jog", "gather", "snap", "kick"]:
+		small_ok = small_ok and VignetteFigures.has("small", anim, "back_r" if anim in ["gather", "snap", "kick", "jog"] else "back")
+	_check(small_ok, "Small players are drawn on the small build, which holds the crumb and snap")
 	# Both clubs wear their own guernseys; the featured player wears his own look.
 	var star: Dictionary = GameDB.club_list("COL")[0]
 	var vig := BroadcastVignette.new()

@@ -139,4 +139,6 @@ Before #331 the all-ground figures were DEF 2.35 and MID 1.68, so the rates are 
 | FWD | 8.4 | 11.72 |
 | RUCK | 6.7 | 12.49 |
 
+Disposal counts here are from kick/handball events and miss marked kicks (about 17% low); see [RUCK_MID_DISPOSALS_2026-10-06.md](RUCK_MID_DISPOSALS_2026-10-06.md).
+
 **Reading.** The defenders' excess of holding-the-ball frees is per disposal, and it peaks in the back half. The larger gap to real football is disposal volume for midfielders, forwards and rucks, not the free-kick rate.

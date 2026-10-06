@@ -61,10 +61,10 @@ func _run() -> void:
 					var info: Dictionary = layout.strip("average", "idle", facing)
 					var src: Rect2 = layout.source(info, 0)
 					var at := cell + Vector2(4 + f * 80 * scale / SCALE, 18)
-					c.draw_texture_rect_region(vignette.FIGURE_SHADE, Rect2(at, layout.FRAME * scale), src,
+					c.draw_texture_rect_region(vignette.FIGURE_SHADE, Rect2(at, src.size * scale), src,
 							Color(k / 4.0, 0.0, 0.0, 1.0))
 					if facing == "back":
-						c.draw_texture_rect_region(vignette.FIGURE_SHADE, Rect2(at, layout.FRAME * scale), src,
+						c.draw_texture_rect_region(vignette.FIGURE_SHADE, Rect2(at, src.size * scale), src,
 								vignette.number_colour(k, n + 1))
 				var label := "%s  %s" % [codes[n], kits[k]["design"]]
 				c.draw_string(font, cell + Vector2(6, 14), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE))
