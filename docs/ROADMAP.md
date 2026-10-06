@@ -2331,7 +2331,8 @@ Goal: make player deployment intuitive, footy-authentic and consequential.
 - determinism.
 
 ## ARD-M4-013 — Set shots: three visibly different choices, and a real pack for the bomb
-**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+**Status:** `IN PROGRESS` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+**Progress (2026-10-06):** the sim half is a draft in #467 (medium; calibration audits running); the view half is the lead's, on `claude/set-shots-view`. Event contract: every event a set-shot call produces carries `"choice"` (shoot, pass or bomb), and its result also carries `"setshot": true`. A pass records a `"pass"` event, then either a rebound (intercept) or a `"receive"` mark with the teammate 15 m nearer goal (10 to 30 m out) shooting from there. A bomb records one `"pack"` event at the goal square with an `"outcome"` of marked, spoiled (a crumber may gather and snap), defence or through. Pack odds come from the forward's marking against the best pack defender. The AI never gets the call. The baseline audit (`setshot_impl`, #463) is the before.  
 
 **Director decision (2026-10-06):** "should be 3 visibly different sequences, but also add a pack contest, also gives an opportunity for a crumber to pick up a spoiled ball if it is not marked."
 
