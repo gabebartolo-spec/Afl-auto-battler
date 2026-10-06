@@ -164,7 +164,9 @@ func _test_boundary_rules() -> void:
 	var counts := {"throwin": 0, "last_disposal": 0, "out_on_full": 0}
 	var legal_last := true
 	var throwin_spot := true
-	for seed in range(8):
+	# 16 matches: an out-on-the-full is about one boundary kick in eight, so
+	# eight matches can come up empty (about 2%) on an unlucky stream.
+	for seed in range(16):
 		var evs: Array = _sim(6100 + seed).run()["events"]
 		for i in range(evs.size()):
 			var ev: Dictionary = evs[i]
