@@ -4702,6 +4702,16 @@ Possible families:
 - forward stoppage,
 - late-game flood / protect-space situation.
 
+### Director addition — three match vignette concepts (2026-10-06)
+**Status:** `TODO` — requested roadmap candidates for Claude to refine; no implementation in this update.
+
+Extend the existing stoppage/kick-in/forward-entry families with:
+- **Stoppage setup — body block on their star midfielder:** show a selected teammate setting a block/screen to impede the opposition star midfielder and create room for the intended ball winner. Make the target, blocker and space readable. The setup, contact, escape and any infringement/outcome must follow the actual football event and existing rules; it must not silently disable the star.
+- **Kick-out after a behind — torpedo down the centre:** show the kick-in set play, central receiving/contesting setup and a long torpedo through the middle. Show the genuine distance/territory opportunity and the central-turnover/exposed-defence risk where relevant. Do not assume a clean reception or invent a successful exit.
+- **Inside-50 kick into space — running forward chase, collect and shoot:** show the kicker placing the ball into open space inside 50, the actual forward racing toward it with the relevant opponent, the ground-ball collection and kick for goal when the authoritative sequence supports it. This is a kick into space and running collection, not a generic overhead mark; preserve believable bounce, timing and pursuit, and allow the real miss, turnover or defensive interruption rather than force a goal.
+
+Use the existing pre-rendered 2.5D style, real participants/club identity and the same match ball colour throughout. Claude should inspect which sequences already exist and reuse their templates; any missing football behaviour belongs to the existing stoppage/coaching, kick-in (ARD-M3-009) or forward-entry/scoring owner, rather than a second cinematic simulation. Refine whether each scene previews a meaningful tactical decision or illustrates an already resolved play; decision scenes freeze at the appropriate point and outcome scenes show only what actually happened. Keep scenes brief/skippable and verify participant/event agreement, ball path, phone readability and performance under the existing vignette gates.
+
 ### Guardrails
 - MatchSim remains the authority. A vignette may illustrate state but must not invent a second football outcome.
 - Vignette participants must come from MatchSim's authoritative participant selection for that event (for centre bounces, the same ruck contestant and centre-bounce attendees), not a separate presentation-only reconstruction from generic position slots.
@@ -5777,6 +5787,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Added three requested match-vignette concepts under ARD-M8-007: blocking the opposition star midfielder at a stoppage, a torpedo kick-out down the centre after a behind, and an inside-50 kick into space for a running forward to collect and shoot.
 
 - **2026-10-06:** Added director consideration under ARD-M7-004 for Leadership as a numerical player stat (not a trait), independent of OVR/age/appointment, for Claude to refine alongside modest captaincy effects and save compatibility.
 
