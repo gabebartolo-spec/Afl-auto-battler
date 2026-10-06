@@ -444,11 +444,17 @@ func _week_section(season: Season) -> Control:
 		var ground := str(mine.get("venue", ""))
 		if ground == "":
 			ground = str(GameDB.club(str(mine["home"])).get("ground", ""))
-		nv.add_child(UiKit.ellipsis(ground, UiKit.SMALL, UiKit.MUTED))
-		var who := UiKit.lbl("%s %s" % ["v" if is_home else "at", GameDB.club_name(opp)],
-				26 if _narrow() else 30, UiKit.TEXT, true)
+		# Who, then where: "Essendon", "Away · Marvel Stadium" (the director's
+		# PC playtest, 2026-10-07: "Marvel Stadium / at Essendon" read as if
+		# Essendon were the ground).
+		var who := UiKit.lbl(GameDB.club_name(opp), 26 if _narrow() else 30, UiKit.TEXT, true)
 		who.name = "Opponent"
+		who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		nv.add_child(who)
+		var where := UiKit.lbl("%s · %s" % ["Home" if is_home else "Away", ground], UiKit.BODY, UiKit.MUTED)
+		where.name = "MatchVenue"
+		where.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		nv.add_child(where)
 		var marquee := MarqueeGames.tradition(str(mine["home"]), str(mine["away"]))
 		if not marquee.is_empty():
 			var marquee_line := UiKit.lbl(str(marquee["name"]), UiKit.SMALL, UiKit.EMPH, true)

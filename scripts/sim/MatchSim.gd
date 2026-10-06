@@ -3433,11 +3433,12 @@ func _fire(m: Dictionary) -> void:
 
 
 ## The late centre-bounce call (the stoppage close games are decided on):
-## Q4, the last 20 minutes, at a centre bounce, within two goals, twice a
-## match at most.
+## Q4, the last 20 minutes, at a centre bounce, within two goals, once a
+## match (the director's PC playtest, 2026-10-07: it came twice), the
+## playtest aid's included.
 func _bounce_moment(margin: int) -> bool:
 	if current_quarter == 4 and at_centre and current_minute >= 100 and absi(margin) <= 12 \
-			and int(_asked.get("bounce", 0)) < 2:
+			and not _asked.has("bounce") and not _asked.has("bounce_playtest"):
 		_asked["bounce"] = int(_asked.get("bounce", 0)) + 1
 		_fire_bounce(margin)
 		return true
@@ -3455,7 +3456,7 @@ var always_offer_bounce := false
 
 func _playtest_bounce() -> bool:
 	if not always_offer_bounce or moment_side < 0 or current_quarter != 4 or not at_centre \
-			or _asked.has("bounce_playtest"):
+			or _asked.has("bounce_playtest") or _asked.has("bounce"):
 		return false
 	_asked["bounce_playtest"] = true
 	var calls := _moments_this_q
@@ -4025,7 +4026,19 @@ func _lost_quarter(side: int, q: int) -> bool:
 
 ## A tag is a midfield job: only a midfielder (centre or wing) can be tagged.
 static func taggable(p: Dictionary) -> bool:
-	return str(p.get("role", "")) == "MID"
+	return midfielder_on_ground(p)
+
+
+## Playing in the midfield today and a midfielder by position. The match-day
+## copy carries the slot as its role, so a ruck picked in a midfield slot
+## would otherwise count; he counts only if midfield is one of his own
+## positions (the rare ruck who is also a midfielder). The director's PC
+## playtest, 2026-10-07: the team's ruckman was sent to tag.
+static func midfielder_on_ground(p: Dictionary) -> bool:
+	if str(p.get("role", "")) != "MID":
+		return false
+	var own := str(p.get("own_role", "MID"))
+	return own == "MID" or Ratings.second_positions(p).has("MID")
 
 
 ## Who goes to the player `side` tags: its tagger if one is on the ground,
@@ -4034,7 +4047,7 @@ static func taggable(p: Dictionary) -> bool:
 static func tagger_for(ground: Array):
 	var best = null
 	for p in ground:
-		if str(p.get("role", "")) != "MID":
+		if not midfielder_on_ground(p):
 			continue
 		if Roles.is_tagger(p):
 			return p
