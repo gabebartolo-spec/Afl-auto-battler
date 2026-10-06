@@ -181,7 +181,7 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 - **Say what wasn't exercised.** A PR's evidence names what it didn't cover (device touch, real-time performance, listening) instead of leaving it implied.
 
 **`LOW`**
-- §9.5 STYLE-03 colour pairings, STYLE-07 desktop layout and STYLE-08 light maintenance; the latter two follow the approved dark slice. STYLE-01's narrow Training-row alignment repair is also LOW when it reproduces. Art-agent direction and final director appearance approval apply.
+- §9.5 STYLE-03 colour pairings and STYLE-08 light maintenance; light maintenance follows the approved dark slice. STYLE-01's narrow Training-row alignment repair is also LOW when it reproduces. STYLE-07's urgent shared desktop-scaling repair is MEDIUM, not deferred LOW polish. Art-agent direction and final director appearance approval apply.
 
 - §9.3 FL-001 football voice and incidental humour.
 - Verifying and closing work that is already on `main` (the Low agent does this as it finds it). The §9.1 Training scrollbar is done and waits only on a phone check.
@@ -5732,7 +5732,7 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 
 **Authority:** the art agent has higher authority than ChatGPT on visual direction. Claude implements the art agent's treatment and reports engineering constraints rather than substituting its own taste. **All final decisions go through the director.** Accepted scope permits concrete mockups, prototypes and reviewable implementation; final font, palette, geometry, positioning and scene treatment require the director's approval. Do not merge an unapproved final visual treatment merely because ordinary CI passes. This is an explicit task-specific visual gate, not a request to re-interview the accepted scope.
 
-**Priority:** Android portrait **dark mode first**. STYLE-07 desktop and STYLE-08 light mode follow the approved dark slice; they are not shipping prerequisites for dark improvements. Preserve urgent P0 correctness, phone and performance gates. Coordinate hot files (`UiKit.gd`, shared layout, MatchScene and vignette overlays) with the existing art work; no competing redesign branch.
+**Priority:** **STYLE-07's unreadable PC fullscreen repair is an immediate P0 override** under §0.4.1. Beyond that repair, Android portrait dark mode leads the broader styling programme; remaining desktop polish and STYLE-08 light mode follow the approved dark slice. Preserve urgent P0 correctness, phone and performance gates. Coordinate hot files (`UiKit.gd`, shared layout, MatchScene and vignette overlays) with the existing art work; no competing redesign branch.
 
 **Research:** [dark-mode audit](research/AFL_UI_STYLE_AUDIT_AND_RESEARCH.md) and [player-led source ledger](research/AFL_UI_STYLE_SOURCE_LEDGER.md). Competitor screenshots/claims are evidence and options, not approved templates. AFCM and Footy Redraft remain negative aesthetic references. The Windows render audit is preliminary evidence, not a completed native Android playtest or Claude engineering audit.
 
@@ -5861,7 +5861,7 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 
 ## Shared execution and completion gate
 
-Complete the narrow Training-row alignment diagnosis first where it still reproduces. Then have the art agent lead a coherent dark typography/colour/control slice (STYLE-01–03), extend composition/identity (STYLE-04/05) and integrate existing scenes (STYLE-06). Supported independent slices may proceed after their own prerequisites. STYLE-07's director-reported P0 PC readability repair starts immediately under §0.4.1; remaining desktop polish and light work follow. This is not a mandate to complete a global redesign before delivering a useful repair.
+Start immediately with STYLE-07's P0 PC readability repair under §0.4.1. After urgent repairs, complete the narrow Training-row alignment diagnosis where it still reproduces, then have the art agent lead a coherent dark typography/colour/control slice (STYLE-01–03), extend composition/identity (STYLE-04/05) and integrate existing scenes (STYLE-06). Supported independent slices may proceed after their own prerequisites. STYLE-07's director-reported P0 PC readability repair starts immediately under §0.4.1; remaining desktop polish and light work follow. This is not a mandate to complete a global redesign before delivering a useful repair.
 
 Hold content/state constant when comparing style treatments. Keep normal, selected, pressed, disabled, short/long, empty/busy and real club variants. Player sessions can assess perceived polish and readability; simulations do not establish beauty or enjoyment. Styling must not modify football results, save formats, draft/contract state or progress.
 
