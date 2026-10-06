@@ -4,16 +4,21 @@ extends RefCounted
 ## editorial flavour, never game information. Each line is said only when the
 ## match's own facts support it (docs/research/AFL_FLAVOUR_WRITING_SAMPLES.md
 ## section 2); otherwise there is no headline and the plain result stands
-## alone. Losses get none: neutral reporting beats a joke. Nothing here is read
-## by the game.
+## alone. A loss is reported plainly, never mocked (director, 2026-10-06: losses
+## too, strictly from the facts). Nothing here is read by the game.
 ##
-## In order, the first that is true:
+## A win or a draw, in order, the first that is true:
 ##  - comeback: won after trailing by COMEBACK or more at a break;
 ##  - made it interesting: won by CLOSE_WIN or less after leading by BLOWN or
 ##    more at a break;
 ##  - close: won by CLOSE or less;
 ##  - rivalry: beat a real rival (data/banners.json rivalry pairs);
 ##  - draw: nothing between them.
+## A loss, in order:
+##  - led by LED or more at a break;
+##  - fought back: trailed by COMEBACK or more at a break, lost by CLOSE_WIN or less;
+##  - lost by CLOSE or less;
+##  - held to HELD goals or fewer after quarter-time.
 ## The break-by-break claims need every quarter's score to add up to the final
 ## score (extra time doesn't), or they are not made.
 
@@ -21,6 +26,9 @@ const COMEBACK := 24
 const BLOWN := 30
 const CLOSE_WIN := 12
 const CLOSE := 6
+const LED := 18
+const HELD := 2
+const NUMBERS := ["no", "one", "two"]
 const BREAKS := ["quarter time", "half-time", "three-quarter time"]
 
 
@@ -32,7 +40,7 @@ static func for_match(res: Dictionary, me: int) -> String:
 	if mine == theirs:
 		return "Nothing between them."
 	if mine < theirs:
-		return ""
+		return _loss(res, me, theirs - mine)
 	var margin := mine - theirs
 	var leads := _break_leads(res, me)
 	if not leads.is_empty():
@@ -54,6 +62,37 @@ static func for_match(res: Dictionary, me: int) -> String:
 	var them := str(res.get("away" if me == 0 else "home", ""))
 	if is_rivalry(us, them):
 		return "The neighbours heard that one."
+	return ""
+
+
+## A loss, said plainly from the facts, or "".
+static func _loss(res: Dictionary, me: int, margin: int) -> String:
+	var leads := _break_leads(res, me)
+	if not leads.is_empty():
+		var best := 0
+		var best_at := -1
+		var worst := 0
+		var worst_at := -1
+		for i in range(leads.size()):
+			if int(leads[i]) > best:
+				best = int(leads[i])
+				best_at = i
+			if int(leads[i]) < worst:
+				worst = int(leads[i])
+				worst_at = i
+		if best >= LED:
+			return "Led by %d at %s." % [best, BREAKS[best_at]]
+		if -worst >= COMEBACK and margin <= CLOSE_WIN:
+			return "Fought back from %d down at %s." % [-worst, BREAKS[worst_at]]
+	if margin <= CLOSE:
+		return "A kick the difference."
+	var qg: Array = res.get("q_goals", [])
+	if qg.size() == 4:
+		var late := 0
+		for i in range(1, 4):
+			late += int(qg[i][me])
+		if late <= HELD:
+			return "Held to %s goal%s after quarter-time." % [NUMBERS[late], "" if late == 1 else "s"]
 	return ""
 
 

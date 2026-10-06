@@ -544,7 +544,24 @@ func _test_headlines() -> void:
 	var back := _hl("GEE", "MEL", [[10, 20], [6, 22], [30, 6], [20, 10]])
 	_check(Headlines.for_match(back, 0) == "From 26 points down at half-time.",
 			"A comeback names the deficit and the break (%s)" % Headlines.for_match(back, 0))
-	_check(Headlines.for_match(back, 1) == "", "The side that lost it gets no headline")
+	_check(Headlines.for_match(back, 1) == "Led by 26 at half-time.",
+			"The side that lost it is told plainly where it led (%s)" % Headlines.for_match(back, 1))
+	# Losses (director: losses too, from the facts, never mocked).
+	var fought := _hl("GEE", "MEL", [[6, 30], [10, 20], [30, 10], [20, 10]])
+	_check(Headlines.for_match(fought, 0) == "Fought back from 34 down at half-time.",
+			"Lost narrowly after trailing big: fought back (%s)" % Headlines.for_match(fought, 0))
+	var kick := _hl("GEE", "MEL", [[18, 20], [17, 15], [16, 14], [14, 20]])
+	_check(Headlines.for_match(kick, 0) == "A kick the difference.", "A loss by 6 or less (%s)" % Headlines.for_match(kick, 0))
+	var held := _hl("GEE", "MEL", [[25, 20], [7, 30], [8, 25], [3, 30]])
+	held["q_goals"] = [[4, 3], [1, 4], [1, 4], [0, 5]]
+	_check(Headlines.for_match(held, 0) == "Held to two goals after quarter-time.",
+			"Held to two goals after quarter-time (%s)" % Headlines.for_match(held, 0))
+	held["q_goals"] = [[4, 3], [1, 4], [0, 4], [0, 5]]
+	_check(Headlines.for_match(held, 0) == "Held to one goal after quarter-time.", "One goal, singular")
+	held["q_goals"] = [[4, 3], [1, 4], [1, 4], [0, 5], [0, 1]]
+	_check(Headlines.for_match(held, 0) == "", "Extra time: no goals-after-quarter-time claim")
+	var thrashed := _hl("GEE", "MEL", [[10, 30], [12, 25], [15, 30], [20, 25]])
+	_check(Headlines.for_match(thrashed, 0) == "", "A plain heavy loss: nothing is piled on")
 	# Up 35 at three-quarter time, won by 9.
 	var close_call := _hl("GEE", "MEL", [[30, 6], [20, 10], [10, 9], [6, 32]])
 	_check(Headlines.for_match(close_call, 0) == "We made that interesting.",
