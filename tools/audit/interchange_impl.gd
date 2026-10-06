@@ -1,6 +1,8 @@
 extends RefCounted
 ## 18 + 4 against 18 + 5 (ARD-M5-001): the same careers on the same seeds with
-## a four- or five-player bench (Ratings.bench_size, env BENCH=4|5). Every club
+## a four- or five-player bench (Ratings.bench_size, env BENCH=4|5; RULES=0
+## is the old bench - best of the rest, no line cover or dual ruck - for the
+## main-like baseline). Every club
 ## drafts and manages as the AI does. Per season it prints, per team-match:
 ## goals, disposals, tackles, inside 50s, interchanges, players who took part
 ## and distance run per player; per season: injuries, the league's in-season
@@ -35,6 +37,7 @@ func run() -> void:
 	var seasons := int(args[2]) if args.size() > 2 else 2
 	var bench := int(OS.get_environment("BENCH")) if OS.get_environment("BENCH") != "" else Ratings.INTERCHANGE
 	Ratings.bench_size = bench
+	Ratings.bench_rules = OS.get_environment("RULES") != "0"
 	for sd in seeds.split(",", false):
 		_career(int(sd), seasons, bench)
 

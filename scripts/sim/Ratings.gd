@@ -666,7 +666,8 @@ static func select_22(list_players: Array, dual := -1) -> Dictionary:
 
 	# The AI's call: a second ruck earns the last spot when he is close to
 	# the player he'd replace.
-	if dual == -1 and not spare_ruck.is_empty() and not used.has(spare_ruck["id"]) 			and bench.size() >= bench_size and bench_size > BENCH_COVER.size():
+	if dual == -1 and bench_rules and not spare_ruck.is_empty() and not used.has(spare_ruck["id"]) \
+			and bench.size() >= bench_size and bench_size > BENCH_COVER.size():
 		var last: Dictionary = bench[bench.size() - 1]
 		if float(spare_ruck["overall"]) >= float(last["overall"]) - DUAL_RUCK_MARGIN:
 			used.erase(last["id"])
