@@ -563,6 +563,11 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+### Scoring feedback reflects the managed team — PC playtest request (2026-10-07)
+
+- Give goals scored by the user's team happy/successful visual feedback, and goals scored by the opposition contrasting negative/conceded-goal feedback. Behinds remain visually neutral for **both** sides. The current event feed's team-coloured/white accents do not adequately communicate that emotional distinction. Use clear, readable event styling and suitable restrained visual cues; distinguish success/concession through labels or icons as well as colour. Determine perspective from the managed team, not home/away, feed position or guernsey colour, including custom clubs. Preserve scorer, club, time and score readability. Verify both team perspectives and scoring types in the exported PC build; avoid excessive animation and respect reduced-motion settings where supported. Roadmap comment only; Claude to implement, no scoring mechanics changed.
+
+
 ### Live-match plan summary clipped — PC playtest readability bug (2026-10-07)
 
 - Screenshot: the “Your plan: Balanced · Harry Dean loose behind the ball · Jasper Alger on th…” summary truncates an assignment, making the plan unreadable/incomplete. Show the complete current tactical information in a compact readable layout: wrap appropriately or use clearly grouped short labels/cards rather than forcing all assignments into a single ellipsised line. Maintain sufficient space between the plan summary and match-event heading, avoid clipping and overlaps, and let the user read the full assignment without relying on hover. Check long player names, multiple active calls, desktop window sizes and display scaling in the exported PC build. Apply the same readable responsive behaviour to the expanded midfield/forward/backline priorities and main-ruck choices already requested; mobile may use compact expansion or necessary scrolling, but must retain access to complete text. This is a roadmap bug report for Claude, not a game-code change.
