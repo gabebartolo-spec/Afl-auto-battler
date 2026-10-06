@@ -74,6 +74,14 @@ func _build() -> void:
 	var help := "Auto-pick fields a sensible side by position and rating each week." if auto \
 			else "Your side plays every match. Injured players are replaced automatically."
 	hv.add_child(_para(help, 13, UiKit.MUTED))
+	# Dual ruck: your second ruck takes the fifth interchange spot.
+	if auto:
+		var dual := UiKit.choice_grid("DualRuck", [["off", "One ruck"], ["on", "Dual ruck"]],
+				"on" if GameState.dual_ruck() else "off", 2, func(k):
+					GameState.set_dual_ruck(k == "on")
+					_notice = "Dual ruck: your second ruck sits on the bench." if k == "on" else "One ruck: the bench is the best of the rest."
+					_build())
+		hv.add_child(dual)
 	if _notice != "":
 		hv.add_child(_para(_notice, 13, UiKit.GOOD))
 	hv.add_child(_synergy_view())

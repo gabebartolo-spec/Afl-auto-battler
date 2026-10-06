@@ -14,6 +14,9 @@ var show_real_names := true
 ## Transient navigation request. Settings can send the user straight to New
 ## career setup without touching the existing save.
 var new_career_setup_requested := false
+## Your dual-ruck call (ARD-M5-001): off until you make it, kept across
+## seasons; copied into each season's selection for your club (_sync_dual).
+var user_dual_ruck := false
 
 var my_club := ""
 var my_list: Array = []
@@ -398,6 +401,7 @@ func save_career() -> bool:
 		"draft_meeting_year": draft_meeting_year,
 		"career_seed": career_seed,
 		"class_tiers": class_tiers,
+		"user_dual_ruck": user_dual_ruck,
 		# Players carry p["career"]; saves without this mark predate it.
 		"career_version": CAREER_VERSION,
 	}
@@ -435,6 +439,7 @@ func load_career() -> bool:
 		var sv: Dictionary = state["season"]
 		season = Season.new(sv["clubs"], sv["lists"], int(sv["seed"]))
 		CareerSave.apply_vars(season, sv)
+		_sync_dual()
 		# Saves written under the old eight-finalist bracket cannot be
 		# restored into the wildcard series (different slots, different
 		# weeks), so the finals restart from the ladder as it was saved.
@@ -514,6 +519,8 @@ func load_career() -> bool:
 	# Saves from before class tiers use seed 0: still one fixed roll per year.
 	career_seed = int(state.get("career_seed", 0))
 	class_tiers = state.get("class_tiers", {})
+	user_dual_ruck = bool(state.get("user_dual_ruck", false))
+	_sync_dual()
 	_recompute_ratings()
 	_migrate_money_units()
 	if int(state.get("career_version", 0)) < CAREER_VERSION:
@@ -824,6 +831,7 @@ func reset() -> void:
 	last_training_report = {}
 	_xp_grant_key = ""
 	new_career_setup_requested = false
+	user_dual_ruck = false
 	_dirty = false
 	default_train_plan = "position"
 	season_year = GameDB.START_YEAR
@@ -1095,6 +1103,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	# entry for every club so saves and rollovers never miss a key.
 	season = Season.new(GameDB.active_clubs(next_year).duplicate(), lists,
 			_clock_seed(3))
+	_sync_dual()
 	# The cap moves with the new season before contracts are assigned.
 	salary_cap = Contracts.salary_cap_for_year(next_year)
 	# Expansion lists are born here, so their contracts must be assigned
@@ -1369,6 +1378,7 @@ func start_season(club_code: String, list: Array) -> void:
 	# Fixtures, ladders and finals cover only the clubs active this year.
 	season = Season.new(GameDB.active_clubs(season_year).duplicate(), lists,
 			_clock_seed(4))
+	_sync_dual()
 	salary_cap = Contracts.salary_cap_for_year(season_year)
 	ensure_contracts()
 	# The coaching world from its Round 1 2026 source, carried into this
@@ -4866,7 +4876,9 @@ func _resolve_market() -> void:
 func my_selection() -> Dictionary:
 	if season == null:
 		return {}
-	return season.selections.get(my_club, {})
+	var sel: Dictionary = (season.selections.get(my_club, {}) as Dictionary).duplicate(true)
+	sel.erase("DUAL_RUCK")
+	return sel
 
 
 ## Set your side ({} = auto-pick every week). Stored on the season, so it is
@@ -4874,11 +4886,33 @@ func my_selection() -> Dictionary:
 func set_selection(selection: Dictionary) -> void:
 	if season == null:
 		return
-	if selection.is_empty():
-		season.selections.erase(my_club)
-	else:
-		season.selections[my_club] = selection.duplicate(true)
+	var keep := selection.duplicate(true)
+	keep["DUAL_RUCK"] = user_dual_ruck
+	season.selections[my_club] = keep
 	mark_dirty()
+
+
+## Dual ruck (ARD-M5-001, director 2026-10-06): your second ruck takes the
+## fifth interchange spot. Your call, off until you make it; AI clubs decide
+## by their own rule (Ratings.select_22).
+func dual_ruck() -> bool:
+	return user_dual_ruck
+
+
+func set_dual_ruck(on: bool) -> void:
+	user_dual_ruck = on
+	_sync_dual()
+	mark_dirty()
+
+
+## Your club's selection carries your dual-ruck call, so its auto-pick never
+## falls under the AI clubs' rule.
+func _sync_dual() -> void:
+	if season == null or my_club == "":
+		return
+	var sel: Dictionary = (season.selections.get(my_club, {}) as Dictionary).duplicate(true)
+	sel["DUAL_RUCK"] = user_dual_ruck
+	season.selections[my_club] = sel
 
 
 ## The side that would take the field this week, as a selection.
@@ -4894,7 +4928,8 @@ func current_side() -> Dictionary:
 
 
 func my_squad() -> Squad:
-	return Squad.new(GameDB.club_name(my_club), my_list, true, my_club, my_selection())
+	return Squad.new(GameDB.club_name(my_club), my_list, true, my_club,
+			season.selections.get(my_club, {}) if season != null else {})
 
 
 ## Every plan: [[key, label], ...].

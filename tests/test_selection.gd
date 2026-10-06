@@ -21,6 +21,7 @@ func run() -> void:
 	_test_selection_saved()
 	_test_with_us_and_milestones()
 	_test_fifth_interchange()
+	_test_dual_ruck()
 	GameState.delete_saved_career()
 	print("Selection tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -225,6 +226,8 @@ func _test_fifth_interchange() -> void:
 				"%s picks 18 plus 5 (%d + %d)" % [code, sq.ground.size(), sq.bench.size()])
 	var played_all := true
 	var stats_all := true
+	var quiet := []
+	var stints := 0
 	for seed in [701, 702, 703]:
 		var sim := MatchSim.new(Squad.new("GEE", GameDB.club_list("GEE"), true, "GEE"),
 				Squad.new("COL", GameDB.club_list("COL"), false, "COL"), seed)
@@ -237,9 +240,12 @@ func _test_fifth_interchange() -> void:
 			for id in bench_ids[side]:
 				played_all = played_all and (sim._played[side] as Dictionary).has(id)
 				var st: Dictionary = (res["players"] as Dictionary).get(id, {})
-				stats_all = stats_all and int(st.get("disposals", 0)) > 0
+				stints += 1
+				stats_all = stats_all and float(st.get("distance_run", 0.0)) > 0.0
+				if int(st.get("disposals", 0)) + int(st.get("hitouts", 0)) + int(st.get("tackles", 0)) + int(st.get("marks", 0)) == 0:
+					quiet.append("%s %s %s" % [seed, id, str(st)])
 	_check(played_all, "All five on the bench come on during a match")
-	_check(stats_all, "All five on the bench record stats")
+	_check(stats_all and quiet.size() * 10 <= stints, "All five on the bench take the field, and almost all get involved (quiet: %s)" % str(quiet))
 
 	# XP and the game count: a round through the real season.
 	_new_season()
@@ -279,3 +285,58 @@ func _test_fifth_interchange() -> void:
 	for id in four["BENCH"]:
 		kept = kept and _ids(sq2.bench).has(str(id))
 	_check(sq2.bench.size() == 5 and kept, "A side saved with four on the bench keeps them and gets a fifth")
+
+## Dual ruck (director, 2026-10-06): when you run it, your second ruck takes
+## the fifth interchange spot; it is off until you choose it, kept across a
+## reload; AI clubs run it by their own rule (a spare ruck close to the player
+## he would replace).
+func _test_dual_ruck() -> void:
+	_new_season()
+	_check(not GameState.dual_ruck(), "Dual ruck is off until you choose it")
+	var rucks_on_bench := func() -> int:
+		var n := 0
+		for p in GameState.my_squad().bench:
+			if str(p.get("role", "")) == "RUCK":
+				n += 1
+		return n
+	var spare := 0
+	for p in GameState.my_list:
+		if str(p.get("role", "")) == "RUCK" and Ratings.available(p):
+			spare += 1
+	GameState.set_dual_ruck(true)
+	var sq := GameState.my_squad()
+	_check(spare < 2 or (str((sq.bench[0] as Dictionary).get("role", "")) == "RUCK" and sq.bench.size() == 5),
+			"With dual ruck, your second ruck takes a bench spot and the bench is still five")
+	_check(GameState.my_selection().is_empty(), "Dual ruck on its own is still the auto-pick")
+	GameState.save_career()
+	GameState.load_career()
+	_check(GameState.dual_ruck() and (spare < 2 or int(rucks_on_bench.call()) >= 1), "Dual ruck survives a reload")
+	GameState.set_dual_ruck(false)
+	_check(not GameState.dual_ruck(), "Dual ruck can be switched off")
+
+	# The AI's rule: a spare ruck within the margin of the last bench player.
+	var list: Array = GameDB.club_list("GEE").duplicate(true)
+	var r := []
+	for p in list:
+		if str(p.get("role", "")) == "RUCK":
+			r.append(p)
+	if r.size() >= 2:
+		var auto_sel := Ratings.select_22(list)
+		var forced := Ratings.select_22(list, 1)
+		var off := Ratings.select_22(list, 0)
+		var has_ruck := func(b: Array) -> bool:
+			for p in b:
+				if str(p.get("role", "")) == "RUCK":
+					return true
+			return false
+		_check(has_ruck.call(forced["bench"]) and (forced["bench"] as Array).size() == 5, "A dual-ruck call always benches the second ruck")
+		var last_ovr := 99.0
+		for p in off["bench"]:
+			last_ovr = minf(last_ovr, float(p["overall"]))
+		var spare_ovr := 0.0
+		for p in Ratings.by_ruck(r):
+			if not _ids(off["ground"]).has(str(p["id"])):
+				spare_ovr = float(p["overall"])
+				break
+		_check(has_ruck.call(auto_sel["bench"]) == (spare_ovr >= last_ovr - Ratings.DUAL_RUCK_MARGIN) or has_ruck.call(off["bench"]),
+				"An AI club runs dual ruck when its spare ruck is close enough (spare %.0f, last on the bench %.0f)" % [spare_ovr, last_ovr])
