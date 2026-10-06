@@ -3033,7 +3033,10 @@ func _recompute_mro_player(player_id: String, cleared_case_id: String) -> void:
 func challenge_mro(player_id: String) -> Dictionary:
 	var target := {}
 	for row in last_mro:
-		if str(row.get("club", "")) == my_club 				and str(row.get("id", "")) == player_id 				and str(row.get("outcome", "")) != "no_action" 				and not bool(row.get("challenged", false)):
+		if str(row.get("club", "")) == my_club \
+				and str(row.get("id", "")) == player_id \
+				and str(row.get("outcome", "")) != "no_action" \
+				and not bool(row.get("challenged", false)):
 			target = row
 			break
 	if target.is_empty():
