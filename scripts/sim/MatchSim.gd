@@ -1829,6 +1829,14 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		if touches == 1 and clearance_keeps and cleared != null and not is_kick_in:
 			carrier = cleared
 		var kick_in_play_on := _kick_in_play_on(carrier) if is_kick_in else false
+		# The ball won off the other side's error is an intercept possession
+		# (Champion Data), by whoever is there to take it: a forward in his
+		# forward half as much as a defender down back. Bookkeeping only.
+		if touches == 1 and zone_intercepts and chain_origin == "turnover" and _chain_from.is_empty() \
+				and not from_bounce and not is_kick_in:
+			_t(side, "intercepts")
+			_p(carrier, "intercepts")
+			_chain_from = {"side": side, "id": str(carrier.get("id", ""))}
 		_chain_touch[str(carrier["id"])] = carrier
 		# Champion Data: a kick straight from the goal square is a team
 		# kick-in, not a player disposal. Once the taker plays on it is his
