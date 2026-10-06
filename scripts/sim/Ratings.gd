@@ -61,6 +61,8 @@ const INTERCHANGE := 5
 ## The bench size selection uses: INTERCHANGE, changed only by audits that
 ## compare squad sizes on the same seeds (tools/audit/interchange_impl.gd).
 static var bench_size := INTERCHANGE
+## The lines an auto-picked bench covers before taking the best of the rest.
+const BENCH_COVER := ["FWD", "DEF", "MID"]
 const LIST_SIZE := 44
 
 ## Raw season columns every player dict carries. GameDB.STAT_KEYS must match;
@@ -626,12 +628,24 @@ static func select_22(list_players: Array) -> Dictionary:
 			ground.append(_for_slot(p, str(p["role"])))
 			used[p["id"]] = true
 
+	# The bench covers the lines first - a forward, a defender and a
+	# midfielder, the best of each left - then the best of the rest, so a
+	# tired forward is relieved by a forward, as on a real interchange bench.
 	var bench: Array = []
+	for line in BENCH_COVER:
+		for p in pool:
+			if bench.size() >= bench_size:
+				break
+			if not used.has(p["id"]) and str(p.get("role", "")) == line:
+				bench.append(p)
+				used[p["id"]] = true
+				break
 	for p in pool:
 		if bench.size() >= bench_size:
 			break
 		if not used.has(p["id"]):
 			bench.append(p)
+			used[p["id"]] = true
 
 	ground = ground.slice(0, 18)
 	Roles.mark_wings(ground)

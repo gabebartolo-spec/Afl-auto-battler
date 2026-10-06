@@ -20,6 +20,7 @@ func run() -> void:
 	_test_left_out_player_sits_out()
 	_test_selection_saved()
 	_test_with_us_and_milestones()
+	_test_fifth_interchange()
 	GameState.delete_saved_career()
 	print("Selection tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -213,3 +214,68 @@ func _test_with_us_and_milestones() -> void:
 	var stranger := {"id": "x", "career": {"games": 10, "goals": 1, "through": year - 1, "unknown": [],
 			"stints": [["SYD", year - 2, year - 1, 10, 1]]}}
 	_check(GameState.with_us_text(stranger) == "", "Nothing for someone who never played for you")
+
+## 18 + 5 (ARD-M5-001): the fifth interchange player is a full member of the
+## 23 - he rotates on, piles up stats, is credited with the game and earns a
+## selected player's XP - and a side saved with four on the bench gets five.
+func _test_fifth_interchange() -> void:
+	for code in ["GEE", "COL"]:
+		var sq := Squad.new(code, GameDB.club_list(code), true, code)
+		_check(sq.ground.size() == 18 and sq.bench.size() == Ratings.INTERCHANGE and Ratings.INTERCHANGE == 5,
+				"%s picks 18 plus 5 (%d + %d)" % [code, sq.ground.size(), sq.bench.size()])
+	var played_all := true
+	var stats_all := true
+	for seed in [701, 702, 703]:
+		var sim := MatchSim.new(Squad.new("GEE", GameDB.club_list("GEE"), true, "GEE"),
+				Squad.new("COL", GameDB.club_list("COL"), false, "COL"), seed)
+		var bench_ids := [[], []]
+		for side in 2:
+			for p in (sim.squads[side] as Squad).bench:
+				bench_ids[side].append(str(p["id"]))
+		var res := sim.run()
+		for side in 2:
+			for id in bench_ids[side]:
+				played_all = played_all and (sim._played[side] as Dictionary).has(id)
+				var st: Dictionary = (res["players"] as Dictionary).get(id, {})
+				stats_all = stats_all and int(st.get("disposals", 0)) > 0
+	_check(played_all, "All five on the bench come on during a match")
+	_check(stats_all, "All five on the bench record stats")
+
+	# XP and the game count: a round through the real season.
+	_new_season()
+	var side := GameState.current_side()
+	var fifth := str(side["BENCH"][4])
+	var out := ""
+	for p in GameState.my_list:
+		var id := str(p["id"])
+		var named := false
+		for k in side:
+			named = named or (side[k] as Array).has(id)
+		if not named and Ratings.available(p):
+			out = id
+			break
+	var mine := {}
+	for r in GameState.season.lists["GEE"]:
+		mine[str(r["id"])] = r
+	var res2 := {"home": "GEE", "away": "COL", "players": {fifth: {"disposals": 8}}}
+	var rep := GameState._grant_xp("GEE", GameState.season.lists["GEE"], res2)
+	var row5 := {}
+	var row_out := {}
+	for r in rep["rows"]:
+		if str(r["id"]) == fifth:
+			row5 = r
+		elif str(r["id"]) == out:
+			row_out = r
+	_check(bool(row5.get("on_bench", false)) and not bool(row5.get("reserves", true))
+			and int(row5.get("xp", 0)) == GameState._xp_amount({"disposals": 8}, false, true),
+			"The fifth interchange is credited as selected and paid for his own game (%s)" % str(row5))
+
+	# An older save named four on the bench: the fifth is filled on match day.
+	var four := GameState.current_side()
+	(four["BENCH"] as Array).resize(4)
+	GameState.set_selection(four)
+	var sq2 := GameState.my_squad()
+	var kept := true
+	for id in four["BENCH"]:
+		kept = kept and _ids(sq2.bench).has(str(id))
+	_check(sq2.bench.size() == 5 and kept, "A side saved with four on the bench keeps them and gets a fifth")
