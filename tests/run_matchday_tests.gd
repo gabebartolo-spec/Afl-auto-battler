@@ -597,6 +597,14 @@ func _bounce_close_up() -> void:
 	vig.finish_now()
 	await _settle()
 	_check(vig.is_frozen() and not b0.disabled, "Frozen on the bounce, the call is live")
+	# No choice looks recommended: every button wears the same style
+	# (director's PC playtest, 2026-10-07: the filled first button read as
+	# the best call).
+	var looks := {}
+	for b in card.find_children("Moment_*", "Button", true, false):
+		var sb := (b as Button).get_theme_stylebox("normal")
+		looks[str(sb.bg_color) if sb is StyleBoxFlat else "other"] = true
+	_check(looks.size() == 1, "Every choice stands equal, none filled as the recommended one (%s)" % str(looks.keys()))
 	var text := _text(card)
 	_check(text.contains("They have been winning it out of the middle all day."),
 			"The commentary tells the story of the stoppages, from the match (%s)" % text)

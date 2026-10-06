@@ -847,7 +847,9 @@ func _show_moment() -> void:
 	var options: Array = m.get("options", [])
 	for i in range(options.size()):
 		var o: Dictionary = options[i]
-		var b := UiKit.btn(str(o.get("label", "")), 16, i == 0)
+		# Every choice stands equal: no filled first button that reads as the
+		# recommended one (director's PC playtest, 2026-10-07).
+		var b := UiKit.btn(str(o.get("label", "")), 16, false)
 		b.name = "Moment_%d" % i
 		b.custom_minimum_size = Vector2(0, 46)
 		b.pressed.connect(_on_moment_choice.bind(i))
@@ -901,7 +903,9 @@ func _show_bounce_moment(m: Dictionary) -> void:
 	var options: Array = m.get("options", [])
 	for i in range(options.size()):
 		var o: Dictionary = options[i]
-		var b := UiKit.btn(str(o.get("label", "")), 16, i == 0)
+		# Every choice stands equal: no filled first button that reads as the
+		# recommended one (director's PC playtest, 2026-10-07).
+		var b := UiKit.btn(str(o.get("label", "")), 16, false)
 		b.name = "Moment_%d" % i
 		b.custom_minimum_size = Vector2(0, 46)
 		b.disabled = true

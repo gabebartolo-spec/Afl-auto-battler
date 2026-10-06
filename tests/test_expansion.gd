@@ -474,6 +474,17 @@ func _test_created_club_career() -> void:
 		if club != "PMB" and Coaches.staff(GameState.coaches, club) != Coaches.staff(seeded, club):
 			others_same = false
 	_check(others_same, "Every other club keeps its 2026 staff")
+	# One player per number on every list after the League Draft (director's
+	# PC playtest, 2026-10-07: two players on his club both wore 35).
+	var clashes := 0
+	for code in season.lists:
+		var seen := {}
+		for p in season.lists[code]:
+			var n := int(p.get("num", 0))
+			if n <= 0 or seen.has(n):
+				clashes += 1
+			seen[n] = true
+	_check(clashes == 0, "Every club's list has one player per number after the League Draft (%d clashes)" % clashes)
 	var mine: Array = season.lists["PMB"]
 	_check(mine.size() >= Prospects.MIN_LIST and mine.size() <= Ratings.LIST_SIZE,
 			"The created club drafts a full list (%d)" % mine.size())
@@ -501,6 +512,18 @@ func _test_created_club_career() -> void:
 			"The loaded career brings its club back, guernsey and all")
 	_check(GameState.my_club == "PMB" and (GameState.season.lists["PMB"] as Array).size() == mine.size(),
 			"The created club's list survives the round trip")
+	# A save from before the fix: two players in one number. Loading fixes it,
+	# and only the later one changes.
+	var pmb: Array = GameState.season.lists["PMB"]
+	var keep_num := int(pmb[0]["num"])
+	var other_was := int(pmb[1]["num"])
+	pmb[1]["num"] = keep_num
+	_check(GameState.save_career(), "(a save with a doubled number)")
+	GameState.reset()
+	_check(GameState.load_career(), "(it loads)")
+	pmb = GameState.season.lists["PMB"]
+	_check(int(pmb[0]["num"]) == keep_num and int(pmb[1]["num"]) != keep_num,
+			"Loading gives the doubled number back to its first holder and the other a free one (%d, was %d)" % [int(pmb[1]["num"]), other_was])
 	_check(Coaches.staff(GameState.coaches, "PMB") == staff, "The created club's staff survives the round trip")
 	# A save made before the fix: the created club has nobody. Loading staffs it.
 	for cid in GameState.coaches:
