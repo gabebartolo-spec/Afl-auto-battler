@@ -31,6 +31,8 @@ func run() -> void:
 	var games := {}
 	var zones := {}
 	var loose_ic := 0.0
+	# Where the loose man's intercepts come from (events he is named on).
+	var loose_src := {"rebound": 0, "pressure": 0, "mark": 0}
 	var loose_games := 0
 	var total := 0.0
 	var matches := 0
@@ -86,6 +88,13 @@ func run() -> void:
 				# intercepting side's frame.
 				for ev in res["events"]:
 					var kind := str(ev.get("kind", ""))
+					var pid := str(ev.get("player_id", ""))
+					var es := int(ev.get("side", -1))
+					if es >= 0 and es <= 1 and pid != "" and pid == str(loose[es]):
+						if kind == "rebound" or kind == "pressure":
+							loose_src[kind] = int(loose_src[kind]) + 1
+						elif kind == "mark" and bool(ev.get("intercept", false)):
+							loose_src["mark"] = int(loose_src["mark"]) + 1
 					if kind != "rebound" and kind != "pressure" and not (kind == "mark" and bool(ev.get("intercept", false))):
 						continue
 					var side := int(ev.get("side", 0))
@@ -106,6 +115,11 @@ func run() -> void:
 		tl += "  %s %.1f" % [k, float(team[k]) / float(maxi(1, matches * 2))]
 	print(tl)
 	print("loose defender: %.2f a game over %d games (real best ~8)" % [loose_ic / float(maxi(1, loose_games)), loose_games])
+	var lg := float(maxi(1, loose_games))
+	var named := int(loose_src["rebound"]) + int(loose_src["pressure"]) + int(loose_src["mark"])
+	print("  from: rebounds %.2f, pressure %.2f, intercept marks %.2f, ball won at a chain's start %.2f a game" % [
+			float(loose_src["rebound"]) / lg, float(loose_src["pressure"]) / lg, float(loose_src["mark"]) / lg,
+			(loose_ic - float(named)) / lg])
 	print("per team a game: %.1f" % (total / float(maxi(1, matches * 2))))
 	MatchSim.zone_intercepts = true   # a static: don't leak the old contest
 	print("where (intercept events by role, share of that role's):")
