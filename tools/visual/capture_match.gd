@@ -15,6 +15,8 @@ extends SceneTree
 ##   --nocam         whole oval, no camera (trails are in screen space)
 ##   --movie         also write every frame at 30 fps (<out>_f0000.png ...),
 ##                   for capture.yml to make <out>.mp4
+##   --loose SIDE    that side plays its best interceptor loose
+##   --tag SIDE      that side tags the other side's best midfielder
 ##   --flood SIDE    that side floods behind the ball all match (0 home, 1 away)
 ##   --stack SIDE    that side stacks every centre ball-up
 ##   --kside S       with --kind, only events by side S
@@ -54,6 +56,21 @@ func _run() -> void:
 	var sim = sim_script.new(squad_script.new(home_code, db.club_list(home_code), true, home_code),
 			squad_script.new(away_code, db.club_list(away_code), false, away_code),
 			int(args.get("seed", "42")))
+	if args.has("loose"):
+		# --loose SIDE: that side plays its best interceptor loose.
+		# Loaded, not named: a --script tool compiles before the autoloads exist.
+		var ls := int(args["loose"])
+		var best: Dictionary = load("res://scripts/sim/Matchups.gd").best_interceptor(sim.squads[ls].ground, 0.0)
+		if not best.is_empty():
+			sim.set_interceptor(ls, str(best["id"]), false)
+	if args.has("tag"):
+		# --tag SIDE: that side tags the other side's best midfielder.
+		var ts := int(args["tag"])
+		var mids: Array = (sim.squads[1 - ts].ground as Array).filter(func(p): return str(p["role"]) == "MID")
+		mids.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
+		if not mids.is_empty():
+			sim.set_tactics(ts, {"gameplan": "balanced", "tag_id": str(mids[0]["id"])})
+
 	if args.has("flood"):
 		# --flood SIDE: that side floods behind the ball all match (the
 		# coach's "Flood behind the ball" call, held on), for the ARD-M8-003

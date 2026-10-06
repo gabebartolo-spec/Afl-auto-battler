@@ -38,3 +38,20 @@ It is not a read of every string. Strings built from data (names, club lines, ne
 ## Not covered, and next
 
 Reports, news headlines and clubroom notices are FL-006 and FL-001's remaining surfaces, and wait on the director's copy review ([the review sheet](AFL_FLAVOUR_FL001_COPY_REVIEW.md)). This audit found few engine terms in the fixed UI strings, which suggests the larger risk is in generated text (news, reports, match notes). A second pass could sample those from a played-out season.
+
+## Second pass: the screens the first audit did not read (2026-10-06)
+
+Scope: Main (how to play), StatGuide, Training, Draft, Offseason, Season Review, Coaching, Staff, Selection, List, the player and coach sheets, and the news lines in `GameState`. Fixed text only; generated match notes and reports still need a played-out sample.
+
+**Fixed (copy only, in this PR):**
+
+- `StatGuide.gd` Overall (OVR): "The match itself rolls the individual stats, not OVR." is now "In a match it is the individual stats that count, not OVR." "Rolls" is a dice word.
+
+**For the director (debatable, not changed):**
+
+1. **"XP"** appears across Training, the formation callout and the how-to-play text ("+1 · 40 XP", "banked XP"). It is a role-playing word, not a footy one. A footy alternative would be a plain "training points" or "development", but XP is the name of the whole system and tests and saves use it. Keep or rename?
+2. **"Attributes"** is the heading on the player sheet (`PlayerSheet.gd:158`). "Ratings" or "Stats" is closer to how the rest of the game talks. Keep or change?
+3. **"Simulate" and "simulated"** in the sim-round confirmations (`HubScene.gd:782, 783, 847`) sit with the "Sim Round N" decision already listed above.
+4. **StatGuide mechanism prose** says things like "lifts the goal chance", "weighted strongly toward the best kick" and "a small chance of injury". It is the rules lookup, which the philosophy wants exact, so I left it. If the director wants it plainer, the rewrite is a separate pass.
+
+**Checked and fine:** "OVR" and "POT" (AFL-game convention), the finals names, "Honour roll", "flag", "Team stats", and the news lines that quote an OVR.
