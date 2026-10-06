@@ -38,4 +38,4 @@ match_visual 93
 league_balance 23
 calibration 17
 balance 13
-assets 58
+assets 71
