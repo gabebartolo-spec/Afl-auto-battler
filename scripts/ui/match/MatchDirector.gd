@@ -1561,12 +1561,20 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 	if has and chase >= 0:
 		# Sent to their loose man: he stands where the spare would sit.
 		world = world.lerp((tokens[chase]["goal"] as Vector2), 0.6)
+	var flooding := not has and _flooding(side)
 	if not has:
 		var o := int(t["match"])
 		if _is_loose(t, ball_p):
 			# The spare defender sits in the hole between the ball and goal.
 			world = ball_p.lerp(own_goal, 0.5)
 			world.y *= 0.6
+		elif flooding and (role == "MID" or role == "RUCK") and not bool(t.get("tagging", false)):
+			# Flood behind the ball (the match's call, from the timeline): the
+			# midfielders leave their men and fold back into the space between
+			# the ball and goal, across the corridor.
+			var hole := ball_p.lerp(own_goal, FLOOD_DEPTH)
+			hole.y = lerpf(ball_p.y, base.y * 0.55, 0.6)
+			world = world.lerp(hole, 0.75)
 		elif o >= 0:
 			var og: Vector2 = tokens[o]["goal"]
 			if og.distance_to(world) < 35.0:
@@ -1575,7 +1583,23 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 				if bool(t.get("tagging", false)):
 					w = 0.85   # a tagger plays the man
 				world = world.lerp(mark, w)
+		if flooding and role == "FWD":
+			# ...and the forwards push up toward the ball, so the numbers are
+			# behind it rather than waiting at the other end.
+			world.x = lerpf(world.x, ball_p.x, FLOOD_PUSH)
 	return MatchMotion.clamp_to_oval(world, 3.0)
+
+
+## How far back from the ball a flooding midfield sits (share of the way to
+## its own goal), and how far its forwards come up toward the ball.
+const FLOOD_DEPTH := 0.35
+const FLOOD_PUSH := 0.45
+
+
+## The side's recorded calls include a flood (MatchSim.BURSTS, on the timeline
+## from the chain it was made until it runs out).
+func _flooding(side: int) -> bool:
+	return ((_tac[side] as Dictionary).get("bursts", []) as Array).has("flood")
 
 
 ## The loose defender while his side defends: the one the match named

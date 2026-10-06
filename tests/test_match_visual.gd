@@ -38,6 +38,7 @@ func run() -> void:
 	_test_numbers_readable()
 	_test_oval_people(res)
 	_test_broadcast_vignettes()
+	_test_flood_shape(res)
 	GameState.replay_seed = 0
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -1040,3 +1041,28 @@ func _test_score_colour() -> void:
 	_check(legible != "" and UiKit.score_colour(legible) == (GameDB.club_colours(legible) as Array)[2],
 			"A club whose accent reads keeps its own colour for its score")
 	UiKit.apply_appearance(was)
+
+
+## ARD-M8-003 step 3, the first demonstration: a side that floods behind the
+## ball (its own recorded call) has visibly more players between the ball and
+## its goal on the opposition's entries than ordinary coverage, and only when
+## the match recorded the call.
+func _test_flood_shape(res: Dictionary) -> void:
+	var d := MatchDirector.new()
+	d.setup(res, res["events"])
+	var behind := func(bursts: Array) -> int:
+		d._tac[1] = {"side": 1, "bursts": bursts}
+		var n := 0
+		# Side 0 attacks toward +x: the ball in side 1's half, near and far.
+		for bx in [20.0, 40.0, 55.0]:
+			for t in d.tokens:
+				if int(t["side"]) == 1 and (d._structure_spot(t, Vector2(bx, 0.0), 0) as Vector2).x > bx:
+					n += 1
+		return n
+	var plain: int = behind.call([])
+	var other: int = behind.call(["surge"])
+	var flood: int = behind.call(["flood"])
+	_check(flood >= plain + 6,
+			"Flooding puts more players behind the ball on the opposition's entries (%d against %d over three entries)" % [flood, plain])
+	_check(other == plain, "Only a recorded flood changes the shape (%d with another call, %d without)" % [other, plain])
+	d._tac[1] = {}
