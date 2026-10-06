@@ -56,7 +56,7 @@ func _build() -> void:
 		body.add_child(UiKit.rule())
 
 	body.add_child(UiKit.spacer(14))
-	var others := UiKit.btn("Your club" if not mine else "Another club's staff", 15)
+	var others := UiKit.btn("Your club" if not mine else "Another club's staff", UiKit.BODY)
 	others.name = "OtherClubs"
 	others.flat = not _others_open
 	others.pressed.connect(func():
@@ -161,7 +161,7 @@ func _vacancy_card(job: String, vac: Dictionary) -> Control:
 	var list := GameState.staff_shortlist(job)
 	for i in range(list.size()):
 		v.add_child(_candidate_row(job, list[i], i))
-	var auto := UiKit.btn("Auto-fill", 15)
+	var auto := UiKit.btn("Auto-fill", UiKit.BODY)
 	auto.name = "AutoFill_" + job
 	auto.custom_minimum_size = Vector2(0, 44)
 	auto.pressed.connect(func():

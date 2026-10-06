@@ -91,6 +91,10 @@ var trade_declined := {}
 ## Your players and picks on the trade table this off-season (ids): clubs
 ## that want one say so with an offer. See put_on_trade_table.
 var trade_table: Array = []
+## Players who have asked to be traded this off-season (TradeRequests):
+## {player id: {"club", "why": "home" or "games", "to": [clubs]}}. Met by a
+## trade, or lapsing when the next off-season opens.
+var trade_requests := {}
 var offseason_staff := {}        # your staff (job -> cid) when the off-season opened
 ## Annual discretionary department funding for the coming season. It is an
 ## allocation, not cash carried between years (ClubBudget).
@@ -224,6 +228,17 @@ func forge_player() -> Dictionary:
 
 func set_forge_player(spec: Dictionary) -> void:
 	set_setting("forge_player", spec.duplicate(true))
+
+
+## The club made in Club Forge (ARD-M7-009), kept outside any career like the
+## player: a ClubForge spec, or {}. New career brings it in (create_club).
+func forge_club() -> Dictionary:
+	var v = get_setting("forge_club", {})
+	return (v as Dictionary).duplicate(true) if v is Dictionary else {}
+
+
+func set_forge_club(spec: Dictionary) -> void:
+	set_setting("forge_club", spec.duplicate(true))
 
 
 func set_setting(key: String, value) -> void:
@@ -418,6 +433,7 @@ func save_career() -> bool:
 		"trade_offers": trade_offers,
 		"trade_declined": trade_declined,
 		"trade_table": trade_table,
+		"trade_requests": trade_requests,
 		"news": news,
 		"difficulty": difficulty,
 		"board": board,
@@ -546,6 +562,7 @@ func load_career() -> bool:
 	trade_offers = state.get("trade_offers", [])
 	trade_declined = state.get("trade_declined", {})
 	trade_table = state.get("trade_table", [])
+	trade_requests = state.get("trade_requests", {})
 	news = state.get("news", [])
 	board = state.get("board", {})
 	week_event = state.get("week_event", {})
@@ -858,6 +875,7 @@ func reset() -> void:
 	trade_offers = []
 	trade_declined = {}
 	trade_table = []
+	trade_requests = {}
 	offseason_staff = {}
 	department_budget = ClubBudget.defaults()
 	department_budget_year = 0
@@ -892,6 +910,10 @@ func reset() -> void:
 	draftee_pool = _first_class(season_year)
 
 
+## The career seed the first class was made from (see start_season).
+var _first_class_seed := 0
+
+
 ## Create the career's custom prospect from `spec` (Prospects.custom_problem
 ## lists what it needs). He joins the first National Draft class, drafted at
 ## this season's end, like any other prospect: no club, pick, OVR or POT is
@@ -919,6 +941,7 @@ func add_custom_prospect(spec: Dictionary) -> String:
 ## The draft class a career starting in `year` drafts at that season's end:
 ## generated and aged the way _start_next_season prepares next year's.
 func _first_class(year: int) -> Array:
+	_first_class_seed = career_seed
 	var generated := Prospects.generate_class(year, career_seed)
 	class_tiers[str(year)] = Prospects.class_tier(career_seed, year)
 	GameDB.register_draftees(generated)
@@ -1453,6 +1476,13 @@ func start_season(club_code: String, list: Array) -> void:
 	# Career copies, not the shared database rows. Training must not rewrite
 	# the draft pool for the next career.
 	my_list = lists.get(my_club, [])
+	# reset() made the first class from the seed it rolled; a career whose seed
+	# was set since (a replay, an audit) makes it from its own, or two runs of
+	# the same seed draft different classes.
+	if drafted_draftees.is_empty() and _first_class_seed != career_seed:
+		# The career's own prospect (add_custom_prospect) stays in the class.
+		var own := draftee_pool.filter(func(q): return str(q.get("id", "")) == custom_prospect_id)
+		draftee_pool = _first_class(season_year) + own
 	Workload.reset(lists)
 	# The real 2026 season is history before the career starts: every real
 	# player's record runs through 2026, at the club he played it for. A
@@ -3519,6 +3549,7 @@ func open_offseason() -> void:
 	# lists they'll actually have.
 	trade_offers = []
 	trade_table = []
+	_collect_trade_requests()
 	_open_trade_market()
 	# The market opens: rivals put their offers on the table.
 	market_stats = {}
@@ -4425,6 +4456,11 @@ func evaluate_trade(club: String, mine: Array, theirs: Array) -> Dictionary:
 		return {"ok": false, "reason": str(g["error"]) if str(g["error"]) != "" else str(t["error"])}
 	var give: Array = g["assets"]
 	var take: Array = t["assets"]
+	var wont := _wont_go(give, my_club)
+	if wont == "":
+		wont = _wont_go(take, club)
+	if wont != "":
+		return {"ok": false, "reason": wont}
 	var ctx := trade_context(club)
 	var names := {}
 	for p in give + take:
@@ -4441,7 +4477,11 @@ func trade_context(club: String) -> Dictionary:
 	var games := {}
 	for id in season_tally:
 		games[str(id)] = int((season_tally[id] as Dictionary).get("games", 0))
-	return {"phase": club_phase(club), "games": games, "name": GameDB.club_name(club)}
+	var asked := {}
+	for id in trade_requests:
+		if str(trade_requests[id]["club"]) == club:
+			asked[str(id)] = true
+	return {"phase": club_phase(club), "games": games, "name": GameDB.club_name(club), "asked": asked}
 
 
 ## Where a club is in its cycle - "rebuilding", "building" or "contending" -
@@ -4580,7 +4620,11 @@ const TRADE_MAX := 5
 ## At most this many offers to you, and trades between rival clubs, in an
 ## off-season: a market that moves, not one that churns.
 const MAX_OFFERS := 2
-const MAX_AI_TRADES := 3
+const MAX_AI_TRADES := 12
+## Most trades one rival club makes with other rivals in an off-season.
+const DEALS_PER_CLUB := 2
+## Bids a buyer tries, dearest first, for one it would stand by.
+const NEGOTIATE_STEPS := 6
 ## Targets a rival buyer asks about, down its wish list, before it gives up
 ## on trading this year. Its first asks are often the young stars nobody
 ## sells; the deals that do get done come further down.
@@ -4672,6 +4716,7 @@ func _open_trade_market() -> void:
 		return
 	var prospects := trade_prospects()
 	_freeze_league(true)
+	_requested_trades(prospects)
 	_ai_trades(prospects)
 	_make_trade_offers(prospects)
 	_freeze_league(false)
@@ -4723,6 +4768,8 @@ func _bids(buyer: String, most: float, prospects: Dictionary) -> Array:
 		return str(a["id"]) < str(b["id"]))
 	for k in range(10, list.size()):
 		var q: Dictionary = list[k]
+		if trade_requests.has(str(q["id"])):
+			continue  # he goes only where he asked to, not as a makeweight
 		pool.append([q, float(TradeValue.value(q, {"phase": phase, "bars": bars, "proj": proj, "own": true})["total"])])
 	var out := []
 	for i in range(pool.size()):
@@ -4767,20 +4814,24 @@ func _bid(club: String, asset: Dictionary, worth: float, shade: float, prospects
 ## _trade_pool for who is on offer). The buyer bids from its own valuation,
 ## cheapest first, and the seller takes the first bid it values enough -
 ## neither sees the other's sums. Turned down, the buyer tries its next
-## target, up to TARGET_TRIES. A club does one deal at most; never with you;
-## at most MAX_AI_TRADES a year, often none.
+## target, up to TARGET_TRIES. A club is in DEALS_PER_CLUB deals at most; never with you;
+## at most MAX_AI_TRADES a year, besides the ones players asked for.
 func _ai_trades(prospects: Dictionary) -> void:
 	var done := 0
-	var busy := {my_club: true}
-	for buyer in _club_order("ai_trades"):
+	# Every club gets a turn as a buyer, then a second turn: no club buys
+	# twice before the rest have had their chance.
+	var turns := []
+	for _round in range(DEALS_PER_CLUB):
+		turns.append_array(_club_order("ai_trades"))
+	for buyer in turns:
 		if done >= MAX_AI_TRADES:
 			break
-		if busy.has(buyer):
+		if _deals(buyer) >= DEALS_PER_CLUB:
 			continue
 		var others := []
 		var club_of := {}
 		for code in _club_order("sellers"):
-			if busy.has(code) or code == buyer:
+			if _deals(code) >= DEALS_PER_CLUB or code == buyer:
 				continue
 			for q in _trade_pool(buyer, code):
 				others.append(q)
@@ -4796,15 +4847,166 @@ func _ai_trades(prospects: Dictionary) -> void:
 			var pkg := _negotiate(buyer, seller, target, _bids(buyer, most, prospects), prospects)
 			if pkg.is_empty():
 				continue
-			_execute_trade(buyer, seller, pkg, [target])
-			var said := "%s get %s from %s for %s." % [GameDB.club_name(buyer),
-					_names([target]), GameDB.club_name(seller), _names(pkg)]
-			offseason_log.append({"kind": "ai_trade", "club": buyer, "with": seller,
-					"in": [str(target["id"])], "out": pkg.map(func(a): return str(a["id"])), "text": said})
-			add_news("trade", "Trade: " + said)
-			busy[buyer] = true
-			busy[seller] = true
+			_log_ai_trade(buyer, seller, target, pkg, "")
 			done += 1
+			break
+
+
+## A trade between two rival clubs: done, logged and in the news. `why`: the
+## request it met ("home", "games") or "".
+func _log_ai_trade(buyer: String, seller: String, target: Dictionary, pkg: Array, why: String) -> void:
+	# Where each club stood when it dealt: a phase ranks a list against the
+	# league's, so earlier trades can move it.
+	var phases := [club_phase(buyer), club_phase(seller)]
+	_execute_trade(buyer, seller, pkg, [target])
+	var said := "%s get %s from %s for %s." % [GameDB.club_name(buyer),
+			_names([target]), GameDB.club_name(seller), _names(pkg)]
+	var row := {"kind": "ai_trade", "club": buyer, "with": seller,
+			"in": [str(target["id"])], "out": pkg.map(func(a): return str(a["id"])), "text": said, "phases": phases}
+	if why != "":
+		row["request"] = why
+	offseason_log.append(row)
+	add_news("trade", "Trade: " + said)
+
+
+## Trades a club has made with other rivals this off-season.
+func _deals(club: String) -> int:
+	if club == my_club:
+		return DEALS_PER_CLUB
+	var n := 0
+	for e in offseason_log:
+		if str(e.get("kind", "")) == "ai_trade" and (str(e["club"]) == club or str(e["with"]) == club):
+			n += 1
+	return n
+
+
+# ---------------------------------------------------------------------------
+# Trade requests (TradeRequests): players asking to go home, or for a game
+# ---------------------------------------------------------------------------
+## Each club's home state, for the clubs in this season.
+func _club_states() -> Dictionary:
+	var out := {}
+	for code in GameDB.active_clubs(season_year):
+		var s := str(TradeRequests.CLUB_STATES.get(str(code), ""))
+		if s == "":
+			s = str(GameDB.club(str(code)).get("state", ""))
+		if s != "":
+			out[str(code)] = s
+	return out
+
+
+## The season is over: who asks to be traded. Yours are in the news, and so
+## is anyone who names your club.
+func _collect_trade_requests() -> void:
+	trade_requests = {}
+	var states := _club_states()
+	var bars := {}
+	for code in states:
+		if season.lists.has(code):
+			bars[code] = TradeValue.selection_bars(season.lists[code])
+	for code in states:
+		if not season.lists.has(code):
+			continue
+		var side := {}
+		for q in Ratings.select_22(season.lists[code])["ground"]:
+			side[str(q["id"])] = true
+		for p in season.lists[code]:
+			var id := str(p["id"])
+			var starts := []
+			if not side.has(id):
+				var keen := []
+				for other in bars:
+					var f := TradeValue.fit(p, bars[other])
+					if other != code and f >= 1.0:
+						keen.append([str(other), f])
+				keen.sort_custom(func(a, b):
+					if float(a[1]) != float(b[1]):
+						return float(a[1]) > float(b[1])
+					return str(a[0]) < str(b[0]))
+				starts = keen.map(func(k): return str(k[0]))
+			var games := int((season_tally.get(id, {}) as Dictionary).get("games", 0))
+			var ask := TradeRequests.asks(p, str(code), season_year, states, starts, side.has(id), games)
+			if ask.is_empty():
+				continue
+			ask["club"] = str(code)
+			trade_requests[id] = ask
+			if str(code) == my_club or (ask["to"] as Array).has(my_club):
+				add_news("trade", _request_line(p, ask))
+
+
+## The requests that concern you while trades are open: your players who
+## have asked out, and players elsewhere who named your club. Player ids.
+func my_trade_requests() -> Array:
+	if not offseason_open():
+		return []
+	var out := []
+	for id in trade_requests:
+		var r: Dictionary = trade_requests[id]
+		if str(r["club"]) == my_club or (r["to"] as Array).has(my_club):
+			out.append(str(id))
+	out.sort()
+	return out
+
+
+## A request in a line (see _request_line); "" if there is none.
+func trade_request_line(id: String) -> String:
+	if not trade_requests.has(id):
+		return ""
+	return _request_line(_find_player(id), trade_requests[id])
+
+
+## "Jack Smith (Carlton) has asked to be traded home: Adelaide or Port
+## Adelaide." / "... has asked for a trade to get a game: ..."
+func _request_line(p: Dictionary, ask: Dictionary) -> String:
+	var who := GameDB.player_display_name(p)
+	var at := GameDB.club_name(str(ask["club"]))
+	var names: Array = (ask["to"] as Array).map(func(c): return GameDB.club_name(str(c)))
+	var to := str(names[-1]) if names.size() < 2 else ", ".join(names.slice(0, -1)) + " or " + str(names[-1])
+	if str(ask["why"]) == "home":
+		return "%s (%s) has asked to be traded home: %s." % [who, at, to]
+	return "%s (%s) has asked for a trade to get a game: %s." % [who, at, to]
+
+
+## A player who has asked out goes only to a club he named: the reason one
+## of `assets` (from `from`) won't go to `to`, or "".
+func _wont_go(assets: Array, to: String) -> String:
+	for a in assets:
+		if Contracts.is_pick(a) or not trade_requests.has(str(a["id"])):
+			continue
+		var ask: Dictionary = trade_requests[str(a["id"])]
+		if not (ask["to"] as Array).has(to):
+			return "%s has asked to go to %s." % [GameDB.player_display_name(a),
+					" or ".join((ask["to"] as Array).map(func(c): return GameDB.club_name(str(c))))]
+	return ""
+
+
+## Rival clubs a player asked to join try to get him first, each bidding by
+## its own valuation; his club, knowing it can't keep him, takes less
+## (TradeRequests.KEEP). Yours are left to you (offers come to you instead).
+func _requested_trades(prospects: Dictionary) -> void:
+	var ids := trade_requests.keys()
+	ids.sort()
+	for id in ids:
+		if not trade_requests.has(id):
+			continue  # met already
+		var ask: Dictionary = trade_requests[id]
+		var seller := str(ask["club"])
+		if seller == my_club or _deals(seller) >= DEALS_PER_CLUB:
+			continue
+		var target := {}
+		for q in season.lists.get(seller, []):
+			if str(q["id"]) == str(id):
+				target = q
+		if target.is_empty():
+			continue
+		for buyer in ask["to"]:
+			if str(buyer) == my_club or not season.lists.has(str(buyer)) or _deals(str(buyer)) >= DEALS_PER_CLUB:
+				continue
+			var most := _worth_to(str(buyer), target, prospects) / (1.0 + Contracts.TRADE_MARGIN)
+			var pkg := _negotiate(str(buyer), seller, target, _bids(str(buyer), most, prospects), prospects)
+			if pkg.is_empty():
+				continue
+			_log_ai_trade(str(buyer), seller, target, pkg, str(ask["why"]))
 			break
 
 
@@ -4814,9 +5016,10 @@ func _ai_trades(prospects: Dictionary) -> void:
 ## rebuilder's established players are on the market to every contender,
 ## not only to you; its own valuation still decides what it lets go.
 func _trade_pool(buyer: String, seller: String) -> Array:
-	if club_phase(buyer) == "contending" and club_phase(seller) == "rebuilding":
-		return season.lists[seller]
-	return _fringe(seller)
+	var pool: Array = season.lists[seller] if club_phase(buyer) == "contending" \
+			and club_phase(seller) == "rebuilding" else _fringe(seller)
+	return pool.filter(func(q): return not trade_requests.has(str(q["id"])) \
+			or (trade_requests[str(q["id"])]["to"] as Array).has(buyer))
 
 
 ## The players outside a club's starting side (its bench and beyond) - who
@@ -4837,26 +5040,36 @@ func _fringe(code: String) -> Array:
 	return _fringe_cache[code]
 
 
-## The buyer's best bid goes to the seller first; turned down, there's no
-## deal. Taken, the buyer works back down a handful of cheaper bids for the
-## least the seller would still take. Each side judges only by its own
-## valuation. [] when there's no deal.
+## The buyer's best bid it would stand by goes to the seller first: its
+## dearest, or failing that the next of a handful down the range (a package
+## priced against its own list can still look a little dear once the whole
+## trade is weighed). Turned down, there's no deal. Taken, the buyer works
+## back down a handful of cheaper bids for the least the seller would still
+## take. Each side judges only by its own valuation. [] when there's no deal.
 func _negotiate(buyer: String, seller: String, target: Dictionary, bids: Array, prospects: Dictionary) -> Array:
 	if bids.is_empty():
 		return []
-	var takes := func(pkg: Array) -> bool:
-		return bool(_club_verdict(seller, buyer, [target], pkg, Contracts.TRADE_MARGIN, prospects)["ok"]) \
-				and bool(_club_verdict(buyer, seller, pkg, [target], Contracts.TRADE_MARGIN, prospects)["ok"])
-	var best: Array = bids[bids.size() - 1][0]
-	if not takes.call(best):
+	var sells := func(pkg: Array) -> bool:
+		return bool(_club_verdict(seller, buyer, [target], pkg, Contracts.TRADE_MARGIN, prospects)["ok"])
+	var buys := func(pkg: Array) -> bool:
+		return bool(_club_verdict(buyer, seller, pkg, [target], Contracts.TRADE_MARGIN, prospects)["ok"])
+	var n := bids.size()
+	var top := -1
+	var tries := mini(NEGOTIATE_STEPS, n)
+	for k in range(tries):
+		var at := n - 1 - int(floor(float(k) * float(n - 1) / float(maxi(1, tries - 1))))
+		if buys.call(bids[at][0]):
+			top = at
+			break
+	if top < 0 or not sells.call(bids[top][0]):
 		return []
-	var steps := mini(6, bids.size() - 1)
+	var steps := mini(6, top)
 	for k in range(steps):
-		var at := int(floor(float(k) * float(bids.size() - 1) / float(maxi(1, steps))))
+		var at := int(floor(float(k) * float(top) / float(maxi(1, steps))))
 		var pkg: Array = bids[at][0]
-		if takes.call(pkg):
+		if sells.call(pkg) and buys.call(pkg):
 			return pkg
-	return best
+	return bids[top][0]
 
 
 ## A few rival clubs with a real need put an offer to you: one of your
@@ -4866,10 +5079,34 @@ func _negotiate(buyer: String, seller: String, target: Dictionary, bids: Array, 
 ## down isn't made again the next year.
 func _make_trade_offers(prospects: Dictionary) -> void:
 	var asked := {}
-	for club in _club_order("offers"):
-		if trade_offers.size() >= MAX_OFFERS:
+	# Your players who have asked out: the first club he named that can
+	# make an offer does. These don't count against MAX_OFFERS.
+	var ids := trade_requests.keys()
+	ids.sort()
+	for id in ids:
+		var ask: Dictionary = trade_requests[id]
+		var p := _find_player(str(id))
+		if str(ask["club"]) != my_club or p.is_empty():
+			continue
+		for club in ask["to"]:
+			var key := "%s|%s" % [str(club), str(id)]
+			if not season.lists.has(str(club)) or (trade_declined.has(key) and int(trade_declined[key]) >= season_year - 1):
+				continue
+			var pkg := _bid(str(club), p, _worth_to(str(club), p, prospects), UNASKED_BID, prospects)
+			if pkg.is_empty():
+				continue
+			trade_offers.append({"club": str(club), "give": pkg.map(func(a): return str(a["id"])),
+					"take": [str(id)], "status": "open", "request": true})
+			asked[str(id)] = true
+			add_news("trade", "%s have made an offer for %s." % [GameDB.club_name(str(club)), _names([p])])
 			break
-		var target := _trade_target(club, my_list, asked)
+	var made := 0
+	for club in _club_order("offers"):
+		if made >= MAX_OFFERS:
+			break
+		var open := my_list.filter(func(q): return not trade_requests.has(str(q["id"])) \
+				or (trade_requests[str(q["id"])]["to"] as Array).has(club))
+		var target := _trade_target(club, open, asked)
 		if target.is_empty():
 			continue
 		var key := "%s|%s" % [club, str(target["id"])]
@@ -4881,6 +5118,7 @@ func _make_trade_offers(prospects: Dictionary) -> void:
 		trade_offers.append({"club": club, "give": pkg.map(func(a): return str(a["id"])),
 				"take": [str(target["id"])], "status": "open"})
 		asked[str(target["id"])] = true
+		made += 1
 		add_news("trade", "%s have made an offer for %s." % [GameDB.club_name(club), _names([target])])
 
 
@@ -4923,6 +5161,8 @@ func put_on_trade_table(id: String) -> Dictionary:
 	_freeze_league(true)
 	var keen := []
 	for club in _club_order("table"):
+		if _wont_go([asset], club) != "":
+			continue
 		var v := _worth_to(club, asset, prospects)
 		if v > 0.0:
 			keen.append([club, v])
@@ -5021,6 +5261,8 @@ func _execute_trade(a: String, b: String, a_gives: Array, b_gives: Array) -> voi
 		_move_asset(x, a, b)
 	for x in b_gives:
 		_move_asset(x, b, a)
+	for x in a_gives + b_gives:
+		trade_requests.erase(str(x["id"]))
 	if _frozen_fingerprint != "":
 		_freeze_league(true)
 	var leaving := a_gives if a == my_club else (b_gives if b == my_club else [])

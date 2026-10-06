@@ -201,7 +201,7 @@ func _formation_group(v: VBoxContainer, title: String, ids: Array, placed_as: St
 
 func _formation_player(id: String, placed_as: String, auto: bool) -> Control:
 	var p := GameState.list_player(id)
-	var b := UiKit.btn("", 13)
+	var b := UiKit.btn("", UiKit.SECONDARY)
 	b.name = "FormationPlayer_" + id
 	b.custom_minimum_size = Vector2(0, 58)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -214,10 +214,10 @@ func _formation_player(id: String, placed_as: String, auto: bool) -> Control:
 	box.offset_top = 5
 	box.offset_bottom = -5
 	b.add_child(box)
-	var name := UiKit.ellipsis(GameDB.player_display_name(p), 13, UiKit.TEXT, true)
+	var name := UiKit.ellipsis(GameDB.player_display_name(p), UiKit.SECONDARY, UiKit.TEXT, true)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(name)
-	var spot := UiKit.line(_formation_label(placed_as), 11, UiKit.MUTED)
+	var spot := UiKit.line(_formation_label(placed_as), UiKit.FINE, UiKit.MUTED)
 	spot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(spot)
 	if Ratings.available(p):
@@ -272,9 +272,9 @@ func _slot_issue(sel: Dictionary, role: String, target: int) -> String:
 	return "%s: %d named; only %d can play there." % [label, named, target]
 
 
-## The line synergies your 18 switch on - what the side is good at - and
-## the full rules one tap away. No "one more X" counts here: the rules are
-## open, the choice is yours.
+## The line synergies your 18 switch on - what the side is good at - any
+## one it is a single player short of (a fact, never a suggested swap: the
+## choice is yours), and the full rules one tap away.
 func _synergy_view() -> Control:
 	var h := UiKit.hbox(8)
 	h.name = "Synergies"
@@ -284,8 +284,15 @@ func _synergy_view() -> Control:
 			on.append(Traits.with_effect(str(r["key"])))
 	var l := _para("Your side has: " + ", ".join(on) + "." if not on.is_empty()
 			else "No line synergies in this side.", 13, UiKit.GOOD if not on.is_empty() else UiKit.MUTED)
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(l)
+	var lines := UiKit.vbox(2)
+	lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lines.add_child(l)
+	var short := Traits.short_text(GameState.my_squad().ground)
+	if short != "":
+		var s := _para(short, 13, UiKit.MUTED)
+		s.name = "SynergyShort"
+		lines.add_child(s)
+	h.add_child(lines)
 	var rules := UiKit.btn("Synergies", 14)
 	rules.name = "SynergyRules"
 	rules.custom_minimum_size = Vector2(104, 44)
@@ -319,7 +326,7 @@ func _show_synergies() -> void:
 		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		head.add_child(name_l)
 		if bool(active.get(key, false)):
-			head.add_child(UiKit.line("On", 13, UiKit.GOOD, true))
+			head.add_child(UiKit.line("On", UiKit.SECONDARY, UiKit.GOOD, true))
 		row.add_child(_para("%s %s" % [str(s.get("about", "")), str(s.get("does", ""))], 13, UiKit.TEXT))
 		var req := _para(Traits.requirement_text(str(key)), 13, UiKit.MUTED)
 		req.name = "Requires"
@@ -335,7 +342,7 @@ func _show_synergies() -> void:
 		var wl := _para("\n".join(who), 13, UiKit.TEXT)
 		wl.name = "Carriers"
 		row.add_child(wl)
-	var close := UiKit.btn("Close", 16, true)
+	var close := UiKit.btn("Close", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 48)
 	close.pressed.connect(_close_synergies)
 	box["footer"].add_child(close)
@@ -438,14 +445,14 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	var h := UiKit.hbox(6)
 	who_box.add_child(h)
 	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
-	var nm := UiKit.ellipsis(GameDB.player_display_name(p), 15, UiKit.TEXT, true)
+	var nm := UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(nm)
 	var weeks := int(p.get("injury_weeks", 0))
 	var suspended := int(p.get("suspension_weeks", 0))
 	var m := ClubLife.morale(p)
 	if m < 40:
-		h.add_child(UiKit.line("Unhappy", 11, UiKit.BAD))
+		h.add_child(UiKit.line("Unhappy", UiKit.FINE, UiKit.BAD))
 	if bool(p.get("rested", false)):
 		h.add_child(UiKit.line("Rested", 12, UiKit.MUTED))
 	if suspended > 0:
@@ -467,7 +474,7 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 		h.add_child(UiKit.line("Out of position", 12, UiKit.MUTED))
 	# His rating sits outside the tap area, beside the position button, so a
 	# long trait line never runs under either.
-	var ovr := UiKit.line("%d" % int(p["overall"]), 16, UiKit.TEXT, true)
+	var ovr := UiKit.line("%d" % int(p["overall"]), UiKit.NAME, UiKit.TEXT, true)
 	ovr.name = "Ovr"
 	ovr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	ovr.custom_minimum_size.x = 28
@@ -475,7 +482,7 @@ func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
 	top.add_child(ovr)
 	# Who he is, then his traits: one quiet line.
 	var about := UiKit.trait_chips(p)
-	var who := UiKit.line(Roles.label(p), 13, UiKit.TEXT)
+	var who := UiKit.line(Roles.label(p), UiKit.SECONDARY, UiKit.TEXT)
 	who.name = "RoleLabel"
 	about.add_child(who)
 	about.move_child(who, 0)
@@ -668,7 +675,7 @@ func _show_matchup(fwd: Dictionary, current: Dictionary) -> void:
 	v.add_child(UiKit.lbl("Who goes to %s?" % GameDB.player_display_name(fwd), UiKit.H1, UiKit.TEXT, true))
 	v.add_child(_para(Matchups.describe(fwd), 13, UiKit.MUTED))
 	for p in Matchups.defenders(GameState.my_squad().ground):
-		var b := UiKit.btn("", 15)
+		var b := UiKit.btn("", UiKit.BODY)
 		b.name = "Defender_" + str(p["id"])
 		b.custom_minimum_size = Vector2(0, 56)
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -680,7 +687,7 @@ func _show_matchup(fwd: Dictionary, current: Dictionary) -> void:
 			_close_matchup()
 			_build())
 		v.add_child(b)
-	var done := UiKit.btn("Close", 16)
+	var done := UiKit.btn("Close", UiKit.NAME)
 	done.custom_minimum_size = Vector2(0, 48)
 	done.pressed.connect(_close_matchup)
 	box["footer"].add_child(done)
@@ -737,7 +744,7 @@ func _show_plan() -> void:
 	v.add_child(note)
 	v.add_child(fit)
 	v.add_child(_para("Every match starts on this plan. Change it at any break.", 13, UiKit.MUTED))
-	var done := UiKit.btn("Done", 16, true)
+	var done := UiKit.btn("Done", UiKit.NAME, true)
 	done.name = "PlanDone"
 	done.custom_minimum_size = Vector2(0, 48)
 	done.pressed.connect(_close_plan)

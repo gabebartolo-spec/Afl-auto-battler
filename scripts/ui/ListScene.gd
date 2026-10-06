@@ -146,14 +146,14 @@ func _full_list_panel() -> Control:
 func _team_row(p: Dictionary, ground: bool) -> Control:
 	var h := UiKit.hbox(6)
 	h.add_child(_guernsey(p))
-	var nm := UiKit.lbl(GameDB.player_display_name(p), 13, UiKit.TEXT if ground else UiKit.MUTED)
+	var nm := UiKit.lbl(GameDB.player_display_name(p), UiKit.SECONDARY, UiKit.TEXT if ground else UiKit.MUTED)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	h.add_child(nm)
 	h.add_child(UiKit.role_chip(_player_tag(p)))
 	if int(p.get("injury_weeks", 0)) > 0:
-		h.add_child(UiKit.line("INJ", 11, UiKit.BAD, true))
+		h.add_child(UiKit.line("INJ", UiKit.FINE, UiKit.BAD, true))
 	h.add_child(UiKit.line(str(int(p["overall"])), 14, UiKit.EMPH, true))
 	h.add_child(UiKit.line("/%d" % int(p.get("potential", p["overall"])), 11,
 			UiKit.GOOD if bool(p.get("rehab", false)) else UiKit.MUTED))

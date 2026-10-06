@@ -158,9 +158,18 @@ were near zero, because the 2026 lists had no home state yet.
 - Against about 21 real player moves a year, AI trades plus yours come to about 13
   in 2027 and about 10 in 2028. Still below a real trade period; what is left is
   deliberate (list size, the salary cap, "a clear upgrade on their fringe").
-- 2028 drops because the request roll is lumpier than its 4%: 3 of 306 eligible
-  players rolled under in 2028 against about 12 expected. Seeding an RNG with the
-  hash would spread it and stay reproducible. Not done; the lead's call.
+- 2028 dropped because the request roll was lumpier than its 4%: 3 of 306 eligible
+  players rolled under in 2028 against about 12 expected. #383 now draws the roll
+  from a generator seeded by the hash (52b12ac, with the director's yes), still
+  reproducible. Share of the 669 shipped ids under 4%, 2027 to 2036, expected 27:
+
+  | | 2027 | 2028 | 2029 | 2030 | 2031 | 2032 | 2033 | 2034 | 2035 | 2036 |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | before | 38 | 13 | 27 | 25 | 31 | 38 | 28 | 29 | 25 | 25 |
+  | after | 27 | 26 | 25 | 24 | 25 | 28 | 27 | 24 | 21 | 18 |
+
+  The by-year spread is much tighter. Its tail (21 and 18 in 2035 and 2036) is the
+  one place left a little under.
 
 ## Development projects (2026-10-06)
 
@@ -226,6 +235,28 @@ interceptor. The traits that do grow: bull 23 to 64, crumber 15 to 112, lockdown
 to 36. Synergies switched on across the league: 5 in 2027, 14 in 2031, 10 in 2034.
 By about year six supply line, running machine, tall-small and intercept wall are
 effectively impossible: generated players don't reach those traits' thresholds.
+
+### Generated players and synergy traits, 2027-2034 (before: main, seeds 1-3)
+
+`traitdecay_impl` (#440), one eight-season career per seed from a seeded upside draft,
+AUDIT_SEED 1, 2 and 3 (runs 37443409141, 37443420257 and 37443430942), averaged. Each
+cell is real/generated players holding the trait.
+
+| season | syn on | real n | gen n | bull | crumber | lockdown | ruck_king | hothead | big_game | sharpshooter | aerial | interceptor | ball_magnet | playmaker | engine |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2027 | 6.3 | 666 | 0 | 23/0 | 15/0 | 25/0 | 14/0 | 41/0 | 11/0 | 29/0 | 25/0 | 20/0 | 26/0 | 20/0 | 22/0 |
+| 2028 | 8.3 | 655 | 85 | 31/0 | 40/1 | 21/6 | 13/3 | 59/0 | 11/1 | 19/0 | 23/0 | 13/0 | 21/0 | 14/0 | 11/0 |
+| 2029 | 11.0 | 605 | 133 | 44/0 | 74/8 | 20/8 | 13/5 | 79/1 | 10/1 | 11/0 | 19/0 | 9/0 | 13/0 | 8/0 | 7/0 |
+| 2030 | 14.7 | 562 | 218 | 53/3 | 80/13 | 18/12 | 7/14 | 102/4 | 7/0 | 11/0 | 15/0 | 9/1 | 7/0 | 5/0 | 2/0 |
+| 2031 | 14.7 | 513 | 265 | 57/8 | 78/23 | 18/17 | 6/23 | 115/7 | 6/1 | 8/0 | 12/0 | 8/1 | 2/0 | 1/0 | 0/0 |
+| 2032 | 12.3 | 459 | 317 | 53/13 | 70/32 | 15/23 | 4/32 | 125/10 | 4/3 | 4/0 | 6/0 | 6/0 | 1/0 | 1/0 | 0/0 |
+| 2033 | 10.3 | 413 | 366 | 49/20 | 63/42 | 11/27 | 2/43 | 118/13 | 2/3 | 4/0 | 4/0 | 4/0 | 1/0 | 1/0 | 0/0 |
+| 2034 | 11.7 | 354 | 415 | 39/29 | 60/49 | 8/34 | 2/52 | 119/14 | 1/3 | 3/0 | 4/0 | 3/0 | 1/0 | 0/0 | 0/0 |
+
+Generated players pick up only bull, crumber, lockdown and ruck_king (and a few hothead)
+in any number, and almost never the other traits, so as the real players retire the
+traits that make most synergies fade from the league. The "after" rows go here when the
+spread change is measured.
 
 **Selecting for synergies does not switch on more of them.** The lever audits
 (37413218886, 37413221957 and 37413224334) show the same count with the selection on.

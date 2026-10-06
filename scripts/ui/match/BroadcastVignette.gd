@@ -107,7 +107,7 @@ func setup(p_kind: String, p_event: Dictionary, p_scene: Dictionary, p_result: D
 	_colours[1] = GameDB.club_colours(away) if away != "" else [Color(0.5, 0.5, 0.5), Color.BLACK, Color.WHITE]
 	_dress([home, away])
 	var p = GameDB.player_by_id(str(event.get("player_id", "")))
-	_look = GameDB.player_looks(p) if p is Dictionary else Appearance.UNCURATED
+	_look = GameDB.figure_look(p) if p is Dictionary else Appearance.UNCURATED
 	_build = build_for(p if p is Dictionary else {})
 	_board = {}
 	if event.has("goals") and event.has("behinds") and home != "" and away != "":
@@ -409,7 +409,7 @@ func _hip(p: Vector2, lift := 0.0) -> Array:
 func _ball3(p: Vector2, h: float) -> void:
 	var s := _ground.project(p, h)
 	if s.z > 0.0:
-		_draw_ball(Vector2(s.x, s.y), s.z / 64.0)
+		_draw_ball(Vector2(s.x, s.y), s.z / 64.0, true)
 
 
 ## A ball's flight in metres: from a to b (each [ground point, height]) over a peak.
@@ -652,7 +652,7 @@ func _ball_flight(boot: Vector2, start: Vector3, end: Vector3, peak: float, t: f
 		return
 	var s0 := _ground.project(Vector2(start.x, start.y), start.z)
 	var fix := (boot - Vector2(s0.x, s0.y)) * pow(1.0 - minf(t * 4.0, 1.0), 2.0)
-	_draw_ball(Vector2(s.x, s.y) + fix, s.z / 64.0)
+	_draw_ball(Vector2(s.x, s.y) + fix, s.z / 64.0, true)
 
 
 # ---------------------------------------------------------------------------
@@ -936,7 +936,8 @@ func _figure(pos: Vector2, scale: float, side: int, anim: String, facing: String
 	var k := pm / VignetteFigures.PX_PER_M
 	# The number, printed on the back of the guernsey by the shader.
 	var num := StoppageVignette.number_colour(side, number, 1.0, mirror) 			if number > 0 and facing.begins_with("back") and pm >= 30.0 else Color(0, 0, 0, 0)
-	StoppageVignette.draw_frame(self, feet, info, f, k, StoppageVignette.look_colour(side, look, mirror), mirror, num, _view)
+	StoppageVignette.draw_frame(self, feet, info, f, k, StoppageVignette.look_colour(side, look, mirror), mirror, num, _view,
+			str(look.get("hair_style", VignetteFigures.HAIR_BASE)))
 
 
 ## A man standing in the play: ready, not stiff - knees bent, bouncing at a rate
@@ -951,19 +952,10 @@ func _ready_figure(pos: Vector2, scale: float, side: int, facing: String, seed: 
 	_figure(pos, scale, side, anim, facing, frame, number, look, Vector2.INF, mirror, build)
 
 
-func _draw_ball(pos: Vector2, scale: float) -> void:
-	var a := 9.0 * scale
-	var b := 6.0 * scale
-	draw_colored_polygon(_ellipse(pos, a, b, 16), Color(0.79, 0.12, 0.10))
-	draw_polyline(_ellipse(pos, a, b, 16), Color(0.18, 0.05, 0.04), maxf(1.0, scale))
-
-
-func _ellipse(c: Vector2, a: float, b: float, n: int) -> PackedVector2Array:
-	var out := PackedVector2Array()
-	for i in range(n + 1):
-		var ang := TAU * float(i) / float(n)
-		out.append(c + Vector2(cos(ang) * a, sin(ang) * b))
-	return out
+## The ball (VignetteBall, the Sherrin) at pos, at a figure's scale; spinning in flight,
+## held or carried it doesn't.
+func _draw_ball(pos: Vector2, scale: float, spinning := false) -> void:
+	VignetteBall.draw(self, pos, 18.0 * scale, _t, spinning)
 
 
 func _quad(a: Vector2, b: Vector2, c: Vector2, t: float) -> Vector2:

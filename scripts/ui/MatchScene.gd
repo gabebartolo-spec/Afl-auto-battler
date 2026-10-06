@@ -249,7 +249,7 @@ func _score_column(code: String, home: bool, narrow: bool) -> Control:
 	var v := UiKit.vbox(1)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var name_text := GameDB.club_short(code) if narrow else GameDB.club_name(code)
-	var name := UiKit.ellipsis(name_text, 13 if narrow else 16, UiKit.TEXT, true)
+	var name := UiKit.ellipsis(name_text, UiKit.SECONDARY if narrow else 16, UiKit.TEXT, true)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if home \
 			else HORIZONTAL_ALIGNMENT_LEFT
 	v.add_child(name)
@@ -299,7 +299,7 @@ func _controls() -> Control:
 
 	var row := UiKit.hbox(5)
 	v.add_child(row)
-	_play_btn = UiKit.btn("Pause", 13)
+	_play_btn = UiKit.btn("Pause", UiKit.SECONDARY)
 	_play_btn.custom_minimum_size = Vector2(0, 40)
 	_play_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_play_btn.clip_text = true
@@ -307,7 +307,7 @@ func _controls() -> Control:
 	row.add_child(_play_btn)
 
 	for s in SPEEDS:
-		var b := UiKit.btn("%dx" % int(s), 13)
+		var b := UiKit.btn("%dx" % int(s), UiKit.SECONDARY)
 		b.custom_minimum_size = Vector2(0, 40)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.clip_text = true
@@ -317,7 +317,7 @@ func _controls() -> Control:
 
 	var row2 := UiKit.hbox(5)
 	v.add_child(row2)
-	var skip := UiKit.btn("Skip to full time", 13)
+	var skip := UiKit.btn("Skip to full time", UiKit.SECONDARY)
 	skip.custom_minimum_size = Vector2(0, 40)
 	skip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	skip.pressed.connect(_on_skip)
@@ -325,7 +325,7 @@ func _controls() -> Control:
 
 	# Your own match cannot be left half way (Back says so); a replay can.
 	if not _interactive:
-		var leave := UiKit.btn("Back to hub", 13)
+		var leave := UiKit.btn("Back to hub", UiKit.SECONDARY)
 		leave.custom_minimum_size = Vector2(0, 40)
 		leave.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		leave.pressed.connect(func(): Router.back())
@@ -480,7 +480,7 @@ func _show_coach_box() -> void:
 				dv.add_child(dl)
 			v.add_child(dv)
 		if q == 3:
-			var report := UiKit.btn("Assistant's report", 15)
+			var report := UiKit.btn("Assistant's report", UiKit.BODY)
 			report.name = "HalfTimeReport"
 			report.custom_minimum_size = Vector2(0, 44)
 			report.pressed.connect(func(): _show_half_time_popup(CoachReport.half_time_report(_res, _my_side)))
@@ -498,7 +498,7 @@ func _show_coach_box() -> void:
 		"tag_id": str((sim.tactics[_my_side] as Dictionary).get("tag_id", _last_tactics.get("tag_id", ""))),
 		"focus_id": str(_last_tactics.get("focus_id", "")),
 		"interceptor_id": str(sim.interceptor[_my_side]),
-		"spare_counter": "accountable" if bool((sim.tactics[_my_side] as Dictionary).get("spare_accountable", false)) else "ignore",
+		"minder_id": str((sim.tactics[_my_side] as Dictionary).get("spare_minder_id", "")) 				if bool((sim.tactics[_my_side] as Dictionary).get("spare_accountable", false)) else "",
 		"pep": "steady",
 		"rotation": _rotation,
 	}
@@ -545,13 +545,31 @@ func _show_coach_box() -> void:
 	var mv := _matchups_view(sim, q)
 	if mv != null:
 		v.add_child(mv)
+	# Their loose defender, answered by a person: one of your forwards goes up
+	# the ground with him. Facts only - who is a Defensive forward shows on
+	# his name; the choice is yours.
+	var opp_spare := sim._roaming_interceptor(1 - _my_side)
+	if not opp_spare.is_empty():
+		var fwds := Matchups.minder_candidates(my_ground)
+		var minder := _player_choice("SpareMinderPicker", "Nobody", fwds, fwds.slice(0, mini(3, fwds.size())),
+				calls, "minder_id", "Who goes to him?")
+		v.add_child(_call_block("Their loose defender", minder))
+		var dfs := fwds.filter(func(p): return Traits.has(p, "def_forward")).map(func(p): return GameDB.player_display_name(p))
+		var who := ("Defensive forwards on the ground: %s." % ", ".join(dfs)) if not dfs.is_empty() 				else "No Defensive forward on the ground."
+		var minder_note := UiKit.lbl(
+				"%s is roaming behind the ball. The forward you send goes up the ground with him: he keeps him out of contests, a Defensive forward best, and stops being a target himself. %s" % [
+						GameDB.player_display_name(opp_spare), who],
+				UiKit.SMALL, UiKit.MUTED)
+		minder_note.name = "MinderNote"
+		minder_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(minder_note)
 
 	# The rest of the calls, one tap away: the plan and the tag are the
 	# decisions most breaks turn on.
 	var more := UiKit.vbox(8)
 	more.name = "MoreCalls"
 	more.visible = false
-	var more_btn := UiKit.btn("More calls", 15)
+	var more_btn := UiKit.btn("More calls", UiKit.BODY)
 	more_btn.name = "MoreCallsToggle"
 	more_btn.custom_minimum_size = Vector2(0, 44)
 	more_btn.pressed.connect(func():
@@ -583,20 +601,6 @@ func _show_coach_box() -> void:
 			UiKit.SMALL, UiKit.MUTED)
 	roam_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	more.add_child(roam_note)
-
-	# Counter an opposition spare only when one is visibly being used. This
-	# makes a forward accountable to him: less third-man influence, but also
-	# less forward presence in the air.
-	var opp_spare := sim._roaming_interceptor(1 - _my_side)
-	if not opp_spare.is_empty():
-		var counter_opts := [["ignore", "Keep our shape"], ["accountable", "Make him accountable"]]
-		var counter := _choice_grid("SpareCounter", counter_opts, calls, "spare_counter", 2)
-		more.add_child(_call_block("Their loose defender", counter))
-		var counter_note := UiKit.lbl(
-				"%s is roaming behind the ball. Making him accountable drags him away from contests, but costs you a forward in the air." % GameDB.player_display_name(opp_spare),
-				UiKit.SMALL, UiKit.MUTED)
-		counter_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		more.add_child(counter_note)
 
 	var focus := _player_choice("FocusPicker", "No one", mine, _in_the_game(mine, 4), calls, "focus_id",
 			"Play through which player?")
@@ -632,7 +636,7 @@ func _show_coach_box() -> void:
 	sync_rot.call(_rotation)
 	more.add_child(_legs_view())
 
-	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", 18, true)
+	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", UiKit.HEADING, true)
 	start.name = "StartQuarter"
 	start.custom_minimum_size = Vector2(0, 48)
 	start.pressed.connect(func():
@@ -643,14 +647,15 @@ func _show_coach_box() -> void:
 			"tag_id": str(calls["tag_id"]),
 			"interceptor_id": str(calls["interceptor_id"]),
 			"interceptor_set": str(calls["interceptor_id"]) != loose_was,
-			"spare_accountable": str(calls["spare_counter"]) == "accountable",
+			"spare_accountable": str(calls["minder_id"]) != "",
+			"spare_minder_id": str(calls["minder_id"]),
 			"pep": str(calls["pep"]),
 			"rotation": _rotation,
 		}
 		_close_coach()
 		_simulate_next_quarter(t))
 	box["footer"].add_child(start)
-	var skip := UiKit.btn("Skip to full time", 15)
+	var skip := UiKit.btn("Skip to full time", UiKit.BODY)
 	skip.custom_minimum_size = Vector2(0, 44)
 	skip.pressed.connect(_on_skip)
 	box["footer"].add_child(skip)
@@ -737,10 +742,10 @@ func _calls_view(q: int) -> Control:
 	for l in lines.slice(0, 5):
 		var pts := float(l["pts"])
 		var row := UiKit.hbox(8)
-		var name_l := UiKit.ellipsis(str(l["label"]), 13, UiKit.TEXT)
+		var name_l := UiKit.ellipsis(str(l["label"]), UiKit.SECONDARY, UiKit.TEXT)
 		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(name_l)
-		row.add_child(UiKit.line("%+.1f pts" % pts, 13, UiKit.GOOD if pts > 0 else UiKit.BAD, true))
+		row.add_child(UiKit.line("%+.1f pts" % pts, UiKit.SECONDARY, UiKit.GOOD if pts > 0 else UiKit.BAD, true))
 		v.add_child(row)
 	var moments: Array = _res.get("moments", [])
 	for m in moments:
@@ -950,8 +955,9 @@ func _choice_grid(node_name: String, options: Array, calls: Dictionary, field: S
 
 
 ## A player call: "none", the few in the game so far, whoever is chosen,
-## and "Other player..." for the whole side on the ground. Nobody is left
-## out; the list is just ordered.
+## and "Other player..." for everyone in `roster` (the caller's choice: the
+## whole side for a tag, only forwards for their loose defender). Nobody in
+## it is left out; the list is just ordered.
 func _player_choice(node_name: String, none_label: String, roster: Array, first: Array,
 		calls: Dictionary, field: String, sheet_title: String) -> Control:
 	var box := UiKit.vbox(0)
@@ -1017,7 +1023,7 @@ func _player_sheet(title: String, roster: Array, current: String, on_pick: Calla
 			_close_sheet()
 			on_pick.call(id))
 		v.add_child(b)
-	var close := UiKit.btn("Close", 16)
+	var close := UiKit.btn("Close", UiKit.NAME)
 	close.custom_minimum_size = Vector2(0, 44)
 	close.pressed.connect(_close_sheet)
 	box["footer"].add_child(close)
@@ -1074,7 +1080,7 @@ func _show_half_time_popup(report: Dictionary) -> void:
 			if margin > 0 else "Half time, down by %d" % absi(margin))
 	v.add_child(UiKit.lbl(where, UiKit.SMALL, UiKit.MUTED))
 	v.add_child(_report_glance(report))
-	var close := UiKit.btn("Close report", 16, true)
+	var close := UiKit.btn("Close report", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 44)
 	close.pressed.connect(_close_report)
 	box["footer"].add_child(close)
@@ -1188,7 +1194,11 @@ func _show_setup(t: Dictionary) -> void:
 	if intercept_id != "":
 		bits.append(GameDB.player_display_name_by_id(intercept_id, "your defender") + " loose behind the ball")
 	if bool(t.get("spare_accountable", false)):
-		bits.append("making their spare accountable")
+		# Whoever is on him now: the named forward, or his stand-in if he's off.
+		var sim_now = GameState.pending_sim
+		var on_him: Dictionary = sim_now._spare_minder(_my_side) if sim_now != null else {}
+		var who := GameDB.player_display_name(on_him) if not on_him.is_empty() 				else GameDB.player_display_name_by_id(str(t.get("spare_minder_id", "")), "a forward")
+		bits.append(who + " on their spare")
 	_setup_line.text = "  ·  ".join(bits)
 	_setup_line.visible = true
 
@@ -1205,7 +1215,7 @@ func _append_new_events() -> void:
 	var new_events := all_events.slice(_event_cursor)
 	_event_cursor = all_events.size()
 	if not new_events.is_empty():
-		_pitch.append_events(new_events)
+		_pitch.append_events(new_events, _res.get("timeline", []))
 
 
 # ---------------------------------------------------------------------------
@@ -1540,7 +1550,7 @@ func _show_fulltime() -> void:
 	var away: String = _res["away"]
 	var mine := GameState.my_club != "" and (home == GameState.my_club or away == GameState.my_club)
 	if mine and (_interactive or _review):
-		var train := UiKit.btn("Training", 15)
+		var train := UiKit.btn("Training", UiKit.BODY)
 		train.name = "FullTimeTraining"
 		train.custom_minimum_size = Vector2(0, 44)
 		train.pressed.connect(func():
@@ -1548,7 +1558,7 @@ func _show_fulltime() -> void:
 			Router.replace("training"))
 		box["footer"].add_child(train)
 	# The week is over: back to the hub, where next week starts.
-	var leave := UiKit.btn("Continue", 18, true)
+	var leave := UiKit.btn("Continue", UiKit.HEADING, true)
 	leave.name = "FullTimeContinue"
 	leave.custom_minimum_size = Vector2(0, 48)
 	leave.pressed.connect(func(): Router.back())
@@ -1619,7 +1629,7 @@ func _ft_summary(v: VBoxContainer) -> void:
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(nm)
 		var fig := UiKit.figure(UiKit.scoreline(int(_res["goals"][side]), int(_res["behinds"][side])),
-				24, UiKit.TEXT if winner != 1 - side else UiKit.MUTED)
+				UiKit.SCORE, UiKit.TEXT if winner != 1 - side else UiKit.MUTED)
 		row.add_child(fig)
 		# Clear of the scrollbar.
 		row.add_child(UiKit.spacer(10))
@@ -2094,7 +2104,7 @@ func _show_break_matchup(sim: MatchSim, fid: String, line: Label, q: int) -> voi
 			_matchup_overlay.queue_free()
 			_matchup_overlay = null)
 		v.add_child(b)
-	var close := UiKit.btn("Close", 16)
+	var close := UiKit.btn("Close", UiKit.NAME)
 	close.custom_minimum_size = Vector2(0, 48)
 	close.pressed.connect(func():
 		_matchup_overlay.queue_free()

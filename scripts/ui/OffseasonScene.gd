@@ -125,7 +125,7 @@ func _budget(body: VBoxContainer) -> void:
 		card.add_child(v)
 		var head := UiKit.hbox(8)
 		v.add_child(head)
-		var label := UiKit.lbl(str(ClubBudget.AREA_LABEL[area]), 15, UiKit.TEXT, true)
+		var label := UiKit.lbl(str(ClubBudget.AREA_LABEL[area]), UiKit.BODY, UiKit.TEXT, true)
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		head.add_child(label)
 		head.add_child(UiKit.line("%s · $%.1fm" % [
@@ -148,7 +148,7 @@ func _budget(body: VBoxContainer) -> void:
 
 		var controls := UiKit.hbox(6)
 		v.add_child(controls)
-		var lower := UiKit.btn("Lower", 13)
+		var lower := UiKit.btn("Lower", UiKit.SECONDARY)
 		lower.name = "BudgetLower_" + area
 		lower.custom_minimum_size.y = 44
 		lower.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -156,7 +156,7 @@ func _budget(body: VBoxContainer) -> void:
 		lower.pressed.connect(_change_budget.bind(area, level - 1))
 		controls.add_child(lower)
 
-		var raise := UiKit.btn("Raise", 13)
+		var raise := UiKit.btn("Raise", UiKit.SECONDARY)
 		raise.name = "BudgetRaise_" + area
 		raise.custom_minimum_size.y = 44
 		raise.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -183,7 +183,7 @@ func _contracts(body: VBoxContainer) -> void:
 			got.name = "CompReceived"
 			body.add_child(got)
 	_retiring(body)
-	body.add_child(UiKit.lbl("Out of contract  (%d)" % expiring.size(), 15, UiKit.EMPH, true))
+	body.add_child(UiKit.lbl("Out of contract  (%d)" % expiring.size(), UiKit.BODY, UiKit.EMPH, true))
 	if expiring.is_empty():
 		body.add_child(_para("Nobody is out of contract this year.", 13, UiKit.MUTED))
 	for p in expiring:
@@ -201,7 +201,7 @@ func _contracts(body: VBoxContainer) -> void:
 			continue
 		var talks: Dictionary = p.get("talks", {})
 		if bool(talks.get("walked", false)):
-			row.add_child(UiKit.line("Talks broke down: he'll test free agency", 13, UiKit.BAD, true))
+			row.add_child(UiKit.line("Talks broke down: he'll test free agency", UiKit.SECONDARY, UiKit.BAD, true))
 			var proj := _para(str(GameState.projected_compensation(p)["reason"]), 12, UiKit.TEXT)
 			proj.name = "CompProjection"
 			(card.get_child(0) as VBoxContainer).add_child(proj)
@@ -209,18 +209,18 @@ func _contracts(body: VBoxContainer) -> void:
 		if talks.has("counter"):
 			(card.get_child(0) as VBoxContainer).add_child(_para("He'd sign for %s over %d season%s." % [
 					Contracts.money(int(talks["counter"])), int(talks["years"]), "" if int(talks["years"]) == 1 else "s"], 12, UiKit.TEXT))
-		var talk := UiKit.btn("Talk contract", 13)
+		var talk := UiKit.btn("Talk contract", UiKit.SECONDARY)
 		talk.name = "Negotiate"
 		talk.custom_minimum_size = Vector2(0, 44)
 		talk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		talk.pressed.connect(_open_talks.bind(str(p["id"])))
 		row.add_child(talk)
-		var rel := UiKit.btn("Release", 13)
+		var rel := UiKit.btn("Release", UiKit.SECONDARY)
 		rel.name = "Release"
 		rel.custom_minimum_size = Vector2(0, 44)
 		rel.pressed.connect(_confirm_release.bind(p))
 		row.add_child(rel)
-	body.add_child(UiKit.lbl("Whole list", 15, UiKit.EMPH, true))
+	body.add_child(UiKit.lbl("Whole list", UiKit.BODY, UiKit.EMPH, true))
 	var sorted := GameState.my_list.duplicate()
 	sorted.sort_custom(func(a, b): return int(a.get("salary", 0)) > int(b.get("salary", 0)))
 	for p in sorted:
@@ -235,7 +235,7 @@ func _retiring(body: VBoxContainer) -> void:
 	var rows: Array = GameState.retiring_players()
 	if rows.is_empty():
 		return
-	body.add_child(UiKit.lbl("Retiring  (%d)" % rows.size(), 15, UiKit.EMPH, true))
+	body.add_child(UiKit.lbl("Retiring  (%d)" % rows.size(), UiKit.BODY, UiKit.EMPH, true))
 	for r in rows:
 		var p: Dictionary = r["p"]
 		var card := _player_card(p, "%d OVR  ·  age %d  ·  %d games this year" % [
@@ -249,7 +249,7 @@ func _retiring(body: VBoxContainer) -> void:
 			said.name = "RetireAnswer"
 			v.add_child(said)
 		elif bool(r["can_ask"]):
-			var ask := UiKit.btn("Ask him to go around again", 13)
+			var ask := UiKit.btn("Ask him to go around again", UiKit.SECONDARY)
 			ask.name = "TalkRound"
 			ask.custom_minimum_size = Vector2(0, 44)
 			ask.pressed.connect(func():
@@ -268,7 +268,7 @@ func _confirm_release(p: Dictionary) -> void:
 	_release_overlay.name = "ReleaseConfirmation"
 	box["body"].add_child(_para("Release %s?" % GameDB.player_display_name(p), 20, UiKit.TEXT))
 	box["body"].add_child(_para("He will leave your list and become a free agent. A delisted player earns no draft pick if he signs elsewhere.", 14, UiKit.TEXT))
-	var release := UiKit.btn("Release player", 16, true)
+	var release := UiKit.btn("Release player", UiKit.NAME, true)
 	release.name = "ConfirmRelease"
 	release.custom_minimum_size.y = 44
 	release.pressed.connect(func():
@@ -276,7 +276,7 @@ func _confirm_release(p: Dictionary) -> void:
 		_notice = str(GameState.release_player(str(p["id"]))["reason"])
 		_build())
 	box["footer"].add_child(release)
-	var cancel := UiKit.btn("Cancel", 16)
+	var cancel := UiKit.btn("Cancel", UiKit.NAME)
 	cancel.name = "CancelRelease"
 	cancel.custom_minimum_size.y = 44
 	cancel.pressed.connect(_close_release)
@@ -377,7 +377,7 @@ func _show_talks() -> void:
 	v.add_child(UiKit.lbl("Salary a season", 14, UiKit.EMPH, true))
 	var srow := UiKit.hbox(8)
 	v.add_child(srow)
-	var less := UiKit.btn("−", 18)
+	var less := UiKit.btn("−", UiKit.HEADING)
 	less.name = "SalaryDown"
 	less.custom_minimum_size = Vector2(56, 44)
 	less.disabled = _offer_salary <= Contracts.SENIOR_MIN_2027
@@ -390,7 +390,7 @@ func _show_talks() -> void:
 	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	amount.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	srow.add_child(amount)
-	var more := UiKit.btn("+", 18)
+	var more := UiKit.btn("+", UiKit.HEADING)
 	more.name = "SalaryUp"
 	more.custom_minimum_size = Vector2(56, 44)
 	more.pressed.connect(func():
@@ -417,7 +417,7 @@ func _show_talks() -> void:
 	meet.disabled = GameState.cap_room() + on_books < meet_salary or blocked
 	meet.pressed.connect(_make_offer.bind(meet_salary, int(want["years"])))
 	box["footer"].add_child(meet)
-	var cancel := UiKit.btn("Cancel", 16)
+	var cancel := UiKit.btn("Cancel", UiKit.NAME)
 	cancel.name = "CancelTalks"
 	cancel.custom_minimum_size.y = 44
 	cancel.pressed.connect(_close_talks)
@@ -441,11 +441,11 @@ func _offers_table(v: VBoxContainer) -> void:
 			grid.add_child(UiKit.line(h, 12, UiKit.MUTED))
 		for row in rows:
 			var who := "You" if bool(row["mine"]) else GameDB.club_short(str(row["club"]))
-			var club := UiKit.line(who, 13, UiKit.TEXT, bool(row["leading"]))
+			var club := UiKit.line(who, UiKit.SECONDARY, UiKit.TEXT, bool(row["leading"]))
 			club.name = "Offer_" + str(row["club"])
 			grid.add_child(club)
 			grid.add_child(UiKit.line(Contracts.money(int(row["salary"])), 13, UiKit.TEXT, bool(row["leading"])))
-			grid.add_child(UiKit.line(str(row["years"]), 13, UiKit.TEXT, bool(row["leading"])))
+			grid.add_child(UiKit.line(str(row["years"]), UiKit.SECONDARY, UiKit.TEXT, bool(row["leading"])))
 			var view := _para(("Leading. " if bool(row["leading"]) else "") + str(row["view"]), 12, UiKit.TEXT)
 			view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			view.custom_minimum_size.x = 120
@@ -550,12 +550,12 @@ func _agents(body: VBoxContainer) -> void:
 		(card.get_child(0) as VBoxContainer).add_child(row)
 		var talks: Dictionary = p.get("talks", {})
 		if bool(talks.get("walked", false)):
-			row.add_child(UiKit.line("Talks broke down: he'll look elsewhere", 13, UiKit.BAD, true))
+			row.add_child(UiKit.line("Talks broke down: he'll look elsewhere", UiKit.SECONDARY, UiKit.BAD, true))
 		else:
 			if talks.has("counter"):
 				(card.get_child(0) as VBoxContainer).add_child(_para("He'd sign for %s over %d season%s." % [
 						Contracts.money(int(talks["counter"])), int(talks["years"]), "" if int(talks["years"]) == 1 else "s"], 12, UiKit.TEXT))
-			var talk := UiKit.btn("Talk contract", 13)
+			var talk := UiKit.btn("Talk contract", UiKit.SECONDARY)
 			talk.name = "FreeAgentTalks"
 			talk.custom_minimum_size = Vector2(0, 44)
 			talk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -573,8 +573,9 @@ func _trade(body: VBoxContainer) -> void:
 		_trade_club_sheet(body)
 		return
 	_offers(body)
+	_requests(body)
 	var who := UiKit.hbox(8)
-	who.add_child(UiKit.ellipsis("Trading with %s" % GameDB.club_name(_trade_club), 16, UiKit.TEXT, true))
+	who.add_child(UiKit.ellipsis("Trading with %s" % GameDB.club_name(_trade_club), UiKit.NAME, UiKit.TEXT, true))
 	who.get_child(0).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var change := UiKit.btn("Change club", 14)
 	change.name = "TradeClub"
@@ -618,7 +619,7 @@ func _trade(body: VBoxContainer) -> void:
 				_theirs = (counter["theirs"] as Array).duplicate()
 				_build())
 			body.add_child(apply)
-	var go := UiKit.btn("Make trade", 16, true)
+	var go := UiKit.btn("Make trade", UiKit.NAME, true)
 	go.name = "MakeTrade"
 	go.custom_minimum_size = Vector2(0, 48)
 	go.disabled = not bool(verdict["ok"])
@@ -632,7 +633,7 @@ func _trade(body: VBoxContainer) -> void:
 	body.add_child(go)
 	if shopping:
 		var listed := GameState.trade_table.has(str(_mine[0]))
-		var table := UiKit.btn("Already on the trade table" if listed else "Put on the trade table", 15)
+		var table := UiKit.btn("Already on the trade table" if listed else "Put on the trade table", UiKit.BODY)
 		table.name = "TradeTable"
 		table.custom_minimum_size = Vector2(0, 44)
 		table.disabled = listed
@@ -668,7 +669,7 @@ func _offers(body: VBoxContainer) -> void:
 	var open := GameState.open_trade_offers()
 	if open.is_empty():
 		return
-	body.add_child(UiKit.lbl("Offers for your players", 15, UiKit.EMPH, true))
+	body.add_child(UiKit.lbl("Offers for your players", UiKit.BODY, UiKit.EMPH, true))
 	for i in open:
 		var text := _para(GameState.trade_offer_text(i), 14, UiKit.TEXT)
 		text.name = "Offer_%d" % i
@@ -691,6 +692,36 @@ func _offers(body: VBoxContainer) -> void:
 	body.add_child(UiKit.spacer(UiKit.SECTION - 6))
 
 
+## Players who have asked to be traded that concern you: yours, and those
+## elsewhere who named your club - one line each, and for theirs a way to
+## start the trade.
+func _requests(body: VBoxContainer) -> void:
+	var ids := GameState.my_trade_requests()
+	if ids.is_empty():
+		return
+	body.add_child(UiKit.lbl("Asked to be traded", 15, UiKit.EMPH, true))
+	for id in ids:
+		var club := str(GameState.trade_requests[id]["club"])
+		var row := UiKit.hbox(8)
+		row.name = "Request_" + str(id)
+		var text := _para(GameState.trade_request_line(str(id)), 14, UiKit.TEXT)
+		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(text)
+		if club != GameState.my_club:
+			var go := UiKit.btn("Trade for him", 13)
+			go.name = "RequestTrade"
+			go.custom_minimum_size = Vector2(0, 44)
+			go.pressed.connect(func():
+				_trade_club = club
+				_theirs = [str(id)]
+				_mine = []
+				_trade_side = "mine"
+				_build())
+			row.add_child(go)
+		body.add_child(row)
+	body.add_child(UiKit.spacer(UiKit.SECTION - 6))
+
+
 ## The counter for this offer, worked out once per offer (it tries every
 ## one of your players and picks).
 func _counter_for(club: String, mine: Array, theirs: Array) -> Dictionary:
@@ -703,7 +734,7 @@ func _counter_for(club: String, mine: Array, theirs: Array) -> Dictionary:
 
 ## One side of the trade: each player or pick on its own line with Remove.
 func _package(body: VBoxContainer, title: String, ids: Array, club: String, prefix: String, none: String) -> void:
-	body.add_child(UiKit.lbl(title, 15, UiKit.EMPH, true))
+	body.add_child(UiKit.lbl(title, UiKit.BODY, UiKit.EMPH, true))
 	if ids.is_empty():
 		body.add_child(_para(none, 13, UiKit.MUTED))
 		return
@@ -713,7 +744,7 @@ func _package(body: VBoxContainer, title: String, ids: Array, club: String, pref
 		var what := UiKit.ellipsis(_asset_line(str(id), club), 14, UiKit.TEXT)
 		what.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(what)
-		var rm := UiKit.btn("Remove", 13)
+		var rm := UiKit.btn("Remove", UiKit.SECONDARY)
 		rm.name = "Remove"
 		rm.custom_minimum_size = Vector2(88, 44)
 		rm.pressed.connect(func():
@@ -736,7 +767,7 @@ func _asset_line(id: String, club: String) -> String:
 
 ## Every other club, two to a row; Back or a choice closes it.
 func _trade_club_sheet(body: VBoxContainer) -> void:
-	body.add_child(UiKit.lbl("Trade with", 15, UiKit.EMPH, true))
+	body.add_child(UiKit.lbl("Trade with", UiKit.BODY, UiKit.EMPH, true))
 	var options := []
 	for code in GameDB.active_clubs(GameState.season_year):
 		if code != GameState.my_club:
@@ -819,7 +850,7 @@ func _player_card(p: Dictionary, detail: String) -> PanelContainer:
 	var h := UiKit.hbox(6)
 	v.add_child(h)
 	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
-	h.add_child(UiKit.ellipsis(GameDB.player_display_name(p), 15, UiKit.TEXT, true))
+	h.add_child(UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true))
 	v.add_child(_para(detail, 12, UiKit.MUTED))
 	return card
 

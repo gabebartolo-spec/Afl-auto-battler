@@ -6,12 +6,16 @@ extends RefCounted
 ##    action. Ordinary text is TEXT or MUTED; emphasis is weight and size.
 ##  - Surfaces are flat. A panel groups things and has no border; a secondary
 ##    button is an outline, so it never reads as another card.
-##  - Sentence case. Barlow for everything; the condensed face only for
-##    scores, where a scoreboard would use it.
+##  - Sentence case. The game's own sign-writer face (ARD Signwriter, drawn
+##    for the game after old ground scoreboards): Regular and Bold for reading,
+##    the Display cut, with its painted drop shade, for scores and headings.
 
-const FONT := preload("res://assets/fonts/Barlow-Regular.ttf")
-const BOLD := preload("res://assets/fonts/Barlow-SemiBold.ttf")
-const DISPLAY := preload("res://assets/fonts/BarlowCondensed-Bold.ttf")
+const FONT := preload("res://assets/fonts/ARDSignwriter-Regular.ttf")
+const BOLD := preload("res://assets/fonts/ARDSignwriter-Bold.ttf")
+const DISPLAY := preload("res://assets/fonts/ARDSignwriter-Display.ttf")
+## The sign-writer's drop shade under display type: down and right, as a share
+## of the font size (the drawn shade layer sits at +30, -30 per 1000).
+const SHADE := 0.03
 
 ## Shared palette. Dark is the default so boot/import remains identical until
 ## GameState reads the user's appearance preference. These are runtime values
@@ -100,6 +104,21 @@ const H2 := 18      # section heading
 const BODY := 15
 const SMALL := 13   # secondary lines
 const TINY := 11    # stamps and fine print only
+
+## Type roles (STYLE-02 prep): what a piece of text is, at today's sizes
+## exactly. Screens use these rather than a number, so the director's typeface
+## and its sizes are set here, once. The face is lbl's: BOLD when it's asked
+## for, else FONT; the figures (RATING, SCORE, NUMBER) are DISPLAY. Sizes still
+## written as numbers on screens are off this scale (14, 17, 12, 20...) - for
+## the typeface pass to place, not guessed at here.
+const TITLE := H1           # a screen's title, the one big fact
+const HEADING := H2         # a section heading
+const NAME := 16            # a player or club name leading a row; button text
+const SECONDARY := SMALL    # the line under it
+const FINE := TINY          # stamps and fine print
+const RATING := 30          # a rating as a figure (DISPLAY)
+const SCORE := 24           # a match score as a figure (DISPLAY)
+const NUMBER := 22          # a score in a list row (DISPLAY)
 
 ## Spacing and corners.
 const GAP := 8          # between rows
@@ -274,7 +293,10 @@ static func ellipsis(text: String, fs := 16, color := AUTO_COLOUR, bold := false
 
 
 static func heading(text: String, fs := H1) -> Label:
-	return lbl(text, mini(fs, 30), TEXT, true)
+	var l := lbl(text, mini(fs, 30), TEXT, true)
+	l.add_theme_font_override("font", DISPLAY)
+	shade(l, mini(fs, 30))
+	return l
 
 
 static func title(text: String) -> Label:
@@ -289,7 +311,16 @@ static func figure(text: String, fs := 30, color := AUTO_COLOUR) -> Label:
 		color = TEXT
 	var l := line(text, fs, color)
 	l.add_theme_font_override("font", DISPLAY)
+	shade(l, fs)
 	return l
+
+
+## The painted drop shade under display type.
+static func shade(l: Label, fs: int) -> void:
+	var off := maxi(1, roundi(fs * SHADE))
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8) if _appearance == "dark" else Color(0, 0, 0, 0.22))
+	l.add_theme_constant_override("shadow_offset_x", off)
+	l.add_theme_constant_override("shadow_offset_y", off)
 
 
 static func subtitle(text: String) -> Label:
@@ -532,34 +563,27 @@ static func top_bar(title_text: String, back := true, right: Control = null,
 	return h
 
 
-## A club's colours as a small flag of vertical bands (two or three: navy
-## and red for Melbourne; blue, red and white for the Bulldogs), with a
-## faint edge so dark colours still read on the dark background.
+## A club's marker: its own guernsey, front on (club marker A, director
+## approved; GuernseyCrest). From 32 px the club's code is on the chest; under
+## that the club's name beside it carries the code.
 static func club_marker(code: String, size := 22.0) -> Control:
-	var frame := PanelContainer.new()
-	frame.name = "ClubMarker"
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0, 0, 0, 0)
-	sb.border_color = Color(TEXT, 0.28)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(2)
-	sb.set_content_margin_all(1)
-	frame.add_theme_stylebox_override("panel", sb)
-	frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var bands := HBoxContainer.new()
-	bands.add_theme_constant_override("separation", 0)
-	bands.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.add_child(bands)
-	var cols: Array = GameDB.club_marker_colours(code)
-	var w := roundf(size / float(cols.size()))
-	for c in cols:
-		var band := ColorRect.new()
-		band.color = c
-		band.custom_minimum_size = Vector2(w, size - 4.0)
-		band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bands.add_child(band)
-	return frame
+	var g := GameDB.club_guernsey(code)
+	var cols := GameDB.club_colours(code)
+	# A two-colour club's third colour is only a pitch tint: its trim is the
+	# second colour.
+	var trim: Color = cols[2] if GameDB.club_marker_colours(code).size() > 2 else cols[1]
+	# The old flag's footprint (size less its 2 px of frame), so lists of clubs
+	# - the ladder above all - keep their row heights.
+	return GuernseyCrest.make(g["base"], g["pattern"], trim, str(g["design"]), code, size - 2.0)
+
+
+## The same guernsey from colours alone (Club Forge shows a club before it
+## exists): [primary, secondary, accent], its design and its code.
+static func colour_marker(cols: Array, size := 22.0, design := "plain", code := "") -> Control:
+	var p: Color = cols[0] if cols.size() > 0 else Color.WHITE
+	var s: Color = cols[1] if cols.size() > 1 else p
+	var a: Color = cols[2] if cols.size() > 2 else s
+	return GuernseyCrest.make(p, s, a, design, code, size)
 
 
 static func club_badge(code: String, fs := 14, compact := false, shrink := false) -> HBoxContainer:

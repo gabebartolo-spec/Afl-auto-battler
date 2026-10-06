@@ -29,7 +29,6 @@ const FIGURE := 1.6
 const CAM_X := -3.0
 ## The field umpire's fluoro shirt: saturated, so it never reads as skin at a distance.
 const UMPIRE := Color(0.66, 0.96, 0.08)
-const BALL := Color(0.78, 0.13, 0.12)
 ## The footballers are pre-rendered figures recoloured for each club
 ## (VignetteFigures.gd has the sheet's layout, figure.gdshader the recolouring).
 const FIGURE_SHADE := preload("res://assets/vignette/figures_shade.png")
@@ -46,6 +45,8 @@ const UMPIRE_KIT := 2
 ## without a word. Off in play.
 static var log_frames := false
 static var frame_log: Array = []  # {anim, facing, frames, wanted}
+## ... and which hair they draw over the figures: {style, texture}.
+static var hair_log: Array = []
 
 var tokens: Array = []      # {side, mine, slot, id, tall, look, name, num, tired, from, to, delay, dur}
 var facts: Array = []       # one or two lines of commentary, no numbers
@@ -92,7 +93,7 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 				var from := to + Vector2(rng.randf_range(-9.0, 9.0), -sgn * rng.randf_range(14.0, 20.0))
 				var tired := float(sim.energy.get(str(p["id"]), 100.0)) < EMPTY
 				tokens.append({"side": side, "mine": mine, "slot": slot, "id": str(p["id"]),
-						"tall": MatchSim._is_ruckman(p), "look": GameDB.player_looks(p),
+						"tall": MatchSim._is_ruckman(p), "look": GameDB.figure_look(p),
 						"height_cm": float(p.get("height_cm", 0.0)),
 						"name": _surname(GameDB.player_display_name(p)), "num": int(p["num"]),
 						"tired": tired, "from": from, "to": to,
@@ -168,6 +169,14 @@ static func figure_material(kits: Array, mat: ShaderMaterial = null) -> ShaderMa
 		mat.set_shader_parameter("sheet_size", VignetteFigures.SHEET_SIZE)
 		mat.set_shader_parameter("skin_tones", _eight(Appearance.SKIN))
 		mat.set_shader_parameter("hair_tones", _eight(Appearance.HAIR))
+		# The hair overlays' atlases, recognised by size as the figure sheet is.
+		var sizes := []
+		for tex in VignetteFigures.HAIR_TEXTURES:
+			sizes.append(Vector2i((tex as Texture2D).get_size()))
+		mat.set_shader_parameter("hair_count", sizes.size())
+		while sizes.size() < 8:
+			sizes.append(Vector2i(-1, -1))
+		mat.set_shader_parameter("hair_sizes", sizes)
 	var fields := {"base": [], "pattern": [], "pattern2": [], "shorts": [], "design": []}
 	for i in range(4):
 		var kit: Dictionary = kits[mini(i, kits.size() - 1)]
@@ -273,6 +282,9 @@ const CAM_H := 12.0               # and up (low enough that the stand stays in t
 ## The zoom: the square at the start's framing (as the old camera at 34 m) out to the
 ## ruck contest's (as at 17 m), then a last punch-in on the freeze.
 const ZOOM := [46.0 / 34.0, 46.0 / 18.5, 46.0 / 17.0]
+## The centre of the ground, as a share of the screen's height: while the play
+## builds, and once the call is up (it takes the bottom of the screen).
+const CENTRE_Y := [0.58, 0.46]
 var _cam_d := CAM_D
 var _cam_h := CAM_H
 var _focal := 400.0
@@ -295,8 +307,11 @@ func _set_camera() -> void:
 	# painted lines would skew as it went - director).
 	_cam_x = CAM_X
 	_pan = _focal * (CAM_X * 0.35 - CAM_X) / (_cam_d + 5.0) * k
-	# The centre of the ground sits above the middle, clear of the call.
-	_horizon = size.y * 0.46 - _focal * _cam_h / _cam_d
+	# Where the centre of the ground sits: low enough to fill the screen while the
+	# play builds, then lifted clear of the call as it slides up - the same push-in
+	# as the freeze, so one move makes room for the call rather than empty turf
+	# waiting for it all scene.
+	_horizon = size.y * lerpf(CENTRE_Y[0], CENTRE_Y[1], punch) - _focal * _cam_h / _cam_d
 
 
 ## World (x across, y towards your goal, h up) to screen, and metres to pixels there.
@@ -460,7 +475,8 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	var kit := UMPIRE_KIT if ump else int(t["side"])
 	var look: Dictionary = t.get("look", UMPIRE_LOOK)
 	draw_frame(self, Vector2(base.x, base.y), info, frame, k, look_colour(kit, look, mirror), mirror,
-			number_colour(kit, int(t["num"]), 1.0, mirror) if facing.begins_with("back") and m > 18.0 else Color(0, 0, 0, 0))
+			number_colour(kit, int(t["num"]), 1.0, mirror) if facing.begins_with("back") and m > 18.0 else Color(0, 0, 0, 0),
+			Transform2D.IDENTITY, str(look.get("hair_style", VignetteFigures.HAIR_BASE)))
 
 
 ## Draws frame f of a strip with its feet at feet, k screen pixels per frame pixel,
@@ -468,8 +484,12 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 ## way: flipped about the feet by a draw transform (a negative-size rect isn't drawn).
 ## number: a second pass that prints the number (number_colour), or alpha 0 for none.
 ## view: the vignette's camera (VignetteCamera) that ci is drawing through.
+## hair_style: his hair (Appearance.HAIR_STYLES), drawn over the bald figure
+## straight after it (VignetteFigures.hair_for: a style with no art yet draws
+## the base look), so a man in front still covers the hair of one behind.
 static func draw_frame(ci: CanvasItem, feet: Vector2, info: Dictionary, f: int, k: float, colour: Color,
-		mirror := false, number := Color(0, 0, 0, 0), view := Transform2D.IDENTITY) -> void:
+		mirror := false, number := Color(0, 0, 0, 0), view := Transform2D.IDENTITY,
+		hair_style := VignetteFigures.HAIR_BASE) -> void:
 	var pivot := Vector2(info["pivot"][0], info["pivot"][1])
 	var dest := Rect2(feet - pivot * k, VignetteFigures.frame_size(info) * k)
 	var src := VignetteFigures.source(info, f)
@@ -478,8 +498,25 @@ static func draw_frame(ci: CanvasItem, feet: Vector2, info: Dictionary, f: int, 
 	ci.draw_texture_rect_region(FIGURE_SHADE, dest, src, colour)
 	if number.a > 0.0:
 		ci.draw_texture_rect_region(FIGURE_SHADE, dest, src, number)
+	draw_hair(ci, dest.position, info, f, k, colour, hair_style)
 	if mirror:
 		ci.draw_set_transform_matrix(view)
+
+
+## A figure's hair overlay: frame f of its style's hair strip over the figure drawn
+## at origin (its dest rect's top-left), in his hair colour (or his skin, for a bare
+## scalp: VignetteFigures.HAIR_TINT_SKIN). colour is the figure's look_colour.
+static func draw_hair(ci: CanvasItem, origin: Vector2, info: Dictionary, f: int, k: float, colour: Color,
+		hair_style: String) -> void:
+	var h := VignetteFigures.hair_for(info, hair_style)
+	if h.is_empty():
+		return
+	if log_frames:
+		hair_log.append({"style": hair_style, "texture": VignetteFigures.hair_texture(h)})
+	var skin := 1.0 if hair_style in VignetteFigures.HAIR_TINT_SKIN else 0.0
+	ci.draw_texture_rect_region(VignetteFigures.hair_texture(h),
+			Rect2(origin + VignetteFigures.hair_offset(h) * k, Vector2(h["size"][0], h["size"][1]) * k),
+			VignetteFigures.hair_source(h, f), Color(skin, colour.g, colour.b, colour.a))
 
 
 ## The draw colour that recolours a figure: its kit, skin and hair, and whether
@@ -572,9 +609,9 @@ func _draw_ball(b: Vector3) -> void:
 	var r := maxf(3.0, 0.2 * s.z * FIGURE)
 	draw_set_transform(Vector2(g.x, g.y), 0.0, Vector2(1.0, 0.35))
 	draw_circle(Vector2.ZERO, r * (1.0 - clampf(b.z / 10.0, 0.0, 0.6)), Color(0, 0, 0, 0.3))
-	draw_set_transform(Vector2(s.x, s.y), -0.5, Vector2(1.0, 0.62))
-	draw_circle(Vector2.ZERO, r, BALL)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# The Sherrin (VignetteBall), spinning once it's up off the umpire's bounce.
+	VignetteBall.draw(self, Vector2(s.x, s.y), 2.0 * r, _t, b.z > 0.6)
 
 
 ## At the freeze: who is who, for the rucks, the first midfielder each side and
@@ -583,6 +620,11 @@ func _draw_names() -> void:
 	var font: Font = UiKit.BOLD
 	var fs := int(clampf(size.x / 26.0, 12.0, 17.0))
 	var placed: Array[Rect2] = []
+	# The ball is the point of the frame: no name sits on it.
+	var b := _ball()
+	var bs := _project(Vector2(b.x, b.y), b.z)
+	var br := maxf(3.0, 0.2 * bs.z * FIGURE) + 4.0
+	placed.append(Rect2(bs.x - br, bs.y - br, br * 2.0, br * 2.0))
 	for t in tokens:
 		if not (str(t["slot"]) in ["R", "C"] or bool(t["tired"])):
 			continue
@@ -591,13 +633,23 @@ func _draw_names() -> void:
 		var name := str(t["name"])
 		var nw := font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var p := Vector2(clampf(head.x - nw * 0.5, 4.0, size.x - nw - 4.0), head.y - 6.0)
-		# Stack names that would sit on top of each other.
+		# Over his head; failing that beside it, left or right, then stacked
+		# upward - never over another name or the ball.
 		var box := Rect2(p - Vector2(0, fs), Vector2(nw, fs + 2))
+		var free := func(r: Rect2) -> bool: return not placed.any(func(q): return q.intersects(r))
+		if not free.call(box):
+			var side := box
+			for dx in [-(nw * 0.5 + 10.0), nw * 0.5 + 10.0]:
+				var c := Rect2(Vector2(clampf(head.x - nw * 0.5 + dx, 4.0, size.x - nw - 4.0), box.position.y + fs * 0.6), box.size)
+				if free.call(c):
+					side = c
+					break
+			box = side
 		var tries := 0
-		while tries < 4 and placed.any(func(r): return r.intersects(box)):
+		while tries < 4 and not free.call(box):
 			box.position.y -= fs + 3
 			tries += 1
-		p.y = box.position.y + fs
+		p = Vector2(box.position.x, box.position.y + fs)
 		placed.append(box)
 		draw_string(font, p + Vector2(1, 1), name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.6))
 		draw_string(font, p, name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,

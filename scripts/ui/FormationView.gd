@@ -204,7 +204,7 @@ func _show_callout(index: int) -> void:
 	var bits: PackedStringArray = []
 	for row in rows:
 		bits.append("%s %d" % [str(row[1]), int(attr.get(row[0], 0))])
-	_callout_box.add_child(UiKit.lbl("  ·  ".join(bits), 11, UiKit.MUTED))
+	_callout_box.add_child(UiKit.lbl("  ·  ".join(bits), UiKit.FINE, UiKit.MUTED))
 	_callout.visible = true
 	_place_callout()
 	queue_redraw()
