@@ -1845,7 +1845,8 @@ func _test_traits_surfaced() -> void:
 ## average v average 50% of named contests to the forward); an elite
 ## defender holds a good forward to 34% and cuts his goals about a quarter.
 ## Pinned smaller: the same forward against an elite and an average
-## defender.
+## defender, over 60 matches each (30 left the gap to the seeds: 18 points
+## over 120 matches, under either clearance rule).
 func _test_key_duel_balance() -> void:
 	var kfs := []
 	var kds := []
@@ -1861,7 +1862,7 @@ func _test_key_duel_balance() -> void:
 	for dfn in [kds[1], kds[kds.size() / 2]]:
 		var contests := 0
 		var won := 0
-		for s in range(30):
+		for s in range(60):
 			var home := []
 			for p in GameDB.club_list("GEE"):
 				home.append(p.duplicate(true))

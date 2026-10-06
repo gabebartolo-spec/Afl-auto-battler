@@ -28,6 +28,7 @@ func run() -> void:
 	_test_ends_swap(res)
 	_test_ballup_is_informational()
 	_test_wings_and_lineups()
+	_test_score_colour()
 	_test_no_wrong_way_kicks(res)
 	_test_match_flow(res)
 	_test_boundary_collect(res)
@@ -857,3 +858,29 @@ func _test_broadcast_vignettes() -> void:
 			and vig.get("_look") == GameDB.player_looks(star),
 			"A broadcast close-up dresses both clubs and shows the featured player's own look")
 	vig.free()
+
+
+## A live score is painted in a club's own colour only where it can be read.
+## Sydney's black accent on the dark panel was invisible (1.00:1).
+func _test_score_colour() -> void:
+	var was: String = UiKit.appearance()
+	var unreadable: Array = []
+	for mode in ["dark", "light"]:
+		UiKit.apply_appearance(mode)
+		for code in GameDB.club_order:
+			if UiKit.contrast(UiKit.score_colour(str(code)), UiKit.PANEL) < 4.5:
+				unreadable.append("%s (%s)" % [code, mode])
+	# Collected and checked once: a floor counts rules, not data.
+	_check(unreadable.is_empty(), "Every club's live score reads at 4.5:1 on the panel, in both appearances (%s)" % ", ".join(unreadable))
+	UiKit.apply_appearance("dark")
+	var syd: Color = UiKit.score_colour("SYD")
+	_check(syd != (GameDB.club_colours("SYD") as Array)[2], "Sydney's black accent is not used for its score on the dark panel")
+	var legible: String = ""
+	for code in GameDB.club_order:
+		var cols: Array = GameDB.club_colours(str(code))
+		if UiKit.contrast(cols[2], UiKit.PANEL) >= 4.5:
+			legible = str(code)
+			break
+	_check(legible != "" and UiKit.score_colour(legible) == (GameDB.club_colours(legible) as Array)[2],
+			"A club whose accent reads keeps its own colour for its score")
+	UiKit.apply_appearance(was)

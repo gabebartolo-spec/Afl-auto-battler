@@ -1174,7 +1174,7 @@ func _test_trade_picks() -> void:
 	var my_size := GameState.my_list.size()
 	var their_size := (GameState.season.lists[rival] as Array).size()
 	var my_pay := GameState.my_payroll()
-	var their_player: Dictionary = GameState.list_player(their_weak)
+	var their_player: Dictionary = GameState._find_player(their_weak)     # theirs: not on your list yet
 	var t := GameState.make_trade(rival, [my_first], [their_weak])
 	if not bool(t["ok"]):
 		t = GameState.make_trade(rival, [my_first, my_weak], [their_weak])
@@ -1536,19 +1536,19 @@ func _test_trade_market() -> void:
 		var asked_before: Dictionary = (GameState.trade_requests as Dictionary).duplicate(true)
 		GameState._ai_trades(GameState.trade_prospects())
 		# A club that has already bought can find a starter pushed out of its
-		# side, and sell him as the fringe player he now is; and a buyer's
-		# first deal can make it a contender for its second (DEALS_PER_CLUB),
-		# judged then, not at the start.
+		# side, and sell him as the fringe player he now is. Phases are judged
+		# as they stood at the deal: a phase ranks a list against the league's,
+		# so earlier trades (anyone's) can move it.
 		var bought := {}
 		for e in GameState.offseason_log.filter(func(x): return str(x.get("kind", "")) == "ai_trade"):
 			var named := asked_before.has(str(e["in"][0])) \
 					and (asked_before[str(e["in"][0])]["to"] as Array).has(str(e["club"]))
-			if str(starter_at.get(str(e["in"][0]), "")) == str(e["with"]) and not named and not bought.has(str(e["with"])) \
-					and not bought.has(str(e["club"])):
-				var fine: bool = str(phase_of[e["club"]]) == "contending" and str(phase_of[e["with"]]) == "rebuilding"
+			if str(starter_at.get(str(e["in"][0]), "")) == str(e["with"]) and not named and not bought.has(str(e["with"])):
+				var ph: Array = e.get("phases", [phase_of[e["club"]], phase_of[e["with"]]])
+				var fine: bool = str(ph[0]) == "contending" and str(ph[1]) == "rebuilding"
 				starters_ok = starters_ok and fine
 				if not fine:
-					offenders.append("%s (%s) from %s (%s): %s" % [e["club"], phase_of[e["club"]], e["with"], phase_of[e["with"]], str(e["in"][0])])
+					offenders.append("%s (%s) from %s (%s): %s" % [e["club"], ph[0], e["with"], ph[1], str(e["in"][0])])
 			bought[str(e["club"])] = true
 		GameState._make_trade_offers(GameState.trade_prospects())
 		GameState._freeze_league(false)

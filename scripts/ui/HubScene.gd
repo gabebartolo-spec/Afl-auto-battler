@@ -60,7 +60,7 @@ func _show_weekly_loop_intro() -> void:
 	v.add_child(UiKit.heading("Your week", 24))
 	for line in [
 		"This is home base. Check the next opponent, then use Team to pick the side and Coaching if you want to change how you play.",
-		"Play match when you want the live coaching calls. Sim round moves the week on quickly; both use the same match simulation.",
+		"Play match when you want the live coaching calls. Sim round moves the week on quickly; the match itself is the same either way.",
 		"After the game, review what happened and change selection or training only when you have a reason. There is no weekly checklist to clear.",
 	]:
 		var l := UiKit.lbl(line, 14, UiKit.TEXT)
@@ -1065,6 +1065,14 @@ func _my_result(v: VBoxContainer, res: Dictionary) -> void:
 		row.add_child(UiKit.figure(UiKit.scoreline(int(res["goals"][side]), int(res["behinds"][side])),
 				22, UiKit.MUTED if lost_side else UiKit.TEXT))
 		v.add_child(row)
+	# FL-006: editorial flavour, only when the match's facts support it - quiet
+	# text under the facts, never coloured like a result.
+	var line := Headlines.for_match(res, me)
+	if line != "":
+		var hl := UiKit.lbl(line, UiKit.BODY, UiKit.MUTED)
+		hl.name = "MyHeadline"
+		hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(hl)
 	var best := MatchNotes.standouts(res, me, 1)
 	if not best.is_empty():
 		var bl := UiKit.ellipsis("Best: %s %s  ·  %s" % [str(best[0]["name"]),

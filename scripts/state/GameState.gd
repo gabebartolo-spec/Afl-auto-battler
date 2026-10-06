@@ -2001,6 +2001,17 @@ func history_record_lines() -> Array:
 	return out
 
 
+## The years `code` won the flag in this career, newest first (honour_roll: what
+## happened in this save, nothing imported or invented).
+func premiership_years(code: String) -> Array:
+	var out := []
+	for i in range(honour_roll.size() - 1, -1, -1):
+		var h: Dictionary = honour_roll[i]
+		if code != "" and str(h.get("premier", "")) == code:
+			out.append(int(h.get("year", 0)))
+	return out
+
+
 func recent_honours(limit := 5) -> Array:
 	var out := []
 	for i in range(honour_roll.size() - 1, -1, -1):
@@ -2065,6 +2076,9 @@ func milestone_notes() -> Array:
 const BANNER_FINALS := {"WC": "wildcard", "QF": "qualifying", "EF": "elimination",
 		"SF": "semi", "PF": "preliminary", "GF": "grand"}
 const BANNER_MILESTONES := [50, 100, 150, 200, 250, 300, 350]
+## Games for one club that its banner honours (FL-002), when they aren't
+## also a career milestone: a player who came from another club.
+const BANNER_CLUB_MILESTONES := [100, 150, 200, 250, 300]
 
 
 func banner_context(match: Dictionary) -> Dictionary:
@@ -2085,6 +2099,8 @@ func banner_context(match: Dictionary) -> Dictionary:
 		"first_game": _first_game(home, away) if regular else "",
 		"premiers": _flag_game(home, away) if regular else "",
 		"milestone": _banner_milestone(us, last_round or week != ""),
+		# FL-008: your premierships of this career, on pennants round your own ground.
+		"flags": premiership_years(us) if us == home and us == my_club else [],
 		"year": season_year,
 		"seed": hash([int(season.seed) if season != null else 0, season_year, round_label, home, away]),
 	}
@@ -2168,40 +2184,61 @@ func _banner_milestone(code: String, farewell_ok: bool) -> Dictionary:
 	var sq: Squad = my_squad() if code == my_club else Squad.new(GameDB.club_name(code), season.lists[code], true, code)
 	var best := {}
 	var best_games := -1
+	var club := {}
+	var club_games := -1
 	var farewell := {}
 	for p in sq.ground + sq.bench:
-		var surname := str(GameDB.player_display_name(p)).split(" ")[-1]
+		var name := str(GameDB.player_display_name(p))
+		var surname := name.split(" ")[-1]
 		var played := games_played(p)
 		var next := played + 1
 		if Career.complete(p) and (BANNER_MILESTONES.has(next) or played == 0) and next > best_games:
-			best = {"player": surname, "games": next}
+			best = {"player": surname, "name": name, "games": next}
 			best_games = next
-		elif farewell_ok and farewell.is_empty() and retiring_now(p):
-			farewell = {"player": surname, "games": "farewell"}
-	return best if not best.is_empty() else farewell
+		elif Career.complete(p):
+			var here := int(club_tally(p, code)["games"]) + 1
+			if BANNER_CLUB_MILESTONES.has(here) and here > club_games:
+				club = {"player": surname, "name": name, "games": here, "club": true}
+				club_games = here
+		if farewell_ok and farewell.is_empty() and retiring_now(p):
+			farewell = {"player": surname, "name": name, "games": "farewell"}
+	if not best.is_empty():
+		return best
+	return club if not club.is_empty() else farewell
 
 
 ## What he has done for your club: {"games", "goals", "since", "bf": [years],
 ## "flags": [years]}. Games and goals count every spell at the club, this
 ## season included; "since" is when his current spell began.
+## His games and goals for one club, every spell, this season included:
+## {"games", "goals", "spells": [[from, to], ...]}.
+func club_tally(p: Dictionary, code: String) -> Dictionary:
+	var out := {"games": 0, "goals": 0, "spells": []}
+	var c := Career.of(p)
+	for st in c.get("stints", []):
+		if str(st[0]) == code:
+			out["games"] = int(out["games"]) + int(st[3])
+			out["goals"] = int(out["goals"]) + int(st[4])
+			(out["spells"] as Array).append([int(st[1]), int(st[2])])
+	var t: Dictionary = season_tally.get(str(p.get("id", "")), {})
+	if int(c.get("through", 0)) < season_year and str(t.get("club", "")) == code:
+		out["games"] = int(out["games"]) + int(t.get("games", 0))
+		out["goals"] = int(out["goals"]) + int(t.get("goals", 0))
+		var sp: Array = out["spells"]
+		if sp.is_empty() or int(sp[-1][1]) < season_year - 1:
+			sp.append([season_year, season_year])
+	return out
+
+
 func with_us(p: Dictionary) -> Dictionary:
 	var out := {"games": 0, "goals": 0, "since": 0, "bf": [], "flags": []}
 	if my_club == "":
 		return out
 	var id := str(p.get("id", ""))
-	var c := Career.of(p)
-	var spells := []
-	for st in c.get("stints", []):
-		if str(st[0]) == my_club:
-			out["games"] = int(out["games"]) + int(st[3])
-			out["goals"] = int(out["goals"]) + int(st[4])
-			spells.append([int(st[1]), int(st[2])])
-	var t: Dictionary = season_tally.get(id, {})
-	if int(c.get("through", 0)) < season_year and str(t.get("club", "")) == my_club:
-		out["games"] = int(out["games"]) + int(t.get("games", 0))
-		out["goals"] = int(out["goals"]) + int(t.get("goals", 0))
-		if spells.is_empty() or int(spells[-1][1]) < season_year - 1:
-			spells.append([season_year, season_year])
+	var tally := club_tally(p, my_club)
+	out["games"] = tally["games"]
+	out["goals"] = tally["goals"]
+	var spells: Array = tally["spells"]
 	if not spells.is_empty():
 		out["since"] = int(spells[-1][0])
 	for entry in honour_roll:
@@ -2442,6 +2479,19 @@ func list_player(player_id: String) -> Dictionary:
 	return {}
 
 
+## FL-005: change or remove one of your players' nicknames (cosmetic only, no
+## cost). "" removes it; it stays removed. Returns the nickname now shown.
+const NICKNAME_MAX := 16
+
+
+func set_player_nickname(player_id: String, text: String) -> String:
+	var p := list_player(player_id)
+	if p.is_empty():
+		return ""
+	p["nickname"] = text.strip_edges().left(NICKNAME_MAX)
+	return FictionalIdentity.nickname(p)
+
+
 func train_stat_label(key: String) -> String:
 	for row in TRAIN_STATS:
 		if str(row[0]) == key:
@@ -2608,7 +2658,8 @@ const TRAIN_PLANS := [
 ## Three positions across forward, midfield and back make him a Unicorn
 ## (Traits). One project per player a season, PROJECT_MAX a club at once.
 ## The price is explicit: from the day he starts, training in his own position
-## can lift him only PROJECT_OWN_GAIN more that season (the new position's
+## can lift him only PROJECT_OWN_GAIN more that season (and a learned position
+## gives LEARN_PAYBACK back the season after) (the new position's
 ## training can still help his own game where the two overlap).
 ## Rival clubs learn positions too, sparingly: AI_PROJECTS a season each, by
 ## the same gates (_ai_projects).
@@ -2617,7 +2668,11 @@ const PROJECT_WEEKS := 8
 const PROJECT_REACH := 6
 const PROJECT_PASS := 3
 const PROJECT_MAX := 2
-const PROJECT_OWN_GAIN := 1
+const PROJECT_OWN_GAIN := 2
+## A position learned pays back: the next season his training can lift his own
+## rating LEARN_PAYBACK more than the usual limit, never past his POT
+## (director, 2026-10-06: projects must matter).
+const LEARN_PAYBACK := 1
 const AI_PROJECTS := 1
 const PROJECT_POT := {1: 70, 2: 90}      # positions he has -> POT to learn another
 const MAX_POSITIONS := 3
@@ -2761,6 +2816,7 @@ func _finish_project(p: Dictionary, announce := true) -> Dictionary:
 	var learned := there >= own - PROJECT_PASS
 	var was_unicorn := Traits.of(p).has("unicorn")
 	if learned:
+		p["learn_payback_year"] = season_year + 1
 		if str(p.get("role2", "")) == "":
 			p["role2"] = role
 		else:
@@ -4724,11 +4780,14 @@ func _ai_trades(prospects: Dictionary) -> void:
 ## A trade between two rival clubs: done, logged and in the news. `why`: the
 ## request it met ("home", "games") or "".
 func _log_ai_trade(buyer: String, seller: String, target: Dictionary, pkg: Array, why: String) -> void:
+	# Where each club stood when it dealt: a phase ranks a list against the
+	# league's, so earlier trades can move it.
+	var phases := [club_phase(buyer), club_phase(seller)]
 	_execute_trade(buyer, seller, pkg, [target])
 	var said := "%s get %s from %s for %s." % [GameDB.club_name(buyer),
 			_names([target]), GameDB.club_name(seller), _names(pkg)]
 	var row := {"kind": "ai_trade", "club": buyer, "with": seller,
-			"in": [str(target["id"])], "out": pkg.map(func(a): return str(a["id"])), "text": said}
+			"in": [str(target["id"])], "out": pkg.map(func(a): return str(a["id"])), "text": said, "phases": phases}
 	if why != "":
 		row["request"] = why
 	offseason_log.append(row)
@@ -5628,6 +5687,9 @@ func season_ceiling(p: Dictionary) -> int:
 	if not p.has("season_start_ov"):
 		p["season_start_ov"] = int(p.get("overall", 0))
 	var full := int(p["season_start_ov"]) + SEASON_TRAIN_GAIN
+	# The season after he learns a position: a little more room, inside POT.
+	if int(p.get("learn_payback_year", 0)) == season_year:
+		full = maxi(full, mini(full + LEARN_PAYBACK, int(p.get("potential", 0))))
 	if int(p.get("project_year", 0)) == season_year and p.has("project_cap"):
 		return mini(full, int(p["project_cap"]))
 	return full
