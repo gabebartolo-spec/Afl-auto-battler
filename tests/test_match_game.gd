@@ -40,6 +40,7 @@ func run() -> void:
 	_test_no_role_gates()
 	_test_spoils_and_crumbs()
 	_test_roaming_interceptor()
+	_test_six_plans()
 	_test_zone_intercepts()
 	_test_defensive_forward()
 	_test_hot_player_moment()
@@ -2448,3 +2449,20 @@ func _test_defensive_forward() -> void:
 	_check(bool(t.get("spare_accountable", false)) and not expect.is_empty()
 			and str(t.get("spare_minder_id", "")) == str(expect[0]["id"]),
 			"An AI club names the forward a coach would send, by the same rule")
+
+
+## ARD-M4-015: eight plan names become six. An old save's "fast" plays as
+## Attack corridor and "press" as Defensive press: the same match, the same
+## names on every screen.
+func _test_six_plans() -> void:
+	var a := _sim(9100)
+	a.set_tactics(0, {"gameplan": "fast"})
+	var b := _sim(9100)
+	b.set_tactics(0, {"gameplan": "attacking"})
+	var ra := a.run()
+	var rb := b.run()
+	_check(ra["score"] == rb["score"] and (ra["events"] as Array).size() == (rb["events"] as Array).size(),
+			"An old save's Fast movement plays exactly as Attack corridor")
+	_check(CoachReport.plan_label("fast") == "Attack corridor" and CoachReport.plan_label("press") == "Defensive press"
+			and not MatchSim.PLANS.has("fast") and not MatchSim.PLANS.has("press") and MatchSim.PLANS.size() == 5,
+			"Six plans (balanced and five others), and the old names read as the merged ones")

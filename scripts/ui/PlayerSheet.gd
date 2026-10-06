@@ -155,7 +155,7 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 
 	# The attributes behind the rating: the deepest layer, last.
 	v.add_child(UiKit.spacer(6))
-	v.add_child(UiKit.section("Attributes"))
+	v.add_child(UiKit.section("Ratings"))
 	var grid := GridContainer.new()
 	grid.name = "ProfileAttributes"
 	grid.columns = 1 if UiKit.view_width(host) < 520.0 else 2
