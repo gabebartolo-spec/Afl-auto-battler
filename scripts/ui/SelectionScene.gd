@@ -272,9 +272,9 @@ func _slot_issue(sel: Dictionary, role: String, target: int) -> String:
 	return "%s: %d named; only %d can play there." % [label, named, target]
 
 
-## The line synergies your 18 switch on - what the side is good at - the
-## nearest one it doesn't have and what it's short (a fact, never a suggested
-## swap: the choice is yours), and the full rules one tap away.
+## The line synergies your 18 switch on - what the side is good at - any
+## one it is a single player short of (a fact, never a suggested swap: the
+## choice is yours), and the full rules one tap away.
 func _synergy_view() -> Control:
 	var h := UiKit.hbox(8)
 	h.name = "Synergies"

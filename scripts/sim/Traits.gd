@@ -327,35 +327,25 @@ static func with_effect(key: String) -> String:
 const PLURALS := {"lockdown": "Lockdown players", "big_game": "Big-game players"}
 
 
-## The nearest synergy the side doesn't have, as a fact: "Tall-small forward
-## line: 1 crumber short." (director, 2026-10-06: "Build it"). Nearest is the
-## fewest players short; a tie goes to SYNERGIES order. No swap is suggested:
-## who to bring in is the player's call. "" when every synergy is on.
+## A synergy the side is one player short of, as a fact: "Tall-small forward
+## line: 1 crumber short." (director, 2026-10-06: "Build it"). The first in
+## SYNERGIES order; "" when none is exactly one player short (on, or two or
+## more short). No swap is suggested: who to bring in is the player's call.
 static func short_text(ground: Array) -> String:
-	var best := ""
-	var best_missing := 0
-	var best_bits: PackedStringArray = []
+	var rows := {}
 	for r in progress(ground):
-		var missing := int(r["missing"])
-		if missing == 0:
+		rows[str(r["key"])] = r
+	for key in SYNERGIES:
+		var r: Dictionary = rows[key]
+		if int(r["missing"]) != 1:
 			continue
-		var key := str(r["key"])
-		if best != "" and (missing > best_missing or (missing == best_missing
-				and SYNERGIES.keys().find(key) > SYNERGIES.keys().find(best))):
-			continue
-		var bits: PackedStringArray = []
 		for t in r["needs"]:
-			var gap := int(r["needs"][t]) - int(r["have"][t])
-			if gap > 0:
-				var many := str(PLURALS.get(str(t), label(str(t)) + "s"))
-				var name := many if gap > 1 else (many.trim_suffix("s") if PLURALS.has(str(t)) else label(str(t)))
-				bits.append("%d %s" % [gap, name.to_lower()])
-		best = key
-		best_missing = missing
-		best_bits = bits
-	if best == "":
-		return ""
-	return "%s: %s short." % [label(best), " and ".join(best_bits)]
+			if int(r["have"][t]) < int(r["needs"][t]):
+				var name := str(PLURALS.get(str(t), "")).trim_suffix("s")
+				if name == "":
+					name = label(str(t))
+				return "%s: 1 %s short." % [label(str(key)), name.to_lower()]
+	return ""
 
 
 ## "2/2 Contested bull (midfield)" style summary for one synergy row.
