@@ -774,9 +774,11 @@ static func _by_roles(group: Array, roles: Array) -> Array:
 ## line can make any ordinary play, each leans where it belongs. The lines
 ## that could always do it keep full weight.
 ## Carrying by zone (from the carrying side's view).
+## Middle zone calibrated 2026-10-06 against real 2026 per-role disposals: a
+## defender carries less through the middle (0.45), a forward more (0.6).
 const CARRY_ROLES := {
 	"back": {"DEF": 1.0, "MID": 1.0, "RUCK": 0.3, "FWD": 0.12},
-	"middle": {"MID": 1.0, "RUCK": 1.0, "DEF": 1.0, "FWD": 0.3},
+	"middle": {"MID": 1.0, "RUCK": 1.0, "DEF": 0.45, "FWD": 0.6},
 	"attack": {"MID": 1.0, "FWD": 1.0, "DEF": 0.2, "RUCK": 0.3},
 	"inside": {"FWD": 1.0, "MID": 1.0, "RUCK": 0.3, "DEF": 0.05},
 }
@@ -821,7 +823,15 @@ static func fwd_size(p: Dictionary) -> String:
 ## forward kicks the odd goal.
 const SHOT_ROLES := {"FWD": 1.0, "MID": 1.0, "RUCK": 0.35, "DEF": 0.06}
 ## Who wins a clearance: forwards and defenders at a stoppage now and then.
-const CLEARANCE_ROLES := {"MID": 1.0, "RUCK": 1.0, "FWD": 0.12, "DEF": 0.10}
+## A ruck wins a quarter of what a midfielder would around the ground: he
+## taps it to them (calibrated 2026-10-06 to 3.8 a game, real 3.6; centre
+## bounces pick from the attendees by contested work alone).
+const CLEARANCE_ROLES := {"MID": 1.0, "RUCK": 0.25, "FWD": 0.12, "DEF": 0.10}
+## The clearance winner takes the chain's first disposal, as a clearance is
+## in real football (director, 2026-10-06; evidence #363). The carrier pick is
+## still drawn, so the rest of the chain's dice are where they were. Off only
+## as the audit baseline (the old rule: the first carrier from the whole ground).
+static var clearance_keeps := true
 ## Who is credited a one-percenter (a spoil, smother or shepherd).
 const ONE_PCT_ROLES := {"DEF": 1.0, "RUCK": 0.5, "MID": 0.3, "FWD": 0.1}
 
@@ -1619,9 +1629,10 @@ func _ruck_tap() -> void:
 			edge = TAP_ADV_EDGE if first == 0 else -TAP_ADV_EDGE
 	_tap = {"side": first, "hits": hits, "adv": adv, "edge": edge}
 
-func _stoppage(side: int, opp: int, from_bounce: bool) -> void:
+## Returns the player credited with the clearance, or null.
+func _stoppage(side: int, opp: int, from_bounce: bool):
 	if not from_bounce:
-		return
+		return null
 	var T := Ratings.T
 	var atk: Squad = squads[side]
 	var dfn: Squad = squads[opp]
@@ -1662,6 +1673,8 @@ func _stoppage(side: int, opp: int, from_bounce: bool) -> void:
 		else:
 			mid = _weighted_roles(atk.ground, "contested", CLEARANCE_ROLES, 2.0, side, "clearance")
 		_p(mid, "clearances")
+		return mid
+	return null
 
 
 # ---------------------------------------------------------------------------
@@ -1733,7 +1746,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 	var gline := float(T["goal_line"])
 
 	_t(side, "chains")
-	_stoppage(side, opp, from_bounce)
+	var cleared = _stoppage(side, opp, from_bounce)
 
 	var atk_fp := fp if side == 0 else -fp
 	# A chain that starts inside its forward 50 (a ball-up won there) goes
@@ -1753,6 +1766,8 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			pending = null
 		var is_kick_in := from_kick_in and touches == 1
 		var carrier = kick_in_taker(side) if is_kick_in else pick_carrier(side, fp)
+		if touches == 1 and clearance_keeps and cleared != null and not is_kick_in:
+			carrier = cleared
 		var kick_in_play_on := _kick_in_play_on(carrier) if is_kick_in else false
 		_chain_touch[str(carrier["id"])] = carrier
 		# Champion Data: a kick straight from the goal square is a team
@@ -3174,7 +3189,7 @@ const MOMENT_GAP := 8                # chains between moments
 ## card says "the next ten minutes" - and every call ends at the break.
 ## (They lasted 4-8 chains, about two minutes, and measured as no-ops.)
 const BURSTS := {
-	"stack": {"label": "Stack the stoppage", "chains": 12, "for": "for the next few centre bounces"},
+	"stack": {"label": "Stack the stoppage", "chains": 12, "for": "for the next few centre ball-ups"},
 	"flood": {"label": "Flood behind the ball", "chains": 45, "for": "for the rest of the quarter"},
 	"surge": {"label": "Throw numbers at it", "chains": 15, "for": "for the next ten minutes"},
 	"hold": {"label": "Slow it down", "chains": 15, "for": "for the next ten minutes"},
@@ -3236,7 +3251,7 @@ func _playtest_bounce() -> bool:
 func _fire_bounce(margin: int) -> void:
 	var state := "level" if margin == 0 else ("%d up" % margin if margin > 0 else "%d down" % -margin)
 	_fire({"kind": "bounce", "default": 2,
-		"title": "Centre bounce - %s with %d minutes left" % [state, 120 - current_minute],
+		"title": "Centre ball-up - %s with %d minutes left" % [state, 120 - current_minute],
 		"text": "Set up for the rest of the game.",
 		"options": [
 			{"key": "stack", "label": "Stack the stoppage",

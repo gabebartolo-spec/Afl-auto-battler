@@ -34,7 +34,6 @@ const BEARD_LABELS := {
 	"beard_moustache": "Beard and moustache",
 }
 const LEVEL_LABELS := [["0", "None"], ["1", "Light"], ["2", "Heavy"]]
-const SCAR_LABELS := [["0", "None"], ["1", "Light"], ["2", "Moderate"]]
 const STATES := [["VIC", "Victoria"], ["SA", "South Australia"], ["WA", "Western Australia"],
 		["NSW", "New South Wales"], ["QLD", "Queensland"], ["TAS", "Tasmania"], ["ACT", "ACT"],
 		["NT", "Northern Territory"]]
@@ -136,7 +135,7 @@ func _home(body: VBoxContainer) -> void:
 	var note := UiKit.lbl("Bring him into a career from New career.", UiKit.SMALL, UiKit.MUTED)
 	body.add_child(note)
 	body.add_child(UiKit.spacer(8))
-	var edit := UiKit.btn("Edit", 16)
+	var edit := UiKit.btn("Edit", UiKit.NAME)
 	edit.name = "ForgeEditPlayer"
 	edit.custom_minimum_size.y = 44
 	edit.pressed.connect(func():
@@ -144,7 +143,7 @@ func _home(body: VBoxContainer) -> void:
 		_form = "player"
 		_build())
 	body.add_child(edit)
-	var drop := UiKit.btn("Remove", 16)
+	var drop := UiKit.btn("Remove", UiKit.NAME)
 	drop.name = "ForgeRemovePlayer"
 	drop.flat = true
 	drop.custom_minimum_size.y = 44
@@ -158,7 +157,7 @@ func _default_spec() -> Dictionary:
 	return {"first": "", "last": "", "nickname": "", "role": "MID", "role2": "", "height_cm": 184,
 			"style": "", "strengths": [], "weaknesses": [], "foot": "R", "number_pref": 0,
 			"look": {"skin": 1, "hair": 1, "hair_style": "short_crop", "beard": "clean", "socks": "tall",
-					"headband": false, "scars": 0, "bandage": 0, "tattoos": []}}
+					"headband": false, "bandage": 0, "tattoos": []}}
 
 
 func _player_form(body: VBoxContainer) -> void:
@@ -232,8 +231,8 @@ func _player_form(body: VBoxContainer) -> void:
 	body.add_child(_sub("Headband"))
 	body.add_child(UiKit.choice_grid("ForgeHeadband", [["off", "Off"], ["on", "On"]], "on" if bool(look["headband"]) else "off", 2,
 			func(k): look["headband"] = k == "on"))
-	# No freckles: the director's call, an unnecessary detail.
-	for f in [["scars", "Scars", SCAR_LABELS], ["bandage", "Bandaging", LEVEL_LABELS]]:
+	# No freckles or scars: the director's call, unnecessary detail.
+	for f in [["bandage", "Bandaging", LEVEL_LABELS]]:
 		body.add_child(_sub(str(f[1])))
 		var key := str(f[0])
 		body.add_child(UiKit.choice_grid("Forge_" + key, f[2], str(int(look.get(key, 0))), 3,
@@ -311,7 +310,7 @@ func _stepper(node_name: String, key: String, fmt: String, band: Array, zero_lab
 		var v := int(_spec[key])
 		value.text = zero_label if v == 0 and zero_label != "" else fmt % v
 	for d in [-1, 1]:
-		var b := UiKit.btn("−" if d < 0 else "+", 18)
+		var b := UiKit.btn("−" if d < 0 else "+", UiKit.HEADING)
 		b.name = node_name + ("Down" if d < 0 else "Up")
 		b.custom_minimum_size = Vector2(56, 44)
 		b.pressed.connect(func():
@@ -402,7 +401,7 @@ func _club_home(body: VBoxContainer) -> void:
 		body.add_child(make)
 		return
 	var head := UiKit.hbox(10)
-	head.add_child(UiKit.colour_marker(_club_colours(saved), 40.0, str(saved.get("design", "plain")), str(saved.get("code", ""))))
+	head.add_child(UiKit.colour_marker(_club_colours(saved), 30.0, str(saved.get("design", "plain")), str(saved.get("code", ""))))
 	var title := UiKit.lbl(str(saved.get("name", "")), UiKit.H1, UiKit.TEXT, true)
 	title.name = "ForgeClubTitle"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL

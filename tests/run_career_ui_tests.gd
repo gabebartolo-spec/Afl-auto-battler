@@ -318,6 +318,26 @@ func _run() -> void:
 	_check(_router.current() == "main", "Back leaves the Forge")
 	root.size = size_before
 	await _settle()
+	# --- desktop scale (STYLE-07): the PC shows the game bigger, not emptier ---
+	var layout = root.get_node("ScreenLayout")
+	var dens := func(w: float, h: float, os_scale: float, dpi: int) -> float:
+		return float(layout.desktop_density(Vector2(w, h), os_scale, dpi))
+	_check(is_equal_approx(dens.call(3840, 2160, 1.0, 288), 3.0),
+			"4K at Windows 300% (DPI 288, scale reported as 1) lays out on 1280 x 720")
+	_check(is_equal_approx(dens.call(3840, 2160, 1.0, 96), 3.0),
+			"4K at 100% still fits the 1280 x 720 canvas, not 3840 x 2160")
+	_check(is_equal_approx(dens.call(3840, 2160, 1.0, 144), 3.0),
+			"4K at 150% is not scaled twice (3, not 4.5)")
+	_check(is_equal_approx(dens.call(1920, 1080, 1.0, 96), 1.5) and is_equal_approx(dens.call(2560, 1440, 1.0, 96), 2.0),
+			"1080p and 1440p fit the same canvas")
+	_check(is_equal_approx(dens.call(3440, 1440, 1.0, 96), 2.0),
+			"Ultrawide fits by height and widens the canvas (1720 x 720)")
+	_check(is_equal_approx(dens.call(1280, 720, 1.0, 96), 1.0) and is_equal_approx(dens.call(900, 600, 1.0, 96), 1.0),
+			"A window at or under 1280 x 720 at 100% is drawn 1:1")
+	_check(is_equal_approx(dens.call(1280, 720, 1.0, 288), 3.0),
+			"A small window at 300% follows the OS scaling (the small-window floor then applies)")
+	_check(is_equal_approx(dens.call(2880, 1800, 2.0, 0), 2.25),
+			"A Mac reporting its own scale still fills the screen")
 
 	# --- new career setup: names and difficulty, applied only on start -------
 	current_scene.find_child("NewCareer", true, false).emit_signal("pressed")
@@ -603,12 +623,14 @@ func _run() -> void:
 	overlay = current_scene.get("_results_overlay")
 	_check(_router.current() == "hub" and (overlay == null or not is_instance_valid(overlay)),
 			"Back closes the results popup and stays on the hub")
-	# The round may have raised a press conference: Back skips it.
-	if current_scene.find_child("MediaConference", true, false) != null:
+	# The round may have raised a press conference: Back skips it. One check
+	# either way, so the floor does not move with the round's result.
+	var had_conference: bool = current_scene.find_child("MediaConference", true, false) != null
+	if had_conference:
 		_router.handle_back(true)
 		await _settle()
-		_check(_router.current() == "hub" and not _state.media_conference_pending(),
-				"Back skips the press conference and stays on the hub")
+	_check(not had_conference or (_router.current() == "hub" and not _state.media_conference_pending()),
+			"A press conference, if the round raised one, is skipped by Back and the hub stays")
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "main", "Back from the hub goes to the main menu")

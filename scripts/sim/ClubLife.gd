@@ -47,10 +47,15 @@ static func board_goal(rank: int, prev := 0) -> Dictionary:
 	return {"key": "wins7", "text": "Win at least 7 games", "wins": 7}
 
 
-static func goal_met(goal: Dictionary, position: int, wins: int) -> bool:
+static func goal_met(goal: Dictionary, position: int, wins: int, clubs := 18) -> bool:
 	if goal.has("wins"):
 		return wins >= int(goal["wins"])
-	return position <= int(goal.get("pos", 18))
+	return position <= int(goal.get("pos", clubs))
+
+
+## Where a club with no recorded expectation is taken to sit: mid-table.
+static func default_rank(clubs: int) -> int:
+	return clubs / 2
 
 
 ## How one result moves the board, by what the season's goal asks: a side

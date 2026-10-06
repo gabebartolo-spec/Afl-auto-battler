@@ -195,7 +195,7 @@ func _show_club_select() -> void:
 	grid.add_theme_constant_override("v_separation", 10)
 	_root.add_child(UiKit.scroll(grid))
 	for code in active:
-		var b := UiKit.btn("", 16)
+		var b := UiKit.btn("", UiKit.NAME)
 		b.name = "Choose_" + code
 		b.custom_minimum_size = Vector2(0, 110)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -213,7 +213,7 @@ func _show_club_select() -> void:
 		pick_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pick_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(pick_label)
-		v.add_child(UiKit.lbl(GameDB.club_name(code), 18, UiKit.TEXT, true))
+		v.add_child(UiKit.lbl(GameDB.club_name(code), UiKit.HEADING, UiKit.TEXT, true))
 		v.add_child(UiKit.ellipsis(str(GameDB.club(code).get("ground", "")), 12, UiKit.MUTED))
 		_ignore_mouse(inner)
 		b.pressed.connect(_on_club_chosen.bind(code))
@@ -284,7 +284,7 @@ func _show_board() -> void:
 			_root.add_child(_header("LEAGUE DRAFT", sub))
 		_root.add_child(_summary())
 
-	_ticker = UiKit.btn("", 13)
+	_ticker = UiKit.btn("", UiKit.SECONDARY)
 	_ticker.name = "LatestRivalPick"
 	_ticker.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_ticker.clip_text = true
@@ -334,7 +334,7 @@ func _compact_header() -> Control:
 	v.add_child(_status)
 	_round_info = UiKit.lbl("", 12, UiKit.MUTED)
 	v.add_child(_round_info)
-	_cap = UiKit.line("", 13, UiKit.TEXT, true)
+	_cap = UiKit.line("", UiKit.SECONDARY, UiKit.TEXT, true)
 	_cap.name = "SalaryCap"
 	_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(_cap)
@@ -391,7 +391,7 @@ func _position_filters() -> Control:
 		_role_labels[role] = count_label
 		# One answer per position: short of the match-day side, light on a
 		# full list's depth, or covered. Each player fills one spot only.
-		var need := UiKit.line("", 11, UiKit.MUTED, true)
+		var need := UiKit.line("", UiKit.FINE, UiKit.MUTED, true)
 		need.name = "Need_" + role
 		need.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(need)
@@ -502,7 +502,7 @@ func _filters() -> Control:
 		_shown = PAGE_SIZE
 		_search_timer.start())
 	search_row.add_child(_search_field)
-	var filters := UiKit.btn("Filters", 13)
+	var filters := UiKit.btn("Filters", UiKit.SECONDARY)
 	filters.name = "MoreFilters"
 	filters.toggle_mode = true
 	filters.button_pressed = _advanced_open
@@ -559,7 +559,7 @@ func _filters() -> Control:
 	if _draft.league_mode and not _draft.intake_mode:
 		var stage_row := UiKit.hbox(6)
 		_advanced.add_child(stage_row)
-		var stage_label := UiKit.lbl("Career stage", 13, UiKit.MUTED)
+		var stage_label := UiKit.lbl("Career stage", UiKit.SECONDARY, UiKit.MUTED)
 		stage_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		stage_row.add_child(stage_label)
 		var stage_option := UiKit.option()
@@ -749,7 +749,7 @@ func _player_row(p: Dictionary) -> Control:
 		for t in traits:
 			names.append(Traits.label(str(t)))
 		detail += " · " + ", ".join(names)
-	info.add_child(UiKit.ellipsis(detail, 13, UiKit.MUTED))
+	info.add_child(UiKit.ellipsis(detail, UiKit.SECONDARY, UiKit.MUTED))
 	face.add_child(UiKit.line("›", 20, UiKit.MUTED, true))
 	_ignore_mouse(face)
 	var can_pick := _draft.can_pick_player(p)
@@ -767,7 +767,7 @@ func _player_row(p: Dictionary) -> Control:
 	elif not can_pick:
 		reason = _draft.pick_block_reason(p)
 		text = "Rucks" if reason.contains("rucks") else ("Full" if reason.contains("full") else "Cap")
-	var b := UiKit.btn(text, 13)
+	var b := UiKit.btn(text, UiKit.SECONDARY)
 	b.name = "Pick_" + str(p["id"])
 	b.custom_minimum_size = Vector2(66, 44)
 	b.disabled = not can_pick
@@ -845,7 +845,7 @@ func _show_meeting() -> void:
 				overlay.queue_free()
 				_open_player(id))
 			v.add_child(b)
-	var go := UiKit.btn("To the draft", 15, true)
+	var go := UiKit.btn("To the draft", UiKit.BODY, true)
 	go.name = "MeetingDone"
 	go.custom_minimum_size.y = 48
 	go.pressed.connect(func(): overlay.queue_free())
@@ -891,10 +891,10 @@ func _open_player(id: String) -> void:
 		who.append("%d cm" % int(p["height_cm"]))
 	if not projected:
 		who.append(GameDB.club_name(str(p["club"])))
-	v.add_child(UiKit.lbl("  ·  ".join(who), 13, UiKit.MUTED))
+	v.add_child(UiKit.lbl("  ·  ".join(who), UiKit.SECONDARY, UiKit.MUTED))
 	var ped := PlayerProfile.pedigree(p)
 	if ped != "":
-		var pl := UiKit.lbl(ped, 13, UiKit.MUTED)
+		var pl := UiKit.lbl(ped, UiKit.SECONDARY, UiKit.MUTED)
 		pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(pl)
 	var status := _draft_status(p)
@@ -925,12 +925,12 @@ func _open_player(id: String) -> void:
 	v.add_child(UiKit.spacer(4))
 	var kv := UiKit.vbox(3)
 	v.add_child(kv)
-	var type_l := UiKit.lbl(Roles.label(p), 18, UiKit.TEXT, true)
+	var type_l := UiKit.lbl(Roles.label(p), UiKit.HEADING, UiKit.TEXT, true)
 	type_l.name = "DetailType"
 	kv.add_child(type_l)
 	var strengths := PlayerProfile.strengths(p)
 	if strengths.is_empty():
-		kv.add_child(UiKit.lbl("No standout strength yet for his position.", 13, UiKit.MUTED))
+		kv.add_child(UiKit.lbl("No standout strength yet for his position.", UiKit.SECONDARY, UiKit.MUTED))
 	for s in strengths:
 		var row := UiKit.hbox(8)
 		row.name = "Strength_" + str(s["key"])
@@ -941,7 +941,7 @@ func _open_player(id: String) -> void:
 		row.add_child(UiKit.line(str(s["grade"]), 14, UiKit.MUTED))
 	var weak := PlayerProfile.weakness(p)
 	if not weak.is_empty():
-		kv.add_child(UiKit.lbl("Needs work: " + str(weak["label"]).to_lower(), 13, UiKit.MUTED))
+		kv.add_child(UiKit.lbl("Needs work: " + str(weak["label"]).to_lower(), UiKit.SECONDARY, UiKit.MUTED))
 	var traits: Array = Traits.of(p)
 	if not traits.is_empty():
 		kv.add_child(UiKit.spacer(4))
@@ -955,7 +955,7 @@ func _open_player(id: String) -> void:
 	# The Combine is a short scouting read, not invented raw athletics data.
 	if scouted:
 		v.add_child(UiKit.spacer(4))
-		var combine_head := UiKit.lbl("Draft Combine", 13, UiKit.MUTED, true)
+		var combine_head := UiKit.lbl("Draft Combine", UiKit.SECONDARY, UiKit.MUTED, true)
 		combine_head.name = "CombineHeading"
 		v.add_child(combine_head)
 		for result in DraftScouting.combine_lines(p, _club, _draft.seed,
@@ -975,7 +975,7 @@ func _open_player(id: String) -> void:
 	# What he has done.
 	var prod := PlayerProfile.production(p)
 	v.add_child(UiKit.spacer(4))
-	v.add_child(UiKit.lbl(str(prod["title"]), 13, UiKit.MUTED))
+	v.add_child(UiKit.lbl(str(prod["title"]), UiKit.SECONDARY, UiKit.MUTED))
 	var pl2 := UiKit.lbl(str(prod["line"]) if str(prod["line"]) != "" else "No stats on record.",
 			14, UiKit.TEXT if str(prod["line"]) != "" else UiKit.MUTED)
 	pl2.name = "DetailProduction"
@@ -989,7 +989,7 @@ func _open_player(id: String) -> void:
 			v.add_child(UiKit.lbl("%s tie to %s" % [kind_word, GameDB.club_name(tie)], 13, UiKit.TEXT))
 		var note := str(p.get("note", ""))
 		if note != "":
-			var nl := UiKit.lbl(note, 13, UiKit.MUTED)
+			var nl := UiKit.lbl(note, UiKit.SECONDARY, UiKit.MUTED)
 			nl.name = "DetailNote"
 			nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			v.add_child(nl)
@@ -997,7 +997,7 @@ func _open_player(id: String) -> void:
 	# Established players can expose their exact sheet. A draft prospect cannot:
 	# funding changes uncertainty only if hidden ratings remain hidden.
 	if not scouted:
-		var all := UiKit.btn("Hide full ratings" if _detail_all else "Full ratings", 13)
+		var all := UiKit.btn("Hide full ratings" if _detail_all else "Full ratings", UiKit.SECONDARY)
 		all.name = "DetailAllRatings"
 		all.custom_minimum_size = Vector2(0, 44)
 		all.pressed.connect(func():
@@ -1021,13 +1021,13 @@ func _open_player(id: String) -> void:
 	# A taken player's status already says where he went.
 	if not can and not _draft.has(id):
 		var why := _draft.pick_block_reason(p)
-		var wl := UiKit.lbl(why if why != "" else "He cannot be picked right now.", 13, UiKit.BAD)
+		var wl := UiKit.lbl(why if why != "" else "He cannot be picked right now.", UiKit.SECONDARY, UiKit.BAD)
 		wl.name = "DetailBlocked"
 		wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		footer.add_child(wl)
 	var buttons := UiKit.hbox(8)
 	footer.add_child(buttons)
-	var close := UiKit.btn("Close", 15)
+	var close := UiKit.btn("Close", UiKit.BODY)
 	close.name = "DetailClose"
 	close.custom_minimum_size = Vector2(96, 48)
 	close.pressed.connect(_close_player)
@@ -1073,7 +1073,7 @@ func _big_number(value: int, label: String, node_name: String) -> Control:
 func _big_range(values: Array, label: String, node_name: String) -> Control:
 	var col := UiKit.vbox(0)
 	col.name = node_name
-	col.add_child(UiKit.line(DraftScouting.range_text(values), 24, UiKit.TEXT, true))
+	col.add_child(UiKit.line(DraftScouting.range_text(values), UiKit.TITLE, UiKit.TEXT, true))
 	col.add_child(UiKit.line(label, 12, UiKit.MUTED))
 	return col
 
@@ -1158,7 +1158,7 @@ func _refresh_history() -> void:
 			entries.append(entry)
 	_history_info.text = "%d %s" % [entries.size(), "PICK" if entries.size() == 1 else "PICKS"]
 	if entries.is_empty():
-		_history_box.add_child(UiKit.lbl("No picks yet" if _history_club.is_empty() else "No picks for this club yet", 18, UiKit.TEXT, true))
+		_history_box.add_child(UiKit.lbl("No picks yet" if _history_club.is_empty() else "No picks for this club yet", UiKit.HEADING, UiKit.TEXT, true))
 		_history_box.add_child(UiKit.lbl(
 				"Every selection appears here, including all %d rival clubs. The most recent picks are first." % maxi(1, _draft.clubs.size() - 1), 15, UiKit.MUTED))
 	for i in range(mini(_history_shown, entries.size())):
@@ -1193,20 +1193,20 @@ func _history_row(entry: Dictionary) -> Control:
 	var h := UiKit.hbox(7)
 	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	tap.add_child(h)
-	var number := UiKit.line("#%d" % int(entry["pick"]), 13, UiKit.EMPH if mine else UiKit.MUTED)
+	var number := UiKit.line("#%d" % int(entry["pick"]), UiKit.SECONDARY, UiKit.EMPH if mine else UiKit.MUTED)
 	number.custom_minimum_size.x = 32
 	h.add_child(number)
 	var info := UiKit.vbox(3)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(info)
-	info.add_child(UiKit.ellipsis(_entry_player_name(entry), 16, UiKit.TEXT, true))
+	info.add_child(UiKit.ellipsis(_entry_player_name(entry), UiKit.NAME, UiKit.TEXT, true))
 	var club_row := UiKit.hbox(6)
 	info.add_child(club_row)
 	club_row.add_child(UiKit.club_badge(str(entry["club"]), 12, true))
 	var tag := "YOUR PICK" if mine else "selected"
 	if bool(entry.get("released", false)):
 		tag = "released"
-	club_row.add_child(UiKit.ellipsis(tag, 11, UiKit.EMPH if mine else UiKit.MUTED))
+	club_row.add_child(UiKit.ellipsis(tag, UiKit.FINE, UiKit.EMPH if mine else UiKit.MUTED))
 	h.add_child(UiKit.role_chip(str(entry["role"])))
 	if _draft.intake_mode:
 		var picked_player := _player_by_id(str(entry.get("player_id", "")))
@@ -1258,8 +1258,8 @@ func _refresh_mine() -> void:
 	if _draft.count() == 0:
 		_mine_box.add_child(UiKit.spacer(8))
 		_mine_box.add_child(UiKit.lbl("Your list starts here.", 20, UiKit.TEXT, true))
-		_mine_box.add_child(UiKit.lbl("Select a player from the pool. Tap a position in the pool to find the cover you need.", 15, UiKit.MUTED))
-		var pool := UiKit.btn("Explore the player pool", 15, true)
+		_mine_box.add_child(UiKit.lbl("Select a player from the pool. Tap a position in the pool to find the cover you need.", UiKit.BODY, UiKit.MUTED))
+		var pool := UiKit.btn("Explore the player pool", UiKit.BODY, true)
 		pool.pressed.connect(func(): _select_tab("pool"))
 		_mine_box.add_child(pool)
 		return
@@ -1275,7 +1275,7 @@ func _refresh_mine() -> void:
 				var p := _row_panel(false)
 				var v := UiKit.vbox(2)
 				p.add_child(v)
-				v.add_child(UiKit.ellipsis(GameDB.player_display_name(player), 16, UiKit.TEXT, true))
+				v.add_child(UiKit.ellipsis(GameDB.player_display_name(player), UiKit.NAME, UiKit.TEXT, true))
 				if _draft.intake_mode:
 					var scout := DraftScouting.projection(player, _club, _draft.seed,
 							_draft.scouting_mult_for(_club))
@@ -1352,10 +1352,10 @@ func _refresh_order() -> void:
 		var p := _row_panel(mine)
 		var h := UiKit.hbox(7)
 		p.add_child(h)
-		var arrow := UiKit.line("‹" if going_back else "›", 16, UiKit.EMPH, true)
+		var arrow := UiKit.line("‹" if going_back else "›", UiKit.NAME, UiKit.EMPH, true)
 		arrow.custom_minimum_size.x = 16
 		h.add_child(arrow)
-		var number := UiKit.line("#%d" % (index + 1), 13, UiKit.MUTED)
+		var number := UiKit.line("#%d" % (index + 1), UiKit.SECONDARY, UiKit.MUTED)
 		number.custom_minimum_size.x = 34
 		h.add_child(number)
 		var v := UiKit.vbox(2)

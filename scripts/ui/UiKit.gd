@@ -66,12 +66,55 @@ static func apply_appearance(mode: String) -> void:
 static func appearance() -> String:
 	return _appearance
 
+
+## The WCAG contrast ratio of two colours (1 to 21).
+static func contrast(a: Color, b: Color) -> float:
+	var la := _relative_luminance(a)
+	var lb := _relative_luminance(b)
+	return (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
+
+
+static func _relative_luminance(c: Color) -> float:
+	var ch := func(v: float) -> float:
+		return v / 12.92 if v <= 0.03928 else pow((v + 0.055) / 1.055, 2.4)
+	return 0.2126 * ch.call(c.r) + 0.7152 * ch.call(c.g) + 0.0722 * ch.call(c.b)
+
+
+## A club's colour for a live score on `surface` (the panel by default): the
+## club's accent, else its second colour, else its first, whichever is the
+## first to read at 4.5:1; plain text when none of them does. A club's own
+## colour stays wherever it can be read (Sydney's black accent cannot be, on a
+## dark panel).
+static func score_colour(code: String, surface := AUTO_COLOUR) -> Color:
+	if surface == AUTO_COLOUR:
+		surface = PANEL
+	var cols: Array = GameDB.club_colours(code)
+	for i in [2, 1, 0]:
+		if contrast(cols[i], surface) >= 4.5:
+			return cols[i]
+	return TEXT
+
 ## Type scale for a phone. Pick from these before inventing a size.
 const H1 := 24      # screen title / the one big fact on a screen
 const H2 := 18      # section heading
 const BODY := 15
 const SMALL := 13   # secondary lines
 const TINY := 11    # stamps and fine print only
+
+## Type roles (STYLE-02 prep): what a piece of text is, at today's sizes
+## exactly. Screens use these rather than a number, so the director's typeface
+## and its sizes are set here, once. The face is lbl's: BOLD when it's asked
+## for, else FONT; the figures (RATING, SCORE, NUMBER) are DISPLAY. Sizes still
+## written as numbers on screens are off this scale (14, 17, 12, 20...) - for
+## the typeface pass to place, not guessed at here.
+const TITLE := H1           # a screen's title, the one big fact
+const HEADING := H2         # a section heading
+const NAME := 16            # a player or club name leading a row; button text
+const SECONDARY := SMALL    # the line under it
+const FINE := TINY          # stamps and fine print
+const RATING := 30          # a rating as a figure (DISPLAY)
+const SCORE := 24           # a match score as a figure (DISPLAY)
+const NUMBER := 22          # a score in a list row (DISPLAY)
 
 ## Spacing and corners.
 const GAP := 8          # between rows

@@ -30,6 +30,7 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	var name_l := UiKit.lbl(GameDB.player_display_name(p), 22, UiKit.TEXT, true)
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(name_l)
+	_identity(v, p)
 	var type_l := UiKit.lbl(Roles.label(p), UiKit.H2, UiKit.TEXT, true)
 	type_l.name = "ProfileType"
 	v.add_child(type_l)
@@ -80,7 +81,7 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	for pair in [[str(int(p["overall"])), "OVR"], [str(GameState.pot_view(p)["text"]), "POT"]]:
 		var nb := UiKit.vbox(0)
 		nb.name = "Profile" + str(pair[1])
-		nb.add_child(UiKit.figure(str(pair[0]), 30, UiKit.TEXT))
+		nb.add_child(UiKit.figure(str(pair[0]), UiKit.RATING, UiKit.TEXT))
 		nb.add_child(UiKit.lbl(str(pair[1]), UiKit.SMALL, UiKit.MUTED))
 		nums.add_child(nb)
 	var dev := UiKit.lbl(GameState.development_state(p), UiKit.BODY, UiKit.TEXT)
@@ -176,7 +177,7 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 		act.custom_minimum_size = Vector2(0, 48)
 		act.pressed.connect(action["run"])
 		box["footer"].add_child(act)
-	var close := UiKit.btn("Close", 16, true)
+	var close := UiKit.btn("Close", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 48)
 	close.pressed.connect(func():
 		overlay.queue_free()
@@ -222,3 +223,46 @@ static func attr_colour(v: float) -> Color:
 	if v >= 40.0:
 		return Color(0.80, 0.76, 0.55)
 	return UiKit.BAD
+
+
+## FL-005: his nickname beside the full name, and one thing he does outside
+## footy - quiet text, never a rating, never read by the game. Your own player's
+## nickname can be changed or removed here.
+static func _identity(v: VBoxContainer, p: Dictionary) -> void:
+	var nick := FictionalIdentity.nickname(p)
+	var row := UiKit.hbox(8)
+	row.name = "ProfileNickname"
+	var nl := UiKit.lbl("\"%s\"" % nick if nick != "" else "", UiKit.BODY, UiKit.MUTED)
+	nl.name = "NicknameText"
+	row.add_child(nl)
+	var mine := not GameState.list_player(str(p.get("id", ""))).is_empty()
+	if mine:
+		var edit := UiKit.btn("Nickname" if nick == "" else "Change", UiKit.SMALL)
+		edit.name = "NicknameEdit"
+		var field := UiKit.search_field(nick, "Nickname (blank for none)")
+		field.name = "NicknameField"
+		field.max_length = GameState.NICKNAME_MAX
+		field.visible = false
+		field.custom_minimum_size = Vector2(180, 0)
+		row.add_child(field)
+		row.add_child(edit)
+		edit.pressed.connect(func():
+			if not field.visible:
+				field.visible = true
+				field.text = FictionalIdentity.nickname(p)
+				edit.text = "Save"
+				field.grab_focus()
+				return
+			var now := GameState.set_player_nickname(str(p["id"]), field.text)
+			nl.text = "\"%s\"" % now if now != "" else ""
+			field.visible = false
+			edit.text = "Nickname" if now == "" else "Change")
+		field.text_submitted.connect(func(_t): edit.emit_signal("pressed"))
+	if nick != "" or mine:
+		v.add_child(row)
+	var what := FictionalIdentity.interest(p)
+	if what != "":
+		var il := UiKit.lbl("Outside footy: %s." % what, UiKit.SMALL, UiKit.MUTED)
+		il.name = "ProfileInterest"
+		il.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(il)

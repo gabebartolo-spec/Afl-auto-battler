@@ -10,96 +10,96 @@ const STATS := {
 	"disposal": [
 		"Wins the ball in general play and lifts your midfield's contest.",
 		"Disposals per game, plus contested possessions and clearances.",
-		"Decides who gets the ball between the arcs (midfielders, rucks and defenders are picked in proportion to disposal, squared). Your midfield's average is 22% of team Contest.",
+		"Decides who gets the ball between the arcs (midfielders, rucks and defenders are picked in proportion to disposal, squared). Your midfield's average is a good part of team Contest.",
 		"Midfielders first; rebounding defenders.",
 	],
 	"contested": [
 		"Wins clearances and keeps the ball when tackled.",
 		"Contested possessions, clearances and the contested share of a player's ball.",
-		"Picks who wins the clearance at a stoppage, and a tackled player with high contested keeps the ball far more often (0.75x to 1.25x). Your midfield's average is 42% of team Contest - the single biggest input to winning stoppages.",
+		"Picks who wins the clearance at a stoppage, and a tackled player with high contested keeps the ball far more often. Your midfield's average is the biggest part of team Contest, and the biggest input to winning stoppages.",
 		"Inside midfielders.",
 	],
 	"marking": [
 		"Marks kicks, and wins the big contested marks inside 50.",
 		"Marks, contested marks and marks inside 50 per game.",
-		"Raises the chance a kick is marked (0.75x to 1.25x) and makes a player kick rather than handball. Your forwards' average is 14% of Attack and decides forward-50 marking contests against the opposition's intercept.",
+		"Makes a kick more likely to be marked, and a player more likely to kick than handball. Your forwards' average is a small part of Attack and decides forward-50 marking contests against the opposition's intercept.",
 		"Key forwards and key defenders.",
 	],
 	"pressure": [
 		"Tackles, and forces turnovers as a defensive unit.",
 		"Tackles and one-percenters per game.",
-		"Picks who makes the tackles. Your defenders' average is 50% of Defence and sets how often the opposition gets tackled (0.72x to 1.28x).",
+		"Picks who makes the tackles. Your defenders' average is the biggest part of Defence and sets how often the opposition gets tackled.",
 		"Defenders, small forwards, inside midfielders.",
 	],
 	"intercept": [
 		"Wins the ball back in defence and spoils forward entries.",
 		"Rebound 50s, marks and one-percenters per game.",
-		"Picks who gets the ball deep in your defence. Your defenders' average is 32% of Defence, contests marks inside 50 and sets the chance of a spoil (30% to 65%).",
+		"Picks who gets the ball deep in your defence. Your defenders' average is a big part of Defence, contests marks inside 50 and sets how often a spoil comes off.",
 		"Key defenders and interceptors.",
 	],
 	"carry": [
 		"Gains ground with the ball and drives it inside 50.",
 		"Inside 50s, bounces and disposals per game.",
-		"Metres gained per possession (0.55x to 1.45x) and who carries the ball through the midfield. Your midfield's average is 26% of Attack.",
+		"How much ground a possession gains, and who carries the ball through the midfield. Your midfield's average is a good part of Attack.",
 		"Outside midfielders and running defenders.",
 	],
 	"goalkicking": [
 		"Gets the shots inside 50 and kicks goals from them.",
 		"Goals and marks inside 50 per game.",
-		"Picks the shooter inside 50 (weighted strongly toward the best kick), lifts the goal chance (0.80x to 1.20x) and scoring shots. Your forwards' average is 40% of Attack - the biggest input to scoring.",
+		"Picks the shooter inside 50 (weighted strongly toward the best kick), lifts the goal chance and scoring shots. Your forwards' average is the biggest part of Attack, and the biggest input to scoring.",
 		"Forwards, goal-kicking midfielders.",
 	],
 	"accuracy": [
 		"Turns shots into goals rather than behinds.",
 		"Goals as a share of scoring shots, with a small sample pulled toward average.",
-		"Multiplies the shooter's goal chance (0.82x to 1.18x).",
+		"Lifts the shooter's goal chance.",
 		"Anyone who takes shots - forwards most.",
 	],
 	"creating": [
 		"Sets up goals for others; the forward line's playmaking.",
 		"Goal assists, inside 50s and marks inside 50 per game.",
-		"Your forwards' average is 20% of Attack, which lifts every shot your side takes.",
+		"Your forwards' average is a good part of Attack, which lifts every shot your side takes.",
 		"Small and medium forwards.",
 	],
 	"ruck": [
-		"Wins the hit-outs at every bounce and ball-up.",
+		"Wins the hit-outs at every centre ball-up and stoppage.",
 		"Hit-outs, plus clearances and contested marks.",
-		"Your starting ruck's rating decides your share of the hit-outs (15% to 85%) and is 24% of team Contest.",
+		"Your starting ruck's rating decides your share of the hit-outs and is a good part of team Contest.",
 		"Rucks only - but every side fields one.",
 	],
 	"discipline": [
 		"Avoids clangers and free kicks against. Higher is cleaner.",
 		"Clangers and free kicks against per game, inverted (fewer = higher).",
-		"A low-discipline player is far more likely to be the one who gives away a clanger, and some clangers become free kicks and turnovers. The team average is 18% of Defence.",
+		"A low-discipline player is far more likely to be the one who gives away a clanger, and some clangers become free kicks and turnovers. The team average is a small part of Defence.",
 		"Everyone; midfielders handle the ball most.",
 	],
 	"durability": [
 		"Stays on the park: fewer injuries.",
 		"Games played and time on ground.",
-		"Every player who takes the field risks an injury; durability scales the chance from about half the base rate (99) to about 1.3x (low). Injured players miss 1 to 16 weeks. It is also 8% of the overall rating.",
+		"Every player who takes the field risks an injury; a durable player is injured about half as often as an average one, and a fragile one noticeably more. Injured players miss anything from a week to most of a season. It is also a small part of the overall rating.",
 		"Everyone - your stars most of all.",
 	],
 	"star": [
 		"Match-winning class: the rating's biggest single piece.",
 		"Brownlow votes per game, plus disposals.",
-		"The average of your top five star ratings is 12% of team Contest. It is 22% of every player's overall, which drives selection, draft price and the Through stars game plan, which goes through your best three.",
+		"The average of your top five star ratings is a small part of team Contest. It is a good part of every player's overall, which drives selection, draft price and the Through stars game plan, which goes through your best three.",
 		"Your best few players; it is how ratings climb fastest.",
 	],
 }
 
 const TOPICS := [
-	["Overall (OVR)", "A player's rating: 70% the stats his position relies on, 22% star power and 8% durability. Defender, forward and ruck scales are stretched so the elite of every position reach the high 80s. It decides selection (the best by position take the field) and draft price. The match itself rolls the individual stats, not OVR."],
-	["Team strengths", "Contest (who wins stoppages): 42% midfield contested, 24% ruck, 22% midfield disposal, 12% top-five star. Attack: 40% forward goalkicking, 26% midfield carry, 20% forward creating, 14% forward marking. Defence: 50% defender pressure, 32% defender intercept, 18% team discipline."],
+	["Overall (OVR)", "A player's rating: mostly the stats his position relies on, then star power, with a little for durability. Defender, forward and ruck scales are stretched so the elite of every position reach the high 80s. It decides selection (the best by position take the field) and draft price. The match itself rolls the individual stats, not OVR."],
+	["Team strengths", "Contest (who wins stoppages) is mostly your midfield's contested ball, then your ruck and midfield disposal, with a little from your top stars. Attack is mostly your forwards' goalkicking, then your midfield's carry, forward creating and forward marking. Defence is mostly your defenders' pressure, then their intercept, with some from team discipline."],
 	["Potential (POT)", "Where a player is projected to peak, from his age, his best recent season and his draft pick. It is a projection, not a limit, and it does not change. Each off-season, players 28 and under close part of the gap. Development gets harder near POT and much harder past it, for every club alike; now and then a player breaks out beyond it. A star coming back from an injury-shortened season gets a rehab year and closes most of the gap at once."],
 	["Injuries", "After every game each player who took the field has a small chance of injury, lower with high durability. Most are 1-2 weeks, the odd one ends a season. Injured players sit out automatically (your selection's gaps are filled), and everyone heals over the off-season."],
 	["Traits and synergies", "A player with a standout stat earns a trait (up to two, plus Hothead for poor discipline): Sharpshooter, Crumber, Contested bull, Interceptor and more, each with one match effect. Traits come and go with the stats, so training can unlock one - the player screen says how close he is. The right mix in a line switches on a synergy, such as the Engine room (four contested bulls) or a Tall-small forward line; the Team screen shows yours and the nearest to finish."],
 	["Legs and rotations", "Players tire on the ground and recover on the bench; tired players win less ball and kick fewer goals, and a tired midfield loses stoppages. Durability sets how fast a player tires. Pick a rotation policy in the coach box: rotate hard, normal, or ride your stars."],
 	["Match moments", "In a live match the game stops for your call: a set shot (take it, play on or bomb it long - with the odds), a star running on empty, a forward kicking a bag, a run of goals against, a tight last-quarter bounce. After each quarter, 'What your calls did' says what followed each call."],
-	["The board and morale", "Each season the board sets a goal from where your list ranks, and every result moves its confidence. Miss the goal and confidence drops; end a season under 30% and you get a final warning - do it again and you are sacked. Players' morale rises with games and wins and falls when they are left out fit (stars most): it nudges their form a little, and an unhappy player asks 25% more to re-sign. Most weeks bring a decision on the hub - answer it, or it takes the default when the round is played."],
-	["Team form", "Every club's last five results set its form, from Cold (-100) through Steady (0) to Hot (+100); the latest game counts most (30%, then 25, 20, 15, 10). Five straight wins is the cap, a sixth adds nothing, and one loss ends a five-game streak at Good (+40). Form gives a small edge in composure (up to 5% fewer clangers) and at stoppages (up to a third of home-ground advantage): at the cap, a side wins about 3 more games in 100 than it would at Steady. It resets every season. The hub shows yours and your next opponent's."],
+	["The board and morale", "Each season the board sets a goal from where your list ranks, and every result moves its confidence. Miss the goal and confidence drops; end a season well short and you get a final warning - do it again and you are sacked. Players' morale rises with games and wins and falls when they are left out fit (stars most): it nudges their form a little, and an unhappy player asks for more to re-sign. Most weeks bring a decision on the hub - answer it, or it takes the default when the round is played."],
+	["Team form", "Every club's last five results set its form, from Cold through Steady to Hot; the latest game counts most and the one before it a little less. Five straight wins is the cap, a sixth adds nothing, and one loss ends a five-game streak at Good. Form gives a small edge in composure (a few fewer clangers) and at stoppages (a slice of home-ground advantage): at the top, a side wins only a few more games in a hundred than it would at Steady. It resets every season. The hub shows yours and your next opponent's."],
 	["Contracts", "Every player has a contract and a salary counted against the cap. After the Grand Final, Trades & Contracts opens: re-sign or release players whose deals are up, sign free agents, and offer trades. Rival clubs value trades by rating, potential and age, and pay more for positions they are short in."],
 	["XP and cost", "Every player on your list earns XP each game: more for playing, more for a big game. A fit player left out of the 23 plays in the reserves and earns half a full senior game; injured or rested players earn only the squad share. A stat point costs more the higher the stat already is, up to half price while a player is well below his POT, dearer close to it, and steeply dearer for every point past it. 99 is the cap."],
-	["Training plans", "Each player's plan is the kind of footballer he develops into, and it spends his XP after every game on what that job needs in a match. Position plan (the default, and what rival clubs use) trains what his position is judged on. The role plans lean him toward one job: inside or outside midfielder, key or rebounding defender, key or small forward. Manual pauses his development - XP banks until you spend it by hand, and banked XP does not make him better. Change a plan at any time; banked XP is spent straight away. A player can also learn another position: 8 weeks training as, say, a key forward instead of in his own position (for the rest of that season, training in his own position can lift him only 1 more), and if he ends within 3 of his own rating there he can be picked there too. The job follows his size - key forward, key defender and ruck take height, small forwards and small defenders are small - and it takes POT 70 for a second position and 90 for a third. One a season per player, two at a time per club; rival clubs learn positions too, one player a season. A player who can play forward, midfield and back is a Unicorn."],
+	["Training plans", "Each player's plan is the kind of footballer he develops into, and it spends his XP after every game on what that job needs in a match. Position plan (the default, and what rival clubs use) trains what his position is judged on. The role plans lean him toward one job: inside or outside midfielder, key or rebounding defender, key or small forward. Manual pauses his development - XP banks until you spend it by hand, and banked XP does not make him better. Change a plan at any time; banked XP is spent straight away. A player can also learn another position: 8 weeks training as, say, a key forward instead of in his own position (for the rest of that season, training in his own position can lift him only 2 more), and if he ends within 3 of his own rating there he can be picked there too - picked there whenever he is the better player for the spot. The season after, his training can lift him 1 more than usual, never past his POT. The job follows his size - key forward, key defender and ruck take height, small forwards and small defenders are small - and it takes POT 70 for a second position and 90 for a third. One a season per player, two at a time per club; rival clubs learn positions too, one player a season. A player who can play forward, midfield and back is a Unicorn."],
 ]
 
 
@@ -116,7 +116,7 @@ static func show(parent: Control) -> Control:
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.heading("Stat guide", 26))
 	for topic in TOPICS:
-		v.add_child(UiKit.lbl(str(topic[0]), 16, UiKit.EMPH, true))
+		v.add_child(UiKit.lbl(str(topic[0]), UiKit.NAME, UiKit.EMPH, true))
 		v.add_child(_para(str(topic[1]), 13, UiKit.TEXT))
 	v.add_child(UiKit.spacer(6))
 	v.add_child(UiKit.heading("THE 13 STATS", 22))
@@ -129,7 +129,7 @@ static func show(parent: Control) -> Control:
 		card.name = "Guide_" + key
 		var cv := UiKit.vbox(3)
 		card.add_child(cv)
-		cv.add_child(UiKit.lbl(str(row[1]), 16, UiKit.EMPH, true))
+		cv.add_child(UiKit.lbl(str(row[1]), UiKit.NAME, UiKit.EMPH, true))
 		cv.add_child(_para(str(info[0]), 13, UiKit.TEXT))
 		cv.add_child(_para("In matches: " + str(info[2]), 12, UiKit.TEXT))
 		cv.add_child(_para("Built from: " + str(info[1]), 12, UiKit.MUTED))

@@ -27,6 +27,7 @@ func run() -> void:
 	_test_with_us_and_milestones()
 	_test_fifth_interchange()
 	_test_dual_ruck()
+	_test_merit_second_position()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Selection tests: %d checks, %d failures" % [checks, failures.size()])
@@ -346,3 +347,54 @@ func _test_dual_ruck() -> void:
 				break
 		_check(has_ruck.call(auto_sel["bench"]) == (spare_ovr >= last_ovr - Ratings.DUAL_RUCK_MARGIN) or has_ruck.call(off["bench"]),
 				"An AI club runs dual ruck when its spare ruck is close enough (spare %.0f, last on the bench %.0f)" % [spare_ovr, last_ovr])
+
+
+## A second position earns a spot on merit (director, 2026-10-06): a player left
+## out who plays forward better than the weakest forward starter takes his
+## place; the ruck and the bench's size are untouched, and without the merit
+## pass (the audit baseline) he stays out.
+func _test_merit_second_position() -> void:
+	var list := []
+	for p in GameDB.club_list("COL"):
+		list.append(p.duplicate(true))
+	var auto := Ratings.select_22(list)
+	var on := {}
+	for g in auto["ground"]:
+		on[str(g["id"])] = true
+	var best_fwd := {}
+	for p in list:
+		if str(p["role"]) == "FWD" and (best_fwd.is_empty() or int(p["overall"]) > int(best_fwd["overall"])):
+			best_fwd = p
+	var spare := {}
+	for p in list:
+		if not on.has(str(p["id"])) and str(p["role"]) in ["MID", "DEF"] and str(p.get("role2", "")) == "" 				and (p.get("learned", []) as Array).is_empty() and Ratings.available(p):
+			spare = p
+			break
+	_check(not spare.is_empty() and not best_fwd.is_empty(), "Someone is left out of the side")
+	if spare.is_empty() or best_fwd.is_empty():
+		return
+	# He has learned to play forward, and plays it as well as the best forward;
+	# his own rating (what orders his own line) is unchanged, so only the
+	# merit pass can bring him in.
+	spare["role2"] = "FWD"
+	spare["attr"] = (best_fwd["attr"] as Dictionary).duplicate()
+	Ratings.merit_lines = false
+	var before := Ratings.select_22(list)
+	Ratings.merit_lines = true
+	var after := Ratings.select_22(list)
+	var where := ""
+	for g in after["ground"]:
+		if str(g["id"]) == str(spare["id"]):
+			where = str(g["role"])
+	var ruck_b := ""
+	var ruck_a := ""
+	for g in before["ground"]:
+		if str(g["role"]) == "RUCK":
+			ruck_b = str(g["id"])
+	for g in after["ground"]:
+		if str(g["role"]) == "RUCK":
+			ruck_a = str(g["id"])
+	_check(not _ids(before["ground"]).has(str(spare["id"])), "Without the merit pass a second position waits for a line to run short")
+	_check(where == "FWD", "On merit, a player who has learned forward is picked there ahead of a weaker forward")
+	_check(after["ground"].size() == 18 and after["bench"].size() == Ratings.bench_size and ruck_a == ruck_b,
+			"The ruck and the bench's size are untouched")

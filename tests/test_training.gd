@@ -709,6 +709,28 @@ func _test_learning_a_position() -> void:
 			"Close enough at the end: he can be picked there (%s)" % str(res))
 	_check(GameState.project_job(cand) == "" and str(cand.get("train_plan", "")) == "", "Then he goes back to the club plan")
 	_check(GameState.learnable_jobs(cand).is_empty(), "One project a season")
+	# The payback: next season his training may lift him LEARN_PAYBACK more,
+	# never past his POT.
+	_check(int(cand.get("learn_payback_year", 0)) == GameState.season_year + 1,
+			"A learned position earns next season's payback")
+	var keep_year := GameState.season_year
+	var keep_pot := int(cand.get("potential", 0))
+	var keep_start = cand.get("season_start_ov")
+	var keep_cap = cand.get("project_cap")
+	cand.erase("project_cap")
+	GameState.season_year = keep_year + 1
+	cand["season_start_ov"] = 60
+	cand["potential"] = 90
+	_check(GameState.season_ceiling(cand) == 60 + GameState.SEASON_TRAIN_GAIN + GameState.LEARN_PAYBACK,
+			"The season after, his training limit is %d higher" % GameState.LEARN_PAYBACK)
+	cand["potential"] = 60 + GameState.SEASON_TRAIN_GAIN
+	_check(GameState.season_ceiling(cand) == 60 + GameState.SEASON_TRAIN_GAIN,
+			"The payback never takes him past his POT")
+	GameState.season_year = keep_year
+	cand["potential"] = keep_pot
+	cand["season_start_ov"] = keep_start
+	if keep_cap != null:
+		cand["project_cap"] = keep_cap
 	# Fail: a fresh player, kept well short.
 	var other := {}
 	for q in GameState.my_list:
