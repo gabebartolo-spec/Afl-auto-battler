@@ -331,58 +331,44 @@ func _run() -> void:
 	_type("ForgeClubNickname", "Borough")
 	_type("ForgeClubCode", "pmb")
 	_check(club_code != null and club_code.text == "PMB", "The abbreviation is written in capitals")
-	_press("ForgeSlot_primary")
-	await _settle()
-	_press("ForgeColour_red")
-	await _settle()
-	_press("ForgeSlot_secondary")
-	await _settle()
-	_press("ForgeColour_blue")
-	await _settle()
+	# The director's flow (2026-10-07): the design first, then pick a colour
+	# and click the part of the guernsey to paint.
 	_press("ForgeDesign_hoops")
 	await _settle()
-	# The director's PC playtest (2026-10-07): colours change again and again
-	# on the same design, and the preview follows every change.
-	var preview: Control = current_scene.find_child("ForgePreview", true, false)
-	_check(preview != null and preview.is_visible_in_tree(), "Create a club shows the guernsey while you make it")
-	for c in [["primary", "green", "#1E6B3A"], ["primary", "red", "#C8102E"], ["secondary", "gold", "#F2B231"],
-			["secondary", "blue", "#1F4FA8"]]:
-		_press("ForgeSlot_" + str(c[0]))
-		await _settle()
+	_check(current_scene.find_child("ForgeSlot_primary", true, false) == null
+			and current_scene.find_child("ForgeBase_p", true, false) == null,
+			"No colour slots or guernsey/pattern rows: you paint the guernsey")
+	_press("ForgePart_body")
+	await _settle()
+	var problem_l: Label = current_scene.find_child("ForgeProblem", true, false)
+	_check(problem_l != null and problem_l.visible, "Clicking the guernsey before picking a colour says what to do")
+	for c in [["body", "green", "#1E6B3A"], ["body", "red", "#C8102E"], ["pattern", "gold", "#F2B231"],
+			["pattern", "blue", "#1F4FA8"], ["trim", "white", "#F5F5F5"], ["trim", "gold", "#F2B231"]]:
 		_press("ForgeColour_" + str(c[1]))
 		await _settle()
-		preview = current_scene.find_child("ForgePreview", true, false)
-		_check(str(current_scene.get("_club")[c[0]]).to_upper() == str(c[2]) and preview != null
+		_press("ForgePart_" + str(c[0]))
+		await _settle()
+		var key: String = {"body": "primary", "pattern": "secondary", "trim": "accent"}[c[0]]
+		var preview: Control = current_scene.find_child("ForgePreview", true, false)
+		_check(str(current_scene.get("_club")[key]).to_upper() == str(c[2]) and preview != null
 				and str(preview.get("design")) == "hoops",
-				"%s colour changes to %s without touching the design" % [c[0], c[1]])
-	var base_label: Button = current_scene.find_child("ForgeBase_p", true, false)
-	_check(base_label != null and _screen_text().contains("Royal blue"),
-			"The guernsey colour choices name the colours just picked")
-	_check(preview != null and (preview.get("primary") as Color).is_equal_approx(Color.html("#C8102E"))
-			and (preview.get("secondary") as Color).is_equal_approx(Color.html("#1F4FA8")),
-			"The preview wears the guernsey and pattern colours as picked")
-	# The third colour is optional.
-	_press("ForgeSlot_accent")
-	await _settle()
-	_press("ForgeColour_none")
-	await _settle()
-	_check(_screen_text().contains("None") and current_scene.find_child("ForgeBase_a", true, false) == null,
-			"The third colour can be cleared, and the guernsey can't then wear it")
-	_press("ForgeColour_white")
-	await _settle()
-	_check(str(current_scene.get("_club")["accent"]).to_upper() == "#F5F5F5" and current_scene.find_child("ForgeBase_a", true, false) != null,
-			"A cleared third colour can be picked again")
-	_press("ForgePattern_a")
-	await _settle()
-	_press("ForgeColour_none")
-	await _settle()
-	var kit_after := str(current_scene.get("_club")["kit"]).split("/")
-	_check(kit_after[0] != "a" and kit_after[1] != "a" and kit_after[0] != kit_after[1],
-			"Clearing the third colour takes it off the guernsey (%s)" % "/".join(kit_after))
-	_press("ForgeSlot_accent")
-	await _settle()
-	_press("ForgeColour_gold")
-	await _settle()
+				"Painting the %s %s works again and again on the same design" % [c[0], c[1]])
+	var preview_now: Control = current_scene.find_child("ForgePreview", true, false)
+	_check(preview_now != null and (preview_now.get("primary") as Color).is_equal_approx(Color.html("#C8102E"))
+			and (preview_now.get("secondary") as Color).is_equal_approx(Color.html("#1F4FA8"))
+			and (preview_now.get("accent") as Color).is_equal_approx(Color.html("#F2B231")),
+			"The guernsey wears what was painted: red, blue hoops, gold trim")
+	_check(_screen_text().contains("Main colour") and _screen_text().contains("Pattern colour")
+			and _screen_text().contains("Trim colour"), "Each part is named with its colour")
+	# Where you click on the guernsey decides what you paint.
+	var crest = load("res://scripts/ui/GuernseyCrest.gd").make(Color.RED, Color.BLUE, Color.WHITE, "hoops", "", 100.0)
+	crest.size = Vector2(100, 100)
+	_check(crest.part_at(Vector2(50, 30)) == "body" and crest.part_at(Vector2(50, 22)) == "pattern"
+			and crest.part_at(Vector2(50, 6)) == "trim" and crest.part_at(Vector2(2, 95)) == "",
+			"A click lands on the body, a hoop, the collar or off the guernsey")
+	crest.design = "plain"
+	_check(crest.part_at(Vector2(50, 22)) == "body", "A plain guernsey has no pattern to paint")
+	crest.free()
 	var club_small := []
 	for b in current_scene.find_children("*", "Button", true, false):
 		if b.is_visible_in_tree() and b.size.y < 44:
