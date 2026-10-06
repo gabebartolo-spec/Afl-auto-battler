@@ -38,6 +38,10 @@ func run() -> void:
 	_test_numbers_readable()
 	_test_oval_people(res)
 	_test_broadcast_vignettes()
+	_test_role_labels(res)
+
+	_test_flood_shape(res)
+	_test_centre_setups(res)
 	GameState.replay_seed = 0
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -646,6 +650,7 @@ func _test_truth(res: Dictionary) -> void:
 	var last_from := Vector2.INF
 	var collect_t := {}
 	var snaps := 0
+	var takes := 0
 	var prev_mode := str(d.ball["mode"])
 	var guard := 0
 	while not d.idle() and guard < 400000:
@@ -676,6 +681,7 @@ func _test_truth(res: Dictionary) -> void:
 				steer += 1
 		last_vel = d.ball["vel"] if d.ball.has("vel") else Vector2.ZERO
 		if mode == "held" and prev_mode != "held":
+			takes += 1
 			var holder: Dictionary = d.tokens[int(d.ball["holder"])]
 			if last_pos.distance_to(holder["pos"]) > 3.0:
 				snaps += 1
@@ -708,7 +714,8 @@ func _test_truth(res: Dictionary) -> void:
 	# Sim-sensitive, so a share and the hard cap, not an exact count.
 	_check(long4 * 40 <= collect_t.size() and worst <= MatchDirector.COLLECT_LIMIT + 0.1,
 			"The ball is rarely left waiting on its collector (%d of %d over 4 s, longest %.1f s)" % [long4, collect_t.size(), worst])
-	_check(snaps <= 10, "The ball rarely jumps into a player's hands (%d from more than 3 m)" % snaps)
+	# A share too: any sim change redraws the seeded match.
+	_check(snaps * 40 <= takes, "The ball rarely jumps into a player's hands (%d of %d takes from more than 3 m)" % [snaps, takes])
 
 
 ## Playtest freeze (mid play, live): resuming after a moment with no new
@@ -1040,3 +1047,103 @@ func _test_score_colour() -> void:
 	_check(legible != "" and UiKit.score_colour(legible) == (GameDB.club_colours(legible) as Array)[2],
 			"A club whose accent reads keeps its own colour for its score")
 	UiKit.apply_appearance(was)
+
+
+## ARD-M8-003 persistent identity: only the players whose job the match
+## recorded are named on the oval (tagger and his man, the loose defender),
+## and nobody is when the match recorded no jobs.
+func _test_role_labels(res: Dictionary) -> void:
+	var plain := MatchDirector.new()
+	var bare := res.duplicate()
+	bare["timeline"] = []
+	plain.setup(bare, res["events"])
+	_check(plain.role_labels().is_empty(), "No recorded jobs, no names on the oval")
+	var d := MatchDirector.new()
+	d.setup(bare, res["events"])
+	var pick := func(side: int, role: String) -> Dictionary:
+		for t in d.tokens:
+			if int(t["side"]) == side and str(t["role"]) == role:
+				return t
+		return {}
+	var tagger: Dictionary = pick.call(1, "MID")
+	var target: Dictionary = pick.call(0, "MID")
+	var loose: Dictionary = pick.call(1, "DEF")
+	d._tac[1] = {"side": 1, "bursts": [], "tagger": str(tagger["pid"]), "tag": str(target["pid"]),
+			"loose": str(loose["pid"]), "duels": {}}
+	d._assign()
+	var got: Array = d.role_labels()
+	var want := [int(tagger["id"]), int(target["id"]), int(loose["id"])]
+	var same := got.size() == want.size()
+	for id in want:
+		same = same and got.has(id)
+	_check(same, "The tagger, his man and the loose defender are named, and only them (%s against %s)" % [str(got), str(want)])
+
+## ARD-M8-003 step 3, the first demonstration: a side that floods behind the
+## ball (its own recorded call) has visibly more players between the ball and
+## its goal on the opposition's entries than ordinary coverage, and only when
+## the match recorded the call.
+func _test_flood_shape(res: Dictionary) -> void:
+	var d := MatchDirector.new()
+	d.setup(res, res["events"])
+	var behind := func(bursts: Array) -> int:
+		d._tac[1] = {"side": 1, "bursts": bursts}
+		var n := 0
+		# Side 0 attacks toward +x: the ball in side 1's half, near and far.
+		for bx in [20.0, 40.0, 55.0]:
+			for t in d.tokens:
+				if int(t["side"]) == 1 and (d._structure_spot(t, Vector2(bx, 0.0), 0) as Vector2).x > bx:
+					n += 1
+		return n
+	var plain: int = behind.call([])
+	var other: int = behind.call(["surge"])
+	var flood: int = behind.call(["flood"])
+	_check(flood >= plain + 6,
+			"Flooding puts more players behind the ball on the opposition's entries (%d against %d over three entries)" % [flood, plain])
+	_check(other == plain, "Only a recorded flood changes the shape (%d with another call, %d without)" % [other, plain])
+	d._tac[1] = {}
+
+
+## ARD-M8-003 step 3, the second demonstration: attacking (stack) against
+## defensive (flood) setups at the 2026 centre ball-up, each from the side's
+## recorded call, and every setup legal under 6-6-6 (four in the square, six
+## in each arc, the wings outside the square).
+func _test_centre_setups(res: Dictionary) -> void:
+	var d := MatchDirector.new()
+	d.setup(res, res["events"])
+	var wings := func(bursts: Array) -> Array:
+		d._tac[0] = {"side": 0, "bursts": bursts}
+		var out := []
+		for t in d.tokens:
+			if int(t["side"]) == 0 and (str(t["slot"]) == "WL" or str(t["slot"]) == "WR"):
+				out.append(d._centre_spot(t, -1))
+		return out
+	var legal := true
+	for bursts in [[], ["stack"], ["flood"]]:
+		d._tac[0] = {"side": 0, "bursts": bursts}
+		var sq := 0
+		var arcs := [0, 0]
+		for t in d.tokens:
+			if int(t["side"]) != 0:
+				continue
+			var p: Vector2 = d._centre_spot(t, -1)
+			if absf(p.x) <= 25.0 and absf(p.y) <= 25.0:
+				sq += 1
+			if p.x >= MatchMotion.GOAL_X - 50.0:
+				arcs[0] += 1
+			elif p.x <= -(MatchMotion.GOAL_X - 50.0):
+				arcs[1] += 1
+		if sq != 4 or arcs[0] != 6 or arcs[1] != 6:
+			legal = false
+	var plain: Array = wings.call([])
+	var stack: Array = wings.call(["stack"])
+	var flood: Array = wings.call(["flood"])
+	var crashed := stack.size() == 2
+	for w in stack:
+		crashed = crashed and absf((w as Vector2).x) <= 5.0 and absf((w as Vector2).y) > 25.0 and absf((w as Vector2).y) < absf((plain[0] as Vector2).y)
+	var dropped := flood.size() == 2
+	for w in flood:
+		dropped = dropped and (w as Vector2).x < -12.0
+	_check(legal, "Every centre ball-up setup keeps 6-6-6: four in the square, six in each arc")
+	_check(crashed and dropped,
+			"Stacking puts the wings on the square's edge; flooding drops them behind the ball (%s / %s / %s)" % [str(plain), str(stack), str(flood)])
+	d._tac[0] = {}

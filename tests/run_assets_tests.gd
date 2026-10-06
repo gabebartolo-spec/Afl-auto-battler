@@ -53,6 +53,7 @@ func _run() -> void:
 	SV = load("res://scripts/ui/match/StoppageVignette.gd")
 	_figure_sheets()
 	_hair_atlases()
+	_ball()
 	await _vignettes_play_through()
 	_music_files()
 	_music_player()
@@ -73,7 +74,7 @@ func _figure_sheets() -> void:
 	if shade == null or mask == null or design == null:
 		return
 	_check(shade.get_size() == VignetteFigures.SHEET_SIZE and mask.get_size() == VignetteFigures.SHEET_SIZE
-			and design.get_size() == VignetteFigures.SHEET_SIZE / 2,
+			and design.get_size() == VignetteFigures.SHEET_SIZE / VignetteFigures.DESIGN_SCALE,
 			"The sheets are the size the layout says (%s, %s, %s)" % [shade.get_size(), mask.get_size(), design.get_size()])
 	var rects := []          # [rect, "anim facing"] for every frame
 	var empty := []
@@ -109,14 +110,15 @@ func _figure_sheets() -> void:
 			% [empty.size(), str(empty.slice(0, 5))])
 	_check(spill.is_empty(), "The colour mask lies on the figure, to the pixel, in every frame (same render): %s"
 			% str(spill.slice(0, 5)))
-	# The club-design sheet is half size: its guernsey must sit on the figure too.
+	# The club-design sheet (half or full size, DESIGN_SCALE): its guernsey must sit on the
+	# figure too.
 	var off := 0
 	var on := 0
 	for e in rects:
 		var r: Rect2i = e[0]
 		for y in range(r.position.y, r.end.y, 4):
 			for x in range(r.position.x, r.end.x, 4):
-				if design.get_pixel(x / 2, y / 2).a > 0.5:
+				if design.get_pixel(x / VignetteFigures.DESIGN_SCALE, y / VignetteFigures.DESIGN_SCALE).a > 0.5:
 					on += 1
 					if shade.get_pixel(x, y).a < 0.05:
 						off += 1
@@ -248,6 +250,48 @@ func _source_image(which: String) -> Image:
 	if img != null:
 		img.convert(Image.FORMAT_RGBA8)
 	return img
+
+
+# ---------------------------------------------------------------------------
+# The football: a Sherrin spinning end over end (VignetteBall), red by day, yellow at night
+# ---------------------------------------------------------------------------
+func _ball() -> void:
+	var path := "res://assets/vignette/ball.png"
+	var tex: Texture2D = VignetteBall.TEX
+	var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+	var cfg := ConfigFile.new()
+	# Lossless with mipmaps: it's drawn far smaller than its cells, and a compressed
+	# ball loses its seams and laces.
+	var lossless := cfg.load(path + ".import") == OK and int(cfg.get_value("params", "compress/mode", -1)) == 0 \
+			and bool(cfg.get_value("params", "mipmaps/generate", false))
+	var size := Vector2i(VignetteBall.FRAMES * int(VignetteBall.CELL), 2 * int(VignetteBall.CELL))
+	_check(tex != null and tex.resource_path == path and img != null and img.get_size() == size and lossless,
+			"The ball is loaded from its own file, lossless with mipmaps, %s (%s)" % [str(size), path])
+	if img == null or img.get_size() != size:
+		return
+	img.convert(Image.FORMAT_RGBA8)
+	# Every frame of both balls has the ball in it, the length the draw scales by, and its
+	# colour: row 0 red, row 1 yellow.
+	var bad := []
+	var c := int(VignetteBall.CELL)
+	for row in 2:
+		for f in VignetteBall.FRAMES:
+			var lo := c
+			var hi := -1
+			var sum := Color(0, 0, 0)
+			var n := 0
+			for y in range(row * c, row * c + c):
+				for x in range(f * c, f * c + c):
+					var p := img.get_pixel(x, y)
+					if p.a > 0.5:
+						lo = mini(lo, x - f * c)
+						hi = maxi(hi, x - f * c)
+						sum += p
+						n += 1
+			var colour_ok := n > 0 and (sum.g < 0.5 * sum.r if row == 0 else sum.g > 0.7 * sum.r)
+			if n < 200 or hi - lo + 1 > c or not colour_ok:
+				bad.append("%s %d" % [["red", "yellow"][row], f])
+	_check(bad.is_empty(), "Every frame of the red and the yellow ball has the ball in it, in its colour: %s" % str(bad))
 
 
 # ---------------------------------------------------------------------------

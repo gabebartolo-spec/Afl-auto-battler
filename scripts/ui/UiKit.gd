@@ -253,7 +253,21 @@ static func spacer(px := 6) -> Control:
 ## Remove immediately from layout; freeing at frame end avoids deleting the
 ## button currently emitting pressed. No duplicate rows during a refresh.
 static func clear(container: Node) -> void:
+	# A tap that rebuilds the list it sits in (drafting a player, say) must still
+	# reach the ScrollContainer around the list. Taking the tapped row out of the
+	# tree mid-tap ends the event there: the scroll never hears the release,
+	# stays mid-drag, and every later mouse move drags the list back to where
+	# the tap began. So the row under the pointer leaves at the end of the
+	# frame instead, hidden and renamed so its replacement can take its name.
+	var under: Control = null
+	if container.is_inside_tree():
+		under = container.get_viewport().gui_get_hovered_control()
 	for child in container.get_children():
+		if under != null and child is CanvasItem and (child == under or child.is_ancestor_of(under)):
+			child.name = "Leaving_%d" % child.get_instance_id()
+			(child as CanvasItem).hide()
+			child.queue_free()
+			continue
 		container.remove_child(child)
 		child.queue_free()
 
@@ -563,38 +577,27 @@ static func top_bar(title_text: String, back := true, right: Control = null,
 	return h
 
 
-## A club's colours as a small flag of vertical bands (two or three: navy
-## and red for Melbourne; blue, red and white for the Bulldogs), with a
-## faint edge so dark colours still read on the dark background.
+## A club's marker: its own guernsey, front on (club marker A, director
+## approved; GuernseyCrest). From 32 px the club's code is on the chest; under
+## that the club's name beside it carries the code.
 static func club_marker(code: String, size := 22.0) -> Control:
-	return colour_marker(GameDB.club_marker_colours(code), size)
+	var g := GameDB.club_guernsey(code)
+	var cols := GameDB.club_colours(code)
+	# A two-colour club's third colour is only a pitch tint: its trim is the
+	# second colour.
+	var trim: Color = cols[2] if GameDB.club_marker_colours(code).size() > 2 else cols[1]
+	# The old flag's footprint (size less its 2 px of frame), so lists of clubs
+	# - the ladder above all - keep their row heights.
+	return GuernseyCrest.make(g["base"], g["pattern"], trim, str(g["design"]), code, size - 2.0)
 
 
-## The same flag from colours alone (Club Forge shows a club before it exists).
-static func colour_marker(cols: Array, size := 22.0) -> Control:
-	var frame := PanelContainer.new()
-	frame.name = "ClubMarker"
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0, 0, 0, 0)
-	sb.border_color = Color(TEXT, 0.28)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(2)
-	sb.set_content_margin_all(1)
-	frame.add_theme_stylebox_override("panel", sb)
-	frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var bands := HBoxContainer.new()
-	bands.add_theme_constant_override("separation", 0)
-	bands.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.add_child(bands)
-	var w := roundf(size / float(cols.size()))
-	for c in cols:
-		var band := ColorRect.new()
-		band.color = c
-		band.custom_minimum_size = Vector2(w, size - 4.0)
-		band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bands.add_child(band)
-	return frame
+## The same guernsey from colours alone (Club Forge shows a club before it
+## exists): [primary, secondary, accent], its design and its code.
+static func colour_marker(cols: Array, size := 22.0, design := "plain", code := "") -> Control:
+	var p: Color = cols[0] if cols.size() > 0 else Color.WHITE
+	var s: Color = cols[1] if cols.size() > 1 else p
+	var a: Color = cols[2] if cols.size() > 2 else s
+	return GuernseyCrest.make(p, s, a, design, code, size)
 
 
 static func club_badge(code: String, fs := 14, compact := false, shrink := false) -> HBoxContainer:

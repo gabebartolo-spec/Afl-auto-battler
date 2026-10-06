@@ -1,0 +1,129 @@
+name: Capture
+
+# Runs one tools/visual/<tool>.gd on GitHub's runner under a virtual display,
+# so a capture never needs a window (or the one local Godot slot) on a
+# developer's machine. Start it by hand against any branch:
+#
+#   gh workflow run capture.yml --ref <branch> -f tool=capture_match \
+#       -f args="--seed 42 --kind goal --nth 2"
+#   gh run download <run-id> -n capture-capture_match
+#
+# tool  the script in tools/visual, without .gd
+# args  what the script reads after "--" (the workflow adds --out itself)
+#
+# The PNGs the tool writes are uploaded as the artifact capture-<tool>. Software
+# rendering (Mesa llvmpipe) with the Compatibility renderer: right for layout,
+# colour and motion review, not for frame times.
+on:
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: "Capture script in tools/visual, without .gd (for example capture_match)"
+        required: true
+        type: string
+      args:
+        description: "Arguments after -- (the workflow adds --out)"
+        required: false
+        default: ""
+        type: string
+      movie:
+        description: "Also make an MP4 clip (the tool must support --movie, e.g. capture_match)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GODOT_VERSION: "4.7.2"
+      TOOL: ${{ inputs.tool }}
+      ARGS: ${{ inputs.args }}
+      MOVIE: ${{ inputs.movie }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the inputs
+        run: |
+          if ! [[ "$TOOL" =~ ^[A-Za-z0-9_]+$ ]]; then
+            echo "::error::tool must be letters, digits and underscores: a file in tools/visual, without .gd"
+            exit 1
+          fi
+          if [ ! -f "tools/visual/$TOOL.gd" ]; then
+            echo "::error::tools/visual/$TOOL.gd does not exist on this ref. Available:"
+            ls tools/visual | grep '\.gd$' | sed 's/\.gd$//'
+            exit 1
+          fi
+          if [ -n "$ARGS" ] && ! [[ "$ARGS" =~ ^[A-Za-z0-9_.,:=\ -]*$ ]]; then
+            echo "::error::args may only hold letters, digits, spaces and . , : = _ -"
+            exit 1
+          fi
+
+      - name: Virtual display and software GL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 ffmpeg > /dev/null
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download Godot ${{ env.GODOT_VERSION }}
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          name="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          curl -fsSL --retry 3 -o godot.zip \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${name}.zip" \
+          || curl -fsSL --retry 3 -o godot.zip \
+            "https://downloads.godotengine.org/?version=${GODOT_VERSION}&flavor=stable&slug=linux.x86_64.zip&platform=linux.64"
+          unzip -q godot.zip && rm godot.zip
+          mv "${name}" godot && chmod +x godot
+
+      - name: Import the project
+        run: |
+          timeout 600 "$HOME/godot/godot" --headless --path . --editor --import > import.log 2>&1 || true
+          if grep -qE "SCRIPT ERROR|Parse Error|Compile Error" import.log; then
+            grep -E -A3 "SCRIPT ERROR|Parse Error|Compile Error" import.log | head -40
+            echo "::error::scripts failed to compile during import"
+            exit 1
+          fi
+
+      - name: Capture
+        run: |
+          set -f
+          mkdir -p out
+          extra=""
+          if [ "$MOVIE" = "true" ]; then extra="--movie"; fi
+          # ARGS is split on spaces on purpose; it was checked above.
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1280x1000x24" \
+            "$HOME/godot/godot" --path . --rendering-method gl_compatibility \
+            --script "tools/visual/$TOOL.gd" -- $ARGS $extra --out "$PWD/out/$TOOL" > capture.log 2>&1
+          code=$?
+          set +f
+          if [ "$MOVIE" = "true" ] && ls out/"$TOOL"_f*.png > /dev/null 2>&1; then
+            ffmpeg -loglevel error -y -framerate 30 -i "out/${TOOL}_f%04d.png" \
+              -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -pix_fmt yuv420p "out/$TOOL.mp4"
+            rm -f out/"$TOOL"_f*.png
+          fi
+          tail -n 30 capture.log
+          ls -la out
+          exit "$code"
+
+      - name: Upload the captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capture-${{ inputs.tool }}
+          path: |
+            out/
+            capture.log
+          if-no-files-found: warn
+          retention-days: 14

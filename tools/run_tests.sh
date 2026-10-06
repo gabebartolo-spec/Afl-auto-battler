@@ -31,6 +31,8 @@ EXPECTED_CHECKS="${EXPECTED_CHECKS:-tests/expected_checks.txt}"
 # EXTRAS_ONLY=1 runs only those steps (and the harness self-test), no suites.
 # CI splits the work this way: shards run SUITES_ONLY, one job runs EXTRAS_ONLY.
 SUITES_ONLY="${SUITES_ONLY:-0}"
+# PR CI stops promptly; local/main/diagnostic runs default to all failures.
+STOP_ON_FAILURE="${STOP_ON_FAILURE:-0}"
 ALL_SUITES=(draft draft_ui assets intake intake_ui expansion finals save chronology career coaches coach_market coach_pathway coach_effects career_ui potential ratings ai training selection matchup matchday roles injuries awards achievements contracts league club match_game pressure workload match_visual league_balance calibration balance)
 [ "$#" -gt 0 ] && SUITES=("$@") || SUITES=("${ALL_SUITES[@]}")
 # Read once and clear it: the harness self-test runs this script again, and a
@@ -78,6 +80,7 @@ for suite in ${SUITES[@]+"${SUITES[@]}"}; do
 	XDG_DATA_HOME="$RUN_DATA" timeout "$SUITE_TIMEOUT" "$GODOT" --headless --fixed-fps 60 --path . --script "$runner" > "$log" 2>&1
 	code=$?
 	secs=$(( $(date +%s) - start ))
+	printf '%s\t%s\n' "$suite" "$secs" >> "$LOG_DIR/suite-timings.tsv"
 	result=$(grep -E "[0-9]+ checks, [0-9]+ failures" "$log" | tail -1)
 	if [ "$code" = 124 ]; then
 		status="FAIL"; detail="timed out after ${SUITE_TIMEOUT}s"
@@ -121,6 +124,10 @@ for suite in ${SUITES[@]+"${SUITES[@]}"}; do
 	fi
 	fi
 	summary+=("| $suite | $status | $detail (${secs}s) |")
+	if [ "$status" = FAIL ] && [ "$STOP_ON_FAILURE" = 1 ]; then
+		echo "Stopping after failed suite '$suite'; remaining checks did not run."
+		break
+	fi
 done
 
 if [ "$SUITES_ONLY" != 1 ]; then

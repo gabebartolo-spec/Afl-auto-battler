@@ -40,6 +40,9 @@ func run() -> void:
 	_test_no_role_gates()
 	_test_spoils_and_crumbs()
 	_test_roaming_interceptor()
+	_test_six_plans()
+	_test_zone_intercepts()
+	_test_defensive_forward()
 	_test_hot_player_moment()
 	_test_matchups()
 	_test_key_duel_balance()
@@ -1426,8 +1429,8 @@ func _test_roaming_interceptor() -> void:
 	var base_chance := sim._roam_chance(1)
 	sim.set_tactics(0, {"gameplan": "balanced", "spare_accountable": true})
 	var accountable_chance := sim._roam_chance(1)
-	_check(base_chance > 0.0 and accountable_chance < base_chance * 0.5,
-			"Making the spare accountable sharply reduces his chance to arrive (%.2f -> %.2f)" % [
+	_check(base_chance > 0.0 and accountable_chance <= base_chance * float(MatchSim.MINDER_ROAM["other"]) + 0.001,
+			"Sending a forward to the spare reduces his chance to arrive (%.2f -> %.2f)" % [
 					base_chance, accountable_chance])
 
 	var contests := 0
@@ -1465,6 +1468,54 @@ func _test_roaming_interceptor() -> void:
 	var story := MatchNotes.interceptor_story(fake, 0)
 	_check(story.size() == 1 and str(story[0]).contains("controlled the air"),
 			"Full time explains a spare only when real roaming contests support it")
+
+
+## ARD-M4-012 (the director: "any player can intercept, but the loose
+## defender should get more intercepts if he's good at it"). A long kick is
+## contested by whoever is in that part of the ground; the defender who wins it
+## can mark it, and the ball won off the other side's error is an intercept.
+func _test_zone_intercepts() -> void:
+	var sim := _sim(8300)
+	_check(sim._aerial_zone(0, -40.0) == "back" and sim._aerial_zone(0, 40.0) == "forward"
+			and sim._aerial_zone(1, 40.0) == "back" and sim._aerial_zone(1, 0.0) == "middle",
+			"An aerial contest's zone is read from the defending side's end")
+	var by_role := {}
+	var loose_ic := 0.0
+	var def_ic := 0.0
+	var def_games := 0
+	var marks_ok := true
+	var flagged := 0
+	var imk := 0.0
+	for seed in range(8300, 8316):
+		var m := _sim(seed, "ADE", "SYD")
+		var best := Matchups.best_interceptor((m.squads[1] as Squad).ground, 0.0)
+		m.set_interceptor(1, str(best.get("id", "")), false)
+		var res := m.run()
+		for side in range(2):
+			for p in (res["roster"][side] as Array):
+				var st: Dictionary = res["players"].get(str(p["id"]), {})
+				var n := float(st.get("intercepts", 0.0))
+				var role := str(p.get("role", ""))
+				by_role[role] = float(by_role.get(role, 0.0)) + n
+				imk += float(st.get("intercept_marks", 0.0))
+				if float(st.get("intercept_marks", 0.0)) > float(st.get("marks", 0.0)):
+					marks_ok = false
+				if side == 1 and str(p["id"]) == str(best.get("id", "")):
+					loose_ic += n
+				elif side == 1 and role == "DEF":
+					def_ic += n
+					def_games += 1
+		for ev in res["events"]:
+			if str(ev.get("kind", "")) == "mark" and bool(ev.get("intercept", false)):
+				flagged += 1
+	_check(float(by_role.get("FWD", 0.0)) > 0.0 and float(by_role.get("MID", 0.0)) > 0.0
+			and float(by_role.get("DEF", 0.0)) > float(by_role.get("MID", 0.0)),
+			"Any player can intercept, defenders most: %s" % str(by_role))
+	_check(imk > 0.0 and flagged > 0 and marks_ok,
+			"Intercept marks happen, are flagged in the log and count as marks (%d)" % int(imk))
+	_check(loose_ic / 16.0 > def_ic / float(maxi(1, def_games)),
+			"A good loose defender intercepts more than the other defenders (%.1f against %.1f a game)" % [
+					loose_ic / 16.0, def_ic / float(maxi(1, def_games))])
 
 
 ## A tag is a midfield job: a forward kicking a bag never gets a tag card
@@ -2308,3 +2359,110 @@ func _test_forward_archetypes() -> void:
 	_check(key_set > small_set + 0.15, "More of a key forward's goals come from set shots (%.0f%% vs %.0f%%)" % [100.0 * key_set, 100.0 * small_set])
 	_check(small_crumb > key_crumb + 0.08, "More of a small forward's come off the deck (%.0f%% vs %.0f%%)" % [100.0 * small_crumb, 100.0 * key_crumb])
 	_check(sg[0] > 0 and kg[1] + kg[2] > 0, "Either kind still scores the other way")
+
+## The Defensive forward (director, 2026-10-06): one of your forwards goes to
+## their loose defender. A Defensive forward keeps him out of more contests
+## than any other forward would; the cost is the forward's own game.
+func _test_defensive_forward() -> void:
+	var df := 0
+	var fwds := 0
+	for p in GameDB.all_players_sorted():
+		if str(p.get("role", "")) == "FWD":
+			fwds += 1
+			if Traits.has(p, "def_forward"):
+				df += 1
+	_check(df >= 18 and df <= 60, "Defensive forwards are a real minority of the league's forwards (%d of %d)" % [df, fwds])
+	var gen := 0
+	for y in range(2028, 2033):
+		for p in Prospects.generate_class(y):
+			if str(p["role"]) == "FWD" and Traits.has(p, "def_forward"):
+				gen += 1
+	_check(gen >= 3, "Draft classes bring Defensive forwards too (%d in five classes)" % gen)
+
+	var sim := _sim(8301, "ADE", "SYD")
+	var spare := Matchups.best_interceptor((sim.squads[1] as Squad).ground, 0.0)
+	sim.set_interceptor(1, str(spare.get("id", "")), false)
+	var my_fwds := Matchups.minder_candidates((sim.squads[0] as Squad).ground)
+	_check(my_fwds.size() >= 2, "There are forwards to send")
+	# The director, 2026-10-06: "Other player" must not be a midfielder or
+	# defender. The quick picks and the full sheet both offer this list.
+	var off_line := my_fwds.filter(func(p): return str(p.get("role", "")) != "FWD")
+	_check(off_line.is_empty() and (sim.squads[0] as Squad).ground.any(func(p): return str(p.get("role", "")) != "FWD"),
+			"Only forwards are offered to go to their loose man, never a midfielder or defender")
+	if my_fwds.size() < 2:
+		return
+	# One forward made a Defensive forward, one made plainly not.
+	var spec: Dictionary = my_fwds[0]
+	var plain: Dictionary = my_fwds[my_fwds.size() - 1]
+	var was := [int(spec["attr"]["pressure"]), int(plain["attr"]["pressure"])]
+	(spec["attr"] as Dictionary)["pressure"] = 70
+	(plain["attr"] as Dictionary)["pressure"] = 20
+	_check(Traits.has(spec, "def_forward") and not Traits.has(plain, "def_forward"),
+			"The trait follows the forward's Pressure")
+	_check(str(Matchups.minder_candidates((sim.squads[0] as Squad).ground)[0]["id"]) == str(spec["id"]),
+			"Defensive forwards are listed first to send")
+	var base := sim._roam_chance(1)
+	sim.set_tactics(0, {"gameplan": "balanced", "spare_accountable": true, "spare_minder_id": str(plain["id"])})
+	var by_plain := sim._roam_chance(1)
+	sim.set_tactics(0, {"gameplan": "balanced", "spare_accountable": true, "spare_minder_id": str(spec["id"])})
+	var by_spec := sim._roam_chance(1)
+	_check(base > 0.0 and by_spec < by_plain and by_plain < base,
+			"A Defensive forward keeps the spare out of more contests than another forward (%.2f, %.2f, none %.2f)" % [by_spec, by_plain, base])
+	_check(str(sim._spare_minder(0).get("id", "")) == str(spec["id"]), "The named forward is the one who goes")
+	sim.set_tactics(0, {"gameplan": "balanced"})
+	_check(sim._spare_minder(0).is_empty() and is_equal_approx(sim._roam_chance(1), base), "No call, nobody goes")
+	(spec["attr"] as Dictionary)["pressure"] = was[0]
+	(plain["attr"] as Dictionary)["pressure"] = was[1]
+
+	# The cost is his own game: over paired matches the forward sent takes
+	# fewer marks and shots than when he stays in the forward line.
+	var with_call := 0
+	var without := 0
+	var roam_with := 0
+	var roam_without := 0
+	for seed in range(8310, 8326):
+		for sent in [true, false]:
+			var m := _sim(seed, "ADE", "SYD")
+			var sp := Matchups.best_interceptor((m.squads[1] as Squad).ground, 0.0)
+			m.set_interceptor(1, str(sp.get("id", "")), false)
+			var minder: Dictionary = Matchups.minder_candidates((m.squads[0] as Squad).ground)[0]
+			if sent:
+				m.set_tactics(0, {"gameplan": "balanced", "spare_accountable": true, "spare_minder_id": str(minder["id"])})
+			var res := m.run()
+			var st: Dictionary = res["players"].get(str(minder["id"]), {})
+			var spst: Dictionary = res["players"].get(str(sp.get("id", "")), {})
+			var involved := int(st.get("marks", 0)) + int(st.get("goals", 0)) + int(st.get("behinds", 0))
+			if sent:
+				with_call += involved
+				roam_with += int(spst.get("roam_contests", 0))
+			else:
+				without += involved
+				roam_without += int(spst.get("roam_contests", 0))
+	_check(with_call < without, "The forward sent gives up his own marks and shots (%d against %d)" % [with_call, without])
+	_check(roam_with < roam_without, "Their loose defender reaches fewer contests (%d against %d)" % [roam_with, roam_without])
+
+	# The AI sends its forward by the same rule, once the spare has hurt it.
+	var ai := _sim(8341, "GEE", "COL")
+	ai.player_stats[str((ai.squads[0] as Squad).ground[0]["id"])] = {"roam_wins": 2}
+	var t := ai.ai_tactics(1)
+	var expect := Matchups.minder_candidates((ai.squads[1] as Squad).ground)
+	_check(bool(t.get("spare_accountable", false)) and not expect.is_empty()
+			and str(t.get("spare_minder_id", "")) == str(expect[0]["id"]),
+			"An AI club names the forward a coach would send, by the same rule")
+
+
+## ARD-M4-015: eight plan names become six. An old save's "fast" plays as
+## Attack corridor and "press" as Defensive press: the same match, the same
+## names on every screen.
+func _test_six_plans() -> void:
+	var a := _sim(9100)
+	a.set_tactics(0, {"gameplan": "fast"})
+	var b := _sim(9100)
+	b.set_tactics(0, {"gameplan": "attacking"})
+	var ra := a.run()
+	var rb := b.run()
+	_check(ra["score"] == rb["score"] and (ra["events"] as Array).size() == (rb["events"] as Array).size(),
+			"An old save's Fast movement plays exactly as Attack corridor")
+	_check(CoachReport.plan_label("fast") == "Attack corridor" and CoachReport.plan_label("press") == "Defensive press"
+			and not MatchSim.PLANS.has("fast") and not MatchSim.PLANS.has("press") and MatchSim.PLANS.size() == 5,
+			"Six plans (balanced and five others), and the old names read as the merged ones")

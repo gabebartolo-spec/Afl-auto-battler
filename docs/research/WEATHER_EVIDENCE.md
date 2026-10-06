@@ -77,7 +77,7 @@ The director asked the lead for its own research and conclusions ("do your own r
 
 ## As built (#449)
 
-Each evidence point beside the constant that implements it, as of #449's head 2e5e446. "Calibrating (weather_impl)" means no measured number yet; `tools/audit/weather_impl.gd` plays every match four times on one seed (perfect, wet, windy, hot) to measure the change, and the lead fills these in from it. Sources are the tags above.
+Each evidence point beside the constant that implements it, as of #449. Measured rows are from `tools/audit/weather_impl.gd` over drafts 21 to 24 (1,656 side-matches per condition, each match played in all four conditions on one seed). "Calibrating (weather_impl)" means no measured number yet; `tools/audit/weather_impl.gd` plays every match four times on one seed (perfect, wet, windy, hot) to measure the change, and the lead fills these in from it. Sources are the tags above.
 
 | Evidence | Constant | Status |
 |---|---|---|
@@ -85,15 +85,15 @@ Each evidence point beside the constant that implements it, as of #449's head 2e
 | Wind of 20 km/h or more in about 14% of outdoor matches [OUW] | `Weather.WIND_CUT` 21.5 km/h mean 3 pm wind, `WIND_CAP` 0.35, `SOFT` 3.0 | fitted: 14.0% league-wide |
 | Heat clusters early; the Heat Policy was enacted in each of the first four rounds of 2025 [ABC] | `Weather.HOT_CUT` 28.6 C mean maximum, `SOFT` 3.0 | fitted: 70% of hot days in March and April, 8.9% overall (the 70% is a choice, not a sourced figure) |
 | One condition per match, known in the week (the director) | `Season.weather_for`, seeded from the season seed, round and clubs; `Weather.month_of_round` | design choice |
-| Wet: marks -13% [ABC] | `MatchSim.WEATHER_RATES` wet `mark_share_of_kicks` 0.87 | calibrating (weather_impl) |
-| Wet: tackles +12%, one-percenters +15%, turnovers +11%, clangers +9%, contested possessions +7% [ABC] | wet `pressure_base` 1.12, `stoppage_share` 1.08, `clanger_per_chain` 1.10 | calibrating (weather_impl) |
-| Wet: scoring -10.7 points a game overall, -4.6 in the modern era [BB]; accuracy down a point or two [BB][SI] | wet `inside50_goal` 0.965, `metres_gain_mean` 0.96 | calibrating (weather_impl) |
+| Wet: marks -13% [ABC] | `MatchSim.WEATHER_RATES` wet `mark_share_of_kicks` 0.90 | measured: marks -14% to -15% |
+| Wet: tackles +12%, one-percenters +15%, turnovers +11%, clangers +9%, contested possessions +7% [ABC] | wet `pressure_base` 1.18, `stoppage_share` 1.05, `clanger_per_chain` 1.15, `one_percenter_share` 1.4 | measured: clangers +10% to +11%, one-percenters +15%, **tackles +6% (half the evidence)**. More tackling pressure costs scoring below the evidence, and scoring is held to it first. |
+| Wet: scoring -10.7 points a game overall, -4.6 in the modern era [BB]; accuracy down a point or two [BB][SI] | wet `inside50_goal` 0.98, `inside50_behind` 1.07, `metres_gain_mean` 1.12 (longer kicks between fewer marks) | measured: scoring -5% to -6%, accuracy -2.1 to -2.4 points |
 | Wet: contested ball matters more, 64% to 69% of games for the contested-possession winner [ABC] | `MatchSim.WEATHER_PLAN` wet (contest 1.35, defensive and press 1.2, attacking and fast 0.6, controlled 0.85) | the director's rule in his words, not a measured figure; calibrating (weather_impl) |
-| Windy: fewer marks, more turnovers, targets harder to hit [ABC] | `WEATHER_RATES` windy `mark_share_of_kicks` 0.92, `clanger_per_chain` 1.06, `metres_gain_mean` 1.03 | calibrating (weather_impl) |
-| Windy: about -5.2 combined points at 20 km/h and over [OUW]; the "five-goal breeze" [AFLLab] | `MatchSim.BREEZE_WITH` 1.04 and `BREEZE_AGAINST` 0.86 on goal chances, the breeze end swapping each quarter | calibrating (weather_impl) |
+| Windy: fewer marks, more turnovers, targets harder to hit [ABC] | `WEATHER_RATES` windy `mark_share_of_kicks` 0.92, `clanger_per_chain` 1.06, `metres_gain_mean` 1.03 | measured: marks -6%, clangers +6%, accuracy -0.8 to -1.1 points |
+| Windy: about -5.2 combined points at 20 km/h and over [OUW]; the "five-goal breeze" [AFLLab] | `MatchSim.BREEZE_WITH` 1.04 and `BREEZE_AGAINST` 0.89 on goal chances, the breeze end swapping each quarter (averaged in extra time) | measured: scoring -3% to -4%, about -5 to -6 points a game combined |
 | Windy favours Controlled tempo (the director) | `WEATHER_PLAN` windy (controlled 1.25, attacking and fast 0.85) | the director's rule; calibrating (weather_impl) |
-| Hot: freer-flowing, fewer stoppages, bounces +11% [ABC] | `WEATHER_RATES` hot `pressure_base` 0.97, `stoppage_share` 0.95, `metres_gain_mean` 1.03 | calibrating (weather_impl) |
-| Hot: fatigue and cramp; the Heat Policy's longer breaks [ABC] | `MatchSim.HOT_DRAIN` 1.12 on leg fatigue | calibrating (weather_impl) |
+| Hot: freer-flowing, fewer stoppages, bounces +11% [ABC] | `WEATHER_RATES` hot `pressure_base` 0.97, `stoppage_share` 0.95, `metres_gain_mean` 1.03 | measured: scoring +1% to +2%, tackles -2% to -3%, marks level |
+| Hot: fatigue and cramp; the Heat Policy's longer breaks [ABC] | `MatchSim.HOT_DRAIN` 1.12 on leg fatigue | effect size chosen, not sourced (no public figure for late-game fade) |
 | Hot favours Attack corridor (the director) | `WEATHER_PLAN` hot (attacking and fast 1.2, defensive and press 0.8) | the director's rule; calibrating (weather_impl) |
 | Some players do better in poor weather [SI] (see WET_WEATHER_PLAYERS.md) | `Traits.WET_WEATHER` (contested 78 or more and disposal 72 or more), `WET_BALL` 1.10, `WET_CLANGERS` 0.80 | thresholds and effect sizes chosen, not sourced; calibrating (weather_impl) |
 ## Climate data per venue (`data/weather_by_venue.json`)

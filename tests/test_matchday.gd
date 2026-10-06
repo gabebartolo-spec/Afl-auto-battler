@@ -355,7 +355,8 @@ func _test_rating() -> void:
 	for role in ["DEF", "MID", "FWD"]:
 		lo = mini(lo, int(p90.get(role, 0)))
 		hi = maxi(hi, int(p90.get(role, 0)))
-	_check(p90.size() >= 3 and hi - lo <= 30, "No position is shut out of big ratings (%s)" % str(p90))
+	# Limit widened to 32: #462 gives defenders real intercept credit, which lifts their p90.
+	_check(p90.size() >= 3 and hi - lo <= 32, "No position is shut out of big ratings (%s)" % str(p90))
 	_check(int(best.get("FWD", 0)) >= 1 and int(best.get("DEF", 0)) >= 1,
 			"Forwards and defenders make their side's top three (%s)" % str(best))
 
@@ -464,29 +465,41 @@ func _test_no_green_decoration() -> void:
 	_check(found == "", "No green highlight surfaces in the UI (%s)" % found)
 
 
-## A club is marked by its real colours: two for most, three where the
-## third is a club colour (the Bulldogs' white, Adelaide's gold).
+## A club is marked by its own guernsey (club marker A, GuernseyCrest): its
+## design and colours, a trim in its third colour only where that is a club
+## colour (the Bulldogs' white, Adelaide's gold), and its code from 32 px.
 func _test_club_markers() -> void:
 	var ok := true
 	for code in GameDB.CLUB_ORDER:
 		var m := UiKit.club_marker(code)
-		var bands: Node = m.get_child(0)
-		var want := 3 if GameDB.THREE_COLOUR_CLUBS.has(code) else 2
-		if bands.get_child_count() != want:
+		var g := GameDB.club_guernsey(code)
+		var cols := GameDB.club_colours(code)
+		var trim: Color = cols[2] if GameDB.THREE_COLOUR_CLUBS.has(code) else cols[1]
+		if not (m is GuernseyCrest) or m.primary != g["base"] or m.design != str(g["design"]) or m.accent != trim:
 			ok = false
 		m.free()
-	_check(ok, "Every club's marker shows its two or three colours")
-	var mel := UiKit.club_marker("MEL")
-	var cols := []
-	for b in mel.get_child(0).get_children():
-		cols.append((b as ColorRect).color)
-	_check(cols == GameDB.club_colours("MEL").slice(0, 2), "Melbourne is navy and red")
+	_check(ok, "Every club's marker is its own guernsey, in its colours and design")
+	var mel: GuernseyCrest = UiKit.club_marker("MEL")
+	_check(mel.primary == GameDB.club_colours("MEL")[0] and mel.accent == GameDB.club_colours("MEL")[1],
+			"Melbourne is a navy guernsey trimmed in red")
 	mel.free()
 	var badge := UiKit.club_badge("WBD")
-	_check(badge.find_child("ClubMarker", true, false) != null
-			and badge.find_child("ClubMarker", true, false).get_child(0).get_child_count() == 3,
-			"The club badge uses the marker (the Bulldogs in three colours)")
+	var bm = badge.find_child("ClubMarker", true, false)
+	_check(bm is GuernseyCrest and bm.accent == GameDB.club_colours("WBD")[2],
+			"The club badge uses the marker (the Bulldogs trimmed in their third colour)")
 	badge.free()
+	var forge: GuernseyCrest = UiKit.colour_marker([Color.RED, Color.WHITE, Color.BLACK], 40.0, "hoops", "PMB")
+	_check(forge.design == "hoops" and forge.code == "PMB" and forge.custom_minimum_size == Vector2(40, 40),
+			"A created club's marker carries its design and code")
+	_check(GuernseyCrest.code_colour(Color("#0e1a3a"), Color("#f2c230"), Color("#c8102e")) == Color("#F2F2F2"),
+			"The code takes the colour that stands out most from the guernsey")
+	forge.free()
+	var shapes := GuernseyCrest.shapes()
+	var all_in := true
+	for d in ["stripes", "hoops", "sash", "yoke", "chevrons", "sides", "shoulders"]:
+		if ((shapes["patterns"] as Dictionary).get(d, []) as Array).is_empty():
+			all_in = false
+	_check(all_in, "Every design draws inside the guernsey")
 
 
 ## Club colours are a director-approved palette (2026-10-05, sourced to the
