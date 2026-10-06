@@ -33,6 +33,7 @@ func run() -> void:
 	_test_no_green_decoration()
 	_test_club_markers()
 	_test_palette_snapshot()
+	_test_headlines()
 	print("Matchday tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -526,3 +527,40 @@ func _test_palette_snapshot() -> void:
 				off.append("%s %d" % [code, i])
 	_check(off.is_empty() and PALETTE.size() == GameDB.CLUB_ORDER.size(),
 			"Every club's colours match the approved palette (%s)" % ", ".join(off))
+
+
+## FL-006: a headline is said only when the match's own facts support it. Each
+## fixture is a result with quarter-by-quarter scores (home first).
+func _hl(home: String, away: String, q: Array) -> Dictionary:
+	var s := [0, 0]
+	for x in q:
+		s[0] += int(x[0])
+		s[1] += int(x[1])
+	return {"home": home, "away": away, "quarters": q, "score": s}
+
+
+func _test_headlines() -> void:
+	# Down 26 at half-time, won by 8.
+	var back := _hl("GEE", "MEL", [[10, 20], [6, 22], [30, 6], [20, 10]])
+	_check(Headlines.for_match(back, 0) == "From 26 points down at half-time.",
+			"A comeback names the deficit and the break (%s)" % Headlines.for_match(back, 0))
+	_check(Headlines.for_match(back, 1) == "", "The side that lost it gets no headline")
+	# Up 35 at three-quarter time, won by 9.
+	var close_call := _hl("GEE", "MEL", [[30, 6], [20, 10], [10, 9], [6, 32]])
+	_check(Headlines.for_match(close_call, 0) == "We made that interesting.",
+			"Holding a big lead and winning narrowly is 'interesting' (%s)" % Headlines.for_match(close_call, 0))
+	var tight := _hl("GEE", "MEL", [[20, 18], [15, 17], [14, 16], [20, 14]])
+	_check(Headlines.for_match(tight, 0) == "Not much room to breathe.", "A win by 6 or less is close")
+	var derby := _hl("ADE", "PAD", [[30, 10], [25, 15], [20, 12], [18, 16]])
+	_check(Headlines.for_match(derby, 0) == "The neighbours heard that one.", "A real rivalry win")
+	_check(Headlines.for_match(derby, 1) == "", "A rivalry loss gets no joke")
+	var plain := _hl("GEE", "WCE", [[30, 10], [25, 15], [20, 12], [18, 16]])
+	_check(Headlines.for_match(plain, 0) == "", "An ordinary win needs no headline")
+	var level := _hl("GEE", "MEL", [[20, 18], [15, 17], [14, 16], [20, 18]])
+	_check(Headlines.for_match(level, 0) == "Nothing between them." and Headlines.for_match(level, 1) == "Nothing between them.",
+			"A draw is a draw for both sides")
+	# Extra time: the quarters no longer add up to the score - no break claims.
+	var et := back.duplicate(true)
+	et["score"] = [int(et["score"][0]) + 7, int(et["score"][1]) + 1]
+	_check(Headlines.for_match(et, 0) == "", "Without a complete score history it claims no comeback")
+
