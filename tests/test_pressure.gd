@@ -3,6 +3,7 @@ extends RefCounted
 ## (tackles plus rushed disposals and forced turnovers), the team Pressure
 ## Rating and pressure in the Player Rating. Run through
 ## tests/run_pressure_tests.gd.
+## Seeded by design: every MatchSim takes an explicit seed.
 
 var failures: Array[String] = []
 var checks := 0

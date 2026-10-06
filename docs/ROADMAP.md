@@ -181,7 +181,7 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 - **Say what wasn't exercised.** A PR's evidence names what it didn't cover (device touch, real-time performance, listening) instead of leaving it implied.
 
 **`LOW`**
-- §9.5 STYLE-03 colour pairings, STYLE-07 desktop layout and STYLE-08 light maintenance; the latter two follow the approved dark slice. STYLE-01's narrow Training-row alignment repair is also LOW when it reproduces. Art-agent direction and final director appearance approval apply.
+- §9.5 STYLE-03 colour pairings and STYLE-08 light maintenance; light maintenance follows the approved dark slice. STYLE-01's narrow Training-row alignment repair is also LOW when it reproduces. STYLE-07's urgent shared desktop-scaling repair is MEDIUM, not deferred LOW polish. Art-agent direction and final director appearance approval apply.
 
 - §9.3 FL-001 football voice and incidental humour.
 - Verifying and closing work that is already on `main` (the Low agent does this as it finds it). The §9.1 Training scrollbar is done and waits only on a phone check.
@@ -204,13 +204,13 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 - Board, league and balance: ARD-M6-003 (fair expectations), M7-004 (captaincy), M7-006 (weather), M7-007 (ground dimensions), and from §9.1 overall difficulty with active-play levers, synergies as specialisations, and the GOAT prospect.
 - Content builds: ARD-M7-008 (custom prospect), M7-009 (expansion and Club Forge), M7-010 (Sir Doug Nicholls Round), M7-011 (AFL knowledge layer), M8-003 (match visualisation), M8-006 (release polish), M8-007 (vignette art-style replacement), the §1.11 Season story and long-save visual wishlist, and AFLW (deferred).
 
-**Waiting on the director** — nobody's to pick up: the phone checks on ARD-M5-014, M5-015, M6-006, M6-008, the awards ceremony, training touch and the playtest fixes marked `VERIFY` in §9.1; the Android launcher icon (M8-008, the app name is already set in the export preset); whether to keep the trade-value discount for unproven potential (§9.1); whether the Key defender plan should be offered to defenders under 191 cm; whether the temporary Sim to finals button (ARD-M1-007) is still wanted; and the trailer (ARD-M8-010), which is hard-gated and only starts on the director's explicit go-ahead.
+**Waiting on the director** — nobody's to pick up: the phone checks on ARD-M5-014, M5-015, M6-006, M6-008, the awards ceremony, training touch and the playtest fixes marked `VERIFY` in §9.1; whether to keep the trade-value discount for unproven potential (§9.1); whether the Key defender plan should be offered to defenders under 191 cm; whether the temporary Sim to finals button (ARD-M1-007) is still wanted; and the trailer (ARD-M8-010), which is hard-gated and only starts on the director's explicit go-ahead.
 
 ## 0.4.1 Current execution queue — overrides milestone order
 
 This is the **authoritative near-term work order**. The milestone catalogue below is not a command to start more work while validated PRs are already in flight.
 
-1. **Close any genuine P0 phone-playtest failures first (§1.11, §9.1).** A newly reproduced soft-lock, broken match flow, fake/no-op choice or major performance regression still jumps ahead of planned feature work.
+1. **Immediate director priority: repair unreadable PC fullscreen/maximised UI (STYLE-07, §1.11).** This is a `P0` usability blocker, promoted above planned features, cosmetic content and general styling on 2026-10-06. Start the next available development slot with shared desktop scaling and fit-to-screen repair; do not defer it behind the dark-phone styling programme. Preserve already-in-flight work and genuine soft-lock repairs. Other P0 phone-playtest failures (§1.11, §9.1) remain urgent.
 2. **The former in-flight stack has landed.** _Reconciled 2026-10-05:_ the match-authenticity work (#190 merged; #196 smothers/speccies/50s/MRO/kick-ins), Combine/scouting (#188), the trade/contracts stack (#182 → #191 → #193 → #198, real-money contracts), GPS distance (#195), post-match media (#183), milestones (#186), History & records (#187) and the awards ceremony (#185) were closed as separate PRs and carried onto `main` by the consolidated squash merge #208; #189, #192, #194 and #205 merged directly. Do not reopen or re-create them; treat follow-ups as ordinary work against `main`.
 3. **Reconcile the current active work before touching its systems.** At the 2026-10-05 checkpoint #223 (live-call/trade/free-agency evidence), #224 (unproven-potential trade discount), #226 (backed-player payoff, still targeting the oval-rings branch) and #206 (music) are open. #210/#213/#214 repairs and audits, #217 difficulty evidence, #220 backing, #221 rings, #222 scouting estimates and #225 assistant contracts are merged. Preserve remaining phone checks; do not create parallel valuation, promise or payoff systems.
 4. **Then resume genuinely unstarted catalogue work** from M3/M4/M5/M7/M8 and the §9.1 playtest findings according to player value and dependencies, rather than roadmap-number order. M5-001 (18 + 5 interchange) remains a separate TODO now that selection changes have settled.
@@ -535,6 +535,7 @@ Do not tune purely until one screenshot "looks right".
 The current phone playtest has exposed a core-loop problem more important than feature expansion. **Pause unrelated new feature work until this gate is addressed.** Existing PRs may finish through CI/merge, but the next development work should focus on the failures below rather than advancing the roadmap for completion's sake.
 
 ### Observed failures
+- **PC fullscreen/maximised UI unreadable — extreme priority (`P0`, 2026-10-06):** the director's near-4K Windows capture shows New career as a tiny central form surrounded by mostly empty space, with text, option buttons and Back too small to use comfortably. Repair global desktop scaling and responsive fit under **STYLE-07** immediately; verify all principal screens rather than enlarging this one form alone. The screenshot is evidence of a current usability defect, not a request for additional decorative polish.
 - **Closed from this list** (checked against `main` on 2026-10-06; the original write-ups are in git history): match-feed club labels (#120); unavailable tag targets (#121); the three-game Coaching gate (`test_club.gd`); recent-games form copy (#117); form-streak colour (#122); the tired-star rotation prompt (#119); week-by-week finals for a club that is out; the Season Review scroll; centre-bounce vignette participants; St Kilda `SKN` → `STK` (data and code, with `CareerSave.RENAMED_CLUBS` and a `test_save.gd` check that an old save loads into the same St Kilda); the pre-match scene on every Play match (#143, `PreMatchVignette`); match-up narrative continuity (`MatchNotes.duel_story`, `test_match_game.gd`); set-shot chances by distance and angle (`MatchSim.set_bands`, calibrated to AFL rates and tested); draw frequency (`test_league_balance.gd`, and finals never end level in `test_finals.gd`); and the 'hurting you' lever (#230, `test_matchday.gd`).
 - Match simulation can freeze/stall.
 - **Residual far-away receiver / loose-ball wait bug:** phone playtesting still shows occasional pauses where the visualisation waits for a distant predetermined player to reach the ball while nearer players stand off, despite the earlier match-flow repair. Treat this as an unresolved core-flow defect rather than closed work. Capture concrete occurrences and trace whether the delay comes from MatchSim selecting an implausibly distant next actor, MatchDirector/Motion over-honouring a predetermined event actor, or presentation failing to hand the loose ball to a locally plausible contestant. Prefer the smallest fix that preserves MatchSim authority and existing balance; do not silently change football outcomes just to make the animation look smoother. Acceptance: loose-ball sequences no longer visibly stall for a far-away player when a nearby eligible player could plausibly contest/collect, and any unavoidable long run has a football reason visible in the simulation state. Add targeted regression/replay coverage for the previously observed failure pattern.
@@ -3969,7 +3970,7 @@ A lightweight **Follow / Watch** affordance is preferred over extra bespoke dash
 ---
 
 ## ARD-M7-009 — Expansion clubs, Canberra toggle & Club Forge
-**Status:** `PARTIAL` — groundwork merged: the full player look (#305) and the location library, `data/forge_locations.json` with 53 researched places and a `tools/validate_data.py` check (#304). Colour tags are empty for 25 places and pattern tags for all (not guessed; research pass pending); nothing in the game reads the library yet. _(2026-10-06)_  
+**Status:** `PARTIAL` — groundwork merged: the full player look (#305) and the location library, `data/forge_locations.json` with 53 researched places and a `tools/validate_data.py` check (#304). The pattern and colour research is merged (#343, #351): from each heritage club's Wikipedia infobox home kit, plus South Adelaide's own site (#351). 33 of 53 places have a pattern tag and 46 of 53 have colour tags; nothing is guessed. Still empty: 20 patterns (custom kit images, or the page is the town: werribee, shepparton, warrnambool, newcastle, wollongong, albury, maroochydore, morningside, norwood, sturt, woodville-west-torrens, claremont, subiaco, bunbury, ainslie, eastlake, tuggeranong, palmerston, weston-creek, alice-springs) and 7 colours (shepparton, southport, morningside, central-district, burnie, weston-creek, alice-springs). Nothing in the game reads the library yet. _(2026-10-06)_  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
@@ -4877,20 +4878,28 @@ The feature earns further work only if a phone playtest shows that the player ca
 ---
 
 
-## ARD-M8-008 — Android app identity: name and launcher icon
-**Status:** `VERIFY` — implementation merged in PR #173; verify the installed Android name/icon on the next phone build.  
-**Priority:** `P1`  
-**Autonomy:** `SAFE`
+## ARD-M8-008 — Cross-platform app identity and icon redesign
+**Status:** `PARTIAL` — Android identity foundation merged in PR #173; installed name/icon still needs verification. **New all-platform icon redesign: TODO (director request, 2026-10-06).**  
+**Priority:** `P1` — follows urgent P0 usability repairs.  
+**Autonomy:** `SUPERVISED` — art agent leads; director approves the final icon.
 
 ### Goal
-Replace the leftover prototype identity shown by Android. The installed app must use the current game name, **Aussie Rules Dynasties**, rather than **AFL Auto-Battler**, and the launcher/app-info icon must be purpose-built for the Aussie Rules Dynasties identity rather than the current generic football-field placeholder.
+Every supported platform's packaged application/executable and launcher icon must use a coherent **Aussie Rules Dynasties** identity. Replace the existing placeholder/icon treatment with a purpose-built icon in the director's supplied logo style.
 
-### Acceptance
-- Android launcher and App info show **Aussie Rules Dynasties**.
-- Android launcher/adaptive icon is visually tied to the game's title/identity and remains legible at phone icon size.
-- Remove visible legacy **AFL Auto-Battler** branding from Android export metadata where it is user-facing.
-- Do not redesign the in-game title/logo as part of this task unless required to share the same approved identity assets.
+### Director's visual reference — 2026-10-06
+Reference image: `codex-clipboard-cafc14a1-721a-458a-bc79-c0000e778e1f.png`. Match its recognisable visual language: bold condensed cream/off-white block lettering, energetic red brush-script accent, and very dark background. Adapt that identity for an icon rather than squeezing the wide title artwork into a square.
 
+- Prefer the full title only where it is genuinely readable. **“ARD” is explicitly authorised as the compact icon lettering if the full name will not fit/read well.** Abbreviation affects the icon artwork, not the installed app's full name.
+- Make icon-scale variants from one coherent master treatment. Simplify texture/detail as needed so the letters remain recognisable at small launcher/taskbar sizes and within platform masks/crops.
+- Cover all supported exports: Windows EXE/file/shortcut/taskbar icon, macOS app/Dock icon, Linux launcher icon, Android launcher/adaptive icon, iOS app icon and web favicon/install icon where those builds are supported. Update actual export/package metadata and platform assets, not just the in-game title image or project editor preview.
+- Reuse the established logo/style and usable fonts/assets; do not redesign the full in-game title or introduce a competing branding system. Preserve the existing save location/project identity when updating visible branding.
+
+### Acceptance and validation
+- Installed app name remains **Aussie Rules Dynasties**; remove remaining visible legacy **AFL Auto-Battler** branding where applicable.
+- The redesigned icon is visibly related to the supplied reference, readable at native small sizes, and consistently used by packaged builds across supported platforms.
+- Inspect the built Windows EXE plus shortcut/taskbar and available installed platform builds, not only source assets. Check small/large sizes, dark/light launcher surfaces and adaptive rounded/circular crops; handle OS icon caching during verification.
+- Provide icon-scale previews of full-title versus ARD candidates to the director. Art-agent direction and final director approval are required before marking the redesign DONE.
+- Keep the existing Android name/launcher verification open until an installed phone build confirms it.
 
 ---
 
@@ -5229,7 +5238,7 @@ Before adding any new roadmap line, check this table.
 | Sim confirmation / skip rounds / don't ask again | ARD-M1-007 Simulation controls |
 | Settings / options menu | ARD-M6-005 Options |
 | Club colours / green UI / game visual style | ARD-M8-001/002 |
-| Android app name / launcher icon / installed app identity | ARD-M8-008 |
+| Cross-platform app/executable/launcher icons and installed app identity | ARD-M8-008 |
 | End swaps / wrong-way movement / shot freeze | ARD-M1-004/005 + ARD-M8-003 |
 | OOB / last disposal / throw-in / OOF / 50m / frees | M3 AFL Rules & Match Authenticity |
 | Wind / rain | ARD-M7-006 Weather |
@@ -5391,6 +5400,16 @@ Relayed by the lead; the director's own wording is the authority if it differs.
 - **Club Forge: how a created club enters (ARD-M7-009).** A created club enters with the career and drafts its list in the League Draft like every other club. There is no separate concession package. The engine is in PR #340.
 - **21 clubs: the season shape (ARD-M7-009, fair fixture).** Director decision: a 21-club season is 24 rounds, 22 games and two byes a club. (For reference, the existing fixture: 23 games at 18 and 20 clubs, 22 at 19.) The medium agent's fair-fixture work implements this (evidence: [FIXTURE_SIZES_NOTE.md](FIXTURE_SIZES_NOTE.md)).
 
+
+## 2026-10-06 director decisions - flags, clearances, Create a club screen, freckles
+
+From the director's chat with the lead, relayed with the director's words where the lead had them. Evidence: [FLAGS_EVIDENCE_2026-10-06.md](FLAGS_EVIDENCE_2026-10-06.md), [RUCK_MID_DISPOSALS_2026-10-06.md](RUCK_MID_DISPOSALS_2026-10-06.md).
+
+- **Trades at real volume.** Raise the trade period to real AFL volume so that a club which trades well reaches about 3rd to 4th on average. The lead is implementing it.
+- **Synergy selection and development projects must have an impact.** Director: "why do we have these features if they dont have an impact, fix them". Fix both so that using them lifts a club, then measure again with the same harness.
+- **Clearance winner keeps the first disposal** (option 1 of the ruck and midfield disposals evidence). The medium agent is implementing it, with a calibration and finals re-run.
+- **Create a club screen approved.** Director: "looks fantastic, well done". It merges after the Create a player form and the Create a club engine, because it is built on both.
+- **Freckles removed from the player look.** Confirmed in the director's own words: "i alreeady said to delete freckles from the game".
 
 # 9.2 Research candidates — awaiting director selection
 
@@ -5731,7 +5750,7 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 
 **Authority:** the art agent has higher authority than ChatGPT on visual direction. Claude implements the art agent's treatment and reports engineering constraints rather than substituting its own taste. **All final decisions go through the director.** Accepted scope permits concrete mockups, prototypes and reviewable implementation; final font, palette, geometry, positioning and scene treatment require the director's approval. Do not merge an unapproved final visual treatment merely because ordinary CI passes. This is an explicit task-specific visual gate, not a request to re-interview the accepted scope.
 
-**Priority:** Android portrait **dark mode first**. STYLE-07 desktop and STYLE-08 light mode follow the approved dark slice; they are not shipping prerequisites for dark improvements. Preserve urgent P0 correctness, phone and performance gates. Coordinate hot files (`UiKit.gd`, shared layout, MatchScene and vignette overlays) with the existing art work; no competing redesign branch.
+**Priority:** **STYLE-07's unreadable PC fullscreen repair is an immediate P0 override** under §0.4.1. Beyond that repair, Android portrait dark mode leads the broader styling programme; remaining desktop polish and STYLE-08 light mode follow the approved dark slice. Preserve urgent P0 correctness, phone and performance gates. Coordinate hot files (`UiKit.gd`, shared layout, MatchScene and vignette overlays) with the existing art work; no competing redesign branch.
 
 **Research:** [dark-mode audit](research/AFL_UI_STYLE_AUDIT_AND_RESEARCH.md) and [player-led source ledger](research/AFL_UI_STYLE_SOURCE_LEDGER.md). Competitor screenshots/claims are evidence and options, not approved templates. AFCM and Footy Redraft remain negative aesthetic references. The Windows render audit is preliminary evidence, not a completed native Android playtest or Claude engineering audit.
 
@@ -5821,19 +5840,28 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 
 **Validation:** capture stills and motion for the touched existing sequences, transitions and fallbacks; verify correct participants, appearances/kits, skip/touch/Back, event/outcome agreement, Android frame time/load time and existing vignette tests. Director approves final scene/overlay treatment before completion.
 
-## STYLE-07 — Wide-screen optical layout polish
-**Status:** `TODO` · **Priority:** `P2` · **Autonomy:** `SUPERVISED`  
-**Existing owner:** shared responsive layout, Coaching/List, M8-006.
+## STYLE-07 — PC fullscreen readability and fit-to-screen repair
+**Status:** `KNOWN BUG` · **Priority:** `P0` — **EXTREME / NEXT AVAILABLE DEVELOPMENT SLOT** · **Autonomy:** `SUPERVISED`  
+**Existing owner:** shared responsive layout (`ScreenLayout.gd` / `UiKit.gd`), Main/New career and other desktop screens; M8-006.
 
-**Scope:** after the approved dark Android slice, refine desktop layouts where related labels/values stretch too far apart, particularly Coaching. Use deliberate group widths, columns and gutters while preserving information and visual identity.
+**Director evidence (2026-10-06):** Windows near-4K capture (original image 3822×2022, `codex-clipboard-e07bf18b-b01f-4d23-9e26-47e942a98b8d.png`) shows a tiny central New career form inside an enormous mostly empty oval/background. The director reports the game is unreadable on PC in fullscreen. Reproduce both maximised and true fullscreen modes; the captured title bar alone does not establish which window mode was active.
 
-**Dependencies:** established dark-phone treatment and responsive behaviour. Desktop work must not delay or redefine the Android priority.
+**Priority override:** promoted from deferred P2 wide-screen polish to an immediate P0 broken-UX repair. This specific directive supersedes the earlier instruction to do desktop work only after the dark Android styling slice. Keep phone usability intact, but do not use mobile-first sequencing to postpone making PC playable. Coordinate current shared-file owners and the art agent; existing final appearance-review gates remain applicable.
 
-**Exclusions:** desktop-only features, more analytics, reducing data, a second design system or forcing phone controls to desktop proportions.
+**Diagnosis lead — verify at runtime:** `project.godot` configures a 1280×720 canvas with canvas-item scaling, but `ScreenLayout._update_scale()` replaces `window.content_scale_size` with physical window pixels divided by reported density. Desktop density uses `DisplayServer.screen_get_scale()`, with a minimum of 1. If Windows reports 1 on a large/high-resolution display, the logical viewport grows to nearly physical resolution and fixed UI type/control sizes remain tiny relative to the screen. `UiKit` has a 15-unit body / 24-unit H1, and `Main._show_setup()` caps the form at 440 logical units. This fits the symptom but is a code-based hypothesis, not a measured diagnosis of the director's machine. Capture window size, actual logical viewport, effective scale, OS DPI and display scale before selecting the fix.
 
-**Acceptance:** label/value pairing is visually coherent at wide sizes; gutters are purposeful; resizing preserves content, input and the approved phone layout.
+**Scope:**
+- Repair the shared desktop scaling policy so default text, controls, Back and dialogs are comfortably readable at normal monitor viewing distance in fullscreen/maximised mode, including high-resolution screens and Windows scaling settings.
+- Fit content purposefully to the available screen. A short setup form may remain centred with sensible margins, but must not stay a tiny island; wider information screens should use deliberate group widths, columns and gutters, with coherent label/value pairing.
+- Use one consistent scaling/layout route across menus, club selection, hub, lists, coaching, training, match preparation, match/quarter breaks, results and settings. Avoid one-screen font overrides, double DPI scaling, distorted aspect ratios or stretching every paragraph across the entire monitor.
+- Handle fullscreen/windowed transitions, resizing and monitor/DPI changes without losing selections, scrolling, modal state or click alignment.
+- Preserve Android portrait/landscape layout, touch targets, safe areas and mobile text sizing. Preserve the established visual identity and football/save state.
 
-**Validation:** 1280×720 plus another representative wide/resized view, long labels and scroll states; verify narrow portrait remains unchanged. Relevant responsive checks and director review of final wide layout.
+**Dependencies:** inspect current shared layout and relevant in-flight UI changes. The broader STYLE-01–06 redesign is not a prerequisite for this bounded repair.
+
+**Acceptance:** PC is readable by default without reducing desktop resolution or shrinking the game window. The New career form and primary actions are appropriately sized, all essential content is reachable, no important text/control is clipped, and mouse hitboxes align with visuals. Resizing and fullscreen toggling retain usability and state. Long labels, names, dialogs and busy screens fit or scroll deliberately. Phone presentation remains usable.
+
+**Validation:** native Windows before/after captures at 1920×1080, 2560×1440 and 3840×2160, plus a smaller window and representative ultrawide aspect; check available Windows display scaling settings (100%, 125%, 150%, 200%) without applying scale twice. Include maximised and true fullscreen, a mode toggle, New career plus representative dense screens and a modal, long names, scroll and click/focus checks. Recheck narrow phone portrait and landscape. Use focused shared-layout tests and existing required CI; headless viewport checks alone cannot prove native DPI readability. Obtain the director's final PC appearance/usability review before marking DONE.
 
 ## STYLE-08 — Lower-priority light-mode maintenance
 **Status:** `TODO` · **Priority:** `P2` · **Autonomy:** `SUPERVISED`  
@@ -5851,7 +5879,7 @@ Run targeted functional/save/phone checks per slice and an **extensive combined 
 
 ## Shared execution and completion gate
 
-Complete the narrow Training-row alignment diagnosis first where it still reproduces. Then have the art agent lead a coherent dark typography/colour/control slice (STYLE-01–03), extend composition/identity (STYLE-04/05) and integrate existing scenes (STYLE-06). Supported independent slices may proceed after their own prerequisites. Desktop/light work follow; this is not a mandate to complete a global redesign before delivering a useful repair.
+Start immediately with STYLE-07's P0 PC readability repair under §0.4.1. After urgent repairs, complete the narrow Training-row alignment diagnosis where it still reproduces, then have the art agent lead a coherent dark typography/colour/control slice (STYLE-01–03), extend composition/identity (STYLE-04/05) and integrate existing scenes (STYLE-06). Supported independent slices may proceed after their own prerequisites. STYLE-07's director-reported P0 PC readability repair starts immediately under §0.4.1; remaining desktop polish and light work follow. This is not a mandate to complete a global redesign before delivering a useful repair.
 
 Hold content/state constant when comparing style treatments. Keep normal, selected, pressed, disabled, short/long, empty/busy and real club variants. Player sessions can assess perceived polish and readability; simulations do not establish beauty or enjoyment. Styling must not modify football results, save formats, draft/contract state or progress.
 
@@ -5863,6 +5891,10 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Recorded five more director decisions in §9.1: trades at real volume; synergy selection and development projects must have an impact; the clearance winner keeps the first disposal; the Create a club screen is approved; freckles removed (confirmed in the director's words).
+
+- **2026-10-06:** ARD-M7-009 Forge location research merged (#343, #351): 33 of 53 places have pattern tags and 46 of 53 have colour tags; the empties are listed in the status line.
 
 - **2026-10-06:** Freckles removed from the player look (director, 2026-10-06, relayed by the lead): unnecessary detail. The Club Forge look specification no longer lists them; the 2026-10-05 entry below is history.
 

@@ -8,6 +8,9 @@ var _state: Node
 var _checks := 0
 var _failures: Array[String] = []
 
+## Every season in this suite starts from a fixed seed (C15), never the clock.
+const SUITE_SEED := 2027
+
 
 func _initialize() -> void:
 	_run.call_deferred()
@@ -20,6 +23,7 @@ func _run() -> void:
 	_state.save_path = "user://test_career.save"
 	_state.settings_path = "user://test_settings.cfg"
 	_state.show_real_names = false
+	_state.replay_seed = SUITE_SEED
 	var script = load("res://tests/test_roles.gd")
 	if script == null or not script.can_instantiate():
 		push_error("Could not load res://tests/test_roles.gd")
@@ -33,6 +37,7 @@ func _run() -> void:
 	await _team_changes_tests()
 	await _backing_ui_tests()
 	print("Roles + selection tests: %d checks, %d failures" % [_checks, _failures.size()])
+	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
 
 

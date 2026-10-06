@@ -14,7 +14,8 @@ extends SceneTree
 
 const SHEETS := "res://assets/vignette/figures_%s.png"
 const MUSIC_DIR := "res://assets/audio/music"
-## A frame with less figure than this share of its cell is empty.
+## A frame with less figure than this share of its rect is empty (strips are cropped
+## to their figures, so a real frame fills far more).
 const MIN_COVER := 0.01
 ## Same render (the art agent's rule, 2026-10-06): every guernsey-mask pixel
 ## (mask A >= 0.05) lies on the figure (shade A > 0.05) or within 1 px of it.
@@ -73,7 +74,7 @@ func _figure_sheets() -> void:
 	_check(shade.get_size() == VignetteFigures.SHEET_SIZE and mask.get_size() == VignetteFigures.SHEET_SIZE
 			and design.get_size() == VignetteFigures.SHEET_SIZE / 2,
 			"The sheets are the size the layout says (%s, %s, %s)" % [shade.get_size(), mask.get_size(), design.get_size()])
-	var cells := {}
+	var rects := []          # [rect, "anim facing"] for every frame
 	var empty := []
 	var clash := []
 	var outside := []
@@ -91,10 +92,10 @@ func _figure_sheets() -> void:
 					if not Rect2i(Vector2i.ZERO, VignetteFigures.SHEET_SIZE).encloses(r):
 						outside.append(where)
 						continue
-					var key := r.position
-					if cells.has(key) and cells[key] != "%s %s" % [anim, facing]:
-						clash.append("%s / %s" % [where, cells[key]])
-					cells[key] = "%s %s" % [anim, facing]
+					for other in rects:
+						if (other[0] as Rect2i).intersects(r):
+							clash.append("%s / %s" % [where, other[1]])
+					rects.append([r, where])
 					var c := _coverage(shade, mask, r)
 					if c[0] < MIN_COVER:
 						empty.append(where)
@@ -102,7 +103,7 @@ func _figure_sheets() -> void:
 						spill.append("%s: %d px beyond the edge, %.1f%% off" % [where, int(c[2]), float(c[1]) * 100.0])
 	_check(strips > 0, "The layout lists the moves (%d strips)" % strips)
 	_check(outside.is_empty(), "Every frame sits inside the sheet: %s" % str(outside.slice(0, 5)))
-	_check(clash.is_empty(), "No two moves share a frame: %s" % str(clash.slice(0, 5)))
+	_check(clash.is_empty(), "No two frames overlap on the sheet: %s" % str(clash.slice(0, 5)))
 	_check(empty.is_empty(), "Every frame of every move has a figure in it (%d empty: %s)"
 			% [empty.size(), str(empty.slice(0, 5))])
 	_check(spill.is_empty(), "The colour mask lies on the figure, to the pixel, in every frame (same render): %s"
@@ -110,8 +111,8 @@ func _figure_sheets() -> void:
 	# The club-design sheet is half size: its guernsey must sit on the figure too.
 	var off := 0
 	var on := 0
-	for key in cells:
-		var r := Rect2i(key, Vector2i(VignetteFigures.FRAME))
+	for e in rects:
+		var r: Rect2i = e[0]
 		for y in range(r.position.y, r.end.y, 4):
 			for x in range(r.position.x, r.end.x, 4):
 				if design.get_pixel(x / 2, y / 2).a > 0.5:
@@ -122,7 +123,7 @@ func _figure_sheets() -> void:
 			"The club-design sheet matches the figures (%d of %d samples off the body)" % [off, on])
 	# The tool itself: a blank frame and a mask from another frame must fail.
 	var blank := Image.create(VignetteFigures.SHEET_SIZE.x, VignetteFigures.SHEET_SIZE.y, false, Image.FORMAT_RGBA8)
-	var any_cell: Rect2i = Rect2i(cells.keys()[0], Vector2i(VignetteFigures.FRAME))
+	var any_cell: Rect2i = rects[0][0]
 	_check(_coverage(blank, mask, any_cell)[0] < MIN_COVER, "A blank frame counts as empty")
 	var step := 16 if any_cell.end.x + 16 <= VignetteFigures.SHEET_SIZE.x else -16
 	var shifted := Rect2i(any_cell.position + Vector2i(step, 0), any_cell.size)
