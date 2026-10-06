@@ -1,0 +1,1228 @@
+{
+ "_about": "Club Forge location library (ARD-M7-009). Places, not clubs: no place an AFL club already represents; ACT uses districts. 'heritage' is internal source metadata (never shown to players, no logos or trademarks shipped). ground is the stable common name; ground_sponsor_alias is the current naming-rights name. colour_tags come from the heritage club's Wikipedia infobox where it lists them (empty otherwise); pattern_tags come from the heritage club's Wikipedia infobox home-kit pattern (or its article text where it states the design), mapped to the guernsey designs in GameDB.GUERNSEY_DESIGNS; empty where the article does not say. Where the infobox gave no colour names, colour_tags name its colour swatches. No coordinates.",
+ "version": 1,
+ "locations": [
+  {
+   "id": "port-melbourne",
+   "place": "Port Melbourne",
+   "state": "VIC",
+   "football_region": "Melbourne bayside west",
+   "ground": "North Port Oval",
+   "ground_sponsor_alias": "ETU Stadium",
+   "ground_alternatives": [],
+   "colour_tags": [
+    "blue",
+    "red"
+   ],
+   "pattern_tags": [
+    "stripes"
+   ],
+   "heritage": {
+    "club": "Port Melbourne",
+    "league": "VFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Port_Melbourne_Football_Club",
+    "https://en.wikipedia.org/wiki/North_Port_Oval"
+   ]
+  },
+  {
+   "id": "williamstown",
+   "place": "Williamstown",
+   "state": "VIC",
+   "football_region": "Melbourne west",
+   "ground": "Point Gellibrand Oval",
+   "ground_sponsor_alias": "DSV Stadium",
+   "ground_alternatives": [
+    "Williamstown Cricket Ground"
+   ],
+   "colour_tags": [
+    "blue",
+    "gold"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
+   "heritage": {
+    "club": "Williamstown",
+    "league": "VFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Williamstown_Football_Club"
+   ]
+  },
+  {
+   "id": "werribee",
+   "place": "Werribee",
+   "state": "VIC",
+   "football_region": "Melbourne west",
+   "ground": "Chirnside Park",
+   "ground_sponsor_alias": "Melbourne Avalon Airport Oval",
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "gold"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Werribee",
+    "league": "VFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Werribee_Football_Club",
+    "https://en.wikipedia.org/wiki/Chirnside_Park_%28stadium%29"
+   ]
+  },
+  {
+   "id": "frankston",
+   "place": "Frankston",
+   "state": "VIC",
+   "football_region": "Mornington Peninsula gateway",
+   "ground": "Frankston Park",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "white",
+    "red"
+   ],
+   "pattern_tags": [
+    "stripes"
+   ],
+   "heritage": {
+    "club": "Frankston",
+    "league": "VFA/Southern FNL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Frankston_Football_Club",
+    "https://en.wikipedia.org/wiki/Frankston_Park"
+   ]
+  },
+  {
+   "id": "sandringham",
+   "place": "Sandringham",
+   "state": "VIC",
+   "football_region": "Melbourne bayside south",
+   "ground": "Trevor Barker Beach Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "gold",
+    "blue"
+   ],
+   "pattern_tags": [
+    "stripes"
+   ],
+   "heritage": {
+    "club": "Sandringham",
+    "league": "VFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Sandringham_Football_Club",
+    "https://en.wikipedia.org/wiki/Trevor_Barker_Beach_Oval"
+   ]
+  },
+  {
+   "id": "coburg",
+   "place": "Coburg",
+   "state": "VIC",
+   "football_region": "Melbourne north",
+   "ground": "Coburg City Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "navy",
+    "red"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
+   "heritage": {
+    "club": "Coburg",
+    "league": "VFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Coburg_Football_Club",
+    "https://en.wikipedia.org/wiki/Coburg_City_Oval"
+   ]
+  },
+  {
+   "id": "box-hill",
+   "place": "Box Hill",
+   "state": "VIC",
+   "football_region": "Melbourne east",
+   "ground": "Box Hill City Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "brown",
+    "gold"
+   ],
+   "pattern_tags": [
+    "stripes"
+   ],
+   "heritage": {
+    "club": "Box Hill",
+    "league": "VFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Box_Hill_Football_Club",
+    "https://en.wikipedia.org/wiki/Box_Hill_City_Oval",
+    "https://en.wikipedia.org/wiki/Box_Hill_Hawks"
+   ]
+  },
+  {
+   "id": "casey",
+   "place": "Casey",
+   "state": "VIC",
+   "football_region": "Melbourne south-east",
+   "ground": "Casey Fields",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "red",
+    "navy blue"
+   ],
+   "pattern_tags": [
+    "yoke"
+   ],
+   "heritage": {
+    "club": "Casey Demons",
+    "league": "VFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Casey_Demons",
+    "https://en.wikipedia.org/wiki/Casey_Fields"
+   ]
+  },
+  {
+   "id": "bendigo",
+   "place": "Bendigo",
+   "state": "VIC",
+   "football_region": "Loddon Mallee",
+   "ground": "Queen Elizabeth Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "blue",
+    "gold"
+   ],
+   "pattern_tags": [
+    "stripes"
+   ],
+   "heritage": {
+    "club": "Bendigo",
+    "league": "Bendigo FL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Bendigo_Football_Club",
+    "https://en.wikipedia.org/wiki/Queen_Elizabeth_Oval",
+    "https://en.wikipedia.org/wiki/Bendigo_Gold_Football_Club"
+   ]
+  },
+  {
+   "id": "shepparton",
+   "place": "Shepparton",
+   "state": "VIC",
+   "football_region": "Goulburn Valley",
+   "ground": "Deakin Reserve",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Shepparton",
+    "league": "Goulburn Valley FL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Shepparton_Football_Club",
+    "https://en.wikipedia.org/wiki/Deakin_Reserve"
+   ]
+  },
+  {
+   "id": "warrnambool",
+   "place": "Warrnambool",
+   "state": "VIC",
+   "football_region": "South West Victoria",
+   "ground": "Reid Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "navy",
+    "white"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Warrnambool",
+    "league": "Hampden FL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Warrnambool_Football_Club"
+   ]
+  },
+  {
+   "id": "traralgon",
+   "place": "Traralgon",
+   "state": "VIC",
+   "football_region": "Gippsland",
+   "ground": "Traralgon Recreation Reserve",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "maroon",
+    "white"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
+   "heritage": {
+    "club": "Traralgon",
+    "league": "Gippsland FL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Traralgon_Football_Club"
+   ]
+  },
+  {
+   "id": "newcastle",
+   "place": "Newcastle",
+   "state": "NSW",
+   "football_region": "Hunter",
+   "ground": "Newcastle Number 1 Sports Ground",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "navy",
+    "white"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Newcastle City",
+    "league": "AFL Hunter Central Coast"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Newcastle_City_Australian_Football_Club",
+    "https://en.wikipedia.org/wiki/Newcastle_Number_1_Sports_Ground"
+   ]
+  },
+  {
+   "id": "wollongong",
+   "place": "Wollongong",
+   "state": "NSW",
+   "football_region": "Illawarra",
+   "ground": "North Dalton Park",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "red",
+    "white"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Wollongong Lions",
+    "league": "AFL Sydney / Illawarra"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Wollongong_Lions",
+    "https://en.wikipedia.org/wiki/North_Dalton_Park"
+   ]
+  },
+  {
+   "id": "north-shore",
+   "place": "North Shore",
+   "state": "NSW",
+   "football_region": "Sydney lower north shore",
+   "ground": "Gore Hill Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "red"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
+   "heritage": {
+    "club": "North Shore",
+    "league": "Sydney AFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/North_Shore_Australian_Football_Club"
+   ]
+  },
+  {
+   "id": "wagga-wagga",
+   "place": "Wagga Wagga",
+   "state": "NSW",
+   "football_region": "Riverina",
+   "ground": "Robertson Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "gold"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
+   "heritage": {
+    "club": "Wagga Tigers",
+    "league": "Riverina FL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Wagga_Tigers",
+    "https://en.wikipedia.org/wiki/Robertson_Oval"
+   ]
+  },
+  {
+   "id": "albury",
+   "place": "Albury",
+   "state": "NSW",
+   "football_region": "Murray",
+   "ground": "Albury Sports Ground",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "gold"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Albury",
+    "league": "Ovens & Murray FL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Albury_Football_Club",
+    "https://en.wikipedia.org/wiki/Albury_Sports_Ground"
+   ]
+  },
+  {
+   "id": "southport",
+   "place": "Southport",
+   "state": "QLD",
+   "football_region": "Gold Coast",
+   "ground": "Fankhauser Reserve",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [],
+   "pattern_tags": [
+    "chevron"
+   ],
+   "heritage": {
+    "club": "Southport",
+    "league": "QAFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Southport_Australian_Football_Club",
+    "https://en.wikipedia.org/wiki/Fankhauser_Reserve",
+    "https://en.wikipedia.org/wiki/Southport_Sharks"
+   ]
+  },
+  {
+   "id": "broadbeach",
+   "place": "Broadbeach",
+   "state": "QLD",
+   "football_region": "Gold Coast",
+   "ground": "Kombumerri Park",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "navy",
+    "white"
+   ],
+   "pattern_tags": [
+    "hoops"
+   ],
+   "heritage": {
+    "club": "Broadbeach",
+    "league": "QAFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Broadbeach_Australian_Football_Club",
+    "https://en.wikipedia.org/wiki/Kombumerri_Park"
+   ]
+  },
+  {
+   "id": "maroochydore",
+   "place": "Sunshine Coast",
+   "state": "QLD",
+   "football_region": "Sunshine Coast",
+   "ground": "Maroochydore Multisports Complex",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "green",
+    "gold"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Maroochydore",
+    "league": "QAFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Maroochydore_Australian_Football_Club",
+    "https://en.wikipedia.org/wiki/Maroochydore_Multisports_Complex",
+    "https://en.wikipedia.org/wiki/Maroochydore_Football_Club"
+   ]
+  },
+  {
+   "id": "mayne",
+   "place": "Mayne",
+   "state": "QLD",
+   "football_region": "Brisbane north",
+   "ground": "Enoggera Memorial Park",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "gold"
+   ],
+   "pattern_tags": [
+    "stripes"
+   ],
+   "heritage": {
+    "club": "Mayne",
+    "league": "QAFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Mayne_Football_Club",
+    "https://en.wikipedia.org/wiki/Mayne_Australian_Football_Club"
+   ]
+  },
+  {
+   "id": "morningside",
+   "place": "Morningside",
+   "state": "QLD",
+   "football_region": "Brisbane east",
+   "ground": "Jack Esplen Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Morningside",
+    "league": "QAFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Morningside_Australian_Football_Club",
+    "https://en.wikipedia.org/wiki/Jack_Esplen_Oval"
+   ]
+  },
+  {
+   "id": "labrador",
+   "place": "Labrador",
+   "state": "QLD",
+   "football_region": "Gold Coast",
+   "ground": "Cooke-Murphy Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "gold"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
+   "heritage": {
+    "club": "Labrador",
+    "league": "QAFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Labrador_Australian_Football_Club",
+    "https://en.wikipedia.org/wiki/Cooke-Murphy_Oval"
+   ]
+  },
+  {
+   "id": "norwood",
+   "place": "Norwood",
+   "state": "SA",
+   "football_region": "Adelaide east",
+   "ground": "Norwood Oval",
+   "ground_sponsor_alias": "Coopers Stadium",
+   "ground_alternatives": [],
+   "colour_tags": [
+    "navy blue",
+    "red"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Norwood",
+    "league": "SANFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Norwood_Football_Club",
+    "https://en.wikipedia.org/wiki/Norwood_Oval"
+   ]
+  },
+  {
+   "id": "glenelg",
+   "place": "Glenelg",
+   "state": "SA",
+   "football_region": "Adelaide bayside",
+   "ground": "Glenelg Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "gold"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
+   "heritage": {
+    "club": "Glenelg",
+    "league": "SANFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Glenelg_Football_Club",
+    "https://en.wikipedia.org/wiki/Glenelg_Oval"
+   ]
+  },
+  {
+   "id": "sturt",
+   "place": "Sturt",
+   "state": "SA",
+   "football_region": "Adelaide south",
+   "ground": "Unley Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "light blue",
+    "navy blue"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Sturt",
+    "league": "SANFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Sturt_Football_Club",
+    "https://en.wikipedia.org/wiki/Unley_Oval"
+   ]
+  },
+  {
+   "id": "central-district",
+   "place": "Central District",
+   "state": "SA",
+   "football_region": "Adelaide north",
+   "ground": "Elizabeth Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [],
+   "pattern_tags": [
+    "hoops"
+   ],
+   "heritage": {
+    "club": "Central District",
+    "league": "SANFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Central_District_Football_Club",
+    "https://en.wikipedia.org/wiki/Elizabeth_Oval"
+   ]
+  },
+  {
+   "id": "south-adelaide",
+   "place": "South Adelaide",
+   "state": "SA",
+   "football_region": "Adelaide south",
+   "ground": "Flinders University Stadium",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "navy",
+    "white"
+   ],
+   "pattern_tags": [
+    "plain"
+   ],
+   "heritage": {
+    "club": "South Adelaide",
+    "league": "SANFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/South_Adelaide_Football_Club",
+    "https://en.wikipedia.org/wiki/Flinders_University_Stadium",
+    "https://www.safc.com.au/blog/2026-guernseys"
+   ]
+  },
+  {
+   "id": "west-adelaide",
+   "place": "West Adelaide",
+   "state": "SA",
+   "football_region": "Adelaide west",
+   "ground": "Richmond Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "red"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
+   "heritage": {
+    "club": "West Adelaide",
+    "league": "SANFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/West_Adelaide_Football_Club",
+    "https://en.wikipedia.org/wiki/Richmond_Oval_%28South_Australia%29"
+   ]
+  },
+  {
+   "id": "north-adelaide",
+   "place": "North Adelaide",
+   "state": "SA",
+   "football_region": "Adelaide north",
+   "ground": "Prospect Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "red",
+    "white"
+   ],
+   "pattern_tags": [
+    "chevron"
+   ],
+   "heritage": {
+    "club": "North Adelaide",
+    "league": "SANFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/North_Adelaide_Football_Club",
+    "https://en.wikipedia.org/wiki/Prospect_Oval"
+   ]
+  },
+  {
+   "id": "woodville-west-torrens",
+   "place": "Woodville-West Torrens",
+   "state": "SA",
+   "football_region": "Adelaide west",
+   "ground": "Woodville Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "blue",
+    "green",
+    "gold"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Woodville-West Torrens",
+    "league": "SANFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Woodville-West_Torrens_Football_Club",
+    "https://en.wikipedia.org/wiki/Woodville_Oval"
+   ]
+  },
+  {
+   "id": "peel",
+   "place": "Peel",
+   "state": "WA",
+   "football_region": "Mandurah / Peel",
+   "ground": "Rushton Park",
+   "ground_sponsor_alias": "Lane Group Stadium",
+   "ground_alternatives": [],
+   "colour_tags": [
+    "dark blue",
+    "white",
+    "teal"
+   ],
+   "pattern_tags": [
+    "chevron"
+   ],
+   "heritage": {
+    "club": "Peel Thunder",
+    "league": "WAFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Peel_Thunder_Football_Club",
+    "https://en.wikipedia.org/wiki/Rushton_Park"
+   ]
+  },
+  {
+   "id": "claremont",
+   "place": "Claremont",
+   "state": "WA",
+   "football_region": "Perth western suburbs",
+   "ground": "Claremont Showground",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "navy blue",
+    "gold"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Claremont",
+    "league": "WAFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Claremont_Football_Club",
+    "https://en.wikipedia.org/wiki/Claremont_Showground"
+   ]
+  },
+  {
+   "id": "subiaco",
+   "place": "Subiaco",
+   "state": "WA",
+   "football_region": "Perth inner west",
+   "ground": "Leederville Oval",
+   "ground_sponsor_alias": "Sullivan Logistics Stadium",
+   "ground_alternatives": [],
+   "colour_tags": [
+    "maroon",
+    "gold"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Subiaco",
+    "league": "WAFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Subiaco_Football_Club"
+   ]
+  },
+  {
+   "id": "east-perth",
+   "place": "East Perth",
+   "state": "WA",
+   "football_region": "Perth inner east",
+   "ground": "Leederville Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "blue",
+    "black"
+   ],
+   "pattern_tags": [
+    "chevron"
+   ],
+   "heritage": {
+    "club": "East Perth",
+    "league": "WAFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/East_Perth_Football_Club",
+    "https://en.wikipedia.org/wiki/Leederville_Oval"
+   ]
+  },
+  {
+   "id": "west-perth",
+   "place": "West Perth",
+   "state": "WA",
+   "football_region": "Perth north",
+   "ground": "Arena Joondalup",
+   "ground_sponsor_alias": "HIF Health Insurance Oval",
+   "ground_alternatives": [],
+   "colour_tags": [
+    "red",
+    "blue"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
+   "heritage": {
+    "club": "West Perth",
+    "league": "WAFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/West_Perth_Football_Club"
+   ]
+  },
+  {
+   "id": "swan-districts",
+   "place": "Swan Districts",
+   "state": "WA",
+   "football_region": "Perth north-east",
+   "ground": "Bassendean Oval",
+   "ground_sponsor_alias": "Steel Blue Oval",
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "white"
+   ],
+   "pattern_tags": [
+    "stripes"
+   ],
+   "heritage": {
+    "club": "Swan Districts",
+    "league": "WAFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Swan_Districts_Football_Club"
+   ]
+  },
+  {
+   "id": "bunbury",
+   "place": "Bunbury",
+   "state": "WA",
+   "football_region": "South West",
+   "ground": "PC Payne Park",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "yellow",
+    "black"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Bunbury",
+    "league": "South West FL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Bunbury_Football_Club"
+   ]
+  },
+  {
+   "id": "launceston",
+   "place": "Launceston",
+   "state": "TAS",
+   "football_region": "Northern Tasmania",
+   "ground": "York Park",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "red"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
+   "heritage": {
+    "club": "North Launceston",
+    "league": "TSL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/North_Launceston_Football_Club",
+    "https://en.wikipedia.org/wiki/York_Park"
+   ]
+  },
+  {
+   "id": "north-hobart",
+   "place": "North Hobart",
+   "state": "TAS",
+   "football_region": "Southern Tasmania",
+   "ground": "North Hobart Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "blue",
+    "red"
+   ],
+   "pattern_tags": [
+    "chevron"
+   ],
+   "heritage": {
+    "club": "North Hobart",
+    "league": "TSL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/North_Hobart_Football_Club",
+    "https://en.wikipedia.org/wiki/North_Hobart_Oval"
+   ]
+  },
+  {
+   "id": "devonport",
+   "place": "Devonport",
+   "state": "TAS",
+   "football_region": "North West Tasmania",
+   "ground": "Devonport Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "teal",
+    "white"
+   ],
+   "pattern_tags": [
+    "stripes"
+   ],
+   "heritage": {
+    "club": "Devonport",
+    "league": "TSL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Devonport_Football_Club",
+    "https://en.wikipedia.org/wiki/Devonport_Oval"
+   ]
+  },
+  {
+   "id": "burnie",
+   "place": "Burnie",
+   "state": "TAS",
+   "football_region": "North West Tasmania",
+   "ground": "West Park Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [],
+   "pattern_tags": [
+    "chevrons"
+   ],
+   "heritage": {
+    "club": "Burnie Dockers",
+    "league": "TSL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Burnie_Dockers_Football_Club",
+    "https://en.wikipedia.org/wiki/West_Park_Oval"
+   ]
+  },
+  {
+   "id": "glenorchy",
+   "place": "Glenorchy",
+   "state": "TAS",
+   "football_region": "Southern Tasmania",
+   "ground": "KGV Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "white"
+   ],
+   "pattern_tags": [
+    "stripes"
+   ],
+   "heritage": {
+    "club": "Glenorchy",
+    "league": "TSL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Glenorchy_Football_Club",
+    "https://en.wikipedia.org/wiki/KGV_Oval"
+   ]
+  },
+  {
+   "id": "clarence",
+   "place": "Clarence",
+   "state": "TAS",
+   "football_region": "Southern Tasmania",
+   "ground": "Bellerive Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "red",
+    "white"
+   ],
+   "pattern_tags": [
+    "chevron"
+   ],
+   "heritage": {
+    "club": "Clarence",
+    "league": "TSL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Clarence_Football_Club",
+    "https://en.wikipedia.org/wiki/Bellerive_Oval"
+   ]
+  },
+  {
+   "id": "ainslie",
+   "place": "Ainslie",
+   "state": "ACT",
+   "football_region": "Canberra inner north",
+   "ground": "Alan Ray Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "red",
+    "white",
+    "black"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Ainslie",
+    "league": "AFL Canberra"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Ainslie_Football_Club"
+   ]
+  },
+  {
+   "id": "belconnen",
+   "place": "Belconnen",
+   "state": "ACT",
+   "football_region": "Canberra north-west",
+   "ground": "Aranda Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [
+    "Kippax Oval"
+   ],
+   "colour_tags": [
+    "black",
+    "white",
+    "teal"
+   ],
+   "pattern_tags": [
+    "stripes"
+   ],
+   "heritage": {
+    "club": "Belconnen",
+    "league": "AFL Canberra"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Belconnen_Football_Club"
+   ]
+  },
+  {
+   "id": "eastlake",
+   "place": "Eastlake / Kingston",
+   "state": "ACT",
+   "football_region": "Canberra inner south",
+   "ground": "Kingston Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [
+    "Phillip Oval"
+   ],
+   "colour_tags": [
+    "black",
+    "red"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Eastlake",
+    "league": "AFL Canberra"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Eastlake_Football_Club"
+   ]
+  },
+  {
+   "id": "gungahlin",
+   "place": "Gungahlin",
+   "state": "ACT",
+   "football_region": "Canberra north",
+   "ground": "Amaroo Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [
+    "Gungahlin Enclosed Oval"
+   ],
+   "colour_tags": [
+    "blue",
+    "white",
+    "black"
+   ],
+   "pattern_tags": [
+    "sides"
+   ],
+   "heritage": {
+    "club": "Gungahlin",
+    "league": "AFL Canberra"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Gungahlin_Football_Club"
+   ]
+  },
+  {
+   "id": "tuggeranong",
+   "place": "Tuggeranong",
+   "state": "ACT",
+   "football_region": "Canberra south",
+   "ground": "Isabella Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [
+    "Greenway Oval"
+   ],
+   "colour_tags": [
+    "red",
+    "blue"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Tuggeranong",
+    "league": "AFL Canberra"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Tuggeranong_Football_Club",
+    "https://en.wikipedia.org/wiki/Tuggeranong_Valley_Football_Club"
+   ]
+  },
+  {
+   "id": "weston-creek",
+   "place": "Weston Creek",
+   "state": "ACT",
+   "football_region": "Canberra south-west",
+   "ground": "Stirling Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Weston Creek",
+    "league": "AFL Canberra"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Weston_Creek"
+   ]
+  },
+  {
+   "id": "darwin",
+   "place": "Darwin",
+   "state": "NT",
+   "football_region": "Top End",
+   "ground": "TIO Stadium",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [
+    "Gardens Oval",
+    "Nightcliff Oval"
+   ],
+   "colour_tags": [
+    "black",
+    "gold"
+   ],
+   "pattern_tags": [
+    "sash"
+   ],
+   "heritage": {
+    "club": "Nightcliff",
+    "league": "NTFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Nightcliff_Football_Club",
+    "https://en.wikipedia.org/wiki/TIO_Stadium"
+   ]
+  },
+  {
+   "id": "alice-springs",
+   "place": "Alice Springs",
+   "state": "NT",
+   "football_region": "Central Australia",
+   "ground": "Traeger Park",
+   "ground_sponsor_alias": "TIO Traeger Park",
+   "ground_alternatives": [],
+   "colour_tags": [],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Alice Springs",
+    "league": "CAFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Traeger_Park"
+   ]
+  },
+  {
+   "id": "palmerston",
+   "place": "Palmerston",
+   "state": "NT",
+   "football_region": "Top End",
+   "ground": "Cazalys Oval",
+   "ground_sponsor_alias": null,
+   "ground_alternatives": [],
+   "colour_tags": [
+    "black",
+    "white"
+   ],
+   "pattern_tags": [],
+   "heritage": {
+    "club": "Palmerston",
+    "league": "NTFL"
+   },
+   "sources": [
+    "https://en.wikipedia.org/wiki/Palmerston_Football_Club"
+   ]
+  }
+ ]
+}

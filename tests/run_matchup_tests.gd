@@ -174,8 +174,17 @@ func _regular_bye() -> void:
 	_state.reset()
 	_state.start_season("MEL", db.club_list("MEL"))
 	var season = _state.season
-	season.round_index = 14
-	var round_matches: Array = season.fixture[14]
+	# A round MEL plays, with a match the round after (its own bye is elsewhere).
+	var plays := func(ri: int) -> bool:
+		for m in season.fixture[ri]:
+			if m["home"] == "MEL" or m["away"] == "MEL":
+				return true
+		return false
+	var r0 := 14
+	while not (plays.call(r0) and plays.call(r0 + 1)):
+		r0 += 1
+	season.round_index = r0
+	var round_matches: Array = season.fixture[r0]
 	for m in round_matches.duplicate():
 		if m["home"] == "MEL" or m["away"] == "MEL":
 			round_matches.erase(m)
@@ -189,13 +198,13 @@ func _regular_bye() -> void:
 			and actions.find_child("SimFinalsWeek", true, false) == null,
 			"No finals controls before the home-and-away season is done")
 	var sim: Button = actions.find_child("SimByeRound", true, false) if actions != null else null
-	_check(sim != null and sim.text == "Sim Round 15", "The bye round can be simmed on its own")
+	_check(sim != null and sim.text == "Sim Round %d" % (r0 + 1), "The bye round can be simmed on its own")
 	hub.call("_on_sim_to_end")
-	_check(season.round_index == 14, "Sim to Grand Final never runs through home-and-away rounds")
+	_check(season.round_index == r0, "Sim to Grand Final never runs through home-and-away rounds")
 	if sim != null:
 		sim.emit_signal("pressed")
 		await _settle()
-	_check(season.round_index == 15 and season.finals.is_empty(), "Simming the bye plays one round")
+	_check(season.round_index == r0 + 1 and season.finals.is_empty(), "Simming the bye plays one round")
 	_check(not (hub.call("_upcoming_match") as Dictionary).is_empty(), "The next home-and-away match is back")
 	hub.call("handle_back")
 	hub.queue_free()
@@ -397,8 +406,11 @@ func _pre_match_scene() -> void:
 			hub.queue_free()
 			return
 		if not skip:
-			_check(vig.banner == db.club_name("COL") and str(vig.title).contains(db.club_name("COL")),
-					"The scene is your club's: its banner and this week's match (%s)" % str(vig.title))
+			# The banner is this match's rhyme (Banners.pick on GameState.banner_context).
+			var ctx: Dictionary = root.get_node("GameState").banner_context(hub._upcoming_match())
+			var want := str(load("res://scripts/core/Banners.gd").pick(ctx))
+			_check(vig.banner != "" and vig.banner == (want if want != "" else db.club_name("COL")) 					and str(vig.title).contains(db.club_name("COL")),
+					"The scene is your club's: this match's banner and this week's match (%s: %s)" % [str(vig.title), vig.banner])
 		var seen := {}
 		var frames_before_run := 0
 		var frames := 0

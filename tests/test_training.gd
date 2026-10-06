@@ -8,10 +8,15 @@ extends RefCounted
 var failures: Array[String] = []
 var checks := 0
 
+## Every season and draft here is seeded (C15): a clock seed makes a different
+## league each run.
+const SUITE_SEED := 2027
+
 
 func run() -> void:
 	failures.clear()
 	checks = 0
+	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
 	_test_default_plan_spends()
 	_test_manual_and_focus()
@@ -33,6 +38,7 @@ func run() -> void:
 	_test_rival_projects()
 	_test_project_endings()
 	GameState.delete_saved_career()
+	GameState.replay_seed = 0
 	print("Training tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -602,7 +608,8 @@ func _test_plan_is_not_identity() -> void:
 	_new_season()
 	var small := {}
 	for p in GameState.my_list:
-		if str(p.get("role", "")) == "DEF" and float(p.get("height_cm", 0.0)) > 0.0 				and float(p["height_cm"]) < PlayerProfile.KEY_DEF_CM:
+		if str(p.get("role", "")) == "DEF" and float(p.get("height_cm", 0.0)) > 0.0 \
+				and float(p["height_cm"]) < PlayerProfile.KEY_DEF_CM:
 			small = p
 			break
 	_check(not small.is_empty(), "(setup) a medium defender to train")
@@ -702,6 +709,28 @@ func _test_learning_a_position() -> void:
 			"Close enough at the end: he can be picked there (%s)" % str(res))
 	_check(GameState.project_job(cand) == "" and str(cand.get("train_plan", "")) == "", "Then he goes back to the club plan")
 	_check(GameState.learnable_jobs(cand).is_empty(), "One project a season")
+	# The payback: next season his training may lift him LEARN_PAYBACK more,
+	# never past his POT.
+	_check(int(cand.get("learn_payback_year", 0)) == GameState.season_year + 1,
+			"A learned position earns next season's payback")
+	var keep_year := GameState.season_year
+	var keep_pot := int(cand.get("potential", 0))
+	var keep_start = cand.get("season_start_ov")
+	var keep_cap = cand.get("project_cap")
+	cand.erase("project_cap")
+	GameState.season_year = keep_year + 1
+	cand["season_start_ov"] = 60
+	cand["potential"] = 90
+	_check(GameState.season_ceiling(cand) == 60 + GameState.SEASON_TRAIN_GAIN + GameState.LEARN_PAYBACK,
+			"The season after, his training limit is %d higher" % GameState.LEARN_PAYBACK)
+	cand["potential"] = 60 + GameState.SEASON_TRAIN_GAIN
+	_check(GameState.season_ceiling(cand) == 60 + GameState.SEASON_TRAIN_GAIN,
+			"The payback never takes him past his POT")
+	GameState.season_year = keep_year
+	cand["potential"] = keep_pot
+	cand["season_start_ov"] = keep_start
+	if keep_cap != null:
+		cand["project_cap"] = keep_cap
 	# Fail: a fresh player, kept well short.
 	var other := {}
 	for q in GameState.my_list:

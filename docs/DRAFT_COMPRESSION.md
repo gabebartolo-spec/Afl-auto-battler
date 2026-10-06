@@ -84,8 +84,9 @@ The report also has:
 - 60+ margins
 
 **Real AFL benchmark.** The source is final home-and-away ladders,
-2013–2025 (without 2020) plus 2026 (`tools/balance/afl_ladders.json`). With
-luck taken as a coin flip:
+2013–2025 (without 2020) plus 2026 (`tools/balance/afl_ladders.json`; the file now
+also holds 2000–2012, so `afl_benchmark()` averages those too, and the figures below
+were measured on 2013–2025 before they were added). With luck taken as a coin flip:
 
 - Skill share ranges from 54% (2017) to 78% (2013), pooled 71%.
 - Skill SD is 3.73 wins over about 22.4 games.

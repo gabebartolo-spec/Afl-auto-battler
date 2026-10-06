@@ -53,7 +53,7 @@ func _run() -> void:
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
 		for t in range(6):
 			var at := Vector2(10 + t * 72, 20)
-			c.draw_texture_rect_region(vignette.FIGURE_SHADE, Rect2(at, layout.FRAME * 0.42), src,
+			c.draw_texture_rect_region(vignette.FIGURE_SHADE, Rect2(at, src.size * 0.42), src,
 					Color(0.0, t / 8.0, 1 / 8.0, 1.0))
 			c.draw_string(font, at + Vector2(22, 128), str(t + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
 		for h in range(appearance.HAIR.size()):
@@ -66,7 +66,7 @@ func _run() -> void:
 			var look: Dictionary = db.player_looks(p)
 			var row: Dictionary = db.appearance.get(db._look_key(p), {})
 			var status := str(row.get("status", "generated" if bool(p.get("generated", false)) else "default"))
-			c.draw_texture_rect_region(vignette.FIGURE_SHADE, Rect2(cell + Vector2(26, 0), layout.FRAME * SCALE), src,
+			c.draw_texture_rect_region(vignette.FIGURE_SHADE, Rect2(cell + Vector2(26, 0), src.size * SCALE), src,
 					Color(0.0, int(look["skin"]) / 8.0, int(look["hair"]) / 8.0, 1.0))
 			var ink := Color(1, 0.55, 0.45) if status == "unsure" else (Color(0.75, 0.75, 0.75) if status in ["generated", "default"] else Color.WHITE)
 			c.draw_string(font, cell + Vector2(4, 150), "%d %s" % [int(p["num"]), str(p["last"])],

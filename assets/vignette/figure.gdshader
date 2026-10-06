@@ -4,8 +4,20 @@ shader_type canvas_item;
 // is recognised by its size - so the ground, text and letterbox the same Control
 // draws pass straight through.
 //
+// Known limitation: a draw is taken to be a figure purely by its texture's size
+// (sheet_size). Any other texture with exactly those dimensions drawn through this
+// material - a future background, a crowd texture at that size - would be misread as
+// figures and recoloured. Nothing in the game has that size today; if one ever does,
+// tell the shader explicitly (a flag in the draw colour or a uniform) instead.
+//
+// The shade and mask sheets are imported VRAM compressed, high quality (ASTC 4x4 on
+// Android, BPTC on desktop): ETC2 breaks their weights and coordinates. The design
+// sheet (guernsey coordinates: stripes, numbers) stays lossless.
+//
 // A figure's draw colour carries its looks, not a tint:
-//   r = kit index / 4, g = skin tone index / 8, b = hair index / 8, a = opacity.
+//   r = (kit index * 2 + mirrored) / 8, g = skin tone index / 8, b = hair index / 8,
+//   a = opacity. "Mirrored" (the frame drawn flipped, to face the other way) only
+//   matters to the number, which is un-mirrored so it still reads.
 // Drawn a second time with g = 1 and b = (number + 1) / 128, the same frame prints
 // that number on the guernsey's back instead (digits_tex), in place on the fabric:
 // the same spot and size in every frame, following the shirt, hidden behind arms.
@@ -108,8 +120,11 @@ vec2 design(int d, vec3 g) {
 }
 
 // The number printed on the back: x = 1 where it's drawn (alpha), rgb its colour.
-vec4 number_on_back(int n, vec3 g, vec3 base) {
+vec4 number_on_back(int n, vec3 g, vec3 base, bool mirrored) {
 	float x = (NUMBER_ACROSS.y - g.x) / (NUMBER_ACROSS.y - NUMBER_ACROSS.x);   // from behind, left to right
+	if (mirrored) {
+		x = 1.0 - x;      // the frame is flipped on screen: flip the digits back
+	}
 	float y = (NUMBER_UP.y - g.y) / (NUMBER_UP.y - NUMBER_UP.x);             // top down
 	int digit = n;
 	float dx = (x - 0.25) * 2.0;
@@ -132,10 +147,12 @@ void fragment() {
 		vec4 s = texture(TEXTURE, UV);     // lighting, hair, shorts, coverage
 		vec4 m = texture(mask_tex, UV);    // base colour, sock band, skin, guernsey alone
 		vec3 g = texture(design_tex, UV).rgb;
-		int kit = clamp(int(round(looks.r * 4.0)), 0, 3);
+		int code = int(round(looks.r * 8.0));
+		int kit = clamp(code / 2, 0, 3);
+		bool mirrored = (code % 2) == 1;
 		if (looks.g > 0.95) {
 			int n = clamp(int(round(looks.b * 128.0)) - 1, 0, 99);
-			vec4 num = number_on_back(n, g, kit_base[kit].rgb);
+			vec4 num = number_on_back(n, g, kit_base[kit].rgb, mirrored);
 			COLOR = vec4(num.rgb * s.r * gain, num.a * m.a * s.a * looks.a);
 		} else {
 			int tone = clamp(int(round(looks.g * 8.0)), 0, 7);

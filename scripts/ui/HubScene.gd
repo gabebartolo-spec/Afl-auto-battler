@@ -14,8 +14,11 @@ var _hold_fired := false
 var _hold_id := 0
 var _pre_match: PreMatchVignette    # the scene over the wait after Play match
 const HOLD_SECONDS := 0.5
-## How long the pre-match scene runs before the side goes through the banner.
-const PRE_MATCH_SECONDS := 2.6
+## How long the pre-match scene runs before the side goes through the banner: a
+## moment of the warm-up, time to jog in to the huddle unhurried and stand together,
+## then the run - still a couple of seconds of match day, not a wait (a tap goes straight
+## to the run).
+const PRE_MATCH_SECONDS := 3.8
 
 
 func _ready() -> void:
@@ -57,7 +60,7 @@ func _show_weekly_loop_intro() -> void:
 	v.add_child(UiKit.heading("Your week", 24))
 	for line in [
 		"This is home base. Check the next opponent, then use Team to pick the side and Coaching if you want to change how you play.",
-		"Play match when you want the live coaching calls. Sim round moves the week on quickly; both use the same match simulation.",
+		"Play match when you want the live coaching calls. Sim round moves the week on quickly; the match itself is the same either way.",
 		"After the game, review what happened and change selection or training only when you have a reason. There is no weekly checklist to clear.",
 	]:
 		var l := UiKit.lbl(line, 14, UiKit.TEXT)
@@ -689,7 +692,8 @@ func _finals_label() -> String:
 ## rotates a bye. Not the end of your season - that is only once the
 ## home-and-away rounds are done.
 func _regular_bye(season: Season) -> bool:
-	return season != null and not season.is_season_over() 			and not season.is_regular_done() and _upcoming_match().is_empty()
+	return season != null and not season.is_season_over() \
+			and not season.is_regular_done() and _upcoming_match().is_empty()
 
 
 ## The match you are about to play, or {} if you have none coming up
@@ -737,12 +741,18 @@ func _on_play_match() -> void:
 	var mine := GameState.my_club
 	var opp := str(m["away"]) if str(m["home"]) == mine else str(m["home"])
 	var season: Season = GameState.season
-	var opp_ground: Array = Squad.new(opp, season.lists[opp], false, opp,
-			season.selections.get(opp, {})).ground
+	# Everyone named runs out: the 18 on the ground and the interchange.
+	var opp_squad := Squad.new(opp, season.lists[opp], false, opp, season.selections.get(opp, {}))
+	var opp_ground: Array = opp_squad.ground + opp_squad.bench
 	var heading := "%s  ·  %s v %s" % [str(m["label"]), GameDB.club_name(str(m["home"])),
 			GameDB.club_name(str(m["away"]))]
-	_pre_match = PreMatchVignette.open(get_tree().root, mine, opp, GameState.my_squad().ground,
-			opp_ground, heading, PreMatchVignette.is_final(str(m["label"])))
+	# The banner's occasion (Banners.pick): finals week, marquee game, must-win, spoon
+	# bowl, milestones (GameState.banner_context).
+	var label := str(m["label"])
+	var banner_ctx := GameState.banner_context(m)
+	_pre_match = PreMatchVignette.open(get_tree().root, mine, opp,
+			GameState.my_squad().ground + GameState.my_squad().bench, opp_ground, heading,
+			PreMatchVignette.is_final(label), banner_ctx)
 	# Home-and-away rounds and finals both play live with the coach box.
 	await get_tree().process_frame
 	if not GameState.prepare_interactive_match():
@@ -1055,6 +1065,14 @@ func _my_result(v: VBoxContainer, res: Dictionary) -> void:
 		row.add_child(UiKit.figure(UiKit.scoreline(int(res["goals"][side]), int(res["behinds"][side])),
 				22, UiKit.MUTED if lost_side else UiKit.TEXT))
 		v.add_child(row)
+	# FL-006: editorial flavour, only when the match's facts support it - quiet
+	# text under the facts, never coloured like a result.
+	var line := Headlines.for_match(res, me)
+	if line != "":
+		var hl := UiKit.lbl(line, UiKit.BODY, UiKit.MUTED)
+		hl.name = "MyHeadline"
+		hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(hl)
 	var best := MatchNotes.standouts(res, me, 1)
 	if not best.is_empty():
 		var bl := UiKit.ellipsis("Best: %s %s  ·  %s" % [str(best[0]["name"]),

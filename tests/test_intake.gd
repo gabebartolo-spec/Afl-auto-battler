@@ -7,10 +7,15 @@ extends RefCounted
 var failures: Array[String] = []
 var checks := 0
 
+## Every season and draft here is seeded (C15): a clock seed makes a different
+## league each run.
+const SUITE_SEED := 2027
+
 
 func run() -> void:
 	failures.clear()
 	checks = 0
+	GameState.replay_seed = SUITE_SEED
 	_test_draft_class_data()
 	_test_projection_model()
 	_test_intake_draft_flow()
@@ -19,6 +24,7 @@ func run() -> void:
 	_test_class_tiers()
 	_test_retirement_talk()
 	_test_custom_prospect()
+	GameState.replay_seed = 0
 	print("Intake tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -480,7 +486,7 @@ func _test_retirement_talk() -> void:
 	for r in rows:
 		askable[str(r["p"]["id"])] = bool(r["can_ask"])
 	_check(askable.get(str(keen["id"]), false) and not askable.get(str(fringe["id"]), true),
-			"A healthy veteran can be asked; one outside the best 22 cannot")
+			"A healthy veteran can be asked; one outside the best 23 cannot")
 	var yes := GameState.talk_round(str(keen["id"]))
 	_check(bool(yes.get("stays", false)) and int(keen.get("play_on", 0)) == year,
 			"Fit, happy and in the side: he goes around again (%s)" % str(yes.get("reason", "")))

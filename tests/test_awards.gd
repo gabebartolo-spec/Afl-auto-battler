@@ -8,15 +8,21 @@ extends RefCounted
 var failures: Array[String] = []
 var checks := 0
 
+## Every season and draft here is seeded (C15): a clock seed makes a different
+## league each run.
+const SUITE_SEED := 2027
+
 
 func run() -> void:
 	failures.clear()
 	checks = 0
+	GameState.replay_seed = SUITE_SEED
 	GameDB.reload()
 	_test_vote_arithmetic()
 	_test_brownlow_eligibility()
 	_test_full_season()
 	GameState.delete_saved_career()
+	GameState.replay_seed = 0
 	print("Awards tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -134,9 +140,9 @@ func _test_full_season() -> void:
 		ids[str(r["id"])] = true
 		if int(r["games"]) < Awards.AA_MIN_GAMES:
 			games_ok = false
-	_check(aa.size() == 22 and ids.size() == 22, "The All-Australian team is 22 different players")
-	_check(slots == {"RUCK": 1, "MID": 5, "DEF": 6, "FWD": 6, "BENCH": 4},
-			"All-Australian is the 6-6-6 shape (1 ruck, 5 mids, 6 def, 6 fwd) plus 4 (%s)" % str(slots))
+	_check(aa.size() == 23 and ids.size() == 23, "The All-Australian team is 23 different players")
+	_check(slots == {"RUCK": 1, "MID": 5, "DEF": 6, "FWD": 6, "BENCH": 5},
+			"All-Australian is the 6-6-6 shape (1 ruck, 5 mids, 6 def, 6 fwd) plus 5 (%s)" % str(slots))
 	_check(games_ok, "All-Australians played 12+ games")
 	_check(GameState.honour_roll.size() == 1 and not GameState.records.is_empty(),
 			"The honour roll and records are written")

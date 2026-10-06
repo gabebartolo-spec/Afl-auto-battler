@@ -4,11 +4,16 @@ extends RefCounted
 var failures: Array[String] = []
 var checks := 0
 
+## Every season and draft here is seeded (C15): with the clock, a different
+## league each run drew a different off-season trade market.
+const SUITE_SEED := 2027
+
 
 func run() -> void:
 	failures.clear()
 	checks = 0
 	GameDB.reload()
+	GameState.replay_seed = SUITE_SEED
 	_test_initial_contracts()
 	_test_real_money_scale()
 	_test_offseason_flow()
@@ -31,6 +36,7 @@ func run() -> void:
 	_test_opposition_pot()
 	_test_money_copy()
 	GameState.delete_saved_career()
+	GameState.replay_seed = 0
 	print("Contracts tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -371,8 +377,8 @@ func _test_negotiation() -> void:
 func _test_free_agent_terms() -> void:
 	var p := {"id": "fa_t", "overall": 70, "potential": 72, "age": 27.0, "morale": 70}
 	var bench := Contracts.free_agent_terms(p, {"in_best22": false, "rivals": 1})
-	_check(bool(bench["refuse"]) and str(bench["reasons"]).contains("best 22"),
-			"He won't sit outside your best 22 while a club that would play him has an offer")
+	_check(bool(bench["refuse"]) and str(bench["reasons"]).contains("best 23"),
+			"He won't sit outside your best 23 while a club that would play him has an offer")
 	var nowhere := Contracts.free_agent_terms(p, {"in_best22": false, "rivals": 0})
 	_check(not bool(nowhere["refuse"]), "With nowhere else to play, he'll come and fight for a spot")
 	# How he weighs offers: close decisions turn on each factor.
@@ -386,8 +392,8 @@ func _test_free_agent_terms() -> void:
 			and Contracts.offer_view(p, o.call(ask, 3, "bench", 0.5), o.call(ask, 1, "bench", 0.5), "X") == "More contract security.",
 			"Contract security matters in a close decision")
 	_check(Contracts.prefers(p, o.call(ask, 3, "ground", 0.5), o.call(ask + Contracts.SALARY_STEP, 3, "depth", 0.5))
-			and Contracts.offer_view(p, o.call(ask, 3, "ground", 0.5), o.call(ask + Contracts.SALARY_STEP, 3, "depth", 0.5), "X") == "Clearer path into the best 22.",
-			"A spot in the best 22 beats one more salary point to sit in the twos")
+			and Contracts.offer_view(p, o.call(ask, 3, "ground", 0.5), o.call(ask + Contracts.SALARY_STEP, 3, "depth", 0.5), "X") == "Clearer path into the best 23.",
+			"A spot in the best 23 beats one more salary point to sit in the twos")
 	_check(Contracts.prefers(p, o.call(ask, 3, "bench", 0.0), o.call(ask, 3, "bench", 1.0))
 			and Contracts.offer_view(p, o.call(ask, 3, "bench", 0.0), o.call(ask, 3, "bench", 1.0), "Carlton").contains("Carlton's offer after their stronger season"),
 			"The club's last season counts when all else is level")
@@ -1193,8 +1199,21 @@ func _test_trade_picks() -> void:
 	_check(at >= 0 and str(d.pick_sequence[at]) == rival, "Your traded first-round pick is theirs in the draft order")
 	var my_comps := d.comp_picks.filter(func(c): return str(c["club"]) == me).size()
 	var their_comps := d.comp_picks.filter(func(c): return str(c["club"]) == rival).size()
-	_check(d.pick_limit(me) == d.target_size - 1 + my_comps and d.pick_limit(rival) == d.target_size + 1 + their_comps,
-			"You make one pick fewer; they make one more")
+	# Picks the AI clubs traded in the off-season market count too: only
+	# this trade's first-rounder is the one pick that should move.
+	var others := {me: 0, rival: 0}
+	for key in d.pick_owners:
+		var parts := str(key).split(":")
+		if int(parts[0]) > d.target_size or str(key) == "1:" + me:
+			continue
+		for code in others:
+			if str(d.pick_owners[key]) == code:
+				others[code] += 1
+			if str(parts[1]) == code:
+				others[code] -= 1
+	_check(d.pick_limit(me) == d.target_size - 1 + my_comps + int(others[me])
+			and d.pick_limit(rival) == d.target_size + 1 + their_comps + int(others[rival]),
+			"You make one pick fewer; they make one more (other traded picks %s)" % str(others))
 	_check(GameState.save_career() and GameState.load_career() and str(GameState.draft.pick_sequence[at]) == rival
 			and str(GameState.draft.pick_origin[at]) == me, "The draft keeps the traded pick through a save")
 	d = GameState.draft
