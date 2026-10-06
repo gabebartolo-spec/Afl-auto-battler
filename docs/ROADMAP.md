@@ -187,6 +187,7 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 - Verifying and closing work that is already on `main` (the Low agent does this as it finds it). The §9.1 Training scrollbar is done and waits only on a phone check.
 
 **`MEDIUM`**
+- ARD-M8-007 free shader polish (`P1`, high priority): existing-pass character treatment, ground shading and small contact-shadow improvements; optional local effects/outlines only after measured comparison. Reuse LS/STYLE ownership and phone gates.
 - §9.5 STYLE-01 bespoke controls, STYLE-02 typography, STYLE-04 oval/match composition, STYLE-05 headers/number marks and STYLE-06 integration with existing 2.5D scenes. Coordinate hot files and existing M8-007 ownership; no competing redesign or new-scene permission.
 
 - §9.3 FL-002 milestone banners, FL-004 atmosphere/audio, FL-005 cosmetic identity, FL-006 truthful headlines and FL-008 club memories; use existing owners and honour their dependencies.
@@ -209,6 +210,8 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 ## 0.4.1 Current execution queue — overrides milestone order
 
 This is the **authoritative near-term work order**. The milestone catalogue below is not a command to start more work while validated PRs are already in flight.
+
+**High-priority visual follow-up (director, 2026-10-06):** ARD-M8-007 free shader polish is `P1`; take the next available art/rendering slot after current P0 usability/correctness work, preserving in-flight ownership and the LS/STYLE dependencies. Do not leave this scoped work in the general P3 polish queue.
 
 1. **Immediate director priority: repair unreadable PC fullscreen/maximised UI (STYLE-07, §1.11).** This is a `P0` usability blocker, promoted above planned features, cosmetic content and general styling on 2026-10-06. Start the next available development slot with shared desktop scaling and fit-to-screen repair; do not defer it behind the dark-phone styling programme. Preserve already-in-flight work and genuine soft-lock repairs. Other P0 phone-playtest failures (§1.11, §9.1) remain urgent.
 2. **The former in-flight stack has landed.** _Reconciled 2026-10-05:_ the match-authenticity work (#190 merged; #196 smothers/speccies/50s/MRO/kick-ins), Combine/scouting (#188), the trade/contracts stack (#182 → #191 → #193 → #198, real-money contracts), GPS distance (#195), post-match media (#183), milestones (#186), History & records (#187) and the awards ceremony (#185) were closed as separate PRs and carried onto `main` by the consolidated squash merge #208; #189, #192, #194 and #205 merged directly. Do not reopen or re-create them; treat follow-ups as ordinary work against `main`.
@@ -4966,6 +4969,20 @@ On the director's direction, the drawn stick figures became pre-rendered 2.5D fo
 
 **Director-requested follow-up — TODO (2026-10-06):** Flesh out vignette **backgrounds and appropriate foregrounds** to remove uncanny voids/dead space. Include contextual crowds, rooms, audiences, furniture and atmospheric items; Brownlow/press-conference scenes can use foreground tables, silhouettes or microphones. Match the shared art style, preserve action/UI readability and phone performance. Inspect every scene in phone-sized stills and motion for coherent, inhabited settings.
 
+### Free shader polish — high-priority director request, 2026-10-06
+
+**Status:** `TODO`. **Priority:** `P1` (high). **Autonomy:** `SUPERVISED`. **Owner:** art agent for visual direction; Claude for Godot shader/drawing integration. Extends ARD-M8-007 and LS-01–05; coordinate pitch work with ARD-M8-003 / STYLE-04. This is scoped shader polish, not a blanket promotion of all lighting experiments or a new art system.
+
+**Goal:** improve depth, grounding and action readability using free code/tools/assets, without a major phone performance or battery regression. Preserve the existing figure shader's club guernseys, skin/hair, numbers, mirroring and packed-data contracts. Keep the Mobile renderer and the existing idle redraw policy.
+
+**Recommended first slice:** compare restrained character shadow/highlight/contrast adjustments in `assets/vignette/figure.gdshader` using the existing lighting samples, subtle ground-only shading, and softer small contact shadows. Keep text, pitch markings and gameplay information clear. Reuse LS-01/03 shadow and environment work; do not duplicate it.
+
+**Optional comparisons:** a small local ball/selection/goal radial effect only where it improves football readability; a thin, atlas-safe character outline only if phone captures justify its extra texture samples. These are candidates for art-agent/director review, not a mandate for decorative glow or a competing UI style. Preserve the existing editorial UI.
+
+**Free implementation references:** [CC0 radial gradient](https://godotshaders.com/shader/radial-smooth-radial-gradient/), [MIT outline example](https://godotshaders.com/shader/2d-outline-stroke/), and [Godot colour-adjustment example](https://docs.godotengine.org/en/stable/tutorials/shaders/screen-reading_shaders.html). Adapt older syntax and preserve licence notices where required. Fold colour maths into the existing pass where possible rather than adding a screen-reading pass. No paid shader pack or subscription is required.
+
+**Performance/review gate:** record fixed-state before/after stills and motion on the actual Mobile renderer and weakest supported Android phone; include the crowded pre-match scene, tactical/broadcast scenes, mirrored figures, contrasting kits, skin/hair and readable jumper numbers. Compare CPU/GPU frame time, slow frames, draw calls, texture memory, loading/first-use stutters and sustained heat/battery behaviour against baseline. A proposed initial budget is under 1 ms extra frame time with no new sustained FPS drop; agree the device budget from measurements, not this estimate. Preserve the 60 FPS cap and low-processor idle behaviour. Keep an inexpensive fallback. Full-screen bloom/blur, elaborate dynamic shadows and normal-map lighting are not default scope; LS-04 remains a separately measured experiment. Existing final appearance approval applies; roadmap acceptance is not rendered/device verification.
+
 ### Free lighting and surface detail — director follow-up, 2026-10-06
 
 **Status:** `TODO` — findings recorded; no lighting/material prototype or rollout completed. **Priority:** `P2`. **Autonomy:** `SUPERVISED`. **Owner:** art agent, with Claude handling pipeline/render integration. Extends this task's existing figure/style and background/foreground work; do not create a competing art system. [Research and free options](research/AFL_Free_Lighting_and_Surface_Detail_Research.md).
@@ -6069,6 +6086,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Added the director-requested free shader-polish suggestions as P1 high priority under ARD-M8-007 and in the execution/effort queues. Prioritises existing-pass character treatment, ground shading and softer contact shadows; records optional local effects/outlines, free references, preserved packed-data contracts and measured Android/performance gates. No game implementation or visual verification marked complete.
 
 - **2026-10-06:** Added sourced pre-draft Favourite club bio-card flavour under FL-005, with honest unknowns and persistent cosmetic generated/custom values. Added full match-to-date Stats access at every quarter break under ARD-M4-009, reusing the existing stats view and preserving the paused decision flow.
 - **2026-10-06:** Added ARD-M4-016, match-day weather, from the director's decisions and the lead's evidence (docs/research/WEATHER_EVIDENCE.md).
