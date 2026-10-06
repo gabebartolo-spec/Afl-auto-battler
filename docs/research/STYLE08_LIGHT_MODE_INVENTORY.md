@@ -4,7 +4,7 @@ Inventory only, as the roadmap asks (§9.5 STYLE-08): no fix is made here, and n
 
 **How it was measured.** The contrast of the actual light-theme pairs in `UiKit` (the same colours the screens use), by the WCAG ratio: 4.5 for normal text, 3.0 for large text and outlines. The capture is the shared component sheet in light mode ([style08_light_component_states.png](style08_light_component_states.png), 390 wide): buttons in each state, tabs, and club-coloured scores. Every ratio below comes from the game's colour constants, not from reading an image.
 
-**Screens captured (part 2).** The ladder, team selection, training and my-list screens of a fresh Melbourne career, at 390 wide, with `tools/visual/capture_screens_light.gd` (new: `CAP_MODE=light` or `dark`). Also the offseason and the League Draft. Not captured: the match screen and the Club Forge screens.
+**Screens captured (part 2).** The ladder, team selection, training and my-list screens of a fresh Melbourne career, at 390 wide, with `tools/visual/capture_screens_light.gd` (new: `CAP_MODE=light` or `dark`). Also the offseason and the League Draft. The match and Club Forge screens are in part 3 below.
 
 ## Defects, worst first (seven)
 
@@ -44,4 +44,20 @@ Seen in [ladder](style08_light_screen_ladder.png), [selection](style08_light_scr
 | Offseason | The green payroll summary and the pale role tags on the contract cards; secondary lines ("60 OVR · age 34 · 0 games this year") dip. | GOOD on a panel (defect 6), position tags on a panel (defect 7), MUTED on a panel (defect 5). |
 | Intro sheet (hub) | The red "Got it" button has dark ink on red. | Defect 2 (3.03). |
 
-Still to do from here: the match and Club Forge screens, then the art agent's call on the fixes. The position-colour numbers are now in defect 7.
+## What the screens show (part 3)
+
+The live match (`tools/visual/capture_match_light.gd`) and the Club Forge screens (`tools/visual/capture_forge_light.gd`), at 390 wide, `CAP_MODE=light`. The Forge screens are not on main yet: they were captured on the #360 branch, so the capture needs that branch (or main once #360 lands).
+
+Seen in the match [before the first bounce](style08_light_screen_match_light_prebounce.png) and [in play](style08_light_screen_match_light_play.png), and the Club Forge [home](style08_light_screen_forge_light_home.png), [Create a player](style08_light_screen_forge_light_player.png) and [Create a club](style08_light_screen_forge_light_club.png):
+
+| Screen | Defect | Pairing behind it |
+|---|---|---|
+| Match, the scoreboard | **New, defect 8.** The home side's score is white on the light panel (about 1.3 to 1), so it nearly disappears. The other side's dimmed score is faint too. The club name and the bar under them read fine. | A fixed white ink on a theme panel; the dark theme's panel is dark, so it never showed there. Worth measuring as a rule: any fixed-colour text drawn on a panel. |
+| Match, the pitch | The oval and the dark surround stay dark in light mode. This is the football art, not a defect, but it makes a very hard edge against the cream panels. | A design call for the art agent. |
+| Match, the pre-bounce box | Reads well. The unselected gameplan and tag buttons and the grey help lines are the MUTED-on-panel dip. | Defect 5. |
+| Match, "Bounce the ball" | The red primary button has dark ink on red. | Defect 2 (3.03). |
+| Club Forge, home | "Create a player" is the red button with dark ink. The grey explainer text is MUTED on the page and reads, just. | Defect 2 (3.03), defect 5. |
+| Club Forge, forms | The unselected state, place and design buttons look disabled next to the one selected (a dark outline on the cream). The input placeholders ("Club name", "Nickname...") are faint. | MUTED on a panel (defect 5); FAINT (defect 4). |
+
+Still to do from here: the art agent's call on the fixes, and the director's look at any appearance change. The position-colour numbers are in defect 7.
+
