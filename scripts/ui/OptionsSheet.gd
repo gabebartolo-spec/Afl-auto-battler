@@ -40,7 +40,7 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 			func(k): GameState.set_crowd_level(k))
 	_row(v, "Ask before playing a round for me", "SettingsSimConfirm", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.confirm_sim_round() else "off",
-			"Sim round plays your own match for you. With this on, it asks first.",
+			"Play round plays out your own match without you. With this on, it asks first.",
 			func(k): GameState.set_confirm_sim_round(k == "on"))
 	_row(v, "Match speed", "SettingsSpeed", SPEED_OPTIONS,
 			str(int(GameState.match_speed())), "How fast a match you watch starts. You can change it during the game.",

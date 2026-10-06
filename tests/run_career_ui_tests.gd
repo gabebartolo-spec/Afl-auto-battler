@@ -502,7 +502,7 @@ func _run() -> void:
 	await _settle()
 	_check(current_scene.find_child("SimConfirm", true, false) != null and _state.season.round_index == r0,
 			"Sim round asks before playing your match")
-	_check(_screen_text().contains("Simulate Round %d?" % (r0 + 1)), "The question names the round")
+	_check(_screen_text().contains("Play Round %d?" % (r0 + 1)), "The question names the round")
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "hub" and current_scene.find_child("SimConfirm", true, false) == null
