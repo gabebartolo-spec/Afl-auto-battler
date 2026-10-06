@@ -79,7 +79,7 @@ func run() -> void:
 				# intercepting side's frame.
 				for ev in res["events"]:
 					var kind := str(ev.get("kind", ""))
-					if kind != "rebound" and kind != "pressure":
+					if kind != "rebound" and kind != "pressure" and not (kind == "mark" and bool(ev.get("intercept", false))):
 						continue
 					var side := int(ev.get("side", 0))
 					var x := float(ev.get("fp", 0.0)) * (1.0 if side == 0 else -1.0)
