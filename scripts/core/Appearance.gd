@@ -17,7 +17,7 @@ const SKIN := [Color("#f6d8c2"), Color("#e2ad85"), Color("#b97e52"), Color("#8c5
 		Color("#5f361f"), Color("#3a2215")]
 const HAIR_KEYS := ["black", "dark_brown", "brown", "light_brown", "blond", "red"]
 const UNCURATED := {"skin": 2, "hair": 1}
-const HAIR := [Color("#16110e"), Color("#33211a"), Color("#563621"), Color("#86603a"),
+const HAIR := [Color("#241b16"), Color("#40291f"), Color("#563621"), Color("#86603a"),
 		Color("#c19a5b"), Color("#8a3b1d")]
 
 ## The league's mix of tones, for players without a curated look. Replaced by
