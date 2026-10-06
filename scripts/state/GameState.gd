@@ -14,6 +14,9 @@ var show_real_names := true
 ## Transient navigation request. Settings can send the user straight to New
 ## career setup without touching the existing save.
 var new_career_setup_requested := false
+## Your dual-ruck call (ARD-M5-001): off until you make it, kept across
+## seasons; copied into each season's selection for your club (_sync_dual).
+var user_dual_ruck := false
 
 var my_club := ""
 var my_list: Array = []
@@ -398,6 +401,7 @@ func save_career() -> bool:
 		"draft_meeting_year": draft_meeting_year,
 		"career_seed": career_seed,
 		"class_tiers": class_tiers,
+		"user_dual_ruck": user_dual_ruck,
 		# Players carry p["career"]; saves without this mark predate it.
 		"career_version": CAREER_VERSION,
 	}
@@ -435,6 +439,7 @@ func load_career() -> bool:
 		var sv: Dictionary = state["season"]
 		season = Season.new(sv["clubs"], sv["lists"], int(sv["seed"]))
 		CareerSave.apply_vars(season, sv)
+		_sync_dual()
 		# Saves written under the old eight-finalist bracket cannot be
 		# restored into the wildcard series (different slots, different
 		# weeks), so the finals restart from the ladder as it was saved.
@@ -514,6 +519,8 @@ func load_career() -> bool:
 	# Saves from before class tiers use seed 0: still one fixed roll per year.
 	career_seed = int(state.get("career_seed", 0))
 	class_tiers = state.get("class_tiers", {})
+	user_dual_ruck = bool(state.get("user_dual_ruck", false))
+	_sync_dual()
 	_recompute_ratings()
 	_migrate_money_units()
 	if int(state.get("career_version", 0)) < CAREER_VERSION:
@@ -824,6 +831,7 @@ func reset() -> void:
 	last_training_report = {}
 	_xp_grant_key = ""
 	new_career_setup_requested = false
+	user_dual_ruck = false
 	_dirty = false
 	default_train_plan = "position"
 	season_year = GameDB.START_YEAR
@@ -1095,6 +1103,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	# entry for every club so saves and rollovers never miss a key.
 	season = Season.new(GameDB.active_clubs(next_year).duplicate(), lists,
 			_clock_seed(3))
+	_sync_dual()
 	# The cap moves with the new season before contracts are assigned.
 	salary_cap = Contracts.salary_cap_for_year(next_year)
 	# Expansion lists are born here, so their contracts must be assigned
@@ -1369,6 +1378,7 @@ func start_season(club_code: String, list: Array) -> void:
 	# Fixtures, ladders and finals cover only the clubs active this year.
 	season = Season.new(GameDB.active_clubs(season_year).duplicate(), lists,
 			_clock_seed(4))
+	_sync_dual()
 	salary_cap = Contracts.salary_cap_for_year(season_year)
 	ensure_contracts()
 	# The coaching world from its Round 1 2026 source, carried into this
@@ -3543,7 +3553,7 @@ func free_agent(player_id: String) -> Dictionary:
 	return {}
 
 
-## Would he turn you down flat? Only when he would not make your best 22
+## Would he turn you down flat? Only when he would not make your best 23
 ## and a club that would play him has an offer on the table.
 func free_agent_terms(player_id: String) -> Dictionary:
 	var p := free_agent(player_id)
@@ -3570,7 +3580,7 @@ var market_stats := {}
 var _targets_signed := {}   # code -> targets signed while free agency closes
 
 
-## His role at `code`: "ground" (in its best 18), "bench" (in its 22) or
+## His role at `code`: "ground" (in its best 18), "bench" (in its 23) or
 ## "depth". The club's real selection sets the bar in each position: he is
 ## a starter if he beats its weakest starter in his position (or his second
 ## one), on the bench if he beats its weakest bench player.
@@ -3620,7 +3630,7 @@ func _offer_of(p: Dictionary, code: String) -> Dictionary:
 
 ## Rivals put offers on the table for `players`. Each club goes after the
 ## free agents who would improve its side most - up to two it would play
-## (in its best 22: the furthest above its bar in their position first) -
+## (in its best 23: the furthest above its bar in their position first) -
 ## plus one depth signing per spot it is short of its usual list size, best
 ## players first by what everyone can see (rating, then age). Only with the
 ## cap room, never the club that let him go, never by a club's place in any
@@ -4293,7 +4303,7 @@ func trade_context(club: String) -> Dictionary:
 
 ## Where a club is in its cycle - "rebuilding", "building" or "contending" -
 ## from what anyone can see: last season's finish, how its list ranks, and
-## how old its best 22 is (TradeValue.phase). Worked out afresh each time.
+## how old its best 23 is (TradeValue.phase). Worked out afresh each time.
 ## Phases worked out for one state of the league: {"key": fingerprint,
 ## club: phase}. The fingerprint covers everything a phase reads - every
 ## list (who, rating, potential, age) and the ladder - so any trade,
@@ -4871,8 +4881,11 @@ func _execute_trade(a: String, b: String, a_gives: Array, b_gives: Array) -> voi
 	if _frozen_fingerprint != "":
 		_freeze_league(true)
 	var leaving := a_gives if a == my_club else (b_gives if b == my_club else [])
+	# The stored selection itself (my_selection() is a copy without the
+	# dual-ruck call).
+	var stored: Dictionary = season.selections.get(my_club, {}) if season != null else {}
 	for sel_key in ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH", "OUT"]:
-		var sel := my_selection()
+		var sel := stored
 		if sel.has(sel_key):
 			for p in leaving:
 				(sel[sel_key] as Array).erase(str(p["id"]))
@@ -4899,7 +4912,7 @@ func _close_contracts() -> void:
 ## Free agency closes when the national draft opens (or at the rollover if
 ## there is no draft), so compensation picks can go into that draft: your
 ## undecided players are settled - a depth player re-signs if the cap allows,
-## one of your best 22 tests the market (_market_test) - rivals sign who they
+## one of your best 23 tests the market (_market_test) - rivals sign who they
 ## want, and anyone left unsigned retires. Once per off-season.
 func _close_free_agency() -> void:
 	if season == null or fa_closed_year == season_year:
@@ -4943,12 +4956,12 @@ func _close_free_agency() -> void:
 	mark_dirty()
 
 
-## One of your best 22 you never settled tests the market as free agency
+## One of your best 23 you never settled tests the market as free agency
 ## closes, as an out-of-contract player does: your standing offer is his
 ## asking price over the term he wants, rivals make theirs, and those your
 ## offer leads answer once; then he takes the offer he likes best
 ## (_resolve_market) - money, security, his role and how the club finished.
-## Nobody in your best 22 re-signs just because you did nothing.
+## Nobody in your best 23 re-signs just because you did nothing.
 func _market_test(players: Array) -> void:
 	if players.is_empty():
 		return
@@ -4999,11 +5012,13 @@ func _resolve_market() -> void:
 # ---------------------------------------------------------------------------
 # Team selection
 # ---------------------------------------------------------------------------
-## Your chosen side, or {} when the best 22 are picked automatically.
+## Your chosen side, or {} when the best 23 are picked automatically.
 func my_selection() -> Dictionary:
 	if season == null:
 		return {}
-	return season.selections.get(my_club, {})
+	var sel: Dictionary = (season.selections.get(my_club, {}) as Dictionary).duplicate(true)
+	sel.erase("DUAL_RUCK")
+	return sel
 
 
 ## Set your side ({} = auto-pick every week). Stored on the season, so it is
@@ -5011,11 +5026,33 @@ func my_selection() -> Dictionary:
 func set_selection(selection: Dictionary) -> void:
 	if season == null:
 		return
-	if selection.is_empty():
-		season.selections.erase(my_club)
-	else:
-		season.selections[my_club] = selection.duplicate(true)
+	var keep := selection.duplicate(true)
+	keep["DUAL_RUCK"] = user_dual_ruck
+	season.selections[my_club] = keep
 	mark_dirty()
+
+
+## Dual ruck (ARD-M5-001, director 2026-10-06): your second ruck takes the
+## fifth interchange spot. Your call, off until you make it; AI clubs decide
+## by their own rule (Ratings.select_22).
+func dual_ruck() -> bool:
+	return user_dual_ruck
+
+
+func set_dual_ruck(on: bool) -> void:
+	user_dual_ruck = on
+	_sync_dual()
+	mark_dirty()
+
+
+## Your club's selection carries your dual-ruck call, so its auto-pick never
+## falls under the AI clubs' rule.
+func _sync_dual() -> void:
+	if season == null or my_club == "":
+		return
+	var sel: Dictionary = (season.selections.get(my_club, {}) as Dictionary).duplicate(true)
+	sel["DUAL_RUCK"] = user_dual_ruck
+	season.selections[my_club] = sel
 
 
 ## The side that would take the field this week, as a selection.
@@ -5031,7 +5068,8 @@ func current_side() -> Dictionary:
 
 
 func my_squad() -> Squad:
-	return Squad.new(GameDB.club_name(my_club), my_list, true, my_club, my_selection())
+	return Squad.new(GameDB.club_name(my_club), my_list, true, my_club,
+			season.selections.get(my_club, {}) if season != null else {})
 
 
 ## Every plan: [[key, label], ...].

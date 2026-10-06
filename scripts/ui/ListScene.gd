@@ -1,5 +1,5 @@
 extends Control
-## Your list: how the side stacks up, the best 22 on an oval, and every
+## Your list: how the side stacks up, the best 23 on an oval, and every
 ## player in one line each - who he is, whether he is available, how good.
 ## Tap a player for his profile: role, state, development, strengths,
 ## season and the attributes behind his rating.
@@ -99,8 +99,8 @@ func _shape_panel() -> Control:
 	var lv := UiKit.vbox(5)
 	lv.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left.add_child(lv)
-	lv.add_child(UiKit.lbl("Best 22", UiKit.H2, UiKit.EMPH, true))
-	var shape_note := UiKit.lbl("Six defenders, six midfielders (ruck included), six forwards and four on the bench. Tap a guernsey.",
+	lv.add_child(UiKit.lbl("Best 23", UiKit.H2, UiKit.EMPH, true))
+	var shape_note := UiKit.lbl("Six defenders, six midfielders (ruck included), six forwards and five on the bench. Tap a guernsey.",
 			UiKit.SMALL, UiKit.MUTED)
 	shape_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lv.add_child(shape_note)

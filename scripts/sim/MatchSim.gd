@@ -2981,7 +2981,7 @@ func _after_chain() -> void:
 
 
 ## Who will be hurt in this match, and when: one Injuries.roll per player
-## in the 22 (the same chance as the old after-the-siren roll), at a minute
+## in the 23 (the same chance as the old after-the-siren roll), at a minute
 ## of the four quarters.
 func _plan_injuries() -> void:
 	for side in range(2):
