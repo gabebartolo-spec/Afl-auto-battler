@@ -177,9 +177,24 @@ const WEATHER_RATES := {
 	"wet": {"mark_share_of_kicks": 0.87, "pressure_base": 1.12, "clanger_per_chain": 1.10,
 			"stoppage_share": 1.08, "metres_gain_mean": 0.96, "inside50_goal": 0.965},
 	"windy": {"mark_share_of_kicks": 0.92, "clanger_per_chain": 1.06,
-			"metres_gain_mean": 1.03, "inside50_goal": 0.94},
+			"metres_gain_mean": 1.03},
 	"hot": {"pressure_base": 0.97, "stoppage_share": 0.95, "metres_gain_mean": 1.03},
 }
+## A windy day has a breeze end (the "five-goal breeze"): shots kicked with
+## it are a little easier, against it much harder, about 5% fewer goals overall
+## (OUW: about -5 points a game at 20 km/h and over). The sides change ends each
+## quarter, so it helps one side in the first and third, the other in the
+## second and fourth; which one starts with it comes from the match seed.
+const BREEZE_WITH := 1.04
+const BREEZE_AGAINST := 0.86
+var breeze_side := 0
+
+
+## Whether `side` kicks with the breeze this quarter (windy days only).
+func with_breeze(side: int) -> bool:
+	return (side == breeze_side) == (current_quarter % 2 == 1)
+
+
 ## Hot days: legs go faster (the Heat Policy's longer breaks don't undo it).
 const HOT_DRAIN := 1.12
 var _rates_cache := {}
@@ -231,6 +246,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	_speccy_quota = speccy_quota(seed)
 	boundary_rng.seed = seed * 17 + 19
 	injury_rng.seed = seed * 13 + 7
+	breeze_side = posmod(hash("breeze|%d" % seed), 2)
 	for side in range(2):
 		synergies[side] = Traits.active((squads[side] as Squad).ground)
 		standing[side] = PlanFit.standing_plan((squads[side] as Squad).ground)
@@ -2431,6 +2447,8 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	var atk: Squad = squads[side]
 	var dfn: Squad = squads[opp]
 	var goal_p := float(T["inside50_goal"])
+	if weather == "windy":
+		goal_p *= BREEZE_WITH if with_breeze(side) else BREEZE_AGAINST
 	goal_p *= 0.80 + 0.40 * _a(shooter, "goalkicking") / 100.0
 	goal_p *= 1.16 if marked else 0.74
 	goal_p *= 0.82 + 0.36 * _a(shooter, "accuracy") / 100.0
