@@ -137,6 +137,11 @@ var smother_rng := RandomNumberGenerator.new()
 ## General-play aerial contests alter real possession outcomes but use their
 ## own stream so ordinary non-aerial play keeps its prior RNG ordering.
 var aerial_rng := RandomNumberGenerator.new()
+## Kick lanes (ARD-M4-014) draw from their own stream, so a match's other
+## dice stay where they were and a before/after is paired.
+var lane_rng := RandomNumberGenerator.new()
+## The lane of the kick being resolved ("" for a handball or a kick-in).
+var _lane := ""
 ## Spectacular-mark selection is presentation/stat context only.
 var speccy_rng := RandomNumberGenerator.new()
 ## Post-free 50m infringements are independent of ordinary play rolls.
@@ -215,6 +220,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	free_rng.seed = seed * 67 + 71
 	_speccy_quota = speccy_quota(seed)
 	boundary_rng.seed = seed * 17 + 19
+	lane_rng.seed = seed * 83 + 89
 	injury_rng.seed = seed * 13 + 7
 	for side in range(2):
 		synergies[side] = Traits.active((squads[side] as Squad).ground)
@@ -611,6 +617,54 @@ const PLAN_UPSIDE := {
 	"controlled": ["taken", "clangers", "goal", "pace"],
 	"through_stars": ["star_ball", "star_goal", "clangers"],
 }
+## ARD-M4-014 (the director, 2026-10-06: lanes are recorded and affect play).
+## Every kick in general play goes one of three ways: through the corridor
+## (more ground, but it is contested more often and turns over into open
+## space), a switch across the ground (less ground, rarely contested, marked
+## more), or down the line (the safe default, out of bounds more often).
+## gain: metres; contest: the chance a long kick is contested (intercepts);
+## mark: the chance it is marked; boundary: the chance it goes out.
+const LANES := {
+	"corridor": {"gain": 1.16, "contest": 1.4, "mark": 0.94, "boundary": 0.55},
+	"switch": {"gain": 0.62, "contest": 0.55, "mark": 1.10, "boundary": 0.75},
+	"line": {"gain": 1.0, "contest": 0.9, "mark": 1.0, "boundary": 1.30},
+}
+## How each plan uses the lanes: Attack corridor goes through the middle,
+## Controlled tempo switches and resets, Defensive press goes down the line.
+const LANE_MIX := {
+	"balanced": {"corridor": 0.28, "switch": 0.14, "line": 0.58},
+	"attacking": {"corridor": 0.50, "switch": 0.10, "line": 0.40},
+	"controlled": {"corridor": 0.20, "switch": 0.34, "line": 0.46},
+	"defensive": {"corridor": 0.18, "switch": 0.12, "line": 0.70},
+	"contest": {"corridor": 0.24, "switch": 0.10, "line": 0.66},
+	"through_stars": {"corridor": 0.30, "switch": 0.14, "line": 0.56},
+}
+## Out of your own 50 coaches keep it out of the corridor.
+const LANE_DEFENSIVE_CORRIDOR := 0.55
+## Audits only: false plays without lanes (main's kicks) on the same seeds.
+static var kick_lanes := true
+
+
+## The lane for a kick by `side` from `atk_fp` (attacking frame).
+func _pick_lane(side: int, atk_fp: float) -> String:
+	if not kick_lanes:
+		return ""
+	var mix: Dictionary = LANE_MIX.get(_plan(side), LANE_MIX["balanced"])
+	var c := float(mix["corridor"]) * (LANE_DEFENSIVE_CORRIDOR if atk_fp < -float(Ratings.T["forward50_line"]) else 1.0)
+	var w := float(mix["switch"])
+	var l := float(mix["line"])
+	var r := lane_rng.randf() * (c + w + l)
+	if r < c:
+		return "corridor"
+	return "switch" if r < c + w else "line"
+
+
+func _lane_mult(key: String) -> float:
+	if _lane == "":
+		return 1.0
+	return float((LANES[_lane] as Dictionary).get(key, 1.0))
+
+
 const PLANS := {
 	"attacking": {"goal": 1.05, "gain": 1.06, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
 	"fast": {"goal": 1.05, "gain": 1.06, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
@@ -1521,7 +1575,7 @@ func _aerial_defender(def_side: int, fp: float):
 ## it either marks it (an intercept: the ball is turned over) or spoils it,
 ## which leaves the ball loose.
 func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bool) -> Dictionary:
-	if rushed or gain < 18.0 or aerial_rng.randf() >= (AERIAL_CHANCE if zone_intercepts else 0.22):
+	if rushed or gain < 18.0 or aerial_rng.randf() >= (AERIAL_CHANCE if zone_intercepts else 0.22) * _lane_mult("contest"):
 		return {}
 	var opp := 1 - side
 	var receiver = pick_carrier(side, mark_fp)
@@ -1857,7 +1911,7 @@ func _boundary_exit(side: int, cross_fp: float, carrier, disposal_kind: String,
 		rushed: bool, marked: bool) -> Dictionary:
 	if marked:
 		return {}
-	var chance := BOUNDARY_EXIT_P + (BOUNDARY_RUSHED_BONUS if rushed else 0.0)
+	var chance := (BOUNDARY_EXIT_P + (BOUNDARY_RUSHED_BONUS if rushed else 0.0)) 			* (_lane_mult("boundary") if disposal_kind == "kick" else 1.0)
 	if boundary_rng.randf() >= chance:
 		return {}
 	var out_on_full := disposal_kind == "kick" and boundary_rng.randf() < OUT_ON_FULL_SHARE
@@ -1960,6 +2014,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				+ 0.30 * (100.0 - _a(carrier, "marking")) / 100.0)
 		var disposal_kind := "handball"
 		var marked := false
+		_lane = ""
 		# A kick-in is kicked: no handball roll for its first disposal.
 		if not (from_kick_in and touches == 1) \
 				and rng.randf() < float(T["handball_share"]) * hb_bias:
@@ -1968,11 +2023,13 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_emit("handball", side, fp, carrier, "%s handballs" % GameDB.player_display_name(carrier))
 		else:
 			disposal_kind = "kick"
+			if not is_kick_in:
+				_lane = _pick_lane(side, fp if side == 0 else -fp)
 			if counts_disposal:
 				_t(side, "kicks")
 				_p(carrier, "kicks")
 			var mark_p: float = (float(T["mark_share_of_kicks"])
-					* (0.75 + 0.50 * _a(carrier, "marking") / 100.0))
+					* (0.75 + 0.50 * _a(carrier, "marking") / 100.0)) * _lane_mult("mark")
 			marked = false if is_kick_in else rng.randf() < mark_p
 			if marked:
 				_t(side, "marks")
@@ -1980,6 +2037,9 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				_emit("mark", side, fp, carrier, "%s marks" % GameDB.player_display_name(carrier))
 			else:
 				_emit("kick", side, fp, carrier, "%s kicks" % GameDB.player_display_name(carrier))
+			if _lane != "":
+				# The view draws the lane the match chose (no invented switches).
+				events[events.size() - 1]["lane"] = _lane
 			if is_kick_in:
 				var kev: Dictionary = events[events.size() - 1]
 				kev["kick_in"] = true
@@ -2091,7 +2151,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		var prev_atk_fp := atk_fp
 		var gain: float = (float(T["metres_gain_mean"])
 				* (0.55 + 0.90 * _a(carrier, "carry") / 100.0))
-		gain *= _pv(side, "gain") * _pep_mult(side, "gain")
+		gain *= _pv(side, "gain") * _pep_mult(side, "gain") * _lane_mult("gain")
 		if synergies[side].has("supply_line"):
 			gain *= Traits.power("supply_line")
 		if _burst(side, "flood") or _burst(side, "hold"):
