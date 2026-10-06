@@ -2332,6 +2332,12 @@ Goal: make player deployment intuitive, footy-authentic and consequential.
    Recalibrate against today's bomb goal rate so the choice keeps its trade-off.
 4. **Presentation (under M8-003):** three distinct sequences from these events, with no invented actors or stats.
 
+**Calibration targets** (every number sourced in `docs/research/SET_SHOT_EVIDENCE.md`, #456):
+- **Set-shot conversion by distance, against general-play shots** (ABC / Champion Data, 2021 to 2025, straight on): 0 to 10 m 100% against 89%; 10 to 20 m 96% against 63%; 20 to 30 m 85% against 51%; 30 to 40 m 71% against 38%; 40 to 50 m 54% against 39%; over 50 m 33% against 34%. The set-shot edge holds to about 40 m and is gone beyond 50 m. By distance alone: 97% at 0 to 15 m falling to 36% at 50 m and over.
+- **Set shots are about 55% of shots** (54% in 2025), from the Champion Data counts of players with 10 or more games.
+- **Crumbing rates by position** (2026 per game, Wheelo/Champion Data): general forwards 1.16 crumbing possessions and 33% of their ground-ball gets; mid-forwards 1.09 and 23%; midfielders 1.09 and 20%; key forwards 0.66 and 29%; key defenders 0.71 and 26%; ruck 0.48 and 14%. Key defenders spoil 4.93 a game, key forwards 0.99.
+- **To measure in the sim, no real target:** how often a set shot is played on rather than kicked from the mark, how often a long one is bombed into the pack, and the marked, spoiled or to-ground split of kicks into a pack. No public source gives these (the evidence doc lists them as not found), so the sim reports its own rates and the choice keeps its trade-off against today's bomb goal rate.
+
 ## ARD-M4-014 — Kick lanes that matter (corridor, switch, down the line)
 **Status:** `TODO` · **Priority:** `P2` · **Autonomy:** `SUPERVISED`
 
