@@ -3999,8 +3999,6 @@ func _free_set_shot(side: int, at_fp: float, taker: Dictionary) -> Dictionary:
 	var opp := 1 - side
 	var backs := _by_roles((squads[opp] as Squad).ground, ["DEF"])
 	var back = _weighted(backs if not backs.is_empty() else (squads[opp] as Squad).ground, "marking", 2.0, opp, "defender")
-	_t(opp, "rebounds")
-	_p(back, "rebounds")
 	_intercept(opp, back, false)
 	_emit("rebound", opp, fp, back, "%s's set shot falls short; %s marks it" % [
 			GameDB.player_display_name(taker), GameDB.player_display_name(back)])

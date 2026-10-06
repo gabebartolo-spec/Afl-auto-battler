@@ -21,7 +21,7 @@ const T := {
 	"clanger_is_free": 0.34,         # ...of which are free kicks against
 	"mark_share_of_kicks": 0.330,
 	"handball_share": 0.44,
-	"inside50_goal": 0.279,          # of inside-50 entries (0.269 before forward archetypes, ARD-M3-002)
+	"inside50_goal": 0.262,          # of inside-50 entries (0.279 before frees in 50 became set shots, backlog item 24; 0.269 before forward archetypes, ARD-M3-002)
 	"inside50_behind": 0.180,
 	"stoppage_share": 0.42,          # chains that begin at a genuine stoppage
 	"hitouts_per_stoppage": 0.81,    # split between the two rucks
