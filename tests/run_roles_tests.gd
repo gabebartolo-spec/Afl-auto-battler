@@ -129,6 +129,27 @@ func _selection_tests() -> void:
 	# The synergy rules are one tap away, in full, without progress counts.
 	var rules_btn: Button = ui.find_child("SynergyRules", true, false)
 	_check(rules_btn != null and rules_btn.size.y >= 44, "A Synergies button opens the rules")
+	# The nearest synergy the side doesn't have, as a fact (director: "Build it").
+	var short_l: Label = ui.find_child("SynergyShort", true, false)
+	var short_want := Traits.short_text(_state.my_squad().ground)
+	_check((short_l == null and short_want == "") or (short_l != null and short_l.text == short_want),
+			"Selection says the nearest synergy and what it's short (%s)" % short_want)
+	var lock := func(n: int) -> Array:
+		var out := []
+		for i in range(n):
+			out.append({"id": "lk%d" % i, "role": "MID", "attr": {"pressure": 70, "discipline": 50}})
+		return out
+	_check(Traits.short_text(lock.call(2)) == "Lockdown unit: 1 lockdown player short.",
+			"One traited player missing says which synergy and what it's short: %s" % Traits.short_text(lock.call(2)))
+	_check(Traits.short_text(lock.call(3)) == "", "A synergy that's on isn't short")
+	_check(Traits.short_text(lock.call(1)) == "" and Traits.short_text([]) == "",
+			"Two or more short says nothing")
+	var guide_copy := ""
+	for t in load("res://scripts/ui/StatGuide.gd").TOPICS:
+		if str(t[0]) == "Traits and synergies":
+			guide_copy = str(t[1])
+	_check(guide_copy.contains("a single player short") and guide_copy.contains(Traits.short_text(lock.call(2)).trim_suffix(".")),
+			"The Stat Guide says what Selection shows, in the same words")
 	if rules_btn != null:
 		rules_btn.emit_signal("pressed")
 		await _settle()

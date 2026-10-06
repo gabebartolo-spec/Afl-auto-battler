@@ -327,6 +327,27 @@ static func with_effect(key: String) -> String:
 const PLURALS := {"lockdown": "Lockdown players", "big_game": "Big-game players"}
 
 
+## A synergy the side is one player short of, as a fact: "Tall-small forward
+## line: 1 crumber short." (director, 2026-10-06: "Build it"). The first in
+## SYNERGIES order; "" when none is exactly one player short (on, or two or
+## more short). No swap is suggested: who to bring in is the player's call.
+static func short_text(ground: Array) -> String:
+	var rows := {}
+	for r in progress(ground):
+		rows[str(r["key"])] = r
+	for key in SYNERGIES:
+		var r: Dictionary = rows[key]
+		if int(r["missing"]) != 1:
+			continue
+		for t in r["needs"]:
+			if int(r["have"][t]) < int(r["needs"][t]):
+				var name := str(PLURALS.get(str(t), "")).trim_suffix("s")
+				if name == "":
+					name = label(str(t))
+				return "%s: 1 %s short." % [label(str(key)), name.to_lower()]
+	return ""
+
+
 ## "2/2 Contested bull (midfield)" style summary for one synergy row.
 static func needs_text(row: Dictionary) -> String:
 	var s: Dictionary = SYNERGIES[str(row["key"])]
