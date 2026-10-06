@@ -53,6 +53,7 @@ func _run() -> void:
 	SV = load("res://scripts/ui/match/StoppageVignette.gd")
 	_figure_sheets()
 	_hair_atlases()
+	_ball()
 	await _vignettes_play_through()
 	_music_files()
 	_music_player()
@@ -248,6 +249,48 @@ func _source_image(which: String) -> Image:
 	if img != null:
 		img.convert(Image.FORMAT_RGBA8)
 	return img
+
+
+# ---------------------------------------------------------------------------
+# The football: a Sherrin spinning end over end (VignetteBall), red by day, yellow at night
+# ---------------------------------------------------------------------------
+func _ball() -> void:
+	var path := "res://assets/vignette/ball.png"
+	var tex: Texture2D = VignetteBall.TEX
+	var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+	var cfg := ConfigFile.new()
+	# Lossless with mipmaps: it's drawn far smaller than its cells, and a compressed
+	# ball loses its seams and laces.
+	var lossless := cfg.load(path + ".import") == OK and int(cfg.get_value("params", "compress/mode", -1)) == 0 \
+			and bool(cfg.get_value("params", "mipmaps/generate", false))
+	var size := Vector2i(VignetteBall.FRAMES * int(VignetteBall.CELL), 2 * int(VignetteBall.CELL))
+	_check(tex != null and tex.resource_path == path and img != null and img.get_size() == size and lossless,
+			"The ball is loaded from its own file, lossless with mipmaps, %s (%s)" % [str(size), path])
+	if img == null or img.get_size() != size:
+		return
+	img.convert(Image.FORMAT_RGBA8)
+	# Every frame of both balls has the ball in it, the length the draw scales by, and its
+	# colour: row 0 red, row 1 yellow.
+	var bad := []
+	var c := int(VignetteBall.CELL)
+	for row in 2:
+		for f in VignetteBall.FRAMES:
+			var lo := c
+			var hi := -1
+			var sum := Color(0, 0, 0)
+			var n := 0
+			for y in range(row * c, row * c + c):
+				for x in range(f * c, f * c + c):
+					var p := img.get_pixel(x, y)
+					if p.a > 0.5:
+						lo = mini(lo, x - f * c)
+						hi = maxi(hi, x - f * c)
+						sum += p
+						n += 1
+			var colour_ok := n > 0 and (sum.g < 0.5 * sum.r if row == 0 else sum.g > 0.7 * sum.r)
+			if n < 200 or hi - lo + 1 > c or not colour_ok:
+				bad.append("%s %d" % [["red", "yellow"][row], f])
+	_check(bad.is_empty(), "Every frame of the red and the yellow ball has the ball in it, in its colour: %s" % str(bad))
 
 
 # ---------------------------------------------------------------------------

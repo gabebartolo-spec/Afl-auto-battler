@@ -401,7 +401,7 @@ func _club_home(body: VBoxContainer) -> void:
 		body.add_child(make)
 		return
 	var head := UiKit.hbox(10)
-	head.add_child(UiKit.colour_marker(_club_colours(saved), 30.0))
+	head.add_child(UiKit.colour_marker(_club_colours(saved), 30.0, str(saved.get("design", "plain")), str(saved.get("code", ""))))
 	var title := UiKit.lbl(str(saved.get("name", "")), UiKit.H1, UiKit.TEXT, true)
 	title.name = "ForgeClubTitle"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL

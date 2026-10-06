@@ -29,7 +29,6 @@ const FIGURE := 1.6
 const CAM_X := -3.0
 ## The field umpire's fluoro shirt: saturated, so it never reads as skin at a distance.
 const UMPIRE := Color(0.66, 0.96, 0.08)
-const BALL := Color(0.78, 0.13, 0.12)
 ## The footballers are pre-rendered figures recoloured for each club
 ## (VignetteFigures.gd has the sheet's layout, figure.gdshader the recolouring).
 const FIGURE_SHADE := preload("res://assets/vignette/figures_shade.png")
@@ -610,9 +609,9 @@ func _draw_ball(b: Vector3) -> void:
 	var r := maxf(3.0, 0.2 * s.z * FIGURE)
 	draw_set_transform(Vector2(g.x, g.y), 0.0, Vector2(1.0, 0.35))
 	draw_circle(Vector2.ZERO, r * (1.0 - clampf(b.z / 10.0, 0.0, 0.6)), Color(0, 0, 0, 0.3))
-	draw_set_transform(Vector2(s.x, s.y), -0.5, Vector2(1.0, 0.62))
-	draw_circle(Vector2.ZERO, r, BALL)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# The Sherrin (VignetteBall), spinning once it's up off the umpire's bounce.
+	VignetteBall.draw(self, Vector2(s.x, s.y), 2.0 * r, _t, b.z > 0.6)
 
 
 ## At the freeze: who is who, for the rucks, the first midfielder each side and
