@@ -18,7 +18,7 @@ extends RefCounted
 ## The cut-offs are fitted in tools/balance/weather_cutoffs.py.
 
 const CONDITIONS := ["perfect", "wet", "windy", "hot"]
-const LABELS := {"perfect": "A perfect day", "wet": "Wet", "windy": "Windy", "hot": "Hot"}
+const LABELS := {"perfect": "Perfect day", "wet": "Wet", "windy": "Windy", "hot": "Hot"}
 const DATA_PATH := "res://data/weather_by_venue.json"
 const MONTHS := ["Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"]
 const WET_K := 1.03

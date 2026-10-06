@@ -444,7 +444,13 @@ func _week_section(season: Season) -> Control:
 		var ground := str(mine.get("venue", ""))
 		if ground == "":
 			ground = str(GameDB.club(str(mine["home"])).get("ground", ""))
-		nv.add_child(UiKit.ellipsis(ground, UiKit.SMALL, UiKit.MUTED))
+		# The forecast is known in the week (ARD-M4-016): a fact beside the
+		# ground, not advice.
+		var wx := str(mine.get("weather", ""))
+		var where := ground if wx == "" else "%s  ·  %s" % [ground, Weather.label(wx)]
+		var ground_line := UiKit.ellipsis(where, UiKit.SMALL, UiKit.MUTED)
+		ground_line.name = "GroundLine"
+		nv.add_child(ground_line)
 		var who := UiKit.lbl("%s %s" % ["v" if is_home else "at", GameDB.club_name(opp)],
 				26 if _narrow() else 30, UiKit.TEXT, true)
 		who.name = "Opponent"
@@ -708,7 +714,8 @@ func _upcoming_match() -> Dictionary:
 		for m in round_matches:
 			if m["home"] == GameState.my_club or m["away"] == GameState.my_club:
 				return {"home": m["home"], "away": m["away"],
-						"label": "Round %d" % (season.round_index + 1), "tag": ""}
+						"label": "Round %d" % (season.round_index + 1), "tag": "",
+						"weather": season.weather_for(str(m["home"]), str(m["away"]), season.round_index)}
 		return {}
 	for m in season.finals_week_matches():
 		if str(m["home"]) == "" or str(m["away"]) == "":
