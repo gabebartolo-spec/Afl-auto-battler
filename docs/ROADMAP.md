@@ -2340,6 +2340,47 @@ Goal: make player deployment intuitive, footy-authentic and consequential.
 
 **Director decision (2026-10-06):** merge the duplicates. "Fast movement" becomes Attack corridor and "High press" becomes Defensive press; they're the same effects under older names (MatchSim `PLANS`, `PLAN_UPSIDE`, CoachReport). Old saves map across on load. No gameplay change.
 
+## ARD-M4-016 — Match-day weather: perfect day, wet, windy, hot
+**Status:** `TODO` · **Priority:** `P1` · **Autonomy:** `SUPERVISED`
+
+**Director decisions (2026-10-06):**
+- Rain affects play, calibrated against real stats, and has a look.
+- Conditions: perfect day, wet, windy and hot.
+- "Certain gameplans should work better in certain weather: contested footy is better in the wet as it's less precise; in dry weather ball handling is easier and it's easier to mark the ball."
+- The forecast is known during the week.
+- Windy has a breeze end per quarter.
+- A visible "Wet-weather player" trait.
+- Long sleeves: about 15% of a list wear them, up to 25% in the wet.
+
+**Evidence:** docs/research/WEATHER_EVIDENCE.md, the lead's own research and conclusions.
+
+**Scope:**
+1. **One condition per match,** seeded by venue and month from the real frequencies. Docklands is always a perfect day.
+2. **MatchSim effects through existing keys,** calibrated to the evidence ranges:
+   - wet: marks about −13%, contested possessions +7%, turnovers +11%, a small accuracy drop, and contested ball weighs more in the result;
+   - windy (20 km/h or more): fewer marks, more turnovers, lower accuracy, and a breeze end that swaps each quarter;
+   - hot: freer early, with heavier legs late.
+3. **Plan fit by condition:**
+   - wet favours Win contest and Defensive press, and hurts Attack corridor;
+   - windy favours Controlled tempo;
+   - hot favours Attack corridor, and Defensive press fades;
+   - a perfect day favours Attack corridor and Controlled tempo.
+   It's a rule the player can look up, not a recommendation label.
+4. **Forecast on the Hub during the week,** as a fact. The coach report and Stat Guide state each condition's rule in words.
+5. **The trait "Wet-weather player":** generated players and evidence-backed real players; it only matters when wet.
+6. **Look (with the art agent and the existing scenes):**
+   - rain on the pitch and vignettes;
+   - wind in flags and banners;
+   - heat haze and hard shadows;
+   - long sleeves per player (#368, backlog item).
+   Zero result effect from the look itself.
+
+**Validation:**
+- seeded batches per condition against WEATHER_EVIDENCE: scoring, marks, contested share, turnovers, accuracy;
+- the plan-by-condition matrix shows the intended edges with no dominant plan;
+- determinism;
+- old saves load as a perfect day.
+
 ## ARD-M5-001 — Matchday squad: 18 + 5 interchange
 **Status:** `DONE` — merged in #331 (`11e2f13`, 2026-10-06).  
 
@@ -5974,6 +6015,7 @@ The eight includes are the complete decision record. There are no rejected style
 
 # 10. Roadmap Maintenance Log
 
+- **2026-10-06:** Added ARD-M4-016, match-day weather, from the director's decisions and the lead's evidence (docs/research/WEATHER_EVIDENCE.md).
 - **2026-10-06:** Recorded the director's interview on the match-visualisation research.
   - ARD-M8-003 gains an agreed sequence: truth fixes, a tactical timeline, two demonstrations, then lanes. No overlay, and the play library is held.
   - New items: ARD-M4-012 (intercepts by zone), ARD-M4-013 (set-shot choices and a real bomb pack), ARD-M4-014 (kick lanes that matter) and ARD-M4-015 (merge the plan names to six).
