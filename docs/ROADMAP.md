@@ -5558,14 +5558,14 @@ Prefer improving the existing experience when that answers the same need. This p
 
 | Reference | Director decision | Canonical owner | Extension status / effort |
 |---|---|---|---|
-| FL-001 | Include authentic football language and restrained Australian humour | M8-006 | TODO / LOW |
-| FL-002 | Include milestone banners; **audit their appearance so decorative content is distinct from actual game information** | M7-003 + M8-007 | TODO / MEDIUM |
+| FL-001 | Include authentic football language and restrained Australian humour | M8-006 | PARTIAL (#381 audit, #386 fixes; other surfaces await copy review) / LOW |
+| FL-002 | Include milestone banners; **audit their appearance so decorative content is distinct from actual game information** | M7-003 + M8-007 | DONE (#400, director approved) / MEDIUM |
 | FL-003 | Include recognisable ground atmosphere | M8-003/007; reuse M7-009 venue identity/presets where available | TODO / HIGH |
-| FL-004 | Include natural crowd sound, breathing room and volume controls | M8-006 + existing audio owner | TODO / MEDIUM |
-| FL-005 | Include persistent, harmless fictional-player nicknames and interests | M7-005 + existing M7-008/009 nickname/profile fields | TODO / MEDIUM |
-| FL-006 | Include characterful, truthful headlines distinct from game information | M4-009 + M7-005/011 and existing news/season-story surfaces | TODO / MEDIUM |
+| FL-004 | Include natural crowd sound, breathing room and volume controls | M8-006 + existing audio owner | DONE (#405 sounds, #409 crowd; director approved) / MEDIUM |
+| FL-005 | Include persistent, harmless fictional-player nicknames and interests | M7-005 + existing M7-008/009 nickname/profile fields | DONE (#392, director approved) / MEDIUM |
+| FL-006 | Include characterful, truthful headlines distinct from game information | M4-009 + M7-005/011 and existing news/season-story surfaces | DONE (#395, director approved, losses included) / MEDIUM |
 | FL-007 | Include rituals and farewells; **build new vignette scenes as necessary** | M7-003/005 + M8-007 shared art/rendering | TODO / HIGH |
-| FL-008 | Include decorative club memories across decades | M7-005 + existing alumni/history presentation | TODO / MEDIUM |
+| FL-008 | Include decorative club memories across decades | M7-005 + existing alumni/history presentation | DONE (#406, director approved, home games only) / MEDIUM |
 
 ### Common dependencies, limits and acceptance
 
@@ -6086,6 +6086,8 @@ The eight includes are the complete decision record. There are no rejected style
 - **2026-10-06:** Low agent, docs steward and CI owner. Added §0.4a: effort tags (`LOW` / `MEDIUM` / `HIGH`) with every open item sized into a lane, and the parallel-work rules for the agents working at once (hot files, check floors, local Godot use, no pushes mid-CI). Replaced 15 §1.11 observed-failure bullets that are built and tested on `main` with one "Closed from this list" line naming the evidence. CI now runs the Godot suites as parallel shards (`tools/ci_shards.txt`, plan job, extras job, the required check still `test`) and long audits run on GitHub (`audit.yml`). README, DESIGN and `tests/README.md` corrected against the code.
 
 - **2026-10-06:** After all eight director answers, authorised FL-001–FL-008 in §9.3 and the execution/effort queues under existing owners. Added the explicit visual-distinction audit and permission for necessary new ritual/farewell vignette scenes. Every addition is presentation-only with zero gameplay effects; existing feature statuses and unrelated review gates remain unchanged.
+
+- **2026-10-06:** FL statuses in §9.3 set from what has merged: FL-002 (#400), FL-004 (#405, #409), FL-005 (#392), FL-006 (#395) and FL-008 (#406) are DONE with the director's approval; FL-001 is PARTIAL (#381 audit, #386 fixes); FL-003 and FL-007 stay TODO.
 
 - **2026-10-06:** Extended the art-agent tooling permission to fonts: it may research, download and use free/licensed fonts suitable for game distribution, or direct the user to install them. Paid font licences and subscription services remain disallowed without explicit approval.
 
