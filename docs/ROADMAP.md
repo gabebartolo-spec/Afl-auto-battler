@@ -563,6 +563,12 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+### Match-summary injury wording and scoring-run context — PC playtest (2026-10-07)
+
+- Screenshot says “You lost Nick Daicos to a hand in the second quarter.” Use natural, complete injury wording: **“You lost Nick Daicos to a hand injury in the second quarter.”** Audit other injury summaries so body-part identifiers are not inserted as incomplete injury descriptions; preserve accurate injury type and timing.
+- “Essendon kicked five unanswered goals” needs context: show **when the run occurred**, with its start/end quarter and match times, and the score or margin before/after so the player understands its importance. Use the recorded scoring sequence, with compact optional detail for scorers/individual goal times rather than another text wall. Do not invent timing or imply that the Daicos injury caused the run merely because the lines are adjacent. Verify the definition of unanswered goals against the actual events and label the period clearly. Roadmap only; Claude to implement.
+
+
 ### Late-game centre ball-up decision repeats — PC playtest bug/requirement (2026-10-07)
 
 - **Consider simplifying to two buttons:** the director finds the top and bottom choices somewhat similar. Review their actual mechanics and strategic distinction; consider reducing this event to **two clearly different football choices** with understandable tradeoffs. Preserve viable approaches depending on the player's preference and match context; do not remove an option arbitrarily without reviewing its purpose. This is a design suggestion, with the final pair still to be determined.
