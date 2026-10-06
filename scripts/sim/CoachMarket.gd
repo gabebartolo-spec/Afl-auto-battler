@@ -479,6 +479,41 @@ static func offseason(ctx: Dictionary) -> Dictionary:
 	return {"news": texts, "vacancies": my_vacancies, "log": log}
 
 
+## Clubs with nobody on staff - a created club in a new career's first season,
+## or one an older save brought in that way - are staffed the way an expansion
+## club is before it plays (step 6): from coaches out of work, best fit first,
+## a newly made coach when nobody suits. Nobody is taken from another club, and
+## your senior coach's job is yours. `year` is the season before the one about
+## to be played. Returns what was filled: [{club, job, cid}].
+static func staff_new_clubs(coaches: Dictionary, clubs: Array, my_club: String, year: int, seed: int) -> Array:
+	var filled := []
+	var log := {"generated": 0}
+	for club in clubs:
+		if not Coaches.staff(coaches, club).is_empty():
+			continue
+		for job in FILL_ORDER:
+			if job == "SC" and club == my_club:
+				continue
+			var best := {}
+			var best_score := -INF
+			for cid in coaches:
+				var c: Dictionary = coaches[cid]
+				if str(c.get("status", "")) == "club" or not would_take(c, club, job, year):
+					continue
+				var probe := c.duplicate(true)
+				ensure_fields(probe, year + 1)
+				var s := hire_score(probe, club, job, year, seed)
+				if s > best_score:
+					best_score = s
+					best = c
+			if best.is_empty():
+				best = _generate(coaches, year, seed, log, job)
+			ensure_fields(best, year + 1)
+			_appoint(best, club, job, year, seed)
+			filled.append({"club": club, "job": job, "cid": str(best["cid"])})
+	return filled
+
+
 ## The highest vacancy left: a job at an active club nobody holds.
 static func _next_vacancy(coaches: Dictionary, clubs: Array, my_club: String) -> Dictionary:
 	var held := {}

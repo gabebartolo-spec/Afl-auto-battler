@@ -602,6 +602,16 @@ func load_career() -> bool:
 	# A save from before the coaching world: seed it for this career now.
 	if season != null and coaches.is_empty():
 		coaches = Coaches.seed(my_club)
+	# A save whose created club started with every job vacant (before the
+	# director's 2026-10-07 playtest fix): staff it now. Only a club with
+	# nobody at all is touched, and not yours while you have jobs to fill.
+	if season != null:
+		var bare := []
+		for club in GameDB.active_clubs(season_year):
+			if club == my_club and not staff_vacancies.is_empty():
+				continue
+			bare.append(club)
+		CoachMarket.staff_new_clubs(coaches, bare, my_club, season_year - 1, career_seed)
 	return true
 
 
@@ -1501,6 +1511,9 @@ func start_season(club_code: String, list: Array) -> void:
 	# The coaching world from its Round 1 2026 source, carried into this
 	# career's first season with you in your club's top job.
 	coaches = Coaches.seed(my_club)
+	# A created club has no 2026 staff to seed: it hires now, as an expansion
+	# club does before its first season.
+	CoachMarket.staff_new_clubs(coaches, GameDB.active_clubs(season_year), my_club, season_year - 1, career_seed)
 	_ensure_department_budget()
 	if department_budget_year <= 0:
 		department_budget_year = season_year
