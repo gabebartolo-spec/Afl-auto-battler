@@ -28,6 +28,27 @@ Before adding a new item:
 
 The art agent has higher authority than ChatGPT on visual direction. All final decisions go through the director. For the explicitly included STYLE-01–08 work (§9.5), Claude may prepare the scoped prototypes and reviewable implementation; final visual treatment and completion require director approval. This newer visual gate takes precedence over ordinary standing merge authority for unapproved appearance changes.
 
+### Optional Art Agent resource shelf — director clarification, 2026-10-06
+
+**Reference material only — these are not requested changes.** The director asked that the following free resources be available to the Art Agent if helpful at any point. This shelf creates no implementation task, priority, dependency, acceptance requirement or obligation to adopt an asset, add sound, change the renderer, or build tooling. Standing development authority must not be interpreted as an instruction to action this list. The Art Agent may consult it when useful within already authorised work; existing visual authority and director approval still apply.
+
+Potential resources, assessed against the current Godot / MPFB / Blender / pre-rendered figure pipeline:
+
+| Resource | Possible use, if helpful | Integration notes |
+|---|---|---|
+| [MakeHuman system assets](https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html) | Suits/shoes for coaches, press attendees and awards guests | Manifest-listed system clothing is CC0 and close to the existing MPFB workflow. Check whether already used in the external art project; fit current bodies/poses and regenerate aligned render passes and masks where needed. |
+| [Poly Haven Cotton Jersey](https://polyhaven.com/a/cotton_jersey) | Subtle offline cloth relief | CC0. Cotton ribs are not automatically an AFL technical fabric match. Use restrained normal/roughness detail in Blender; do not feed ordinary PBR maps directly into packed figure shader inputs. |
+| [ambientCG Grass003](https://ambientcg.com/view?id=Grass003) | Low-contrast turf variation | CC0. Preserve drawn oval markings/readability; compare repetition, scale and shimmer at phone size. No default requirement to add a pitch texture. |
+| [Poly Haven Wood Table 001](https://polyhaven.com/a/wood_table_001), [Kenney Furniture Kit](https://kenney.nl/assets/furniture-kit), [Plastic Monobloc Chair 01](https://polyhaven.com/a/plastic_monobloc_chair_01) | Selected desk/lectern finishes or background furniture | CC0. Match current lighting/palette through offline baking. Plastic chairs suit suburban club settings better than formal awards rooms; existing props need not be replaced. |
+| [Studio Small 09](https://polyhaven.com/a/studio_small_09), [Overcast Soil](https://polyhaven.com/a/overcast_soil) | Offline lighting comparisons | CC0 HDRIs. Optional references, not an instruction to ship HDRIs or replace the established light direction. |
+| [Kenney UI Audio](https://kenney.nl/assets/ui-audio), [Interface Sounds](https://kenney.nl/assets/interface-sounds), [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Selective quiet interaction/impact sounds | CC0. Audition a small coherent selection, respect mute/volume controls and avoid arcade-like excess. |
+| [Small applause — Sclolex](https://freesound.org/people/Sclolex/sounds/261617/), [Camera Shutter — roachpowder](https://freesound.org/s/170229/) | Awards-room applause or press-flash accents | Individual recordings labelled CC0. Not auditioned; trim, convert and balance before considering use. Existing crowd audio is already implemented; its looping bed expects WAV. |
+| [Kenney Input Prompts](https://kenney.nl/assets/input-prompts) | Relevant touch/keyboard instruction glyphs | CC0. Only if stylistically useful; this does not request or imply additional control support. |
+
+**Three.js assessment:** [Three.js](https://threejs.org/manual/pages/fundamentals.html) is an MIT-licensed JavaScript browser 3D library. A separate shareable model viewer or promotional showcase could be useful if a future need arises; neither is requested. Do not treat it as a Godot shader pack or a recommended runtime migration. The current game already has a native renderer, and an embedded browser layer or replacement frontend would introduce substantial work with no demonstrated texture, anti-aliasing, FPS, loading or battery benefit.
+
+**Research boundaries:** These are candidates, not proven seamless integrations. Source/licence pages were checked; packages were not imported, audio was not auditioned, and native-device performance was not benchmarked. Retain the downloaded asset's licence/provenance, export only useful subsets and preserve the established art style and packed figure texture contract. Generic sports/character packs are weaker fits; soccer balls are not AFL balls. Quaternius's older pack-level CC0 labels conflict with its current [QAL licence page](https://quaternius.com/license.html), so resolve the actual pack terms before considering source assets in this public repository.
+
 ### Standing development authority — 2026-09-28
 
 The user has granted Claude standing authority to action this roadmap as the project's primary development agent. A ready roadmap item does **not** require a fresh bespoke prompt or a separate per-PR permission check.
