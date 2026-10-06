@@ -32,6 +32,7 @@ func run() -> void:
 	_test_no_wrong_way_kicks(res)
 	_test_match_flow(res)
 	_test_boundary_collect(res)
+	_test_tactical_timeline()
 	_test_truth(res)
 	_test_play_when_idle(res)
 	_test_numbers_readable()
@@ -513,6 +514,78 @@ func _test_match_flow(res: Dictionary) -> void:
 	# 30 m to a ball landing among others. The entry now lands toward him and
 	# he starts for it during the play before.
 	_check(far_entry <= 0.012 * t, "An entry is not left waiting on a far-off rebounder (%.1f s of %.0f)" % [far_entry, t])
+
+
+## ARD-M8-003 step 2: the match records its calls as it plays, without
+## touching the dice, and the view puts the named players on each other.
+func _test_tactical_timeline() -> void:
+	var a := _sim(11)
+	var b := _sim(11)
+	var before := a.rng.state
+	for i in range(3):
+		a._note_tactics()
+	_check(a.rng.state == before, "Recording the calls draws no dice")
+	a.timeline.clear()
+	a._timeline_last = ["", ""]
+	_check(a.run()["events"] == b.run()["events"], "A match is the same with its calls recorded")
+	var res := _result(42)
+	var tl: Array = res.get("timeline", [])
+	var starts := [false, false]
+	for e in tl:
+		if int(e["at"]) == 0:
+			starts[int(e["side"])] = true
+	_check(starts[0] and starts[1], "Both sides' calls are recorded from the first bounce")
+	# A match-up changed at quarter time shows from the next quarter.
+	var sim := _sim(5)
+	sim.run_quarter()
+	var duels: Dictionary = sim.duels[0]
+	var fwd := ""
+	var def := ""
+	for fid in duels:
+		for p in (sim.squads[0] as Squad).ground:
+			if str(p.get("role", "")) == "DEF" and str(p["id"]) != str(duels[fid]) 					and str(p["id"]) != str(sim.interceptor[0]):
+				fwd = str(fid)
+				def = str(p["id"])
+				break
+		if fwd != "":
+			break
+	var cut := sim.events.size()
+	_check(fwd != "" and sim.coach_matchup(0, fwd, def), "A defender can be moved onto a forward at the break")
+	while sim.current_quarter <= 4:
+		sim.run_quarter()
+	var full := sim.result()
+	full["home"] = "RIC"
+	full["away"] = "SYD"
+	var entry := {}
+	for e in full["timeline"]:
+		if int(e["side"]) == 0 and int(e["at"]) >= cut and str((e["duels"] as Dictionary).get(fwd, "")) == def:
+			entry = e
+			break
+	_check(not entry.is_empty(), "The change is in the timeline, from the next quarter")
+	if entry.is_empty():
+		return
+	var d := MatchDirector.new()
+	d.setup(full, full["events"])
+	var guard := 0
+	while d.cursor <= int(entry["at"]) and not d.idle() and guard < 200000:
+		guard += 1
+		d.advance(1.0 / 15.0)
+	var di := -1
+	var fi := -1
+	for t in d.tokens:
+		if str(t["pid"]) == def:
+			di = int(t["id"])
+		elif str(t["pid"]) == fwd:
+			fi = int(t["id"])
+	_check(di >= 0 and fi >= 0 and int(d.tokens[di]["match"]) == fi and int(d.tokens[fi]["match"]) == di,
+			"On the oval, the moved defender now stands on that forward")
+	var loose := str((d._tac[0] as Dictionary).get("loose", ""))
+	var named := 0
+	for t in d.tokens:
+		if int(t["side"]) == 0 and bool(t.get("loose", false)):
+			named += 1
+			_check(str(t["pid"]) == loose, "The loose man on the oval is the one the match named")
+	_check(named == (1 if loose != "" else 0), "At most one loose man a side")
 
 
 ## Playtest freeze (near the boundary): a ball resting against the fence sat
