@@ -666,12 +666,12 @@ func _lane_mult(key: String) -> float:
 
 
 const PLANS := {
-	"attacking": {"goal": 1.05, "gain": 1.06, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
-	"fast": {"goal": 1.05, "gain": 1.06, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
+	"attacking": {"goal": 1.05, "gain": 1.02, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
+	"fast": {"goal": 1.05, "gain": 1.02, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
 	"defensive": {"press": 1.09, "opp_goal": 0.965, "goal": 0.96, "gain": 0.95, "pace": 1.12},
 	"press": {"press": 1.09, "opp_goal": 0.965, "goal": 0.96, "gain": 0.95, "pace": 1.12},
 	"contest": {"contest": 0.025, "gain": 0.95, "exposed": 1.04},
-	"controlled": {"taken": 0.96, "gain": 0.94, "goal": 1.01, "clangers": 0.93, "pace": 0.95},
+	"controlled": {"taken": 0.96, "gain": 1.03, "goal": 1.01, "clangers": 0.93, "pace": 0.95},
 	# Through stars: the ball to the best three and their finishing (star_ball,
 	# star_goal), the ball in good hands; but they know where it's going.
 	"through_stars": {"star_ball": 1.3, "star_goal": 1.18, "clangers": 0.92, "taken": 1.04},
