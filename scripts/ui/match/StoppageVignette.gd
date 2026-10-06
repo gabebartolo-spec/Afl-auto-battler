@@ -27,8 +27,8 @@ const EMPTY := 50.0
 const FIGURE := 1.6
 ## The camera sits a little to one side of the corridor, over a shoulder.
 const CAM_X := -3.0
-const GRASS := [Color(0.16, 0.39, 0.17), Color(0.18, 0.43, 0.19)]
-const UMPIRE := Color(0.82, 0.93, 0.36)
+## The field umpire's fluoro shirt: saturated, so it never reads as skin at a distance.
+const UMPIRE := Color(0.66, 0.96, 0.08)
 const BALL := Color(0.78, 0.13, 0.12)
 ## The footballers are pre-rendered figures recoloured for each club
 ## (VignetteFigures.gd has the sheet's layout, figure.gdshader the recolouring).
@@ -52,6 +52,7 @@ var facts: Array = []       # one or two lines of commentary, no numbers
 var title := ""
 var _colours := [[], []]
 var _codes := ["", ""]
+var _board := {}           # the match's score, for the big screen at the end of the ground
 var _kits := []            # both sides' guernseys, as dressed
 var _t := 0.0
 var _frozen := false
@@ -61,6 +62,9 @@ var _hold := 0.0            # time since the freeze, for the last push-in
 func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 	title = heading
 	tokens.clear()
+	_board = {"codes": [str((sim.squads[0] as Squad).code), str((sim.squads[1] as Squad).code)],
+			"goals": [sim.goals(0), sim.goals(1)], "behinds": [sim.behinds(0), sim.behinds(1)],
+			"q": sim.current_quarter}
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("%s|%d" % [str((sim.squads[0] as Squad).code), sim.current_minute])
 	for side in range(2):
@@ -147,8 +151,8 @@ static func _eight(palette: Array) -> Array:
 
 
 ## The umpire's kit, in the figures' palette.
-const UMPIRE_GEAR := {"design": "plain", "base": UMPIRE, "pattern": Color(0.66, 0.74, 0.29),
-		"pattern2": Color(0.66, 0.74, 0.29), "shorts": Color(0.1, 0.1, 0.12)}
+const UMPIRE_GEAR := {"design": "plain", "base": UMPIRE, "pattern": Color(0.42, 0.62, 0.05),
+		"pattern2": Color(0.42, 0.62, 0.05), "shorts": Color(0.1, 0.1, 0.12)}
 
 
 ## A material that recolours the figure sheet: up to four kits ({design, base,
@@ -390,73 +394,43 @@ func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 1.0 - fade), true)
 
 
+## The ground (VignetteGround, to the AFL's dimensions) through this scene's camera: the
+## stands and the crowd, the fence, the boundary, the centre square and circles, the arcs
+## and the far goals - all seen in perspective, so they hold their shape as it zooms.
 func _draw_ground() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.07, 0.07, 0.08), true)
-	# Mowing stripes across the ground, the cheapest depth there is.
-	var far := 70.0
-	var y := far
-	var i := 0
-	while y > -_cam_d + 1.0:
-		var next := y - 7.0
-		var a := _project(Vector2(0, y))
-		var c := _project(Vector2(0, maxf(next, -_cam_d + 1.0)))
-		draw_rect(Rect2(0, a.y, size.x, c.y - a.y + 1.0), GRASS[i % 2], true)
-		y = next
-		i += 1
-	# The crowd in the stand beyond the far wing, both clubs' people in it, over the
-	# fence and its boards (blank panels in the clubs' colours).
-	var edge := _project(Vector2(0, far)).y
-	if edge > 0.0:
-		var fence := minf(edge, maxf(6.0, size.y * 0.018) * _zoom)
-		# The stand and the fence zoom with everything else (one fixed texture, scaled up:
-		# it never repaints) and pan with the ground. Above them, the roof's shadow.
-		var stand := size.y * 0.24 * _zoom
-		var across := size.x * _zoom * 1.2          # a margin, so the pan never shows its end
-		var left := _project(Vector2(0.0, far)).x - across * 0.5
-		draw_rect(Rect2(0, 0, size.x, edge), Color(0.05, 0.05, 0.06), true)
-		VignetteCrowd.draw(self, Rect2(left, edge - fence - stand, across, stand), _colours, _t)
-		_draw_boards(Rect2(left, edge - fence, across, fence), 46.0 * _zoom)
-	_draw_markings()
+	var cam := ground_cam()
+	VignetteGround.draw_ground(self, cam, Rect2(Vector2.ZERO, size), _colours, 7, _board)
+	VignetteGround.draw_goals(self, cam, 1, _pad_colour())
+	VignetteGround.draw_goals(self, cam, -1, _pad_colour())
 
 
-## The boundary fence's boards: blank panels alternating the clubs' colours, about
-## panel pixels wide.
-func _draw_boards(r: Rect2, panel := 46.0) -> void:
-	draw_rect(r, Color(0.1, 0.1, 0.11), true)
-	var n := maxi(4, int(roundf(r.size.x / panel)))
-	for i in range(n):
-		var c: Color = (_colours[i % 2] as Array)[0] if not (_colours[i % 2] as Array).is_empty() else Color.DIM_GRAY
-		var x := r.position.x + r.size.x * float(i) / float(n)
-		draw_rect(Rect2(x + 1.0, r.position.y + 1.0, r.size.x / float(n) - 2.0, r.size.y - 2.0), c.darkened(0.25), true)
-		draw_rect(Rect2(x + 1.0, r.position.y + 1.0, r.size.x / float(n) - 2.0, 1.0), Color(1, 1, 1, 0.15), true)
+## This scene's camera, as the ground sees it.
+func ground_cam() -> VignetteGround.Cam:
+	var cam := VignetteGround.Cam.new()
+	cam.pos = Vector2(_cam_x, -_cam_d)
+	cam.height = _cam_h
+	cam.f = _focal
+	cam.cx = size.x * 0.5 - _pan
+	cam.hor = _horizon
+	cam.to_scene = _ground_to_scene()
+	return cam
 
 
-func _draw_markings() -> void:
-	var line := Color(1, 1, 1, 0.75)
-	# The centre square, the circles and the line through them.
-	_ground_poly([Vector2(-25, -25), Vector2(25, -25), Vector2(25, 25), Vector2(-25, 25)], line, true)
-	for r in [3.0, 10.0]:
-		var pts := []
-		for n in range(40):
-			pts.append(Vector2(cos(TAU * n / 40.0), sin(TAU * n / 40.0)) * r)
-		_ground_poly(pts, line, true)
-	_ground_poly([Vector2(-3, 0), Vector2(3, 0)], line, false)
+## Where the scene stands on the ground: oval coordinates to the scene's. The centre
+## bounce is at the centre of the ground, the length running away from the camera.
+func _ground_to_scene() -> Transform2D:
+	return Transform2D.IDENTITY
 
 
-func _ground_poly(pts: Array, colour: Color, closed: bool) -> void:
-	var out := PackedVector2Array()
-	for p in pts:
-		if p.y + _cam_d < 1.0:
-			continue
-		var s := _project(p)
-		out.append(Vector2(s.x, s.y))
-	if closed and out.size() > 2:
-		out.append(out[0])
-	if out.size() > 1:
-		draw_polyline(out, colour, maxf(1.5, 0.12 * _focal / _cam_d), true)
+## The padding round the goal posts: the home club's colour.
+func _pad_colour() -> Color:
+	var c: Array = _colours[0] if not _colours.is_empty() else []
+	return (c[0] as Color) if not c.is_empty() else Color(0.7, 0.7, 0.72)
 
 
 func _draw_figure(at: Vector2, t: Dictionary) -> void:
+	if at.y + _cam_d < 1.2:
+		return               # beside or behind the camera
 	var ump := t.is_empty()
 	var lift := 0.0 if ump else _lift(t)
 	var base := _project(at, lift)
@@ -470,8 +444,10 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# Your players have their backs to us; theirs and the umpire face the camera.
 	var back := not ump and bool(t["mine"])
-	var facing := "back" if back else "front"
 	var pick := _frame(t, lift, at, back)
+	# A move can name its own side (a fourth entry: the kick is only drawn from behind,
+	# three-quarters on).
+	var facing: String = str(pick[3]) if pick.size() > 3 else ("back" if back else "front")
 	var build := _body(t)
 	if not VignetteFigures.has(build, pick[0], facing):
 		build = "average"
@@ -484,7 +460,7 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	var kit := UMPIRE_KIT if ump else int(t["side"])
 	var look: Dictionary = t.get("look", UMPIRE_LOOK)
 	draw_frame(self, Vector2(base.x, base.y), info, frame, k, look_colour(kit, look, mirror), mirror,
-			number_colour(kit, int(t["num"]), 1.0, mirror) if back and m > 18.0 else Color(0, 0, 0, 0))
+			number_colour(kit, int(t["num"]), 1.0, mirror) if facing.begins_with("back") and m > 18.0 else Color(0, 0, 0, 0))
 
 
 ## Draws frame f of a strip with its feet at feet, k screen pixels per frame pixel,
