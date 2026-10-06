@@ -29,6 +29,8 @@ way.
 - Changing the seed after `reset()` does not rebuild a draft class that `reset()`
   has already made. #383 makes `start_season` remake the first class from your
   seed; until it is on main, set the seeds before the first class is read.
+- `run_audit.gd` seeds the global RNG (`AUDIT_SEED`, default 2026), so `reset()`'s
+  seed repeats run to run (#428).
 - Never use the clock as a seed. A test or audit that does is flaky by design.
 - Paired runs only pair if every run in both arms sets both seeds. Check this
   before reading a difference: the same seed in two runs should print the same
