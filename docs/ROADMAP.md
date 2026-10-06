@@ -571,6 +571,8 @@ Do not tune purely until one screenshot "looks right".
 
 ### Scoring feedback reflects the managed team — PC playtest request (2026-10-07)
 
+- **Director clarification:** this request specifically requires **visual feedback**: positive/celebratory for the managed club's goals, negative/conceded-goal for opposition goals, neutral for either side's behinds. Sound effects are not required by this request; audio alone would not satisfy it. The distinction must be visible in the UI.
+
 - Give goals scored by the user's team happy/successful visual feedback, and goals scored by the opposition contrasting negative/conceded-goal feedback. Behinds remain visually neutral for **both** sides. The current event feed's team-coloured/white accents do not adequately communicate that emotional distinction. Use clear, readable event styling and suitable restrained visual cues; distinguish success/concession through labels or icons as well as colour. Determine perspective from the managed team, not home/away, feed position or guernsey colour, including custom clubs. Preserve scorer, club, time and score readability. Verify both team perspectives and scoring types in the exported PC build; avoid excessive animation and respect reduced-motion settings where supported. Roadmap comment only; Claude to implement, no scoring mechanics changed.
 
 
