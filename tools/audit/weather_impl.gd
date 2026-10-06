@@ -24,6 +24,10 @@ func run() -> void:
 			drafts.append(int(s))
 	var sums := {}
 	var n := 0
+	# WX_HOME_PLAN: the home side plays this plan in every match, for the plan
+	# by condition matrix (compare its home margins with a run without it).
+	var plan := OS.get_environment("WX_HOME_PLAN")
+	var margin := {}
 	for c in Weather.CONDITIONS:
 		sums[c] = {}
 	for d in drafts:
@@ -35,8 +39,12 @@ func run() -> void:
 				mi += 1
 				var match_seed := int(d) * 100000 + ri * 100 + mi
 				for c in Weather.CONDITIONS:
-					var res := season.match_sim(str(m["home"]), str(m["away"]), match_seed,
-							[true, false], false, c).run()
+					var sim := season.match_sim(str(m["home"]), str(m["away"]), match_seed,
+							[true, false], false, c)
+					if plan != "":
+						sim.set_tactics(0, {"gameplan": plan})
+					var res := sim.run()
+					margin[c] = float(margin.get(c, 0.0)) + float(res["score"][0]) - float(res["score"][1])
 					for side in range(2):
 						var t: Dictionary = res["team"][side]
 						var row: Dictionary = sums[c]
@@ -63,4 +71,8 @@ func run() -> void:
 		var b2 := float((sums[c] as Dictionary).get("behinds", 0.0))
 		acc += "%12s" % ("%.1f%%" % (100.0 * g / maxf(1.0, g + b2)))
 	print(acc)
+	var mg := "%-16s" % ("home margin" + ("" if plan == "" else " (" + plan + ")"))
+	for c in Weather.CONDITIONS:
+		mg += "%12s" % ("%+.2f" % (float(margin.get(c, 0.0)) / float(maxi(1, n / 2))))
+	print(mg)
 	print("evidence (wet vs dry): ", TARGET["wet"], "; accuracy -1 to -2 points; windy (20 km/h+) about -5 points a game combined.")

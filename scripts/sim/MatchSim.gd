@@ -174,8 +174,8 @@ var weather := "perfect":
 		weather = v if WEATHER_RATES.has(v) or v == "perfect" else "perfect"
 		_rates_cache = {}
 const WEATHER_RATES := {
-	"wet": {"mark_share_of_kicks": 0.87, "pressure_base": 1.12, "clanger_per_chain": 1.10,
-			"stoppage_share": 1.08, "metres_gain_mean": 0.96, "inside50_goal": 0.965},
+	"wet": {"mark_share_of_kicks": 0.87, "pressure_base": 1.15, "clanger_per_chain": 1.10,
+			"stoppage_share": 1.08, "inside50_goal": 0.97, "one_percenter_share": 1.2},
 	"windy": {"mark_share_of_kicks": 0.92, "clanger_per_chain": 1.06,
 			"metres_gain_mean": 1.03},
 	"hot": {"pressure_base": 0.97, "stoppage_share": 0.95, "metres_gain_mean": 1.03},
@@ -186,7 +186,7 @@ const WEATHER_RATES := {
 ## quarter, so it helps one side in the first and third, the other in the
 ## second and fourth; which one starts with it comes from the match seed.
 const BREEZE_WITH := 1.04
-const BREEZE_AGAINST := 0.86
+const BREEZE_AGAINST := 0.89
 var breeze_side := 0
 
 
