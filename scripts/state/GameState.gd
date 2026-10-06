@@ -2420,7 +2420,7 @@ func my_next_opponent() -> Dictionary:
 	var round_matches: Array = season.fixture[season.round_index]
 	for m in round_matches:
 		if m["home"] == my_club or m["away"] == my_club:
-			var home := m["home"] == my_club
+			var home: bool = m["home"] == my_club
 			return {"code": m["away"] if home else m["home"], "venue": "home" if home else "away",
 					"weather": season.weather_for(str(m["home"]), str(m["away"]), season.round_index)}
 	return {}
