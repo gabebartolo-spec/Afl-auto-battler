@@ -3,6 +3,9 @@ extends Node
 ## canvas onto a portrait phone. Rotation changes the layout, not the text size.
 
 var _updating := false
+## The desktop canvas the UI is laid out for (project.godot's viewport). A
+## bigger window or screen shows the game bigger, not emptier (STYLE-07).
+const DESKTOP_REF := Vector2(1280, 720)
 
 
 ## The game's name as players see it. The project keeps its original
@@ -12,6 +15,7 @@ const TITLE := "Aussie Rules Dynasties"
 
 
 func _ready() -> void:
+	_fit_first_window()
 	get_window().size_changed.connect(_update_scale)
 	_update_scale()
 	if DisplayServer.get_name() != "headless":
@@ -29,7 +33,8 @@ func _update_scale() -> void:
 		return
 	var density := 1.0
 	if DisplayServer.get_name() != "headless":
-		density = maxf(1.0, DisplayServer.screen_get_scale())
+		density = desktop_density(pixels, DisplayServer.screen_get_scale(),
+				DisplayServer.screen_get_dpi() if OS.get_name() == "Windows" else 0)
 	if OS.has_feature("web"):
 		# The web canvas is sized in physical pixels by Godot's HTML shell.
 		var ratio = JavaScriptBridge.eval("window.devicePixelRatio || 1")
@@ -44,6 +49,37 @@ func _update_scale() -> void:
 	if window.content_scale_size != logical:
 		window.content_scale_size = logical
 	_updating = false
+
+
+## Godot opens its window at the project's 1280 x 720 in physical pixels:
+## on a scaled Windows display (300% on a 4K screen) that is a third of the
+## screen. Open it at the OS's size instead - scaled by its DPI, at most 90%
+## of the screen, centred - as a native window would be.
+func _fit_first_window() -> void:
+	if DisplayServer.get_name() == "headless" or OS.get_name() != "Windows":
+		return
+	if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED:
+		return
+	var os_density := float(DisplayServer.screen_get_dpi()) / 96.0
+	if os_density <= 1.05:
+		return
+	var screen := DisplayServer.screen_get_usable_rect()
+	var want := Vector2(get_window().size) * os_density
+	var room := Vector2(screen.size) * 0.9
+	var fit := minf(1.0, minf(room.x / want.x, room.y / want.y))
+	var size := Vector2i(want * fit)
+	get_window().size = size
+	get_window().position = screen.position + (screen.size - size) / 2
+
+
+## Desktop density: the larger of the OS's own scaling (Windows reports it
+## only as DPI - screen_get_scale is 1 there - so a 4K screen at 300% read as
+## 1 and drew 15-unit text at 15 physical pixels) and the fit that keeps the
+## canvas no bigger than DESKTOP_REF. Never both multiplied.
+static func desktop_density(pixels: Vector2, os_scale: float, dpi: int) -> float:
+	var os_density := maxf(os_scale, float(dpi) / 96.0 if dpi > 0 else 1.0)
+	var fit := minf(pixels.x / DESKTOP_REF.x, pixels.y / DESKTOP_REF.y)
+	return maxf(1.0, maxf(os_density, fit))
 
 
 ## Insets in UI units, for notches and gesture/home-indicator areas. The OS
