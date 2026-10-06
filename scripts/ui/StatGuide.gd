@@ -10,7 +10,7 @@ const STATS := {
 	"disposal": [
 		"Wins the ball in general play and lifts your midfield's contest.",
 		"Disposals per game, plus contested possessions and clearances.",
-		"Decides who gets the ball between the arcs (midfielders, rucks and defenders are picked in proportion to disposal, squared). Your midfield's average is a fair part of team Contest.",
+		"Decides who gets the ball between the arcs (midfielders, rucks and defenders are picked in proportion to disposal, squared). Your midfield's average is a good part of team Contest.",
 		"Midfielders first; rebounding defenders.",
 	],
 	"contested": [
@@ -70,13 +70,13 @@ const STATS := {
 	"discipline": [
 		"Avoids clangers and free kicks against. Higher is cleaner.",
 		"Clangers and free kicks against per game, inverted (fewer = higher).",
-		"A low-discipline player is far more likely to be the one who gives away a clanger, and some clangers become free kicks and turnovers. The team average is a smaller part of Defence.",
+		"A low-discipline player is far more likely to be the one who gives away a clanger, and some clangers become free kicks and turnovers. The team average is a small part of Defence.",
 		"Everyone; midfielders handle the ball most.",
 	],
 	"durability": [
 		"Stays on the park: fewer injuries.",
 		"Games played and time on ground.",
-		"Every player who takes the field risks an injury; a durable player is injured about half as often as an average one, and a fragile one noticeably more. Injured players miss anything from a week to a full season. It is also a small part of the overall rating.",
+		"Every player who takes the field risks an injury; a durable player is injured about half as often as an average one, and a fragile one noticeably more. Injured players miss anything from a week to most of a season. It is also a small part of the overall rating.",
 		"Everyone - your stars most of all.",
 	],
 	"star": [
