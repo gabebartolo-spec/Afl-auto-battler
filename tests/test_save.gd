@@ -100,6 +100,16 @@ func _test_training_survives() -> void:
 		if str(sp["id"]) == id:
 			in_season = sp
 	_check(is_same(in_season, q), "The trained player is one shared dict after loading")
+	# A look chosen in Club Forge is part of the player and comes back as set.
+	var look := {"skin": 4, "hair": 0, "hair_style": "mullet", "beard": "full_beard", "headband": true,
+			"tattoos": [{"place": "calf_l", "design": "design_3"}], "freckles": 1}
+	GameState.list_player(id)["look"] = look.duplicate(true)
+	GameState.save_career()
+	GameState.load_career()
+	var full := GameDB.player_appearance(GameState.list_player(id))
+	_check(full["hair_style"] == "mullet" and full["beard"] == "full_beard" and bool(full["headband"])
+			and int(full["skin"]) == 4 and (full["tattoos"] as Array).size() == 1 and int(full["freckles"]) == 1,
+			"A chosen look survives a reload")
 
 
 ## The director's named-player corrections (Ratings.ATTR_ADJUSTMENTS) are in the
