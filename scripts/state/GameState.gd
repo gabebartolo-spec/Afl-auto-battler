@@ -2048,6 +2048,9 @@ func milestone_notes() -> Array:
 const BANNER_FINALS := {"WC": "wildcard", "QF": "qualifying", "EF": "elimination",
 		"SF": "semi", "PF": "preliminary", "GF": "grand"}
 const BANNER_MILESTONES := [50, 100, 150, 200, 250, 300, 350]
+## Games for one club that its banner honours (FL-002), when they aren't
+## also a career milestone: a player who came from another club.
+const BANNER_CLUB_MILESTONES := [100, 150, 200, 250, 300]
 
 
 func banner_context(match: Dictionary) -> Dictionary:
@@ -2151,40 +2154,61 @@ func _banner_milestone(code: String, farewell_ok: bool) -> Dictionary:
 	var sq: Squad = my_squad() if code == my_club else Squad.new(GameDB.club_name(code), season.lists[code], true, code)
 	var best := {}
 	var best_games := -1
+	var club := {}
+	var club_games := -1
 	var farewell := {}
 	for p in sq.ground + sq.bench:
-		var surname := str(GameDB.player_display_name(p)).split(" ")[-1]
+		var name := str(GameDB.player_display_name(p))
+		var surname := name.split(" ")[-1]
 		var played := games_played(p)
 		var next := played + 1
 		if Career.complete(p) and (BANNER_MILESTONES.has(next) or played == 0) and next > best_games:
-			best = {"player": surname, "games": next}
+			best = {"player": surname, "name": name, "games": next}
 			best_games = next
-		elif farewell_ok and farewell.is_empty() and retiring_now(p):
-			farewell = {"player": surname, "games": "farewell"}
-	return best if not best.is_empty() else farewell
+		elif Career.complete(p):
+			var here := int(club_tally(p, code)["games"]) + 1
+			if BANNER_CLUB_MILESTONES.has(here) and here > club_games:
+				club = {"player": surname, "name": name, "games": here, "club": true}
+				club_games = here
+		if farewell_ok and farewell.is_empty() and retiring_now(p):
+			farewell = {"player": surname, "name": name, "games": "farewell"}
+	if not best.is_empty():
+		return best
+	return club if not club.is_empty() else farewell
 
 
 ## What he has done for your club: {"games", "goals", "since", "bf": [years],
 ## "flags": [years]}. Games and goals count every spell at the club, this
 ## season included; "since" is when his current spell began.
+## His games and goals for one club, every spell, this season included:
+## {"games", "goals", "spells": [[from, to], ...]}.
+func club_tally(p: Dictionary, code: String) -> Dictionary:
+	var out := {"games": 0, "goals": 0, "spells": []}
+	var c := Career.of(p)
+	for st in c.get("stints", []):
+		if str(st[0]) == code:
+			out["games"] = int(out["games"]) + int(st[3])
+			out["goals"] = int(out["goals"]) + int(st[4])
+			(out["spells"] as Array).append([int(st[1]), int(st[2])])
+	var t: Dictionary = season_tally.get(str(p.get("id", "")), {})
+	if int(c.get("through", 0)) < season_year and str(t.get("club", "")) == code:
+		out["games"] = int(out["games"]) + int(t.get("games", 0))
+		out["goals"] = int(out["goals"]) + int(t.get("goals", 0))
+		var sp: Array = out["spells"]
+		if sp.is_empty() or int(sp[-1][1]) < season_year - 1:
+			sp.append([season_year, season_year])
+	return out
+
+
 func with_us(p: Dictionary) -> Dictionary:
 	var out := {"games": 0, "goals": 0, "since": 0, "bf": [], "flags": []}
 	if my_club == "":
 		return out
 	var id := str(p.get("id", ""))
-	var c := Career.of(p)
-	var spells := []
-	for st in c.get("stints", []):
-		if str(st[0]) == my_club:
-			out["games"] = int(out["games"]) + int(st[3])
-			out["goals"] = int(out["goals"]) + int(st[4])
-			spells.append([int(st[1]), int(st[2])])
-	var t: Dictionary = season_tally.get(id, {})
-	if int(c.get("through", 0)) < season_year and str(t.get("club", "")) == my_club:
-		out["games"] = int(out["games"]) + int(t.get("games", 0))
-		out["goals"] = int(out["goals"]) + int(t.get("goals", 0))
-		if spells.is_empty() or int(spells[-1][1]) < season_year - 1:
-			spells.append([season_year, season_year])
+	var tally := club_tally(p, my_club)
+	out["games"] = tally["games"]
+	out["goals"] = tally["goals"]
+	var spells: Array = tally["spells"]
 	if not spells.is_empty():
 		out["since"] = int(spells[-1][0])
 	for entry in honour_roll:
@@ -2423,6 +2447,19 @@ func list_player(player_id: String) -> Dictionary:
 		if str(p.get("id", "")) == player_id:
 			return p
 	return {}
+
+
+## FL-005: change or remove one of your players' nicknames (cosmetic only, no
+## cost). "" removes it; it stays removed. Returns the nickname now shown.
+const NICKNAME_MAX := 16
+
+
+func set_player_nickname(player_id: String, text: String) -> String:
+	var p := list_player(player_id)
+	if p.is_empty():
+		return ""
+	p["nickname"] = text.strip_edges().left(NICKNAME_MAX)
+	return FictionalIdentity.nickname(p)
 
 
 func train_stat_label(key: String) -> String:

@@ -6,6 +6,9 @@ extends SceneTree
 ## Writes <out>_sheet.png: warm-up, final instructions and the banner on a phone.
 ## --film: also writes <out>_film_NNN.png, the whole scene at 12 frames a second (the
 ## run through the banner included), for checking motion.
+## --milestone N: the banner for a player's Nth game (FL-002; 200 is the director's
+## line), --club: games for this club rather than his career; --opp CODE: the
+## opponent (Essendon by default, whose ANZAC banner outranks any milestone).
 
 const W := 390
 const H := 844
@@ -24,9 +27,15 @@ func _run() -> void:
 	var out := "/tmp/prematch"
 	var a := OS.get_cmdline_user_args()
 	var film := a.has("--film")
+	var ms_games := 0
+	var opp_arg := "ESS"
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
+		if str(a[i]) == "--milestone":
+			ms_games = int(a[i + 1])
+		if str(a[i]) == "--opp":
+			opp_arg = str(a[i + 1])
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
@@ -37,13 +46,18 @@ func _run() -> void:
 	state.start_season("COL", db.club_list("COL"))
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
-	var opp := "ESS"
+	var opp := opp_arg
 	# Everyone named, as the game passes them: the 18 and the interchange.
 	var opp_squad = load("res://scripts/sim/Squad.gd").new(opp, state.season.lists[opp], false, opp)
 	var opp_ground: Array = opp_squad.ground + opp_squad.bench
+	var ctx := {}
+	if ms_games > 0:
+		var p: Dictionary = state.my_squad().ground[0]
+		ctx["milestone"] = {"games": ms_games, "player": str(p.get("last", "")),
+				"name": db.player_display_name(p), "club": a.has("--club")}
 	var vig = load("res://scripts/ui/match/PreMatchVignette.gd").open(root, "COL", opp,
 			state.my_squad().ground + state.my_squad().bench, opp_ground,
-			"Round 1  ·  Collingwood v Essendon")
+			"Round 1  ·  Collingwood v %s" % db.club_name(opp), false, ctx)
 	vig.set_process(false)
 	var shots := []
 	for beat in BEATS:

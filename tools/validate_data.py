@@ -26,6 +26,7 @@ import collections
 import csv
 import json
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -130,6 +131,36 @@ def check_identity_rules() -> list[str]:
     return problems
 
 
+def check_fictional_identity() -> list[str]:
+    """data/fictional_identity.json (FL-005): cosmetic nicknames for the
+    fictional surnames and harmless interests. Every surname key is one the
+    game generates, nicknames are short single words, interests are lower-case
+    phrases with no full stop (the profile adds it), and the shares are 0-1."""
+    problems: list[str] = []
+    path = os.path.join(ROOT, "data", "fictional_identity.json")
+    with open(path, encoding="utf-8") as f:
+        d = json.load(f)
+    with open(os.path.join(ROOT, "scripts", "core", "GameDB.gd"), encoding="utf-8") as f:
+        gd = f.read()
+    block = gd[gd.index("const FICTIONAL_LAST_NAMES"):]
+    block = block[:block.index("]")]
+    surnames = set(re.findall(r'"([^"]+)"', block))
+    for last, opts in d["nicknames"].items():
+        if last not in surnames:
+            problems.append(f"fictional identity: {last} is not a fictional surname")
+        for n in opts:
+            if not (2 <= len(n) <= 16) or " " in n:
+                problems.append(f"fictional identity: nickname {n!r} for {last} is not one short word")
+    for i in d["interests"]:
+        if i != i.strip() or i.endswith(".") or not i[:1].islower():
+            problems.append(f"fictional identity: interest {i!r} should be a lower-case phrase without a full stop")
+    for k in ("nickname_share", "interest_share"):
+        if not 0 <= float(d[k]) <= 1:
+            problems.append(f"fictional identity: {k} out of range")
+    print(f"  fictional identity: {len(d['nicknames'])} surnames with a nickname, {len(d['interests'])} interests")
+    return problems
+
+
 def check_bio() -> list[str]:
     """Heights, birth dates and debuts in the enriched CSV fit a 2026 list."""
     problems: list[str] = []
@@ -200,6 +231,30 @@ def check_afl_ladders() -> list[str]:
 # GameDB.GUERNSEY_DESIGNS, without the coach's suit and the Tasmania map.
 DESIGNS = {"plain", "stripes", "hoops", "sash", "yoke", "band", "chevrons", "panels",
            "chevron", "sides", "tiers", "shoulders"}
+
+
+def check_player_origin() -> list[str]:
+    """data/player_origin_2026.csv (tools/build_player_origin.py): one row per
+    player in data/players_2026.csv, each state a known one or blank, a source
+    wherever a state is set. Coverage is printed."""
+    problems: list[str] = []
+    states = {"VIC", "SA", "WA", "NSW", "QLD", "TAS", "NT", "ACT", "INT", ""}
+    with open(os.path.join(ROOT, "data", "player_origin_2026.csv"), encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    with open(os.path.join(ROOT, "data", "players_2026.csv"), encoding="utf-8", newline="") as f:
+        players = {(r["club"], r["num"]) for r in csv.DictReader(f)}
+    seen = {(r["club"], r["num"]) for r in rows}
+    if seen != players:
+        problems.append(f"player origin: {len(players - seen)} players missing, {len(seen - players)} not on a list")
+    for r in rows:
+        who = f"{r['club']} {r['num']} {r['first']} {r['last']}"
+        if r["state"] not in states:
+            problems.append(f"player origin {who}: state {r['state']!r} is not one of VIC SA WA NSW QLD TAS NT ACT INT or blank")
+        if r["state"] and not r["source"]:
+            problems.append(f"player origin {who}: a state with no source")
+    have = sum(1 for r in rows if r["state"])
+    print(f"  player origin: {have} of {len(rows)} players have a state ({100 * have // max(1, len(rows))}%)")
+    return problems
 
 
 def check_trade_volume() -> list[str]:
@@ -406,9 +461,11 @@ def main() -> int:
     problems.extend(check_role_rates())
     problems.extend(check_team_rates())
     problems.extend(check_trade_volume())
+    problems.extend(check_player_origin())
     problems.extend(check_forge_locations())
     problems.extend(check_identity_rules())
     problems.extend(check_bio())
+    problems.extend(check_fictional_identity())
 
     if problems:
         print(f"\n{len(problems)} problem(s) found:")
