@@ -4888,6 +4888,7 @@ Final pass:
 
 ## ARD-M8-007 — Cinematic tactical vignettes
 **Status:** `VERIFY` — the prototype/broadcast-vignette foundation is merged (#153); phone playtest still decides tactical-library expansion. Necessary new flavour scenes are separately authorised in FL-007 (§9.3).  
+**Progress (2026-10-06, anti-aliasing):** per-draw anti-aliasing on the pitch (#472) and project-wide 2D MSAA 2x plus anti-aliased vignette lines (#478), director-approved; texture filtering and mipmaps passed to the art agent (`docs/research/PERF_BASELINE.md` has the import inventory and the GPU cost).  
 **Priority:** `P3`  
 **Autonomy:** `SUPERVISED`
 
