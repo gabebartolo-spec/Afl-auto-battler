@@ -563,6 +563,11 @@ Do not tune purely until one screenshot "looks right".
 
 ## 1.11 Current playtest gate — match flow and decision clarity
 
+### Snap-for-goal vignette: floating football — PC playtest bug (2026-10-07)
+
+- The director reports that the player is not actually holding the football in the snap-for-goal vignette: it hovers near his hands. Fix visible hand-to-ball contact throughout the held phase, then make the release into the snap animation coherent. Investigate the actual animation/attachment alignment rather than assuming the cause; check applicable player appearances, poses and camera angles so a single frame offset does not merely hide the problem. Verify the exported PC build in motion, not only a still image. Preserve the shot outcome and timing mechanics. Roadmap comment for Claude; no game code changed here.
+
+
 ### PC playtest context and coaching controls — director comments (2026-10-07)
 
 - **Missing Normal rotations description — additional PC screenshot (2026-10-07):** selecting Normal shows no policy explanation. “Your midfield is fresh; theirs is fresh” is a current-condition report, not an explanation of the selected rotation policy. Give every rotation option, including the default Normal/Balanced option, a persistent brief description of actual rotation behaviour and workload/fatigue tradeoffs. Keep condition reporting visually distinct from policy descriptions. Audit all coaching selectors for this same omission of default/neutral descriptions (also reported for Composed pep talk); verify switching between choices always updates and displays the correct explanation. Roadmap only; Claude to implement.
