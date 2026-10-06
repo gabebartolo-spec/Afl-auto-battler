@@ -3459,7 +3459,7 @@ func _offer_set_shot(side: int, p_fp: float, shooter: Dictionary, defender, band
 			"goal": pass_p * mate_goal, "pass": pass_p, "mate_goal": mate_goal,
 			"mate_id": str(mate["id"])})
 	options.append({"key": "bomb", "label": "Bomb it to the goal square",
-		"detail": "Now and then it falls for a goal; more often a behind or they rebound it.",
+		"detail": "Into the pack: a forward might mark it or a crumber snap it, but more often the defence clears it.",
 		"goal": bomb_goal, "behind": 0.30})
 	_fire({"kind": "set_shot", "default": 0, "player_id": str(shooter["id"]),
 		"defender_id": "" if defender == null else str(defender["id"]), "fp": p_fp,
