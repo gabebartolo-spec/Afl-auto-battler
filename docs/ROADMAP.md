@@ -3905,7 +3905,6 @@ Player-facing choices should stay concise:
 - **facial hair** from a dedicated beard/moustache library,
 - **facial-hair colour** independently selectable from hair colour,
 - **skin tone**,
-- **freckles: None / Light / Heavy**,
 - **subtle scars: None / Light / Moderate**,
 - **boots** with a small set of silhouettes/colour treatments (black, white and restrained club-colour accents),
 - **sock height: Tall socks / Short socks**,
@@ -4138,7 +4137,6 @@ Appearance customisation should include:
 - **Facial hair** from a dedicated beard/moustache library,
 - **Facial-hair colour**, independently selectable,
 - **Skin tone**,
-- **Freckles None / Light / Heavy**,
 - **Scars None / Light / Moderate**, kept subtle and believable,
 - **Boots** with a compact set of silhouettes and colour treatments,
 - **Tall socks / Short socks**,
@@ -5435,6 +5433,7 @@ Prefer improving the existing experience when that answers the same need. This p
 **Status (2026-10-06):** first slice done, in the FL-001 PR. The two approved lines that have a truthful trigger today: on a final (the fixture label says so; no round does) the pre-match scene opens with "Finals footy. Here we go." instead of "Warming up", and the run-out caption is "Through the banner". Outstanding, and waiting on the director's copy review before anyone writes it: every other surface (reports, banners, clubroom notices, headlines). Nothing else in FL-001 is built. Review sheet for the director: [AFL_FLAVOUR_FL001_COPY_REVIEW.md](research/AFL_FLAVOUR_FL001_COPY_REVIEW.md). It recommends treating FL-001 as complete after slice 1 unless you want specific rewrites.
 
 ### FL-002 — Personal milestone banners
+**Director copy decisions (2026-10-06):** the approved 200-career-game line is **“200 games. Take a bow, {display_name}.”** Use the displayed real/fictive name and the authoritative milestone convention. Removed from the flavour samples: the first-goal headline, vague defender headline and tape notice. Do not restore those rejected lines; a defender headline under FL-006 must name the actual supported achievement. Pre-match banners may recognise only facts already known before the match, never predict goals or future events. Existing factual post-match milestone reports remain valid. See [updated writing samples](research/AFL_FLAVOUR_WRITING_SAMPLES.md).
 **Scope:** use the existing pre-match banner to honour the selected player's genuine achievement, name and club. Distinguish senior-career and club-tenure counts. Use the ordinary club banner when history is insufficient.
 **Dependencies:** M7-003 authoritative milestone facts, actual selection and the shared pre-match renderer.
 **Exclusions:** banner crafting, extra loading phases, fabricated firsts or a second milestone calculation.
@@ -5851,6 +5850,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Freckles removed from the player look (director, 2026-10-06, relayed by the lead): unnecessary detail. The Club Forge look specification no longer lists them; the 2026-10-05 entry below is history.
 
 - **2026-10-06:** ARD-M5-001 is DONE (#331, 18 + 5, All-Australian 23, dual ruck); match-day wording in the roadmap follows 18 plus five (best side, 23), with dated evidence left as it was.
 
