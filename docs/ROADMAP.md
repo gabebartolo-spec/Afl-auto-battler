@@ -3903,7 +3903,7 @@ A lightweight **Follow / Watch** affordance is preferred over extra bespoke dash
 ---
 
 ## ARD-M7-009 — Expansion clubs, Canberra toggle & Club Forge
-**Status:** `TODO`  
+**Status:** `PARTIAL` — groundwork merged: the full player look (#305) and the location library, `data/forge_locations.json` with 53 researched places and a `tools/validate_data.py` check (#304). Colour tags are empty for 25 places and pattern tags for all (not guessed; research pass pending); nothing in the game reads the library yet. _(2026-10-06)_  
 **Priority:** `P2`  
 **Autonomy:** `SUPERVISED`
 
