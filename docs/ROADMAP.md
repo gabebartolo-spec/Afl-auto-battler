@@ -5392,6 +5392,16 @@ Relayed by the lead; the director's own wording is the authority if it differs.
 - **21 clubs: the season shape (ARD-M7-009, fair fixture).** Director decision: a 21-club season is 24 rounds, 22 games and two byes a club. (For reference, the existing fixture: 23 games at 18 and 20 clubs, 22 at 19.) The medium agent's fair-fixture work implements this (evidence: [FIXTURE_SIZES_NOTE.md](FIXTURE_SIZES_NOTE.md)).
 
 
+## 2026-10-06 director decisions - flags, clearances, Create a club screen, freckles
+
+From the director's chat with the lead, relayed with the director's words where the lead had them. Evidence: [FLAGS_EVIDENCE_2026-10-06.md](FLAGS_EVIDENCE_2026-10-06.md), [RUCK_MID_DISPOSALS_2026-10-06.md](RUCK_MID_DISPOSALS_2026-10-06.md).
+
+- **Trades at real volume.** Raise the trade period to real AFL volume so that a club which trades well reaches about 3rd to 4th on average. The lead is implementing it.
+- **Synergy selection and development projects must have an impact.** Director: "why do we have these features if they dont have an impact, fix them". Fix both so that using them lifts a club, then measure again with the same harness.
+- **Clearance winner keeps the first disposal** (option 1 of the ruck and midfield disposals evidence). The medium agent is implementing it, with a calibration and finals re-run.
+- **Create a club screen approved.** Director: "looks fantastic, well done". It merges after the Create a player form and the Create a club engine, because it is built on both.
+- **Freckles removed from the player look.** Confirmed in the director's own words: "i alreeady said to delete freckles from the game".
+
 # 9.2 Research candidates — awaiting director selection
 
 The detailed evidence, trade-offs and prototype tests are in [GENRE_ENJOYMENT_RESEARCH.md §7](GENRE_ENJOYMENT_RESEARCH.md#7-research-candidates--awaiting-director-selection).
@@ -5863,6 +5873,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Recorded five more director decisions in §9.1: trades at real volume; synergy selection and development projects must have an impact; the clearance winner keeps the first disposal; the Create a club screen is approved; freckles removed (confirmed in the director's words).
 
 - **2026-10-06:** Freckles removed from the player look (director, 2026-10-06, relayed by the lead): unnecessary detail. The Club Forge look specification no longer lists them; the 2026-10-05 entry below is history.
 
