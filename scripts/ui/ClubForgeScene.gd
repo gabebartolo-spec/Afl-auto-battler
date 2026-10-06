@@ -22,7 +22,7 @@ const HAIR_LABELS := {
 	"bald": "Bald", "buzz": "Buzz cut", "short_crop": "Short crop", "crew": "Crew cut", "side_part": "Side part",
 	"textured_short": "Textured", "messy_medium": "Messy", "swept_back": "Swept back", "mullet": "Mullet",
 	"mullet_long": "Long mullet", "curly_short": "Short curls", "curly_medium": "Curls", "afro": "Afro",
-	"long": "Long", "tied_back": "Tied back",
+	"long": "Long", "tied_back": "Tied back", "dreadlocks": "Dreadlocks",
 }
 const BEARD_LABELS := {
 	"clean": "Clean shaven", "stubble_light": "Light stubble", "stubble_heavy": "Heavy stubble",
