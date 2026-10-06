@@ -150,6 +150,21 @@ static func best_interceptor(ground: Array, minimum := 66.0) -> Dictionary:
 	return candidates[0]
 
 
+## Forwards who can be sent to an opposition loose defender: Defensive
+## forwards first, then by Pressure (the one stat the job runs on).
+static func minder_candidates(ground: Array) -> Array:
+	var out := ground.filter(func(p): return str(p.get("role", "")) == "FWD")
+	out.sort_custom(func(a, b):
+		var da := Traits.has(a, "def_forward")
+		var db := Traits.has(b, "def_forward")
+		if da != db:
+			return da
+		if int(_a(a, "pressure")) != int(_a(b, "pressure")):
+			return _a(a, "pressure") > _a(b, "pressure")
+		return str(a.get("id", "")) < str(b.get("id", "")))
+	return out
+
+
 ## A player in a coach's words for a match-up: "Key defender, 196 cm".
 static func describe(p: Dictionary) -> String:
 	var bits := PackedStringArray([PlayerProfile.player_type(p)])

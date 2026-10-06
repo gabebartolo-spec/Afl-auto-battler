@@ -45,7 +45,15 @@ What that showed, and what the view does about it:
   forwards less) and compresses when defending.
 - **Everyone has an opponent.** Paired slots (FB/FF, BPL/FPL, wing/wing and so
   on) put players in twos. When defending, a player stands goal-side of his
-  opponent, and one half-back plays loose in the hole between ball and goal.
+  opponent, and the loose man plays in the hole between ball and goal.
+- **The match's own calls decide who is on whom.** MatchSim records a
+  timeline (`result["timeline"]`) whenever a side's calls change: its plan, the
+  bursts in force, the tagger and his man, the loose defender, a forward sent
+  to make him accountable, and the named match-ups. Recording draws no dice.
+  The view applies each entry from its event on, so a defender moved at
+  quarter time stands on his new forward from the next bounce, the tagger
+  sticks to his man, and the loose man is the one the coach named. Slot pairs
+  fill in only the players the match never assigned.
 - **Around the ball**, the nearest two defenders press (one on the ball, one
   goal-side) and the nearest two attackers offer options. These roles are
   chosen once per beat, so they don't flick between neighbours.
@@ -61,13 +69,13 @@ What that showed, and what the view does about it:
   that takes 20-40 s in a real game). Play resumes once all but three are
   within 5 m of their spots, capped at 4 s so one straggler cannot stall it.
   Live-play movement is unchanged.
-- **Centre bounces are 6-6-6**, with at most four per side in the square,
+- **Centre ball-ups are 6-6-6**, with at most four per side in the square,
   wingers on the wings and defenders goal-side. Players stand still before
-  the bounce, then there's the ruck contest and the tap.
+  the ball-up, then there's the ruck contest and the tap.
 - **Kick-ins after a behind:** MatchSim restarts from the goal square (the
   logged fp) with the defending side's kick. The view puts that logged kicker
   in the goal square, with the other side set in a three-line zone. Every
-  restart the view stages (centre bounce, kick-in, ball-up) is the one
+  restart the view stages (centre ball-up, kick-in, ball-up) is the one
   MatchSim played, read from the previous logged event.
 - **Ball-ups** come from MatchSim's explicit `ballup` event, logged where play
   stopped. The ball reaches that spot, a pack of three a side plus the rucks
@@ -105,8 +113,8 @@ hands it, and neither writes to the match.
   run on real seconds (1.8 for a goal, 1 for a touch), so they read the same at
   4x and 8x, and `skip_to_end()` clears them.
 
-Tokens carry the player's id and surname. A substitute takes both with the
-slot, which is what the ring and the name follow.
+Tokens carry the player's id and surname. A player who comes on from the
+interchange takes both with the slot, which is what the ring and the name follow.
 
 ## Pace
 
@@ -126,8 +134,8 @@ movement model's clock. A full match takes about 4 to 5 minutes at the default
   - global RNG isolation;
   - appended segments;
   - the PitchView API contract;
-  - rings and names: who is ringed (and who is not), a substitute taking the
-    ring with the slot, a goal naming its scorer, no write to an event.
+  - rings and names: who is ringed (and who is not), a player coming on from the
+    interchange taking the ring with the slot, a goal naming its scorer, no write to an event.
 - `tools/visual/capture_match.gd` renders a contact sheet and a movement-trail
   image for any window of a match. Run it under `xvfb-run`; the header lists
   the options.
