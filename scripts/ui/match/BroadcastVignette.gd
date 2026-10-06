@@ -563,7 +563,7 @@ func _draw_speccy() -> void:
 		else:
 			leap_frame = 2 + int(roundf(clampf((jump_t - 0.08) / 0.4, 0.0, 1.0) * 3.0))
 		if _t > 1.78:
-			leap_frame = 4 if _t < 1.86 else 3                     # bringing it down
+			leap_frame = 4                                         # both hands still on it
 	# Then the ball into his chest, turning a little as he comes down on the pack: arms
 	# folded round it (the gather's last frame). Raised hands mid-way down read as a
 	# man with nothing in them (director: the mark has to be held).
@@ -582,11 +582,12 @@ func _draw_speccy() -> void:
 	var ball := Vector3(held.x, held.y, hands_h)
 	if _t < 1.45:
 		ball = from.lerp(ball, k)
+	var tucking := held_in and _t < SPECCY_HELD + 0.1          # hunched over it, pulling it in
 	if held_in:
-		ball = Vector3(held.x, held.y, lift + 1.2)               # at his chest: hidden by him
+		ball = Vector3(held.x, held.y, lift + (0.85 if tucking else 1.2))   # at his chest: hidden by him
 	_ball3(Vector2(ball.x, ball.y), ball.z)
 	if held_in:
-		_player(m, lift, side, "gather", "back_r", 1 if _t < SPECCY_HELD + 0.1 else 2, num, _look, false, _build)
+		_player(m, lift, side, "gather", "back_r", 1 if tucking else 2, num, _look, false, _build)
 	else:
 		_player(m, lift, side, "leap", "back", leap_frame, num, _look, false, _build)
 
