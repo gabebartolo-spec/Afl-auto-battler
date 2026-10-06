@@ -2290,7 +2290,28 @@ Consolidates existing team form with the requested winning-streak momentum conce
 Goal: make player deployment intuitive, footy-authentic and consequential.
 
 ## ARD-M5-001 — Matchday squad: 18 + 5 interchange
-**Status:** `TODO`  
+**Status:** `IN REVIEW` — implemented on `claude/interchange-five` (2026-10-06); the director has authorised the lead to merge on green.  
+
+**Implementation record (2026-10-06):**
+- **Squad:** `Ratings.INTERCHANGE := 5`, the match-day 23, no substitute role. Auto and AI selection pick 18 + 5, the Team screen has five bench slots, and an older save with four named on the bench keeps them and gets a fifth on match day.
+- **Bench make-up (auto/AI):** a forward, a defender and a midfielder first, then the best of the rest. Without it a midfielder relieved every tired forward, and crumbed goals by forwards fell below real (caught by match_game).
+- **Dual ruck (director):**
+  - Your call: 'One ruck / Dual ruck' on the Team screen, off until chosen, saved across seasons. With it on, your second ruck takes a bench spot.
+  - AI clubs run it by rule: when their spare ruck is within 5 OVR of the bench player he would replace.
+- **All-Australian team:** 23 (director).
+- **Wording:** best 22 becomes best 23 for the selected side, in the game's text and the docs. Dated evidence docs are left alone.
+- **Evidence:** `tools/audit/interchange_impl.gd`, run on GitHub (runs 37395368728 and 37395371529). The same 8 careers × 3 seasons a side, 18+4 (the old bench rules, `RULES=0`) against final 18+5, per team-match:
+  - goals 11.86 → 12.01, disposals 371.1 → 371.4, tackles 63.5 → 63.5, inside 50s 50.1 → 50.2;
+  - interchanges 41.1 → 47.0, players who took part 21.87 → 22.87;
+  - distance per player 13.22 → 12.62 km, injuries 0.80 → 0.84;
+  - in-season OVR rise +3.90 → +3.88, off-season OVR change −3.91 → −3.87.
+  - The fifth player plays and the running is shared; scoring, stats and development hold. No recalibration.
+- **Tests:**
+  - selection 33 (`_test_fifth_interchange`: all five come on and take part, the fifth earns a selected player's XP, a 4-man saved bench fills to 5; `_test_dual_ruck`); roles 23; awards 23.
+  - match_game: the boundary-free and Through-stars samples were widened (16 and 40 matches). They had sat on a one-event or two-SE margin; the medium agent diagnosed it.
+  - Calibration, workload, balance, injuries, pressure, matchday, save and career_ui pass locally.
+
+**Was:** `TODO`  
 **Priority:** `P0`  
 **Autonomy:** `SUPERVISED`
 
@@ -2834,9 +2855,11 @@ Measurement: `tools/workload_probe.gd`; validation record in
 
 ## ARD-M5-016 — Inherited-list career: 2026 National Draft start
 **Status:** `TODO` — explicitly accepted by the director; documentation only in this pass.
-**Priority:** `P1`
+**Priority:** `P0`
 **Autonomy:** `SUPERVISED`
 **Depends on:** §1.11 correctness/phone gate; M1-010's merged chronology; the usable M5-014 National Draft/scouting foundation and M6-004 contract/pick persistence; a verified complete roster/pick manifest. Do not require unrelated parts of those umbrella tickets to be DONE. Full academy/father-son bidding is not a dependency.
+
+**Director priority (2026-10-06):** Still missing on main; promote this to the next major career-start feature priority ahead of unrelated content/presentation expansion. Urgent correctness/save blockers and the already-prioritised five-interchange migration remain ahead; preserve the specific source-data, opening-draft and save prerequisites below without waiting for unrelated umbrella work to finish.
 
 ### Player benefit / smallest useful delivery
 Choose a familiar club with its actual inherited playing group, shape its future through the 2026 National Draft, then play 2027. Preserve the League redraft as a distinct existing option. First build the source manifest and dedicated opening-intake handoff; connect setup and persistence only once those are credible.
@@ -3630,6 +3653,20 @@ Represent appropriate competition traditions such as King's Birthday and other m
 
 Presentation/identity first. Avoid arbitrary gameplay bonuses.
 
+### Director addition — Gather Round
+**Status:** `TODO` — follow-up under this existing marquee-fixture owner; the completed general marquee-game implementation remains DONE.
+
+Add **Gather Round** to the season calendar, fixture identity and match presentation. Represent the round as a shared league event staged at appropriate host venues, rather than simply adding a label to normal home-ground fixtures.
+
+Implementation scope:
+- Inspect the current fixture/event system and source the appropriate round and host venues for supported real starting seasons. Reference: [official AFL Gather Round](https://www.afl.com.au/gather-round) and [AFL host agreement update](https://www.afl.com.au/news/1513707/south-australia-locks-in-gather-round-for-a-further-three-years). South Australia is the current reference; do not hard-code one year's round number, dates or nine-match total into every future season.
+- Assign actual event venues consistently across fixtures, match prep, live matches and relevant vignettes; distinguish nominal home/away designation from the venue actually used. Audit existing home-ground/familiarity handling rather than accidentally giving a relocated team a normal home-venue advantage.
+- Give the round a clear, restrained Gather Round identity in the calendar/Hub, match intro and reports, with host-ground atmosphere through existing art/venue systems. No arbitrary event stat buffs.
+- Preserve valid season totals, opponent scheduling, byes and finals progression. Define a coherent policy for generated future seasons and expansion/odd club counts, including Tasmania, optional Canberra and custom clubs; do not force every club to play simultaneously when the league has an odd number of teams.
+- Persist the event/venue identity through save/reload and use backward-compatible defaults for existing careers.
+
+Acceptance: Gather Round is recognisable and correctly hosted; the user's match and the rest of the league agree on the event round/venues; ordinary fixtures remain intact; no duplicated/missing games or false season-end on a bye. Validate normal and expanded leagues, host/non-host clubs and reloads. Keep any venue/home-advantage simulation change under the existing balance gate (ARD-M7-007).
+
 ---
 
 ## ARD-M7-003 — Player milestones
@@ -3830,8 +3867,15 @@ Do not overpower player/team quality.
 
 ## ARD-M7-008 — Create a custom draft prospect
 **Status:** `TODO`  
-**Priority:** `P2`  
+**Priority:** `P1`  
 **Autonomy:** `SUPERVISED`
+
+### Director first named use case — Alastair McNeil (2026-10-06)
+**Status:** `TODO` — checked main's prospect data and current generation/setup; Alastair McNeil is not present and the custom-prospect feature is not yet implemented.
+
+Include the director's custom **Alastair McNeil** prospect through this feature, with that exact entered name preserved through draft, club moves and career/history screens. Prioritise a minimal functioning named-prospect path rather than waiting for the entire cosmetic library. Use the established custom-prospect generation, one-time hidden POT roll and ordinary National Draft rules; no guaranteed user-club access or special development buffs. Do not substitute the real Lachlan McNeil, fabricate Alastair as a sourced real AFL player, or insert him into official inherited 2026 club lists. Reuse any director-supplied profile details if recorded; where bio/position/appearance choices are unspecified, obtain them through the existing setup choices rather than invent a fixed elite profile.
+
+Ensure the named prospect works in both League-redraft and inherited-list starts, using each mode's proper first National Draft cohort (including the opening 2026 intake for inherited lists). Verify exact-name preservation, single creation, normal AI evaluation and save/resume without duplicate entry.
 
 ### Intent
 Let the player create a self-insert or fictional prospect who enters the normal AFL draft ecosystem, creating a personal long-term story without turning the feature into a cheat-character creator.
@@ -3979,6 +4023,8 @@ It should feel purpose-built rather than like a debug/settings form, while remai
 
 ### Create a club
 Allow one custom club per career in V1.
+
+**Director decision (2026-10-06):** a created club enters with the career and drafts its list in the League Draft like every club. There is no separate concession package.
 
 Player-facing customisation should include, at minimum:
 - club name,
@@ -4169,6 +4215,8 @@ Do not tie beard availability to hairstyle. Hair colour and facial-hair colour s
 
 ### 21-club fixture support
 A created club may take the competition to **21 clubs**.
+
+**Director decision (2026-10-06):** a 21-club season is 24 rounds, 22 games and two byes a club. (For reference, the existing fixture: 23 games at 18 and 20 clubs, 22 at 19.)
 
 - The fixture generator must support odd club counts cleanly.
 - Every club must receive an equal number of home-and-away matches.
@@ -5325,6 +5373,14 @@ Bulls in the midfield line alone after a season, ≥2 / ≥3 / ≥4: all clubs 5
 
 **Weekly selection owner:** keep Weekly selection brief, Ins & Outs and My List → Shape above as one coherent flow. **Dependencies:** true form/workload/availability and current selection/role eligibility. **Smallest scope:** one real selection pressure with a nearby OUT → IN action and full-list access. **Exclusions:** auto-picked best replacements, constant compulsory changes, extra duplicate list screens or invented reserves statistics. **Acceptance:** quiet weeks are quick; each displayed pressure has evidence; eligible options communicate role/trade-offs without choosing for the player; selection changes preserve scroll/context and the valid named side. **Validation:** injured/suspended/returning/omitted players, no-pressure weeks, rapid and slow Android swipes up and down, tap versus drag, Back, portrait widths and save/resume. Extend existing phone tickets, not a second selection redesign.
 
+## 2026-10-06 director decisions - Club Forge entry and 21 clubs
+
+Relayed by the lead; the director's own wording is the authority if it differs.
+
+- **Club Forge: how a created club enters (ARD-M7-009).** A created club enters with the career and drafts its list in the League Draft like every other club. There is no separate concession package. The engine is in PR #340.
+- **21 clubs: the season shape (ARD-M7-009, fair fixture).** Director decision: a 21-club season is 24 rounds, 22 games and two byes a club. (For reference, the existing fixture: 23 games at 18 and 20 clubs, 22 at 19.) The medium agent's fair-fixture work implements this (evidence: [FIXTURE_SIZES_NOTE.md](FIXTURE_SIZES_NOTE.md)).
+
+
 # 9.2 Research candidates — awaiting director selection
 
 The detailed evidence, trade-offs and prototype tests are in [GENRE_ENJOYMENT_RESEARCH.md §7](GENRE_ENJOYMENT_RESEARCH.md#7-research-candidates--awaiting-director-selection).
@@ -5795,6 +5851,12 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-06:** Recorded two director decisions (§9.1 and ARD-M7-009): a created club enters with the career and drafts in the League Draft with no concession package; a 21-club season is 24 rounds, 22 games and two byes a club (for reference, the existing fixture: 23 games at 18 and 20 clubs, 22 at 19).
+
+- **2026-10-06:** Verified inherited 2026-list start and custom prospect are not implemented on main; promoted ARD-M5-016 to P0 and ARD-M7-008 to P1, with Alastair McNeil explicitly required as the first named custom-prospect use case under normal draft/generation rules.
+
+- **2026-10-06:** Added Gather Round as a TODO follow-up under ARD-M7-002, covering hosted fixtures, calendar/match identity, venue consistency, expansion/bye-safe scheduling and persistent event data.
 
 - **2026-10-06:** Required success/failure vignette endings where appropriate, using the authoritative post-choice roll with intermediate outcomes and deterministic reloads; no separate cinematic reroll or artificial result for ceremonies.
 
