@@ -13,6 +13,8 @@ extends SceneTree
 ##   --frames N      frames in the sheet (default 12)    --speed S (default 1)
 ##   --kind K [--nth N] [--lead L]  start L events before the N-th event of kind K
 ##   --nocam         whole oval, no camera (trails are in screen space)
+##   --movie         also write every frame at 30 fps (<out>_f0000.png ...),
+##                   for capture.yml to make <out>.mp4
 
 const W := 900
 const H := 700
@@ -54,12 +56,16 @@ func _run() -> void:
 	res["away"] = away_code
 
 	root.size = Vector2i(W, H)
+	await process_frame
+	# The project stretches canvas items (base 1280x720), so the window's
+	# canvas is not W x H units: fill what is actually visible.
+	var vis: Vector2 = root.get_visible_rect().size
 	var pitch = load("res://scripts/ui/PitchView.gd").new()
 	pitch.position = Vector2.ZERO
-	pitch.size = Vector2(W, H)
+	pitch.size = vis
 	root.add_child(pitch)
 	var overlay = load("res://tools/visual/trail_overlay.gd").new()
-	overlay.size = Vector2(W, H)
+	overlay.size = vis
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(overlay)
 	await process_frame
@@ -90,6 +96,9 @@ func _run() -> void:
 	var every := maxi(1, steps / maxi(1, frames))
 	var out := str(args.get("out", "/tmp/cap"))
 
+	var movie := args.has("movie")
+	var movie_every := maxi(1, int(round((1.0 / 30.0) / dt / float(pitch.speed))))
+	var movie_n := 0
 	var tiles: Array = []
 	var paths := {}       # key -> Array of Vector2
 	var colours := {}
@@ -108,6 +117,16 @@ func _run() -> void:
 			paths["ball"] = []
 			colours["ball"] = Color(1, 1, 1, 1)
 		(paths["ball"] as Array).append(snap["ball"])
+		if movie and s % movie_every == 0:
+			# --movie: every frame of the window at 30 fps, full size, for the
+			# capture workflow to stitch into a clip (the director judges
+			# motion from clips, not sheets).
+			pitch.queue_redraw()
+			await process_frame
+			await process_frame
+			var mf: Image = root.get_viewport().get_texture().get_image()
+			mf.save_png("%s_f%04d.png" % [out, movie_n])
+			movie_n += 1
 		if s % every == 0 and tiles.size() < frames:
 			pitch.queue_redraw()
 			await process_frame
