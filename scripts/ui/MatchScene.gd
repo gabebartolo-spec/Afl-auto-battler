@@ -461,6 +461,13 @@ func _show_coach_box() -> void:
 		sc.name = "BreakScore"
 		sc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(sc)
+		# The full numbers, both clubs, at every break (director's PC
+		# playtest, 2026-10-07): a tap, never a compulsory report.
+		var stats := UiKit.btn("Match stats", UiKit.BODY)
+		stats.name = "BreakStats"
+		stats.custom_minimum_size = Vector2(0, 44)
+		stats.pressed.connect(_show_break_stats)
+		v.add_child(stats)
 		v.add_child(UiKit.spacer(UiKit.GAP))
 		# The quarter just played, by name: what happened, not what is happening.
 		var played := UiKit.section(str({2: "First quarter", 3: "Second quarter",
@@ -481,12 +488,6 @@ func _show_coach_box() -> void:
 				dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				dv.add_child(dl)
 			v.add_child(dv)
-		if q == 3:
-			var report := UiKit.btn("Assistant's report", UiKit.BODY)
-			report.name = "HalfTimeReport"
-			report.custom_minimum_size = Vector2(0, 44)
-			report.pressed.connect(func(): _show_half_time_popup(CoachReport.half_time_report(_res, _my_side)))
-			v.add_child(report)
 	v.add_child(UiKit.spacer(UiKit.GAP))
 	v.add_child(UiKit.section("Your calls" if q == 1 else "Next quarter"))
 
@@ -1074,41 +1075,27 @@ func _roster_side(side: int) -> Array:
 
 
 # ---------------------------------------------------------------------------
-# Half-time assistant coach report
+# Match stats at a break
 # ---------------------------------------------------------------------------
-func _show_half_time_popup(report: Dictionary) -> void:
+## The match so far in full, over the break: team and player stats for both
+## clubs, any quarter on its own. Close (or Back) returns to your calls.
+func _show_break_stats() -> void:
 	_close_report()
-	var box := UiKit.modal_box(self, 640.0, 0.0)
+	var box := UiKit.modal_box(self, 1100.0, 0.0)
 	var overlay: Control = box["overlay"]
-	overlay.name = "AssistantReport"
+	overlay.name = "BreakStatsSheet"
 	_report_overlay = overlay
 	var v: VBoxContainer = box["body"]
-	v.add_theme_constant_override("separation", 6)
-	v.add_child(UiKit.ellipsis("Assistant's report", UiKit.H1, UiKit.TEXT, true))
-	# The report covers the scoreboard: say where the game stands, once.
-	var margin := int(report.get("margin", 0))
-	var where := "Half time, scores level" if margin == 0 else ("Half time, up by %d" % margin
-			if margin > 0 else "Half time, down by %d" % absi(margin))
-	v.add_child(UiKit.lbl(where, UiKit.SMALL, UiKit.MUTED))
-	v.add_child(_report_glance(report))
-	var close := UiKit.btn("Close report", UiKit.NAME, true)
+	v.add_child(UiKit.ellipsis("Match stats", UiKit.H1, UiKit.TEXT, true))
+	var box_score := _quarters_table(true)
+	box_score.name = "BreakBoxScore"
+	v.add_child(box_score)
+	v.add_child(UiKit.spacer(UiKit.GAP))
+	v.add_child(MatchStatsView.new().setup(_res, _my_side, true))
+	var close := UiKit.btn("Back to your calls", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 44)
 	close.pressed.connect(_close_report)
 	box["footer"].add_child(close)
-
-
-## The assistant's report: the match in a few lines, who matters and what
-## to work on. The one report; the numbers behind it are on the Stats tab.
-func _report_glance(report: Dictionary, full_time := false) -> Control:
-	var v := UiKit.vbox(6)
-	v.name = "ReportGlance"
-	var g := CoachReport.glance(report, full_time)
-	_glance_section(v, "Match read", "MatchRead", g["read"])
-	_glance_people(v, "Your best", "ReportBest", g["best"])
-	_glance_people(v, "Needs a lift", "ReportLift", g["lift"])
-	_glance_people(v, "Their best", "ReportDanger", g["danger"])
-	_glance_section(v, "Worth working on" if full_time else "Second-half notes", "ReportNotes", g["notes"])
-	return v
 
 
 func _glance_section(v: VBoxContainer, title: String, node_name: String, lines: Array) -> void:
@@ -1814,8 +1801,8 @@ func _key_stats_view(me: int) -> Control:
 	return v
 
 
-## The Stats tab: quarter by quarter, every team stat, every player of both
-## clubs, and what your calls did.
+## The Stats tab: quarter by quarter, then team and player stats a tab apart
+## (MatchStatsView, the same view as at the breaks), and what your calls did.
 func _ft_stats(v: VBoxContainer) -> void:
 	var box := UiKit.vbox(8)
 	box.name = "MatchStats"
@@ -1823,21 +1810,19 @@ func _ft_stats(v: VBoxContainer) -> void:
 	box.add_child(UiKit.section("Quarter by quarter"))
 	box.add_child(_quarters_table())
 	box.add_child(UiKit.spacer(UiKit.GAP))
-	box.add_child(UiKit.section("Team stats"))
-	box.add_child(_team_stats_table())
-	box.add_child(UiKit.spacer(UiKit.GAP))
-	box.add_child(UiKit.section("Player stats"))
-	box.add_child(PlayerStatsTable.new().setup(_res, _my_side))
+	box.add_child(MatchStatsView.new().setup(_res, _my_side))
 	if _interactive:
 		box.add_child(UiKit.spacer(UiKit.GAP))
 		box.add_child(_calls_view(0))
 
 
-func _quarters_table() -> Control:
+## The box score, quarter by quarter. `live` (a break): only the quarters
+## played, and the total is the score so far.
+func _quarters_table(live := false) -> Control:
 	# Badge plus four quarters plus a full scoreline does not fit a phone
 	# modal. Stack each club there, and keep the wide table for landscape.
 	if UiKit.view_width(self) < 560.0:
-		return _quarters_stacked()
+		return _quarters_stacked(live)
 	var v := UiKit.vbox(3)
 	var home: String = _res["home"]
 	var away: String = _res["away"]
@@ -1846,15 +1831,15 @@ func _quarters_table() -> Control:
 	var qh := UiKit.hbox(4)
 	v.add_child(qh)
 	qh.add_child(_qcell("", 36, UiKit.MUTED, 12))
-	for i in range(qg.size()):
+	for i in range(_played(qg.size(), live)):
 		qh.add_child(_qcell(_period_label(i), 48, UiKit.MUTED, 12))
-	qh.add_child(_qcell("Final", 96, UiKit.MUTED, 12))
+	qh.add_child(_qcell("Score" if live else "Final", 96, UiKit.MUTED, 12))
 	for side in range(2):
 		var code: String = home if side == 0 else away
 		var qr := UiKit.hbox(4)
 		v.add_child(qr)
 		qr.add_child(UiKit.club_badge(code, 12, true, false))
-		for i in range(qg.size()):
+		for i in range(_played(qg.size(), live)):
 			qr.add_child(_qcell("%d.%d" % [int(qg[i][side]), int(qb[i][side])],
 					48, UiKit.TEXT, 12))
 		qr.add_child(_qcell(UiKit.scoreline(int(_res["goals"][side]),
@@ -1862,7 +1847,7 @@ func _quarters_table() -> Control:
 	return v
 
 
-func _quarters_stacked() -> Control:
+func _quarters_stacked(live := false) -> Control:
 	var v := UiKit.vbox(8)
 	var codes := [str(_res["home"]), str(_res["away"])]
 	var qg: Array = _res["q_goals"]
@@ -1875,11 +1860,17 @@ func _quarters_stacked() -> Control:
 				int(_res["behinds"][side])), 15, UiKit.EMPH, true))
 		block.add_child(head)
 		var parts: PackedStringArray = []
-		for i in range(qg.size()):
+		for i in range(_played(qg.size(), live)):
 			parts.append("%s %d.%d" % [_period_label(i), int(qg[i][side]), int(qb[i][side])])
 		block.add_child(UiKit.ellipsis("   ".join(parts), 12, UiKit.MUTED))
 		v.add_child(block)
 	return v
+
+
+## How many quarters the box score shows: all of them at full time, the
+## ones played at a break.
+func _played(n: int, live: bool) -> int:
+	return mini(n, (_res.get("quarter_teams", []) as Array).size()) if live else n
 
 
 func _period_label(i: int) -> String:
@@ -1890,73 +1881,6 @@ func _qcell(text: String, w: int, col: Color, fs: int, bold := false) -> Label:
 	var l := UiKit.line(text, fs, col, bold)
 	l.custom_minimum_size = Vector2(w, 0)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	return l
-
-
-## Pressure leads the comparison: how much each side applied, how well
-## (MatchSim.pressure_rating), and the tackles among it.
-const PRESSURE_ROWS := [
-	["pressure_acts", "Pressure acts"], ["pressure_rating", "Pressure rating"],
-	["tackles", "Tackles"],
-]
-const TEAM_STAT_ROWS := [
-	["disposals", "Disposals"], ["kicks", "Kicks"], ["handballs", "Handballs"],
-	["marks", "Marks"], ["inside50", "Inside 50s"],
-	["rebounds", "Rebound 50s"], ["clearances", "Clearances"],
-	["hitouts", "Hit-outs"], ["hitouts_adv", "Hit-outs to advantage"],
-	["one_percenters", "One percenters"],
-	["frees_for", "Frees for"], ["frees_against", "Frees against"],
-	["clangers", "Clangers"], ["chains", "Possession chains"],
-]
-
-
-func _team_stats_table() -> Control:
-	var v := UiKit.vbox(2)
-	var h0 := UiKit.hbox(4)
-	v.add_child(h0)
-	h0.add_child(_qcell(str(_res["home"]), 44, UiKit.TEXT, 12, true))
-	var gap := UiKit.line("", 12, UiKit.MUTED)
-	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h0.add_child(gap)
-	h0.add_child(_qcell(str(_res["away"]), 44, UiKit.TEXT, 12, true))
-	var t: Array = _res["team"]
-	var pressure := UiKit.vbox(2)
-	pressure.name = "TeamPressure"
-	v.add_child(pressure)
-	for row in PRESSURE_ROWS:
-		var a: int
-		var b: int
-		if str(row[0]) == "pressure_rating":
-			a = MatchSim.pressure_rating(t[0], t[1])
-			b = MatchSim.pressure_rating(t[1], t[0])
-		else:
-			a = int(float(t[0].get(row[0], 0.0)))
-			b = int(float(t[1].get(row[0], 0.0)))
-		pressure.add_child(_team_row(str(row[1]), a, b))
-	v.add_child(UiKit.spacer(6))
-	for row in TEAM_STAT_ROWS:
-		v.add_child(_team_row(str(row[1]), int(float(t[0].get(row[0], 0.0))),
-				int(float(t[1].get(row[0], 0.0)))))
-	return v
-
-
-func _team_row(label: String, a: int, b: int) -> Control:
-	var h := UiKit.hbox(4)
-	# The bigger number in bold: more is not always better (clangers,
-	# frees against), so no good/bad colour here.
-	h.add_child(_qcell(str(a), 44, UiKit.TEXT, 12, a > b))
-	var lab := UiKit.ellipsis(label, 12, UiKit.MUTED)
-	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(lab)
-	h.add_child(_qcell(str(b), 44, UiKit.TEXT, 12, b > a))
-	return h
-
-
-func _lcell(text: String, w: int, col: Color, fs: int, bold := false) -> Label:
-	var l := UiKit.ellipsis(text, fs, col, bold)
-	if w > 0:
-		l.custom_minimum_size = Vector2(w, 0)
 	return l
 
 
