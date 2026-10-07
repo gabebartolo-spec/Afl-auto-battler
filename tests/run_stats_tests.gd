@@ -44,6 +44,7 @@ func _run() -> void:
 	await _intro()
 	await _hub_button()
 	await _awards_early()
+	await _trophies_unplayed()
 	for i in range(4):
 		_state.advance()
 	await _sections()
@@ -1175,8 +1176,26 @@ func _trophies_early() -> void:
 			"The tenure line counts the season in progress (%s)" % (intro.text if intro else "none"))
 	var now: Node = s.find_child("Season_%d" % year, true, false)
 	_check(now != null and _row_text(now).contains("In progress"), "This season is in the table, in progress")
+	_check(now != null and _finish(now) != "", "Mid-season it gives where you sit (%s)" % (_finish(now) if now else "none"))
 	s.queue_free()
 	await _settle()
+
+
+## Before a game this season's row gives no ladder finish: there is no
+## ladder to sit on yet.
+func _trophies_unplayed() -> void:
+	var s := await _open_trophies(Vector2i(390, 844))
+	var now: Node = s.find_child("Season_%d" % _state.season_year, true, false)
+	_check(now != null and _finish(now) == "" and _row_text(now).contains("0-0-0"),
+			"Before a game, this season's row gives no finish (%s)" % (_row_text(now) if now else "none"))
+	s.queue_free()
+	await _settle()
+
+
+## The Finish column of a row in Your seasons.
+func _finish(row: Node) -> String:
+	var cells := row.find_children("*", "Label", true, false)
+	return str((cells[1] as Label).text) if cells.size() > 1 else "?"
 
 
 ## ...and once the season is over (the fixture's finals test plays it out).

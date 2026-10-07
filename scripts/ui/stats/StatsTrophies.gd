@@ -218,7 +218,9 @@ static func _tenure_table(host: Control, seasons: Array, in_progress: bool) -> C
 	var row_h := ROW_H if bool(host.call("wide")) else ROW_H_PHONE
 	var n := 0
 	if in_progress:
-		var r := _tenure_row([str(GameState.season_year), GameState.ordinal(GameState.my_position()),
+		# Where you sit on the ladder, once there is a ladder to sit on.
+		var played: bool = GameState.my_record() != "0-0-0"
+		var r := _tenure_row([str(GameState.season_year), GameState.ordinal(GameState.my_position()) if played else "",
 				GameState.my_record(), "In progress"], false, false, row_h)
 		n += 1
 		r.name = "Season_%d" % GameState.season_year
