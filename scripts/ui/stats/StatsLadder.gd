@@ -14,14 +14,17 @@ const LADDER_WIDE := [["pos", "#", 26], ["club", "Club", 0], ["p", "P", 28], ["w
 		["l", "L", 28], ["d", "D", 26], ["pf", "PF", 46], ["pa", "PA", 46], ["pct", "%", 46],
 		["pts", "Pts", 36], ["home", "Home", 64], ["away", "Away", 64], ["form", "Form", 72]]
 ## Team stats: a per-game value for each, from GameState.season_team (only
-## what is recorded there). {season_team key, title, w}.
-const TEAM_PHONE := [["for", "PF", 31], ["against", "PA", 31], ["disposals", "D", 31],
-		["marks", "MK", 31], ["tackles", "TK", 31], ["inside50", "I50", 31],
-		["clearances", "CL", 31], ["hitouts", "HO", 31]]
-const TEAM_WIDE := [["for", "PF", 48], ["against", "PA", 48], ["disposals", "D", 48],
-		["marks", "MK", 48], ["tackles", "TK", 48], ["inside50", "I50", 48],
-		["clearances", "CL", 48], ["hitouts", "HO", 48], ["rebounds", "R50", 48],
-		["clangers", "CG", 48], ["metres_gained", "MG", 60]]
+## what is recorded there). One list, so a newly recorded stat joins with one
+## line: {season_team key, column title, width on a phone, width on a wide
+## screen, on a phone}.
+const TEAM_STATS := [
+	["for", "PF", 31, 48, true], ["against", "PA", 31, 48, true],
+	["disposals", "D", 31, 48, true], ["marks", "MK", 31, 48, true],
+	["tackles", "TK", 31, 48, true], ["inside50", "I50", 31, 48, true],
+	["clearances", "CL", 31, 48, true], ["hitouts", "HO", 31, 48, true],
+	["rebounds", "R50", 31, 48, false], ["clangers", "CG", 31, 48, false],
+	["metres_gained", "MG", 31, 60, false],
+]
 
 const FILTERS := [["all", "All"], ["top8", "Top 8"], ["near", "Near you"]]
 const VIEWS := [["ladder", "Ladder"], ["team", "Team stats"]]
@@ -66,7 +69,6 @@ static func build(host: Control) -> Control:
 			_sort = ""
 			host.call("refresh"))
 		views.add_child(b)
-	v.add_child(views)
 	var filters := UiKit.hbox(6)
 	filters.name = "Filters"
 	for o in FILTERS:
@@ -80,7 +82,20 @@ static func build(host: Control) -> Control:
 			_filter = key
 			host.call("refresh"))
 		filters.add_child(b)
-	v.add_child(filters)
+	if wide:
+		# One compact row on a wide screen, not two bars across the window.
+		for group in [views, filters]:
+			for b in group.get_children():
+				b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+				b.custom_minimum_size.x = 120
+		var both := UiKit.hbox(28)
+		both.name = "Controls"
+		both.add_child(views)
+		both.add_child(filters)
+		v.add_child(both)
+	else:
+		v.add_child(views)
+		v.add_child(filters)
 
 	var shown := visible_rows(season, GameState.my_club, _filter, _sort, _desc, _view)
 	v.add_child(_status(host, shown.size()))
@@ -104,7 +119,11 @@ static func build(host: Control) -> Control:
 
 static func columns(view: String, wide: bool) -> Array:
 	if view == "team":
-		return [["club", "Club", 0]] + (TEAM_WIDE if wide else TEAM_PHONE)
+		var out := [["club", "Club", 0]]
+		for c in TEAM_STATS:
+			if wide or bool(c[4]):
+				out.append([c[0], c[1], c[3] if wide else c[2]])
+		return out
 	return LADDER_WIDE if wide else LADDER_PHONE
 
 
@@ -143,7 +162,7 @@ static func _status(host: Control, count: int) -> Control:
 
 
 static func _title_of(key: String) -> String:
-	for set in [LADDER_WIDE, TEAM_WIDE]:
+	for set in [LADDER_WIDE, TEAM_STATS]:
 		for c in set:
 			if str(c[0]) == key:
 				return str(c[1])
@@ -288,7 +307,7 @@ static func rows(season: Season) -> Array:
 		var t: Dictionary = GameState.season_team.get(code, {})
 		var games := int(t.get("games", 0))
 		row["games"] = games
-		for c in TEAM_WIDE:
+		for c in TEAM_STATS:
 			var k := str(c[0])
 			row["t_" + k] = (float(t.get(k, 0.0)) / float(games)) if games > 0 else -1.0
 		out.append(row)
