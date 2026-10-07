@@ -1,4 +1,5 @@
 extends SceneTree
+const Tap := preload("res://tests/tap.gd")
 ## godot --headless --path . --script tests/run_roles_tests.gd
 ## Roles (tests/test_roles.gd), then the Selection screen on a phone: the
 ## wings as their own group, a football identity on every row, fit notes
@@ -48,10 +49,19 @@ func _selection_tests() -> void:
 	root.size = Vector2i(420, 860)
 	var ui := await _open()
 	var text := _screen_text(ui)
-	var midfield: Node = ui.find_child("Formation_Midfield", true, false)
-	var midfield_buttons := midfield.find_children("FormationPlayer_*", "Button", true, false) if midfield != null else []
-	_check(midfield != null and midfield_buttons.size() == 6 and text.contains("Wing") and text.contains("Ruck"),
-			"The midfield reads as centre square and wings")
+	# The side on the field: 18 spots in their lines, five on the interchange,
+	# everyone else in the grid (director's PC playtest, 2026-10-07).
+	var spots := ui.find_children("Spot_*", "Button", true, false)
+	var bench_spots := ui.find_children("BenchSpot_*", "Button", true, false)
+	_check(spots.size() == 18 and bench_spots.size() == 5, "The side is on the field: 18 spots and a five-man interchange (%d, %d)" % [spots.size(), bench_spots.size()])
+	_check(ui.find_child("Spot_C", true, false) != null and ui.find_child("Spot_WL", true, false) != null
+			and ui.find_child("Spot_RUCK", true, false) != null and ui.find_child("Spot_FF", true, false) != null,
+			"The midfield reads as centre square and wings, with ruck and full forward placed")
+	var grid: Node = ui.find_child("NotSelected", true, false)
+	_check(grid != null and grid.get_child_count() == _state.my_list.size() - 23,
+			"Everyone not in the 23 is in the grid beside the field")
+	_check(ui.find_child("MySelection", true, false) == null and ui.find_child("AutoPick", true, false) is MenuButton,
+			"One team viewer: no My selection mode, Auto-pick is a dropdown action")
 	# This week, line against line: both sides in the same words, no numbers.
 	var h2h: Node = ui.find_child("HeadToHead", true, false)
 	var digits := RegEx.new()
@@ -116,8 +126,9 @@ func _selection_tests() -> void:
 		await _settle()
 		_state.set_club_plan("balanced")
 	var rows := ui.find_children("RoleLabel", "Label", true, false)
-	var formation_players := ui.find_children("FormationPlayer_*", "Button", true, false)
-	_check(formation_players.size() == 23, "Every picked player appears in the formation (%d)" % formation_players.size())
+	var field: Node = ui.find_child("BuilderField", true, false)
+	var formation_players := field.find_children("*", "Button", true, false).filter(func(b): return b.has_meta("id") and str(b.get_meta("id")) != "") if field != null else []
+	_check(formation_players.size() == 23, "Every picked player appears on the field or the interchange (%d)" % formation_players.size())
 	var rx := RegEx.new()
 	rx.compile("%")
 	var leak := false
@@ -194,49 +205,96 @@ func _selection_tests() -> void:
 	_check(ui.find_child("SelectionHint", true, false) == null and not text.contains("could tag")
 			and not text.contains("coach box"), "Selection surfaces the problem, not the answer")
 
-	# My selection: a Wing button on every row; moving a player there works.
-	var mine: Button = ui.find_child("MySelection", true, false)
-	mine.emit_signal("pressed")
+	# Tap one player, then another: they swap. A real tap, the way a finger
+	# (or a mouse) reaches the card.
+	var side0: Dictionary = _state.current_side()
+	var centre := str(side0["MID"][0])
+	var wing := str(side0["WING"][0])
+	var c_card: Button = ui.find_child("Spot_C", true, false)
+	_check((await Tap.tap(c_card)) == "", "The centre's card takes a tap")
+	await _settle()
+	_check(ui.find_child("PickedBar", true, false) != null, "Picking a player says what happens next")
+	var wl_card: Button = ui.find_child("Spot_WL", true, false)
+	_check((await Tap.tap(wl_card)) == "", "The wing's card takes a tap")
 	await _settle()
 	var sel: Dictionary = _state.my_selection()
-	_check((sel.get("WING", []) as Array).size() == 2, "My selection starts with two wings named")
-	var target := ""
-	for id in sel.get("MID", []):
-		target = str(id)
-		break
-	# The formation card is the position control: tapping one picked player
-	# opens only his existing move row below the formation.
-	_check(ui.find_children("To_*", "Button", true, false).is_empty(), "No move buttons until you ask for them")
-	var player_btn: Button = ui.find_child("FormationPlayer_" + target, true, false)
-	_check(player_btn != null and player_btn.size.y >= 44 and player_btn.tooltip_text == "Move him",
-			"Each formation player is a thumb-sized move target")
-	var sc: ScrollContainer = ui.find_child("SelectionScroll", true, false)
-	sc.scroll_vertical = 300
+	_check(str(sel["MID"][0]) == wing and str(sel["WING"][0]) == centre,
+			"Tapping the centre then a wing swaps them, and the side is yours from then on")
+	_check(_screen_text(ui).contains("swap"), "The screen says what changed")
+	# A grid player comes in for a field player.
+	var out_card: Button = null
+	for c in ui.find_child("NotSelected", true, false).get_children():
+		if c is Button and load("res://scripts/sim/Ratings.gd").available(_state.list_player(str(c.get_meta("id")))):
+			out_card = c
+			break
+	var in_id := str(out_card.get_meta("id")) if out_card != null else ""
+	var ff_id := str(_state.my_selection()["FWD"][0])
+	if out_card != null:
+		out_card.emit_signal("pressed")
+		await _settle()
+		(ui.find_child("Spot_FF", true, false) as Button).emit_signal("pressed")
+		await _settle()
+	sel = _state.my_selection()
+	_check(str(sel["FWD"][0]) == in_id and not _state.current_side()["FWD"].has(ff_id),
+			"A player from the grid comes in for the full forward")
+	# An injured player can't be put in the side.
+	var hurt: Dictionary = {}
+	for p in _state.my_list:
+		if not _state.current_side()["DEF"].has(str(p["id"])) and not _state.current_side()["BENCH"].has(str(p["id"])):
+			hurt = p
+			break
+	hurt["injury_weeks"] = 3
+	ui.queue_free()
 	await _settle()
-	var at: int = sc.scroll_vertical
-	if player_btn != null:
-		player_btn.emit_signal("pressed")
+	ui = await _open()
+	var hurt_card: Button = _card_of(ui, str(hurt["id"]))
+	var fb_before := str(_state.my_selection()["DEF"][0])
+	if hurt_card != null:
+		hurt_card.emit_signal("pressed")
 		await _settle()
-	var move: Node = ui.find_child("Move_" + target, true, false)
-	var to_wing: Button = move.find_child("To_WING", true, false) if move != null else null
-	_check(to_wing != null and to_wing.size.y >= 44, "The formation tap opens his move choices")
-	_check(ui.find_children("Move_*", "Node", true, false).size() == 1, "Only one player's choices are open")
-	var viewport := Rect2(Vector2.ZERO, Vector2(root.size))
-	var off := false
-	for b in ui.find_children("To_*", "Button", true, false):
-		var r: Rect2 = b.get_global_rect()
-		if b.is_visible_in_tree() and (r.position.x < -1.0 or r.end.x > viewport.size.x + 1.0):
-			off = true
-	_check(not off, "The move choices fit a phone row")
-	if to_wing != null:
-		to_wing.emit_signal("pressed")
+		(ui.find_child("Spot_FB", true, false) as Button).emit_signal("pressed")
 		await _settle()
-		sc = ui.find_child("SelectionScroll", true, false)
-		_check((_state.my_selection()["WING"] as Array).has(target), "Moving a player to the wing names him there")
-		_check(_screen_text(ui).contains("3 named"), "An over-full wing group says so")
-		_check(ui.find_children("To_*", "Button", true, false).is_empty(), "The choices close after a move")
-		_check(sc != null and sc.scroll_vertical == at, "A move keeps your place in the list (%d, was %d)" % [
-				sc.scroll_vertical if sc else -1, at])
+	_check(str(_state.my_selection()["DEF"][0]) == fb_before and _screen_text(ui).contains("can't play"),
+			"An injured player can't come into the side, and the screen says why")
+	hurt["injury_weeks"] = 0
+	# Drag one card onto another (a PC): the same swap.
+	var builder: Node = ui.find_child("TeamBuilder", true, false)
+	var a_id := str(_state.my_selection()["DEF"][0])
+	var b_id := str(_state.my_selection()["DEF"][1])
+	builder.call("_swap", a_id, b_id, "")
+	await _settle()
+	_check(str(_state.my_selection()["DEF"][0]) == b_id and str(_state.my_selection()["DEF"][1]) == a_id,
+			"Dropping one player on another swaps them")
+	# Auto-pick strategies set the side; Undo puts yours back.
+	var mine_before: Dictionary = _state.my_selection()
+	ui.call("_apply_strategy", "best")
+	await _settle()
+	_check(_state.my_selection() != mine_before and ui.find_child("UndoPick", true, false) != null,
+			"Auto-pick Best side sets the side, and offers Undo")
+	(ui.find_child("UndoPick", true, false) as Button).emit_signal("pressed")
+	await _settle()
+	_check(_state.my_selection() == mine_before, "Undo puts your side back")
+	for strat in ["rest", "youth"]:
+		ui.call("_apply_strategy", strat)
+		await _settle()
+		var s2: Dictionary = _state.my_selection()
+		var n := 0
+		for k in s2:
+			n += (s2[k] as Array).size()
+		_check(n == 23 and str(ui.find_child("BuilderNote", true, false).text) != "",
+				"Auto-pick %s fields 23 and says what it did" % strat)
+	# Save your Best 23, change the side, choose it again.
+	(ui.find_child("SaveBest23", true, false) as Button).emit_signal("pressed")
+	await _settle()
+	var saved: Dictionary = _state.best23.duplicate(true)
+	ui.call("_apply_strategy", "best")
+	await _settle()
+	ui.call("_apply_strategy", "mine")
+	await _settle()
+	var back23: Dictionary = _state.my_selection()
+	_check(not saved.is_empty() and back23["DEF"] == saved["DEF"] and back23["FWD"] == saved["FWD"],
+			"My Selected Best 23 brings your saved side back")
+	_state.set_selection({})
 	ui.queue_free()
 	await _settle()
 
@@ -300,14 +358,13 @@ func _selection_profile_tests() -> void:
 	sc.scroll_vertical = 600
 	await _settle()
 	var at: int = sc.scroll_vertical
-	var target: Button = null
-	for b in ui.find_children("Profile_*", "Button", true, false):
-		if b.is_visible_in_tree() and b.get_global_rect().position.y > 200:
-			target = b
-			break
-	_check(target != null and target.size.y >= 44, "A player's name area is a thumb-sized tap")
-	if target != null:
-		target.emit_signal("pressed")
+	var card: Button = ui.find_child("Spot_C", true, false)
+	card.emit_signal("pressed")
+	await _settle()
+	var prof_btn: Button = ui.find_child("PickedProfile", true, false)
+	_check(prof_btn != null and prof_btn.size.y >= 44, "A picked player's profile is a thumb-sized tap away")
+	if prof_btn != null:
+		prof_btn.emit_signal("pressed")
 		await _settle()
 		var prof: Node = ui.find_child("PlayerProfile", true, false)
 		_check(prof != null and prof.find_child("ProfileAttributes", true, false) != null,
@@ -315,18 +372,22 @@ func _selection_profile_tests() -> void:
 		_check(ui.call("handle_back") == true, "Back is handled on the profile")
 		await _settle()
 		_check(ui.find_child("PlayerProfile", true, false) == null and _state.my_selection() == before
-				and sc.scroll_vertical == at and is_instance_valid(sc),
-				"Back returns to Selection as it was: same side, same place (%d)" % sc.scroll_vertical)
-	# On a small phone the rating and the position button never overlap.
+				and is_instance_valid(sc), "Back returns to Selection as it was: same side")
+	# On a small phone every spot sits on the field and no two overlap.
 	root.size = Vector2i(360, 740)
 	await _settle()
+	await _settle()
+	var cards := ui.find_children("Spot_*", "Button", true, false)
+	var pitch: Control = ui.find_child("Pitch", true, false)
 	var clash := ""
-	for ov in ui.find_children("Ovr", "Label", true, false):
-		var row: Node = ov.get_parent()
-		for sb in row.get_children():
-			if str(sb.name).begins_with("Slot_") and ov.get_global_rect().intersects(sb.get_global_rect()):
-				clash = str(sb.name)
-	_check(clash == "", "Rating and position button sit side by side at 360 wide (%s)" % clash)
+	for x in range(cards.size()):
+		var rx: Rect2 = cards[x].get_global_rect()
+		if pitch != null and not pitch.get_global_rect().grow(1.0).encloses(rx):
+			clash = "%s off the field" % cards[x].name
+		for y in range(x + 1, cards.size()):
+			if rx.grow(-1.0).intersects(cards[y].get_global_rect().grow(-1.0)):
+				clash = "%s on %s" % [cards[x].name, cards[y].name]
+	_check(clash == "", "At 360 wide every spot is on the field, none on another (%s)" % clash)
 	root.size = Vector2i(420, 860)
 	ui.queue_free()
 	await _settle()
@@ -426,22 +487,20 @@ func _backing_ui_tests() -> void:
 	var digits := RegEx.new()
 	digits.compile("\\d")
 	var ui := await _open()
-	var tile: Node = ui.find_child("FormationPlayer_" + str(best["id"]), true, false)
+	var tile: Node = _card_of(ui, str(best["id"]))
 	_check(tile != null, "The best player is on the field")
 	if tile != null:
-		tile.emit_signal("pressed")
-		await _settle()
+		await _profile_of(ui, str(best["id"]))
 		var sheet: Node = ui.find_child("PlayerProfile", true, false)
 		_check(sheet != null and sheet.find_child("BackRun", true, false) == null,
 				"A player with a long record is not offered a run")
 		ui.call("handle_back")
 		await _settle()
-	var row: Node = ui.find_child("Profile_" + kid_id, true, false)
+	var row: Node = _card_of(ui, kid_id)
 	_check(row != null and ui.find_child("Backing_" + kid_id, true, false) == null,
 			"The kid is in the list, with nothing promised yet")
 	if row != null:
-		row.emit_signal("pressed")
-		await _settle()
+		await _profile_of(ui, kid_id)
 		var sheet2: Node = ui.find_child("PlayerProfile", true, false)
 		var act: Node = sheet2.find_child("BackRun", true, false) if sheet2 != null else null
 		var detail: Node = sheet2.find_child("Detail_BackRun", true, false) if sheet2 != null else null
@@ -473,11 +532,10 @@ func _backing_ui_tests() -> void:
 			var line: Label = ui.find_child("Backing_" + kid_id, true, false)
 			_check(line != null and line.text == "You promised %s a run: game one of three." % db.player_display_name(kid)
 					and digits.search(line.text) == null, "Selection reminds you of the run, in words (%s)" % (line.text if line else "-"))
-			var tile2: Node = ui.find_child("FormationPlayer_" + kid_id, true, false)
+			var tile2: Node = _card_of(ui.find_child("BuilderField", true, false), kid_id)
 			_check(tile2 != null, "Auto-pick now names him")
 			if tile2 != null:
-				tile2.emit_signal("pressed")
-				await _settle()
+				await _profile_of(ui, kid_id)
 				var sheet3: Node = ui.find_child("PlayerProfile", true, false)
 				_check(sheet3 != null and sheet3.find_child("ProfileBacking", true, false) != null
 						and sheet3.find_child("BackRun", true, false) == null,
@@ -492,6 +550,32 @@ func _backing_ui_tests() -> void:
 	_check(fin.find_child("Backing_" + kid_id, true, false) != null, "A run still on is said in the finals too")
 	fin.queue_free()
 	await _settle()
+
+
+## A player's card on the team builder, wherever he is (field, bench, grid).
+func _card_of(ui: Node, id: String) -> Node:
+	if ui == null:
+		return null
+	var found: Node = null
+	for b in ui.find_children("*", "Button", true, false):
+		if b.has_meta("id") and str(b.get_meta("id")) == id and not b.is_queued_for_deletion():
+			if b.is_visible_in_tree():
+				return b
+			found = b
+	return found
+
+
+## A player's profile on the team builder: pick his card, then Profile.
+func _profile_of(ui: Node, id: String) -> void:
+	var card: Node = _card_of(ui, id)
+	if card == null:
+		return
+	card.emit_signal("pressed")
+	await _settle()
+	var prof: Node = ui.find_child("PickedProfile", true, false)
+	if prof != null:
+		prof.emit_signal("pressed")
+		await _settle()
 
 
 func _open() -> Control:

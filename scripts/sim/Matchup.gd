@@ -239,6 +239,29 @@ static func standing(code: String, lists: Dictionary, selections: Dictionary, ow
 
 
 ## A league rank (1 = best of n) in the standing words.
+## Each of your lines as it stands in the competition, in words: {"midfield",
+## "ruck", "attack", "defence"} -> "one of the best"... The other clubs' sides
+## are built once and passed back in (`cache`), so a team builder can ask
+## again after every move.
+static func line_standings(mine: String, lists: Dictionary, selections: Dictionary,
+		own: Squad, cache: Dictionary = {}) -> Dictionary:
+	if cache.is_empty():
+		for c in lists:
+			if str(c) == mine or (lists[c] as Array).is_empty():
+				continue
+			cache[c] = line_values(Squad.new(str(c), lists[c], false, str(c), selections.get(c, {})))
+	var me := line_values(own)
+	var n := cache.size() + 1
+	var out := {}
+	for key in me:
+		var better := 0
+		for c in cache:
+			if float(cache[c][key]) > float(me[key]):
+				better += 1
+		out[key] = _standing_word(better + 1, n)
+	return out
+
+
 static func _standing_word(rank: int, n: int) -> String:
 	if rank == 1:
 		return "the best in the competition"

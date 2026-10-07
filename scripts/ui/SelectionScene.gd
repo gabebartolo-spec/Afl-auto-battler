@@ -1,15 +1,9 @@
 extends Control
-## Team selection: your match-day 23. Auto-pick fields a sensible side
-## every week; My selection lets you name the ruck, 5 midfielders, 6
-## defenders, 6 forwards and 5 on the bench - a 6-6-6 shape with the ruck
-## counted in midfield, and anyone in any position. A gap (an injured player,
-## a short slot) is filled automatically on match day.
-
-## The midfield is the centre square (3) and the two wings (Roles).
-const SLOTS := [["RUCK", "Ruck", 1], ["MID", "Midfield", 3], ["WING", "Wings", 2],
-		["DEF", "Defence", 6], ["FWD", "Forwards", 6], ["BENCH", "Interchange", Ratings.INTERCHANGE]]
-const CHOICES := [["RUCK", "Ruck"], ["MID", "Mid"], ["WING", "Wing"], ["DEF", "Def"],
-		["FWD", "Fwd"], ["BENCH", "Bench"], ["OUT", "Out"]]
+## Team selection: your match-day 23, built on the field (TeamBuilder; the
+## director's PC playtest, 2026-10-07). Until you move someone the best side
+## is picked for you each week; your first move makes the side yours, and it
+## stays yours until you choose an Auto-pick strategy again. A gap (an
+## injured player) is filled automatically on match day.
 
 var _root: VBoxContainer
 var _notice := ""
@@ -17,8 +11,9 @@ var _synergy_overlay: Control
 var _plan_overlay: Control      # the game plan chooser
 var _matchup_overlay: Control   # who goes to their key forward
 var _sheet: Control             # a player's profile, open over the list
-var _open_move := ""            # the one player whose move choices are open
 var _scroll_box: ScrollContainer
+var _undo := {}            # the side before the last Auto-pick, for Undo
+var _line_cache := {}      # the other clubs' lines, built once a visit
 
 
 func _ready() -> void:
@@ -48,228 +43,149 @@ func _build() -> void:
 	if not auto and not GameState.my_selection().has("WING"):
 		GameState.set_selection(GameState.current_side())
 
+	var wide := UiKit.view_width(self) >= 900.0 and UiKit.view_width(self) > UiKit.view_height(self)
+	# Until you move someone the side is picked for you each week; the first
+	# move makes it yours (TeamBuilder sets the selection).
 	var head := UiKit.panel(UiKit.PANEL, 10, 8)
+	head.name = "BuilderHead"
 	_root.add_child(head)
 	var hv := UiKit.vbox(6)
 	head.add_child(hv)
-	var modes := UiKit.hbox(6)
-	hv.add_child(modes)
-	var auto_btn := UiKit.tab("Auto-pick", auto)
-	auto_btn.name = "AutoPick"
-	auto_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	auto_btn.pressed.connect(func():
-		GameState.set_selection({})
-		_notice = "Auto-pick: a sensible side is picked each week."
+	# Wraps on a phone rather than pushing the screen wider.
+	var actions := HFlowContainer.new()
+	actions.add_theme_constant_override("h_separation", 6)
+	actions.add_theme_constant_override("v_separation", 6)
+	hv.add_child(actions)
+	# Auto-pick is an action, never a mode: choose a strategy and it sets the
+	# side; your moves after that stay yours (director, 2026-10-07).
+	var pick := MenuButton.new()
+	pick.name = "AutoPick"
+	pick.text = "Auto-pick"
+	pick.flat = false
+	UiKit.style_button(pick, 15)
+	pick.custom_minimum_size = Vector2(150, 44)
+	var menu := pick.get_popup()
+	menu.add_theme_font_override("font", UiKit.FONT)
+	menu.add_theme_font_size_override("font_size", 16)
+	var strategies := [["best", "Best side"], ["rest", "Rest tired players"], ["youth", "Blood the youth"],
+			["mine", "My Selected Best 23"]]
+	for i in range(strategies.size()):
+		menu.add_item(str(strategies[i][1]), i)
+	menu.id_pressed.connect(func(idx: int):
+		_apply_strategy(str(strategies[idx][0])))
+	actions.add_child(pick)
+	var save := UiKit.btn("Save as my Best 23", 14)
+	save.name = "SaveBest23"
+	save.custom_minimum_size = Vector2(0, 44)
+	save.pressed.connect(func():
+		GameState.set_best23(GameState.current_side())
+		_notice = "Saved as your Best 23. Choose it any week from Auto-pick."
 		_build())
-	modes.add_child(auto_btn)
-	var mine_btn := UiKit.tab("My selection", not auto)
-	mine_btn.name = "MySelection"
-	mine_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mine_btn.pressed.connect(func():
-		if GameState.my_selection().is_empty():
-			GameState.set_selection(GameState.current_side())
-			_notice = "Starting from the auto-picked 23. Tap a player's position to move him."
-		_build())
-	modes.add_child(mine_btn)
-	var help := "Auto-pick fields a sensible side by position and rating each week." if auto \
-			else "Your side plays every match. Injured players are replaced automatically."
-	hv.add_child(_para(help, 13, UiKit.MUTED))
-	# Dual ruck: your second ruck takes the fifth interchange spot.
-	if auto:
-		var dual := UiKit.choice_grid("DualRuck", [["off", "One ruck"], ["on", "Dual ruck"]],
-				"on" if GameState.dual_ruck() else "off", 2, func(k):
-					GameState.set_dual_ruck(k == "on")
-					_notice = "Dual ruck: your second ruck sits on the bench." if k == "on" else "One ruck: the bench covers forward, back and midfield, then the best of the rest."
-					_build())
-		hv.add_child(dual)
+	actions.add_child(save)
+	if not _undo.is_empty():
+		var undo := UiKit.btn("Undo", 14)
+		undo.name = "UndoPick"
+		undo.flat = true
+		undo.custom_minimum_size = Vector2(72, 44)
+		undo.pressed.connect(func():
+			GameState.set_selection(_undo)
+			_undo = {}
+			_notice = "Back to your side before the auto-pick."
+			_build())
+		actions.add_child(undo)
+	var dual := UiKit.choice_grid("DualRuck", [["off", "One ruck"], ["on", "Dual ruck"]],
+			"on" if GameState.dual_ruck() else "off", 2, func(k):
+				GameState.set_dual_ruck(k == "on")
+				_notice = "Dual ruck on: Auto-pick names a second ruck on the bench." if k == "on" else "One ruck: Auto-pick fills the bench with the best of the rest."
+				_build())
+	dual.custom_minimum_size.x = 200
+	actions.add_child(dual)
+	hv.add_child(_lines_view())
 	if _notice != "":
-		hv.add_child(_para(_notice, 13, UiKit.GOOD))
+		var nl := _para(_notice, 13, UiKit.GOOD)
+		nl.name = "BuilderNote"
+		hv.add_child(nl)
 	hv.add_child(_synergy_view())
 
-
-	var body := UiKit.vbox(6)
+	var body := UiKit.vbox(10)
 	_scroll_box = UiKit.scroll(body)
 	_scroll_box.name = "SelectionScroll"
 	_root.add_child(_scroll_box)
 	_restore_scroll.call_deferred(keep)
-	body.add_child(_this_week())
+	var builder := TeamBuilder.new()
+	builder.name = "TeamBuilder"
+	builder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_child(builder)
+	builder.setup(GameState.current_side(), wide)
+	builder.inspect.connect(_open_profile)
+	builder.changed.connect(func(note: String):
+		_notice = note
+		_undo = {}
+		_refresh_head())
+	if auto:
+		var a := _para("Picked for you each week until you move someone.", 12, UiKit.MUTED)
+		a.name = "AutoNote"
+		hv.add_child(a)
 	# The team sheet: who is in and out since your last match, and why.
 	var changes := GameState.week_changes_text()
 	if changes != "":
-		body.add_child(UiKit.spacer(6))
 		var ch := _para(changes, 14, UiKit.TEXT)
 		ch.name = "TeamChanges"
 		body.add_child(ch)
-	var side := GameState.current_side()
-	var placed := {}
-	for slot in SLOTS:
-		for id in side[str(slot[0])]:
-			placed[str(id)] = true
-	body.add_child(UiKit.spacer(6))
-	body.add_child(_formation(side, GameState.my_selection(), auto))
-	# In My selection, one picked player at a time can open below the shape.
-	# The existing row keeps the richer profile/move controls out of the
-	# formation itself, so the team sheet stays readable on a phone.
-	if not auto and _open_move != "":
-		var picked := GameState.list_player(_open_move)
-		if not picked.is_empty() and placed.has(_open_move):
-			body.add_child(UiKit.spacer(4))
-			body.add_child(_row(picked, _placed_role(side, _open_move), false))
-	var out: Array = []
-	for p in GameState.my_list:
-		if not placed.has(str(p["id"])):
-			out.append(p)
-	out.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
-	body.add_child(UiKit.spacer(6))
-	body.add_child(UiKit.lbl("Not selected  (%d)" % out.size(), UiKit.H2, UiKit.MUTED, true))
-	for p in out:
-		body.add_child(_row(p, "", auto))
+	body.add_child(_this_week())
 
 
-## The picked side as a football formation rather than one long list.
-## Three across keeps every target comfortably tappable at phone width:
-## forwards 3x2, then wings / mids / ruck in a centre-square shape,
-## defenders 3x2, and the interchange underneath.
-func _formation(side: Dictionary, sel: Dictionary, auto: bool) -> Control:
-	var panel := UiKit.panel(UiKit.PANEL, 10, 8)
-	panel.name = "Formation"
-	var v := UiKit.vbox(8)
-	panel.add_child(v)
-	v.add_child(UiKit.lbl("On the field", UiKit.H2, UiKit.TEXT, true))
-	var layout := _formation_layout(side)
-	_formation_group(v, "Forwards", layout["forwards"], "FWD", 3, auto, sel, 6)
-	_formation_group(v, "Midfield", layout["midfield"], "", 3, auto, sel, 0)
-	if not auto:
-		for issue in [
-			_slot_issue(sel, "WING", 2),
-			_slot_issue(sel, "MID", 3),
-			_slot_issue(sel, "RUCK", 1),
-		]:
-			if issue != "":
-				v.add_child(_para(issue, 12, UiKit.BAD))
-	_formation_group(v, "Defence", layout["defence"], "DEF", 3, auto, sel, 6)
-	_formation_group(v, "Interchange", layout["bench"], "BENCH", 2, auto, sel, Ratings.INTERCHANGE)
-	return panel
+## Your lines as they stand in the competition, from the side as arranged now.
+func _lines_view() -> Control:
+	var words: Dictionary = Matchup.line_standings(GameState.my_club, GameState.season.lists,
+			GameState.season.selections, GameState.my_squad(), _line_cache)
+	var text := "Midfield %s · Ruck %s · Forwards %s · Defence %s" % [words["midfield"], words["ruck"],
+			words["attack"], words["defence"]]
+	var l := _para(text, 13, UiKit.TEXT)
+	l.name = "LineStandings"
+	return l
 
 
-## The actual visual order. The middle six read as:
-## wing - mid - wing
-## mid  - ruck - mid
-func _formation_layout(side: Dictionary) -> Dictionary:
-	var wings: Array = side.get("WING", [])
-	var mids: Array = side.get("MID", [])
-	var rucks: Array = side.get("RUCK", [])
-	var centre := [
-		str(wings[0]) if wings.size() > 0 else "",
-		str(mids[0]) if mids.size() > 0 else "",
-		str(wings[1]) if wings.size() > 1 else "",
-		str(mids[1]) if mids.size() > 1 else "",
-		str(rucks[0]) if rucks.size() > 0 else "",
-		str(mids[2]) if mids.size() > 2 else "",
-	]
-	return {
-		"forwards": (side.get("FWD", []) as Array).duplicate(),
-		"midfield": centre,
-		"defence": (side.get("DEF", []) as Array).duplicate(),
-		"bench": (side.get("BENCH", []) as Array).duplicate(),
-	}
+## After a move: the lines, the note and the synergies, without rebuilding
+## the builder (or losing your place in it).
+func _refresh_head() -> void:
+	var head: Control = _root.find_child("BuilderHead", true, false)
+	if head == null:
+		return
+	var hv: VBoxContainer = head.get_child(0)
+	var old_lines: Control = hv.find_child("LineStandings", false, false)
+	if old_lines != null:
+		var at := old_lines.get_index()
+		hv.remove_child(old_lines)
+		old_lines.queue_free()
+		var fresh := _lines_view()
+		hv.add_child(fresh)
+		hv.move_child(fresh, at)
+	var old_note: Control = hv.find_child("BuilderNote", false, false)
+	if old_note != null:
+		hv.remove_child(old_note)
+		old_note.queue_free()
+	var syn: Control = hv.find_child("Synergies", false, false)
+	if syn != null:
+		hv.remove_child(syn)
+		syn.queue_free()
+	if _notice != "":
+		var nl := _para(_notice, 13, UiKit.GOOD)
+		nl.name = "BuilderNote"
+		hv.add_child(nl)
+	hv.add_child(_synergy_view())
 
 
-func _formation_group(v: VBoxContainer, title: String, ids: Array, placed_as: String,
-		columns: int, auto: bool, sel: Dictionary, target: int) -> void:
-	v.add_child(UiKit.lbl(title, UiKit.BODY, UiKit.MUTED, true))
-	var grid := GridContainer.new()
-	grid.name = "Formation_" + title.replace(" ", "")
-	grid.columns = columns
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
-	v.add_child(grid)
-	for raw_id in ids:
-		var id := str(raw_id)
-		if id == "":
-			var gap := Control.new()
-			gap.custom_minimum_size = Vector2(0, 58)
-			grid.add_child(gap)
-			continue
-		var role := placed_as if placed_as != "" else _placed_role(GameState.current_side(), id)
-		grid.add_child(_formation_player(id, role, auto))
-	if not auto and target > 0:
-		var issue := _slot_issue(sel, placed_as, target)
-		if issue != "":
-			v.add_child(_para(issue, 12, UiKit.BAD))
-
-
-func _formation_player(id: String, placed_as: String, auto: bool) -> Control:
-	var p := GameState.list_player(id)
-	var b := UiKit.btn("", UiKit.SECONDARY)
-	b.name = "FormationPlayer_" + id
-	b.custom_minimum_size = Vector2(0, 58)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.tooltip_text = "Open his profile" if auto else "Move him"
-	UiKit.paint_choice(b, not auto and _open_move == id)
-	var box := UiKit.vbox(1)
-	box.set_anchors_preset(Control.PRESET_FULL_RECT)
-	box.offset_left = 6
-	box.offset_right = -6
-	box.offset_top = 5
-	box.offset_bottom = -5
-	b.add_child(box)
-	var name := UiKit.ellipsis(GameDB.player_display_name(p), UiKit.SECONDARY, UiKit.TEXT, true)
-	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(name)
-	var spot := UiKit.line(_formation_label(placed_as), UiKit.FINE, UiKit.MUTED)
-	spot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(spot)
-	if Ratings.available(p):
-		var readiness := _para(Workload.label(p), 11,
-				UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
-		readiness.name = "Readiness_" + id
-		readiness.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		box.add_child(readiness)
-		b.custom_minimum_size.y = 72
-	_ignore_mouse(box)
-	if auto:
-		b.pressed.connect(_open_profile.bind(id))
-	else:
-		b.pressed.connect(func():
-			_open_move = "" if _open_move == id else id
-			_build())
-	return b
-
-
-func _formation_label(role: String) -> String:
-	match role:
-		"WING":
-			return "Wing"
-		"MID":
-			return "Mid"
-		"RUCK":
-			return "Ruck"
-		"DEF":
-			return "Def"
-		"FWD":
-			return "Fwd"
-		"BENCH":
-			return "Interchange"
-	return ""
-
-
-func _placed_role(side: Dictionary, id: String) -> String:
-	for slot in SLOTS:
-		var role := str(slot[0])
-		if (side.get(role, []) as Array).has(id):
-			return role
-	return ""
-
-
-func _slot_issue(sel: Dictionary, role: String, target: int) -> String:
-	var named := (sel.get(role, []) as Array).size()
-	if named == target:
-		return ""
-	var label := _label_for(role).capitalize()
-	if named < target:
-		return "%s: %d named; match day fills the gap automatically." % [label, named]
-	return "%s: %d named; only %d can play there." % [label, named, target]
+func _apply_strategy(key: String) -> void:
+	var r: Dictionary = GameState.auto_pick(key)
+	if (r["side"] as Dictionary).is_empty():
+		_notice = str(r["note"])
+		_build()
+		return
+	_undo = GameState.my_selection()
+	GameState.set_selection(r["side"])
+	_notice = str(r["note"])
+	_build()
 
 
 ## The line synergies your 18 switch on - what the side is good at - any
@@ -356,6 +272,8 @@ func _close_synergies() -> void:
 
 func _restore_scroll(value: int) -> void:
 	# After the rebuilt list has its height, or the offset is clamped to 0.
+	if not is_inside_tree():
+		return
 	await get_tree().process_frame
 	if is_instance_valid(_scroll_box):
 		_scroll_box.scroll_vertical = value
@@ -408,162 +326,6 @@ func handle_back() -> bool:
 		_close_plan()
 		return true
 	return false
-
-
-## One player: a line in the list with a rule under it, not a card.
-func _row(p: Dictionary, placed_as: String, auto: bool) -> Control:
-	var card := PanelContainer.new()
-	card.mouse_filter = Control.MOUSE_FILTER_PASS
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color.TRANSPARENT
-	sb.border_color = UiKit.LINE
-	sb.border_width_bottom = 1
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 8
-	sb.content_margin_left = 2
-	sb.content_margin_right = 2
-	card.add_theme_stylebox_override("panel", sb)
-	var v := UiKit.vbox(4)
-	card.add_child(v)
-	var top := UiKit.hbox(8)
-	v.add_child(top)
-	# Who he is: a tap opens his profile over the list.
-	var who_btn := Button.new()
-	who_btn.name = "Profile_" + str(p["id"])
-	who_btn.flat = true
-	who_btn.focus_mode = Control.FOCUS_NONE
-	who_btn.custom_minimum_size = Vector2(0, 46)
-	who_btn.mouse_filter = Control.MOUSE_FILTER_PASS
-	who_btn.tooltip_text = "Open his profile"
-	who_btn.pressed.connect(_open_profile.bind(str(p["id"])))
-	who_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	who_btn.clip_contents = true
-	top.add_child(who_btn)
-	var who_box := UiKit.vbox(4)
-	who_box.set_anchors_preset(Control.PRESET_FULL_RECT)
-	who_btn.add_child(who_box)
-	var h := UiKit.hbox(6)
-	who_box.add_child(h)
-	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
-	var nm := UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true)
-	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(nm)
-	var weeks := int(p.get("injury_weeks", 0))
-	var suspended := int(p.get("suspension_weeks", 0))
-	var m := ClubLife.morale(p)
-	if m < 40:
-		h.add_child(UiKit.line("Unhappy", UiKit.FINE, UiKit.BAD))
-	if bool(p.get("rested", false)):
-		h.add_child(UiKit.line("Rested", 12, UiKit.MUTED))
-	if suspended > 0:
-		h.add_child(UiKit.line("Suspended — %d match%s" % [
-				suspended, "" if suspended == 1 else "es"], 12, UiKit.BAD, true))
-	if Injuries.concussion_text(p) != "":
-		h.add_child(UiKit.line(Injuries.concussion_text(p), 12, UiKit.BAD, true))
-	elif weeks > 0:
-		h.add_child(UiKit.line("Out %d wk%s" % [weeks, "" if weeks == 1 else "s"], 12, UiKit.BAD, true))
-	elif placed_as == "MID" or placed_as == "WING":
-		var fit := Roles.fit_note(p, placed_as)
-		if not Roles.is_mid(p):
-			fit = "Out of position"
-		if fit != "":
-			var fl := UiKit.line(fit, 12, UiKit.MUTED)
-			fl.name = "Fit"
-			h.add_child(fl)
-	elif placed_as != "" and placed_as != "BENCH" and not Ratings.plays_role(p, placed_as):
-		h.add_child(UiKit.line("Out of position", 12, UiKit.MUTED))
-	# His rating sits outside the tap area, beside the position button, so a
-	# long trait line never runs under either.
-	var ovr := UiKit.line("%d" % int(p["overall"]), UiKit.NAME, UiKit.TEXT, true)
-	ovr.name = "Ovr"
-	ovr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	ovr.custom_minimum_size.x = 28
-	ovr.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	top.add_child(ovr)
-	# Who he is, then his traits: one quiet line.
-	var about := UiKit.trait_chips(p)
-	var who := UiKit.line(Roles.label(p), UiKit.SECONDARY, UiKit.TEXT)
-	who.name = "RoleLabel"
-	about.add_child(who)
-	about.move_child(who, 0)
-	who_box.add_child(about)
-	if Ratings.available(p):
-		var readiness := _para(Workload.label(p), 12,
-				UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
-		readiness.name = "Readiness_" + str(p["id"])
-		who_box.add_child(readiness)
-	_ignore_mouse(who_box)
-	who_btn.custom_minimum_size.y = maxf(46.0, who_box.get_combined_minimum_size().y)
-	if auto:
-		return card
-	# Where he is now, as a button: a tap opens his move choices under the
-	# row (one row at a time), a second tap closes them.
-	var id := str(p["id"])
-	var current := _named_role(id)
-	var slot_btn := UiKit.btn("%s  ▾" % _short_label(current), 14)
-	slot_btn.name = "Slot_" + id
-	slot_btn.custom_minimum_size = Vector2(92, 44)
-	slot_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	slot_btn.tooltip_text = "Move him"
-	UiKit.paint_choice(slot_btn, _open_move == id)
-	slot_btn.pressed.connect(func():
-		_open_move = "" if _open_move == id else id
-		_build())
-	top.add_child(slot_btn)
-	if _open_move == id:
-		var move := UiKit.vbox(0)
-		move.name = "Move_" + id
-		var cols := 4 if UiKit.view_width(self) < 560.0 else CHOICES.size()
-		move.add_child(UiKit.choice_grid("To", CHOICES, current if current != "" else "OUT", cols,
-				func(key: String): _move(id, "" if key == "OUT" else key)))
-		v.add_child(move)
-	return card
-
-
-## "Wing", "Bench", "Out"... for the position button.
-func _short_label(role: String) -> String:
-	for c in CHOICES:
-		if str(c[0]) == role:
-			return str(c[1])
-	return "Not picked"
-
-
-## Where the player is named in your selection ("" = not named).
-func _named_role(id: String) -> String:
-	var sel := GameState.my_selection()
-	for slot in SLOTS + [["OUT"]]:
-		if (sel.get(str(slot[0]), []) as Array).has(id):
-			return str(slot[0])
-	return ""
-
-
-func _move(id: String, to_role: String) -> void:
-	_open_move = ""
-	var sel := GameState.my_selection().duplicate(true)
-	for slot in SLOTS + [["OUT"]]:
-		var arr: Array = sel.get(str(slot[0]), [])
-		arr.erase(id)
-		sel[str(slot[0])] = arr
-	# "Out" means out: the match-day gap filler skips him unless nobody else
-	# can play.
-	var target: Array = sel[to_role if to_role != "" else "OUT"]
-	target.append(id)
-	GameState.set_selection(sel)
-	var p := GameState.list_player(id)
-	_notice = "%s moved to %s." % [GameDB.player_display_name(p),
-			_label_for(to_role)] if to_role != "" else "%s left out." % GameDB.player_display_name(p)
-	for slot in SLOTS:
-		if str(slot[0]) == to_role and (sel[to_role] as Array).size() > int(slot[2]):
-			_notice += " %s is over by %d - move someone out." % [str(slot[1]),
-					(sel[to_role] as Array).size() - int(slot[2])]
-	_build()
-
-
-func _label_for(role: String) -> String:
-	for slot in SLOTS:
-		if str(slot[0]) == role:
-			return str(slot[1]).to_lower()
-	return role
 
 
 ## This week, what the choice rests on: line against line (your half moves

@@ -731,29 +731,30 @@ func _run() -> void:
 	_check(_router.current() == "hub", "Escape on the ladder returns to the hub")
 
 	# --- team selection --------------------------------------------------------
+	var sel_size_before := root.size
+	root.size = Vector2i(390, 844)
 	_router.go("selection")
 	await _settle()
 	_check(current_scene.find_child("AutoPick", true, false) != null, "The team screen opens")
-	var mine: Button = current_scene.find_child("MySelection", true, false)
-	mine.emit_signal("pressed")
+	_check(_state.my_selection().is_empty(), "Until you move someone, the side is picked for you")
+	var first_mid := str(_state.current_side()["MID"][0])
+	var grid_card: Button = null
+	for c in current_scene.find_child("NotSelected", true, false).get_children():
+		if c is Button and load("res://scripts/sim/Ratings.gd").available(_state.list_player(str(c.get_meta("id")))):
+			grid_card = c
+			break
+	var tap_in: String = await Tap.tap(grid_card) if grid_card != null else "missing"
 	await _settle()
-	_check(not _state.my_selection().is_empty(), "My selection starts from this week's side")
-	var first_mid := str(_state.my_selection()["MID"][0])
-	var player_btn = current_scene.find_child("FormationPlayer_" + first_mid, true, false)
-	if player_btn != null:
-		player_btn.emit_signal("pressed")
-		await _settle()
-	var out_btn = current_scene.find_child("Move_" + first_mid, true, false)
-	out_btn = out_btn.find_child("To_OUT", true, false) if out_btn != null else null
-	_check(out_btn != null, "Each player has move buttons")
-	if out_btn != null:
-		out_btn.emit_signal("pressed")
-		await _settle()
-	_check(not (_state.my_selection()["MID"] as Array).has(first_mid), "Out removes him from the side")
-	var auto_btn: Button = current_scene.find_child("AutoPick", true, false)
-	auto_btn.emit_signal("pressed")
+	var tap_c: String = await Tap.tap(current_scene.find_child("Spot_C", true, false))
 	await _settle()
-	_check(_state.my_selection().is_empty(), "Auto-pick switches selection back to automatic")
+	_check(tap_in == "" and tap_c == "" and not _state.my_selection().is_empty()
+			and not (_state.my_selection()["MID"] as Array).has(first_mid),
+			"Two taps bring a player in for the centre, and the side is yours (%s, %s)" % [tap_in, tap_c])
+	current_scene.call("_apply_strategy", "best")
+	await _settle()
+	_check(not _state.my_selection().is_empty() and current_scene.find_child("UndoPick", true, false) != null,
+			"Auto-pick sets a side you can undo")
+	root.size = sel_size_before
 	_router.handle_back(true)
 	await _settle()
 
