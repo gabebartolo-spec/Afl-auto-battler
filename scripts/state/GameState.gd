@@ -323,6 +323,18 @@ func set_bounce_scene_every_match(enabled: bool) -> void:
 	set_setting("bounce_scene_every_match", enabled)
 
 
+## Vignettes (ROADMAP §1.11): the match-day scenes - the run through the
+## banner, the centre ball-up call, the replays, the press conference and the
+## awards on stage. On by default. Off plays none of them; every decision, its
+## information and every result stay exactly the same.
+func vignettes_on() -> bool:
+	return bool(get_setting("vignettes", true))
+
+
+func set_vignettes_on(on: bool) -> void:
+	set_setting("vignettes", on)
+
+
 ## How fast a watched match starts (1x, 2x, 4x or 8x). 4x by default.
 func match_speed() -> float:
 	var s := float(get_setting("match_speed", 4.0))

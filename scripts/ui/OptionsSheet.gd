@@ -45,6 +45,10 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 	_row(v, "Match speed", "SettingsSpeed", SPEED_OPTIONS,
 			str(int(GameState.match_speed())), "How fast a match you watch starts. You can change it during the game.",
 			func(k): GameState.set_match_speed(float(k)))
+	_row(v, "Vignettes", "SettingsVignettes", [["on", "On"], ["off", "Off"]],
+			"on" if GameState.vignettes_on() else "off",
+			"The match-day scenes: the banner, the centre ball-up, replays, the press conference and the awards. Off skips the scenes; every call and result stays the same.",
+			func(k): GameState.set_vignettes_on(k == "on"))
 	_row(v, "Centre ball-up scene every match", "SettingsBounceScene", [["off", "Off"], ["on", "On"]],
 			"on" if GameState.bounce_scene_every_match() else "off",
 			"For playtesting: the centre ball-up call comes at the first centre ball-up of every last quarter you coach, whatever the score.",

@@ -830,7 +830,8 @@ func _show_moment() -> void:
 	_close_moment()
 	_pitch.pause()
 	var m: Dictionary = GameState.pending_sim.pending_moment
-	if str(m.get("kind", "")) == "bounce":
+	var bounce := str(m.get("kind", "")) == "bounce"
+	if bounce and GameState.vignettes_on():
 		_show_bounce_moment(m)
 		return
 	# Sized for its few lines, not the whole phone.
@@ -843,6 +844,14 @@ func _show_moment() -> void:
 	var title := UiKit.lbl(str(m.get("title", "")), 20, UiKit.EMPH, true)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(title)
+	if bounce:
+		# Vignettes off: the centre ball-up call without its scene, the same
+		# facts the scene would have put over it.
+		for f in StoppageVignette.call_facts(GameState.pending_sim, _my_side):
+			var fl := UiKit.lbl(str(f), UiKit.BODY, UiKit.TEXT, true)
+			fl.name = "BounceFact"
+			fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(fl)
 	var text := UiKit.lbl(str(m.get("text", "")), 14, UiKit.TEXT)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(text)
@@ -1270,6 +1279,9 @@ func _broadcast_snapshot(ev: Dictionary) -> Dictionary:
 ## become a highlights reel interrupting itself.
 func _queue_broadcast(ev: Dictionary, event_index: int) -> void:
 	if _skipping or _finished or _broadcast_pending or _broadcast_busy or _pitch == null:
+		return
+	# Vignettes off (Settings): no replays. They decide nothing.
+	if not GameState.vignettes_on():
 		return
 	var prev_ev := {}
 	var next_ev := {}
