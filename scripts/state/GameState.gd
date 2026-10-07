@@ -5628,6 +5628,123 @@ func _ids_in(side: Dictionary) -> Dictionary:
 	return out
 
 
+## "Complete synergy" (director, 2026-10-07): the fewest swaps that switch
+## on synergy `key` from your available list. Each swap brings in the best
+## available player with a missing trait (from the bench or the list; for a
+## line synergy one who plays that line) for the lowest-rated player there
+## who is not carrying a synergy you already have. Returns {"side", "note",
+## "lost": [synergy labels switched off], "problem": "" or why it can't}.
+func complete_synergy(key: String, side: Dictionary) -> Dictionary:
+	var syn: Dictionary = Traits.SYNERGIES.get(key, {})
+	if syn.is_empty():
+		return {"side": side, "note": "", "lost": [], "problem": "No such synergy."}
+	var line := str(syn["line"])
+	var work: Dictionary = side.duplicate(true)
+	for k in ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH"]:
+		if not work.has(k):
+			work[k] = []
+	var before: Array = Traits.active(_ground_for(work))
+	if before.has(key):
+		return {"side": work, "note": "%s is already on." % str(syn["label"]), "lost": [], "problem": ""}
+	var protect := {}
+	for k2 in before:
+		for c in Traits.carriers(str(k2), _ground_for(work)):
+			for q in c[1]:
+				protect[str(q["id"])] = true
+	var by_id := {}
+	for p in my_list:
+		by_id[str(p["id"])] = p
+	var ins: PackedStringArray = []
+	for _guard in range(8):
+		var ground := _ground_for(work)
+		if Traits.active(ground).has(key):
+			break
+		var row := {}
+		for r in Traits.progress(ground):
+			if str(r["key"]) == key:
+				row = r
+		var need_t := ""
+		for t in syn["needs"]:
+			if int(row["have"].get(t, 0)) < int(syn["needs"][t]):
+				need_t = str(t)
+				break
+		if need_t == "":
+			break
+		var on_ground := {}
+		for q in ground:
+			on_ground[str(q["id"])] = true
+		var cand = null
+		for p in my_list:
+			var pid := str(p["id"])
+			if on_ground.has(pid) or not Ratings.available(p) or not Traits.of(p).has(need_t):
+				continue
+			if line != "" and not Ratings.plays_role(p, line):
+				continue
+			if cand == null or int(p["overall"]) > int(cand["overall"]):
+				cand = p
+		if cand == null:
+			var plural := str(Traits.PLURALS.get(need_t, Traits.label(need_t) + "s"))
+			return {"side": side, "note": "", "lost": [], "problem": "Not enough %s on your list%s to complete it." % [
+					plural.to_lower(), " who can play %s" % ("forward" if line == "FWD" else "back") if line != "" else ""]}
+		var targets: Array = [line] if line != "" else (["MID", "WING"] if str(cand["role"]) == "MID" else [str(cand["role"])])
+		var victim := ""
+		for pass_n in range(2):
+			for tl in targets:
+				for id in work[tl]:
+					var vp = by_id.get(str(id))
+					if vp == null or str(id) == str(cand["id"]):
+						continue
+					if Traits.of(vp).has(need_t):
+						continue
+					if pass_n == 0 and protect.has(str(id)):
+						continue
+					if victim == "" or int(vp["overall"]) < int(by_id[victim]["overall"]):
+						victim = str(id)
+			if victim != "":
+				break
+		if victim == "":
+			return {"side": side, "note": "", "lost": [], "problem": "No spot to free without losing another %s." % Traits.label(need_t).to_lower()}
+		var cid := str(cand["id"])
+		var bench: Array = work["BENCH"]
+		for tl in targets:
+			var arr: Array = work[tl]
+			var vi := arr.find(victim)
+			if vi >= 0:
+				arr[vi] = cid
+				break
+		var bi := bench.find(cid)
+		if bi >= 0:
+			bench[bi] = victim
+		ins.append("%s in for %s" % [GameDB.player_display_name(cand), GameDB.player_display_name(by_id[victim])])
+	var after: Array = Traits.active(_ground_for(work))
+	if not after.has(key):
+		return {"side": side, "note": "", "lost": [], "problem": "Your list can't complete it this week."}
+	var lost := []
+	for k3 in before:
+		if not after.has(k3):
+			lost.append(str(Traits.SYNERGIES[k3]["label"]))
+	var note := "%s on: %s." % [str(syn["label"]), "; ".join(ins)]
+	if not lost.is_empty():
+		note += " Lost: %s." % ", ".join(lost)
+	return {"side": work, "note": note, "lost": lost, "problem": ""}
+
+
+func _ground_for(side: Dictionary) -> Array:
+	var sel := side.duplicate(true)
+	sel["DUAL_RUCK"] = user_dual_ruck
+	return Squad.new(GameDB.club_name(my_club), my_list, true, my_club, sel).ground
+
+
+## The opposition's side as it would take the field this week (their own
+## selection, or their auto-pick): {"side": selection, "list": players}.
+## Projected - they name their side on match day.
+func opponent_side(code: String) -> Dictionary:
+	if season == null or not season.lists.has(code):
+		return {"side": {}, "list": []}
+	var sq := Squad.new(GameDB.club_name(code), season.lists[code], false, code, season.selections.get(code, {}))
+	return {"side": _as_selection(sq.ground, sq.bench), "list": season.lists[code]}
+
+
 ## Save the side as your recurring Best 23 (kept until you save another).
 func set_best23(side: Dictionary) -> void:
 	best23 = side.duplicate(true)

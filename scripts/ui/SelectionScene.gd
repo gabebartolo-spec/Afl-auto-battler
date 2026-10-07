@@ -13,6 +13,7 @@ var _matchup_overlay: Control   # who goes to their key forward
 var _sheet: Control             # a player's profile, open over the list
 var _scroll_box: ScrollContainer
 var _undo := {}            # the side before the last Auto-pick, for Undo
+var _view := "mine"        # "mine" or "opp": the oval shows them, read-only
 var _line_cache := {}      # the other clubs' lines, built once a visit
 
 
@@ -100,6 +101,15 @@ func _build() -> void:
 				_build())
 	dual.custom_minimum_size.x = 200
 	actions.add_child(dual)
+	var nxt := GameState.my_next_opponent()
+	if not nxt.is_empty():
+		# Look at them on the same oval (director, 2026-10-07).
+		var opp_name := GameDB.club_short(str(nxt["code"]))
+		var flip := UiKit.choice_grid("OvalView", [["mine", "Your team"], ["opp", opp_name]], _view, 2, func(k):
+			_view = k
+			_build())
+		flip.custom_minimum_size.x = 220
+		actions.add_child(flip)
 	hv.add_child(_lines_view())
 	if _notice != "":
 		var nl := _para(_notice, 13, UiKit.GOOD)
@@ -115,8 +125,18 @@ func _build() -> void:
 	var builder := TeamBuilder.new()
 	builder.name = "TeamBuilder"
 	builder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_child(builder)
-	builder.setup(GameState.current_side(), wide)
+	var opp_code := str(GameState.my_next_opponent().get("code", ""))
+	if _view == "opp" and opp_code != "":
+		var proj := _para("%s as they would take the field this week (projected: they name their side on match day). They kick the other way." % GameDB.club_name(opp_code), 13, UiKit.MUTED)
+		proj.name = "OppProjected"
+		body.add_child(proj)
+		body.add_child(builder)
+		var their: Dictionary = GameState.opponent_side(opp_code)
+		builder.setup(their["side"], wide, their["list"], true)
+		builder.inspect.connect(_open_opponent.bind(their["list"]))
+	else:
+		body.add_child(builder)
+		builder.setup(GameState.current_side(), wide)
 	builder.inspect.connect(_open_profile)
 	builder.changed.connect(func(note: String):
 		_notice = note
@@ -174,6 +194,15 @@ func _refresh_head() -> void:
 		nl.name = "BuilderNote"
 		hv.add_child(nl)
 	hv.add_child(_synergy_view())
+
+
+## Their player's profile: who he is and how he plays, nothing to change.
+func _open_opponent(id: String, list: Array) -> void:
+	for p in list:
+		if str(p["id"]) == id:
+			_close_profile()
+			_sheet = PlayerSheet.open(self, p, func(): _sheet = null, [])
+			return
 
 
 func _apply_strategy(key: String) -> void:
@@ -258,10 +287,38 @@ func _show_synergies() -> void:
 		var wl := _para("\n".join(who), 13, UiKit.TEXT)
 		wl.name = "Carriers"
 		row.add_child(wl)
+		if not bool(active.get(key, false)):
+			row.add_child(_complete_button(str(key)))
 	var close := UiKit.btn("Close", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 48)
 	close.pressed.connect(_close_synergies)
 	box["footer"].add_child(close)
+
+
+## Complete a synergy in one tap (director, 2026-10-07): the fewest swaps
+## from your available list, then Undo if you want your side back. Disabled,
+## with the reason, when your list can't do it.
+func _complete_button(key: String) -> Control:
+	var v := UiKit.vbox(2)
+	var r: Dictionary = GameState.complete_synergy(key, GameState.current_side())
+	var b := UiKit.btn("Complete %s" % str(Traits.SYNERGIES[key]["label"]).to_lower(), 14)
+	b.name = "Complete_" + key
+	b.custom_minimum_size = Vector2(0, 44)
+	b.disabled = str(r["problem"]) != ""
+	b.pressed.connect(func():
+		_undo = GameState.current_side()
+		var fresh: Dictionary = GameState.complete_synergy(key, GameState.current_side())
+		if str(fresh["problem"]) == "":
+			GameState.set_selection(fresh["side"])
+			_notice = str(fresh["note"])
+		_close_synergies()
+		_build())
+	v.add_child(b)
+	if str(r["problem"]) != "":
+		var why := _para(str(r["problem"]), 12, UiKit.MUTED)
+		why.name = "CompleteWhy_" + key
+		v.add_child(why)
+	return v
 
 
 func _close_synergies() -> void:
