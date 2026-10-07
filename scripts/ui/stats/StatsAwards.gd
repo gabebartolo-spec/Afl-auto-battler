@@ -8,6 +8,9 @@ extends RefCounted
 
 ## Ranks a race table shows; a tie across the cut is summed up in one line.
 const RACE_ROWS := 10
+## A table's width on a wide screen: a name, a club and a figure, not a row
+## stretched across a PC monitor.
+const TABLE_W := 600.0
 ## The All-Australian slots on the oval (Awards.AA_SLOTS): the five
 ## midfielders fill the centre square first, then the wings.
 const AA_SPOTS := {"RUCK": ["RUCK"], "MID": ["MID", "MID", "MID", "WING", "WING"],
@@ -52,7 +55,7 @@ static func build(host: Control) -> Control:
 ## share a rank; a tie across the cut is summed up rather than listed.
 static func race(host: Control, title: String, node: String, key: String, head: String,
 		empty: String) -> Control:
-	var v := UiKit.vbox(2)
+	var v := _table(host)
 	v.name = node + "Leaders"
 	v.add_child(UiKit.section(title))
 	var rows := []
@@ -103,7 +106,7 @@ static func race(host: Control, title: String, node: String, key: String, head: 
 ## The honours once the season's awards are presented: the winners, set apart
 ## from any race.
 static func _honours(host: Control, aw: Dictionary) -> Control:
-	var v := UiKit.vbox(2)
+	var v := _table(host)
 	v.name = "AwardsHonours"
 	v.add_child(UiKit.section("%d honours" % int(aw.get("year", GameState.season_year))))
 	var note := _para("Awarded. The full placings are in the season review.")
@@ -112,17 +115,19 @@ static func _honours(host: Control, aw: Dictionary) -> Control:
 	var brownlow: Dictionary = aw.get("brownlow_winner", {})
 	if brownlow.is_empty():
 		brownlow = _first(aw.get("brownlow", []))
+	# The award says what the figure counts: Brownlow and Coaches votes,
+	# Coleman goals. The Rising Star has none.
 	var winners := [
-		["Brownlow Medal", brownlow, "votes", "votes"],
-		["Coleman Medal", _first(aw.get("coleman", [])), "goals", "goals"],
-		["Coaches Award", _first(aw.get("coaches_award", [])), "coaches", "votes"],
-		["Rising Star", _first(aw.get("rising_star", [])), "", ""],
+		["Brownlow Medal", brownlow, "votes"],
+		["Coleman Medal", _first(aw.get("coleman", [])), "goals"],
+		["Coaches Award", _first(aw.get("coaches_award", [])), "coaches"],
+		["Rising Star", _first(aw.get("rising_star", [])), ""],
 	]
 	for w in winners:
 		var r: Dictionary = w[1]
 		if r.is_empty():
 			continue
-		var count := "" if str(w[2]) == "" else "%d %s" % [int(r.get(str(w[2]), 0)), str(w[3])]
+		var count := "" if str(w[2]) == "" else str(int(r.get(str(w[2]), 0)))
 		var b := _player_row(host, str(r.get("id", "")), str(r.get("club", "")), "", count, str(w[0]))
 		b.name = "Honour_" + str(w[0]).replace(" ", "")
 		v.add_child(b)
@@ -186,7 +191,7 @@ static func _aa_names(host: Control, v: Control, team: Array) -> Control:
 ## The Rising Star nominations, newest first. Rounds this save didn't record
 ## are said plainly, never filled in.
 static func _rising(host: Control) -> Control:
-	var v := UiKit.vbox(2)
+	var v := _table(host)
 	v.name = "RisingStar"
 	v.add_child(UiKit.section("Rising Star nominations"))
 	var rec: Dictionary = GameState.rising_star_noms
@@ -207,10 +212,19 @@ static func _rising(host: Control) -> Control:
 	return v
 
 
+## A table's column: full width on a phone, TABLE_W on a wide screen.
+static func _table(host: Control) -> VBoxContainer:
+	var v := UiKit.vbox(2)
+	if bool(host.call("wide")):
+		v.custom_minimum_size.x = TABLE_W
+		v.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	return v
+
+
 ## Column heads over a race table, lined up with _player_row.
 static func _header(head: String) -> Control:
-	var h := UiKit.hbox(10)
-	var widths := [28, 0, 56, 64]
+	var h := UiKit.hbox(8)
+	var widths := [28, 0, 72, 64]
 	var cols := ["", "Player", "Club", head]
 	for i in range(cols.size()):
 		var label := UiKit.line(str(cols[i]), 12, UiKit.MUTED)
@@ -243,12 +257,13 @@ static func _player_row(host: Control, id: String, club: String, rank: String, f
 		b.add_theme_stylebox_override(state, flat)
 	for state in ["hover", "pressed", "hover_pressed"]:
 		b.add_theme_stylebox_override(state, hover)
-	var row := UiKit.hbox(10)
+	var row := UiKit.hbox(8)
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	b.add_child(row)
 	if lead != "":
 		var l := UiKit.ellipsis(lead, UiKit.BODY, UiKit.MUTED)
-		l.custom_minimum_size.x = 112
+		l.custom_minimum_size.x = 104
+		l.size_flags_horizontal = Control.SIZE_FILL
 		row.add_child(l)
 	else:
 		var n := UiKit.line(rank, UiKit.BODY, UiKit.MUTED)
@@ -260,12 +275,12 @@ static func _player_row(host: Control, id: String, club: String, rank: String, f
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(who)
 	var c := UiKit.ellipsis(GameDB.club_short(club), 14, UiKit.MUTED)
-	c.custom_minimum_size.x = 56
+	c.custom_minimum_size.x = 72
+	c.size_flags_horizontal = Control.SIZE_FILL
 	row.add_child(c)
 	if figure != "":
-		var big := figure.is_valid_int()
-		var f := UiKit.line(figure, 17 if big else 14, UiKit.TEXT, big)
-		f.custom_minimum_size.x = 64
+		var f := UiKit.line(figure, 17, UiKit.TEXT, true)
+		f.custom_minimum_size.x = 64 if lead == "" else 32
 		f.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(f)
 	_ignore_mouse(row)

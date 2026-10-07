@@ -247,7 +247,7 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		face.add_child(sub)
 		b.custom_minimum_size = Vector2(84 if _wide else 70, 44)
-		if Workload.value(p) >= Workload.CARRYING:
+		if not field_only and Workload.value(p) >= Workload.CARRYING:
 			# How fresh he is, on the card: no profile needed to see it.
 			var ready := UiKit.lbl(Workload.label(p), 10, UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
 			ready.name = "Readiness_" + id
