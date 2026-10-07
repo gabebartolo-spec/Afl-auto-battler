@@ -27,6 +27,7 @@ func run() -> void:
 	_shots(results)
 	_bounces(results)
 	_involvements(results)
+	_contested_marks(results)
 	print("Stats event tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -137,6 +138,29 @@ func _involvements(results: Array) -> void:
 			if assists > int(r["goals"][side]):
 				bad = "%d assists for %d goals" % [assists, int(r["goals"][side])]
 	_check(bad == "", "Goal assists are involvements, never more than the goals (%s)" % bad)
+
+
+## A forward's mark inside 50 is contested only when a defender was at it,
+## and says who (his direct opponent, or the spare): never a roll.
+func _contested_marks(results: Array) -> void:
+	var bad := ""
+	var contested := 0
+	var lead := 0
+	for r in results:
+		for e in r["events"]:
+			var ev: Dictionary = e
+			if str(ev.get("kind", "")) != "mark" or bool(ev.get("general_play", false)) or not ev.has("contested"):
+				continue
+			if bool(ev["contested"]):
+				contested += 1
+				if str(ev.get("against_id", "")) == "":
+					bad = "a contested mark with no defender named (%s)" % str(ev.get("text", ""))
+			else:
+				lead += 1
+				if ev.has("against_id"):
+					bad = "a lead mark naming a defender (%s)" % str(ev.get("text", ""))
+	_check(bad == "", "Inside 50, a contested mark names the defender at it, a lead mark none (%s)" % bad)
+	_check(contested > 0 and lead > 0, "Forward marks come both ways: %d contested, %d on the lead" % [contested, lead])
 
 
 func _check(condition: bool, message: String) -> void:

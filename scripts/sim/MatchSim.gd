@@ -143,6 +143,10 @@ var aerial_rng := RandomNumberGenerator.new()
 ## Whether a carrier takes on space and runs before he disposes of it: its
 ## own stream, so every other roll in the match draws exactly as before.
 var run_rng := RandomNumberGenerator.new()
+## Whether an intercept or a goal-square pack is marked or spilled: it decides
+## who takes the next kick, so it has its own stream and every other roll in
+## the match draws as before.
+var mark_rng := RandomNumberGenerator.new()
 ## Spectacular-mark selection is presentation/stat context only.
 var speccy_rng := RandomNumberGenerator.new()
 ## Post-free 50m infringements are independent of ordinary play rolls.
@@ -259,6 +263,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	smother_rng.seed = seed * 23 + 29
 	aerial_rng.seed = seed * 73 + 79
 	speccy_rng.seed = seed * 31 + 37
+	mark_rng.seed = seed * 97 + 101
 	run_rng.seed = seed * 83 + 89
 	discipline_rng.seed = seed * 41 + 43
 	mro_rng.seed = seed * 47 + 53
@@ -2395,6 +2400,9 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		var mev: Dictionary = events[events.size() - 1]
 		mev["contested"] = contested
 		mev["speccy"] = speccy
+		if contested:
+			# Who was at it with him: his direct opponent, or the spare.
+			mev["against_id"] = str((matched if not matched.is_empty() else defender).get("id", ""))
 		if roaming:
 			mev["roaming_interceptor_id"] = str(defender.get("id", ""))
 			_p(defender, "roam_losses")
@@ -2605,7 +2613,7 @@ func _intercept(side: int, who, could_mark: bool, contested := false) -> void:
 	# Whether he marked it or gathered it off the spill: a better reader of
 	# the ball marks more of them. A mark is a mark: he takes the next kick
 	# (the next chain starts from him, _chain_from["marked"]).
-	if could_mark and stat_rng.randf() < 0.35 * (0.5 + _a(who, "intercept") / 100.0):
+	if could_mark and mark_rng.randf() < 0.35 * (0.5 + _a(who, "intercept") / 100.0):
 		_t(side, "marks")
 		_p(who, "marks")
 		_won_back["marked"] = true
@@ -3651,8 +3659,15 @@ func _fire(m: Dictionary) -> void:
 ## playtest aid's included.
 func _bounce_moment(margin: int) -> bool:
 	if current_quarter == 4 and at_centre and current_minute >= 100 and absi(margin) <= 12 \
-			and not _asked.has("bounce") and not _asked.has("bounce_playtest"):
+			and not _asked.has("bounce"):
 		_asked["bounce"] = int(_asked.get("bounce", 0)) + 1
+		if _asked.has("bounce_playtest"):
+			# The playtest aid already asked it. Spend the quarter's call here as
+			# the real call would have, so every later call (a set shot most of
+			# all) comes exactly as it would have without the aid.
+			_moments_this_q += 1
+			_last_moment_chain = _chain_no
+			return false
 		_fire_bounce(margin)
 		return true
 	return false
@@ -4224,7 +4239,7 @@ func _bomb(side: int, shooter: Dictionary, defender: Dictionary) -> Dictionary:
 	if r < p_mark + p_def:
 		# The defence wins it: a mark, or a fist that clears it - a good
 		# marker takes it, others punch it clear.
-		var back_marks := stat_rng.randf() < clampf(0.30 + (_a(back, "marking") - 60.0) / 150.0, 0.15, 0.75)
+		var back_marks := mark_rng.randf() < clampf(0.30 + (_a(back, "marking") - 60.0) / 150.0, 0.15, 0.75)
 		if back_marks:
 			_t(opp, "marks")
 			_p(back, "marks")
