@@ -5290,7 +5290,7 @@ Final pass:
 
 
 ### Director instruction — watch vignettes for visual and motion defects (2026-10-07)
-**Status:** `TODO`. **Priority:** `P1` high priority. **Owner:** Claude performs the actual runtime/motion audit and coordinates fixes with the Art Agent and existing vignette owners. Extend this item and its existing defect records; do not create a duplicate audit or assume earlier still-image approvals prove motion quality.
+**Status:** `TODO`. **Priority:** `P3` low priority (director clarification, 2026-10-07); schedule after higher-priority implementation and correctness work. **Owner:** Claude performs the actual runtime/motion audit and coordinates fixes with the Art Agent and existing vignette owners. Extend this item and its existing defect records; do not create a duplicate audit or assume earlier still-image approvals prove motion quality.
 
 **Watch the vignettes playing in the game.** Review complete sequences in motion at normal speed, with slow playback/frame inspection to diagnose defects. Cover the available tactical decisions and branches, pre-match, scoring/snap/set-shot/pack, press conference, awards and other existing vignette families; record unavailable or unreachable sequences honestly. Inspect current main and relevant pending fixes separately, recording build/commit and the assets actually loaded. Reuse current capture tooling and existing clips where they prove the current build; code inspection, test passes and attractive stills alone do not satisfy this task.
 
