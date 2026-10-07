@@ -49,6 +49,8 @@ func _run() -> void:
 	await _playtest_bounce_scene()
 	await _rings_on_the_oval()
 	await _first_goal_line()
+	await _vignettes_setting()
+	await _vignettes_off_match()
 	_appearance()
 	# Battery: nothing is redrawn unless it changes, and never above 60 fps.
 	_check(bool(ProjectSettings.get_setting("application/run/low_processor_mode", false))
@@ -1050,6 +1052,212 @@ func _bounce_matches_sim(tokens: Array, sim) -> bool:
 func _settle() -> void:
 	for i in range(6):
 		await process_frame
+
+
+# ---------------------------------------------------------------------------
+# Vignettes On/Off (Settings, ROADMAP §1.11)
+# ---------------------------------------------------------------------------
+## The setting is in the options at a phone's size and a PC's, takes a real
+## tap, and stays put across a reload of the settings.
+func _vignettes_setting() -> void:
+	_state.set_vignettes_on(true)
+	var options = load("res://scripts/ui/OptionsSheet.gd")
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		var tag := "%dx%d" % [sz.x, sz.y]
+		root.size = sz
+		var host := Control.new()
+		host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		root.add_child(host)
+		host.size = Vector2(sz)
+		var sheet: Control = options.open(host, true)
+		await _settle()
+		var on: Button = sheet.find_child("SettingsVignettes_on", true, false)
+		var off: Button = sheet.find_child("SettingsVignettes_off", true, false)
+		_check(on != null and off != null and _text(sheet).contains("Vignettes"),
+				"Settings has a Vignettes On/Off row (%s)" % tag)
+		if off != null:
+			_check((await Tap.tap(off)) == "", "Vignettes Off takes a real tap (%s)" % tag)
+			await _settle()
+			_check(not _state.vignettes_on(), "Off turns the vignettes off (%s)" % tag)
+		host.queue_free()
+		await _settle()
+		# A reload: a fresh read of the settings file, and a fresh career state.
+		var cfg := ConfigFile.new()
+		_check(cfg.load(_state.settings_path) == OK and cfg.get_value("ui", "vignettes", true) == false,
+				"Off is saved with the settings (%s)" % tag)
+		_state.reset()
+		_check(not _state.vignettes_on(), "Off survives a reload (%s)" % tag)
+		host = Control.new()
+		host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		root.add_child(host)
+		host.size = Vector2(sz)
+		sheet = options.open(host, true)
+		await _settle()
+		on = sheet.find_child("SettingsVignettes_on", true, false)
+		if on != null:
+			_check((await Tap.tap(on)) == "", "Vignettes On takes a real tap (%s)" % tag)
+			await _settle()
+			_check(_state.vignettes_on(), "On turns them back on (%s)" % tag)
+		host.queue_free()
+		await _settle()
+
+
+## The same seeded match, the same calls, with vignettes on and off: every
+## call still comes and is made, no scene is ever built with them off, and
+## the football is identical. Then the hub's Play match, the press conference
+## and the awards night with them off.
+func _vignettes_off_match() -> void:
+	var with_on: Dictionary = await _drive_match(true)
+	var with_off: Dictionary = await _drive_match(false)
+	print("Vignettes on: %d scenes, calls %s, %s. Off: %d scenes, calls %s, %s." % [int(with_on["vignettes"]),
+			str(with_on["kinds"]), str(with_on["score"]), int(with_off["vignettes"]), str(with_off["kinds"]),
+			str(with_off["score"])])
+	_check(int(with_on["vignettes"]) > 0, "With vignettes on, the match plays its scenes (%d)" % int(with_on["vignettes"]))
+	_check(int(with_off["vignettes"]) == 0, "With vignettes off, no scene is built at any point (%d)" % int(with_off["vignettes"]))
+	_check(not (with_off["kinds"] as Array).is_empty() and with_off["kinds"] == with_on["kinds"],
+			"With vignettes off every call still comes, the same ones (%s)" % str(with_off["kinds"]))
+	_check((with_off["kinds"] as Array).has("bounce") and bool(with_off["bounce_facts"]),
+			"The centre ball-up call comes as a card, with its facts (%s)" % str(with_off["kinds"]))
+	_check(int(with_off["chosen"]) == int(with_off["offered"]) and int(with_off["offered"]) > 0,
+			"Every call offered with vignettes off is chosen by the coach (%d of %d)" % [int(with_off["chosen"]), int(with_off["offered"])])
+	_check(with_off["score"] == with_on["score"], "The same result with vignettes on or off (%s v %s)"
+			% [str(with_on["score"]), str(with_off["score"])])
+	_check(with_off["events"] == with_on["events"], "The same match events, every one")
+	_check(with_off["players"] == with_on["players"], "The same player stats")
+	_state.set_bounce_scene_every_match(false)
+
+	# The hub: Play match goes straight to the match, no banner scene.
+	_state.set_vignettes_on(false)
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.replay_seed = SUITE_SEED
+	_state.start_season("COL", db.club_list("COL"))
+	_state.set_setting("seen_weekly_loop_intro", true)
+	root.size = Vector2i(390, 844)
+	var seen := [0]
+	var watch := func(n: Node) -> void:
+		if str(n.name).contains("Vignette") or str(n.name) == "PreMatch":
+			seen[0] += 1
+	node_added.connect(watch)
+	var hub: Control = load("res://scenes/HubScene.tscn").instantiate()
+	root.add_child(hub)
+	await _settle()
+	hub.call("_on_play_match")
+	await _settle()
+	_check(seen[0] == 0 and _state.pending_sim != null and current_scene != null and current_scene.name == "MatchScene",
+			"Play match goes straight to the match with vignettes off (%d scenes)" % seen[0])
+	if current_scene != null:
+		current_scene.queue_free()
+	if is_instance_valid(hub):
+		hub.queue_free()
+	await _settle()
+	# The press conference: the question straight away, no stage.
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	_state.media_conference = {"question": "How do you rate the win?", "options": [{"label": "Proud of them"}]}
+	hub = load("res://scenes/HubScene.tscn").instantiate()
+	root.add_child(hub)
+	await _settle()
+	if hub.find_child("MediaConference", true, false) == null:
+		hub.call("_show_media_conference")
+		await _settle()
+	var q: Label = hub.find_child("MediaQuestion", true, false)
+	var answer: Button = hub.find_child("MediaAnswer_0", true, false)
+	_check(q != null and q.is_visible_in_tree() and answer != null and answer.is_visible_in_tree()
+			and hub.find_child("MediaConferenceStage", true, false) == null and seen[0] == 0,
+			"The press conference asks straight away, without its stage")
+	hub.queue_free()
+	_state.media_conference = {}
+	await _settle()
+	# Awards night: the winner, without the stage.
+	var ids := []
+	for p in _state.season.lists["COL"]:
+		ids.append(str(p["id"]))
+	_state.season_awards = {"year": _state.season_year, "brownlow": [{"id": ids[0], "club": "COL", "votes": 30}],
+		"coleman": [], "all_australian": [], "best_and_fairest": {}}
+	var stage := Control.new()
+	stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(stage)
+	stage.size = Vector2(390, 844)
+	var awards: Control = load("res://scripts/ui/SeasonAwards.gd").open(stage)
+	await _settle()
+	(awards.find_child("AwardsNext", true, false) as Button).emit_signal("pressed")
+	await _settle()
+	_check(awards.find_child("AwardWinner", true, false) == null and seen[0] == 0
+			and _text(awards).contains(_state.award_name({"id": ids[0]})),
+			"The Brownlow winner is named, without the stage")
+	stage.queue_free()
+	_state.season_awards = {}
+	node_added.disconnect(watch)
+	_state.set_vignettes_on(true)
+	await _settle()
+
+
+## A seeded live match played through the match screen, every call answered
+## with its first choice. With the centre ball-up call forced in the last
+## quarter, so the one call with a scene of its own always comes.
+func _drive_match(vignettes: bool) -> Dictionary:
+	var db = root.get_node("GameDB")
+	_state.set_vignettes_on(vignettes)
+	_state.set_bounce_scene_every_match(true)
+	_state.reset()
+	_state.replay_seed = SUITE_SEED
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(390, 844)
+	_state.prepare_interactive_match()
+	var seen := [0]
+	var watch := func(n: Node) -> void:
+		var named := str(n.name).contains("Vignette")
+		var script: Script = n.get_script()
+		if named or (script != null and str(script.get_global_name()).ends_with("Vignette")):
+			seen[0] += 1
+	node_added.connect(watch)
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var kinds := []
+	var offered := 0
+	var chosen := 0
+	var bounce_facts := false
+	var guard := 0
+	while not bool(m.get("_fulltime_shown")) and guard < 60000:
+		guard += 1
+		var box = m.find_child("CoachBox", true, false)
+		if box != null:
+			var start: Button = box.find_child("StartQuarter", true, false)
+			if start != null:
+				start.emit_signal("pressed")
+			await _settle()
+			continue
+		var card = m.find_child("MomentCard", true, false)
+		if card != null:
+			if not card.has_meta("counted"):
+				card.set_meta("counted", true)
+				offered += 1
+			var pick: Button = card.find_child("Moment_0", true, false)
+			if pick != null and not pick.disabled and pick.is_visible_in_tree():
+				var kind := str(_state.pending_sim.pending_moment.get("kind", ""))
+				kinds.append(kind)
+				if kind == "bounce" and not vignettes:
+					bounce_facts = card.find_child("BounceFact", true, false) != null
+				pick.emit_signal("pressed")
+				chosen += 1
+				await _settle()
+				continue
+		var pitch = m.get("_pitch")
+		if pitch != null and pitch.playing:
+			pitch._process(0.25)
+		await process_frame
+	var res: Dictionary = m.get("_res")
+	var out := {"vignettes": seen[0], "kinds": kinds, "offered": offered, "chosen": chosen,
+		"bounce_facts": bounce_facts, "guard": guard,
+		"score": "%s-%s" % [str(res.get("goals", [])), str(res.get("behinds", []))],
+		"events": JSON.stringify(res.get("events", [])), "players": JSON.stringify(res.get("players", {}))}
+	_check(bool(m.get("_fulltime_shown")), "The match reaches full time (vignettes %s)" % ("on" if vignettes else "off"))
+	node_added.disconnect(watch)
+	m.queue_free()
+	await _settle()
+	return out
 
 
 ## True when a body on the figure sheet has the move from every one of those sides.
