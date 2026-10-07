@@ -15,6 +15,8 @@ static var current := "ladder"
 
 var _root: VBoxContainer
 var _body: VBoxContainer
+## The sheet over a section (a match's box score, a round picker), if one is open.
+var _sheet: Control
 
 
 func _ready() -> void:
@@ -92,6 +94,21 @@ func refresh() -> void:
 	_build.call_deferred()
 
 
-## Back closes a drill-down first, then leaves.
+## A section's sheet goes over the hub; Back closes it first. One at a time.
+func open_sheet(sheet: Control) -> void:
+	close_sheet()
+	_sheet = sheet
+
+
+func close_sheet() -> bool:
+	if _sheet == null or not is_instance_valid(_sheet):
+		_sheet = null
+		return false
+	_sheet.queue_free()
+	_sheet = null
+	return true
+
+
+## Back closes a sheet first, then leaves.
 func handle_back() -> bool:
-	return false
+	return close_sheet()

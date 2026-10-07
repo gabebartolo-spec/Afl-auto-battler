@@ -49,6 +49,10 @@ var club_plan := "balanced"      # your standing game plan, from the first bounc
 var form_log := {}               # your player id -> his last three Player Ratings
 var season_team := {}            # club -> {"games": n, stat: season total}
 var season_awards := {}          # the finished season's awards
+## This season's Rising Star nominations, one a home-and-away round:
+## {"from": the first round recorded, "rounds": [{round, id, club}]}. A save
+## from before nominations were recorded starts "from" its next round.
+var rising_star_noms := {"from": 1, "rounds": []}
 var honour_roll: Array = []      # one entry per completed season
 ## Every coach in the game, once: cid -> record (Coaches.gd). A club's staff
 ## is read from the records, never stored beside them.
@@ -418,6 +422,7 @@ func save_career() -> bool:
 		"form_log": form_log,
 		"season_team": season_team,
 		"season_awards": season_awards,
+		"rising_star_noms": rising_star_noms,
 		"honour_roll": honour_roll,
 		"records": records,
 		"rivalry_history": rivalry_history,
@@ -548,6 +553,10 @@ func load_career() -> bool:
 	season_team = state.get("season_team", {})
 	_sync_club_plan()
 	season_awards = state.get("season_awards", {})
+	# Older saves recorded no nominations: the rounds already played stay
+	# unrecorded (never back-filled), and recording starts with the next one.
+	rising_star_noms = state.get("rising_star_noms",
+			{"from": season.round_index + 1 if season != null else 1, "rounds": []})
 	honour_roll = state.get("honour_roll", [])
 	records = state.get("records", {})
 	rivalry_history = state.get("rivalry_history", {})
@@ -875,6 +884,7 @@ func reset() -> void:
 	form_log = {}
 	season_team = {}
 	season_awards = {}
+	rising_star_noms = {"from": 1, "rounds": []}
 	honour_roll = []
 	records = {}
 	rivalry_history = {}
@@ -1192,6 +1202,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 	form_log = {}
 	season_team = {}
 	season_awards = {}
+	rising_star_noms = {"from": 1, "rounds": []}
 	# Everyone listed before ageing: a retiree leaves the lists inside
 	# age_league, and his playing career must be captured from him first.
 	var listed := {}
@@ -3097,6 +3108,7 @@ func _after_round(results: Array) -> void:
 	for res in results:
 		Awards.tally_match(season_tally, res, not res.has("tag"))
 		_note_form_and_team(res)
+	_nominate_rising_star(results)
 	_round_news(results)
 	_note_firsts(results)
 	_draft_class_news()
@@ -3109,6 +3121,31 @@ func _after_round(results: Array) -> void:
 	_next_week_event()
 
 
+## A home-and-away round's Rising Star nomination (Awards.rising_star_nominee).
+func _nominate_rising_star(results: Array) -> void:
+	if season == null or last_phase != "regular":
+		return
+	var rnd := season.round_index
+	var nominated := {}
+	for n in rising_star_noms.get("rounds", []):
+		nominated[str(n["id"])] = true
+		if int(n["round"]) == rnd:
+			return  # already named this round
+	if rnd < int(rising_star_noms.get("from", 1)):
+		return
+	var ages := {}
+	for code in season.lists:
+		for p in season.lists[code]:
+			ages[str(p["id"])] = float(p.get("age", 30.0))
+	var pick := Awards.rising_star_nominee(results, ages, nominated)
+	if pick.is_empty():
+		return
+	pick["round"] = rnd
+	if not rising_star_noms.has("rounds"):
+		rising_star_noms["rounds"] = []
+	(rising_star_noms["rounds"] as Array).append(pick)
+
+
 func _close_season_awards() -> void:
 	var players := {}
 	for code in season.lists:
@@ -3117,7 +3154,7 @@ func _close_season_awards() -> void:
 	# Before the off-season releases anyone, so a delisted player keeps it.
 	Career.close_season(players, season_tally, season_year)
 	open_offseason()
-	season_awards = Awards.season_awards(season_tally, players, season_year)
+	season_awards = Awards.season_awards(season_tally, players, season_year, rising_star_noms)
 	records = Awards.update_records(records, season_awards, season_log)
 	var mine_bf: Array = (season_awards["best_and_fairest"] as Dictionary).get(my_club, [])
 	honour_roll.append({
