@@ -5210,7 +5210,7 @@ Verify with `capture_match.gd` fixtures at 1×, 4× and 8×, on phone and fullsc
 ---
 
 ## ARD-M8-004 — Main menu / onboarding
-**Status:** `DONE` — the minimal main menu exists and the one-time Hub weekly-loop onboarding merged in PR #208. _(reconciled 2026-10-05)_  
+**Status:** `PARTIAL` — main menu/onboarding foundation is DONE (#208); the newly requested Exit game button below is TODO (director, 2026-10-07).  
 **Priority:** `P2`  
 **Autonomy:** `SAFE`
 
@@ -5219,7 +5219,8 @@ Main menu should remain minimal:
 - optional exact tagline: **Build your dynasty.**
 - Continue only when save exists,
 - New Career,
-- quiet How to Play / Settings.
+- quiet How to Play / Settings,
+- **Exit game** — a clearly labelled, reachable main-menu button (director request, 2026-10-07; `TODO`). Close the native application cleanly using the existing shutdown/save path; preserve the current career and settings, without starting a new career or deleting a save. Keep the action visually secondary and consistent with the compact menu on desktop and Android. If the browser export cannot close its own tab, provide a truthful supported fallback rather than a non-working button. Verify button activation, normal shutdown and successful relaunch/Continue with saved state; do not mark this new follow-up DONE because the older main menu is complete.
 
 Onboarding should explain the weekly loop contextually, be skippable, and avoid a giant tutorial.
 
