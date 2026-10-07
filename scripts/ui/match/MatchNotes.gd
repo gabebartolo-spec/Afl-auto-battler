@@ -391,11 +391,12 @@ static func _stars_disposals(res: Dictionary, now: Dictionary, was: Dictionary, 
 ## A player picked to play through, by the slot he fills: "Matthew Jefferson
 ## our key forward target". The engine favours him by that job (MatchSim
 ## _focus_mult): the ball up forward and the shots for a forward, first use out
-## of the back half for a defender, the ball in the chain for a midfielder or ruck.
+## of the back half for a defender (his kicking decides how it goes there:
+## _distributor_kick), the ball in the chain for a midfielder or ruck.
 const FOCUS_ROLES := {
 	"MID": ["our key midfielder", "the ball goes to him more often through the midfield"],
 	"FWD": ["our key forward target", "more of the ball up forward and more of the shots at goal"],
-	"DEF": ["our key distributor", "first use of the ball out of the back half"],
+	"DEF": ["our key distributor", "first use of the ball out of the back half, where a good kick hits targets up the ground and a poor one gets picked off"],
 	"RUCK": ["our key man in the middle", "the ball goes to him more often"],
 }
 
