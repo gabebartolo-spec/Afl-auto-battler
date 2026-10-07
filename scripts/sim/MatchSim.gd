@@ -143,6 +143,10 @@ var aerial_rng := RandomNumberGenerator.new()
 ## Whether a carrier takes on space and runs before he disposes of it: its
 ## own stream, so every other roll in the match draws exactly as before.
 var run_rng := RandomNumberGenerator.new()
+## Whether an intercept or a goal-square pack is marked or spilled: it decides
+## who takes the next kick, so it has its own stream and every other roll in
+## the match draws as before.
+var mark_rng := RandomNumberGenerator.new()
 ## Spectacular-mark selection is presentation/stat context only.
 var speccy_rng := RandomNumberGenerator.new()
 ## Post-free 50m infringements are independent of ordinary play rolls.
@@ -259,6 +263,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	smother_rng.seed = seed * 23 + 29
 	aerial_rng.seed = seed * 73 + 79
 	speccy_rng.seed = seed * 31 + 37
+	mark_rng.seed = seed * 97 + 101
 	run_rng.seed = seed * 83 + 89
 	discipline_rng.seed = seed * 41 + 43
 	mro_rng.seed = seed * 47 + 53
@@ -2373,9 +2378,10 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	if marked:
 		_t(side, "marks")
 		_p(shooter, "marks")
-		# Most forward marks come on the lead; some are taken in a one-on-one
-		# (stat_rng, so play is unchanged).
-		var contested := stat_rng.randf() < 0.35 + mark_edge
+		# Contested when a defender was at the ball with him: his direct
+		# opponent in a one-on-one, or the spare flying at it. Otherwise he
+		# marked it on the lead (the Stats patch: from the contest, not a roll).
+		var contested := not matched.is_empty() or roaming
 		if contested:
 			_t(side, "contested_marks")
 			_p(shooter, "contested_marks")
@@ -2394,6 +2400,9 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		var mev: Dictionary = events[events.size() - 1]
 		mev["contested"] = contested
 		mev["speccy"] = speccy
+		if contested:
+			# Who was at it with him: his direct opponent, or the spare.
+			mev["against_id"] = str((matched if not matched.is_empty() else defender).get("id", ""))
 		if roaming:
 			mev["roaming_interceptor_id"] = str(defender.get("id", ""))
 			_p(defender, "roam_losses")
@@ -2505,7 +2514,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 
 	_t(opp, "rebounds")
 	_p(defender, "rebounds")
-	_intercept(opp, defender, not spoilt)
+	_intercept(opp, defender, not spoilt, not matched.is_empty() or roaming)
 	if roaming and not spoilt:
 		_p(defender, "roam_wins")
 	_emit("rebound", opp, fp, defender,
@@ -2595,19 +2604,24 @@ func bounce_attendees(side: int) -> Dictionary:
 ## Possession won from the opposition (a forced turnover, a rebound out of
 ## defence): an intercept, and an intercept mark when he took it cleanly -
 ## judged from stat_rng, so play is unchanged.
-func _intercept(side: int, who, could_mark: bool) -> void:
+func _intercept(side: int, who, could_mark: bool, contested := false) -> void:
 	if who == null or (who as Dictionary).is_empty():
 		return
 	_t(side, "intercepts")
 	_p(who, "intercepts")
 	_won_back = {"side": side, "id": str(who.get("id", ""))}
-	if could_mark and stat_rng.randf() < 0.35 * (0.5 + _a(who, "intercept") / 100.0):
+	# Whether he marked it or gathered it off the spill: a better reader of
+	# the ball marks more of them. A mark is a mark: he takes the next kick
+	# (the next chain starts from him, _chain_from["marked"]).
+	if could_mark and mark_rng.randf() < 0.35 * (0.5 + _a(who, "intercept") / 100.0):
 		_t(side, "marks")
 		_p(who, "marks")
+		_won_back["marked"] = true
+		_won_back["contested"] = contested
 		if zone_intercepts:
 			_t(side, "intercept_marks")
 			_p(who, "intercept_marks")
-		if stat_rng.randf() < 0.5:
+		if contested:
 			_t(side, "contested_marks")
 			_p(who, "contested_marks")
 
@@ -2629,7 +2643,7 @@ func _first_gain(carrier, cleared, is_kick_in: bool) -> String:
 			return "cp"
 		"turnover":
 			if bool(_chain_from.get("marked", false)):
-				return "up"
+				return "cp" if bool(_chain_from.get("contested", false)) else "up"
 			return "gb"
 	return "gb"
 
@@ -3645,8 +3659,15 @@ func _fire(m: Dictionary) -> void:
 ## playtest aid's included.
 func _bounce_moment(margin: int) -> bool:
 	if current_quarter == 4 and at_centre and current_minute >= 100 and absi(margin) <= 12 \
-			and not _asked.has("bounce") and not _asked.has("bounce_playtest"):
+			and not _asked.has("bounce"):
 		_asked["bounce"] = int(_asked.get("bounce", 0)) + 1
+		if _asked.has("bounce_playtest"):
+			# The playtest aid already asked it. Spend the quarter's call here as
+			# the real call would have, so every later call (a set shot most of
+			# all) comes exactly as it would have without the aid.
+			_moments_this_q += 1
+			_last_moment_chain = _chain_no
+			return false
 		_fire_bounce(margin)
 		return true
 	return false
@@ -4216,8 +4237,10 @@ func _bomb(side: int, shooter: Dictionary, defender: Dictionary) -> Dictionary:
 		var g := clampf(PACK_MARK_ACC * shot_chance(side, marker, true, false) / SET_REF, 0.5, 0.97)
 		return _set_result(side, marker, shooter, back, g, (1.0 - g) * SET_MISS_BEHIND, false)
 	if r < p_mark + p_def:
-		# The defence wins it: a mark, or a fist that clears it.
-		if stat_rng.randf() < 0.5:
+		# The defence wins it: a mark, or a fist that clears it - a good
+		# marker takes it, others punch it clear.
+		var back_marks := mark_rng.randf() < clampf(0.30 + (_a(back, "marking") - 60.0) / 150.0, 0.15, 0.75)
+		if back_marks:
 			_t(opp, "marks")
 			_p(back, "marks")
 			_t(opp, "contested_marks")
@@ -4231,7 +4254,7 @@ func _bomb(side: int, shooter: Dictionary, defender: Dictionary) -> Dictionary:
 			_p(back, "one_percenters")
 			_pack_event(side, sq_fp, back, "defence", {"defender_id": str(back["id"])},
 					"%s punches it clear of the pack" % GameDB.player_display_name(back))
-		return _shot_turnover(side, back, "Into the pack - the defence wins it")
+		return _shot_turnover(side, back, "Into the pack - the defence wins it", back_marks)
 	# Spoiled to the deck: first to it is a forward, more often than not.
 	_t(opp, "spoils")
 	_p(back, "spoils")
@@ -4289,12 +4312,16 @@ const PACK_CRUMB := 0.45         # spoiled: a crumber gathers, before pressure
 const PACK_RUSHED := 0.60        # not gathered: rushed through, else they clear it
 
 
-func _shot_turnover(side: int, defender: Dictionary, text: String) -> Dictionary:
+func _shot_turnover(side: int, defender: Dictionary, text: String, marked := false) -> Dictionary:
 	var opp := 1 - side
 	_t(opp, "rebounds")
 	if not defender.is_empty():
 		_p(defender, "rebounds")
 		_intercept(opp, defender, false)
+		if marked:
+			# He marked it in the pack: the kick out is his.
+			_won_back["marked"] = true
+			_won_back["contested"] = true
 		_emit("rebound", opp, fp, defender, "%s rebounds it out of danger" % GameDB.player_display_name(defender))
 	_end_moment_chain("turnover", fp, side)
 	return {"points": 0, "text": text + " - no score."}
