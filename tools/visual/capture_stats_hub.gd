@@ -6,7 +6,10 @@ extends SceneTree
 ## Writes <out>_<section>.png, and for the fixture also <out>_fixture_played.png
 ## (the round before), <out>_fixture_match.png (a played match opened),
 ## <out>_fixture_preview.png (a match to come opened) and
-## <out>_fixture_picker.png (the round picker).
+## <out>_fixture_picker.png (the round picker). For the awards also
+## <out>_awards_rising.png and <out>_awards_aa.png (scrolled to the Rising
+## Star nominations and the projected team), <out>_awards_player.png (the
+## Coleman leader's profile) and <out>_awards_awarded.png (once presented).
 ##   --section KEY   ladder, players, awards, fixture or trophies (default fixture)
 ##   --size WxH      window size (default 390x844)    --light   light appearance
 ##   --rounds N      rounds played before the capture (default 6)
@@ -51,6 +54,7 @@ func _run() -> void:
 	state.career_seed = 2031
 	state.replay_seed = 2031
 	state.set_setting("seen_training_intro", true)
+	state.set_setting("seen_season_stats_intro", true)
 	state.start_season("COL", db.club_list("COL"))
 	for i in range(rounds):
 		state.advance()
@@ -76,7 +80,43 @@ func _run() -> void:
 		await _frames(6)
 		await _tap(scene, "RoundPicker")
 		_save(out + "_fixture_picker.png")
+	if section == "awards":
+		await _scroll_to(scene, "RisingStar")
+		_save(out + "_awards_rising.png")
+		await _scroll_to(scene, "AllAustralian")
+		_save(out + "_awards_aa.png")
+		await _scroll_to(scene, "CoachesAwardLeaders")
+		await _tap(scene, "Coleman_1")
+		_save(out + "_awards_player.png")
+		scene.call("handle_back")
+		await _frames(6)
+		# The same season as if its awards had been presented.
+		var tally: Dictionary = state.season_tally
+		var players := {}
+		for code in state.season.lists:
+			for p in state.season.lists[code]:
+				players[str(p["id"])] = p
+		state.season_awards = load("res://scripts/sim/Awards.gd").season_awards(tally, players,
+				state.season_year, state.rising_star_noms)
+		scene.call("refresh")
+		await _frames(10)
+		var sc: ScrollContainer = scene.find_child("StatsScroll", true, false)
+		if sc != null:
+			sc.scroll_vertical = 0
+			await _frames(4)
+		_save(out + "_awards_awarded.png")
 	quit()
+
+
+## Scroll the section so `node_name` sits at the top of the view.
+func _scroll_to(scene: Node, node_name: String) -> void:
+	var sc: ScrollContainer = scene.find_child("StatsScroll", true, false)
+	var c: Control = scene.find_child(node_name, true, false)
+	if sc == null or c == null:
+		push_error("no " + node_name)
+		return
+	sc.scroll_vertical = int(c.global_position.y - sc.global_position.y) + sc.scroll_vertical
+	await _frames(6)
 
 
 func _tap(scene: Node, node_name: String) -> void:
