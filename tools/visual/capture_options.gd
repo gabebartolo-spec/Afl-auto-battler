@@ -53,7 +53,9 @@ func _run() -> void:
 	while p != null and not (p is ScrollContainer):
 		p = p.get_parent()
 	if p != null:
-		(p as ScrollContainer).ensure_control_visible(row)
+		# The row and the note under it, which says what Off does.
+		var note: Control = row.get_parent().get_child(row.get_index() + 1)
+		(p as ScrollContainer).ensure_control_visible(note)
 		await _frames(6)
 	_save(out + "_vignettes.png")
 	state.set_vignettes_on(true)
