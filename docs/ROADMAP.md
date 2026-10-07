@@ -1607,10 +1607,21 @@ Instrument/seed the offending situation and confirm the ball is targeting the co
 ---
 
 ## ARD-M1-007 — Sim Round safety & quick-sim controls
-**Status:** `DONE`  
+**Status:** `PARTIAL` — original safety/quick-sim controls are DONE (#53); the director's new end-of-season skip performance follow-up below is TODO  
 **Merged:** PR #53 as `4552e20`; verified on main 2026-09-28 (full suite green).  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
+### Skip to end of season — excessive simulation/loading time (director, 2026-10-07)
+**Status:** `TODO`. **Priority:** `P1` — high-priority performance/usability follow-up, coordinated with the existing §1.11 simulation/performance owner.
+
+The director reports **“Skip to end of season” can take up to five minutes to simulate the season**, which is far too long. Reproduce the actual control and career state, platform/build, club count and number of remaining rounds; the five-minute duration is a user-observed report, not a benchmark already confirmed. **Reduce the actual wait/loading duration where possible**, not merely the appearance of the loading screen.
+
+Measure the complete button-to-usable-result path and identify where time goes: match simulation, presentation/event work unnecessarily run for skipped matches, repeated UI rebuilding, aggregation/awards/AI management, saving and loading. Compare this season-batch path with the earlier per-round timing evidence; a fast single-round/start tap does not prove season skipping is acceptable. Reuse existing MatchSim/no-presentation optimisation work rather than build a second outcome engine.
+
+Optimise demonstrated bottlenecks while preserving full football outcomes, newly required competition-wide Stats capture, player development/fatigue/injuries, records/awards, AI parity, seeded behaviour and save integrity. Preserve the skip control's real stopping boundaries (home-and-away/finals, sackings and required decisions); do not silently skip mandatory user actions, replace matches with fabricated scores or reduce scope to achieve a faster time. Keep progress truthful and the interface responsive, but progress text alone is not the fix.
+
+Provide before/after elapsed time on the same representative saves/seeds and number of simulated rounds, including full-season and partial-season runs and desktop/phone measurements where available. Agree a practical measured target after establishing the baseline; report achieved improvement and remaining limits honestly. Add targeted reconciliation/regression checks for changed paths. Do not claim completion from a shorter animation or an unmeasured theoretical speedup.
+
 **Outcome (2026-09-28, PR #53):** short press asks before simming your match (Sim round / Cancel / Don't ask again, re-enabled from Options). Holding Sim round (0.5 s, or right-click on desktop) opens Quick sim: this round, skip 4 rounds, or skip to the end of the home and away. Each option names where it lands. Batches stop at the end of the home and away (never into finals) and if you are sacked. The long press ignores the confirmation setting. Tests are in `run_career_ui_tests.gd`.
 
 ### Short press
@@ -5236,6 +5247,18 @@ Main menu should remain minimal:
 - New Career,
 - quiet How to Play / Settings,
 - **Exit game** — a clearly labelled, reachable main-menu button (director request, 2026-10-07; `TODO`). Close the native application cleanly using the existing shutdown/save path; preserve the current career and settings, without starting a new career or deleting a save. Keep the action visually secondary and consistent with the compact menu on desktop and Android. If the browser export cannot close its own tab, provide a truthful supported fallback rather than a non-working button. Verify button activation, normal shutdown and successful relaunch/Continue with saved state; do not mark this new follow-up DONE because the older main menu is complete.
+
+### Full fresh-save onboarding — initial draft, weekly loop and postseason (director, 2026-10-07)
+**Status:** `TODO` — audit and complete missing coverage, extending the existing onboarding/tutorial system and §1.11 first-visit menu tutorials. The older Hub onboarding foundation remains DONE.
+
+Walk through genuinely **fresh saves with full onboarding enabled**, not a mature save with tutorial flags already set. Verify all three complete flows:
+- **Initial draft:** career/setup choices and entry, pool navigation/scouting/filters, list needs, selection, cap/list completion and the transition into the first week. Cover each implemented career-start mode and record modes not yet available rather than inventing their onboarding.
+- **Weekly flow:** Hub → opposition/preparation → lineup/roles/synergies → training/development → match or sim → result/review → next week. Explain relevant actions when first encountered, including new menus and real constraints, without prescribing winning choices.
+- **Postseason flow:** home-and-away finish/finals → season review/awards → staff/list/contracts/trades/free agency and draft preparation/Combine → National Draft → next season, following the actual implemented order. Explain deadlines, mandatory decisions, navigation and the consequences of advancing; avoid unexplained jumps or missing handoffs.
+
+Audit **all onboarding copy** for clear, informative, concrete football language: what is happening, what the user can do, what they must resolve, and what happens next. Check it against current controls/mechanics and the gameplay-lever copy audit; remove stale labels, vague instructions, contradictions, repetitive filler and unsupported promises. Keep steps short and contextual, with optional deeper detail and grounded flavour, rather than a wall of text.
+
+Verify the Tutorials On/Off preference, skip/dismiss/replay Help behaviour, once-only/per-career flags, save/reload/resume, navigation back, desktop/phone fit and taps. Skipping help must not skip football decisions or progression requirements. Produce a flow/step coverage record and evidence of a complete first-career walkthrough; repair genuine missing/misleading steps and record unavailable/unexercised paths honestly. Do not declare full onboarding complete because one Hub popup exists. Preserve existing M5-014/M6-007 flow ownership; no duplicate onboarding engine.
 
 Onboarding should explain the weekly loop contextually, be skippable, and avoid a giant tutorial.
 
