@@ -438,9 +438,9 @@ func _table_recipe(s: Node, tag: String, with_pos: bool) -> void:
 	var rows := s.find_children("Club_*", "Button", true, false)
 	var tall := true
 	for b in rows:
-		if int(b.size.y) != 32:
+		if int(b.size.y) != (32 if root.size.x >= 900 else 40):
 			tall = false
-	_check(tall and not rows.is_empty(), "Rows are 32 px (%s)" % tag)
+	_check(tall and not rows.is_empty(), "Rows are 32 px on a wide screen and a thumb-sized 40 px on a phone (%s)" % tag)
 	var banded := rows.size() > 1
 	for i in range(rows.size()):
 		var sb := (rows[i] as Button).get_theme_stylebox("normal") as StyleBoxFlat

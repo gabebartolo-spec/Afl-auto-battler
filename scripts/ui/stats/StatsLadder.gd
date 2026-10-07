@@ -6,9 +6,11 @@ extends RefCounted
 ## the field view, read-only. The sort, the filter and the view are kept for
 ## the visit back from a club's side (STATS patch, ROADMAP §1.11).
 
-## Rows are 32 px with no rules between them; every other row has a very faint
+## Rows are 32 px on a wide screen, 40 px (thumb-sized) on a narrow one, with no
+## rules between them; every other row has a very faint
 ## band (PANEL, flat). Numbers and their headers are right-aligned.
 const ROW_H := 32
+const ROW_H_NARROW := 40
 const COL_GAP := 4
 
 ## The ladder's columns, phone first; a wide screen adds the rest.
@@ -121,7 +123,7 @@ static func build(host: Control) -> Control:
 	t.add_child(_header(host, specs, width))
 	var band := false
 	for r in shown:
-		t.add_child(_row(host, r, specs, width, band))
+		t.add_child(_row(host, r, specs, width, band, ROW_H if wide else ROW_H_NARROW))
 		band = not band
 		# The cut for the finals, as the ladder has always drawn it.
 		if _sort == "" and _filter == "all" and int(r["pos"]) == Season.FINALISTS 				and int(r["pos"]) < season.ladder.size():
@@ -240,7 +242,7 @@ static func _sort_by(host: Control, key: String) -> void:
 
 
 ## One club as a tappable row.
-static func _row(host: Control, r: Dictionary, specs: Array, width: float, band := false) -> Control:
+static func _row(host: Control, r: Dictionary, specs: Array, width: float, band := false, height := ROW_H) -> Control:
 	var code := str(r["code"])
 	var mine: bool = code == GameState.my_club
 	var b := Button.new()
@@ -254,7 +256,7 @@ static func _row(host: Control, r: Dictionary, specs: Array, width: float, band 
 		if int(c[2]) == 0:
 			all_fixed = false
 		fixed += int(c[2]) + COL_GAP
-	b.custom_minimum_size = Vector2(fixed if all_fixed else 0, ROW_H)
+	b.custom_minimum_size = Vector2(fixed if all_fixed else 0, height)
 	b.clip_contents = true
 	var flat := StyleBoxFlat.new()
 	flat.bg_color = UiKit.PANEL if band else Color.TRANSPARENT
