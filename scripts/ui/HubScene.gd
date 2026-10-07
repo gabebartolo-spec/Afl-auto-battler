@@ -13,6 +13,7 @@ var _onboarding_overlay: Control
 var _hold_fired := false
 var _hold_id := 0
 var _pre_match: PreMatchVignette    # the scene over the wait after Play match
+var _starting_match := false        # Play match with vignettes off: on the way to the match
 const HOLD_SECONDS := 0.5
 ## How long the pre-match scene runs before the side goes through the banner: a
 ## moment of the warm-up, time to jog in to the huddle unhurried and stand together,
@@ -747,7 +748,16 @@ func _on_play_match() -> void:
 	if _upcoming_match().is_empty():
 		_on_sim_round()
 		return
-	if _pre_match != null:
+	if _pre_match != null or _starting_match:
+		return
+	if not GameState.vignettes_on():
+		# Vignettes off (Settings): no banner scene, straight to the match.
+		_starting_match = true
+		if not GameState.prepare_interactive_match():
+			_starting_match = false
+			_on_sim_round()
+			return
+		Router.go("match")
 		return
 	# The pre-match scene goes up in this frame: a couple of seconds of
 	# match day (warm-up, final words, through the banner) while the match
@@ -967,13 +977,16 @@ func _show_media_conference() -> void:
 	_media_overlay = box["overlay"]
 	_media_overlay.name = "MediaConference"
 	var v: VBoxContainer = box["body"]
-	var stage := Control.new()
-	stage.name = "MediaConferenceStage"
-	stage.custom_minimum_size = Vector2(0, minf(300.0, get_viewport_rect().size.y * 0.38))
-	v.add_child(stage)
-	var scene := MediaConferenceVignette.open(stage, GameState.my_club)
+	# Vignettes off (Settings): no stage, the question straight away.
+	var scene: MediaConferenceVignette = null
+	if GameState.vignettes_on():
+		var stage := Control.new()
+		stage.name = "MediaConferenceStage"
+		stage.custom_minimum_size = Vector2(0, minf(300.0, get_viewport_rect().size.y * 0.38))
+		v.add_child(stage)
+		scene = MediaConferenceVignette.open(stage, GameState.my_club)
 	var prompt := UiKit.vbox(6)
-	prompt.visible = false
+	prompt.visible = scene == null
 	v.add_child(prompt)
 	prompt.add_child(UiKit.lbl("Journalist", UiKit.SMALL, UiKit.MUTED, true))
 	var q := UiKit.lbl(str(GameState.media_conference.get("question", "")), 16, UiKit.TEXT)
@@ -1005,6 +1018,9 @@ func _show_media_conference() -> void:
 		_media_overlay = null
 		_build())
 	footer.add_child(skip)
+	if scene == null:
+		footer.visible = true
+		return
 	scene.ready_for_question.connect(func():
 		prompt.visible = true
 		footer.visible = true)
