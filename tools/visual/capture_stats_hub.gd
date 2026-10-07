@@ -6,7 +6,9 @@ extends SceneTree
 ## Writes <out>_<section>.png, and for the fixture also <out>_fixture_played.png
 ## (the round before), <out>_fixture_match.png (a played match opened),
 ## <out>_fixture_preview.png (a match to come opened) and
-## <out>_fixture_picker.png (the round picker).
+## <out>_fixture_picker.png (the round picker). For the ladder also
+## <out>_ladder_sorted.png (sorted by W), <out>_ladder_top8.png, <out>_ladder_team.png
+## (Team stats) and <out>_ladder_side.png (a club's side opened).
 ##   --section KEY   ladder, players, awards, fixture or trophies (default fixture)
 ##   --size WxH      window size (default 390x844)    --light   light appearance
 ##   --rounds N      rounds played before the capture (default 6)
@@ -76,7 +78,27 @@ func _run() -> void:
 		await _frames(6)
 		await _tap(scene, "RoundPicker")
 		_save(out + "_fixture_picker.png")
+	if section == "ladder":
+		await _tap(scene, "Sort_w")
+		_save(out + "_ladder_sorted.png")
+		await _tap(scene, "Filter_top8")
+		_save(out + "_ladder_top8.png")
+		await _tap(scene, "ResetLadder")
+		await _tap(scene, "View_team")
+		_save(out + "_ladder_team.png")
+		await _tap(scene, "View_ladder")
+		await _tap(scene, "Club_" + _first_other(state))
+		await _frames(10)
+		_save(out + "_ladder_side.png")
 	quit()
+
+
+## A club on the ladder other than yours.
+func _first_other(state) -> String:
+	for r in state.season.ladder_sorted():
+		if str(r["code"]) != str(state.my_club):
+			return str(r["code"])
+	return ""
 
 
 func _tap(scene: Node, node_name: String) -> void:
