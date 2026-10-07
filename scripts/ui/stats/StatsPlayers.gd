@@ -121,7 +121,11 @@ static func _controls(host: Control, wide: bool) -> Control:
 			_show_filters = not _show_filters
 			host.call("refresh"))
 		row.add_child(fb)
-	if _show_filters or wide:
+	if wide:
+		for d in _filter_row(host).get_children():
+			d.get_parent().remove_child(d)
+			row.add_child(d)
+	elif _show_filters:
 		v.add_child(_filter_row(host))
 	if active != "":
 		var h := UiKit.hbox(8)
@@ -398,11 +402,11 @@ static func _columns(host: Control, wide: bool) -> Array:
 		if str(GROUPS[i][0]) == _group:
 			start = i
 	var cols := []
-	var room: float = float(host.call("content_width")) - (440.0 if wide else 190.0)
+	var room: float = float(host.call("content_width")) - (480.0 if wide else 190.0)
 	var w := _col_w(wide)
 	for j in range(GROUPS.size()):
 		var g: Array = GROUPS[(start + j) % GROUPS.size()]
-		var need := float((g[2] as Array).size()) * w
+		var need := float((g[2] as Array).size()) * w + _group_gap(wide)
 		if j > 0 and (not wide or need > room):
 			break
 		for c in g[2]:
@@ -432,22 +436,76 @@ static func _table_name(name: String, wide: bool) -> String:
 	return name if at <= 0 else name.substr(0, 1) + ". " + name.substr(at + 1)
 
 
+## The look (director, 2026-10-07: "functional, but ugly"): rows banded
+## faintly instead of ruled, numbers right-aligned under right-aligned
+## headings, the rank in its own muted column, each group's name over its
+## columns with a gap between groups, and zeros muted so what a player did
+## stands out.
+const ROW_H := 32.0
+
+
+## Widths that shrink on a phone, so a surname still fits beside one group.
+static func _rank_w(wide: bool) -> float:
+	return 30.0 if wide else 22.0
+
+
+static func _rank_gap(wide: bool) -> float:
+	return 10.0 if wide else 6.0
+
+
+static func _group_gap(wide: bool) -> float:
+	return 14.0 if wide else 6.0
+
+
+static func _tail(wide: bool) -> float:
+	return 8.0 if wide else 4.0
+
+
 static func _table(host: Control, list: Array, cols: Array, wide: bool) -> Control:
 	var v := UiKit.vbox(0)
 	v.name = "PlayersTable"
 	var w := _col_w(wide)
-	var head := UiKit.hbox(2)
+	# Each group's name over its columns.
+	var groups := UiKit.hbox(0)
+	groups.name = "PlayersGroups"
+	groups.add_child(_fixed(_rank_w(wide) + _rank_gap(wide)))
+	var lead := Control.new()
+	lead.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	groups.add_child(lead)
+	groups.add_child(_fixed(_club_w(wide) + (96.0 if wide else 0.0) + _games_w(wide)))
+	var at := 0
+	while at < cols.size():
+		var g := str(cols[at][3])
+		var n := 0
+		while at + n < cols.size() and str(cols[at + n][3]) == g:
+			n += 1
+		groups.add_child(_fixed(_group_gap(wide)))
+		var gl := UiKit.ellipsis(g, UiKit.SMALL, UiKit.MUTED, true)
+		gl.custom_minimum_size.x = w * n
+		gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		groups.add_child(gl)
+		at += n
+	groups.add_child(_fixed(_tail(wide)))
+	v.add_child(groups)
+	var head := UiKit.hbox(0)
 	head.name = "PlayersHeader"
+	head.add_child(_cell("#", _rank_w(wide), UiKit.MUTED, UiKit.SMALL, false, HORIZONTAL_ALIGNMENT_RIGHT))
+	head.add_child(_fixed(_rank_gap(wide)))
 	var who := UiKit.line("Player", UiKit.SMALL, UiKit.MUTED)
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(who)
-	head.add_child(_cell("Club", _club_w(wide), UiKit.MUTED, UiKit.SMALL))
+	head.add_child(_cell("Club", _club_w(wide), UiKit.MUTED, UiKit.SMALL, false, HORIZONTAL_ALIGNMENT_LEFT))
 	if wide:
-		head.add_child(_cell("Pos", 56.0, UiKit.MUTED, UiKit.SMALL))
-		head.add_child(_cell("Age", 40.0, UiKit.MUTED, UiKit.SMALL))
+		head.add_child(_cell("Pos", 56.0, UiKit.MUTED, UiKit.SMALL, false, HORIZONTAL_ALIGNMENT_LEFT))
+		head.add_child(_cell("Age", 40.0, UiKit.MUTED, UiKit.SMALL, false, HORIZONTAL_ALIGNMENT_RIGHT))
 	head.add_child(_sort_button(host, "games", "GM", "games played", _games_w(wide)))
+	var last_group := ""
 	for c in cols:
+		if str(c[3]) != last_group:
+			head.add_child(_fixed(_group_gap(wide)))
+			last_group = str(c[3])
 		head.add_child(_sort_button(host, str(c[0]), str(c[1]), str(c[2]), w))
+	head.add_child(_fixed(_tail(wide)))
 	v.add_child(head)
 	v.add_child(UiKit.rule())
 	for i in range(mini(_shown, list.size())):
@@ -459,14 +517,14 @@ static func _table(host: Control, list: Array, cols: Array, wide: bool) -> Contr
 		more.pressed.connect(func():
 			_shown += PAGE
 			host.call("refresh"))
-		v.add_child(UiKit.spacer(6))
+		v.add_child(UiKit.spacer(8))
 		v.add_child(more)
 	# Every heading spelled out (a phone has no hover), and how rates rank.
 	var bits: PackedStringArray = ["GM games"]
 	for c in cols:
 		bits.append("%s %s" % [str(c[1]), str(c[2])])
 	bits.append("* played for two clubs")
-	v.add_child(UiKit.spacer(6))
+	v.add_child(UiKit.spacer(10))
 	var key := UiKit.lbl("  ·  ".join(bits), UiKit.SMALL, UiKit.MUTED)
 	key.name = "PlayersKey"
 	key.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -478,6 +536,13 @@ static func _table(host: Control, list: Array, cols: Array, wide: bool) -> Contr
 		q.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(q)
 	return v
+
+
+static func _fixed(w: float) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size.x = w
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return c
 
 
 static func _name_of(key: String) -> String:
@@ -494,8 +559,11 @@ static func _sort_button(host: Control, key: String, text: String, full: String,
 	b.text = text + ("" if key != _sort else (" ↓" if _desc else " ↑"))
 	b.flat = true
 	b.custom_minimum_size = Vector2(w, 44)
+	b.alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	b.add_theme_font_size_override("font_size", UiKit.SMALL)
 	b.add_theme_color_override("font_color", UiKit.TEXT if key == _sort else UiKit.MUTED)
+	if key == _sort:
+		b.add_theme_font_override("font", UiKit.BOLD)
 	b.tooltip_text = "Sort by %s" % full
 	b.pressed.connect(func():
 		sort_by(key)
@@ -512,34 +580,63 @@ static func sort_by(key: String) -> void:
 		_desc = true
 
 
+## A row's band: every other row a faint flat surface; a pointer over any
+## row lifts it a shade.
+static func _band(b: Button, odd: bool) -> void:
+	var base := StyleBoxFlat.new()
+	base.bg_color = UiKit.PANEL if odd else Color(0, 0, 0, 0)
+	var over := StyleBoxFlat.new()
+	over.bg_color = UiKit.PANEL_ALT
+	for sb in [base, over]:
+		(sb as StyleBoxFlat).set_content_margin_all(0)
+	b.add_theme_stylebox_override("normal", base)
+	b.add_theme_stylebox_override("hover", over)
+	b.add_theme_stylebox_override("pressed", over)
+	b.add_theme_stylebox_override("hover_pressed", over)
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
+
 static func _row(host: Control, row: Dictionary, rank: int, cols: Array, wide: bool) -> Control:
 	var b := Button.new()
 	b.name = "PlayerRow_" + str(row["id"])
-	b.flat = true
-	b.custom_minimum_size.y = 34
+	b.custom_minimum_size.y = ROW_H
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
+	_band(b, rank % 2 == 0)
 	b.pressed.connect(func(): open_player(host, str(row["id"])))
-	var h := UiKit.hbox(2)
+	var h := UiKit.hbox(0)
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
 	b.add_child(h)
 	var mine := str(row["club"]) == GameState.my_club
-	var who := UiKit.ellipsis("%d  %s" % [rank, _table_name(str(row["name"]), wide)], UiKit.SMALL, UiKit.TEXT, mine)
+	h.add_child(_cell(str(rank), _rank_w(wide), UiKit.MUTED, UiKit.SMALL, false, HORIZONTAL_ALIGNMENT_RIGHT))
+	h.add_child(_fixed(_rank_gap(wide)))
+	var who := UiKit.ellipsis(_table_name(str(row["name"]), wide), UiKit.SMALL, UiKit.TEXT, mine)
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(who)
 	var club_text := (GameDB.club_short(str(row["club"])) if wide else str(row["club"])) + ("*" if bool(row["moved"]) else "")
-	h.add_child(_cell(club_text, _club_w(wide), UiKit.MUTED, UiKit.SMALL))
+	h.add_child(_cell(club_text, _club_w(wide), UiKit.MUTED, UiKit.SMALL, false, HORIZONTAL_ALIGNMENT_LEFT))
 	if wide:
 		var p: Dictionary = row["p"]
-		h.add_child(_cell(str(p.get("role", "")), 56.0, UiKit.MUTED, UiKit.SMALL))
-		h.add_child(_cell(str(int(float(p.get("age", 0.0)))) if not p.is_empty() else "", 40.0, UiKit.MUTED, UiKit.SMALL))
-	h.add_child(_cell(str(int(row["games"])), _games_w(wide), UiKit.MUTED, UiKit.SMALL))
+		h.add_child(_cell(str(p.get("role", "")), 56.0, UiKit.MUTED, UiKit.SMALL, false, HORIZONTAL_ALIGNMENT_LEFT))
+		h.add_child(_cell(str(int(float(p.get("age", 0.0)))) if not p.is_empty() else "", 40.0, UiKit.MUTED,
+				UiKit.SMALL, false, HORIZONTAL_ALIGNMENT_RIGHT))
+	h.add_child(_cell(str(int(row["games"])), _games_w(wide), UiKit.MUTED, UiKit.SMALL, false, HORIZONTAL_ALIGNMENT_RIGHT))
 	var w := _col_w(wide)
+	var last_group := ""
 	for c in cols:
+		if str(c[3]) != last_group:
+			h.add_child(_fixed(_group_gap(wide)))
+			last_group = str(c[3])
 		var key := str(c[0])
-		var cell := _cell(fmt(value(row, key, _per_game), key, _per_game), w,
-				UiKit.TEXT if qualifies(row, key) else UiKit.MUTED, UiKit.SMALL, key == _sort)
+		var v := value(row, key, _per_game)
+		var shown := fmt(v, key, _per_game)
+		# What he did stands out: zeros, nothing to show and rates without
+		# enough under them are muted.
+		var quiet: bool = v <= 0.0 or not qualifies(row, key)
+		var cell := _cell(shown, w, UiKit.MUTED if quiet else UiKit.TEXT, UiKit.SMALL, key == _sort,
+				HORIZONTAL_ALIGNMENT_RIGHT)
 		cell.name = "Cell_" + key
 		h.add_child(cell)
+	h.add_child(_fixed(_tail(wide)))
 	for n in h.find_children("*", "Control", true, false):
 		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -558,10 +655,11 @@ static func fmt(v: float, key: String, per_game: bool) -> String:
 	return str(int(round(v)))
 
 
-static func _cell(text: String, w: float, col: Color, fs: int, bold := false) -> Label:
+static func _cell(text: String, w: float, col: Color, fs: int, bold := false,
+		align := HORIZONTAL_ALIGNMENT_CENTER) -> Label:
 	var l := UiKit.line(text, fs, col, bold)
 	l.custom_minimum_size = Vector2(w, 0)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.horizontal_alignment = align
 	l.clip_text = true
 	return l
 
