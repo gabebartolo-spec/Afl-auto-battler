@@ -610,13 +610,15 @@ func _show_coach_box() -> void:
 	roam_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	more.add_child(roam_note)
 
-	var focus := _player_choice("FocusPicker", "No one", mine, _in_the_game(mine, 4), calls, "focus_id",
-			"Play through which player?")
-	var focus_block := _call_block("Play through", focus)
-	var focus_note := UiKit.lbl("Favour this player in possession chains and attacking transition.",
-			UiKit.SMALL, UiKit.MUTED)
+	var focus_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	focus_note.name = "FocusNote"
 	focus_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var sync_focus := func(id: String) -> void:
+		focus_note.text = _focus_note_text(id)
+	var focus := _player_choice("FocusPicker", "No one", mine, _in_the_game(mine, 4), calls, "focus_id",
+			"Play through which player?", sync_focus)
+	var focus_block := _call_block("Play through", focus)
+	sync_focus.call(str(calls["focus_id"]))
 	focus_block.add_child(focus_note)
 	more.add_child(focus_block)
 
@@ -995,6 +997,8 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 		other.pressed.connect(func():
 			_player_sheet(sheet_title, roster, str(calls[field]), func(id: String):
 				calls[field] = id
+				if on_change.is_valid():
+					on_change.call(id)
 				self_ref.call(self_ref)))
 		grid.add_child(other)
 	rebuild.call(rebuild)
@@ -1177,6 +1181,35 @@ func _apply_quarter_tactics(t: Dictionary) -> void:
 	sim.set_tactics(1 - _my_side, sim.ai_tactics(1 - _my_side))
 
 
+## The player you play through, with his job this match: the slot he fills on
+## the ground (or filled last, off it) - "Matthew Jefferson our key forward target".
+func _focus_player(id: String) -> Dictionary:
+	var sim: MatchSim = GameState.pending_sim
+	if sim != null:
+		var sq: Squad = sim.squads[_my_side]
+		for p in sq.ground + sq.bench:
+			if str(p["id"]) == id:
+				return p
+	for r in _roster_side(_my_side):
+		if str(r["id"]) == id:
+			return r
+	return {}
+
+
+func _focus_text(id: String) -> String:
+	var p := _focus_player(id)
+	return MatchNotes.focus_role_text(GameDB.player_display_name_by_id(id, "your player"), str(p.get("role", "")))
+
+
+## Under the Play through control: his job and what it does for him; the
+## general description with nobody picked.
+func _focus_note_text(id: String) -> String:
+	if id == "":
+		return "Favour this player in possession chains and attacking transition."
+	var p := _focus_player(id)
+	return "%s: %s." % [_focus_text(id), MatchNotes.focus_effect_text(str(p.get("role", "")))]
+
+
 ## "Defensive press · tagging Walsh": your calls for this quarter, one line.
 func _show_setup(t: Dictionary) -> void:
 	if _setup_line == null or not is_instance_valid(_setup_line):
@@ -1187,7 +1220,7 @@ func _show_setup(t: Dictionary) -> void:
 		bits.append("tagging " + GameDB.player_display_name_by_id(tag_id, "their player"))
 	var focus_id := str(t.get("focus_id", ""))
 	if focus_id != "":
-		bits.append("playing through " + GameDB.player_display_name_by_id(focus_id, "your player"))
+		bits.append(_focus_text(focus_id))
 	var intercept_id := str(t.get("interceptor_id", ""))
 	if intercept_id != "":
 		bits.append(GameDB.player_display_name_by_id(intercept_id, "your defender") + " loose behind the ball")

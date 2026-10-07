@@ -3,7 +3,7 @@ extends SceneTree
 ## plan line under the clock. Needs a real renderer; capture.yml runs it:
 ##   gh workflow run capture.yml --ref <branch> -f tool=capture_coach_break \
 ##       -f args="--size 390x844"
-## Writes <out>_pep.png (Pep talk and Rotations, the neutral choices picked, so
+## Writes <out>_focus.png (a forward picked for Play through), <out>_pep.png (Pep talk and Rotations, the neutral choices picked, so
 ## their descriptions show), <out>_tag.png (Tag with no tag picked) and
 ## <out>_plan.png (the match screen with a long plan line: every call in full).
 ##   --size WxH   window size (default 390x844)    --light   light appearance
@@ -59,6 +59,25 @@ func _run() -> void:
 	if more != null:
 		more.emit_signal("pressed")
 	await _frames(6)
+	# A forward picked for Play through: the note says his job.
+	var side0 := int(scene.get("_my_side"))
+	var fwd := ""
+	for p in state.pending_sim.squads[side0].ground:
+		if str(p["role"]) == "FWD":
+			fwd = str(p["id"])
+			break
+	var pick: Button = scene.find_child("FocusPickerGrid_" + fwd, true, false)
+	if pick == null:
+		var other: Button = scene.find_child("FocusPickerOther", true, false)
+		if other != null:
+			other.emit_signal("pressed")
+			await _frames(6)
+		pick = scene.find_child("Sheet_" + fwd, true, false)
+	if pick != null:
+		pick.emit_signal("pressed")
+		await _frames(6)
+	await _shoot(scene.find_child("FocusPicker", true, false), out + "_focus.png")
+	await _frames(8)
 	# Composed and Normal are the defaults: their words show without a tap.
 	await _shoot(scene.find_child("PepPicker", true, false), out + "_pep.png")
 	await _frames(8)
@@ -68,7 +87,7 @@ func _run() -> void:
 	var side := int(scene.get("_my_side"))
 	var mine: Array = scene.call("_roster_side", side)
 	var theirs: Array = scene.call("_roster_side", 1 - side)
-	var calls := {"gameplan": "defensive", "tag_id": _longest(db, theirs), "focus_id": _longest(db, mine),
+	var calls := {"gameplan": "defensive", "tag_id": _longest(db, theirs), "focus_id": fwd if fwd != "" else _longest(db, mine),
 			"interceptor_id": _longest(db, mine.filter(func(r): return str(r["role"]) == "DEF")),
 			"spare_accountable": false}
 	var go: Button = scene.find_child("StartQuarter", true, false)

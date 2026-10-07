@@ -528,6 +528,42 @@ func _coach_descriptions(sz: Vector2i) -> void:
 		await Tap.tap(named)
 		await _settle()
 
+	# Play through: the note says his job and what the call does for him, by the
+	# slot he fills; with nobody picked it is the general line. Real taps.
+	var notes = load("res://scripts/ui/match/MatchNotes.gd")
+	var me := int(m.get("_my_side"))
+	var ground: Array = _state.pending_sim.squads[me].ground
+	var effects := {"MID": "more of the ball in the midfield chains",
+			"FWD": "more of the ball up forward; he is not made the shooter",
+			"DEF": "more of the ball coming out of defence", "RUCK": "more of the ball around the stoppages"}
+	var roles := {"MID": "our key midfielder", "FWD": "our key forward target",
+			"DEF": "our key distributor out of defence", "RUCK": "our key man around the ball"}
+	var fnote: Label = box.find_child("FocusNote", true, false)
+	_check(fnote != null and fnote.text.begins_with("Favour this player"), "With nobody picked, Play through keeps its general line (%s)" % tag)
+	for role in ["MID", "FWD", "DEF", "RUCK"]:
+		var who: Dictionary = {}
+		for gp in ground:
+			if str(gp["role"]) == role and who.is_empty():
+				who = gp
+		if who.is_empty():
+			continue
+		var pick: Button = box.find_child("FocusPickerGrid_" + str(who["id"]), true, false)
+		if pick == null:
+			await Tap.tap(box.find_child("FocusPickerOther", true, false))
+			await _settle()
+			pick = m.find_child("Sheet_" + str(who["id"]), true, false)
+		var pw: String = await Tap.tap(pick)
+		await _settle()
+		var nm := str(db.player_display_name_by_id(str(who["id"]), ""))
+		fnote = box.find_child("FocusNote", true, false)
+		_check(pw == "" and fnote.text == "%s %s: %s." % [nm, str(roles[role]), str(effects[role])],
+				"A %s played through reads as %s (%s: %s)" % [role, str(roles[role]), tag, fnote.text])
+		_check(notes.focus_role_text(nm, role) == "%s %s" % [nm, str(roles[role])] and notes.focus_effect_text(role) == str(effects[role]),
+				"The helper says the same for %s (%s)" % [role, tag])
+	await Tap.tap(box.find_child("FocusPickerGrid_", true, false))
+	await _settle()
+	_check(box.find_child("FocusNote", true, false).text.begins_with("Favour this player"), "Picking no one brings the general line back (%s)" % tag)
+
 	# Start with a tag: the plan line names every call, in full, and nothing
 	# it sits above is pushed off the screen.
 	var go: Button = box.find_child("StartQuarter", true, false)
@@ -550,9 +586,15 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	m.call("_show_setup", calls)
 	await _settle()
 	var line: Label = m.find_child("SetupLine", true, false)
-	var full := "Your plan: Defensive press  ·  tagging %s  ·  playing through %s  ·  %s loose behind the ball" % [
+	var jobs := {"MID": "our key midfielder", "FWD": "our key forward target",
+			"DEF": "our key distributor out of defence", "RUCK": "our key man around the ball"}
+	var focus_role := ""
+	for r in mine:
+		if str(r["id"]) == str(calls["focus_id"]):
+			focus_role = str(r["role"])
+	var full := "Your plan: Defensive press  ·  tagging %s  ·  %s %s  ·  %s loose behind the ball" % [
 			db.player_display_name_by_id(str(calls["tag_id"]), ""), db.player_display_name_by_id(str(calls["focus_id"]), ""),
-			db.player_display_name_by_id(str(calls["interceptor_id"]), "")]
+			str(jobs[focus_role]), db.player_display_name_by_id(str(calls["interceptor_id"]), "")]
 	_check(line != null and line.visible and line.text == full, "The plan line names every call (%s)" % tag)
 	_check(line.autowrap_mode != TextServer.AUTOWRAP_OFF and line.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING,
 			"The plan line wraps, it does not trim (%s)" % tag)

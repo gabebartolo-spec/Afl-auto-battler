@@ -388,6 +388,29 @@ static func _stars_disposals(res: Dictionary, now: Dictionary, was: Dictionary, 
 	return total
 
 
+## A player picked to play through, by the slot he fills: "Matthew Jefferson
+## our key forward target". The engine favours him as the carrier in chains,
+## and carriers are picked by zone, so what it does is where he plays.
+const FOCUS_ROLES := {
+	"MID": ["our key midfielder", "more of the ball in the midfield chains"],
+	"FWD": ["our key forward target", "more of the ball up forward; he is not made the shooter"],
+	"DEF": ["our key distributor out of defence", "more of the ball coming out of defence"],
+	"RUCK": ["our key man around the ball", "more of the ball around the stoppages"],
+}
+
+
+static func focus_role_text(name: String, role: String) -> String:
+	if not FOCUS_ROLES.has(role):
+		return name
+	return "%s %s" % [name, str(FOCUS_ROLES[role][0])]
+
+
+static func focus_effect_text(role: String) -> String:
+	if not FOCUS_ROLES.has(role):
+		return "more of the ball in the chains"
+	return str(FOCUS_ROLES[role][1])
+
+
 ## How your tag went in quarter q: "Your tag on Walsh: 4 disposals, no goals."
 static func tag_line(res: Dictionary, my_side: int, q: int) -> String:
 	var hist: Array = res.get("tactics_history", [])
