@@ -1935,6 +1935,45 @@ func opponent_people(code: String) -> Array:
 	return Matchup.people(code, season.lists, season.selections, season.club_results(code))
 
 
+## The assistant's report on an opponent (director, 2026-10-07): what has
+## been seen of them, in two parts, each fact said once - [["How they play",
+## [lines]], ["Who matters", [lines]]], a part left out when it has nothing.
+## How they play: their usual game, their style, a run of results. Who
+## matters: their best player missing, their danger, a roaming interceptor
+## (when he is not the danger). Facts only, never how to beat them.
+func opponent_report(code: String) -> Array:
+	if season == null or code == "" or not season.lists.has(code):
+		return []
+	var play := []
+	var usual := usual_plan(code)
+	if THEIR_PLAN.has(usual):
+		play.append("Their usual game, %s: %s" % [CoachReport.plan_label(usual), THEIR_PLAN[usual]])
+	play.append_array(their_style(code, 3))
+	var people := []
+	var danger_id := ""
+	for f in opponent_people(code):
+		if str(f["key"]) == "form":
+			play.append(str(f["text"]))
+		else:
+			people.append(str(f["text"]))
+			if str(f["key"]) == "danger":
+				danger_id = str(f.get("player_id", ""))
+	var spare := Matchup.interceptor(code, season.lists, season.selections)
+	if not spare.is_empty() and str(spare.get("player_id", "")) != danger_id:
+		people.append(str(spare["text"]))
+	var out := []
+	var seen := {}
+	for part in [["How they play", play], ["Who matters", people]]:
+		var lines := []
+		for t in part[1]:
+			if not seen.has(str(t)):
+				seen[str(t)] = true
+				lines.append(str(t))
+		if not lines.is_empty():
+			out.append([part[0], lines])
+	return out
+
+
 ## This week's changes to your side, as a team sheet reads them:
 ## {"ins": [{"id", "for", "note"}], "outs": [{"id", "why"}]}. An "in" is paired
 ## with an "out" from the same line where there is one ("for"); "note" is
@@ -5628,6 +5667,123 @@ func _ids_in(side: Dictionary) -> Dictionary:
 	return out
 
 
+## "Complete synergy" (director, 2026-10-07): the fewest swaps that switch
+## on synergy `key` from your available list. Each swap brings in the best
+## available player with a missing trait (from the bench or the list; for a
+## line synergy one who plays that line) for the lowest-rated player there
+## who is not carrying a synergy you already have. Returns {"side", "note",
+## "lost": [synergy labels switched off], "problem": "" or why it can't}.
+func complete_synergy(key: String, side: Dictionary) -> Dictionary:
+	var syn: Dictionary = Traits.SYNERGIES.get(key, {})
+	if syn.is_empty():
+		return {"side": side, "note": "", "lost": [], "problem": "No such synergy."}
+	var line := str(syn["line"])
+	var work: Dictionary = side.duplicate(true)
+	for k in ["RUCK", "MID", "WING", "DEF", "FWD", "BENCH"]:
+		if not work.has(k):
+			work[k] = []
+	var before: Array = Traits.active(_ground_for(work))
+	if before.has(key):
+		return {"side": work, "note": "%s is already on." % str(syn["label"]), "lost": [], "problem": ""}
+	var protect := {}
+	for k2 in before:
+		for c in Traits.carriers(str(k2), _ground_for(work)):
+			for q in c[1]:
+				protect[str(q["id"])] = true
+	var by_id := {}
+	for p in my_list:
+		by_id[str(p["id"])] = p
+	var ins: PackedStringArray = []
+	for _guard in range(8):
+		var ground := _ground_for(work)
+		if Traits.active(ground).has(key):
+			break
+		var row := {}
+		for r in Traits.progress(ground):
+			if str(r["key"]) == key:
+				row = r
+		var need_t := ""
+		for t in syn["needs"]:
+			if int(row["have"].get(t, 0)) < int(syn["needs"][t]):
+				need_t = str(t)
+				break
+		if need_t == "":
+			break
+		var on_ground := {}
+		for q in ground:
+			on_ground[str(q["id"])] = true
+		var cand = null
+		for p in my_list:
+			var pid := str(p["id"])
+			if on_ground.has(pid) or not Ratings.available(p) or not Traits.of(p).has(need_t):
+				continue
+			if line != "" and not Ratings.plays_role(p, line):
+				continue
+			if cand == null or int(p["overall"]) > int(cand["overall"]):
+				cand = p
+		if cand == null:
+			var plural := str(Traits.PLURALS.get(need_t, Traits.label(need_t) + "s"))
+			return {"side": side, "note": "", "lost": [], "problem": "Not enough %s on your list%s to complete it." % [
+					plural.to_lower(), " who can play %s" % ("forward" if line == "FWD" else "back") if line != "" else ""]}
+		var targets: Array = [line] if line != "" else (["MID", "WING"] if str(cand["role"]) == "MID" else [str(cand["role"])])
+		var victim := ""
+		for pass_n in range(2):
+			for tl in targets:
+				for id in work[tl]:
+					var vp = by_id.get(str(id))
+					if vp == null or str(id) == str(cand["id"]):
+						continue
+					if Traits.of(vp).has(need_t):
+						continue
+					if pass_n == 0 and protect.has(str(id)):
+						continue
+					if victim == "" or int(vp["overall"]) < int(by_id[victim]["overall"]):
+						victim = str(id)
+			if victim != "":
+				break
+		if victim == "":
+			return {"side": side, "note": "", "lost": [], "problem": "No spot to free without losing another %s." % Traits.label(need_t).to_lower()}
+		var cid := str(cand["id"])
+		var bench: Array = work["BENCH"]
+		for tl in targets:
+			var arr: Array = work[tl]
+			var vi := arr.find(victim)
+			if vi >= 0:
+				arr[vi] = cid
+				break
+		var bi := bench.find(cid)
+		if bi >= 0:
+			bench[bi] = victim
+		ins.append("%s in for %s" % [GameDB.player_display_name(cand), GameDB.player_display_name(by_id[victim])])
+	var after: Array = Traits.active(_ground_for(work))
+	if not after.has(key):
+		return {"side": side, "note": "", "lost": [], "problem": "Your list can't complete it this week."}
+	var lost := []
+	for k3 in before:
+		if not after.has(k3):
+			lost.append(str(Traits.SYNERGIES[k3]["label"]))
+	var note := "%s on: %s." % [str(syn["label"]), "; ".join(ins)]
+	if not lost.is_empty():
+		note += " Lost: %s." % ", ".join(lost)
+	return {"side": work, "note": note, "lost": lost, "problem": ""}
+
+
+func _ground_for(side: Dictionary) -> Array:
+	var sel := side.duplicate(true)
+	sel["DUAL_RUCK"] = user_dual_ruck
+	return Squad.new(GameDB.club_name(my_club), my_list, true, my_club, sel).ground
+
+
+## The opposition's side as it would take the field this week (their own
+## selection, or their auto-pick): {"side": selection, "list": players}.
+## Projected - they name their side on match day.
+func opponent_side(code: String) -> Dictionary:
+	if season == null or not season.lists.has(code):
+		return {"side": {}, "list": []}
+	var sq := Squad.new(GameDB.club_name(code), season.lists[code], false, code, season.selections.get(code, {}))
+	return {"side": _as_selection(sq.ground, sq.bench), "list": season.lists[code]}
+
+
 ## Save the side as your recurring Best 23 (kept until you save another).
 func set_best23(side: Dictionary) -> void:
 	best23 = side.duplicate(true)
@@ -7218,18 +7374,40 @@ const STYLE_PART_OF := {
 }
 
 
-## STYLE_LINES as said of an opponent: [when it helps them, when it hurts them].
+## An opponent's usual game plan, said as what it does on the field (the
+## same trade-offs as CoachReport.PLAN_SUMMARY, from their side).
+const THEIR_PLAN := {
+	"attacking": "they run it through the corridor for ground and better shots, and turn it over more.",
+	"defensive": "they press up the ground, so they are hard to score against but have fewer numbers forward.",
+	"contest": "they put numbers at the stoppages to win the clearances, and the ball moves slower.",
+	"controlled": "they keep the ball and make few errors, but gain less ground.",
+	"through_stars": "their best three see more of the ball, and the pressure goes on them.",
+}
+
+
+## STYLE_LINES as said of an opponent: [when it helps them, when it hurts
+## them]. Each says what it means on the field (director, 2026-10-07: a style
+## with no football consequence is gibberish), never what to do about it.
 const THEIR_STYLE := {
-	"for": ["They kick big scores.", "They struggle to score."],
-	"against": ["They are hard to score against.", "They leak scores."],
-	"clearances": ["They win it at the stoppages.", "They get beaten at the stoppages."],
-	"inside50": ["They live in their forward half.", "They struggle to get it forward."],
-	"pressure_acts": ["They bring the heat.", "They give opponents time."],
-	"marks": ["They hold it by foot and mark it.", "They rarely take a mark."],
-	"clangers": ["They look after the ball.", "They turn it over."],
-	"hitouts": ["Their ruck wins the tap.", "They get beaten in the ruck."],
-	"from_stoppage": ["They score from the stoppages.", "They rarely score from the stoppages."],
-	"conceded_stoppage": ["They shut down stoppage scores.", "They give up scores from the stoppages."],
+	"for": ["They kick big scores: more than most sides.", "They struggle to score: less than most sides."],
+	"against": ["They are hard to score against: most sides kick less against them.",
+			"They leak scores: most sides kick more against them."],
+	"clearances": ["They win it at the stoppages: their midfield gets first hands to most ball-ups.",
+			"They get beaten at the stoppages: their midfield rarely gets first hands."],
+	"inside50": ["They live in their forward half: their opponents' defenders see a lot of the ball.",
+			"They struggle to get it forward: their forwards see little of the ball."],
+	"pressure_acts": ["They pressure the ball hard: ball carriers against them get tackled and rushed into turnovers.",
+			"They barely pressure the ball: ball carriers against them get time to pick a target."],
+	"marks": ["They keep it by foot and mark it: when they have it, the ball rarely hits the ground.",
+			"They rarely mark it: their ball is won on the ground, at the contest."],
+	"clangers": ["They look after the ball: they rarely hand it back.",
+			"They turn it over: their mistakes hand the ball to their opponents."],
+	"hitouts": ["Their ruck wins the tap: their midfield gets first use at the ball-ups.",
+			"They get beaten in the ruck: their midfield rarely gets first use at the ball-ups."],
+	"from_stoppage": ["They score from the stoppages: their clearances often become scores.",
+			"They rarely score from the stoppages: their clearances seldom become scores."],
+	"conceded_stoppage": ["They shut down stoppage scores: clearances against them rarely become scores.",
+			"They give up scores from the stoppages: clearances against them often become scores."],
 }
 
 

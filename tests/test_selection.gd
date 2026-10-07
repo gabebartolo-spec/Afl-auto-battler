@@ -21,6 +21,7 @@ func run() -> void:
 	_test_ruck_selection_integrity()
 	_test_named_side()
 	_test_formation_layout()
+	_test_complete_synergy()
 	_test_gaps_and_overflow()
 	_test_left_out_player_sits_out()
 	_test_selection_saved()
@@ -130,6 +131,38 @@ func _test_formation_layout() -> void:
 	var keep: Dictionary = GameState.best23.duplicate(true)
 	GameState.reset()
 	_check(GameState.load_career() and GameState.best23 == keep, "Your Best 23 survives a save and load")
+
+
+## Complete synergy (director, 2026-10-07): it switches the synergy on with a
+## legal 23 from available players, or leaves the side alone and says why.
+func _test_complete_synergy() -> void:
+	# Collingwood's real list can switch on its Lockdown unit; most real lists
+	# are short of the traits for the others, and say so.
+	GameState.reset()
+	GameState.start_season("COL", GameDB.club_list("COL"))
+	var side := GameState.current_side()
+	var done := 0
+	for key in Traits.SYNERGIES:
+		if Traits.active(GameState._ground_for(side)).has(key):
+			continue
+		var r: Dictionary = GameState.complete_synergy(str(key), side)
+		if str(r["problem"]) != "":
+			_check(r["side"] == side, "%s: can't be done, the side is untouched (%s)" % [key, r["problem"]])
+			continue
+		done += 1
+		var ground: Array = GameState._ground_for(r["side"])
+		var ids := {}
+		var count := 0
+		var fit := true
+		for k in r["side"]:
+			for id in r["side"][k]:
+				ids[str(id)] = true
+				count += 1
+				if not Ratings.available(GameState.list_player(str(id))):
+					fit = false
+		_check(Traits.active(ground).has(key) and count == 23 and ids.size() == 23 and fit,
+				"%s: completed with 23 different available players (%s)" % [key, r["note"]])
+	_check(done >= 1, "At least one synergy can be completed from a real list (%d)" % done)
 
 
 func _test_named_side() -> void:
