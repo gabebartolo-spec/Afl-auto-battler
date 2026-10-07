@@ -50,19 +50,23 @@ static func build(host: Control) -> Control:
 	nav.name = "RoundNav"
 	var prev := UiKit.btn("Previous", UiKit.BODY)
 	prev.name = "PrevRound"
-	prev.custom_minimum_size = Vector2(96, 44)
+	prev.custom_minimum_size = Vector2(120 if not narrow else 96, 44)
 	prev.disabled = _page == 0
 	prev.pressed.connect(func(): _go(host, _page - 1))
 	nav.add_child(prev)
 	var pick := UiKit.btn(str(page["title"]), UiKit.NAME)
 	pick.name = "RoundPicker"
-	pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if narrow:
+		pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	else:
+		# A compact group on a wide screen, not a bar across the window.
+		pick.custom_minimum_size = Vector2(240, 44)
 	pick.clip_text = true
 	pick.pressed.connect(func(): _round_sheet(host, pgs))
 	nav.add_child(pick)
 	var nxt := UiKit.btn("Next", UiKit.BODY)
 	nxt.name = "NextRound"
-	nxt.custom_minimum_size = Vector2(96, 44)
+	nxt.custom_minimum_size = Vector2(120 if not narrow else 96, 44)
 	nxt.disabled = _page >= pgs.size() - 1
 	nxt.pressed.connect(func(): _go(host, _page + 1))
 	nav.add_child(nxt)
@@ -71,12 +75,28 @@ static func build(host: Control) -> Control:
 	status.name = "RoundStatus"
 	v.add_child(status)
 
-	var list := UiKit.vbox(4)
+	var matches: Array = page["matches"]
+	# "Upcoming" only where played and unplayed matches share a round.
+	var done_n := 0
+	for m in matches:
+		if not (m["res"] as Dictionary).is_empty():
+			done_n += 1
+	var mixed := done_n > 0 and done_n < matches.size()
+	var list: Container
+	if narrow:
+		var col := UiKit.vbox(4)
+		list = col
+	else:
+		# Compact rows two or three across, the score beside the clubs.
+		var grid := GridContainer.new()
+		grid.columns = 3 if float(host.call("content_width")) >= 1240.0 else 2
+		grid.add_theme_constant_override("h_separation", 28)
+		grid.add_theme_constant_override("v_separation", 4)
+		list = grid
 	list.name = "FixtureRows"
 	v.add_child(list)
-	var matches: Array = page["matches"]
 	for i in range(matches.size()):
-		list.add_child(_row(host, season, matches[i], i, narrow))
+		list.add_child(_row(host, season, matches[i], i, narrow, mixed))
 	if matches.is_empty():
 		list.add_child(UiKit.lbl("The matches are set once the earlier finals are played.", UiKit.BODY, UiKit.MUTED))
 	var byes: Array = page.get("byes", [])
@@ -163,7 +183,7 @@ static func _status(season: Season, page: Dictionary) -> String:
 ## One match as a tappable row: the two clubs one over the other, their
 ## scores (or, for a match to come, "Upcoming" and the ground) beside them.
 ## Your club's match is set in bold.
-static func _row(host: Control, season: Season, m: Dictionary, index: int, narrow: bool) -> Control:
+static func _row(host: Control, season: Season, m: Dictionary, index: int, narrow: bool, mixed: bool) -> Control:
 	var res: Dictionary = m["res"]
 	var done := not res.is_empty()
 	var mine := GameState.my_club
@@ -173,7 +193,9 @@ static func _row(host: Control, season: Season, m: Dictionary, index: int, narro
 	b.set_meta("done", done)
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	b.custom_minimum_size = Vector2(0, 60)
+	b.custom_minimum_size = Vector2(0 if narrow else 400, 76 if done else 60)
+	if not narrow:
+		b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	b.clip_contents = true
 	var flat := StyleBoxFlat.new()
 	flat.bg_color = Color.TRANSPARENT
@@ -210,15 +232,16 @@ static func _row(host: Control, season: Season, m: Dictionary, index: int, narro
 					UiKit.TEXT, yours)
 			sc.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 			side.add_child(sc)
-	if not done:
+	var where := UiKit.ellipsis(str(m["venue"]), UiKit.SMALL, UiKit.MUTED)
+	where.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	where.custom_minimum_size.x = 96 if narrow else 150
+	where.size_flags_horizontal = Control.SIZE_SHRINK_END
+	if not done and mixed:
 		var when := UiKit.line("Upcoming", UiKit.SMALL, UiKit.MUTED, yours)
 		when.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		side.add_child(when)
-		var where := UiKit.ellipsis(str(m["venue"]), UiKit.SMALL, UiKit.MUTED)
-		where.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		where.custom_minimum_size.x = 96 if narrow else 160
-		where.size_flags_horizontal = Control.SIZE_SHRINK_END
-		side.add_child(where)
+	# The ground, quietly: under the score, or alone for a match to come.
+	side.add_child(where)
 	_ignore(box)
 	b.pressed.connect(func():
 		if done:

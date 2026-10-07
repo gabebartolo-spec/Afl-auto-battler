@@ -98,8 +98,19 @@ func _fixture(sz: Vector2i) -> void:
 			"Every match of the round is a row (%s)" % tag)
 	var upcoming := true
 	for r in rows:
-		upcoming = upcoming and not bool(r.get_meta("done")) and _text(r).contains("Upcoming")
-	_check(upcoming, "Matches to come say Upcoming, not a score (%s)" % tag)
+		upcoming = upcoming and not bool(r.get_meta("done")) and not _text(r).contains("(") 				and not _text(r).contains("Upcoming")
+	_check(upcoming, "A round all to come shows the ground, not a score and not Upcoming on every row (%s)" % tag)
+	var grounds := true
+	for i in range(rows.size()):
+		grounds = grounds and _text(rows[i]).contains(season.home_ground(str(season.fixture[season.round_index][i]["home"])))
+	_check(grounds, "Each match shows its ground (%s)" % tag)
+	if sz.x >= 900:
+		var widest := 0.0
+		for r in rows:
+			widest = maxf(widest, r.size.x)
+		_check(widest <= 430.0, "On a wide screen a match row is compact, not a bar across the window (%s: %d)" % [tag, int(widest)])
+		var nav_w: float = s.find_child("NextRound", true, false).get_global_rect().end.x - s.find_child("PrevRound", true, false).get_global_rect().position.x
+		_check(nav_w <= 560.0, "Previous, round and Next are a compact group (%s: %d)" % [tag, int(nav_w)])
 	var byes: Node = s.find_child("ByeLine", true, false)
 	_check(byes == null or _text(byes).begins_with("Bye: "), "A round with byes names the clubs (%s)" % tag)
 	_fits(s, sz, "the next round", tag)
@@ -127,7 +138,7 @@ func _fixture(sz: Vector2i) -> void:
 	rows = s.find_children("Match_*", "Button", true, false)
 	var played := not rows.is_empty()
 	for r in rows:
-		played = played and bool(r.get_meta("done")) and not _text(r).contains("Upcoming") and _text(r).contains("(")
+		played = played and bool(r.get_meta("done")) and not _text(r).contains("Upcoming") and _text(r).contains("(") 				and _text(r).contains(season.home_ground(str(season.fixture[season.round_index - 1][r.get_index()]["home"])))
 	_check(played, "Played matches show both scorelines (%s)" % tag)
 	_fits(s, sz, "a played round", tag)
 
