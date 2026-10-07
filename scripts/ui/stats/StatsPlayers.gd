@@ -20,7 +20,7 @@ const GROUPS := [
 	["contest", "Contested ball", [["contested_possessions", "CP", "contested possessions"],
 			["uncontested_possessions", "UP", "uncontested possessions"],
 			["cp_rate", "CP%", "contested possession rate"], ["ground_ball_gets", "GBG", "ground-ball gets"],
-			["clearances", "CL", "clearances"]]],
+			["clearances", "CL", "clearances"], ["cba", "CBA", "centre bounce attendances"]]],
 	["marking", "Marking", [["marks", "M", "marks"], ["contested_marks", "CM", "contested marks"],
 			["intercept_marks", "IM", "intercept marks"]]],
 	["goals", "Goals", [["goals", "G", "goals"], ["behinds", "B", "behinds"],
@@ -29,8 +29,7 @@ const GROUPS := [
 	["setshots", "Set shots", [["set_shots", "SS", "set shots"], ["set_goals", "SG", "set-shot goals"],
 			["set_accuracy", "SS%", "set-shot accuracy"], ["score_involvements", "SI", "score involvements"]]],
 	["ruck", "Ruck", [["hitouts", "HO", "hit-outs"], ["ruck_contests", "RC", "ruck contests"],
-			["hitout_win", "HO%", "hit-out win rate"], ["hitouts_adv", "HA", "hit-outs to advantage"],
-			["cba", "CBA", "centre bounce attendances"]]],
+			["hitout_win", "HO%", "hit-out win rate"], ["hitouts_adv", "HA", "hit-outs to advantage"]]],
 	["defence", "Defence", [["intercepts", "INT", "intercepts"], ["tackles", "T", "tackles"],
 			["one_percenters", "1%", "one percenters"], ["spoils", "SP", "spoils"],
 			["pressure_acts", "PA", "pressure acts"]]],
@@ -153,6 +152,7 @@ static func pick_group(key: String) -> void:
 
 
 static func _filter_row(host: Control) -> Control:
+	var wide: bool = host.call("wide")
 	var flow := HFlowContainer.new()
 	flow.name = "FilterRow"
 	flow.add_theme_constant_override("h_separation", 6)
@@ -180,7 +180,9 @@ static func _filter_row(host: Control) -> Control:
 	roles.sort_custom(by_label)
 	traits.sort_custom(by_label)
 	for f in [["club", clubs], ["pos", POSITIONS], ["age", AGES], ["role", roles], ["trait", traits], ["games", GAMES]]:
-		flow.add_child(_dropdown(host, str(f[0]), f[1]))
+		var d := _dropdown(host, str(f[0]), f[1])
+		d.custom_minimum_size.x = 170.0 if wide else floorf((float(host.call("content_width")) - 16.0) / 2.0)
+		flow.add_child(d)
 	return flow
 
 
@@ -189,6 +191,8 @@ static func _dropdown(host: Control, key: String, options: Array) -> OptionButto
 	o.name = "Filter_" + key
 	UiKit.style_button(o, 14)
 	o.custom_minimum_size = Vector2(150, 44)
+	o.clip_text = true
+	o.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	for i in range(options.size()):
 		o.add_item(str(options[i][1]), i)
 		if str(options[i][0]) == str(_filters[key]):
@@ -391,7 +395,7 @@ static func _columns(host: Control, wide: bool) -> Array:
 		if str(GROUPS[i][0]) == _group:
 			start = i
 	var cols := []
-	var room: float = float(host.call("content_width")) - (440.0 if wide else 200.0)
+	var room: float = float(host.call("content_width")) - (440.0 if wide else 190.0)
 	var w := _col_w(wide)
 	for j in range(GROUPS.size()):
 		var g: Array = GROUPS[(start + j) % GROUPS.size()]
@@ -405,7 +409,24 @@ static func _columns(host: Control, wide: bool) -> Array:
 
 
 static func _col_w(wide: bool) -> float:
-	return 46.0 if wide else 38.0
+	return 46.0 if wide else 34.0
+
+
+static func _club_w(wide: bool) -> float:
+	return 120.0 if wide else 38.0
+
+
+static func _games_w(wide: bool) -> float:
+	return 36.0 if wide else 28.0
+
+
+## A name as the table shows it: in full on a wide screen, "N. Daicos" on a
+## phone so the surname is never cut.
+static func _table_name(name: String, wide: bool) -> String:
+	if wide:
+		return name
+	var at := name.find(" ")
+	return name if at <= 0 else name.substr(0, 1) + ". " + name.substr(at + 1)
 
 
 static func _table(host: Control, list: Array, cols: Array, wide: bool) -> Control:
@@ -417,11 +438,11 @@ static func _table(host: Control, list: Array, cols: Array, wide: bool) -> Contr
 	var who := UiKit.line("Player", UiKit.SMALL, UiKit.MUTED)
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(who)
-	head.add_child(_cell("Club", 44.0 if not wide else 120.0, UiKit.MUTED, UiKit.SMALL))
+	head.add_child(_cell("Club", _club_w(wide), UiKit.MUTED, UiKit.SMALL))
 	if wide:
 		head.add_child(_cell("Pos", 56.0, UiKit.MUTED, UiKit.SMALL))
 		head.add_child(_cell("Age", 40.0, UiKit.MUTED, UiKit.SMALL))
-	head.add_child(_sort_button(host, "games", "GM", "games played", 36.0))
+	head.add_child(_sort_button(host, "games", "GM", "games played", _games_w(wide)))
 	for c in cols:
 		head.add_child(_sort_button(host, str(c[0]), str(c[1]), str(c[2]), w))
 	v.add_child(head)
@@ -499,16 +520,16 @@ static func _row(host: Control, row: Dictionary, rank: int, cols: Array, wide: b
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
 	b.add_child(h)
 	var mine := str(row["club"]) == GameState.my_club
-	var who := UiKit.ellipsis("%d  %s" % [rank, str(row["name"])], UiKit.SMALL, UiKit.TEXT, mine)
+	var who := UiKit.ellipsis("%d  %s" % [rank, _table_name(str(row["name"]), wide)], UiKit.SMALL, UiKit.TEXT, mine)
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(who)
 	var club_text := (GameDB.club_short(str(row["club"])) if wide else str(row["club"])) + ("*" if bool(row["moved"]) else "")
-	h.add_child(_cell(club_text, 44.0 if not wide else 120.0, UiKit.MUTED, UiKit.SMALL))
+	h.add_child(_cell(club_text, _club_w(wide), UiKit.MUTED, UiKit.SMALL))
 	if wide:
 		var p: Dictionary = row["p"]
 		h.add_child(_cell(str(p.get("role", "")), 56.0, UiKit.MUTED, UiKit.SMALL))
 		h.add_child(_cell(str(int(float(p.get("age", 0.0)))) if not p.is_empty() else "", 40.0, UiKit.MUTED, UiKit.SMALL))
-	h.add_child(_cell(str(int(row["games"])), 36.0, UiKit.MUTED, UiKit.SMALL))
+	h.add_child(_cell(str(int(row["games"])), _games_w(wide), UiKit.MUTED, UiKit.SMALL))
 	var w := _col_w(wide)
 	for c in cols:
 		var key := str(c[0])
@@ -614,6 +635,7 @@ static func _season_grid(row: Dictionary, wide: bool) -> Control:
 	for g in GROUPS:
 		var box := UiKit.vbox(1)
 		box.custom_minimum_size.x = 320 if wide else 0
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		box.add_child(UiKit.lbl(str(g[1]), UiKit.SMALL, UiKit.MUTED, true))
 		var any := false
 		for c in g[2]:
