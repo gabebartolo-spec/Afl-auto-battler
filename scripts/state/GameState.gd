@@ -3192,6 +3192,12 @@ func _close_season_awards() -> void:
 		"my_bf": mine_bf.slice(0, 1),
 		"my_club": my_club,
 		"my_position": my_position(),
+		# Your season for the trophy room (Season stats): the home-and-away
+		# record, the last final you played ("" for no finals; its tag, e.g.
+		# "PF1") and your All-Australians. Older entries lack these keys.
+		"my_record": my_record(),
+		"my_finals": _my_last_final(),
+		"my_aa": _my_all_australians(),
 	})
 	# Achievements first, then the season news, so the premiership line
 	# stays the newest item in the feed.
@@ -3199,6 +3205,25 @@ func _close_season_awards() -> void:
 	_board_season_end()
 	_coaching_offseason()
 	_season_news()
+
+
+## The tag of the last final your club played this season ("" if none).
+func _my_last_final() -> String:
+	var tag := ""
+	for week in season.finals.get("weeks", []):
+		for res in week:
+			if is_my_match(res):
+				tag = str(res.get("tag", ""))
+	return tag
+
+
+## The ids of your club's players in this season's All-Australian team.
+func _my_all_australians() -> Array:
+	var out := []
+	for r in season_awards.get("all_australian", []):
+		if str(r.get("club", "")) == my_club:
+			out.append(str(r["id"]))
+	return out
 
 
 ## Club achievements unlock only at season's end: every objective reads the
