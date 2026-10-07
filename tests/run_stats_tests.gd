@@ -60,6 +60,8 @@ func _run() -> void:
 	_book_rates()
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 		await _fixture(sz)
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		await _ladder(sz)
 	await _fixture_finals()
 	print("Stats tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
@@ -537,6 +539,308 @@ func _close(s: Control) -> void:
 	await _settle()
 
 
+## Season stats > Ladder, by finger: the true order to start, a header sorts and
+## sorts back, "Ladder order" and Reset restore it, the filters narrow it, the
+## team view is per game from season_team, and a club opens its side on the field
+## view with Back returning to the table as it was.
+func _ladder(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	var season = _state.season
+	var ladder = load("res://scripts/ui/stats/StatsLadder.gd")
+	var bold_font = load("res://scripts/ui/UiKit.gd").BOLD
+	ladder.reset()
+	root.size = sz
+	load("res://scripts/ui/StatsHubScene.gd").current = "ladder"
+	var s: Control = load("res://scenes/StatsHubScene.tscn").instantiate()
+	root.add_child(s)
+	await _settle()
+	var true_order := []
+	for r in season.ladder_sorted():
+		true_order.append(str(r["code"]))
+	var mine := str(_state.my_club)
+	_check(_row_codes(s) == true_order, "The ladder opens in the true order (%s)" % tag)
+	_fits(s, sz, "the ladder", tag)
+	_table_recipe(s, tag, true)
+
+	# Phone columns, and the wide screen's extra ones.
+	var heads := []
+	for b in s.find_child("LadderHeader", true, false).get_children():
+		heads.append(str(b.name))
+	var phone: Array = ["Sort_pos", "Sort_club", "Sort_p", "Sort_w", "Sort_l", "Sort_d", "Sort_pct", "Sort_pts"]
+	if sz.x < 900:
+		_check(heads == phone, "Phone columns are # Club P W L D %% Pts (%s: %s)" % [tag, str(heads)])
+	else:
+		_check(heads.slice(0, 8).size() == 8 and heads.has("Sort_pf") and heads.has("Sort_home") and heads.has("Sort_away"),
+				"A wide screen adds points for and against, home and away (%s: %s)" % [tag, str(heads)])
+		var row_text := _text(s.find_child("Club_" + mine, true, false))
+		_check(season.club_results(mine).size() == 0 or row_text.contains("".join(PackedStringArray((season.club_results(mine) as Array).slice(-5)))),
+				"...and the last five results as letters (%s)" % tag)
+
+	# A wide screen: the table is as wide as its columns, at the left beside the
+	# toggles, and the toggles are compact groups rather than bars across the window.
+	if sz.x >= 900:
+		_table_fits_content(s, "ladder", tag)
+		for n in ["View_ladder", "View_team", "Filter_all", "Filter_top8", "Filter_near"]:
+			var tb: Control = s.find_child(n, true, false)
+			_check(tb != null and tb.size.x >= 100 and tb.size.x <= 140,
+					"%s is a compact button, not a bar (%s: %.0f px)" % [n, tag, tb.size.x if tb != null else -1.0])
+
+	# Your club is set in bold, another is not.
+	var other: String = true_order[0] if true_order[0] != mine else true_order[1]
+	var mine_name := mine if sz.x < 900 else str(db.club_short(mine))
+	var other_name := other if sz.x < 900 else str(db.club_short(other))
+	_check(_label_bold(s.find_child("Club_" + mine, true, false), mine_name, bold_font)
+			and not _label_bold(s.find_child("Club_" + other, true, false), other_name, bold_font),
+			"Your club is in bold, another is not (%s)" % tag)
+
+	# Sort by wins, by finger; again to reverse; Ladder order to restore.
+	var why: String = await Tap.tap(s.find_child("Sort_w", true, false))
+	await _settle()
+	_check(why == "", "A finger on W sorts (%s: %s)" % [tag, why])
+	var wins := _by(s, season, "w")
+	_check(_non_increasing(wins), "W sorts most first (%s: %s)" % [tag, str(wins)])
+	_check(_text(s.find_child("ActiveState", true, false)).contains("sorted by W, most first"), "The sort is named (%s)" % tag)
+	await Tap.tap(s.find_child("Sort_w", true, false))
+	await _settle()
+	wins = _by(s, season, "w")
+	_check(_non_decreasing(wins), "A second tap reverses it (%s: %s)" % [tag, str(wins)])
+	await Tap.tap(s.find_child("LadderOrder", true, false))
+	await _settle()
+	_check(_row_codes(s) == true_order and s.find_child("LadderOrder", true, false) == null,
+			"Ladder order restores the true order (%s)" % tag)
+	await Tap.tap(s.find_child("Sort_club", true, false))
+	await _settle()
+	var names := []
+	for c in _row_codes(s):
+		names.append(str(db.club_short(c)))
+	var az := names.duplicate()
+	az.sort()
+	_check(names == az, "The club column sorts A to Z first (%s)" % tag)
+
+	# Filters, by finger: Top 8, Near you, and Reset.
+	await Tap.tap(s.find_child("Filter_top8", true, false))
+	await _settle()
+	var top8 := _row_codes(s)
+	var expect8 := []
+	for c in true_order.slice(0, 8):
+		expect8.append(c)
+	top8.sort()
+	expect8.sort()
+	_check(top8 == expect8, "Top 8 shows the top eight (%s)" % tag)
+	_check(_text(s.find_child("ActiveState", true, false)).contains("Top 8"), "The active filter is shown (%s)" % tag)
+	await Tap.tap(s.find_child("Filter_near", true, false))
+	await _settle()
+	var near := _row_codes(s)
+	var at := true_order.find(mine)
+	var expect_near := []
+	for i in range(maxi(0, at - 2), mini(true_order.size(), at + 3)):
+		expect_near.append(true_order[i])
+	near.sort()
+	expect_near.sort()
+	_check(near == expect_near and near.has(mine), "Near you is two places either side of your club (%s)" % tag)
+	await Tap.tap(s.find_child("ResetLadder", true, false))
+	await _settle()
+	_check(_row_codes(s) == true_order and s.find_child("ResetLadder", true, false) == null,
+			"Reset puts back every club in ladder order (%s)" % tag)
+
+	# The team view: per game, from season_team.
+	await Tap.tap(s.find_child("View_team", true, false))
+	await _settle()
+	var t: Dictionary = _state.season_team.get(mine, {})
+	var games := int(t.get("games", 0))
+	_check(games > 0, "(setup) your club has games to average (%s)" % tag)
+	var mine_row := _text(s.find_child("Club_" + mine, true, false))
+	_check(_label_width(s.find_child("Club_" + mine, true, false), mine_name) >= 24.0,
+			"The club's name still shows in the team view (%s)" % tag)
+	var want_pf: String = ladder.per_game_text(float(t["for"]) / float(games))
+	var want_d: String = ladder.per_game_text(float(t["disposals"]) / float(games))
+	_check(mine_row.contains(want_pf) and mine_row.contains(want_d),
+			"Team stats are per game over games played: %s a game, %s disposals (%s)" % [want_pf, want_d, tag])
+	var team_heads := []
+	for b in s.find_child("LadderHeader", true, false).get_children():
+		team_heads.append(str(b.name))
+	_check(team_heads.has("Sort_disposals") and team_heads.has("Sort_inside50") and team_heads.has("Sort_hitouts")
+			and not team_heads.has("Sort_contested"), "Team stats list what season_team records (%s)" % tag)
+	_fits(s, sz, "team stats", tag)
+	_table_recipe(s, tag, false)
+	if sz.x >= 900:
+		_table_fits_content(s, "team stats", tag)
+	# One decimal for every per-game figure, whole metres.
+	var rx := RegEx.new()
+	rx.compile("^[0-9]+$")
+	var rd := RegEx.new()
+	rd.compile("^[0-9]+[.][0-9]$")
+	var whole := 0
+	var dec := 0
+	for l in s.find_child("Club_" + mine, true, false).find_children("*", "Label", true, false):
+		var tx := str(l.text)
+		if rd.search(tx) != null:
+			dec += 1
+		elif rx.search(tx) != null:
+			whole += 1
+	_check(whole == (1 if sz.x >= 900 else 0) and dec == team_heads.size() - 1 - whole,
+			"Per-game figures are one decimal, only metres gained whole (%s: %d decimal, %d whole of %d)" % [tag, dec, whole, team_heads.size() - 1])
+	await Tap.tap(s.find_child("Sort_disposals", true, false))
+	await _settle()
+	var per := []
+	for c in _row_codes(s):
+		var row: Dictionary = _state.season_team[c]
+		per.append(float(row["disposals"]) / float(row["games"]))
+	_check(_non_increasing(per), "Team stats sort on the per-game figure (%s)" % tag)
+	await Tap.tap(s.find_child("View_ladder", true, false))
+	await _settle()
+
+	# A club opens its side, read-only; Back returns to the table as it was.
+	await Tap.tap(s.find_child("Sort_pts", true, false))
+	await _settle()
+	await Tap.tap(s.find_child("Filter_top8", true, false))
+	await _settle()
+	var before := _row_codes(s)
+	var tapped: String = before[1] if before[0] == mine else before[0]
+	var why2: String = await Tap.tap(s.find_child("Club_" + tapped, true, false))
+	await _settle()
+	var side: Node = s.find_child("ClubSide", true, false)
+	_check(why2 == "" and side != null and side.find_child("TeamBuilder", true, false) != null,
+			"A finger on a club opens its side (%s: %s)" % [tag, why2])
+	if side != null:
+		var builder: Node = side.find_child("TeamBuilder", true, false)
+		_check(bool(builder.get("_read_only")), "The side is read-only (%s)" % tag)
+		var named: bool = not (season.selections.get(tapped, {}) as Dictionary).is_empty()
+		var note := _text(side.find_child("SideNote", true, false)).strip_edges()
+		_check(note == ("Side named for this round" if named else "Projected side: picked on match day"),
+				"The side says whether it is projected (%s: %s)" % [tag, note])
+		_fits(side, sz, "a club's side", tag)
+		# A player opens his profile over the side; Back closes it first.
+		var list: Array = _state.opponent_side(tapped)["list"]
+		builder.emit_signal("inspect", str(list[0]["id"]))
+		await _settle()
+		_check(s.find_child("PlayerProfile", true, false) != null and s.find_child("ClubSide", true, false) != null,
+				"A player opens over the side (%s)" % tag)
+		_check(s.call("handle_back") == true, "Back closes the profile (%s)" % tag)
+		await _settle()
+		_check(s.find_child("PlayerProfile", true, false) == null and s.find_child("ClubSide", true, false) != null,
+				"...and leaves the side (%s)" % tag)
+	_check(s.call("handle_back") == true, "Back closes the side (%s)" % tag)
+	await _settle()
+	_check(s.find_child("ClubSide", true, false) == null and _row_codes(s) == before
+			and _text(s.find_child("ActiveState", true, false)).contains("sorted by Pts"),
+			"Back returns to the ladder as it was, sort and filter kept (%s)" % tag)
+	s.queue_free()
+	await _settle()
+
+
+## On a wide screen the table is about as wide as its columns (760 to 900 px),
+## starts where the toggles above it start, and its club column is no wider than
+## about 200 px: the club and its numbers sit together.
+func _table_fits_content(s: Node, what: String, tag: String) -> void:
+	var table: Control = s.find_child("LadderTable", true, false)
+	var panel: Control = table
+	var w := panel.get_global_rect().size.x
+	_check(w >= 700 and w <= 900, "The %s table is as wide as its columns (%s: %.0f px)" % [what, tag, w])
+	var views: Control = s.find_child("Views", true, false)
+	_check(absf(panel.get_global_rect().position.x - views.get_global_rect().position.x) <= 2.0,
+			"...and starts at the left, level with the toggles (%s)" % tag)
+	var club: Control = s.find_child("Sort_club", true, false)
+	_check(club.size.x >= 170 and club.size.x <= 200, "...with a club column about 190 px (%s: %.0f px)" % [tag, club.size.x])
+	var first: Control = s.find_child("Sort_" + ("p" if what == "ladder" else "for"), true, false)
+	_check(absf(first.get_global_rect().position.x - club.get_global_rect().end.x) <= 4.0,
+			"...and the first column right after it (%s)" % tag)
+
+
+## The shared table recipe: rows 32 px, no panel around the table, every other
+## row banded in PANEL, numbers and their headers right-aligned, the position
+## muted, a zero muted, the sort key's header bold.
+func _table_recipe(s: Node, tag: String, with_pos: bool) -> void:
+	var table: Control = s.find_child("LadderTable", true, false)
+	_check(table.get_parent().name == "StatsLadder", "The table sits in no panel or card (%s)" % tag)
+	var rows := s.find_children("Club_*", "Button", true, false)
+	var tall := true
+	for b in rows:
+		if int(b.size.y) != (32 if root.size.x >= 900 else 40):
+			tall = false
+	_check(tall and not rows.is_empty(), "Rows are 32 px on a wide screen and a thumb-sized 40 px on a phone (%s)" % tag)
+	var banded := rows.size() > 1
+	for i in range(rows.size()):
+		var sb := (rows[i] as Button).get_theme_stylebox("normal") as StyleBoxFlat
+		var want := (load("res://scripts/ui/UiKit.gd").PANEL as Color) if i % 2 == 1 else Color.TRANSPARENT
+		if sb == null or not sb.bg_color.is_equal_approx(want):
+			banded = false
+	_check(banded, "Every other row is banded in the panel colour (%s)" % tag)
+	var right := true
+	var zero_muted := true
+	var muted: Color = load("res://scripts/ui/UiKit.gd").MUTED
+	for b in rows:
+		for l in (b as Node).find_children("*", "Label", true, false):
+			var tx := str(l.text)
+			if tx.is_valid_float() or tx == "-":
+				if (l as Label).horizontal_alignment != HORIZONTAL_ALIGNMENT_RIGHT:
+					right = false
+				if tx.is_valid_float() and float(tx) == 0.0 and (l as Label).get_theme_color("font_color") != muted:
+					zero_muted = false
+	_check(right, "Numbers are right-aligned (%s)" % tag)
+	_check(zero_muted, "A zero is muted (%s)" % tag)
+	var head_right := true
+	for h in s.find_child("LadderHeader", true, false).get_children():
+		if h is Button and str(h.name) != "Sort_club" and (h as Button).alignment != HORIZONTAL_ALIGNMENT_RIGHT:
+			head_right = false
+	_check(head_right, "Their headers are right-aligned to match (%s)" % tag)
+	if with_pos:
+		var pos: Label = null
+		for l in (rows[0] as Node).find_children("*", "Label", true, false):
+			if str(l.text) == "1":
+				pos = l
+				break
+		_check(pos != null and pos.get_theme_color("font_color") == muted and pos.horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT,
+				"The position is its own muted, right-aligned column (%s)" % tag)
+
+
+## The clubs in the table, top to bottom.
+func _row_codes(s: Node) -> Array:
+	var out := []
+	for b in s.find_children("Club_*", "Button", true, false):
+		out.append(str(b.name).trim_prefix("Club_"))
+	return out
+
+
+## A ladder column for the clubs in the table, top to bottom.
+func _by(s: Node, season, key: String) -> Array:
+	var out := []
+	for c in _row_codes(s):
+		out.append(int(season.ladder[c][key]))
+	return out
+
+
+func _non_increasing(a: Array) -> bool:
+	for i in range(1, a.size()):
+		if a[i] > a[i - 1]:
+			return false
+	return true
+
+
+func _non_decreasing(a: Array) -> bool:
+	for i in range(1, a.size()):
+		if a[i] < a[i - 1]:
+			return false
+	return true
+
+
+## The width the label reading `text` in `row` has been given.
+func _label_width(row: Node, text: String) -> float:
+	for l in row.find_children("*", "Label", true, false):
+		if str(l.text) == text:
+			return l.size.x
+	return 0.0
+
+
+## Whether the label reading `text` in `row` is in the bold face.
+func _label_bold(row: Node, text: String, bold_font) -> bool:
+	for l in row.find_children("*", "Label", true, false):
+		if str(l.text) == text:
+			return l.get_theme_font("font") == bold_font
+	return false
+
+
 ## The finals weeks are in the fixture once the finals start, and not before.
 func _fixture_finals() -> void:
 	var season = _state.season
@@ -552,6 +856,7 @@ func _fixture_finals() -> void:
 			"The finals week to play joins the fixture once the finals start")
 	root.size = Vector2i(390, 844)
 	fix.reset()
+	load("res://scripts/ui/StatsHubScene.gd").current = "fixture"
 	var s: Control = load("res://scenes/StatsHubScene.tscn").instantiate()
 	root.add_child(s)
 	await _settle()
@@ -592,7 +897,7 @@ func _text(node: Node) -> String:
 	var out := ""
 	for n in node.find_children("*", "Label", true, false):
 		out += str(n.text) + "\n"
-	if node is Button:
+	if node is Label or node is Button:
 		out += str(node.text)
 	return out
 

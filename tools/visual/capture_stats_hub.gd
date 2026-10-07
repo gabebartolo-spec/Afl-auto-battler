@@ -10,6 +10,8 @@ extends SceneTree
 ## <out>_awards_rising.png and <out>_awards_aa.png (scrolled to the Rising
 ## Star nominations and the projected team), <out>_awards_player.png (the
 ## Coleman leader's profile) and <out>_awards_awarded.png (once presented).
+## For the ladder also <out>_ladder_sorted.png (sorted by W), <out>_ladder_top8.png, <out>_ladder_team.png
+## (Team stats) and <out>_ladder_side.png (a club's side opened).
 ##   --section KEY   ladder, players, awards, fixture or trophies (default fixture)
 ##   --size WxH      window size (default 390x844)    --light   light appearance
 ##   --rounds N      rounds played before the capture (default 6)
@@ -105,6 +107,18 @@ func _run() -> void:
 			sc.scroll_vertical = 0
 			await _frames(4)
 		_save(out + "_awards_awarded.png")
+	if section == "ladder":
+		await _tap(scene, "Sort_w")
+		_save(out + "_ladder_sorted.png")
+		await _tap(scene, "Filter_top8")
+		_save(out + "_ladder_top8.png")
+		await _tap(scene, "ResetLadder")
+		await _tap(scene, "View_team")
+		_save(out + "_ladder_team.png")
+		await _tap(scene, "View_ladder")
+		await _tap(scene, "Club_" + _first_other(state))
+		await _frames(10)
+		_save(out + "_ladder_side.png")
 	quit()
 
 
@@ -117,6 +131,14 @@ func _scroll_to(scene: Node, node_name: String) -> void:
 		return
 	sc.scroll_vertical = int(c.global_position.y - sc.global_position.y) + sc.scroll_vertical
 	await _frames(6)
+
+
+## A club on the ladder other than yours.
+func _first_other(state) -> String:
+	for r in state.season.ladder_sorted():
+		if str(r["code"]) != str(state.my_club):
+			return str(r["code"])
+	return ""
 
 
 func _tap(scene: Node, node_name: String) -> void:
