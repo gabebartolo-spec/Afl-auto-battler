@@ -293,7 +293,7 @@ func _phone_match(sz: Vector2i) -> void:
 			_check(false, "Nothing runs off the side of the phone: %s (%s)" % [c.name, tag])
 			break
 
-	# Half time: the assistant's report is one tap away and Back closes it.
+	# Half time: the full match stats are one tap away and Back closes them.
 	var sim = _state.pending_sim
 	# Get to half time without watching: play out each segment at once, the
 	# way the pitch does when a quarter is skipped (frame counts vary by box).
@@ -315,26 +315,53 @@ func _phone_match(sz: Vector2i) -> void:
 			await _settle()
 	await _settle()
 	box = m.find_child("CoachBox", true, false)
-	var report_btn: Button = box.find_child("HalfTimeReport", true, false) if box != null else null
-	_check(report_btn != null, "Half time offers the assistant's report (%s)" % tag)
-	if report_btn != null:
-		report_btn.emit_signal("pressed")
+	var stats_b: Button = box.find_child("BreakStats", true, false) if box != null else null
+	_check(stats_b != null and box.find_child("HalfTimeReport", true, false) == null,
+			"Half time offers the match stats, not a prose report (%s)" % tag)
+	if stats_b != null:
+		_check((await Tap.tap(stats_b)) == "", "The Match stats button takes a tap (%s)" % tag)
 		await _settle()
-		var rep: Node = m.find_child("AssistantReport", true, false)
-		_check(rep != null and rep.find_child("MatchRead", true, false) != null
-				and rep.find_child("ReportBest", true, false) != null, "The report opens at a glance (%s)" % tag)
-		var rt := _text(rep)
-		_check(not rt.contains("Opposition danger"),
-				"Their best players are an observation, not a problem to solve (%s)" % tag)
-		_check(not rt.contains("vs par") and not rt.contains("disp (") and not rt.contains("Where the game is being won"),
-				"The short report is words, not a stat dump (%s)" % tag)
-		_check(rep.find_child("FullReportButton", true, false) == null and not rt.contains("Half time:"),
-				"One report: no full-report stat wall, no second scoreline (%s)" % tag)
-		_check(rt.contains("Half time, "), "It says where the game stands, once (%s)" % tag)
-		_check(m.call("handle_back") == true, "Back is handled on the report (%s)" % tag)
+		var sheet: Node = m.find_child("BreakStatsSheet", true, false)
+		var bs: Node = sheet.find_child("BreakBoxScore", true, false) if sheet != null else null
+		var bs_text := _text(bs) if bs != null else ""
+		_check(bs != null and bs_text.contains("Q2") and not bs_text.contains("Q3"),
+				"The box score shows the quarters played so far (%s)" % tag)
+		var team_t: Node = sheet.find_child("TeamStats", true, false) if sheet != null else null
+		_check(team_t != null and team_t.find_child("TeamRow_disposals", true, false) != null,
+				"Team stats open first, both clubs side by side (%s)" % tag)
+		var so_far := 0
+		var mine_d: Node = team_t.find_child("TeamRow_disposals", true, false) if team_t != null else null
+		if mine_d != null:
+			so_far = int(str((mine_d.get_child(0) as Label).text))
+		var q2: Button = sheet.find_child("StatsScope_2", true, false) if sheet != null else null
+		_check(q2 != null and sheet.find_child("StatsScope_3", true, false) == null,
+				"Each quarter played can be seen on its own, no more (%s)" % tag)
+		if q2 != null:
+			q2.emit_signal("pressed")
+			await _settle()
+			var q_d: Node = sheet.find_child("TeamRow_disposals", true, false)
+			var in_q := int(str((q_d.get_child(0) as Label).text)) if q_d != null else -1
+			_check(in_q > 0 and in_q < so_far, "The second quarter alone is less than the match so far (%d of %d, %s)" % [in_q, so_far, tag])
+		var players_tab: Button = sheet.find_child("StatsView_players", true, false) if sheet != null else null
+		if players_tab != null:
+			players_tab.emit_signal("pressed")
+			await _settle()
+		var ptable: Node = sheet.find_child("PlayerStats", true, false) if sheet != null else null
+		var roster_h: Array = m.get("_res")["roster"]
+		_check(ptable != null and ptable.find_children("PlayerRow_*", "Button", true, false).size()
+				== (roster_h[m.get("_my_side")] as Array).size(), "Player stats list every one of yours at the break (%s)" % tag)
+		_check(ptable != null and ptable.find_child("StatsKey", true, false) != null,
+				"A key spells out the column headings (%s)" % tag)
+		var spill := ""
+		for c in sheet.find_children("*", "Control", true, false):
+			if c is Label and c.is_visible_in_tree() and c.get_global_rect().end.x > sz.x + 1:
+				spill = str(c.name)
+				break
+		_check(spill == "", "The stats fit the screen (%s%s)" % [tag, (": " + spill) if spill != "" else ""])
+		_check(m.call("handle_back") == true, "Back is handled on the stats (%s)" % tag)
 		await _settle()
-		_check(m.find_child("AssistantReport", true, false) == null and m.find_child("CoachBox", true, false) != null,
-				"Back closes the report and keeps the break (%s)" % tag)
+		_check(m.find_child("BreakStatsSheet", true, false) == null and m.find_child("CoachBox", true, false) != null,
+				"Back closes the stats and keeps the break (%s)" % tag)
 	_check(m.call("handle_back") == true and m.find_child("CoachBox", true, false) != null,
 			"Back cannot abandon a live match (%s)" % tag)
 
@@ -366,8 +393,13 @@ func _phone_match(sz: Vector2i) -> void:
 		stats_btn.emit_signal("pressed")
 		await _settle()
 		var ms: Node = m.find_child("MatchStats", true, false)
-		_check(ms != null and _text(ms).contains("Quarter by quarter") and _text(ms).contains("Player stats"),
-				"Match stats holds the full numbers (%s)" % tag)
+		_check(ms != null and _text(ms).contains("Quarter by quarter") and ms.find_child("TeamStats", true, false) != null
+				and ms.find_child("StatsView_players", true, false) != null,
+				"Match stats holds the full numbers: team stats, players a tab away (%s)" % tag)
+		var ptab: Button = ms.find_child("StatsView_players", true, false) if ms != null else null
+		if ptab != null:
+			ptab.emit_signal("pressed")
+			await _settle()
 		var table: Node = ms.find_child("PlayerStats", true, false) if ms != null else null
 		var roster: Array = m.get("_res")["roster"]
 		var my_side: int = m.get("_my_side")
