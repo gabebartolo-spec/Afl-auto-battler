@@ -533,11 +533,11 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	var notes = load("res://scripts/ui/match/MatchNotes.gd")
 	var me := int(m.get("_my_side"))
 	var ground: Array = _state.pending_sim.squads[me].ground
-	var effects := {"MID": "more of the ball in the midfield chains",
-			"FWD": "more of the ball up forward; he is not made the shooter",
-			"DEF": "more of the ball coming out of defence", "RUCK": "more of the ball around the stoppages"}
+	var effects := {"MID": "the ball goes to him more often through the midfield",
+			"FWD": "more of the ball up forward and more of the shots at goal",
+			"DEF": "first use of the ball out of the back half", "RUCK": "the ball goes to him more often"}
 	var roles := {"MID": "our key midfielder", "FWD": "our key forward target",
-			"DEF": "our key distributor out of defence", "RUCK": "our key man around the ball"}
+			"DEF": "our key distributor", "RUCK": "our key man in the middle"}
 	var fnote: Label = box.find_child("FocusNote", true, false)
 	_check(fnote != null and fnote.text.begins_with("Favour this player"), "With nobody picked, Play through keeps its general line (%s)" % tag)
 	for role in ["MID", "FWD", "DEF", "RUCK"]:
@@ -587,7 +587,7 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	await _settle()
 	var line: Label = m.find_child("SetupLine", true, false)
 	var jobs := {"MID": "our key midfielder", "FWD": "our key forward target",
-			"DEF": "our key distributor out of defence", "RUCK": "our key man around the ball"}
+			"DEF": "our key distributor", "RUCK": "our key man in the middle"}
 	var focus_role := ""
 	for r in mine:
 		if str(r["id"]) == str(calls["focus_id"]):
