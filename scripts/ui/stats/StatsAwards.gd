@@ -11,6 +11,12 @@ const RACE_ROWS := 10
 ## A table's width on a wide screen: a name, a club and a figure, not a row
 ## stretched across a PC monitor.
 const TABLE_W := 600.0
+## On a wide screen the two races sit side by side, each this wide.
+const RACE_W := 460.0
+## Rows: one line, no rules between them; every other row on a faint band.
+const ROW_H := 32
+## The round, ahead of a Rising Star nominee.
+const ROUND_W := 80.0
 ## Row geometry, shared by the tables and the fit test for the honours.
 const LEAD_W := 104.0
 const CLUB_W := 72.0
@@ -24,7 +30,7 @@ const AA_SPOTS := {"RUCK": ["RUCK"], "MID": ["MID", "MID", "MID", "WING", "WING"
 
 static func build(host: Control) -> Control:
 	var season: Season = GameState.season
-	var v := UiKit.vbox(18)
+	var v := UiKit.vbox(6)
 	v.name = "StatsAwards"
 	var aw: Dictionary = GameState.season_awards
 	if not aw.is_empty() and int(aw.get("year", 0)) == GameState.season_year:
@@ -41,11 +47,23 @@ static func build(host: Control) -> Control:
 	var head := _para(info)
 	head.name = "AwardsProvisional"
 	v.add_child(head)
-	v.add_child(race(host, "Coleman Medal", "Coleman", "goals_ha", "Goals", "No goals kicked yet."))
-	v.add_child(race(host, "Coaches Award", "CoachesAward", "coaches", "Votes", "No votes yet."))
+	var coleman := race(host, "Coleman Medal", "Coleman", "goals_ha", "Goals", "No goals kicked yet.")
+	var coaches := race(host, "Coaches Award", "CoachesAward", "coaches", "Votes", "No votes yet.")
+	if bool(host.call("wide")):
+		# Two races, side by side on a PC.
+		var pair := UiKit.hbox(32)
+		pair.name = "Races"
+		coleman.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		coaches.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		pair.add_child(coleman)
+		pair.add_child(coaches)
+		v.add_child(pair)
+	else:
+		v.add_child(coleman)
+		v.add_child(coaches)
 	var brownlow := UiKit.vbox(4)
 	brownlow.name = "BrownlowSealed"
-	brownlow.add_child(UiKit.section("Brownlow Medal"))
+	_title(brownlow, "Brownlow Medal")
 	brownlow.add_child(_para("The umpires' votes stay sealed until the count after the Grand Final."))
 	v.add_child(brownlow)
 	v.add_child(_rising(host))
@@ -60,9 +78,9 @@ static func build(host: Control) -> Control:
 ## share a rank; a tie across the cut is summed up rather than listed.
 static func race(host: Control, title: String, node: String, key: String, head: String,
 		empty: String) -> Control:
-	var v := _table(host)
+	var v := _table(host, RACE_W)
 	v.name = node + "Leaders"
-	v.add_child(UiKit.section(title))
+	_title(v, title)
 	var rows := []
 	for id in GameState.season_tally:
 		var n := int((GameState.season_tally[id] as Dictionary).get(key, 0))
@@ -89,7 +107,9 @@ static func race(host: Control, title: String, node: String, key: String, head: 
 		var r: Dictionary = rows[i]
 		if i == 0 or int(r["n"]) != int(rows[i - 1]["n"]):
 			rank = i + 1
-		var b := _player_row(host, str(r["id"]), str(r["club"]), str(rank), str(int(r["n"])))
+		# The leader (or leaders, level) in bold.
+		var b := _player_row(host, str(r["id"]), str(r["club"]), str(rank), str(int(r["n"])), "",
+				64.0, false, i % 2 == 1, rank == 1)
 		b.name = "%s_%d" % [node, i + 1]
 		v.add_child(b)
 	if shown < rows.size():
@@ -113,7 +133,7 @@ static func race(host: Control, title: String, node: String, key: String, head: 
 static func _honours(host: Control, aw: Dictionary) -> Control:
 	var v := _table(host)
 	v.name = "AwardsHonours"
-	v.add_child(UiKit.section("%d honours" % int(aw.get("year", GameState.season_year))))
+	_title(v, "%d honours" % int(aw.get("year", GameState.season_year)))
 	var note := _para("Awarded. The full placings are in the season review.")
 	note.name = "AwardsAwarded"
 	v.add_child(note)
@@ -145,10 +165,11 @@ static func _honours(host: Control, aw: Dictionary) -> Control:
 	# table keeps one shape.
 	var row_w: float = TABLE_W if bool(host.call("wide")) else float(host.call("content_width"))
 	var stack := name_w > row_w - LEAD_W - CLUB_W - fig_w - 3.0 * GAP
-	for x in rows:
+	for i in range(rows.size()):
+		var x: Array = rows[i]
 		var r: Dictionary = x[1]
 		var b := _player_row(host, str(r.get("id", "")), str(r.get("club", "")), "", str(x[2]), str(x[0]),
-				fig_w, stack)
+				fig_w, stack, i % 2 == 1)
 		b.name = "Honour_" + str(x[0]).replace(" ", "")
 		v.add_child(b)
 	return v
@@ -159,7 +180,7 @@ static func _honours(host: Control, aw: Dictionary) -> Control:
 static func _aa(host: Control, team: Array, awarded: bool, min_games: int) -> Control:
 	var v := UiKit.vbox(6)
 	v.name = "AllAustralian"
-	v.add_child(UiKit.section("All-Australian team"))
+	_title(v, "All-Australian team")
 	if awarded:
 		var named := _para("Named at season's end.")
 		named.name = "AANamed"
@@ -202,9 +223,10 @@ static func _aa(host: Control, team: Array, awarded: bool, min_games: int) -> Co
 
 static func _aa_names(host: Control, v: Control, team: Array) -> Control:
 	var lines := {"RUCK": "Ruck", "MID": "Midfield", "DEF": "Defence", "FWD": "Forward", "BENCH": "Interchange"}
-	for r in team:
+	for i in range(team.size()):
+		var r: Dictionary = team[i]
 		v.add_child(_player_row(host, str(r.get("id", "")), str(r.get("club", "")), "", "",
-				str(lines.get(str(r.get("slot", "")), "")), 0.0))
+				str(lines.get(str(r.get("slot", "")), "")), 0.0, false, i % 2 == 1))
 	return v
 
 
@@ -213,15 +235,17 @@ static func _aa_names(host: Control, v: Control, team: Array) -> Control:
 static func _rising(host: Control) -> Control:
 	var v := _table(host)
 	v.name = "RisingStar"
-	v.add_child(UiKit.section("Rising Star nominations"))
+	_title(v, "Rising Star nominations")
 	var rec: Dictionary = GameState.rising_star_noms
 	var from := int(rec.get("from", 1))
 	var noms: Array = (rec.get("rounds", []) as Array).duplicate()
 	noms.sort_custom(func(a, b): return int(a["round"]) > int(b["round"]))
 	if noms.is_empty() and from <= 1:
 		v.add_child(_para("The first nomination comes after Round 1."))
-	for n in noms:
-		var b := _player_row(host, str(n["id"]), str(n["club"]), "", "", "Round %d" % int(n["round"]), 0.0)
+	for i in range(noms.size()):
+		var n: Dictionary = noms[i]
+		var b := _player_row(host, str(n["id"]), str(n["club"]), "", "", "Round %d" % int(n["round"]), 0.0,
+				false, i % 2 == 1, false, ROUND_W)
 		b.name = "RisingStar_%d" % int(n["round"])
 		v.add_child(b)
 	if from > 1:
@@ -233,12 +257,23 @@ static func _rising(host: Control) -> Control:
 
 
 ## A table's column: full width on a phone, TABLE_W on a wide screen.
-static func _table(host: Control) -> VBoxContainer:
-	var v := UiKit.vbox(2)
+static func _table(host: Control, width := TABLE_W) -> VBoxContainer:
+	var v := UiKit.vbox(0)
 	if bool(host.call("wide")):
-		v.custom_minimum_size.x = TABLE_W
+		v.custom_minimum_size.x = width
 		v.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	return v
+
+
+## A section's title, with 16 px of air above it.
+static func _title(v: Control, text: String) -> void:
+	var air := Control.new()
+	air.custom_minimum_size.y = 16
+	air.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(air)
+	var t := UiKit.section(text)
+	t.name = "Title"
+	v.add_child(t)
 
 
 ## Column heads over a race table, lined up with _player_row.
@@ -261,18 +296,17 @@ static func _header(head: String) -> Control:
 ## the round), his name, his club and a figure. Your club's players are in
 ## bold. The tap opens his profile.
 static func _player_row(host: Control, id: String, club: String, rank: String, figure: String,
-		lead := "", fig_w := 64.0, stack := false) -> Button:
+		lead := "", fig_w := 64.0, stack := false, band := false, bold := false, lead_w := LEAD_W) -> Button:
 	var b := Button.new()
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(0, 54 if stack else 44)
+	b.custom_minimum_size = Vector2(0, 46 if stack else ROW_H)
 	b.clip_contents = true
 	var flat := StyleBoxFlat.new()
-	flat.bg_color = Color.TRANSPARENT
+	flat.bg_color = UiKit.PANEL if band else Color.TRANSPARENT
 	var hover := StyleBoxFlat.new()
-	hover.bg_color = Color(UiKit.TEXT, 0.05)
-	hover.set_corner_radius_all(UiKit.RADIUS)
+	hover.bg_color = Color(UiKit.TEXT, 0.06)
 	for state in ["normal", "focus"]:
 		b.add_theme_stylebox_override(state, flat)
 	for state in ["hover", "pressed", "hover_pressed"]:
@@ -282,15 +316,16 @@ static func _player_row(host: Control, id: String, club: String, rank: String, f
 	b.add_child(row)
 	if lead != "":
 		var l := UiKit.ellipsis(lead, UiKit.BODY, UiKit.MUTED)
-		l.custom_minimum_size.x = LEAD_W
+		l.custom_minimum_size.x = lead_w
 		l.size_flags_horizontal = Control.SIZE_FILL
 		row.add_child(l)
 	else:
 		var n := UiKit.line(rank, UiKit.BODY, UiKit.MUTED)
 		n.custom_minimum_size.x = 28
+		n.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(n)
 	var who := UiKit.ellipsis(GameState.award_name({"id": id}), UiKit.NAME, UiKit.TEXT,
-			club == GameState.my_club)
+			bold or club == GameState.my_club)
 	who.name = "Name"
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var c := UiKit.ellipsis(GameDB.club_short(club), 14, UiKit.MUTED)
