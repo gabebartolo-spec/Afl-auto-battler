@@ -6,25 +6,35 @@ extends RefCounted
 ## the field view, read-only. The sort, the filter and the view are kept for
 ## the visit back from a club's side (STATS patch, ROADMAP §1.11).
 
+## Rows are 32 px with no rules between them; every other row has a very faint
+## band (PANEL, flat). Numbers and their headers are right-aligned.
+const ROW_H := 32
+const COL_GAP := 4
+
 ## The ladder's columns, phone first; a wide screen adds the rest.
-## {key, title, w}; the club column takes what is left.
+## {key, title, w}; on a phone the club column takes what is left (0). On a
+## wide screen the table is as wide as its columns and sits at the left, the
+## club right beside its numbers (WIDE_CLUB).
+const WIDE_CLUB := 190
 const LADDER_PHONE := [["pos", "#", 24], ["club", "Club", 0], ["p", "P", 26], ["w", "W", 26],
 		["l", "L", 26], ["d", "D", 24], ["pct", "%", 42], ["pts", "Pts", 34]]
-const LADDER_WIDE := [["pos", "#", 26], ["club", "Club", 0], ["p", "P", 28], ["w", "W", 28],
-		["l", "L", 28], ["d", "D", 26], ["pf", "PF", 46], ["pa", "PA", 46], ["pct", "%", 46],
-		["pts", "Pts", 36], ["home", "Home", 64], ["away", "Away", 64], ["form", "Form", 72]]
+const LADDER_WIDE := [["pos", "#", 28], ["club", "Club", WIDE_CLUB], ["p", "P", 32], ["w", "W", 32],
+		["l", "L", 32], ["d", "D", 30], ["pf", "PF", 50], ["pa", "PA", 50], ["pct", "%", 50],
+		["pts", "Pts", 40], ["home", "Home", 68], ["away", "Away", 68], ["form", "Form", 76]]
 ## Team stats: a per-game value for each, from GameState.season_team (only
 ## what is recorded there). One list, so a newly recorded stat joins with one
 ## line: {season_team key, column title, width on a phone, width on a wide
 ## screen, on a phone}.
 const TEAM_STATS := [
-	["for", "PF", 31, 48, true], ["against", "PA", 31, 48, true],
-	["disposals", "D", 31, 48, true], ["marks", "MK", 31, 48, true],
-	["tackles", "TK", 31, 48, true], ["inside50", "I50", 31, 48, true],
-	["clearances", "CL", 31, 48, true], ["hitouts", "HO", 31, 48, true],
-	["rebounds", "R50", 31, 48, false], ["clangers", "CG", 31, 48, false],
-	["metres_gained", "MG", 31, 60, false],
+	["for", "PF", 32, 52, true], ["against", "PA", 32, 52, true],
+	["disposals", "D", 32, 52, true], ["marks", "MK", 32, 52, true],
+	["tackles", "TK", 32, 52, true], ["inside50", "I50", 32, 52, true],
+	["clearances", "CL", 32, 52, true], ["hitouts", "HO", 32, 52, true],
+	["rebounds", "R50", 32, 52, false], ["clangers", "CG", 32, 52, false],
+	["metres_gained", "MG", 32, 60, false],
 ]
+## Metres gained reads well rounded; every other figure is one decimal.
+const WHOLE_STATS := ["metres_gained"]
 
 const FILTERS := [["all", "All"], ["top8", "Top 8"], ["near", "Near you"]]
 const VIEWS := [["ladder", "Ladder"], ["team", "Team stats"]]
@@ -52,7 +62,7 @@ static func build(host: Control) -> Control:
 			else "After %d of %d rounds" % [season.round_index, Season.REGULAR_ROUNDS]
 	v.add_child(UiKit.subtitle(info))
 	var wide := bool(host.call("wide"))
-	var width := float(host.call("content_width")) - 24.0
+	var width := float(host.call("content_width"))
 
 	# The view, then the filters.
 	var views := UiKit.hbox(6)
@@ -100,15 +110,19 @@ static func build(host: Control) -> Control:
 	var shown := visible_rows(season, GameState.my_club, _filter, _sort, _desc, _view)
 	v.add_child(_status(host, shown.size()))
 
-	var p := UiKit.panel(UiKit.PANEL, 12)
-	v.add_child(p)
-	var t := UiKit.vbox(2)
+	# No panel around it: the bands do the work.
+	var t := UiKit.vbox(0)
 	t.name = "LadderTable"
-	p.add_child(t)
+	v.add_child(t)
 	var specs := columns(_view, wide)
+	if wide:
+		# As wide as its columns, left-aligned: no gap between a club and its numbers.
+		t.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	t.add_child(_header(host, specs, width))
+	var band := false
 	for r in shown:
-		t.add_child(_row(host, r, specs, width))
+		t.add_child(_row(host, r, specs, width, band))
+		band = not band
 		# The cut for the finals, as the ladder has always drawn it.
 		if _sort == "" and _filter == "all" and int(r["pos"]) == Season.FINALISTS 				and int(r["pos"]) < season.ladder.size():
 			t.add_child(UiKit.rule())
@@ -119,7 +133,7 @@ static func build(host: Control) -> Control:
 
 static func columns(view: String, wide: bool) -> Array:
 	if view == "team":
-		var out := [["club", "Club", 0]]
+		var out := [["club", "Club", WIDE_CLUB if wide else 0]]
 		for c in TEAM_STATS:
 			if wide or bool(c[4]):
 				out.append([c[0], c[1], c[3] if wide else c[2]])
@@ -170,7 +184,7 @@ static func _title_of(key: String) -> String:
 
 
 static func _header(host: Control, specs: Array, width: float) -> Control:
-	var h := UiKit.hbox(2)
+	var h := UiKit.hbox(COL_GAP)
 	h.name = "LadderHeader"
 	for c in specs:
 		var key := str(c[0])
@@ -198,7 +212,7 @@ static func _header(host: Control, specs: Array, width: float) -> Control:
 		b.custom_minimum_size = Vector2(int(c[2]), 40)
 		if int(c[2]) == 0:
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT if key == "club" else HORIZONTAL_ALIGNMENT_RIGHT
 		b.pressed.connect(func(): _sort_by(host, key))
 		h.add_child(b)
 	return h
@@ -207,7 +221,7 @@ static func _header(host: Control, specs: Array, width: float) -> Control:
 static func _plain(text: String, w: int, col: Color) -> Label:
 	var l := UiKit.line(text, 12, col)
 	l.custom_minimum_size = Vector2(w, 0)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	return l
 
 
@@ -226,45 +240,61 @@ static func _sort_by(host: Control, key: String) -> void:
 
 
 ## One club as a tappable row.
-static func _row(host: Control, r: Dictionary, specs: Array, width: float) -> Control:
+static func _row(host: Control, r: Dictionary, specs: Array, width: float, band := false) -> Control:
 	var code := str(r["code"])
 	var mine: bool = code == GameState.my_club
 	var b := Button.new()
 	b.name = "Club_" + code
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	b.custom_minimum_size = Vector2(0, 40)
+	# A button does not take its child row's width: a table of fixed columns says so.
+	var fixed := 0
+	var all_fixed := true
+	for c in specs:
+		if int(c[2]) == 0:
+			all_fixed = false
+		fixed += int(c[2]) + COL_GAP
+	b.custom_minimum_size = Vector2(fixed if all_fixed else 0, ROW_H)
 	b.clip_contents = true
 	var flat := StyleBoxFlat.new()
-	flat.bg_color = Color.TRANSPARENT
+	flat.bg_color = UiKit.PANEL if band else Color.TRANSPARENT
 	var hover := StyleBoxFlat.new()
 	hover.bg_color = Color(UiKit.TEXT, 0.05)
-	hover.set_corner_radius_all(UiKit.RADIUS)
 	for state in ["normal", "focus"]:
 		b.add_theme_stylebox_override(state, flat)
 	for state in ["hover", "pressed", "hover_pressed"]:
 		b.add_theme_stylebox_override(state, hover)
-	var row := UiKit.hbox(2)
+	var row := UiKit.hbox(COL_GAP)
 	b.add_child(row)
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var ink := UiKit.TEXT if mine else UiKit.MUTED
 	for c in specs:
 		var key := str(c[0])
 		var w := int(c[2])
 		if key == "club":
 			var badge := UiKit.club_badge(code, 13, width < 460.0, true)
+			if w > 0:
+				badge.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+				badge.alignment = BoxContainer.ALIGNMENT_BEGIN
+				badge.custom_minimum_size.x = w
 			if mine:
 				_bold(badge)
 			row.add_child(badge)
 			continue
 		var text := cell_text(r, key)
+		# The position is muted, so is a zero; the rest is plain text.
+		var ink := UiKit.MUTED if key == "pos" or _is_zero(text) else UiKit.TEXT
 		var l := UiKit.line(text, 13 if key == "pts" or key == "pos" else 12, ink, mine or key == "pts")
 		l.custom_minimum_size = Vector2(w, 0)
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(l)
 	_ignore(row)
 	b.pressed.connect(func(): _side_sheet(host, code))
 	return b
+
+
+## "0", "0.0": nothing to read.
+static func _is_zero(text: String) -> bool:
+	return text.is_valid_float() and float(text) == 0.0
 
 
 static func _bold(n: Node) -> void:
@@ -338,15 +368,15 @@ static func cell_text(r: Dictionary, key: String) -> String:
 			return "%d-%d" % [rec[0], rec[1]] + ("-%d" % rec[2] if int(rec[2]) > 0 else "")
 		"form":
 			return str(r["form"])
-	return per_game_text(float(r.get("t_" + key, -1.0)))
+	return per_game_text(float(r.get("t_" + key, -1.0)), WHOLE_STATS.has(key))
 
 
-## A per-game number: whole once it is big, one decimal below that; "-" with
-## no games to divide by.
-static func per_game_text(x: float) -> String:
+## A per-game number: one decimal for every figure (106.0, 392.3 and 9.4 line
+## up), whole for the few that read better rounded; "-" with no games to divide by.
+static func per_game_text(x: float, whole := false) -> String:
 	if x < 0.0:
 		return "-"
-	return "%.0f" % x if x >= 100.0 else "%.1f" % x
+	return "%.0f" % x if whole else "%.1f" % x
 
 
 ## The value a column sorts on.

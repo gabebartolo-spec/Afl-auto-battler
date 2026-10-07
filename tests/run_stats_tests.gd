@@ -242,6 +242,7 @@ func _ladder(sz: Vector2i) -> void:
 	var mine := str(_state.my_club)
 	_check(_row_codes(s) == true_order, "The ladder opens in the true order (%s)" % tag)
 	_fits(s, sz, "the ladder", tag)
+	_table_recipe(s, tag, true)
 
 	# Phone columns, and the wide screen's extra ones.
 	var heads := []
@@ -256,6 +257,15 @@ func _ladder(sz: Vector2i) -> void:
 		var row_text := _text(s.find_child("Club_" + mine, true, false))
 		_check(season.club_results(mine).size() == 0 or row_text.contains("".join(PackedStringArray((season.club_results(mine) as Array).slice(-5)))),
 				"...and the last five results as letters (%s)" % tag)
+
+	# A wide screen: the table is as wide as its columns, at the left beside the
+	# toggles, and the toggles are compact groups rather than bars across the window.
+	if sz.x >= 900:
+		_table_fits_content(s, "ladder", tag)
+		for n in ["View_ladder", "View_team", "Filter_all", "Filter_top8", "Filter_near"]:
+			var tb: Control = s.find_child(n, true, false)
+			_check(tb != null and tb.size.x >= 100 and tb.size.x <= 140,
+					"%s is a compact button, not a bar (%s: %.0f px)" % [n, tag, tb.size.x if tb != null else -1.0])
 
 	# Your club is set in bold, another is not.
 	var other: String = true_order[0] if true_order[0] != mine else true_order[1]
@@ -334,6 +344,24 @@ func _ladder(sz: Vector2i) -> void:
 	_check(team_heads.has("Sort_disposals") and team_heads.has("Sort_inside50") and team_heads.has("Sort_hitouts")
 			and not team_heads.has("Sort_contested"), "Team stats list what season_team records (%s)" % tag)
 	_fits(s, sz, "team stats", tag)
+	_table_recipe(s, tag, false)
+	if sz.x >= 900:
+		_table_fits_content(s, "team stats", tag)
+	# One decimal for every per-game figure, whole metres.
+	var rx := RegEx.new()
+	rx.compile("^[0-9]+$")
+	var rd := RegEx.new()
+	rd.compile("^[0-9]+[.][0-9]$")
+	var whole := 0
+	var dec := 0
+	for l in s.find_child("Club_" + mine, true, false).find_children("*", "Label", true, false):
+		var tx := str(l.text)
+		if rd.search(tx) != null:
+			dec += 1
+		elif rx.search(tx) != null:
+			whole += 1
+	_check(whole == (1 if sz.x >= 900 else 0) and dec == team_heads.size() - 1 - whole,
+			"Per-game figures are one decimal, only metres gained whole (%s: %d decimal, %d whole of %d)" % [tag, dec, whole, team_heads.size() - 1])
 	await Tap.tap(s.find_child("Sort_disposals", true, false))
 	await _settle()
 	var per := []
@@ -381,6 +409,71 @@ func _ladder(sz: Vector2i) -> void:
 			"Back returns to the ladder as it was, sort and filter kept (%s)" % tag)
 	s.queue_free()
 	await _settle()
+
+
+## On a wide screen the table is about as wide as its columns (760 to 900 px),
+## starts where the toggles above it start, and its club column is no wider than
+## about 200 px: the club and its numbers sit together.
+func _table_fits_content(s: Node, what: String, tag: String) -> void:
+	var table: Control = s.find_child("LadderTable", true, false)
+	var panel: Control = table
+	var w := panel.get_global_rect().size.x
+	_check(w >= 700 and w <= 900, "The %s table is as wide as its columns (%s: %.0f px)" % [what, tag, w])
+	var views: Control = s.find_child("Views", true, false)
+	_check(absf(panel.get_global_rect().position.x - views.get_global_rect().position.x) <= 2.0,
+			"...and starts at the left, level with the toggles (%s)" % tag)
+	var club: Control = s.find_child("Sort_club", true, false)
+	_check(club.size.x >= 170 and club.size.x <= 200, "...with a club column about 190 px (%s: %.0f px)" % [tag, club.size.x])
+	var first: Control = s.find_child("Sort_" + ("p" if what == "ladder" else "for"), true, false)
+	_check(absf(first.get_global_rect().position.x - club.get_global_rect().end.x) <= 4.0,
+			"...and the first column right after it (%s)" % tag)
+
+
+## The shared table recipe: rows 32 px, no panel around the table, every other
+## row banded in PANEL, numbers and their headers right-aligned, the position
+## muted, a zero muted, the sort key's header bold.
+func _table_recipe(s: Node, tag: String, with_pos: bool) -> void:
+	var table: Control = s.find_child("LadderTable", true, false)
+	_check(table.get_parent().name == "StatsLadder", "The table sits in no panel or card (%s)" % tag)
+	var rows := s.find_children("Club_*", "Button", true, false)
+	var tall := true
+	for b in rows:
+		if int(b.size.y) != 32:
+			tall = false
+	_check(tall and not rows.is_empty(), "Rows are 32 px (%s)" % tag)
+	var banded := rows.size() > 1
+	for i in range(rows.size()):
+		var sb := (rows[i] as Button).get_theme_stylebox("normal") as StyleBoxFlat
+		var want := (load("res://scripts/ui/UiKit.gd").PANEL as Color) if i % 2 == 1 else Color.TRANSPARENT
+		if sb == null or not sb.bg_color.is_equal_approx(want):
+			banded = false
+	_check(banded, "Every other row is banded in the panel colour (%s)" % tag)
+	var right := true
+	var zero_muted := true
+	var muted: Color = load("res://scripts/ui/UiKit.gd").MUTED
+	for b in rows:
+		for l in (b as Node).find_children("*", "Label", true, false):
+			var tx := str(l.text)
+			if tx.is_valid_float() or tx == "-":
+				if (l as Label).horizontal_alignment != HORIZONTAL_ALIGNMENT_RIGHT:
+					right = false
+				if tx.is_valid_float() and float(tx) == 0.0 and (l as Label).get_theme_color("font_color") != muted:
+					zero_muted = false
+	_check(right, "Numbers are right-aligned (%s)" % tag)
+	_check(zero_muted, "A zero is muted (%s)" % tag)
+	var head_right := true
+	for h in s.find_child("LadderHeader", true, false).get_children():
+		if h is Button and str(h.name) != "Sort_club" and (h as Button).alignment != HORIZONTAL_ALIGNMENT_RIGHT:
+			head_right = false
+	_check(head_right, "Their headers are right-aligned to match (%s)" % tag)
+	if with_pos:
+		var pos: Label = null
+		for l in (rows[0] as Node).find_children("*", "Label", true, false):
+			if str(l.text) == "1":
+				pos = l
+				break
+		_check(pos != null and pos.get_theme_color("font_color") == muted and pos.horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT,
+				"The position is its own muted, right-aligned column (%s)" % tag)
 
 
 ## The clubs in the table, top to bottom.
