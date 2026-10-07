@@ -1080,6 +1080,10 @@ func _show_break_stats() -> void:
 	_report_overlay = overlay
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.ellipsis("Match stats", UiKit.H1, UiKit.TEXT, true))
+	var box_score := _quarters_table(true)
+	box_score.name = "BreakBoxScore"
+	v.add_child(box_score)
+	v.add_child(UiKit.spacer(UiKit.GAP))
 	v.add_child(MatchStatsView.new().setup(_res, _my_side, true))
 	var close := UiKit.btn("Back to your calls", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 44)
@@ -1805,11 +1809,13 @@ func _ft_stats(v: VBoxContainer) -> void:
 		box.add_child(_calls_view(0))
 
 
-func _quarters_table() -> Control:
+## The box score, quarter by quarter. `live` (a break): only the quarters
+## played, and the total is the score so far.
+func _quarters_table(live := false) -> Control:
 	# Badge plus four quarters plus a full scoreline does not fit a phone
 	# modal. Stack each club there, and keep the wide table for landscape.
 	if UiKit.view_width(self) < 560.0:
-		return _quarters_stacked()
+		return _quarters_stacked(live)
 	var v := UiKit.vbox(3)
 	var home: String = _res["home"]
 	var away: String = _res["away"]
@@ -1818,15 +1824,15 @@ func _quarters_table() -> Control:
 	var qh := UiKit.hbox(4)
 	v.add_child(qh)
 	qh.add_child(_qcell("", 36, UiKit.MUTED, 12))
-	for i in range(qg.size()):
+	for i in range(_played(qg.size(), live)):
 		qh.add_child(_qcell(_period_label(i), 48, UiKit.MUTED, 12))
-	qh.add_child(_qcell("Final", 96, UiKit.MUTED, 12))
+	qh.add_child(_qcell("Score" if live else "Final", 96, UiKit.MUTED, 12))
 	for side in range(2):
 		var code: String = home if side == 0 else away
 		var qr := UiKit.hbox(4)
 		v.add_child(qr)
 		qr.add_child(UiKit.club_badge(code, 12, true, false))
-		for i in range(qg.size()):
+		for i in range(_played(qg.size(), live)):
 			qr.add_child(_qcell("%d.%d" % [int(qg[i][side]), int(qb[i][side])],
 					48, UiKit.TEXT, 12))
 		qr.add_child(_qcell(UiKit.scoreline(int(_res["goals"][side]),
@@ -1834,7 +1840,7 @@ func _quarters_table() -> Control:
 	return v
 
 
-func _quarters_stacked() -> Control:
+func _quarters_stacked(live := false) -> Control:
 	var v := UiKit.vbox(8)
 	var codes := [str(_res["home"]), str(_res["away"])]
 	var qg: Array = _res["q_goals"]
@@ -1847,11 +1853,17 @@ func _quarters_stacked() -> Control:
 				int(_res["behinds"][side])), 15, UiKit.EMPH, true))
 		block.add_child(head)
 		var parts: PackedStringArray = []
-		for i in range(qg.size()):
+		for i in range(_played(qg.size(), live)):
 			parts.append("%s %d.%d" % [_period_label(i), int(qg[i][side]), int(qb[i][side])])
 		block.add_child(UiKit.ellipsis("   ".join(parts), 12, UiKit.MUTED))
 		v.add_child(block)
 	return v
+
+
+## How many quarters the box score shows: all of them at full time, the
+## ones played at a break.
+func _played(n: int, live: bool) -> int:
+	return mini(n, (_res.get("quarter_teams", []) as Array).size()) if live else n
 
 
 func _period_label(i: int) -> String:

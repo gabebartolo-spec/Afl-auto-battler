@@ -322,6 +322,10 @@ func _phone_match(sz: Vector2i) -> void:
 		_check((await Tap.tap(stats_b)) == "", "The Match stats button takes a tap (%s)" % tag)
 		await _settle()
 		var sheet: Node = m.find_child("BreakStatsSheet", true, false)
+		var bs: Node = sheet.find_child("BreakBoxScore", true, false) if sheet != null else null
+		var bs_text := _text(bs) if bs != null else ""
+		_check(bs != null and bs_text.contains("Q2") and not bs_text.contains("Q3"),
+				"The box score shows the quarters played so far (%s)" % tag)
 		var team_t: Node = sheet.find_child("TeamStats", true, false) if sheet != null else null
 		_check(team_t != null and team_t.find_child("TeamRow_disposals", true, false) != null,
 				"Team stats open first, both clubs side by side (%s)" % tag)
