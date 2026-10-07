@@ -184,6 +184,10 @@ func _trophies() -> void:
 			if (c as Control).is_visible_in_tree() and (c as Control).get_global_rect().end.x > sz.x + 1:
 				fits = false
 		_check(fits, "The trophy room fits across the screen (%s)" % tag)
+		var rows := {}
+		for b in shelf.get_children() if shelf != null else []:
+			rows[int((b as Control).position.y)] = true
+		_check(sz.x > 400 or rows.size() == 1, "Three honours sit side by side on a phone's shelf (%s: %d rows)" % [tag, rows.size()])
 		# A finger on the flag opens it; Back closes it first, then leaves.
 		if flag != null:
 			_check((await Tap.tap(flag)) == "", "The premiership takes a tap (%s)" % tag)

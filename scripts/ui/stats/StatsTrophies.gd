@@ -331,7 +331,7 @@ static func _item(art: Control, top: String, bottom: String) -> Button:
 	v.add_child(art)
 	# As narrow as the art, so three fit across a phone: the name on one line,
 	# the honour and year wrapping under it if they must.
-	var width := maxf(SHELF_ART + 8.0, art.get_combined_minimum_size().x)
+	var width := maxf(SHELF_ART + 4.0, art.get_combined_minimum_size().x)
 	var name_l := UiKit.ellipsis(top, UiKit.SMALL, UiKit.TEXT, true)
 	name_l.name = "Top"
 	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
