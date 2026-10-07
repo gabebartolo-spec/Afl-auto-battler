@@ -5289,6 +5289,15 @@ Final pass:
 **Autonomy:** `SUPERVISED`
 
 
+### Speccy vignette — identify the incoming kick and show its football context (2026-10-07)
+**Status:** `TODO`. **Priority:** `P2` — **medium priority**, independent of the broader P3 vignette audit. **Owner:** Claude with the existing vignette/Art Agent owners.
+
+The director reports that **only the umpire is visible in the background** of the speccy vignette, leaving the incoming ball's origin unexplained. Specifically ask and answer: **“Who actually kicked the ball which leads to the speccy?”** Trace the current speccy trigger and authoritative event chain to identify the actual kicker, disposal origin, marking player and nearby contest participants. Do not assume the umpire kicked it or invent a player/kick that the simulation never recorded.
+
+Watch the full sequence in motion and verify that the lead-in, incoming trajectory and scene composition tell a coherent football story. Show the actual kicker or establish their kick through a readable lead-in/wider shot or other clear continuity when they are outside the final camera view. Include relevant players and positioning so a lone background umpire is not the scene's only apparent explanation of where the ball came from. An umpire may legitimately be present; their presence must not substitute for the actual delivery and contest.
+
+If the necessary kicker/origin context is lost between event capture and vignette playback, preserve and pass it through the existing event/presentation plumbing. Keep the correct named identities, teams, kits, ball ownership/path and recorded mark outcome. Provide a short before/after clip and an event-attribution/scene-context regression check; verify relevant angles and desktop/phone framing. Record any missing provenance honestly rather than adding a decorative fictional kicker. Existing appearance approval and merge gates apply.
+
 ### Director instruction — watch vignettes for visual and motion defects (2026-10-07)
 **Status:** `TODO`. **Priority:** `P3` low priority (director clarification, 2026-10-07); schedule after higher-priority implementation and correctness work. **Owner:** Claude performs the actual runtime/motion audit and coordinates fixes with the Art Agent and existing vignette owners. Extend this item and its existing defect records; do not create a duplicate audit or assume earlier still-image approvals prove motion quality.
 
