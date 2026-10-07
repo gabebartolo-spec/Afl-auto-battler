@@ -302,6 +302,14 @@ func _awards_awarded() -> void:
 				"Nothing presented is called provisional or projected (%s)" % tag)
 		_check(s.find_child("AANamed", true, false) != null, "The All-Australian team is the one named (%s)" % tag)
 		var medal: Button = s.find_child("Honour_BrownlowMedal", true, false)
+		var fig: Label = medal.find_child("Figure", true, false) if medal != null else null
+		_check(fig != null and (fig.text.ends_with(" votes") or fig.text.ends_with(" vote")),
+				"The medallist's count carries its unit (%s: %s)" % [tag, fig.text if fig else "none"])
+		var name_l: Label = medal.find_child("Name", true, false) if medal != null else null
+		var club_l: Label = medal.find_child("Club", true, false) if medal != null else null
+		_check(name_l != null and club_l != null and _fits(name_l),
+				"The medallist's name fits in full, beside the count (%s, club %s)"
+				% [tag, "under the name" if club_l != null and name_l != null and name_l.get_parent() == club_l.get_parent() else "beside it"])
 		_check(medal != null and (await Tap.tap(medal)) == "", "The Brownlow medallist takes a tap (%s)" % tag)
 		await _settle()
 		_check(s.find_child("PlayerProfile", true, false) != null, "The tap opens the medallist's profile (%s)" % tag)
@@ -320,6 +328,13 @@ func _players() -> Dictionary:
 func _row(goals: int, votes := 0, games := 4) -> Dictionary:
 	return {"club": "COL", "games": games, "goals": goals, "goals_ha": goals, "disposals": 0,
 			"distance_run": 0.0, "influence": 10.0 * games, "votes": votes, "bf": 0, "polled": 0, "coaches": 0}
+
+
+## Whether a label shows its whole text, without an ellipsis.
+func _fits(l: Label) -> bool:
+	var w := l.get_theme_font("font").get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1,
+			l.get_theme_font_size("font_size")).x
+	return w <= l.size.x + 1.0
 
 
 func _rank(row: Node) -> String:

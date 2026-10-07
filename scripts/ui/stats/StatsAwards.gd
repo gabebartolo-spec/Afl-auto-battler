@@ -11,6 +11,11 @@ const RACE_ROWS := 10
 ## A table's width on a wide screen: a name, a club and a figure, not a row
 ## stretched across a PC monitor.
 const TABLE_W := 600.0
+## Row geometry, shared by the tables and the fit test for the honours.
+const LEAD_W := 104.0
+const CLUB_W := 72.0
+const GAP := 8.0
+const FIGURE_SIZE := 17
 ## The All-Australian slots on the oval (Awards.AA_SLOTS): the five
 ## midfielders fill the centre square first, then the wings.
 const AA_SPOTS := {"RUCK": ["RUCK"], "MID": ["MID", "MID", "MID", "WING", "WING"],
@@ -115,21 +120,36 @@ static func _honours(host: Control, aw: Dictionary) -> Control:
 	var brownlow: Dictionary = aw.get("brownlow_winner", {})
 	if brownlow.is_empty():
 		brownlow = _first(aw.get("brownlow", []))
-	# The award says what the figure counts: Brownlow and Coaches votes,
-	# Coleman goals. The Rising Star has none.
+	# Every figure carries its unit ("56 votes"), in its own right-hand
+	# column. The Rising Star has none.
 	var winners := [
-		["Brownlow Medal", brownlow, "votes"],
-		["Coleman Medal", _first(aw.get("coleman", [])), "goals"],
-		["Coaches Award", _first(aw.get("coaches_award", [])), "coaches"],
-		["Rising Star", _first(aw.get("rising_star", [])), ""],
+		["Brownlow Medal", brownlow, "votes", "vote"],
+		["Coleman Medal", _first(aw.get("coleman", [])), "goals", "goal"],
+		["Coaches Award", _first(aw.get("coaches_award", [])), "coaches", "vote"],
+		["Rising Star", _first(aw.get("rising_star", [])), "", ""],
 	]
+	var rows := []
+	var fig_w := 0.0
+	var name_w := 0.0
 	for w in winners:
 		var r: Dictionary = w[1]
 		if r.is_empty():
 			continue
-		var count := "" if str(w[2]) == "" else str(int(r.get(str(w[2]), 0)))
-		var b := _player_row(host, str(r.get("id", "")), str(r.get("club", "")), "", count, str(w[0]))
-		b.name = "Honour_" + str(w[0]).replace(" ", "")
+		var n := int(r.get(str(w[2]), 0))
+		var count := "" if str(w[2]) == "" else "%d %s" % [n, str(w[3]) if n == 1 else str(w[3]) + "s"]
+		fig_w = maxf(fig_w, _text_w(count, FIGURE_SIZE, true))
+		name_w = maxf(name_w, _text_w(GameState.award_name(r), UiKit.NAME, str(r.get("club", "")) == GameState.my_club))
+		rows.append([w[0], r, count])
+	# The name takes the width the figure and club leave. Where a name still
+	# wouldn't fit (a phone), every club goes under its name instead, so the
+	# table keeps one shape.
+	var row_w: float = TABLE_W if bool(host.call("wide")) else float(host.call("content_width"))
+	var stack := name_w > row_w - LEAD_W - CLUB_W - fig_w - 3.0 * GAP
+	for x in rows:
+		var r: Dictionary = x[1]
+		var b := _player_row(host, str(r.get("id", "")), str(r.get("club", "")), "", str(x[2]), str(x[0]),
+				fig_w, stack)
+		b.name = "Honour_" + str(x[0]).replace(" ", "")
 		v.add_child(b)
 	return v
 
@@ -184,7 +204,7 @@ static func _aa_names(host: Control, v: Control, team: Array) -> Control:
 	var lines := {"RUCK": "Ruck", "MID": "Midfield", "DEF": "Defence", "FWD": "Forward", "BENCH": "Interchange"}
 	for r in team:
 		v.add_child(_player_row(host, str(r.get("id", "")), str(r.get("club", "")), "", "",
-				str(lines.get(str(r.get("slot", "")), ""))))
+				str(lines.get(str(r.get("slot", "")), "")), 0.0))
 	return v
 
 
@@ -201,7 +221,7 @@ static func _rising(host: Control) -> Control:
 	if noms.is_empty() and from <= 1:
 		v.add_child(_para("The first nomination comes after Round 1."))
 	for n in noms:
-		var b := _player_row(host, str(n["id"]), str(n["club"]), "", "", "Round %d" % int(n["round"]))
+		var b := _player_row(host, str(n["id"]), str(n["club"]), "", "", "Round %d" % int(n["round"]), 0.0)
 		b.name = "RisingStar_%d" % int(n["round"])
 		v.add_child(b)
 	if from > 1:
@@ -241,12 +261,12 @@ static func _header(head: String) -> Control:
 ## the round), his name, his club and a figure. Your club's players are in
 ## bold. The tap opens his profile.
 static func _player_row(host: Control, id: String, club: String, rank: String, figure: String,
-		lead := "") -> Button:
+		lead := "", fig_w := 64.0, stack := false) -> Button:
 	var b := Button.new()
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(0, 44)
+	b.custom_minimum_size = Vector2(0, 54 if stack else 44)
 	b.clip_contents = true
 	var flat := StyleBoxFlat.new()
 	flat.bg_color = Color.TRANSPARENT
@@ -257,12 +277,12 @@ static func _player_row(host: Control, id: String, club: String, rank: String, f
 		b.add_theme_stylebox_override(state, flat)
 	for state in ["hover", "pressed", "hover_pressed"]:
 		b.add_theme_stylebox_override(state, hover)
-	var row := UiKit.hbox(8)
+	var row := UiKit.hbox(int(GAP))
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	b.add_child(row)
 	if lead != "":
 		var l := UiKit.ellipsis(lead, UiKit.BODY, UiKit.MUTED)
-		l.custom_minimum_size.x = 104
+		l.custom_minimum_size.x = LEAD_W
 		l.size_flags_horizontal = Control.SIZE_FILL
 		row.add_child(l)
 	else:
@@ -273,16 +293,26 @@ static func _player_row(host: Control, id: String, club: String, rank: String, f
 			club == GameState.my_club)
 	who.name = "Name"
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(who)
 	var c := UiKit.ellipsis(GameDB.club_short(club), 14, UiKit.MUTED)
-	c.custom_minimum_size.x = 72
-	c.size_flags_horizontal = Control.SIZE_FILL
-	row.add_child(c)
+	c.name = "Club"
+	if stack:
+		var both := UiKit.vbox(0)
+		both.alignment = BoxContainer.ALIGNMENT_CENTER
+		both.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		both.add_child(who)
+		both.add_child(c)
+		row.add_child(both)
+	else:
+		row.add_child(who)
+		c.custom_minimum_size.x = CLUB_W
+		c.size_flags_horizontal = Control.SIZE_FILL
+		row.add_child(c)
 	# A row with a lead keeps its figure's column even without a figure, so
 	# its name and club line up with the rows around it.
 	if figure != "" or lead != "":
-		var f := UiKit.line(figure, 17, UiKit.TEXT, true)
-		f.custom_minimum_size.x = 64 if lead == "" else 32
+		var f := UiKit.line(figure, FIGURE_SIZE, UiKit.TEXT, true)
+		f.name = "Figure"
+		f.custom_minimum_size.x = fig_w
 		f.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(f)
 	_ignore_mouse(row)
@@ -321,6 +351,11 @@ static func _players() -> Dictionary:
 		for p in GameState.season.lists[code]:
 			out[str(p["id"])] = p
 	return out
+
+
+## How wide a line of text is set in the game's face.
+static func _text_w(text: String, size: int, bold: bool) -> float:
+	return (UiKit.BOLD if bold else UiKit.FONT).get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 
 
 static func _first(rows: Array) -> Dictionary:
