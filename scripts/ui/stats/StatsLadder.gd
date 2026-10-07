@@ -28,12 +28,13 @@ const LADDER_WIDE := [["pos", "#", 28], ["club", "Club", WIDE_CLUB], ["p", "P", 
 ## line: {season_team key, column title, width on a phone, width on a wide
 ## screen, on a phone}.
 const TEAM_STATS := [
-	["for", "PF", 32, 52, true], ["against", "PA", 32, 52, true],
-	["disposals", "D", 32, 52, true], ["marks", "MK", 32, 52, true],
-	["tackles", "TK", 32, 52, true], ["inside50", "I50", 32, 52, true],
-	["clearances", "CL", 32, 52, true], ["hitouts", "HO", 32, 52, true],
-	["rebounds", "R50", 32, 52, false], ["clangers", "CG", 32, 52, false],
-	["metres_gained", "MG", 32, 60, false],
+	["for", "PF", 32, 46, true], ["against", "PA", 32, 46, true],
+	["disposals", "D", 32, 46, true], ["marks", "MK", 32, 46, true],
+	["tackles", "TK", 32, 46, true], ["inside50", "I50", 32, 46, true],
+	["clearances", "CL", 32, 46, true], ["hitouts", "HO", 32, 46, true],
+	["contested_possessions", "CP", 32, 46, false], ["ground_ball_gets", "GBG", 32, 46, false],
+	["rebounds", "R50", 32, 46, false], ["clangers", "CG", 32, 46, false],
+	["metres_gained", "MG", 32, 56, false],
 ]
 ## Metres gained reads well rounded; every other figure is one decimal.
 const WHOLE_STATS := ["metres_gained"]
@@ -337,11 +338,13 @@ static func rows(season: Season) -> Array:
 				"pts": int(l["pts"]), "home": home.get(code, [0, 0, 0]), "away": away.get(code, [0, 0, 0]),
 				"form": "".join(PackedStringArray((season.club_results(code) as Array).slice(-5)))}
 		var t: Dictionary = GameState.season_team.get(code, {})
-		var games := int(t.get("games", 0))
-		row["games"] = games
+		row["games"] = int(t.get("games", 0))
+		# A game each over the games that stat was counted for
+		# (GameState.club_per_game: an older save counts the newer stats from
+		# where it loaded).
 		for c in TEAM_STATS:
 			var k := str(c[0])
-			row["t_" + k] = (float(t.get(k, 0.0)) / float(games)) if games > 0 else -1.0
+			row["t_" + k] = GameState.club_per_game(code, k)
 		out.append(row)
 	return out
 
