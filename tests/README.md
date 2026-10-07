@@ -54,7 +54,7 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `training` | Training plans and the stat guide | 107 | 32 |
 | `selection` | Team selection and named sides | 37 | 4 |
 | `matchup` | This week's opponent facts | 95 | 36 |
-| `matchday` | Match-day wording: the feed, quarter breaks, full time, the match screen | 384 | 21 |
+| `matchday` | Match-day wording: the feed, quarter breaks, full time, the match screen | 450 | 21 |
 | `roles` | Roles, wings, taggers and rucks as real jobs | 184 | 8 |
 | `injuries` | Injury rates, durability, healing, and played v simulated parity | 31 | 78 |
 | `awards` | Brownlow, Coleman, best and fairest, All-Australian | 22 | 49 |

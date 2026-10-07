@@ -42,6 +42,8 @@ func _run() -> void:
 		await _phone_match(sz)
 	_state.replay_seed = SUITE_SEED
 	await _plan_at_first_bounce()
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		await _coach_descriptions(sz)
 	await _bounce_close_up()
 	await _playtest_bounce_scene()
 	await _rings_on_the_oval()
@@ -410,6 +412,127 @@ func _phone_match(sz: Vector2i) -> void:
 		_check(m.find_child("MatchStats", true, false) == null and m.find_child("BestPlayers", true, false) != null,
 				"...and returns to Summary (%s)" % tag)
 		_check(m.call("handle_back") == false, "Back on Summary leaves as full time always has (%s)" % tag)
+	m.queue_free()
+	await _settle()
+
+
+## Every coaching choice says what it does, the neutral one too, and the
+## words follow the choice. Real taps (tests/tap.gd) at the break, and the
+## plan line under the clock shows every call in full.
+func _coach_descriptions(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = sz
+	_check(_state.prepare_interactive_match(), "A live match is prepared for the coaching words (%s)" % tag)
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var box: Node = m.find_child("CoachBox", true, false)
+	_check(box != null, "The coaching words are checked on the break (%s)" % tag)
+	if box == null:
+		m.queue_free()
+		return
+	var more: Button = box.find_child("MoreCallsToggle", true, false)
+	var why: String = await Tap.tap(more)
+	_check(why == "", "A finger opens the rest of the calls (%s: %s)" % [tag, why])
+	await _settle()
+	var legs_text := _text(box.find_child("LegsView", true, false))
+	# Loaded, not named: the autoloads are not there when this script compiles.
+	var report = load("res://scripts/sim/CoachReport.gd")
+	var policies: Dictionary = load("res://scripts/sim/MatchSim.gd").ROTATION_POLICIES
+
+	# Pep talk: all three choices, Composed included, explain themselves.
+	var pep_seen := {}
+	for k in ["steady", "fire_up", "calm"]:
+		var b: Button = box.find_child("PepPicker_" + k, true, false)
+		var w: String = await Tap.tap(b)
+		_check(w == "", "A finger picks the %s pep talk (%s: %s)" % [k, tag, w])
+		await _settle()
+		var note: Label = box.find_child("PepNote", true, false)
+		_check(note != null and note.is_visible_in_tree() and note.text != "" and note.text == report.pep_summary(k),
+				"The %s pep talk shows its own description (%s)" % [k, tag])
+		pep_seen[note.text if note != null else ""] = true
+	_check(pep_seen.size() == 3, "Each pep talk has its own words (%s)" % tag)
+	var composed: Button = box.find_child("PepPicker_steady", true, false)
+	await Tap.tap(composed)
+	await _settle()
+	var pn: Label = box.find_child("PepNote", true, false)
+	_check(pn != null and pn.text.begins_with("Keep them as they are"), "Back on Composed, its words return (%s)" % tag)
+
+	# Rotations: Normal as much as the other two, and never the legs report.
+	var rot_seen := {}
+	for k in policies:
+		var rb: Button = box.find_child("RotationPicker_" + str(k), true, false)
+		var rw: String = await Tap.tap(rb)
+		_check(rw == "", "A finger picks the %s rotation (%s: %s)" % [k, tag, rw])
+		await _settle()
+		var rn: Label = box.find_child("RotationNote", true, false)
+		_check(rn != null and rn.is_visible_in_tree() and rn.text == str(policies[k]["text"]),
+				"The %s rotation shows its own description (%s)" % [k, tag])
+		_check(rn != null and rn.text != legs_text and not box.find_child("LegsView", true, false).is_ancestor_of(rn),
+				"The rotation words are not the legs report (%s: %s)" % [k, str(k)])
+		rot_seen[rn.text if rn != null else ""] = true
+	_check(rot_seen.size() == policies.size(), "Each rotation has its own words (%s)" % tag)
+
+	# Tag: "No tag" says so; a name brings the tagger line back.
+	var tn: Label = box.find_child("TagNote", true, false)
+	var none: Button = box.find_child("TagPickerGrid_", true, false)
+	_check(tn != null and none != null and tn.text.begins_with("No tag"), "With no tag, the tag line says so (%s: %s)" % [tag, tn.text if tn else "-"])
+	var named: Button = null
+	for b in box.find_child("TagPicker", true, false).find_children("TagPickerGrid_*", "Button", true, false):
+		if str(b.name) != "TagPickerGrid_":
+			named = b
+			break
+	_check(named != null, "A player can be tagged (%s)" % tag)
+	if named != null:
+		var tw: String = await Tap.tap(named)
+		await _settle()
+		_check(tw == "" and tn.text.contains("goes to him"), "Picking a player brings the tagger line (%s: %s)" % [tag, tn.text])
+		var tw2: String = await Tap.tap(box.find_child("TagPickerGrid_", true, false))
+		await _settle()
+		_check(tw2 == "" and tn.text.begins_with("No tag"), "Back to no tag, the line says so (%s)" % tag)
+		await Tap.tap(named)
+		await _settle()
+
+	# Start with a tag: the plan line names every call, in full, and nothing
+	# it sits above is pushed off the screen.
+	var go: Button = box.find_child("StartQuarter", true, false)
+	var gw: String = await Tap.tap(go)
+	_check(gw == "", "A finger starts the quarter (%s: %s)" % [tag, gw])
+	await _settle()
+	var side := int(m.get("_my_side"))
+	var longest := func(roster: Array) -> String:
+		var best := ""
+		for r in roster:
+			var id := str(r["id"])
+			if db.player_display_name_by_id(id, "").length() > db.player_display_name_by_id(best, "").length():
+				best = id
+		return best
+	var mine: Array = m.call("_roster_side", side)
+	var theirs: Array = m.call("_roster_side", 1 - side)
+	var defs := mine.filter(func(r): return str(r["role"]) == "DEF")
+	var calls := {"gameplan": "defensive", "tag_id": longest.call(theirs), "focus_id": longest.call(mine),
+			"interceptor_id": longest.call(defs), "spare_accountable": false}
+	m.call("_show_setup", calls)
+	await _settle()
+	var line: Label = m.find_child("SetupLine", true, false)
+	var full := "Your plan: Defensive press  ·  tagging %s  ·  through %s  ·  %s loose behind the ball" % [
+			db.player_display_name_by_id(str(calls["tag_id"]), ""), db.player_display_name_by_id(str(calls["focus_id"]), ""),
+			db.player_display_name_by_id(str(calls["interceptor_id"]), "")]
+	_check(line != null and line.visible and line.text == full, "The plan line names every call (%s)" % tag)
+	_check(line.autowrap_mode != TextServer.AUTOWRAP_OFF and line.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING,
+			"The plan line wraps, it does not trim (%s)" % tag)
+	_check(line.size.y >= line.get_minimum_size().y - 0.5 and line.get_line_count() >= 1 and line.get_visible_line_count() == line.get_line_count(),
+			"Every line of the plan is drawn (%s: %d lines)" % [tag, line.get_line_count()])
+	var win := Rect2(Vector2.ZERO, Vector2(sz))
+	_check(win.encloses(line.get_global_rect()), "The plan line sits on the screen (%s)" % tag)
+	var off := []
+	for b in m.find_children("*", "Button", true, false):
+		if b.is_visible_in_tree() and not win.encloses(b.get_global_rect()):
+			off.append(str(b.name))
+	_check(off.is_empty(), "A long plan line pushes no button off the screen (%s: %s)" % [tag, str(off)])
 	m.queue_free()
 	await _settle()
 
