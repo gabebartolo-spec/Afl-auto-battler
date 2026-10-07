@@ -485,7 +485,7 @@ static func _table(host: Control, list: Array, cols: Array, wide: bool) -> Contr
 		groups.add_child(_fixed(_group_gap(wide)))
 		var gl := UiKit.ellipsis(g, UiKit.SMALL, UiKit.MUTED, true)
 		gl.custom_minimum_size.x = w * n
-		gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		groups.add_child(gl)
 		at += n
 	groups.add_child(_fixed(_tail(wide)))
