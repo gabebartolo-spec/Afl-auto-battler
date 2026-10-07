@@ -8,7 +8,8 @@ extends SceneTree
 ## premiership (with a Brownlow and an All-Australian), plus an older season
 ## from before the room recorded records and All-Australians. Writes
 ## <out>_empty.png (before the first game), <out>.png, <out>_lower.png
-## (scrolled to your seasons), <out>_flag.png and <out>_medal.png (the sheets).
+## (scrolled to your seasons), <out>_flag.png and <out>_medal.png (the sheets)
+## and <out>_filtered.png (the All-Australians alone).
 ##   --size WxH   window size (default 390x844)    --light   light appearance
 ## Never touches a real save.
 
@@ -73,10 +74,10 @@ func _run() -> void:
 	# A record that fits a minor premier (the season played may not).
 	entry["my_record"] = "18-5-0"
 	entry["brownlow"] = [{"id": ids[0], "club": "COL", "votes": 31}]
-	entry["my_aa"] = [ids[2], ids[5]]
+	entry["my_aa"] = [ids[0], ids[2]]
 	var old := {"year": year - 1, "my_club": "COL", "premier": "GEE", "runner_up": "COL", "my_position": 3,
 		"brownlow": [], "coleman": [{"id": ids[4], "club": "COL", "goals": 71}], "rising_star": [],
-		"coaches_award": [], "my_bf": [{"id": ids[1], "club": "COL", "bf": 120}]}
+		"coaches_award": [], "my_bf": [{"id": ids[0], "club": "COL", "bf": 120}]}
 	state.honour_roll = [old, entry]
 	scene = load("res://scenes/StatsHubScene.tscn").instantiate()
 	root.add_child(scene)
@@ -94,8 +95,20 @@ func _run() -> void:
 	_save(out + "_flag.png")
 	scene.call("handle_back")
 	await _frames(6)
-	await _tap(scene, "Player_0")
+	await _tap(scene, "Honour_brownlow_%d" % year)
 	_save(out + "_medal.png")
+	scene.call("handle_back")
+	await _frames(6)
+	# One kind of honour: the All-Australians alone, under each player.
+	var opt: OptionButton = scene.find_child("AwardFilter", true, false)
+	if opt != null:
+		for i in range(opt.item_count):
+			if opt.get_item_text(i) == "All-Australian":
+				opt.select(i)
+				opt.item_selected.emit(i)
+		await _frames(10)
+		_save(out + "_filtered.png")
+		load("res://scripts/ui/stats/StatsTrophies.gd").award_filter = ""
 	quit()
 
 

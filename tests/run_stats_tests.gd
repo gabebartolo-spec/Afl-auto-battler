@@ -1171,6 +1171,7 @@ func _trophies_early() -> void:
 	var none: Label = s.find_child("NoPremierships", true, false)
 	_check(none != null and none.text == "No premierships yet.", "An empty trophy room says so: no premierships yet")
 	_check(s.find_child("NoPlayerHonours", true, false) != null, "No player honours yet, said plainly")
+	_check(s.find_child("AwardFilter", true, false) == null, "With nothing won there is nothing to filter")
 	var intro: Label = s.find_child("TrophiesTenure", true, false)
 	_check(intro != null and intro.text == "Your time at %s: 1 season, from %d." % [root.get_node("GameDB").club_name("COL"), year],
 			"The tenure line counts the season in progress (%s)" % (intro.text if intro else "none"))
@@ -1239,7 +1240,7 @@ func _trophies() -> void:
 		entry[key] = []
 	var old := {"year": year - 1, "my_club": "COL", "premier": "GEE", "runner_up": "COL", "my_position": 3,
 		"brownlow": [], "coleman": [{"id": "far_away", "club": "CAR", "goals": 70}], "rising_star": [],
-		"coaches_award": [], "my_bf": [{"id": ids[1], "club": "COL", "bf": 120}]}
+		"coaches_award": [], "my_bf": [{"id": ids[0], "club": "COL", "bf": 120}]}
 	var elsewhere := {"year": year - 2, "my_club": "CAR", "premier": "COL", "runner_up": "GEE", "my_position": 1,
 		"brownlow": [{"id": ids[3], "club": "COL", "votes": 40}], "coleman": [], "rising_star": [],
 		"coaches_award": [], "my_bf": [], "my_record": "20-3-0", "my_finals": "GF1", "my_aa": []}
@@ -1259,13 +1260,23 @@ func _trophies() -> void:
 		_check(flag != null and (flag.find_child("Honour_premiership_cup", true, false) != null
 				or flag.find_child("StandIn_premiership_cup", true, false) != null),
 				"The cup shows: its art, or its name standing in (%s)" % tag)
-		var shelf: Node = s.find_child("PlayerShelf", true, false)
-		var names := []
-		if shelf != null:
-			for b in shelf.get_children():
-				names.append(str((b.find_child("Bottom", true, false) as Label).text))
-		_check(names == ["Brownlow Medal %d" % year, "All-Australian %d" % year, "Best and fairest %d" % (year - 1)],
-				"Your players' honours, newest first, none from elsewhere (%s: %s)" % [tag, str(names)])
+		# By player: his name, then all his honours under it.
+		var groups := []
+		for g in s.find_children("PlayerGroup_*", "", true, false):
+			var hon := []
+			var gs: Node = g.find_child("PlayerShelf", true, false)
+			for b in gs.get_children() if gs != null else []:
+				hon.append("%s %s" % [(b.find_child("Top", true, false) as Label).text,
+						(b.find_child("Bottom", true, false) as Label).text])
+			var who: Label = g.find_child("PlayerName", true, false)
+			groups.append([str(g.name).trim_prefix("PlayerGroup_"), who.text if who else "", hon])
+		_check(groups.size() == 2 and groups[0][0] == ids[0] and groups[1][0] == ids[2],
+				"Your players' honours by player, the most decorated first, none from elsewhere (%s: %s)" % [tag, str(groups)])
+		_check(groups.size() == 2 and groups[0][2] == ["Brownlow Medal %d" % year, "Best and fairest %d" % (year - 1)]
+				and groups[1][2] == ["All-Australian %d" % year],
+				"Each player's honours sit under him, newest first (%s)" % tag)
+		_check(groups.size() == 2 and groups[0][1] == str(_state.award_name({"id": ids[0]})),
+				"Each group is headed by the player's name (%s)" % tag)
 		var gap: Label = s.find_child("AAUnrecorded", true, false)
 		_check(gap != null and gap.text == "All-Australian selections weren't kept for %d in this save." % (year - 1),
 				"An older season's missing All-Australians are said plainly (%s)" % tag)
@@ -1283,10 +1294,12 @@ func _trophies() -> void:
 			if (c as Control).is_visible_in_tree() and (c as Control).get_global_rect().end.x > sz.x + 1:
 				fits = false
 		_check(fits, "The trophy room fits across the screen (%s)" % tag)
+		var mine: Node = s.find_child("PlayerGroup_" + str(ids[0]), true, false)
+		var shelf: Node = mine.find_child("PlayerShelf", true, false) if mine != null else null
 		var rows := {}
 		for b in shelf.get_children() if shelf != null else []:
 			rows[int((b as Control).position.y)] = true
-		_check(sz.x > 400 or rows.size() == 1, "Three honours sit side by side on a phone's shelf (%s: %d rows)" % [tag, rows.size()])
+		_check(shelf != null and rows.size() == 1, "A player's honours sit side by side under his name (%s: %d rows)" % [tag, rows.size()])
 		# A finger on the flag opens it; Back closes it first, then leaves.
 		if flag != null:
 			_check((await Tap.tap(flag)) == "", "The premiership takes a tap (%s)" % tag)
@@ -1304,7 +1317,7 @@ func _trophies() -> void:
 			await _settle()
 			_check(s.find_child("ClubHonourSheet", true, false) == null and not s.call("handle_back"),
 					"The sheet is gone, and the next Back leaves (%s)" % tag)
-		var medal: Button = s.find_child("Player_0", true, false)
+		var medal: Button = s.find_child("Honour_brownlow_%d" % year, true, false)
 		if medal != null:
 			_check((await Tap.tap(medal)) == "", "The Brownlow takes a tap (%s)" % tag)
 			await _settle()
@@ -1314,6 +1327,33 @@ func _trophies() -> void:
 			await _settle()
 		s.queue_free()
 		await _settle()
+	# The filter: the kinds won, one at a time; your seasons stay.
+	s = await _open_trophies(Vector2i(390, 844))
+	var opt: OptionButton = s.find_child("AwardFilter", true, false)
+	var listed := []
+	for i in range(opt.item_count if opt != null else 0):
+		listed.append(opt.get_item_text(i))
+	_check(listed == ["All honours", "Premierships", "Minor premierships", "Brownlow Medal", "All-Australian", "Best and fairest"],
+			"The filter lists only the kinds of honour won (%s)" % str(listed))
+	_check(opt != null and (await Tap.tap(opt)) == "", "The filter takes a tap")
+	await _settle()
+	if opt != null:
+		opt.get_popup().hide()
+	await _pick_filter(s, 3)
+	_check(s.find_child("ClubHonours", true, false) == null and s.find_children("PlayerGroup_*", "", true, false).size() == 1
+			and s.find_child("Honour_brownlow_%d" % year, true, false) != null
+			and s.find_child("Honour_my_bf_%d" % (year - 1), true, false) == null,
+			"Brownlow Medal shows the Brownlow alone, under its winner")
+	_check(s.find_child("Tenure", true, false) != null, "Your seasons stay, whatever the filter")
+	await _pick_filter(s, 1)
+	_check(s.find_child("PlayerHonours", true, false) == null and s.find_child("Club_premiership_%d" % year, true, false) != null
+			and s.find_child("Club_minor_premiership_%d" % year, true, false) == null,
+			"Premierships shows the flags alone")
+	await _pick_filter(s, 0)
+	_check(s.find_child("ClubHonours", true, false) != null and s.find_child("PlayerHonours", true, false) != null,
+			"All honours brings everything back")
+	s.queue_free()
+	await _settle()
 	# The room survives a save and load.
 	var before := JSON.stringify(_state.honour_roll)
 	_check(_state.save_career() and _state.load_career(), "The career saves and loads")
@@ -1321,6 +1361,16 @@ func _trophies() -> void:
 	s = await _open_trophies(Vector2i(390, 844))
 	_check(s.find_child("Club_premiership_%d" % year, true, false) != null, "The premiership is still on the shelf after loading")
 	s.queue_free()
+	await _settle()
+
+
+## Choose the filter's option i, as its list would.
+func _pick_filter(s: Node, i: int) -> void:
+	var opt: OptionButton = s.find_child("AwardFilter", true, false)
+	if opt == null:
+		return
+	opt.select(i)
+	opt.item_selected.emit(i)
 	await _settle()
 
 
