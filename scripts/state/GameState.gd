@@ -1946,8 +1946,8 @@ func opponent_report(code: String) -> Array:
 		return []
 	var play := []
 	var usual := usual_plan(code)
-	if usual != "balanced":
-		play.append("Their usual game: %s." % CoachReport.plan_label(usual))
+	if THEIR_PLAN.has(usual):
+		play.append("Their usual game, %s: %s" % [CoachReport.plan_label(usual), THEIR_PLAN[usual]])
 	play.append_array(their_style(code, 3))
 	var people := []
 	var danger_id := ""
@@ -7371,6 +7371,17 @@ const STYLE_SHRINK := 4
 ## A points-source line and the total it is part of.
 const STYLE_PART_OF := {
 	"from_stoppage": "for", "conceded_stoppage": "against",
+}
+
+
+## An opponent's usual game plan, said as what it does on the field (the
+## same trade-offs as CoachReport.PLAN_SUMMARY, from their side).
+const THEIR_PLAN := {
+	"attacking": "they run it through the corridor for ground and better shots, and turn it over more.",
+	"defensive": "they press up the ground, so they are hard to score against but have fewer numbers forward.",
+	"contest": "they put numbers at the stoppages to win the clearances, and the ball moves slower.",
+	"controlled": "they keep the ball and make few errors, but gain less ground.",
+	"through_stars": "their best three see more of the ball, and the pressure goes on them.",
 }
 
 
