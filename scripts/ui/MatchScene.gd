@@ -468,6 +468,7 @@ func _show_coach_box() -> void:
 		v.add_child(_quarter_view(q - 1))
 		var did := MatchNotes.calls_lines(_res, _my_side, q - 1) \
 				+ MatchNotes.duel_change_lines(_res, _my_side, q - 1) \
+				+ MatchNotes.tag_drop_lines(_res, _my_side, q - 1) \
 				+ MatchNotes.lasting_moment_lines(_res, q - 1)
 		if not did.is_empty():
 			v.add_child(UiKit.spacer(UiKit.GAP))
@@ -1053,8 +1054,10 @@ func _in_the_game(roster: Array, n: int) -> Array:
 	return out.slice(0, n)
 
 
+## Their midfielders only, by where each plays now (the roster copy carries
+## the slot but not the position, so the sim's live copy decides).
 func _taggable_now(sim: MatchSim, r: Dictionary) -> bool:
-	return MatchSim.taggable(r) and sim.taking_part(1 - _my_side, str(r["id"]))
+	return sim.tag_target_ok(1 - _my_side, str(r["id"]))
 
 
 func _roster_side(side: int) -> Array:
