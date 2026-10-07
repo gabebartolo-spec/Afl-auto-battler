@@ -4,7 +4,6 @@ extends SceneTree
 ##   godot --path . --script tools/visual/capture_selection.gd -- --out /tmp/sel [--size 1280x720] [--picked]
 ## --picked: one player tapped, waiting for the second tap. --opp: the oval
 ## flipped to this week's opponent. --guide: the synergy guide with Complete.
-## --report: the assistant's report.
 ## Writes <out>_sheet.png.
 
 var W := 1280
@@ -29,7 +28,7 @@ func _run() -> void:
 			H = int(wh[1])
 		if str(a[i]) == "--picked":
 			picked = true
-		if str(a[i]) in ["--opp", "--guide", "--report"]:
+		if str(a[i]) in ["--opp", "--guide"]:
 			mode = str(a[i]).trim_prefix("--")
 	await process_frame
 	var state = root.get_node("GameState")
@@ -55,8 +54,6 @@ func _run() -> void:
 			ui.call("_build")
 		"guide":
 			ui.call("_show_synergies")
-		"report":
-			ui.call("_show_report", str(state.my_next_opponent().get("code", "")))
 	for i in range(8):
 		await process_frame
 	var img := root.get_viewport().get_texture().get_image()

@@ -103,19 +103,13 @@ func _build() -> void:
 	actions.add_child(dual)
 	var nxt := GameState.my_next_opponent()
 	if not nxt.is_empty():
-		# Look at them on the same oval (director, 2026-10-07), and what your
-		# assistant has seen of them - facts, never how to beat them.
+		# Look at them on the same oval (director, 2026-10-07).
 		var opp_name := GameDB.club_short(str(nxt["code"]))
 		var flip := UiKit.choice_grid("OvalView", [["mine", "Your team"], ["opp", opp_name]], _view, 2, func(k):
 			_view = k
 			_build())
 		flip.custom_minimum_size.x = 220
 		actions.add_child(flip)
-		var report := UiKit.btn("Assistant's report", 14)
-		report.name = "AssistantReport"
-		report.custom_minimum_size = Vector2(0, 44)
-		report.pressed.connect(_show_report.bind(str(nxt["code"])))
-		actions.add_child(report)
 	hv.add_child(_lines_view())
 	if _notice != "":
 		var nl := _para(_notice, 13, UiKit.GOOD)
@@ -209,40 +203,6 @@ func _open_opponent(id: String, list: Array) -> void:
 			_close_profile()
 			_sheet = PlayerSheet.open(self, p, func(): _sheet = null, [])
 			return
-
-
-## The Assistant's report (director, 2026-10-07): what your assistant has
-## seen of this week's opponent - how they play, who matters, what they are
-## missing. Facts from their games and list; it never tells you how to win.
-func _show_report(code: String) -> void:
-	_close_synergies()
-	var box := UiKit.modal_box(self, 560.0, 0.0)
-	_synergy_overlay = box["overlay"]
-	_synergy_overlay.name = "AssistantReportSheet"
-	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.lbl("Assistant's report: %s" % GameDB.club_name(code), UiKit.H1, UiKit.TEXT, true))
-	var sections := [["How they play", GameState.their_style(code, 3)], ["Who matters", GameState.opponent_people(code).map(func(f): return str(f["text"]))],
-			["What stands out", GameState.opponent_facts(code).map(func(f): return str(f["text"]) if f is Dictionary else str(f))]]
-	var said := 0
-	var seen := {}
-	for sec in sections:
-		# Each fact once: who matters is not repeated under what stands out.
-		var lines: Array = (sec[1] as Array).filter(func(t): return not seen.has(str(t)))
-		for t in lines:
-			seen[str(t)] = true
-		if lines.is_empty():
-			continue
-		v.add_child(UiKit.spacer(6))
-		v.add_child(UiKit.lbl(str(sec[0]), UiKit.BODY, UiKit.TEXT, true))
-		for t in lines:
-			v.add_child(_para(str(t), 14, UiKit.TEXT))
-			said += 1
-	if said == 0:
-		v.add_child(_para("Too early to say much about them: they have barely played.", 14, UiKit.MUTED))
-	var close := UiKit.btn("Close", UiKit.NAME, true)
-	close.custom_minimum_size = Vector2(0, 48)
-	close.pressed.connect(_close_synergies)
-	box["footer"].add_child(close)
 
 
 func _apply_strategy(key: String) -> void:
