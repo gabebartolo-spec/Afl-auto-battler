@@ -22,6 +22,10 @@ func _run() -> void:
 	_state.settings_path = "user://test_stats_settings.cfg"
 	_state.show_real_names = false
 	_state.replay_seed = SUITE_SEED
+	var ev = load("res://tests/test_stats_events.gd").new()
+	ev.run()
+	_checks += ev.checks
+	_failures.append_array(ev.failures)
 	var db = root.get_node("GameDB")
 	_state.reset()
 	_state.start_season("COL", db.club_list("COL"))

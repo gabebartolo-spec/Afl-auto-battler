@@ -140,6 +140,9 @@ var smother_rng := RandomNumberGenerator.new()
 ## General-play aerial contests alter real possession outcomes but use their
 ## own stream so ordinary non-aerial play keeps its prior RNG ordering.
 var aerial_rng := RandomNumberGenerator.new()
+## Whether a carrier takes on space and runs before he disposes of it: its
+## own stream, so every other roll in the match draws exactly as before.
+var run_rng := RandomNumberGenerator.new()
 ## Spectacular-mark selection is presentation/stat context only.
 var speccy_rng := RandomNumberGenerator.new()
 ## Post-free 50m infringements are independent of ordinary play rolls.
@@ -256,6 +259,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	smother_rng.seed = seed * 23 + 29
 	aerial_rng.seed = seed * 73 + 79
 	speccy_rng.seed = seed * 31 + 37
+	run_rng.seed = seed * 83 + 89
 	discipline_rng.seed = seed * 41 + 43
 	mro_rng.seed = seed * 47 + 53
 	restart_rng.seed = seed * 59 + 61
@@ -1634,7 +1638,7 @@ func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bo
 		var mev: Dictionary = events[events.size() - 1]
 		mev["contested"] = contested
 		mev["general_play"] = true
-		return {"outcome": "mark", "actor": receiver}
+		return {"outcome": "mark", "actor": receiver, "contested": contested}
 	var spoil_p := clampf(0.36 + (stop - receive) / 220.0
 			+ (0.07 if _trait(defender, "interceptor") else 0.0), 0.20, 0.65)
 	if roll < mark_p + spoil_p:
@@ -1883,6 +1887,12 @@ func _stoppage(side: int, opp: int, from_bounce: bool, in_f50 := false):
 	_tap = {}
 	if not tap.is_empty():
 		var hit := {0: int(tap["hits"][0]), 1: int(tap["hits"][1])}
+		# Every tap hit at this ball-up was a contest between the two rucks:
+		# each was in it whoever won it (hit-out win % = hit-outs / contests).
+		var taps := int(hit[0]) + int(hit[1])
+		if taps > 0:
+			for r3 in [ruck_a, ruck_b]:
+				_p((r3 as Array)[0] if not (r3 as Array).is_empty() else null, "ruck_contests", taps)
 		for s2 in [0, 1]:
 			var r: Array = ruck_a if s2 == side else ruck_b
 			if int(hit[s2]) > 0:
@@ -1996,6 +2006,10 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 	# has it next, not if he is caught with it or the chain dies in a
 	# stoppage or an entry is rebounded (disposal efficiency).
 	var pending = null
+	# How the next carrier comes by the ball, from the disposal before it:
+	# "up" uncontested (a handball receive, an uncontested mark), "cp" in a
+	# contest, "gb" a ground ball won in a contest (POSSESSION_GAINS).
+	var next_gain := ""
 	while touches < max_touches:
 		touches += 1
 		if pending != null:
@@ -2029,6 +2043,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		if counts_disposal:
 			_t(side, "disposals")
 			_p(carrier, "disposals")
+			_gain(side, carrier, next_gain if touches > 1 else _first_gain(carrier, cleared, is_kick_in))
 		if is_kick_in:
 			_t(side, "kick_ins")
 			_p(carrier, "kick_ins")
@@ -2037,6 +2052,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				_p(carrier, "kick_in_play_ons")
 		pending = carrier if counts_disposal else null
 
+		var disposal_event := -1
 		var hb_bias: float = (0.85
 				+ 0.30 * (100.0 - _a(carrier, "marking")) / 100.0)
 		var disposal_kind := "handball"
@@ -2047,6 +2063,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_t(side, "handballs")
 			_p(carrier, "handballs")
 			_emit("handball", side, fp, carrier, "%s handballs" % GameDB.player_display_name(carrier))
+			disposal_event = events.size() - 1
 		else:
 			disposal_kind = "kick"
 			if counts_disposal:
@@ -2061,6 +2078,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				_emit("mark", side, fp, carrier, "%s marks" % GameDB.player_display_name(carrier))
 			else:
 				_emit("kick", side, fp, carrier, "%s kicks" % GameDB.player_display_name(carrier))
+			disposal_event = events.size() - 1
 			if is_kick_in:
 				var kev: Dictionary = events[events.size() - 1]
 				kev["kick_in"] = true
@@ -2100,6 +2118,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		# or no pressure at all. Both of the first two are pressure acts.
 		var press_roll := rng.randf()
 		var rushed := false
+		var tackled := false
 		if press_roll < pressure * PRESS_TACKLE_SHARE:
 			var tackler = _pick_presser(opp, zone)
 			_maybe_report(opp, tackler, carrier)
@@ -2107,6 +2126,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_p(tackler, "tackles")
 			_t(opp, "pressure_acts")
 			_p(tackler, "pressure_acts")
+			tackled = true
 			# High contact belongs to the tackle itself. The ball carrier keeps
 			# possession via a free; the tackler is credited the infringement.
 			if _high_contact_free(tackler):
@@ -2121,6 +2141,9 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				var before_fp := fp
 				fp = clampf(fp + rng.randf_range(4.0, 12.0) * dir, -gline, gline)
 				_metres(side, carrier, (fp - before_fp) * dir)
+				# He broke the tackle and got it away: his teammate takes it
+				# with nobody contesting it.
+				next_gain = "up"
 				continue
 			_t(opp, "pressure_wins")
 			# A legal tackle that stops him can be holding the ball; otherwise
@@ -2186,6 +2209,13 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		fp = clampf(fp, -gline, gline)
 		atk_fp = fp if side == 0 else -fp
 		_metres(side, carrier, atk_fp - prev_atk_fp)
+		_run_and_carry(side, carrier, atk_fp - prev_atk_fp, rushed or tackled, is_kick_in, disposal_event, prev_atk_fp)
+		# By default the next carrier gets it uncontested: a handball
+		# receive, a mark, a kick he gathers with nobody contesting it (the
+		# engine has no contest there; a rushed disposal loses ground, not
+		# the ball). The genuine contests - an aerial ball, a stoppage, a
+		# spill - set their own below and at the chain's start.
+		next_gain = "up"
 
 		# Outside forward 50, a genuine long kick can become a contested
 		# aerial ball. A mark retains it; a spoil makes the next chain loose.
@@ -2196,6 +2226,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 					"mark":
 						_effective(side, carrier)
 						pending = null
+						next_gain = "cp"  # a contested mark
 						continue
 					"free", "loose":
 						return aerial
@@ -2214,6 +2245,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				# A mark keeps the same side's chain alive at the new field
 				# position. It is not another disposal by the original kicker.
 				pending = carrier
+				next_gain = "cp" if bool(aerial.get("contested", false)) else "up"
 				continue
 
 		# Rebound 50: winning it out of your own defensive arc.
@@ -2436,6 +2468,8 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 			return {"outcome": "moment", "fp": shot_fp, "actor": shooter}
 
 	var roll := rng.randf()
+	if roll < goal_p + behind_p or not set_shot.is_empty():
+		_shot(side, shooter, not set_shot.is_empty(), "goal" if roll < goal_p else ("behind" if roll < goal_p + behind_p else ""))
 	if roll < goal_p:
 		_t(side, "goals")
 		_p(shooter, "goals")
@@ -2489,6 +2523,8 @@ func _crumb(side: int, fp: float) -> Dictionary:
 	var snap := shot_chance(side, crumber, false, false) * CRUMB_SNAP
 	var behind_p: float = float(_rates()["inside50_behind"]) * (0.80 + 0.40 * _a(crumber, "goalkicking") / 100.0)
 	var r := rng.randf()
+	_gain(side, crumber, "gb")
+	_shot(side, crumber, false, "goal" if r < snap else ("behind" if r < snap + behind_p else ""))
 	if r < snap:
 		_t(side, "goals")
 		_p(crumber, "goals")
@@ -2574,6 +2610,87 @@ func _intercept(side: int, who, could_mark: bool) -> void:
 		if stat_rng.randf() < 0.5:
 			_t(side, "contested_marks")
 			_p(who, "contested_marks")
+
+
+## How a chain's first carrier came by the ball (POSSESSION_GAINS): the
+## clearing player won it at the stoppage; a teammate he fed received it; no
+## clearance means a scramble on the ground. A free is won in a contest; an
+## intercept is a contested ball unless he marked it. A kick-in played on is
+## an uncontested possession; a kick-in kicked straight in is not one.
+func _first_gain(carrier, cleared, is_kick_in: bool) -> String:
+	if is_kick_in:
+		return "up"
+	match chain_origin:
+		"centre", "stoppage":
+			if cleared == null:
+				return "gb"
+			return "cp" if str(cleared.get("id", "")) == str(carrier.get("id", "")) else "up"
+		"free":
+			return "cp"
+		"turnover":
+			if bool(_chain_from.get("marked", false)):
+				return "up"
+			return "gb"
+	return "gb"
+
+
+## One possession: contested or uncontested, and a ground-ball get when it
+## was won off the deck. Bookkeeping only.
+func _gain(side: int, carrier, how: String) -> void:
+	if how == "":
+		return
+	if how == "up":
+		_t(side, "uncontested_possessions")
+		_p(carrier, "uncontested_possessions")
+		return
+	_t(side, "contested_possessions")
+	_p(carrier, "contested_possessions")
+	if how == "gb":
+		_t(side, "ground_ball_gets")
+		_p(carrier, "ground_ball_gets")
+
+
+## Run and carry (director, 2026-10-07: running bounces must be real): a
+## carrier with space - not tackled or rushed, not kicking in, going forward
+## from outside his forward 50 - sometimes takes on the space and runs with
+## it before he disposes of it, likelier and further the better he carries
+## it. A run is distance covered with the ball, angled across the ground as
+## much as forward, so the ground the disposal gained is unchanged and the
+## match plays exactly as before. He bounces it every BOUNCE_EVERY metres.
+## The disposal's event carries "run" (metres) for the pitch.
+const BOUNCE_EVERY := 15.0
+const RUN_P := 0.03
+
+func _run_and_carry(side: int, carrier, gained: float, pressed: bool, is_kick_in: bool, ev: int, atk_fp: float) -> void:
+	if carrier == null or pressed or is_kick_in or gained <= 0.0:
+		return
+	if atk_fp >= float(_rates()["forward50_line"]):
+		return
+	var carry := _a(carrier, "carry") / 100.0
+	if run_rng.randf() >= RUN_P * (0.3 + 1.4 * carry):
+		return
+	var run := run_rng.randf_range(10.0, 25.0) + 20.0 * carry * run_rng.randf()
+	var n := int(run / BOUNCE_EVERY)
+	if ev >= 0 and ev < events.size():
+		(events[ev] as Dictionary)["run"] = snappedf(run, 0.1)
+	if n > 0:
+		_t(side, "running_bounces", n)
+		_p(carrier, "running_bounces", n)
+
+
+## A kick at goal: shots, and set shots apart. `result` is "goal", "behind"
+## or "" (it missed everything or fell short).
+func _shot(side: int, shooter, set_shot: bool, result: String) -> void:
+	if shooter == null:
+		return
+	_t(side, "shots")
+	_p(shooter, "shots")
+	if set_shot:
+		_p(shooter, "set_shots")
+		if result == "goal":
+			_p(shooter, "set_goals")
+		elif result == "behind":
+			_p(shooter, "set_behinds")
 
 
 ## A score: its points by how the chain began (score sources), and one score
@@ -4016,6 +4133,7 @@ const PASS_GAIN := 15.0
 func _set_result(side: int, kicker: Dictionary, assist, defender: Dictionary, goal_p: float,
 		behind_p: float, crumb: bool) -> Dictionary:
 	var roll := rng.randf()
+	_shot(side, kicker, not crumb, "goal" if roll < goal_p else ("behind" if roll < goal_p + behind_p else ""))
 	if roll < goal_p:
 		_t(side, "goals")
 		_p(kicker, "goals")
