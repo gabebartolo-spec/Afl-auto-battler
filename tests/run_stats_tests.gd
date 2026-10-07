@@ -47,6 +47,13 @@ func _run() -> void:
 	for i in range(4):
 		_state.advance()
 	await _sections()
+	# The awards read the season after four rounds: before anything below
+	# plays it on (the fixture's finals test plays it to the end).
+	await _awards_races()
+	await _awards_ties()
+	_rising_star_rules()
+	await _rising_star_saves()
+	await _awards_awarded()
 	await _players_section()
 	_club_per_game()
 	_season_book()
@@ -54,11 +61,6 @@ func _run() -> void:
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 		await _fixture(sz)
 	await _fixture_finals()
-	await _awards_races()
-	await _awards_ties()
-	_rising_star_rules()
-	await _rising_star_saves()
-	await _awards_awarded()
 	print("Stats tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
@@ -274,7 +276,9 @@ func _season_book() -> void:
 	# The book is the sum of the season's matches, key by key.
 	var sums := {}
 	for week in _state.season.results:
-		for res in week:
+		for packed in week:
+			# A reload leaves the matches packed (StatBook): unpack them.
+			var res: Dictionary = _SB.full(packed)
 			for id in res.get("players", {}):
 				var st: Dictionary = res["players"][id]
 				for k in ["contested_possessions", "ground_ball_gets", "shots", "running_bounces", "hitouts", "ruck_contests"]:
@@ -289,7 +293,7 @@ func _season_book() -> void:
 	_check(bad == "" and not sums.is_empty(), "The season totals are the matches added up (%s)" % bad)
 	# Save, start again, load: the book and the match boxes come back.
 	var before := book.duplicate(true)
-	var res0: Dictionary = (_state.season.results[0] as Array)[0]
+	var res0: Dictionary = _SB.full((_state.season.results[0] as Array)[0])
 	var some_id := str(((res0["roster"] as Array)[0] as Array)[0]["id"])
 	var line0: Dictionary = (res0["players"] as Dictionary).get(some_id, {}).duplicate()
 	var saved: bool = _state.save_career()
@@ -804,7 +808,7 @@ func _awards_awarded() -> void:
 				"The medallist's count carries its unit (%s: %s)" % [tag, fig.text if fig else "none"])
 		var name_l: Label = medal.find_child("Name", true, false) if medal != null else null
 		var club_l: Label = medal.find_child("Club", true, false) if medal != null else null
-		_check(name_l != null and club_l != null and _fits(name_l),
+		_check(name_l != null and club_l != null and _label_fits(name_l),
 				"The medallist's name fits in full, beside the count (%s, club %s)"
 				% [tag, "under the name" if club_l != null and name_l != null and name_l.get_parent() == club_l.get_parent() else "beside it"])
 		_check(medal != null and (await Tap.tap(medal)) == "", "The Brownlow medallist takes a tap (%s)" % tag)
@@ -828,7 +832,7 @@ func _row(goals: int, votes := 0, games := 4) -> Dictionary:
 
 
 ## Whether a label shows its whole text, without an ellipsis.
-func _fits(l: Label) -> bool:
+func _label_fits(l: Label) -> bool:
 	var w := l.get_theme_font("font").get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1,
 			l.get_theme_font_size("font_size")).x
 	return w <= l.size.x + 1.0
