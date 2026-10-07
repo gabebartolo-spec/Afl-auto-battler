@@ -441,7 +441,10 @@ static func _table_name(name: String, wide: bool) -> String:
 ## headings, the rank in its own muted column, each group's name over its
 ## columns with a gap between groups, and zeros muted so what a player did
 ## stands out.
-const ROW_H := 32.0
+## A row is a tap target: thumb-sized (40 px) on a phone, 32 px with a
+## pointer on a wide screen.
+static func _row_h(wide: bool) -> float:
+	return 32.0 if wide else 40.0
 
 
 ## Widths that shrink on a phone, so a surname still fits beside one group.
@@ -599,7 +602,7 @@ static func _band(b: Button, odd: bool) -> void:
 static func _row(host: Control, row: Dictionary, rank: int, cols: Array, wide: bool) -> Control:
 	var b := Button.new()
 	b.name = "PlayerRow_" + str(row["id"])
-	b.custom_minimum_size.y = ROW_H
+	b.custom_minimum_size.y = _row_h(wide)
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	_band(b, rank % 2 == 0)
 	b.pressed.connect(func(): open_player(host, str(row["id"])))
