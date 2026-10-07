@@ -996,10 +996,12 @@ const ONE_PCT_ROLES := {"DEF": 1.0, "RUCK": 0.5, "MID": 0.3, "FWD": 0.1}
 
 ## `_weighted` over a whole group, each player's weight scaled by his line.
 func _weighted_roles(group: Array, key: String, roles: Dictionary, power := 2.0, side := -1, purpose := "",
-		sizes: Dictionary = {}):
+		sizes: Dictionary = {}, zone := ""):
 	if group.is_empty():
 		return null
 	var ctx := _pick_ctx(side) if side >= 0 else {}
+	if side >= 0:
+		ctx["zone"] = zone
 	var weights := []
 	for p in group:
 		var w: float = float(roles.get(str(p["role"]), 0.0)) * pow(maxf(1.0, _a(p, key)), power)
@@ -1057,12 +1059,14 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String, ctx: Diction
 		out *= Roles.WING_TRANSITION
 	elif purpose == "clearance" and Roles.on_wing(p):
 		out *= Roles.WING_STOPPAGE
-	# A "run it through him" plan makes him the clear ball-winner in the
-	# chain, not the shooter: a mid who gets more of the ball delivers more
-	# inside 50s and his forwards still take the shots. A small early boost,
-	# then the usage curve fades him back toward a low-30s disposal game.
-	if focused and carrying:
-		out *= 1.14
+	# "Play through him" is a job by the slot he fills (focus_role_text).
+	# A midfielder or ruck gets more of the ball in every chain, and is not
+	# made the shooter: his forwards still take the shots. A forward gets
+	# the ball up forward and the shots at goal; a defender has first use
+	# coming out of the back half. A small early boost, then the usage
+	# curve fades him back toward a low-30s disposal game.
+	if focused:
+		out *= _focus_mult(str(p["role"]), purpose, str(ctx.get("zone", "")))
 	if carrying and _trait(p, "ball_magnet"):
 		out *= 1.10
 	if carrying and weather == "wet" and _trait(p, "wet_weather"):
@@ -1085,6 +1089,32 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String, ctx: Diction
 	if carrying:
 		out *= _usage_mult(p, focused)
 	return out
+
+
+## What playing through a player is worth, by the slot he fills and where the
+## pick is made. FOCUS_CARRY is the chain bias; a forward also has FOCUS_SHOT
+## when the shooter is picked (a redistribution of the shots, not more of them),
+## and a defender FOCUS_EXIT for the carrier out of the back half only.
+const FOCUS_CARRY := 1.14
+const FOCUS_SHOT := 1.25
+const FOCUS_EXIT := 1.25
+
+
+func _focus_mult(role: String, purpose: String, zone: String) -> float:
+	var carrying := purpose == "carrier" or purpose == "transition"
+	match role:
+		"FWD":
+			if purpose == "shooter":
+				return FOCUS_SHOT
+			if carrying and zone != "back" and zone != "middle":
+				return FOCUS_CARRY
+		"DEF":
+			if carrying and zone == "back":
+				return FOCUS_EXIT
+		_:
+			if carrying:
+				return FOCUS_CARRY
+	return 1.0
 
 
 ## Soft possession cap. Team disposal volume is unchanged — this only stops one
@@ -1688,7 +1718,7 @@ func pick_carrier(side: int, fp: float):
 		key = "disposal"
 		purpose = "transition"
 	var sizes: Dictionary = LEAD_UP_SIZES if zone == "middle" or zone == "attack" else {}
-	return _weighted_roles(sq.ground, key, CARRY_ROLES[zone], 2.0, side, purpose, sizes)
+	return _weighted_roles(sq.ground, key, CARRY_ROLES[zone], 2.0, side, purpose, sizes, zone)
 
 
 ## The primary kick-in player: a defender who can use and carry the ball.

@@ -163,7 +163,9 @@ func _mount_body(stack: bool) -> void:
 		var sv := UiKit.vbox(6)
 		_side_panel.add_child(sv)
 		# Your match: the calls you have on, so the setup is never a guess.
-		_setup_line = UiKit.ellipsis("", UiKit.SMALL, UiKit.MUTED)
+		# Every call in full: a long name or several calls wrap, never trim.
+		_setup_line = UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+		_setup_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_setup_line.name = "SetupLine"
 		_setup_line.visible = false
 		sv.add_child(_setup_line)
@@ -527,19 +529,24 @@ func _show_coach_box() -> void:
 	# A tag is a midfield job: only their midfielders can be tagged.
 	# Only players still in the match: the roster keeps anyone hurt and gone.
 	var opp := _roster_side(1 - _my_side).filter(func(r): return _taggable_now(sim, r))
-	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, 4), calls, "tag_id",
-			"Tag which midfielder?")
-	v.add_child(_call_block("Tag", tag))
 	# Who goes to him - a fact, not advice (Roles: a tagger makes a tag bite
-	# harder than a midfielder doing the job).
+	# harder than a midfielder doing the job). With no tag, say that instead.
 	var tagger = MatchSim.tagger_for(my_ground)
-	var tag_text := "No midfielder on the ground to tag with."
-	if tagger != null:
-		tag_text = ("%s, your tagger, goes to him." if Roles.is_tagger(tagger)
-				else "No specialist tagger on the ground: %s goes to him and gives up his own game.") % GameDB.player_display_name(tagger)
-	var tag_note := UiKit.lbl(tag_text, UiKit.SMALL, UiKit.MUTED)
+	var tag_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	tag_note.name = "TagNote"
 	tag_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var sync_tag := func(key: String) -> void:
+		if key == "":
+			tag_note.text = "No tag: your midfielders play their own game."
+		elif tagger == null:
+			tag_note.text = "No midfielder on the ground to tag with."
+		else:
+			tag_note.text = ("%s, your tagger, goes to him." if Roles.is_tagger(tagger)
+					else "No specialist tagger on the ground: %s goes to him and gives up his own game.") % GameDB.player_display_name(tagger)
+	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, 4), calls, "tag_id",
+			"Tag which midfielder?", sync_tag)
+	v.add_child(_call_block("Tag", tag))
+	sync_tag.call(str(calls["tag_id"]))
 	v.add_child(tag_note)
 
 	# Key match-ups: who is on their key forwards, how the contests went last
@@ -604,21 +611,23 @@ func _show_coach_box() -> void:
 	roam_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	more.add_child(roam_note)
 
-	var focus := _player_choice("FocusPicker", "No one", mine, _in_the_game(mine, 4), calls, "focus_id",
-			"Play through which player?")
-	var focus_block := _call_block("Play through", focus)
-	var focus_note := UiKit.lbl("Favour this player in possession chains and attacking transition.",
-			UiKit.SMALL, UiKit.MUTED)
+	var focus_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	focus_note.name = "FocusNote"
 	focus_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var sync_focus := func(id: String) -> void:
+		focus_note.text = _focus_note_text(id)
+	var focus := _player_choice("FocusPicker", "No one", mine, _in_the_game(mine, 4), calls, "focus_id",
+			"Play through which player?", sync_focus)
+	var focus_block := _call_block("Play through", focus)
+	sync_focus.call(str(calls["focus_id"]))
 	focus_block.add_child(focus_note)
 	more.add_child(focus_block)
 
 	var pep_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	pep_note.name = "PepNote"
 	pep_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var sync_pep := func(key: String) -> void:
 		pep_note.text = CoachReport.pep_summary(key)
-		pep_note.visible = pep_note.text != ""
 	var pep := _choice_grid("PepPicker", PEP_SHORT, calls, "pep", 3, sync_pep)
 	more.add_child(_call_block("Pep talk", pep))
 	more.add_child(pep_note)
@@ -628,10 +637,10 @@ func _show_coach_box() -> void:
 	for k in MatchSim.ROTATION_POLICIES:
 		rot_opts.append([str(k), str(ROTATION_SHORT.get(k, MatchSim.ROTATION_POLICIES[k]["label"]))])
 	var rot_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	rot_note.name = "RotationNote"
 	rot_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var sync_rot := func(key: String) -> void:
 		rot_note.text = str(MatchSim.ROTATION_POLICIES[key]["text"])
-		rot_note.visible = key != "normal"
 	var rot := _choice_grid("RotationPicker", rot_opts, calls, "rotation", 3, sync_rot)
 	more.add_child(_call_block("Rotations", rot))
 	more.add_child(rot_note)
@@ -974,7 +983,7 @@ func _choice_grid(node_name: String, options: Array, calls: Dictionary, field: S
 ## whole side for a tag, only forwards for their loose defender). Nobody in
 ## it is left out; the list is just ordered.
 func _player_choice(node_name: String, none_label: String, roster: Array, first: Array,
-		calls: Dictionary, field: String, sheet_title: String) -> Control:
+		calls: Dictionary, field: String, sheet_title: String, on_change: Callable = Callable()) -> Control:
 	var box := UiKit.vbox(0)
 	box.name = node_name
 	var rebuild := func(self_ref: Callable) -> void:
@@ -989,7 +998,7 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 			for r in roster:
 				if str(r["id"]) == cur:
 					shown.append([cur, _short_name(r)])
-		var grid := _choice_grid(node_name + "Grid", shown, calls, field, 2)
+		var grid := _choice_grid(node_name + "Grid", shown, calls, field, 2, on_change)
 		box.add_child(grid)
 		var other := UiKit.btn("Other player…", 14)
 		other.name = node_name + "Other"
@@ -998,6 +1007,8 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 		other.pressed.connect(func():
 			_player_sheet(sheet_title, roster, str(calls[field]), func(id: String):
 				calls[field] = id
+				if on_change.is_valid():
+					on_change.call(id)
 				self_ref.call(self_ref)))
 		grid.add_child(other)
 	rebuild.call(rebuild)
@@ -1182,6 +1193,35 @@ func _apply_quarter_tactics(t: Dictionary) -> void:
 	sim.set_tactics(1 - _my_side, sim.ai_tactics(1 - _my_side))
 
 
+## The player you play through, with his job this match: the slot he fills on
+## the ground (or filled last, off it) - "Matthew Jefferson our key forward target".
+func _focus_player(id: String) -> Dictionary:
+	var sim: MatchSim = GameState.pending_sim
+	if sim != null:
+		var sq: Squad = sim.squads[_my_side]
+		for p in sq.ground + sq.bench:
+			if str(p["id"]) == id:
+				return p
+	for r in _roster_side(_my_side):
+		if str(r["id"]) == id:
+			return r
+	return {}
+
+
+func _focus_text(id: String) -> String:
+	var p := _focus_player(id)
+	return MatchNotes.focus_role_text(GameDB.player_display_name_by_id(id, "your player"), str(p.get("role", "")))
+
+
+## Under the Play through control: his job and what it does for him; the
+## general description with nobody picked.
+func _focus_note_text(id: String) -> String:
+	if id == "":
+		return "Favour this player in possession chains and attacking transition."
+	var p := _focus_player(id)
+	return "%s: %s." % [_focus_text(id), MatchNotes.focus_effect_text(str(p.get("role", "")))]
+
+
 ## "Defensive press · tagging Walsh": your calls for this quarter, one line.
 func _show_setup(t: Dictionary) -> void:
 	if _setup_line == null or not is_instance_valid(_setup_line):
@@ -1192,7 +1232,7 @@ func _show_setup(t: Dictionary) -> void:
 		bits.append("tagging " + GameDB.player_display_name_by_id(tag_id, "their player"))
 	var focus_id := str(t.get("focus_id", ""))
 	if focus_id != "":
-		bits.append("through " + GameDB.player_display_name_by_id(focus_id, "your player"))
+		bits.append(_focus_text(focus_id))
 	var intercept_id := str(t.get("interceptor_id", ""))
 	if intercept_id != "":
 		bits.append(GameDB.player_display_name_by_id(intercept_id, "your defender") + " loose behind the ball")

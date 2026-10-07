@@ -43,6 +43,7 @@ func _run() -> void:
 	_state.replay_seed = SUITE_SEED
 	await _plan_at_first_bounce()
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		await _coach_descriptions(sz)
 		await _tag_targets(sz)
 	await _tag_not_saved()
 	await _bounce_close_up()
@@ -447,6 +448,169 @@ func _phone_match(sz: Vector2i) -> void:
 		_check(m.find_child("MatchStats", true, false) == null and m.find_child("BestPlayers", true, false) != null,
 				"...and returns to Summary (%s)" % tag)
 		_check(m.call("handle_back") == false, "Back on Summary leaves as full time always has (%s)" % tag)
+	m.queue_free()
+	await _settle()
+
+
+## Every coaching choice says what it does, the neutral one too, and the
+## words follow the choice. Real taps (tests/tap.gd) at the break, and the
+## plan line under the clock shows every call in full.
+func _coach_descriptions(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = sz
+	_check(_state.prepare_interactive_match(), "A live match is prepared for the coaching words (%s)" % tag)
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var box: Node = m.find_child("CoachBox", true, false)
+	_check(box != null, "The coaching words are checked on the break (%s)" % tag)
+	if box == null:
+		m.queue_free()
+		return
+	var more: Button = box.find_child("MoreCallsToggle", true, false)
+	var why: String = await Tap.tap(more)
+	_check(why == "", "A finger opens the rest of the calls (%s: %s)" % [tag, why])
+	await _settle()
+	var legs_text := _text(box.find_child("LegsView", true, false))
+	# Loaded, not named: the autoloads are not there when this script compiles.
+	var report = load("res://scripts/sim/CoachReport.gd")
+	var policies: Dictionary = load("res://scripts/sim/MatchSim.gd").ROTATION_POLICIES
+
+	# Pep talk: all three choices, Composed included, explain themselves.
+	var pep_seen := {}
+	for k in ["steady", "fire_up", "calm"]:
+		var b: Button = box.find_child("PepPicker_" + k, true, false)
+		var w: String = await Tap.tap(b)
+		_check(w == "", "A finger picks the %s pep talk (%s: %s)" % [k, tag, w])
+		await _settle()
+		var note: Label = box.find_child("PepNote", true, false)
+		_check(note != null and note.is_visible_in_tree() and note.text != "" and note.text == report.pep_summary(k),
+				"The %s pep talk shows its own description (%s)" % [k, tag])
+		pep_seen[note.text if note != null else ""] = true
+	_check(pep_seen.size() == 3, "Each pep talk has its own words (%s)" % tag)
+	var composed: Button = box.find_child("PepPicker_steady", true, false)
+	await Tap.tap(composed)
+	await _settle()
+	var pn: Label = box.find_child("PepNote", true, false)
+	_check(pn != null and pn.text.begins_with("Keep them as they are"), "Back on Composed, its words return (%s)" % tag)
+
+	# Rotations: Normal as much as the other two, and never the legs report.
+	var rot_seen := {}
+	for k in policies:
+		var rb: Button = box.find_child("RotationPicker_" + str(k), true, false)
+		var rw: String = await Tap.tap(rb)
+		_check(rw == "", "A finger picks the %s rotation (%s: %s)" % [k, tag, rw])
+		await _settle()
+		var rn: Label = box.find_child("RotationNote", true, false)
+		_check(rn != null and rn.is_visible_in_tree() and rn.text == str(policies[k]["text"]),
+				"The %s rotation shows its own description (%s)" % [k, tag])
+		_check(rn != null and rn.text != legs_text and not box.find_child("LegsView", true, false).is_ancestor_of(rn),
+				"The rotation words are not the legs report (%s: %s)" % [k, str(k)])
+		rot_seen[rn.text if rn != null else ""] = true
+	_check(rot_seen.size() == policies.size(), "Each rotation has its own words (%s)" % tag)
+
+	# Tag: "No tag" says so; a name brings the tagger line back.
+	var tn: Label = box.find_child("TagNote", true, false)
+	var none: Button = box.find_child("TagPickerGrid_", true, false)
+	_check(tn != null and none != null and tn.text.begins_with("No tag"), "With no tag, the tag line says so (%s: %s)" % [tag, tn.text if tn else "-"])
+	var named: Button = null
+	for b in box.find_child("TagPicker", true, false).find_children("TagPickerGrid_*", "Button", true, false):
+		if str(b.name) != "TagPickerGrid_":
+			named = b
+			break
+	_check(named != null, "A player can be tagged (%s)" % tag)
+	if named != null:
+		var tw: String = await Tap.tap(named)
+		await _settle()
+		_check(tw == "" and tn.text.contains("goes to him"), "Picking a player brings the tagger line (%s: %s)" % [tag, tn.text])
+		var tw2: String = await Tap.tap(box.find_child("TagPickerGrid_", true, false))
+		await _settle()
+		_check(tw2 == "" and tn.text.begins_with("No tag"), "Back to no tag, the line says so (%s)" % tag)
+		await Tap.tap(named)
+		await _settle()
+
+	# Play through: the note says his job and what the call does for him, by the
+	# slot he fills; with nobody picked it is the general line. Real taps.
+	var notes = load("res://scripts/ui/match/MatchNotes.gd")
+	var me := int(m.get("_my_side"))
+	var ground: Array = _state.pending_sim.squads[me].ground
+	var effects := {"MID": "the ball goes to him more often through the midfield",
+			"FWD": "more of the ball up forward and more of the shots at goal",
+			"DEF": "first use of the ball out of the back half", "RUCK": "the ball goes to him more often"}
+	var roles := {"MID": "our key midfielder", "FWD": "our key forward target",
+			"DEF": "our key distributor", "RUCK": "our key man in the middle"}
+	var fnote: Label = box.find_child("FocusNote", true, false)
+	_check(fnote != null and fnote.text.begins_with("Favour this player"), "With nobody picked, Play through keeps its general line (%s)" % tag)
+	for role in ["MID", "FWD", "DEF", "RUCK"]:
+		var who: Dictionary = {}
+		for gp in ground:
+			if str(gp["role"]) == role and who.is_empty():
+				who = gp
+		if who.is_empty():
+			continue
+		var pick: Button = box.find_child("FocusPickerGrid_" + str(who["id"]), true, false)
+		if pick == null:
+			await Tap.tap(box.find_child("FocusPickerOther", true, false))
+			await _settle()
+			pick = m.find_child("Sheet_" + str(who["id"]), true, false)
+		var pw: String = await Tap.tap(pick)
+		await _settle()
+		var nm := str(db.player_display_name_by_id(str(who["id"]), ""))
+		fnote = box.find_child("FocusNote", true, false)
+		_check(pw == "" and fnote.text == "%s %s: %s." % [nm, str(roles[role]), str(effects[role])],
+				"A %s played through reads as %s (%s: %s)" % [role, str(roles[role]), tag, fnote.text])
+		_check(notes.focus_role_text(nm, role) == "%s %s" % [nm, str(roles[role])] and notes.focus_effect_text(role) == str(effects[role]),
+				"The helper says the same for %s (%s)" % [role, tag])
+	await Tap.tap(box.find_child("FocusPickerGrid_", true, false))
+	await _settle()
+	_check(box.find_child("FocusNote", true, false).text.begins_with("Favour this player"), "Picking no one brings the general line back (%s)" % tag)
+
+	# Start with a tag: the plan line names every call, in full, and nothing
+	# it sits above is pushed off the screen.
+	var go: Button = box.find_child("StartQuarter", true, false)
+	var gw: String = await Tap.tap(go)
+	_check(gw == "", "A finger starts the quarter (%s: %s)" % [tag, gw])
+	await _settle()
+	var side := int(m.get("_my_side"))
+	var longest := func(roster: Array) -> String:
+		var best := ""
+		for r in roster:
+			var id := str(r["id"])
+			if db.player_display_name_by_id(id, "").length() > db.player_display_name_by_id(best, "").length():
+				best = id
+		return best
+	var mine: Array = m.call("_roster_side", side)
+	var theirs: Array = m.call("_roster_side", 1 - side)
+	var defs := mine.filter(func(r): return str(r["role"]) == "DEF")
+	var calls := {"gameplan": "defensive", "tag_id": longest.call(theirs), "focus_id": longest.call(mine),
+			"interceptor_id": longest.call(defs), "spare_accountable": false}
+	m.call("_show_setup", calls)
+	await _settle()
+	var line: Label = m.find_child("SetupLine", true, false)
+	var jobs := {"MID": "our key midfielder", "FWD": "our key forward target",
+			"DEF": "our key distributor", "RUCK": "our key man in the middle"}
+	var focus_role := ""
+	for r in mine:
+		if str(r["id"]) == str(calls["focus_id"]):
+			focus_role = str(r["role"])
+	var full := "Your plan: Defensive press  ·  tagging %s  ·  %s %s  ·  %s loose behind the ball" % [
+			db.player_display_name_by_id(str(calls["tag_id"]), ""), db.player_display_name_by_id(str(calls["focus_id"]), ""),
+			str(jobs[focus_role]), db.player_display_name_by_id(str(calls["interceptor_id"]), "")]
+	_check(line != null and line.visible and line.text == full, "The plan line names every call (%s)" % tag)
+	_check(line.autowrap_mode != TextServer.AUTOWRAP_OFF and line.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING,
+			"The plan line wraps, it does not trim (%s)" % tag)
+	_check(line.size.y >= line.get_minimum_size().y - 0.5 and line.get_line_count() >= 1 and line.get_visible_line_count() == line.get_line_count(),
+			"Every line of the plan is drawn (%s: %d lines)" % [tag, line.get_line_count()])
+	var win := Rect2(Vector2.ZERO, Vector2(sz))
+	_check(win.encloses(line.get_global_rect()), "The plan line sits on the screen (%s)" % tag)
+	var off := []
+	for b in m.find_children("*", "Button", true, false):
+		if b.is_visible_in_tree() and not win.encloses(b.get_global_rect()):
+			off.append(str(b.name))
+	_check(off.is_empty(), "A long plan line pushes no button off the screen (%s: %s)" % [tag, str(off)])
 	m.queue_free()
 	await _settle()
 
