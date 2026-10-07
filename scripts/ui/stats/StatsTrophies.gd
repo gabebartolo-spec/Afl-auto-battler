@@ -304,7 +304,7 @@ static func _tenure_row(cols: Array, head: bool, band := false, row_h := ROW_H) 
 static func _shelf(node: String) -> HFlowContainer:
 	var f := HFlowContainer.new()
 	f.name = node
-	f.add_theme_constant_override("h_separation", 12)
+	f.add_theme_constant_override("h_separation", 8)
 	f.add_theme_constant_override("v_separation", 12)
 	return f
 
