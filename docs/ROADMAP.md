@@ -702,6 +702,17 @@ Do not tune purely until one screenshot "looks right".
 - Give goals scored by the user's team happy/successful visual feedback, and goals scored by the opposition contrasting negative/conceded-goal feedback. Behinds remain visually neutral for **both** sides. The current event feed's team-coloured/white accents do not adequately communicate that emotional distinction. Use clear, readable event styling and suitable restrained visual cues; distinguish success/concession through labels or icons as well as colour. Determine perspective from the managed team, not home/away, feed position or guernsey colour, including custom clubs. Preserve scorer, club, time and score readability. Verify both team perspectives and scoring types in the exported PC build; avoid excessive animation and respect reduced-motion settings where supported. Roadmap comment only; Claude to implement, no scoring mechanics changed.
 
 
+### Haptics and restrained screen shake — director request (2026-10-07)
+**Status:** `TODO` — Claude to plan full integration, then implement within the existing match-feedback and vignette systems.
+
+Current-main inspection at `eea796e7` found no haptic/vibration or screen/camera-shake implementation in tracked game source. This is missing work, not a completed feature.
+
+- **Claude planning brief:** inventory supported export platforms and devices, then plan full haptic integration, mainly for the visual match simulation: goals, selected major football events and relevant vignette moments. Define useful event profiles, intensity/duration limits and exact trigger timing; choose significant events deliberately rather than buzzing on every disposal. Include goals for either club with coherent managed-team perspective, and identify which major contests/marks/tackles/turnovers and vignette impacts merit feedback.
+- Trigger feedback from actual authoritative football events and their displayed moment. Coordinate live simulation and vignette playback so one event does not produce duplicate pulses or shakes. Handle speed changes, pause, skipped scenes, replay and matches watched without vignettes; bulk season simulation must not generate a storm of feedback.
+- Add **modest, brief screen shake for goals and suitable major events**. Keep scores, text, controls and touch targets readable/stable; avoid constant shaking or excessive camera displacement. Haptics and shake supplement readable visual cues.
+- Provide usable independent haptic and shake controls, including Off, with restrained defaults. Respect reduced-motion preferences where supported; do not assume a new global reduced-motion system exists. Unsupported vibration hardware/platforms must gracefully continue without haptics. Introduce these settings concisely where useful without onboarding bombardment.
+- Reuse existing event, scoring-feedback and vignette plumbing. Add regression checks for event selection, duplicate prevention, skips/pause and disabled/unsupported feedback; verify actual timing, comfort and intensity on supported physical devices and screen shake in desktop/mobile exports. Record the platform matrix and remaining gaps honestly. Cross-reference ARD-M8-007 for vignette integration; this does not raise the separately requested P3 artwork/motion audit or P2 speccy audit priorities.
+
 ### Live-match plan summary clipped — PC playtest readability bug (2026-10-07)
 
 - Screenshot: the “Your plan: Balanced · Harry Dean loose behind the ball · Jasper Alger on th…” summary truncates an assignment, making the plan unreadable/incomplete. Show the complete current tactical information in a compact readable layout: wrap appropriately or use clearly grouped short labels/cards rather than forcing all assignments into a single ellipsised line. Maintain sufficient space between the plan summary and match-event heading, avoid clipping and overlaps, and let the user read the full assignment without relying on hover. Check long player names, multiple active calls, desktop window sizes and display scaling in the exported PC build. Apply the same readable responsive behaviour to the expanded midfield/forward/backline priorities and main-ruck choices already requested; mobile may use compact expansion or necessary scrolling, but must retain access to complete text. This is a roadmap bug report for Claude, not a game-code change.
@@ -2686,7 +2697,7 @@ Acceptance: full team and player stats can be opened at all three breaks, match 
 ---
 
 ## ARD-M4-010 — In-match Momentum
-**Status:** `DONE`  
+**Status:** `PARTIAL` — real momentum mechanic is complete; the director-requested meter presentation and onboarding overhaul below remains TODO.  
 **Merged:** PR #102 as `902d152`; the meter now reads real MatchSim state and the effect is capped, fading and measured.  
 **Priority:** `P1`  
 **Autonomy:** `BALANCE-GATED`
@@ -2715,6 +2726,15 @@ Compare:
 - win rates,
 - strong-team dominance,
 - interaction with season form.
+
+### Momentum meter appearance, meaning and onboarding — director request (2026-10-07)
+**Status:** `TODO`. Preserve the momentum bar **and its real gameplay impact**; overhaul its presentation rather than removing it or making it cosmetic.
+
+- Director reports an unexplained two-colour bar whose colours do not appear to change with the teams. Current-main `MatchScene._momentum_bar()` already selects both clubs' primary colours, so verify the actual build, colour lookup and custom-club handling before claiming this is absent or fixed. Ensure the displayed sides visibly identify the actual competing clubs; handle similar colours with contrasting treatment, club names/abbreviations or crests, and clear neutral/favoured-side cues.
+- Create an attractive, legible meter with a persistent **Momentum** label and an accessible concise explanation; the existing hover-only “Momentum” tooltip is insufficient, especially on touch devices. Make which club has the run of play understandable without decoding an unexplained colour split or numerical dump.
+- Explain the **actual** mechanic in plain football language: scoring shifts the run of play, its advantage fades between possession chains and reduces at breaks, and it gives the favoured club a small capped edge in stoppage/loose-ball contests. Use current engine behaviour as the source of truth; do not imply guaranteed goals, broad attribute boosts or invented effects.
+- On a fresh save, introduce the meter at the first relevant watched-match moment with a brief contextual tutorial showing the clubs, direction and practical meaning. Make the explanation available again on demand; persist first-use completion and respect tutorial preferences. Include it in the existing onboarding owner ARD-M8-004, without repetitive prompts or an opening bombardment.
+- Continue displaying authoritative `MatchSim` event momentum, not a separate UI estimate. Reuse existing momentum tests; add focused presentation/onboarding regression checks for both home/away perspectives, custom and similar-colour clubs, neutral/swing states, touch access, fresh-save/re-entry and save/resume. Retain the measured capped/fading contest effect and existing balance guardrails; any balance change remains balance-gated.
 
 ---
 
