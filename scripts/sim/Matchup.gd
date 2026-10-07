@@ -328,6 +328,14 @@ static func people(opp: String, lists: Dictionary, selections: Dictionary = {},
 	return out
 
 
+## Their roaming interceptor (_interceptor_fact) from the side they would
+## field, or {} when they have none.
+static func interceptor(opp: String, lists: Dictionary, selections: Dictionary = {}) -> Dictionary:
+	if not lists.has(opp) or (lists[opp] as Array).is_empty():
+		return {}
+	return _interceptor_fact(Squad.new(opp, lists[opp], false, opp, selections.get(opp, {})))
+
+
 ## Your own side's week: your best players who are injured. At most `limit`.
 static func own_notes(list: Array, limit := 2) -> Array:
 	var out := []

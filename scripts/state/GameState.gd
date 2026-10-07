@@ -1935,6 +1935,45 @@ func opponent_people(code: String) -> Array:
 	return Matchup.people(code, season.lists, season.selections, season.club_results(code))
 
 
+## The assistant's report on an opponent (director, 2026-10-07): what has
+## been seen of them, in two parts, each fact said once - [["How they play",
+## [lines]], ["Who matters", [lines]]], a part left out when it has nothing.
+## How they play: their usual game, their style, a run of results. Who
+## matters: their best player missing, their danger, a roaming interceptor
+## (when he is not the danger). Facts only, never how to beat them.
+func opponent_report(code: String) -> Array:
+	if season == null or code == "" or not season.lists.has(code):
+		return []
+	var play := []
+	var usual := usual_plan(code)
+	if usual != "balanced":
+		play.append("Their usual game: %s." % CoachReport.plan_label(usual))
+	play.append_array(their_style(code, 3))
+	var people := []
+	var danger_id := ""
+	for f in opponent_people(code):
+		if str(f["key"]) == "form":
+			play.append(str(f["text"]))
+		else:
+			people.append(str(f["text"]))
+			if str(f["key"]) == "danger":
+				danger_id = str(f.get("player_id", ""))
+	var spare := Matchup.interceptor(code, season.lists, season.selections)
+	if not spare.is_empty() and str(spare.get("player_id", "")) != danger_id:
+		people.append(str(spare["text"]))
+	var out := []
+	var seen := {}
+	for part in [["How they play", play], ["Who matters", people]]:
+		var lines := []
+		for t in part[1]:
+			if not seen.has(str(t)):
+				seen[str(t)] = true
+				lines.append(str(t))
+		if not lines.is_empty():
+			out.append([part[0], lines])
+	return out
+
+
 ## This week's changes to your side, as a team sheet reads them:
 ## {"ins": [{"id", "for", "note"}], "outs": [{"id", "why"}]}. An "in" is paired
 ## with an "out" from the same line where there is one ("for"); "note" is
