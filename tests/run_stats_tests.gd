@@ -311,6 +311,8 @@ func _ladder(sz: Vector2i) -> void:
 	var games := int(t.get("games", 0))
 	_check(games > 0, "(setup) your club has games to average (%s)" % tag)
 	var mine_row := _text(s.find_child("Club_" + mine, true, false))
+	_check(_label_width(s.find_child("Club_" + mine, true, false), mine_name) >= 24.0,
+			"The club's name still shows in the team view (%s)" % tag)
 	var want_pf: String = ladder.per_game_text(float(t["for"]) / float(games))
 	var want_d: String = ladder.per_game_text(float(t["disposals"]) / float(games))
 	_check(mine_row.contains(want_pf) and mine_row.contains(want_d),
@@ -398,6 +400,14 @@ func _non_decreasing(a: Array) -> bool:
 		if a[i] < a[i - 1]:
 			return false
 	return true
+
+
+## The width the label reading `text` in `row` has been given.
+func _label_width(row: Node, text: String) -> float:
+	for l in row.find_children("*", "Label", true, false):
+		if str(l.text) == text:
+			return l.size.x
+	return 0.0
 
 
 ## Whether the label reading `text` in `row` is in the bold face.

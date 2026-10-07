@@ -15,9 +15,9 @@ const LADDER_WIDE := [["pos", "#", 26], ["club", "Club", 0], ["p", "P", 28], ["w
 		["pts", "Pts", 36], ["home", "Home", 64], ["away", "Away", 64], ["form", "Form", 72]]
 ## Team stats: a per-game value for each, from GameState.season_team (only
 ## what is recorded there). {season_team key, title, w}.
-const TEAM_PHONE := [["for", "PF", 36], ["against", "PA", 36], ["disposals", "D", 34],
-		["marks", "MK", 34], ["tackles", "TK", 34], ["inside50", "I50", 34],
-		["clearances", "CL", 34], ["hitouts", "HO", 34]]
+const TEAM_PHONE := [["for", "PF", 31], ["against", "PA", 31], ["disposals", "D", 31],
+		["marks", "MK", 31], ["tackles", "TK", 31], ["inside50", "I50", 31],
+		["clearances", "CL", 31], ["hitouts", "HO", 31]]
 const TEAM_WIDE := [["for", "PF", 48], ["against", "PA", 48], ["disposals", "D", 48],
 		["marks", "MK", 48], ["tackles", "TK", 48], ["inside50", "I50", 48],
 		["clearances", "CL", 48], ["hitouts", "HO", 48], ["rebounds", "R50", 48],
