@@ -35,6 +35,7 @@ func _run() -> void:
 	_state.reset()
 	_state.start_season("COL", db.club_list("COL"))
 	# Before any round: no press conference sits over the hub.
+	await _intro()
 	await _hub_button()
 	for i in range(4):
 		_state.advance()
@@ -48,6 +49,31 @@ func _run() -> void:
 	await _fixture_finals()
 	print("Stats tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
+
+
+## The first visit explains the hub in two lines, once; "Got it" closes it.
+func _intro() -> void:
+	root.size = Vector2i(390, 844)
+	_state.set_setting("seen_season_stats_intro", false)
+	var s: Control = load("res://scenes/StatsHubScene.tscn").instantiate()
+	root.add_child(s)
+	await _settle()
+	var intro: Node = s.find_child("SeasonStatsIntro", true, false)
+	var ok: Button = s.find_child("SeasonStatsIntroOk", true, false)
+	_check(intro != null and ok != null, "The first visit to Season stats explains it")
+	if ok != null:
+		_check((await Tap.tap(ok)) == "", "Got it takes a tap")
+		await _settle()
+	_check(s.find_child("SeasonStatsIntro", true, false) == null
+			and bool(_state.get_setting("seen_season_stats_intro", false)), "...and closes it for good")
+	s.queue_free()
+	await _settle()
+	var again: Control = load("res://scenes/StatsHubScene.tscn").instantiate()
+	root.add_child(again)
+	await _settle()
+	_check(again.find_child("SeasonStatsIntro", true, false) == null, "The next visit goes straight to the stats")
+	again.queue_free()
+	await _settle()
 
 
 ## The hub's Season stats button takes a tap and opens the hub.
@@ -330,6 +356,13 @@ func _book_rates() -> void:
 			"A finished season adds his statistics line to his career")
 	_CA.add_season(p, 2030, "COL", 20, 15, {"games": 20, "s": {}}, 0)
 	_check((p["career"]["lines"] as Array).size() == 1, "A season is never added twice")
+	# Traded in the off-season (the only time a player changes clubs): next
+	# season's line is his new club's, the old one keeps its own.
+	_CA.add_season(p, 2031, "CAR", 18, 9, {"games": 18, "s": {"goals": 9.0, "disposals": 300.0}}, 0)
+	var two: Array = p["career"]["lines"]
+	_check(two.size() == 2 and str(two[0][1]) == "COL" and str(two[1][1]) == "CAR"
+			and int((two[1][3] as PackedInt32Array)[_SB.KEYS.find("disposals")]) == 300,
+			"A player traded between seasons keeps each season with the club he played it for")
 
 ## Season stats > Fixture, by finger: it opens on the round to play, Previous,
 ## Next and the picker move about, a played match opens its box score and an

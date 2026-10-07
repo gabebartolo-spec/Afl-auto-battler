@@ -26,8 +26,9 @@ const GROUPS := [
 	["goals", "Goals", [["goals", "G", "goals"], ["behinds", "B", "behinds"],
 			["shots", "SH", "shots at goal"], ["accuracy", "ACC%", "goalkicking accuracy"],
 			["goal_assists", "GA", "goal assists"]]],
-	["setshots", "Set shots", [["set_shots", "SS", "set shots"], ["set_goals", "SG", "set-shot goals"],
-			["set_accuracy", "SS%", "set-shot accuracy"], ["score_involvements", "SI", "score involvements"]]],
+	["setshots", "Set shots and open play", [["set_shots", "SS", "set shots"], ["set_goals", "SG", "set-shot goals"],
+			["set_accuracy", "SS%", "set-shot accuracy"], ["open_accuracy", "OP%", "open-play accuracy"],
+			["score_involvements", "SI", "score involvements"]]],
 	["ruck", "Ruck", [["hitouts", "HO", "hit-outs"], ["ruck_contests", "RC", "ruck contests"],
 			["hitout_win", "HO%", "hit-out win rate"], ["hitouts_adv", "HA", "hit-outs to advantage"]]],
 	["defence", "Defence", [["intercepts", "INT", "intercepts"], ["tackles", "T", "tackles"],
@@ -40,6 +41,7 @@ const GROUPS := [
 ## played: so many a round (shots, ruck contests...), at least one.
 const QUALIFY := {
 	"accuracy": ["shots", 1.0, "shots"], "set_accuracy": ["set_shots", 0.5, "set shots"],
+	"open_accuracy": ["open_shots", 0.5, "open-play shots"],
 	"hitout_win": ["ruck_contests", 6.0, "ruck contests"], "cp_rate": ["possessions", 6.0, "possessions"],
 	"efficiency": ["disposals", 6.0, "disposals"], "kh": ["handballs", 2.0, "handballs"],
 }
@@ -315,6 +317,7 @@ static func _rows() -> Array:
 				else GameDB.player_display_name_by_id(str(id), "Player")
 		var s: Dictionary = (row.get("s", {}) as Dictionary).duplicate()
 		s["possessions"] = float(s.get("contested_possessions", 0.0)) + float(s.get("uncontested_possessions", 0.0))
+		s["open_shots"] = float(s.get("shots", 0.0)) - float(s.get("set_shots", 0.0))
 		out.append({"id": str(id), "p": p, "name": name, "club": club, "games": games, "s": s,
 				"moved": (row.get("clubs", {}) as Dictionary).size() > 1})
 	return out
@@ -730,6 +733,7 @@ static func open_player(host: Control, id: String) -> void:
 static func _season_grid(row: Dictionary, wide: bool) -> Control:
 	var s: Dictionary = (row.get("s", {}) as Dictionary).duplicate()
 	s["possessions"] = float(s.get("contested_possessions", 0.0)) + float(s.get("uncontested_possessions", 0.0))
+	s["open_shots"] = float(s.get("shots", 0.0)) - float(s.get("set_shots", 0.0))
 	var r := {"id": "", "games": int(row.get("games", 0)), "s": s}
 	var grid := GridContainer.new()
 	grid.name = "PlayerSeasonGrid"

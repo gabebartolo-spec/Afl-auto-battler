@@ -44,6 +44,7 @@ func _run() -> void:
 	state.settings_path = "user://capture_settings.cfg"
 	state.replay_seed = 2031
 	state.reset()
+	state.set_setting("seen_season_stats_intro", true)
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
 	state.start_season("COL", db.club_list("COL"))

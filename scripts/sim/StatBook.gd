@@ -188,13 +188,18 @@ const RATES := {
 	"accuracy": ["Goalkicking accuracy", "goals", ["shots"]],
 	"set_accuracy": ["Set-shot accuracy", "set_goals", ["set_shots"]],
 	"efficiency": ["Disposal efficiency", "effective_disposals", ["disposals"]],
+	"open_accuracy": ["Open-play accuracy", "goals", ["shots"]],
 }
 
 
 ## A rate as a fraction (0-1) from a season row or a match's stat line
 ## (st = {key: count}); -1 when there is nothing under it (no shots, no
-## ruck contests).
+## ruck contests). "open_accuracy" is goals from open play over shots in
+## open play (every shot that was not a set shot).
 static func rate(st: Dictionary, which: String) -> float:
+	if which == "open_accuracy":
+		var op := open_play(st)
+		return float(op["goals"]) / float(op["shots"]) if float(op["shots"]) > 0.0 else -1.0
 	var r: Array = RATES[which]
 	var d := 0.0
 	for k in r[2]:

@@ -32,6 +32,8 @@ func _ready() -> void:
 	margin.add_child(_root)
 	get_viewport().size_changed.connect(_on_resize)
 	_build()
+	if not bool(GameState.get_setting("seen_season_stats_intro", false)):
+		_show_intro.call_deferred()
 
 
 func _on_resize() -> void:
@@ -39,13 +41,29 @@ func _on_resize() -> void:
 		_build()
 
 
-## The width a section has to lay itself out in.
-func content_width() -> float:
+## On a wide screen each section sits centred in a column about as wide as
+## its content (director, 2026-10-07: "centre the content mid screen rather
+## than anchored left"); the tables that use the width keep all of it.
+const SECTION_W := {"ladder": 880.0, "players": 1240.0, "awards": 980.0,
+		"fixture": 1240.0, "trophies": 980.0}
+
+
+func _full_width() -> float:
 	return maxf(240.0, UiKit.view_width(self) - 28.0)
 
 
+## The width a section has to lay itself out in: its column on a wide
+## screen, the whole width on a phone.
+func content_width() -> float:
+	var w := _full_width()
+	if w < 900.0:
+		return w
+	return minf(w, float(SECTION_W.get(current, w)))
+
+
+## A wide screen (a PC), whatever the section's column.
 func wide() -> bool:
-	return content_width() >= 900.0
+	return _full_width() >= 900.0
 
 
 func _build() -> void:
@@ -71,7 +89,11 @@ func _build() -> void:
 	var sc := UiKit.scroll(_body)
 	sc.name = "StatsScroll"
 	_root.add_child(sc)
-	_body.add_child(_section(current))
+	var section := _section(current)
+	if wide():
+		section.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		section.custom_minimum_size.x = content_width()
+	_body.add_child(section)
 
 
 func _section(key: String) -> Control:
@@ -92,6 +114,30 @@ func _section(key: String) -> Control:
 ## Rebuild the current section (a filter or sort changed).
 func refresh() -> void:
 	_build.call_deferred()
+
+
+## First visit only: what is here and how it works, in two lines. "Got it"
+## (or Back) closes it for good.
+func _show_intro() -> void:
+	var box := UiKit.modal_box(self, 520.0, 0.0)
+	var overlay: Control = box["overlay"]
+	overlay.name = "SeasonStatsIntro"
+	open_sheet(overlay)
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.heading("Season stats", UiKit.TITLE))
+	for line in [
+		"The whole season in one place: the ladder, every player's numbers, the awards races, every match, and your club's trophy room.",
+		"Tap a column heading to sort, and again to reverse it. Tap a player, a club or a match to open it.",
+	]:
+		var l := UiKit.lbl(line, 14, UiKit.TEXT)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
+	GameState.set_setting("seen_season_stats_intro", true)
+	var ok := UiKit.btn("Got it", 17, true)
+	ok.name = "SeasonStatsIntroOk"
+	ok.custom_minimum_size = Vector2(0, 48)
+	ok.pressed.connect(func(): close_sheet())
+	(box["footer"] as VBoxContainer).add_child(ok)
 
 
 ## A section's sheet goes over the hub; Back closes it first. One at a time.
