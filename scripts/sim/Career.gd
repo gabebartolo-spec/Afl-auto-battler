@@ -12,6 +12,11 @@ extends RefCounted
 ##                 split it, a spell at another club does
 ##   through       the last season counted, so a season is never added twice
 ##                 (a reload around the season's close, or both call sites)
+##   lines         [[year, club, games, PackedInt32Array, keys, from], ...] a
+##                 season's statistics (StatBook.KEYS order, `keys` long),
+##                 for seasons played since the Stats patch. `from` is the
+##                 round its counting began (0 = the whole season). Seasons
+##                 before it have games and goals only: never back-filled.
 ##   unknown       [[from, to], ...] seasons that could not be counted: the
 ##                 years before a career began for a player with no source
 ##                 (from = 0), or seasons an older save played before this
@@ -60,14 +65,26 @@ static func from_source(text: String) -> Dictionary:
 
 
 ## Add one finished season. Does nothing if that season is already counted.
-## A player who did not play still has the season marked as counted.
-static func add_season(p: Dictionary, year: int, club: String, games: int, goals: int) -> bool:
+## A player who did not play still has the season marked as counted. `book`
+## is his StatBook season row, when there is one; `from` the round it began.
+static func add_season(p: Dictionary, year: int, club: String, games: int, goals: int,
+		book: Dictionary = {}, from := 0) -> bool:
 	var c := of(p)
 	if int(c.get("through", 0)) >= year:
 		return false
 	c["through"] = year
 	if games <= 0:
 		return true
+	if not book.is_empty():
+		if not (c.get("lines") is Array):
+			c["lines"] = []
+		var s: Dictionary = book.get("s", {})
+		var line := PackedInt32Array()
+		line.resize(StatBook.KEYS.size())
+		for i in range(StatBook.KEYS.size()):
+			line[i] = int(round(float(s.get(StatBook.KEYS[i], 0.0))))
+		(c["lines"] as Array).append([year, club, int(book.get("games", 0)), line,
+				StatBook.KEYS.size(), from])
 	c["games"] = int(c["games"]) + games
 	c["goals"] = int(c["goals"]) + goals
 	var stints: Array = c["stints"]
@@ -83,13 +100,15 @@ static func add_season(p: Dictionary, year: int, club: String, games: int, goals
 
 ## Close a season for every listed player. `players` maps id -> player dict;
 ## `tally` is the season's Awards tally (every match, finals included).
-static func close_season(players: Dictionary, tally: Dictionary, year: int) -> int:
+static func close_season(players: Dictionary, tally: Dictionary, year: int,
+		book: Dictionary = {}, from := 0) -> int:
 	var added := 0
 	for id in players:
 		var p: Dictionary = players[id]
 		var t: Dictionary = tally.get(str(id), {})
 		var club := str(t.get("club", p.get("club", "")))
-		if add_season(p, year, club, int(t.get("games", 0)), int(t.get("goals", 0))):
+		if add_season(p, year, club, int(t.get("games", 0)), int(t.get("goals", 0)),
+				book.get(str(id), {}), from):
 			added += 1
 	return added
 

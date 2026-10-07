@@ -45,6 +45,12 @@ var season_log: Array = []       # every result, for the season review screen
 var last_injuries: Array = []    # the last round's new injuries, every club
 var last_mro: Array = []         # the last round's MRO outcomes, every club
 var season_tally := {}           # player id -> running season numbers (Awards)
+## Every player's season statistics across the competition (StatBook): id ->
+## {"club", "clubs", "games", "s": {stat: total}}. season_stats_from is the
+## round the book starts at: 0, or the round an older save was at when it
+## first loaded with the book (rounds before it were never counted).
+var season_stats := {}
+var season_stats_from := 0
 var club_plan := "balanced"      # your standing game plan, from the first bounce
 var form_log := {}               # your player id -> his last three Player Ratings
 var season_team := {}            # club -> {"games": n, stat: season total}
@@ -414,6 +420,8 @@ func save_career() -> bool:
 		"last_injuries": last_injuries,
 		"last_mro": last_mro,
 		"season_tally": season_tally,
+		"season_stats": StatBook.pack_book(season_stats),
+		"season_stats_from": season_stats_from,
 		"club_plan": club_plan,
 		"form_log": form_log,
 		"season_team": season_team,
@@ -541,6 +549,11 @@ func load_career() -> bool:
 	last_injuries = state.get("last_injuries", [])
 	last_mro = state.get("last_mro", [])
 	season_tally = state.get("season_tally", {})
+	season_stats = StatBook.unpack_book(state.get("season_stats", {}))
+	season_stats_from = int(state.get("season_stats_from", 0))
+	if not state.has("season_stats") and season != null:
+		# An older save, part way through a season: the book counts from here.
+		season_stats_from = season.round_index
 	club_plan = MatchSim.plan_key(str(state.get("club_plan", "balanced")))
 	if not CLUB_PLANS.has(club_plan):
 		club_plan = "balanced"
@@ -791,10 +804,12 @@ func delete_saved_career() -> void:
 
 func _season_to_save() -> Dictionary:
 	var sv := CareerSave.object_vars(season)
-	sv["results"] = CareerSave.slim_results(season.results)
+	# The season's results keep every match's stat lines (StatBook); the
+	# season log keeps only scores, so no match is saved twice.
+	sv["results"] = CareerSave.slim_results(season.results, true)
 	var fin: Dictionary = season.finals.duplicate()
 	if fin.has("weeks"):
-		fin["weeks"] = CareerSave.slim_results(fin["weeks"])
+		fin["weeks"] = CareerSave.slim_results(fin["weeks"], true)
 	sv["finals"] = fin
 	return sv
 
@@ -871,6 +886,8 @@ func reset() -> void:
 	last_injuries = []
 	last_mro = []
 	season_tally = {}
+	season_stats = {}
+	season_stats_from = 0
 	club_plan = "balanced"
 	form_log = {}
 	season_team = {}
@@ -1149,7 +1166,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 		for code in season.lists:
 			for p in season.lists[code]:
 				played[str(p["id"])] = p
-		Career.close_season(played, season_tally, season_year)
+		Career.close_season(played, season_tally, season_year, season_stats, season_stats_from)
 	# Next year's generated class joins the pool before ageing, so the fresh
 	# 17-year-olds are also a year older in the season they arrive.
 	var generated := Prospects.generate_class(next_year, career_seed)
@@ -1189,6 +1206,8 @@ func _start_next_season(next_year: int, signed: int) -> void:
 		p.erase("brownlow_ineligible")
 		p.erase("brownlow_ineligible_cases")
 	season_tally = {}
+	season_stats = {}
+	season_stats_from = 0
 	form_log = {}
 	season_team = {}
 	season_awards = {}
@@ -3096,6 +3115,7 @@ func _after_round(results: Array) -> void:
 	_process_discipline(results)
 	for res in results:
 		Awards.tally_match(season_tally, res, not res.has("tag"))
+		StatBook.add_match(season_stats, res)
 		_note_form_and_team(res)
 	_round_news(results)
 	_note_firsts(results)
@@ -3115,7 +3135,7 @@ func _close_season_awards() -> void:
 		for p in season.lists[code]:
 			players[str(p["id"])] = p
 	# Before the off-season releases anyone, so a delisted player keeps it.
-	Career.close_season(players, season_tally, season_year)
+	Career.close_season(players, season_tally, season_year, season_stats, season_stats_from)
 	open_offseason()
 	season_awards = Awards.season_awards(season_tally, players, season_year)
 	records = Awards.update_records(records, season_awards, season_log)
