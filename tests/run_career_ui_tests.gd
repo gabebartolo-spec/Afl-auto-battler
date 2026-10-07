@@ -646,6 +646,10 @@ func _run() -> void:
 		sb.emit_signal("pressed")
 		await _settle()
 		var me := 0 if str(_state.last_match["home"]) == _state.my_club else 1
+		var ptab = current_scene.find_child("StatsView_players", true, false)
+		if ptab != null:
+			ptab.emit_signal("pressed")
+			await _settle()
 		var rows := current_scene.find_children("PlayerRow_*", "Button", true, false)
 		_check(rows.size() == (_state.last_match["roster"][me] as Array).size(),
 				"Match stats lists every player who played (%d)" % rows.size())

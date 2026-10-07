@@ -103,13 +103,19 @@ func _build() -> void:
 	actions.add_child(dual)
 	var nxt := GameState.my_next_opponent()
 	if not nxt.is_empty():
-		# Look at them on the same oval (director, 2026-10-07).
+		# Look at them on the same oval (director, 2026-10-07), and what your
+		# assistant has seen of them - said there, and only there.
 		var opp_name := GameDB.club_short(str(nxt["code"]))
 		var flip := UiKit.choice_grid("OvalView", [["mine", "Your team"], ["opp", opp_name]], _view, 2, func(k):
 			_view = k
 			_build())
 		flip.custom_minimum_size.x = 220
 		actions.add_child(flip)
+		var report := UiKit.btn("Assistant's report", 14)
+		report.name = "AssistantReport"
+		report.custom_minimum_size = Vector2(0, 44)
+		report.pressed.connect(_show_report.bind(str(nxt["code"])))
+		actions.add_child(report)
 	hv.add_child(_lines_view())
 	if _notice != "":
 		var nl := _para(_notice, 13, UiKit.GOOD)
@@ -203,6 +209,30 @@ func _open_opponent(id: String, list: Array) -> void:
 			_close_profile()
 			_sheet = PlayerSheet.open(self, p, func(): _sheet = null, [])
 			return
+
+
+## The Assistant's report (director, 2026-10-07): how this week's opponent
+## plays and who matters, each fact once (GameState.opponent_report). The
+## line against line stays on the screen, where it moves with your side.
+func _show_report(code: String) -> void:
+	_close_synergies()
+	var box := UiKit.modal_box(self, 560.0, 0.0)
+	_synergy_overlay = box["overlay"]
+	_synergy_overlay.name = "AssistantReportSheet"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.lbl("Assistant's report: %s" % GameDB.club_name(code), UiKit.H1, UiKit.TEXT, true))
+	var parts := GameState.opponent_report(code)
+	for part in parts:
+		v.add_child(UiKit.spacer(6))
+		v.add_child(UiKit.lbl(str(part[0]), UiKit.BODY, UiKit.TEXT, true))
+		for t in part[1]:
+			v.add_child(_para(str(t), 14, UiKit.TEXT))
+	if parts.is_empty():
+		v.add_child(_para("Too early to say much about them: they have barely played.", 14, UiKit.MUTED))
+	var close := UiKit.btn("Close", UiKit.NAME, true)
+	close.custom_minimum_size = Vector2(0, 48)
+	close.pressed.connect(_close_synergies)
+	box["footer"].add_child(close)
 
 
 func _apply_strategy(key: String) -> void:
@@ -386,8 +416,9 @@ func handle_back() -> bool:
 
 
 ## This week, what the choice rests on: line against line (your half moves
-## with your selection), the people who matter, how they play, then the game
-## plan you take in. Facts, never a verdict: what to do about it is your call.
+## with your selection), your own news, their key forwards, then the game
+## plan you take in. How they play and who matters are in the assistant's
+## report, not repeated here. Facts, never a verdict.
 func _this_week() -> Control:
 	var v := UiKit.vbox(3)
 	v.name = "SelectionWeek"
@@ -408,12 +439,9 @@ func _this_week() -> Control:
 		var l := _para(str(row["text"]), 14, UiKit.TEXT)
 		l.name = "H2H_" + str(row["key"])
 		lines.add_child(l)
-	var people := GameState.opponent_people(code)
 	var own := GameState.my_week_notes()
-	if not people.is_empty() or not own.is_empty() or not GameState.backing_notes().is_empty():
+	if not own.is_empty() or not GameState.backing_notes().is_empty():
 		v.add_child(UiKit.spacer(4))
-	for f in people:
-		v.add_child(_para(str(f["text"]), 13, UiKit.MUTED))
 	# A key player already on the team sheet's outs is said there, once.
 	var sheet_outs := {}
 	for o in GameState.week_changes()["outs"]:
@@ -434,18 +462,6 @@ func _this_week() -> Control:
 		mv.add_child(UiKit.lbl("Their key forwards", UiKit.BODY, UiKit.TEXT, true))
 		for m in mus:
 			mv.add_child(_matchup_row(m))
-	var style := GameState.their_style(code)
-	var usual := GameState.usual_plan(code)
-	if usual != "balanced":
-		v.add_child(UiKit.spacer(4))
-		var up := _para("Their usual game: %s." % CoachReport.plan_label(usual), 13, UiKit.MUTED)
-		up.name = "TheirPlan"
-		v.add_child(up)
-	if not style.is_empty():
-		v.add_child(UiKit.spacer(4))
-		var st := _para("How they play: " + " ".join(style), 13, UiKit.MUTED)
-		st.name = "TheirStyle"
-		v.add_child(st)
 	v.add_child(UiKit.spacer(6))
 	v.add_child(_plan_row())
 	return v

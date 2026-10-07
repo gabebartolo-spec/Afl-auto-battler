@@ -216,7 +216,7 @@ func _selection_tests() -> void:
 		ui.queue_free()
 		await _settle()
 		ui = await _open()
-	# The opposition on the same oval, read-only.
+	# The opposition on the same oval, read-only, and the assistant's report.
 	var mine_side: Dictionary = _state.current_side()
 	var view_opp: Button = null
 	for b in ui.find_child("OvalView", true, false).get_children():
@@ -239,6 +239,27 @@ func _selection_tests() -> void:
 		await _settle()
 		_check(ui.find_child("OppProjected", true, false) == null and _state.current_side() == mine_side,
 				"Back to your team, as you left it")
+	var rep_btn: Button = ui.find_child("AssistantReport", true, false)
+	_check(rep_btn != null, "The assistant's report is one tap away")
+	if rep_btn != null:
+		_check((await Tap.tap(rep_btn)) == "", "The report button takes a tap")
+		await _settle()
+		var sheet_r: Node = ui.find_child("AssistantReportSheet", true, false)
+		var rtext := _screen_text(sheet_r) if sheet_r != null else ""
+		_check(sheet_r != null and rtext.contains("Assistant's report") and not rtext.to_lower().contains("you should")
+				and not rtext.to_lower().contains("to beat them"), "The assistant's report describes them, never how to beat them")
+		# Each fact once: not twice in the report, not again on the screen.
+		var week_text := _screen_text(ui.find_child("SelectionWeek", true, false))
+		var once := true
+		var said := {}
+		for part in _state.opponent_report(str(_state.my_next_opponent()["code"])):
+			for t in part[1]:
+				if said.has(str(t)) or week_text.contains(str(t)):
+					once = false
+				said[str(t)] = true
+		_check(once, "Every fact in the report is said once, and not again under This week")
+		ui.call("handle_back")
+		await _settle()
 	var recipe := RegEx.new()
 	recipe.compile("\\d/\\d [A-Z][a-z]")
 	_check(recipe.search(text) == null, "Synergies are not a recipe: no 'one more X' counts")

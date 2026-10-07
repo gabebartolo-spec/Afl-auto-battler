@@ -1,14 +1,31 @@
 class_name PlayerStatsTable
 extends VBoxContainer
-## Every player's match, both clubs: a tab per club, a row per player with his
-## rating and the headline numbers, sortable by any column. Tap a row for the
-## rest of his line. Reads a finished match result; changes nothing.
+## Every player's match, both clubs: a tab per club (yours first), a row per
+## player with his rating and the headline numbers, sortable by any column.
+## On a wide screen more columns sit in the row (the director's PC playtest:
+## sparse rows meant scrolling); a key under the table spells out every
+## heading, since a phone has no hover. Tap a row for the rest of his line.
+## Reads a match result (finished or at a break); changes nothing.
 
 ## Headline columns: [stat key ("rating" is the match rating), header, width].
 const COLUMNS := [
 	["rating", "Rating", 48], ["disposals", "D", 30], ["goals", "G", 26],
 	["marks", "M", 28], ["tackles", "T", 28], ["clearances", "CL", 30],
 ]
+## A wide screen's columns: the phone's, then the rest of a line worth
+## comparing down the table. Disposals stays the second column.
+const WIDE_COLUMNS := [
+	["rating", "Rating", 52], ["disposals", "D", 34], ["kicks", "K", 32], ["handballs", "H", 32],
+	["marks", "M", 32], ["contested_marks", "CM", 36], ["tackles", "T", 32], ["clearances", "CL", 34],
+	["inside50", "I50", 36], ["intercepts", "INT", 36], ["pressure_acts", "PA", 34],
+	["goals", "G", 30], ["behinds", "B", 30],
+]
+const NAMES := {
+	"rating": "match rating", "disposals": "disposals", "kicks": "kicks", "handballs": "handballs",
+	"marks": "marks", "contested_marks": "contested marks", "tackles": "tackles",
+	"clearances": "clearances", "inside50": "inside 50s", "intercepts": "intercepts",
+	"pressure_acts": "pressure acts", "goals": "goals", "behinds": "behinds",
+}
 ## The rest of the line, shown when a row is opened.
 const DETAIL := [
 	["distance_run", "distance covered"], ["pressure_acts", "pressure acts"], ["kicks", "kicks"], ["handballs", "handballs"], ["metres_gained", "metres gained"],
@@ -20,6 +37,8 @@ const DETAIL := [
 ]
 
 var _res: Dictionary
+var _me := 0
+var _wide := false
 var _side := 0
 var _sort := "rating"
 var _open := ""
@@ -27,9 +46,11 @@ var _tabs: HBoxContainer
 var _rows: VBoxContainer
 
 
-func setup(res: Dictionary, first_side: int) -> PlayerStatsTable:
+func setup(res: Dictionary, first_side: int, wide := false) -> PlayerStatsTable:
 	_res = res
+	_me = first_side
 	_side = first_side
+	_wide = wide
 	name = "PlayerStats"
 	add_theme_constant_override("separation", 4)
 	_tabs = UiKit.hbox(2)
@@ -42,7 +63,7 @@ func setup(res: Dictionary, first_side: int) -> PlayerStatsTable:
 
 func _rebuild() -> void:
 	UiKit.clear(_tabs)
-	for side in [0, 1]:
+	for side in [_me, 1 - _me]:
 		var code := str(_res["home"] if side == 0 else _res["away"])
 		var t := UiKit.tab(GameDB.club_name(code), side == _side)
 		t.name = "StatsTab_%d" % side
@@ -58,7 +79,7 @@ func _rebuild() -> void:
 	var who := UiKit.line("Player", UiKit.SMALL, UiKit.MUTED)
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(who)
-	for c in COLUMNS:
+	for c in _columns():
 		var key := str(c[0])
 		var b := Button.new()
 		b.name = "Sort_" + key
@@ -67,7 +88,7 @@ func _rebuild() -> void:
 		b.custom_minimum_size = Vector2(int(c[2]), 44)
 		b.add_theme_font_size_override("font_size", UiKit.SMALL)
 		b.add_theme_color_override("font_color", UiKit.TEXT if key == _sort else UiKit.MUTED)
-		b.tooltip_text = "Sort by this column"
+		b.tooltip_text = "Sort by %s" % str(NAMES.get(key, key))
 		b.pressed.connect(func():
 			_sort = key
 			_rebuild())
@@ -76,6 +97,19 @@ func _rebuild() -> void:
 	_rows.add_child(UiKit.rule())
 	for p in _sorted():
 		_rows.add_child(_row(p))
+	var key_bits: PackedStringArray = []
+	for c in _columns():
+		if str(c[0]) != "rating":
+			key_bits.append("%s %s" % [str(c[1]), str(NAMES.get(str(c[0]), ""))])
+	var legend := UiKit.lbl("  ·  ".join(key_bits), UiKit.SMALL, UiKit.MUTED)
+	legend.name = "StatsKey"
+	legend.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_rows.add_child(UiKit.spacer(4))
+	_rows.add_child(legend)
+
+
+func _columns() -> Array:
+	return WIDE_COLUMNS if _wide else COLUMNS
 
 
 func _sorted() -> Array:
@@ -96,7 +130,7 @@ func _row(p: Dictionary) -> Control:
 	var b := Button.new()
 	b.name = "PlayerRow_" + id
 	b.flat = true
-	b.custom_minimum_size.y = 40
+	b.custom_minimum_size.y = 34 if _wide else 40
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.pressed.connect(func():
 		_open = "" if _open == id else id
@@ -110,7 +144,7 @@ func _row(p: Dictionary) -> Control:
 	var who := UiKit.ellipsis("%d  %s" % [int(p["num"]), str(p["name"])], UiKit.SMALL, UiKit.TEXT)
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(who)
-	for c in COLUMNS:
+	for c in _columns():
 		var key := str(c[0])
 		var text := MatchNotes.rating_text(float(p["rating"])) if key == "rating" \
 				else str(int(float(st.get(key, 0.0))))
