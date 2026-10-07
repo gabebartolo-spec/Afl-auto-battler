@@ -258,10 +258,12 @@ static func _tenure_table(host: Control, seasons: Array, in_progress: bool) -> C
 		v.add_child(r)
 	var kept := seasons.size() - no_record.size()
 	if kept > 0:
-		var span := "Across %d completed %s" % [kept, "season" if kept == 1 else "seasons"] if no_record.is_empty() \
-				else "Across the %d %s with a record" % [kept, "season" if kept == 1 else "seasons"]
-		var total := _para("%s: %d %s, %d %s, %d %s." % [span, w, "win" if w == 1 else "wins",
-				l, "loss" if l == 1 else "losses", d, "draw" if d == 1 else "draws"])
+		var span := "Over %d %s" % [kept, "season" if kept == 1 else "seasons"] if no_record.is_empty() \
+				else "Over the %s with a record" % ("one season" if kept == 1 else "%d seasons" % kept)
+		var tally := "%d %s, %d %s" % [w, "win" if w == 1 else "wins", l, "loss" if l == 1 else "losses"]
+		if d > 0:
+			tally += ", %d %s" % [d, "draw" if d == 1 else "draws"]
+		var total := _para("%s: %s." % [span, tally])
 		total.name = "TenureTotals"
 		v.add_child(total)
 	if not no_record.is_empty():

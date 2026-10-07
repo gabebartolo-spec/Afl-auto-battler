@@ -46,7 +46,7 @@ func _on_resize() -> void:
 ## its content (director, 2026-10-07: "centre the content mid screen rather
 ## than anchored left"); the tables that use the width keep all of it.
 const SECTION_W := {"ladder": 880.0, "players": 1240.0, "awards": 980.0,
-		"fixture": 1240.0, "trophies": 980.0}
+		"fixture": 1240.0, "trophies": 720.0}
 
 
 func _full_width() -> float:

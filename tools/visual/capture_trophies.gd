@@ -70,6 +70,8 @@ func _run() -> void:
 	entry["premier"] = "COL"
 	entry["runner_up"] = "CAR"
 	entry["my_position"] = 1
+	# A record that fits a minor premier (the season played may not).
+	entry["my_record"] = "18-5-0"
 	entry["brownlow"] = [{"id": ids[0], "club": "COL", "votes": 31}]
 	entry["my_aa"] = [ids[2], ids[5]]
 	var old := {"year": year - 1, "my_club": "COL", "premier": "GEE", "runner_up": "COL", "my_position": 3,
