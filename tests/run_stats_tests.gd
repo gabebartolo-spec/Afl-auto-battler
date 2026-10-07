@@ -40,6 +40,7 @@ func _run() -> void:
 		_state.advance()
 	await _sections()
 	await _players_section()
+	_club_per_game()
 	_season_book()
 	_book_rates()
 	print("Stats tests: %d checks, %d failures" % [_checks, _failures.size()])
@@ -282,6 +283,18 @@ func _season_book() -> void:
 			bad = k
 	_check(bad == "" and (full["roster"] as Array).size() == 2 and (full["team"] as Array).size() == 2,
 			"A match opened again after a reload has every player's line and both teams (%s)" % bad)
+
+
+## A club's new statistics a game, over the games it has counted them.
+func _club_per_game() -> void:
+	var code := str(_state.my_club)
+	var row: Dictionary = _state.season_team.get(code, {})
+	var g := int(row.get("book_games", 0))
+	_check(g > 0 and g == int(row.get("games", 0)), "A new season counts the clubs' new statistics every game (%d of %d)" % [g, int(row.get("games", 0))])
+	var cp: float = _state.club_per_game(code, "contested_possessions")
+	_check(cp > 0.0 and is_equal_approx(cp, float(row["contested_possessions"]) / float(g)),
+			"A club's contested possessions a game is its total over its games (%.1f)" % cp)
+	_check(_state.club_per_game("NOPE", "disposals") == -1.0, "A club with no games has no figure")
 
 
 ## Rates come from their counts; nothing under a rate is no rate, not zero.

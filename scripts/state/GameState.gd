@@ -559,6 +559,10 @@ func load_career() -> bool:
 		club_plan = "balanced"
 	form_log = state.get("form_log", {})
 	season_team = state.get("season_team", {})
+	if not state.has("season_stats"):
+		# ...and so do the clubs' new statistics (TEAM_BOOK_KEYS).
+		for code in season_team:
+			(season_team[code] as Dictionary)["book_games"] = 0
 	_sync_club_plan()
 	season_awards = state.get("season_awards", {})
 	honour_roll = state.get("honour_roll", [])
@@ -7186,6 +7190,9 @@ func _note_form_and_team(res: Dictionary) -> void:
 		row["games"] = int(row["games"]) + 1
 		for k in TEAM_KEYS:
 			row[k] = float(row.get(k, 0.0)) + float((team[side] as Dictionary).get(k, 0.0))
+		row["book_games"] = int(row.get("book_games", 0)) + 1
+		for k in TEAM_BOOK_KEYS:
+			row[k] = float(row.get(k, 0.0)) + float((team[side] as Dictionary).get(k, 0.0))
 		row["for"] = float(row.get("for", 0.0)) + float(score[side])
 		row["against"] = float(row.get("against", 0.0)) + float(score[1 - side])
 		# Where the points come from, both ways (MatchSim score sources).
@@ -7231,6 +7238,23 @@ static func _source_pts(t: Dictionary, k: String) -> float:
 const FORM_GAMES := 3
 const TEAM_KEYS := ["clearances", "inside50", "tackles", "pressure_acts", "marks",
 		"rebounds", "clangers", "hitouts", "disposals", "metres_gained", "distance_run"]
+## The club statistics added with the Stats patch. A club row counts its own
+## games for them ("book_games"): an older save loaded mid-season starts them
+## at that point, so a per-game figure is never spread over games it did not
+## see.
+const TEAM_BOOK_KEYS := ["kicks", "handballs", "contested_possessions", "uncontested_possessions",
+		"ground_ball_gets", "running_bounces", "shots", "goals", "behinds", "intercepts",
+		"one_percenters", "frees_for", "frees_against", "hitouts_adv", "contested_marks"]
+
+
+## A club's season figure a game: scores for and against, and every team
+## statistic (TEAM_KEYS, TEAM_BOOK_KEYS). -1 before it has played.
+func club_per_game(code: String, key: String) -> float:
+	var row: Dictionary = season_team.get(code, {})
+	var g := int(row.get("book_games", row.get("games", 0))) if TEAM_BOOK_KEYS.has(key) else int(row.get("games", 0))
+	if g <= 0:
+		return -1.0
+	return float(row.get(key, 0.0)) / float(g)
 
 
 ## Players whose last three games stand out against their own season:
