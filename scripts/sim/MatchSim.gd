@@ -155,6 +155,11 @@ var _speccies := 0
 ## tuning boundary frequency therefore does not silently re-roll ordinary
 ## disposals in chains that stay in play.
 var boundary_rng := RandomNumberGenerator.new()
+## The key distributor's kicks (_distributor_kick), apart from the play RNG.
+var dist_rng := RandomNumberGenerator.new()
+## A good kick out of the back half found him in space: the next disposal in
+## the chain is not pressured.
+var _free_next := false
 ## The chain being played: how it began (centre, stoppage, kick_in, free,
 ## turnover, general) and who touched the ball in it, for score sources and
 ## score involvements. How the last chain ended decides the next's origin.
@@ -264,6 +269,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	free_rng.seed = seed * 67 + 71
 	_speccy_quota = speccy_quota(seed)
 	boundary_rng.seed = seed * 17 + 19
+	dist_rng.seed = seed * 103 + 107
 	injury_rng.seed = seed * 13 + 7
 	breeze_side = posmod(hash("breeze|%d" % seed), 2)
 	for side in range(2):
@@ -737,13 +743,20 @@ func _focus_id(side: int) -> String:
 
 
 ## Playing through a defender (the director, 2026-10-07: "make a good user
-## matter"): out of the back half the key distributor's skill with the ball
-## counts for more than an ordinary carrier's. A clean, creative user gains
-## more ground and is rushed into fewer turnovers; a poor one gains less and
-## turns it over more. Scales the existing gain and turnover chance, so no
-## dice are added and every other roll draws as before. 0 for anyone else,
-## or anywhere but the back half. dist_skill is the strength (audits vary it).
-const DIST_SKILL := 0.5
+## matter"): he takes the kicks out of the back half, and how well he kicks
+## shows. Against the league's typical defender (DIST_PIVOT, on disposal and
+## creating), a better user's kick sometimes finds a teammate further up the
+## ground (DIST_LONG more metres, and that teammate is not pressured), and a
+## poorer user's is sometimes intercepted. The chance grows with the gap:
+## DIST_FREE or DIST_TURN for each 100 points of it. Its own dice (dist_rng),
+## so a kick that does neither plays exactly as before. Nothing for anyone
+## else, a kick-in, or a kick from anywhere but the back half; dist_skill 0
+## turns it off (audits vary it).
+const DIST_PIVOT := 45.0
+const DIST_FREE := 1.8
+const DIST_TURN := 1.2
+const DIST_LONG := 20.0
+const DIST_SKILL := 1.0
 static var dist_skill := DIST_SKILL
 
 
@@ -753,7 +766,24 @@ func _distributor_edge(side: int, carrier, atk_fp: float) -> float:
 	if str(carrier.get("role", "")) != "DEF" or str(carrier.get("id", "")) != _focus_id(side):
 		return 0.0
 	var skill := 0.6 * _a(carrier, "disposal") + 0.4 * _a(carrier, "creating")
-	return dist_skill * (skill - 70.0) / 100.0
+	return dist_skill * (skill - DIST_PIVOT) / 100.0
+
+
+## His kick out of the back half: "free" when it finds a teammate further up
+## the ground, "turnover" when it is intercepted, "" for an ordinary kick (and
+## for anyone else's).
+func _distributor_kick(side: int, carrier, from_fp: float, kind: String, is_kick_in: bool) -> String:
+	if kind != "kick" or is_kick_in:
+		return ""
+	var edge := _distributor_edge(side, carrier, from_fp)
+	if edge == 0.0:
+		return ""
+	var roll := dist_rng.randf()
+	if edge > 0.0 and roll < DIST_FREE * edge:
+		return "free"
+	if edge < 0.0 and roll < DIST_TURN * -edge:
+		return "turnover"
+	return ""
 
 
 func _tag_id(side: int) -> String:
@@ -2036,6 +2066,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 	var gline := float(T["goal_line"])
 
 	_t(side, "chains")
+	_free_next = false
 	var atk_fp := fp if side == 0 else -fp
 	var cleared = _stoppage(side, opp, from_bounce, atk_fp >= f50)
 	# A chain that starts inside its forward 50 (a ball-up won there) goes
@@ -2119,6 +2150,9 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				kev["play_on"] = kick_in_play_on
 				kev["kick_in_style"] = "play_on" if kick_in_play_on else "safe"
 
+		# The disposal's event: a kick that finds a man up the ground says so.
+		var disp_ev := events.size() - 1
+
 		# Pressure comes from whoever is near the ball: their forwards when we
 		# are coming out of defence, their midfield through the middle, their
 		# defenders when we are going forward (PRESS_ZONES).
@@ -2151,6 +2185,9 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		# One roll, three outcomes: a tackle, a pressured (rushed) disposal,
 		# or no pressure at all. Both of the first two are pressure acts.
 		var press_roll := rng.randf()
+		if _free_next:
+			_free_next = false
+			press_roll = 1.0
 		var rushed := false
 		if press_roll < pressure * PRESS_TACKLE_SHARE:
 			var tackler = _pick_presser(opp, zone)
@@ -2195,7 +2232,6 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			var turn_p: float = (PRESS_TURNOVER
 					* (0.80 + 0.40 * _a(presser, "pressure") / 100.0)
 					* (1.20 - 0.40 * _a(carrier, "disposal") / 100.0))
-			turn_p *= clampf(1.0 - _distributor_edge(side, carrier, atk_fp), 0.4, 1.6)
 			if rng.randf() < turn_p:
 				_t(opp, "pressure_wins")
 				_intercept(opp, presser, false)
@@ -2231,7 +2267,14 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		if _burst(side, "flood") or _burst(side, "hold"):
 			gain *= 0.85
 		gain *= rng.randf_range(0.45, 1.75)
-		gain *= 1.0 + _distributor_edge(side, carrier, prev_atk_fp)
+		var dist := _distributor_kick(side, carrier, prev_atk_fp, disposal_kind, is_kick_in)
+		if dist == "free":
+			gain += DIST_LONG
+			_free_next = true
+			var dev: Dictionary = events[disp_ev]
+			dev["free_man"] = true
+			if str(dev["kind"]) == "kick":
+				dev["text"] = "%s finds a teammate up the ground" % GameDB.player_display_name(carrier)
 		if is_kick_in:
 			gain *= 0.82 if not kick_in_play_on else 1.12
 		if rushed:
@@ -2240,10 +2283,30 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		fp = clampf(fp, -gline, gline)
 		atk_fp = fp if side == 0 else -fp
 		_metres(side, carrier, atk_fp - prev_atk_fp)
+		if dist == "turnover":
+			var taker = _aerial_defender(opp, fp)
+			if taker != null:
+				# A kick straight to an opponent is his clanger, and their mark.
+				_t(side, "clangers")
+				_p(carrier, "clangers")
+				_intercept(opp, taker, false)
+				_won_back["marked"] = true
+				_t(opp, "marks")
+				_p(taker, "marks")
+				if zone_intercepts:
+					_t(opp, "intercept_marks")
+					_p(taker, "intercept_marks")
+				_emit("mark", opp, fp, taker, "%s's kick goes straight to %s" % [
+						GameDB.player_display_name(carrier), GameDB.player_display_name(taker)])
+				var tev: Dictionary = events[events.size() - 1]
+				tev["general_play"] = true
+				tev["intercept"] = true
+				tev["from_id"] = str(carrier.get("id", ""))
+				return {"outcome": "turnover", "fp": fp, "actor": taker}
 
 		# Outside forward 50, a genuine long kick can become a contested
 		# aerial ball. A mark retains it; a spoil makes the next chain loose.
-		if disposal_kind == "kick" and not marked and gain >= 15.0 and atk_fp < f50 				and aerial_rng.randf() < GENERAL_AERIAL_P:
+		if disposal_kind == "kick" and not marked and gain >= 15.0 and atk_fp < f50 and dist != "free" 				and aerial_rng.randf() < GENERAL_AERIAL_P:
 			var aerial := _general_aerial_contest(side, fp, carrier)
 			if not aerial.is_empty():
 				match str(aerial["outcome"]):
@@ -2258,7 +2321,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		if not boundary.is_empty():
 			return boundary
 
-		if disposal_kind == "kick" and not marked and not is_kick_in:
+		if disposal_kind == "kick" and not marked and not is_kick_in and dist != "free":
 			var aerial := _general_aerial(side, fp, carrier, gain, rushed)
 			if not aerial.is_empty():
 				if str(aerial.get("outcome", "")) == "loose":
