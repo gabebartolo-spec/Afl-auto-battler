@@ -5288,6 +5288,23 @@ Final pass:
 **Priority:** `P3`  
 **Autonomy:** `SUPERVISED`
 
+
+### Director instruction — watch vignettes for visual and motion defects (2026-10-07)
+**Status:** `TODO`. **Priority:** `P1` high priority. **Owner:** Claude performs the actual runtime/motion audit and coordinates fixes with the Art Agent and existing vignette owners. Extend this item and its existing defect records; do not create a duplicate audit or assume earlier still-image approvals prove motion quality.
+
+**Watch the vignettes playing in the game.** Review complete sequences in motion at normal speed, with slow playback/frame inspection to diagnose defects. Cover the available tactical decisions and branches, pre-match, scoring/snap/set-shot/pack, press conference, awards and other existing vignette families; record unavailable or unreachable sequences honestly. Inspect current main and relevant pending fixes separately, recording build/commit and the assets actually loaded. Reuse current capture tooling and existing clips where they prove the current build; code inspection, test passes and attractive stills alone do not satisfy this task.
+
+Check specifically for:
+- **Rogue ball transportation:** teleportation, hovering, skating/sliding, receiver-seeking paths, implausible spin, wrong ownership, hands/boots losing contact, duplicate balls, and unnatural transitions between hold, release, kick, flight, bounce and collection. Reconcile the actual event, named participants and outcome; do not fake a football result to hide a visual error.
+- **Awkward limbs and contact:** bent/dislocated-looking joints, twisted arms/legs, impossible reach, disconnected hands, poor kicking/marking/tackling poses, penetrations and inconsistent foot-to-ground or hand-to-ball contact.
+- **Robotic running:** stiff or synchronised loops, foot sliding, implausible stride versus travel speed, abrupt starts/stops/turns, wrong facing and broken transitions between idle, running and football actions.
+- **Artefact aberrations:** seams, halos, jagged/pale edges, mask/atlas bleed, flicker, popping, missing layers, incorrect depth/occlusion, detached hair and discontinuities between frames. Verify the already merged seam repair and pending animation fixes before proposing another fix.
+- **Clothing oddities:** warped/floating guernseys or shorts, clipping, inconsistent kit/skin coverage, sleeve/sock/tape/tattoo placement, colour/pattern/number changes and identity mismatches across poses or shots.
+- **Perspective warping:** inconsistent player/ball scale, stretched bodies, implausible foreshortening, wrong ground contact/depth, distorted camera transitions, cropping that hides the football action and actors jumping relative to the scene.
+
+**Deliver evidence and follow-through:** provide a concise itemised defect log with vignette/branch, build, timestamp or frame, clip/capture, observed problem, severity and owner; distinguish confirmed defects from hypotheses and sequences not exercised. Prioritise ball/contact/identity correctness and conspicuous repeated animation defects, then presentation polish. Fix confirmed issues within existing authorised scope and provide before/after motion evidence, relevant regression checks and rechecks across representative body sizes, kits, poses, camera distances, normal/fast/skip playback and desktop/phone layouts. Do not rerun unrelated broad audits or rewrite the motion engine without demonstrated need. The Art Agent leads visual treatment and the director approves final appearance; preserve existing merge/review gates and the Stats patch's single highest priority/HOLD. Do not mark this audit DONE from a static screenshot or claim native-phone motion/performance was checked when it was not.
+
+
 Use short, deliberately higher-detail tactical vignettes for selected high-value in-match decisions so the player can **see the football problem or opportunity**, not just read about it.
 
 This is **not** a full 3D match engine or a replacement for the standard watched-match view.
