@@ -1611,6 +1611,13 @@ Instrument/seed the offending situation and confirm the ball is targeting the co
 **Merged:** PR #53 as `4552e20`; verified on main 2026-09-28 (full suite green).  
 **Priority:** `P0`  
 **Autonomy:** `SAFE`
+### Play round long-press discovery — missing onboarding explanation (director, 2026-10-07)
+**Status:** `TODO`. **Priority:** `P1` — usability/onboarding defect, under this existing quick-sim owner and M8-004.
+
+The director reports **nowhere explains how to long-press “Play round” to reach the skip-to-finals/season-skip controls**. Verify the current button label, available menu options and actual stopping point; do not teach obsolete “Sim round” wording or imply that skipping to the end of home-and-away simulates finals if it does not.
+
+At the first relevant Hub encounter, explicitly explain **press and hold Play round to open the quick-sim options**, then explain the available options and where each stops. Demonstrate the interaction with a short contextual cue/walkthrough anchored to the actual button, with clear dismiss/skip and replayable Help. Make the hidden interaction discoverable beyond the one-time introduction through a restrained persistent cue or an accessible equivalent entry. Explain any desktop equivalent actually supported. Verify a fresh-save user can discover and perform the gesture and select the intended skip action without prior knowledge; tutorials must not activate simulation by themselves.
+
 ### Skip to end of season — excessive simulation/loading time (director, 2026-10-07)
 **Status:** `TODO`. **Priority:** `P1` — high-priority performance/usability follow-up, coordinated with the existing §1.11 simulation/performance owner.
 
@@ -5247,6 +5254,15 @@ Main menu should remain minimal:
 - New Career,
 - quiet How to Play / Settings,
 - **Exit game** — a clearly labelled, reachable main-menu button (director request, 2026-10-07; `TODO`). Close the native application cleanly using the existing shutdown/save path; preserve the current career and settings, without starting a new career or deleting a save. Keep the action visually secondary and consistent with the compact menu on desktop and Android. If the browser export cannot close its own tab, provide a truthful supported fallback rather than a non-working button. Verify button activation, normal shutdown and successful relaunch/Continue with saved state; do not mark this new follow-up DONE because the older main menu is complete.
+
+### Global onboarding coverage — every feature and UI interaction (director reaffirmation, 2026-10-07)
+**Status:** `TODO` for exhaustive coverage verification and missing introductions. Extend the existing tutorial system; this is a standing requirement for new UI work too.
+
+**Every button, feature and UI interaction must have an initial onboarding explanation when first encountered**, so fresh-save players are neither overwhelmed nor left to guess. Inventory all menus, controls and gestures, including long press, tap-to-swap, drag/drop, selectors, filters/sorts, toggles, drill-downs, confirmation/Undo, advancement and hidden secondary actions. A plain label or a tooltip available only if the user already knows where to look is not proof of onboarding.
+
+Introduce each action's purpose, how to perform it, real conditions/consequences and how to return/cancel where relevant. Group related controls into a short guided step where that is clearer than one popup per button, but verify every interaction is covered. Stage explanations at the point of use, not a huge first-launch tutorial; use plain concrete football language, accurate current labels, concise examples and optional deeper/replayable Help. Preserve the user's Tutorials On/Off preference and skip controls; with full onboarding enabled no existing feature may be silently omitted. Users must not be forced through every explanation before playing.
+
+Track per-career introduction state safely across save/reload; dismissed or skipped help remains discoverable. Test first encounter, later revisit, disabled tutorials, re-enabled/replayed help, desktop/phone gestures and newly added features on older saves. Maintain a feature/interaction → introduction/Help → verification coverage map, recording gaps explicitly rather than claiming completion from a few tutorial popups.
 
 ### Full fresh-save onboarding — initial draft, weekly loop and postseason (director, 2026-10-07)
 **Status:** `TODO` — audit and complete missing coverage, extending the existing onboarding/tutorial system and §1.11 first-visit menu tutorials. The older Hub onboarding foundation remains DONE.
