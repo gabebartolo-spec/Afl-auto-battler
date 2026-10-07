@@ -54,6 +54,11 @@ func _build() -> void:
 		var scope := UiKit.choice_grid("StatsScope", opts, _scope, opts.size(), func(k):
 			_scope = str(k)
 			_build.call_deferred())
+		# Compact: a row of short buttons, not a bar across the screen.
+		scope.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		for c in scope.get_children():
+			(c as Control).size_flags_horizontal = Control.SIZE_FILL
+			(c as Control).custom_minimum_size.x = 96.0 if UiKit.view_width(self) >= 600.0 else 0.0
 		add_child(scope)
 	var tabs := UiKit.hbox(2)
 	tabs.name = "StatsViews"
