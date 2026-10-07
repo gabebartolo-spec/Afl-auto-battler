@@ -278,7 +278,9 @@ static func _player_row(host: Control, id: String, club: String, rank: String, f
 	c.custom_minimum_size.x = 72
 	c.size_flags_horizontal = Control.SIZE_FILL
 	row.add_child(c)
-	if figure != "":
+	# A row with a lead keeps its figure's column even without a figure, so
+	# its name and club line up with the rows around it.
+	if figure != "" or lead != "":
 		var f := UiKit.line(figure, 17, UiKit.TEXT, true)
 		f.custom_minimum_size.x = 64 if lead == "" else 32
 		f.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
