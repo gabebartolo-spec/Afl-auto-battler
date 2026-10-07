@@ -412,6 +412,16 @@ static func focus_effect_text(role: String) -> String:
 	return str(FOCUS_ROLES[role][1])
 
 
+## Your tag that ended in quarter q because the man was no longer a
+## midfielder (a rotation put him in another line): one plain line each.
+static func tag_drop_lines(res: Dictionary, my_side: int, q: int) -> Array:
+	var out := []
+	for d in res.get("tag_drops", []):
+		if int(d["side"]) == my_side and int(d["q"]) == q:
+			out.append("Your tag on %s ended: he is no longer in the midfield." % GameDB.player_display_name_by_id(str(d["id"]), "their player"))
+	return out
+
+
 ## How your tag went in quarter q: "Your tag on Walsh: 4 disposals, no goals."
 static func tag_line(res: Dictionary, my_side: int, q: int) -> String:
 	var hist: Array = res.get("tactics_history", [])

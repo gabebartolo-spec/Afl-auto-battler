@@ -23,8 +23,8 @@ ai 38
 training 107
 selection 54
 matchup 96
-matchday 476
-roles 200
+matchday 504
+roles 218
 injuries 31
 awards 22
 achievements 153
