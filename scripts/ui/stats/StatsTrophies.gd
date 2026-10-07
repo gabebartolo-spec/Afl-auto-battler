@@ -12,6 +12,7 @@ extends RefCounted
 
 const SHELF_ART := 96.0
 const SHEET_ART := 280.0
+const SHEET_MAX_W := 480.0
 const TABLE_W := 600.0
 ## Rows: one line, no rules between them; every other row on a faint band
 ## (the hub's shared row style).
@@ -328,13 +329,19 @@ static func _item(art: Control, top: String, bottom: String) -> Button:
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(art)
-	var width := maxf(SHELF_ART + 16.0, art.get_combined_minimum_size().x)
-	for t in [[top, UiKit.SMALL, UiKit.TEXT, true], [bottom, 12, UiKit.MUTED, false]]:
-		var l := UiKit.ellipsis(str(t[0]), int(t[1]), t[2], bool(t[3]))
-		l.name = "Top" if str(t[0]) == top else "Bottom"
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		l.custom_minimum_size.x = width
-		v.add_child(l)
+	# As narrow as the art, so three fit across a phone: the name on one line,
+	# the honour and year wrapping under it if they must.
+	var width := maxf(SHELF_ART + 8.0, art.get_combined_minimum_size().x)
+	var name_l := UiKit.ellipsis(top, UiKit.SMALL, UiKit.TEXT, true)
+	name_l.name = "Top"
+	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_l.custom_minimum_size.x = width
+	v.add_child(name_l)
+	var what := UiKit.lbl(bottom, 12, UiKit.MUTED)
+	what.name = "Bottom"
+	what.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	what.custom_minimum_size.x = width
+	v.add_child(what)
 	b.add_child(v)
 	var full := v.get_combined_minimum_size() + Vector2(8, 8)
 	b.custom_minimum_size = full
@@ -352,9 +359,11 @@ static func _open_club(host: Control, it: Dictionary) -> void:
 	var art: Control
 	var title := ""
 	if str(it["kind"]) == "premiership":
+		# The cup and the flag side by side, as large as the sheet allows.
+		var h := minf(SHEET_ART * 0.8, (_sheet_w(host) - 8.0) / 2.0)
 		var pair := UiKit.hbox(8)
-		pair.add_child(HonoursArt.view("premiership_cup", SHEET_ART * 0.8, club, 0, "Premiership cup"))
-		pair.add_child(HonoursArt.view("premiership_flag", SHEET_ART * 0.8, club, year, "Premiership flag"))
+		pair.add_child(HonoursArt.view("premiership_cup", h, club, 0, "Premiership cup"))
+		pair.add_child(HonoursArt.view("premiership_flag", h, club, year, "Premiership flag"))
 		art = pair
 		title = "Premiers %d" % year
 		var opp := str(e.get("runner_up", ""))
@@ -364,7 +373,7 @@ static func _open_club(host: Control, it: Dictionary) -> void:
 		if pos > 0:
 			lines.append("Finished %s on the ladder." % GameState.ordinal(pos))
 	else:
-		art = HonoursArt.view("minor_premiership", SHEET_ART, club, year, "Minor premiership")
+		art = HonoursArt.view("minor_premiership", minf(SHEET_ART, _sheet_w(host)), club, year, "Minor premiership")
 		title = "Minor premiers %d" % year
 		lines.append("Top of the ladder after the home and away season.")
 		var rec := str(e.get("my_record", ""))
@@ -374,7 +383,8 @@ static func _open_club(host: Control, it: Dictionary) -> void:
 
 
 static func _open_player(host: Control, it: Dictionary) -> void:
-	var art := HonoursArt.view(str(it["art"]), SHEET_ART, GameState.my_club, int(it["year"]), str(it["name"]))
+	var art := HonoursArt.view(str(it["art"]), minf(SHEET_ART, _sheet_w(host)), GameState.my_club,
+			int(it["year"]), str(it["name"]))
 	var lines := [GameState.award_name({"id": str(it["id"])})]
 	var count := str(it["count"])
 	if count != "":
@@ -382,8 +392,13 @@ static func _open_player(host: Control, it: Dictionary) -> void:
 	_sheet(host, "PlayerHonourSheet", art, "%s %d" % [str(it["name"]), int(it["year"])], lines)
 
 
+## The width inside an honour's sheet: 480 at most, less its padding.
+static func _sheet_w(host: Control) -> float:
+	return minf(SHEET_MAX_W, UiKit.view_width(host) - 24.0) - 40.0
+
+
 static func _sheet(host: Control, node: String, art: Control, title: String, lines: Array) -> void:
-	var box := UiKit.modal_box(host, 480.0, 0.0)
+	var box := UiKit.modal_box(host, SHEET_MAX_W, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = node
 	var body: VBoxContainer = box["body"]

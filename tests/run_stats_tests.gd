@@ -191,6 +191,12 @@ func _trophies() -> void:
 			var sheet: Node = s.find_child("ClubHonourSheet", true, false)
 			var title: Label = sheet.find_child("SheetTitle", true, false) if sheet != null else null
 			_check(title != null and title.text == "Premiers %d" % year, "Its sheet opens on the premiership (%s)" % tag)
+			var inside := sheet != null
+			if sheet != null:
+				for c in sheet.find_children("*", "Control", true, false):
+					if (c as Control).is_visible_in_tree() and (c as Control).get_global_rect().end.x > sz.x + 1:
+						inside = false
+			_check(inside, "The cup and flag fit the sheet across the screen (%s)" % tag)
 			_check(s.call("handle_back"), "Back closes the sheet first (%s)" % tag)
 			await _settle()
 			_check(s.find_child("ClubHonourSheet", true, false) == null and not s.call("handle_back"),
