@@ -8,14 +8,17 @@ extends RefCounted
 ##   mid_inside the best contested-ball midfielder who is not on a wing
 ##   def_small  the best user of the ball among defenders 183 cm and under
 ##   def_key    the best user of the ball among defenders 190 cm and over
-## Env: FOCUS_N matches per arm (default 240), FOCUS_SEED seed base (default 9000).
+##   def_best   the best user of the ball among all defenders, whatever his size
+##   def_worst  the weakest user of the ball among all defenders
+## Env: FOCUS_N matches per arm (default 240), FOCUS_SEED seed base (default 9000),
+## FOCUS_ARMS comma-separated arms (default the first four).
 ## Real 2026 club lists, home side rotating through the 18 clubs.
 ##
 ## Back half: own-half disposals, counted by an AuditSim that watches the carrier
 ## pick (a kick-in is always from the back half). Bookkeeping only; it draws no
 ## dice and changes no rule.
 
-const ARMS := ["fwd_key", "mid_inside", "def_small", "def_key"]
+const ARMS := ["fwd_key", "mid_inside", "def_small", "def_key", "def_best", "def_worst"]
 const PLAYER_KEYS := ["shots", "goals", "disposals", "back_half", "effective", "clangers", "inside50", "metres_gained"]
 const TEAM_KEYS := ["score", "metres_gained", "clangers", "ineffective", "inside50"]
 
@@ -67,6 +70,14 @@ func _pick(sim: MatchSim, arm: String) -> Dictionary:
 				if role != "DEF" or h < 190.0:
 					continue
 				v = sim._a(p, "disposal") + sim._a(p, "carry")
+			"def_best":
+				if role != "DEF":
+					continue
+				v = sim._a(p, "disposal") + sim._a(p, "carry")
+			"def_worst":
+				if role != "DEF":
+					continue
+				v = -(sim._a(p, "disposal") + sim._a(p, "carry"))
 		if v > best_v:
 			best_v = v
 			best = p
@@ -111,17 +122,20 @@ func run() -> void:
 	var n := int(OS.get_environment("FOCUS_N")) if OS.get_environment("FOCUS_N") != "" else 240
 	var base := int(OS.get_environment("FOCUS_SEED")) if OS.get_environment("FOCUS_SEED") != "" else 9000
 	# arm -> {"on": {key: [sum, sumsq...]}} ... kept as sums of the paired difference
+	var arms: Array = ["fwd_key", "mid_inside", "def_small", "def_key"]
+	if OS.get_environment("FOCUS_ARMS") != "":
+		arms = Array(OS.get_environment("FOCUS_ARMS").split(","))
 	var agg := {}
-	for arm in ARMS:
+	for arm in arms:
 		agg[arm] = {"n": 0, "on": {}, "off": {}, "d": {}, "d2": {}, "ovr": 0.0, "h": 0.0}
 	for i in range(n):
 		var seed := base + i
 		var plain := _sim(codes, i, seed)
 		var chosen := {}
-		for arm in ARMS:
+		for arm in arms:
 			chosen[arm] = _pick(plain, arm)
 		var res0 := plain.run()
-		for arm in ARMS:
+		for arm in arms:
 			var who: Dictionary = chosen[arm]
 			if who.is_empty():
 				continue
@@ -146,7 +160,7 @@ func run() -> void:
 		if i % 20 == 19:
 			print("done %d of %d" % [i + 1, n])
 	print("FOCUS paired matches per arm: up to %d (a match is skipped for an arm with no such player on the ground)" % n)
-	for arm in ARMS:
+	for arm in arms:
 		var a: Dictionary = agg[arm]
 		var m := int(a["n"])
 		if m == 0:
