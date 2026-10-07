@@ -736,6 +736,26 @@ func _focus_id(side: int) -> String:
 	return str((tactics[side] as Dictionary).get("focus_id", ""))
 
 
+## Playing through a defender (the director, 2026-10-07: "make a good user
+## matter"): out of the back half the key distributor's skill with the ball
+## counts for more than an ordinary carrier's. A clean, creative user gains
+## more ground and is rushed into fewer turnovers; a poor one gains less and
+## turns it over more. Scales the existing gain and turnover chance, so no
+## dice are added and every other roll draws as before. 0 for anyone else,
+## or anywhere but the back half. dist_skill is the strength (audits vary it).
+const DIST_SKILL := 0.5
+static var dist_skill := DIST_SKILL
+
+
+func _distributor_edge(side: int, carrier, atk_fp: float) -> float:
+	if carrier == null or dist_skill == 0.0 or atk_fp >= -10.0:
+		return 0.0
+	if str(carrier.get("role", "")) != "DEF" or str(carrier.get("id", "")) != _focus_id(side):
+		return 0.0
+	var skill := 0.6 * _a(carrier, "disposal") + 0.4 * _a(carrier, "creating")
+	return dist_skill * (skill - 70.0) / 100.0
+
+
 func _tag_id(side: int) -> String:
 	return str((tactics[side] as Dictionary).get("tag_id", ""))
 
@@ -2175,6 +2195,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			var turn_p: float = (PRESS_TURNOVER
 					* (0.80 + 0.40 * _a(presser, "pressure") / 100.0)
 					* (1.20 - 0.40 * _a(carrier, "disposal") / 100.0))
+			turn_p *= clampf(1.0 - _distributor_edge(side, carrier, atk_fp), 0.4, 1.6)
 			if rng.randf() < turn_p:
 				_t(opp, "pressure_wins")
 				_intercept(opp, presser, false)
@@ -2210,6 +2231,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		if _burst(side, "flood") or _burst(side, "hold"):
 			gain *= 0.85
 		gain *= rng.randf_range(0.45, 1.75)
+		gain *= 1.0 + _distributor_edge(side, carrier, prev_atk_fp)
 		if is_kick_in:
 			gain *= 0.82 if not kick_in_play_on else 1.12
 		if rushed:
