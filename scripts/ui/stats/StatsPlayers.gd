@@ -97,6 +97,7 @@ static func _controls(host: Control, wide: bool) -> Control:
 	group.name = "StatGroup"
 	UiKit.style_button(group, 14)
 	group.custom_minimum_size = Vector2(170, 44)
+	group.fit_to_longest_item = false
 	for i in range(GROUPS.size()):
 		group.add_item(str(GROUPS[i][1]), i)
 		if str(GROUPS[i][0]) == _group:
@@ -181,7 +182,7 @@ static func _filter_row(host: Control) -> Control:
 	traits.sort_custom(by_label)
 	for f in [["club", clubs], ["pos", POSITIONS], ["age", AGES], ["role", roles], ["trait", traits], ["games", GAMES]]:
 		var d := _dropdown(host, str(f[0]), f[1])
-		d.custom_minimum_size.x = 170.0 if wide else floorf((float(host.call("content_width")) - 16.0) / 2.0)
+		d.custom_minimum_size.x = 170.0 if wide else floorf((float(host.call("content_width")) - 36.0) / 2.0)
 		flow.add_child(d)
 	return flow
 
@@ -193,6 +194,8 @@ static func _dropdown(host: Control, key: String, options: Array) -> OptionButto
 	o.custom_minimum_size = Vector2(150, 44)
 	o.clip_text = true
 	o.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	# Sized by the row, not by its longest option (Greater Western Sydney).
+	o.fit_to_longest_item = false
 	for i in range(options.size()):
 		o.add_item(str(options[i][1]), i)
 		if str(options[i][0]) == str(_filters[key]):
