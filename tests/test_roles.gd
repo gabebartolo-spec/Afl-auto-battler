@@ -18,6 +18,7 @@ func run() -> void:
 	_test_named_wings()
 	_test_engine_rewards_wings()
 	_test_tagger()
+	_test_tag_targets()
 	_test_no_prescriptions()
 	_test_corrections()
 	_test_forward_types()
@@ -239,6 +240,92 @@ func _test_tagger() -> void:
 				and PlanFit.standing_plan(g2) != "controlled"
 	_check(controlled_ok and hi > lo,
 			"Controlled tempo depends on ball users and is never a club's usual game")
+
+
+## A tag goes on a midfielder, by where he plays now (the director's PC
+## playtest, 2026-10-07): never a forward or a defender, a ruck in a midfield
+## slot only when midfield is one of his positions, and a tag that stops being
+## valid ends with a plain line - another player is never put in his place.
+func _test_tag_targets() -> void:
+	var away := Squad.new("CAR", GameDB.club_list("CAR"), false, "CAR")
+	var sim := MatchSim.new(Squad.new("COL", GameDB.club_list("COL"), true, "COL"), away, 7)
+	var mi := _slot(away, "MID")
+	var fi := _slot(away, "FWD")
+	var di := _slot(away, "DEF")
+	var ri := _slot(away, "RUCK")
+	_check(mi >= 0 and fi >= 0 and di >= 0 and ri >= 0, "The opposition fields every line")
+	var mid_id := str(away.ground[mi]["id"])
+	_check(_tag_on(sim, mid_id) == mid_id, "A midfielder can be tagged")
+	for line in [["a forward", fi], ["a defender", di], ["a ruck", ri]]:
+		var id := str(away.ground[int(line[1])]["id"])
+		sim.tag_drops.clear()
+		_check(_tag_on(sim, id) == "" and not sim.tag_target_ok(1, id),
+				"A tag on %s is not accepted" % str(line[0]))
+		_check(sim.tag_drops.size() == 1 and str(sim.tag_drops[0]["id"]) == id,
+				"...and the dropped tag is on record for the break (%s)" % str(line[0]))
+
+	# The slot he fills decides, not a second position on his card.
+	var unicorn: Dictionary = (away.ground[fi] as Dictionary).duplicate(true)
+	unicorn["role2"] = "MID"
+	away.ground[fi] = Ratings._for_slot(unicorn, "FWD")
+	_check(not sim.tag_target_ok(1, str(unicorn["id"])),
+			"A forward with midfield as a second position is not a target while he plays forward")
+	away.ground[fi] = Ratings._for_slot(unicorn, "MID")
+	_check(sim.tag_target_ok(1, str(unicorn["id"])), "...but is while he plays in the midfield")
+	var ruck: Dictionary = (away.ground[di] as Dictionary).duplicate(true)
+	ruck["role"] = "RUCK"
+	ruck["role2"] = ""
+	away.ground[di] = Ratings._for_slot(ruck, "MID")
+	_check(not sim.tag_target_ok(1, str(ruck["id"])), "A ruck in a midfield slot is not a target")
+	ruck["role2"] = "MID"
+	away.ground[di] = Ratings._for_slot(ruck, "MID")
+	_check(sim.tag_target_ok(1, str(ruck["id"])), "...unless midfield is one of his positions")
+
+	# Resting a midfielder keeps his tag; bringing him back on up forward ends
+	# it, with a line for the break, and nobody takes his place.
+	var sim2 := MatchSim.new(Squad.new("COL", GameDB.club_list("COL"), true, "COL"),
+			Squad.new("CAR", GameDB.club_list("CAR"), false, "CAR"), 7)
+	var opp: Squad = sim2.squads[1]
+	var gi := _slot(opp, "MID")
+	var tagged := str(opp.ground[gi]["id"])
+	_check(_tag_on(sim2, tagged) == tagged, "(setup) the tag is on a midfielder")
+	sim2._swap(1, gi, 0)
+	_check(str((sim2.tactics[0] as Dictionary).get("tag_id", "")) == tagged,
+			"A midfielder rested to the bench keeps his tag: he is still a midfielder")
+	var bi := -1
+	for i in range(opp.bench.size()):
+		if str(opp.bench[i]["id"]) == tagged:
+			bi = i
+	sim2._swap(1, _slot(opp, "FWD"), bi)
+	_check(str((sim2.tactics[0] as Dictionary).get("tag_id", "")) == "" and sim2.tag_drops.size() == 1
+			and int(sim2.tag_drops[0]["side"]) == 0 and str(sim2.tag_drops[0]["id"]) == tagged,
+			"Back on up forward, the tag ends and is on record")
+	var res := {"tag_drops": sim2.tag_drops}
+	var lines: Array = MatchNotes.tag_drop_lines(res, 0, sim2.current_quarter)
+	_check(lines.size() == 1 and str(lines[0]).begins_with("Your tag on ")
+			and str(lines[0]).ends_with("he is no longer in the midfield."),
+			"The break says so in one plain line (%s)" % str(lines))
+	_check(MatchNotes.tag_drop_lines(res, 1, sim2.current_quarter).is_empty(), "...only to the side whose tag it was")
+	# A man gone off hurt ends the tag with no second line: the injury says it.
+	var other := str(opp.ground[_slot(opp, "MID")]["id"])
+	_tag_on(sim2, other)
+	var before := sim2.tag_drops.size()
+	sim2._drop_tag_on(other)
+	_check(str((sim2.tactics[0] as Dictionary).get("tag_id", "")) == "" and sim2.tag_drops.size() == before,
+			"A man gone off hurt ends his tag without a second line")
+
+
+func _slot(sq: Squad, role: String) -> int:
+	for i in range(sq.ground.size()):
+		if str(sq.ground[i]["role"]) == role:
+			return i
+	return -1
+
+
+## Ask for a tag on `id` and return the tag that is in force.
+func _tag_on(sim: MatchSim, id: String) -> String:
+	sim.set_tactics(0, {"gameplan": "balanced", "tag_id": id})
+	return str((sim.tactics[0] as Dictionary).get("tag_id", ""))
 
 
 ## Selection surfaces the problem, never the answer: no hint names who to

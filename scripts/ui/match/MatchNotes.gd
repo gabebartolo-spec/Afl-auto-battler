@@ -388,6 +388,40 @@ static func _stars_disposals(res: Dictionary, now: Dictionary, was: Dictionary, 
 	return total
 
 
+## A player picked to play through, by the slot he fills: "Matthew Jefferson
+## our key forward target". The engine favours him by that job (MatchSim
+## _focus_mult): the ball up forward and the shots for a forward, first use out
+## of the back half for a defender, the ball in the chain for a midfielder or ruck.
+const FOCUS_ROLES := {
+	"MID": ["our key midfielder", "the ball goes to him more often through the midfield"],
+	"FWD": ["our key forward target", "more of the ball up forward and more of the shots at goal"],
+	"DEF": ["our key distributor", "first use of the ball out of the back half"],
+	"RUCK": ["our key man in the middle", "the ball goes to him more often"],
+}
+
+
+static func focus_role_text(name: String, role: String) -> String:
+	if not FOCUS_ROLES.has(role):
+		return name
+	return "%s %s" % [name, str(FOCUS_ROLES[role][0])]
+
+
+static func focus_effect_text(role: String) -> String:
+	if not FOCUS_ROLES.has(role):
+		return "more of the ball in the chains"
+	return str(FOCUS_ROLES[role][1])
+
+
+## Your tag that ended in quarter q because the man was no longer a
+## midfielder (a rotation put him in another line): one plain line each.
+static func tag_drop_lines(res: Dictionary, my_side: int, q: int) -> Array:
+	var out := []
+	for d in res.get("tag_drops", []):
+		if int(d["side"]) == my_side and int(d["q"]) == q:
+			out.append("Your tag on %s ended: he is no longer in the midfield." % GameDB.player_display_name_by_id(str(d["id"]), "their player"))
+	return out
+
+
 ## How your tag went in quarter q: "Your tag on Walsh: 4 disposals, no goals."
 static func tag_line(res: Dictionary, my_side: int, q: int) -> String:
 	var hist: Array = res.get("tactics_history", [])

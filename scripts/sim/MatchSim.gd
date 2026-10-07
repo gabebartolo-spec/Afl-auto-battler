@@ -36,6 +36,8 @@ const BOUNDARY_RUSHED_BONUS := 0.004
 const OUT_ON_FULL_SHARE := 0.12
 const BOUNDARY_TOUCHED_SHARE := 0.28
 var tactics := [{}, {}]      # per side: gameplan, focus_id, tag_id, pep
+## Tags dropped because the man was no longer a midfielder: {side, id, q}.
+var tag_drops: Array = []
 ## How well each side's match-day players suit each plan (PlanFit): the
 ## plan's upside is scaled by it, its costs are not.
 var plan_fit := [{}, {}]
@@ -645,10 +647,10 @@ func set_tactics(side: int, t: Dictionary) -> void:
 	tactics[side] = t.duplicate()
 	if t.has("interceptor_id"):
 		set_interceptor(side, str(t.get("interceptor_id", "")), current_quarter > 1 or _q_active)
-	# A tag needs its man still in the match.
+	# A tag needs its man still in the match, and a midfielder.
 	var tag := str(t.get("tag_id", ""))
-	if tag != "" and not taking_part(1 - side, tag):
-		tactics[side]["tag_id"] = ""
+	if tag != "" and not tag_target_ok(1 - side, tag):
+		_drop_tag(side, tag)
 
 
 ## Gameplan trade-offs. Every plan gives something up, and the main three
@@ -1003,10 +1005,12 @@ const ONE_PCT_ROLES := {"DEF": 1.0, "RUCK": 0.5, "MID": 0.3, "FWD": 0.1}
 
 ## `_weighted` over a whole group, each player's weight scaled by his line.
 func _weighted_roles(group: Array, key: String, roles: Dictionary, power := 2.0, side := -1, purpose := "",
-		sizes: Dictionary = {}):
+		sizes: Dictionary = {}, zone := ""):
 	if group.is_empty():
 		return null
 	var ctx := _pick_ctx(side) if side >= 0 else {}
+	if side >= 0:
+		ctx["zone"] = zone
 	var weights := []
 	for p in group:
 		var w: float = float(roles.get(str(p["role"]), 0.0)) * pow(maxf(1.0, _a(p, key)), power)
@@ -1064,12 +1068,14 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String, ctx: Diction
 		out *= Roles.WING_TRANSITION
 	elif purpose == "clearance" and Roles.on_wing(p):
 		out *= Roles.WING_STOPPAGE
-	# A "run it through him" plan makes him the clear ball-winner in the
-	# chain, not the shooter: a mid who gets more of the ball delivers more
-	# inside 50s and his forwards still take the shots. A small early boost,
-	# then the usage curve fades him back toward a low-30s disposal game.
-	if focused and carrying:
-		out *= 1.14
+	# "Play through him" is a job by the slot he fills (focus_role_text).
+	# A midfielder or ruck gets more of the ball in every chain, and is not
+	# made the shooter: his forwards still take the shots. A forward gets
+	# the ball up forward and the shots at goal; a defender has first use
+	# coming out of the back half. A small early boost, then the usage
+	# curve fades him back toward a low-30s disposal game.
+	if focused:
+		out *= _focus_mult(str(p["role"]), purpose, str(ctx.get("zone", "")))
 	if carrying and _trait(p, "ball_magnet"):
 		out *= 1.10
 	if carrying and weather == "wet" and _trait(p, "wet_weather"):
@@ -1092,6 +1098,32 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String, ctx: Diction
 	if carrying:
 		out *= _usage_mult(p, focused)
 	return out
+
+
+## What playing through a player is worth, by the slot he fills and where the
+## pick is made. FOCUS_CARRY is the chain bias; a forward also has FOCUS_SHOT
+## when the shooter is picked (a redistribution of the shots, not more of them),
+## and a defender FOCUS_EXIT for the carrier out of the back half only.
+const FOCUS_CARRY := 1.14
+const FOCUS_SHOT := 1.25
+const FOCUS_EXIT := 1.25
+
+
+func _focus_mult(role: String, purpose: String, zone: String) -> float:
+	var carrying := purpose == "carrier" or purpose == "transition"
+	match role:
+		"FWD":
+			if purpose == "shooter":
+				return FOCUS_SHOT
+			if carrying and zone != "back" and zone != "middle":
+				return FOCUS_CARRY
+		"DEF":
+			if carrying and zone == "back":
+				return FOCUS_EXIT
+		_:
+			if carrying:
+				return FOCUS_CARRY
+	return 1.0
 
 
 ## Soft possession cap. Team disposal volume is unchanged — this only stops one
@@ -1695,7 +1727,7 @@ func pick_carrier(side: int, fp: float):
 		key = "disposal"
 		purpose = "transition"
 	var sizes: Dictionary = LEAD_UP_SIZES if zone == "middle" or zone == "attack" else {}
-	return _weighted_roles(sq.ground, key, CARRY_ROLES[zone], 2.0, side, purpose, sizes)
+	return _weighted_roles(sq.ground, key, CARRY_ROLES[zone], 2.0, side, purpose, sizes, zone)
 
 
 ## The primary kick-in player: a defender who can use and carry the ball.
@@ -3276,6 +3308,7 @@ func result() -> Dictionary:
 		"injuries": injuries.duplicate(true),
 		"reports": reports.duplicate(true),
 		"synergies": synergies.duplicate(true),
+		"tag_drops": tag_drops.duplicate(true),
 	}
 
 
@@ -3503,6 +3536,39 @@ func _drop_tag_on(id: String) -> void:
 			tactics[side] = t
 
 
+## A tag goes on a midfielder: someone in a midfield slot today who is a
+## midfielder by position (midfielder_on_ground), or on the bench by the slot
+## he last filled. Anyone gone off hurt or not in the match is not a target.
+func tag_target_ok(owner: int, id: String) -> bool:
+	var g := _on_ground(owner, id)
+	if not g.is_empty():
+		return midfielder_on_ground(g)
+	for p in (squads[owner] as Squad).bench:
+		if str(p["id"]) == id:
+			return midfielder_on_ground(p)
+	return false
+
+
+## End a tag whose man is still in the match but no longer a midfielder, and
+## keep a record for the break to say so. A man gone off hurt is already
+## reported as injured, so his tag just ends.
+func _drop_tag(side: int, id: String) -> void:
+	tactics[side]["tag_id"] = ""
+	if taking_part(1 - side, id):
+		tag_drops.append({"side": side, "id": id, "q": current_quarter})
+
+
+## Check both sides' tags again: a rotation or a position change can leave a
+## tag on someone who is no longer a midfielder.
+func _recheck_tags() -> void:
+	for side in range(2):
+		var tag := _tag_id(side)
+		if tag != "" and not tag_target_ok(1 - side, tag):
+			var t: Dictionary = (tactics[side] as Dictionary).duplicate()
+			tactics[side] = t
+			_drop_tag(side, tag)
+
+
 ## Still taking part in the match: on the ground or on the bench, not gone
 ## off hurt.
 func taking_part(side: int, id: String) -> bool:
@@ -3600,6 +3666,8 @@ func _swap(side: int, gi: int, bi: int) -> void:
 		"score": [score(0), score(1)], "goals": [goals(0), goals(1)],
 		"behinds": [behinds(0), behinds(1)],
 	})
+	# The man who came on may be filling a slot that is not the midfield.
+	_recheck_tags()
 
 
 ## Energy for one side, most tired first: [{id, name, num, role, overall,

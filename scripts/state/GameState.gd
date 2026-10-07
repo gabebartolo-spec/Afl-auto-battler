@@ -333,6 +333,18 @@ func set_bounce_scene_every_match(enabled: bool) -> void:
 	set_setting("bounce_scene_every_match", enabled)
 
 
+## Vignettes (ROADMAP §1.11): the match-day scenes - the run through the
+## banner, the centre ball-up call, the replays, the press conference and the
+## awards on stage. On by default. Off plays none of them; every decision, its
+## information and every result stay exactly the same.
+func vignettes_on() -> bool:
+	return bool(get_setting("vignettes", true))
+
+
+func set_vignettes_on(on: bool) -> void:
+	set_setting("vignettes", on)
+
+
 ## How fast a watched match starts (1x, 2x, 4x or 8x). 4x by default.
 func match_speed() -> float:
 	var s := float(get_setting("match_speed", 4.0))
@@ -1967,6 +1979,45 @@ func opponent_people(code: String) -> Array:
 	if season == null or code == "" or not season.lists.has(code):
 		return []
 	return Matchup.people(code, season.lists, season.selections, season.club_results(code))
+
+
+## The assistant's report on an opponent (director, 2026-10-07): what has
+## been seen of them, in two parts, each fact said once - [["How they play",
+## [lines]], ["Who matters", [lines]]], a part left out when it has nothing.
+## How they play: their usual game, their style, a run of results. Who
+## matters: their best player missing, their danger, a roaming interceptor
+## (when he is not the danger). Facts only, never how to beat them.
+func opponent_report(code: String) -> Array:
+	if season == null or code == "" or not season.lists.has(code):
+		return []
+	var play := []
+	var usual := usual_plan(code)
+	if THEIR_PLAN.has(usual):
+		play.append("Their usual game, %s: %s" % [CoachReport.plan_label(usual), THEIR_PLAN[usual]])
+	play.append_array(their_style(code, 3))
+	var people := []
+	var danger_id := ""
+	for f in opponent_people(code):
+		if str(f["key"]) == "form":
+			play.append(str(f["text"]))
+		else:
+			people.append(str(f["text"]))
+			if str(f["key"]) == "danger":
+				danger_id = str(f.get("player_id", ""))
+	var spare := Matchup.interceptor(code, season.lists, season.selections)
+	if not spare.is_empty() and str(spare.get("player_id", "")) != danger_id:
+		people.append(str(spare["text"]))
+	var out := []
+	var seen := {}
+	for part in [["How they play", play], ["Who matters", people]]:
+		var lines := []
+		for t in part[1]:
+			if not seen.has(str(t)):
+				seen[str(t)] = true
+				lines.append(str(t))
+		if not lines.is_empty():
+			out.append([part[0], lines])
+	return out
 
 
 ## This week's changes to your side, as a team sheet reads them:
@@ -7441,18 +7492,40 @@ const STYLE_PART_OF := {
 }
 
 
-## STYLE_LINES as said of an opponent: [when it helps them, when it hurts them].
+## An opponent's usual game plan, said as what it does on the field (the
+## same trade-offs as CoachReport.PLAN_SUMMARY, from their side).
+const THEIR_PLAN := {
+	"attacking": "they run it through the corridor for ground and better shots, and turn it over more.",
+	"defensive": "they press up the ground, so they are hard to score against but have fewer numbers forward.",
+	"contest": "they put numbers at the stoppages to win the clearances, and the ball moves slower.",
+	"controlled": "they keep the ball and make few errors, but gain less ground.",
+	"through_stars": "their best three see more of the ball, and the pressure goes on them.",
+}
+
+
+## STYLE_LINES as said of an opponent: [when it helps them, when it hurts
+## them]. Each says what it means on the field (director, 2026-10-07: a style
+## with no football consequence is gibberish), never what to do about it.
 const THEIR_STYLE := {
-	"for": ["They kick big scores.", "They struggle to score."],
-	"against": ["They are hard to score against.", "They leak scores."],
-	"clearances": ["They win it at the stoppages.", "They get beaten at the stoppages."],
-	"inside50": ["They live in their forward half.", "They struggle to get it forward."],
-	"pressure_acts": ["They bring the heat.", "They give opponents time."],
-	"marks": ["They hold it by foot and mark it.", "They rarely take a mark."],
-	"clangers": ["They look after the ball.", "They turn it over."],
-	"hitouts": ["Their ruck wins the tap.", "They get beaten in the ruck."],
-	"from_stoppage": ["They score from the stoppages.", "They rarely score from the stoppages."],
-	"conceded_stoppage": ["They shut down stoppage scores.", "They give up scores from the stoppages."],
+	"for": ["They kick big scores: more than most sides.", "They struggle to score: less than most sides."],
+	"against": ["They are hard to score against: most sides kick less against them.",
+			"They leak scores: most sides kick more against them."],
+	"clearances": ["They win it at the stoppages: their midfield gets first hands to most ball-ups.",
+			"They get beaten at the stoppages: their midfield rarely gets first hands."],
+	"inside50": ["They live in their forward half: their opponents' defenders see a lot of the ball.",
+			"They struggle to get it forward: their forwards see little of the ball."],
+	"pressure_acts": ["They pressure the ball hard: ball carriers against them get tackled and rushed into turnovers.",
+			"They barely pressure the ball: ball carriers against them get time to pick a target."],
+	"marks": ["They keep it by foot and mark it: when they have it, the ball rarely hits the ground.",
+			"They rarely mark it: their ball is won on the ground, at the contest."],
+	"clangers": ["They look after the ball: they rarely hand it back.",
+			"They turn it over: their mistakes hand the ball to their opponents."],
+	"hitouts": ["Their ruck wins the tap: their midfield gets first use at the ball-ups.",
+			"They get beaten in the ruck: their midfield rarely gets first use at the ball-ups."],
+	"from_stoppage": ["They score from the stoppages: their clearances often become scores.",
+			"They rarely score from the stoppages: their clearances seldom become scores."],
+	"conceded_stoppage": ["They shut down stoppage scores: clearances against them rarely become scores.",
+			"They give up scores from the stoppages: clearances against them often become scores."],
 }
 
 
