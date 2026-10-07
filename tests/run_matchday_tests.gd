@@ -518,7 +518,7 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	m.call("_show_setup", calls)
 	await _settle()
 	var line: Label = m.find_child("SetupLine", true, false)
-	var full := "Your plan: Defensive press  ·  tagging %s  ·  through %s  ·  %s loose behind the ball" % [
+	var full := "Your plan: Defensive press  ·  tagging %s  ·  playing through %s  ·  %s loose behind the ball" % [
 			db.player_display_name_by_id(str(calls["tag_id"]), ""), db.player_display_name_by_id(str(calls["focus_id"]), ""),
 			db.player_display_name_by_id(str(calls["interceptor_id"]), "")]
 	_check(line != null and line.visible and line.text == full, "The plan line names every call (%s)" % tag)

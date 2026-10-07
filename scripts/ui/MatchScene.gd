@@ -1200,7 +1200,7 @@ func _show_setup(t: Dictionary) -> void:
 		bits.append("tagging " + GameDB.player_display_name_by_id(tag_id, "their player"))
 	var focus_id := str(t.get("focus_id", ""))
 	if focus_id != "":
-		bits.append("through " + GameDB.player_display_name_by_id(focus_id, "your player"))
+		bits.append("playing through " + GameDB.player_display_name_by_id(focus_id, "your player"))
 	var intercept_id := str(t.get("interceptor_id", ""))
 	if intercept_id != "":
 		bits.append(GameDB.player_display_name_by_id(intercept_id, "your defender") + " loose behind the ball")
