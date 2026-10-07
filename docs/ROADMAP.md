@@ -3279,7 +3279,7 @@ Guardrails:
 - the meeting should remain useful even when the user's next pick is late in the round.
 
 ### Draft combine / scouting information
-There is **no explicit combine task in the current canonical roadmap**, so restore it here rather than assuming it is already scheduled.
+This is the canonical Combine menu owner. Extend the existing Combine/scouting implementation carried onto `main` by #208; do not create a duplicate Combine task or assume the complete menu below already exists.
 
 The Combine should give the draft pool more identity and evidence before selection:
 - physical/athletic testing and relevant football testing where the game has meaningful underlying attributes;
@@ -3288,6 +3288,15 @@ The Combine should give the draft pool more identity and evidence before selecti
 - enough information to distinguish prospects with similar projected OVR/POT.
 
 Do not make the Combine another number-vomit screen. Default to interpretable results/relative descriptors, with deeper detail available on inspection. Combine results should inform scouting, not override actual football production or make every athletic outlier a top prospect.
+
+**Director clarification — fully navigable Combine menu (2026-10-07):** the Combine must be a complete, navigable menu with useful statistics, not just a static summary or isolated prospect popup. This expanded menu requirement is **TODO pending implementation/verification**, independently of the existing merged Combine/scouting foundation.
+
+- Provide clear entry from the relevant pre-draft/off-season navigation, a browsable prospect pool, testing/statistics views and individual prospect inspection. Users must be able to move between these views and return cleanly to the same pool/filter/scroll state. Support desktop and phone with clear back paths and informative empty/unavailable-data states.
+- Include meaningful Combine statistics/results for the tests the game actually models, with readable units, useful relative comparisons and sorting/filtering by relevant test, football position, role/archetype and prospect search. Connect prospect inspection to existing bio/scouting and recorded football production where available; distinguish measured testing, observed football statistics and uncertain scouting projections. Never fabricate missing results or imply that every physical test is a direct measurement of football ability.
+- **Football information first; avoid number vomit.** Default to short, readable explanations of what a result suggests on the field: e.g. acceleration to separate from an opponent, repeat running to cover ground, or clean handling under pressure, only where supported by the actual test/mechanics. Show a few relevant headline results and strengths/limitations; let users deliberately open detailed statistics and comparisons rather than confronting a wall of figures or formulas.
+- **Flavour copy is encouraged:** give the Combine a recognisable football voice through concise scout observations, prospect descriptions and testing-day colour. Keep copy grounded in actual results and scouting confidence, with restrained humour where appropriate. It must help users understand the footballer, without invented performances, guaranteed development, repetitive filler or prescribed best picks.
+- Verify the full entry → pool → statistics/comparison → prospect → return flow, sorting/filtering, state restoration, accurate results/units and missing-data handling in regression checks and a runnable desktop/phone playtest. Do not mark the complete menu verified from a screenshot or the presence of a Combine popup alone.
+
 
 ### Acceptance
 - list needs are internally consistent and visibly update after each relevant selection;
