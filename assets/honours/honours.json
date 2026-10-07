@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "shader": "honours_tint.gdshader",
+  "honours": {
+    "premiership_cup": {"png": "premiership_cup.png", "size": [512, 512], "base_y": 486},
+    "premiership_flag": {"png": "premiership_flag.png", "mask": "premiership_flag_mask.png", "size": [512, 512], "base_y": 486, "year_box": [177, 99, 158, 83]},
+    "league_bnf_medal": {"png": "league_bnf_medal.png", "size": [512, 512]},
+    "leading_goalkicker_medal": {"png": "leading_goalkicker_medal.png", "size": [512, 512]},
+    "rising_star": {"png": "rising_star.png", "size": [512, 512], "base_y": 486},
+    "coaches_award": {"png": "coaches_award.png", "size": [512, 512], "base_y": 486},
+    "club_bnf": {"png": "club_bnf.png", "mask": "club_bnf_mask.png", "size": [512, 512], "base_y": 486},
+    "all_australian": {"png": "all_australian.png", "size": [512, 512]},
+    "minor_premiership": {"png": "minor_premiership.png", "size": [512, 512], "base_y": 486}
+  }
+}

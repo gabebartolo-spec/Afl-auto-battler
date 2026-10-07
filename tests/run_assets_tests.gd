@@ -11,6 +11,8 @@ extends SceneTree
 ##   - Music: every track loads and is in the playlist, nothing clips, the
 ##     tracks sit at one level, and the player pauses for a match, resumes,
 ##     moves on and honours Mute.
+##   - Honours (the Trophy room's art): honours.json lists all nine, each file
+##     whole at its size, base_y on the art's foot, masks and the year box sound.
 
 const SHEETS := "res://assets/vignette/figures_%s.png"
 const MUSIC_DIR := "res://assets/audio/music"
@@ -54,6 +56,7 @@ func _run() -> void:
 	_figure_sheets()
 	_hair_atlases()
 	_ball()
+	_honours()
 	await _vignettes_play_through()
 	_music_files()
 	_music_player()
@@ -292,6 +295,109 @@ func _ball() -> void:
 			if n < 200 or hi - lo + 1 > c or not colour_ok:
 				bad.append("%s %d" % [["red", "yellow"][row], f])
 	_check(bad.is_empty(), "Every frame of the red and the yellow ball has the ball in it, in its colour: %s" % str(bad))
+
+
+# ---------------------------------------------------------------------------
+# The Trophy room's honours (assets/honours, read through honours.json)
+# ---------------------------------------------------------------------------
+const HONOURS_DIR := "res://assets/honours/"
+const HONOUR_IDS := ["premiership_cup", "premiership_flag", "league_bnf_medal", "leading_goalkicker_medal",
+		"rising_star", "coaches_award", "club_bnf", "all_australian", "minor_premiership"]
+
+
+func _honours() -> void:
+	var manifest = JSON.parse_string(FileAccess.get_file_as_string(HONOURS_DIR + "honours.json"))
+	var honours: Dictionary = manifest.get("honours", {}) if manifest is Dictionary else {}
+	var ids := honours.keys()
+	ids.sort()
+	var want := HONOUR_IDS.duplicate()
+	want.sort()
+	_check(manifest is Dictionary and int(manifest.get("version", 0)) == 1 and ids == want,
+			"honours.json lists the nine honours (%s)" % str(ids))
+	var shader_file := str(manifest.get("shader", "")) if manifest is Dictionary else ""
+	var shader := ResourceLoader.load(HONOURS_DIR + shader_file, "", ResourceLoader.CACHE_MODE_IGNORE) as Shader \
+			if shader_file != "" else null
+	var uniforms := []
+	if shader != null:
+		for u in shader.get_shader_uniform_list():
+			uniforms.append(u["name"])
+	_check(shader != null and uniforms.has("mask_tex") and uniforms.has("primary") and uniforms.has("secondary"),
+			"The honours' tint shader loads, with mask_tex, primary and secondary (%s)" % str(uniforms))
+	for id in HONOUR_IDS:
+		if honours.has(id):
+			var bad := _honour_problems(honours[id])
+			_check(bad.is_empty(), "The %s art is whole and as honours.json says: %s" % [id, str(bad)])
+
+
+## What's wrong with one honour's files: its own lossless, mipmapped texture at the listed size
+## (drawn far smaller than it is), clear corners, base_y on the art's lowest solid row (the
+## shelf line), a mask that has both colours and stays on the art, and the year box clear on
+## the primary colour.
+func _honour_problems(e: Dictionary) -> Array:
+	var bad := []
+	var path := HONOURS_DIR + str(e.get("png", ""))
+	var listed: Array = e.get("size", [0, 0])
+	var size := Vector2i(int(listed[0]), int(listed[1]))
+	var tex := ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE) as Texture2D
+	var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+	if tex == null or img == null or img.get_size() != size or Vector2i(tex.get_size()) != size:
+		return ["%s missing or not %s" % [path, str(size)]]
+	if not _lossless_mipmapped(path):
+		bad.append("not lossless with mipmaps")
+	img.convert(Image.FORMAT_RGBA8)
+	for c in [Vector2i(0, 0), Vector2i(size.x - 1, 0), Vector2i(0, size.y - 1), size - Vector2i.ONE]:
+		if img.get_pixelv(c).a > 0.02:
+			bad.append("corner %s not clear" % str(c))
+	var lowest := -1
+	for y in range(size.y - 1, -1, -1):
+		for x in size.x:
+			if img.get_pixel(x, y).a > 0.5:
+				lowest = y
+				break
+		if lowest >= 0:
+			break
+	if e.has("base_y") and absi(int(e["base_y"]) - lowest) > 2:
+		bad.append("base_y %d but the art ends at row %d" % [int(e["base_y"]), lowest])
+	if not e.has("mask"):
+		return bad
+	var mpath := HONOURS_DIR + str(e["mask"])
+	var mask := Image.load_from_file(ProjectSettings.globalize_path(mpath))
+	if mask == null or mask.get_size() != size or not _lossless_mipmapped(mpath):
+		bad.append("%s missing, not %s or not lossless with mipmaps" % [mpath, str(size)])
+		return bad
+	mask.convert(Image.FORMAT_RGBA8)
+	var primary := 0
+	var secondary := 0
+	var off := 0
+	for y in range(0, size.y, 2):
+		for x in range(0, size.x, 2):
+			var m := mask.get_pixel(x, y)
+			primary += 1 if m.r > 0.5 else 0
+			secondary += 1 if m.g > 0.5 else 0
+			off += 1 if (m.r > 0.5 or m.g > 0.5) and img.get_pixel(x, y).a < 0.05 else 0
+	if primary < 500 or secondary < 200:
+		bad.append("the mask has too little primary (%d) or secondary (%d)" % [primary, secondary])
+	# Blender's straight alpha leaves mask on edge pixels whose coverage rounds to nothing.
+	if off > 0.02 * (primary + secondary):
+		bad.append("%d mask pixels off the art" % off)
+	if e.has("year_box"):
+		var b: Array = e["year_box"]
+		var box := Rect2i(int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+		var on := 0
+		var n := 0
+		for y in range(box.position.y, box.end.y, 2):
+			for x in range(box.position.x, box.end.x, 2):
+				n += 1
+				on += 1 if mask.get_pixel(x, y).r > 0.5 else 0
+		if not Rect2i(Vector2i.ZERO, size).encloses(box) or box.size.x < 64 or on < 0.95 * n:
+			bad.append("the year box %s is not clear on the primary colour (%d of %d)" % [str(box), on, n])
+	return bad
+
+
+func _lossless_mipmapped(path: String) -> bool:
+	var cfg := ConfigFile.new()
+	return cfg.load(path + ".import") == OK and int(cfg.get_value("params", "compress/mode", -1)) == 0 \
+			and bool(cfg.get_value("params", "mipmaps/generate", false))
 
 
 # ---------------------------------------------------------------------------
