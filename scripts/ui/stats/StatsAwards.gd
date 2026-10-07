@@ -15,6 +15,8 @@ const TABLE_W := 600.0
 const RACE_W := 460.0
 ## Rows: one line, no rules between them; every other row on a faint band.
 const ROW_H := 32
+## On a phone a row is a thumb's target: taller.
+const ROW_H_PHONE := 40
 ## The round, ahead of a Rising Star nominee.
 const ROUND_W := 80.0
 ## Row geometry, shared by the tables and the fit test for the honours.
@@ -301,7 +303,7 @@ static func _player_row(host: Control, id: String, club: String, rank: String, f
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(0, 46 if stack else ROW_H)
+	b.custom_minimum_size = Vector2(0, 46 if stack else (ROW_H if bool(host.call("wide")) else ROW_H_PHONE))
 	b.clip_contents = true
 	var flat := StyleBoxFlat.new()
 	flat.bg_color = UiKit.PANEL if band else Color.TRANSPARENT
