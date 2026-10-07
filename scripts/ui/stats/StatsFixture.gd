@@ -323,7 +323,9 @@ static func _round_sheet(host: Control, pgs: Array) -> void:
 
 ## A played match: the score, quarter by quarter, then what was kept of it.
 static func _match_sheet(host: Control, m: Dictionary) -> void:
-	var res: Dictionary = m["res"]
+	# A match from a saved season keeps its stat lines packed (StatBook):
+	# unpack them, so every game of the season opens with its players.
+	var res: Dictionary = StatBook.full(m["res"])
 	var home := str(m["home"])
 	var away := str(m["away"])
 	var sub := str(m["label"])
