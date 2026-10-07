@@ -7374,18 +7374,29 @@ const STYLE_PART_OF := {
 }
 
 
-## STYLE_LINES as said of an opponent: [when it helps them, when it hurts them].
+## STYLE_LINES as said of an opponent: [when it helps them, when it hurts
+## them]. Each says what it means on the field (director, 2026-10-07: a style
+## with no football consequence is gibberish), never what to do about it.
 const THEIR_STYLE := {
-	"for": ["They kick big scores.", "They struggle to score."],
-	"against": ["They are hard to score against.", "They leak scores."],
-	"clearances": ["They win it at the stoppages.", "They get beaten at the stoppages."],
-	"inside50": ["They live in their forward half.", "They struggle to get it forward."],
-	"pressure_acts": ["They bring the heat.", "They give opponents time."],
-	"marks": ["They hold it by foot and mark it.", "They rarely take a mark."],
-	"clangers": ["They look after the ball.", "They turn it over."],
-	"hitouts": ["Their ruck wins the tap.", "They get beaten in the ruck."],
-	"from_stoppage": ["They score from the stoppages.", "They rarely score from the stoppages."],
-	"conceded_stoppage": ["They shut down stoppage scores.", "They give up scores from the stoppages."],
+	"for": ["They kick big scores: more than most sides.", "They struggle to score: less than most sides."],
+	"against": ["They are hard to score against: most sides kick less against them.",
+			"They leak scores: most sides kick more against them."],
+	"clearances": ["They win it at the stoppages: their midfield gets first hands to most ball-ups.",
+			"They get beaten at the stoppages: their midfield rarely gets first hands."],
+	"inside50": ["They live in their forward half: their opponents' defenders see a lot of the ball.",
+			"They struggle to get it forward: their forwards see little of the ball."],
+	"pressure_acts": ["They pressure the ball hard: ball carriers against them get tackled and rushed into turnovers.",
+			"They barely pressure the ball: ball carriers against them get time to pick a target."],
+	"marks": ["They keep it by foot and mark it: when they have it, the ball rarely hits the ground.",
+			"They rarely mark it: their ball is won on the ground, at the contest."],
+	"clangers": ["They look after the ball: they rarely hand it back.",
+			"They turn it over: their mistakes hand the ball to their opponents."],
+	"hitouts": ["Their ruck wins the tap: their midfield gets first use at the ball-ups.",
+			"They get beaten in the ruck: their midfield rarely gets first use at the ball-ups."],
+	"from_stoppage": ["They score from the stoppages: their clearances often become scores.",
+			"They rarely score from the stoppages: their clearances seldom become scores."],
+	"conceded_stoppage": ["They shut down stoppage scores: clearances against them rarely become scores.",
+			"They give up scores from the stoppages: clearances against them often become scores."],
 }
 
 
