@@ -68,3 +68,8 @@ already merged (a review after the fact), a defect goes straight to a small fix
 PR with the reproduction as its test, since there's nothing left to request
 changes on. Keep it short: the
 owner needs decisions and repros, not a retelling of the diff.
+
+## Learnings
+
+Proven findings for this project live in `references/learnings.md`. Read it before using this
+skill; add to it only what proved effective, with evidence.
