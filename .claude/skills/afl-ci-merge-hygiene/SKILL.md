@@ -76,6 +76,7 @@ true. Mirror: `~/.claude/skills/` (both Claude accounts) and `.claude/skills/` (
 | Sheet and figures out of step (inferred from the fix commit) | kit-sleeves-v2 `assets` | regenerate together |
 | UI check at two sizes (cause not yet investigated) | stats-book "players kept" 1280x720 + 390x844 | run the suite at both sizes locally |
 | Push cancels running CI | 41 cancelled; 20 are `main` | one push per CI cycle; see proposals |
+| Data/ratings change reshuffles seeded line-ups | #530 rating lift: match_game, selection, training, potential | full suite before pushing; measure with/without before touching a check |
 
 ## CI changes made (director yes, 2026-10-08, PR claude/ci-floors-and-main-runs)
 
