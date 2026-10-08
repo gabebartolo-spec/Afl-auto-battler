@@ -93,3 +93,16 @@ The director reviewed and included FL-001–FL-008 for Claude's queue. Read [ROA
 The director included all eight STYLE-01–STYLE-08 work packages after the complete interview. Read [ROADMAP §9.5](docs/ROADMAP.md#95-approved-visual-styling-work--director-interview-2026-10-06). Dark Android is primary; wide-screen and light maintenance follow. The Training **player-row** name/secondary-line stack is a confirmed vertical-alignment defect, independent of broad restyling. Inspect the current implementation/art branch before repairing audit-snapshot findings.
 
 The art agent has higher authority than ChatGPT on visual direction; Claude implements its treatment and reports constraints. **All final decisions go through the director.** Scope approval permits scoped prototypes/reviewable implementation, not final font, palette, geometry or layout selection. Obtain final director appearance approval before completing/merging visual treatments; ordinary green CI is insufficient. Preserve gameplay, information, touch/Back, existing 2.5D art and correctness/performance gates. No new scene authority or competing design system is added. No rejected style candidates remain.
+
+## Skills improve over time (director, 2026-10-08, all projects, both accounts)
+
+- **Learnings, with an evidence bar.** Any agent may add a finding to a skill's
+  `references/learnings.md`, but only once it has proved effective: a quality-check method that
+  caught or prevented a real defect; a recurring failure whose fix was verified afterwards by a
+  test, capture or green CI; or a measured time saving. Each entry names the date, project,
+  evidence (PR, commit, run or capture) and the general lesson. No hunches or untested ideas. If a
+  finding contradicts the skill, correct the skill itself instead of appending a note. A lesson
+  that keeps holding true is promoted into the skill's main text.
+- **Project spin-off skills.** An agent may create a project-specific skill in this repo, named
+  `afl-<topic>`, when a general skill needs project-only detail. It says which general skill it
+  extends, and general lessons still go back into the general skill so other projects benefit.
