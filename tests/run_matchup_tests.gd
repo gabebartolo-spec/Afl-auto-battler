@@ -32,6 +32,7 @@ func _run() -> void:
 	await _hub_tests()
 	await _regular_bye()
 	await _finals_week_by_week()
+	await _coach_approach_card()
 	await _season_wrap()
 	await _season_review_scrolls()
 	await _pre_match_scene()
@@ -201,6 +202,7 @@ func _regular_bye() -> void:
 	_check(actions != null and actions.find_child("SimToGrandFinal", true, false) == null
 			and actions.find_child("SimFinalsWeek", true, false) == null,
 			"No finals controls before the home-and-away season is done")
+	_check(hub.find_child("FinalsOpen", true, false) == null, "No finals series button before September")
 	var sim: Button = actions.find_child("SimByeRound", true, false) if actions != null else null
 	_check(sim != null and sim.text == "Play Round %d" % (r0 + 1), "The bye round can be simmed on its own")
 	hub.call("_on_sim_to_end")
@@ -236,6 +238,22 @@ func _finals_week_by_week() -> void:
 		return
 	root.size = Vector2i(390, 844)
 	var hub: Control = await _open_hub()
+	# The series beside the ladder: a finger's tap opens it, Back closes it.
+	# A press conference waiting over the hub is skipped first, as a player would.
+	var guard := 0
+	while hub.find_child("MediaConference", true, false) != null and guard < 4:
+		hub.call("handle_back")
+		await _settle()
+		guard += 1
+	var series: Button = hub.find_child("FinalsOpen", true, false)
+	var why: String = await preload("res://tests/tap.gd").tap(series) if series != null else "no Finals button"
+	await _settle()
+	var sheet: Node = hub.find_child("FinalsSheet", true, false)
+	_check(why == "" and sheet != null and sheet.find_child("FinalsBracket", true, false) != null,
+			"In September a tap on Finals opens the series (%s)" % why)
+	hub.call("handle_back")
+	await _settle()
+	_check(hub.find_child("FinalsSheet", true, false) == null, "Back closes the finals series")
 	var weeks := 0
 	var one_at_a_time := true
 	while not _state.season.is_season_over() and weeks < 6:
@@ -260,6 +278,37 @@ func _finals_week_by_week() -> void:
 	_check(_state.season.is_season_over() and int(_state.season_awards.get("year", 0)) == _state.season_year,
 			"The season, and its awards, close only after the Grand Final")
 	hub.queue_free()
+
+
+## A rival's approach for your coach sits on the hub until you answer it: a
+## finger's tap on an answer settles it and leaves the outcome in words.
+func _coach_approach_card() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("GEE", db.club_list("GEE"))
+	var mid: Dictionary = _state.club_staff("GEE").get("MID", {})
+	_check(not mid.is_empty(), "A midfield coach to approach")
+	if mid.is_empty():
+		return
+	_state.coach_approaches = [{"cid": str(mid["cid"]), "from_job": "MID", "club": "HAW", "job": "SA",
+			"choice": "", "kept": false, "text": ""}]
+	root.size = Vector2i(390, 844)
+	var hub: Control = await _open_hub()
+	var guard := 0
+	while hub.find_child("MediaConference", true, false) != null and guard < 4:
+		hub.call("handle_back")
+		await _settle()
+		guard += 1
+	var card: Node = hub.find_child("Approach_0", true, false)
+	_check(card != null and _screen_text(hub).contains("Hawthorn want"), "The approach is on the hub, the club named")
+	var go: Button = hub.find_child("Approach_0_go", true, false)
+	var why: String = await preload("res://tests/tap.gd").tap(go) if go != null else "no Let him go"
+	await _settle()
+	_check(why == "" and str(_state.coach_approaches[0]["choice"]) == "go", "A tap on Let him go answers it (%s)" % why)
+	_check(hub.find_child("Approach_0_go", true, false) == null and _screen_text(hub).contains("Hawthorn"),
+			"The answer replaces the choices, in words")
+	hub.queue_free()
+	await _settle()
 
 
 ## The Season Review runs well past one phone screen: everything under the

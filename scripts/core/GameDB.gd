@@ -157,9 +157,12 @@ func reload() -> void:
 	Ratings.derive_all(players)
 	_apply_history(players)
 	for p in players:
+		Ratings.rate_on_record(p)
+	for p in players:
 		Potential.assign(p)
 	_apply_potential_overrides(players)
 	draftees = _load_draftees()
+	mark_unicorns(players + draftees)
 	late_draftees = []
 
 	players_by_club = {}
@@ -270,7 +273,10 @@ func club_guernsey(code: String) -> Dictionary:
 		var at := "psa".find(token)
 		return cols[at] if at >= 0 and token.length() == 1 else fallback
 	return {"design": design, "base": pick.call(0, cols[0]), "pattern": pick.call(1, cols[1]),
-			"pattern2": pick.call(2, cols[2]), "shorts": pick.call(3, (cols[1] as Color).darkened(0.1))}
+			"pattern2": pick.call(2, cols[2]), "shorts": pick.call(3, (cols[1] as Color).darkened(0.1)),
+			# The third colour is named for this kit (Port's teal, St Kilda's black),
+			# not left to the club's accent.
+			"own_pattern2": slots.size() > 2 and str(slots[2]) != "a"}
 
 
 func club_list(code: String) -> Array:
@@ -375,6 +381,23 @@ func all_draftees_sorted() -> Array:
 ## Central August-2026 top 50 plus six names it missed). These players have
 ## no AFL season line, so Ratings.derive_all is skipped in favour of a
 ## projection from draft rank, role and reported U18 production.
+## The Unicorns at the start of a career, picked by the director
+## (2026-10-08): real players and the 2026 draft class, by their own names.
+## Traits.is_unicorn reads the flag this sets.
+const UNICORNS := ["Luke Jackson", "Sam Darcy", "Mark Blicavs", "Xavier Ladbrook"]
+
+
+## Flag the hand-picked Unicorns among `list` by real name (a player keeps
+## his name wherever the draft sends him), never a generated player. A save
+## from before the flag gets it back on load (GameState).
+func mark_unicorns(list: Array) -> void:
+	for p in list:
+		if bool(p.get("generated", false)):
+			continue
+		if UNICORNS.has("%s %s" % [str(p.get("first", "")), str(p.get("last", ""))]):
+			p["unicorn"] = true
+
+
 func _load_draftees() -> Array:
 	if not FileAccess.file_exists(DRAFTEES_CSV):
 		push_warning("GameDB: no draft-class file (%s); the intake draft will fall back to generated classes." % DRAFTEES_CSV)
