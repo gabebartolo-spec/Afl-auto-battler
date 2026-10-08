@@ -8,6 +8,7 @@ const SCENES := {
 	"hub": "res://scenes/HubScene.tscn",
 	"match": "res://scenes/MatchScene.tscn",
 	"ladder": "res://scenes/LadderScene.tscn",
+	"stats": "res://scenes/StatsHubScene.tscn",
 	"list": "res://scenes/ListScene.tscn",
 	"selection": "res://scenes/SelectionScene.tscn",
 	"offseason": "res://scenes/OffseasonScene.tscn",

@@ -12,7 +12,7 @@
 # Setup, import, queue time and runner variation are additional costs.
 # Re-measure after CI: these estimates are not a wall-clock guarantee.
 1: match_game pressure league intake chronology ratings
-2: match_visual ai matchup awards assets roles intake_ui
+2: match_visual ai matchup awards assets roles intake_ui stats
 3: career contracts injuries coaches training save draft_ui
 4: league_balance calibration finals matchday expansion draft selection coach_pathway
 5: club balance coach_market career_ui achievements workload coach_effects potential

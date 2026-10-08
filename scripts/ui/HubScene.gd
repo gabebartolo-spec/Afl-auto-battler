@@ -230,10 +230,12 @@ func _ladder_section(season: Season) -> Control:
 	var title := UiKit.section("Ladder")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title)
-	var full := UiKit.btn("Full ladder", 14)
-	full.name = "FullLadder"
-	full.custom_minimum_size = Vector2(112, 44)
-	full.pressed.connect(func(): Router.go("ladder"))
+	# The whole season - ladder, every player's numbers, awards, fixture,
+	# trophy room (director, 2026-10-07: replaces Full ladder).
+	var full := UiKit.btn("Season stats", 14)
+	full.name = "SeasonStats"
+	full.custom_minimum_size = Vector2(124, 44)
+	full.pressed.connect(func(): Router.go("stats"))
 	head.add_child(full)
 	var width := _content_width() if _narrow() else _content_width() * 0.45
 	v.add_child(UiKit.ladder_table(season.ladder_sorted(), GameState.my_club, width, 0, false))

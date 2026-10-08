@@ -219,6 +219,7 @@ func _test_intake_and_second_season() -> void:
 	_new_season("ADE")
 	var first_year := int(GameState.season_year)
 	GameState.season.round_index = GameState.season.fixture.size()
+	GameState.rising_star_noms = {"from": 1, "rounds": [{"round": 3, "id": "last_year", "club": "ADE"}]}
 	_check(GameState.begin_intake_draft(), "The intake opens")
 	var draft: Draft = GameState.draft
 	var logged := draft.pick_history.size()
@@ -238,6 +239,8 @@ func _test_intake_and_second_season() -> void:
 			draft._skip_current_pick()
 	_check(GameState.finish_intake_draft(), "The loaded intake commits")
 	_check(GameState.season_year == first_year + 1, "The career rolls into the next season")
+	_check(int(GameState.rising_star_noms.get("from", 0)) == 1 and (GameState.rising_star_noms["rounds"] as Array).is_empty(),
+			"Last season's Rising Star nominations stay behind at the rollover")
 
 	var late := GameDB.late_draftees.size()
 	var alias_next: int = GameDB._alias_next
@@ -248,6 +251,9 @@ func _test_intake_and_second_season() -> void:
 	_check(GameState.save_career(), "A second-season career saves")
 	_check(GameState.load_career(), "The second season loads")
 	_check(GameState.season_year == first_year + 1, "The year is restored")
+	var noms: Array = GameState.rising_star_noms["rounds"]
+	_check(noms.size() == 2 and int(noms[0]["round"]) == 1 and int(noms[1]["round"]) == 2,
+			"The second season's Rising Star nominations are recorded and restored")
 	_check(_ladder_sig() == ladder, "The second season's ladder is restored")
 	_check(GameDB.late_draftees.size() == late, "Generated draft classes are restored")
 	_check(GameDB._alias_next == alias_next, "The fictional-name cursor is restored")

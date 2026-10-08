@@ -45,10 +45,20 @@ var season_log: Array = []       # every result, for the season review screen
 var last_injuries: Array = []    # the last round's new injuries, every club
 var last_mro: Array = []         # the last round's MRO outcomes, every club
 var season_tally := {}           # player id -> running season numbers (Awards)
+## Every player's season statistics across the competition (StatBook): id ->
+## {"club", "clubs", "games", "s": {stat: total}}. season_stats_from is the
+## round the book starts at: 0, or the round an older save was at when it
+## first loaded with the book (rounds before it were never counted).
+var season_stats := {}
+var season_stats_from := 0
 var club_plan := "balanced"      # your standing game plan, from the first bounce
 var form_log := {}               # your player id -> his last three Player Ratings
 var season_team := {}            # club -> {"games": n, stat: season total}
 var season_awards := {}          # the finished season's awards
+## This season's Rising Star nominations, one a home-and-away round:
+## {"from": the first round recorded, "rounds": [{round, id, club}]}. A save
+## from before nominations were recorded starts "from" its next round.
+var rising_star_noms := {"from": 1, "rounds": []}
 var honour_roll: Array = []      # one entry per completed season
 ## Every coach in the game, once: cid -> record (Coaches.gd). A club's staff
 ## is read from the records, never stored beside them.
@@ -426,10 +436,13 @@ func save_career() -> bool:
 		"last_injuries": last_injuries,
 		"last_mro": last_mro,
 		"season_tally": season_tally,
+		"season_stats": StatBook.pack_book(season_stats),
+		"season_stats_from": season_stats_from,
 		"club_plan": club_plan,
 		"form_log": form_log,
 		"season_team": season_team,
 		"season_awards": season_awards,
+		"rising_star_noms": rising_star_noms,
 		"honour_roll": honour_roll,
 		"records": records,
 		"rivalry_history": rivalry_history,
@@ -553,13 +566,26 @@ func load_career() -> bool:
 	last_injuries = state.get("last_injuries", [])
 	last_mro = state.get("last_mro", [])
 	season_tally = state.get("season_tally", {})
+	season_stats = StatBook.unpack_book(state.get("season_stats", {}))
+	season_stats_from = int(state.get("season_stats_from", 0))
+	if not state.has("season_stats") and season != null:
+		# An older save, part way through a season: the book counts from here.
+		season_stats_from = season.round_index
 	club_plan = MatchSim.plan_key(str(state.get("club_plan", "balanced")))
 	if not CLUB_PLANS.has(club_plan):
 		club_plan = "balanced"
 	form_log = state.get("form_log", {})
 	season_team = state.get("season_team", {})
+	if not state.has("season_stats"):
+		# ...and so do the clubs' new statistics (TEAM_BOOK_KEYS).
+		for code in season_team:
+			(season_team[code] as Dictionary)["book_games"] = 0
 	_sync_club_plan()
 	season_awards = state.get("season_awards", {})
+	# Older saves recorded no nominations: the rounds already played stay
+	# unrecorded (never back-filled), and recording starts with the next one.
+	rising_star_noms = state.get("rising_star_noms",
+			{"from": season.round_index + 1 if season != null else 1, "rounds": []})
 	honour_roll = state.get("honour_roll", [])
 	records = state.get("records", {})
 	rivalry_history = state.get("rivalry_history", {})
@@ -803,10 +829,12 @@ func delete_saved_career() -> void:
 
 func _season_to_save() -> Dictionary:
 	var sv := CareerSave.object_vars(season)
-	sv["results"] = CareerSave.slim_results(season.results)
+	# The season's results keep every match's stat lines (StatBook); the
+	# season log keeps only scores, so no match is saved twice.
+	sv["results"] = CareerSave.slim_results(season.results, true)
 	var fin: Dictionary = season.finals.duplicate()
 	if fin.has("weeks"):
-		fin["weeks"] = CareerSave.slim_results(fin["weeks"])
+		fin["weeks"] = CareerSave.slim_results(fin["weeks"], true)
 	sv["finals"] = fin
 	return sv
 
@@ -883,10 +911,13 @@ func reset() -> void:
 	last_injuries = []
 	last_mro = []
 	season_tally = {}
+	season_stats = {}
+	season_stats_from = 0
 	club_plan = "balanced"
 	form_log = {}
 	season_team = {}
 	season_awards = {}
+	rising_star_noms = {"from": 1, "rounds": []}
 	honour_roll = []
 	records = {}
 	rivalry_history = {}
@@ -1161,7 +1192,7 @@ func _start_next_season(next_year: int, signed: int) -> void:
 		for code in season.lists:
 			for p in season.lists[code]:
 				played[str(p["id"])] = p
-		Career.close_season(played, season_tally, season_year)
+		Career.close_season(played, season_tally, season_year, season_stats, season_stats_from)
 	# Next year's generated class joins the pool before ageing, so the fresh
 	# 17-year-olds are also a year older in the season they arrive.
 	var generated := Prospects.generate_class(next_year, career_seed)
@@ -1201,9 +1232,12 @@ func _start_next_season(next_year: int, signed: int) -> void:
 		p.erase("brownlow_ineligible")
 		p.erase("brownlow_ineligible_cases")
 	season_tally = {}
+	season_stats = {}
+	season_stats_from = 0
 	form_log = {}
 	season_team = {}
 	season_awards = {}
+	rising_star_noms = {"from": 1, "rounds": []}
 	# Everyone listed before ageing: a retiree leaves the lists inside
 	# age_league, and his playing career must be captured from him first.
 	var listed := {}
@@ -3147,7 +3181,9 @@ func _after_round(results: Array) -> void:
 	_process_discipline(results)
 	for res in results:
 		Awards.tally_match(season_tally, res, not res.has("tag"))
+		StatBook.add_match(season_stats, res)
 		_note_form_and_team(res)
+	_nominate_rising_star(results)
 	_round_news(results)
 	_note_firsts(results)
 	_draft_class_news()
@@ -3160,15 +3196,40 @@ func _after_round(results: Array) -> void:
 	_next_week_event()
 
 
+## A home-and-away round's Rising Star nomination (Awards.rising_star_nominee).
+func _nominate_rising_star(results: Array) -> void:
+	if season == null or last_phase != "regular":
+		return
+	var rnd := season.round_index
+	var nominated := {}
+	for n in rising_star_noms.get("rounds", []):
+		nominated[str(n["id"])] = true
+		if int(n["round"]) == rnd:
+			return  # already named this round
+	if rnd < int(rising_star_noms.get("from", 1)):
+		return
+	var ages := {}
+	for code in season.lists:
+		for p in season.lists[code]:
+			ages[str(p["id"])] = float(p.get("age", 30.0))
+	var pick := Awards.rising_star_nominee(results, ages, nominated)
+	if pick.is_empty():
+		return
+	pick["round"] = rnd
+	if not rising_star_noms.has("rounds"):
+		rising_star_noms["rounds"] = []
+	(rising_star_noms["rounds"] as Array).append(pick)
+
+
 func _close_season_awards() -> void:
 	var players := {}
 	for code in season.lists:
 		for p in season.lists[code]:
 			players[str(p["id"])] = p
 	# Before the off-season releases anyone, so a delisted player keeps it.
-	Career.close_season(players, season_tally, season_year)
+	Career.close_season(players, season_tally, season_year, season_stats, season_stats_from)
 	open_offseason()
-	season_awards = Awards.season_awards(season_tally, players, season_year)
+	season_awards = Awards.season_awards(season_tally, players, season_year, rising_star_noms)
 	records = Awards.update_records(records, season_awards, season_log)
 	var mine_bf: Array = (season_awards["best_and_fairest"] as Dictionary).get(my_club, [])
 	honour_roll.append({
@@ -3182,6 +3243,12 @@ func _close_season_awards() -> void:
 		"my_bf": mine_bf.slice(0, 1),
 		"my_club": my_club,
 		"my_position": my_position(),
+		# Your season for the trophy room (Season stats): the home-and-away
+		# record, the last final you played ("" for no finals; its tag, e.g.
+		# "PF1") and your All-Australians. Older entries lack these keys.
+		"my_record": my_record(),
+		"my_finals": _my_last_final(),
+		"my_aa": _my_all_australians(),
 	})
 	# Achievements first, then the season news, so the premiership line
 	# stays the newest item in the feed.
@@ -3189,6 +3256,25 @@ func _close_season_awards() -> void:
 	_board_season_end()
 	_coaching_offseason()
 	_season_news()
+
+
+## The tag of the last final your club played this season ("" if none).
+func _my_last_final() -> String:
+	var tag := ""
+	for week in season.finals.get("weeks", []):
+		for res in week:
+			if is_my_match(res):
+				tag = str(res.get("tag", ""))
+	return tag
+
+
+## The ids of your club's players in this season's All-Australian team.
+func _my_all_australians() -> Array:
+	var out := []
+	for r in season_awards.get("all_australian", []):
+		if str(r.get("club", "")) == my_club:
+			out.append(str(r["id"]))
+	return out
 
 
 ## Club achievements unlock only at season's end: every objective reads the
@@ -7217,6 +7303,9 @@ func _note_form_and_team(res: Dictionary) -> void:
 		row["games"] = int(row["games"]) + 1
 		for k in TEAM_KEYS:
 			row[k] = float(row.get(k, 0.0)) + float((team[side] as Dictionary).get(k, 0.0))
+		row["book_games"] = int(row.get("book_games", 0)) + 1
+		for k in TEAM_BOOK_KEYS:
+			row[k] = float(row.get(k, 0.0)) + float((team[side] as Dictionary).get(k, 0.0))
 		row["for"] = float(row.get("for", 0.0)) + float(score[side])
 		row["against"] = float(row.get("against", 0.0)) + float(score[1 - side])
 		# Where the points come from, both ways (MatchSim score sources).
@@ -7262,6 +7351,23 @@ static func _source_pts(t: Dictionary, k: String) -> float:
 const FORM_GAMES := 3
 const TEAM_KEYS := ["clearances", "inside50", "tackles", "pressure_acts", "marks",
 		"rebounds", "clangers", "hitouts", "disposals", "metres_gained", "distance_run"]
+## The club statistics added with the Stats patch. A club row counts its own
+## games for them ("book_games"): an older save loaded mid-season starts them
+## at that point, so a per-game figure is never spread over games it did not
+## see.
+const TEAM_BOOK_KEYS := ["kicks", "handballs", "contested_possessions", "uncontested_possessions",
+		"ground_ball_gets", "running_bounces", "shots", "goals", "behinds", "intercepts",
+		"one_percenters", "frees_for", "frees_against", "hitouts_adv", "contested_marks"]
+
+
+## A club's season figure a game: scores for and against, and every team
+## statistic (TEAM_KEYS, TEAM_BOOK_KEYS). -1 before it has played.
+func club_per_game(code: String, key: String) -> float:
+	var row: Dictionary = season_team.get(code, {})
+	var g := int(row.get("book_games", row.get("games", 0))) if TEAM_BOOK_KEYS.has(key) else int(row.get("games", 0))
+	if g <= 0:
+		return -1.0
+	return float(row.get(key, 0.0)) / float(g)
 
 
 ## Players whose last three games stand out against their own season:
