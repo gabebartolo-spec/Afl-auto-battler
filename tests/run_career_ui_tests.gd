@@ -408,6 +408,25 @@ func _run() -> void:
 			"A small window at 300% follows the OS scaling (the small-window floor then applies)")
 	_check(is_equal_approx(dens.call(2880, 1800, 2.0, 0), 2.25),
 			"A Mac reporting its own scale still fills the screen")
+	# Screen size (director, 2026-10-08: the game on a 4K TV from the couch):
+	# TV draws everything 1.6x bigger; Standard puts it back.
+	# In a PC-sized window: the small-window floor stops a 320-wide one.
+	var window_before: Vector2i = root.size
+	root.size = Vector2i(1280, 720)
+	layout.set_screen_size("standard")
+	await _settle()
+	var canvas_before: Vector2i = root.content_scale_size
+	layout.set_screen_size("tv")
+	await _settle()
+	var canvas_tv: Vector2i = root.content_scale_size
+	_check(is_equal_approx(float(layout.ui_scale), 1.6) and canvas_tv.x > 0
+			and absf(float(canvas_before.x) / float(canvas_tv.x) - 1.6) < 0.05,
+			"TV screen size draws the game 1.6x bigger (%s -> %s)" % [canvas_before, canvas_tv])
+	layout.set_screen_size("standard")
+	await _settle()
+	_check(root.content_scale_size == canvas_before, "Standard puts it back")
+	root.size = window_before
+	await _settle()
 
 	# --- new career setup: names and difficulty, applied only on start -------
 	current_scene.find_child("NewCareer", true, false).emit_signal("pressed")

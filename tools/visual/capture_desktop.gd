@@ -2,6 +2,7 @@ extends SceneTree
 ## STYLE-07 review: the game as a PC shows it, fullscreen or in a window, on
 ## this machine's real display (needs a real renderer and a desktop):
 ##   godot --path . --script tools/visual/capture_desktop.gd -- --out /tmp/desk [--window 1600x900]
+##       [--screen-size standard|large|tv]
 ## Writes <out>_sheet.png: main menu, New career, the hub and your list, each
 ## shrunk to a quarter-width tile, with the window, logical canvas and scale
 ## printed.
@@ -25,12 +26,16 @@ func _shot() -> Image:
 func _run() -> void:
 	var out := "/tmp/desk"
 	var window := ""
+	var screen_size := "standard"
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
+		elif str(a[i]) == "--screen-size":
+			screen_size = str(a[i + 1])
 		elif str(a[i]) == "--window":
 			window = str(a[i + 1])
+	root.get_node("ScreenLayout").call("set_screen_size", screen_size)
 	if window == "":
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	else:

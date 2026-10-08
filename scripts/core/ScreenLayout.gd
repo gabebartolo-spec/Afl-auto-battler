@@ -3,6 +3,11 @@ extends Node
 ## canvas onto a portrait phone. Rotation changes the layout, not the text size.
 
 var _updating := false
+## The player's screen size choice on a desktop (Options > Screen size): the
+## whole interface this much bigger, for a big screen seen from across the
+## room (director, 2026-10-08: the game on a 4K TV). 1.0 is Standard.
+var ui_scale := 1.0
+const SCREEN_SIZES := [["standard", "Standard", 1.0], ["large", "Large", 1.25], ["tv", "TV", 1.6]]
 ## The desktop canvas the UI is laid out for (project.godot's viewport). A
 ## bigger window or screen shows the game bigger, not emptier (STYLE-07).
 const DESKTOP_REF := Vector2(1280, 720)
@@ -42,6 +47,8 @@ func _update_scale() -> void:
 			density = maxf(1.0, float(ratio))
 	elif OS.has_feature("android") or OS.has_feature("ios"):
 		density = maxf(1.0, float(DisplayServer.screen_get_dpi()) / 160.0)
+	else:
+		density *= ui_scale
 	# Small desktop windows remain usable too. Below 320 UI units there is
 	# no longer room for four touch targets and their position labels.
 	density = minf(density, minf(pixels.x, pixels.y) / 320.0)
@@ -80,6 +87,26 @@ static func desktop_density(pixels: Vector2, os_scale: float, dpi: int) -> float
 	var os_density := maxf(os_scale, float(dpi) / 96.0 if dpi > 0 else 1.0)
 	var fit := minf(pixels.x / DESKTOP_REF.x, pixels.y / DESKTOP_REF.y)
 	return maxf(1.0, maxf(os_density, fit))
+
+
+## Desktop only: a phone's density already comes from its screen.
+static func is_desktop() -> bool:
+	return not (OS.has_feature("android") or OS.has_feature("ios") or OS.has_feature("web"))
+
+
+func set_screen_size(key: String) -> void:
+	ui_scale = 1.0
+	for row in SCREEN_SIZES:
+		if str(row[0]) == key:
+			ui_scale = float(row[2])
+	_update_scale()
+
+
+func set_fullscreen(on: bool) -> void:
+	if DisplayServer.get_name() == "headless" or not is_desktop():
+		return
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if on
+			else DisplayServer.WINDOW_MODE_WINDOWED)
 
 
 ## Insets in UI units, for notches and gesture/home-indicator areas. The OS
