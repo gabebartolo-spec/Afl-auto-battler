@@ -2831,6 +2831,7 @@ Goal: make player deployment intuitive, footy-authentic and consequential.
 - Windy has a breeze end per quarter.
 - A visible "Wet-weather player" trait.
 - Long sleeves: about 15% of a list wear them, up to 25% in the wet.
+- **Director decision (2026-10-08, #522):** the long-sleeve look is approved: the guernsey's top runs over the shoulder (a yoke or stripes), the sleeve below is the base colour, no bare shoulder. Sock hoops approved as shown (off until a kit sets them).
 
 **Evidence:** docs/research/WEATHER_EVIDENCE.md, the lead's own research and conclusions.
 
@@ -2852,7 +2853,7 @@ Goal: make player deployment intuitive, footy-authentic and consequential.
    - rain on the pitch and vignettes;
    - wind in flags and banners;
    - heat haze and hard shadows;
-   - long sleeves per player (#368, backlog item).
+   - long sleeves per player (#522, which replaces #368; look approved 2026-10-08).
    Zero result effect from the look itself.
 
 **Validation:**

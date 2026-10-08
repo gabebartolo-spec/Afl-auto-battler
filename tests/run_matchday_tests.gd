@@ -1165,6 +1165,36 @@ func _appearance() -> void:
 			and bald > 30 and bald < 240 and clean > 1200 and clean < 1600 and inked > 600 and inked < 1200 and valid_ok,
 			"Generated players vary across the library from their id alone (%d styles, %d bald, %d clean-shaven, %d inked)" % [
 					styles.size(), bald, clean, inked])
+	# Long sleeves: a player's own, from his id alone - about one in seven, one in four
+	# in the wet (everyone who wears them dry still does), and the same every time.
+	var dry := 0
+	var wet := 0
+	var kept := true
+	for i in range(3000):
+		var id := "gen_%d" % i
+		var d := Appearance.long_sleeves(id)
+		var w := Appearance.long_sleeves(id, true)
+		dry += 1 if d else 0
+		wet += 1 if w else 0
+		kept = kept and (w or not d) and d == Appearance.long_sleeves(id)
+	var fl: Dictionary = db.figure_look(fake)
+	_check(dry > 360 and dry < 540 and wet > 630 and wet < 870 and kept
+			and fl["long_sleeves"] == Appearance.long_sleeves(str(fake["id"])) and fl["hair_style"] == db.player_appearance(fake)["hair_style"],
+			"Long sleeves are a player's own: %d of 3000 dry, %d in the wet, stable per id" % [dry, wet])
+	# The figure's draw colour packs kit, sleeves and mirror so the shader reads them back.
+	var sv: GDScript = load("res://scripts/ui/match/StoppageVignette.gd")
+	var packs := true
+	for kit in range(4):
+		for sl in [false, true]:
+			for mi in [false, true]:
+				var code := int(round(float(sv.kit_code(kit, sl, mi)) * 16.0))
+				packs = packs and code / 4 == kit and ((code / 2) % 2 == 1) == sl and (code % 2 == 1) == mi
+	var plain: Dictionary = db.club_guernsey("COL")
+	var hooped := plain.duplicate()
+	hooped["sock_hoops"] = 2
+	var extra: Array = (sv.figure_material([plain, hooped]) as ShaderMaterial).get_shader_parameter("kit_extra")
+	_check(packs and extra.size() == 4 and is_zero_approx((extra[0] as Vector4).y) and int((extra[1] as Vector4).y) == 2,
+			"A figure's draw colour carries kit, sleeves and mirror; sock hoops are off unless a kit asks")
 	var chosen := {"id": "C_1", "look": {"skin": 5, "hair": 2, "hair_style": "afro", "beard": "nonsense", "scars": 9}}
 	var cf: Dictionary = db.player_appearance(chosen)
 	_check(cf["hair_style"] == "afro" and cf["beard"] == "clean" and not cf.has("scars")

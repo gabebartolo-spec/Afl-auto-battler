@@ -500,10 +500,12 @@ func player_appearance(p: Dictionary) -> Dictionary:
 			p.get("look", {}) if p.get("look") is Dictionary else {})
 
 
-## What a figure needs to draw him: his colours (player_looks) and his hair style.
-func figure_look(p: Dictionary) -> Dictionary:
+## What a figure needs to draw him: his colours (player_looks), his hair style and
+## whether he wears long sleeves today (more do in the wet).
+func figure_look(p: Dictionary, wet := false) -> Dictionary:
 	var out := player_looks(p).duplicate()
 	out["hair_style"] = str(player_appearance(p)["hair_style"])
+	out["long_sleeves"] = Appearance.long_sleeves(str(p.get("id", "")), wet)
 	return out
 
 

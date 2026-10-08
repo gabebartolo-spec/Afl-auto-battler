@@ -110,9 +110,9 @@ func setup(p_kind: String, p_event: Dictionary, p_scene: Dictionary, p_result: D
 	_colours[1] = GameDB.club_colours(away) if away != "" else [Color(0.5, 0.5, 0.5), Color.BLACK, Color.WHITE]
 	_dress([home, away])
 	var p = GameDB.player_by_id(str(event.get("player_id", "")))
-	# The match's weather, when it has one.
+	# The match's weather, when it has one; more players wear long sleeves in the wet.
 	weather = str(result.get("weather", ""))
-	_look = GameDB.figure_look(p) if p is Dictionary else Appearance.UNCURATED
+	_look = GameDB.figure_look(p, weather == "wet") if p is Dictionary else Appearance.UNCURATED
 	_build = build_for(p if p is Dictionary else {})
 	_board = {}
 	if event.has("goals") and event.has("behinds") and home != "" and away != "":
