@@ -46,6 +46,10 @@ const APRON := Color(0.13, 0.32, 0.14)
 const PAINT := Color(0.97, 0.97, 0.95, 0.92)
 const WORN := [Color(0.26, 0.36, 0.17, 0.55), Color(0.38, 0.36, 0.22, 0.45)]
 
+## The ground being shown, by its fixture name ("MCG"). A ground with its own treatment
+## (FL-003) draws its landmarks; any other, or "", draws the plain ground.
+static var venue := ""
+
 ## Where the goal line runs: the boundary at the behind posts.
 static var GOAL_Y := L * sqrt(1.0 - pow(1.5 * GOAL_GAP / A, 2.0))
 
@@ -357,6 +361,8 @@ static func _draw_stands(ci: CanvasItem, cam: Cam, colours: Array, seed: int, bo
 			VignetteWeather.draw_flag(ci, Vector2(s.x, s.y), 7.0 * s.z, 5.0 * s.z, 2.6 * s.z,
 					c0 if home else c1, t, float(i) * 0.7, wind, _second(colours, 0 if home else 1))
 	_screen(ci, cam, c0, c1, board)
+	if venue == "MCG":
+		_screen(ci, cam, c0, c1, board, -1)
 	_haze(ci, cam, weather)
 
 
@@ -440,6 +446,9 @@ static func _wall(tri: Tris, cam: Cam, a0: float, a1: float, o0: float, o1: floa
 ## The light towers outside the stands: a mast and a bank of lights at the top of each,
 ## glowing into the night.
 static func _towers(ci: CanvasItem, cam: Cam) -> void:
+	if venue == "MCG":
+		_mcg_towers(ci, cam)
+		return
 	for p in _tower_spots():
 		var base := cam.oval(p, 0.0)
 		if base.z <= 0.0:
@@ -453,11 +462,62 @@ static func _towers(ci: CanvasItem, cam: Cam) -> void:
 		ci.draw_rect(Rect2(Vector2(top.x, top.y) - bank * 0.5, bank), Color(0.98, 0.97, 0.9), true)
 
 
+## The MCG's six light towers (mcg.org.au, "Light towers"): hollow tubular steel masts
+## about 75 m high, tapering from 4.2 m across at the foot to 2 m at the top, each
+## carrying a head frame of lamps a further 10 m high, angled 15 degrees in towards the
+## ground. The frame's width isn't published: 14 m reads right against photos.
+const MCG_MAST := 75.0
+const MCG_FRAME_H := 10.0
+const MCG_FRAME_W := 14.0
+const MCG_TILT := 15.0
+
+static func _mcg_towers(ci: CanvasItem, cam: Cam) -> void:
+	var steel := Color(0.09, 0.09, 0.1)
+	for p in _tower_spots():
+		var base := cam.oval(p, 0.0)
+		var top := cam.oval(p, MCG_MAST)
+		if base.z <= 0.0 or top.z <= 0.0:
+			continue
+		var wb := maxf(1.0, 4.2 * base.z) * 0.5
+		var wt := maxf(1.0, 2.0 * top.z) * 0.5
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(base.x - wb, base.y), Vector2(base.x + wb, base.y),
+				Vector2(top.x + wt, top.y), Vector2(top.x - wt, top.y)]), steel)
+		# The head frame: across the tower's line to the centre, its top leaning in.
+		var inward: Vector2 = (-(p as Vector2)).normalized()
+		var across := Vector2(-inward.y, inward.x) * MCG_FRAME_W * 0.5
+		var lean := inward * MCG_FRAME_H * sin(deg_to_rad(MCG_TILT))
+		var rise := MCG_FRAME_H * cos(deg_to_rad(MCG_TILT))
+		var corners := [cam.oval(p - across, MCG_MAST), cam.oval(p + across, MCG_MAST),
+				cam.oval(p + across + lean, MCG_MAST + rise), cam.oval(p - across + lean, MCG_MAST + rise)]
+		var quad := PackedVector2Array()
+		for c in corners:
+			if c.z <= 0.0:
+				quad.clear()
+				break
+			quad.append(Vector2(c.x, c.y))
+		if quad.is_empty():
+			continue
+		var mid := (quad[0] + quad[1] + quad[2] + quad[3]) * 0.25
+		var reach := quad[0].distance_to(quad[1])
+		for g in range(6):
+			ci.draw_circle(mid, reach * (0.55 + g * 0.45), Color(1.0, 0.95, 0.82, 0.05 - g * 0.007))
+		ci.draw_colored_polygon(quad, steel)
+		# The lamps, rows across the frame.
+		var lamp := maxf(0.8, 0.45 * top.z)
+		for row in range(4):
+			for col in range(9):
+				var u := (float(col) + 0.5) / 9.0
+				var v := (float(row) + 0.5) / 4.0
+				var at: Vector2 = quad[0].lerp(quad[1], u).lerp(quad[3].lerp(quad[2], u), v)
+				ci.draw_rect(Rect2(at - Vector2(lamp, lamp * 0.7), Vector2(lamp * 2.0, lamp * 1.4)), Color(0.98, 0.97, 0.9), true)
+
+
 ## The big screen high above the far end, behind the goals, showing the match's score
 ## as it stands (board): each club's code by a chip of its colour, goals.behinds and
-## the total, the quarter beneath. Lit, so it glows a little into the night.
-static func _screen(ci: CanvasItem, cam: Cam, home: Color, away: Color, board: Dictionary) -> void:
-	var at := Vector2(0.0, L + FENCE + 40.0)
+## the total, the quarter beneath. Lit, so it glows a little into the night. The MCG has
+## one at each end (end -1: the other one).
+static func _screen(ci: CanvasItem, cam: Cam, home: Color, away: Color, board: Dictionary, end := 1) -> void:
+	var at := Vector2(0.0, (L + FENCE + 40.0) * end)
 	var c := cam.oval(at, 30.0)
 	if c.z <= 0.0:
 		return
