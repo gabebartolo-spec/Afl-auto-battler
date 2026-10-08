@@ -19,7 +19,7 @@ static func projection(p: Dictionary, club: String, seed: int, uncertainty_mult 
 	var ov_mid := clampi(int(round(float(ov) + _normal(_key(p, club, seed, "ovr")) * OVR_SD * certainty * u)), 1, 99)
 	var pot_mid := clampi(int(round(float(pot) + _normal(_key(p, club, seed, "pot")) * POT_SD * certainty * u)), ov_mid, 99)
 	var base_ov_half := 2 if certainty < 0.82 else 3
-	var base_pot_half := 4 if certainty < 0.82 else 5
+	var base_pot_half := 3 if certainty < 0.82 else 4
 	var ov_half := maxi(1, int(round(float(base_ov_half) * u)))
 	var pot_half := maxi(2, int(round(float(base_pot_half) * u)))
 	return {

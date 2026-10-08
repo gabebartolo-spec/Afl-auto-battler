@@ -456,6 +456,35 @@ func _test_created_club_career() -> void:
 	var season: Season = GameState.season
 	_check(GameState.my_club == "PMB" and season.ladder.size() == 19 and season.ladder.has("PMB"),
 			"You coach the created club on a nineteen-club ladder")
+	# The director's PC playtest (2026-10-07): a created club started with
+	# every coaching job vacant. It hires before its first season, from
+	# coaches out of work; you are its senior coach.
+	var staff := Coaches.staff(GameState.coaches, "PMB")
+	_check(not staff.has("SC") and staff.size() == 5
+			and ["SA", "MID", "FWD", "DEF", "DEV"].all(func(j): return staff.has(j)),
+			"The created club starts with its five assistants (%s)" % str(staff.keys()))
+	var seeded := Coaches.seed("PMB")
+	var taken := false
+	for cid in staff.values():
+		var was: Dictionary = seeded.get(cid, {})
+		taken = taken or str(was.get("status", "")) == "club"
+	_check(not taken, "Nobody is taken from another club's staff")
+	var others_same := true
+	for club in GameDB.active_clubs(GameState.season_year):
+		if club != "PMB" and Coaches.staff(GameState.coaches, club) != Coaches.staff(seeded, club):
+			others_same = false
+	_check(others_same, "Every other club keeps its 2026 staff")
+	# One player per number on every list after the League Draft (director's
+	# PC playtest, 2026-10-07: two players on his club both wore 35).
+	var clashes := 0
+	for code in season.lists:
+		var seen := {}
+		for p in season.lists[code]:
+			var n := int(p.get("num", 0))
+			if n <= 0 or seen.has(n):
+				clashes += 1
+			seen[n] = true
+	_check(clashes == 0, "Every club's list has one player per number after the League Draft (%d clashes)" % clashes)
 	var mine: Array = season.lists["PMB"]
 	_check(mine.size() >= Prospects.MIN_LIST and mine.size() <= Ratings.LIST_SIZE,
 			"The created club drafts a full list (%d)" % mine.size())
@@ -483,6 +512,42 @@ func _test_created_club_career() -> void:
 			"The loaded career brings its club back, guernsey and all")
 	_check(GameState.my_club == "PMB" and (GameState.season.lists["PMB"] as Array).size() == mine.size(),
 			"The created club's list survives the round trip")
+	# A save from before the fix: two players in one number. Loading fixes it,
+	# and only the later one changes.
+	var pmb: Array = GameState.season.lists["PMB"]
+	var keep_num := int(pmb[0]["num"])
+	var other_was := int(pmb[1]["num"])
+	pmb[1]["num"] = keep_num
+	_check(GameState.save_career(), "(a save with a doubled number)")
+	GameState.reset()
+	_check(GameState.load_career(), "(it loads)")
+	pmb = GameState.season.lists["PMB"]
+	_check(int(pmb[0]["num"]) == keep_num and int(pmb[1]["num"]) != keep_num,
+			"Loading gives the doubled number back to its first holder and the other a free one (%d, was %d)" % [int(pmb[1]["num"]), other_was])
+	_check(Coaches.staff(GameState.coaches, "PMB") == staff, "The created club's staff survives the round trip")
+	# A save made before the fix: the created club has nobody. Loading staffs it.
+	for cid in GameState.coaches:
+		var c: Dictionary = GameState.coaches[cid]
+		if str(c.get("club", "")) == "PMB" and str(c.get("status", "")) == "club":
+			c["status"] = "free"
+			c["club"] = ""
+			c["job"] = ""
+	_check(Coaches.staff(GameState.coaches, "PMB").is_empty(), "(an old save's bare created club)")
+	_check(GameState.save_career(), "The bare-club save is written")
+	GameState.reset()
+	_check(GameState.load_career(), "The bare-club save loads")
+	var repaired := Coaches.staff(GameState.coaches, "PMB")
+	_check(repaired.size() == 5 and not repaired.has("SC"), "Loading an old save staffs its created club")
+	_check(GameState.save_career(), "The repaired save is written")
+	GameState.reset()
+	_check(GameState.load_career() and Coaches.staff(GameState.coaches, "PMB") == repaired,
+			"The repair happens once: loading again changes nothing")
+	# An AI-run created club gets a senior coach too.
+	var probe := Coaches.seed("COL")
+	var filled := CoachMarket.staff_new_clubs(probe, ["COL", "PMB"], "COL", 2026, 7)
+	_check(filled.size() == 6 and Coaches.staff(probe, "PMB").size() == 6
+			and Coaches.staff(probe, "COL") == Coaches.staff(Coaches.seed("COL"), "COL"),
+			"A created club the AI runs hires all six; a seeded club is left alone")
 
 ## A club with no recorded expectation or goal position follows the club count,
 ## not 18 (a created club makes a league of 19 to 21).

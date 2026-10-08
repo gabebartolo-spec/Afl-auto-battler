@@ -253,7 +253,21 @@ static func spacer(px := 6) -> Control:
 ## Remove immediately from layout; freeing at frame end avoids deleting the
 ## button currently emitting pressed. No duplicate rows during a refresh.
 static func clear(container: Node) -> void:
+	# A tap that rebuilds the list it sits in (drafting a player, say) must still
+	# reach the ScrollContainer around the list. Taking the tapped row out of the
+	# tree mid-tap ends the event there: the scroll never hears the release,
+	# stays mid-drag, and every later mouse move drags the list back to where
+	# the tap began. So the row under the pointer leaves at the end of the
+	# frame instead, hidden and renamed so its replacement can take its name.
+	var under: Control = null
+	if container.is_inside_tree():
+		under = container.get_viewport().gui_get_hovered_control()
 	for child in container.get_children():
+		if under != null and child is CanvasItem and (child == under or child.is_ancestor_of(under)):
+			child.name = "Leaving_%d" % child.get_instance_id()
+			(child as CanvasItem).hide()
+			child.queue_free()
+			continue
 		container.remove_child(child)
 		child.queue_free()
 
@@ -643,20 +657,35 @@ static func modal_box(parent: Control, max_w: float, prefer_h := 0.0) -> Diction
 	var outer := vbox(8)
 	shell.add_child(outer)
 	var body := vbox(8)
-	outer.add_child(scroll(body))
+	var sc := scroll(body)
+	outer.add_child(sc)
 	var footer := vbox(6)
 	outer.add_child(footer)
+	# The sheet is as tall as what it holds (the director's PC playtest,
+	# 2026-10-07: a three-paragraph help sheet filled the screen, its buttons
+	# at the bottom of empty space). It scrolls only when that is more than
+	# the screen, or than prefer_h when the caller caps it.
 	var fit := func() -> void:
+		if not is_instance_valid(shell):
+			return
 		var bounds := overlay.size
 		if bounds.x < 40.0 or bounds.y < 40.0:
 			bounds = Vector2(view_width(parent), view_height(parent))
 		var w := minf(max_w, maxf(220.0, bounds.x - 24.0))
-		var h := maxf(160.0, bounds.y - 24.0)
+		var most := maxf(160.0, bounds.y - 24.0)
 		if prefer_h > 0.0:
-			h = minf(h, prefer_h)
-		shell.custom_minimum_size = Vector2(w, h)
+			most = minf(most, prefer_h)
+		var chrome := shell.get_combined_minimum_size().y - sc.get_combined_minimum_size().y
+		var room := maxf(80.0, most - chrome)
+		sc.custom_minimum_size.y = minf(body.get_combined_minimum_size().y, room)
+		shell.custom_minimum_size = Vector2(w, 0.0)
+	var refit := func() -> void:
+		fit.call_deferred()
 	fit.call()
 	overlay.resized.connect(fit)
+	body.minimum_size_changed.connect(refit)
+	footer.minimum_size_changed.connect(refit)
+	body.resized.connect(refit)
 	return {"overlay": overlay, "body": body, "footer": footer, "shell": shell}
 
 

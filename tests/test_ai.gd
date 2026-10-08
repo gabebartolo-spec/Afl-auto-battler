@@ -60,7 +60,9 @@ func _test_league_draft_balance() -> void:
 			for p in d.club_lists[code]:
 				if str(p["role"]) == "RUCK":
 					rucks += 1
-					if int(p["overall"]) >= 65:
+					# Good for the seasons ahead: a 35-year-old is a one-year
+					# asset (League Draft horizons, director 2026-10-07).
+					if int(p["overall"]) >= 65 and float(p.get("age", 30)) < 33.0:
 						good += 1
 			if rucks < 2 or rucks > 3:
 				two_rucks = false
@@ -80,9 +82,23 @@ func _test_league_draft_balance() -> void:
 				first_round_rucks += 1
 			if str(p["real_name"]) == "Max Gawn":
 				gawn_pick = int(e["pick"])
-		_check(first_round_rucks >= 1 and first_round_rucks <= 4,
-				"Round one takes the elite rucks, not only rucks (%d)" % first_round_rucks)
-		_check(gawn_pick <= 18, "The best ruck goes in round one (pick %d)" % gawn_pick)
+		_check(first_round_rucks <= 4, "Round one is not all rucks (%d)" % first_round_rucks)
+		# A club's horizon (director, 2026-10-07): a 35-year-old is a first-round
+		# pick only for a club going for the flag now; the best ruck under 30
+		# goes in the first two rounds.
+		var gawn_club := ""
+		var young_ruck_pick := 999
+		var best_young := -1
+		for e in d.pick_history:
+			var p = GameDB.player_by_id(str(e["player_id"]))
+			if str(p["real_name"]) == "Max Gawn":
+				gawn_club = str(e["club"])
+			if str(p["role"]) == "RUCK" and float(p.get("age", 30)) < 30.0 and int(p["overall"]) > best_young:
+				best_young = int(p["overall"])
+				young_ruck_pick = int(e["pick"])
+		_check(gawn_pick > 18 or d.club_horizon(gawn_club) == "now",
+				"Max Gawn (35) goes in round one only to a club going for the flag now (pick %d, %s)" % [gawn_pick, d.club_horizon(gawn_club)])
+		_check(young_ruck_pick <= 36, "The best ruck under 30 goes in the first two rounds (pick %d)" % young_ruck_pick)
 		var first: Dictionary = GameDB.player_by_id(str(d.pick_history[0]["player_id"]))
 		_check(int(first["overall"]) >= 88, "Pick one is an elite player (%d)" % int(first["overall"]))
 

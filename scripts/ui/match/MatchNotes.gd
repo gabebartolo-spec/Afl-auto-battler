@@ -334,13 +334,13 @@ static func calls_lines(res: Dictionary, my_side: int, q: int) -> Array:
 	var prev := (" in the %s" % QUARTER_NAMES[q - 2]) if q >= 2 else ""
 	var n := func(d: Dictionary, k: String) -> int: return int(d.get(k, 0.0))
 	var out := []
-	var plan := str(calls.get("gameplan", "balanced"))
+	var plan := MatchSim.plan_key(str(calls.get("gameplan", "balanced")))
 	var label := CoachReport.plan_label(plan)
 	match plan:
-		"attacking", "fast":
+		"attacking":
 			out.append(("%s: %d inside 50s and %s" % [label, n.call(mine, "inside50"), _goals_word(n.call(mine, "goals"))])
 					+ ((", from %d and %d%s." % [n.call(p_mine, "inside50"), n.call(p_mine, "goals"), prev]) if q >= 2 else "."))
-		"defensive", "press":
+		"defensive":
 			out.append(("%s: they had %d inside 50s and kicked %s" % [label, n.call(theirs, "inside50"), _goals_word(n.call(theirs, "goals"))])
 					+ ((", from %d and %d%s." % [n.call(p_theirs, "inside50"), n.call(p_theirs, "goals"), prev]) if q >= 2 else "."))
 		"contest":
@@ -386,6 +386,40 @@ static func _stars_disposals(res: Dictionary, now: Dictionary, was: Dictionary, 
 	for id in stars[side]:
 		total += _player_delta(now, was, str(id), "disposals")
 	return total
+
+
+## A player picked to play through, by the slot he fills: "Matthew Jefferson
+## our key forward target". The engine favours him by that job (MatchSim
+## _focus_mult): the ball up forward and the shots for a forward, first use out
+## of the back half for a defender, the ball in the chain for a midfielder or ruck.
+const FOCUS_ROLES := {
+	"MID": ["our key midfielder", "the ball goes to him more often through the midfield"],
+	"FWD": ["our key forward target", "more of the ball up forward and more of the shots at goal"],
+	"DEF": ["our key distributor", "first use of the ball out of the back half"],
+	"RUCK": ["our key man in the middle", "the ball goes to him more often"],
+}
+
+
+static func focus_role_text(name: String, role: String) -> String:
+	if not FOCUS_ROLES.has(role):
+		return name
+	return "%s %s" % [name, str(FOCUS_ROLES[role][0])]
+
+
+static func focus_effect_text(role: String) -> String:
+	if not FOCUS_ROLES.has(role):
+		return "more of the ball in the chains"
+	return str(FOCUS_ROLES[role][1])
+
+
+## Your tag that ended in quarter q because the man was no longer a
+## midfielder (a rotation put him in another line): one plain line each.
+static func tag_drop_lines(res: Dictionary, my_side: int, q: int) -> Array:
+	var out := []
+	for d in res.get("tag_drops", []):
+		if int(d["side"]) == my_side and int(d["q"]) == q:
+			out.append("Your tag on %s ended: he is no longer in the midfield." % GameDB.player_display_name_by_id(str(d["id"]), "their player"))
+	return out
 
 
 ## How your tag went in quarter q: "Your tag on Walsh: 4 disposals, no goals."

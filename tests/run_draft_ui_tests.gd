@@ -84,6 +84,7 @@ func _run() -> void:
 		ui.call("_select_tab", "pool")
 
 	await _test_career_stage_filters(ui)
+	await _test_style_and_trait_filters(ui)
 	await _test_position_filters(ui)
 
 	# No-results recovery resets controls as well as their backing values.
@@ -95,6 +96,7 @@ func _run() -> void:
 	var finish: Button = ui.find_child("StartSeason", true, false)
 	_check(finish.disabled, "Season cannot start before a valid draft is complete")
 	await _test_side_shape(ui)
+	await _test_pick_keeps_scroll(ui)
 
 	# Reopening uses the same draft; it must not replay AI turns.
 	var history: Array = _state.draft.pick_history.duplicate(true)
@@ -496,6 +498,86 @@ func _snapshot(ui: Control) -> Dictionary:
 
 # The opening League Draft can be narrowed by career stage without changing
 # the draft itself. The cut-offs are based on the actual 2027 pool.
+## Filter by how a player plays and by trait, with position, and every row
+## shows his age and playing style (director's PC playtest, 2026-10-07:
+## "Interceptor, Crumber", "Tagger", age on the row).
+func _test_style_and_trait_filters(ui: Control) -> void:
+	var profile = load("res://scripts/sim/PlayerProfile.gd")
+	var traits_lib = load("res://scripts/sim/Traits.gd")
+	var old_size := root.size
+	root.size = Vector2i(390, 844)
+	ui.set("_advanced_open", true)
+	ui.set("_role", "")
+	ui.set("_club_filter", "")
+	ui.set("_search", "")
+	ui.set("_career_stage", "")
+	ui.set("_available_only", false)
+	ui.call("_show_board")
+	await _settle()
+	var style_opt: OptionButton = ui.find_child("StyleFilter", true, false)
+	var trait_opt: OptionButton = ui.find_child("TraitFilter", true, false)
+	_check(style_opt != null and trait_opt != null, "The draft has playing-style and trait filters")
+	if style_opt == null or trait_opt == null:
+		root.size = old_size
+		return
+	var styles := []
+	for i in range(style_opt.item_count):
+		styles.append(style_opt.get_item_text(i))
+	var trait_names := []
+	for i in range(trait_opt.item_count):
+		trait_names.append(trait_opt.get_item_text(i))
+	_check(trait_names.has("Interceptor") and trait_names.has("Crumber") and trait_names.has("Tagger"),
+			"Traits to filter by include the director's examples (%s)" % ", ".join(trait_names))
+	_check(styles.has("Key forward") and styles.has("Wing"), "Playing styles are how a player plays (%s)" % ", ".join(styles))
+	var si := styles.find("Key forward")
+	style_opt.select(si)
+	style_opt.item_selected.emit(si)
+	await _settle()
+	var rows: Array = ui.call("_board_rows")
+	_check(not rows.is_empty() and rows.all(func(p): return profile.player_type(p) == "Key forward"),
+			"Playing style Key forward shows only key forwards (%d)" % rows.size())
+	ui.call("_set_role", "FWD")
+	await _settle()
+	rows = ui.call("_board_rows")
+	var ratings_lib = load("res://scripts/sim/Ratings.gd")
+	_check(rows.all(func(p): return profile.player_type(p) == "Key forward" and (str(p["role"]) == "FWD" or ratings_lib.second_positions(p).has("FWD"))),
+			"Style and position combine")
+	ui.call("_set_role", "")
+	style_opt = ui.find_child("StyleFilter", true, false)
+	style_opt.select(0)
+	style_opt.item_selected.emit(0)
+	await _settle()
+	trait_opt = ui.find_child("TraitFilter", true, false)
+	var ti := -1
+	for i in range(trait_opt.item_count):
+		if trait_opt.get_item_text(i) == "Tagger":
+			ti = i
+	_check(ti > 0, "Tagger is a trait to filter by")
+	if ti > 0:
+		trait_opt.select(ti)
+		trait_opt.item_selected.emit(ti)
+		await _settle()
+		rows = ui.call("_board_rows")
+		var roles_lib = load("res://scripts/sim/Roles.gd")
+		_check(not rows.is_empty() and rows.all(func(p): return roles_lib.is_tagger(p)),
+				"The Tagger filter finds players with the Tagger trait, not the word (%d)" % rows.size())
+	# The row: his age on the facts line, how he plays on its own line, and
+	# both fit a phone.
+	var row: Control = ui.find_child("Player_*", true, false)
+	var kind: Label = row.find_child("Kind_*", true, false) if row != null else null
+	var texts := []
+	_collect_texts(row, texts)
+	_check(kind != null and kind.text != "" and " ".join(texts).contains(" yo · "),
+			"A draft row shows his age and his playing style and traits")
+	_check(kind != null and kind.get_global_rect().end.x <= float(root.size.x) + 1.0,
+			"His playing style line fits a phone's width")
+	ui.call("_clear_filters")
+	await _settle()
+	_check(str(ui.get("_style")) == "" and str(ui.get("_trait")) == "", "Clear filters resets style and trait")
+	root.size = old_size
+	await _settle()
+
+
 func _test_career_stage_filters(ui: Control) -> void:
 	var counts := {"rookie": 0, "prime": 0, "veteran": 0}
 	var valid := true
@@ -644,6 +726,72 @@ func _check_layout(ui: Control, label: String) -> void:
 		for node in ui.find_children(prefix + "*", "Button", true, false):
 			if node.is_visible_in_tree():
 				_check(node.size.y >= 44, label + ": " + str(node.name) + " is touch-sized")
+
+
+## Drafting a player with a real click rebuilds the rows under the pointer.
+## The list must still hear that click end: if it doesn't, it stays mid-drag
+## and the next mouse move drags the pool back to where the click began
+## (director's PC playtest, 2026-10-07: "selecting a player breaks scrolling").
+func _test_pick_keeps_scroll(ui: Control) -> void:
+	ui.call("_select_tab", "pool")
+	await _settle()
+	var sc: ScrollContainer = ui.get("_board_scroll")
+	sc.scroll_vertical = 300
+	await _settle()
+	var view: Rect2 = sc.get_global_rect()
+	var pick: Button = null
+	for b in ui.find_children("Pick_*", "Button", true, false):
+		var r: Rect2 = (b as Control).get_global_rect()
+		if not (b as Button).disabled and r.position.y > view.position.y + 20 and r.end.y < view.end.y - 20:
+			pick = b
+			break
+	_check(pick != null, "A draftable player is on screen for the click")
+	if pick == null:
+		return
+	var count_before: int = _state.draft.count()
+	var at := pick.get_global_rect().get_center()
+	await _mouse_move(at)
+	await _mouse_button(at, MOUSE_BUTTON_LEFT, true)
+	await _mouse_button(at, MOUSE_BUTTON_LEFT, false)
+	await _settle()
+	_check(_state.draft.count() == count_before + 1, "A real click on + drafts the player")
+	sc = ui.get("_board_scroll")
+	var mid := sc.get_global_rect().get_center()
+	await _mouse_move(mid)
+	for i in range(8):
+		await _mouse_button(mid, MOUSE_BUTTON_WHEEL_DOWN, true)
+		await _mouse_button(mid, MOUSE_BUTTON_WHEEL_DOWN, false)
+	var scrolled := sc.scroll_vertical
+	for i in range(4):
+		await _mouse_move(mid + Vector2(i * 5, i * 2))
+	await _settle()
+	_check(scrolled > 300 and sc.scroll_vertical == scrolled,
+			"After drafting, the pool scrolls and stays put when the mouse moves (%d, then %d)"
+			% [scrolled, sc.scroll_vertical])
+
+
+func _mouse_button(at: Vector2, button: MouseButton, down: bool) -> void:
+	var ev := InputEventMouseButton.new()
+	ev.position = at
+	ev.global_position = at
+	ev.button_index = button
+	ev.pressed = down
+	ev.button_mask = MOUSE_BUTTON_MASK_LEFT if (down and button == MOUSE_BUTTON_LEFT) else 0
+	Input.parse_input_event(ev)
+	Input.flush_buffered_events()
+	await process_frame
+	await process_frame
+
+
+func _mouse_move(at: Vector2) -> void:
+	var ev := InputEventMouseMotion.new()
+	ev.position = at
+	ev.global_position = at
+	ev.relative = Vector2(0, 3)
+	Input.parse_input_event(ev)
+	Input.flush_buffered_events()
+	await process_frame
+	await process_frame
 
 
 func _settle() -> void:

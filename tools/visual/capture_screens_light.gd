@@ -3,7 +3,7 @@ extends SceneTree
 ## one sheet per theme so a light defect can be seen against the dark original.
 ## Needs a real renderer:
 ##   godot --path . --rendering-method gl_compatibility --script tools/visual/capture_screens_light.gd
-## Environment: CAP_OUT (path prefix, default "screens"), CAP_MODE ("light" default or "dark").
+## `--out PREFIX` and `--mode light|dark` after `--` (capture.yml passes them) beat the environment. Environment: CAP_OUT (path prefix, default "screens"), CAP_MODE ("light" default or "dark").
 ## Writes <prefix>_<mode>_<screen>.png for the hub, ladder, selection, training,
 ## list and coaching screens of a fresh Melbourne career, then the offseason (the
 ## season fast-forwarded to its end) and the League Draft. Never touches a real save.
@@ -29,6 +29,12 @@ func _shot() -> Image:
 func _run() -> void:
 	var out := OS.get_environment("CAP_OUT") if OS.get_environment("CAP_OUT") != "" else "screens"
 	var mode := OS.get_environment("CAP_MODE") if OS.get_environment("CAP_MODE") != "" else "light"
+	var cli := OS.get_cmdline_user_args()
+	for i in range(cli.size() - 1):
+		if str(cli[i]) == "--out":
+			out = str(cli[i + 1])
+		if str(cli[i]) == "--mode":
+			mode = str(cli[i + 1])
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
@@ -38,7 +44,19 @@ func _run() -> void:
 	state.settings_path = "user://capture_screens.cfg"
 	state.reset()
 	state.set_setting("seen_training_intro", true)
+	state.set_setting("seen_weekly_loop_intro", true)
 	state.start_season("MEL", db.club_list("MEL"))
+	# CAP_WEATHER=wet (or windy, hot): start at the first round whose forecast
+	# for your match is that, so the hub shows it.
+	var want_wx := OS.get_environment("CAP_WEATHER")
+	if want_wx != "":
+		var found := -1
+		for r in range(state.season.fixture.size()):
+			for m in state.season.fixture[r]:
+				if found < 0 and (m["home"] == "MEL" or m["away"] == "MEL") and state.season.weather_for(str(m["home"]), str(m["away"]), r) == want_wx:
+					found = r
+		if found >= 0:
+			state.season.round_index = found
 	UK.apply_appearance(mode)
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))

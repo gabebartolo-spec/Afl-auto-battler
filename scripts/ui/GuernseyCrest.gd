@@ -13,6 +13,9 @@ var design := "plain"
 var code := ""
 
 static var _shapes := {}
+## Club Forge paints the guernsey a part at a time: the part under the
+## pointer is outlined ("body", "pattern", "trim" or "").
+var highlight := ""
 
 
 static func make(p: Color, s: Color, a: Color, p_design := "plain", p_code := "", size := 22.0) -> GuernseyCrest:
@@ -161,6 +164,8 @@ func _draw() -> void:
 	draw_polyline(_scaled(sh["arm_r"], u), accent, maxf(1.0, 4.0 * u), true)
 	draw_polyline(_scaled(sh["arm_l"], u), accent, maxf(1.0, 4.0 * u), true)
 	draw_polyline(_scaled(sh["neck_front"], u), accent, maxf(2.0, 4.5 * u), true)
+	if highlight != "":
+		_draw_highlight(sh, u)
 	# Under 32 px the code doesn't read: the guernsey alone.
 	if code == "" or sz < 32.0:
 		return
@@ -175,3 +180,51 @@ func _draw() -> void:
 			box.position.y + (box.size.y - asc) / 2.0 + asc - fs * 0.06)
 	draw_string_outline(font, pos, code, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, maxi(1, int(sz / 14.0)), primary)
 	draw_string(font, pos, code, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, code_colour(primary, secondary, accent))
+
+
+## Which part of the guernsey is under `at` (local pixels): "trim" (the
+## collar, armholes and edge, and a design's thin second stripe), "pattern",
+## "body", or "" off the guernsey.
+func part_at(at: Vector2) -> String:
+	var sz := minf(size.x, size.y)
+	if sz <= 0.0:
+		return ""
+	var q := at / (sz / 100.0)
+	var sh := shapes()
+	var near := func(line: PackedVector2Array, reach: float, closed: bool) -> bool:
+		var n := line.size()
+		for i in range(n - 1 + (1 if closed else 0)):
+			var a: Vector2 = line[i]
+			var b: Vector2 = line[(i + 1) % n]
+			if q.distance_to(Geometry2D.get_closest_point_to_segment(q, a, b)) <= reach:
+				return true
+		return false
+	if near.call(sh["neck_front"], 4.0, false) or near.call(sh["arm_r"], 3.5, false) 			or near.call(sh["arm_l"], 3.5, false) or near.call(sh["body"], 2.5, true):
+		return "trim"
+	if not Geometry2D.is_point_in_polygon(q, sh["body"]):
+		return ""
+	for part in (sh["patterns"] as Dictionary).get(design, []):
+		if Geometry2D.is_point_in_polygon(q, part[1]):
+			return "pattern" if part[0] == "s" else "trim"
+	return "body"
+
+
+func _draw_highlight(sh: Dictionary, u: float) -> void:
+	var ink := Color(1, 1, 1, 0.95)
+	var w := maxf(1.5, 1.2 * u)
+	var outline := func(poly: PackedVector2Array) -> void:
+		var pts := _scaled(poly, u)
+		pts.append(pts[0])
+		draw_polyline(pts, ink, w, true)
+	match highlight:
+		"body":
+			outline.call(sh["body"])
+		"pattern", "trim":
+			var tag := "s" if highlight == "pattern" else "a"
+			for part in (sh["patterns"] as Dictionary).get(design, []):
+				if part[0] == tag:
+					outline.call(part[1])
+			if highlight == "trim":
+				draw_polyline(_scaled(sh["arm_r"], u), ink, maxf(1.0, 1.5 * u), true)
+				draw_polyline(_scaled(sh["arm_l"], u), ink, maxf(1.0, 1.5 * u), true)
+				draw_polyline(_scaled(sh["neck_front"], u), ink, maxf(1.0, 1.5 * u), true)

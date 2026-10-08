@@ -1,12 +1,13 @@
 extends SceneTree
-## Visual review tool for Club Forge's Create a club, on a phone (390x844).
+## Visual review tool for Club Forge's Create a club, on a phone (390x844) or
+## any size given as --size WxH (1280x720 for the PC).
 ## Needs a real renderer:
 ##   godot --path . --script tools/visual/capture_forge_club.gd -- --out /tmp/forge_club
 ## Writes <out>_sheet.png: the Forge with no club; the form's home, name and
 ## colours; its guernsey; the Forge with the club saved; New career offering it.
 
-const W := 390
-const H := 844
+var W := 390
+var H := 844
 
 
 func _initialize() -> void:
@@ -34,6 +35,10 @@ func _run() -> void:
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
+		if str(a[i]) == "--size":
+			var wh := str(a[i + 1]).split("x")
+			W = int(wh[0])
+			H = int(wh[1])
 	await process_frame
 	var state = root.get_node("GameState")
 	state.autosave_enabled = false
@@ -56,6 +61,15 @@ func _run() -> void:
 	scene._club["design"] = "hoops"
 	scene._build()
 	shots.append(await _shot())
+	# Paint the hoops gold, then outline them as the pointer would.
+	scene._brush = "#F2B231"
+	scene._paint_part("pattern")
+	scene._brush = "#F5F5F5"
+	scene._rebuild_paint()
+	for c in scene.find_children("Forge*", "GuernseyCrest", true, false):
+		if c.mouse_filter == Control.MOUSE_FILTER_STOP:
+			c.highlight = "pattern"
+			c.queue_redraw()
 	await _scroll_to(scene, 0.45)
 	shots.append(await _shot())
 	await _scroll_to(scene, 1.0)

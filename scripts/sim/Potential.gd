@@ -58,6 +58,14 @@ const GAP_PULL := [[21.0, 0.30], [24.0, 0.22], [28.0, 0.15]]
 ## at the next rollover, whatever his age.
 const REHAB_PULL := 0.9
 const MIN_STEP := 2.0
+## Past 30 a player comes back from an injury season less of the way: the
+## rehab pull eases this much per year, never below REHAB_PULL_FLOOR of it.
+const REHAB_AGE_EASE := 0.12
+const REHAB_PULL_FLOOR := 0.4
+
+
+static func rehab_pull(age: float) -> float:
+	return REHAB_PULL * clampf(1.0 - REHAB_AGE_EASE * maxf(0.0, age - 30.0), REHAB_PULL_FLOOR, 1.0)
 
 
 ## Set p["potential"] unless an earlier call or a save already did.
@@ -82,6 +90,25 @@ static func assign(p: Dictionary) -> void:
 			p["rehab"] = true
 	pot = maxf(pot, pedigree_potential(p, pot))
 	p["potential"] = clampi(int(round(pot)), ov, MAX_POT)
+	# POT is what he can still reach (director, 2026-10-07), not a ceiling
+	# from an old season: from 26, when growth is nearly done, it is the
+	# best his development can still take him to (a rehab year included).
+	# Younger players keep the projection their development pulls toward.
+	if float(p.get("age", 26.0)) >= REACHABLE_FROM_AGE:
+		p["potential"] = clampi(int(round(reachable_peak(p))), ov, MAX_POT)
+
+
+## From this age POT is the reachable peak (assign).
+const REACHABLE_FROM_AGE := 26.0
+
+
+## The best rating his development is expected to take him to from now
+## (outlook, ten seasons, breakouts aside).
+static func reachable_peak(p: Dictionary) -> float:
+	var best := float(p.get("overall", 0))
+	for season in outlook(p, 10):
+		best = maxf(best, float(season[0]))
+	return best
 
 
 ## Best recent season (8+ games), eased for age. 0 when there is none.
@@ -131,7 +158,7 @@ static func growth(p: Dictionary, age: float) -> float:
 			pull = float(band[1])
 			break
 	if bool(p.get("rehab", false)):
-		pull = maxf(pull, REHAB_PULL)
+		pull = maxf(pull, rehab_pull(age))
 		p.erase("rehab")
 	if pull <= 0.0:
 		return 0.0
@@ -139,6 +166,66 @@ static func growth(p: Dictionary, age: float) -> float:
 	# point under the target, so a sub-2 step would never show. Move at
 	# least 2 (or the whole gap) while a player is still growing.
 	return maxf(gap * pull, minf(gap, MIN_STEP))
+
+
+## What a player is expected to be worth, season by season, from now: the
+## game's own development (Prospects.age_player's age bands and growth toward
+## POT, rehab year included) and retirement (Prospects.should_retire), taken
+## at their expected values instead of rolled. [[rating, chance he is still
+## playing], ...] for `years` seasons, the first the one about to be played.
+## Breakouts are left out: nobody can plan on one.
+static func outlook(p: Dictionary, years: int) -> Array:
+	var r := float(p.get("overall", 50))
+	var pot := maxf(r, float(p.get("potential", r)))
+	var age := float(p.get("age", 26.0))
+	var rehab := bool(p.get("rehab", false))
+	var alive := 1.0
+	var out := []
+	for t in range(years):
+		out.append([r, alive])
+		age += 1.0
+		var d := 0.0
+		if age <= 20.0:
+			d = 4.25
+		elif age <= 23.0:
+			d = 2.5
+		elif age <= 27.0:
+			d = 1.0
+		elif age <= 30.0:
+			d = 0.0
+		elif age <= 33.0:
+			d = -1.5
+		else:
+			d = -3.75
+		if age <= 25.0 and r < 55.0:
+			d += 1.0
+		if age <= 23.0 and r >= 80.0:
+			d += 1.0
+		var gap := pot - r
+		if gap > 0.0:
+			var pull := 0.0
+			for band in GAP_PULL:
+				if age <= float(band[0]):
+					pull = float(band[1])
+					break
+			if rehab:
+				pull = maxf(pull, rehab_pull(age))
+			if pull > 0.0:
+				d = maxf(d, maxf(gap * pull, minf(gap, MIN_STEP)))
+		rehab = false
+		var next := clampf(r + d, 25.0, 93.0)
+		if d > 0.0:
+			next = minf(next, maxf(r, pot))
+		r = next
+		var go := 0.0
+		if r <= 32.0 or age >= 37.0:
+			go = 1.0
+		elif age >= 35.0:
+			go = 0.70
+		elif age >= 33.0 and r < 42.0:
+			go = 0.30
+		alive *= 1.0 - go
+	return out
 
 
 ## Training price against POT, the same for every club. Well below it a

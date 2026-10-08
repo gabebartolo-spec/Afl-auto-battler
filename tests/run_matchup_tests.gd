@@ -53,6 +53,10 @@ func _hub_tests() -> void:
 	var opp: Label = hub.find_child("Opponent", true, false)
 	var nxt: Dictionary = _state.my_next_opponent()
 	_check(opp != null and opp.text.contains(db.club_name(str(nxt["code"]))), "The opponent is named at the top")
+	var venue: Label = hub.find_child("MatchVenue", true, false)
+	_check(venue != null and venue.text.begins_with("Home · " if str(nxt["venue"]) == "home" else "Away · ")
+			and not venue.text.contains(db.club_name(str(nxt["code"]))),
+			"Then where: home or away and the ground, not 'at' the opponent (%s)" % (venue.text if venue else "-"))
 	var facts := hub.find_children("Fact_*", "Label", true, false)
 	_check(facts.size() <= 3, "At most three facts about them (%d)" % facts.size())
 	var expected: Array = _state.opponent_facts(str(nxt["code"]))
@@ -198,7 +202,7 @@ func _regular_bye() -> void:
 			and actions.find_child("SimFinalsWeek", true, false) == null,
 			"No finals controls before the home-and-away season is done")
 	var sim: Button = actions.find_child("SimByeRound", true, false) if actions != null else null
-	_check(sim != null and sim.text == "Sim Round %d" % (r0 + 1), "The bye round can be simmed on its own")
+	_check(sim != null and sim.text == "Play Round %d" % (r0 + 1), "The bye round can be simmed on its own")
 	hub.call("_on_sim_to_end")
 	_check(season.round_index == r0, "Sim to Grand Final never runs through home-and-away rounds")
 	if sim != null:

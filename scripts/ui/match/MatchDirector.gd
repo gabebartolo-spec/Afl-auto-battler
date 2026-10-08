@@ -376,6 +376,12 @@ func _start_beat(k: int) -> void:
 			_phases = _shot_phases(k)
 		"rebound":
 			_phases = _rebound_phases(k)
+		"pass":
+			_phases = _pass_phases(k)
+		"receive":
+			_phases = _set_receive_phases(k)
+		"pack":
+			_phases = _pack_phases(k)
 		"clanger":
 			_phases = _clanger_phases(k)
 		"ballup":
@@ -738,10 +744,16 @@ func _shot_phases(k: int) -> Array:
 			else signf(_rng.randf() - 0.5) * _rng.randf_range(4.0, 8.5)
 	var target := Vector2(MatchMotion.GOAL_X * _dir(side), gy)
 	var out := []
+	# A bomb that sailed over the pack is still in the air: no new kick.
+	var pk := _prev_real(k)
+	var over := pk >= 0 and str((events[pk] as Dictionary).get("kind", "")) == "pack" \
+			and str((events[pk] as Dictionary).get("outcome", "")) == "through"
 	# A set shot (from a mark) is staged: he steps back and the ground holds.
 	# In open play he kicks on the move and everyone else keeps playing.
 	var set_shot := bool(ev.get("set_shot", true))
-	if s >= 0 and set_shot:
+	if over:
+		pass
+	elif s >= 0 and set_shot:
 		out += [{"t": "collect", "who": s}, {"t": "possess", "who": s, "quiet": true},
 				{"t": "hold", "who": s, "dur": 0.45, "carry": Vector2.INF, "back": true}]
 	elif s >= 0:
@@ -756,6 +768,108 @@ func _shot_phases(k: int) -> Array:
 			{"t": "emit", "log": true, "flash": "goal" if goal else "behind"},
 			{"t": "celebrate", "who": s, "dur": 1.2 if goal else 0.45}]
 	return out
+
+
+## ARD-M4-013: the coach's set-shot call, staged from what the log names.
+## Each call starts the same way, at the mark (he steps back, the ground
+## holds), then looks different: he shoots, plays on to a teammate leading
+## up, or bombs it high into a goal-square pack.
+func _set_up(who: int) -> Array:
+	if who < 0:
+		return []
+	return [{"t": "collect", "who": who}, {"t": "possess", "who": who, "quiet": true},
+			{"t": "hold", "who": who, "dur": 0.45, "carry": Vector2.INF, "back": true}]
+
+
+## Plays on: a short kick to the teammate leading up, or to the defender who
+## cuts it off (a rebound follows when it is intercepted).
+func _pass_phases(k: int) -> Array:
+	var s := _actor_id(events[k])
+	var out := _set_up(s) + [{"t": "emit", "log": true}]
+	var nk := _next_real(k)
+	if nk < 0:
+		return out
+	var nev: Dictionary = events[nk]
+	var r := _actor_id(nev)
+	if r < 0:
+		return out
+	var to: Vector2 = _loc(nk) if str(nev.get("kind", "")) == "receive" else (tokens[r]["pos"] as Vector2)
+	var d := (ball["pos"] as Vector2).distance_to(to)
+	var shape := _flight_shape("kick", d)
+	out.append({"t": "flight", "to": to, "dur": shape.x, "apex": shape.y, "recv": r,
+			"adapt": true, "h1": 2.4, "mode": "open"})
+	return out
+
+
+## He marks the pass on the lead: his own set shot follows.
+func _set_receive_phases(k: int) -> Array:
+	var a := _actor_id(events[k])
+	if a < 0:
+		return [{"t": "emit", "log": true}]
+	return [{"t": "collect", "who": a, "max": 0.3}, {"t": "possess", "who": a},
+			{"t": "emit", "log": true}]
+
+
+## Bombed into the goal square: the named players and the nearest of each
+## side form the pack under a high ball; it ends as the log says. "through"
+## leaves the ball with the kicker, whose own shot follows over the pack.
+func _pack_phases(k: int) -> Array:
+	var ev: Dictionary = events[k]
+	var side := int(ev.get("side", 0))
+	var outcome := str(ev.get("outcome", ""))
+	var kicker := int(ball["holder"])
+	if kicker < 0 and outcome == "through":
+		kicker = _actor_id(ev)
+	var at := Vector2(clampf(float(ev.get("fp", 0.0)), -MatchMotion.GOAL_X, MatchMotion.GOAL_X), 0.0)
+	var named := {}
+	for key in ["marker_id", "spoiler_id", "crumber_id", "defender_id"]:
+		var t := _token_by_pid(str(ev.get(key, "")))
+		if t >= 0:
+			named[key] = t
+	var members := []
+	for key in named:
+		if not members.has(named[key]) and key != "crumber_id":
+			members.append(named[key])
+	var skip := members + ([kicker] if kicker >= 0 else [])
+	members += _nearest(at, side, 2, skip) + _nearest(at, 1 - side, 2, skip)
+	var out := _set_up(kicker)
+	out.append({"t": "pack", "at": at, "members": members, "min": 0.3, "max": 1.0, "mode": "shot"})
+	# The crumber lurks at the front of the pack, not in it.
+	if named.has("crumber_id"):
+		var front := at - Vector2(6.0 * _dir(side), 0.0)
+		out.append({"t": "hold", "who": named["crumber_id"], "dur": 0.0, "carry": front})
+	var d := (ball["pos"] as Vector2).distance_to(at)
+	var flight := {"t": "flight", "to": at, "dur": 0.4 + d / 42.0, "apex": clampf(8.0 + d * 0.25, 10.0, 18.0),
+			"recv": -1, "h1": 2.6, "mode": "shot"}
+	match outcome:
+		"through":
+			# Over every hand in the pack: the score beat carries it on.
+			flight["h1"] = 5.5
+			out.append(flight)
+			return out + [{"t": "emit", "log": true}]
+		"marked", "defence":
+			var who := int(named.get("marker_id" if outcome == "marked" else "defender_id", -1))
+			flight["recv"] = who
+			out.append(flight)
+			if who >= 0:
+				out += [{"t": "possess", "who": who}]
+			return out + [{"t": "emit", "log": true}]
+		_:
+			# Spoiled: a fist in the pack and the ball spills to the deck.
+			out.append(flight)
+			var sp := int(named.get("spoiler_id", -1))
+			if sp >= 0:
+				out.append({"t": "collect", "who": sp, "max": 0.18})
+			return out + [{"t": "emit", "log": true}, {"t": "fumble", "dur": 0.28}]
+
+
+func _token_by_pid(pid: String) -> int:
+	if pid == "":
+		return -1
+	for t in tokens:
+		if str(t["pid"]) == pid:
+			return int(t["id"])
+	return -1
 
 
 func _rebound_phases(k: int) -> Array:
@@ -1109,6 +1223,13 @@ func _enter(p: Dictionary) -> void:
 					var id := int(t["id"])
 					MatchMotion.set_goal(t, at + Vector2(-0.8 * _dir(int(t["side"])), 0.0), 1.0, true)
 					_busy[id] = true
+			if p["t"] == "bounce":
+				# A stacked ball-up: the wings crash in as the ball goes up.
+				for t in tokens:
+					var s := str(t["slot"])
+					if (s == "WL" or s == "WR") and _centre_setup(int(t["side"])) == "stack":
+						MatchMotion.set_goal(t, at + Vector2(-4.0 * _dir(int(t["side"])), 6.0 * signf((t["pos"] as Vector2).y)), 1.0, true)
+						_busy[int(t["id"])] = true
 			if p.has("recv") and int(p["recv"]) >= 0 and p.has("loc"):
 				MatchMotion.set_goal(tokens[int(p["recv"])], p["loc"], 1.0, true)
 		"flight":
@@ -1501,6 +1622,24 @@ func _assign() -> void:
 				break
 
 
+## ARD-M8-003, persistent identity for important live roles (the director,
+## 2026-10-06: "Build it"): the players whose job the match recorded keep
+## their names on the oval while the job is on - the tagger and his man, each
+## side's loose defender, and the forward sent to him. Only those few, never
+## the 36. Token ids, in a stable order.
+func role_labels() -> Array:
+	var out := []
+	for t in tokens:
+		var id := int(t["id"])
+		var tagged := false
+		var o := int(t.get("match", -1))
+		if o >= 0 and bool(tokens[o].get("tagging", false)):
+			tagged = true
+		if bool(t.get("tagging", false)) or tagged or bool(t.get("loose", false)) 				or int(t.get("chasing", -1)) >= 0:
+			out.append(id)
+	return out
+
+
 func _unpair(a: int) -> void:
 	var o := int(tokens[a]["match"])
 	if o >= 0 and int(tokens[o]["match"]) == a:
@@ -1561,12 +1700,20 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 	if has and chase >= 0:
 		# Sent to their loose man: he stands where the spare would sit.
 		world = world.lerp((tokens[chase]["goal"] as Vector2), 0.6)
+	var flooding := not has and _flooding(side)
 	if not has:
 		var o := int(t["match"])
 		if _is_loose(t, ball_p):
 			# The spare defender sits in the hole between the ball and goal.
 			world = ball_p.lerp(own_goal, 0.5)
 			world.y *= 0.6
+		elif flooding and (role == "MID" or role == "RUCK") and not bool(t.get("tagging", false)):
+			# Flood behind the ball (the match's call, from the timeline): the
+			# midfielders leave their men and fold back into the space between
+			# the ball and goal, across the corridor.
+			var hole := ball_p.lerp(own_goal, FLOOD_DEPTH)
+			hole.y = lerpf(ball_p.y, base.y * 0.55, 0.6)
+			world = world.lerp(hole, 0.75)
 		elif o >= 0:
 			var og: Vector2 = tokens[o]["goal"]
 			if og.distance_to(world) < 35.0:
@@ -1575,7 +1722,24 @@ func _structure_spot(t: Dictionary, ball_p: Vector2, poss: int) -> Vector2:
 				if bool(t.get("tagging", false)):
 					w = 0.85   # a tagger plays the man
 				world = world.lerp(mark, w)
+		if flooding and role == "FWD":
+			# ...and the half-forward line pushes up toward the ball, so the
+			# numbers are behind it; the full-forward line stays home.
+			var half := slot == "CHF" or slot == "HFL" or slot == "HFR"
+			world.x = lerpf(world.x, ball_p.x, FLOOD_PUSH if half else FLOOD_PUSH * 0.25)
 	return MatchMotion.clamp_to_oval(world, 3.0)
+
+
+## How far back from the ball a flooding midfield sits (share of the way to
+## its own goal), and how far its forwards come up toward the ball.
+const FLOOD_DEPTH := 0.35
+const FLOOD_PUSH := 0.35
+
+
+## The side's recorded calls include a flood (MatchSim.BURSTS, on the timeline
+## from the chain it was made until it runs out).
+func _flooding(side: int) -> bool:
+	return ((_tac[side] as Dictionary).get("bursts", []) as Array).has("flood")
 
 
 ## The loose defender while his side defends: the one the match named
@@ -1632,7 +1796,39 @@ func _centre_spot(t: Dictionary, carrier: int) -> Vector2:
 			spot = Vector2(-3, 5 if spot.y >= 0.0 else -5) if SQUARE.has(cslot) else Vector2(-3, -5)
 		elif swap != "" and slot == swap:
 			spot = CENTRE.get(cslot, spot)
+	# The side's centre ball-up call, as the match recorded it (2026 rules:
+	# a ball-up, 6-6-6 still holds, so the wings stay outside the square and
+	# the forwards inside their arc until the ball is up).
+	if int(t["id"]) != carrier:
+		match _centre_setup(side):
+			"stack":
+				# Attacking: the wings on the square's edge, ready to crash
+				# the contest, and the half-forwards up to the arc.
+				if slot == "WL" or slot == "WR":
+					spot = Vector2(-2.0, 27.0 * signf(spot.y))
+				elif slot == "CHF" or slot == "HFL" or slot == "HFR":
+					spot.x = ARC_EDGE
+			"flood":
+				# Defensive: the wings goal-side of the square, and the
+				# centreman at its back edge, behind the ball.
+				if slot == "WL" or slot == "WR":
+					spot = Vector2(-18.0, 30.0 * signf(spot.y))
+				elif slot == "C":
+					spot = Vector2(-14.0, -4.0)
 	return Vector2(spot.x * _dir(side), spot.y)
+
+
+## Just inside the forward 50 arc, in a side's attacking frame.
+const ARC_EDGE := 37.0   # MatchMotion.GOAL_X (85) - 48
+
+
+## A side's centre ball-up setup from its recorded calls: "stack" (extra
+## numbers at the contest), "flood" (numbers behind the ball) or "".
+func _centre_setup(side: int) -> String:
+	var b: Array = (_tac[side] as Dictionary).get("bursts", [])
+	if b.has("stack"):
+		return "stack"
+	return "flood" if b.has("flood") else ""
 
 
 # ---------------------------------------------------------------------------

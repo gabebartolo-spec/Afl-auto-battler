@@ -55,6 +55,8 @@ var _colours := [[], []]
 var _codes := ["", ""]
 var _board := {}           # the match's score, for the big screen at the end of the ground
 var _kits := []            # both sides' guernseys, as dressed
+## The day's weather (MatchSim.weather; VignetteWeather): how the ground and air look.
+var weather := ""
 var _t := 0.0
 var _frozen := false
 var _hold := 0.0            # time since the freeze, for the last push-in
@@ -63,6 +65,8 @@ var _hold := 0.0            # time since the freeze, for the last push-in
 func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 	title = heading
 	tokens.clear()
+	# The day's weather, when MatchSim has one.
+	weather = str(sim.get("weather")) if sim.get("weather") != null else ""
 	_board = {"codes": [str((sim.squads[0] as Squad).code), str((sim.squads[1] as Squad).code)],
 			"goals": [sim.goals(0), sim.goals(1)], "behinds": [sim.behinds(0), sim.behinds(1)],
 			"q": sim.current_quarter}
@@ -229,13 +233,31 @@ func _gui_input(event: InputEvent) -> void:
 # far, in words. MatchSim's own counts decide it; none are shown.
 # ---------------------------------------------------------------------------
 func _commentary(sim: MatchSim, me: int) -> Array:
+	return call_facts(sim, me)
+
+
+## The same lines without the scene (Settings > Vignettes off): the call card
+## carries them itself. MatchSim's bounce attendees, read the way setup() does.
+static func call_facts(sim: MatchSim, me: int) -> Array:
+	var at_bounce := []
+	for side in range(2):
+		var at: Dictionary = sim.bounce_attendees(side)
+		var ruck: Dictionary = at["ruck"]
+		var mids: Array = at["mids"]
+		var picks := {"R": [] if ruck.is_empty() else [ruck],
+				"C": mids.slice(0, 1), "RR": mids.slice(1, 2), "RV": mids.slice(2, 3)}
+		for slot in SLOTS:
+			for p in picks[slot]:
+				at_bounce.append({"mine": side == me, "slot": slot,
+						"name": _surname(GameDB.player_display_name(p)),
+						"tired": float(sim.energy.get(str(p["id"]), 100.0)) < EMPTY})
 	var out := []
 	var them := 1 - me
 	var gap := float((sim.team_stats[me] as Dictionary).get("clearances", 0.0)) \
 			- float((sim.team_stats[them] as Dictionary).get("clearances", 0.0))
 	var taps := _ruck_taps(sim, me) - _ruck_taps(sim, them)
 	var rucks := {}
-	for t in tokens:
+	for t in at_bounce:
 		if str(t["slot"]) == "R":
 			rucks[bool(t["mine"])] = str(t["name"])
 	if gap <= -4:
@@ -246,7 +268,7 @@ func _commentary(sim: MatchSim, me: int) -> Array:
 		out.append("%s is on top in the ruck." % str(rucks[taps > 0]))
 	else:
 		out.append("Nothing between them at the stoppages.")
-	for t in tokens:
+	for t in at_bounce:
 		if bool(t["tired"]):
 			out.append(("%s is running on empty." if bool(t["mine"]) else "Their %s is running on empty.")
 					% str(t["name"]))
@@ -254,7 +276,7 @@ func _commentary(sim: MatchSim, me: int) -> Array:
 	return out
 
 
-func _ruck_taps(sim: MatchSim, side: int) -> int:
+static func _ruck_taps(sim: MatchSim, side: int) -> int:
 	var n := 0.0
 	for p in (sim.squads[side] as Squad).ground:
 		if str(p["role"]) == "RUCK":
@@ -398,6 +420,7 @@ func _draw() -> void:
 		_draw_figure(f["at"], f["t"])
 	if not ball_drawn:
 		_draw_ball(b)
+	VignetteWeather.draw_air(self, Rect2(Vector2.ZERO, size), _t, weather)
 	if _frozen:
 		# The freeze: a flash on the cut, then the frame held a shade darker.
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.18), true)
@@ -414,7 +437,7 @@ func _draw() -> void:
 ## and the far goals - all seen in perspective, so they hold their shape as it zooms.
 func _draw_ground() -> void:
 	var cam := ground_cam()
-	VignetteGround.draw_ground(self, cam, Rect2(Vector2.ZERO, size), _colours, 7, _board)
+	VignetteGround.draw_ground(self, cam, Rect2(Vector2.ZERO, size), _colours, 7, _board, weather, _t)
 	VignetteGround.draw_goals(self, cam, 1, _pad_colour())
 	VignetteGround.draw_goals(self, cam, -1, _pad_colour())
 
@@ -455,7 +478,7 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	# Shadow on the ground, smaller as they leave it.
 	var sh := 0.38 * m * (1.0 - lift * 0.35)
 	draw_set_transform(Vector2(ground.x, ground.y), 0.0, Vector2(1.0, 0.32))
-	draw_circle(Vector2.ZERO, sh, Color(0, 0, 0, 0.35))
+	draw_circle(Vector2.ZERO, sh, Color(0, 0, 0, VignetteWeather.shadow_alpha(weather) + 0.03))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# Your players have their backs to us; theirs and the umpire face the camera.
 	var back := not ump and bool(t["mine"])

@@ -145,6 +145,41 @@ func _screen_text() -> String:
 	return " | ".join(out)
 
 
+## A short sheet is as tall as what it holds, its buttons right under the
+## words; a long one fills the screen and scrolls (the director's PC
+## playtest, 2026-10-07: the "Your week" sheet was mostly empty, flagged 4-5
+## times). Desktop and phone sizes.
+func _test_sheets_fit_their_content() -> void:
+	var kit = load("res://scripts/ui/UiKit.gd")
+	var before := root.size
+	for dims in [Vector2i(1280, 720), Vector2i(390, 844)]:
+		root.size = dims
+		var host := Control.new()
+		host.set_anchors_preset(Control.PRESET_FULL_RECT)
+		root.add_child(host)
+		await process_frame
+		var short: Dictionary = kit.modal_box(host, 520.0, 0.0)
+		for i in range(3):
+			var l: Label = kit.lbl("A short line of help, the kind a first visit shows.", 14, kit.TEXT)
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			(short["body"] as VBoxContainer).add_child(l)
+		(short["footer"] as VBoxContainer).add_child(kit.btn("Got it", 17, true))
+		var long: Dictionary = kit.modal_box(host, 520.0, 0.0)
+		for i in range(80):
+			(long["body"] as VBoxContainer).add_child(kit.lbl("Line %d" % i, 14, kit.TEXT))
+		for i in range(6):
+			await process_frame
+		var view := host.get_viewport_rect().size
+		var sh: Control = short["shell"]
+		var lh: Control = long["shell"]
+		_check(sh.size.y < view.y * 0.5, "%dx%d: a short sheet is as tall as its words (%d of %d px)" % [dims.x, dims.y, int(sh.size.y), int(view.y)])
+		_check(lh.size.y > view.y * 0.8 and lh.size.y <= view.y, "%dx%d: a long sheet fills the screen and scrolls (%d of %d px)" % [dims.x, dims.y, int(lh.size.y), int(view.y)])
+		host.queue_free()
+		await process_frame
+	root.size = before
+	await process_frame
+
+
 func _run() -> void:
 	_test_rivalry_catalogue()
 	await process_frame
@@ -152,6 +187,7 @@ func _run() -> void:
 	_router = root.get_node("Router")
 	_db = root.get_node("GameDB")
 	_test_history_records_are_stored_facts()
+	await _test_sheets_fit_their_content()
 	_test_player_goal_milestones()
 	test_media_conference_rules()
 	# Never touch a real career save or settings file from a test run.
@@ -286,7 +322,7 @@ func _run() -> void:
 	problem = current_scene.find_child("ForgeProblem", true, false)
 	_check(problem != null and problem.visible and _state.forge_club().is_empty(),
 			"A club without a name isn't saved, and the screen says why")
-	_press("ForgePlace_port-melbourne")
+	_choose("ForgePlace", "port-melbourne")
 	await _settle()
 	var club_name: LineEdit = current_scene.find_child("ForgeClubName", true, false)
 	var club_code: LineEdit = current_scene.find_child("ForgeClubCode", true, false)
@@ -295,10 +331,44 @@ func _run() -> void:
 	_type("ForgeClubNickname", "Borough")
 	_type("ForgeClubCode", "pmb")
 	_check(club_code != null and club_code.text == "PMB", "The abbreviation is written in capitals")
-	_press("ForgeColour_primary_red")
-	_press("ForgeColour_secondary_blue")
+	# The director's flow (2026-10-07): the design first, then pick a colour
+	# and click the part of the guernsey to paint.
 	_press("ForgeDesign_hoops")
 	await _settle()
+	_check(current_scene.find_child("ForgeSlot_primary", true, false) == null
+			and current_scene.find_child("ForgeBase_p", true, false) == null,
+			"No colour slots or guernsey/pattern rows: you paint the guernsey")
+	_press("ForgePart_body")
+	await _settle()
+	var problem_l: Label = current_scene.find_child("ForgeProblem", true, false)
+	_check(problem_l != null and problem_l.visible, "Clicking the guernsey before picking a colour says what to do")
+	for c in [["body", "green", "#1E6B3A"], ["body", "red", "#C8102E"], ["pattern", "gold", "#F2B231"],
+			["pattern", "blue", "#1F4FA8"], ["trim", "white", "#F5F5F5"], ["trim", "gold", "#F2B231"]]:
+		_press("ForgeColour_" + str(c[1]))
+		await _settle()
+		_press("ForgePart_" + str(c[0]))
+		await _settle()
+		var key: String = {"body": "primary", "pattern": "secondary", "trim": "accent"}[c[0]]
+		var preview: Control = current_scene.find_child("ForgePreview", true, false)
+		_check(str(current_scene.get("_club")[key]).to_upper() == str(c[2]) and preview != null
+				and str(preview.get("design")) == "hoops",
+				"Painting the %s %s works again and again on the same design" % [c[0], c[1]])
+	var preview_now: Control = current_scene.find_child("ForgePreview", true, false)
+	_check(preview_now != null and (preview_now.get("primary") as Color).is_equal_approx(Color.html("#C8102E"))
+			and (preview_now.get("secondary") as Color).is_equal_approx(Color.html("#1F4FA8"))
+			and (preview_now.get("accent") as Color).is_equal_approx(Color.html("#F2B231")),
+			"The guernsey wears what was painted: red, blue hoops, gold trim")
+	_check(_screen_text().contains("Main colour") and _screen_text().contains("Pattern colour")
+			and _screen_text().contains("Trim colour"), "Each part is named with its colour")
+	# Where you click on the guernsey decides what you paint.
+	var crest = load("res://scripts/ui/GuernseyCrest.gd").make(Color.RED, Color.BLUE, Color.WHITE, "hoops", "", 100.0)
+	crest.size = Vector2(100, 100)
+	_check(crest.part_at(Vector2(50, 30)) == "body" and crest.part_at(Vector2(50, 22)) == "pattern"
+			and crest.part_at(Vector2(50, 6)) == "trim" and crest.part_at(Vector2(2, 95)) == "",
+			"A click lands on the body, a hoop, the collar or off the guernsey")
+	crest.design = "plain"
+	_check(crest.part_at(Vector2(50, 22)) == "body", "A plain guernsey has no pattern to paint")
+	crest.free()
 	var club_small := []
 	for b in current_scene.find_children("*", "Button", true, false):
 		if b.is_visible_in_tree() and b.size.y < 44:
@@ -502,7 +572,7 @@ func _run() -> void:
 	await _settle()
 	_check(current_scene.find_child("SimConfirm", true, false) != null and _state.season.round_index == r0,
 			"Sim round asks before playing your match")
-	_check(_screen_text().contains("Simulate Round %d?" % (r0 + 1)), "The question names the round")
+	_check(_screen_text().contains("Play Round %d?" % (r0 + 1)), "The question names the round")
 	_router.handle_back(true)
 	await _settle()
 	_check(_router.current() == "hub" and current_scene.find_child("SimConfirm", true, false) == null
@@ -576,6 +646,10 @@ func _run() -> void:
 		sb.emit_signal("pressed")
 		await _settle()
 		var me := 0 if str(_state.last_match["home"]) == _state.my_club else 1
+		var ptab = current_scene.find_child("StatsView_players", true, false)
+		if ptab != null:
+			ptab.emit_signal("pressed")
+			await _settle()
 		var rows := current_scene.find_children("PlayerRow_*", "Button", true, false)
 		_check(rows.size() == (_state.last_match["roster"][me] as Array).size(),
 				"Match stats lists every player who played (%d)" % rows.size())
@@ -661,29 +735,30 @@ func _run() -> void:
 	_check(_router.current() == "hub", "Escape on the ladder returns to the hub")
 
 	# --- team selection --------------------------------------------------------
+	var sel_size_before := root.size
+	root.size = Vector2i(390, 844)
 	_router.go("selection")
 	await _settle()
 	_check(current_scene.find_child("AutoPick", true, false) != null, "The team screen opens")
-	var mine: Button = current_scene.find_child("MySelection", true, false)
-	mine.emit_signal("pressed")
+	_check(_state.my_selection().is_empty(), "Until you move someone, the side is picked for you")
+	var first_mid := str(_state.current_side()["MID"][0])
+	var grid_card: Button = null
+	for c in current_scene.find_child("NotSelected", true, false).get_children():
+		if c is Button and load("res://scripts/sim/Ratings.gd").available(_state.list_player(str(c.get_meta("id")))):
+			grid_card = c
+			break
+	var tap_in: String = await Tap.tap(grid_card) if grid_card != null else "missing"
 	await _settle()
-	_check(not _state.my_selection().is_empty(), "My selection starts from this week's side")
-	var first_mid := str(_state.my_selection()["MID"][0])
-	var player_btn = current_scene.find_child("FormationPlayer_" + first_mid, true, false)
-	if player_btn != null:
-		player_btn.emit_signal("pressed")
-		await _settle()
-	var out_btn = current_scene.find_child("Move_" + first_mid, true, false)
-	out_btn = out_btn.find_child("To_OUT", true, false) if out_btn != null else null
-	_check(out_btn != null, "Each player has move buttons")
-	if out_btn != null:
-		out_btn.emit_signal("pressed")
-		await _settle()
-	_check(not (_state.my_selection()["MID"] as Array).has(first_mid), "Out removes him from the side")
-	var auto_btn: Button = current_scene.find_child("AutoPick", true, false)
-	auto_btn.emit_signal("pressed")
+	var tap_c: String = await Tap.tap(current_scene.find_child("Spot_C", true, false))
 	await _settle()
-	_check(_state.my_selection().is_empty(), "Auto-pick switches selection back to automatic")
+	_check(tap_in == "" and tap_c == "" and not _state.my_selection().is_empty()
+			and not (_state.my_selection()["MID"] as Array).has(first_mid),
+			"Two taps bring a player in for the centre, and the side is yours (%s, %s)" % [tap_in, tap_c])
+	current_scene.call("_apply_strategy", "best")
+	await _settle()
+	_check(not _state.my_selection().is_empty() and current_scene.find_child("UndoPick", true, false) != null,
+			"Auto-pick sets a side you can undo")
+	root.size = sel_size_before
 	_router.handle_back(true)
 	await _settle()
 
@@ -1355,6 +1430,20 @@ func _press(node_name: String) -> void:
 	_check(b != null, "%s is on screen" % node_name)
 	if b != null:
 		b.emit_signal("pressed")
+
+
+## Pick the option whose metadata is `value` in an OptionButton.
+func _choose(node_name: String, value: String) -> void:
+	var o = current_scene.find_child(node_name, true, false)
+	_check(o != null, "%s is on screen" % node_name)
+	if o == null:
+		return
+	for i in (o as OptionButton).item_count:
+		if str((o as OptionButton).get_item_metadata(i)) == value:
+			(o as OptionButton).select(i)
+			(o as OptionButton).item_selected.emit(i)
+			return
+	_check(false, "%s offers %s" % [node_name, value])
 
 
 func _type(node_name: String, text: String) -> void:

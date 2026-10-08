@@ -54,15 +54,15 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `training` | Training plans and the stat guide | 107 | 32 |
 | `selection` | Team selection and named sides | 37 | 4 |
 | `matchup` | This week's opponent facts | 95 | 36 |
-| `matchday` | Match-day wording: the feed, quarter breaks, full time, the match screen | 384 | 21 |
-| `roles` | Roles, wings, taggers and rucks as real jobs | 179 | 8 |
+| `matchday` | Match-day wording: the feed, quarter breaks, full time, the match screen | 504 | 21 |
+| `roles` | Roles, wings, taggers and rucks as real jobs | 218 | 8 |
 | `injuries` | Injury rates, durability, healing, and played v simulated parity | 31 | 78 |
 | `awards` | Brownlow, Coleman, best and fairest, All-Australian | 22 | 49 |
 | `achievements` | Club achievements | 153 | 48 |
 | `contracts` | Contracts, free agency and trades (seeded: a clock seed once made the pick-limit check flaky) | 233 | 29 |
 | `league` | Difficulty and the league news feed | 47 | 52 |
 | `club` | The board, morale and the weekly event card | 199 | 103 |
-| `match_game` | Legs and rotations, match moments and calls, the rival coach, key match-ups | 243 | 333 |
+| `match_game` | Legs and rotations, match moments and calls, the rival coach, key match-ups, Play through by job | 346 | 333 |
 | `pressure` | Pressure acts and the team Pressure Rating | 21 | 38 |
 | `workload` | Workload across the campaign | 32 | 8 |
 | `match_visual` | The live match view is presentation only (PitchView, MatchDirector, MatchMotion) | 108 | 210 |

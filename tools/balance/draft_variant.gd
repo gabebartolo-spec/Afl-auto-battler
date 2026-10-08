@@ -93,7 +93,7 @@ func _ai_score(code: String, p: Dictionary) -> float:
 	var noise := float((_noise.get(code, {}) as Dictionary).get(str(p["id"]), 0.0))
 	var err := _eval_error(code, p)
 	if str(model.get("score", "current")) == "bpa":
-		return _worth(p) + err + noise - penalty
+		return _club_worth(code, p) + err + noise - penalty
 	var vorp_w := _vorp_weight() * float(model.get("vorp_scale", 1.0))
 	var best := -INF
 	var roles := [[str(p["role"]), 1.0]]
@@ -103,11 +103,23 @@ func _ai_score(code: String, p: Dictionary) -> float:
 	for entry in roles:
 		var role: String = entry[0]
 		var need := _need_weight(code, role)
-		var worth := _worth(p) + noise + err * (need if bool(model.get("eval_by_need", true)) else 1.0)
+		if role == "RUCK" and _has_first_ruck(code) and int(p["overall"]) >= RUCK_FIRST_CHOICE:
+			need *= SECOND_STAR_RUCK
+		var worth := _club_worth(code, p) + noise + err * (need if bool(model.get("eval_by_need", true)) else 1.0)
 		var over := minf(AI_VORP_CAP, worth - _replacement(code, role))
 		var s := (worth + vorp_w * over) * need * float(entry[1])
 		best = maxf(best, s)
 	return best - penalty
+
+
+## A shared valuation (no scouting disagreement, eval_sd [0, 0]) is shared
+## all the way: every club takes the same horizon, so clubs differ only in
+## where they pick.
+func _club_worth(code: String, p: Dictionary) -> float:
+	var span: Array = _eval_sd_range()
+	if not model.is_empty() and float(span[0]) == 0.0 and float(span[1]) == 0.0:
+		return _worth(p)
+	return super(code, p)
 
 
 func _need_weight(code: String, role: String) -> float:

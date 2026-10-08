@@ -42,10 +42,16 @@ func _run() -> void:
 		await _phone_match(sz)
 	_state.replay_seed = SUITE_SEED
 	await _plan_at_first_bounce()
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		await _coach_descriptions(sz)
+		await _tag_targets(sz)
+	await _tag_not_saved()
 	await _bounce_close_up()
 	await _playtest_bounce_scene()
 	await _rings_on_the_oval()
 	await _first_goal_line()
+	await _vignettes_setting()
+	await _vignettes_off_match()
 	_appearance()
 	# Battery: nothing is redrawn unless it changes, and never above 60 fps.
 	_check(bool(ProjectSettings.get_setting("application/run/low_processor_mode", false))
@@ -293,7 +299,7 @@ func _phone_match(sz: Vector2i) -> void:
 			_check(false, "Nothing runs off the side of the phone: %s (%s)" % [c.name, tag])
 			break
 
-	# Half time: the assistant's report is one tap away and Back closes it.
+	# Half time: the full match stats are one tap away and Back closes them.
 	var sim = _state.pending_sim
 	# Get to half time without watching: play out each segment at once, the
 	# way the pitch does when a quarter is skipped (frame counts vary by box).
@@ -315,26 +321,53 @@ func _phone_match(sz: Vector2i) -> void:
 			await _settle()
 	await _settle()
 	box = m.find_child("CoachBox", true, false)
-	var report_btn: Button = box.find_child("HalfTimeReport", true, false) if box != null else null
-	_check(report_btn != null, "Half time offers the assistant's report (%s)" % tag)
-	if report_btn != null:
-		report_btn.emit_signal("pressed")
+	var stats_b: Button = box.find_child("BreakStats", true, false) if box != null else null
+	_check(stats_b != null and box.find_child("HalfTimeReport", true, false) == null,
+			"Half time offers the match stats, not a prose report (%s)" % tag)
+	if stats_b != null:
+		_check((await Tap.tap(stats_b)) == "", "The Match stats button takes a tap (%s)" % tag)
 		await _settle()
-		var rep: Node = m.find_child("AssistantReport", true, false)
-		_check(rep != null and rep.find_child("MatchRead", true, false) != null
-				and rep.find_child("ReportBest", true, false) != null, "The report opens at a glance (%s)" % tag)
-		var rt := _text(rep)
-		_check(not rt.contains("Opposition danger"),
-				"Their best players are an observation, not a problem to solve (%s)" % tag)
-		_check(not rt.contains("vs par") and not rt.contains("disp (") and not rt.contains("Where the game is being won"),
-				"The short report is words, not a stat dump (%s)" % tag)
-		_check(rep.find_child("FullReportButton", true, false) == null and not rt.contains("Half time:"),
-				"One report: no full-report stat wall, no second scoreline (%s)" % tag)
-		_check(rt.contains("Half time, "), "It says where the game stands, once (%s)" % tag)
-		_check(m.call("handle_back") == true, "Back is handled on the report (%s)" % tag)
+		var sheet: Node = m.find_child("BreakStatsSheet", true, false)
+		var bs: Node = sheet.find_child("BreakBoxScore", true, false) if sheet != null else null
+		var bs_text := _text(bs) if bs != null else ""
+		_check(bs != null and bs_text.contains("Q2") and not bs_text.contains("Q3"),
+				"The box score shows the quarters played so far (%s)" % tag)
+		var team_t: Node = sheet.find_child("TeamStats", true, false) if sheet != null else null
+		_check(team_t != null and team_t.find_child("TeamRow_disposals", true, false) != null,
+				"Team stats open first, both clubs side by side (%s)" % tag)
+		var so_far := 0
+		var mine_d: Node = team_t.find_child("TeamRow_disposals", true, false) if team_t != null else null
+		if mine_d != null:
+			so_far = int(str((mine_d.get_child(0) as Label).text))
+		var q2: Button = sheet.find_child("StatsScope_2", true, false) if sheet != null else null
+		_check(q2 != null and sheet.find_child("StatsScope_3", true, false) == null,
+				"Each quarter played can be seen on its own, no more (%s)" % tag)
+		if q2 != null:
+			q2.emit_signal("pressed")
+			await _settle()
+			var q_d: Node = sheet.find_child("TeamRow_disposals", true, false)
+			var in_q := int(str((q_d.get_child(0) as Label).text)) if q_d != null else -1
+			_check(in_q > 0 and in_q < so_far, "The second quarter alone is less than the match so far (%d of %d, %s)" % [in_q, so_far, tag])
+		var players_tab: Button = sheet.find_child("StatsView_players", true, false) if sheet != null else null
+		if players_tab != null:
+			players_tab.emit_signal("pressed")
+			await _settle()
+		var ptable: Node = sheet.find_child("PlayerStats", true, false) if sheet != null else null
+		var roster_h: Array = m.get("_res")["roster"]
+		_check(ptable != null and ptable.find_children("PlayerRow_*", "Button", true, false).size()
+				== (roster_h[m.get("_my_side")] as Array).size(), "Player stats list every one of yours at the break (%s)" % tag)
+		_check(ptable != null and ptable.find_child("StatsKey", true, false) != null,
+				"A key spells out the column headings (%s)" % tag)
+		var spill := ""
+		for c in sheet.find_children("*", "Control", true, false):
+			if c is Label and c.is_visible_in_tree() and c.get_global_rect().end.x > sz.x + 1:
+				spill = str(c.name)
+				break
+		_check(spill == "", "The stats fit the screen (%s%s)" % [tag, (": " + spill) if spill != "" else ""])
+		_check(m.call("handle_back") == true, "Back is handled on the stats (%s)" % tag)
 		await _settle()
-		_check(m.find_child("AssistantReport", true, false) == null and m.find_child("CoachBox", true, false) != null,
-				"Back closes the report and keeps the break (%s)" % tag)
+		_check(m.find_child("BreakStatsSheet", true, false) == null and m.find_child("CoachBox", true, false) != null,
+				"Back closes the stats and keeps the break (%s)" % tag)
 	_check(m.call("handle_back") == true and m.find_child("CoachBox", true, false) != null,
 			"Back cannot abandon a live match (%s)" % tag)
 
@@ -366,8 +399,13 @@ func _phone_match(sz: Vector2i) -> void:
 		stats_btn.emit_signal("pressed")
 		await _settle()
 		var ms: Node = m.find_child("MatchStats", true, false)
-		_check(ms != null and _text(ms).contains("Quarter by quarter") and _text(ms).contains("Player stats"),
-				"Match stats holds the full numbers (%s)" % tag)
+		_check(ms != null and _text(ms).contains("Quarter by quarter") and ms.find_child("TeamStats", true, false) != null
+				and ms.find_child("StatsView_players", true, false) != null,
+				"Match stats holds the full numbers: team stats, players a tab away (%s)" % tag)
+		var ptab: Button = ms.find_child("StatsView_players", true, false) if ms != null else null
+		if ptab != null:
+			ptab.emit_signal("pressed")
+			await _settle()
 		var table: Node = ms.find_child("PlayerStats", true, false) if ms != null else null
 		var roster: Array = m.get("_res")["roster"]
 		var my_side: int = m.get("_my_side")
@@ -412,6 +450,278 @@ func _phone_match(sz: Vector2i) -> void:
 		_check(m.call("handle_back") == false, "Back on Summary leaves as full time always has (%s)" % tag)
 	m.queue_free()
 	await _settle()
+
+
+## Every coaching choice says what it does, the neutral one too, and the
+## words follow the choice. Real taps (tests/tap.gd) at the break, and the
+## plan line under the clock shows every call in full.
+func _coach_descriptions(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = sz
+	_check(_state.prepare_interactive_match(), "A live match is prepared for the coaching words (%s)" % tag)
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var box: Node = m.find_child("CoachBox", true, false)
+	_check(box != null, "The coaching words are checked on the break (%s)" % tag)
+	if box == null:
+		m.queue_free()
+		return
+	var more: Button = box.find_child("MoreCallsToggle", true, false)
+	var why: String = await Tap.tap(more)
+	_check(why == "", "A finger opens the rest of the calls (%s: %s)" % [tag, why])
+	await _settle()
+	var legs_text := _text(box.find_child("LegsView", true, false))
+	# Loaded, not named: the autoloads are not there when this script compiles.
+	var report = load("res://scripts/sim/CoachReport.gd")
+	var policies: Dictionary = load("res://scripts/sim/MatchSim.gd").ROTATION_POLICIES
+
+	# Pep talk: all three choices, Composed included, explain themselves.
+	var pep_seen := {}
+	for k in ["steady", "fire_up", "calm"]:
+		var b: Button = box.find_child("PepPicker_" + k, true, false)
+		var w: String = await Tap.tap(b)
+		_check(w == "", "A finger picks the %s pep talk (%s: %s)" % [k, tag, w])
+		await _settle()
+		var note: Label = box.find_child("PepNote", true, false)
+		_check(note != null and note.is_visible_in_tree() and note.text != "" and note.text == report.pep_summary(k),
+				"The %s pep talk shows its own description (%s)" % [k, tag])
+		pep_seen[note.text if note != null else ""] = true
+	_check(pep_seen.size() == 3, "Each pep talk has its own words (%s)" % tag)
+	var composed: Button = box.find_child("PepPicker_steady", true, false)
+	await Tap.tap(composed)
+	await _settle()
+	var pn: Label = box.find_child("PepNote", true, false)
+	_check(pn != null and pn.text.begins_with("Keep them as they are"), "Back on Composed, its words return (%s)" % tag)
+
+	# Rotations: Normal as much as the other two, and never the legs report.
+	var rot_seen := {}
+	for k in policies:
+		var rb: Button = box.find_child("RotationPicker_" + str(k), true, false)
+		var rw: String = await Tap.tap(rb)
+		_check(rw == "", "A finger picks the %s rotation (%s: %s)" % [k, tag, rw])
+		await _settle()
+		var rn: Label = box.find_child("RotationNote", true, false)
+		_check(rn != null and rn.is_visible_in_tree() and rn.text == str(policies[k]["text"]),
+				"The %s rotation shows its own description (%s)" % [k, tag])
+		_check(rn != null and rn.text != legs_text and not box.find_child("LegsView", true, false).is_ancestor_of(rn),
+				"The rotation words are not the legs report (%s: %s)" % [k, str(k)])
+		rot_seen[rn.text if rn != null else ""] = true
+	_check(rot_seen.size() == policies.size(), "Each rotation has its own words (%s)" % tag)
+
+	# Tag: "No tag" says so; a name brings the tagger line back.
+	var tn: Label = box.find_child("TagNote", true, false)
+	var none: Button = box.find_child("TagPickerGrid_", true, false)
+	_check(tn != null and none != null and tn.text.begins_with("No tag"), "With no tag, the tag line says so (%s: %s)" % [tag, tn.text if tn else "-"])
+	var named: Button = null
+	for b in box.find_child("TagPicker", true, false).find_children("TagPickerGrid_*", "Button", true, false):
+		if str(b.name) != "TagPickerGrid_":
+			named = b
+			break
+	_check(named != null, "A player can be tagged (%s)" % tag)
+	if named != null:
+		var tw: String = await Tap.tap(named)
+		await _settle()
+		_check(tw == "" and tn.text.contains("goes to him"), "Picking a player brings the tagger line (%s: %s)" % [tag, tn.text])
+		var tw2: String = await Tap.tap(box.find_child("TagPickerGrid_", true, false))
+		await _settle()
+		_check(tw2 == "" and tn.text.begins_with("No tag"), "Back to no tag, the line says so (%s)" % tag)
+		await Tap.tap(named)
+		await _settle()
+
+	# Play through: the note says his job and what the call does for him, by the
+	# slot he fills; with nobody picked it is the general line. Real taps.
+	var notes = load("res://scripts/ui/match/MatchNotes.gd")
+	var me := int(m.get("_my_side"))
+	var ground: Array = _state.pending_sim.squads[me].ground
+	var effects := {"MID": "the ball goes to him more often through the midfield",
+			"FWD": "more of the ball up forward and more of the shots at goal",
+			"DEF": "first use of the ball out of the back half", "RUCK": "the ball goes to him more often"}
+	var roles := {"MID": "our key midfielder", "FWD": "our key forward target",
+			"DEF": "our key distributor", "RUCK": "our key man in the middle"}
+	var fnote: Label = box.find_child("FocusNote", true, false)
+	_check(fnote != null and fnote.text.begins_with("Favour this player"), "With nobody picked, Play through keeps its general line (%s)" % tag)
+	for role in ["MID", "FWD", "DEF", "RUCK"]:
+		var who: Dictionary = {}
+		for gp in ground:
+			if str(gp["role"]) == role and who.is_empty():
+				who = gp
+		if who.is_empty():
+			continue
+		var pick: Button = box.find_child("FocusPickerGrid_" + str(who["id"]), true, false)
+		if pick == null:
+			await Tap.tap(box.find_child("FocusPickerOther", true, false))
+			await _settle()
+			pick = m.find_child("Sheet_" + str(who["id"]), true, false)
+		var pw: String = await Tap.tap(pick)
+		await _settle()
+		var nm := str(db.player_display_name_by_id(str(who["id"]), ""))
+		fnote = box.find_child("FocusNote", true, false)
+		_check(pw == "" and fnote.text == "%s %s: %s." % [nm, str(roles[role]), str(effects[role])],
+				"A %s played through reads as %s (%s: %s)" % [role, str(roles[role]), tag, fnote.text])
+		_check(notes.focus_role_text(nm, role) == "%s %s" % [nm, str(roles[role])] and notes.focus_effect_text(role) == str(effects[role]),
+				"The helper says the same for %s (%s)" % [role, tag])
+	await Tap.tap(box.find_child("FocusPickerGrid_", true, false))
+	await _settle()
+	_check(box.find_child("FocusNote", true, false).text.begins_with("Favour this player"), "Picking no one brings the general line back (%s)" % tag)
+
+	# Start with a tag: the plan line names every call, in full, and nothing
+	# it sits above is pushed off the screen.
+	var go: Button = box.find_child("StartQuarter", true, false)
+	var gw: String = await Tap.tap(go)
+	_check(gw == "", "A finger starts the quarter (%s: %s)" % [tag, gw])
+	await _settle()
+	var side := int(m.get("_my_side"))
+	var longest := func(roster: Array) -> String:
+		var best := ""
+		for r in roster:
+			var id := str(r["id"])
+			if db.player_display_name_by_id(id, "").length() > db.player_display_name_by_id(best, "").length():
+				best = id
+		return best
+	var mine: Array = m.call("_roster_side", side)
+	var theirs: Array = m.call("_roster_side", 1 - side)
+	var defs := mine.filter(func(r): return str(r["role"]) == "DEF")
+	var calls := {"gameplan": "defensive", "tag_id": longest.call(theirs), "focus_id": longest.call(mine),
+			"interceptor_id": longest.call(defs), "spare_accountable": false}
+	m.call("_show_setup", calls)
+	await _settle()
+	var line: Label = m.find_child("SetupLine", true, false)
+	var jobs := {"MID": "our key midfielder", "FWD": "our key forward target",
+			"DEF": "our key distributor", "RUCK": "our key man in the middle"}
+	var focus_role := ""
+	for r in mine:
+		if str(r["id"]) == str(calls["focus_id"]):
+			focus_role = str(r["role"])
+	var full := "Your plan: Defensive press  ·  tagging %s  ·  %s %s  ·  %s loose behind the ball" % [
+			db.player_display_name_by_id(str(calls["tag_id"]), ""), db.player_display_name_by_id(str(calls["focus_id"]), ""),
+			str(jobs[focus_role]), db.player_display_name_by_id(str(calls["interceptor_id"]), "")]
+	_check(line != null and line.visible and line.text == full, "The plan line names every call (%s)" % tag)
+	_check(line.autowrap_mode != TextServer.AUTOWRAP_OFF and line.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING,
+			"The plan line wraps, it does not trim (%s)" % tag)
+	_check(line.size.y >= line.get_minimum_size().y - 0.5 and line.get_line_count() >= 1 and line.get_visible_line_count() == line.get_line_count(),
+			"Every line of the plan is drawn (%s: %d lines)" % [tag, line.get_line_count()])
+	var win := Rect2(Vector2.ZERO, Vector2(sz))
+	_check(win.encloses(line.get_global_rect()), "The plan line sits on the screen (%s)" % tag)
+	var off := []
+	for b in m.find_children("*", "Button", true, false):
+		if b.is_visible_in_tree() and not win.encloses(b.get_global_rect()):
+			off.append(str(b.name))
+	_check(off.is_empty(), "A long plan line pushes no button off the screen (%s: %s)" % [tag, str(off)])
+	m.queue_free()
+	await _settle()
+
+
+## Tag targets are midfielders only, in the suggestions and in "Other
+## player...", by where each plays now (the director's PC playtest,
+## 2026-10-07). Their ruck is put in a midfield slot and a midfielder in the
+## ruck: the roster copy would call the ruck a midfielder. Real taps.
+func _tag_targets(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = sz
+	_check(_state.prepare_interactive_match(), "A live match is prepared for the tag targets (%s)" % tag)
+	var sim = _state.pending_sim
+	var me := int(sim.moment_side)
+	var opp: Object = sim.squads[1 - me]
+	var Rt = load("res://scripts/sim/Ratings.gd")
+	var ri := -1
+	var mi := -1
+	for i in range(opp.ground.size()):
+		var r := str(opp.ground[i]["role"])
+		if r == "RUCK" and ri < 0:
+			ri = i
+		if r == "MID" and mi < 0:
+			mi = i
+	_check(ri >= 0 and mi >= 0, "The other side has a ruck and a midfielder (%s)" % tag)
+	var ruck: Dictionary = (opp.ground[ri] as Dictionary).duplicate(true)
+	ruck["role2"] = ""
+	var mid: Dictionary = opp.ground[mi]
+	opp.ground[mi] = Rt._for_slot(ruck, "MID")
+	opp.ground[ri] = Rt._for_slot(mid, "RUCK")
+	var ruck_id := str(ruck["id"])
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var box: Node = m.find_child("CoachBox", true, false)
+	_check(box != null, "The break opens for the tag targets (%s)" % tag)
+	if box == null:
+		m.queue_free()
+		return
+	var eligible := {}
+	for p in opp.ground:
+		if sim.tag_target_ok(1 - me, str(p["id"])):
+			eligible[str(p["id"])] = true
+	_check(eligible.size() >= 3 and not eligible.has(ruck_id), "Only midfielders are eligible, their ruck in a midfield slot is not (%s)" % tag)
+	var tag_box: Node = box.find_child("TagPicker", true, false)
+	var wrong := []
+	for b in tag_box.find_children("TagPickerGrid_*", "Button", true, false):
+		var id := str(b.name).trim_prefix("TagPickerGrid_")
+		if id != "" and not eligible.has(id):
+			wrong.append(id)
+	_check(wrong.is_empty(), "The suggestions are all midfielders (%s: %s)" % [tag, str(wrong)])
+	var other: Button = tag_box.find_child("TagPickerOther", true, false)
+	var why: String = await Tap.tap(other)
+	_check(why == "", "A finger opens Other player (%s: %s)" % [tag, why])
+	await _settle()
+	var sheet: Node = m.find_child("PlayerSheet", true, false)
+	var rows: Array = sheet.find_children("Sheet_*", "Button", true, false) if sheet != null else []
+	var bad := []
+	for b in rows:
+		if not eligible.has(str(b.name).trim_prefix("Sheet_")):
+			bad.append(str(b.name))
+	_check(not rows.is_empty() and bad.is_empty() and rows.size() == eligible.size(),
+			"The full list is every midfielder and nobody else (%s: %d of %d, off: %s)" % [tag, rows.size(), eligible.size(), str(bad)])
+	_check(sheet != null and sheet.find_child("Sheet_" + ruck_id, true, false) == null, "Their ruck is not on the list (%s)" % tag)
+	var pick: Button = rows.back() if not rows.is_empty() else null
+	var picked := str(pick.name).trim_prefix("Sheet_") if pick != null else ""
+	var pw: String = await Tap.tap(pick)
+	await _settle()
+	_check(pw == "" and box.find_child("TagPickerGrid_" + picked, true, false) != null,
+			"A finger picks a midfielder from the list (%s: %s)" % [tag, pw])
+	var go: Button = box.find_child("StartQuarter", true, false)
+	await Tap.tap(go)
+	await _settle()
+	_check(str((sim.tactics[me] as Dictionary).get("tag_id", "")) == picked,
+			"The tag in force is the midfielder picked (%s)" % tag)
+	# The sim refuses anything else, whatever asks: no forward, no ruck.
+	for p in opp.ground:
+		if not eligible.has(str(p["id"])):
+			sim.set_tactics(me, {"gameplan": "balanced", "tag_id": str(p["id"])})
+			if str((sim.tactics[me] as Dictionary).get("tag_id", "")) != "":
+				_check(false, "The sim refuses a tag on a %s (%s)" % [str(p["role"]), tag])
+				break
+	_check(str((sim.tactics[me] as Dictionary).get("tag_id", "")) == "", "A tag on anyone but a midfielder ends the tag (%s)" % tag)
+	m.queue_free()
+	await _settle()
+
+
+## A live match is not saved: a career saved and loaded mid-match comes back
+## with no match and no tag, so no stale target can survive a load.
+func _tag_not_saved() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	_check(_state.prepare_interactive_match(), "A live match is prepared for the save check")
+	var sim = _state.pending_sim
+	var me := int(sim.moment_side)
+	var mid_id := ""
+	for p in sim.squads[1 - me].ground:
+		if sim.tag_target_ok(1 - me, str(p["id"])):
+			mid_id = str(p["id"])
+			break
+	sim.set_tactics(me, {"gameplan": "balanced", "tag_id": mid_id})
+	_check(str((sim.tactics[me] as Dictionary).get("tag_id", "")) == mid_id, "(setup) a tag is in force")
+	_check(_state.save_career(), "The career saves")
+	_check(_state.load_career(), "The career loads")
+	_check(_state.pending_sim == null, "A load brings back no live match, so no tag survives it")
+	_check(_state.prepare_interactive_match() and str((_state.pending_sim.tactics[_state.pending_sim.moment_side] as Dictionary).get("tag_id", "")) == "",
+			"A match prepared after the load starts with no tag")
 
 
 func _text(node: Node) -> String:
@@ -566,7 +876,7 @@ func _bounce_close_up() -> void:
 			moves_ok = moves_ok and _sheet_has(VignetteFigures.BODIES[build], anim, ["front", "back"])
 	_check(moves_ok and Vector2i((vig.FIGURE_SHADE as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
 			and Vector2i((vig.FIGURE_MASK as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE
-			and Vector2i((vig.FIGURE_DESIGN as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE / 2,
+			and Vector2i((vig.FIGURE_DESIGN as Texture2D).get_size()) == VignetteFigures.SHEET_SIZE / VignetteFigures.DESIGN_SCALE,
 			"The figure sheets hold every move the scene plays, front and back")
 	# Living players: the two ruckmen never go up as twins, and men standing in the
 	# square are ready (not stock-still) and never all in step.
@@ -597,6 +907,14 @@ func _bounce_close_up() -> void:
 	vig.finish_now()
 	await _settle()
 	_check(vig.is_frozen() and not b0.disabled, "Frozen on the bounce, the call is live")
+	# No choice looks recommended: every button wears the same style
+	# (director's PC playtest, 2026-10-07: the filled first button read as
+	# the best call).
+	var looks := {}
+	for b in card.find_children("Moment_*", "Button", true, false):
+		var sb := (b as Button).get_theme_stylebox("normal")
+		looks[str(sb.bg_color) if sb is StyleBoxFlat else "other"] = true
+	_check(looks.size() == 1, "Every choice stands equal, none filled as the recommended one (%s)" % str(looks.keys()))
 	var text := _text(card)
 	_check(text.contains("They have been winning it out of the middle all day."),
 			"The commentary tells the story of the stoppages, from the match (%s)" % text)
@@ -898,6 +1216,212 @@ func _bounce_matches_sim(tokens: Array, sim) -> bool:
 func _settle() -> void:
 	for i in range(6):
 		await process_frame
+
+
+# ---------------------------------------------------------------------------
+# Vignettes On/Off (Settings, ROADMAP §1.11)
+# ---------------------------------------------------------------------------
+## The setting is in the options at a phone's size and a PC's, takes a real
+## tap, and stays put across a reload of the settings.
+func _vignettes_setting() -> void:
+	_state.set_vignettes_on(true)
+	var options = load("res://scripts/ui/OptionsSheet.gd")
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		var tag := "%dx%d" % [sz.x, sz.y]
+		root.size = sz
+		var host := Control.new()
+		host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		root.add_child(host)
+		host.size = Vector2(sz)
+		var sheet: Control = options.open(host, true)
+		await _settle()
+		var on: Button = sheet.find_child("SettingsVignettes_on", true, false)
+		var off: Button = sheet.find_child("SettingsVignettes_off", true, false)
+		_check(on != null and off != null and _text(sheet).contains("Vignettes"),
+				"Settings has a Vignettes On/Off row (%s)" % tag)
+		if off != null:
+			_check((await Tap.tap(off)) == "", "Vignettes Off takes a real tap (%s)" % tag)
+			await _settle()
+			_check(not _state.vignettes_on(), "Off turns the vignettes off (%s)" % tag)
+		host.queue_free()
+		await _settle()
+		# A reload: a fresh read of the settings file, and a fresh career state.
+		var cfg := ConfigFile.new()
+		_check(cfg.load(_state.settings_path) == OK and cfg.get_value("ui", "vignettes", true) == false,
+				"Off is saved with the settings (%s)" % tag)
+		_state.reset()
+		_check(not _state.vignettes_on(), "Off survives a reload (%s)" % tag)
+		host = Control.new()
+		host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		root.add_child(host)
+		host.size = Vector2(sz)
+		sheet = options.open(host, true)
+		await _settle()
+		on = sheet.find_child("SettingsVignettes_on", true, false)
+		if on != null:
+			_check((await Tap.tap(on)) == "", "Vignettes On takes a real tap (%s)" % tag)
+			await _settle()
+			_check(_state.vignettes_on(), "On turns them back on (%s)" % tag)
+		host.queue_free()
+		await _settle()
+
+
+## The same seeded match, the same calls, with vignettes on and off: every
+## call still comes and is made, no scene is ever built with them off, and
+## the football is identical. Then the hub's Play match, the press conference
+## and the awards night with them off.
+func _vignettes_off_match() -> void:
+	var with_on: Dictionary = await _drive_match(true)
+	var with_off: Dictionary = await _drive_match(false)
+	print("Vignettes on: %d scenes, calls %s, %s. Off: %d scenes, calls %s, %s." % [int(with_on["vignettes"]),
+			str(with_on["kinds"]), str(with_on["score"]), int(with_off["vignettes"]), str(with_off["kinds"]),
+			str(with_off["score"])])
+	_check(int(with_on["vignettes"]) > 0, "With vignettes on, the match plays its scenes (%d)" % int(with_on["vignettes"]))
+	_check(int(with_off["vignettes"]) == 0, "With vignettes off, no scene is built at any point (%d)" % int(with_off["vignettes"]))
+	_check(not (with_off["kinds"] as Array).is_empty() and with_off["kinds"] == with_on["kinds"],
+			"With vignettes off every call still comes, the same ones (%s)" % str(with_off["kinds"]))
+	_check((with_off["kinds"] as Array).has("bounce") and bool(with_off["bounce_facts"]),
+			"The centre ball-up call comes as a card, with its facts (%s)" % str(with_off["kinds"]))
+	_check(int(with_off["chosen"]) == int(with_off["offered"]) and int(with_off["offered"]) > 0,
+			"Every call offered with vignettes off is chosen by the coach (%d of %d)" % [int(with_off["chosen"]), int(with_off["offered"])])
+	_check(with_off["score"] == with_on["score"], "The same result with vignettes on or off (%s v %s)"
+			% [str(with_on["score"]), str(with_off["score"])])
+	_check(with_off["events"] == with_on["events"], "The same match events, every one")
+	_check(with_off["players"] == with_on["players"], "The same player stats")
+	_state.set_bounce_scene_every_match(false)
+
+	# The hub: Play match goes straight to the match, no banner scene.
+	_state.set_vignettes_on(false)
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.replay_seed = SUITE_SEED
+	_state.start_season("COL", db.club_list("COL"))
+	_state.set_setting("seen_weekly_loop_intro", true)
+	root.size = Vector2i(390, 844)
+	var seen := [0]
+	var watch := func(n: Node) -> void:
+		if str(n.name).contains("Vignette") or str(n.name) == "PreMatch":
+			seen[0] += 1
+	node_added.connect(watch)
+	var hub: Control = load("res://scenes/HubScene.tscn").instantiate()
+	root.add_child(hub)
+	await _settle()
+	hub.call("_on_play_match")
+	await _settle()
+	_check(seen[0] == 0 and _state.pending_sim != null and current_scene != null and current_scene.name == "MatchScene",
+			"Play match goes straight to the match with vignettes off (%d scenes)" % seen[0])
+	if current_scene != null:
+		current_scene.queue_free()
+	if is_instance_valid(hub):
+		hub.queue_free()
+	await _settle()
+	# The press conference: the question straight away, no stage.
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	_state.media_conference = {"question": "How do you rate the win?", "options": [{"label": "Proud of them"}]}
+	hub = load("res://scenes/HubScene.tscn").instantiate()
+	root.add_child(hub)
+	await _settle()
+	if hub.find_child("MediaConference", true, false) == null:
+		hub.call("_show_media_conference")
+		await _settle()
+	var q: Label = hub.find_child("MediaQuestion", true, false)
+	var answer: Button = hub.find_child("MediaAnswer_0", true, false)
+	_check(q != null and q.is_visible_in_tree() and answer != null and answer.is_visible_in_tree()
+			and hub.find_child("MediaConferenceStage", true, false) == null and seen[0] == 0,
+			"The press conference asks straight away, without its stage")
+	hub.queue_free()
+	_state.media_conference = {}
+	await _settle()
+	# Awards night: the winner, without the stage.
+	var ids := []
+	for p in _state.season.lists["COL"]:
+		ids.append(str(p["id"]))
+	_state.season_awards = {"year": _state.season_year, "brownlow": [{"id": ids[0], "club": "COL", "votes": 30}],
+		"coleman": [], "all_australian": [], "best_and_fairest": {}}
+	var stage := Control.new()
+	stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(stage)
+	stage.size = Vector2(390, 844)
+	var awards: Control = load("res://scripts/ui/SeasonAwards.gd").open(stage)
+	await _settle()
+	(awards.find_child("AwardsNext", true, false) as Button).emit_signal("pressed")
+	await _settle()
+	_check(awards.find_child("AwardWinner", true, false) == null and seen[0] == 0
+			and _text(awards).contains(_state.award_name({"id": ids[0]})),
+			"The Brownlow winner is named, without the stage")
+	stage.queue_free()
+	_state.season_awards = {}
+	node_added.disconnect(watch)
+	_state.set_vignettes_on(true)
+	await _settle()
+
+
+## A seeded live match played through the match screen, every call answered
+## with its first choice. With the centre ball-up call forced in the last
+## quarter, so the one call with a scene of its own always comes.
+func _drive_match(vignettes: bool) -> Dictionary:
+	var db = root.get_node("GameDB")
+	_state.set_vignettes_on(vignettes)
+	_state.set_bounce_scene_every_match(true)
+	_state.reset()
+	_state.replay_seed = SUITE_SEED
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(390, 844)
+	_state.prepare_interactive_match()
+	var seen := [0]
+	var watch := func(n: Node) -> void:
+		var named := str(n.name).contains("Vignette")
+		var script: Script = n.get_script()
+		if named or (script != null and str(script.get_global_name()).ends_with("Vignette")):
+			seen[0] += 1
+	node_added.connect(watch)
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var kinds := []
+	var offered := 0
+	var chosen := 0
+	var bounce_facts := false
+	var guard := 0
+	while not bool(m.get("_fulltime_shown")) and guard < 60000:
+		guard += 1
+		var box = m.find_child("CoachBox", true, false)
+		if box != null:
+			var start: Button = box.find_child("StartQuarter", true, false)
+			if start != null:
+				start.emit_signal("pressed")
+			await _settle()
+			continue
+		var card = m.find_child("MomentCard", true, false)
+		if card != null:
+			if not card.has_meta("counted"):
+				card.set_meta("counted", true)
+				offered += 1
+			var pick: Button = card.find_child("Moment_0", true, false)
+			if pick != null and not pick.disabled and pick.is_visible_in_tree():
+				var kind := str(_state.pending_sim.pending_moment.get("kind", ""))
+				kinds.append(kind)
+				if kind == "bounce" and not vignettes:
+					bounce_facts = card.find_child("BounceFact", true, false) != null
+				pick.emit_signal("pressed")
+				chosen += 1
+				await _settle()
+				continue
+		var pitch = m.get("_pitch")
+		if pitch != null and pitch.playing:
+			pitch._process(0.25)
+		await process_frame
+	var res: Dictionary = m.get("_res")
+	var out := {"vignettes": seen[0], "kinds": kinds, "offered": offered, "chosen": chosen,
+		"bounce_facts": bounce_facts, "guard": guard,
+		"score": "%s-%s" % [str(res.get("goals", [])), str(res.get("behinds", []))],
+		"events": JSON.stringify(res.get("events", [])), "players": JSON.stringify(res.get("players", {}))}
+	_check(bool(m.get("_fulltime_shown")), "The match reaches full time (vignettes %s)" % ("on" if vignettes else "off"))
+	node_added.disconnect(watch)
+	m.queue_free()
+	await _settle()
+	return out
 
 
 ## True when a body on the figure sheet has the move from every one of those sides.

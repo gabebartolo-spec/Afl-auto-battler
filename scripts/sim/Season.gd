@@ -358,7 +358,7 @@ func simulate(home_code: String, away_code: String, match_seed: int,
 ## The match, set up and ready to run: both sides, their form, coaching,
 ## plans and match-ups.
 func match_sim(home_code: String, away_code: String, match_seed: int,
-		at_home := [true, false], is_final := false) -> MatchSim:
+		at_home := [true, false], is_final := false, weather := "perfect") -> MatchSim:
 	var home := Squad.new(GameDB_ref().club_name(home_code),
 			lists[home_code], bool(at_home[0]), home_code, selections.get(home_code, {}))
 	var away := Squad.new(GameDB_ref().club_name(away_code),
@@ -369,6 +369,7 @@ func match_sim(home_code: String, away_code: String, match_seed: int,
 	CoachEffects.apply(away)
 	var sim := MatchSim.new(home, away, match_seed)
 	sim.finals_mode = is_final
+	sim.weather = weather
 	for side in range(2):
 		var plan := str(plans.get([home_code, away_code][side], ""))
 		if plan != "":
@@ -460,6 +461,17 @@ func GameDB_ref() -> Node:
 	return Engine.get_main_loop().root.get_node("GameDB")
 
 
+## The weather at a match (ARD-M4-016): from the ground and the month, the
+## same whenever it's asked, so the forecast in the week is what's played.
+## `finals_m`: a final's bracket entry (its venue is the host's, or the MCG).
+func weather_for(home_code: String, away_code: String, round_i: int, finals_m: Dictionary = {}) -> String:
+	var is_final := not finals_m.is_empty()
+	var ground := finals_venue(finals_m) if is_final else home_ground(home_code)
+	var state := str(GameDB_ref().club(home_code).get("state", ""))
+	return Weather.condition(ground, Weather.month_of_round(round_i, is_final),
+			hash([seed, round_i, home_code, away_code, "weather"]), state)
+
+
 func next_seed(extra: int = 0) -> int:
 	return seed * 1000003 + round_index * 9176 + extra * 7919 + 13
 
@@ -471,7 +483,8 @@ func play_round() -> Array:
 	var sims := []
 	for i in range(round_matches.size()):
 		var m: Dictionary = round_matches[i]
-		sims.append(match_sim(m["home"], m["away"], next_seed(i)))
+		sims.append(match_sim(m["home"], m["away"], next_seed(i), [true, false], false,
+				weather_for(m["home"], m["away"], round_index)))
 	var played := run_all(sims)
 	for res in played:
 		res["round"] = round_index + 1
@@ -604,7 +617,8 @@ func play_finals_week() -> Array:
 		if m["home"] == "" or m["away"] == "":
 			continue
 		ready.append(m)
-		sims.append(match_sim(m["home"], m["away"], finals_seed(i), finals_at_home(m), true))
+		sims.append(match_sim(m["home"], m["away"], finals_seed(i), finals_at_home(m), true,
+				weather_for(m["home"], m["away"], REGULAR_ROUNDS + int(finals["week"]), m)))
 	var played := run_all(sims)
 	for i in range(played.size()):
 		record_final(ready[i], played[i])

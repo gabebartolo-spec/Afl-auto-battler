@@ -6,7 +6,9 @@ extends RefCounted
 ##   Brownlow Medal   3-2-1 votes to the three most influential players in
 ##                    every home-and-away match (finals do not count)
 ##   Coleman Medal    most home-and-away goals
-##   Rising Star      best votes-then-influence among players 21 and under
+##   Rising Star      best votes-then-influence among the season's weekly
+##                    nominees (one a round: the most influential player 21
+##                    and under not yet nominated)
 ##   Best & fairest   5-4-3-2-1 within each side every match, finals included
 ##   All-Australian   the season's best 23 by position (12+ games)
 ##
@@ -69,17 +71,14 @@ static func tally_match(tally: Dictionary, res: Dictionary, regular: bool) -> vo
 
 
 ## The season's awards. `players` maps id -> player dict (role, age) for
-## position and age; `year` labels the season.
-static func season_awards(tally: Dictionary, players: Dictionary, year: int) -> Dictionary:
-	var rows := []
-	for id in tally:
-		var t: Dictionary = tally[id]
-		var p: Dictionary = players.get(id, {})
-		rows.append({"id": str(id), "club": str(t["club"]), "games": int(t["games"]),
-				"goals": int(t["goals_ha"]), "votes": int(t["votes"]), "coaches": int(t.get("coaches", 0)), "bf": int(t["bf"]),
-				"avg": float(t["influence"]) / float(maxi(1, int(t["games"]))),
-				"role": str(p.get("role", "MID")), "age": float(p.get("age", 30.0)),
-				"brownlow_eligible": not bool(p.get("brownlow_ineligible", false))})
+## position and age; `year` labels the season. `nominees` is the season's
+## Rising Star record ({"from": first round recorded, "rounds": [...]}); when
+## it covers the whole season the winner comes from the nominees, as in the
+## AFL. A season without a full record (an older save) keeps the old rule:
+## the best of everyone young enough with 8 or more games.
+static func season_awards(tally: Dictionary, players: Dictionary, year: int,
+		nominees: Dictionary = {}) -> Dictionary:
+	var rows := _rows(tally, players)
 	var by_votes := rows.duplicate()
 	by_votes.sort_custom(func(a, b):
 		if int(a["votes"]) != int(b["votes"]):
@@ -101,8 +100,15 @@ static func season_awards(tally: Dictionary, players: Dictionary, year: int) -> 
 			return int(a["goals"]) > int(b["goals"])
 		return int(a["games"]) < int(b["games"]))
 	var rising := []
+	var nominated := {}
+	if int(nominees.get("from", 0)) == 1:
+		for n in nominees.get("rounds", []):
+			nominated[str(n.get("id", ""))] = true
 	for r in by_votes:
-		if float(r["age"]) <= RISING_STAR_AGE and int(r["games"]) >= 8:
+		if not nominated.is_empty():
+			if nominated.has(str(r["id"])):
+				rising.append(r)
+		elif float(r["age"]) <= RISING_STAR_AGE and int(r["games"]) >= 8:
 			rising.append(r)
 	var bf := {}
 	var clubs := {}
@@ -132,17 +138,50 @@ static func season_awards(tally: Dictionary, players: Dictionary, year: int) -> 
 	}
 
 
+## One row per tallied player: his season numbers, position and age.
+static func _rows(tally: Dictionary, players: Dictionary) -> Array:
+	var rows := []
+	for id in tally:
+		var t: Dictionary = tally[id]
+		var p: Dictionary = players.get(id, {})
+		rows.append({"id": str(id), "club": str(t["club"]), "games": int(t["games"]),
+				"goals": int(t["goals_ha"]), "votes": int(t["votes"]), "coaches": int(t.get("coaches", 0)), "bf": int(t["bf"]),
+				"avg": float(t["influence"]) / float(maxi(1, int(t["games"]))),
+				"role": str(p.get("role", "MID")), "age": float(p.get("age", 30.0)),
+				"brownlow_eligible": not bool(p.get("brownlow_ineligible", false))})
+	return rows
+
+
+## The games a player needs for the All-Australian team after `rounds` of the
+## home-and-away season: the full-season minimum, scaled to the rounds played.
+static func aa_min_games(rounds: int) -> int:
+	return clampi(ceili(float(AA_MIN_GAMES) * float(rounds) / float(Season.REGULAR_ROUNDS)), 1, AA_MIN_GAMES)
+
+
+## The All-Australian team if it were picked today, from the tally so far
+## (Season stats > Awards). The same slots and bench as the real team, from
+## players with `min_games` or more. It differs from the final selection in
+## one way: the final team weighs Brownlow votes, but those stay sealed until
+## the count, and a projection ranked by them would let the count leak. So
+## average influence alone ranks the projected team.
+static func projected_all_australian(tally: Dictionary, players: Dictionary, min_games: int) -> Array:
+	return _all_australian(_rows(tally, players), min_games, false)
+
+
 ## The season's best 18 by natural position, then the best five left over.
-static func _all_australian(rows: Array) -> Array:
+static func _all_australian(rows: Array, min_games := AA_MIN_GAMES, use_votes := true) -> Array:
 	var eligible := []
 	for r in rows:
-		if int(r["games"]) >= AA_MIN_GAMES:
+		if int(r["games"]) >= min_games:
 			eligible.append(r)
-	# Votes speak loudest; average influence separates the rest.
+	# Votes speak loudest; average influence separates the rest. Ties go to
+	# the id so the same tally always names the same team.
 	eligible.sort_custom(func(a, b):
-		var sa := float(a["votes"]) * 1.5 + float(a["avg"])
-		var sb := float(b["votes"]) * 1.5 + float(b["avg"])
-		return sa > sb)
+		var sa := (float(a["votes"]) * 1.5 if use_votes else 0.0) + float(a["avg"])
+		var sb := (float(b["votes"]) * 1.5 if use_votes else 0.0) + float(b["avg"])
+		if sa != sb:
+			return sa > sb
+		return str(a["id"]) < str(b["id"]))
 	var team := []
 	var used := {}
 	for slot in AA_SLOTS:
@@ -167,6 +206,31 @@ static func _all_australian(rows: Array) -> Array:
 			used[str(r["id"])] = true
 			bench += 1
 	return team
+
+
+## The round's Rising Star nominee: the most influential player that round
+## who is RISING_STAR_AGE or younger and not yet nominated this season (one
+## nomination a season, as in the AFL). `ages` maps id -> age; `nominated`
+## holds the ids already nominated. {} when nobody eligible played.
+static func rising_star_nominee(results: Array, ages: Dictionary, nominated: Dictionary) -> Dictionary:
+	var best := {}
+	var best_inf := -INF
+	for res in results:
+		if res.has("tag"):
+			continue  # a final
+		var stats_all: Dictionary = res.get("players", {})
+		var roster: Array = res.get("roster", [])
+		var codes := [str(res.get("home", "")), str(res.get("away", ""))]
+		for side in range(mini(2, roster.size())):
+			for r in roster[side]:
+				var id := str(r["id"])
+				if nominated.has(id) or not ages.has(id) or float(ages[id]) > RISING_STAR_AGE:
+					continue
+				var inf := CoachReport.influence(stats_all.get(id, {}))
+				if inf > best_inf or (inf == best_inf and id < str(best.get("id", ""))):
+					best_inf = inf
+					best = {"id": id, "club": codes[side]}
+	return best
 
 
 ## League records across a career, updated when a season ends. Mutates and

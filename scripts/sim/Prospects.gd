@@ -240,6 +240,10 @@ static func _shape_for(role: String, rng: RandomNumberGenerator, level: float) -
 
 ## Shift every attribute by a uniform offset so rate_overall lands on target.
 ## Bisection over a monotone function - at most ~14 cheap evaluations.
+## Attributes outside the overall rating: a refit leaves them where they are.
+const UNRATED_KEYS := ["discipline"]
+
+
 static func fit_attributes(a: Dictionary, role: String, target: float,
 		games: float = 14.0) -> Dictionary:
 	var lo := -40.0
@@ -253,6 +257,12 @@ static func fit_attributes(a: Dictionary, role: String, target: float,
 	var offset := (lo + hi) * 0.5
 	var out := {}
 	for key in a:
+		# Temperament isn't in the rating, so refitting the rating must not
+		# move it: shifting it with every decline and every league re-anchor
+		# made hotheads of a third of the real players by 2034 (backlog 21).
+		if key in UNRATED_KEYS:
+			out[key] = clampi(int(round(float(a[key]))), 1, 99)
+			continue
 		out[key] = clampi(int(round(float(a[key]) + offset)), 1, 99)
 	return out
 
@@ -458,7 +468,11 @@ static func generate_class(year: int, career_seed := 0) -> Array:
 	var tier := class_tier(career_seed, year)
 	var rng := _rng_for("class-%d" % year)
 	var size := 46 + int(rng.randi_range(0, 10))
-	var role_bag := ["MID", "MID", "MID", "FWD", "FWD", "DEF", "DEF", "RUCK"]
+	# The real lists' mix (director, 2026-10-06: "Match real lists"): about
+	# DEF 34%, FWD 30%, MID 28%, RUCK 7%. Every twelfth pick is a ruck (8%);
+	# the rest come from this bag, so a class runs DEF 35, FWD 28, MID 28.
+	var role_bag := ["DEF", "DEF", "DEF", "DEF", "DEF", "FWD", "FWD", "FWD", "FWD",
+			"MID", "MID", "MID", "MID"]
 	var out := []
 	var rucks := 0
 	for r in range(1, size + 1):
