@@ -11,7 +11,7 @@ save 78
 chronology 31
 career 71
 coaches 340
-coach_market 63
+coach_market 81
 coach_pathway 57
 coach_effects 36
 # career_ui: one check (Back skipping a press conference) only runs when the
@@ -22,7 +22,7 @@ ratings 39
 ai 38
 training 107
 selection 54
-matchup 99
+matchup 103
 matchday 552
 roles 218
 injuries 31

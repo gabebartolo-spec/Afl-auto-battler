@@ -328,6 +328,8 @@ static func promote_to_sa(c: Dictionary, club: String, year: int, seed: int) -> 
 ##   release     cids you released this offseason (already free)
 ##   protected   cids of your coaches no rival may take this offseason: every
 ##               one you kept or were never asked about (GameState approaches)
+##   promised    cid -> [club, job]: your coaches leaving for a job agreed in
+##               the finals; that job is his when it opens, and no other
 ## Returns {"news": [...], "vacancies": [{job, reason}], "log": {...}} where
 ## vacancies are your club's jobs left for you to fill.
 static func offseason(ctx: Dictionary) -> Dictionary:
@@ -343,7 +345,8 @@ static func offseason(ctx: Dictionary) -> Dictionary:
 			"promotions": 0, "poached_from_you": 0, "generated": 0, "emergency": 0,
 			"line_to_sc": 0, "archived": 0, "pruned": 0}
 	var my_vacancies: Array = []
-	var protected: Dictionary = ctx.get("protected", {})
+	var kept_by_you: Dictionary = ctx.get("protected", {})
+	var promised: Dictionary = ctx.get("promised", {})
 
 	for cid in coaches:
 		ensure_fields(coaches[cid], year)
@@ -452,12 +455,19 @@ static func offseason(ctx: Dictionary) -> Dictionary:
 			continue
 		var best := {}
 		var best_score := -INF
+		for cid in promised:
+			var deal: Array = promised[cid]
+			if str(deal[0]) == club and str(deal[1]) == job and not moved.has(cid) and coaches.has(cid):
+				best = coaches[cid]
+				best_score = INF
 		for cid in coaches:
+			if best_score == INF:
+				break
 			var c: Dictionary = coaches[cid]
-			if moved.has(cid) or not would_take(c, club, job, year):
+			if moved.has(cid) or promised.has(cid) or not would_take(c, club, job, year):
 				continue
 			if str(c.get("status", "")) == "club" and str(c["club"]) == my_club \
-					and (poached_from_you >= MAX_POACHED_FROM_YOU or protected.has(cid)):
+					and (poached_from_you >= MAX_POACHED_FROM_YOU or kept_by_you.has(cid)):
 				continue
 			var s := hire_score(c, club, job, year, seed)
 			if s > best_score:
@@ -503,6 +513,11 @@ static func offseason(ctx: Dictionary) -> Dictionary:
 		elif GameDB.enter_year(club) == year + 1:
 			news.append([3, "%s appoint %s (%s)." % [GameDB.club_name(club), _name(best), _job_word(job)]])
 	_unblock(coaches)
+	# A job agreed in the finals that never came open: he stays where he is.
+	for cid in promised:
+		if not moved.has(cid) and coaches.has(cid):
+			news.append([1, "%s's move to %s fell through when the job never came up. He stays with you." % [
+					_name(coaches[cid]), GameDB.club_name(str((promised[cid] as Array)[0]))]])
 
 	_prune(coaches, archive, year, my_club, log)
 	_top_up(coaches, year, seed, log, clubs)

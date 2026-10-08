@@ -7143,6 +7143,12 @@ func _coaching_offseason() -> void:
 		return
 	var ctx := _coach_market_ctx(coaches, coach_archive)
 	ctx["protected"] = _protected_coaches()
+	# The ones leaving go to the job they were offered, when it opens.
+	var promised := {}
+	for a in coach_approaches:
+		if not bool(a.get("kept", false)):
+			promised[str(a["cid"])] = [str(a["club"]), str(a["job"])]
+	ctx["promised"] = promised
 	var out := CoachMarket.offseason(ctx)
 	for v in out["vacancies"]:
 		if not _vacancy_open(str(v["job"])):
@@ -7207,8 +7213,8 @@ func _find_coach_approaches() -> void:
 					"job": str(n["job"]), "choice": "", "kept": false, "text": ""})
 	for a in coach_approaches:
 		add_news("coaching", "%s want your %s, %s, as their %s." % [GameDB.club_name(str(a["club"])),
-				Coaches.JOB_LABEL.get(str(a["from_job"]), "coach").to_lower(), _coach_name(coaches[str(a["cid"])]),
-				Coaches.JOB_LABEL.get(str(a["job"]), "coach").to_lower()])
+				CoachMarket._job_word(str(a["from_job"])), _coach_name(coaches[str(a["cid"])]),
+				CoachMarket._job_word(str(a["job"]))])
 	mark_dirty()
 
 
@@ -7252,8 +7258,8 @@ func answer_approach(i: int, choice: String) -> String:
 		else:
 			a["text"] = "%s turns %s down and stays on." % [who, rival]
 	else:
-		a["text"] = "%s thanks you, but takes the %s job at %s." % [who,
-				Coaches.JOB_LABEL.get(str(a["job"]), "coaching").to_lower(), rival]
+		a["text"] = "%s thanks you, but becomes %s's %s after the season." % [who, rival,
+				CoachMarket._job_word(str(a["job"]))]
 	add_news("coaching", str(a["text"]))
 	mark_dirty()
 	return str(a["text"])

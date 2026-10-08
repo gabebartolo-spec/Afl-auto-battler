@@ -417,6 +417,9 @@ func _week_section(season: Season) -> Control:
 	var notice := _staff_notice()
 	if notice != null:
 		nv.add_child(notice)
+	var approaches := _approach_cards()
+	if approaches != null:
+		nv.add_child(approaches)
 	if not GameState.pending_mro_challenges().is_empty():
 		nv.add_child(_tribunal_card())
 	if season.is_season_over():
@@ -686,6 +689,56 @@ func _staff_notice() -> Control:
 	v.add_child(go)
 	v.add_child(UiKit.rule())
 	return v
+
+
+## Rival clubs after your coaches (found when the home-and-away season
+## ends): who, for what job, and your answer - the senior assistant's job, a
+## request to stay, or your blessing. Answered ones stay as a line until the
+## off-season settles them.
+func _approach_cards() -> Control:
+	if GameState.coach_approaches.is_empty():
+		return null
+	var v := UiKit.vbox(6)
+	v.name = "CoachApproaches"
+	for i in range(GameState.coach_approaches.size()):
+		var a: Dictionary = GameState.coach_approaches[i]
+		var c: Dictionary = GameState.coaches.get(str(a["cid"]), {})
+		var who := CoachMarket._name(c) if not c.is_empty() else "Your coach"
+		if str(a.get("choice", "")) != "":
+			var done := UiKit.lbl(str(a["text"]), UiKit.BODY, UiKit.MUTED)
+			done.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(done)
+			continue
+		var card := UiKit.vbox(4)
+		card.name = "Approach_%d" % i
+		card.add_child(UiKit.lbl("%s want %s" % [GameDB.club_name(str(a["club"])), who], UiKit.NAME, UiKit.TEXT, true))
+		var why := UiKit.lbl("Your %s. They have offered him the %s job." % [
+				CoachMarket._job_word(str(a["from_job"])), CoachMarket._job_word(str(a["job"]))], UiKit.BODY, UiKit.MUTED)
+		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		card.add_child(why)
+		var row := UiKit.hbox(8)
+		var block := GameState.approach_promote_block(i)
+		if block == "":
+			row.add_child(_approach_button(i, "promote", "Offer senior assistant", true))
+		row.add_child(_approach_button(i, "stay", "Ask him to stay"))
+		row.add_child(_approach_button(i, "go", "Let him go"))
+		card.add_child(row)
+		v.add_child(card)
+	v.add_child(UiKit.rule())
+	return v
+
+
+func _approach_button(i: int, choice: String, text: String, primary := false) -> Button:
+	var b := UiKit.btn(text, UiKit.SMALL + 1, primary)
+	b.name = "Approach_%d_%s" % [i, choice]
+	b.custom_minimum_size = Vector2(0, 44)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	b.pressed.connect(func():
+		GameState.answer_approach(i, choice)
+		_build())
+	return b
 
 
 ## Coaching: staff, how we play, form, the list and the board. An open job
