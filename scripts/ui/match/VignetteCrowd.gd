@@ -18,8 +18,10 @@ const SEAT_COLS := 64
 const SEAT_ROWS := 36
 const SEAT_PX := Vector2i(16, 14)
 
-static func seats(colours: Array, seed := 7) -> ImageTexture:
-	var key := "seats|%s|%d" % [str(colours), seed]
+## seat: the colour of the seats themselves, where nobody sits (the ground's own; dark by
+## default).
+static func seats(colours: Array, seed := 7, seat := Color(0.07, 0.07, 0.085)) -> ImageTexture:
+	var key := "seats|%s|%d|%s" % [str(colours), seed, seat.to_html()]
 	if _cache.has(key):
 		return _cache[key]
 	if _cache.size() > 8:
@@ -27,7 +29,7 @@ static func seats(colours: Array, seed := 7) -> ImageTexture:
 	var w := SEAT_COLS * SEAT_PX.x
 	var h := SEAT_ROWS * SEAT_PX.y
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0.07, 0.07, 0.085))
+	img.fill(seat)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
 	var skins := [Color(0.85, 0.68, 0.55), Color(0.72, 0.53, 0.4), Color(0.55, 0.38, 0.27), Color(0.36, 0.24, 0.17)]
