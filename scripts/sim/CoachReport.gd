@@ -42,7 +42,7 @@ const PLAN_SUMMARY := {
 }
 
 const PEP_SUMMARY := {
-	"steady": "",
+	"steady": "Keep them as they are: no lift at the contest, and no settling either.",
 	"fire_up": "A lift at the contest when you are chasing the game; legs go quicker and tempers fray.",
 	"calm": "Fewer errors and less rattled by pressure, legs last longer; less ground gained.",
 }

@@ -34,9 +34,21 @@ var _pitch: Control
 var _spot_at := {}        # spot key -> Vector2 (FormationView.SLOTS "at")
 var _grid: GridContainer
 var _search_field: LineEdit
+## Another club's side to look at, not edit (the opposition view): taps open
+## a profile, nothing moves, and the oval is mirrored - they kick the other way.
+var _list: Array = []
+var _read_only := false
+## Just the oval and the interchange, the right way round: a team that isn't
+## anyone's opponent (the projected All-Australian team). Set before setup().
+var field_only := false
+## With field_only: a line under each name in place of position and OVR
+## (id -> text; the All-Australian team shows each player's club).
+var notes := {}
 
 
-func setup(side: Dictionary, wide: bool) -> void:
+func setup(side: Dictionary, wide: bool, list: Array = [], read_only := false) -> void:
+	_list = list if not list.is_empty() else GameState.my_list
+	_read_only = read_only
 	_side = side.duplicate(true)
 	for line in LINES:
 		if not _side.has(line):
@@ -104,6 +116,8 @@ func _build() -> void:
 		bc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bench.add_child(bc)
 	_place_spots.call_deferred()
+	if field_only:
+		return
 
 	var rest := UiKit.vbox(6)
 	rest.name = "BuilderRest"
@@ -129,11 +143,16 @@ func _build() -> void:
 		_search = t
 		_fill_grid())
 	rest.add_child(_search_field)
-	if _picked != "":
+	if _read_only:
+		var ro := UiKit.lbl("Their side as it would take the field: tap a player to see him.", UiKit.SMALL, UiKit.MUTED)
+		ro.name = "ReadOnlyHint"
+		ro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		rest.add_child(ro)
+	elif _picked != "":
 		# The player you picked: swap him by tapping another, or look at him.
 		var bar := UiKit.hbox(6)
 		bar.name = "PickedBar"
-		var who := UiKit.ellipsis("%s picked: tap who he swaps with." % GameDB.player_display_name(GameState.list_player(_picked)),
+		var who := UiKit.ellipsis("%s picked: tap who he swaps with." % GameDB.player_display_name(_player(_picked)),
 				UiKit.SMALL, UiKit.TEXT, true)
 		who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bar.add_child(who)
@@ -181,7 +200,7 @@ func _fill_grid() -> void:
 			in_side[str(id)] = true
 	var out: Array = []
 	var q := _search.strip_edges().to_lower()
-	for p in GameState.my_list:
+	for p in _list:
 		if in_side.has(str(p["id"])):
 			continue
 		if _role != "" and not Ratings.plays_role(p, _role):
@@ -204,7 +223,7 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
-	var p := GameState.list_player(id) if id != "" else {}
+	var p := _player(id) if id != "" else {}
 	b.name = "Card_" + id if id != "" else "Empty"
 	b.set_meta("id", id)
 	b.set_meta("place", place)
@@ -223,11 +242,12 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 		var top := UiKit.ellipsis(str(p.get("last", GameDB.player_display_name(p))), 13, UiKit.TEXT, true)
 		top.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		face.add_child(top)
-		var sub := UiKit.lbl("%s %d" % [Ratings.role_tag(p), int(p["overall"])], 11, UiKit.MUTED)
+		var sub := UiKit.lbl(str(notes[id]) if field_only and notes.has(id)
+				else "%s %d" % [Ratings.role_tag(p), int(p["overall"])], 11, UiKit.MUTED)
 		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		face.add_child(sub)
 		b.custom_minimum_size = Vector2(84 if _wide else 70, 44)
-		if Workload.value(p) >= Workload.CARRYING:
+		if not field_only and Workload.value(p) >= Workload.CARRYING:
 			# How fresh he is, on the card: no profile needed to see it.
 			var ready := UiKit.lbl(Workload.label(p), 10, UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
 			ready.name = "Readiness_" + id
@@ -263,6 +283,10 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 				UiKit.BAD if not Ratings.available(p) else UiKit.MUTED))
 		b.custom_minimum_size = Vector2(160, 62)
 	_ignore_mouse(face)
+	if _read_only:
+		if id != "":
+			b.pressed.connect(func(): inspect.emit(id))
+		return b
 	b.pressed.connect(_tap.bind(id, place))
 	if id != "":
 		b.set_drag_forwarding(
@@ -281,6 +305,13 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 				func(_at: Vector2, data) -> void:
 					_swap(str(data["team_builder"]), "", place))
 	return b
+
+
+func _player(id: String) -> Dictionary:
+	for p in _list:
+		if str(p["id"]) == id:
+			return p
+	return {}
 
 
 func _why_out(p: Dictionary) -> String:
@@ -327,8 +358,8 @@ func _swap(a: String, b: String, place: String) -> void:
 	if b == "" and place != "":
 		var parts := place.split(":")
 		wb = [parts[0], int(parts[1])]
-	var pa := GameState.list_player(a)
-	var pb := GameState.list_player(b) if b != "" else {}
+	var pa := _player(a)
+	var pb := _player(b) if b != "" else {}
 	# Coming into the side, a player must be able to play.
 	if wa.is_empty() and not wb.is_empty() and not Ratings.available(pa):
 		changed.emit("%s can't play this week: %s." % [GameDB.player_display_name(pa), _why_out(pa).to_lower()])
@@ -379,6 +410,8 @@ func _place_spots() -> void:
 		var at: Vector2 = _spot_at.get(str(c.get_meta("spot")), Vector2.ZERO)
 		# Wide: the ground runs left to right, our goal on the left. Phone: it
 		# runs up the screen, attacking upward.
+		if _read_only and not field_only:
+			at = Vector2(-at.x, at.y)
 		var u := Vector2(at.x, at.y) if _wide else Vector2(at.y, -at.x)
 		var centre := r.get_center() + Vector2(u.x * r.size.x * 0.5, u.y * r.size.y * 0.5)
 		var sz: Vector2 = (c as Control).get_combined_minimum_size()

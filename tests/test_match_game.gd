@@ -27,6 +27,7 @@ func run() -> void:
 	_test_pep_talks()
 	_test_tired_call_holds()
 	_test_play_through()
+	_test_play_through_by_job()
 	_test_hothead()
 	_test_lockdown_midfielder()
 	_test_traits()
@@ -1231,6 +1232,97 @@ func _test_play_through() -> void:
 	_check(g_on / n <= g_off / n + 0.35,
 			"...and he does not become the goalkicker (%.2f v %.2f goals a game)" % [g_on / n, g_off / n])
 
+
+
+## Play through by the slot he fills (#508): a forward is favoured for the shot
+## and for the ball up forward; a defender for the ball coming out of the back
+## half; a midfielder or ruck for the ball in every chain, and never for the
+## shot (ARD-M1-003). The bias moves who gets the ball and the shot, not how many.
+func _test_play_through_by_job() -> void:
+	var probe := _sim(60)
+	var who := {}
+	for p in probe.squads[0].ground:
+		var role := str(p["role"])
+		if not who.has(role) or probe._a(p, "goalkicking") > probe._a(who[role], "goalkicking"):
+			who[role] = p
+	for role in ["FWD", "MID", "DEF", "RUCK"]:
+		_check(who.has(role), "(setup) a %s is on the ground" % role)
+		if not who.has(role):
+			return
+	# The multiplier: what the call is worth, by the pick it is made in.
+	var plain := {}
+	for role in who:
+		for purpose in ["shooter", "carrier", "transition"]:
+			for zone in ["back", "middle", "attack", "inside"]:
+				plain["%s/%s/%s" % [role, purpose, zone]] = _job_mult(probe, who[role], purpose, zone)
+	for role in who:
+		probe.set_tactics(0, {"focus_id": str(who[role]["id"])})
+		for purpose in ["shooter", "carrier", "transition"]:
+			for zone in ["back", "middle", "attack", "inside"]:
+				var ratio: float = _job_mult(probe, who[role], purpose, zone) / float(plain["%s/%s/%s" % [role, purpose, zone]])
+				var want := 1.0
+				if purpose == "shooter":
+					want = MatchSim.FOCUS_SHOT if role == "FWD" else 1.0
+				elif role == "FWD":
+					want = MatchSim.FOCUS_CARRY if zone == "attack" or zone == "inside" else 1.0
+				elif role == "DEF":
+					want = MatchSim.FOCUS_EXIT if zone == "back" else 1.0
+				else:
+					want = MatchSim.FOCUS_CARRY
+				_check(is_equal_approx(ratio, want), "%s played through, %s in the %s: x%.2f (want x%.2f)" % [role, purpose, zone, ratio, want])
+	# The picks, on one seed so the dice are shared: only his weight differs.
+	var picks := {
+		"FWD": ["shooter", 0.0], "MID": ["shooter", 0.0],
+		"DEF": ["carrier", -40.0], "RUCK": ["shooter", 0.0],
+	}
+	for role in who:
+		var id := str(who[role]["id"])
+		var off := _count_picks(60, id, str((picks[role] as Array)[0]), float((picks[role] as Array)[1]), "")
+		var on := _count_picks(60, id, str((picks[role] as Array)[0]), float((picks[role] as Array)[1]), id)
+		if role == "FWD" or role == "DEF":
+			_check(on >= off * 1.10 and off > 0, "A %s played through is picked more for the %s (%d v %d of 3000)" % [role, str((picks[role] as Array)[0]), on, off])
+		else:
+			_check(on == off, "A %s played through is not made the shooter (%d v %d of 3000)" % [role, on, off])
+	var mid_id := str(who["MID"]["id"])
+	var ruck_id := str(who["RUCK"]["id"])
+	var def_id := str(who["DEF"]["id"])
+	var fwd_id := str(who["FWD"]["id"])
+	_check(_count_picks(60, mid_id, "carrier", 0.0, mid_id) >= _count_picks(60, mid_id, "carrier", 0.0, "") * 1.10,
+			"A midfielder played through gets more of the ball through the middle")
+	_check(_count_picks(60, ruck_id, "carrier", 0.0, ruck_id) >= _count_picks(60, ruck_id, "carrier", 0.0, "") * 1.10,
+			"A ruck played through gets more of the ball in the middle")
+	_check(_count_picks(60, fwd_id, "carrier", 25.0, fwd_id) >= _count_picks(60, fwd_id, "carrier", 25.0, "") * 1.10,
+			"A forward played through gets more of the ball up forward")
+	_check(_count_picks(60, def_id, "carrier", 0.0, def_id) == _count_picks(60, def_id, "carrier", 0.0, ""),
+			"A defender played through gets no more of the ball through the middle")
+	_check(_count_picks(60, def_id, "carrier", 25.0, def_id) == _count_picks(60, def_id, "carrier", 25.0, ""),
+			"...nor up forward: his job is out of the back half")
+
+
+func _job_mult(sim: MatchSim, p: Dictionary, purpose: String, zone: String) -> float:
+	var ctx := sim._pick_ctx(0)
+	ctx["zone"] = zone
+	return sim._tactic_player_mult(0, p, purpose, ctx)
+
+
+## How often `id` is picked in 3000 draws of one kind of pick, side 0, with
+## `focus` (or nobody) played through. `at` is the field position of a carrier pick.
+func _count_picks(seed: int, id: String, kind: String, at: float, focus: String) -> int:
+	var sim := _sim(seed)
+	if focus != "":
+		sim.set_tactics(0, {"focus_id": focus})
+	var ground: Array = sim.squads[0].ground
+	var n := 0
+	for i in range(3000):
+		var got
+		if kind == "shooter":
+			got = sim._weighted_roles(ground, "goalkicking", MatchSim.SHOT_ROLES, float(Ratings.T["shooter_power"]), 0, "shooter",
+					MatchSim.TARGET_SIZES)
+		else:
+			got = sim.pick_carrier(0, at)
+		if str(got["id"]) == id:
+			n += 1
+	return n
 
 
 ## ARD-M1-001 stat credits: a goal assist only when a goal is kicked (never

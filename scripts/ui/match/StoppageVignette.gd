@@ -233,13 +233,31 @@ func _gui_input(event: InputEvent) -> void:
 # far, in words. MatchSim's own counts decide it; none are shown.
 # ---------------------------------------------------------------------------
 func _commentary(sim: MatchSim, me: int) -> Array:
+	return call_facts(sim, me)
+
+
+## The same lines without the scene (Settings > Vignettes off): the call card
+## carries them itself. MatchSim's bounce attendees, read the way setup() does.
+static func call_facts(sim: MatchSim, me: int) -> Array:
+	var at_bounce := []
+	for side in range(2):
+		var at: Dictionary = sim.bounce_attendees(side)
+		var ruck: Dictionary = at["ruck"]
+		var mids: Array = at["mids"]
+		var picks := {"R": [] if ruck.is_empty() else [ruck],
+				"C": mids.slice(0, 1), "RR": mids.slice(1, 2), "RV": mids.slice(2, 3)}
+		for slot in SLOTS:
+			for p in picks[slot]:
+				at_bounce.append({"mine": side == me, "slot": slot,
+						"name": _surname(GameDB.player_display_name(p)),
+						"tired": float(sim.energy.get(str(p["id"]), 100.0)) < EMPTY})
 	var out := []
 	var them := 1 - me
 	var gap := float((sim.team_stats[me] as Dictionary).get("clearances", 0.0)) \
 			- float((sim.team_stats[them] as Dictionary).get("clearances", 0.0))
 	var taps := _ruck_taps(sim, me) - _ruck_taps(sim, them)
 	var rucks := {}
-	for t in tokens:
+	for t in at_bounce:
 		if str(t["slot"]) == "R":
 			rucks[bool(t["mine"])] = str(t["name"])
 	if gap <= -4:
@@ -250,7 +268,7 @@ func _commentary(sim: MatchSim, me: int) -> Array:
 		out.append("%s is on top in the ruck." % str(rucks[taps > 0]))
 	else:
 		out.append("Nothing between them at the stoppages.")
-	for t in tokens:
+	for t in at_bounce:
 		if bool(t["tired"]):
 			out.append(("%s is running on empty." if bool(t["mine"]) else "Their %s is running on empty.")
 					% str(t["name"]))
@@ -258,7 +276,7 @@ func _commentary(sim: MatchSim, me: int) -> Array:
 	return out
 
 
-func _ruck_taps(sim: MatchSim, side: int) -> int:
+static func _ruck_taps(sim: MatchSim, side: int) -> int:
 	var n := 0.0
 	for p in (sim.squads[side] as Squad).ground:
 		if str(p["role"]) == "RUCK":

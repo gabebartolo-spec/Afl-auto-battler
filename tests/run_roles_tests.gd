@@ -197,6 +197,69 @@ func _selection_tests() -> void:
 		_check(ui.call("handle_back") == true and not is_instance_valid(ui.get("_synergy_overlay")),
 				"Back closes the synergy guide first")
 		await _settle()
+	# Complete synergy: one tap switches it on, says who came in, and can be
+	# undone (director, 2026-10-07). Collingwood can complete its Lockdown unit.
+	(ui.find_child("SynergyRules", true, false) as Button).emit_signal("pressed")
+	await _settle()
+	var complete: Button = ui.find_child("Complete_lockdown_unit", true, false)
+	var blocked: Node = ui.find_child("CompleteWhy_engine_room", true, false)
+	_check(complete != null and not complete.disabled and blocked != null,
+			"The guide offers Complete where the list can, and says why where it can't")
+	if complete != null:
+		complete.emit_signal("pressed")
+		await _settle()
+		_check(_screen_text(ui).contains("Lockdown unit on:") and ui.find_child("UndoPick", true, false) != null,
+				"Completing it changes the side, says who came in, and offers Undo")
+		(ui.find_child("UndoPick", true, false) as Button).emit_signal("pressed")
+		await _settle()
+		_state.set_selection({})
+		ui.queue_free()
+		await _settle()
+		ui = await _open()
+	# The opposition on the same oval, read-only, and the assistant's report.
+	var mine_side: Dictionary = _state.current_side()
+	var view_opp: Button = null
+	for b in ui.find_child("OvalView", true, false).get_children():
+		if b is Button and str(b.name) != "OvalView_mine":
+			view_opp = b
+	_check(view_opp != null, "You can flip the oval to this week's opponent")
+	if view_opp != null:
+		view_opp.emit_signal("pressed")
+		await _settle()
+		_check(ui.find_child("OppProjected", true, false) != null and ui.find_child("ReadOnlyHint", true, false) != null,
+				"Their side is marked projected and read-only")
+		var their_card: Button = ui.find_child("Spot_C", true, false)
+		their_card.emit_signal("pressed")
+		await _settle()
+		_check(ui.find_child("PlayerProfile", true, false) != null and _state.current_side() == mine_side,
+				"Tapping their player opens his profile and changes nothing of yours")
+		ui.call("handle_back")
+		await _settle()
+		(ui.find_child("OvalView_mine", true, false) as Button).emit_signal("pressed")
+		await _settle()
+		_check(ui.find_child("OppProjected", true, false) == null and _state.current_side() == mine_side,
+				"Back to your team, as you left it")
+	var rep_btn: Button = ui.find_child("AssistantReport", true, false)
+	_check(rep_btn != null, "The assistant's report is one tap away")
+	if rep_btn != null:
+		_check((await Tap.tap(rep_btn)) == "", "The report button takes a tap")
+		await _settle()
+		var sheet_r: Node = ui.find_child("AssistantReportSheet", true, false)
+		var rtext := _screen_text(sheet_r) if sheet_r != null else ""
+		_check(sheet_r != null and rtext.contains("Assistant's report") and not rtext.to_lower().contains("you should")
+				and not rtext.to_lower().contains("to beat them"), "The assistant's report describes them, never how to beat them")
+		# Each fact once: not twice in the report, not again on the screen.
+		var week_text := _screen_text(ui.find_child("SelectionWeek", true, false))
+		var once := true
+		var said := {}
+		for part in _state.opponent_report(str(_state.my_next_opponent()["code"])):
+			for t in part[1]:
+				if said.has(str(t)) or week_text.contains(str(t)):
+					once = false
+				said[str(t)] = true
+		_check(once, "Every fact in the report is said once, and not again under This week")
+		ui.call("handle_back")
+		await _settle()
 	var recipe := RegEx.new()
 	recipe.compile("\\d/\\d [A-Z][a-z]")
 	_check(recipe.search(text) == null, "Synergies are not a recipe: no 'one more X' counts")
