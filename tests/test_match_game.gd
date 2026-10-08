@@ -462,10 +462,13 @@ func _test_moments() -> void:
 	var kinds := {}
 	var ok_log := true
 	var consistent := true
-	for i in range(6):
+	# Twelve live games: a handful of moments in the first six (the count
+	# below), and over all twelve the rarer kinds (a duel, a hot hand) too.
+	for i in range(12):
 		var sim := _live(300 + i, func(m): return (m["options"] as Array).size() - 1)
 		for m in sim.moments:
-			total += 1
+			if i < 6:
+				total += 1
 			kinds[str(m["kind"])] = true
 			if not m.has("choice_label") or not m.has("outcome") or int(m["side"]) != 0:
 				ok_log = false
@@ -1316,7 +1319,9 @@ func _test_play_through_by_job() -> void:
 			"A midfielder played through gets more of the ball through the middle")
 	_check(_count_picks(60, ruck_id, "carrier", 0.0, ruck_id) >= _count_picks(60, ruck_id, "carrier", 0.0, "") * 1.10,
 			"A ruck played through gets more of the ball in the middle")
-	_check(_count_picks(60, fwd_id, "carrier", 25.0, fwd_id) >= _count_picks(60, fwd_id, "carrier", 25.0, "") * 1.10,
+	# Up forward he is one carrier in seventy: 3000 draws give him about 45,
+	# too few to see a x1.14 call through the rounding, so this one draws 20000.
+	_check(_count_picks(60, fwd_id, "carrier", 25.0, fwd_id, 20000) >= _count_picks(60, fwd_id, "carrier", 25.0, "", 20000) * 1.10,
 			"A forward played through gets more of the ball up forward")
 	_check(_count_picks(60, def_id, "carrier", 0.0, def_id) == _count_picks(60, def_id, "carrier", 0.0, ""),
 			"A defender played through gets no more of the ball through the middle")
@@ -1332,13 +1337,13 @@ func _job_mult(sim: MatchSim, p: Dictionary, purpose: String, zone: String) -> f
 
 ## How often `id` is picked in 3000 draws of one kind of pick, side 0, with
 ## `focus` (or nobody) played through. `at` is the field position of a carrier pick.
-func _count_picks(seed: int, id: String, kind: String, at: float, focus: String) -> int:
+func _count_picks(seed: int, id: String, kind: String, at: float, focus: String, draws := 3000) -> int:
 	var sim := _sim(seed)
 	if focus != "":
 		sim.set_tactics(0, {"focus_id": focus})
 	var ground: Array = sim.squads[0].ground
 	var n := 0
-	for i in range(3000):
+	for i in range(draws):
 		var got
 		if kind == "shooter":
 			got = sim._weighted_roles(ground, "goalkicking", MatchSim.SHOT_ROLES, float(Ratings.T["shooter_power"]), 0, "shooter",
@@ -1481,10 +1486,12 @@ func _test_spoils_and_crumbs() -> void:
 					by_def += float(st.get("spoils", 0.0))
 			if absf(ps - team_sp) > 0.01:
 				sums_ok = false
+		# By his own position: "role" is the slot he finished in, and a late
+		# rotation can end a crumbing small forward in a back's slot.
 		var role := {}
 		for side in range(2):
 			for r in res["roster"][side]:
-				role[str(r["id"])] = str(r["role"])
+				role[str(r["id"])] = str(r.get("list_role", r["role"]))
 		for e in res["events"]:
 			var kind := str(e.get("kind", ""))
 			if kind == "goal" and bool(e.get("crumb", false)):
