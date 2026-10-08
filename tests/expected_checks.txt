@@ -2,7 +2,7 @@
 # fails the run: checks went missing. Raise a floor when a suite gains
 # checks; lower one only on purpose, in the PR that removes checks.
 draft 7808
-draft_ui 1154
+draft_ui 1143
 intake 2210
 intake_ui 500
 expansion 503
@@ -11,7 +11,7 @@ save 78
 chronology 31
 career 71
 coaches 340
-coach_market 81
+coach_market 63
 coach_pathway 57
 coach_effects 36
 # career_ui: one check (Back skipping a press conference) only runs when the
@@ -20,9 +20,9 @@ career_ui 308
 potential 36
 ratings 39
 ai 38
-training 112
+training 107
 selection 54
-matchup 103
+matchup 96
 matchday 552
 roles 218
 injuries 31
