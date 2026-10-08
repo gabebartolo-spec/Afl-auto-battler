@@ -115,7 +115,7 @@ var extra_time_played := false
 ## player's effective attributes (fit()), centred so an average match reads
 ## the same as before - a fresh player is a touch better, a cooked one worse.
 var energy := {}
-## fit() by player id until energy next changes (each chain's fatigue, a quarter break):
+## fit() by player id, with the energy it was computed at (a changed energy recomputes);
 ## it is asked about half a million times a round of matches. The same numbers, computed once.
 var _fit_cache := {}
 var rotation_policy := ["normal", "normal"]
@@ -3354,13 +3354,15 @@ const FIT_SLOPE := 0.25
 
 func fit(p: Dictionary) -> float:
 	var id := str(p["id"])
-	if _fit_cache.has(id):
-		return _fit_cache[id]
-	var f := FIT_BASE + FIT_SLOPE * float(energy.get(id, 100.0)) / 100.0
+	var e := float(energy.get(id, 100.0))
+	var hit = _fit_cache.get(id)
+	if hit != null and hit[0] == e:
+		return hit[1]
+	var f := FIT_BASE + FIT_SLOPE * e / 100.0
 	if (current_quarter >= 4 or finals_mode) and _trait(p, "big_game"):
 		f += 0.05
 	f += ClubLife.form(p)
-	_fit_cache[id] = f
+	_fit_cache[id] = [e, f]
 	return f
 
 
