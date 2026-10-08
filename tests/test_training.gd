@@ -244,8 +244,10 @@ func _test_reserves_development() -> void:
 	for p in GameState.my_list:
 		if not named.has(str(p["id"])) and Ratings.available(p):
 			spare.append(str(p["id"]))
-	var depth: String = spare[0]
-	var hurt: String = spare[1]
+	# The depth player is the last fit spare, not the first: the first is the
+	# one a late withdrawal calls up (an injury on the day put him in the 22).
+	var depth: String = spare[spare.size() - 1]
+	var hurt: String = spare[0]
 	for id in [senior, depth, hurt]:
 		GameState.set_player_plan(id, "manual")  # bank the XP so it can be counted
 	GameState.list_player(hurt)["injury_weeks"] = 5

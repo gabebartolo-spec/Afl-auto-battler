@@ -157,6 +157,8 @@ func reload() -> void:
 	Ratings.derive_all(players)
 	_apply_history(players)
 	for p in players:
+		Ratings.rate_on_record(p)
+	for p in players:
 		Potential.assign(p)
 	_apply_potential_overrides(players)
 	draftees = _load_draftees()

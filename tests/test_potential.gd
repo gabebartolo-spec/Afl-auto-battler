@@ -79,9 +79,13 @@ func _test_history_and_pedigree() -> void:
 	for name in ["Connor Rozee", "Darcy Moore", "Sam Darcy"]:
 		var p := _real(name)
 		_check(bool(p.get("rehab", false)), "%s is flagged for a rehab year" % name)
-		_check(int(p["potential"]) >= int(p["overall"]) + 15,
-				"%s's POT reflects his recent seasons (%d vs %d now)" % [
-				name, int(p["potential"]), int(p["overall"])])
+		# His opening rating is already lifted part of the way on his record
+		# (Ratings.rate_on_record); the rehab year closes the rest. POT still
+		# sits well above what his short 2026 alone said, and above today.
+		var short_year := int(p.get("season_overall", p["overall"]))
+		_check(int(p["potential"]) >= short_year + 15 and int(p["potential"]) > int(p["overall"]),
+				"%s's POT reflects his recent seasons (%d vs %d in 2026, %d now)" % [
+				name, int(p["potential"]), short_year, int(p["overall"])])
 	# A full, healthy 2026 is not a rehab case, however good the history.
 	var daicos := _real("Nick Daicos")
 	_check(not daicos.has("rehab"), "A player with a full 2026 gets no rehab year")
@@ -165,7 +169,9 @@ func _test_training_discount() -> void:
 	at_ceiling["potential"] = int(at_ceiling["overall"])
 	# POT is now what he can still reach (director, 2026-10-07), a little
 	# under his old peak, so the discount is a little smaller.
-	_check(Potential.training_multiplier(p) <= 0.65, "A rehab player trains well under full price (%.2f)" % Potential.training_multiplier(p))
+	# Part of his rehab now comes as his opening rating, so less is left to
+	# train back: still well under full price.
+	_check(Potential.training_multiplier(p) <= 0.8, "A rehab player trains well under full price (%.2f)" % Potential.training_multiplier(p))
 	var past := at_ceiling.duplicate(true)
 	past["potential"] = int(past["overall"]) - 2
 	var near := at_ceiling.duplicate(true)
