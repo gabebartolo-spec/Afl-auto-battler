@@ -4,7 +4,7 @@ extends VBoxContainer
 ## breaks, at full time and on Season stats > Fixture (director, 2026-10-08:
 ## not a table of text). Both scores; the worm - the margin across the match
 ## with each club's goals and behinds marked on the clock under it; a quarter
-## or a goal tapped says what happened; the goalkickers and the most involved,
+## or a goal tapped says what happened; the goalkickers and the best rated,
 ## each a tap from his line; and, where no team stats sit beside it, the key
 ## team numbers head to head. Reads a match result; changes nothing.
 
@@ -254,7 +254,7 @@ func _period(i: int) -> String:
 
 
 # ---------------------------------------------------------------------------
-# Players: the goalkickers, then the most involved; a tap opens his line
+# Players: the goalkickers, then the best rated; a tap opens his line
 # ---------------------------------------------------------------------------
 func _fill_players() -> void:
 	UiKit.clear(_players)
@@ -269,8 +269,7 @@ func _fill_players() -> void:
 			if st.is_empty():
 				continue
 			rows.append({"id": id, "name": GameDB.player_display_name_by_id(id, str(p.get("name", "Player"))),
-					"st": st, "goals": int(st.get("goals", 0.0)), "behinds": int(st.get("behinds", 0.0)),
-					"inf": CoachReport.influence(st)})
+					"st": st, "goals": int(st.get("goals", 0.0)), "behinds": int(st.get("behinds", 0.0))})
 		_players.add_child(UiKit.spacer(UiKit.GAP))
 		var head := UiKit.club_badge(_codes[side], UiKit.SMALL, false, false)
 		head.alignment = BoxContainer.ALIGNMENT_BEGIN
@@ -286,14 +285,16 @@ func _fill_players() -> void:
 			shown[str(r["id"])] = true
 		if kickers.is_empty():
 			_players.add_child(UiKit.lbl("No goalkickers.", UiKit.SMALL, UiKit.MUTED))
-		rows.sort_custom(func(a, b): return float(a["inf"]) > float(b["inf"]))
+		# The best of the rest by match rating (director, 2026-10-08), the
+		# same figure as the player stats' Rating column.
 		var best := 0
-		for r in rows:
+		for rp in MatchNotes.rated_players(_res, side):
 			if best >= MOST_INVOLVED:
 				break
-			if shown.has(str(r["id"])):
+			if shown.has(str(rp["id"])) or (rp["stats"] as Dictionary).is_empty():
 				continue
-			_players.add_child(_player_row(r, "%d disposals" % int(float((r["st"] as Dictionary).get("disposals", 0.0)))))
+			_players.add_child(_player_row({"id": rp["id"], "name": rp["name"], "st": rp["stats"]},
+					"Rating %s" % MatchNotes.rating_text(rp["rating"])))
 			best += 1
 
 
