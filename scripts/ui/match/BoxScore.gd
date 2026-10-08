@@ -125,31 +125,60 @@ func _header() -> Control:
 	return v
 
 
-## A button a quarter: the margin at its end, in the leader's colour. Tapping
-## one says that quarter's scores and goalkickers; tapping it again clears it.
+## The quarter-by-quarter scoreboard, the AFL way: each club's goals and
+## behinds at every break, running. Each quarter's column is one button;
+## tapping it says that quarter's scores and goalkickers, again clears it.
 func _quarter_strip() -> Control:
 	var h := UiKit.hbox(4)
 	h.name = "QuarterStrip"
-	var run := [0, 0]
+	var marks := UiKit.vbox(0)
+	marks.add_child(_strip_cell("", false, UiKit.MUTED))
+	for side in [0, 1]:
+		var m := CenterContainer.new()
+		m.custom_minimum_size = Vector2(28, CELL_H)
+		m.add_child(UiKit.club_marker(_codes[side], 18.0))
+		marks.add_child(m)
+	h.add_child(marks)
+	var g := [0, 0]
+	var bh := [0, 0]
 	var qg: Array = _res.get("q_goals", [])
 	var qb: Array = _res.get("q_behinds", [])
 	for i in range(_periods):
 		for side in [0, 1]:
-			run[side] += int(qg[i][side]) * 6 + int(qb[i][side])
-		var lead := int(run[0]) - int(run[1])
-		# The club's three letters: a phone holds four of these across.
-		var text := "%s  level" % _period(i) if lead == 0 \
-				else "%s  %s +%d" % [_period(i), _codes[0 if lead > 0 else 1], absi(lead)]
-		var b := UiKit.btn(text, UiKit.SMALL)
+			g[side] += int(qg[i][side])
+			bh[side] += int(qb[i][side])
+		var pts := [int(g[0]) * 6 + int(bh[0]), int(g[1]) * 6 + int(bh[1])]
+		var b := Button.new()
 		b.name = "BoxQuarter_%d" % (i + 1)
-		b.custom_minimum_size.y = 44
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.clip_text = true
+		b.custom_minimum_size.y = CELL_H * 3.0 + 8.0
 		UiKit.set_selected(b, int(_pick.get("q", 0)) == i + 1)
+		var col := UiKit.vbox(0)
+		col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		col.alignment = BoxContainer.ALIGNMENT_CENTER
+		col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(_strip_cell(_period(i), false, UiKit.MUTED))
+		for side in [0, 1]:
+			# The side ahead at the break in weight, as a scoreboard would.
+			col.add_child(_strip_cell("%d.%d" % [int(g[side]), int(bh[side])],
+					int(pts[side]) > int(pts[1 - side]), UiKit.TEXT))
+		b.add_child(col)
 		var q := i + 1
 		b.pressed.connect(func(): pick_quarter(q))
 		h.add_child(b)
 	return h
+
+
+const CELL_H := 22.0
+
+
+func _strip_cell(text: String, bold: bool, colour: Color) -> Label:
+	var l := UiKit.line(text, UiKit.BODY if text.contains(".") else UiKit.SMALL, colour, bold)
+	l.custom_minimum_size.y = CELL_H
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
 
 
 func pick_quarter(q: int) -> void:
@@ -166,7 +195,8 @@ func _refresh() -> void:
 	var strip := find_child("QuarterStrip", false, false)
 	if strip != null:
 		for b in strip.get_children():
-			UiKit.set_selected(b as Button, str(b.name) == "BoxQuarter_%d" % int(_pick.get("q", 0)))
+			if b is Button:
+				UiKit.set_selected(b, str(b.name) == "BoxQuarter_%d" % int(_pick.get("q", 0)))
 	_worm.queue_redraw()
 	_say()
 
