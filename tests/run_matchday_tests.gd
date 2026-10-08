@@ -50,6 +50,7 @@ func _run() -> void:
 	await _playtest_bounce_scene()
 	await _rings_on_the_oval()
 	await _first_goal_line()
+	await _momentum_meter()
 	await _vignettes_setting()
 	await _vignettes_off_match()
 	_appearance()
@@ -1118,6 +1119,61 @@ func _first_goal_line() -> void:
 	m.call("_story_feed", theirs)
 	_check((said.call() as Array).size() == 1, "Nothing is said of the other side's first goals")
 	m.queue_free()
+	await _settle()
+
+
+## The momentum meter (director, 2026-10-07): labelled, the club on top
+## named, its colour from the centre; a real tap explains it and Back closes
+## that; the first match you watch says what it is once.
+func _momentum_meter() -> void:
+	var db = root.get_node("GameDB")
+	_state.set_vignettes_on(false)
+	_state.set_setting("seen_momentum_intro", false)
+	_state.reset()
+	_state.replay_seed = SUITE_SEED
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(390, 844)
+	_state.prepare_interactive_match()
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var box = m.find_child("CoachBox", true, false)
+	var start: Button = box.find_child("StartQuarter", true, false) if box != null else null
+	if start != null:
+		start.emit_signal("pressed")
+	await _settle()
+	var res: Dictionary = m.get("_res")
+	var bar: Button = m.find_child("MomentumBar", true, false)
+	var word: Label = m.find_child("MomentumWord", true, false)
+	_check(bar != null and _text(bar).contains("Momentum") and word != null, "The meter is labelled Momentum")
+	m.call("_track_momentum", {"mom": 0.0})
+	_check(word != null and word.text == "Even", "Level, it says Even (%s)" % (word.text if word else "-"))
+	m.call("_track_momentum", {"mom": 0.6})
+	_check(word.text == "%s on top" % db.club_short(str(res["home"])), "Home on top is named (%s)" % word.text)
+	var note: Label = m.find_child("MomentumNote", true, false)
+	_check(note != null and note.visible and bool(_state.get_setting("seen_momentum_intro", false)),
+			"The first match you watch says what it is, once it moves")
+	m.call("_track_momentum", {"mom": -0.6})
+	_check(word.text == "%s on top" % db.club_short(str(res["away"])), "Away on top is named (%s)" % word.text)
+	var why: String = await Tap.tap(bar)
+	await _settle()
+	_check(why == "" and m.find_child("MomentumInfo", true, false) != null
+			and _text(m.find_child("MomentumInfo", true, false)).contains("halves at every break"),
+			"A finger on the meter explains it (%s)" % why)
+	_check(m.call("handle_back") == true, "Back is handled on the explanation")
+	await _settle()
+	_check(m.find_child("MomentumInfo", true, false) == null, "Back closes it")
+	m.queue_free()
+	await _settle()
+	# A later match: no note.
+	_state.prepare_interactive_match()
+	var m2: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m2)
+	await _settle()
+	m2.call("_track_momentum", {"mom": 0.6})
+	var note2: Label = m2.find_child("MomentumNote", true, false)
+	_check(note2 != null and not note2.visible, "The next match does not say it again")
+	m2.queue_free()
 	await _settle()
 
 
