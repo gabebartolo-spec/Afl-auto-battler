@@ -34,9 +34,9 @@ true. Mirror: `~/.claude/skills/` (both Claude accounts) and `.claude/skills/` (
 
 ## Merge conflicts
 
-- **`tests/expected_checks.txt` is in almost every conflict** (stats-hub, stats-book,
-  set-share, kick-fix). Resolve to *base + both increments*, then confirm against
-  the real count from a run, never by guessing. Never lower a floor.
+- **`tests/expected_checks.txt` was in almost every conflict** (stats-hub, stats-book,
+  set-share, kick-fix). Now use floor deltas (below). A leftover conflict: resolve to
+  *base + both increments*, confirm against a real count. Never lower a floor.
 - ROADMAP/docs: keep both sides. `StatsHubScene.gd`, `MatchSim.gd`, capture tools
   are the other hot files; a PR touching them says so in its [MERGE NOTE].
 - Sync early: merge `origin/main` when you start work on a hot file and again
@@ -77,13 +77,14 @@ true. Mirror: `~/.claude/skills/` (both Claude accounts) and `.claude/skills/` (
 | UI check at two sizes (cause not yet investigated) | stats-book "players kept" 1280x720 + 390x844 | run the suite at both sizes locally |
 | Push cancels running CI | 41 cancelled; 20 are `main` | one push per CI cycle; see proposals |
 
-## Open proposals (need the director's yes before anyone changes CI)
+## CI changes made (director yes, 2026-10-08, PR claude/ci-floors-and-main-runs)
 
-- `tests.yml` has `cancel-in-progress: true` for `main` too, so back-to-back
-  merges cancel main's own runs and several main commits were never verified.
-  Proposal: group per sha on `main` (or cancel only PR runs).
-- `expected_checks.txt` is one line per suite and conflicts whenever two PRs
-  raise the same suite. Option: each PR adds a delta file merged by a script.
+- Pushes to `main` each get their own concurrency group and are never cancelled;
+  PR runs still cancel when superseded.
+- Floors: do not edit an existing suite's line in `tests/expected_checks.txt`.
+  Add `tests/floor_deltas/<branch>.txt` with `<suite> +N`; floor = base + all
+  deltas. The merger runs `tools/fold_floor_deltas.sh` now and then. A new suite
+  still gets its own new line. (Applies once that PR is on main.)
 
 ## Handing over to the other Claude account
 
