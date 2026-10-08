@@ -2,7 +2,7 @@
 # fails the run: checks went missing. Raise a floor when a suite gains
 # checks; lower one only on purpose, in the PR that removes checks.
 draft 7808
-draft_ui 1143
+draft_ui 1154
 intake 2210
 intake_ui 500
 expansion 503
@@ -20,7 +20,7 @@ career_ui 308
 potential 36
 ratings 39
 ai 38
-training 107
+training 112
 selection 54
 matchup 103
 matchday 552
