@@ -282,6 +282,38 @@ static func _appoint(c: Dictionary, club: String, job: String, year: int, seed: 
 
 
 # ---------------------------------------------------------------------------
+# A rival's approach for one of your coaches (director, 2026-10-07)
+# ---------------------------------------------------------------------------
+## Not a bidding war: you answer with an opportunity, and he weighs it against
+## the job he has been offered. The chance he stays, by what you offer and
+## the level of the rival job (SC 4 .. DEV 1); his years with you add to it.
+## A senior coach's job is hard to turn down; a sideways move is not.
+const STAY_CHANCE := {
+	"promote": {4: 0.30, 3: 0.65, 2: 0.85, 1: 0.90},
+	"stay": {4: 0.10, 3: 0.25, 2: 0.35, 1: 0.45},
+}
+const STAY_LOYALTY_PER_YEAR := 0.03
+const STAY_LOYALTY_MAX := 0.10
+
+
+static func stay_chance(c: Dictionary, offer: String, rival_job: String, year: int) -> float:
+	var by: Dictionary = STAY_CHANCE.get(offer, {})
+	var p := float(by.get(level(rival_job), 0.0))
+	p += minf(STAY_LOYALTY_MAX, STAY_LOYALTY_PER_YEAR * float(tenure(c, year)))
+	return clampf(p, 0.0, 0.95)
+
+
+## Does he stay? Seeded, so a reload answers the same.
+static func stays(c: Dictionary, offer: String, rival_job: String, year: int, seed: int) -> bool:
+	return _roll(seed, "retain|%d|%s" % [year, str(c.get("cid", ""))]) < stay_chance(c, offer, rival_job, year)
+
+
+## Your coach steps up to senior assistant at your club, from next season.
+static func promote_to_sa(c: Dictionary, club: String, year: int, seed: int) -> void:
+	_appoint(c, club, "SA", year, seed)
+
+
+# ---------------------------------------------------------------------------
 # The offseason
 # ---------------------------------------------------------------------------
 ## One offseason. `ctx`:
@@ -294,6 +326,8 @@ static func _appoint(c: Dictionary, club: String, job: String, year: int, seed: 
 ##   premier     this season's premier
 ##   seed        the career seed
 ##   release     cids you released this offseason (already free)
+##   protected   cids of your coaches no rival may take this offseason: every
+##               one you kept or were never asked about (GameState approaches)
 ## Returns {"news": [...], "vacancies": [{job, reason}], "log": {...}} where
 ## vacancies are your club's jobs left for you to fill.
 static func offseason(ctx: Dictionary) -> Dictionary:
@@ -309,6 +343,7 @@ static func offseason(ctx: Dictionary) -> Dictionary:
 			"promotions": 0, "poached_from_you": 0, "generated": 0, "emergency": 0,
 			"line_to_sc": 0, "archived": 0, "pruned": 0}
 	var my_vacancies: Array = []
+	var protected: Dictionary = ctx.get("protected", {})
 
 	for cid in coaches:
 		ensure_fields(coaches[cid], year)
@@ -422,7 +457,7 @@ static func offseason(ctx: Dictionary) -> Dictionary:
 			if moved.has(cid) or not would_take(c, club, job, year):
 				continue
 			if str(c.get("status", "")) == "club" and str(c["club"]) == my_club \
-					and poached_from_you >= MAX_POACHED_FROM_YOU:
+					and (poached_from_you >= MAX_POACHED_FROM_YOU or protected.has(cid)):
 				continue
 			var s := hire_score(c, club, job, year, seed)
 			if s > best_score:
