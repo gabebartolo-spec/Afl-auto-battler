@@ -2719,10 +2719,12 @@ func _run_and_carry(side: int, carrier, gained: float, pressed: bool, is_kick_in
 	var carry := _a(carrier, "carry") / 100.0
 	if run_rng.randf() >= RUN_P * (0.3 + 1.4 * carry):
 		return
-	var run := run_rng.randf_range(10.0, 25.0) + 20.0 * carry * run_rng.randf()
+	# Rounded first, so the bounces credited are the ones the event's run says (29.96 m
+	# was one bounce in the stats and two on the event).
+	var run := snappedf(run_rng.randf_range(10.0, 25.0) + 20.0 * carry * run_rng.randf(), 0.1)
 	var n := int(run / BOUNCE_EVERY)
 	if ev >= 0 and ev < events.size():
-		(events[ev] as Dictionary)["run"] = snappedf(run, 0.1)
+		(events[ev] as Dictionary)["run"] = run
 	if n > 0:
 		_t(side, "running_bounces", n)
 		_p(carrier, "running_bounces", n)
