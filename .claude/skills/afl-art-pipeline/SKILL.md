@@ -102,3 +102,8 @@ the in-game build.
   hair or style options; anything a player would see differently.
 - **Never:** hand-edit `VignetteFigures.gd` or a `figures_*.png`; hard-code
   frame rectangles or `SHEET_SIZE`; ship an unapproved look.
+
+## Learnings
+
+Proven findings for this project live in `references/learnings.md`. Read it before using this
+skill; add to it only what proved effective, with evidence.

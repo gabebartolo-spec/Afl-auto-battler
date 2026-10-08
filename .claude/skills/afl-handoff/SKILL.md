@@ -50,3 +50,8 @@ you're back and what you're on.
 Messages from other agents during the old session are not in the handoff
 unless written there. If something you need is missing, ask its owner rather
 than guessing.
+
+## Learnings
+
+Proven findings for this project live in `references/learnings.md`. Read it before using this
+skill; add to it only what proved effective, with evidence.
