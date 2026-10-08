@@ -270,7 +270,10 @@ func club_guernsey(code: String) -> Dictionary:
 		var at := "psa".find(token)
 		return cols[at] if at >= 0 and token.length() == 1 else fallback
 	return {"design": design, "base": pick.call(0, cols[0]), "pattern": pick.call(1, cols[1]),
-			"pattern2": pick.call(2, cols[2]), "shorts": pick.call(3, (cols[1] as Color).darkened(0.1))}
+			"pattern2": pick.call(2, cols[2]), "shorts": pick.call(3, (cols[1] as Color).darkened(0.1)),
+			# The third colour is named for this kit (Port's teal, St Kilda's black),
+			# not left to the club's accent.
+			"own_pattern2": slots.size() > 2 and str(slots[2]) != "a"}
 
 
 func club_list(code: String) -> Array:

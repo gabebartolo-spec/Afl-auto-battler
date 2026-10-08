@@ -673,9 +673,12 @@ static func top_bar(title_text: String, back := true, right: Control = null,
 static func club_marker(code: String, size := 22.0) -> Control:
 	var g := GameDB.club_guernsey(code)
 	var cols := GameDB.club_colours(code)
-	# A two-colour club's third colour is only a pitch tint: its trim is the
-	# second colour.
-	var trim: Color = cols[2] if GameDB.club_marker_colours(code).size() > 2 else cols[1]
+	# The kit's own third colour when it names one (St Kilda's black panel,
+	# Port's teal); otherwise a two-colour club's third colour is only a
+	# pitch tint, so its trim is the second colour.
+	var trim: Color = cols[1]
+	if g.get("own_pattern2", false) or GameDB.club_marker_colours(code).size() > 2:
+		trim = g["pattern2"]
 	# The old flag's footprint (size less its 2 px of frame), so lists of clubs
 	# - the ladder above all - keep their row heights.
 	return GuernseyCrest.make(g["base"], g["pattern"], trim, str(g["design"]), code, size - 2.0)
