@@ -1,6 +1,7 @@
 extends Control
 ## Season hub: your next match, the ladder snapshot, and the round controls.
 
+var _finals_overlay: Control = null
 var _settings: Control
 var _root: VBoxContainer
 var _results_overlay: Control
@@ -238,6 +239,13 @@ func _ladder_section(season: Season) -> Control:
 	full.custom_minimum_size = Vector2(124, 44)
 	full.pressed.connect(func(): Router.go("stats"))
 	head.add_child(full)
+	# September: the series beside the ladder it came from.
+	if not season.finals.is_empty():
+		var series := UiKit.btn("Finals", 14)
+		series.name = "FinalsOpen"
+		series.custom_minimum_size = Vector2(88, 44)
+		series.pressed.connect(_show_finals)
+		head.add_child(series)
 	var width := _content_width() if _narrow() else _content_width() * 0.45
 	v.add_child(UiKit.ladder_table(season.ladder_sorted(), GameState.my_club, width, 0, false))
 	return v
@@ -935,9 +943,34 @@ func _on_sim_to_end() -> void:
 
 
 ## Router back hook: close the results popup before leaving the hub.
+## The finals series, wildcard to the Grand Final (FinalsBracket).
+func _show_finals() -> void:
+	if _finals_overlay != null and is_instance_valid(_finals_overlay):
+		return
+	var box := UiKit.modal_box(self, 1100.0, 0.0)
+	_finals_overlay = box["overlay"]
+	_finals_overlay.name = "FinalsSheet"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.heading("Finals series", UiKit.TITLE))
+	v.add_child(FinalsBracket.new().setup(GameState.season, GameState.my_club))
+	var done := UiKit.btn("Done", 17)
+	done.name = "FinalsDone"
+	done.pressed.connect(_close_finals)
+	(box["footer"] as VBoxContainer).add_child(done)
+
+
+func _close_finals() -> void:
+	if _finals_overlay != null and is_instance_valid(_finals_overlay):
+		_finals_overlay.queue_free()
+	_finals_overlay = null
+
+
 func handle_back() -> bool:
 	if _pre_match != null:
 		return true     # the side is on its way out
+	if _finals_overlay != null and is_instance_valid(_finals_overlay):
+		_close_finals()
+		return true
 	if _onboarding_overlay != null and is_instance_valid(_onboarding_overlay):
 		_close_weekly_loop_intro()
 		return true

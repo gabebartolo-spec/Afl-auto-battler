@@ -201,6 +201,7 @@ func _regular_bye() -> void:
 	_check(actions != null and actions.find_child("SimToGrandFinal", true, false) == null
 			and actions.find_child("SimFinalsWeek", true, false) == null,
 			"No finals controls before the home-and-away season is done")
+	_check(hub.find_child("FinalsOpen", true, false) == null, "No finals series button before September")
 	var sim: Button = actions.find_child("SimByeRound", true, false) if actions != null else null
 	_check(sim != null and sim.text == "Play Round %d" % (r0 + 1), "The bye round can be simmed on its own")
 	hub.call("_on_sim_to_end")
@@ -236,6 +237,22 @@ func _finals_week_by_week() -> void:
 		return
 	root.size = Vector2i(390, 844)
 	var hub: Control = await _open_hub()
+	# The series beside the ladder: a finger's tap opens it, Back closes it.
+	# A press conference waiting over the hub is skipped first, as a player would.
+	var guard := 0
+	while hub.find_child("MediaConference", true, false) != null and guard < 4:
+		hub.call("handle_back")
+		await _settle()
+		guard += 1
+	var series: Button = hub.find_child("FinalsOpen", true, false)
+	var why: String = await preload("res://tests/tap.gd").tap(series) if series != null else "no Finals button"
+	await _settle()
+	var sheet: Node = hub.find_child("FinalsSheet", true, false)
+	_check(why == "" and sheet != null and sheet.find_child("FinalsBracket", true, false) != null,
+			"In September a tap on Finals opens the series (%s)" % why)
+	hub.call("handle_back")
+	await _settle()
+	_check(hub.find_child("FinalsSheet", true, false) == null, "Back closes the finals series")
 	var weeks := 0
 	var one_at_a_time := true
 	while not _state.season.is_season_over() and weeks < 6:
