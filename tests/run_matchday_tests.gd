@@ -1312,6 +1312,17 @@ func _vignettes_setting() -> void:
 			_check((await Tap.tap(on)) == "", "Vignettes On takes a real tap (%s)" % tag)
 			await _settle()
 			_check(_state.vignettes_on(), "On turns them back on (%s)" % tag)
+		# Screen size, on a desktop: a finger on TV makes the game bigger.
+		var tv: Button = sheet.find_child("SettingsScreenSize_tv", true, false)
+		_check(tv != null and sheet.find_child("SettingsFullscreen_on", true, false) != null,
+				"Settings has Screen size and Full screen on a desktop (%s)" % tag)
+		if tv != null:
+			_check((await Tap.tap(tv)) == "", "TV takes a real tap (%s)" % tag)
+			await _settle()
+			_check(_state.screen_size() == "tv" and is_equal_approx(float(root.get_node("ScreenLayout").ui_scale), 1.6),
+					"TV is kept and applied (%s)" % tag)
+			_state.set_screen_size("standard")
+			await _settle()
 		host.queue_free()
 		await _settle()
 
