@@ -376,27 +376,80 @@ static func style_button(b: Button, fs := 16, primary := false, danger := false)
 	b.add_theme_color_override("font_pressed_color", ink)
 	b.add_theme_color_override("font_focus_color", ink)
 	b.add_theme_color_override("font_disabled_color", FAINT)
+	# Not boring (director, 2026-10-08): a primary action in your club's
+	# colour, a secondary one a raised tile, not a grey outline.
 	var sb: StyleBoxFlat
+	var lead := team_colour()
 	if primary:
-		sb = style(ACCENT, 8, RADIUS, ACCENT)
+		sb = raised(lead)
+		for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			b.add_theme_color_override(k, ink_on(lead))
 	else:
-		sb = style(Color.TRANSPARENT, 8, RADIUS, BAD.darkened(0.25) if danger else LINE.lightened(0.12))
+		sb = raised(team_tile())
+		if danger:
+			sb.border_color = BAD.darkened(0.25)
+			sb.set_border_width_all(1)
 	b.add_theme_stylebox_override("normal", sb)
 	var hover := sb.duplicate() as StyleBoxFlat
-	hover.bg_color = ACCENT.lightened(0.08) if primary else Color(TEXT, 0.05)
+	hover.bg_color = lead.lightened(0.10) if primary else team_tile().lightened(0.06)
 	b.add_theme_stylebox_override("hover", hover)
 	var pressed := sb.duplicate() as StyleBoxFlat
-	pressed.bg_color = ACCENT.darkened(0.15) if primary else Color(TEXT, 0.08)
+	pressed.bg_color = lead.darkened(0.15) if primary else team_tile().lightened(0.10)
 	# A toggled secondary button (a difficulty, a filter) reads as selected.
 	if not primary:
 		pressed.border_color = TEXT
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("hover_pressed", pressed)
-	var off := style(Color.TRANSPARENT, 8, RADIUS, Color(LINE, 0.6))
+	var off := style(Color(TILE, 0.5), 8, RADIUS)
 	b.add_theme_stylebox_override("disabled", off)
 	var focus := style(Color.TRANSPARENT, 0, RADIUS, TEXT)
 	focus.set_border_width_all(2)
 	b.add_theme_stylebox_override("focus", focus)
+
+
+## A raised tile: a solid face, a light top edge and a soft shadow under it.
+const TILE := Color("2b2924")
+
+
+static func raised(bg: Color) -> StyleBoxFlat:
+	var sb := style(bg, 8, RADIUS)
+	sb.border_width_top = 1
+	sb.border_color = bg.lightened(0.18)
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.shadow_size = 3
+	sb.shadow_offset = Vector2(0, 2)
+	return sb
+
+
+## Your club's colour for what you act on: its most vivid colour that shows,
+## or the accent when it has none (a black-and-white club) or no club yet.
+static func team_colour() -> Color:
+	var club := ""
+	var gs = Engine.get_main_loop().root.get_node_or_null("GameState") if Engine.get_main_loop() is SceneTree else null
+	if gs != null:
+		club = str(gs.my_club)
+	if club == "" or not GameDB.clubs.has(club):
+		return ACCENT
+	# The most vivid of its colours that is neither near black nor near white
+	# (Melbourne's red, not its navy), lifted until it shows on the page.
+	var best := Color(0, 0, 0, 0)
+	for c in GameDB.club_marker_colours(club):
+		var col: Color = c
+		if col.get_luminance() > 0.7 or col.s < 0.3:
+			continue
+		if best.a == 0.0 or col.s * col.v > best.s * best.v:
+			best = col
+	return ClubDuel._show(best) if best.a > 0.0 else ACCENT
+
+
+## A raised tile carrying a breath of your club's colour.
+static func team_tile() -> Color:
+	return TILE.lerp(team_colour(), 0.10)
+
+
+## Type that reads on `bg`: white, or near-black on a light colour.
+static func ink_on(bg: Color) -> Color:
+	return Color("161512") if bg.get_luminance() > 0.6 else Color.WHITE
 
 
 static func btn(text: String, fs := 16, primary := false) -> Button:
@@ -474,13 +527,16 @@ static func choice_grid(node_name: String, options: Array, current: String, colu
 
 ## A choice's look: the chosen one outlined in full text, the rest quiet.
 static func paint_choice(b: Button, on: bool) -> void:
-	var sb := style(Color.TRANSPARENT, 6, 6, TEXT if on else LINE)
+	# The chosen one filled in your club's colour; the rest raised tiles.
+	var lead := team_colour()
+	var sb := raised(lead if on else team_tile())
 	if on:
 		sb.set_border_width_all(2)
+		sb.border_color = lead.lightened(0.35)
 	for s in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 		b.add_theme_stylebox_override(s, sb)
-	b.add_theme_color_override("font_color", TEXT if on else MUTED)
-	b.add_theme_color_override("font_hover_color", TEXT)
+	b.add_theme_color_override("font_color", ink_on(lead) if on else Color(TEXT, 0.82))
+	b.add_theme_color_override("font_hover_color", ink_on(lead) if on else TEXT)
 
 
 static func option() -> OptionButton:
@@ -670,6 +726,16 @@ static func modal_box(parent: Control, max_w: float, prefer_h := 0.0) -> Diction
 	margin.add_child(center)
 	var shell := panel(PANEL, 16)
 	center.add_child(shell)
+	# Not boring (director, 2026-10-08): a wash of your club's colour from the
+	# top of every sheet, fading before the content needs the contrast.
+	var lead := team_colour()
+	shell.draw.connect(func() -> void:
+		var w := shell.size.x
+		var h := minf(shell.size.y * 0.5, 220.0)
+		var top := Color(lead, 0.22)
+		var none := Color(lead, 0.0)
+		shell.draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, h), Vector2(0, h)]),
+				PackedColorArray([top, top, none, none])))
 	var outer := vbox(8)
 	shell.add_child(outer)
 	var body := vbox(8)
