@@ -23,6 +23,7 @@ const WEEKS := [
 ]
 const WIDE := 900.0
 const NODE_W := 168.0
+const NODE_H := 70.0
 
 var _season: Season
 var _me := ""
@@ -66,13 +67,14 @@ func _build() -> void:
 func _status() -> Control:
 	var v := UiKit.vbox(4)
 	v.name = "FinalsStatus"
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	var f: Dictionary = _season.finals
 	if bool(f.get("done", false)):
 		var prem := str(f.get("premier", ""))
-		var h := UiKit.hbox(10)
-		h.add_child(HonoursArt.view("premiership_cup", 64.0, prem, 0, ""))
+		var h := UiKit.hbox(14)
+		h.alignment = BoxContainer.ALIGNMENT_CENTER
+		h.add_child(HonoursArt.view("premiership_cup", 96.0, prem, 0, ""))
 		var t := UiKit.vbox(2)
-		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		t.add_child(UiKit.line("Premiers", UiKit.SMALL, UiKit.MUTED))
 		var who := UiKit.figure(GameDB.club_short(prem), UiKit.RATING, UiKit.score_colour(prem))
@@ -100,39 +102,124 @@ func _status() -> Control:
 	var l := UiKit.lbl(words, UiKit.BODY, UiKit.TEXT)
 	l.name = "FinalsYou"
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(l)
 	return v
 
 
-## Every stage side by side, wildcard to the Grand Final.
+## Where each result goes: [from tag, to tag, "W" winner / "L" loser].
+const ROUTES := [
+	["WC1", "EF2", "W"], ["WC2", "EF1", "W"], ["QF1", "PF1", "W"], ["QF1", "SF1", "L"],
+	["QF2", "PF2", "W"], ["QF2", "SF2", "L"], ["EF1", "SF1", "W"], ["EF2", "SF2", "W"],
+	["SF1", "PF1", "W"], ["SF2", "PF2", "W"], ["PF1", "GF", "W"], ["PF2", "GF", "W"],
+]
+const GF_H := 92.0
+const CUP_H := 110.0
+
+
+## Every stage side by side, wildcard to the Grand Final, centred on the
+## screen, joined by the routes results take; the premiers' road drawn in
+## their colour.
 func _wide() -> Control:
-	var sc := ScrollContainer.new()
-	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	sc.custom_minimum_size.y = 4.0 * 82.0 + 60.0
-	var h := UiKit.hbox(14)
-	h.name = "FinalsColumns"
-	sc.add_child(h)
-	for w in range(WEEKS.size()):
-		# The stage's name on top, level across; its matches centred under it,
-		# so each stage sits between the two that feed it.
-		var outer := UiKit.vbox(8)
-		outer.name = "Stage_%d" % (w + 1)
-		outer.custom_minimum_size.x = NODE_W
-		outer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		var head := UiKit.lbl(str(WEEKS[w][0]), UiKit.SMALL, UiKit.TEXT if w + 1 == _week() else UiKit.MUTED, w + 1 == _week())
-		head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		head.custom_minimum_size.y = 34
-		outer.add_child(head)
-		var col := UiKit.vbox(10)
-		col.alignment = BoxContainer.ALIGNMENT_CENTER
-		col.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		for m in WEEKS[w][2]:
-			col.add_child(_node(w + 1, m))
-		if w == WEEKS.size() - 1 and not bool(_season.finals.get("done", false)):
-			col.add_child(HonoursArt.view("premiership_cup", 72.0, "", 0, ""))
-		outer.add_child(col)
-		h.add_child(outer)
-	return sc
+	var c := BracketCanvas.new()
+	c.name = "FinalsColumns"
+	c.call("setup", self)
+	return c
+
+
+class BracketCanvas extends Control:
+	var _fb: FinalsBracket
+	var _nodes := {}        # tag -> Button
+	var _heads: Array = []  # stage headings
+
+	func setup(fb: FinalsBracket) -> void:
+		_fb = fb
+		size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		custom_minimum_size = Vector2(0, 4.0 * (FinalsBracket.NODE_H + 18.0) + 70.0)
+		for w in range(FinalsBracket.WEEKS.size()):
+			var cur := w + 1 == _fb._week()
+			var h := UiKit.heading(str(FinalsBracket.WEEKS[w][0]), UiKit.H2 if w == 4 else UiKit.BODY)
+			h.add_theme_color_override("font_color", UiKit.TEXT if cur or w == 4 else UiKit.MUTED)
+			h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			h.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			add_child(h)
+			_heads.append(h)
+			for m in FinalsBracket.WEEKS[w][2]:
+				var n := _fb._node(w + 1, m)
+				_nodes[str(m[0])] = n
+				add_child(n)
+		if not bool(_fb._season.finals.get("done", false)):
+			var cup := HonoursArt.view("premiership_cup", FinalsBracket.CUP_H, "", 0, "")
+			cup.name = "FinalsCup"
+			add_child(cup)
+			_nodes["_cup"] = cup
+		resized.connect(_place)
+
+	func _ready() -> void:
+		_place()
+
+	func _cols() -> Array:
+		var w := size.x
+		var gap := 28.0
+		var nw := clampf((w - 4.0 * gap) / 5.0, 150.0, 230.0)
+		var total := 5.0 * nw + 4.0 * gap
+		var left := maxf(0.0, (w - total) / 2.0)
+		var out := []
+		for i in range(5):
+			out.append(left + float(i) * (nw + gap))
+		return [out, nw]
+
+	func _place() -> void:
+		if _fb == null:
+			return
+		var cw: Array = _cols()
+		var xs: Array = cw[0]
+		var nw: float = cw[1]
+		var top := 44.0
+		var body := size.y - top
+		for w in range(FinalsBracket.WEEKS.size()):
+			var head: Control = _heads[w]
+			head.position = Vector2(xs[w], 0)
+			head.size = Vector2(nw, 40)
+			var ms: Array = FinalsBracket.WEEKS[w][2]
+			var nh := FinalsBracket.GF_H if w == 4 else FinalsBracket.NODE_H
+			for i in range(ms.size()):
+				var n: Control = _nodes[str(ms[i][0])]
+				var cy := top + body * (float(i) + 0.5) / float(ms.size())
+				n.position = Vector2(xs[w], cy - nh / 2.0)
+				n.size = Vector2(nw, nh)
+				n.custom_minimum_size = Vector2(nw, nh)
+		if _nodes.has("_cup"):
+			var cup: Control = _nodes["_cup"]
+			var gf: Control = _nodes["GF"]
+			cup.position = Vector2(xs[4] + (nw - cup.get_combined_minimum_size().x) / 2.0,
+					gf.position.y - FinalsBracket.CUP_H - 10.0)
+		queue_redraw()
+
+	func _draw() -> void:
+		var slots: Dictionary = _fb._season.finals.get("slots", {})
+		var prem := str(_fb._season.finals.get("premier", ""))
+		for r in FinalsBracket.ROUTES:
+			var a: Control = _nodes.get(str(r[0]))
+			var b: Control = _nodes.get(str(r[1]))
+			if a == null or b == null:
+				continue
+			var who := str(slots.get(str(r[2]) + "_" + str(r[0]), ""))
+			var p0 := Vector2(a.position.x + a.size.x, a.position.y + a.size.y / 2.0)
+			var p1 := Vector2(b.position.x, b.position.y + b.size.y / 2.0)
+			var mid := p1.x - 14.0
+			var col := UiKit.LINE
+			var wdt := 1.5
+			if who != "" and who == prem:
+				col = UiKit.score_colour(prem)
+				wdt = 3.0
+			elif who != "" and who == _fb._me:
+				col = UiKit.TEXT
+				wdt = 2.0
+			elif str(r[2]) == "L":
+				col = Color(UiKit.LINE, 0.6)
+			var pts := PackedVector2Array([p0, Vector2(mid, p0.y), Vector2(mid, p1.y), p1])
+			draw_polyline(pts, col, wdt, true)
 
 
 ## One stage at a time; the picker opens on this week.
@@ -154,9 +241,10 @@ func _narrow() -> Control:
 	return v
 
 
-## A match: its label and venue, then each club with its score once played.
-## The winner in weight; the side that went out, muted. A slot still to be
-## decided says what it waits on.
+## A match: its label and venue, then each club - a strip in its colours,
+## its name, its score once played. The winner in weight with his score in
+## his colour; the side that went out, muted. A slot still to be decided
+## says what it waits on.
 func _node(week: int, m: Array) -> Control:
 	var tag := str(m[0])
 	var res := _result(week, tag)
@@ -164,34 +252,34 @@ func _node(week: int, m: Array) -> Control:
 	var away := _slot(str(m[3]))
 	var b := Button.new()
 	b.name = "Final_" + tag
-	b.custom_minimum_size = Vector2(NODE_W, 72)
-	UiKit.set_selected(b, home == _me or away == _me)
-	var v := UiKit.vbox(2)
+	b.custom_minimum_size = Vector2(NODE_W, NODE_H)
+	b.clip_contents = true
+	var mine := home == _me or away == _me
+	var sb := UiKit.style(UiKit.PANEL_ALT if tag == "GF" else UiKit.PANEL, 8, UiKit.RADIUS,
+			UiKit.TEXT if mine else UiKit.AUTO_COLOUR)
+	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
+		b.add_theme_stylebox_override(st, sb)
+	var v := UiKit.vbox(3)
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 8)
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var venue := _season.finals_venue({"tag": tag, "home": home}) if home != "" else ""
-	var head := UiKit.ellipsis(str(m[1]) + (("  ·  " + venue) if venue != "" else ""), UiKit.SMALL, UiKit.MUTED)
-	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(head)
+	v.add_child(UiKit.ellipsis(str(m[1]) + (("  ·  " + venue) if venue != "" else ""), UiKit.SMALL, UiKit.MUTED))
 	var win := str(_season.finals["slots"].get("W_" + tag, ""))
 	for side in [0, 1]:
 		var code := home if side == 0 else away
-		var h := UiKit.hbox(6)
-		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var h := UiKit.hbox(8)
 		if code == "":
-			var wait := UiKit.ellipsis(_waiting(str(m[2 + side])), UiKit.SMALL, UiKit.FAINT)
-			wait.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			h.add_child(wait)
+			h.add_child(UiKit.ellipsis(_waiting(str(m[2 + side])), UiKit.SMALL, UiKit.FAINT))
 		else:
 			var out := win != "" and win != code
-			h.add_child(UiKit.club_marker(code, 16.0))
-			var nm := UiKit.ellipsis(GameDB.club_short(code), UiKit.BODY, UiKit.MUTED if out else UiKit.TEXT, win == code)
-			nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			h.add_child(nm)
+			var strip := ColorRect.new()
+			strip.color = Color(UiKit.score_colour(code), 0.45 if out else 1.0)
+			strip.custom_minimum_size = Vector2(4, 0)
+			h.add_child(strip)
+			var fs := UiKit.NAME if tag == "GF" else UiKit.BODY
+			h.add_child(UiKit.ellipsis(GameDB.club_short(code), fs, UiKit.MUTED if out else UiKit.TEXT, win == code))
 			if not res.is_empty():
 				var sc := UiKit.line(UiKit.scoreline(int(res["goals"][side]), int(res["behinds"][side])),
-						UiKit.SMALL, UiKit.MUTED if out else UiKit.TEXT, win == code)
-				sc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+						UiKit.SMALL, UiKit.score_colour(code) if win == code else UiKit.MUTED, win == code)
 				h.add_child(sc)
 		v.add_child(h)
 	b.add_child(v)
