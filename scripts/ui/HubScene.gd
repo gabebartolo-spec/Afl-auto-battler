@@ -480,8 +480,9 @@ func _week_section(season: Season) -> Control:
 				rivalry_detail.name = "RivalryDetail"
 				nv.add_child(rivalry_detail)
 		var their := GameState.club_form_info(opp)
-		var standing := UiKit.lbl("%s on the ladder  ·  %s" % [
-				GameState.ordinal(GameState.club_position(opp)),
+		# Named: under the poster an unnamed "4th on the ladder" read as yours.
+		var standing := UiKit.lbl("%s are %s on the ladder  ·  %s" % [
+				GameDB.club_short(opp), GameState.ordinal(GameState.club_position(opp)),
 				GameState.form_line(their, "form").trim_prefix("form: ")], UiKit.SMALL, UiKit.MUTED)
 		standing.name = "OppFormLine"
 		nv.add_child(standing)
