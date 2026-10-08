@@ -28,6 +28,7 @@ func _ready() -> void:
 		Router.replace("main")
 		return
 
+	add_child(ClubBackdrop.new().setup(GameState.my_club))
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	UiKit.apply_insets(margin, 12)
@@ -251,10 +252,16 @@ func _standing_card() -> Control:
 	badge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cv.add_child(badge)
 	var lr := GameState.my_ladder_row()
-	var title := UiKit.lbl("%s of %d  ·  %s  ·  %d pts" % [GameState.ordinal(GameState.my_position()),
-			GameState.season.ladder.size(), GameState.my_record(), int(lr.get("pts", 0))],
-			UiKit.H2, UiKit.TEXT, true)
-	cv.add_child(title)
+	# Where you sit, big, in your colour; the record beside it.
+	var pos_row := UiKit.hbox(10)
+	var pos := UiKit.figure(GameState.ordinal(GameState.my_position()), 44, UiKit.club_vivid(GameState.my_club))
+	pos.name = "LadderPosition"
+	pos_row.add_child(pos)
+	var title := UiKit.ellipsis("of %d  ·  %s  ·  %d pts" % [GameState.season.ladder.size(),
+			GameState.my_record(), int(lr.get("pts", 0))], UiKit.H2, UiKit.TEXT, true)
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pos_row.add_child(title)
+	cv.add_child(pos_row)
 	var form := GameState.club_form_info(GameState.my_club)
 	cv.add_child(_form_row(form))
 	var last := _last_match_button()
@@ -450,20 +457,14 @@ func _week_section(season: Season) -> Control:
 		# Who, then where: "Essendon", "Away · Marvel Stadium" (the director's
 		# PC playtest, 2026-10-07: "Marvel Stadium / at Essendon" read as if
 		# Essendon were the ground).
-		var who := UiKit.lbl(GameDB.club_name(opp), 26 if _narrow() else 30, UiKit.TEXT, true)
-		who.name = "Opponent"
-		who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		nv.add_child(who)
 		# The forecast is known in the week (ARD-M4-016): a fact beside the
 		# ground, not advice.
 		var wx := str(mine.get("weather", ""))
 		var where_text := "%s · %s" % ["Home" if is_home else "Away", ground]
 		if wx != "":
 			where_text += " · " + Weather.label(wx)
-		var where := UiKit.lbl(where_text, UiKit.BODY, UiKit.MUTED)
-		where.name = "MatchVenue"
-		where.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		nv.add_child(where)
+		# The week's hero: the match as a poster (director, 2026-10-08).
+		nv.add_child(MatchPoster.new().setup(GameState.my_club, opp, is_home, where_text, _narrow()))
 		var marquee := MarqueeGames.tradition(str(mine["home"]), str(mine["away"]))
 		if not marquee.is_empty():
 			var marquee_line := UiKit.lbl(str(marquee["name"]), UiKit.SMALL, UiKit.EMPH, true)

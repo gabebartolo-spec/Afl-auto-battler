@@ -89,6 +89,22 @@ static func _relative_luminance(c: Color) -> float:
 ## first to read at 4.5:1; plain text when none of them does. A club's own
 ## colour stays wherever it can be read (Sydney's black accent cannot be, on a
 ## dark panel).
+## A club's most vivid colour that still reads on `surface` (3:1): the one to
+## carry its atmosphere (Melbourne's red, not its white trim). Falls back to
+## score_colour when no vivid colour reads.
+static func club_vivid(code: String, surface := AUTO_COLOUR) -> Color:
+	if surface == AUTO_COLOUR:
+		surface = BG
+	var best := Color(0, 0, 0, 0)
+	var best_s := 0.18
+	for c in GameDB.club_colours(code):
+		var col: Color = c
+		if col.s > best_s and contrast(col, surface) >= 3.0:
+			best_s = col.s
+			best = col
+	return best if best.a > 0.0 else score_colour(code, surface)
+
+
 static func score_colour(code: String, surface := AUTO_COLOUR) -> Color:
 	if surface == AUTO_COLOUR:
 		surface = PANEL
