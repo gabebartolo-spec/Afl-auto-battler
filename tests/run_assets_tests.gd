@@ -113,8 +113,8 @@ func _figure_sheets() -> void:
 			% [empty.size(), str(empty.slice(0, 5))])
 	_check(spill.is_empty(), "The colour mask lies on the figure, to the pixel, in every frame (same render): %s"
 			% str(spill.slice(0, 5)))
-	# The club-design sheet (half or full size, DESIGN_SCALE): its guernsey must sit on the
-	# figure too.
+	# The club-design sheet (half or full size, DESIGN_SCALE) must sit on the figure too: its
+	# alpha (the long-sleeve cover, the arms and shoulders) lies on the body.
 	var off := 0
 	var on := 0
 	for e in rects:

@@ -207,17 +207,20 @@ void fragment() {
 			vec3 base = kit_base[kit].rgb, pat = kit_pattern[kit].rgb, pat2 = kit_pattern2[kit].rgb;
 			vec3 kit_col = base * m.r + (pat - base) * p.x + (pat2 - base) * p.y;
 			float rest = clamp(1.0 - (m.r + m.g + m.b + s.g + s.b), 0.0, 1.0);
-			// Off the guernsey the design sheet carries R = how much is arm, G = height up
-			// the sock (0 at the boot, 1 at its top).
+			// Off the guernsey the design sheet carries G = height up the sock (0 at the boot,
+			// 1 at its top); its alpha is how much of the pixel a long sleeve covers (the arm, and
+			// the bare shoulder out from the collar - not the neck), apart from the design's own
+			// channels, which next to the guernsey carry the guernsey's coordinates.
 			float off = 1.0 - smoothstep(0.35, 0.65, m.a);
-			// Not cut back at the guernsey's edge: there the skin weight is small anyway, and
-			// cutting it let the arm's skin show as a pale frill along the armhole. Where the
-			// guernsey shares a pixel with skin (its armholes and collar), that pixel's design
-			// R is the guernsey's (across, near 0 on its right side), not the arm's, so any
-			// skin sharing a pixel with the guernsey is sleeve too: else a sleeve leaves a
-			// line of bare skin down one armhole.
-			float sleeve = (sleeved ? 1.0 : 0.0) * max(smoothstep(0.2, 0.5, g.r), smoothstep(0.015, 0.05, m.a));
-			vec3 skin = mix(skin_tones[tone].rgb, base, sleeve);
+			float sleeve = (sleeved ? 1.0 : 0.0) * smoothstep(0.2, 0.5, texture(design_tex, UV).a);
+			// The sleeve is the guernsey's base colour, except where it meets the guernsey: there
+			// the design sheet carries the guernsey's own coordinates, so the top of the shoulder
+			// (high up the guernsey) takes the colour the guernsey has there: a yoke runs on over it.
+			// Lower down the armhole the base colour, else stripes swept into a dotted edge.
+			vec2 q = design(int(round(kit_design[kit])), g);
+			vec3 edge_col = base + (pat - base) * q.x + (pat2 - base) * q.y;
+			vec3 sleeve_col = mix(base, edge_col, smoothstep(0.78, 0.88, g.g));
+			vec3 skin = mix(skin_tones[tone].rgb, sleeve_col, sleeve);
 			vec3 col = kit_col + pat * m.g + skin * m.b
 					+ hair_tones[hair].rgb * s.g + kit_shorts[kit].rgb * s.b + boots.rgb * rest;
 			int hoops = int(round(kit_extra[kit].y));
