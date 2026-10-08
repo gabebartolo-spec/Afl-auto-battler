@@ -20,7 +20,7 @@ career_ui 308
 potential 36
 ratings 39
 ai 38
-training 112
+training 107
 selection 54
 matchup 96
 matchday 552
