@@ -211,8 +211,12 @@ void fragment() {
 			// the sock (0 at the boot, 1 at its top).
 			float off = 1.0 - smoothstep(0.35, 0.65, m.a);
 			// Not cut back at the guernsey's edge: there the skin weight is small anyway, and
-			// cutting it let the arm's skin show as a pale frill along the armhole.
-			float sleeve = (sleeved ? 1.0 : 0.0) * smoothstep(0.2, 0.5, g.r);
+			// cutting it let the arm's skin show as a pale frill along the armhole. Where the
+			// guernsey shares a pixel with skin (its armholes and collar), that pixel's design
+			// R is the guernsey's (across, near 0 on its right side), not the arm's, so any
+			// skin sharing a pixel with the guernsey is sleeve too: else a sleeve leaves a
+			// line of bare skin down one armhole.
+			float sleeve = (sleeved ? 1.0 : 0.0) * max(smoothstep(0.2, 0.5, g.r), smoothstep(0.015, 0.05, m.a));
 			vec3 skin = mix(skin_tones[tone].rgb, base, sleeve);
 			vec3 col = kit_col + pat * m.g + skin * m.b
 					+ hair_tones[hair].rgb * s.g + kit_shorts[kit].rgb * s.b + boots.rgb * rest;
