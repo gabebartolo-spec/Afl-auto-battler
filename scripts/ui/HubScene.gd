@@ -923,10 +923,7 @@ func _on_sim_to_end() -> void:
 	# Only ever the finals: never sim through home-and-away rounds.
 	if not GameState.season.is_regular_done():
 		return
-	var guard := 0
-	while not GameState.season.is_season_over() and guard < 10:
-		GameState.advance()
-		guard += 1
+	GameState.sim_finals_to_end()
 	_build()
 	if not GameState.last_results.is_empty():
 		_show_results(GameState.last_results)
