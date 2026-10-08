@@ -3303,6 +3303,19 @@ func rosters() -> Array:
 	return out
 
 
+## Every goal and behind in order, small enough to keep for every match of
+## the season (the box score's worm, BoxScore): [quarter, minute, side,
+## 1 goal / 0 behind, kicker id, 1 set shot / 0].
+func scoring_log() -> Array:
+	var out := []
+	for e in events:
+		var kind := str(e.get("kind", ""))
+		if kind == "goal" or kind == "behind":
+			out.append([int(e["q"]), int(e["min"]), int(e["side"]), 1 if kind == "goal" else 0,
+					str(e.get("player_id", "")), 1 if bool(e.get("setshot", false)) else 0])
+	return out
+
+
 func result() -> Dictionary:
 	var s0 := score(0)
 	var s1 := score(1)
@@ -3318,6 +3331,7 @@ func result() -> Dictionary:
 		"goals": [goals(0), goals(1)],
 		"behinds": [behinds(0), behinds(1)],
 		"quarters": qsc,
+		"scoring": scoring_log(),
 		"q_goals": q_goals.duplicate(true),
 		"q_behinds": q_behinds.duplicate(true),
 		"team": [team_stats[0].duplicate(), team_stats[1].duplicate()],

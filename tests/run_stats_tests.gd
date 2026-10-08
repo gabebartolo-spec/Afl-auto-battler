@@ -460,12 +460,16 @@ func _fixture(sz: Vector2i) -> void:
 	_check(why2 == "" and sheet != null and sheet.find_child("MatchBox", true, false) != null,
 			"A finger on a played match opens it (%s: %s)" % [tag, why2])
 	if sheet != null:
-		var q: Node = sheet.find_child("Quarters", true, false)
+		var q: Node = sheet.find_child("QuarterStrip", true, false)
 		var res: Dictionary = season.results[season.round_index - 1][0]
 		_check(q != null and _text(q).contains("%d.%d" % [int(res["q_goals"][0][0]), int(res["q_behinds"][0][0])]),
 				"The box score has the quarters (%s)" % tag)
-		_check(_text(sheet).contains("Goals:") and sheet.find_child("NotKept", true, false) == null,
-				"A match with its players kept shows them (%s)" % tag)
+		_check(not sheet.find_children("BoxPlayer_*", "Button", true, false).is_empty()
+				and sheet.find_child("HeadToHead", true, false) != null and sheet.find_child("NotKept", true, false) == null,
+				"A match with its players kept shows them, and the team numbers head to head (%s)" % tag)
+		var box = sheet.find_child("BoxScore", true, false)
+		_check(box != null and not (box.get("_scores") as Array).is_empty(),
+				"The worm has the match's goals and behinds (%s)" % tag)
 		_fits(sheet, sz, "the box score", tag)
 	var backed: bool = s.call("handle_back")
 	await _settle()
@@ -481,8 +485,10 @@ func _fixture(sz: Vector2i) -> void:
 	rows = s.find_children("Match_*", "Button", true, false)
 	var why3: String = await Tap.tap(rows[0])
 	await _settle()
-	_check(why3 == "" and s.find_child("NotKept", true, false) != null and s.find_child("Quarters", true, false) != null,
-			"A match kept only as a score still shows its quarters and says the rest was not kept (%s)" % tag)
+	var slim_box = s.find_child("BoxScore", true, false)
+	_check(why3 == "" and s.find_child("NotKept", true, false) != null and s.find_child("QuarterStrip", true, false) != null
+			and slim_box != null and not (slim_box.get("_scores") as Array).is_empty(),
+			"A match kept only as a score still shows its quarters and worm, and says the rest was not kept (%s)" % tag)
 	var close: Button = s.find_child("CloseSheet", true, false)
 	await Tap.tap(close)
 	await _settle()
