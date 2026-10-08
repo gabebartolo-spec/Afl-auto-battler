@@ -335,6 +335,18 @@ func _phone_match(sz: Vector2i) -> void:
 		var team_t: Node = sheet.find_child("TeamStats", true, false) if sheet != null else null
 		_check(team_t != null and team_t.find_child("TeamRow_disposals", true, false) != null,
 				"Team stats open first, both clubs side by side (%s)" % tag)
+		# Laid out for the phone from the first look, not only after a
+		# quarter is picked (director's playtest, 2026-10-08).
+		var first_spill := ""
+		for c in sheet.find_children("*", "Control", true, false):
+			if c is Label and c.is_visible_in_tree() and c.get_global_rect().end.x > sz.x + 1:
+				first_spill = str(c.name)
+				break
+		var view_script = load("res://scripts/ui/match/MatchStatsView.gd")
+		_check(team_t is GridContainer and (team_t as GridContainer).columns
+				== clampi(int(sz.x / (float(view_script.GROUP_W) + 40.0)), 1, (view_script.GROUPS as Array).size())
+				and first_spill == "", "The stats open laid out for this screen (%s%s)"
+				% [tag, (": " + first_spill) if first_spill != "" else ""])
 		var so_far := 0
 		var mine_d: Node = team_t.find_child("TeamRow_disposals", true, false) if team_t != null else null
 		if mine_d != null:
