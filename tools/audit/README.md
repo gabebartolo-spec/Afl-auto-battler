@@ -40,6 +40,10 @@ way.
 
 - `traitdecay_impl` (#440): one eight-season career from a seeded upside draft, printing one `DECAY` line a season: the synergies switched on across the league, then the count of players holding each synergy trait, real and generated players apart. `AUDIT_SEED` sets the career seed (default 301), so runs with the same seed pair.
 
+- `role_alloc_impl`: every 2027 list's listed position (real_pos) against the first and second positions the numbers give, the player types each role produces, named cases and each club's coverage by line. No arguments.
+- `underrated_impl`: the opening pool's 2026 OVR against each player's 2024-25 level; short 2026 seasons re-rated as if held for 22 games; and a games-weighted 2026/2025/2024 view. No arguments.
+- `unicorn_impl`: Unicorns at the career start and who could become one (POT 90+, the missing line within reach). No arguments.
+
 ## Captures on GitHub
 
 `capture.yml` (#474) runs one `tools/visual/<tool>.gd` on GitHub's runner under a virtual display, so a capture never needs a window or the local Godot slot:
