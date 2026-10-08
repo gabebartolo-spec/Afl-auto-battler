@@ -345,6 +345,49 @@ static func figure(text: String, fs := 30, color := AUTO_COLOUR) -> Label:
 	return l
 
 
+## Motion (director, 2026-10-08: big type and motion). Short and quiet: a
+## headline fades up, a number counts to itself, a screen eases in. Never in
+## a headless run (tests and tools), so what a check reads is final at once.
+static func motion_on() -> bool:
+	return DisplayServer.get_name() != "headless"
+
+
+## Fade `c` up from nothing, `delay` seconds after it is shown.
+static func reveal(c: Control, delay := 0.0) -> void:
+	if not motion_on() or c == null:
+		return
+	c.modulate.a = 0.0
+	var run := func() -> void:
+		if not is_instance_valid(c):
+			return
+		var tw := c.create_tween()
+		if delay > 0.0:
+			tw.tween_interval(delay)
+		tw.tween_property(c, "modulate:a", 1.0, 0.32).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	if c.is_inside_tree():
+		run.call()
+	else:
+		c.tree_entered.connect(run, CONNECT_ONE_SHOT)
+
+
+## Count `l` up to `to` (its text set by `say` for each value on the way),
+## ending exactly on the real figure.
+static func count_up(l: Label, to: int, say: Callable, dur := 0.7, from := 0) -> void:
+	l.text = str(say.call(to))
+	if not motion_on() or to == from:
+		return
+	var run := func() -> void:
+		if not is_instance_valid(l):
+			return
+		var tw := l.create_tween()
+		tw.tween_method(func(v: float): l.text = str(say.call(roundi(v))), float(from), float(to), dur) \
+				.set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	if l.is_inside_tree():
+		run.call()
+	else:
+		l.tree_entered.connect(run, CONNECT_ONE_SHOT)
+
+
 ## The painted drop shade under display type.
 static func shade(l: Label, fs: int) -> void:
 	var off := maxi(1, roundi(fs * SHADE))

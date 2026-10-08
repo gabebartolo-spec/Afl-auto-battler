@@ -1,6 +1,7 @@
 extends Control
 ## Season hub: your next match, the ladder snapshot, and the round controls.
 
+var _settled := false   # the hub has shown once this visit; no more entrances
 var _finals_overlay: Control = null
 var _settings: Control
 var _root: VBoxContainer
@@ -213,6 +214,8 @@ func _build() -> void:
 		ladder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cols.add_child(ladder)
 	_root.add_child(_footer(season))
+	# Motion plays once per visit, not on every rebuild after an answer.
+	_settled = true
 
 
 ## "Round 4", a finals week, or the season.
@@ -264,6 +267,10 @@ func _standing_card() -> Control:
 	var pos_row := UiKit.hbox(10)
 	var pos := UiKit.figure(GameState.ordinal(GameState.my_position()), 44, UiKit.club_vivid(GameState.my_club))
 	pos.name = "LadderPosition"
+	if not _settled:
+		# Arriving at the hub, your spot climbs (or slides) into place.
+		UiKit.count_up(pos, GameState.my_position(), func(n): return GameState.ordinal(n), 0.8,
+				GameState.season.ladder.size())
 	pos_row.add_child(pos)
 	var title := UiKit.ellipsis("of %d  ·  %s  ·  %d pts" % [GameState.season.ladder.size(),
 			GameState.my_record(), int(lr.get("pts", 0))], UiKit.H2, UiKit.TEXT, true)
@@ -475,7 +482,10 @@ func _week_section(season: Season) -> Control:
 		if wx != "":
 			where_text += " · " + Weather.label(wx)
 		# The week's hero: the match as a poster (director, 2026-10-08).
-		nv.add_child(MatchPoster.new().setup(GameState.my_club, opp, is_home, where_text, _narrow()))
+		var poster := MatchPoster.new().setup(GameState.my_club, opp, is_home, where_text, _narrow())
+		if not _settled:
+			UiKit.reveal(poster)
+		nv.add_child(poster)
 		var marquee := MarqueeGames.tradition(str(mine["home"]), str(mine["away"]))
 		if not marquee.is_empty():
 			var marquee_line := UiKit.lbl(str(marquee["name"]), UiKit.SMALL, UiKit.EMPH, true)
