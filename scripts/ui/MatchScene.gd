@@ -282,7 +282,7 @@ func _paint_momentum() -> void:
 
 func _show_momentum_info() -> void:
 	_close_sheet()
-	var box := UiKit.modal_box(self, 520.0, 0.0)
+	var box := UiKit.modal_box(self, 520.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "MomentumInfo"
 	_sheet_overlay = overlay
@@ -539,7 +539,7 @@ func _show_coach_box() -> void:
 	var q := sim.current_quarter
 	# The calls fill the screen at every break, so the actions sit at the
 	# bottom with the choices just above them.
-	var box := UiKit.modal_box(self, 640.0, 0.0)
+	var box := UiKit.modal_box(self, 640.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "CoachBox"
 	_coach_overlay = overlay
@@ -949,7 +949,7 @@ func _show_moment() -> void:
 		_show_bounce_moment(m)
 		return
 	# Sized for its few lines, not the whole phone.
-	var box := UiKit.modal_box(self, 560.0, 440.0)
+	var box := UiKit.modal_box(self, 560.0, 440.0, _wash())
 	_moment_overlay = box["overlay"]
 	_moment_overlay.name = "MomentCard"
 	var v: VBoxContainer = box["body"]
@@ -1128,7 +1128,7 @@ func _short_name(r: Dictionary) -> String:
 ## marked. Back or Close leaves it as it was.
 func _player_sheet(title: String, roster: Array, current: String, on_pick: Callable) -> void:
 	_close_sheet()
-	var box := UiKit.modal_box(self, 480.0, 0.0)
+	var box := UiKit.modal_box(self, 480.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "PlayerSheet"
 	_sheet_overlay = overlay
@@ -1158,6 +1158,19 @@ func _player_sheet(title: String, roster: Array, current: String, on_pick: Calla
 	close.custom_minimum_size = Vector2(0, 44)
 	close.pressed.connect(_close_sheet)
 	box["footer"].add_child(close)
+
+
+## Match-day sheets wash in the opponent's colour (director, 2026-10-08);
+## a match you are not in keeps the usual wash.
+func _wash() -> Color:
+	var mine := str(GameState.my_club)
+	var home := str(_res.get("home", ""))
+	var away := str(_res.get("away", ""))
+	if mine == home:
+		return UiKit.opponent_wash(away)
+	if mine == away:
+		return UiKit.opponent_wash(home)
+	return UiKit.AUTO_COLOUR
 
 
 func _close_sheet() -> void:
@@ -1202,7 +1215,7 @@ func _roster_side(side: int) -> Array:
 ## clubs, any quarter on its own. Close (or Back) returns to your calls.
 func _show_break_stats() -> void:
 	_close_report()
-	var box := UiKit.modal_box(self, 1100.0, 0.0)
+	var box := UiKit.modal_box(self, 1100.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "BreakStatsSheet"
 	_report_overlay = overlay
@@ -1685,7 +1698,7 @@ func _on_finished() -> void:
 ## report) and Stats - and one way out: Continue. Back on Stats returns to
 ## Summary. Review match (Sim round) opens the same screen.
 func _show_fulltime() -> void:
-	var box := UiKit.modal_box(self, 640.0, 0.0)
+	var box := UiKit.modal_box(self, 640.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "FullTime"
 	_ft_box = box
@@ -2107,7 +2120,7 @@ func _matchup_text(fid: String, did: String, q: int) -> String:
 func _show_break_matchup(sim: MatchSim, fid: String, line: Label, q: int) -> void:
 	if _matchup_overlay != null and is_instance_valid(_matchup_overlay):
 		_matchup_overlay.queue_free()
-	var box := UiKit.modal_box(self, 480.0, 0.0)
+	var box := UiKit.modal_box(self, 480.0, 0.0, _wash())
 	_matchup_overlay = box["overlay"]
 	_matchup_overlay.name = "MatchupChooser"
 	var v: VBoxContainer = box["body"]

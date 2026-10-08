@@ -442,6 +442,24 @@ static func team_colour() -> Color:
 	return ClubDuel._show(best) if best.a > 0.0 else ACCENT
 
 
+## Match day's sheet wash: the opponent's colour, the atmosphere you play
+## into, while your club's colour stays on what you act on. When theirs
+## looks too like yours (Melbourne v Essendon), their other colour; when that
+## is grey too, a plain warm wash.
+static func opponent_wash(opp: String) -> Color:
+	if not GameDB.clubs.has(opp):
+		return team_colour()
+	var mine := team_colour()
+	var best := Color(0, 0, 0, 0)
+	for c in GameDB.club_marker_colours(opp):
+		var col := ClubDuel._show(c)
+		if col.get_luminance() > 0.7 or col.s < 0.25 or ClubDuel._diff(col, mine) < 0.45:
+			continue
+		if best.a == 0.0 or col.s * col.v > best.s * best.v:
+			best = col
+	return best if best.a > 0.0 else TEXT
+
+
 ## A raised tile carrying a breath of your club's colour.
 static func team_tile() -> Color:
 	return TILE.lerp(team_colour(), 0.10)
@@ -710,7 +728,9 @@ static func cover(parent: Control) -> ColorRect:
 
 
 ## Dialog that stays inside the viewport. Body scrolls; footer stays put.
-static func modal_box(parent: Control, max_w: float, prefer_h := 0.0) -> Dictionary:
+## `wash` tints the top of the sheet; by default your club's colour (match
+## day passes the opponent's, from `opponent_wash`).
+static func modal_box(parent: Control, max_w: float, prefer_h := 0.0, wash := AUTO_COLOUR) -> Dictionary:
 	var overlay := cover(parent)
 	var margin := MarginContainer.new()
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -728,11 +748,11 @@ static func modal_box(parent: Control, max_w: float, prefer_h := 0.0) -> Diction
 	center.add_child(shell)
 	# Not boring (director, 2026-10-08): a wash of your club's colour from the
 	# top of every sheet, fading before the content needs the contrast.
-	var lead := team_colour()
+	var lead := team_colour() if wash == AUTO_COLOUR else wash
 	shell.draw.connect(func() -> void:
 		var w := shell.size.x
 		var h := minf(shell.size.y * 0.5, 220.0)
-		var top := Color(lead, 0.22)
+		var top := Color(lead, 0.30)
 		var none := Color(lead, 0.0)
 		shell.draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, h), Vector2(0, h)]),
 				PackedColorArray([top, top, none, none])))
