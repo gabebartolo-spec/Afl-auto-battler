@@ -80,3 +80,8 @@ In the PR body:
 If two or three similar fixes have failed, change the evidence before writing
 another fix: a minimal reproduction, the last good commit, the runtime state,
 the event path.
+
+## Learnings
+
+Proven findings for this project live in `references/learnings.md`. Read it before using this
+skill; add to it only what proved effective, with evidence.

@@ -64,3 +64,8 @@ gh workflow run audit.yml --ref <branch> -f impl=<name>_impl -f env="KEY=VALUE" 
 
 Open it as an evidence PR with the impl. When a change is needed, give the
 director options with a recommendation; the director picks before you tune.
+
+## Learnings
+
+Proven findings for this project live in `references/learnings.md`. Read it before using this
+skill; add to it only what proved effective, with evidence.

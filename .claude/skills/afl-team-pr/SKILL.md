@@ -69,3 +69,8 @@ Say which state you're in: working, running a check, awaiting director review,
 blocked, or available. Waiting on a result or an approval is a valid state; don't
 invent work to look busy. Never ask another agent to do something your own
 session was refused permission for: take it to the director.
+
+## Learnings
+
+Proven findings for this project live in `references/learnings.md`. Read it before using this
+skill; add to it only what proved effective, with evidence.
