@@ -15,9 +15,10 @@ shader_type canvas_item;
 // sheet (guernsey coordinates: stripes, numbers) stays lossless.
 //
 // A figure's draw colour carries its looks, not a tint:
-//   r = (kit index * 2 + mirrored) / 8, g = skin tone index / 8, b = hair index / 8,
-//   a = opacity. "Mirrored" (the frame drawn flipped, to face the other way) only
-//   matters to the number, which is un-mirrored so it still reads.
+//   r = (kit index * 4 + long sleeves * 2 + mirrored) / 16, g = skin tone index / 8,
+//   b = hair index / 8, a = opacity. "Mirrored" (the frame drawn flipped, to face the
+//   other way) only matters to the number, which is un-mirrored so it still reads.
+//   Long sleeves (per player): the arm in the guernsey's base colour down to the wrist.
 // Drawn a second time with g = 1 and b = (number + 1) / 128, the same frame prints
 // that number on the guernsey's back instead (digits_tex), in place on the fabric:
 // the same spot and size in every frame, following the shirt, hidden behind arms.
@@ -41,6 +42,8 @@ uniform vec4 kit_pattern[4];
 uniform vec4 kit_pattern2[4];
 uniform vec4 kit_shorts[4];
 uniform float kit_design[4];
+// Kit options: y = sock hoops (0: the single band baked into the sheet; 1-3: hoops up the sock).
+uniform vec4 kit_extra[4];
 uniform vec4 skin_tones[8];
 uniform vec4 hair_tones[8];
 uniform vec4 boots = vec4(0.06, 0.06, 0.07, 1.0);
@@ -189,8 +192,9 @@ void fragment() {
 		vec4 s = texture(TEXTURE, UV);     // lighting, hair, shorts, coverage
 		vec4 m = texture(mask_tex, UV);    // base colour, sock band, skin, guernsey alone
 		vec3 g = design_at(UV);
-		int code = int(round(looks.r * 8.0));
-		int kit = clamp(code / 2, 0, 3);
+		int code = int(round(looks.r * 16.0));
+		int kit = clamp(code / 4, 0, 3);
+		bool sleeved = ((code / 2) % 2) == 1;
 		bool mirrored = (code % 2) == 1;
 		if (looks.g > 0.95) {
 			int n = clamp(int(round(looks.b * 128.0)) - 1, 0, 99);
@@ -203,8 +207,32 @@ void fragment() {
 			vec3 base = kit_base[kit].rgb, pat = kit_pattern[kit].rgb, pat2 = kit_pattern2[kit].rgb;
 			vec3 kit_col = base * m.r + (pat - base) * p.x + (pat2 - base) * p.y;
 			float rest = clamp(1.0 - (m.r + m.g + m.b + s.g + s.b), 0.0, 1.0);
-			vec3 col = kit_col + pat * m.g + skin_tones[tone].rgb * m.b
+			// Off the guernsey the design sheet carries G = height up the sock (0 at the boot,
+			// 1 at its top); its alpha is how much of the pixel a long sleeve covers (the arm, and
+			// the bare shoulder out from the collar - not the neck), apart from the design's own
+			// channels, which next to the guernsey carry the guernsey's coordinates.
+			float off = 1.0 - smoothstep(0.35, 0.65, m.a);
+			float sleeve = (sleeved ? 1.0 : 0.0) * smoothstep(0.2, 0.5, texture(design_tex, UV).a);
+			// The sleeve is the guernsey's base colour, except where it meets the guernsey: there
+			// the design sheet carries the guernsey's own coordinates, so the top of the shoulder
+			// (high up the guernsey) takes the colour the guernsey has there: a yoke runs on over it.
+			// Lower down the armhole the base colour, else stripes swept into a dotted edge.
+			vec2 q = design(int(round(kit_design[kit])), g);
+			vec3 edge_col = base + (pat - base) * q.x + (pat2 - base) * q.y;
+			vec3 sleeve_col = mix(base, edge_col, smoothstep(0.78, 0.88, g.g));
+			vec3 skin = mix(skin_tones[tone].rgb, sleeve_col, sleeve);
+			vec3 col = kit_col + pat * m.g + skin * m.b
 					+ hair_tones[hair].rgb * s.g + kit_shorts[kit].rgb * s.b + boots.rgb * rest;
+			int hoops = int(round(kit_extra[kit].y));
+			if (hoops > 0) {
+				// Hoops round the top of the sock in the pattern colour, in place of the band.
+				float sock_out = max(m.r - m.a, 0.0);
+				float sock_w = sock_out + m.g;
+				float t = (g.g - 0.42) / 0.58;
+				float seg = t * float(2 * hoops - 1);
+				float on = (1.0 - mod(floor(seg), 2.0)) * step(0.0, t) * step(t, 1.0) * off;
+				col += sock_w * mix(base, pat, on) - (base * sock_out + pat * m.g);
+			}
 			COLOR = vec4(col * s.r * gain, s.a * looks.a);
 		}
 	}

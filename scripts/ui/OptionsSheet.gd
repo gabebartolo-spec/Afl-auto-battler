@@ -45,6 +45,16 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 	_row(v, "Match speed", "SettingsSpeed", SPEED_OPTIONS,
 			str(int(GameState.match_speed())), "How fast a match you watch starts. You can change it during the game.",
 			func(k): GameState.set_match_speed(float(k)))
+	if ScreenLayout.is_desktop():
+		var sizes := []
+		for row in ScreenLayout.SCREEN_SIZES:
+			sizes.append([row[0], row[1]])
+		_row(v, "Screen size", "SettingsScreenSize", sizes, GameState.screen_size(),
+				"Everything bigger, for a big screen across the room. TV suits a television from the couch.",
+				func(k): GameState.set_screen_size(k))
+		_row(v, "Full screen", "SettingsFullscreen", [["off", "Off"], ["on", "On"]],
+				"on" if GameState.fullscreen() else "off", "Fill the screen, with no window border.",
+				func(k): GameState.set_fullscreen(k == "on"))
 	_row(v, "Vignettes", "SettingsVignettes", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.vignettes_on() else "off",
 			"The match-day scenes: the banner, the centre ball-up, replays, the press conference and the awards. Off skips the scenes; every call and result stays the same.",

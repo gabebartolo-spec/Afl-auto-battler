@@ -12,8 +12,9 @@ extends RefCounted
 
 ## The player statistics kept and added up, in the order they are packed.
 ## Append only: a packed box records how many keys it holds, so an older box
-## still reads after keys are added.
-const KEYS := [
+## still reads after keys are added. The first set is the one a side's box
+## follows with its team-only keys (TEAM_KEYS); later keys go on after both.
+const FIRST_KEYS := [
 	"disposals", "kicks", "handballs", "contested_possessions", "uncontested_possessions",
 	"ground_ball_gets", "marks", "contested_marks", "intercept_marks", "tackles",
 	"clearances", "cba", "inside50", "rebounds", "metres_gained", "running_bounces",
@@ -22,8 +23,11 @@ const KEYS := [
 	"intercepts", "one_percenters", "spoils", "smothers", "pressure_acts",
 	"frees_for", "frees_against", "clangers", "effective_disposals", "distance_run",
 ]
+## Added 2026-10-08: tackles broken, by how (MatchSim._break_kind).
+const LATER_KEYS := ["dont_argues", "evaded_tackles"]
+const KEYS := FIRST_KEYS + LATER_KEYS
 ## A side's statistics kept per match: the players' plus the team-only ones.
-const TEAM_KEYS := KEYS + ["chains", "pressure_wins", "centre_bounces", "kick_ins"]
+const TEAM_KEYS := FIRST_KEYS + ["chains", "pressure_wins", "centre_bounces", "kick_ins"] + LATER_KEYS
 
 
 # ---------------------------------------------------------------------------

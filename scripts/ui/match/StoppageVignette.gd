@@ -65,8 +65,9 @@ var _hold := 0.0            # time since the freeze, for the last push-in
 func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 	title = heading
 	tokens.clear()
-	# The day's weather, when MatchSim has one.
+	# The day's weather, when MatchSim has one; more of them wear long sleeves in the wet.
 	weather = str(sim.get("weather")) if sim.get("weather") != null else ""
+	var wet := weather == "wet"
 	_board = {"codes": [str((sim.squads[0] as Squad).code), str((sim.squads[1] as Squad).code)],
 			"goals": [sim.goals(0), sim.goals(1)], "behinds": [sim.behinds(0), sim.behinds(1)],
 			"q": sim.current_quarter}
@@ -97,7 +98,7 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 				var from := to + Vector2(rng.randf_range(-9.0, 9.0), -sgn * rng.randf_range(14.0, 20.0))
 				var tired := float(sim.energy.get(str(p["id"]), 100.0)) < EMPTY
 				tokens.append({"side": side, "mine": mine, "slot": slot, "id": str(p["id"]),
-						"tall": MatchSim._is_ruckman(p), "look": GameDB.figure_look(p),
+						"tall": MatchSim._is_ruckman(p), "look": GameDB.figure_look(p, wet),
 						"height_cm": float(p.get("height_cm", 0.0)),
 						"name": _surname(GameDB.player_display_name(p)), "num": int(p["num"]),
 						"tired": tired, "from": from, "to": to,
@@ -161,7 +162,8 @@ const UMPIRE_GEAR := {"design": "plain", "base": UMPIRE, "pattern": Color(0.42, 
 
 
 ## A material that recolours the figure sheet: up to four kits ({design, base,
-## pattern, pattern2, shorts}), addressed by index in a figure's draw colour.
+## pattern, pattern2, shorts}, and optionally sock_hoops 0-3), addressed by index in a
+## figure's draw colour.
 ## Reuses mat when given.
 static func figure_material(kits: Array, mat: ShaderMaterial = null) -> ShaderMaterial:
 	if mat == null or mat.shader != FIGURE_SHADER:
@@ -181,12 +183,14 @@ static func figure_material(kits: Array, mat: ShaderMaterial = null) -> ShaderMa
 		while sizes.size() < 8:
 			sizes.append(Vector2i(-1, -1))
 		mat.set_shader_parameter("hair_sizes", sizes)
-	var fields := {"base": [], "pattern": [], "pattern2": [], "shorts": [], "design": []}
+	var fields := {"base": [], "pattern": [], "pattern2": [], "shorts": [], "design": [], "extra": []}
 	for i in range(4):
 		var kit: Dictionary = kits[mini(i, kits.size() - 1)]
 		for f in ["base", "pattern", "pattern2", "shorts"]:
 			fields[f].append(kit[f])
 		fields["design"].append(float(maxi(0, GameDB.GUERNSEY_DESIGNS.find(str(kit["design"])))))
+		# Hoops on the socks, a kit option (0: the usual band).
+		fields["extra"].append(Vector4(0.0, float(clampi(int(kit.get("sock_hoops", 0)), 0, 3)), 0.0, 0.0))
 	for f in fields:
 		mat.set_shader_parameter("kit_" + f, fields[f])
 	return mat
@@ -542,16 +546,22 @@ static func draw_hair(ci: CanvasItem, origin: Vector2, info: Dictionary, f: int,
 			VignetteFigures.hair_source(h, f), Color(skin, colour.g, colour.b, colour.a))
 
 
-## The draw colour that recolours a figure: its kit, skin and hair, and whether
-## the frame is mirrored (figure.gdshader).
+## The draw colour that recolours a figure: its kit, whether he wears long sleeves,
+## skin and hair, and whether the frame is mirrored (figure.gdshader).
 static func look_colour(kit: int, look: Dictionary, mirror := false, alpha := 1.0) -> Color:
-	return Color((kit * 2 + (1 if mirror else 0)) / 8.0, int(look["skin"]) / 8.0, int(look["hair"]) / 8.0, alpha)
+	return Color(kit_code(kit, bool(look.get("long_sleeves", false)), mirror), int(look["skin"]) / 8.0,
+			int(look["hair"]) / 8.0, alpha)
+
+
+## A draw colour's red: kit, long sleeves and mirrored, packed as the shader reads them.
+static func kit_code(kit: int, sleeves: bool, mirror: bool) -> float:
+	return (clampi(kit, 0, 3) * 4 + (2 if sleeves else 0) + (1 if mirror else 0)) / 16.0
 
 
 ## The draw colour that prints a number (0-99) on a figure's back instead of
 ## drawing the figure (figure.gdshader): draw the same frame again with it.
 static func number_colour(kit: int, number: int, alpha := 1.0, mirror := false) -> Color:
-	return Color((kit * 2 + (1 if mirror else 0)) / 8.0, 1.0, (clampi(number, 0, 99) + 1) / 128.0, alpha)
+	return Color(kit_code(kit, false, mirror), 1.0, (clampi(number, 0, 99) + 1) / 128.0, alpha)
 
 
 ## Ruckmen are the tall figures; small men (BroadcastVignette.SMALL_CM) the small

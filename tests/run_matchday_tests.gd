@@ -50,6 +50,7 @@ func _run() -> void:
 	await _playtest_bounce_scene()
 	await _rings_on_the_oval()
 	await _first_goal_line()
+	await _momentum_meter()
 	await _vignettes_setting()
 	await _vignettes_off_match()
 	_appearance()
@@ -330,11 +331,31 @@ func _phone_match(sz: Vector2i) -> void:
 		var sheet: Node = m.find_child("BreakStatsSheet", true, false)
 		var bs: Node = sheet.find_child("BreakBoxScore", true, false) if sheet != null else null
 		var bs_text := _text(bs) if bs != null else ""
-		_check(bs != null and bs_text.contains("Q2") and not bs_text.contains("Q3"),
-				"The box score shows the quarters played so far (%s)" % tag)
+		_check(bs != null and bs_text.contains("Q2") and not bs_text.contains("Q3")
+				and bs.find_child("Worm", true, false) != null,
+				"The box score shows the quarters played so far, and the worm (%s)" % tag)
+		# A finger on a quarter's column says that quarter (director, 2026-10-08).
+		var q1: Button = bs.find_child("BoxQuarter_1", true, false) if bs != null else null
+		var says: Label = bs.find_child("WormSays", true, false) if bs != null else null
+		var why_q: String = (await Tap.tap(q1)) if q1 != null else "no Q1 column"
+		await _settle()
+		_check(why_q == "" and says != null and says.text.begins_with("Q1:"),
+				"A finger on Q1 says the first quarter (%s: %s)" % [tag, why_q if why_q != "" else (says.text if says else "-")])
 		var team_t: Node = sheet.find_child("TeamStats", true, false) if sheet != null else null
 		_check(team_t != null and team_t.find_child("TeamRow_disposals", true, false) != null,
 				"Team stats open first, both clubs side by side (%s)" % tag)
+		# Laid out for the phone from the first look, not only after a
+		# quarter is picked (director's playtest, 2026-10-08).
+		var first_spill := ""
+		for c in sheet.find_children("*", "Control", true, false):
+			if c is Label and c.is_visible_in_tree() and c.get_global_rect().end.x > sz.x + 1:
+				first_spill = str(c.name)
+				break
+		var view_script = load("res://scripts/ui/match/MatchStatsView.gd")
+		_check(team_t is GridContainer and (team_t as GridContainer).columns
+				== clampi(int(sz.x / (float(view_script.GROUP_W) + 40.0)), 1, (view_script.GROUPS as Array).size())
+				and first_spill == "", "The stats open laid out for this screen (%s%s)"
+				% [tag, (": " + first_spill) if first_spill != "" else ""])
 		var so_far := 0
 		var mine_d: Node = team_t.find_child("TeamRow_disposals", true, false) if team_t != null else null
 		if mine_d != null:
@@ -399,7 +420,7 @@ func _phone_match(sz: Vector2i) -> void:
 		stats_btn.emit_signal("pressed")
 		await _settle()
 		var ms: Node = m.find_child("MatchStats", true, false)
-		_check(ms != null and _text(ms).contains("Quarter by quarter") and ms.find_child("TeamStats", true, false) != null
+		_check(ms != null and ms.find_child("BoxScore", true, false) != null and ms.find_child("TeamStats", true, false) != null
 				and ms.find_child("StatsView_players", true, false) != null,
 				"Match stats holds the full numbers: team stats, players a tab away (%s)" % tag)
 		var ptab: Button = ms.find_child("StatsView_players", true, false) if ms != null else null
@@ -1101,6 +1122,61 @@ func _first_goal_line() -> void:
 	await _settle()
 
 
+## The momentum meter (director, 2026-10-07): labelled, the club on top
+## named, its colour from the centre; a real tap explains it and Back closes
+## that; the first match you watch says what it is once.
+func _momentum_meter() -> void:
+	var db = root.get_node("GameDB")
+	_state.set_vignettes_on(false)
+	_state.set_setting("seen_momentum_intro", false)
+	_state.reset()
+	_state.replay_seed = SUITE_SEED
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(390, 844)
+	_state.prepare_interactive_match()
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var box = m.find_child("CoachBox", true, false)
+	var start: Button = box.find_child("StartQuarter", true, false) if box != null else null
+	if start != null:
+		start.emit_signal("pressed")
+	await _settle()
+	var res: Dictionary = m.get("_res")
+	var bar: Button = m.find_child("MomentumBar", true, false)
+	var word: Label = m.find_child("MomentumWord", true, false)
+	_check(bar != null and _text(bar).contains("Momentum") and word != null, "The meter is labelled Momentum")
+	m.call("_track_momentum", {"mom": 0.0})
+	_check(word != null and word.text == "Even", "Level, it says Even (%s)" % (word.text if word else "-"))
+	m.call("_track_momentum", {"mom": 0.6})
+	_check(word.text == "%s on top" % db.club_short(str(res["home"])), "Home on top is named (%s)" % word.text)
+	var note: Label = m.find_child("MomentumNote", true, false)
+	_check(note != null and note.visible and bool(_state.get_setting("seen_momentum_intro", false)),
+			"The first match you watch says what it is, once it moves")
+	m.call("_track_momentum", {"mom": -0.6})
+	_check(word.text == "%s on top" % db.club_short(str(res["away"])), "Away on top is named (%s)" % word.text)
+	var why: String = await Tap.tap(bar)
+	await _settle()
+	_check(why == "" and m.find_child("MomentumInfo", true, false) != null
+			and _text(m.find_child("MomentumInfo", true, false)).contains("halves at every break"),
+			"A finger on the meter explains it (%s)" % why)
+	_check(m.call("handle_back") == true, "Back is handled on the explanation")
+	await _settle()
+	_check(m.find_child("MomentumInfo", true, false) == null, "Back closes it")
+	m.queue_free()
+	await _settle()
+	# A later match: no note.
+	_state.prepare_interactive_match()
+	var m2: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m2)
+	await _settle()
+	m2.call("_track_momentum", {"mom": 0.6})
+	var note2: Label = m2.find_child("MomentumNote", true, false)
+	_check(note2 != null and not note2.visible, "The next match does not say it again")
+	m2.queue_free()
+	await _settle()
+
+
 ## The first player a call offers: the id behind a "<prefix><id>" button.
 func _first_pick(box: Node, prefix: String) -> String:
 	for b in box.find_children(prefix + "*", "Button", true, false):
@@ -1165,6 +1241,36 @@ func _appearance() -> void:
 			and bald > 30 and bald < 240 and clean > 1200 and clean < 1600 and inked > 600 and inked < 1200 and valid_ok,
 			"Generated players vary across the library from their id alone (%d styles, %d bald, %d clean-shaven, %d inked)" % [
 					styles.size(), bald, clean, inked])
+	# Long sleeves: a player's own, from his id alone - about one in seven, one in four
+	# in the wet (everyone who wears them dry still does), and the same every time.
+	var dry := 0
+	var wet := 0
+	var kept := true
+	for i in range(3000):
+		var id := "gen_%d" % i
+		var d := Appearance.long_sleeves(id)
+		var w := Appearance.long_sleeves(id, true)
+		dry += 1 if d else 0
+		wet += 1 if w else 0
+		kept = kept and (w or not d) and d == Appearance.long_sleeves(id)
+	var fl: Dictionary = db.figure_look(fake)
+	_check(dry > 360 and dry < 540 and wet > 630 and wet < 870 and kept
+			and fl["long_sleeves"] == Appearance.long_sleeves(str(fake["id"])) and fl["hair_style"] == db.player_appearance(fake)["hair_style"],
+			"Long sleeves are a player's own: %d of 3000 dry, %d in the wet, stable per id" % [dry, wet])
+	# The figure's draw colour packs kit, sleeves and mirror so the shader reads them back.
+	var sv: GDScript = load("res://scripts/ui/match/StoppageVignette.gd")
+	var packs := true
+	for kit in range(4):
+		for sl in [false, true]:
+			for mi in [false, true]:
+				var code := int(round(float(sv.kit_code(kit, sl, mi)) * 16.0))
+				packs = packs and code / 4 == kit and ((code / 2) % 2 == 1) == sl and (code % 2 == 1) == mi
+	var plain: Dictionary = db.club_guernsey("COL")
+	var hooped := plain.duplicate()
+	hooped["sock_hoops"] = 2
+	var extra: Array = (sv.figure_material([plain, hooped]) as ShaderMaterial).get_shader_parameter("kit_extra")
+	_check(packs and extra.size() == 4 and is_zero_approx((extra[0] as Vector4).y) and int((extra[1] as Vector4).y) == 2,
+			"A figure's draw colour carries kit, sleeves and mirror; sock hoops are off unless a kit asks")
 	var chosen := {"id": "C_1", "look": {"skin": 5, "hair": 2, "hair_style": "afro", "beard": "nonsense", "scars": 9}}
 	var cf: Dictionary = db.player_appearance(chosen)
 	_check(cf["hair_style"] == "afro" and cf["beard"] == "clean" and not cf.has("scars")
@@ -1262,6 +1368,17 @@ func _vignettes_setting() -> void:
 			_check((await Tap.tap(on)) == "", "Vignettes On takes a real tap (%s)" % tag)
 			await _settle()
 			_check(_state.vignettes_on(), "On turns them back on (%s)" % tag)
+		# Screen size, on a desktop: a finger on TV makes the game bigger.
+		var tv: Button = sheet.find_child("SettingsScreenSize_tv", true, false)
+		_check(tv != null and sheet.find_child("SettingsFullscreen_on", true, false) != null,
+				"Settings has Screen size and Full screen on a desktop (%s)" % tag)
+		if tv != null:
+			_check((await Tap.tap(tv)) == "", "TV takes a real tap (%s)" % tag)
+			await _settle()
+			_check(_state.screen_size() == "tv" and is_equal_approx(float(root.get_node("ScreenLayout").ui_scale), 1.6),
+					"TV is kept and applied (%s)" % tag)
+			_state.set_screen_size("standard")
+			await _settle()
 		host.queue_free()
 		await _settle()
 

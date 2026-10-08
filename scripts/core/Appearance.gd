@@ -42,6 +42,19 @@ static func generated(id: String, skin_mix: Array = DEFAULT_SKIN_MIX) -> Diction
 	return {"skin": skin, "hair": _pick(rng.randf(), HAIR_MIX[skin])}
 
 
+## Long sleeves are a player's own choice (about one in seven, one in four in the
+## wet): seeded from his id alone, on its own stream, so nothing else about his look
+## changes. Presentation only.
+const SLEEVES_SHARE := 0.15
+const SLEEVES_SHARE_WET := 0.25
+
+
+static func long_sleeves(id: String, wet := false) -> bool:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("appearance-sleeves|" + id)
+	return rng.randf() < (SLEEVES_SHARE_WET if wet else SLEEVES_SHARE)
+
+
 static func _pick(roll: float, weights: Array) -> int:
 	var total := 0.0
 	for w in weights:

@@ -215,6 +215,9 @@ func _ready() -> void:
 	_apply_sound_mute(bool(cfg.get_value("ui", "mute_sounds", false)))
 	AudioLevels.apply(AudioLevels.MUSIC, AudioLevels.valid(str(cfg.get_value("ui", "music_level", "normal"))))
 	AudioLevels.apply(AudioLevels.CROWD, AudioLevels.valid(str(cfg.get_value("ui", "crowd_level", "normal"))))
+	ScreenLayout.set_screen_size(str(cfg.get_value("ui", "screen_size", "standard")))
+	if bool(cfg.get_value("ui", "fullscreen", false)):
+		ScreenLayout.set_fullscreen(true)
 
 
 func _exit_tree() -> void:
@@ -341,6 +344,24 @@ func set_bounce_scene_every_match(enabled: bool) -> void:
 ## banner, the centre ball-up call, the replays, the press conference and the
 ## awards on stage. On by default. Off plays none of them; every decision, its
 ## information and every result stay exactly the same.
+func screen_size() -> String:
+	return str(get_setting("screen_size", "standard"))
+
+
+func set_screen_size(key: String) -> void:
+	set_setting("screen_size", key)
+	ScreenLayout.set_screen_size(key)
+
+
+func fullscreen() -> bool:
+	return bool(get_setting("fullscreen", false))
+
+
+func set_fullscreen(on: bool) -> void:
+	set_setting("fullscreen", on)
+	ScreenLayout.set_fullscreen(on)
+
+
 func vignettes_on() -> bool:
 	return bool(get_setting("vignettes", true))
 

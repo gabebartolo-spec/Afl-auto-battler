@@ -61,8 +61,9 @@ var _broadcast_speccies := 0
 var _broadcast_last_event := -1000
 var _playback_event_index := 0
 var _momentum := 0.0            # the engine's momentum as shown: -1 (away on top) .. 1 (home on top)
-var _mom_home: ColorRect
-var _mom_away: ColorRect
+var _mom_meter: Control       # MomentumMeter: draws the engine's momentum
+var _mom_word: Label          # who has it, in words
+var _mom_note: Label          # first match only: what it is
 var _rotation := "normal"
 var _pos_before := 0          # your ladder spot before this match
 var _lead: Label
@@ -213,29 +214,119 @@ func _scoreboard() -> Control:
 ## Who has the run of play: the engine's momentum (MatchSim.momentum), which
 ## goals swing, time fades and a goal the other way turns. The side it
 ## favours wins a little more of the ball at stoppages and loose balls.
+## Director, 2026-10-07: always labelled, the club on top named in words and
+## its colour growing from the centre toward it (one colour at a time, so
+## like colours cannot confuse it); a tap explains it, and the first match
+## you watch says so once, under it.
+const MOMENTUM_EVEN := 0.12
+const MOMENTUM_INFO := [
+	"Momentum is the run of play. A goal swings it toward the side that kicked it, a behind a little; it fades as play goes on and halves at every break.",
+	"The side on top wins a little more of the ball at centre bounces, stoppages and loose balls - a small edge, never a guarantee. A goal the other way turns it.",
+]
+
+
 func _momentum_bar() -> Control:
-	var bar := UiKit.hbox(0)
-	bar.name = "MomentumBar"
-	bar.custom_minimum_size = Vector2(0, 6)
-	bar.tooltip_text = "Momentum"
-	_mom_home = ColorRect.new()
-	_mom_away = ColorRect.new()
-	_mom_home.color = (GameDB.club_colours(str(_res["home"])) as Array)[0]
-	_mom_away.color = (GameDB.club_colours(str(_res["away"])) as Array)[0]
-	for r in [_mom_home, _mom_away]:
-		r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		r.custom_minimum_size = Vector2(0, 6)
-		bar.add_child(r)
+	var b := Button.new()
+	b.name = "MomentumBar"
+	b.flat = true
+	b.custom_minimum_size = Vector2(0, 30)
+	b.pressed.connect(_show_momentum_info)
+	var v := UiKit.vbox(2)
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(v)
+	var h := UiKit.hbox(6)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var label := UiKit.line("Momentum", UiKit.SMALL, UiKit.MUTED)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(label)
+	_mom_word = UiKit.ellipsis("", UiKit.SMALL, UiKit.TEXT, true)
+	_mom_word.name = "MomentumWord"
+	_mom_word.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_mom_word.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(_mom_word)
+	v.add_child(h)
+	_mom_meter = MomentumMeter.new()
+	_mom_meter.call("setup", UiKit.score_colour(str(_res["home"])), UiKit.score_colour(str(_res["away"])))
+	v.add_child(_mom_meter)
+	var box := UiKit.vbox(2)
+	box.add_child(b)
+	_mom_note = UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	_mom_note.name = "MomentumNote"
+	_mom_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_mom_note.visible = false
+	box.add_child(_mom_note)
 	_paint_momentum()
-	return bar
+	return box
 
 
 func _paint_momentum() -> void:
-	if _mom_home == null or not is_instance_valid(_mom_home):
+	if _mom_meter == null or not is_instance_valid(_mom_meter):
 		return
-	# Kept short of the ends so both clubs' colours always show.
-	_mom_home.size_flags_stretch_ratio = 1.0 + 0.9 * _momentum
-	_mom_away.size_flags_stretch_ratio = 1.0 - 0.9 * _momentum
+	_mom_meter.call("show_value", _momentum)
+	if absf(_momentum) < MOMENTUM_EVEN:
+		_mom_word.text = "Even"
+		_mom_word.add_theme_color_override("font_color", UiKit.MUTED)
+	else:
+		var code := str(_res["home"] if _momentum > 0.0 else _res["away"])
+		_mom_word.text = "%s on top" % GameDB.club_short(code)
+		_mom_word.add_theme_color_override("font_color", UiKit.score_colour(code))
+	# The first match you watch: once it first moves, one line says what it is.
+	if _interactive and not _mom_note.visible and absf(_momentum) >= MOMENTUM_EVEN \
+			and not bool(GameState.get_setting("seen_momentum_intro", false)):
+		GameState.set_setting("seen_momentum_intro", true)
+		_mom_note.text = "Momentum swings with each goal and fades with time; the side on top wins a little more of the ball. Tap it for more."
+		_mom_note.visible = true
+
+
+func _show_momentum_info() -> void:
+	_close_sheet()
+	var box := UiKit.modal_box(self, 520.0, 0.0)
+	var overlay: Control = box["overlay"]
+	overlay.name = "MomentumInfo"
+	_sheet_overlay = overlay
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.heading("Momentum", UiKit.TITLE))
+	for line in MOMENTUM_INFO:
+		var l := UiKit.lbl(line, UiKit.BODY, UiKit.TEXT)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
+	var ok := UiKit.btn("Got it", UiKit.NAME, true)
+	ok.name = "MomentumInfoOk"
+	ok.custom_minimum_size = Vector2(0, 44)
+	ok.pressed.connect(_close_sheet)
+	box["footer"].add_child(ok)
+
+
+## A centre line; the club on top's colour grows from it toward his end, as
+## far as the engine's momentum (-1 away .. 1 home).
+class MomentumMeter extends Control:
+	var _home := Color.WHITE
+	var _away := Color.WHITE
+	var _v := 0.0
+
+	func setup(home: Color, away: Color) -> void:
+		_home = home
+		_away = away
+		custom_minimum_size = Vector2(0, 8)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func show_value(v: float) -> void:
+		_v = v
+		queue_redraw()
+
+	func _draw() -> void:
+		var w := size.x
+		var mid := w / 2.0
+		var y := size.y / 2.0
+		draw_rect(Rect2(0, y - 1.0, w, 2.0), UiKit.LINE)
+		var reach := mid * clampf(absf(_v), 0.0, 1.0)
+		if reach >= 1.0:
+			if _v > 0.0:
+				draw_rect(Rect2(mid - reach, 0, reach, size.y), _home)
+			else:
+				draw_rect(Rect2(mid, 0, reach, size.y), _away)
+		draw_rect(Rect2(mid - 1.0, 0, 2.0, size.y), UiKit.TEXT)
 
 
 ## Every event carries the engine's momentum as it stood ("mom"): the meter
@@ -1103,7 +1194,7 @@ func _show_break_stats() -> void:
 	_report_overlay = overlay
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.ellipsis("Match stats", UiKit.H1, UiKit.TEXT, true))
-	var box_score := _quarters_table(true)
+	var box_score := BoxScore.new().setup(_res, true)
 	box_score.name = "BreakBoxScore"
 	v.add_child(box_score)
 	v.add_child(UiKit.spacer(UiKit.GAP))
@@ -1849,80 +1940,18 @@ func _key_stats_view(me: int) -> Control:
 	return v
 
 
-## The Stats tab: quarter by quarter, then team and player stats a tab apart
+## The Stats tab: the box score (BoxScore), then team and player stats a tab apart
 ## (MatchStatsView, the same view as at the breaks), and what your calls did.
 func _ft_stats(v: VBoxContainer) -> void:
 	var box := UiKit.vbox(8)
 	box.name = "MatchStats"
 	v.add_child(box)
-	box.add_child(UiKit.section("Quarter by quarter"))
-	box.add_child(_quarters_table())
+	box.add_child(BoxScore.new().setup(_res))
 	box.add_child(UiKit.spacer(UiKit.GAP))
 	box.add_child(MatchStatsView.new().setup(_res, _my_side))
 	if _interactive:
 		box.add_child(UiKit.spacer(UiKit.GAP))
 		box.add_child(_calls_view(0))
-
-
-## The box score, quarter by quarter. `live` (a break): only the quarters
-## played, and the total is the score so far.
-func _quarters_table(live := false) -> Control:
-	# Badge plus four quarters plus a full scoreline does not fit a phone
-	# modal. Stack each club there, and keep the wide table for landscape.
-	if UiKit.view_width(self) < 560.0:
-		return _quarters_stacked(live)
-	var v := UiKit.vbox(3)
-	var home: String = _res["home"]
-	var away: String = _res["away"]
-	var qg: Array = _res["q_goals"]
-	var qb: Array = _res["q_behinds"]
-	var qh := UiKit.hbox(4)
-	v.add_child(qh)
-	qh.add_child(_qcell("", 36, UiKit.MUTED, 12))
-	for i in range(_played(qg.size(), live)):
-		qh.add_child(_qcell(_period_label(i), 48, UiKit.MUTED, 12))
-	qh.add_child(_qcell("Score" if live else "Final", 96, UiKit.MUTED, 12))
-	for side in range(2):
-		var code: String = home if side == 0 else away
-		var qr := UiKit.hbox(4)
-		v.add_child(qr)
-		qr.add_child(UiKit.club_badge(code, 12, true, false))
-		for i in range(_played(qg.size(), live)):
-			qr.add_child(_qcell("%d.%d" % [int(qg[i][side]), int(qb[i][side])],
-					48, UiKit.TEXT, 12))
-		qr.add_child(_qcell(UiKit.scoreline(int(_res["goals"][side]),
-				int(_res["behinds"][side])), 96, UiKit.EMPH, 13, true))
-	return v
-
-
-func _quarters_stacked(live := false) -> Control:
-	var v := UiKit.vbox(8)
-	var codes := [str(_res["home"]), str(_res["away"])]
-	var qg: Array = _res["q_goals"]
-	var qb: Array = _res["q_behinds"]
-	for side in range(2):
-		var block := UiKit.vbox(2)
-		var head := UiKit.hbox(6)
-		head.add_child(UiKit.club_badge(codes[side], 13, true, true))
-		head.add_child(UiKit.line(UiKit.scoreline(int(_res["goals"][side]),
-				int(_res["behinds"][side])), 15, UiKit.EMPH, true))
-		block.add_child(head)
-		var parts: PackedStringArray = []
-		for i in range(_played(qg.size(), live)):
-			parts.append("%s %d.%d" % [_period_label(i), int(qg[i][side]), int(qb[i][side])])
-		block.add_child(UiKit.ellipsis("   ".join(parts), 12, UiKit.MUTED))
-		v.add_child(block)
-	return v
-
-
-## How many quarters the box score shows: all of them at full time, the
-## ones played at a break.
-func _played(n: int, live: bool) -> int:
-	return mini(n, (_res.get("quarter_teams", []) as Array).size()) if live else n
-
-
-func _period_label(i: int) -> String:
-	return "ET" if i >= 4 else "Q%d" % (i + 1)
 
 
 func _qcell(text: String, w: int, col: Color, fs: int, bold := false) -> Label:
