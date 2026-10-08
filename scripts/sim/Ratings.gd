@@ -30,7 +30,7 @@ const T := {
 	"rebound_on_exit": 0.55,         # defensive-half chains that yield a reb50
 	"shooter_power": 0.5,            # how strongly shots go to the best kicks
 	"rebound_from": -18.0,           # a carry from behind this line...
-	"rebound_to": -13.0,             # ...to beyond this one is a rebound 50
+	"rebound_to": -12.0,             # ...to beyond this one is a rebound 50
 	"shrink_games": 5.0,             # sample-size shrink for per-game rates
 	"shrink_accuracy": 14.0,         # sample-size shrink for goal conversion
 	"home_ground_bonus": 0.030,
