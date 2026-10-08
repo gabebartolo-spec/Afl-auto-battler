@@ -18,6 +18,7 @@ func run() -> void:
 	_test_contextual_frees_and_general_spoils()
 	_test_free_causes_follow_the_play()
 	_test_free_keeps_possession()
+	_test_free_set_shots_counted()
 	_test_legs_and_rotations()
 	_test_moments()
 	_test_playtest_bounce()
@@ -305,6 +306,10 @@ func _test_free_keeps_possession() -> void:
 			var cause := str(evs[i].get("free_cause", ""))
 			for j in range(i + 1, evs.size()):
 				var k := str(evs[j].get("kind", ""))
+				if bool(evs[j].get("from_free", false)):
+					# A free inside 50 is his set shot: his possession, however it ends.
+					kept[cause] = int(kept.get(cause, 0)) + 1
+					break
 				if k in ["ballup", "throwin", "quarter", "final"]:
 					break
 				if k in ["kick", "handball", "mark", "inside50", "goal", "behind"]:
@@ -314,6 +319,26 @@ func _test_free_keeps_possession() -> void:
 	_check(lost.is_empty(), "The side paid a free has the next possession (lost: %s)" % str(lost))
 	_check(int(kept.get("high_contact", 0)) > 0, "High contact on the carrier is paid and keeps the ball (%s)" % str(kept))
 	_check(int(kept.get("marking", 0)) > 0, "Marking-contest frees keep the ball with the side paid (%s)" % str(kept))
+
+
+## A free paid inside 50 is a set shot: it counts in the taker's shots and set
+## shots like any other (the season book reads these).
+func _test_free_set_shots_counted() -> void:
+	var frees := 0
+	var counted := true
+	for seed in range(8):
+		var sim := _sim(7800 + seed)
+		var evs: Array = sim.run()["events"]
+		var by_taker := {}
+		for ev in evs:
+			if bool(ev.get("from_free", false)) and str(ev.get("kind", "")) in ["goal", "behind"]:
+				var id := str(ev.get("player_id", ""))
+				by_taker[id] = int(by_taker.get(id, 0)) + 1
+				frees += 1
+		for id in by_taker:
+			var st: Dictionary = sim.player_stats.get(id, {})
+			counted = counted and int(st.get("set_shots", 0)) >= int(by_taker[id])
+	_check(frees > 0 and counted, "A set shot from a free in 50 counts in the taker's set shots (%d scored)" % frees)
 
 
 func _test_free_causes_follow_the_play() -> void:

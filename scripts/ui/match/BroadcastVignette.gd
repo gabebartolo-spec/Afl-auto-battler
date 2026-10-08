@@ -65,8 +65,10 @@ const STRIDES := 13.0 / TAU
 ## When the set shot's kick begins: the ball leaves the boot at 3.02 s.
 const KICK_START := 2.80
 ## Where the kicking boot meets the ball, metres right of and above his feet, on the
-## contact frame (3) of the figures' kick and snap (measured off the rendered frames).
-const KICK_BOOT := Vector2(0.70, 0.73)
+## contact frame (3) of the figures' kick and snap. The kick's is the ball sitting on the
+## laces of the drop punt's pointed foot, about 40 cm up (measured off the pose with
+## ard-asset-pipeline's tools/blender/pose_probe.py); the snap's off the rendered frames.
+const KICK_BOOT := Vector2(0.49, 0.54)
 const SNAP_BOOT := Vector2(0.62, 0.63)
 ## Heights in metres, so a leap is a footballer's leap on any screen: a speccy's
 ## knees in the pack's backs, a one-on-one contest.
@@ -108,9 +110,9 @@ func setup(p_kind: String, p_event: Dictionary, p_scene: Dictionary, p_result: D
 	_colours[1] = GameDB.club_colours(away) if away != "" else [Color(0.5, 0.5, 0.5), Color.BLACK, Color.WHITE]
 	_dress([home, away])
 	var p = GameDB.player_by_id(str(event.get("player_id", "")))
-	# The match's weather, when it has one.
+	# The match's weather, when it has one; more players wear long sleeves in the wet.
 	weather = str(result.get("weather", ""))
-	_look = GameDB.figure_look(p) if p is Dictionary else Appearance.UNCURATED
+	_look = GameDB.figure_look(p, weather == "wet") if p is Dictionary else Appearance.UNCURATED
 	_build = build_for(p if p is Dictionary else {})
 	_board = {}
 	if event.has("goals") and event.has("behinds") and home != "" and away != "":
@@ -623,12 +625,11 @@ func _draw_after_siren() -> void:
 	var mark := SIREN_MARK
 	_draw_extras([SIREN_MARK, mark, at])
 	_ready_player(mark, 1 - side, "front", 17, false, false, 0, Appearance.generated("onthemark"), BODY, true)
+	# The ball is always on the far side of him from here (in front of him as he lines up
+	# and kicks, then flying away towards the posts), so it's drawn before him.
+	_siren_ball(at, kicker, scale, boot)
 	# Square behind the ball lining up the goal, then the run in, away from us towards
 	# the posts, and the drop punt. He plants for the kick, so he stops where it starts.
-	if _t < 2.92:
-		# Held at the waist in front of him (so behind him from here, peeking out).
-		var bob := sin(_t * 8.0) * 2.5 if _t < 1.5 else 0.0
-		_draw_ball(_at(kicker, scale, Vector2(0.06, 0.95)) + Vector2(0, bob), scale * 0.9)   # in front of him: hidden by him
 	if _t < 1.75:
 		_ready_player(at, side, "back", 3, false, false, num, _look, _build)
 	elif _t < KICK_START:
@@ -637,14 +638,57 @@ func _draw_after_siren() -> void:
 		_player(at, 0.0, side, "kick", "back_r", _kick_frame(_t - KICK_START, 3.02 - KICK_START), num, _look, false, _build)
 	else:
 		_ready_player(at, side, "back", 3, false, false, num, _look, _build)     # leg down, watching it go
-	if _t >= 2.92 and _t < 3.02:
-		_draw_ball(_at(kicker, scale, Vector2(0.06, 0.95)).lerp(boot, (_t - 2.92) / 0.1), scale * 0.9)
-	elif _t >= 3.02:
+
+
+## The set shot's ball. Lining up and running in it's at his waist in front of him (behind
+## him from here, peeking out), moving to his right hand in the last strides. The drop punt
+## (director, 2026-10-07): carried in the right hand (kick frames 0-1), the arm extends and
+## lets it go (frame 2), it falls onto the top of the boot (accelerating) and sits on the
+## laces at contact (frame 3, KICK_BOOT); then it flies at the posts.
+func _siren_ball(at: Vector2, kicker: Vector2, scale: float, boot: Vector2) -> void:
+	var held := _at(kicker, scale, Vector2(0.06, 0.95))
+	var contact := 3.02 - KICK_START
+	var kt := _t - KICK_START
+	if _t < KICK_START:
+		var bob := sin(_t * 8.0) * 2.5 if _t < 1.5 else 0.0
+		var pos := held + Vector2(0, bob)
+		var hand := _palm(at, "kick", "back_r", 0, 1, _build)
+		if hand != Vector2.INF:
+			pos = pos.lerp(hand, clampf((_t - (KICK_START - 0.25)) / 0.25, 0.0, 1.0))
+		_draw_ball(pos, scale * 0.9)
+	elif _t < 3.02:
+		var release := contact * 2.0 / 3.0                # the start of kick frame 2
+		var hand := _palm(at, "kick", "back_r", _kick_frame(kt, contact), 1, _build)
+		if hand == Vector2.INF:
+			hand = held
+		var pos := hand
+		if kt >= release:
+			var u := (kt - release) / (contact - release)
+			pos = hand.lerp(boot, u * u)
+		_draw_ball(pos, scale * 0.9)
+	else:
 		var flight := clampf((_t - 3.02) / 1.85, 0.0, 1.0)
 		var goal := str(event.get("kind", "")) == "goal"
 		var start := Vector3(at.x, at.y, 0.7) + Vector3(_ground.fwd.x, _ground.fwd.y, 0.0) * 0.6
 		var end := Vector3(0.0 if goal else 4.8, VignetteGround.GOAL_Y + 1.0, 7.0)
 		_ball_flight(boot, start, end, 18.0, flight)
+
+
+## A figure's palm on screen in a frame (hand 0 his left, 1 his right), from the palms
+## recorded per frame with the figures (VignetteFigures.hands): where a held ball sits.
+## Vector2.INF when the strip has none.
+func _palm(p: Vector2, anim: String, facing: String, frame: int, hand: int, build := BODY) -> Vector2:
+	var s := _ground.project(p)
+	if s.z <= 0.0:
+		return Vector2.INF
+	if not VignetteFigures.has(build, anim, facing):
+		build = BODY
+	var info := VignetteFigures.strip(build, anim, facing)
+	var h := VignetteFigures.hands(info, StoppageVignette.figure_frame(info, frame, anim, facing))
+	if h.is_empty():
+		return Vector2.INF
+	var k := s.z / VignetteFigures.PX_PER_M
+	return Vector2(s.x, s.y) + ((h[hand] as Vector2) - Vector2(info["pivot"][0], info["pivot"][1])) * k
 
 
 ## A kicked ball: from the boot on screen into its flight in metres, the first moments

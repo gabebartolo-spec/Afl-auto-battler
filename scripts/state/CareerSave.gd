@@ -149,18 +149,26 @@ static func _blob_at(path: String) -> Dictionary:
 
 
 ## Slim copies of match results for the save. Accepts a result, or arrays of
-## results nested to any depth (season rounds, finals weeks).
-static func slim_results(v):
+## results nested to any depth (season rounds, finals weeks). `with_box`
+## keeps each match's stat lines, packed (StatBook.pack), so every game of
+## the season can be opened again after a reload (the Stats patch); a result
+## that is already slim keeps the box it has.
+static func slim_results(v, with_box := false):
 	if v is Array:
 		var out := []
 		for x in v:
-			out.append(slim_results(x))
+			out.append(slim_results(x, with_box))
 		return out
 	if v is Dictionary:
 		var out := {}
 		for k in RESULT_KEYS:
 			if (v as Dictionary).has(k):
 				out[k] = v[k]
+		if with_box:
+			if (v as Dictionary).has("players"):
+				out["box"] = StatBook.pack(v)
+			elif (v as Dictionary).has("box"):
+				out["box"] = v["box"]
 		return out
 	return v
 

@@ -38,6 +38,12 @@ var _search_field: LineEdit
 ## a profile, nothing moves, and the oval is mirrored - they kick the other way.
 var _list: Array = []
 var _read_only := false
+## Just the oval and the interchange, the right way round: a team that isn't
+## anyone's opponent (the projected All-Australian team). Set before setup().
+var field_only := false
+## With field_only: a line under each name in place of position and OVR
+## (id -> text; the All-Australian team shows each player's club).
+var notes := {}
 
 
 func setup(side: Dictionary, wide: bool, list: Array = [], read_only := false) -> void:
@@ -110,6 +116,8 @@ func _build() -> void:
 		bc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bench.add_child(bc)
 	_place_spots.call_deferred()
+	if field_only:
+		return
 
 	var rest := UiKit.vbox(6)
 	rest.name = "BuilderRest"
@@ -234,11 +242,12 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 		var top := UiKit.ellipsis(str(p.get("last", GameDB.player_display_name(p))), 13, UiKit.TEXT, true)
 		top.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		face.add_child(top)
-		var sub := UiKit.lbl("%s %d" % [Ratings.role_tag(p), int(p["overall"])], 11, UiKit.MUTED)
+		var sub := UiKit.lbl(str(notes[id]) if field_only and notes.has(id)
+				else "%s %d" % [Ratings.role_tag(p), int(p["overall"])], 11, UiKit.MUTED)
 		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		face.add_child(sub)
 		b.custom_minimum_size = Vector2(84 if _wide else 70, 44)
-		if Workload.value(p) >= Workload.CARRYING:
+		if not field_only and Workload.value(p) >= Workload.CARRYING:
 			# How fresh he is, on the card: no profile needed to see it.
 			var ready := UiKit.lbl(Workload.label(p), 10, UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
 			ready.name = "Readiness_" + id
@@ -401,7 +410,7 @@ func _place_spots() -> void:
 		var at: Vector2 = _spot_at.get(str(c.get_meta("spot")), Vector2.ZERO)
 		# Wide: the ground runs left to right, our goal on the left. Phone: it
 		# runs up the screen, attacking upward.
-		if _read_only:
+		if _read_only and not field_only:
 			at = Vector2(-at.x, at.y)
 		var u := Vector2(at.x, at.y) if _wide else Vector2(at.y, -at.x)
 		var centre := r.get_center() + Vector2(u.x * r.size.x * 0.5, u.y * r.size.y * 0.5)
