@@ -76,8 +76,11 @@ const SYNERGIES := {
 			"about": "A side of endurance runners.", "does": "The whole side tires more slowly."},
 }
 
-## Earned, not rated: a player who can be picked at forward, midfield and back
-## (his own position plus ones learned in training). On the ground he also
+## Born, not trained (director, 2026-10-08): a player whose game defies his
+## size - a key-position body with a small player's game, or one who plays
+## every job - extremely rare. A hand-picked few (GameDB.UNICORNS) and about
+## one tall prospect in two or three draft classes; flagged p["unicorn"]. He
+## can be picked at forward, midfield and back. On the ground he also
 ## fills one missing slot in one synergy (director, 2026-10-06): the first, in
 ## SYNERGIES order, that it completes, in his line for a line synergy. He never
 ## switches on two, and never one that needs more than the one slot.
@@ -153,6 +156,10 @@ static func _positions(p: Dictionary) -> Array:
 	for r in p.get("learned", []):
 		if not out.has(str(r)):
 			out.append(str(r))
+	if is_unicorn(p):
+		for line in UNICORN_LINES:
+			if not out.has(line):
+				out.append(line)
 	return out
 
 
@@ -168,11 +175,7 @@ static func plays(p: Dictionary, role: String) -> bool:
 
 ## Forward, midfield and back all among the positions he can be picked in.
 static func is_unicorn(p: Dictionary) -> bool:
-	var have := _positions(p)
-	for line in UNICORN_LINES:
-		if not have.has(line):
-			return false
-	return true
+	return bool(p.get("unicorn", false))
 
 
 static func is_bad(key: String) -> bool:

@@ -524,6 +524,12 @@ static func second_positions(p: Dictionary) -> Array:
 	for r in p.get("learned", []):
 		if str(r) != "" and not out.has(str(r)):
 			out.append(str(r))
+	# A Unicorn plays forward, midfield and back (Traits.is_unicorn).
+	if Traits.is_unicorn(p):
+		var own := str(p.get("own_role", p.get("role", "")))
+		for line in Traits.UNICORN_LINES:
+			if line != own and not out.has(line):
+				out.append(line)
 	return out
 
 

@@ -661,6 +661,7 @@ func load_career() -> bool:
 	if int(state.get("career_version", 0)) < CAREER_VERSION:
 		_migrate_careers()
 	_migrate_train_plans()
+	_mark_unicorns()
 	_backfill_potential()
 	ensure_contracts()
 	if season != null and board.is_empty():
@@ -692,6 +693,17 @@ func load_career() -> bool:
 			bare.append(club)
 		CoachMarket.staff_new_clubs(coaches, bare, my_club, season_year - 1, career_seed)
 	return true
+
+
+## A save from before born Unicorns (2026-10-08): the hand-picked ones get
+## their flag back wherever they now play. A Unicorn made by training under
+## the old rule stays a player of his learned positions, without the trait.
+func _mark_unicorns() -> void:
+	var all: Array = my_list + free_agents + GameDB.draftees
+	if season != null:
+		for code in season.lists:
+			all.append_array(season.lists[code])
+	GameDB.mark_unicorns(all)
 
 
 ## Career records (Career.gd) arrived with save format 1.
@@ -3070,7 +3082,6 @@ func _finish_project(p: Dictionary, announce := true) -> Dictionary:
 	var own := int(p.get("overall", 0))
 	var there := rating_as(p, role)
 	var learned := there >= own - PROJECT_PASS
-	var was_unicorn := Traits.of(p).has("unicorn")
 	if learned:
 		p["learn_payback_year"] = season_year + 1
 		if str(p.get("role2", "")) == "":
@@ -3088,8 +3099,6 @@ func _finish_project(p: Dictionary, announce := true) -> Dictionary:
 	var a := "an" if word.substr(0, 1) in ["a", "e", "i", "o", "u"] else "a"
 	if learned:
 		add_news("training", "%s has learned to play as %s %s: he can be picked there now." % [name, a, word])
-		if not was_unicorn and Traits.of(p).has("unicorn"):
-			add_news("training", "%s can now play forward, midfield and back: a Unicorn." % name)
 	else:
 		add_news("training", "%s's time training as %s %s has not taken: he is not ready to be picked there." % [name, a, word])
 	return {"id": str(p["id"]), "job": job, "learned": learned, "own": own, "there": there}
