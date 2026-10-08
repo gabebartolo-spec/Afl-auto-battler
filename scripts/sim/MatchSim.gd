@@ -159,6 +159,9 @@ var discipline_rng := RandomNumberGenerator.new()
 var mro_rng := RandomNumberGenerator.new()
 var restart_rng := RandomNumberGenerator.new()
 var free_rng := RandomNumberGenerator.new()
+## How a broken tackle was broken (_break_kind): its own dice, so the play
+## dice are as they were.
+var break_rng := RandomNumberGenerator.new()
 var _speccy_quota := 0
 var _speccies := 0
 ## Boundary law rolls are isolated from the calibrated play RNG. Adding or
@@ -274,6 +277,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	mro_rng.seed = seed * 47 + 53
 	restart_rng.seed = seed * 59 + 61
 	free_rng.seed = seed * 67 + 71
+	break_rng.seed = seed * 101 + 103
 	_speccy_quota = speccy_quota(seed)
 	boundary_rng.seed = seed * 17 + 19
 	injury_rng.seed = seed * 13 + 7
@@ -803,6 +807,23 @@ func _tag_share(side: int) -> float:
 # ---------------------------------------------------------------------------
 # Stat bookkeeping
 # ---------------------------------------------------------------------------
+## How a carrier broke a tackle: "dont_argues" (he fended the tackler off) or
+## "evaded_tackles" (he stepped out of it). Strength in the contest leans to
+## the fend, pace (his running game, carry) to the evade; an even player is a
+## coin toss (director, 2026-10-08). A record of what happened: the break
+## itself was decided before this, so neither changes the play.
+func _break_kind(carrier: Dictionary) -> String:
+	var lean := (float(carrier["attr"].get("contested", 50)) - float(carrier["attr"].get("carry", 50))) / 100.0
+	var fend := clampf(0.5 + BREAK_LEAN * lean, BREAK_MIN, 1.0 - BREAK_MIN)
+	return "dont_argues" if break_rng.randf() < fend else "evaded_tackles"
+
+
+## How far a contested-over-running gap tilts a broken tackle toward a fend,
+## and the least likely either way stays.
+const BREAK_LEAN := 1.2
+const BREAK_MIN := 0.12
+
+
 func _t(side: int, key: String, n := 1.0) -> void:
 	var d: Dictionary = team_stats[side]
 	d[key] = float(d.get(key, 0.0)) + n
@@ -2182,6 +2203,9 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				var before_fp := fp
 				fp = clampf(fp + rng.randf_range(4.0, 12.0) * dir, -gline, gline)
 				_metres(side, carrier, (fp - before_fp) * dir)
+				var how := _break_kind(carrier)
+				_t(side, how)
+				_p(carrier, how)
 				# He broke the tackle and got it away: his teammate takes it
 				# with nobody contesting it.
 				next_gain = "up"

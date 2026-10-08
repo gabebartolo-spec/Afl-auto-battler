@@ -34,8 +34,17 @@ func setup(res: Dictionary, my_side: int, live := false) -> MatchStatsView:
 	_me = my_side
 	_live = live
 	add_theme_constant_override("separation", 8)
-	_build()
+	# The layout reads the screen's width, which a view not yet on screen
+	# can't know (it took a PC's and opened a phone in landscape columns
+	# until a quarter was tapped), so it builds once it is.
+	if is_inside_tree():
+		_build()
 	return self
+
+
+func _ready() -> void:
+	if not _res.is_empty():
+		_build()
 
 
 func _quarters() -> Array:

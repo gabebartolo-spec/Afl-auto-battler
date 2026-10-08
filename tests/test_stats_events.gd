@@ -28,6 +28,8 @@ func run() -> void:
 	_bounces(results)
 	_involvements(results)
 	_contested_marks(results)
+	_broken_tackles(results)
+	_old_boxes()
 	print("Stats event tests: %d checks, %d failures" % [checks, failures.size()])
 
 
@@ -161,6 +163,55 @@ func _contested_marks(results: Array) -> void:
 					bad = "a lead mark naming a defender (%s)" % str(ev.get("text", ""))
 	_check(bad == "", "Inside 50, a contested mark names the defender at it, a lead mark none (%s)" % bad)
 	_check(contested > 0 and lead > 0, "Forward marks come both ways: %d contested, %d on the lead" % [contested, lead])
+
+
+## A tackle the carrier breaks is a don't argue (a fend) or an evaded tackle
+## (director, 2026-10-08): the side's count is its players', strength in the
+## contest leans to the fend and pace to the evade.
+func _broken_tackles(results: Array) -> void:
+	var bad := ""
+	var total := 0
+	for r in results:
+		for side in [0, 1]:
+			for k in ["dont_argues", "evaded_tackles"]:
+				var sum := 0
+				for p in r["roster"][side]:
+					sum += _n(r["players"].get(str(p["id"]), {}), k)
+				total += sum
+				if sum != _n(r["team"][side], k):
+					bad = "team %s %d, players %d" % [k, _n(r["team"][side], k), sum]
+	_check(bad == "" and total > 0, "Broken tackles are counted, fends and evades, and the side's are its players' (%s)" % bad)
+	var sim := MatchSim.new(Squad.new("GEE", GameDB.club_list("GEE"), true, "GEE"),
+			Squad.new("COL", GameDB.club_list("COL"), false, "COL"), 4199)
+	var bull := {"attr": {"contested": 95, "carry": 30}}
+	var runner := {"attr": {"contested": 30, "carry": 95}}
+	var fends := [0, 0]
+	for i in range(400):
+		if sim._break_kind(bull) == "dont_argues":
+			fends[0] += 1
+		if sim._break_kind(runner) == "dont_argues":
+			fends[1] += 1
+	_check(fends[0] > 300 and fends[1] < 100 and fends[1] > 0,
+			"A strong contested player mostly fends, a runner mostly evades, neither always (%d and %d of 400)" % fends)
+
+
+## A match packed before the two were recorded reads back as it was: the
+## team-only numbers (possession chains) stay where they were.
+func _old_boxes() -> void:
+	var old_n := StatBook.FIRST_KEYS.size()
+	var old_tn := old_n + 4
+	var team := PackedInt32Array()
+	team.resize(old_tn)
+	team[old_n] = 123
+	var player := PackedInt32Array()
+	player.resize(old_n)
+	player[0] = 21
+	var box := {"n": old_n, "tn": old_tn, "who": [[["a", 1, "A"]], [["b", 2, "B"]]],
+			"p": {"a": player, "b": player}, "t": [team, team]}
+	var full := StatBook.full({"box": box})
+	_check(_n(full["team"][0], "chains") == 123 and _n(full["team"][0], "dont_argues") == 0
+			and _n(full["players"]["a"], "disposals") == 21,
+			"A match saved before broken tackles were kept reads back as it was")
 
 
 func _check(condition: bool, message: String) -> void:
