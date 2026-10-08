@@ -98,3 +98,8 @@ Before ending a turn after changes:
    `gh run list`): a handoff naming a merged PR as open wastes the next hour.
 4. Anything the next session must not repeat goes in "Seen so far", not only
    in the handoff.
+
+## Learnings
+
+Proven findings live in `references/learnings.md`. Read it before using this skill; add to it
+only what proved effective, with evidence (see the global rule in ~/.claude/CLAUDE.md).
