@@ -27,6 +27,7 @@ GODOT="${GODOT:-godot}"
 SUITE_TIMEOUT="${SUITE_TIMEOUT:-900}"
 # The check floors (tools/test_run_tests.sh points this at its own file).
 EXPECTED_CHECKS="${EXPECTED_CHECKS:-tests/expected_checks.txt}"
+FLOOR_DELTAS="${FLOOR_DELTAS:-tests/floor_deltas}"
 # SUITES_ONLY=1 skips the dataset, export and harness steps after the suites.
 # EXTRAS_ONLY=1 runs only those steps (and the harness self-test), no suites.
 # CI splits the work this way: shards run SUITES_ONLY, one job runs EXTRAS_ONLY.
@@ -96,6 +97,13 @@ for suite in ${SUITES[@]+"${SUITES[@]}"}; do
 	# Every check must have run: compare with the suite's floor.
 	ran=$(echo "$result" | grep -oE "[0-9]+ checks" | head -1 | grep -oE "[0-9]+")
 	floor=$(grep -E "^$suite[[:space:]]" "$EXPECTED_CHECKS" 2>/dev/null | awk '{print $2}')
+	# A PR raises a floor with tests/floor_deltas/<branch>.txt ("suite +N"), not by
+	# editing the shared line, so two PRs never conflict. Floor = base + every delta;
+	# tools/fold_floor_deltas.sh folds them into the base.
+	if [ -n "$floor" ] && [ -d "$FLOOR_DELTAS" ]; then
+		add=$(cat "$FLOOR_DELTAS"/*.txt 2>/dev/null | tr -d '\r' | awk -v s="$suite" '$1==s {gsub(/\+/,"",$2); t+=$2} END {print t+0}')
+		floor=$((floor + add))
+	fi
 	skipped=$(grep -c "^SKIP:" "$log")
 	if [ "$status" = pass ] && [ -z "$floor" ]; then
 		status="FAIL"; detail="$result, but $EXPECTED_CHECKS has no floor for '$suite'"

@@ -192,7 +192,7 @@ Python/JavaScript reimplementation.
 
 1. Write `tests/test_<name>.gd` and a runner `tests/run_<name>_tests.gd` (copy a small one such as `run_league_tests.gd`, which points saves and settings at test files).
 2. Add `<name>` to `ALL_SUITES` in `tools/run_tests.sh`.
-3. Add its floor, the count it prints, to `tests/expected_checks.txt`. Raise a floor when a suite gains checks; two PRs that raise the same suite's floor collide, so whoever merges second sets the sum.
+3. Add its floor, the count it prints, to `tests/expected_checks.txt`. When an existing suite gains checks, don't edit its line: add `tests/floor_deltas/<branch>.txt` with `<suite> +N` (see `tests/floor_deltas/README.md`); the floor is the base plus all deltas, so PRs don't collide.
 4. Add it to the shortest shard in `tools/ci_shards.txt`, then run `bash tools/check_ci_shards.sh`. It prints `ok: N suites in M shards, each exactly once`, or says what is missing.
 5. Add a row to the table above.
 

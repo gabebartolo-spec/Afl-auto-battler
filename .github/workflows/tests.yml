@@ -28,9 +28,11 @@ on:
       - "**/*.md"
   workflow_dispatch:
 
+# A newer push to a PR supersedes its older run. Every push to main gets its own
+# group (its sha) and is never cancelled, so back-to-back merges each get a verdict.
 concurrency:
-  group: tests-${{ github.ref }}
-  cancel-in-progress: true
+  group: tests-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 permissions:
   contents: read
