@@ -9,13 +9,6 @@ extends RefCounted
 
 const FINALS_WEEKS := ["Wildcard finals", "Qualifying and elimination finals", "Semi finals",
 		"Preliminary finals", "Grand Final"]
-## The team numbers shown under a played match's quarters, when the result
-## still carries them.
-const TEAM_ROWS := [
-	["disposals", "Disposals"], ["marks", "Marks"], ["tackles", "Tackles"],
-	["inside50", "Inside 50s"], ["clearances", "Clearances"], ["hitouts", "Hit-outs"],
-]
-
 ## The page on show (an index into pages()); -1 is the current round. Kept
 ## across a rebuild, and dropped when the season has moved on.
 static var _page := -1
@@ -335,16 +328,8 @@ static func _match_sheet(host: Control, m: Dictionary) -> void:
 	var body: VBoxContainer = box["body"]
 	body.name = "MatchBox"
 	body.add_child(UiKit.lbl(_result_line(res), UiKit.BODY, UiKit.TEXT, true))
-	body.add_child(_quarters(host, res))
-	var team: Array = res.get("team", [])
-	var players: Dictionary = res.get("players", {})
-	if team.size() == 2 and not players.is_empty():
-		body.add_child(UiKit.section("Team"))
-		body.add_child(_team_rows(team))
-		body.add_child(UiKit.section("Players"))
-		for side in range(2):
-			body.add_child(_players_line(res, side))
-	else:
+	body.add_child(BoxScore.new().setup(res, false, true))
+	if (res.get("players", {}) as Dictionary).is_empty():
 		var gone := UiKit.lbl("Player and team stats were not kept for this match.", UiKit.SMALL, UiKit.MUTED)
 		gone.name = "NotKept"
 		body.add_child(gone)
@@ -357,108 +342,6 @@ static func _result_line(res: Dictionary) -> String:
 	var win := 0 if int(s[0]) > int(s[1]) else 1
 	var code := str(res["home"] if win == 0 else res["away"])
 	return "%s won by %d" % [GameDB.club_short(code), absi(int(s[0]) - int(s[1]))]
-
-
-static func _quarters(host: Control, res: Dictionary) -> Control:
-	var codes := [str(res["home"]), str(res["away"])]
-	var qg: Array = res.get("q_goals", [])
-	var qb: Array = res.get("q_behinds", [])
-	var v := UiKit.vbox(6)
-	v.name = "Quarters"
-	var wide := float(host.call("content_width")) >= 520.0 and qg.size() <= 4
-	if wide:
-		var head := UiKit.hbox(4)
-		head.add_child(_cell("", 48, UiKit.MUTED))
-		for i in range(qg.size()):
-			head.add_child(_cell("Q%d" % (i + 1), 52, UiKit.MUTED))
-		head.add_child(_cell("Final", 100, UiKit.MUTED))
-		v.add_child(head)
-	for side in range(2):
-		if wide:
-			var r := UiKit.hbox(4)
-			var badge := UiKit.club_badge(codes[side], UiKit.SMALL, true, false)
-			badge.custom_minimum_size.x = 48
-			r.add_child(badge)
-			for i in range(qg.size()):
-				r.add_child(_cell("%d.%d" % [int(qg[i][side]), int(qb[i][side])], 52, UiKit.TEXT))
-			r.add_child(_cell(UiKit.scoreline(int(res["goals"][side]), int(res["behinds"][side])), 100,
-					UiKit.TEXT, true))
-			v.add_child(r)
-		else:
-			var block := UiKit.vbox(2)
-			var head := UiKit.hbox(8)
-			head.add_child(UiKit.club_badge(codes[side], UiKit.BODY, true, true))
-			head.add_child(UiKit.line(UiKit.scoreline(int(res["goals"][side]), int(res["behinds"][side])),
-					UiKit.BODY, UiKit.TEXT, true))
-			block.add_child(head)
-			var parts := PackedStringArray()
-			for i in range(qg.size()):
-				parts.append("%s %d.%d" % ["ET" if i >= 4 else "Q%d" % (i + 1), int(qg[i][side]), int(qb[i][side])])
-			block.add_child(UiKit.lbl("   ".join(parts), UiKit.SMALL, UiKit.MUTED))
-			v.add_child(block)
-	return v
-
-
-static func _cell(text: String, w: int, col: Color, bold := false) -> Label:
-	var l := UiKit.line(text, UiKit.SMALL, col, bold)
-	l.custom_minimum_size = Vector2(w, 0)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	return l
-
-
-static func _team_rows(team: Array) -> Control:
-	var v := UiKit.vbox(3)
-	v.name = "TeamRows"
-	for row in TEAM_ROWS:
-		var key := str(row[0])
-		if not (team[0] as Dictionary).has(key):
-			continue
-		var h := UiKit.hbox(8)
-		var a := UiKit.line(str(int(team[0][key])), UiKit.BODY, UiKit.TEXT, true)
-		a.custom_minimum_size.x = 48
-		h.add_child(a)
-		var label := UiKit.line(str(row[1]), UiKit.SMALL, UiKit.MUTED)
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		h.add_child(label)
-		var b := UiKit.line(str(int(team[1][key])), UiKit.BODY, UiKit.TEXT, true)
-		b.custom_minimum_size.x = 48
-		b.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		h.add_child(b)
-		v.add_child(h)
-	return v
-
-
-## One side's goalkickers and its three most involved players, from the
-## player box scores the result kept.
-static func _players_line(res: Dictionary, side: int) -> Control:
-	var players: Dictionary = res["players"]
-	var rosters: Array = res.get("roster", [])
-	var roster: Array = rosters[side] if rosters.size() > side else []
-	var rows := []
-	for r in roster:
-		var st: Dictionary = players.get(str(r["id"]), {})
-		if st.is_empty():
-			continue
-		rows.append({"name": GameDB.player_display_name_by_id(str(r["id"]), str(r.get("name", "Player"))),
-				"goals": int(st.get("goals", 0.0)), "inf": CoachReport.influence(st)})
-	var v := UiKit.vbox(2)
-	v.name = "Players_%d" % side
-	v.add_child(UiKit.lbl(GameDB.club_short(str(res["home"] if side == 0 else res["away"])),
-			UiKit.SMALL, UiKit.MUTED, true))
-	var kickers := rows.filter(func(r): return int(r["goals"]) > 0)
-	kickers.sort_custom(func(a, b): return int(a["goals"]) > int(b["goals"]))
-	var kp := PackedStringArray()
-	for r in kickers.slice(0, 4):
-		kp.append("%s %d" % [r["name"], int(r["goals"])])
-	v.add_child(UiKit.lbl("Goals: " + (", ".join(kp) if not kp.is_empty() else "none"), UiKit.BODY, UiKit.TEXT))
-	rows.sort_custom(func(a, b): return float(a["inf"]) > float(b["inf"]))
-	var best := PackedStringArray()
-	for r in rows.slice(0, 3):
-		best.append(str(r["name"]))
-	if not best.is_empty():
-		v.add_child(UiKit.lbl("Most involved: " + ", ".join(best), UiKit.BODY, UiKit.TEXT))
-	return v
 
 
 ## A match to come: both clubs, where they sit, where it is played and how

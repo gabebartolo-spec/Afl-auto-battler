@@ -330,8 +330,16 @@ func _phone_match(sz: Vector2i) -> void:
 		var sheet: Node = m.find_child("BreakStatsSheet", true, false)
 		var bs: Node = sheet.find_child("BreakBoxScore", true, false) if sheet != null else null
 		var bs_text := _text(bs) if bs != null else ""
-		_check(bs != null and bs_text.contains("Q2") and not bs_text.contains("Q3"),
-				"The box score shows the quarters played so far (%s)" % tag)
+		_check(bs != null and bs_text.contains("Q2") and not bs_text.contains("Q3")
+				and bs.find_child("Worm", true, false) != null,
+				"The box score shows the quarters played so far, and the worm (%s)" % tag)
+		# A finger on a quarter's column says that quarter (director, 2026-10-08).
+		var q1: Button = bs.find_child("BoxQuarter_1", true, false) if bs != null else null
+		var says: Label = bs.find_child("WormSays", true, false) if bs != null else null
+		var why_q: String = (await Tap.tap(q1)) if q1 != null else "no Q1 column"
+		await _settle()
+		_check(why_q == "" and says != null and says.text.begins_with("Q1:"),
+				"A finger on Q1 says the first quarter (%s: %s)" % [tag, why_q if why_q != "" else (says.text if says else "-")])
 		var team_t: Node = sheet.find_child("TeamStats", true, false) if sheet != null else null
 		_check(team_t != null and team_t.find_child("TeamRow_disposals", true, false) != null,
 				"Team stats open first, both clubs side by side (%s)" % tag)
@@ -411,7 +419,7 @@ func _phone_match(sz: Vector2i) -> void:
 		stats_btn.emit_signal("pressed")
 		await _settle()
 		var ms: Node = m.find_child("MatchStats", true, false)
-		_check(ms != null and _text(ms).contains("Quarter by quarter") and ms.find_child("TeamStats", true, false) != null
+		_check(ms != null and ms.find_child("BoxScore", true, false) != null and ms.find_child("TeamStats", true, false) != null
 				and ms.find_child("StatsView_players", true, false) != null,
 				"Match stats holds the full numbers: team stats, players a tab away (%s)" % tag)
 		var ptab: Button = ms.find_child("StatsView_players", true, false) if ms != null else null
