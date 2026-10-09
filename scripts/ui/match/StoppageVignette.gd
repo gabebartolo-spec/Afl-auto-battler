@@ -323,7 +323,9 @@ var _pan := 0.0                   # pixels the camera has turned across, at this
 func _set_camera() -> void:
 	var k := _ease(clampf(_t / FREEZE, 0.0, 1.0))
 	var punch := _ease(clampf(_hold / 0.4, 0.0, 1.0))
-	var base := maxf(size.x * 1.5, size.y * 0.7)
+	# Fitted to the height on a wide window, as the pre-match scene is (director: "no reason
+	# to be so limited on PC"); a portrait phone keeps its framing.
+	var base := size.y * 0.7 if size.x > size.y else maxf(size.x * 1.5, size.y * 0.7)
 	var z: float = lerpf(lerpf(ZOOM[0], ZOOM[1], k), ZOOM[2], punch)
 	_focal = base * z
 	_zoom = z / ZOOM[0]
