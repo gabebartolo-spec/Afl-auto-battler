@@ -30,6 +30,8 @@ func run() -> void:
 	_test_game_flow()
 	_test_assistant_contracts()
 	_test_your_expiring_staff()
+	_test_approaches_market()
+	_test_approaches_flow()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Coach market tests: %d checks, %d failures" % [checks, failures.size()])
@@ -431,3 +433,82 @@ func _test_your_expiring_staff() -> void:
 	GameState._settle_staff_contracts()
 	_check(int(b["contract_to"]) > y and str(b.get("club", "")) == "GEE", "An undecided assistant stays on his terms")
 	GameState.reset()
+
+
+## Rival approaches for your coaches (director, 2026-10-07): a coach you kept
+## is never poached, one you let go takes the job he was offered when it
+## opens, and one whose job never opens stays with you.
+func _test_approaches_market() -> void:
+	var my := "GEE"
+	var coaches := _league(my)
+	for job in ["FWD", "DEF", "MID", "DEV"]:
+		var c: Dictionary = coaches["%s_%s" % [my, job]]
+		c["skills"] = {"teach": 90, "tactics": 90, "manage": 90}
+		c["rep"] = 90
+	for club in ["ADE", "BRL", "CAR", "COL", "ESS"]:
+		coaches["%s_SA" % club]["status"] = "retired_test"
+		coaches["%s_SA" % club]["club"] = ""
+	var kept := {}
+	for job in ["SA", "DEF", "MID", "DEV"]:
+		kept["%s_%s" % [my, job]] = true
+	var out := CoachMarket.offseason({"coaches": coaches, "archive": {}, "year": Y, "my_club": my,
+			"clubs": GameDB.active_clubs(Y + 1), "results": _results(true), "premier": "", "seed": SEED,
+			"protected": kept, "promised": {"GEE_FWD": ["CAR", "SA"]}})
+	var fwd: Dictionary = coaches["GEE_FWD"]
+	_check(str(fwd["club"]) == "CAR" and str(fwd["job"]) == "SA",
+			"The coach you let go takes the job he was offered (%s %s)" % [fwd["club"], fwd["job"]])
+	var stayed := true
+	for cid in kept:
+		if str(coaches[cid]["club"]) != my:
+			stayed = false
+	_check(stayed, "Every coach you kept is still yours")
+	_check(int(out["log"]["poached_from_you"]) == 1, "Only the one you let go left (%d)" % int(out["log"]["poached_from_you"]))
+	# A job that never opens: he stays, and the news says so.
+	coaches = _league(my)
+	out = CoachMarket.offseason({"coaches": coaches, "archive": {}, "year": Y, "my_club": my,
+			"clubs": GameDB.active_clubs(Y + 1), "results": _results(true), "premier": "", "seed": SEED,
+			"protected": {}, "promised": {"GEE_DEF": ["BRL", "SC"]}})
+	_check(str(coaches["GEE_DEF"]["club"]) == my, "A move to a job that never opens falls through")
+	_check(" ".join(PackedStringArray(out["news"])).contains("fell through"), "...and the news says so")
+	# The chance he stays: an opportunity beats a plea; a senior job is hardest to turn down.
+	var c: Dictionary = coaches["GEE_MID"]
+	_check(CoachMarket.stay_chance(c, "promote", "FWD", Y) > CoachMarket.stay_chance(c, "stay", "FWD", Y)
+			and CoachMarket.stay_chance(c, "promote", "SC", Y) < CoachMarket.stay_chance(c, "promote", "FWD", Y),
+			"Senior assistant keeps him more often than asking; a senior coach's job is the hardest to keep him from")
+
+
+func _test_approaches_flow() -> void:
+	GameState.reset()
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var guard := 0
+	while not GameState.season.is_regular_done() and guard < 40:
+		GameState.advance()
+		guard += 1
+	_check(GameState.coach_approach_year == GameState.season_year,
+			"Rivals' approaches are looked for once the home-and-away season is done")
+	var staff := GameState.club_staff("GEE")
+	var mid: Dictionary = staff.get("MID", {})
+	_check(not mid.is_empty(), "You have a midfield coach to be approached")
+	if mid.is_empty():
+		return
+	GameState.coach_approaches = [{"cid": str(mid["cid"]), "from_job": "MID", "club": "ADE", "job": "SA",
+			"choice": "", "kept": false, "text": ""}]
+	_check(GameState.coach_approaches_open() == 1, "One approach waits for your answer")
+	_check(GameState.approach_promote_block(0) != "" or not staff.has("SA"),
+			"Senior assistant can't be offered while someone holds it")
+	var said := GameState.answer_approach(0, "go")
+	_check(said.contains("Adelaide") and GameState.coach_approaches_open() == 0, "Letting him go is answered in words (%s)" % said)
+	_check(GameState.answer_approach(0, "stay") == said, "An answer stands")
+	_check(GameState.save_career() and GameState.load_career()
+			and str(GameState.coach_approaches[0]["choice"]) == "go", "Approaches survive a save")
+	_check(not GameState._protected_coaches().has(str(mid["cid"])), "The one you let go is not protected")
+	while not GameState.season.is_season_over() and guard < 80:
+		GameState.advance()
+		guard += 1
+	_check(GameState.coach_approaches.is_empty(), "The off-season settles the approaches")
+	var moved: Dictionary = GameState.coaches.get(str(mid["cid"]), {})
+	var news := ""
+	for n in GameState.news:
+		news += str(n) + " "
+	_check((str(moved.get("club", "")) == "ADE" and str(moved.get("job", "")) == "SA") or news.contains("fell through"),
+			"He joins Adelaide, or the move falls through and the news says so")

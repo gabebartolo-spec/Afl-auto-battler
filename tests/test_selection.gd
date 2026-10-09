@@ -378,9 +378,9 @@ func _test_dual_ruck() -> void:
 					return true
 			return false
 		_check(has_ruck.call(forced["bench"]) and (forced["bench"] as Array).size() == 5, "A dual-ruck call always benches the second ruck")
-		var last_ovr := 99.0
-		for p in off["bench"]:
-			last_ovr = minf(last_ovr, float(p["overall"]))
+		# The bench player he would replace: the last in bench order, as the
+		# rule reads it (not the lowest-rated, which a reshuffle can split from it).
+		var last_ovr := float((off["bench"] as Array)[(off["bench"] as Array).size() - 1]["overall"])
 		var spare_ovr := 0.0
 		for p in Ratings.by_ruck(r):
 			if not _ids(off["ground"]).has(str(p["id"])):

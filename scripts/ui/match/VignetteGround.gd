@@ -51,7 +51,10 @@ const WORN := [Color(0.26, 0.36, 0.17, 0.55), Color(0.38, 0.36, 0.22, 0.45)]
 static var venue := ""
 
 ## Where the goal line runs: the boundary at the behind posts.
-static var GOAL_Y := L * sqrt(1.0 - pow(1.5 * GOAL_GAP / A, 2.0))
+## (L * sqrt(1 - (1.5 * GOAL_GAP / A)^2), written out: a constant, because a static var set
+## from an expression stays 0 when a tool runs with --script (the capture tools), which drew
+## the posts on the centre of the ground in every broadcast capture. The game was right.)
+const GOAL_Y := 79.19875571354891
 
 
 ## A camera on the ground: standing at pos (scene metres), height up, looking along fwd

@@ -150,7 +150,9 @@ func _test_intake_combine() -> void:
 	ui.call("_open_player", str(p["id"]))
 	await _settle()
 	var combine: Label = ui.find_child("CombineHeading", true, false)
-	_check(combine != null and combine.text == "Draft Combine", "Prospect inspection includes the Draft Combine")
+	_check(combine != null and combine.text == "What the scouts saw", "Prospect inspection includes the scouts' Combine read")
+	_check(ui.find_children("Tested_*", "", true, false).size() in [1, 4],
+			"...after his Combine results (all four tests, or a line saying he missed testing)")
 	_check(ui.find_children("Combine_*", "", true, false).size() == 4,
 			"The Combine stays compact at four scouting reads")
 	var ovr: Control = ui.find_child("DetailOVR", true, false)
@@ -192,7 +194,82 @@ func _test_intake_combine() -> void:
 	_check(list_is_scouted, "The intake list keeps a scouted range instead of revealing exact OVR")
 	ui.queue_free()
 	await _settle()
+	await _test_combine_pool()
 	root.size = old_size
+
+
+## The Combine as a menu (ARD-M5-014): a finger's tap opens the tests, a test
+## sorts the class on its results best first, each row says the result and
+## where it sits, a prospect shows all four, and Back returns to the same view.
+func _test_combine_pool() -> void:
+	root.size = Vector2i(360, 800)
+	var Comb = load("res://scripts/sim/Combine.gd")
+	var clubs := ["COL", "CAR"]
+	var sizes := {"COL": 34, "CAR": 34}
+	var counts := {"COL": {"RUCK": 2, "MID": 13, "DEF": 9, "FWD": 10}, "CAR": {"RUCK": 2, "MID": 13, "DEF": 9, "FWD": 10}}
+	var prospects: Array = load("res://scripts/sim/Prospects.gd").generate_class(_state.season_year + 1, 7331)
+	_state.draft = load("res://scripts/sim/Draft.gd").build_intake(prospects, clubs, clubs, 551, sizes, counts)
+	_state.draft.start_for_user("COL")
+	_state.my_club = "COL"
+	_state.draft_meeting_year = _state.season_year
+	var seed: int = _state.draft.seed
+	# The results themselves: seeded, in units, and the same for every club.
+	var p0: Dictionary = prospects[0]
+	var units_ok := true
+	var missed := 0
+	for p in prospects:
+		if not Comb.tested(p, seed):
+			missed += 1
+			units_ok = units_ok and Comb.result(p, "sprint", seed) < 0.0 and Comb.text("sprint", -1.0) == "Did not test"
+			continue
+		var s: float = Comb.result(p, "sprint", seed)
+		var t: float = Comb.result(p, "trial", seed)
+		var l: float = Comb.result(p, "leap", seed)
+		var k: float = Comb.result(p, "kick", seed)
+		units_ok = units_ok and s >= 2.78 and s <= 3.30 and t >= 335.0 and t <= 430.0 and l >= 48.0 and l <= 98.0 and k >= 8.0 and k <= 30.0
+	_check(units_ok, "Combine results sit in real ranges (sprint seconds, time trial, cm, out of 30)")
+	_check(missed < prospects.size() / 4, "Most of the class tests (%d of %d missed)" % [missed, prospects.size()])
+	_check(Comb.result(p0, "sprint", seed) == Comb.result(p0, "sprint", seed)
+			and Comb.text("trial", 372.0) == "6:12" and Comb.text("sprint", 2.9) == "2.90 s",
+			"The same day every time, written as a coach would read it")
+	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
+	root.add_child(ui)
+	await _settle()
+	var Tap = preload("res://tests/tap.gd")
+	var open: Button = ui.find_child("CombineOpen", true, false)
+	var why: String = await Tap.tap(open) if open != null else "no Combine button"
+	await _settle()
+	_check(why == "" and (ui.find_child("CombineRow", true, false) as Control).visible, "A tap on Combine shows the tests (%s)" % why)
+	var sprint: Button = null
+	for b in ui.find_children("*", "Button", true, false):
+		if (b as Button).text == "Sprint":
+			sprint = b
+	why = await Tap.tap(sprint) if sprint != null else "no Sprint test"
+	await _settle()
+	var rows: Array = ui.call("_board_rows")
+	var sorted_ok := rows.size() > 2
+	for i in range(rows.size() - 1):
+		var a: float = Comb.result(rows[i], "sprint", seed)
+		var b: float = Comb.result(rows[i + 1], "sprint", seed)
+		if b >= 0.0 and (a < 0.0 or a > b):
+			sorted_ok = false
+	_check(why == "" and sorted_ok, "Sprint sorts the class fastest first, the untested last (%s)" % why)
+	var first: Label = ui.find_child("CombineResult_" + str(rows[0]["id"]), true, false) if not rows.is_empty() else null
+	_check(first != null and first.text.contains(" s") and first.text.contains("Best in the class"),
+			"The fastest row says his time and that it was the best (%s)" % (first.text if first else "-"))
+	var what: Label = ui.find_child("CombineWhat", true, false)
+	_check(what != null and what.text.contains("Acceleration"), "The test says what it tells you about his football")
+	var inspect: Button = ui.find_child("Inspect_" + str(rows[0]["id"]), true, false)
+	why = await Tap.tap(inspect) if inspect != null else "no row"
+	await _settle()
+	_check(why == "" and ui.find_children("Tested_*", "", true, false).size() == 4, "His sheet shows all four results (%s)" % why)
+	ui.call("handle_back")
+	await _settle()
+	_check(ui.get("_detail") == null, "Back closes his sheet")
+	_check(str(ui.get("_combine")) == "sprint" and ui.find_child("CombineResult_" + str(rows[0]["id"]), true, false) != null,
+			"...back to the same Combine view")
+	ui.queue_free()
+	await _settle()
 
 
 ## From eight picks, My list shows your side so far against the league, line

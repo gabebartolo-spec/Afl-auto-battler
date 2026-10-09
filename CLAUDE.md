@@ -48,6 +48,17 @@ supplies the vision, taste, AFL knowledge, priorities and final judgement.
 The shared visual language lives in `scripts/ui/UiKit.gd`; use it before
 inventing anything local.
 
+**Not boring (director, 2026-10-08: "dark mode doesn't need to be boring
+mode").** The UI must have life. Approved pillars: club colour as atmosphere
+(your club's colours carry your screens, both clubs' on match day), big type
+and motion (the scoreboard face for headline facts; count-ups, reveals,
+transitions), and the 2.5D art and textures of the ground beyond the match.
+Proposed, to be shown on the hub first: each screen leads with one hero
+element. Gradients and glows, colourful
+(club-tinted) surfaces and bold decoration (turf, chalk, crowd motifs) are
+now allowed when used deliberately; they override the restraint rules below
+where the two conflict. Still never at the cost of readability or usability.
+
 **Visual identity.** Avoid dark green/charcoal rounded cards everywhere, gold as
 the universal accent, nested rounded rectangles, piles of pills/chips/badges,
 every fact in its own card, generic dashboard grids, gradients, glows, big

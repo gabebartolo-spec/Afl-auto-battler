@@ -547,8 +547,32 @@ static func generate_class(year: int, career_seed := 0) -> Array:
 				p["u18_ho"] = 18.0
 				project(p)
 				rucks += 1
+	_maybe_unicorn(out, year, career_seed)
 	GameDB.assign_aliases(out)
 	return out
+
+
+## About one class in UNICORN_CLASS_CHANCE has a Unicorn (director,
+## 2026-10-08): its tallest prospect who isn't a ruck, if he stands 194 cm or
+## more - a key-position body with a smaller player's game. Its own dice, so
+## the class itself rolls as it always did.
+const UNICORN_CLASS_CHANCE := 0.4
+const UNICORN_MIN_CM := 194.0
+
+
+static func _maybe_unicorn(cls: Array, year: int, career_seed: int) -> void:
+	var rng := _rng_for("unicorn-%d-%d" % [year, career_seed])
+	if rng.randf() >= UNICORN_CLASS_CHANCE:
+		return
+	var best: Dictionary = {}
+	for p in cls:
+		if str(p.get("role", "")) == "RUCK" or float(p.get("height_cm", 0.0)) < UNICORN_MIN_CM:
+			continue
+		if best.is_empty() or float(p["height_cm"]) > float(best["height_cm"]):
+			best = p
+	if not best.is_empty():
+		best["unicorn"] = true
+		best["note"] = "%d cm and moves like a much smaller player" % int(best["height_cm"])
 
 
 # ---------------------------------------------------------------------------

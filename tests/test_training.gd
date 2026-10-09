@@ -244,8 +244,10 @@ func _test_reserves_development() -> void:
 	for p in GameState.my_list:
 		if not named.has(str(p["id"])) and Ratings.available(p):
 			spare.append(str(p["id"]))
-	var depth: String = spare[0]
-	var hurt: String = spare[1]
+	# The depth player is the last fit spare, not the first: the first is the
+	# one a late withdrawal calls up (an injury on the day put him in the 22).
+	var depth: String = spare[spare.size() - 1]
+	var hurt: String = spare[0]
 	for id in [senior, depth, hurt]:
 		GameState.set_player_plan(id, "manual")  # bank the XP so it can be counted
 	GameState.list_player(hurt)["injury_weeks"] = 5
@@ -761,17 +763,51 @@ func _test_learning_a_position() -> void:
 				"Switching plan ends the project; this season's chance is spent")
 
 
-## Forward, midfield and back make a Unicorn (POT 90 for the third), and on
-## the ground he fills one missing place in one synergy, in his line for a
-## line synergy.
+## A Unicorn is born, not trained (director, 2026-10-08): a hand-picked few
+## and a rare tall draft prospect. He plays forward, midfield and back, and on
+## the ground fills one missing place in one synergy, in his line for a line
+## synergy.
 func _test_unicorn() -> void:
 	var u := {"id": "U1", "role": "MID", "role2": "FWD", "potential": 89, "overall": 70, "attr": {"contested": 60}}
 	_check(GameState.learn_pot_needed(u) == 90 and int(u["potential"]) < 90,
 			"A third position takes POT 90")
 	u["learned"] = ["DEF"]
-	_check(Traits.is_unicorn(u) and Traits.of(u).has("unicorn") and Ratings.role_tag(u) == "MID/FWD/DEF",
-			"Midfield, forward and back: a Unicorn")
+	_check(not Traits.is_unicorn(u) and Ratings.role_tag(u) == "MID/FWD/DEF",
+			"Learning forward, midfield and back is not a Unicorn: that is born")
 	_check(GameState.learn_pot_needed(u) == -1, "Three positions is the most")
+	var born := {"id": "U0", "role": "RUCK", "unicorn": true, "attr": {}}
+	_check(Traits.is_unicorn(born) and Traits.of(born).has("unicorn")
+			and Ratings.positions(born).has("FWD") and Ratings.positions(born).has("MID")
+			and Ratings.positions(born).has("DEF"), "A born Unicorn can be picked at forward, midfield and back")
+	# The director's three at the start, and nobody else; a move keeps it.
+	var start := []
+	for p in GameDB.players:
+		if Traits.is_unicorn(p):
+			start.append("%s %s" % [p["first"], p["last"]])
+	start.sort()
+	_check(start == ["Luke Jackson", "Mark Blicavs", "Sam Darcy"], "The Unicorns at the start: %s" % str(start))
+	var moved := {"first": "Luke", "last": "Jackson", "club": "COL"}
+	GameDB.mark_unicorns([moved])
+	_check(Traits.is_unicorn(moved), "A Unicorn keeps it wherever the draft sends him (a save from before)")
+	var fake := {"first": "Luke", "last": "Jackson", "generated": true}
+	GameDB.mark_unicorns([fake])
+	_check(not Traits.is_unicorn(fake), "A generated player who shares the name is not one")
+	# Rare in later classes: about two in five, its tallest non-ruck 194 cm+.
+	var with_one := 0
+	var bad := ""
+	for y in range(2027, 2057):
+		var n := 0
+		for p in Prospects.generate_class(y, 77):
+			if Traits.is_unicorn(p):
+				n += 1
+				if str(p["role"]) == "RUCK" or float(p["height_cm"]) < Prospects.UNICORN_MIN_CM:
+					bad = "%d: %s %.0f" % [y, p["role"], float(p["height_cm"])]
+		if n > 1:
+			bad = "%d: %d in one class" % [y, n]
+		with_one += 1 if n == 1 else 0
+	_check(bad == "" and with_one >= 6 and with_one <= 18,
+			"A Unicorn in %d of 30 classes, never more than one, always tall (%s)" % [with_one, bad])
+	u["unicorn"] = true
 	# Built from the synergy rules, so the test holds whatever the counts are.
 	var er: Dictionary = Traits.SYNERGIES["engine_room"]["needs"]
 	var bulls := []

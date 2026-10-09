@@ -466,15 +466,16 @@ func _test_no_green_decoration() -> void:
 
 
 ## A club is marked by its own guernsey (club marker A, GuernseyCrest): its
-## design and colours, a trim in its third colour only where that is a club
-## colour (the Bulldogs' white, Adelaide's gold), and its code from 32 px.
+## design and colours, a trim in the third colour its kit names (St Kilda's
+## black, Port's teal) or its own third colour where that is a club colour
+## (the Bulldogs' white, Adelaide's gold), and its code from 32 px.
 func _test_club_markers() -> void:
 	var ok := true
 	for code in GameDB.CLUB_ORDER:
 		var m := UiKit.club_marker(code)
 		var g := GameDB.club_guernsey(code)
 		var cols := GameDB.club_colours(code)
-		var trim: Color = cols[2] if GameDB.THREE_COLOUR_CLUBS.has(code) else cols[1]
+		var trim: Color = g["pattern2"] if GameDB.THREE_COLOUR_CLUBS.has(code) or bool(g["own_pattern2"]) else cols[1]
 		if not (m is GuernseyCrest) or m.primary != g["base"] or m.design != str(g["design"]) or m.accent != trim:
 			ok = false
 		m.free()
