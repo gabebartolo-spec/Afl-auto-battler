@@ -37,13 +37,22 @@ const CARRY_CYCLE := 1.3
 const CLAP_RATE := 9.0
 ## Where it stands: the same wing as the pre-match scene, the stand behind them.
 const BOUNDARY_AT := 72.0
-## How far the camera's lens is pushed in on the pre-match scene's (#540: at 1.68 each pixel of the
-## figure art covered ~4 of a phone's, so one-pixel details went soft). A static so a review
-## capture can compare framings (tools/visual/capture_farewell.gd --lens).
-static var lens := 1.68
-## Where the far end of the guard sits, as a fraction down the screen: a wider lens lowers the
-## stand, so it moves up with the lens to keep the crowd at the top of the screen.
-static var horizon_at := 0.508
+## The framing by the shape of the screen (director, 2026-10-10: "A on PC, B on phone"), as
+## [lens, horizon]: the lens is how far the camera is pushed in on the pre-match scene's; the
+## horizon, where the far end of the guard sits down the screen. A portrait phone pulls back
+## (at 1.68 each pixel of figure art covered ~4 of a phone's and went soft) and lifts the
+## horizon to keep the crowd at the top; a wide window, fitted to its height, stays sharp at 1.68.
+const PORTRAIT := Vector2(1.25, 0.43)
+const LANDSCAPE := Vector2(1.68, 0.508)
+## Review captures can force a framing (tools/visual/capture_farewell.gd --lens, --horizon);
+## 0 leaves it to the screen's shape.
+static var lens := 0.0
+static var horizon_at := 0.0
+
+
+static func framing(view: Vector2) -> Vector2:
+	var f := LANDSCAPE if view.x > view.y else PORTRAIT
+	return Vector2(lens if lens > 0.0 else f.x, horizon_at if horizon_at > 0.0 else f.y)
 
 var copy := ""
 var _left := false
@@ -173,13 +182,14 @@ func _set_camera() -> void:
 	# no crowd, at 1920 x 1080), where the same height-fit frames it as the phone and shows more
 	# of the guard and the crowd either side (director: the PC display mustn't be limited).
 	var fit := size.y * 0.6 if size.x > size.y else maxf(size.x * 1.25, size.y * 0.6)
-	var base := fit * lens
+	var frame := framing(size)
+	var base := fit * frame.x
 	var push := _ease(clampf(fmod(_t, GUARD) / GUARD, 0.0, 1.0)) if _t < GUARD else _ease(clampf((_t - GUARD) / CHAIRED, 0.0, 1.0))
 	_zoom = 1.0 + 0.08 * push
 	_focal = base * _zoom
 	# The far end of the guard sits a little above the middle of the screen.
 	var depth := 12.0 + _cam_d
-	_horizon = size.y * horizon_at - _focal * _cam_h / depth
+	_horizon = size.y * frame.y - _focal * _cam_h / depth
 
 
 func _ground_to_scene() -> Transform2D:

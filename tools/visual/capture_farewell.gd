@@ -12,8 +12,8 @@ extends SceneTree
 ## the clap's hands on each.
 ## --layers: a layer pass - kit recolouring off, each man in the guard one distinct flat tint,
 ## to show whose arms are whose.
-## --lens X: the camera's push on the pre-match scene (FarewellVignette.lens, 1.68 by default).
-## --horizon F: where the far end of the guard sits down the screen (FarewellVignette.horizon_at).
+## --lens X / --horizon F: force a framing (FarewellVignette.lens / horizon_at); by default the
+## screen's shape picks it (FarewellVignette.framing: phone 1.25 / 0.43, wide window 1.68 / 0.508).
 ## --window WxH: a desktop window of that many pixels (e.g. 1920x1080) at the Standard screen
 ## size, instead of the phone (--scale is ignored).
 ## On --scale N the screen-size setting (ScreenLayout.ui_scale) is set to N too, so the text is
@@ -109,7 +109,7 @@ func _run() -> void:
 		Farewell.lens = lens
 	if horizon > 0.0:
 		Farewell.horizon_at = horizon
-	print("ART lens ", Farewell.lens, " horizon ", Farewell.horizon_at)
+	print("ART framing ", Farewell.framing(Vector2(W, H)), " (lens, horizon)")
 	print("ART sheet ", load("res://scripts/ui/match/VignetteFigures.gd").SHEET_SIZE, " caption: ", Farewell.caption(ms))
 	var Stoppage = load("res://scripts/ui/match/StoppageVignette.gd")
 	Stoppage.log_frames = true

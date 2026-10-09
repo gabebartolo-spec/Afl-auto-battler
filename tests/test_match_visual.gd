@@ -1255,6 +1255,14 @@ func _test_farewell() -> void:
 			and FarewellVignette.caption({}) == "", "Under 200 games (director), a debut or no milestone gets no scene")
 	_check(FarewellVignette._ordinal(111) == "111th" and FarewellVignette._ordinal(122) == "122nd"
 			and FarewellVignette._ordinal(253) == "253rd", "Ordinals read as said")
+	# Director, 2026-10-10: "A on PC, B on phone" - the framing follows the screen's shape.
+	_check(FarewellVignette.framing(Vector2(390, 844)) == FarewellVignette.PORTRAIT
+			and FarewellVignette.PORTRAIT == Vector2(1.25, 0.43),
+			"A portrait phone gets the pulled-back framing (B: lens 1.25, horizon 0.43)")
+	_check(FarewellVignette.framing(Vector2(1920, 1080)) == FarewellVignette.LANDSCAPE
+			and FarewellVignette.framing(Vector2(3840, 2160)) == FarewellVignette.LANDSCAPE
+			and FarewellVignette.LANDSCAPE == Vector2(1.68, 0.508),
+			"A wide window gets the close framing (A: lens 1.68, horizon 0.508)")
 	for need in [["clap", "side_l"], ["walk_wave", "front"], ["carrier", "front"], ["carrier_near", "front"], ["chaired", "front"]]:
 		_check(VignetteFigures.has("average", need[0], need[1]), "The sheet has the farewell's %s (%s)" % need)
 	var mine := []
