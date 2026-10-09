@@ -72,6 +72,7 @@ static func with_us_bits(p: Dictionary) -> Array:
 		var same := not d.is_empty() and int(d.get("year", 0)) == int(g.get("year", 0)) \
 				and str(d.get("label", "")) == str(g.get("label", ""))
 		out.append("First goal on debut." if same else "First goal %s." % when_text(g))
+	out.append_array(Backing.memory_bits(p))
 	return out
 
 
@@ -88,8 +89,9 @@ static func debut_line(who: String, goals: int) -> String:
 ## run that is done. Said only when the facts kept on the players say it, in
 ## this order: a debut on your promise, a run done, any other debut, a first goal.
 ## At most MAX_LINES; none for a match that settled nothing. `me` is your side,
-## `year` the season, `find` looks one of your players up by id.
-static func match_lines(res: Dictionary, me: int, year: int, find: Callable) -> Array:
+## `year` the season, `find` looks one of your players up by id. `squad` is your
+## whole list: a run broken that day belongs to a player who did not play.
+static func match_lines(res: Dictionary, me: int, year: int, find: Callable, squad := []) -> Array:
 	var roster: Array = res.get("roster", [])
 	if me < 0 or roster.size() <= me:
 		return []
@@ -110,6 +112,9 @@ static func match_lines(res: Dictionary, me: int, year: int, find: Callable) -> 
 		var run := Backing.finished_in(p, year, label)
 		if not run.is_empty():
 			ranked.append([1, "%s's %s-game run is done." % [who, MatchNotes.count_word(int(run["games"]))]])
+	for p in squad:
+		if not Backing.ended_in(p, year, label, "broken").is_empty():
+			ranked.append([1, "%s was left out. The run you promised him is over." % GameDB.player_display_name(p)])
 	# Stable: the roster's order breaks a tie.
 	var order := range(ranked.size())
 	order.sort_custom(func(a, b):

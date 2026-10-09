@@ -64,7 +64,7 @@ static func can_back(p: Dictionary, games_played: int) -> bool:
 ## Start a run. The week it is made in is his first game, if he plays it.
 static func start(p: Dictionary, year: int, round_no: int, games_played: int) -> Dictionary:
 	var entry := {"year": year, "round": round_no, "games": RUN_GAMES, "played": 0,
-			"state": "active", "debut": games_played == 0}
+			"state": "active", "debut": games_played == 0, "club": str(p.get("club", ""))}
 	if not (p.get("backed") is Array):
 		p["backed"] = []
 	(p["backed"] as Array).append(entry)
@@ -94,12 +94,49 @@ static func after_match(p: Dictionary, played: bool, was_fit: bool, when := {}) 
 ## The run that was finished by the match `label` played in `year`, or {}: every
 ## game given, the last of them that day. Full time says so.
 static func finished_in(p: Dictionary, year: int, label: String) -> Dictionary:
+	return ended_in(p, year, label, "done")
+
+
+## The run that ended `state` ("done" or "broken") with the match `label`
+## played in `year`, or {}.
+static func ended_in(p: Dictionary, year: int, label: String, state: String) -> Dictionary:
 	for e in ledger(p):
 		var when = e.get("ended")
-		if str(e.get("state", "")) == "done" and when is Dictionary \
+		if str(e.get("state", "")) == state and when is Dictionary \
 				and int(when.get("year", 0)) == year and str(when.get("label", "")) == label:
 			return e
 	return {}
+
+
+## What became of each run you promised him, for his "With us" line, in the
+## order they were made: "Given a three-game run in 2028.", "Promised a run in
+## 2028, left out after one game.", "Promised a run in 2028; the season ended
+## with one game to go." A run on now says nothing here (the reminder does),
+## and a run that gave him his debut is already in "Debuted ..., on your say-so."
+static func memory_bits(p: Dictionary) -> Array:
+	var out := []
+	for e in ledger(p):
+		# A run promised at another club is not this club's promise (an old entry
+		# without a club still shows).
+		var made_at := str(e.get("club", ""))
+		if made_at != "" and made_at != str(p.get("club", "")):
+			continue
+		var year := int(e.get("year", 0))
+		var played := int(e.get("played", 0))
+		var games := int(e.get("games", RUN_GAMES))
+		match str(e.get("state", "")):
+			"done":
+				if not bool(e.get("debut", false)):
+					out.append("Given a %s-game run in %d." % [MatchNotes.count_word(games), year])
+			"broken":
+				out.append("Promised a run in %d, left out %s." % [year,
+						"before he played a game of it" if played == 0
+						else "after %s game%s" % [MatchNotes.count_word(played), "" if played == 1 else "s"]])
+			"lapsed":
+				var left := games - played
+				out.append("Promised a run in %d; the season ended with %s game%s to go." % [year,
+						MatchNotes.count_word(left), "" if left == 1 else "s"])
+	return out
 
 
 ## He played his first senior game on a run you had promised him.
@@ -119,11 +156,14 @@ static func lapse(p: Dictionary) -> void:
 
 ## "You promised Calder a run: game two of three." for a run that is on, ""
 ## for none. A player who cannot play waits for it: "...game two of three,
-## when available."
-static func note(p: Dictionary) -> String:
+## when available." A fit player your named side leaves out is told plainly
+## what that does: "... Not named: leave him out and the promise breaks."
+static func note(p: Dictionary, named := true) -> String:
 	var run := current(p)
 	if run.is_empty():
 		return ""
 	var line := "You promised %s a run: game %s of %s" % [GameDB.player_display_name(p),
 			MatchNotes.count_word(int(run["played"]) + 1), MatchNotes.count_word(int(run["games"]))]
-	return line + ("." if fit(p) else ", when available.")
+	if not fit(p):
+		return line + ", when available."
+	return line + ("." if named else ". Not named: leave him out and the promise breaks.")
