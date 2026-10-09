@@ -5,7 +5,7 @@ extends Control
 
 const ROLES := ["", "DEF", "MID", "RUCK", "FWD"]
 const ROLE_NOUN := {"RUCK": "ruck", "MID": "midfielder", "DEF": "defender", "FWD": "forward"}
-const ROLE_TABS := [["", "ALL"], ["DEF", "DEFS"], ["MID", "MIDS"], ["RUCK", "RUCKS"], ["FWD", "FWDS"]]
+const ROLE_TABS := [["", "All"], ["DEF", "Defenders"], ["MID", "Midfielders"], ["RUCK", "Rucks"], ["FWD", "Forwards"]]
 const LONG_PRESS_SECONDS := 0.45
 
 var _role := ""
@@ -603,8 +603,11 @@ func _detail_panel() -> Control:
 	var close: Array = Traits.near(p)
 	if not close.is_empty():
 		var n: Dictionary = close[0]
-		var hint := UiKit.lbl("%d %s from %s: %s" % [int(n["gap"]), GameState.train_stat_label(str(n["stat"])).to_lower(),
-				Traits.label(str(n["key"])), Traits.text(str(n["key"]))], 12, UiKit.EMPH)
+		# "4 more durability and he's an Engine: tires 25% slower."
+		var t_text := Traits.text(str(n["key"]))
+		var hint := UiKit.lbl("%d more %s and he's %s %s: %s" % [int(n["gap"]), GameState.train_stat_label(str(n["stat"])).to_lower(),
+				"an" if "AEIOU".contains(Traits.label(str(n["key"])).left(1)) else "a", Traits.label(str(n["key"])),
+				t_text.left(1).to_lower() + t_text.substr(1)], 12, UiKit.EMPH)
 		hint.name = "TraitHint"
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		body.add_child(hint)
