@@ -19,6 +19,44 @@ Local smoke test (12 matches, noise only):
 - tag: target disposals −5.3 ± 1.3;
 - ride the stars: stars' time on ground +16.6 ± 4.6 exertion units.
 
+### Results (all three runs green; 600 paired matches per arm, mean ± SE of the paired difference)
+
+| Arm | Home margin | What the copy names | Reading |
+|---|---|---|---|
+| plan_attacking | −1.7 ± 1.8 | clangers +5.9 ± 0.3 | Process moves; no margin edge on average |
+| plan_defensive | +4.1 ± 1.8 | pressure acts +18.9 ± 1.0 | Works; the only plan with a margin edge past 2 SE |
+| plan_contest | −2.2 ± 1.7 | clearances +2.3 ± 0.3 | Process moves |
+| plan_controlled | +0.9 ± 1.7 | clangers −4.4 ± 0.3 | Process moves (see the dead-branch suspect below) |
+| plan_through_stars | +1.6 ± 1.7 | stars' share of disposals +1.4 pts ± 0.1 | Real but small; check the copy does not promise more |
+| pep_fire_up | −1.7 ± 1.7 | contested +0.3 ± 0.3; clangers +5.3 ± 0.3 | Whole-match average: the contest lift applies only while behind (copy says so). Needs a behind-only split before any verdict |
+| pep_calm | +0.0 ± 1.7 | clangers −4.1 ± 0.3 | Process moves |
+| tag | −1.0 ± 1.8 | target's disposals −3.9 ± 0.2 | Works as written |
+| rot_hard | +1.5 ± 1.5 | stars' exertion +3.6 ± 0.5 | Process moves |
+| rot_stars | +1.0 ± 1.3 | stars' exertion +16.1 ± 0.6 | Works as written |
+| loose | −2.1 ± 1.6 | team intercepts +0.1 ± 0.4 | **Suspect.** Baseline home side has no loose man (no assistant), so the arm adds one; team intercepts do not move. Next: read the loose-man copy, then measure the nominated man's own intercepts and marks |
+
+Only the defensive plan's margin edge clears 2 SE; every arm is within a goal of the baseline.
+
+### Follow-ups (`tools/audit/levers_followup_impl.gd`, run locally, 100 seeds × 6 pairings)
+
+**Loose defender: confirmed defect.** Copy: "He leaves his direct man to attack aerial balls. Another defender covers where possible; if he flies and loses, space opens behind him." The nominated man is the home side's best interceptor (`Matchups.interceptor_score`), the same man in both arms; 600 pairs.
+
+| Measure | Loose arm mean | Paired difference |
+|---|---|---|
+| He is the loose man (result `interceptor`) | 1.0 | set in every match |
+| His contests as the roamer | 2.2 | +2.16 ± 0.05 (won 1.3, lost 1.4) |
+| His intercepts (possessions + marks) | 11.2 | **−1.41 ± 0.22** |
+| His spoils | 4.1 | **−1.41 ± 0.13** |
+| His marks | 7.4 | +0.00 ± 0.13 |
+| Team intercepts | 62.7 | +0.11 ± 0.35 |
+| Team spoils | 16.2 | −1.10 ± 0.21 |
+| Points conceded | 82.1 | **+2.44 ± 0.95** |
+| Margin | | −2.94 ± 1.59 |
+
+He attacks fewer aerial balls than he did as a direct defender, not more. The roam reaches about two contests a game (`_roam_chance` × `ROAM_REACH` 0.2), but losing his direct man takes him out of the entries he used to meet. The team pays the copy's cost (more conceded) without its upside. Next: the smallest fix, with this paired evidence, as its own PR.
+
+**Fire them up while behind:** 338 paired quarters (Q2–Q4 the home side began behind in both arms). Clearances +0.35 ± 0.20 a quarter, share +0.7 pts ± 0.8, contested possessions +0.25 ± 0.23, clangers **+1.17 ± 0.20**, points +0.8 ± 0.7. The lift is real in the code (+0.018 at the contest) but hard to see; the cost is clear. Copy is true but the trade is lopsided: a candidate for the director, not a defect.
+
 ## Checked so far (code and copy)
 
 | Lever | Copy | Code | Verdict so far |
