@@ -83,6 +83,7 @@ var _run_side := -1            # who kicked the last goal, and how many in a row
 var _run_len := 0
 var _duel_mem := {}             # the feed's memory of the key match-ups (MatchNotes.duel_feed_line)
 var _matchup_overlay: Control
+var _drop_overlay: Control
 
 
 func _ready() -> void:
@@ -1362,7 +1363,7 @@ func _glance_section(v: VBoxContainer, title: String, node_name: String, lines: 
 	v.add_child(box)
 
 
-func _glance_people(v: VBoxContainer, title: String, node_name: String, people: Array) -> void:
+func _glance_people(v: VBoxContainer, title: String, node_name: String, people: Array, can_act := false) -> void:
 	if people.is_empty():
 		return
 	v.add_child(UiKit.spacer(UiKit.GAP))
@@ -1373,8 +1374,99 @@ func _glance_people(v: VBoxContainer, title: String, node_name: String, people: 
 		var row := UiKit.vbox(0)
 		row.add_child(UiKit.ellipsis(str(p["name"]), UiKit.BODY, UiKit.TEXT, true))
 		row.add_child(UiKit.ellipsis(str(p["line"]), UiKit.SMALL, UiKit.MUTED))
+		if can_act and str(p.get("id", "")) != "":
+			row.add_child(_lift_actions(str(p["id"])))
 		box.add_child(row)
 	v.add_child(box)
+	if can_act and not people.is_empty():
+		var hint := UiKit.lbl("A spray can lift a player or rattle him; it rattles the young more often.",
+				UiKit.SMALL, UiKit.MUTED)
+		hint.name = "LiftHint"
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(hint)
+
+
+## Three words to a player who had a quiet game: back him, spray him, or drop
+## him for next week. Each answers in place with what happened.
+func _lift_actions(id: String) -> Control:
+	var holder := UiKit.vbox(0)
+	holder.name = "LiftActions_" + id
+	var bar := UiKit.hbox(18)
+	for spec in [["Encourage", "encourage"], ["Spray", "spray"], ["Drop", "drop"]]:
+		var kind := str(spec[1])
+		if kind == "drop" and not GameState.in_next_side(id):
+			continue
+		var b := UiKit.text_action(str(spec[0]), UiKit.SMALL)
+		b.name = "Lift_%s_%s" % [kind, id]
+		b.pressed.connect(func(): _lift_pressed(kind, id, holder))
+		bar.add_child(b)
+	holder.add_child(bar)
+	return holder
+
+
+func _lift_say(holder: Control, text: String) -> void:
+	for c in holder.get_children():
+		c.queue_free()
+	var l := UiKit.names_lbl(text, UiKit.SMALL, UiKit.MUTED, _name_colours())
+	l.name = "LiftOutcome"
+	holder.add_child(l)
+
+
+func _lift_pressed(kind: String, id: String, holder: Control) -> void:
+	if kind != "drop":
+		var r := GameState.lift_talk(id, kind)
+		if not r.is_empty():
+			_lift_say(holder, str(r["text"]))
+		return
+	var d := GameState.drop_player(id)
+	if d.is_empty():
+		return
+	var options: Array = d["options"]
+	if options.is_empty():
+		_lift_say(holder, "%s is out. Nobody else on your list plays there; auto-pick fills the spot." % str(d["name"]))
+		return
+	_lift_say(holder, "%s is out." % str(d["name"]))
+	_show_drop_chooser(d, holder)
+
+
+## Who comes in: the players of his position pressing for the spot.
+func _show_drop_chooser(d: Dictionary, holder: Control) -> void:
+	if _drop_overlay != null and is_instance_valid(_drop_overlay):
+		_drop_overlay.queue_free()
+	var box := UiKit.modal_box(self, 480.0, 0.0, _wash())
+	_drop_overlay = box["overlay"]
+	_drop_overlay.name = "DropChooser"
+	var v: VBoxContainer = box["body"]
+	v.add_theme_constant_override("separation", 6)
+	v.add_child(UiKit.names_lbl("Who comes in for %s?" % str(d["name"]), UiKit.H1, UiKit.TEXT, _name_colours()))
+	v.add_child(UiKit.lbl("Pressing for a spot in %s" % str(UiKit.ROLE_LABEL.get(str(d["role"]), "the side")).to_lower(),
+			UiKit.SMALL, UiKit.MUTED))
+	if bool(d["backed"]):
+		v.add_child(UiKit.lbl("He has your word for a run. Leaving him out breaks it.", UiKit.SMALL, UiKit.BAD))
+	for o in d["options"]:
+		var oid := str(o["id"])
+		var b := UiKit.btn("%s\n%s" % [str(o["name"]), str(o["line"])], 15)
+		b.name = "DropIn_" + oid
+		b.custom_minimum_size = Vector2(0, 56)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var out_name := str(d["name"])
+		var slot := str(d["slot"])
+		b.pressed.connect(func():
+			var said := GameState.bring_in(oid, slot)
+			_lift_say(holder, "%s is out. %s" % [out_name, said])
+			_close_drop_chooser())
+		v.add_child(b)
+	var auto := UiKit.btn("Leave it to auto-pick", UiKit.NAME)
+	auto.name = "DropAuto"
+	auto.custom_minimum_size = Vector2(0, 48)
+	auto.pressed.connect(_close_drop_chooser)
+	box["footer"].add_child(auto)
+
+
+func _close_drop_chooser() -> void:
+	if _drop_overlay != null and is_instance_valid(_drop_overlay):
+		_drop_overlay.queue_free()
+	_drop_overlay = null
 
 
 func _close_report() -> void:
@@ -2027,7 +2119,7 @@ func _ft_summary(v: VBoxContainer) -> void:
 	# for your match, and only what the result above does not already say.
 	if mine and (_res.get("quarter_teams", []) as Array).size() >= 2:
 		var g := CoachReport.glance(CoachReport.match_report(_res, me), true)
-		_glance_people(v, "Needs a lift", "ReportLift", g["lift"])
+		_glance_people(v, "Needs a lift", "ReportLift", g["lift"], _interactive)
 		_glance_section(v, "Coaching notes", "ReportNotes", (g["notes"] as Array).slice(0, 2))
 
 	# The key match-ups: who had the better of whom, from the contests.
@@ -2151,6 +2243,9 @@ func _qcell(text: String, w: int, col: Color, fs: int, bold := false) -> Label:
 ## Router back hook. A live match cannot be abandoned half way (the rest of
 ## the round is already on the ladder), so back is swallowed until full time.
 func handle_back() -> bool:
+	if _drop_overlay != null and is_instance_valid(_drop_overlay):
+		_close_drop_chooser()
+		return true
 	# A player list opened from the break closes first.
 	if _sheet_overlay != null and is_instance_valid(_sheet_overlay):
 		_close_sheet()

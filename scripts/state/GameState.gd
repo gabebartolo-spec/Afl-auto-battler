@@ -5868,6 +5868,7 @@ func my_selection() -> Dictionary:
 		return {}
 	var sel: Dictionary = (season.selections.get(my_club, {}) as Dictionary).duplicate(true)
 	sel.erase("DUAL_RUCK")
+	sel.erase("ONE_WEEK")
 	return sel
 
 
@@ -5909,6 +5910,122 @@ func _sync_dual() -> void:
 func current_side() -> Dictionary:
 	var squad := my_squad()
 	return _as_selection(squad.ground, squad.bench)
+
+
+# ---------------------------------------------------------------------------
+# A word to a player who had a quiet game, and dropping him (full time)
+# ---------------------------------------------------------------------------
+## A talk to one of your players after a match: "encourage" lifts him, "spray"
+## is a dice roll (ClubLife.spray_odds). One word a player a week. Returns
+## {"text": what happened, "kind"} or {} for an unknown player.
+func lift_talk(player_id: String, kind: String) -> Dictionary:
+	var p := list_player(player_id)
+	if season == null or p.is_empty() or not ["encourage", "spray"].has(kind):
+		return {}
+	var tag := "%d/%d" % [season_year, season.round_index]
+	var name := GameDB.player_display_name(p)
+	if str(p.get("lift_talk", "")) == tag:
+		return {"text": "You have already had a word with %s this week." % name, "kind": kind}
+	p["lift_talk"] = tag
+	var text := ""
+	if kind == "encourage":
+		ClubLife.add_morale(p, ClubLife.ENCOURAGE_LIFT)
+		text = "You back %s. He is lifted by it." % name
+	else:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash("spray|%d|%s|%s" % [career_seed, player_id, tag])
+		var change := ClubLife.spray_change(p, rng.randf())
+		ClubLife.add_morale(p, change)
+		text = ("%s takes it on the chin and wants to prove you wrong." if change > 0
+				else "%s is rattled by it.") % name
+	mark_dirty()
+	return {"text": text, "kind": kind}
+
+
+## Whether a player is in the side that would take the field next week.
+func in_next_side(player_id: String) -> bool:
+	if season == null or my_next_opponent().is_empty():
+		return false
+	var side := current_side()
+	for k in side:
+		if (side[k] as Array).has(player_id):
+			return true
+	return false
+
+
+## Leave a player out of next week's side. The side stays as it is, with his
+## spot open for auto-pick; when you had no named side, it goes back to
+## auto-pick after next week's match. Returns {} when he is not in the side,
+## else {"id", "name", "slot", "role", "backed", "options"}: the players of
+## his position pressing for his spot, best first (_pressing_options).
+func drop_player(player_id: String) -> Dictionary:
+	var p := list_player(player_id)
+	if season == null or p.is_empty() or not in_next_side(player_id):
+		return {}
+	var named := my_selection()
+	var one_week: bool = named.is_empty() or bool((season.selections.get(my_club, {}) as Dictionary).get("ONE_WEEK", false))
+	var side := current_side()
+	var slot := ""
+	for k in side:
+		if (side[k] as Array).has(player_id):
+			slot = str(k)
+	var options := _pressing_options(p, side)
+	var out_ids: Array = (named.get("OUT", []) as Array).duplicate()
+	for k in side:
+		(side[k] as Array).erase(player_id)
+	if not out_ids.has(player_id):
+		out_ids.append(player_id)
+	side["OUT"] = out_ids
+	set_selection(side)
+	if one_week:
+		(season.selections[my_club] as Dictionary)["ONE_WEEK"] = true
+	return {"id": player_id, "name": GameDB.player_display_name(p), "slot": slot,
+			"role": str(p.get("own_role", p.get("role", ""))), "backed": Backing.is_active(p),
+			"options": options}
+
+
+## Who is pressing for a spot at his position: players of his line who are not
+## in next week's side and can play, the best first, at most three. A word on
+## each: age, rating and how many senior games.
+func _pressing_options(out_p: Dictionary, side: Dictionary) -> Array:
+	var role := str(out_p.get("own_role", out_p.get("role", "")))
+	var named := {}
+	for k in side:
+		for id in side[k]:
+			named[str(id)] = true
+	var pool: Array = my_list.filter(func(q):
+		return not named.has(str(q["id"])) and Ratings.available(q) and Ratings.plays_role(q, role))
+	pool.sort_custom(func(a, b):
+		return float(a["overall"]) * Workload.selection_factor(a) > float(b["overall"]) * Workload.selection_factor(b))
+	var out := []
+	for q in pool.slice(0, 3):
+		var games := games_played(q)
+		out.append({"id": str(q["id"]), "name": GameDB.player_display_name(q),
+				"line": "%d yo · %d OVR · %s" % [int(float(q.get("age", 22.0))), int(q["overall"]),
+						"yet to debut" if games == 0 else "%d senior game%s" % [games, "" if games == 1 else "s"]]})
+	return out
+
+
+## Put the player you chose into the spot a dropped player left. Returns what
+## to tell the coach.
+func bring_in(player_id: String, slot: String) -> String:
+	var p := list_player(player_id)
+	if season == null or p.is_empty() or slot == "":
+		return ""
+	var sel := (season.selections.get(my_club, {}) as Dictionary).duplicate(true)
+	var one_week := bool(sel.get("ONE_WEEK", false))
+	sel.erase("ONE_WEEK")
+	sel.erase("DUAL_RUCK")
+	for k in sel:
+		if sel[k] is Array:
+			(sel[k] as Array).erase(player_id)
+	if not (sel.get(slot) is Array):
+		sel[slot] = []
+	(sel[slot] as Array).append(player_id)
+	set_selection(sel)
+	if one_week:
+		(season.selections[my_club] as Dictionary)["ONE_WEEK"] = true
+	return "%s is in." % GameDB.player_display_name(p)
 
 
 func _as_selection(ground: Array, bench: Array) -> Dictionary:
@@ -6975,6 +7092,11 @@ func _board_after_round(results: Array) -> void:
 	var res := _my_result(results)
 	# Last week's sit-down, unread, has had its week.
 	backing_talk = {}
+	# A side named for one week only (a player dropped from an auto-picked
+	# side) goes back to auto-pick once its match is played.
+	if season != null and my_club != "" \
+			and bool((season.selections.get(my_club, {}) as Dictionary).get("ONE_WEEK", false)):
+		season.selections[my_club] = {"DUAL_RUCK": user_dual_ruck}
 	# This week's one-off flags (rested, sore, heavy legs, fresh) end with
 	# the round.
 	for p in my_list:
