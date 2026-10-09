@@ -305,6 +305,24 @@ func _run() -> void:
 	var forge_tap: String = await Tap.tap(forge_btn) if forge_btn != null else "missing"
 	await _settle()
 	_check(forge_tap == "" and _router.current() == "forge", "A tap opens Club Forge (%s)" % forge_tap)
+	# On a PC window, your player and your club sit side by side, and a real
+	# tap on Create a club opens its form (director: no full-width bars on PC).
+	root.size = Vector2i(1280, 720)
+	await _settle()
+	var mk_p: Control = current_scene.find_child("ForgeCreatePlayer", true, false)
+	var mk_c: Control = current_scene.find_child("ForgeCreateClub", true, false)
+	_check(mk_p != null and mk_c != null and mk_p.get_global_rect().end.x <= mk_c.get_global_rect().position.x
+			and mk_c.size.x <= root.size.x * 0.55
+			and absf(mk_p.get_global_rect().position.y - mk_c.get_global_rect().position.y) < 1.0,
+			"PC: the Forge puts your player and your club side by side, level")
+	var club_tap: String = await Tap.tap(mk_c) if mk_c != null else "missing"
+	await _settle()
+	_check(club_tap == "" and current_scene.find_child("ForgeSaveClub", true, false) != null,
+			"PC: a tap on Create a club opens its form (%s)" % club_tap)
+	_router.handle_back(false)
+	await _settle()
+	root.size = Vector2i(390, 844)
+	await _settle()
 	_press("ForgeCreatePlayer")
 	await _settle()
 	_press("ForgeSavePlayer")
@@ -818,11 +836,13 @@ func _run() -> void:
 	# --- back on other screens ------------------------------------------------
 	_router.go("hub")
 	await _settle()
-	_router.go("ladder")
+	# Its first-visit sheet would take the first Back; it has been read.
+	_state.set_setting("seen_season_stats_intro", true)
+	_router.go("stats")
 	await _settle()
 	_router.handle_back(false)
 	await _settle()
-	_check(_router.current() == "hub", "Escape on the ladder returns to the hub")
+	_check(_router.current() == "hub", "Escape on Season stats returns to the hub")
 
 	# --- team selection --------------------------------------------------------
 	var sel_size_before := root.size
@@ -1453,6 +1473,8 @@ func _run() -> void:
 
 	await _test_season_awards()
 	await _test_back_arrow_taps()
+	_test_type_roles()
+	await _test_names_fit()
 	_state.delete_saved_career()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
@@ -1564,3 +1586,89 @@ func _type(node_name: String, text: String) -> void:
 	if f != null:
 		(f as LineEdit).text = text
 		(f as LineEdit).text_changed.emit(text)
+
+
+## Type roles (docs/VISUAL_STYLE_GUIDE.md §2.3): a screen never sets a font size
+## that is not one of UiKit's roles. A literal outside UiKit.SIZES in any UiKit
+## text call, or in a font_size override, fails here with the file and line.
+func _test_type_roles() -> void:
+	var sizes: Array = load("res://scripts/ui/UiKit.gd").SIZES
+	var call := RegEx.new()
+	call.compile("UiKit\\.(lbl|line|ellipsis|figure|heading|btn|name_label)\\(")
+	var num := RegEx.new()
+	num.compile("[,(]\\s*(\\d{1,2})\\s*[,)]")
+	var override := RegEx.new()
+	override.compile("font_size\", (\\d{1,2})")
+	var bad: Array[String] = []
+	var files := _gd_files("res://scripts/ui")
+	for path in files:
+		if path.ends_with("UiKit.gd"):
+			continue
+		var text := FileAccess.get_file_as_string(path)
+		var n := 0
+		for line in text.split("\n"):
+			n += 1
+			if line.strip_edges().begins_with("#"):
+				continue
+			var hits: Array = []
+			if call.search(line) != null:
+				for m in num.search_all(line):
+					hits.append(int(m.get_string(1)))
+			for m in override.search_all(line):
+				hits.append(int(m.get_string(1)))
+			for h in hits:
+				if h >= 6 and not sizes.has(h):
+					bad.append("%s:%d size %d" % [path.get_file(), n, h])
+	_check(files.size() > 20, "The type-role check saw the screens (%d files)" % files.size())
+	_check(bad.is_empty(), "Every text size on every screen is a UiKit role: %s" % str(bad.slice(0, 8)))
+
+
+func _gd_files(dir: String) -> Array[String]:
+	var out: Array[String] = []
+	var d := DirAccess.open(dir)
+	if d == null:
+		return out
+	d.list_dir_begin()
+	var f := d.get_next()
+	while f != "":
+		if d.current_is_dir():
+			if not f.begins_with("."):
+				out.append_array(_gd_files(dir + "/" + f))
+		elif f.ends_with(".gd"):
+			out.append(dir + "/" + f)
+		f = d.get_next()
+	return out
+
+
+## A name never truncates (guide §4.2): every row's name label is a UiKit
+## name_label (wraps to two lines) and, at 360 wide, none needs a third. Checked
+## on Training and the League Draft, the two lists that cut names before.
+func _test_names_fit() -> void:
+	_state.reset()
+	_state.start_season("WBD", _db.club_list("WBD"))
+	_state.set_setting("seen_training_intro", true)
+	var was := root.size
+	root.size = Vector2i(360, 800)
+	_router.stack = ["main", "hub"]
+	_router.go("training")
+	await _settle()
+	await _settle()
+	var names: Array = []
+	_find_named(current_scene, "Name", names)
+	_check(names.size() >= 10, "Training rows lead with name labels (%d found at 360 wide)" % names.size())
+	var cut: Array[String] = []
+	for l in names:
+		var lab := l as Label
+		if lab.get_line_count() > 2:
+			cut.append(lab.text)
+		if lab.get_line_count() > lab.get_visible_line_count():
+			cut.append(lab.text + " (clipped)")
+	_check(cut.is_empty(), "No Training name needs a third line or is clipped at 360 wide: %s" % str(cut))
+	root.size = was
+
+
+func _find_named(n: Node, named: String, out: Array) -> void:
+	if n.name == named and n is Label and (n as Label).is_visible_in_tree():
+		out.append(n)
+	for c in n.get_children():
+		_find_named(c, named, out)

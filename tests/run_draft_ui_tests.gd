@@ -648,6 +648,17 @@ func _test_style_and_trait_filters(ui: Control) -> void:
 			"A draft row shows his age and his playing style and traits")
 	_check(kind != null and kind.get_global_rect().end.x <= float(root.size.x) + 1.0,
 			"His playing style line fits a phone's width")
+	# The facts that decide a pick wrap rather than cut (UI review check #590
+	# found the price cut off on every pool row), and the row grows to hold them.
+	var facts: Label = null
+	for l in (row.find_children("*", "Label", true, false) if row != null else []):
+		if str((l as Label).text).contains(" yo · "):
+			facts = l
+	var insp: Control = row.find_child("Inspect_*", true, false) if row != null else null
+	_check(facts != null and facts.text.contains("$") and facts.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING
+			and facts.get_global_rect().end.x <= float(root.size.x) + 1.0
+			and insp != null and facts.get_global_rect().end.y <= insp.get_global_rect().end.y + 1.0,
+			"A pool row keeps his price on a phone, inside the row (%s)" % (facts.text if facts else "-"))
 	ui.call("_clear_filters")
 	await _settle()
 	_check(str(ui.get("_style")) == "" and str(ui.get("_trait")) == "", "Clear filters resets style and trait")

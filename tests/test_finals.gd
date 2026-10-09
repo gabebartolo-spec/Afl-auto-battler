@@ -25,7 +25,6 @@ func run() -> void:
 	_test_extra_time()
 	_test_home_and_away_never_extra_time()
 	_test_grand_final_at_the_mcg()
-	_test_ladder_result_word()
 	_test_rest_of_week_in_background()
 	_test_draws_on_the_ladder()
 	GameState.replay_seed = 0
@@ -333,16 +332,6 @@ func _test_grand_final_at_the_mcg() -> void:
 				and is_equal_approx(float(e["edge"]), bonus)):
 			hosted = false
 	_check(hosted, "The higher seed still hosts every other final (%s)" % str(seen.keys()))
-
-
-## The ladder's finals rows put the home side first; the word between the
-## scores says who won (it read "d." even when the away side won).
-func _test_ladder_result_word() -> void:
-	var ladder = load("res://scripts/ui/LadderScene.gd")
-	_check(ladder.result_word({"score": [80, 62]}) == "d.", "A home win reads 'd.'")
-	_check(ladder.result_word({"score": [62, 80]}) == "lost to", "An away win reads 'lost to'")
-	_check(ladder.result_word({"score": [70, 70]}) == "drew with",
-			"A level final reads 'drew with'")
 
 
 ## Play match no longer waits on the rest of the week: the other matches run

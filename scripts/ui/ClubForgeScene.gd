@@ -94,6 +94,17 @@ func _build() -> void:
 		_player_form(body)
 	elif _form == "club":
 		_club_form(body)
+	elif UiKit.view_width(self) >= 760.0 and UiKit.view_width(self) > UiKit.view_height(self):
+		# A wide screen: your player and your club side by side, not two
+		# bars stretched across the page (director: no full-width bars on PC).
+		var cols := UiKit.hbox(40)
+		cols.name = "ForgeHomeColumns"
+		body.add_child(cols)
+		for half in [_home, _club_home]:
+			var col := UiKit.vbox(UiKit.GAP)
+			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			cols.add_child(col)
+			half.call(col)
 	else:
 		_home(body)
 		_club_home(body)
@@ -116,14 +127,14 @@ func _restore_scroll(sc: ScrollContainer, value: int) -> void:
 
 
 func _home(body: VBoxContainer) -> void:
-	body.add_child(UiKit.lbl("Your player", UiKit.H2, UiKit.TEXT, true))
+	body.add_child(_heading("Your player"))
 	var saved := GameState.forge_player()
 	if saved.is_empty():
 		var none := UiKit.lbl("Create a prospect and bring him into a new career. He enters the first National Draft like any other kid: where he goes, and what he becomes, is up to the clubs and to him.",
 				UiKit.BODY, UiKit.MUTED)
 		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		body.add_child(none)
-		var make := UiKit.btn("Create a player", 17, true)
+		var make := UiKit.btn("Create a player", UiKit.NAME, true)
 		make.name = "ForgeCreatePlayer"
 		make.custom_minimum_size.y = 48
 		make.pressed.connect(func():
@@ -347,7 +358,7 @@ func _player_form(body: VBoxContainer) -> void:
 	_problem.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_problem.visible = false
 	body.add_child(_problem)
-	var save := UiKit.btn("Save player", 17, true)
+	var save := UiKit.btn("Save player", UiKit.NAME, true)
 	save.name = "ForgeSavePlayer"
 	save.custom_minimum_size.y = 48
 	save.pressed.connect(_on_save)
@@ -490,7 +501,7 @@ func _club_home(body: VBoxContainer) -> void:
 				UiKit.BODY, UiKit.MUTED)
 		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		body.add_child(none)
-		var make := UiKit.btn("Create a club", 17)
+		var make := UiKit.btn("Create a club", UiKit.NAME)
 		make.name = "ForgeCreateClub"
 		make.custom_minimum_size.y = 48
 		make.pressed.connect(func():
@@ -630,7 +641,7 @@ func _club_workspace(form: ScrollContainer) -> Control:
 	_problem.name = "ForgeProblem"
 	_problem.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_problem.visible = false
-	var save := UiKit.btn("Save club", 17, true)
+	var save := UiKit.btn("Save club", UiKit.NAME, true)
 	save.name = "ForgeSaveClub"
 	save.custom_minimum_size = Vector2(120, 48)
 	save.pressed.connect(_on_save_club)
@@ -856,7 +867,7 @@ func _rebuild_kit() -> void:
 		var centre := CenterContainer.new()
 		centre.add_child(GuernseyCrest.make(cols[0], cols[1], cols[2], str(d), "", 44.0))
 		face.add_child(centre)
-		var label := UiKit.lbl(str(DESIGN_LABELS.get(d, d)), 12, UiKit.MUTED)
+		var label := UiKit.lbl(str(DESIGN_LABELS.get(d, d)), UiKit.SMALL, UiKit.MUTED)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		face.add_child(label)
 		_ignore_mouse(face)
@@ -896,7 +907,7 @@ func _swatch_button(node_name: String, title: String, colour_name: String, colou
 	words.alignment = BoxContainer.ALIGNMENT_CENTER
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if title != "":
-		words.add_child(UiKit.lbl(title, 12, UiKit.MUTED))
+		words.add_child(UiKit.lbl(title, UiKit.SMALL, UiKit.MUTED))
 	words.add_child(UiKit.ellipsis(colour_name, 14, UiKit.TEXT if on else UiKit.MUTED, on))
 	face.add_child(words)
 	_ignore_mouse(face)
