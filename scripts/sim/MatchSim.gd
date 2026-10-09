@@ -1661,7 +1661,7 @@ const LOOSE_READ := 0.5
 const ROAM_REACH := 0.7
 ## The spare as an extra body: his chance, for a league-average aerial
 ## defender (70), of getting a fist to a ball the man in the contest missed.
-const LOOSE_EXTRA := 0.35
+const LOOSE_EXTRA := 0.6
 ## The loose defender's read of the ball (interceptor score) from which he
 ## starts to matter, and the span over which he reaches full value.
 const LOOSE_READ_FLOOR := 52.0
@@ -1669,9 +1669,9 @@ const LOOSE_READ_SPAN := 26.0
 ## His chance of reaching an entry's contest: a poor reader's, plus the range
 ## a top one adds.
 const LOOSE_REACH_MIN := 0.06
-const LOOSE_REACH_RANGE := 0.45
+const LOOSE_REACH_RANGE := 0.7
 ## The most he makes the mark harder, for a top reader.
-const LOOSE_MARK_EDGE := 0.22
+const LOOSE_MARK_EDGE := 0.5
 ## The share of his spoil a poor reader still gets.
 const LOOSE_SPOIL_FLOOR := 0.25
 ## The power on intercept when picking the defender who meets an entry (main: 2).
@@ -2562,8 +2562,8 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	# A good reader picks his moment, so leaves less space when he misses.
 	if roaming and not spoilt:
 		var gap := 1.0 - _loose_read(roamer)
-		goal_p *= 1.0 + (0.08 if marked else 0.04) * gap
-		behind_p *= 1.0 + 0.03 * gap
+		goal_p *= 1.0 + (0.15 if marked else 0.08) * gap
+		behind_p *= 1.0 + 0.05 * gap
 		if not marked:
 			_p(roamer, "roam_losses")
 	# Beaten in the air by his direct opponent, a key forward rarely gets the
