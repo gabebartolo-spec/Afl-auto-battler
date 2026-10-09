@@ -6573,6 +6573,19 @@ Offer a short chance to convince a retiring veteran at the user's club to play o
 Relevant shared playing/training gradually improves specific teammate/unit coordination. No manual relationship maintenance or separate social system.
 **Acceptance/checks:** capped contextual effects, real eligible participants and actual exposure; define retention/decay without wiping history for one omission. Rotation, injuries, recruiting and rebuilds stay viable. Check stable/rotating/new/injury-affected sides, AI parity, storage/save compatibility and stacking. No invisible universal lineup bonus or compulsory pair-training chores.
 
+## RPG-011 — A word to a player who had a quiet game (Encourage, Spray, Drop)
+**Owner:** ClubLife morale and selection, with RPG-003 (private conversations). **Autonomy:** SUPERVISED; BALANCE-GATED for the morale numbers.
+**Status (2026-10-10): TODO, requested by the director, not assigned.** Added to the roadmap only. A first prototype was built by mistake before this was recorded as "roadmap only"; it was reverted and is kept in the git history (commit `ff8f644`, reverted by the commit after it) as a reference, not as an approved start.
+**Request (director, 2026-10-10):** beside each player in the full-time "Needs a lift" list, three actions: **Encourage**, **Spray** and **Drop**. Dropping a player drops him from next week's side and then prompts a shortlist of players in his position who are pressing for selection.
+**Assessment against the bible:** it deserves to exist. It deepens agency and roleplay (what the coach says and decides can affect the sim) and fits the press-conference rule: a comment is a dice roll based on logic, with a risk the player can see, and the effect shows afterwards. Pressure points to check: three actions on a phone row must stay editorial (text actions, not pills), and the dice must be explained in plain words, not hidden.
+**Prototype choices to confirm or change (all the director's call):**
+- **Encourage:** a sure morale lift (+6).
+- **Spray:** a roll on his temperament: lifts him (+4) or rattles him (-9); more likely to rattle the young, the low in morale and the hot-headed; a settled veteran usually takes it.
+- **Drop:** out of next week's side at once, the spot filled from a shortlist of up to three of his position outside the side (age, rating, senior games), or left to auto-pick. An auto-picked side returns to auto-pick after the match; a named side stays named.
+- One word per player per week. A dropped player already feels it through the existing left-out morale cost (no second penalty). A dropped player with an active Backing run breaks it, and the shortlist says so.
+**Open questions for the director:** should a spray or an encouragement also move the group (the "earn his spot" card lifts the others by 2)? Should "pressing" mean recent form rather than rating? Does the quiet-game list need a cap on how many players can be sprayed in a week?
+**Acceptance/checks:** real taps on the full-time screen at 390 px; selection after Drop (named and auto sides, bench and ground slots, an injured replacement), save/load mid-week, repeat delivery, AI parity not needed (your side only), no second morale system. Reuse ClubLife.add_morale, Backing and the Selection screen; share the one optional-ask budget (G1) only if it becomes a prompt rather than an optional row.
+
 ## Execution and shared validation
 **Prerequisites (director-approved research findings G1 and G7, 2026-10-06):**
 - **G1, one interruption budget.** Before RPG-002, RPG-003, RPG-009 or RPG-008 surfaces anything, define one shared pacing rule for journalist questions, private conversations, personality incidents and story beats.
