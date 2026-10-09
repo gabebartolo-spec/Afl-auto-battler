@@ -547,9 +547,12 @@ static func match_factors(res: Dictionary, my_side: int) -> Array:
 	var g_t := int(res.get("goals", [0, 0])[opp])
 	var b_t := int(res.get("behinds", [0, 0])[opp])
 	if b_m >= g_m + 3 and g_m + b_m >= 12:
-		out.append("Wayward kicking cost you: %d.%d." % [g_m, b_m])
+		# Only a loss or a draw was cost by it; a win was nearly cost.
+		out.append(("Wayward kicking nearly cost you: %d.%d." if won else "Wayward kicking cost you: %d.%d.") % [g_m, b_m])
 	elif b_t >= g_t + 3 and g_t + b_t >= 12:
-		out.append("They let you off the hook in front of goal: %d.%d." % [g_t, b_t])
+		# They let you off the hook only if it let you win.
+		out.append(("They were wayward in front of goal and still won: %d.%d." if lost
+				else "They let you off the hook in front of goal: %d.%d.") % [g_t, b_t])
 	elif g_m >= b_m + 8:
 		out.append("You kicked straight: %d.%d." % [g_m, b_m])
 
