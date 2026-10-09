@@ -490,7 +490,7 @@ func _show_help() -> void:
 			+ ("6. Finish in the top %d to play finals and chase the flag. The top four start in the qualifying finals, 5-10 in the wildcards and eliminations. The season's awards, the honour roll and league records are in the Season Review.\n\n"
 			% Season.FINALISTS)
 			+ "7. In the off-season, re-sign, release, sign free agents and trade in Trades & Contracts, then draft the next class. The hub's League news follows the whole league.\n\n"
-			+ "Difficulty (Easy, Normal or Hard) is chosen when you start a new career: it sets how fast rivals develop, how hard they bargain, and how much XP your players earn.\n\n"
+			+ "Difficulty (Easy, Normal or Hard) is chosen when you start a new career: it sets how hard rival clubs bargain when they trade with you. Players develop by the same rules on every difficulty.\n\n"
 			+ "Player names are the real AFL names, such as Jordan Dawson, unless you choose otherwise. Settings switches to generated names without changing ratings or gameplay.\n\n"
 			+ "Rotate your device at any time. Your draft picks, search and filters stay intact.", 16)
 	v.add_child(UiKit.scroll(text))

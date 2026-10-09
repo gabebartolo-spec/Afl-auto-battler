@@ -6640,11 +6640,11 @@ func _recalc_player_overall(p: Dictionary) -> void:
 ## train and grow by the same rules (SEASON_TRAIN_GAIN, Potential).
 const DIFFICULTIES := {
 	"easy": {"label": "Easy", "trade_margin": 0.0,
-			"text": "Clubs trade at fair value."},
+			"text": "Rival clubs trade with you at fair value."},
 	"normal": {"label": "Normal", "trade_margin": Contracts.TRADE_MARGIN,
-			"text": "The league as tuned."},
+			"text": "Rival clubs want a little more than fair value to trade with you."},
 	"hard": {"label": "Hard", "trade_margin": 0.12,
-			"text": "Rival clubs drive hard bargains in trades."},
+			"text": "Rival clubs drive hard bargains in trades with you."},
 }
 const DIFFICULTY_ORDER := ["easy", "normal", "hard"]
 
