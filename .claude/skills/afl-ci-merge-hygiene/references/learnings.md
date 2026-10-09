@@ -93,3 +93,16 @@ merged as 26f71953.
 **Lesson:** a PR that adds a `data/*.csv` commits its `.csv.import` with `importer="keep"` and runs
 `tools/check_export_data.sh` before push. A red `dataset and harness checks` with green shards
 points at an export/import problem, not at the game logic.
+
+## 2026-10-10 · a text check that names the opponent trips when a ground shares the club's name
+**Finding:** the matchup suite's "not at the opponent" check asserted the hub's venue line did not
+contain the opponent club's name. It passed on most fixtures and failed whenever the next opponent
+was Adelaide, because the ground is "Adelaide Oval" (the Crows' own): the line was right and the
+check was wrong. Whether it ran red depended on which club the seeded fixture put next, so it
+looked like a flake.
+**Evidence:** #591 (the check now looks for "at <club>", the actual defect); matchup 103/0 on that
+branch.
+**Lesson:** when a test forbids a club's name in a string, forbid the wrong construction ("at
+Adelaide"), not the bare name: grounds, nicknames and sponsors reuse club names. A check that goes
+red only against some opponent is a content-dependent check, not unpinned randomness: read the
+failing string before adding a seed.

@@ -41,90 +41,49 @@ func _build() -> void:
 	# A move or a resize rebuilds the list: keep your place in it.
 	var keep := _scroll_box.scroll_vertical if is_instance_valid(_scroll_box) else 0
 	UiKit.clear(_root)
-	_root.add_child(UiKit.top_bar("Team selection", true))
-	var auto := GameState.my_selection().is_empty()
-	# A side named before the wings existed: split its midfield once.
-	if not auto and not GameState.my_selection().has("WING"):
-		GameState.set_selection(GameState.current_side())
-
-	var wide := UiKit.view_width(self) >= 900.0 and UiKit.view_width(self) > UiKit.view_height(self)
-	# Until you move someone the side is picked for you each week; the first
-	# move makes it yours (TeamBuilder sets the selection).
-	var head := UiKit.panel(UiKit.PANEL, 10, 8)
-	head.name = "BuilderHead"
-	_root.add_child(head)
-	var hv := UiKit.vbox(6)
-	head.add_child(hv)
-	# Wraps on a phone rather than pushing the screen wider.
-	var actions := HFlowContainer.new()
-	actions.add_theme_constant_override("h_separation", 6)
-	actions.add_theme_constant_override("v_separation", 6)
-	hv.add_child(actions)
 	# Auto-pick is an action, never a mode: choose a strategy and it sets the
-	# side; your moves after that stay yours (director, 2026-10-07).
+	# side; your moves after that stay yours (director, 2026-10-07). It is
+	# the top bar's right control (audit §8 Phase 1.4): the board comes first.
 	var pick := MenuButton.new()
 	pick.name = "AutoPick"
 	pick.text = "Auto-pick"
 	pick.flat = false
-	UiKit.style_button(pick, 15)
-	pick.custom_minimum_size = Vector2(150, 44)
+	UiKit.style_button(pick, UiKit.BODY)
+	pick.custom_minimum_size = Vector2(0, 44)
 	var menu := pick.get_popup()
 	menu.add_theme_font_override("font", UiKit.FONT)
-	menu.add_theme_font_size_override("font_size", 16)
+	menu.add_theme_font_size_override("font_size", UiKit.NAME)
 	var strategies := [["best", "Best side"], ["rest", "Rest tired players"], ["youth", "Blood the youth"],
 			["mine", "My Selected Best 23"]]
 	for i in range(strategies.size()):
 		menu.add_item(str(strategies[i][1]), i)
 	menu.id_pressed.connect(func(idx: int):
 		_apply_strategy(str(strategies[idx][0])))
-	actions.add_child(pick)
-	var save := UiKit.btn("Save as my Best 23", 14)
-	save.name = "SaveBest23"
-	save.custom_minimum_size = Vector2(0, 44)
-	save.pressed.connect(func():
-		GameState.set_best23(GameState.current_side())
-		_notice = "Saved as your Best 23. Choose it any week from Auto-pick."
-		_build())
-	actions.add_child(save)
-	if not _undo.is_empty():
-		var undo := UiKit.btn("Undo", 14)
-		undo.name = "UndoPick"
-		undo.flat = true
-		undo.custom_minimum_size = Vector2(72, 44)
-		undo.pressed.connect(func():
-			GameState.set_selection(_undo)
-			_undo = {}
-			_notice = "Back to your side before the auto-pick."
-			_build())
-		actions.add_child(undo)
-	var dual := UiKit.choice_grid("DualRuck", [["off", "One ruck"], ["on", "Dual ruck"]],
-			"on" if GameState.dual_ruck() else "off", 2, func(k):
+	_root.add_child(UiKit.top_bar("Team selection", true, pick))
+	var auto := GameState.my_selection().is_empty()
+	# A side named before the wings existed: split its midfield once.
+	if not auto and not GameState.my_selection().has("WING"):
+		GameState.set_selection(GameState.current_side())
+
+	var wide := UiKit.view_width(self) >= 900.0 and UiKit.view_width(self) > UiKit.view_height(self)
+	# What the board shows, as one line of text each, over the board.
+	var head := UiKit.vbox(0)
+	head.name = "BuilderHead"
+	_root.add_child(head)
+	var dual := UiKit.segmented("DualRuck", [["off", "One ruck"], ["on", "Dual ruck"]],
+			"on" if GameState.dual_ruck() else "off", func(k):
 				GameState.set_dual_ruck(k == "on")
 				_notice = "Dual ruck on: Auto-pick names a second ruck on the bench." if k == "on" else "One ruck: Auto-pick fills the bench with the best of the rest."
 				_build())
-	dual.custom_minimum_size.x = 200
-	actions.add_child(dual)
+	head.add_child(dual)
 	var nxt := GameState.my_next_opponent()
 	if not nxt.is_empty():
-		# Look at them on the same oval (director, 2026-10-07), and what your
-		# assistant has seen of them - said there, and only there.
+		# Look at them on the same oval (director, 2026-10-07).
 		var opp_name := GameDB.club_short(str(nxt["code"]))
-		var flip := UiKit.choice_grid("OvalView", [["mine", "Your team"], ["opp", opp_name]], _view, 2, func(k):
+		var flip := UiKit.segmented("OvalView", [["mine", "Your team"], ["opp", opp_name]], _view, func(k):
 			_view = k
 			_build())
-		flip.custom_minimum_size.x = 220
-		actions.add_child(flip)
-		var report := UiKit.btn("Assistant's report", 14)
-		report.name = "AssistantReport"
-		report.custom_minimum_size = Vector2(0, 44)
-		report.pressed.connect(_show_report.bind(str(nxt["code"])))
-		actions.add_child(report)
-	hv.add_child(_lines_view())
-	if _notice != "":
-		var nl := _para(_notice, 13, UiKit.GOOD)
-		nl.name = "BuilderNote"
-		hv.add_child(nl)
-	hv.add_child(_synergy_view())
+		head.add_child(flip)
 
 	var body := UiKit.vbox(10)
 	_scroll_box = UiKit.scroll(body)
@@ -150,11 +109,14 @@ func _build() -> void:
 	builder.changed.connect(func(note: String):
 		_notice = note
 		_undo = {}
-		_refresh_head())
-	if auto:
-		var a := _para("Picked for you each week until you move someone.", 12, UiKit.MUTED)
-		a.name = "AutoNote"
-		hv.add_child(a)
+		_refresh_facts())
+	# Under the board: the facts of the side as arranged, and the actions on
+	# it, said as words. Until you move someone the side is picked for you
+	# each week; the first move makes it yours (TeamBuilder sets the selection).
+	var facts := UiKit.vbox(6)
+	facts.name = "BuilderFacts"
+	body.add_child(facts)
+	_fill_facts(facts, auto)
 	# The team sheet: who is in and out since your last match, and why.
 	var changes := GameState.week_changes_text()
 	if changes != "":
@@ -175,34 +137,58 @@ func _lines_view() -> Control:
 	return l
 
 
-## After a move: the lines, the note and the synergies, without rebuilding
-## the builder (or losing your place in it).
-func _refresh_head() -> void:
-	var head: Control = _root.find_child("BuilderHead", true, false)
-	if head == null:
-		return
-	var hv: VBoxContainer = head.get_child(0)
-	var old_lines: Control = hv.find_child("LineStandings", false, false)
-	if old_lines != null:
-		var at := old_lines.get_index()
-		hv.remove_child(old_lines)
-		old_lines.queue_free()
-		var fresh := _lines_view()
-		hv.add_child(fresh)
-		hv.move_child(fresh, at)
-	var old_note: Control = hv.find_child("BuilderNote", false, false)
-	if old_note != null:
-		hv.remove_child(old_note)
-		old_note.queue_free()
-	var syn: Control = hv.find_child("Synergies", false, false)
-	if syn != null:
-		hv.remove_child(syn)
-		syn.queue_free()
+## The facts under the board: your lines, the note of the last move, the
+## synergies, and the actions on the side as words (save, undo, the report).
+func _fill_facts(facts: VBoxContainer, auto: bool) -> void:
+	facts.add_child(_lines_view())
 	if _notice != "":
-		var nl := _para(_notice, 13, UiKit.GOOD)
+		var nl := _para(_notice, UiKit.SMALL, UiKit.GOOD)
 		nl.name = "BuilderNote"
-		hv.add_child(nl)
-	hv.add_child(_synergy_view())
+		facts.add_child(nl)
+	if auto:
+		var a := _para("Picked for you each week until you move someone.", UiKit.FINE, UiKit.MUTED)
+		a.name = "AutoNote"
+		facts.add_child(a)
+	facts.add_child(_synergy_view())
+	# Wraps on a phone rather than pushing the screen wider.
+	var actions := HFlowContainer.new()
+	actions.name = "SideActions"
+	actions.add_theme_constant_override("h_separation", 12)
+	actions.add_theme_constant_override("v_separation", 0)
+	facts.add_child(actions)
+	var save := UiKit.text_action("Save as my Best 23")
+	save.name = "SaveBest23"
+	save.pressed.connect(func():
+		GameState.set_best23(GameState.current_side())
+		_notice = "Saved as your Best 23. Choose it any week from Auto-pick."
+		_build())
+	actions.add_child(save)
+	if not _undo.is_empty():
+		var undo := UiKit.text_action("Undo")
+		undo.name = "UndoPick"
+		undo.pressed.connect(func():
+			GameState.set_selection(_undo)
+			_undo = {}
+			_notice = "Back to your side before the auto-pick."
+			_build())
+		actions.add_child(undo)
+	var nxt := GameState.my_next_opponent()
+	if not nxt.is_empty():
+		# What your assistant has seen of them - said there, and only there.
+		var report := UiKit.text_action("Assistant's report ›")
+		report.name = "AssistantReport"
+		report.pressed.connect(_show_report.bind(str(nxt["code"])))
+		actions.add_child(report)
+
+
+## After a move: the facts under the board, without rebuilding the builder
+## (or losing your place in it).
+func _refresh_facts() -> void:
+	var facts: VBoxContainer = _root.find_child("BuilderFacts", true, false)
+	if facts == null:
+		return
+	UiKit.clear(facts)
+	_fill_facts(facts, GameState.my_selection().is_empty())
 
 
 ## Their player's profile: who he is and how he plays, nothing to change.

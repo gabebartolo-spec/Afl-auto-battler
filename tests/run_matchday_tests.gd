@@ -1320,6 +1320,49 @@ func _bounce_matches_sim(tokens: Array, sim) -> bool:
 	return true
 
 
+## Press answers keep their board and morale effects, and each says what it
+## does under its button (director, 2026-10-10). A real tap on the
+## accountable answer moves the board and the players exactly as its line says.
+func _test_press_effects_shown(db) -> void:
+	var MC = load("res://scripts/sim/MediaConference.gd")
+	_state.media_conference = MC.pick({"club": "COL", "opponent_name": "Carlton", "round": 8,
+			"result": {"home": "COL", "away": "CAR", "score": [55, 101]}}, {})
+	var opts: Array = _state.media_conference.get("options", [])
+	var hub = load("res://scenes/HubScene.tscn").instantiate()
+	root.add_child(hub)
+	await _settle()
+	if hub.find_child("MediaConference", true, false) == null:
+		hub.call("_show_media_conference")
+		await _settle()
+	var shown := opts.size() == 3
+	for i in range(opts.size()):
+		var line: Label = hub.find_child("MediaAnswerLine_%d" % i, true, false)
+		var o: Dictionary = opts[i]
+		var text := "" if line == null else line.text
+		var board_ok := (int(o.get("board", 0)) > 0) == text.begins_with("The board likes it") \
+				and (int(o.get("board", 0)) < 0) == text.contains("the board wanted")
+		var morale_ok := (int(o.get("morale", 0)) < 0) == text.contains("hung out to dry") \
+				and (int(o.get("morale", 0)) > 0) == text.contains("feel backed")
+		shown = shown and line != null and line.is_visible_in_tree() and board_ok and morale_ok \
+				and not text.contains("%") and not text.contains("+")
+	_check(shown, "Every press answer shows what it does to the board and the players, in words")
+	_state.board["confidence"] = 50
+	var who: Dictionary = _state.my_list[0]
+	who["morale"] = 50
+	var answer: Button = hub.find_child("MediaAnswer_0", true, false)
+	var o0: Dictionary = opts[0] if not opts.is_empty() else {}
+	var tapped: String = await Tap.tap(answer) if answer != null else "missing"
+	await _settle()
+	_check(tapped == "" and _state.board_confidence() == 50 + int(o0.get("board", 0))
+			and int(who["morale"]) == 50 + int(o0.get("morale", 0)) and int(o0.get("board", 0)) > 0
+			and int(o0.get("morale", 0)) < 0,
+			"A real tap on the accountable answer lifts the board and costs the players, as its line says (%s)" % tapped)
+	if is_instance_valid(hub):
+		hub.queue_free()
+	_state.media_conference = {}
+	await _settle()
+
+
 func _settle() -> void:
 	for i in range(6):
 		await process_frame
@@ -1464,6 +1507,7 @@ func _vignettes_off_match() -> void:
 	hub.queue_free()
 	_state.media_conference = {}
 	await _settle()
+	await _test_press_effects_shown(db)
 	# A promised run just ended: the sit-down is the week's one ask, and a real
 	# tap on Done closes it.
 	_state.backing_talk = {"player_id": "calder", "title": "Sit-down with Calder",
