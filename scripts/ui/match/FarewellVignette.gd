@@ -37,6 +37,10 @@ const CARRY_CYCLE := 1.3
 const CLAP_RATE := 9.0
 ## Where it stands: the same wing as the pre-match scene, the stand behind them.
 const BOUNDARY_AT := 72.0
+## How far the camera's lens is pushed in on the pre-match scene's (#540: at 1.68 each pixel of the
+## figure art covered ~4 of a phone's, so one-pixel details went soft). A static so a review
+## capture can compare framings (tools/visual/capture_farewell.gd --lens).
+static var lens := 1.68
 
 var copy := ""
 var _left := false
@@ -162,7 +166,7 @@ func _set_camera() -> void:
 	_cam_x = 0.0
 	_pan = 0.0
 	# Tight on the guard: at 1.25 the top ~40% of a phone was empty night sky.
-	var base := maxf(size.x * 1.25, size.y * 0.6) * 1.68
+	var base := maxf(size.x * 1.25, size.y * 0.6) * lens
 	var push := _ease(clampf(fmod(_t, GUARD) / GUARD, 0.0, 1.0)) if _t < GUARD else _ease(clampf((_t - GUARD) / CHAIRED, 0.0, 1.0))
 	_zoom = 1.0 + 0.08 * push
 	_focal = base * _zoom
