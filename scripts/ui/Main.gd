@@ -16,6 +16,7 @@ var _logo: TextureRect
 ## The setup's choices, applied only when the career starts.
 var _pick_real := true
 var _pick_difficulty := "normal"
+var _pick_tutorials := true
 ## How the next career starts (ARD-M5-016): "redraft" or "real" (real 2026 lists).
 var _pick_start := "redraft"
 var _pick_prospect := false
@@ -87,6 +88,7 @@ func _ready() -> void:
 		_mode = "setup"
 	_pick_real = GameState.show_real_names
 	_pick_difficulty = GameState.new_career_difficulty()
+	_pick_tutorials = GameState.new_career_tutorials()
 	# The oval stays as a faint ground; the logo and buttons carry the screen.
 	_pitch = PitchView.new()
 	_pitch.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -233,6 +235,7 @@ func _on_continue() -> void:
 func _on_new_career() -> void:
 	_pick_real = GameState.show_real_names
 	_pick_difficulty = GameState.new_career_difficulty()
+	_pick_tutorials = GameState.new_career_tutorials()
 	_pick_prospect = not GameState.forge_player().is_empty()
 	_pick_club = not GameState.forge_club().is_empty()
 	_mode = "setup"
@@ -284,6 +287,11 @@ func _show_setup() -> void:
 	form.add_child(_choice("Difficulty", "Difficulty", diff_options, _pick_difficulty,
 			func(k): return str(GameState.DIFFICULTIES[k]["text"]),
 			func(k): _pick_difficulty = k))
+	form.add_child(_choice("Tutorials", "Tutorials", [["on", "On"], ["off", "Off"]],
+			"on" if _pick_tutorials else "off",
+			func(k): return ("A short note the first time you open each screen, saying what it shows and how to use it." if k == "on"
+					else "No notes open by themselves. You can change this later in Settings."),
+			func(k): _pick_tutorials = k == "on"))
 	# Your Club Forge player, if you made one: he enters this career's first
 	# National Draft like any other prospect.
 	var forged := GameState.forge_player()
@@ -375,6 +383,7 @@ func _on_start() -> void:
 func _start_new_career() -> void:
 	GameState.set_show_real_names(_pick_real)
 	GameState.set_new_career_difficulty(_pick_difficulty)
+	GameState.set_new_career_tutorials(_pick_tutorials)
 	GameState.delete_saved_career()
 	GameState.reset()
 	# A created club has no real 2026 list, so it only joins a League redraft.

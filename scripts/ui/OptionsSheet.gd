@@ -56,6 +56,10 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 		_row(v, "Full screen", "SettingsFullscreen", [["off", "Off"], ["on", "On"]],
 				"on" if GameState.fullscreen() else "off", "Fill the screen, with no window border.",
 				func(k): GameState.set_fullscreen(k == "on"))
+	_row(v, "Tutorials", "SettingsTutorials", [["on", "On"], ["off", "Off"]],
+			"on" if GameState.tutorials_on() else "off",
+			"A short note the first time you open each screen. Off stops them opening by themselves; notes you've already read don't come back.",
+			func(k): GameState.set_tutorials_on(k == "on"))
 	_row(v, "Battery saver", "SettingsBatterySaver", [["off", "Off"], ["on", "On"]],
 			"on" if GameState.battery_saver() else "off",
 			"Draws 30 frames a second instead of 60. Uses less battery; matches and scenes play the same, a little less smoothly.",

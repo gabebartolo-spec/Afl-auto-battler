@@ -6674,6 +6674,12 @@ func tutorials_on() -> bool:
 	return tutorials
 
 
+## Whether a first-visit intro opens by itself: this career's tips are on and
+## it hasn't been seen on this device. Help buttons open intros regardless.
+func intro_due(key: String) -> bool:
+	return tutorials and not bool(get_setting("seen_%s_intro" % key, false))
+
+
 ## Settings: this career's tips on or off (and the next New career's default).
 func set_tutorials_on(on: bool) -> void:
 	tutorials = on

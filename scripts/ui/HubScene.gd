@@ -45,7 +45,7 @@ func _ready() -> void:
 	# a pending press conference follows when it closes.
 	if GameState.needs_season_wrap():
 		_show_season_wrap()
-	elif not bool(GameState.get_setting("seen_weekly_loop_intro", false)):
+	elif GameState.intro_due("weekly_loop"):
 		_show_weekly_loop_intro()
 	else:
 		_show_week_ask()
