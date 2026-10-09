@@ -495,17 +495,23 @@ func _test_retirement_talk() -> void:
 	_check(not bool(no.get("stays", true)) and str(no.get("reason", "")).contains("hamstring"),
 			"Still injured: he sticks with it, and says why (%s)" % str(no.get("reason", "")))
 	# Same record, same answer: no dice.
-	var again := Retirement.answer(sore, GameState.season_year, 18)
+	var facts := GameState.career_facts
+	var again := Retirement.answer(sore, GameState.season_year, 18, facts)
 	_check(str(again["reason"]) == str(no["reason"]), "His answer follows his record, not a roll")
 	sore["injury_weeks"] = 0
-	sore["injury_log"] = [GameState.season_year, GameState.season_year, GameState.season_year - 1]
-	_check(not bool(Retirement.answer(sore, GameState.season_year, 18)["stays"]),
+	var sid := str(sore["id"])
+	var kept: Array = (facts.get(sid, []) as Array).duplicate()
+	facts[sid] = []
+	for y in [GameState.season_year, GameState.season_year, GameState.season_year - 1]:
+		CareerFacts.add(facts, sid, CareerFacts.row(y, "Round 3", "injury", str(sore["club"]), "", "hamstring"))
+	_check(not bool(Retirement.answer(sore, GameState.season_year, 18, facts)["stays"]),
 			"Three injuries in two seasons: he won't do another rehab")
-	sore["injury_log"] = []
+	facts[sid] = []
 	sore["morale"] = 30
-	_check(not bool(Retirement.answer(sore, GameState.season_year, 18)["stays"]), "An unhappy veteran goes")
+	_check(not bool(Retirement.answer(sore, GameState.season_year, 18, facts)["stays"]), "An unhappy veteran goes")
 	sore["morale"] = 70
-	_check(not bool(Retirement.answer(sore, GameState.season_year, 3)["stays"]), "Barely played: he sees no role")
+	_check(not bool(Retirement.answer(sore, GameState.season_year, 3, facts)["stays"]), "Barely played: he sees no role")
+	facts[sid] = kept
 	# Rival clubs ask by the same rules.
 	var rival_asked := 0
 	for code in GameState.season.lists:

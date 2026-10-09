@@ -85,6 +85,12 @@ var rivalry_history := {}        # canonical club pair -> emergent rivalry evide
 ## Club achievements unlocked this career: id -> {"year", "detail"}.
 ## Definitions live in scripts/sim/Achievements.gd.
 var achievements := {}
+## G7: the career's durable facts, {player id: [row, ...]} (CareerFacts.gd).
+## Saved with the career; a player leaving the lists does not take them.
+var career_facts := {}
+## Players who have left the game: id -> his name card (CareerFacts.name_card),
+## so an honour-roll or record line can still name him.
+var departed_names := {}
 var salary_cap := 0              # annual-dollar TPP cap every club's payroll counts against
 var free_agents: Array = []      # off-season: players no club kept
 var offseason_year := 0          # the season whose off-season has opened
@@ -479,6 +485,8 @@ func save_career() -> bool:
 		"records": records,
 		"rivalry_history": rivalry_history,
 		"achievements": achievements,
+		"career_facts": career_facts,
+		"departed_names": departed_names,
 		"salary_cap": salary_cap,
 		"free_agents": free_agents,
 		"offseason_year": offseason_year,
@@ -625,6 +633,8 @@ func load_career() -> bool:
 	records = state.get("records", {})
 	rivalry_history = state.get("rivalry_history", {})
 	achievements = state.get("achievements", {})
+	career_facts = state.get("career_facts", {})
+	departed_names = state.get("departed_names", {})
 	salary_cap = int(state.get("salary_cap", 0))
 	free_agents = state.get("free_agents", [])
 	offseason_year = int(state.get("offseason_year", 0))
@@ -668,6 +678,7 @@ func load_career() -> bool:
 	if int(state.get("career_version", 0)) < CAREER_VERSION:
 		_migrate_careers()
 	_migrate_train_plans()
+	_migrate_injury_logs()
 	_mark_unicorns()
 	_backfill_potential()
 	ensure_contracts()
@@ -972,6 +983,8 @@ func reset() -> void:
 	records = {}
 	rivalry_history = {}
 	achievements = {}
+	career_facts = {}
+	departed_names = {}
 	coaches = {}
 	coach_archive = {}
 	staff_vacancies = []
@@ -2721,7 +2734,8 @@ func _career_copies(source: Array) -> Array:
 
 
 ## A player's display name from any current list, for ids the database
-## cannot resolve (a player who joined a list during the career). "" if none.
+## cannot resolve (a player who joined a list during the career), or from the
+## name kept when he left the game (CareerFacts.name_card). "" if none.
 func season_player_name(player_id: String) -> String:
 	var groups: Array = [my_list, free_agents]
 	if season != null:
@@ -2731,6 +2745,8 @@ func season_player_name(player_id: String) -> String:
 		for p in arr:
 			if p is Dictionary and str(p.get("id", "")) == player_id:
 				return GameDB.player_display_name(p)
+	if departed_names.get(player_id) is Dictionary:
+		return GameDB.player_display_name(departed_names[player_id])
 	return ""
 
 
@@ -3416,19 +3432,41 @@ func _process_injuries(results: Array) -> void:
 		var rows := Injuries.apply_match(res, season.lists, season.seed,
 				int(res.get("round", season.round_index)))
 		last_injuries += rows
-		_log_injuries(rows)
+		_log_injuries(rows, str(res.get("label", "")))
 
 
-## Each new injury goes on the player's record (the season it happened), so
-## later decisions can cite his real history - only what this career saw.
-func _log_injuries(rows: Array) -> void:
+## Each new injury is a career fact (CareerFacts): the season, the match,
+## his club and what it was, so later decisions can cite his real history -
+## only what this career saw.
+func _log_injuries(rows: Array, label: String) -> void:
 	for r in rows:
-		for p in season.lists.get(str(r["club"]), []):
-			if str(p["id"]) == str(r["id"]):
-				var log: Array = p.get("injury_log", [])
-				log.append(season_year)
-				p["injury_log"] = log
-				break
+		CareerFacts.add(career_facts, str(r["id"]),
+				CareerFacts.row(season_year, label, "injury", str(r["club"]), "", str(r.get("kind", ""))))
+
+
+## A save from before career facts kept injuries on the player as bare years
+## (p["injury_log"]). They move to the fact store once, nothing invented, and
+## the old key goes. Every player the save holds is visited. A player can sit
+## in two lists as the same dict or, with an unlinked list, as two copies: his
+## years move the first time his id is met, and any other copy just drops them.
+func _migrate_injury_logs() -> void:
+	var all: Array = [my_list, free_agents]
+	if season != null:
+		for code in season.lists:
+			all.append(season.lists[code])
+	for code in league_lists:
+		all.append(league_lists[code])
+	var moved := {}
+	for arr in all:
+		for p in arr:
+			if not (p is Dictionary) or not (p as Dictionary).has("injury_log"):
+				continue
+			var id := str(p.get("id", ""))
+			if moved.has(id):
+				(p as Dictionary).erase("injury_log")
+				continue
+			moved[id] = true
+			CareerFacts.migrate_injury_log(career_facts, p)
 
 
 ## Suspensions count down when that player's club plays, then this round's
@@ -3825,7 +3863,7 @@ func _decide_retirements() -> void:
 			p["retiring"] = year
 			if str(code) == my_club or not Retirement.can_ask(p, list, year):
 				continue
-			var res := Retirement.answer(p, season_year, season_games(str(p["id"])))
+			var res := Retirement.answer(p, season_year, season_games(str(p["id"])), career_facts)
 			Retirement.apply(p, res, year)
 			if bool(res["stays"]) and int(p.get("overall", 0)) >= NEWS_MIN_OVR:
 				add_news("retirement", "%s (%s) has decided to play on in %d." % [
@@ -3866,7 +3904,7 @@ func talk_round(player_id: String) -> Dictionary:
 	var year := season_year + 1
 	if p.is_empty() or not offseason_open() or not Retirement.can_ask(p, my_list, year):
 		return {}
-	var res := Retirement.answer(p, season_year, season_games(player_id))
+	var res := Retirement.answer(p, season_year, season_games(player_id), career_facts)
 	Retirement.apply(p, res, year)
 	var name := GameDB.player_display_name(p)
 	add_news("retirement", ("%s will go around again in %d." % [name, year]) if bool(res["stays"])
@@ -7353,6 +7391,9 @@ func _retirees_to_coaching(retired: Array, listed: Dictionary) -> void:
 ## A playing career has ended - retired, or delisted and not picked up - and
 ## this is the last moment the player is in hand.
 func _career_over(p: Dictionary) -> void:
+	var gone_id := str(p.get("id", ""))
+	if gone_id != "" and not departed_names.has(gone_id):
+		departed_names[gone_id] = CareerFacts.name_card(p)
 	if coaches.is_empty():
 		return
 	var pid := str(p.get("id", ""))

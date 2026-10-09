@@ -57,22 +57,19 @@ static func can_ask(p: Dictionary, list: Array, year: int) -> bool:
 			and healthy(p, list)
 
 
-## Recorded injuries in `season` and the one before.
-static func recent_injuries(p: Dictionary, season: int) -> int:
-	var n := 0
-	for y in p.get("injury_log", []):
-		if int(y) >= season - 1:
-			n += 1
-	return n
+## Recorded injuries in `season` and the one before. `facts` is the career's
+## fact store (CareerFacts), where every injury of this career is kept.
+static func recent_injuries(p: Dictionary, season: int, facts: Dictionary) -> int:
+	return CareerFacts.count_since(facts, str(p.get("id", "")), "injury", season - 1)
 
 
 ## His answer, from what is on record: {"stays": bool, "reason": String}.
-## The first reason that applies is the one he gives.
-static func answer(p: Dictionary, season: int, games: int) -> Dictionary:
+## The first reason that applies is the one he gives. `facts` as above.
+static func answer(p: Dictionary, season: int, games: int, facts: Dictionary) -> Dictionary:
 	if int(p.get("injury_weeks", 0)) > 0:
 		var kind := str(p.get("injury_kind", "injury")).replace("_", " ")
 		return {"stays": false, "reason": "He is still getting over the %s, and his body is telling him it's time." % kind}
-	var inj := recent_injuries(p, season)
+	var inj := recent_injuries(p, season, facts)
 	if inj >= INJURY_LIMIT:
 		return {"stays": false, "reason": "%d injuries in two seasons: he doesn't want another rehab." % inj}
 	if ClubLife.morale(p) < LOW_MORALE:
