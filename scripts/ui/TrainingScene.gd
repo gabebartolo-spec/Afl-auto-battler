@@ -234,7 +234,8 @@ func _list_panel() -> Control:
 		_refresh_rows())
 	v.add_child(search)
 	if _bulk_selected.is_empty():
-		v.add_child(UiKit.lbl("Long-press a player to select several.", 12, UiKit.MUTED))
+		v.add_child(UiKit.lbl("Click and hold a player to select several." if ScreenLayout.is_desktop()
+				else "Long-press a player to select several.", 12, UiKit.MUTED))
 	else:
 		v.add_child(_bulk_panel())
 	var rows := UiKit.vbox(4)
@@ -519,6 +520,15 @@ func _detail_panel() -> Control:
 	var outer := UiKit.vbox(6)
 	panel.add_child(outer)
 	var p := GameState.list_player(_selected)
+	if p.is_empty() and _wide and not GameState.my_list.is_empty():
+		# A wide screen opens your best player rather than an empty panel
+		# (director, 2026-10-10: no empty space on a PC).
+		var best: Dictionary = GameState.my_list[0]
+		for q in GameState.my_list:
+			if int(q.get("overall", 0)) > int(best.get("overall", 0)):
+				best = q
+		_selected = str(best["id"])
+		p = best
 	if p.is_empty():
 		outer.add_child(UiKit.lbl("Choose a player from the list.", UiKit.NAME, UiKit.TEXT, true))
 		outer.add_child(UiKit.lbl("Open a player to choose what kind of footballer he develops into.", UiKit.SECONDARY, UiKit.MUTED))
