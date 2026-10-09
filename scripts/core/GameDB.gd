@@ -534,8 +534,11 @@ func figure_look(p: Dictionary, wet := false) -> Dictionary:
 	return out
 
 
+## Punctuation does not matter to the key: a career saved before the data kept
+## "O'Sullivan" still has "OSullivan" in its players and finds his look.
 static func _look_key(p: Dictionary) -> String:
-	return "%s|%s|%s" % [str(p.get("first", "")).to_lower(), str(p.get("last", "")).to_lower(), str(p.get("dob", ""))]
+	return "%s|%s|%s" % [str(p.get("first", "")).to_lower().replace("'", ""),
+			str(p.get("last", "")).to_lower().replace("'", ""), str(p.get("dob", ""))]
 
 
 ## Set p["home_state"] from data/player_origin_2026.csv, matched on club,

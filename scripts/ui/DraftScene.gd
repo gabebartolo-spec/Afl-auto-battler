@@ -930,7 +930,7 @@ func _player_by_id(id: String) -> Dictionary:
 ## Before the National Draft: what the list does well, where it is short,
 ## and a few prospects recruiting liked - a starting point, not an answer.
 func _show_meeting() -> void:
-	var notes := RecruitMeeting.notes(_draft, GameState.my_list, GameState.list_profile())
+	var notes := RecruitMeeting.notes(_draft, GameState.my_list, GameState.list_profile(), GameState.club_plan)
 	var box := UiKit.modal_box(self, 520.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "DraftMeeting"

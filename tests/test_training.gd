@@ -711,6 +711,10 @@ func _test_learning_a_position() -> void:
 	_check(bool(res.get("learned", false)) and str(cand.get("role2", "")) == role and Ratings.plays_role(cand, role),
 			"Close enough at the end: he can be picked there (%s)" % str(res))
 	_check(GameState.project_job(cand) == "" and str(cand.get("train_plan", "")) == "", "Then he goes back to the club plan")
+	var kept := _last_project_fact(str(cand["id"]))
+	_check(str(kept.get("d", "")) == job and str(kept.get("out", "")) == "learned"
+			and str(kept.get("at", "")).begins_with("Round") and str(kept.get("club", "")) == GameState.my_club,
+			"The decision and its outcome are kept as a career fact (%s)" % str(kept))
 	_check(GameState.learnable_jobs(cand).is_empty(), "One project a season")
 	# The payback: next season his training may lift him LEARN_PAYBACK more,
 	# never past his POT.
@@ -750,6 +754,8 @@ func _test_learning_a_position() -> void:
 			r2 = GameState._project_week(other)
 		_check(not bool(r2.get("learned", true)) and not Ratings.plays_role(other, orole),
 				"Well short at the end: it has not taken (%s)" % str(r2))
+		_check(str(_last_project_fact(str(other["id"])).get("out", "")) == "not taken",
+				"A project that did not take is kept as one too")
 	# Switching away ends it.
 	_new_season()
 	var s2 := {}
@@ -894,10 +900,15 @@ func _test_project_endings() -> void:
 	GameState._join(other, mover)
 	_check(GameState.project_job(mover) == "" and int(mover.get("project_year", 0)) == GameState.season_year
 			and GameState.active_projects() == 1, "A new club ends his project; the chance is spent")
+	var moved := _last_project_fact(str(mover["id"]))
+	_check(str(moved.get("out", "")) == "ended by a move" and str(moved.get("club", "")) == GameState.my_club,
+			"A project ended by a move is kept, with the club that set it")
 	(GameState.season.lists[other] as Array).erase(mover)
 	# The season ends before week 8: he is judged where he stands.
 	GameState.open_offseason()
 	_check(GameState.project_job(back) == "", "An unfinished project is judged when the season ends")
+	_check(str(_last_project_fact(id0).get("at", "")) == "Season end",
+			"A project judged at the season's end is kept as judged then")
 	# A third position learned counts for the ruck, the bench and the midfield.
 	var u := {"id": "U2", "role": "FWD", "role2": "DEF", "learned": ["RUCK"]}
 	_check(MatchSim._is_ruckman(u) and Roles.is_mid({"role": "FWD", "role2": "DEF", "learned": ["MID"]}),
@@ -944,3 +955,9 @@ func _test_teaching_moves_the_ceiling() -> void:
 	free_agent["club"] = ""
 	_check(GameState.teach_step(free_agent) == 0, "A player with no club is neither lifted nor held back by teachers")
 
+
+
+## A player's most recent project fact (CareerFacts), or {}.
+func _last_project_fact(id: String) -> Dictionary:
+	var all := CareerFacts.of(GameState.career_facts, id, "project")
+	return all[-1] if not all.is_empty() else {}

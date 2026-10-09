@@ -23,9 +23,11 @@ extends RefCounted
 ## Facts are written once, when they happen, from the full match result; the
 ## save's slimmed results are never read to rebuild one.
 
-## What a fact can be. Only injuries are kept here so far; the other stores
-## the audit lists move one at a time.
-const KINDS := ["injury"]
+## What a fact can be. The other stores the audit lists move one at a time.
+##   injury   out: the injury ("hamstring")
+##   project  a development project (GameState.LEARN_JOBS): d the job he was
+##            set ("key_def"), out "learned", "not taken" or "ended by a move"
+const KINDS := ["injury", "project"]
 
 const Y := 0
 const AT := 1

@@ -231,6 +231,7 @@ func _ready() -> void:
 	ScreenLayout.set_screen_size(str(cfg.get_value("ui", "screen_size", "standard")))
 	if bool(cfg.get_value("ui", "fullscreen", false)):
 		ScreenLayout.set_fullscreen(true)
+	_apply_battery_saver(bool(cfg.get_value("ui", "battery_saver", false)))
 
 
 func _exit_tree() -> void:
@@ -373,6 +374,26 @@ func fullscreen() -> bool:
 func set_fullscreen(on: bool) -> void:
 	set_setting("fullscreen", on)
 	ScreenLayout.set_fullscreen(on)
+
+
+## Battery saver (ROADMAP §1.11 battery work): draw at most 30 frames a second
+## instead of 60. Matches, scenes and timers run on real time, so nothing plays
+## slower or differently; motion is a little less smooth. Off by default.
+const FPS_NORMAL := 60
+const FPS_SAVER := 30
+
+
+func battery_saver() -> bool:
+	return bool(get_setting("battery_saver", false))
+
+
+func set_battery_saver(on: bool) -> void:
+	set_setting("battery_saver", on)
+	_apply_battery_saver(on)
+
+
+func _apply_battery_saver(on: bool) -> void:
+	Engine.max_fps = FPS_SAVER if on else FPS_NORMAL
 
 
 func vignettes_on() -> bool:
@@ -3097,12 +3118,14 @@ func _project_week(p: Dictionary, announce := true) -> Dictionary:
 	pr["weeks"] = int(pr.get("weeks", 0)) + 1
 	if int(pr["weeks"]) < PROJECT_WEEKS:
 		return {}
-	return _finish_project(p, announce)
+	return _finish_project(p, announce, "Round %d" % maxi(1, season.round_index))
 
 
 ## The verdict on his project, at PROJECT_WEEKS or when the season ends first:
-## learned if his rating there is within PROJECT_PASS of his own.
-func _finish_project(p: Dictionary, announce := true) -> Dictionary:
+## learned if his rating there is within PROJECT_PASS of his own. The
+## decision and its outcome are kept as a career fact (G7): `at` is when it
+## was judged ("Round 12", or "Season end" when the season ended first).
+func _finish_project(p: Dictionary, announce := true, at := "Season end") -> Dictionary:
 	var job := project_job(p)
 	var role := project_role(p)
 	var own := int(p.get("overall", 0))
@@ -3116,6 +3139,8 @@ func _finish_project(p: Dictionary, announce := true) -> Dictionary:
 			var more: Array = p.get("learned", [])
 			more.append(role)
 			p["learned"] = more
+	CareerFacts.add(career_facts, str(p.get("id", "")), CareerFacts.row(season_year, at, "project",
+			str(p.get("club", "")), job, "learned" if learned else "not taken"))
 	p.erase("project")
 	p.erase("train_plan")
 	if not announce:
@@ -4512,10 +4537,15 @@ func _join(code: String, p: Dictionary) -> void:
 	var list: Array = season.lists[code]
 	if str(p.get("club", "")) != code:
 		p["joined"] = season_year
+	# A new club ends a project; his season's chance stays spent. The old
+	# club's decision is kept as a career fact, with how it ended.
+	if project_job(p) != "" and str(p.get("club", "")) != code:
+		CareerFacts.add(career_facts, str(p.get("id", "")), CareerFacts.row(season_year, "",
+				"project", str(p.get("club", "")), project_job(p), "ended by a move"))
 	p["club"] = code
 	p["num"] = _next_jumper_number(list)
 	p.erase("train_plan")
-	p.erase("project")  # a new club ends it; his season's chance stays spent
+	p.erase("project")
 	p.erase("released_by")
 	p.erase("comp_eligible")
 	list.append(p)
@@ -6893,10 +6923,19 @@ func _prepare_media_conference(results: Array) -> void:
 						"line": "kicked %d goals" % goals if goals >= 6 else "had %d disposals" % disposals}
 				break
 	var round_no := season.round_index if last_phase == "regular" else Season.REGULAR_ROUNDS + int((season.finals.get("weeks", []) as Array).size())
+	# How many of your side were young enough for the Philosopher to ask.
+	var young := 0
+	if roster.size() > side:
+		for r in roster[side]:
+			var p := _find_player(str(r.get("id", "")))
+			if not p.is_empty() and float(p.get("age", 30.0)) <= MediaConference.YOUNG_AGE:
+				young += 1
 	media_conference = MediaConference.pick({
 		"result": res, "club": my_club, "opponent_name": GameDB.club_name(opp),
-		"round": round_no, "injuries": injuries, "star": star,
+		"round": round_no, "injuries": injuries, "star": star, "year": season_year, "young": young,
 	}, media_memory)
+	if not media_conference.is_empty():
+		media_conference["opp"] = GameDB.club_name(opp)
 
 
 func backing_talk_pending() -> bool:
@@ -6937,6 +6976,9 @@ func resolve_media_conference(option: int) -> void:
 		for p in my_list:
 			ClubLife.add_morale(p, morale_delta)
 	media_memory[str(media_conference.get("key", ""))] = int(media_conference.get("round", 0))
+	# What you said, so a journalist can hold you to it later this season.
+	media_memory["said|" + str(media_conference.get("key", ""))] = {"year": season_year, "option": option,
+			"opp": str(media_conference.get("opp", "")), "round": int(media_conference.get("round", 0))}
 	add_news("media", "Post-match: '%s'" % str(picked.get("label", "")))
 	media_conference = {}
 	mark_dirty()
