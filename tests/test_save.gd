@@ -498,6 +498,20 @@ func _test_career_facts() -> void:
 			"An old save's injury years become facts once, with no round, club or kind made up")
 	GameState._migrate_injury_logs()
 	_check(CareerFacts.of(GameState.career_facts, pid).size() == had + 2, "Moving them is done once")
+	# An unlinked list can hold a separate copy of the same player: his years
+	# still move once, never twice (the retirement talk would double-count).
+	var twin_id := str(GameState.my_list[1]["id"])
+	var twin_had := CareerFacts.of(GameState.career_facts, twin_id).size()
+	var twin: Dictionary = GameState.my_list[1]
+	var copy: Dictionary = twin.duplicate(true)
+	twin["injury_log"] = [GameState.season_year]
+	copy["injury_log"] = [GameState.season_year]
+	GameState.free_agents.append(copy)
+	GameState._migrate_injury_logs()
+	GameState.free_agents.erase(copy)
+	_check(CareerFacts.of(GameState.career_facts, twin_id).size() == twin_had + 1
+			and not twin.has("injury_log") and not copy.has("injury_log"),
+			"A player held twice as separate copies has his old injuries moved once")
 	_check(Retirement.recent_injuries(p, GameState.season_year, GameState.career_facts) >= 2,
 			"The retirement talk still counts his recent injuries")
 	var sig := str(GameState.career_facts)

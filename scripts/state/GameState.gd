@@ -3438,8 +3438,9 @@ func _log_injuries(rows: Array, label: String) -> void:
 
 ## A save from before career facts kept injuries on the player as bare years
 ## (p["injury_log"]). They move to the fact store once, nothing invented, and
-## the old key goes. Every player the save holds is visited; a player who
-## appears in two lists is moved the first time only (the key is gone after).
+## the old key goes. Every player the save holds is visited. A player can sit
+## in two lists as the same dict or, with an unlinked list, as two copies: his
+## years move the first time his id is met, and any other copy just drops them.
 func _migrate_injury_logs() -> void:
 	var all: Array = [my_list, free_agents]
 	if season != null:
@@ -3447,10 +3448,17 @@ func _migrate_injury_logs() -> void:
 			all.append(season.lists[code])
 	for code in league_lists:
 		all.append(league_lists[code])
+	var moved := {}
 	for arr in all:
 		for p in arr:
-			if p is Dictionary and (p as Dictionary).has("injury_log"):
-				CareerFacts.migrate_injury_log(career_facts, p)
+			if not (p is Dictionary) or not (p as Dictionary).has("injury_log"):
+				continue
+			var id := str(p.get("id", ""))
+			if moved.has(id):
+				(p as Dictionary).erase("injury_log")
+				continue
+			moved[id] = true
+			CareerFacts.migrate_injury_log(career_facts, p)
 
 
 ## Suspensions count down when that player's club plays, then this round's
