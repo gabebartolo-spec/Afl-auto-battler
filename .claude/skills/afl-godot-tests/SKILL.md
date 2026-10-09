@@ -1,6 +1,6 @@
 ---
 name: afl-godot-tests
-description: How to run, add and debug this project's Godot test suites and CI without tripping over the other agents on the same machine. Use it whenever you run tools/run_tests.sh or a Godot --script, add or change a test suite or a check floor, read a red or cancelled CI run, start a long audit, or see a test fail that might not be your change's fault - even if you think you already know how to run the tests.
+description: How to run, add and debug this project's Godot test suites and CI without tripping over the other agents on the same machine. Use it whenever you run tools/run_tests.sh or a Godot --script, add or change a test suite or a check floor, read a red or cancelled CI run, start a long audit, or see a test fail that might not be your change's fault - even if you think you already know how to run the tests. Extends the general game-architecture skill (tests and CI shape) with this repo's runners, floors and shards.
 ---
 
 # Running Godot tests in the AFL project

@@ -1,13 +1,14 @@
 ---
 name: afl-ci-merge-hygiene
-description: How to avoid red CI, cancelled runs and merge conflicts in the AFL auto-battler repo, and what to do the moment one happens - a triage tree built from every failed Tests run of 2026-10-06 to 10-08. Use it before pushing or syncing any branch, when merging origin/main into a branch, when editing tests/expected_checks.txt, tools/ci_shards.txt or the roadmap, when a Tests run is red or cancelled, when two PRs fail the same check, and when you take over from the other Claude account.
+description: How to avoid red CI, cancelled runs and merge conflicts in the AFL auto-battler repo, and what to do the moment one happens - a triage tree built from every failed Tests run of 2026-10-06 to 10-08. Use it before pushing or syncing any branch, when merging origin/main into a branch, when editing tests/expected_checks.txt, tools/ci_shards.txt or the roadmap, when a Tests run is red or cancelled, when two PRs fail the same check, and when you take over from the other Claude account. Extends the general github-hygiene skill (~/.claude/skills) with this repo's files and history; general lessons go there.
 ---
 
 # CI and merge hygiene (AFL auto-battler)
 
 Built from 150 Tests runs (85 green, 22 red, 41 cancelled). Update the
 "Seen so far" table whenever you meet a new cause - that is how this skill stays
-true. Mirror: `~/.claude/skills/` (both Claude accounts) and `.claude/skills/` (repo).
+true. This repo copy is the only one; the general rules it builds on are in the
+`github-hygiene` skill (`~/.claude/skills`, both Claude accounts).
 
 ## Before you push
 
