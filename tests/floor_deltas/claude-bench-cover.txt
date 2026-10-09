@@ -1,1 +1,1 @@
-match_game +4
+match_game +2

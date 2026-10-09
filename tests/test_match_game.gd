@@ -43,6 +43,7 @@ func run() -> void:
 	_test_spoils_and_crumbs()
 	_test_roaming_interceptor()
 	_test_bench_cover()
+	_test_one_defender_one_forward()
 	_test_six_plans()
 	_test_zone_intercepts()
 	_test_defensive_forward()
@@ -2864,3 +2865,24 @@ func _test_bench_cover() -> void:
 	sq.bench = [mk.call("t_mid2", "MID", "MID", 100.0), mk.call("t_fwd2", "FWD", "FWD", 95.0)]
 	_check(sim._bench_for(0, "RUCK", 0.0) == 1, "With no ruck on the bench a tall forward covers the ruck before a midfielder does")
 	sq.bench = kept
+
+
+## A defender plays on one forward at a time: moving him onto a second forward
+## sends the first forward the man he had (a swap), never two jobs at once.
+func _test_one_defender_one_forward() -> void:
+	var sim := _sim(8101, "ADE", "SYD")
+	var d: Dictionary = sim.duels[1]
+	var fids := d.keys()
+	_check(fids.size() >= 2, "Two key forwards have a defender each to swap")
+	if fids.size() < 2:
+		return
+	var other_def := str(d[fids[1]])
+	sim.set_matchup(1, str(fids[0]), other_def, false)
+	var seen := {}
+	var unique := true
+	for fid in sim.duels[1]:
+		var did := str(sim.duels[1][fid])
+		unique = unique and not seen.has(did)
+		seen[did] = true
+	_check(unique and str(sim.duels[1][fids[0]]) == other_def,
+			"A defender moved onto a second forward leaves the first: no defender has two forwards")
