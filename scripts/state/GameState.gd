@@ -129,6 +129,7 @@ var difficulty := "normal"       # this career's difficulty (DIFFICULTIES key)
 var board := {}                  # confidence, goal, warned, sacked, history
 var week_event := {}             # this week's event card (ClubLife.pick_event)
 var media_conference := {}       # pending post-match press question
+var backing_talk := {}           # a sit-down when a promised run ends (Backing.talk)
 var media_memory := {}           # question key -> last round asked
 var losing_streak := 0
 ## Your match-ups for the next match (Matchups): {their forward id: your
@@ -506,6 +507,7 @@ func save_career() -> bool:
 		"board": board,
 		"week_event": week_event,
 		"media_conference": media_conference,
+		"backing_talk": backing_talk,
 		"media_memory": media_memory,
 		"losing_streak": losing_streak,
 		"my_matchups": my_matchups,
@@ -653,6 +655,7 @@ func load_career() -> bool:
 	board = state.get("board", {})
 	week_event = state.get("week_event", {})
 	media_conference = state.get("media_conference", {})
+	backing_talk = state.get("backing_talk", {})
 	media_memory = state.get("media_memory", {})
 	losing_streak = int(state.get("losing_streak", 0))
 	my_matchups = state.get("my_matchups", {})
@@ -1011,6 +1014,7 @@ func reset() -> void:
 	board = {}
 	week_event = {}
 	media_conference = {}
+	backing_talk = {}
 	media_memory = {}
 	losing_streak = 0
 	my_matchups = {}
@@ -3252,6 +3256,10 @@ func _after_round(results: Array) -> void:
 	_board_after_round(results)
 	_rival_morale_after_round(results)
 	_prepare_media_conference(results)
+	# One optional ask a week (director, 2026-10-09, G1): a sit-down takes the
+	# week's slot and the press question waits for another week.
+	if not backing_talk.is_empty():
+		media_conference = {}
 	if season != null and season.is_season_over() \
 			and int(season_awards.get("year", 0)) != season_year:
 		_close_season_awards()
@@ -6745,6 +6753,8 @@ func _my_result(results: Array) -> Dictionary:
 
 func _board_after_round(results: Array) -> void:
 	var res := _my_result(results)
+	# Last week's sit-down, unread, has had its week.
+	backing_talk = {}
 	# This week's one-off flags (rested, sore, heavy legs, fresh) end with
 	# the round.
 	for p in my_list:
@@ -6784,12 +6794,15 @@ func _board_after_round(results: Array) -> void:
 	# Left out while fit, the promise breaks and it stings, once, and the run
 	# is over; unable to play, the run waits. His one-week expectation is
 	# settled here rather than by the loop below, so it never stings twice.
+	var stats_all: Dictionary = res.get("players", {})
 	for p in my_list:
 		if not Backing.is_active(p):
 			continue
 		var pid := str(p["id"])
 		var run_state := Backing.after_match(p, played.has(pid), not _backing_unavailable.has(pid),
-				{"year": season_year, "label": str(res.get("label", ""))})
+				{"year": season_year, "label": str(res.get("label", ""))}, stats_all.get(pid, {}))
+		if backing_talk.is_empty() and (run_state == "done" or run_state == "broken"):
+			backing_talk = Backing.talk(p, Backing.ledger(p).back())
 		if run_state == "broken":
 			ClubLife.add_morale(p, -CoachEffects.softened(Backing.STING, float(soft.get(pid, 0.0))))
 		p.erase("expects_game")
@@ -6864,6 +6877,15 @@ func _prepare_media_conference(results: Array) -> void:
 		"result": res, "club": my_club, "opponent_name": GameDB.club_name(opp),
 		"round": round_no, "injuries": injuries, "star": star,
 	}, media_memory)
+
+
+func backing_talk_pending() -> bool:
+	return not backing_talk.is_empty()
+
+
+func close_backing_talk() -> void:
+	backing_talk = {}
+	mark_dirty()
 
 
 func media_conference_pending() -> bool:
