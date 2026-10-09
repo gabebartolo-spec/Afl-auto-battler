@@ -836,11 +836,13 @@ func _run() -> void:
 	# --- back on other screens ------------------------------------------------
 	_router.go("hub")
 	await _settle()
-	_router.go("ladder")
+	# Its first-visit sheet would take the first Back; it has been read.
+	_state.set_setting("seen_season_stats_intro", true)
+	_router.go("stats")
 	await _settle()
 	_router.handle_back(false)
 	await _settle()
-	_check(_router.current() == "hub", "Escape on the ladder returns to the hub")
+	_check(_router.current() == "hub", "Escape on Season stats returns to the hub")
 
 	# --- team selection --------------------------------------------------------
 	var sel_size_before := root.size
