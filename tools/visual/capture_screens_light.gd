@@ -28,6 +28,36 @@ func _shot() -> Image:
 	return img
 
 
+## Text that does not fit (visual audit Phase 6.2: names never cut). Walks a
+## screen and lists every visible Label or Button whose text is wider than its
+## box while the control trims or clips it, and every one that reaches past the
+## window. Information for the reviewer, never a gate; the sheet still has to be
+## looked at, because this cannot see a wrapped line that is simply too long.
+func _clips(node: Node, screen: String, found: Array) -> void:
+	if node is CanvasItem and not (node as CanvasItem).is_visible_in_tree():
+		return
+	if node is Label or node is Button:
+		var c := node as Control
+		var text := str(node.get("text"))
+		if text != "" and c.size.x > 1.0:
+			var font: Font = c.get_theme_font("font")
+			var fs := int(c.get_theme_font_size("font_size"))
+			var wide := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			var wraps: bool = (node is Label and (node as Label).autowrap_mode != TextServer.AUTOWRAP_OFF) 					or (node is Button and (node as Button).autowrap_mode != TextServer.AUTOWRAP_OFF)
+			var trims: bool = bool(node.get("clip_text")) or int(node.get("text_overrun_behavior")) != TextServer.OVERRUN_NO_TRIMMING
+			var room := c.size.x
+			if node is Button:
+				var sb := c.get_theme_stylebox("normal")
+				room -= sb.get_margin(SIDE_LEFT) + sb.get_margin(SIDE_RIGHT)
+			if not wraps and trims and wide > room + 0.5:
+				found.append("CUT %s %s \"%s\" needs %d has %d" % [screen, c.name, text.left(40), int(wide), int(room)])
+			var r := c.get_global_rect()
+			if r.position.x < -0.5 or r.end.x > float(W) + 0.5:
+				found.append("OUT %s %s \"%s\" spans %d..%d of %d" % [screen, c.name, text.left(40), int(r.position.x), int(r.end.x), W])
+	for ch in node.get_children():
+		_clips(ch, screen, found)
+
+
 func _run() -> void:
 	var out := OS.get_environment("CAP_OUT") if OS.get_environment("CAP_OUT") != "" else "screens"
 	var mode := OS.get_environment("CAP_MODE") if OS.get_environment("CAP_MODE") != "" else "light"
@@ -67,6 +97,7 @@ func _run() -> void:
 	UK.apply_appearance(mode)
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
+	var clips := []
 	var bg := ColorRect.new()
 	bg.color = UK.BG
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -75,6 +106,7 @@ func _run() -> void:
 		var scene = load("res://scenes/%s.tscn" % SCREENS[key]).instantiate()
 		root.add_child(scene)
 		var img := await _shot()
+		_clips(scene, key, clips)
 		var path := "%s_%s_%s.png" % [out, mode, key]
 		if img.save_png(path) != OK:
 			push_error("could not save " + path)
@@ -87,6 +119,7 @@ func _run() -> void:
 	var off = load("res://scenes/OffseasonScene.tscn").instantiate()
 	root.add_child(off)
 	(await _shot()).save_png("%s_%s_offseason.png" % [out, mode])
+	_clips(off, "offseason", clips)
 	print("wrote offseason")
 	off.queue_free()
 	await process_frame
@@ -98,5 +131,14 @@ func _run() -> void:
 	root.add_child(draft)
 	draft.call("_on_club_chosen", "MEL")
 	(await _shot()).save_png("%s_%s_draft.png" % [out, mode])
+	_clips(draft, "draft", clips)
 	print("wrote draft")
+	var clip_file := FileAccess.open("%s_%s_clips.txt" % [out, mode], FileAccess.WRITE)
+	if clip_file != null:
+		clip_file.store_string("
+".join(clips) + "
+")
+	print("CLIPS %d" % clips.size())
+	for line in clips:
+		print(line)
 	quit(0)
