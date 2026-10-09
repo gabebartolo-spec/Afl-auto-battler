@@ -37,6 +37,7 @@ func run() -> void:
 	_test_unicorn()
 	_test_rival_projects()
 	_test_project_endings()
+	_test_teaching_moves_the_ceiling()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Training tests: %d checks, %d failures" % [checks, failures.size()])
@@ -667,7 +668,7 @@ func _test_learning_a_position() -> void:
 	_check(line.begins_with("Week 0 of %d" % GameState.PROJECT_WEEKS)
 			and line.contains("up to the standard" if ahead else "within %d by week" % GameState.PROJECT_PASS),
 			"Training shows the standard he is chasing, or that he has reached it (%s)" % line)
-	_check(GameState.season_ceiling(cand) == mini(int(cand["season_start_ov"]) + GameState.SEASON_TRAIN_GAIN,
+	_check(GameState.season_ceiling(cand) == mini(int(cand["season_start_ov"]) + GameState.SEASON_TRAIN_GAIN + GameState.teach_step(cand),
 			int(cand["overall"]) + GameState.PROJECT_OWN_GAIN),
 			"The price: for the rest of the season his own position's training lifts him only %d more" % GameState.PROJECT_OWN_GAIN)
 	var mate := {}
@@ -675,7 +676,7 @@ func _test_learning_a_position() -> void:
 		if q != cand and GameState.project_job(q) == "":
 			mate = q
 			break
-	_check(mate.is_empty() or GameState.season_ceiling(mate) == int(mate["season_start_ov"]) + GameState.SEASON_TRAIN_GAIN,
+	_check(mate.is_empty() or GameState.season_ceiling(mate) == int(mate["season_start_ov"]) + GameState.SEASON_TRAIN_GAIN + GameState.teach_step(mate),
 			"Team-mates on the club plan keep the full season's growth")
 	# Club limit.
 	var started := 1
@@ -723,10 +724,10 @@ func _test_learning_a_position() -> void:
 	GameState.season_year = keep_year + 1
 	cand["season_start_ov"] = 60
 	cand["potential"] = 90
-	_check(GameState.season_ceiling(cand) == 60 + GameState.SEASON_TRAIN_GAIN + GameState.LEARN_PAYBACK,
+	_check(GameState.season_ceiling(cand) == 60 + GameState.SEASON_TRAIN_GAIN + GameState.teach_step(cand) + GameState.LEARN_PAYBACK,
 			"The season after, his training limit is %d higher" % GameState.LEARN_PAYBACK)
 	cand["potential"] = 60 + GameState.SEASON_TRAIN_GAIN
-	_check(GameState.season_ceiling(cand) == 60 + GameState.SEASON_TRAIN_GAIN,
+	_check(GameState.season_ceiling(cand) == 60 + GameState.SEASON_TRAIN_GAIN + GameState.teach_step(cand),
 			"The payback never takes him past his POT")
 	GameState.season_year = keep_year
 	cand["potential"] = keep_pot
@@ -901,3 +902,29 @@ func _test_project_endings() -> void:
 	var u := {"id": "U2", "role": "FWD", "role2": "DEF", "learned": ["RUCK"]}
 	_check(MatchSim._is_ruckman(u) and Roles.is_mid({"role": "FWD", "role2": "DEF", "learned": ["MID"]}),
 			"A learned third position counts as his own")
+
+
+## Teaching (director, 2026-10-09, RPG-006): a club's teachers move a player's
+## season training ceiling a point either way; XP alone never showed, because
+## nearly every young player reached the +3 ceiling anyway.
+func _test_teaching_moves_the_ceiling() -> void:
+	var coach := func(teach: int): return {"skills": {"teach": teach, "tactics": 70, "manage": 70}}
+	var elite := {"MID": coach.call(90), "DEV": coach.call(90)}
+	var good := {"MID": coach.call(70), "DEV": coach.call(70)}
+	var kid := {"role": "MID", "age": 19.0}
+	var vet := {"role": "MID", "age": 28.0}
+	_check(CoachEffects.teach_step(elite, kid) == 1 and CoachEffects.teach_step(good, kid) == 0
+			and CoachEffects.teach_step({}, kid) == -1,
+			"Elite teachers lift a kid's ceiling a point, good ones leave it, an empty staff costs one")
+	_check(CoachEffects.teach_step({"MID": coach.call(90), "DEV": coach.call(58)}, kid) == 0
+			and CoachEffects.teach_step({"MID": coach.call(90), "DEV": coach.call(58)}, vet) == 1,
+			"A kid needs his development coach too; a senior player only his line coach")
+	_check(CoachEffects.teach_step({"MID": {"skills": {"teach": 58, "tactics": 92, "manage": 92}}}, vet) == -1,
+			"It is the teaching skill that counts, not the coach's overall fit")
+	var p: Dictionary = GameState.my_list[0]
+	p["season_start_ov"] = int(p["overall"])
+	p.erase("project_year")
+	p.erase("learn_payback_year")
+	_check(GameState.season_ceiling(p) == int(p["season_start_ov"]) + GameState.SEASON_TRAIN_GAIN + GameState.teach_step(p),
+			"The season ceiling carries his club's teaching step, the same rule at every club")
+
