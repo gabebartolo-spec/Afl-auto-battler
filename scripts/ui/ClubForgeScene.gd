@@ -94,6 +94,17 @@ func _build() -> void:
 		_player_form(body)
 	elif _form == "club":
 		_club_form(body)
+	elif UiKit.view_width(self) >= 760.0 and UiKit.view_width(self) > UiKit.view_height(self):
+		# A wide screen: your player and your club side by side, not two
+		# bars stretched across the page (director: no full-width bars on PC).
+		var cols := UiKit.hbox(40)
+		cols.name = "ForgeHomeColumns"
+		body.add_child(cols)
+		for half in [_home, _club_home]:
+			var col := UiKit.vbox(UiKit.GAP)
+			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			cols.add_child(col)
+			half.call(col)
 	else:
 		_home(body)
 		_club_home(body)

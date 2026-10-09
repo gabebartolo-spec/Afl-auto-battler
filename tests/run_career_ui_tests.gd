@@ -305,6 +305,23 @@ func _run() -> void:
 	var forge_tap: String = await Tap.tap(forge_btn) if forge_btn != null else "missing"
 	await _settle()
 	_check(forge_tap == "" and _router.current() == "forge", "A tap opens Club Forge (%s)" % forge_tap)
+	# On a PC window, your player and your club sit side by side, and a real
+	# tap on Create a club opens its form (director: no full-width bars on PC).
+	root.size = Vector2i(1280, 720)
+	await _settle()
+	var mk_p: Control = current_scene.find_child("ForgeCreatePlayer", true, false)
+	var mk_c: Control = current_scene.find_child("ForgeCreateClub", true, false)
+	_check(mk_p != null and mk_c != null and mk_p.get_global_rect().end.x <= mk_c.get_global_rect().position.x
+			and mk_c.size.x <= root.size.x * 0.55,
+			"PC: the Forge puts your player and your club side by side")
+	var club_tap: String = await Tap.tap(mk_c) if mk_c != null else "missing"
+	await _settle()
+	_check(club_tap == "" and current_scene.find_child("ForgeSaveClub", true, false) != null,
+			"PC: a tap on Create a club opens its form (%s)" % club_tap)
+	_router.handle_back(false)
+	await _settle()
+	root.size = Vector2i(390, 844)
+	await _settle()
 	_press("ForgeCreatePlayer")
 	await _settle()
 	_press("ForgeSavePlayer")
