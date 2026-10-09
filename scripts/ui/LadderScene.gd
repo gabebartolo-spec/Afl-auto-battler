@@ -117,7 +117,7 @@ func _coaches_award() -> Control:
 		var n := UiKit.line(str(rank), UiKit.BODY, UiKit.MUTED); n.custom_minimum_size.x = 32; h.add_child(n)
 		var who := UiKit.ellipsis(GameState.award_name(r), UiKit.NAME, UiKit.TEXT, str(r["club"]) == GameState.my_club); who.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(who)
 		var club := UiKit.ellipsis(GameDB.club_short(str(r["club"])), 14, UiKit.MUTED); club.custom_minimum_size.x = 72; h.add_child(club)
-		var votes := UiKit.line(str(int(r["votes"])), 17, UiKit.TEXT, true); votes.custom_minimum_size.x = 40; votes.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT; h.add_child(votes)
+		var votes := UiKit.line(str(int(r["votes"])), UiKit.NAME, UiKit.TEXT, true); votes.custom_minimum_size.x = 40; votes.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT; h.add_child(votes)
 		v.add_child(h)
 	return v
 
@@ -162,7 +162,7 @@ func _coleman() -> Control:
 		club.custom_minimum_size.x = 72
 		club.size_flags_horizontal = Control.SIZE_FILL
 		h.add_child(club)
-		var g := UiKit.line(str(int(r["goals"])), 17, UiKit.TEXT, true)
+		var g := UiKit.line(str(int(r["goals"])), UiKit.NAME, UiKit.TEXT, true)
 		g.custom_minimum_size.x = 40
 		g.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		h.add_child(g)

@@ -75,7 +75,8 @@ static func view(id: String, height: float, club: String, year: int, name: Strin
 	art.material = _tint(e, club)
 	var box: Array = e.get("year_box", [])
 	if year > 0 and box.size() == 4:
-		var y := UiKit.lbl(str(year), maxi(8, int(float(box[3]) * scale * 0.7)), UiKit.TEXT, true)
+		var year_px := maxi(8, int(float(box[3]) * scale * 0.7))
+		var y := UiKit.lbl(str(year), year_px, UiKit.TEXT, true)
 		y.name = "Year"
 		y.autowrap_mode = TextServer.AUTOWRAP_OFF
 		y.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

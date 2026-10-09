@@ -107,7 +107,7 @@ func _show_intro() -> void:
 		_overlay.queue_free()
 		_open_guide())
 	box["footer"].add_child(guide)
-	var ok := UiKit.btn("Got it", 17, true)
+	var ok := UiKit.btn("Got it", UiKit.NAME, true)
 	ok.custom_minimum_size = Vector2(0, 44)
 	ok.pressed.connect(func():
 		_overlay.queue_free()
@@ -435,6 +435,13 @@ func _player_row(p: Dictionary) -> Control:
 	var b := UiKit.btn("", 14)
 	b.name = "Trainee_" + id
 	b.custom_minimum_size.y = 58
+	# An editorial row (guide §3): no surface, a rule under it; the chosen one outlined.
+	var quiet := UiKit.style(Color.TRANSPARENT, 8, 0)
+	quiet.set_border_width_all(0)
+	quiet.border_width_bottom = 1
+	quiet.border_color = UiKit.LINE
+	for state in ["normal", "hover", "pressed", "hover_pressed"]:
+		b.add_theme_stylebox_override(state, quiet)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if selected:
 		UiKit.set_selected(b, true)
@@ -450,13 +457,17 @@ func _player_row(p: Dictionary) -> Control:
 	# rating rather than leaving it hugging the top.
 	info.alignment = BoxContainer.ALIGNMENT_CENTER
 	h.add_child(info)
-	info.add_child(UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true))
+	info.add_child(UiKit.name_label(GameDB.player_display_name(p)))
 	var plan := GameState.plan_for(p)
 	if plan == "manual":
-		info.add_child(UiKit.ellipsis("Manual  ·  development paused", 12, UiKit.BAD))
+		info.add_child(UiKit.ellipsis("Manual  ·  development paused", UiKit.SECONDARY, UiKit.BAD))
 	else:
-		info.add_child(UiKit.ellipsis("%s  ·  %s" % [_row_plan(plan),
-				GameState.development_state(p)], 12, UiKit.MUTED))
+		# On the position plan (most of the list) the plan goes without saying: just
+		# where he is. Any other plan is named, then where he is.
+		# "At his peak", not "At his projected peak": a coach's words, and they fit the row.
+		var state := GameState.development_state(p).replace(" his projected peak", " his peak")
+		var under := state if plan == "position" else "%s  ·  %s" % [_row_plan(plan), state]
+		info.add_child(UiKit.ellipsis(under, UiKit.SECONDARY, UiKit.MUTED))
 	var duty := GameState.last_duty(id)
 	if int(p.get("injury_weeks", 0)) > 0:
 		h.add_child(UiKit.line("INJ %dw" % int(p["injury_weeks"]), UiKit.FINE, UiKit.BAD, true))
@@ -467,7 +478,7 @@ func _player_row(p: Dictionary) -> Control:
 	elif duty == "Not selected":
 		h.add_child(UiKit.line("OUT", UiKit.FINE, UiKit.MUTED))
 	var rise := _last_rise(id)
-	var ov := UiKit.line(("▲ " if rise.size() > 0 else "") + str(int(p["overall"])), 17,
+	var ov := UiKit.line(("▲ " if rise.size() > 0 else "") + str(int(p["overall"])), UiKit.NAME,
 			UiKit.GOOD if rise.size() > 0 else UiKit.TEXT, true)
 	ov.custom_minimum_size.x = 48
 	ov.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
