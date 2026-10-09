@@ -3,6 +3,8 @@ extends SceneTree
 ## real renderer, so run it under a virtual display, e.g.:
 ##   xvfb-run -a -s "-screen 0 1280x900x24" godot --path . --rendering-driver opengl3 \
 ##       --script tools/visual/capture_vignette.gd -- --out /tmp/vignette
+## --seed N: seed the random numbers first, so two captures (before and after a change) stage
+## the same match - opponent, weather, players.
 ## --window WxH: a desktop window of that many pixels (e.g. 1920x1080) instead of the phone.
 ## Writes <out>_sheet.png: the scene at its beats on a phone, then the call.
 ## --film START END: also writes <out>_film_NNN.png, 12 frames a second from START
@@ -28,6 +30,8 @@ func _run() -> void:
 	var a := OS.get_cmdline_user_args()
 	var kit_options := a.has("--kit-options")
 	for i in range(a.size() - 1):
+		if str(a[i]) == "--seed":
+			seed(int(a[i + 1]))
 		if str(a[i]) == "--window":
 			var wh := str(a[i + 1]).split("x")
 			W = int(wh[0])
