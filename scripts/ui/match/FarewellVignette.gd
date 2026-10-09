@@ -29,7 +29,7 @@ const LINE_FROM := 4.2          # the nearest men in frame (at 3.0 only a boot a
 ## figures' scale) and the walk: from the far end of the guard towards the camera.
 const CARRIER_X := 0.235
 const WALK := [Vector2(0.0, 12.0), Vector2(0.0, 6.6)]
-const CHAIR := [Vector2(0.0, 10.2), Vector2(0.0, 7.2)]
+const CHAIR := [Vector2(0.0, 11.6), Vector2(0.0, 8.6)]   # his raised hands stay clear of the top bar
 ## Strides: a walk's cycle (eight frames) takes this long; carriers, under the load, longer.
 const WALK_CYCLE := 1.05
 const CARRY_CYCLE := 1.3
@@ -160,13 +160,13 @@ func _set_camera() -> void:
 	_cam_x = 0.0
 	_pan = 0.0
 	# Tight on the guard: at 1.25 the top ~40% of a phone was empty night sky.
-	var base := maxf(size.x * 1.25, size.y * 0.6) * 1.5
+	var base := maxf(size.x * 1.25, size.y * 0.6) * 1.75
 	var push := _ease(clampf(fmod(_t, GUARD) / GUARD, 0.0, 1.0)) if _t < GUARD else _ease(clampf((_t - GUARD) / CHAIRED, 0.0, 1.0))
 	_zoom = 1.0 + 0.08 * push
 	_focal = base * _zoom
 	# The far end of the guard sits a little above the middle of the screen.
 	var depth := 12.0 + _cam_d
-	_horizon = size.y * 0.42 - _focal * _cam_h / depth
+	_horizon = size.y * 0.378 - _focal * _cam_h / depth
 
 
 func _ground_to_scene() -> Transform2D:
