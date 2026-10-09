@@ -6486,6 +6486,7 @@ It is complete only when:
 **Owner:** existing Backing/payoff, M7-003/005. **Autonomy:** SUPERVISED.
 Connect the existing three-game promise to a short player conversation, clear selection obligation and remembered actual outcome. Reuse the promise ledger and its availability/season rules.
 **Acceptance:** kept, broken, interrupted/lapsed and disappointing-performance outcomes are truthful; a debut/first goal appears only when real. **Checks:** current payoff implementation, manual/auto-pick, single consequence, repeated viewing and save/load. No second promise system or guaranteed breakthrough.
+**Status (2026-10-09):** slice 1 is #551 (a broken or lapsed promise is told at selection and full time and remembered on his "With us" line). **Director decision (Q-RPG001, 2026-10-09):** the backed player's short conversation happens when his run ends, as a sit-down about what he actually did, not when he is backed. Slice 2 builds it; the copy goes to the director first.
 
 ## RPG-002 — Recurring journalists and remembered media
 **Owner:** M6-008/current ClubLife. **Autonomy:** SUPERVISED.
@@ -6525,6 +6526,7 @@ Use existing staff composition and coaching choices to express philosophy; inspe
 **Owner:** M5-014/M6-006/current RecruitMeeting. **Autonomy:** SUPERVISED.
 Discuss contrasting prospects that complete the current structure or enable another style, using roster/role evidence and scouting uncertainty.
 **Acceptance/checks:** a few explainable alternatives, meaningful uncertainty/disagreement, no best-pick ranking or duplicate meeting. Verify changed picks/releases, physically feasible dual-role coverage, late picks and phone comprehension.
+**Director decision (Q-RPG007, 2026-10-09):** the pre-draft panel says how each named prospect fits the list, as facts, plus the true uncertainty; no order and no best pick.
 
 ## RPG-008 — Connected season narrative
 **Owner:** M7-005/existing season-story ledger. **Autonomy:** SUPERVISED.
@@ -6569,6 +6571,7 @@ Relevant shared playing/training gradually improves specific teammate/unit coord
   - **Urgent actionable events** (a decision with a deadline) come first. Flavour waits, or moves to the passive feed.
   - **Ordinary weeks** can stay quiet. Skipping flavour never silently loses a required management action.
   - **Setting the numbers:** don't invent a numeric cap; review a representative season first.
+  - **Director decisions (2026-10-09, evidence: docs/research/RPG_G1_INTERRUPTION_AUDIT.md, #553):** (Q-G1a) at most **one** optional (flavour) ask a week; new RPG surfaces share that slot with the press question; urgent asks (tribunal challenge, contract windows, retirement persuasion) always show; the weekly card is a coaching choice, not flavour. (Q-G1b) losing runs: **no change**, slumps behave like any other week.
   - **Checks:** collisions, quiet losing seasons, late-season pressure, and a user who skips dialogue.
 - **G7, one durable career-fact record.** The facts these features read (player identity, date, event, the coach's decision and its consequence) are stored in one consistent, queryable form, not one private memory per feature.
   - **Already there:** Firsts, Career, the honour roll, the Backing ledger, `injury_log`, `retire_talk`, project history.
