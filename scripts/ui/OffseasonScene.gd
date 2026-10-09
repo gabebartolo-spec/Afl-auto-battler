@@ -197,7 +197,7 @@ func _contracts(body: VBoxContainer) -> void:
 		body.add_child(card)
 		var row := UiKit.hbox(4)
 		row.name = "Contract_" + str(p["id"])
-		(card.get_child(0) as VBoxContainer).add_child(row)
+		_action_slot(card).add_child(row)
 		if bool(p.get("resigned", false)):
 			row.add_child(UiKit.line("Re-signed: %d more seasons at %s" % [int(p["contract_years"]) - 1,
 					Contracts.money(int(p.get("salary", 0)))], 13, UiKit.GOOD, true))
@@ -262,7 +262,7 @@ func _retiring(body: VBoxContainer) -> void:
 			ask.pressed.connect(func():
 				GameState.talk_round(str(p["id"]))
 				_build())
-			v.add_child(ask)
+			_action_slot(card).add_child(ask)
 		elif p.has("talked_round"):
 			v.add_child(_para("He went around again once already: this time he's going.", 12, UiKit.MUTED))
 
@@ -554,7 +554,7 @@ func _agents(body: VBoxContainer) -> void:
 			(card.get_child(0) as VBoxContainer).add_child(_para(line + ".", 12, UiKit.TEXT))
 		var row := UiKit.hbox(4)
 		row.name = "Agent_" + str(p["id"])
-		(card.get_child(0) as VBoxContainer).add_child(row)
+		_action_slot(card).add_child(row)
 		var talks: Dictionary = p.get("talks", {})
 		if bool(talks.get("walked", false)):
 			row.add_child(UiKit.line("Talks broke down: he'll look elsewhere", UiKit.SECONDARY, UiKit.BAD, true))
@@ -870,12 +870,32 @@ func _player_card(p: Dictionary, detail: String) -> PanelContainer:
 	var card := UiKit.panel(UiKit.PANEL_ALT, 8, 6)
 	var v := UiKit.vbox(3)
 	card.add_child(v)
+	# A PC: who he is on the left, the actions on the same line at the right.
+	var info := v
+	if _wide():
+		var top := UiKit.hbox(12)
+		v.add_child(top)
+		info = UiKit.vbox(3)
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		top.add_child(info)
+		var slot := UiKit.hbox(4)
+		slot.name = "Actions"
+		slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		top.add_child(slot)
+		card.set_meta("actions", slot)
 	var h := UiKit.hbox(6)
-	v.add_child(h)
+	info.add_child(h)
 	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
 	h.add_child(UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true))
-	v.add_child(_para(detail, 12, UiKit.MUTED))
+	info.add_child(_para(detail, 12, UiKit.MUTED))
 	return card
+
+
+## Where a card's actions go: beside him on a PC, under him on a phone.
+func _action_slot(card: PanelContainer) -> Container:
+	if card.has_meta("actions"):
+		return card.get_meta("actions")
+	return card.get_child(0) as VBoxContainer
 
 
 func _para(text: String, size: int, colour: Color) -> Label:

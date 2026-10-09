@@ -52,7 +52,7 @@ func _build() -> void:
 		cols.add_child(left)
 		cols.add_child(right)
 	left.add_child(_how_we_play())
-	right.add_child(_form())
+	left.add_child(_form())
 	right.add_child(_list_and_cap())
 	var board := _board()
 	if board != null:
@@ -314,6 +314,9 @@ func _staff() -> Control:
 	var b := UiKit.btn("Staff" if jobs == 0 else "Staff  ·  %d to fill" % jobs, UiKit.BODY, jobs > 0)
 	b.name = "OpenStaff"
 	b.custom_minimum_size = Vector2(0, 44)
+	if _wide():
+		b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		b.custom_minimum_size.x = 180
 	b.pressed.connect(func(): Router.go("staff"))
 	v.add_child(b)
 	return v
