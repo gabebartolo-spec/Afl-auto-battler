@@ -1,6 +1,6 @@
 ---
 name: afl-lifecycle-review
-description: The W7 semantic review for changes that touch a career's lifecycle - the save schema, season rollover or off-season, shared simulation rules (MatchSim, Ratings, Traits), recruitment (draft, trades, free agency, contracts) or player identity (ids, names, club moves, retirement). Use it when you are asked to review such a PR, when you open one (to write its review packet), or when a change you're making turns out to reach one of these areas, even if nobody said "W7".
+description: The W7 semantic review for changes that touch a career's lifecycle - the save schema, season rollover or off-season, shared simulation rules (MatchSim, Ratings, Traits), recruitment (draft, trades, free agency, contracts) or player identity (ids, names, club moves, retirement). Use it when you are asked to review such a PR, when you open one (to write its review packet), or when a change you're making turns out to reach one of these areas, even if nobody said "W7". Extends the general game-architecture skill (its lifecycle review section) with this game's transitions.
 ---
 
 # Lifecycle review (W7)
