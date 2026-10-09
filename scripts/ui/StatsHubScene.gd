@@ -127,9 +127,9 @@ func _hero() -> Control:
 	var lr := GameState.my_ladder_row()
 	var txt := UiKit.vbox(0)
 	txt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	txt.add_child(UiKit.ellipsis("%s  ·  %s  ·  %d pts" % [GameDB.club_short(GameState.my_club),
+	txt.add_child(UiKit.line("%s  ·  %s  ·  %d pts" % [GameDB.club_short(GameState.my_club),
 			GameState.my_record(), int(lr.get("pts", 0))], UiKit.H2, UiKit.TEXT, true))
-	txt.add_child(UiKit.lbl(when, UiKit.SMALL, UiKit.MUTED))
+	txt.add_child(UiKit.line(when, UiKit.SMALL, UiKit.MUTED))
 	row.add_child(txt)
 	return row
 
