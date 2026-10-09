@@ -1,0 +1,7 @@
+[remap]
+
+importer="keep"
+
+[deps]
+
+source_file="res://data/departures_2026.csv"
