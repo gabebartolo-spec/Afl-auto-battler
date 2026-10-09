@@ -13,6 +13,7 @@ name: UI review sheets
 #
 #   gh run download <run-id> -n ui-review-sheets
 on:
+  workflow_dispatch:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -22,6 +23,10 @@ on:
       - "assets/vignette/**"
       - "tools/visual/capture_screens_light.gd"
       - "tools/contact_sheet.py"
+      - "tools/figure_crops.py"
+      - "tools/visual/capture_match.gd"
+      - "tools/visual/capture_prematch.gd"
+      - "scripts/ui/match/**"
       - ".github/workflows/ui-review.yml"
 
 permissions:
@@ -33,7 +38,7 @@ concurrency:
 
 jobs:
   sheets:
-    if: github.event.pull_request.draft == false
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -44,7 +49,7 @@ jobs:
       - name: Virtual display, software GL and Pillow
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 fonts-dejavu-core > /dev/null
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 fonts-dejavu-core ffmpeg > /dev/null
           python3 -m pip install --quiet pillow
 
       - name: Cache Godot
@@ -89,6 +94,30 @@ jobs:
             tail -n 5 "out/$name.log"
           done
           ls -la out/phone out/pc
+
+      - name: Figure scenes, 2x crops and a clip
+        run: |
+          # Phase 6.1 part 2: the figures are judged at 2x on their contact
+          # frames (feet, hands, shadows), and a clip shows anything that moves.
+          # capture_match writes every frame of a 2 second window at 30 fps
+          # (--movie), aimed at an event of the given kind; the middle frame is
+          # the event. Not a gate: a failed capture warns and the rest go on.
+          mkdir -p out/figures frames
+          for kind in ballup kick goal; do
+            rm -f frames/*.png
+            LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1280x1000x24"               timeout 600 "$HOME/godot/godot" --path . --rendering-method gl_compatibility               --script tools/visual/capture_match.gd -- --seed 42 --kind "$kind" --nth 2 --secs 2               --movie --out "$PWD/frames/match_$kind" > "out/figures_$kind.log" 2>&1 || echo "::warning::$kind capture exited non-zero"
+            if ls frames/match_${kind}_f*.png > /dev/null 2>&1; then
+              python3 tools/figure_crops.py out/figures frames "match_$kind"
+              ffmpeg -loglevel error -y -framerate 30 -i "frames/match_${kind}_f%04d.png"                 -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -pix_fmt yuv420p "out/figures/match_$kind.mp4" || true
+            fi
+          done
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1280x1000x24"             timeout 600 "$HOME/godot/godot" --path . --rendering-method gl_compatibility             --script tools/visual/capture_prematch.gd -- --out "$PWD/out/figures/prematch"             > out/figures_prematch.log 2>&1 || echo "::warning::prematch capture exited non-zero"
+          shopt -s nullglob
+          crops=(out/figures/*_2x.png)
+          if [ ${#crops[@]} -gt 0 ]; then
+            python3 tools/contact_sheet.py out/sheet_figures_2x.png "#${{ github.event.pull_request.number }} figure contact frames at 2x" "${crops[@]}"
+          fi
+          ls -la out/figures
 
       - name: Contact sheets
         run: |
