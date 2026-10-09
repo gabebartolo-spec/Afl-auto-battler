@@ -124,6 +124,16 @@ Copy: "Dual ruck on: Auto-pick names a second ruck on the bench" (`SelectionScen
 
 (A first pass read the "starting ruck" after the match, after interchanges had changed the ground, and showed a false +6.8 hit-outs for him. Fixed: he is now read before the first bounce.)
 
+### Development projects, the payback (`tools/audit/projpair_impl.gd` on audit.yml; seeds 301–306, 3 seasons; each project player paired with his no-project self)
+
+| Club (run) | Projects / learned | OVR vs self, project season | OVR vs self, two seasons on | Extra weeks played out of his line |
+|---|---|---|---|---|
+| MEL (37928374658) | 41 / 34 | −0.20 ± 0.08 | +0.42 ± 0.21 | +1.6 ± 1.1 |
+| GEE (37928378497) | 39 / 38 | −0.26 ± 0.08 | +0.54 ± 0.21 | +0.2 ± 0.2 |
+| COL (37928382115) | 38 / 30 | −0.24 ± 0.09 | +0.56 ± 0.18 | +1.4 ± 1.0 |
+
+**Verdict: works as written.** The stated price (a lower training limit in the project season) costs about 0.2 OVR. The payback (limit +1 the season after) more than repays it two seasons on, and POT never moves. The auto-pick's use of a learned position is real but small and club-dependent. The ROADMAP's 0.8 OVR cost figure came from `devproj_impl`, which compares against team-mates, not against the same player. The self-paired cost is smaller.
+
 ### Department budget (code and copy; `ClubBudget.gd`)
 
 | Area | Copy (`benefit_text`) | Code | Verdict |
