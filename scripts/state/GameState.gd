@@ -3091,12 +3091,14 @@ func _project_week(p: Dictionary, announce := true) -> Dictionary:
 	pr["weeks"] = int(pr.get("weeks", 0)) + 1
 	if int(pr["weeks"]) < PROJECT_WEEKS:
 		return {}
-	return _finish_project(p, announce)
+	return _finish_project(p, announce, "Round %d" % maxi(1, season.round_index))
 
 
 ## The verdict on his project, at PROJECT_WEEKS or when the season ends first:
-## learned if his rating there is within PROJECT_PASS of his own.
-func _finish_project(p: Dictionary, announce := true) -> Dictionary:
+## learned if his rating there is within PROJECT_PASS of his own. The
+## decision and its outcome are kept as a career fact (G7): `at` is when it
+## was judged ("Round 12", or "Season end" when the season ended first).
+func _finish_project(p: Dictionary, announce := true, at := "Season end") -> Dictionary:
 	var job := project_job(p)
 	var role := project_role(p)
 	var own := int(p.get("overall", 0))
@@ -3110,6 +3112,8 @@ func _finish_project(p: Dictionary, announce := true) -> Dictionary:
 			var more: Array = p.get("learned", [])
 			more.append(role)
 			p["learned"] = more
+	CareerFacts.add(career_facts, str(p.get("id", "")), CareerFacts.row(season_year, at, "project",
+			str(p.get("club", "")), job, "learned" if learned else "not taken"))
 	p.erase("project")
 	p.erase("train_plan")
 	if not announce:
@@ -4502,10 +4506,15 @@ func _join(code: String, p: Dictionary) -> void:
 	var list: Array = season.lists[code]
 	if str(p.get("club", "")) != code:
 		p["joined"] = season_year
+	# A new club ends a project; his season's chance stays spent. The old
+	# club's decision is kept as a career fact, with how it ended.
+	if project_job(p) != "" and str(p.get("club", "")) != code:
+		CareerFacts.add(career_facts, str(p.get("id", "")), CareerFacts.row(season_year, "",
+				"project", str(p.get("club", "")), project_job(p), "ended by a move"))
 	p["club"] = code
 	p["num"] = _next_jumper_number(list)
 	p.erase("train_plan")
-	p.erase("project")  # a new club ends it; his season's chance stays spent
+	p.erase("project")
 	p.erase("released_by")
 	p.erase("comp_eligible")
 	list.append(p)
