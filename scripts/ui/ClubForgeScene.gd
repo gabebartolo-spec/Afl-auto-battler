@@ -98,6 +98,8 @@ func _build() -> void:
 	_scroll_form = _form
 	if _form == "club":
 		_root.add_child(_club_workspace(_scroll))
+	elif _form == "player":
+		_root.add_child(_player_workspace(_scroll))
 	else:
 		_root.add_child(_scroll)
 	if keep > 0:
@@ -154,6 +156,69 @@ func _home(body: VBoxContainer) -> void:
 		GameState.set_forge_player({})
 		_build())
 	body.add_child(drop)
+
+
+## Create a player: the prospect himself above the form (PlayerPreview), front on
+## and from behind, with his name and what he plays, changing as you build him.
+## Beside the form on a wide screen.
+func _player_workspace(form: ScrollContainer) -> Control:
+	var wide := UiKit.view_width(self) >= 760.0 and UiKit.view_width(self) > UiKit.view_height(self)
+	var preview := PlayerPreview.new()
+	preview.name = "ForgePlayerPreview"
+	preview.spec = _spec
+	preview.custom_minimum_size = Vector2(260, 330) if wide else Vector2(170, 190)
+	var name_l := UiKit.lbl("", UiKit.H1 if wide else UiKit.H2, UiKit.TEXT, true)
+	name_l.name = "ForgePlayerPreviewName"
+	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var line := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	line.name = "ForgePlayerPreviewLine"
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_ppv = {"name": name_l, "line": line}
+	_refresh_player_preview()
+	var out: BoxContainer
+	if wide:
+		out = UiKit.hbox(20)
+		var side := UiKit.vbox(10)
+		side.name = "ForgePlayerPanel"
+		side.custom_minimum_size.x = 260
+		side.add_child(preview)
+		side.add_child(name_l)
+		side.add_child(line)
+		out.add_child(side)
+	else:
+		out = UiKit.vbox(8)
+		var strip := UiKit.hbox(10)
+		strip.name = "ForgePlayerPanel"
+		strip.add_child(preview)
+		var words := UiKit.vbox(2)
+		words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		words.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		words.add_child(name_l)
+		words.add_child(line)
+		strip.add_child(words)
+		out.add_child(strip)
+	out.add_child(form)
+	out.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	out.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return out
+
+
+func _process(_delta: float) -> void:
+	if _form == "player":
+		_refresh_player_preview()
+
+
+func _refresh_player_preview() -> void:
+	var name_l = _ppv.get("name")
+	if name_l == null or not is_instance_valid(name_l):
+		return
+	var full := ("%s %s" % [str(_spec.get("first", "")).strip_edges(), str(_spec.get("last", "")).strip_edges()]).strip_edges()
+	(name_l as Label).text = full if full != "" else "Your player"
+	var bits := PackedStringArray([STYLE_LABELS.get(str(_spec.get("style", "")), _role_label(str(_spec.get("role", "MID")))),
+			"%d cm" % int(_spec.get("height_cm", 184))])
+	if int(_spec.get("number_pref", 0)) > 0:
+		bits.append("No. %d" % int(_spec["number_pref"]))
+	(_ppv["line"] as Label).text = " · ".join(bits)
 
 
 func _default_spec() -> Dictionary:
@@ -385,6 +450,7 @@ var _colour_box: VBoxContainer
 var _kit_box: VBoxContainer
 ## The live preview's crest and words.
 var _pv := {}
+var _ppv := {}
 ## The director's flow (2026-10-07): name the club, pick the design, then
 ## pick a colour (the brush) and click the part of the guernsey to paint.
 var _brush := ""
