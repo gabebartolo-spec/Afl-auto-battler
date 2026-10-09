@@ -132,6 +132,7 @@ var season_wrap := {}            # the off-season briefing shown before Round 1 
 var _wrap_picks: Array = []      # your National Draft picks, carried into the rollover
 var news: Array = []             # league news feed, newest first
 var difficulty := "normal"       # this career's difficulty (DIFFICULTIES key)
+var tutorials := true            # this career's first-visit menu tips (Tutorials.gd)
 var board := {}                  # confidence, goal, warned, sacked, history
 var week_event := {}             # this week's event card (ClubLife.pick_event)
 var media_conference := {}       # pending post-match press question
@@ -532,6 +533,7 @@ func save_career() -> bool:
 		"trade_requests": trade_requests,
 		"news": news,
 		"difficulty": difficulty,
+		"tutorials": tutorials,
 		"board": board,
 		"week_event": week_event,
 		"media_conference": media_conference,
@@ -692,6 +694,7 @@ func load_career() -> bool:
 	last_side = state.get("last_side", [])
 	event_memory = state.get("event_memory", {})
 	difficulty = str(state.get("difficulty", "normal"))
+	tutorials = bool(state.get("tutorials", true))
 	if not DIFFICULTIES.has(difficulty):
 		difficulty = "normal"
 	GameDB.draftees = state.get("db_draftees", GameDB.draftees)
@@ -1054,6 +1057,7 @@ func reset() -> void:
 	last_side = []
 	event_memory = {}
 	difficulty = new_career_difficulty()
+	tutorials = new_career_tutorials()
 	career_seed = randi_range(1, 999999)
 	class_tiers = {}
 	last_training_report = {}
@@ -6651,6 +6655,36 @@ const DIFFICULTY_ORDER := ["easy", "normal", "hard"]
 
 func difficulty_rules() -> Dictionary:
 	return DIFFICULTIES.get(difficulty, DIFFICULTIES["normal"])
+
+
+## First-visit menu tips (director, 2026-10-07): chosen at New career, kept
+## with the career, changeable in Settings. Off stops them opening by
+## themselves; nothing else changes.
+func new_career_tutorials() -> bool:
+	return bool(get_setting("tutorials", true))
+
+
+func set_new_career_tutorials(on: bool) -> void:
+	set_setting("tutorials", on)
+	if season == null:
+		tutorials = on
+
+
+func tutorials_on() -> bool:
+	return tutorials
+
+
+## Whether a first-visit intro opens by itself: this career's tips are on and
+## it hasn't been seen on this device. Help buttons open intros regardless.
+func intro_due(key: String) -> bool:
+	return tutorials and not bool(get_setting("seen_%s_intro" % key, false))
+
+
+## Settings: this career's tips on or off (and the next New career's default).
+func set_tutorials_on(on: bool) -> void:
+	tutorials = on
+	set_setting("tutorials", on)
+	mark_dirty()
 
 
 ## The difficulty the next New Career starts on (a menu setting).

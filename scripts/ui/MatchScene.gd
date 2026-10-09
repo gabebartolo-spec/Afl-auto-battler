@@ -280,7 +280,7 @@ func _paint_momentum() -> void:
 		ClubDuel.on_colour(_mom_word)
 	# The first match you watch: once it first moves, one line says what it is.
 	if _interactive and not _mom_note.visible and absf(_momentum) >= MOMENTUM_EVEN \
-			and not bool(GameState.get_setting("seen_momentum_intro", false)):
+			and GameState.intro_due("momentum"):
 		GameState.set_setting("seen_momentum_intro", true)
 		_mom_note.text = "Momentum swings with each goal and fades with time; the side on top wins a little more of the ball. %s it for more." % ("Click" if ScreenLayout.is_desktop() else "Tap")
 		_mom_note.visible = true
