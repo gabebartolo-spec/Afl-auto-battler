@@ -6268,11 +6268,11 @@ Prefer improving the existing experience when that answers the same need. This p
 |---|---|---|---|
 | FL-001 | Include authentic football language and restrained Australian humour | M8-006 | PARTIAL (slice 1 #258, audit #381, fixes #386; copy review and the 200-games line open) / LOW |
 | FL-002 | Include milestone banners; **audit their appearance so decorative content is distinct from actual game information** | M7-003 + M8-007 | DONE (#400, director approved) / MEDIUM |
-| FL-003 | Include recognisable ground atmosphere | M8-003/007; reuse M7-009 venue identity/presets where available | TODO / HIGH |
+| FL-003 | Include recognisable ground atmosphere | M8-003/007; reuse M7-009 venue identity/presets where available | DONE for the MCG (#537, director approved 2026-10-09) / HIGH |
 | FL-004 | Include natural crowd sound, breathing room and volume controls | M8-006 + existing audio owner | DONE (#405 sounds, #409 crowd; director approved) / MEDIUM |
 | FL-005 | Include persistent, harmless fictional-player nicknames and interests | M7-005 + existing M7-008/009 nickname/profile fields | DONE (#392, director approved) / MEDIUM |
 | FL-006 | Include characterful, truthful headlines distinct from game information | M4-009 + M7-005/011 and existing news/season-story surfaces | DONE (#395, director approved, losses included) / MEDIUM |
-| FL-007 | Include rituals and farewells; **build new vignette scenes as necessary** | M7-003/005 + M8-007 shared art/rendering | TODO / HIGH |
+| FL-007 | Include rituals and farewells; **build new vignette scenes as necessary** | M7-003/005 + M8-007 shared art/rendering | IN PROGRESS (milestone farewell #540) / HIGH |
 | FL-008 | Include decorative club memories across decades | M7-005 + existing alumni/history presentation | DONE (#406, director approved, home games only) / MEDIUM |
 
 ### Common dependencies, limits and acceptance
@@ -6307,6 +6307,7 @@ Prefer improving the existing experience when that answers the same need. This p
 **Exclusions:** new venue scheduling, explorable towns, pitch-geometry changes, weather generation, home bonuses or travel effects.
 **Acceptance:** a few accurate details establish place while players and ball remain primary; decorative conditions do not contradict available match facts; unknown time/weather uses a neutral fallback.
 **Validation:** venue-reference review, quiet/busy backgrounds, both themes, camera/actor occlusion and measured Android performance.
+**Director decisions (2026-10-09):** the MCG first, where the camera actually looks (three stand tiers, the fascia band, blue-grey night seats, two end screens; the light towers sit above every broadcast frame), kept subtle ("like the lighting"). It shows for a final at the MCG and for the home games of clubs whose ground is the MCG; every other ground is unchanged. Look approved and merged in #537.
 
 ### FL-004 — Natural sound and breathing room
 **Scope:** add restrained ground/crowd atmosphere and differentiated reactions to actual events. Reuse existing music/volume architecture and provide natural pauses plus atmosphere/music control and a quiet option.
@@ -6346,7 +6347,8 @@ Acceptance: every bio card supports the field; sourced real facts display correc
 **Dependencies:** known event and participants, current milestone/retirement/award owners, shared art migration and presentation flow.
 **Exclusions:** changed votes/winners, fabricated achievements, forced retirements, separate award engines, duplicated rewards or unrelated tactical-library expansion.
 **Acceptance:** first implement one complete event-to-scene-to-return path, then cover the approved occasions coherently. Every scene honours the correct person/event, is skippable/acceleratable, and returns cleanly without changing the football or awards. Routine repeats avoid lengthy ceremony; meaningful recognition can remain sincere.
-**Validation:** reachable scene inventory, new poses/assets, actual participants/club colours, factual triggers, once-only/replay handling, reload/Back/skip and native Android load/performance/pacing. The tactical decision-clarity gate remains for tactical scenes; a flavour scene is judged on recognition, visual distinction and enjoyment, not a nonexistent tactical choice.
+**Validation:** reachable scene inventory, new poses/assets, actual participants/club colours, factual triggers, once-only/replay handling, reload/Back/skip and native Android load/performance/pacing.
+**Director decisions (2026-10-09):** the first occasion is the milestone farewell after the siren: both teams form a guard of honour and clap him off (hands meeting on a diagonal, cupping the air), then two teammates chair him off, hands holding his legs. About 6 seconds, skippable with a tap, full time already built underneath. It plays at a player's 200th, 250th, 300th... game (club or career) and on his last game; the debut, 50th, 100th and 150th keep their banner only. Board approved (guard of honour and chaired off); the built scene still needs its look approval before #540 merges. The tactical decision-clarity gate remains for tactical scenes; a flavour scene is judged on recognition, visual distinction and enjoyment, not a nonexistent tactical choice.
 
 ### FL-008 — Club memories across decades
 **Scope:** use existing club/history/profile surfaces and surroundings to retain factual visual reminders of premierships, notable players and alumni. Audit already-approved former-player links before building another treatment.
