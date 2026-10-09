@@ -13,7 +13,7 @@ Built for **Godot 4.7** (GDScript), targeting **PC and mobile**.
 
 ## Career direction and research — 2026-10-05
 
-The [canonical roadmap](ROADMAP.md) owns execution and status. The [genre enjoyment research](GENRE_ENJOYMENT_RESEARCH.md) connects observed mechanics, developer interpretations and player/director accounts to testable ARD hypotheses.
+The [design bible](DESIGN_BIBLE.md) is the ultimate truth for what this game is and outranks this document (director, 2026-10-09). The [canonical roadmap](ROADMAP.md) owns execution and status. The [genre enjoyment research](GENRE_ENJOYMENT_RESEARCH.md) connects observed mechanics, developer interpretations and player/director accounts to testable ARD hypotheses.
 
 The director's priorities are a legible visual simulation, creative team construction, consistent decades-long saves, evolving individual roles and meaningful coaching during matches and seasons. A match-triggered decision must connect actual evidence to a feasible choice, applied state and observable consequences; success can be positive, negative or inconclusive. Presentation, events, statistics and histories must agree. Preserve uncertainty, transparent rules, AI parity, natural football language and Android-first layouts; no best-move recommendations or psychic opponents.
 

@@ -4,6 +4,8 @@ _Last reorganised: 2026-09-28_
 _Last sanity-checked: 2026-10-07 against live `main` at `7ebb7d5c`, merged PR metadata, current code/regression checks and the open-PR set; scope-specific reconciliation below._
 _Research/status reconciliation: 2026-10-05 against `main` at `4b9eecc3858e970c46e25366701907f1cb4c6070`; see [genre enjoyment research](GENRE_ENJOYMENT_RESEARCH.md)._
 
+**Design authority (director, 2026-10-09):** the [design bible](DESIGN_BIBLE.md) is the ultimate truth for what this game is. Where this roadmap disagrees with it, the bible wins and this file is corrected. The bible schedules no work; this roadmap still owns execution, status and order. The audit of this file against the bible is in [BIBLE_AUDIT_2026-10-09.md](BIBLE_AUDIT_2026-10-09.md).
+
 This file is the **single source of truth** for the project roadmap. It is deliberately written so Claude or another coding agent can read it, select an authorised task, inspect the repo, implement it, validate it, and update the roadmap with minimal extra guidance.
 
 This is **not** a chronological dump of ideas. Items are consolidated into systems, ordered by dependency and player value, and given implementation guardrails.
@@ -67,7 +69,8 @@ These terms have established project-specific meanings. **Do not guess or reinte
 
 - **Poke** — a request for ChatGPT to perform the repository-status job now: check GitHub for new PRs, CI state, merges, commits/branches, blockers, and any mechanical action already expected from the current workflow. It is not a conversational acknowledgement.
 - **Vignette / vignettes** — unless the user explicitly says otherwise, this means **ARD-M8-007 — Cinematic tactical vignettes**: short, higher-detail in-match visual sequences around meaningful football decisions. It does **not** mean ClubLife/week_event narrative events, player-dialogue scenes, or generic story cards.
-- **Roadmap** — `docs/ROADMAP.md` is the canonical execution/source-of-truth document for this project.
+- **Roadmap** — `docs/ROADMAP.md` is the canonical execution/source-of-truth document for this project. Design philosophy is owned by the bible (below).
+- **Bible / design bible** — `docs/DESIGN_BIBLE.md`, the director's statement of what the game is (2026-10-09). It outranks this file on design and is changed only with the director's explicit consent for each update.
 - **Audit** — unless otherwise qualified, refers to the current project design/system audit material recorded in the roadmap and `docs/SYSTEM_REALITY_AUDIT.md`.
 - **Claude** — the primary development agent. ChatGPT's AFL-project role is planning, review, roadmap maintenance, repo-status/mechanical GitHub work, and prompting/coordination unless the user explicitly asks otherwise.
 
@@ -83,6 +86,8 @@ The user should not have to restate established project vocabulary each time.
 ---
 
 ## 0.2 Design philosophy — fun and agency over simulation purity
+
+**Read the [design bible](DESIGN_BIBLE.md) first (director, 2026-10-09).** It states the vision, the core pillar (player agency), the principles and the feature test, and it outranks this section. The lenses below remain as supporting detail where they agree with it. The bible's feature test (a feature must be justifiable by its intent) is the one that decides whether a feature belongs; the two "useful test" questions below are aids to it.
 
 **Aussie Rules Dynasties is a game first and a simulation second.** Football realism matters because it makes decisions understandable and the world believable, but realism is not a reason to preserve passive, opaque or unfun play.
 
@@ -552,6 +557,8 @@ At minimum:
 - check AI and player teams use the same rules.
 
 Do not tune purely until one screenshot "looks right".
+
+**Who calls balance settled (design bible, 2026-10-09):** balance is settled when testing shows numbers similar to real AFL **and** the director's own playtest passes. An agent reports evidence; it never declares balance finished. Ratings that reflect the real footballer are part of this work.
 
 ---
 
@@ -1646,6 +1653,13 @@ Instrument/seed the offending situation and confirm the ball is targeting the co
 The director reports **nowhere explains how to long-press “Play round” to reach the skip-to-finals/season-skip controls**. Verify the current button label, available menu options and actual stopping point; do not teach obsolete “Sim round” wording or imply that skipping to the end of home-and-away simulates finals if it does not.
 
 At the first relevant Hub encounter, explicitly explain **press and hold Play round to open the quick-sim options**, then explain the available options and where each stops. Demonstrate the interaction with a short contextual cue/walkthrough anchored to the actual button, with clear dismiss/skip and replayable Help. Make the hidden interaction discoverable beyond the one-time introduction through a restrained persistent cue or an accessible equivalent entry. Explain any desktop equivalent actually supported. Verify a fresh-save user can discover and perform the gesture and select the intended skip action without prior knowledge; tutorials must not activate simulation by themselves.
+
+### Pre-timeskip survey — how the sim runs your club while you skip (director, 2026-10-09)
+**Status:** `TODO`, unassigned. **Priority:** not set by the director. From the design bible brainstorm.
+
+Before a timeskip the player tells the sim how to manage their club. The ethos is the bible's: the player knows the risk of playing hands-off, the risk is theirs to take, and the results are explained clearly and objectively afterwards. The game is designed for a player who plays most matches and sims the odd one.
+
+**Open director question:** a full survey, or the simpler version in which the sim follows the instructions the club already holds (game plan, selection, roles) and asks only about what nothing else covers. Do not build either until the director chooses.
 
 ### Skip to end of season — excessive simulation/loading time (director, 2026-10-07)
 **Status:** `TODO`. **Priority:** `P1` — high-priority performance/usability follow-up, coordinated with the existing §1.11 simulation/performance owner.
@@ -4212,6 +4226,15 @@ After a match, the coach faces the press in a short, dramatic vignette: a journa
 - Short and skippable: a few lines, two to four answers, one tap. It must not appear after every match; it should feel like an occasion (big wins/losses, milestones, controversy), and the same question must not repeat in a short span.
 - Mobile first: readable at 360-390 px, thumb-sized answers, natural Android Back.
 
+### Design bible alignment — director decisions, 2026-10-09
+**Status:** `TODO`, unassigned. Recorded from the [design bible](DESIGN_BIBLE.md); do not start without assignment.
+
+- A press answer is **a dice roll based on logic**, not a fixed transaction. The same comment can land two ways: criticise a young player and his morale may drop, or his resolve may tighten. This replaces "in a direction the copy promises" below wherever the two disagree.
+- The player must be able to tell beforehand that a comment carries risk. The conference tests media literacy, relationship management and board compliance.
+- Answers move player morale, board expectations **and relationships with the press** (the journalists of RPG-002).
+- The effect on the named player is visible afterwards, for better or worse, so the coach can adjust or carry on.
+- Still to design before building: how the risk is shown without number vomit, what decides which way an answer lands, and where the player sees the result.
+
 ### Guardrails
 - No fake choices: every answer changes morale and/or board standing in a direction the copy promises (see the System Reality Audit's fake/no-op choice rule).
 - Effects are modest and decay; the media conference cannot outweigh results, selection or coaching.
@@ -6717,6 +6740,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-09 — design bible:** the director's design bible is now in `docs/DESIGN_BIBLE.md` and outranks this file on design (header, §0.1.1 lexicon, §0.2). Audited the design documents against it: `docs/BIBLE_AUDIT_2026-10-09.md`. Recorded, all unassigned: the press-answer dice-roll decisions under ARD-M6-008, the pre-timeskip survey under ARD-M1-007 and the balance sign-off rule in §1.10. No status, priority or queue order was changed; the audit lists the queue question for the director.
 
 - **2026-10-07 — director chat coverage audit:** verified every actionable request and subsequent clarification from this chat against the live roadmap at blob `4401369ac59b`. No request was missing; this receipt records locations rather than adding duplicate tasks or declaring implementation complete:
   - **Complete Stats patch:** §1.11 Season stats hub — every listed metric, competition-wide match/season aggregation and sortable/filterable views, expanded ladder, fixture/results, awards and trophy room; real-event counts/derived ratios, reuse/tests, single highest priority, implementation authorised for 2026-10-07 and explicit implementation merge HOLD.
