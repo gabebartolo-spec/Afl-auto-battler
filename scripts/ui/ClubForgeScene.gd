@@ -94,6 +94,17 @@ func _build() -> void:
 		_player_form(body)
 	elif _form == "club":
 		_club_form(body)
+	elif UiKit.view_width(self) >= 760.0 and UiKit.view_width(self) > UiKit.view_height(self):
+		# A wide screen: your player and your club side by side, not two
+		# bars stretched across the page (director: no full-width bars on PC).
+		var cols := UiKit.hbox(40)
+		cols.name = "ForgeHomeColumns"
+		body.add_child(cols)
+		for half in [_home, _club_home]:
+			var col := UiKit.vbox(UiKit.GAP)
+			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			cols.add_child(col)
+			half.call(col)
 	else:
 		_home(body)
 		_club_home(body)
@@ -116,7 +127,7 @@ func _restore_scroll(sc: ScrollContainer, value: int) -> void:
 
 
 func _home(body: VBoxContainer) -> void:
-	body.add_child(UiKit.lbl("Your player", UiKit.H2, UiKit.TEXT, true))
+	body.add_child(_heading("Your player"))
 	var saved := GameState.forge_player()
 	if saved.is_empty():
 		var none := UiKit.lbl("Create a prospect and bring him into a new career. He enters the first National Draft like any other kid: where he goes, and what he becomes, is up to the clubs and to him.",
