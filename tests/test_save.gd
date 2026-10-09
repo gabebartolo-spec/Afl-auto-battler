@@ -423,6 +423,28 @@ func _test_fictional_identity() -> void:
 	var real: Dictionary = GameDB.club_list("GEE")[0]
 	_check(FictionalIdentity.nickname(real) == "" and FictionalIdentity.interest(real) == "",
 			"A real player is given no invented nickname or interest")
+	# Favourite club growing up: every generated kid has one, mostly from his own
+	# state, the same after a move; a real player's is only ever a sourced fact.
+	var fav_ok := true
+	var home := 0
+	var vics := 0
+	for p in gen:
+		var q: Dictionary = p.duplicate()
+		q["state"] = "WA" if int(str(p["id"]).trim_prefix("fl5_")) % 2 == 0 else "VIC"
+		var fc := FictionalIdentity.favourite_club(q)
+		var moved: Dictionary = q.duplicate()
+		moved["club"] = "ESS"
+		if fc == "" or not TradeRequests.CLUB_STATES.has(fc) or FictionalIdentity.favourite_club(moved) != fc:
+			fav_ok = false
+		if q["state"] == "WA":
+			if str(TradeRequests.CLUB_STATES.get(fc, "")) == "WA":
+				home += 1
+		else:
+			vics += 1
+	_check(fav_ok, "Every generated player has a favourite club, the same after a move")
+	_check(home > 100 and home < 190, "Most WA kids grew up following a WA club, not all (%d of 200)" % home)
+	_check(FictionalIdentity.favourite_club(real) == "",
+			"A real player's favourite club is never guessed (Not recorded without a source)")
 	_new_season()
 	var mine: Dictionary = GameState.my_list[0]
 	var name_before := GameDB.player_display_name(mine)
