@@ -1142,7 +1142,12 @@ func _show_media_conference() -> void:
 	var footer: VBoxContainer = box["footer"]
 	footer.visible = false
 	var opts: Array = GameState.media_conference.get("options", [])
+	# Each answer and its line are one group, clearly apart from the next.
+	footer.add_theme_constant_override("separation", 15)
 	for i in range(opts.size()):
+		var group := UiKit.vbox(3)
+		group.name = "MediaAnswerGroup_%d" % i
+		footer.add_child(group)
 		var b := UiKit.btn(str((opts[i] as Dictionary).get("label", "")), 15)
 		b.name = "MediaAnswer_%d" % i
 		b.custom_minimum_size = Vector2(0, 48)
@@ -1153,7 +1158,12 @@ func _show_media_conference() -> void:
 			_media_overlay.queue_free()
 			_media_overlay = null
 			_build())
-		footer.add_child(b)
+		group.add_child(b)
+		# What the answer does, under it: the board, the players, no numbers.
+		var effect := UiKit.lbl(MediaConference.effect_line(opts[i]), UiKit.SMALL, UiKit.MUTED)
+		effect.name = "MediaAnswerLine_%d" % i
+		effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		group.add_child(effect)
 	var skip := UiKit.btn("Skip press conference", 14)
 	skip.name = "MediaSkip"
 	skip.flat = true
