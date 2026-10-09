@@ -109,7 +109,9 @@ static func build(host: Control) -> Control:
 		v.add_child(filters)
 
 	var shown := visible_rows(season, GameState.my_club, _filter, _sort, _desc, _view)
-	v.add_child(_status(host, shown.size()))
+	# Only when something is filtered or sorted: the whole ladder says so itself.
+	if _filter != "all" or _sort != "":
+		v.add_child(_status(host, shown.size()))
 
 	# No panel around it: the bands do the work.
 	var t := UiKit.vbox(0)

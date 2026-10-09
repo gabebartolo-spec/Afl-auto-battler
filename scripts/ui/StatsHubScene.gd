@@ -95,6 +95,9 @@ func _build() -> void:
 		var t := UiKit.tab(str(s[1]), key == current)
 		t.name = "Section_" + key
 		t.custom_minimum_size = Vector2(150 if wide() else 0, 44)
+		if wide():
+			# As wide as their words, together in the middle, over the column below.
+			t.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		t.pressed.connect(func():
 			current = key
 			_build.call_deferred())
