@@ -1692,8 +1692,11 @@ func _on_finished() -> void:
 	if _interactive:
 		GameState.finish_interactive_match(_res)
 	_sync_controls()
+	# Full time is built at once (its controls exist and work the moment the siren goes);
+	# a milestone game's farewell plays over it on its own layer, and a tap or its end
+	# shows full time underneath.
+	_show_fulltime()
 	if not _farewell.is_empty():
-		# A milestone game: the guard of honour and chaired off, then full time.
 		var v := FarewellVignette.open(get_tree().root, _farewell["ms"], _farewell["man"],
 				GameState.my_club, str(_farewell["opp"]), _farewell["mine"], _farewell["theirs"],
 				"Full time", str(GameState.pending_match.get("weather", "")) == "wet")
@@ -1701,10 +1704,6 @@ func _on_finished() -> void:
 		tree_exiting.connect(func():            # Back out of the match: it goes too
 			if is_instance_valid(v):
 				v.finish_now())
-		await v.done
-		if not is_inside_tree():
-			return
-	_show_fulltime()
 
 
 ## Who the scene after the siren honours, and both sides' players: {} unless your

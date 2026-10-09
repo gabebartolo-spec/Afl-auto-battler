@@ -156,17 +156,19 @@ func _gui_input(event: InputEvent) -> void:
 # ---------------------------------------------------------------------------
 func _set_camera() -> void:
 	_cam_d = 4.0
-	_cam_h = 1.4      # low: the stand fills the top of the screen behind them (AFL BOSS, #540)
+	# Fitted to the captures (#540): the stand top ~12 m up and ~40 m out. From 3 m up, at this
+	# zoom, the crowd reaches the top bar, the chaired man clears it and the guard sits mid-screen.
+	_cam_h = 3.0
 	_cam_x = 0.0
 	_pan = 0.0
 	# Tight on the guard: at 1.25 the top ~40% of a phone was empty night sky.
-	var base := maxf(size.x * 1.25, size.y * 0.6) * 1.75
+	var base := maxf(size.x * 1.25, size.y * 0.6) * 1.68
 	var push := _ease(clampf(fmod(_t, GUARD) / GUARD, 0.0, 1.0)) if _t < GUARD else _ease(clampf((_t - GUARD) / CHAIRED, 0.0, 1.0))
 	_zoom = 1.0 + 0.08 * push
 	_focal = base * _zoom
 	# The far end of the guard sits a little above the middle of the screen.
 	var depth := 12.0 + _cam_d
-	_horizon = size.y * 0.378 - _focal * _cam_h / depth
+	_horizon = size.y * 0.508 - _focal * _cam_h / depth
 
 
 func _ground_to_scene() -> Transform2D:
