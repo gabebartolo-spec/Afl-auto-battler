@@ -129,6 +129,8 @@ func _run() -> void:
 	await process_frame
 	pitch.camera_enabled = not args.has("nocam")
 	pitch.setup(res)
+	# --figures: the mini-figure prototype on (Settings > Match view), whatever the setting.
+	pitch.mini_figures = args.has("figures")
 	pitch.set_speed(float(args.get("speed", "1")))
 	pitch.play()
 	pitch.set_process(false)
