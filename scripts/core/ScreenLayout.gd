@@ -25,6 +25,10 @@ func _ready() -> void:
 	_update_scale()
 	if DisplayServer.get_name() != "headless":
 		get_window().title = TITLE
+	# The phone measurement (visual audit 4.8): an exported debug build shows the
+	# frame time in the corner. Never in the editor, a test run or a release build.
+	if OS.has_feature("template") and OS.is_debug_build():
+		add_child.call_deferred(load("res://scripts/core/PerfProbe.gd").new())
 
 
 func _update_scale() -> void:
