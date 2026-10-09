@@ -263,7 +263,7 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 				b.add_theme_stylebox_override(st, sb)
 		if not field_only and Workload.value(p) >= Workload.CARRYING:
 			# How fresh he is, on the card: no profile needed to see it.
-			var ready := UiKit.lbl(Workload.label(p), 10, UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
+			var ready := UiKit.lbl(Workload.label(p), UiKit.TINY, UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
 			ready.name = "Readiness_" + id
 			ready.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			ready.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

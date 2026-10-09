@@ -123,7 +123,7 @@ func _hero() -> Control:
 	row.name = "StatsHero"
 	if wide():
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
-	var pos := UiKit.figure(GameState.ordinal(GameState.my_position()), 40, UiKit.club_vivid(GameState.my_club))
+	var pos := UiKit.figure(GameState.ordinal(GameState.my_position()), UiKit.HERO, UiKit.club_vivid(GameState.my_club))
 	pos.name = "StatsHeroPosition"
 	row.add_child(pos)
 	var when := "Home and away complete" if season.is_regular_done() 			else "After round %d of %d" % [season.round_index, Season.REGULAR_ROUNDS]
@@ -175,7 +175,7 @@ func _show_intro() -> void:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
 	GameState.set_setting("seen_season_stats_intro", true)
-	var ok := UiKit.btn("Got it", 17, true)
+	var ok := UiKit.btn("Got it", UiKit.NAME, true)
 	ok.name = "SeasonStatsIntroOk"
 	ok.custom_minimum_size = Vector2(0, 48)
 	ok.pressed.connect(func(): close_sheet())

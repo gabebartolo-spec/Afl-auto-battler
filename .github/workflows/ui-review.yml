@@ -1,0 +1,124 @@
+name: UI review sheets
+
+# Visual audit Phase 6.1 (docs/research/VISUAL_AUDIT_2026-10-10.md): every pull
+# request that changes how the game looks gets the main screens captured at the
+# phone size (390x844) and the PC canvas (1280x720: the director's fullscreen
+# 4K at 300%), tiled into one labelled contact sheet per size. The lead reviews
+# the sheets before anything visual goes to the director.
+#
+# It is information, not a gate: it never blocks a merge, and "test" in
+# tests.yml stays the only required check. A draft PR is skipped until it is
+# marked ready, like the tests. A newer push to the same PR cancels the older
+# run (only the latest sheets matter).
+#
+#   gh run download <run-id> -n ui-review-sheets
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "scripts/ui/**"
+      - "scenes/**"
+      - "assets/ui/**"
+      - "assets/vignette/**"
+      - "tools/visual/capture_screens_light.gd"
+      - "tools/contact_sheet.py"
+      - ".github/workflows/ui-review.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sheets:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GODOT_VERSION: "4.7.2"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Virtual display, software GL and Pillow
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 fonts-dejavu-core > /dev/null
+          python3 -m pip install --quiet pillow
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download Godot ${{ env.GODOT_VERSION }}
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          name="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          curl -fsSL --retry 3 -o godot.zip \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${name}.zip" \
+          || curl -fsSL --retry 3 -o godot.zip \
+            "https://downloads.godotengine.org/?version=${GODOT_VERSION}&flavor=stable&slug=linux.x86_64.zip&platform=linux.64"
+          unzip -q godot.zip && rm godot.zip
+          mv "${name}" godot && chmod +x godot
+
+      - name: Import the project
+        run: |
+          timeout 600 "$HOME/godot/godot" --headless --path . --editor --import > import.log 2>&1 || true
+          if grep -qE "SCRIPT ERROR|Parse Error|Compile Error" import.log; then
+            grep -E -A3 "SCRIPT ERROR|Parse Error|Compile Error" import.log | head -40
+            echo "::error::scripts failed to compile during import"
+            exit 1
+          fi
+
+      - name: Capture the main screens, phone and PC
+        run: |
+          mkdir -p out/phone out/pc
+          # The virtual screen is larger than any window here: a window bigger
+          # than the screen silently renders at 1x as a different layout.
+          for size in phone:390x844 pc:1280x720; do
+            name="${size%%:*}"; wh="${size#*:}"
+            LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 2560x1600x24" \
+              timeout 900 "$HOME/godot/godot" --path . --rendering-method gl_compatibility \
+              --script tools/visual/capture_screens_light.gd -- --mode dark --size "$wh" \
+              --out "$PWD/out/$name/screens" > "out/$name.log" 2>&1 || echo "::warning::$name capture exited non-zero"
+            tail -n 5 "out/$name.log"
+          done
+          ls -la out/phone out/pc
+
+      - name: Contact sheets
+        run: |
+          pr="#${{ github.event.pull_request.number }} at ${GITHUB_SHA::8}"
+          shopt -s nullglob
+          for name in phone pc; do
+            files=(out/$name/*.png)
+            if [ ${#files[@]} -gt 0 ]; then
+              python3 tools/contact_sheet.py "out/sheet_$name.png" "$pr: $name" "${files[@]}"
+            fi
+          done
+          {
+            echo "## UI review sheets"
+            echo ""
+            echo "Main screens, dark mode, a fresh Melbourne career: phone 390x844 and PC 1280x720."
+            echo ""
+            for name in phone pc; do
+              n=$(ls out/$name/*.png 2>/dev/null | wc -l)
+              echo "- $name: $n screens"
+            done
+            echo ""
+            echo "Download: \`gh run download ${GITHUB_RUN_ID} -n ui-review-sheets\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the sheets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-review-sheets
+          path: |
+            out/
+          if-no-files-found: warn
+          retention-days: 14

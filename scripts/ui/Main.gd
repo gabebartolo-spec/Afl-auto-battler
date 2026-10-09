@@ -159,7 +159,7 @@ func _show_home() -> void:
 	var live := resume_draft or GameState.season != null
 	var saved := not GameState.has_career() and GameState.has_saved_career()
 	if live or saved:
-		var cont := UiKit.btn("Continue", 19, true)
+		var cont := UiKit.btn("Continue", UiKit.H2, true)
 		cont.name = "ResumeCareer" if live else "ContinueCareer"
 		if live:
 			cont.pressed.connect(func(): Router.go("draft" if resume_draft else "hub"))
@@ -177,13 +177,13 @@ func _show_home() -> void:
 	_load_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_load_error.visible = false
 	col.add_child(_load_error)
-	var new_career := UiKit.btn("New career", 19, not (live or saved))
+	var new_career := UiKit.btn("New career", UiKit.H2, not (live or saved))
 	new_career.name = "NewCareer"
 	# No career can start on missing or incomplete player data.
 	new_career.disabled = not GameDB.loaded
 	new_career.pressed.connect(_on_new_career)
 	col.add_child(new_career)
-	var forge := UiKit.btn("Club Forge", 17)
+	var forge := UiKit.btn("Club Forge", UiKit.NAME)
 	forge.name = "ClubForge"
 	forge.pressed.connect(func(): Router.go("forge"))
 	col.add_child(forge)
@@ -312,7 +312,7 @@ func _show_setup() -> void:
 	var cta := MarginContainer.new()
 	cta.add_theme_constant_override("margin_top", 6)
 	form.add_child(cta)
-	var start := UiKit.btn("Choose your club", 19, true)
+	var start := UiKit.btn("Choose your club", UiKit.H2, true)
 	start.name = "StartCareer"
 	start.custom_minimum_size.y = 52
 	start.disabled = not GameDB.loaded
@@ -414,7 +414,7 @@ func _confirm_new_career() -> void:
 	var body := UiKit.lbl("This replaces %s. It cannot be undone." % what, 14, UiKit.TEXT)
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(body)
-	var go := UiKit.btn("Start new career", 17, true)
+	var go := UiKit.btn("Start new career", UiKit.NAME, true)
 	go.name = "ConfirmNewCareer"
 	go.custom_minimum_size = Vector2(0, 44)
 	go.pressed.connect(func():
@@ -503,14 +503,14 @@ func _show_help() -> void:
 			+ "Player names are the real AFL names, such as Jordan Dawson, unless you choose otherwise. Settings switches to generated names without changing ratings or gameplay.\n\n"
 			+ "Rotate your device at any time. Your draft picks, search and filters stay intact.", 16)
 	v.add_child(UiKit.scroll(text))
-	var guide := UiKit.btn("Stat guide", 17)
+	var guide := UiKit.btn("Stat guide", UiKit.NAME)
 	guide.name = "MenuStatGuide"
 	guide.pressed.connect(func():
 		_help_panel = null
 		overlay.queue_free()
 		_guide_overlay = StatGuide.show(self))
 	v.add_child(guide)
-	var ok := UiKit.btn("Got it", 17, true)
+	var ok := UiKit.btn("Got it", UiKit.NAME, true)
 	ok.pressed.connect(func():
 		_help_panel = null
 		overlay.queue_free())
