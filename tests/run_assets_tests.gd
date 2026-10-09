@@ -54,6 +54,7 @@ func _run() -> void:
 	_state.replay_seed = 2027
 	SV = load("res://scripts/ui/match/StoppageVignette.gd")
 	_figure_sheets()
+	_figure_contacts()
 	_hair_atlases()
 	_ball()
 	_honours()
@@ -141,6 +142,38 @@ func _figure_sheets() -> void:
 ## [share of the cell with figure, share of the mask off the figure, mask
 ## samples more than 1 px from the figure] (every second pixel each way; the
 ## 1 px test looks at the 3x3 around each sample).
+## Where each strip's shadow centres (VignetteFigures.contact): the middle of the boots'
+## contact with the turf, not the pivot under the ankles, so a figure's boots sit on his
+## shadow (the floating-feet fix). Moves he makes carried or seated keep the pivot.
+const CARRIED := ["chaired", "coach_sit", "coach_seated"]
+
+
+func _figure_contacts() -> void:
+	var missing := []
+	var odd := []
+	for body in VignetteFigures.BODIES:
+		for anim in VignetteFigures.BODIES[body]["anims"]:
+			for facing in VignetteFigures.BODIES[body]["anims"][anim]:
+				var s: Dictionary = VignetteFigures.strip(body, anim, facing)
+				var where := "%s %s %s" % [body, anim, facing]
+				if not s.has("contact"):
+					missing.append(where)
+					continue
+				var off := VignetteFigures.contact(s)
+				if CARRIED.has(anim.trim_suffix("_near")) and off != Vector2.ZERO:
+					odd.append("%s off its pivot" % where)
+				elif off.length() > 0.4 * VignetteFigures.PX_PER_M:
+					odd.append("%s %.0f px from its pivot" % [where, off.length()])
+	_check(missing.is_empty(), "Every strip says where its boots meet the turf: %s" % str(missing.slice(0, 5)))
+	_check(odd.is_empty(), "Contacts sit within 40 cm of the pivot, carried and seated moves on it: %s" % str(odd.slice(0, 5)))
+	# Standing ready, his boots reach forward of his ankles: from behind they are further
+	# from the camera (higher on screen) than the pivot, from the front nearer (lower).
+	var back := VignetteFigures.contact(VignetteFigures.strip("average", "ready", "back"))
+	var front := VignetteFigures.contact(VignetteFigures.strip("average", "ready", "front"))
+	_check(back.y < -4.0 and front.y > 4.0 and absf(back.x) < 1.0,
+			"The ready stance's shadow centres on his boots, ahead of his ankles (back %s, front %s)" % [back, front])
+
+
 func _coverage(shade: Image, mask: Image, r: Rect2i) -> Array:
 	var cover := 0
 	var masked := 0
