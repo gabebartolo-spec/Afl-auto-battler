@@ -1679,7 +1679,7 @@ const LOOSE_MARK_EDGE := 0.5
 ## The share of his spoil a poor reader still gets.
 const LOOSE_SPOIL_FLOOR := 0.25
 ## The power on intercept when picking the defender who meets an entry (main: 2).
-const ENTRY_READ := 1.0
+const ENTRY_READ := 0.5
 ## Of the contests the defender wins, the share he marks (an intercept
 ## mark, the ball turned over) rather than spoils; a better reader marks more.
 const INTERCEPT_MARK := 0.35
