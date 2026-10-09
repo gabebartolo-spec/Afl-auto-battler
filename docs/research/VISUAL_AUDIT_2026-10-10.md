@@ -497,10 +497,8 @@ Boards in `agent-handoffs/lead/phase0/`.
 
 **Director's orders 2026-10-10 (~07:00, after Phase 0):** the audit session leads the AFL
 project for the time being and works autonomously; its word overrides AFL BOSS, who runs the
-staff; the whole plan (§8) is wanted soon. It may speak to the whole team directly. **Tripo is
-authorised for the night of 2026-10-10 without asking** ("Use Tripo whenever you want without
-asking me tonight"): the written yes for Studio credits, in the order of §6 and Phase 5 (media
-room and awards stage props first, then the MCG plate), provenance recorded beside each asset.
+staff; the whole plan (§8) is wanted soon. It may speak to the whole team directly. The same
+session recorded the director's Tripo yes for the night (the Spend entry in this section).
 
 **Done under those orders (2026-10-10):** Phase 1 (#591), Phase 2 (#594, the helper's), Phase 3
 (#598). One deviation from the plan: Phase 1.5 keeps the plan and the tag as grids on the coach's
