@@ -282,7 +282,7 @@ func _paint_momentum() -> void:
 	if _interactive and not _mom_note.visible and absf(_momentum) >= MOMENTUM_EVEN \
 			and not bool(GameState.get_setting("seen_momentum_intro", false)):
 		GameState.set_setting("seen_momentum_intro", true)
-		_mom_note.text = "Momentum swings with each goal and fades with time; the side on top wins a little more of the ball. Tap it for more."
+		_mom_note.text = "Momentum swings with each goal and fades with time; the side on top wins a little more of the ball. %s it for more." % ("Click" if ScreenLayout.is_desktop() else "Tap")
 		_mom_note.visible = true
 
 
@@ -749,14 +749,17 @@ func _show_coach_box() -> void:
 	focus_block.add_child(focus_note)
 	more.add_child(focus_block)
 
+	# Three columns: pep talk and rotations sit under the tag, so the columns
+	# end level and the whole sheet fits a 720-unit screen.
+	var tail: VBoxContainer = col_a if rep != v else more
 	var pep_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	pep_note.name = "PepNote"
 	pep_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var sync_pep := func(key: String) -> void:
 		pep_note.text = CoachReport.pep_summary(key)
 	var pep := _choice_grid("PepPicker", PEP_SHORT, calls, "pep", 3, sync_pep)
-	more.add_child(_call_block("Pep talk", pep))
-	more.add_child(pep_note)
+	tail.add_child(_call_block("Pep talk", pep))
+	tail.add_child(pep_note)
 	sync_pep.call("steady")
 
 	var rot_opts := []
@@ -768,10 +771,10 @@ func _show_coach_box() -> void:
 	var sync_rot := func(key: String) -> void:
 		rot_note.text = str(MatchSim.ROTATION_POLICIES[key]["text"])
 	var rot := _choice_grid("RotationPicker", rot_opts, calls, "rotation", 3, sync_rot)
-	more.add_child(_call_block("Rotations", rot))
-	more.add_child(rot_note)
+	tail.add_child(_call_block("Rotations", rot))
+	tail.add_child(rot_note)
 	sync_rot.call(_rotation)
-	more.add_child(_legs_view())
+	(rep if rep != v else tail).add_child(_legs_view())
 
 	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", UiKit.HEADING, true)
 	start.name = "StartQuarter"
