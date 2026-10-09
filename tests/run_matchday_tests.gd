@@ -1450,6 +1450,24 @@ func _vignettes_off_match() -> void:
 	hub.queue_free()
 	_state.media_conference = {}
 	await _settle()
+	# A promised run just ended: the sit-down is the week's one ask, and a real
+	# tap on Done closes it.
+	_state.backing_talk = {"player_id": "calder", "title": "Sit-down with Calder",
+			"lines": ["Three games: a goal, 14 disposals a game.", "He is glad of the chance and knows there is more in him."]}
+	_state.media_conference = {"question": "How do you rate the win?", "options": [{"label": "Proud of them"}]}
+	hub = load("res://scenes/HubScene.tscn").instantiate()
+	root.add_child(hub)
+	await _settle()
+	_check(hub.find_child("BackingTalk", true, false) != null and hub.find_child("MediaConference", true, false) == null,
+			"A sit-down is the week's one ask: the press does not stack on it")
+	var done: Button = hub.find_child("BackingTalkDone", true, false)
+	var tapped: String = await Tap.tap(done) if done != null else "missing"
+	await _settle()
+	_check(tapped == "" and hub.find_child("BackingTalk", true, false) == null and not _state.backing_talk_pending(),
+			"Done closes the sit-down with a real tap (%s)" % tapped)
+	hub.queue_free()
+	_state.media_conference = {}
+	await _settle()
 	# Awards night: the winner, without the stage.
 	var ids := []
 	for p in _state.season.lists["COL"]:
