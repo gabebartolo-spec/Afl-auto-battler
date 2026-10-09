@@ -556,15 +556,116 @@ static func set_selected(b: Button, on: bool) -> void:
 
 ## Tabs are text with an underline under the current one - no boxes.
 static func tab(text: String, active: bool) -> Button:
-	var b := btn(text, 15)
+	var b := btn(text, BODY)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	paint_tab(b, active)
+	return b
+
+
+## The underline look: a 2 px TEXT rule under the current one, a 1 px LINE
+## rule under the rest; no surface, no box.
+static func paint_tab(b: Button, active: bool) -> void:
 	var sb := style(Color.TRANSPARENT, 6, 0, TEXT if active else LINE)
 	sb.set_border_width_all(0)
 	sb.border_width_bottom = 2 if active else 1
-	for state in ["normal", "hover", "pressed", "hover_pressed"]:
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 		b.add_theme_stylebox_override(state, sb)
 	b.add_theme_color_override("font_color", TEXT if active else MUTED)
 	b.add_theme_color_override("font_hover_color", TEXT)
+	b.add_theme_color_override("font_pressed_color", TEXT)
+
+
+## A short choice as one line of text (audit §8 Phase 1: the idiom for two
+## to five short options): [key, label] side by side, each as wide as its
+## words, the current one underlined. Buttons are named "<node_name>_<key>";
+## on_pick(key) runs after the row repaints. Long labels or long lists want
+## choice_grid() or a sheet. The row remembers its current button in meta
+## "current" so strip() can scroll to it.
+static func segmented(node_name: String, options: Array, current: String,
+		on_pick: Callable = Callable()) -> HBoxContainer:
+	var row := hbox(0)
+	row.name = node_name
+	var state := {"current": current}
+	var buttons := {}
+	var paint := func() -> void:
+		for k in buttons:
+			paint_tab(buttons[k], str(k) == str(state["current"]))
+			if str(k) == str(state["current"]):
+				row.set_meta("current", buttons[k])
+	for o in options:
+		var key := str(o[0])
+		var b := btn(str(o[1]), BODY)
+		b.name = "%s_%s" % [node_name, key]
+		b.custom_minimum_size = Vector2(0, 44)
+		b.pressed.connect(func():
+			state["current"] = key
+			paint.call()
+			if on_pick.is_valid():
+				on_pick.call(key))
+		buttons[key] = b
+		row.add_child(b)
+	paint.call()
+	return row
+
+
+## A row that may run past the screen's edge scrolls sideways, no scrollbar,
+## opening on the row's current button when it has one.
+static func strip(row: Control, height := 46.0) -> ScrollContainer:
+	var sc := ScrollContainer.new()
+	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	sc.custom_minimum_size.y = height
+	sc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(row)
+	if row.has_meta("current"):
+		sc.call_deferred("ensure_control_visible", row.get_meta("current"))
+	return sc
+
+
+## A secondary action said as words (guide §3): no surface, TEXT ink,
+## thumb-high. "Change", "Undo", "Assistant's report ›".
+static func text_action(text: String, fs := NAME) -> Button:
+	var b := btn(text, fs)
+	b.flat = true
+	b.custom_minimum_size = Vector2(0, 44)
+	var sb := style(Color.TRANSPARENT, 8, 0)
+	sb.set_border_width_all(0)
+	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		b.add_theme_stylebox_override(state, sb)
+	b.add_theme_color_override("font_color", TEXT)
+	b.add_theme_color_override("font_hover_color", TEXT)
+	b.add_theme_color_override("font_pressed_color", MUTED)
+	return b
+
+
+## A section heading that is the way in: the title at the left, where it
+## leads ("Season stats ›") in MUTED at the right, the whole row one tap.
+static func section_link(title: String, leads_to: String, node_name: String) -> Button:
+	var b := text_action("", NAME)
+	b.name = node_name
+	b.custom_minimum_size = Vector2(0, 48)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.tooltip_text = leads_to
+	var h := hbox(8)
+	h.set_anchors_preset(Control.PRESET_FULL_RECT)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	# One line each (lbl wraps by default; a wrapped word here would grow the
+	# row taller than its button): the title gives way first.
+	var t := section(title)
+	t.name = "SectionTitle"
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(t)
+	var to := lbl(leads_to, NAME, MUTED)
+	to.name = "SectionLeadsTo"
+	to.autowrap_mode = TextServer.AUTOWRAP_OFF
+	h.add_child(to)
+	for n in [h, t, to]:
+		(n as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(h)
 	return b
 
 
