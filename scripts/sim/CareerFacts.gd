@@ -25,10 +25,12 @@ extends RefCounted
 
 ## What a fact can be. The other stores the audit lists move one at a time.
 ##   injury   out: the injury ("hamstring")
+##   project  a development project (GameState.LEARN_JOBS): d the job he was
+##            set ("key_def"), out "learned", "not taken" or "ended by a move"
 ##   talk     a sit-down (RPG-003): d what opened it and what you said
 ##            ("dropped|promise"), out after your next match: "played",
 ##            "waiting" or "injured"
-const KINDS := ["injury", "talk"]
+const KINDS := ["injury", "project", "talk"]
 
 const Y := 0
 const AT := 1

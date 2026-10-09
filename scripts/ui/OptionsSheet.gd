@@ -56,6 +56,10 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 		_row(v, "Full screen", "SettingsFullscreen", [["off", "Off"], ["on", "On"]],
 				"on" if GameState.fullscreen() else "off", "Fill the screen, with no window border.",
 				func(k): GameState.set_fullscreen(k == "on"))
+	_row(v, "Battery saver", "SettingsBatterySaver", [["off", "Off"], ["on", "On"]],
+			"on" if GameState.battery_saver() else "off",
+			"Draws 30 frames a second instead of 60. Uses less battery; matches and scenes play the same, a little less smoothly.",
+			func(k): GameState.set_battery_saver(k == "on"))
 	_row(v, "Vignettes", "SettingsVignettes", [["on", "On"], ["off", "Off"]],
 			"on" if GameState.vignettes_on() else "off",
 			"The match-day scenes: the banner, the centre ball-up, replays, the press conference and the awards. Off skips the scenes; every call and result stays the same.",
