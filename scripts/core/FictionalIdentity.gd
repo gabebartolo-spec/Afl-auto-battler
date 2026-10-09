@@ -98,7 +98,8 @@ static func _sourced() -> Dictionary:
 static func favourite_club(p: Dictionary) -> String:
 	if p.has("fav_club"):
 		return str(p["fav_club"]).strip_edges()
-	if not bool(p.get("generated", false)):
+	# A player created before the Create-a-player question existed never chose one.
+	if bool(p.get("user_created", false)) or not bool(p.get("generated", false)):
 		var key := "%s|%s|%s" % [str(p.get("first", "")).to_lower(), str(p.get("last", "")).to_lower(),
 				str(p.get("dob", ""))]
 		return str(_sourced().get(key, ""))
