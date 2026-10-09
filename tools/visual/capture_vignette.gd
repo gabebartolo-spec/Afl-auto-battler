@@ -29,9 +29,11 @@ func _run() -> void:
 	var msaa := false
 	var a := OS.get_cmdline_user_args()
 	var kit_options := a.has("--kit-options")
+	var pin := 0
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--seed":
-			seed(int(a[i + 1]))
+			pin = int(a[i + 1])
+			seed(pin)
 		if str(a[i]) == "--window":
 			var wh := str(a[i + 1]).split("x")
 			W = int(wh[0])
@@ -49,6 +51,8 @@ func _run() -> void:
 	state.save_path = "user://capture.save"
 	state.settings_path = "user://capture_settings.cfg"
 	state.reset()
+	if pin != 0:
+		state.replay_seed = pin     # the season's seed from it, not the clock
 	state.start_season("COL", db.club_list("COL"))
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
