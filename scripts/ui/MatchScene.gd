@@ -155,6 +155,9 @@ func _mount_body(stack: bool) -> void:
 	if _pitch == null:
 		_pitch = PitchView.new()
 		_pitch.speed = GameState.match_speed()
+		# A phone follows the ball close up because its screen is small; a PC
+		# shows the whole ground (director, 2026-10-09).
+		_pitch.camera_enabled = not ScreenLayout.is_desktop()
 	_pitch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pitch.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	# The feed is a handful of lines (scores, breaks, calls): on a phone the
@@ -539,7 +542,10 @@ func _show_coach_box() -> void:
 	var q := sim.current_quarter
 	# The calls fill the screen at every break, so the actions sit at the
 	# bottom with the choices just above them.
-	var box := UiKit.modal_box(self, 640.0, 0.0, _wash())
+	# On a PC the break is a wide landscape sheet with every call in view
+	# (director, 2026-10-09: "it looks like we are using a mobile UI on a PC").
+	var wide := _wide_break()
+	var box := UiKit.modal_box(self, minf(UiKit.view_width(self) - 48.0, 1560.0) if wide else 640.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "CoachBox"
 	_coach_overlay = overlay
@@ -550,6 +556,27 @@ func _show_coach_box() -> void:
 	var band := ClubDuel.band(str(_res["home"]), str(_res["away"]), bv, 14)
 	band.name = "BreakBand"
 	v.add_child(band)
+	# Wide: the quarter just played, then the calls in two columns. A phone
+	# keeps one column, every call in it.
+	# Below 1100 units the quarter just played sits above two columns.
+	var rep: VBoxContainer = v
+	var col_a: VBoxContainer = v
+	var col_b: VBoxContainer = v
+	var cols: HBoxContainer = null
+	if wide:
+		var three := q > 1 and UiKit.view_width(self) >= 1100.0
+		cols = HBoxContainer.new()
+		cols.name = "BreakColumns"
+		cols.add_theme_constant_override("separation", 32)
+		col_a = UiKit.vbox(8)
+		col_b = UiKit.vbox(8)
+		if three:
+			rep = UiKit.vbox(8)
+			v.add_child(cols)
+		for c in ([rep, col_a, col_b] if three else [col_a, col_b]):
+			c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			c.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			cols.add_child(c)
 	var title := UiKit.heading(str(titles.get(q, "Quarter %d" % q)), UiKit.H1)
 	title.name = "BreakTitle"
 	ClubDuel.on_colour(title)
@@ -572,30 +599,32 @@ func _show_coach_box() -> void:
 		stats.name = "BreakStats"
 		stats.custom_minimum_size = Vector2(0, 44)
 		stats.pressed.connect(_show_break_stats)
-		v.add_child(stats)
-		v.add_child(UiKit.spacer(UiKit.GAP))
+		rep.add_child(stats)
+		rep.add_child(UiKit.spacer(UiKit.GAP))
 		# The quarter just played, by name: what happened, not what is happening.
 		var played := UiKit.section(str({2: "First quarter", 3: "Second quarter",
 				4: "Third quarter"}.get(q, "Last quarter")))
 		played.name = "QuarterHeading"
-		v.add_child(played)
-		v.add_child(_quarter_view(q - 1))
+		rep.add_child(played)
+		rep.add_child(_quarter_view(q - 1))
 		var did := MatchNotes.calls_lines(_res, _my_side, q - 1) \
 				+ MatchNotes.duel_change_lines(_res, _my_side, q - 1) \
 				+ MatchNotes.tag_drop_lines(_res, _my_side, q - 1) \
 				+ MatchNotes.lasting_moment_lines(_res, q - 1)
 		if not did.is_empty():
-			v.add_child(UiKit.spacer(UiKit.GAP))
-			v.add_child(UiKit.section("What your calls did"))
+			rep.add_child(UiKit.spacer(UiKit.GAP))
+			rep.add_child(UiKit.section("What your calls did"))
 			var dv := UiKit.vbox(4)
 			dv.name = "CallsDid"
 			for t in did:
 				var dl := UiKit.lbl(str(t), UiKit.BODY, UiKit.TEXT)
 				dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				dv.add_child(dl)
-			v.add_child(dv)
-	v.add_child(UiKit.spacer(UiKit.GAP))
-	v.add_child(UiKit.section("Your calls" if q == 1 else "Next quarter"))
+			rep.add_child(dv)
+	rep.add_child(UiKit.spacer(UiKit.GAP))
+	if cols != null and cols.get_parent() == null:
+		v.add_child(cols)
+	col_a.add_child(UiKit.section("Your calls" if q == 1 else "Next quarter"))
 
 	# Your calls, as taps: nothing here is a settings form. Short lists sit
 	# in plain view; a player list shows the few in the game so far and
@@ -626,8 +655,8 @@ func _show_coach_box() -> void:
 			t += " " + fit
 		plan_note.text = t
 	var plan := _choice_grid("PlanPicker", GAMEPLANS, calls, "gameplan", 2 if narrow else 3, sync_note)
-	v.add_child(_call_block("Gameplan", plan))
-	v.add_child(plan_note)
+	col_a.add_child(_call_block("Gameplan", plan))
+	col_a.add_child(plan_note)
 	sync_note.call(str(calls["gameplan"]))
 
 	# Tag: their most influential so far first, anyone on the ground a tap away.
@@ -650,15 +679,15 @@ func _show_coach_box() -> void:
 					else "No specialist tagger on the ground: %s goes to him and gives up his own game.") % GameDB.player_display_name(tagger)
 	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, 4), calls, "tag_id",
 			"Tag which midfielder?", sync_tag)
-	v.add_child(_call_block("Tag", tag))
+	col_a.add_child(_call_block("Tag", tag))
 	sync_tag.call(str(calls["tag_id"]))
-	v.add_child(tag_note)
+	col_a.add_child(tag_note)
 
 	# Key match-ups: who is on their key forwards, how the contests went last
 	# quarter, and yours against their defenders. Change one in a tap.
 	var mv := _matchups_view(sim, q)
 	if mv != null:
-		v.add_child(mv)
+		col_a.add_child(mv)
 	# Their loose defender, answered by a person: one of your forwards goes up
 	# the ground with him. Facts only - who is a Defensive forward shows on
 	# his name; the choice is yours.
@@ -667,7 +696,7 @@ func _show_coach_box() -> void:
 		var fwds := Matchups.minder_candidates(my_ground)
 		var minder := _player_choice("SpareMinderPicker", "Nobody", fwds, fwds.slice(0, mini(3, fwds.size())),
 				calls, "minder_id", "Who goes to him?")
-		v.add_child(_call_block("Their loose defender", minder))
+		col_a.add_child(_call_block("Their loose defender", minder))
 		var dfs := fwds.filter(func(p): return Traits.has(p, "def_forward")).map(func(p): return GameDB.player_display_name(p))
 		var who := ("Defensive forwards on the ground: %s." % ", ".join(dfs)) if not dfs.is_empty() 				else "No Defensive forward on the ground."
 		var minder_note := UiKit.lbl(
@@ -676,21 +705,11 @@ func _show_coach_box() -> void:
 				UiKit.SMALL, UiKit.MUTED)
 		minder_note.name = "MinderNote"
 		minder_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(minder_note)
+		col_a.add_child(minder_note)
 
-	# The rest of the calls, one tap away: the plan and the tag are the
-	# decisions most breaks turn on.
-	var more := UiKit.vbox(8)
-	more.name = "MoreCalls"
-	more.visible = false
-	var more_btn := UiKit.btn("More calls", UiKit.BODY)
-	more_btn.name = "MoreCallsToggle"
-	more_btn.custom_minimum_size = Vector2(0, 44)
-	more_btn.pressed.connect(func():
-		more.visible = not more.visible
-		more_btn.text = "Fewer calls" if more.visible else "More calls")
-	v.add_child(more_btn)
-	v.add_child(more)
+	# The rest of the calls, all in view (director, 2026-10-09: no "More
+	# calls" button).
+	var more: VBoxContainer = col_b
 	var syn_line := _synergy_line()
 	if syn_line != "":
 		var sl := UiKit.lbl(syn_line, UiKit.SMALL, UiKit.MUTED)
@@ -770,11 +789,28 @@ func _show_coach_box() -> void:
 		}
 		_close_coach()
 		_simulate_next_quarter(t))
-	box["footer"].add_child(start)
 	var skip := UiKit.btn("Skip to full time", UiKit.BODY)
 	skip.custom_minimum_size = Vector2(0, 44)
 	skip.pressed.connect(_on_skip)
-	box["footer"].add_child(skip)
+	if wide:
+		# A PC sheet's actions sit together at the right, not as full-width bars.
+		var acts := UiKit.hbox(12)
+		acts.alignment = BoxContainer.ALIGNMENT_END
+		skip.custom_minimum_size = Vector2(220, 48)
+		start.custom_minimum_size = Vector2(300, 48)
+		acts.add_child(skip)
+		acts.add_child(start)
+		box["footer"].add_child(acts)
+	else:
+		box["footer"].add_child(start)
+		box["footer"].add_child(skip)
+
+
+## A landscape PC window wide enough for the break sheet's columns (the
+## Large and TV screen sizes included).
+func _wide_break() -> bool:
+	var w := UiKit.view_width(self)
+	return ScreenLayout.is_desktop() and w >= 760.0 and w > UiKit.view_height(self) * 1.2
 
 
 ## The quarter just played: what stood out, what they ran, how your calls
