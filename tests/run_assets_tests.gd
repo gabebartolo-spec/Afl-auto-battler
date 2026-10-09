@@ -127,6 +127,24 @@ func _figure_sheets() -> void:
 						off += 1
 	_check(on > 0 and float(off) / on < 0.02,
 			"The club-design sheet matches the figures (%d of %d samples off the body)" % [off, on])
+	# Every colour has its own weight, the boots too (mask G beside the sock band), so the
+	# weights on a covered pixel add up to 1: nothing is left over for compression to turn
+	# into boot colour (ROADMAP 1.11, ard-asset-pipeline's boot_weight.py).
+	var sums := 0
+	var unsummed := 0
+	for e in rects:
+		var r: Rect2i = e[0]
+		for y in range(r.position.y, r.end.y, 3):
+			for x in range(r.position.x, r.end.x, 3):
+				var sp := shade.get_pixel(x, y)
+				if sp.a < 0.98:
+					continue
+				var mp := mask.get_pixel(x, y)
+				sums += 1
+				if absf(mp.r + mp.g + mp.b + sp.g + sp.b - 1.0) > 0.1:
+					unsummed += 1
+	_check(sums > 0 and float(unsummed) / sums < 0.002,
+			"Every covered pixel's colour weights add up to 1, the boots' included (%d of %d off)" % [unsummed, sums])
 	# The tool itself: a blank frame and a mask from another frame must fail.
 	var blank := Image.create(VignetteFigures.SHEET_SIZE.x, VignetteFigures.SHEET_SIZE.y, false, Image.FORMAT_RGBA8)
 	var any_cell: Rect2i = rects[0][0]

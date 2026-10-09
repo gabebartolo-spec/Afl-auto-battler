@@ -14,6 +14,12 @@ shader_type canvas_item;
 // Android, BPTC on desktop): ETC2 breaks their weights and coordinates. The design
 // sheet (guernsey coordinates: stripes, numbers) stays lossless.
 //
+// Every colour has its own weight - the boots too, sharing the mask's G with the sock
+// band (the design sheet's G, the height up the sock, says which) - and the weights are
+// normalised. Compression smears weights at sharp edges; when the boots were whatever
+// weight was left over, a smeared edge drew a dark boot-coloured hairline along skin,
+// guernsey and shorts (on desktop GPUs, BPTC). Now a smear only blends neighbours.
+//
 // A figure's draw colour carries its looks, not a tint:
 //   r = (kit index * 4 + long sleeves * 2 + mirrored) / 16, g = skin tone index / 8,
 //   b = hair index / 8, a = opacity. "Mirrored" (the frame drawn flipped, to face the
@@ -49,6 +55,10 @@ uniform vec4 hair_tones[8];
 uniform vec4 boots = vec4(0.06, 0.06, 0.07, 1.0);
 // The sheet's lighting is rendered a shade dark so highlights don't clip.
 uniform float gain = 1.3;
+// The design sheet's G (height up the sock) splitting mask G: below LO boots, above HI the
+// sock band. ard-asset-pipeline's tools/boot_weight.py writes the sheets for these.
+const float BOOT_ZONE_LO = 0.25;
+const float BOOT_ZONE_HI = 0.45;
 
 // Where the number sits on the back, in guernsey coordinates (across from the
 // wearer's right, up from the hem): two digits share the width; one is centred.
@@ -192,6 +202,23 @@ vec3 design_at(vec2 uv) {
 		+ s1.y * (s0.x * texture(design_tex, vec2(c0.x, c1.y)).rgb + s1.x * texture(design_tex, vec2(c1.x, c1.y)).rgb);
 }
 
+// How much of mask G is the sock band rather than boots at uv: decided per texel of the
+// design sheet, then filtered like a texture. Filtering the height first would blend a
+// band texel with a boot texel into a height that is neither.
+float band_share(vec2 uv) {
+	ivec2 size = textureSize(design_tex, 0);
+	vec2 t = uv * vec2(size) - 0.5;
+	ivec2 i = ivec2(floor(t));
+	vec2 f = t - floor(t);
+	ivec2 hi = size - 1;
+	float a = texelFetch(design_tex, clamp(i, ivec2(0), hi), 0).g;
+	float b = texelFetch(design_tex, clamp(i + ivec2(1, 0), ivec2(0), hi), 0).g;
+	float c = texelFetch(design_tex, clamp(i + ivec2(0, 1), ivec2(0), hi), 0).g;
+	float d = texelFetch(design_tex, clamp(i + ivec2(1, 1), ivec2(0), hi), 0).g;
+	vec4 z = smoothstep(BOOT_ZONE_LO, BOOT_ZONE_HI, vec4(a, b, c, d));
+	return mix(mix(z.x, z.y, f.x), mix(z.z, z.w, f.x), f.y);
+}
+
 bool is_hair(ivec2 size) {
 	for (int i = 0; i < 8; i++) {
 		if (i < hair_count && size == hair_sizes[i]) {
@@ -211,7 +238,7 @@ void fragment() {
 		COLOR = vec4(col * s.r * gain, s.a * looks.a);
 	} else if (tex_size == sheet_size) {
 		vec4 s = texture(TEXTURE, UV);     // lighting, hair, shorts, coverage
-		vec4 m = texture(mask_tex, UV);    // base colour, sock band, skin, guernsey alone
+		vec4 m = texture(mask_tex, UV);    // base colour, sock band + boots, skin, guernsey alone
 		vec3 g = design_at(UV);
 		int code = int(round(looks.r * 16.0));
 		int kit = clamp(code / 4, 0, 3);
@@ -227,7 +254,9 @@ void fragment() {
 			vec2 p = design(int(round(kit_design[kit])), g) * m.a;
 			vec3 base = kit_base[kit].rgb, pat = kit_pattern[kit].rgb, pat2 = kit_pattern2[kit].rgb;
 			vec3 kit_col = base * m.r + (pat - base) * p.x + (pat2 - base) * p.y;
-			float rest = clamp(1.0 - (m.r + m.g + m.b + s.g + s.b), 0.0, 1.0);
+			float band = m.g * band_share(UV);
+			float boot = m.g - band;
+			float norm = 1.0 / max(m.r + m.g + m.b + s.g + s.b, 0.05);
 			// Off the guernsey the design sheet carries G = height up the sock (0 at the boot,
 			// 1 at its top); its alpha is how much of the pixel a long sleeve covers (the arm, and
 			// the bare shoulder out from the collar - not the neck), apart from the design's own
@@ -242,19 +271,19 @@ void fragment() {
 			vec3 edge_col = base + (pat - base) * q.x + (pat2 - base) * q.y;
 			vec3 sleeve_col = mix(base, edge_col, smoothstep(0.78, 0.88, g.g));
 			vec3 skin = mix(skin_tones[tone].rgb, sleeve_col, sleeve);
-			vec3 col = kit_col + pat * m.g + skin * m.b
-					+ hair_tones[hair].rgb * s.g + kit_shorts[kit].rgb * s.b + boots.rgb * rest;
+			vec3 col = kit_col + pat * band + skin * m.b
+					+ hair_tones[hair].rgb * s.g + kit_shorts[kit].rgb * s.b + boots.rgb * boot;
 			int hoops = int(round(kit_extra[kit].y));
 			if (hoops > 0) {
 				// Hoops round the top of the sock in the pattern colour, in place of the band.
 				float sock_out = max(m.r - m.a, 0.0);
-				float sock_w = sock_out + m.g;
+				float sock_w = sock_out + band;
 				float t = (g.g - 0.42) / 0.58;
 				float seg = t * float(2 * hoops - 1);
 				float on = (1.0 - mod(floor(seg), 2.0)) * step(0.0, t) * step(t, 1.0) * off;
-				col += sock_w * mix(base, pat, on) - (base * sock_out + pat * m.g);
+				col += sock_w * mix(base, pat, on) - (base * sock_out + pat * band);
 			}
-			COLOR = vec4(col * s.r * gain, s.a * looks.a);
+			COLOR = vec4(col * norm * s.r * gain, s.a * looks.a);
 		}
 	}
 }
