@@ -6,6 +6,8 @@ extends SceneTree
 ## 30 frames a second, which capture.yml turns into an MP4.
 ## --games N: his Nth game (200 by default); --farewell: his last game instead.
 ## --home CODE / --opp CODE: the clubs (Collingwood v Geelong by default).
+## --scale N: render the same 390x844-point phone at N times the pixels (3 = a real phone's
+## 1170x2532), so a review sees what the device shows, not a third of it.
 ## Prints ART lines: the figure sheet's size and, for every move the scene drew, its
 ## strip and the frames asked for - proof the new moves came from the sheet.
 
@@ -25,6 +27,7 @@ func _run() -> void:
 	var me := "COL"
 	var opp := "GEE"
 	var games := 200
+	var scale := 1
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
@@ -34,6 +37,8 @@ func _run() -> void:
 			opp = str(a[i + 1])
 		if str(a[i]) == "--games":
 			games = int(a[i + 1])
+		if str(a[i]) == "--scale":
+			scale = maxi(1, int(a[i + 1]))
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
@@ -42,8 +47,11 @@ func _run() -> void:
 	state.settings_path = "user://capture_settings.cfg"
 	state.reset()
 	state.start_season(me, db.club_list(me))
-	root.size = Vector2i(W, H)
-	DisplayServer.window_set_size(Vector2i(W, H))
+	root.size = Vector2i(W * scale, H * scale)
+	DisplayServer.window_set_size(Vector2i(W * scale, H * scale))
+	root.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
+	root.content_scale_size = Vector2i(W, H)
 	var mine: Array = state.my_squad().ground + state.my_squad().bench
 	var osq = load("res://scripts/sim/Squad.gd").new(opp, state.season.lists[opp], false, opp)
 	var theirs: Array = osq.ground + osq.bench
@@ -65,11 +73,13 @@ func _run() -> void:
 		for i in range(3):
 			await process_frame
 		shots.append(root.get_viewport().get_texture().get_image())
-	var sheet := Image.create(W * 3, H * 2, false, Image.FORMAT_RGBA8)
+	var sw := W * scale
+	var shh := H * scale
+	var sheet := Image.create(sw * 3, shh * 2, false, Image.FORMAT_RGBA8)
 	for i in range(shots.size()):
 		var img: Image = shots[i]
 		img.convert(Image.FORMAT_RGBA8)
-		sheet.blit_rect(img, Rect2i(0, 0, W, H), Vector2i((i % 3) * W, (i / 3) * H))
+		sheet.blit_rect(img, Rect2i(0, 0, sw, shh), Vector2i((i % 3) * sw, (i / 3) * shh))
 	sheet.save_png(out + "_sheet.png")
 	print("wrote ", out + "_sheet.png")
 	# Every move it drew, from the sheet: the strip's frame count and the frames wanted.

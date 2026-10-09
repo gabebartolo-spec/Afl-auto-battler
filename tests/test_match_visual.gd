@@ -1255,7 +1255,7 @@ func _test_farewell() -> void:
 			and FarewellVignette.caption({}) == "", "Under 200 games (director), a debut or no milestone gets no scene")
 	_check(FarewellVignette._ordinal(111) == "111th" and FarewellVignette._ordinal(122) == "122nd"
 			and FarewellVignette._ordinal(253) == "253rd", "Ordinals read as said")
-	for need in [["clap", "side_l"], ["walk_wave", "front"], ["carrier", "front"], ["chaired", "front"]]:
+	for need in [["clap", "side_l"], ["walk_wave", "front"], ["carrier", "front"], ["carrier_near", "front"], ["chaired", "front"]]:
 		_check(VignetteFigures.has("average", need[0], need[1]), "The sheet has the farewell's %s (%s)" % need)
 	var mine := []
 	var theirs := []
@@ -1274,7 +1274,7 @@ func _test_farewell() -> void:
 		for tok in v.tokens:
 			var pick: Array = v._frame(tok, 0.0)
 			StoppageVignette.figure_frame(VignetteFigures.strip("average", pick[0], pick[3]), int(pick[1]), pick[0], pick[3])
-		for role in (["walker"] if t < FarewellVignette.GUARD else ["carrier", "rider"]):
+		for role in (["walker"] if t < FarewellVignette.GUARD else ["carrier", "rider", "carrier_hand"]):
 			for mirror in [false, true]:
 				var pick: Array = v._frame(v._role(v._man, role, {"mirror": mirror}), 0.0)
 				StoppageVignette.figure_frame(VignetteFigures.strip("average", pick[0], pick[3]), int(pick[1]), pick[0], pick[3])

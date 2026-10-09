@@ -203,6 +203,10 @@ func _frame(t: Dictionary, _lift_: float, _at := Vector2.ZERO, _back := false) -
 			return ["carrier", (f + 4) % 8 if bool(t["mirror"]) else f, bool(t["mirror"]), "front"]
 		"rider":
 			return ["chaired", int((_t - GUARD) * 8.0 / CARRY_CYCLE) % 8, false, "front"]
+		"carrier_hand":
+			# The carrier's gripping hand, drawn again over the man's shin (an overlay strip).
+			var fh := int((_t - GUARD) * 8.0 / CARRY_CYCLE) % 8
+			return ["carrier_near", (fh + 4) % 8 if bool(t["mirror"]) else fh, bool(t["mirror"]), "front"]
 	# In the guard: clapping, each at his own rate; the left line faces right (mirrored).
 	var rate := CLAP_RATE * _rate(t, 0.85, 1.15)
 	return ["clap", int(_t * rate + i * 1.7) % 4, float(t.get("line", 1)) < 0.0, "side_l"]
@@ -220,12 +224,14 @@ func _draw() -> void:
 	else:
 		var c := _chair_at()
 		var dx := CARRIER_X * FIGURE
-		# Drawn as one: the carriers, then him (his sprite already lacks what their
-		# heads and hands hide), at the pair's middle on the turf.
+		# Drawn as one: the carriers, him at the pair's middle on the turf, then each
+		# carrier's gripping hand over his shin.
 		figs.append({"at": c, "group": [
 			{"at": c + Vector2(dx, 0.0), "t": _role(_carriers[0], "carrier", {"mirror": false})},
 			{"at": c - Vector2(dx, 0.0), "t": _role(_carriers[1], "carrier", {"mirror": true})},
-			{"at": c, "t": _role(_man, "rider")}]})
+			{"at": c, "t": _role(_man, "rider")},
+			{"at": c + Vector2(dx, 0.0), "t": _role(_carriers[0], "carrier_hand", {"mirror": false})},
+			{"at": c - Vector2(dx, 0.0), "t": _role(_carriers[1], "carrier_hand", {"mirror": true})}]})
 	figs.sort_custom(func(a, b): return (a["at"] as Vector2).y > (b["at"] as Vector2).y)
 	for f in figs:
 		if f.has("group"):
@@ -250,10 +256,11 @@ func _role(t: Dictionary, role: String, extra := {}) -> Dictionary:
 	return out
 
 
-## A figure as the base draws one, except the man in the chair: no shadow of his own
-## (the carriers' are his), and his sprite's pivot is the turf under the pair.
+## A figure as the base draws one, except the man in the chair and the carriers'
+## hands: no shadow of their own (the carriers' are theirs); his sprite's pivot is the
+## turf under the pair.
 func _draw_figure(at: Vector2, t: Dictionary) -> void:
-	if str(t.get("role", "")) != "rider":
+	if not str(t.get("role", "")) in ["rider", "carrier_hand"]:
 		super(at, t)
 		return
 	var base := _project(at)
@@ -264,8 +271,9 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 		return
 	var frame := figure_frame(info, int(pick[1]), pick[0], pick[3])
 	var look: Dictionary = t["look"]
+	var mirror := bool(pick[2])
 	draw_frame(self, Vector2(base.x, base.y), info, frame, m / VignetteFigures.PX_PER_M,
-			look_colour(int(t["side"]), look, false), false, Color(0, 0, 0, 0), Transform2D.IDENTITY,
+			look_colour(int(t["side"]), look, mirror), mirror, Color(0, 0, 0, 0), Transform2D.IDENTITY,
 			str(look.get("hair_style", VignetteFigures.HAIR_BASE)))
 
 
