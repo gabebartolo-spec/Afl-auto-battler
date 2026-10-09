@@ -23,8 +23,9 @@ extends SceneTree
 ##   --stack SIDE    that side stacks every centre ball-up
 ##   --kside S       with --kind, only events by side S
 
-const W := 900
-const H := 700
+## --size WxH: the window (default 900x700; 390x330 is the oval's share of a phone).
+var W := 900
+var H := 700
 
 
 func _initialize() -> void:
@@ -108,6 +109,10 @@ func _run() -> void:
 	res["home"] = home_code
 	res["away"] = away_code
 
+	if args.has("size"):
+		var wh := str(args["size"]).split("x")
+		W = int(wh[0])
+		H = int(wh[1])
 	root.size = Vector2i(W, H)
 	await process_frame
 	# The project stretches canvas items (base 1280x720), so the window's
