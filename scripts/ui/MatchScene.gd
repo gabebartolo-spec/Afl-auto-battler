@@ -1375,7 +1375,11 @@ func _focus_note_text(id: String) -> String:
 	if id == "":
 		return "Favour this player in possession chains and attacking transition."
 	var p := _focus_player(id)
-	return "%s: %s." % [_focus_text(id), MatchNotes.focus_effect_text(str(p.get("role", "")))]
+	# A sentence: "Jacob van Rooyen is our key forward target: ...".
+	var role := str(p.get("role", ""))
+	var who := GameDB.player_display_name_by_id(id, "your player")
+	var job := str(MatchNotes.FOCUS_ROLES[role][0]) if MatchNotes.FOCUS_ROLES.has(role) else "the one we play through"
+	return "%s is %s: %s." % [who, job, MatchNotes.focus_effect_text(role)]
 
 
 ## "Defensive press · tagging Walsh": your calls for this quarter, one line.

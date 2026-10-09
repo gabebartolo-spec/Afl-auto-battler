@@ -582,7 +582,7 @@ func _coach_descriptions(sz: Vector2i) -> void:
 		await _settle()
 		var nm := str(db.player_display_name_by_id(str(who["id"]), ""))
 		fnote = box.find_child("FocusNote", true, false)
-		_check(pw == "" and fnote.text == "%s %s: %s." % [nm, str(roles[role]), str(effects[role])],
+		_check(pw == "" and fnote.text == "%s is %s: %s." % [nm, str(roles[role]), str(effects[role])],
 				"A %s played through reads as %s (%s: %s)" % [role, str(roles[role]), tag, fnote.text])
 		_check(notes.focus_role_text(nm, role) == "%s %s" % [nm, str(roles[role])] and notes.focus_effect_text(role) == str(effects[role]),
 				"The helper says the same for %s (%s)" % [role, tag])
