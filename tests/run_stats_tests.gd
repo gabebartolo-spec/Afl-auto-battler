@@ -177,7 +177,8 @@ func _players_section() -> void:
 		if wide:
 			# Words in the headings, and a real tap on one reverses it.
 			var head: Button = s.find_child("Sort_disposals", true, false)
-			_check(head != null and head.text.begins_with("Disposals") and s.find_child("Sort_kh", true, false).text.begins_with("Kicks to each handball"),
+			_check(head != null and head.text.begins_with("Disposals") and s.find_child("Sort_efficiency", true, false).text.begins_with("Disposal efficiency")
+					and s.find_child("Sort_kh", true, false) == null,
 					"The table's headings are words, not codes (%s)" % tag)
 			_check(head != null and (await Tap.tap(head)) == "", "The disposals heading takes a tap (%s)" % tag)
 			await _settle()

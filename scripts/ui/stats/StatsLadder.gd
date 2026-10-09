@@ -53,6 +53,8 @@ const TEAM_FACTS := [
 const TEAM_LOW := ["against"]
 ## Few enough a game that a tenth tells two clubs apart; every other figure is whole.
 const TEAM_TENTHS := ["goals"]
+## The longest a bar gets (the league's best), so it reads the same on a phone and a PC.
+const TEAM_BAR_MAX := 360.0
 
 const FILTERS := [["all", "All"], ["top8", "Top 8"], ["near", "Near you"]]
 const VIEWS := [["ladder", "Ladder"], ["team", "Team stats"]]
@@ -375,10 +377,12 @@ static func _team_board(host: Control, season: Season, wide: bool) -> Control:
 	var t := UiKit.vbox(0)
 	t.name = "LadderTable"
 	v.add_child(t)
-	var band := false
+	# A bar reads the same on a phone and a PC: no longer than a phone gives it.
+	var bar_w := minf(TEAM_BAR_MAX, float(host.call("content_width")) - 150.0)
 	for i in range(list.size()):
-		t.add_child(_team_row(host, list[i], i + 1, best, band))
-		band = not band
+		if i > 0:
+			t.add_child(UiKit.rule())
+		t.add_child(_team_row(host, list[i], i + 1, best, bar_w))
 	var note := UiKit.lbl("A game, over the games each club has played.", UiKit.SECONDARY, UiKit.MUTED)
 	note.name = "TeamNote"
 	v.add_child(note)
@@ -455,15 +459,17 @@ static func _view_of(fact: String) -> Array:
 
 ## One club: its rank, its guernsey and name, the view's other two facts in
 ## words, a bar against the league's best, and the chosen fact big at the right.
-static func _team_row(host: Control, r: Dictionary, rank: int, best: float, band: bool) -> Control:
+static func _team_row(host: Control, r: Dictionary, rank: int, best: float, bar_w: float) -> Control:
 	var code := str(r["code"])
 	var mine: bool = code == GameState.my_club
 	var b := Button.new()
 	b.name = "Club_" + code
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	# Editorial: no surface of its own (rules between rows); your club's row
+	# in your colour.
 	var flat := StyleBoxFlat.new()
-	flat.bg_color = UiKit.PANEL if band else Color.TRANSPARENT
+	flat.bg_color = Color.TRANSPARENT
 	if mine:
 		flat.bg_color = Color(UiKit.club_vivid(code), 0.22)
 		flat.border_width_left = 4
@@ -511,7 +517,8 @@ static func _team_row(host: Control, r: Dictionary, rank: int, best: float, band
 	var bar := HBoxContainer.new()
 	bar.name = "Bar"
 	bar.add_theme_constant_override("separation", 0)
-	bar.custom_minimum_size.y = 4
+	bar.custom_minimum_size = Vector2(maxf(40.0, bar_w), 4)
+	bar.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	var fill := ColorRect.new()
 	fill.name = "Fill"
 	fill.color = UiKit.club_vivid(code)
