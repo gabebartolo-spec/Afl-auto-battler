@@ -2573,7 +2573,7 @@ func payoff_lines(res: Dictionary) -> Array:
 	if my_club == "":
 		return []
 	var me := 0 if str(res.get("home", "")) == my_club else (1 if str(res.get("away", "")) == my_club else -1)
-	return Firsts.match_lines(res, me, season_year, list_player)
+	return Firsts.match_lines(res, me, season_year, list_player, my_list)
 
 
 ## A club's ladder position in words: "3rd".
@@ -7141,11 +7141,19 @@ func _start_backing(p: Dictionary) -> void:
 	mark_dirty()
 
 
-## One line for each run you have promised, as Selection shows them.
+## One line for each run you have promised, as Selection shows them. A named
+## side that leaves a fit one out says so (auto-pick always names him).
 func backing_notes() -> Array:
 	var out := []
+	var sel := my_selection()
+	var named := {}
+	for k in sel:
+		if k == "OUT":
+			continue   # left out on purpose: not named
+		for id in sel[k]:
+			named[str(id)] = true
 	for p in my_list:
-		var line := Backing.note(p)
+		var line := Backing.note(p, sel.is_empty() or named.has(str(p["id"])))
 		if line != "":
 			out.append({"key": "backing", "player_id": str(p["id"]), "text": line})
 	return out

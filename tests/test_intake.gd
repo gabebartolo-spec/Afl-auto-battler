@@ -549,7 +549,7 @@ func _test_retirement_talk() -> void:
 func _test_custom_prospect() -> void:
 	var spec := {"first": "Gabe", "last": "Tester", "nickname": "Tess", "role": "FWD", "role2": "MID",
 			"height_cm": 186, "style": "leading_forward", "strengths": ["marking"], "weaknesses": ["pressure"],
-			"foot": "L", "number_pref": 23, "look": {"hair_style": "mullet"}}
+			"foot": "L", "number_pref": 23, "fav_club": "MEL", "look": {"hair_style": "mullet"}}
 	_check(Prospects.custom_problem(spec) == "", "A complete custom prospect is valid")
 	for bad in [{"height_cm": 150}, {"role2": "FWD"}, {"strengths": ["pressure"], "weaknesses": ["pressure"]},
 			{"last": " "}, {"style": "tap_ruck"}, {"strengths": ["a", "b", "c"]}]:
@@ -578,6 +578,7 @@ func _test_custom_prospect() -> void:
 			and str(p["foot"]) == "L" and int(p["number_pref"]) == 23
 			and GameDB.player_appearance(p)["hair_style"] == "mullet",
 			"Position, height, foot, number and look are as chosen")
+	_check(FictionalIdentity.favourite_club(p) == "MEL", "The favourite club he grew up following is as chosen")
 
 	# The roll: once per career - the same seed gives the same player - and a
 	# believable spread across careers, never chosen.

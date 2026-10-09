@@ -52,3 +52,64 @@ static func interest(p: Dictionary) -> String:
 	if list.is_empty() or _roll(p, "interest") >= float(data().get("interest_share", 0.55)):
 		return ""
 	return str(list[posmod(hash(["fl005", "what", str(p.get("id", ""))]), list.size())])
+
+
+# ---------------------------------------------------------------------------
+# Favourite club (FL-005 director addition, 2026-10-06): the club he barracked
+# for growing up, before he was drafted - not his employer. Presentation only.
+# ---------------------------------------------------------------------------
+## Real players: only a sourced fact (data/player_favourite_club.csv: first,
+## last, dob, club code, source URL, date checked). No source: "" (the card
+## says "Not recorded"); never inferred from his club, hometown or name.
+const FAV_PATH := "res://data/player_favourite_club.csv"
+## Share of generated kids who follow a club from their own state.
+const FAV_HOME_SHARE := 0.7
+
+static var _fav_sourced := {}
+static var _fav_loaded := false
+
+
+static func _sourced() -> Dictionary:
+	if _fav_loaded:
+		return _fav_sourced
+	_fav_loaded = true
+	var f := FileAccess.open(FAV_PATH, FileAccess.READ)
+	if f == null:
+		return _fav_sourced
+	var header := f.get_csv_line()
+	var at := {}
+	for i in range(header.size()):
+		at[header[i].strip_edges()] = i
+	while not f.eof_reached():
+		var row := f.get_csv_line()
+		if row.size() < header.size() or str(row[0]).strip_edges() == "":
+			continue
+		var key := "%s|%s|%s" % [row[at["first"]].strip_edges().to_lower(), row[at["last"]].strip_edges().to_lower(),
+				row[at["dob"]].strip_edges()]
+		_fav_sourced[key] = row[at["club"]].strip_edges()
+	return _fav_sourced
+
+
+## His favourite club's code, or "" when it isn't known. Set on the player
+## (a created prospect's choice) it wins; a real player's comes only from the
+## sourced file; a generated player's is picked once from his id (mostly a club
+## from his own state), never from the football RNG, so it survives a trade,
+## retirement and an old save without being stored.
+static func favourite_club(p: Dictionary) -> String:
+	if p.has("fav_club"):
+		return str(p["fav_club"]).strip_edges()
+	if not bool(p.get("generated", false)):
+		var key := "%s|%s|%s" % [str(p.get("first", "")).to_lower(), str(p.get("last", "")).to_lower(),
+				str(p.get("dob", ""))]
+		return str(_sourced().get(key, ""))
+	var founding: Array = []
+	var home: Array = []
+	var state := str(p.get("state", p.get("home_state", "")))
+	for code in TradeRequests.CLUB_STATES:
+		if str(code) == "TAS":
+			continue   # a kid born before 2028 grew up without a Tasmanian club
+		founding.append(str(code))
+		if state != "" and str(TradeRequests.CLUB_STATES[code]) == state:
+			home.append(str(code))
+	var pool := home if not home.is_empty() and _roll(p, "fav_home") < FAV_HOME_SHARE else founding
+	return str(pool[posmod(hash(["fl005", "fav", str(p.get("id", ""))]), pool.size())])

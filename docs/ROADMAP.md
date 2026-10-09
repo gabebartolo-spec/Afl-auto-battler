@@ -4,6 +4,8 @@ _Last reorganised: 2026-09-28_
 _Last sanity-checked: 2026-10-07 against live `main` at `7ebb7d5c`, merged PR metadata, current code/regression checks and the open-PR set; scope-specific reconciliation below._
 _Research/status reconciliation: 2026-10-05 against `main` at `4b9eecc3858e970c46e25366701907f1cb4c6070`; see [genre enjoyment research](GENRE_ENJOYMENT_RESEARCH.md)._
 
+**Design authority (director, 2026-10-09):** the [design bible](DESIGN_BIBLE.md) is the ultimate truth for what this game is. Where this roadmap disagrees with it, the bible wins and this file is corrected. The bible schedules no work; this roadmap still owns execution, status and order. The audit of this file against the bible is in [BIBLE_AUDIT_2026-10-09.md](BIBLE_AUDIT_2026-10-09.md).
+
 This file is the **single source of truth** for the project roadmap. It is deliberately written so Claude or another coding agent can read it, select an authorised task, inspect the repo, implement it, validate it, and update the roadmap with minimal extra guidance.
 
 This is **not** a chronological dump of ideas. Items are consolidated into systems, ordered by dependency and player value, and given implementation guardrails.
@@ -67,7 +69,8 @@ These terms have established project-specific meanings. **Do not guess or reinte
 
 - **Poke** — a request for ChatGPT to perform the repository-status job now: check GitHub for new PRs, CI state, merges, commits/branches, blockers, and any mechanical action already expected from the current workflow. It is not a conversational acknowledgement.
 - **Vignette / vignettes** — unless the user explicitly says otherwise, this means **ARD-M8-007 — Cinematic tactical vignettes**: short, higher-detail in-match visual sequences around meaningful football decisions. It does **not** mean ClubLife/week_event narrative events, player-dialogue scenes, or generic story cards.
-- **Roadmap** — `docs/ROADMAP.md` is the canonical execution/source-of-truth document for this project.
+- **Roadmap** — `docs/ROADMAP.md` is the canonical execution/source-of-truth document for this project. Design philosophy is owned by the bible (below).
+- **Bible / design bible** — `docs/DESIGN_BIBLE.md`, the director's statement of what the game is (2026-10-09). It outranks this file on design and is changed only with the director's explicit consent for each update.
 - **Audit** — unless otherwise qualified, refers to the current project design/system audit material recorded in the roadmap and `docs/SYSTEM_REALITY_AUDIT.md`.
 - **Claude** — the primary development agent. ChatGPT's AFL-project role is planning, review, roadmap maintenance, repo-status/mechanical GitHub work, and prompting/coordination unless the user explicitly asks otherwise.
 
@@ -83,6 +86,8 @@ The user should not have to restate established project vocabulary each time.
 ---
 
 ## 0.2 Design philosophy — fun and agency over simulation purity
+
+**Read the [design bible](DESIGN_BIBLE.md) first (director, 2026-10-09).** It states the vision, the core pillar (player agency), the principles and the feature test, and it outranks this section. The lenses below remain as supporting detail where they agree with it. The bible's feature test (a feature must be justifiable by its intent) is the one that decides whether a feature belongs; the two "useful test" questions below are aids to it.
 
 **Aussie Rules Dynasties is a game first and a simulation second.** Football realism matters because it makes decisions understandable and the world believable, but realism is not a reason to preserve passive, opaque or unfun play.
 
@@ -231,12 +236,12 @@ The director runs three agents at once, one per tier. The Low agent also keeps t
 
 ## 0.4.1 Current execution queue — overrides milestone order
 
-**Reconciled 2026-10-07 against live main at `7ebb7d5c`.** Read each item's latest implementation/remaining-work note before acting on older playtest wording. Requirements and director decisions below remain acceptance criteria; a completed foundation is not a new TODO, and an open PR or a merge into an integration branch is not completion on main.
+**Reconciled 2026-10-09 against live main at `fa84f7be`** (previous pass 2026-10-07 at `7ebb7d5c`; PR states below were read from GitHub). Read each item's latest implementation/remaining-work note before acting on older playtest wording. Requirements and director decisions below remain acceptance criteria; a completed foundation is not a new TODO, and an open PR or a merge into an integration branch is not completion on main.
 
-1. **Single highest priority: the complete Season stats / Stats menu patch (§1.11).** Implementation is authorised for 2026-10-07 and is **IN PROGRESS** in integration PR #509. #513's event counters merged into that integration branch, not main; #511 fixture, #512 ladder and #514 season/player-stat work are open at this checkpoint. Preserve every required metric, full competition coverage, ladder, fixtures/results, awards and trophy room. **HOLD: no implementation merge into main without an explicit user merge instruction.** Do not mistake #507's completed match-stats layout for the complete Season stats patch.
+1. **Single highest priority: the complete Season stats / Stats menu patch (§1.11).** Authorised for 2026-10-07. **Merged to main as #509 on 2026-10-08** (`e3d6715c`); its parts #513 event counters, #511 fixture, #512 ladder and #514 season/player stats had merged into the integration branch on 2026-10-07. Follow-ups on main since: #527 (stats open in the phone layout; don't-argue and evaded-tackle metrics), #528 (box score: worm, quarter-by-quarter scoreboard, tappable goals and players) and #529 (TV mode, momentum meter; Finals bracket prototype). **Merged, not yet declared complete:** the §1.11 acceptance list (every required metric, full competition coverage, awards and trophy room) and the native-phone review stay open until verified. The earlier HOLD on merging into main was written before #509 landed; #509 is now on main, and new Stats work still needs an assigned item. Do not mistake #507's completed match-stats layout for the complete Season stats patch.
 2. **Remaining P0 correctness/playtest regressions.** Preserve unresolved ball-collection pauses, disposal/turnover clarity, held-ball defects, creator controls/preview, training/development layout and other specific unverified requirements in §1.11. The existing team builder, draft filters/age, Forge paint flow, draft scroll fix, custom-club staffing, guernsey-number repair, centre-ball-up cap and tag eligibility are already on main; validate a reported recurrence or a missing acceptance path before rebuilding them.
 3. **Combine is high priority and integral to postseason → National Draft (ARD-M5-014).** The scouting foundation is merged; the newly required complete navigable statistics menu remains TODO. Coaching hierarchy and opportunity-based retention/succession remain TODO under M6-002. Coordinate existing off-season owners.
-4. **Finish current branches within their scope.** #508 coaching descriptions/plan wrap, #506 kick/held-ball animation, #484 set-shot share and #368 kit options remain open. Confirm current heads and gates before proceeding. Do not reopen the already merged #467/#471 set-shot sequences, #475 shape demos, #479 six-plan consolidation, or #449/#473 weather foundation.
+4. **Finish current branches within their scope.** #508 coaching descriptions/plan wrap (merged 2026-10-07), #506 kick/held-ball animation (merged 2026-10-08) and #484 set-shot share (merged 2026-10-08) are on main; #368 kit options was closed and rebuilt as #522 (long sleeves and sock hoops, merged 2026-10-08 after the director approved the look). Merged does not close the native-phone check or §1.11 acceptance where those items name one. Also merged since the last pass, 2026-10-08/09: #520 Sir Doug Nicholls Round guernsey audit, #522, #523 season skip about a third faster, #530 playtest build (club-colour UI, Combine, coaching approaches, Unicorns, injury-aware ratings), #532 six real home guernseys, #535 Tripo club badges, #536 Create-a-player preview, #537 FL-003 MCG, #538 team oval fit, #539 Back arrow, #541 game plans show their list strength, #545 FL-003/FL-007 decisions. Still open: #540 FL-007 milestone farewell (needs the director's look) and #546 favourite club (FL-005 addition). Confirm current heads and gates before proceeding. Do not reopen the already merged #467/#471 set-shot sequences, #475 shape demos, #479 six-plan consolidation, or #449/#473 weather foundation.
 5. **Verify the draft/potential repair before proposing another rebalance.** #494 is on main: club horizons, age/career contribution, attainable veteran POT and tighter scouting reads are implemented. The director's original examples, five-season competitive checks and remaining calibration/playtest obligations are retained in §1.11; the broad outcome is not declared DONE solely because the repair landed.
 6. **Then remaining approved catalogue work**, under existing FL/STYLE/RPG owners and dependencies. STYLE-07's base desktop-scaling repair is DONE; STYLE-01 alignment and STYLE-02 typeface foundations are merged. Remaining visual treatment, texture/material/performance work, native-phone checks and director approvals stay open where specified. The wider RPG programme's assignment/approval rules and the trailer's explicit start gate still apply.
 
@@ -552,6 +557,8 @@ At minimum:
 - check AI and player teams use the same rules.
 
 Do not tune purely until one screenshot "looks right".
+
+**Who calls balance settled (design bible, 2026-10-09):** balance is settled when testing shows numbers similar to real AFL **and** the director's own playtest passes. An agent reports evidence; it never declares balance finished. Ratings that reflect the real footballer are part of this work.
 
 ---
 
@@ -1646,6 +1653,13 @@ Instrument/seed the offending situation and confirm the ball is targeting the co
 The director reports **nowhere explains how to long-press “Play round” to reach the skip-to-finals/season-skip controls**. Verify the current button label, available menu options and actual stopping point; do not teach obsolete “Sim round” wording or imply that skipping to the end of home-and-away simulates finals if it does not.
 
 At the first relevant Hub encounter, explicitly explain **press and hold Play round to open the quick-sim options**, then explain the available options and where each stops. Demonstrate the interaction with a short contextual cue/walkthrough anchored to the actual button, with clear dismiss/skip and replayable Help. Make the hidden interaction discoverable beyond the one-time introduction through a restrained persistent cue or an accessible equivalent entry. Explain any desktop equivalent actually supported. Verify a fresh-save user can discover and perform the gesture and select the intended skip action without prior knowledge; tutorials must not activate simulation by themselves.
+
+### Pre-timeskip survey — how the sim runs your club while you skip (director, 2026-10-09)
+**Status:** `TODO`, unassigned. **Priority:** not set by the director. From the design bible brainstorm.
+
+Before a timeskip the player tells the sim how to manage their club. The ethos is the bible's: the player knows the risk of playing hands-off, the risk is theirs to take, and the results are explained clearly and objectively afterwards. The game is designed for a player who plays most matches and sims the odd one.
+
+**Open director question:** a full survey, or the simpler version in which the sim follows the instructions the club already holds (game plan, selection, roles) and asks only about what nothing else covers. Do not build either until the director chooses.
 
 ### Skip to end of season — excessive simulation/loading time (director, 2026-10-07)
 **Status:** `TODO`. **Priority:** `P1` — high-priority performance/usability follow-up, coordinated with the existing §1.11 simulation/performance owner.
@@ -4212,6 +4226,15 @@ After a match, the coach faces the press in a short, dramatic vignette: a journa
 - Short and skippable: a few lines, two to four answers, one tap. It must not appear after every match; it should feel like an occasion (big wins/losses, milestones, controversy), and the same question must not repeat in a short span.
 - Mobile first: readable at 360-390 px, thumb-sized answers, natural Android Back.
 
+### Design bible alignment — director decisions, 2026-10-09
+**Status:** `TODO`, unassigned. Recorded from the [design bible](DESIGN_BIBLE.md); do not start without assignment.
+
+- A press answer is **a dice roll based on logic**, not a fixed transaction. The same comment can land two ways: criticise a young player and his morale may drop, or his resolve may tighten. This replaces "in a direction the copy promises" below wherever the two disagree.
+- The player must be able to tell beforehand that a comment carries risk. The conference tests media literacy, relationship management and board compliance.
+- Answers move player morale, board expectations **and relationships with the press** (the journalists of RPG-002).
+- The effect on the named player is visible afterwards, for better or worse, so the coach can adjust or carry on.
+- Still to design before building: how the risk is shown without number vomit, what decides which way an answer lands, and where the player sees the result.
+
 ### Guardrails
 - No fake choices: every answer changes morale and/or board standing in a direction the copy promises (see the System Reality Audit's fake/no-op choice rule).
 - Effects are modest and decay; the media conference cannot outweigh results, selection or coaching.
@@ -6245,11 +6268,11 @@ Prefer improving the existing experience when that answers the same need. This p
 |---|---|---|---|
 | FL-001 | Include authentic football language and restrained Australian humour | M8-006 | PARTIAL (slice 1 #258, audit #381, fixes #386; copy review and the 200-games line open) / LOW |
 | FL-002 | Include milestone banners; **audit their appearance so decorative content is distinct from actual game information** | M7-003 + M8-007 | DONE (#400, director approved) / MEDIUM |
-| FL-003 | Include recognisable ground atmosphere | M8-003/007; reuse M7-009 venue identity/presets where available | TODO / HIGH |
+| FL-003 | Include recognisable ground atmosphere | M8-003/007; reuse M7-009 venue identity/presets where available | DONE for the MCG (#537, director approved 2026-10-09) / HIGH |
 | FL-004 | Include natural crowd sound, breathing room and volume controls | M8-006 + existing audio owner | DONE (#405 sounds, #409 crowd; director approved) / MEDIUM |
 | FL-005 | Include persistent, harmless fictional-player nicknames and interests | M7-005 + existing M7-008/009 nickname/profile fields | DONE (#392, director approved) / MEDIUM |
 | FL-006 | Include characterful, truthful headlines distinct from game information | M4-009 + M7-005/011 and existing news/season-story surfaces | DONE (#395, director approved, losses included) / MEDIUM |
-| FL-007 | Include rituals and farewells; **build new vignette scenes as necessary** | M7-003/005 + M8-007 shared art/rendering | TODO / HIGH |
+| FL-007 | Include rituals and farewells; **build new vignette scenes as necessary** | M7-003/005 + M8-007 shared art/rendering | IN PROGRESS (milestone farewell #540) / HIGH |
 | FL-008 | Include decorative club memories across decades | M7-005 + existing alumni/history presentation | DONE (#406, director approved, home games only) / MEDIUM |
 
 ### Common dependencies, limits and acceptance
@@ -6284,6 +6307,7 @@ Prefer improving the existing experience when that answers the same need. This p
 **Exclusions:** new venue scheduling, explorable towns, pitch-geometry changes, weather generation, home bonuses or travel effects.
 **Acceptance:** a few accurate details establish place while players and ball remain primary; decorative conditions do not contradict available match facts; unknown time/weather uses a neutral fallback.
 **Validation:** venue-reference review, quiet/busy backgrounds, both themes, camera/actor occlusion and measured Android performance.
+**Director decisions (2026-10-09):** the MCG first, where the camera actually looks (three stand tiers, the fascia band, blue-grey night seats, two end screens; the light towers sit above every broadcast frame), kept subtle ("like the lighting"). It shows for a final at the MCG and for the home games of clubs whose ground is the MCG; every other ground is unchanged. Look approved and merged in #537.
 
 ### FL-004 — Natural sound and breathing room
 **Scope:** add restrained ground/crowd atmosphere and differentiated reactions to actual events. Reuse existing music/volume architecture and provide natural pauses plus atmosphere/music control and a quiet option.
@@ -6323,7 +6347,8 @@ Acceptance: every bio card supports the field; sourced real facts display correc
 **Dependencies:** known event and participants, current milestone/retirement/award owners, shared art migration and presentation flow.
 **Exclusions:** changed votes/winners, fabricated achievements, forced retirements, separate award engines, duplicated rewards or unrelated tactical-library expansion.
 **Acceptance:** first implement one complete event-to-scene-to-return path, then cover the approved occasions coherently. Every scene honours the correct person/event, is skippable/acceleratable, and returns cleanly without changing the football or awards. Routine repeats avoid lengthy ceremony; meaningful recognition can remain sincere.
-**Validation:** reachable scene inventory, new poses/assets, actual participants/club colours, factual triggers, once-only/replay handling, reload/Back/skip and native Android load/performance/pacing. The tactical decision-clarity gate remains for tactical scenes; a flavour scene is judged on recognition, visual distinction and enjoyment, not a nonexistent tactical choice.
+**Validation:** reachable scene inventory, new poses/assets, actual participants/club colours, factual triggers, once-only/replay handling, reload/Back/skip and native Android load/performance/pacing.
+**Director decisions (2026-10-09):** the first occasion is the milestone farewell after the siren: both teams form a guard of honour and clap him off (hands meeting on a diagonal, cupping the air), then two teammates chair him off, hands holding his legs. About 6 seconds, skippable with a tap, full time already built underneath. It plays at a player's 200th, 250th, 300th... game (club or career) and on his last game; the debut, 50th, 100th and 150th keep their banner only. Board approved (guard of honour and chaired off); the built scene still needs its look approval before #540 merges. The tactical decision-clarity gate remains for tactical scenes; a flavour scene is judged on recognition, visual distinction and enjoyment, not a nonexistent tactical choice.
 
 ### FL-008 — Club memories across decades
 **Scope:** use existing club/history/profile surfaces and surroundings to retain factual visual reminders of premierships, notable players and alumni. Audit already-approved former-player links before building another treatment.
@@ -6717,6 +6742,8 @@ The eight includes are the complete decision record. There are no rejected style
 
 
 # 10. Roadmap Maintenance Log
+
+- **2026-10-09 — design bible:** the director's design bible is now in `docs/DESIGN_BIBLE.md` and outranks this file on design (header, §0.1.1 lexicon, §0.2). Audited the design documents against it: `docs/BIBLE_AUDIT_2026-10-09.md`. Recorded, all unassigned: the press-answer dice-roll decisions under ARD-M6-008, the pre-timeskip survey under ARD-M1-007 and the balance sign-off rule in §1.10. No status, priority or queue order was changed; the audit lists the queue question for the director.
 
 - **2026-10-07 — director chat coverage audit:** verified every actionable request and subsequent clarification from this chat against the live roadmap at blob `4401369ac59b`. No request was missing; this receipt records locations rather than adding duplicate tasks or declaring implementation complete:
   - **Complete Stats patch:** §1.11 Season stats hub — every listed metric, competition-wide match/season aggregation and sortable/filterable views, expanded ladder, fixture/results, awards and trophy room; real-event counts/derived ratios, reuse/tests, single highest priority, implementation authorised for 2026-10-07 and explicit implementation merge HOLD.

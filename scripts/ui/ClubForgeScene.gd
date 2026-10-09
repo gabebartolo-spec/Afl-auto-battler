@@ -223,7 +223,7 @@ func _refresh_player_preview() -> void:
 
 func _default_spec() -> Dictionary:
 	return {"first": "", "last": "", "nickname": "", "role": "MID", "role2": "", "height_cm": 184,
-			"style": "", "strengths": [], "weaknesses": [], "foot": "R", "number_pref": 0,
+			"style": "", "strengths": [], "weaknesses": [], "foot": "R", "number_pref": 0, "fav_club": "",
 			"look": {"skin": 1, "hair": 1, "hair_style": "short_crop", "beard": "clean", "socks": "tall",
 					"headband": false, "bandage": 0, "tattoos": []}}
 
@@ -280,6 +280,24 @@ func _player_form(body: VBoxContainer) -> void:
 			func(k): _spec["foot"] = k))
 	body.add_child(_sub("Preferred number (if it's free)"))
 	body.add_child(_stepper("ForgeNumber", "number_pref", "%d", [0, 99], "Any"))
+	# FL-005: the club he followed as a kid. Flavour only; nothing reads it.
+	body.add_child(_sub("Favourite club growing up"))
+	var fav := UiKit.option()
+	fav.name = "ForgeFavClub"
+	fav.custom_minimum_size.y = 44
+	var codes := [""]
+	fav.add_item("Not recorded")
+	var named := []
+	for code in TradeRequests.CLUB_STATES:
+		if str(code) != "TAS":
+			named.append([GameDB.club_name(str(code)), str(code)])
+	named.sort()
+	for n in named:
+		fav.add_item(str(n[0]))
+		codes.append(str(n[1]))
+	fav.select(maxi(0, codes.find(str(_spec.get("fav_club", "")))))
+	fav.item_selected.connect(func(i: int): _spec["fav_club"] = codes[i])
+	body.add_child(fav)
 
 	body.add_child(_heading("Look"))
 	var look: Dictionary = _spec["look"]

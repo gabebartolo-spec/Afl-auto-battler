@@ -78,6 +78,7 @@ true. This repo copy is the only one; the general rules it builds on are in the
 | UI check at two sizes (cause not yet investigated) | stats-book "players kept" 1280x720 + 390x844 | run the suite at both sizes locally |
 | Push cancels running CI | 41 cancelled; 20 are `main` | one push per CI cycle; see proposals |
 | Data/ratings change reshuffles seeded line-ups | #530 rating lift: match_game, selection, training, potential | full suite before pushing; measure with/without before touching a check |
+| New `data/*.csv` without a `keep` import | #546: `dataset and harness checks` (check_export_data.sh) | commit `<file>.csv.import` with `importer="keep"`; a local Godot import can write `csv_translation`, so open the file and check |
 
 ## CI changes made (director yes, 2026-10-08, PR claude/ci-floors-and-main-runs)
 

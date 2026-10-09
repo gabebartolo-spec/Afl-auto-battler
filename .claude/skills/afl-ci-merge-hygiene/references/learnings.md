@@ -81,3 +81,15 @@ The floor-delta path also ran: the #525 merge itself was green and a delta file
 in progress together, neither cancelled.
 **Lesson:** after a burst of merges, read each main sha's own run; a missing verdict is now a
 real gap, not a cancellation. Fold deltas with `tools/fold_floor_deltas.sh` when several pile up.
+
+## 2026-10-09 · a new data CSV needs a "keep" import file
+**Finding:** #546 added `data/player_favourite_club.csv` with no `.import`. All test shards were
+fine; only `dataset and harness checks` failed ("an exported build would not load complete player
+data"), because Godot's default importer for a CSV is `csv_translation`, which an export drops.
+When the author generated the `.import` locally Godot wrote `csv_translation` again, so it had to
+be corrected to `importer="keep"` by hand.
+**Evidence:** run 37908241710 (red, head ae4e5c2a); fix d515b9df; run on d515b9df green and #546
+merged as 26f71953.
+**Lesson:** a PR that adds a `data/*.csv` commits its `.csv.import` with `importer="keep"` and runs
+`tools/check_export_data.sh` before push. A red `dataset and harness checks` with green shards
+points at an export/import problem, not at the game logic.
