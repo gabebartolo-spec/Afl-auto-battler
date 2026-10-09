@@ -106,3 +106,8 @@ evidence: a minimal reproduction, the last good commit, the runtime state.
 
 When you report a CI failure to its owner, give: branch, commit, run id, the
 failing suite and check, whether it also fails on `main`, and who acts next.
+
+## Learnings
+
+Proven findings for this project live in `references/learnings.md`. Read it before using this
+skill; add to it only what proved effective, with evidence.

@@ -36,6 +36,20 @@ func go(key: String) -> void:
 		push_error("Router: change_scene_to_file failed (%d) for %s" % [err, path])
 		return
 	MusicManager.set_context(key)
+	_ease_in()
+
+
+## The new screen eases in rather than cutting (director, 2026-10-08: motion).
+func _ease_in() -> void:
+	if not UiKit.motion_on():
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var scene := get_tree().current_scene as CanvasItem
+	if scene == null:
+		return
+	scene.modulate.a = 0.0
+	scene.create_tween().tween_property(scene, "modulate:a", 1.0, 0.18)
 
 
 ## Replace the current entry instead of pushing - used for boot -> menu.

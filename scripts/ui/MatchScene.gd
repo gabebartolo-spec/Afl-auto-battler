@@ -198,9 +198,9 @@ func _fit_side_panel() -> void:
 ## collapses to one character per line and pushes the oval off the phone.
 func _scoreboard() -> Control:
 	var narrow := UiKit.view_width(self) < 640.0
-	var p := UiKit.panel(UiKit.PANEL, 8)
+	# Both clubs' colours behind the score (director, 2026-10-08: not boring).
 	var v := UiKit.vbox(4)
-	p.add_child(v)
+	var p := ClubDuel.band(str(_res["home"]), str(_res["away"]), v, 8, 0.35)
 	var h := UiKit.hbox(6)
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_child(h)
@@ -238,6 +238,7 @@ func _momentum_bar() -> Control:
 	var h := UiKit.hbox(6)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var label := UiKit.line("Momentum", UiKit.SMALL, UiKit.MUTED)
+	ClubDuel.on_colour(label)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(label)
 	_mom_word = UiKit.ellipsis("", UiKit.SMALL, UiKit.TEXT, true)
@@ -266,11 +267,11 @@ func _paint_momentum() -> void:
 	_mom_meter.call("show_value", _momentum)
 	if absf(_momentum) < MOMENTUM_EVEN:
 		_mom_word.text = "Even"
-		_mom_word.add_theme_color_override("font_color", UiKit.MUTED)
+		ClubDuel.on_colour(_mom_word)
 	else:
 		var code := str(_res["home"] if _momentum > 0.0 else _res["away"])
 		_mom_word.text = "%s on top" % GameDB.club_short(code)
-		_mom_word.add_theme_color_override("font_color", UiKit.score_colour(code))
+		ClubDuel.on_colour(_mom_word)
 	# The first match you watch: once it first moves, one line says what it is.
 	if _interactive and not _mom_note.visible and absf(_momentum) >= MOMENTUM_EVEN \
 			and not bool(GameState.get_setting("seen_momentum_intro", false)):
@@ -281,7 +282,7 @@ func _paint_momentum() -> void:
 
 func _show_momentum_info() -> void:
 	_close_sheet()
-	var box := UiKit.modal_box(self, 520.0, 0.0)
+	var box := UiKit.modal_box(self, 520.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "MomentumInfo"
 	_sheet_overlay = overlay
@@ -345,8 +346,10 @@ func _score_column(code: String, home: bool, narrow: bool) -> Control:
 	var name := UiKit.ellipsis(name_text, UiKit.SECONDARY if narrow else 16, UiKit.TEXT, true)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if home \
 			else HORIZONTAL_ALIGNMENT_LEFT
+	ClubDuel.on_colour(name)
 	v.add_child(name)
-	var score := UiKit.figure("0.0 (0)", 30 if narrow else 36, UiKit.score_colour(code))
+	var score := UiKit.figure("0.0 (0)", 30 if narrow else 36, Color.WHITE)
+	ClubDuel.on_colour(score)
 	score.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if home \
 			else HORIZONTAL_ALIGNMENT_LEFT
 	# A fixed minimum wider than the phone column is what shoved the oval
@@ -370,10 +373,12 @@ func _score_middle(narrow: bool) -> Control:
 	_clock = UiKit.line("Q%d %d'" % [_shown_q, _shown_min], 17 if narrow else 20, UiKit.TEXT, true)
 	_clock.name = "Clock"
 	_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ClubDuel.on_colour(_clock)
 	mid.add_child(_clock)
 	_lead = UiKit.ellipsis("", UiKit.SMALL, UiKit.MUTED)
 	_lead.name = "LeadLine"
 	_lead.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ClubDuel.on_colour(_lead)
 	mid.add_child(_lead)
 	return mid
 
@@ -534,24 +539,33 @@ func _show_coach_box() -> void:
 	var q := sim.current_quarter
 	# The calls fill the screen at every break, so the actions sit at the
 	# bottom with the choices just above them.
-	var box := UiKit.modal_box(self, 640.0, 0.0)
+	var box := UiKit.modal_box(self, 640.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "CoachBox"
 	_coach_overlay = overlay
 	var v: VBoxContainer = box["body"]
 	var titles := {1: "Before the first ball-up", 2: "Quarter time", 3: "Half time", 4: "Three-quarter time"}
-	var title := UiKit.ellipsis(str(titles.get(q, "Quarter %d" % q)), UiKit.H1, UiKit.TEXT, true)
+	# The break leads with both clubs' colours (director, 2026-10-08).
+	var bv := UiKit.vbox(2)
+	var band := ClubDuel.band(str(_res["home"]), str(_res["away"]), bv, 14)
+	band.name = "BreakBand"
+	v.add_child(band)
+	var title := UiKit.heading(str(titles.get(q, "Quarter %d" % q)), UiKit.H1)
 	title.name = "BreakTitle"
-	v.add_child(title)
+	ClubDuel.on_colour(title)
+	bv.add_child(title)
 	if q == 1:
-		var where := UiKit.ellipsis("%s  ·  %s" % [str(_res.get("label", "Match")), _venue()], UiKit.SMALL, UiKit.MUTED)
-		v.add_child(where)
+		var where := UiKit.ellipsis("%s  ·  %s v %s  ·  %s" % [str(_res.get("label", "Match")),
+				GameDB.club_short(str(_res["home"])), GameDB.club_short(str(_res["away"])), _venue()], UiKit.BODY, UiKit.TEXT, true)
+		ClubDuel.on_colour(where)
+		bv.add_child(where)
 	else:
 		var sc := UiKit.lbl(MatchNotes.break_score(str(_res["home"]), str(_res["away"]),
-				_res.get("goals", [0, 0]), _res.get("behinds", [0, 0])), UiKit.BODY, UiKit.TEXT, true)
+				_res.get("goals", [0, 0]), _res.get("behinds", [0, 0])), UiKit.NAME, UiKit.TEXT, true)
 		sc.name = "BreakScore"
 		sc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(sc)
+		ClubDuel.on_colour(sc)
+		bv.add_child(sc)
 		# The full numbers, both clubs, at every break (director's PC
 		# playtest, 2026-10-07): a tap, never a compulsory report.
 		var stats := UiKit.btn("Match stats", UiKit.BODY)
@@ -935,7 +949,7 @@ func _show_moment() -> void:
 		_show_bounce_moment(m)
 		return
 	# Sized for its few lines, not the whole phone.
-	var box := UiKit.modal_box(self, 560.0, 440.0)
+	var box := UiKit.modal_box(self, 560.0, 440.0, _wash())
 	_moment_overlay = box["overlay"]
 	_moment_overlay.name = "MomentCard"
 	var v: VBoxContainer = box["body"]
@@ -1114,7 +1128,7 @@ func _short_name(r: Dictionary) -> String:
 ## marked. Back or Close leaves it as it was.
 func _player_sheet(title: String, roster: Array, current: String, on_pick: Callable) -> void:
 	_close_sheet()
-	var box := UiKit.modal_box(self, 480.0, 0.0)
+	var box := UiKit.modal_box(self, 480.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "PlayerSheet"
 	_sheet_overlay = overlay
@@ -1144,6 +1158,19 @@ func _player_sheet(title: String, roster: Array, current: String, on_pick: Calla
 	close.custom_minimum_size = Vector2(0, 44)
 	close.pressed.connect(_close_sheet)
 	box["footer"].add_child(close)
+
+
+## Match-day sheets wash in the opponent's colour (director, 2026-10-08);
+## a match you are not in keeps the usual wash.
+func _wash() -> Color:
+	var mine := str(GameState.my_club)
+	var home := str(_res.get("home", ""))
+	var away := str(_res.get("away", ""))
+	if mine == home:
+		return UiKit.opponent_wash(away)
+	if mine == away:
+		return UiKit.opponent_wash(home)
+	return UiKit.AUTO_COLOUR
 
 
 func _close_sheet() -> void:
@@ -1188,7 +1215,7 @@ func _roster_side(side: int) -> Array:
 ## clubs, any quarter on its own. Close (or Back) returns to your calls.
 func _show_break_stats() -> void:
 	_close_report()
-	var box := UiKit.modal_box(self, 1100.0, 0.0)
+	var box := UiKit.modal_box(self, 1100.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "BreakStatsSheet"
 	_report_overlay = overlay
@@ -1671,7 +1698,7 @@ func _on_finished() -> void:
 ## report) and Stats - and one way out: Continue. Back on Stats returns to
 ## Summary. Review match (Sim round) opens the same screen.
 func _show_fulltime() -> void:
-	var box := UiKit.modal_box(self, 640.0, 0.0)
+	var box := UiKit.modal_box(self, 640.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "FullTime"
 	_ft_box = box
@@ -2093,7 +2120,7 @@ func _matchup_text(fid: String, did: String, q: int) -> String:
 func _show_break_matchup(sim: MatchSim, fid: String, line: Label, q: int) -> void:
 	if _matchup_overlay != null and is_instance_valid(_matchup_overlay):
 		_matchup_overlay.queue_free()
-	var box := UiKit.modal_box(self, 480.0, 0.0)
+	var box := UiKit.modal_box(self, 480.0, 0.0, _wash())
 	_matchup_overlay = box["overlay"]
 	_matchup_overlay.name = "MatchupChooser"
 	var v: VBoxContainer = box["body"]

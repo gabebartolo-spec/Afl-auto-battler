@@ -1,12 +1,12 @@
 code,name,short,primary,secondary,accent,ground,enter,guernsey
 ADE,Adelaide,Crows,#002B5C,#E21937,#FFD200,Adelaide Oval,2026,band:p/s/a/p
-BRL,Brisbane,Lions,#A30046,#0055A3,#FDBE57,The Gabba,2026,tiers:a/p/#FFFFFF/p
+BRL,Brisbane,Lions,#A30046,#0055A3,#FDBE57,The Gabba,2026,yoke:p/s/a/p
 CAR,Carlton,Blues,#0B1F4B,#FFFFFF,#7FA7E0,Marvel Stadium,2026,plain:p/s/a/p
 COL,Collingwood,Magpies,#141414,#FFFFFF,#BFBFBF,MCG,2026,stripes:p/s/a/p
 ESS,Essendon,Bombers,#1A1A1A,#CC2031,#FFFFFF,Marvel Stadium,2026,sash:p/s/a/p
 FRE,Fremantle,Dockers,#2A0D54,#FFFFFF,#A67FC1,Optus Stadium,2026,chevrons:p/s/a/p
 GEE,Geelong,Cats,#002B5C,#FFFFFF,#8FB4E3,GMHBA Stadium,2026,hoops:p/s/a/p
-GCS,Gold Coast,Suns,#E02112,#FFDD00,#0079C1,People First Stadium,2026,sides:p/s/a/p
+GCS,Gold Coast,Suns,#E02112,#FFDD00,#0079C1,People First Stadium,2026,sides:p/#9E140C/s/p
 GWS,Greater Western Sydney,Giants,#F47920,#3C3C3B,#FFFFFF,Engie Stadium,2026,tiers:s/p/s/s
 HAW,Hawthorn,Hawks,#4D2004,#FBBF15,#FFFFFF,MCG,2026,stripes:p/s/a/p
 MEL,Melbourne,Demons,#0A1F44,#CC2031,#FFFFFF,MCG,2026,yoke:p/s/a/p

@@ -29,6 +29,9 @@ var _style := ""
 var _trait := ""
 var _available_only := true
 var _advanced_open := false
+var _combine := ""          # the Combine test the pool is sorted on, or ""
+var _combine_open := false
+var _combine_field: Array = []
 var _history_club := ""
 var _shown := PAGE_SIZE
 var _history_shown := PAGE_SIZE
@@ -515,6 +518,36 @@ func _filters() -> Control:
 		_advanced_open = on
 		_advanced.visible = on)
 	search_row.add_child(filters)
+	if _draft.intake_mode:
+		# The Combine: the class's testing results, one test at a time.
+		var combine := UiKit.btn("Combine", UiKit.SECONDARY)
+		combine.name = "CombineOpen"
+		combine.toggle_mode = true
+		combine.button_pressed = _combine_open
+		search_row.add_child(combine)
+		var crow := UiKit.vbox(4)
+		crow.name = "CombineRow"
+		crow.visible = _combine_open
+		v.add_child(crow)
+		var opts_c := [["", "Off"]]
+		for t in Combine.TESTS:
+			opts_c.append([str(t[0]), {"sprint": "Sprint", "trial": "2 km", "leap": "Leap", "kick": "Kicking"}[str(t[0])]])
+		crow.add_child(UiKit.choice_grid("CombineTest", opts_c, _combine, 5, func(k):
+			_combine = str(k)
+			_shown = PAGE_SIZE
+			_show_board()))
+		if _combine != "":
+			var what := UiKit.lbl("%s. %s" % [str(Combine.test(_combine)[1]), str(Combine.test(_combine)[4])],
+					UiKit.SECONDARY, UiKit.MUTED)
+			what.name = "CombineWhat"
+			what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			crow.add_child(what)
+		combine.toggled.connect(func(on: bool):
+			_combine_open = on
+			crow.visible = on
+			if not on and _combine != "":
+				_combine = ""
+				_show_board())
 
 	_advanced = UiKit.vbox(6)
 	_advanced.visible = _advanced_open
@@ -677,6 +710,8 @@ func _trait_label(key: String) -> String:
 
 func _board_rows() -> Array:
 	var rows := _draft.board(_role, _club_filter, _search.strip_edges(), _sort, _available_only)
+	if _combine != "":
+		rows = Combine.sort_rows(rows, _combine, _draft.seed)
 	if not _style.is_empty() or not _trait.is_empty():
 		rows = rows.filter(func(p):
 			return (_style.is_empty() or PlayerProfile.player_type(p) == _style) \
@@ -694,6 +729,8 @@ func _refresh_board(reset_scroll := false) -> void:
 	if _phase != "board" or not is_instance_valid(_board_box):
 		return
 	UiKit.clear(_board_box)
+	if _combine != "":
+		_combine_field = Combine.field(_draft.pool, _combine, _draft.seed)
 	var rows := _board_rows()
 	_pool_total.text = "%d available" % (_draft.pool.size() - _draft.picked.size())
 	var sort_label := ""
@@ -703,6 +740,9 @@ func _refresh_board(reset_scroll := false) -> void:
 	var role_text := "" if _role.is_empty() else _role + " "
 	_board_info.text = "%d %s%s · %s" % [rows.size(), role_text,
 			"available" if _available_only else "players", sort_label]
+	if _combine != "":
+		_board_info.text = "%d %s%s · best %s first" % [rows.size(), role_text,
+				"available" if _available_only else "players", str(Combine.test(_combine)[1]).to_lower()]
 	if not _club_filter.is_empty():
 		_board_info.text += " · " + GameDB.club_short(_club_filter)
 	if not _career_stage.is_empty() and _draft.league_mode:
@@ -812,6 +852,14 @@ func _player_row(p: Dictionary) -> Control:
 		kind.append(_trait_label(str(t)))
 	var kind_line := UiKit.ellipsis(" · ".join(kind), UiKit.SECONDARY, UiKit.MUTED)
 	kind_line.name = "Kind_" + str(p["id"])
+	if _combine != "":
+		# On a Combine sort, his result in that test replaces how he plays.
+		var r := Combine.result(p, _combine, _draft.seed)
+		var said := Combine.text(_combine, r)
+		var stand := Combine.standing(_combine, r, _combine_field)
+		kind_line = UiKit.ellipsis(said + ("" if stand == "" else "  ·  " + stand), UiKit.SECONDARY,
+				UiKit.TEXT if r >= 0.0 else UiKit.MUTED, r >= 0.0)
+		kind_line.name = "CombineResult_" + str(p["id"])
 	info.add_child(kind_line)
 	face.add_child(UiKit.line("›", 20, UiKit.MUTED, true))
 	_ignore_mouse(face)
@@ -1015,10 +1063,33 @@ func _open_player(id: String) -> void:
 			tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			kv.add_child(tl)
 
-	# The Combine is a short scouting read, not invented raw athletics data.
+	# The Combine: his results on the day (measured, the same for every club),
+	# then the scouts' read of what they say about his football.
+	if _draft.intake_mode and bool(p.get("projected", false)):
+		v.add_child(UiKit.spacer(4))
+		var tested_head := UiKit.lbl("Combine testing", UiKit.SECONDARY, UiKit.MUTED, true)
+		tested_head.name = "CombineTesting"
+		v.add_child(tested_head)
+		if not Combine.tested(p, _draft.seed):
+			var missed := UiKit.lbl("He missed testing this year.", 14, UiKit.MUTED)
+			missed.name = "Tested_none"
+			v.add_child(missed)
+		for t in (Combine.TESTS if Combine.tested(p, _draft.seed) else []):
+			var key := str(t[0])
+			var r := Combine.result(p, key, _draft.seed)
+			var tr := UiKit.hbox(8)
+			tr.name = "Tested_" + key
+			var tn := UiKit.lbl(str(t[1]), 14, UiKit.TEXT)
+			tn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			tr.add_child(tn)
+			var stand := Combine.standing(key, r, Combine.field(_draft.pool, key, _draft.seed))
+			if stand != "":
+				tr.add_child(UiKit.line(stand, 13, UiKit.MUTED))
+			tr.add_child(UiKit.line(Combine.text(key, r), 14, UiKit.TEXT if r >= 0.0 else UiKit.MUTED, r >= 0.0))
+			v.add_child(tr)
 	if scouted:
 		v.add_child(UiKit.spacer(4))
-		var combine_head := UiKit.lbl("Draft Combine", UiKit.SECONDARY, UiKit.MUTED, true)
+		var combine_head := UiKit.lbl("What the scouts saw", UiKit.SECONDARY, UiKit.MUTED, true)
 		combine_head.name = "CombineHeading"
 		v.add_child(combine_head)
 		for result in DraftScouting.combine_lines(p, _club, _draft.seed,

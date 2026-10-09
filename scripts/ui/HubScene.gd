@@ -1,6 +1,8 @@
 extends Control
 ## Season hub: your next match, the ladder snapshot, and the round controls.
 
+var _settled := false   # the hub has shown once this visit; no more entrances
+var _finals_overlay: Control = null
 var _settings: Control
 var _root: VBoxContainer
 var _results_overlay: Control
@@ -28,6 +30,7 @@ func _ready() -> void:
 		Router.replace("main")
 		return
 
+	add_child(ClubBackdrop.new().setup(GameState.my_club))
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	UiKit.apply_insets(margin, 12)
@@ -211,6 +214,8 @@ func _build() -> void:
 		ladder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cols.add_child(ladder)
 	_root.add_child(_footer(season))
+	# Motion plays once per visit, not on every rebuild after an answer.
+	_settled = true
 
 
 ## "Round 4", a finals week, or the season.
@@ -237,6 +242,13 @@ func _ladder_section(season: Season) -> Control:
 	full.custom_minimum_size = Vector2(124, 44)
 	full.pressed.connect(func(): Router.go("stats"))
 	head.add_child(full)
+	# September: the series beside the ladder it came from.
+	if not season.finals.is_empty():
+		var series := UiKit.btn("Finals", 14)
+		series.name = "FinalsOpen"
+		series.custom_minimum_size = Vector2(88, 44)
+		series.pressed.connect(_show_finals)
+		head.add_child(series)
 	var width := _content_width() if _narrow() else _content_width() * 0.45
 	v.add_child(UiKit.ladder_table(season.ladder_sorted(), GameState.my_club, width, 0, false))
 	return v
@@ -251,10 +263,20 @@ func _standing_card() -> Control:
 	badge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cv.add_child(badge)
 	var lr := GameState.my_ladder_row()
-	var title := UiKit.lbl("%s of %d  ·  %s  ·  %d pts" % [GameState.ordinal(GameState.my_position()),
-			GameState.season.ladder.size(), GameState.my_record(), int(lr.get("pts", 0))],
-			UiKit.H2, UiKit.TEXT, true)
-	cv.add_child(title)
+	# Where you sit, big, in your colour; the record beside it.
+	var pos_row := UiKit.hbox(10)
+	var pos := UiKit.figure(GameState.ordinal(GameState.my_position()), 44, UiKit.club_vivid(GameState.my_club))
+	pos.name = "LadderPosition"
+	if not _settled:
+		# Arriving at the hub, your spot climbs (or slides) into place.
+		UiKit.count_up(pos, GameState.my_position(), func(n): return GameState.ordinal(n), 0.8,
+				GameState.season.ladder.size())
+	pos_row.add_child(pos)
+	var title := UiKit.ellipsis("of %d  ·  %s  ·  %d pts" % [GameState.season.ladder.size(),
+			GameState.my_record(), int(lr.get("pts", 0))], UiKit.H2, UiKit.TEXT, true)
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pos_row.add_child(title)
+	cv.add_child(pos_row)
 	var form := GameState.club_form_info(GameState.my_club)
 	cv.add_child(_form_row(form))
 	var last := _last_match_button()
@@ -402,6 +424,9 @@ func _week_section(season: Season) -> Control:
 	var notice := _staff_notice()
 	if notice != null:
 		nv.add_child(notice)
+	var approaches := _approach_cards()
+	if approaches != null:
+		nv.add_child(approaches)
 	if not GameState.pending_mro_challenges().is_empty():
 		nv.add_child(_tribunal_card())
 	if season.is_season_over():
@@ -450,20 +475,17 @@ func _week_section(season: Season) -> Control:
 		# Who, then where: "Essendon", "Away · Marvel Stadium" (the director's
 		# PC playtest, 2026-10-07: "Marvel Stadium / at Essendon" read as if
 		# Essendon were the ground).
-		var who := UiKit.lbl(GameDB.club_name(opp), 26 if _narrow() else 30, UiKit.TEXT, true)
-		who.name = "Opponent"
-		who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		nv.add_child(who)
 		# The forecast is known in the week (ARD-M4-016): a fact beside the
 		# ground, not advice.
 		var wx := str(mine.get("weather", ""))
 		var where_text := "%s · %s" % ["Home" if is_home else "Away", ground]
 		if wx != "":
 			where_text += " · " + Weather.label(wx)
-		var where := UiKit.lbl(where_text, UiKit.BODY, UiKit.MUTED)
-		where.name = "MatchVenue"
-		where.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		nv.add_child(where)
+		# The week's hero: the match as a poster (director, 2026-10-08).
+		var poster := MatchPoster.new().setup(GameState.my_club, opp, is_home, where_text, _narrow())
+		if not _settled:
+			UiKit.reveal(poster)
+		nv.add_child(poster)
 		var marquee := MarqueeGames.tradition(str(mine["home"]), str(mine["away"]))
 		if not marquee.is_empty():
 			var marquee_line := UiKit.lbl(str(marquee["name"]), UiKit.SMALL, UiKit.EMPH, true)
@@ -479,8 +501,9 @@ func _week_section(season: Season) -> Control:
 				rivalry_detail.name = "RivalryDetail"
 				nv.add_child(rivalry_detail)
 		var their := GameState.club_form_info(opp)
-		var standing := UiKit.lbl("%s on the ladder  ·  %s" % [
-				GameState.ordinal(GameState.club_position(opp)),
+		# Named: under the poster an unnamed "4th on the ladder" read as yours.
+		var standing := UiKit.lbl("%s are %s on the ladder  ·  %s" % [
+				GameDB.club_short(opp), GameState.ordinal(GameState.club_position(opp)),
 				GameState.form_line(their, "form").trim_prefix("form: ")], UiKit.SMALL, UiKit.MUTED)
 		standing.name = "OppFormLine"
 		nv.add_child(standing)
@@ -676,6 +699,56 @@ func _staff_notice() -> Control:
 	v.add_child(go)
 	v.add_child(UiKit.rule())
 	return v
+
+
+## Rival clubs after your coaches (found when the home-and-away season
+## ends): who, for what job, and your answer - the senior assistant's job, a
+## request to stay, or your blessing. Answered ones stay as a line until the
+## off-season settles them.
+func _approach_cards() -> Control:
+	if GameState.coach_approaches.is_empty():
+		return null
+	var v := UiKit.vbox(6)
+	v.name = "CoachApproaches"
+	for i in range(GameState.coach_approaches.size()):
+		var a: Dictionary = GameState.coach_approaches[i]
+		var c: Dictionary = GameState.coaches.get(str(a["cid"]), {})
+		var who := CoachMarket._name(c) if not c.is_empty() else "Your coach"
+		if str(a.get("choice", "")) != "":
+			var done := UiKit.lbl(str(a["text"]), UiKit.BODY, UiKit.MUTED)
+			done.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(done)
+			continue
+		var card := UiKit.vbox(4)
+		card.name = "Approach_%d" % i
+		card.add_child(UiKit.lbl("%s want %s" % [GameDB.club_name(str(a["club"])), who], UiKit.NAME, UiKit.TEXT, true))
+		var why := UiKit.lbl("Your %s. They have offered him the %s job." % [
+				CoachMarket._job_word(str(a["from_job"])), CoachMarket._job_word(str(a["job"]))], UiKit.BODY, UiKit.MUTED)
+		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		card.add_child(why)
+		var row := UiKit.hbox(8)
+		var block := GameState.approach_promote_block(i)
+		if block == "":
+			row.add_child(_approach_button(i, "promote", "Offer senior assistant", true))
+		row.add_child(_approach_button(i, "stay", "Ask him to stay"))
+		row.add_child(_approach_button(i, "go", "Let him go"))
+		card.add_child(row)
+		v.add_child(card)
+	v.add_child(UiKit.rule())
+	return v
+
+
+func _approach_button(i: int, choice: String, text: String, primary := false) -> Button:
+	var b := UiKit.btn(text, UiKit.SMALL + 1, primary)
+	b.name = "Approach_%d_%s" % [i, choice]
+	b.custom_minimum_size = Vector2(0, 44)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	b.pressed.connect(func():
+		GameState.answer_approach(i, choice)
+		_build())
+	return b
 
 
 ## Coaching: staff, how we play, form, the list and the board. An open job
@@ -930,9 +1003,34 @@ func _on_sim_to_end() -> void:
 
 
 ## Router back hook: close the results popup before leaving the hub.
+## The finals series, wildcard to the Grand Final (FinalsBracket).
+func _show_finals() -> void:
+	if _finals_overlay != null and is_instance_valid(_finals_overlay):
+		return
+	var box := UiKit.modal_box(self, 1100.0, 0.0)
+	_finals_overlay = box["overlay"]
+	_finals_overlay.name = "FinalsSheet"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.heading("Finals series", UiKit.TITLE))
+	v.add_child(FinalsBracket.new().setup(GameState.season, GameState.my_club))
+	var done := UiKit.btn("Done", 17)
+	done.name = "FinalsDone"
+	done.pressed.connect(_close_finals)
+	(box["footer"] as VBoxContainer).add_child(done)
+
+
+func _close_finals() -> void:
+	if _finals_overlay != null and is_instance_valid(_finals_overlay):
+		_finals_overlay.queue_free()
+	_finals_overlay = null
+
+
 func handle_back() -> bool:
 	if _pre_match != null:
 		return true     # the side is on its way out
+	if _finals_overlay != null and is_instance_valid(_finals_overlay):
+		_close_finals()
+		return true
 	if _onboarding_overlay != null and is_instance_valid(_onboarding_overlay):
 		_close_weekly_loop_intro()
 		return true

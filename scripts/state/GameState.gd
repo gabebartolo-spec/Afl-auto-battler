@@ -68,6 +68,12 @@ var coach_archive := {}
 ## Your staff jobs open after the season, waiting for you: [{job, reason}].
 ## Anything still open is auto-filled when the next season starts.
 var staff_vacancies: Array = []
+## Rival clubs' approaches for your coaches this season (director,
+## 2026-10-07): found when the home-and-away season ends, answered through
+## the finals, settled by the off-season market. [{cid, from_job, club, job,
+## choice ("" unanswered, "promote", "stay", "go"), kept (bool), text}]
+var coach_approaches: Array = []
+var coach_approach_year := 0
 ## Every club's place in the preseason pecking order (list strength), for
 ## judging AI senior coaches at season's end: code -> rank.
 var club_expect := {}
@@ -503,6 +509,8 @@ func save_career() -> bool:
 		"coaches": coaches,
 		"coach_archive": coach_archive,
 		"staff_vacancies": staff_vacancies,
+		"coach_approaches": coach_approaches,
+		"coach_approach_year": coach_approach_year,
 		"club_expect": club_expect,
 		"club_goals": club_goals,
 		"draft_meeting_year": draft_meeting_year,
@@ -657,6 +665,7 @@ func load_career() -> bool:
 	if int(state.get("career_version", 0)) < CAREER_VERSION:
 		_migrate_careers()
 	_migrate_train_plans()
+	_mark_unicorns()
 	_backfill_potential()
 	ensure_contracts()
 	if season != null and board.is_empty():
@@ -664,6 +673,8 @@ func load_career() -> bool:
 	coaches = state.get("coaches", {})
 	coach_archive = state.get("coach_archive", {})
 	staff_vacancies = state.get("staff_vacancies", [])
+	coach_approaches = state.get("coach_approaches", [])
+	coach_approach_year = int(state.get("coach_approach_year", 0))
 	club_expect = state.get("club_expect", {})
 	club_goals = state.get("club_goals", {})
 	draft_meeting_year = int(state.get("draft_meeting_year", 0))
@@ -686,6 +697,17 @@ func load_career() -> bool:
 			bare.append(club)
 		CoachMarket.staff_new_clubs(coaches, bare, my_club, season_year - 1, career_seed)
 	return true
+
+
+## A save from before born Unicorns (2026-10-08): the hand-picked ones get
+## their flag back wherever they now play. A Unicorn made by training under
+## the old rule stays a player of his learned positions, without the trait.
+func _mark_unicorns() -> void:
+	var all: Array = my_list + free_agents + GameDB.draftees
+	if season != null:
+		for code in season.lists:
+			all.append_array(season.lists[code])
+	GameDB.mark_unicorns(all)
 
 
 ## Career records (Career.gd) arrived with save format 1.
@@ -950,6 +972,8 @@ func reset() -> void:
 	coaches = {}
 	coach_archive = {}
 	staff_vacancies = []
+	coach_approaches = []
+	coach_approach_year = 0
 	club_expect = {}
 	club_goals = {}
 	_last_finish = {}
@@ -3062,7 +3086,6 @@ func _finish_project(p: Dictionary, announce := true) -> Dictionary:
 	var own := int(p.get("overall", 0))
 	var there := rating_as(p, role)
 	var learned := there >= own - PROJECT_PASS
-	var was_unicorn := Traits.of(p).has("unicorn")
 	if learned:
 		p["learn_payback_year"] = season_year + 1
 		if str(p.get("role2", "")) == "":
@@ -3080,8 +3103,6 @@ func _finish_project(p: Dictionary, announce := true) -> Dictionary:
 	var a := "an" if word.substr(0, 1) in ["a", "e", "i", "o", "u"] else "a"
 	if learned:
 		add_news("training", "%s has learned to play as %s %s: he can be picked there now." % [name, a, word])
-		if not was_unicorn and Traits.of(p).has("unicorn"):
-			add_news("training", "%s can now play forward, midfield and back: a Unicorn." % name)
 	else:
 		add_news("training", "%s's time training as %s %s has not taken: he is not ready to be picked there." % [name, a, word])
 	return {"id": str(p["id"]), "job": job, "learned": learned, "own": own, "there": there}
@@ -3219,6 +3240,7 @@ func _after_round(results: Array) -> void:
 			and int(season_awards.get("year", 0)) != season_year:
 		_close_season_awards()
 	_next_week_event()
+	_find_coach_approaches()
 
 
 ## A home-and-away round's Rising Star nomination (Awards.rising_star_nominee).
@@ -7152,6 +7174,26 @@ func coach(cid: String) -> Dictionary:
 func _coaching_offseason() -> void:
 	if season == null or coaches.is_empty():
 		return
+	var ctx := _coach_market_ctx(coaches, coach_archive)
+	ctx["protected"] = _protected_coaches()
+	# The ones leaving go to the job they were offered, when it opens.
+	var promised := {}
+	for a in coach_approaches:
+		if not bool(a.get("kept", false)):
+			promised[str(a["cid"])] = [str(a["club"]), str(a["job"])]
+	ctx["promised"] = promised
+	var out := CoachMarket.offseason(ctx)
+	for v in out["vacancies"]:
+		if not _vacancy_open(str(v["job"])):
+			staff_vacancies.append(v)
+	for t in out["news"]:
+		add_news("coaching", str(t))
+	coach_approaches = []
+
+
+## The market's view of the season just played: each club's board goal met
+## or not, from the ladder as it stands.
+func _coach_market_ctx(the_coaches: Dictionary, archive: Dictionary) -> Dictionary:
 	var results := {}
 	var table := season.ladder_sorted()
 	var club_count := table.size()
@@ -7163,14 +7205,109 @@ func _coaching_offseason() -> void:
 		var met := ClubLife.goal_met(goal, pos, int(row.get("w", 0)), club_count)
 		results[code] = {"met": met, "finals": pos <= Season.FINALISTS,
 				"severe": not met and pos >= table.size() - 2 and int(club_expect.get(code, club_count)) <= 10}
-	var out := CoachMarket.offseason({"coaches": coaches, "archive": coach_archive,
+	return {"coaches": the_coaches, "archive": archive,
 			"year": season_year, "my_club": my_club, "clubs": GameDB.active_clubs(season_year + 1),
-			"results": results, "premier": premier(), "seed": career_seed})
-	for v in out["vacancies"]:
-		if not _vacancy_open(str(v["job"])):
-			staff_vacancies.append(v)
-	for t in out["news"]:
-		add_news("coaching", str(t))
+			"results": results, "premier": premier(), "seed": career_seed}
+
+
+## Your coaches no rival may take: everyone but those you let go or did not
+## answer for. Nobody is poached from you without being asked about.
+func _protected_coaches() -> Dictionary:
+	var out := {}
+	var going := {}
+	for a in coach_approaches:
+		if str(a.get("choice", "")) in ["", "go"] or (str(a.get("choice", "")) != "" and not bool(a.get("kept", false))):
+			going[str(a["cid"])] = true
+	for cid in coaches:
+		var c: Dictionary = coaches[cid]
+		if str(c.get("status", "")) == "club" and str(c.get("club", "")) == my_club and not going.has(cid):
+			out[cid] = true
+	return out
+
+
+## When the home-and-away season ends, the off-season market is run on a copy
+## to see which of your coaches rival clubs will come for, and for what job.
+## Each becomes an approach you answer through the finals.
+func _find_coach_approaches() -> void:
+	if season == null or coaches.is_empty() or not season.is_regular_done() \
+			or season.is_season_over() or coach_approach_year == season_year:
+		return
+	coach_approach_year = season_year
+	coach_approaches = []
+	var copy: Dictionary = coaches.duplicate(true)
+	CoachMarket.offseason(_coach_market_ctx(copy, coach_archive.duplicate(true)))
+	for cid in coaches:
+		var c: Dictionary = coaches[cid]
+		if str(c.get("status", "")) != "club" or str(c.get("club", "")) != my_club:
+			continue
+		var n: Dictionary = copy.get(cid, {})
+		if str(n.get("status", "")) == "club" and str(n.get("club", "")) not in ["", my_club]:
+			coach_approaches.append({"cid": cid, "from_job": str(c.get("job", "")), "club": str(n["club"]),
+					"job": str(n["job"]), "choice": "", "kept": false, "text": ""})
+	for a in coach_approaches:
+		add_news("coaching", "%s want your %s, %s, as their %s." % [GameDB.club_name(str(a["club"])),
+				CoachMarket._job_word(str(a["from_job"])), _coach_name(coaches[str(a["cid"])]),
+				CoachMarket._job_word(str(a["job"]))])
+	mark_dirty()
+
+
+## Why you can't offer him senior assistant, or "" when you can.
+func approach_promote_block(i: int) -> String:
+	if i < 0 or i >= coach_approaches.size():
+		return "No such approach."
+	var a: Dictionary = coach_approaches[i]
+	if str(a["from_job"]) == "SA":
+		return "He is already your senior assistant."
+	var staff := Coaches.staff(coaches, my_club)
+	if staff.has("SA"):
+		var sa: Dictionary = coaches.get(str(staff["SA"]), {})
+		return "%s is your senior assistant." % _coach_name(sa)
+	return ""
+
+
+## Answer approach `i`: "promote" (senior assistant), "stay" (ask him to
+## stay where he is) or "go". Returns what happened, in words.
+func answer_approach(i: int, choice: String) -> String:
+	if i < 0 or i >= coach_approaches.size():
+		return ""
+	var a: Dictionary = coach_approaches[i]
+	if str(a["choice"]) != "":
+		return str(a["text"])
+	var c: Dictionary = coaches.get(str(a["cid"]), {})
+	var who := _coach_name(c)
+	var rival := GameDB.club_name(str(a["club"]))
+	if choice == "promote" and approach_promote_block(i) != "":
+		return approach_promote_block(i)
+	a["choice"] = choice
+	if choice == "go":
+		a["text"] = "%s will join %s after the season. You wished him well." % [who, rival]
+	elif CoachMarket.stays(c, choice, str(a["job"]), season_year, career_seed):
+		a["kept"] = true
+		if choice == "promote":
+			var old := str(c.get("job", ""))
+			CoachMarket.promote_to_sa(c, my_club, season_year, career_seed)
+			staff_vacancies.append({"job": old, "reason": "%s stepped up to senior assistant." % who})
+			a["text"] = "%s turns %s down to become your senior assistant." % [who, rival]
+		else:
+			a["text"] = "%s turns %s down and stays on." % [who, rival]
+	else:
+		a["text"] = "%s thanks you, but becomes %s's %s after the season." % [who, rival,
+				CoachMarket._job_word(str(a["job"]))]
+	add_news("coaching", str(a["text"]))
+	mark_dirty()
+	return str(a["text"])
+
+
+func coach_approaches_open() -> int:
+	var n := 0
+	for a in coach_approaches:
+		if str(a.get("choice", "")) == "":
+			n += 1
+	return n
+
+
+func _coach_name(c: Dictionary) -> String:
+	return CoachMarket._name(c) if not c.is_empty() else "He"
 
 
 ## Retirees who go into coaching (CoachPathway): each is decided once, here,

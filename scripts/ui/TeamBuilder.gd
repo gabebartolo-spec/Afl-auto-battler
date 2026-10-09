@@ -247,6 +247,14 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		face.add_child(sub)
 		b.custom_minimum_size = Vector2(84 if _wide else 70, 44)
+		if not on and not _read_only:
+			# Your guernsey colour across the top of each of your players.
+			for st in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+				var sb := (b.get_theme_stylebox(st) as StyleBoxFlat).duplicate() as StyleBoxFlat
+				sb.set_border_width_all(0)
+				sb.border_width_top = 3
+				sb.border_color = UiKit.team_colour()
+				b.add_theme_stylebox_override(st, sb)
 		if not field_only and Workload.value(p) >= Workload.CARRYING:
 			# How fresh he is, on the card: no profile needed to see it.
 			var ready := UiKit.lbl(Workload.label(p), 10, UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
@@ -400,6 +408,10 @@ func _swap(a: String, b: String, place: String) -> void:
 	changed.emit(note)
 
 
+const TURF := Color(0.118, 0.333, 0.133)
+const TURF_LIGHT := Color(0.133, 0.365, 0.149)
+
+
 func _place_spots() -> void:
 	if not is_instance_valid(_pitch):
 		return
@@ -421,17 +433,53 @@ func _place_spots() -> void:
 
 
 func _draw_pitch() -> void:
+	# Not boring (director, 2026-10-08): the ground itself, mown turf and white
+	# lines, as on your list's formation, not a faint outline.
 	var r := Rect2(Vector2.ZERO, _pitch.size).grow(-2.0)
-	var line := Color(UiKit.TEXT, 0.16)
-	var pts := PackedVector2Array()
-	for i in range(65):
-		var t := TAU * i / 64.0
-		pts.append(r.get_center() + Vector2(cos(t) * r.size.x * 0.5, sin(t) * r.size.y * 0.5))
-	_pitch.draw_colored_polygon(pts, Color(UiKit.GOOD, 0.06))
-	_pitch.draw_polyline(pts, line, 2.0, true)
 	var c := r.get_center()
+	var oval := PackedVector2Array()
+	for i in range(96):
+		var t := TAU * i / 96.0
+		oval.append(c + Vector2(cos(t) * r.size.x * 0.5, sin(t) * r.size.y * 0.5))
+	_pitch.draw_colored_polygon(oval, TURF)
+	# Mown bands across the ground's length.
+	var tall := r.size.y >= r.size.x
+	var n := 9
+	for i in range(0, n, 2):
+		var band: PackedVector2Array
+		if tall:
+			var y0 := r.position.y + r.size.y * float(i) / n
+			band = PackedVector2Array([Vector2(r.position.x, y0), Vector2(r.end.x, y0),
+					Vector2(r.end.x, y0 + r.size.y / n), Vector2(r.position.x, y0 + r.size.y / n)])
+		else:
+			var x0 := r.position.x + r.size.x * float(i) / n
+			band = PackedVector2Array([Vector2(x0, r.position.y), Vector2(x0 + r.size.x / n, r.position.y),
+					Vector2(x0 + r.size.x / n, r.end.y), Vector2(x0, r.end.y)])
+		for part in Geometry2D.intersect_polygons(oval, band):
+			_pitch.draw_colored_polygon(part, TURF_LIGHT)
+	var closed := oval.duplicate()
+	closed.append(oval[0])
+	_pitch.draw_polyline(closed, Color(1, 1, 1, 0.85), 2.0, true)
+	var line := Color(1, 1, 1, 0.45)
+	var long := maxf(r.size.x, r.size.y)
 	var sq := minf(r.size.x, r.size.y) * 0.22
 	_pitch.draw_rect(Rect2(c - Vector2(sq, sq) * 0.5, Vector2(sq, sq)), line, false, 1.5)
+	_pitch.draw_arc(c, sq * 0.14, 0, TAU, 20, line, 1.2, true)
+	# The fifty-metre arcs, from each goal.
+	var rad := long * 0.31
+	for sgn in [-1.0, 1.0]:
+		var goal := c + (Vector2(0, sgn * r.size.y * 0.5) if tall else Vector2(sgn * r.size.x * 0.5, 0))
+		var face := (-PI / 2.0 if sgn > 0.0 else PI / 2.0) if tall else (PI if sgn > 0.0 else 0.0)
+		var spread := 0.95
+		var arc := PackedVector2Array()
+		for k in range(33):
+			var t: float = face - spread + 2.0 * spread * k / 32.0
+			var pt: Vector2 = goal + Vector2(cos(t), sin(t)) * rad
+			var q := (pt - c) / (r.size * 0.5)
+			if q.length_squared() <= 1.0:
+				arc.append(pt)
+		if arc.size() > 1:
+			_pitch.draw_polyline(arc, line, 1.4, true)
 
 
 func _ignore_mouse(n: Node) -> void:
