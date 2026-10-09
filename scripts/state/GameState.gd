@@ -231,6 +231,7 @@ func _ready() -> void:
 	ScreenLayout.set_screen_size(str(cfg.get_value("ui", "screen_size", "standard")))
 	if bool(cfg.get_value("ui", "fullscreen", false)):
 		ScreenLayout.set_fullscreen(true)
+	_apply_battery_saver(bool(cfg.get_value("ui", "battery_saver", false)))
 
 
 func _exit_tree() -> void:
@@ -373,6 +374,26 @@ func fullscreen() -> bool:
 func set_fullscreen(on: bool) -> void:
 	set_setting("fullscreen", on)
 	ScreenLayout.set_fullscreen(on)
+
+
+## Battery saver (ROADMAP §1.11 battery work): draw at most 30 frames a second
+## instead of 60. Matches, scenes and timers run on real time, so nothing plays
+## slower or differently; motion is a little less smooth. Off by default.
+const FPS_NORMAL := 60
+const FPS_SAVER := 30
+
+
+func battery_saver() -> bool:
+	return bool(get_setting("battery_saver", false))
+
+
+func set_battery_saver(on: bool) -> void:
+	set_setting("battery_saver", on)
+	_apply_battery_saver(on)
+
+
+func _apply_battery_saver(on: bool) -> void:
+	Engine.max_fps = FPS_SAVER if on else FPS_NORMAL
 
 
 func vignettes_on() -> bool:
