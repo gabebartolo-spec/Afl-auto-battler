@@ -126,6 +126,28 @@ static func _close_question(res: Dictionary, side: int, margin: int, opp: String
 	return "It came down to the last few minutes against %s. What decided it?" % opp
 
 
+## What an answer does, in football words and no numbers, shown under its
+## button (director, 2026-10-10: the effects stay, and the player sees them).
+## Read from the answer's own "board" and "morale", so the line can never
+## drift from what resolve_media_conference applies.
+static func effect_line(option: Dictionary) -> String:
+	var board := int(option.get("board", 0))
+	var morale := int(option.get("morale", 0))
+	if board > 0 and morale < 0:
+		return "The board likes it; the players feel hung out to dry."
+	if board < 0 and morale > 0:
+		return "The players feel backed; the board wanted accountability."
+	if board > 0:
+		return "The board likes it."
+	if board < 0:
+		return "The board wanted more accountability."
+	if morale > 0:
+		return "The players feel backed."
+	if morale < 0:
+		return "The players feel hung out to dry."
+	return "Neither the board nor the players read much into it."
+
+
 static func _q(key: String, journalist: String, question: String, round_no: int, accountable: String,
 		tactical: String, protective: String) -> Dictionary:
 	return {

@@ -6,8 +6,8 @@ extends Control
 ## (scripts/ui/stats/), handed this scene as its host.
 
 const SECTIONS := [
-	["ladder", "Ladder"], ["players", "Player stats"], ["awards", "Awards"],
-	["fixture", "Fixture"], ["trophies", "Trophy room"],
+	["ladder", "Ladder"], ["players", "Players"], ["awards", "Awards"],
+	["fixture", "Fixture"], ["trophies", "Trophies"],
 ]
 ## The section you were on, kept for the visit after a drill-down (a player's
 ## bio, a team's field view) brings you back.
@@ -74,22 +74,12 @@ func _build() -> void:
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Season stats", true))
 	_root.add_child(_hero())
-	# One row of sections: it scrolls sideways on a phone rather than
-	# stacking three rows of tabs over the table.
+	# One row of five short tabs (visual audit, Phase 1.2): at 390 px they
+	# share the width and nothing is cut. Only if they still cannot fit does
+	# the row scroll sideways.
 	var tabs := HBoxContainer.new()
 	tabs.name = "StatsSections"
 	tabs.add_theme_constant_override("separation", 2)
-	if wide():
-		tabs.alignment = BoxContainer.ALIGNMENT_CENTER
-		_root.add_child(tabs)
-	else:
-		var strip := ScrollContainer.new()
-		strip.name = "SectionStrip"
-		strip.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		strip.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-		strip.custom_minimum_size.y = 46
-		strip.add_child(tabs)
-		_root.add_child(strip)
 	for s in SECTIONS:
 		var key := str(s[0])
 		var t := UiKit.tab(str(s[1]), key == current)
@@ -102,6 +92,19 @@ func _build() -> void:
 			current = key
 			_build.call_deferred())
 		tabs.add_child(t)
+	if wide():
+		tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+		_root.add_child(tabs)
+	elif tabs.get_combined_minimum_size().x <= _full_width():
+		_root.add_child(tabs)
+	else:
+		var strip := ScrollContainer.new()
+		strip.name = "SectionStrip"
+		strip.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		strip.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+		strip.custom_minimum_size.y = 46
+		strip.add_child(tabs)
+		_root.add_child(strip)
 	_body = UiKit.vbox(10)
 	_body.name = "SectionBody"
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -123,7 +126,7 @@ func _hero() -> Control:
 	row.name = "StatsHero"
 	if wide():
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
-	var pos := UiKit.figure(GameState.ordinal(GameState.my_position()), 40, UiKit.club_vivid(GameState.my_club))
+	var pos := UiKit.figure(GameState.ordinal(GameState.my_position()), UiKit.HERO, UiKit.club_vivid(GameState.my_club))
 	pos.name = "StatsHeroPosition"
 	row.add_child(pos)
 	var when := "Home and away complete" if season.is_regular_done() 			else "After round %d of %d" % [season.round_index, Season.REGULAR_ROUNDS]
@@ -169,13 +172,13 @@ func _show_intro() -> void:
 	v.add_child(UiKit.heading("Season stats", UiKit.TITLE))
 	for line in [
 		"The whole season in one place: the ladder, every player's numbers, the awards races, every match, and your club's trophy room.",
-		"Tap a column heading to sort, and again to reverse it. Tap a player, a club or a match to open it.",
+		"Pick a stat to rank the players or the clubs by it. Tap a player, a club or a match to open it.",
 	]:
 		var l := UiKit.lbl(line, 14, UiKit.TEXT)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
 	GameState.set_setting("seen_season_stats_intro", true)
-	var ok := UiKit.btn("Got it", 17, true)
+	var ok := UiKit.btn("Got it", UiKit.NAME, true)
 	ok.name = "SeasonStatsIntroOk"
 	ok.custom_minimum_size = Vector2(0, 48)
 	ok.pressed.connect(func(): close_sheet())

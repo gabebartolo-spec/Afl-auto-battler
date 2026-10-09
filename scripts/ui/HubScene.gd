@@ -85,7 +85,7 @@ func _show_weekly_loop_intro() -> void:
 	skip.flat = true
 	skip.pressed.connect(_close_weekly_loop_intro)
 	(box["footer"] as VBoxContainer).add_child(skip)
-	var ok := UiKit.btn("Got it", 17, true)
+	var ok := UiKit.btn("Got it", UiKit.NAME, true)
 	ok.name = "FinishOnboarding"
 	ok.pressed.connect(_close_weekly_loop_intro)
 	(box["footer"] as VBoxContainer).add_child(ok)
@@ -222,7 +222,22 @@ func _build() -> void:
 			left.add_child(_news_card())
 		ladder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cols.add_child(ladder)
-	_root.add_child(_footer(season))
+	if _narrow():
+		_root.add_child(_footer(season))
+	else:
+		# On a wide screen the rest of the club stays pinned, but only under
+		# the ladder column, not stretched across the page (director: no
+		# full-width bars on PC).
+		var foot := UiKit.hbox(28)
+		foot.name = "HubFooterWide"
+		_root.add_child(foot)
+		var gap := Control.new()
+		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		foot.add_child(gap)
+		var row := _footer(season)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		foot.add_child(row)
 	# Motion plays once per visit, not on every rebuild after an answer.
 	_settled = true
 
@@ -241,21 +256,17 @@ func _ladder_section(season: Season) -> Control:
 	v.name = "LadderSection"
 	var head := UiKit.hbox(8)
 	v.add_child(head)
-	var title := UiKit.section("Ladder")
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(title)
-	# The whole season - ladder, every player's numbers, awards, fixture,
-	# trophy room (director, 2026-10-07: replaces Full ladder).
-	var full := UiKit.btn("Season stats", 14)
-	full.name = "SeasonStats"
-	full.custom_minimum_size = Vector2(124, 44)
+	# The heading is the way in: the whole season (ladder, every player's
+	# numbers, awards, fixture, trophy room; director, 2026-10-07) sits
+	# behind "Ladder". One nav idiom on the hub (audit §8 Phase 1.1): the
+	# footer row and this heading, no third kind of button.
+	var full := UiKit.section_link("Ladder", "Season stats ›", "SeasonStats")
 	full.pressed.connect(func(): Router.go("stats"))
 	head.add_child(full)
-	# September: the series beside the ladder it came from.
+	# September: the series beside the ladder it came from, said as words.
 	if not season.finals.is_empty():
-		var series := UiKit.btn("Finals", 14)
+		var series := UiKit.text_action("Finals ›")
 		series.name = "FinalsOpen"
-		series.custom_minimum_size = Vector2(88, 44)
 		series.pressed.connect(_show_finals)
 		head.add_child(series)
 	var width := _content_width() if _narrow() else _content_width() * 0.45
@@ -274,7 +285,7 @@ func _standing_card() -> Control:
 	var lr := GameState.my_ladder_row()
 	# Where you sit, big, in your colour; the record beside it.
 	var pos_row := UiKit.hbox(10)
-	var pos := UiKit.figure(GameState.ordinal(GameState.my_position()), 44, UiKit.club_vivid(GameState.my_club))
+	var pos := UiKit.figure(GameState.ordinal(GameState.my_position()), UiKit.HERO, UiKit.club_vivid(GameState.my_club))
 	pos.name = "LadderPosition"
 	if not _settled:
 		# Arriving at the hub, your spot climbs (or slides) into place.
@@ -418,7 +429,7 @@ func _show_news() -> void:
 		var l := UiKit.lbl(str(item["text"]), UiKit.SECONDARY, UiKit.TEXT)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
-	var ok := UiKit.btn("Close", 17, true)
+	var ok := UiKit.btn("Close", UiKit.NAME, true)
 	ok.custom_minimum_size = Vector2(0, 44)
 	ok.pressed.connect(func(): _news_overlay.queue_free())
 	box["footer"].add_child(ok)
@@ -892,7 +903,7 @@ func _on_sim_round_pressed() -> void:
 	var why := UiKit.lbl("Your match will be played out without you.", UiKit.BODY, UiKit.TEXT)
 	why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(why)
-	var go := UiKit.btn("Play round", 17, true)
+	var go := UiKit.btn("Play round", UiKit.NAME, true)
 	go.name = "SimConfirmGo"
 	go.custom_minimum_size = Vector2(0, 48)
 	go.pressed.connect(func():
@@ -1022,7 +1033,7 @@ func _show_finals() -> void:
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.heading("Finals series", UiKit.TITLE))
 	v.add_child(FinalsBracket.new().setup(GameState.season, GameState.my_club))
-	var done := UiKit.btn("Done", 17)
+	var done := UiKit.btn("Done", UiKit.NAME)
 	done.name = "FinalsDone"
 	done.pressed.connect(_close_finals)
 	(box["footer"] as VBoxContainer).add_child(done)
@@ -1097,7 +1108,7 @@ func _show_backing_talk() -> void:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
 		i += 1
-	var ok := UiKit.btn("Done", 17, true)
+	var ok := UiKit.btn("Done", UiKit.NAME, true)
 	ok.name = "BackingTalkDone"
 	ok.custom_minimum_size = Vector2(0, 48)
 	ok.pressed.connect(_close_backing_talk)
@@ -1142,7 +1153,12 @@ func _show_media_conference() -> void:
 	var footer: VBoxContainer = box["footer"]
 	footer.visible = false
 	var opts: Array = GameState.media_conference.get("options", [])
+	# Each answer and its line are one group, clearly apart from the next.
+	footer.add_theme_constant_override("separation", 15)
 	for i in range(opts.size()):
+		var group := UiKit.vbox(3)
+		group.name = "MediaAnswerGroup_%d" % i
+		footer.add_child(group)
 		var b := UiKit.btn(str((opts[i] as Dictionary).get("label", "")), 15)
 		b.name = "MediaAnswer_%d" % i
 		b.custom_minimum_size = Vector2(0, 48)
@@ -1153,7 +1169,12 @@ func _show_media_conference() -> void:
 			_media_overlay.queue_free()
 			_media_overlay = null
 			_build())
-		footer.add_child(b)
+		group.add_child(b)
+		# What the answer does, under it: the board, the players, no numbers.
+		var effect := UiKit.lbl(MediaConference.effect_line(opts[i]), UiKit.SMALL, UiKit.MUTED)
+		effect.name = "MediaAnswerLine_%d" % i
+		effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		group.add_child(effect)
 	var skip := UiKit.btn("Skip press conference", 14)
 	skip.name = "MediaSkip"
 	skip.flat = true
@@ -1191,7 +1212,7 @@ func _show_results(results: Array) -> void:
 		for r in results:
 			if not GameState.is_my_match(r):
 				others.append(r)
-		var review := UiKit.btn("Review match", 17)
+		var review := UiKit.btn("Review match", UiKit.NAME)
 		review.name = "ReviewMatch"
 		review.custom_minimum_size = Vector2(0, 48)
 		review.pressed.connect(_review_match)
@@ -1208,7 +1229,7 @@ func _show_results(results: Array) -> void:
 				UiKit.SMALL, UiKit.MUTED, true))
 		v.add_child(_results_list(others))
 
-	var ok := UiKit.btn("Continue", 17, true)
+	var ok := UiKit.btn("Continue", UiKit.NAME, true)
 	ok.name = "ResultsContinue"
 	ok.pressed.connect(func():
 		overlay.queue_free()
