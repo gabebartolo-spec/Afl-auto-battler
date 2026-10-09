@@ -708,15 +708,13 @@ func _draw_kit(p: Vector2, tr: float, kit: Dictionary) -> void:
 			draw_colored_polygon(PackedVector2Array([p + Vector2(-r * 0.75, -r * 0.75 + w), p + Vector2(-r * 0.75, -r * 0.75),
 					p + Vector2(r * 0.75, r * 0.75 - w), p + Vector2(r * 0.75, r * 0.75)]), pat)
 		"yoke", "shoulders":
-			# The top near-half, so the two colours read at 18 px.
+			# The top near-half, so the two colours read at 18 px: the arc from
+			# chord end to chord end (the chord closes it), never a bow-tie.
 			var pts := PackedVector2Array()
-			var y0 := -r * 0.05
-			var half := sqrt(maxf(0.0, r * r - y0 * y0))
-			pts.append(p + Vector2(-half, y0))
-			for i in range(13):
-				var ang := PI + PI * float(i) / 12.0
-				pts.append(p + Vector2(cos(ang) * r, sin(ang) * r * 0.98))
-			pts.append(p + Vector2(half, y0))
+			var lift := asin(0.05)
+			for i in range(15):
+				var ang := lerpf(PI + lift, TAU - lift, float(i) / 14.0)
+				pts.append(p + Vector2(cos(ang) * r, sin(ang) * r))
 			draw_colored_polygon(pts, pat)
 		"band":
 			draw_rect(Rect2(p + Vector2(-r * 0.98, -r * 0.22), Vector2(r * 1.96, r * 0.44)), pat)
