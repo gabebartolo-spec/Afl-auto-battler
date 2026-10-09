@@ -4,6 +4,7 @@ extends SceneTree
 ## this week first, at most three facts, an obvious next action, the ladder at
 ## full height, and sensible states for a bye, a finished season and results.
 
+const Tap := preload("res://tests/tap.gd")
 var _state: Node
 var _checks := 0
 var _failures: Array[String] = []
@@ -30,6 +31,7 @@ func _run() -> void:
 	_checks += suite.checks
 	_failures.append_array(suite.failures)
 	await _hub_tests()
+	await _wide_hub_footer()
 	await _regular_bye()
 	await _finals_week_by_week()
 	await _coach_approach_card()
@@ -174,6 +176,39 @@ func _hub_tests() -> void:
 ## A home-and-away bye (an odd club count rotates one) is a week off, not
 ## the end of the season: no "missed the finals" copy, no finals controls,
 ## and simming it plays one round and brings the next match back.
+## On a PC window the club buttons stay pinned in view but sit under the
+## ladder column, not stretched across the whole page (director: no
+## full-width bars on PC). Real taps reach them.
+func _wide_hub_footer() -> void:
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	_state.set_setting("seen_weekly_loop_intro", true)
+	root.size = Vector2i(1280, 720)
+	var hub: Control = await _open_hub()
+	var footer: Control = hub.find_child("HubFooter", true, false)
+	var viewport := Rect2(Vector2.ZERO, Vector2(root.size))
+	var r := footer.get_global_rect() if footer != null else Rect2()
+	_check(footer != null and viewport.grow(1).encloses(r), "PC: the club buttons stay on screen")
+	_check(r.size.x <= root.size.x * 0.55 and r.position.x >= root.size.x * 0.45,
+			"PC: the club buttons sit under the ladder, not across the page (%.0f wide at x %.0f)" % [r.size.x, r.position.x])
+	var ladder: Control = hub.find_child("LadderSection", true, false)
+	_check(ladder != null and absf(ladder.get_global_rect().position.x - r.position.x) < 24.0,
+			"PC: the club buttons line up with the ladder column")
+	# A real tap at the button's place (its route to Training unhooked, so
+	# the tap does not leave the hub mid-test).
+	var training := _button(footer, "Training")
+	var why := "no Training button"
+	if training != null:
+		for c in training.pressed.get_connections():
+			training.pressed.disconnect(c["callable"])
+		why = await Tap.tap(training)
+	_check(why == "", "PC: a real tap on Training reaches the button (%s)" % why)
+	hub.queue_free()
+	await _settle()
+	root.size = Vector2i(390, 844)
+
+
 func _regular_bye() -> void:
 	var db = root.get_node("GameDB")
 	_state.reset()
