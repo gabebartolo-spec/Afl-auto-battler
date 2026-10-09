@@ -5,7 +5,8 @@ extends Control
 
 const ROLES := ["", "DEF", "MID", "RUCK", "FWD"]
 const ROLE_NOUN := {"RUCK": "ruck", "MID": "midfielder", "DEF": "defender", "FWD": "forward"}
-const ROLE_TABS := [["", "All"], ["DEF", "Defenders"], ["MID", "Midfielders"], ["RUCK", "Rucks"], ["FWD", "Forwards"]]
+# As Team selection names them: the positions' own short forms.
+const ROLE_TABS := [["", "All"], ["DEF", "DEF"], ["MID", "MID"], ["RUCK", "RUCK"], ["FWD", "FWD"]]
 const LONG_PRESS_SECONDS := 0.45
 
 var _role := ""
