@@ -847,6 +847,30 @@ func _test_backing_rules() -> void:
 	Backing.start(kid5, 2028, 4, 5)
 	for i in range(Backing.RUN_GAMES):
 		Backing.after_match(kid5, true, true)
+	# The sit-down when a run ends: what he did with it, and how he took it.
+	var good := {"state": "done", "games": 3, "played": 3, "goals": 4, "disp": 30}
+	var quiet := {"state": "done", "games": 3, "played": 3, "goals": 0, "disp": 21}
+	var middling := {"state": "done", "games": 3, "played": 3, "goals": 1, "disp": 42}
+	var dropped := {"state": "broken", "games": 3, "played": 1, "goals": 0, "disp": 9}
+	var tg: Dictionary = Backing.talk(kid5, good)
+	_check(tg["lines"] == ["Three games: four goals, 10 disposals a game.",
+			"He feels he showed you something, and he wants more of it."],
+			"A run that went well is said with his numbers (%s)" % str(tg["lines"]))
+	_check(str(Backing.talk(kid5, quiet)["lines"][1]).begins_with("He knows it was quiet")
+			and str(Backing.talk(kid5, middling)["lines"][1]).begins_with("He is glad of the chance"),
+			"A quiet run is called quiet; an ordinary one is not")
+	_check(Backing.talk(kid5, dropped)["lines"] == ["One game: no goals, 9 disposals a game.",
+			"You told him three games and he got one. He wants to know where he stands."],
+			"A broken promise is said plainly (%s)" % str(Backing.talk(kid5, dropped)["lines"]))
+	_check(Backing.talk(kid5, {"state": "lapsed", "played": 1}).is_empty()
+			and Backing.talk(kid5, {"state": "active"}).is_empty(), "No sit-down for a run still on or lapsed")
+	var kid6 := _kid(GameState.my_list[23], 5)
+	Backing.start(kid6, 2028, 4, 5)
+	Backing.after_match(kid6, true, true, {}, {"goals": 2, "disposals": 11})
+	Backing.after_match(kid6, false, false)
+	Backing.after_match(kid6, true, true, {}, {"goals": 0, "disposals": 15})
+	_check(int(Backing.ledger(kid6)[0]["goals"]) == 2 and int(Backing.ledger(kid6)[0]["disp"]) == 26,
+			"The run keeps what he did in the games he played")
 	_check(Backing.memory_bits(kid5) == ["Given a three-game run in 2028."],
 			"A run kept is remembered (%s)" % str(Backing.memory_bits(kid5)))
 	# Auto-pick treats a run as a promise, ruck included.
