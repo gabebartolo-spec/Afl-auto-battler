@@ -148,6 +148,7 @@ func _layout_signature() -> String:
 
 
 func _build_layout() -> void:
+	_club_backdrop()
 	var area := _usable_size()
 	_wide = area.x >= 760.0 and area.x > area.y
 	_short = area.y < 680.0
@@ -263,7 +264,18 @@ func _on_club_chosen(code: String) -> void:
 	else:
 		_draft.start_for_user(code)
 	GameState.mark_dirty()
+	_club_backdrop()
 	_show_board()
+
+
+## Your club's colour behind the board once you have one (director,
+## 2026-10-10: every screen in the gameday style); none on club choice.
+func _club_backdrop() -> void:
+	if _club == "" or get_node_or_null("ClubBackdrop") != null:
+		return
+	var bd := ClubBackdrop.new().setup(_club)
+	add_child(bd)
+	move_child(bd, 0)
 
 
 func _header(title_text: String, sub: String) -> Control:
