@@ -1682,7 +1682,7 @@ const LOOSE_SPOIL_FLOOR := 0.25
 const ENTRY_READ := 0.5
 ## Of a defender's spoils inside 50 that the defence clears, the share a
 ## teammate gathers rather than the man who spoiled it.
-const SPOIL_GATHER := 0.5
+const SPOIL_GATHER := 0.7
 ## Of the contests the defender wins, the share he marks (an intercept
 ## mark, the ball turned over) rather than spoils; a better reader marks more.
 const INTERCEPT_MARK := 0.35
