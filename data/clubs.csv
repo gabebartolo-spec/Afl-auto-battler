@@ -1,5 +1,5 @@
 code,name,short,primary,secondary,accent,ground,enter,guernsey
-ADE,Adelaide,Crows,#002B5C,#E21937,#FFD200,Adelaide Oval,2026,band:p/s/a/p
+ADE,Adelaide,Crows,#002B5C,#E21937,#FFD200,Adelaide Oval,2026,lowhoops:p/s/a/p
 BRL,Brisbane,Lions,#A30046,#0055A3,#FDBE57,The Gabba,2026,yoke:p/s/a/p
 CAR,Carlton,Blues,#0B1F4B,#FFFFFF,#7FA7E0,Marvel Stadium,2026,plain:p/s/a/p
 COL,Collingwood,Magpies,#141414,#FFFFFF,#BFBFBF,MCG,2026,stripes:p/s/a/p
@@ -7,15 +7,15 @@ ESS,Essendon,Bombers,#1A1A1A,#CC2031,#FFFFFF,Marvel Stadium,2026,sash:p/s/a/p
 FRE,Fremantle,Dockers,#2A0D54,#FFFFFF,#A67FC1,Optus Stadium,2026,chevrons:p/s/a/p
 GEE,Geelong,Cats,#002B5C,#FFFFFF,#8FB4E3,GMHBA Stadium,2026,hoops:p/s/a/p
 GCS,Gold Coast,Suns,#E02112,#FFDD00,#0079C1,People First Stadium,2026,sides:p/#9E140C/s/p
-GWS,Greater Western Sydney,Giants,#F47920,#3C3C3B,#FFFFFF,Engie Stadium,2026,tiers:s/p/s/s
+GWS,Greater Western Sydney,Giants,#F47920,#3C3C3B,#FFFFFF,Engie Stadium,2026,giants:s/p/a/s
 HAW,Hawthorn,Hawks,#4D2004,#FBBF15,#FFFFFF,MCG,2026,stripes:p/s/a/p
 MEL,Melbourne,Demons,#0A1F44,#CC2031,#FFFFFF,MCG,2026,yoke:p/s/a/p
 NTH,North Melbourne,Kangaroos,#1A3B8E,#FFFFFF,#C4D1E5,Marvel Stadium,2026,stripes:p/s/a/p
 PAD,Port Adelaide,Power,#008AAB,#1A1A1A,#C0C0C0,Adelaide Oval,2026,chevron:s/#FFFFFF/p/s
 RIC,Richmond,Tigers,#FFD200,#1A1A1A,#FFFFFF,MCG,2026,sash:s/p/a/s
-STK,St Kilda,Saints,#ED1B2F,#1A1A1A,#FFFFFF,Marvel Stadium,2026,panels:p/a/s/s
+STK,St Kilda,Saints,#ED1B2F,#1A1A1A,#FFFFFF,Marvel Stadium,2026,panels:s/a/p/s
 SYD,Sydney,Swans,#E1251B,#FFFFFF,#1A1A1A,SCG,2026,yoke:s/p/a/p
-WCE,West Coast,Eagles,#003087,#F2A900,#FFFFFF,Optus Stadium,2026,shoulders:p/s/s/p
-WBD,Western Bulldogs,Bulldogs,#BD002B,#20539D,#FFFFFF,Marvel Stadium,2026,band:s/p/a/s
+WCE,West Coast,Eagles,#003087,#F2A900,#FFFFFF,Optus Stadium,2026,wings:p/s/p/p
+WBD,Western Bulldogs,Bulldogs,#BD002B,#20539D,#FFFFFF,Marvel Stadium,2026,twohoops:s/p/a/s
 TAS,Tasmania,Devils,#2C5530,#E8D44D,#C2274D,Bellerive Oval,2028,map:p/s/a/p
 CANB,Canberra,Thunder,#1B3B6F,#FFFFFF,#F5B301,Manuka Oval,2030,plain:p/s/a/p
