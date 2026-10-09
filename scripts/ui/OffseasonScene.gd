@@ -107,7 +107,7 @@ func _restore_scroll(scroll: ScrollContainer, offset: int) -> void:
 func _budget(body: VBoxContainer) -> void:
 	var year := GameState.department_budget_year if GameState.department_budget_year > 0 \
 			else GameState.season_year + 1
-	body.add_child(UiKit.lbl("Club budget · %d" % year, 17, UiKit.EMPH, true))
+	body.add_child(UiKit.lbl("Club budget · %d" % year, UiKit.NAME, UiKit.EMPH, true))
 	body.add_child(_para(
 			"$%.1fm to allocate for the football year. It resets next off-season; there is no bank balance to hoard." \
 			% ClubBudget.ANNUAL_M, 13, UiKit.MUTED))

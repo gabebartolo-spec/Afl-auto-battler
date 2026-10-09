@@ -85,7 +85,7 @@ func _show_weekly_loop_intro() -> void:
 	skip.flat = true
 	skip.pressed.connect(_close_weekly_loop_intro)
 	(box["footer"] as VBoxContainer).add_child(skip)
-	var ok := UiKit.btn("Got it", 17, true)
+	var ok := UiKit.btn("Got it", UiKit.NAME, true)
 	ok.name = "FinishOnboarding"
 	ok.pressed.connect(_close_weekly_loop_intro)
 	(box["footer"] as VBoxContainer).add_child(ok)
@@ -274,7 +274,7 @@ func _standing_card() -> Control:
 	var lr := GameState.my_ladder_row()
 	# Where you sit, big, in your colour; the record beside it.
 	var pos_row := UiKit.hbox(10)
-	var pos := UiKit.figure(GameState.ordinal(GameState.my_position()), 44, UiKit.club_vivid(GameState.my_club))
+	var pos := UiKit.figure(GameState.ordinal(GameState.my_position()), UiKit.HERO, UiKit.club_vivid(GameState.my_club))
 	pos.name = "LadderPosition"
 	if not _settled:
 		# Arriving at the hub, your spot climbs (or slides) into place.
@@ -418,7 +418,7 @@ func _show_news() -> void:
 		var l := UiKit.lbl(str(item["text"]), UiKit.SECONDARY, UiKit.TEXT)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
-	var ok := UiKit.btn("Close", 17, true)
+	var ok := UiKit.btn("Close", UiKit.NAME, true)
 	ok.custom_minimum_size = Vector2(0, 44)
 	ok.pressed.connect(func(): _news_overlay.queue_free())
 	box["footer"].add_child(ok)
@@ -892,7 +892,7 @@ func _on_sim_round_pressed() -> void:
 	var why := UiKit.lbl("Your match will be played out without you.", UiKit.BODY, UiKit.TEXT)
 	why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(why)
-	var go := UiKit.btn("Play round", 17, true)
+	var go := UiKit.btn("Play round", UiKit.NAME, true)
 	go.name = "SimConfirmGo"
 	go.custom_minimum_size = Vector2(0, 48)
 	go.pressed.connect(func():
@@ -1022,7 +1022,7 @@ func _show_finals() -> void:
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.heading("Finals series", UiKit.TITLE))
 	v.add_child(FinalsBracket.new().setup(GameState.season, GameState.my_club))
-	var done := UiKit.btn("Done", 17)
+	var done := UiKit.btn("Done", UiKit.NAME)
 	done.name = "FinalsDone"
 	done.pressed.connect(_close_finals)
 	(box["footer"] as VBoxContainer).add_child(done)
@@ -1097,7 +1097,7 @@ func _show_backing_talk() -> void:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(l)
 		i += 1
-	var ok := UiKit.btn("Done", 17, true)
+	var ok := UiKit.btn("Done", UiKit.NAME, true)
 	ok.name = "BackingTalkDone"
 	ok.custom_minimum_size = Vector2(0, 48)
 	ok.pressed.connect(_close_backing_talk)
@@ -1191,7 +1191,7 @@ func _show_results(results: Array) -> void:
 		for r in results:
 			if not GameState.is_my_match(r):
 				others.append(r)
-		var review := UiKit.btn("Review match", 17)
+		var review := UiKit.btn("Review match", UiKit.NAME)
 		review.name = "ReviewMatch"
 		review.custom_minimum_size = Vector2(0, 48)
 		review.pressed.connect(_review_match)
@@ -1208,7 +1208,7 @@ func _show_results(results: Array) -> void:
 				UiKit.SMALL, UiKit.MUTED, true))
 		v.add_child(_results_list(others))
 
-	var ok := UiKit.btn("Continue", 17, true)
+	var ok := UiKit.btn("Continue", UiKit.NAME, true)
 	ok.name = "ResultsContinue"
 	ok.pressed.connect(func():
 		overlay.queue_free()

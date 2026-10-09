@@ -37,6 +37,12 @@ func _run() -> void:
 			out = str(cli[i + 1])
 		if str(cli[i]) == "--mode":
 			mode = str(cli[i + 1])
+		# The director's A/B looks (audit §9): --small barlow sets the small sizes in
+		# Barlow; --selection tint puts a faint club tint behind a chosen option.
+		if str(cli[i]) == "--small":
+			load("res://scripts/ui/UiKit.gd").small_face = str(cli[i + 1])
+		if str(cli[i]) == "--selection":
+			load("res://scripts/ui/UiKit.gd").selection_tint = str(cli[i + 1]) == "tint"
 		if str(cli[i]) == "--size":
 			var wh := str(cli[i + 1]).split("x")
 			W = int(wh[0])
