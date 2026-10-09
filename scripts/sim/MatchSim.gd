@@ -118,6 +118,9 @@ var extra_time_played := false
 ## player's effective attributes (fit()), centred so an average match reads
 ## the same as before - a fresh player is a touch better, a cooked one worse.
 var energy := {}
+## fit() by player id, with the energy it was computed at (a changed energy recomputes);
+## it is asked about half a million times a round of matches. The same numbers, computed once.
+var _fit_cache := {}
 var rotation_policy := ["normal", "normal"]
 var interchanges := [0, 0]
 var _chain_no := 0
@@ -2988,6 +2991,7 @@ func quarter_in_progress() -> bool:
 
 func begin_quarter() -> void:
 	var T := _rates()
+	_fit_cache.clear()
 	# A tired-star call lasts to the break.
 	_held.clear()
 	if current_quarter > 1:
@@ -3399,10 +3403,17 @@ const FIT_SLOPE := 0.25
 
 
 func fit(p: Dictionary) -> float:
-	var f := FIT_BASE + FIT_SLOPE * float(energy.get(str(p["id"]), 100.0)) / 100.0
+	var id := str(p["id"])
+	var e := float(energy.get(id, 100.0))
+	var hit = _fit_cache.get(id)
+	if hit != null and hit[0] == e:
+		return hit[1]
+	var f := FIT_BASE + FIT_SLOPE * e / 100.0
 	if (current_quarter >= 4 or finals_mode) and _trait(p, "big_game"):
 		f += 0.05
-	return f + ClubLife.form(p)
+	f += ClubLife.form(p)
+	_fit_cache[id] = [e, f]
+	return f
 
 
 ## The trait that played a part in the goal just logged, for the feed: a
@@ -3469,6 +3480,12 @@ func _after_chain() -> void:
 			var tagger = tagger_for(sq.ground)
 			if tagger != null:
 				tagger_id = str(tagger["id"])
+		# Asked once a side, not once a player (the same answers every time).
+		var focus_id := _focus_id(side)
+		var tagged_id := _tag_id(1 - side)
+		var holding := _burst(side, "hold")
+		var flooding := _burst(side, "flood")
+		var stacking := _burst(side, "stack")
 		for p in sq.ground:
 			var id := str(p["id"])
 			var role := str(p["role"])
@@ -3477,20 +3494,20 @@ func _after_chain() -> void:
 				gps *= GPS_WING_MULT
 			if _chain_touch.has(id):
 				gps *= GPS_TOUCH_MULT
-			if id == _focus_id(side):
+			if id == focus_id:
 				gps *= GPS_FOCUS_MULT
 			if id == tagger_id:
 				gps *= GPS_TAGGER_MULT
-			if id == _tag_id(1 - side):
+			if id == tagged_id:
 				gps *= GPS_TAGGED_MULT
 			# Short-term calls move specific lines as football would: slowing
 			# down cuts running; a flood asks backs/mids to fold behind the
 			# ball; stacking a stoppage pulls mids/rucks into the contest.
-			if _burst(side, "hold"):
+			if holding:
 				gps *= 0.84
-			elif _burst(side, "flood"):
+			elif flooding:
 				gps *= 1.10 if role == "MID" else (1.07 if role == "DEF" or role == "RUCK" else 0.94)
-			elif _burst(side, "stack"):
+			elif stacking:
 				gps *= 1.08 if role == "MID" or role == "RUCK" else 0.98
 			_t(side, "distance_run", gps)
 			_p(p, "distance_run", gps)
@@ -3505,6 +3522,7 @@ func _after_chain() -> void:
 		for p in sq.bench:
 			var id := str(p["id"])
 			energy[id] = minf(float(energy_caps.get(id, 100.0)), float(energy.get(id, 100.0)) + ENERGY_BENCH_RECOVER * per_chain)
+		_fit_cache.clear()
 		var b: Dictionary = bursts[side]
 		for k in b.keys():
 			b[k] = int(b[k]) - 1
