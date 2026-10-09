@@ -45,6 +45,10 @@ func _run() -> void:
 			"year": int(state.season_year), "result": {"home": "GEE", "away": "ESS", "score": [44, 101]}}, {})
 	DisplayServer.window_set_size(window)
 	root.size = window
+	# Pin the stretch: the canvas scaled up to fill the window, whatever the
+	# display server makes of a window taller than its screen.
+	root.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
 	root.content_scale_size = canvas
 	await process_frame
 	var hub = load("res://scenes/HubScene.tscn").instantiate()
