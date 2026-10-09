@@ -1132,7 +1132,9 @@ func _show_media_conference() -> void:
 	var prompt := UiKit.vbox(6)
 	prompt.visible = scene == null
 	v.add_child(prompt)
-	prompt.add_child(UiKit.lbl("Journalist", UiKit.SMALL, UiKit.MUTED, true))
+	var by := UiKit.lbl(str(GameState.media_conference.get("by", "Journalist")), UiKit.SMALL, UiKit.MUTED, true)
+	by.name = "MediaByline"
+	prompt.add_child(by)
 	var q := UiKit.lbl(str(GameState.media_conference.get("question", "")), 16, UiKit.TEXT)
 	q.name = "MediaQuestion"
 	q.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

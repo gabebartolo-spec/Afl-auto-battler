@@ -6874,10 +6874,19 @@ func _prepare_media_conference(results: Array) -> void:
 						"line": "kicked %d goals" % goals if goals >= 6 else "had %d disposals" % disposals}
 				break
 	var round_no := season.round_index if last_phase == "regular" else Season.REGULAR_ROUNDS + int((season.finals.get("weeks", []) as Array).size())
+	# How many of your side were young enough for the Philosopher to ask.
+	var young := 0
+	if roster.size() > side:
+		for r in roster[side]:
+			var p := _find_player(str(r.get("id", "")))
+			if not p.is_empty() and float(p.get("age", 30.0)) <= MediaConference.YOUNG_AGE:
+				young += 1
 	media_conference = MediaConference.pick({
 		"result": res, "club": my_club, "opponent_name": GameDB.club_name(opp),
-		"round": round_no, "injuries": injuries, "star": star,
+		"round": round_no, "injuries": injuries, "star": star, "year": season_year, "young": young,
 	}, media_memory)
+	if not media_conference.is_empty():
+		media_conference["opp"] = GameDB.club_name(opp)
 
 
 func backing_talk_pending() -> bool:
@@ -6918,6 +6927,9 @@ func resolve_media_conference(option: int) -> void:
 		for p in my_list:
 			ClubLife.add_morale(p, morale_delta)
 	media_memory[str(media_conference.get("key", ""))] = int(media_conference.get("round", 0))
+	# What you said, so a journalist can hold you to it later this season.
+	media_memory["said|" + str(media_conference.get("key", ""))] = {"year": season_year, "option": option,
+			"opp": str(media_conference.get("opp", "")), "round": int(media_conference.get("round", 0))}
 	add_news("media", "Post-match: '%s'" % str(picked.get("label", "")))
 	media_conference = {}
 	mark_dirty()

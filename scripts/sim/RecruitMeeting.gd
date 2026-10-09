@@ -18,10 +18,11 @@ const THIN_GAMES := 8
 
 ## {"list": [sentence], "names": [{"id", "line"}]} for `draft` (an intake
 ## draft with your club set). `list_players` is your current list; `profile`
-## is GameState.list_profile() ([] when there is no season to read it from).
-static func notes(draft: Draft, list_players: Array, profile: Array) -> Dictionary:
+## is GameState.list_profile() ([] when there is no season to read it from);
+## `plan` your standing game plan (GameState.club_plan).
+static func notes(draft: Draft, list_players: Array, profile: Array, plan := "") -> Dictionary:
 	return {"list": list_lines(draft.position_status(), list_players, profile),
-			"names": prospect_lines(draft)}
+			"names": prospect_lines(draft, plan)}
 
 
 ## Up to three sentences about the list, the most pressing first.
@@ -38,10 +39,9 @@ static func list_lines(status: Dictionary, list_players: Array, profile: Array) 
 			out.append("As it stands we can't field a full %s." % LINE_WORD[role])
 	# Depth: softer, and only when nothing structural is said.
 	if out.is_empty():
-		for role in ["MID", "DEF", "FWD", "RUCK"]:
-			if int((status.get(role, {}) as Dictionary).get("light", 0)) >= 2:
-				out.append("We're light for depth %s." % DEPTH_WORD[role])
-				break
+		var light := depth_role(status)
+		if light != "":
+			out.append("We're light for depth %s." % DEPTH_WORD[light])
 	# What the side does well, from the league-relative List Profile.
 	for row in profile:
 		if str(row.get("word", "")) == "Elite":
@@ -60,6 +60,20 @@ const LINE_WORD := {"MID": "midfield", "DEF": "back line", "FWD": "forward line"
 const DEPTH_WORD := {"MID": "in the midfield", "DEF": "in defence", "FWD": "up forward", "RUCK": "in the ruck"}
 
 
+## The one position the list section calls light for depth, or "": none when
+## the side has a hole (the holes are said instead), else the first light
+## one in this order. A name's depth line is only ever about this position,
+## so the panel never says one thing about the list and another about a name.
+static func depth_role(status: Dictionary) -> String:
+	for role in ["RUCK", "MID", "DEF", "FWD"]:
+		if int((status.get(role, {}) as Dictionary).get("short", 0)) > 0:
+			return ""
+	for role in ["MID", "DEF", "FWD", "RUCK"]:
+		if int((status.get(role, {}) as Dictionary).get("light", 0)) >= LIGHT_SAY:
+			return role
+	return ""
+
+
 static func _old_core(list_players: Array) -> int:
 	var best := list_players.duplicate()
 	best.sort_custom(func(a, b): return int(a["overall"]) > int(b["overall"]))
@@ -72,7 +86,7 @@ static func _old_core(list_players: Array) -> int:
 
 ## A few prospects likely to be around at your first pick, different
 ## positions where the window allows, each with why the panel liked him.
-static func prospect_lines(draft: Draft) -> Array:
+static func prospect_lines(draft: Draft, plan := "") -> Array:
 	var picks := draft.upcoming_picks(draft.user_club, 1)
 	if picks.is_empty():
 		return []
@@ -109,10 +123,116 @@ static func prospect_lines(draft: Draft) -> Array:
 			chosen.append(p)
 	# No order of preference: as the board lists them, by name.
 	chosen.sort_custom(func(a, b): return GameDB.player_display_name(a) < GameDB.player_display_name(b))
+	var status := draft.position_status()
+	var mult := draft.scouting_mult_for(draft.user_club)
 	var out := []
 	for p in chosen:
-		out.append({"id": str(p["id"]), "line": reason(p)})
+		var line := reason(p)
+		var fit := fit_line(p, status, plan)
+		if fit != "":
+			# The fit goes straight after the reason, before any doubt.
+			var cut := line.find(" We only saw him")
+			line = (line + " " + fit) if cut < 0 else (line.left(cut) + " " + fit + line.substr(cut))
+		if split(p, draft.user_club, draft.seed, mult):
+			line += " The panel is split on him."
+		out.append({"id": str(p["id"]), "line": line})
 	return out
+
+
+# --- How he fits the list (RPG-007, director 2026-10-09: "Yes, as facts") ---
+# One sentence at most, and only a true one: a hole he plays into, then depth
+# he adds, then the game you play when his football is up to it. Never an
+# order, never "best": the facts, and the choice stays yours.
+
+## Key position: a back or forward this tall goes to a key opponent (the same
+## bar reason() uses for "strong enough to go to a key forward").
+const KEY_CM := 192
+## Depth this light at his position is worth saying (as list_lines says it).
+const LIGHT_SAY := 2
+
+
+## The fit sentence for `p` against your list's `status` (Draft.position_status)
+## and your standing `plan`, or "" when nothing true can be said.
+static func fit_line(p: Dictionary, status: Dictionary, plan: String) -> String:
+	var roles := [str(p.get("role", "MID"))]
+	if str(p.get("role2", "")) != "" and not roles.has(str(p["role2"])):
+		roles.append(str(p["role2"]))
+	# A hole: the match-day side cannot be fielded at a position he plays.
+	for role in roles:
+		var short := int((status.get(role, {}) as Dictionary).get("short", 0))
+		if short <= 0:
+			continue
+		if role == "RUCK":
+			return "%s: we have none we'd trust." % _who(p, role) if short >= 2 					else "%s: we only have one we'd trust." % _who(p, role)
+		return "%s: we can't field a full %s." % [_who(p, role), LINE_WORD[role]]
+	# Depth: only at the position the list section names as light.
+	var light := depth_role(status)
+	if light != "" and roles.has(light):
+		return "%s, where we're light for depth." % _who(p, light)
+	return style_line(p, plan)
+
+
+## "A key back", "A forward", "A midfielder", "A ruck" - or "Also a
+## midfielder" when it is his second position, so a tall forward is never
+## called a midfielder outright.
+static func _who(p: Dictionary, role: String) -> String:
+	var key := int(p.get("height_cm", 0)) >= KEY_CM
+	var word := "a midfielder"
+	match role:
+		"DEF":
+			word = "a key back" if key else "a back"
+		"FWD":
+			word = "a key forward" if key else "a forward"
+		"RUCK":
+			word = "a ruck"
+	if role != str(p.get("role", "")):
+		return "Also " + word
+	return word.left(1).to_upper() + word.substr(1)
+
+
+## The game your plan plays, in words, keyed like PlanFit.NEEDS.
+const STYLE_WORD := {"defensive": "pressure", "attacking": "running", "contest": "contested",
+		"controlled": "controlled"}
+
+
+## "Suits our pressure game." when your plan leans on a kind of player
+## (PlanFit.NEEDS, the attributes List Profile's Pressure, Running power,
+## Contest and Control rows rate) and his football is at least an average
+## AFL carrier's on them (PlanFit.LEAGUE's mean). Balanced and Through stars
+## lean on no kind of player, so they say nothing.
+static func style_line(p: Dictionary, plan: String) -> String:
+	if not PlanFit.NEEDS.has(plan) or not STYLE_WORD.has(plan):
+		return ""
+	var need: Dictionary = PlanFit.NEEDS[plan]
+	var role := str(p.get("role", "MID"))
+	# Only the lines that carry the plan (a ruck's tap work is rated on its own
+	# scale, so a ruck gets no style line).
+	if not (need["lines"] as Array).has(role) or (p.get("attr", {}) as Dictionary).is_empty():
+		return ""
+	if PlanFit._value(p, need["attr"]) < float((PlanFit.LEAGUE[plan] as Array)[0]):
+		return ""
+	return "Suits our %s game." % STYLE_WORD[plan]
+
+
+# --- When the panel is split ---
+## The scouts' read of an ability (DraftScouting.combine_seen) against what he
+## measured at the Combine on the same scale (Combine.measured): this far
+## apart on any of movement, repeat effort or aerial and the room disagrees
+## about him. Set from the data (tools/audit/panelsplit_impl.gd, the 2026
+## class read by every club under 40 seeds): 17 points flags 12.9% of reads,
+## about one prospect in eight (15 would flag 21.7%, 20 only 5.0%).
+const SPLIT_GAP := 17.0
+
+
+static func split(p: Dictionary, club: String, seed: int, mult := 1.0) -> bool:
+	if not Combine.tested(p, seed):
+		return false
+	var seen := DraftScouting.combine_seen(p, club, seed, mult)
+	for k in seen:
+		var m := Combine.measured(p, str(k), seed)
+		if m >= 0.0 and absf(float(seen[k]) - m) >= SPLIT_GAP:
+			return true
+	return false
 
 
 ## Why the panel liked him, in a sentence, and its doubt when it has one.

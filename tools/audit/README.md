@@ -45,6 +45,8 @@ way.
 - `underrated_impl`: the opening pool's 2026 OVR against each player's 2024-25 level; short 2026 seasons re-rated as if held for 22 games; and a games-weighted 2026/2025/2024 view. No arguments.
 - `unicorn_impl`: Unicorns at the career start and who could become one (POT 90+, the missing line within reach). No arguments.
 - `interrupt_impl` (G1): an autopilot career that leaves every ask unanswered and records, each week before the match, what is waiting: the event card, a press question and a tribunal challenge, plus the news items added. Arguments: seed, club code, seasons (`interrupt_impl 1 MEL 3`). Results and the proposed pacing rule are in `docs/research/RPG_G1_INTERRUPTION_AUDIT.md`.
+- `staff_identity_impl` (RPG-006): paired autopilot careers where your club's staff is given one character each season (`base`, `teach`, `tactics`, `manage`, `fair`) and every other club is left alone; prints young players' rating gain, list gain, ladder, margin and morale per season. Arguments: arm, seed, club, seasons (`STAFF_SEEDS=a,b,c` runs one career each). Results in `docs/research/RPG006_STAFF_IDENTITY_AUDIT.md`.
+- `tactics_pair_impl` (RPG-006): the same matches played twice with the same seeds, the home side's tactics at the top of their range and at the bottom, printing the paired margin difference and its standard error, overall and per pairing. Argument: seeds per pairing (default 40). Results in `docs/research/RPG006_STAFF_IDENTITY_AUDIT.md`.
 
 ## Captures on GitHub
 

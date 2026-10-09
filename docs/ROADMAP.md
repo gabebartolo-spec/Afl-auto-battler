@@ -6486,7 +6486,7 @@ It is complete only when:
 **Owner:** existing Backing/payoff, M7-003/005. **Autonomy:** SUPERVISED.
 Connect the existing three-game promise to a short player conversation, clear selection obligation and remembered actual outcome. Reuse the promise ledger and its availability/season rules.
 **Acceptance:** kept, broken, interrupted/lapsed and disappointing-performance outcomes are truthful; a debut/first goal appears only when real. **Checks:** current payoff implementation, manual/auto-pick, single consequence, repeated viewing and save/load. No second promise system or guaranteed breakthrough.
-**Status (2026-10-09):** slice 1 is #551 (a broken or lapsed promise is told at selection and full time and remembered on his "With us" line). **Director decision (Q-RPG001, 2026-10-09):** the backed player's short conversation happens when his run ends, as a sit-down about what he actually did, not when he is backed. Slice 2 builds it; the copy goes to the director first.
+**Status (2026-10-09):** slice 1 is #551 (a broken or lapsed promise is told at selection and full time and remembered on his "With us" line). **Director decision (Q-RPG001, 2026-10-09):** the backed player's short conversation happens when his run ends, as a sit-down about what he actually did, not when he is backed. Slice 2 builds it; the copy goes to the director first. **Director direction (2026-10-09):** the sit-down's numbers are position-relevant (key forward goals and marks, key back spoils and marks, and so on), in the director's words "a key back shouldn't be rated by the goals scored"; slice 2 is #556.
 
 ## RPG-002 — Recurring journalists and remembered media
 **Owner:** M6-008/current ClubLife. **Autonomy:** SUPERVISED.
@@ -6505,6 +6505,7 @@ Short conversations let a dropped veteran, overlooked youngster or returning pla
 **Acceptance:** proportionate contextual reactions; refusal is valid; no repeated guessing puzzle or silent change to selection/training/contracts.
 **\* Claude to refine:** preserve the starred M5-003 concept: connect existing training/retraining plans and agreed opportunities to conversation/callbacks, not another progression system.
 **Checks:** changed plans, injury, omission, duplicate delivery and save/load.
+**Director decision (2026-10-09):** private conversations **grow out of the existing weekly "unhappy" card**: one card slot, not a new system. They are situation-based (a dropped veteran, a fit-but-unpicked youngster, a returning player) and offer explain / promise a game / your call, with follow-through. They share the one optional ask a week (G1).
 
 ## RPG-004 — Hybrid synergies
 **Owner:** §9.1 synergy-specialisation work, M4-005/M5-009. **Autonomy:** BALANCE-GATED.
