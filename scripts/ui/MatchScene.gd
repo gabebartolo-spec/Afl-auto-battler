@@ -685,9 +685,11 @@ func _show_coach_box() -> void:
 
 	# Key match-ups: who is on their key forwards, how the contests went last
 	# quarter, and yours against their defenders. Change one in a tap.
+	# In three columns they sit under the quarter just played, so no column
+	# stands half empty (director, 2026-10-10).
 	var mv := _matchups_view(sim, q)
 	if mv != null:
-		col_a.add_child(mv)
+		(rep if rep != v else col_a).add_child(mv)
 	# Their loose defender, answered by a person: one of your forwards goes up
 	# the ground with him. Facts only - who is a Defensive forward shows on
 	# his name; the choice is yours.
