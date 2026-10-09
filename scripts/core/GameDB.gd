@@ -117,6 +117,19 @@ var club_order: Array = CLUB_ORDER.duplicate()
 var players := []          # Array of player dictionaries, ratings derived
 var players_by_club := {}  # code -> Array of player dictionaries
 var draftees := []         # the shipped draft class, projections applied
+## Players registered on 2026 lists who played no senior game in 2026
+## (data/list_additions_2026.csv, sourced club by club): they complete each
+## club's real list in a real-lists career (ARD-M5-016). No 2026 numbers exist
+## for them, so they are rated as the prospects they still are (Prospects.
+## project), by age and list type; their position is estimated from height.
+## Not in the League redraft pool.
+var list_additions := []
+const LIST_ADDITIONS_CSV := "res://data/list_additions_2026.csv"
+## Who left a list at the end of 2026, before the National Draft: the key
+## "first|last|dob" (lower case) to the kind ("retired", "delisted",
+## "rookie_delisted", "catb_delisted").
+var departures := {}
+const DEPARTURES_CSV := "res://data/departures_2026.csv"
 var late_draftees := []    # generated future classes registered at runtime
 var appearance := {}       # "first|last|dob" -> {skin, hair, status, club}: curated looks
 var skin_mix: Array = Appearance.DEFAULT_SKIN_MIX
@@ -162,6 +175,8 @@ func reload() -> void:
 		Potential.assign(p)
 	_apply_potential_overrides(players)
 	draftees = _load_draftees()
+	list_additions = _load_list_additions()
+	departures = _load_departures()
 	mark_unicorns(players + draftees)
 	late_draftees = []
 
@@ -491,6 +506,120 @@ func _load_draftees() -> Array:
 		out.append(p)
 	_assign_fictional_names(out)
 	return out
+
+
+func _load_list_additions() -> Array:
+	var out := []
+	if not FileAccess.file_exists(LIST_ADDITIONS_CSV):
+		return out
+	var rows := _read_rows(LIST_ADDITIONS_CSV)
+	if rows.size() < 2:
+		return out
+	var header: Array = rows[0]
+	var idx := {}
+	for j in range(header.size()):
+		idx[header[j]] = j
+	var n := 0
+	for i in range(1, rows.size()):
+		var cells: Array = rows[i]
+		if cells.size() < header.size() or _cell_str(cells, idx, "club") == "":
+			continue
+		n += 1
+		var p := {}
+		p["first"] = _cell_str(cells, idx, "first")
+		p["last"] = _cell_str(cells, idx, "last")
+		p["real_name"] = "%s %s" % [p["first"], p["last"]]
+		p["generic_name"] = ""
+		p["name"] = ""
+		var club := _cell_str(cells, idx, "club")
+		p["id"] = "L2026_%s_%03d" % [club, n]
+		p["club"] = club
+		p["num"] = 0
+		p["src"] = "LIST"
+		for k in STAT_KEYS:
+			p[k] = 0.0
+		p["height_cm"] = float(_cell_int(cells, idx, "height_cm"))
+		p["weight_kg"] = 0.0
+		p["dob"] = _cell_str(cells, idx, "dob")
+		p["age"] = age_at_start(str(p["dob"]), 20.0)
+		p["debut"] = ""
+		p["height_source"] = "club list"
+		var list_type := _cell_str(cells, idx, "list")
+		p["list_type"] = list_type
+		var pos := _cell_str(cells, idx, "position")
+		p["role"] = pos if pos in ["RUCK", "MID", "DEF", "FWD"] else listed_role(p)
+		p["role2"] = ""
+		p["real_pos"] = Ratings.ROLE_SHORT_TO_POS.get(str(p["role"]), "MID")
+		p["role_estimated"] = pos == ""
+		# Rated as the prospect he still is: a recent draftee about where a
+		# mid-first-round pick sits, an older or rookie-listed player lower.
+		var h := absi(hash(str(p["id"])))
+		var age := float(p["age"])
+		var rank := 22 + h % 20
+		if age >= 21.5 or list_type == "cat_b" or list_type == "catb":
+			rank = 45 + h % 15
+		elif list_type == "rookie" or age >= 20.5:
+			rank = 35 + h % 15
+		p["draft_year"] = DATA_SEASON
+		p["draft_rank"] = rank
+		p["draft_team"] = ""
+		p["draft_league"] = ""
+		p["draft_state"] = ""
+		p["tied_club"] = ""
+		p["tied_type"] = ""
+		for k in ["u18_gm", "u18_di", "u18_gl", "u18_mk", "u18_tk", "u18_if50", "u18_ho"]:
+			p[k] = 0.0
+		p["note"] = ""
+		p["data_src"] = "listed 2026, no senior game"
+		Prospects.project(p)
+		out.append(p)
+	_assign_fictional_names(out)
+	return out
+
+
+## A listed player's position when no source gives one: from his height, the
+## tall ones split between the key posts by a stable roll on his id.
+static func listed_role(p: Dictionary) -> String:
+	var h := float(p.get("height_cm", 0.0))
+	var roll := absi(hash("role|" + str(p.get("id", "")))) % 100
+	if h >= 200.0:
+		return "RUCK"
+	if h >= 192.0:
+		return "DEF" if roll < 50 else "FWD"
+	if roll < 45:
+		return "MID"
+	return "DEF" if roll < 72 else "FWD"
+
+
+## A club's 2026 listed players who played no senior game (list_additions).
+func club_additions(code: String) -> Array:
+	return list_additions.filter(func(q): return str(q.get("club", "")) == code)
+
+
+func _load_departures() -> Dictionary:
+	var out := {}
+	if not FileAccess.file_exists(DEPARTURES_CSV):
+		return out
+	var rows := _read_rows(DEPARTURES_CSV)
+	if rows.size() < 2:
+		return out
+	var header: Array = rows[0]
+	var idx := {}
+	for j in range(header.size()):
+		idx[header[j]] = j
+	for i in range(1, rows.size()):
+		var cells: Array = rows[i]
+		if cells.size() < header.size() or _cell_str(cells, idx, "kind") == "":
+			continue
+		var key := _look_key({"first": _cell_str(cells, idx, "first"),
+				"last": _cell_str(cells, idx, "last"), "dob": _cell_str(cells, idx, "dob")})
+		out[key] = _cell_str(cells, idx, "kind")
+	return out
+
+
+## How this player left his list at the end of 2026 ("" if he stayed).
+func departure_kind(p: Dictionary) -> String:
+	return str(departures.get(_look_key(p), ""))
 
 
 func _cell_str(cells: Array, idx: Dictionary, key: String) -> String:

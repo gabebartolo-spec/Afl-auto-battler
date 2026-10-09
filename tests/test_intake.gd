@@ -766,22 +766,47 @@ func _test_real_lists_start() -> void:
 	var active := GameDB.active_clubs(GameDB.START_YEAR)
 	var real_size := 0
 	for code in active:
-		real_size += GameDB.club_list(code).size()
+		real_size += GameDB.club_list(code).size() + GameDB.club_additions(code).size()
+	_check(real_size == 806, "The real lists are complete: 806 registered players at the end of 2026 (%d)" % real_size)
+	var untried: Array = GameDB.club_additions("GEE")
+	var all_ok := untried.size() == 12
+	for q in untried:
+		if int(q.get("gm", 0)) != 0 or not q.has("potential") or not ["RUCK", "MID", "DEF", "FWD"].has(str(q["role"])):
+			all_ok = false
+	_check(all_ok,
+			"A club's listed players without a 2026 game are there, rated as prospects, each with a position")
 	var kept := 0
 	for code in active:
 		kept += (GameState.league_lists[code] as Array).size()
 	_check(GameState.opening_draft and GameState.season == null and GameState.season_year == GameDB.DATA_SEASON
 			and GameState.draft != null and GameState.draft.intake_mode,
 			"Real lists open on the 2026 National Draft, in 2026, with no season played")
-	_check(kept >= real_size and kept - real_size == GameState.intake_assignments.size(),
-			"Every club keeps its whole real list; only club-tied 2026 draftees are added before the draft")
+	var gone := 0
+	var delisted := 0
+	for code in active:
+		for q in GameDB.club_list(code) + GameDB.club_additions(code):
+			var kind := GameDB.departure_kind(q)
+			if kind != "":
+				gone += 1
+				if kind != "retired":
+					delisted += 1
+	var freed := 0
+	for q in GameState.free_agents:
+		if GameDB.departure_kind(q) != "" and GameDB.departure_kind(q) != "retired":
+			freed += 1
+	_check(kept - (real_size - gone) == GameState.intake_assignments.size() and freed == delisted,
+			"Each club keeps its list less the 2026 retirements and delistings; the delisted are free agents (%d gone)" % gone)
 	var order: Array = GameState.opening_order(active)
 	var same := order.duplicate()
 	same.sort()
 	var want := active.duplicate()
 	want.sort()
 	_check(same == want, "The draft order is every founding club once (%d)" % order.size())
-	var vet: Dictionary = GameDB.club_list("GEE")[0]
+	var vet: Dictionary = {}
+	for q in GameDB.club_list("GEE"):
+		if GameDB.departure_kind(q) == "":
+			vet = q
+			break
 	GameState.choose_real_club("GEE")
 	_check(GameState.my_club == "GEE" and GameState.draft.user_club == "GEE" and GameState.has_career(),
 			"Choosing a club takes its real list; the career can now be saved")

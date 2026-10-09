@@ -1128,8 +1128,24 @@ func begin_real_lists() -> void:
 	var active := GameDB.active_clubs(GameDB.START_YEAR)
 	league_lists = {}
 	for code in active:
-		league_lists[code] = _career_copies(GameDB.club_list(code))
+		# The whole registered list: the players with 2026 games and those
+		# without (GameDB.list_additions).
+		league_lists[code] = _career_copies(GameDB.club_list(code) + GameDB.club_additions(code))
 		unique_jumpers(league_lists[code])
+	# The 2026 list decisions, before the draft: the retired are gone, the
+	# delisted are free agents any club may sign.
+	for code in active:
+		for p in (league_lists[code] as Array).duplicate():
+			var kind := GameDB.departure_kind(p)
+			if kind == "":
+				continue
+			(league_lists[code] as Array).erase(p)
+			if kind == "retired":
+				continue
+			p["released_by"] = code
+			p["comp_eligible"] = false
+			p["contract_years"] = 0
+			free_agents.append(p)
 	intake_assignments = []
 	# The real 2026 class, and the career's own prospect if it has one.
 	var cls: Array = _career_copies(GameDB.draftees)
