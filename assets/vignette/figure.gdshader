@@ -94,10 +94,10 @@ vec2 design(int d, vec3 g) {
 		float c = g.y - 0.9 * abs(g.x - 0.5);
 		float on = over(c, 0.38) * over(0.86, c) * g.z;
 		return vec2(bands(c, 6.0) * on, 0.0);
-	} else if (d == 7) {   // panels: wearer's right third, middle third, left third
+	} else if (d == 7) {   // panels: wearer's right third, middle third, left third, on the front
 		float mid = over(g.x, 0.36) * over(0.64, g.x);
 		float right = over(0.36, g.x);
-		return vec2(mid, right);
+		return vec2(mid, right) * g.z;   // the back plain, as St Kilda's is
 	} else if (d == 8) {   // chevron: a deep V from the shoulders, pattern colour outside, second colour inside
 		float c = g.y - 2.0 * abs(g.x - 0.5);
 		float band = over(c, 0.44) * over(0.76, c);
@@ -125,6 +125,27 @@ vec2 design(int d, vec3 g) {
 		float open = over(g.y, 0.58 + 1.9 * abs(g.x - 0.5)) * g.z;
 		float tie = open * over(0.028, abs(g.x - 0.5)) * over(0.93, g.y);
 		return vec2(open - tie, tie);
+	} else if (d == 14) {  // lowhoops (Adelaide): plain top, hoops below the chest - pattern, second, base, repeating
+		float f = mod((0.57 - g.y) / 0.071, 3.0);
+		float low = over(0.57, g.y);
+		return vec2(over(f, 0.0) * over(1.0, f), over(f, 1.0) * over(2.0, f)) * low;
+	} else if (d == 15) {  // giants (GWS): the top in the pattern colour, a G on the front below it in the second
+		float top = over(g.y, 0.56);
+		float dx = (g.x - 0.5) / 0.26;     // + towards the wearer's left
+		float dy = (0.27 - g.y) / 0.20;    // + down
+		float r = length(vec2(dx, dy));
+		float ring = over(r, 0.55) * over(1.0, r);
+		float ang = atan(dy, dx);
+		float gap = over(ang, -0.70) * over(0.17, ang);
+		float bar = over(dx, 0.0) * over(1.0, dx) * over(dy, -0.05) * over(0.25, dy);
+		float mark = clamp(ring * (1.0 - gap) + bar, 0.0, 1.0) * g.z;
+		return vec2(top, mark * (1.0 - top));
+	} else if (d == 16) {  // wings (West Coast): the top in the pattern colour, its lower edge arching up in the middle
+		float t = clamp(abs(g.x - 0.5) / 0.36, 0.0, 1.0);
+		float arch = sqrt(1.0 - t * t);   // a broad round arch, nearly armpit to armpit
+		return vec2(over(g.y, 0.40 + 0.32 * arch), 0.0);
+	} else if (d == 17) {  // twohoops (Western Bulldogs): a pattern-colour hoop over a second-colour hoop, below the chest
+		return vec2(over(g.y, 0.38) * over(0.47, g.y), over(g.y, 0.25) * over(0.34, g.y));
 	}
 	return vec2(0.0);
 }

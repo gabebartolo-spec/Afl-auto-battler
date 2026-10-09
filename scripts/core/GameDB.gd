@@ -248,7 +248,9 @@ func unregister_custom_clubs() -> void:
 
 ## Guernsey designs the vignette figures can wear, in figure.gdshader's numbering.
 const GUERNSEY_DESIGNS := ["plain", "stripes", "hoops", "sash", "yoke", "band", "chevrons", "panels",
-		"chevron", "sides", "tiers", "shoulders", "map", "suit"]   # suit: the coach, not a club
+		"chevron", "sides", "tiers", "shoulders", "map", "suit",   # suit: the coach, not a club
+		# A real club's own design (from its home guernsey), not offered in Club Forge.
+		"lowhoops", "giants", "wings", "twohoops"]
 
 
 ## A club's home kit, from data/clubs.csv's "guernsey" column:
