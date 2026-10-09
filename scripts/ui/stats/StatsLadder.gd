@@ -61,9 +61,7 @@ static func build(host: Control) -> Control:
 	var season: Season = GameState.season
 	var v := UiKit.vbox(10)
 	v.name = "StatsLadder"
-	var info := "Home and away complete" if season.is_regular_done() \
-			else "After %d of %d rounds" % [season.round_index, Season.REGULAR_ROUNDS]
-	v.add_child(UiKit.subtitle(info))
+	# The round is in the page's headline now (StatsHubScene._hero).
 	var wide := bool(host.call("wide"))
 	var width := float(host.call("content_width"))
 
@@ -111,7 +109,9 @@ static func build(host: Control) -> Control:
 		v.add_child(filters)
 
 	var shown := visible_rows(season, GameState.my_club, _filter, _sort, _desc, _view)
-	v.add_child(_status(host, shown.size()))
+	# Only when something is filtered or sorted: the whole ladder says so itself.
+	if _filter != "all" or _sort != "":
+		v.add_child(_status(host, shown.size()))
 
 	# No panel around it: the bands do the work.
 	var t := UiKit.vbox(0)
@@ -261,6 +261,11 @@ static func _row(host: Control, r: Dictionary, specs: Array, width: float, band 
 	b.clip_contents = true
 	var flat := StyleBoxFlat.new()
 	flat.bg_color = UiKit.PANEL if band else Color.TRANSPARENT
+	if mine:
+		# Your club's row in your colour, as the hub's ladder marks it.
+		flat.bg_color = Color(UiKit.club_vivid(code), 0.22)
+		flat.border_width_left = 4
+		flat.border_color = UiKit.club_vivid(code)
 	var hover := StyleBoxFlat.new()
 	hover.bg_color = Color(UiKit.TEXT, 0.05)
 	for state in ["normal", "focus"]:

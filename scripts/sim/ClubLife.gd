@@ -428,7 +428,7 @@ static func _young_gun(p: Dictionary) -> Dictionary:
 		"text": "The kid is flying at training and wants a senior game.",
 		"options": [
 			_opt("blood", "Back him for %s games" % run,
-					"Nothing develops a player like AFL footy, and he is thrilled (morale +%d) - but he expects to be picked for the next %s games. Leave him out while he is fit and the promise breaks (-%d)." % [
+					"Nothing develops a player like AFL footy, and he is thrilled (morale +%d) - but he expects to be picked for the next %s games. Leave him out while he is fit and the promise breaks (morale up to -%d)." % [
 							Backing.THRILL, run, Backing.STING]),
 			_opt("develop", "A week with the development coaches",
 					"+%d XP without taking a spot in the side, but no game at all this week." % DEV_WEEK_XP),

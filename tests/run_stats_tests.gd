@@ -781,13 +781,21 @@ func _table_recipe(s: Node, tag: String, with_pos: bool) -> void:
 		if int(b.size.y) != (32 if root.size.x >= 900 else 40):
 			tall = false
 	_check(tall and not rows.is_empty(), "Rows are 32 px on a wide screen and a thumb-sized 40 px on a phone (%s)" % tag)
+	# Your club's row is in your colour instead of its band.
+	var kit = load("res://scripts/ui/UiKit.gd")
+	var mine := str(_state.my_club)
 	var banded := rows.size() > 1
+	var mine_tinted := false
 	for i in range(rows.size()):
 		var sb := (rows[i] as Button).get_theme_stylebox("normal") as StyleBoxFlat
-		var want := (load("res://scripts/ui/UiKit.gd").PANEL as Color) if i % 2 == 1 else Color.TRANSPARENT
+		if rows[i].name == "Club_" + mine:
+			mine_tinted = sb != null and sb.bg_color.is_equal_approx(Color(kit.club_vivid(mine), 0.22))
+			continue
+		var want := (kit.PANEL as Color) if i % 2 == 1 else Color.TRANSPARENT
 		if sb == null or not sb.bg_color.is_equal_approx(want):
 			banded = false
 	_check(banded, "Every other row is banded in the panel colour (%s)" % tag)
+	_check(mine_tinted, "...and your club's row is in your colour (%s)" % tag)
 	var right := true
 	var zero_muted := true
 	var muted: Color = load("res://scripts/ui/UiKit.gd").MUTED

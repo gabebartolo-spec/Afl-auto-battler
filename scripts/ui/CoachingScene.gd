@@ -14,6 +14,9 @@ func _ready() -> void:
 	if GameState.season == null:
 		Router.replace("main")
 		return
+	# Your club's colour behind the page, as on the hub and match day
+	# (director, 2026-10-10: every screen in the gameday style).
+	add_child(ClubBackdrop.new().setup(GameState.my_club))
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	UiKit.apply_insets(margin, 12)
@@ -32,18 +35,39 @@ func _build() -> void:
 	var body := UiKit.vbox(UiKit.SECTION)
 	body.name = "CoachingBody"
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_child(_how_we_play())
-	body.add_child(_form())
-	body.add_child(_list_and_cap())
+	# A PC: how you play on the left, the club around it on the right, rather
+	# than one column stretched across the screen (director, 2026-10-10).
+	var left := body
+	var right := body
+	if _wide():
+		var cols := HBoxContainer.new()
+		cols.name = "CoachingColumns"
+		cols.add_theme_constant_override("separation", 40)
+		body.add_child(cols)
+		left = UiKit.vbox(UiKit.SECTION)
+		right = UiKit.vbox(UiKit.SECTION)
+		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		left.size_flags_stretch_ratio = 1.4
+		right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cols.add_child(left)
+		cols.add_child(right)
+	left.add_child(_how_we_play())
+	left.add_child(_form())
+	right.add_child(_list_and_cap())
 	var board := _board()
 	if board != null:
-		body.add_child(board)
-	body.add_child(_staff())
+		right.add_child(board)
+	right.add_child(_staff())
 	_root.add_child(UiKit.scroll(body))
 
 
 func _narrow() -> bool:
 	return UiKit.view_width(self) < 560.0
+
+
+func _wide() -> bool:
+	var w := UiKit.view_width(self)
+	return ScreenLayout.is_desktop() and w >= 760.0 and w > UiKit.view_height(self) * 1.2
 
 
 func _wrapped(text: String, fs := UiKit.BODY, col := UiKit.AUTO_COLOUR) -> Label:
@@ -233,6 +257,9 @@ func _list_and_cap() -> Control:
 	var b := UiKit.btn("My list", UiKit.BODY)
 	b.name = "OpenList"
 	b.custom_minimum_size = Vector2(0, 44)
+	if _wide():
+		b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		b.custom_minimum_size.x = 180
 	b.pressed.connect(func(): Router.go("list"))
 	v.add_child(b)
 	return v
@@ -287,6 +314,9 @@ func _staff() -> Control:
 	var b := UiKit.btn("Staff" if jobs == 0 else "Staff  ·  %d to fill" % jobs, UiKit.BODY, jobs > 0)
 	b.name = "OpenStaff"
 	b.custom_minimum_size = Vector2(0, 44)
+	if _wide():
+		b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		b.custom_minimum_size.x = 180
 	b.pressed.connect(func(): Router.go("staff"))
 	v.add_child(b)
 	return v
