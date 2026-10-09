@@ -495,6 +495,12 @@ Signwriter at every size** (one family; the Barlow pairing rejected and removed 
 9.2 selection = **A, ink and a 2 px outline** (the faint club tint rejected and removed).
 Boards in `agent-handoffs/lead/phase0/`.
 
+**Spend, 2026-10-10 (director, in the special leader's session, about 07:10):** "Use Tripo whenever you
+want without asking me tonight." This is the written yes for Tripo Studio credits on the night of
+2026-10-10 (the decision-log rule), for the Phase 5 order already decided: the media room and awards
+stage props first, then the MCG venue plate. The art agent records each generation's credits and
+provenance in its props plan; every prop is judged in the game through our rig.
+
 These are taste or trade-off calls; everything else above is objectively good and proceeds when
 assigned.
 
