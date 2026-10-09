@@ -10,6 +10,10 @@ extends RefCounted
 ##            balls. Another defender covers where possible; if he flies and
 ##            loses, space opens behind him." Reads his own game, the team's
 ##            and what the other side kicks.
+##   loose_free  the same call on the best intercepting defender who has no
+##            key forward of his own (Matchups.defaults), so nobody is freed.
+##   matchup  Key match-ups: their best key forward on your weakest aerial
+##            defender, against the default (your best key defender on him).
 ##   fire_up  Fire them up. The copy: "A lift at the contest while you are
 ##            chasing the game". Reads quarters 2-4 that the home side began
 ##            behind in both arms, so the two sides of a pair are chasing.
@@ -43,8 +47,32 @@ func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
 	for fid in sim.duels[0]:
 		if str(sim.duels[0][fid]) == loose:
 			freed = str(fid)
-	if arm == "loose":
+	if arm == "loose_free":
+		# The best reader of the ball among defenders with no key forward of
+		# their own: the man a coach can free without leaving one alone.
+		var minding := {}
+		for fid in sim.duels[0]:
+			minding[str(sim.duels[0][fid])] = true
+		var best := -1.0
+		for p in home.ground:
+			if str(p.get("role", "")) == "DEF" and not minding.has(str(p["id"])) 					and Matchups.interceptor_score(p) > best:
+				best = Matchups.interceptor_score(p)
+				loose = str(p["id"])
+		freed = ""
+	if arm.begins_with("loose"):
 		sim.set_interceptor(0, loose, false)
+	# Their best key forward (Matchups.key_forwards, first) and who minds him.
+	var kfs := Matchups.key_forwards(away.ground)
+	var star := str((kfs[0] as Dictionary)["id"]) if not kfs.is_empty() else ""
+	if arm == "matchup" and star != "":
+		var weakest := ""
+		var low := 999.0
+		for p in Matchups.defenders(home.ground):
+			if Matchups.defender_air(p) < low:
+				low = Matchups.defender_air(p)
+				weakest = str(p["id"])
+		sim.set_matchup(0, star, weakest, false)
+	matchup_star = star
 	res_freed = freed
 	freed_covered = freed != "" and (sim.duels[0] as Dictionary).has(freed)
 	var rucks_before := (home.ground + home.bench).filter(func(p): return str(p.get("role", "")) == "RUCK").map(func(p): return str(p["id"]))
@@ -57,6 +85,7 @@ func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
 	res["rucks_before"] = rucks_before
 	res["loose_id"] = loose
 	res["freed"] = res_freed
+	res["star"] = matchup_star
 	res["freed_covered"] = freed_covered
 	res["home_rucks"] = (home.ground + home.bench).filter(func(p): return str(p.get("role", "")) == "RUCK").map(func(p): return str(p["id"]))
 	res["home_ruck_first"] = ruck_first
@@ -64,6 +93,7 @@ func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
 
 
 var res_freed := ""
+var matchup_star := ""
 var freed_covered := false
 
 
@@ -82,6 +112,10 @@ func _loose_row(res: Dictionary) -> Dictionary:
 		"his_intercept_marks": _n(me, "intercept_marks"),
 		"his_duels": _duels(res, str(res["loose_id"])),
 		"his_marks": _n(me, "marks"),
+		"his_rebounds": _n(me, "rebounds"),
+		"his_disposals": _n(me, "disposals"),
+		"his_one_pct": _n(me, "one_percenters"),
+		"his_time": float((res["exertion"] as Dictionary).get(str(res["loose_id"]), 0.0)),
 		"his_spoils": _n(me, "spoils"),
 		"his_roam_contests": _n(me, "roam_contests"),
 		"his_roam_wins": _n(me, "roam_wins"),
@@ -131,6 +165,16 @@ func _dual_row(res: Dictionary) -> Dictionary:
 		"scored": float(int(sc[0]))}
 
 
+func _matchup_row(res: Dictionary) -> Dictionary:
+	var sc: Array = res["score"]
+	var st: Dictionary = (res["players"] as Dictionary).get(str(res["star"]), {})
+	return {"margin": float(int(sc[0]) - int(sc[1])),
+		"star_goals": _n(st, "goals"),
+		"star_marks": _n(st, "marks"),
+		"star_contested_marks": _n(st, "contested_marks"),
+		"conceded": float(int(sc[1]))}
+
+
 ## Clearances and contested possessions in each quarter 2-4, with the score
 ## at its start: {q: {"behind": bool, "clearances": x, "contested": y}}.
 func _quarters(res: Dictionary) -> Dictionary:
@@ -167,8 +211,10 @@ func run() -> void:
 			var base := _play(pr[0], pr[1], 7000 + s, "dual_base" if mode == "dual" else "base")
 			var arm := _play(pr[0], pr[1], 7000 + s, mode)
 			var rows := []
-			if mode == "loose":
+			if mode.begins_with("loose"):
 				rows.append([_loose_row(base), _loose_row(arm)])
+			elif mode == "matchup":
+				rows.append([_matchup_row(base), _matchup_row(arm)])
 			elif mode == "dual":
 				rows.append([_dual_row(base), _dual_row(arm)])
 			else:

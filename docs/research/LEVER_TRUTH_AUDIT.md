@@ -124,6 +124,20 @@ Copy: "Dual ruck on: Auto-pick names a second ruck on the bench" (`SelectionScen
 
 (A first pass read the "starting ruck" after the match, after interchanges had changed the ground, and showed a false +6.8 hit-outs for him. Fixed: he is now read before the first bounce.)
 
+### Key match-ups (`levers_followup_impl.gd matchup`, 600 pairs)
+
+Arm: their best key forward (`Matchups.key_forwards`, first) on your weakest aerial defender (`set_matchup`). Baseline: the default, your best key defender on him (`Matchups.defaults`).
+
+| Measure | Arm mean | Paired difference |
+|---|---|---|
+| Their key forward's goals | 2.26 | **+0.72 ± 0.07** |
+| His marks | 6.48 | +1.92 ± 0.12 |
+| His contested marks | 4.50 | +1.77 ± 0.10 |
+| Points conceded | 83.1 | **+3.45 ± 0.87** |
+| Margin | | −3.57 ± 1.44 |
+
+**Verdict: works.** Who minds whom is one of the biggest single calls measured here, about a goal-and-a-half swing in conceded points. That agrees with `docs/KEY_MATCHUPS_AUDIT_2026-10-06.md` (an elite forward marks 76% on an average defender, 57% on an elite one).
+
 ### Development projects, the payback (`tools/audit/projpair_impl.gd` on audit.yml; seeds 301–306, 3 seasons; each project player paired with his no-project self)
 
 | Club (run) | Projects / learned | OVR vs self, project season | OVR vs self, two seasons on | Extra weeks played out of his line |
