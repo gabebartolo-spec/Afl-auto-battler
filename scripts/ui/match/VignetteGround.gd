@@ -477,7 +477,9 @@ static func _towers(ci: CanvasItem, cam: Cam) -> void:
 ## middle and upper tiers, a thin dark roof with a row of pale trusses standing up along
 ## its edge. Heights are read from the photo, not published.
 const MCG_TIERS := [[2.0, 20.0, FENCE_H + 0.3, 10.0], [23.0, 37.0, 13.5, 22.0], [41.0, 58.0, 25.5, 38.0]]
-const MCG_SEAT := Color(0.42, 0.48, 0.55)
+## Pale blue-grey seats as they read at night under the lights (darker than by day, so the
+## crowd stays behind the players).
+const MCG_SEAT := Color(0.24, 0.27, 0.32)
 ## A truss every this many stand columns, its base and height in metres.
 const MCG_TRUSS_EVERY := 6
 const MCG_TRUSS_H := 5.0
@@ -488,6 +490,9 @@ static func _mcg_trusses(ci: CanvasItem, cam: Cam, ring: Array, upper: Array) ->
 	var ay := L + FENCE + 2.0
 	var off: float = upper[1] - 2.0
 	var h0: float = upper[3] + 4.0
+	# The roof's top edge, caught by the lights, so the trusses stand on something.
+	for i in range(ring.size() - 1):
+		_wall(tri, cam, ring[i][0], ring[i + 1][0], upper[1] - 4.0, upper[1], h0 - 0.5, h0, Color(0.5, 0.51, 0.54))
 	for i in range(0, ring.size() - 3, MCG_TRUSS_EVERY):
 		var a0: float = ring[i][0]
 		var a1: float = ring[i + 3][0]

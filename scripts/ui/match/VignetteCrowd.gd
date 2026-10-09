@@ -47,7 +47,7 @@ static func seats(colours: Array, seed := 7, seat := Color(0.07, 0.07, 0.085)) -
 		for c in range(SEAT_COLS):
 			var x := c * SEAT_PX.x
 			if c % 16 == 7:
-				img.fill_rect(Rect2i(x, y, SEAT_PX.x, SEAT_PX.y), Color(0.16, 0.16, 0.18))   # the stairs
+				img.fill_rect(Rect2i(x, y, SEAT_PX.x, SEAT_PX.y), seat.lerp(Color(0.16, 0.16, 0.18), 0.5))   # the stairs
 				continue
 			if rng.randf() < 0.07:
 				continue                                  # an empty seat
