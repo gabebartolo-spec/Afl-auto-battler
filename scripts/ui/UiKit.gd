@@ -311,6 +311,53 @@ static func lbl(text: String, fs := 16, color := AUTO_COLOUR, bold := false) -> 
 	return l
 
 
+## Text with player names in their club's colour, so who is who reads at a
+## glance. names: {display name: Color}. Everything else is `color`.
+static func names_lbl(text: String, fs := 16, color := AUTO_COLOUR, names := {}) -> RichTextLabel:
+	if color == AUTO_COLOUR:
+		color = TEXT
+	var r := RichTextLabel.new()
+	r.bbcode_enabled = true
+	r.fit_content = true
+	r.scroll_active = false
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	r.add_theme_font_override("normal_font", FONT)
+	r.add_theme_font_override("bold_font", BOLD)
+	r.add_theme_font_size_override("normal_font_size", fs)
+	r.add_theme_font_size_override("bold_font_size", fs)
+	r.add_theme_color_override("default_color", color)
+	r.set_meta("names", names)
+	set_names(r, text)
+	return r
+
+
+## New words for a names_lbl, the names coloured again.
+static func set_names(r: RichTextLabel, text: String) -> void:
+	r.text = names_markup(text, r.get_meta("names", {}))
+
+
+static func names_markup(text: String, names: Dictionary) -> String:
+	var keys: Array = names.keys().filter(func(k): return str(k) != "")
+	keys.sort_custom(func(a, b): return str(a).length() > str(b).length())
+	var out := ""
+	var i := 0
+	while i < text.length():
+		var hit := ""
+		for k in keys:
+			if text.substr(i, str(k).length()) == str(k):
+				hit = str(k)
+				break
+		if hit != "":
+			out += "[b][color=#%s]%s[/color][/b]" % [(names[hit] as Color).to_html(false), hit]
+			i += hit.length()
+		else:
+			out += "[lb]" if text[i] == "[" else text[i]
+			i += 1
+	return out
+
+
 ## A player's or club's name leading a row: it never truncates. It wraps to a
 ## second line before anything else in the row gives way, and only a name that
 ## needs a third line is cut (none does at 360 wide; the career_ui suite checks).

@@ -44,6 +44,10 @@ var _fulltime_shown := false
 ## milestone, read before full time counts the game), or {} for none.
 var _farewell := {}
 var _coach_overlay: Control
+## The break sheet is rebuilt after a match-up change (so it reads the engine again);
+## what you had picked and where you had scrolled to carry over.
+var _pending_calls := {}
+var _pending_scroll := 0
 var _sheet_overlay: Control
 var _reflow_queued := false
 var _shown_goals := [0, 0]
@@ -654,19 +658,22 @@ func _show_coach_box() -> void:
 		"rotation": _rotation,
 	}
 	var loose_was := str(calls["interceptor_id"])
+	calls.merge(_pending_calls, true)
+	_pending_calls = {}
 	var narrow := UiKit.view_width(self) < 560.0
 
-	var plan_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	var plan_note := UiKit.names_lbl("", UiKit.SMALL, UiKit.MUTED, _name_colours())
 	plan_note.name = "PlanNote"
-	plan_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var my_ground: Array = (sim.squads[_my_side] as Squad).ground
 	var sync_note := func(key: String) -> void:
+		# What the plan does, in its first sentence; the rest is on Coaching.
 		var t := CoachReport.plan_summary(key)
+		t = t.substr(0, t.find(". ") + 1) if t.contains(". ") else t
 		# Who makes it work: the plan's upside rests on them (PlanFit).
 		var fit := GameState.plan_fit_line(my_ground, key)
 		if fit != "":
 			t += " " + fit
-		plan_note.text = t
+		UiKit.set_names(plan_note, t)
 	var plan := _choice_grid("PlanPicker", GAMEPLANS, calls, "gameplan", 2 if narrow else 3, sync_note)
 	col_a.add_child(_call_block("Gameplan", plan))
 	col_a.add_child(plan_note)
@@ -679,17 +686,16 @@ func _show_coach_box() -> void:
 	# Who goes to him - a fact, not advice (Roles: a tagger makes a tag bite
 	# harder than a midfielder doing the job). With no tag, say that instead.
 	var tagger = MatchSim.tagger_for(my_ground)
-	var tag_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+	var tag_note := UiKit.names_lbl("", UiKit.SMALL, UiKit.MUTED, _name_colours())
 	tag_note.name = "TagNote"
-	tag_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var sync_tag := func(key: String) -> void:
 		if key == "":
-			tag_note.text = "No tag: your midfielders play their own game."
+			UiKit.set_names(tag_note, "No tag: your midfielders play their own game.")
 		elif tagger == null:
-			tag_note.text = "No midfielder on the ground to tag with."
+			UiKit.set_names(tag_note, "No midfielder on the ground to tag with.")
 		else:
-			tag_note.text = ("%s, your tagger, goes to him." if Roles.is_tagger(tagger)
-					else "No specialist tagger on the ground: %s goes to him and gives up his own game.") % GameDB.player_display_name(tagger)
+			UiKit.set_names(tag_note, ("%s, your tagger, goes to him." if Roles.is_tagger(tagger)
+					else "%s goes to him, no specialist tagger, and gives up his own game.") % GameDB.player_display_name(tagger))
 	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, 4), calls, "tag_id",
 			"Tag which midfielder?", sync_tag)
 	col_a.add_child(_call_block("Tag", tag))
@@ -700,7 +706,18 @@ func _show_coach_box() -> void:
 	# quarter, and yours against their defenders. Change one in a tap.
 	# In three columns they sit under the quarter just played, so no column
 	# stands half empty (director, 2026-10-10).
-	var mv := _matchups_view(sim, q)
+	var rebuild := func(def_id: String) -> void:
+		var keep := calls.duplicate()
+		var picked := str(calls["interceptor_id"])
+		# A roamer put on a forward stops roaming; a roamer you picked on this
+		# sheet and then put on a forward goes too.
+		if picked == loose_was or picked == def_id:
+			keep.erase("interceptor_id")
+		_pending_calls = keep
+		_pending_scroll = _sheet_scroll(v)
+		_close_coach()
+		_show_coach_box()
+	var mv := _matchups_view(sim, q, rebuild)
 	if mv != null:
 		(rep if rep != v else col_a).add_child(mv)
 	# Their loose defender, answered by a person: one of your forwards goes up
@@ -713,13 +730,12 @@ func _show_coach_box() -> void:
 				calls, "minder_id", "Who goes to him?")
 		col_a.add_child(_call_block("Their loose defender", minder))
 		var dfs := fwds.filter(func(p): return Traits.has(p, "def_forward")).map(func(p): return GameDB.player_display_name(p))
-		var who := ("Defensive forwards on the ground: %s." % ", ".join(dfs)) if not dfs.is_empty() 				else "No Defensive forward on the ground."
-		var minder_note := UiKit.lbl(
-				"%s is roaming behind the ball. The forward you send goes up the ground with him: he keeps him out of contests, a Defensive forward best, and stops being a target himself. %s" % [
-						GameDB.player_display_name(opp_spare), who],
-				UiKit.SMALL, UiKit.MUTED)
+		var who := ("Defensive forwards: %s." % ", ".join(dfs)) if not dfs.is_empty() \
+				else "No Defensive forward on the ground."
+		var minder_note := UiKit.names_lbl(
+				"The forward you send goes up the ground with him and keeps him out of contests, a Defensive forward best. %s" % who,
+				UiKit.SMALL, UiKit.MUTED, _name_colours())
 		minder_note.name = "MinderNote"
-		minder_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		col_a.add_child(minder_note)
 
 	# The rest of the calls, all in view (director, 2026-10-09: no "More
@@ -745,7 +761,7 @@ func _show_coach_box() -> void:
 			calls, "interceptor_id", "Who roams behind the ball?")
 	more.add_child(_call_block("Loose interceptor", roam))
 	var roam_note := UiKit.lbl(
-			"He leaves his direct man to attack aerial balls. Another defender covers where possible; if he flies and loses, space opens behind him.",
+			"He leaves his man to hunt aerial balls. If he loses the contest, space opens behind him.",
 			UiKit.SMALL, UiKit.MUTED)
 	roam_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	more.add_child(roam_note)
@@ -822,6 +838,42 @@ func _show_coach_box() -> void:
 	else:
 		box["footer"].add_child(start)
 		box["footer"].add_child(skip)
+	if _pending_scroll > 0:
+		_restore_sheet_scroll(v, _pending_scroll)
+		_pending_scroll = 0
+
+
+## How far a sheet's body is scrolled.
+func _sheet_scroll(body: Node) -> int:
+	var n: Node = body
+	while n != null and not (n is ScrollContainer):
+		n = n.get_parent()
+	return (n as ScrollContainer).scroll_vertical if n != null else 0
+
+
+func _restore_sheet_scroll(body: Node, y: int) -> void:
+	var n: Node = body
+	while n != null and not (n is ScrollContainer):
+		n = n.get_parent()
+	if n == null:
+		return
+	for i in range(3):
+		await get_tree().process_frame
+	if is_instance_valid(n):
+		(n as ScrollContainer).scroll_vertical = y
+
+
+## Every player in the match, by name, in his club's colour (lifted until it
+## shows on the dark sheet): the break's lines name them, colour tells them apart.
+func _name_colours() -> Dictionary:
+	var out := {}
+	for side in range(2):
+		var code := str(_res["home"] if side == 0 else _res["away"])
+		var cols: Array = GameDB.club_colours(code)
+		var col: Color = ClubDuel._show(cols[0] if not cols.is_empty() else UiKit.TEXT)
+		for r in _roster_side(side):
+			out[GameDB.player_display_name(r)] = col
+	return out
 
 
 ## A landscape PC window wide enough for the break sheet's columns (the
@@ -2162,7 +2214,7 @@ func _reflow() -> void:
 # ---------------------------------------------------------------------------
 ## At a break: their key forwards and who is on them - with last quarter's
 ## contests and a tap to change - then yours against their defenders.
-func _matchups_view(sim: MatchSim, q: int) -> Control:
+func _matchups_view(sim: MatchSim, q: int, on_change: Callable) -> Control:
 	var theirs: Dictionary = sim.duels[_my_side]
 	var ours: Dictionary = sim.duels[1 - _my_side]
 	if theirs.is_empty() and ours.is_empty():
@@ -2173,40 +2225,35 @@ func _matchups_view(sim: MatchSim, q: int) -> Control:
 	v.add_child(UiKit.lbl("Key match-ups", UiKit.BODY, UiKit.TEXT, true))
 	var their_spare := sim._roaming_interceptor(1 - _my_side)
 	if not their_spare.is_empty():
-		var loose := UiKit.lbl("%s is roaming loose behind their backline." % GameDB.player_display_name(their_spare),
-				UiKit.BODY, UiKit.TEXT)
+		var loose := UiKit.names_lbl("%s roams loose behind their backline." % GameDB.player_display_name(their_spare),
+				UiKit.BODY, UiKit.TEXT, _name_colours())
 		loose.name = "OppInterceptor"
-		loose.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(loose)
 	var our_spare := sim._roaming_interceptor(_my_side)
 	if not our_spare.is_empty():
-		var loose2 := UiKit.lbl("Yours: %s is roaming as the spare." % GameDB.player_display_name(our_spare),
-				UiKit.SMALL, UiKit.MUTED)
+		var loose2 := UiKit.names_lbl("Yours: %s roams loose." % GameDB.player_display_name(our_spare),
+				UiKit.SMALL, UiKit.MUTED, _name_colours())
 		loose2.name = "MyInterceptor"
-		loose2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(loose2)
 	for fid in theirs.keys():
 		var row := UiKit.hbox(8)
 		row.name = "BreakMatchup_" + str(fid)
-		var l := UiKit.lbl(_matchup_text(str(fid), str(theirs[fid]), q), UiKit.BODY, UiKit.TEXT)
+		var l := UiKit.names_lbl(_matchup_text(str(fid), str(theirs[fid]), q), UiKit.BODY, UiKit.TEXT, _name_colours())
 		l.name = "MatchupLine"
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(l)
 		# An editorial row with its action as a word (audit §8 Phase 1.5).
 		var b := UiKit.text_action("Change", UiKit.SECONDARY)
 		b.name = "ChangeMatchup"
 		var f := str(fid)
-		b.pressed.connect(func(): _show_break_matchup(sim, f, l, q))
+		b.pressed.connect(func(): _show_break_matchup(sim, f, on_change))
 		row.add_child(b)
 		v.add_child(row)
 	for fid in ours.keys():
-		var l2 := UiKit.lbl("Yours: " + _matchup_text(str(fid), str(ours[fid]), q), UiKit.SMALL, UiKit.MUTED)
-		l2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var l2 := UiKit.names_lbl("Yours: " + _matchup_text(str(fid), str(ours[fid]), q), UiKit.SMALL, UiKit.MUTED, _name_colours())
 		v.add_child(l2)
 	# Who made these calls: your assistant, until you make them yourself.
 	if sim.assistant_active(_my_side):
-		var a := UiKit.lbl("Your assistant sets the match-ups and the spare. Change one and it stays your call.",
+		var a := UiKit.lbl("Your assistant set these. Change one and it is your call.",
 				UiKit.SMALL, UiKit.MUTED)
 		a.name = "AssistantNote"
 		a.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2222,7 +2269,7 @@ func _matchup_text(fid: String, did: String, q: int) -> String:
 
 ## Who goes to their forward, from your defenders on the ground. The change
 ## is made in the engine at once and takes effect from the next bounce.
-func _show_break_matchup(sim: MatchSim, fid: String, line: Label, q: int) -> void:
+func _show_break_matchup(sim: MatchSim, fid: String, on_change: Callable) -> void:
 	if _matchup_overlay != null and is_instance_valid(_matchup_overlay):
 		_matchup_overlay.queue_free()
 	var box := UiKit.modal_box(self, 480.0, 0.0, _wash())
@@ -2244,9 +2291,11 @@ func _show_break_matchup(sim: MatchSim, fid: String, line: Label, q: int) -> voi
 		var pid := str(p["id"])
 		b.pressed.connect(func():
 			sim.coach_matchup(_my_side, fid, pid)
-			line.text = _matchup_text(fid, pid, 1).trim_suffix(".") + " from the next bounce."
 			_matchup_overlay.queue_free()
-			_matchup_overlay = null)
+			_matchup_overlay = null
+			# The sheet reads the engine again: the lines, and the roamer if
+			# he was the one just put on a forward.
+			on_change.call(pid))
 		v.add_child(b)
 	var close := UiKit.btn("Close", UiKit.NAME)
 	close.custom_minimum_size = Vector2(0, 48)

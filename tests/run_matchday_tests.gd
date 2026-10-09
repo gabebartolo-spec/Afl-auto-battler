@@ -285,6 +285,13 @@ func _phone_match(sz: Vector2i) -> void:
 					"The defender goes to him from the next quarter (%s)" % tag)
 			_check(((qsim._own[myside] as Dictionary)["duels"] as Dictionary).has(fid),
 					"A match-up you change stays your call (%s)" % tag)
+			# The sheet is rebuilt from the engine. A roamer put on a forward has
+			# stopped roaming, and the sheet no longer says he roams.
+			box = m.find_child("CoachBox", true, false)
+			var picked_name: String = GameDB.player_display_name_by_id(picked, "")
+			_check(str(qsim.interceptor[myside]) != picked and box != null
+					and not _text(box).contains("%s roams loose" % picked_name),
+					"A roamer put on a forward stops roaming, on the sheet too (%s)" % tag)
 			var btext := _text(box)
 			_check(not btext.contains("%") and not btext.contains("pts"), "The match-ups show no engine numbers (%s)" % tag)
 	var small := []
@@ -535,7 +542,7 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	_check(rot_seen.size() == policies.size(), "Each rotation has its own words (%s)" % tag)
 
 	# Tag: "No tag" says so; a name brings the tagger line back.
-	var tn: Label = box.find_child("TagNote", true, false)
+	var tn = box.find_child("TagNote", true, false)
 	var none: Button = box.find_child("TagPickerGrid_", true, false)
 	_check(tn != null and none != null and tn.text.begins_with("No tag"), "With no tag, the tag line says so (%s: %s)" % [tag, tn.text if tn else "-"])
 	var named: Button = null
@@ -754,6 +761,9 @@ func _text(node: Node) -> String:
 	var out := ""
 	for n in node.find_children("*", "Label", true, false):
 		out += str(n.text) + "\n"
+	# Names in club colours are rich text: read what shows, not the markup.
+	for n in node.find_children("*", "RichTextLabel", true, false):
+		out += str(n.get_parsed_text()) + "\n"
 	return out
 
 
