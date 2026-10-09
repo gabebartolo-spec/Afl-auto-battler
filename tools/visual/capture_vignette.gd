@@ -3,6 +3,7 @@ extends SceneTree
 ## real renderer, so run it under a virtual display, e.g.:
 ##   xvfb-run -a -s "-screen 0 1280x900x24" godot --path . --rendering-driver opengl3 \
 ##       --script tools/visual/capture_vignette.gd -- --out /tmp/vignette
+## --window WxH: a desktop window of that many pixels (e.g. 1920x1080) instead of the phone.
 ## Writes <out>_sheet.png: the scene at its beats on a phone, then the call.
 ## --film START END: also writes <out>_film_NNN.png, 12 frames a second from START
 ## to END seconds, for checking motion (turn them into a GIF to review).
@@ -11,8 +12,8 @@ extends SceneTree
 ## It stages a tight last-quarter centre bounce on a live match and lets
 ## MatchSim ask the call; nothing it draws changes the sim.
 
-const W := 390
-const H := 844
+var W := 390
+var H := 844
 const BEATS := [0.15, 0.9, 1.8, 2.6, 3.3, 3.8]
 
 
@@ -27,6 +28,10 @@ func _run() -> void:
 	var a := OS.get_cmdline_user_args()
 	var kit_options := a.has("--kit-options")
 	for i in range(a.size() - 1):
+		if str(a[i]) == "--window":
+			var wh := str(a[i + 1]).split("x")
+			W = int(wh[0])
+			H = int(wh[1])
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
 		elif str(a[i]) == "--msaa":
