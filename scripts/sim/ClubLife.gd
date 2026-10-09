@@ -124,37 +124,6 @@ static func after_season(confidence: int, met: bool, premier: bool) -> int:
 	return clampi(c, 0, 100)
 
 
-## What a coach's word to a player who had a quiet game does (the full-time
-## screen). Encouragement lifts him, always. A spray is a dice roll the coach
-## can read: a seasoned, settled player takes it on the chin and lifts; a
-## young, low or hot-headed one is shaken by it.
-const ENCOURAGE_LIFT := 6
-const SPRAY_LIFT := 4
-const SPRAY_SHAKEN := -9
-
-
-## Chance a spray lifts him rather than shakes him, 0.10-0.85.
-static func spray_odds(p: Dictionary) -> float:
-	var odds := 0.45
-	var age := float(p.get("age", 25.0))
-	if age >= 26.0:
-		odds += 0.15
-	elif age <= 21.0:
-		odds -= 0.20
-	if morale(p) >= 75:
-		odds += 0.10
-	elif morale(p) < 50:
-		odds -= 0.15
-	if Traits.has(p, "hothead"):
-		odds -= 0.20
-	return clampf(odds, 0.10, 0.85)
-
-
-## Morale change from a spray, given a roll in 0..1.
-static func spray_change(p: Dictionary, roll: float) -> int:
-	return SPRAY_LIFT if roll < spray_odds(p) else SPRAY_SHAKEN
-
-
 static func morale(p: Dictionary) -> int:
 	return int(p.get("morale", MORALE_BASE))
 

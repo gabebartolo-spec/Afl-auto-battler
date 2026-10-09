@@ -692,7 +692,7 @@ static func glance(report: Dictionary, full_time := false) -> Dictionary:
 				break
 			var d: Dictionary = e
 			if keep.call(d):
-				out.append({"id": str(d.get("id", "")), "name": str(d.get("name", "Player")),
+				out.append({"name": str(d.get("name", "Player")),
 						"line": MatchNotes.game_line(d.get("stats", {}))})
 		return out
 	var always := func(_d: Dictionary) -> bool: return true

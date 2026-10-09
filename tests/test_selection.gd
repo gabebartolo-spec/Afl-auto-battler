@@ -29,7 +29,6 @@ func run() -> void:
 	_test_fifth_interchange()
 	_test_dual_ruck()
 	_test_merit_second_position()
-	_test_drop_and_lift()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Selection tests: %d checks, %d failures" % [checks, failures.size()])
@@ -440,50 +439,3 @@ func _test_merit_second_position() -> void:
 	_check(where == "FWD", "On merit, a player who has learned forward is picked there ahead of a weaker forward")
 	_check(after["ground"].size() == 18 and after["bench"].size() == Ratings.bench_size and ruck_a == ruck_b,
 			"The ruck and the bench's size are untouched")
-
-
-## Full time: a word to a player who had a quiet game, and dropping him.
-func _test_drop_and_lift() -> void:
-	_new_season()
-	var side := GameState.current_side()
-	var id := str((side["MID"] as Array)[0])
-	_check(GameState.in_next_side(id), "A player in next week's side can be dropped")
-	var before: Array = []
-	for k in side:
-		before.append_array(side[k])
-	var d := GameState.drop_player(id)
-	var options: Array = d.get("options", [])
-	var clean := not d.is_empty() and options.size() <= 3
-	for o in options:
-		clean = clean and not before.has(str(o["id"]))
-	_check(clean, "Dropping him offers up to three of his position from outside the side (%d)" % options.size())
-	var after := GameState.current_side()
-	var still_in := false
-	for k in after:
-		still_in = still_in or (after[k] as Array).has(id)
-	_check(not still_in, "He is out of next week's side")
-	var stored: Dictionary = GameState.season.selections[GameState.my_club]
-	_check((stored.get("OUT", []) as Array).has(id) and bool(stored.get("ONE_WEEK", false))
-			and not GameState.my_selection().has("ONE_WEEK"),
-			"He is named out, and an auto-picked side is only named for the week")
-	var said := GameState.bring_in(str(options[0]["id"]), str(d["slot"])) if not options.is_empty() else ""
-	var filled := GameState.current_side()
-	_check(options.is_empty() or (said != "" and (filled[str(d["slot"])] as Array).has(str(options[0]["id"]))),
-			"The player you choose takes his spot")
-	GameState._board_after_round([])
-	_check(GameState.my_selection().is_empty(), "After the match the side goes back to auto-pick")
-	var p := GameState.list_player(str(side["DEF"][0]))
-	p["morale"] = 70
-	GameState.lift_talk(str(p["id"]), "encourage")
-	_check(ClubLife.morale(p) == 70 + ClubLife.ENCOURAGE_LIFT, "Encouragement lifts his morale")
-	GameState.lift_talk(str(p["id"]), "spray")
-	_check(ClubLife.morale(p) == 70 + ClubLife.ENCOURAGE_LIFT, "One word a player a week")
-	var q := GameState.list_player(str(side["FWD"][0]))
-	q["morale"] = 70
-	GameState.lift_talk(str(q["id"]), "spray")
-	var moved := ClubLife.morale(q) - 70
-	_check(moved == ClubLife.SPRAY_LIFT or moved == ClubLife.SPRAY_SHAKEN, "A spray lifts him or rattles him (%d)" % moved)
-	var young := {"age": 20.0, "morale": 40}
-	var vet := {"age": 30.0, "morale": 80}
-	_check(ClubLife.spray_odds(young) < ClubLife.spray_odds(vet) and ClubLife.spray_odds(young) >= 0.10
-			and ClubLife.spray_odds(vet) <= 0.85, "A spray rattles a young, low player more often than a settled veteran")
