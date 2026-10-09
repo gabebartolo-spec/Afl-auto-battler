@@ -1,6 +1,6 @@
 ---
 name: afl-handoff
-description: Writing and starting from an agent handoff in the AFL team (rule W1) - the file in ../agent-handoffs/ROLE.md that lets a fresh session continue without the old transcript. Use it when a substantial task is done or you switch to unrelated work, when your context is getting long, before the director restarts or clears a session, and at the start of any new session for a lead, medium, low or art role.
+description: Writing and starting from an agent handoff in the AFL team (rule W1) - the file in ../agent-handoffs/ROLE.md that lets a fresh session continue without the old transcript. Use it when a substantial task is done or you switch to unrelated work, when your context is getting long, before the director restarts or clears a session, and at the start of any new session for a lead, art or support role.
 ---
 
 # Handoffs (W1)
@@ -14,7 +14,12 @@ and don't restart mid-task.
 ## Where
 
 `C:/Users/DANTE/Documents/GitHub/agent-handoffs/<role>.md`, outside the repo:
-`lead.md`, `medium.md`, `low.md`, `art.md`. Overwrite it; it's a snapshot, not a log.
+`lead.md` (the boss), `art.md` (the art factory), `support.md` (GitHub, CI and
+merges). Overwrite your own role's file and never edit another's; it's a
+snapshot, not a log. This is the only AFL handoff: the SessionStart hook lists
+these files and the Stop hook blocks the end of a turn until this session has
+rewritten its file with Write or Edit. Retired roles (medium, low) are in
+`agent-handoffs/_retired/`. Both Claude accounts use the same files.
 
 ## What it says
 
