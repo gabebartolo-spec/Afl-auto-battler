@@ -85,6 +85,27 @@ No reach gives the team a gain, because a roam swaps one defender for another. A
 | Controlled tempo | "Asks nothing special of your list" (`CoachReport.gd:40`) | `PlanFit.LEAGUE` has no "controlled" entry, so its fit is 1.0 (`PlanFit.gd:135-138`) and the upside scale ignores the list. But `_press_on` holds off a press only as far as `plan_fit["controlled"]` allows (`MatchSim.gd:729`), and that is clamped to ≤ 1.0 and always 1.0 here. **Suspect:** the "poor ball users only partly hold it off" rule in the `_press_on` comment never applies | **Probable dead branch.** Verify that `plan_fit["controlled"]` is always 1.0 |
 | Event cards: rest / play sore / heavy / recovery / open / closed / suspend / back / promise / patience | `ClubLife.gd:352-412` | Flags read by Ratings (rested, `:746`), Injuries (sore / heavy_legs / fresh, `:30-33`), MatchSim (`:327-329`), Workload (`:66-70`); board and morale numbers match `resolve_week_event` | Wired as written (numbers match) |
 
+### Option 1 built: the loose man as an extra body (claude/loose-extra-body @ 594f6e7a, WIP)
+
+AFL BOSS picked option 1. The spare no longer replaces the defender who met the ball. That defender stays in the contest; the spare makes the mark harder (`_roam_mark_shift`), has his own fist at a ball the defender missed (`LOOSE_EXTRA` 0.35, scaled by his air game), and takes the ball when he is there. General-play contests work the same way.
+
+**New evidence: who he stops meeting.** A second arm, `loose_free`, names the best interceptor who minds no key forward at the bounce. He still loses about 6 one-on-one contests and 4.5 rebounds a game. Key forwards are handed to free defenders during the match (interchanges and rematches), and a loose man is never handed one. So any loose man gives up most of his entry work, and the reach has to give it back.
+
+| Variant (600 pairs unless marked) | Arm | His roam contests | His intercepts | Team intercepts | Conceded | Margin |
+|---|---|---|---|---|---|---|
+| Extra body, reach 0.2 (240 pairs) | best interceptor | 2.3 | −1.5 | −0.1 ± 0.4 | +0.8 ± 1.5 | −1.2 ± 2.5 |
+| Extra body, reach 0.2 (240 pairs) | free defender | 1.8 | −4.0 | ±0 | −1.2 ± 1.4 | −1.3 ± 2.4 |
+| Extra body, reach 0.7, mark edge ≤ 0.12 | best interceptor | 7.6 | **+1.7** (12.3 a game) | −0.4 ± 0.3 | +1.7 ± 1.1 | −2.2 ± 1.7 |
+| Extra body, reach 0.7, mark edge ≤ 0.12 | free defender | 6.1 | −1.7 (8.8 a game) | −0.2 ± 0.3 | −0.8 ± 1.0 | +0.5 ± 1.7 |
+| Extra body, reach 0.7, mark edge ≤ 0.25 (sensitivity) | best interceptor | 7.5 | +1.6 | −0.2 ± 0.3 | +0.0 ± 1.0 | −0.7 ± 1.7 |
+
+**Why the team never moves.** On the best interceptor, his arrivals save about 1.5 marks a game, and the key forward he leaves takes about 1 mark and 0.36 goals more. They cancel, even with a mark edge twice as strong. On a free defender nobody is left alone and the sign turns slightly in your favour (conceded −0.8 ± 1.0), but that is within noise.
+
+**This is a design question for the director, not a tuning one.** The engine resolves entries on line averages, so one extra defender is worth at most a point a game either way. Choices:
+- (a) Accept a small, honest trade, and tell the player in the copy: freeing your key back frees their key forward.
+- (b) Give the third man a decisive edge. That goes beyond what the sensitivity run shows is needed to move anything, so it would be a new rule, not a fix.
+- (c) Measure the AI side's loose man against you: it uses the same rules at every club.
+
 ### Dual ruck (`levers_followup_impl.gd dual`, 600 pairs; both arms make the call explicitly)
 
 Copy: "Dual ruck on: Auto-pick names a second ruck on the bench" (`SelectionScene.gd:97`).
@@ -102,6 +123,15 @@ Copy: "Dual ruck on: Auto-pick names a second ruck on the bench" (`SelectionScen
 **Verdict: works as written.** The copy promises a name on the bench, nothing more. The second ruck takes about 4 hit-outs a game that non-rucks took while the starter rested, which is one more hit-out for the team. There is no measurable effect at the clearance or on the scoreboard.
 
 (A first pass read the "starting ruck" after the match, after interchanges had changed the ground, and showed a false +6.8 hit-outs for him. Fixed: he is now read before the first bounce.)
+
+### Department budget (code and copy; `ClubBudget.gd`)
+
+| Area | Copy (`benefit_text`) | Code | Verdict |
+|---|---|---|---|
+| Recruiting | Prospect scouting uncertainty ±25/20/35% | `DraftScouting.pot_read(..., scouting_mult)` (`GameState.gd:2761`, `:3794`) | Wired; numbers match |
+| Development | Players 22 and under earn ±10/10/15% XP | `_xp` gain × `development_mult`, your club only, age ≤ `YOUNG_AGE` (`GameState.gd:2867`) | Wired; numbers match |
+| High performance | Weekly workload recovery ±10/10/20% | `Workload.advance_week(..., recovery_mults)` (`GameState.gd:3243`) | Wired; numbers match |
+| Football department | "Gameplan execution is 5% lower / 5% / 8% higher" | × `tactics_exec`, which scales only a plan's *upside* keys (`MatchSim._pv`, `PLAN_UPSIDE`) | **Copy gap.** On Balanced (no upside keys) it does nothing. On another plan it moves the upside by 5–8% of itself (Attacking's goal edge 1.05 → about 1.054). True, but the copy does not say it needs a plan other than Balanced. Not measured: the effect is a fraction of the plan arms above, which are already near noise on the margin |
 
 ## Prior evidence to cite (verify still current)
 - `docs/SYSTEM_REALITY_AUDIT.md` (2026-09-29): moment cards, tagging, Through stars, morale, form.
