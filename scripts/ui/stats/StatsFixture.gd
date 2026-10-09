@@ -266,6 +266,7 @@ static func _sheet(host: Control, title: String, sub: String) -> Dictionary:
 	var box := UiKit.modal_box(host, 560.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "FixtureSheet"
+	UiKit.close_on_outside_tap(box)
 	host.call("open_sheet", overlay)
 	var body: VBoxContainer = box["body"]
 	body.add_child(UiKit.ellipsis(title, UiKit.H2, UiKit.TEXT, true))

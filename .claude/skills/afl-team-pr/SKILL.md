@@ -1,6 +1,6 @@
 ---
 name: afl-team-pr
-description: Opening, syncing and handing over a pull request the AFL team's way - branch and worktree, what goes in the PR body ([MERGE NOTE], floors, director gates, W7), who merges, when not to push, and how to message the other agents about it. Use it whenever you are about to open a PR, update one after main moved, resolve a conflict in tests/expected_checks.txt or the roadmap, or tell another agent about a PR or CI result.
+description: Opening, syncing and handing over a pull request the AFL team's way - branch and worktree, what goes in the PR body ([MERGE NOTE], floors, director gates, W7), who merges, when not to push, and how to message the other agents about it. Use it whenever you are about to open a PR, update one after main moved, resolve a conflict in tests/expected_checks.txt or the roadmap, or tell another agent about a PR or CI result. Extends the general github-hygiene skill with this repo's PR body and team roles.
 ---
 
 # A PR the team's way

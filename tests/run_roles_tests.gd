@@ -113,6 +113,9 @@ func _selection_tests() -> void:
 		var chooser: Node = ui.find_child("PlanChooser", true, false)
 		var contest: Button = chooser.find_child("ClubPlan_contest", true, false) if chooser != null else null
 		_check(contest != null, "The chooser offers the plans")
+		var cw: Label = contest.find_child("Strength", true, false) if contest != null else null
+		_check(cw != null and cw.text.begins_with("Contest · "),
+				"Each plan shows the list strength it runs on, as on Coaching (%s)" % (cw.text if cw else "-"))
 		if contest != null:
 			contest.emit_signal("pressed")
 			await _settle()
@@ -120,7 +123,7 @@ func _selection_tests() -> void:
 			var note: Label = chooser.find_child("PlanNote", true, false)
 			_check(note != null and note.text.contains("clearances"), "The plan says what it does (%s)" % (note.text if note else "-"))
 			plan_line = ui.find_child("PlanLine", true, false)
-			_check(plan_line != null and plan_line.text != plan_before and plan_line.text == "Game plan: " + contest.text,
+			_check(plan_line != null and plan_line.text != plan_before and plan_line.text == "Game plan: " + contest.tooltip_text,
 					"The plan line follows the pick")
 		_check(ui.call("handle_back") == true, "Back closes the plan chooser")
 		await _settle()

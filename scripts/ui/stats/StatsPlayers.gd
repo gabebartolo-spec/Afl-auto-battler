@@ -682,6 +682,7 @@ static func open_player(host: Control, id: String) -> void:
 	var box := UiKit.modal_box(host, 760.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "PlayerStatsSheet"
+	UiKit.close_on_outside_tap(box)
 	host.call("open_sheet", overlay)
 	var v: VBoxContainer = box["body"]
 	var name := GameDB.player_display_name(p) if not p.is_empty() else GameDB.player_display_name_by_id(id, "Player")

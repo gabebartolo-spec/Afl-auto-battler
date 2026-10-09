@@ -5,6 +5,7 @@ extends SceneTree
 ## --picked: one player tapped, waiting for the second tap. --opp: the oval
 ## flipped to this week's opponent. --guide: the synergy guide with Complete.
 ## --report: the assistant's report. --rounds N: play N rounds first.
+## --oval: scrolled down to the oval.
 ## Writes <out>_sheet.png.
 
 var W := 1280
@@ -18,6 +19,7 @@ func _initialize() -> void:
 func _run() -> void:
 	var out := "/tmp/sel"
 	var picked := false
+	var oval := false
 	var mode := ""
 	var rounds := 0
 	var a := OS.get_cmdline_user_args()
@@ -32,6 +34,8 @@ func _run() -> void:
 			rounds = int(a[i + 1])
 		if str(a[i]) == "--picked":
 			picked = true
+		if str(a[i]) == "--oval":
+			oval = true
 		if str(a[i]) in ["--opp", "--guide", "--report"]:
 			mode = str(a[i]).trim_prefix("--")
 	await process_frame
@@ -64,6 +68,15 @@ func _run() -> void:
 			ui.call("_show_report", str(state.my_next_opponent().get("code", "")))
 	for i in range(8):
 		await process_frame
+	if oval:
+		var pitch: Control = ui.find_child("Pitch", true, false)
+		var sc: ScrollContainer = ui.find_child("SelectionScroll", true, false)
+		if sc != null and pitch != null:
+			for i in range(3):
+				sc.scroll_vertical = int(pitch.global_position.y - sc.global_position.y + sc.scroll_vertical - 8)
+				for j in range(3):
+					await process_frame
+		print("oval at y ", pitch.global_position.y if pitch != null else -1.0, " pitch ", pitch.size if pitch != null else Vector2.ZERO)
 	var img := root.get_viewport().get_texture().get_image()
 	img.convert(Image.FORMAT_RGBA8)
 	img.save_png(out + "_sheet.png")

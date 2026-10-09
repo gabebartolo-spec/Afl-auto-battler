@@ -32,6 +32,11 @@ var _search := ""
 var _wide := false
 var _pitch: Control
 var _spot_at := {}        # spot key -> Vector2 (FormationView.SLOTS "at")
+## The ground runs across (left to right) only when six cards fit side by side
+## down its middle; otherwise it runs up the screen, as on a phone, with the
+## narrower cards and the midfield spread across (_place_spots).
+const ACROSS_MIN_W := 560.0
+var _across := false
 var _grid: GridContainer
 var _search_field: LineEdit
 ## Another club's side to look at, not edit (the opposition view): taps open
@@ -61,10 +66,6 @@ func setup(side: Dictionary, wide: bool, list: Array = [], read_only := false) -
 	# The spine (centre half-back, centre, ruck, centre half-forward) is
 	# spread wider than the formation view so its cards never touch.
 	_spot_at.merge(SPINE, true)
-	if not wide:
-		# On a phone the midfield runs across a narrow screen: the inside mids
-		# and wings spread to its edges.
-		_spot_at.merge(PHONE_MIDS, true)
 	_build()
 
 
@@ -212,6 +213,9 @@ func _fill_grid() -> void:
 	for p in out:
 		var c := _card(str(p["id"]), false, "")
 		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Two columns share the width: the cards shrink (their lines cut short)
+		# rather than push a phone's screen wider than itself.
+		c.custom_minimum_size.x = 0.0
 		_grid.add_child(c)
 	if out.is_empty():
 		_grid.add_child(UiKit.lbl("Nobody else here.", UiKit.SMALL, UiKit.MUTED))
@@ -416,16 +420,23 @@ func _place_spots() -> void:
 	if not is_instance_valid(_pitch):
 		return
 	var r := Rect2(Vector2.ZERO, _pitch.size).grow(-8.0)
+	_across = _wide and r.size.x >= ACROSS_MIN_W
 	for c in _pitch.get_children():
 		if not c.has_meta("spot"):
 			continue
-		var at: Vector2 = _spot_at.get(str(c.get_meta("spot")), Vector2.ZERO)
-		# Wide: the ground runs left to right, our goal on the left. Phone: it
-		# runs up the screen, attacking upward.
+		var key := str(c.get_meta("spot"))
+		var at: Vector2 = _spot_at.get(key, Vector2.ZERO)
+		if not _across and PHONE_MIDS.has(key):
+			# Up the screen the midfield runs across it: the inside mids and
+			# wings spread to its edges.
+			at = PHONE_MIDS[key]
+		# Across: the ground runs left to right, our goal on the left. Otherwise
+		# it runs up the screen, attacking upward.
 		if _read_only and not field_only:
 			at = Vector2(-at.x, at.y)
-		var u := Vector2(at.x, at.y) if _wide else Vector2(at.y, -at.x)
+		var u := Vector2(at.x, at.y) if _across else Vector2(at.y, -at.x)
 		var centre := r.get_center() + Vector2(u.x * r.size.x * 0.5, u.y * r.size.y * 0.5)
+		(c as Control).custom_minimum_size.x = 84.0 if _across else 70.0
 		var sz: Vector2 = (c as Control).get_combined_minimum_size()
 		(c as Control).size = sz
 		(c as Control).position = (centre - sz * 0.5).clamp(r.position, r.end - sz)
@@ -443,7 +454,7 @@ func _draw_pitch() -> void:
 		oval.append(c + Vector2(cos(t) * r.size.x * 0.5, sin(t) * r.size.y * 0.5))
 	_pitch.draw_colored_polygon(oval, TURF)
 	# Mown bands across the ground's length.
-	var tall := r.size.y >= r.size.x
+	var tall := not _across
 	var n := 9
 	for i in range(0, n, 2):
 		var band: PackedVector2Array

@@ -9,6 +9,7 @@ static func open(host: Control, c: Dictionary, on_close: Callable = Callable()) 
 	var box := UiKit.modal_box(host, 520.0, 640.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "CoachProfile"
+	UiKit.close_on_outside_tap(box, on_close)
 	var v: VBoxContainer = box["body"]
 	# A former player's two careers can run past one screen: keep the grades
 	# clear of the scroll bar.

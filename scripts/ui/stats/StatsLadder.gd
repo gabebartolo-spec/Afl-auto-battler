@@ -442,6 +442,7 @@ static func _side_sheet(host: Control, code: String) -> void:
 	var box := UiKit.modal_box(host, 900.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "ClubSide"
+	UiKit.close_on_outside_tap(box)
 	host.call("open_sheet", overlay)
 	var body: VBoxContainer = box["body"]
 	body.add_child(UiKit.ellipsis(GameDB.club_name(code), UiKit.H2, UiKit.TEXT, true))

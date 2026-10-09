@@ -25,6 +25,7 @@ static func open(host: Control, p: Dictionary, on_close: Callable = Callable(),
 	var box := UiKit.modal_box(host, 560.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "PlayerProfile"
+	UiKit.close_on_outside_tap(box, on_close)
 	var v: VBoxContainer = box["body"]
 
 	var name_l := UiKit.lbl(GameDB.player_display_name(p), 22, UiKit.TEXT, true)

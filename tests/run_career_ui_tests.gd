@@ -522,22 +522,30 @@ func _run() -> void:
 			and current_scene.find_child("HowWePlay", true, false) != null
 			and current_scene.find_child("StaffLine_SA", true, false) != null,
 			"Coaching shows how we play, the board and the staff")
-	# List profile: six strengths as words; a tap says what one is and who leads it.
+	# List profile: each game plan carries the strength it runs on, as a word; the two
+	# strengths no plan runs on are listed under them, and a tap says who leads one.
+	var hwp: Node = current_scene.find_child("HowWePlay", true, false)
+	var press_tile: Node = hwp.find_child("ClubPlan_defensive", true, false) if hwp != null else null
+	var press_word: Label = press_tile.find_child("Strength", true, false) if press_tile != null else null
+	_check(press_word != null and press_word.text.begins_with("Pressure · "),
+			"Defensive press shows the list's Pressure beside it (%s)" % (press_word.text if press_word else "-"))
 	var lp: Node = current_scene.find_child("ListProfile", true, false)
 	var lp_rows: Array = lp.find_children("Profile_*", "Button", true, false) if lp != null else []
-	_check(lp_rows.size() == 6 and lp.find_child("Profile_finishing", true, false) != null,
-			"Coaching opens on the list profile, six strengths with Finishing (%d)" % lp_rows.size())
+	_check(lp_rows.size() == 2 and lp.find_child("Profile_finishing", true, false) != null
+			and lp.find_child("Profile_aerial", true, false) != null,
+			"Aerial power and Finishing, which no plan runs on, are listed under the plans (%d)" % lp_rows.size())
 	var lp_text := ""
-	for l in (lp.find_children("*", "Label", true, false) if lp != null else []):
+	for l in (hwp.find_children("*", "Label", true, false) if hwp != null else []):
 		if (l as Label).is_visible_in_tree():
 			lp_text += (l as Label).text + " "
 	var digits := false
 	for c in lp_text:
 		digits = digits or (c >= "0" and c <= "9")
-	_check(not digits and not lp_text.to_lower().contains("recommend") and not lp_text.to_lower().contains("should"),
-			"The profile is words, with no scores and no advice")
+	_check(not digits and not lp_text.to_lower().contains("recommend") and not lp_text.to_lower().contains("should")
+			and not lp_text.to_lower().contains("best choice") and not lp_text.to_lower().contains("suits you"),
+			"The plans and strengths are words, with no advice")
 	_check(lp_rows.all(func(b): return (b as Button).size.y >= 44), "Each strength is a thumb-sized tap")
-	if lp_rows.size() == 6:
+	if not lp_rows.is_empty():
 		var detail: Label = (lp_rows[0] as Node).get_parent().find_child("Detail", false, false)
 		(lp_rows[0] as Button).emit_signal("pressed")
 		await _settle()
@@ -1381,10 +1389,32 @@ func _run() -> void:
 			"Delete this career removes the save and returns to the menu")
 
 	await _test_season_awards()
+	await _test_back_arrow_taps()
 	_state.delete_saved_career()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
+
+
+## The top bar's back arrow, tapped as a finger taps it, leaves every screen -
+## first closing a first-visit help sheet over it, as Android's Back does
+## (director, 2026-10-09: "back doesn't always work, I need to swipe": the
+## Training and Season stats intros took the tap and did nothing).
+func _test_back_arrow_taps() -> void:
+	_state.reset()
+	_state.start_season("COL", _db.club_list("COL"))
+	_state.set_setting("seen_season_stats_intro", false)
+	for key in ["training", "stats", "selection", "list"]:
+		_router.stack = ["main", "hub"]
+		_router.go(key)
+		await _settle()
+		var b: Control = current_scene.find_child("TopBarBack", true, false)
+		var why: String = await Tap.tap(b) if b != null else "no back arrow"
+		await _settle()
+		if _router.current() == key and is_instance_valid(b):
+			why = await Tap.tap(b)
+			await _settle()
+		_check(_router.current() == "hub", "Tapping back on %s gets you out (%s)" % [key, why if why != "" else "ok"])
 
 
 func _test_season_awards() -> void:

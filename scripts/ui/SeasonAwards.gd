@@ -6,6 +6,7 @@ static func open(host: Control) -> Control:
 	var box := UiKit.modal_box(host, 580.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "SeasonAwards"
+	UiKit.close_on_outside_tap(box)
 	var body: VBoxContainer = box["body"]
 	var footer: VBoxContainer = box["footer"]
 	var aw: Dictionary = GameState.season_awards

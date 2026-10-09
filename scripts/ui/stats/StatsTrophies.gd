@@ -501,6 +501,7 @@ static func _sheet(host: Control, node: String, art: Control, title: String, lin
 	var box := UiKit.modal_box(host, SHEET_MAX_W, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = node
+	UiKit.close_on_outside_tap(box)
 	var body: VBoxContainer = box["body"]
 	art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	body.add_child(art)
