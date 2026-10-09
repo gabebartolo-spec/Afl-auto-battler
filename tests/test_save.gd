@@ -425,6 +425,10 @@ func _test_apostrophe_names() -> void:
 	_check(not balyn.is_empty() and GameDB.player_looks(balyn) != Appearance.UNCURATED
 			and str(balyn.get("home_state", "")) == "SA",
 			"His curated look and his home state still find him")
+	var old_save: Dictionary = balyn.duplicate()
+	old_save["last"] = "OBrien"
+	_check(GameDB.player_looks(old_save) == GameDB.player_looks(balyn),
+			"A career saved before the apostrophe still finds his look")
 	var back = JSON.parse_string(JSON.stringify(balyn))
 	_check(back is Dictionary and str(back.get("last", "")) == "O'Brien", "The apostrophe survives a save round trip")
 
