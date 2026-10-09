@@ -12,6 +12,7 @@ config/name="Aussie Rules Dynasties"
 config/description="Build an Australian rules football dynasty: shape your list, coach the season and carry the club through the years."
 config/version="0.1.0"
 run/main_scene="res://scenes/Main.tscn"
+run/main_scene.probe="res://tools/perf/phone_probe.tscn"
 config/features=PackedStringArray("4.7")
 config/icon="res://icon.svg"
 ; Android's back button goes through Router.handle_back() instead of quitting.

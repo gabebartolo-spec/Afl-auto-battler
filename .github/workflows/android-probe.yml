@@ -1,0 +1,86 @@
+name: Android probe
+
+# Builds the phone frame-time probe APK (tools/perf/phone_probe.gd; visual audit 4.8: the first
+# phone measurement). The "Android Probe" export preset starts the probe instead of the game
+# (custom feature "probe"). Debug-signed with a throwaway keystore made here; it installs beside
+# the game (its own package name). Start it by hand:
+#   gh workflow run android-probe.yml --ref <branch>
+#   gh run download <run-id> -n phone-probe-apk
+# Install on the phone, open "ARD phone probe", wait about a minute, read (or photograph) the
+# screen. It only measures; it never pushes or comments.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GODOT_VERSION: "4.7.2"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Godot and its export templates
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -fsSL --retry 3 -o godot.zip "${base}/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && rm godot.zip && mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot && chmod +x godot
+          curl -fsSL --retry 3 -o templates.tpz "${base}/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          dest="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$dest" && unzip -q templates.tpz -d tpl && mv tpl/templates/* "$dest/" && rm -rf tpl templates.tpz
+          ls "$dest" | grep -i android
+
+      - name: Debug keystore and editor settings
+        run: |
+          keytool -genkeypair -v -keystore "$HOME/debug.keystore" -storepass android -alias androiddebugkey \
+            -keypass android -keyalg RSA -keysize 2048 -validity 3650 -dname "CN=Android Debug,O=Android,C=AU"
+          sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          mkdir -p "$HOME/.config/godot"
+          for f in editor_settings-4.tres "editor_settings-${GODOT_VERSION%.*}.tres"; do
+            cat > "$HOME/.config/godot/$f" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$sdk"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "$HOME/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOF
+            sed -i 's/^          //' "$HOME/.config/godot/$f"
+          done
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$HOME/debug.keystore" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+
+      - name: Import the project
+        run: |
+          timeout 600 "$HOME/godot/godot" --headless --path . --editor --import > import.log 2>&1 || true
+          if grep -qE "SCRIPT ERROR|Parse Error|Compile Error" import.log; then
+            grep -E -A3 "SCRIPT ERROR|Parse Error|Compile Error" import.log | head -40
+            echo "::error::scripts failed to compile during import"
+            exit 1
+          fi
+
+      - name: Export the probe APK
+        run: |
+          mkdir -p builds
+          timeout 900 "$HOME/godot/godot" --headless --path . --export-debug "Android Probe" builds/phone-probe.apk > export.log 2>&1 || true
+          tail -40 export.log
+          test -s builds/phone-probe.apk || { echo "::error::no APK was written"; exit 1; }
+          ls -la builds
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phone-probe-apk
+          path: builds/phone-probe.apk
+          retention-days: 14
