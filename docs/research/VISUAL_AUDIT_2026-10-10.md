@@ -490,6 +490,11 @@ props first, the venue plate after; Phase 0 assigned to the lead now, with the s
 (Barlow pairing or a text cut) and the selection treatment shown as A/B captures on real screens in
 its first review. The questions as asked are kept below for the record.
 
+**Answered 2026-10-10 (director, Phase 0 review, PR #584):** 9.1 small-size type = **A, ARD
+Signwriter at every size** (one family; the Barlow pairing rejected and removed from UiKit);
+9.2 selection = **A, ink and a 2 px outline** (the faint club tint rejected and removed).
+Boards in `agent-handoffs/lead/phase0/`.
+
 These are taste or trade-off calls; everything else above is objectively good and proceeds when
 assigned.
 

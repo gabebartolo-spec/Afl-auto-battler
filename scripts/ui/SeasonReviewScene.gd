@@ -126,7 +126,7 @@ func _build() -> void:
 	body.add_child(right)
 	var rv := UiKit.vbox(4)
 	right.add_child(rv)
-	rv.add_child(UiKit.lbl("Final Ladder", 17, UiKit.EMPH, true))
+	rv.add_child(UiKit.lbl("Final Ladder", UiKit.NAME, UiKit.EMPH, true))
 	var ladder_w := _content_width() - 24.0 if narrow else (_content_width() * 0.5)
 	# At full height: the page scrolls, not the ladder inside it.
 	rv.add_child(UiKit.ladder_table(season.ladder_sorted(), GameState.my_club, ladder_w, 0, true))
@@ -160,7 +160,7 @@ func _build() -> void:
 		page.add_child(hp)
 		var hv := UiKit.vbox(5)
 		hp.add_child(hv)
-		hv.add_child(UiKit.lbl("History & records", 17, UiKit.EMPH, true))
+		hv.add_child(UiKit.lbl("History & records", UiKit.NAME, UiKit.EMPH, true))
 		for line in history_lines:
 			hv.add_child(UiKit.lbl(str(line), UiKit.SECONDARY, UiKit.TEXT))
 		if not honours.is_empty():
@@ -200,7 +200,7 @@ func _build() -> void:
 		GameState.begin_draft()
 		Router.replace("draft"))
 	ctrl.add_child(again)
-	var menu := UiKit.btn("Main Menu", 17)
+	var menu := UiKit.btn("Main Menu", UiKit.NAME)
 	menu.custom_minimum_size = Vector2(0, 48)
 	menu.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	menu.pressed.connect(func(): Router.to_main_menu())

@@ -1588,7 +1588,7 @@ func _goal_row(ev: Dictionary, stamp: String) -> Control:
 	row.add_child(v)
 	var who := str(ev.get("name", ""))
 	var head := "Goal  " + (who if who != "" else GameDB.club_short(code))
-	var hl := UiKit.lbl(head, 17, UiKit.TEXT, true)
+	var hl := UiKit.lbl(head, UiKit.NAME, UiKit.TEXT, true)
 	hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(hl)
 	var g: Array = ev.get("goals", [0, 0])

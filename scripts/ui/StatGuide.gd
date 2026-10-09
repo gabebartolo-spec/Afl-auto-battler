@@ -116,7 +116,7 @@ static func show(parent: Control) -> Control:
 	overlay.name = "StatGuide"
 	UiKit.close_on_outside_tap(box)
 	var v: VBoxContainer = box["body"]
-	v.add_child(UiKit.heading("Stat guide", 26))
+	v.add_child(UiKit.heading("Stat guide", UiKit.H1))
 	for topic in TOPICS:
 		v.add_child(UiKit.lbl(str(topic[0]), UiKit.NAME, UiKit.EMPH, true))
 		v.add_child(_para(str(topic[1]), 13, UiKit.TEXT))
@@ -137,7 +137,7 @@ static func show(parent: Control) -> Control:
 		cv.add_child(_para("Built from: " + str(info[1]), 12, UiKit.MUTED))
 		cv.add_child(_para("Who needs it: " + str(info[3]), 12, UiKit.MUTED))
 		v.add_child(card)
-	var ok := UiKit.btn("Got it", 17, true)
+	var ok := UiKit.btn("Got it", UiKit.NAME, true)
 	ok.name = "CloseStatGuide"
 	ok.custom_minimum_size = Vector2(0, 44)
 	ok.pressed.connect(func(): overlay.queue_free())

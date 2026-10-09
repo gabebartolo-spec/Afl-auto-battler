@@ -133,7 +133,7 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 	ver.name = "OptionsVersion"
 	v.add_child(ver)
 
-	var done := UiKit.btn("Done", 17, true)
+	var done := UiKit.btn("Done", UiKit.NAME, true)
 	done.name = "SettingsDone"
 	done.custom_minimum_size = Vector2(0, 44)
 	done.pressed.connect(func(): overlay.queue_free())
