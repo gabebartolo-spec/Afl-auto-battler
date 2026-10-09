@@ -500,6 +500,12 @@ project for the time being and works autonomously; its word overrides AFL BOSS, 
 staff; the whole plan (§8) is wanted soon. It may speak to the whole team directly. The same
 session recorded the director's Tripo yes for the night (the Spend entry in this section).
 
+**Spend, 2026-10-10 (director, in the special leader's session, about 07:10):** "Use Tripo whenever you
+want without asking me tonight." This is the written yes for Tripo Studio credits on the night of
+2026-10-10 (the decision-log rule), for the Phase 5 order already decided: the media room and awards
+stage props first, then the MCG venue plate. The art agent records each generation's credits and
+provenance in its props plan; every prop is judged in the game through our rig.
+
 **Done under those orders (2026-10-10):** Phase 1 (#591), Phase 2 (#594, the helper's), Phase 3
 (#598). One deviation from the plan: Phase 1.5 keeps the plan and the tag as grids on the coach's
 break, since six plans or five names in one row would scroll past a phone's edge; pep talk and

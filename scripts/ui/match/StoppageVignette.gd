@@ -489,11 +489,6 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	var ground := _project(at)
 	var m := base.z * FIGURE           # pixels per (larger than life) metre
 	var tired := not ump and bool(t["tired"])
-	# Shadow on the ground, smaller as they leave it.
-	var sh := 0.38 * m * (1.0 - lift * 0.35)
-	draw_set_transform(Vector2(ground.x, ground.y), 0.0, Vector2(1.0, 0.32))
-	draw_circle(Vector2.ZERO, sh, Color(0, 0, 0, VignetteWeather.shadow_alpha(weather) + 0.03))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# Your players have their backs to us; theirs and the umpire face the camera.
 	var back := not ump and bool(t["mine"])
 	var pick := _frame(t, lift, at, back)
@@ -509,6 +504,14 @@ func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	# Out on their feet: a touch smaller, stooped.
 	var k := m / VignetteFigures.PX_PER_M * (0.96 if tired else 1.0)
 	var mirror := bool(pick[2])
+	# Shadow on the ground under his boots (the strip's contact), smaller as he leaves it.
+	var under := VignetteFigures.contact(info) * k
+	if mirror:
+		under.x = -under.x
+	var sh := 0.38 * m * (1.0 - lift * 0.35)
+	draw_set_transform(Vector2(ground.x, ground.y) + under, 0.0, Vector2(1.0, 0.32))
+	draw_circle(Vector2.ZERO, sh, Color(0, 0, 0, VignetteWeather.shadow_alpha(weather) + 0.03))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var kit := UMPIRE_KIT if ump else int(t["side"])
 	var look: Dictionary = t.get("look", UMPIRE_LOOK)
 	draw_frame(self, Vector2(base.x, base.y), info, frame, k, look_colour(kit, look, mirror), mirror,

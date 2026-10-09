@@ -60,7 +60,7 @@ func _draw() -> void:
 		var info := VignetteFigures.strip(body, anim, facing)
 		var frame := int(_t * READY_RATE + i * 1.3) % maxi(1, int(info["frames"]))
 		var feet := Vector2(xs[i], feet_y)
-		draw_set_transform_matrix(Transform2D(0.0, Vector2(1.0, 0.28), 0.0, feet))
+		draw_set_transform_matrix(Transform2D(0.0, Vector2(1.0, 0.28), 0.0, feet + VignetteFigures.contact(info) * k))
 		draw_circle(Vector2.ZERO, 0.38 * px_per_m, Color(0, 0, 0, 0.28))
 		draw_set_transform_matrix(Transform2D.IDENTITY)
 		var number := int(spec.get("number_pref", 0))

@@ -222,7 +222,22 @@ func _build() -> void:
 			left.add_child(_news_card())
 		ladder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cols.add_child(ladder)
-	_root.add_child(_footer(season))
+	if _narrow():
+		_root.add_child(_footer(season))
+	else:
+		# On a wide screen the rest of the club stays pinned, but only under
+		# the ladder column, not stretched across the page (director: no
+		# full-width bars on PC).
+		var foot := UiKit.hbox(28)
+		foot.name = "HubFooterWide"
+		_root.add_child(foot)
+		var gap := Control.new()
+		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		foot.add_child(gap)
+		var row := _footer(season)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		foot.add_child(row)
 	# Motion plays once per visit, not on every rebuild after an answer.
 	_settled = true
 

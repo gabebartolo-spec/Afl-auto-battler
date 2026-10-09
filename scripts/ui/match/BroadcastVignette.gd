@@ -975,13 +975,17 @@ func _figure(pos: Vector2, scale: float, side: int, anim: String, facing: String
 		build = BODY
 	var feet := pos + Vector2(0, 38.0 * scale)
 	var pm := PX_PER_M * scale
-	var shadow_at := feet if ground == Vector2.INF else ground + Vector2(0, 38.0 * scale)
-	draw_set_transform_matrix(_view * Transform2D(0.0, Vector2(1.0, 0.3), 0.0, shadow_at))
-	draw_circle(Vector2.ZERO, 0.4 * pm, Color(0, 0, 0, VignetteWeather.shadow_alpha(weather)))
-	draw_set_transform_matrix(_view)
 	var info := VignetteFigures.strip(build, anim, facing)
 	var f := StoppageVignette.figure_frame(info, frame, anim, facing)
 	var k := pm / VignetteFigures.PX_PER_M
+	# His shadow, under his boots (the strip's contact), not his ankles.
+	var under := VignetteFigures.contact(info) * k
+	if mirror:
+		under.x = -under.x
+	var shadow_at := (feet if ground == Vector2.INF else ground + Vector2(0, 38.0 * scale)) + under
+	draw_set_transform_matrix(_view * Transform2D(0.0, Vector2(1.0, 0.3), 0.0, shadow_at))
+	draw_circle(Vector2.ZERO, 0.4 * pm, Color(0, 0, 0, VignetteWeather.shadow_alpha(weather)))
+	draw_set_transform_matrix(_view)
 	# The number, printed on the back of the guernsey by the shader.
 	var num := StoppageVignette.number_colour(side, number, 1.0, mirror) 			if number > 0 and facing.begins_with("back") and pm >= 30.0 else Color(0, 0, 0, 0)
 	StoppageVignette.draw_frame(self, feet, info, f, k, StoppageVignette.look_colour(side, look, mirror), mirror, num, _view,
