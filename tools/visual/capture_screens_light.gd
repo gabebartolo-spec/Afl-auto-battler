@@ -4,14 +4,16 @@ extends SceneTree
 ## Needs a real renderer:
 ##   godot --path . --rendering-method gl_compatibility --script tools/visual/capture_screens_light.gd
 ## `--out PREFIX` and `--mode light|dark` after `--` (capture.yml passes them) beat the environment. Environment: CAP_OUT (path prefix, default "screens"), CAP_MODE ("light" default or "dark").
+## --size WxH: the window (default 390x844; 3840x2160 is a 1280x720 PC canvas at 300%).
 ## Writes <prefix>_<mode>_<screen>.png for the hub, ladder, selection, training,
 ## list and coaching screens of a fresh Melbourne career, then the offseason (the
 ## season fast-forwarded to its end) and the League Draft. Never touches a real save.
 
-const W := 390
-const H := 844
+var W := 390
+var H := 844
 const SCREENS := {"hub": "HubScene", "ladder": "LadderScene", "selection": "SelectionScene",
-		"training": "TrainingScene", "list": "ListScene", "coaching": "CoachingScene"}
+		"training": "TrainingScene", "list": "ListScene", "coaching": "CoachingScene",
+		"staff": "StaffScene", "stats": "StatsHubScene"}
 
 
 func _initialize() -> void:
@@ -35,6 +37,10 @@ func _run() -> void:
 			out = str(cli[i + 1])
 		if str(cli[i]) == "--mode":
 			mode = str(cli[i + 1])
+		if str(cli[i]) == "--size":
+			var wh := str(cli[i + 1]).split("x")
+			W = int(wh[0])
+			H = int(wh[1])
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
@@ -45,6 +51,7 @@ func _run() -> void:
 	state.reset()
 	state.set_setting("seen_training_intro", true)
 	state.set_setting("seen_weekly_loop_intro", true)
+	state.set_setting("seen_season_stats_intro", true)
 	state.start_season("MEL", db.club_list("MEL"))
 	# CAP_WEATHER=wet (or windy, hot): start at the first round whose forecast
 	# for your match is that, so the hub shows it.

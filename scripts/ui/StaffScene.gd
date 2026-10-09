@@ -16,6 +16,9 @@ func _ready() -> void:
 		Router.replace("main")
 		return
 	_club = GameState.my_club
+	# Your club's colour behind the page, as on the hub and match day
+	# (director, 2026-10-10: every screen in the gameday style).
+	add_child(ClubBackdrop.new().setup(GameState.my_club))
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	UiKit.apply_insets(margin, 12)
@@ -44,21 +47,45 @@ func _build() -> void:
 	if mine:
 		for v in GameState.staff_vacancies:
 			open[str(v["job"])] = v
+	# A PC lays the staff out as cards across the screen, not one stretched
+	# column (director, 2026-10-10: no phone UI on a PC).
+	var w := UiKit.view_width(self)
+	var wide := ScreenLayout.is_desktop() and w >= 760.0 and w > UiKit.view_height(self) * 1.2
+	var grid: GridContainer = null
+	if wide:
+		grid = GridContainer.new()
+		grid.name = "StaffGrid"
+		grid.columns = 3 if w >= 1100.0 else 2
+		grid.add_theme_constant_override("h_separation", 12)
+		grid.add_theme_constant_override("v_separation", 12)
+		body.add_child(grid)
 	for job in Coaches.JOBS:
+		var row: Control
 		if job == "SC" and mine:
-			body.add_child(_you_row())
+			row = _you_row()
 		elif open.has(job):
-			body.add_child(_vacancy_card(job, open[job]))
+			row = _vacancy_card(job, open[job])
 		elif staff.has(job):
-			body.add_child(_coach_row(job, staff[job], mine and GameState.can_release_staff()))
+			row = _coach_row(job, staff[job], mine and GameState.can_release_staff())
 		else:
-			body.add_child(_empty_row(job))
-		body.add_child(UiKit.rule())
+			row = _empty_row(job)
+		if grid != null:
+			var card := UiKit.panel(UiKit.PANEL, 14)
+			card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			card.add_child(row)
+			grid.add_child(card)
+		else:
+			body.add_child(row)
+			body.add_child(UiKit.rule())
 
 	body.add_child(UiKit.spacer(14))
 	var others := UiKit.btn("Your club" if not mine else "Another club's staff", UiKit.BODY)
 	others.name = "OtherClubs"
-	others.flat = not _others_open
+	# On a PC it reads as a button (an outline), not a stray line of text.
+	others.flat = not _others_open and not wide
+	if wide:
+		others.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		others.custom_minimum_size = Vector2(220, 44)
 	others.pressed.connect(func():
 		if not mine:
 			_club = GameState.my_club

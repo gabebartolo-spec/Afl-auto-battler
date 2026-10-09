@@ -169,7 +169,9 @@ func _player_workspace(form: ScrollContainer) -> Control:
 	var preview := PlayerPreview.new()
 	preview.name = "ForgePlayerPreview"
 	preview.spec = _spec
-	preview.custom_minimum_size = Vector2(260, 330) if wide else Vector2(170, 190)
+	# The player you are making is the page's hero on a big screen.
+	var big := wide and UiKit.view_width(self) >= 1100.0
+	preview.custom_minimum_size = Vector2(420, 530) if big else (Vector2(260, 330) if wide else Vector2(170, 190))
 	var name_l := UiKit.lbl("", UiKit.H1 if wide else UiKit.H2, UiKit.TEXT, true)
 	name_l.name = "ForgePlayerPreviewName"
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -183,7 +185,7 @@ func _player_workspace(form: ScrollContainer) -> Control:
 		out = UiKit.hbox(20)
 		var side := UiKit.vbox(10)
 		side.name = "ForgePlayerPanel"
-		side.custom_minimum_size.x = 260
+		side.custom_minimum_size.x = 420 if big else 260
 		side.add_child(preview)
 		side.add_child(name_l)
 		side.add_child(line)

@@ -42,6 +42,7 @@ func run() -> void:
 	_test_role_labels(res)
 	_test_flood_shape(res)
 	_test_centre_setups(res)
+	_test_farewell()
 	_test_match_ground()
 	GameState.replay_seed = 0
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
@@ -1236,6 +1237,60 @@ func _test_centre_setups(res: Dictionary) -> void:
 	_check(crashed and dropped,
 			"Stacking puts the wings on the square's edge; flooding drops them behind the ball (%s / %s / %s)" % [str(plain), str(stack), str(flood)])
 	d._tac[0] = {}
+
+
+## FL-007: the guard of honour and chaired off after a milestone game. Who it honours,
+## and that every move it draws is on the figure sheet, no frame past a strip's end.
+func _test_farewell() -> void:
+	_check(FarewellVignette.caption({"player": "Smith", "games": 200}) == "Smith's 200th game",
+			"A 200th game is honoured")
+	_check(FarewellVignette.caption({"player": "Smith", "games": 250, "club": true}) == "Smith's 250th game for the club",
+			"A club milestone says so (%s)" % FarewellVignette.caption({"player": "Smith", "games": 250, "club": true}))
+	_check(FarewellVignette.caption({"player": "Smith", "games": "farewell"}) == "A farewell for Smith",
+			"His last game is honoured")
+	_check(FarewellVignette.caption({"player": "Smith", "games": 150}) == ""
+			and FarewellVignette.caption({"player": "Smith", "games": 100, "club": true}) == ""
+			and FarewellVignette.caption({"player": "Smith", "games": 50}) == ""
+			and FarewellVignette.caption({"player": "Smith", "games": 1}) == ""
+			and FarewellVignette.caption({}) == "", "Under 200 games (director), a debut or no milestone gets no scene")
+	_check(FarewellVignette._ordinal(111) == "111th" and FarewellVignette._ordinal(122) == "122nd"
+			and FarewellVignette._ordinal(253) == "253rd", "Ordinals read as said")
+	# Director, 2026-10-10: "A on PC, B on phone" - the framing follows the screen's shape.
+	_check(FarewellVignette.framing(Vector2(390, 844)) == FarewellVignette.PORTRAIT
+			and FarewellVignette.PORTRAIT == Vector2(1.25, 0.43),
+			"A portrait phone gets the pulled-back framing (B: lens 1.25, horizon 0.43)")
+	_check(FarewellVignette.framing(Vector2(1920, 1080)) == FarewellVignette.LANDSCAPE
+			and FarewellVignette.framing(Vector2(3840, 2160)) == FarewellVignette.LANDSCAPE
+			and FarewellVignette.LANDSCAPE == Vector2(1.68, 0.508),
+			"A wide window gets the close framing (A: lens 1.68, horizon 0.508)")
+	for need in [["clap", "side_l"], ["walk_wave", "front"], ["carrier", "front"], ["carrier_near", "front"], ["chaired", "front"]]:
+		_check(VignetteFigures.has("average", need[0], need[1]), "The sheet has the farewell's %s (%s)" % need)
+	var mine := []
+	var theirs := []
+	for i in range(23):
+		mine.append({"id": "m%d" % i, "num": i + 1})
+		theirs.append({"id": "t%d" % i, "num": i + 1})
+	var v := FarewellVignette.new()
+	v.setup_farewell({"player": "Smith", "games": 200, "id": "m0"}, mine[0], "COL", "GEE", mine, theirs)
+	_check(v.tokens.size() == 2 * FarewellVignette.LINE, "Two lines of the guard (%d)" % v.tokens.size())
+	_check(v.tokens.all(func(t): return str(t["id"]) != "m0"), "He walks through the guard, not in it")
+	StoppageVignette.log_frames = true
+	StoppageVignette.frame_log.clear()
+	var t := 0.0
+	while t < FarewellVignette.END:
+		v.set("_t", t)
+		for tok in v.tokens:
+			var pick: Array = v._frame(tok, 0.0)
+			StoppageVignette.figure_frame(VignetteFigures.strip("average", pick[0], pick[3]), int(pick[1]), pick[0], pick[3])
+		for role in (["walker"] if t < FarewellVignette.GUARD else ["carrier", "rider", "carrier_hand"]):
+			for mirror in [false, true]:
+				var pick: Array = v._frame(v._role(v._man, role, {"mirror": mirror}), 0.0)
+				StoppageVignette.figure_frame(VignetteFigures.strip("average", pick[0], pick[3]), int(pick[1]), pick[0], pick[3])
+		t += 0.05
+	var past := StoppageVignette.frame_log.filter(func(e): return int(e["wanted"]) >= int(e["frames"]))
+	_check(past.is_empty(), "No farewell frame past the end of its move (%s)" % str(past.slice(0, 3)))
+	StoppageVignette.log_frames = false
+	v.free()
 
 
 ## FL-003: the vignettes draw the MCG where the match is played there - a club's home

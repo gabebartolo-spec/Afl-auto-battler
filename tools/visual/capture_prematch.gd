@@ -3,6 +3,7 @@ extends SceneTree
 ## renderer, so run it under a virtual display, e.g.:
 ##   xvfb-run -a -s "-screen 0 1280x900x24" godot --path . --rendering-driver opengl3 \
 ##       --script tools/visual/capture_prematch.gd -- --out /tmp/prematch
+## --window WxH: a desktop window of that many pixels (e.g. 1920x1080) instead of the phone.
 ## Writes <out>_sheet.png: warm-up, final instructions and the banner on a phone.
 ## --film: also writes <out>_film_NNN.png, the whole scene at 12 frames a second (the
 ## run through the banner included), for checking motion.
@@ -12,8 +13,8 @@ extends SceneTree
 ## --flags 2031,2029,2028: premiership pennants for those years (FL-008); --home CODE:
 ## the home club (Collingwood by default). --venue MCG: that ground's own treatment (FL-003).
 
-const W := 390
-const H := 844
+var W := 390
+var H := 844
 ## [phase to be in, seconds into the scene]: the warm-up, gathering in, gathered, the run.
 const BEATS := [["warm", 0.2], ["warm", 0.7], ["huddle", 1.8], ["huddle", 3.6], ["run", 4.3], ["run", 5.2]]
 ## As the game plays it (HubScene.PRE_MATCH_SECONDS): they gather in, then go.
@@ -33,7 +34,12 @@ func _run() -> void:
 	var me := "COL"
 	var ms_games := 0
 	var opp_arg := "ESS"
+	var venue := ""
 	for i in range(a.size() - 1):
+		if str(a[i]) == "--window":
+			var wh := str(a[i + 1]).split("x")
+			W = int(wh[0])
+			H = int(wh[1])
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
 		if str(a[i]) == "--home":
@@ -45,8 +51,12 @@ func _run() -> void:
 		if str(a[i]) == "--opp":
 			opp_arg = str(a[i + 1])
 		if str(a[i]) == "--venue":
-			VignetteGround.venue = str(a[i + 1])
+			venue = str(a[i + 1])
 	await process_frame
+	# Loaded here, not named: naming VignetteGround compiled it with this tool, before the
+	# autoloads exist, and its GameDB lookup failed - the ground never drew (2026-10-10).
+	if venue != "":
+		load("res://scripts/ui/match/VignetteGround.gd").venue = venue
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
 	state.autosave_enabled = false
