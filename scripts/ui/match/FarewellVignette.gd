@@ -169,7 +169,11 @@ func _set_camera() -> void:
 	_cam_x = 0.0
 	_pan = 0.0
 	# Tight on the guard: at 1.25 the top ~40% of a phone was empty night sky.
-	var base := maxf(size.x * 1.25, size.y * 0.6) * lens
+	# Fitted to the height: on a wide window the width term zoomed in 3.7x further (legs only,
+	# no crowd, at 1920 x 1080), where the same height-fit frames it as the phone and shows more
+	# of the guard and the crowd either side (director: the PC display mustn't be limited).
+	var fit := size.y * 0.6 if size.x > size.y else maxf(size.x * 1.25, size.y * 0.6)
+	var base := fit * lens
 	var push := _ease(clampf(fmod(_t, GUARD) / GUARD, 0.0, 1.0)) if _t < GUARD else _ease(clampf((_t - GUARD) / CHAIRED, 0.0, 1.0))
 	_zoom = 1.0 + 0.08 * push
 	_focal = base * _zoom
