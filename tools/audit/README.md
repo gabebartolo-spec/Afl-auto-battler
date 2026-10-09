@@ -38,6 +38,7 @@ way.
 
 ## Audits
 
+- `factsgrowth_impl` (#554, G7): a long autopilot career (args `seed club seasons`, default 301 MEL 20); one `FACTS` line a season with `career_facts` rows, its bytes and its share of the save file, then `TIMING` (save and load, facts kept vs emptied, same career) and `SUMMARY`.
 - `traitdecay_impl` (#440): one eight-season career from a seeded upside draft, printing one `DECAY` line a season: the synergies switched on across the league, then the count of players holding each synergy trait, real and generated players apart. `AUDIT_SEED` sets the career seed (default 301), so runs with the same seed pair.
 
 - `role_alloc_impl`: every 2027 list's listed position (real_pos) against the first and second positions the numbers give, the player types each role produces, named cases and each club's coverage by line. No arguments.
