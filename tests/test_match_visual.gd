@@ -42,6 +42,7 @@ func run() -> void:
 	_test_role_labels(res)
 	_test_flood_shape(res)
 	_test_centre_setups(res)
+	_test_match_ground()
 	GameState.replay_seed = 0
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -1235,3 +1236,15 @@ func _test_centre_setups(res: Dictionary) -> void:
 	_check(crashed and dropped,
 			"Stacking puts the wings on the square's edge; flooding drops them behind the ball (%s / %s / %s)" % [str(plain), str(stack), str(flood)])
 	d._tac[0] = {}
+
+
+## FL-003: the vignettes draw the MCG where the match is played there - a club's home
+## game at its MCG home, and the Grand Final - and the plain ground everywhere else.
+func _test_match_ground() -> void:
+	VignetteGround.use_match({"home": "COL", "away": "GEE", "venue": ""})
+	_check(VignetteGround.venue == "MCG", "A Collingwood home game draws the MCG")
+	VignetteGround.use_match({"home": "GEE", "away": "COL", "venue": ""})
+	_check(VignetteGround.venue != "MCG", "A Geelong home game draws its own ground (%s)" % VignetteGround.venue)
+	VignetteGround.use_match({"home": "GEE", "away": "COL", "venue": "MCG"})
+	_check(VignetteGround.venue == "MCG", "A final at the MCG draws the MCG (the Grand Final)")
+	VignetteGround.venue = ""
