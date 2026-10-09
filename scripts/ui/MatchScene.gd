@@ -102,7 +102,7 @@ func _ready() -> void:
 		return
 	# The ground the vignettes draw: the MCG has its own stands (FL-003); every other
 	# venue keeps the plain ground. Set every match, as the static outlives the scene.
-	VignetteGround.venue = str(_res.get("venue", ""))
+	VignetteGround.use_match(_res)
 	_crowd = CrowdSound.new()
 	_crowd.name = "Crowd"
 	add_child(_crowd)
@@ -389,10 +389,7 @@ func _score_middle(narrow: bool) -> Control:
 ## A final names its venue (the Grand Final is always at the MCG); any
 ## other match is at the home club's ground.
 func _venue() -> String:
-	var ground := str(_res.get("venue", ""))
-	if ground == "":
-		ground = str(GameDB.club(str(_res["home"])).get("ground", ""))
-	return ground
+	return VignetteGround.ground_of(_res)
 
 
 func _controls() -> Control:

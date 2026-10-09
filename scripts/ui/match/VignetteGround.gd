@@ -50,6 +50,21 @@ const WORN := [Color(0.26, 0.36, 0.17, 0.55), Color(0.38, 0.36, 0.22, 0.45)]
 ## (FL-003) draws its landmarks; any other, or "", draws the plain ground.
 static var venue := ""
 
+
+## The ground a match is played at: a final's own venue, else the home club's
+## (clubs.csv; Collingwood, Hawthorn, Melbourne and Richmond are at the MCG).
+static func ground_of(res: Dictionary) -> String:
+	var ground := str(res.get("venue", ""))
+	if ground == "":
+		ground = str(GameDB.club(str(res.get("home", ""))).get("ground", ""))
+	return ground
+
+
+## Draw this match's ground from now on (the static outlives the scene).
+static func use_match(res: Dictionary) -> void:
+	venue = ground_of(res)
+
+
 ## Where the goal line runs: the boundary at the behind posts.
 ## (L * sqrt(1 - (1.5 * GOAL_GAP / A)^2), written out: a constant, because a static var set
 ## from an expression stays 0 when a tool runs with --script (the capture tools), which drew
