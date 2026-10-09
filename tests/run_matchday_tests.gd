@@ -711,9 +711,11 @@ func _tag_targets(sz: Vector2i) -> void:
 	await _settle()
 	_check(str((sim.tactics[me] as Dictionary).get("tag_id", "")) == picked,
 			"The tag in force is the midfielder picked (%s)" % tag)
-	# The sim refuses anything else, whatever asks: no forward, no ruck.
+	# The sim refuses anything else, whatever asks: no forward, no ruck. The
+	# quarter has started, so the rotations may have changed who is on: read
+	# the midfield again rather than trusting the list from the break.
 	for p in opp.ground:
-		if not eligible.has(str(p["id"])):
+		if not sim.tag_target_ok(1 - me, str(p["id"])):
 			sim.set_tactics(me, {"gameplan": "balanced", "tag_id": str(p["id"])})
 			if str((sim.tactics[me] as Dictionary).get("tag_id", "")) != "":
 				_check(false, "The sim refuses a tag on a %s (%s)" % [str(p["role"]), tag])
