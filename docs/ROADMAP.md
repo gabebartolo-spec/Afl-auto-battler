@@ -6256,6 +6256,12 @@ The detailed evidence, trade-offs and prototype tests are in [GENRE_ENJOYMENT_RE
 
 Prefer improving the existing experience when that answers the same need. This pass implements no gameplay and sends no implementation assignment.
 
+**Director decisions recorded here:**
+
+| Date | Decision |
+|---|---|
+| 2026-10-10 | Director: press-conference answers keep their board/morale effects, now shown under each answer (reverses the earlier flavour-only call). |
+
 ---
 
 # 9.3 Approved flavour and culture work — director decisions, 2026-10-06

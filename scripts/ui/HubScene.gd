@@ -1154,6 +1154,11 @@ func _show_media_conference() -> void:
 			_media_overlay = null
 			_build())
 		footer.add_child(b)
+		# What the answer does, under it: the board, the players, no numbers.
+		var effect := UiKit.lbl(MediaConference.effect_line(opts[i]), UiKit.SMALL, UiKit.MUTED)
+		effect.name = "MediaAnswerLine_%d" % i
+		effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		footer.add_child(effect)
 	var skip := UiKit.btn("Skip press conference", 14)
 	skip.name = "MediaSkip"
 	skip.flat = true
