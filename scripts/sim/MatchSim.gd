@@ -528,7 +528,11 @@ func _roam_mark_shift(roamer: Dictionary) -> float:
 ## Whether the spare, as the extra body, gets a fist to a ball the defender
 ## in the contest missed: LOOSE_EXTRA scaled by his game in the air.
 func _roam_spoil(roamer: Dictionary) -> bool:
-	return aerial_rng.randf() < clampf(LOOSE_EXTRA * Matchups.defender_air(roamer) / 70.0
+	return aerial_rng.randf() < _roam_spoil_p(roamer)
+
+
+func _roam_spoil_p(roamer: Dictionary) -> float:
+	return clampf(LOOSE_EXTRA * Matchups.defender_air(roamer) / 70.0
 			* (LOOSE_SPOIL_FLOOR + (1.0 - LOOSE_SPOIL_FLOOR) * _loose_read(roamer))
 			+ (0.05 if _trait(roamer, "interceptor") else 0.0), 0.0, 0.6)
 
