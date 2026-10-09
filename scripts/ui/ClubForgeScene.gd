@@ -53,6 +53,9 @@ var _scroll: ScrollContainer
 var _scroll_form := ""
 
 
+## The looks the figures don't draw yet stay off the form until they do.
+const SHOW_UNDRAWN_LOOKS := false
+
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var margin := MarginContainer.new()
@@ -310,32 +313,33 @@ func _player_form(body: VBoxContainer) -> void:
 	body.add_child(_sub("Hair"))
 	body.add_child(UiKit.choice_grid("ForgeHair", _pairs(Appearance.HAIR_STYLES, HAIR_LABELS), str(look["hair_style"]), cols,
 			func(k): look["hair_style"] = k))
-	body.add_child(_sub("Facial hair"))
-	body.add_child(UiKit.choice_grid("ForgeBeard", _pairs(Appearance.BEARDS, BEARD_LABELS), str(look["beard"]), cols,
-			func(k): look["beard"] = k))
-	body.add_child(_sub("Socks"))
-	body.add_child(UiKit.choice_grid("ForgeSocks", [["tall", "Tall"], ["short", "Short"]], str(look["socks"]), 2,
-			func(k): look["socks"] = k))
-	body.add_child(_sub("Headband"))
-	body.add_child(UiKit.choice_grid("ForgeHeadband", [["off", "Off"], ["on", "On"]], "on" if bool(look["headband"]) else "off", 2,
-			func(k): look["headband"] = k == "on"))
-	# No freckles or scars: the director's call, unnecessary detail.
-	for f in [["bandage", "Bandaging", LEVEL_LABELS]]:
-		body.add_child(_sub(str(f[1])))
-		var key := str(f[0])
-		body.add_child(UiKit.choice_grid("Forge_" + key, f[2], str(int(look.get(key, 0))), 3,
-				func(k): look[key] = int(k)))
-	body.add_child(_sub("Tattoos"))
-	var ink := "0" if (look["tattoos"] as Array).is_empty() else ("1" if (look["tattoos"] as Array).size() == 1 else "2")
-	body.add_child(UiKit.choice_grid("ForgeTattoos", LEVEL_LABELS, ink, 3, func(k):
-		var n := {"0": 0, "1": 1, "2": 3}[k] as int
-		var tats := []
-		for i in n:
-			tats.append({"place": Appearance.TATTOO_PLACES[i * 2 % Appearance.TATTOO_PLACES.size()], "design": "design_%d" % (i + 1)})
-		look["tattoos"] = tats))
-	var art := UiKit.lbl("Hair, facial hair and the rest show on the match figures as the new looks are drawn.", UiKit.SMALL, UiKit.MUTED)
-	art.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.add_child(art)
+	# Facial hair, socks, headband, bandaging and tattoos come back here once
+	# the figures draw them: a control that changes nothing reads as broken
+	# (director's bug report, 2026-10-09). Saved looks keep their values.
+	if SHOW_UNDRAWN_LOOKS:
+		body.add_child(_sub("Facial hair"))
+		body.add_child(UiKit.choice_grid("ForgeBeard", _pairs(Appearance.BEARDS, BEARD_LABELS), str(look["beard"]), cols,
+				func(k): look["beard"] = k))
+		body.add_child(_sub("Socks"))
+		body.add_child(UiKit.choice_grid("ForgeSocks", [["tall", "Tall"], ["short", "Short"]], str(look["socks"]), 2,
+				func(k): look["socks"] = k))
+		body.add_child(_sub("Headband"))
+		body.add_child(UiKit.choice_grid("ForgeHeadband", [["off", "Off"], ["on", "On"]], "on" if bool(look["headband"]) else "off", 2,
+				func(k): look["headband"] = k == "on"))
+		# No freckles or scars: the director's call, unnecessary detail.
+		for f in [["bandage", "Bandaging", LEVEL_LABELS]]:
+			body.add_child(_sub(str(f[1])))
+			var key := str(f[0])
+			body.add_child(UiKit.choice_grid("Forge_" + key, f[2], str(int(look.get(key, 0))), 3,
+					func(k): look[key] = int(k)))
+		body.add_child(_sub("Tattoos"))
+		var ink := "0" if (look["tattoos"] as Array).is_empty() else ("1" if (look["tattoos"] as Array).size() == 1 else "2")
+		body.add_child(UiKit.choice_grid("ForgeTattoos", LEVEL_LABELS, ink, 3, func(k):
+			var n := {"0": 0, "1": 1, "2": 3}[k] as int
+			var tats := []
+			for i in n:
+				tats.append({"place": Appearance.TATTOO_PLACES[i * 2 % Appearance.TATTOO_PLACES.size()], "design": "design_%d" % (i + 1)})
+			look["tattoos"] = tats))
 
 	body.add_child(UiKit.spacer(10))
 	_problem = UiKit.lbl("", UiKit.SMALL, UiKit.BAD)

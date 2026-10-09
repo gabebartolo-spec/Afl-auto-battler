@@ -36,7 +36,7 @@ func _ready() -> void:
 	margin.add_child(_root)
 	get_viewport().size_changed.connect(_on_resize)
 	_build()
-	if not bool(GameState.get_setting("seen_season_stats_intro", false)):
+	if GameState.intro_due("season_stats"):
 		_show_intro.call_deferred()
 
 

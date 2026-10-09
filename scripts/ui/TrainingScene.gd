@@ -53,7 +53,7 @@ func _ready() -> void:
 		if is_inside_tree():
 			_build())
 	_build()
-	if not bool(GameState.get_setting("seen_training_intro", false)):
+	if GameState.intro_due("training"):
 		GameState.set_setting("seen_training_intro", true)
 		_show_intro()
 

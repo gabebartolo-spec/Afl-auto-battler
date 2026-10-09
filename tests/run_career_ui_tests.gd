@@ -464,6 +464,15 @@ func _run() -> void:
 	var note: Label = current_scene.find_child("DifficultyNote", true, false)
 	_check(note != null and note.visible and note.text == str(_state.DIFFICULTIES["hard"]["text"]),
 			"The ? explains the picked difficulty on request")
+	# Difficulty changes one rule, the trade margin, so every difficulty says
+	# it in trade terms and nothing else (the lever-truth audit: the help once
+	# promised rival development and XP that no difficulty changes).
+	var only_trades := true
+	for key in _state.DIFFICULTY_ORDER:
+		var rules: Dictionary = _state.DIFFICULTIES[key]
+		only_trades = only_trades and rules.keys().size() == 3 and rules.has("trade_margin") \
+				and str(rules["text"]).contains("trade")
+	_check(only_trades, "Each difficulty changes only the trade margin, and its text says so")
 	_router.handle_back(false)
 	await _settle()
 	_check(_router.current() == "main" and current_scene.find_child("NewCareerSetup", true, false) == null
@@ -473,6 +482,15 @@ func _run() -> void:
 	current_scene.find_child("Difficulty_hard", true, false).emit_signal("pressed")
 	current_scene.find_child("NameMode_real", true, false).emit_signal("pressed")
 	_check(current_scene.find_child("ForgedClub_in", true, false) != null, "New career offers your Forge club")
+	# On a phone, where the setup form scrolls.
+	var win_was := root.size
+	root.size = Vector2i(390, 844)
+	await _settle()
+	var tut_off = current_scene.find_child("Tutorials_off", true, false)
+	var tut_tap: String = await Tap.tap(tut_off) if tut_off != null else "missing"
+	root.size = win_was
+	await _settle()
+	_check(tut_tap == "", "New career offers Tutorials On/Off, and Off takes a real tap (%s)" % tut_tap)
 	current_scene.find_child("StartCareer", true, false).emit_signal("pressed")
 	await _settle()
 	_check(_router.current() == "draft", "Starting the career goes on to choosing a club")
@@ -482,6 +500,9 @@ func _run() -> void:
 	for d in _state.draftee_pool:
 		brought = brought or (str(d["id"]) == _state.custom_prospect_id and str(d.get("last", "")) == "Forge")
 	_check(brought, "Your Forge player is in this career's first National Draft class")
+	_state.set_setting("seen_weekly_loop_intro", false)
+	_check(not _state.tutorials_on() and not _state.intro_due("weekly_loop"),
+			"With Tutorials off, an unseen intro does not open by itself")
 	_check(_state.draft != null and _state.draft.clubs.has("PMB") and _db.club_name("PMB") == "Port Melbourne",
 			"Your Forge club is in this career's League Draft")
 	_state.set_forge_player({})
@@ -489,6 +510,27 @@ func _run() -> void:
 	_state.set_new_career_difficulty("normal")
 	_state.set_show_real_names(false)
 	_state.reset()
+	# Tutorials belong to the career: kept through save and load, changed in Settings.
+	_state.start_season("SYD", _db.club_list("SYD"))
+	_state.set_tutorials_on(false)
+	_state.save_career()
+	_state.set_setting("tutorials", true)
+	_state.reset()
+	_check(_state.load_career() and not _state.tutorials_on(), "A career's Tutorials choice survives save and load")
+	_state.set_tutorials_on(true)
+	_check(_state.intro_due("weekly_loop") and _state.new_career_tutorials(),
+			"Turning Tutorials back on in Settings lets unseen intros open again")
+	_state.set_setting("seen_weekly_loop_intro", true)
+	_check(not _state.intro_due("weekly_loop"), "...but an intro already read stays closed")
+	_state.set_setting("seen_weekly_loop_intro", false)
+	_state.reset()
+
+	# The Grand Final line names the premiers first, at either end.
+	var review = load("res://scripts/ui/SeasonReviewScene.gd")
+	var gf_line: String = review.gf_text({"home": "BRL", "away": "FRE", "score": [61, 126],
+			"goals": [8, 19], "behinds": [13, 12]}, "FRE")
+	_check(gf_line.begins_with(_db.club_name("FRE")) and gf_line.contains("d.  " + _db.club_name("BRL")),
+			"Season review: the Grand Final winner comes first, home or away (%s)" % gf_line)
 
 	# The Grand Final line names the premiers first, at either end.
 	var review = load("res://scripts/ui/SeasonReviewScene.gd")
