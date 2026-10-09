@@ -10,6 +10,9 @@ name: Android probe
 # screen. It only measures; it never pushes or comments.
 on:
   workflow_dispatch:
+  # Until this workflow is on main (dispatch needs it there), a push to its own branch builds it.
+  push:
+    branches: [claude/phone-probe]
 
 permissions:
   contents: read
