@@ -483,6 +483,13 @@ Tripo's viewer; provenance recorded.
 
 ## 9. Decisions for the director
 
+**Answered 2026-10-10 (director, in the lead's session):** order: both streams in parallel (the
+lead builds the UI phases, the art agent starts the 2x sheet contract); match view: token identity
+now, mini-figures as a prototype gated by the director's phone; Tripo: media room and awards stage
+props first, the venue plate after; Phase 0 assigned to the lead now, with the small-size type
+(Barlow pairing or a text cut) and the selection treatment shown as A/B captures on real screens in
+its first review. The questions as asked are kept below for the record.
+
 These are taste or trade-off calls; everything else above is objectively good and proceeds when
 assigned.
 
