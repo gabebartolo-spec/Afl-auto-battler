@@ -211,7 +211,9 @@ func _hair_atlases() -> void:
 		for anim in anims:
 			for facing in anims[anim]:
 				var s := VignetteFigures.strip(body, anim, facing)
-				if VignetteFigures.hair_for(s, VignetteFigures.HAIR_BASE).is_empty():
+				# An overlay (a near hand drawn over another figure) has no hair of its own
+				# (combine_sheets.py); every other move needs the base look's.
+				if not bool(s.get("overlay", false)) and VignetteFigures.hair_for(s, VignetteFigures.HAIR_BASE).is_empty():
 					missing.append("%s %s %s" % [body, anim, facing])
 				for id in (s.get("hair", {}) as Dictionary):
 					var h: Dictionary = s["hair"][id]
