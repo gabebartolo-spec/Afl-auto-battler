@@ -12,6 +12,12 @@ name: Android debug build
 # (allow "install unknown apps"), not through the Play Store.
 on:
   workflow_dispatch:
+  # A change to this file builds once on its own PR, so the build is proven before it lands.
+  pull_request:
+    paths:
+      - ".github/workflows/android-debug.yml"
+      - "export_presets.cfg"
+      - "scripts/core/PerfProbe.gd"
 
 permissions:
   contents: read
