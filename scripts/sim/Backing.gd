@@ -76,12 +76,17 @@ static func start(p: Dictionary, year: int, round_no: int, games_played: int) ->
 ## promise breaks; unfit, it waits. `when` is {"year", "label"} for the match,
 ## kept on a run that ends with it. Returns the state the run is in ("" when
 ## there is no run).
-static func after_match(p: Dictionary, played: bool, was_fit: bool, when := {}) -> String:
+static func after_match(p: Dictionary, played: bool, was_fit: bool, when := {}, stats := {}) -> String:
 	var run := current(p)
 	if run.is_empty():
 		return ""
 	if played:
 		run["played"] = int(run["played"]) + 1
+		# What he did with it, for the sit-down when the run ends.
+		var tot: Dictionary = run.get("tot", {})
+		for k in KPI_LABEL:
+			tot[k] = int(tot.get(k, 0)) + int(stats.get(k, 0))
+		run["tot"] = tot
 		if int(run["played"]) >= int(run["games"]):
 			run["state"] = "done"
 	elif was_fit:
@@ -89,6 +94,97 @@ static func after_match(p: Dictionary, played: bool, was_fit: bool, when := {}) 
 	if str(run["state"]) != "active" and not when.is_empty():
 		run["ended"] = when.duplicate()
 	return str(run["state"])
+
+
+## The numbers a player is judged on, by the job he does (director,
+## 2026-10-09: "a key back shouldn't be rated by the goals scored"). Two match
+## stats each; "good" when either reaches its rate a game, "quiet" when both
+## are under theirs. Rates are for a young player's first games, not a star's.
+const KPI := {
+	"key_fwd": {"stats": ["goals", "marks"], "good": {"goals": 1.5, "marks": 6.0}, "quiet": {"goals": 0.34, "marks": 3.0}},
+	"fwd": {"stats": ["goals", "tackles"], "good": {"goals": 1.3, "tackles": 5.0}, "quiet": {"goals": 0.34, "tackles": 2.0}},
+	"mid": {"stats": ["disposals", "clearances"], "good": {"disposals": 20.0, "clearances": 4.0}, "quiet": {"disposals": 12.0, "clearances": 1.0}},
+	"wing": {"stats": ["disposals", "inside50"], "good": {"disposals": 18.0, "inside50": 4.0}, "quiet": {"disposals": 11.0, "inside50": 1.5}},
+	"ruck": {"stats": ["hitouts", "clearances"], "good": {"hitouts": 22.0, "clearances": 3.0}, "quiet": {"hitouts": 10.0, "clearances": 1.0}},
+	"key_back": {"stats": ["spoils", "marks"], "good": {"spoils": 5.0, "marks": 6.0}, "quiet": {"spoils": 2.0, "marks": 3.0}},
+	"def": {"stats": ["disposals", "rebounds"], "good": {"disposals": 18.0, "rebounds": 4.0}, "quiet": {"disposals": 11.0, "rebounds": 1.5}},
+}
+const KPI_LABEL := {"goals": "goals", "marks": "marks", "tackles": "tackles", "disposals": "disposals",
+		"clearances": "clearances", "inside50": "inside 50s", "hitouts": "hit-outs", "spoils": "spoils",
+		"rebounds": "rebound 50s"}
+## A defender this tall plays on the key forwards.
+const KEY_BACK_CM := 192
+
+
+## The job he is judged on: key_fwd, fwd, mid, wing, ruck, key_back or def.
+static func kpi_kind(p: Dictionary) -> String:
+	match str(p.get("role", "MID")):
+		"RUCK":
+			return "ruck"
+		"FWD":
+			return "key_fwd" if PlayerProfile.forward_type(p) == "Key forward" else "fwd"
+		"DEF":
+			return "key_back" if int(p.get("height_cm", 0)) >= KEY_BACK_CM else "def"
+	return "wing" if Roles.is_wing(p) else "mid"
+
+
+## "Three games: four goals, 6 marks a game." or "Three games: 5 spoils and 6
+## marks a game.": goals as a count, everything else a game.
+static func kpi_line(kind: String, played: int, tot: Dictionary) -> String:
+	var ks: Array = KPI[kind]["stats"]
+	var head := "%s game%s: " % [MatchNotes.count_word(played).capitalize(), "" if played == 1 else "s"]
+	var said := func(k):
+		var r := int(round(float(tot.get(k, 0)) / float(maxi(1, played))))
+		return "%d %s" % [r, KPI_LABEL[k] if r != 1 else str(KPI_LABEL[k]).trim_suffix("s")]
+	if ks[0] == "goals":
+		var g := int(tot.get("goals", 0))
+		var gl := "no goals" if g == 0 else ("a goal" if g == 1 else "%s goals" % MatchNotes.count_word(g))
+		return head + "%s, %s a game." % [gl, said.call(ks[1])]
+	return head + "%s and %s a game." % [said.call(ks[0]), said.call(ks[1])]
+
+
+## How the run went on his job's numbers: "good", "quiet" or "".
+static func kpi_verdict(kind: String, played: int, tot: Dictionary) -> String:
+	var k: Dictionary = KPI[kind]
+	var n := float(maxi(1, played))
+	for s in k["good"]:
+		if float(tot.get(s, 0)) / n >= float(k["good"][s]):
+			return "good"
+	for s in k["quiet"]:
+		if float(tot.get(s, 0)) / n >= float(k["quiet"][s]):
+			return ""
+	return "quiet"
+
+
+## The sit-down when a run ends (director, 2026-10-09: the conversation comes
+## at the end of the run, with what he actually did, on the numbers his job is
+## judged by). {} for a run still on or one that lapsed with the season.
+## Reported, never a quote: real players are in the game.
+## {"player_id", "title", "lines"}.
+static func talk(p: Dictionary, run: Dictionary) -> Dictionary:
+	var state := str(run.get("state", ""))
+	if state != "done" and state != "broken":
+		return {}
+	var played := int(run.get("played", 0))
+	var games := int(run.get("games", RUN_GAMES))
+	var tot: Dictionary = run.get("tot", {})
+	var kind := kpi_kind(p)
+	var lines := []
+	if played > 0:
+		lines.append(kpi_line(kind, played, tot))
+	if state == "broken":
+		lines.append("You told him %s games and he got %s. He wants to know where he stands." % [
+				MatchNotes.count_word(games), MatchNotes.count_word(played) if played > 0 else "none"])
+	else:
+		match kpi_verdict(kind, played, tot):
+			"good":
+				lines.append("He feels he showed you something, and he wants more of it.")
+			"quiet":
+				lines.append("He knows it was quiet. He wants another go when he has earned it.")
+			_:
+				lines.append("He is glad of the chance and knows there is more in him.")
+	return {"player_id": str(p.get("id", "")), "title": "Sit-down with %s" % GameDB.player_display_name(p),
+			"lines": lines}
 
 
 ## The run that was finished by the match `label` played in `year`, or {}: every
