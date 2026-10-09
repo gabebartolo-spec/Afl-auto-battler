@@ -13,8 +13,29 @@ var design := "plain"
 var code := ""
 
 static var _shapes := {}
+## The guernsey itself: the Tripo guernsey render, tinted per club by badge.gdshader
+## (ard-asset-pipeline tools/guernsey_badges.py). The shapes below still say which part a
+## click lands on, and the designs sheet is drawn from the same shapes.
+const BADGE_SHADER := preload("res://assets/ui/badge/badge.gdshader")
+const BADGE_LIGHT := preload("res://assets/ui/badge/badge_light.png")
+const BADGE_PARTS := preload("res://assets/ui/badge/badge_parts.png")
+const BADGE_DESIGN_SHEET := preload("res://assets/ui/badge/badge_designs.png")
+## The designs sheet's cells, in order (the coach's suit has none).
+const BADGE_DESIGNS := ["plain", "stripes", "hoops", "sash", "yoke", "band", "chevrons", "panels", "chevron",
+		"sides", "tiers", "shoulders", "map", "lowhoops", "giants", "wings", "twohoops"]
+var _mat: ShaderMaterial
+var _letters := Control.new()
+
+
+func _init() -> void:
+	# The code goes on top, outside the guernsey's shader.
+	_letters.name = "Code"
+	_letters.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_letters.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_letters.draw.connect(_draw_code)
+	add_child(_letters)
 ## Club Forge paints the guernsey a part at a time: the part under the
-## pointer is outlined ("body", "pattern", "trim" or "").
+## pointer is lit ("body", "pattern", "trim" or "").
 var highlight := ""
 
 
@@ -165,23 +186,28 @@ func _draw() -> void:
 	var sz := minf(size.x, size.y)
 	if sz <= 0.0:
 		return
-	var u := sz / 100.0
-	var sh := shapes()
-	draw_colored_polygon(_scaled(sh["body"], u), primary)
-	for part in (sh["patterns"] as Dictionary).get(design, []):
-		draw_colored_polygon(_scaled(part[1], u), secondary if part[0] == "s" else accent)
-	draw_colored_polygon(_scaled(sh["inside"], u), Color(primary.r * 0.45, primary.g * 0.45, primary.b * 0.45))
-	var body := _scaled(sh["body"], u)
-	body.append(body[0])
-	draw_polyline(body, accent, maxf(1.0, 2.5 * u), true)
-	draw_polyline(_scaled(sh["arm_r"], u), accent, maxf(1.0, 4.0 * u), true)
-	draw_polyline(_scaled(sh["arm_l"], u), accent, maxf(1.0, 4.0 * u), true)
-	draw_polyline(_scaled(sh["neck_front"], u), accent, maxf(2.0, 4.5 * u), true)
-	if highlight != "":
-		_draw_highlight(sh, u)
+	if _mat == null:
+		_mat = ShaderMaterial.new()
+		_mat.shader = BADGE_SHADER
+		_mat.set_shader_parameter("parts_tex", BADGE_PARTS)
+		_mat.set_shader_parameter("designs_tex", BADGE_DESIGN_SHEET)
+		_mat.set_shader_parameter("design_rows", int(ceil(BADGE_DESIGNS.size() / 4.0)))
+		material = _mat
+	_mat.set_shader_parameter("primary", primary)
+	_mat.set_shader_parameter("secondary", secondary)
+	_mat.set_shader_parameter("accent", accent)
+	_mat.set_shader_parameter("design_cell", maxi(0, BADGE_DESIGNS.find(design)))
+	_mat.set_shader_parameter("highlight", ["", "body", "pattern", "trim"].find(highlight))
+	draw_texture_rect(BADGE_LIGHT, Rect2(Vector2.ZERO, Vector2(sz, sz)), false)
+	_letters.queue_redraw()
+
+
+func _draw_code() -> void:
+	var sz := minf(size.x, size.y)
 	# Under 32 px the code doesn't read: the guernsey alone.
 	if code == "" or sz < 32.0:
 		return
+	var u := sz / 100.0
 	var box := Rect2(28 * u, 42 * u, 44 * u, 44 * u)
 	var font: Font = UiKit.DISPLAY
 	var fs := int(box.size.y * (0.62 if code.length() <= 2 else (0.5 if code.length() == 3 else 0.4)))
@@ -191,8 +217,8 @@ func _draw() -> void:
 	var asc := font.get_ascent(fs)
 	var pos := Vector2(box.position.x + (box.size.x - tw) / 2.0,
 			box.position.y + (box.size.y - asc) / 2.0 + asc - fs * 0.06)
-	draw_string_outline(font, pos, code, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, maxi(1, int(sz / 14.0)), primary)
-	draw_string(font, pos, code, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, code_colour(primary, secondary, accent))
+	_letters.draw_string_outline(font, pos, code, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, maxi(1, int(sz / 14.0)), primary)
+	_letters.draw_string(font, pos, code, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, code_colour(primary, secondary, accent))
 
 
 ## Which part of the guernsey is under `at` (local pixels): "trim" (the
@@ -220,24 +246,3 @@ func part_at(at: Vector2) -> String:
 		if Geometry2D.is_point_in_polygon(q, part[1]):
 			return "pattern" if part[0] == "s" else "trim"
 	return "body"
-
-
-func _draw_highlight(sh: Dictionary, u: float) -> void:
-	var ink := Color(1, 1, 1, 0.95)
-	var w := maxf(1.5, 1.2 * u)
-	var outline := func(poly: PackedVector2Array) -> void:
-		var pts := _scaled(poly, u)
-		pts.append(pts[0])
-		draw_polyline(pts, ink, w, true)
-	match highlight:
-		"body":
-			outline.call(sh["body"])
-		"pattern", "trim":
-			var tag := "s" if highlight == "pattern" else "a"
-			for part in (sh["patterns"] as Dictionary).get(design, []):
-				if part[0] == tag:
-					outline.call(part[1])
-			if highlight == "trim":
-				draw_polyline(_scaled(sh["arm_r"], u), ink, maxf(1.0, 1.5 * u), true)
-				draw_polyline(_scaled(sh["arm_l"], u), ink, maxf(1.0, 1.5 * u), true)
-				draw_polyline(_scaled(sh["neck_front"], u), ink, maxf(1.0, 1.5 * u), true)
