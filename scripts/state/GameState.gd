@@ -6844,6 +6844,7 @@ func _board_after_round(results: Array) -> void:
 			p.erase("expects_game")
 			if not played.has(str(p["id"])) and int(p.get("injury_weeks", 0)) <= 0:
 				ClubLife.add_morale(p, -CoachEffects.softened(sting, float(soft.get(str(p["id"]), 0.0))))
+	_after_match_talks(played, int(res.get("round", season.round_index)))
 
 
 ## Every rival club's players take the week the way yours do
@@ -7007,7 +7008,7 @@ func _next_week_event() -> void:
 	week_event = ClubLife.pick_event({"list": my_list, "round": season.round_index + 1,
 			"seed": season.seed, "losses": losing_streak, "selected": selected,
 			"cap_room": salary_cap - my_payroll(), "memory": event_memory,
-			"last_key": last_key})
+			"last_key": last_key, "talk_info": talk_info(selected)})
 	# Remember what came up, so the same player is not back every week.
 	if not week_event.is_empty():
 		var pid := str(week_event.get("player_id", ""))
@@ -7178,6 +7179,15 @@ func resolve_week_event(choice: int) -> String:
 			p["expects_game"] = 12
 			out = ("%s feels heard. Auto-pick names him this week." if my_selection().is_empty()
 					else "%s feels heard, and expects a game this week.") % name
+			_note_talk(p, "promise")
+		"explain":
+			ClubLife.add_morale(p, ClubLife.EXPLAIN_LIFT)
+			out = _explain_outcome(name, week_event)
+			_note_talk(p, "explain")
+		"call":
+			ClubLife.add_morale(p, -5)
+			out = "You tell %s selection is your call, and it stands." % name
+			_note_talk(p, "call")
 		"earn":
 			ClubLife.add_morale(p, -5)
 			for q in my_list:
@@ -7847,3 +7857,153 @@ const STYLE_LINES := {
 	"conceded_stoppage": ["We shut down their stoppage game: %d fewer points a game conceded from stoppages than the average side.",
 			"They hurt us from the stoppages: %d more points a game conceded from them than the average side.", true],
 }
+
+
+# --- Sit-downs that grow out of what happened (RPG-003 slice 1) -------------
+
+## What the week's sit-down may open on, per player of yours (ClubLife.
+## talk_case): {id: {"games", "in_last_side", "selected", "age",
+## "weeks_without", "injury", "kpi"}}. Only facts the game has kept.
+func talk_info(selected: Dictionary) -> Dictionary:
+	var out := {}
+	if season == null:
+		return out
+	var last_ids := {}
+	for id in last_side:
+		last_ids[str(id)] = true
+	for p in my_list:
+		var id := str(p["id"])
+		var kind := Backing.kpi_kind(p)
+		var ks: Array = Backing.KPI[kind]["stats"]
+		out[id] = {"games": games_played(p), "in_last_side": last_ids.has(id),
+				"selected": selected.has(id), "age": float(p.get("age", 30.0)),
+				"weeks_without": weeks_without_game(p), "injury": _back_from(p), "kpi": _kpi_text(p),
+				"verdict": _kpi_verdict(p), "job": talk_job(p),
+				"need": "%s and %s" % [Backing.KPI_LABEL[ks[0]], Backing.KPI_LABEL[ks[1]]]}
+	return out
+
+
+## Your rounds since his last senior game for you this season: the rounds
+## played so far when he has none this season, -1 when an older save cannot
+## say (it never kept the round).
+func weeks_without_game(p: Dictionary) -> int:
+	var lg = p.get("last_game", [])
+	if lg is Array and (lg as Array).size() == 2 and int(lg[0]) == season_year:
+		return maxi(0, season.round_index - int(lg[1]))
+	if int((season_tally.get(str(p["id"]), {}) as Dictionary).get("games", 0)) == 0:
+		return season.round_index
+	return -1
+
+
+## The injury he is back from without a game since ("hamstring"), or "": his
+## latest injury fact this season, from a round at or after his last game.
+func _back_from(p: Dictionary) -> String:
+	if int(p.get("injury_weeks", 0)) > 0:
+		return ""
+	var inj := CareerFacts.of(career_facts, str(p["id"]), "injury")
+	if inj.is_empty():
+		return ""
+	var f: Dictionary = inj[-1]
+	if int(f["y"]) != season_year or not str(f["at"]).begins_with("Round"):
+		return ""
+	var hurt := str(f["at"]).trim_prefix("Round ").to_int()
+	var lg = p.get("last_game", [])
+	var last := int(lg[1]) if lg is Array and (lg as Array).size() == 2 and int(lg[0]) == season_year else 0
+	if hurt < last:
+		return ""
+	return str(f["out"]).replace("_", " ") if str(f["out"]) != "" else "injury"
+
+
+## His season on the numbers his job is judged by (Backing.KPI): "Seven
+## games: 12 disposals and 1 clearance a game.", or "" with no game this
+## season.
+func _kpi_text(p: Dictionary) -> String:
+	var row: Dictionary = season_stats.get(str(p["id"]), {})
+	var games := int(row.get("games", 0))
+	if games <= 0:
+		return ""
+	var kind := Backing.kpi_kind(p)
+	return Backing.kpi_line(kind, games, _kpi_totals(kind, row))
+
+
+## How his season reads on those numbers: "good", "quiet" or "" (Backing.kpi_verdict).
+func _kpi_verdict(p: Dictionary) -> String:
+	var row: Dictionary = season_stats.get(str(p["id"]), {})
+	var games := int(row.get("games", 0))
+	if games <= 0:
+		return ""
+	var kind := Backing.kpi_kind(p)
+	return Backing.kpi_verdict(kind, games, _kpi_totals(kind, row))
+
+
+func _kpi_totals(kind: String, row: Dictionary) -> Dictionary:
+	var tot := {}
+	for k in Backing.KPI[kind]["stats"]:
+		tot[k] = StatBook.total(row, str(k))
+	return tot
+
+
+## His job as a coach says it: "key back", "ruck", "small forward"...
+func talk_job(p: Dictionary) -> String:
+	match Backing.kpi_kind(p):
+		"key_fwd":
+			return "key forward"
+		"fwd":
+			return PlayerProfile.forward_type(p).to_lower()
+		"wing":
+			return "wingman"
+		"ruck":
+			return "ruck"
+		"key_back":
+			return "key back"
+		"def":
+			return "defender"
+	return "midfielder"
+
+
+## What talking him through it comes to, in plain facts. Good numbers are
+## never spun as a poor season: he just doesn't see why he's out.
+func _explain_outcome(name: String, e: Dictionary) -> String:
+	var kpi := str(e.get("kpi", ""))
+	if kpi == "":
+		return "You tell %s what a %s has to show: %s. Nothing is promised." % [
+				name, str(e.get("job", "player")), str(e.get("need", ""))]
+	if str(e.get("verdict", "")) == "good":
+		return "You go through his season with %s: %s He doesn't see why he's out. Nothing is promised." % [name, kpi]
+	return "You go through his season with %s: %s Nothing is promised." % [name, kpi]
+
+
+## Keep the sit-down as a career fact (G7, kind "talk"): d is what opened it
+## and what you said ("dropped|promise"); out is settled after your next match.
+func _note_talk(p: Dictionary, said: String) -> void:
+	CareerFacts.add(career_facts, str(p["id"]), CareerFacts.row(season_year,
+			"Round %d" % (season.round_index + 1), "talk", my_club,
+			"%s|%s" % [str(week_event.get("case", "mood")), said], ""))
+
+
+## After your match: the round each player of yours last played, and every
+## sit-down still open settled, with a line saying how it came out.
+func _after_match_talks(played: Dictionary, round_no: int) -> void:
+	for p in my_list:
+		var id := str(p["id"])
+		if played.has(id):
+			p["last_game"] = [season_year, round_no]
+		var rows = career_facts.get(id, [])
+		if not (rows is Array):
+			continue
+		for r in rows:
+			if str(r[CareerFacts.K]) != "talk" or str(r[CareerFacts.OUT]) != "":
+				continue
+			var said := str(r[CareerFacts.D]).get_slice("|", 1)
+			var name := GameDB.player_display_name(p)
+			if played.has(id):
+				r[CareerFacts.OUT] = "played"
+				add_news("club", ("%s is back in the side, as you told him." if said == "promise"
+						else "%s is back in the side.") % name)
+			elif int(p.get("injury_weeks", 0)) > 0:
+				r[CareerFacts.OUT] = "injured"
+				add_news("club", "%s was hurt before his chance came." % name)
+			else:
+				r[CareerFacts.OUT] = "waiting"
+				add_news("club", ("%s is still waiting for the game you promised him." if said == "promise"
+						else "%s is still waiting for a game.") % name)

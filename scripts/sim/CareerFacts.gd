@@ -27,7 +27,10 @@ extends RefCounted
 ##   injury   out: the injury ("hamstring")
 ##   project  a development project (GameState.LEARN_JOBS): d the job he was
 ##            set ("key_def"), out "learned", "not taken" or "ended by a move"
-const KINDS := ["injury", "project"]
+##   talk     a sit-down (RPG-003): d what opened it and what you said
+##            ("dropped|promise"), out after your next match: "played",
+##            "waiting" or "injured"
+const KINDS := ["injury", "project", "talk"]
 
 const Y := 0
 const AT := 1
