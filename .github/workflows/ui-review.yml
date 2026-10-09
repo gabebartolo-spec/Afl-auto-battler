@@ -24,7 +24,7 @@ on:
       - "tools/visual/capture_screens_light.gd"
       - "tools/contact_sheet.py"
       - "tools/figure_crops.py"
-      - "tools/visual/capture_match.gd"
+      - "tools/visual/capture_vignette.gd"
       - "tools/visual/capture_prematch.gd"
       - "scripts/ui/match/**"
       - ".github/workflows/ui-review.yml"
@@ -97,25 +97,29 @@ jobs:
 
       - name: Figure scenes, 2x crops and a clip
         run: |
-          # Phase 6.1 part 2: the figures are judged at 2x on their contact
-          # frames (feet, hands, shadows), and a clip shows anything that moves.
-          # capture_match writes every frame of a 2 second window at 30 fps
-          # (--movie), aimed at an event of the given kind; the middle frame is
-          # the event. Not a gate: a failed capture warns and the rest go on.
+          # Phase 6.1 part 2: the figure scenes (the pre-match huddle and the
+          # centre bounce are the ones that draw the footballers; the live
+          # match view is tokens) are judged at 2x on boots, hands and shadows,
+          # and a clip shows the motion. Each tool writes its --film frames at
+          # 12 a second on a phone; the first, middle and last are cropped to
+          # the legs and boots at 2x, and every frame becomes the clip. Not a
+          # gate: a failed capture warns and the rest go on.
           mkdir -p out/figures frames
-          for kind in ballup kick goal; do
-            rm -f frames/*.png
-            LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1280x1000x24"               timeout 600 "$HOME/godot/godot" --path . --rendering-method gl_compatibility               --script tools/visual/capture_match.gd -- --seed 42 --kind "$kind" --nth 2 --secs 2               --movie --out "$PWD/frames/match_$kind" > "out/figures_$kind.log" 2>&1 || echo "::warning::$kind capture exited non-zero"
-            if ls frames/match_${kind}_f*.png > /dev/null 2>&1; then
-              python3 tools/figure_crops.py out/figures frames "match_$kind"
-              ffmpeg -loglevel error -y -framerate 30 -i "frames/match_${kind}_f%04d.png"                 -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -pix_fmt yuv420p "out/figures/match_$kind.mp4" || true
+          run_tool() {  # name, args...
+            name="$1"; shift
+            LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1280x1000x24"               timeout 600 "$HOME/godot/godot" --path . --rendering-method gl_compatibility               --script "tools/visual/capture_$name.gd" -- "$@" --out "$PWD/frames/$name"               > "out/figures_$name.log" 2>&1 || echo "::warning::$name capture exited non-zero"
+            cp -f frames/${name}_sheet.png out/figures/ 2>/dev/null || true
+            if ls frames/${name}_film_*.png > /dev/null 2>&1; then
+              python3 tools/figure_crops.py out/figures frames "$name"
+              ffmpeg -loglevel error -y -framerate 12 -i "frames/${name}_film_%03d.png"                 -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -pix_fmt yuv420p "out/figures/$name.mp4" || true
             fi
-          done
-          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1280x1000x24"             timeout 600 "$HOME/godot/godot" --path . --rendering-method gl_compatibility             --script tools/visual/capture_prematch.gd -- --out "$PWD/out/figures/prematch"             > out/figures_prematch.log 2>&1 || echo "::warning::prematch capture exited non-zero"
+          }
+          run_tool prematch --film
+          run_tool vignette --film 0.1 4.0
           shopt -s nullglob
           crops=(out/figures/*_2x.png)
           if [ ${#crops[@]} -gt 0 ]; then
-            python3 tools/contact_sheet.py out/sheet_figures_2x.png "#${{ github.event.pull_request.number }} figure contact frames at 2x" "${crops[@]}"
+            python3 tools/contact_sheet.py out/sheet_figures_2x.png "#${{ github.event.pull_request.number }} figure scenes at 2x" "${crops[@]}"
           fi
           ls -la out/figures
 
