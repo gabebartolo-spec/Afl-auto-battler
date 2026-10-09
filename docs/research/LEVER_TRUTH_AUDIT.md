@@ -85,6 +85,24 @@ No reach gives the team a gain, because a roam swaps one defender for another. A
 | Controlled tempo | "Asks nothing special of your list" (`CoachReport.gd:40`) | `PlanFit.LEAGUE` has no "controlled" entry, so its fit is 1.0 (`PlanFit.gd:135-138`) and the upside scale ignores the list. But `_press_on` holds off a press only as far as `plan_fit["controlled"]` allows (`MatchSim.gd:729`), and that is clamped to ≤ 1.0 and always 1.0 here. **Suspect:** the "poor ball users only partly hold it off" rule in the `_press_on` comment never applies | **Probable dead branch.** Verify that `plan_fit["controlled"]` is always 1.0 |
 | Event cards: rest / play sore / heavy / recovery / open / closed / suspend / back / promise / patience | `ClubLife.gd:352-412` | Flags read by Ratings (rested, `:746`), Injuries (sore / heavy_legs / fresh, `:30-33`), MatchSim (`:327-329`), Workload (`:66-70`); board and morale numbers match `resolve_week_event` | Wired as written (numbers match) |
 
+### Dual ruck (`levers_followup_impl.gd dual`, 600 pairs; both arms make the call explicitly)
+
+Copy: "Dual ruck on: Auto-pick names a second ruck on the bench" (`SelectionScene.gd:97`).
+
+| Measure | Dual-on mean | Paired difference |
+|---|---|---|
+| Rucks in the 23 | 2.00 | +0.67 ± 0.02 (some sides carry one anyway) |
+| Team hit-outs | 41.6 | +1.10 ± 0.25 |
+| Starting ruck's hit-outs | 35.4 | +0.18 ± 0.25 |
+| Second ruck's hit-outs | 6.0 | +4.09 ± 0.26 |
+| Starting ruck's exertion | 111.1 | +3.23 ± 0.25 |
+| Clearances | 40.4 | +0.09 ± 0.22 |
+| Margin | | +0.10 ± 1.28 |
+
+**Verdict: works as written.** The copy promises a name on the bench, nothing more. The second ruck takes about 4 hit-outs a game that non-rucks took while the starter rested, which is one more hit-out for the team. There is no measurable effect at the clearance or on the scoreboard.
+
+(A first pass read the "starting ruck" after the match, after interchanges had changed the ground, and showed a false +6.8 hit-outs for him. Fixed: he is now read before the first bounce.)
+
 ## Prior evidence to cite (verify still current)
 - `docs/SYSTEM_REALITY_AUDIT.md` (2026-09-29): moment cards, tagging, Through stars, morale, form.
 - `docs/LEVERS_EVIDENCE_2026-10-05.md`: plan calls.

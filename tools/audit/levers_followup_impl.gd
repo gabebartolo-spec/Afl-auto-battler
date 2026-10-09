@@ -13,13 +13,19 @@ extends RefCounted
 ##   fire_up  Fire them up. The copy: "A lift at the contest while you are
 ##            chasing the game". Reads quarters 2-4 that the home side began
 ##            behind in both arms, so the two sides of a pair are chasing.
+##   dual     Dual ruck. The copy: "Auto-pick names a second ruck on the
+##            bench." Both arms make the call explicitly (off, then on), so
+##            the AI's own dual-ruck rule never decides the baseline.
 ##   seeds    per pairing (default 40); six pairings
 
 const PAIRS := [["MEL", "CAR"], ["GEE", "COL"], ["SYD", "WCE"], ["BRL", "ADE"], ["HAW", "ESS"], ["FRE", "STK"]]
 
 
 func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
-	var home := Squad.new(h, GameDB.club_list(h), true, h)
+	var sel := {}
+	if arm.begins_with("dual"):
+		sel = {"DUAL_RUCK": arm == "dual"}
+	var home := Squad.new(h, GameDB.club_list(h), true, h, sel)
 	var away := Squad.new(a, GameDB.club_list(a), false, a)
 	away.ai_plans = true
 	var t := {"gameplan": "balanced", "pep": "fire_up" if arm == "fire_up" else "steady"}
@@ -41,10 +47,19 @@ func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
 		sim.set_interceptor(0, loose, false)
 	res_freed = freed
 	freed_covered = freed != "" and (sim.duels[0] as Dictionary).has(freed)
+	var rucks_before := (home.ground + home.bench).filter(func(p): return str(p.get("role", "")) == "RUCK").map(func(p): return str(p["id"]))
+	# The ruck who starts in the ruck spot (the ground changes at interchanges).
+	var ruck_first := ""
+	for p in home.ground:
+		if str(p.get("role", "")) == "RUCK":
+			ruck_first = str(p["id"])
 	var res: Dictionary = sim.run()
+	res["rucks_before"] = rucks_before
 	res["loose_id"] = loose
 	res["freed"] = res_freed
 	res["freed_covered"] = freed_covered
+	res["home_rucks"] = (home.ground + home.bench).filter(func(p): return str(p.get("role", "")) == "RUCK").map(func(p): return str(p["id"]))
+	res["home_ruck_first"] = ruck_first
 	return res
 
 
@@ -95,6 +110,27 @@ func _duels(res: Dictionary, id: String) -> float:
 	return float(n)
 
 
+func _dual_row(res: Dictionary) -> Dictionary:
+	var team: Dictionary = (res["team"] as Array)[0]
+	var sc: Array = res["score"]
+	var first := str(res["home_ruck_first"])
+	var players: Dictionary = res["players"]
+	var others := 0.0
+	for id in res["rucks_before"]:
+		if str(id) != first:
+			others += _n(players.get(str(id), {}), "hitouts")
+	return {"margin": float(int(sc[0]) - int(sc[1])),
+		"rucks_in_23": float((res["rucks_before"] as Array).size()),
+		"rucks_after_match": float((res["home_rucks"] as Array).size()),
+		"hitouts": _n(team, "hitouts"),
+		"first_ruck_hitouts": _n(players.get(first, {}), "hitouts"),
+		"other_rucks_hitouts": others,
+		"first_ruck_exertion": float((res["exertion"] as Dictionary).get(first, 0.0)),
+		"clearances": _n(team, "clearances"),
+		"contested": _n(team, "contested_possessions"),
+		"scored": float(int(sc[0]))}
+
+
 ## Clearances and contested possessions in each quarter 2-4, with the score
 ## at its start: {q: {"behind": bool, "clearances": x, "contested": y}}.
 func _quarters(res: Dictionary) -> Dictionary:
@@ -128,11 +164,13 @@ func run() -> void:
 	var pairs := 0
 	for pr in PAIRS:
 		for s in range(seeds):
-			var base := _play(pr[0], pr[1], 7000 + s, "base")
+			var base := _play(pr[0], pr[1], 7000 + s, "dual_base" if mode == "dual" else "base")
 			var arm := _play(pr[0], pr[1], 7000 + s, mode)
 			var rows := []
 			if mode == "loose":
 				rows.append([_loose_row(base), _loose_row(arm)])
+			elif mode == "dual":
+				rows.append([_dual_row(base), _dual_row(arm)])
 			else:
 				var qb := _quarters(base)
 				var qa := _quarters(arm)
