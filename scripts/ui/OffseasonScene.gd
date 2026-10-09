@@ -216,6 +216,7 @@ func _contracts(body: VBoxContainer) -> void:
 		talk.name = "Negotiate"
 		talk.custom_minimum_size = Vector2(0, 44)
 		talk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_compact_actions(row, talk)
 		talk.pressed.connect(_open_talks.bind(str(p["id"])))
 		row.add_child(talk)
 		var rel := UiKit.btn("Release", UiKit.SECONDARY)
@@ -255,6 +256,9 @@ func _retiring(body: VBoxContainer) -> void:
 			var ask := UiKit.btn("Ask him to go around again", UiKit.SECONDARY)
 			ask.name = "TalkRound"
 			ask.custom_minimum_size = Vector2(0, 44)
+			if _wide():
+				ask.size_flags_horizontal = Control.SIZE_SHRINK_END
+				ask.custom_minimum_size.x = 280
 			ask.pressed.connect(func():
 				GameState.talk_round(str(p["id"]))
 				_build())
@@ -562,6 +566,7 @@ func _agents(body: VBoxContainer) -> void:
 			talk.name = "FreeAgentTalks"
 			talk.custom_minimum_size = Vector2(0, 44)
 			talk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_compact_actions(row, talk)
 			talk.pressed.connect(_open_talks.bind(str(p["id"]), true))
 			row.add_child(talk)
 		body.add_child(card)
@@ -844,6 +849,21 @@ func _pick_label(pk: Dictionary) -> String:
 	if str(pk["origin"]) != str(pk["owner"]):
 		text += " (via %s)" % GameDB.club_name(str(pk["origin"]))
 	return text
+
+
+## A PC: actions sit together at the right of a row, sized to their words,
+## not as bars across the screen (director, 2026-10-10).
+func _wide() -> bool:
+	var w := UiKit.view_width(self)
+	return ScreenLayout.is_desktop() and w >= 760.0 and w > UiKit.view_height(self) * 1.2
+
+
+func _compact_actions(row: HBoxContainer, main: Button) -> void:
+	if not _wide():
+		return
+	row.alignment = BoxContainer.ALIGNMENT_END
+	main.size_flags_horizontal = Control.SIZE_SHRINK_END
+	main.custom_minimum_size.x = 200
 
 
 func _player_card(p: Dictionary, detail: String) -> PanelContainer:
