@@ -505,13 +505,17 @@ static func _unhappy(p: Dictionary, case := "", i := {}) -> Dictionary:
 	var n := GameDB.player_display_name(p)
 	if case != "":
 		var kpi := str(i.get("kpi", ""))
-		return {"key": "unhappy", "player_id": str(p["id"]), "case": case, "kpi": kpi, "default": -1,
+		var need := "What a %s has to show: %s." % [str(i.get("job", "player")), str(i.get("need", ""))]
+		return {"key": "unhappy", "player_id": str(p["id"]), "case": case, "kpi": kpi,
+			"verdict": str(i.get("verdict", "")), "job": str(i.get("job", "")), "need": str(i.get("need", "")),
+			"default": -1,
 			"title": "%s wants a word" % n,
 			"text": talk_text(case, i),
 			"options": [
-				_opt("explain", "Explain it, in his numbers",
-						"%s Morale +%d; nothing promised." % [kpi, EXPLAIN_LIFT] if kpi != ""
-						else "What his position is judged on, and where he is short. Morale +%d; nothing promised." % EXPLAIN_LIFT),
+				# Plain facts, never an argument for or against your call: his
+				# season on his job's numbers, or what his job has to show.
+				_opt("explain", "Talk him through his season" if kpi != "" else "Tell him what he has to show",
+						"%s Morale +%d; nothing promised." % [kpi if kpi != "" else need, EXPLAIN_LIFT]),
 				_opt("talk", "Promise him a game this week", "Morale +15, but he expects a game this week. Leave him out fit and it sours (-12)."),
 				_opt("call", "It's my call", "You tell him selection is your call, and it stands. His morale -5."),
 			]}

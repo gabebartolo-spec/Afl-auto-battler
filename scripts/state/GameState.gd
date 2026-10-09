@@ -7140,8 +7140,7 @@ func resolve_week_event(choice: int) -> String:
 			_note_talk(p, "promise")
 		"explain":
 			ClubLife.add_morale(p, ClubLife.EXPLAIN_LIFT)
-			var nums := str(week_event.get("kpi", ""))
-			out = ("You take %s through his numbers. %s Nothing is promised." % [name, nums]) if nums != "" 					else "You take %s through his numbers. Nothing is promised." % name
+			out = _explain_outcome(name, week_event)
 			_note_talk(p, "explain")
 		"call":
 			ClubLife.add_morale(p, -5)
@@ -7832,9 +7831,13 @@ func talk_info(selected: Dictionary) -> Dictionary:
 		last_ids[str(id)] = true
 	for p in my_list:
 		var id := str(p["id"])
+		var kind := Backing.kpi_kind(p)
+		var ks: Array = Backing.KPI[kind]["stats"]
 		out[id] = {"games": games_played(p), "in_last_side": last_ids.has(id),
 				"selected": selected.has(id), "age": float(p.get("age", 30.0)),
-				"weeks_without": weeks_without_game(p), "injury": _back_from(p), "kpi": _kpi_text(p)}
+				"weeks_without": weeks_without_game(p), "injury": _back_from(p), "kpi": _kpi_text(p),
+				"verdict": _kpi_verdict(p), "job": talk_job(p),
+				"need": "%s and %s" % [Backing.KPI_LABEL[ks[0]], Backing.KPI_LABEL[ks[1]]]}
 	return out
 
 
@@ -7870,20 +7873,62 @@ func _back_from(p: Dictionary) -> String:
 
 
 ## His season on the numbers his job is judged by (Backing.KPI): "Seven
-## games: 12 disposals and 1 clearance a game.", or, with no game this
-## season, what those numbers are.
+## games: 12 disposals and 1 clearance a game.", or "" with no game this
+## season.
 func _kpi_text(p: Dictionary) -> String:
-	var kind := Backing.kpi_kind(p)
 	var row: Dictionary = season_stats.get(str(p["id"]), {})
 	var games := int(row.get("games", 0))
-	if games > 0:
-		var tot := {}
-		for k in Backing.KPI[kind]["stats"]:
-			tot[k] = StatBook.total(row, str(k))
-		return Backing.kpi_line(kind, games, tot)
-	var ks: Array = Backing.KPI[kind]["stats"]
-	return "No senior game this season; his job is judged on %s and %s." % [
-			Backing.KPI_LABEL[ks[0]], Backing.KPI_LABEL[ks[1]]]
+	if games <= 0:
+		return ""
+	var kind := Backing.kpi_kind(p)
+	return Backing.kpi_line(kind, games, _kpi_totals(kind, row))
+
+
+## How his season reads on those numbers: "good", "quiet" or "" (Backing.kpi_verdict).
+func _kpi_verdict(p: Dictionary) -> String:
+	var row: Dictionary = season_stats.get(str(p["id"]), {})
+	var games := int(row.get("games", 0))
+	if games <= 0:
+		return ""
+	var kind := Backing.kpi_kind(p)
+	return Backing.kpi_verdict(kind, games, _kpi_totals(kind, row))
+
+
+func _kpi_totals(kind: String, row: Dictionary) -> Dictionary:
+	var tot := {}
+	for k in Backing.KPI[kind]["stats"]:
+		tot[k] = StatBook.total(row, str(k))
+	return tot
+
+
+## His job as a coach says it: "key back", "ruck", "small forward"...
+func talk_job(p: Dictionary) -> String:
+	match Backing.kpi_kind(p):
+		"key_fwd":
+			return "key forward"
+		"fwd":
+			return PlayerProfile.forward_type(p).to_lower()
+		"wing":
+			return "wingman"
+		"ruck":
+			return "ruck"
+		"key_back":
+			return "key back"
+		"def":
+			return "defender"
+	return "midfielder"
+
+
+## What talking him through it comes to, in plain facts. Good numbers are
+## never spun as a poor season: he just doesn't see why he's out.
+func _explain_outcome(name: String, e: Dictionary) -> String:
+	var kpi := str(e.get("kpi", ""))
+	if kpi == "":
+		return "You tell %s what a %s has to show: %s. Nothing is promised." % [
+				name, str(e.get("job", "player")), str(e.get("need", ""))]
+	if str(e.get("verdict", "")) == "good":
+		return "You go through his season with %s: %s He doesn't see why he's out. Nothing is promised." % [name, kpi]
+	return "You go through his season with %s: %s Nothing is promised." % [name, kpi]
 
 
 ## Keep the sit-down as a career fact (G7, kind "talk"): d is what opened it

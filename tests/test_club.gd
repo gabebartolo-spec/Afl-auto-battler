@@ -1347,13 +1347,26 @@ func _test_fact_talks() -> void:
 	var p: Dictionary = GameState.my_list[3]
 	var info := vet.duplicate()
 	info["kpi"] = "Seven games: 12 disposals and 1 clearance a game."
+	info["job"] = "midfielder"
+	info["need"] = "disposals and clearances"
 	var card := ClubLife._unhappy(p, "dropped", info)
 	var keys := []
 	for o in card["options"]:
 		keys.append(str(o["key"]))
 	_check(str(card["text"]).begins_with("120 games, fit, and dropped") and keys == ["explain", "talk", "call"]
 			and str((card["options"][0] as Dictionary)["detail"]).contains("12 disposals"),
-			"The card opens on what happened and explains in his numbers (%s)" % str(card["text"]))
+			"The card opens on what happened and offers his season in plain numbers (%s)" % str(card["text"]))
+	_check(str((card["options"][0] as Dictionary)["label"]) == "Talk him through his season",
+			"The label is neutral: it neither argues for nor against your call")
+	info["kpi"] = ""
+	var none_yet := ClubLife._unhappy(p, "waiting", info)
+	_check(str((none_yet["options"][0] as Dictionary)["label"]) == "Tell him what he has to show"
+			and str((none_yet["options"][0] as Dictionary)["detail"]).begins_with("What a midfielder has to show: disposals and clearances."),
+			"With no game this season, it is what his job has to show, in a coach's words")
+	_check(GameState._explain_outcome("Rogers", {"kpi": "Three games: 29 disposals and 7 clearances a game.", "verdict": "good"})
+			.contains("He doesn't see why he's out"), "Good numbers are never spun as a poor season")
+	_check(not GameState._explain_outcome("Rogers", {"kpi": "Three games: 9 disposals and 0 clearances a game.", "verdict": "quiet"})
+			.contains("doesn't see why"), "...and quiet numbers are just stated")
 	var said := ""
 	for o in card["options"]:
 		said += (str(o["label"]) + " " + str(o["detail"])).to_lower() + " "
@@ -1392,7 +1405,7 @@ func _test_fact_talks() -> void:
 			benched = q
 			break
 	_check(not benched.is_empty() and GameState.weeks_without_game(benched) == GameState.season.round_index
-			and GameState._kpi_text(benched).begins_with("No senior game this season"),
+			and GameState._kpi_text(benched) == "",
 			"A player with no game this season is that many weeks without one")
 	# Back from injury: an injury since his last game, fit now.
 	if not benched.is_empty():
