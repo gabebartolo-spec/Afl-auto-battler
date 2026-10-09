@@ -85,6 +85,12 @@ var rivalry_history := {}        # canonical club pair -> emergent rivalry evide
 ## Club achievements unlocked this career: id -> {"year", "detail"}.
 ## Definitions live in scripts/sim/Achievements.gd.
 var achievements := {}
+## G7: the career's durable facts, {player id: [row, ...]} (CareerFacts.gd).
+## Saved with the career; a player leaving the lists does not take them.
+var career_facts := {}
+## Players who have left the game: id -> his name card (CareerFacts.name_card),
+## so an honour-roll or record line can still name him.
+var departed_names := {}
 var salary_cap := 0              # annual-dollar TPP cap every club's payroll counts against
 var free_agents: Array = []      # off-season: players no club kept
 var offseason_year := 0          # the season whose off-season has opened
@@ -123,6 +129,7 @@ var difficulty := "normal"       # this career's difficulty (DIFFICULTIES key)
 var board := {}                  # confidence, goal, warned, sacked, history
 var week_event := {}             # this week's event card (ClubLife.pick_event)
 var media_conference := {}       # pending post-match press question
+var backing_talk := {}           # a sit-down when a promised run ends (Backing.talk)
 var media_memory := {}           # question key -> last round asked
 var losing_streak := 0
 ## Your match-ups for the next match (Matchups): {their forward id: your
@@ -478,6 +485,8 @@ func save_career() -> bool:
 		"records": records,
 		"rivalry_history": rivalry_history,
 		"achievements": achievements,
+		"career_facts": career_facts,
+		"departed_names": departed_names,
 		"salary_cap": salary_cap,
 		"free_agents": free_agents,
 		"offseason_year": offseason_year,
@@ -498,6 +507,7 @@ func save_career() -> bool:
 		"board": board,
 		"week_event": week_event,
 		"media_conference": media_conference,
+		"backing_talk": backing_talk,
 		"media_memory": media_memory,
 		"losing_streak": losing_streak,
 		"my_matchups": my_matchups,
@@ -623,6 +633,8 @@ func load_career() -> bool:
 	records = state.get("records", {})
 	rivalry_history = state.get("rivalry_history", {})
 	achievements = state.get("achievements", {})
+	career_facts = state.get("career_facts", {})
+	departed_names = state.get("departed_names", {})
 	salary_cap = int(state.get("salary_cap", 0))
 	free_agents = state.get("free_agents", [])
 	offseason_year = int(state.get("offseason_year", 0))
@@ -643,6 +655,7 @@ func load_career() -> bool:
 	board = state.get("board", {})
 	week_event = state.get("week_event", {})
 	media_conference = state.get("media_conference", {})
+	backing_talk = state.get("backing_talk", {})
 	media_memory = state.get("media_memory", {})
 	losing_streak = int(state.get("losing_streak", 0))
 	my_matchups = state.get("my_matchups", {})
@@ -665,6 +678,7 @@ func load_career() -> bool:
 	if int(state.get("career_version", 0)) < CAREER_VERSION:
 		_migrate_careers()
 	_migrate_train_plans()
+	_migrate_injury_logs()
 	_mark_unicorns()
 	_backfill_potential()
 	ensure_contracts()
@@ -969,6 +983,8 @@ func reset() -> void:
 	records = {}
 	rivalry_history = {}
 	achievements = {}
+	career_facts = {}
+	departed_names = {}
 	coaches = {}
 	coach_archive = {}
 	staff_vacancies = []
@@ -998,6 +1014,7 @@ func reset() -> void:
 	board = {}
 	week_event = {}
 	media_conference = {}
+	backing_talk = {}
 	media_memory = {}
 	losing_streak = 0
 	my_matchups = {}
@@ -2717,7 +2734,8 @@ func _career_copies(source: Array) -> Array:
 
 
 ## A player's display name from any current list, for ids the database
-## cannot resolve (a player who joined a list during the career). "" if none.
+## cannot resolve (a player who joined a list during the career), or from the
+## name kept when he left the game (CareerFacts.name_card). "" if none.
 func season_player_name(player_id: String) -> String:
 	var groups: Array = [my_list, free_agents]
 	if season != null:
@@ -2727,6 +2745,8 @@ func season_player_name(player_id: String) -> String:
 		for p in arr:
 			if p is Dictionary and str(p.get("id", "")) == player_id:
 				return GameDB.player_display_name(p)
+	if departed_names.get(player_id) is Dictionary:
+		return GameDB.player_display_name(departed_names[player_id])
 	return ""
 
 
@@ -3236,6 +3256,10 @@ func _after_round(results: Array) -> void:
 	_board_after_round(results)
 	_rival_morale_after_round(results)
 	_prepare_media_conference(results)
+	# One optional ask a week (director, 2026-10-09, G1): a sit-down takes the
+	# week's slot and the press question waits for another week.
+	if not backing_talk.is_empty():
+		media_conference = {}
 	if season != null and season.is_season_over() \
 			and int(season_awards.get("year", 0)) != season_year:
 		_close_season_awards()
@@ -3408,19 +3432,41 @@ func _process_injuries(results: Array) -> void:
 		var rows := Injuries.apply_match(res, season.lists, season.seed,
 				int(res.get("round", season.round_index)))
 		last_injuries += rows
-		_log_injuries(rows)
+		_log_injuries(rows, str(res.get("label", "")))
 
 
-## Each new injury goes on the player's record (the season it happened), so
-## later decisions can cite his real history - only what this career saw.
-func _log_injuries(rows: Array) -> void:
+## Each new injury is a career fact (CareerFacts): the season, the match,
+## his club and what it was, so later decisions can cite his real history -
+## only what this career saw.
+func _log_injuries(rows: Array, label: String) -> void:
 	for r in rows:
-		for p in season.lists.get(str(r["club"]), []):
-			if str(p["id"]) == str(r["id"]):
-				var log: Array = p.get("injury_log", [])
-				log.append(season_year)
-				p["injury_log"] = log
-				break
+		CareerFacts.add(career_facts, str(r["id"]),
+				CareerFacts.row(season_year, label, "injury", str(r["club"]), "", str(r.get("kind", ""))))
+
+
+## A save from before career facts kept injuries on the player as bare years
+## (p["injury_log"]). They move to the fact store once, nothing invented, and
+## the old key goes. Every player the save holds is visited. A player can sit
+## in two lists as the same dict or, with an unlinked list, as two copies: his
+## years move the first time his id is met, and any other copy just drops them.
+func _migrate_injury_logs() -> void:
+	var all: Array = [my_list, free_agents]
+	if season != null:
+		for code in season.lists:
+			all.append(season.lists[code])
+	for code in league_lists:
+		all.append(league_lists[code])
+	var moved := {}
+	for arr in all:
+		for p in arr:
+			if not (p is Dictionary) or not (p as Dictionary).has("injury_log"):
+				continue
+			var id := str(p.get("id", ""))
+			if moved.has(id):
+				(p as Dictionary).erase("injury_log")
+				continue
+			moved[id] = true
+			CareerFacts.migrate_injury_log(career_facts, p)
 
 
 ## Suspensions count down when that player's club plays, then this round's
@@ -3817,7 +3863,7 @@ func _decide_retirements() -> void:
 			p["retiring"] = year
 			if str(code) == my_club or not Retirement.can_ask(p, list, year):
 				continue
-			var res := Retirement.answer(p, season_year, season_games(str(p["id"])))
+			var res := Retirement.answer(p, season_year, season_games(str(p["id"])), career_facts)
 			Retirement.apply(p, res, year)
 			if bool(res["stays"]) and int(p.get("overall", 0)) >= NEWS_MIN_OVR:
 				add_news("retirement", "%s (%s) has decided to play on in %d." % [
@@ -3858,7 +3904,7 @@ func talk_round(player_id: String) -> Dictionary:
 	var year := season_year + 1
 	if p.is_empty() or not offseason_open() or not Retirement.can_ask(p, my_list, year):
 		return {}
-	var res := Retirement.answer(p, season_year, season_games(player_id))
+	var res := Retirement.answer(p, season_year, season_games(player_id), career_facts)
 	Retirement.apply(p, res, year)
 	var name := GameDB.player_display_name(p)
 	add_news("retirement", ("%s will go around again in %d." % [name, year]) if bool(res["stays"])
@@ -6707,6 +6753,8 @@ func _my_result(results: Array) -> Dictionary:
 
 func _board_after_round(results: Array) -> void:
 	var res := _my_result(results)
+	# Last week's sit-down, unread, has had its week.
+	backing_talk = {}
 	# This week's one-off flags (rested, sore, heavy legs, fresh) end with
 	# the round.
 	for p in my_list:
@@ -6746,12 +6794,15 @@ func _board_after_round(results: Array) -> void:
 	# Left out while fit, the promise breaks and it stings, once, and the run
 	# is over; unable to play, the run waits. His one-week expectation is
 	# settled here rather than by the loop below, so it never stings twice.
+	var stats_all: Dictionary = res.get("players", {})
 	for p in my_list:
 		if not Backing.is_active(p):
 			continue
 		var pid := str(p["id"])
 		var run_state := Backing.after_match(p, played.has(pid), not _backing_unavailable.has(pid),
-				{"year": season_year, "label": str(res.get("label", ""))})
+				{"year": season_year, "label": str(res.get("label", ""))}, stats_all.get(pid, {}))
+		if backing_talk.is_empty() and (run_state == "done" or run_state == "broken"):
+			backing_talk = Backing.talk(p, Backing.ledger(p).back())
 		if run_state == "broken":
 			ClubLife.add_morale(p, -CoachEffects.softened(Backing.STING, float(soft.get(pid, 0.0))))
 		p.erase("expects_game")
@@ -6826,6 +6877,15 @@ func _prepare_media_conference(results: Array) -> void:
 		"result": res, "club": my_club, "opponent_name": GameDB.club_name(opp),
 		"round": round_no, "injuries": injuries, "star": star,
 	}, media_memory)
+
+
+func backing_talk_pending() -> bool:
+	return not backing_talk.is_empty()
+
+
+func close_backing_talk() -> void:
+	backing_talk = {}
+	mark_dirty()
 
 
 func media_conference_pending() -> bool:
@@ -7331,6 +7391,9 @@ func _retirees_to_coaching(retired: Array, listed: Dictionary) -> void:
 ## A playing career has ended - retired, or delisted and not picked up - and
 ## this is the last moment the player is in hand.
 func _career_over(p: Dictionary) -> void:
+	var gone_id := str(p.get("id", ""))
+	if gone_id != "" and not departed_names.has(gone_id):
+		departed_names[gone_id] = CareerFacts.name_card(p)
 	if coaches.is_empty():
 		return
 	var pid := str(p.get("id", ""))
