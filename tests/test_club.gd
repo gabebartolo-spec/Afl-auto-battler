@@ -817,6 +817,38 @@ func _test_backing_rules() -> void:
 	Backing.start(kid2, 2028, 2, 5)
 	_check(Backing.ledger(kid2).size() == 2 and str(Backing.ledger(kid2)[0]["state"]) == "broken"
 			and Backing.is_active(kid2), "The ledger keeps what you did, and a new run can follow")
+	# What became of each run is remembered, and a named side that leaves him out says so.
+	_check(Backing.note(kid2, false).ends_with("game one of three. Not named: leave him out and the promise breaks.")
+			and Backing.note(kid2, true).ends_with("game one of three."),
+			"Not named while fit: the reminder says the promise breaks (%s)" % Backing.note(kid2, false))
+	_check(Backing.memory_bits(kid2) == ["Promised a run in 2027, left out before he played a game of it."],
+			"A broken run is remembered; the one on now is not (%s)" % str(Backing.memory_bits(kid2)))
+	_check(Backing.memory_bits(kid3) == ["Promised a run in 2027; the season ended with three games to go."],
+			"A lapsed run is remembered (%s)" % str(Backing.memory_bits(kid3)))
+	var kid4 := _kid(GameState.my_list[25], 5)
+	Backing.start(kid4, 2028, 4, 5)
+	Backing.after_match(kid4, true, true)
+	Backing.after_match(kid4, true, true, {"year": 2028, "label": "Round 5"})
+	Backing.after_match(kid4, false, true, {"year": 2028, "label": "Round 6"})
+	_check(Backing.memory_bits(kid4) == ["Promised a run in 2028, left out after two games."]
+			and not Backing.ended_in(kid4, 2028, "Round 6", "broken").is_empty(),
+			"Left out after two games is said as it happened (%s)" % str(Backing.memory_bits(kid4)))
+	var lines := Firsts.match_lines({"roster": [[]], "label": "Round 6"}, 0, 2028,
+			func(_id): return {}, [kid4])
+	_check(lines == ["%s was left out. The run you promised him is over." % GameDB.player_display_name(kid4)],
+			"Full time says a promise broken that day (%s)" % str(lines))
+	_check(Firsts.match_lines({"roster": [[]], "label": "Round 7"}, 0, 2028, func(_id): return {}, [kid4]).is_empty(),
+			"...and only that day")
+	var moved: Dictionary = kid4.duplicate(true)
+	moved["club"] = "NOT_" + str(kid4.get("club", ""))
+	_check(Backing.memory_bits(moved).is_empty() and not Backing.memory_bits(kid4).is_empty(),
+			"A run promised at one club is not remembered on his line at another (%s)" % str(Backing.memory_bits(moved)))
+	var kid5 := _kid(GameState.my_list[24], 5)
+	Backing.start(kid5, 2028, 4, 5)
+	for i in range(Backing.RUN_GAMES):
+		Backing.after_match(kid5, true, true)
+	_check(Backing.memory_bits(kid5) == ["Given a three-game run in 2028."],
+			"A run kept is remembered (%s)" % str(Backing.memory_bits(kid5)))
 	# Auto-pick treats a run as a promise, ruck included.
 	var list := []
 	for p in GameDB.club_list("COL"):
@@ -872,6 +904,15 @@ func _test_backing_flow() -> void:
 		texts.append(str(n["text"]))
 	_check(notes.size() == 2 and texts.has(Backing.note(kid)) and texts.has(Backing.note(low)),
 			"Selection is told each run in a line (%s)" % str(texts))
+	# A promised player you set OUT is not named: the reminder says the promise breaks.
+	var mine_sel := GameState.my_selection()
+	GameState.set_selection({"OUT": [str(low["id"])]})
+	var out_text := ""
+	for n in GameState.backing_notes():
+		if str(n["player_id"]) == str(low["id"]):
+			out_text = str(n["text"])
+	GameState.set_selection(mine_sel)
+	_check(out_text.ends_with("the promise breaks."), "Set OUT while fit: the reminder says the promise breaks (%s)" % out_text)
 	# Three games: both play every week (healed between rounds so the run is
 	# not at the mercy of a random injury) and the runs are done.
 	for i in range(Backing.RUN_GAMES):
