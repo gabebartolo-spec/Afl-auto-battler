@@ -48,16 +48,20 @@ func _run() -> void:
 		if str(a[i]) == "--scale":
 			scale = maxi(1, int(a[i + 1]))
 	if a.has("--lossless"):
-		# Before any vignette script loads: its preloads then find these in the cache.
+		# The vignette scripts preload the sheets as soon as they're parsed, so swap the data
+		# under the loaded textures' RIDs instead; the format printed is the proof.
 		var paths := ["figures_shade", "figures_mask", "figures_design"]
 		for f in DirAccess.get_files_at("res://assets/vignette"):
 			if f.begins_with("hair_") and f.ends_with(".png"):
 				paths.append(f.get_basename())
 		for p in paths:
 			var path := "res://assets/vignette/%s.png" % p
+			var tex: Texture2D = load(path)
+			var was: int = tex.get_image().get_format()
 			var img := Image.load_from_file(ProjectSettings.globalize_path(path))
-			ImageTexture.create_from_image(img).take_over_path(path)
-		print("ART lossless: ", paths.size(), " sheets from their PNGs")
+			img.convert(Image.FORMAT_RGBA8)
+			RenderingServer.texture_replace(tex.get_rid(), RenderingServer.texture_2d_create(img))
+			print("ART lossless %s: format %d -> %d" % [p, was, tex.get_image().get_format()])
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
