@@ -532,13 +532,6 @@ func _run() -> void:
 	_check(gf_line.begins_with(_db.club_name("FRE")) and gf_line.contains("d.  " + _db.club_name("BRL")),
 			"Season review: the Grand Final winner comes first, home or away (%s)" % gf_line)
 
-	# The Grand Final line names the premiers first, at either end.
-	var review = load("res://scripts/ui/SeasonReviewScene.gd")
-	var gf_line: String = review.gf_text({"home": "BRL", "away": "FRE", "score": [61, 126],
-			"goals": [8, 19], "behinds": [13, 12]}, "FRE")
-	_check(gf_line.begins_with(_db.club_name("FRE")) and gf_line.contains("d.  " + _db.club_name("BRL")),
-			"Season review: the Grand Final winner comes first, home or away (%s)" % gf_line)
-
 	# --- a saved career shows Continue, and it loads -------------------------
 	_state.start_season("SYD", _db.club_list("SYD"))
 	_state.advance()
