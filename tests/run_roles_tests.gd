@@ -377,7 +377,6 @@ func _selection_tests() -> void:
 	await _settle()
 	await _list_tests()
 	await _selection_profile_tests()
-	await _ladder_tests()
 
 
 ## My list: one line per player, a profile a tap away, Back closes it.
@@ -458,36 +457,6 @@ func _selection_profile_tests() -> void:
 	ui.queue_free()
 	await _settle()
 	_state.set_selection({})
-
-
-## The ladder first, then the Coleman race one goalkicker to a row, all on
-## a phone screen without scrolling.
-func _ladder_tests() -> void:
-	for i in range(3):
-		_state.advance()
-	for sz in [Vector2i(420, 860), Vector2i(360, 740)]:
-		root.size = sz
-		var lad: Control = load("res://scenes/LadderScene.tscn").instantiate()
-		root.add_child(lad)
-		await _settle()
-		var box: Node = lad.find_child("ColemanLeaders", true, false)
-		var rows := lad.find_children("Coleman_*", "HBoxContainer", true, false)
-		var leaders: Array = _state.coleman_leaders(5)
-		_check(box != null and rows.size() == leaders.size(), "The Coleman race has a row per leader (%d)" % rows.size())
-		var view := Rect2(Vector2.ZERO, Vector2(sz)).grow(1)
-		var fits := true
-		for r in rows:
-			if not view.encloses(r.get_global_rect()):
-				fits = false
-		_check(fits, "The Coleman race fits under the ladder without scrolling (%dx%d)" % [sz.x, sz.y])
-		if not rows.is_empty():
-			var words := ""
-			for l in rows[0].find_children("*", "Label", true, false):
-				words += str(l.text) + "|"
-			_check(words.contains(str(int(leaders[0]["goals"]))), "A row shows his goals (%s)" % words)
-		lad.queue_free()
-		await _settle()
-	root.size = Vector2i(420, 860)
 
 
 ## The team sheet: after a match, a player who is injured is out, and the

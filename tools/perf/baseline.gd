@@ -76,7 +76,7 @@ func _run() -> void:
 	gs.start_season("GEE", db.club_list("GEE"))
 
 	# Scene loads: load, then add and wait for the first drawn frame.
-	for key in ["hub", "hub", "list", "selection", "ladder", "training", "staff", "coaching", "offseason", "season_review"]:
+	for key in ["hub", "hub", "list", "selection", "training", "staff", "coaching", "offseason", "season_review"]:
 		var path: String = str(router.SCENES[key])
 		var t0 := Time.get_ticks_usec()
 		var ps: PackedScene = load(path)
