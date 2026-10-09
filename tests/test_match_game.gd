@@ -1630,6 +1630,34 @@ func _test_loose_man_read() -> void:
 			"A good reader makes the mark harder; a poor one never makes it easier")
 	_check(sim._roam_spoil_p(good) > sim._roam_spoil_p(poor),
 			"A good reader gets a fist to more of the balls his teammate missed")
+	# Getting to the contest is not winning it: when the defender in it gets
+	# the fist (or nobody does), the ball comes out with the defender, not
+	# with the spare who arrived as the extra body.
+	sim.set_interceptor(1, str(good["id"]), false)
+	var gid := str(good["id"])
+	var reached_lost := 0
+	var lost_to_def := 0
+	var won := 0
+	var credit_ok := true
+	for i in 600:
+		var before: Dictionary = (sim.player_stats.get(gid, {}) as Dictionary).duplicate()
+		var r := sim.resolve_forward50(0, 50.0, null)
+		var after: Dictionary = sim.player_stats.get(gid, {})
+		var reached := float(after.get("roam_contests", 0.0)) > float(before.get("roam_contests", 0.0))
+		var beat := float(after.get("roam_wins", 0.0)) > float(before.get("roam_wins", 0.0))
+		if str(r.get("outcome", "")) != "turnover" or not reached:
+			continue
+		var actor_id := str((r["actor"] as Dictionary).get("id", ""))
+		if not beat:
+			reached_lost += 1
+			if actor_id != gid:
+				lost_to_def += 1
+		elif actor_id == gid:
+			won += 1
+	_check(reached_lost > 0 and lost_to_def == reached_lost,
+			"When the defender in the contest wins it, the rebound is his, not the loose man's (%d of %d)" % [lost_to_def, reached_lost])
+	_check(won > 0,
+			"The loose man still comes away with the ones he got the fist to (%d)" % won)
 	(good["attr"] as Dictionary).merge(good_attr, true)
 	(poor["attr"] as Dictionary).merge(poor_attr, true)
 

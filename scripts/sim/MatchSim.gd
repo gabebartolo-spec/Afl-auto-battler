@@ -2628,9 +2628,9 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		if not crumb.is_empty():
 			return crumb
 
-	# The spare who got a fist to it, or who read the drop, is the one who
-	# comes away with it.
-	var taker = roamer if roaming else defender
+	# The spare comes away with it only when he got the fist to it; reaching
+	# the contest is not winning it. Otherwise the defender in it does.
+	var taker = roamer if (roaming and spoiler == roamer) else defender
 	_t(opp, "rebounds")
 	_p(taker, "rebounds")
 	_intercept(opp, taker, not spoilt, not matched.is_empty() or roaming)
