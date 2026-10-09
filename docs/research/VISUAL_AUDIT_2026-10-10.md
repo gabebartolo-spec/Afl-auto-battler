@@ -506,6 +506,14 @@ break, since six plans or five names in one row would scroll past a phone's edge
 rotations (three short words each) are the single-row text choices. Boards in
 `agent-handoffs/lead/phase1/` and `phase3/`, the helper's in `agent-handoffs/assistant_captures/phase2/`.
 
+**Answered 2026-10-10 (~10:50, director, in the leader's session):** (1) the old-star-for-best-kid
+trade (lever audit 2, `LEVER_TRUTH_AUDIT_2.md`): **leave it**; it is a real, discoverable trade. No
+guard, no re-pricing. (2) Motion phase C: **no owned reference footage**; the art agent keys the
+drop punt, the gather and the carry from pose stills and the audit's descriptions, with a second
+pass later if it reads wrong. (3) The 4.8 phone measurement: **yes**, the director installs art's
+Android debug build with the frame-time probe when it is ready and runs one match. (4) The leader's
+next piece after the open PRs: **the mini-figure prototype, phone-gated** (§8 Phase 3.3).
+
 These are taste or trade-off calls; everything else above is objectively good and proceeds when
 assigned.
 
