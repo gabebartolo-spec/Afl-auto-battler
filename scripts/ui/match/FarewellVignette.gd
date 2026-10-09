@@ -41,6 +41,9 @@ const BOUNDARY_AT := 72.0
 ## figure art covered ~4 of a phone's, so one-pixel details went soft). A static so a review
 ## capture can compare framings (tools/visual/capture_farewell.gd --lens).
 static var lens := 1.68
+## Where the far end of the guard sits, as a fraction down the screen: a wider lens lowers the
+## stand, so it moves up with the lens to keep the crowd at the top of the screen.
+static var horizon_at := 0.508
 
 var copy := ""
 var _left := false
@@ -172,7 +175,7 @@ func _set_camera() -> void:
 	_focal = base * _zoom
 	# The far end of the guard sits a little above the middle of the screen.
 	var depth := 12.0 + _cam_d
-	_horizon = size.y * 0.508 - _focal * _cam_h / depth
+	_horizon = size.y * horizon_at - _focal * _cam_h / depth
 
 
 func _ground_to_scene() -> Transform2D:

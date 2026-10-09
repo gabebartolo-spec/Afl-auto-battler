@@ -13,6 +13,7 @@ extends SceneTree
 ## --layers: a layer pass - kit recolouring off, each man in the guard one distinct flat tint,
 ## to show whose arms are whose.
 ## --lens X: the camera's push on the pre-match scene (FarewellVignette.lens, 1.68 by default).
+## --horizon F: where the far end of the guard sits down the screen (FarewellVignette.horizon_at).
 ## --lossless: draw from the sheets' PNGs as they are, not the imported VRAM-compressed
 ## copies. A desktop GPU loads BPTC, which smears the mask's channels at sharp edges (sock
 ## tops, small hands) so the shader paints boot colour there; an Android phone loads ASTC,
@@ -38,6 +39,7 @@ func _run() -> void:
 	var games := 200
 	var scale := 1
 	var lens := 0.0
+	var horizon := 0.0
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
@@ -47,6 +49,8 @@ func _run() -> void:
 			opp = str(a[i + 1])
 		if str(a[i]) == "--games":
 			games = int(a[i + 1])
+		if str(a[i]) == "--horizon":
+			horizon = float(a[i + 1])
 		if str(a[i]) == "--lens":
 			lens = float(a[i + 1])
 		if str(a[i]) == "--scale":
@@ -89,7 +93,9 @@ func _run() -> void:
 	var Farewell = load("res://scripts/ui/match/FarewellVignette.gd")
 	if lens > 0.0:
 		Farewell.lens = lens
-	print("ART lens ", Farewell.lens)
+	if horizon > 0.0:
+		Farewell.horizon_at = horizon
+	print("ART lens ", Farewell.lens, " horizon ", Farewell.horizon_at)
 	print("ART sheet ", load("res://scripts/ui/match/VignetteFigures.gd").SHEET_SIZE, " caption: ", Farewell.caption(ms))
 	var Stoppage = load("res://scripts/ui/match/StoppageVignette.gd")
 	Stoppage.log_frames = true
