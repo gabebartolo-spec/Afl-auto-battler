@@ -212,14 +212,29 @@ func _gf_line(season: Season) -> String:
 	if last.is_empty():
 		return "not played"
 	var gf: Dictionary = last[0]
-	var s: Array = gf["score"]
-	var extra := "  (level - %s advance on ladder position)" % \
-			GameDB.club_short(str(gf["home"])) if bool(gf.get("decided_on_ladder", false)) else ""
+	var winner := str((season.finals.get("slots", {}) as Dictionary).get("W_GF", ""))
+	return gf_text(gf, winner)
+
+
+## "Fremantle 19.12 (126)  d.  Brisbane 8.13 (61)": the premiers first,
+## whichever end they were at (the line once always put the home side first).
+## Level after extra time, the side that advances on ladder position is named.
+static func gf_text(gf: Dictionary, winner: String) -> String:
+	var sides := [0, 1]
+	var codes := [str(gf["home"]), str(gf["away"])]
+	var sc: Array = gf["score"]
+	var won := 0 if int(sc[0]) >= int(sc[1]) else 1
+	if winner == codes[1] or (winner == "" and int(sc[1]) > int(sc[0])):
+		won = 1
+	elif winner == codes[0]:
+		won = 0
+	sides = [won, 1 - won]
+	var extra := "  (level - %s advance on ladder position)" % GameDB.club_short(codes[won]) 			if bool(gf.get("decided_on_ladder", false)) else ""
 	return "%s %s  d.  %s %s%s" % [
-			GameDB.club_name(str(gf["home"])),
-			UiKit.scoreline(int(gf["goals"][0]), int(gf["behinds"][0])),
-			GameDB.club_name(str(gf["away"])),
-			UiKit.scoreline(int(gf["goals"][1]), int(gf["behinds"][1])), extra]
+			GameDB.club_name(codes[sides[0]]),
+			UiKit.scoreline(int(gf["goals"][sides[0]]), int(gf["behinds"][sides[0]])),
+			GameDB.club_name(codes[sides[1]]),
+			UiKit.scoreline(int(gf["goals"][sides[1]]), int(gf["behinds"][sides[1]])), extra]
 
 
 func _my_results() -> Array:
