@@ -40,6 +40,9 @@ var _last_tactics := {}
 var _skipping := false
 var _crowd: CrowdSound = null    # FL-004: the crowd (presentation only)
 var _fulltime_shown := false
+## FL-007: the milestone this match honours after the siren (GameState's banner
+## milestone, read before full time counts the game), or {} for none.
+var _farewell := {}
 var _coach_overlay: Control
 var _sheet_overlay: Control
 var _reflow_queued := false
@@ -90,6 +93,7 @@ func _ready() -> void:
 		_res["events"] = []
 		_my_side = 0 if str(_res["home"]) == GameState.my_club else 1
 		_pos_before = GameState.my_position()
+		_farewell = _farewell_for(GameState.pending_match)
 	else:
 		_res = GameState.last_match
 		_review = GameState.review_requested
@@ -1688,7 +1692,44 @@ func _on_finished() -> void:
 	if _interactive:
 		GameState.finish_interactive_match(_res)
 	_sync_controls()
+	if not _farewell.is_empty():
+		# A milestone game: the guard of honour and chaired off, then full time.
+		var v := FarewellVignette.open(get_tree().root, _farewell["ms"], _farewell["man"],
+				GameState.my_club, str(_farewell["opp"]), _farewell["mine"], _farewell["theirs"],
+				"Full time", str(GameState.pending_match.get("weather", "")) == "wet")
+		_farewell = {}
+		tree_exiting.connect(func():            # Back out of the match: it goes too
+			if is_instance_valid(v):
+				v.finish_now())
+		await v.done
+		if not is_inside_tree():
+			return
 	_show_fulltime()
+
+
+## Who the scene after the siren honours, and both sides' players: {} unless your
+## side has a milestone man (FarewellVignette.caption) who is in the side today.
+func _farewell_for(match: Dictionary) -> Dictionary:
+	if GameState.season == null or GameState.my_club == "":
+		return {}
+	var ms: Dictionary = GameState.banner_context(match).get("milestone", {})
+	if FarewellVignette.caption(ms) == "":
+		return {}
+	var sq := GameState.my_squad()
+	var mine: Array = sq.ground + sq.bench
+	var man := {}
+	for p in mine:
+		if str(p.get("id", "")) == str(ms.get("id", "")):
+			man = p
+	if man.is_empty():
+		return {}
+	var opp := str(match["away"]) if str(match["home"]) == GameState.my_club else str(match["home"])
+	var season: Season = GameState.season
+	var theirs: Array = []
+	if season.lists.has(opp):
+		var osq := Squad.new(opp, season.lists[opp], false, opp, season.selections.get(opp, {}))
+		theirs = osq.ground + osq.bench
+	return {"ms": ms, "man": man, "opp": opp, "mine": mine, "theirs": theirs}
 
 
 # ---------------------------------------------------------------------------

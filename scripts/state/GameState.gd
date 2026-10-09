@@ -2465,15 +2465,15 @@ func _banner_milestone(code: String, farewell_ok: bool) -> Dictionary:
 		var played := games_played(p)
 		var next := played + 1
 		if Career.complete(p) and (BANNER_MILESTONES.has(next) or played == 0) and next > best_games:
-			best = {"player": surname, "name": name, "games": next}
+			best = {"player": surname, "name": name, "games": next, "id": str(p.get("id", ""))}
 			best_games = next
 		elif Career.complete(p):
 			var here := int(club_tally(p, code)["games"]) + 1
 			if BANNER_CLUB_MILESTONES.has(here) and here > club_games:
-				club = {"player": surname, "name": name, "games": here, "club": true}
+				club = {"player": surname, "name": name, "games": here, "club": true, "id": str(p.get("id", ""))}
 				club_games = here
 		if farewell_ok and farewell.is_empty() and retiring_now(p):
-			farewell = {"player": surname, "name": name, "games": "farewell"}
+			farewell = {"player": surname, "name": name, "games": "farewell", "id": str(p.get("id", ""))}
 	if not best.is_empty():
 		return best
 	return club if not club.is_empty() else farewell
