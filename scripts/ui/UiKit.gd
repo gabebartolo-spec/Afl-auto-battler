@@ -144,12 +144,8 @@ const ROLE_COL := 72        # the role tag column in a player row (fits "RUCK/MI
 ## outside this set (docs/VISUAL_STYLE_GUIDE.md §2.3).
 const SIZES := [TINY, FINE, SMALL, SECONDARY, BODY, NAME, H2, 20, NUMBER, H1, GLYPH, RATING, HERO]
 
-## The small-size face (director decision pending, audit §9.1): "" keeps ARD
-## Signwriter at every size; "barlow" sets SECONDARY and FINE in Barlow, the
-## text face the game shipped with, for the A/B capture.
-const SMALL_FONT := preload("res://assets/fonts/Barlow-Regular.ttf")
-const SMALL_BOLD := preload("res://assets/fonts/Barlow-SemiBold.ttf")
-static var small_face := ""
+## One family at every size, ARD Signwriter down to FINE (director, 2026-10-10,
+## audit §9.1 A/B: Signwriter over Barlow for the small sizes).
 
 ## Spacing and corners.
 const GAP := 8          # between rows
@@ -308,10 +304,7 @@ static func lbl(text: String, fs := 16, color := AUTO_COLOUR, bold := false) -> 
 		color = TEXT
 	var l := Label.new()
 	l.text = text
-	if small_face == "barlow" and fs <= SECONDARY:
-		l.add_theme_font_override("font", SMALL_BOLD if bold else SMALL_FONT)
-	else:
-		l.add_theme_font_override("font", BOLD if bold else FONT)
+	l.add_theme_font_override("font", BOLD if bold else FONT)
 	l.add_theme_font_size_override("font_size", fs)
 	l.add_theme_color_override("font_color", color)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -488,16 +481,10 @@ static var SURFACE := Color("2a2823")
 ## The chosen one of a set (a plan, a filter, a tab-like toggle): TEXT ink and
 ## a 2 px TEXT outline on the quiet surface. The rest: MUTED ink on the same
 ## surface. Never a fill, never the club colour, so a chosen option cannot be
-## mistaken for the primary action (guide §2.2). `tint` is the director's A/B
-## alternative (audit §9.2): a faint club tint behind the chosen one.
-static var selection_tint := false
-
-
+## mistaken for the primary action (guide §2.2). The director chose this over a
+## faint club tint behind the chosen one (2026-10-10, audit §9.2 A/B).
 static func _choice_box(on: bool) -> StyleBoxFlat:
-	var bg := SURFACE
-	if on and selection_tint:
-		bg = SURFACE.lerp(team_colour(), 0.22)
-	var sb := style(bg, 8, RADIUS, TEXT if on else Color.TRANSPARENT)
+	var sb := style(SURFACE, 8, RADIUS, TEXT if on else Color.TRANSPARENT)
 	sb.set_border_width_all(2 if on else 0)
 	return sb
 
