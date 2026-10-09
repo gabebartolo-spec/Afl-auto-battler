@@ -677,6 +677,8 @@ static func make_custom(spec: Dictionary, year: int, career_seed: int) -> Dictio
 	p["generic_name"] = full
 	p["name"] = full
 	p["nickname"] = str(spec.get("nickname", "")).strip_edges()
+	# FL-005: the club he grew up following, his choice ("" = not recorded).
+	p["fav_club"] = str(spec.get("fav_club", "")).strip_edges()
 	p["foot"] = "L" if str(spec.get("foot", "R")) == "L" else "R"
 	p["number_pref"] = clampi(int(spec.get("number_pref", 0)), 0, 99)
 	if spec.get("look") is Dictionary:

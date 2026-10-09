@@ -261,6 +261,13 @@ static func _identity(v: VBoxContainer, p: Dictionary) -> void:
 		field.text_submitted.connect(func(_t): edit.emit_signal("pressed"))
 	if nick != "" or mine:
 		v.add_child(row)
+	# The club he followed as a kid (FL-005): a sourced fact for a real player,
+	# else "Not recorded" - never a guess.
+	var fav := FictionalIdentity.favourite_club(p)
+	var fl := UiKit.lbl("Favourite club: %s" % (GameDB.club_short(fav) if fav != "" else "Not recorded"),
+			UiKit.SMALL, UiKit.MUTED)
+	fl.name = "ProfileFavouriteClub"
+	v.add_child(fl)
 	var what := FictionalIdentity.interest(p)
 	if what != "":
 		var il := UiKit.lbl("Outside footy: %s." % what, UiKit.SMALL, UiKit.MUTED)
