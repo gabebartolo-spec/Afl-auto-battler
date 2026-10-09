@@ -24,6 +24,7 @@ func run() -> void:
 	_test_class_tiers()
 	_test_retirement_talk()
 	_test_custom_prospect()
+	_test_panel_fit()
 	GameState.replay_seed = 0
 	print("Intake tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -633,3 +634,96 @@ func _test_custom_prospect() -> void:
 			"He and his roll survive a reload")
 	_check(GameState.add_custom_prospect(spec) != "", "No second prospect once the career has started")
 	GameState.reset()
+
+
+## RPG-007 (director, 2026-10-09: "Yes, as facts"): each name the recruiting
+## panel puts up gets at most one line on how he fits the list, and only a
+## true one; "the panel is split" only from a real gap between the scouts'
+## read and his Combine. Never an order.
+func _test_panel_fit() -> void:
+	var none := {"RUCK": {"short": 0, "light": 0}, "MID": {"short": 0, "light": 0},
+			"DEF": {"short": 0, "light": 0}, "FWD": {"short": 0, "light": 0}}
+	var base: Dictionary = GameDB.all_draftees_sorted()[0].duplicate(true)
+	base["role2"] = ""
+	# A hole, each way.
+	var kb: Dictionary = base.duplicate(true)
+	kb["role"] = "DEF"
+	kb["height_cm"] = 194
+	var hole: Dictionary = none.duplicate(true)
+	hole["DEF"] = {"short": 1, "light": 0}
+	_check(RecruitMeeting.fit_line(kb, hole, "balanced") == "A key back: we can't field a full back line.",
+			"A key back for a list that can't field a back line says so (%s)" % RecruitMeeting.fit_line(kb, hole, "balanced"))
+	_check(RecruitMeeting.fit_line(kb, none, "balanced") == "", "No hole, no hole line")
+	var tall_fwd: Dictionary = base.duplicate(true)
+	tall_fwd["role"] = "FWD"
+	tall_fwd["role2"] = "DEF"
+	tall_fwd["height_cm"] = 196
+	_check(RecruitMeeting.fit_line(tall_fwd, hole, "balanced") == "Also a key back: we can't field a full back line.",
+			"Through his second position he is 'also' a back, never called one outright")
+	var rk: Dictionary = base.duplicate(true)
+	rk["role"] = "RUCK"
+	var one_ruck: Dictionary = none.duplicate(true)
+	one_ruck["RUCK"] = {"short": 1, "light": 0}
+	_check(RecruitMeeting.fit_line(rk, one_ruck, "contest") == "A ruck: we only have one we'd trust.",
+			"A ruck for a list one ruck deep says so")
+	_check(RecruitMeeting.fit_line(rk, none, "contest") == "", "A ruck gets no line when the ruck is covered (and no style line)")
+	# The game you play, each way: only when his football is up to it.
+	var mid: Dictionary = base.duplicate(true)
+	mid["role"] = "MID"
+	mid["attr"]["pressure"] = 62
+	_check(RecruitMeeting.fit_line(mid, none, "defensive") == "Suits our pressure game.",
+			"A midfielder with real pressure suits a pressure game")
+	mid["attr"]["pressure"] = 40
+	_check(RecruitMeeting.fit_line(mid, none, "defensive") == "", "Without the pressure, no style line")
+	mid["attr"]["pressure"] = 62
+	_check(RecruitMeeting.fit_line(mid, none, "balanced") == "", "A balanced plan leans on no kind of player: no style line")
+	var back: Dictionary = base.duplicate(true)
+	back["role"] = "DEF"
+	back["height_cm"] = 185
+	back["attr"]["pressure"] = 90
+	_check(RecruitMeeting.fit_line(back, none, "defensive") == "",
+			"A back does not carry a press (PlanFit's lines), so no pressure line")
+	var both: Dictionary = hole.duplicate(true)
+	both["MID"] = {"short": 1, "light": 0}
+	_check(RecruitMeeting.fit_line(mid, both, "defensive") == "A midfielder: we can't field a full midfield.",
+			"One fit line at most: the hole before the style")
+	# Real meetings, two seeded drafts: every fit line matches the list it was
+	# said about, and nothing reads as an order.
+	for seed in [SUITE_SEED, 4242]:
+		GameState.reset()
+		GameState.replay_seed = seed
+		GameState.start_season("COL", GameDB.club_list("COL"))
+		GameState.season.round_index = GameState.season.fixture.size()
+		GameState.open_offseason()
+		_check(GameState.begin_intake_draft(), "(setup) the intake opens, seed %d" % seed)
+		var draft: Draft = GameState.draft
+		var status := draft.position_status()
+		var notes := RecruitMeeting.notes(draft, GameState.my_list, GameState.list_profile(), "defensive")
+		var true_lines := true
+		var orders := false
+		for row in notes["names"]:
+			var line := str(row["line"])
+			var p := {}
+			for q in draft.pool:
+				if str(q["id"]) == str(row["id"]):
+					p = q
+			var want := RecruitMeeting.fit_line(p, status, "defensive")
+			if (want == "" and (line.contains("can't field") or line.contains("light for depth") or line.contains("Suits our"))) 					or (want != "" and not line.contains(want)):
+				true_lines = false
+			if line.contains("split") != RecruitMeeting.split(p, draft.user_club, draft.seed, draft.scouting_mult_for(draft.user_club)):
+				true_lines = false
+			for w in ["best", "should", "take him", "must", "recommend"]:
+				if line.to_lower().contains(w):
+					orders = true
+		_check(true_lines, "Seed %d: every fit and split line is what the list and the reads say" % seed)
+		_check(not orders, "Seed %d: no name line reads as an order" % seed)
+	# The split is a minority view, not a habit (SPLIT_GAP set from the data).
+	var pool: Array = GameDB.all_draftees_sorted()
+	var split := 0
+	var tested := 0
+	for p in pool:
+		if Combine.tested(p, SUITE_SEED):
+			tested += 1
+			if RecruitMeeting.split(p, "COL", SUITE_SEED):
+				split += 1
+	_check(split > 0 and split * 4 < tested, "The panel is split on some prospects, not most (%d of %d)" % [split, tested])
