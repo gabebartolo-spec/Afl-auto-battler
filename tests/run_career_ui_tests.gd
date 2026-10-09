@@ -72,6 +72,27 @@ func test_media_conference_rules() -> void:
 	var close: Dictionary = MediaConferenceScript.pick({"club": "CAR", "opponent_name": "Collingwood", "round": 16,
 			"result": {"home": "COL", "away": "CAR", "score": [84, 86]}}, {})
 	_check(str(close.get("key", "")) == "close_game", "Close finishes can drive the press conference")
+	# Recurring journalists (RPG-002): each question has its own asker, and what
+	# you say can come back.
+	_check(str(heavy.get("journalist", "")) == "muckraker" and str(heavy.get("by", "")) == "Gary Haddon, The Siren"
+			and str(close.get("journalist", "")) == "stats", "Each question comes from its own journalist")
+	var said := {"said|big_win": {"year": 2027, "option": 1, "opp": "Carlton"}}
+	var back: Dictionary = MediaConferenceScript.pick({"club": "COL", "opponent_name": "Essendon", "round": 12, "year": 2027,
+			"result": {"home": "COL", "away": "ESS", "score": [40, 100]}}, said)
+	var fresh: Dictionary = MediaConferenceScript.pick({"club": "COL", "opponent_name": "Essendon", "round": 12, "year": 2028,
+			"result": {"home": "COL", "away": "ESS", "score": [40, 100]}}, said)
+	_check(str(back.get("question", "")).begins_with("After beating Carlton you said your method was the standard")
+			and not str(fresh.get("question", "")).contains("you said"),
+			"Claim your method after a big win and the Muckraker quotes it after the next thrashing, that season only")
+	var geek: Dictionary = MediaConferenceScript.pick({"club": "COL", "opponent_name": "Carlton", "round": 16,
+			"result": {"home": "COL", "away": "CAR", "score": [80, 83],
+			"team": [{"inside50": 54, "clearances": 36}, {"inside50": 41, "clearances": 38}]}}, {})
+	_check(str(geek.get("question", "")) == "You won the inside 50s 54 to 41 and still lost by 3. What went wrong?",
+			"The Stats Geek quotes a number that was true of the match (%s)" % str(geek.get("question", "")))
+	var kids: Dictionary = MediaConferenceScript.pick({"club": "COL", "opponent_name": "Carlton", "round": 15, "young": 6,
+			"result": {"home": "COL", "away": "CAR", "score": [88, 72]}}, {})
+	_check(str(kids.get("key", "")) == "young_side" and str(kids.get("journalist", "")) == "philosopher",
+			"A young side brings the Philosopher")
 	var stage = VignetteScript.new()
 	stage.size = Vector2(390, 300)
 	stage.club = "COL"
