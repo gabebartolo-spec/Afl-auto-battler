@@ -88,19 +88,19 @@ const STATS := {
 }
 
 const TOPICS := [
-	["Overall (OVR)", "A player's rating: mostly the stats his position relies on, then star power, with a little for durability. Defender, forward and ruck scales are stretched so the elite of every position reach the high 80s. It decides selection (the best by position take the field) and draft price. In a match it is the individual stats that count, not OVR."],
-	["Team strengths", "Contest is who wins the stoppages: your inside midfielders first, then your ruck and midfield ball use, with a little from your top stars. Attack is your forwards' goalkicking first, then your midfield's carry and your forwards' creating and marking. Defence is your defenders' pressure first, then their intercept, with some from a disciplined side."],
-	["Potential (POT)", "Where a player is projected to peak, from his age, his best recent season and his draft pick. It is a projection, not a limit, and it does not change. Each off-season, players 28 and under close part of the gap. Development gets harder near POT and much harder past it, for every club alike; now and then a player breaks out beyond it. A star coming back from an injury-shortened season gets a rehab year and closes most of the gap at once."],
-	["Injuries", "After every game each player who took the field has a small chance of injury, lower with high durability. Most are 1-2 weeks, the odd one ends a season. Injured players sit out automatically (your selection's gaps are filled), and everyone heals over the off-season."],
-	["Traits and synergies", "A player with a standout stat earns a trait (up to two, plus Hothead for poor discipline): Sharpshooter, Crumber, Contested bull, Interceptor and more, each with one match effect. Traits come and go with the stats, so training can unlock one - the player screen says how close he is. The right mix in a line switches on a synergy, such as the Engine room (four contested bulls) or a Tall-small forward line; the Team screen shows yours, and says when one is a single player short (\"Lockdown unit: 1 lockdown player short\")."],
-	["Legs and rotations", "Players tire on the ground and recover on the bench; tired players win less ball and kick fewer goals, and a tired midfield loses stoppages. Durability sets how fast a player tires. Pick a rotation policy in the coach box: rotate hard, normal, or ride your stars."],
-	["Match moments", "In a live match the game stops for your call: a set shot (take it, play on or bomb it long - with the odds), a star running on empty, a forward kicking a bag, a run of goals against, a tight last-quarter bounce. After each quarter, 'What your calls did' says what followed each call."],
-	["The board and morale", "Each season the board sets a goal from where your list ranks, and every result moves its confidence. Miss the goal and confidence drops; end a season well short and you get a final warning - do it again and you are sacked. Players' morale rises with games and wins and falls when they are left out fit (stars most): it nudges their form a little, and an unhappy player asks for more to re-sign. Most weeks bring a decision on the hub - answer it, or it takes the default when the round is played."],
-	["Weather", "Every match has a forecast, on the hub during the week: a perfect day, wet, windy or hot, from the ground and the time of year (the roofed stadium is always dry). Wet: fewer marks, more tackles, more turnovers, a little less accuracy; Win contest and the press get more from their plan, Attack corridor much less, Controlled tempo a little less. Windy: fewer marks and more turnovers, one end has the breeze (shots with it are a little easier, against it much harder) and the sides change ends each quarter; Controlled tempo gets more from its plan, the attacking plans less. Hot: freer, faster football and heavier legs late; the attacking plans get more, the press less. On a perfect day every plan plays as written."],
-	["Team form", "Every club's last five results set its form, from Cold through Steady to Hot; the latest game counts most and the one before it a little less. Five straight wins is the cap, a sixth adds nothing, and one loss ends a five-game streak at Good. Form gives a small edge in composure (a few fewer clangers) and at stoppages (a slice of home-ground advantage): at the top, a side wins only a few more games in a hundred than it would at Steady. It resets every season. The hub shows yours and your next opponent's."],
-	["Contracts", "Every player has a contract and a salary counted against the cap. After the Grand Final, Trades & Contracts opens: re-sign or release players whose deals are up, sign free agents, and offer trades. Rival clubs value trades by rating, potential and age, and pay more for positions they are short in."],
-	["XP and cost", "Every player on your list earns XP each game: more for playing, more for a big game. A fit player left out of the 23 plays in the reserves and earns half a full senior game; injured or rested players earn only the squad share. A stat point costs more the higher the stat already is, up to half price while a player is well below his POT, dearer close to it, and steeply dearer for every point past it. 99 is the cap."],
-	["Training plans", "Each player's plan is the kind of footballer he develops into, and it spends his XP after every game on what that job needs in a match. Position plan (the default, and what rival clubs use) trains what his position is judged on. The role plans lean him toward one job: inside or outside midfielder, key or small defender, key or small forward. Manual pauses his development - XP banks until you spend it by hand, and banked XP does not make him better. Change a plan at any time; banked XP is spent straight away. A player can also learn another position: 8 weeks training as, say, a key forward instead of in his own position (for the rest of that season, training in his own position can lift him only 2 more), and if he ends within 3 of his own rating there he can be picked there too - picked there whenever he is the better player for the spot. The season after, his training can lift him 1 more than usual, never past his POT. The job follows his size - key forward, key defender and ruck take height, small forwards and small defenders are small - and it takes POT 70 for a second position and 90 for a third. One a season per player, two at a time per club; rival clubs learn positions too, one player a season. A player who can play forward, midfield and back is a Unicorn."],
+	["Overall (OVR)", "A player's rating, built mostly from the stats his position relies on. It decides selection and draft price. In a match it is the individual stats that count."],
+	["Team strengths", "Contest is who wins the stoppages. Attack is your forwards' goalkicking and your midfield's carry. Defence is your defenders' pressure and intercept."],
+	["Potential (POT)", "Where a player is projected to peak. It is a projection, not a limit, and it never changes. Players 28 and under close part of the gap each off-season."],
+	["Injuries", "Anyone who takes the field can get hurt, less often with high durability. Most miss a week or two. Gaps in your side are filled for you, and everyone heals in the off-season."],
+	["Traits and synergies", "A standout stat earns a trait with one match effect. The right mix in a line switches on a synergy, like Engine room. The Team screen says when one is a single player short ('Lockdown unit: 1 lockdown player short')."],
+	["Legs and rotations", "Players tire on the ground and recover on the bench. Tired players win less ball and kick fewer goals. Set your rotation policy in the coach box."],
+	["Match moments", "The game stops for your call at big moments: a set shot, a tired star, a forward kicking a bag. After each quarter, 'What your calls did' says what followed."],
+	["The board and morale", "The board sets a goal each season and judges every result; miss it badly twice and you are sacked. Morale rises with games and wins and falls when a fit player is left out. It nudges form and re-signing."],
+	["Weather", "Each match has a forecast on the hub. Wet: fewer marks, more turnovers; Win contest and the press gain, Attack corridor loses. Windy: one end has the breeze. Hot: faster football, heavier legs late."],
+	["Team form", "A club's last five results set its form, Cold to Hot, the latest game counting most. It gives a small edge at the stoppages and in composure, and resets each season."],
+	["Contracts", "Every player has a contract counted against the cap. After the Grand Final you re-sign or release, sign free agents and trade."],
+	["XP and cost", "Players earn XP each game, more for playing and for a big game. A fit player left out earns half in the reserves. Stat points cost more the higher the stat, and 99 is the cap."],
+	["Training plans", "A plan is the kind of footballer a player develops into, and it spends his XP on what that job needs. Position plan is the default; Manual banks XP until you spend it. He can also spend 8 weeks learning another position, and is picked there if he ends within 3 of his own rating."],
 ]
 
 
@@ -121,7 +121,7 @@ static func show(parent: Control) -> Control:
 		v.add_child(UiKit.lbl(str(topic[0]), UiKit.NAME, UiKit.EMPH, true))
 		v.add_child(_para(str(topic[1]), 13, UiKit.TEXT))
 	v.add_child(UiKit.spacer(6))
-	v.add_child(UiKit.heading("THE 13 STATS", 22))
+	v.add_child(UiKit.heading("The 13 stats", UiKit.H1))
 	for row in GameState.TRAIN_STATS:
 		var key := str(row[0])
 		var info: Array = STATS.get(key, [])
@@ -133,8 +133,8 @@ static func show(parent: Control) -> Control:
 		card.add_child(cv)
 		cv.add_child(UiKit.lbl(str(row[1]), UiKit.NAME, UiKit.EMPH, true))
 		cv.add_child(_para(str(info[0]), 13, UiKit.TEXT))
-		cv.add_child(_para("In matches: " + str(info[2]), 12, UiKit.TEXT))
-		cv.add_child(_para("Built from: " + str(info[1]), 12, UiKit.MUTED))
+		# What it is and who needs it: the rest (what it is built from, how it
+		# plays out in a match) stays in STATS for the places that want it.
 		cv.add_child(_para("Who needs it: " + str(info[3]), 12, UiKit.MUTED))
 		v.add_child(card)
 	var ok := UiKit.btn("Got it", UiKit.NAME, true)
