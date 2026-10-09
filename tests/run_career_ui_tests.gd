@@ -312,8 +312,9 @@ func _run() -> void:
 	var mk_p: Control = current_scene.find_child("ForgeCreatePlayer", true, false)
 	var mk_c: Control = current_scene.find_child("ForgeCreateClub", true, false)
 	_check(mk_p != null and mk_c != null and mk_p.get_global_rect().end.x <= mk_c.get_global_rect().position.x
-			and mk_c.size.x <= root.size.x * 0.55,
-			"PC: the Forge puts your player and your club side by side")
+			and mk_c.size.x <= root.size.x * 0.55
+			and absf(mk_p.get_global_rect().position.y - mk_c.get_global_rect().position.y) < 1.0,
+			"PC: the Forge puts your player and your club side by side, level")
 	var club_tap: String = await Tap.tap(mk_c) if mk_c != null else "missing"
 	await _settle()
 	_check(club_tap == "" and current_scene.find_child("ForgeSaveClub", true, false) != null,

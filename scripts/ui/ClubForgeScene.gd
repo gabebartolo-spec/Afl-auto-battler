@@ -127,7 +127,7 @@ func _restore_scroll(sc: ScrollContainer, value: int) -> void:
 
 
 func _home(body: VBoxContainer) -> void:
-	body.add_child(UiKit.lbl("Your player", UiKit.H2, UiKit.TEXT, true))
+	body.add_child(_heading("Your player"))
 	var saved := GameState.forge_player()
 	if saved.is_empty():
 		var none := UiKit.lbl("Create a prospect and bring him into a new career. He enters the first National Draft like any other kid: where he goes, and what he becomes, is up to the clubs and to him.",
