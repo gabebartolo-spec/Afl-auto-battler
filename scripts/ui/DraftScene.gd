@@ -148,6 +148,7 @@ func _layout_signature() -> String:
 
 
 func _build_layout() -> void:
+	_club_backdrop()
 	var area := _usable_size()
 	_wide = area.x >= 760.0 and area.x > area.y
 	_short = area.y < 680.0
@@ -225,12 +226,12 @@ func _show_club_select() -> void:
 		var row := UiKit.hbox(8)
 		v.add_child(row)
 		row.add_child(UiKit.club_badge(code, 13, true))
-		var pick_label := UiKit.lbl("PICK #%d" % (_draft.draft_order.find(code) + 1), 12, UiKit.EMPH)
+		var pick_label := UiKit.lbl("PICK #%d" % (_draft.draft_order.find(code) + 1), UiKit.SMALL, UiKit.EMPH)
 		pick_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pick_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(pick_label)
 		v.add_child(UiKit.lbl(GameDB.club_name(code), UiKit.HEADING, UiKit.TEXT, true))
-		v.add_child(UiKit.ellipsis(str(GameDB.club(code).get("ground", "")), 12, UiKit.MUTED))
+		v.add_child(UiKit.ellipsis(str(GameDB.club(code).get("ground", "")), UiKit.SMALL, UiKit.MUTED))
 		_ignore_mouse(inner)
 		b.pressed.connect(_on_club_chosen.bind(code))
 		grid.add_child(b)
@@ -263,12 +264,23 @@ func _on_club_chosen(code: String) -> void:
 	else:
 		_draft.start_for_user(code)
 	GameState.mark_dirty()
+	_club_backdrop()
 	_show_board()
+
+
+## Your club's colour behind the board once you have one (director,
+## 2026-10-10: every screen in the gameday style); none on club choice.
+func _club_backdrop() -> void:
+	if _club == "" or get_node_or_null("ClubBackdrop") != null:
+		return
+	var bd := ClubBackdrop.new().setup(_club)
+	add_child(bd)
+	move_child(bd, 0)
 
 
 func _header(title_text: String, sub: String) -> Control:
 	var h := UiKit.hbox(10)
-	var back := UiKit.btn("‹", 26)
+	var back := UiKit.btn("‹", UiKit.GLYPH)
 	back.name = "BackToMenu"
 	back.custom_minimum_size = Vector2(44, 44)
 	back.tooltip_text = "Back to menu. Your draft stays available to resume."
@@ -277,9 +289,9 @@ func _header(title_text: String, sub: String) -> Control:
 	var v := UiKit.vbox(0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(v)
-	v.add_child(UiKit.heading(title_text, 26 if _short else 30))
+	v.add_child(UiKit.heading(title_text, UiKit.H1 if _short else 30))
 	if not _short:
-		v.add_child(UiKit.ellipsis(sub, 12, UiKit.MUTED))
+		v.add_child(UiKit.ellipsis(sub, UiKit.SMALL, UiKit.MUTED))
 	if not _club.is_empty():
 		h.add_child(UiKit.club_badge(_club, 14, true))
 	return h
@@ -303,7 +315,7 @@ func _show_board() -> void:
 		else:
 			var sub := "%d  /  %d clubs  /  Snake draft" % [
 					GameState.season_year, _draft.clubs.size()]
-			_root.add_child(_header("LEAGUE DRAFT", sub))
+			_root.add_child(_header("League draft", sub))
 		_root.add_child(_summary())
 
 	_ticker = UiKit.btn("", UiKit.SECONDARY)
@@ -344,17 +356,17 @@ func _show_board() -> void:
 
 func _compact_header() -> Control:
 	var h := UiKit.hbox(10)
-	var back := UiKit.btn("‹", 26)
+	var back := UiKit.btn("‹", UiKit.GLYPH)
 	back.custom_minimum_size.x = 44
 	back.pressed.connect(func(): Router.replace("main"))
 	h.add_child(back)
 	var v := UiKit.vbox(0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(v)
-	_status = UiKit.lbl("", 17, UiKit.EMPH, true)
+	_status = UiKit.lbl("", UiKit.NAME, UiKit.EMPH, true)
 	_status.name = "DraftStatus"
 	v.add_child(_status)
-	_round_info = UiKit.lbl("", 12, UiKit.MUTED)
+	_round_info = UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	v.add_child(_round_info)
 	_cap = UiKit.line("", UiKit.SECONDARY, UiKit.TEXT, true)
 	_cap.name = "SalaryCap"
@@ -370,10 +382,10 @@ func _summary() -> Control:
 	var v := UiKit.vbox(0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(v)
-	_status = UiKit.lbl("", 17, UiKit.EMPH, true)
+	_status = UiKit.lbl("", UiKit.NAME, UiKit.EMPH, true)
 	_status.name = "DraftStatus"
 	v.add_child(_status)
-	_round_info = UiKit.lbl("", 12, UiKit.MUTED)
+	_round_info = UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	v.add_child(_round_info)
 	_cap = UiKit.line("", 14, UiKit.TEXT, true)
 	_cap.name = "SalaryCap"
@@ -429,7 +441,7 @@ func _footer() -> Control:
 	var p := UiKit.panel(UiKit.INK, 8, 6)
 	var h := UiKit.hbox(10)
 	p.add_child(h)
-	_next_picks = UiKit.lbl("", 12, UiKit.MUTED)
+	_next_picks = UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	_next_picks.name = "UpcomingPicks"
 	_next_picks.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(_next_picks)
@@ -507,7 +519,7 @@ func _filters() -> Control:
 	var title_row := UiKit.hbox(8)
 	v.add_child(title_row)
 	title_row.visible = _wide and not _short
-	var title_label := UiKit.heading("Draft pool", 25)
+	var title_label := UiKit.heading("Draft pool", UiKit.H1)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(title_label)
 	_pool_total = UiKit.line("", 12, UiKit.MUTED)
@@ -669,7 +681,7 @@ func _filters() -> Control:
 		_shown = PAGE_SIZE
 		_refresh_board(true))
 	_advanced.add_child(avail)
-	_board_info = UiKit.lbl("", 12, UiKit.MUTED)
+	_board_info = UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	v.add_child(_board_info)
 	return v
 
@@ -765,7 +777,7 @@ func _refresh_board(reset_scroll := false) -> void:
 	for i in range(shown):
 		_board_box.add_child(_player_row(rows[i]))
 	if rows.is_empty():
-		_board_box.add_child(UiKit.lbl("No players match these filters.", 17, UiKit.TEXT, true))
+		_board_box.add_child(UiKit.lbl("No players match these filters.", UiKit.NAME, UiKit.TEXT, true))
 		_board_box.add_child(UiKit.lbl("Try another position, club or player name.", 14, UiKit.MUTED))
 		var reset := UiKit.btn("Clear filters", 14)
 		reset.pressed.connect(_clear_filters)
@@ -819,7 +831,7 @@ func _player_row(p: Dictionary) -> Control:
 	var info := UiKit.vbox(2)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	face.add_child(info)
-	info.add_child(UiKit.ellipsis(GameDB.player_display_name(p), 17, UiKit.TEXT, true))
+	info.add_child(UiKit.name_label(GameDB.player_display_name(p)))
 	var taken := _draft.has(str(p["id"]))
 	# Line two: what decides a pick, first so a phone never cuts it off -
 	# his age, the read of his OVR and POT, his price. Line three: where he
@@ -1115,7 +1127,7 @@ func _open_player(id: String) -> void:
 			cr.add_child(cl)
 			cr.add_child(UiKit.line(str(result["grade"]), 14, UiKit.MUTED))
 			v.add_child(cr)
-		var combine_note := UiKit.lbl("Testing is one part of the projection; junior football still matters.", 12, UiKit.MUTED)
+		var combine_note := UiKit.lbl("Testing is one part of the projection; junior football still matters.", UiKit.SMALL, UiKit.MUTED)
 		combine_note.name = "CombineNote"
 		combine_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(combine_note)
@@ -1244,7 +1256,7 @@ func _build_activity() -> PanelContainer:
 	v.add_child(_history_view)
 	var head := UiKit.hbox(8)
 	_history_view.add_child(head)
-	var title_label := UiKit.heading("Pick log", 25)
+	var title_label := UiKit.heading("Pick log", UiKit.H1)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title_label)
 	_history_info = UiKit.line("", 12, UiKit.MUTED)
@@ -1281,7 +1293,7 @@ func _build_activity() -> PanelContainer:
 	_squad_view.name = "MySquad"
 	_squad_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(_squad_view)
-	_squad_view.add_child(UiKit.heading("Your list", 25))
+	_squad_view.add_child(UiKit.heading("Your list", UiKit.H1))
 	_mine_box = UiKit.vbox(5)
 	_mine_scroll = UiKit.scroll(_mine_box)
 	_squad_view.add_child(_mine_scroll)
@@ -1290,7 +1302,7 @@ func _build_activity() -> PanelContainer:
 	_order_view.name = "DraftOrder"
 	_order_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(_order_view)
-	_order_view.add_child(UiKit.heading("Draft order", 25))
+	_order_view.add_child(UiKit.heading("Draft order", UiKit.H1))
 	_order_box = UiKit.vbox(4)
 	_order_scroll = UiKit.scroll(_order_box)
 	_order_view.add_child(_order_scroll)
@@ -1415,7 +1427,7 @@ func _refresh_mine() -> void:
 	var counts := _draft.role_counts()
 	for role in ROLES:
 		_mine_box.add_child(UiKit.spacer(6))
-		_mine_box.add_child(UiKit.lbl("%s  /  %d" % [str(UiKit.ROLE_LABEL[role]).to_upper(), counts[role]],
+		_mine_box.add_child(UiKit.lbl("%s  /  %d" % [str(UiKit.ROLE_LABEL[role]), counts[role]],
 				13, UiKit.ROLE_COLOUR[role], true))
 		for player in _draft.list():
 			if str(player["role"]) == role:
@@ -1479,8 +1491,8 @@ func _refresh_order() -> void:
 		by_pick[int(e["pick"])] = e
 	var round_no := mini(_draft.current_round(), _draft.target_size)
 	var going_back := round_no % 2 == 0
-	_order_box.add_child(UiKit.lbl("ROUND %d / %d" % [round_no, _draft.target_size], 12, UiKit.MUTED, true))
-	var direction := UiKit.heading("‹ ORDER" if going_back else "ORDER ›", 28)
+	_order_box.add_child(UiKit.lbl("ROUND %d / %d" % [round_no, _draft.target_size], UiKit.SMALL, UiKit.MUTED, true))
+	var direction := UiKit.heading("‹ Order" if going_back else "Order ›", UiKit.H1)
 	direction.add_theme_color_override("font_color", UiKit.EMPH)
 	_order_box.add_child(direction)
 	_order_box.add_child(UiKit.lbl(
@@ -1519,14 +1531,14 @@ func _refresh_order() -> void:
 			var entry: Dictionary = by_pick.get(index + 1, {})
 			description = _entry_player_name(entry) if not entry.is_empty() \
 					else "passed - list full"
-		v.add_child(UiKit.ellipsis(description, 12, UiKit.MUTED))
+		v.add_child(UiKit.ellipsis(description, UiKit.SMALL, UiKit.MUTED))
 		var comp := _draft.comp_at(index)
 		if not comp.is_empty():
-			var why := UiKit.ellipsis("Compensation for losing %s" % str(comp.get("name", "a free agent")), 12, UiKit.TEXT)
+			var why := UiKit.ellipsis("Compensation for losing %s" % str(comp.get("name", "a free agent")), UiKit.SMALL, UiKit.TEXT)
 			why.name = "CompPick"
 			v.add_child(why)
 		elif index < _draft.pick_origin.size() and str(_draft.pick_origin[index]) != code:
-			var via := UiKit.ellipsis("Via %s" % GameDB.club_name(str(_draft.pick_origin[index])), 12, UiKit.TEXT)
+			var via := UiKit.ellipsis("Via %s" % GameDB.club_name(str(_draft.pick_origin[index])), UiKit.SMALL, UiKit.TEXT)
 			via.name = "ViaPick"
 			v.add_child(via)
 		h.add_child(UiKit.line("%d/%d" % [_draft.count_for(code), _draft.pick_limit(code)], 12, UiKit.EMPH if mine else UiKit.MUTED))
@@ -1549,7 +1561,7 @@ func _refresh_status() -> void:
 	var done := _draft.is_finished()
 	_status.text = "DRAFT COMPLETE" if done else "YOUR PICK #%d" % (_draft.pick_index + 1)
 	if not done and not _draft.is_user_turn():
-		_status.text = "%s ON THE CLOCK" % GameDB.club_short(_draft.current_club()).to_upper()
+		_status.text = "%s on the clock" % GameDB.club_short(_draft.current_club())
 	_round_info.text = "%d / %d signed · Round %d of %d" % [_draft.count(), _draft.target_size,
 		mini(_draft.current_round(), _draft.target_size), _draft.target_size]
 	if _short:
@@ -1602,11 +1614,11 @@ func _refresh_status() -> void:
 			if i >= _last_batch_start:
 				new_rivals += 1
 	if done:
-		_ticker.text = "LEAGUE DRAFT COMPLETE · View all %d picks ›" % _draft.pick_history.size()
+		_ticker.text = "League draft complete · View all %d picks ›" % _draft.pick_history.size()
 	elif new_rivals == 0 and not _draft.pick_history.is_empty() and _draft.is_user_turn():
 		_ticker.text = "BACK-TO-BACK PICKS · You're up again. View the pick log ›"
 	elif latest.is_empty():
-		_ticker.text = "LEAGUE PICKS  ·  You're first on the clock. View the pick log ›"
+		_ticker.text = "League picks  ·  You're first on the clock. View the pick log ›"
 	else:
 		_ticker.text = "RIVAL #%d · %s: %s · +%d picks ›" % [
 			latest["pick"], str(latest["club"]), _entry_player_name(latest), new_rivals]

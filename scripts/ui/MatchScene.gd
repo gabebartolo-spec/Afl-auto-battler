@@ -761,7 +761,7 @@ func _show_coach_box() -> void:
 	pep_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var sync_pep := func(key: String) -> void:
 		pep_note.text = CoachReport.pep_summary(key)
-	var pep := _choice_grid("PepPicker", PEP_SHORT, calls, "pep", 3, sync_pep)
+	var pep := _segmented("PepPicker", PEP_SHORT, calls, "pep", sync_pep)
 	tail.add_child(_call_block("Pep talk", pep))
 	tail.add_child(pep_note)
 	sync_pep.call("steady")
@@ -774,7 +774,7 @@ func _show_coach_box() -> void:
 	rot_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var sync_rot := func(key: String) -> void:
 		rot_note.text = str(MatchSim.ROTATION_POLICIES[key]["text"])
-	var rot := _choice_grid("RotationPicker", rot_opts, calls, "rotation", 3, sync_rot)
+	var rot := _segmented("RotationPicker", rot_opts, calls, "rotation", sync_rot)
 	tail.add_child(_call_block("Rotations", rot))
 	tail.add_child(rot_note)
 	sync_rot.call(_rotation)
@@ -798,8 +798,8 @@ func _show_coach_box() -> void:
 		}
 		_close_coach()
 		_simulate_next_quarter(t))
-	var skip := UiKit.btn("Skip to full time", UiKit.BODY)
-	skip.custom_minimum_size = Vector2(0, 44)
+	# One primary action on the break; the way out is said as words.
+	var skip := UiKit.text_action("Skip to full time", UiKit.BODY)
 	skip.pressed.connect(_on_skip)
 	if wide:
 		# A PC sheet's actions sit together at the right, not as full-width bars.
@@ -1123,6 +1123,16 @@ func _call_block(label: String, control: Control) -> Control:
 func _choice_grid(node_name: String, options: Array, calls: Dictionary, field: String, columns: int,
 		on_change: Callable = Callable()) -> Control:
 	return UiKit.choice_grid(node_name, options, str(calls[field]), columns, func(key: String):
+		calls[field] = key
+		if on_change.is_valid():
+			on_change.call(key))
+
+
+## Three short words in one line (UiKit.segmented): the plan and the tag
+## keep their grids, where the labels are names and whole phrases.
+func _segmented(node_name: String, options: Array, calls: Dictionary, field: String,
+		on_change: Callable = Callable()) -> Control:
+	return UiKit.segmented(node_name, options, str(calls[field]), func(key: String):
 		calls[field] = key
 		if on_change.is_valid():
 			on_change.call(key))
@@ -1588,7 +1598,7 @@ func _goal_row(ev: Dictionary, stamp: String) -> Control:
 	row.add_child(v)
 	var who := str(ev.get("name", ""))
 	var head := "Goal  " + (who if who != "" else GameDB.club_short(code))
-	var hl := UiKit.lbl(head, 17, UiKit.TEXT, true)
+	var hl := UiKit.lbl(head, UiKit.NAME, UiKit.TEXT, true)
 	hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(hl)
 	var g: Array = ev.get("goals", [0, 0])
@@ -2174,9 +2184,9 @@ func _matchups_view(sim: MatchSim, q: int) -> Control:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(l)
-		var b := UiKit.btn("Change", 14)
+		# An editorial row with its action as a word (audit §8 Phase 1.5).
+		var b := UiKit.text_action("Change", UiKit.SECONDARY)
 		b.name = "ChangeMatchup"
-		b.custom_minimum_size = Vector2(96, 44)
 		var f := str(fid)
 		b.pressed.connect(func(): _show_break_matchup(sim, f, l, q))
 		row.add_child(b)

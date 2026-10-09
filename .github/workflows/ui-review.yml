@@ -1,0 +1,172 @@
+name: UI review sheets
+
+# Visual audit Phase 6.1 (docs/research/VISUAL_AUDIT_2026-10-10.md): every pull
+# request that changes how the game looks gets the main screens captured at the
+# phone size (390x844) and the PC canvas (1280x720: the director's fullscreen
+# 4K at 300%), tiled into one labelled contact sheet per size. The lead reviews
+# the sheets before anything visual goes to the director.
+#
+# It is information, not a gate: it never blocks a merge, and "test" in
+# tests.yml stays the only required check. A draft PR is skipped until it is
+# marked ready, like the tests. A newer push to the same PR cancels the older
+# run (only the latest sheets matter).
+#
+#   gh run download <run-id> -n ui-review-sheets
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "scripts/ui/**"
+      - "scenes/**"
+      - "assets/ui/**"
+      - "assets/vignette/**"
+      - "tools/visual/capture_screens_light.gd"
+      - "tools/contact_sheet.py"
+      - "tools/figure_crops.py"
+      - "tools/visual/capture_vignette.gd"
+      - "tools/visual/capture_prematch.gd"
+      - "scripts/ui/match/**"
+      - ".github/workflows/ui-review.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sheets:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GODOT_VERSION: "4.7.2"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Virtual display, software GL and Pillow
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 fonts-dejavu-core ffmpeg > /dev/null
+          python3 -m pip install --quiet pillow
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download Godot ${{ env.GODOT_VERSION }}
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          name="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          curl -fsSL --retry 3 -o godot.zip \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${name}.zip" \
+          || curl -fsSL --retry 3 -o godot.zip \
+            "https://downloads.godotengine.org/?version=${GODOT_VERSION}&flavor=stable&slug=linux.x86_64.zip&platform=linux.64"
+          unzip -q godot.zip && rm godot.zip
+          mv "${name}" godot && chmod +x godot
+
+      - name: Import the project
+        run: |
+          timeout 600 "$HOME/godot/godot" --headless --path . --editor --import > import.log 2>&1 || true
+          if grep -qE "SCRIPT ERROR|Parse Error|Compile Error" import.log; then
+            grep -E -A3 "SCRIPT ERROR|Parse Error|Compile Error" import.log | head -40
+            echo "::error::scripts failed to compile during import"
+            exit 1
+          fi
+
+      - name: Capture the main screens, phone and PC
+        run: |
+          mkdir -p out/phone out/pc
+          # The virtual screen is larger than any window here: a window bigger
+          # than the screen silently renders at 1x as a different layout.
+          for size in phone:390x844 pc:1280x720; do
+            name="${size%%:*}"; wh="${size#*:}"
+            LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 2560x1600x24" \
+              timeout 900 "$HOME/godot/godot" --path . --rendering-method gl_compatibility \
+              --script tools/visual/capture_screens_light.gd -- --mode dark --size "$wh" \
+              --out "$PWD/out/$name/screens" > "out/$name.log" 2>&1 || echo "::warning::$name capture exited non-zero"
+            tail -n 5 "out/$name.log"
+          done
+          ls -la out/phone out/pc
+
+      - name: Figure scenes, 2x crops and a clip
+        run: |
+          # Phase 6.1 part 2: the figure scenes (the pre-match huddle and the
+          # centre bounce are the ones that draw the footballers; the live
+          # match view is tokens) are judged at 2x on boots, hands and shadows,
+          # and a clip shows the motion. Each tool writes its --film frames at
+          # 12 a second on a phone; the first, middle and last are cropped to
+          # the legs and boots at 2x, and every frame becomes the clip. Not a
+          # gate: a failed capture warns and the rest go on.
+          mkdir -p out/figures frames
+          run_tool() {  # name, args...
+            name="$1"; shift
+            LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 2560x1600x24" \
+              timeout 600 "$HOME/godot/godot" --path . --rendering-method gl_compatibility \
+              --script "tools/visual/capture_$name.gd" -- "$@" --out "$PWD/frames/$name" \
+              > "out/figures_$name.log" 2>&1 || echo "::warning::$name capture exited non-zero"
+            cp -f frames/${name}_sheet.png out/figures/ 2>/dev/null || true
+            if ls frames/${name}_film_*.png > /dev/null 2>&1; then
+              python3 tools/figure_crops.py out/figures frames "$name"
+              ffmpeg -loglevel error -y -framerate 12 -i "frames/${name}_film_%03d.png" \
+                -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -pix_fmt yuv420p "out/figures/$name.mp4" || true
+            fi
+          }
+          run_tool prematch --film
+          run_tool vignette --film 0.1 4.0
+          shopt -s nullglob
+          crops=(out/figures/*_2x.png)
+          if [ ${#crops[@]} -gt 0 ]; then
+            python3 tools/contact_sheet.py out/sheet_figures_2x.png "${{ github.event.pull_request.number && format('#{0}', github.event.pull_request.number) || github.sha }} figure scenes at 2x" "${crops[@]}"
+          fi
+          ls -la out/figures
+
+      - name: Contact sheets
+        run: |
+          pr="#${{ github.event.pull_request.number }} at ${GITHUB_SHA::8}"
+          shopt -s nullglob
+          for name in phone pc; do
+            files=(out/$name/*.png)
+            if [ ${#files[@]} -gt 0 ]; then
+              python3 tools/contact_sheet.py "out/sheet_$name.png" "$pr: $name" "${files[@]}"
+            fi
+          done
+          {
+            echo "## UI review sheets"
+            echo ""
+            echo "Main screens, dark mode, a fresh Melbourne career: phone 390x844 and PC 1280x720."
+            echo ""
+            for name in phone pc; do
+              n=$(ls out/$name/*.png 2>/dev/null | wc -l)
+              echo "- $name: $n screens"
+            done
+            for name in phone pc; do
+              f=$(ls out/$name/*_clips.txt 2>/dev/null | head -1)
+              if [ -n "$f" ] && [ -s "$f" ]; then
+                echo ""
+                echo "Text that does not fit at $name size (CUT: trimmed or clipped; OUT: reaches past the window). Look at the sheet before trusting it:"
+                echo ""
+                echo '```'
+                head -n 60 "$f"
+                echo '```'
+              fi
+            done
+            echo ""
+            echo "Download: \`gh run download ${GITHUB_RUN_ID} -n ui-review-sheets\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the sheets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-review-sheets
+          path: |
+            out/
+          if-no-files-found: warn
+          retention-days: 14

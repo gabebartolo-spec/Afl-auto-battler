@@ -354,7 +354,7 @@ func _draw() -> void:
 	var bench: Rect2 = geo["bench"]
 	draw_rect(bench, Color(0.05, 0.08, 0.06, 0.72), true)
 	draw_rect(bench, Color(1, 1, 1, 0.12), false, 1.0)
-	_draw_label("INTERCHANGE", Vector2(bench.position.x + 8.0, bench.position.y + 14.0),
+	_draw_label("Interchange", Vector2(bench.position.x + 8.0, bench.position.y + 14.0),
 			10, UiKit.MUTED, HORIZONTAL_ALIGNMENT_LEFT)
 
 	var tokens: Array = geo["tokens"]

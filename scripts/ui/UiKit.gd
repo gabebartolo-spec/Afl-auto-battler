@@ -51,6 +51,7 @@ static func apply_appearance(mode: String) -> void:
 		GOOD = Color("3f7650")
 		BAD = Color("a74734")
 		ACCENT = Color("b63c29")
+		SURFACE = Color("e2dccf")
 	else:
 		BG = Color("121110")
 		PANEL = Color("1b1a17")
@@ -64,6 +65,7 @@ static func apply_appearance(mode: String) -> void:
 		GOOD = Color("8cc49a")
 		BAD = Color("e38b73")
 		ACCENT = Color("c8412b")
+		SURFACE = Color("2a2823")
 	RenderingServer.set_default_clear_color(BG)
 
 
@@ -130,11 +132,20 @@ const TINY := 11    # stamps and fine print only
 const TITLE := H1           # a screen's title, the one big fact
 const HEADING := H2         # a section heading
 const NAME := 16            # a player or club name leading a row; button text
-const SECONDARY := SMALL    # the line under it
-const FINE := TINY          # stamps and fine print
+const SECONDARY := 14       # the line under it (14, not 13: the sign face thins out under 14)
+const FINE := 12            # stamps and fine print (the style guide's FINE 12)
 const RATING := 30          # a rating as a figure (DISPLAY)
 const SCORE := 24           # a match score as a figure (DISPLAY)
 const NUMBER := 22          # a score in a list row (DISPLAY)
+const HERO := 44            # the one figure a screen is about (your ladder position)
+const GLYPH := 26           # a bare glyph button ("‹")
+const ROLE_COL := 72        # the role tag column in a player row (fits "RUCK/MID")
+## Every size a screen may use. tests/run_career_ui_tests.gd fails a literal size
+## outside this set (docs/VISUAL_STYLE_GUIDE.md §2.3).
+const SIZES := [TINY, FINE, SMALL, SECONDARY, BODY, NAME, H2, 20, NUMBER, H1, GLYPH, RATING, HERO]
+
+## One family at every size, ARD Signwriter down to FINE (director, 2026-10-10,
+## audit §9.1 A/B: Signwriter over Barlow for the small sizes).
 
 ## Spacing and corners.
 const GAP := 8          # between rows
@@ -300,6 +311,19 @@ static func lbl(text: String, fs := 16, color := AUTO_COLOUR, bold := false) -> 
 	return l
 
 
+## A player's or club's name leading a row: it never truncates. It wraps to a
+## second line before anything else in the row gives way, and only a name that
+## needs a third line is cut (none does at 360 wide; the career_ui suite checks).
+static func name_label(text: String, fs := NAME, color := AUTO_COLOUR, bold := true) -> Label:
+	var l := lbl(text, fs, color, bold)
+	l.name = "Name"
+	l.max_lines_visible = 2
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.tooltip_text = text
+	return l
+
+
 ## Unwrapped metadata in horizontal rows must keep its intrinsic width.
 ## A wrapped label's minimum width is only one pixel, which can otherwise
 ## turn a cap value or club name into a column of single letters.
@@ -402,8 +426,10 @@ static func subtitle(text: String) -> Label:
 	return l
 
 
-## Button hierarchy: primary is filled red (one per screen, ideally);
-## secondary is an outline; danger is an outline in BAD; disabled fades to
+## Button hierarchy (docs/VISUAL_STYLE_GUIDE.md §2.2, §3): the primary action is
+## the one button filled in your club's colour (the accent with no club), one
+## per screen; a secondary button is a quiet flat surface one step up from the
+## page, no outline, no shadow; danger is an outline in BAD; disabled fades to
 ## FAINT. Every button is at least 44 px tall for a thumb.
 static func style_button(b: Button, fs := 16, primary := false, danger := false) -> void:
 	b.custom_minimum_size.y = maxf(b.custom_minimum_size.y, 44)
@@ -419,48 +445,47 @@ static func style_button(b: Button, fs := 16, primary := false, danger := false)
 	b.add_theme_color_override("font_pressed_color", ink)
 	b.add_theme_color_override("font_focus_color", ink)
 	b.add_theme_color_override("font_disabled_color", FAINT)
-	# Not boring (director, 2026-10-08): a primary action in your club's
-	# colour, a secondary one a raised tile, not a grey outline.
 	var sb: StyleBoxFlat
 	var lead := team_colour()
 	if primary:
-		sb = raised(lead)
+		sb = style(lead, 8, RADIUS)
+		sb.set_border_width_all(0)
 		for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 			b.add_theme_color_override(k, ink_on(lead))
+	elif danger:
+		sb = style(Color.TRANSPARENT, 8, RADIUS, BAD.darkened(0.2))
 	else:
-		sb = raised(team_tile())
-		if danger:
-			sb.border_color = BAD.darkened(0.25)
-			sb.set_border_width_all(1)
+		sb = style(SURFACE, 8, RADIUS)
+		sb.set_border_width_all(0)
 	b.add_theme_stylebox_override("normal", sb)
 	var hover := sb.duplicate() as StyleBoxFlat
-	hover.bg_color = lead.lightened(0.10) if primary else team_tile().lightened(0.06)
+	hover.bg_color = lead.lightened(0.08) if primary else SURFACE.lightened(0.05)
 	b.add_theme_stylebox_override("hover", hover)
 	var pressed := sb.duplicate() as StyleBoxFlat
-	pressed.bg_color = lead.darkened(0.15) if primary else team_tile().lightened(0.10)
-	# A toggled secondary button (a difficulty, a filter) reads as selected.
-	if not primary:
-		pressed.border_color = TEXT
+	pressed.bg_color = lead.darkened(0.12) if primary else SURFACE.lightened(0.10)
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("hover_pressed", pressed)
-	var off := style(Color(TILE, 0.5), 8, RADIUS)
+	var off := style(Color(SURFACE, 0.5), 8, RADIUS)
 	b.add_theme_stylebox_override("disabled", off)
 	var focus := style(Color.TRANSPARENT, 0, RADIUS, TEXT)
 	focus.set_border_width_all(2)
 	b.add_theme_stylebox_override("focus", focus)
 
 
-## A raised tile: a solid face, a light top edge and a soft shadow under it.
-const TILE := Color("2b2924")
+## The quiet surface of a secondary control: one step up from the page, so it
+## reads on BG and on PANEL alike. Flat: no edge, no shadow (the raised tile of
+## 8-10 October is gone; audit §3.1).
+static var SURFACE := Color("2a2823")
 
 
-static func raised(bg: Color) -> StyleBoxFlat:
-	var sb := style(bg, 8, RADIUS)
-	sb.border_width_top = 1
-	sb.border_color = bg.lightened(0.18)
-	sb.shadow_color = Color(0, 0, 0, 0.35)
-	sb.shadow_size = 3
-	sb.shadow_offset = Vector2(0, 2)
+## The chosen one of a set (a plan, a filter, a tab-like toggle): TEXT ink and
+## a 2 px TEXT outline on the quiet surface. The rest: MUTED ink on the same
+## surface. Never a fill, never the club colour, so a chosen option cannot be
+## mistaken for the primary action (guide §2.2). The director chose this over a
+## faint club tint behind the chosen one (2026-10-10, audit §9.2 A/B).
+static func _choice_box(on: bool) -> StyleBoxFlat:
+	var sb := style(SURFACE, 8, RADIUS, TEXT if on else Color.TRANSPARENT)
+	sb.set_border_width_all(2 if on else 0)
 	return sb
 
 
@@ -503,11 +528,6 @@ static func opponent_wash(opp: String) -> Color:
 	return best if best.a > 0.0 else TEXT
 
 
-## A raised tile carrying a breath of your club's colour.
-static func team_tile() -> Color:
-	return TILE.lerp(team_colour(), 0.10)
-
-
 ## Type that reads on `bg`: white, or near-black on a light colour.
 static func ink_on(bg: Color) -> Color:
 	return Color("161512") if bg.get_luminance() > 0.6 else Color.WHITE
@@ -528,27 +548,124 @@ static func danger_btn(text: String, fs := 16) -> Button:
 	return b
 
 
-## Mark a secondary button as the current choice of a set (difficulty,
-## a filter): a solid light outline and a faint fill, never a new colour.
+## Mark a secondary button as the current choice of a set (a speed, a
+## quarter, a filter): the same look as paint_choice.
 static func set_selected(b: Button, on: bool) -> void:
-	var sb := style(Color(TEXT, 0.08) if on else Color.TRANSPARENT, 8, RADIUS,
-			TEXT if on else LINE.lightened(0.12))
-	b.add_theme_stylebox_override("normal", sb)
-	b.add_theme_stylebox_override("hover", sb)
-	b.add_theme_color_override("font_color", TEXT if on else MUTED)
+	paint_choice(b, on)
 
 
 ## Tabs are text with an underline under the current one - no boxes.
 static func tab(text: String, active: bool) -> Button:
-	var b := btn(text, 15)
+	var b := btn(text, BODY)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	paint_tab(b, active)
+	return b
+
+
+## The underline look: a 2 px TEXT rule under the current one, a 1 px LINE
+## rule under the rest; no surface, no box.
+static func paint_tab(b: Button, active: bool) -> void:
 	var sb := style(Color.TRANSPARENT, 6, 0, TEXT if active else LINE)
 	sb.set_border_width_all(0)
 	sb.border_width_bottom = 2 if active else 1
-	for state in ["normal", "hover", "pressed", "hover_pressed"]:
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 		b.add_theme_stylebox_override(state, sb)
 	b.add_theme_color_override("font_color", TEXT if active else MUTED)
 	b.add_theme_color_override("font_hover_color", TEXT)
+	b.add_theme_color_override("font_pressed_color", TEXT)
+
+
+## A short choice as one line of text (audit §8 Phase 1: the idiom for two
+## to five short options): [key, label] side by side, each as wide as its
+## words, the current one underlined. Buttons are named "<node_name>_<key>";
+## on_pick(key) runs after the row repaints. Long labels or long lists want
+## choice_grid() or a sheet. The row remembers its current button in meta
+## "current" so strip() can scroll to it.
+static func segmented(node_name: String, options: Array, current: String,
+		on_pick: Callable = Callable()) -> HBoxContainer:
+	var row := hbox(0)
+	row.name = node_name
+	var state := {"current": current}
+	var buttons := {}
+	var paint := func() -> void:
+		for k in buttons:
+			paint_tab(buttons[k], str(k) == str(state["current"]))
+			if str(k) == str(state["current"]):
+				row.set_meta("current", buttons[k])
+	for o in options:
+		var key := str(o[0])
+		var b := btn(str(o[1]), BODY)
+		b.name = "%s_%s" % [node_name, key]
+		b.custom_minimum_size = Vector2(0, 44)
+		b.pressed.connect(func():
+			state["current"] = key
+			paint.call()
+			if on_pick.is_valid():
+				on_pick.call(key))
+		buttons[key] = b
+		row.add_child(b)
+	paint.call()
+	return row
+
+
+## A row that may run past the screen's edge scrolls sideways, no scrollbar,
+## opening on the row's current button when it has one.
+static func strip(row: Control, height := 46.0) -> ScrollContainer:
+	var sc := ScrollContainer.new()
+	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	sc.custom_minimum_size.y = height
+	sc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(row)
+	if row.has_meta("current"):
+		sc.call_deferred("ensure_control_visible", row.get_meta("current"))
+	return sc
+
+
+## A secondary action said as words (guide §3): no surface, TEXT ink,
+## thumb-high. "Change", "Undo", "Assistant's report ›".
+static func text_action(text: String, fs := NAME) -> Button:
+	var b := btn(text, fs)
+	b.flat = true
+	b.custom_minimum_size = Vector2(0, 44)
+	var sb := style(Color.TRANSPARENT, 8, 0)
+	sb.set_border_width_all(0)
+	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		b.add_theme_stylebox_override(state, sb)
+	b.add_theme_color_override("font_color", TEXT)
+	b.add_theme_color_override("font_hover_color", TEXT)
+	b.add_theme_color_override("font_pressed_color", MUTED)
+	return b
+
+
+## A section heading that is the way in: the title at the left, where it
+## leads ("Season stats ›") in MUTED at the right, the whole row one tap.
+static func section_link(title: String, leads_to: String, node_name: String) -> Button:
+	var b := text_action("", NAME)
+	b.name = node_name
+	b.custom_minimum_size = Vector2(0, 48)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.tooltip_text = leads_to
+	var h := hbox(8)
+	h.set_anchors_preset(Control.PRESET_FULL_RECT)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	# One line each (lbl wraps by default; a wrapped word here would grow the
+	# row taller than its button): the title gives way first.
+	var t := section(title)
+	t.name = "SectionTitle"
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(t)
+	var to := lbl(leads_to, NAME, MUTED)
+	to.name = "SectionLeadsTo"
+	to.autowrap_mode = TextServer.AUTOWRAP_OFF
+	h.add_child(to)
+	for n in [h, t, to]:
+		(n as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(h)
 	return b
 
 
@@ -573,8 +690,8 @@ static func choice_grid(node_name: String, options: Array, current: String, colu
 		b.name = "%s_%s" % [node_name, key]
 		b.custom_minimum_size = Vector2(0, 44)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.clip_text = true
-		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		# A name on a choice ("Marcus Bontempelli") wraps rather than cuts.
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		b.pressed.connect(func():
 			state["current"] = key
 			paint.call()
@@ -588,16 +705,12 @@ static func choice_grid(node_name: String, options: Array, current: String, colu
 
 ## A choice's look: the chosen one outlined in full text, the rest quiet.
 static func paint_choice(b: Button, on: bool) -> void:
-	# The chosen one filled in your club's colour; the rest raised tiles.
-	var lead := team_colour()
-	var sb := raised(lead if on else team_tile())
-	if on:
-		sb.set_border_width_all(2)
-		sb.border_color = lead.lightened(0.35)
+	var sb := _choice_box(on)
 	for s in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 		b.add_theme_stylebox_override(s, sb)
-	b.add_theme_color_override("font_color", ink_on(lead) if on else Color(TEXT, 0.82))
-	b.add_theme_color_override("font_hover_color", ink_on(lead) if on else TEXT)
+	b.add_theme_color_override("font_color", TEXT if on else MUTED)
+	b.add_theme_color_override("font_hover_color", TEXT)
+	b.add_theme_color_override("font_pressed_color", TEXT)
 
 
 static func option() -> OptionButton:
@@ -661,10 +774,10 @@ static func role_chip(role: String) -> PanelContainer:
 	var p := PanelContainer.new()
 	p.mouse_filter = Control.MOUSE_FILTER_PASS
 	p.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	var dual := role.contains("/")
-	p.custom_minimum_size.x = 72 if dual else 40
+	# One column width whatever the tag, so names in a list share a left edge (guide §3).
+	p.custom_minimum_size.x = ROLE_COL
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var l := line(role, 12, colour, true)
+	var l := line(role, FINE, colour, true)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	p.add_child(l)
 	return p
@@ -698,8 +811,14 @@ static func top_bar(title_text: String, back := true, right: Control = null,
 				return
 			Router.back())
 		h.add_child(b)
-	var t := ellipsis(title_text, 20, TEXT, true)
+	# The screen's title in the scoreboard face (guide §2.3: TITLE is the
+	# Display cut), one line, cut with an ellipsis only when it cannot fit.
+	var t := heading(title_text, H1)
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.tooltip_text = title_text
 	h.add_child(t)
 	if right != null:
 		h.add_child(right)
@@ -809,6 +928,14 @@ static func modal_box(parent: Control, max_w: float, prefer_h := 0.0, wash := AU
 	outer.add_child(sc)
 	var footer := vbox(6)
 	outer.add_child(footer)
+	# A PC: a sheet's actions sit at its right, sized to their words, not as
+	# bars across it (director, 2026-10-10: no phone UI on a PC).
+	var pw := view_width(parent)
+	if ScreenLayout.is_desktop() and pw >= 760.0 and pw > view_height(parent) * 1.2:
+		footer.child_entered_tree.connect(func(c: Node) -> void:
+			if c is Button:
+				(c as Button).size_flags_horizontal = Control.SIZE_SHRINK_END
+				(c as Button).custom_minimum_size.x = maxf((c as Button).custom_minimum_size.x, 240.0))
 	# The sheet is as tall as what it holds (the director's PC playtest,
 	# 2026-10-07: a three-paragraph help sheet filled the screen, its buttons
 	# at the bottom of empty space). It scrolls only when that is more than

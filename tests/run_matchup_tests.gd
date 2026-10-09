@@ -57,8 +57,10 @@ func _hub_tests() -> void:
 	var nxt: Dictionary = _state.my_next_opponent()
 	_check(opp != null and opp.text.contains(db.club_name(str(nxt["code"]))), "The opponent is named at the top")
 	var venue: Label = hub.find_child("MatchVenue", true, false)
+	# "at Adelaide" is the defect; "Adelaide Oval" is a ground (the Crows' own),
+	# so the check looks for the word, not the club's name anywhere.
 	_check(venue != null and venue.text.begins_with("Home · " if str(nxt["venue"]) == "home" else "Away · ")
-			and not venue.text.contains(db.club_name(str(nxt["code"]))),
+			and not venue.text.contains("at " + db.club_name(str(nxt["code"]))),
 			"Then where: home or away and the ground, not 'at' the opponent (%s)" % (venue.text if venue else "-"))
 	var facts := hub.find_children("Fact_*", "Label", true, false)
 	_check(facts.size() <= 3, "At most three facts about them (%d)" % facts.size())

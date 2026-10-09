@@ -32,6 +32,9 @@ func _ready() -> void:
 		Router.replace("main")
 		return
 	GameState.open_offseason()
+	# Your club's colour behind the page, as on the hub and match day
+	# (director, 2026-10-10: every screen in the gameday style).
+	add_child(ClubBackdrop.new().setup(GameState.my_club))
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	UiKit.apply_insets(margin, 12)
@@ -104,7 +107,7 @@ func _restore_scroll(scroll: ScrollContainer, offset: int) -> void:
 func _budget(body: VBoxContainer) -> void:
 	var year := GameState.department_budget_year if GameState.department_budget_year > 0 \
 			else GameState.season_year + 1
-	body.add_child(UiKit.lbl("Club budget · %d" % year, 17, UiKit.EMPH, true))
+	body.add_child(UiKit.lbl("Club budget · %d" % year, UiKit.NAME, UiKit.EMPH, true))
 	body.add_child(_para(
 			"$%.1fm to allocate for the football year. It resets next off-season; there is no bank balance to hoard." \
 			% ClubBudget.ANNUAL_M, 13, UiKit.MUTED))
@@ -194,7 +197,7 @@ func _contracts(body: VBoxContainer) -> void:
 		body.add_child(card)
 		var row := UiKit.hbox(4)
 		row.name = "Contract_" + str(p["id"])
-		(card.get_child(0) as VBoxContainer).add_child(row)
+		_action_slot(card).add_child(row)
 		if bool(p.get("resigned", false)):
 			row.add_child(UiKit.line("Re-signed: %d more seasons at %s" % [int(p["contract_years"]) - 1,
 					Contracts.money(int(p.get("salary", 0)))], 13, UiKit.GOOD, true))
@@ -213,6 +216,7 @@ func _contracts(body: VBoxContainer) -> void:
 		talk.name = "Negotiate"
 		talk.custom_minimum_size = Vector2(0, 44)
 		talk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_compact_actions(row, talk)
 		talk.pressed.connect(_open_talks.bind(str(p["id"])))
 		row.add_child(talk)
 		var rel := UiKit.btn("Release", UiKit.SECONDARY)
@@ -252,10 +256,13 @@ func _retiring(body: VBoxContainer) -> void:
 			var ask := UiKit.btn("Ask him to go around again", UiKit.SECONDARY)
 			ask.name = "TalkRound"
 			ask.custom_minimum_size = Vector2(0, 44)
+			if _wide():
+				ask.size_flags_horizontal = Control.SIZE_SHRINK_END
+				ask.custom_minimum_size.x = 280
 			ask.pressed.connect(func():
 				GameState.talk_round(str(p["id"]))
 				_build())
-			v.add_child(ask)
+			_action_slot(card).add_child(ask)
 		elif p.has("talked_round"):
 			v.add_child(_para("He went around again once already: this time he's going.", 12, UiKit.MUTED))
 
@@ -547,7 +554,7 @@ func _agents(body: VBoxContainer) -> void:
 			(card.get_child(0) as VBoxContainer).add_child(_para(line + ".", 12, UiKit.TEXT))
 		var row := UiKit.hbox(4)
 		row.name = "Agent_" + str(p["id"])
-		(card.get_child(0) as VBoxContainer).add_child(row)
+		_action_slot(card).add_child(row)
 		var talks: Dictionary = p.get("talks", {})
 		if bool(talks.get("walked", false)):
 			row.add_child(UiKit.line("Talks broke down: he'll look elsewhere", UiKit.SECONDARY, UiKit.BAD, true))
@@ -559,6 +566,7 @@ func _agents(body: VBoxContainer) -> void:
 			talk.name = "FreeAgentTalks"
 			talk.custom_minimum_size = Vector2(0, 44)
 			talk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_compact_actions(row, talk)
 			talk.pressed.connect(_open_talks.bind(str(p["id"]), true))
 			row.add_child(talk)
 		body.add_child(card)
@@ -843,16 +851,54 @@ func _pick_label(pk: Dictionary) -> String:
 	return text
 
 
+## A PC: actions sit together at the right of a row, sized to their words,
+## not as bars across the screen (director, 2026-10-10).
+func _wide() -> bool:
+	var w := UiKit.view_width(self)
+	return ScreenLayout.is_desktop() and w >= 760.0 and w > UiKit.view_height(self) * 1.2
+
+
+func _compact_actions(row: HBoxContainer, main: Button) -> void:
+	if not _wide():
+		return
+	row.alignment = BoxContainer.ALIGNMENT_END
+	main.size_flags_horizontal = Control.SIZE_SHRINK_END
+	main.custom_minimum_size.x = 200
+
+
 func _player_card(p: Dictionary, detail: String) -> PanelContainer:
 	var card := UiKit.panel(UiKit.PANEL_ALT, 8, 6)
 	var v := UiKit.vbox(3)
 	card.add_child(v)
+	# A PC: who he is on the left, the actions on the same line at the right.
+	var info := v
+	if _wide():
+		var top := UiKit.hbox(12)
+		v.add_child(top)
+		info = UiKit.vbox(3)
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		top.add_child(info)
+		var slot := UiKit.hbox(4)
+		slot.name = "Actions"
+		slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		top.add_child(slot)
+		card.set_meta("actions", slot)
 	var h := UiKit.hbox(6)
-	v.add_child(h)
-	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
+	info.add_child(h)
+	# One width for every role so the names line up down the list.
+	var chip := UiKit.role_chip(Ratings.role_tag(p))
+	chip.custom_minimum_size.x = 72
+	h.add_child(chip)
 	h.add_child(UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true))
-	v.add_child(_para(detail, 12, UiKit.MUTED))
+	info.add_child(_para(detail, 12, UiKit.MUTED))
 	return card
+
+
+## Where a card's actions go: beside him on a PC, under him on a phone.
+func _action_slot(card: PanelContainer) -> Container:
+	if card.has_meta("actions"):
+		return card.get_meta("actions")
+	return card.get_child(0) as VBoxContainer
 
 
 func _para(text: String, size: int, colour: Color) -> Label:

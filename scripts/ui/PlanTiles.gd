@@ -42,14 +42,12 @@ static func grid(columns: int, ground: Array, profile: Array, on_pick: Callable 
 	var by_dim := words(profile)
 	var tiles := {}
 	var paint := func() -> void:
-		var ink := UiKit.ink_on(UiKit.team_colour())
 		for k in tiles:
 			var on: bool = str(k) == GameState.club_plan
 			var t: Button = tiles[k]
 			UiKit.paint_choice(t, on)
-			(t.find_child("Plan", true, false) as Label).add_theme_color_override("font_color", ink if on else UiKit.TEXT)
-			(t.find_child("Strength", true, false) as Label).add_theme_color_override("font_color",
-					Color(ink, 0.85) if on else UiKit.MUTED)
+			(t.find_child("Plan", true, false) as Label).add_theme_color_override("font_color", UiKit.TEXT if on else Color(UiKit.TEXT, 0.9))
+			(t.find_child("Strength", true, false) as Label).add_theme_color_override("font_color", UiKit.MUTED)
 	for key in GameState.CLUB_PLANS:
 		var k := str(key)
 		var t := Button.new()
