@@ -60,6 +60,10 @@ func replace(key: String) -> void:
 
 func back() -> void:
 	if stack.size() <= 1:
+		# Nothing behind this screen (the menu is the boot scene and was never
+		# pushed, so Club Forge's back found an empty history): go to the menu.
+		if current() != "" and current() != "main":
+			to_main_menu(false)
 		return
 	# Take both this screen and the one we return to off the stack: go()
 	# pushes the target again. Leaving it on made it appear twice, so every

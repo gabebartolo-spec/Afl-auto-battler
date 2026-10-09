@@ -59,6 +59,8 @@ var _history_view: VBoxContainer
 var _squad_view: VBoxContainer
 var _order_view: VBoxContainer
 var _all_button: Button
+var _all_count: Label
+var _all_need: Label
 var _advanced: VBoxContainer
 var _search_field: LineEdit
 var _search_timer: Timer
@@ -401,10 +403,26 @@ func _position_filters() -> Control:
 	h.name = "PositionFilters"
 	var narrow := _usable_size().x < 400.0
 	var height := 52 if _short else 58
-	_all_button = UiKit.btn("All", 14)
+	_all_button = UiKit.btn("", 14)
 	_all_button.name = "Filter_ALL"
-	_all_button.custom_minimum_size = Vector2(40 if narrow else 48, height)
+	_all_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_all_button.custom_minimum_size = Vector2(0, height)
 	_all_button.tooltip_text = "Show every position."
+	var av := UiKit.vbox(0)
+	av.set_anchors_preset(Control.PRESET_FULL_RECT)
+	av.offset_left = 2
+	av.offset_right = -2
+	av.alignment = BoxContainer.ALIGNMENT_CENTER
+	_all_button.add_child(av)
+	# Like the position cards: what you have, then what is left to do.
+	_all_count = UiKit.line("", 14 if narrow else 16, UiKit.TEXT, true)
+	_all_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	av.add_child(_all_count)
+	_all_need = UiKit.line("", UiKit.FINE, UiKit.MUTED, true)
+	_all_need.name = "Need_ALL"
+	_all_need.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	av.add_child(_all_need)
+	_ignore_mouse(av)
 	_all_button.pressed.connect(_set_role.bind(""))
 	h.add_child(_all_button)
 	for role in ROLES:
@@ -694,7 +712,7 @@ func _refresh_role_tabs() -> void:
 				colour if _role == role else UiKit.LINE))
 	_all_button.add_theme_stylebox_override("normal", UiKit.style(
 			Color.TRANSPARENT, 6, 6, UiKit.TEXT if _role.is_empty() else UiKit.LINE))
-	_all_button.add_theme_color_override("font_color", UiKit.TEXT if _role.is_empty() else UiKit.MUTED)
+	_all_count.add_theme_color_override("font_color", UiKit.TEXT if _role.is_empty() else UiKit.MUTED)
 
 
 func _set_role(role: String) -> void:
@@ -1597,6 +1615,9 @@ func _refresh_status() -> void:
 		_need_labels[role].text = Draft.need_word(st, role)
 		_need_labels[role].add_theme_color_override("font_color",
 				UiKit.BAD if int(st["short"]) > 0 else UiKit.MUTED)
+	_all_count.text = "All %d" % _draft.count()
+	_all_need.text = "list full" if _draft.count() >= _draft.target_size \
+			else "%d to sign" % (_draft.target_size - _draft.count())
 	var upcoming := _draft.upcoming_picks(_club, 3)
 	var pick_labels := []
 	for number in upcoming:

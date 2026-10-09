@@ -305,6 +305,17 @@ func _run() -> void:
 	var forge_tap: String = await Tap.tap(forge_btn) if forge_btn != null else "missing"
 	await _settle()
 	_check(forge_tap == "" and _router.current() == "forge", "A tap opens Club Forge (%s)" % forge_tap)
+	# Club Forge is opened from the menu, which was never pushed on the history:
+	# its back arrow still has to leave (it did nothing).
+	var forge_back: Button = current_scene.find_child("TopBarBack", true, false)
+	_check(forge_back != null, "Club Forge has a back arrow")
+	if forge_back != null:
+		var back_tap: String = await Tap.tap(forge_back)
+		await _settle()
+		_check(back_tap == "" and _router.current() == "main", "A tap on Club Forge's back leaves it (%s, on %s)" % [back_tap, _router.current()])
+		forge_btn = current_scene.find_child("ClubForge", true, false)
+		await Tap.tap(forge_btn)
+		await _settle()
 	# On a PC window, your player and your club sit side by side, and a real
 	# tap on Create a club opens its form (director: no full-width bars on PC).
 	root.size = Vector2i(1280, 720)

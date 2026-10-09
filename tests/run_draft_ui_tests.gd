@@ -774,7 +774,12 @@ func _test_position_filters(ui: Control) -> void:
 				"The %s card shows the count and one state (%s)" % [role, words])
 	var all: Button = ui.find_child("Filter_ALL", true, false)
 	var mid: Button = ui.find_child("Position_MID", true, false)
-	_check(all != null and all.size.x < mid.size.x, "All is compact beside the position cards")
+	var all_words := ""
+	if all != null:
+		for l in all.find_children("*", "Label", true, false):
+			all_words += str(l.text) + " "
+	_check(all != null and all_words.begins_with("All ") and (all_words.contains(" to sign") or all_words.contains("list full")),
+			"All is a card like the positions: what you have signed and what is left (%s)" % all_words)
 	ui.call("_set_role", "")
 	mid.emit_signal("pressed")
 	await _settle()

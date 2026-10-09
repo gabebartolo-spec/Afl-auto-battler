@@ -421,9 +421,11 @@ func _draw() -> void:
 
 	# Rain falls and wind blows over the ground, under the players and the ball.
 	var now := float(Time.get_ticks_msec()) / 1000.0
-	VignetteWeather.draw_air(self, r, now, weather)
+	# The whole view, not the oval's home rect: the camera moves the oval
+	# under a fixed rectangle, which showed as a dark square on the stand.
+	VignetteWeather.draw_air(self, Rect2(Vector2.ZERO, size), now, weather)
 	if weather == VignetteWeather.WINDY:
-		VignetteWeather.draw_wind_flat(self, r, now)
+		_draw_wind(now)
 	var tr := maxf(TOKEN_MIN, minf(r.size.x, r.size.y) * 0.5 * 0.030 * sqrt(_zoom))
 	_draw_tokens(0, tr)
 	_draw_tokens(1, tr)
@@ -447,6 +449,32 @@ func _draw() -> void:
 		draw_arc(_w2s(fl["pos"]), rad2, 0, TAU, 48, col, 4.0, antialias)
 	_draw_role_labels(tr)
 	_draw_caption(tr)
+
+
+## The breeze, drawn on the ground: faint wisps that stay put on the turf as
+## the camera follows the ball, all streaming toward the one end the breeze
+## blows to. The sides change ends each quarter, so in the ground's own frame
+## (home attacks +x) it flips every quarter, as MatchSim.with_breeze does.
+func _draw_wind(t: float) -> void:
+	var home_with := (int(result.get("breeze_side", 0)) == 0) == (period % 2 == 1)
+	var dir := 1.0 if home_with else -1.0
+	var span := 2.0 * MatchMotion.HALF_LEN
+	for i in range(14):
+		var h := hash(i * 3313 + 7)
+		var wy := (float(h % 997) / 997.0 * 2.0 - 1.0) * MatchMotion.HALF_WID * 0.9
+		var speed := 0.05 + 0.03 * float((h / 997) % 89) / 89.0         # grounds a second
+		var length := (0.12 + 0.08 * float(h % 7) / 7.0) * span
+		var u0 := fposmod(float((h / 5) % 991) / 991.0 + t * speed, 1.3) - 0.15
+		var pts := PackedVector2Array()
+		var cols := PackedColorArray()
+		for k in range(13):
+			var u := float(k) / 12.0
+			var wx := dir * (-MatchMotion.HALF_LEN + u0 * span + u * length)
+			var p := _w2s(Vector2(wx, wy))
+			p.y += sin(u * 3.0 + t * 2.0 + float(i)) * 3.0
+			pts.append(p)
+			cols.append(Color(0.92, 0.95, 1.0, 0.3 * sin(u * PI)))
+		draw_polyline_colors(pts, cols, 1.2, true)
 
 
 ## A thin light ring on each of your players with a call on him or a run

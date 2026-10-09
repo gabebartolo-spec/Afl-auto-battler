@@ -625,6 +625,15 @@ func _show_coach_box() -> void:
 				dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				dv.add_child(dl)
 			rep.add_child(dv)
+	if q == 1:
+		# Before the bounce there is no quarter to look back on; what they
+		# will run is their usual game, the same fact the later breaks give.
+		var usual := str(sim.standing[1 - _my_side])
+		var theirs := UiKit.lbl("They usually play a balanced game." if usual == "balanced"
+				else "They usually play %s." % CoachReport.plan_label(usual), UiKit.BODY, UiKit.TEXT)
+		theirs.name = "TheirUsualPlan"
+		theirs.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		rep.add_child(theirs)
 	rep.add_child(UiKit.spacer(UiKit.GAP))
 	if cols != null and cols.get_parent() == null:
 		v.add_child(cols)
