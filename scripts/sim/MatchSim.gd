@@ -1654,7 +1654,11 @@ const AERIAL_ROLES := {
 }
 ## The named loose defender reads it better in his own half and the middle:
 ## his weight grows with his intercept rating, up to double.
-const LOOSE_READ := 0.5
+const LOOSE_READ := 0.2
+## The power on intercept when picking who contests a general-play ball
+## (AERIAL_ROLES): above 1 the best reader on the ground takes more than his
+## share. Champion Data 2025: the best take about 8 a game, a side about 63.
+const AERIAL_READ := 1.0
 ## The director (2026-10-06): the best loose defenders sit near the real best,
 ## about 8 intercepts a game (Champion Data 2025: Sam Taylor 8.4), not 12.
 ## Scales how often he reaches an entry's contest.
@@ -1703,7 +1707,7 @@ func _aerial_defender(def_side: int, fp: float):
 	var loose := str(interceptor[def_side])
 	var weights := []
 	for p in group:
-		var w := float(roles.get(str(p["role"]), 0.0)) * pow(maxf(1.0, _a(p, "intercept")), 2.0)
+		var w := float(roles.get(str(p["role"]), 0.0)) * pow(maxf(1.0, _a(p, "intercept")), AERIAL_READ)
 		if loose != "" and str(p["id"]) == loose and zone != "forward":
 			w *= 1.0 + LOOSE_READ * _a(p, "intercept") / 100.0
 		weights.append(w)
