@@ -270,11 +270,18 @@ static func pick_event(ctx: Dictionary) -> Dictionary:
 				and not selected.has(str(p["id"])) and not Backing.is_active(p):
 			pool.append(_young_gun(p))
 			break
-	for p in fit:
-		var last := int(memory.get("unhappy|" + str(p["id"]), -99))
-		if morale(p) < 35 and round_no - last >= UNHAPPY_GAP:
-			pool.append(_unhappy(p))
-			break
+	# The sit-down (RPG-003): it opens on what actually happened to him, when
+	# something did; a low mood with no fact behind it is the fallback.
+	var info: Dictionary = ctx.get("talk_info", {})
+	var talk := pick_talk(fit, info, memory, round_no)
+	if not talk.is_empty():
+		pool.append(_unhappy(talk["p"], str(talk["case"]), info.get(str(talk["p"]["id"]), {})))
+	else:
+		for p in fit:
+			var last := int(memory.get("unhappy|" + str(p["id"]), -99))
+			if morale(p) < 35 and round_no - last >= UNHAPPY_GAP:
+				pool.append(_unhappy(p))
+				break
 	# Not the same card two weeks running when there is anything else.
 	var last_key := str(ctx.get("last_key", ""))
 	if pool.size() > 1:
@@ -428,8 +435,90 @@ static func _young_gun(p: Dictionary) -> Dictionary:
 		]}
 
 
-static func _unhappy(p: Dictionary) -> Dictionary:
+# --- The sit-down that grows out of what happened (RPG-003 slice 1, director
+# 2026-10-09). Three facts open it, in this order:
+#   dropped  a veteran (VETERAN_GAMES+) in your last side, fit, left out now
+#   back     back from an injury he has not played since, fit, left out now
+#   waiting  a fit youngster (YOUNG_AGE or under) without a senior game for
+#            WAITING_WEEKS+ of your rounds
+# `info` per player id (GameState.talk_info): {"games", "in_last_side",
+# "selected", "age", "weeks_without" (-1 unknown), "injury" (the injury he
+# is back from, "" for none), "kpi" (his season on his job's numbers, "")}.
+
+const VETERAN_GAMES := 100
+const YOUNG_AGE := 21.0
+const WAITING_WEEKS := 5
+const TALK_CASES := ["dropped", "back", "waiting"]
+## Morale for being told why, on the numbers (between the old card's two:
+## heard, but nothing promised).
+const EXPLAIN_LIFT := 5
+
+
+## Which fact, if any, he has to talk about: "dropped", "back", "waiting" or "".
+## `p` must be fit (the caller passes fit players only).
+static func talk_case(p: Dictionary, i: Dictionary) -> String:
+	if i.is_empty() or bool(i.get("selected", false)):
+		return ""
+	if int(i.get("games", 0)) >= VETERAN_GAMES and bool(i.get("in_last_side", false)):
+		return "dropped"
+	if str(i.get("injury", "")) != "":
+		return "back"
+	if float(i.get("age", 99.0)) <= YOUNG_AGE and int(i.get("weeks_without", -1)) >= WAITING_WEEKS:
+		return "waiting"
+	return ""
+
+
+## The player and case the week's sit-down is about, or {}: the first case in
+## TALK_CASES order, then the most senior games; nobody seen in UNHAPPY_GAP.
+static func pick_talk(fit: Array, info: Dictionary, memory: Dictionary, round_no: int) -> Dictionary:
+	var best := {}
+	var best_rank := 99
+	for p in fit:
+		var id := str(p["id"])
+		if round_no - int(memory.get("unhappy|" + id, -99)) < UNHAPPY_GAP:
+			continue
+		var c := talk_case(p, info.get(id, {}))
+		if c == "":
+			continue
+		var rank := TALK_CASES.find(c)
+		var games := int((info.get(id, {}) as Dictionary).get("games", 0))
+		if rank < best_rank or (rank == best_rank and games > int((info.get(str(best["p"]["id"]), {}) as Dictionary).get("games", 0))):
+			best = {"p": p, "case": c}
+			best_rank = rank
+	return best
+
+
+## What the card opens on, in a coach's words.
+static func talk_text(case: String, i: Dictionary) -> String:
+	match case:
+		"dropped":
+			return "%d games, fit, and dropped from the side this week. He wants to know why." % int(i.get("games", 0))
+		"back":
+			return "Over the %s and fit again, and still not picked. He wants to know where he stands." % str(i.get("injury", "injury"))
+		"waiting":
+			var w := int(i.get("weeks_without", 0))
+			return "%s weeks without a senior game, and he's fit. He wants to know what he has to do." % MatchNotes.count_word(w).capitalize()
+	return ""
+
+
+static func _unhappy(p: Dictionary, case := "", i := {}) -> Dictionary:
 	var n := GameDB.player_display_name(p)
+	if case != "":
+		var kpi := str(i.get("kpi", ""))
+		var need := "What a %s has to show: %s." % [str(i.get("job", "player")), str(i.get("need", ""))]
+		return {"key": "unhappy", "player_id": str(p["id"]), "case": case, "kpi": kpi,
+			"verdict": str(i.get("verdict", "")), "job": str(i.get("job", "")), "need": str(i.get("need", "")),
+			"default": -1,
+			"title": "%s wants a word" % n,
+			"text": talk_text(case, i),
+			"options": [
+				# Plain facts, never an argument for or against your call: his
+				# season on his job's numbers, or what his job has to show.
+				_opt("explain", "Talk him through his season" if kpi != "" else "Tell him what he has to show",
+						"%s Morale +%d; nothing promised." % [kpi if kpi != "" else need, EXPLAIN_LIFT]),
+				_opt("talk", "Promise him a game this week", "Morale +15, but he expects a game this week. Leave him out fit and it sours (-12)."),
+				_opt("call", "It's my call", "You tell him selection is your call, and it stands. His morale -5."),
+			]}
 	return {"key": "unhappy", "player_id": str(p["id"]), "default": -1,
 		"title": "%s is unhappy" % n,
 		"text": "He feels he is being overlooked. Unhappy players play below their best and cost more to re-sign.",

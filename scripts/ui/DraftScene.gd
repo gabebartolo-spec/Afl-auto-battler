@@ -190,12 +190,20 @@ func _show_club_select() -> void:
 	UiKit.clear(_root)
 	# A career starts with the clubs active in its first season - the
 	# founding eighteen in the first season, more once expansion clubs arrive.
-	var active := GameDB.active_clubs(GameState.season_year)
-	_root.add_child(_header("CHOOSE YOUR CLUB",
-			"%d  /  A fresh start for all %d clubs" % [GameState.season_year, active.size()]))
-	_root.add_child(UiKit.lbl(
-			"One player pool. One salary cap. The whole league re-drafts in a random snake order.",
-			16, UiKit.MUTED))
+	var real := GameState.opening_draft
+	var active := GameDB.active_clubs(GameDB.START_YEAR if real else GameState.season_year)
+	if real:
+		_root.add_child(_header("CHOOSE YOUR CLUB",
+				"Real 2026 lists  /  the 2026 National Draft, then 2027"))
+		_root.add_child(UiKit.lbl(
+				"Every club starts with its real list, less the players who retired or were delisted after 2026; the delisted are free agents. The 2026 National Draft comes first, worst club on the ladder picking first; then the 2027 season.",
+				16, UiKit.MUTED))
+	else:
+		_root.add_child(_header("CHOOSE YOUR CLUB",
+				"%d  /  A fresh start for all %d clubs" % [GameState.season_year, active.size()]))
+		_root.add_child(UiKit.lbl(
+				"One player pool. One salary cap. The whole league re-drafts in a random snake order.",
+				16, UiKit.MUTED))
 	var grid := GridContainer.new()
 	grid.name = "ClubGrid"
 	grid.columns = _grid_columns()
@@ -226,7 +234,10 @@ func _show_club_select() -> void:
 		_ignore_mouse(inner)
 		b.pressed.connect(_on_club_chosen.bind(code))
 		grid.add_child(b)
-	_root.add_child(UiKit.subtitle("Every club drafts %d players. Your first pick is shown on each card." % _draft.target_size))
+	if real:
+		_root.add_child(UiKit.subtitle("Your first pick in the 2026 National Draft is shown on each card."))
+	else:
+		_root.add_child(UiKit.subtitle("Every club drafts %d players. Your first pick is shown on each card." % _draft.target_size))
 
 
 
@@ -247,7 +258,10 @@ func _on_club_chosen(code: String) -> void:
 	_club = code
 	_phase = "board"
 	_last_batch_start = _draft.pick_history.size()
-	_draft.start_for_user(code)
+	if GameState.opening_draft:
+		GameState.choose_real_club(code)
+	else:
+		_draft.start_for_user(code)
 	GameState.mark_dirty()
 	_show_board()
 

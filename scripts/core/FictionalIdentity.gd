@@ -84,7 +84,8 @@ static func _sourced() -> Dictionary:
 		var row := f.get_csv_line()
 		if row.size() < header.size() or str(row[0]).strip_edges() == "":
 			continue
-		var key := "%s|%s|%s" % [row[at["first"]].strip_edges().to_lower(), row[at["last"]].strip_edges().to_lower(),
+		var key := "%s|%s|%s" % [row[at["first"]].strip_edges().to_lower().replace("'", ""),
+				row[at["last"]].strip_edges().to_lower().replace("'", ""),
 				row[at["dob"]].strip_edges()]
 		_fav_sourced[key] = row[at["club"]].strip_edges()
 	return _fav_sourced
@@ -100,7 +101,8 @@ static func favourite_club(p: Dictionary) -> String:
 		return str(p["fav_club"]).strip_edges()
 	# A player created before the Create-a-player question existed never chose one.
 	if bool(p.get("user_created", false)) or not bool(p.get("generated", false)):
-		var key := "%s|%s|%s" % [str(p.get("first", "")).to_lower(), str(p.get("last", "")).to_lower(),
+		var key := "%s|%s|%s" % [str(p.get("first", "")).to_lower().replace("'", ""),
+				str(p.get("last", "")).to_lower().replace("'", ""),
 				str(p.get("dob", ""))]
 		return str(_sourced().get(key, ""))
 	var founding: Array = []

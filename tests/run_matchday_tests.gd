@@ -1349,6 +1349,19 @@ func _vignettes_setting() -> void:
 			_check((await Tap.tap(off)) == "", "Vignettes Off takes a real tap (%s)" % tag)
 			await _settle()
 			_check(not _state.vignettes_on(), "Off turns the vignettes off (%s)" % tag)
+		# Battery saver: a real tap caps drawing at 30 frames a second, and Off
+		# puts it back to 60.
+		if tag == "390x844":
+			var saver: Button = sheet.find_child("SettingsBatterySaver_on", true, false)
+			var tapped: String = await Tap.tap(saver) if saver != null else "missing"
+			await _settle()
+			_check(tapped == "" and _state.battery_saver() and Engine.max_fps == _state.FPS_SAVER,
+					"Battery saver On caps drawing at 30 a second (%s, %d)" % [tapped, Engine.max_fps])
+			var normal: Button = sheet.find_child("SettingsBatterySaver_off", true, false)
+			tapped = await Tap.tap(normal) if normal != null else "missing"
+			await _settle()
+			_check(tapped == "" and not _state.battery_saver() and Engine.max_fps == _state.FPS_NORMAL,
+					"Battery saver Off puts it back to 60 (%s)" % tapped)
 		host.queue_free()
 		await _settle()
 		# A reload: a fresh read of the settings file, and a fresh career state.
