@@ -508,7 +508,9 @@ func _roam_chance(def_side: int) -> float:
 	var p := _roaming_interceptor(def_side)
 	if p.is_empty():
 		return 0.0
-	var chance := clampf(0.10 + Matchups.interceptor_score(p) / 430.0, 0.20, 0.38)
+	# A strong strategy only with a strong intercepting defender (director,
+	# 2026-10-10): a poor reader of the ball seldom gets there at all.
+	var chance := LOOSE_REACH_MIN + LOOSE_REACH_RANGE * _loose_read(p)
 	if zone_intercepts:
 		chance *= ROAM_REACH
 	var minder := _spare_minder(1 - def_side)
@@ -520,14 +522,22 @@ func _roam_chance(def_side: int) -> float:
 ## The spare arriving as the extra body: how much harder he makes the mark
 ## (a better reader of the ball, more), never easier.
 func _roam_mark_shift(roamer: Dictionary) -> float:
-	return -clampf((Matchups.interceptor_score(roamer) - 50.0) / 300.0, 0.0, 0.12)
+	return -LOOSE_MARK_EDGE * _loose_read(roamer)
 
 
 ## Whether the spare, as the extra body, gets a fist to a ball the defender
 ## in the contest missed: LOOSE_EXTRA scaled by his game in the air.
 func _roam_spoil(roamer: Dictionary) -> bool:
 	return aerial_rng.randf() < clampf(LOOSE_EXTRA * Matchups.defender_air(roamer) / 70.0
+			* (LOOSE_SPOIL_FLOOR + (1.0 - LOOSE_SPOIL_FLOOR) * _loose_read(roamer))
 			+ (0.05 if _trait(roamer, "interceptor") else 0.0), 0.0, 0.6)
+
+
+## How well the loose defender reads the ball, 0 (a club's worst, about 40)
+## to 1 (a club's best interceptor, about 80): it scales his reach, his edge in
+## the contest and his spoil.
+func _loose_read(p: Dictionary) -> float:
+	return clampf((Matchups.interceptor_score(p) - LOOSE_READ_FLOOR) / LOOSE_READ_SPAN, 0.0, 1.0)
 
 
 ## Making their loose defender accountable is one of your forwards' job
@@ -1648,6 +1658,18 @@ const ROAM_REACH := 0.7
 ## The spare as an extra body: his chance, for a league-average aerial
 ## defender (70), of getting a fist to a ball the man in the contest missed.
 const LOOSE_EXTRA := 0.35
+## The loose defender's read of the ball (interceptor score) from which he
+## starts to matter, and the span over which he reaches full value.
+const LOOSE_READ_FLOOR := 40.0
+const LOOSE_READ_SPAN := 40.0
+## His chance of reaching an entry's contest: a poor reader's, plus the range
+## a top one adds.
+const LOOSE_REACH_MIN := 0.06
+const LOOSE_REACH_RANGE := 0.30
+## The most he makes the mark harder, for a top reader.
+const LOOSE_MARK_EDGE := 0.12
+## The share of his spoil a poor reader still gets.
+const LOOSE_SPOIL_FLOOR := 0.25
 ## The power on intercept when picking the defender who meets an entry (main: 2).
 const ENTRY_READ := 1.5
 ## Of the contests the defender wins, the share he marks (an intercept
