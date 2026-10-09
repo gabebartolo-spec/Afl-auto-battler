@@ -559,23 +559,20 @@ func _show_plan() -> void:
 	var v: VBoxContainer = box["body"]
 	v.add_theme_constant_override("separation", 6)
 	v.add_child(UiKit.lbl("Game plan", UiKit.H1, UiKit.TEXT, true))
-	var opts := []
-	for key in GameState.CLUB_PLANS:
-		opts.append([key, CoachReport.plan_label(key)])
 	var ground: Array = GameState.my_squad().ground
 	var fit := _para(GameState.plan_fit_line(ground, GameState.club_plan), 13, UiKit.TEXT)
 	fit.name = "PlanFit"
 	fit.visible = fit.text != ""
 	var note := _para(CoachReport.plan_summary(GameState.club_plan), 13, UiKit.MUTED)
 	note.name = "PlanNote"
-	v.add_child(UiKit.choice_grid("ClubPlan", opts, GameState.club_plan, 2, func(key):
-		GameState.set_club_plan(str(key))
-		note.text = CoachReport.plan_summary(str(key))
-		fit.text = GameState.plan_fit_line(ground, str(key))
+	# The plans as on Coaching: each with the list strength it runs on.
+	v.add_child(PlanTiles.grid(2, ground, GameState.list_profile(), func(key: String):
+		note.text = CoachReport.plan_summary(key)
+		fit.text = GameState.plan_fit_line(ground, key)
 		fit.visible = fit.text != ""
 		var line: Label = find_child("PlanLine", true, false)
 		if line != null:
-			line.text = "Game plan: %s" % CoachReport.plan_label(str(key))))
+			line.text = "Game plan: %s" % CoachReport.plan_label(key)))
 	v.add_child(note)
 	v.add_child(fit)
 	v.add_child(_para("Every match starts on this plan. Change it at any break.", 13, UiKit.MUTED))

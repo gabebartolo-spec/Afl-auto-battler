@@ -61,24 +61,6 @@ func _wrapped(text: String, fs := UiKit.BODY, col := UiKit.AUTO_COLOUR) -> Label
 # that no plan runs on are listed under them. A tap on one says what it is
 # and who leads it. Nothing says which plan to pick: facts, never advice.
 # ---------------------------------------------------------------------------
-## plan -> the List profile strength it runs on (PlanFit.NEEDS = ListProfile's
-## Contest, Running power, Pressure and Control). Through stars runs on the
-## side's best three; Balanced on nothing in particular.
-const PLAN_STRENGTH := {"contest": "contest", "attacking": "running", "defensive": "pressure",
-		"controlled": "control"}
-
-
-func _plan_strength_line(key: String, words: Dictionary, ground: Array) -> String:
-	if PLAN_STRENGTH.has(key):
-		var dim := str(PLAN_STRENGTH[key])
-		return "%s · %s" % [ListProfile.LABEL[dim], str(words.get(dim, ""))]
-	if key == "through_stars":
-		var e := PlanFit.edge(ground, "through_stars")
-		var w := "Elite" if e >= 1.2 else ("Strong" if e >= 0.4 else ("Average" if e > -0.4 else "Weak"))
-		return "Best three · %s" % w
-	return "Plays it straight"
-
-
 func _profile_row(row: Dictionary, ground: Array) -> Control:
 	var dim := str(row["dim"])
 	var box := UiKit.vbox(2)
@@ -130,69 +112,22 @@ func _how_we_play() -> Control:
 			UiKit.SMALL, UiKit.MUTED))
 	var ground: Array = GameState.my_squad().ground
 	var profile := GameState.list_profile()
-	var words := {}
-	for row in profile:
-		words[str(row["dim"])] = str(row["word"])
 	var note := _wrapped(CoachReport.plan_summary(GameState.club_plan), UiKit.SMALL, UiKit.MUTED)
 	note.name = "PlanNote"
 	var fit := _wrapped(GameState.plan_fit_line(ground, GameState.club_plan), UiKit.SMALL, UiKit.TEXT)
 	fit.name = "PlanFit"
 	fit.visible = fit.text != ""
-	var grid := GridContainer.new()
-	grid.name = "ClubPlan"
-	grid.columns = 2 if _narrow() else 3
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
-	var tiles := {}
-	var paint := func() -> void:
-		for k in tiles:
-			var on: bool = str(k) == GameState.club_plan
-			var t: Button = tiles[k]
-			UiKit.paint_choice(t, on)
-			var ink := UiKit.ink_on(UiKit.team_colour())
-			(t.find_child("Plan", true, false) as Label).add_theme_color_override("font_color", ink if on else UiKit.TEXT)
-			(t.find_child("Strength", true, false) as Label).add_theme_color_override("font_color",
-					Color(ink, 0.85) if on else UiKit.MUTED)
-	for key in GameState.CLUB_PLANS:
-		var k := str(key)
-		var t := Button.new()
-		t.name = "ClubPlan_%s" % k
-		t.text = ""
-		t.focus_mode = Control.FOCUS_NONE
-		t.custom_minimum_size = Vector2(0, 56)
-		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var face := UiKit.vbox(0)
-		face.alignment = BoxContainer.ALIGNMENT_CENTER
-		face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var name_l := UiKit.ellipsis(CoachReport.plan_label(k), 14, UiKit.TEXT, true)
-		name_l.name = "Plan"
-		name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		face.add_child(name_l)
-		var str_l := UiKit.ellipsis(_plan_strength_line(k, words, ground), 12, UiKit.MUTED)
-		str_l.name = "Strength"
-		str_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		str_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		face.add_child(str_l)
-		t.add_child(face)
-		t.pressed.connect(func():
-			GameState.set_club_plan(k)
-			note.text = CoachReport.plan_summary(k)
-			fit.text = GameState.plan_fit_line(ground, k)
-			fit.visible = fit.text != ""
-			paint.call())
-		tiles[k] = t
-		grid.add_child(t)
-	paint.call()
-	v.add_child(grid)
+	v.add_child(PlanTiles.grid(2 if _narrow() else 3, ground, profile, func(k: String):
+		note.text = CoachReport.plan_summary(k)
+		fit.text = GameState.plan_fit_line(ground, k)
+		fit.visible = fit.text != ""))
 	# The strengths no plan runs on, as before: a word each, a tap for who leads it.
 	var rest := UiKit.vbox(0)
 	rest.name = "ListProfile"
 	rest.add_child(UiKit.spacer(4))
 	rest.add_child(UiKit.lbl("Also on your list", UiKit.SMALL, UiKit.MUTED))
 	for row in profile:
-		if not PLAN_STRENGTH.values().has(str(row["dim"])):
+		if not PlanTiles.PLAN_STRENGTH.values().has(str(row["dim"])):
 			rest.add_child(_profile_row(row, ground))
 	v.add_child(rest)
 	v.add_child(note)
