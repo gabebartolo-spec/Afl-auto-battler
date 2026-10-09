@@ -100,6 +100,9 @@ func _ready() -> void:
 	if _res.is_empty():
 		Router.replace("hub")
 		return
+	# The ground the vignettes draw: the MCG has its own stands (FL-003); every other
+	# venue keeps the plain ground. Set every match, as the static outlives the scene.
+	VignetteGround.venue = str(_res.get("venue", ""))
 	_crowd = CrowdSound.new()
 	_crowd.name = "Crowd"
 	add_child(_crowd)
