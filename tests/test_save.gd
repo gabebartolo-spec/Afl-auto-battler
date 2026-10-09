@@ -26,6 +26,7 @@ func run() -> void:
 	_test_old_club_code_migrates()
 	_test_safe_replacement()
 	_test_fictional_identity()
+	_test_career_facts()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Save tests: %d checks, %d failures" % [checks, failures.size()])
@@ -220,6 +221,9 @@ func _test_intake_and_second_season() -> void:
 	var first_year := int(GameState.season_year)
 	GameState.season.round_index = GameState.season.fixture.size()
 	GameState.rising_star_noms = {"from": 1, "rounds": [{"round": 3, "id": "last_year", "club": "ADE"}]}
+	var vet := str(GameState.my_list[0]["id"])
+	CareerFacts.add(GameState.career_facts, vet, CareerFacts.row(first_year, "Round 9", "injury", "ADE", "", "calf"))
+	var vet_facts := str(CareerFacts.of(GameState.career_facts, vet))
 	_check(GameState.begin_intake_draft(), "The intake opens")
 	var draft: Draft = GameState.draft
 	var logged := draft.pick_history.size()
@@ -239,6 +243,8 @@ func _test_intake_and_second_season() -> void:
 			draft._skip_current_pick()
 	_check(GameState.finish_intake_draft(), "The loaded intake commits")
 	_check(GameState.season_year == first_year + 1, "The career rolls into the next season")
+	_check(str(CareerFacts.of(GameState.career_facts, vet)) == vet_facts,
+			"Career facts carry through the rollover unchanged")
 	_check(int(GameState.rising_star_noms.get("from", 0)) == 1 and (GameState.rising_star_noms["rounds"] as Array).is_empty(),
 			"Last season's Rising Star nominations stay behind at the rollover")
 
@@ -465,3 +471,78 @@ func _test_fictional_identity() -> void:
 	_check(FictionalIdentity.nickname(GameState.list_player(str(mine["id"]))) == "",
 			"Removing it costs nothing and it stays removed")
 
+
+## G7: career facts (CareerFacts) are written when they happen and kept by
+## player id, so a save, an old save, a nickname, a club move and leaving the
+## game all leave them as they were - and a player who has gone is still named.
+func _test_career_facts() -> void:
+	_new_season()
+	GameState.advance()
+	GameState.advance()
+	var logged := 0
+	var shaped := true
+	for id in GameState.career_facts:
+		for f in CareerFacts.of(GameState.career_facts, str(id), "injury"):
+			logged += 1
+			if int(f["y"]) != GameState.season_year or not str(f["at"]).begins_with("Round") 					or str(f["club"]) == "" or str(f["out"]) == "":
+				shaped = false
+	_check(logged > 0 and shaped,
+			"Injuries become career facts with the season, the round, his club and what it was (%d)" % logged)
+	# An older save kept bare years on the player: they move across once, as
+	# they were, with nothing invented.
+	var p: Dictionary = GameState.my_list[0]
+	var pid := str(p["id"])
+	var had := CareerFacts.of(GameState.career_facts, pid).size()
+	p["injury_log"] = [GameState.season_year - 1, GameState.season_year - 1]
+	_check(GameState.save_career() and GameState.load_career(), "A career with an old injury record saves and loads")
+	p = GameState.list_player(pid)
+	var mine := CareerFacts.of(GameState.career_facts, pid)
+	_check(mine.size() == had + 2 and not p.has("injury_log")
+			and str(mine[-1]["at"]) == "" and str(mine[-1]["club"]) == "" and str(mine[-1]["out"]) == "",
+			"An old save's injury years become facts once, with no round, club or kind made up")
+	GameState._migrate_injury_logs()
+	_check(CareerFacts.of(GameState.career_facts, pid).size() == had + 2, "Moving them is done once")
+	# An unlinked list can hold a separate copy of the same player: his years
+	# still move once, never twice (the retirement talk would double-count).
+	var twin_id := str(GameState.my_list[1]["id"])
+	var twin_had := CareerFacts.of(GameState.career_facts, twin_id).size()
+	var twin: Dictionary = GameState.my_list[1]
+	var copy: Dictionary = twin.duplicate(true)
+	twin["injury_log"] = [GameState.season_year]
+	copy["injury_log"] = [GameState.season_year]
+	GameState.free_agents.append(copy)
+	GameState._migrate_injury_logs()
+	GameState.free_agents.erase(copy)
+	_check(CareerFacts.of(GameState.career_facts, twin_id).size() == twin_had + 1
+			and not twin.has("injury_log") and not copy.has("injury_log"),
+			"A player held twice as separate copies has his old injuries moved once")
+	_check(Retirement.recent_injuries(p, GameState.season_year, GameState.career_facts) >= 2,
+			"The retirement talk still counts his recent injuries")
+	var sig := str(GameState.career_facts)
+	_check(GameState.save_career() and GameState.load_career() and str(GameState.career_facts) == sig,
+			"Career facts come back from a save exactly")
+	p = GameState.list_player(pid)
+	GameState.set_player_nickname(pid, "Gus")
+	_check(str(GameState.career_facts) == sig, "A nickname changes no fact")
+	# A club move: the facts stay his, each with the club he was at.
+	GameState.my_list.erase(p)
+	GameState._join("ESS", p)
+	_check(str(GameState.career_facts) == sig and str(p["club"]) == "ESS",
+			"A move to another club leaves his facts as they were")
+	# Leaving the game: a player the database never knew is still named, and
+	# his facts stay with his id (a former player who coaches keeps it: C_P_<id>).
+	var kid: Dictionary = p.duplicate(true)
+	kid["id"] = "g7_kid"
+	kid["generic_name"] = "Tom Gone"
+	kid["real_name"] = ""
+	CareerFacts.add(GameState.career_facts, "g7_kid", CareerFacts.row(GameState.season_year, "Round 2", "injury", "ESS", "", "knee"))
+	_check(GameDB.player_display_name_by_id("g7_kid", "nobody") == "nobody", "Before he leaves, an unlisted id has no name")
+	GameState._career_over(kid)
+	_check(GameDB.player_display_name_by_id("g7_kid", "nobody") == "Tom Gone"
+			and CareerFacts.of(GameState.career_facts, "g7_kid").size() == 1,
+			"A player who has left the game keeps his name and his facts")
+	_check(CoachPathway.cid_for("g7_kid").trim_prefix("C_P_") == "g7_kid",
+			"A former player's coach record leads back to his facts by id")
+	_check(GameState.save_career() and GameState.load_career()
+			and GameDB.player_display_name_by_id("g7_kid", "nobody") == "Tom Gone",
+			"His name comes back from a save")
