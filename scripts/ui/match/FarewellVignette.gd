@@ -24,12 +24,12 @@ const FROM_GAMES := 200
 const LINE := 6
 const LINE_X := 2.2
 const LINE_GAP := 1.9
-const LINE_FROM := 3.0
+const LINE_FROM := 4.2          # the nearest men in frame (at 3.0 only a boot and a shadow showed)
 ## Chaired off: each carrier's centre off the middle (the board's 0.235 m, at the
 ## figures' scale) and the walk: from the far end of the guard towards the camera.
 const CARRIER_X := 0.235
-const WALK := [Vector2(0.0, 10.5), Vector2(0.0, 5.6)]
-const CHAIR := [Vector2(0.0, 9.0), Vector2(0.0, 6.2)]
+const WALK := [Vector2(0.0, 12.0), Vector2(0.0, 6.6)]
+const CHAIR := [Vector2(0.0, 10.2), Vector2(0.0, 7.2)]
 ## Strides: a walk's cycle (eight frames) takes this long; carriers, under the load, longer.
 const WALK_CYCLE := 1.05
 const CARRY_CYCLE := 1.3
