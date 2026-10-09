@@ -1665,9 +1665,9 @@ const LOOSE_READ_SPAN := 26.0
 ## His chance of reaching an entry's contest: a poor reader's, plus the range
 ## a top one adds.
 const LOOSE_REACH_MIN := 0.06
-const LOOSE_REACH_RANGE := 0.30
+const LOOSE_REACH_RANGE := 0.45
 ## The most he makes the mark harder, for a top reader.
-const LOOSE_MARK_EDGE := 0.12
+const LOOSE_MARK_EDGE := 0.22
 ## The share of his spoil a poor reader still gets.
 const LOOSE_SPOIL_FLOOR := 0.25
 ## The power on intercept when picking the defender who meets an entry (main: 2).
