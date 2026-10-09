@@ -138,6 +138,14 @@ Arm: their best key forward (`Matchups.key_forwards`, first) on your weakest aer
 
 **Verdict: works.** Who minds whom is one of the biggest single calls measured here, about a goal-and-a-half swing in conceded points. That agrees with `docs/KEY_MATCHUPS_AUDIT_2026-10-06.md` (an elite forward marks 76% on an average defender, 57% on an elite one).
 
+### Backing, the media conference, the board (code and copy)
+
+| Lever | Copy | Code | Verdict |
+|---|---|---|---|
+| Back him for three games (`ClubLife._young_gun`) | "he is thrilled (morale +5) ... expects to be picked for the next three games. Leave him out while he is fit and the promise breaks (-10)" | +`THRILL` 5 (`GameState.gd:7211`); auto-pick names him (`Ratings.select_22` promised); broken: −`STING` 10 × (1 − man-manager softening) (`GameState.gd:6807`); a senior game earns `XP_SELECTED` + `XP_NAMED` + performance, more than reserves | **Works.** Small imprecision: "(-10)" is the most it costs; a good man-manager softens it (`CoachEffects.softened`), and the copy doesn't say so |
+| Media conference answers (`MediaConference._q`) | The button shows only the answer's words (`HubScene._show_media_conference`) | Accountable: board +1, every listed player's morale −1. Tactical: nothing. Protective: board −1, morale +1 (`resolve_media_conference`) | **Hidden effect.** The player can't see that an answer moves board confidence (±1 of 100) and the whole list's morale (±1). The board's "why" line names the comments afterwards. A "no hidden modifiers" question for the director: show the effect, or keep the press flavour-only. The effects are tiny either way |
+| Board goal and confidence (`_board_season_end`) | Goal text, confidence, warning, sacking | Met or missed, then `ClubLife.after_season`; a warning below `WARN_LINE`, the sack on a second miss | Wired as written (state is shown in the board panel) |
+
 ### Development projects, the payback (`tools/audit/projpair_impl.gd` on audit.yml; seeds 301–306, 3 seasons; each project player paired with his no-project self)
 
 | Club (run) | Projects / learned | OVR vs self, project season | OVR vs self, two seasons on | Extra weeks played out of his line |
