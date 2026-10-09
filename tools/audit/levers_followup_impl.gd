@@ -32,11 +32,24 @@ func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
 		if str(p.get("role", "")) == "DEF" and Matchups.interceptor_score(p) > top:
 			top = Matchups.interceptor_score(p)
 			loose = str(p["id"])
+	# The away forward he stands on by default (Matchups.defaults), if any.
+	var freed := ""
+	for fid in sim.duels[0]:
+		if str(sim.duels[0][fid]) == loose:
+			freed = str(fid)
 	if arm == "loose":
 		sim.set_interceptor(0, loose, false)
+	res_freed = freed
+	freed_covered = freed != "" and (sim.duels[0] as Dictionary).has(freed)
 	var res: Dictionary = sim.run()
 	res["loose_id"] = loose
+	res["freed"] = res_freed
+	res["freed_covered"] = freed_covered
 	return res
+
+
+var res_freed := ""
+var freed_covered := false
 
 
 func _n(d: Dictionary, k: String) -> float:
@@ -50,17 +63,36 @@ func _loose_row(res: Dictionary) -> Dictionary:
 	var sc: Array = res["score"]
 	return {"margin": float(int(sc[0]) - int(sc[1])),
 		"set": 1.0 if str((res["interceptor"] as Array)[0]) == str(res["loose_id"]) else 0.0,
-		"his_intercepts": _n(me, "intercepts") + _n(me, "intercept_marks"),
+		"his_intercepts": _n(me, "intercepts"),
+		"his_intercept_marks": _n(me, "intercept_marks"),
+		"his_duels": _duels(res, str(res["loose_id"])),
 		"his_marks": _n(me, "marks"),
 		"his_spoils": _n(me, "spoils"),
 		"his_roam_contests": _n(me, "roam_contests"),
 		"his_roam_wins": _n(me, "roam_wins"),
 		"his_roam_losses": _n(me, "roam_losses"),
-		"team_intercepts": _n(team, "intercepts") + _n(team, "intercept_marks"),
+		"freed_has_man": 1.0 if str(res["freed"]) != "" else 0.0,
+		"freed_still_covered": 1.0 if bool(res["freed_covered"]) else 0.0,
+		"freed_goals": _n((res["players"] as Dictionary).get(str(res["freed"]), {}), "goals"),
+		"freed_marks": _n((res["players"] as Dictionary).get(str(res["freed"]), {}), "marks"),
+		"team_intercepts": _n(team, "intercepts"),
 		"team_spoils": _n(team, "spoils"),
 		"conceded": float(int(sc[1])),
 		"their_goals": float(int((res["goals"] as Array)[1])),
 		"their_marks": _n(opp, "marks")}
+
+
+## His one-on-one contests as a forward's direct opponent (the duel log).
+func _duels(res: Dictionary, id: String) -> float:
+	var n := 0
+	for fid in res["duels"]:
+		var row: Dictionary = res["duels"][fid]
+		if int(row.get("side", -1)) != 1:
+			continue
+		for c in row["contests"]:
+			if str(c[1]) == id:
+				n += 1
+	return float(n)
 
 
 ## Clearances and contested possessions in each quarter 2-4, with the score

@@ -53,7 +53,25 @@ Only the defensive plan's margin edge clears 2 SE; every arm is within a goal of
 | Points conceded | 82.1 | **+2.44 ± 0.95** |
 | Margin | | −2.94 ± 1.59 |
 
-He attacks fewer aerial balls than he did as a direct defender, not more. The roam reaches about two contests a game (`_roam_chance` × `ROAM_REACH` 0.2), but losing his direct man takes him out of the entries he used to meet. The team pays the copy's cost (more conceded) without its upside. Next: the smallest fix, with this paired evidence, as its own PR.
+He attacks fewer aerial balls than he did as a direct defender, not more. The roam reaches about two contests a game (`_roam_chance` × `ROAM_REACH` 0.2), but losing his direct man takes him out of the entries he used to meet. The team pays the copy's cost (more conceded) without its upside.
+
+(The table's intercept rows add `intercept_marks` to `intercepts`, which already includes them; the corrected runs below count `intercepts` alone.)
+
+**Mechanism** (240 pairs; one-on-one contests from the duel log):
+- In 83% of matches the best interceptor is on one of their key forwards (`Matchups.defaults`). Named loose, he gives up 5.3 one-on-one contests a game and roams to 2.2.
+- His forward is always picked up by another defender and kicks +0.29 ± 0.09 goals and takes +0.70 ± 0.17 marks. That is the copy's cost, and it works.
+- The upside is the gap. A roaming arrival *replaces* the defender who would have met the ball (`resolve_forward50`, `_general_aerial_contest`). It never adds a second body. Its only edge is `roam_shift`, which is at most −0.10 on the mark (about −0.04 for a typical loose man) and only applies at entries.
+
+**Tuning variants tried** (local, not committed; 600 pairs unless marked):
+
+| Variant | His intercepts | His roam contests | Team intercepts | Conceded | Margin |
+|---|---|---|---|---|---|
+| main (`ROAM_REACH` 0.2) | −2.3 (90 pairs) | 2.2 | ±0 | +2.4 ± 0.9 | −2.9 ± 1.6 |
+| `ROAM_REACH` 0.5 | −0.3 ± 0.2 | 4.4 | −0.2 ± 0.3 | +1.4 ± 1.0 | +0.2 ± 1.7 |
+| 0.5 + `roam_shift` up to −0.20 | −0.3 ± 0.2 | 4.3 | ±0 | +0.9 ± 1.0 | +1.1 ± 1.7 |
+| `ROAM_REACH` 0.7 (240 pairs) | +0.7 ± 0.3 (11.2 a game) | 5.7 | −0.2 ± 0.4 | +0.8 ± 1.6 | +1.6 ± 2.8 |
+
+No reach gives the team a gain, because a roam swaps one defender for another. A reach that gives him more intercepts than his direct job (0.7, 11.2 a game) breaks the director's #462 calibration ("bring him to ~8"). As a direct key back he already intercepts about 10.4. **This is a design conflict, not a constant to tune.** It goes to the lead before any fix PR.
 
 **Fire them up while behind:** 338 paired quarters (Q2–Q4 the home side began behind in both arms). Clearances +0.35 ± 0.20 a quarter, share +0.7 pts ± 0.8, contested possessions +0.25 ± 0.23, clangers **+1.17 ± 0.20**, points +0.8 ± 0.7. The lift is real in the code (+0.018 at the contest) but hard to see; the cost is clear. Copy is true but the trade is lopsided: a candidate for the director, not a defect.
 
