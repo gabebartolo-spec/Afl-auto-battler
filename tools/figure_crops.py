@@ -9,7 +9,7 @@ frame is reviewed at. For every movie frame set <PREFIX>_film_NNN.png in
 IN_FRAMES_DIR (the --film frames of capture_prematch and capture_vignette) this
 takes the first, middle and last frame, crops the box X0,Y0,X1,Y1 (fractions of
 the frame; default 0.25,0.45,0.75,0.95: the players' legs and boots on the
-phone-size scene) and writes it at 2x to
+phone-size scene) and writes it at 2x (nearest neighbour, so the pixels stay honest) to
 OUT_DIR/<PREFIX>_<first|contact|last>_2x.png.
 """
 import glob
@@ -39,7 +39,7 @@ def main() -> int:
         w, h = im.size
         px = (round(w * box[0]), round(h * box[1]), round(w * box[2]), round(h * box[3]))
         crop = im.crop(px)
-        crop = crop.resize((crop.width * SCALE, crop.height * SCALE), Image.LANCZOS)
+        crop = crop.resize((crop.width * SCALE, crop.height * SCALE), Image.NEAREST)
         dest = os.path.join(out_dir, "%s_%s_2x.png" % (prefix, name))
         crop.save(dest)
         print("wrote %s (%dx%d from %s)" % (dest, crop.width, crop.height, os.path.basename(path)))

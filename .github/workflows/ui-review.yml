@@ -107,11 +107,15 @@ jobs:
           mkdir -p out/figures frames
           run_tool() {  # name, args...
             name="$1"; shift
-            LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1280x1000x24"               timeout 600 "$HOME/godot/godot" --path . --rendering-method gl_compatibility               --script "tools/visual/capture_$name.gd" -- "$@" --out "$PWD/frames/$name"               > "out/figures_$name.log" 2>&1 || echo "::warning::$name capture exited non-zero"
+            LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 2560x1600x24" \
+              timeout 600 "$HOME/godot/godot" --path . --rendering-method gl_compatibility \
+              --script "tools/visual/capture_$name.gd" -- "$@" --out "$PWD/frames/$name" \
+              > "out/figures_$name.log" 2>&1 || echo "::warning::$name capture exited non-zero"
             cp -f frames/${name}_sheet.png out/figures/ 2>/dev/null || true
             if ls frames/${name}_film_*.png > /dev/null 2>&1; then
               python3 tools/figure_crops.py out/figures frames "$name"
-              ffmpeg -loglevel error -y -framerate 12 -i "frames/${name}_film_%03d.png"                 -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -pix_fmt yuv420p "out/figures/$name.mp4" || true
+              ffmpeg -loglevel error -y -framerate 12 -i "frames/${name}_film_%03d.png" \
+                -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -pix_fmt yuv420p "out/figures/$name.mp4" || true
             fi
           }
           run_tool prematch --film
@@ -119,7 +123,7 @@ jobs:
           shopt -s nullglob
           crops=(out/figures/*_2x.png)
           if [ ${#crops[@]} -gt 0 ]; then
-            python3 tools/contact_sheet.py out/sheet_figures_2x.png "#${{ github.event.pull_request.number }} figure scenes at 2x" "${crops[@]}"
+            python3 tools/contact_sheet.py out/sheet_figures_2x.png "${{ github.event.pull_request.number && format('#{0}', github.event.pull_request.number) || github.sha }} figure scenes at 2x" "${crops[@]}"
           fi
           ls -la out/figures
 
