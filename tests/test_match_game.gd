@@ -42,6 +42,7 @@ func run() -> void:
 	_test_no_role_gates()
 	_test_spoils_and_crumbs()
 	_test_roaming_interceptor()
+	_test_bench_cover()
 	_test_six_plans()
 	_test_zone_intercepts()
 	_test_defensive_forward()
@@ -2841,3 +2842,25 @@ func _test_six_plans() -> void:
 	_check(CoachReport.plan_label("fast") == "Attack corridor" and CoachReport.plan_label("press") == "Defensive press"
 			and not MatchSim.PLANS.has("fast") and not MatchSim.PLANS.has("press") and MatchSim.PLANS.size() == 5,
 			"Six plans (balanced and five others), and the old names read as the merged ones")
+
+
+## Who comes on for a spot: the best fit for it, by the position he is on the
+## list at - not the one he last filled - and the nearest position when none fits.
+func _test_bench_cover() -> void:
+	var sim := _sim(7)
+	var sq: Squad = sim.squads[0]
+	var kept := sq.bench.duplicate()
+	var mk := func(id: String, role: String, own: String, e: float) -> Dictionary:
+		sim.energy[id] = e
+		return {"id": id, "role": role, "own_role": own}
+	# A midfielder who covered a back earlier carries the back's slot; he is still a midfielder.
+	sq.bench = [mk.call("t_ruck", "RUCK", "RUCK", 100.0), mk.call("t_def", "DEF", "DEF", 100.0),
+			mk.call("t_mid", "DEF", "MID", 90.0)]
+	_check(sim._bench_for(0, "MID", 0.0) == 2, "A midfielder who last covered a back still comes on for a midfield spot")
+	_check(sim._bench_for(0, "DEF", 0.0) == 1, "A back is picked for a back's spot over a midfielder who covered one")
+	# Nobody natural: the nearest position, not just the freshest.
+	sq.bench = [mk.call("t_ruck2", "RUCK", "RUCK", 100.0), mk.call("t_fwd", "FWD", "FWD", 95.0)]
+	_check(sim._bench_for(0, "MID", 0.0) == 1, "With no midfielder on the bench a forward covers midfield before a ruck does")
+	sq.bench = [mk.call("t_mid2", "MID", "MID", 100.0), mk.call("t_fwd2", "FWD", "FWD", 95.0)]
+	_check(sim._bench_for(0, "RUCK", 0.0) == 1, "With no ruck on the bench a tall forward covers the ruck before a midfielder does")
+	sq.bench = kept

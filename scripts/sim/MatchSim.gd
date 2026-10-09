@@ -3751,8 +3751,33 @@ func _auto_rotate(side: int) -> void:
 		_swap(side, worst, bi)
 
 
+## How well a bench player suits a ground role, before his legs count: his own
+## position first, then one he can play (second or learned), then the nearest
+## football position (a midfielder covers a back or a forward before a ruck
+## does; a tall back or forward covers a ruck before a small midfielder does).
+## He is judged by the position he is on the list at (own_role), never by the
+## slot he last filled, so a midfielder who covered a back is still a midfielder.
+const COVER_OWN := 400.0
+const COVER_PLAYS := 350.0
+const COVER_NEAR := {
+	"MID": {"DEF": 250.0, "FWD": 250.0, "RUCK": 100.0},
+	"DEF": {"MID": 250.0, "FWD": 200.0, "RUCK": 100.0},
+	"FWD": {"MID": 250.0, "DEF": 200.0, "RUCK": 100.0},
+	"RUCK": {"FWD": 220.0, "DEF": 220.0, "MID": 80.0},
+}
+
+
+static func cover_score(p: Dictionary, role: String) -> float:
+	var own := str(p.get("own_role", p.get("role", "")))
+	if own == role:
+		return COVER_OWN
+	if Traits.plays(p, role):
+		return COVER_PLAYS
+	return float((COVER_NEAR.get(role, {}) as Dictionary).get(own, 0.0))
+
+
 ## The freshest bench player (at or above `min_energy`) for a ground role,
-## or -1. Natural or secondary role first; any bench player as a fallback.
+## or -1: best positional fit first (cover_score), freshest within that.
 ## `rotation`: a routine interchange, which leaves a rested star on the bench.
 func _bench_for(side: int, role: String, min_energy: float, rotation := false) -> int:
 	var sq: Squad = squads[side]
@@ -3763,9 +3788,7 @@ func _bench_for(side: int, role: String, min_energy: float, rotation := false) -
 		var e := float(energy.get(str(p["id"]), 100.0))
 		if e < min_energy or (rotation and str(_held.get(str(p["id"]), "")) == "rest"):
 			continue
-		var fits := str(p.get("role", "")) == role or Traits.plays(p, role) \
-				or str(p.get("list_tag", "")) == role
-		var score := e + (100.0 if fits else 0.0)
+		var score := e + cover_score(p, role)
 		if score > best_score:
 			best = i
 			best_score = score
