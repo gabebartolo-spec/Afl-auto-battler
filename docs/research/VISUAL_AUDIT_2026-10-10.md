@@ -520,6 +520,18 @@ pass later if it reads wrong. (3) The 4.8 phone measurement: **yes**, the direct
 Android debug build with the frame-time probe when it is ready and runs one match. (4) The leader's
 next piece after the open PRs: **the mini-figure prototype, phone-gated** (§8 Phase 3.3).
 
+**Director 2026-10-10 (~11:45), on the first Tripo prop in a drawn room ("an exercise in futility,
+trying to marry a placeholder artstyle with far superior assets") and on starting art again:**
+"you're the expert, do what you think is best, but I expect beautiful results." The leader's call
+under that: **the occasion environments are rebuilt from scratch as whole rendered plates**, not
+dressed prop by prop. Each set (the press room first, then the awards stage, then the MCG with its
+crowd) is one scene in Blender under the figures' own camera and light rig, from Tripo models and
+our set pieces, exported at 2x; the figures composite onto it as now. The drawn rooms stay as
+fallbacks until each plate passes the lead's 2x review, then go. The figures are not redrawn: they
+re-render under sheet contract v2. Motion B and C follow the first two plates. The director declined
+the phone probe for now; the 4.8 measurement proceeds on PC numbers and the lead's judgement until
+he asks for it.
+
 These are taste or trade-off calls; everything else above is objectively good and proceeds when
 assigned.
 
