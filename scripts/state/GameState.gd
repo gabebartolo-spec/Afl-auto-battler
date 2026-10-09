@@ -435,6 +435,7 @@ func autosave() -> bool:
 func mark_dirty() -> void:
 	_dirty = true
 	_phase_cache = {}
+	_teach_key = ""   # a hire, fire, poach or market move may have changed a staff
 
 
 func autosave_if_dirty() -> bool:
@@ -685,6 +686,7 @@ func load_career() -> bool:
 	if season != null and board.is_empty():
 		_open_board_season()
 	coaches = state.get("coaches", {})
+	_teach_key = ""
 	coach_archive = state.get("coach_archive", {})
 	staff_vacancies = state.get("staff_vacancies", [])
 	coach_approaches = state.get("coach_approaches", [])
@@ -6296,8 +6298,8 @@ var _teach_key := ""
 ## A point on or off this player's season training ceiling from his club's
 ## teachers (CoachEffects.teach_step); 0 outside a coaching world.
 func teach_step(p: Dictionary) -> int:
-	if coaches.is_empty():
-		return 0
+	if coaches.is_empty() or str(p.get("club", "")) == "":
+		return 0   # no club, no teachers: a free agent or a prospect is neither lifted nor held back
 	var key := "%d|%d|%d" % [season_year, season.round_index if season != null else -1, coaches.size()]
 	if key != _teach_key:
 		_teach_staffs = CoachEffects.staffs(coaches)

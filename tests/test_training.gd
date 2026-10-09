@@ -927,4 +927,20 @@ func _test_teaching_moves_the_ceiling() -> void:
 	p.erase("learn_payback_year")
 	_check(GameState.season_ceiling(p) == int(p["season_start_ov"]) + GameState.SEASON_TRAIN_GAIN + GameState.teach_step(p),
 			"The season ceiling carries his club's teaching step, the same rule at every club")
+	# A coach moved or sacked without changing the number of records: the next
+	# step reads the new staff, not the cached one.
+	var line_job := CoachEffects.line_job(p)
+	var line_coach: Dictionary = CoachEffects.staffs(GameState.coaches).get(str(p["club"]), {}).get(line_job, {})
+	if not line_coach.is_empty():
+		GameState.teach_step(p)   # fill the cache
+		var was_status := str(line_coach["status"])
+		line_coach["status"] = "free"
+		GameState.mark_dirty()
+		var fresh := CoachEffects.teach_step(CoachEffects.staffs(GameState.coaches).get(str(p["club"]), {}), p)
+		_check(GameState.teach_step(p) == fresh, "Sacking a coach changes his club's teaching step at once (%d)" % fresh)
+		line_coach["status"] = was_status
+		GameState.mark_dirty()
+	var free_agent: Dictionary = p.duplicate()
+	free_agent["club"] = ""
+	_check(GameState.teach_step(free_agent) == 0, "A player with no club is neither lifted nor held back by teachers")
 
