@@ -16,6 +16,7 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 	var box := UiKit.modal_box(host, 440.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "Settings"
+	UiKit.close_on_outside_tap(box)
 	var v: VBoxContainer = box["body"]
 	v.add_theme_constant_override("separation", 6)
 	v.add_child(UiKit.heading("Settings", UiKit.H1))

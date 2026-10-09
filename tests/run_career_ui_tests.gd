@@ -1381,10 +1381,32 @@ func _run() -> void:
 			"Delete this career removes the save and returns to the menu")
 
 	await _test_season_awards()
+	await _test_back_arrow_taps()
 	_state.delete_saved_career()
 	print("Career UI tests: %d checks, %d failures" % [_checks, _failures.size()])
 	_state.replay_seed = 0
 	quit(0 if _failures.is_empty() else 1)
+
+
+## The top bar's back arrow, tapped as a finger taps it, leaves every screen -
+## first closing a first-visit help sheet over it, as Android's Back does
+## (director, 2026-10-09: "back doesn't always work, I need to swipe": the
+## Training and Season stats intros took the tap and did nothing).
+func _test_back_arrow_taps() -> void:
+	_state.reset()
+	_state.start_season("COL", _db.club_list("COL"))
+	_state.set_setting("seen_season_stats_intro", false)
+	for key in ["training", "stats", "selection", "list"]:
+		_router.stack = ["main", "hub"]
+		_router.go(key)
+		await _settle()
+		var b: Control = current_scene.find_child("TopBarBack", true, false)
+		var why: String = await Tap.tap(b) if b != null else "no back arrow"
+		await _settle()
+		if _router.current() == key and is_instance_valid(b):
+			why = await Tap.tap(b)
+			await _settle()
+		_check(_router.current() == "hub", "Tapping back on %s gets you out (%s)" % [key, why if why != "" else "ok"])
 
 
 func _test_season_awards() -> void:

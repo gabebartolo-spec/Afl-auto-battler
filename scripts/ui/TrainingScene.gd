@@ -85,6 +85,7 @@ func _show_intro() -> void:
 	var box := UiKit.modal_box(self, 560.0, 0.0)
 	_overlay = box["overlay"]
 	_overlay.name = "TrainingIntro"
+	UiKit.close_on_outside_tap(box)
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.heading("How training works", UiKit.TITLE))
 	for line in [
