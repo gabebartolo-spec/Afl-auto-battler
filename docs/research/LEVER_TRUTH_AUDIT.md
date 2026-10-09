@@ -146,6 +146,19 @@ Arm: their best key forward (`Matchups.key_forwards`, first) on your weakest aer
 | Media conference answers (`MediaConference._q`) | The button shows only the answer's words (`HubScene._show_media_conference`) | Accountable: board +1, every listed player's morale −1. Tactical: nothing. Protective: board −1, morale +1 (`resolve_media_conference`) | **Hidden effect.** The player can't see that an answer moves board confidence (±1 of 100) and the whole list's morale (±1). The board's "why" line names the comments afterwards. A "no hidden modifiers" question for the director: show the effect, or keep the press flavour-only. The effects are tiny either way |
 | Board goal and confidence (`_board_season_end`) | Goal text, confidence, warning, sacking | Met or missed, then `ClubLife.after_season`; a warning below `WARN_LINE`, the sack on a second miss | Wired as written (state is shown in the board panel) |
 
+### Synergies (code and copy; `Traits.SYNERGIES`, read by `MatchSim` through `Traits.power`)
+
+| Synergy | Copy | Code | Verdict |
+|---|---|---|---|
+| Engine room | "+5% stoppage wins." | `_contest_bonus` + 0.05 (`MatchSim.gd:1242`) | Matches |
+| Tall-small forward line | "+15% goal chance on every forward-50 shot." | `goal_p` tr × 1.15 (`:2913`) | Matches |
+| Intercept wall | "-16% on the opposition's goal chance." | their `dtr` × 0.84 (`:2924`) | Matches |
+| Lockdown unit | "+15% pressure on the opposition." | × 1.15 (`:2168`) | Matches |
+| Supply line | "+22% metres gained per disposal." | `gain` × 1.22 (`:2267`) | Matches |
+| Running machine | "The whole side tires 50% slower." | `fatigue_pace` × 0.50 (`:3476`) | Matches |
+
+**Verdict: wired as written.** The size of a club's package (about +10 points a match against an even side) is in `docs/SYNERGY_EVIDENCE_2026-10-06.md`. That evidence predates the specialisation rework, so re-measure it if the rework changed activation rates.
+
 ### Development projects, the payback (`tools/audit/projpair_impl.gd` on audit.yml; seeds 301–306, 3 seasons; each project player paired with his no-project self)
 
 | Club (run) | Projects / learned | OVR vs self, project season | OVR vs self, two seasons on | Extra weeks played out of his line |
@@ -173,11 +186,9 @@ Arm: their best key forward (`Matchups.key_forwards`, first) on your weakest aer
 - `docs/KEY_MATCHUPS_AUDIT_2026-10-06.md`, `docs/research/INTERCEPT_EVIDENCE.md`, `docs/research/SET_SHOT_EVIDENCE.md`.
 - `docs/SYNERGY_EVIDENCE_2026-10-06.md`, `docs/research/RPG006_STAFF_IDENTITY_AUDIT.md` (staff; teaching was fixed on claude/rpg006-teaching).
 
-## Not yet started
-- Selection: best 23, dual ruck, match-ups, interchange.
-- Training plans and projects (`tools/audit/projpair_impl.gd` exists).
-- Department budget, difficulty.
-- Contracts, trades, draft and scouting.
-- Backing, the media conference, the board.
-- Synergies UI.
-- The settings sweep (cosmetic check).
+## Still to do
+- Contracts, trades, draft and scouting. Cite and re-check `docs/DRAFT_EDGE_EVIDENCE_2026-10-06.md`, `docs/DRAFT_EVALUATION.md` and the ROADMAP's P0 draft-priority audit. The recruiting budget's scouting width is checked above.
+- Training plans: `tests/test_training.gd` already pins every plan to `Ratings.ROLE_WEIGHTS`. Cite it, no new run.
+- The settings sweep (cosmetic check: each setting changes only what it says).
+
+Done above: selection (dual ruck, match-ups), projects, department budget, difficulty (fixed in #577), backing, media, board, synergies.
