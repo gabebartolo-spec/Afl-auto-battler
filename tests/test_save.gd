@@ -443,8 +443,16 @@ func _test_fictional_identity() -> void:
 			vics += 1
 	_check(fav_ok, "Every generated player has a favourite club, the same after a move")
 	_check(home > 100 and home < 190, "Most WA kids grew up following a WA club, not all (%d of 200)" % home)
-	_check(FictionalIdentity.favourite_club(real) == "",
+	var unsourced: Dictionary = real.duplicate()
+	unsourced["dob"] = "1900-01-01"   # no row in the sourced file matches him
+	_check(FictionalIdentity.favourite_club(unsourced) == "",
 			"A real player's favourite club is never guessed (Not recorded without a source)")
+	var moore := {}
+	for p in GameDB.club_list("COL"):
+		if str(p.get("first", "")) == "Darcy" and str(p.get("last", "")) == "Moore":
+			moore = p
+	_check(not moore.is_empty() and FictionalIdentity.favourite_club(moore) == "COL",
+			"A sourced real player shows the club he grew up following (Darcy Moore: Collingwood)")
 	_new_season()
 	var mine: Dictionary = GameState.my_list[0]
 	var name_before := GameDB.player_display_name(mine)
