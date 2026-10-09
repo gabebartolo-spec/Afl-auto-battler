@@ -1709,7 +1709,8 @@ func _on_finished() -> void:
 ## Who the scene after the siren honours, and both sides' players: {} unless your
 ## side has a milestone man (FarewellVignette.caption) who is in the side today.
 func _farewell_for(match: Dictionary) -> Dictionary:
-	if GameState.season == null or GameState.my_club == "":
+	# Vignettes off (Settings) means no scene at all, this one included.
+	if GameState.season == null or GameState.my_club == "" or not GameState.vignettes_on():
 		return {}
 	var ms: Dictionary = GameState.banner_context(match).get("milestone", {})
 	if FarewellVignette.caption(ms) == "":
