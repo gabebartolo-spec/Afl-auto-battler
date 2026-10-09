@@ -55,6 +55,7 @@ func _run() -> void:
 	SV = load("res://scripts/ui/match/StoppageVignette.gd")
 	_figure_sheets()
 	_figure_contacts()
+	_figure_markers()
 	_hair_atlases()
 	_ball()
 	_honours()
@@ -172,6 +173,28 @@ func _figure_contacts() -> void:
 	var front := VignetteFigures.contact(VignetteFigures.strip("average", "ready", "front"))
 	_check(back.y < -4.0 and front.y > 4.0 and absf(back.x) < 1.0,
 			"The ready stance's shadow centres on his boots, ahead of his ankles (back %s, front %s)" % [back, front])
+
+
+## The frames where something happens in a strip (VignetteFigures.marker): measured from the rig
+## (motion phase A), so a scene can wait for the boot to meet the ball instead of guessing a frame.
+func _figure_markers() -> void:
+	var outside := []
+	var count := 0
+	for body in VignetteFigures.BODIES:
+		for anim in VignetteFigures.BODIES[body]["anims"]:
+			for facing in VignetteFigures.BODIES[body]["anims"][anim]:
+				var s: Dictionary = VignetteFigures.strip(body, anim, facing)
+				for name in s.get("markers", {}):
+					count += 1
+					var f := VignetteFigures.marker(s, name)
+					if f < 0 or f >= int(s["frames"]):
+						outside.append("%s %s %s %s=%d" % [body, anim, facing, name, f])
+	_check(count > 0 and outside.is_empty(), "Every marker (%d) is a frame of its strip: %s" % [count, str(outside.slice(0, 5))])
+	var kick := VignetteFigures.strip("average", "kick", "back_r")
+	var gather := VignetteFigures.strip("average", "gather", "back_r")
+	_check(VignetteFigures.marker(kick, "ball_contact") == 3 and VignetteFigures.marker(kick, "ball_release") == 2
+			and VignetteFigures.marker(gather, "gather_contact") == 1 and VignetteFigures.marker(kick, "none") == -1,
+			"The drop punt meets the ball on frame 3 after dropping it on 2; the crumb gathers on 1")
 
 
 func _coverage(shade: Image, mask: Image, r: Rect2i) -> Array:
