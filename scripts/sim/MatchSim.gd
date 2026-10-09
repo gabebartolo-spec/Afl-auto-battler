@@ -1680,6 +1680,9 @@ const LOOSE_MARK_EDGE := 0.5
 const LOOSE_SPOIL_FLOOR := 0.25
 ## The power on intercept when picking the defender who meets an entry (main: 2).
 const ENTRY_READ := 0.5
+## Of a defender's spoils inside 50 that the defence clears, the share a
+## teammate gathers rather than the man who spoiled it.
+const SPOIL_GATHER := 0.5
 ## Of the contests the defender wins, the share he marks (an intercept
 ## mark, the ball turned over) rather than spoils; a better reader marks more.
 const INTERCEPT_MARK := 0.35
@@ -2635,6 +2638,12 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	# The spare comes away with it only when he got the fist to it; reaching
 	# the contest is not winning it. Otherwise the defender in it does.
 	var taker = roamer if (roaming and spoiler == roamer) else defender
+	# A defender's spoil punches it clear: as often as not a teammate in that
+	# part of the ground gathers it, not the man who spoiled.
+	if spoilt and taker == defender and aerial_rng.randf() < SPOIL_GATHER:
+		var gatherer = _aerial_defender(opp, fp)
+		if gatherer != null:
+			taker = gatherer
 	_t(opp, "rebounds")
 	_p(taker, "rebounds")
 	_intercept(opp, taker, not spoilt, not matched.is_empty() or roaming)
