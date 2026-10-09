@@ -52,6 +52,27 @@ static func result(p: Dictionary, key: String, seed: int) -> float:
 	return -1.0
 
 
+## What one result says about the ability its test reads, back on that
+## ability's 0-100 scale (the inverse of result(), so the day's form is in
+## it): "move" from the sprint, "repeat" from the time trial, "aerial" from
+## the leap. -1 when he did not test.
+const MEASURES := {"move": "sprint", "repeat": "trial", "aerial": "leap"}
+
+
+static func measured(p: Dictionary, ability: String, seed: int) -> float:
+	var r := result(p, str(MEASURES.get(ability, "")), seed)
+	if r < 0.0:
+		return -1.0
+	match ability:
+		"move":
+			return (3.18 - r) / 0.36 * 100.0
+		"repeat":
+			return (410.0 - r) / 70.0 * 100.0
+		"aerial":
+			return (r - 56.0) / 36.0 * 100.0
+	return -1.0
+
+
 ## The modelled abilities each test reads (0-100), shared with the scouts'
 ## Combine notes.
 static func reads(p: Dictionary) -> Dictionary:

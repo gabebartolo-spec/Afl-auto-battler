@@ -69,6 +69,14 @@ func _run() -> void:
 		if said.contains(w):
 			pushy = true
 	_check(not pushy, "The meeting never tells you who to take (%s)" % said.left(200))
+	var names_said := ""
+	for b in names:
+		names_said += str((b as Button).text).to_lower() + " "
+	var ordered := false
+	for w in ["best", "should", "take him", "must"]:
+		if names_said.contains(w):
+			ordered = true
+	_check(not ordered, "No name line says best, should, must or take him (%s)" % names_said.left(200))
 	var done: Button = ui.find_child("MeetingDone", true, false)
 	if done != null:
 		done.emit_signal("pressed")
