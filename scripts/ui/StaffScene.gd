@@ -81,7 +81,8 @@ func _build() -> void:
 	body.add_child(UiKit.spacer(14))
 	var others := UiKit.btn("Your club" if not mine else "Another club's staff", UiKit.BODY)
 	others.name = "OtherClubs"
-	others.flat = not _others_open
+	# On a PC it reads as a button (an outline), not a stray line of text.
+	others.flat = not _others_open and not wide
 	if wide:
 		others.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		others.custom_minimum_size = Vector2(220, 44)

@@ -885,7 +885,10 @@ func _player_card(p: Dictionary, detail: String) -> PanelContainer:
 		card.set_meta("actions", slot)
 	var h := UiKit.hbox(6)
 	info.add_child(h)
-	h.add_child(UiKit.role_chip(Ratings.role_tag(p)))
+	# One width for every role so the names line up down the list.
+	var chip := UiKit.role_chip(Ratings.role_tag(p))
+	chip.custom_minimum_size.x = 72
+	h.add_child(chip)
 	h.add_child(UiKit.ellipsis(GameDB.player_display_name(p), UiKit.BODY, UiKit.TEXT, true))
 	info.add_child(_para(detail, 12, UiKit.MUTED))
 	return card
