@@ -453,6 +453,10 @@ func _test_fictional_identity() -> void:
 			moore = p
 	_check(not moore.is_empty() and FictionalIdentity.favourite_club(moore) == "COL",
 			"A sourced real player shows the club he grew up following (Darcy Moore: Collingwood)")
+	var made: Dictionary = gen[0].duplicate()
+	made["user_created"] = true
+	_check(FictionalIdentity.favourite_club(made) == "",
+			"A player created in an older save, who never chose one, shows Not recorded")
 	_new_season()
 	var mine: Dictionary = GameState.my_list[0]
 	var name_before := GameDB.player_display_name(mine)
