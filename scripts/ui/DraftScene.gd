@@ -824,13 +824,17 @@ func _player_row(p: Dictionary) -> Control:
 	inspect.tooltip_text = "Inspect %s" % GameDB.player_display_name(p)
 	inspect.pressed.connect(_open_player.bind(str(p["id"])))
 	h.add_child(inspect)
-	var face := UiKit.hbox(8)
+	# His role and name on top; under them, at the row's full width, the
+	# facts that decide a pick and how he plays (they wrap, never cut).
+	var face := UiKit.vbox(2)
 	face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	inspect.add_child(face)
-	face.add_child(UiKit.role_chip(Ratings.role_tag(p)))
+	var top := UiKit.hbox(8)
+	face.add_child(top)
+	top.add_child(UiKit.role_chip(Ratings.role_tag(p)))
 	var info := UiKit.vbox(2)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	face.add_child(info)
+	top.add_child(info)
 	info.add_child(UiKit.name_label(GameDB.player_display_name(p)))
 	var taken := _draft.has(str(p["id"]))
 	# Line two: what decides a pick, first so a phone never cuts it off -
@@ -872,23 +876,28 @@ func _player_row(p: Dictionary) -> Control:
 				GameDB.club_short(_draft.drafted_by(str(p["id"])))]
 		if not bool(_draft.user_view(p)["scouted"]):
 			facts += " · %d OVR" % int(p["overall"])
-	info.add_child(UiKit.ellipsis(facts, UiKit.SECONDARY, UiKit.TEXT))
+	# Every fact on these lines decides a pick (his price is last): they wrap
+	# rather than cut on a phone, and the row grows to fit them.
+	face.add_child(_row_line(facts, UiKit.TEXT))
 	var kind: PackedStringArray = [where, PlayerProfile.player_type(p)]
 	for t in _traits_of(p):
 		kind.append(_trait_label(str(t)))
-	var kind_line := UiKit.ellipsis(" · ".join(kind), UiKit.SECONDARY, UiKit.MUTED)
+	var kind_line := _row_line(" · ".join(kind), UiKit.MUTED)
 	kind_line.name = "Kind_" + str(p["id"])
 	if _combine != "":
 		# On a Combine sort, his result in that test replaces how he plays.
 		var r := Combine.result(p, _combine, _draft.seed)
 		var said := Combine.text(_combine, r)
 		var stand := Combine.standing(_combine, r, _combine_field)
-		kind_line = UiKit.ellipsis(said + ("" if stand == "" else "  ·  " + stand), UiKit.SECONDARY,
+		kind_line = _row_line(said + ("" if stand == "" else "  ·  " + stand),
 				UiKit.TEXT if r >= 0.0 else UiKit.MUTED, r >= 0.0)
 		kind_line.name = "CombineResult_" + str(p["id"])
-	info.add_child(kind_line)
-	face.add_child(UiKit.line("›", 20, UiKit.MUTED, true))
+	face.add_child(kind_line)
+	top.add_child(UiKit.line("›", 20, UiKit.MUTED, true))
 	_ignore_mouse(face)
+	# The face is laid over the button, so the button takes its height.
+	face.minimum_size_changed.connect(func():
+		inspect.custom_minimum_size.y = maxf(66.0, face.get_combined_minimum_size().y))
 	var can_pick := _draft.can_pick_player(p)
 	var text := "+ " + role
 	var reason := "Draft %s for %s" % [GameDB.player_display_name(p), Contracts.money(int(p["value"]))]
@@ -907,6 +916,8 @@ func _player_row(p: Dictionary) -> Control:
 	var b := UiKit.btn(text, UiKit.SECONDARY)
 	b.name = "Pick_" + str(p["id"])
 	b.custom_minimum_size = Vector2(66, 44)
+	# Its own height, centred: a taller row (wrapped facts) does not stretch it.
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.disabled = not can_pick
 	b.tooltip_text = reason
 	if can_pick:
@@ -1655,3 +1666,12 @@ func _ignore_mouse(node: Control) -> void:
 	for child in node.get_children():
 		if child is Control:
 			_ignore_mouse(child)
+
+
+## A secondary line of a pool row: wraps, never cut (style guide: names and
+## the facts that decide never truncate).
+func _row_line(text: String, colour: Color, bold := false) -> Label:
+	var l := UiKit.lbl(text, UiKit.SECONDARY, colour, bold)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return l
