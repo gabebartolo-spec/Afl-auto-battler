@@ -35,7 +35,7 @@ docs/DESIGN.md             full design + engine docs  <- read this
 
 ## Career roadmap and research
 
-[Canonical roadmap](docs/ROADMAP.md) · [Genre enjoyment research](docs/GENRE_ENJOYMENT_RESEARCH.md)
+[Design bible](docs/DESIGN_BIBLE.md) (the ultimate truth for what the game is) · [Canonical roadmap](docs/ROADMAP.md) · [Genre enjoyment research](docs/GENRE_ENJOYMENT_RESEARCH.md)
 
 The intensive research now contains twenty named comparator sections and 171 cumulative sources (129 new), covering visual football, creative team building, understandable match decisions and coherent careers over decades. **Zero microtransactions; commercialisation is outside the objective. AFCM is not a visual aspiration.**
 

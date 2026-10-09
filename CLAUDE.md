@@ -3,6 +3,31 @@
 Godot 4 / GDScript. Run `tools/run_tests.sh` (or `tools/run_tests.sh draft_ui`
 for one suite) before pushing.
 
+## The design bible comes first (director, 2026-10-09)
+
+Read [docs/DESIGN_BIBLE.md](docs/DESIGN_BIBLE.md) before design or feature work.
+It is the ultimate truth for what this game is. Both Claude accounts and every
+role work from it.
+
+- **Authority.** Where this file, the roadmap or any other document disagrees
+  with the bible, the bible wins: report the conflict and correct the other
+  document. The roadmap still owns execution, status and order.
+- **Nobody edits the bible without the director.** Each change needs the
+  director's explicit consent for that change. Propose it; do not make it.
+- **Assess before you build.** Before starting a feature, say in a line or two
+  whether it deserves to exist against the bible's feature test and which intent
+  it serves. The director's say is final.
+- **What can affect the sim.** What the coach says or decides can affect the
+  sim. How the club looks or sounds never does. Weather is the one exception
+  (the condition affects play; its look does not).
+- **Art is checked before the director sees it.** Inspect your own output first.
+  Never ask for approval on work with a visible fault: skin through a jumper,
+  broken anatomy, a bizarre animation, a ball that hovers or moves independently
+  of the player using it, a ground that breaks AFL conventions.
+- **Balance is the director's to call.** An agent may report that the numbers
+  are close to real AFL. Balance is settled only when the director's own
+  playtest also passes. Never declare it done.
+
 ## Project philosophy (permanent)
 
 **Designed by a person, developed with AI, never designed by AI.** The director
