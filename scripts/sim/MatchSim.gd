@@ -533,8 +533,8 @@ func _roam_spoil(roamer: Dictionary) -> bool:
 			+ (0.05 if _trait(roamer, "interceptor") else 0.0), 0.0, 0.6)
 
 
-## How well the loose defender reads the ball, 0 (a club's worst, about 40)
-## to 1 (a club's best interceptor, about 80): it scales his reach, his edge in
+## How well the loose defender reads the ball, 0 (a side's worst defender on
+## the ground, about 52) to 1 (its best interceptor, about 78): it scales his reach, his edge in
 ## the contest and his spoil.
 func _loose_read(p: Dictionary) -> float:
 	return clampf((Matchups.interceptor_score(p) - LOOSE_READ_FLOOR) / LOOSE_READ_SPAN, 0.0, 1.0)
@@ -1660,8 +1660,8 @@ const ROAM_REACH := 0.7
 const LOOSE_EXTRA := 0.35
 ## The loose defender's read of the ball (interceptor score) from which he
 ## starts to matter, and the span over which he reaches full value.
-const LOOSE_READ_FLOOR := 40.0
-const LOOSE_READ_SPAN := 40.0
+const LOOSE_READ_FLOOR := 52.0
+const LOOSE_READ_SPAN := 26.0
 ## His chance of reaching an entry's contest: a poor reader's, plus the range
 ## a top one adds.
 const LOOSE_REACH_MIN := 0.06
