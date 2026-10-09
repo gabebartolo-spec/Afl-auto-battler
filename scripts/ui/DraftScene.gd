@@ -196,7 +196,7 @@ func _show_club_select() -> void:
 		_root.add_child(_header("CHOOSE YOUR CLUB",
 				"Real 2026 lists  /  the 2026 National Draft, then 2027"))
 		_root.add_child(UiKit.lbl(
-				"Every club keeps its real list. The 2026 National Draft comes first, worst club on the ladder picking first; then the 2027 season.",
+				"Every club starts with its real list, less the players who retired or were delisted after 2026; the delisted are free agents. The 2026 National Draft comes first, worst club on the ladder picking first; then the 2027 season.",
 				16, UiKit.MUTED))
 	else:
 		_root.add_child(_header("CHOOSE YOUR CLUB",
