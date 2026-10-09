@@ -178,7 +178,7 @@ func _build() -> void:
 		bar.add_child(cancel)
 		rest.add_child(bar)
 	else:
-		var hint := UiKit.lbl("Tap a player, then another (or drag one onto another) to swap them.",
+		var hint := UiKit.lbl(("Click" if ScreenLayout.is_desktop() else "Tap") + " a player, then another (or drag one onto another) to swap them.",
 				UiKit.SMALL, UiKit.MUTED)
 		hint.name = "BuilderHint"
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
