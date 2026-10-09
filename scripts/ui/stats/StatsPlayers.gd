@@ -71,7 +71,8 @@ static func build(host: Control) -> Control:
 				% (int(GameState.season_stats_from) + 1), UiKit.SECONDARY, UiKit.MUTED)
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(note)
-	v.add_child(_controls(host, wide))
+	var controls := _controls(host, wide)
+	v.add_child(controls)
 	var rows := _rows()
 	if rows.is_empty():
 		var none := UiKit.lbl("No one has played a game yet." if GameState.season_stats.is_empty()
@@ -83,7 +84,11 @@ static func build(host: Control) -> Control:
 	# A phone shows one stat at a time as a leaderboard (visual audit Phase 2,
 	# guide 4.5); a wide screen adds the table, with words in its headings.
 	if wide:
-		v.add_child(_table(host, rows, _columns(host, wide), wide))
+		var table := _table(host, rows, _columns(host, wide), wide)
+		v.add_child(table)
+		# The controls start where the table starts.
+		controls.custom_minimum_size.x = table.custom_minimum_size.x
+		controls.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	else:
 		v.add_child(_board(host, rows))
 	_qualify_note(v)
@@ -726,8 +731,8 @@ static func _sort_button(host: Control, key: String, text: String, full: String,
 		b.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 	b.add_theme_font_size_override("font_size", UiKit.SMALL)
 	b.add_theme_color_override("font_color", UiKit.TEXT if key == _sort else UiKit.MUTED)
-	if key == _sort:
-		b.add_theme_font_override("font", UiKit.BOLD)
+	# The same face as the plain headings beside it; the sort key in bold.
+	b.add_theme_font_override("font", UiKit.BOLD if key == _sort else UiKit.FONT)
 	b.tooltip_text = "Sort by %s" % full
 	b.pressed.connect(func():
 		sort_by(key)
