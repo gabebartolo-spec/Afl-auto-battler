@@ -311,9 +311,12 @@ const ZOOM := [46.0 / 34.0, 46.0 / 18.5, 46.0 / 17.0]
 ## The centre of the ground, as a share of the screen's height: while the play
 ## builds, and once the call is up (it takes the bottom of the screen).
 const CENTRE_Y := [0.58, 0.46]
-## On a wide window, how much closer than a plain height-fit: at 1.0 the ruckmen stood ~6% of
-## the screen's height and the ball couldn't be read (AFL BOSS, #578).
-const LANDSCAPE_PUSH := 2.0
+## On a wide window, how much closer than a plain height-fit, and where the centre sits: at 1.0
+## the ruckmen stood ~6% of the screen's height and the ball couldn't be read; at 2.0 the posts
+## and the crowd left the top of the screen (AFL BOSS, #578). 1.35 with the centre 62% down keeps
+## a strip of crowd and the posts above a readable contest.
+const LANDSCAPE_PUSH := 1.35
+const LANDSCAPE_CENTRE_Y := [0.62, 0.5]
 var _cam_d := CAM_D
 var _cam_h := CAM_H
 var _focal := 400.0
@@ -343,7 +346,8 @@ func _set_camera() -> void:
 	# play builds, then lifted clear of the call as it slides up - the same push-in
 	# as the freeze, so one move makes room for the call rather than empty turf
 	# waiting for it all scene.
-	_horizon = size.y * lerpf(CENTRE_Y[0], CENTRE_Y[1], punch) - _focal * _cam_h / _cam_d
+	var at: Array = LANDSCAPE_CENTRE_Y if size.x > size.y else CENTRE_Y
+	_horizon = size.y * lerpf(at[0], at[1], punch) - _focal * _cam_h / _cam_d
 
 
 ## World (x across, y towards your goal, h up) to screen, and metres to pixels there.
