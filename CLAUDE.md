@@ -72,6 +72,10 @@ supplies the vision, taste, AFL knowledge, priorities and final judgement.
 
 The shared visual language lives in `scripts/ui/UiKit.gd`; use it before
 inventing anything local.
+The visual identity rules (tokens, type roles, the component kit, screen templates,
+art and proof rules) are in [docs/VISUAL_STYLE_GUIDE.md](docs/VISUAL_STYLE_GUIDE.md);
+read it before touching any screen or vignette. Its evidence is
+[docs/research/VISUAL_AUDIT_2026-10-10.md](docs/research/VISUAL_AUDIT_2026-10-10.md).
 
 **Not boring (director, 2026-10-08: "dark mode doesn't need to be boring
 mode").** The UI must have life. Approved pillars: club colour as atmosphere

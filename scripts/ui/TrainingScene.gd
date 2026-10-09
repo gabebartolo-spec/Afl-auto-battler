@@ -5,7 +5,8 @@ extends Control
 
 const ROLES := ["", "DEF", "MID", "RUCK", "FWD"]
 const ROLE_NOUN := {"RUCK": "ruck", "MID": "midfielder", "DEF": "defender", "FWD": "forward"}
-const ROLE_TABS := [["", "ALL"], ["DEF", "DEFS"], ["MID", "MIDS"], ["RUCK", "RUCKS"], ["FWD", "FWDS"]]
+# As Team selection names them: the positions' own short forms.
+const ROLE_TABS := [["", "All"], ["DEF", "DEF"], ["MID", "MID"], ["RUCK", "RUCK"], ["FWD", "FWD"]]
 const LONG_PRESS_SECONDS := 0.45
 
 var _role := ""
@@ -39,6 +40,9 @@ func _ready() -> void:
 		return
 	if not GameState.player_names_changed.is_connected(_on_names):
 		GameState.player_names_changed.connect(_on_names)
+	# Your club's colour behind the page, as on the hub and match day
+	# (director, 2026-10-10: every screen in the gameday style).
+	add_child(ClubBackdrop.new().setup(GameState.my_club))
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	UiKit.apply_insets(margin, 12)
@@ -231,7 +235,8 @@ func _list_panel() -> Control:
 		_refresh_rows())
 	v.add_child(search)
 	if _bulk_selected.is_empty():
-		v.add_child(UiKit.lbl("Long-press a player to select several.", 12, UiKit.MUTED))
+		v.add_child(UiKit.lbl("Click and hold a player to select several." if ScreenLayout.is_desktop()
+				else "Long-press a player to select several.", 12, UiKit.MUTED))
 	else:
 		v.add_child(_bulk_panel())
 	var rows := UiKit.vbox(4)
@@ -516,6 +521,15 @@ func _detail_panel() -> Control:
 	var outer := UiKit.vbox(6)
 	panel.add_child(outer)
 	var p := GameState.list_player(_selected)
+	if p.is_empty() and _wide and not GameState.my_list.is_empty():
+		# A wide screen opens your best player rather than an empty panel
+		# (director, 2026-10-10: no empty space on a PC).
+		var best: Dictionary = GameState.my_list[0]
+		for q in GameState.my_list:
+			if int(q.get("overall", 0)) > int(best.get("overall", 0)):
+				best = q
+		_selected = str(best["id"])
+		p = best
 	if p.is_empty():
 		outer.add_child(UiKit.lbl("Choose a player from the list.", UiKit.NAME, UiKit.TEXT, true))
 		outer.add_child(UiKit.lbl("Open a player to choose what kind of footballer he develops into.", UiKit.SECONDARY, UiKit.MUTED))
@@ -590,8 +604,11 @@ func _detail_panel() -> Control:
 	var close: Array = Traits.near(p)
 	if not close.is_empty():
 		var n: Dictionary = close[0]
-		var hint := UiKit.lbl("%d %s from %s: %s" % [int(n["gap"]), GameState.train_stat_label(str(n["stat"])).to_lower(),
-				Traits.label(str(n["key"])), Traits.text(str(n["key"]))], 12, UiKit.EMPH)
+		# "4 more durability and he's an Engine: tires 25% slower."
+		var t_text := Traits.text(str(n["key"]))
+		var hint := UiKit.lbl("%d more %s and he's %s %s: %s" % [int(n["gap"]), GameState.train_stat_label(str(n["stat"])).to_lower(),
+				"an" if "AEIOU".contains(Traits.label(str(n["key"])).left(1)) else "a", Traits.label(str(n["key"])),
+				t_text.left(1).to_lower() + t_text.substr(1)], 12, UiKit.EMPH)
 		hint.name = "TraitHint"
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		body.add_child(hint)

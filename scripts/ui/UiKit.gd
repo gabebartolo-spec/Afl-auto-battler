@@ -809,6 +809,14 @@ static func modal_box(parent: Control, max_w: float, prefer_h := 0.0, wash := AU
 	outer.add_child(sc)
 	var footer := vbox(6)
 	outer.add_child(footer)
+	# A PC: a sheet's actions sit at its right, sized to their words, not as
+	# bars across it (director, 2026-10-10: no phone UI on a PC).
+	var pw := view_width(parent)
+	if ScreenLayout.is_desktop() and pw >= 760.0 and pw > view_height(parent) * 1.2:
+		footer.child_entered_tree.connect(func(c: Node) -> void:
+			if c is Button:
+				(c as Button).size_flags_horizontal = Control.SIZE_SHRINK_END
+				(c as Button).custom_minimum_size.x = maxf((c as Button).custom_minimum_size.x, 240.0))
 	# The sheet is as tall as what it holds (the director's PC playtest,
 	# 2026-10-07: a three-paragraph help sheet filled the screen, its buttons
 	# at the bottom of empty space). It scrolls only when that is more than
