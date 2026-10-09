@@ -6266,7 +6266,7 @@ Prefer improving the existing experience when that answers the same need. This p
 
 | Reference | Director decision | Canonical owner | Extension status / effort |
 |---|---|---|---|
-| FL-001 | Include authentic football language and restrained Australian humour | M8-006 | PARTIAL (slice 1 #258, audit #381, fixes #386; copy review and the 200-games line open) / LOW |
+| FL-001 | Include authentic football language and restrained Australian humour | M8-006 | CLOSED as done (director, 2026-10-09; slice 1 #258, audit #381, fixes #386) / LOW |
 | FL-002 | Include milestone banners; **audit their appearance so decorative content is distinct from actual game information** | M7-003 + M8-007 | DONE (#400, director approved) / MEDIUM |
 | FL-003 | Include recognisable ground atmosphere | M8-003/007; reuse M7-009 venue identity/presets where available | DONE for the MCG (#537, director approved 2026-10-09) / HIGH |
 | FL-004 | Include natural crowd sound, breathing room and volume controls | M8-006 + existing audio owner | DONE (#405 sounds, #409 crowd; director approved) / MEDIUM |
@@ -6286,6 +6286,7 @@ Prefer improving the existing experience when that answers the same need. This p
 7. Prototype quantities in the report are starting budgets, not fixed content caps. Expand only within the approved purpose when the initial treatment works. Approval is not implementation: record evidence and outstanding work for each FL extension, without marking a completed parent foundation unfinished.
 
 ### FL-001 — Football voice and restrained humour
+**Director decision (2026-10-09, ~21:45): FL-001 is CLOSED as done after slice 1.** The captions are already plain and warm, and the voice continues through the journalists (RPG-002), the sit-downs (RPG-001) and the headlines (FL-006). **Humour limits for every flavour line, game-wide:** at most one per screen; never beside a loss, an injury, a sacking or a suspension; never the same joke two weeks running. The older `PARTIAL` notes below are history.
 **Scope:** revise optional captions and incidental details in existing surfaces. Give reports, banners and fictional clubroom notices appropriate voices; essential action labels remain plain.
 **Dependencies:** UiKit writing/hierarchy and available event predicates.
 **Exclusions:** a new dialogue/news framework, copied catchphrase bank, forced slang dialect or manufactured real-player quotes.
@@ -6521,6 +6522,7 @@ Highlight a few meaningful event-backed contributions and struggles, including a
 ## RPG-006 — Coaching identity through existing choices
 **Owner:** M6-001/002. **Autonomy:** BALANCE-GATED if effects change.
 Use existing staff composition and coaching choices to express philosophy; inspect live teaching/tactics/man-management effects and refine demonstrated gaps only.
+**Director decision (2026-10-09, from the RPG-006 audit, #562):** teaching moves the **training ceiling**, not the XP: a Strong (82) or better teaching staff adds a point to a player's season ceiling, a Fair (62) or worse one (or a vacant job) takes a point off, the same rule for every club including the AI. Built as RPG-006 slice 1 (#563). Man-management is unchanged. Tactics is not changed yet (its lever is a match-balance change needing its own calibration and a director decision).
 **Acceptance/checks:** understandable strengths/trade-offs with real effects, AI parity and bounded long-career benefits. **No new coach levelling/specialisation tree or XP economy.** Existing staff foundations remain DONE.
 
 ## RPG-007 — Build-aware recruiting discussions
