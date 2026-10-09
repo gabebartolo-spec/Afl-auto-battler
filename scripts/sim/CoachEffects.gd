@@ -62,6 +62,26 @@ static func xp_mult(staff: Dictionary, p: Dictionary, on_ground: bool) -> float:
 	return 1.0 + clampf(b, TEACH_MIN, TEACH_MAX)
 
 
+## How far a club's teachers move a player's season training ceiling
+## (director, 2026-10-09, RPG-006): +1 under an elite teaching staff, -1 under
+## a poor or vacant one, 0 under a good one. Measured: XP alone did nothing,
+## because nearly every young player reached the +3 season ceiling anyway.
+## Reads the teaching skill itself: his line coach, and for a young player
+## the development coach as well, half each.
+const TEACH_UP := 0.6        # level of a Strong (82) teacher or better
+const TEACH_DOWN := -0.4     # level of a Fair (62) teacher or worse; vacant is -0.6
+
+static func teach_step(staff: Dictionary, p: Dictionary) -> int:
+	var s := level(_skill(staff, line_job(p), "teach"))
+	if float(p.get("age", 25.0)) <= YOUNG:
+		s = 0.5 * (s + level(_skill(staff, "DEV", "teach")))
+	if s >= TEACH_UP:
+		return 1
+	if s <= TEACH_DOWN:
+		return -1
+	return 0
+
+
 # ---------------------------------------------------------------------------
 # Tactics
 # ---------------------------------------------------------------------------

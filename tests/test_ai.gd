@@ -344,7 +344,7 @@ func _test_rivals_train() -> void:
 	capped["potential"] = int(capped["overall"]) + 12
 	capped["season_start_ov"] = int(capped["overall"])
 	GameState.ai_spend_xp(capped)
-	_check(int(capped["overall"]) <= int(p0["overall"]) + GameState.SEASON_TRAIN_GAIN + 1,
+	_check(int(capped["overall"]) <= int(p0["overall"]) + GameState.SEASON_TRAIN_GAIN + GameState.teach_step(capped) + 1,
 			"A rival gains at most SEASON_TRAIN_GAIN in a season, however much XP he has")
 	# Your players live under the same season limit.
 	var mine: Dictionary = GameState.my_list[0]
@@ -355,5 +355,5 @@ func _test_rivals_train() -> void:
 	GameState.apply_plan_to(mine)
 	for k in ["disposal", "contested", "marking", "pressure"]:
 		GameState.train_stat(str(mine["id"]), k, 20)
-	_check(int(mine["overall"]) <= start + GameState.SEASON_TRAIN_GAIN + 1,
+	_check(int(mine["overall"]) <= start + GameState.SEASON_TRAIN_GAIN + GameState.teach_step(mine) + 1,
 			"Your player is held to the same season limit, by plan or by hand (%d -> %d)" % [start, int(mine["overall"])])

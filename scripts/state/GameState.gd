@@ -462,6 +462,7 @@ func autosave() -> bool:
 func mark_dirty() -> void:
 	_dirty = true
 	_phase_cache = {}
+	_teach_key = ""   # a hire, fire, poach or market move may have changed a staff
 
 
 func autosave_if_dirty() -> bool:
@@ -716,6 +717,7 @@ func load_career() -> bool:
 	if season != null and board.is_empty():
 		_open_board_season()
 	coaches = state.get("coaches", {})
+	_teach_key = ""
 	coach_archive = state.get("coach_archive", {})
 	staff_vacancies = state.get("staff_vacancies", [])
 	coach_approaches = state.get("coach_approaches", [])
@@ -6453,13 +6455,31 @@ func _train_rivals(results: Array) -> void:
 ## mid-season and no club develops by different rules.
 const SEASON_TRAIN_GAIN := 3
 
+## Every club's staff, read once a round for the teaching step: the records
+## change only between rounds (hirings, the off-season market).
+var _teach_staffs := {}
+var _teach_key := ""
+
+
+## A point on or off this player's season training ceiling from his club's
+## teachers (CoachEffects.teach_step); 0 outside a coaching world.
+func teach_step(p: Dictionary) -> int:
+	if coaches.is_empty() or str(p.get("club", "")) == "":
+		return 0   # no club, no teachers: a free agent or a prospect is neither lifted nor held back
+	var key := "%d|%d|%d" % [season_year, season.round_index if season != null else -1, coaches.size()]
+	if key != _teach_key:
+		_teach_staffs = CoachEffects.staffs(coaches)
+		_teach_key = key
+	return CoachEffects.teach_step(_teach_staffs.get(str(p.get("club", "")), {}), p)
+
 
 ## The rating a player's training can take him to this season (less once he
-## starts on another position).
+## starts on another position). His club's teachers move it a point either
+## way (CoachEffects.teach_step), at every club alike.
 func season_ceiling(p: Dictionary) -> int:
 	if not p.has("season_start_ov"):
 		p["season_start_ov"] = int(p.get("overall", 0))
-	var full := int(p["season_start_ov"]) + SEASON_TRAIN_GAIN
+	var full := int(p["season_start_ov"]) + SEASON_TRAIN_GAIN + teach_step(p)
 	# The season after he learns a position: a little more room, inside POT.
 	if int(p.get("learn_payback_year", 0)) == season_year:
 		full = maxi(full, mini(full + LEARN_PAYBACK, int(p.get("potential", 0))))
