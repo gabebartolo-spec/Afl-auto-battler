@@ -34,6 +34,7 @@ func _run() -> void:
 	var me := "COL"
 	var ms_games := 0
 	var opp_arg := "ESS"
+	var venue := ""
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--window":
 			var wh := str(a[i + 1]).split("x")
@@ -50,8 +51,12 @@ func _run() -> void:
 		if str(a[i]) == "--opp":
 			opp_arg = str(a[i + 1])
 		if str(a[i]) == "--venue":
-			VignetteGround.venue = str(a[i + 1])
+			venue = str(a[i + 1])
 	await process_frame
+	# Loaded here, not named: naming VignetteGround compiled it with this tool, before the
+	# autoloads exist, and its GameDB lookup failed - the ground never drew (2026-10-10).
+	if venue != "":
+		load("res://scripts/ui/match/VignetteGround.gd").venue = venue
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
 	state.autosave_enabled = false
