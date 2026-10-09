@@ -23,9 +23,12 @@ extends RefCounted
 ## Facts are written once, when they happen, from the full match result; the
 ## save's slimmed results are never read to rebuild one.
 
-## What a fact can be. Only injuries are kept here so far; the other stores
-## the audit lists move one at a time.
-const KINDS := ["injury"]
+## What a fact can be. The other stores the audit lists move one at a time.
+##   injury   out: the injury ("hamstring")
+##   talk     a sit-down (RPG-003): d what opened it and what you said
+##            ("dropped|promise"), out after your next match: "played",
+##            "waiting" or "injured"
+const KINDS := ["injury", "talk"]
 
 const Y := 0
 const AT := 1
