@@ -609,7 +609,8 @@ func _ai_rematch(def_side: int) -> void:
 		if n < 3 or float(won) / float(n) < 0.67:
 			continue
 		for p in Matchups.defenders((squads[def_side] as Squad).ground):
-			if str(p["id"]) != str(d[fid]):
+			# Never the loose man: putting him on someone ends his roaming.
+			if str(p["id"]) != str(d[fid]) and str(p["id"]) != str(interceptor[def_side]):
 				set_matchup(def_side, str(fid), str(p["id"]))
 				break
 
@@ -629,7 +630,8 @@ func _assistant_calls(side: int) -> void:
 	for fid in (own["duels"] as Dictionary):
 		if d.has(fid):
 			held[str(d[fid])] = true
-	if bool(own["interceptor"]) and str(interceptor[side]) != "":
+	# The loose man stays loose, whoever named him.
+	if str(interceptor[side]) != "":
 		held[str(interceptor[side])] = true
 	for fid in d.keys():
 		if (own["duels"] as Dictionary).has(str(fid)):
@@ -3684,6 +3686,8 @@ func _refill_duel(side: int, gone: String) -> void:
 		var used := {}
 		for f in d:
 			used[str(d[f])] = true
+		# The loose man has no forward of his own.
+		used[str(interceptor[side])] = true
 		var next := ""
 		for p in Matchups.defenders((squads[side] as Squad).ground):
 			if not used.has(str(p["id"])):
