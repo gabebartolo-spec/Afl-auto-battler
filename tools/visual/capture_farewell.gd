@@ -14,6 +14,11 @@ extends SceneTree
 ## to show whose arms are whose.
 ## --lens X: the camera's push on the pre-match scene (FarewellVignette.lens, 1.68 by default).
 ## --horizon F: where the far end of the guard sits down the screen (FarewellVignette.horizon_at).
+## --window WxH: a desktop window of that many pixels (e.g. 1920x1080) at the Standard screen
+## size, instead of the phone (--scale is ignored).
+## On --scale N the screen-size setting (ScreenLayout.ui_scale) is set to N too, so the text is
+## laid out for a 390-point phone at N pixels a point, as a phone's density does (without it a CI
+## window counts as a 1x desktop and every caption came out a third of its size).
 ## --lossless: draw from the sheets' PNGs as they are, not the imported VRAM-compressed
 ## copies. A desktop GPU loads BPTC, which smears the mask's channels at sharp edges (sock
 ## tops, small hands) so the shader paints boot colour there; an Android phone loads ASTC,
@@ -21,8 +26,8 @@ extends SceneTree
 ## Prints ART lines: the figure sheet's size and, for every move the scene drew, its
 ## strip and the frames asked for - proof the new moves came from the sheet.
 
-const W := 390
-const H := 844
+var W := 390
+var H := 844
 const BEATS := [0.4, 1.4, 2.6, 3.6, 4.6, 5.8]
 
 
@@ -40,6 +45,7 @@ func _run() -> void:
 	var scale := 1
 	var lens := 0.0
 	var horizon := 0.0
+	var desk := false
 	for i in range(a.size() - 1):
 		if str(a[i]) == "--out":
 			out = str(a[i + 1])
@@ -53,6 +59,11 @@ func _run() -> void:
 			horizon = float(a[i + 1])
 		if str(a[i]) == "--lens":
 			lens = float(a[i + 1])
+		if str(a[i]) == "--window":
+			var wh := str(a[i + 1]).split("x")
+			W = int(wh[0])
+			H = int(wh[1])
+			desk = true
 		if str(a[i]) == "--scale":
 			scale = maxi(1, int(a[i + 1]))
 	if a.has("--lossless"):
@@ -78,6 +89,9 @@ func _run() -> void:
 	state.settings_path = "user://capture_settings.cfg"
 	state.reset()
 	state.start_season(me, db.club_list(me))
+	if desk:
+		scale = 1
+	root.get_node("ScreenLayout").ui_scale = float(scale)
 	root.size = Vector2i(W * scale, H * scale)
 	DisplayServer.window_set_size(Vector2i(W * scale, H * scale))
 	root.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
