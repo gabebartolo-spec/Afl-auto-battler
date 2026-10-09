@@ -114,6 +114,7 @@ static func show(parent: Control) -> Control:
 	var box := UiKit.modal_box(parent, 720.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "StatGuide"
+	UiKit.close_on_outside_tap(box)
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.heading("Stat guide", 26))
 	for topic in TOPICS:

@@ -123,6 +123,7 @@ func _show_intro() -> void:
 	var box := UiKit.modal_box(self, 520.0, 0.0)
 	var overlay: Control = box["overlay"]
 	overlay.name = "SeasonStatsIntro"
+	UiKit.close_on_outside_tap(box)
 	open_sheet(overlay)
 	var v: VBoxContainer = box["body"]
 	v.add_child(UiKit.heading("Season stats", UiKit.TITLE))
