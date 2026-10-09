@@ -26,6 +26,7 @@ func run() -> void:
 	_test_old_club_code_migrates()
 	_test_safe_replacement()
 	_test_fictional_identity()
+	_test_apostrophe_names()
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Save tests: %d checks, %d failures" % [checks, failures.size()])
@@ -398,6 +399,36 @@ func _test_safe_replacement() -> void:
 ## FL-005: a generated player's nickname and interest are cosmetic, the same
 ## every time from his id, none for real players, and a nickname you change or
 ## remove stays that way through a save.
+## Real surnames keep their apostrophe in every data file that keys a player by
+## name (O'Sullivan, D'Ambrosio), so his look and his home state find him.
+func _test_apostrophe_names() -> void:
+	var dashed := 0
+	var lost := []
+	var balyn := {}
+	for code in GameDB.clubs:
+		for p in GameDB.club_list(str(code)):
+			var last := str(p.get("last", ""))
+			if last.contains("'"):
+				dashed += 1
+			var rx := RegEx.create_from_string("^[OD][A-Z][a-z]+$")
+			if rx.search(last) != null:
+				lost.append("%s %s" % [p.get("first", ""), last])
+			if str(p.get("first", "")) == "Balyn" and last == "O'Brien":
+				balyn = p
+	_check(dashed == 12, "Twelve real players carry an apostrophe in their surname (%d)" % dashed)
+	_check(lost.is_empty(), "No real surname has lost its apostrophe (%s)" % str(lost))
+	var was_real: bool = GameState.show_real_names
+	GameState.show_real_names = true
+	_check(not balyn.is_empty() and GameDB.player_display_name(balyn) == "Balyn O'Brien",
+			"A real O' name is shown with its apostrophe (%s)" % GameDB.player_display_name(balyn))
+	GameState.show_real_names = was_real
+	_check(not balyn.is_empty() and GameDB.player_looks(balyn) != Appearance.UNCURATED
+			and str(balyn.get("home_state", "")) == "SA",
+			"His curated look and his home state still find him")
+	var back = JSON.parse_string(JSON.stringify(balyn))
+	_check(back is Dictionary and str(back.get("last", "")) == "O'Brien", "The apostrophe survives a save round trip")
+
+
 func _test_fictional_identity() -> void:
 	var gen := []
 	for k in range(400):
