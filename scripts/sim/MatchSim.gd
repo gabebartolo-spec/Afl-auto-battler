@@ -2555,9 +2555,11 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		behind_p = 0.0
 	# If the spare flies and does not kill the ball, the space behind him is
 	# the price of the role: the resulting chance is slightly more dangerous.
+	# A good reader picks his moment, so leaves less space when he misses.
 	if roaming and not spoilt:
-		goal_p *= 1.08 if marked else 1.04
-		behind_p *= 1.03
+		var gap := 1.0 - _loose_read(roamer)
+		goal_p *= 1.0 + (0.08 if marked else 0.04) * gap
+		behind_p *= 1.0 + 0.03 * gap
 		if not marked:
 			_p(roamer, "roam_losses")
 	# Beaten in the air by his direct opponent, a key forward rarely gets the
