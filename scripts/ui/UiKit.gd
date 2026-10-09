@@ -846,13 +846,21 @@ static func close_on_outside_tap(box: Dictionary, on_close := Callable()) -> voi
 	var overlay: Control = box["overlay"]
 	var down := [false]
 	overlay.gui_input.connect(func(ev: InputEvent) -> void:
-		var press := (ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT) 				or ev is InputEventScreenTouch
-		if not press:
+		# A finger arrives as a mouse click (touch is emulated as the mouse); the raw
+		# touch also reaches the backdrop when a button inside takes the click, so
+		# only the click counts.
+		if not (ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT):
 			return
 		if ev.is_pressed():
 			down[0] = true
 			return
-		# Pressed and let go on the backdrop itself (a drag from the sheet ends there too).
+		# Pressed and let go on the backdrop itself, outside the sheet: a click on a
+		# button inside can reach the backdrop too when the button is rebuilt under it.
+		var shell: Control = box["shell"]
+		var at := overlay.get_global_transform() * (ev as InputEventMouseButton).position
+		if is_instance_valid(shell) and shell.get_global_rect().has_point(at):
+			down[0] = false
+			return
 		if down[0] and is_instance_valid(overlay) and not overlay.is_queued_for_deletion():
 			overlay.accept_event()
 			overlay.queue_free()
