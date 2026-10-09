@@ -1284,6 +1284,7 @@ func _test_farewell() -> void:
 	StoppageVignette.log_frames = false
 	v.free()
 
+
 ## FL-003: the vignettes draw the MCG where the match is played there - a club's home
 ## game at its MCG home, and the Grand Final - and the plain ground everywhere else.
 func _test_match_ground() -> void:
