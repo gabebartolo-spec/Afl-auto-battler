@@ -2,7 +2,8 @@ extends SceneTree
 ## Visual review tool for the sit-down when a promised run ends (RPG-001), on
 ## the Hub on a phone (390x844):
 ##   godot --path . --script tools/visual/capture_backing_talk.gd -- --out /tmp/talk
-## Writes <out>_sheet.png: a run that went well, a quiet one, a broken promise.
+## Writes <out>_sheet.png: a key back's run that went well, a midfielder's quiet
+## one, a ruck's broken promise.
 
 const W := 390
 const H := 844
@@ -38,12 +39,17 @@ func _run() -> void:
 	state.start_season("GEE", db.club_list("GEE"))
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
-	var kids: Array = state.my_list.duplicate()
-	kids.sort_custom(func(x, y): return float(x.get("age", 30.0)) < float(y.get("age", 30.0)))
+	# A key back, a midfielder and a ruck: each is judged on his own job's numbers.
+	var pick := func(kind):
+		for q in state.my_list:
+			if Backing.kpi_kind(q) == kind:
+				return q
+		return state.my_list[0]
+	var kids := [pick.call("key_back"), pick.call("mid"), pick.call("ruck")]
 	var runs := [
-		{"state": "done", "games": 3, "played": 3, "goals": 4, "disp": 39},
-		{"state": "done", "games": 3, "played": 3, "goals": 0, "disp": 22},
-		{"state": "broken", "games": 3, "played": 1, "goals": 0, "disp": 11},
+		{"state": "done", "games": 3, "played": 3, "tot": {"spoils": 17, "marks": 14}},
+		{"state": "done", "games": 3, "played": 3, "tot": {"disposals": 28, "clearances": 2}},
+		{"state": "broken", "games": 3, "played": 1, "tot": {"hitouts": 14, "clearances": 1}},
 	]
 	var shots := []
 	for i in range(runs.size()):

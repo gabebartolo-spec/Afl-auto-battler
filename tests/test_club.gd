@@ -847,29 +847,38 @@ func _test_backing_rules() -> void:
 	Backing.start(kid5, 2028, 4, 5)
 	for i in range(Backing.RUN_GAMES):
 		Backing.after_match(kid5, true, true)
-	# The sit-down when a run ends: what he did with it, and how he took it.
-	var good := {"state": "done", "games": 3, "played": 3, "goals": 4, "disp": 30}
-	var quiet := {"state": "done", "games": 3, "played": 3, "goals": 0, "disp": 21}
-	var middling := {"state": "done", "games": 3, "played": 3, "goals": 1, "disp": 42}
-	var dropped := {"state": "broken", "games": 3, "played": 1, "goals": 0, "disp": 9}
-	var tg: Dictionary = Backing.talk(kid5, good)
-	_check(tg["lines"] == ["Three games: four goals, 10 disposals a game.",
+	# The sit-down when a run ends: what he did with it, on his job's numbers
+	# (director: a key back is not rated on goals), and how he took it.
+	var back := {"id": "kb", "name": "Sam Tall", "role": "DEF", "height_cm": 196}
+	var small := {"id": "sd", "name": "Sam Quick", "role": "DEF", "height_cm": 180}
+	var ruck := {"id": "rk", "name": "Sam Big", "role": "RUCK", "height_cm": 203}
+	_check(Backing.kpi_kind(back) == "key_back" and Backing.kpi_kind(small) == "def"
+			and Backing.kpi_kind(ruck) == "ruck", "Each player is judged on his job")
+	var kb_run := {"state": "done", "games": 3, "played": 3, "tot": {"goals": 0, "spoils": 18, "marks": 9}}
+	var kb: Dictionary = Backing.talk(back, kb_run)
+	_check(kb["lines"] == ["Three games: 6 spoils and 3 marks a game.",
 			"He feels he showed you something, and he wants more of it."],
-			"A run that went well is said with his numbers (%s)" % str(tg["lines"]))
-	_check(str(Backing.talk(kid5, quiet)["lines"][1]).begins_with("He knows it was quiet")
-			and str(Backing.talk(kid5, middling)["lines"][1]).begins_with("He is glad of the chance"),
-			"A quiet run is called quiet; an ordinary one is not")
-	_check(Backing.talk(kid5, dropped)["lines"] == ["One game: no goals, 9 disposals a game.",
+			"A key back is rated on spoils and marks, not goals (%s)" % str(kb["lines"]))
+	_check(Backing.kpi_line("key_fwd", 3, {"goals": 4, "marks": 18}) == "Three games: four goals, 6 marks a game."
+			and Backing.kpi_line("ruck", 2, {"hitouts": 50, "clearances": 4}) == "Two games: 25 hit-outs and 2 clearances a game.",
+			"Goals read as a count, everything else a game")
+	_check(Backing.kpi_verdict("def", 3, {"disposals": 21, "rebounds": 2}) == "quiet"
+			and Backing.kpi_verdict("def", 3, {"disposals": 40, "rebounds": 6}) == ""
+			and Backing.kpi_verdict("mid", 3, {"disposals": 66, "clearances": 3}) == "good",
+			"Quiet only when both numbers are low; good when either is high")
+	_check(Backing.talk(small, {"state": "broken", "games": 3, "played": 1, "tot": {"disposals": 9, "rebounds": 1}})["lines"]
+			== ["One game: 9 disposals and 1 rebound 50 a game.",
 			"You told him three games and he got one. He wants to know where he stands."],
-			"A broken promise is said plainly (%s)" % str(Backing.talk(kid5, dropped)["lines"]))
-	_check(Backing.talk(kid5, {"state": "lapsed", "played": 1}).is_empty()
-			and Backing.talk(kid5, {"state": "active"}).is_empty(), "No sit-down for a run still on or lapsed")
+			"A broken promise is said plainly")
+	_check(Backing.talk(back, {"state": "lapsed", "played": 1}).is_empty()
+			and Backing.talk(back, {"state": "active"}).is_empty(), "No sit-down for a run still on or lapsed")
 	var kid6 := _kid(GameState.my_list[23], 5)
 	Backing.start(kid6, 2028, 4, 5)
-	Backing.after_match(kid6, true, true, {}, {"goals": 2, "disposals": 11})
+	Backing.after_match(kid6, true, true, {}, {"goals": 2, "disposals": 11, "spoils": 1})
 	Backing.after_match(kid6, false, false)
 	Backing.after_match(kid6, true, true, {}, {"goals": 0, "disposals": 15})
-	_check(int(Backing.ledger(kid6)[0]["goals"]) == 2 and int(Backing.ledger(kid6)[0]["disp"]) == 26,
+	var tot6: Dictionary = Backing.ledger(kid6)[0]["tot"]
+	_check(int(tot6["goals"]) == 2 and int(tot6["disposals"]) == 26 and int(tot6["spoils"]) == 1,
 			"The run keeps what he did in the games he played")
 	_check(Backing.memory_bits(kid5) == ["Given a three-game run in 2028."],
 			"A run kept is remembered (%s)" % str(Backing.memory_bits(kid5)))
