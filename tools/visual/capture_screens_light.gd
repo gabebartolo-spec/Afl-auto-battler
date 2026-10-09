@@ -111,6 +111,18 @@ func _run() -> void:
 		if img.save_png(path) != OK:
 			push_error("could not save " + path)
 		print("wrote ", path)
+		# The hub below the fold: the ladder and its heading link, where a
+		# phone's thumb scrolls to (audit §8 Phase 1.1).
+		if key == "hub":
+			var ladder: Control = scene.find_child("LadderSection", true, false)
+			var sc: Node = ladder.get_parent() if ladder != null else null
+			while sc != null and not (sc is ScrollContainer):
+				sc = sc.get_parent()
+			if sc != null:
+				(sc as ScrollContainer).ensure_control_visible(ladder)
+				var img2 := await _shot()
+				img2.save_png("%s_%s_hub_ladder.png" % [out, mode])
+				print("wrote hub ladder")
 		scene.queue_free()
 		await process_frame
 	# The offseason: the home-and-away season is done, the draft is next.

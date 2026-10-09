@@ -241,21 +241,17 @@ func _ladder_section(season: Season) -> Control:
 	v.name = "LadderSection"
 	var head := UiKit.hbox(8)
 	v.add_child(head)
-	var title := UiKit.section("Ladder")
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(title)
-	# The whole season - ladder, every player's numbers, awards, fixture,
-	# trophy room (director, 2026-10-07: replaces Full ladder).
-	var full := UiKit.btn("Season stats", 14)
-	full.name = "SeasonStats"
-	full.custom_minimum_size = Vector2(124, 44)
+	# The heading is the way in: the whole season (ladder, every player's
+	# numbers, awards, fixture, trophy room; director, 2026-10-07) sits
+	# behind "Ladder". One nav idiom on the hub (audit §8 Phase 1.1): the
+	# footer row and this heading, no third kind of button.
+	var full := UiKit.section_link("Ladder", "Season stats ›", "SeasonStats")
 	full.pressed.connect(func(): Router.go("stats"))
 	head.add_child(full)
-	# September: the series beside the ladder it came from.
+	# September: the series beside the ladder it came from, said as words.
 	if not season.finals.is_empty():
-		var series := UiKit.btn("Finals", 14)
+		var series := UiKit.text_action("Finals ›")
 		series.name = "FinalsOpen"
-		series.custom_minimum_size = Vector2(88, 44)
 		series.pressed.connect(_show_finals)
 		head.add_child(series)
 	var width := _content_width() if _narrow() else _content_width() * 0.45
