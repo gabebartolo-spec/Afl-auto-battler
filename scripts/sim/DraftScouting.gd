@@ -103,8 +103,26 @@ static func combine_lines(p: Dictionary, club: String, seed: int, uncertainty_mu
 
 static func _line(label: String, score: float, p: Dictionary, club: String, seed: int, suffix: String,
 		uncertainty_mult := 1.0) -> Dictionary:
-	var seen := clampf(score + _normal(_key(p, club, seed, suffix)) * COMBINE_NOISE * maxf(0.25, uncertainty_mult), 1.0, 99.0)
-	return {"label": label, "grade": _grade(seen)}
+	return {"label": label, "grade": _grade(_seen(score, p, club, seed, suffix, uncertainty_mult))}
+
+
+## The scouts' read of one ability: the true score plus this club's error.
+static func _seen(score: float, p: Dictionary, club: String, seed: int, suffix: String,
+		uncertainty_mult := 1.0) -> float:
+	return clampf(score + _normal(_key(p, club, seed, suffix)) * COMBINE_NOISE * maxf(0.25, uncertainty_mult), 1.0, 99.0)
+
+
+## The scouts' read (0-100) of the three abilities the Combine also tests -
+## movement, repeat effort, aerial/contest - before it becomes a grade:
+## {"move", "repeat", "aerial"}, the same numbers combine_lines grades. {}
+## without a football model.
+static func combine_seen(p: Dictionary, club: String, seed: int, uncertainty_mult := 1.0) -> Dictionary:
+	if (p.get("attr", {}) as Dictionary).is_empty():
+		return {}
+	var r := Combine.reads(p)
+	return {"move": _seen(float(r["move"]), p, club, seed, "move", uncertainty_mult),
+			"repeat": _seen(float(r["repeat"]), p, club, seed, "repeat", uncertainty_mult),
+			"aerial": _seen(float(r["aerial"]), p, club, seed, "aerial", uncertainty_mult)}
 
 
 static func _grade(score: float) -> String:

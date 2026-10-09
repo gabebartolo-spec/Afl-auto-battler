@@ -7,6 +7,7 @@ var _settings: Control
 var _root: VBoxContainer
 var _results_overlay: Control
 var _media_overlay: Control
+var _talk_overlay: Control
 var _news_overlay: Control
 var _sim_confirm: Control
 var _quick_sim: Control
@@ -46,6 +47,15 @@ func _ready() -> void:
 		_show_season_wrap()
 	elif not bool(GameState.get_setting("seen_weekly_loop_intro", false)):
 		_show_weekly_loop_intro()
+	else:
+		_show_week_ask()
+
+
+## The week's one optional ask, if any (director, 2026-10-09: one a week): a
+## sit-down with a player whose promised run just ended, or the press.
+func _show_week_ask() -> void:
+	if GameState.backing_talk_pending():
+		_show_backing_talk()
 	elif GameState.media_conference_pending():
 		_show_media_conference()
 
@@ -86,8 +96,7 @@ func _close_weekly_loop_intro() -> void:
 	if _onboarding_overlay != null and is_instance_valid(_onboarding_overlay):
 		_onboarding_overlay.queue_free()
 	_onboarding_overlay = null
-	if GameState.media_conference_pending():
-		_show_media_conference()
+	_show_week_ask()
 
 
 ## The off-season, wrapped up before Round 1 (ARD-M6-007): who came, who
@@ -1053,6 +1062,9 @@ func handle_back() -> bool:
 		_results_overlay = null
 		_build()
 		return true
+	if _talk_overlay != null and is_instance_valid(_talk_overlay):
+		_close_backing_talk()
+		return true
 	# Back skips the press conference, as its Skip button does (natural
 	# Android Back); an overlay opened over it closes first.
 	if _media_overlay != null and is_instance_valid(_media_overlay):
@@ -1063,6 +1075,41 @@ func handle_back() -> bool:
 		return true
 	return false
 
+
+
+## The sit-down when a run you promised ends (Backing.talk): what he did with
+## it and how he took it, reported. Nothing to decide; Done closes it.
+func _show_backing_talk() -> void:
+	if not GameState.backing_talk_pending():
+		return
+	if _talk_overlay != null and is_instance_valid(_talk_overlay):
+		return
+	var t: Dictionary = GameState.backing_talk
+	var box := UiKit.modal_box(self, 520.0, 0.0)
+	_talk_overlay = box["overlay"]
+	_talk_overlay.name = "BackingTalk"
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.heading(str(t.get("title", "")), UiKit.TITLE))
+	var i := 0
+	for line in t.get("lines", []):
+		var l := UiKit.lbl(str(line), 15, UiKit.TEXT)
+		l.name = "BackingTalkLine_%d" % i
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
+		i += 1
+	var ok := UiKit.btn("Done", 17, true)
+	ok.name = "BackingTalkDone"
+	ok.custom_minimum_size = Vector2(0, 48)
+	ok.pressed.connect(_close_backing_talk)
+	(box["footer"] as VBoxContainer).add_child(ok)
+
+
+func _close_backing_talk() -> void:
+	GameState.close_backing_talk()
+	if _talk_overlay != null and is_instance_valid(_talk_overlay):
+		_talk_overlay.queue_free()
+	_talk_overlay = null
+	_build()
 
 
 func _show_media_conference() -> void:
@@ -1085,7 +1132,9 @@ func _show_media_conference() -> void:
 	var prompt := UiKit.vbox(6)
 	prompt.visible = scene == null
 	v.add_child(prompt)
-	prompt.add_child(UiKit.lbl("Journalist", UiKit.SMALL, UiKit.MUTED, true))
+	var by := UiKit.lbl(str(GameState.media_conference.get("by", "Journalist")), UiKit.SMALL, UiKit.MUTED, true)
+	by.name = "MediaByline"
+	prompt.add_child(by)
 	var q := UiKit.lbl(str(GameState.media_conference.get("question", "")), 16, UiKit.TEXT)
 	q.name = "MediaQuestion"
 	q.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1165,8 +1214,7 @@ func _show_results(results: Array) -> void:
 		overlay.queue_free()
 		_results_overlay = null
 		_build()
-		if GameState.media_conference_pending():
-			_show_media_conference())
+		_show_week_ask())
 	box["footer"].add_child(ok)
 
 

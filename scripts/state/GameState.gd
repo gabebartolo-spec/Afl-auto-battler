@@ -129,6 +129,7 @@ var difficulty := "normal"       # this career's difficulty (DIFFICULTIES key)
 var board := {}                  # confidence, goal, warned, sacked, history
 var week_event := {}             # this week's event card (ClubLife.pick_event)
 var media_conference := {}       # pending post-match press question
+var backing_talk := {}           # a sit-down when a promised run ends (Backing.talk)
 var media_memory := {}           # question key -> last round asked
 var losing_streak := 0
 ## Your match-ups for the next match (Matchups): {their forward id: your
@@ -506,6 +507,7 @@ func save_career() -> bool:
 		"board": board,
 		"week_event": week_event,
 		"media_conference": media_conference,
+		"backing_talk": backing_talk,
 		"media_memory": media_memory,
 		"losing_streak": losing_streak,
 		"my_matchups": my_matchups,
@@ -653,6 +655,7 @@ func load_career() -> bool:
 	board = state.get("board", {})
 	week_event = state.get("week_event", {})
 	media_conference = state.get("media_conference", {})
+	backing_talk = state.get("backing_talk", {})
 	media_memory = state.get("media_memory", {})
 	losing_streak = int(state.get("losing_streak", 0))
 	my_matchups = state.get("my_matchups", {})
@@ -1011,6 +1014,7 @@ func reset() -> void:
 	board = {}
 	week_event = {}
 	media_conference = {}
+	backing_talk = {}
 	media_memory = {}
 	losing_streak = 0
 	my_matchups = {}
@@ -2586,7 +2590,7 @@ func payoff_lines(res: Dictionary) -> Array:
 	if my_club == "":
 		return []
 	var me := 0 if str(res.get("home", "")) == my_club else (1 if str(res.get("away", "")) == my_club else -1)
-	return Firsts.match_lines(res, me, season_year, list_player)
+	return Firsts.match_lines(res, me, season_year, list_player, my_list)
 
 
 ## A club's ladder position in words: "3rd".
@@ -3256,6 +3260,10 @@ func _after_round(results: Array) -> void:
 	_board_after_round(results)
 	_rival_morale_after_round(results)
 	_prepare_media_conference(results)
+	# One optional ask a week (director, 2026-10-09, G1): a sit-down takes the
+	# week's slot and the press question waits for another week.
+	if not backing_talk.is_empty():
+		media_conference = {}
 	if season != null and season.is_season_over() \
 			and int(season_awards.get("year", 0)) != season_year:
 		_close_season_awards()
@@ -6754,6 +6762,8 @@ func _my_result(results: Array) -> Dictionary:
 
 func _board_after_round(results: Array) -> void:
 	var res := _my_result(results)
+	# Last week's sit-down, unread, has had its week.
+	backing_talk = {}
 	# This week's one-off flags (rested, sore, heavy legs, fresh) end with
 	# the round.
 	for p in my_list:
@@ -6793,12 +6803,15 @@ func _board_after_round(results: Array) -> void:
 	# Left out while fit, the promise breaks and it stings, once, and the run
 	# is over; unable to play, the run waits. His one-week expectation is
 	# settled here rather than by the loop below, so it never stings twice.
+	var stats_all: Dictionary = res.get("players", {})
 	for p in my_list:
 		if not Backing.is_active(p):
 			continue
 		var pid := str(p["id"])
 		var run_state := Backing.after_match(p, played.has(pid), not _backing_unavailable.has(pid),
-				{"year": season_year, "label": str(res.get("label", ""))})
+				{"year": season_year, "label": str(res.get("label", ""))}, stats_all.get(pid, {}))
+		if backing_talk.is_empty() and (run_state == "done" or run_state == "broken"):
+			backing_talk = Backing.talk(p, Backing.ledger(p).back())
 		if run_state == "broken":
 			ClubLife.add_morale(p, -CoachEffects.softened(Backing.STING, float(soft.get(pid, 0.0))))
 		p.erase("expects_game")
@@ -6869,10 +6882,28 @@ func _prepare_media_conference(results: Array) -> void:
 						"line": "kicked %d goals" % goals if goals >= 6 else "had %d disposals" % disposals}
 				break
 	var round_no := season.round_index if last_phase == "regular" else Season.REGULAR_ROUNDS + int((season.finals.get("weeks", []) as Array).size())
+	# How many of your side were young enough for the Philosopher to ask.
+	var young := 0
+	if roster.size() > side:
+		for r in roster[side]:
+			var p := _find_player(str(r.get("id", "")))
+			if not p.is_empty() and float(p.get("age", 30.0)) <= MediaConference.YOUNG_AGE:
+				young += 1
 	media_conference = MediaConference.pick({
 		"result": res, "club": my_club, "opponent_name": GameDB.club_name(opp),
-		"round": round_no, "injuries": injuries, "star": star,
+		"round": round_no, "injuries": injuries, "star": star, "year": season_year, "young": young,
 	}, media_memory)
+	if not media_conference.is_empty():
+		media_conference["opp"] = GameDB.club_name(opp)
+
+
+func backing_talk_pending() -> bool:
+	return not backing_talk.is_empty()
+
+
+func close_backing_talk() -> void:
+	backing_talk = {}
+	mark_dirty()
 
 
 func media_conference_pending() -> bool:
@@ -6904,6 +6935,9 @@ func resolve_media_conference(option: int) -> void:
 		for p in my_list:
 			ClubLife.add_morale(p, morale_delta)
 	media_memory[str(media_conference.get("key", ""))] = int(media_conference.get("round", 0))
+	# What you said, so a journalist can hold you to it later this season.
+	media_memory["said|" + str(media_conference.get("key", ""))] = {"year": season_year, "option": option,
+			"opp": str(media_conference.get("opp", "")), "round": int(media_conference.get("round", 0))}
 	add_news("media", "Post-match: '%s'" % str(picked.get("label", "")))
 	media_conference = {}
 	mark_dirty()
@@ -7188,11 +7222,19 @@ func _start_backing(p: Dictionary) -> void:
 	mark_dirty()
 
 
-## One line for each run you have promised, as Selection shows them.
+## One line for each run you have promised, as Selection shows them. A named
+## side that leaves a fit one out says so (auto-pick always names him).
 func backing_notes() -> Array:
 	var out := []
+	var sel := my_selection()
+	var named := {}
+	for k in sel:
+		if k == "OUT":
+			continue   # left out on purpose: not named
+		for id in sel[k]:
+			named[str(id)] = true
 	for p in my_list:
-		var line := Backing.note(p)
+		var line := Backing.note(p, sel.is_empty() or named.has(str(p["id"])))
 		if line != "":
 			out.append({"key": "backing", "player_id": str(p["id"]), "text": line})
 	return out
