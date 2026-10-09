@@ -95,6 +95,11 @@ static func shapes() -> Dictionary:
 		inside.append(neck_front[i])
 	var sides := PackedVector2Array([Vector2(0, 35), Vector2(28, 35), Vector2(30, 100), Vector2(0, 100)])
 	var shoulders := PackedVector2Array([Vector2(0, 0), Vector2(40, 0), Vector2(18, 37), Vector2(0, 37)])
+	# The Giants' G: a ring open at the upper right, with its bar.
+	var g_ring := _arc(50, 71.7, 16.6, 18, 0.17, TAU - 0.70, 24)
+	var g_in := _arc(50, 71.7, 16.6 * 0.55, 18 * 0.55, 0.17, TAU - 0.70, 24)
+	g_in.reverse()
+	g_ring.append_array(g_in)
 	var patterns := {
 		"plain": [],
 		"stripes": [["s", _rect(24, 0, 30, 100)], ["s", _rect(36, 0, 42, 100)], ["s", _rect(47, 0, 53, 100)],
@@ -106,13 +111,21 @@ static func shapes() -> Dictionary:
 		"band": [["s", _rect(0, 50, 100, 62)], ["a", _rect(0, 54.5, 100, 57.5)]],
 		"chevrons": [["s", _vband(34, 5)], ["s", _vband(46, 5)], ["s", _vband(58, 5)]],
 		"panels": [["s", _rect(36, 0, 64, 100)], ["a", _rect(0, 0, 36, 100)]],
-		"chevron": [["s", _vband(64, 6, 0.97)], ["a", _vband(70, 6, 0.97)]],
+		# As figure.gdshader draws it: a deep V from the shoulders, the second colour inside.
+		"chevron": [["s", _vband(42, 14.4, 2.81)], ["a", _vband(27.6, 14.4, 2.81)]],
 		"sides": [["s", sides], ["s", _mirror(sides)]],
 		"tiers": [["s", _rect(0, 0, 100, 40)], ["a", _rect(0, 40, 100, 48)]],
 		"shoulders": [["s", shoulders], ["s", _mirror(shoulders)]],
 		"map": [["s", PackedVector2Array([Vector2(38, 40), Vector2(62, 40), Vector2(60, 50), Vector2(54, 64),
 				Vector2(50, 70), Vector2(46, 62), Vector2(40, 50)])],
 				["a", _rect(43, 44, 57, 48)], ["a", _rect(48.5, 44, 51.5, 60)]],
+		# Real clubs' own designs, matching figure.gdshader's (box y = 96 - 90 x its height up).
+		"lowhoops": [["s", _rect(0, 44.7, 100, 51.1)], ["a", _rect(0, 51.1, 100, 57.5)],
+				["s", _rect(0, 63.9, 100, 70.3)], ["a", _rect(0, 70.3, 100, 76.7)],
+				["s", _rect(0, 83.1, 100, 89.5)], ["a", _rect(0, 89.5, 100, 100)]],
+		"giants": [["s", _rect(0, 0, 100, 45.6)], ["a", g_ring], ["a", _rect(50, 70.8, 66.6, 76.2)]],
+		"wings": [["s", PackedVector2Array([Vector2(0, 0), Vector2(100, 0), Vector2(100, 60), Vector2(73.0, 60.0), Vector2(72.2, 52.5), Vector2(69.9, 45.6), Vector2(66.3, 39.6), Vector2(61.5, 35.1), Vector2(56.0, 32.2), Vector2(50.0, 31.2), Vector2(44.0, 32.2), Vector2(38.5, 35.1), Vector2(33.7, 39.6), Vector2(30.1, 45.6), Vector2(27.8, 52.5), Vector2(27.0, 60.0), Vector2(0, 60)])]],
+		"twohoops": [["s", _rect(0, 53.7, 100, 61.8)], ["a", _rect(0, 65.4, 100, 73.5)]],
 	}
 	# Patterns clipped to the body once, in box units.
 	var clipped := {}
