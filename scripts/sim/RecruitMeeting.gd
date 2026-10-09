@@ -39,10 +39,9 @@ static func list_lines(status: Dictionary, list_players: Array, profile: Array) 
 			out.append("As it stands we can't field a full %s." % LINE_WORD[role])
 	# Depth: softer, and only when nothing structural is said.
 	if out.is_empty():
-		for role in ["MID", "DEF", "FWD", "RUCK"]:
-			if int((status.get(role, {}) as Dictionary).get("light", 0)) >= 2:
-				out.append("We're light for depth %s." % DEPTH_WORD[role])
-				break
+		var light := depth_role(status)
+		if light != "":
+			out.append("We're light for depth %s." % DEPTH_WORD[light])
 	# What the side does well, from the league-relative List Profile.
 	for row in profile:
 		if str(row.get("word", "")) == "Elite":
@@ -59,6 +58,20 @@ static func list_lines(status: Dictionary, list_players: Array, profile: Array) 
 
 const LINE_WORD := {"MID": "midfield", "DEF": "back line", "FWD": "forward line"}
 const DEPTH_WORD := {"MID": "in the midfield", "DEF": "in defence", "FWD": "up forward", "RUCK": "in the ruck"}
+
+
+## The one position the list section calls light for depth, or "": none when
+## the side has a hole (the holes are said instead), else the first light
+## one in this order. A name's depth line is only ever about this position,
+## so the panel never says one thing about the list and another about a name.
+static func depth_role(status: Dictionary) -> String:
+	for role in ["RUCK", "MID", "DEF", "FWD"]:
+		if int((status.get(role, {}) as Dictionary).get("short", 0)) > 0:
+			return ""
+	for role in ["MID", "DEF", "FWD", "RUCK"]:
+		if int((status.get(role, {}) as Dictionary).get("light", 0)) >= LIGHT_SAY:
+			return role
+	return ""
 
 
 static func _old_core(list_players: Array) -> int:
@@ -152,10 +165,10 @@ static func fit_line(p: Dictionary, status: Dictionary, plan: String) -> String:
 		if role == "RUCK":
 			return "%s: we have none we'd trust." % _who(p, role) if short >= 2 					else "%s: we only have one we'd trust." % _who(p, role)
 		return "%s: we can't field a full %s." % [_who(p, role), LINE_WORD[role]]
-	# Depth: light at his position.
-	for role in roles:
-		if int((status.get(role, {}) as Dictionary).get("light", 0)) >= LIGHT_SAY:
-			return "%s, where we're light for depth." % _who(p, role)
+	# Depth: only at the position the list section names as light.
+	var light := depth_role(status)
+	if light != "" and roles.has(light):
+		return "%s, where we're light for depth." % _who(p, light)
 	return style_line(p, plan)
 
 

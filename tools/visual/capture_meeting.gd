@@ -43,7 +43,11 @@ func _run() -> void:
 	gs.save_path = "user://capture_meeting.save"
 	gs.settings_path = "user://capture_meeting.cfg"
 	gs.show_real_names = false
+	# Every seed set (tools/audit/README.md): reset() rolls a career seed from
+	# the global generator, so seed that too, or a rerun shows another class.
+	seed(seed)
 	gs.reset()
+	gs.career_seed = seed
 	gs.replay_seed = seed
 	gs.start_season(club, db.club_list(club))
 	gs.club_plan = plan

@@ -683,6 +683,23 @@ func _test_panel_fit() -> void:
 	back["attr"]["pressure"] = 90
 	_check(RecruitMeeting.fit_line(back, none, "defensive") == "",
 			"A back does not carry a press (PlanFit's lines), so no pressure line")
+	# Depth only where "Our list" says it: the first light position.
+	var two_light: Dictionary = none.duplicate(true)
+	two_light["MID"] = {"short": 0, "light": 3}
+	two_light["FWD"] = {"short": 0, "light": 2}
+	var fwd: Dictionary = base.duplicate(true)
+	fwd["role"] = "FWD"
+	fwd["height_cm"] = 186
+	_check(RecruitMeeting.depth_role(two_light) == "MID"
+			and RecruitMeeting.list_lines(two_light, [], []).has("We're light for depth in the midfield."),
+			"The list section names one light position")
+	_check(RecruitMeeting.fit_line(fwd, two_light, "balanced") == "",
+			"A forward gets no depth line when the list names the midfield, not the forwards")
+	var mid_d: Dictionary = base.duplicate(true)
+	mid_d["role"] = "MID"
+	mid_d["attr"]["pressure"] = 40
+	_check(RecruitMeeting.fit_line(mid_d, two_light, "balanced") == "A midfielder, where we're light for depth.",
+			"A midfielder gets the depth line the list section names")
 	var both: Dictionary = hole.duplicate(true)
 	both["MID"] = {"short": 1, "light": 0}
 	_check(RecruitMeeting.fit_line(mid, both, "defensive") == "A midfielder: we can't field a full midfield.",
@@ -709,6 +726,9 @@ func _test_panel_fit() -> void:
 					p = q
 			var want := RecruitMeeting.fit_line(p, status, "defensive")
 			if (want == "" and (line.contains("can't field") or line.contains("light for depth") or line.contains("Suits our"))) 					or (want != "" and not line.contains(want)):
+				true_lines = false
+			var named := RecruitMeeting.depth_role(status)
+			if line.contains("light for depth") and (named == "" or not (str(p.get("role", "")) == named or str(p.get("role2", "")) == named)):
 				true_lines = false
 			if line.contains("split") != RecruitMeeting.split(p, draft.user_club, draft.seed, draft.scouting_mult_for(draft.user_club)):
 				true_lines = false
