@@ -109,6 +109,17 @@ jobs:
               n=$(ls out/$name/*.png 2>/dev/null | wc -l)
               echo "- $name: $n screens"
             done
+            for name in phone pc; do
+              f=$(ls out/$name/*_clips.txt 2>/dev/null | head -1)
+              if [ -n "$f" ] && [ -s "$f" ]; then
+                echo ""
+                echo "Text that does not fit at $name size (CUT: trimmed or clipped; OUT: reaches past the window). Look at the sheet before trusting it:"
+                echo ""
+                echo '```'
+                head -n 60 "$f"
+                echo '```'
+              fi
+            done
             echo ""
             echo "Download: \`gh run download ${GITHUB_RUN_ID} -n ui-review-sheets\`"
           } >> "$GITHUB_STEP_SUMMARY"
