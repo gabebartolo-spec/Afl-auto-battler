@@ -480,6 +480,10 @@ func _test_fictional_identity() -> void:
 	_check(home > 100 and home < 190, "Most WA kids grew up following a WA club, not all (%d of 200)" % home)
 	_check(FictionalIdentity.favourite_club(real) == "",
 			"A real player's favourite club is never guessed (Not recorded without a source)")
+	var made: Dictionary = gen[0].duplicate()
+	made["user_created"] = true
+	_check(FictionalIdentity.favourite_club(made) == "",
+			"A player created in an older save, who never chose one, shows Not recorded")
 	_new_season()
 	var mine: Dictionary = GameState.my_list[0]
 	var name_before := GameDB.player_display_name(mine)
