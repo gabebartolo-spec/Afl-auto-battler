@@ -23,7 +23,7 @@ const FROM_GAMES := 200
 ## (the figures are drawn larger than life, so the spacing is too).
 const LINE := 6
 const LINE_X := 2.2
-const LINE_GAP := 1.9
+const LINE_GAP := 2.3          # room for each man's hands against his own guernsey (1.9 read as one band of arms)
 const LINE_FROM := 4.2          # the nearest men in frame (at 3.0 only a boot and a shadow showed)
 ## Chaired off: each carrier's centre off the middle (the board's 0.235 m, at the
 ## figures' scale) and the walk: from the far end of the guard towards the camera.

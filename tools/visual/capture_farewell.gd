@@ -8,6 +8,10 @@ extends SceneTree
 ## --home CODE / --opp CODE: the clubs (Collingwood v Geelong by default).
 ## --scale N: render the same 390x844-point phone at N times the pixels (3 = a real phone's
 ## 1170x2532), so a review sees what the device shows, not a third of it.
+## --skins: the men in the guard wear every skin tone in turn (look.skin 0, 1, 2...), to check
+## the clap's hands on each.
+## --layers: a layer pass - kit recolouring off, each man in the guard one distinct flat tint,
+## to show whose arms are whose.
 ## Prints ART lines: the figure sheet's size and, for every move the scene drew, its
 ## strip and the frames asked for - proof the new moves came from the sheet.
 
@@ -66,6 +70,25 @@ func _run() -> void:
 	Stoppage.frame_log.clear()
 	var vig = Farewell.open(root, ms, man, me, opp, mine, theirs, "Full time")
 	vig.set_process(false)
+	if a.has("--skins"):
+		var tones: int = load("res://scripts/core/Appearance.gd").SKIN.size()
+		for t in vig.tokens:
+			var look: Dictionary = (t["look"] as Dictionary).duplicate()
+			look["skin"] = int(t["k"]) % tones
+			t["look"] = look
+		print("ART skins: each line's men wear tones 0..%d in order from the camera" % (tones - 1))
+	if a.has("--layers"):
+		# Without the figure material the draw colour tints the sheet's coverage directly:
+		# give each man his own colour channels (kit, skin, hair) so each reads as one tint.
+		vig.material = null
+		var flat := CanvasItemMaterial.new()
+		vig.material = flat
+		for t in vig.tokens:
+			var look: Dictionary = (t["look"] as Dictionary).duplicate()
+			look["skin"] = (int(t["k"]) * 3 + (0 if int(t["line"]) < 0 else 5)) % 8
+			look["hair"] = (int(t["k"]) * 5 + 2) % 8
+			t["look"] = look
+		print("ART layers: kit shader off, one tint per man")
 	var shots := []
 	for t in BEATS:
 		vig.set("_t", t)

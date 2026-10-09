@@ -1331,11 +1331,11 @@ const BODIES := {
 				"side_l": {
 					"x": 0,
 					"y": 2668,
-					"size": [66, 190],
+					"size": [60, 190],
 					"frames": 4,
-					"pivot": [48.0, 180.16],
+					"pivot": [42.0, 180.16],
 					"reach": [1.752, 1.752, 1.752, 1.752],
-					"hands": [[14.7, 56.4, 17.5, 53.7, 1], [15.4, 58.3, 16.8, 51.7, 1], [16.2, 60.2, 16.0, 49.9, 1], [15.4, 58.3, 16.8, 51.7, 1]],
+					"hands": [[18.4, 53.4, 21.1, 50.6, 1], [19.1, 55.3, 20.4, 48.7, 1], [19.9, 57.1, 19.7, 46.8, 1], [19.1, 55.3, 20.4, 48.7, 1]],
 					"hair": {
 						"short_crop": {
 							"atlas": 0,
@@ -1343,7 +1343,7 @@ const BODIES := {
 							"y": 256,
 							"size": [26, 24],
 							"frames": 4,
-							"offset": [26, 0],
+							"offset": [20, 0],
 						},
 						"bald": {
 							"atlas": 1,
@@ -1351,7 +1351,7 @@ const BODIES := {
 							"y": 276,
 							"size": [28, 26],
 							"frames": 4,
-							"offset": [24, 2],
+							"offset": [18, 2],
 						},
 						"dreadlocks": {
 							"atlas": 2,
@@ -1359,7 +1359,7 @@ const BODIES := {
 							"y": 472,
 							"size": [40, 42],
 							"frames": 4,
-							"offset": [24, -2],
+							"offset": [18, -2],
 						},
 						"swept_back": {
 							"atlas": 3,
@@ -1367,7 +1367,7 @@ const BODIES := {
 							"y": 276,
 							"size": [30, 26],
 							"frames": 4,
-							"offset": [24, -2],
+							"offset": [18, -2],
 						},
 						"textured_short": {
 							"atlas": 4,
@@ -1375,14 +1375,14 @@ const BODIES := {
 							"y": 264,
 							"size": [28, 24],
 							"frames": 4,
-							"offset": [26, 0],
+							"offset": [20, 0],
 						},
 					},
 				},
 			},
 			"walk_wave": {
 				"front": {
-					"x": 264,
+					"x": 240,
 					"y": 2668,
 					"size": [88, 226],
 					"frames": 8,
@@ -1435,7 +1435,7 @@ const BODIES := {
 			},
 			"carrier": {
 				"front": {
-					"x": 968,
+					"x": 944,
 					"y": 2668,
 					"size": [70, 196],
 					"frames": 8,
@@ -1463,9 +1463,9 @@ const BODIES := {
 							"atlas": 2,
 							"x": 432,
 							"y": 472,
-							"size": [36, 34],
+							"size": [34, 34],
 							"frames": 8,
-							"offset": [16, 0],
+							"offset": [18, 0],
 						},
 						"swept_back": {
 							"atlas": 3,
@@ -1488,7 +1488,7 @@ const BODIES := {
 			},
 			"carrier_near": {
 				"front": {
-					"x": 1528,
+					"x": 1504,
 					"y": 2668,
 					"size": [40, 46],
 					"frames": 8,
@@ -1526,7 +1526,7 @@ const BODIES := {
 						},
 						"dreadlocks": {
 							"atlas": 2,
-							"x": 720,
+							"x": 704,
 							"y": 472,
 							"size": [34, 36],
 							"frames": 8,
