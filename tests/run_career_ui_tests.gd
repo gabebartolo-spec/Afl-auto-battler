@@ -464,6 +464,15 @@ func _run() -> void:
 	var note: Label = current_scene.find_child("DifficultyNote", true, false)
 	_check(note != null and note.visible and note.text == str(_state.DIFFICULTIES["hard"]["text"]),
 			"The ? explains the picked difficulty on request")
+	# Difficulty changes one rule, the trade margin, so every difficulty says
+	# it in trade terms and nothing else (the lever-truth audit: the help once
+	# promised rival development and XP that no difficulty changes).
+	var only_trades := true
+	for key in _state.DIFFICULTY_ORDER:
+		var rules: Dictionary = _state.DIFFICULTIES[key]
+		only_trades = only_trades and rules.keys().size() == 3 and rules.has("trade_margin") \
+				and str(rules["text"]).contains("trade")
+	_check(only_trades, "Each difficulty changes only the trade margin, and its text says so")
 	_router.handle_back(false)
 	await _settle()
 	_check(_router.current() == "main" and current_scene.find_child("NewCareerSetup", true, false) == null
