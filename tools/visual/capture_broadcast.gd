@@ -9,7 +9,7 @@ extends SceneTree
 ## cell the whole portrait screen at --scale. Collingwood (your side, a real
 ## player featured) against Carlton; nothing here touches a save.
 ## --film KIND: instead writes <out>_KIND_NNN.png, the whole of that kind at 12
-## frames a second, for checking motion.
+## frames a second, for checking motion. --venue MCG: that ground's own treatment (FL-003).
 
 const KINDS := ["speccy_front", "speccy_side", "speccy_defensive", "after_siren", "goal_line", "boundary_snap"]
 ## Seconds into each kind worth a still: wind-up, the moment, the ball's flight.
@@ -39,6 +39,7 @@ func _run() -> void:
 			"--width": width = int(a[i + 1])
 			"--scale": scale = float(a[i + 1])
 			"--film": film = str(a[i + 1])
+			"--venue": VignetteGround.venue = str(a[i + 1])
 	await process_frame
 	var db = root.get_node("GameDB")
 	var w := width

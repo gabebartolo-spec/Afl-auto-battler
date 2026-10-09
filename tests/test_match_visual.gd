@@ -43,6 +43,7 @@ func run() -> void:
 	_test_flood_shape(res)
 	_test_centre_setups(res)
 	_test_farewell()
+	_test_match_ground()
 	GameState.replay_seed = 0
 	print("Match visual tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -1282,3 +1283,14 @@ func _test_farewell() -> void:
 	_check(past.is_empty(), "No farewell frame past the end of its move (%s)" % str(past.slice(0, 3)))
 	StoppageVignette.log_frames = false
 	v.free()
+
+## FL-003: the vignettes draw the MCG where the match is played there - a club's home
+## game at its MCG home, and the Grand Final - and the plain ground everywhere else.
+func _test_match_ground() -> void:
+	VignetteGround.use_match({"home": "COL", "away": "GEE", "venue": ""})
+	_check(VignetteGround.venue == "MCG", "A Collingwood home game draws the MCG")
+	VignetteGround.use_match({"home": "GEE", "away": "COL", "venue": ""})
+	_check(VignetteGround.venue != "MCG", "A Geelong home game draws its own ground (%s)" % VignetteGround.venue)
+	VignetteGround.use_match({"home": "GEE", "away": "COL", "venue": "MCG"})
+	_check(VignetteGround.venue == "MCG", "A final at the MCG draws the MCG (the Grand Final)")
+	VignetteGround.venue = ""

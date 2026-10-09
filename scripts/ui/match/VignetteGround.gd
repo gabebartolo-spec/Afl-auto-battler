@@ -46,6 +46,25 @@ const APRON := Color(0.13, 0.32, 0.14)
 const PAINT := Color(0.97, 0.97, 0.95, 0.92)
 const WORN := [Color(0.26, 0.36, 0.17, 0.55), Color(0.38, 0.36, 0.22, 0.45)]
 
+## The ground being shown, by its fixture name ("MCG"). A ground with its own treatment
+## (FL-003) draws its landmarks; any other, or "", draws the plain ground.
+static var venue := ""
+
+
+## The ground a match is played at: a final's own venue, else the home club's
+## (clubs.csv; Collingwood, Hawthorn, Melbourne and Richmond are at the MCG).
+static func ground_of(res: Dictionary) -> String:
+	var ground := str(res.get("venue", ""))
+	if ground == "":
+		ground = str(GameDB.club(str(res.get("home", ""))).get("ground", ""))
+	return ground
+
+
+## Draw this match's ground from now on (the static outlives the scene).
+static func use_match(res: Dictionary) -> void:
+	venue = ground_of(res)
+
+
 ## Where the goal line runs: the boundary at the behind posts.
 ## (L * sqrt(1 - (1.5 * GOAL_GAP / A)^2), written out: a constant, because a static var set
 ## from an expression stays 0 when a tool runs with --script (the capture tools), which drew
@@ -295,14 +314,18 @@ static func _fence_and_apron(tri: Tris, cam: Cam, colours: Array) -> void:
 ## screen above the far end, the light towers behind, and the haze the lights make.
 static func _draw_stands(ci: CanvasItem, cam: Cam, colours: Array, seed: int, board: Dictionary,
 		weather := "", t := 0.0) -> void:
-	var tex := VignetteCrowd.seats(colours, seed)
+	var mcg := venue == "MCG"
+	# The MCG's empty seats are a pale blue-grey (Commons, "MCG Shane Warne Stand.png").
+	var tex := VignetteCrowd.seats(colours, seed, MCG_SEAT if mcg else Color(0.07, 0.07, 0.085))
 	if ci.texture_filter != CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS:
 		ci.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_towers(ci, cam)
 	var ring := _ring_columns(A + FENCE + 2.0, L + FENCE + 2.0, STAND_TILE / 16.0)
-	# [inner offset, outer offset, inner height, outer height] beyond the fence line.
-	var lower := [2.0, 26.0, FENCE_H + 0.3, 13.0]
-	var upper := [30.0, 52.0, 17.0, 34.0]
+	# Tiers, front to back: [inner offset, outer offset, inner height, outer height] beyond
+	# the fence line. The MCG rises in three, a band of boxes under each of the upper two.
+	var tiers: Array = MCG_TIERS if mcg else [[2.0, 26.0, FENCE_H + 0.3, 13.0], [30.0, 52.0, 17.0, 34.0]]
+	var lower: Array = tiers[0]
+	var upper: Array = tiers[tiers.size() - 1]
 	var shade := Tris.new()
 	var lit := Tris.new()
 	var c0: Color = (colours[0] as Array)[0] if colours.size() > 0 and not (colours[0] as Array).is_empty() else Color(0.3, 0.3, 0.32)
@@ -310,18 +333,24 @@ static func _draw_stands(ci: CanvasItem, cam: Cam, colours: Array, seed: int, bo
 	for i in range(ring.size() - 1):
 		var a0: float = ring[i][0]
 		var a1: float = ring[i + 1][0]
-		# The underside of the upper tier and the concourse: dark, behind the fascia.
-		_wall(shade, cam, a0, a1, lower[1], lower[1], lower[3], upper[2] + 0.5, Color(0.045, 0.045, 0.055))
-		# The fascia along the front of the upper tier, panel by panel in the clubs' colours.
 		var panel: Color = (c0 if (i / 6) % 2 == 0 else c1).darkened(0.35)
-		_wall(lit, cam, a0, a1, upper[0], upper[0], upper[2] - 2.2, upper[2], panel)
-		_wall(lit, cam, a0, a1, upper[0], upper[0], upper[2] - 0.25, upper[2], Color(1, 1, 1, 0.25))
+		for k in range(1, tiers.size()):
+			var below: Array = tiers[k - 1]
+			var tier: Array = tiers[k]
+			# The underside of the tier above and the concourse: dark, behind the fascia.
+			_wall(shade, cam, a0, a1, below[1], below[1], below[3], tier[2] + 0.5, Color(0.045, 0.045, 0.055))
+			# The fascia along the tier's front, panel by panel in the clubs' colours.
+			_wall(lit, cam, a0, a1, tier[0], tier[0], tier[2] - 2.2, tier[2], panel)
+			_wall(lit, cam, a0, a1, tier[0], tier[0], tier[2] - 0.25, tier[2], Color(1, 1, 1, 0.25))
 		# The roof's edge over the top row, its lights along it.
 		_wall(shade, cam, a0, a1, upper[1] - 4.0, upper[1], upper[3] + 1.0, upper[3] + 4.0, Color(0.06, 0.06, 0.07))
 	shade.flush(ci)
-	_tier(ci, cam, ring, lower, tex, Color(0.95, 0.95, 0.97))
-	_tier(ci, cam, ring, upper, tex, Color(0.78, 0.78, 0.82))
+	var tints := [Color(0.95, 0.95, 0.97), Color(0.86, 0.86, 0.9), Color(0.78, 0.78, 0.82)]
+	for k in range(tiers.size()):
+		_tier(ci, cam, ring, tiers[k], tex, tints[k] if tiers.size() == 3 else tints[k * 2])
 	lit.flush(ci)
+	if mcg:
+		_mcg_trusses(ci, cam, ring, upper)
 	# In the wind, the flags people hold up along the front rows stream out.
 	if VignetteWeather.wind(weather) > 0.0:
 		for i in range(1, ring.size(), 2):
@@ -360,6 +389,8 @@ static func _draw_stands(ci: CanvasItem, cam: Cam, colours: Array, seed: int, bo
 			VignetteWeather.draw_flag(ci, Vector2(s.x, s.y), 7.0 * s.z, 5.0 * s.z, 2.6 * s.z,
 					c0 if home else c1, t, float(i) * 0.7, wind, _second(colours, 0 if home else 1))
 	_screen(ci, cam, c0, c1, board)
+	if venue == "MCG":
+		_screen(ci, cam, c0, c1, board, -1)
 	_haze(ci, cam, weather)
 
 
@@ -443,6 +474,9 @@ static func _wall(tri: Tris, cam: Cam, a0: float, a1: float, o0: float, o1: floa
 ## The light towers outside the stands: a mast and a bank of lights at the top of each,
 ## glowing into the night.
 static func _towers(ci: CanvasItem, cam: Cam) -> void:
+	if venue == "MCG":
+		_mcg_towers(ci, cam)
+		return
 	for p in _tower_spots():
 		var base := cam.oval(p, 0.0)
 		if base.z <= 0.0:
@@ -456,11 +490,103 @@ static func _towers(ci: CanvasItem, cam: Cam) -> void:
 		ci.draw_rect(Rect2(Vector2(top.x, top.y) - bank * 0.5, bank), Color(0.98, 0.97, 0.9), true)
 
 
+## The MCG's stands as seen from the ground (Commons, "MCG Shane Warne Stand.png",
+## EchidnaLives, 2022, CC BY-SA 4.0): three tiers of seats, a band of boxes under the
+## middle and upper tiers, a thin dark roof with a row of pale trusses standing up along
+## its edge. Heights are read from the photo, not published.
+const MCG_TIERS := [[2.0, 20.0, FENCE_H + 0.3, 10.0], [23.0, 37.0, 13.5, 22.0], [41.0, 58.0, 25.5, 38.0]]
+## Pale blue-grey seats as they read at night under the lights (darker than by day, so the
+## crowd stays behind the players).
+const MCG_SEAT := Color(0.24, 0.27, 0.32)
+## A truss every this many stand columns, its base and height in metres.
+const MCG_TRUSS_EVERY := 6
+const MCG_TRUSS_H := 5.0
+
+static func _mcg_trusses(ci: CanvasItem, cam: Cam, ring: Array, upper: Array) -> void:
+	var tri := Tris.new()
+	var ax := A + FENCE + 2.0
+	var ay := L + FENCE + 2.0
+	var off: float = upper[1] - 2.0
+	var h0: float = upper[3] + 4.0
+	# The roof's top edge, caught by the lights, so the trusses stand on something.
+	for i in range(ring.size() - 1):
+		_wall(tri, cam, ring[i][0], ring[i + 1][0], upper[1] - 4.0, upper[1], h0 - 0.5, h0, Color(0.5, 0.51, 0.54))
+	for i in range(0, ring.size() - 3, MCG_TRUSS_EVERY):
+		var a0: float = ring[i][0]
+		var a1: float = ring[i + 3][0]
+		var am := (a0 + a1) * 0.5
+		var p0 := cam.oval(Vector2(cos(a0) * (ax + off), sin(a0) * (ay + off)), h0)
+		var p1 := cam.oval(Vector2(cos(a1) * (ax + off), sin(a1) * (ay + off)), h0)
+		var pm := cam.oval(Vector2(cos(am) * (ax + off), sin(am) * (ay + off)), h0 + MCG_TRUSS_H)
+		if p0.z <= 0.0 or p1.z <= 0.0 or pm.z <= 0.0:
+			continue
+		var a := Vector2(p0.x, p0.y)
+		var b := Vector2(p1.x, p1.y)
+		var m := Vector2(pm.x, pm.y)
+		# An open triangle of steel: two slim legs up to the apex.
+		var w := maxf(0.8, 0.35 * pm.z)
+		for leg in [[a, m], [b, m]]:
+			var d: Vector2 = (leg[1] - leg[0]).orthogonal().normalized() * w * 0.5
+			tri.poly([leg[0] - d, leg[0] + d, leg[1] + d, leg[1] - d], Color(0.62, 0.63, 0.66))
+	tri.flush(ci)
+
+
+## The MCG's six light towers (mcg.org.au, "Light towers"): hollow tubular steel masts
+## about 75 m high, tapering from 4.2 m across at the foot to 2 m at the top, each
+## carrying a head frame of lamps a further 10 m high, angled 15 degrees in towards the
+## ground. The frame's width isn't published: 14 m reads right against photos.
+const MCG_MAST := 75.0
+const MCG_FRAME_H := 10.0
+const MCG_FRAME_W := 14.0
+const MCG_TILT := 15.0
+
+static func _mcg_towers(ci: CanvasItem, cam: Cam) -> void:
+	var steel := Color(0.09, 0.09, 0.1)
+	for p in _tower_spots():
+		var base := cam.oval(p, 0.0)
+		var top := cam.oval(p, MCG_MAST)
+		if base.z <= 0.0 or top.z <= 0.0:
+			continue
+		var wb := maxf(1.0, 4.2 * base.z) * 0.5
+		var wt := maxf(1.0, 2.0 * top.z) * 0.5
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(base.x - wb, base.y), Vector2(base.x + wb, base.y),
+				Vector2(top.x + wt, top.y), Vector2(top.x - wt, top.y)]), steel)
+		# The head frame: across the tower's line to the centre, its top leaning in.
+		var inward: Vector2 = (-(p as Vector2)).normalized()
+		var across := Vector2(-inward.y, inward.x) * MCG_FRAME_W * 0.5
+		var lean := inward * MCG_FRAME_H * sin(deg_to_rad(MCG_TILT))
+		var rise := MCG_FRAME_H * cos(deg_to_rad(MCG_TILT))
+		var corners := [cam.oval(p - across, MCG_MAST), cam.oval(p + across, MCG_MAST),
+				cam.oval(p + across + lean, MCG_MAST + rise), cam.oval(p - across + lean, MCG_MAST + rise)]
+		var quad := PackedVector2Array()
+		for c in corners:
+			if c.z <= 0.0:
+				quad.clear()
+				break
+			quad.append(Vector2(c.x, c.y))
+		if quad.is_empty():
+			continue
+		var mid := (quad[0] + quad[1] + quad[2] + quad[3]) * 0.25
+		var reach := quad[0].distance_to(quad[1])
+		for g in range(6):
+			ci.draw_circle(mid, reach * (0.55 + g * 0.45), Color(1.0, 0.95, 0.82, 0.05 - g * 0.007))
+		ci.draw_colored_polygon(quad, steel)
+		# The lamps, rows across the frame.
+		var lamp := maxf(0.8, 0.45 * top.z)
+		for row in range(4):
+			for col in range(9):
+				var u := (float(col) + 0.5) / 9.0
+				var v := (float(row) + 0.5) / 4.0
+				var at: Vector2 = quad[0].lerp(quad[1], u).lerp(quad[3].lerp(quad[2], u), v)
+				ci.draw_rect(Rect2(at - Vector2(lamp, lamp * 0.7), Vector2(lamp * 2.0, lamp * 1.4)), Color(0.98, 0.97, 0.9), true)
+
+
 ## The big screen high above the far end, behind the goals, showing the match's score
 ## as it stands (board): each club's code by a chip of its colour, goals.behinds and
-## the total, the quarter beneath. Lit, so it glows a little into the night.
-static func _screen(ci: CanvasItem, cam: Cam, home: Color, away: Color, board: Dictionary) -> void:
-	var at := Vector2(0.0, L + FENCE + 40.0)
+## the total, the quarter beneath. Lit, so it glows a little into the night. The MCG has
+## one at each end (end -1: the other one).
+static func _screen(ci: CanvasItem, cam: Cam, home: Color, away: Color, board: Dictionary, end := 1) -> void:
+	var at := Vector2(0.0, (L + FENCE + 40.0) * end)
 	var c := cam.oval(at, 30.0)
 	if c.z <= 0.0:
 		return

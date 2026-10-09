@@ -10,7 +10,7 @@ extends SceneTree
 ## line), --club: games for this club rather than his career; --opp CODE: the
 ## opponent (Essendon by default, whose ANZAC banner outranks any milestone).
 ## --flags 2031,2029,2028: premiership pennants for those years (FL-008); --home CODE:
-## the home club (Collingwood by default).
+## the home club (Collingwood by default). --venue MCG: that ground's own treatment (FL-003).
 
 const W := 390
 const H := 844
@@ -44,6 +44,8 @@ func _run() -> void:
 			ms_games = int(a[i + 1])
 		if str(a[i]) == "--opp":
 			opp_arg = str(a[i + 1])
+		if str(a[i]) == "--venue":
+			VignetteGround.venue = str(a[i + 1])
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
