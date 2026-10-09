@@ -285,6 +285,29 @@ func club_list(code: String) -> Array:
 	return players_by_club.get(code, [])
 
 
+## The real final 2026 ladder (data/ladder_2026.csv, sourced): rows of
+## {"pos", "club", "finals"} in ladder order. [] when the file is missing.
+const LADDER_2026_PATH := "res://data/ladder_2026.csv"
+
+func ladder_2026() -> Array:
+	var out := []
+	var f := FileAccess.open(LADDER_2026_PATH, FileAccess.READ)
+	if f == null:
+		return out
+	var header := f.get_csv_line()
+	var at := {}
+	for i in range(header.size()):
+		at[header[i].strip_edges()] = i
+	while not f.eof_reached():
+		var row := f.get_csv_line()
+		if row.size() < header.size() or str(row[0]).strip_edges() == "":
+			continue
+		out.append({"pos": int(row[at["pos"]]), "club": str(row[at["club"]]).strip_edges(),
+				"finals": str(row[at["finals"]]).strip_edges() if at.has("finals") else ""})
+	out.sort_custom(func(a, b): return int(a["pos"]) < int(b["pos"]))
+	return out
+
+
 func player_by_id(id: String):
 	for p in players:
 		if p["id"] == id:

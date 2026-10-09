@@ -17,6 +17,12 @@ var new_career_setup_requested := false
 ## The career's custom prospect (Club Forge, ARD-M7-008): his id once made,
 ## one per career. Followed through drafts and career history.
 var custom_prospect_id := ""
+## How this career began (ARD-M5-016): "redraft" (the League Draft) or "real"
+## (every club keeps its real end-of-2026 list and the 2026 National Draft is
+## run before 2027). Older saves have no field and are redrafts.
+var start_mode := "redraft"
+## The 2026 National Draft of a real-lists career is under way (no season yet).
+var opening_draft := false
 ## Your dual-ruck call (ARD-M5-001): off until you make it, kept across
 ## seasons; copied into each season's selection for your club (_sync_dual).
 var user_dual_ruck := false
@@ -527,6 +533,8 @@ func save_career() -> bool:
 		"career_seed": career_seed,
 		"class_tiers": class_tiers,
 		"custom_prospect_id": custom_prospect_id,
+		"start_mode": start_mode,
+		"opening_draft": opening_draft,
 		"custom_club": custom_club,
 		"best23": best23,
 		"user_dual_ruck": user_dual_ruck,
@@ -671,6 +679,8 @@ func load_career() -> bool:
 	career_seed = int(state.get("career_seed", 0))
 	class_tiers = state.get("class_tiers", {})
 	custom_prospect_id = str(state.get("custom_prospect_id", ""))
+	start_mode = str(state.get("start_mode", "redraft"))
+	opening_draft = bool(state.get("opening_draft", false))
 	user_dual_ruck = bool(state.get("user_dual_ruck", false))
 	_sync_dual()
 	_recompute_ratings()
@@ -1030,6 +1040,8 @@ func reset() -> void:
 	user_dual_ruck = false
 	_dirty = false
 	default_train_plan = "position"
+	start_mode = "redraft"
+	opening_draft = false
 	season_year = GameDB.START_YEAR
 	drafted_draftees = {}
 	intake_assignments = []
@@ -1099,6 +1111,99 @@ func create_club(spec: Dictionary) -> String:
 	custom_club = spec.duplicate(true)
 	GameDB.register_club(ClubForge.row(custom_club))
 	return ""
+
+
+## A real-lists career (ARD-M5-016): every founding club keeps its real
+## end-of-2026 list, and the real 2026 draft class goes through the 2026
+## National Draft before the first season, 2027. No 2026 season is simulated:
+## the draft runs in 2026, in reverse order of the real 2026 ladder, and the
+## season starts once it is done (finish_intake_draft). You choose your club
+## on the draft screen. League redraft (begin_draft) is unchanged.
+func begin_real_lists() -> void:
+	start_mode = "real"
+	opening_draft = true
+	season_year = GameDB.DATA_SEASON
+	my_club = ""
+	my_list = []
+	var active := GameDB.active_clubs(GameDB.START_YEAR)
+	league_lists = {}
+	for code in active:
+		league_lists[code] = _career_copies(GameDB.club_list(code))
+		unique_jumpers(league_lists[code])
+	intake_assignments = []
+	# The real 2026 class, and the career's own prospect if it has one.
+	var cls: Array = _career_copies(GameDB.draftees)
+	for q in draftee_pool:
+		if str(q.get("id", "")) == custom_prospect_id and custom_prospect_id != "":
+			cls.append(q)
+	var open_pool := []
+	for p in cls:
+		var tie := str(p.get("tied_club", ""))
+		if tie != "" and int(p.get("draft_year", 0)) == season_year and league_lists.has(tie):
+			_assign_draftee(tie, p, str(p.get("tied_type", "tied")))
+		else:
+			open_pool.append(p)
+	draftee_pool = draftee_pool.filter(func(q): return str(q.get("id", "")) != custom_prospect_id)
+	var sizes := {}
+	var role_counts := {}
+	var role_pairs := {}
+	for code in active:
+		var arr: Array = league_lists[code]
+		sizes[code] = arr.size()
+		var c := {"RUCK": 0, "MID": 0, "DEF": 0, "FWD": 0}
+		var pairs: Array = []
+		for p in arr:
+			var r := str(p["role"])
+			if c.has(r):
+				c[r] = int(c[r]) + 1
+			pairs.append([r, str(p.get("role2", ""))])
+		role_counts[code] = c
+		role_pairs[code] = pairs
+	draft = Draft.build_intake(open_pool, active.duplicate(), opening_order(active),
+			_clock_seed(2), sizes, role_counts, role_pairs)
+	mark_dirty()
+
+
+## The 2026 National Draft order: the real 2026 ladder reversed, the premiers
+## last and the runners-up second last (the simplified order the intake draft
+## uses every year). Clubs missing from the ladder file go first, in club order.
+func opening_order(active: Array) -> Array:
+	var ladder := GameDB.ladder_2026()
+	var rows := []
+	for r in ladder:
+		if active.has(str(r["club"])):
+			rows.append(r)
+	var premier := ""
+	var runner := ""
+	for r in rows:
+		if str(r["finals"]) == "premiers":
+			premier = str(r["club"])
+		elif str(r["finals"]) == "runners_up":
+			runner = str(r["club"])
+	var order := []
+	for code in active:
+		if not rows.any(func(r): return str(r["club"]) == code):
+			order.append(code)
+	for i in range(rows.size() - 1, -1, -1):
+		var code := str(rows[i]["club"])
+		if code != premier and code != runner:
+			order.append(code)
+	if runner != "":
+		order.append(runner)
+	if premier != "":
+		order.append(premier)
+	return order
+
+
+## Your club in a real-lists career, chosen on the draft screen.
+func choose_real_club(code: String) -> void:
+	if not opening_draft or not league_lists.has(code):
+		return
+	my_club = code
+	my_list = league_lists[code]
+	draft.scouting_mults[code] = recruiting_uncertainty_mult()
+	draft.start_for_user(code)
+	mark_dirty()
 
 
 func begin_draft() -> void:
@@ -1235,6 +1340,15 @@ func finish_intake_draft() -> bool:
 			arr.append(p)
 			drafted_draftees[id] = code
 	draft = null
+	if opening_draft:
+		# The 2026 National Draft is done: the first season, 2027, starts on
+		# these lists. Nothing ages, develops or retires; the real 2026
+		# history is added once, by start_season.
+		opening_draft = false
+		draft_meeting_year = 0
+		season_year = GameDB.START_YEAR
+		start_season(my_club, league_lists.get(my_club, []))
+		return true
 	_start_next_season(next_year, merged)
 	return true
 
@@ -1628,7 +1742,13 @@ func _next_jumper_number(list: Array) -> int:
 func start_season(club_code: String, list: Array) -> void:
 	my_club = club_code
 	var lists := {}
-	if draft != null and draft.league_mode and draft.is_finished():
+	if start_mode == "real" and not league_lists.is_empty() and season == null:
+		# A real-lists career: each club's real list plus its 2026 draftees,
+		# already career copies (begin_real_lists).
+		for code in GameDB.club_order:
+			if league_lists.has(code):
+				lists[code] = league_lists[code]
+	elif draft != null and draft.league_mode and draft.is_finished():
 		league_lists = draft.all_lists()
 		for code in GameDB.club_order:
 			lists[code] = _career_copies(league_lists.get(code, []))
