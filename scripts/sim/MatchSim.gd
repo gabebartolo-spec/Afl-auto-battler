@@ -3443,7 +3443,7 @@ const CLANGER_MARKED := 0.3
 ## Of rushed kicks that go straight to the opposition, the share an average
 ## reader marks (match flow: they replace the clanger after a ball-up, which
 ## gave defenders most of their intercept marks).
-const PRESS_KICK_MARKED := 0.3
+const PRESS_KICK_MARKED := 0.4
 
 
 ## The 18 on-ground players per side, so the pitch view can draw real
