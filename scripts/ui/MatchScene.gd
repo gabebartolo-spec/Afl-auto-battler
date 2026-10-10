@@ -708,28 +708,35 @@ func _show_coach_box() -> void:
 	var mv := _matchups_view(sim, q)
 	if mv != null:
 		(rep if rep != v else col_a).add_child(mv)
-	# Their loose defender, answered by a person: one of your forwards goes up
-	# the ground with him. Facts only - who is a Defensive forward shows on
-	# his name; the choice is yours.
+	# Assign defensive forward (director, 2026-10-07): one of your forwards goes
+	# up the ground with their loose defender. Facts only: each card says where
+	# he plays, whether he is a Defensive forward and his Pressure, the one
+	# attribute the job runs on; the choice is yours.
 	var opp_spare := sim._roaming_interceptor(1 - _my_side)
-	var minder_nodes: Array = []
-	if not opp_spare.is_empty():
+	var minder_box := UiKit.vbox(6)
+	minder_box.name = "MinderBlock"
+	minder_box.add_child(UiKit.lbl("Assign defensive forward", UiKit.SMALL, UiKit.MUTED, true))
+	if opp_spare.is_empty():
+		var none_note := UiKit.lbl(MatchNotes.minder_none_line(), UiKit.SMALL, UiKit.MUTED)
+		none_note.name = "MinderNote"
+		none_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		minder_box.add_child(none_note)
+	else:
 		var fwds := Matchups.minder_candidates(my_ground)
-		var minder := _player_choice("SpareMinderPicker", "Nobody", fwds, fwds.slice(0, mini(quick if quick > 0 else 3, fwds.size())),
-				calls, "minder_id", "Who goes to him?")
-		var minder_block := _call_block("Their loose defender", minder)
-		col_a.add_child(minder_block)
-		minder_nodes.append(minder_block)
-		var dfs := fwds.filter(func(p): return Traits.has(p, "def_forward")).map(func(p): return GameDB.player_display_name(p))
-		var who := ("Defensive forwards on the ground: %s." % ", ".join(dfs)) if not dfs.is_empty() 				else "No Defensive forward on the ground."
-		var minder_note := UiKit.lbl(
-				"%s is roaming behind the ball. The forward you send goes up the ground with him: he keeps him out of contests, a Defensive forward best, and stops being a target himself. %s" % [
-						GameDB.player_display_name(opp_spare), who],
-				UiKit.SMALL, UiKit.MUTED)
+		var ask := UiKit.lbl(MatchNotes.minder_question(GameDB.player_display_name(opp_spare),
+				GameDB.club_name(str((sim.squads[1 - _my_side] as Squad).code))), UiKit.BODY, UiKit.TEXT)
+		ask.name = "MinderQuestion"
+		ask.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		minder_box.add_child(ask)
+		minder_box.add_child(_player_choice("SpareMinderPicker", "No defensive forward assigned", fwds,
+				fwds.slice(0, mini(quick if quick > 0 else 3, fwds.size())), calls, "minder_id", "Who covers him?", Callable(),
+				func(p: Dictionary, wide: bool) -> String: return MatchNotes.minder_card_detail(p, wide)))
+		var minder_note := UiKit.lbl(MatchNotes.minder_cost_line(), UiKit.SMALL, UiKit.MUTED)
 		minder_note.name = "MinderNote"
 		minder_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		col_a.add_child(minder_note)
-		minder_nodes.append(minder_note)
+		minder_box.add_child(minder_note)
+	col_a.add_child(minder_box)
+	var minder_nodes: Array = [minder_box]
 
 	# The rest of the calls, all in view (director, 2026-10-09: no "More
 	# calls" button).
@@ -1179,8 +1186,11 @@ func _segmented(node_name: String, options: Array, calls: Dictionary, field: Str
 ## and "Other player..." for everyone in `roster` (the caller's choice: the
 ## whole side for a tag, only forwards for their loose defender). Nobody in
 ## it is left out; the list is just ordered.
+## `detail` (optional): player, wide -> the lines under his name on his card
+## ("" for none); wide is the list sheet's one-line form.
 func _player_choice(node_name: String, none_label: String, roster: Array, first: Array,
-		calls: Dictionary, field: String, sheet_title: String, on_change: Callable = Callable()) -> Control:
+		calls: Dictionary, field: String, sheet_title: String, on_change: Callable = Callable(),
+		detail: Callable = Callable()) -> Control:
 	var box := UiKit.vbox(0)
 	box.name = node_name
 	var rebuild := func(self_ref: Callable) -> void:
@@ -1188,13 +1198,13 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 		var shown := [["", none_label]]
 		var ids := {}
 		for r in first:
-			shown.append([str(r["id"]), _short_name(r)])
+			shown.append([str(r["id"]), _card_text(r, detail)])
 			ids[str(r["id"])] = true
 		var cur := str(calls[field])
 		if cur != "" and not ids.has(cur):
 			for r in roster:
 				if str(r["id"]) == cur:
-					shown.append([cur, _short_name(r)])
+					shown.append([cur, _card_text(r, detail)])
 		var grid := _choice_grid(node_name + "Grid", shown, calls, field, 2, on_change)
 		box.add_child(grid)
 		var other := UiKit.btn("Other player…", 14)
@@ -1202,7 +1212,7 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 		other.custom_minimum_size = Vector2(0, 44)
 		other.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		other.pressed.connect(func():
-			_player_sheet(sheet_title, roster, str(calls[field]), func(id: String):
+			_player_sheet(sheet_title, roster, str(calls[field]), detail, func(id: String):
 				calls[field] = id
 				if on_change.is_valid():
 					on_change.call(id)
@@ -1212,13 +1222,20 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 	return box
 
 
+## A player's card text: his name, then what `detail` says about him.
+func _card_text(r: Dictionary, detail: Callable) -> String:
+	var extra := str(detail.call(r, false)) if detail.is_valid() else ""
+	return _short_name(r) if extra == "" else "%s
+%s" % [_short_name(r), extra]
+
+
 func _short_name(r: Dictionary) -> String:
 	return GameDB.player_display_name_by_id(str(r.get("id", "")), str(r.get("name", "Player")))
 
 
 ## Everyone on the ground for one side, one tap each; the current choice is
 ## marked. Back or Close leaves it as it was.
-func _player_sheet(title: String, roster: Array, current: String, on_pick: Callable) -> void:
+func _player_sheet(title: String, roster: Array, current: String, detail: Callable, on_pick: Callable) -> void:
 	_close_sheet()
 	var box := UiKit.modal_box(self, 480.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
@@ -1233,14 +1250,24 @@ func _player_sheet(title: String, roster: Array, current: String, on_pick: Calla
 		var id := str(r["id"])
 		var st: Dictionary = players.get(id, {})
 		var line := "#%d  %s" % [int(r.get("num", 0)), _short_name(r)]
-		if not st.is_empty():
-			line += "  ·  " + MatchNotes.game_line(st)
-		var b := UiKit.btn(line, 14)
+		var extra := str(detail.call(r, true)) if detail.is_valid() else ""
+		var game := "" if st.is_empty() else MatchNotes.game_line(st)
+		if extra == "":
+			if game != "":
+				line += "  ·  " + game
+		elif game != "":
+			extra += "  ·  " + game
+		var b := UiKit.btn(line if extra == "" else line + "
+" + extra, 14)
 		b.name = "Sheet_" + id
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.clip_text = true
-		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		b.custom_minimum_size = Vector2(0, 44)
+		if extra == "":
+			b.clip_text = true
+			b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		else:
+			# Two lines of facts about him: wrapped in full, never cut.
+			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.custom_minimum_size = Vector2(0, 44 if extra == "" else 60)
 		UiKit.paint_choice(b, id == current)
 		b.pressed.connect(func():
 			_close_sheet()
