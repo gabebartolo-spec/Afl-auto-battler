@@ -1414,17 +1414,22 @@ func _test_play_through_three() -> void:
 func _test_main_ruck() -> void:
 	var club := ""
 	var rucks := []
-	for c in ["GEE", "COL", "MEL", "CAR", "SYD", "BRL", "HAW", "ESS", "FRE", "ADE", "GWS", "STK", "WCE"]:
+	# A dual-ruck side: both rucks start on the ground, one in the ruck and one
+	# elsewhere (St Kilda, the Bulldogs). A second ruck who starts on the bench
+	# mostly comes on for the first, through the ruck spot, so the call has
+	# little to move there (audit mainruck_impl: Brisbane 28 v 24 contests a
+	# game; St Kilda 54 v 29).
+	for c in ["GEE", "COL", "MEL", "CAR", "SYD", "BRL", "HAW", "ESS", "FRE", "ADE", "GWS", "STK", "WCE", "WBD"]:
 		var sim := _sim(70, c, "COL" if c != "COL" else "GEE")
 		var found := []
-		for q in (sim.squads[0] as Squad).ground + (sim.squads[0] as Squad).bench:
+		for q in (sim.squads[0] as Squad).ground:
 			if MatchSim._is_ruckman(q):
 				found.append(q)
 		if found.size() >= 2:
 			club = c
 			rucks = found
 			break
-	_check(club != "", "(setup) a club that runs two rucks")
+	_check(club != "", "(setup) a club that starts two rucks on the ground")
 	if club == "":
 		return
 	var opp := "COL" if club != "COL" else "GEE"
