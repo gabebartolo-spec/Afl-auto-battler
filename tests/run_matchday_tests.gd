@@ -553,6 +553,22 @@ func _coach_descriptions(sz: Vector2i) -> void:
 		_check(tw2 == "" and tn.text.begins_with("No tag"), "Back to no tag, the line says so (%s)" % tag)
 		await Tap.tap(named)
 		await _settle()
+		# Who tags: your assistant's man first, another midfielder a real tap away.
+		var who_box: Node = box.find_child("TaggerPicker", true, false)
+		var mine_btn: Button = null
+		if who_box != null:
+			for b in who_box.find_children("TaggerPickerGrid_*", "Button", true, false):
+				if str(b.name) != "TaggerPickerGrid_":
+					mine_btn = b
+					break
+		_check(who_box != null and mine_btn != null, "You are offered who goes to the tag (%s)" % tag)
+		if mine_btn != null:
+			var ww: String = await Tap.tap(mine_btn)
+			await _settle()
+			_check(ww == "" and tn.text.begins_with(mine_btn.text), "The midfielder you tap is the one who goes (%s: %s)" % [tag, tn.text])
+			var wd: String = await Tap.tap(who_box.find_child("TaggerPickerGrid_", true, false))
+			await _settle()
+			_check(wd == "" and not tn.text.begins_with(mine_btn.text), "Back to your assistant's man (%s: %s)" % [tag, tn.text])
 
 	# Play through: the note says his job and what the call does for him, by the
 	# slot he fills; with nobody picked it is the general line. Real taps.
@@ -1044,6 +1060,27 @@ func _rings_on_the_oval() -> void:
 	_check(pitch.ringed(focus_id), "The player you play through is ringed from the bounce")
 	var tagger = load("res://scripts/sim/MatchSim.gd").tagger_for(sim.squads[me].ground)
 	_check(tagger != null and pitch.ringed(str(tagger["id"])), "So is the player who goes to your tag")
+	# Who tags is the coach's call: another midfielder on the ground takes the
+	# job when named, and it goes back to the assistant's man when the named
+	# player is not a midfielder on the ground.
+	var MS = load("res://scripts/sim/MatchSim.gd")
+	var other_mid = null
+	var not_mid = null
+	for p in sim.squads[me].ground:
+		if MS.midfielder_on_ground(p) and tagger != null and str(p["id"]) != str(tagger["id"]) and other_mid == null:
+			other_mid = p
+		if not MS.midfielder_on_ground(p) and not_mid == null:
+			not_mid = p
+	_check(other_mid != null and not_mid != null, "The side has another midfielder to send")
+	if other_mid != null and not_mid != null:
+		var was: Dictionary = (sim.tactics[me] as Dictionary).duplicate()
+		sim.tactics[me]["tagger_id"] = str(other_mid["id"])
+		_check(str(sim.tagger_of(me)["id"]) == str(other_mid["id"]), "The midfielder you name goes to the tag")
+		_check(str(sim.tagger_of(1 - me)["id"]) == str(MS.tagger_for(sim.squads[1 - me].ground)["id"]),
+				"The other side's tagger is its own")
+		sim.tactics[me]["tagger_id"] = str(not_mid["id"])
+		_check(str(sim.tagger_of(me)["id"]) == str(tagger["id"]), "A player who is not a midfielder on the ground cannot be sent")
+		sim.tactics[me] = was
 	_check(not pitch.ringed(tag_id), "The man you tag is not ringed")
 	var mine := {}
 	for r in (m.get("_res")["roster"][me] as Array):

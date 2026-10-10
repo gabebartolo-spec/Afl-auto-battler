@@ -641,6 +641,7 @@ func _show_coach_box() -> void:
 	var calls := {
 		"gameplan": _current_plan(sim),
 		"tag_id": str((sim.tactics[_my_side] as Dictionary).get("tag_id", _last_tactics.get("tag_id", ""))),
+		"tagger_id": str((sim.tactics[_my_side] as Dictionary).get("tagger_id", _last_tactics.get("tagger_id", ""))),
 		"focus_id": str(_last_tactics.get("focus_id", "")),
 		"interceptor_id": str(sim.interceptor[_my_side]),
 		"minder_id": str((sim.tactics[_my_side] as Dictionary).get("spare_minder_id", "")) 				if bool((sim.tactics[_my_side] as Dictionary).get("spare_accountable", false)) else "",
@@ -672,22 +673,39 @@ func _show_coach_box() -> void:
 	var opp := _roster_side(1 - _my_side).filter(func(r): return _taggable_now(sim, r))
 	# Who goes to him - a fact, not advice (Roles: a tagger makes a tag bite
 	# harder than a midfielder doing the job). With no tag, say that instead.
+	# Who does the job is the coach's call too (director, 2026-10-10: the
+	# side's best player was sent to tag, with no say in it). Any of your
+	# midfielders on the ground can go; your assistant's man is the default.
 	var tagger = MatchSim.tagger_for(my_ground)
+	var my_mids := {}
+	for p in my_ground:
+		if MatchSim.midfielder_on_ground(p):
+			my_mids[str(p["id"])] = p
+	if not my_mids.has(str(calls["tagger_id"])):
+		calls["tagger_id"] = ""
+	var others := _roster_side(_my_side).filter(func(r):
+		return my_mids.has(str(r["id"])) and (tagger == null or str(r["id"]) != str(tagger["id"])))
 	var tag_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	tag_note.name = "TagNote"
 	tag_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var sync_tag := func(key: String) -> void:
-		if key == "":
+	var sync_tag := func(_key: String) -> void:
+		var who = my_mids.get(str(calls["tagger_id"]), tagger)
+		if str(calls["tag_id"]) == "":
 			tag_note.text = "No tag: your midfielders play their own game."
-		elif tagger == null:
+		elif who == null:
 			tag_note.text = "No midfielder on the ground to tag with."
+		elif Roles.is_tagger(who):
+			tag_note.text = "%s, your tagger, goes to him." % GameDB.player_display_name(who)
 		else:
-			tag_note.text = ("%s, your tagger, goes to him." if Roles.is_tagger(tagger)
-					else "No specialist tagger on the ground: %s goes to him and gives up his own game.") % GameDB.player_display_name(tagger)
+			tag_note.text = "%s goes to him and gives up his own game. He is not a specialist tagger." % GameDB.player_display_name(who)
 	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, 4), calls, "tag_id",
 			"Tag which midfielder?", sync_tag)
 	col_a.add_child(_call_block("Tag", tag))
-	sync_tag.call(str(calls["tag_id"]))
+	if tagger != null and not others.is_empty():
+		var who_tags := _player_choice("TaggerPicker", GameDB.player_display_name(tagger), others, others.slice(0, 3),
+				calls, "tagger_id", "Who goes to him?", sync_tag)
+		col_a.add_child(_call_block("Who tags", who_tags))
+	sync_tag.call("")
 	col_a.add_child(tag_note)
 
 	# Key match-ups: who is on their key forwards, how the contests went last
@@ -794,6 +812,7 @@ func _show_coach_box() -> void:
 			"gameplan": str(calls["gameplan"]),
 			"focus_id": str(calls["focus_id"]),
 			"tag_id": str(calls["tag_id"]),
+			"tagger_id": str(calls["tagger_id"]),
 			"interceptor_id": str(calls["interceptor_id"]),
 			"interceptor_set": str(calls["interceptor_id"]) != loose_was,
 			"spare_accountable": str(calls["minder_id"]) != "",
@@ -859,7 +878,7 @@ func _break_answers() -> Dictionary:
 	var sim: MatchSim = GameState.pending_sim
 	if sim == null:
 		return out
-	var tagger = MatchSim.tagger_for((sim.squads[_my_side] as Squad).ground)
+	var tagger = sim.tagger_of(_my_side)
 	if tagger != null:
 		var tag_id := str((sim.tactics[_my_side] as Dictionary).get("tag_id", ""))
 		for r in _roster_side(1 - _my_side):
