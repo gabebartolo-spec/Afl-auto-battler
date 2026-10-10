@@ -457,8 +457,11 @@ static func legs_word(energy: float) -> String:
 	return "running on empty"
 
 
-## "Your midfield is fresh; theirs is tiring." from two group energies.
+## "Your midfield is fresh; theirs is tiring." from two group energies, or
+## "Both midfields are tiring." when they are the same.
 static func legs_line(mine: float, theirs: float) -> String:
+	if legs_word(mine) == legs_word(theirs):
+		return "Both midfields are %s." % legs_word(mine)
 	return "Your midfield is %s; theirs is %s." % [legs_word(mine), legs_word(theirs)]
 
 
