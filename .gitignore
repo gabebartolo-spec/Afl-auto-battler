@@ -26,3 +26,8 @@ data/ratings_preview.csv
 
 # Scraper page cache (tools/build_history.py, tools/scrape_afltables.py)
 data/cache/
+
+# Stray large files that sit in the working copy and are never source:
+# a 67 MB model at the repo root, and the director's review captures.
+/*.glb
+docs/research/_review_*/
