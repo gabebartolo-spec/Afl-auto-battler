@@ -794,8 +794,10 @@ func _minder_cards(sz: Vector2i) -> void:
 	var text := _text(block)
 	_check(block != null and text.begins_with("Assign defensive forward"), "The control is headed Assign defensive forward (%s)" % tag)
 	var all_text := _text(box)
-	_check(not all_text.contains("Their loose defender") and not all_text.contains("Nobody"),
-			"No 'Their loose defender' heading and no 'Nobody' at the break (%s)" % tag)
+	# "Nobody" is the minder's old none option; the play-through notes may
+	# still say "Nobody: the midfield shares the ball." (#634).
+	_check(not all_text.contains("Their loose defender") and not text.contains("Nobody"),
+			"No 'Their loose defender' heading and no 'Nobody' in the control (%s)" % tag)
 	var notes = load("res://scripts/ui/match/MatchNotes.gd")
 	var q: Label = box.find_child("MinderQuestion", true, false)
 	var want_q: String = notes.minder_question(db.player_display_name(spare), db.club_name(opp_club))

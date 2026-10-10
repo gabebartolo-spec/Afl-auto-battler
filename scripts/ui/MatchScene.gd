@@ -613,6 +613,7 @@ func _show_coach_box() -> void:
 		# playtest, 2026-10-07): a tap, never a compulsory report.
 		var stats := UiKit.btn("Match stats", UiKit.BODY)
 		stats.name = "BreakStats"
+		stats.set_meta("break_unit", true)
 		stats.custom_minimum_size = Vector2(0, 44)
 		stats.pressed.connect(_show_break_stats)
 		rep.add_child(stats)
@@ -629,7 +630,9 @@ func _show_coach_box() -> void:
 				+ MatchNotes.lasting_moment_lines(_res, q - 1)
 		if not did.is_empty():
 			rep.add_child(UiKit.spacer(UiKit.GAP))
-			rep.add_child(UiKit.section("What your calls did"))
+			var did_head := UiKit.section("What your calls did")
+			did_head.set_meta("break_unit", true)
+			rep.add_child(did_head)
 			var dv := UiKit.vbox(4)
 			dv.name = "CallsDid"
 			for t in did:
@@ -640,7 +643,9 @@ func _show_coach_box() -> void:
 	rep.add_child(UiKit.spacer(UiKit.GAP))
 	if cols != null and cols.get_parent() == null:
 		v.add_child(cols)
-	col_a.add_child(UiKit.section("Your calls" if q == 1 else "Next quarter"))
+	var calls_head := UiKit.section("Your calls" if q == 1 else "Next quarter")
+	calls_head.set_meta("break_unit", true)
+	col_a.add_child(calls_head)
 
 	# Your calls, as taps: nothing here is a settings form. Short lists sit
 	# in plain view; a player list shows the few in the game so far and
@@ -673,7 +678,10 @@ func _show_coach_box() -> void:
 			t += " " + fit
 		plan_note.text = t
 	var plan := _choice_grid("PlanPicker", GAMEPLANS, calls, "gameplan", 2 if narrow else 3, sync_note)
-	col_a.add_child(_call_block("Gameplan", plan))
+	# The heading and the plan under it stay together.
+	var plan_block := _call_block("Gameplan", plan)
+	plan_block.remove_meta("break_unit")
+	col_a.add_child(plan_block)
 	col_a.add_child(plan_note)
 	sync_note.call(str(calls["gameplan"]))
 
@@ -707,6 +715,7 @@ func _show_coach_box() -> void:
 	# stands half empty (director, 2026-10-10).
 	var mv := _matchups_view(sim, q)
 	if mv != null:
+		mv.set_meta("break_unit", true)
 		(rep if rep != v else col_a).add_child(mv)
 	# Assign defensive forward (director, 2026-10-07): one of your forwards goes
 	# up the ground with their loose defender. Facts only: each card says where
@@ -715,6 +724,7 @@ func _show_coach_box() -> void:
 	var opp_spare := sim._roaming_interceptor(1 - _my_side)
 	var minder_box := UiKit.vbox(6)
 	minder_box.name = "MinderBlock"
+	minder_box.set_meta("break_unit", true)
 	minder_box.add_child(UiKit.lbl("Assign defensive forward", UiKit.SMALL, UiKit.MUTED, true))
 	if opp_spare.is_empty():
 		var none_note := UiKit.lbl(MatchNotes.minder_none_line(), UiKit.SMALL, UiKit.MUTED)
@@ -744,6 +754,7 @@ func _show_coach_box() -> void:
 	var syn_line := _synergy_line()
 	if syn_line != "":
 		var sl := UiKit.lbl(syn_line, UiKit.SMALL, UiKit.MUTED)
+		sl.set_meta("break_unit", true)
 		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		more.add_child(sl)
 
@@ -854,9 +865,80 @@ func _show_coach_box() -> void:
 		acts.add_child(skip)
 		acts.add_child(start)
 		box["footer"].add_child(acts)
+		_balance_break_columns.call_deferred([rep, col_a, col_b, col_c] if rep != v else [col_a, col_b, col_c])
 	else:
 		box["footer"].add_child(start)
 		box["footer"].add_child(skip)
+
+
+## A PC break's calls read in one order down and across the call columns;
+## where each column ends follows what is in it this break (a loose defender
+## of theirs, a second ruck), so the tallest column is as short as it can be
+## and nothing scrolls on a 720-unit screen. A call keeps its words under it.
+func _balance_break_columns(cols: Array) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(cols[0]):
+		return
+	# Calls in reading order: a call starts a unit; its notes go with it.
+	var units: Array = []
+	for c in cols:
+		for n in (c as Node).get_children():
+			if units.is_empty() or (n as Node).has_meta("break_unit"):
+				units.append([n])
+			else:
+				(units[-1] as Array).append(n)
+	var sep := float((cols[0] as VBoxContainer).get_theme_constant("separation"))
+	var h: Array = []
+	for u in units:
+		var t := 0.0
+		for n in u:
+			t += (n as Control).get_combined_minimum_size().y + sep
+		h.append(t)
+	# Where each column ends, so the tallest column is as short as it can be
+	# (every split of the units, in order, into that many columns).
+	var n_units := units.size()
+	var ends := _best_split(h, cols.size())
+	var col := 0
+	for k in range(n_units):
+		while col < cols.size() - 1 and k >= int(ends[col]):
+			col += 1
+		var dest: Node = cols[col]
+		for n in units[k]:
+			(n as Node).get_parent().remove_child(n)
+			dest.add_child(n)
+
+
+## Split heights h, in order, into `parts` runs so the largest run is
+## smallest; returns where each run ends (exclusive).
+static func _best_split(h: Array, parts: int) -> Array:
+	var n := h.size()
+	var pre := [0.0]
+	for x in h:
+		pre.append(float(pre[-1]) + float(x))
+	# best[p][i]: the tallest column splitting the first i units into p columns.
+	var best: Array = []
+	var cut: Array = []
+	for p in range(parts + 1):
+		best.append([])
+		cut.append([])
+		for i in range(n + 1):
+			(best[p] as Array).append(INF)
+			(cut[p] as Array).append(0)
+	best[0][0] = 0.0
+	for p in range(1, parts + 1):
+		for i in range(n + 1):
+			for j in range(i + 1):
+				var top := maxf(float(best[p - 1][j]), float(pre[i]) - float(pre[j]))
+				if top < float(best[p][i]) - 0.5:
+					best[p][i] = top
+					cut[p][i] = j
+	var ends: Array = []
+	ends.resize(parts)
+	var i := n
+	for p in range(parts, 0, -1):
+		ends[p - 1] = i
+		i = int(cut[p][i])
+	return ends
 
 
 ## A landscape PC window wide enough for the break sheet's columns (the
@@ -1157,6 +1239,7 @@ func _on_moment_choice(i: int) -> void:
 ## A call and its choices, heading above.
 func _call_block(label: String, control: Control) -> Control:
 	var v := UiKit.vbox(6)
+	v.set_meta("break_unit", true)
 	v.add_child(UiKit.lbl(label, UiKit.SMALL, UiKit.MUTED, true))
 	v.add_child(control)
 	return v
