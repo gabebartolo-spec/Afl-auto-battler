@@ -1431,6 +1431,9 @@ func _show_setup(t: Dictionary) -> void:
 		if fid != "":
 			bits.append("%s %s" % [GameDB.player_display_name_by_id(fid, "your player"),
 					str(MatchNotes.FOCUS_SLOT_TEXT[slot][1])])
+	var legacy := str(t.get("focus_id", ""))
+	if legacy != "":
+		bits.append(_focus_text(legacy))
 	var intercept_id := str(t.get("interceptor_id", ""))
 	if intercept_id != "":
 		bits.append(GameDB.player_display_name_by_id(intercept_id, "your defender") + " loose behind the ball")
