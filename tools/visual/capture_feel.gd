@@ -20,6 +20,7 @@ extends SceneTree
 ##   --size WxH   default 390x844 (a phone in portrait); 1280x720 a PC
 ##   --secs S     how long to keep filming after the effect starts (default 3)
 ##   --out PATH   stills: <out>_end.png (and <out>_start.png)
+##   --no-music   music off, so the clip holds only the feel sounds (to measure them)
 ## Seeded (2027): the same command films the same club and round.
 
 const Tap := preload("res://tests/tap.gd")
@@ -78,6 +79,8 @@ func _run() -> void:
 	state.set_haptics_on(true)
 	state.set_reduced_motion(false)
 	state.set_vignettes_on(false)
+	# --no-music: only the game-feel sounds in the clip (to measure them).
+	state.set_music_level("off" if args.has("no-music") else "normal")
 	state.reset()
 	state.replay_seed = 2027
 	# No first-visit notes over the effect being filmed.
@@ -154,7 +157,7 @@ func _run() -> void:
 				root.add_child(hub)
 				if effect == "press":
 					await _wait(1.0)
-					for name in ["HubSettings", "SettingsMatchSpeed_2", "SettingsDone"]:
+					for name in ["HubSettings", "SettingsSpeed_2", "SettingsDone"]:
 						var b: Button = root.find_child(name, true, false)
 						print("FEEL tap %s: %s" % [name, "missing" if b == null else await Tap.tap(b)])
 						await _wait(0.55)
