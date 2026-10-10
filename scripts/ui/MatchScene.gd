@@ -676,6 +676,7 @@ func _show_coach_box() -> void:
 		"focus_mid": str(_last_tactics.get("focus_mid", "")),
 		"focus_fwd": str(_last_tactics.get("focus_fwd", "")),
 		"focus_def": str(_last_tactics.get("focus_def", "")),
+		"main_ruck": str(_last_tactics.get("main_ruck", "")),
 		"interceptor_id": str(sim.interceptor[_my_side]),
 		"minder_id": str((sim.tactics[_my_side] as Dictionary).get("spare_minder_id", "")) 				if bool((sim.tactics[_my_side] as Dictionary).get("spare_accountable", false)) else "",
 		"pep": "steady",
@@ -863,6 +864,24 @@ func _show_coach_box() -> void:
 	tail.add_child(_call_block("Rotations", rot))
 	tail.add_child(rot_note)
 	sync_rot.call(_rotation)
+
+	# Main ruck (director, 2026-10-07): only for a side with two rucks in the
+	# team. The one you name goes up whenever he is on the ground; with none
+	# named, whoever stands in the ruck spot does.
+	var rucks := _my_rucks(sim)
+	if rucks.size() >= 2:
+		var ruck_opts := [["", "No main ruck"]]
+		for r in rucks:
+			ruck_opts.append([str(r["id"]), GameDB.player_display_name(r)])
+		var ruck_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+		ruck_note.name = "MainRuckNote"
+		ruck_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var sync_ruck := func(id: String) -> void:
+			ruck_note.text = _main_ruck_note(rucks, id)
+		var ruck := _choice_grid("MainRuckPicker", ruck_opts, calls, "main_ruck", 2, sync_ruck)
+		tail.add_child(_call_block("Main ruck", ruck))
+		tail.add_child(ruck_note)
+		sync_ruck.call(str(calls["main_ruck"]))
 	# On a wide screen the three play-through calls fill the last column, so the
 	# loose interceptor sits under the rotations, their loose defender after
 	# him, and no column has to scroll.
@@ -882,6 +901,7 @@ func _show_coach_box() -> void:
 			"focus_mid": str(calls["focus_mid"]),
 			"focus_fwd": str(calls["focus_fwd"]),
 			"focus_def": str(calls["focus_def"]),
+			"main_ruck": str(calls["main_ruck"]),
 			"tag_id": str(calls["tag_id"]),
 			"interceptor_id": str(calls["interceptor_id"]),
 			"interceptor_set": str(calls["interceptor_id"]) != loose_was,
@@ -1577,6 +1597,25 @@ func _apply_quarter_tactics(t: Dictionary) -> void:
 	sim.set_tactics(1 - _my_side, sim.ai_tactics(1 - _my_side))
 
 
+## Your rucks in the team today, on the ground or on the bench, the best
+## tap man first: a ruckman by his own listing, wherever he lines up.
+func _my_rucks(sim: MatchSim) -> Array:
+	var sq: Squad = sim.squads[_my_side]
+	var out := (sq.ground + sq.bench).filter(func(p): return MatchSim._is_ruckman(p))
+	out.sort_custom(func(a, b): return float(a["attr"]["ruck"]) > float(b["attr"]["ruck"]))
+	return out
+
+
+## Under the Main ruck call: who goes up, and who does while he rests.
+func _main_ruck_note(rucks: Array, id: String) -> String:
+	if id == "":
+		return "No main ruck: whoever is in the ruck spot goes up. While he is on the bench, another ruck does."
+	var others := rucks.filter(func(r): return str(r["id"]) != id)
+	var next := GameDB.player_display_name(others[0]) if others.size() == 1 else "another ruck"
+	return "%s goes up at every stoppage while he is on the ground, wherever he lines up, and tires like a ruck for it. While he is on the bench, %s does." % [
+			GameDB.player_display_name_by_id(id, "Your ruck"), next]
+
+
 ## The player you play through, with his job this match: the slot he fills on
 ## the ground (or filled last, off it) - "Matthew Jefferson our key forward target".
 func _focus_player(id: String) -> Dictionary:
@@ -1639,6 +1678,9 @@ func _show_setup(t: Dictionary) -> void:
 		var on_him: Dictionary = sim_now._spare_minder(_my_side) if sim_now != null else {}
 		var who := GameDB.player_display_name(on_him) if not on_him.is_empty() 				else GameDB.player_display_name_by_id(str(t.get("spare_minder_id", "")), "a forward")
 		bits.append(who + " on their spare")
+	var ruck_id := str(t.get("main_ruck", ""))
+	if ruck_id != "":
+		bits.append(GameDB.player_display_name_by_id(ruck_id, "your ruck") + " the main ruck")
 	_setup_line.text = "  ·  ".join(bits)
 	_setup_line.visible = true
 
