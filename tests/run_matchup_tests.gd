@@ -8,6 +8,9 @@ const Tap := preload("res://tests/tap.gd")
 var _state: Node
 var _checks := 0
 var _failures: Array[String] = []
+## Every season here is seeded: a clock seed plays a different league each run,
+## so a check could pass or fail on the opponent it drew.
+const SUITE_SEED := 2031
 
 
 func _initialize() -> void:
@@ -39,13 +42,14 @@ func _run() -> void:
 	await _season_review_scrolls()
 	await _pre_match_scene()
 	_pre_match_captions()
+	_state.replay_seed = 0
 	print("Matchup + hub tests: %d checks, %d failures" % [_checks, _failures.size()])
 	quit(0 if _failures.is_empty() else 1)
 
 
 func _hub_tests() -> void:
 	var db = root.get_node("GameDB")
-	_state.reset()
+	_reset()
 	_state.start_season("COL", db.club_list("COL"))
 	for i in range(3):
 		_state.advance()
@@ -142,8 +146,8 @@ func _hub_tests() -> void:
 	await _settle()
 
 	# Run the season out: no fixture, no facts, a clear next step every week.
-	# One check per rule however many finals weeks you play: the season is
-	# not seeded, so a per-week check count would move with it.
+	# One check per rule however many finals weeks you play, so the check count
+	# does not hang on how the season falls.
 	var guard := 0
 	var weeks := 0
 	var facts_bad := []
@@ -183,7 +187,7 @@ func _hub_tests() -> void:
 ## full-width bars on PC). Real taps reach them.
 func _wide_hub_footer() -> void:
 	var db = root.get_node("GameDB")
-	_state.reset()
+	_reset()
 	_state.start_season("COL", db.club_list("COL"))
 	_state.set_setting("seen_weekly_loop_intro", true)
 	root.size = Vector2i(1280, 720)
@@ -213,7 +217,7 @@ func _wide_hub_footer() -> void:
 
 func _regular_bye() -> void:
 	var db = root.get_node("GameDB")
-	_state.reset()
+	_reset()
 	_state.start_season("MEL", db.club_list("MEL"))
 	var season = _state.season
 	# A round MEL plays, with a match the round after (its own bye is elsewhere).
@@ -263,7 +267,7 @@ func _finals_week_by_week() -> void:
 	for code in ["GWS", "RIC", "NTH", "WCE", "STK", "ESS", "ADE"]:
 		if not db.active_clubs(2027).has(code):
 			continue
-		_state.reset()
+		_reset()
 		_state.start_season(code, db.club_list(code))
 		_state.season.round_index = _state.season.fixture.size() - 1
 		_state.advance()
@@ -321,7 +325,7 @@ func _finals_week_by_week() -> void:
 ## finger's tap on an answer settles it and leaves the outcome in words.
 func _coach_approach_card() -> void:
 	var db = root.get_node("GameDB")
-	_state.reset()
+	_reset()
 	_state.start_season("GEE", db.club_list("GEE"))
 	var mid: Dictionary = _state.club_staff("GEE").get("MID", {})
 	_check(not mid.is_empty(), "A midfield coach to approach")
@@ -352,7 +356,7 @@ func _coach_approach_card() -> void:
 ## top bar scrolls, so the National Draft button at the bottom is reachable.
 func _season_review_scrolls() -> void:
 	var db = root.get_node("GameDB")
-	_state.reset()
+	_reset()
 	_state.start_season("COL", db.club_list("COL"))
 	root.size = Vector2i(360, 740)
 	var review: Control = load("res://scenes/SeasonReviewScene.tscn").instantiate()
@@ -374,7 +378,7 @@ func _season_review_scrolls() -> void:
 
 ## The off-season wrap sits over the hub until you begin the season.
 func _season_wrap() -> void:
-	_state.reset()
+	_reset()
 	_state.start_season("GEE", root.get_node("GameDB").club_list("GEE"))
 	_state.season_wrap = {"year": _state.season_year, "seen": false,
 			"ins": [{"id": "x1", "name": "New Recruit", "how": "pick 7"}],
@@ -411,6 +415,14 @@ func _season_wrap() -> void:
 	_check(hub3.find_child("StaffNotice", true, false) == null, "No notice once the job is filled")
 	hub3.queue_free()
 	await _settle()
+
+
+## A fresh career on the suite's seeds (tools/audit/README.md: both seeds,
+## after reset and before start_season).
+func _reset() -> void:
+	_state.reset()
+	_state.career_seed = SUITE_SEED
+	_state.replay_seed = SUITE_SEED
 
 
 func _open_hub() -> Control:
@@ -454,7 +466,7 @@ func _check(condition: bool, message: String) -> void:
 ## selection is tested; the fixed words are not.)
 func _pre_match_captions() -> void:
 	var db = root.get_node("GameDB")
-	_state.reset()
+	_reset()
 	_state.start_season("COL", db.club_list("COL"))
 	var ground: Array = _state.my_squad().ground
 	var pm = load("res://scripts/ui/match/PreMatchVignette.gd")
@@ -484,7 +496,7 @@ func _pre_match_scene() -> void:
 	var db = root.get_node("GameDB")
 	var router = root.get_node("Router")
 	for skip in [false, true]:
-		_state.reset()
+		_reset()
 		_state.start_season("COL", db.club_list("COL"))
 		root.size = Vector2i(390, 844)
 		var hub: Control = await _open_hub()
