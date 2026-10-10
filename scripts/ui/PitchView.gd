@@ -585,7 +585,9 @@ func _draw_caption(tr: float) -> void:
 	var text := str(_caption["text"])
 	if text == "" or tok < 0 or tok >= director.tokens.size():
 		return
-	var fs := clampi(int(tr * 1.6), 11, 15)
+	var turnover := bool(_caption.get("turnover", false))
+	# A turnover is a cue, not a name: a size up, so it reads at a glance.
+	var fs := clampi(int(tr * (2.1 if turnover else 1.6)), 15 if turnover else 11, 20 if turnover else 15)
 	var width := UiKit.BOLD.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	var p := _w2s(director.tokens[tok]["pos"])
 	var origin := p + Vector2(-width * 0.5, -tr * 2.4)
@@ -597,12 +599,13 @@ func _draw_caption(tr: float) -> void:
 		draw_string(UiKit.BOLD, origin + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
 				Color(0, 0, 0, 0.8 * fade))
 	draw_string(UiKit.BOLD, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(RING_COLOUR, fade))
-	if bool(_caption.get("turnover", false)):
+	if turnover:
 		# Underlined in the winning club's colour: whose ball it is now, at a glance.
 		var kit: Dictionary = _kits[clampi(int(_caption.get("side", 0)), 0, 1)]
 		var bar: Color = kit.get("base", RING_COLOUR)
-		draw_rect(Rect2(origin + Vector2(-1, 3), Vector2(width + 2, 4)), Color(0, 0, 0, 0.8 * fade))
-		draw_rect(Rect2(origin + Vector2(0, 4), Vector2(width, 2)), Color(bar, fade))
+		# A light edge round the club bar so a dark kit colour still shows on the grass.
+		draw_rect(Rect2(origin + Vector2(-2, 3), Vector2(width + 4, 6)), Color(RING_COLOUR, 0.85 * fade))
+		draw_rect(Rect2(origin + Vector2(-1, 4), Vector2(width + 2, 4)), Color(bar, fade))
 
 
 func _draw_ball(tr: float, s: float) -> void:
