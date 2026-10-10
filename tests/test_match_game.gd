@@ -1761,6 +1761,7 @@ func _test_bring_the_heat() -> void:
 	var press := [0.0, 0.0]
 	var tackles := [0.0, 0.0]
 	var legs := [0.0, 0.0]
+	var dist := [0.0, 0.0]
 	for seed in range(8500, 8512):
 		for arm in range(2):
 			var sim := _sim(seed, "ADE", "SYD")
@@ -1768,6 +1769,7 @@ func _test_bring_the_heat() -> void:
 			var r := sim.run()
 			press[arm] += float((r["team"][1] as Dictionary).get("pressure_acts", 0.0))
 			tackles[arm] += float((r["team"][1] as Dictionary).get("tackles", 0.0))
+			dist[arm] += float((r["team"][1] as Dictionary).get("distance_run", 0.0))
 			var e := 0.0
 			for pl in (sim.squads[1] as Squad).ground:
 				e += float(sim.energy.get(str(pl["id"]), 100.0))
@@ -1775,6 +1777,9 @@ func _test_bring_the_heat() -> void:
 	_check(press[1] > press[0] and tackles[1] > tackles[0],
 			"Bring the heat lays more pressure and tackles (%.0f and %.0f against %.0f and %.0f)" % [press[1], tackles[1], press[0], tackles[0]])
 	_check(legs[1] < legs[0], "...and its legs go quicker (%.1f against %.1f)" % [legs[1] / 12.0, legs[0] / 12.0])
+	# It burns legs, not extra kilometres: a side covers about the ground it always does.
+	_check(absf(dist[1] / maxf(1.0, dist[0]) - 1.0) < 0.04,
+			"...but they cover about the same ground (%.0f km against %.0f km a side)" % [dist[1] / 12000.0, dist[0] / 12000.0])
 	_check(CoachReport.pep_summary("heat").contains("legs") and CoachReport.pep_summary("heat") != CoachReport.pep_summary("fire_up"),
 			"Its words name the cost and are its own")
 	# "Much faster" only while it costs more legs than Fire them up does.
