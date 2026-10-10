@@ -3768,8 +3768,11 @@ func _auto_rotate(side: int) -> void:
 ## The freshest bench player (at or above `min_energy`) for a ground role,
 ## or -1. Natural or secondary role first; any bench player as a fallback.
 ## `rotation`: a routine interchange, which leaves a rested star on the bench.
+## The coach's named tagger goes back on only in a midfielder's place, and
+## first when one comes off, so he picks the tag up again (tagger_of).
 func _bench_for(side: int, role: String, min_energy: float, rotation := false) -> int:
 	var sq: Squad = squads[side]
+	var named := str((tactics[side] as Dictionary).get("tagger_id", "")) if _tag_id(side) != "" else ""
 	var best := -1
 	var best_score := -1.0
 	for i in range(sq.bench.size()):
@@ -3777,9 +3780,12 @@ func _bench_for(side: int, role: String, min_energy: float, rotation := false) -
 		var e := float(energy.get(str(p["id"]), 100.0))
 		if e < min_energy or (rotation and str(_held.get(str(p["id"]), "")) == "rest"):
 			continue
+		var is_named := rotation and named != "" and str(p["id"]) == named
+		if is_named and role != "MID":
+			continue
 		var fits := str(p.get("role", "")) == role or Traits.plays(p, role) \
 				or str(p.get("list_tag", "")) == role
-		var score := e + (100.0 if fits else 0.0)
+		var score := e + (100.0 if fits else 0.0) + (200.0 if is_named else 0.0)
 		if score > best_score:
 			best = i
 			best_score = score

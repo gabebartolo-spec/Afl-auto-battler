@@ -57,6 +57,7 @@ func run() -> void:
 	_test_ruck_never_tags()
 	_test_current_club_identity()
 	_test_tag_ends_with_injury()
+	_test_named_tagger_back_on()
 	_test_match_story()
 	_test_first_goal_feed()
 	_test_traits_surfaced()
@@ -1956,6 +1957,58 @@ func _test_current_club_identity() -> void:
 	_check(injuries > 0, "The sample includes injuries, whose lines once named a stale club")
 	var line := MatchNotes.story_feed_line({}, {"kind": "injury", "name": "Tim English", "club": "MEL", "on": ""})
 	_check(line.contains("(%s)" % GameDB.club_short("MEL")), "The injury line reads the match club (%s)" % line)
+
+
+## The coach's named tagger (#633) rotates like anyone, but he comes back on
+## in a midfielder's place, never a forward's, so he picks the tag up again.
+func _test_named_tagger_back_on() -> void:
+	var sim := _sim(8410, "GEE", "SYD")
+	sim.moment_side = -1
+	var sq: Squad = sim.squads[0]
+	var dflt = MatchSim.tagger_for(sq.ground)
+	var named = null
+	for p in sq.ground:
+		if str(p.get("role", "")) == "MID" and str(p["id"]) != str(dflt["id"]):
+			named = p
+			break
+	var target = null
+	for p in (sim.squads[1] as Squad).ground:
+		if MatchSim.midfielder_on_ground(p):
+			target = p
+			break
+	var nid := str(named["id"])
+	sim.tactics[0] = {"gameplan": "balanced", "tag_id": str(target["id"]), "tagger_id": nid}
+	_check(str(sim.tagger_of(0)["id"]) == nid, "The named midfielder goes to the tag")
+	# He goes off for a rest; the rest of the bench is spent, he is fresh.
+	var gi := sq.ground.find(named)
+	sim._swap(0, gi, 0)
+	for p in sq.ground + sq.bench:
+		sim.energy[str(p["id"])] = 100.0
+	for p in sq.bench:
+		if str(p["id"]) != nid:
+			sim.energy[str(p["id"])] = 40.0
+	# A tired forward comes off first: the named tagger waits for a midfield spot.
+	var fwd := -1
+	for k in sq.ground.size():
+		if str((sq.ground[k] as Dictionary).get("role", "")) == "FWD":
+			fwd = k
+			break
+	sim.energy[str((sq.ground[fwd] as Dictionary)["id"])] = 5.0
+	sim._auto_rotate(0)
+	var in_fwd := false
+	for p in sq.ground:
+		in_fwd = in_fwd or (str(p["id"]) == nid and str(p.get("role", "")) != "MID")
+	_check(not in_fwd, "The named tagger never comes back on in a forward's place")
+	sim.energy[str((sq.ground[fwd] as Dictionary)["id"])] = 100.0
+	# Then a tired midfielder comes off, and he goes on in his place.
+	for k in sq.ground.size():
+		if str((sq.ground[k] as Dictionary).get("role", "")) == "MID":
+			sim.energy[str((sq.ground[k] as Dictionary)["id"])] = 5.0
+			break
+	sim._auto_rotate(0)
+	var t = sim.tagger_of(0)
+	_check(t != null and str(t["id"]) == nid and str(sim.tactics[0].get("tag_id", "")) == str(target["id"]),
+			"Back on in a midfielder's place, the named tagger resumes the tag")
 
 
 ## A tagged player hurt and gone off takes the tag with him: the tagging side
