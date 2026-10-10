@@ -302,16 +302,22 @@ func _test_finals_and_big_weeks() -> void:
 		for y in range(2027, 2037):
 			ctx["year"] = y
 			ctx["week"] = wk
-			var cards := StoryEngine.pick_week(StoryDeck.all(), ctx, story)
-			for c in cards:
+			for c in StoryEngine.pick_week(StoryDeck.all(), ctx, story):
 				if not (StoryDeck.by_id(StoryDeck.all(), str(c["tid"]))["phase"] as Array).has("finals"):
 					wrong.append(str(c["tid"]))
+	_check(wrong.is_empty(), "A finals week only brings finals cards (%s)" % str(wrong))
+	# A big week of the home and away (round 1, the last round): up to two.
+	ctx["phase"] = "regular"
+	for wk in [1, Season.REGULAR_ROUNDS]:
+		for y in range(2027, 2047):
+			ctx["year"] = y
+			ctx["week"] = wk
+			var cards := StoryEngine.pick_week(StoryDeck.all(), ctx, StoryEngine.new_state())
 			if cards.size() == 2:
 				two += 1
 				if str(cards[0]["category"]) == str(cards[1]["category"]) \
 						or (str(cards[0].get("player_id", "")) != "" and str(cards[0].get("player_id", "")) == str(cards[1].get("player_id", ""))):
 					clash += 1
-	_check(wrong.is_empty(), "A finals week only brings finals cards (%s)" % str(wrong))
 	_check(two > 0 and clash == 0, "A big week can bring a second card, from another category and about another player (%d)" % two)
 	ctx["phase"] = "regular"
 	ctx["big"] = false

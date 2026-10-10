@@ -62,7 +62,7 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `contracts` | Contracts, free agency and trades (seeded: a clock seed once made the pick-limit check flaky) | 233 | 29 |
 | `league` | Difficulty and the league news feed | 47 | 52 |
 | `club` | The board, morale and the weekly event card | 199 | 103 |
-| `story` | The week's story cards: the deck's checks, cooldowns, arcs, trust, ten seasons of repeats, the save round trip, cards never moving the dice | STORY_FLOOR | - |
+| `story` | The week's story cards: the deck's checks, cooldowns, arcs, trust, ten seasons of repeats, the save round trip, cards never moving the dice | 94 | - |
 | `match_game` | Legs and rotations, match moments and calls, the rival coach, key match-ups, Play through by job | 346 | 333 |
 | `pressure` | Pressure acts and the team Pressure Rating | 21 | 38 |
 | `workload` | Workload across the campaign | 32 | 8 |

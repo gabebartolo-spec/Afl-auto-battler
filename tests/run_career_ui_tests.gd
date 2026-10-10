@@ -669,6 +669,8 @@ func _run() -> void:
 	# A big week's two cards: both show, and a finger on the second card's
 	# answer settles that card only.
 	_state.week_events = [_state.story_card("members_open_training"), _state.story_card("training_extra_session")]
+	var two_cards_size := root.size
+	root.size = Vector2i(390, 844)
 	_router.go("hub")
 	await _settle()
 	var second_card: Control = current_scene.find_child("WeekEvent_1", true, false)
@@ -679,6 +681,7 @@ func _run() -> void:
 			and not bool(_state.week_events[0].get("resolved", false)),
 			"Two cards in a big week, each answered on its own by a tap (%s)" % second_tap)
 	_state.week_events = []
+	root.size = two_cards_size
 
 	# --- Sim round asks first: it plays your match without you --------------
 	_state.set_confirm_sim_round(true)
