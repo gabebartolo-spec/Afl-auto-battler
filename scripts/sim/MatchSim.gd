@@ -3513,7 +3513,16 @@ func result() -> Dictionary:
 const ENERGY_DRAIN := 0.9            # per chain on the ground, before modifiers
 const ENERGY_BENCH_RECOVER := 4.0    # per chain on the bench
 const ENERGY_BREAK_RECOVER := 20.0   # at each quarter break
-const ROTATE_EVERY := 3              # chains between rotation checks
+const ROTATE_EVERY := 3              # chains between rotation checks, at CADENCE_CHAINS a game
+## The chain count the rotation cadence and call lengths were set for: they scale
+## with chains_per_game so a match's interchanges and a call's minutes stay the
+## same when chains get shorter (match flow, 2026-10-10).
+const CADENCE_CHAINS := 200.0
+
+
+## `n` chains at CADENCE_CHAINS a game, in this match's chains.
+func _chains_for(n: int) -> int:
+	return maxi(1, roundi(float(n) * float(_rates()["chains_per_game"]) / CADENCE_CHAINS))
 const ROLE_DRAIN := {"MID": 1.25, "RUCK": 1.15, "DEF": 0.85, "FWD": 0.9}
 ## GPS-style distance covered. A full-game player at the base rate covers
 ## about 14.8 km before role and tactical modifiers; rotations bring the
@@ -3671,7 +3680,7 @@ func _after_chain() -> void:
 				b.erase(k)
 	_chain_no += 1
 	_check_injuries()
-	if _chain_no % ROTATE_EVERY == 0:
+	if _chain_no % _chains_for(ROTATE_EVERY) == 0:
 		for side in range(2):
 			_auto_rotate(side)
 
@@ -4360,7 +4369,7 @@ func resolve_moment(choice: int) -> Dictionary:
 				outcome = "The match-up stays."
 		"momentum", "bounce":
 			if BURSTS.has(key):
-				(bursts[side] as Dictionary)[key] = int(BURSTS[key]["chains"])
+				(bursts[side] as Dictionary)[key] = _chains_for(int(BURSTS[key]["chains"]))
 				outcome = "%s %s." % [str(BURSTS[key]["label"]), str(BURSTS[key]["for"])]
 			else:
 				outcome = "No change."
