@@ -27,7 +27,7 @@ const PEP_EFFECTS := {
 	"steady": "No change.",
 	"fire_up": "A lift at the contest while you are chasing the game; level or in front it does nothing for you. Either way legs go quicker and tempers fray.",
 	"calm": "Settle them down: fewer errors, less rattled by pressure and legs last longer, but less ground gained.",
-	"heat": "Get on top of their ball carriers: more turnovers forced and more tackles laid, but legs go quicker.",
+	"heat": "Get on top of their ball carriers: more turnovers forced and more tackles laid, but legs burn out much faster, and it shows next week.",
 }
 
 ## What each plan does and gives up, in football words, from MatchSim.PLANS.
@@ -47,7 +47,7 @@ const PEP_SUMMARY := {
 	"steady": "Keep them as they are: no lift at the contest, and no settling either.",
 	"fire_up": "A lift at the contest when you are chasing the game; legs go quicker and tempers fray.",
 	"calm": "Fewer errors and less rattled by pressure, legs last longer; less ground gained.",
-	"heat": "Harder pressure on their ball carriers forces more turnovers; legs go quicker.",
+	"heat": "Harder pressure on their ball carriers forces more turnovers; legs burn out much faster, and it shows next week.",
 }
 
 const TEAM_COMPARE := [
@@ -452,7 +452,14 @@ static func _split_plans(res: Dictionary, my_side: int, opp_side: int, quarters:
 
 
 static func _plan_entry(q: int, t: Dictionary) -> Dictionary:
-	var focus_id := str(t.get("focus_id", ""))
+	# Play through is three calls now (midfield, forward, back line); the older
+	# single call still reads as one.
+	var focus_ids := []
+	for key in ["focus_mid", "focus_fwd", "focus_def", "focus_id"]:
+		var fid := str(t.get(key, ""))
+		if fid != "" and not focus_ids.has(fid):
+			focus_ids.append(fid)
+	var focus_id := str(focus_ids[0]) if not focus_ids.is_empty() else ""
 	var tag_id := str(t.get("tag_id", ""))
 	var plan := str(t.get("gameplan", "balanced"))
 	if plan == "":
@@ -470,6 +477,7 @@ static func _plan_entry(q: int, t: Dictionary) -> Dictionary:
 		"focus_id": focus_id,
 		"tag_id": tag_id,
 		"focus_name": resolve_name(focus_id, "") if focus_id != "" else "",
+		"focus_names": focus_ids.map(func(fid): return resolve_name(str(fid), "")),
 		"tag_name": resolve_name(tag_id, "") if tag_id != "" else "",
 	}
 
