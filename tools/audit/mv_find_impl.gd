@@ -22,6 +22,12 @@ func run() -> void:
 	while not d.idle() and guard < int(6000.0 / dt):
 		guard += 1
 		d.advance(dt)
+		var bk := int(d._beat.get("k", -1))
+		if bk >= 1320 and bk <= 1322 and d.arrivals.size() < 1104:
+			var ph := str((d._phases[d._pi] as Dictionary).get("t", "?")) if d._pi < d._phases.size() else "-"
+			var hid := int(d.ball["holder"])
+			var hp = d.tokens[hid]["pos"] if hid >= 0 else Vector2.INF
+			print("TRACE beat %d %s phase %s ball %s mode %s holder %d holderpos %s h %.2f" % [bk, d._beat.get("kind", ""), ph, d.ball["pos"], d.ball["mode"], hid, hp, float(d.ball["h"])])
 	var worst := -1.0
 	var wi := -1
 	for i in range(d.arrivals.size()):
