@@ -687,16 +687,25 @@ static func reach_words(kept: float) -> String:
 ## `wide` is the list sheet's single line; the grid card puts the trait on
 ## its own line.
 static func minder_card_detail(p: Dictionary, wide: bool) -> String:
+	var pressure := roundi(float((p.get("attr", {}) as Dictionary).get("pressure", 0.0)))
+	return card_detail(p, "Defensive forward" if Traits.has(p, "def_forward") else "",
+			PackedStringArray(["Pressure %d" % pressure]), wide)
+
+
+## A player card's detail under his name, in groups: where he plays (and the
+## trait, when he has it) on one line, the ratings on the next, so a line
+## only ever breaks between groups, never at a "·" (BOSS QC 2026-10-11).
+## `wide` is the list sheet's single line.
+static func card_detail(p: Dictionary, trait_name: String, ratings: PackedStringArray, wide: bool) -> String:
 	var places := PackedStringArray()
 	for r in Ratings.positions(p):
 		places.append(str(UiKit.ROLE_LABEL.get(str(r), str(r))))
-	var pressure := roundi(float((p.get("attr", {}) as Dictionary).get("pressure", 0.0)))
-	var spec := Traits.has(p, "def_forward")
-	var base := "%s  ·  Pressure %d" % ["/".join(places), pressure]
-	if spec:
-		return ("%s  ·  Defensive forward" % ["/".join(places)] + "  ·  Pressure %d" % pressure) if wide else (base + "
-Defensive forward")
-	return base
+	# No-break spaces hold each "·" to the words either side.
+	var dot := "\u00a0·\u00a0"
+	var where := "/".join(places)
+	if trait_name != "":
+		where += dot + trait_name
+	return where + dot + dot.join(ratings) if wide else where + "\n" + dot.join(ratings)
 
 
 ## The best few players of a side by influence: [{"id", "name", "line"}].

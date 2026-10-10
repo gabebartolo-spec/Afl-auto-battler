@@ -1335,7 +1335,8 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 
 ## A player's card text: his name, then what `detail` says about him.
 func _card_text(r: Dictionary, detail: Callable) -> String:
-	var extra := str(detail.call(r, _pc_break)) if detail.is_valid() else ""
+	# A card keeps its groups on their own lines (MatchNotes.card_detail).
+	var extra := str(detail.call(r, false)) if detail.is_valid() else ""
 	return _short_name(r) if extra == "" else "%s
 %s" % [_short_name(r), extra]
 
