@@ -14,6 +14,9 @@ extends RefCounted
 ##            reader of the ball among the home defenders named loose (the
 ##            loose-man rework's three tiers; his_score is his interceptor
 ##            score).
+##   loose_pinNN  the best reader named loose with his read of the ball pinned
+##            to interceptor score NN in both arms (intercept, marking and
+##            pressure set to it), to find where the call stops paying.
 ##   loose_free  the same call on the best intercepting defender who has no
 ##            key forward of his own (Matchups.defaults), so nobody is freed.
 ##   matchup  Key match-ups: their best key forward on your weakest aerial
@@ -34,6 +37,22 @@ func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
 	if arm.begins_with("dual"):
 		sel = {"DUAL_RUCK": arm == "dual"}
 	var home := Squad.new(h, GameDB.club_list(h), true, h, sel)
+	# loose_pinNN: pin the best reader's game on the ground (the
+	# ratings are shared with the club lists: put back after the match).
+	var pinned := {}
+	var pin_p: Dictionary = {}
+	if _mode.begins_with("loose_pin"):
+		var target := float(_mode.trim_prefix("loose_pin"))
+		var top_s := -1.0
+		for p in home.ground:
+			if str(p.get("role", "")) == "DEF" and Matchups.interceptor_score(p) > top_s:
+				top_s = Matchups.interceptor_score(p)
+				pin_p = p
+		pinned = (pin_p["attr"] as Dictionary).duplicate()
+		var bonus := Matchups.interceptor_score(pin_p) - (0.55 * float(pinned.get("intercept", 0))
+				+ 0.30 * float(pinned.get("marking", 0)) + 0.15 * float(pinned.get("pressure", 0)))
+		for k in ["intercept", "marking", "pressure"]:
+			(pin_p["attr"] as Dictionary)[k] = int(round(target - bonus))
 	var away := Squad.new(a, GameDB.club_list(a), false, a)
 	away.ai_plans = true
 	var t := {"gameplan": "balanced", "pep": "fire_up" if arm == "fire_up" else "steady"}
@@ -63,6 +82,12 @@ func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
 				best = Matchups.interceptor_score(p)
 				loose = str(p["id"])
 		freed = ""
+	if not pin_p.is_empty():
+		loose = str(pin_p["id"])
+		freed = ""
+		for fid in sim.duels[0]:
+			if str(sim.duels[0][fid]) == loose:
+				freed = str(fid)
 	if _mode in ["loose_best", "loose_median", "loose_worst"]:
 		# Tiers: the best, middle and worst reader of the ball among the
 		# defenders on the ground, named loose whatever his rating.
@@ -104,6 +129,8 @@ func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
 	res["star"] = matchup_star
 	res["home_rucks"] = (home.ground + home.bench).filter(func(p): return str(p.get("role", "")) == "RUCK").map(func(p): return str(p["id"]))
 	res["home_ruck_first"] = ruck_first
+	if not pin_p.is_empty():
+		(pin_p["attr"] as Dictionary).merge(pinned, true)
 	return res
 
 
