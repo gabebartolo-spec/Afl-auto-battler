@@ -46,6 +46,7 @@ func _run() -> void:
 		await _coach_descriptions(sz)
 		await _tag_targets(sz)
 		await _minder_cards(sz)
+	await _pc_break_worst_case()
 	await _tag_not_saved()
 	await _bounce_close_up()
 	await _playtest_bounce_scene()
@@ -738,6 +739,43 @@ func _tag_targets(sz: Vector2i) -> void:
 				_check(false, "The sim refuses a tag on a %s (%s)" % [str(p["role"]), tag])
 				break
 	_check(str((sim.tactics[me] as Dictionary).get("tag_id", "")) == "", "A tag on anyone but a midfielder ends the tag (%s)" % tag)
+	m.queue_free()
+	await _settle()
+
+
+## The fullest PC break we know (director, 2026-10-11): quarter time, their
+## loose defender to answer, at 1280x720 - every call in view, nothing
+## scrolls, and Match stats sits with the actions.
+func _pc_break_worst_case() -> void:
+	var db = root.get_node("GameDB")
+	var Mu = load("res://scripts/sim/Matchups.gd")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = Vector2i(1280, 720)
+	_check(_state.prepare_interactive_match(), "A live match is prepared for the fullest PC break")
+	var sim = _state.pending_sim
+	var me := int(sim.moment_side)
+	var spare: Dictionary = Mu.best_interceptor((sim.squads[1 - me] as Object).ground, 0.0)
+	sim.set_interceptor(1 - me, str(spare.get("id", "")), false)
+	sim.run_quarter()
+	sim.set_interceptor(1 - me, str(spare.get("id", "")), true)
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var box: Node = m.find_child("CoachBox", true, false)
+	var bc: Control = box.find_child("BreakColumns", true, false) if box != null else null
+	var bsc: ScrollContainer = null
+	var up: Node = bc
+	while up != null and bsc == null:
+		bsc = up as ScrollContainer
+		up = up.get_parent()
+	var room := bsc.size.y if bsc != null else 0.0
+	var need := (bsc.get_child(0) as Control).get_combined_minimum_size().y if bsc != null else INF
+	_check(box != null and box.find_child("SpareMinderPicker", true, false) != null and need <= room + 1.0,
+			"Quarter time with their loose defender fits 1280x720 without scrolling (%.0f of %.0f)" % [need, room])
+	var stats: Button = box.find_child("BreakStats", true, false) if box != null else null
+	var w: String = await Tap.tap(stats)
+	_check(w == "" and m.find_child("BreakStatsSheet", true, false) != null, "Match stats opens from the actions row with a real tap (%s)" % w)
 	m.queue_free()
 	await _settle()
 

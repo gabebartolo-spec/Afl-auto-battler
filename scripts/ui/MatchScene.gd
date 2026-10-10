@@ -68,6 +68,9 @@ var _mom_meter: Control       # MomentumMeter: draws the engine's momentum
 var _mom_word: Label          # who has it, in words
 var _mom_note: Label          # first match only: what it is
 var _rotation := "normal"
+## The break is the PC sheet (four columns): player cards say their detail
+## on one line and choices sit 40 tall (a mouse, not a thumb).
+var _pc_break := false
 var _pos_before := 0          # your ladder spot before this match
 var _lead: Label
 var _setup_line: Label
@@ -552,6 +555,8 @@ func _show_coach_box() -> void:
 	# On a PC the break is a wide landscape sheet with every call in view
 	# (director, 2026-10-09: "it looks like we are using a mobile UI on a PC").
 	var wide := _wide_break()
+	_pc_break = wide
+	var stats_pc: Button = null
 	var box := UiKit.modal_box(self, minf(UiKit.view_width(self) - 48.0, 1560.0) if wide else 640.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "CoachBox"
@@ -611,13 +616,16 @@ func _show_coach_box() -> void:
 		bv.add_child(sc)
 		# The full numbers, both clubs, at every break (director's PC
 		# playtest, 2026-10-07): a tap, never a compulsory report.
-		var stats := UiKit.btn("Match stats", UiKit.BODY)
+		# On a PC it is a word in the actions row, beside Skip to full time.
+		var stats := UiKit.text_action("Match stats", UiKit.BODY) if wide else UiKit.btn("Match stats", UiKit.BODY)
 		stats.name = "BreakStats"
-		stats.set_meta("break_unit", true)
 		stats.custom_minimum_size = Vector2(0, 44)
 		stats.pressed.connect(_show_break_stats)
-		rep.add_child(stats)
-		rep.add_child(UiKit.spacer(UiKit.GAP))
+		if wide:
+			stats_pc = stats
+		else:
+			rep.add_child(stats)
+			rep.add_child(UiKit.spacer(UiKit.GAP))
 		# The quarter just played, by name: what happened, not what is happening.
 		var played := UiKit.section(str({2: "First quarter", 3: "Second quarter",
 				4: "Third quarter"}.get(q, "Last quarter")))
@@ -862,9 +870,16 @@ func _show_coach_box() -> void:
 		acts.alignment = BoxContainer.ALIGNMENT_END
 		skip.custom_minimum_size = Vector2(220, 48)
 		start.custom_minimum_size = Vector2(300, 48)
+		if stats_pc != null:
+			stats_pc.custom_minimum_size = Vector2(180, 48)
+			acts.add_child(stats_pc)
 		acts.add_child(skip)
 		acts.add_child(start)
 		box["footer"].add_child(acts)
+		# A mouse, not a thumb: the choices sit 40 tall on the PC sheet.
+		for b in cols.find_children("*", "Button", true, false):
+			if (b as Button).custom_minimum_size.y == 44.0:
+				(b as Button).custom_minimum_size.y = 40.0
 		_balance_break_columns.call_deferred([rep, col_a, col_b, col_c] if rep != v else [col_a, col_b, col_c])
 	else:
 		box["footer"].add_child(start)
@@ -1301,13 +1316,16 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 					on_change.call(id)
 				self_ref.call(self_ref)))
 		grid.add_child(other)
+		if _pc_break:
+			for gb in grid.get_children():
+				(gb as Control).custom_minimum_size.y = 40.0
 	rebuild.call(rebuild)
 	return box
 
 
 ## A player's card text: his name, then what `detail` says about him.
 func _card_text(r: Dictionary, detail: Callable) -> String:
-	var extra := str(detail.call(r, false)) if detail.is_valid() else ""
+	var extra := str(detail.call(r, _pc_break)) if detail.is_valid() else ""
 	return _short_name(r) if extra == "" else "%s
 %s" % [_short_name(r), extra]
 
