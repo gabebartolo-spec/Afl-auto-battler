@@ -5,6 +5,7 @@ extends SceneTree
 ## and touch-sized across ten viewports, survive filters and rotation, and
 ## hand off to a fresh season when finished.
 
+const Tap := preload("res://tests/tap.gd")
 const VIEWPORTS := [
 	Vector2i(390, 844), Vector2i(844, 390), Vector2i(320, 568),
 	Vector2i(360, 800), Vector2i(430, 932), Vector2i(768, 1024),
@@ -48,6 +49,8 @@ func _run() -> void:
 	var draft = _state.draft
 	_check(bool(draft.intake_mode), "GameState built an intake draft")
 
+	# A phone in portrait, so the taps below land the way a player's would.
+	root.size = Vector2i(390, 844)
 	var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
 	root.add_child(ui)
 	await _settle()
@@ -79,7 +82,7 @@ func _run() -> void:
 	_check(not ordered, "No name line says best, should, must or take him (%s)" % names_said.left(200))
 	var done: Button = ui.find_child("MeetingDone", true, false)
 	if done != null:
-		done.emit_signal("pressed")
+		await _press(done, "Done in the recruiting meeting")
 	await _settle()
 	_check(ui.find_child("DraftMeeting", true, false) == null, "One tap and it is the draft")
 	# The order is a tab on a phone and a side panel when wide.
@@ -87,7 +90,7 @@ func _run() -> void:
 	if order_tab == null:
 		order_tab = ui.find_child("SideTab_order", true, false)
 	if order_tab != null:
-		order_tab.emit_signal("pressed")
+		await _press(order_tab, "the draft order")
 		await _settle()
 	var comp_rows := ui.find_children("CompPick", "Label", true, false)
 	_check(comp_rows.size() == 1
@@ -95,7 +98,7 @@ func _run() -> void:
 			"The draft order shows a compensation pick as compensation, with the player it replaces")
 	var tab_pool: Button = ui.find_child("Tab_pool", true, false)
 	if tab_pool != null:
-		tab_pool.emit_signal("pressed")
+		await _press(tab_pool, "the pool tab")
 		await _settle()
 	var again: Control = load("res://scenes/DraftScene.tscn").instantiate()
 	root.add_child(again)
@@ -131,7 +134,7 @@ func _run() -> void:
 	if inspect == null:
 		ui.call("_open_player", str(prospect["id"]))
 	else:
-		inspect.emit_signal("pressed")
+		await _press(inspect, "a prospect's row")
 	await _settle()
 	_check(ui.find_child("PlayerDetail", true, false) != null, "A prospect's details open")
 	_check(draft.count() == count_before and draft.pick_history == hist_before, "Inspecting a prospect signs nobody")
@@ -157,7 +160,7 @@ func _run() -> void:
 	_check(act != null and act.text.begins_with("Sign "), "The intake action reads Sign")
 	if draft.is_user_turn():
 		_check(not act.disabled, "Sign is live on your turn")
-		act.emit_signal("pressed")
+		await _press(act, "Sign")
 		await _settle()
 		_check(draft.count() == count_before + 1 and draft.has(str(prospect["id"])),
 				"Sign from the details signs that prospect")
@@ -271,6 +274,16 @@ func _check_layout(ui: Control, label: String) -> void:
 		for node in ui.find_children(prefix + "*", "Button", true, false):
 			if node.is_visible_in_tree():
 				_check(node.size.y >= 44, label + ": " + str(node.name) + " is touch-sized")
+
+
+## A finger's tap on b where it sits on screen (tests/tap.gd), checked; if
+## something else takes the tap, the press goes through the handler so the
+## rest of the flow is still tested.
+func _press(b: Button, what: String) -> void:
+	var why: String = await Tap.tap(b)
+	_check(why == "", "A finger's tap reaches %s (%s)" % [what, why if why != "" else "it did"])
+	if why != "" and is_instance_valid(b):
+		b.emit_signal("pressed")
 
 
 func _settle() -> void:
