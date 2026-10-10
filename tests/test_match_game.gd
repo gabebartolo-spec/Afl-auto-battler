@@ -1451,10 +1451,15 @@ func _test_main_ruck() -> void:
 	var ex_on := 0.0
 	var ex_off := 0.0
 	for i in range(n):
+		# Your side is the coach's, not the AI's: an AI club picks its plan
+		# afresh every quarter, which would drop the call after the first.
 		var a := _sim(1100 + i, club, opp)
+		(a.squads[0] as Squad).ai_plans = false
 		a.set_tactics(0, {"main_ruck": other})
 		var ra := a.run()
-		var rb := _sim(1100 + i, club, opp).run()
+		var b := _sim(1100 + i, club, opp)
+		(b.squads[0] as Squad).ai_plans = false
+		var rb := b.run()
 		ho_on += float(((ra["players"] as Dictionary).get(other, {}) as Dictionary).get("hitouts", 0.0))
 		ho_off += float(((rb["players"] as Dictionary).get(other, {}) as Dictionary).get("hitouts", 0.0))
 		side_on += float(((ra["team"] as Array)[0] as Dictionary).get("hitouts", 0.0))
