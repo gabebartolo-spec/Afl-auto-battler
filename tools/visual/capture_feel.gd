@@ -21,6 +21,7 @@ extends SceneTree
 ##   --size WxH   default 390x844 (a phone in portrait); 1280x720 a PC
 ##   --secs S     how long to keep filming after the effect starts (default 3)
 ##   --out PATH   stills: <out>_end.png (and <out>_start.png)
+##   --club CODE  your club (default COL; a colourful club shows the living colour better)
 ##   --no-music   music off, so the clip holds only the feel sounds (to measure them)
 ## Seeded (2027): the same command films the same club and round.
 
@@ -112,7 +113,7 @@ func _run() -> void:
 		state.set_setting("seen_weekly_loop_intro", true)
 		var tag := out if effects.size() == 1 else "%s_%s" % [out, e]
 		print("FEEL effect %s at %dx%d, motion %s" % [e, W, H, load("res://scripts/ui/UiKit.gd").motion_on()])
-		await _one(str(e), tag, secs, state, db)
+		await _one(str(e), tag, secs, state, db, str(args.get("club", "COL")))
 		for c in root.get_children():
 			if not keep.has(c):
 				c.queue_free()
@@ -123,14 +124,14 @@ func _run() -> void:
 	quit(0)
 
 
-func _one(effect: String, out: String, secs: float, state, db) -> void:
+func _one(effect: String, out: String, secs: float, state, db, club: String) -> void:
 	match effect:
 		"draft":
 			state.draft = load("res://scripts/sim/Draft.gd").new(db.all_players_sorted() + db.all_draftees_sorted(),
 					db.active_clubs(2027).duplicate(), 12345)
 			var ui: Control = load("res://scenes/DraftScene.tscn").instantiate()
 			root.add_child(ui)
-			ui.call("_on_club_chosen", "COL")
+			ui.call("_on_club_chosen", club)
 			await _wait(0.8)
 			_shot(out + "_start.png")
 			var pick: Button = null
@@ -140,10 +141,10 @@ func _one(effect: String, out: String, secs: float, state, db) -> void:
 					break
 			print("FEEL tap pick: ", "missing" if pick == null else await Tap.tap(pick))
 		"break":
-			state.start_season("COL", db.club_list("COL"))
+			state.start_season(club, db.club_list(club))
 			state.prepare_interactive_match()
 			var sim = state.pending_sim
-			var mine := 0 if str(state.pending_match["home"]) == "COL" else 1
+			var mine := 0 if str(state.pending_match["home"]) == club else 1
 			# Staged: quarter time, and the match has just ended your tag on
 			# their best midfielder (the real code path from there on).
 			sim.current_quarter = 2
@@ -171,7 +172,7 @@ func _one(effect: String, out: String, secs: float, state, db) -> void:
 					await _wait(0.3)
 				_shot("%s_%s.png" % [out, n])
 		_:
-			state.start_season("COL", db.club_list("COL"))
+			state.start_season(club, db.club_list(club))
 			state.tutorials = false
 			# As if you'd looked at the hub before the round: where you sat.
 			var hub_script = load("res://scripts/ui/HubScene.gd")
