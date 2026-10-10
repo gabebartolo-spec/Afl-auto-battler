@@ -56,7 +56,7 @@ func _run() -> void:
 	await _rising_star_saves()
 	await _awards_awarded()
 	await _players_section()
-	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+	for sz in [Vector2i(390, 844), Vector2i(360, 800), Vector2i(1280, 720)]:
 		await _ratings_section(sz)
 	_club_per_game()
 	_season_book()
@@ -238,9 +238,10 @@ func _ratings_section(sz: Vector2i) -> void:
 		var w: Dictionary = by_id.get(str(r.name).trim_prefix("RatingRow_"), {})
 		var cl: Label = (r as Node).find_child("Club", true, false)
 		var want_club := str(root.get_node("GameDB").club_short(str(w.get("club", ""))))
-		if cl == null or not cl.text.begins_with(want_club) or not _label_fits(cl) or (r as Node).find_child("ClubMark", true, false) == null:
+		var sl: Label = (r as Node).find_child("Season", true, false)
+		if cl == null or not cl.text.begins_with(want_club) or not _label_fits(cl) or (r as Node).find_child("ClubMark", true, false) == null 				or sl == null or not _label_fits(sl):
 			club_bad.append(str(r.name))
-	_check(club_bad.is_empty(), "Every row names the player's club in full, with its guernsey (%s: %d bad, %s)" % [tag, club_bad.size(), str(club_bad.slice(0, 3))])
+	_check(club_bad.is_empty(), "Every row names the player's club in full, with its guernsey, and his games and total in full (%s: %d bad, %s)" % [tag, club_bad.size(), str(club_bad.slice(0, 3))])
 	# A real tap on a row opens his season.
 	if not rows.is_empty():
 		var got: String = await Tap.tap(rows[0])

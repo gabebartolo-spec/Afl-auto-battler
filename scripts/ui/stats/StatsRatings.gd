@@ -165,8 +165,8 @@ static func _row(host: Control, row: Dictionary, rank: int, wide: bool) -> Contr
 	var club_text := GameDB.club_short(club) if club != "" else ""
 	var name_w := UiKit.BOLD.get_string_size(name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, UiKit.NAME).x + 2.0
 	var club_w := UiKit.BOLD.get_string_size(club_text, HORIZONTAL_ALIGNMENT_LEFT, -1, UiKit.SECONDARY).x + 2.0
-	# Beside his name while both fit; a long name puts the club at the head
-	# of the line under it, never cut to a letter.
+	# Beside his name while both fit; a long name puts the club on the line
+	# under it, never cut to a letter.
 	var room := float(host.call("content_width")) - (16.0 + RANK_W + 24.0 + FIG_W + 40.0)
 	var beside := name_w + 8.0 + club_w <= room
 	var nm := UiKit.ellipsis(name_text, UiKit.NAME, UiKit.TEXT, true)
@@ -181,24 +181,22 @@ static func _row(host: Control, row: Dictionary, rank: int, wide: bool) -> Contr
 		cl.name = "Club"
 		top.add_child(cl)
 	var games := int(row["games"])
-	var under := UiKit.hbox(0)
-	who.add_child(under)
 	if not beside and club_text != "":
-		var cl := UiKit.line(club_text + " · ", UiKit.SECONDARY, club_ink, mine)
+		# A long name: the club on a line of its own under it, in words.
+		var cl := UiKit.line(club_text, UiKit.SECONDARY, club_ink, mine)
 		cl.name = "Club"
-		under.add_child(cl)
-	var quiet := UiKit.ellipsis("%d %s · %d for the season" % [games, "game" if games == 1 else "games",
+		who.add_child(cl)
+	var quiet := UiKit.ellipsis("%d %s · %d total" % [games, "game" if games == 1 else "games",
 			int(round(float(row["total"])))], UiKit.SECONDARY, UiKit.MUTED)
 	quiet.name = "Season"
-	quiet.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	under.add_child(quiet)
+	who.add_child(quiet)
 	var pg := UiKit.figure("%.1f" % float(row["per_game"]), UiKit.NUMBER, UiKit.TEXT)
 	pg.name = "PerGame"
 	pg.custom_minimum_size.x = FIG_W
 	pg.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	pg.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(pg)
-	b.custom_minimum_size.y = ROW_H
+	b.custom_minimum_size.y = ROW_H if beside else ROW_H + 16.0
 	for n in h.find_children("*", "Control", true, false):
 		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
