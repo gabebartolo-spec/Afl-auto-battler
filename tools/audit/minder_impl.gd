@@ -21,7 +21,8 @@ func run() -> void:
 	var count := int(args[2]) if args.size() > 2 else 60
 	GameState.replay_seed = 2027
 	GameDB.reload()
-	var codes: Array = GameDB.club_order.duplicate()
+	# Clubs with a list (the expansion placeholders TAS and CANB have none).
+	var codes: Array = GameDB.club_order.filter(func(c): return GameDB.club_list(c).size() >= 22)
 	var n := codes.size()
 	var acc := {}   # "<kind>_<who>" -> {stat: total}, plus counts
 	var counts := {"spec": 0, "plain": 0}
@@ -74,8 +75,8 @@ func run() -> void:
 
 
 func _play(home: String, away: String, seed: int, minder_id: String, mode: String) -> Dictionary:
-	var m := MatchSim.new(Squad.new(home, GameDB.club_list(home), true, home),
-			Squad.new(away, GameDB.club_list(away), false, away), seed)
+	var m := MatchSim.new(Squad.new(home, GameDB.club_list(home).duplicate(true), true, home),
+			Squad.new(away, GameDB.club_list(away).duplicate(true), false, away), seed)
 	var sp := Matchups.best_interceptor((m.squads[1] as Squad).ground, 0.0)
 	m.set_interceptor(1, str(sp.get("id", "")), false)
 	var ground: Array = (m.squads[0] as Squad).ground.duplicate()
