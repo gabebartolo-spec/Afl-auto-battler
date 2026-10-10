@@ -837,11 +837,12 @@ func _loose_interceptor(sz: Vector2i) -> void:
 				if str(q["id"]) == bid:
 					p = q
 			var want := "Intercept %d" % roundi(float((p.get("attr", {}) as Dictionary).get("intercept", 0.0)))
-			if p.is_empty() or not b.text.contains(want) or b.text.contains("Interceptor") != bool(load("res://scripts/sim/Traits.gd").has(p, "interceptor")):
+			var want_m := "Marking %d" % roundi(float((p.get("attr", {}) as Dictionary).get("marking", 0.0)))
+			if p.is_empty() or not b.text.contains(want) or not b.text.contains(want_m) or b.text.contains("Interceptor") != bool(load("res://scripts/sim/Traits.gd").has(p, "interceptor")):
 				bad.append(bid)
 			if b.size.y + 1.0 < b.get_combined_minimum_size().y:
 				bad.append(bid + " cut")
-		_check(shown >= 1 and bad.is_empty(), "Every card shows his Intercept and the trait, none cut off (%s: %d %s)" % [tag, shown, str(bad)])
+		_check(shown >= 1 and bad.is_empty(), "Every card shows his Intercept, Marking and the trait, none cut off (%s: %d %s)" % [tag, shown, str(bad)])
 		var none_b: Button = block.find_child("InterceptorPickerGrid_", true, false)
 		var w: String = await Tap.tap(none_b)
 		await _settle()
