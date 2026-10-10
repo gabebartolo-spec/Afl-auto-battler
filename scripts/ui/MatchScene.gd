@@ -836,6 +836,25 @@ func _show_coach_box() -> void:
 		block.add_child(note)
 		more.add_child(block)
 
+	# Main ruck (director, 2026-10-07), after the play-through calls: who
+	# goes up is a job like theirs. Only for a side with two rucks in the
+	# team. The one you name goes up whenever he is on the ground; with none
+	# named, whoever stands in the ruck spot does.
+	var rucks := _my_rucks(sim)
+	if rucks.size() >= 2:
+		var ruck_opts := [["", "No main ruck"]]
+		for r in rucks:
+			ruck_opts.append([str(r["id"]), GameDB.player_display_name(r)])
+		var ruck_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+		ruck_note.name = "MainRuckNote"
+		ruck_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var sync_ruck := func(id: String) -> void:
+			ruck_note.text = _main_ruck_note(rucks, id)
+		var ruck := _choice_grid("MainRuckPicker", ruck_opts, calls, "main_ruck", 2, sync_ruck)
+		more.add_child(_call_block("Main ruck", ruck))
+		more.add_child(ruck_note)
+		sync_ruck.call(str(calls["main_ruck"]))
+
 	# Wide: the pep talk sits under the tag; rotations and both loose men,
 	# yours and theirs, share a column, so every column fits a 720-unit
 	# screen.
@@ -864,24 +883,6 @@ func _show_coach_box() -> void:
 	tail.add_child(_call_block("Rotations", rot))
 	tail.add_child(rot_note)
 	sync_rot.call(_rotation)
-
-	# Main ruck (director, 2026-10-07): only for a side with two rucks in the
-	# team. The one you name goes up whenever he is on the ground; with none
-	# named, whoever stands in the ruck spot does.
-	var rucks := _my_rucks(sim)
-	if rucks.size() >= 2:
-		var ruck_opts := [["", "No main ruck"]]
-		for r in rucks:
-			ruck_opts.append([str(r["id"]), GameDB.player_display_name(r)])
-		var ruck_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
-		ruck_note.name = "MainRuckNote"
-		ruck_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		var sync_ruck := func(id: String) -> void:
-			ruck_note.text = _main_ruck_note(rucks, id)
-		var ruck := _choice_grid("MainRuckPicker", ruck_opts, calls, "main_ruck", 2, sync_ruck)
-		tail.add_child(_call_block("Main ruck", ruck))
-		tail.add_child(ruck_note)
-		sync_ruck.call(str(calls["main_ruck"]))
 	# On a wide screen the three play-through calls fill the last column, so the
 	# loose interceptor sits under the rotations, their loose defender after
 	# him, and no column has to scroll.
