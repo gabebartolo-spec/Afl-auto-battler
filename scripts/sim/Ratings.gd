@@ -11,19 +11,19 @@ extends RefCounted
 ## tools/sim_harness.py (dict `T`) is stale since 2026-10-08; do not mirror
 ## match tunables there. Guard: tests/run_calibration_tests.gd.
 const T := {
-	"chains_per_game": 200,          # possession chains across BOTH teams
-	"max_touches_per_chain": 14,
+	"chains_per_game": 275,          # possession chains across BOTH teams
+	"max_touches_per_chain": 10,
 	"forward50_line": 35.0,          # metres from the centre square
 	"goal_line": 85.0,
-	"metres_gain_mean": 9.7,         # base metres per effective disposal
-	"tackle_retention": 0.44,        # attacking team wins the ball back
+	"metres_gain_mean": 11.3,         # base metres per effective disposal
+	"tackle_retention": 0.25,        # attacking team wins the ball back
 	"pressure_base": 0.160,          # chance a touch is tackled
-	"clanger_per_chain": 0.625,     # chance the chain ends in an error
+	"clanger_per_chain": 0.63,     # chance the chain ends in an error
 	"clanger_is_free": 0.34,         # ...of which are free kicks against
 	"mark_share_of_kicks": 0.327,
 	"handball_share": 0.44,
-	"inside50_goal": 0.262,          # of inside-50 entries (0.279 before frees in 50 became set shots, backlog item 24; 0.269 before forward archetypes, ARD-M3-002)
-	"inside50_behind": 0.180,
+	"inside50_goal": 0.235,          # of inside-50 entries (0.262 before match flow, 2026-10-10; 0.279 before frees in 50 became set shots, backlog item 24; 0.269 before forward archetypes, ARD-M3-002)
+	"inside50_behind": 0.175,
 	"stoppage_share": 0.42,          # chains that begin at a genuine stoppage
 	"hitouts_per_stoppage": 0.81,    # split between the two rucks
 	"clearance_per_stoppage": 0.815,  # to the team that wins the stoppage

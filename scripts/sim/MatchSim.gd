@@ -1616,7 +1616,7 @@ const PRESS_RUSH_RATIO := 2.0
 ## rushed disposal instead (pressure acts unchanged). Calibrated to AFL
 ## tackle counts (2026-10-06: tackles ran about 6% above).
 const PRESS_TACKLE_SHARE := 0.95
-const PRESS_TURNOVER := 0.08
+const PRESS_TURNOVER := 0.28
 ## Match flow (director 2026-10-10, MATCH_SHAPE_AUDIT_2026-10-10.md): a ball-up
 ## comes from a contest that locks up, not from a won ball. Of the turnovers a
 ## presser forces, the share that lock up instead; of the spoils inside 50 the
@@ -1625,7 +1625,7 @@ const LOCKUP_PRESS := 0.35
 const LOCKUP_SPOIL := 0.35
 ## Of the tackles that stop a carrier without a free, the share where the ball is
 ## knocked free and the other side gathers it (a turnover); the rest are ball-ups.
-const TACKLE_SPILL := 0.0
+const TACKLE_SPILL := 0.5
 
 
 ## A named constant, or its audit override (tune).
