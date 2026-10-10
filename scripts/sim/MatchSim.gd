@@ -3233,7 +3233,10 @@ func _play_one_chain(T: Dictionary) -> void:
 	if not (at_centre or from_boundary) and not from_kick_in:
 		roll = rng.randf()
 	var won_ball := _prev_end == "turnover" or _prev_end == "free"
-	var stoppage := at_centre or from_boundary or _prev_locked \
+	# Locked only if the chain still ended there: the end-of-chain error can
+	# still turn it into a turnover or a free, and then the winner plays on.
+	var locked := _prev_locked and _prev_end == "stoppage"
+	var stoppage := at_centre or from_boundary or locked \
 			or (not won_ball and roll < float(T["stoppage_share"]))
 	_prev_locked = false
 	var side: int
