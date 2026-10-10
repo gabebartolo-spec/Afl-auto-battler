@@ -47,4 +47,4 @@ No full-paper reading is claimed for Rolfe. No visual inspection is claimed for 
 - **Our hypothesis:** the proposed game adaptation and its expected benefit.
 - **Future evidence:** observed sessions and gameplay-neutrality checks still to be conducted.
 
-The report uses these distinctions instead of converting source volume into a confidence score. The director subsequently included all eight FL proposals on 6 October 2026; see [roadmap §9.3](../ROADMAP.md#93-approved-flavour-and-culture-work--director-decisions-2026-10-06). Approval changes execution scope, not the strength or limits of this evidence.
+The report uses these distinctions instead of converting source volume into a confidence score. The director subsequently included all eight FL proposals on 6 October 2026; see [roadmap §9.3](../roadmap/21-9-3-approved-flavour-and-culture-work-director-decisions.md#93-approved-flavour-and-culture-work--director-decisions-2026-10-06). Approval changes execution scope, not the strength or limits of this evidence.
