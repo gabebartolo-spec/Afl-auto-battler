@@ -752,9 +752,12 @@ func _pv(side: int, key: String, fallback := 1.0) -> float:
 ## Pressure multiplier `side` faces from the opposition's plan, counters in.
 ## Controlled tempo takes the sting out of a press as far as its ball users
 ## can: a side of ordinary ones or better holds it off, poor ones only
-## partly (PlanFit, "controlled").
-func _press_on(side: int) -> float:
+## partly (PlanFit, "controlled"). The press is where the ball is
+## (PRESS_PLAN_ZONE): hard in his back third, eased in his forward third.
+func _press_on(side: int, zone := 1) -> float:
 	var m := _pv(1 - side, "press")
+	if m > 1.0:
+		m = 1.0 + (m - 1.0) * float(PRESS_PLAN_ZONE[zone])
 	if m > 1.0 and _plan(side) == "controlled":
 		var hold := clampf(float((plan_fit[side] as Dictionary).get("controlled", 1.0)), 0.0, 1.0)
 		m = 1.0 + (m - 1.0) * (1.0 - hold)
@@ -1599,6 +1602,15 @@ const PRESS_ZONES := [
 	{"FWD": 0.10, "MID": 0.75, "RUCK": 0.30, "DEF": 1.0},
 ]
 const PRESS_ZONE_EDGE := 20.0
+## The Defensive press by zone, from the carrier's end (PRESS_ZONES order):
+## the press's edge (press - 1) is this many times as strong there. Their
+## back third is where we push up and hunt; in their forward third our
+## numbers are up the ground, so our own defence presses less (below 0).
+const PRESS_PLAN_ZONE := [2.2, 1.0, -0.5]
+## The ground a side gains when it gets the ball out of its back third
+## unpressured against a press: it has broken the press and runs into the
+## space behind it. The cost of the plan, the same for every list.
+const PRESS_BROKEN_GAIN := 1.15
 ## Non-tackle pressure acts per tackle chance, the share of those that turn
 ## the ball over outright, and the ground a rushed disposal still gains.
 const PRESS_RUSH_RATIO := 2.0
@@ -2233,7 +2245,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			# exposes the taker to more immediate pressure.
 			pressure *= 0.68 if not kick_in_play_on else 0.92
 		var p_base := pressure
-		pressure *= _press_on(side)
+		pressure *= _press_on(side, zone)
 		_credit(opp, "gameplan", (pressure - p_base) * TURNOVER_VALUE)
 		if synergies[opp].has("lockdown_unit"):
 			var lock := Traits.power("lockdown_unit")
@@ -2346,6 +2358,10 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			gain *= 0.82 if not kick_in_play_on else 1.12
 		if rushed:
 			gain *= PRESS_RUSH_GAIN
+		elif zone == 0 and _pv(opp, "press") > 1.0:
+			# Out of the back third with nobody on him: the press is broken.
+			gain *= PRESS_BROKEN_GAIN
+			_t(side, "press_broken")
 		fp += gain * dir
 		fp = clampf(fp, -gline, gline)
 		atk_fp = fp if side == 0 else -fp
