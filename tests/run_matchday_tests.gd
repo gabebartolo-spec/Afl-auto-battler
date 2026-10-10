@@ -124,7 +124,8 @@ func _phone_match(sz: Vector2i) -> void:
 	var text := _text(box)
 	_check(not text.contains("pts") and not text.contains("Expected points") and not text.contains("%"),
 			"The first coach box shows no engine numbers (%s)" % tag)
-	for n in ["PlanPicker", "TagPicker", "FocusPicker", "PepPicker", "RotationPicker", "LegsView", "TagNote"]:
+	for n in ["PlanPicker", "TagPicker", "FocusPicker_focus_mid", "FocusPicker_focus_fwd", "FocusPicker_focus_def",
+			"PepPicker", "RotationPicker", "LegsView", "TagNote"]:
 		_check(box.find_child(n, true, false) != null, "The coach box keeps %s (%s)" % [n, tag])
 	_check(not text.to_lower().contains("recommend") and not text.to_lower().contains("should"),
 			"The coach box never advises (%s)" % tag)
@@ -554,41 +555,44 @@ func _coach_descriptions(sz: Vector2i) -> void:
 		await Tap.tap(named)
 		await _settle()
 
-	# Play through: the note says his job and what the call does for him, by the
-	# slot he fills; with nobody picked it is the general line. Real taps.
+	# Play through, three calls: each offers only the men who fill its job, and
+	# its note says his job and what it does; with nobody, what that means. Real taps.
 	var notes = load("res://scripts/ui/match/MatchNotes.gd")
 	var me := int(m.get("_my_side"))
 	var ground: Array = _state.pending_sim.squads[me].ground
-	var effects := {"MID": "the ball goes to him more often through the midfield",
-			"FWD": "more of the ball up forward and more of the shots at goal",
-			"DEF": "first use of the ball out of the back half", "RUCK": "the ball goes to him more often"}
-	var roles := {"MID": "our key midfielder", "FWD": "our key forward target",
-			"DEF": "our key distributor", "RUCK": "our key man in the middle"}
-	var fnote: Label = box.find_child("FocusNote", true, false)
-	_check(fnote != null and fnote.text.begins_with("Favour this player"), "With nobody picked, Play through keeps its general line (%s)" % tag)
-	for role in ["MID", "FWD", "DEF", "RUCK"]:
+	var jobs := {"focus_mid": ["MID", "our midfield pillar", "the ball goes to him more often through the midfield"],
+			"focus_fwd": ["FWD", "our key forward target", "more of the ball up forward and more of the shots at goal"],
+			"focus_def": ["DEF", "our backline distributor", "first use of the ball out of the back half"]}
+	for slot in jobs:
+		var fnote: Label = box.find_child("FocusNote_" + slot, true, false)
+		_check(fnote != null and fnote.text.begins_with("Nobody:"), "With nobody picked, %s says what that means (%s)" % [slot, tag])
 		var who: Dictionary = {}
+		var other_job: Dictionary = {}
 		for gp in ground:
-			if str(gp["role"]) == role and who.is_empty():
+			if str(gp["role"]) == str(jobs[slot][0]) and who.is_empty():
 				who = gp
+			if not (load("res://scripts/sim/MatchSim.gd").FOCUS_SLOT_ROLES[slot] as Array).has(str(gp["role"])) and other_job.is_empty():
+				other_job = gp
 		if who.is_empty():
 			continue
-		var pick: Button = box.find_child("FocusPickerGrid_" + str(who["id"]), true, false)
+		_check(other_job.is_empty() or box.find_child("FocusPicker_%sGrid_%s" % [slot, str(other_job["id"])], true, false) == null,
+				"%s offers only the men who fill that job (%s)" % [slot, tag])
+		var pick: Button = box.find_child("FocusPicker_%sGrid_%s" % [slot, str(who["id"])], true, false)
 		if pick == null:
-			await Tap.tap(box.find_child("FocusPickerOther", true, false))
+			await Tap.tap(box.find_child("FocusPicker_%sOther" % slot, true, false))
 			await _settle()
 			pick = m.find_child("Sheet_" + str(who["id"]), true, false)
 		var pw: String = await Tap.tap(pick)
 		await _settle()
 		var nm := str(db.player_display_name_by_id(str(who["id"]), ""))
-		fnote = box.find_child("FocusNote", true, false)
-		_check(pw == "" and fnote.text == "%s is %s: %s." % [nm, str(roles[role]), str(effects[role])],
-				"A %s played through reads as %s (%s: %s)" % [role, str(roles[role]), tag, fnote.text])
-		_check(notes.focus_role_text(nm, role) == "%s %s" % [nm, str(roles[role])] and notes.focus_effect_text(role) == str(effects[role]),
-				"The helper says the same for %s (%s)" % [role, tag])
-	await Tap.tap(box.find_child("FocusPickerGrid_", true, false))
-	await _settle()
-	_check(box.find_child("FocusNote", true, false).text.begins_with("Favour this player"), "Picking no one brings the general line back (%s)" % tag)
+		fnote = box.find_child("FocusNote_" + slot, true, false)
+		_check(pw == "" and fnote.text == "%s is %s: %s." % [nm, str(jobs[slot][1]), str(jobs[slot][2])],
+				"%s reads as his job (%s: %s)" % [slot, tag, fnote.text])
+		_check(notes.focus_slot_note(slot, nm, false, true) == "%s is on the bench: the call waits until he is back on." % nm,
+				"A benched man's call says it waits (%s)" % slot)
+		await Tap.tap(box.find_child("FocusPicker_%sGrid_" % slot, true, false))
+		await _settle()
+		_check(box.find_child("FocusNote_" + slot, true, false).text.begins_with("Nobody:"), "Picking no one brings the line back (%s, %s)" % [slot, tag])
 
 	# Start with a tag: the plan line names every call, in full, and nothing
 	# it sits above is pushed off the screen.
@@ -1031,13 +1035,13 @@ func _rings_on_the_oval() -> void:
 	var me := int(m.get("_my_side"))
 	_check(pitch.rings.is_empty(), "No one is ringed before you have made a call")
 	var box: Node = m.find_child("CoachBox", true, false)
-	var focus_id := _first_pick(box, "FocusPickerGrid_")
+	var focus_id := _first_pick(box, "FocusPicker_focus_midGrid_")
 	var tag_id := _first_pick(box, "TagPickerGrid_")
 	_check(focus_id != "" and tag_id != "", "A play-through and a tag are on offer")
 	if focus_id == "" or tag_id == "":
 		m.queue_free()
 		return
-	box.find_child("FocusPickerGrid_" + focus_id, true, false).emit_signal("pressed")
+	box.find_child("FocusPicker_focus_midGrid_" + focus_id, true, false).emit_signal("pressed")
 	box.find_child("TagPickerGrid_" + tag_id, true, false).emit_signal("pressed")
 	box.find_child("StartQuarter", true, false).emit_signal("pressed")
 	await _settle()

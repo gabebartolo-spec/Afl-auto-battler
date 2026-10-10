@@ -66,9 +66,9 @@ func _run() -> void:
 		if str(p["role"]) == "FWD":
 			fwd = str(p["id"])
 			break
-	var pick: Button = scene.find_child("FocusPickerGrid_" + fwd, true, false)
+	var pick: Button = scene.find_child("FocusPicker_focus_fwdGrid_" + fwd, true, false)
 	if pick == null:
-		var other: Button = scene.find_child("FocusPickerOther", true, false)
+		var other: Button = scene.find_child("FocusPicker_focus_fwdOther", true, false)
 		if other != null:
 			other.emit_signal("pressed")
 			await _frames(6)

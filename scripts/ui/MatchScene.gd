@@ -641,7 +641,9 @@ func _show_coach_box() -> void:
 	var calls := {
 		"gameplan": _current_plan(sim),
 		"tag_id": str((sim.tactics[_my_side] as Dictionary).get("tag_id", _last_tactics.get("tag_id", ""))),
-		"focus_id": str(_last_tactics.get("focus_id", "")),
+		"focus_mid": str(_last_tactics.get("focus_mid", "")),
+		"focus_fwd": str(_last_tactics.get("focus_fwd", "")),
+		"focus_def": str(_last_tactics.get("focus_def", "")),
 		"interceptor_id": str(sim.interceptor[_my_side]),
 		"minder_id": str((sim.tactics[_my_side] as Dictionary).get("spare_minder_id", "")) 				if bool((sim.tactics[_my_side] as Dictionary).get("spare_accountable", false)) else "",
 		"pep": "steady",
@@ -744,17 +746,23 @@ func _show_coach_box() -> void:
 	roam_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	more.add_child(roam_note)
 
-	var focus_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
-	focus_note.name = "FocusNote"
-	focus_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var sync_focus := func(id: String) -> void:
-		focus_note.text = _focus_note_text(id)
-	var focus := _player_choice("FocusPicker", "No one", mine, _in_the_game(mine, 4), calls, "focus_id",
-			"Play through which player?", sync_focus)
-	var focus_block := _call_block("Play through", focus)
-	sync_focus.call(str(calls["focus_id"]))
-	focus_block.add_child(focus_note)
-	more.add_child(focus_block)
+	# Play through, three calls (director, 2026-10-07): each offers the men who
+	# fill that job now, and says what it does or that it waits.
+	for slot in MatchSim.FOCUS_SLOTS:
+		var fits := mine.filter(func(r): return (MatchSim.FOCUS_SLOT_ROLES[slot] as Array).has(
+				str(_focus_player(str(r["id"])).get("role", r.get("role", "")))))
+		var note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+		note.name = "FocusNote_" + slot
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var sync := func(id: String) -> void:
+			note.text = _focus_note_text(slot, id)
+		var text: Array = MatchNotes.FOCUS_SLOT_TEXT[slot]
+		var pick := _player_choice("FocusPicker_" + slot, "No one", fits, _in_the_game(fits, 3), calls, slot,
+				"Play through: %s" % str(text[0]).to_lower(), sync)
+		var block := _call_block("Play through: %s" % str(text[0]).to_lower(), pick)
+		sync.call(str(calls[slot]))
+		block.add_child(note)
+		more.add_child(block)
 
 	# Three columns: pep talk and rotations sit under the tag, so the columns
 	# end level and the whole sheet fits a 720-unit screen.
@@ -792,7 +800,9 @@ func _show_coach_box() -> void:
 		_rotation = str(calls["rotation"])
 		var t := {
 			"gameplan": str(calls["gameplan"]),
-			"focus_id": str(calls["focus_id"]),
+			"focus_mid": str(calls["focus_mid"]),
+			"focus_fwd": str(calls["focus_fwd"]),
+			"focus_def": str(calls["focus_def"]),
 			"tag_id": str(calls["tag_id"]),
 			"interceptor_id": str(calls["interceptor_id"]),
 			"interceptor_set": str(calls["interceptor_id"]) != loose_was,
@@ -1393,15 +1403,19 @@ func _focus_text(id: String) -> String:
 
 ## Under the Play through control: his job and what it does for him; the
 ## general description with nobody picked.
-func _focus_note_text(id: String) -> String:
+func _focus_note_text(slot: String, id: String) -> String:
 	if id == "":
-		return "Favour this player in possession chains and attacking transition."
-	var p := _focus_player(id)
-	# A sentence: "Jacob van Rooyen is our key forward target: ...".
-	var role := str(p.get("role", ""))
+		return MatchNotes.focus_slot_note(slot, "", false, false)
 	var who := GameDB.player_display_name_by_id(id, "your player")
-	var job := str(MatchNotes.FOCUS_ROLES[role][0]) if MatchNotes.FOCUS_ROLES.has(role) else "the one we play through"
-	return "%s is %s: %s." % [who, job, MatchNotes.focus_effect_text(role)]
+	var on := false
+	var working := false
+	var sim: MatchSim = GameState.pending_sim
+	if sim != null:
+		for p in (sim.squads[_my_side] as Squad).ground:
+			if str(p["id"]) == id:
+				on = true
+				working = (MatchSim.FOCUS_SLOT_ROLES[slot] as Array).has(str(p["role"]))
+	return MatchNotes.focus_slot_note(slot, who, working, not on)
 
 
 ## "Defensive press · tagging Walsh": your calls for this quarter, one line.
@@ -1412,9 +1426,11 @@ func _show_setup(t: Dictionary) -> void:
 	var tag_id := str(t.get("tag_id", ""))
 	if tag_id != "":
 		bits.append("tagging " + GameDB.player_display_name_by_id(tag_id, "their player"))
-	var focus_id := str(t.get("focus_id", ""))
-	if focus_id != "":
-		bits.append(_focus_text(focus_id))
+	for slot in MatchSim.FOCUS_SLOTS:
+		var fid := str(t.get(slot, ""))
+		if fid != "":
+			bits.append("%s %s" % [GameDB.player_display_name_by_id(fid, "your player"),
+					str(MatchNotes.FOCUS_SLOT_TEXT[slot][1])])
 	var intercept_id := str(t.get("interceptor_id", ""))
 	if intercept_id != "":
 		bits.append(GameDB.player_display_name_by_id(intercept_id, "your defender") + " loose behind the ball")
