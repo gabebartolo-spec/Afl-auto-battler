@@ -702,19 +702,12 @@ static func loose_tally_line(who: String, n: int) -> String:
 ## Intercept and Marking (his read of the ball is 0.55 Intercept + 0.30
 ## Marking + 0.15 Pressure, Matchups.interceptor_score) and "Interceptor"
 ## when he has the trait.
-## `wide` is the list sheet's single line; the grid card puts the trait on
-## its own line.
+## `wide` is the list sheet's single line (MatchNotes.card_detail).
 static func loose_card_detail(p: Dictionary, wide: bool) -> String:
-	var places := PackedStringArray()
-	for r in Ratings.positions(p):
-		places.append(str(UiKit.ROLE_LABEL.get(str(r), str(r))))
 	var attr: Dictionary = p.get("attr", {})
-	var base := "%s  ·  Intercept %d  ·  Marking %d" % ["/".join(places),
-			roundi(float(attr.get("intercept", 0.0))), roundi(float(attr.get("marking", 0.0)))]
-	if Traits.has(p, "interceptor"):
-		return (base + "  ·  Interceptor") if wide else (base + "
-Interceptor")
-	return base
+	return card_detail(p, "Interceptor" if Traits.has(p, "interceptor") else "",
+			PackedStringArray(["Intercept %d" % roundi(float(attr.get("intercept", 0.0))),
+			"Marking %d" % roundi(float(attr.get("marking", 0.0)))]), wide)
 
 
 static func minder_card_detail(p: Dictionary, wide: bool) -> String:
