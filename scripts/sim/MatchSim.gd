@@ -1764,7 +1764,7 @@ func _aerial_defender(def_side: int, fp: float):
 ## it either marks it (an intercept: the ball is turned over) or spoils it,
 ## which leaves the ball loose.
 func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bool) -> Dictionary:
-	if rushed or gain < 18.0 or aerial_rng.randf() >= (AERIAL_CHANCE if zone_intercepts else 0.22):
+	if rushed or gain < 18.0 or aerial_rng.randf() >= (_tv("AERIAL_CHANCE", AERIAL_CHANCE) if zone_intercepts else 0.22):
 		return {}
 	var opp := 1 - side
 	var receiver = pick_carrier(side, mark_fp)
@@ -1800,7 +1800,7 @@ func _general_aerial(side: int, mark_fp: float, carrier, gain: float, rushed: bo
 	var spoil_p := clampf(0.36 + (stop - receive) / 220.0
 			+ (0.07 if _trait(defender, "interceptor") else 0.0), 0.20, 0.65)
 	if roll < mark_p + spoil_p:
-		if zone_intercepts and aerial_rng.randf() < INTERCEPT_MARK * (0.6 + 0.8 * _a(defender, "intercept") / 100.0):
+		if zone_intercepts and aerial_rng.randf() < _tv("INTERCEPT_MARK", INTERCEPT_MARK) * (0.6 + 0.8 * _a(defender, "intercept") / 100.0):
 			_intercept(opp, defender, false)
 			_won_back["marked"] = true
 			_t(opp, "marks")
