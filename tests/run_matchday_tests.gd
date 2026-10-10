@@ -489,6 +489,18 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	if box == null:
 		m.queue_free()
 		return
+	# PC is not a big phone (director, 2026-10-11): at 1280x720 every call
+	# and its heading is in view before the bounce, nothing scrolls.
+	if bool(m.call("_wide_break")) and sz.x >= 1200 and sz.y >= 700:
+		var bc: Control = box.find_child("BreakColumns", true, false)
+		var bsc: ScrollContainer = null
+		var up: Node = bc
+		while up != null and bsc == null:
+			bsc = up as ScrollContainer
+			up = up.get_parent()
+		var room := bsc.size.y if bsc != null else 0.0
+		var need := (bsc.get_child(0) as Control).get_combined_minimum_size().y if bsc != null else INF
+		_check(need <= room + 1.0, "The PC break fits the window without scrolling (%.0f of %.0f, %s)" % [need, room, tag])
 	var pep_btn: Button = null
 	var pep_grid: Node = box.find_child("PepPicker", true, false)
 	if pep_grid != null:

@@ -563,24 +563,33 @@ func _show_coach_box() -> void:
 	var band := ClubDuel.band(str(_res["home"]), str(_res["away"]), bv, 14)
 	band.name = "BreakBand"
 	v.add_child(band)
-	# Wide: the quarter just played, then the calls in two columns. A phone
-	# keeps one column, every call in it.
-	# Below 1100 units the quarter just played sits above two columns.
+	# Wide (PC, director 2026-10-11: no column scrolls at 1280x720): the
+	# quarter just played and the key match-ups, then the calls in three
+	# columns - the plan, the tag and the talk; the rotations and the loose
+	# men; the three play-through calls. A phone keeps one column, every call
+	# in it.
+	# Below 1200 units the first column sits above the other three.
 	var rep: VBoxContainer = v
 	var col_a: VBoxContainer = v
 	var col_b: VBoxContainer = v
+	var col_c: VBoxContainer = v
 	var cols: HBoxContainer = null
+	# How many from the game so far each player call shows before "Other
+	# player...": two on a wide screen, so every call fits without scrolling.
+	var quick := 0
 	if wide:
-		var three := q > 1 and UiKit.view_width(self) >= 1100.0
+		var four := UiKit.view_width(self) >= 1200.0
+		quick = 2
 		cols = HBoxContainer.new()
 		cols.name = "BreakColumns"
-		cols.add_theme_constant_override("separation", 32)
+		cols.add_theme_constant_override("separation", 24 if four else 32)
 		col_a = UiKit.vbox(8)
 		col_b = UiKit.vbox(8)
-		if three:
+		col_c = UiKit.vbox(8)
+		if four:
 			rep = UiKit.vbox(8)
 			v.add_child(cols)
-		for c in ([rep, col_a, col_b] if three else [col_a, col_b]):
+		for c in ([rep, col_a, col_b, col_c] if four else [col_a, col_b, col_c]):
 			c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			c.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 			cols.add_child(c)
@@ -686,7 +695,7 @@ func _show_coach_box() -> void:
 		else:
 			tag_note.text = ("%s, your tagger, goes to him." if Roles.is_tagger(tagger)
 					else "No specialist tagger on the ground: %s goes to him and gives up his own game.") % GameDB.player_display_name(tagger)
-	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, 4), calls, "tag_id",
+	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, quick if quick > 0 else 4), calls, "tag_id",
 			"Tag which midfielder?", sync_tag)
 	col_a.add_child(_call_block("Tag", tag))
 	sync_tag.call(str(calls["tag_id"]))
@@ -703,11 +712,14 @@ func _show_coach_box() -> void:
 	# the ground with him. Facts only - who is a Defensive forward shows on
 	# his name; the choice is yours.
 	var opp_spare := sim._roaming_interceptor(1 - _my_side)
+	var minder_nodes: Array = []
 	if not opp_spare.is_empty():
 		var fwds := Matchups.minder_candidates(my_ground)
-		var minder := _player_choice("SpareMinderPicker", "Nobody", fwds, fwds.slice(0, mini(3, fwds.size())),
+		var minder := _player_choice("SpareMinderPicker", "Nobody", fwds, fwds.slice(0, mini(quick if quick > 0 else 3, fwds.size())),
 				calls, "minder_id", "Who goes to him?")
-		col_a.add_child(_call_block("Their loose defender", minder))
+		var minder_block := _call_block("Their loose defender", minder)
+		col_a.add_child(minder_block)
+		minder_nodes.append(minder_block)
 		var dfs := fwds.filter(func(p): return Traits.has(p, "def_forward")).map(func(p): return GameDB.player_display_name(p))
 		var who := ("Defensive forwards on the ground: %s." % ", ".join(dfs)) if not dfs.is_empty() 				else "No Defensive forward on the ground."
 		var minder_note := UiKit.lbl(
@@ -717,10 +729,11 @@ func _show_coach_box() -> void:
 		minder_note.name = "MinderNote"
 		minder_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		col_a.add_child(minder_note)
+		minder_nodes.append(minder_note)
 
 	# The rest of the calls, all in view (director, 2026-10-09: no "More
 	# calls" button).
-	var more: VBoxContainer = col_b
+	var more: VBoxContainer = col_c
 	var syn_line := _synergy_line()
 	if syn_line != "":
 		var sl := UiKit.lbl(syn_line, UiKit.SMALL, UiKit.MUTED)
@@ -736,7 +749,7 @@ func _show_coach_box() -> void:
 		if str(p.get("role", "")) == "DEF":
 			def_ground.append(p)
 	var interceptors := Matchups.interceptor_candidates(def_ground)
-	var roam_first: Array = interceptors.slice(0, mini(3, interceptors.size()))
+	var roam_first: Array = interceptors.slice(0, mini(quick if quick > 0 else 3, interceptors.size()))
 	var roam := _player_choice("InterceptorPicker", "No loose defender", def_ground, roam_first,
 			calls, "interceptor_id", "Who roams behind the ball?")
 	var roam_block := _call_block("Loose interceptor", roam)
@@ -758,16 +771,17 @@ func _show_coach_box() -> void:
 		var sync := func(id: String) -> void:
 			note.text = _focus_note_text(slot, id)
 		var text: Array = MatchNotes.FOCUS_SLOT_TEXT[slot]
-		var pick := _player_choice("FocusPicker_" + slot, "No one", fits, _in_the_game(fits, 3), calls, slot,
+		var pick := _player_choice("FocusPicker_" + slot, "No one", fits, _in_the_game(fits, quick if quick > 0 else 3), calls, slot,
 				"Play through: %s" % str(text[0]).to_lower(), sync)
 		var block := _call_block("Play through: %s" % str(text[0]).to_lower(), pick)
 		sync.call(str(calls[slot]))
 		block.add_child(note)
 		more.add_child(block)
 
-	# Three columns: pep talk and rotations sit under the tag, so the columns
-	# end level and the whole sheet fits a 720-unit screen.
-	var tail: VBoxContainer = col_a if rep != v else more
+	# Wide: the pep talk sits under the tag; rotations and both loose men,
+	# yours and theirs, share a column, so every column fits a 720-unit
+	# screen.
+	var tail: VBoxContainer = col_b
 	var pep_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	pep_note.name = "PepNote"
 	pep_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -776,8 +790,8 @@ func _show_coach_box() -> void:
 	# Four talks: a two-column grid of their full names, which fits a 360 phone
 	# and the PC column alike (one row of four ran off a phone).
 	var pep := _choice_grid("PepPicker", PEP_TALKS, calls, "pep", 2, sync_pep)
-	tail.add_child(_call_block("Pep talk", pep))
-	tail.add_child(pep_note)
+	col_a.add_child(_call_block("Pep talk", pep))
+	col_a.add_child(pep_note)
 	sync_pep.call("steady")
 
 	var rot_opts := []
@@ -793,9 +807,10 @@ func _show_coach_box() -> void:
 	tail.add_child(rot_note)
 	sync_rot.call(_rotation)
 	# On a wide screen the three play-through calls fill the last column, so the
-	# loose interceptor sits under the rotations and no column has to scroll.
-	if rep != v:
-		for n in [roam_block, roam_note]:
+	# loose interceptor sits under the rotations, their loose defender after
+	# him, and no column has to scroll.
+	if wide:
+		for n in [roam_block, roam_note] + minder_nodes:
 			n.get_parent().remove_child(n)
 			tail.add_child(n)
 	(rep if rep != v else tail).add_child(_legs_view())
