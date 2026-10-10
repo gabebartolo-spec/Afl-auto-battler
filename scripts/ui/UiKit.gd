@@ -429,8 +429,8 @@ static func land(c: Control, delay := 0.0, sound := true) -> void:
 			return
 		Feel.moved.append("land")
 		c.pivot_offset = _pivot(c)
-		c.scale = Vector2(1.14, 1.14)
-		c.create_tween().tween_property(c, "scale", Vector2.ONE, 0.38) \
+		c.scale = Vector2(1.22, 1.22)
+		c.create_tween().tween_property(c, "scale", Vector2.ONE, 0.5) \
 				.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_after(c, delay if motion_on() else 0.0, hit)
 
