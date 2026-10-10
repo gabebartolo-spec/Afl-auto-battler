@@ -7,7 +7,11 @@ extends RefCounted
 ## Champion Data's 2025 numbers (docs/research/INTERCEPT_EVIDENCE.md). The
 ## named loose defender (MatchSim.interceptor) is shown on his own line.
 ## Env: IC_DRAFTS (default 21,22); IC_OLD=1 plays the old contest
-## (MatchSim.zone_intercepts off) on the same seeds, for a before/after.
+## (MatchSim.zone_intercepts off) on the same seeds, for a before/after;
+## IC_NOLOOSE=1 (or the arg "noloose") names no loose man (every reader plays his own man).
+## Also the league's leaders, as Champion Data ranks them: each player's
+## intercepts a game over a season (10 games or more), the best and the top
+## ten's average (2025: Sam Taylor 8.4, top ten 7.7).
 
 const ROLES := ["DEF", "MID", "FWD", "RUCK"]
 ## Champion Data 2025 (Wheelo): intercepts a game and share of all intercepts.
@@ -25,6 +29,8 @@ func run() -> void:
 			drafts.append(int(s))
 	MatchSim.zone_intercepts = OS.get_environment("IC_OLD") != "1"
 	print("zone_intercepts ", MatchSim.zone_intercepts)
+	MatchSim.audit_chains_on = true
+	MatchSim.audit_chains = {}
 	var ic := {}
 	var imk := {}
 	var team := {"score": 0.0, "marks": 0.0, "intercepts": 0.0, "inside50": 0.0, "clangers": 0.0}
@@ -36,6 +42,8 @@ func run() -> void:
 	var loose_games := 0
 	var total := 0.0
 	var matches := 0
+	var no_loose := OS.get_environment("IC_NOLOOSE") == "1" or OS.get_cmdline_user_args().has("noloose")
+	var leaders := []
 	for r in ROLES:
 		ic[r] = 0.0
 		imk[r] = 0.0
@@ -48,6 +56,7 @@ func run() -> void:
 			for p in lists[c]:
 				role_of[str(p["id"])] = str(p.get("role", ""))
 		var season := Season.new(codes, lists, int(d) * 7 + 1)
+		var by_player := {}
 		for ri in range(season.fixture.size()):
 			var mi := 0
 			for m in season.fixture[ri]:
@@ -56,6 +65,9 @@ func run() -> void:
 				# Outside a career no club plays a loose man (CoachEffects sets
 				# ai_plans); in one, every AI side with a good enough reader does.
 				for side in range(2):
+					if no_loose:
+						sim.set_interceptor(side, "", false)
+						continue
 					if str(sim.interceptor[side]) == "":
 						var best := Matchups.best_interceptor((sim.squads[side] as Squad).ground)
 						if not best.is_empty():
@@ -77,6 +89,10 @@ func run() -> void:
 						if st.is_empty():
 							continue
 						var n := float(st.get("intercepts", 0.0))
+						var bp: Array = by_player.get(id, [0.0, 0, r])
+						bp[0] = float(bp[0]) + n
+						bp[1] = int(bp[1]) + 1
+						by_player[id] = bp
 						ic[r] = float(ic[r]) + n
 						imk[r] = float(imk[r]) + float(st.get("intercept_marks", 0.0))
 						games[r] = int(games[r]) + 1
@@ -103,7 +119,11 @@ func run() -> void:
 					var r2 := str(role_of.get(str(ev.get("player_id", "")), ""))
 					if zones.has(r2):
 						(zones[r2] as Dictionary)[z] = int((zones[r2] as Dictionary).get(z, 0)) + 1
-	print("intercept_impl: %d matches (drafts %s)" % [matches, str(drafts)])
+		for id in by_player:
+			var bp2: Array = by_player[id]
+			if int(bp2[1]) >= 10:
+				leaders.append([float(bp2[0]) / float(bp2[1]), str(bp2[2])])
+	print("intercept_impl: %d matches (drafts %s)%s" % [matches, str(drafts), " no loose men" if no_loose else ""])
 	print("%-6s %10s %10s %10s %10s %12s" % ["role", "a game", "real", "share", "real", "int. marks"])
 	for r in ROLES:
 		var pg := float(ic[r]) / float(maxi(1, int(games[r])))
@@ -120,8 +140,21 @@ func run() -> void:
 	print("  from: rebounds %.2f, pressure %.2f, intercept marks %.2f, ball won at a chain's start %.2f a game" % [
 			float(loose_src["rebound"]) / lg, float(loose_src["pressure"]) / lg, float(loose_src["mark"]) / lg,
 			(loose_ic - float(named)) / lg])
-	print("per team a game: %.1f" % (total / float(maxi(1, matches * 2))))
+	print("per team a game: %.1f (real 2025: 63.4, 2026: 65.4)" % (total / float(maxi(1, matches * 2))))
+	leaders.sort_custom(func(a, b): return float(a[0]) > float(b[0]))
+	var top10 := 0.0
+	for i in range(mini(10, leaders.size())):
+		top10 += float(leaders[i][0])
+	top10 /= float(maxi(1, mini(10, leaders.size())))
+	print("leaders (a season each, 10+ games): best %.2f (%s), top ten %.2f a game (real 2025: best 8.4, top ten 7.7)" % [
+			float(leaders[0][0]) if not leaders.is_empty() else 0.0, str(leaders[0][1]) if not leaders.is_empty() else "-", top10])
 	MatchSim.zone_intercepts = true   # a static: don't leak the old contest
+	MatchSim.audit_chains_on = false
+	print("chain starts per team a game (origin <- previous end, flip = the other side has it):")
+	var ck: Array = MatchSim.audit_chains.keys()
+	ck.sort()
+	for k in ck:
+		print("  %-34s %6.2f" % [k, float(MatchSim.audit_chains[k]) / float(maxi(1, matches * 2))])
 	print("where (intercept events by role, share of that role's):")
 	for r in ROLES:
 		var zs: Dictionary = zones[r]
