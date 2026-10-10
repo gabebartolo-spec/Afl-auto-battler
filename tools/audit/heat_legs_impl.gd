@@ -47,7 +47,7 @@ func run() -> void:
 	var acc := {}
 	for a in arms:
 		acc["%s/%s" % a] = {"dist": 0.0, "dist_n": 0, "max": 0.0, "over16": 0, "team": 0.0, "samples": 0, "floor": 0, "low": 0,
-				"q": [0.0, 0.0, 0.0, 0.0, 0.0], "qn": [0, 0, 0, 0, 0], "ic": 0.0, "margin": 0.0, "m2": 0.0, "d_margin": []}
+				"q": [0.0, 0.0, 0.0, 0.0, 0.0], "qn": [0, 0, 0, 0, 0], "ic": 0.0, "ex": 0.0, "ex_n": 0, "wl": 0.0, "margin": 0.0, "m2": 0.0, "d_margin": []}
 	for i in range(n):
 		var margins := {}
 		for a in arms:
@@ -67,6 +67,14 @@ func run() -> void:
 				A["max"] = maxf(float(A["max"]), d)
 				if d > 16000.0:
 					A["over16"] += 1
+			for p in (r["roster"] as Array)[0]:
+				var ex := float((r.get("exertion", {}) as Dictionary).get(str(p["id"]), 0.0))
+				if ex > 0.0:
+					A["ex"] += ex
+					A["ex_n"] += 1
+					# Steady state if he played like this every week (Workload: carry 0.75,
+					# load 0.16 per effort, recovery about 17 for durability 70 aged 25).
+					A["wl"] += clampf(4.0 * (0.16 * ex - 17.0), 0.0, 100.0)
 			A["team"] += float(((r["team"] as Array)[0] as Dictionary).get("distance_run", 0.0))
 			A["samples"] += s.samples
 			A["floor"] += s.floor_n
@@ -90,10 +98,10 @@ func run() -> void:
 		var qs := []
 		for q in range(1, 5):
 			qs.append("%.1f" % (float(A["q"][q]) / maxf(1.0, float(A["qn"][q]))))
-		var line := "%-17s dist/player %.0f m  max %.0f m  >16km %d  team %.1f km  floor(<=6) %.2f%%  <30 %.2f%%  energy by q %s  interchanges %.1f  margin %.2f" % [
+		var line := "%-17s dist/player %.0f m  max %.0f m  >16km %d  team %.1f km  floor(<=6) %.2f%%  <30 %.2f%%  energy by q %s  interchanges %.1f  exertion/player %.1f  weekly-load steady state %.1f  margin %.2f" % [
 				key, float(A["dist"]) / maxf(1.0, float(A["dist_n"])), float(A["max"]), int(A["over16"]), float(A["team"]) / n / 1000.0,
 				100.0 * float(A["floor"]) / maxf(1.0, float(A["samples"])), 100.0 * float(A["low"]) / maxf(1.0, float(A["samples"])),
-				"/".join(qs), float(A["ic"]) / n, float(A["margin"]) / n]
+				"/".join(qs), float(A["ic"]) / n, float(A["ex"]) / maxf(1.0, float(A["ex_n"])), float(A["wl"]) / maxf(1.0, float(A["ex_n"])), float(A["margin"]) / n]
 		var dm: Array = A["d_margin"]
 		if not dm.is_empty():
 			var mean := 0.0
