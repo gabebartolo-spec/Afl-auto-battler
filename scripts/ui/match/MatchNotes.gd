@@ -669,6 +669,27 @@ Defensive forward")
 	return base
 
 
+## A "Who tags" card (director, 2026-10-11): the facts the tag rule reads,
+## nothing else. Where he plays, his Pressure, "Tagger" with the trait, his
+## legs in the game's words (legs_word, no number), and what going to the tag
+## gives up of his own game (MatchSim.tag_give_up: disposal, and contested
+## ball unless he plays on a wing).
+static func tagger_card_detail(p: Dictionary, legs: float, wide: bool) -> String:
+	var places := PackedStringArray()
+	for r in Ratings.positions(p):
+		places.append(str(UiKit.ROLE_LABEL.get(str(r), str(r))))
+	var a: Dictionary = p.get("attr", {})
+	var first := "%s  ·  Pressure %d" % ["/".join(places), roundi(float(a.get("pressure", 0)))]
+	if Roles.is_tagger(p):
+		first += "  ·  Tagger"
+	var gives := "disposal %d" % roundi(float(a.get("disposal", 0)))
+	if not Roles.on_wing(p):
+		gives = "contested %d, %s" % [roundi(float(a.get("contested", 0))), gives]
+	var lw := legs_word(legs)
+	var second := "%s%s  ·  Gives up: %s" % [lw.left(1).to_upper(), lw.substr(1), gives]
+	return (first + "  ·  " + second) if wide else (first + "\n" + second)
+
+
 ## The best few players of a side by influence: [{"id", "name", "line"}].
 static func standouts(res: Dictionary, side: int, n: int) -> Array:
 	var ranked := rated_players(res, side)

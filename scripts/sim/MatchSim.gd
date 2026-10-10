@@ -830,11 +830,15 @@ func _mid_value(p: Dictionary, n_centre: int, n_mids: int) -> float:
 	return v
 
 
-## How much of the ball the player `side` tags still gets: less when a
-## tagger (Roles) is on the ground to do the job.
+## How much of the ball the player `side` tags still gets: from TAG_PLAIN
+## down to TAG_WITH_TAGGER as the man on him holds tighter (tag_hold: his
+## Pressure and his legs now, so a tiring tagger lets him off the leash).
 func _tag_share(side: int) -> float:
 	var t = tagger_of(side)
-	return Roles.TAG_WITH_TAGGER if t != null and Roles.is_tagger(t) else Roles.TAG_PLAIN
+	if t == null:
+		return Roles.TAG_PLAIN
+	var hold := tag_hold(t, float(energy.get(str(t["id"]), 100.0)))
+	return Roles.TAG_PLAIN - (Roles.TAG_PLAIN - Roles.TAG_WITH_TAGGER) * hold
 
 
 # ---------------------------------------------------------------------------
@@ -4736,8 +4740,10 @@ static func midfielder_on_ground(p: Dictionary) -> bool:
 
 
 ## Who `side` sends to its tag: the coach's own choice (tactics "tagger_id")
-## while he is a midfielder on the ground, otherwise tagger_for's pick. A
-## chosen man who goes to the bench or out of the midfield hands the job back.
+## while he is a midfielder on the ground, otherwise the assistant's man
+## (tagger_for: the best hold for the least given up, on starting legs, so
+## the job does not hop between players as they tire). A chosen man who
+## goes to the bench or out of the midfield hands the job back.
 func tagger_of(side: int):
 	var ground: Array = (squads[side] as Squad).ground
 	var want := str((tactics[side] as Dictionary).get("tagger_id", ""))
@@ -4748,17 +4754,54 @@ func tagger_of(side: int):
 	return tagger_for(ground)
 
 
-## Who goes to the player `side` tags: its tagger if one is on the ground,
-## otherwise the midfielder with the most pressure in his game. null with no
-## midfielder on the ground.
+## Who goes to the player a side tags, before the bounce: the first of
+## tag_order on starting legs. null with no midfielder on the ground.
 static func tagger_for(ground: Array):
-	var best = null
+	var order := tag_order(ground)
+	return null if order.is_empty() else order[0]
+
+
+## How tightly `p` holds the man he tags, 0 to 1 (director, 2026-10-11): his
+## Pressure (Roles.tag_press, 1 for a Tagger) times his legs now (energy
+## out of 100). A fresh Tagger is 1, today's tightest tag, and never more.
+static func tag_hold(p: Dictionary, legs: float) -> float:
+	return Roles.tag_press(p) * clampf(legs / 100.0, 0.0, 1.0)
+
+
+## What sending `p` to a tag gives up of his own game: his part in the
+## side's midfield contest from his ratings (as _mid_value: disposal, and
+## contested ball unless he plays on a wing).
+static func tag_give_up(p: Dictionary, ground: Array) -> float:
+	var n_mids := 0
+	var n_centre := 0
+	for q in ground:
+		if str(q.get("role", "")) == "MID":
+			n_mids += 1
+			if not Roles.on_wing(q):
+				n_centre += 1
+	var a: Dictionary = p.get("attr", {})
+	var v := 0.22 * float(a.get("disposal", 0)) / float(maxi(1, n_mids))
+	if not Roles.on_wing(p):
+		v += 0.42 * float(a.get("contested", 0)) / float(maxi(1, n_centre))
+	return v
+
+
+## The side's midfielders on the ground in the order a coach would send them
+## to a tag: the tightest hold first (tag_hold, on `legs` by id, else his
+## starting legs), then the least given up of his own game. The assistant
+## and the AI send the first; the break screen lists them in this order.
+static func tag_order(ground: Array, legs: Dictionary = {}) -> Array:
+	var rows := []
 	for p in ground:
 		if not midfielder_on_ground(p):
 			continue
-		if Roles.is_tagger(p):
-			return p
-		if best == null or float(p["attr"]["pressure"]) > float(best["attr"]["pressure"]):
-			best = p
-	return best
+		var e := float(legs.get(str(p["id"]), _start_energy(p)))
+		rows.append([tag_hold(p, e), tag_give_up(p, ground), str(p["id"]), p])
+	rows.sort_custom(func(a, b):
+		if not is_equal_approx(float(a[0]), float(b[0])):
+			return float(a[0]) > float(b[0])
+		if not is_equal_approx(float(a[1]), float(b[1])):
+			return float(a[1]) < float(b[1])
+		return str(a[2]) < str(b[2]))
+	return rows.map(func(r): return r[3])
 

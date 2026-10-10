@@ -685,6 +685,15 @@ func _show_coach_box() -> void:
 		calls["tagger_id"] = ""
 	var others := _roster_side(_my_side).filter(func(r):
 		return my_mids.has(str(r["id"])) and (tagger == null or str(r["id"]) != str(tagger["id"])))
+	# Most able first: the tightest hold on his legs now, then the least
+	# given up (MatchSim.tag_order, the rule's own measure).
+	var rank := {}
+	for p in MatchSim.tag_order(my_ground, sim.energy):
+		rank[str(p["id"])] = rank.size()
+	others.sort_custom(func(a, b): return int(rank.get(str(a["id"]), 99)) < int(rank.get(str(b["id"]), 99)))
+	var tag_detail := func(r: Dictionary, wide: bool) -> String:
+		var p: Dictionary = my_mids.get(str(r["id"]), r)
+		return MatchNotes.tagger_card_detail(p, float(sim.energy.get(str(r["id"]), 100.0)), wide)
 	var tag_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	tag_note.name = "TagNote"
 	tag_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -703,7 +712,7 @@ func _show_coach_box() -> void:
 	col_a.add_child(_call_block("Tag", tag))
 	if tagger != null and not others.is_empty():
 		var who_tags := _player_choice("TaggerPicker", GameDB.player_display_name(tagger), others, others.slice(0, 3),
-				calls, "tagger_id", "Who goes to him?", sync_tag)
+				calls, "tagger_id", "Who goes to him?", sync_tag, tag_detail)
 		col_a.add_child(_call_block("Who tags", who_tags))
 	sync_tag.call("")
 	col_a.add_child(tag_note)
