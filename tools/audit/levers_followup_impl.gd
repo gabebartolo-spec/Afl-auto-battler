@@ -147,6 +147,8 @@ func _loose_row(res: Dictionary) -> Dictionary:
 		"his_roam_contests": _n(me, "roam_contests"),
 		"his_roam_wins": _n(me, "roam_wins"),
 		"his_roam_losses": _n(me, "roam_losses"),
+		# Went for an entry but got there late (the space behind, no contest).
+		"his_roam_late": _n(me, "roam_late"),
 		"freed_has_man": 1.0 if str(res["freed"]) != "" else 0.0,
 		"freed_still_covered": 1.0 if bool(res["freed_covered"]) else 0.0,
 		"freed_goals": _n((res["players"] as Dictionary).get(str(res["freed"]), {}), "goals"),
