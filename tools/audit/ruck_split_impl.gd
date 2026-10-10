@@ -21,7 +21,8 @@ func run() -> void:
 	var count := int(args[2]) if args.size() > 2 else 40
 	GameState.replay_seed = 2027
 	GameDB.reload()
-	var codes: Array = GameDB.club_order.duplicate()
+	# Clubs with a list (the expansion placeholders TAS and CANB have none).
+	var codes: Array = GameDB.club_order.filter(func(c): return GameDB.club_list(c).size() >= 22)
 	var n := codes.size()
 	var acc := {"dual": _blank(), "single": _blank()}
 	var skipped := 0
