@@ -330,6 +330,10 @@ func _test_rating() -> void:
 	_check(int(r.call({"marks": 5.0, "frees_against": 1.0, "clangers": 1.0})) == 12,
 			"A free against costs 3 in all (it is also a clanger)")
 	_check(MatchNotes.rating_text(118) == "118", "Shown as a whole number")
+	_check(MatchNotes.legs_line(60.0, 60.0) == "Both midfields are %s." % MatchNotes.legs_word(60.0),
+			"Same legs on both sides are said once")
+	_check(MatchNotes.legs_line(100.0, 0.0) == "Your midfield is %s; theirs is %s."
+			% [MatchNotes.legs_word(100.0), MatchNotes.legs_word(0.0)], "Different legs name both sides")
 	# Parity: across real simulated matches, each position's better games
 	# reach similar ratings, and forwards and defenders are sometimes a
 	# side's best (midfielders are not the only way to top a side).

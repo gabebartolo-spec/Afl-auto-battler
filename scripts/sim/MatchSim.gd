@@ -1666,7 +1666,11 @@ const AERIAL_ROLES := {
 }
 ## The named loose defender reads it better in his own half and the middle:
 ## his weight grows with his intercept rating, up to double.
-const LOOSE_READ := 0.5
+const LOOSE_READ := 0.2
+## The power on intercept when picking who contests a general-play ball
+## (AERIAL_ROLES): above 1 the best reader on the ground takes more than his
+## share. Champion Data 2025: the best take about 8 a game, a side about 63.
+const AERIAL_READ := 1.0
 ## The director (2026-10-06): the best loose defenders sit near the real best,
 ## about 8 intercepts a game (Champion Data 2025: Sam Taylor 8.4), not 12.
 ## Scales how often he reaches an entry's contest.
@@ -1687,7 +1691,7 @@ const LOOSE_MARK_EDGE := 0.5
 ## The share of his spoil a poor reader still gets.
 const LOOSE_SPOIL_FLOOR := 0.25
 ## The power on intercept when picking the defender who meets an entry (main: 2).
-const ENTRY_READ := 1.5
+const ENTRY_READ := 0.5
 ## Of the contests the defender wins, the share he marks (an intercept
 ## mark, the ball turned over) rather than spoils; a better reader marks more.
 const INTERCEPT_MARK := 0.35
@@ -1696,6 +1700,11 @@ const AERIAL_CHANCE := 0.22
 ## Audits only: false plays the old contest (defenders and midfielders, no
 ## intercept marks) for a before/after on the same seeds.
 static var zone_intercepts := true
+## Audit only (intercept_impl): chain starts by origin, the previous chain's end
+## and whether the ball changed sides. Off unless an audit turns it on.
+static var audit_chains_on := false
+static var audit_chains := {}
+var _audit_last_side := -1
 
 
 ## Where a contest at `fp` is, from `def_side`'s view: its back half, the
@@ -1715,7 +1724,7 @@ func _aerial_defender(def_side: int, fp: float):
 	var loose := str(interceptor[def_side])
 	var weights := []
 	for p in group:
-		var w := float(roles.get(str(p["role"]), 0.0)) * pow(maxf(1.0, _a(p, "intercept")), 2.0)
+		var w := float(roles.get(str(p["role"]), 0.0)) * pow(maxf(1.0, _a(p, "intercept")), AERIAL_READ)
 		if loose != "" and str(p["id"]) == loose and zone != "forward":
 			w *= 1.0 + LOOSE_READ * _a(p, "intercept") / 100.0
 		weights.append(w)
@@ -3238,6 +3247,11 @@ func _play_one_chain(T: Dictionary) -> void:
 		chain_origin = _prev_end
 	else:
 		chain_origin = "general"
+	if audit_chains_on:
+		var ak := "%s <- %s, %s" % [chain_origin, _prev_end if _prev_end != "" else "-",
+				"flip" if (_audit_last_side >= 0 and side != _audit_last_side) else "keep"]
+		audit_chains[ak] = int(audit_chains.get(ak, 0)) + 1
+		_audit_last_side = side
 	_chain_touch = {}
 	_chain_from = _won_back if chain_origin == "turnover" else {}
 	_won_back = {}

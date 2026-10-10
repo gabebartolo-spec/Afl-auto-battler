@@ -22,6 +22,7 @@ extends SceneTree
 ##   --flood SIDE    that side floods behind the ball all match (0 home, 1 away)
 ##   --stack SIDE    that side stacks every centre ball-up
 ##   --kside S       with --kind, only events by side S
+##   --shake F       the turnover shake's size as a share of the oval's height
 
 ## --size WxH: the window (default 900x700; 390x330 is the oval's share of a phone).
 var W := 900
@@ -128,6 +129,8 @@ func _run() -> void:
 	root.add_child(overlay)
 	await process_frame
 	pitch.camera_enabled = not args.has("nocam")
+	if args.has("shake"):
+		pitch.shake_share = float(args["shake"])
 	pitch.setup(res)
 	# --figures: the mini-figure prototype on (Settings > Match view), whatever the setting.
 	pitch.mini_figures = args.has("figures")

@@ -1000,6 +1000,41 @@ func _test_oval_people(res: Dictionary) -> void:
 	pv2.director.actor = int(b["id"])
 	pv2._process(0.5)
 	_check(pv2.caption_text() == str(a["surname"]), "His name stays long enough to read after the ball moves on")
+	# A change of possession in open play says "Turnover" over the winner; a
+	# restart (a ball-up) between the two sides' possessions does not.
+	var pv3 := PitchView.new()
+	pv3.size = Vector2(800, 600)
+	pv3.setup(res)
+	var home := -1
+	var away := -1
+	for t in pv3.director.tokens:
+		if int(t["side"]) == 0 and home < 0:
+			home = int(t["num"])
+		if int(t["side"]) == 1 and away < 0:
+			away = int(t["num"])
+	pv3._cue_turnover({"kind": "kick", "side": 0, "num": home})
+	_check(pv3.caption_text() == "", "The first possession of a passage is not a turnover")
+	pv3._cue_turnover({"kind": "handball", "side": 1, "num": away})
+	_check(pv3.caption_text() == "Turnover", "The other side winning it in play says Turnover")
+	for i in range(30):
+		pv3._process(0.05)
+	_check(pv3.caption_text() == "", "The word goes after a second or so")
+	pv3._cue_turnover({"kind": "ballup", "side": -1})
+	pv3._cue_turnover({"kind": "kick", "side": 0, "num": home})
+	_check(pv3.caption_text() == "", "Winning a ball-up is not a turnover")
+	pv3._cue_turnover({"kind": "tackle", "side": 1, "num": away})
+	_check(pv3.caption_text() == "", "A tackle alone is not a turnover")
+	pv3._cue_turnover({"kind": "pressure", "side": 1, "num": away})
+	_check(pv3.caption_text() == "Turnover", "A forced turnover always says so")
+	_check(pv3.shaking(), "With Screen shake on, a turnover shakes the oval")
+	for i in range(10):
+		pv3._process(0.05)
+	_check(not pv3.shaking(), "...for a quarter of a second at most")
+	var was := GameState.screen_shake_on()
+	GameState.set_screen_shake_on(false)
+	pv3._cue_turnover({"kind": "rebound", "side": 0, "num": home})
+	_check(pv3.caption_text() == "Turnover" and not pv3.shaking(), "With it off, the label shows and the screen stays still")
+	GameState.set_screen_shake_on(was)
 	pv2._process(0.6)
 	_check(pv2.caption_text() == "", "...and goes")
 	pv2._name_the_scorer({"kind": "goal", "side": int(b["side"]), "num": int(b["num"])})

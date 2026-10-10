@@ -403,6 +403,16 @@ func _apply_battery_saver(on: bool) -> void:
 	Engine.max_fps = FPS_SAVER if on else FPS_NORMAL
 
 
+## A small, short shake of the live oval when the ball is turned over (director,
+## 2026-10-10). On by default; Off for anyone who doesn't want the screen to move.
+func screen_shake_on() -> bool:
+	return bool(get_setting("screen_shake", true))
+
+
+func set_screen_shake_on(on: bool) -> void:
+	set_setting("screen_shake", on)
+
+
 func vignettes_on() -> bool:
 	return bool(get_setting("vignettes", true))
 
