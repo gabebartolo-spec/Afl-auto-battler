@@ -3,12 +3,13 @@ extends RefCounted
 ## Derives 1-99 attributes, position, overall rating and draft value from raw
 ## AFL Tables season stats.
 ##
-## Direct port of tools/sim_harness.py::derive_ratings. The Python harness is
-## where the model was calibrated against real 2026 team totals, so if a
-## constant changes there it must change here too (and vice versa).
+## Direct port of tools/sim_harness.py::derive_ratings, which stays a live
+## mirror (tools/build_history.py and render_preview.py import it): a rating
+## constant that changes here changes there too.
 
-## Tunables - single source of truth for match balance. Mirrored in
-## tools/sim_harness.py (dict `T`).
+## Tunables - single source of truth for match balance. The copy in
+## tools/sim_harness.py (dict `T`) is stale since 2026-10-08; do not mirror
+## match tunables there. Guard: tests/run_calibration_tests.gd.
 const T := {
 	"chains_per_game": 200,          # possession chains across BOTH teams
 	"max_touches_per_chain": 14,

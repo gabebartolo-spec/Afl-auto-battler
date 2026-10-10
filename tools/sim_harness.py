@@ -2,17 +2,25 @@
 """
 AFL Auto-Battler — simulation balance harness.
 
-This file is NOT part of the shipped game. It is a fast, runnable Python
-mirror of the GDScript match engine (scripts/sim/MatchSim.gd). Its job is to
-tune the engine constants so a simulated match reproduces the *real* 2026 AFL
-team totals harvested into data/players_2026.csv.
+This file is NOT part of the shipped game.
 
-    python3 tools/sim_harness.py             # calibration report
-    python3 tools/sim_harness.py --sample     # one narrated match
+STATUS (2026-10-10): the match half (class MatchSim, dict T) is STALE. The
+engine is scripts/sim/MatchSim.gd with its tunables in Ratings.T; nothing
+enforces this mirror and it stopped matching on 2026-10-08 (#484 set shots).
+Known drift: chains_per_game 180 vs 200, inside50_goal 0.269 vs 0.262,
+mark_share_of_kicks 0.330 vs 0.327, stoppage_share 0.465 vs 0.42,
+rebound_to -13 vs -12; match-flow work moves T further. Do not tune the
+engine here and do not cite the calibration report. The calibration guard is
+tests/run_calibration_tests.gd (CI suite `calibration`).
+
+The ratings half (derive_ratings and the rating constants) is LIVE: it is the
+ratings mirror that tools/build_history.py and tools/render_preview.py import,
+and it was kept in step with scripts/sim/Ratings.gd through #267 (2026-10-06).
+When a rating constant changes in Ratings.gd, change it here too.
+
     python3 tools/sim_harness.py --ratings    # dump derived ratings to CSV
-
-The GDScript port must stay behaviourally identical to this file. When a
-constant changes here, change it in scripts/sim/MatchSim.gd too.
+    python3 tools/sim_harness.py              # stale: match report (see above)
+    python3 tools/sim_harness.py --sample     # stale: narrated match
 """
 
 from __future__ import annotations

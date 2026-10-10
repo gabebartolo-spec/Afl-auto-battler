@@ -3,10 +3,11 @@ extends RefCounted
 ## The match engine. Simulates a game as a sequence of possession chains and
 ## emits a deterministic, seeded event log that the pitch view replays.
 ##
-## Port of tools/sim_harness.py::MatchSim. The RNG call order below must match
-## the Python harness exactly - that file is where the constants were tuned so
-## simulated team totals reproduce real 2026 AFL numbers. Emitting events does
-## not draw from the RNG, so the richer log costs nothing in calibration.
+## Began as a port of tools/sim_harness.py::MatchSim; that Python copy is stale
+## since 2026-10-08 and is not maintained. This file and Ratings.T are the
+## engine. The calibration guard is tests/run_calibration_tests.gd (seeded
+## games against real 2026 team totals). Emitting events does not draw from
+## the RNG, so the richer log costs nothing in calibration.
 
 var squads: Array = []                 # [Squad home, Squad away]
 var rng := RandomNumberGenerator.new()
