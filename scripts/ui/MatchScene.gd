@@ -739,7 +739,8 @@ func _show_coach_box() -> void:
 	var roam_first: Array = interceptors.slice(0, mini(3, interceptors.size()))
 	var roam := _player_choice("InterceptorPicker", "No loose defender", def_ground, roam_first,
 			calls, "interceptor_id", "Who roams behind the ball?")
-	more.add_child(_call_block("Loose interceptor", roam))
+	var roam_block := _call_block("Loose interceptor", roam)
+	more.add_child(roam_block)
 	var roam_note := UiKit.lbl(
 			"He leaves his direct man to attack aerial balls. Another defender covers where possible; if he flies and loses, space opens behind him.",
 			UiKit.SMALL, UiKit.MUTED)
@@ -791,6 +792,12 @@ func _show_coach_box() -> void:
 	tail.add_child(_call_block("Rotations", rot))
 	tail.add_child(rot_note)
 	sync_rot.call(_rotation)
+	# On a wide screen the three play-through calls fill the last column, so the
+	# loose interceptor sits under the rotations and no column has to scroll.
+	if rep != v:
+		for n in [roam_block, roam_note]:
+			n.get_parent().remove_child(n)
+			tail.add_child(n)
 	(rep if rep != v else tail).add_child(_legs_view())
 
 	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", UiKit.HEADING, true)
