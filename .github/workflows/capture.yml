@@ -38,6 +38,11 @@ on:
         required: false
         default: false
         type: boolean
+      resolution:
+        description: "The window from the start, WxH (e.g. 390x844): the movie maker films the window it opened with"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -52,6 +57,7 @@ jobs:
       ARGS: ${{ inputs.args }}
       MOVIE: ${{ inputs.movie }}
       MOVIE_MAKER: ${{ inputs.movie_maker }}
+      RESOLUTION: ${{ inputs.resolution }}
     steps:
       - uses: actions/checkout@v4
 
@@ -64,6 +70,10 @@ jobs:
           if [ ! -f "tools/visual/$TOOL.gd" ]; then
             echo "::error::tools/visual/$TOOL.gd does not exist on this ref. Available:"
             ls tools/visual | grep '\.gd$' | sed 's/\.gd$//'
+            exit 1
+          fi
+          if [ -n "$RESOLUTION" ] && ! [[ "$RESOLUTION" =~ ^[0-9]+x[0-9]+$ ]]; then
+            echo "::error::resolution must be WxH, e.g. 390x844"
             exit 1
           fi
           if [ -n "$ARGS" ] && ! [[ "$ARGS" =~ ^[A-Za-z0-9_.,:=\ -]*$ ]]; then
@@ -114,6 +124,7 @@ jobs:
           # runner's speed) with the game's own sound, into an AVI.
           film=""
           if [ "$MOVIE_MAKER" = "true" ]; then film="--write-movie $PWD/out/$TOOL.avi --fixed-fps 30"; fi
+          if [ -n "$RESOLUTION" ]; then film="$film --resolution $RESOLUTION"; fi
           # ARGS is split on spaces on purpose; it was checked above.
           LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1280x1000x24" \
             "$HOME/godot/godot" --path . --rendering-method gl_compatibility $film \
