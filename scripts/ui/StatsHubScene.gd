@@ -75,8 +75,8 @@ func _build() -> void:
 	_root.add_child(UiKit.top_bar("Season stats", true))
 	_root.add_child(_hero())
 	# One row of six short tabs (visual audit, Phase 1.2): at 390 px they
-	# share the width and nothing is cut. Only if they still cannot fit does
-	# the row scroll sideways.
+	# share the width and nothing is cut (_tighten). Only if they still cannot
+	# fit does the row scroll sideways.
 	var tabs := HBoxContainer.new()
 	tabs.name = "StatsSections"
 	tabs.add_theme_constant_override("separation", 2)
@@ -92,12 +92,10 @@ func _build() -> void:
 			current = key
 			_build.call_deferred())
 		tabs.add_child(t)
-	if not wide():
-		_tighten(tabs)
 	if wide():
 		tabs.alignment = BoxContainer.ALIGNMENT_CENTER
 		_root.add_child(tabs)
-	elif tabs.get_combined_minimum_size().x <= _full_width():
+	elif _tighten(tabs):
 		_root.add_child(tabs)
 	else:
 		var strip := ScrollContainer.new()
@@ -122,19 +120,31 @@ func _build() -> void:
 
 ## Six tabs on a phone: when their words and the kit's padding do not fit the
 ## width, the padding gives way first, then the type steps down one size, so
-## every tab stays on screen and whole.
-func _tighten(tabs: HBoxContainer) -> void:
-	for step in [[4, 0], [2, UiKit.SECONDARY]]:
-		if tabs.get_combined_minimum_size().x <= _full_width():
-			return
+## every tab stays on screen and whole. Measured from the words themselves
+## (the row is not on screen yet, so its own sizes are not settled).
+func _tighten(tabs: HBoxContainer) -> bool:
+	for step in [[10, UiKit.BODY], [4, UiKit.BODY], [2, UiKit.SECONDARY]]:
+		var pad := int(step[0])
+		var fs := int(step[1])
+		if _tabs_width(tabs, pad, fs) > _full_width():
+			continue
 		for t in tabs.get_children():
 			for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 				var sb := (t as Button).get_theme_stylebox(state) as StyleBoxFlat
 				if sb != null:
-					sb.content_margin_left = int(step[0])
-					sb.content_margin_right = int(step[0])
-			if int(step[1]) > 0:
-				(t as Button).add_theme_font_size_override("font_size", int(step[1]))
+					sb.content_margin_left = pad
+					sb.content_margin_right = pad
+			(t as Button).add_theme_font_size_override("font_size", fs)
+		return true
+	return false
+
+
+## The tab row's width at a padding and type size, from its words.
+func _tabs_width(tabs: HBoxContainer, pad: int, fs: int) -> float:
+	var w := 0.0
+	for t in tabs.get_children():
+		w += UiKit.BOLD.get_string_size((t as Button).text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 2.0 * pad
+	return w + 2.0 * float(maxi(0, tabs.get_child_count() - 1))
 
 
 ## Where your season stands, as the hub says it: your ladder spot big in
