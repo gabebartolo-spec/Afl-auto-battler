@@ -161,21 +161,37 @@ static func _row(host: Control, row: Dictionary, rank: int, wide: bool) -> Contr
 	h.add_child(who)
 	var top := UiKit.hbox(8)
 	who.add_child(top)
-	var nm := UiKit.ellipsis(str(row["name"]), UiKit.NAME, UiKit.TEXT, true)
+	var name_text := str(row["name"])
+	var club_text := GameDB.club_short(club) if club != "" else ""
+	var name_w := UiKit.BOLD.get_string_size(name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, UiKit.NAME).x + 2.0
+	var club_w := UiKit.BOLD.get_string_size(club_text, HORIZONTAL_ALIGNMENT_LEFT, -1, UiKit.SECONDARY).x + 2.0
+	# Beside his name while both fit; a long name puts the club at the head
+	# of the line under it, never cut to a letter.
+	var room := float(host.call("content_width")) - (16.0 + RANK_W + 24.0 + FIG_W + 40.0)
+	var beside := name_w + 8.0 + club_w <= room
+	var nm := UiKit.ellipsis(name_text, UiKit.NAME, UiKit.TEXT, true)
 	nm.name = "Name"
-	nm.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	nm.custom_minimum_size.x = minf(UiKit.BOLD.get_string_size(str(row["name"]), HORIZONTAL_ALIGNMENT_LEFT, -1,
-			UiKit.NAME).x + 2.0, 190.0 if not wide else 320.0)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL if not beside else Control.SIZE_SHRINK_BEGIN
+	if beside:
+		nm.custom_minimum_size.x = name_w
 	top.add_child(nm)
-	var cl := UiKit.ellipsis(GameDB.club_short(club) if club != "" else "", UiKit.SECONDARY, UiKit.TEXT if mine else UiKit.MUTED, mine)
-	cl.name = "Club"
-	cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.add_child(cl)
+	var club_ink := UiKit.TEXT if mine else UiKit.MUTED
+	if beside:
+		var cl := UiKit.line(club_text, UiKit.SECONDARY, club_ink, mine)
+		cl.name = "Club"
+		top.add_child(cl)
 	var games := int(row["games"])
+	var under := UiKit.hbox(0)
+	who.add_child(under)
+	if not beside and club_text != "":
+		var cl := UiKit.line(club_text + " · ", UiKit.SECONDARY, club_ink, mine)
+		cl.name = "Club"
+		under.add_child(cl)
 	var quiet := UiKit.ellipsis("%d %s · %d for the season" % [games, "game" if games == 1 else "games",
 			int(round(float(row["total"])))], UiKit.SECONDARY, UiKit.MUTED)
 	quiet.name = "Season"
-	who.add_child(quiet)
+	quiet.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	under.add_child(quiet)
 	var pg := UiKit.figure("%.1f" % float(row["per_game"]), UiKit.NUMBER, UiKit.TEXT)
 	pg.name = "PerGame"
 	pg.custom_minimum_size.x = FIG_W

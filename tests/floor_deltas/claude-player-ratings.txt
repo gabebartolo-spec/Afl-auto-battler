@@ -1,1 +1,1 @@
-stats +30
+stats +32

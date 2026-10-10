@@ -232,6 +232,15 @@ func _ratings_section(sz: Vector2i) -> void:
 		if pg != null and not _label_fits(pg):
 			off.append("PerGame")
 	_check(off.is_empty(), "Nothing on the Ratings rows is cut off (%s: %s)" % [tag, str(off)])
+	# Whose team he plays for, by name, on every row and never cut to a letter.
+	var club_bad := []
+	for r in rows:
+		var w: Dictionary = by_id.get(str(r.name).trim_prefix("RatingRow_"), {})
+		var cl: Label = (r as Node).find_child("Club", true, false)
+		var want_club := str(root.get_node("GameDB").club_short(str(w.get("club", ""))))
+		if cl == null or not cl.text.begins_with(want_club) or not _label_fits(cl) or (r as Node).find_child("ClubMark", true, false) == null:
+			club_bad.append(str(r.name))
+	_check(club_bad.is_empty(), "Every row names the player's club in full, with its guernsey (%s: %d bad, %s)" % [tag, club_bad.size(), str(club_bad.slice(0, 3))])
 	# A real tap on a row opens his season.
 	if not rows.is_empty():
 		var got: String = await Tap.tap(rows[0])
