@@ -1356,6 +1356,11 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 					on_change.call(id)
 				self_ref.call(self_ref)))
 		grid.add_child(other)
+		# On a PC, cards with a detail line sit together in their own row and
+		# "Other player..." beside the none choice: two short buttons share a
+		# row instead of each standing beside a tall card.
+		if _pc_break and detail.is_valid():
+			grid.move_child(other, 1)
 		if _pc_break:
 			for gb in grid.get_children():
 				(gb as Control).custom_minimum_size.y = 40.0
