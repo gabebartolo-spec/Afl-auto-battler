@@ -511,7 +511,22 @@ func _roam_chance(def_side: int) -> float:
 		return 0.0
 	# A strong strategy only with a strong intercepting defender (director,
 	# 2026-10-10): a poor reader of the ball seldom gets there at all.
-	var chance := LOOSE_REACH_MIN + LOOSE_REACH_RANGE * _loose_read(p)
+	return _roam_drag(def_side, LOOSE_REACH_MIN + LOOSE_REACH_RANGE * _loose_read(p))
+
+
+## Chance the loose defender leaves his post for this entry at all, whatever
+## his read (LOOSE_GO). Above _roam_chance he goes but is late (director,
+## 2026-10-11): a poor reader goes as often as a good one, and pays for it.
+func _roam_go_chance(def_side: int) -> float:
+	if _roaming_interceptor(def_side).is_empty():
+		return 0.0
+	return _roam_drag(def_side, LOOSE_GO)
+
+
+## A loose defender's chance cut by what keeps him from the contests: zone
+## intercepts share them out (ROAM_REACH), and a forward sent to him drags
+## him away (MINDER_ROAM).
+func _roam_drag(def_side: int, chance: float) -> float:
 	if zone_intercepts:
 		chance *= ROAM_REACH
 	var minder := _spare_minder(1 - def_side)
@@ -1686,6 +1701,13 @@ const LOOSE_READ_SPAN := 26.0
 ## a top one adds.
 const LOOSE_REACH_MIN := 0.06
 const LOOSE_REACH_RANGE := 0.7
+## How often he leaves his post for an entry: as often as a top reader gets
+## there, so a poor reader goes just as often and arrives late instead.
+const LOOSE_GO := LOOSE_REACH_MIN + LOOSE_REACH_RANGE
+## How much more dangerous the entry is when he went and got there late, for
+## the poorest reader: {unmarked, marked}. He isn't there at all, so the space
+## behind him is bigger than when he flies and loses (0.08 / 0.15).
+const LOOSE_LATE_SPACE := {"unmarked": 0.12, "marked": 0.20}
 ## The most he makes the mark harder, for a top reader.
 const LOOSE_MARK_EDGE := 0.5
 ## The share of his spoil a poor reader still gets.
@@ -2465,15 +2487,25 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	# The loose interceptor can arrive as a third man: an extra body at the
 	# contest, not a replacement. The defender who met the ball (his direct
 	# opponent, or the line's) is still in it; the spare adds his own fist
-	# or hands on top (_roam_spoil, LOOSE_EXTRA).
+	# or hands on top (_roam_spoil, LOOSE_EXTRA). He leaves his post on a
+	# share of entries whatever his read (_roam_go_chance); his read decides
+	# whether he gets there in time. Late, he is not in the contest, but the
+	# space he left is (below). One draw, so a top reader plays as before.
 	var roaming := false
+	var late := false
 	var roamer := _roaming_interceptor(opp)
 	var roam_shift := 0.0
-	if not roamer.is_empty() and str(roamer.get("id", "")) != str(defender.get("id", "")) 			and aerial_rng.randf() < _roam_chance(opp):
-		roaming = true
-		roam_shift = _roam_mark_shift(roamer)
-		_t(opp, "roam_contests")
-		_p(roamer, "roam_contests")
+	if not roamer.is_empty() and str(roamer.get("id", "")) != str(defender.get("id", "")):
+		var u := aerial_rng.randf()
+		if u < _roam_chance(opp):
+			roaming = true
+			roam_shift = _roam_mark_shift(roamer)
+			_t(opp, "roam_contests")
+			_p(roamer, "roam_contests")
+		elif u < _roam_go_chance(opp):
+			late = true
+			_t(opp, "roam_late")
+			_p(roamer, "roam_late")
 
 	# A marking infringement is paid from the contest itself, not from a
 	# post-chain generic dice roll.
@@ -2581,14 +2613,18 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	if ground_lost:
 		goal_p = 0.0  # beaten to it at ground level: the defence clears
 		behind_p = 0.0
-	# If the spare flies and does not kill the ball, the space behind him is
-	# the price of the role: the resulting chance is slightly more dangerous.
-	# A good reader picks his moment, so leaves less space when he misses.
-	if roaming and not spoilt:
+	# If the spare flies and does not kill the ball, or goes and gets there
+	# late, the space behind him is the price of the role: the resulting
+	# chance is slightly more dangerous. A good reader picks his moment, so
+	# leaves less space when he misses.
+	if (roaming or late) and not spoilt:
 		var gap := 1.0 - _loose_read(roamer)
-		goal_p *= 1.0 + (0.15 if marked else 0.08) * gap
+		if late:
+			goal_p *= 1.0 + float(LOOSE_LATE_SPACE["marked" if marked else "unmarked"]) * gap
+		else:
+			goal_p *= 1.0 + (0.15 if marked else 0.08) * gap
 		behind_p *= 1.0 + 0.05 * gap
-		if not marked:
+		if roaming and not marked:
 			_p(roamer, "roam_losses")
 	# Beaten in the air by his direct opponent, a key forward rarely gets the
 	# shot himself: the ball spills or the defender clears it.

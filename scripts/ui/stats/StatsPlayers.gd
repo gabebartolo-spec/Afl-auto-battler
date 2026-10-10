@@ -207,7 +207,13 @@ static func open_filters(host: Control) -> void:
 
 
 ## Rank by a stat: it leads, most first, and its group is the table's.
+## Player rating opens on Per game, as the game ranks it (director, 2026-10-11);
+## leaving it goes back to Totals.
 static func pick_stat(key: String) -> void:
+	if key == "rating":
+		_per_game = true
+	elif _sort == "rating":
+		_per_game = false
 	for g in GROUPS:
 		for c in g[2]:
 			if str(c[0]) == key:

@@ -1,5 +1,6 @@
 extends RefCounted
 
+const Tap := preload("res://tests/tap.gd")
 var failures: Array[String] = []
 var checks := 0
 
@@ -21,6 +22,16 @@ func run() -> void:
 	GameState.delete_saved_career()
 	GameState.replay_seed = 0
 	print("Workload tests: %d checks, %d failures" % [checks, failures.size()])
+
+
+## A finger's tap on b where it sits on screen (tests/tap.gd), checked; if
+## something else takes the tap, the press goes through the handler so the
+## rest of the flow is still tested.
+func _press(b: Button, what: String) -> void:
+	var why: String = await Tap.tap(b)
+	_check(why == "", "A finger's tap reaches %s (%s)" % [what, why if why != "" else "it did"])
+	if why != "" and is_instance_valid(b):
+		b.emit_signal("pressed")
 
 
 func _check(ok: bool, message: String) -> void:
@@ -269,7 +280,7 @@ func _test_ui() -> void:
 	var budget_tab := offseason.find_child("Tab_budget", true, false) as Button
 	_check(budget_tab != null, "The off-season exposes the annual Budget tab")
 	if budget_tab != null:
-		budget_tab.emit_signal("pressed")
+		await _press(budget_tab, "the Budget tab")
 		for i in range(4):
 			await tree.process_frame
 	var budget_summary := offseason.find_child("BudgetSummary", true, false) as Label
