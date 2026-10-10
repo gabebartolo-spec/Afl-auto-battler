@@ -57,9 +57,11 @@ const CAPTION_TOUCH := 1.0
 ## it (ROADMAP §1.11: a clear turnover cue; tackles where the ball is kept or
 ## held in are not turnovers and carry no label).
 const CAPTION_TURNOVER := 1.1
-## The turnover's shake: restrained and short, gone in a quarter of a second.
-const SHAKE_TIME := 0.25
-const SHAKE_PX := 3.0
+## The turnover's shake: short, gone in under a third of a second. Its size is a
+## share of the oval's height, so it reads the same on a phone and a PC (the canvas
+## is scaled from a 1280 base: a fixed 3 units was about one real pixel on a phone).
+const SHAKE_TIME := 0.3
+const SHAKE_SHARE := 0.012
 ## What restarts play: whoever wins the ball after one of these has not turned
 ## it over.
 const RESTARTS := ["goal", "behind", "quarter", "ballup", "throwin", "free", "fifty",
@@ -446,9 +448,11 @@ func _stripe(c: Vector2, a: float, b: float, x0: float, x1: float) -> PackedVect
 func _draw() -> void:
 	if _shake > 0.0:
 		# Fades out as it ends; two frequencies so it isn't a single sway.
+		# Timed by the shake itself, not the wall clock, so a recording shows it as played.
 		var k := _shake / SHAKE_TIME
-		var t := Time.get_ticks_msec() / 1000.0
-		draw_set_transform(Vector2(sin(t * 83.0), cos(t * 61.0)) * SHAKE_PX * k)
+		var t := SHAKE_TIME - _shake
+		var amp := pitch_rect().size.y * SHAKE_SHARE * k
+		draw_set_transform(Vector2(sin(t * 83.0), cos(t * 61.0)) * amp)
 	var r := pitch_rect()
 	if r.size.x < 8.0 or r.size.y < 8.0:
 		return
