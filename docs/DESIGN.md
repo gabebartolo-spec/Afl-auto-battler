@@ -401,8 +401,9 @@ not a 1.55x magnet, so a focused game stays in the low 30s (hard ceiling mid-30s
 in the probe) instead of 50–80. Team disposal volume is unchanged — the fade
 only changes who is chosen. The same curve is in `tools/sim_harness.py`.
 
-`tools/sim_harness.py` runs the engine over hundreds of matches and compares the
-output against the per-team-per-game averages implied by the real harvested data.
+`tests/run_calibration_tests.gd` (the `calibration` suite) plays seeded games of
+the shipped engine and compares per-team-per-game totals with the real 2026
+averages. The figures below are from the original Python harness run.
 With all 18 clubs loaded and the usage fade on, disposals, kicks, handballs,
 marks and inside 50s stay within a few percent of the 2026 totals. Behinds and
 rebound 50s sit lower (about 0.86–0.87) because a different carrier changes
@@ -412,9 +413,10 @@ A 200-match check against the full 18-club file (seed 1234): disposals 1.01,
 kicks 1.00, handballs 1.01, marks 1.02, inside 50s 1.00, score 0.94. Behinds
 0.86 and rebound 50s 0.87 are the outliers. Average margin about 29 points.
 
-> `tools/sim_harness.py` is a **tuning harness, not shipped game code**. It is a
-> deliberate Python mirror of `scripts/sim/MatchSim.gd`. When a constant changes
-> in one, change it in the other.
+> `tools/sim_harness.py` is **not shipped game code**. Its match half (a Python
+> mirror of `scripts/sim/MatchSim.gd`) is stale since 2026-10-08 and is not
+> maintained; `Ratings.T` is the source of truth. Its ratings half stays a live
+> mirror of `Ratings.gd` (`build_history.py` and `render_preview.py` import it).
 
 ### Matchday screen
 The live match answers five questions at a glance: the score, the clock, who
@@ -899,7 +901,7 @@ scripts/
     SeasonReviewScene.gd  the flag, your record, final ladder, awards, club achievements
 scenes/                thin .tscn wrappers - a root Control + its script
 tools/
-  sim_harness.py       calibration harness (run this after any engine change)
+  sim_harness.py       ratings mirror; match half stale (run the calibration suite instead)
   intake_harness.py    projection/intake/rollover harness + draft-class CSV checks
   scrape_afltables.py  re-harvests the dataset, with the <6-game 2025 fallback
   validate_data.py     checks 220 club x column aggregates vs published totals
