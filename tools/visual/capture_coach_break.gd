@@ -83,6 +83,9 @@ func _run() -> void:
 	await _frames(8)
 	await _shoot(scene.find_child("TagPicker", true, false), out + "_tag.png")
 	await _frames(8)
+	# The loose interceptor call: question, cards, his intercepts so far.
+	await _shoot(scene.find_child("LooseBlock", true, false), out + "_loose.png")
+	await _frames(8)
 	# A long plan line: the longest names on either side, every call set.
 	var side := int(scene.get("_my_side"))
 	var mine: Array = scene.call("_roster_side", side)

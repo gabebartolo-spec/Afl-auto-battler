@@ -46,6 +46,7 @@ func _run() -> void:
 		await _coach_descriptions(sz)
 		await _tag_targets(sz)
 		await _minder_cards(sz)
+		await _loose_interceptor(sz)
 	await _tag_not_saved()
 	await _bounce_close_up()
 	await _playtest_bounce_scene()
@@ -740,6 +741,77 @@ func _tag_targets(sz: Vector2i) -> void:
 	_check(str((sim.tactics[me] as Dictionary).get("tag_id", "")) == "", "A tag on anyone but a midfielder ends the tag (%s)" % tag)
 	m.queue_free()
 	await _settle()
+
+
+## Loose interceptor (director, 2026-10-11): the question, a card per
+## defender with his position, Intercept and the Interceptor trait, the cost
+## line as it was, and your loose man's intercepts so far - the number is his
+## match stat in the sim, and with no loose man there is no line. Real taps.
+func _loose_interceptor(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	var notes = load("res://scripts/ui/match/MatchNotes.gd")
+	var Mu = load("res://scripts/sim/Matchups.gd")
+	for named in [true, false]:
+		_state.reset()
+		_state.start_season("COL", db.club_list("COL"))
+		root.size = sz
+		_check(_state.prepare_interactive_match(), "A live match is prepared for the loose interceptor (%s)" % tag)
+		var sim = _state.pending_sim
+		var me := int(sim.moment_side)
+		var loose: Dictionary = Mu.best_interceptor((sim.squads[me] as Object).ground, 0.0) if named else {}
+		sim.coach_interceptor(me, str(loose.get("id", "")))
+		sim.run_quarter()
+		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+		root.add_child(m)
+		await _settle()
+		var box: Node = m.find_child("CoachBox", true, false)
+		var block: Node = box.find_child("LooseBlock", true, false) if box != null else null
+		_check(block != null, "Quarter time shows the loose interceptor call (%s, named %s)" % [tag, named])
+		if block == null:
+			m.queue_free()
+			await _settle()
+			continue
+		var tally: Label = block.find_child("LooseTally", true, false)
+		var id := str(sim.interceptor[me])
+		if not named:
+			_check(id == "" and tally == null, "With no loose man there is no intercepts line (%s: %s)" % [tag, id])
+			m.queue_free()
+			await _settle()
+			continue
+		# The number comes from the sim's own count, not from the line.
+		var n := int(float((sim.player_stats.get(id, {}) as Dictionary).get("intercepts", 0.0)))
+		var who: String = db.player_display_name_by_id(id, "")
+		_check(tally != null and tally.text == notes.loose_tally_line(who, n)
+				and (tally.text.contains("%d intercept" % n) if n > 0 else tally.text.contains("no intercepts yet")),
+				"The line says his intercepts this match, %d (%s: %s)" % [n, tag, tally.text if tally else "-"])
+		var ask: Label = block.find_child("LooseQuestion", true, false)
+		_check(ask != null and ask.text == notes.loose_question(), "The call asks who plays loose behind the ball (%s)" % tag)
+		_check(_text(box).contains("He leaves his direct man to attack aerial balls. Another defender covers where possible; if he flies and loses, space opens behind him."),
+				"The cost line stays word for word (%s)" % tag)
+		var bad := []
+		var shown := 0
+		for b in block.find_children("InterceptorPickerGrid_*", "Button", true, false):
+			var bid := str(b.name).trim_prefix("InterceptorPickerGrid_")
+			if bid == "":
+				continue
+			shown += 1
+			var p: Dictionary = {}
+			for q in (sim.squads[me] as Object).ground:
+				if str(q["id"]) == bid:
+					p = q
+			var want := "Intercept %d" % roundi(float((p.get("attr", {}) as Dictionary).get("intercept", 0.0)))
+			if p.is_empty() or not b.text.contains(want) or b.text.contains("Interceptor") != bool(load("res://scripts/sim/Traits.gd").has(p, "interceptor")):
+				bad.append(bid)
+			if b.size.y + 1.0 < b.get_combined_minimum_size().y:
+				bad.append(bid + " cut")
+		_check(shown >= 1 and bad.is_empty(), "Every card shows his Intercept and the trait, none cut off (%s: %d %s)" % [tag, shown, str(bad)])
+		var none_b: Button = block.find_child("InterceptorPickerGrid_", true, false)
+		var w: String = await Tap.tap(none_b)
+		await _settle()
+		_check(w == "", "A finger reaches the loose interceptor call (%s: %s)" % [tag, w])
+		m.queue_free()
+		await _settle()
 
 
 ## A live match is not saved: a career saved and loaded mid-match comes back
