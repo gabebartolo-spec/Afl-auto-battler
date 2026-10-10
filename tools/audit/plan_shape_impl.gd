@@ -23,7 +23,10 @@ const POSS := ["kick", "handball", "mark", "receive", "pass", "rebound"]
 ## Events after which the next possession is a restart, not a turnover.
 const RESET := ["goal", "behind", "quarter", "ballup", "throwin", "final"]
 const KEYS := ["margin", "territory", "win_back_fp", "win_backs", "lose_fp", "pressure_n", "pressure_fp",
-		"kick_share", "kick_gain", "chain_len", "stoppages", "star_share"]
+		"kick_share", "kick_gain", "chain_len", "stoppages", "star_share",
+		# The press pilot (2026-10-11): where we win it back and lock it in, and
+		# what it costs when they get out (their kicks out of their back third).
+		"win_back_fwd_share", "stoppages_fwd", "their_escape_gain", "their_press_broken"]
 
 
 func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
@@ -49,6 +52,7 @@ func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
 		if stars.has(str(p["id"])):
 			star_disp += d
 	out["star_share"] = [star_disp / maxf(1.0, own_disp), 1.0]
+	out["their_press_broken"] = [float(((res["team"] as Array)[1] as Dictionary).get("press_broken", 0.0)), 1.0]
 	return out
 
 
@@ -64,6 +68,9 @@ func _fingerprint(events: Array) -> Dictionary:
 	var kicks := 0.0
 	var handballs := 0.0
 	var stoppages := 0.0
+	var stoppages_fwd := 0.0
+	var wins_fwd := 0.0
+	var esc := _Acc.new()
 	var prev_side := -1
 	var prev_kind := ""
 	var prev_fp := 0.0
@@ -74,6 +81,8 @@ func _fingerprint(events: Array) -> Dictionary:
 		var f := float(e.get("fp", 0.0))
 		if kind in ["ballup", "throwin"]:
 			stoppages += 1.0
+			if f > 0.0:
+				stoppages_fwd += 1.0
 		if kind in ["pressure", "tackle"] and side == 0:
 			press.add(f)
 		if RESET.has(kind):
@@ -93,10 +102,15 @@ func _fingerprint(events: Array) -> Dictionary:
 				handballs += 1.0
 			if prev_side == 1:
 				win_fp.add(f)
+				if f > 0.0:
+					wins_fwd += 1.0
 			if prev_side == 0 and prev_kind == "kick":
 				gain.add(f - prev_fp)
 			run += 1
 		else:
+			# Their kick out of their back third (home fp above the zone edge).
+			if prev_side == 1 and prev_kind == "kick" and prev_fp > MatchSim.PRESS_ZONE_EDGE:
+				esc.add(prev_fp - f)
 			if prev_side == 0:
 				lose_fp.add(f)
 				chains.add(float(run))
@@ -107,7 +121,9 @@ func _fingerprint(events: Array) -> Dictionary:
 	return {"territory": terr.out(), "win_back_fp": win_fp.out(), "win_backs": [float(win_fp.n), 1.0],
 		"lose_fp": lose_fp.out(), "pressure_n": [float(press.n), 1.0], "pressure_fp": press.out(),
 		"kick_share": [kicks / maxf(1.0, kicks + handballs), 1.0 if kicks + handballs > 0.0 else 0.0],
-		"kick_gain": gain.out(), "chain_len": chains.out(), "stoppages": [stoppages, 1.0]}
+		"kick_gain": gain.out(), "chain_len": chains.out(), "stoppages": [stoppages, 1.0],
+		"win_back_fwd_share": [wins_fwd / maxf(1.0, float(win_fp.n)), 1.0 if win_fp.n > 0 else 0.0],
+		"stoppages_fwd": [stoppages_fwd, 1.0], "their_escape_gain": esc.out()}
 
 
 class _Acc:
