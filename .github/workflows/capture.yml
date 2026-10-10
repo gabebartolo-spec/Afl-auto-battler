@@ -7,6 +7,8 @@ name: Capture
 #   gh workflow run capture.yml --ref <branch> -f tool=capture_match \
 #       -f args="--seed 42 --kind goal --nth 2"
 #   gh run download <run-id> -n capture-capture_match
+#   gh workflow run capture.yml --ref <branch> -f tool=capture_feel \
+#       -f args="--effect hub" -f movie_maker=true      (a clip with its sound)
 #
 # tool  the script in tools/visual, without .gd
 # args  what the script reads after "--" (the workflow adds --out itself)
@@ -31,6 +33,11 @@ on:
         required: false
         default: false
         type: boolean
+      movie_maker:
+        description: "Film the run at game speed with its sound (Godot's movie maker, 30 fps) into an MP4 (e.g. capture_feel)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -44,6 +51,7 @@ jobs:
       TOOL: ${{ inputs.tool }}
       ARGS: ${{ inputs.args }}
       MOVIE: ${{ inputs.movie }}
+      MOVIE_MAKER: ${{ inputs.movie_maker }}
     steps:
       - uses: actions/checkout@v4
 
@@ -102,12 +110,21 @@ jobs:
           mkdir -p out
           extra=""
           if [ "$MOVIE" = "true" ]; then extra="--movie"; fi
+          # Movie maker: every frame at a fixed 30 fps (game speed whatever the
+          # runner's speed) with the game's own sound, into an AVI.
+          film=""
+          if [ "$MOVIE_MAKER" = "true" ]; then film="--write-movie $PWD/out/$TOOL.avi --fixed-fps 30"; fi
           # ARGS is split on spaces on purpose; it was checked above.
           LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1280x1000x24" \
-            "$HOME/godot/godot" --path . --rendering-method gl_compatibility \
+            "$HOME/godot/godot" --path . --rendering-method gl_compatibility $film \
             --script "tools/visual/$TOOL.gd" -- $ARGS $extra --out "$PWD/out/$TOOL" > capture.log 2>&1
           code=$?
           set +f
+          if [ "$MOVIE_MAKER" = "true" ] && [ -f "out/$TOOL.avi" ]; then
+            ffmpeg -loglevel error -y -i "out/$TOOL.avi" -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" \
+              -c:v libx264 -pix_fmt yuv420p -c:a aac -b:a 128k "out/$TOOL.mp4"
+            rm -f "out/$TOOL.avi"
+          fi
           if [ "$MOVIE" = "true" ] && ls out/"$TOOL"_f*.png > /dev/null 2>&1; then
             ffmpeg -loglevel error -y -framerate 30 -i "out/${TOOL}_f%04d.png" \
               -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -pix_fmt yuv420p "out/$TOOL.mp4"

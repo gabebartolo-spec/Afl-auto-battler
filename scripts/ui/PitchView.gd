@@ -299,7 +299,7 @@ func _cue_turnover(ev: Dictionary) -> void:
 		return
 	_caption = {"tok": tok, "text": "Turnover", "left": CAPTION_TURNOVER, "goal": false,
 			"turnover": true, "side": side}
-	if GameState.screen_shake_on():
+	if GameState.screen_shake_on() and not Feel.reduced:
 		_shake = SHAKE_TIME
 
 
