@@ -1788,6 +1788,22 @@ func _test_bring_the_heat() -> void:
 	_check(CoachReport.pep_summary("heat").contains("much faster") == (heat_pace > fire_pace)
 			and str(CoachReport.PEP_EFFECTS["heat"]).contains("much faster") == (heat_pace > fire_pace),
 			"It says legs burn out much faster only while it costs more legs than Fire them up (%.2f v %.2f)" % [heat_pace, fire_pace])
+	# "It shows next week" only while its extra effort carries into the week's workload.
+	var week_load := [0.0, 0.0]
+	for arm in range(2):
+		var wsim := _sim(8500, "ADE", "SYD")
+		wsim.set_tactics(1, {"pep": "heat" if arm == 1 else "steady"})
+		var wr := wsim.run()
+		var squad := []
+		for pl in (wsim.squads[1] as Squad).ground:
+			squad.append((pl as Dictionary).duplicate(true))
+		Workload.advance_week({"SYD": squad}, [wr], "heat-week")
+		for pl in squad:
+			week_load[arm] += Workload.value(pl)
+	var shows: bool = week_load[1] > week_load[0]
+	_check(CoachReport.pep_summary("heat").contains("next week") == shows
+			and str(CoachReport.PEP_EFFECTS["heat"]).contains("next week") == shows,
+			"It says it shows next week only while its effort carries into the week's load (%.0f against %.0f)" % [week_load[1], week_load[0]])
 
 
 ## A tag is a midfield job: a forward kicking a bag never gets a tag card

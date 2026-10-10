@@ -27,7 +27,7 @@ const PEP_EFFECTS := {
 	"steady": "No change.",
 	"fire_up": "A lift at the contest while you are chasing the game; level or in front it does nothing for you. Either way legs go quicker and tempers fray.",
 	"calm": "Settle them down: fewer errors, less rattled by pressure and legs last longer, but less ground gained.",
-	"heat": "Get on top of their ball carriers: more turnovers forced and more tackles laid, but legs burn out much faster.",
+	"heat": "Get on top of their ball carriers: more turnovers forced and more tackles laid, but legs burn out much faster, and it shows next week.",
 }
 
 ## What each plan does and gives up, in football words, from MatchSim.PLANS.
@@ -47,7 +47,7 @@ const PEP_SUMMARY := {
 	"steady": "Keep them as they are: no lift at the contest, and no settling either.",
 	"fire_up": "A lift at the contest when you are chasing the game; legs go quicker and tempers fray.",
 	"calm": "Fewer errors and less rattled by pressure, legs last longer; less ground gained.",
-	"heat": "Harder pressure on their ball carriers forces more turnovers; legs burn out much faster.",
+	"heat": "Harder pressure on their ball carriers forces more turnovers; legs burn out much faster, and it shows next week.",
 }
 
 const TEAM_COMPARE := [
