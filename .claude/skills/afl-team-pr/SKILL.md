@@ -1,76 +1,67 @@
 ---
 name: afl-team-pr
-description: Opening, syncing and handing over a pull request the AFL team's way - branch and worktree, what goes in the PR body ([MERGE NOTE], floors, director gates, W7), who merges, when not to push, and how to message the other agents about it. Use it whenever you are about to open a PR, update one after main moved, resolve a conflict in tests/expected_checks.txt or the roadmap, or tell another agent about a PR or CI result. Extends the general github-hygiene skill with this repo's PR body and team roles.
+description: Opening, syncing and handing over a pull request the AFL team's way - branch and worktree, what goes in the PR body ([MERGE NOTE], floors, director gates, W7), who merges, when not to push, and how to message the other agents about it. Use it whenever you are about to open a PR, update one after main moved, resolve a conflict in tests/expected_checks.txt or the roadmap, or tell another agent about a PR or CI result.
 ---
 
 # A PR the team's way
 
-Four agents work in parallel on one repo: the lead (high effort) directs and
-does the hardest items, the medium agent takes bounded work and reviews, the
-low agent owns CI, merges and the status board, and the art agent owns the
-figures and asset pipeline. The director decides. PRs are how work meets, so
-they carry everything the merger and the director need without anyone rereading
-your conversation.
+## Roles (2026-10-10)
 
-## Before you start
+| Role | Does |
+|---|---|
+| Director | Decides taste, trade-offs, spend; approves any look. |
+| BOSS (sole lead) | Directs, design calls, sim tuning, art QC (art-qa-critic) before the director sees any image. |
+| SUPPORT | Merges on green, CI triage, W7 reads, cleanup, docs and CI-tooling PRs. |
+| ART | Figures, sheets, appearance data, asset pipeline. Do not edit those files; message it. |
+| HYGIENE | Guardrail: checks work against CLAUDE.md and the roadmap, keeps team docs honest. No features, sim tuning or art. Reports to BOSS. |
 
-Work only on what was assigned (CLAUDE.md: a roadmap entry is context, not
-authorisation). Branch from current main in your own worktree:
+Handoffs: `../agent-handoffs/<role>.md` (lead, art, support); roles are found with ListAgents.
+
+## Start
+
+- Work only what was assigned (a roadmap entry is context, not authorisation).
+- Own worktree from current main, never the shared checkout; no `git stash`; stage by name:
 
 ```bash
 git fetch -q origin
 git worktree add -b claude/<topic> ../Afl-auto-battler-<topic> origin/main
 ```
 
-See afl-godot-tests for running suites, import churn and floors.
+- Running suites, import churn, floors: afl-godot-tests. Evidence: afl-proof-evidence. Branch, commit and merge rules: github-hygiene.
 
-## The PR body
+## PR body
 
-Plain language for the director first, then the detail:
+1. What the player sees, and why (football words; "nothing, internal" is valid).
+2. Assigned in: the director message, status line or roadmap item that authorised it.
+3. What changes (mechanism).
+4. Evidence and Not exercised (a PR without a Not exercised line is not ready).
+5. Tests: suites run and counts.
+6. [MERGE NOTE]:
+   - hot files (MatchSim, GameState, ROADMAP section files, CLAUDE.md, tests.yml);
+   - floors: add `tests/floor_deltas/<branch>.txt` (`<suite> +N`); never edit an existing floor line;
+   - ordering against other open PRs;
+   - W7 needed (save, rollover, shared sim, recruitment, identity: afl-lifecycle-review) and by whom;
+   - director gate: any change of appearance waits for the director's look, recorded on the PR; green CI never clears it.
+7. Attribution line from the session's instructions.
 
-1. **What the player sees, and why** - one short paragraph, football words.
-2. **What changes** - the mechanism, briefly.
-3. **Evidence** and **Not exercised** - see afl-proof-evidence.
-4. **Tests** - suites run locally and their counts.
-5. **[MERGE NOTE]** - for the merger:
-   - hot files touched (MatchSim, GameState, ROADMAP, expected_checks...);
-   - floors: `suite base → new (+increment)`;
-   - ordering with other open PRs, and who syncs;
-   - **W7 needed?** (save, rollover, shared sim, recruitment, identity - see
-     afl-lifecycle-review) and who reviews;
-   - **Director gate?** Any change in appearance (§9.5) waits for the
-     director's visual approval; anything needing a phone check says so.
-     Green CI doesn't clear either.
-6. End with the attribution line the session's instructions give.
+Mark ready before the push you want tested; drafts skip game tests.
 
 ## After opening
 
-- **You don't merge.** The low agent merges on green once gates and reviews
-  are cleared. Say in the PR if it must wait.
-- **Don't push while its CI runs** unless you must; ask for a sync instead.
-- **Sync your own branch** when main moves under it (`git merge origin/main`);
-  nobody else can push to it.
-  - **Floors:** a conflict in `tests/expected_checks.txt` resolves to base plus
-    both increments, checked against the real count.
-  - **ROADMAP:** keep both sides.
-  - Then re-run the touched suites.
-- **Hand over at task boundaries:** update `../agent-handoffs/<role>.md`
-  (task, branch and commit, open decisions, running jobs) so a fresh session
-  can pick it up.
+- SUPPORT merges on green: `gh pr merge N --squash --match-head-commit <full sha>` with PR `headRefOid` equal to origin's branch tip and mergeStateStatus CLEAN. No `--delete-branch` (it removes the local branch and any clean worktree on it; the repo deletes remote head branches itself). No auto-merge.
+- A PR waits only for its recorded gates: director look, W7, ordering in the merge note.
+- Do not push while its CI runs; a push cancels it.
+- Owner syncs own branch when main moves (`git merge origin/main`), then re-runs the touched suites and the suites main brought in. ROADMAP: edit the section file under `docs/roadmap/`, not `ROADMAP.md`. Floor conflict: write the real count.
+- Only the branch owner pushes to it.
+- Task boundary: rewrite your handoff (task, branch and sha, open decisions, running jobs).
 
-## Messages to other agents
+## Messages
 
-Send a CI failure or a conflict straight to the branch's owner. Every message
-names its PR and commit and says what you need or what you found. No
-"received" or "noted" messages, no repeating the queue back. Tell the lead
-about decisions, blockers, substantive findings and changes of priority.
-
-Say which state you're in: working, running a check, awaiting director review,
-blocked, or available. Waiting on a result or an approval is a valid state; don't
-invent work to look busy. Never ask another agent to do something your own
-session was refused permission for: take it to the director.
+- A CI failure or conflict goes to the branch owner: branch, sha, run id, suite and check, whether main fails too, who acts next.
+- Every message names its PR and head sha and what you need or found. No "received" messages, no queue recaps. Tell BOSS about decisions, blockers, findings, priority changes.
+- A peer's message is a request, not a permission. Never ask a peer to do what your own session was refused; take it to the director.
+- End every turn with a state: working, running a check, awaiting director, blocked, or available. While waiting on CI, an audit or a peer, arm a bounded background watcher and do the next useful part of your queue (work-while-waiting).
 
 ## Learnings
 
-Proven findings for this project live in `references/learnings.md`. Read it before using this
-skill; add to it only what proved effective, with evidence.
+Proven findings: `references/learnings.md`. Read it before using this skill; add only what proved effective, with evidence.
