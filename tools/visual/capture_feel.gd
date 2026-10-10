@@ -184,6 +184,9 @@ func _one(effect: String, out: String, secs: float, state, db, club: String) -> 
 				if int(state.my_position()) != before:
 					break
 			print("FEEL ladder %d -> %d" % [before, int(state.my_position())])
+			# Nothing over the hub while filming it: this week's press and sit-down wait.
+			state.media_conference = {}
+			state.backing_talk = {}
 			if effect == "result":
 				state.review_requested = true
 				var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
