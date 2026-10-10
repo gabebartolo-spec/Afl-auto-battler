@@ -87,7 +87,9 @@ func _build() -> void:
 	_pitch = Control.new()
 	_pitch.name = "Pitch"
 	_pitch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_pitch.custom_minimum_size = Vector2(0, 430 if _wide else 600)
+	# On a 1280x720 PC canvas the oval leaves room for the interchange below
+	# it, so the whole side shows without scrolling (director, 2026-10-10).
+	_pitch.custom_minimum_size = Vector2(0, 370 if _wide else 600)
 	_pitch.mouse_filter = Control.MOUSE_FILTER_PASS
 	_pitch.draw.connect(_draw_pitch)
 	_pitch.resized.connect(_place_spots)
@@ -176,7 +178,7 @@ func _build() -> void:
 		bar.add_child(cancel)
 		rest.add_child(bar)
 	else:
-		var hint := UiKit.lbl("Tap a player, then another (or drag one onto another) to swap them.",
+		var hint := UiKit.lbl(("Click" if ScreenLayout.is_desktop() else "Tap") + " a player, then another (or drag one onto another) to swap them.",
 				UiKit.SMALL, UiKit.MUTED)
 		hint.name = "BuilderHint"
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -261,7 +263,7 @@ func _card(id: String, on_field: bool, place: String) -> Button:
 				b.add_theme_stylebox_override(st, sb)
 		if not field_only and Workload.value(p) >= Workload.CARRYING:
 			# How fresh he is, on the card: no profile needed to see it.
-			var ready := UiKit.lbl(Workload.label(p), 10, UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
+			var ready := UiKit.lbl(Workload.label(p), UiKit.TINY, UiKit.BAD if Workload.value(p) >= Workload.NEEDS_BREAK else UiKit.MUTED)
 			ready.name = "Readiness_" + id
 			ready.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			ready.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

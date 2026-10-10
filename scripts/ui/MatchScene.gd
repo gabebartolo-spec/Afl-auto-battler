@@ -40,6 +40,9 @@ var _last_tactics := {}
 var _skipping := false
 var _crowd: CrowdSound = null    # FL-004: the crowd (presentation only)
 var _fulltime_shown := false
+## FL-007: the milestone this match honours after the siren (GameState's banner
+## milestone, read before full time counts the game), or {} for none.
+var _farewell := {}
 var _coach_overlay: Control
 var _sheet_overlay: Control
 var _reflow_queued := false
@@ -90,6 +93,7 @@ func _ready() -> void:
 		_res["events"] = []
 		_my_side = 0 if str(_res["home"]) == GameState.my_club else 1
 		_pos_before = GameState.my_position()
+		_farewell = _farewell_for(GameState.pending_match)
 	else:
 		_res = GameState.last_match
 		_review = GameState.review_requested
@@ -155,6 +159,9 @@ func _mount_body(stack: bool) -> void:
 	if _pitch == null:
 		_pitch = PitchView.new()
 		_pitch.speed = GameState.match_speed()
+		# A phone follows the ball close up because its screen is small; a PC
+		# shows the whole ground (director, 2026-10-09).
+		_pitch.camera_enabled = not ScreenLayout.is_desktop()
 	_pitch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pitch.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	# The feed is a handful of lines (scores, breaks, calls): on a phone the
@@ -277,9 +284,9 @@ func _paint_momentum() -> void:
 		ClubDuel.on_colour(_mom_word)
 	# The first match you watch: once it first moves, one line says what it is.
 	if _interactive and not _mom_note.visible and absf(_momentum) >= MOMENTUM_EVEN \
-			and not bool(GameState.get_setting("seen_momentum_intro", false)):
+			and GameState.intro_due("momentum"):
 		GameState.set_setting("seen_momentum_intro", true)
-		_mom_note.text = "Momentum swings with each goal and fades with time; the side on top wins a little more of the ball. Tap it for more."
+		_mom_note.text = "Momentum swings with each goal and fades with time; the side on top wins a little more of the ball. %s it for more." % ("Click" if ScreenLayout.is_desktop() else "Tap")
 		_mom_note.visible = true
 
 
@@ -539,7 +546,10 @@ func _show_coach_box() -> void:
 	var q := sim.current_quarter
 	# The calls fill the screen at every break, so the actions sit at the
 	# bottom with the choices just above them.
-	var box := UiKit.modal_box(self, 640.0, 0.0, _wash())
+	# On a PC the break is a wide landscape sheet with every call in view
+	# (director, 2026-10-09: "it looks like we are using a mobile UI on a PC").
+	var wide := _wide_break()
+	var box := UiKit.modal_box(self, minf(UiKit.view_width(self) - 48.0, 1560.0) if wide else 640.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "CoachBox"
 	_coach_overlay = overlay
@@ -550,6 +560,27 @@ func _show_coach_box() -> void:
 	var band := ClubDuel.band(str(_res["home"]), str(_res["away"]), bv, 14)
 	band.name = "BreakBand"
 	v.add_child(band)
+	# Wide: the quarter just played, then the calls in two columns. A phone
+	# keeps one column, every call in it.
+	# Below 1100 units the quarter just played sits above two columns.
+	var rep: VBoxContainer = v
+	var col_a: VBoxContainer = v
+	var col_b: VBoxContainer = v
+	var cols: HBoxContainer = null
+	if wide:
+		var three := q > 1 and UiKit.view_width(self) >= 1100.0
+		cols = HBoxContainer.new()
+		cols.name = "BreakColumns"
+		cols.add_theme_constant_override("separation", 32)
+		col_a = UiKit.vbox(8)
+		col_b = UiKit.vbox(8)
+		if three:
+			rep = UiKit.vbox(8)
+			v.add_child(cols)
+		for c in ([rep, col_a, col_b] if three else [col_a, col_b]):
+			c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			c.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			cols.add_child(c)
 	var title := UiKit.heading(str(titles.get(q, "Quarter %d" % q)), UiKit.H1)
 	title.name = "BreakTitle"
 	ClubDuel.on_colour(title)
@@ -572,30 +603,32 @@ func _show_coach_box() -> void:
 		stats.name = "BreakStats"
 		stats.custom_minimum_size = Vector2(0, 44)
 		stats.pressed.connect(_show_break_stats)
-		v.add_child(stats)
-		v.add_child(UiKit.spacer(UiKit.GAP))
+		rep.add_child(stats)
+		rep.add_child(UiKit.spacer(UiKit.GAP))
 		# The quarter just played, by name: what happened, not what is happening.
 		var played := UiKit.section(str({2: "First quarter", 3: "Second quarter",
 				4: "Third quarter"}.get(q, "Last quarter")))
 		played.name = "QuarterHeading"
-		v.add_child(played)
-		v.add_child(_quarter_view(q - 1))
+		rep.add_child(played)
+		rep.add_child(_quarter_view(q - 1))
 		var did := MatchNotes.calls_lines(_res, _my_side, q - 1) \
 				+ MatchNotes.duel_change_lines(_res, _my_side, q - 1) \
 				+ MatchNotes.tag_drop_lines(_res, _my_side, q - 1) \
 				+ MatchNotes.lasting_moment_lines(_res, q - 1)
 		if not did.is_empty():
-			v.add_child(UiKit.spacer(UiKit.GAP))
-			v.add_child(UiKit.section("What your calls did"))
+			rep.add_child(UiKit.spacer(UiKit.GAP))
+			rep.add_child(UiKit.section("What your calls did"))
 			var dv := UiKit.vbox(4)
 			dv.name = "CallsDid"
 			for t in did:
 				var dl := UiKit.lbl(str(t), UiKit.BODY, UiKit.TEXT)
 				dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				dv.add_child(dl)
-			v.add_child(dv)
-	v.add_child(UiKit.spacer(UiKit.GAP))
-	v.add_child(UiKit.section("Your calls" if q == 1 else "Next quarter"))
+			rep.add_child(dv)
+	rep.add_child(UiKit.spacer(UiKit.GAP))
+	if cols != null and cols.get_parent() == null:
+		v.add_child(cols)
+	col_a.add_child(UiKit.section("Your calls" if q == 1 else "Next quarter"))
 
 	# Your calls, as taps: nothing here is a settings form. Short lists sit
 	# in plain view; a player list shows the few in the game so far and
@@ -626,8 +659,8 @@ func _show_coach_box() -> void:
 			t += " " + fit
 		plan_note.text = t
 	var plan := _choice_grid("PlanPicker", GAMEPLANS, calls, "gameplan", 2 if narrow else 3, sync_note)
-	v.add_child(_call_block("Gameplan", plan))
-	v.add_child(plan_note)
+	col_a.add_child(_call_block("Gameplan", plan))
+	col_a.add_child(plan_note)
 	sync_note.call(str(calls["gameplan"]))
 
 	# Tag: their most influential so far first, anyone on the ground a tap away.
@@ -650,15 +683,17 @@ func _show_coach_box() -> void:
 					else "No specialist tagger on the ground: %s goes to him and gives up his own game.") % GameDB.player_display_name(tagger)
 	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, 4), calls, "tag_id",
 			"Tag which midfielder?", sync_tag)
-	v.add_child(_call_block("Tag", tag))
+	col_a.add_child(_call_block("Tag", tag))
 	sync_tag.call(str(calls["tag_id"]))
-	v.add_child(tag_note)
+	col_a.add_child(tag_note)
 
 	# Key match-ups: who is on their key forwards, how the contests went last
 	# quarter, and yours against their defenders. Change one in a tap.
+	# In three columns they sit under the quarter just played, so no column
+	# stands half empty (director, 2026-10-10).
 	var mv := _matchups_view(sim, q)
 	if mv != null:
-		v.add_child(mv)
+		(rep if rep != v else col_a).add_child(mv)
 	# Their loose defender, answered by a person: one of your forwards goes up
 	# the ground with him. Facts only - who is a Defensive forward shows on
 	# his name; the choice is yours.
@@ -667,7 +702,7 @@ func _show_coach_box() -> void:
 		var fwds := Matchups.minder_candidates(my_ground)
 		var minder := _player_choice("SpareMinderPicker", "Nobody", fwds, fwds.slice(0, mini(3, fwds.size())),
 				calls, "minder_id", "Who goes to him?")
-		v.add_child(_call_block("Their loose defender", minder))
+		col_a.add_child(_call_block("Their loose defender", minder))
 		var dfs := fwds.filter(func(p): return Traits.has(p, "def_forward")).map(func(p): return GameDB.player_display_name(p))
 		var who := ("Defensive forwards on the ground: %s." % ", ".join(dfs)) if not dfs.is_empty() 				else "No Defensive forward on the ground."
 		var minder_note := UiKit.lbl(
@@ -676,21 +711,11 @@ func _show_coach_box() -> void:
 				UiKit.SMALL, UiKit.MUTED)
 		minder_note.name = "MinderNote"
 		minder_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(minder_note)
+		col_a.add_child(minder_note)
 
-	# The rest of the calls, one tap away: the plan and the tag are the
-	# decisions most breaks turn on.
-	var more := UiKit.vbox(8)
-	more.name = "MoreCalls"
-	more.visible = false
-	var more_btn := UiKit.btn("More calls", UiKit.BODY)
-	more_btn.name = "MoreCallsToggle"
-	more_btn.custom_minimum_size = Vector2(0, 44)
-	more_btn.pressed.connect(func():
-		more.visible = not more.visible
-		more_btn.text = "Fewer calls" if more.visible else "More calls")
-	v.add_child(more_btn)
-	v.add_child(more)
+	# The rest of the calls, all in view (director, 2026-10-09: no "More
+	# calls" button).
+	var more: VBoxContainer = col_b
 	var syn_line := _synergy_line()
 	if syn_line != "":
 		var sl := UiKit.lbl(syn_line, UiKit.SMALL, UiKit.MUTED)
@@ -728,14 +753,17 @@ func _show_coach_box() -> void:
 	focus_block.add_child(focus_note)
 	more.add_child(focus_block)
 
+	# Three columns: pep talk and rotations sit under the tag, so the columns
+	# end level and the whole sheet fits a 720-unit screen.
+	var tail: VBoxContainer = col_a if rep != v else more
 	var pep_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	pep_note.name = "PepNote"
 	pep_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var sync_pep := func(key: String) -> void:
 		pep_note.text = CoachReport.pep_summary(key)
-	var pep := _choice_grid("PepPicker", PEP_SHORT, calls, "pep", 3, sync_pep)
-	more.add_child(_call_block("Pep talk", pep))
-	more.add_child(pep_note)
+	var pep := _segmented("PepPicker", PEP_SHORT, calls, "pep", sync_pep)
+	tail.add_child(_call_block("Pep talk", pep))
+	tail.add_child(pep_note)
 	sync_pep.call("steady")
 
 	var rot_opts := []
@@ -746,11 +774,11 @@ func _show_coach_box() -> void:
 	rot_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var sync_rot := func(key: String) -> void:
 		rot_note.text = str(MatchSim.ROTATION_POLICIES[key]["text"])
-	var rot := _choice_grid("RotationPicker", rot_opts, calls, "rotation", 3, sync_rot)
-	more.add_child(_call_block("Rotations", rot))
-	more.add_child(rot_note)
+	var rot := _segmented("RotationPicker", rot_opts, calls, "rotation", sync_rot)
+	tail.add_child(_call_block("Rotations", rot))
+	tail.add_child(rot_note)
 	sync_rot.call(_rotation)
-	more.add_child(_legs_view())
+	(rep if rep != v else tail).add_child(_legs_view())
 
 	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", UiKit.HEADING, true)
 	start.name = "StartQuarter"
@@ -770,11 +798,28 @@ func _show_coach_box() -> void:
 		}
 		_close_coach()
 		_simulate_next_quarter(t))
-	box["footer"].add_child(start)
-	var skip := UiKit.btn("Skip to full time", UiKit.BODY)
-	skip.custom_minimum_size = Vector2(0, 44)
+	# One primary action on the break; the way out is said as words.
+	var skip := UiKit.text_action("Skip to full time", UiKit.BODY)
 	skip.pressed.connect(_on_skip)
-	box["footer"].add_child(skip)
+	if wide:
+		# A PC sheet's actions sit together at the right, not as full-width bars.
+		var acts := UiKit.hbox(12)
+		acts.alignment = BoxContainer.ALIGNMENT_END
+		skip.custom_minimum_size = Vector2(220, 48)
+		start.custom_minimum_size = Vector2(300, 48)
+		acts.add_child(skip)
+		acts.add_child(start)
+		box["footer"].add_child(acts)
+	else:
+		box["footer"].add_child(start)
+		box["footer"].add_child(skip)
+
+
+## A landscape PC window wide enough for the break sheet's columns (the
+## Large and TV screen sizes included).
+func _wide_break() -> bool:
+	var w := UiKit.view_width(self)
+	return ScreenLayout.is_desktop() and w >= 760.0 and w > UiKit.view_height(self) * 1.2
 
 
 ## The quarter just played: what stood out, what they ran, how your calls
@@ -1083,6 +1128,16 @@ func _choice_grid(node_name: String, options: Array, calls: Dictionary, field: S
 			on_change.call(key))
 
 
+## Three short words in one line (UiKit.segmented): the plan and the tag
+## keep their grids, where the labels are names and whole phrases.
+func _segmented(node_name: String, options: Array, calls: Dictionary, field: String,
+		on_change: Callable = Callable()) -> Control:
+	return UiKit.segmented(node_name, options, str(calls[field]), func(key: String):
+		calls[field] = key
+		if on_change.is_valid():
+			on_change.call(key))
+
+
 ## A player call: "none", the few in the game so far, whoever is chosen,
 ## and "Other player..." for everyone in `roster` (the caller's choice: the
 ## whole side for a tag, only forwards for their loose defender). Nobody in
@@ -1337,7 +1392,11 @@ func _focus_note_text(id: String) -> String:
 	if id == "":
 		return "Favour this player in possession chains and attacking transition."
 	var p := _focus_player(id)
-	return "%s: %s." % [_focus_text(id), MatchNotes.focus_effect_text(str(p.get("role", "")))]
+	# A sentence: "Jacob van Rooyen is our key forward target: ...".
+	var role := str(p.get("role", ""))
+	var who := GameDB.player_display_name_by_id(id, "your player")
+	var job := str(MatchNotes.FOCUS_ROLES[role][0]) if MatchNotes.FOCUS_ROLES.has(role) else "the one we play through"
+	return "%s is %s: %s." % [who, job, MatchNotes.focus_effect_text(role)]
 
 
 ## "Defensive press · tagging Walsh": your calls for this quarter, one line.
@@ -1539,7 +1598,7 @@ func _goal_row(ev: Dictionary, stamp: String) -> Control:
 	row.add_child(v)
 	var who := str(ev.get("name", ""))
 	var head := "Goal  " + (who if who != "" else GameDB.club_short(code))
-	var hl := UiKit.lbl(head, 17, UiKit.TEXT, true)
+	var hl := UiKit.lbl(head, UiKit.NAME, UiKit.TEXT, true)
 	hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(hl)
 	var g: Array = ev.get("goals", [0, 0])
@@ -1688,7 +1747,44 @@ func _on_finished() -> void:
 	if _interactive:
 		GameState.finish_interactive_match(_res)
 	_sync_controls()
+	# Full time is built at once (its controls exist and work the moment the siren goes);
+	# a milestone game's farewell plays over it on its own layer, and a tap or its end
+	# shows full time underneath.
 	_show_fulltime()
+	if not _farewell.is_empty():
+		var v := FarewellVignette.open(get_tree().root, _farewell["ms"], _farewell["man"],
+				GameState.my_club, str(_farewell["opp"]), _farewell["mine"], _farewell["theirs"],
+				"Full time", str(GameState.pending_match.get("weather", "")) == "wet")
+		_farewell = {}
+		tree_exiting.connect(func():            # Back out of the match: it goes too
+			if is_instance_valid(v):
+				v.finish_now())
+
+
+## Who the scene after the siren honours, and both sides' players: {} unless your
+## side has a milestone man (FarewellVignette.caption) who is in the side today.
+func _farewell_for(match: Dictionary) -> Dictionary:
+	# Vignettes off (Settings) means no scene at all, this one included.
+	if GameState.season == null or GameState.my_club == "" or not GameState.vignettes_on():
+		return {}
+	var ms: Dictionary = GameState.banner_context(match).get("milestone", {})
+	if FarewellVignette.caption(ms) == "":
+		return {}
+	var sq := GameState.my_squad()
+	var mine: Array = sq.ground + sq.bench
+	var man := {}
+	for p in mine:
+		if str(p.get("id", "")) == str(ms.get("id", "")):
+			man = p
+	if man.is_empty():
+		return {}
+	var opp := str(match["away"]) if str(match["home"]) == GameState.my_club else str(match["home"])
+	var season: Season = GameState.season
+	var theirs: Array = []
+	if season.lists.has(opp):
+		var osq := Squad.new(opp, season.lists[opp], false, opp, season.selections.get(opp, {}))
+		theirs = osq.ground + osq.bench
+	return {"ms": ms, "man": man, "opp": opp, "mine": mine, "theirs": theirs}
 
 
 # ---------------------------------------------------------------------------
@@ -2088,9 +2184,9 @@ func _matchups_view(sim: MatchSim, q: int) -> Control:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(l)
-		var b := UiKit.btn("Change", 14)
+		# An editorial row with its action as a word (audit §8 Phase 1.5).
+		var b := UiKit.text_action("Change", UiKit.SECONDARY)
 		b.name = "ChangeMatchup"
-		b.custom_minimum_size = Vector2(96, 44)
 		var f := str(fid)
 		b.pressed.connect(func(): _show_break_matchup(sim, f, l, q))
 		row.add_child(b)

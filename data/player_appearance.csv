@@ -34,7 +34,7 @@ Toby,Murray,2003-11-03,ADE,1,red,confirmed,https://www.afc.com.au/teams/afl
 Hugo,Hall-Kahan,2003-09-22,ADE,2,light_brown,confirmed,https://www.afc.com.au/teams/afl
 Jordon,Butts,1999-12-31,ADE,2,dark_brown,confirmed,https://www.afc.com.au/teams/afl
 Lachlan,McAndrew,2000-05-26,ADE,2,brown,confirmed,https://www.afc.com.au/teams/afl
-Reilly,OBrien,1995-08-20,ADE,2,red,confirmed,https://www.afc.com.au/teams/afl
+Reilly,O'Brien,1995-08-20,ADE,2,red,confirmed,https://www.afc.com.au/teams/afl
 Isaac,Cumming,1998-08-11,ADE,3,black,confirmed,https://www.afc.com.au/teams/afl
 Mark,Keane,2000-03-17,ADE,2,red,confirmed,https://www.afc.com.au/teams/afl
 Kai,Lohmann,2003-05-06,BRL,2,blond,confirmed,https://www.lions.com.au/teams/afl/squad
@@ -104,7 +104,7 @@ Cooper,Lord,2005-03-20,CAR,2,brown,confirmed,https://www.carltonfc.com.au/teams/
 Jordan,Boyd,1998-09-22,CAR,2,light_brown,confirmed,https://www.carltonfc.com.au/teams/afl
 Flynn,Riley,2004-04-05,CAR,2,dark_brown,confirmed,https://www.carltonfc.com.au/teams/afl
 Talor,Byrne,2007-11-14,CAR,2,light_brown,confirmed,https://www.carltonfc.com.au/teams/afl
-Hudson,OKeeffe,2004-12-16,CAR,2,brown,confirmed,https://www.carltonfc.com.au/teams/afl
+Hudson,O'Keeffe,2004-12-16,CAR,2,brown,confirmed,https://www.carltonfc.com.au/teams/afl
 Adam,Saad,1994-07-23,CAR,3,black,confirmed,https://www.carltonfc.com.au/teams/afl
 Ashton,Moir,2005-04-15,CAR,3,black,confirmed,https://www.carltonfc.com.au/teams/afl
 Francis,Evans,2001-08-23,CAR,2,brown,confirmed,https://www.carltonfc.com.au/teams/afl
@@ -187,7 +187,7 @@ Jayden,Nguyen,2006-07-27,ESS,3,black,confirmed,https://www.essendonfc.com.au/tea
 Archer,Day-Wicks,2006-05-13,ESS,2,dark_brown,confirmed,https://www.essendonfc.com.au/teams/afl
 Tom,Edwards,2000-05-20,ESS,2,light_brown,confirmed,https://www.essendonfc.com.au/teams/afl
 Lachlan,Blakiston,1998-09-09,ESS,2,light_brown,confirmed,https://www.essendonfc.com.au/teams/afl
-Jaeger,OMeara,1994-02-23,FRE,2,dark_brown,confirmed,https://www.fremantlefc.com.au/teams/afl
+Jaeger,O'Meara,1994-02-23,FRE,2,dark_brown,confirmed,https://www.fremantlefc.com.au/teams/afl
 Caleb,Serong,2001-02-09,FRE,2,brown,confirmed,https://www.fremantlefc.com.au/teams/afl
 Sean,Darcy,1998-06-12,FRE,2,brown,confirmed,https://www.fremantlefc.com.au/teams/afl
 Heath,Chapman,2002-01-31,FRE,3,black,confirmed,https://www.fremantlefc.com.au/teams/afl
@@ -208,7 +208,7 @@ Jye,Amiss,2003-07-31,FRE,2,brown,confirmed,https://www.fremantlefc.com.au/teams/
 Alex,Pearce,1995-06-09,FRE,3,dark_brown,confirmed,https://www.fremantlefc.com.au/teams/afl
 Hayden,Young,2001-04-11,FRE,1,blond,confirmed,https://www.fremantlefc.com.au/teams/afl
 Neil,Erasmus,2003-12-02,FRE,2,dark_brown,confirmed,https://www.fremantlefc.com.au/teams/afl
-Nathan,ODriscoll,2002-05-17,FRE,2,brown,confirmed,https://www.fremantlefc.com.au/teams/afl
+Nathan,O'Driscoll,2002-05-17,FRE,2,brown,confirmed,https://www.fremantlefc.com.au/teams/afl
 Brandon,Walker,2002-10-17,FRE,5,black,confirmed,https://www.fremantlefc.com.au/teams/afl
 Michael,Frederick,2000-05-17,FRE,6,black,confirmed,https://www.fremantlefc.com.au/teams/afl
 Corey,Wagner,1997-03-23,FRE,2,light_brown,confirmed,https://www.fremantlefc.com.au/teams/afl
@@ -231,7 +231,7 @@ Mitch,Knevitt,2003-01-08,GEE,1,blond,confirmed,https://www.geelongcats.com.au/te
 Mitchell,Edwards,2005-06-02,GEE,2,light_brown,confirmed,https://www.geelongcats.com.au/teams/afl
 Jack,Bowes,1998-01-26,GEE,2,dark_brown,confirmed,https://www.geelongcats.com.au/teams/afl
 Jhye,Clark,2004-07-23,GEE,2,brown,confirmed,https://www.geelongcats.com.au/teams/afl
-Connor,OSullivan,2005-05-19,GEE,2,dark_brown,confirmed,https://www.geelongcats.com.au/teams/afl
+Connor,O'Sullivan,2005-05-19,GEE,2,dark_brown,confirmed,https://www.geelongcats.com.au/teams/afl
 George,Stevens,2005-04-14,GEE,2,light_brown,confirmed,https://www.geelongcats.com.au/teams/afl
 Sam,De Koning,2001-02-26,GEE,1,blond,confirmed,https://www.geelongcats.com.au/teams/afl
 Lawson,Humphries,2003-01-24,GEE,3,black,confirmed,https://www.geelongcats.com.au/teams/afl
@@ -247,7 +247,7 @@ Patrick,Dangerfield,1990-04-05,GEE,2,light_brown,confirmed,https://www.geelongca
 Oliver,Henry,2002-07-29,GEE,2,dark_brown,confirmed,https://www.geelongcats.com.au/teams/afl
 Jack,Henry,1998-08-29,GEE,2,dark_brown,confirmed,https://www.geelongcats.com.au/teams/afl
 Zach,Guthrie,1998-06-30,GEE,2,light_brown,confirmed,https://www.geelongcats.com.au/teams/afl
-Mark,OConnor,1997-01-17,GEE,2,dark_brown,confirmed,https://www.geelongcats.com.au/teams/afl
+Mark,O'Connor,1997-01-17,GEE,2,dark_brown,confirmed,https://www.geelongcats.com.au/teams/afl
 Tom,Stewart,1993-03-15,GEE,2,light_brown,confirmed,https://www.geelongcats.com.au/teams/afl
 Brad,Close,1998-07-30,GEE,2,black,confirmed,https://www.geelongcats.com.au/teams/afl
 Mark,Blicavs,1991-03-28,GEE,2,blond,confirmed,https://www.geelongcats.com.au/teams/afl
@@ -315,7 +315,7 @@ Cody,Angove,2006-05-28,GWS,2,light_brown,confirmed,https://www.gwsgiants.com.au/
 James,Leake,2005-10-02,GWS,2,dark_brown,confirmed,https://www.gwsgiants.com.au/teams/afl
 Toby,McMullin,2004-08-06,GWS,2,dark_brown,confirmed,https://www.gwsgiants.com.au/teams/afl
 Kieren,Briggs,1999-10-06,GWS,2,dark_brown,confirmed,https://www.gwsgiants.com.au/teams/afl
-Xavier,OHalloran,2000-07-11,GWS,2,dark_brown,confirmed,https://www.gwsgiants.com.au/teams/afl
+Xavier,O'Halloran,2000-07-11,GWS,2,dark_brown,confirmed,https://www.gwsgiants.com.au/teams/afl
 Max,Gruzewski,2004-07-21,GWS,2,light_brown,confirmed,https://www.gwsgiants.com.au/teams/afl
 Joe,Fonti,2004-12-24,GWS,2,black,confirmed,https://www.gwsgiants.com.au/teams/afl
 Josaia,Delana,2006-07-01,GWS,4,black,confirmed,https://www.gwsgiants.com.au/teams/afl
@@ -339,7 +339,7 @@ Will,Day,2001-06-05,HAW,2,brown,confirmed,https://www.hawthornfc.com.au/teams/af
 Calsher,Dear,2005-08-04,HAW,2,light_brown,confirmed,https://www.hawthornfc.com.au/teams/afl
 Jack,Scrimshaw,1998-09-04,HAW,2,dark_brown,confirmed,https://www.hawthornfc.com.au/teams/afl
 Blake,Hardwick,1997-02-05,HAW,2,dark_brown,confirmed,https://www.hawthornfc.com.au/teams/afl
-Massimo,DAmbrosio,2003-06-05,HAW,2,dark_brown,confirmed,https://www.hawthornfc.com.au/teams/afl
+Massimo,D'Ambrosio,2003-06-05,HAW,2,dark_brown,confirmed,https://www.hawthornfc.com.au/teams/afl
 Lloyd,Meek,1998-04-22,HAW,2,dark_brown,confirmed,https://www.hawthornfc.com.au/teams/afl
 Mabior,Chol,1997-01-29,HAW,6,black,confirmed,https://www.hawthornfc.com.au/teams/afl
 Jack,Gunston,1991-10-16,HAW,2,dark_brown,confirmed,https://www.hawthornfc.com.au/teams/afl
@@ -402,7 +402,7 @@ Andy,Moniz-Wakefield,2003-10-26,MEL,3,black,confirmed,https://www.melbournefc.co
 Lukas,Cooke,2003-09-26,MEL,2,light_brown,confirmed,https://www.melbournefc.com.au/teams/afl
 Joel,Fitzgerald,2003-08-08,MEL,2,light_brown,confirmed,https://www.melbournefc.com.au/teams/afl
 Lachy,Dovaston,2007-05-29,NTH,2,dark_brown,confirmed,https://www.nmfc.com.au/teams/afl/players
-Finn,OSullivan,2006-05-30,NTH,2,light_brown,confirmed,https://www.nmfc.com.au/teams/afl/players
+Finn,O'Sullivan,2006-05-30,NTH,2,light_brown,confirmed,https://www.nmfc.com.au/teams/afl/players
 Harry,Sheezel,2004-10-13,NTH,2,dark_brown,confirmed,https://www.nmfc.com.au/teams/afl/players
 Aidan,Corr,1994-05-17,NTH,2,red,confirmed,https://www.nmfc.com.au/teams/afl/players
 Caleb,Daniel,1996-07-07,NTH,2,brown,confirmed,https://www.nmfc.com.au/teams/afl/players
@@ -471,7 +471,7 @@ Will,Lorenz,2005-02-19,PAD,2,light_brown,confirmed,https://www.portadelaidefc.co
 Jack,Watkins,2000-12-18,PAD,2,dark_brown,confirmed,https://www.portadelaidefc.com.au/teams/afl
 Dante,Visentini,2003-02-13,PAD,2,dark_brown,confirmed,https://www.portadelaidefc.com.au/teams/afl
 Mitch,Zadow,2004-03-11,PAD,2,light_brown,confirmed,https://www.portadelaidefc.com.au/teams/afl
-Balyn,OBrien,2007-01-26,PAD,1,blond,confirmed,https://www.portadelaidefc.com.au/teams/afl
+Balyn,O'Brien,2007-01-26,PAD,1,blond,confirmed,https://www.portadelaidefc.com.au/teams/afl
 Josh,Lai,2005-10-01,PAD,2,black,confirmed,https://www.portadelaidefc.com.au/teams/afl
 Corey,Durdin,2002-04-14,PAD,2,dark_brown,confirmed,https://www.portadelaidefc.com.au/teams/afl
 Xavier,Bamert,2007-01-29,PAD,2,dark_brown,confirmed,https://www.portadelaidefc.com.au/teams/afl
@@ -551,7 +551,7 @@ Campbell,Lake,2004-08-11,STK,2,blond,confirmed,https://www.saints.com.au/afl/squ
 Max,Hall,2002-04-15,STK,2,black,confirmed,https://www.saints.com.au/afl/squad
 Cooper,Sharman,2000-07-25,STK,2,dark_brown,confirmed,https://www.saints.com.au/afl/squad
 Callum,Wilkie,1996-03-10,STK,2,light_brown,confirmed,https://www.saints.com.au/afl/squad
-Liam,OConnell,2003-03-04,STK,2,light_brown,confirmed,https://www.saints.com.au/afl/squad
+Liam,O'Connell,2003-03-04,STK,2,light_brown,confirmed,https://www.saints.com.au/afl/squad
 Anthony,Caminiti,2003-12-09,STK,2,black,confirmed,https://www.saints.com.au/afl/squad
 Chad,Warner,2001-05-19,SYD,2,light_brown,confirmed,https://www.sydneyswans.com.au/teams/afl
 Hayden,McLean,1999-01-20,SYD,2,dark_brown,confirmed,https://www.sydneyswans.com.au/teams/afl
@@ -664,7 +664,7 @@ Luke,Kennedy,2006-10-11,WBD,2,dark_brown,confirmed,https://www.westernbulldogs.c
 Luke,Cleary,2002-03-05,WBD,2,brown,confirmed,https://www.westernbulldogs.com.au/teams/afl
 Michael,Sellwood,2003-10-02,WBD,2,brown,confirmed,https://www.westernbulldogs.com.au/teams/afl
 Lachlan,Smith,2005-10-05,WBD,2,light_brown,confirmed,https://www.westernbulldogs.com.au/teams/afl
-James,ODonnell,2002-08-31,WBD,2,dark_brown,confirmed,https://www.westernbulldogs.com.au/teams/afl
+James,O'Donnell,2002-08-31,WBD,2,dark_brown,confirmed,https://www.westernbulldogs.com.au/teams/afl
 Tim,English,1997-08-10,WBD,2,light_brown,confirmed,https://www.afl.com.au/players/1409/tim-english
 Sam,Davidson,2001-12-13,WBD,1,blond,confirmed,https://www.afl.com.au/players/12580/sam-davidson
 Ryan,Gardner,1997-06-01,WBD,2,brown,confirmed,https://www.afl.com.au/players/900/ryan-gardner

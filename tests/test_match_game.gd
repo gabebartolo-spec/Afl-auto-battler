@@ -1599,6 +1599,94 @@ func _test_roaming_interceptor() -> void:
 	var story := MatchNotes.interceptor_story(fake, 0)
 	_check(story.size() == 1 and str(story[0]).contains("controlled the air"),
 			"Full time explains a spare only when real roaming contests support it")
+	_test_loose_man_read()
+
+
+## The director (2026-10-10): the loose man "should be a strong strategy only
+## if you have a strong intercepting defender". The rule, not its numbers: a
+## better reader of the ball reaches more contests, makes the mark harder and
+## spoils more; a poor reader seldom gets there; and once named he stays loose.
+func _test_loose_man_read() -> void:
+	var sim := _sim(8301, "ADE", "SYD")
+	var defs := Matchups.interceptor_candidates((sim.squads[1] as Squad).ground)
+	var good: Dictionary = defs[0]
+	var poor: Dictionary = defs[-1]
+	# Pin the two ends of the scale on the same men, whatever the list holds
+	# (the ratings are shared with the club lists: put them back after).
+	var good_attr: Dictionary = (good["attr"] as Dictionary).duplicate()
+	var poor_attr: Dictionary = (poor["attr"] as Dictionary).duplicate()
+	for k in ["intercept", "marking", "pressure"]:
+		(good["attr"] as Dictionary)[k] = 90
+		(poor["attr"] as Dictionary)[k] = 45
+	sim.set_interceptor(1, str(good["id"]), false)
+	var good_reach := sim._roam_chance(1)
+	sim.set_interceptor(1, str(poor["id"]), false)
+	var poor_reach := sim._roam_chance(1)
+	_check(good_reach > poor_reach * 2.0,
+			"A good reader of the ball reaches far more contests as the loose man (%.3f vs %.3f)" % [good_reach, poor_reach])
+	_check(poor_reach <= MatchSim.LOOSE_REACH_MIN * MatchSim.ROAM_REACH + 0.001,
+			"A poor reader seldom gets there at all (%.3f)" % poor_reach)
+	_check(sim._roam_mark_shift(good) < sim._roam_mark_shift(poor) and sim._roam_mark_shift(poor) <= 0.0,
+			"A good reader makes the mark harder; a poor one never makes it easier")
+	_check(sim._roam_spoil_p(good) > sim._roam_spoil_p(poor),
+			"A good reader gets a fist to more of the balls his teammate missed")
+	# Getting to the contest is not winning it: when the defender in it gets
+	# the fist (or nobody does), the ball comes out with the defender, not
+	# with the spare who arrived as the extra body.
+	sim.set_interceptor(1, str(good["id"]), false)
+	var gid := str(good["id"])
+	var reached_lost := 0
+	var lost_to_def := 0
+	var won := 0
+	var credit_ok := true
+	for i in 600:
+		var before: Dictionary = (sim.player_stats.get(gid, {}) as Dictionary).duplicate()
+		var r := sim.resolve_forward50(0, 50.0, null)
+		var after: Dictionary = sim.player_stats.get(gid, {})
+		var reached := float(after.get("roam_contests", 0.0)) > float(before.get("roam_contests", 0.0))
+		var beat := float(after.get("roam_wins", 0.0)) > float(before.get("roam_wins", 0.0))
+		if str(r.get("outcome", "")) != "turnover" or not reached:
+			continue
+		var actor_id := str((r["actor"] as Dictionary).get("id", ""))
+		if not beat:
+			reached_lost += 1
+			if actor_id != gid:
+				lost_to_def += 1
+		elif actor_id == gid:
+			won += 1
+	_check(reached_lost > 0 and lost_to_def == reached_lost,
+			"When the defender in the contest wins it, the rebound is his, not the loose man's (%d of %d)" % [lost_to_def, reached_lost])
+	_check(won > 0,
+			"The loose man still comes away with the ones he got the fist to (%d)" % won)
+	(good["attr"] as Dictionary).merge(good_attr, true)
+	(poor["attr"] as Dictionary).merge(poor_attr, true)
+
+	# Named loose, he is never handed a forward mid-match: not when a mate
+	# goes off hurt, not when the coach moves a beaten defender.
+	var m := _sim(8302, "ADE", "SYD")
+	# The first defender a coach reaches for: the one the old code handed a job.
+	var loose := str(Matchups.defenders((m.squads[1] as Squad).ground)[0]["id"])
+	m.set_interceptor(1, loose, false)
+	var d: Dictionary = m.duels[1]
+	var hurt := ""
+	for fid in d:
+		hurt = str(d[fid])
+		break
+	if hurt != "":
+		m._refill_duel(1, hurt)
+	var handed := false
+	for fid in d:
+		handed = handed or str(d[fid]) == loose
+	_check(not handed and str(m.interceptor[1]) == loose,
+			"A defender off hurt never hands his forward to the loose man")
+	# Every forward beat his man last quarter: the rematch still leaves him loose.
+	m.current_quarter = 2
+	for fid in d:
+		m.duel_log[str(fid)] = {"side": 0, "contests": [[1, str(d[fid]), true, false],
+				[1, str(d[fid]), true, false], [1, str(d[fid]), true, false]]}
+	m._ai_rematch(1)
+	_check(str(m.interceptor[1]) == loose,
+			"Moving a beaten defender never takes the loose man off his roaming")
 
 
 ## ARD-M4-012 (the director: "any player can intercept, but the loose

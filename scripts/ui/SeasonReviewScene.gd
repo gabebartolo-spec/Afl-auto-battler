@@ -13,6 +13,9 @@ func _ready() -> void:
 		Router.replace("main")
 		return
 
+	# Your club's colour behind the page, as on the hub and match day
+	# (director, 2026-10-10: every screen in the gameday style).
+	add_child(ClubBackdrop.new().setup(GameState.my_club))
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	UiKit.apply_insets(margin, 12)
@@ -123,7 +126,7 @@ func _build() -> void:
 	body.add_child(right)
 	var rv := UiKit.vbox(4)
 	right.add_child(rv)
-	rv.add_child(UiKit.lbl("Final Ladder", 17, UiKit.EMPH, true))
+	rv.add_child(UiKit.lbl("Final Ladder", UiKit.NAME, UiKit.EMPH, true))
 	var ladder_w := _content_width() - 24.0 if narrow else (_content_width() * 0.5)
 	# At full height: the page scrolls, not the ladder inside it.
 	rv.add_child(UiKit.ladder_table(season.ladder_sorted(), GameState.my_club, ladder_w, 0, true))
@@ -157,7 +160,7 @@ func _build() -> void:
 		page.add_child(hp)
 		var hv := UiKit.vbox(5)
 		hp.add_child(hv)
-		hv.add_child(UiKit.lbl("History & records", 17, UiKit.EMPH, true))
+		hv.add_child(UiKit.lbl("History & records", UiKit.NAME, UiKit.EMPH, true))
 		for line in history_lines:
 			hv.add_child(UiKit.lbl(str(line), UiKit.SECONDARY, UiKit.TEXT))
 		if not honours.is_empty():
@@ -197,7 +200,7 @@ func _build() -> void:
 		GameState.begin_draft()
 		Router.replace("draft"))
 	ctrl.add_child(again)
-	var menu := UiKit.btn("Main Menu", 17)
+	var menu := UiKit.btn("Main Menu", UiKit.NAME)
 	menu.custom_minimum_size = Vector2(0, 48)
 	menu.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	menu.pressed.connect(func(): Router.to_main_menu())
@@ -212,14 +215,29 @@ func _gf_line(season: Season) -> String:
 	if last.is_empty():
 		return "not played"
 	var gf: Dictionary = last[0]
-	var s: Array = gf["score"]
-	var extra := "  (level - %s advance on ladder position)" % \
-			GameDB.club_short(str(gf["home"])) if bool(gf.get("decided_on_ladder", false)) else ""
+	var winner := str((season.finals.get("slots", {}) as Dictionary).get("W_GF", ""))
+	return gf_text(gf, winner)
+
+
+## "Fremantle 19.12 (126)  d.  Brisbane 8.13 (61)": the premiers first,
+## whichever end they were at (the line once always put the home side first).
+## Level after extra time, the side that advances on ladder position is named.
+static func gf_text(gf: Dictionary, winner: String) -> String:
+	var sides := [0, 1]
+	var codes := [str(gf["home"]), str(gf["away"])]
+	var sc: Array = gf["score"]
+	var won := 0 if int(sc[0]) >= int(sc[1]) else 1
+	if winner == codes[1] or (winner == "" and int(sc[1]) > int(sc[0])):
+		won = 1
+	elif winner == codes[0]:
+		won = 0
+	sides = [won, 1 - won]
+	var extra := "  (level - %s advance on ladder position)" % GameDB.club_short(codes[won]) 			if bool(gf.get("decided_on_ladder", false)) else ""
 	return "%s %s  d.  %s %s%s" % [
-			GameDB.club_name(str(gf["home"])),
-			UiKit.scoreline(int(gf["goals"][0]), int(gf["behinds"][0])),
-			GameDB.club_name(str(gf["away"])),
-			UiKit.scoreline(int(gf["goals"][1]), int(gf["behinds"][1])), extra]
+			GameDB.club_name(codes[sides[0]]),
+			UiKit.scoreline(int(gf["goals"][sides[0]]), int(gf["behinds"][sides[0]])),
+			GameDB.club_name(codes[sides[1]]),
+			UiKit.scoreline(int(gf["goals"][sides[1]]), int(gf["behinds"][sides[1]])), extra]
 
 
 func _my_results() -> Array:

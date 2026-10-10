@@ -21,6 +21,7 @@ func run() -> void:
 	_test_backing_rules()
 	_test_backing_flow()
 	_test_backing_card_guard()
+	_test_fact_talks()
 	_test_backing_lasts_the_season()
 	_test_firsts_rules()
 	_test_firsts_flow()
@@ -1311,3 +1312,149 @@ func _test_how_we_play_quiet() -> void:
 	_check(not settled.contains("yet") and settled.contains("costing you"),
 			"Half a season in, no weakness is said plainly (%s)" % settled)
 	_check(not str(cs._quiet_line("win", 12)).contains("yet"), "...and so is no stand-out strength")
+
+
+## RPG-003 slice 1 (director, 2026-10-09): the unhappy card opens on what
+## actually happened - a veteran dropped while fit, a player back from injury
+## and not picked, a fit kid waiting five weeks - with three honest answers,
+## kept as a career fact and settled after your next match. A low mood with
+## no fact behind it is still the fallback card.
+func _test_fact_talks() -> void:
+	# The cases, each way.
+	var vet := {"games": 120, "in_last_side": true, "selected": false, "age": 30.0, "weeks_without": 0, "injury": ""}
+	_check(ClubLife.talk_case({}, vet) == "dropped", "A veteran in your last side, left out fit: dropped")
+	var kept := vet.duplicate()
+	kept["selected"] = true
+	_check(ClubLife.talk_case({}, kept) == "", "Named this week: nothing to talk about")
+	var young_vet := vet.duplicate()
+	young_vet["games"] = 60
+	_check(ClubLife.talk_case({}, young_vet) == "", "Under 100 games, left out: not a dropped veteran")
+	var back := {"games": 40, "in_last_side": false, "selected": false, "age": 25.0, "weeks_without": 2, "injury": "hamstring"}
+	_check(ClubLife.talk_case({}, back) == "back", "Back from a hamstring and not picked: back")
+	back["injury"] = ""
+	_check(ClubLife.talk_case({}, back) == "", "No injury since his last game: not back")
+	var kid := {"games": 3, "in_last_side": false, "selected": false, "age": 20.0, "weeks_without": 5, "injury": ""}
+	_check(ClubLife.talk_case({}, kid) == "waiting", "A fit kid five weeks without a game: waiting")
+	kid["weeks_without"] = 4
+	_check(ClubLife.talk_case({}, kid) == "", "Four weeks: not yet")
+	kid["weeks_without"] = -1
+	_check(ClubLife.talk_case({}, kid) == "", "An older save that cannot say: never guessed")
+	kid["weeks_without"] = 9
+	kid["age"] = 23.0
+	_check(ClubLife.talk_case({}, kid) == "", "Over 21: not the kid's card")
+	# The card opens on the fact, with three answers and his numbers.
+	_fresh_season()
+	var p: Dictionary = GameState.my_list[3]
+	var info := vet.duplicate()
+	info["kpi"] = "Seven games: 12 disposals and 1 clearance a game."
+	info["job"] = "midfielder"
+	info["need"] = "disposals and clearances"
+	var card := ClubLife._unhappy(p, "dropped", info)
+	var keys := []
+	for o in card["options"]:
+		keys.append(str(o["key"]))
+	_check(str(card["text"]).begins_with("120 games, fit, and dropped") and keys == ["explain", "talk", "call"]
+			and str((card["options"][0] as Dictionary)["detail"]).contains("12 disposals"),
+			"The card opens on what happened and offers his season in plain numbers (%s)" % str(card["text"]))
+	_check(str((card["options"][0] as Dictionary)["label"]) == "Talk him through his season",
+			"The label is neutral: it neither argues for nor against your call")
+	info["kpi"] = ""
+	var none_yet := ClubLife._unhappy(p, "waiting", info)
+	_check(str((none_yet["options"][0] as Dictionary)["label"]) == "Tell him what he has to show"
+			and str((none_yet["options"][0] as Dictionary)["detail"]).begins_with("What a midfielder has to show: disposals and clearances."),
+			"With no game this season, it is what his job has to show, in a coach's words")
+	_check(GameState._explain_outcome("Rogers", {"kpi": "Three games: 29 disposals and 7 clearances a game.", "verdict": "good"})
+			.contains("He doesn't see why he's out"), "Good numbers are never spun as a poor season")
+	_check(not GameState._explain_outcome("Rogers", {"kpi": "Three games: 9 disposals and 0 clearances a game.", "verdict": "quiet"})
+			.contains("doesn't see why"), "...and quiet numbers are just stated")
+	var said := ""
+	for o in card["options"]:
+		said += (str(o["label"]) + " " + str(o["detail"])).to_lower() + " "
+	_check(not said.contains("best") and not said.contains("you should"), "The answers never tell you what to do")
+	# A fact beats a low mood, and the low mood is still the fallback.
+	var sad: Dictionary = GameState.my_list[5]
+	sad["morale"] = 20
+	var facts := {str(p["id"]): vet, str(sad["id"]): {}}
+	var opened_on := ""
+	var fallback := ""
+	for r in range(1, 60):
+		var ev := ClubLife.pick_event({"list": [p, sad], "round": r, "seed": 9, "talk_info": facts})
+		if str(ev.get("key", "")) == "unhappy" and opened_on == "":
+			opened_on = str(ev.get("case", ""))
+		var ev2 := ClubLife.pick_event({"list": [sad], "round": r, "seed": 9})
+		if str(ev2.get("key", "")) == "unhappy" and fallback == "":
+			fallback = "mood" if str(ev2.get("case", "")) == "" else str(ev2["case"])
+	_check(opened_on == "dropped", "When something happened, the card opens on it (%s)" % opened_on)
+	_check(fallback == "mood", "With nothing behind it, a low mood still brings the old card")
+	# Real matches: the round he last played, weeks without a game, his numbers.
+	GameState.advance()
+	GameState.advance()
+	var played_id := str(GameState.last_side[0]) if not GameState.last_side.is_empty() else ""
+	var pl := GameState.list_player(played_id)
+	var lg: Array = pl.get("last_game", []) if not pl.is_empty() else []
+	_check(lg.size() == 2 and int(lg[0]) == GameState.season_year and int(lg[1]) >= 1
+			and int(lg[1]) <= GameState.season.round_index,
+			"Each player who plays keeps the round of his last game (%s)" % str(lg))
+	_check(GameState.weeks_without_game(pl) == GameState.season.round_index - int(lg[1]) if lg.size() == 2 else false,
+			"...and his weeks without a game count from it")
+	_check(GameState._kpi_text(pl).contains("game"), "His season, on his job's numbers (%s)" % GameState._kpi_text(pl))
+	var benched := {}
+	for q in GameState.my_list:
+		if not GameState.last_side.has(str(q["id"])) and int(q.get("injury_weeks", 0)) <= 0 \
+				and GameState.season_tally.get(str(q["id"]), {}).is_empty():
+			benched = q
+			break
+	_check(not benched.is_empty() and GameState.weeks_without_game(benched) == GameState.season.round_index
+			and GameState._kpi_text(benched) == "",
+			"A player with no game this season is that many weeks without one")
+	# Back from injury: an injury since his last game, fit now.
+	if not benched.is_empty():
+		CareerFacts.add(GameState.career_facts, str(benched["id"]),
+				CareerFacts.row(GameState.season_year, "Round 1", "injury", GameState.my_club, "", "hamstring"))
+		_check(GameState._back_from(benched) == "hamstring", "Hurt since his last game and fit: back from the hamstring")
+	# The answer is a career fact, settled after your next match with a line.
+	var vid := str(pl["id"])
+	GameState.week_event = ClubLife._unhappy(pl, "dropped", GameState.talk_info({})[vid])
+	GameState.resolve_week_event(1)
+	var f: Array = CareerFacts.of(GameState.career_facts, vid, "talk")
+	_check(not f.is_empty() and str(f[-1]["d"]) == "dropped|promise" and str(f[-1]["out"]) == "",
+			"Your answer is kept as a career fact (%s)" % str(f))
+	GameState.set_selection({})
+	GameState.advance()
+	f = CareerFacts.of(GameState.career_facts, vid, "talk")
+	var news_said := ""
+	for n in GameState.news.slice(0, 12):
+		news_said += str(n["text"]) + " | "
+	if int(GameState.list_player(vid).get("injury_weeks", 0)) <= 0:
+		_check(str(f[-1]["out"]) == "played" and news_said.contains("back in the side, as you told him"),
+				"Promised a game and picked: it says so (%s)" % news_said.left(200))
+	else:
+		_check(str(f[-1]["out"]) == "injured", "Hurt before the game: kept as that")
+	# Left out after an explanation: still waiting.
+	var other: Dictionary = {}
+	for q in GameState.my_list:
+		if str(q["id"]) != vid and int(q.get("injury_weeks", 0)) <= 0:
+			other = q
+	var oid := str(other["id"])
+	GameState.week_event = ClubLife._unhappy(other, "waiting", GameState.talk_info({})[oid])
+	GameState.resolve_week_event(0)
+	_check(str(GameState.week_event.get("outcome", "")).contains(GameState._kpi_text(other)),
+			"Explaining it says his numbers (%s)" % str(GameState.week_event.get("outcome", "")))
+	var side: Dictionary = GameState.current_side()
+	for k in side:
+		(side[k] as Array).erase(oid)
+	side["OUT"] = [oid]
+	GameState.set_selection(side)
+	GameState.advance()
+	GameState.set_selection({})
+	var of := CareerFacts.of(GameState.career_facts, oid, "talk")
+	if int(other.get("injury_weeks", 0)) <= 0:
+		_check(str(of[-1]["d"]) == "waiting|explain" and str(of[-1]["out"]) == "waiting",
+				"Explained and left out: still waiting (%s)" % str(of))
+	else:
+		_check(str(of[-1]["out"]) == "injured", "Hurt that week: kept as that")
+	# The round he last played and the facts survive a save.
+	var sig := str(GameState.career_facts) + str(GameState.list_player(vid).get("last_game"))
+	_check(GameState.save_career() and GameState.load_career()
+			and str(GameState.career_facts) + str(GameState.list_player(vid).get("last_game")) == sig,
+			"Sit-downs and the last game come back from a save")

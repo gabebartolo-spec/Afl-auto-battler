@@ -432,7 +432,10 @@ func _set_camera() -> void:
 	_cam_d = -cam_y
 	_cam_h = lerpf(6.5, 2.2, follow)
 	_cam_x = 0.0       # square on to the banner
-	var base := maxf(size.x * 1.3, size.y * 0.62)
+	# Fitted to the height on a wide window: the width term zoomed a 1920 x 1080 window in about
+	# 3.5x past the phone's framing (director: "no reason to be so limited on PC"); x1.3 so the
+	# team fills about a third of the height on a wide window.
+	var base := size.y * 0.62 * 1.3 if size.x > size.y else maxf(size.x * 1.3, size.y * 0.62)
 	_zoom = lerpf(1.0, 1.15, _ease(clampf(_t / 4.0, 0.0, 1.0))) * (1.0 - 0.15 * follow)
 	_focal = base * _zoom
 	# Zooming about the huddle's chest, seen from where the camera started; as the

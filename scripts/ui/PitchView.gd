@@ -53,11 +53,49 @@ const CAPTION_TOUCH := 1.0
 ## The turf is green in both appearances, so the ring is the dark theme's text
 ## colour fixed, not UiKit.TEXT, which turns dark in light mode.
 const RING_COLOUR := Color(0.945, 0.933, 0.902)
+## A player's token is never smaller than a thumb can tell apart (audit §8
+## Phase 3.1): a radius of 9 px is an 18 px disc, the number's floor too.
+const TOKEN_MIN := 9.0
+## The ball's last few positions on the turf, for a short trail behind it.
+const TRAIL_N := 14
+var _trail: Array = []
+## Each side's home kit (GameDB.club_guernsey): the token wears the club's
+## design, not just its colours, so the two sides read apart at a glance.
+var _kits: Array = [{}, {}]
+## The stand beyond the fence and the turf's edge in shadow, so the oval sits
+## in a ground rather than floating on black (audit §8 Phase 3.2).
+const STAND_COLOUR := Color(0.125, 0.11, 0.095)
+const FENCE_COLOUR := Color(0.36, 0.33, 0.29)
+## PROTOTYPE, gated by the director's phone (audit §8 Phase 3.3): the few
+## players nearest the ball drawn as small footballers from the vignette
+## sheets, over their tokens. Settings > Match view; off by default. If it
+## reads and holds 60 fps on the phone it becomes the view; otherwise it goes.
+var mini_figures := false
+const FIGURES_NEAR_BALL := 6
+const FIGURE_HEIGHT := 2.7        # figure height in token radii (tr 9 = 24 px)
+var _figs: MiniFigures
+var _looks := {}
+
+
+## The figures' own layer: the figure shader is a material on a CanvasItem,
+## so they cannot share the oval's drawing.
+class MiniFigures extends Control:
+	var slots: Array = []
+
+	func _draw() -> void:
+		for s in slots:
+			StoppageVignette.draw_frame(self, s["feet"], s["info"], int(s["frame"]), float(s["k"]),
+					s["colour"], bool(s["mirror"]), s["number"], Transform2D.IDENTITY, str(s["hair"]))
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clip_contents = true
+	_figs = MiniFigures.new()
+	_figs.name = "MiniFigures"
+	_figs.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_figs.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_figs)
 
 
 # ---------------------------------------------------------------------------
@@ -69,6 +107,13 @@ func setup(p_result: Dictionary) -> void:
 	events = (p_result.get("events", []) as Array).duplicate()
 	home_code = str(p_result.get("home", ""))
 	away_code = str(p_result.get("away", ""))
+	_kits = [GameDB.club_guernsey(home_code), GameDB.club_guernsey(away_code)]
+	_trail = []
+	mini_figures = GameState.match_figures_on()
+	_looks = {}
+	if _figs != null:
+		_figs.material = StoppageVignette.figure_material(_kits, _figs.material as ShaderMaterial)
+		_figs.slots = []
 	playing = false
 	director = MatchDirector.new()
 	director.setup(p_result, events)
@@ -158,6 +203,7 @@ func _process(delta: float) -> void:
 		if playing and director.idle():
 			playing = false
 			finished.emit()
+		_follow_ball()
 	_name_the_ball_carrier()
 	_age_caption(delta)
 	_update_camera(delta)
@@ -228,6 +274,20 @@ func _age_caption(delta: float) -> void:
 	if float(_caption["left"]) <= 0.0:
 		_caption = {}
 		queue_redraw()
+
+
+## The ball's path over the last fraction of a second, in ground metres. A
+## dead ball leaves no trail; a ball that has not moved adds nothing.
+func _follow_ball() -> void:
+	if director.ball.is_empty() or str(director.ball.get("mode", "dead")) == "dead":
+		_trail.clear()
+		return
+	var pos: Vector2 = director.ball["pos"]
+	if not _trail.is_empty() and (_trail[-1] as Vector2).distance_to(pos) < 0.05:
+		return
+	_trail.append(pos)
+	while _trail.size() > TRAIL_N:
+		_trail.pop_front()
 
 
 ## Every break the match screen plays is a change of ends.
@@ -338,7 +398,10 @@ func _draw() -> void:
 	var a := MatchMotion.HALF_LEN * s
 	var b := MatchMotion.HALF_WID * s
 
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.043, 0.09, 0.047), true)
+	# The stand, dark, beyond the fence; the fence a band at the turf's edge.
+	draw_rect(Rect2(Vector2.ZERO, size), STAND_COLOUR, true)
+	var fence := maxf(3.0, 2.0 * s)
+	draw_colored_polygon(_ellipse_points(c, a + fence, b + fence, 128), FENCE_COLOUR)
 
 	# Turf + mown stripes, as the day's weather leaves them (VignetteWeather).
 	var weather := str(result.get("weather", ""))
@@ -351,6 +414,12 @@ func _draw() -> void:
 		var x0 := c.x - a + (2.0 * a) * float(i) / float(stripes)
 		var x1 := c.x - a + (2.0 * a) * float(i + 1) / float(stripes)
 		draw_colored_polygon(_stripe(c, a, b, x0, x1), grass[1])
+	# The turf's edge in the stand's shadow: a few soft rings fading inward.
+	var shade := maxf(6.0, 7.0 * s)
+	for i in range(4):
+		var inset := shade * float(i) / 4.0
+		draw_polyline(_ellipse_points(c, a - inset, b - inset, 96),
+				Color(0, 0, 0, 0.16 - 0.035 * float(i)), shade / 4.0 + 1.0, antialias)
 
 	# Boundary
 	draw_polyline(_ellipse_points(c, a, b, 128), Color(1, 1, 1, 0.85), 2.5, antialias)
@@ -385,10 +454,13 @@ func _draw() -> void:
 	VignetteWeather.draw_air(self, r, now, weather)
 	if weather == VignetteWeather.WINDY:
 		VignetteWeather.draw_wind_flat(self, r, now)
-	var tr := maxf(4.0, minf(r.size.x, r.size.y) * 0.5 * 0.030) * sqrt(_zoom)
-	_draw_tokens(0, GameDB.club_colours(home_code), tr)
-	_draw_tokens(1, GameDB.club_colours(away_code), tr)
+	var tr := maxf(TOKEN_MIN, minf(r.size.x, r.size.y) * 0.5 * 0.030 * sqrt(_zoom))
+	_draw_tokens(0, tr)
+	_draw_tokens(1, tr)
 	_draw_rings(tr)
+	if _figs != null:
+		_figs.slots = _figure_slots(tr) if mini_figures else []
+		_figs.queue_redraw()
 
 	# Actor highlight
 	var act := director.actor
@@ -433,7 +505,21 @@ func _draw_rings(tr: float) -> void:
 ## passing caption (a goal, a ringed player's touch) still sits above.
 func _draw_role_labels(tr: float) -> void:
 	var fs := clampi(int(tr * 1.15), 9, 12)
+	# Named under the token: the players with a job, whoever has the ball, and
+	# your ringed players (audit §8 Phase 3.1), each once.
+	var named := {}
 	for id in director.role_labels():
+		named[int(id)] = true
+	var holder := int(director.ball.get("holder", -1)) if not director.ball.is_empty() else -1
+	if holder >= 0:
+		named[holder] = true
+	if not rings.is_empty():
+		for i in range(director.tokens.size()):
+			if rings.has(str(director.tokens[i].get("pid", ""))):
+				named[i] = true
+	for id in named:
+		if id < 0 or id >= director.tokens.size():
+			continue
 		var t: Dictionary = director.tokens[id]
 		if float(t.get("down", 0.0)) > 0.0:
 			continue
@@ -474,6 +560,12 @@ func _draw_caption(tr: float) -> void:
 func _draw_ball(tr: float, s: float) -> void:
 	if director.ball.is_empty():
 		return
+	# A short trail on the turf, brightest at the ball, gone a moment later.
+	if _trail.size() >= 2:
+		for i in range(1, _trail.size()):
+			var k := float(i) / float(_trail.size() - 1)
+			draw_line(_w2s(_trail[i - 1]), _w2s(_trail[i]), Color(0.98, 0.93, 0.75, 0.55 * k),
+					maxf(1.0, tr * 0.22 * k), antialias)
 	var ground := _w2s(director.ball["pos"])
 	var h := float(director.ball["h"])
 	# Shadow on the turf, the ball lifted by its height: a kick visibly climbs
@@ -489,13 +581,14 @@ func _draw_ball(tr: float, s: float) -> void:
 			Color(0.25, 0.12, 0.08), 1.0, antialias)
 
 
-func _draw_tokens(side: int, colours: Array, tr: float) -> void:
-	var primary: Color = colours[0]
-	var secondary: Color = colours[1]
-	var font := ThemeDB.fallback_font
-	var fs := int(clampf(tr * 1.15, 6.0, 15.0))
-	# The number sits on the inner disc, so it reads against the secondary.
-	var text_col := _readable_on(secondary)
+## A side's tokens: a disc in the club's home kit (its base colour and its
+## design in the pattern colour), the number on it in white with a dark edge
+## so it reads on any kit, dropped when the disc is under 18 px.
+func _draw_tokens(side: int, tr: float) -> void:
+	var kit: Dictionary = _kits[side]
+	var base: Color = kit.get("base", Color.WHITE)
+	var font := UiKit.BOLD
+	var fs := int(clampf(tr * 1.1, 9.0, 15.0))
 	for t in director.tokens:
 		if int(t["side"]) != side:
 			continue
@@ -504,19 +597,138 @@ func _draw_tokens(side: int, colours: Array, tr: float) -> void:
 			continue
 		if float(t["down"]) > 0.0:
 			# On the ground after a tackle.
-			draw_colored_polygon(_ellipse_points(p, tr * 1.15, tr * 0.62, 16), primary.darkened(0.25))
+			draw_colored_polygon(_ellipse_points(p, tr * 1.15, tr * 0.62, 16), base.darkened(0.25))
 			draw_polyline(_ellipse_points(p, tr * 1.15, tr * 0.62, 16), Color(0, 0, 0, 0.4), 1.2, antialias)
 			continue
 		# Drop shadow keeps tokens readable on the stripes.
 		draw_circle(p + Vector2(0, tr * 0.22), tr, Color(0, 0, 0, 0.28))
-		draw_circle(p, tr, primary)
-		# An inner disc in the secondary colour so the two sides read apart at a glance.
-		draw_circle(p, tr * 0.62, secondary)
-		draw_circle(p, tr, Color(0, 0, 0, 0.35), false, 1.2, antialias)
+		_draw_kit(p, tr, kit)
+		draw_circle(p, tr, Color(0, 0, 0, 0.45), false, 1.2, antialias)
+		if tr < TOKEN_MIN:
+			continue
 		var label := str(t["num"])
 		var w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
-		draw_string(font, p + Vector2(-w * 0.5, fs * 0.36), label,
-				HORIZONTAL_ALIGNMENT_LEFT, -1, fs, text_col)
+		var origin := p + Vector2(-w * 0.5, fs * 0.36)
+		# A full dark edge (eight directions) so the white figure reads on a
+		# white stripe as well as on navy.
+		for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1),
+				Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+			draw_string(font, origin + off, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.85))
+		draw_string(font, origin, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1))
+
+
+## PROTOTYPE: the six nearest the ball as figures, each a slot for the
+## MiniFigures layer: feet on the token, the jog strip when he moves (side-on
+## across the screen, back or front along it), idle when he stands, the
+## number on his back when he shows it and the figure is tall enough.
+func _figure_slots(tr: float) -> Array:
+	var out := []
+	if director.ball.is_empty():
+		return out
+	var ball_pos: Vector2 = director.ball["pos"]
+	var order := []
+	for i in range(director.tokens.size()):
+		var t: Dictionary = director.tokens[i]
+		if float(t.get("down", 0.0)) > 0.0:
+			continue
+		order.append([(t["pos"] as Vector2).distance_squared_to(ball_pos), i])
+	order.sort_custom(func(a, b): return a[0] < b[0])
+	var height_px := float(VignetteFigures.BODIES["average"]["height_m"]) * VignetteFigures.PX_PER_M
+	var k := FIGURE_HEIGHT * tr / height_px
+	var m := end_sign(period)
+	for j in range(mini(FIGURES_NEAR_BALL, order.size())):
+		var i: int = order[j][1]
+		var t: Dictionary = director.tokens[i]
+		var p := _w2s(t["pos"])
+		if p.x < -tr * 4.0 or p.y < -tr * 4.0 or p.x > size.x + tr * 4.0 or p.y > size.y + tr * 4.0:
+			continue
+		var vel: Vector2 = t.get("vel", Vector2.ZERO)
+		var moving := vel.length() > 0.6
+		var anim := "jog" if moving else "idle"
+		var facing := "front"
+		var mirror := false
+		if moving:
+			var sx := vel.x * m
+			if absf(sx) > absf(vel.y):
+				facing = "side_l"
+				mirror = sx > 0.0
+			else:
+				facing = "back" if vel.y < 0.0 else "front"
+		if not VignetteFigures.has("average", anim, facing):
+			anim = "idle"
+			facing = "front"
+		var info := VignetteFigures.strip("average", anim, facing)
+		var frames := int(info["frames"])
+		var frame := (int(Time.get_ticks_msec() / 90) + i * 3) % frames if moving else 0
+		var look := _look_for(str(t.get("pid", "")))
+		var kit := int(t["side"])
+		var number := Color(0, 0, 0, 0)
+		if facing.begins_with("back") and FIGURE_HEIGHT * tr > 18.0:
+			number = StoppageVignette.number_colour(kit, int(t["num"]), 1.0, mirror)
+		out.append({"feet": p + Vector2(0, tr * 0.3), "info": info, "frame": frame, "k": k,
+				"colour": StoppageVignette.look_colour(kit, look, mirror), "mirror": mirror,
+				"number": number, "hair": str(look.get("hair_style", VignetteFigures.HAIR_BASE))})
+	# The man lower on the screen stands in front.
+	out.sort_custom(func(a, b): return (a["feet"] as Vector2).y < (b["feet"] as Vector2).y)
+	return out
+
+
+## His skin, hair and sleeves (GameDB.figure_look), found once per player.
+func _look_for(pid: String) -> Dictionary:
+	if not _looks.has(pid):
+		var p = GameDB.player_by_id(pid)
+		_looks[pid] = GameDB.figure_look(p, str(result.get("weather", "")) == "wet") if p != null \
+				else StoppageVignette.UMPIRE_LOOK
+	return _looks[pid]
+
+
+## The club's design on a disc: stripes, hoops, a sash, a yoke, a band, a
+## chevron or side panels in the pattern colour over the base; anything else
+## is the base with an inner disc of the pattern colour. Shapes are drawn
+## within the disc's chord so nothing pokes out of the circle.
+func _draw_kit(p: Vector2, tr: float, kit: Dictionary) -> void:
+	var base: Color = kit.get("base", Color.WHITE)
+	var pat: Color = kit.get("pattern", Color.DIM_GRAY)
+	var design := str(kit.get("design", "plain"))
+	draw_circle(p, tr, base)
+	var r := tr * 0.94
+	match design:
+		"stripes":
+			for x in [-0.55, 0.0, 0.55]:
+				var cx := float(x) * r
+				var half := sqrt(maxf(0.0, r * r - cx * cx)) * 0.98
+				draw_rect(Rect2(p + Vector2(cx - r * 0.13, -half), Vector2(r * 0.26, half * 2.0)), pat)
+		"hoops", "lowhoops", "twohoops", "tiers":
+			for y in [-0.4, 0.3]:
+				var cy := float(y) * r
+				var half := sqrt(maxf(0.0, r * r - cy * cy)) * 0.98
+				draw_rect(Rect2(p + Vector2(-half, cy - r * 0.15), Vector2(half * 2.0, r * 0.3)), pat)
+		"sash":
+			var w := r * 0.42
+			draw_colored_polygon(PackedVector2Array([p + Vector2(-r * 0.75, -r * 0.75 + w), p + Vector2(-r * 0.75, -r * 0.75),
+					p + Vector2(r * 0.75, r * 0.75 - w), p + Vector2(r * 0.75, r * 0.75)]), pat)
+		"yoke", "shoulders":
+			# The top near-half, so the two colours read at 18 px: the arc from
+			# chord end to chord end (the chord closes it), never a bow-tie.
+			var pts := PackedVector2Array()
+			var lift := asin(0.05)
+			for i in range(15):
+				var ang := lerpf(PI + lift, TAU - lift, float(i) / 14.0)
+				pts.append(p + Vector2(cos(ang) * r, sin(ang) * r))
+			draw_colored_polygon(pts, pat)
+		"band":
+			draw_rect(Rect2(p + Vector2(-r * 0.98, -r * 0.22), Vector2(r * 1.96, r * 0.44)), pat)
+		"chevron", "chevrons", "wings":
+			draw_polyline(PackedVector2Array([p + Vector2(-r * 0.7, -r * 0.35), p + Vector2(0, r * 0.4),
+					p + Vector2(r * 0.7, -r * 0.35)]), pat, maxf(2.0, r * 0.32), antialias)
+		"panels", "sides", "giants", "map":
+			var pts := PackedVector2Array()
+			for i in range(17):
+				var ang := PI * 0.5 + PI * float(i) / 16.0
+				pts.append(p + Vector2(cos(ang) * r, sin(ang) * r))
+			draw_colored_polygon(pts, pat)
+		_:
+			draw_circle(p, tr * 0.55, pat)
 
 
 func _readable_on(bg: Color) -> Color:

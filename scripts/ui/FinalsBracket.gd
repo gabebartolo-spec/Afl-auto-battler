@@ -229,10 +229,12 @@ func _narrow() -> Control:
 	for w in range(WEEKS.size()):
 		opts.append([str(w + 1), str(WEEKS[w][1])])
 	var shown := _stage if _stage > 0 else mini(_week(), WEEKS.size())
-	var pick := UiKit.choice_grid("FinalsStage", opts, str(shown), 3, func(k):
+	# The weeks as one line of underline tabs (audit §8 Phase 1.3); the week
+	# shown is named in full underneath.
+	var pick := UiKit.segmented("FinalsStage", opts, str(shown), func(k):
 		_stage = int(k)
 		_build.call_deferred())
-	v.add_child(pick)
+	v.add_child(UiKit.strip(pick))
 	v.add_child(UiKit.lbl(str(WEEKS[shown - 1][0]), UiKit.NAME, UiKit.TEXT, true))
 	for m in WEEKS[shown - 1][2]:
 		var n := _node(shown, m)

@@ -16,6 +16,9 @@ var _logo: TextureRect
 ## The setup's choices, applied only when the career starts.
 var _pick_real := true
 var _pick_difficulty := "normal"
+var _pick_tutorials := true
+## How the next career starts (ARD-M5-016): "redraft" or "real" (real 2026 lists).
+var _pick_start := "redraft"
 var _pick_prospect := false
 var _pick_club := false
 
@@ -85,6 +88,7 @@ func _ready() -> void:
 		_mode = "setup"
 	_pick_real = GameState.show_real_names
 	_pick_difficulty = GameState.new_career_difficulty()
+	_pick_tutorials = GameState.new_career_tutorials()
 	# The oval stays as a faint ground; the logo and buttons carry the screen.
 	_pitch = PitchView.new()
 	_pitch.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -155,7 +159,7 @@ func _show_home() -> void:
 	var live := resume_draft or GameState.season != null
 	var saved := not GameState.has_career() and GameState.has_saved_career()
 	if live or saved:
-		var cont := UiKit.btn("Continue", 19, true)
+		var cont := UiKit.btn("Continue", UiKit.H2, true)
 		cont.name = "ResumeCareer" if live else "ContinueCareer"
 		if live:
 			cont.pressed.connect(func(): Router.go("draft" if resume_draft else "hub"))
@@ -173,13 +177,13 @@ func _show_home() -> void:
 	_load_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_load_error.visible = false
 	col.add_child(_load_error)
-	var new_career := UiKit.btn("New career", 19, not (live or saved))
+	var new_career := UiKit.btn("New career", UiKit.H2, not (live or saved))
 	new_career.name = "NewCareer"
 	# No career can start on missing or incomplete player data.
 	new_career.disabled = not GameDB.loaded
 	new_career.pressed.connect(_on_new_career)
 	col.add_child(new_career)
-	var forge := UiKit.btn("Club Forge", 17)
+	var forge := UiKit.btn("Club Forge", UiKit.NAME)
 	forge.name = "ClubForge"
 	forge.pressed.connect(func(): Router.go("forge"))
 	col.add_child(forge)
@@ -231,6 +235,7 @@ func _on_continue() -> void:
 func _on_new_career() -> void:
 	_pick_real = GameState.show_real_names
 	_pick_difficulty = GameState.new_career_difficulty()
+	_pick_tutorials = GameState.new_career_tutorials()
 	_pick_prospect = not GameState.forge_player().is_empty()
 	_pick_club = not GameState.forge_club().is_empty()
 	_mode = "setup"
@@ -267,6 +272,11 @@ func _show_setup() -> void:
 	# A little more under the title than between the sections.
 	title.custom_minimum_size.y = UiKit.H1 * 1.4 + 6
 	form.add_child(title)
+	form.add_child(_choice("Start", "StartMode", [["redraft", "League redraft"], ["real", "Real 2026 lists"]],
+			_pick_start,
+			func(k): return ("Every club keeps its real end-of-2026 list. You run your club through the 2026 National Draft, then play 2027." if k == "real"
+					else "The whole league re-drafts from one player pool before 2027, in a random snake order."),
+			func(k): _pick_start = k))
 	form.add_child(_choice("Player names", "NameMode", NAME_OPTIONS,
 			"real" if _pick_real else "generated",
 			func(_k): return NAMES_INFO + " You can change this later in Settings.",
@@ -277,6 +287,11 @@ func _show_setup() -> void:
 	form.add_child(_choice("Difficulty", "Difficulty", diff_options, _pick_difficulty,
 			func(k): return str(GameState.DIFFICULTIES[k]["text"]),
 			func(k): _pick_difficulty = k))
+	form.add_child(_choice("Tutorials", "Tutorials", [["on", "On"], ["off", "Off"]],
+			"on" if _pick_tutorials else "off",
+			func(k): return ("A short note the first time you open each screen, saying what it shows and how to use it." if k == "on"
+					else "No notes open by themselves. You can change this later in Settings."),
+			func(k): _pick_tutorials = k == "on"))
 	# Your Club Forge player, if you made one: he enters this career's first
 	# National Draft like any other prospect.
 	var forged := GameState.forge_player()
@@ -297,7 +312,7 @@ func _show_setup() -> void:
 	var cta := MarginContainer.new()
 	cta.add_theme_constant_override("margin_top", 6)
 	form.add_child(cta)
-	var start := UiKit.btn("Choose your club", 19, true)
+	var start := UiKit.btn("Choose your club", UiKit.H2, true)
 	start.name = "StartCareer"
 	start.custom_minimum_size.y = 52
 	start.disabled = not GameDB.loaded
@@ -368,9 +383,11 @@ func _on_start() -> void:
 func _start_new_career() -> void:
 	GameState.set_show_real_names(_pick_real)
 	GameState.set_new_career_difficulty(_pick_difficulty)
+	GameState.set_new_career_tutorials(_pick_tutorials)
 	GameState.delete_saved_career()
 	GameState.reset()
-	if _pick_club:
+	# A created club has no real 2026 list, so it only joins a League redraft.
+	if _pick_club and _pick_start != "real":
 		var club := GameState.forge_club()
 		if not club.is_empty():
 			GameState.create_club(club)
@@ -378,7 +395,10 @@ func _start_new_career() -> void:
 		var forged := GameState.forge_player()
 		if not forged.is_empty():
 			GameState.add_custom_prospect(forged)
-	GameState.begin_draft()
+	if _pick_start == "real":
+		GameState.begin_real_lists()
+	else:
+		GameState.begin_draft()
 	Router.go("draft")
 
 
@@ -394,7 +414,7 @@ func _confirm_new_career() -> void:
 	var body := UiKit.lbl("This replaces %s. It cannot be undone." % what, 14, UiKit.TEXT)
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(body)
-	var go := UiKit.btn("Start new career", 17, true)
+	var go := UiKit.btn("Start new career", UiKit.NAME, true)
 	go.name = "ConfirmNewCareer"
 	go.custom_minimum_size = Vector2(0, 44)
 	go.pressed.connect(func():
@@ -479,18 +499,18 @@ func _show_help() -> void:
 			+ ("6. Finish in the top %d to play finals and chase the flag. The top four start in the qualifying finals, 5-10 in the wildcards and eliminations. The season's awards, the honour roll and league records are in the Season Review.\n\n"
 			% Season.FINALISTS)
 			+ "7. In the off-season, re-sign, release, sign free agents and trade in Trades & Contracts, then draft the next class. The hub's League news follows the whole league.\n\n"
-			+ "Difficulty (Easy, Normal or Hard) is chosen when you start a new career: it sets how fast rivals develop, how hard they bargain, and how much XP your players earn.\n\n"
+			+ "Difficulty (Easy, Normal or Hard) is chosen when you start a new career: it sets how hard rival clubs bargain when they trade with you. Players develop by the same rules on every difficulty.\n\n"
 			+ "Player names are the real AFL names, such as Jordan Dawson, unless you choose otherwise. Settings switches to generated names without changing ratings or gameplay.\n\n"
 			+ "Rotate your device at any time. Your draft picks, search and filters stay intact.", 16)
 	v.add_child(UiKit.scroll(text))
-	var guide := UiKit.btn("Stat guide", 17)
+	var guide := UiKit.btn("Stat guide", UiKit.NAME)
 	guide.name = "MenuStatGuide"
 	guide.pressed.connect(func():
 		_help_panel = null
 		overlay.queue_free()
 		_guide_overlay = StatGuide.show(self))
 	v.add_child(guide)
-	var ok := UiKit.btn("Got it", 17, true)
+	var ok := UiKit.btn("Got it", UiKit.NAME, true)
 	ok.pressed.connect(func():
 		_help_panel = null
 		overlay.queue_free())

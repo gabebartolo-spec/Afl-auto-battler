@@ -17,6 +17,12 @@ var new_career_setup_requested := false
 ## The career's custom prospect (Club Forge, ARD-M7-008): his id once made,
 ## one per career. Followed through drafts and career history.
 var custom_prospect_id := ""
+## How this career began (ARD-M5-016): "redraft" (the League Draft) or "real"
+## (every club keeps its real end-of-2026 list and the 2026 National Draft is
+## run before 2027). Older saves have no field and are redrafts.
+var start_mode := "redraft"
+## The 2026 National Draft of a real-lists career is under way (no season yet).
+var opening_draft := false
 ## Your dual-ruck call (ARD-M5-001): off until you make it, kept across
 ## seasons; copied into each season's selection for your club (_sync_dual).
 var user_dual_ruck := false
@@ -126,6 +132,7 @@ var season_wrap := {}            # the off-season briefing shown before Round 1 
 var _wrap_picks: Array = []      # your National Draft picks, carried into the rollover
 var news: Array = []             # league news feed, newest first
 var difficulty := "normal"       # this career's difficulty (DIFFICULTIES key)
+var tutorials := true            # this career's first-visit menu tips (Tutorials.gd)
 var board := {}                  # confidence, goal, warned, sacked, history
 var week_event := {}             # this week's event card (ClubLife.pick_event)
 var media_conference := {}       # pending post-match press question
@@ -231,6 +238,7 @@ func _ready() -> void:
 	ScreenLayout.set_screen_size(str(cfg.get_value("ui", "screen_size", "standard")))
 	if bool(cfg.get_value("ui", "fullscreen", false)):
 		ScreenLayout.set_fullscreen(true)
+	_apply_battery_saver(bool(cfg.get_value("ui", "battery_saver", false)))
 
 
 func _exit_tree() -> void:
@@ -375,12 +383,43 @@ func set_fullscreen(on: bool) -> void:
 	ScreenLayout.set_fullscreen(on)
 
 
+## Battery saver (ROADMAP §1.11 battery work): draw at most 30 frames a second
+## instead of 60. Matches, scenes and timers run on real time, so nothing plays
+## slower or differently; motion is a little less smooth. Off by default.
+const FPS_NORMAL := 60
+const FPS_SAVER := 30
+
+
+func battery_saver() -> bool:
+	return bool(get_setting("battery_saver", false))
+
+
+func set_battery_saver(on: bool) -> void:
+	set_setting("battery_saver", on)
+	_apply_battery_saver(on)
+
+
+func _apply_battery_saver(on: bool) -> void:
+	Engine.max_fps = FPS_SAVER if on else FPS_NORMAL
+
+
 func vignettes_on() -> bool:
 	return bool(get_setting("vignettes", true))
 
 
 func set_vignettes_on(on: bool) -> void:
 	set_setting("vignettes", on)
+
+
+## The live match view's players as small figures instead of tokens: a
+## prototype gated by the director's phone (visual audit §8 Phase 3.3). Off
+## by default; nothing in the match changes either way.
+func match_figures_on() -> bool:
+	return bool(get_setting("match_figures", false))
+
+
+func set_match_figures_on(on: bool) -> void:
+	set_setting("match_figures", on)
 
 
 ## How fast a watched match starts (1x, 2x, 4x or 8x). 4x by default.
@@ -435,6 +474,7 @@ func autosave() -> bool:
 func mark_dirty() -> void:
 	_dirty = true
 	_phase_cache = {}
+	_teach_key = ""   # a hire, fire, poach or market move may have changed a staff
 
 
 func autosave_if_dirty() -> bool:
@@ -504,6 +544,7 @@ func save_career() -> bool:
 		"trade_requests": trade_requests,
 		"news": news,
 		"difficulty": difficulty,
+		"tutorials": tutorials,
 		"board": board,
 		"week_event": week_event,
 		"media_conference": media_conference,
@@ -527,6 +568,8 @@ func save_career() -> bool:
 		"career_seed": career_seed,
 		"class_tiers": class_tiers,
 		"custom_prospect_id": custom_prospect_id,
+		"start_mode": start_mode,
+		"opening_draft": opening_draft,
 		"custom_club": custom_club,
 		"best23": best23,
 		"user_dual_ruck": user_dual_ruck,
@@ -662,6 +705,7 @@ func load_career() -> bool:
 	last_side = state.get("last_side", [])
 	event_memory = state.get("event_memory", {})
 	difficulty = str(state.get("difficulty", "normal"))
+	tutorials = bool(state.get("tutorials", true))
 	if not DIFFICULTIES.has(difficulty):
 		difficulty = "normal"
 	GameDB.draftees = state.get("db_draftees", GameDB.draftees)
@@ -671,6 +715,8 @@ func load_career() -> bool:
 	career_seed = int(state.get("career_seed", 0))
 	class_tiers = state.get("class_tiers", {})
 	custom_prospect_id = str(state.get("custom_prospect_id", ""))
+	start_mode = str(state.get("start_mode", "redraft"))
+	opening_draft = bool(state.get("opening_draft", false))
 	user_dual_ruck = bool(state.get("user_dual_ruck", false))
 	_sync_dual()
 	_recompute_ratings()
@@ -685,6 +731,7 @@ func load_career() -> bool:
 	if season != null and board.is_empty():
 		_open_board_season()
 	coaches = state.get("coaches", {})
+	_teach_key = ""
 	coach_archive = state.get("coach_archive", {})
 	staff_vacancies = state.get("staff_vacancies", [])
 	coach_approaches = state.get("coach_approaches", [])
@@ -1021,6 +1068,7 @@ func reset() -> void:
 	last_side = []
 	event_memory = {}
 	difficulty = new_career_difficulty()
+	tutorials = new_career_tutorials()
 	career_seed = randi_range(1, 999999)
 	class_tiers = {}
 	last_training_report = {}
@@ -1030,6 +1078,8 @@ func reset() -> void:
 	user_dual_ruck = false
 	_dirty = false
 	default_train_plan = "position"
+	start_mode = "redraft"
+	opening_draft = false
 	season_year = GameDB.START_YEAR
 	drafted_draftees = {}
 	intake_assignments = []
@@ -1099,6 +1149,115 @@ func create_club(spec: Dictionary) -> String:
 	custom_club = spec.duplicate(true)
 	GameDB.register_club(ClubForge.row(custom_club))
 	return ""
+
+
+## A real-lists career (ARD-M5-016): every founding club keeps its real
+## end-of-2026 list, and the real 2026 draft class goes through the 2026
+## National Draft before the first season, 2027. No 2026 season is simulated:
+## the draft runs in 2026, in reverse order of the real 2026 ladder, and the
+## season starts once it is done (finish_intake_draft). You choose your club
+## on the draft screen. League redraft (begin_draft) is unchanged.
+func begin_real_lists() -> void:
+	start_mode = "real"
+	opening_draft = true
+	season_year = GameDB.DATA_SEASON
+	my_club = ""
+	my_list = []
+	var active := GameDB.active_clubs(GameDB.START_YEAR)
+	league_lists = {}
+	for code in active:
+		# The whole registered list: the players with 2026 games and those
+		# without (GameDB.list_additions).
+		league_lists[code] = _career_copies(GameDB.club_list(code) + GameDB.club_additions(code))
+		unique_jumpers(league_lists[code])
+	# The 2026 list decisions, before the draft: the retired are gone, the
+	# delisted are free agents any club may sign.
+	for code in active:
+		for p in (league_lists[code] as Array).duplicate():
+			var kind := GameDB.departure_kind(p)
+			if kind == "":
+				continue
+			(league_lists[code] as Array).erase(p)
+			if kind == "retired":
+				continue
+			p["released_by"] = code
+			p["comp_eligible"] = false
+			p["contract_years"] = 0
+			free_agents.append(p)
+	intake_assignments = []
+	# The real 2026 class, and the career's own prospect if it has one.
+	var cls: Array = _career_copies(GameDB.draftees)
+	for q in draftee_pool:
+		if str(q.get("id", "")) == custom_prospect_id and custom_prospect_id != "":
+			cls.append(q)
+	var open_pool := []
+	for p in cls:
+		var tie := str(p.get("tied_club", ""))
+		if tie != "" and int(p.get("draft_year", 0)) == season_year and league_lists.has(tie):
+			_assign_draftee(tie, p, str(p.get("tied_type", "tied")))
+		else:
+			open_pool.append(p)
+	draftee_pool = draftee_pool.filter(func(q): return str(q.get("id", "")) != custom_prospect_id)
+	var sizes := {}
+	var role_counts := {}
+	var role_pairs := {}
+	for code in active:
+		var arr: Array = league_lists[code]
+		sizes[code] = arr.size()
+		var c := {"RUCK": 0, "MID": 0, "DEF": 0, "FWD": 0}
+		var pairs: Array = []
+		for p in arr:
+			var r := str(p["role"])
+			if c.has(r):
+				c[r] = int(c[r]) + 1
+			pairs.append([r, str(p.get("role2", ""))])
+		role_counts[code] = c
+		role_pairs[code] = pairs
+	draft = Draft.build_intake(open_pool, active.duplicate(), opening_order(active),
+			_clock_seed(2), sizes, role_counts, role_pairs)
+	mark_dirty()
+
+
+## The 2026 National Draft order: the real 2026 ladder reversed, the premiers
+## last and the runners-up second last (the simplified order the intake draft
+## uses every year). Clubs missing from the ladder file go first, in club order.
+func opening_order(active: Array) -> Array:
+	var ladder := GameDB.ladder_2026()
+	var rows := []
+	for r in ladder:
+		if active.has(str(r["club"])):
+			rows.append(r)
+	var premier := ""
+	var runner := ""
+	for r in rows:
+		if str(r["finals"]) == "premiers":
+			premier = str(r["club"])
+		elif str(r["finals"]) == "runners_up":
+			runner = str(r["club"])
+	var order := []
+	for code in active:
+		if not rows.any(func(r): return str(r["club"]) == code):
+			order.append(code)
+	for i in range(rows.size() - 1, -1, -1):
+		var code := str(rows[i]["club"])
+		if code != premier and code != runner:
+			order.append(code)
+	if runner != "":
+		order.append(runner)
+	if premier != "":
+		order.append(premier)
+	return order
+
+
+## Your club in a real-lists career, chosen on the draft screen.
+func choose_real_club(code: String) -> void:
+	if not opening_draft or not league_lists.has(code):
+		return
+	my_club = code
+	my_list = league_lists[code]
+	draft.scouting_mults[code] = recruiting_uncertainty_mult()
+	draft.start_for_user(code)
+	mark_dirty()
 
 
 func begin_draft() -> void:
@@ -1235,6 +1394,15 @@ func finish_intake_draft() -> bool:
 			arr.append(p)
 			drafted_draftees[id] = code
 	draft = null
+	if opening_draft:
+		# The 2026 National Draft is done: the first season, 2027, starts on
+		# these lists. Nothing ages, develops or retires; the real 2026
+		# history is added once, by start_season.
+		opening_draft = false
+		draft_meeting_year = 0
+		season_year = GameDB.START_YEAR
+		start_season(my_club, league_lists.get(my_club, []))
+		return true
 	_start_next_season(next_year, merged)
 	return true
 
@@ -1628,7 +1796,13 @@ func _next_jumper_number(list: Array) -> int:
 func start_season(club_code: String, list: Array) -> void:
 	my_club = club_code
 	var lists := {}
-	if draft != null and draft.league_mode and draft.is_finished():
+	if start_mode == "real" and not league_lists.is_empty() and season == null:
+		# A real-lists career: each club's real list plus its 2026 draftees,
+		# already career copies (begin_real_lists).
+		for code in GameDB.club_order:
+			if league_lists.has(code):
+				lists[code] = league_lists[code]
+	elif draft != null and draft.league_mode and draft.is_finished():
 		league_lists = draft.all_lists()
 		for code in GameDB.club_order:
 			lists[code] = _career_copies(league_lists.get(code, []))
@@ -2482,15 +2656,15 @@ func _banner_milestone(code: String, farewell_ok: bool) -> Dictionary:
 		var played := games_played(p)
 		var next := played + 1
 		if Career.complete(p) and (BANNER_MILESTONES.has(next) or played == 0) and next > best_games:
-			best = {"player": surname, "name": name, "games": next}
+			best = {"player": surname, "name": name, "games": next, "id": str(p.get("id", ""))}
 			best_games = next
 		elif Career.complete(p):
 			var here := int(club_tally(p, code)["games"]) + 1
 			if BANNER_CLUB_MILESTONES.has(here) and here > club_games:
-				club = {"player": surname, "name": name, "games": here, "club": true}
+				club = {"player": surname, "name": name, "games": here, "club": true, "id": str(p.get("id", ""))}
 				club_games = here
 		if farewell_ok and farewell.is_empty() and retiring_now(p):
-			farewell = {"player": surname, "name": name, "games": "farewell"}
+			farewell = {"player": surname, "name": name, "games": "farewell", "id": str(p.get("id", ""))}
 	if not best.is_empty():
 		return best
 	return club if not club.is_empty() else farewell
@@ -3095,12 +3269,14 @@ func _project_week(p: Dictionary, announce := true) -> Dictionary:
 	pr["weeks"] = int(pr.get("weeks", 0)) + 1
 	if int(pr["weeks"]) < PROJECT_WEEKS:
 		return {}
-	return _finish_project(p, announce)
+	return _finish_project(p, announce, "Round %d" % maxi(1, season.round_index))
 
 
 ## The verdict on his project, at PROJECT_WEEKS or when the season ends first:
-## learned if his rating there is within PROJECT_PASS of his own.
-func _finish_project(p: Dictionary, announce := true) -> Dictionary:
+## learned if his rating there is within PROJECT_PASS of his own. The
+## decision and its outcome are kept as a career fact (G7): `at` is when it
+## was judged ("Round 12", or "Season end" when the season ended first).
+func _finish_project(p: Dictionary, announce := true, at := "Season end") -> Dictionary:
 	var job := project_job(p)
 	var role := project_role(p)
 	var own := int(p.get("overall", 0))
@@ -3114,6 +3290,8 @@ func _finish_project(p: Dictionary, announce := true) -> Dictionary:
 			var more: Array = p.get("learned", [])
 			more.append(role)
 			p["learned"] = more
+	CareerFacts.add(career_facts, str(p.get("id", "")), CareerFacts.row(season_year, at, "project",
+			str(p.get("club", "")), job, "learned" if learned else "not taken"))
 	p.erase("project")
 	p.erase("train_plan")
 	if not announce:
@@ -4510,10 +4688,15 @@ func _join(code: String, p: Dictionary) -> void:
 	var list: Array = season.lists[code]
 	if str(p.get("club", "")) != code:
 		p["joined"] = season_year
+	# A new club ends a project; his season's chance stays spent. The old
+	# club's decision is kept as a career fact, with how it ended.
+	if project_job(p) != "" and str(p.get("club", "")) != code:
+		CareerFacts.add(career_facts, str(p.get("id", "")), CareerFacts.row(season_year, "",
+				"project", str(p.get("club", "")), project_job(p), "ended by a move"))
 	p["club"] = code
 	p["num"] = _next_jumper_number(list)
 	p.erase("train_plan")
-	p.erase("project")  # a new club ends it; his season's chance stays spent
+	p.erase("project")
 	p.erase("released_by")
 	p.erase("comp_eligible")
 	list.append(p)
@@ -6287,13 +6470,31 @@ func _train_rivals(results: Array) -> void:
 ## mid-season and no club develops by different rules.
 const SEASON_TRAIN_GAIN := 3
 
+## Every club's staff, read once a round for the teaching step: the records
+## change only between rounds (hirings, the off-season market).
+var _teach_staffs := {}
+var _teach_key := ""
+
+
+## A point on or off this player's season training ceiling from his club's
+## teachers (CoachEffects.teach_step); 0 outside a coaching world.
+func teach_step(p: Dictionary) -> int:
+	if coaches.is_empty() or str(p.get("club", "")) == "":
+		return 0   # no club, no teachers: a free agent or a prospect is neither lifted nor held back
+	var key := "%d|%d|%d" % [season_year, season.round_index if season != null else -1, coaches.size()]
+	if key != _teach_key:
+		_teach_staffs = CoachEffects.staffs(coaches)
+		_teach_key = key
+	return CoachEffects.teach_step(_teach_staffs.get(str(p.get("club", "")), {}), p)
+
 
 ## The rating a player's training can take him to this season (less once he
-## starts on another position).
+## starts on another position). His club's teachers move it a point either
+## way (CoachEffects.teach_step), at every club alike.
 func season_ceiling(p: Dictionary) -> int:
 	if not p.has("season_start_ov"):
 		p["season_start_ov"] = int(p.get("overall", 0))
-	var full := int(p["season_start_ov"]) + SEASON_TRAIN_GAIN
+	var full := int(p["season_start_ov"]) + SEASON_TRAIN_GAIN + teach_step(p)
 	# The season after he learns a position: a little more room, inside POT.
 	if int(p.get("learn_payback_year", 0)) == season_year:
 		full = maxi(full, mini(full + LEARN_PAYBACK, int(p.get("potential", 0))))
@@ -6454,17 +6655,47 @@ func _recalc_player_overall(p: Dictionary) -> void:
 ## train and grow by the same rules (SEASON_TRAIN_GAIN, Potential).
 const DIFFICULTIES := {
 	"easy": {"label": "Easy", "trade_margin": 0.0,
-			"text": "Clubs trade at fair value."},
+			"text": "Rival clubs trade with you at fair value."},
 	"normal": {"label": "Normal", "trade_margin": Contracts.TRADE_MARGIN,
-			"text": "The league as tuned."},
+			"text": "Rival clubs want a little more than fair value to trade with you."},
 	"hard": {"label": "Hard", "trade_margin": 0.12,
-			"text": "Rival clubs drive hard bargains in trades."},
+			"text": "Rival clubs drive hard bargains in trades with you."},
 }
 const DIFFICULTY_ORDER := ["easy", "normal", "hard"]
 
 
 func difficulty_rules() -> Dictionary:
 	return DIFFICULTIES.get(difficulty, DIFFICULTIES["normal"])
+
+
+## First-visit menu tips (director, 2026-10-07): chosen at New career, kept
+## with the career, changeable in Settings. Off stops them opening by
+## themselves; nothing else changes.
+func new_career_tutorials() -> bool:
+	return bool(get_setting("tutorials", true))
+
+
+func set_new_career_tutorials(on: bool) -> void:
+	set_setting("tutorials", on)
+	if season == null:
+		tutorials = on
+
+
+func tutorials_on() -> bool:
+	return tutorials
+
+
+## Whether a first-visit intro opens by itself: this career's tips are on and
+## it hasn't been seen on this device. Help buttons open intros regardless.
+func intro_due(key: String) -> bool:
+	return tutorials and not bool(get_setting("seen_%s_intro" % key, false))
+
+
+## Settings: this career's tips on or off (and the next New career's default).
+func set_tutorials_on(on: bool) -> void:
+	tutorials = on
+	set_setting("tutorials", on)
+	mark_dirty()
 
 
 ## The difficulty the next New Career starts on (a menu setting).
@@ -6814,6 +7045,7 @@ func _board_after_round(results: Array) -> void:
 			p.erase("expects_game")
 			if not played.has(str(p["id"])) and int(p.get("injury_weeks", 0)) <= 0:
 				ClubLife.add_morale(p, -CoachEffects.softened(sting, float(soft.get(str(p["id"]), 0.0))))
+	_after_match_talks(played, int(res.get("round", season.round_index)))
 
 
 ## Every rival club's players take the week the way yours do
@@ -6977,7 +7209,7 @@ func _next_week_event() -> void:
 	week_event = ClubLife.pick_event({"list": my_list, "round": season.round_index + 1,
 			"seed": season.seed, "losses": losing_streak, "selected": selected,
 			"cap_room": salary_cap - my_payroll(), "memory": event_memory,
-			"last_key": last_key})
+			"last_key": last_key, "talk_info": talk_info(selected)})
 	# Remember what came up, so the same player is not back every week.
 	if not week_event.is_empty():
 		var pid := str(week_event.get("player_id", ""))
@@ -7148,6 +7380,15 @@ func resolve_week_event(choice: int) -> String:
 			p["expects_game"] = 12
 			out = ("%s feels heard. Auto-pick names him this week." if my_selection().is_empty()
 					else "%s feels heard, and expects a game this week.") % name
+			_note_talk(p, "promise")
+		"explain":
+			ClubLife.add_morale(p, ClubLife.EXPLAIN_LIFT)
+			out = _explain_outcome(name, week_event)
+			_note_talk(p, "explain")
+		"call":
+			ClubLife.add_morale(p, -5)
+			out = "You tell %s selection is your call, and it stands." % name
+			_note_talk(p, "call")
 		"earn":
 			ClubLife.add_morale(p, -5)
 			for q in my_list:
@@ -7817,3 +8058,153 @@ const STYLE_LINES := {
 	"conceded_stoppage": ["We shut down their stoppage game: %d fewer points a game conceded from stoppages than the average side.",
 			"They hurt us from the stoppages: %d more points a game conceded from them than the average side.", true],
 }
+
+
+# --- Sit-downs that grow out of what happened (RPG-003 slice 1) -------------
+
+## What the week's sit-down may open on, per player of yours (ClubLife.
+## talk_case): {id: {"games", "in_last_side", "selected", "age",
+## "weeks_without", "injury", "kpi"}}. Only facts the game has kept.
+func talk_info(selected: Dictionary) -> Dictionary:
+	var out := {}
+	if season == null:
+		return out
+	var last_ids := {}
+	for id in last_side:
+		last_ids[str(id)] = true
+	for p in my_list:
+		var id := str(p["id"])
+		var kind := Backing.kpi_kind(p)
+		var ks: Array = Backing.KPI[kind]["stats"]
+		out[id] = {"games": games_played(p), "in_last_side": last_ids.has(id),
+				"selected": selected.has(id), "age": float(p.get("age", 30.0)),
+				"weeks_without": weeks_without_game(p), "injury": _back_from(p), "kpi": _kpi_text(p),
+				"verdict": _kpi_verdict(p), "job": talk_job(p),
+				"need": "%s and %s" % [Backing.KPI_LABEL[ks[0]], Backing.KPI_LABEL[ks[1]]]}
+	return out
+
+
+## Your rounds since his last senior game for you this season: the rounds
+## played so far when he has none this season, -1 when an older save cannot
+## say (it never kept the round).
+func weeks_without_game(p: Dictionary) -> int:
+	var lg = p.get("last_game", [])
+	if lg is Array and (lg as Array).size() == 2 and int(lg[0]) == season_year:
+		return maxi(0, season.round_index - int(lg[1]))
+	if int((season_tally.get(str(p["id"]), {}) as Dictionary).get("games", 0)) == 0:
+		return season.round_index
+	return -1
+
+
+## The injury he is back from without a game since ("hamstring"), or "": his
+## latest injury fact this season, from a round at or after his last game.
+func _back_from(p: Dictionary) -> String:
+	if int(p.get("injury_weeks", 0)) > 0:
+		return ""
+	var inj := CareerFacts.of(career_facts, str(p["id"]), "injury")
+	if inj.is_empty():
+		return ""
+	var f: Dictionary = inj[-1]
+	if int(f["y"]) != season_year or not str(f["at"]).begins_with("Round"):
+		return ""
+	var hurt := str(f["at"]).trim_prefix("Round ").to_int()
+	var lg = p.get("last_game", [])
+	var last := int(lg[1]) if lg is Array and (lg as Array).size() == 2 and int(lg[0]) == season_year else 0
+	if hurt < last:
+		return ""
+	return str(f["out"]).replace("_", " ") if str(f["out"]) != "" else "injury"
+
+
+## His season on the numbers his job is judged by (Backing.KPI): "Seven
+## games: 12 disposals and 1 clearance a game.", or "" with no game this
+## season.
+func _kpi_text(p: Dictionary) -> String:
+	var row: Dictionary = season_stats.get(str(p["id"]), {})
+	var games := int(row.get("games", 0))
+	if games <= 0:
+		return ""
+	var kind := Backing.kpi_kind(p)
+	return Backing.kpi_line(kind, games, _kpi_totals(kind, row))
+
+
+## How his season reads on those numbers: "good", "quiet" or "" (Backing.kpi_verdict).
+func _kpi_verdict(p: Dictionary) -> String:
+	var row: Dictionary = season_stats.get(str(p["id"]), {})
+	var games := int(row.get("games", 0))
+	if games <= 0:
+		return ""
+	var kind := Backing.kpi_kind(p)
+	return Backing.kpi_verdict(kind, games, _kpi_totals(kind, row))
+
+
+func _kpi_totals(kind: String, row: Dictionary) -> Dictionary:
+	var tot := {}
+	for k in Backing.KPI[kind]["stats"]:
+		tot[k] = StatBook.total(row, str(k))
+	return tot
+
+
+## His job as a coach says it: "key back", "ruck", "small forward"...
+func talk_job(p: Dictionary) -> String:
+	match Backing.kpi_kind(p):
+		"key_fwd":
+			return "key forward"
+		"fwd":
+			return PlayerProfile.forward_type(p).to_lower()
+		"wing":
+			return "wingman"
+		"ruck":
+			return "ruck"
+		"key_back":
+			return "key back"
+		"def":
+			return "defender"
+	return "midfielder"
+
+
+## What talking him through it comes to, in plain facts. Good numbers are
+## never spun as a poor season: he just doesn't see why he's out.
+func _explain_outcome(name: String, e: Dictionary) -> String:
+	var kpi := str(e.get("kpi", ""))
+	if kpi == "":
+		return "You tell %s what a %s has to show: %s. Nothing is promised." % [
+				name, str(e.get("job", "player")), str(e.get("need", ""))]
+	if str(e.get("verdict", "")) == "good":
+		return "You go through his season with %s: %s He doesn't see why he's out. Nothing is promised." % [name, kpi]
+	return "You go through his season with %s: %s Nothing is promised." % [name, kpi]
+
+
+## Keep the sit-down as a career fact (G7, kind "talk"): d is what opened it
+## and what you said ("dropped|promise"); out is settled after your next match.
+func _note_talk(p: Dictionary, said: String) -> void:
+	CareerFacts.add(career_facts, str(p["id"]), CareerFacts.row(season_year,
+			"Round %d" % (season.round_index + 1), "talk", my_club,
+			"%s|%s" % [str(week_event.get("case", "mood")), said], ""))
+
+
+## After your match: the round each player of yours last played, and every
+## sit-down still open settled, with a line saying how it came out.
+func _after_match_talks(played: Dictionary, round_no: int) -> void:
+	for p in my_list:
+		var id := str(p["id"])
+		if played.has(id):
+			p["last_game"] = [season_year, round_no]
+		var rows = career_facts.get(id, [])
+		if not (rows is Array):
+			continue
+		for r in rows:
+			if str(r[CareerFacts.K]) != "talk" or str(r[CareerFacts.OUT]) != "":
+				continue
+			var said := str(r[CareerFacts.D]).get_slice("|", 1)
+			var name := GameDB.player_display_name(p)
+			if played.has(id):
+				r[CareerFacts.OUT] = "played"
+				add_news("club", ("%s is back in the side, as you told him." if said == "promise"
+						else "%s is back in the side.") % name)
+			elif int(p.get("injury_weeks", 0)) > 0:
+				r[CareerFacts.OUT] = "injured"
+				add_news("club", "%s was hurt before his chance came." % name)
+			else:
+				r[CareerFacts.OUT] = "waiting"
+				add_news("club", ("%s is still waiting for the game you promised him." if said == "promise"
+						else "%s is still waiting for a game.") % name)

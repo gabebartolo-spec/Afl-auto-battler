@@ -34,6 +34,12 @@ shader_type canvas_item;
 uniform sampler2D mask_tex : filter_linear;
 uniform sampler2D design_tex : filter_linear;
 uniform sampler2D digits_tex : filter_linear, repeat_disable;   // 0-9: R fill, G outline
+// Sheet contract v2 (2026-10-10): the guernsey's front/back and the long-sleeve coverage move
+// out of the design sheet into a lossless R8 flag texture per sheet group, because a
+// block-compressed channel smears an implicit flag (the boot-colour leak). R = back (bit 0)
+// + sleeve coverage 0-127 (bits 1-7). Off by default: today's sheets keep design B and A.
+uniform sampler2D flag_tex : filter_nearest, repeat_disable;
+uniform bool use_flag_tex = false;
 uniform ivec2 sheet_size = ivec2(2048, 2304);
 uniform ivec2 hair_sizes[8];
 uniform int hair_count = 0;
@@ -192,6 +198,25 @@ vec3 design_at(vec2 uv) {
 		+ s1.y * (s0.x * texture(design_tex, vec2(c0.x, c1.y)).rgb + s1.x * texture(design_tex, vec2(c1.x, c1.y)).rgb);
 }
 
+// One texel of the flag texture, decoded: x = back (1) or front (0), y = sleeve coverage 0..1.
+vec2 flag_texel(ivec2 p) {
+	ivec2 size = textureSize(flag_tex, 0);
+	int v = int(round(texelFetch(flag_tex, clamp(p, ivec2(0), size - 1), 0).r * 255.0));
+	return vec2(float(v & 1), float(v >> 1) / 127.0);
+}
+
+// The flag at uv: the back bit from the nearest texel (a bit has no in-between); the sleeve
+// coverage blended from the four around it by hand, so its edge stays anti-aliased.
+vec2 flag_at(vec2 uv) {
+	vec2 t = uv * vec2(textureSize(flag_tex, 0)) - 0.5;
+	ivec2 i = ivec2(floor(t));
+	vec2 f = fract(t);
+	float back = flag_texel(ivec2(floor(t + 0.5))).x;
+	float a = flag_texel(i).y, b = flag_texel(i + ivec2(1, 0)).y;
+	float c = flag_texel(i + ivec2(0, 1)).y, d = flag_texel(i + ivec2(1, 1)).y;
+	return vec2(back, mix(mix(a, b, f.x), mix(c, d, f.x), f.y));
+}
+
 bool is_hair(ivec2 size) {
 	for (int i = 0; i < 8; i++) {
 		if (i < hair_count && size == hair_sizes[i]) {
@@ -213,6 +238,11 @@ void fragment() {
 		vec4 s = texture(TEXTURE, UV);     // lighting, hair, shorts, coverage
 		vec4 m = texture(mask_tex, UV);    // base colour, sock band, skin, guernsey alone
 		vec3 g = design_at(UV);
+		vec2 flags = vec2(0.0);
+		if (use_flag_tex) {
+			flags = flag_at(UV);
+			g.z = 1.0 - flags.x;   // design B was front 1 / back 0
+		}
 		int code = int(round(looks.r * 16.0));
 		int kit = clamp(code / 4, 0, 3);
 		bool sleeved = ((code / 2) % 2) == 1;
@@ -233,7 +263,8 @@ void fragment() {
 			// the bare shoulder out from the collar - not the neck), apart from the design's own
 			// channels, which next to the guernsey carry the guernsey's coordinates.
 			float off = 1.0 - smoothstep(0.35, 0.65, m.a);
-			float sleeve = (sleeved ? 1.0 : 0.0) * smoothstep(0.2, 0.5, texture(design_tex, UV).a);
+			float cover = use_flag_tex ? flags.y : texture(design_tex, UV).a;
+			float sleeve = (sleeved ? 1.0 : 0.0) * smoothstep(0.2, 0.5, cover);
 			// The sleeve is the guernsey's base colour, except where it meets the guernsey: there
 			// the design sheet carries the guernsey's own coordinates, so the top of the shoulder
 			// (high up the guernsey) takes the colour the guernsey has there: a yoke runs on over it.

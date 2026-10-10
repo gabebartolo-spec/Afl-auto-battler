@@ -25,6 +25,7 @@ func run() -> void:
 	_test_retirement_talk()
 	_test_custom_prospect()
 	_test_panel_fit()
+	_test_real_lists_start()
 	GameState.replay_seed = 0
 	print("Intake tests: %d checks, %d failures" % [checks, failures.size()])
 
@@ -753,3 +754,87 @@ func _test_panel_fit() -> void:
 			if RecruitMeeting.split(p, "COL", SUITE_SEED):
 				split += 1
 	_check(split > 0 and split * 4 < tested, "The panel is split on some prospects, not most (%d of %d)" % [split, tested])
+
+
+## A real-lists career (ARD-M5-016): every club keeps its real end-of-2026
+## list, the real 2026 class goes through the 2026 National Draft before any
+## season, and 2027 starts on those lists with nothing aged.
+func _test_real_lists_start() -> void:
+	GameState.reset()
+	GameState.replay_seed = 4242
+	GameState.begin_real_lists()
+	var active := GameDB.active_clubs(GameDB.START_YEAR)
+	var real_size := 0
+	for code in active:
+		real_size += GameDB.club_list(code).size() + GameDB.club_additions(code).size()
+	_check(real_size == 806, "The real lists are complete: 806 registered players at the end of 2026 (%d)" % real_size)
+	var untried: Array = GameDB.club_additions("GEE")
+	var all_ok := untried.size() == 12
+	for q in untried:
+		if int(q.get("gm", 0)) != 0 or not q.has("potential") or not ["RUCK", "MID", "DEF", "FWD"].has(str(q["role"])):
+			all_ok = false
+	_check(all_ok,
+			"A club's listed players without a 2026 game are there, rated as prospects, each with a position")
+	var kept := 0
+	for code in active:
+		kept += (GameState.league_lists[code] as Array).size()
+	_check(GameState.opening_draft and GameState.season == null and GameState.season_year == GameDB.DATA_SEASON
+			and GameState.draft != null and GameState.draft.intake_mode,
+			"Real lists open on the 2026 National Draft, in 2026, with no season played")
+	var gone := 0
+	var delisted := 0
+	for code in active:
+		for q in GameDB.club_list(code) + GameDB.club_additions(code):
+			var kind := GameDB.departure_kind(q)
+			if kind != "":
+				gone += 1
+				if kind != "retired":
+					delisted += 1
+	var freed := 0
+	for q in GameState.free_agents:
+		if GameDB.departure_kind(q) != "" and GameDB.departure_kind(q) != "retired":
+			freed += 1
+	_check(kept - (real_size - gone) == GameState.intake_assignments.size() and freed == delisted,
+			"Each club keeps its list less the 2026 retirements and delistings; the delisted are free agents (%d gone)" % gone)
+	var order: Array = GameState.opening_order(active)
+	var same := order.duplicate()
+	same.sort()
+	var want := active.duplicate()
+	want.sort()
+	_check(same == want, "The draft order is every founding club once (%d)" % order.size())
+	var vet: Dictionary = {}
+	for q in GameDB.club_list("GEE"):
+		if GameDB.departure_kind(q) == "":
+			vet = q
+			break
+	GameState.choose_real_club("GEE")
+	_check(GameState.my_club == "GEE" and GameState.draft.user_club == "GEE" and GameState.has_career(),
+			"Choosing a club takes its real list; the career can now be saved")
+	_check(GameState.save_career() and GameState.load_career() and GameState.opening_draft
+			and GameState.draft != null and GameState.draft.intake_mode and GameState.start_mode == "real",
+			"A real-lists career saves and resumes mid-draft")
+	var guard := 0
+	while not GameState.draft.is_finished() and guard < 400:
+		guard += 1
+		if GameState.draft.is_user_turn():
+			var board: Array = GameState.draft.board("", "", "", "overall", true)
+			if board.is_empty() or not GameState.draft.pick(board[0]):
+				break
+	_check(GameState.draft.is_finished(), "The 2026 National Draft runs to the end")
+	_check(GameState.finish_intake_draft() and GameState.season != null and GameState.season_year == GameDB.START_YEAR
+			and not GameState.opening_draft, "Finishing the draft starts the 2027 season")
+	var rookies := 0
+	for q in GameState.my_list:
+		if int(q.get("drafted_year", 0)) == GameDB.DATA_SEASON and str(q.get("drafted_type", "")) == "national":
+			rookies += 1
+	_check(rookies >= 1, "Your 2026 draftees are on your 2027 list (%d)" % rookies)
+	var same_vet: Dictionary = {}
+	for q in GameState.my_list:
+		if str(q["id"]) == str(vet["id"]):
+			same_vet = q
+	_check(not same_vet.is_empty() and is_equal_approx(float(same_vet.get("age", 0.0)), float(vet.get("age", 0.0)))
+			and int(same_vet["overall"]) == int(vet["overall"]),
+			"Real players start 2027 as the data has them: nothing aged or developed twice")
+	GameState.reset()
+	_check(GameState.start_mode == "redraft" and not GameState.opening_draft, "A new career is a redraft unless chosen")
+

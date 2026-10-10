@@ -119,6 +119,17 @@ func _sections() -> void:
 		var s: Control = load("res://scenes/StatsHubScene.tscn").instantiate()
 		root.add_child(s)
 		await _settle()
+		if sz.x < 900:
+			var all_in := true
+			for key in ["ladder", "players", "awards", "fixture", "trophies"]:
+				var tb: Control = s.find_child("Section_" + key, true, false)
+				if tb == null or tb.get_global_rect().end.x > sz.x + 1 or tb.get_global_rect().position.x < -1:
+					all_in = false
+			_check(all_in and s.find_child("SectionStrip", true, false) == null,
+					"Five short tabs fit one row on a phone, none cut and no sideways scroll (%dx%d)" % [sz.x, sz.y])
+			_check(s.find_child("Section_trophies", true, false).text == "Trophies"
+					and s.find_child("Section_players", true, false).text == "Players",
+					"...with short names: Players, Trophies (%dx%d)" % [sz.x, sz.y])
 		for key in ["ladder", "players", "awards", "fixture", "trophies"]:
 			var t: Button = s.find_child("Section_" + key, true, false)
 			_check(t != null, "Season stats has a %s section (%dx%d)" % [key, sz.x, sz.y])
@@ -132,48 +143,71 @@ func _sections() -> void:
 		await _settle()
 
 
-## Player stats: every player's season, sortable, grouped, per game,
-## filtered, and a tap away from his season and career.
+## Players: every player's season. A phone shows one stat at a time as a
+## leaderboard (rank, guernsey, full name, one big figure); a wide screen the
+## table with words in its headings. Per game, a rate's qualifiers, filters in
+## a sheet, and a tap away from his season and career.
 func _players_section() -> void:
 	var SP = load("res://scripts/ui/stats/StatsPlayers.gd")
 	var Hub = load("res://scripts/ui/StatsHubScene.gd")
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 		var tag := "%dx%d" % [sz.x, sz.y]
+		var wide: bool = sz.x >= 900
+		var list_name := "PlayersTable" if wide else "PlayersBoard"
 		root.size = sz
 		SP.reset_view()
 		Hub.current = "players"
 		var s: Control = load("res://scenes/StatsHubScene.tscn").instantiate()
 		root.add_child(s)
 		await _settle()
-		var table: Node = s.find_child("PlayersTable", true, false)
+		var table: Node = s.find_child(list_name, true, false)
 		var rows := s.find_children("PlayerRow_*", "Button", true, false)
 		_check(table != null and rows.size() == mini(SP.PAGE, (SP.rows() as Array).size()),
-				"Player stats lists the competition's players, a page at a time (%s, %d rows)" % [tag, rows.size()])
+				"Players lists the competition's players, a page at a time (%s, %d rows)" % [tag, rows.size()])
+		_check((s.find_child("PlayersTable", true, false) == null) == (not wide),
+				"A phone shows the leaderboard, a wide screen the table (%s)" % tag)
 		# The list is the season book, most disposals first.
 		var cells := _column(s, "disposals")
 		_check(_descending(cells) and not cells.is_empty(), "Sorted by disposals, most first (%s)" % tag)
 		var top: Dictionary = SP.sorted_rows()[0]
 		_check(not cells.is_empty() and int(cells[0]) == int(_SB.total(_state.season_stats[top["id"]], "disposals")),
 				"The top row's disposals are his season total (%s)" % tag)
-		# A real tap on the heading reverses it.
-		var head: Button = s.find_child("Sort_disposals", true, false)
-		_check(head != null and (await Tap.tap(head)) == "", "The disposals heading takes a tap (%s)" % tag)
-		await _settle()
-		cells = _column(s, "disposals")
-		_check(_ascending(cells), "A second tap sorts fewest first (%s)" % tag)
-		# Per game.
+		var pick: OptionButton = s.find_child("StatPick", true, false)
+		_check(pick != null and pick.text == "Disposals", "The stat is chosen by its name (%s: %s)" % [tag, pick.text if pick else "-"])
+		if wide:
+			# Words in the headings, and a real tap on one reverses it.
+			var head: Button = s.find_child("Sort_disposals", true, false)
+			_check(head != null and head.text.begins_with("Disposals") and s.find_child("Sort_efficiency", true, false).text.begins_with("Disposal efficiency")
+					and s.find_child("Sort_kh", true, false) == null,
+					"The table's headings are words, not codes (%s)" % tag)
+			_check(head != null and (await Tap.tap(head)) == "", "The disposals heading takes a tap (%s)" % tag)
+			await _settle()
+			cells = _column(s, "disposals")
+			_check(_ascending(cells), "A second tap sorts fewest first (%s)" % tag)
+		else:
+			# His full name, never cut, with his club and games under it.
+			var first_row: Node = s.find_children("PlayerRow_*", "Button", true, false)[0]
+			var nm: Label = first_row.find_child("Name", true, false)
+			_check(nm != null and nm.text == str(top["name"]) and nm.get_line_count() <= 2,
+					"A row shows the player's full name (%s: %s)" % [tag, nm.text if nm else "-"])
+			var meta := _text(first_row.find_child("Meta", true, false))
+			_check(meta.contains(str(top["club"])) and meta.contains("game"), "...with his club and games under it (%s: %s)" % [tag, meta])
+			_check(_text(first_row.find_child("Under", true, false)).ends_with("a game"),
+					"...and the figure a game under his total (%s)" % tag)
+		# Per game: one toggle, by finger.
 		var pg: Button = s.find_child("StatMode_per_game", true, false)
 		_check(pg != null and (await Tap.tap(pg)) == "", "Per game takes a tap (%s)" % tag)
 		await _settle()
 		var one: Node = s.find_child("Cell_disposals", true, false)
 		_check(one != null and str(one.text).contains("."), "Per game shows a figure a game (%s: %s)" % [tag, one.text if one else "-"])
-		# Another group, a rate: only those with enough shots rank.
-		SP.pick_group("goals")
-		SP.sort_by("accuracy")
+		_check(s.find_child("StatMode_total", true, false) == null, "Totals and per game are one toggle, not two buttons (%s)" % tag)
+		# A rate: only those with enough shots rank, and the list says so.
+		SP.pick_stat("accuracy")
 		s.call("refresh")
 		await _settle()
-		_check(s.find_child("Sort_goals", true, false) != null and s.find_child("PlayersQualify", true, false) != null,
-				"Goals shows its columns, and says who a rate ranks (%s)" % tag)
+		_check(s.find_child("PlayersQualify", true, false) != null, "A rate says who it ranks (%s)" % tag)
+		if wide:
+			_check(s.find_child("Sort_goals", true, false) != null, "The table shows the rate's group (%s)" % tag)
 		var ranked: Array = SP.sorted_rows()
 		var seen_unqualified := false
 		var order_ok := true
@@ -184,7 +218,18 @@ func _players_section() -> void:
 			elif seen_unqualified:
 				order_ok = false
 		_check(order_ok, "Players without enough shots come after those ranked by accuracy (%s)" % tag)
-		# Filters: one club, then reset.
+		# Filters: a sheet, by finger; Done closes it.
+		var fb: Button = s.find_child("FiltersToggle", true, false)
+		_check(fb != null and (await Tap.tap(fb)) == "", "Filters takes a tap (%s)" % tag)
+		await _settle()
+		var fsheet: Node = s.find_child("FiltersSheet", true, false)
+		_check(fsheet != null and fsheet.find_child("Filter_club", true, false) != null
+				and fsheet.find_child("Filter_games", true, false) != null, "Filters open as a sheet (%s)" % tag)
+		var done: Button = s.find_child("FiltersDone", true, false)
+		_check(done != null and (await Tap.tap(done)) == "", "Done takes a tap (%s)" % tag)
+		await _settle()
+		_check(s.find_child("FiltersSheet", true, false) == null, "...and closes the sheet (%s)" % tag)
+		# One club, then reset.
 		SP.set_filter("club", "COL")
 		s.call("refresh")
 		await _settle()
@@ -211,18 +256,13 @@ func _players_section() -> void:
 		SP.reset_view()
 		s.call("refresh")
 		await _settle()
-		# Wide screens carry more than one group.
-		if sz.x >= 1280:
-			_check(s.find_child("Sort_metres_gained", true, false) != null, "A wide screen shows the next groups too (%s)" % tag)
-		else:
-			_check(s.find_child("Sort_metres_gained", true, false) == null, "A phone shows one group at a time (%s)" % tag)
 		# Nothing runs off the screen.
 		var spill := ""
 		for c in s.find_children("*", "Label", true, false):
 			if c.is_visible_in_tree() and c.get_global_rect().end.x > sz.x + 1:
 				spill = str(c.name)
 				break
-		_check(spill == "", "Player stats fit the screen (%s%s)" % [tag, (": " + spill) if spill != "" else ""])
+		_check(spill == "", "Players fit the screen (%s%s)" % [tag, (": " + spill) if spill != "" else ""])
 		# A player's season and career, then back.
 		var first: Button = s.find_children("PlayerRow_*", "Button", true, false)[0]
 		_check((await Tap.tap(first)) == "", "A player's row takes a tap (%s)" % tag)
@@ -233,8 +273,8 @@ func _players_section() -> void:
 				"The tap opens his season and his career (%s)" % tag)
 		_check(s.call("handle_back") == true, "Back closes his sheet (%s)" % tag)
 		await _settle()
-		_check(s.find_child("PlayerStatsSheet", true, false) == null and s.find_child("PlayersTable", true, false) != null,
-				"...and leaves the table as it was (%s)" % tag)
+		_check(s.find_child("PlayerStatsSheet", true, false) == null and s.find_child(list_name, true, false) != null,
+				"...and leaves the list as it was (%s)" % tag)
 		s.queue_free()
 		await _settle()
 
@@ -244,7 +284,7 @@ func _column(s: Node, key: String) -> Array:
 	for row in s.find_children("PlayerRow_*", "Button", true, false):
 		var c: Node = row.find_child("Cell_" + key, true, false)
 		if c != null and str(c.text) != "–":
-			out.append(float(str(c.text)))
+			out.append(float(str(c.text).trim_suffix("%")))
 	return out
 
 
@@ -665,50 +705,50 @@ func _ladder(sz: Vector2i) -> void:
 	_check(_row_codes(s) == true_order and s.find_child("ResetLadder", true, false) == null,
 			"Reset puts back every club in ladder order (%s)" % tag)
 
-	# The team view: per game, from season_team.
+	# Team stats: a leaderboard, one fact at a time, a game.
 	await Tap.tap(s.find_child("View_team", true, false))
 	await _settle()
 	var t: Dictionary = _state.season_team.get(mine, {})
 	var games := int(t.get("games", 0))
 	_check(games > 0, "(setup) your club has games to average (%s)" % tag)
-	var mine_row := _text(s.find_child("Club_" + mine, true, false))
-	_check(_label_width(s.find_child("Club_" + mine, true, false), mine_name) >= 24.0,
-			"The club's name still shows in the team view (%s)" % tag)
-	var want_pf: String = ladder.per_game_text(float(t["for"]) / float(games))
-	var want_d: String = ladder.per_game_text(float(t["disposals"]) / float(games))
-	_check(mine_row.contains(want_pf) and mine_row.contains(want_d),
-			"Team stats are per game over games played: %s a game, %s disposals (%s)" % [want_pf, want_d, tag])
-	var team_heads := []
-	for b in s.find_child("LadderHeader", true, false).get_children():
-		team_heads.append(str(b.name))
-	_check(team_heads.has("Sort_disposals") and team_heads.has("Sort_inside50") and team_heads.has("Sort_hitouts")
-			and not team_heads.has("Sort_contested"), "Team stats list what season_team records (%s)" % tag)
-	_fits(s, sz, "team stats", tag)
-	_table_recipe(s, tag, false)
-	if sz.x >= 900:
-		_table_fits_content(s, "team stats", tag)
-	# One decimal for every per-game figure, whole metres.
-	var rx := RegEx.new()
-	rx.compile("^[0-9]+$")
-	var rd := RegEx.new()
-	rd.compile("^[0-9]+[.][0-9]$")
-	var whole := 0
-	var dec := 0
-	for l in s.find_child("Club_" + mine, true, false).find_children("*", "Label", true, false):
-		var tx := str(l.text)
-		if rd.search(tx) != null:
-			dec += 1
-		elif rx.search(tx) != null:
-			whole += 1
-	_check(whole == (1 if sz.x >= 900 else 0) and dec == team_heads.size() - 1 - whole,
-			"Per-game figures are one decimal, only metres gained whole (%s: %d decimal, %d whole of %d)" % [tag, dec, whole, team_heads.size() - 1])
-	await Tap.tap(s.find_child("Sort_disposals", true, false))
-	await _settle()
-	var per := []
+	_check(s.find_child("TeamBoard", true, false) != null and s.find_child("TeamStat", true, false) != null
+			and s.find_child("Filter_top8", true, false) == null,
+			"Team stats is a leaderboard with its own picker (%s)" % tag)
+	var mine_row: Node = s.find_child("Club_" + mine, true, false)
+	var club_nm: Label = mine_row.find_child("Name", true, false) if mine_row else null
+	_check(club_nm != null and club_nm.text == str(db.club_name(mine)), "Each club by its name (%s: %s)" % [tag, club_nm.text if club_nm else "-"])
+	var want_pf: String = ladder.team_text(float(t["for"]) / float(games), "for")
+	_check(_text(mine_row.find_child("Figure", true, false)) == want_pf,
+			"Points for is a game over games played, whole: %s (%s)" % [want_pf, tag])
+	var others := _text(mine_row.find_child("Others", true, false))
+	_check(others.contains("inside 50s") and others.contains("goals"),
+			"...with the view's other two facts beside it (%s: %s)" % [tag, others])
+	var figs := []
 	for c in _row_codes(s):
-		var row: Dictionary = _state.season_team[c]
-		per.append(float(row["disposals"]) / float(row["games"]))
-	_check(_non_increasing(per), "Team stats sort on the per-game figure (%s)" % tag)
+		figs.append(float(_text(s.find_child("Club_" + c, true, false).find_child("Figure", true, false))))
+	_check(_non_increasing(figs), "Ranked on points for, most first (%s)" % tag)
+	var first_bar: Node = s.find_child("Club_" + str(_row_codes(s)[0]), true, false).find_child("Bar", true, false)
+	_check(first_bar != null and is_equal_approx(float(first_bar.get_meta("share")), 1.0),
+			"The league's best fills the bar (%s)" % tag)
+	var whole_rx := RegEx.new()
+	whole_rx.compile("^[0-9]+$")
+	_check(whole_rx.search(want_pf) != null, "No decimals where a whole number says it (%s: %s)" % [tag, want_pf])
+	ladder.pick_team_fact("against")
+	s.call("refresh")
+	await _settle()
+	figs = []
+	for c in _row_codes(s):
+		figs.append(float(_text(s.find_child("Club_" + c, true, false).find_child("Figure", true, false))))
+	_check(_non_decreasing(figs), "Points against ranks the fewest first (%s)" % tag)
+	ladder.pick_team_fact("goals")
+	s.call("refresh")
+	await _settle()
+	var tenth_rx := RegEx.new()
+	tenth_rx.compile("^[0-9]+[.][0-9]$")
+	_check(tenth_rx.search(_text(s.find_child("Club_" + mine, true, false).find_child("Figure", true, false))) != null,
+			"Goals a game keep their tenth (%s)" % tag)
+	_fits(s, sz, "team stats", tag)
+	ladder.pick_team_fact("for")
 	await Tap.tap(s.find_child("View_ladder", true, false))
 	await _settle()
 
@@ -781,13 +821,21 @@ func _table_recipe(s: Node, tag: String, with_pos: bool) -> void:
 		if int(b.size.y) != (32 if root.size.x >= 900 else 40):
 			tall = false
 	_check(tall and not rows.is_empty(), "Rows are 32 px on a wide screen and a thumb-sized 40 px on a phone (%s)" % tag)
+	# Your club's row is in your colour instead of its band.
+	var kit = load("res://scripts/ui/UiKit.gd")
+	var mine := str(_state.my_club)
 	var banded := rows.size() > 1
+	var mine_tinted := false
 	for i in range(rows.size()):
 		var sb := (rows[i] as Button).get_theme_stylebox("normal") as StyleBoxFlat
-		var want := (load("res://scripts/ui/UiKit.gd").PANEL as Color) if i % 2 == 1 else Color.TRANSPARENT
+		if rows[i].name == "Club_" + mine:
+			mine_tinted = sb != null and sb.bg_color.is_equal_approx(Color(kit.club_vivid(mine), 0.22))
+			continue
+		var want := (kit.PANEL as Color) if i % 2 == 1 else Color.TRANSPARENT
 		if sb == null or not sb.bg_color.is_equal_approx(want):
 			banded = false
 	_check(banded, "Every other row is banded in the panel colour (%s)" % tag)
+	_check(mine_tinted, "...and your club's row is in your colour (%s)" % tag)
 	var right := true
 	var zero_muted := true
 	var muted: Color = load("res://scripts/ui/UiKit.gd").MUTED

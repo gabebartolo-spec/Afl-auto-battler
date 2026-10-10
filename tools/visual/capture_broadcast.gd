@@ -39,7 +39,9 @@ func _run() -> void:
 			"--width": width = int(a[i + 1])
 			"--scale": scale = float(a[i + 1])
 			"--film": film = str(a[i + 1])
-			"--venue": VignetteGround.venue = str(a[i + 1])
+			# Loaded, not named: a class named here compiles before the autoloads exist
+			# (VignetteGround reads GameDB), and the whole tool failed to load.
+			"--venue": load("res://scripts/ui/match/VignetteGround.gd").venue = str(a[i + 1])
 	await process_frame
 	var db = root.get_node("GameDB")
 	var w := width

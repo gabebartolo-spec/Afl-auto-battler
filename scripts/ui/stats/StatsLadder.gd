@@ -39,6 +39,23 @@ const TEAM_STATS := [
 ## Metres gained reads well rounded; every other figure is one decimal.
 const WHOLE_STATS := ["metres_gained"]
 
+## Team stats as a leaderboard (visual audit Phase 2, guide 4.5): one fact
+## at a time, chosen by name from three views of a club's game, each club with
+## the view's other two facts beside it and a bar against the league's best.
+## {view key, view name, [[season_team key, the fact's name], ...]}.
+const TEAM_FACTS := [
+	["attack", "Attack", [["for", "Points for"], ["inside50", "Inside 50s"], ["goals", "Goals"]]],
+	["defence", "Defence", [["against", "Points against"], ["tackles", "Tackles"], ["rebounds", "Rebound 50s"]]],
+	["contest", "Contest", [["contested_possessions", "Contested possessions"], ["clearances", "Clearances"],
+			["hitouts", "Hit-outs"]]],
+]
+## Facts where fewer is better: the best club is the one with the fewest.
+const TEAM_LOW := ["against"]
+## Few enough a game that a tenth tells two clubs apart; every other figure is whole.
+const TEAM_TENTHS := ["goals"]
+## The longest a bar gets (the league's best), so it reads the same on a phone and a PC.
+const TEAM_BAR_MAX := 360.0
+
 const FILTERS := [["all", "All"], ["top8", "Top 8"], ["near", "Near you"]]
 const VIEWS := [["ladder", "Ladder"], ["team", "Team stats"]]
 
@@ -48,6 +65,7 @@ static var _view := "ladder"
 static var _sort := ""
 static var _desc := true
 static var _filter := "all"
+static var _team_fact := "for"
 
 
 static func reset() -> void:
@@ -55,15 +73,14 @@ static func reset() -> void:
 	_sort = ""
 	_desc = true
 	_filter = "all"
+	_team_fact = "for"
 
 
 static func build(host: Control) -> Control:
 	var season: Season = GameState.season
 	var v := UiKit.vbox(10)
 	v.name = "StatsLadder"
-	var info := "Home and away complete" if season.is_regular_done() \
-			else "After %d of %d rounds" % [season.round_index, Season.REGULAR_ROUNDS]
-	v.add_child(UiKit.subtitle(info))
+	# The round is in the page's headline now (StatsHubScene._hero).
 	var wide := bool(host.call("wide"))
 	var width := float(host.call("content_width"))
 
@@ -95,6 +112,15 @@ static func build(host: Control) -> Control:
 			_filter = key
 			host.call("refresh"))
 		filters.add_child(b)
+	if _view == "team":
+		# The team leaderboard has its own picker; the ladder's filters are the ladder's.
+		if wide:
+			for b in views.get_children():
+				b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+				b.custom_minimum_size.x = 120
+		v.add_child(views)
+		v.add_child(_team_board(host, season, wide))
+		return v
 	if wide:
 		# One compact row on a wide screen, not two bars across the window.
 		for group in [views, filters]:
@@ -111,7 +137,9 @@ static func build(host: Control) -> Control:
 		v.add_child(filters)
 
 	var shown := visible_rows(season, GameState.my_club, _filter, _sort, _desc, _view)
-	v.add_child(_status(host, shown.size()))
+	# Only when something is filtered or sorted: the whole ladder says so itself.
+	if _filter != "all" or _sort != "":
+		v.add_child(_status(host, shown.size()))
 
 	# No panel around it: the bands do the work.
 	var t := UiKit.vbox(0)
@@ -261,6 +289,11 @@ static func _row(host: Control, r: Dictionary, specs: Array, width: float, band 
 	b.clip_contents = true
 	var flat := StyleBoxFlat.new()
 	flat.bg_color = UiKit.PANEL if band else Color.TRANSPARENT
+	if mine:
+		# Your club's row in your colour, as the hub's ladder marks it.
+		flat.bg_color = Color(UiKit.club_vivid(code), 0.22)
+		flat.border_width_left = 4
+		flat.border_color = UiKit.club_vivid(code)
 	var hover := StyleBoxFlat.new()
 	hover.bg_color = Color(UiKit.TEXT, 0.05)
 	for state in ["normal", "focus"]:
@@ -315,6 +348,203 @@ static func _ignore(n: Node) -> void:
 
 
 # ---------------------------------------------------------------------------
+# Team stats: a leaderboard
+# ---------------------------------------------------------------------------
+## The picker (each view's three facts under its name), then every club ranked
+## on the chosen fact, a game.
+static func _team_board(host: Control, season: Season, wide: bool) -> Control:
+	var v := UiKit.vbox(8)
+	v.name = "TeamBoard"
+	var pick := UiKit.option()
+	pick.name = "TeamStat"
+	pick.custom_minimum_size = Vector2(260 if wide else 0, 44)
+	if wide:
+		pick.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	for view in TEAM_FACTS:
+		pick.add_separator(str(view[1]))
+		for f in view[2]:
+			pick.add_item(str(f[1]))
+			var at := pick.item_count - 1
+			pick.set_item_metadata(at, str(f[0]))
+			if str(f[0]) == _team_fact:
+				pick.select(at)
+	pick.item_selected.connect(func(i: int):
+		_team_fact = str(pick.get_item_metadata(i))
+		host.call("refresh"))
+	v.add_child(pick)
+	var list := team_rows(season, _team_fact)
+	var best := team_best(list, _team_fact)
+	var t := UiKit.vbox(0)
+	t.name = "LadderTable"
+	v.add_child(t)
+	# A bar reads the same on a phone and a PC: no longer than a phone gives it.
+	var bar_w := minf(TEAM_BAR_MAX, float(host.call("content_width")) - 150.0)
+	for i in range(list.size()):
+		if i > 0:
+			t.add_child(UiKit.rule())
+		t.add_child(_team_row(host, list[i], i + 1, best, bar_w))
+	var note := UiKit.lbl("A game, over the games each club has played.", UiKit.SECONDARY, UiKit.MUTED)
+	note.name = "TeamNote"
+	v.add_child(note)
+	return v
+
+
+## Every season_team key a club row carries a game of.
+static func team_keys() -> Array:
+	var out := []
+	for c in TEAM_STATS:
+		out.append(str(c[0]))
+	for view in TEAM_FACTS:
+		for f in view[2]:
+			if not out.has(str(f[0])):
+				out.append(str(f[0]))
+	return out
+
+
+## Pick the fact the team leaderboard ranks on (tests, a return visit).
+static func pick_team_fact(fact: String) -> void:
+	_team_fact = fact
+
+
+## The clubs ranked on a fact, best first (fewest for points against); a club
+## yet to play goes last. Ties keep their ladder order.
+static func team_rows(season: Season, fact: String) -> Array:
+	var list := rows(season)
+	var low := TEAM_LOW.has(fact)
+	list.sort_custom(func(a, b):
+		var x := float(a["t_" + fact])
+		var y := float(b["t_" + fact])
+		if (x < 0.0) != (y < 0.0):
+			return y < 0.0
+		if x != y:
+			return x < y if low else x > y
+		return int(a["pos"]) < int(b["pos"]))
+	return list
+
+
+## The league's best on a fact (-1 before anyone has played).
+static func team_best(list: Array, fact: String) -> float:
+	var best := -1.0
+	for r in list:
+		var x := float(r["t_" + fact])
+		if x < 0.0:
+			continue
+		if best < 0.0 or (x < best if TEAM_LOW.has(fact) else x > best):
+			best = x
+	return best
+
+
+## A team fact as shown: whole, or to a tenth where a tenth matters (goals).
+static func team_text(x: float, fact: String) -> String:
+	if x < 0.0:
+		return "–"
+	return "%.1f" % x if TEAM_TENTHS.has(fact) else "%d" % int(round(x))
+
+
+## How near a club is to the league's best, 0 to 1 (1 is the best).
+static func team_share(x: float, best: float, fact: String) -> float:
+	if x <= 0.0 or best <= 0.0:
+		return 0.0
+	return clampf(best / x if TEAM_LOW.has(fact) else x / best, 0.0, 1.0)
+
+
+## The view a fact belongs to.
+static func _view_of(fact: String) -> Array:
+	for view in TEAM_FACTS:
+		for f in view[2]:
+			if str(f[0]) == fact:
+				return view
+	return TEAM_FACTS[0]
+
+
+## One club: its rank, its guernsey and name, the view's other two facts in
+## words, a bar against the league's best, and the chosen fact big at the right.
+static func _team_row(host: Control, r: Dictionary, rank: int, best: float, bar_w: float) -> Control:
+	var code := str(r["code"])
+	var mine: bool = code == GameState.my_club
+	var b := Button.new()
+	b.name = "Club_" + code
+	b.mouse_filter = Control.MOUSE_FILTER_PASS
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	# Editorial: no surface of its own (rules between rows); your club's row
+	# in your colour.
+	var flat := StyleBoxFlat.new()
+	flat.bg_color = Color.TRANSPARENT
+	if mine:
+		flat.bg_color = Color(UiKit.club_vivid(code), 0.22)
+		flat.border_width_left = 4
+		flat.border_color = UiKit.club_vivid(code)
+	var hover := StyleBoxFlat.new()
+	hover.bg_color = Color(UiKit.TEXT, 0.05)
+	for state in ["normal", "focus"]:
+		b.add_theme_stylebox_override(state, flat)
+	for state in ["hover", "pressed", "hover_pressed"]:
+		b.add_theme_stylebox_override(state, hover)
+	var m := MarginContainer.new()
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["margin_left", "margin_right"]:
+		m.add_theme_constant_override(side, 8)
+	for side in ["margin_top", "margin_bottom"]:
+		m.add_theme_constant_override(side, 6)
+	b.add_child(m)
+	var row := UiKit.hbox(10)
+	m.add_child(row)
+	var pos := UiKit.line(str(rank), UiKit.SECONDARY, UiKit.MUTED)
+	pos.name = "Rank"
+	pos.custom_minimum_size.x = 22
+	pos.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	pos.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(pos)
+	var marker := UiKit.club_marker(code, 22.0)
+	marker.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(marker)
+	var mid := UiKit.vbox(2)
+	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mid.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(mid)
+	mid.add_child(UiKit.name_label(GameDB.club_name(code), UiKit.NAME, UiKit.TEXT, true))
+	var others := PackedStringArray()
+	for f in _view_of(_team_fact)[2]:
+		var k := str(f[0])
+		if k != _team_fact:
+			others.append("%s %s" % [team_text(float(r["t_" + k]), k), str(f[1]).to_lower()])
+	var sub := UiKit.lbl(" · ".join(others), UiKit.SECONDARY, UiKit.MUTED)
+	sub.name = "Others"
+	mid.add_child(sub)
+	# The bar: how near the league's best, in the club's colour.
+	var x := float(r["t_" + _team_fact])
+	var share := team_share(x, best, _team_fact)
+	var bar := HBoxContainer.new()
+	bar.name = "Bar"
+	bar.add_theme_constant_override("separation", 0)
+	bar.custom_minimum_size = Vector2(maxf(40.0, bar_w), 4)
+	bar.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var fill := ColorRect.new()
+	fill.name = "Fill"
+	fill.color = UiKit.club_vivid(code)
+	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fill.size_flags_stretch_ratio = maxf(0.001, share)
+	bar.add_child(fill)
+	var rest := Control.new()
+	rest.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rest.size_flags_stretch_ratio = maxf(0.001, 1.0 - share)
+	bar.add_child(rest)
+	bar.set_meta("share", share)
+	mid.add_child(bar)
+	var fig := UiKit.figure(team_text(x, _team_fact), UiKit.NUMBER, UiKit.TEXT if x > 0.0 else UiKit.MUTED)
+	fig.name = "Figure"
+	fig.custom_minimum_size.x = 56
+	fig.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	fig.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(fig)
+	_ignore(m)
+	# A button does not grow with its child: the row asks for what it holds.
+	b.custom_minimum_size.y = maxf(64.0, m.get_combined_minimum_size().y)
+	b.pressed.connect(func(): _side_sheet(host, code))
+	return b
+
+
+# ---------------------------------------------------------------------------
 # The numbers
 # ---------------------------------------------------------------------------
 ## Every club in the true ladder order, with what the table shows: the
@@ -342,8 +572,7 @@ static func rows(season: Season) -> Array:
 		# A game each over the games that stat was counted for
 		# (GameState.club_per_game: an older save counts the newer stats from
 		# where it loaded).
-		for c in TEAM_STATS:
-			var k := str(c[0])
+		for k in team_keys():
 			row["t_" + k] = GameState.club_per_game(code, k)
 		out.append(row)
 	return out

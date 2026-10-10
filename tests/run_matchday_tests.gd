@@ -231,11 +231,13 @@ func _phone_match(sz: Vector2i) -> void:
 	var qh: Label = box.find_child("QuarterHeading", true, false)
 	_check(qh != null and qh.text == "First quarter" and not bt.contains("What's happening"),
 			"Quarter time leads with the quarter just played, by name (%s)" % tag)
-	var more_calls: Control = box.find_child("MoreCalls", true, false)
-	var more_btn: Button = box.find_child("MoreCallsToggle", true, false)
-	_check(more_calls != null and not more_calls.visible and more_btn != null and box.find_child("PlanPicker", true, false).is_visible_in_tree()
-			and box.find_child("TagPicker", true, false).is_visible_in_tree(),
-			"The plan and the tag are in view; the rest of the calls are one tap away (%s)" % tag)
+	_check(box.find_child("MoreCallsToggle", true, false) == null and box.find_child("PlanPicker", true, false).is_visible_in_tree()
+			and box.find_child("TagPicker", true, false).is_visible_in_tree()
+			and box.find_child("PepPicker", true, false).is_visible_in_tree()
+			and box.find_child("RotationPicker", true, false).is_visible_in_tree(),
+			"Every call is in view at the break, with no More calls button (%s)" % tag)
+	_check((box.find_child("BreakColumns", true, false) != null) == bool(m.call("_wide_break")),
+			"A wide PC window lays the break out in columns; a phone keeps one (%s)" % tag)
 	# Key match-ups: their key forwards and who is on them, changed in a tap
 	# - and the change is the engine's from the next bounce.
 	var qsim = _state.pending_sim
@@ -285,11 +287,6 @@ func _phone_match(sz: Vector2i) -> void:
 					"A match-up you change stays your call (%s)" % tag)
 			var btext := _text(box)
 			_check(not btext.contains("%") and not btext.contains("pts"), "The match-ups show no engine numbers (%s)" % tag)
-	if more_btn != null:
-		more_btn.emit_signal("pressed")
-		await _settle()
-		_check(more_calls.visible and box.find_child("RotationPicker", true, false).is_visible_in_tree(),
-				"More calls opens the rest (%s)" % tag)
 	var small := []
 	for b in box.find_children("*", "Button", true, false):
 		if b.is_visible_in_tree() and b.size.y < 40:
@@ -491,9 +488,13 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	if box == null:
 		m.queue_free()
 		return
-	var more: Button = box.find_child("MoreCallsToggle", true, false)
-	var why: String = await Tap.tap(more)
-	_check(why == "", "A finger opens the rest of the calls (%s: %s)" % [tag, why])
+	var pep_btn: Button = null
+	var pep_grid: Node = box.find_child("PepPicker", true, false)
+	if pep_grid != null:
+		for c in pep_grid.find_children("*", "Button", true, false):
+			pep_btn = c
+	var why: String = await Tap.tap(pep_btn)
+	_check(why == "", "A finger reaches a call in the rest of the calls, no button first (%s: %s)" % [tag, why])
 	await _settle()
 	var legs_text := _text(box.find_child("LegsView", true, false))
 	# Loaded, not named: the autoloads are not there when this script compiles.
@@ -581,7 +582,7 @@ func _coach_descriptions(sz: Vector2i) -> void:
 		await _settle()
 		var nm := str(db.player_display_name_by_id(str(who["id"]), ""))
 		fnote = box.find_child("FocusNote", true, false)
-		_check(pw == "" and fnote.text == "%s %s: %s." % [nm, str(roles[role]), str(effects[role])],
+		_check(pw == "" and fnote.text == "%s is %s: %s." % [nm, str(roles[role]), str(effects[role])],
 				"A %s played through reads as %s (%s: %s)" % [role, str(roles[role]), tag, fnote.text])
 		_check(notes.focus_role_text(nm, role) == "%s %s" % [nm, str(roles[role])] and notes.focus_effect_text(role) == str(effects[role]),
 				"The helper says the same for %s (%s)" % [role, tag])
@@ -710,9 +711,11 @@ func _tag_targets(sz: Vector2i) -> void:
 	await _settle()
 	_check(str((sim.tactics[me] as Dictionary).get("tag_id", "")) == picked,
 			"The tag in force is the midfielder picked (%s)" % tag)
-	# The sim refuses anything else, whatever asks: no forward, no ruck.
+	# The sim refuses anything else, whatever asks: no forward, no ruck. The
+	# quarter has started, so the rotations may have changed who is on: read
+	# the midfield again rather than trusting the list from the break.
 	for p in opp.ground:
-		if not eligible.has(str(p["id"])):
+		if not sim.tag_target_ok(1 - me, str(p["id"])):
 			sim.set_tactics(me, {"gameplan": "balanced", "tag_id": str(p["id"])})
 			if str((sim.tactics[me] as Dictionary).get("tag_id", "")) != "":
 				_check(false, "The sim refuses a tag on a %s (%s)" % [str(p["role"]), tag])
@@ -1319,6 +1322,49 @@ func _bounce_matches_sim(tokens: Array, sim) -> bool:
 	return true
 
 
+## Press answers keep their board and morale effects, and each says what it
+## does under its button (director, 2026-10-10). A real tap on the
+## accountable answer moves the board and the players exactly as its line says.
+func _test_press_effects_shown(db) -> void:
+	var MC = load("res://scripts/sim/MediaConference.gd")
+	_state.media_conference = MC.pick({"club": "COL", "opponent_name": "Carlton", "round": 8,
+			"result": {"home": "COL", "away": "CAR", "score": [55, 101]}}, {})
+	var opts: Array = _state.media_conference.get("options", [])
+	var hub = load("res://scenes/HubScene.tscn").instantiate()
+	root.add_child(hub)
+	await _settle()
+	if hub.find_child("MediaConference", true, false) == null:
+		hub.call("_show_media_conference")
+		await _settle()
+	var shown := opts.size() == 3
+	for i in range(opts.size()):
+		var line: Label = hub.find_child("MediaAnswerLine_%d" % i, true, false)
+		var o: Dictionary = opts[i]
+		var text := "" if line == null else line.text
+		var board_ok := (int(o.get("board", 0)) > 0) == text.begins_with("The board likes it") \
+				and (int(o.get("board", 0)) < 0) == text.contains("the board wanted")
+		var morale_ok := (int(o.get("morale", 0)) < 0) == text.contains("hung out to dry") \
+				and (int(o.get("morale", 0)) > 0) == text.contains("feel backed")
+		shown = shown and line != null and line.is_visible_in_tree() and board_ok and morale_ok \
+				and not text.contains("%") and not text.contains("+")
+	_check(shown, "Every press answer shows what it does to the board and the players, in words")
+	_state.board["confidence"] = 50
+	var who: Dictionary = _state.my_list[0]
+	who["morale"] = 50
+	var answer: Button = hub.find_child("MediaAnswer_0", true, false)
+	var o0: Dictionary = opts[0] if not opts.is_empty() else {}
+	var tapped: String = await Tap.tap(answer) if answer != null else "missing"
+	await _settle()
+	_check(tapped == "" and _state.board_confidence() == 50 + int(o0.get("board", 0))
+			and int(who["morale"]) == 50 + int(o0.get("morale", 0)) and int(o0.get("board", 0)) > 0
+			and int(o0.get("morale", 0)) < 0,
+			"A real tap on the accountable answer lifts the board and costs the players, as its line says (%s)" % tapped)
+	if is_instance_valid(hub):
+		hub.queue_free()
+	_state.media_conference = {}
+	await _settle()
+
+
 func _settle() -> void:
 	for i in range(6):
 		await process_frame
@@ -1349,6 +1395,19 @@ func _vignettes_setting() -> void:
 			_check((await Tap.tap(off)) == "", "Vignettes Off takes a real tap (%s)" % tag)
 			await _settle()
 			_check(not _state.vignettes_on(), "Off turns the vignettes off (%s)" % tag)
+		# Battery saver: a real tap caps drawing at 30 frames a second, and Off
+		# puts it back to 60.
+		if tag == "390x844":
+			var saver: Button = sheet.find_child("SettingsBatterySaver_on", true, false)
+			var tapped: String = await Tap.tap(saver) if saver != null else "missing"
+			await _settle()
+			_check(tapped == "" and _state.battery_saver() and Engine.max_fps == _state.FPS_SAVER,
+					"Battery saver On caps drawing at 30 a second (%s, %d)" % [tapped, Engine.max_fps])
+			var normal: Button = sheet.find_child("SettingsBatterySaver_off", true, false)
+			tapped = await Tap.tap(normal) if normal != null else "missing"
+			await _settle()
+			_check(tapped == "" and not _state.battery_saver() and Engine.max_fps == _state.FPS_NORMAL,
+					"Battery saver Off puts it back to 60 (%s)" % tapped)
 		host.queue_free()
 		await _settle()
 		# A reload: a fresh read of the settings file, and a fresh career state.
@@ -1450,6 +1509,7 @@ func _vignettes_off_match() -> void:
 	hub.queue_free()
 	_state.media_conference = {}
 	await _settle()
+	await _test_press_effects_shown(db)
 	# A promised run just ended: the sit-down is the week's one ask, and a real
 	# tap on Done closes it.
 	_state.backing_talk = {"player_id": "calder", "title": "Sit-down with Calder",
