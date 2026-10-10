@@ -560,16 +560,16 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	var notes = load("res://scripts/ui/match/MatchNotes.gd")
 	var me := int(m.get("_my_side"))
 	var ground: Array = _state.pending_sim.squads[me].ground
-	var jobs := {"focus_mid": ["MID", "our midfield pillar", "the ball goes to him more often through the midfield"],
+	var slot_jobs := {"focus_mid": ["MID", "our midfield pillar", "the ball goes to him more often through the midfield"],
 			"focus_fwd": ["FWD", "our key forward target", "more of the ball up forward and more of the shots at goal"],
 			"focus_def": ["DEF", "our backline distributor", "first use of the ball out of the back half"]}
-	for slot in jobs:
+	for slot in slot_jobs:
 		var fnote: Label = box.find_child("FocusNote_" + slot, true, false)
 		_check(fnote != null and fnote.text.begins_with("Nobody:"), "With nobody picked, %s says what that means (%s)" % [slot, tag])
 		var who: Dictionary = {}
 		var other_job: Dictionary = {}
 		for gp in ground:
-			if str(gp["role"]) == str(jobs[slot][0]) and who.is_empty():
+			if str(gp["role"]) == str(slot_jobs[slot][0]) and who.is_empty():
 				who = gp
 			if not (load("res://scripts/sim/MatchSim.gd").FOCUS_SLOT_ROLES[slot] as Array).has(str(gp["role"])) and other_job.is_empty():
 				other_job = gp
@@ -586,7 +586,7 @@ func _coach_descriptions(sz: Vector2i) -> void:
 		await _settle()
 		var nm := str(db.player_display_name_by_id(str(who["id"]), ""))
 		fnote = box.find_child("FocusNote_" + slot, true, false)
-		_check(pw == "" and fnote.text == "%s is %s: %s." % [nm, str(jobs[slot][1]), str(jobs[slot][2])],
+		_check(pw == "" and fnote.text == "%s is %s: %s." % [nm, str(slot_jobs[slot][1]), str(slot_jobs[slot][2])],
 				"%s reads as his job (%s: %s)" % [slot, tag, fnote.text])
 		_check(notes.focus_slot_note(slot, nm, false, true) == "%s is on the bench: the call waits until he is back on." % nm,
 				"A benched man's call says it waits (%s)" % slot)
