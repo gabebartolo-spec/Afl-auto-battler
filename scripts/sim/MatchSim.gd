@@ -1623,6 +1623,9 @@ const PRESS_TURNOVER := 0.08
 ## defence would rebound, the share that lock up in the pocket.
 const LOCKUP_PRESS := 0.35
 const LOCKUP_SPOIL := 0.35
+## Of the tackles that stop a carrier without a free, the share where the ball is
+## knocked free and the other side gathers it (a turnover); the rest are ball-ups.
+const TACKLE_SPILL := 0.0
 
 
 ## A named constant, or its audit override (tune).
@@ -2318,6 +2321,16 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				var mark := _award_context_free(opp, fp, carrier, tackler,
 						"holding_ball", "Holding the ball")
 				return {"outcome": "free", "fp": mark, "actor": tackler, "free_side": opp}
+			# Knocked loose in the tackle: whoever is there for the other side gathers
+			# it (an intercept possession). Otherwise it is held in: a ball-up.
+			if lockup_rng.randf() < _tv("TACKLE_SPILL", TACKLE_SPILL):
+				var taker = _aerial_defender(opp, fp)
+				if taker == null:
+					taker = tackler
+				_intercept(opp, taker, false)
+				_emit("tackle", opp, fp, tackler,
+						"%s tackles %s - it spills free" % [GameDB.player_display_name(tackler), GameDB.player_display_name(carrier)])
+				return {"outcome": "turnover", "fp": fp, "actor": taker}
 			_emit("tackle", opp, fp, tackler,
 					"%s tackles %s - ball up" % [GameDB.player_display_name(tackler), GameDB.player_display_name(carrier)])
 			return {"outcome": "stoppage", "fp": fp, "actor": carrier}
