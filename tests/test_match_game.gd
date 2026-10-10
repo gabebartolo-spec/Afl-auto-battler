@@ -1793,6 +1793,13 @@ func _test_ai_loose_needs_a_reader() -> void:
 			reads["%s%d" % [who, pin]] = read
 			var above := read >= MatchSim.LOOSE_AI_MIN_READ
 			_check(named == above, "The %s names a %.2f reader loose only above the bar (%s)" % [who, read, "named" if named else "not named"])
+	# The bar is today's to the hundredth: a defender at exactly the old
+	# interceptor score of 66 is still named, as before (qa, W7 of #643).
+	var same := true
+	for v in [65.99, 66.0, 66.01]:
+		var edge := {"id": "EDGE", "name": "Edge", "role": "DEF", "attr": {"intercept": v, "marking": v, "pressure": v}}
+		same = same and Matchups.best_interceptor([edge]).is_empty() == Matchups.best_interceptor([edge], 66.0).is_empty()
+	_check(same, "The named bar names exactly who the old bar of 66 named")
 	_check(float(reads["ai69"]) < MatchSim.LOOSE_AI_MIN_READ and float(reads["ai75"]) >= MatchSim.LOOSE_AI_MIN_READ,
 			"The two pinned readers sit either side of the bar (%.2f, %.2f)" % [reads["ai69"], reads["ai75"]])
 

@@ -1710,8 +1710,8 @@ const LOOSE_GO := LOOSE_REACH_MIN + LOOSE_REACH_RANGE
 ## best defender's read pinned, points conceded against no loose man were
 ## +0.6 at 0.18, 0.29 and 0.41 and -1.9 at 0.52, -2.6 at 0.63 (960 pairs
 ## each, audit runs 38076174976, 38076182331, 38076189216, 38076195850,
-## 38076202407). The old bar, interceptor score 66, was 0.54.
-const LOOSE_AI_MIN_READ := 0.54
+## 38076202407). 14/26 (about 0.54) is exactly the old bar, interceptor score 66.
+const LOOSE_AI_MIN_READ := 14.0 / 26.0
 ## How much more dangerous the entry is when he went and got there late, for
 ## the poorest reader: {unmarked, marked}. He isn't there at all, so the space
 ## behind him is bigger than when he flies and loses (0.08 / 0.15).
