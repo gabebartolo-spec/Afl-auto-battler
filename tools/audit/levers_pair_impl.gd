@@ -117,6 +117,11 @@ func run() -> void:
 	var args := OS.get_cmdline_user_args()
 	var arms: Array = ALL if args.size() <= 1 or str(args[1]) == "" or str(args[1]) == "all" else str(args[1]).split(",")
 	var seeds := int(args[2]) if args.size() > 2 else 40
+	# HEAT="press,pace": size Bring the heat for this run (audit only).
+	var heat := OS.get_environment("HEAT").split(",", false)
+	if heat.size() == 2:
+		MatchSim.heat_override = {"press": float(heat[0]), "pace": float(heat[1])}
+		print("HEAT ", MatchSim.heat_override)
 	# The baseline once per match, shared by every arm.
 	var base := {}
 	for pr in PAIRS:

@@ -1295,6 +1295,8 @@ const PEP_FIRE := {"clangers": 1.10, "pace": 1.20}
 ## more turnovers forced and tackles laid; legs go quicker for it.
 const PEP_HEAT := {"pace": 1.15}
 const PEP_HEAT_PRESS := 1.12
+## Audit only: {"press", "pace"} overrides for sizing Bring the heat.
+static var heat_override := {}
 
 
 ## The pep talk's multiplier on one chain quantity (1.0 when it has none).
@@ -1304,13 +1306,13 @@ func _pep_mult(side: int, key: String) -> float:
 	if _pep(side) == "fire_up":
 		return float(PEP_FIRE.get(key, 1.0))
 	if _pep(side) == "heat":
-		return float(PEP_HEAT.get(key, 1.0))
+		return float(heat_override.get(key, PEP_HEAT.get(key, 1.0)))
 	return 1.0
 
 
 ## How much harder a side presses the ball carrier this quarter (Bring the heat).
 func _pep_heat(side: int) -> float:
-	return PEP_HEAT_PRESS if _pep(side) == "heat" else 1.0
+	return float(heat_override.get("press", PEP_HEAT_PRESS)) if _pep(side) == "heat" else 1.0
 
 
 func _contest_calls(side: int, stoppage: bool) -> float:
