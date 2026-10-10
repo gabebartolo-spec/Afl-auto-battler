@@ -1983,6 +1983,13 @@ func _general_aerial_contest(side: int, mark_fp: float, carrier) -> Dictionary:
 ## with none out there, the best tap man on the ground (an emergency ruck).
 ## Returned as [] or [player] so callers can keep the list shape.
 func _contestant(sq: Squad) -> Array:
+	# Your main ruck (director, 2026-10-07: dual-ruck sides) goes up whenever
+	# he is on the ground, whatever spot he stands in; resting, the usual rule.
+	var main_id := str((tactics[0 if sq == squads[0] else 1] as Dictionary).get("main_ruck", ""))
+	if main_id != "":
+		for p in sq.ground:
+			if str(p["id"]) == main_id and _is_ruckman(p):
+				return [p]
 	var in_slot := _by_roles(sq.ground, ["RUCK"])
 	if not in_slot.is_empty() and _is_ruckman(in_slot[0]):
 		return [in_slot[0]]
@@ -3607,6 +3614,9 @@ func _after_chain() -> void:
 		var holding := _burst(side, "hold")
 		var flooding := _burst(side, "flood")
 		var stacking := _burst(side, "stack")
+		# Whoever goes up at the stoppages does a ruck's work, wherever he stands.
+		var up: Array = _contestant(sq)
+		var up_id := str((up[0] as Dictionary)["id"]) if not up.is_empty() else ""
 		for p in sq.ground:
 			var id := str(p["id"])
 			var role := str(p["role"])
@@ -3634,7 +3644,8 @@ func _after_chain() -> void:
 			_p(p, "distance_run", gps)
 
 			var dur := float((p["attr"] as Dictionary).get("durability", 70.0))
-			var d := ENERGY_DRAIN * per_chain * float(ROLE_DRAIN.get(role, 1.0)) \
+			var drain_role := "RUCK" if id == up_id and float(ROLE_DRAIN.get(role, 1.0)) < float(ROLE_DRAIN["RUCK"]) else role
+			var d := ENERGY_DRAIN * per_chain * float(ROLE_DRAIN.get(drain_role, 1.0)) \
 					* (1.2 - 0.4 * dur / 100.0) * fatigue_pace
 			if _trait(p, "engine"):
 				d *= 0.75

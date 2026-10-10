@@ -30,6 +30,7 @@ func run() -> void:
 	_test_play_through()
 	_test_play_through_by_job()
 	_test_play_through_three()
+	_test_main_ruck()
 	_test_hothead()
 	_test_lockdown_midfielder()
 	_test_traits()
@@ -1403,6 +1404,66 @@ func _test_play_through_three() -> void:
 	_check(absf(on["td"] - base["td"]) / base["td"] < 0.03,
 			"The calls move who gets it, not how much the side has (%.0f v %.0f disposals)" % [on["td"] / n, base["td"] / n])
 	_check(on["top"] < 45.0, "Nobody becomes the only one who gets it (most in a game %d)" % int(on["top"]))
+
+
+## Main ruck (director, 2026-10-07, dual-ruck sides): the man you name goes up
+## at every stoppage while he is on the ground, wherever he stands, and does
+## a ruck's work for it (he tires like a ruck); resting, the usual rule. It
+## moves the hit-outs between the two rucks, it does not make more of them.
+func _test_main_ruck() -> void:
+	var club := ""
+	var rucks := []
+	for c in ["GEE", "COL", "MEL", "CAR", "SYD", "BRL", "HAW", "ESS", "FRE", "ADE", "GWS", "STK", "WCE"]:
+		var sim := _sim(70, c, "COL" if c != "COL" else "GEE")
+		var found := []
+		for q in (sim.squads[0] as Squad).ground + (sim.squads[0] as Squad).bench:
+			if MatchSim._is_ruckman(q):
+				found.append(q)
+		if found.size() >= 2:
+			club = c
+			rucks = found
+			break
+	_check(club != "", "(setup) a club that runs two rucks")
+	if club == "":
+		return
+	var opp := "COL" if club != "COL" else "GEE"
+	var probe := _sim(70, club, opp)
+	var first: Array = probe._contestant(probe.squads[0])
+	var other := ""
+	for r in rucks:
+		if first.is_empty() or str(r["id"]) != str(first[0]["id"]):
+			other = str(r["id"])
+			break
+	# Named but resting on the bench: the usual rule still picks.
+	probe.set_tactics(0, {"main_ruck": other})
+	var on_ground := false
+	for q in (probe.squads[0] as Squad).ground:
+		on_ground = on_ground or str(q["id"]) == other
+	var now: Array = probe._contestant(probe.squads[0])
+	_check(not now.is_empty() and (str(now[0]["id"]) == other) == on_ground,
+			"The main ruck goes up when he is on the ground, and only then")
+	var n := 16
+	var ho_on := 0.0
+	var ho_off := 0.0
+	var side_on := 0.0
+	var side_off := 0.0
+	var ex_on := 0.0
+	var ex_off := 0.0
+	for i in range(n):
+		var a := _sim(1100 + i, club, opp)
+		a.set_tactics(0, {"main_ruck": other})
+		var ra := a.run()
+		var rb := _sim(1100 + i, club, opp).run()
+		ho_on += float(((ra["players"] as Dictionary).get(other, {}) as Dictionary).get("hitouts", 0.0))
+		ho_off += float(((rb["players"] as Dictionary).get(other, {}) as Dictionary).get("hitouts", 0.0))
+		side_on += float(((ra["team"] as Array)[0] as Dictionary).get("hitouts", 0.0))
+		side_off += float(((rb["team"] as Array)[0] as Dictionary).get("hitouts", 0.0))
+		ex_on += float((ra["exertion"] as Dictionary).get(other, 0.0))
+		ex_off += float((rb["exertion"] as Dictionary).get(other, 0.0))
+	_check(ho_on > ho_off * 1.2, "Named main ruck, he takes more of the hit-outs (%.1f v %.1f a game)" % [ho_on / n, ho_off / n])
+	_check(ex_on > ex_off, "...and works harder for it (exertion %.0f v %.0f)" % [ex_on / n, ex_off / n])
+	_check(absf(side_on - side_off) / side_off < 0.15,
+			"The side's hit-outs move between the rucks, not from nowhere (%.1f v %.1f)" % [side_on / n, side_off / n])
 
 
 func _job_mult(sim: MatchSim, p: Dictionary, purpose: String, zone: String) -> float:
