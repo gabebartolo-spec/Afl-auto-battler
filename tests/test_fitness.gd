@@ -211,3 +211,14 @@ func _test_career() -> void:
 	_check(GameState.fitness_plan("GEE") == "steady"
 			and GameState.fitness_plan(str(GameState.season.lists.keys()[1])) == "steady",
 			"A save from before conditioning plays on as Steady")
+
+	GameState.reset()
+	GameState.career_seed = SUITE_SEED
+	GameState.replay_seed = SUITE_SEED
+	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	GameState.set_fitness_plan("peak")
+	var before: Dictionary = GameState.season.lists["GEE"][0]
+	_check(not before.has("cond_cap"), "Nothing is stamped before the week's first match is built")
+	_check(GameState.prepare_interactive_match() and before.has("cond_cap")
+			and GameState.pending_sim != null,
+			"The match you coach live carries your conditioning, like every simulated one")

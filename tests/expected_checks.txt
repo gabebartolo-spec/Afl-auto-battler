@@ -34,7 +34,7 @@ club 199
 match_game 347
 pressure 21
 workload 32
-fitness 31
+fitness 33
 match_visual 117
 league_balance 23
 calibration 17
