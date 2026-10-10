@@ -526,6 +526,14 @@ answered **"Yes, ~300 credits"**. Context: his direction to ART that day to lean
 choice to prototype both figure directions before deciding (FIGURE_PIPELINE_REVIEW_2026-10-10.md). Each
 model passes the six-view inspection. Night's total: 695 + ~195 + ~260 + ~300.
 
+**Spend cap raised, 2026-10-10 (director, to AFL BOSS, about 18:00):** after telling ART "I am ok with
+splashing some Tripo credits on nailing the assets in this game" and that Tripo's animation suites should
+carry motion, the director chose a cap of **~1000 credits** for the Tripo player slice (the 3 footballers,
+auto-rig, Tripo animations: presets, text/video motion tests, and re-generations when a model fails
+inspection). This replaces the ~300 above for this slice. The stop rule stands: if the slice does not
+clearly read better than today's figures, ART stops and reports. Provenance and the six-view inspection on
+every generation; Tripo motion goes through the motion checks beside the hand-keyed moves.
+
 **Done under those orders (2026-10-10):** Phase 1 (#591), Phase 2 (#594, the helper's), Phase 3
 (#598). One deviation from the plan: Phase 1.5 keeps the plan and the tag as grids on the coach's
 break, since six plans or five names in one row would scroll past a phone's edge; pep talk and
