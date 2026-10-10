@@ -1654,7 +1654,7 @@ const AERIAL_ROLES := {
 }
 ## The named loose defender reads it better in his own half and the middle:
 ## his weight grows with his intercept rating, up to double.
-const LOOSE_READ := 0.2
+const LOOSE_READ := 0.5
 ## The power on intercept when picking who contests a general-play ball
 ## (AERIAL_ROLES): above 1 the best reader on the ground takes more than his
 ## share. Champion Data 2025: the best take about 8 a game, a side about 63.
