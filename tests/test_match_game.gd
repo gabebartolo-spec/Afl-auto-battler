@@ -1602,6 +1602,7 @@ func _test_roaming_interceptor() -> void:
 	_check(story.size() == 1 and str(story[0]).contains("controlled the air"),
 			"Full time explains a spare only when real roaming contests support it")
 	_test_loose_man_read()
+	_test_loose_man_late()
 
 
 ## The director (2026-10-10): the loose man "should be a strong strategy only
@@ -1689,6 +1690,78 @@ func _test_loose_man_read() -> void:
 	m._ai_rematch(1)
 	_check(str(m.interceptor[1]) == loose,
 			"Moving a beaten defender never takes the loose man off his roaming")
+
+
+## The director (2026-10-11): a poor reader of the ball should cost points,
+## not just fail to save them. He leaves his post as often as a top reader
+## does; his read decides only whether he gets there in time. Late, he is not
+## in the contest, and the space behind him makes the same entry more
+## dangerous than it would be with nobody loose. A top reader is never late.
+func _test_loose_man_late() -> void:
+	var sim := _sim(8303, "ADE", "SYD")
+	var defs := Matchups.interceptor_candidates((sim.squads[1] as Squad).ground)
+	var good: Dictionary = defs[0]
+	var poor: Dictionary = defs[-1]
+	var good_attr: Dictionary = (good["attr"] as Dictionary).duplicate()
+	var poor_attr: Dictionary = (poor["attr"] as Dictionary).duplicate()
+	for k in ["intercept", "marking", "pressure"]:
+		(good["attr"] as Dictionary)[k] = 90
+		(poor["attr"] as Dictionary)[k] = 45
+	# Every entry is played twice from the same dice: once with the poor
+	# reader loose, once with nobody loose.
+	var rngs := []
+	for prop in sim.get_property_list():
+		var v = sim.get(str(prop["name"]))
+		if v is RandomNumberGenerator:
+			rngs.append(v)
+	sim.set_interceptor(1, str(poor["id"]), false)
+	var pid := str(poor["id"])
+	var entries := 800
+	var late := 0
+	var late_with := 0
+	var late_without := 0
+	for i in entries:
+		var saved := []
+		for g in rngs:
+			saved.append((g as RandomNumberGenerator).state)
+		sim.interceptor[1] = pid
+		var was := float((sim.team_stats[1] as Dictionary).get("roam_late", 0.0))
+		var s0 := sim.score(0)
+		sim.resolve_forward50(0, 50.0, null)
+		var with_pts := sim.score(0) - s0
+		var is_late := float((sim.team_stats[1] as Dictionary).get("roam_late", 0.0)) > was
+		var after := []
+		for g in rngs:
+			after.append((g as RandomNumberGenerator).state)
+		for j in rngs.size():
+			(rngs[j] as RandomNumberGenerator).state = saved[j]
+		sim.interceptor[1] = ""
+		var s1 := sim.score(0)
+		sim.resolve_forward50(0, 50.0, null)
+		var without_pts := sim.score(0) - s1
+		# Carry on from the dice the loose man's version left.
+		for j in rngs.size():
+			(rngs[j] as RandomNumberGenerator).state = after[j]
+		if is_late:
+			late += 1
+			late_with += with_pts
+			late_without += without_pts
+	sim.interceptor[1] = pid
+	_check(late * 4 >= entries,
+			"A poor reader still leaves his post, and is late for many entries (%d of %d)" % [late, entries])
+	_check(late_with > late_without,
+			"The entries he is late for score more than with nobody loose (%d vs %d points)" % [late_with, late_without])
+	sim.set_interceptor(1, str(good["id"]), false)
+	var good_late := 0
+	for i in 400:
+		var was := float((sim.team_stats[1] as Dictionary).get("roam_late", 0.0))
+		sim.resolve_forward50(0, 50.0, null)
+		if float((sim.team_stats[1] as Dictionary).get("roam_late", 0.0)) > was:
+			good_late += 1
+	_check(good_late * 50 <= 400,
+			"A top reader is almost never late (%d of 400)" % good_late)
+	(good["attr"] as Dictionary).merge(good_attr, true)
+	(poor["attr"] as Dictionary).merge(poor_attr, true)
 
 
 ## ARD-M4-012 (the director: "any player can intercept, but the loose
