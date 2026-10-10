@@ -6,7 +6,8 @@ extends SceneTree
 ## capture.yml runs it with movie_maker=true: the tool saves every frame at the
 ## window's own size and the workflow joins them with the AVI's sound into an MP4. Without --write-movie it just writes the stills.
 ##
-##   --effect E   hub      arriving at the hub after a round: the club colour
+##   --effect E   (several, comma-separated, film one after another in one clip)
+##                hub      arriving at the hub after a round: the club colour
 ##                         settling, the ladder spot counting and landing, an
 ##                         unanswered week question brightening (if one is up)
 ##                press    the same hub, then three real taps: Settings (a soft
@@ -94,17 +95,35 @@ func _run() -> void:
 	state.set_vignettes_on(false)
 	# --no-music: only the game-feel sounds in the clip (to measure them).
 	state.set_music_level("off" if args.has("no-music") else "normal")
-	state.reset()
-	state.replay_seed = 2027
-	# No first-visit notes over the effect being filmed.
-	state.set_setting("seen_weekly_loop_intro", true)
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
 	if Engine.get_write_movie_path() != "":
 		_film = out
 		process_frame.connect(_save_frame)
-	print("FEEL effect %s at %dx%d, motion %s" % [effect, W, H, load("res://scripts/ui/UiKit.gd").motion_on()])
 
+	# One run films every effect asked for, one after another (--effect a,b,c),
+	# each from a fresh career, so one capture job makes one clip.
+	var effects := effect.split(",")
+	for e in effects:
+		var keep := root.get_children()
+		state.reset()
+		state.replay_seed = 2027
+		# No first-visit notes over the effect being filmed.
+		state.set_setting("seen_weekly_loop_intro", true)
+		var tag := out if effects.size() == 1 else "%s_%s" % [out, e]
+		print("FEEL effect %s at %dx%d, motion %s" % [e, W, H, load("res://scripts/ui/UiKit.gd").motion_on()])
+		await _one(str(e), tag, secs, state, db)
+		for c in root.get_children():
+			if not keep.has(c):
+				c.queue_free()
+		await process_frame
+		await process_frame
+	var feel = load("res://scripts/ui/Feel.gd")
+	print("FEEL heard %s, moved %s" % [str(feel.heard), str(feel.moved)])
+	quit(0)
+
+
+func _one(effect: String, out: String, secs: float, state, db) -> void:
 	match effect:
 		"draft":
 			state.draft = load("res://scripts/sim/Draft.gd").new(db.all_players_sorted() + db.all_draftees_sorted(),
@@ -183,6 +202,3 @@ func _run() -> void:
 		_shot(out + "_start.png")
 	await _wait(secs)
 	_shot(out + "_end.png")
-	var feel = load("res://scripts/ui/Feel.gd")
-	print("FEEL heard %s, moved %s" % [str(feel.heard), str(feel.moved)])
-	quit(0)
