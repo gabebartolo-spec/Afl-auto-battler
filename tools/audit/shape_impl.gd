@@ -26,6 +26,13 @@ func run() -> void:
 	var n := 400
 	if OS.get_environment("SHAPE_MATCHES") != "":
 		n = int(OS.get_environment("SHAPE_MATCHES"))
+	# Tuning to try, as key=value args (audit.yml args="chains_per_game=240 LOCKUP_PRESS=0.6").
+	MatchSim.tune = {}
+	for arg in OS.get_cmdline_user_args():
+		var kv := str(arg).split("=")
+		if kv.size() == 2:
+			MatchSim.tune[kv[0]] = float(kv[1])
+	print("TUNE ", MatchSim.tune)
 	var codes: Array = GameDB.active_clubs(2026)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1234
@@ -50,6 +57,7 @@ func run() -> void:
 			score += float(res["score"][side])
 		tg += 2
 	MatchSim.audit_chains_on = false
+	MatchSim.tune = {}
 	print("shape_impl: %d matches" % n)
 	print("SHAPE %-26s %8s %8s %6s" % ["stat (team a game)", "sim", "real", "ratio"])
 	print("SHAPE %-26s %8.1f" % ["score", score / float(tg)])

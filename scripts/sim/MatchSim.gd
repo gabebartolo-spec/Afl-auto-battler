@@ -245,6 +245,9 @@ var _rates_cache := {}
 func _rates() -> Dictionary:
 	if _rates_cache.is_empty():
 		_rates_cache = Ratings.T.duplicate()
+		for k in tune:
+			if _rates_cache.has(k):
+				_rates_cache[k] = tune[k]
 		var mult: Dictionary = WEATHER_RATES.get(weather, {})
 		for k in mult:
 			_rates_cache[k] = float(_rates_cache[k]) * float(mult[k])
@@ -1620,6 +1623,11 @@ const PRESS_TURNOVER := 0.08
 ## defence would rebound, the share that lock up in the pocket.
 const LOCKUP_PRESS := 0.35
 const LOCKUP_SPOIL := 0.35
+
+
+## A named constant, or its audit override (tune).
+static func _tv(key: String, value: float) -> float:
+	return float(tune.get(key, value))
 const PRESS_RUSH_GAIN := 0.80
 ## A close defender occasionally gets boot to ball. Around one or two per
 ## match across both sides; pressure and the smotherer's ability move it.
@@ -1715,6 +1723,10 @@ const AERIAL_CHANCE := 0.22
 static var zone_intercepts := true
 ## Audit only (intercept_impl): chain starts by origin, the previous chain's end
 ## and whether the ball changed sides. Off unless an audit turns it on.
+## Audit only: tuning values to try without a commit, e.g. {"chains_per_game": 240,
+## "LOCKUP_PRESS": 0.6}. Ratings.T keys apply through _rates(); named MatchSim
+## constants through _tv(). Empty in play and in every test.
+static var tune := {}
 static var audit_chains_on := false
 static var audit_chains := {}
 var _audit_last_side := -1
@@ -2317,13 +2329,13 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			var presser = _pick_presser(opp, zone)
 			_t(opp, "pressure_acts")
 			_p(presser, "pressure_acts")
-			var turn_p: float = (PRESS_TURNOVER
+			var turn_p: float = (_tv("PRESS_TURNOVER", PRESS_TURNOVER)
 					* (0.80 + 0.40 * _a(presser, "pressure") / 100.0)
 					* (1.20 - 0.40 * _a(carrier, "disposal") / 100.0))
 			if rng.randf() < turn_p:
 				# Rushed into a pack: sometimes nobody gets it clean and the
 				# umpire calls a ball-up where it locked up.
-				if lockup_rng.randf() < LOCKUP_PRESS:
+				if lockup_rng.randf() < _tv("LOCKUP_PRESS", LOCKUP_PRESS):
 					return {"outcome": "stoppage", "fp": fp, "actor": presser}
 				_t(opp, "pressure_wins")
 				_intercept(opp, presser, false)
@@ -2377,7 +2389,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 
 		# Outside forward 50, a genuine long kick can become a contested
 		# aerial ball. A mark retains it; a spoil makes the next chain loose.
-		if disposal_kind == "kick" and not marked and gain >= 15.0 and atk_fp < f50 				and aerial_rng.randf() < GENERAL_AERIAL_P:
+		if disposal_kind == "kick" and not marked and gain >= 15.0 and atk_fp < f50 				and aerial_rng.randf() < _tv("GENERAL_AERIAL_P", GENERAL_AERIAL_P):
 			var aerial := _general_aerial_contest(side, fp, carrier)
 			if not aerial.is_empty():
 				match str(aerial["outcome"]):
@@ -2670,7 +2682,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 			return crumb
 
 	# Spoiled to the deck in the pocket, nobody clean: a ball-up inside 50.
-	if spoilt and not marked and lockup_rng.randf() < LOCKUP_SPOIL:
+	if spoilt and not marked and lockup_rng.randf() < _tv("LOCKUP_SPOIL", LOCKUP_SPOIL):
 		return {"outcome": "stoppage", "fp": fp, "actor": defender}
 	# The spare comes away with it only when he got the fist to it; reaching
 	# the contest is not winning it. Otherwise the defender in it does.
@@ -3577,7 +3589,7 @@ func _after_chain() -> void:
 	momentum *= MOMENTUM_DECAY
 	# Distance, drain and recovery were set for 180 chains a game: a chain is
 	# a share of the game's minutes, so per-game loads stay the same.
-	var per_chain := 180.0 / float(Ratings.T["chains_per_game"])
+	var per_chain := 180.0 / float(_rates()["chains_per_game"])
 	for side in range(2):
 		var sq: Squad = squads[side]
 		# Distance and fatigue both respond to the plan's tempo, pep talk and
@@ -4526,7 +4538,7 @@ func _bomb(side: int, shooter: Dictionary, defender: Dictionary) -> Dictionary:
 		_p(crumber, "disposals")
 		_p(crumber, "kicks")
 		var snap := shot_chance(side, crumber, false, false) * CRUMB_SNAP
-		var bh: float = float(Ratings.T["inside50_behind"]) * (0.80 + 0.40 * _a(crumber, "goalkicking") / 100.0)
+		var bh: float = float(_rates()["inside50_behind"]) * (0.80 + 0.40 * _a(crumber, "goalkicking") / 100.0)
 		return _set_result(side, crumber, null, back, snap, bh, true)
 	if rng.randf() < PACK_RUSHED:
 		# Rushed through for a behind: no one's shot.
