@@ -534,6 +534,11 @@ inspection). This replaces the ~300 above for this slice. The stop rule stands: 
 clearly read better than today's figures, ART stops and reports. Provenance and the six-view inspection on
 every generation; Tripo motion goes through the motion checks beside the hand-keyed moves.
 
+**Spend cap raised, 2026-10-11 (director, to AFL BOSS):** "extend the cap to 10,000 credits"; on timing,
+"no rush, whatever works best". The Tripo cap for AFL art is now **10,000 credits** (about 450 spent on the
+player slice when it was raised). It replaces the ~1000 above. ART still asks BOSS before each spend; the
+stop rule, provenance and the six-view inspection on every generation stand.
+
 **Done under those orders (2026-10-10):** Phase 1 (#591), Phase 2 (#594, the helper's), Phase 3
 (#598). One deviation from the plan: Phase 1.5 keeps the plan and the tag as grids on the coach's
 break, since six plans or five names in one row would scroll past a phone's edge; pep talk and

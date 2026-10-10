@@ -47,6 +47,7 @@ func run() -> void:
 	_test_rotation_words_true()
 	_test_bring_the_heat()
 	_test_defensive_forward()
+	_test_defensive_forward_cards()
 	_test_hot_player_moment()
 	_test_matchups()
 	_test_key_duel_balance()
@@ -2865,6 +2866,77 @@ func _test_defensive_forward() -> void:
 	_check(bool(t.get("spare_accountable", false)) and not expect.is_empty()
 			and str(t.get("spare_minder_id", "")) == str(expect[0]["id"]),
 			"An AI club names the forward a coach would send, by the same rule")
+
+
+## Assign defensive forward (register item 5, director 2026-10-07): the words
+## on the break come from the constants the match runs on, the card shows the
+## one attribute the job uses, and the director's requirement holds: a forward
+## sent still scores, and is a target far less often than the side's others.
+func _test_defensive_forward_cards() -> void:
+	# Copy-truth: the cost line is built from MINDER_ROAM and MINDER_INVOLVE,
+	# in words (no numbers on the break), and the words follow the constants.
+	var line := MatchNotes.minder_cost_line()
+	var kept_spec := float(MatchSim.MINDER_ROAM["specialist"])
+	var kept_other := float(MatchSim.MINDER_ROAM["other"])
+	_check(kept_spec < kept_other and kept_spec < 0.5 and kept_other > 0.55 and kept_other <= 0.8
+			and line.contains("%s of his contests with a Defensive forward" % MatchNotes.reach_words(kept_spec))
+			and line.contains("%s with any other forward" % MatchNotes.reach_words(kept_other))
+			and line.contains("well under half of his contests with a Defensive forward")
+			and line.contains("most with any other forward")
+			and float(MatchSim.MINDER_INVOLVE) <= 0.35 and line.contains("far less often") and not line.contains("%"),
+			"The cost line says what the constants do, in words (%s)" % line)
+	_check(MatchNotes.reach_words(0.2) == "hardly any" and MatchNotes.reach_words(0.5) == "about half"
+			and MatchNotes.reach_words(0.9) == "nearly all", "The share words read right at their edges")
+	_check(MatchNotes.minder_question("Jake Lever", "Melbourne").begins_with("Who covers Jake Lever (Melbourne)?")
+			and MatchNotes.minder_none_line().contains("no loose defender"),
+			"The question names their loose defender and his club; with none, it says so")
+	# A card shows where he plays, the trait when he has it, and his Pressure.
+	var sim := _sim(8401, "ADE", "SYD")
+	var fwds := Matchups.minder_candidates((sim.squads[0] as Squad).ground)
+	var spec := {}
+	var plain := {}
+	for p in fwds:
+		if Traits.has(p, "def_forward") and spec.is_empty():
+			spec = p
+		if not Traits.has(p, "def_forward") and plain.is_empty():
+			plain = p
+	for p in [spec, plain]:
+		if p.is_empty():
+			continue
+		var wide := MatchNotes.minder_card_detail(p, true)
+		var narrow := MatchNotes.minder_card_detail(p, false)
+		var pressure := roundi(float((p["attr"] as Dictionary)["pressure"]))
+		var is_spec := Traits.has(p, "def_forward")
+		_check(wide.contains("Pressure %d" % pressure) and narrow.contains("Pressure %d" % pressure)
+				and wide.contains("Defensive forward") == is_spec and narrow.contains("Defensive forward") == is_spec
+				and wide.contains("Forward"),
+				"A card shows his position, Pressure %d%s (%s)" % [pressure, " and Defensive forward" if is_spec else "", wide])
+	# Paired seeds: the forward sent still scores and is a target less often
+	# than the side's other forwards (an audit of 150 matches: about 41% of
+	# their shots, goals in about 40% of matches).
+	var sent_shots := 0.0
+	var sent_goals := 0.0
+	var other_shots := 0.0
+	var other_n := 0
+	for seed in range(8410, 8422):
+		var m := _sim(seed, "ADE", "SYD")
+		var sp := Matchups.best_interceptor((m.squads[1] as Squad).ground, 0.0)
+		m.set_interceptor(1, str(sp.get("id", "")), false)
+		var ground: Array = (m.squads[0] as Squad).ground.duplicate()
+		var minder: Dictionary = Matchups.minder_candidates(ground)[0]
+		m.set_tactics(0, {"gameplan": "balanced", "spare_accountable": true, "spare_minder_id": str(minder["id"])})
+		var res := m.run()
+		var stats: Dictionary = res["players"]
+		sent_shots += float((stats.get(str(minder["id"]), {}) as Dictionary).get("shots", 0.0))
+		sent_goals += float((stats.get(str(minder["id"]), {}) as Dictionary).get("goals", 0.0))
+		for p in ground:
+			if str(p["role"]) == "FWD" and str(p["id"]) != str(minder["id"]):
+				other_shots += float((stats.get(str(p["id"]), {}) as Dictionary).get("shots", 0.0))
+				other_n += 1
+	var others_avg := other_shots / float(maxi(1, other_n)) * 12.0
+	_check(sent_goals > 0.0, "A forward sent to their loose defender still kicks goals (%d in 12 matches)" % int(sent_goals))
+	_check(sent_shots < others_avg, "He is a target less often than the others: %d shots in 12 matches against %.0f for an average other forward" % [
+			int(sent_shots), others_avg])
 
 
 ## ARD-M4-015: eight plan names become six. An old save's "fast" plays as
