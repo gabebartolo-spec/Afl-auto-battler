@@ -80,6 +80,8 @@ func _run() -> void:
 	state.set_vignettes_on(false)
 	state.reset()
 	state.replay_seed = 2027
+	# No first-visit notes over the effect being filmed.
+	state.set_setting("seen_weekly_loop_intro", true)
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
 	print("FEEL effect %s at %dx%d, motion %s" % [effect, W, H, load("res://scripts/ui/UiKit.gd").motion_on()])
@@ -127,6 +129,7 @@ func _run() -> void:
 				(p as ScrollContainer).scroll_vertical += int(H * 0.25)
 		_:
 			state.start_season("COL", db.club_list("COL"))
+			state.tutorials = false
 			# As if you'd looked at the hub before the round: where you sat.
 			var hub_script = load("res://scripts/ui/HubScene.gd")
 			var before := int(state.my_position())

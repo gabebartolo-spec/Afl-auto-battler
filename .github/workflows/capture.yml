@@ -123,6 +123,12 @@ jobs:
           if [ "$MOVIE_MAKER" = "true" ] && [ -f "out/$TOOL.avi" ]; then
             ffmpeg -loglevel error -y -i "out/$TOOL.avi" -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" \
               -c:v libx264 -pix_fmt yuv420p -c:a aac -b:a 128k "out/$TOOL.mp4"
+            # A contact sheet (6 frames a second, in rows) to review the motion
+            # without playing the clip, and the loudest moment of the sound.
+            ffmpeg -loglevel error -y -i "out/$TOOL.mp4" -vf "fps=6,scale=-2:420,tile=6x4" -frames:v 1 \
+              "out/${TOOL}_frames.png" || true
+            ffmpeg -hide_banner -nostats -i "out/$TOOL.avi" -af volumedetect -vn -f null - 2>&1 \
+              | grep -E "mean_volume|max_volume" || echo "no sound track"
             rm -f "out/$TOOL.avi"
           fi
           if [ "$MOVIE" = "true" ] && ls out/"$TOOL"_f*.png > /dev/null 2>&1; then
