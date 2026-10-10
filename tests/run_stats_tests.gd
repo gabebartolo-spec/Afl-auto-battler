@@ -226,13 +226,18 @@ func _players_section() -> void:
 		await _settle()
 		pick = s.find_child("StatPick", true, false)
 		var by_rating: Array = SP.sorted_rows()
+		# Ranked by Player rating, the list opens on Per game (director, 2026-10-11).
+		var mode_row: Node = s.find_child("StatMode", true, false)
+		_check(SP._per_game and mode_row != null and mode_row.has_meta("current")
+				and str((mode_row.get_meta("current") as Node).name) == "StatMode_per_game",
+				"Ranked by Player rating, the list opens on Per game (%s)" % tag)
 		var want := 0.0
 		var points: Dictionary = load("res://scripts/ui/match/MatchNotes.gd").RATING_POINTS
 		for k in points:
 			want += float(points[k]) * float((by_rating[0]["s"] as Dictionary).get(k, 0.0))
 		_check(s.find_child("StatSheet", true, false) == null and pick != null and pick.text == "Player rating"
 				and by_rating.size() > 1 and is_equal_approx(SP.value(by_rating[0], "rating", false), maxf(0.0, want))
-				and SP.value(by_rating[0], "rating", false) >= SP.value(by_rating[1], "rating", false)
+				and SP.value(by_rating[0], "rating", true) >= SP.value(by_rating[1], "rating", true)
 				and SP.value(by_rating[0], "rating", false) > 0.0,
 				"Player rating ranks the season by the match rating's points (%s: %s)" % [tag, pick.text if pick else "-"])
 		SP.pick_stat("disposals")
