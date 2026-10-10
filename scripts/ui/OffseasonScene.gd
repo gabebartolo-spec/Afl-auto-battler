@@ -253,9 +253,10 @@ func _retiring(body: VBoxContainer) -> void:
 			said.name = "RetireAnswer"
 			v.add_child(said)
 		elif bool(r["can_ask"]):
-			var ask := UiKit.btn("Ask him to go around again", UiKit.SECONDARY)
+			# An action said as words beside the fact (guide §3), not a bar per row.
+			var ask := UiKit.text_action("Ask him to go around again")
 			ask.name = "TalkRound"
-			ask.custom_minimum_size = Vector2(0, 44)
+			ask.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			if _wide():
 				ask.size_flags_horizontal = Control.SIZE_SHRINK_END
 				ask.custom_minimum_size.x = 280
@@ -867,7 +868,15 @@ func _compact_actions(row: HBoxContainer, main: Button) -> void:
 
 
 func _player_card(p: Dictionary, detail: String) -> PanelContainer:
+	# An editorial row, not a tile (guide §3): no surface, a rule under it.
 	var card := UiKit.panel(UiKit.PANEL_ALT, 8, 6)
+	var quiet := UiKit.style(Color.TRANSPARENT, 8, 0)
+	quiet.set_border_width_all(0)
+	quiet.border_width_bottom = 1
+	quiet.border_color = UiKit.LINE
+	quiet.content_margin_top = 10
+	quiet.content_margin_bottom = 10
+	card.add_theme_stylebox_override("panel", quiet)
 	var v := UiKit.vbox(3)
 	card.add_child(v)
 	# A PC: who he is on the left, the actions on the same line at the right.
