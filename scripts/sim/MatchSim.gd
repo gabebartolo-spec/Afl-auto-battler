@@ -2351,10 +2351,22 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 				if lockup_rng.randf() < _tv("LOCKUP_PRESS", LOCKUP_PRESS):
 					return {"outcome": "stoppage", "fp": fp, "actor": presser}
 				_t(opp, "pressure_wins")
-				_intercept(opp, presser, false)
+				# A rushed handball is picked off by the man on him; a rushed kick
+				# lands with whoever is in that part of the ground, and the better
+				# readers mark it (match flow, 2026-10-10: these are most of a real
+				# game's intercept marks).
+				var taker = presser
+				if disposal_kind == "kick":
+					var reader = _aerial_defender(opp, fp)
+					if reader != null:
+						taker = reader
+				_intercept(opp, taker, false)
 				_emit("pressure", opp, fp, presser,
 						"%s forces the turnover" % GameDB.player_display_name(presser))
-				return {"outcome": "turnover", "fp": fp, "actor": presser}
+				if disposal_kind == "kick":
+					_kick_marked(opp, taker, fp, mark_rng.randf() < _tv("PRESS_KICK_MARKED", PRESS_KICK_MARKED)
+							* (0.6 + 0.8 * _a(taker, "intercept") / 100.0))
+				return {"outcome": "turnover", "fp": fp, "actor": taker}
 			rushed = true
 
 		# A smother is a real blocked kick, not a decorative stat. It leaves
@@ -3402,16 +3414,24 @@ func _clanger_taken(side: int, at: float) -> void:
 	_intercept(opp, taker, false)
 	next_side = opp
 	_prev_end = "turnover"
-	if rng.randf() < _tv("CLANGER_MARKED", CLANGER_MARKED) * (0.6 + 0.8 * _a(taker, "intercept") / 100.0):
-		_won_back["marked"] = true
-		_t(opp, "marks")
-		_p(taker, "marks")
-		_t(opp, "intercept_marks")
-		_p(taker, "intercept_marks")
-		_emit("mark", opp, at, taker, "%s intercepts it on the mark" % GameDB.player_display_name(taker))
-		var ev: Dictionary = events[events.size() - 1]
-		ev["general_play"] = true
-		ev["intercept"] = true
+	_kick_marked(opp, taker, at, rng.randf() < _tv("CLANGER_MARKED", CLANGER_MARKED)
+			* (0.6 + 0.8 * _a(taker, "intercept") / 100.0))
+
+
+## A kick that turned over, taken by `taker`: when `marked`, he took it on the
+## mark (an intercept mark, and he takes the next kick).
+func _kick_marked(side: int, taker, at: float, marked: bool) -> void:
+	if not marked:
+		return
+	_won_back["marked"] = true
+	_t(side, "marks")
+	_p(taker, "marks")
+	_t(side, "intercept_marks")
+	_p(taker, "intercept_marks")
+	_emit("mark", side, at, taker, "%s intercepts it on the mark" % GameDB.player_display_name(taker))
+	var ev: Dictionary = events[events.size() - 1]
+	ev["general_play"] = true
+	ev["intercept"] = true
 
 
 ## Of the clangers not paid as frees, the share the other side takes outright
@@ -3420,6 +3440,10 @@ func _clanger_taken(side: int, at: float) -> void:
 ## tools/audit/intercept_impl.gd against Champion Data 2025.
 const CLANGER_TAKEN := 1.0
 const CLANGER_MARKED := 0.3
+## Of rushed kicks that go straight to the opposition, the share an average
+## reader marks (match flow: they replace the clanger after a ball-up, which
+## gave defenders most of their intercept marks).
+const PRESS_KICK_MARKED := 0.3
 
 
 ## The 18 on-ground players per side, so the pitch view can draw real
