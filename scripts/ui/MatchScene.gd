@@ -844,7 +844,11 @@ func _show_coach_box() -> void:
 	if rucks.size() >= 2:
 		var ruck_opts := [["", "No main ruck"]]
 		for r in rucks:
-			ruck_opts.append([str(r["id"]), GameDB.player_display_name(r)])
+			# His Ruck rating on the card, so a weak tap man is plain before
+			# he is named.
+			var ruck_rating := PackedStringArray(["Ruck %d" % roundi(float((r["attr"] as Dictionary).get("ruck", 0.0)))])
+			ruck_opts.append([str(r["id"]), "%s
+%s" % [GameDB.player_display_name(r), MatchNotes.card_detail(r, "", ruck_rating, false)]])
 		var ruck_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 		ruck_note.name = "MainRuckNote"
 		ruck_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1598,11 +1602,13 @@ func _apply_quarter_tactics(t: Dictionary) -> void:
 	sim.set_tactics(1 - _my_side, sim.ai_tactics(1 - _my_side))
 
 
-## Your rucks in the team today, on the ground or on the bench, the best
-## tap man first: a ruckman by his own listing, wherever he lines up.
+## Your rucks on the ground now, the best tap man first: a ruckman by his own
+## listing, wherever he lines up. Two of them is a dual-ruck side, where the
+## call changes who goes up (BOSS 2026-10-11; audit mainruck_impl: a second
+## ruck on the bench mostly comes on for the first, through the ruck spot).
 func _my_rucks(sim: MatchSim) -> Array:
 	var sq: Squad = sim.squads[_my_side]
-	var out := (sq.ground + sq.bench).filter(func(p): return MatchSim._is_ruckman(p))
+	var out := sq.ground.filter(func(p): return MatchSim._is_ruckman(p))
 	out.sort_custom(func(a, b): return float(a["attr"]["ruck"]) > float(b["attr"]["ruck"]))
 	return out
 

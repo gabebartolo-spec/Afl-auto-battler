@@ -908,14 +908,14 @@ func _main_ruck_picker(sz: Vector2i) -> void:
 			continue
 		var sq = _state.pending_sim.squads[int(_state.pending_sim.moment_side)]
 		var n := 0
-		for p in sq.ground + sq.bench:
+		for p in sq.ground:
 			if Ms._is_ruckman(p):
 				n += 1
 		if n >= 2 and two == "":
 			two = c
 		elif n == 1 and one == "":
 			one = c
-	_check(two != "" and one != "", "(setup) a club with two rucks and one with one (%s: %s, %s)" % [tag, two, one])
+	_check(two != "" and one != "", "(setup) a club with two rucks on the ground and one with one (%s: %s, %s)" % [tag, two, one])
 	if two == "" or one == "":
 		return
 	for c in [one, two]:
@@ -925,19 +925,18 @@ func _main_ruck_picker(sz: Vector2i) -> void:
 		_state.prepare_interactive_match()
 		var sim = _state.pending_sim
 		var me := int(sim.moment_side)
-		if c == two:
-			sim.run_quarter()
+		# Before the first bounce: both rucks are on the ground as picked.
 		var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
 		root.add_child(m)
 		await _settle()
 		var box: Node = m.find_child("CoachBox", true, false)
 		var pick: Node = box.find_child("MainRuckPicker", true, false) if box != null else null
 		if c == one:
-			_check(box != null and pick == null, "One ruck in the team, no Main ruck call (%s, %s)" % [tag, c])
+			_check(box != null and pick == null, "One ruck on the ground, no Main ruck call (%s, %s)" % [tag, c])
 			m.queue_free()
 			await _settle()
 			continue
-		_check(pick != null, "Two rucks in the team, a Main ruck call (%s, %s)" % [tag, c])
+		_check(pick != null, "Two rucks on the ground, a Main ruck call (%s, %s)" % [tag, c])
 		if pick == null:
 			m.queue_free()
 			await _settle()
@@ -947,6 +946,8 @@ func _main_ruck_picker(sz: Vector2i) -> void:
 		_check(note != null and note.text.begins_with("No main ruck: whoever is in the ruck spot goes up."),
 				"With nobody named, it says the ruck spot decides (%s)" % tag)
 		var b: Button = box.find_child("MainRuckPicker_" + str(rucks[1]["id"]), true, false)
+		var rr := roundi(float((rucks[1]["attr"] as Dictionary).get("ruck", 0.0)))
+		_check(b != null and b.text.contains("Ruck %d" % rr), "His card shows his Ruck rating, %d (%s)" % [rr, tag])
 		var w: String = await Tap.tap(b)
 		await _settle()
 		var nm: String = db.player_display_name(rucks[1])
@@ -968,7 +969,7 @@ func _main_ruck_picker(sz: Vector2i) -> void:
 				up = up.get_parent()
 			var need := (bsc.get_child(0) as Control).get_combined_minimum_size().y if bsc != null else INF
 			_check(bsc != null and need <= bsc.size.y + 1.0,
-					"Quarter time with a Main ruck call fits 1280x720 without scrolling (%.0f of %.0f)" % [need, bsc.size.y if bsc else 0.0])
+					"The break with a Main ruck call fits 1280x720 without scrolling (%.0f of %.0f)" % [need, bsc.size.y if bsc else 0.0])
 		var gw: String = await Tap.tap(box.find_child("StartQuarter", true, false))
 		await _settle()
 		_check(gw == "" and str((sim.tactics[me] as Dictionary).get("main_ruck", "")) == str(rucks[1]["id"]),
