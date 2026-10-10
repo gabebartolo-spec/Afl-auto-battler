@@ -107,6 +107,16 @@ func _shape_panel() -> Control:
 			UiKit.SMALL, UiKit.MUTED)
 	shape_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lv.add_child(shape_note)
+	if _narrow():
+		# A phone gets the selection board itself, read-only (guide §4.3: one
+		# board grammar, names readable on the tokens), not a postage-stamp oval.
+		var board := TeamBuilder.new()
+		board.name = "Best22Board"
+		board.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		board.setup(GameState.current_side(), false, [], true)
+		board.inspect.connect(_open_profile)
+		lv.add_child(board)
+		return left
 	var oval := FormationView.new()
 	oval.name = "Best22Oval"
 	oval.size_flags_horizontal = Control.SIZE_EXPAND_FILL

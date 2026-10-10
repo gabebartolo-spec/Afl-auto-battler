@@ -532,9 +532,11 @@ func _week_section(season: Season) -> Control:
 		var notes := GameState.my_week_notes()
 		if not facts.is_empty() or not notes.is_empty():
 			nv.add_child(UiKit.spacer(4))
+		# The first fact leads (the danger man, the thing to plan for); the
+		# rest follow in body copy, so three lines are not three equals.
 		for i in range(facts.size()):
 			var f: Dictionary = facts[i]
-			var fl := UiKit.lbl(str(f["text"]), UiKit.BODY, UiKit.TEXT)
+			var fl := UiKit.lbl(str(f["text"]), UiKit.NAME if i == 0 else UiKit.BODY, UiKit.TEXT, i == 0)
 			fl.name = "Fact_%d" % i
 			nv.add_child(fl)
 		for i in range(notes.size()):
