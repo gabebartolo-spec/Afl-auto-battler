@@ -1606,8 +1606,8 @@ const PRESS_TURNOVER := 0.08
 ## comes from a contest that locks up, not from a won ball. Of the turnovers a
 ## presser forces, the share that lock up instead; of the spoils inside 50 the
 ## defence would rebound, the share that lock up in the pocket.
-const LOCKUP_PRESS := 0.35
-const LOCKUP_SPOIL := 0.35
+const LOCKUP_PRESS := 0.60
+const LOCKUP_SPOIL := 0.60
 const PRESS_RUSH_GAIN := 0.80
 ## A close defender occasionally gets boot to ball. Around one or two per
 ## match across both sides; pressure and the smotherer's ability move it.
