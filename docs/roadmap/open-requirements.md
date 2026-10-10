@@ -16,7 +16,7 @@ Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against mai
 | 5 | Defensive forward: "Assign defensive forward" label, explicit none, suitability cards, still scores | §1.11 coaching controls | boss (2nd, coaching-controls PR) | verify |
 | 6 | **Player figures get faces and distinct hair** (16 styles defined, 5 drawn; no facial features). Director 2026-10-10: "they look like clones" | §1.11 generated player visual identity | art | briefed 2026-10-10 |
 | 7 | Haptics and restrained screen shake, with Off | §1.11 haptics | boss (5th) | TODO, nothing in source |
-| 8 | A clear turnover cue (TURNOVER label; tackles distinguishable from turnovers) | §1.11 visual simulation | boss (1st, with match-flow) | in progress |
+| 8 | A clear turnover cue (TURNOVER label; tackles distinguishable from turnovers) | §1.11 visual simulation | boss | DONE #617 (2026-10-10): "Turnover" over the winner for about a second, underlined in his club's colour; restarts and kept tackles carry no label; match_visual +6. Look gate: the director's |
 | 9 | Feed styling: neutral for tactical/score lines; your goals positive, conceded negative, behinds neutral (visual) | §1.11 feed styling, scoring feedback | boss (4th) | verify against #598 |
 
 ## Match flow and presentation
@@ -78,6 +78,6 @@ guernseys and logos · **Coach of the Year** (director request 2026-10-08, not s
 
 ## In a current plan
 
-Match-flow Steps 1–2 (boss) · intercept spread #606 (boss) · press-room, awards and MCG plates, crowd tile
+Match-flow Steps 1–2 (boss; intercept spread #606 DONE) · press-room, awards and MCG plates, crowd tile
 (art) · motion B and C, sheet contract v2, BPTC fix (art) · polish pass 1 (boss) · afl-team-pr skill refresh
 (support) · roadmap split and this register (hygiene).
