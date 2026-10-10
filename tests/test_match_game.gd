@@ -1773,7 +1773,7 @@ func _test_loose_man_late() -> void:
 func _test_ai_loose_needs_a_reader() -> void:
 	var reads := {}
 	for who in ["ai", "assistant"]:
-		for pin in [69, 75]:
+		for pin in [62, 72]:
 			var home := Squad.new("ADE", GameDB.club_list("ADE"), true, "ADE")
 			var away := Squad.new("SYD", GameDB.club_list("SYD"), false, "SYD")
 			away.ai_plans = who == "ai"
@@ -1783,8 +1783,11 @@ func _test_ai_loose_needs_a_reader() -> void:
 			for p in Matchups.defenders(away.ground):
 				var at: Dictionary = p["attr"]
 				kept.append([at, at.duplicate()])
+				# His score lands on the pin whatever his traits add.
+				var bonus := Matchups.interceptor_score(p) - (0.55 * float(at.get("intercept", 0))
+						+ 0.30 * float(at.get("marking", 0)) + 0.15 * float(at.get("pressure", 0)))
 				for k in ["intercept", "marking", "pressure"]:
-					at[k] = pin
+					at[k] = float(pin) - bonus
 			var sim := MatchSim.new(home, away, 8304)
 			var named := str(sim.interceptor[1]) != ""
 			var read := sim._loose_read(Matchups.interceptor_candidates(away.ground)[0])
@@ -1800,8 +1803,8 @@ func _test_ai_loose_needs_a_reader() -> void:
 		var edge := {"id": "EDGE", "name": "Edge", "role": "DEF", "attr": {"intercept": v, "marking": v, "pressure": v}}
 		same = same and Matchups.best_interceptor([edge]).is_empty() == Matchups.best_interceptor([edge], 66.0).is_empty()
 	_check(same, "The named bar names exactly who the old bar of 66 named")
-	_check(float(reads["ai69"]) < MatchSim.LOOSE_AI_MIN_READ and float(reads["ai75"]) >= MatchSim.LOOSE_AI_MIN_READ,
-			"The two pinned readers sit either side of the bar (%.2f, %.2f)" % [reads["ai69"], reads["ai75"]])
+	_check(float(reads["ai62"]) < MatchSim.LOOSE_AI_MIN_READ and float(reads["ai72"]) >= MatchSim.LOOSE_AI_MIN_READ,
+			"The two pinned readers sit either side of the bar (%.2f, %.2f)" % [reads["ai62"], reads["ai72"]])
 
 
 ## ARD-M4-012 (the director: "any player can intercept, but the loose
