@@ -62,7 +62,7 @@ const CAPTION_TURNOVER := 1.1
 ## share of the oval's height, so it reads the same on a phone and a PC (the canvas
 ## is scaled from a 1280 base: a fixed 3 units was about one real pixel on a phone).
 const SHAKE_TIME := 0.3
-const SHAKE_SHARE := 0.012
+const SHAKE_SHARE := 0.025  # director, 2026-10-10: B of three strengths
 ## What restarts play: whoever wins the ball after one of these has not turned
 ## it over.
 const RESTARTS := ["goal", "behind", "quarter", "ballup", "throwin", "free", "fifty",
