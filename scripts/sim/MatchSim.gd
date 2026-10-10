@@ -3402,7 +3402,7 @@ func _clanger_taken(side: int, at: float) -> void:
 	_intercept(opp, taker, false)
 	next_side = opp
 	_prev_end = "turnover"
-	if rng.randf() < CLANGER_MARKED * (0.6 + 0.8 * _a(taker, "intercept") / 100.0):
+	if rng.randf() < _tv("CLANGER_MARKED", CLANGER_MARKED) * (0.6 + 0.8 * _a(taker, "intercept") / 100.0):
 		_won_back["marked"] = true
 		_t(opp, "marks")
 		_p(taker, "marks")
