@@ -517,8 +517,6 @@ static func _age_ok(age: float, band: String) -> bool:
 	return true
 
 
-## A row's value for a stat: a count (total or per game), a rate, or -1 for
-## nothing to show (no games; nothing under the rate).
 ## A season of Player Rating: the match rating's own points (MatchNotes)
 ## over his season's stats. In all it is his rating points for the year; a
 ## game, his average rating.
@@ -529,6 +527,8 @@ static func season_rating(s: Dictionary) -> float:
 	return maxf(0.0, total)
 
 
+## A row's value for a stat: a count (total or per game), a rate, or -1 for
+## nothing to show (no games; nothing under the rate).
 static func value(row: Dictionary, key: String, per_game: bool) -> float:
 	var s: Dictionary = row["s"]
 	if key == "games":
@@ -959,6 +959,7 @@ static func _season_grid(row: Dictionary, wide: bool) -> Control:
 	var s: Dictionary = (row.get("s", {}) as Dictionary).duplicate()
 	s["possessions"] = float(s.get("contested_possessions", 0.0)) + float(s.get("uncontested_possessions", 0.0))
 	s["open_shots"] = float(s.get("shots", 0.0)) - float(s.get("set_shots", 0.0))
+	s["rating"] = season_rating(s)
 	var r := {"id": "", "games": int(row.get("games", 0)), "s": s}
 	var grid := GridContainer.new()
 	grid.name = "PlayerSeasonGrid"
