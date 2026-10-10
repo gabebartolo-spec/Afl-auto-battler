@@ -59,6 +59,7 @@ func run() -> void:
 	_test_current_club_identity()
 	_test_tag_ends_with_injury()
 	_test_named_tagger_back_on()
+	_test_tag_hold()
 	_test_match_story()
 	_test_first_goal_feed()
 	_test_traits_surfaced()
@@ -1958,6 +1959,49 @@ func _test_current_club_identity() -> void:
 	_check(injuries > 0, "The sample includes injuries, whose lines once named a stale club")
 	var line := MatchNotes.story_feed_line({}, {"kind": "injury", "name": "Tim English", "club": "MEL", "on": ""})
 	_check(line.contains("(%s)" % GameDB.club_short("MEL")), "The injury line reads the match club (%s)" % line)
+
+
+## The director (2026-10-11): how tightly a tag holds its man comes from the
+## tagger's Pressure and his legs in this match. A fresh Tagger holds as
+## tightly as before (TAG_WITH_TAGGER) and never tighter; a midfielder of
+## ordinary Pressure about as a plain tag (TAG_PLAIN); a hard presser who is
+## not a Tagger in between; and the same man holds less once he tires.
+func _test_tag_hold() -> void:
+	var sim := _sim(8420, "GEE", "SYD")
+	var sq: Squad = sim.squads[0]
+	var mids := sq.ground.filter(func(p): return MatchSim.midfielder_on_ground(p))
+	var target = null
+	for p in (sim.squads[1] as Squad).ground:
+		if MatchSim.midfielder_on_ground(p):
+			target = p
+			break
+	var m: Dictionary = mids[0]
+	var keep: Dictionary = (m["attr"] as Dictionary).duplicate()
+	var mid := str(m["id"])
+	sim.tactics[0] = {"gameplan": "balanced", "tag_id": str(target["id"]), "tagger_id": mid}
+	sim.energy[mid] = 100.0
+	# A hard presser who also wins his own ball: not a Tagger.
+	for k in ["pressure", "contested", "carry", "disposal"]:
+		(m["attr"] as Dictionary)[k] = 92
+	var hard := sim._tag_share(0)
+	sim.energy[mid] = 45.0
+	var hard_tired := sim._tag_share(0)
+	sim.energy[mid] = 100.0
+	# A Tagger: elite Pressure that outweighs his own ball-winning and running.
+	for k in ["contested", "carry", "disposal"]:
+		(m["attr"] as Dictionary)[k] = 30
+	(m["attr"] as Dictionary)["pressure"] = 95
+	var spec := sim._tag_share(0)
+	# Ordinary Pressure.
+	for k in ["pressure", "contested", "carry", "disposal"]:
+		(m["attr"] as Dictionary)[k] = 40
+	var plain := sim._tag_share(0)
+	(m["attr"] as Dictionary).merge(keep, true)
+	_check(is_equal_approx(spec, Roles.TAG_WITH_TAGGER), "A fresh Tagger holds his man as tightly as before (%.3f)" % spec)
+	_check(is_equal_approx(plain, Roles.TAG_PLAIN), "A midfielder of ordinary Pressure holds like a plain tag (%.3f)" % plain)
+	_check(hard < Roles.TAG_PLAIN and hard >= Roles.TAG_WITH_TAGGER,
+			"A hard presser who is not a Tagger holds tighter than a plain tag, never tighter than a Tagger (%.3f)" % hard)
+	_check(hard_tired > hard, "The same man holds less once he tires (%.3f fresh, %.3f tired)" % [hard, hard_tired])
 
 
 ## The coach's named tagger (#633) rotates like anyone, but he comes back on
