@@ -297,6 +297,12 @@ func _standing_card() -> Control:
 	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	pos_row.add_child(title)
 	cv.add_child(pos_row)
+	# Your list as one number and where the club is in its cycle (TeamRating).
+	var outlook := GameState.team_outlook(GameState.my_club)
+	if not outlook.is_empty():
+		var tl := UiKit.ellipsis(str(outlook["line"]), UiKit.SECONDARY, UiKit.MUTED)
+		tl.name = "MyTeamOutlook"
+		cv.add_child(tl)
 	var form := GameState.club_form_info(GameState.my_club)
 	cv.add_child(_form_row(form))
 	var last := _last_match_button()
@@ -527,6 +533,12 @@ func _week_section(season: Season) -> Control:
 				GameState.form_line(their, "form").trim_prefix("form: ")], UiKit.SMALL, UiKit.MUTED)
 		standing.name = "OppFormLine"
 		nv.add_child(standing)
+		var their_list := GameState.team_outlook(opp)
+		if not their_list.is_empty():
+			var tl := UiKit.lbl("%s: %s" % [GameDB.club_short(opp), str(their_list["line"])], UiKit.SMALL, UiKit.MUTED)
+			tl.name = "OppTeamOutlook"
+			tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			nv.add_child(tl)
 		# The football: two or three facts, then anything on our side.
 		var facts := GameState.opponent_facts(opp)
 		var notes := GameState.my_week_notes()
