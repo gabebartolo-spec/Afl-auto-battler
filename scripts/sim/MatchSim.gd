@@ -1292,9 +1292,11 @@ const PEP_CALM := {"clangers": 0.92, "taken": 0.95, "gain": 0.92, "pace": 0.95}
 ## Fire them up: legs go quicker and tempers fray.
 const PEP_FIRE := {"clangers": 1.10, "pace": 1.20}
 ## Bring the heat (director, 2026-10-10): harder pressure on their ball carriers, so
-## more turnovers forced and tackles laid; legs go quicker for it.
-const PEP_HEAT := {"pace": 1.15}
-const PEP_HEAT_PRESS := 1.12
+## more turnovers forced and tackles laid; legs burn out much faster for it.
+## Sized 2026-10-11 on 480 paired matches: margin about even (+1.3 ± 1.9),
+## the most pressure of the variants tried, legs burning far quicker.
+const PEP_HEAT := {"pace": 1.60}
+const PEP_HEAT_PRESS := 1.08
 
 
 ## The pep talk's multiplier on one chain quantity (1.0 when it has none).

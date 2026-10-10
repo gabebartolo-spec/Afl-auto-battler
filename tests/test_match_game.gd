@@ -1756,7 +1756,7 @@ func _test_rotation_words_true() -> void:
 
 
 ## Bring the heat does what its words say (director, 2026-10-10): on the same seeds the side
-## lays more pressure and more tackles, and its legs go quicker.
+## lays more pressure and more tackles, and its legs burn out much faster.
 func _test_bring_the_heat() -> void:
 	var press := [0.0, 0.0]
 	var tackles := [0.0, 0.0]
@@ -1777,6 +1777,12 @@ func _test_bring_the_heat() -> void:
 	_check(legs[1] < legs[0], "...and its legs go quicker (%.1f against %.1f)" % [legs[1] / 12.0, legs[0] / 12.0])
 	_check(CoachReport.pep_summary("heat").contains("legs") and CoachReport.pep_summary("heat") != CoachReport.pep_summary("fire_up"),
 			"Its words name the cost and are its own")
+	# "Much faster" only while it costs more legs than Fire them up does.
+	var heat_pace := float(MatchSim.PEP_HEAT.get("pace", 1.0))
+	var fire_pace := float(MatchSim.PEP_FIRE.get("pace", 1.0))
+	_check(CoachReport.pep_summary("heat").contains("much faster") == (heat_pace > fire_pace)
+			and str(CoachReport.PEP_EFFECTS["heat"]).contains("much faster") == (heat_pace > fire_pace),
+			"It says legs burn out much faster only while it costs more legs than Fire them up (%.2f v %.2f)" % [heat_pace, fire_pace])
 
 
 ## A tag is a midfield job: a forward kicking a bag never gets a tag card
