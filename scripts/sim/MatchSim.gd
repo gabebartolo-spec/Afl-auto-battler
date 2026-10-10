@@ -712,7 +712,9 @@ const PLAN_UPSIDE := {
 }
 const PLANS := {
 	"attacking": {"goal": 1.05, "gain": 1.06, "clangers": 1.12, "pace": 1.12, "exposed": 1.07},
-	"defensive": {"press": 1.09, "opp_goal": 0.965, "goal": 0.96, "gain": 0.95, "pace": 1.12},
+	# The press's own shots: legs spent chasing, shots taken rushed (0.88;
+	# director 2026-10-11, the real cost of winning it high, was 0.96).
+	"defensive": {"press": 1.09, "opp_goal": 0.965, "goal": 0.88, "gain": 0.95, "pace": 1.12},
 	"contest": {"contest": 0.025, "gain": 0.95, "exposed": 1.04},
 	"controlled": {"taken": 0.96, "gain": 0.94, "goal": 1.01, "clangers": 0.93, "pace": 0.95},
 	# Through stars: the ball to the best three and their finishing (star_ball,
