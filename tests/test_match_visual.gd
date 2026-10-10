@@ -32,6 +32,7 @@ func run() -> void:
 	_test_no_wrong_way_kicks(res)
 	_test_match_flow(res)
 	_test_boundary_collect(res)
+	_test_smother_at_the_kick(res)
 	_test_tactical_timeline()
 	_test_truth(res)
 	_test_play_when_idle(res)
@@ -633,6 +634,39 @@ func _test_boundary_collect(res: Dictionary) -> void:
 	pv.free()
 	_check(all_done and worst <= MatchDirector.COLLECT_LIMIT + 0.1,
 			"A ball against the fence is always collected, never a freeze (longest %.1f s)" % worst)
+
+
+## A smother is released at the kick it blocks. Fixture log (no seed): after a
+## centre kick, SYD 27 kicks to a spot and RIC 42 smothers it there, with the
+## receiver a long way off. The kick used to roll the ball on toward its
+## receiver, so the smother came out 15.8 m from its logged spot (seed 42,
+## event 1322).
+func _test_smother_at_the_kick(res: Dictionary) -> void:
+	var worst := 0.0
+	var released := true
+	for fp in [-6.755, 25.0, -45.0]:
+		var stamp := {"q": 4, "min": 117, "score": [70, 72], "goals": [10, 11], "behinds": [10, 6]}
+		var kick := {"kind": "kick", "side": 1, "num": 27, "player_id": "SYD_27",
+				"name": "Fixture Kicker", "club": "SYD", "fp": fp, "text": "Fixture Kicker kicks"}
+		var smother := {"kind": "smother", "side": 0, "num": 42, "player_id": "RIC_42",
+				"name": "Fixture Smotherer", "club": "RIC", "fp": fp, "text": "Fixture Smotherer smothers the kick"}
+		var bounce := {"kind": "kick", "side": 1, "num": 4, "player_id": "SYD_4",
+				"name": "Fixture Ruck", "club": "SYD", "fp": 0.0, "text": "Fixture Ruck kicks"}
+		bounce.merge(stamp)
+		kick.merge(stamp)
+		smother.merge(stamp)
+		var events := [bounce, kick, smother]
+		var d := MatchDirector.new()
+		d.setup(res, events)
+		var guard := 0
+		while not d.idle() and guard < 20000:
+			guard += 1
+			d.advance(1.0 / 30.0)
+		released = released and d.arrivals.size() == 3
+		for a in d.arrivals:
+			worst = maxf(worst, absf((a["pos"] as Vector2).x - float(a["want_x"])))
+	_check(released, "The kick and its smother are both released")
+	_check(worst < 5.0, "A smother is released at the kick it blocks (worst %.1f m)" % worst)
 
 
 ## Research truth fixes (ARD-M8-003 step 1): a handball is drawn as a
