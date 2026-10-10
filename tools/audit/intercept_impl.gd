@@ -29,6 +29,8 @@ func run() -> void:
 			drafts.append(int(s))
 	MatchSim.zone_intercepts = OS.get_environment("IC_OLD") != "1"
 	print("zone_intercepts ", MatchSim.zone_intercepts)
+	MatchSim.audit_chains_on = true
+	MatchSim.audit_chains = {}
 	var ic := {}
 	var imk := {}
 	var team := {"score": 0.0, "marks": 0.0, "intercepts": 0.0, "inside50": 0.0, "clangers": 0.0}
@@ -147,6 +149,12 @@ func run() -> void:
 	print("leaders (a season each, 10+ games): best %.2f (%s), top ten %.2f a game (real 2025: best 8.4, top ten 7.7)" % [
 			float(leaders[0][0]) if not leaders.is_empty() else 0.0, str(leaders[0][1]) if not leaders.is_empty() else "-", top10])
 	MatchSim.zone_intercepts = true   # a static: don't leak the old contest
+	MatchSim.audit_chains_on = false
+	print("chain starts per team a game (origin <- previous end, flip = the other side has it):")
+	var ck: Array = MatchSim.audit_chains.keys()
+	ck.sort()
+	for k in ck:
+		print("  %-34s %6.2f" % [k, float(MatchSim.audit_chains[k]) / float(maxi(1, matches * 2))])
 	print("where (intercept events by role, share of that role's):")
 	for r in ROLES:
 		var zs: Dictionary = zones[r]

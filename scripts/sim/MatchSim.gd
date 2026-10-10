@@ -1688,6 +1688,11 @@ const AERIAL_CHANCE := 0.22
 ## Audits only: false plays the old contest (defenders and midfielders, no
 ## intercept marks) for a before/after on the same seeds.
 static var zone_intercepts := true
+## Audit only (intercept_impl): chain starts by origin, the previous chain's end
+## and whether the ball changed sides. Off unless an audit turns it on.
+static var audit_chains_on := false
+static var audit_chains := {}
+var _audit_last_side := -1
 
 
 ## Where a contest at `fp` is, from `def_side`'s view: its back half, the
@@ -3227,6 +3232,11 @@ func _play_one_chain(T: Dictionary) -> void:
 		chain_origin = _prev_end
 	else:
 		chain_origin = "general"
+	if audit_chains_on:
+		var ak := "%s <- %s, %s" % [chain_origin, _prev_end if _prev_end != "" else "-",
+				"flip" if (_audit_last_side >= 0 and side != _audit_last_side) else "keep"]
+		audit_chains[ak] = int(audit_chains.get(ak, 0)) + 1
+		_audit_last_side = side
 	_chain_touch = {}
 	_chain_from = _won_back if chain_origin == "turnover" else {}
 	_won_back = {}
