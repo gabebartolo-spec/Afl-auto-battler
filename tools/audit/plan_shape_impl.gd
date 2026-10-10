@@ -26,7 +26,11 @@ const KEYS := ["margin", "territory", "win_back_fp", "win_backs", "lose_fp", "pr
 		"kick_share", "kick_gain", "chain_len", "stoppages", "star_share",
 		# The press pilot (2026-10-11): where we win it back and lock it in, and
 		# what it costs when they get out (their kicks out of their back third).
-		"win_back_fwd_share", "stoppages_fwd", "their_escape_gain", "their_press_broken"]
+		"win_back_fwd_share", "stoppages_fwd", "their_escape_gain", "their_press_broken",
+		# Per zone, from the carrier's end (0 = their back third, our forward half).
+		"z0_rolls", "z1_rolls", "z2_rolls", "z0_base", "z1_base", "z2_base", "z0_final", "z1_final", "z2_final",
+		"z0_tackles", "z1_tackles", "z2_tackles", "z0_rushed", "z1_rushed", "z2_rushed",
+		"z0_win_backs", "z1_win_backs", "z2_win_backs"]
 
 
 func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
@@ -53,6 +57,14 @@ func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
 			star_disp += d
 	out["star_share"] = [star_disp / maxf(1.0, own_disp), 1.0]
 	out["their_press_broken"] = [float(((res["team"] as Array)[1] as Dictionary).get("press_broken", 0.0)), 1.0]
+	var tm: Dictionary = (res["team"] as Array)[0]
+	for z in range(3):
+		var n := float(tm.get("pz_roll%d" % z, 0.0))
+		out["z%d_rolls" % z] = [n, 1.0]
+		out["z%d_base" % z] = [float(tm.get("pz_base%d" % z, 0.0)) / maxf(1.0, n), 1.0 if n > 0.0 else 0.0]
+		out["z%d_final" % z] = [float(tm.get("pz_final%d" % z, 0.0)) / maxf(1.0, n), 1.0 if n > 0.0 else 0.0]
+		out["z%d_tackles" % z] = [float(tm.get("pz_tackle%d" % z, 0.0)), 1.0]
+		out["z%d_rushed" % z] = [float(tm.get("pz_rush%d" % z, 0.0)), 1.0]
 	return out
 
 
@@ -70,6 +82,7 @@ func _fingerprint(events: Array) -> Dictionary:
 	var stoppages := 0.0
 	var stoppages_fwd := 0.0
 	var wins_fwd := 0.0
+	var win_z := [0.0, 0.0, 0.0]
 	var esc := _Acc.new()
 	var prev_side := -1
 	var prev_kind := ""
@@ -104,6 +117,7 @@ func _fingerprint(events: Array) -> Dictionary:
 				win_fp.add(f)
 				if f > 0.0:
 					wins_fwd += 1.0
+				win_z[0 if f > MatchSim.PRESS_ZONE_EDGE else (2 if f < -MatchSim.PRESS_ZONE_EDGE else 1)] += 1.0
 			if prev_side == 0 and prev_kind == "kick":
 				gain.add(f - prev_fp)
 			run += 1
@@ -123,7 +137,8 @@ func _fingerprint(events: Array) -> Dictionary:
 		"kick_share": [kicks / maxf(1.0, kicks + handballs), 1.0 if kicks + handballs > 0.0 else 0.0],
 		"kick_gain": gain.out(), "chain_len": chains.out(), "stoppages": [stoppages, 1.0],
 		"win_back_fwd_share": [wins_fwd / maxf(1.0, float(win_fp.n)), 1.0 if win_fp.n > 0 else 0.0],
-		"stoppages_fwd": [stoppages_fwd, 1.0], "their_escape_gain": esc.out()}
+		"stoppages_fwd": [stoppages_fwd, 1.0], "their_escape_gain": esc.out(),
+		"z0_win_backs": [win_z[0], 1.0], "z1_win_backs": [win_z[1], 1.0], "z2_win_backs": [win_z[2], 1.0]}
 
 
 class _Acc:

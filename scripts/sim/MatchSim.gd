@@ -2233,6 +2233,9 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			# exposes the taker to more immediate pressure.
 			pressure *= 0.68 if not kick_in_play_on else 0.92
 		var p_base := pressure
+		# MEASUREMENT ONLY (press pilot, not for merge): rolls and base pressure by zone.
+		_t(opp, "pz_roll%d" % zone)
+		_t(opp, "pz_base%d" % zone, pressure)
 		pressure *= _press_on(side)
 		_credit(opp, "gameplan", (pressure - p_base) * TURNOVER_VALUE)
 		if synergies[opp].has("lockdown_unit"):
@@ -2254,6 +2257,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 
 		# One roll, three outcomes: a tackle, a pressured (rushed) disposal,
 		# or no pressure at all. Both of the first two are pressure acts.
+		_t(opp, "pz_final%d" % zone, pressure)
 		var press_roll := rng.randf()
 		var rushed := false
 		var tackled := false
@@ -2262,6 +2266,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			_maybe_report(opp, tackler, carrier)
 			_t(opp, "tackles")
 			_p(tackler, "tackles")
+			_t(opp, "pz_tackle%d" % zone)
 			_t(opp, "pressure_acts")
 			_p(tackler, "pressure_acts")
 			tackled = true
@@ -2302,6 +2307,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			# likelier against a strong presser, less likely from a clean
 			# user of the ball.
 			var presser = _pick_presser(opp, zone)
+			_t(opp, "pz_rush%d" % zone)
 			_t(opp, "pressure_acts")
 			_p(presser, "pressure_acts")
 			var turn_p: float = (PRESS_TURNOVER
