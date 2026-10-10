@@ -43,6 +43,7 @@ func run() -> void:
 	_test_spoils_and_crumbs()
 	_test_roaming_interceptor()
 	_test_six_plans()
+	_test_press_by_zone()
 	_test_zone_intercepts()
 	_test_rotation_words_true()
 	_test_bring_the_heat()
@@ -2866,6 +2867,38 @@ func _test_defensive_forward() -> void:
 	_check(bool(t.get("spare_accountable", false)) and not expect.is_empty()
 			and str(t.get("spare_minder_id", "")) == str(expect[0]["id"]),
 			"An AI club names the forward a coach would send, by the same rule")
+
+
+## The Defensive press (director, 2026-10-11): it hunts the ball high and
+## leaves space behind. The side it presses meets more pressure in its back
+## third, about Balanced's in the middle, and less in its forward third; a
+## chain that breaks the press scores more easily; the AI's press is the
+## same rule (it is keyed on the plan, not on who chose it).
+func _test_press_by_zone() -> void:
+	var sim := _sim(8430, "GEE", "COL")
+	sim.tactics[0] = {"gameplan": "defensive"}
+	sim.tactics[1] = {"gameplan": "balanced"}
+	var back := sim._press_on(1, 0)
+	var mid := sim._press_on(1, 1)
+	var fwd := sim._press_on(1, 2)
+	_check(back > mid and mid >= 1.0 and fwd < 1.0,
+			"Against a press: more pressure in your back third, less in your forward third (%.2f / %.2f / %.2f)" % [back, mid, fwd])
+	sim.tactics[0] = {"gameplan": "balanced"}
+	_check(is_equal_approx(sim._press_on(1, 0), 1.0) and is_equal_approx(sim._press_on(1, 2), 1.0),
+			"Against Balanced the pressure is the same in every zone")
+	# The other way round: the same rule when side 1 presses side 0.
+	sim.tactics[1] = {"gameplan": "defensive"}
+	_check(sim._press_on(0, 0) > sim._press_on(0, 1) and sim._press_on(0, 2) < 1.0,
+			"The same press rule for either side")
+	# A chain that broke the press: its shot is likelier to be a goal.
+	sim.tactics[1] = {"gameplan": "defensive"}
+	var shooter: Dictionary = (sim.squads[0] as Squad).ground[0]
+	sim._broke_press = false
+	var held := sim.shot_chance(0, shooter, true, false)
+	sim._broke_press = true
+	var broke := sim.shot_chance(0, shooter, true, false)
+	sim._broke_press = false
+	_check(broke > held * 1.5, "A chain that breaks the press shoots at an outnumbered defence (%.3f vs %.3f)" % [broke, held])
 
 
 ## Assign defensive forward (register item 5, director 2026-10-07): the words
