@@ -119,7 +119,7 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 ## shows it - each side's wingers, the far 50's six-on-six (your forwards, their backs, man on man,
 ## the back half a metre goal-side), the other field umpire, the boundary umpires on the wings and the
 ## goal umpire on the goal line. Positions from the 6-6-6 rule, metres: x across, y towards your goal.
-static var full_setup := true
+static var full_setup := false
 const SET_MINE := [[-31.0, 0.6], [31.0, -0.4],                                  # wingers
 		[0.0, -10.0], [-10.0, -14.0], [11.0, -13.0], [1.0, -38.0], [-20.0, -36.0], [21.0, -37.0]]   # forwards (from the goal line)
 const OFFICIALS := [[24.0, 34.0], [-22.0, -20.0], [66.0, 2.0], [-66.0, -2.0]]   # field, field, boundary, boundary
