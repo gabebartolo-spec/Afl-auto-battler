@@ -6,13 +6,10 @@ extends RefCounted
 ## is ranked once he has played at least half his club's games, and the rest
 ## follow below, still listed. One list, built once; it scrolls with the page.
 
-## Wide-screen columns (a phone shows the figure and its line under it).
-const RANK_W := 34.0
-const CLUB_W := 150.0
-const GAMES_W := 70.0
-const FIG_W := 104.0
-const ROW_H_WIDE := 36.0
-const ROW_H_PHONE := 56.0
+## A row: thumb-sized at every width.
+const ROW_H := 60.0
+const RANK_W := 30.0
+const FIG_W := 72.0
 ## Rows built with the section, then rows added each frame after it.
 const FIRST := 40
 const BATCH := 25
@@ -37,9 +34,6 @@ static func build(host: Control) -> Control:
 	var body := UiKit.vbox(0)
 	body.name = "RatingsList"
 	v.add_child(body)
-	if wide:
-		body.add_child(_header())
-		body.add_child(UiKit.rule())
 	# The rows in order, with the line where the ranked players end.
 	var items := []
 	var rank := 0
@@ -135,26 +129,10 @@ static func club_games(club: String) -> int:
 	return most
 
 
-static func _header() -> Control:
-	var h := UiKit.hbox(0)
-	h.name = "RatingsHeader"
-	h.custom_minimum_size.y = 36
-	h.add_child(_cell("#", RANK_W, UiKit.MUTED, UiKit.SMALL, HORIZONTAL_ALIGNMENT_RIGHT))
-	h.add_child(StatsPlayers._fixed(12.0))
-	var who := UiKit.line("Player", UiKit.SMALL, UiKit.MUTED)
-	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(who)
-	h.add_child(_cell("Club", CLUB_W, UiKit.MUTED, UiKit.SMALL, HORIZONTAL_ALIGNMENT_LEFT))
-	h.add_child(_cell("Games", GAMES_W, UiKit.MUTED, UiKit.SMALL, HORIZONTAL_ALIGNMENT_RIGHT))
-	h.add_child(_cell("A game", FIG_W, UiKit.MUTED, UiKit.SMALL, HORIZONTAL_ALIGNMENT_RIGHT))
-	h.add_child(_cell("Season", FIG_W, UiKit.MUTED, UiKit.SMALL, HORIZONTAL_ALIGNMENT_RIGHT))
-	h.add_child(StatsPlayers._fixed(8.0))
-	for n in h.get_children():
-		(n as Control).size_flags_vertical = Control.SIZE_SHRINK_END
-	return h
-
-
-## One player: a tap opens his season (StatsPlayers.open_player).
+## One player (director, 2026-10-11: whose team he plays for at a glance, and
+## a real hierarchy): rank, his club's guernsey, his name in bold with the
+## club's name beside it, his games and season under them in one quiet line,
+## and the rating a game big at the right. A tap opens his season.
 static func _row(host: Control, row: Dictionary, rank: int, wide: bool) -> Control:
 	var club := str(row["club"])
 	var mine := club == GameState.my_club
@@ -164,57 +142,47 @@ static func _row(host: Control, row: Dictionary, rank: int, wide: bool) -> Contr
 	StatsPlayers._editorial(b, mine)
 	var id := str(row["id"])
 	b.pressed.connect(func(): StatsPlayers.open_player(host, id))
-	var h := UiKit.hbox(10 if not wide else 0)
+	var h := UiKit.hbox(10)
 	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	h.offset_left = 8 if not wide else 0
-	h.offset_right = -8
+	h.offset_left = 8
+	h.offset_right = -10
 	b.add_child(h)
-	var rk := _cell(str(rank) if rank > 0 else "", RANK_W if wide else 28.0, UiKit.MUTED, UiKit.SECONDARY,
-			HORIZONTAL_ALIGNMENT_RIGHT)
+	var rk := _cell(str(rank) if rank > 0 else "", RANK_W, UiKit.MUTED, UiKit.SECONDARY, HORIZONTAL_ALIGNMENT_RIGHT)
 	rk.name = "Rank"
 	h.add_child(rk)
-	if wide:
-		h.add_child(StatsPlayers._fixed(12.0))
-	# The band carries your colour; the figure stays readable on it.
-	var fig_col := UiKit.TEXT
+	if club != "":
+		var mark := UiKit.club_marker(club, 24.0)
+		mark.name = "ClubMark"
+		mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(mark)
+	var who := UiKit.vbox(2)
+	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	who.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(who)
+	var top := UiKit.hbox(8)
+	who.add_child(top)
+	var nm := UiKit.ellipsis(str(row["name"]), UiKit.NAME, UiKit.TEXT, true)
+	nm.name = "Name"
+	nm.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	nm.custom_minimum_size.x = minf(UiKit.BOLD.get_string_size(str(row["name"]), HORIZONTAL_ALIGNMENT_LEFT, -1,
+			UiKit.NAME).x + 2.0, 190.0 if not wide else 320.0)
+	top.add_child(nm)
+	var cl := UiKit.ellipsis(GameDB.club_short(club) if club != "" else "", UiKit.SECONDARY, UiKit.TEXT if mine else UiKit.MUTED, mine)
+	cl.name = "Club"
+	cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(cl)
 	var games := int(row["games"])
-	if wide:
-		var who := UiKit.ellipsis(str(row["name"]), UiKit.NAME, UiKit.TEXT, mine)
-		who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		h.add_child(who)
-		h.add_child(_cell(GameDB.club_short(club) if club != "" else "", CLUB_W, UiKit.MUTED, UiKit.SECONDARY,
-				HORIZONTAL_ALIGNMENT_LEFT))
-		h.add_child(_cell(str(games), GAMES_W, UiKit.MUTED, UiKit.SECONDARY, HORIZONTAL_ALIGNMENT_RIGHT))
-		var pg := _cell("%.1f" % float(row["per_game"]), FIG_W, fig_col, UiKit.NAME, HORIZONTAL_ALIGNMENT_RIGHT, true)
-		pg.name = "PerGame"
-		h.add_child(pg)
-		var tot := _cell("%d" % int(round(float(row["total"]))), FIG_W, UiKit.MUTED, UiKit.SECONDARY,
-				HORIZONTAL_ALIGNMENT_RIGHT)
-		tot.name = "Season"
-		h.add_child(tot)
-		h.add_child(StatsPlayers._fixed(8.0))
-		b.custom_minimum_size.y = ROW_H_WIDE
-	else:
-		var who := UiKit.vbox(0)
-		who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		who.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		h.add_child(who)
-		who.add_child(UiKit.name_label(str(row["name"]), UiKit.NAME, UiKit.TEXT, true))
-		who.add_child(UiKit.line("%s · %d %s" % [club, games, "game" if games == 1 else "games"],
-				UiKit.SECONDARY, UiKit.MUTED))
-		var fig_box := UiKit.vbox(0)
-		fig_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		h.add_child(fig_box)
-		var fig := UiKit.figure("%.1f" % float(row["per_game"]), UiKit.NUMBER, fig_col)
-		fig.name = "PerGame"
-		fig.custom_minimum_size.x = 64
-		fig.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		fig_box.add_child(fig)
-		var tot := UiKit.line("%d in all" % int(round(float(row["total"]))), UiKit.SECONDARY, UiKit.MUTED)
-		tot.name = "Season"
-		tot.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		fig_box.add_child(tot)
-		b.custom_minimum_size.y = ROW_H_PHONE
+	var quiet := UiKit.ellipsis("%d %s · %d for the season" % [games, "game" if games == 1 else "games",
+			int(round(float(row["total"])))], UiKit.SECONDARY, UiKit.MUTED)
+	quiet.name = "Season"
+	who.add_child(quiet)
+	var pg := UiKit.figure("%.1f" % float(row["per_game"]), UiKit.NUMBER, UiKit.TEXT)
+	pg.name = "PerGame"
+	pg.custom_minimum_size.x = FIG_W
+	pg.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	pg.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(pg)
+	b.custom_minimum_size.y = ROW_H
 	for n in h.find_children("*", "Control", true, false):
 		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -48,7 +48,7 @@ func _on_resize() -> void:
 ## On a wide screen each section sits centred in a column about as wide as
 ## its content (director, 2026-10-07: "centre the content mid screen rather
 ## than anchored left"); the tables that use the width keep all of it.
-const SECTION_W := {"ladder": 880.0, "players": 1240.0, "ratings": 880.0, "awards": 980.0,
+const SECTION_W := {"ladder": 880.0, "players": 1240.0, "ratings": 720.0, "awards": 980.0,
 		"fixture": 1240.0, "trophies": 1240.0}
 
 
