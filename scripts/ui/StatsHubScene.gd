@@ -6,7 +6,7 @@ extends Control
 ## (scripts/ui/stats/), handed this scene as its host.
 
 const SECTIONS := [
-	["ladder", "Ladder"], ["players", "Players"], ["awards", "Awards"],
+	["ladder", "Ladder"], ["players", "Players"], ["ratings", "Ratings"], ["awards", "Awards"],
 	["fixture", "Fixture"], ["trophies", "Trophies"],
 ]
 ## The section you were on, kept for the visit after a drill-down (a player's
@@ -48,7 +48,7 @@ func _on_resize() -> void:
 ## On a wide screen each section sits centred in a column about as wide as
 ## its content (director, 2026-10-07: "centre the content mid screen rather
 ## than anchored left"); the tables that use the width keep all of it.
-const SECTION_W := {"ladder": 880.0, "players": 1240.0, "awards": 980.0,
+const SECTION_W := {"ladder": 880.0, "players": 1240.0, "ratings": 880.0, "awards": 980.0,
 		"fixture": 1240.0, "trophies": 1240.0}
 
 
@@ -74,7 +74,7 @@ func _build() -> void:
 	UiKit.clear(_root)
 	_root.add_child(UiKit.top_bar("Season stats", true))
 	_root.add_child(_hero())
-	# One row of five short tabs (visual audit, Phase 1.2): at 390 px they
+	# One row of six short tabs (visual audit, Phase 1.2): at 390 px they
 	# share the width and nothing is cut. Only if they still cannot fit does
 	# the row scroll sideways.
 	var tabs := HBoxContainer.new()
@@ -146,6 +146,8 @@ func _section(key: String) -> Control:
 			return StatsLadder.build(self)
 		"players":
 			return StatsPlayers.build(self)
+		"ratings":
+			return StatsRatings.build(self)
 		"awards":
 			return StatsAwards.build(self)
 		"fixture":

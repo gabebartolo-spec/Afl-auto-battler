@@ -56,6 +56,8 @@ func _run() -> void:
 	await _rising_star_saves()
 	await _awards_awarded()
 	await _players_section()
+	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
+		await _ratings_section(sz)
 	_club_per_game()
 	_season_book()
 	_book_rates()
@@ -112,6 +114,126 @@ func _hub_button() -> void:
 	await _settle()
 
 
+## Ratings (director, 2026-10-11): every player who has played, ranked by
+## Player rating a game from the season book; a player is ranked once he has
+## played half his club's games, the rest follow, still listed. Your club's
+## players carry its colour. A real tap opens it; nothing is cut off.
+func _ratings_section(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var Hub = load("res://scripts/ui/StatsHubScene.gd")
+	var points: Dictionary = load("res://scripts/ui/match/MatchNotes.gd").RATING_POINTS
+	root.size = sz
+	Hub.current = "ladder"
+	var s: Control = load("res://scenes/StatsHubScene.tscn").instantiate()
+	root.add_child(s)
+	await _settle()
+	var tab: Button = s.find_child("Section_ratings", true, false)
+	_check(tab != null and tab.text == "Ratings" and (await Tap.tap(tab)) == "", "The Ratings tab takes a tap (%s)" % tag)
+	await _settle()
+	var sec: Node = s.find_child("StatsRatings", true, false)
+	_check(sec != null, "Ratings opens (%s)" % tag)
+	if sec == null:
+		s.queue_free()
+		await _settle()
+		return
+	# The expected list, worked out here from the season book and the ladder.
+	var want := []
+	for id in _state.season_stats:
+		var e: Dictionary = _state.season_stats[id]
+		var g := int(e.get("games", 0))
+		if g <= 0:
+			continue
+		var total := 0.0
+		for k in points:
+			total += float(points[k]) * float((e.get("s", {}) as Dictionary).get(k, 0.0))
+		total = maxf(0.0, total)
+		var club := ""
+		for code in _state.season.lists:
+			for p in _state.season.lists[code]:
+				if str(p["id"]) == str(id):
+					club = str(code)
+		if club == "":
+			club = str(e.get("club", ""))
+		var cg := int((_state.season.ladder.get(club, {}) as Dictionary).get("p", 0))
+		want.append({"id": str(id), "per": total / float(g), "total": total, "q": g * 2 >= cg, "club": club})
+	var rows := s.find_children("RatingRow_*", "Button", true, false)
+	_check(rows.size() == want.size() and rows.size() > 100,
+			"Every player who has played is listed (%s: %d of %d)" % [tag, rows.size(), want.size()])
+	var by_id := {}
+	for w in want:
+		by_id[str(w["id"])] = w
+	var order_ok := true
+	var figs_ok := true
+	var seen_unq := false
+	var last := INF
+	var q_n := 0
+	var unq_n := 0
+	for r in rows:
+		var w: Dictionary = by_id.get(str(r.name).trim_prefix("RatingRow_"), {})
+		if w.is_empty():
+			order_ok = false
+			continue
+		if bool(w["q"]):
+			q_n += 1
+			if seen_unq or float(w["per"]) > last + 0.0001:
+				order_ok = false
+			last = float(w["per"])
+		else:
+			if not seen_unq:
+				seen_unq = true
+				last = INF
+			unq_n += 1
+			if float(w["per"]) > last + 0.0001:
+				order_ok = false
+			last = float(w["per"])
+		var pg: Label = r.find_child("PerGame", true, false)
+		if pg == null or pg.text != "%.1f" % float(w["per"]):
+			figs_ok = false
+	_check(order_ok and q_n > 0, "Ranked players first, best rating a game first; the rest after them (%s: %d ranked, %d not)" % [tag, q_n, unq_n])
+	_check(figs_ok, "Each row's figure is his rating points over his games (%s)" % tag)
+	_check(unq_n == 0 or s.find_child("RatingsUnranked", true, false) != null,
+			"The players short of half their club's games sit under their own line (%s)" % tag)
+	var first_rank: Label = rows[0].find_child("Rank", true, false) if not rows.is_empty() else null
+	_check(first_rank != null and first_rank.text == "1", "The top row is ranked 1 (%s)" % tag)
+	# Your club's rows carry its colour; nobody else's does.
+	var mine_ok := true
+	var mine_n := 0
+	for r in rows:
+		var w: Dictionary = by_id.get(str(r.name).trim_prefix("RatingRow_"), {})
+		var sb := (r as Button).get_theme_stylebox("normal") as StyleBoxFlat
+		var lit := sb != null and sb.bg_color.a > 0.0
+		if str(w.get("club", "")) == _state.my_club:
+			mine_n += 1
+		if lit != (str(w.get("club", "")) == _state.my_club):
+			mine_ok = false
+	_check(mine_ok and mine_n > 0, "Your club's players are highlighted, and only they are (%s: %d)" % [tag, mine_n])
+	# Nothing cut off: the rule line wraps on screen, every label of the first
+	# rows sits inside the screen, and the figures fit their cells.
+	var rule: Label = s.find_child("RatingsRule", true, false)
+	_check(rule != null and rule.get_global_rect().end.x <= sz.x + 1 and rule.get_line_count() >= 1
+			and rule.get_visible_line_count() == rule.get_line_count(), "The ranking rule is said in full at the top (%s)" % tag)
+	var head := []
+	for i in range(mini(12, rows.size())):
+		head.append(rows[i])
+	var off := []
+	for r in head:
+		for l in (r as Node).find_children("*", "Label", true, false):
+			if l.get_global_rect().end.x > sz.x + 1 or l.get_global_rect().position.x < -1:
+				off.append(str(l.name))
+		var pg: Label = (r as Node).find_child("PerGame", true, false)
+		if pg != null and not _label_fits(pg):
+			off.append("PerGame")
+	_check(off.is_empty(), "Nothing on the Ratings rows is cut off (%s: %s)" % [tag, str(off)])
+	# A real tap on a row opens his season.
+	if not rows.is_empty():
+		var got: String = await Tap.tap(rows[0])
+		await _settle()
+		_check(got == "" and s.find_child("PlayerStatsSheet", true, false) != null, "A tap on a player opens his season (%s: %s)" % [tag, got])
+	s.queue_free()
+	Hub.current = "ladder"
+	await _settle()
+
+
 ## Every section opens, at a phone's width and a PC's.
 func _sections() -> void:
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
@@ -121,16 +243,16 @@ func _sections() -> void:
 		await _settle()
 		if sz.x < 900:
 			var all_in := true
-			for key in ["ladder", "players", "awards", "fixture", "trophies"]:
+			for key in ["ladder", "players", "ratings", "awards", "fixture", "trophies"]:
 				var tb: Control = s.find_child("Section_" + key, true, false)
 				if tb == null or tb.get_global_rect().end.x > sz.x + 1 or tb.get_global_rect().position.x < -1:
 					all_in = false
 			_check(all_in and s.find_child("SectionStrip", true, false) == null,
-					"Five short tabs fit one row on a phone, none cut and no sideways scroll (%dx%d)" % [sz.x, sz.y])
+					"Six short tabs fit one row on a phone, none cut and no sideways scroll (%dx%d)" % [sz.x, sz.y])
 			_check(s.find_child("Section_trophies", true, false).text == "Trophies"
 					and s.find_child("Section_players", true, false).text == "Players",
 					"...with short names: Players, Trophies (%dx%d)" % [sz.x, sz.y])
-		for key in ["ladder", "players", "awards", "fixture", "trophies"]:
+		for key in ["ladder", "players", "ratings", "awards", "fixture", "trophies"]:
 			var t: Button = s.find_child("Section_" + key, true, false)
 			_check(t != null, "Season stats has a %s section (%dx%d)" % [key, sz.x, sz.y])
 			if t == null:
