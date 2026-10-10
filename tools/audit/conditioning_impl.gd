@@ -54,16 +54,23 @@ func run() -> void:
 
 
 func _match(h: String, a: String, seed: int, stamp: Dictionary) -> Dictionary:
-	# Copies: club_list hands back the shared database rows.
+	# Copies: club_list hands back the shared database rows. SENS_LOAD gives
+	# both sides a mid-season workload (40 is "Carrying a load": cap 84).
+	var load := float(OS.get_environment("SENS_LOAD")) if OS.get_environment("SENS_LOAD") != "" else 0.0
 	var hl := []
 	for p in GameDB.club_list(h):
 		var q: Dictionary = (p as Dictionary).duplicate(true)
+		if load > 0.0:
+			q["workload"] = load
 		for k in stamp:
 			q[k] = stamp[k]
 		hl.append(q)
 	var al := []
 	for p in GameDB.club_list(a):
-		al.append((p as Dictionary).duplicate(true))
+		var q: Dictionary = (p as Dictionary).duplicate(true)
+		if load > 0.0:
+			q["workload"] = load
+		al.append(q)
 	var home := Squad.new(h, hl, true, h)
 	var away := Squad.new(a, al, false, a)
 	home.ai_plans = true

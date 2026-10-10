@@ -18,15 +18,16 @@ static func value(p: Dictionary) -> float:
 ## A loaded player cannot recover to fresh legs on the bench or at a break.
 ## With no load this is exactly the existing match behaviour.
 static func energy_cap(p: Dictionary) -> float:
-	return maxf(70.0, 100.0 - value(p) * 0.4 - cond_cap(p))
+	return maxf(70.0, minf(100.0, 100.0 - value(p) * 0.4 - cond_cap(p)))
 
 
 ## The club's season conditioning (Conditioning.gd), stamped on each player
 ## for the week. Absent stamps are neutral, so a Steady club plays exactly
 ## the match it did before conditioning existed.
-## Legs taken off the cap while a club is building hard.
+## Legs taken off the cap while a club is building hard; negative at a peak,
+## when a fit side carries the season's load better (never above fresh).
 static func cond_cap(p: Dictionary) -> float:
-	return maxf(0.0, float(p.get("cond_cap", 0.0)))
+	return float(p.get("cond_cap", 0.0))
 
 
 ## How fast he tires on the ground: below 1.0 at a peak, above while building.

@@ -121,9 +121,14 @@ func _test_stamps() -> void:
 	_check(float(building["cond_drain"]) > 1.0 and float(building["cond_cap"]) > 0.0
 			and float(building["cond_injury"]) > 1.0,
 			"Building hard tires players faster, takes legs off the top and raises soft-tissue risk")
-	_check(float(peaked["cond_drain"]) < 1.0 and float(peaked["cond_cap"]) == 0.0
+	_check(float(peaked["cond_drain"]) < 1.0 and float(peaked["cond_cap"]) < 0.0
 			and float(peaked["cond_injury"]) < 1.0,
-			"At the peak players tire slower and break down less")
+			"At the peak players tire slower, carry their load better and break down less")
+	var loaded := {"id": "l", "age": 25, "attr": {"durability": 70}, "workload": 40.0}
+	var fresh_p := {"id": "f", "age": 25, "attr": {"durability": 70}}
+	Conditioning.stamp_list([loaded, fresh_p], 1.0)
+	_check(Workload.energy_cap(loaded) == 84.0 + Conditioning.RESTORE_K and Workload.energy_cap(fresh_p) == 100.0,
+			"A peak gives a loaded player back some legs, and never lifts anyone above fresh")
 	var managed := Conditioning.stamps(Conditioning.DEVELOP_LEVEL, "develop")
 	_check(float(managed["cond_drain"]) > 1.0 and float(managed["cond_injury"]) < 1.0,
 			"Develop and manage costs some legs but lowers soft-tissue risk")

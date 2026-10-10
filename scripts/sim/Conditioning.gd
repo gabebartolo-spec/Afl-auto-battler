@@ -60,6 +60,10 @@ const BUILD_LEAD := 20.0
 ## cap. See docs/research/SEASON_FITNESS_AUDIT.md.
 const DRAIN_K := 0.15        # tiring rate x(1 - DRAIN_K * c)
 const CAP_K := 4.0           # legs off the energy cap at c = -1
+## At a peak (c > 0) the cap gets back up to RESTORE_K legs that the season's
+## workload took off it (Workload.energy_cap never goes above 100), so the
+## upside shows where it matters: in loaded legs late in the season.
+const RESTORE_K := 8.0
 const INJURY_K := 0.25       # soft-tissue risk x(1 - INJURY_K * c)
 ## Develop and manage: extra development XP for players 22 and under.
 const DEVELOP_XP := 0.15
@@ -166,7 +170,7 @@ static func stamps(c: float, plan := "") -> Dictionary:
 		injury = 1.0 + INJURY_K * c
 	return {
 		"cond_drain": 1.0 - DRAIN_K * c,
-		"cond_cap": CAP_K * maxf(0.0, -c),
+		"cond_cap": CAP_K * maxf(0.0, -c) - RESTORE_K * maxf(0.0, c),
 		"cond_injury": injury,
 	}
 
