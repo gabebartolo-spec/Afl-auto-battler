@@ -11,6 +11,8 @@ extends RefCounted
 ##  - centre bounces attended (cba), hit-outs and ruck contests per ruck.
 ## Args after the impl name: first seed and how many (default 1 and 40).
 ## Clubs are paired from the seed so every club plays dual and single alike.
+## Every match gets its own copy of both lists: a match writes to its players
+## (injuries), which would otherwise carry into the next arm and seed.
 
 
 func run() -> void:
@@ -31,8 +33,8 @@ func run() -> void:
 		var spare_ok := [false, false]
 		for arm in ["dual", "single"]:
 			var flag: bool = arm == "dual"
-			var sq0 := Squad.new(codes[hi], GameDB.club_list(codes[hi]), true, codes[hi], {"DUAL_RUCK": flag})
-			var sq1 := Squad.new(codes[ai], GameDB.club_list(codes[ai]), false, codes[ai], {"DUAL_RUCK": flag})
+			var sq0 := Squad.new(codes[hi], GameDB.club_list(codes[hi]).duplicate(true), true, codes[hi], {"DUAL_RUCK": flag})
+			var sq1 := Squad.new(codes[ai], GameDB.club_list(codes[ai]).duplicate(true), false, codes[ai], {"DUAL_RUCK": flag})
 			var sim := MatchSim.new(sq0, sq1, s)
 			var slot := [{}, {}]      # side -> ruck id -> chains in the ruck spot
 			var goes := [{}, {}]      # side -> ruck id -> chains as the contestant
