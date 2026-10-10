@@ -27,7 +27,7 @@ static func ids(sim: MatchSim, side: int, my_list: Array, my_matchups := {}) -> 
 	_add(out, str(t.get("focus_id", "")))
 	# The tagger is the midfielder who goes to the man you are tagging.
 	if str(t.get("tag_id", "")) != "":
-		var tagger = MatchSim.tagger_for((sim.squads[side] as Squad).ground)
+		var tagger = sim.tagger_of(side)
 		if tagger != null:
 			_add(out, str(tagger["id"]))
 	if sim.coach_call(side):
