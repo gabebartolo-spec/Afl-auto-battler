@@ -43,6 +43,20 @@ func _run() -> void:
 	for r in range(rounds):
 		state.advance()
 	var hub_script = load("res://scripts/ui/StatsHubScene.gd")
+	# The same screen on the Ladder tab first: what opening Season stats costs
+	# before any list is built.
+	hub_script.current = "ladder"
+	var tb := Time.get_ticks_usec()
+	var base_ui: Control = load("res://scenes/StatsHubScene.tscn").instantiate()
+	root.add_child(base_ui)
+	await process_frame
+	print("BASELINE ladder tab first frame %.0f ms" % ((Time.get_ticks_usec() - tb) / 1000.0))
+	base_ui.queue_free()
+	for i in range(3):
+		await process_frame
+	var tr0 := Time.get_ticks_usec()
+	var data: Array = load("res://scripts/ui/stats/StatsRatings.gd").rows()
+	print("RATINGS data for %d players %.0f ms" % [data.size(), (Time.get_ticks_usec() - tr0) / 1000.0])
 	hub_script.current = "ratings"
 	var t0 := Time.get_ticks_usec()
 	var ui: Control = load("res://scenes/StatsHubScene.tscn").instantiate()
