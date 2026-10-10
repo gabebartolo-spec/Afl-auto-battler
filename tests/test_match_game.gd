@@ -1604,6 +1604,7 @@ func _test_roaming_interceptor() -> void:
 			"Full time explains a spare only when real roaming contests support it")
 	_test_loose_man_read()
 	_test_loose_man_late()
+	_test_ai_loose_needs_a_reader()
 
 
 ## The director (2026-10-10): the loose man "should be a strong strategy only
@@ -1763,6 +1764,37 @@ func _test_loose_man_late() -> void:
 			"A top reader is almost never late (%d of 400)" % good_late)
 	(good["attr"] as Dictionary).merge(good_attr, true)
 	(poor["attr"] as Dictionary).merge(poor_attr, true)
+
+
+## BOSS (2026-10-11), after the late rule: a coach plays a man loose only
+## when the call pays (MatchSim.LOOSE_AI_MIN_READ). The AI and your assistant
+## never name a reader below the bar, who would be late for too many entries;
+## one above it is still named.
+func _test_ai_loose_needs_a_reader() -> void:
+	var reads := {}
+	for who in ["ai", "assistant"]:
+		for pin in [69, 75]:
+			var home := Squad.new("ADE", GameDB.club_list("ADE"), true, "ADE")
+			var away := Squad.new("SYD", GameDB.club_list("SYD"), false, "SYD")
+			away.ai_plans = who == "ai"
+			away.assistant = who == "assistant"
+			# Every defender's game pinned to the same ratings (put back after).
+			var kept := []
+			for p in Matchups.defenders(away.ground):
+				var at: Dictionary = p["attr"]
+				kept.append([at, at.duplicate()])
+				for k in ["intercept", "marking", "pressure"]:
+					at[k] = pin
+			var sim := MatchSim.new(home, away, 8304)
+			var named := str(sim.interceptor[1]) != ""
+			var read := sim._loose_read(Matchups.interceptor_candidates(away.ground)[0])
+			for k in kept:
+				(k[0] as Dictionary).merge(k[1], true)
+			reads["%s%d" % [who, pin]] = read
+			var above := read >= MatchSim.LOOSE_AI_MIN_READ
+			_check(named == above, "The %s names a %.2f reader loose only above the bar (%s)" % [who, read, "named" if named else "not named"])
+	_check(float(reads["ai69"]) < MatchSim.LOOSE_AI_MIN_READ and float(reads["ai75"]) >= MatchSim.LOOSE_AI_MIN_READ,
+			"The two pinned readers sit either side of the bar (%.2f, %.2f)" % [reads["ai69"], reads["ai75"]])
 
 
 ## ARD-M4-012 (the director: "any player can intercept, but the loose
