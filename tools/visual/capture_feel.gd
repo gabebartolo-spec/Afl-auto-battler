@@ -3,8 +3,8 @@ extends SceneTree
 ## a real screen, for the director to judge at game speed. Needs a renderer:
 ##   godot --path . --write-movie /tmp/feel.avi --fixed-fps 30 \
 ##       --script tools/visual/capture_feel.gd -- --effect hub --out /tmp/feel
-## capture.yml runs it with movie_maker=true and turns the AVI (picture and
-## sound) into an MP4. Without --write-movie it just writes the stills.
+## capture.yml runs it with movie_maker=true: the tool saves every frame at the
+## window's own size and the workflow joins them with the AVI's sound into an MP4. Without --write-movie it just writes the stills.
 ##
 ##   --effect E   hub      arriving at the hub after a round: the club colour
 ##                         settling, the ladder spot counting and landing, an
@@ -60,6 +60,19 @@ func _wait(secs: float) -> void:
 	await create_timer(secs).timeout
 
 
+var _film := ""   # <out>: every drawn frame is saved as <out>_fNNNN.png while filming
+var _frame := 0
+
+
+## Filming (run under --write-movie, which fixes the clock at 30 fps): the
+## viewport itself, frame by frame, at exactly the size the game drew it.
+func _save_frame() -> void:
+	if _film == "":
+		return
+	var img := root.get_viewport().get_texture().get_image()
+	img.save_png("%s_f%04d.png" % [_film, _frame])
+	_frame += 1
+
 func _run() -> void:
 	await process_frame
 	var args := _args()
@@ -87,6 +100,9 @@ func _run() -> void:
 	state.set_setting("seen_weekly_loop_intro", true)
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
+	if Engine.get_write_movie_path() != "":
+		_film = out
+		process_frame.connect(_save_frame)
 	print("FEEL effect %s at %dx%d, motion %s" % [effect, W, H, load("res://scripts/ui/UiKit.gd").motion_on()])
 
 	match effect:
