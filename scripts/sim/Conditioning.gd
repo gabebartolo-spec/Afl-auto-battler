@@ -51,10 +51,15 @@ const TIMING_SD := [4.0, 3.0, 2.0, 1.0]
 ## gets all of it).
 const BUILD_LEAD := 20.0
 
-## How the curve reaches a match. SIZES ARE PROVISIONAL until the Step 0
-## sensitivity audit (tools/audit/conditioning_impl.gd sens) is read.
-const DRAIN_K := 0.06        # tiring rate x(1 - DRAIN_K * c)
-const CAP_K := 8.0           # legs off the energy cap at c = -1
+## How the curve reaches a match, sized from the Step 0 sensitivity audit
+## (tools/audit/conditioning_impl.gd sens; paired matches, every home player
+## stamped, n=1500 an arm): tiring x1.15 cost 2.30 +- 0.96 points a match,
+## 4 legs off the cap 3.13 +- 0.99, 12 off 5.00 +- 1.06; injury risk x1.25
+## added 0.18 +- 0.03 injuries a match. At the peak (c = 1) a side tires 15%
+## slower; building hard (c = -0.5) it tires 7.5% faster with 2 legs off the
+## cap. See docs/research/SEASON_FITNESS_AUDIT.md.
+const DRAIN_K := 0.15        # tiring rate x(1 - DRAIN_K * c)
+const CAP_K := 4.0           # legs off the energy cap at c = -1
 const INJURY_K := 0.25       # soft-tissue risk x(1 - INJURY_K * c)
 ## Develop and manage: extra development XP for players 22 and under.
 const DEVELOP_XP := 0.15

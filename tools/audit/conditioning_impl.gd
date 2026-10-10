@@ -77,6 +77,16 @@ func _match(h: String, a: String, seed: int, stamp: Dictionary) -> Dictionary:
 	return {"margin": int(sc[0]) - int(sc[1]), "inj": inj}
 
 
+## ARMS, then the game's own stamps at the sizes in Conditioning.gd: a side
+## at its peak (11), building hard (12), and on Develop and manage (13).
+func _arms() -> Array:
+	var out := ARMS.duplicate()
+	out.append(["plan at peak", Conditioning.stamps(1.0, "peak")])
+	out.append(["plan building", Conditioning.stamps(Conditioning.BUILD_FLOOR, "peak")])
+	out.append(["plan develop", Conditioning.stamps(Conditioning.DEVELOP_LEVEL, "develop")])
+	return out
+
+
 func _sens(seeds: int) -> void:
 	var base := {}
 	for pr in PAIRS:
@@ -85,10 +95,11 @@ func _sens(seeds: int) -> void:
 	# SENS_ARMS=8,9 runs only those arms (indexes into ARMS), so CI can split
 	# a large sample across jobs.
 	var pick := OS.get_environment("SENS_ARMS")
-	for ai in range(ARMS.size()):
+	var arms := _arms()
+	for ai in range(arms.size()):
 		if pick != "" and not pick.split(",").has(str(ai)):
 			continue
-		var arm: Array = ARMS[ai]
+		var arm: Array = arms[ai]
 		var diffs := []
 		var inj_d := []
 		for pr in PAIRS:
