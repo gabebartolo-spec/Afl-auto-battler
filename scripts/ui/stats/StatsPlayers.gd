@@ -632,8 +632,8 @@ static func _table(host: Control, list: Array, cols: Array, wide: bool) -> Contr
 		total += w
 	v.custom_minimum_size.x = total
 	v.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	# Each group's name over its columns, starting over the first of them (centred,
-	# "Disposals" sat over Kicks).
+	# Each group's name over its columns, a rule under it spanning just them, so
+	# the name reads as the group's (alone, centred, "Disposals" sat over Kicks).
 	var groups := UiKit.hbox(0)
 	groups.name = "PlayersGroups"
 	groups.add_child(_fixed(_rank_w(wide) + _rank_gap(wide)))
@@ -646,10 +646,14 @@ static func _table(host: Control, list: Array, cols: Array, wide: bool) -> Contr
 		while at + n < cols.size() and str(cols[at + n][3]) == g:
 			n += 1
 		groups.add_child(_fixed(_group_gap(wide)))
+		var span := UiKit.vbox(3)
+		span.name = "PlayersGroup_" + g
+		span.custom_minimum_size.x = w * n
 		var gl := UiKit.ellipsis(g, UiKit.SMALL, UiKit.MUTED, true)
-		gl.custom_minimum_size.x = w * n
-		gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		groups.add_child(gl)
+		gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		span.add_child(gl)
+		span.add_child(UiKit.rule())
+		groups.add_child(span)
 		at += n
 	groups.add_child(_fixed(_tail(wide)))
 	v.add_child(groups)

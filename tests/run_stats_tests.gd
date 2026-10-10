@@ -180,6 +180,14 @@ func _players_section() -> void:
 			_check(head != null and head.text.begins_with("Disposals") and s.find_child("Sort_efficiency", true, false).text.begins_with("Disposal efficiency")
 					and s.find_child("Sort_kh", true, false) == null,
 					"The table's headings are words, not codes (%s)" % tag)
+			# Each group's name spans its own columns, from the first to the last.
+			var span: Control = s.find_child("PlayersGroup_Disposals", true, false)
+			var first: Control = s.find_child("Sort_disposals", true, false)
+			var last: Control = s.find_child("Sort_efficiency", true, false)
+			_check(span != null and first != null and last != null
+					and absf(span.global_position.x - first.global_position.x) <= 1.0
+					and absf(span.get_global_rect().end.x - last.get_global_rect().end.x) <= 1.0,
+					"A group's name and its rule span just its columns (%s)" % tag)
 			_check(head != null and (await Tap.tap(head)) == "", "The disposals heading takes a tap (%s)" % tag)
 			await _settle()
 			cells = _column(s, "disposals")
