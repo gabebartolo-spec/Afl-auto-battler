@@ -68,6 +68,10 @@ static func open(host: Control, in_career: bool, quit := false) -> Control:
 			"on" if GameState.vignettes_on() else "off",
 			"The match-day scenes: the banner, the centre ball-up, replays, the press conference and the awards. Off skips the scenes; every call and result stays the same.",
 			func(k): GameState.set_vignettes_on(k == "on"))
+	_row(v, "Match view", "SettingsMatchFigures", [["tokens", "Tokens"], ["figures", "Figures (prototype)"]],
+			"figures" if GameState.match_figures_on() else "tokens",
+			"Figures draws the six players nearest the ball as small footballers on the oval. A prototype for judging on a phone; the match plays the same either way.",
+			func(k): GameState.set_match_figures_on(k == "figures"))
 	_row(v, "Centre ball-up scene every match", "SettingsBounceScene", [["off", "Off"], ["on", "On"]],
 			"on" if GameState.bounce_scene_every_match() else "off",
 			"For playtesting: the centre ball-up call comes at the first centre ball-up of every last quarter you coach, whatever the score.",

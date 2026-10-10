@@ -66,11 +66,36 @@ var _kits: Array = [{}, {}]
 ## in a ground rather than floating on black (audit §8 Phase 3.2).
 const STAND_COLOUR := Color(0.125, 0.11, 0.095)
 const FENCE_COLOUR := Color(0.36, 0.33, 0.29)
+## PROTOTYPE, gated by the director's phone (audit §8 Phase 3.3): the few
+## players nearest the ball drawn as small footballers from the vignette
+## sheets, over their tokens. Settings > Match view; off by default. If it
+## reads and holds 60 fps on the phone it becomes the view; otherwise it goes.
+var mini_figures := false
+const FIGURES_NEAR_BALL := 6
+const FIGURE_HEIGHT := 2.7        # figure height in token radii (tr 9 = 24 px)
+var _figs: MiniFigures
+var _looks := {}
+
+
+## The figures' own layer: the figure shader is a material on a CanvasItem,
+## so they cannot share the oval's drawing.
+class MiniFigures extends Control:
+	var slots: Array = []
+
+	func _draw() -> void:
+		for s in slots:
+			StoppageVignette.draw_frame(self, s["feet"], s["info"], int(s["frame"]), float(s["k"]),
+					s["colour"], bool(s["mirror"]), s["number"], Transform2D.IDENTITY, str(s["hair"]))
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clip_contents = true
+	_figs = MiniFigures.new()
+	_figs.name = "MiniFigures"
+	_figs.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_figs.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_figs)
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +109,11 @@ func setup(p_result: Dictionary) -> void:
 	away_code = str(p_result.get("away", ""))
 	_kits = [GameDB.club_guernsey(home_code), GameDB.club_guernsey(away_code)]
 	_trail = []
+	mini_figures = GameState.match_figures_on()
+	_looks = {}
+	if _figs != null:
+		_figs.material = StoppageVignette.figure_material(_kits, _figs.material as ShaderMaterial)
+		_figs.slots = []
 	playing = false
 	director = MatchDirector.new()
 	director.setup(p_result, events)
@@ -428,6 +458,9 @@ func _draw() -> void:
 	_draw_tokens(0, tr)
 	_draw_tokens(1, tr)
 	_draw_rings(tr)
+	if _figs != null:
+		_figs.slots = _figure_slots(tr) if mini_figures else []
+		_figs.queue_redraw()
 
 	# Actor highlight
 	var act := director.actor
@@ -584,6 +617,71 @@ func _draw_tokens(side: int, tr: float) -> void:
 		draw_string(font, origin, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1))
 
 
+## PROTOTYPE: the six nearest the ball as figures, each a slot for the
+## MiniFigures layer: feet on the token, the jog strip when he moves (side-on
+## across the screen, back or front along it), idle when he stands, the
+## number on his back when he shows it and the figure is tall enough.
+func _figure_slots(tr: float) -> Array:
+	var out := []
+	if director.ball.is_empty():
+		return out
+	var ball_pos: Vector2 = director.ball["pos"]
+	var order := []
+	for i in range(director.tokens.size()):
+		var t: Dictionary = director.tokens[i]
+		if float(t.get("down", 0.0)) > 0.0:
+			continue
+		order.append([(t["pos"] as Vector2).distance_squared_to(ball_pos), i])
+	order.sort_custom(func(a, b): return a[0] < b[0])
+	var height_px := float(VignetteFigures.BODIES["average"]["height_m"]) * VignetteFigures.PX_PER_M
+	var k := FIGURE_HEIGHT * tr / height_px
+	var m := end_sign(period)
+	for j in range(mini(FIGURES_NEAR_BALL, order.size())):
+		var i: int = order[j][1]
+		var t: Dictionary = director.tokens[i]
+		var p := _w2s(t["pos"])
+		if p.x < -tr * 4.0 or p.y < -tr * 4.0 or p.x > size.x + tr * 4.0 or p.y > size.y + tr * 4.0:
+			continue
+		var vel: Vector2 = t.get("vel", Vector2.ZERO)
+		var moving := vel.length() > 0.6
+		var anim := "jog" if moving else "idle"
+		var facing := "front"
+		var mirror := false
+		if moving:
+			var sx := vel.x * m
+			if absf(sx) > absf(vel.y):
+				facing = "side_l"
+				mirror = sx > 0.0
+			else:
+				facing = "back" if vel.y < 0.0 else "front"
+		if not VignetteFigures.has("average", anim, facing):
+			anim = "idle"
+			facing = "front"
+		var info := VignetteFigures.strip("average", anim, facing)
+		var frames := int(info["frames"])
+		var frame := (int(Time.get_ticks_msec() / 90) + i * 3) % frames if moving else 0
+		var look := _look_for(str(t.get("pid", "")))
+		var kit := int(t["side"])
+		var number := Color(0, 0, 0, 0)
+		if facing.begins_with("back") and FIGURE_HEIGHT * tr > 18.0:
+			number = StoppageVignette.number_colour(kit, int(t["num"]), 1.0, mirror)
+		out.append({"feet": p + Vector2(0, tr * 0.3), "info": info, "frame": frame, "k": k,
+				"colour": StoppageVignette.look_colour(kit, look, mirror), "mirror": mirror,
+				"number": number, "hair": str(look.get("hair_style", VignetteFigures.HAIR_BASE))})
+	# The man lower on the screen stands in front.
+	out.sort_custom(func(a, b): return (a["feet"] as Vector2).y < (b["feet"] as Vector2).y)
+	return out
+
+
+## His skin, hair and sleeves (GameDB.figure_look), found once per player.
+func _look_for(pid: String) -> Dictionary:
+	if not _looks.has(pid):
+		var p = GameDB.player_by_id(pid)
+		_looks[pid] = GameDB.figure_look(p, str(result.get("weather", "")) == "wet") if p != null \
+				else StoppageVignette.UMPIRE_LOOK
+	return _looks[pid]
+
+
 ## The club's design on a disc: stripes, hoops, a sash, a yoke, a band, a
 ## chevron or side panels in the pattern colour over the base; anything else
 ## is the base with an inner disc of the pattern colour. Shapes are drawn
@@ -610,15 +708,13 @@ func _draw_kit(p: Vector2, tr: float, kit: Dictionary) -> void:
 			draw_colored_polygon(PackedVector2Array([p + Vector2(-r * 0.75, -r * 0.75 + w), p + Vector2(-r * 0.75, -r * 0.75),
 					p + Vector2(r * 0.75, r * 0.75 - w), p + Vector2(r * 0.75, r * 0.75)]), pat)
 		"yoke", "shoulders":
-			# The top near-half, so the two colours read at 18 px.
+			# The top near-half, so the two colours read at 18 px: the arc from
+			# chord end to chord end (the chord closes it), never a bow-tie.
 			var pts := PackedVector2Array()
-			var y0 := -r * 0.05
-			var half := sqrt(maxf(0.0, r * r - y0 * y0))
-			pts.append(p + Vector2(-half, y0))
-			for i in range(13):
-				var ang := PI + PI * float(i) / 12.0
-				pts.append(p + Vector2(cos(ang) * r, sin(ang) * r * 0.98))
-			pts.append(p + Vector2(half, y0))
+			var lift := asin(0.05)
+			for i in range(15):
+				var ang := lerpf(PI + lift, TAU - lift, float(i) / 14.0)
+				pts.append(p + Vector2(cos(ang) * r, sin(ang) * r))
 			draw_colored_polygon(pts, pat)
 		"band":
 			draw_rect(Rect2(p + Vector2(-r * 0.98, -r * 0.22), Vector2(r * 1.96, r * 0.44)), pat)

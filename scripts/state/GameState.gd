@@ -411,6 +411,17 @@ func set_vignettes_on(on: bool) -> void:
 	set_setting("vignettes", on)
 
 
+## The live match view's players as small figures instead of tokens: a
+## prototype gated by the director's phone (visual audit §8 Phase 3.3). Off
+## by default; nothing in the match changes either way.
+func match_figures_on() -> bool:
+	return bool(get_setting("match_figures", false))
+
+
+func set_match_figures_on(on: bool) -> void:
+	set_setting("match_figures", on)
+
+
 ## How fast a watched match starts (1x, 2x, 4x or 8x). 4x by default.
 func match_speed() -> float:
 	var s := float(get_setting("match_speed", 4.0))
