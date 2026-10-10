@@ -40,7 +40,7 @@ func run() -> void:
 		while b == a:
 			b = codes[rng.randi_range(0, codes.size() - 1)]
 		var sim := MatchSim.new(Squad.new(a, GameDB.club_list(a), true, a),
-				Squad.new(b, GameDB.club_list(b), false, b), rng.randi())
+				Squad.new(b, GameDB.club_list(b), false, b), 1234 + i)
 		var res := sim.run()
 		for side in range(2):
 			var td: Dictionary = res["team"][side]
