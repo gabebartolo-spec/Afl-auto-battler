@@ -1618,11 +1618,11 @@ const PRESS_ZONE_EDGE := 20.0
 const PRESS_PLAN_ZONE := [1.40, 1.10, 0.60]
 ## In their back third a rushed disposal is closed down by two or three at
 ## once, so it turns over this many times as often against a press.
-const PRESS_ZONE_TURNOVER := 2.0
+const PRESS_ZONE_TURNOVER := 1.5
 ## Out of the back third with nobody on him, a side has broken the press:
 ## the rest of that chain runs at a defence that is outnumbered, and its
 ## shot is this much likelier to be a goal. The cost of the plan.
-const PRESS_BROKEN_EXPOSED := 1.35
+const PRESS_BROKEN_EXPOSED := 1.7
 ## Non-tackle pressure acts per tackle chance, the share of those that turn
 ## the ball over outright, and the ground a rushed disposal still gains.
 const PRESS_RUSH_RATIO := 2.0
