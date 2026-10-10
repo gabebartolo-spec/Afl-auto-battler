@@ -12,6 +12,7 @@ extends RefCounted
 ## a StatBook key, a StatBook rate ("accuracy", ...) or "kh" (kicks to each
 ## handball).
 const GROUPS := [
+	["overall", "Overall", [["rating", "PR", "player rating"]]],
 	["disposals", "Disposals", [["disposals", "D", "disposals"], ["kicks", "K", "kicks"],
 			["handballs", "H", "handballs"], ["efficiency", "DE%", "disposal efficiency"]]],
 	["ground", "Ground gained", [["metres_gained", "MG", "metres gained"],
@@ -103,23 +104,17 @@ static func _controls(host: Control, wide: bool) -> Control:
 	var row := UiKit.hbox(6)
 	row.name = "PlayersControls"
 	v.add_child(row)
-	# The stat, chosen by its name, each group's stats under the group.
-	var pick := UiKit.option()
+	# The stat, chosen by its name. The list is a sheet, not a pop-up menu:
+	# forty stats are taller than a phone, and a pop-up menu does not follow
+	# a finger (director's phone playtest, 2026-10-10).
+	var pick := UiKit.btn(_cap(_name_of(_sort)), 14)
 	pick.name = "StatPick"
+	pick.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	pick.clip_text = true
+	pick.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	pick.custom_minimum_size = Vector2(280 if wide else 0, 44)
-	if wide:
-		pick.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	for g in GROUPS:
-		pick.add_separator(str(g[1]))
-		for c in g[2]:
-			pick.add_item(_cap(str(c[2])))
-			var at := pick.item_count - 1
-			pick.set_item_metadata(at, str(c[0]))
-			if str(c[0]) == _sort:
-				pick.select(at)
-	pick.item_selected.connect(func(i: int):
-		pick_stat(str(pick.get_item_metadata(i)))
-		host.call("refresh"))
+	pick.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN if wide else Control.SIZE_EXPAND_FILL
+	pick.pressed.connect(func(): open_stats(host))
 	row.add_child(pick)
 	# Totals or per game: one line of words, the current one underlined.
 	var mode := UiKit.segmented("StatMode", [["total", "Totals"], ["per_game", "Per game"]],
@@ -150,6 +145,39 @@ static func _controls(host: Control, wide: bool) -> Control:
 		h.add_child(reset)
 		v.add_child(h)
 	return v
+
+
+## Every stat as a sheet over the list, each group's stats under its name;
+## the list scrolls under a finger and a tap on a stat ranks by it.
+static func open_stats(host: Control) -> void:
+	var box := UiKit.modal_box(host, 520.0, 0.0)
+	var overlay: Control = box["overlay"]
+	overlay.name = "StatSheet"
+	UiKit.close_on_outside_tap(box)
+	host.call("open_sheet", overlay)
+	var v: VBoxContainer = box["body"]
+	v.add_child(UiKit.heading("Rank players by", UiKit.TITLE))
+	for g in GROUPS:
+		var head := UiKit.lbl(str(g[1]), UiKit.SECONDARY, UiKit.MUTED)
+		head.name = "StatGroup_" + str(g[0])
+		v.add_child(head)
+		for c in g[2]:
+			var key := str(c[0])
+			var b := UiKit.btn(_cap(str(c[2])), UiKit.NAME)
+			b.name = "Stat_" + key
+			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			b.custom_minimum_size = Vector2(0, 48)
+			UiKit.paint_choice(b, key == _sort)
+			b.pressed.connect(func():
+				pick_stat(key)
+				host.call("close_sheet")
+				host.call("refresh"))
+			v.add_child(b)
+	var done := UiKit.btn("Close", UiKit.NAME)
+	done.name = "StatSheetClose"
+	done.custom_minimum_size = Vector2(0, 48)
+	done.pressed.connect(func(): host.call("close_sheet"))
+	box["footer"].add_child(done)
 
 
 ## The filters as a sheet over the list: one picker a line, Reset and Done.
@@ -469,6 +497,7 @@ static func _rows() -> Array:
 		var s: Dictionary = (row.get("s", {}) as Dictionary).duplicate()
 		s["possessions"] = float(s.get("contested_possessions", 0.0)) + float(s.get("uncontested_possessions", 0.0))
 		s["open_shots"] = float(s.get("shots", 0.0)) - float(s.get("set_shots", 0.0))
+		s["rating"] = season_rating(s)
 		out.append({"id": str(id), "p": p, "name": name, "club": club, "games": games, "s": s,
 				"moved": (row.get("clubs", {}) as Dictionary).size() > 1})
 	return out
@@ -490,6 +519,16 @@ static func _age_ok(age: float, band: String) -> bool:
 
 ## A row's value for a stat: a count (total or per game), a rate, or -1 for
 ## nothing to show (no games; nothing under the rate).
+## A season of Player Rating: the match rating's own points (MatchNotes)
+## over his season's stats. In all it is his rating points for the year; a
+## game, his average rating.
+static func season_rating(s: Dictionary) -> float:
+	var total := 0.0
+	for k in MatchNotes.RATING_POINTS:
+		total += float(MatchNotes.RATING_POINTS[k]) * float(s.get(k, 0.0))
+	return maxf(0.0, total)
+
+
 static func value(row: Dictionary, key: String, per_game: bool) -> float:
 	var s: Dictionary = row["s"]
 	if key == "games":
