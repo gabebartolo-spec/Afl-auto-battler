@@ -183,4 +183,6 @@ func _run() -> void:
 		_shot(out + "_start.png")
 	await _wait(secs)
 	_shot(out + "_end.png")
+	var feel = load("res://scripts/ui/Feel.gd")
+	print("FEEL heard %s, moved %s" % [str(feel.heard), str(feel.moved)])
 	quit(0)
