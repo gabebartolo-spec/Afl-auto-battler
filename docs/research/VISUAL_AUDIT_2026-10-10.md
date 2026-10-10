@@ -506,6 +506,13 @@ want without asking me tonight." This is the written yes for Tripo Studio credit
 stage props first, then the MCG venue plate. The art agent records each generation's credits and
 provenance in its props plan; every prop is judged in the game through our rig.
 
+**Spend, 2026-10-10 (director, to AFL BOSS, about 15:40):** asked "MCG crowd: ... 3 new Tripo supporter
+models (scarf, beanie, club jumper), about 195 credits, beyond tonight's 700. Spend it?", the director
+answered **"Yes, ~195 credits"**. This is the written yes for about 195 Tripo Studio credits for the MCG
+crowd tile: a 30 m run of lit, seated supporters rendered in Blender under the figures' key, masked so the
+game tints each club's colours, replacing VignetteCrowd's painted texture on the existing tiers. Night's
+total so far: 695 + ~195. The art agent records each generation's credits and provenance in its props plan.
+
 **Done under those orders (2026-10-10):** Phase 1 (#591), Phase 2 (#594, the helper's), Phase 3
 (#598). One deviation from the plan: Phase 1.5 keeps the plan and the tag as grids on the coach's
 break, since six plans or five names in one row would scroll past a phone's edge; pep talk and
