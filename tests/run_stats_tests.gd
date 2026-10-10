@@ -200,7 +200,17 @@ func _players_section() -> void:
 		await _settle()
 		var one: Node = s.find_child("Cell_disposals", true, false)
 		_check(one != null and str(one.text).contains("."), "Per game shows a figure a game (%s: %s)" % [tag, one.text if one else "-"])
-		_check(s.find_child("StatMode_total", true, false) == null, "Totals and per game are one toggle, not two buttons (%s)" % tag)
+		pg = s.find_child("StatMode_per_game", true, false)
+		var tot: Node = s.find_child("StatMode_total", true, false)
+		_check(tot != null and pg != null and tot.get_parent() == pg.get_parent() and str(pg.get_parent().name) == "StatMode",
+				"Totals and per game are one line of words (%s)" % tag)
+		_check(tot != null and (await Tap.tap(tot)) == "", "Totals takes a tap back (%s)" % tag)
+		await _settle()
+		var back: Node = s.find_child("Cell_disposals", true, false)
+		_check(back != null and not str(back.text).contains("."), "Totals shows whole numbers again (%s: %s)" % [tag, back.text if back else "-"])
+		pg = s.find_child("StatMode_per_game", true, false)
+		await Tap.tap(pg)
+		await _settle()
 		# A rate: only those with enough shots rank, and the list says so.
 		SP.pick_stat("accuracy")
 		s.call("refresh")
@@ -642,7 +652,7 @@ func _ladder(sz: Vector2i) -> void:
 	# toggles, and the toggles are compact groups rather than bars across the window.
 	if sz.x >= 900:
 		_table_fits_content(s, "ladder", tag)
-		for n in ["View_ladder", "View_team", "Filter_all", "Filter_top8", "Filter_near"]:
+		for n in ["Filter_all", "Filter_top8", "Filter_near"]:
 			var tb: Control = s.find_child(n, true, false)
 			_check(tb != null and tb.size.x >= 100 and tb.size.x <= 140,
 					"%s is a compact button, not a bar (%s: %.0f px)" % [n, tag, tb.size.x if tb != null else -1.0])

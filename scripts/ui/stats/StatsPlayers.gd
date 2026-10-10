@@ -121,14 +121,11 @@ static func _controls(host: Control, wide: bool) -> Control:
 		pick_stat(str(pick.get_item_metadata(i)))
 		host.call("refresh"))
 	row.add_child(pick)
-	# Totals or per game: one toggle, outlined when it's on.
-	var mode := UiKit.btn("Per game", UiKit.SECONDARY)
-	mode.name = "StatMode_per_game"
-	mode.custom_minimum_size = Vector2(108, 44)
-	UiKit.paint_choice(mode, _per_game)
-	mode.pressed.connect(func():
-		_per_game = not _per_game
-		host.call("refresh"))
+	# Totals or per game: one line of words, the current one underlined.
+	var mode := UiKit.segmented("StatMode", [["total", "Totals"], ["per_game", "Per game"]],
+			"per_game" if _per_game else "total", func(key: String):
+				_per_game = key == "per_game"
+				host.call("refresh"))
 	row.add_child(mode)
 	var active := _active_text()
 	var fb := UiKit.btn("Filters" if active == "" else "Filters (%d)" % _active_count(), UiKit.SECONDARY)
@@ -635,7 +632,8 @@ static func _table(host: Control, list: Array, cols: Array, wide: bool) -> Contr
 		total += w
 	v.custom_minimum_size.x = total
 	v.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	# Each group's name over its columns.
+	# Each group's name over its columns, starting over the first of them (centred,
+	# "Disposals" sat over Kicks).
 	var groups := UiKit.hbox(0)
 	groups.name = "PlayersGroups"
 	groups.add_child(_fixed(_rank_w(wide) + _rank_gap(wide)))
@@ -650,7 +648,7 @@ static func _table(host: Control, list: Array, cols: Array, wide: bool) -> Contr
 		groups.add_child(_fixed(_group_gap(wide)))
 		var gl := UiKit.ellipsis(g, UiKit.SMALL, UiKit.MUTED, true)
 		gl.custom_minimum_size.x = w * n
-		gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		groups.add_child(gl)
 		at += n
 	groups.add_child(_fixed(_tail(wide)))
