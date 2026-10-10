@@ -1893,6 +1893,8 @@ func prepare_interactive_match() -> bool:
 	# The coaching table first: the round's other matches use it (it is not
 	# saved, so on the first live week after loading it would be empty).
 	_refresh_coach_tactics()
+	# This week's conditioning, before any of the week's matches is built.
+	_stamp_conditioning()
 	var round_matches: Array = season.fixture[season.round_index]
 	var others := []
 	for i in range(round_matches.size()):
@@ -1941,6 +1943,7 @@ func prepare_interactive_match() -> bool:
 ## your final finishes, so the bracket slots stay untouched while you coach.
 func _prepare_interactive_final() -> bool:
 	ensure_finals()
+	_stamp_conditioning()
 	var matches := season.finals_week_matches()
 	var mine := -1
 	for i in range(matches.size()):

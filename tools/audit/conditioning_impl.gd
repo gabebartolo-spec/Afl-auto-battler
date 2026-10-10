@@ -34,6 +34,9 @@ const ARMS := [
 	["cap -8", {"cond_cap": 8.0}],
 	["injury x0.75", {"cond_injury": 0.75}],
 	["injury x1.25", {"cond_injury": 1.25}],
+	["drain 0.85", {"cond_drain": 0.85}],
+	["drain 1.15", {"cond_drain": 1.15}],
+	["cap -12", {"cond_cap": 12.0}],
 ]
 
 
@@ -79,7 +82,13 @@ func _sens(seeds: int) -> void:
 	for pr in PAIRS:
 		for s in range(seeds):
 			base["%s|%d" % [pr[0], s]] = _match(pr[0], pr[1], 7000 + s, {})
-	for arm in ARMS:
+	# SENS_ARMS=8,9 runs only those arms (indexes into ARMS), so CI can split
+	# a large sample across jobs.
+	var pick := OS.get_environment("SENS_ARMS")
+	for ai in range(ARMS.size()):
+		if pick != "" and not pick.split(",").has(str(ai)):
+			continue
+		var arm: Array = ARMS[ai]
 		var diffs := []
 		var inj_d := []
 		for pr in PAIRS:
