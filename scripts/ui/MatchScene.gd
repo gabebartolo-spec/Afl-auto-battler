@@ -564,7 +564,8 @@ func _show_coach_box() -> void:
 	var v: VBoxContainer = box["body"]
 	var titles := {1: "Before the first ball-up", 2: "Quarter time", 3: "Half time", 4: "Three-quarter time"}
 	# The break leads with both clubs' colours (director, 2026-10-08).
-	var bv := UiKit.vbox(2)
+	# On a PC the title and the score share one line: the band is wide.
+	var bv: BoxContainer = UiKit.hbox(16) if wide else UiKit.vbox(2)
 	var band := ClubDuel.band(str(_res["home"]), str(_res["away"]), bv, 14)
 	band.name = "BreakBand"
 	v.add_child(band)
@@ -588,11 +589,11 @@ func _show_coach_box() -> void:
 		cols = HBoxContainer.new()
 		cols.name = "BreakColumns"
 		cols.add_theme_constant_override("separation", 24 if four else 32)
-		col_a = UiKit.vbox(8)
-		col_b = UiKit.vbox(8)
-		col_c = UiKit.vbox(8)
+		col_a = UiKit.vbox(6)
+		col_b = UiKit.vbox(6)
+		col_c = UiKit.vbox(6)
 		if four:
-			rep = UiKit.vbox(8)
+			rep = UiKit.vbox(6)
 			v.add_child(cols)
 		for c in ([rep, col_a, col_b, col_c] if four else [col_a, col_b, col_c]):
 			c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -600,12 +601,18 @@ func _show_coach_box() -> void:
 			cols.add_child(c)
 	var title := UiKit.heading(str(titles.get(q, "Quarter %d" % q)), UiKit.H1)
 	title.name = "BreakTitle"
+	if wide:
+		title.autowrap_mode = TextServer.AUTOWRAP_OFF
+		title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	ClubDuel.on_colour(title)
 	bv.add_child(title)
 	if q == 1:
 		var where := UiKit.ellipsis("%s  ·  %s v %s  ·  %s" % [str(_res.get("label", "Match")),
 				GameDB.club_short(str(_res["home"])), GameDB.club_short(str(_res["away"])), _venue()], UiKit.BODY, UiKit.TEXT, true)
 		ClubDuel.on_colour(where)
+		if wide:
+			where.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			where.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		bv.add_child(where)
 	else:
 		var sc := UiKit.lbl(MatchNotes.break_score(str(_res["home"]), str(_res["away"]),
@@ -613,6 +620,9 @@ func _show_coach_box() -> void:
 		sc.name = "BreakScore"
 		sc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		ClubDuel.on_colour(sc)
+		if wide:
+			sc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			sc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		bv.add_child(sc)
 		# The full numbers, both clubs, at every break (director's PC
 		# playtest, 2026-10-07): a tap, never a compulsory report.
