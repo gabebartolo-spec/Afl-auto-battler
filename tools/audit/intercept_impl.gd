@@ -33,6 +33,7 @@ func run() -> void:
 	MatchSim.audit_chains = {}
 	var ic := {}
 	var imk := {}
+	var all_team := {}
 	var team := {"score": 0.0, "marks": 0.0, "intercepts": 0.0, "inside50": 0.0, "clangers": 0.0}
 	var games := {}
 	var zones := {}
@@ -75,6 +76,11 @@ func run() -> void:
 				var loose := [str(sim.interceptor[0]), str(sim.interceptor[1])]
 				var res := sim.run()
 				matches += 1
+				for side in range(2):
+					var td: Dictionary = res["team"][side]
+					for k2 in td:
+						if typeof(td[k2]) == TYPE_INT or typeof(td[k2]) == TYPE_FLOAT:
+							all_team[k2] = float(all_team.get(k2, 0.0)) + float(td[k2])
 				for side in range(2):
 					for k in team:
 						team[k] = float(team[k]) + (float(res["score"][side]) if k == "score" else float((res["team"][side] as Dictionary).get(k, 0.0)))
@@ -150,6 +156,11 @@ func run() -> void:
 			float(leaders[0][0]) if not leaders.is_empty() else 0.0, str(leaders[0][1]) if not leaders.is_empty() else "-", top10])
 	MatchSim.zone_intercepts = true   # a static: don't leak the old contest
 	MatchSim.audit_chains_on = false
+	print("every team stat, per team a game:")
+	var tk: Array = all_team.keys()
+	tk.sort()
+	for k in tk:
+		print("  %-30s %8.2f" % [k, float(all_team[k]) / float(maxi(1, matches * 2))])
 	print("chain starts per team a game (origin <- previous end, flip = the other side has it):")
 	var ck: Array = MatchSim.audit_chains.keys()
 	ck.sort()
