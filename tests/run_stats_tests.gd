@@ -648,9 +648,9 @@ func _ladder(sz: Vector2i) -> void:
 	var heads := []
 	for b in s.find_child("LadderHeader", true, false).get_children():
 		heads.append(str(b.name))
-	var phone: Array = ["Sort_pos", "Sort_club", "Sort_p", "Sort_w", "Sort_l", "Sort_d", "Sort_pct", "Sort_pts"]
+	var phone: Array = ["Sort_pos", "Sort_club", "Sort_p", "Sort_w", "Sort_l", "Sort_d", "Sort_pct", "Sort_pts", "Sort_rating"]
 	if sz.x < 900:
-		_check(heads == phone, "Phone columns are # Club P W L D %% Pts (%s: %s)" % [tag, str(heads)])
+		_check(heads == phone, "Phone columns are # Club P W L D %% Pts List (%s: %s)" % [tag, str(heads)])
 	else:
 		_check(heads.slice(0, 8).size() == 8 and heads.has("Sort_pf") and heads.has("Sort_home") and heads.has("Sort_away"),
 				"A wide screen adds points for and against, home and away (%s: %s)" % [tag, str(heads)])
@@ -952,8 +952,8 @@ func _team_rating(sz: Vector2i) -> void:
 		_check(_non_increasing(vals), "...and ranks the clubs by their lists, best first (%s)" % tag)
 		await Tap.tap(s.find_child("Sort_pos", true, false))
 		await _settle()
-	_check((s.find_child("Sort_window", true, false) != null) == (sz.x >= 900),
-			"A wide screen adds the club's window (%s)" % tag)
+	_check(s.find_child("Sort_window", true, false) == null and _text(s.find_child("LadderTable", true, false)).find("Contender") < 0,
+			"The ladder keeps one compact column; the category is a tap away (%s)" % tag)
 	# Nothing cut off, with the longest club names on show.
 	var longest := ""
 	for c in _row_codes(s):

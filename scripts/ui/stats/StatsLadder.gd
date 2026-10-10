@@ -18,15 +18,15 @@ const COL_GAP := 4
 ## wide screen the table is as wide as its columns and sits at the left, the
 ## club right beside its numbers (WIDE_CLUB).
 const WIDE_CLUB := 190
-## "List": the club's best 22 today on the OVR scale (TeamRating); a wide
-## screen adds where the club is in its cycle ("Window": Contender, Wildcard,
-## Rebuilding). A tap on a club says both in full, with the three-year view.
+## "List": the club's match-day side today on the OVR scale (TeamRating). A
+## tap on a club says it in full: where the club is in its cycle (Contender,
+## Wildcard, Rebuilding) and the list in three years.
 const LADDER_PHONE := [["pos", "#", 24], ["club", "Club", 0], ["p", "P", 26], ["w", "W", 26],
 		["l", "L", 26], ["d", "D", 24], ["pct", "%", 42], ["pts", "Pts", 34], ["rating", "List", 34]]
 const LADDER_WIDE := [["pos", "#", 28], ["club", "Club", WIDE_CLUB], ["p", "P", 32], ["w", "W", 32],
 		["l", "L", 32], ["d", "D", 30], ["pf", "PF", 50], ["pa", "PA", 50], ["pct", "%", 50],
 		["pts", "Pts", 40], ["home", "Home", 68], ["away", "Away", 68], ["form", "Form", 76],
-		["rating", "List", 44], ["window", "Window", 96]]
+		["rating", "List", 44]]
 ## Team stats: a per-game value for each, from GameState.season_team (only
 ## what is recorded there). One list, so a newly recorded stat joins with one
 ## line: {season_team key, column title, width on a phone, width on a wide
@@ -559,8 +559,6 @@ static func rows(season: Season) -> Array:
 				"form": "".join(PackedStringArray((season.club_results(code) as Array).slice(-5)))}
 		var outlook := GameState.team_outlook(code)
 		row["rating"] = int(outlook.get("rating", 0))
-		row["phase"] = str(outlook.get("phase", ""))
-		row["window"] = str(outlook.get("category", ""))
 		var t: Dictionary = GameState.season_team.get(code, {})
 		row["games"] = int(t.get("games", 0))
 		# A game each over the games that stat was counted for
@@ -589,8 +587,6 @@ static func cell_text(r: Dictionary, key: String) -> String:
 	match key:
 		"pos", "p", "w", "l", "d", "pf", "pa", "pts", "rating":
 			return str(int(r[key]))
-		"window":
-			return str(r.get("window", ""))
 		"pct":
 			return "%.0f" % float(r["pct"])
 		"home", "away":
@@ -619,9 +615,6 @@ static func sort_value(r: Dictionary, key: String) -> Variant:
 			return int(rec[0]) * 1000 + int(rec[2]) * 10 - int(rec[1])
 		"pct":
 			return float(r["pct"])
-		"window":
-			# Contender first, then Wildcard, then Rebuilding.
-			return float(TradeValue.PHASES.find(str(r.get("phase", ""))))
 		"for", "against", "disposals", "marks", "tackles", "inside50", "clearances", "hitouts", \
 		"rebounds", "clangers", "metres_gained":
 			return float(r["t_" + key])
