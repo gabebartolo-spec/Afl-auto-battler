@@ -1704,6 +1704,10 @@ const LOOSE_REACH_RANGE := 0.7
 ## How often he leaves his post for an entry: as often as a top reader gets
 ## there, so a poor reader goes just as often and arrives late instead.
 const LOOSE_GO := LOOSE_REACH_MIN + LOOSE_REACH_RANGE
+## How much more dangerous the entry is when he went and got there late, for
+## the poorest reader: {unmarked, marked}. He isn't there at all, so the space
+## behind him is bigger than when he flies and loses (0.08 / 0.15).
+const LOOSE_LATE_SPACE := {"unmarked": 0.12, "marked": 0.20}
 ## The most he makes the mark harder, for a top reader.
 const LOOSE_MARK_EDGE := 0.5
 ## The share of his spoil a poor reader still gets.
@@ -2615,7 +2619,10 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	# leaves less space when he misses.
 	if (roaming or late) and not spoilt:
 		var gap := 1.0 - _loose_read(roamer)
-		goal_p *= 1.0 + (0.15 if marked else 0.08) * gap
+		if late:
+			goal_p *= 1.0 + float(LOOSE_LATE_SPACE["marked" if marked else "unmarked"]) * gap
+		else:
+			goal_p *= 1.0 + (0.15 if marked else 0.08) * gap
 		behind_p *= 1.0 + 0.05 * gap
 		if roaming and not marked:
 			_p(roamer, "roam_losses")
