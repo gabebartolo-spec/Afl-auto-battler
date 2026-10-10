@@ -513,6 +513,12 @@ crowd tile: a 30 m run of lit, seated supporters rendered in Blender under the f
 game tints each club's colours, replacing VignetteCrowd's painted texture on the existing tiers. Night's
 total so far: 695 + ~195. The art agent records each generation's credits and provenance in its props plan.
 
+**Spend, 2026-10-10 (director, to AFL BOSS, about 16:45):** asked whether ART may buy 4 more Tripo
+seated people (an older woman with a notepad, a young man with a camera, a man in a suit jacket, a woman
+in a blazer with a phone), about 260 credits, for the press room and awards plates after journalist A
+was rejected; the director answered **"Yes, ~260 credits"**. Each model passes the five-view
+inspection (memory-shared/generated-asset-inspection.md) before use. Night's total: 695 + ~195 + ~260.
+
 **Done under those orders (2026-10-10):** Phase 1 (#591), Phase 2 (#594, the helper's), Phase 3
 (#598). One deviation from the plan: Phase 1.5 keeps the plan and the tag as grids on the coach's
 break, since six plans or five names in one row would scroll past a phone's edge; pep talk and
