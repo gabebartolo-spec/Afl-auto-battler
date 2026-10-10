@@ -46,10 +46,20 @@ var period := 1
 ## the ball. The name is kept in real seconds, not match time, so it can be read
 ## at any playback speed; the screen sets the rings, the view only draws.
 var rings := {}
-var _caption := {}             # {tok, text, left, goal}
+var _caption := {}             # {tok, text, left, goal, turnover, side}
+var _poss_side := -1           # who had the ball at the last possession event
+var _restarted := true         # the next possession comes from a restart
 var _last_actor := -1
 const CAPTION_GOAL := 1.8
 const CAPTION_TOUCH := 1.0
+## A change of possession in open play is said in words over the player who won
+## it (ROADMAP §1.11: a clear turnover cue; tackles where the ball is kept or
+## held in are not turnovers and carry no label).
+const CAPTION_TURNOVER := 1.1
+## What restarts play: whoever wins the ball after one of these has not turned
+## it over.
+const RESTARTS := ["goal", "behind", "quarter", "ballup", "throwin", "free", "fifty",
+		"last_disposal", "out_on_full"]
 ## The turf is green in both appearances, so the ring is the dark theme's text
 ## colour fixed, not UiKit.TEXT, which turns dark in light mode.
 const RING_COLOUR := Color(0.945, 0.933, 0.902)
@@ -120,6 +130,8 @@ func setup(p_result: Dictionary) -> void:
 	period = 1
 	_caption = {}
 	_last_actor = -1
+	_poss_side = -1
+	_restarted = true
 	_cam = Vector2.ZERO
 	_zoom = _target_zoom()
 	set_process(true)
@@ -195,6 +207,7 @@ func _process(delta: float) -> void:
 		for ev in out:
 			_track_quarter(ev)
 			_name_the_scorer(ev)
+			_cue_turnover(ev)
 			event_played.emit(ev)
 			if str((ev as Dictionary).get("kind", "")) == "final":
 				playing = false
@@ -250,6 +263,34 @@ func _name_the_scorer(ev: Dictionary) -> void:
 			"left": CAPTION_GOAL, "goal": true}
 
 
+## The ball changed hands in open play: "Turnover" over the player who won it.
+## A forced turnover, a rebound and an intercept mark always are; otherwise
+## the side with the ball changed without a restart in between. A goal's name
+## is never covered.
+func _cue_turnover(ev: Dictionary) -> void:
+	var kind := str(ev.get("kind", ""))
+	if RESTARTS.has(kind):
+		_restarted = true
+		return
+	var side := int(ev.get("side", -1))
+	var won := kind == "pressure" or kind == "rebound" \
+			or (kind == "mark" and bool(ev.get("intercept", false)))
+	if side < 0 or not (won or MatchDirector.DISPOSALS.has(kind)):
+		return
+	var flipped := _poss_side >= 0 and side != _poss_side and not _restarted
+	_poss_side = side
+	_restarted = false
+	if not (won or flipped):
+		return
+	if not _caption.is_empty() and bool(_caption["goal"]):
+		return
+	var tok := director.token_of(ev)
+	if tok < 0 or tok >= director.tokens.size():
+		return
+	_caption = {"tok": tok, "text": "Turnover", "left": CAPTION_TURNOVER, "goal": false,
+			"turnover": true, "side": side}
+
+
 ## A ringed player of yours who gets the ball is named for a moment. A goal's
 ## name outranks that, and a name already showing is not restarted.
 func _name_the_ball_carrier() -> void:
@@ -262,7 +303,8 @@ func _name_the_ball_carrier() -> void:
 	var t: Dictionary = director.tokens[act]
 	if not rings.has(str(t.get("pid", ""))):
 		return
-	if not _caption.is_empty() and (bool(_caption["goal"]) or int(_caption["tok"]) == act):
+	if not _caption.is_empty() and (bool(_caption["goal"]) or bool(_caption.get("turnover", false))
+			or int(_caption["tok"]) == act):
 		return
 	_caption = {"tok": act, "text": str(t.get("surname", "")), "left": CAPTION_TOUCH, "goal": false}
 
@@ -555,6 +597,12 @@ func _draw_caption(tr: float) -> void:
 		draw_string(UiKit.BOLD, origin + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
 				Color(0, 0, 0, 0.8 * fade))
 	draw_string(UiKit.BOLD, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(RING_COLOUR, fade))
+	if bool(_caption.get("turnover", false)):
+		# Underlined in the winning club's colour: whose ball it is now, at a glance.
+		var kit: Dictionary = _kits[clampi(int(_caption.get("side", 0)), 0, 1)]
+		var bar: Color = kit.get("base", RING_COLOUR)
+		draw_rect(Rect2(origin + Vector2(-1, 3), Vector2(width + 2, 4)), Color(0, 0, 0, 0.8 * fade))
+		draw_rect(Rect2(origin + Vector2(0, 4), Vector2(width, 2)), Color(bar, fade))
 
 
 func _draw_ball(tr: float, s: float) -> void:
