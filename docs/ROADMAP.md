@@ -63,6 +63,7 @@ A roadmap item is context, not authorisation.
 - [ARD-M8-006 — Release polish](roadmap/11-04-ard-m8-006-release-polish.md) (41 KB)
 - [ARD-M8-008 — Cross-platform app identity and icon redesign](roadmap/11-05-ard-m8-008-cross-platform-app-identity-and-icon-redesign.md) (3 KB)
 - [ARD-M8-009 — Plausible fictional player names](roadmap/11-06-ard-m8-009-plausible-fictional-player-names.md) (2 KB)
+- [ARD-M8-010 — Web build and three-platform parity](roadmap/11-07-ard-m8-010-web-build-and-three-platform-parity.md) (2 KB)
 - [3. Cross-Cutting Systems That Must Stay Consolidated](roadmap/12-3-cross-cutting-systems-that-must-stay-consolidated.md) (1 KB)
 - [4. Verified / Known Current-State Notes](roadmap/13-4-verified-known-current-state-notes.md) (2 KB)
 - [5. Standard Validation Matrix](roadmap/14-5-standard-validation-matrix.md) (2 KB)

@@ -61,6 +61,12 @@ Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against mai
 | 30 | Coleman goalkicking cap (defect found, balance-gated) | §1.11 Coleman | director | awaiting decision |
 | 31 | Native phone numbers: frame time, battery, loading | §1.11 performance | director's phone (probe build held) | waiting |
 
+## Platforms
+
+| # | Requirement | Source | Owner | Status |
+|---|---|---|---|---|
+| 32 | Fully functional **web build**; the game synchronised across Android, PC and web. Director 2026-10-10. Open question: synchronised = feature/version parity (one codebase, same content, platform-appropriate input and layout) and/or saves carried between devices (cloud or export/import)? Confirm when scheduled | ARD-M8-010 | none: awaiting the director's scheduling | not started |
+
 ## Long-save presentation wishlist (HIGH content, unassigned)
 
 Away/clash and heritage guernseys · coach appearance · finals presentation (bracket prototype #529) · premiership
