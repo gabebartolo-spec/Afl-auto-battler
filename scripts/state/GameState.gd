@@ -165,6 +165,8 @@ var career_seed := 0
 var conditioning := {}
 ## Audits and tests only (never saved): false keeps every AI club Steady.
 var fitness_ai_by_phase := true
+## Audits only (never saved): club -> high-performance level, for AI clubs.
+var fitness_hp_override := {}
 ## Club Forge: the career's created club as its spec (ClubForge), or {}.
 ## Saved with the career and registered with GameDB whenever it loads.
 var custom_club := {}
@@ -2152,6 +2154,8 @@ func fitness_week() -> int:
 ## Only your club has a department budget; AI clubs run Standard (a known
 ## parity gap: AI clubs cannot invest).
 func fitness_hp_level(club: String) -> int:
+	if fitness_hp_override.has(club):
+		return int(fitness_hp_override[club])
 	if club == my_club:
 		return department_budget_level("high_performance")
 	return ClubBudget.STANDARD
