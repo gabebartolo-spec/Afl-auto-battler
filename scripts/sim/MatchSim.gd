@@ -1290,6 +1290,10 @@ func _contest_pep(side: int) -> float:
 const PEP_CALM := {"clangers": 0.92, "taken": 0.95, "gain": 0.92, "pace": 0.95}
 ## Fire them up: legs go quicker and tempers fray.
 const PEP_FIRE := {"clangers": 1.10, "pace": 1.20}
+## Bring the heat (director, 2026-10-10): harder pressure on their ball carriers, so
+## more turnovers forced and tackles laid; legs go quicker for it.
+const PEP_HEAT := {"pace": 1.15}
+const PEP_HEAT_PRESS := 1.12
 
 
 ## The pep talk's multiplier on one chain quantity (1.0 when it has none).
@@ -1298,7 +1302,14 @@ func _pep_mult(side: int, key: String) -> float:
 		return float(PEP_CALM.get(key, 1.0))
 	if _pep(side) == "fire_up":
 		return float(PEP_FIRE.get(key, 1.0))
+	if _pep(side) == "heat":
+		return float(PEP_HEAT.get(key, 1.0))
 	return 1.0
+
+
+## How much harder a side presses the ball carrier this quarter (Bring the heat).
+func _pep_heat(side: int) -> float:
+	return PEP_HEAT_PRESS if _pep(side) == "heat" else 1.0
 
 
 func _contest_calls(side: int, stoppage: bool) -> float:
@@ -2224,6 +2235,9 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 		p_base = pressure
 		pressure *= _pep_mult(side, "taken")
 		_credit(side, "pep", (p_base - pressure) * TURNOVER_VALUE)
+		p_base = pressure
+		pressure *= _pep_heat(opp)
+		_credit(opp, "pep", (pressure - p_base) * TURNOVER_VALUE)
 		if _burst(side, "hold"):
 			_credit(side, "calls", pressure * 0.15 * TURNOVER_VALUE)
 			pressure *= 0.85
@@ -3443,12 +3457,12 @@ const STAR_OVR := 80
 const TIRED_CALL := 45.0
 ## Energy below which a player is rotated off: stars are ridden harder.
 const ROTATION_POLICIES := {
-	"hard": {"label": "Rotate hard", "role": 80.0, "star": 68.0,
-			"text": "Fresh legs all day: everyone comes off early, stars included."},
-	"normal": {"label": "Normal rotations", "role": 70.0, "star": 50.0,
-			"text": "Rotate the group, ride the stars a little longer."},
-	"stars": {"label": "Ride the stars", "role": 68.0, "star": 25.0,
-			"text": "Your stars stay on until they are cooked."},
+	"hard": {"label": "Protect freshness", "role": 80.0, "star": 68.0,
+			"text": "Anyone tiring comes off early, your stars included: fresh legs all day, less time on the ground for your best."},
+	"normal": {"label": "Balanced rotations", "role": 70.0, "star": 50.0,
+			"text": "Rotate the group; your stars stay on a little longer than the rest."},
+	"stars": {"label": "Prioritise key players", "role": 68.0, "star": 25.0,
+			"text": "Your stars stay on until they are cooked: more of their time on the ground, but they fade late."},
 }
 ## fit(): effective-attribute multiplier. 0.80 + 0.25 x energy puts an
 ## average match (~80 energy) at 1.0: fresh 1.05, cooked (30) 0.875.
@@ -3923,7 +3937,7 @@ func _boundary_moment() -> bool:
 	var opp := 1 - me
 	var margin := score(me) - score(opp)
 	# A star running on empty - only when you have chosen to ride your stars.
-	# Under Normal rotations or Rotate hard the rotations take tired players
+	# Under Balanced rotations or Protect freshness the rotations take tired players
 	# off by themselves (_auto_rotate); riding them is the one policy that
 	# leaves a star out there cooked, so it may bring one call a match.
 	for p in (squads[me] as Squad).ground if rotation_policy[me] == "stars" else []:

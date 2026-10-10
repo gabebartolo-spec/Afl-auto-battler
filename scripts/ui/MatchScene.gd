@@ -528,10 +528,13 @@ const GAMEPLANS := [
 ]
 const PEP_TALKS := [
 	["steady", "Stay composed"], ["fire_up", "Fire them up"], ["calm", "Calm the group"],
+	["heat", "Bring the heat"],
 ]
-## Short labels for the break, where the three sit side by side.
-const PEP_SHORT := [["steady", "Composed"], ["fire_up", "Fire them up"], ["calm", "Calm them"]]
-const ROTATION_SHORT := {"hard": "Hard", "normal": "Normal", "stars": "Ride stars"}
+## The policies named for what they are for (director, 2026-10-07). Their full names
+## (Protect freshness, Balanced rotations, Prioritise key players) are
+## MatchSim.ROTATION_POLICIES' labels; the break's three side-by-side buttons
+## carry the short form so a phone row fits.
+const ROTATION_SHORT := {"hard": "Freshness", "normal": "Balanced", "stars": "Key players"}
 
 
 ## The break: what happened, then your calls for the next quarter. It
@@ -761,7 +764,9 @@ func _show_coach_box() -> void:
 	pep_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var sync_pep := func(key: String) -> void:
 		pep_note.text = CoachReport.pep_summary(key)
-	var pep := _segmented("PepPicker", PEP_SHORT, calls, "pep", sync_pep)
+	# Four talks: a two-column grid of their full names, which fits a 360 phone
+	# and the PC column alike (one row of four ran off a phone).
+	var pep := _choice_grid("PepPicker", PEP_TALKS, calls, "pep", 2, sync_pep)
 	tail.add_child(_call_block("Pep talk", pep))
 	tail.add_child(pep_note)
 	sync_pep.call("steady")

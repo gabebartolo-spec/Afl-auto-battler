@@ -501,9 +501,9 @@ func _coach_descriptions(sz: Vector2i) -> void:
 	var report = load("res://scripts/sim/CoachReport.gd")
 	var policies: Dictionary = load("res://scripts/sim/MatchSim.gd").ROTATION_POLICIES
 
-	# Pep talk: all three choices, Composed included, explain themselves.
+	# Pep talk: all four choices, Composed included, explain themselves.
 	var pep_seen := {}
-	for k in ["steady", "fire_up", "calm"]:
+	for k in ["steady", "fire_up", "calm", "heat"]:
 		var b: Button = box.find_child("PepPicker_" + k, true, false)
 		var w: String = await Tap.tap(b)
 		_check(w == "", "A finger picks the %s pep talk (%s: %s)" % [k, tag, w])
@@ -512,7 +512,7 @@ func _coach_descriptions(sz: Vector2i) -> void:
 		_check(note != null and note.is_visible_in_tree() and note.text != "" and note.text == report.pep_summary(k),
 				"The %s pep talk shows its own description (%s)" % [k, tag])
 		pep_seen[note.text if note != null else ""] = true
-	_check(pep_seen.size() == 3, "Each pep talk has its own words (%s)" % tag)
+	_check(pep_seen.size() == 4, "Each pep talk has its own words (%s)" % tag)
 	var composed: Button = box.find_child("PepPicker_steady", true, false)
 	await Tap.tap(composed)
 	await _settle()
