@@ -49,6 +49,7 @@ var rings := {}
 var _caption := {}             # {tok, text, left, goal, turnover, side}
 var _poss_side := -1           # who had the ball at the last possession event
 var _restarted := true         # the next possession comes from a restart
+var _shake := 0.0              # seconds of turnover shake left
 var _last_actor := -1
 const CAPTION_GOAL := 1.8
 const CAPTION_TOUCH := 1.0
@@ -56,6 +57,9 @@ const CAPTION_TOUCH := 1.0
 ## it (ROADMAP §1.11: a clear turnover cue; tackles where the ball is kept or
 ## held in are not turnovers and carry no label).
 const CAPTION_TURNOVER := 1.1
+## The turnover's shake: restrained and short, gone in a quarter of a second.
+const SHAKE_TIME := 0.25
+const SHAKE_PX := 3.0
 ## What restarts play: whoever wins the ball after one of these has not turned
 ## it over.
 const RESTARTS := ["goal", "behind", "quarter", "ballup", "throwin", "free", "fifty",
@@ -219,6 +223,9 @@ func _process(delta: float) -> void:
 		_follow_ball()
 	_name_the_ball_carrier()
 	_age_caption(delta)
+	if _shake > 0.0:
+		_shake = maxf(0.0, _shake - delta)
+		queue_redraw()
 	_update_camera(delta)
 	if playing or _cam.distance_to(_drawn_cam) > 0.05 or absf(_zoom - _drawn_zoom) > 0.002 \
 			or not director.flash.is_empty() or not _caption.is_empty():
@@ -289,6 +296,13 @@ func _cue_turnover(ev: Dictionary) -> void:
 		return
 	_caption = {"tok": tok, "text": "Turnover", "left": CAPTION_TURNOVER, "goal": false,
 			"turnover": true, "side": side}
+	if GameState.screen_shake_on():
+		_shake = SHAKE_TIME
+
+
+## Whether the oval is shaking for a turnover right now.
+func shaking() -> bool:
+	return _shake > 0.0
 
 
 ## A ringed player of yours who gets the ball is named for a moment. A goal's
@@ -430,6 +444,11 @@ func _stripe(c: Vector2, a: float, b: float, x0: float, x1: float) -> PackedVect
 # Drawing
 # ---------------------------------------------------------------------------
 func _draw() -> void:
+	if _shake > 0.0:
+		# Fades out as it ends; two frequencies so it isn't a single sway.
+		var k := _shake / SHAKE_TIME
+		var t := Time.get_ticks_msec() / 1000.0
+		draw_set_transform(Vector2(sin(t * 83.0), cos(t * 61.0)) * SHAKE_PX * k)
 	var r := pitch_rect()
 	if r.size.x < 8.0 or r.size.y < 8.0:
 		return
