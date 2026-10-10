@@ -22,6 +22,7 @@ func _run() -> void:
 	var filters := false
 	var sort := ""
 	var player := false
+	var picker := false
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size()):
 		var v := str(a[i + 1]) if i + 1 < a.size() else ""
@@ -36,6 +37,7 @@ func _run() -> void:
 			"--filters": filters = true
 			"--sort": sort = v
 			"--player": player = true
+			"--picker": picker = true
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
@@ -70,6 +72,13 @@ func _run() -> void:
 		var rows: Array = ui.find_children("PlayerRow_*", "Button", true, false)
 		if not rows.is_empty():
 			(rows[0] as Button).emit_signal("pressed")
+	if picker:
+		# The stat list open: a sheet (a Button) or the old pop-up menu (an OptionButton).
+		var pick = ui.find_child("StatPick", true, false)
+		if pick is OptionButton:
+			(pick as OptionButton).show_popup()
+		elif pick != null:
+			(pick as Button).emit_signal("pressed")
 	for i in range(10):
 		await process_frame
 	var img := root.get_viewport().get_texture().get_image()
