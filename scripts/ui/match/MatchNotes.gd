@@ -616,6 +616,59 @@ static func game_line(st: Dictionary) -> String:
 	return ", ".join(bits)
 
 
+## Assign defensive forward (the break): the words around the control. The
+## effect numbers come straight from MatchSim's constants, never typed twice.
+static func minder_question(opp_name: String, club: String) -> String:
+	return "Who covers %s (%s)? He roams behind the ball; your forward goes up the ground with him." % [opp_name, club]
+
+
+static func minder_none_line() -> String:
+	return "They have no loose defender this quarter, so there is nobody to cover."
+
+
+## What the choice does and costs, in one line and in words (no numbers on
+## the break): how much of the contests the loose defender would reach he
+## still reaches with a Defensive forward on him and with any other forward
+## (MatchSim.MINDER_ROAM), and how much less often the forward sent is a
+## target himself (MatchSim.MINDER_INVOLVE).
+static func minder_cost_line() -> String:
+	var roam: Dictionary = MatchSim.MINDER_ROAM
+	var involve := float(MatchSim.MINDER_INVOLVE)
+	var often := "far less often" if involve <= 0.35 else ("less often" if involve <= 0.7 else "a little less often")
+	return "He reaches %s of his contests with a Defensive forward on him, %s with any other forward. Whoever goes is a target %s himself." % [
+			reach_words(float(roam["specialist"])), reach_words(float(roam["other"])), often]
+
+
+## A share kept, in words: 0.40 is "well under half", 0.70 is "most".
+static func reach_words(kept: float) -> String:
+	if kept <= 0.25:
+		return "hardly any"
+	if kept <= 0.45:
+		return "well under half"
+	if kept <= 0.55:
+		return "about half"
+	if kept <= 0.8:
+		return "most"
+	return "nearly all"
+
+
+## A forward's card for the job: where he plays, Defensive forward when he
+## has the trait, and his Pressure (the one attribute the job runs on).
+## `wide` is the list sheet's single line; the grid card puts the trait on
+## its own line.
+static func minder_card_detail(p: Dictionary, wide: bool) -> String:
+	var places := PackedStringArray()
+	for r in Ratings.positions(p):
+		places.append(str(UiKit.ROLE_LABEL.get(str(r), str(r))))
+	var pressure := roundi(float((p.get("attr", {}) as Dictionary).get("pressure", 0.0)))
+	var spec := Traits.has(p, "def_forward")
+	var base := "%s  ·  Pressure %d" % ["/".join(places), pressure]
+	if spec:
+		return ("%s  ·  Defensive forward" % ["/".join(places)] + "  ·  Pressure %d" % pressure) if wide else (base + "
+Defensive forward")
+	return base
+
+
 ## The best few players of a side by influence: [{"id", "name", "line"}].
 static func standouts(res: Dictionary, side: int, n: int) -> Array:
 	var ranked := rated_players(res, side)

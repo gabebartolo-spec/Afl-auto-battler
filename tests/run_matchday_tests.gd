@@ -45,6 +45,7 @@ func _run() -> void:
 	for sz in [Vector2i(390, 844), Vector2i(1280, 720)]:
 		await _coach_descriptions(sz)
 		await _tag_targets(sz)
+		await _minder_cards(sz)
 	await _tag_not_saved()
 	await _bounce_close_up()
 	await _playtest_bounce_scene()
@@ -746,6 +747,110 @@ func _tag_not_saved() -> void:
 	_check(_state.pending_sim == null, "A load brings back no live match, so no tag survives it")
 	_check(_state.prepare_interactive_match() and str((_state.pending_sim.tactics[_state.pending_sim.moment_side] as Dictionary).get("tag_id", "")) == "",
 			"A match prepared after the load starts with no tag")
+
+
+## Assign defensive forward (director, 2026-10-07): the heading, the question
+## that names their loose defender and his club, "No defensive forward
+## assigned", a card for every forward with his position, trait and Pressure,
+## the same on the "Other player..." sheet; real taps; no text cut off.
+func _minder_cards(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = sz
+	_check(_state.prepare_interactive_match(), "A live match is prepared for the defensive forward (%s)" % tag)
+	var sim = _state.pending_sim
+	var me := int(sim.moment_side)
+	var Mu = load("res://scripts/sim/Matchups.gd")
+	var spare: Dictionary = Mu.best_interceptor((sim.squads[1 - me] as Object).ground, 0.0)
+	sim.set_interceptor(1 - me, str(spare.get("id", "")), false)
+	var opp_club := str((sim.squads[1 - me] as Object).code)
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var box: Node = m.find_child("CoachBox", true, false)
+	_check(box != null, "The break opens for the defensive forward (%s)" % tag)
+	if box == null:
+		m.queue_free()
+		return
+	var block: Node = box.find_child("MinderBlock", true, false)
+	var text := _text(block)
+	_check(block != null and text.begins_with("Assign defensive forward"), "The control is headed Assign defensive forward (%s)" % tag)
+	var all_text := _text(box)
+	_check(not all_text.contains("Their loose defender") and not all_text.contains("Nobody"),
+			"No 'Their loose defender' heading and no 'Nobody' at the break (%s)" % tag)
+	var notes = load("res://scripts/ui/match/MatchNotes.gd")
+	var q: Label = box.find_child("MinderQuestion", true, false)
+	var want_q: String = notes.minder_question(db.player_display_name(spare), db.club_name(opp_club))
+	_check(q != null and q.text == want_q and q.text.contains("(%s)" % db.club_name(opp_club)),
+			"It names their loose defender and his club (%s: %s)" % [tag, "" if q == null else q.text])
+	var cost: Label = box.find_child("MinderNote", true, false)
+	_check(cost != null and cost.text == notes.minder_cost_line(), "One line says what it does and costs (%s)" % tag)
+	var none_b: Button = box.find_child("SpareMinderPickerGrid_", true, false)
+	_check(none_b != null and none_b.text == "No defensive forward assigned", "The none choice reads No defensive forward assigned (%s)" % tag)
+	var fwds: Array = Mu.minder_candidates((sim.squads[me] as Object).ground)
+	var cards := box.find_child("SpareMinderPicker", true, false).find_children("SpareMinderPickerGrid_*", "Button", true, false)
+	var shown := 0
+	var bad := []
+	for b in cards:
+		var id := str(b.name).trim_prefix("SpareMinderPickerGrid_")
+		if id == "":
+			continue
+		shown += 1
+		var p: Dictionary = {}
+		for f in fwds:
+			if str(f["id"]) == id:
+				p = f
+		var press := roundi(float((p.get("attr", {}) as Dictionary).get("pressure", -1.0)))
+		var is_spec: bool = load("res://scripts/sim/Traits.gd").has(p, "def_forward")
+		if not (b.text.contains("Pressure %d" % press) and b.text.contains("Forward") and b.text.contains("Defensive forward") == is_spec):
+			bad.append(b.text)
+		if b.size.y + 1.0 < b.get_combined_minimum_size().y:
+			bad.append("cut: " + b.text)
+	_check(shown >= 2 and bad.is_empty(), "Every card shows position, Pressure and the trait, none cut off (%s: %d cards %s)" % [tag, shown, str(bad)])
+	for l in block.find_children("*", "Label", true, false):
+		if l.size.y + 1.0 < l.get_combined_minimum_size().y:
+			bad.append("label cut: " + l.text)
+	_check(bad.is_empty(), "No line of the control is cut off (%s)" % tag)
+	# A real tap on a card sets who goes.
+	var first_id := ""
+	for b in cards:
+		var cid := str(b.name).trim_prefix("SpareMinderPickerGrid_")
+		if cid != "":
+			first_id = cid
+			break
+	var card: Button = box.find_child("SpareMinderPickerGrid_" + first_id, true, false)
+	var why: String = await Tap.tap(card)
+	_check(why == "", "A finger picks a forward to go (%s: %s)" % [tag, why])
+	await _settle()
+	# The full list: every forward, with the same facts.
+	var other: Button = box.find_child("SpareMinderPickerOther", true, false)
+	var ow: String = await Tap.tap(other)
+	await _settle()
+	var sheet: Node = m.find_child("PlayerSheet", true, false)
+	var rows: Array = sheet.find_children("Sheet_*", "Button", true, false) if sheet != null else []
+	var row_bad := []
+	for r in rows:
+		if not (r.text.contains("Pressure") and r.text.contains("Forward")):
+			row_bad.append(r.text)
+		if r.size.y + 1.0 < r.get_combined_minimum_size().y:
+			row_bad.append("cut: " + r.text)
+	_check(ow == "" and rows.size() == fwds.size() and row_bad.is_empty(),
+			"Other player lists every forward with position, trait and Pressure, none cut off (%s: %d of %d %s)" % [tag, rows.size(), fwds.size(), str(row_bad)])
+	var pick: Button = rows.back() if not rows.is_empty() else null
+	var picked := str(pick.name).trim_prefix("Sheet_") if pick != null else ""
+	var pw: String = await Tap.tap(pick)
+	await _settle()
+	var go: Button = box.find_child("StartQuarter", true, false)
+	await Tap.tap(go)
+	await _settle()
+	var tactics: Dictionary = sim.tactics[me]
+	_check(pw == "" and picked != "" and bool(tactics.get("spare_accountable", false)) and str(tactics.get("spare_minder_id", "")) == picked,
+			"The forward picked from the list is the one sent (%s)" % tag)
+	if is_instance_valid(m):
+		m.queue_free()
+	await _settle()
 
 
 func _text(node: Node) -> String:
