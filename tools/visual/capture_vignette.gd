@@ -109,6 +109,10 @@ func _run() -> void:
 			for i in range(2):
 				await process_frame
 			root.get_viewport().get_texture().get_image().save_png("%s_film_%03d.png" % [out, n])
+			# The frame's cost (broadcast staging mock-up): draw calls and canvas items.
+			print("COST frame %d draws %d objects %d" % [n,
+					RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
+					RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)])
 			n += 1
 			ft += 1.0 / 12.0
 		print("filmed ", n, " frames")

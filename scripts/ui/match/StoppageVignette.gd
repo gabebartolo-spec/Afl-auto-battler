@@ -104,6 +104,8 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 						"tired": tired, "from": from, "to": to,
 						"delay": rng.randf_range(0.0, 0.45),
 						"dur": rng.randf_range(1.3, 1.7) * (1.6 if tired else 1.0)})
+	if full_setup:
+		_set_up(sim, my_side, wet, rng)
 	_style_rucks()
 	facts = _commentary(sim, my_side)
 	_t = 0.0
@@ -111,6 +113,44 @@ func setup(sim: MatchSim, my_side: int, heading := "") -> void:
 	_frozen = false
 	_dress()
 	queue_redraw()
+
+
+## SCRATCH MOCK-UP (claude/broadcast-mock, not for merge): the rest of a centre bounce as a broadcast
+## shows it - each side's wingers, the far 50's six-on-six (your forwards, their backs, man on man,
+## the back half a metre goal-side), the other field umpire, the boundary umpires on the wings and the
+## goal umpire on the goal line. Positions from the 6-6-6 rule, metres: x across, y towards your goal.
+static var full_setup := true
+const SET_MINE := [[-31.0, 0.6], [31.0, -0.4],                                  # wingers
+		[0.0, -10.0], [-10.0, -14.0], [11.0, -13.0], [1.0, -38.0], [-20.0, -36.0], [21.0, -37.0]]   # forwards (from the goal line)
+const OFFICIALS := [[24.0, 34.0], [-22.0, -20.0], [66.0, 2.0], [-66.0, -2.0]]   # field, field, boundary, boundary
+
+func _set_up(sim: MatchSim, my_side: int, wet: bool, rng: RandomNumberGenerator) -> void:
+	var used := {}
+	for t in tokens:
+		used[str(t["id"])] = true
+	for side in range(2):
+		var mine := side == my_side
+		var sgn := 1.0 if mine else -1.0
+		var free := ((sim.squads[side] as Squad).ground as Array).filter(func(p): return not used.has(str(p["id"])))
+		for i in range(mini(SET_MINE.size(), free.size())):
+			var p: Dictionary = free[i]
+			var spot := Vector2(SET_MINE[i][0], SET_MINE[i][1])
+			var at := spot
+			if i >= 2:           # the far 50: measured from your goal line
+				at = Vector2(spot.x, VignetteGround.GOAL_Y + spot.y)
+				if not mine:     # their backs stand goal-side of your forwards, a touch inside
+					at += Vector2(-signf(spot.x) * 0.7, 0.8)
+			elif not mine:
+				at += Vector2(0.9 * signf(spot.x), 0.9)
+			tokens.append({"side": side, "mine": mine, "slot": "SET", "id": str(p["id"]),
+					"tall": false, "look": GameDB.figure_look(p, wet), "height_cm": float(p.get("height_cm", 0.0)),
+					"name": _surname(GameDB.player_display_name(p)), "num": int(p["num"]), "tired": false,
+					"from": at, "to": at, "delay": 0.0, "dur": 0.01})
+	for o in OFFICIALS + [[0.0, VignetteGround.GOAL_Y + 0.3]]:
+		var at := Vector2(o[0], o[1])
+		tokens.append({"side": 0, "mine": false, "slot": "UMP", "ump": true, "id": "ump%d" % tokens.size(),
+				"tall": false, "height_cm": 0.0, "name": "", "num": 0, "tired": false,
+				"from": at, "to": at, "delay": 0.0, "dur": 0.01})
 
 
 ## The two ruckmen contest differently, so they never go up as twins: one taps
@@ -483,7 +523,7 @@ func _pad_colour() -> Color:
 func _draw_figure(at: Vector2, t: Dictionary) -> void:
 	if at.y + _cam_d < 1.2:
 		return               # beside or behind the camera
-	var ump := t.is_empty()
+	var ump := t.is_empty() or bool(t.get("ump", false))
 	var lift := 0.0 if ump else _lift(t)
 	var base := _project(at, lift)
 	var ground := _project(at)
