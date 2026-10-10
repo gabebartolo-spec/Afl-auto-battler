@@ -25,7 +25,7 @@ Crusader Kings informs persistent identities and inspectable historical context 
 
 ### Accepted future start option — not implemented by this revision
 
-[ARD-M5-016](ROADMAP.md#ard-m5-016--inherited-list-career-2026-national-draft-start) adds **Inherit 2026 lists** beside **League redraft**. Inherited mode retains complete end-of-season 2026 registered lists for all 18 founding clubs before subsequent offseason changes, including zero-appearance players; it opens preparation for the 2026 National Draft and plays its first season in 2027.
+[ARD-M5-016](roadmap/08-m5-selection-roles-development.md#ard-m5-016--inherited-list-career-2026-national-draft-start) adds **Inherit 2026 lists** beside **League redraft**. Inherited mode retains complete end-of-season 2026 registered lists for all 18 founding clubs before subsequent offseason changes, including zero-appearance players; it opens preparation for the 2026 National Draft and plays its first season in 2027.
 
 Use sourced snapshot pick ownership and the researched prospect cohort with the existing simplified draft framework. Full academy/father-son bidding reform is separate. Show pre-draft list-space decisions; never silently cut players or add fictional fillers. Record roster completeness, source dates and missing-player rating bases; simulated contracts remain estimates.
 

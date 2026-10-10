@@ -1,0 +1,30 @@
+### Implementation record — match flow, part 1 (2026-09-29, branch `claude/match-flow`)
+- **Diagnosis (presentation, not simulation):**
+  - Over two full matches replayed at 1x (RIC v SYD, SYD v RIC), no beat hung for good; the longest was 5.5 s, a mark.
+  - The ball sat still with nobody holding it 38-40% of watched time. Real dead ball (set-ups, celebrations, tackles, packs) accounts for part of that.
+  - The largest single cause was the receiver collecting after the ball had landed or gone to ground: 120-150 s a match waiting on a receiver 12 m or more away.
+  - The sim names who wins each ball, so a forward who wins it back in defence is often 40-50 m from it.
+  - Separately, at a kick-in the taker kept carrying the ball up the ground with the structure when the log moved on without his kick. That was the source of the last wrong-way kicks.
+- **Changes (`MatchDirector.gd`):**
+  - A loose ball whose winner is still more than 8 m away is scrapped for: the nearest two players converge on it. It is knocked on toward him in short hops, 5 m every 0.45 s, 16 m at most, and never back toward his own goal. The ball is no longer left on the deck while he runs.
+  - A ball held by someone other than the collector is put down where it is, not carried.
+  - Hang time for a kick to a running receiver can stretch to 1.8x its natural length (was 1.45x).
+- **Measured (same matches, main v branch):**
+  - pauses of 1.5 s or longer: 63 v 40 and 54 v 29;
+  - waiting on a far receiver: 152 v 97 s and 120 v 76 s;
+  - ball still overall: 40% v 35% and 38% v 34%.
+  - Wrong-way kicks: 0 in six seeded matches (two occurred on main).
+- **Remaining:** the rest of the far waits are the sim choosing a far-off winner (role weights let a forward win the ball in defence). Closing that would mean the sim considering position, which is a separate, balance-gated change. The phone playtest is the acceptance check.
+- **The mid-play freeze near the boundary (reported from the phone playtest):**
+  - A loose ball can settle 1 m inside the fence, but a player's run is kept 2 m inside. With others crowding the ball, the collector could end up more than 1.4 m short.
+  - Collecting was the only step with no time limit, so play stopped for good.
+  - Now close enough (3 m) after 1.5 s counts as his, and no collect lasts longer than 6 s. Players contesting a scrap go beside the ball, not onto it.
+- **The mid-play freeze in a live match (found by driving live matches end to end):**
+  - After a moment call, the match screen resumes play. When the sim stopped at another moment with no new events to show, the view's `play()` returned silently without reporting it had finished.
+  - So the next moment card never appeared and the match sat frozen: every event shown, a call pending, no card.
+  - `play()` on an idle view now reports finished straight away.
+- **Tests:**
+  - `_test_play_when_idle`: resuming with nothing new to show still hands back to the match screen.
+  - `test_match_visual.gd::_test_match_flow`: no beat longer than 8 s; far-receiver waits at most 12% of a match.
+  - `_test_boundary_collect`: a ball against the fence with a crowd around it is always collected.
+  - The wrong-way check still passes.

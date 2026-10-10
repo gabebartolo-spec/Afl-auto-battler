@@ -87,4 +87,4 @@ ARD captures: 74 PNGs in the disposable checkout's `audit_captures`, from 10 rou
 
 ## Director interview outcome
 
-After research, the director included all eight STYLE-01–08 scopes in order. No suggestions were rejected. The Training **player-row** vertical alignment was separately confirmed as a defect. Dark Android remains primary; wide-screen and light work follow. Final visual decisions remain with the director, under art-agent visual leadership. See [roadmap §9.5](../ROADMAP.md#95-approved-visual-styling-work--director-interview-2026-10-06). No player evidence was altered to fit the approvals.
+After research, the director included all eight STYLE-01–08 scopes in order. No suggestions were rejected. The Training **player-row** vertical alignment was separately confirmed as a defect. Dark Android remains primary; wide-screen and light work follow. Final visual decisions remain with the director, under art-agent visual leadership. See [roadmap §9.5](../roadmap/23-9-5-approved-visual-styling-work-director-interview-2026.md#95-approved-visual-styling-work--director-interview-2026-10-06). No player evidence was altered to fit the approvals.
