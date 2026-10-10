@@ -3,21 +3,21 @@
 Read in full at session start. One line per director requirement not DONE on main: owner, status, where the
 full wording lives (`docs/roadmap/`). Leaves this file only when its section file records DONE with the PR.
 Owner "none" = no plan or branch covers it. "verify" = code not checked this pass; owner checks before scheduling.
-Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against main `d0fbaf4d` (hygiene).
+Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against main `d0fbaf4d` (hygiene); owners for items 1-9 set by the boss 2026-10-10 (order: 8, then 2-5 as one PR, 1, 9, 7). Items 10-31 unowned go to the director as one scheduling question (boss).
 
 ## Director rules on main that the code does not meet
 
 | # | Requirement (director's words in the section file) | Source | Owner | Status |
 |---|---|---|---|---|
-| 1 | Every player card shows his **top three attributes**; Needs work compares to a positional peer benchmark; retraining adds a position and never degrades old ones | §1.11 positional weaknesses | none | not built (only "Needs work:" exists) |
-| 2 | Rotation policies named for intent (Protect freshness / Balanced rotations / Prioritise key players) with a one-line effect each | §1.11 coaching controls | none | not built (Hard / Normal / Ride stars) |
-| 3 | Every pep talk, including the default, shows its effect; a **fourth pep-talk option** | §1.11 coaching controls | none | descriptions partly #508; fourth option absent |
-| 4 | **Play through** split into three (midfield pillar, forward target, backline distributor); **Main ruck** for dual-ruck sides | §1.11 coaching controls | none | not built |
-| 5 | Defensive forward: "Assign defensive forward" label, explicit none, suitability cards, still scores | §1.11 coaching controls | none | verify |
-| 6 | **Player figures get faces and distinct hair** (16 styles defined, 5 drawn; no facial features). Director 2026-10-10: "they look like clones" | §1.11 generated player visual identity | boss → art | decided today, not yet briefed |
-| 7 | Haptics and restrained screen shake, with Off | §1.11 haptics | none | TODO, nothing in source |
-| 8 | A clear turnover cue (TURNOVER label; tackles distinguishable from turnovers) | §1.11 visual simulation | none | not built |
-| 9 | Feed styling: neutral for tactical/score lines; your goals positive, conceded negative, behinds neutral (visual) | §1.11 feed styling, scoring feedback | none | verify against #598 |
+| 1 | Every player card shows his **top three attributes**; Needs work compares to a positional peer benchmark; retraining adds a position and never degrades old ones | §1.11 positional weaknesses | boss (3rd) | not built (only "Needs work:" exists) |
+| 2 | Rotation policies named for intent (Protect freshness / Balanced rotations / Prioritise key players) with a one-line effect each | §1.11 coaching controls | boss (2nd, coaching-controls PR) | not built (Hard / Normal / Ride stars) |
+| 3 | Every pep talk, including the default, shows its effect; a **fourth pep-talk option** | §1.11 coaching controls | boss (2nd, coaching-controls PR) | descriptions partly #508; fourth option absent |
+| 4 | **Play through** split into three (midfield pillar, forward target, backline distributor); **Main ruck** for dual-ruck sides | §1.11 coaching controls | boss (2nd, coaching-controls PR) | not built |
+| 5 | Defensive forward: "Assign defensive forward" label, explicit none, suitability cards, still scores | §1.11 coaching controls | boss (2nd, coaching-controls PR) | verify |
+| 6 | **Player figures get faces and distinct hair** (16 styles defined, 5 drawn; no facial features). Director 2026-10-10: "they look like clones" | §1.11 generated player visual identity | art | briefed 2026-10-10 |
+| 7 | Haptics and restrained screen shake, with Off | §1.11 haptics | boss (5th) | TODO, nothing in source |
+| 8 | A clear turnover cue (TURNOVER label; tackles distinguishable from turnovers) | §1.11 visual simulation | boss (1st, with match-flow) | in progress |
+| 9 | Feed styling: neutral for tactical/score lines; your goals positive, conceded negative, behinds neutral (visual) | §1.11 feed styling, scoring feedback | boss (4th) | verify against #598 |
 
 ## Match flow and presentation
 
