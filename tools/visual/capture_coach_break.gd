@@ -49,6 +49,12 @@ func _run() -> void:
 		quit(1)
 		return
 	state.pending_sim.run_quarter()
+	# Give the opposition a loose defender, so the defensive forward section has someone to cover.
+	var Mu = load("res://scripts/sim/Matchups.gd")
+	var sim = state.pending_sim
+	var me := int(sim.moment_side)
+	var spare: Dictionary = Mu.best_interceptor((sim.squads[1 - me] as Object).ground, 0.0)
+	sim.set_interceptor(1 - me, str(spare.get("id", "")), false)
 	UK.apply_appearance(mode)
 	root.size = Vector2i(_w, _h)
 	DisplayServer.window_set_size(Vector2i(_w, _h))
