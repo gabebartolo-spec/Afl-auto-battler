@@ -44,6 +44,8 @@ func run() -> void:
 	_test_roaming_interceptor()
 	_test_six_plans()
 	_test_zone_intercepts()
+	_test_rotation_words_true()
+	_test_bring_the_heat()
 	_test_defensive_forward()
 	_test_hot_player_moment()
 	_test_matchups()
@@ -1735,6 +1737,45 @@ func _test_zone_intercepts() -> void:
 	_check(loose_ic / 16.0 > def_ic / float(maxi(1, def_games)),
 			"A good loose defender intercepts more than the other defenders (%.1f against %.1f a game)" % [
 					loose_ic / 16.0, def_ic / float(maxi(1, def_games))])
+
+
+## The rotation policies say what they do (director, 2026-10-07): Protect freshness takes
+## everyone off earliest, stars included; Prioritise key players keeps the stars on longest;
+## Balanced sits between. The words are pinned to the thresholds, not the strings.
+func _test_rotation_words_true() -> void:
+	var P: Dictionary = MatchSim.ROTATION_POLICIES
+	_check(float(P["hard"]["role"]) > float(P["normal"]["role"]) and float(P["hard"]["star"]) > float(P["normal"]["star"]),
+			"Protect freshness rotates everyone earlier than Balanced, stars included")
+	_check(float(P["stars"]["star"]) < float(P["normal"]["star"]) and float(P["stars"]["star"]) < float(P["stars"]["role"]),
+			"Prioritise key players keeps the stars on longest, longer than the rest")
+	_check(float(P["normal"]["star"]) < float(P["normal"]["role"]),
+			"Balanced keeps the stars on a little longer than the rest")
+	_check(str(P["hard"]["label"]) == "Protect freshness" and str(P["normal"]["label"]) == "Balanced rotations"
+			and str(P["stars"]["label"]) == "Prioritise key players", "The policies carry the director's names")
+
+
+## Bring the heat does what its words say (director, 2026-10-10): on the same seeds the side
+## lays more pressure and more tackles, and its legs go quicker.
+func _test_bring_the_heat() -> void:
+	var press := [0.0, 0.0]
+	var tackles := [0.0, 0.0]
+	var legs := [0.0, 0.0]
+	for seed in range(8500, 8512):
+		for arm in range(2):
+			var sim := _sim(seed, "ADE", "SYD")
+			sim.set_tactics(1, {"pep": "heat" if arm == 1 else "steady"})
+			var r := sim.run()
+			press[arm] += float((r["team"][1] as Dictionary).get("pressure_acts", 0.0))
+			tackles[arm] += float((r["team"][1] as Dictionary).get("tackles", 0.0))
+			var e := 0.0
+			for pl in (sim.squads[1] as Squad).ground:
+				e += float(sim.energy.get(str(pl["id"]), 100.0))
+			legs[arm] += e / float(maxi(1, (sim.squads[1] as Squad).ground.size()))
+	_check(press[1] > press[0] and tackles[1] > tackles[0],
+			"Bring the heat lays more pressure and tackles (%.0f and %.0f against %.0f and %.0f)" % [press[1], tackles[1], press[0], tackles[0]])
+	_check(legs[1] < legs[0], "...and its legs go quicker (%.1f against %.1f)" % [legs[1] / 12.0, legs[0] / 12.0])
+	_check(CoachReport.pep_summary("heat").contains("legs") and CoachReport.pep_summary("heat") != CoachReport.pep_summary("fire_up"),
+			"Its words name the cost and are its own")
 
 
 ## A tag is a midfield job: a forward kicking a bag never gets a tag card
