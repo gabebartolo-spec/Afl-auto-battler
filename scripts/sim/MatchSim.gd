@@ -36,7 +36,7 @@ const BOUNDARY_EXIT_P := 0.008
 const BOUNDARY_RUSHED_BONUS := 0.004
 const OUT_ON_FULL_SHARE := 0.12
 const BOUNDARY_TOUCHED_SHARE := 0.28
-var tactics := [{}, {}]      # per side: gameplan, focus_id, tag_id, pep
+var tactics := [{}, {}]      # per side: gameplan, focus_mid/fwd/def (focus_id), tag_id, pep
 ## Tags dropped because the man was no longer a midfielder: {side, id, q}.
 var tag_drops: Array = []
 ## How well each side's match-day players suit each plan (PlanFit): the
@@ -781,8 +781,56 @@ func _pep(side: int) -> String:
 	return str((tactics[side] as Dictionary).get("pep", "steady"))
 
 
-func _focus_id(side: int) -> String:
-	return str((tactics[side] as Dictionary).get("focus_id", ""))
+## The three play-through calls (director, 2026-10-07): a midfield pillar,
+## a forward target and a backline distributor, each chosen on its own.
+const FOCUS_SLOTS := ["focus_mid", "focus_fwd", "focus_def"]
+## The ground roles each call works from: off them (benched, moved) it waits.
+const FOCUS_SLOT_ROLES := {"focus_mid": ["MID", "RUCK"], "focus_fwd": ["FWD"], "focus_def": ["DEF"]}
+
+
+## Who this side plays through, {id: slot}. The single older call (focus_id,
+## the AI's and older saves') counts as the slot his role fills, unless that
+## slot has its own call.
+func _focus_slots(side: int) -> Dictionary:
+	var t: Dictionary = tactics[side]
+	var out := {}
+	for slot in FOCUS_SLOTS:
+		var id := str(t.get(slot, ""))
+		if id != "":
+			out[id] = slot
+	var legacy := str(t.get("focus_id", ""))
+	if legacy != "" and not out.has(legacy):
+		var p = _ground_player(side, legacy)
+		if p != null:
+			var slot := focus_slot_for(str(p["role"]))
+			if str(t.get(slot, "")) == "":
+				out[legacy] = slot
+	return out
+
+
+## The play-through slot a ground role fills.
+static func focus_slot_for(role: String) -> String:
+	for slot in FOCUS_SLOT_ROLES:
+		if (FOCUS_SLOT_ROLES[slot] as Array).has(role):
+			return slot
+	return "focus_mid"
+
+
+## Whether `slot`'s call is working now: its man is on the ground in a spot
+## the call works from (a forward target resting on the bench is not).
+func focus_active(side: int, slot: String) -> bool:
+	var id := str((tactics[side] as Dictionary).get(slot, ""))
+	if id == "":
+		return false
+	var p = _ground_player(side, id)
+	return p != null and (FOCUS_SLOT_ROLES[slot] as Array).has(str(p["role"]))
+
+
+func _ground_player(side: int, id: String):
+	for p in (squads[side] as Squad).ground:
+		if str(p["id"]) == id:
+			return p
+	return null
 
 
 func _tag_id(side: int) -> String:
@@ -1106,7 +1154,7 @@ func _pick_ctx(side: int) -> Dictionary:
 			tagger_id = str(tagger["id"])
 	var plan := _plan(side)
 	var minder := _spare_minder(side)
-	return {"focus": _focus_id(side), "their_tag": their_tag, "minder": str(minder.get("id", "")),
+	return {"focus": _focus_slots(side), "their_tag": their_tag, "minder": str(minder.get("id", "")),
 			"tag_share": _tag_share(1 - side) if their_tag != "" else 1.0,
 			"tagger": tagger_id, "stars": plan == "through_stars",
 			"star_ball": _pv(side, "star_ball") if plan == "through_stars" else 1.0}
@@ -1117,7 +1165,11 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String, ctx: Diction
 		ctx = _pick_ctx(side)
 	var out := 1.0
 	var id := str(p["id"])
-	var focused := id == str(ctx["focus"])
+	var slot := str((ctx["focus"] as Dictionary).get(id, ""))
+	# A call works only while he fills a spot it works from.
+	if slot != "" and not (FOCUS_SLOT_ROLES[slot] as Array).has(str(p["role"])):
+		slot = ""
+	var focused := slot != ""
 	# "transition" is a carry in the middle of the ground (pick_carrier).
 	var carrying := purpose == "carrier" or purpose == "transition"
 	# The wings run the ball through the middle and are not at the stoppage.
@@ -1132,7 +1184,7 @@ func _tactic_player_mult(side: int, p: Dictionary, purpose: String, ctx: Diction
 	# coming out of the back half. A small early boost, then the usage
 	# curve fades him back toward a low-30s disposal game.
 	if focused:
-		out *= _focus_mult(str(p["role"]), purpose, str(ctx.get("zone", "")))
+		out *= _focus_mult(slot, purpose, str(ctx.get("zone", "")))
 	if carrying and _trait(p, "ball_magnet"):
 		out *= 1.10
 	if carrying and weather == "wet" and _trait(p, "wet_weather"):
@@ -1166,15 +1218,15 @@ const FOCUS_SHOT := 1.25
 const FOCUS_EXIT := 1.25
 
 
-func _focus_mult(role: String, purpose: String, zone: String) -> float:
+func _focus_mult(slot: String, purpose: String, zone: String) -> float:
 	var carrying := purpose == "carrier" or purpose == "transition"
-	match role:
-		"FWD":
+	match slot:
+		"focus_fwd":
 			if purpose == "shooter":
 				return FOCUS_SHOT
 			if carrying and zone != "back" and zone != "middle":
 				return FOCUS_CARRY
-		"DEF":
+		"focus_def":
 			if carrying and zone == "back":
 				return FOCUS_EXIT
 		_:
@@ -3564,7 +3616,7 @@ func _after_chain() -> void:
 			if tagger != null:
 				tagger_id = str(tagger["id"])
 		# Asked once a side, not once a player (the same answers every time).
-		var focus_id := _focus_id(side)
+		var focus_ids := _focus_slots(side)
 		var tagged_id := _tag_id(1 - side)
 		var holding := _burst(side, "hold")
 		var flooding := _burst(side, "flood")
@@ -3577,7 +3629,7 @@ func _after_chain() -> void:
 				gps *= GPS_WING_MULT
 			if _chain_touch.has(id):
 				gps *= GPS_TOUCH_MULT
-			if id == focus_id:
+			if focus_ids.has(id):
 				gps *= GPS_FOCUS_MULT
 			if id == tagger_id:
 				gps *= GPS_TAGGER_MULT

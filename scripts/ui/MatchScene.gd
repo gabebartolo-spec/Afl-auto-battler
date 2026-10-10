@@ -68,6 +68,9 @@ var _mom_meter: Control       # MomentumMeter: draws the engine's momentum
 var _mom_word: Label          # who has it, in words
 var _mom_note: Label          # first match only: what it is
 var _rotation := "normal"
+## The break is the PC sheet (four columns): player cards say their detail
+## on one line and choices sit 40 tall (a mouse, not a thumb).
+var _pc_break := false
 var _pos_before := 0          # your ladder spot before this match
 var _lead: Label
 var _setup_line: Label
@@ -552,6 +555,8 @@ func _show_coach_box() -> void:
 	# On a PC the break is a wide landscape sheet with every call in view
 	# (director, 2026-10-09: "it looks like we are using a mobile UI on a PC").
 	var wide := _wide_break()
+	_pc_break = wide
+	var stats_pc: Button = null
 	var box := UiKit.modal_box(self, minf(UiKit.view_width(self) - 48.0, 1560.0) if wide else 640.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
 	overlay.name = "CoachBox"
@@ -563,24 +568,33 @@ func _show_coach_box() -> void:
 	var band := ClubDuel.band(str(_res["home"]), str(_res["away"]), bv, 14)
 	band.name = "BreakBand"
 	v.add_child(band)
-	# Wide: the quarter just played, then the calls in two columns. A phone
-	# keeps one column, every call in it.
-	# Below 1100 units the quarter just played sits above two columns.
+	# Wide (PC, director 2026-10-11: no column scrolls at 1280x720): the
+	# quarter just played and the key match-ups, then the calls in three
+	# columns - the plan, the tag and the talk; the rotations and the loose
+	# men; the three play-through calls. A phone keeps one column, every call
+	# in it.
+	# Below 1200 units the first column sits above the other three.
 	var rep: VBoxContainer = v
 	var col_a: VBoxContainer = v
 	var col_b: VBoxContainer = v
+	var col_c: VBoxContainer = v
 	var cols: HBoxContainer = null
+	# How many from the game so far each player call shows before "Other
+	# player...": two on a wide screen, so every call fits without scrolling.
+	var quick := 0
 	if wide:
-		var three := q > 1 and UiKit.view_width(self) >= 1100.0
+		var four := UiKit.view_width(self) >= 1200.0
+		quick = 2
 		cols = HBoxContainer.new()
 		cols.name = "BreakColumns"
-		cols.add_theme_constant_override("separation", 32)
+		cols.add_theme_constant_override("separation", 24 if four else 32)
 		col_a = UiKit.vbox(8)
 		col_b = UiKit.vbox(8)
-		if three:
+		col_c = UiKit.vbox(8)
+		if four:
 			rep = UiKit.vbox(8)
 			v.add_child(cols)
-		for c in ([rep, col_a, col_b] if three else [col_a, col_b]):
+		for c in ([rep, col_a, col_b, col_c] if four else [col_a, col_b, col_c]):
 			c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			c.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 			cols.add_child(c)
@@ -602,12 +616,16 @@ func _show_coach_box() -> void:
 		bv.add_child(sc)
 		# The full numbers, both clubs, at every break (director's PC
 		# playtest, 2026-10-07): a tap, never a compulsory report.
-		var stats := UiKit.btn("Match stats", UiKit.BODY)
+		# On a PC it is a word in the actions row, beside Skip to full time.
+		var stats := UiKit.text_action("Match stats", UiKit.BODY) if wide else UiKit.btn("Match stats", UiKit.BODY)
 		stats.name = "BreakStats"
 		stats.custom_minimum_size = Vector2(0, 44)
 		stats.pressed.connect(_show_break_stats)
-		rep.add_child(stats)
-		rep.add_child(UiKit.spacer(UiKit.GAP))
+		if wide:
+			stats_pc = stats
+		else:
+			rep.add_child(stats)
+			rep.add_child(UiKit.spacer(UiKit.GAP))
 		# The quarter just played, by name: what happened, not what is happening.
 		var played := UiKit.section(str({2: "First quarter", 3: "Second quarter",
 				4: "Third quarter"}.get(q, "Last quarter")))
@@ -620,7 +638,9 @@ func _show_coach_box() -> void:
 				+ MatchNotes.lasting_moment_lines(_res, q - 1)
 		if not did.is_empty():
 			rep.add_child(UiKit.spacer(UiKit.GAP))
-			rep.add_child(UiKit.section("What your calls did"))
+			var did_head := UiKit.section("What your calls did")
+			did_head.set_meta("break_unit", true)
+			rep.add_child(did_head)
 			var dv := UiKit.vbox(4)
 			dv.name = "CallsDid"
 			for t in did:
@@ -631,7 +651,9 @@ func _show_coach_box() -> void:
 	rep.add_child(UiKit.spacer(UiKit.GAP))
 	if cols != null and cols.get_parent() == null:
 		v.add_child(cols)
-	col_a.add_child(UiKit.section("Your calls" if q == 1 else "Next quarter"))
+	var calls_head := UiKit.section("Your calls" if q == 1 else "Next quarter")
+	calls_head.set_meta("break_unit", true)
+	col_a.add_child(calls_head)
 
 	# Your calls, as taps: nothing here is a settings form. Short lists sit
 	# in plain view; a player list shows the few in the game so far and
@@ -641,7 +663,9 @@ func _show_coach_box() -> void:
 	var calls := {
 		"gameplan": _current_plan(sim),
 		"tag_id": str((sim.tactics[_my_side] as Dictionary).get("tag_id", _last_tactics.get("tag_id", ""))),
-		"focus_id": str(_last_tactics.get("focus_id", "")),
+		"focus_mid": str(_last_tactics.get("focus_mid", "")),
+		"focus_fwd": str(_last_tactics.get("focus_fwd", "")),
+		"focus_def": str(_last_tactics.get("focus_def", "")),
 		"interceptor_id": str(sim.interceptor[_my_side]),
 		"minder_id": str((sim.tactics[_my_side] as Dictionary).get("spare_minder_id", "")) 				if bool((sim.tactics[_my_side] as Dictionary).get("spare_accountable", false)) else "",
 		"pep": "steady",
@@ -662,7 +686,10 @@ func _show_coach_box() -> void:
 			t += " " + fit
 		plan_note.text = t
 	var plan := _choice_grid("PlanPicker", GAMEPLANS, calls, "gameplan", 2 if narrow else 3, sync_note)
-	col_a.add_child(_call_block("Gameplan", plan))
+	# The heading and the plan under it stay together.
+	var plan_block := _call_block("Gameplan", plan)
+	plan_block.remove_meta("break_unit")
+	col_a.add_child(plan_block)
 	col_a.add_child(plan_note)
 	sync_note.call(str(calls["gameplan"]))
 
@@ -684,7 +711,7 @@ func _show_coach_box() -> void:
 		else:
 			tag_note.text = ("%s, your tagger, goes to him." if Roles.is_tagger(tagger)
 					else "No specialist tagger on the ground: %s goes to him and gives up his own game.") % GameDB.player_display_name(tagger)
-	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, 4), calls, "tag_id",
+	var tag := _player_choice("TagPicker", "No tag", opp, _in_the_game(opp, quick if quick > 0 else 4), calls, "tag_id",
 			"Tag which midfielder?", sync_tag)
 	col_a.add_child(_call_block("Tag", tag))
 	sync_tag.call(str(calls["tag_id"]))
@@ -696,6 +723,7 @@ func _show_coach_box() -> void:
 	# stands half empty (director, 2026-10-10).
 	var mv := _matchups_view(sim, q)
 	if mv != null:
+		mv.set_meta("break_unit", true)
 		(rep if rep != v else col_a).add_child(mv)
 	# Assign defensive forward (director, 2026-10-07): one of your forwards goes
 	# up the ground with their loose defender. Facts only: each card says where
@@ -704,6 +732,7 @@ func _show_coach_box() -> void:
 	var opp_spare := sim._roaming_interceptor(1 - _my_side)
 	var minder_box := UiKit.vbox(6)
 	minder_box.name = "MinderBlock"
+	minder_box.set_meta("break_unit", true)
 	minder_box.add_child(UiKit.lbl("Assign defensive forward", UiKit.SMALL, UiKit.MUTED, true))
 	if opp_spare.is_empty():
 		var none_note := UiKit.lbl(MatchNotes.minder_none_line(), UiKit.SMALL, UiKit.MUTED)
@@ -718,20 +747,22 @@ func _show_coach_box() -> void:
 		ask.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		minder_box.add_child(ask)
 		minder_box.add_child(_player_choice("SpareMinderPicker", "No defensive forward assigned", fwds,
-				fwds.slice(0, mini(3, fwds.size())), calls, "minder_id", "Who covers him?", Callable(),
+				fwds.slice(0, mini(quick if quick > 0 else 3, fwds.size())), calls, "minder_id", "Who covers him?", Callable(),
 				func(p: Dictionary, wide: bool) -> String: return MatchNotes.minder_card_detail(p, wide)))
 		var minder_note := UiKit.lbl(MatchNotes.minder_cost_line(), UiKit.SMALL, UiKit.MUTED)
 		minder_note.name = "MinderNote"
 		minder_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		minder_box.add_child(minder_note)
 	col_a.add_child(minder_box)
+	var minder_nodes: Array = [minder_box]
 
 	# The rest of the calls, all in view (director, 2026-10-09: no "More
 	# calls" button).
-	var more: VBoxContainer = col_b
+	var more: VBoxContainer = col_c
 	var syn_line := _synergy_line()
 	if syn_line != "":
 		var sl := UiKit.lbl(syn_line, UiKit.SMALL, UiKit.MUTED)
+		sl.set_meta("break_unit", true)
 		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		more.add_child(sl)
 
@@ -744,31 +775,39 @@ func _show_coach_box() -> void:
 		if str(p.get("role", "")) == "DEF":
 			def_ground.append(p)
 	var interceptors := Matchups.interceptor_candidates(def_ground)
-	var roam_first: Array = interceptors.slice(0, mini(3, interceptors.size()))
+	var roam_first: Array = interceptors.slice(0, mini(quick if quick > 0 else 3, interceptors.size()))
 	var roam := _player_choice("InterceptorPicker", "No loose defender", def_ground, roam_first,
 			calls, "interceptor_id", "Who roams behind the ball?")
-	more.add_child(_call_block("Loose interceptor", roam))
+	var roam_block := _call_block("Loose interceptor", roam)
+	more.add_child(roam_block)
 	var roam_note := UiKit.lbl(
 			"He leaves his direct man to attack aerial balls. Another defender covers where possible; if he flies and loses, space opens behind him.",
 			UiKit.SMALL, UiKit.MUTED)
 	roam_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	more.add_child(roam_note)
 
-	var focus_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
-	focus_note.name = "FocusNote"
-	focus_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var sync_focus := func(id: String) -> void:
-		focus_note.text = _focus_note_text(id)
-	var focus := _player_choice("FocusPicker", "No one", mine, _in_the_game(mine, 4), calls, "focus_id",
-			"Play through which player?", sync_focus)
-	var focus_block := _call_block("Play through", focus)
-	sync_focus.call(str(calls["focus_id"]))
-	focus_block.add_child(focus_note)
-	more.add_child(focus_block)
+	# Play through, three calls (director, 2026-10-07): each offers the men who
+	# fill that job now, and says what it does or that it waits.
+	for slot in MatchSim.FOCUS_SLOTS:
+		var fits := mine.filter(func(r): return (MatchSim.FOCUS_SLOT_ROLES[slot] as Array).has(
+				str(_focus_player(str(r["id"])).get("role", r.get("role", "")))))
+		var note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
+		note.name = "FocusNote_" + slot
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var sync := func(id: String) -> void:
+			note.text = _focus_note_text(slot, id)
+		var text: Array = MatchNotes.FOCUS_SLOT_TEXT[slot]
+		var pick := _player_choice("FocusPicker_" + slot, "No one", fits, _in_the_game(fits, quick if quick > 0 else 3), calls, slot,
+				"Play through: %s" % str(text[0]).to_lower(), sync)
+		var block := _call_block("Play through: %s" % str(text[0]).to_lower(), pick)
+		sync.call(str(calls[slot]))
+		block.add_child(note)
+		more.add_child(block)
 
-	# Three columns: pep talk and rotations sit under the tag, so the columns
-	# end level and the whole sheet fits a 720-unit screen.
-	var tail: VBoxContainer = col_a if rep != v else more
+	# Wide: the pep talk sits under the tag; rotations and both loose men,
+	# yours and theirs, share a column, so every column fits a 720-unit
+	# screen.
+	var tail: VBoxContainer = col_b
 	var pep_note := UiKit.lbl("", UiKit.SMALL, UiKit.MUTED)
 	pep_note.name = "PepNote"
 	pep_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -777,8 +816,8 @@ func _show_coach_box() -> void:
 	# Four talks: a two-column grid of their full names, which fits a 360 phone
 	# and the PC column alike (one row of four ran off a phone).
 	var pep := _choice_grid("PepPicker", PEP_TALKS, calls, "pep", 2, sync_pep)
-	tail.add_child(_call_block("Pep talk", pep))
-	tail.add_child(pep_note)
+	col_a.add_child(_call_block("Pep talk", pep))
+	col_a.add_child(pep_note)
 	sync_pep.call("steady")
 
 	var rot_opts := []
@@ -793,6 +832,13 @@ func _show_coach_box() -> void:
 	tail.add_child(_call_block("Rotations", rot))
 	tail.add_child(rot_note)
 	sync_rot.call(_rotation)
+	# On a wide screen the three play-through calls fill the last column, so the
+	# loose interceptor sits under the rotations, their loose defender after
+	# him, and no column has to scroll.
+	if wide:
+		for n in [roam_block, roam_note] + minder_nodes:
+			n.get_parent().remove_child(n)
+			tail.add_child(n)
 	(rep if rep != v else tail).add_child(_legs_view())
 
 	var start := UiKit.btn("Start quarter" if q > 1 else "Ball it up", UiKit.HEADING, true)
@@ -802,7 +848,9 @@ func _show_coach_box() -> void:
 		_rotation = str(calls["rotation"])
 		var t := {
 			"gameplan": str(calls["gameplan"]),
-			"focus_id": str(calls["focus_id"]),
+			"focus_mid": str(calls["focus_mid"]),
+			"focus_fwd": str(calls["focus_fwd"]),
+			"focus_def": str(calls["focus_def"]),
 			"tag_id": str(calls["tag_id"]),
 			"interceptor_id": str(calls["interceptor_id"]),
 			"interceptor_set": str(calls["interceptor_id"]) != loose_was,
@@ -822,12 +870,90 @@ func _show_coach_box() -> void:
 		acts.alignment = BoxContainer.ALIGNMENT_END
 		skip.custom_minimum_size = Vector2(220, 48)
 		start.custom_minimum_size = Vector2(300, 48)
+		if stats_pc != null:
+			stats_pc.custom_minimum_size = Vector2(180, 48)
+			acts.add_child(stats_pc)
 		acts.add_child(skip)
 		acts.add_child(start)
 		box["footer"].add_child(acts)
+		# A mouse, not a thumb: the choices sit 40 tall on the PC sheet.
+		for b in cols.find_children("*", "Button", true, false):
+			if (b as Button).custom_minimum_size.y == 44.0:
+				(b as Button).custom_minimum_size.y = 40.0
+		_balance_break_columns.call_deferred([rep, col_a, col_b, col_c] if rep != v else [col_a, col_b, col_c])
 	else:
 		box["footer"].add_child(start)
 		box["footer"].add_child(skip)
+
+
+## A PC break's calls read in one order down and across the call columns;
+## where each column ends follows what is in it this break (a loose defender
+## of theirs, a second ruck), so the tallest column is as short as it can be
+## and nothing scrolls on a 720-unit screen. A call keeps its words under it.
+func _balance_break_columns(cols: Array) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(cols[0]):
+		return
+	# Calls in reading order: a call starts a unit; its notes go with it.
+	var units: Array = []
+	for c in cols:
+		for n in (c as Node).get_children():
+			if units.is_empty() or (n as Node).has_meta("break_unit"):
+				units.append([n])
+			else:
+				(units[-1] as Array).append(n)
+	var sep := float((cols[0] as VBoxContainer).get_theme_constant("separation"))
+	var h: Array = []
+	for u in units:
+		var t := 0.0
+		for n in u:
+			t += (n as Control).get_combined_minimum_size().y + sep
+		h.append(t)
+	# Where each column ends, so the tallest column is as short as it can be
+	# (every split of the units, in order, into that many columns).
+	var n_units := units.size()
+	var ends := _best_split(h, cols.size())
+	var col := 0
+	for k in range(n_units):
+		while col < cols.size() - 1 and k >= int(ends[col]):
+			col += 1
+		var dest: Node = cols[col]
+		for n in units[k]:
+			(n as Node).get_parent().remove_child(n)
+			dest.add_child(n)
+
+
+## Split heights h, in order, into `parts` runs so the largest run is
+## smallest; returns where each run ends (exclusive).
+static func _best_split(h: Array, parts: int) -> Array:
+	var n := h.size()
+	var pre := [0.0]
+	for x in h:
+		pre.append(float(pre[-1]) + float(x))
+	# best[p][i]: the tallest column splitting the first i units into p columns.
+	var best: Array = []
+	var cut: Array = []
+	for p in range(parts + 1):
+		best.append([])
+		cut.append([])
+		for i in range(n + 1):
+			(best[p] as Array).append(INF)
+			(cut[p] as Array).append(0)
+	best[0][0] = 0.0
+	for p in range(1, parts + 1):
+		for i in range(n + 1):
+			for j in range(i + 1):
+				var top := maxf(float(best[p - 1][j]), float(pre[i]) - float(pre[j]))
+				if top < float(best[p][i]) - 0.5:
+					best[p][i] = top
+					cut[p][i] = j
+	var ends: Array = []
+	ends.resize(parts)
+	var i := n
+	for p in range(parts, 0, -1):
+		ends[p - 1] = i
+		i = int(cut[p][i])
+	return ends
 
 
 ## A landscape PC window wide enough for the break sheet's columns (the
@@ -1128,6 +1254,7 @@ func _on_moment_choice(i: int) -> void:
 ## A call and its choices, heading above.
 func _call_block(label: String, control: Control) -> Control:
 	var v := UiKit.vbox(6)
+	v.set_meta("break_unit", true)
 	v.add_child(UiKit.lbl(label, UiKit.SMALL, UiKit.MUTED, true))
 	v.add_child(control)
 	return v
@@ -1189,13 +1316,16 @@ func _player_choice(node_name: String, none_label: String, roster: Array, first:
 					on_change.call(id)
 				self_ref.call(self_ref)))
 		grid.add_child(other)
+		if _pc_break:
+			for gb in grid.get_children():
+				(gb as Control).custom_minimum_size.y = 40.0
 	rebuild.call(rebuild)
 	return box
 
 
 ## A player's card text: his name, then what `detail` says about him.
 func _card_text(r: Dictionary, detail: Callable) -> String:
-	var extra := str(detail.call(r, false)) if detail.is_valid() else ""
+	var extra := str(detail.call(r, _pc_break)) if detail.is_valid() else ""
 	return _short_name(r) if extra == "" else "%s
 %s" % [_short_name(r), extra]
 
@@ -1423,15 +1553,19 @@ func _focus_text(id: String) -> String:
 
 ## Under the Play through control: his job and what it does for him; the
 ## general description with nobody picked.
-func _focus_note_text(id: String) -> String:
+func _focus_note_text(slot: String, id: String) -> String:
 	if id == "":
-		return "Favour this player in possession chains and attacking transition."
-	var p := _focus_player(id)
-	# A sentence: "Jacob van Rooyen is our key forward target: ...".
-	var role := str(p.get("role", ""))
+		return MatchNotes.focus_slot_note(slot, "", false, false)
 	var who := GameDB.player_display_name_by_id(id, "your player")
-	var job := str(MatchNotes.FOCUS_ROLES[role][0]) if MatchNotes.FOCUS_ROLES.has(role) else "the one we play through"
-	return "%s is %s: %s." % [who, job, MatchNotes.focus_effect_text(role)]
+	var on := false
+	var working := false
+	var sim: MatchSim = GameState.pending_sim
+	if sim != null:
+		for p in (sim.squads[_my_side] as Squad).ground:
+			if str(p["id"]) == id:
+				on = true
+				working = (MatchSim.FOCUS_SLOT_ROLES[slot] as Array).has(str(p["role"]))
+	return MatchNotes.focus_slot_note(slot, who, working, not on)
 
 
 ## "Defensive press · tagging Walsh": your calls for this quarter, one line.
@@ -1442,9 +1576,14 @@ func _show_setup(t: Dictionary) -> void:
 	var tag_id := str(t.get("tag_id", ""))
 	if tag_id != "":
 		bits.append("tagging " + GameDB.player_display_name_by_id(tag_id, "their player"))
-	var focus_id := str(t.get("focus_id", ""))
-	if focus_id != "":
-		bits.append(_focus_text(focus_id))
+	for slot in MatchSim.FOCUS_SLOTS:
+		var fid := str(t.get(slot, ""))
+		if fid != "":
+			bits.append("%s %s" % [GameDB.player_display_name_by_id(fid, "your player"),
+					str(MatchNotes.FOCUS_SLOT_TEXT[slot][1])])
+	var legacy := str(t.get("focus_id", ""))
+	if legacy != "":
+		bits.append(_focus_text(legacy))
 	var intercept_id := str(t.get("interceptor_id", ""))
 	if intercept_id != "":
 		bits.append(GameDB.player_display_name_by_id(intercept_id, "your defender") + " loose behind the ball")

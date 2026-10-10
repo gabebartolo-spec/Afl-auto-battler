@@ -354,7 +354,9 @@ static func calls_lines(res: Dictionary, my_side: int, q: int) -> Array:
 			if stars >= 0:
 				out.append(("%s: your stars had %d disposals" % [label, stars])
 						+ ((", from %d%s." % [_stars_disposals(res, was, before, my_side), prev]) if q >= 2 else "."))
-	for key in [["tag_id", "Tag on %s: %d disposal%s", opp], ["focus_id", "Through %s: %d disposal%s", my_side]]:
+	for key in [["tag_id", "Tag on %s: %d disposal%s", opp], ["focus_mid", "Through %s: %d disposal%s", my_side],
+			["focus_fwd", "Through %s: %d disposal%s", my_side], ["focus_def", "Through %s: %d disposal%s", my_side],
+			["focus_id", "Through %s: %d disposal%s", my_side]]:
 		var id := str(calls.get(key[0], ""))
 		if id == "":
 			continue
@@ -398,6 +400,34 @@ const FOCUS_ROLES := {
 	"DEF": ["our key distributor", "first use of the ball out of the back half"],
 	"RUCK": ["our key man in the middle", "the ball goes to him more often"],
 }
+
+
+## The three play-through calls (director, 2026-10-07): [heading, his job,
+## what it does, with nobody picked, the spot it works from].
+const FOCUS_SLOT_TEXT := {
+	"focus_mid": ["Midfield pillar", "our midfield pillar",
+			"the ball goes to him more often through the midfield",
+			"Nobody: the midfield shares the ball.", "the midfield"],
+	"focus_fwd": ["Forward target", "our key forward target",
+			"more of the ball up forward and more of the shots at goal",
+			"Nobody: the forwards share the entries.", "the forward line"],
+	"focus_def": ["Backline distributor", "our backline distributor",
+			"first use of the ball out of the back half",
+			"Nobody: the backs share the ball out of defence.", "the back line"],
+}
+
+
+## Under a play-through call: his job and what it does; with nobody, what that
+## means; and, when he is not in the spot the call works from, that it waits.
+static func focus_slot_note(slot: String, name: String, working: bool, benched: bool) -> String:
+	var t: Array = FOCUS_SLOT_TEXT[slot]
+	if name == "":
+		return str(t[3])
+	if benched:
+		return "%s is on the bench: the call waits until he is back on." % name
+	if not working:
+		return "%s is not in %s now: the call waits until he is back there." % [name, str(t[4])]
+	return "%s is %s: %s." % [name, str(t[1]), str(t[2])]
 
 
 static func focus_role_text(name: String, role: String) -> String:

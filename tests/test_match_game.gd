@@ -29,6 +29,7 @@ func run() -> void:
 	_test_tired_call_holds()
 	_test_play_through()
 	_test_play_through_by_job()
+	_test_play_through_three()
 	_test_hothead()
 	_test_lockdown_midfielder()
 	_test_traits()
@@ -1330,6 +1331,79 @@ func _test_play_through_by_job() -> void:
 			"A defender played through gets no more of the ball through the middle")
 	_check(_count_picks(60, def_id, "carrier", 25.0, def_id) == _count_picks(60, def_id, "carrier", 25.0, ""),
 			"...nor up forward: his job is out of the back half")
+
+
+## Three play-through calls at once (director, 2026-10-07): a midfield pillar,
+## a forward target and a backline distributor. Each works by its own job, all
+## three together; the older single call is the same as its slot's; a call
+## waits while its man is off the spot it works from; and nobody becomes the
+## only one who gets the ball.
+func _test_play_through_three() -> void:
+	var probe := _sim(60)
+	var who := {}
+	for p in probe.squads[0].ground:
+		var role := str(p["role"])
+		if not who.has(role):
+			who[role] = p
+	for role in ["FWD", "MID", "DEF"]:
+		_check(who.has(role), "(setup) a %s is on the ground" % role)
+		if not who.has(role):
+			return
+	var mid: Dictionary = who["MID"]
+	var fwd: Dictionary = who["FWD"]
+	var def: Dictionary = who["DEF"]
+	var plain_mid := _job_mult(probe, mid, "carrier", "middle")
+	var plain_fwd := _job_mult(probe, fwd, "shooter", "inside")
+	var plain_def := _job_mult(probe, def, "carrier", "back")
+	var three := {"focus_mid": str(mid["id"]), "focus_fwd": str(fwd["id"]), "focus_def": str(def["id"])}
+	probe.set_tactics(0, three)
+	_check(is_equal_approx(_job_mult(probe, mid, "carrier", "middle") / plain_mid, MatchSim.FOCUS_CARRY),
+			"The midfield pillar gets more of the ball in the chain")
+	_check(is_equal_approx(_job_mult(probe, fwd, "shooter", "inside") / plain_fwd, MatchSim.FOCUS_SHOT),
+			"...the forward target more of the shots, at the same time")
+	_check(is_equal_approx(_job_mult(probe, def, "carrier", "back") / plain_def, MatchSim.FOCUS_EXIT),
+			"...and the backline distributor first use out of the back half")
+	_check(is_equal_approx(_job_mult(probe, mid, "shooter", "inside"), _job_mult(_sim(60), mid, "shooter", "inside")),
+			"The pillar is not made the shooter")
+	# The older single call is the call for his slot.
+	var old := _sim(60)
+	old.set_tactics(0, {"focus_id": str(fwd["id"])})
+	var new := _sim(60)
+	new.set_tactics(0, {"focus_fwd": str(fwd["id"])})
+	_check(is_equal_approx(_job_mult(old, fwd, "shooter", "inside"), _job_mult(new, fwd, "shooter", "inside")),
+			"A single older play-through call is the call for his slot")
+	# A call made for a spot he is not filling waits.
+	var off := _sim(60)
+	off.set_tactics(0, {"focus_fwd": str(mid["id"])})
+	_check(not off.focus_active(0, "focus_fwd") and is_equal_approx(
+			_job_mult(off, mid, "carrier", "middle"), plain_mid), "A forward-target call on a midfielder waits")
+	_check(off.focus_active(0, "focus_fwd") == false and probe.focus_active(0, "focus_fwd"),
+			"...and the screen can tell a working call from a waiting one")
+	# Real matches, paired seeds: each man gets more of his job, none an absurd share.
+	var n := 24
+	var on := {"md": 0.0, "fs": 0.0, "dk": 0.0, "td": 0.0, "top": 0.0}
+	var base := {"md": 0.0, "fs": 0.0, "dk": 0.0, "td": 0.0}
+	for i in range(n):
+		var a := _sim(900 + i)
+		a.set_tactics(0, three)
+		var ra := a.run()
+		var rb := _sim(900 + i).run()
+		for pair in [[ra, on], [rb, base]]:
+			var pl: Dictionary = pair[0]["players"]
+			var acc: Dictionary = pair[1]
+			var sf: Dictionary = pl.get(str(fwd["id"]), {})
+			acc["md"] += float((pl.get(str(mid["id"]), {}) as Dictionary).get("disposals", 0.0))
+			acc["fs"] += float(sf.get("goals", 0.0)) + float(sf.get("behinds", 0.0))
+			acc["dk"] += float((pl.get(str(def["id"]), {}) as Dictionary).get("disposals", 0.0))
+			acc["td"] += float(((pair[0]["team"] as Array)[0] as Dictionary).get("disposals", 0.0))
+		for id in three.values():
+			on["top"] = maxf(float(on["top"]), float(((ra["players"] as Dictionary).get(id, {}) as Dictionary).get("disposals", 0.0)))
+	_check(on["md"] > base["md"], "Pillar: more of the ball (%.1f v %.1f a game)" % [on["md"] / n, base["md"] / n])
+	_check(on["fs"] > base["fs"], "Target: more shots (%.2f v %.2f a game)" % [on["fs"] / n, base["fs"] / n])
+	_check(on["dk"] > base["dk"], "Distributor: more of the ball (%.1f v %.1f a game)" % [on["dk"] / n, base["dk"] / n])
+	_check(absf(on["td"] - base["td"]) / base["td"] < 0.03,
+			"The calls move who gets it, not how much the side has (%.0f v %.0f disposals)" % [on["td"] / n, base["td"] / n])
+	_check(on["top"] < 45.0, "Nobody becomes the only one who gets it (most in a game %d)" % int(on["top"]))
 
 
 func _job_mult(sim: MatchSim, p: Dictionary, purpose: String, zone: String) -> float:

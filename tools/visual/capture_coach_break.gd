@@ -7,6 +7,8 @@ extends SceneTree
 ## their descriptions show), <out>_tag.png (Tag with no tag picked) and
 ## <out>_plan.png (the match screen with a long plan line: every call in full).
 ##   --size WxH   window size (default 390x844)    --light   light appearance
+##   --club CODE  your club (default MEL)    --their-loose  they run a loose
+##                defender at quarter time (the fullest break)
 ## A fresh Melbourne career's first match at quarter time. Never touches a
 ## real save.
 
@@ -21,6 +23,8 @@ func _initialize() -> void:
 func _run() -> void:
 	var out := "coach_break"
 	var mode := "dark"
+	var club := "MEL"
+	var their_loose := false
 	var a := OS.get_cmdline_user_args()
 	for i in range(a.size()):
 		match str(a[i]):
@@ -32,6 +36,10 @@ func _run() -> void:
 				_h = int(wh[1])
 			"--light":
 				mode = "light"
+			"--club":
+				club = str(a[i + 1])
+			"--their-loose":
+				their_loose = true
 	await process_frame
 	var state = root.get_node("GameState")
 	var db = root.get_node("GameDB")
@@ -43,12 +51,19 @@ func _run() -> void:
 	state.career_seed = 2026
 	state.replay_seed = 2026
 	state.set_setting("seen_training_intro", true)
-	state.start_season("MEL", db.club_list("MEL"))
+	state.start_season(club, db.club_list(club))
 	if not state.prepare_interactive_match():
 		push_error("no match to prepare")
 		quit(1)
 		return
+	var spare := {}
+	if their_loose:
+		var sim0 = state.pending_sim
+		spare = load("res://scripts/sim/Matchups.gd").best_interceptor(sim0.squads[1 - int(sim0.moment_side)].ground, 0.0)
+		sim0.set_interceptor(1 - int(sim0.moment_side), str(spare.get("id", "")), false)
 	state.pending_sim.run_quarter()
+	if their_loose:
+		state.pending_sim.set_interceptor(1 - int(state.pending_sim.moment_side), str(spare.get("id", "")), true)
 	UK.apply_appearance(mode)
 	root.size = Vector2i(_w, _h)
 	DisplayServer.window_set_size(Vector2i(_w, _h))
@@ -66,9 +81,9 @@ func _run() -> void:
 		if str(p["role"]) == "FWD":
 			fwd = str(p["id"])
 			break
-	var pick: Button = scene.find_child("FocusPickerGrid_" + fwd, true, false)
+	var pick: Button = scene.find_child("FocusPicker_focus_fwdGrid_" + fwd, true, false)
 	if pick == null:
-		var other: Button = scene.find_child("FocusPickerOther", true, false)
+		var other: Button = scene.find_child("FocusPicker_focus_fwdOther", true, false)
 		if other != null:
 			other.emit_signal("pressed")
 			await _frames(6)
@@ -76,7 +91,7 @@ func _run() -> void:
 	if pick != null:
 		pick.emit_signal("pressed")
 		await _frames(6)
-	await _shoot(scene.find_child("FocusPicker", true, false), out + "_focus.png")
+	await _shoot(scene.find_child("FocusPicker_focus_fwd", true, false), out + "_focus.png")
 	await _frames(8)
 	# Composed and Normal are the defaults: their words show without a tap.
 	await _shoot(scene.find_child("PepPicker", true, false), out + "_pep.png")

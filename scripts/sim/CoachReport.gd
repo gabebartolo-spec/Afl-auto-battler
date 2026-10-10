@@ -452,7 +452,14 @@ static func _split_plans(res: Dictionary, my_side: int, opp_side: int, quarters:
 
 
 static func _plan_entry(q: int, t: Dictionary) -> Dictionary:
-	var focus_id := str(t.get("focus_id", ""))
+	# Play through is three calls now (midfield, forward, back line); the older
+	# single call still reads as one.
+	var focus_ids := []
+	for key in ["focus_mid", "focus_fwd", "focus_def", "focus_id"]:
+		var fid := str(t.get(key, ""))
+		if fid != "" and not focus_ids.has(fid):
+			focus_ids.append(fid)
+	var focus_id := str(focus_ids[0]) if not focus_ids.is_empty() else ""
 	var tag_id := str(t.get("tag_id", ""))
 	var plan := str(t.get("gameplan", "balanced"))
 	if plan == "":
@@ -470,6 +477,7 @@ static func _plan_entry(q: int, t: Dictionary) -> Dictionary:
 		"focus_id": focus_id,
 		"tag_id": tag_id,
 		"focus_name": resolve_name(focus_id, "") if focus_id != "" else "",
+		"focus_names": focus_ids.map(func(fid): return resolve_name(str(fid), "")),
 		"tag_name": resolve_name(tag_id, "") if tag_id != "" else "",
 	}
 
