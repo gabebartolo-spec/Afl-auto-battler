@@ -1532,7 +1532,8 @@ func _refresh_order() -> void:
 		var v := UiKit.vbox(2)
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(v)
-		var badge := UiKit.club_badge(code, 14, true)
+		# The club by its guernsey and name, as the ladder shows it.
+		var badge := UiKit.club_badge(code, 14, false, true)
 		badge.alignment = BoxContainer.ALIGNMENT_BEGIN
 		v.add_child(badge)
 		var description := "Up next"

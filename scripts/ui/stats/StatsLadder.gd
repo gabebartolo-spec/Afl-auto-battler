@@ -18,15 +18,15 @@ const COL_GAP := 4
 ## wide screen the table is as wide as its columns and sits at the left, the
 ## club right beside its numbers (WIDE_CLUB).
 const WIDE_CLUB := 190
-## "List": the club's match-day side today on the OVR scale (TeamRating). A
+## "Rating": the club's match-day side today on the OVR scale (TeamRating). A
 ## tap on a club says it in full: where the club is in its cycle (Contender,
 ## Wildcard, Rebuilding) and the list in three years.
 const LADDER_PHONE := [["pos", "#", 24], ["club", "Club", 0], ["p", "P", 26], ["w", "W", 26],
-		["l", "L", 26], ["d", "D", 24], ["pct", "%", 42], ["pts", "Pts", 34], ["rating", "List", 34]]
+		["l", "L", 26], ["d", "D", 24], ["pct", "%", 42], ["pts", "Pts", 34], ["rating", "Rating", 46]]
 const LADDER_WIDE := [["pos", "#", 28], ["club", "Club", WIDE_CLUB], ["p", "P", 32], ["w", "W", 32],
 		["l", "L", 32], ["d", "D", 30], ["pf", "PF", 50], ["pa", "PA", 50], ["pct", "%", 50],
 		["pts", "Pts", 40], ["home", "Home", 68], ["away", "Away", 68], ["form", "Form", 76],
-		["rating", "List", 44]]
+		["rating", "Rating", 52]]
 ## Team stats: a per-game value for each, from GameState.season_team (only
 ## what is recorded there). One list, so a newly recorded stat joins with one
 ## line: {season_team key, column title, width on a phone, width on a wide

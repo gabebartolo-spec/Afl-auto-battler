@@ -533,12 +533,19 @@ func _week_section(season: Season) -> Control:
 				GameState.form_line(their, "form").trim_prefix("form: ")], UiKit.SMALL, UiKit.MUTED)
 		standing.name = "OppFormLine"
 		nv.add_child(standing)
+		# Their list: the club's guernsey and name, then its line (TeamRating).
 		var their_list := GameState.team_outlook(opp)
 		if not their_list.is_empty():
-			var tl := UiKit.lbl("%s: %s" % [GameDB.club_short(opp), str(their_list["line"])], UiKit.SMALL, UiKit.MUTED)
+			var row := UiKit.hbox(6)
+			row.name = "OppTeamOutlookRow"
+			var mark := UiKit.club_marker(opp, 18.0)
+			mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(mark)
+			var tl := UiKit.ellipsis("%s  %s" % [GameDB.club_short(opp), str(their_list["line"])], UiKit.SMALL, UiKit.MUTED)
 			tl.name = "OppTeamOutlook"
-			tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			nv.add_child(tl)
+			tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(tl)
+			nv.add_child(row)
 		# The football: two or three facts, then anything on our side.
 		var facts := GameState.opponent_facts(opp)
 		var notes := GameState.my_week_notes()

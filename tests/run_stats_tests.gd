@@ -720,7 +720,7 @@ func _ladder(sz: Vector2i) -> void:
 		heads.append(str(b.name))
 	var phone: Array = ["Sort_pos", "Sort_club", "Sort_p", "Sort_w", "Sort_l", "Sort_d", "Sort_pct", "Sort_pts", "Sort_rating"]
 	if sz.x < 900:
-		_check(heads == phone, "Phone columns are # Club P W L D %% Pts List (%s: %s)" % [tag, str(heads)])
+		_check(heads == phone, "Phone columns are # Club P W L D %% Pts Rating (%s: %s)" % [tag, str(heads)])
 	else:
 		_check(heads.slice(0, 8).size() == 8 and heads.has("Sort_pf") and heads.has("Sort_home") and heads.has("Sort_away"),
 				"A wide screen adds points for and against, home and away (%s: %s)" % [tag, str(heads)])
@@ -1012,9 +1012,9 @@ func _team_rating(sz: Vector2i) -> void:
 	root.add_child(s)
 	await _settle()
 	var head: Button = s.find_child("Sort_rating", true, false)
-	_check(head != null and head.text == "List", "The ladder has a List column (%s)" % tag)
+	_check(head != null and head.text == "Rating", "The ladder has a Rating column (%s)" % tag)
 	if head != null:
-		_check((await Tap.tap(head)) == "", "List takes a tap (%s)" % tag)
+		_check((await Tap.tap(head)) == "", "Rating takes a tap (%s)" % tag)
 		await _settle()
 		var vals := []
 		for c in _row_codes(s):
@@ -1039,7 +1039,7 @@ func _team_rating(sz: Vector2i) -> void:
 		var last: Control = cells[cells.size() - 1]
 		if last is Label and not _label_fits(last):
 			off.append(c + "/last")
-	_check(off.is_empty(), "No ladder cell runs off the screen, the List column included (%s: %s)" % [tag, str(off)])
+	_check(off.is_empty(), "No ladder cell runs off the screen, the Rating column included (%s: %s)" % [tag, str(off)])
 	var long_row: Node = s.find_child("Club_" + longest, true, false)
 	var shown := ""
 	for l in long_row.find_children("*", "Label", true, false):
