@@ -50,6 +50,7 @@ var _caption := {}             # {tok, text, left, goal, turnover, side}
 var _poss_side := -1           # who had the ball at the last possession event
 var _restarted := true         # the next possession comes from a restart
 var _shake := 0.0              # seconds of turnover shake left
+var shake_share := SHAKE_SHARE # the shake's size (captures compare strengths)
 var _last_actor := -1
 const CAPTION_GOAL := 1.8
 const CAPTION_TOUCH := 1.0
@@ -451,7 +452,7 @@ func _draw() -> void:
 		# Timed by the shake itself, not the wall clock, so a recording shows it as played.
 		var k := _shake / SHAKE_TIME
 		var t := SHAKE_TIME - _shake
-		var amp := pitch_rect().size.y * SHAKE_SHARE * k
+		var amp := pitch_rect().size.y * shake_share * k
 		draw_set_transform(Vector2(sin(t * 83.0), cos(t * 61.0)) * amp)
 	var r := pitch_rect()
 	if r.size.x < 8.0 or r.size.y < 8.0:
