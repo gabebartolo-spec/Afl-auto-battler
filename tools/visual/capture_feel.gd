@@ -117,16 +117,21 @@ func _run() -> void:
 			var host := Control.new()
 			host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			root.add_child(host)
+			# A phone shows the Vibration row; a PC has nothing to buzz.
+			load("res://scripts/ui/Feel.gd").force_phone = W < 600
 			var sheet: Control = load("res://scripts/ui/OptionsSheet.gd").open(host, true)
 			await _wait(0.5)
-			var row: Control = sheet.find_child("SettingsButtonSounds", true, false)
-			var p := row.get_parent()
-			while p != null and not (p is ScrollContainer):
-				p = p.get_parent()
-			if p != null:
-				(p as ScrollContainer).ensure_control_visible(row)
-				await _wait(0.3)
-				(p as ScrollContainer).scroll_vertical += int(H * 0.25)
+			for n in ["SettingsButtonSounds", "SettingsReducedMotion"]:
+				var row: Control = sheet.find_child(n, true, false)
+				var p := row.get_parent()
+				while p != null and not (p is ScrollContainer):
+					p = p.get_parent()
+				if p != null:
+					(p as ScrollContainer).ensure_control_visible(row)
+					await _wait(0.3)
+					(p as ScrollContainer).scroll_vertical += int(H * 0.25)
+					await _wait(0.3)
+				_shot("%s_%s.png" % [out, n])
 		_:
 			state.start_season("COL", db.club_list("COL"))
 			state.tutorials = false

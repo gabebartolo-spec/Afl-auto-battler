@@ -291,18 +291,17 @@ func _standing_card() -> Control:
 	var pos := UiKit.figure(GameState.ordinal(GameState.my_position()), UiKit.HERO, UiKit.club_vivid(GameState.my_club))
 	pos.name = "LadderPosition"
 	if not _settled:
-		# Arriving at the hub, your spot climbs (or slides) into place: from
-		# where you were last time you looked, and when it moved it lands
-		# with weight (director, 2026-10-11). The first look of a season
-		# counts down from the foot of the ladder and doesn't land.
+		# Arriving at the hub, your spot climbs (or slides) into place from
+		# where you were last time you looked (the first look of a season
+		# counts from the foot of the ladder). It lands with weight at full
+		# time, where the move is on screen (MatchScene), not here, below
+		# the fold on a phone.
 		var now := GameState.my_position()
 		var key := GameState.season.get_instance_id()
 		var was := int(_ladder_seen.get("pos", 0)) if int(_ladder_seen.get("key", 0)) == key else 0
 		_ladder_seen = {"key": key, "pos": now}
 		UiKit.count_up(pos, now, func(n): return GameState.ordinal(n), 0.8,
 				was if was > 0 else GameState.season.ladder.size())
-		if was > 0 and was != now:
-			UiKit.land(pos, 0.8)
 	pos_row.add_child(pos)
 	var title := UiKit.ellipsis("of %d  ·  %s  ·  %d pts" % [GameState.season.ladder.size(),
 			GameState.my_record(), int(lr.get("pts", 0))], UiKit.H2, UiKit.TEXT, true)

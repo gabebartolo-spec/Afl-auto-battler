@@ -1867,6 +1867,7 @@ func _show_fulltime() -> void:
 	box["footer"].add_child(leave)
 	_render_ft()
 	UiKit.land(overlay.find_child("Verdict", true, false) as Control, 0.3)   # the result lands (Feel)
+	UiKit.land(overlay.find_child("LadderMove", true, false) as Control, 1.0, false)   # then the ladder move
 
 
 func _ft_tab_list() -> Array:
