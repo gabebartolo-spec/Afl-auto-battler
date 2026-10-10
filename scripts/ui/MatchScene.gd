@@ -740,7 +740,7 @@ func _show_coach_box() -> void:
 	# he plays, whether he is a Defensive forward and his Pressure, the one
 	# attribute the job runs on; the choice is yours.
 	var opp_spare := sim._roaming_interceptor(1 - _my_side)
-	var minder_box := UiKit.vbox(6)
+	var minder_box := UiKit.vbox(4 if _pc_break else 6)
 	minder_box.name = "MinderBlock"
 	minder_box.set_meta("break_unit", true)
 	minder_box.add_child(_call_heading("Assign defensive forward"))
@@ -791,7 +791,7 @@ func _show_coach_box() -> void:
 			func(p: Dictionary, wide_line: bool) -> String: return MatchNotes.loose_card_detail(p, wide_line))
 	# Loose interceptor (director, 2026-10-11): the question in a coach's
 	# words, a card per defender, and how your loose man is going so far.
-	var roam_block := UiKit.vbox(6)
+	var roam_block := UiKit.vbox(4 if _pc_break else 6)
 	roam_block.set_meta("break_unit", true)
 	roam_block.name = "LooseBlock"
 	roam_block.add_child(_call_heading("Loose interceptor"))
@@ -1283,16 +1283,17 @@ func _on_moment_choice(i: int) -> void:
 
 
 ## A call and its choices, heading above.
-## A call's heading on the break: bold body type in the text colour, so it
-## reads at a glance (director, 2026-10-11); the lines under it stay regular.
+## A call's heading on the break: bold, in the text colour rather than
+## muted, so it reads at a glance (director, 2026-10-11); the lines under it
+## stay regular.
 func _call_heading(label: String) -> Label:
-	var l := UiKit.lbl(label, UiKit.BODY, UiKit.TEXT, true)
+	var l := UiKit.lbl(label, UiKit.SMALL, UiKit.TEXT, true)
 	l.name = "CallHeading"
 	return l
 
 
 func _call_block(label: String, control: Control) -> Control:
-	var v := UiKit.vbox(6)
+	var v := UiKit.vbox(4 if _pc_break else 6)
 	v.set_meta("break_unit", true)
 	v.add_child(_call_heading(label))
 	v.add_child(control)
