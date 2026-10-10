@@ -2993,11 +2993,15 @@ func _test_press_by_zone() -> void:
 	# A chain that broke the press: its shot is likelier to be a goal.
 	sim.tactics[1] = {"gameplan": "defensive"}
 	var shooter: Dictionary = (sim.squads[0] as Squad).ground[0]
-	sim._broke_press = false
+	sim._broke_press = -1
 	var held := sim.shot_chance(0, shooter, true, false)
-	sim._broke_press = true
+	sim._broke_press = 0
 	var broke := sim.shot_chance(0, shooter, true, false)
-	sim._broke_press = false
+	# The other side's break never makes this side's shot easier.
+	sim._broke_press = 1
+	var theirs := sim.shot_chance(0, shooter, true, false)
+	sim._broke_press = -1
+	_check(is_equal_approx(theirs, held), "A break by the other side gives this side's shot nothing (%.3f vs %.3f)" % [theirs, held])
 	_check(broke > held * 1.5, "A chain that breaks the press shoots at an outnumbered defence (%.3f vs %.3f)" % [broke, held])
 
 

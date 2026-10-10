@@ -787,9 +787,9 @@ func _press_on(side: int, zone := 1) -> float:
 	return m
 
 
-## The chain being played got out of its back third unpressured against
-## a press (PRESS_BROKEN_EXPOSED). Reset at each chain's start.
-var _broke_press := false
+## The side whose chain got out of its back third unpressured against a
+## press (PRESS_BROKEN_EXPOSED), or -1. Reset at each chain's start.
+var _broke_press := -1
 
 
 func _plan(side: int) -> String:
@@ -2186,7 +2186,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 	var gline := float(T["goal_line"])
 
 	_t(side, "chains")
-	_broke_press = false
+	_broke_press = -1
 	var atk_fp := fp if side == 0 else -fp
 	var cleared = _stoppage(side, opp, from_bounce, atk_fp >= f50)
 	# A chain that starts inside its forward 50 (a ball-up won there) goes
@@ -2406,9 +2406,9 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			gain *= 0.82 if not kick_in_play_on else 1.12
 		if rushed:
 			gain *= PRESS_RUSH_GAIN
-		elif zone == 0 and _pv(opp, "press") > 1.0 and not _broke_press:
+		elif zone == 0 and _pv(opp, "press") > 1.0 and _broke_press != side:
 			# Out of the back third with nobody on him: the press is broken.
-			_broke_press = true
+			_broke_press = side
 			_t(side, "press_broken")
 		fp += gain * dir
 		fp = clampf(fp, -gline, gline)
@@ -3057,7 +3057,7 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 		goal_p *= _pv(opp, "opp_goal")
 		goal_p *= _pv(opp, "exposed")
 	# This chain broke their press: the defence it runs at is outnumbered.
-	if _broke_press and _pv(opp, "press") > 1.0:
+	if _broke_press == side and _pv(opp, "press") > 1.0:
 		goal_p *= PRESS_BROKEN_EXPOSED
 	if credit:
 		_credit(opp, "gameplan", 6.0 * (before - goal_p))
@@ -3295,6 +3295,9 @@ func _play_chains(count: int, minute_base: int, span: int) -> void:
 
 func _play_one_chain(T: Dictionary) -> void:
 	_note_tactics()
+	# Every restart is a new chain: a free kick's set shot never inherits a
+	# broken press from the chain before (qa, W7 of #647).
+	_broke_press = -1
 	# A kick-in after a behind is not a stoppage: no ruck contest, no clearance.
 	# A boundary throw-in is: it always starts with a contested stoppage.
 	var from_kick_in := kick_in
