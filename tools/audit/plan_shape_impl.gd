@@ -12,6 +12,9 @@ extends RefCounted
 ## Args after the impl name: arms seeds
 ##   arms   comma list (default all): plan_attacking, plan_defensive,
 ##          plan_contest, plan_controlled, plan_through_stars
+##          h2h_<plan>: the press head to head with <plan> (home press v away
+##          <plan>, against home <plan> v away press, same seeds; margin > 0
+##          means the press wins the matchup)
 ##   seeds  per pairing (default 40); six pairings
 ## Field position: metres from the centre, positive toward the home side's
 ## attacking goal (MatchSim.fp), so higher = further up the ground for home.
@@ -37,6 +40,13 @@ func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
 	if arm.begins_with("plan_"):
 		t["gameplan"] = arm.trim_prefix("plan_")
 	var sim := MatchSim.new(home, away, seed)
+	if arm.begins_with("h2h"):
+		# Both plans fixed: h2h_X = home press v away X; h2hbase_X = home X v away press.
+		var other := arm.trim_prefix("h2hbase_").trim_prefix("h2h_")
+		away.ai_plans = false
+		var mine := "defensive" if arm.begins_with("h2h_") else other
+		t["gameplan"] = mine
+		sim.set_tactics(1, {"gameplan": other if mine == "defensive" else "defensive", "pep": "steady"})
 	sim.set_tactics(0, t)
 	var res: Dictionary = sim.run()
 	var out := _fingerprint(res["events"])
@@ -172,6 +182,8 @@ func run() -> void:
 		for pr in PAIRS:
 			for s in range(seeds):
 				var b: Dictionary = base["%s|%d" % [pr[0], s]]
+				if str(arm).begins_with("h2h_"):
+					b = _play(pr[0], pr[1], 7000 + s, "h2hbase_" + str(arm).trim_prefix("h2h_"))
 				var r := _play(pr[0], pr[1], 7000 + s, str(arm))
 				for k in KEYS:
 					if float((b[k] as Array)[1]) > 0.0 and float((r[k] as Array)[1]) > 0.0:
