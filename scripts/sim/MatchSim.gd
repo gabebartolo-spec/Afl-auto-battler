@@ -172,6 +172,12 @@ var _speccies := 0
 ## tuning boundary frequency therefore does not silently re-roll ordinary
 ## disposals in chains that stay in play.
 var boundary_rng := RandomNumberGenerator.new()
+## A contest that locks up into a ball-up (match flow, 2026-10-10): its own
+## stream, so the calibrated play RNG is not re-rolled by it.
+var lockup_rng := RandomNumberGenerator.new()
+## The last chain ended in a ball-up called in play (a tackle held, a contest
+## locked up): the next chain starts at that stoppage.
+var _prev_locked := false
 ## The chain being played: how it began (centre, stoppage, kick_in, free,
 ## turnover, general) and who touched the ball in it, for score sources and
 ## score involvements. How the last chain ended decides the next's origin.
@@ -284,6 +290,7 @@ func _init(home: Squad, away: Squad, seed: int = 0) -> void:
 	break_rng.seed = seed * 101 + 103
 	_speccy_quota = speccy_quota(seed)
 	boundary_rng.seed = seed * 17 + 19
+	lockup_rng.seed = seed * 107 + 109
 	injury_rng.seed = seed * 13 + 7
 	breeze_side = posmod(hash("breeze|%d" % seed), 2)
 	for side in range(2):
@@ -1607,6 +1614,12 @@ const PRESS_RUSH_RATIO := 2.0
 ## tackle counts (2026-10-06: tackles ran about 6% above).
 const PRESS_TACKLE_SHARE := 0.95
 const PRESS_TURNOVER := 0.08
+## Match flow (director 2026-10-10, MATCH_SHAPE_AUDIT_2026-10-10.md): a ball-up
+## comes from a contest that locks up, not from a won ball. Of the turnovers a
+## presser forces, the share that lock up instead; of the spoils inside 50 the
+## defence would rebound, the share that lock up in the pocket.
+const LOCKUP_PRESS := 0.35
+const LOCKUP_SPOIL := 0.35
 const PRESS_RUSH_GAIN := 0.80
 ## A close defender occasionally gets boot to ball. Around one or two per
 ## match across both sides; pressure and the smotherer's ability move it.
@@ -2308,6 +2321,10 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 					* (0.80 + 0.40 * _a(presser, "pressure") / 100.0)
 					* (1.20 - 0.40 * _a(carrier, "disposal") / 100.0))
 			if rng.randf() < turn_p:
+				# Rushed into a pack: sometimes nobody gets it clean and the
+				# umpire calls a ball-up where it locked up.
+				if lockup_rng.randf() < LOCKUP_PRESS:
+					return {"outcome": "stoppage", "fp": fp, "actor": presser}
 				_t(opp, "pressure_wins")
 				_intercept(opp, presser, false)
 				_emit("pressure", opp, fp, presser,
@@ -2652,6 +2669,9 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 		if not crumb.is_empty():
 			return crumb
 
+	# Spoiled to the deck in the pocket, nobody clean: a ball-up inside 50.
+	if spoilt and not marked and lockup_rng.randf() < LOCKUP_SPOIL:
+		return {"outcome": "stoppage", "fp": fp, "actor": defender}
 	# The spare comes away with it only when he got the fist to it; reaching
 	# the contest is not winning it. Otherwise the defender in it does.
 	var taker = roamer if (roaming and spoiler == roamer) else defender
@@ -3220,8 +3240,17 @@ func _play_one_chain(T: Dictionary) -> void:
 	var from_boundary := boundary_throw_in
 	kick_in = false
 	boundary_throw_in = false
-	var stoppage := at_centre or from_boundary \
-			or (not from_kick_in and rng.randf() < float(T["stoppage_share"]))
+	# The stoppage roll is drawn exactly as before, so the play RNG stays where
+	# it was; it no longer turns a won ball into a ball-up: after an intercept
+	# or a free the winner plays on (match flow, director 2026-10-10). A ball-up
+	# called in play (a tackle held, a contest locked up) always is one.
+	var roll := 1.0
+	if not (at_centre or from_boundary) and not from_kick_in:
+		roll = rng.randf()
+	var won_ball := _prev_end == "turnover" or _prev_end == "free"
+	var stoppage := at_centre or from_boundary or _prev_locked \
+			or (not won_ball and roll < float(T["stoppage_share"]))
+	_prev_locked = false
 	var side: int
 	var start_fp: float
 	if stoppage:
@@ -3282,6 +3311,7 @@ func _play_one_chain(T: Dictionary) -> void:
 	if outcome == "free" and res.has("free_side"):
 		next_side = int(res["free_side"])
 	_prev_end = outcome
+	_prev_locked = outcome == "stoppage" and res.get("actor") != null
 	if outcome == "loose":
 		_lost_by = side
 	if outcome == "score":
