@@ -62,8 +62,16 @@ static func build_for(p: Dictionary) -> String:
 
 ## Jog strides per second, matching the centre-bounce scene.
 const STRIDES := 13.0 / TAU
-## When the set shot's kick begins: the ball leaves the boot at 3.02 s.
+## The set shot's drop punt (seven frames, motion phase C): it begins at KICK_START, the
+## right hand lets the ball go at KICK_RELEASE (frame 2) and the boot meets it at KICK_CONTACT
+## (frame 4). The ball falls from about hip height to the laces, 0.6 m: 0.30 s of the
+## 0.36 s free fall (the six-frame kick dropped it in 0.07 s).
 const KICK_START := 2.80
+const KICK_RELEASE := KICK_START + 0.16
+const KICK_CONTACT := KICK_RELEASE + 0.30
+## How much later the contact comes than the six-frame kick's (3.02 s): the camera keeps
+## its moves relative to the kick.
+const KICK_LATE := KICK_CONTACT - 3.02
 ## Where the kicking boot meets the ball, metres right of and above his feet, on the
 ## contact frame (3) of the figures' kick and snap. The kick's is the ball sitting on the
 ## laces of the drop punt's pointed foot, about 40 cm up (measured off the pose with
@@ -481,8 +489,9 @@ func _camera_aim() -> Array:
 			# On him lining it up, wider as he runs in, then with the ball to the posts.
 			var k: Vector2 = _hip(_siren_kicker())[0]
 			var posts := _ground.project(Vector2(0.0, VignetteGround.GOAL_Y), 6.0)
-			var on: Vector2 = G.glide(k + Vector2(0, -h * 0.08), Vector2(posts.x, h * 0.45), _t, 2.6, 4.0)
-			return [on, G.glide(G.glide(1.22, 1.1, _t, 0.6, 2.4), 1.0, _t, 2.8, 4.0)]
+			var on: Vector2 = G.glide(k + Vector2(0, -h * 0.08), Vector2(posts.x, h * 0.45), _t,
+					2.6 + KICK_LATE, 4.0 + KICK_LATE)
+			return [on, G.glide(G.glide(1.22, 1.1, _t, 0.6, 2.4), 1.0, _t, 2.8 + KICK_LATE, 4.0 + KICK_LATE)]
 		GOAL_LINE:
 			# The contest, then the fall of the ball, then running with the crumber as he
 			# breaks into space (room ahead of him), then wide for the snap at goal.
@@ -634,8 +643,8 @@ func _draw_after_siren() -> void:
 		_ready_player(at, side, "back", 3, false, false, num, _look, _build)
 	elif _t < KICK_START:
 		_player(at, 0.0, side, "jog", "back_r", _stride(_t - 1.75), num, _look, false, _build)
-	elif _t < 3.45:
-		_player(at, 0.0, side, "kick", "back_r", _kick_frame(_t - KICK_START, 3.02 - KICK_START), num, _look, false, _build)
+	elif _t < KICK_CONTACT + 0.43:
+		_player(at, 0.0, side, "kick", "back_r", _kick_frame(_t - KICK_START), num, _look, false, _build)
 	else:
 		_ready_player(at, side, "back", 3, false, false, num, _look, _build)     # leg down, watching it go
 
@@ -643,11 +652,11 @@ func _draw_after_siren() -> void:
 ## The set shot's ball. Lining up and running in it's at his waist in front of him (behind
 ## him from here, peeking out), moving to his right hand in the last strides. The drop punt
 ## (director, 2026-10-07): carried in the right hand (kick frames 0-1), the arm extends and
-## lets it go (frame 2), it falls onto the top of the boot (accelerating) and sits on the
-## laces at contact (frame 3, KICK_BOOT); then it flies at the posts.
+## lets it go (frame 2, KICK_RELEASE), it falls onto the top of the boot under gravity while
+## the leg swings through (frame 3) and sits on the laces at contact (frame 4, KICK_BOOT,
+## KICK_CONTACT); then it flies at the posts.
 func _siren_ball(at: Vector2, kicker: Vector2, scale: float, boot: Vector2) -> void:
 	var held := _at(kicker, scale, Vector2(0.06, 0.95))
-	var contact := 3.02 - KICK_START
 	var kt := _t - KICK_START
 	if _t < KICK_START:
 		var bob := sin(_t * 8.0) * 2.5 if _t < 1.5 else 0.0
@@ -656,18 +665,18 @@ func _siren_ball(at: Vector2, kicker: Vector2, scale: float, boot: Vector2) -> v
 		if hand != Vector2.INF:
 			pos = pos.lerp(hand, clampf((_t - (KICK_START - 0.25)) / 0.25, 0.0, 1.0))
 		_draw_ball(pos, scale * 0.9)
-	elif _t < 3.02:
-		var release := contact * 2.0 / 3.0                # the start of kick frame 2
-		var hand := _palm(at, "kick", "back_r", _kick_frame(kt, contact), 1, _build)
+	elif _t < KICK_CONTACT:
+		var hand := _palm(at, "kick", "back_r", mini(_kick_frame(kt), 2), 1, _build)
 		if hand == Vector2.INF:
 			hand = held
 		var pos := hand
-		if kt >= release:
-			var u := (kt - release) / (contact - release)
+		if _t >= KICK_RELEASE:
+			# Free fall from the hand where it let go (u squared: from rest, accelerating).
+			var u := (_t - KICK_RELEASE) / (KICK_CONTACT - KICK_RELEASE)
 			pos = hand.lerp(boot, u * u)
 		_draw_ball(pos, scale * 0.9)
 	else:
-		var flight := clampf((_t - 3.02) / 1.85, 0.0, 1.0)
+		var flight := clampf((_t - KICK_CONTACT) / 1.85, 0.0, 1.0)
 		var goal := str(event.get("kind", "")) == "goal"
 		var start := Vector3(at.x, at.y, 0.7) + Vector3(_ground.fwd.x, _ground.fwd.y, 0.0) * 0.6
 		var end := Vector3(0.0 if goal else 4.8, VignetteGround.GOAL_Y + 1.0, 7.0)
@@ -958,10 +967,16 @@ func _stride(t: float) -> int:
 
 ## Kick frames: back-swing up to the contact frame (3) at `contact` seconds in,
 ## then the follow-through, held.
-func _kick_frame(t: float, contact: float) -> int:
+## The drop punt's frame t seconds into it: 0 and 1 at 0.08 s each, the release (2) and the
+## swing (3) sharing the ball's fall, contact (4) at KICK_CONTACT, then 5 and 6 at 0.08 s.
+func _kick_frame(t: float) -> int:
+	var release := KICK_RELEASE - KICK_START
+	var contact := KICK_CONTACT - KICK_START
+	if t < release:
+		return mini(1, int(t / 0.08))
 	if t < contact:
-		return mini(3, int(t / contact * 3.0))
-	return mini(5, 3 + int((t - contact) / 0.08))
+		return 2 + mini(1, int((t - release) / (contact - release) * 2.0))
+	return mini(6, 4 + int((t - contact) / 0.08))
 
 
 ## One footballer. pos is the hip, where the old drawn figures were anchored (a

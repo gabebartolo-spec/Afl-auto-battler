@@ -192,9 +192,10 @@ func _figure_markers() -> void:
 	_check(count > 0 and outside.is_empty(), "Every marker (%d) is a frame of its strip: %s" % [count, str(outside.slice(0, 5))])
 	var kick := VignetteFigures.strip("average", "kick", "back_r")
 	var gather := VignetteFigures.strip("average", "gather", "back_r")
-	_check(VignetteFigures.marker(kick, "ball_contact") == 3 and VignetteFigures.marker(kick, "ball_release") == 2
+	_check(VignetteFigures.marker(kick, "ball_contact") == 4 and VignetteFigures.marker(kick, "ball_release") == 2
+			and int(kick["frames"]) == 7
 			and VignetteFigures.marker(gather, "gather_contact") == 1 and VignetteFigures.marker(kick, "none") == -1,
-			"The drop punt meets the ball on frame 3 after dropping it on 2; the crumb gathers on 1")
+			"The seven-frame drop punt lets the ball go on frame 2 and meets it on 4; the crumb gathers on 1")
 
 
 func _coverage(shade: Image, mask: Image, r: Rect2i) -> Array:
