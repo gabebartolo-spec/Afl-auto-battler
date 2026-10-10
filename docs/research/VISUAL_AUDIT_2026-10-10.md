@@ -519,6 +519,13 @@ in a blazer with a phone), about 260 credits, for the press room and awards plat
 was rejected; the director answered **"Yes, ~260 credits"**. Each model passes the five-view
 inspection (memory-shared/generated-asset-inspection.md) before use. Night's total: 695 + ~195 + ~260.
 
+**Spend, 2026-10-10 (director, to AFL BOSS, about 17:40):** asked whether ART may generate a Tripo
+player slice (3 footballers with different builds, faces and hair in a neutral kit, auto-rigged and
+driven by our rig so club recolouring, designs and numbers keep working), about 300 credits; the director
+answered **"Yes, ~300 credits"**. Context: his direction to ART that day to lean on Tripo more, and his
+choice to prototype both figure directions before deciding (FIGURE_PIPELINE_REVIEW_2026-10-10.md). Each
+model passes the six-view inspection. Night's total: 695 + ~195 + ~260 + ~300.
+
 **Done under those orders (2026-10-10):** Phase 1 (#591), Phase 2 (#594, the helper's), Phase 3
 (#598). One deviation from the plan: Phase 1.5 keeps the plan and the tag as grids on the coach's
 break, since six plans or five names in one row would scroll past a phone's edge; pep talk and
