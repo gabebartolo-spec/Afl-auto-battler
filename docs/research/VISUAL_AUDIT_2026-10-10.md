@@ -495,11 +495,42 @@ Signwriter at every size** (one family; the Barlow pairing rejected and removed 
 9.2 selection = **A, ink and a 2 px outline** (the faint club tint rejected and removed).
 Boards in `agent-handoffs/lead/phase0/`.
 
+**Director's orders 2026-10-10 (~07:00, after Phase 0):** the audit session leads the AFL
+project for the time being and works autonomously; its word overrides AFL BOSS, who runs the
+staff; the whole plan (§8) is wanted soon. It may speak to the whole team directly. The same
+session recorded the director's Tripo yes for the night (the Spend entry in this section).
+
 **Spend, 2026-10-10 (director, in the special leader's session, about 07:10):** "Use Tripo whenever you
 want without asking me tonight." This is the written yes for Tripo Studio credits on the night of
 2026-10-10 (the decision-log rule), for the Phase 5 order already decided: the media room and awards
 stage props first, then the MCG venue plate. The art agent records each generation's credits and
 provenance in its props plan; every prop is judged in the game through our rig.
+
+**Done under those orders (2026-10-10):** Phase 1 (#591), Phase 2 (#594, the helper's), Phase 3
+(#598). One deviation from the plan: Phase 1.5 keeps the plan and the tag as grids on the coach's
+break, since six plans or five names in one row would scroll past a phone's edge; pep talk and
+rotations (three short words each) are the single-row text choices. Boards in
+`agent-handoffs/lead/phase1/` and `phase3/`, the helper's in `agent-handoffs/assistant_captures/phase2/`.
+
+**Answered 2026-10-10 (~10:50, director, in the leader's session):** (1) the old-star-for-best-kid
+trade (lever audit 2, `LEVER_TRUTH_AUDIT_2.md`): **leave it**; it is a real, discoverable trade. No
+guard, no re-pricing. (2) Motion phase C: **no owned reference footage**; the art agent keys the
+drop punt, the gather and the carry from pose stills and the audit's descriptions, with a second
+pass later if it reads wrong. (3) The 4.8 phone measurement: **yes**, the director installs art's
+Android debug build with the frame-time probe when it is ready and runs one match. (4) The leader's
+next piece after the open PRs: **the mini-figure prototype, phone-gated** (§8 Phase 3.3).
+
+**Director 2026-10-10 (~11:45), on the first Tripo prop in a drawn room ("an exercise in futility,
+trying to marry a placeholder artstyle with far superior assets") and on starting art again:**
+"you're the expert, do what you think is best, but I expect beautiful results." The leader's call
+under that: **the occasion environments are rebuilt from scratch as whole rendered plates**, not
+dressed prop by prop. Each set (the press room first, then the awards stage, then the MCG with its
+crowd) is one scene in Blender under the figures' own camera and light rig, from Tripo models and
+our set pieces, exported at 2x; the figures composite onto it as now. The drawn rooms stay as
+fallbacks until each plate passes the lead's 2x review, then go. The figures are not redrawn: they
+re-render under sheet contract v2. Motion B and C follow the first two plates. The director declined
+the phone probe for now; the 4.8 measurement proceeds on PC numbers and the lead's judgement until
+he asks for it.
 
 These are taste or trade-off calls; everything else above is objectively good and proceeds when
 assigned.

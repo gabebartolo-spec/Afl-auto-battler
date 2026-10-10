@@ -101,9 +101,11 @@ a rule, not a new component.
 | Primary button | club-colour fill, bold NAME text | the one action; last in the column, where the thumb is |
 | Secondary button | flat PANEL surface, TEXT text, no outline, no shadow | other actions; at most three visible |
 | Danger button | BAD outline and text | release, delete, reset |
-| Text action | bold TEXT, no surface | "Change", "More", "Skip" beside a fact |
-| Choice (segmented) | one row of options, chosen one TEXT with 2 px outline, rest MUTED | plans, tags, difficulty, filters with 2-4 options |
-| Tabs | text with a 2 px underline under the current one, one row only | sections of a screen; more than five means a picker |
+| Text action | bold TEXT, no surface (`UiKit.text_action`) | "Change", "Undo", "Skip to full time", "Assistant's report ›" beside a fact |
+| Section link | a heading whose row is the way in: title left, "Season stats ›" MUTED right (`UiKit.section_link`) | a section that opens a whole screen |
+| Choice (grid) | options outlined when chosen, TEXT ink; rest MUTED on the quiet surface (`UiKit.choice_grid`) | plans, names, anything with long labels or more than five options |
+| Choice (segmented) | one line of short words, the current one underlined (`UiKit.segmented`; `UiKit.strip` if it must scroll) | two to five short options: One ruck · Dual ruck, Composed · Fire them up · Calm them, finals weeks |
+| Tabs | text with a 2 px underline under the current one, one row only (`UiKit.tab`) | sections of a screen; more than five means a picker |
 | Picker | a flat INK field with a chevron | choosing one of many (a stat, a venue) |
 | Editorial row | name in NAME, secondary line under it, figure at the right in NUMBER, 1 px rule | every list of people or clubs |
 | Leaderboard row | rank, club marker, full name, club code, one Display figure | stats |
@@ -154,9 +156,11 @@ fact made visual, real notation ("4.2"), no abbreviations.
 
 ### 4.6 Match (live)
 The club-duel scoreboard, the oval, one line of your plan, the transport. The oval has an
-identity: tokens in club colour with a design hint, readable numbers or none, the carrier named,
-a ball trail, a shadow at the boundary. Overlays (breaks, calls, close-ups) use the decision sheet
-and the vignette rules.
+identity (PitchView, since #598): tokens are discs in the club's home kit (base colour, the design
+in the pattern colour), never under 18 px, the number in white with a dark edge or dropped; the
+carrier and your ringed players named under their tokens; a short ball trail; the stand beyond a
+fence band and the turf's edge in shadow. Overlays (breaks, calls, close-ups) use the decision
+sheet and the vignette rules.
 
 ### 4.7 Occasion (awards, trophy room, finals, off-season wrap)
 Club colour as a full wash, the Display cut big, the honours art large, one thing happening. A
@@ -263,7 +267,8 @@ skippable, readable culmination.
 
 ## 11. Decisions this guide still needs from the director
 
-Recorded in the audit §9: small-size type (text cut or Barlow pairing), selection treatment,
-match-view direction, venue plates, phase order. Until they are made, the defaults above apply
-(Barlow pairing, ink-and-outline selection, token identity first, plates after props, UI phases
-first).
+All answered on 2026-10-10 and recorded in the audit §9: ARD Signwriter at every size (no
+Barlow pairing); selection is ink and a 2 px outline (no club tint); the match view keeps tokens,
+now in each club's kit, with mini figures only as a prototype on the director's phone; venue plates
+after the media room and stage props; UI phases first. New taste questions go to the director as
+A/B captures, one decision per question.
