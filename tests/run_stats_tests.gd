@@ -172,8 +172,78 @@ func _players_section() -> void:
 		var top: Dictionary = SP.sorted_rows()[0]
 		_check(not cells.is_empty() and int(cells[0]) == int(_SB.total(_state.season_stats[top["id"]], "disposals")),
 				"The top row's disposals are his season total (%s)" % tag)
-		var pick: OptionButton = s.find_child("StatPick", true, false)
+		var pick: Button = s.find_child("StatPick", true, false)
 		_check(pick != null and pick.text == "Disposals", "The stat is chosen by its name (%s: %s)" % [tag, pick.text if pick else "-"])
+		# The stats open as a sheet that scrolls under a finger, with Player
+		# rating in it; a real tap on it ranks by it and closes the sheet.
+		_check(pick != null and (await Tap.tap(pick)) == "", "The stat picker takes a tap (%s)" % tag)
+		await _settle()
+		var stat_sheet: Control = s.find_child("StatSheet", true, false)
+		var in_scroll := false
+		var pr: Button = stat_sheet.find_child("Stat_rating", true, false) if stat_sheet else null
+		var last_stat: Button = stat_sheet.find_child("Stat_clangers", true, false) if stat_sheet else null
+		var above: Node = last_stat
+		var sc: ScrollContainer = null
+		while above != null and above != stat_sheet:
+			if above is ScrollContainer:
+				in_scroll = true
+				sc = above
+			above = above.get_parent()
+		_check(stat_sheet != null and pr != null and last_stat != null and in_scroll,
+				"Every stat is in a scrolling sheet, down to the last (%s)" % tag)
+		# The list is longer than the screen: a finger's drag moves it.
+		var moved := false
+		if sc != null and sc.get_v_scroll_bar().max_value > sc.size.y + 1.0:
+			var mid := sc.get_global_rect().get_center()
+			var press := InputEventScreenTouch.new()
+			press.index = 0
+			press.position = mid
+			press.pressed = true
+			Input.parse_input_event(press)
+			Input.flush_buffered_events()
+			await process_frame
+			for step in range(6):
+				var drag := InputEventScreenDrag.new()
+				drag.index = 0
+				drag.position = mid - Vector2(0, 40.0 * float(step + 1))
+				drag.relative = Vector2(0, -40.0)
+				Input.parse_input_event(drag)
+				Input.flush_buffered_events()
+				await process_frame
+			var lift := InputEventScreenTouch.new()
+			lift.index = 0
+			lift.position = mid - Vector2(0, 240.0)
+			lift.pressed = false
+			Input.parse_input_event(lift)
+			Input.flush_buffered_events()
+			await _settle()
+			moved = sc.scroll_vertical > 0
+			_check(moved and s.find_child("StatSheet", true, false) != null and SP._sort == "disposals",
+					"A finger's drag scrolls the stat list without picking a stat (%s: %d)" % [tag, sc.scroll_vertical])
+		else:
+			_check(sc != null and wide, "Only a wide screen fits the stat list without scrolling (%s)" % tag)
+		_check(pr != null and (await Tap.tap(pr)) == "", "Player rating takes a tap (%s)" % tag)
+		await _settle()
+		pick = s.find_child("StatPick", true, false)
+		var by_rating: Array = SP.sorted_rows()
+		# Ranked by Player rating, the list opens on Per game (director, 2026-10-11).
+		var mode_row: Node = s.find_child("StatMode", true, false)
+		_check(SP._per_game and mode_row != null and mode_row.has_meta("current")
+				and str((mode_row.get_meta("current") as Node).name) == "StatMode_per_game",
+				"Ranked by Player rating, the list opens on Per game (%s)" % tag)
+		var want := 0.0
+		var points: Dictionary = load("res://scripts/ui/match/MatchNotes.gd").RATING_POINTS
+		for k in points:
+			want += float(points[k]) * float((by_rating[0]["s"] as Dictionary).get(k, 0.0))
+		_check(s.find_child("StatSheet", true, false) == null and pick != null and pick.text == "Player rating"
+				and by_rating.size() > 1 and is_equal_approx(SP.value(by_rating[0], "rating", false), maxf(0.0, want))
+				and SP.value(by_rating[0], "rating", true) >= SP.value(by_rating[1], "rating", true)
+				and SP.value(by_rating[0], "rating", false) > 0.0,
+				"Player rating ranks the season by the match rating's points (%s: %s)" % [tag, pick.text if pick else "-"])
+		SP.pick_stat("disposals")
+		s.call("refresh")
+		await _settle()
+		await _settle()
 		if wide:
 			# Words in the headings, and a real tap on one reverses it.
 			var head: Button = s.find_child("Sort_disposals", true, false)
