@@ -136,6 +136,14 @@ func _ratings_section(sz: Vector2i) -> void:
 		s.queue_free()
 		await _settle()
 		return
+	# The list opens with its first rows and adds the rest a batch a frame.
+	var list_node: Node = s.find_child("RatingsList", true, false)
+	var waited := 0
+	while list_node != null and not bool(list_node.get_meta("filled", true)) and waited < 120:
+		await process_frame
+		waited += 1
+	_check(list_node != null and bool(list_node.get_meta("filled", false)),
+			"The whole list is built within a few frames (%s: %d frames)" % [tag, waited])
 	# The expected list, worked out here from the season book and the ladder.
 	var want := []
 	for id in _state.season_stats:

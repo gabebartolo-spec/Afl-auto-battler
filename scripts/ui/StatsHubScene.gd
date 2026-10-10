@@ -92,6 +92,8 @@ func _build() -> void:
 			current = key
 			_build.call_deferred())
 		tabs.add_child(t)
+	if not wide():
+		_tighten(tabs)
 	if wide():
 		tabs.alignment = BoxContainer.ALIGNMENT_CENTER
 		_root.add_child(tabs)
@@ -116,6 +118,23 @@ func _build() -> void:
 		section.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		section.custom_minimum_size.x = content_width()
 	_body.add_child(section)
+
+
+## Six tabs on a phone: when their words and the kit's padding do not fit the
+## width, the padding gives way first, then the type steps down one size, so
+## every tab stays on screen and whole.
+func _tighten(tabs: HBoxContainer) -> void:
+	for step in [[4, 0], [2, UiKit.SECONDARY]]:
+		if tabs.get_combined_minimum_size().x <= _full_width():
+			return
+		for t in tabs.get_children():
+			for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+				var sb := (t as Button).get_theme_stylebox(state) as StyleBoxFlat
+				if sb != null:
+					sb.content_margin_left = int(step[0])
+					sb.content_margin_right = int(step[0])
+			if int(step[1]) > 0:
+				(t as Button).add_theme_font_size_override("font_size", int(step[1]))
 
 
 ## Where your season stands, as the hub says it: your ladder spot big in

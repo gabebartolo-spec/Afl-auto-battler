@@ -49,6 +49,17 @@ func _run() -> void:
 	root.add_child(ui)
 	await process_frame
 	var built_ms := (Time.get_ticks_usec() - t0) / 1000.0
+	var list_node: Node = ui.find_child("RatingsList", true, false)
+	var guard := 0
+	var fill_worst := 0.0
+	var fl := Time.get_ticks_usec()
+	while list_node != null and not bool(list_node.get_meta("filled", true)) and guard < 300:
+		await process_frame
+		guard += 1
+		var fn := Time.get_ticks_usec()
+		fill_worst = maxf(fill_worst, (fn - fl) / 1000.0)
+		fl = fn
+	var filled_ms := (Time.get_ticks_usec() - t0) / 1000.0
 	for i in range(8):
 		await process_frame
 	var rows := ui.find_children("RatingRow_*", "Button", true, false)
@@ -73,8 +84,8 @@ func _run() -> void:
 	for t in times:
 		total += float(t)
 	var n := maxi(1, times.size())
-	print("RATINGS %dx%d rounds %d: %d rows, %d nodes, built in %.0f ms; scroll %d frames, mean %.2f ms, p95 %.2f ms, worst %.2f ms" % [
-			W, H, rounds, rows.size(), nodes, built_ms, times.size(), total / n,
+	print("RATINGS %dx%d rounds %d: %d rows, %d nodes, first frame %.0f ms, all rows %.0f ms (%d frames, worst %.1f ms); scroll %d frames, mean %.2f ms, p95 %.2f ms, worst %.2f ms" % [
+			W, H, rounds, rows.size(), nodes, built_ms, filled_ms, guard, fill_worst, times.size(), total / n,
 			float(times[int(n * 0.95) - 1]) if times.size() > 0 else 0.0, float(times[n - 1]) if times.size() > 0 else 0.0])
 	# Your club's first player outside the top ten, in the middle of the screen.
 	var mine: Control = null

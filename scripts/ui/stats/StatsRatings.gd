@@ -13,6 +13,9 @@ const GAMES_W := 70.0
 const FIG_W := 104.0
 const ROW_H_WIDE := 36.0
 const ROW_H_PHONE := 56.0
+## Rows built with the section, then rows added each frame after it.
+const FIRST := 40
+const BATCH := 25
 
 
 static func build(host: Control) -> Control:
@@ -37,20 +40,53 @@ static func build(host: Control) -> Control:
 	if wide:
 		body.add_child(_header())
 		body.add_child(UiKit.rule())
+	# The rows in order, with the line where the ranked players end.
+	var items := []
 	var rank := 0
 	var split := false
 	for row in list:
-		if not bool(row["qualified"]) and not split:
+		var ranked := bool(row["qualified"])
+		if not ranked and not split:
 			split = true
+			items.append({})
+		if ranked:
+			rank += 1
+		items.append({"row": row, "rank": rank if ranked else 0})
+	# The first screenful at once; the rest a batch a frame after it, so the
+	# section opens at once with 500-odd players in it.
+	body.set_meta("filled", false)
+	_add_items(host, body, items, 0, FIRST, wide)
+	if items.size() > FIRST:
+		_fill(host, body, items, wide)
+	else:
+		body.set_meta("filled", true)
+	return v
+
+
+static func _add_items(host: Control, body: Control, items: Array, from: int, to: int, wide: bool) -> void:
+	for i in range(from, mini(to, items.size())):
+		var it: Dictionary = items[i]
+		if it.is_empty():
 			var gap := UiKit.lbl("Fewer than half their club's games", UiKit.SECONDARY, UiKit.MUTED, true)
 			gap.name = "RatingsUnranked"
 			body.add_child(UiKit.spacer(10))
 			body.add_child(gap)
 			body.add_child(UiKit.rule())
-		if bool(row["qualified"]):
-			rank += 1
-		body.add_child(_row(host, row, rank if bool(row["qualified"]) else 0, wide))
-	return v
+		else:
+			body.add_child(_row(host, it["row"], int(it["rank"]), wide))
+
+
+## The rest of the list, BATCH rows a frame, until it is all there ("filled");
+## stops if the section is rebuilt or closed meanwhile.
+static func _fill(host: Control, body: Control, items: Array, wide: bool) -> void:
+	var at := FIRST
+	while at < items.size():
+		await host.get_tree().process_frame
+		if not is_instance_valid(body) or body.is_queued_for_deletion() or not body.is_inside_tree():
+			return
+		_add_items(host, body, items, at, at + BATCH, wide)
+		at += BATCH
+	body.set_meta("filled", true)
 
 
 ## Every player who has played this season: {id, name, club, games, total,
@@ -139,7 +175,8 @@ static func _row(host: Control, row: Dictionary, rank: int, wide: bool) -> Contr
 	h.add_child(rk)
 	if wide:
 		h.add_child(StatsPlayers._fixed(12.0))
-	var fig_col := UiKit.club_vivid(club) if mine else UiKit.TEXT
+	# The band carries your colour; the figure stays readable on it.
+	var fig_col := UiKit.TEXT
 	var games := int(row["games"])
 	if wide:
 		var who := UiKit.ellipsis(str(row["name"]), UiKit.NAME, UiKit.TEXT, mine)
