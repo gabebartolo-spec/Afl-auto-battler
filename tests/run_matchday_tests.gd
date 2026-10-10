@@ -565,10 +565,10 @@ func _coach_descriptions(sz: Vector2i) -> void:
 		_check(who_box != null and mine_btn != null, "You are offered who goes to the tag (%s)" % tag)
 		if mine_btn != null:
 			# The card's first line is his name; the facts sit under it.
-			var mine_name: String = mine_btn.text.split("\n")[0]
+			var mine_name: String = mine_btn.text.split("\n")[0].strip_edges()
 			var ww: String = await Tap.tap(mine_btn)
 			await _settle()
-			_check(ww == "" and tn.text.begins_with(mine_name), "The midfielder you tap is the one who goes (%s: %s)" % [tag, tn.text])
+			_check(ww == "" and tn.text.begins_with(mine_name), "The midfielder you tap is the one who goes (%s: %s; tapped %s)" % [tag, tn.text, mine_name])
 			var wd: String = await Tap.tap(who_box.find_child("TaggerPickerGrid_", true, false))
 			await _settle()
 			_check(wd == "" and not tn.text.begins_with(mine_name), "Back to your assistant's man (%s: %s)" % [tag, tn.text])
