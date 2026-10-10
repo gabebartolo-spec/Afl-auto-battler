@@ -1756,11 +1756,12 @@ func _test_rotation_words_true() -> void:
 
 
 ## Bring the heat does what its words say (director, 2026-10-10): on the same seeds the side
-## lays more pressure and more tackles, and its legs go quicker.
+## lays more pressure and more tackles, and its legs burn out much faster.
 func _test_bring_the_heat() -> void:
 	var press := [0.0, 0.0]
 	var tackles := [0.0, 0.0]
 	var legs := [0.0, 0.0]
+	var dist := [0.0, 0.0]
 	for seed in range(8500, 8512):
 		for arm in range(2):
 			var sim := _sim(seed, "ADE", "SYD")
@@ -1768,6 +1769,7 @@ func _test_bring_the_heat() -> void:
 			var r := sim.run()
 			press[arm] += float((r["team"][1] as Dictionary).get("pressure_acts", 0.0))
 			tackles[arm] += float((r["team"][1] as Dictionary).get("tackles", 0.0))
+			dist[arm] += float((r["team"][1] as Dictionary).get("distance_run", 0.0))
 			var e := 0.0
 			for pl in (sim.squads[1] as Squad).ground:
 				e += float(sim.energy.get(str(pl["id"]), 100.0))
@@ -1775,8 +1777,33 @@ func _test_bring_the_heat() -> void:
 	_check(press[1] > press[0] and tackles[1] > tackles[0],
 			"Bring the heat lays more pressure and tackles (%.0f and %.0f against %.0f and %.0f)" % [press[1], tackles[1], press[0], tackles[0]])
 	_check(legs[1] < legs[0], "...and its legs go quicker (%.1f against %.1f)" % [legs[1] / 12.0, legs[0] / 12.0])
+	# It burns legs, not extra kilometres: a side covers about the ground it always does.
+	_check(absf(dist[1] / maxf(1.0, dist[0]) - 1.0) < 0.04,
+			"...but they cover about the same ground (%.0f km against %.0f km a side)" % [dist[1] / 12000.0, dist[0] / 12000.0])
 	_check(CoachReport.pep_summary("heat").contains("legs") and CoachReport.pep_summary("heat") != CoachReport.pep_summary("fire_up"),
 			"Its words name the cost and are its own")
+	# "Much faster" only while it costs more legs than Fire them up does.
+	var heat_pace := float(MatchSim.PEP_HEAT.get("pace", 1.0))
+	var fire_pace := float(MatchSim.PEP_FIRE.get("pace", 1.0))
+	_check(CoachReport.pep_summary("heat").contains("much faster") == (heat_pace > fire_pace)
+			and str(CoachReport.PEP_EFFECTS["heat"]).contains("much faster") == (heat_pace > fire_pace),
+			"It says legs burn out much faster only while it costs more legs than Fire them up (%.2f v %.2f)" % [heat_pace, fire_pace])
+	# "It shows next week" only while its extra effort carries into the week's workload.
+	var week_load := [0.0, 0.0]
+	for arm in range(2):
+		var wsim := _sim(8500, "ADE", "SYD")
+		wsim.set_tactics(1, {"pep": "heat" if arm == 1 else "steady"})
+		var wr := wsim.run()
+		var squad := []
+		for pl in (wsim.squads[1] as Squad).ground:
+			squad.append((pl as Dictionary).duplicate(true))
+		Workload.advance_week({"SYD": squad}, [wr], "heat-week")
+		for pl in squad:
+			week_load[arm] += Workload.value(pl)
+	var shows: bool = week_load[1] > week_load[0]
+	_check(CoachReport.pep_summary("heat").contains("next week") == shows
+			and str(CoachReport.PEP_EFFECTS["heat"]).contains("next week") == shows,
+			"It says it shows next week only while its effort carries into the week's load (%.0f against %.0f)" % [week_load[1], week_load[0]])
 
 
 ## A tag is a midfield job: a forward kicking a bag never gets a tag card

@@ -1292,9 +1292,14 @@ const PEP_CALM := {"clangers": 0.92, "taken": 0.95, "gain": 0.92, "pace": 0.95}
 ## Fire them up: legs go quicker and tempers fray.
 const PEP_FIRE := {"clangers": 1.10, "pace": 1.20}
 ## Bring the heat (director, 2026-10-10): harder pressure on their ball carriers, so
-## more turnovers forced and tackles laid; legs go quicker for it.
-const PEP_HEAT := {"pace": 1.15}
-const PEP_HEAT_PRESS := 1.12
+## more turnovers forced and tackles laid; legs burn out much faster for it.
+## Sized 2026-10-11 on 480 paired matches: margin about even (+1.3 ± 1.9),
+## the most pressure of the variants tried, legs burning far quicker.
+const PEP_HEAT := {"pace": 1.60}
+const PEP_HEAT_PRESS := 1.08
+## Heat on top of the Defensive press: the same hunting, so the gains overlap and
+## only this share of heat's pressure bonus is added (the legs cost stays in full).
+const PEP_HEAT_ON_PRESS := 0.5
 
 
 ## The pep talk's multiplier on one chain quantity (1.0 when it has none).
@@ -1310,7 +1315,11 @@ func _pep_mult(side: int, key: String) -> float:
 
 ## How much harder a side presses the ball carrier this quarter (Bring the heat).
 func _pep_heat(side: int) -> float:
-	return PEP_HEAT_PRESS if _pep(side) == "heat" else 1.0
+	if _pep(side) != "heat":
+		return 1.0
+	if _pv(side, "press") > 1.0:
+		return 1.0 + (PEP_HEAT_PRESS - 1.0) * PEP_HEAT_ON_PRESS
+	return PEP_HEAT_PRESS
 
 
 func _contest_calls(side: int, stoppage: bool) -> float:
@@ -3550,10 +3559,12 @@ func _after_chain() -> void:
 		# Distance and fatigue both respond to the plan's tempo, pep talk and
 		# "throw numbers at it". Running Machine / Engine reduce fatigue only:
 		# good runners still log the kilometres they actually cover.
-		var movement_pace := _pv(side, "pace") * _pep_mult(side, "pace")
+		# Bring the heat burns legs, not extra kilometres: its pace is fatigue only.
+		var heat_legs := _pep_mult(side, "pace") if _pep(side) == "heat" else 1.0
+		var movement_pace := _pv(side, "pace") * (1.0 if _pep(side) == "heat" else _pep_mult(side, "pace"))
 		if _burst(side, "surge"):
 			movement_pace *= 1.3
-		var fatigue_pace := movement_pace
+		var fatigue_pace := movement_pace * heat_legs
 		if weather == "hot":
 			fatigue_pace *= HOT_DRAIN
 		if synergies[side].has("running_machine"):
