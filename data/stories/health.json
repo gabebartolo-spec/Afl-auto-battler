@@ -1,0 +1,21 @@
+[
+	{
+		"id": "health_pulled_up_sore",
+		"category": "health",
+		"phase": ["regular", "finals"],
+		"cooldown": 3,
+		"subject": {"kind": "player", "where": {"fit": true, "fit_rank_max": 5}, "pick": "random"},
+		"when": {"fit_count_min": 5},
+		"title": ["{name} pulled up sore"],
+		"text": ["The physio says he can play, but he's not right."],
+		"default": 1,
+		"choices": [
+			{"key": "rest", "label": "Rest him this week", "note": "He'll be right for next week.",
+				"effects": [{"op": "rest"}],
+				"result": "{name} is rested this week."},
+			{"key": "play", "label": "Play him",
+				"effects": [{"op": "sore"}],
+				"result": "{name} plays. Fingers crossed."}
+		]
+	}
+]
