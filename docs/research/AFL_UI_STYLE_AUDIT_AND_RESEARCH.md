@@ -17,7 +17,7 @@ This report studies **colour, lettering, shape, positioning, blank space, propor
 ## Authority, boundaries and existing work
 
 - The director approves all final decisions. Art-agent visual decisions outrank this researcher's recommendations.
-- The completed director interview included all eight STYLE-01–08 scopes. They are now accepted work packages under [canonical roadmap §9.5](../ROADMAP.md#95-approved-visual-styling-work--director-interview-2026-10-06); no suggestions were rejected. Final visual treatment remains the art agent/director's decision. No implementation is claimed.
+- The completed director interview included all eight STYLE-01–08 scopes. They are now accepted work packages under [canonical roadmap §9.5](../roadmap/23-9-5-approved-visual-styling-work-director-interview-2026.md#95-approved-visual-styling-work--director-interview-2026-10-06); no suggestions were rejected. Final visual treatment remains the art agent/director's decision. No implementation is claimed.
 - AFCM and Footy Redraft are explicit negative aesthetic references under the current roadmap. Their strengths in gameplay do not make their interface shapes, colours or composition aspirations.
 - Current roadmap §1.7 already identifies a visual anti-slop reset, bespoke art tooling and free-font sourcing. This audit supplies evidence to those owners; it does not create a parallel redesign project.
 - Current UiKit uses Barlow and Barlow Condensed. That is a description of the captured implementation, not a veto on the art agent selecting another licensed font.

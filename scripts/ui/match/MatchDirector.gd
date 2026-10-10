@@ -488,9 +488,11 @@ func _possession_phases(k: int) -> Array:
 ## he gets there, or once the ball has sat there a moment (a bobble he is still
 ## running onto), so a late arrival never holds up the log.
 func _receive(k: int, a: int) -> Array:
-	# About to be tackled: he runs onto it where it lies, and is caught there.
+	# About to be tackled or smothered: he runs onto it where it lies, and is
+	# caught there. A rolled ball would be steered to a far receiver, and the
+	# next event released metres from its logged spot (a smother 15.8 m off).
 	var nk := _next_real(k)
-	var roll := not (nk >= 0 and str((events[nk] as Dictionary).get("kind", "")) in ["tackle", "pressure"])
+	var roll := not (nk >= 0 and str((events[nk] as Dictionary).get("kind", "")) in ["tackle", "pressure", "smother"])
 	return [{"t": "collect", "who": a, "max": 0.25}, {"t": "emit", "log": true},
 			{"t": "collect", "who": a, "roll": roll}, {"t": "possess", "who": a}, _hold(k, a)]
 

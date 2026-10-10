@@ -84,21 +84,12 @@ static func build(host: Control) -> Control:
 	var wide := bool(host.call("wide"))
 	var width := float(host.call("content_width"))
 
-	# The view, then the filters.
-	var views := UiKit.hbox(6)
+	# The view, as one line of words (the kit's choice idiom), then the filters.
+	var views := UiKit.segmented("View", VIEWS, _view, func(key: String):
+		_view = key
+		_sort = ""
+		host.call("refresh"))
 	views.name = "Views"
-	for o in VIEWS:
-		var key := str(o[0])
-		var b := UiKit.btn(str(o[1]), UiKit.BODY)
-		b.name = "View_" + key
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size.y = 44
-		UiKit.set_selected(b, key == _view)
-		b.pressed.connect(func():
-			_view = key
-			_sort = ""
-			host.call("refresh"))
-		views.add_child(b)
 	var filters := UiKit.hbox(6)
 	filters.name = "Filters"
 	for o in FILTERS:
@@ -114,19 +105,14 @@ static func build(host: Control) -> Control:
 		filters.add_child(b)
 	if _view == "team":
 		# The team leaderboard has its own picker; the ladder's filters are the ladder's.
-		if wide:
-			for b in views.get_children():
-				b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-				b.custom_minimum_size.x = 120
 		v.add_child(views)
 		v.add_child(_team_board(host, season, wide))
 		return v
 	if wide:
 		# One compact row on a wide screen, not two bars across the window.
-		for group in [views, filters]:
-			for b in group.get_children():
-				b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-				b.custom_minimum_size.x = 120
+		for b in filters.get_children():
+			b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			b.custom_minimum_size.x = 120
 		var both := UiKit.hbox(28)
 		both.name = "Controls"
 		both.add_child(views)

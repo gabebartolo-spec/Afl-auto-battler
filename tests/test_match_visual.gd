@@ -32,8 +32,10 @@ func run() -> void:
 	_test_no_wrong_way_kicks(res)
 	_test_match_flow(res)
 	_test_boundary_collect(res)
+	_test_smother_at_the_kick(res)
 	_test_tactical_timeline()
-	_test_truth(res)
+	var truth_hb := _test_truth(res)
+	_test_tail_seeds(truth_hb)
 	_test_play_when_idle(res)
 	_test_numbers_readable()
 	_test_oval_people(res)
@@ -635,10 +637,43 @@ func _test_boundary_collect(res: Dictionary) -> void:
 			"A ball against the fence is always collected, never a freeze (longest %.1f s)" % worst)
 
 
+## A smother is released at the kick it blocks. Fixture log (no seed): after a
+## centre kick, SYD 27 kicks to a spot and RIC 42 smothers it there, with the
+## receiver a long way off. The kick used to roll the ball on toward its
+## receiver, so the smother came out 15.8 m from its logged spot (seed 42,
+## event 1322).
+func _test_smother_at_the_kick(res: Dictionary) -> void:
+	var worst := 0.0
+	var released := true
+	for fp in [-6.755, 25.0, -45.0]:
+		var stamp := {"q": 4, "min": 117, "score": [70, 72], "goals": [10, 11], "behinds": [10, 6]}
+		var kick := {"kind": "kick", "side": 1, "num": 27, "player_id": "SYD_27",
+				"name": "Fixture Kicker", "club": "SYD", "fp": fp, "text": "Fixture Kicker kicks"}
+		var smother := {"kind": "smother", "side": 0, "num": 42, "player_id": "RIC_42",
+				"name": "Fixture Smotherer", "club": "RIC", "fp": fp, "text": "Fixture Smotherer smothers the kick"}
+		var bounce := {"kind": "kick", "side": 1, "num": 4, "player_id": "SYD_4",
+				"name": "Fixture Ruck", "club": "SYD", "fp": 0.0, "text": "Fixture Ruck kicks"}
+		bounce.merge(stamp)
+		kick.merge(stamp)
+		smother.merge(stamp)
+		var events := [bounce, kick, smother]
+		var d := MatchDirector.new()
+		d.setup(res, events)
+		var guard := 0
+		while not d.idle() and guard < 20000:
+			guard += 1
+			d.advance(1.0 / 30.0)
+		released = released and d.arrivals.size() == 3
+		for a in d.arrivals:
+			worst = maxf(worst, absf((a["pos"] as Vector2).x - float(a["want_x"])))
+	_check(released, "The kick and its smother are both released")
+	_check(worst < 5.0, "A smother is released at the kick it blocks (worst %.1f m)" % worst)
+
+
 ## Research truth fixes (ARD-M8-003 step 1): a handball is drawn as a
 ## handball, a bobbling ball never steers toward its collector, and the ball is
 ## not left waiting long on a receiver.
-func _test_truth(res: Dictionary) -> void:
+func _test_truth(res: Dictionary) -> Array:
 	var d := MatchDirector.new()
 	d.setup(res, res["events"])
 	var h := 1.0 / 30.0
@@ -709,8 +744,6 @@ func _test_truth(res: Dictionary) -> void:
 	print("TRUTH handballs %d, drawn as kicks %d, median %.1f m, p90 %.1f m" % [hb_total, hb_as_kick, med, p90])
 	print("TRUTH homing ticks %d, unpushed turns %d" % [roll_ticks, steer])
 	print("TRUTH collects %d, over 2 s %d, over 4 s %d, longest %.1f s; snaps into hands %d" % [collect_t.size(), long2, long4, worst, snaps])
-	_check(hb_total > 100 and hb_as_kick <= hb_total / 50,
-			"A handball is drawn as a handball: run down and dished off short (%d of %d drawn as kicks)" % [hb_as_kick, hb_total])
 	_check(roll_ticks == 0 and steer == 0,
 			"A ball on the ground never bends toward a player (%d homing ticks, %d turns without a push)" % [roll_ticks, steer])
 	# Sim-sensitive, so a share and the hard cap, not an exact count.
@@ -718,6 +751,70 @@ func _test_truth(res: Dictionary) -> void:
 			"The ball is rarely left waiting on its collector (%d of %d over 4 s, longest %.1f s)" % [long4, collect_t.size(), worst])
 	# A share too: any sim change redraws the seeded match.
 	_check(snaps * 40 <= takes, "The ball rarely jumps into a player's hands (%d of %d takes from more than 3 m)" % [snaps, takes])
+	return [hb_total, hb_as_kick]
+
+
+## The two tail checks, over four fixed seeds (42 and 1-3) rather than one:
+## one match is a coin flip at a tail.
+##  - A release is never far from its logged spot (under 15 m) on every seed.
+##  - A handball is drawn as a handball: pooled over the seeds at most 2% are
+##    drawn as kicks, no seed over 3%, each with over 100 handballs.
+## Why 3% a seed and not 2%: a match has about 240 handballs and the true rate
+## of drawing one as a kick is about 0.7% (1.7 expected). Five or more is a
+## 3% chance, so a 2% bar per match fails at random on a healthy build (seed 42
+## did, at 5 of 241, with the rate unchanged: 48 paired seeds showed no shift).
+## Eight or more (3%) is about 0.04%, so a real fault still trips the cap, and
+## pooled over about 1000 handballs the 2% bar is much stricter than the old
+## single-match one. Do not tighten the per-seed cap back to 2%.
+func _test_tail_seeds(truth_hb: Array) -> void:
+	var hb_total := int(truth_hb[0])
+	var hb_kick := int(truth_hb[1])
+	var worst_all := 0.0
+	var worst_share := float(hb_kick) / maxf(1.0, float(hb_total))
+	var all_over_100 := hb_total > 100
+	for seed in [1, 2, 3]:
+		var res := _result(seed)
+		worst_all = maxf(worst_all, _worst_release(res))
+		var hb := _handball_counts(res)
+		hb_total += hb[0]
+		hb_kick += hb[1]
+		worst_share = maxf(worst_share, float(hb[1]) / maxf(1.0, float(hb[0])))
+		all_over_100 = all_over_100 and hb[0] > 100
+	_check(worst_all < 15.0, "No release far from the logged spot on seeds 1-3 either (worst %.1f m)" % worst_all)
+	_check(all_over_100 and hb_kick <= hb_total / 50,
+			"A handball is drawn as a handball over four seeds (%d of %d drawn as kicks)" % [hb_kick, hb_total])
+	_check(worst_share <= 0.03, "No seed draws over 3%% of its handballs as kicks (worst %.1f%%)" % (worst_share * 100.0))
+
+
+func _worst_release(res: Dictionary) -> float:
+	var played := _play(res, res["events"], 1.0 / 60.0 * 4.0, false)
+	var worst := 0.0
+	for a in (played["director"] as MatchDirector).arrivals:
+		worst = maxf(worst, absf((a["pos"] as Vector2).x - float(a["want_x"])))
+	return worst
+
+
+## Handballs of a match, and how many are drawn as kicks (a high arc), counted
+## the way _test_truth counts them.
+func _handball_counts(res: Dictionary) -> Array:
+	var d := MatchDirector.new()
+	d.setup(res, res["events"])
+	var hb_total := 0
+	var hb_kick := 0
+	var last_from := Vector2.INF
+	var guard := 0
+	while not d.idle() and guard < 400000:
+		guard += 1
+		d.advance(1.0 / 30.0)
+		if str(d.ball["mode"]) == "flight" and (d.ball["from"] as Vector2) != last_from:
+			last_from = d.ball["from"]
+			var k := int(d._beat.get("k", -1))
+			var pk: int = d._prev_real(k) if k >= 0 else -1
+			if pk >= 0 and str((d.events[pk] as Dictionary).get("kind", "")) == "handball" 					and MatchDirector.DISPOSALS.has(str((d.events[k] as Dictionary).get("kind", ""))) 					and d._restart(k) == "open":
+				hb_total += 1
+				if float(d.ball["apex"]) >= 2.5:
+					hb_kick += 1
+	return [hb_total, hb_kick]
 
 
 ## Playtest freeze (mid play, live): resuming after a moment with no new

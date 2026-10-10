@@ -1,6 +1,6 @@
 # Original flavour samples and content rules
 
-Companion to [the research report](AFL_FLAVOUR_AND_CULTURE_RESEARCH.md). The director approved the eight flavour extensions on 6 October 2026; see [roadmap §9.3](../ROADMAP.md#93-approved-flavour-and-culture-work--director-decisions-2026-10-06). These are original prototype examples within that scope, not implemented copy or real-player quotations. Exact wording remains subject to contextual review. All quantities and pacing are prototype assumptions.
+Companion to [the research report](AFL_FLAVOUR_AND_CULTURE_RESEARCH.md). The director approved the eight flavour extensions on 6 October 2026; see [roadmap §9.3](../roadmap/21-9-3-approved-flavour-and-culture-work-director-decisions.md#93-approved-flavour-and-culture-work--director-decisions-2026-10-06). These are original prototype examples within that scope, not implemented copy or real-player quotations. Exact wording remains subject to contextual review. All quantities and pacing are prototype assumptions.
 
 ## Director copy decisions — 6 October 2026
 

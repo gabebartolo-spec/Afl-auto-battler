@@ -180,6 +180,14 @@ func _players_section() -> void:
 			_check(head != null and head.text.begins_with("Disposals") and s.find_child("Sort_efficiency", true, false).text.begins_with("Disposal efficiency")
 					and s.find_child("Sort_kh", true, false) == null,
 					"The table's headings are words, not codes (%s)" % tag)
+			# Each group's name spans its own columns, from the first to the last.
+			var span: Control = s.find_child("PlayersGroup_Disposals", true, false)
+			var first: Control = s.find_child("Sort_disposals", true, false)
+			var last: Control = s.find_child("Sort_efficiency", true, false)
+			_check(span != null and first != null and last != null
+					and absf(span.global_position.x - first.global_position.x) <= 1.0
+					and absf(span.get_global_rect().end.x - last.get_global_rect().end.x) <= 1.0,
+					"A group's name and its rule span just its columns (%s)" % tag)
 			_check(head != null and (await Tap.tap(head)) == "", "The disposals heading takes a tap (%s)" % tag)
 			await _settle()
 			cells = _column(s, "disposals")
@@ -200,7 +208,17 @@ func _players_section() -> void:
 		await _settle()
 		var one: Node = s.find_child("Cell_disposals", true, false)
 		_check(one != null and str(one.text).contains("."), "Per game shows a figure a game (%s: %s)" % [tag, one.text if one else "-"])
-		_check(s.find_child("StatMode_total", true, false) == null, "Totals and per game are one toggle, not two buttons (%s)" % tag)
+		pg = s.find_child("StatMode_per_game", true, false)
+		var tot: Node = s.find_child("StatMode_total", true, false)
+		_check(tot != null and pg != null and tot.get_parent() == pg.get_parent() and str(pg.get_parent().name) == "StatMode",
+				"Totals and per game are one line of words (%s)" % tag)
+		_check(tot != null and (await Tap.tap(tot)) == "", "Totals takes a tap back (%s)" % tag)
+		await _settle()
+		var back: Node = s.find_child("Cell_disposals", true, false)
+		_check(back != null and not str(back.text).contains("."), "Totals shows whole numbers again (%s: %s)" % [tag, back.text if back else "-"])
+		pg = s.find_child("StatMode_per_game", true, false)
+		await Tap.tap(pg)
+		await _settle()
 		# A rate: only those with enough shots rank, and the list says so.
 		SP.pick_stat("accuracy")
 		s.call("refresh")
@@ -642,7 +660,7 @@ func _ladder(sz: Vector2i) -> void:
 	# toggles, and the toggles are compact groups rather than bars across the window.
 	if sz.x >= 900:
 		_table_fits_content(s, "ladder", tag)
-		for n in ["View_ladder", "View_team", "Filter_all", "Filter_top8", "Filter_near"]:
+		for n in ["Filter_all", "Filter_top8", "Filter_near"]:
 			var tb: Control = s.find_child(n, true, false)
 			_check(tb != null and tb.size.x >= 100 and tb.size.x <= 140,
 					"%s is a compact button, not a bar (%s: %.0f px)" % [n, tag, tb.size.x if tb != null else -1.0])

@@ -1,6 +1,6 @@
 # FL-001 copy review sheet
 
-For the director. FL-001 (football voice and restrained humour, [roadmap §9.3](../ROADMAP.md#93-approved-flavour-and-culture-work--director-decisions-2026-10-06)) asks for natural, affectionate football language on optional captions, with plain action labels. The lead ruled that no copy beyond the two approved lines is written without your review, so **this sheet proposes no new wording for the game**. Every row is a question. Candidate lines come only from your approved samples ([AFL_FLAVOUR_WRITING_SAMPLES.md](AFL_FLAVOUR_WRITING_SAMPLES.md)); where there is no approved line, the row is blank for you.
+For the director. FL-001 (football voice and restrained humour, [roadmap §9.3](../roadmap/21-9-3-approved-flavour-and-culture-work-director-decisions.md#93-approved-flavour-and-culture-work--director-decisions-2026-10-06)) asks for natural, affectionate football language on optional captions, with plain action labels. The lead ruled that no copy beyond the two approved lines is written without your review, so **this sheet proposes no new wording for the game**. Every row is a question. Candidate lines come only from your approved samples ([AFL_FLAVOUR_WRITING_SAMPLES.md](AFL_FLAVOUR_WRITING_SAMPLES.md)); where there is no approved line, the row is blank for you.
 
 Answer each row with **Keep** (leave the current words), **Use** (the approved candidate), **Edit** (write the line) or **Skip**.
 

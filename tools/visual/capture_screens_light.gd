@@ -79,6 +79,10 @@ func _run() -> void:
 	state.save_path = "user://capture_screens.save"
 	state.settings_path = "user://capture_screens.cfg"
 	state.reset()
+	# Seeded, so a before/after pair shows the same career (same opponent and
+	# hub cards); unseeded, every run drew a different one.
+	state.career_seed = 2031
+	state.replay_seed = 2031
 	state.set_setting("seen_training_intro", true)
 	state.set_setting("seen_weekly_loop_intro", true)
 	state.set_setting("seen_season_stats_intro", true)
