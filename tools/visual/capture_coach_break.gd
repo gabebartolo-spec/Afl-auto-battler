@@ -83,6 +83,13 @@ func _run() -> void:
 	await _frames(8)
 	await _shoot(scene.find_child("TagPicker", true, false), out + "_tag.png")
 	await _frames(8)
+	# The defensive forward section: heading, question, cards and cost line.
+	var mb: Control = scene.find_child("MinderBlock", true, false)
+	if mb == null:
+		var mp: Control = scene.find_child("SpareMinderPicker", true, false)
+		mb = mp.get_parent() if mp != null else null
+	await _shoot(mb, out + "_minder.png")
+	await _frames(8)
 	# A long plan line: the longest names on either side, every call set.
 	var side := int(scene.get("_my_side"))
 	var mine: Array = scene.call("_roster_side", side)
