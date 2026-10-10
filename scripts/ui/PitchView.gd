@@ -46,10 +46,27 @@ var period := 1
 ## the ball. The name is kept in real seconds, not match time, so it can be read
 ## at any playback speed; the screen sets the rings, the view only draws.
 var rings := {}
-var _caption := {}             # {tok, text, left, goal}
+var _caption := {}             # {tok, text, left, goal, turnover, side}
+var _poss_side := -1           # who had the ball at the last possession event
+var _restarted := true         # the next possession comes from a restart
+var _shake := 0.0              # seconds of turnover shake left
+var shake_share := SHAKE_SHARE # the shake's size (captures compare strengths)
 var _last_actor := -1
 const CAPTION_GOAL := 1.8
 const CAPTION_TOUCH := 1.0
+## A change of possession in open play is said in words over the player who won
+## it (ROADMAP §1.11: a clear turnover cue; tackles where the ball is kept or
+## held in are not turnovers and carry no label).
+const CAPTION_TURNOVER := 1.1
+## The turnover's shake: short, gone in under a third of a second. Its size is a
+## share of the oval's height, so it reads the same on a phone and a PC (the canvas
+## is scaled from a 1280 base: a fixed 3 units was about one real pixel on a phone).
+const SHAKE_TIME := 0.3
+const SHAKE_SHARE := 0.025  # director, 2026-10-10: B of three strengths
+## What restarts play: whoever wins the ball after one of these has not turned
+## it over.
+const RESTARTS := ["goal", "behind", "quarter", "ballup", "throwin", "free", "fifty",
+		"last_disposal", "out_on_full"]
 ## The turf is green in both appearances, so the ring is the dark theme's text
 ## colour fixed, not UiKit.TEXT, which turns dark in light mode.
 const RING_COLOUR := Color(0.945, 0.933, 0.902)
@@ -120,6 +137,8 @@ func setup(p_result: Dictionary) -> void:
 	period = 1
 	_caption = {}
 	_last_actor = -1
+	_poss_side = -1
+	_restarted = true
 	_cam = Vector2.ZERO
 	_zoom = _target_zoom()
 	set_process(true)
@@ -195,6 +214,7 @@ func _process(delta: float) -> void:
 		for ev in out:
 			_track_quarter(ev)
 			_name_the_scorer(ev)
+			_cue_turnover(ev)
 			event_played.emit(ev)
 			if str((ev as Dictionary).get("kind", "")) == "final":
 				playing = false
@@ -206,6 +226,9 @@ func _process(delta: float) -> void:
 		_follow_ball()
 	_name_the_ball_carrier()
 	_age_caption(delta)
+	if _shake > 0.0:
+		_shake = maxf(0.0, _shake - delta)
+		queue_redraw()
 	_update_camera(delta)
 	if playing or _cam.distance_to(_drawn_cam) > 0.05 or absf(_zoom - _drawn_zoom) > 0.002 \
 			or not director.flash.is_empty() or not _caption.is_empty():
@@ -250,6 +273,41 @@ func _name_the_scorer(ev: Dictionary) -> void:
 			"left": CAPTION_GOAL, "goal": true}
 
 
+## The ball changed hands in open play: "Turnover" over the player who won it.
+## A forced turnover, a rebound and an intercept mark always are; otherwise
+## the side with the ball changed without a restart in between. A goal's name
+## is never covered.
+func _cue_turnover(ev: Dictionary) -> void:
+	var kind := str(ev.get("kind", ""))
+	if RESTARTS.has(kind):
+		_restarted = true
+		return
+	var side := int(ev.get("side", -1))
+	var won := kind == "pressure" or kind == "rebound" \
+			or (kind == "mark" and bool(ev.get("intercept", false)))
+	if side < 0 or not (won or MatchDirector.DISPOSALS.has(kind)):
+		return
+	var flipped := _poss_side >= 0 and side != _poss_side and not _restarted
+	_poss_side = side
+	_restarted = false
+	if not (won or flipped):
+		return
+	if not _caption.is_empty() and bool(_caption["goal"]):
+		return
+	var tok := director.token_of(ev)
+	if tok < 0 or tok >= director.tokens.size():
+		return
+	_caption = {"tok": tok, "text": "Turnover", "left": CAPTION_TURNOVER, "goal": false,
+			"turnover": true, "side": side}
+	if GameState.screen_shake_on():
+		_shake = SHAKE_TIME
+
+
+## Whether the oval is shaking for a turnover right now.
+func shaking() -> bool:
+	return _shake > 0.0
+
+
 ## A ringed player of yours who gets the ball is named for a moment. A goal's
 ## name outranks that, and a name already showing is not restarted.
 func _name_the_ball_carrier() -> void:
@@ -262,7 +320,8 @@ func _name_the_ball_carrier() -> void:
 	var t: Dictionary = director.tokens[act]
 	if not rings.has(str(t.get("pid", ""))):
 		return
-	if not _caption.is_empty() and (bool(_caption["goal"]) or int(_caption["tok"]) == act):
+	if not _caption.is_empty() and (bool(_caption["goal"]) or bool(_caption.get("turnover", false))
+			or int(_caption["tok"]) == act):
 		return
 	_caption = {"tok": act, "text": str(t.get("surname", "")), "left": CAPTION_TOUCH, "goal": false}
 
@@ -388,6 +447,13 @@ func _stripe(c: Vector2, a: float, b: float, x0: float, x1: float) -> PackedVect
 # Drawing
 # ---------------------------------------------------------------------------
 func _draw() -> void:
+	if _shake > 0.0:
+		# Fades out as it ends; two frequencies so it isn't a single sway.
+		# Timed by the shake itself, not the wall clock, so a recording shows it as played.
+		var k := _shake / SHAKE_TIME
+		var t := SHAKE_TIME - _shake
+		var amp := pitch_rect().size.y * shake_share * k
+		draw_set_transform(Vector2(sin(t * 83.0), cos(t * 61.0)) * amp)
 	var r := pitch_rect()
 	if r.size.x < 8.0 or r.size.y < 8.0:
 		return
@@ -543,7 +609,9 @@ func _draw_caption(tr: float) -> void:
 	var text := str(_caption["text"])
 	if text == "" or tok < 0 or tok >= director.tokens.size():
 		return
-	var fs := clampi(int(tr * 1.6), 11, 15)
+	var turnover := bool(_caption.get("turnover", false))
+	# A turnover is a cue, not a name: a size up, so it reads at a glance.
+	var fs := clampi(int(tr * (2.1 if turnover else 1.6)), 15 if turnover else 11, 20 if turnover else 15)
 	var width := UiKit.BOLD.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	var p := _w2s(director.tokens[tok]["pos"])
 	var origin := p + Vector2(-width * 0.5, -tr * 2.4)
@@ -555,6 +623,13 @@ func _draw_caption(tr: float) -> void:
 		draw_string(UiKit.BOLD, origin + off, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
 				Color(0, 0, 0, 0.8 * fade))
 	draw_string(UiKit.BOLD, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(RING_COLOUR, fade))
+	if turnover:
+		# Underlined in the winning club's colour: whose ball it is now, at a glance.
+		var kit: Dictionary = _kits[clampi(int(_caption.get("side", 0)), 0, 1)]
+		var bar: Color = kit.get("base", RING_COLOUR)
+		# A light edge round the club bar so a dark kit colour still shows on the grass.
+		draw_rect(Rect2(origin + Vector2(-2, 3), Vector2(width + 4, 6)), Color(RING_COLOUR, 0.85 * fade))
+		draw_rect(Rect2(origin + Vector2(-1, 4), Vector2(width + 2, 4)), Color(bar, fade))
 
 
 func _draw_ball(tr: float, s: float) -> void:
