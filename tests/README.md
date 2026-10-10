@@ -65,6 +65,7 @@ Floor is the fewest checks the suite may run (`expected_checks.txt`; a suite rep
 | `match_game` | Legs and rotations, match moments and calls, the rival coach, key match-ups, Play through by job | 346 | 333 |
 | `pressure` | Pressure acts and the team Pressure Rating | 21 | 38 |
 | `workload` | Workload across the campaign | 32 | 8 |
+| `fitness` | Season conditioning: each plan's curve, the high-performance department, late changes, AI plans by phase, the save | 31 | 15 |
 | `match_visual` | The live match view is presentation only (PitchView, MatchDirector, MatchMotion) | 108 | 210 |
 | `league_balance` | Smoke checks for the balance harness in `tools/balance` | 23 | 223 |
 | `calibration` | The engine against real 2026 numbers (seeded matches) | 17 | 69 |

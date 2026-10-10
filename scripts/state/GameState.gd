@@ -160,6 +160,11 @@ var season_year := 2026
 ## Rolled once per career: decides each generated draft class's quality tier
 ## (Prospects.class_tier), so a reload never re-rolls a class.
 var career_seed := 0
+## Season conditioning (Conditioning.gd): club code -> this season's record
+## {"year", "changes": [[week, plan]], "offset"}. Missing = Steady.
+var conditioning := {}
+## Audits and tests only (never saved): false keeps every AI club Steady.
+var fitness_ai_by_phase := true
 ## Club Forge: the career's created club as its spec (ClubForge), or {}.
 ## Saved with the career and registered with GameDB whenever it loads.
 var custom_club := {}
@@ -576,6 +581,7 @@ func save_career() -> bool:
 		"club_goals": club_goals,
 		"draft_meeting_year": draft_meeting_year,
 		"career_seed": career_seed,
+		"conditioning": conditioning,
 		"class_tiers": class_tiers,
 		"custom_prospect_id": custom_prospect_id,
 		"start_mode": start_mode,
@@ -723,6 +729,7 @@ func load_career() -> bool:
 	GameDB._alias_next = int(state.get("db_alias_next", GameDB._alias_next))
 	# Saves from before class tiers use seed 0: still one fixed roll per year.
 	career_seed = int(state.get("career_seed", 0))
+	conditioning = state.get("conditioning", {})
 	class_tiers = state.get("class_tiers", {})
 	custom_prospect_id = str(state.get("custom_prospect_id", ""))
 	start_mode = str(state.get("start_mode", "redraft"))
@@ -1080,6 +1087,7 @@ func reset() -> void:
 	difficulty = new_career_difficulty()
 	tutorials = new_career_tutorials()
 	career_seed = randi_range(1, 999999)
+	conditioning = {}
 	class_tiers = {}
 	last_training_report = {}
 	_xp_grant_key = ""
@@ -2091,6 +2099,7 @@ func advance() -> String:
 	_settle_week_event()
 	_sync_club_plan()
 	_refresh_coach_tactics()
+	_stamp_conditioning()
 	last_results = []
 	last_match = {}
 	last_pos_before = my_position()
@@ -2125,6 +2134,94 @@ func advance() -> String:
 	autosave()
 	return last_phase
 
+
+
+# ---------------------------------------------------------------------------
+# Season conditioning (Conditioning.gd)
+# ---------------------------------------------------------------------------
+## The week about to be played: 0..23 the home-and-away rounds, 24.. the
+## finals weeks.
+func fitness_week() -> int:
+	if season == null:
+		return 0
+	if not season.is_regular_done():
+		return season.round_index
+	return Season.REGULAR_ROUNDS + int(season.finals.get("week", 1)) - 1
+
+
+## Only your club has a department budget; AI clubs run Standard (a known
+## parity gap: AI clubs cannot invest).
+func fitness_hp_level(club: String) -> int:
+	if club == my_club:
+		return department_budget_level("high_performance")
+	return ClubBudget.STANDARD
+
+
+## This season's record for a club, made the first time it is asked for. At
+## week 0 an AI club picks its plan by phase; a club first seen mid-season
+## (an old save) runs Steady.
+func fitness_record(club: String) -> Dictionary:
+	var rec: Dictionary = conditioning.get(club, {})
+	if rec.is_empty() or int(rec.get("year", 0)) != season_year:
+		var plan := Conditioning.DEFAULT_PLAN
+		if club != my_club and season != null and fitness_week() == 0 and fitness_ai_by_phase:
+			plan = Conditioning.ai_plan(_club_phase(club))
+		rec = Conditioning.new_season(plan, season_year, club, fitness_hp_level(club), career_seed)
+		conditioning[club] = rec
+	return rec
+
+
+func fitness_plan(club: String) -> String:
+	if season == null:
+		return Conditioning.DEFAULT_PLAN
+	return Conditioning.plan_at(fitness_record(club), fitness_week())
+
+
+## The club's first bye (week), or -1.
+func fitness_bye_week(club: String) -> int:
+	if season == null:
+		return -1
+	for ri in range(season.fixture.size()):
+		var plays := false
+		for m in season.fixture[ri]:
+			if str(m["home"]) == club or str(m["away"]) == club:
+				plays = true
+				break
+		if not plays:
+			return ri
+	return -1
+
+
+func can_revise_fitness() -> bool:
+	return season != null and not season.is_regular_done() \
+			and Conditioning.revision_weeks(fitness_bye_week(my_club)).has(fitness_week())
+
+
+## Your season plan, at a revision point. False when it is not one.
+func set_fitness_plan(plan: String) -> bool:
+	if not Conditioning.valid_plan(plan) or not can_revise_fitness():
+		return false
+	conditioning[my_club] = Conditioning.revise(fitness_record(my_club), fitness_week(), plan)
+	mark_dirty()
+	return true
+
+
+## Before each week's matches: AI clubs look again at round 14, then every
+## listed player carries his club's conditioning for the week.
+func _stamp_conditioning() -> void:
+	if season == null:
+		return
+	var w := fitness_week()
+	for club in season.lists:
+		var rec := fitness_record(str(club))
+		if w == Conditioning.ROUND_14 and str(club) != my_club and fitness_ai_by_phase \
+				and Conditioning.chosen_at(rec, w) < w:
+			var plan := Conditioning.ai_plan(_club_phase(str(club)))
+			if plan != Conditioning.plan_at(rec, w):
+				rec = Conditioning.revise(rec, w, plan)
+				conditioning[club] = rec
+		Conditioning.stamp_list(season.lists[club],
+				Conditioning.actual(rec, w, fitness_hp_level(str(club))))
 
 
 ## Feed completed league matches into the long-save rivalry history.
@@ -3051,6 +3148,9 @@ func _grant_xp(club: String, list: Array, res: Dictionary) -> Dictionary:
 		if club == my_club and float(p.get("age", 25.0)) <= ClubBudget.YOUNG_AGE:
 			gain = int(round(float(gain) * ClubBudget.development_mult(
 					department_budget_level("development"))))
+		var plan_xp := Conditioning.xp_mult(fitness_plan(club), p)
+		if plan_xp != 1.0:
+			gain = int(round(float(gain) * plan_xp))
 		p["xp"] = int(p.get("xp", 0)) + gain
 		p["xp_games"] = int(p.get("xp_games", 0)) + 1
 		total += gain
