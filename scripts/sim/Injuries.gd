@@ -32,6 +32,9 @@ static func chance(p: Dictionary) -> float:
 		week *= ClubLife.HEAVY_RISK
 	if bool(p.get("fresh", false)):
 		week *= ClubLife.FRESH_RISK
+	# The club's season conditioning (Conditioning.gd): building hard raises
+	# soft-tissue risk, a managed peak lowers it. Neutral when unstamped.
+	week *= float(p.get("cond_injury", 1.0))
 	return BASE_CHANCE * clampf(1.5 - dur / 100.0, 0.5, 1.3) * week
 
 
