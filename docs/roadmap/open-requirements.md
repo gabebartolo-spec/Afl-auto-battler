@@ -61,11 +61,12 @@ Nothing here starts until the boss assigns it. Reconciled 2026-10-10 against mai
 | 30 | Coleman goalkicking cap (defect found, balance-gated) | §1.11 Coleman | director | awaiting decision |
 | 31 | Native phone numbers: frame time, battery, loading | §1.11 performance | director's phone (probe build held) | waiting |
 
-## Platforms
+## Platforms and grounds
 
 | # | Requirement | Source | Owner | Status |
 |---|---|---|---|---|
 | 32 | Fully functional **web build**; the game synchronised across Android, PC and web. Director 2026-10-10. Open question: synchronised = feature/version parity (one codebase, same content, platform-appropriate input and layout) and/or saves carried between devices (cloud or export/import)? Confirm when scheduled | ARD-M8-010 | none: awaiting the director's scheduling | not started |
+| 33 | The visual simulation's oval **dimensions and appearance change with the home ground** (AFL clubs' grounds: MCG, Marvel, Optus, Adelaide Oval, Gabba, People First, GMHBA, SCG, Engie; default elsewhere). Director 2026-10-10. Open: presentation only or sim too; fictional clubs' grounds | ARD-M8-011 | none: awaiting the director's scheduling | not started |
 
 ## Long-save presentation wishlist (HIGH content, unassigned)
 
