@@ -2178,9 +2178,16 @@ func fitness_record(club: String) -> Dictionary:
 	return rec
 
 
+## The plan a club is running. Read-only once the season is over: the
+## off-season never makes next year's record from this year's state.
 func fitness_plan(club: String) -> String:
 	if season == null:
 		return Conditioning.DEFAULT_PLAN
+	if season.is_season_over():
+		var rec: Dictionary = conditioning.get(club, {})
+		if int(rec.get("year", 0)) != season_year:
+			return Conditioning.DEFAULT_PLAN
+		return Conditioning.plan_at(rec, fitness_week())
 	return Conditioning.plan_at(fitness_record(club), fitness_week())
 
 
@@ -2228,7 +2235,7 @@ func _stamp_conditioning() -> void:
 				rec = Conditioning.revise(rec, w, plan)
 				conditioning[club] = rec
 		Conditioning.stamp_list(season.lists[club],
-				Conditioning.actual(rec, w, fitness_hp_level(str(club))))
+				Conditioning.actual(rec, w, fitness_hp_level(str(club))), Conditioning.plan_at(rec, w))
 
 
 ## Feed completed league matches into the long-save rivalry history.
@@ -6612,6 +6619,9 @@ func season_ceiling(p: Dictionary) -> int:
 	if not p.has("season_start_ov"):
 		p["season_start_ov"] = int(p.get("overall", 0))
 	var full := int(p["season_start_ov"]) + SEASON_TRAIN_GAIN + teach_step(p)
+	# Develop and manage (Conditioning): a point more room for the young.
+	if season != null and str(p.get("club", "")) != "":
+		full += Conditioning.ceiling_step(fitness_plan(str(p["club"])), p)
 	# The season after he learns a position: a little more room, inside POT.
 	if int(p.get("learn_payback_year", 0)) == season_year:
 		full = maxi(full, mini(full + LEARN_PAYBACK, int(p.get("potential", 0))))

@@ -151,21 +151,26 @@ static func build_share(peak_w: int, from: int) -> float:
 
 ## What the curve does to one player this week. Empty for a neutral week, so
 ## an unstamped player is exactly the pre-conditioning game.
-static func stamps(c: float) -> Dictionary:
+## Develop and manage holds players short of their best legs, but managed
+## loads are the point of it: its soft-tissue risk goes down, not up.
+static func stamps(c: float, plan := "") -> Dictionary:
 	if is_zero_approx(c):
 		return {}
+	var injury := 1.0 - INJURY_K * c
+	if plan == "develop":
+		injury = 1.0 + INJURY_K * c
 	return {
 		"cond_drain": 1.0 - DRAIN_K * c,
 		"cond_cap": CAP_K * maxf(0.0, -c),
-		"cond_injury": 1.0 - INJURY_K * c,
+		"cond_injury": injury,
 	}
 
 
 const STAMP_KEYS := ["cond_drain", "cond_cap", "cond_injury"]
 
 
-static func stamp_list(list: Array, c: float) -> void:
-	var st := stamps(c)
+static func stamp_list(list: Array, c: float, plan := "") -> void:
+	var st := stamps(c, plan)
 	for p in list:
 		for k in STAMP_KEYS:
 			p.erase(k)
@@ -178,6 +183,13 @@ static func xp_mult(plan: String, p: Dictionary) -> float:
 	if plan == "develop" and float(p.get("age", 25.0)) <= ClubBudget.YOUNG_AGE:
 		return 1.0 + DEVELOP_XP
 	return 1.0
+
+
+## Develop and manage also lifts a young player's season training ceiling a
+## point (the size of a good teacher's step): extra XP alone would sit unused
+## once he reaches the ordinary ceiling.
+static func ceiling_step(plan: String, p: Dictionary) -> int:
+	return 1 if xp_mult(plan, p) > 1.0 else 0
 
 
 ## What an AI club runs, from where it is in its cycle (TradeValue.phase):

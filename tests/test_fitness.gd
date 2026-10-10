@@ -124,6 +124,13 @@ func _test_stamps() -> void:
 	_check(float(peaked["cond_drain"]) < 1.0 and float(peaked["cond_cap"]) == 0.0
 			and float(peaked["cond_injury"]) < 1.0,
 			"At the peak players tire slower and break down less")
+	var managed := Conditioning.stamps(Conditioning.DEVELOP_LEVEL, "develop")
+	_check(float(managed["cond_drain"]) > 1.0 and float(managed["cond_injury"]) < 1.0,
+			"Develop and manage costs some legs but lowers soft-tissue risk")
+	_check(Conditioning.ceiling_step("develop", {"age": 20}) == 1
+			and Conditioning.ceiling_step("develop", {"age": 26}) == 0
+			and Conditioning.ceiling_step("peak", {"age": 20}) == 0,
+			"Develop and manage gives a young player a point more room this season")
 	var p := {"id": "x", "age": 25, "attr": {"durability": 70}}
 	var base_chance := Injuries.chance(p)
 	_check(Workload.energy_cap(p) == 100.0 and Workload.drain_mult(p) == 1.0,
@@ -216,6 +223,15 @@ func _test_career() -> void:
 	GameState.career_seed = SUITE_SEED
 	GameState.replay_seed = SUITE_SEED
 	GameState.start_season("GEE", GameDB.club_list("GEE"))
+	var kid := {}
+	for q in GameState.season.lists["GEE"]:
+		if float(q.get("age", 30.0)) <= ClubBudget.YOUNG_AGE:
+			kid = q
+			break
+	var room := GameState.season_ceiling(kid)
+	GameState.set_fitness_plan("develop")
+	_check(not kid.is_empty() and GameState.season_ceiling(kid) == room + 1,
+			"Your develop plan lifts your young players' season ceiling")
 	GameState.set_fitness_plan("peak")
 	var before: Dictionary = GameState.season.lists["GEE"][0]
 	_check(not before.has("cond_cap"), "Nothing is stamped before the week's first match is built")
