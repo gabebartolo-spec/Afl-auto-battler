@@ -753,17 +753,26 @@ func _pv(side: int, key: String, fallback := 1.0) -> float:
 ## Controlled tempo takes the sting out of a press as far as its ball users
 ## can: a side of ordinary ones or better holds it off, poor ones only
 ## partly (PlanFit, "controlled"). The press is where the ball is
-## (PRESS_PLAN_ZONE): hard in his back third, eased in his forward third.
+## (PRESS_PLAN_ZONE): numbers pushed up into his back third and taken out
+## of our own defensive third. What it pushes up grows with how well the
+## list suits the plan; what it leaves at the back does not.
 func _press_on(side: int, zone := 1) -> float:
 	var m := _pv(1 - side, "press")
 	if m > 1.0:
-		m = 1.0 + (m - 1.0) * float(PRESS_PLAN_ZONE[zone])
+		var suit := (m - 1.0) / (float((PLANS["defensive"] as Dictionary)["press"]) - 1.0)
+		var z := float(PRESS_PLAN_ZONE[zone])
+		m = 1.0 + (z - 1.0) * suit if z > 1.0 else z
 	if m > 1.0 and _plan(side) == "controlled":
 		var hold := clampf(float((plan_fit[side] as Dictionary).get("controlled", 1.0)), 0.0, 1.0)
 		m = 1.0 + (m - 1.0) * (1.0 - hold)
 	elif m > 1.0 and _plan(side) == "attacking":
 		m *= 1.10
 	return m
+
+
+## The chain being played got out of its back third unpressured against
+## a press (PRESS_BROKEN_EXPOSED). Reset at each chain's start.
+var _broke_press := false
 
 
 func _plan(side: int) -> String:
@@ -1603,14 +1612,17 @@ const PRESS_ZONES := [
 ]
 const PRESS_ZONE_EDGE := 20.0
 ## The Defensive press by zone, from the carrier's end (PRESS_ZONES order):
-## the press's edge (press - 1) is this many times as strong there. Their
-## back third is where we push up and hunt; in their forward third our
-## numbers are up the ground, so our own defence presses less (below 0).
-const PRESS_PLAN_ZONE := [2.2, 1.0, -0.5]
-## The ground a side gains when it gets the ball out of its back third
-## unpressured against a press: it has broken the press and runs into the
-## space behind it. The cost of the plan, the same for every list.
-const PRESS_BROKEN_GAIN := 1.15
+## the pressure he meets. Their back third is where we push up and hunt; in
+## their forward third our numbers are up the ground, so our own defence
+## presses less. About the same pressure overall, moved up the ground.
+const PRESS_PLAN_ZONE := [1.40, 1.10, 0.60]
+## In their back third a rushed disposal is closed down by two or three at
+## once, so it turns over this many times as often against a press.
+const PRESS_ZONE_TURNOVER := 2.0
+## Out of the back third with nobody on him, a side has broken the press:
+## the rest of that chain runs at a defence that is outnumbered, and its
+## shot is this much likelier to be a goal. The cost of the plan.
+const PRESS_BROKEN_EXPOSED := 1.35
 ## Non-tackle pressure acts per tackle chance, the share of those that turn
 ## the ball over outright, and the ground a rushed disposal still gains.
 const PRESS_RUSH_RATIO := 2.0
@@ -2141,6 +2153,7 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 	var gline := float(T["goal_line"])
 
 	_t(side, "chains")
+	_broke_press = false
 	var atk_fp := fp if side == 0 else -fp
 	var cleared = _stoppage(side, opp, from_bounce, atk_fp >= f50)
 	# A chain that starts inside its forward 50 (a ball-up won there) goes
@@ -2319,6 +2332,8 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			var turn_p: float = (PRESS_TURNOVER
 					* (0.80 + 0.40 * _a(presser, "pressure") / 100.0)
 					* (1.20 - 0.40 * _a(carrier, "disposal") / 100.0))
+			if zone == 0 and _pv(opp, "press") > 1.0:
+				turn_p *= PRESS_ZONE_TURNOVER
 			if rng.randf() < turn_p:
 				_t(opp, "pressure_wins")
 				_intercept(opp, presser, false)
@@ -2358,9 +2373,9 @@ func play_chain(side: int, fp: float, from_bounce: bool, from_kick_in := false) 
 			gain *= 0.82 if not kick_in_play_on else 1.12
 		if rushed:
 			gain *= PRESS_RUSH_GAIN
-		elif zone == 0 and _pv(opp, "press") > 1.0:
+		elif zone == 0 and _pv(opp, "press") > 1.0 and not _broke_press:
 			# Out of the back third with nobody on him: the press is broken.
-			gain *= PRESS_BROKEN_GAIN
+			_broke_press = true
 			_t(side, "press_broken")
 		fp += gain * dir
 		fp = clampf(fp, -gline, gline)
@@ -2994,6 +3009,9 @@ func shot_chance(side: int, shooter: Dictionary, marked: bool, spoilt: bool, cre
 	if _plan(side) != "controlled":
 		goal_p *= _pv(opp, "opp_goal")
 		goal_p *= _pv(opp, "exposed")
+	# This chain broke their press: the defence it runs at is outnumbered.
+	if _broke_press and _pv(opp, "press") > 1.0:
+		goal_p *= PRESS_BROKEN_EXPOSED
 	if credit:
 		_credit(opp, "gameplan", 6.0 * (before - goal_p))
 	before = goal_p
