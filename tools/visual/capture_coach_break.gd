@@ -76,7 +76,7 @@ func _run() -> void:
 	if pick != null:
 		pick.emit_signal("pressed")
 		await _frames(6)
-	await _shoot(scene.find_child("FocusPicker", true, false), out + "_focus.png")
+	await _shoot(scene.find_child("FocusPicker_focus_fwd", true, false), out + "_focus.png")
 	await _frames(8)
 	# Composed and Normal are the defaults: their words show without a tap.
 	await _shoot(scene.find_child("PepPicker", true, false), out + "_pep.png")
