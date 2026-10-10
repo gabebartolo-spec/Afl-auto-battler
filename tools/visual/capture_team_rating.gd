@@ -6,7 +6,7 @@ extends SceneTree
 ## tapped on the ladder), <out>_hub.png (your club's line and this week's
 ## opponent, scrolled to the opponent), <out>_trade.png (the off-season Trade
 ## tab) and <out>_draft.png (the draft order). A fresh Collingwood career,
-## eight rounds in; the trade and draft shots skip to the off-season.
+## seven rounds in; the trade and draft shots skip to the off-season.
 
 var W := 390
 var H := 844
@@ -40,7 +40,8 @@ func _run() -> void:
 	root.size = Vector2i(W, H)
 	DisplayServer.window_set_size(Vector2i(W, H))
 	state.start_season("COL", db.club_list("COL"))
-	for r in range(8):
+	# Seven rounds in: Collingwood has a match to come (round 9 is its bye).
+	for r in range(7):
 		state.advance()
 	# The ladder, and a club tapped on it.
 	load("res://scripts/ui/stats/StatsLadder.gd").reset()
@@ -60,6 +61,12 @@ func _run() -> void:
 	var hub: Control = load("res://scenes/HubScene.tscn").instantiate()
 	root.add_child(hub)
 	await _frames(12)
+	# The week's press conference sits over the hub; the shot is the hub.
+	for n in ["MediaConference", "BackingTalk"]:
+		var o: Node = hub.find_child(n, true, false)
+		if o != null:
+			o.queue_free()
+	await _frames(6)
 	_shot(out + "_hub.png")
 	var opp: Control = hub.find_child("OppTeamOutlook", true, false)
 	if opp != null:
