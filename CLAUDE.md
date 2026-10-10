@@ -97,24 +97,11 @@ every fact in its own card, generic dashboard grids, gradients, glows, big
 corner radii, excess separators, decorative stat boxes and icons. Prefer flat,
 editorial layouts: typography, alignment, spacing, restrained surfaces.
 
-**Colour.** A restrained warm-neutral palette so clubs, match information and
-real states provide the colour. Accent (red) only for the primary action;
-selection is a light outline; GOOD/BAD only for genuine state. Ordinary labels
-are TEXT or MUTED. Gold is not "important".
-
-**Typography.** Weight and size before colour, from UiKit's type scale.
-Sentence case unless AFL convention says otherwise (OVR, POT, Grand Final). No
-ALL CAPS labels, wide letter spacing, condensed body copy or tiny uppercase
-metadata. The condensed face is for scores. Font changes are project-wide
-decisions.
-
-**Components.** Before adding a pill, card, badge or progress bar, ask whether
-typography, spacing or alignment could say it. Panels mean real grouping, have
-no border, and no radius above `UiKit.RADIUS`. Secondary buttons are outlines.
-
-**Copy.** Concise football language. Do not explain simulation mechanics
-(percentages, internal rules) unless the player needs them to decide; do not
-repeat what context already shows.
+**Colour, type, components, copy.** The exact rules are in
+[docs/VISUAL_STYLE_GUIDE.md](docs/VISUAL_STYLE_GUIDE.md): colour and where it goes
+(§2.1-2.2), type roles (§2.3), the component kit (§3), copy (§5). Before adding a
+pill, card, badge or progress bar, ask whether typography, spacing or alignment
+could say it. Font changes are project-wide decisions.
 
 **Consistency.** Reuse what works; don't invent a mini design system per
 screen, and don't copy a template-looking pattern because it exists. Apply
