@@ -82,7 +82,7 @@ func _run() -> void:
 	await _shoot(scene.find_child("PepPicker", true, false), out + "_pep.png")
 	await _frames(8)
 	# A tag picked (their first card), so the note and who goes to him show.
-	var tag_btns := scene.find_children("TagPickerGrid_?*", "Button", true, false)
+	var tag_btns: Array = scene.find_children("TagPickerGrid_?*", "Button", true, false)
 	if not tag_btns.is_empty():
 		(tag_btns[0] as Button).emit_signal("pressed")
 		await _frames(6)
