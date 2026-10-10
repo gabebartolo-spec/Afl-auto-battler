@@ -9,14 +9,14 @@ extends RefCounted
 ## Args after the impl name: arms seeds
 ##   arms   comma list (default all): plan_attacking, plan_defensive,
 ##          plan_contest, plan_controlled, plan_through_stars, pep_fire_up,
-##          pep_calm, rot_hard, rot_stars, tag, loose
+##          pep_calm, pep_heat, rot_hard, rot_stars, tag, loose
 ##   seeds  per pairing (default 40); six pairings
 ## One line per arm: the paired home margin and the process the copy names,
 ## each as mean ± standard error of the paired difference.
 
 const PAIRS := [["MEL", "CAR"], ["GEE", "COL"], ["SYD", "WCE"], ["BRL", "ADE"], ["HAW", "ESS"], ["FRE", "STK"]]
 const ALL := ["plan_attacking", "plan_defensive", "plan_contest", "plan_controlled", "plan_through_stars",
-		"pep_fire_up", "pep_calm", "rot_hard", "rot_stars", "tag", "loose"]
+		"pep_fire_up", "pep_calm", "pep_heat", "rot_hard", "rot_stars", "tag", "loose"]
 
 
 ## One match. Returns the numbers every arm reads.
@@ -53,10 +53,12 @@ func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
 	var stars := _top3(home.ground + home.bench)
 	var star_disp := 0.0
 	var star_time := 0.0
+	var exertion := 0.0
 	var own_disp := 0.0
 	for p in home.ground + home.bench:
 		var d := float((players.get(str(p["id"]), {}) as Dictionary).get("disposals", 0))
 		own_disp += d
+		exertion += float((res["exertion"] as Dictionary).get(str(p["id"]), 0.0))
 		if stars.has(str(p["id"])):
 			star_disp += d
 			star_time += float((res["exertion"] as Dictionary).get(str(p["id"]), 0.0))
@@ -64,6 +66,8 @@ func _play(h: String, a: String, seed: int, arm: String) -> Dictionary:
 		"clangers": float(team.get("clangers", 0)),
 		"contested": float(team.get("contested_possessions", 0)),
 		"pressure": float(team.get("pressure_acts", 0)),
+		"pressure_wins": float(team.get("pressure_wins", 0)),
+		"exertion": exertion,
 		"clearances": float(team.get("clearances", 0)),
 		"intercepts": float(team.get("intercept_marks", 0)) + float(team.get("intercepts", 0)),
 		"star_share": star_disp / maxf(1.0, own_disp),
@@ -100,6 +104,8 @@ const PROCESS := {
 	"plan_through_stars": ["margin", "star_share"],
 	"pep_fire_up": ["margin", "contested", "clangers"],
 	"pep_calm": ["margin", "clangers"],
+	# "Harder pressure on their ball carriers forces more turnovers; legs go quicker."
+	"pep_heat": ["margin", "pressure", "pressure_wins", "exertion"],
 	"rot_hard": ["margin", "star_time"],
 	"rot_stars": ["margin", "star_time"],
 	"tag": ["margin", "target_disp"],
