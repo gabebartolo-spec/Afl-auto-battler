@@ -17,6 +17,7 @@ func run() -> void:
 	checks = 0
 	GameState.replay_seed = SUITE_SEED
 	_test_mid_season_round_trip()
+	_test_reload_plays_like_straight()
 	_test_training_survives()
 	_test_adjusted_players_survive()
 	_test_no_save_mid_match()
@@ -87,6 +88,59 @@ func _test_mid_season_round_trip() -> void:
 	_check(_round_sig(GameState.last_results) == played_live,
 			"The next round replays identically after loading")
 	_check(_ladder_sig() == ladder_live, "The ladder after that round matches too")
+
+
+## A career saved and reloaded after round 5 plays rounds 6-10 exactly as one
+## played straight through (qa, 2026-10-11). Past rounds are compared by score
+## only: the save keeps a slim copy of a played match on purpose (the box, not
+## the timeline), so a whole-result hash of rounds 1-5 always differs.
+func _test_reload_plays_like_straight() -> void:
+	var straight := _ten_rounds(-1)
+	var reloaded := _ten_rounds(5)
+	_check(straight["rounds"] == reloaded["rounds"],
+			"Every score in rounds 1-10 matches after a reload at round 5")
+	_check(straight["ladder"] == reloaded["ladder"], "The round-10 ladder matches after a reload")
+	_check(straight["players"] == reloaded["players"],
+			"Every player (fitness, form, injuries, ratings) matches after a reload")
+	_check(straight["teams"] == reloaded["teams"], "The clubs' season figures match after a reload")
+	# Season stats: counts exact; metres gained and distance run are saved in
+	# whole metres, so a reloaded total may differ by under one metre.
+	var bad := ""
+	var a: Dictionary = straight["stats"]
+	var b: Dictionary = reloaded["stats"]
+	for id in a:
+		var sa: Dictionary = (a[id] as Dictionary).get("s", {})
+		var sb: Dictionary = (b.get(id, {}) as Dictionary).get("s", {})
+		if int(a[id].get("games", 0)) != int(b.get(id, {}).get("games", -1)):
+			bad = "%s games" % id
+		for k in sa:
+			var tol := 0.51 if k in ["metres_gained", "distance_run"] else 0.001
+			if absf(float(sa[k]) - float(sb.get(k, 0.0))) > tol:
+				bad = "%s %s" % [id, k]
+	_check(bad == "" and a.size() == b.size(), "Season stats match after a reload (%s)" % bad)
+
+
+func _ten_rounds(save_after: int) -> Dictionary:
+	_new_season("MEL")
+	while GameState.season.results.size() < 10:
+		if GameState.season.results.size() == save_after:
+			GameState.save_career()
+			GameState.load_career()
+		GameState.advance()
+	var rounds := []
+	for r in GameState.season.results:
+		rounds.append(_round_sig(r))
+	var players := []
+	for code in GameState.season.lists:
+		for p in GameState.season.lists[code]:
+			# Less the derived caches the save skips on purpose (rebuilt on use).
+			var row: Dictionary = (p as Dictionary).duplicate()
+			for k in CareerSave.SKIP_PLAYER_KEYS:
+				row.erase(k)
+			players.append(JSON.stringify(row, "", true))
+	return {"rounds": rounds, "ladder": _ladder_sig(), "players": players,
+			"teams": JSON.stringify(GameState.season_team, "", true),
+			"stats": GameState.season_stats.duplicate(true)}
 
 
 func _test_training_survives() -> void:
