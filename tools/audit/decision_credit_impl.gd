@@ -7,6 +7,8 @@ extends RefCounted
 ##             coach: mean, spread and how often it is not 0; then the rest.
 ##   checksum  the scores of the same matches, one number, to show the
 ##             ledger changes no result (run on main and on the branch).
+##   validate  seeds call [first]: the call (loose, tag, minder) on and off
+##             over seeds first..first+seeds-1; prints raw sums to pool shards.
 ## Both clubs run their AI calls (plan, loose man, tags, defensive forward);
 ## the home coach also moves one defender onto their best key forward.
 ## Moments take their default call (no bursts, no set-shot calls).
@@ -69,16 +71,20 @@ func _arm(h: String, a: String, seed: int, call: String, on: bool) -> MatchSim:
 	return sim
 
 
-func _validate(call: String, seeds: int) -> void:
+func _validate(call: String, seeds: int, first := 0) -> void:
 	var diffs := []
 	var lines := []
 	for pr in PAIRS:
-		for s in range(seeds):
+		for s in range(first, first + seeds):
 			var on := _arm(pr[0], pr[1], 9100 + s, call, true)
 			var off := _arm(pr[0], pr[1], 9100 + s, call, false)
 			diffs.append(float(on.score(0) - on.score(1)) - float(off.score(0) - off.score(1)))
 			lines.append(float((on.impact[0] as Dictionary).get(call, 0.0)))
-	print("DECISION validate %s | paired margin %s | line %s" % [call, _mean_se(diffs), _mean_se(lines)])
+	print("DECISION validate %s seeds %d-%d | paired margin %s | line %s" % [call, first, first + seeds - 1,
+			_mean_se(diffs), _mean_se(lines)])
+	# Raw sums for pooling shards: n, sum and sum of squares of each.
+	print("DECISION pool %s n %d | diff %.6f %.6f | line %.6f %.6f" % [call, diffs.size(),
+			_sum(diffs), _sum2(diffs), _sum(lines), _sum2(lines)])
 
 
 func run() -> void:
@@ -86,7 +92,7 @@ func run() -> void:
 	var mode := str(args[1]) if args.size() > 1 else "lines"
 	var seeds := int(args[2]) if args.size() > 2 else 40
 	if mode == "validate":
-		_validate(str(args[3]) if args.size() > 3 else "loose", seeds)
+		_validate(str(args[3]) if args.size() > 3 else "loose", seeds, int(args[4]) if args.size() > 4 else 0)
 		return
 	var vals := {}
 	var rest := []
@@ -139,3 +145,17 @@ func _mean_se(xs: Array) -> String:
 		m += float(x)
 	m /= maxf(1.0, n)
 	return "%+.3f ± %.3f" % [m, _sd(xs) / sqrt(maxf(1.0, n))]
+
+
+func _sum(xs: Array) -> float:
+	var t := 0.0
+	for x in xs:
+		t += float(x)
+	return t
+
+
+func _sum2(xs: Array) -> float:
+	var t := 0.0
+	for x in xs:
+		t += float(x) * float(x)
+	return t

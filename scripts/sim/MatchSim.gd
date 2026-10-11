@@ -1763,7 +1763,7 @@ func _credit_aerial_loose(def_side: int, fp: float, receiver: Dictionary) -> voi
 ## made that call. Same rules as the contest in resolve_forward50 (crumbs off
 ## the deck left out); the draws themselves are untouched.
 func _credit_entry(side: int, shooter: Dictionary, feeder, defender, line_def, matched: Dictionary,
-		roamer: Dictionary) -> void:
+		roamer: Dictionary, minder_r := 1.0) -> void:
 	var opp := 1 - side
 	var roams := not roamer.is_empty() and str(roamer.get("id", "")) != str(defender.get("id", ""))
 	var p_r := _roam_chance(opp) if roams else 0.0
@@ -1778,10 +1778,16 @@ func _credit_entry(side: int, shooter: Dictionary, feeder, defender, line_def, m
 		else:
 			bare = _entry_ev(side, shooter, feeder, defender, matched, roamer, 0.0, 0.0)
 		_credit(opp, "loose", bare - actual)
-		if not _spare_minder(side).is_empty():
-			var unminded := _entry_ev(side, shooter, feeder, defender, matched, roamer,
+	if not _spare_minder(side).is_empty():
+		# The defensive forward: the entry as played against the same entry
+		# without the call - their loose man free to roam, and the shooter
+		# picked as he would have been (minder_r, _minder_shot_ratio: the
+		# defensive forward's own shots and key-target entries come back).
+		var unminded := actual
+		if roams:
+			unminded = _entry_ev(side, shooter, feeder, defender, matched, roamer,
 					_roam_chance(opp, false), _roam_go_chance(opp, false))
-			_credit(side, "minder", actual - unminded)
+		_credit(side, "minder", actual - minder_r * unminded)
 	var was: Dictionary = _duel_was[opp]
 	var fid := str(shooter.get("id", ""))
 	if not matched.is_empty() and was.has(fid) and str(was[fid]) != str(matched.get("id", "")):
@@ -1789,6 +1795,57 @@ func _credit_entry(side: int, shooter: Dictionary, feeder, defender, line_def, m
 		var other = before if not before.is_empty() else line_def
 		var cf := _entry_ev(side, shooter, feeder, other, before, roamer, p_r, p_go)
 		_credit(opp, "matchups", cf - actual)
+
+
+## The shooter's chance of being picked without the defensive forward call
+## over his chance with it (resolve_forward50's pick: the weighted roles, or a
+## key target on KEY_TARGET of entries). Without the call the defensive
+## forward is a full target (no MINDER_INVOLVE) and, with a match-up, one of
+## the key targets again. Weighting the entry by this ratio gives its expected
+## points under the other pick without drawing it. 1.0 with no call. Pure.
+func _minder_shot_ratio(side: int, shooter: Dictionary, keys: Array, T: Dictionary) -> float:
+	var minder := _spare_minder(side)
+	if minder.is_empty():
+		return 1.0
+	var mid := str(minder.get("id", ""))
+	var sid := str(shooter.get("id", ""))
+	var ctx := _pick_ctx(side)
+	var w_sum := 0.0
+	var w_me := 0.0
+	var w_min := 0.0
+	for p in (squads[side] as Squad).ground:
+		var w: float = float(SHOT_ROLES.get(str(p["role"]), 0.0)) * pow(maxf(1.0, _a(p, "goalkicking")), float(T["shooter_power"]))
+		if str(p["role"]) == "FWD":
+			w *= float(TARGET_SIZES.get(fwd_size(p), 1.0))
+		w *= _tactic_player_mult(side, p, "shooter", ctx)
+		w_sum += w
+		if str(p["id"]) == sid:
+			w_me = w
+		if str(p["id"]) == mid:
+			w_min = w
+	if w_sum <= 0.0:
+		return 1.0
+	var w_sum_off := w_sum + w_min * (1.0 / MINDER_INVOLVE - 1.0)
+	var w_me_off := w_me / MINDER_INVOLVE if sid == mid else w_me
+	var keys_off := keys.duplicate()
+	if (duels[1 - side] as Dictionary).has(mid):
+		keys_off.append(minder)
+	var p_on := _shot_pick_p(w_me / w_sum, keys, sid)
+	var p_off := _shot_pick_p(w_me_off / w_sum_off, keys_off, sid)
+	return p_off / p_on if p_on > 0.0 else 1.0
+
+
+func _shot_pick_p(p_weighted: float, keys: Array, sid: String) -> float:
+	if keys.is_empty():
+		return p_weighted
+	var ks := keys.duplicate()
+	ks.sort_custom(func(a, b): return Matchups.forward_air(a) > Matchups.forward_air(b))
+	var k := 0.0
+	if str(ks[0].get("id", "")) == sid:
+		k = 1.0 if ks.size() == 1 else 0.6
+	elif ks.size() > 1 and str(ks[1].get("id", "")) == sid:
+		k = 0.4
+	return (1.0 - Matchups.KEY_TARGET) * p_weighted + Matchups.KEY_TARGET * k
 
 
 ## Expected points of an inside-50 entry (6 a goal, 1 a behind) with
@@ -1819,28 +1876,85 @@ func _entry_ev(side: int, shooter: Dictionary, feeder, defender, matched: Dictio
 	var g_c := shot_chance(side, shooter, false, false, false, feeder, dfd)
 	var b0 := float(T["inside50_behind"]) * (0.80 + 0.40 * _a(shooter, "goalkicking") / 100.0)
 	var p_m0 := clampf(base_m, 0.10, mark_cap)
-	var ev := (1.0 - p_go) * _entry_mode_ev(p_m0, p_sp, 0.0, 1.0, 1.0, 1.0, g_m, g_s, g_c, b0, beaten)
+	# Off the deck: a crumb after a spoil, and (unmatched) the spill to a
+	# ground-ball forward when nobody touched it.
+	var deck := _deck_ev(side)
+	var spill := 0.0
+	if matched.is_empty():
+		spill = float(SPILL_P.get(fwd_size(shooter) if str(shooter.get("role", "")) == "FWD" else "general", 0.30))
+	var ev := (1.0 - p_go) * _entry_mode_ev(p_m0, p_sp, 0.0, 1.0, 1.0, 1.0, g_m, g_s, g_c, b0, beaten,
+			deck, spill)
 	if p_go > 0.0 and not roamer.is_empty():
 		var gap := 1.0 - _loose_read(roamer)
 		var p_mr := clampf(base_m + _roam_mark_shift(roamer), 0.10, mark_cap)
 		ev += p_roam * _entry_mode_ev(p_mr, p_sp, _roam_spoil_p(roamer), 1.0 + 0.15 * gap,
-				1.0 + 0.08 * gap, 1.0 + 0.05 * gap, g_m, g_s, g_c, b0, beaten)
+				1.0 + 0.08 * gap, 1.0 + 0.05 * gap, g_m, g_s, g_c, b0, beaten, deck, spill)
 		ev += maxf(0.0, p_go - p_roam) * _entry_mode_ev(p_m0, p_sp, 0.0,
 				1.0 + float(LOOSE_LATE_SPACE["marked"]) * gap, 1.0 + float(LOOSE_LATE_SPACE["unmarked"]) * gap,
-				1.0 + 0.05 * gap, g_m, g_s, g_c, b0, beaten)
+				1.0 + 0.05 * gap, g_m, g_s, g_c, b0, beaten, deck, spill)
 	return ev
 
 
 ## One way the entry plays out: marked with p_m; otherwise spoilt by the man
 ## in the contest (p_sp) or the extra body (p_extra); space left behind
-## (sp_m, sp_u, sp_b) counts only when nobody got a fist to it.
+## (sp_m, sp_u, sp_b) counts only when nobody got a fist to it. Off a spoil
+## that does not score, a crumb (deck[0] points); untouched and unmatched,
+## the ball spills to a ground-ball forward on `spill` of them (deck[1],
+## deck[2]: his goal and behind chances times his chance of winning it).
 func _entry_mode_ev(p_m: float, p_sp: float, p_extra: float, sp_m: float, sp_u: float, sp_b: float,
-		g_m: float, g_s: float, g_c: float, b0: float, beaten: float) -> float:
+		g_m: float, g_s: float, g_c: float, b0: float, beaten: float, deck: Array = [0.0, 0.0, 0.0],
+		spill := 0.0) -> float:
 	var clean := 1.0 - p_sp
 	var marked := 6.0 * g_m * (p_sp + clean * sp_m) + b0 * (p_sp + clean * sp_b)
 	var p_spt := p_sp + clean * p_extra
-	var loose_ball := p_spt * (6.0 * g_s + b0) + (1.0 - p_spt) * (6.0 * g_c * sp_u + b0 * sp_b)
-	return p_m * marked + (1.0 - p_m) * loose_ball * beaten
+	var gs := beaten * g_s
+	var bs := beaten * b0
+	var spoil_v := 6.0 * gs + bs + maxf(0.0, 1.0 - gs - bs) * float(deck[0])
+	var kept := beaten * (6.0 * g_c * sp_u + b0 * sp_b)
+	var ground := 6.0 * float(deck[1]) * sp_u + float(deck[2]) * sp_b
+	var clean_v := (1.0 - spill) * kept + spill * ground
+	return p_m * marked + (1.0 - p_m) * (p_spt * spoil_v + (1.0 - p_spt) * clean_v)
+
+
+## What the ball on the deck inside 50 is worth to `side` (_crumb, and the
+## spill in resolve_forward50), over the forwards who get to it as
+## _ground_forward picks them: [crumb points off a spoil, goal and behind
+## chances of the spill times his chance of winning it]. Kept for the
+## quarter (the forwards on the ground move little within one). Pure.
+var _deck_memo := [{}, {}]
+
+
+func _deck_ev(side: int) -> Array:
+	var memo: Dictionary = _deck_memo[side]
+	var key := "%d|%s" % [current_quarter, str(tactics[side].get("spare_accountable", false))]
+	if str(memo.get("key", "")) == key:
+		return memo["v"]
+	var T := _rates()
+	var ctx := _pick_ctx(side)
+	ctx["zone"] = ""
+	var w_sum := 0.0
+	var crumb := 0.0
+	var gg := 0.0
+	var gb := 0.0
+	for p in (squads[side] as Squad).ground:
+		var w: float = float(CRUMB_ROLES.get(str(p["role"]), 0.0)) * pow(maxf(1.0, _a(p, "pressure")), 2.0)
+		if str(p["role"]) == "FWD":
+			w *= float(GROUND_SIZES.get(fwd_size(p), 1.0))
+		w *= _tactic_player_mult(side, p, "crumb", ctx)
+		if w <= 0.0:
+			continue
+		var g := shot_chance(side, p, false, false)
+		var b := float(T["inside50_behind"]) * (0.80 + 0.40 * _a(p, "goalkicking") / 100.0)
+		var c := CRUMB_P * (0.7 + 0.6 * _a(p, "pressure") / 100.0)
+		var size: String = fwd_size(p) if str(p.get("role", "")) == "FWD" else "general"
+		var win := float(GROUND_WIN[size]) * (0.85 + 0.30 * _a(p, "pressure") / 100.0)
+		w_sum += w
+		crumb += w * c * (6.0 * g * CRUMB_SNAP + b)
+		gg += w * win * g
+		gb += w * win * b
+	var v := [0.0, 0.0, 0.0] if w_sum <= 0.0 else [crumb / w_sum, gg / w_sum, gb / w_sum]
+	_deck_memo[side] = {"key": key, "v": v}
+	return v
 
 
 ## A won stoppage is worth about a possession chain's points.
@@ -2763,6 +2877,9 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 	if not keys.is_empty() and rng.randf() < Matchups.KEY_TARGET:
 		keys.sort_custom(func(a, b): return Matchups.forward_air(a) > Matchups.forward_air(b))
 		shooter = keys[0] if keys.size() == 1 or rng.randf() < 0.6 else keys[1]
+	# What the defensive forward call costs in who gets the entry: the share
+	# he would have had (and his place among the key targets) without it.
+	var minder_r := _minder_shot_ratio(side, shooter, keys, T)
 
 	var dgroup := _by_roles(dfn.ground, ["DEF"])
 	if dgroup.is_empty():
@@ -2806,7 +2923,7 @@ func resolve_forward50(side: int, fp: float, feeder) -> Dictionary:
 
 	# A marking infringement is paid from the contest itself, not from a
 	# post-chain generic dice roll.
-	_credit_entry(side, shooter, feeder, defender, line_def, matched, roamer)
+	_credit_entry(side, shooter, feeder, defender, line_def, matched, roamer, minder_r)
 	var infringement := _marking_free(side, shooter, defender)
 	if not infringement.is_empty():
 		var free_side := int(infringement["side"])
