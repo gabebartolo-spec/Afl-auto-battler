@@ -637,10 +637,14 @@ func _show_coach_box() -> void:
 		else:
 			rep.add_child(stats)
 			rep.add_child(UiKit.spacer(UiKit.GAP))
+		# Who is playing well, right on the break (director, 2026-10-11): the top
+		# few of each side by match rating so far, the full table a tap away.
+		rep.add_child(_best_so_far())
 		# The quarter just played, by name: what happened, not what is happening.
 		var played := UiKit.section(str({2: "First quarter", 3: "Second quarter",
 				4: "Third quarter"}.get(q, "Last quarter")))
 		played.name = "QuarterHeading"
+		played.set_meta("break_unit", true)
 		rep.add_child(played)
 		rep.add_child(_quarter_view(q - 1))
 		var did := MatchNotes.calls_lines(_res, _my_side, q - 1) \
@@ -1608,7 +1612,7 @@ func _roster_side(side: int) -> Array:
 # ---------------------------------------------------------------------------
 ## The match so far in full, over the break: team and player stats for both
 ## clubs, any quarter on its own. Close (or Back) returns to your calls.
-func _show_break_stats() -> void:
+func _show_break_stats(players_first := false) -> void:
 	_close_report()
 	var box := UiKit.modal_box(self, 1100.0, 0.0, _wash())
 	var overlay: Control = box["overlay"]
@@ -1620,11 +1624,46 @@ func _show_break_stats() -> void:
 	box_score.name = "BreakBoxScore"
 	v.add_child(box_score)
 	v.add_child(UiKit.spacer(UiKit.GAP))
-	v.add_child(MatchStatsView.new().setup(_res, _my_side, true))
+	var msv := MatchStatsView.new()
+	msv.players_first = players_first
+	v.add_child(msv.setup(_res, _my_side, true))
 	var close := UiKit.btn("Back to your calls", UiKit.NAME, true)
 	close.custom_minimum_size = Vector2(0, 44)
 	close.pressed.connect(_close_report)
 	box["footer"].add_child(close)
+
+
+## Best so far, on the break: the three best of each side by match rating so
+## far (yours first), each with his rating and the numbers that stand out, as
+## full time's best players read; "All player stats" opens the full table.
+func _best_so_far() -> Control:
+	var box := UiKit.vbox(2 if _pc_break else 6)
+	box.name = "BestSoFar"
+	box.set_meta("break_unit", true)
+	var head := UiKit.hbox(8)
+	var title := UiKit.section("Best so far")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	var all := UiKit.text_action("All player stats", UiKit.BODY)
+	all.name = "BestSoFarAll"
+	all.pressed.connect(func(): _show_break_stats(true))
+	# On a PC the way to the table sits in the heading row, so the block is
+	# shorter and the fullest break still fits 1280x720.
+	if _pc_break:
+		all.custom_minimum_size = Vector2(0, 32)
+		head.add_child(all)
+	else:
+		all.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	box.add_child(head)
+	for side in [_my_side, 1 - _my_side]:
+		# Three of yours; a PC break, tight for height, shows two of theirs.
+		for p in MatchNotes.standouts(_res, side, 2 if (_pc_break and side != _my_side) else 3):
+			var row := _standout_row(p, side, false)
+			row.name = "BestRow_%s" % str(p["id"])
+			box.add_child(row)
+	if not _pc_break:
+		box.add_child(all)
+	return box
 
 
 func _glance_section(v: VBoxContainer, title: String, node_name: String, lines: Array) -> void:

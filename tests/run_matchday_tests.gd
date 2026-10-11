@@ -48,6 +48,7 @@ func _run() -> void:
 		await _minder_cards(sz)
 		await _loose_interceptor(sz)
 		await _main_ruck_picker(sz)
+		await _best_so_far(sz)
 	_break_units_keep_followups()
 	for club in ["COL", "GWS", "STK"]:
 		await _pc_break_worst_case(club)
@@ -799,6 +800,63 @@ func _break_units_keep_followups() -> void:
 		c.free()
 
 
+## Best so far on the break (director, 2026-10-11): three of each side by match
+## rating so far, the numbers the match's own player stats, a real tap on
+## "All player stats" opens the full table.
+func _best_so_far(sz: Vector2i) -> void:
+	var tag := "%dx%d" % [sz.x, sz.y]
+	var db = root.get_node("GameDB")
+	var notes = load("res://scripts/ui/match/MatchNotes.gd")
+	_state.reset()
+	_state.start_season("COL", db.club_list("COL"))
+	root.size = sz
+	_check(_state.prepare_interactive_match(), "A live match is prepared for Best so far (%s)" % tag)
+	var sim = _state.pending_sim
+	var me := int(sim.moment_side)
+	sim.run_quarter()
+	var res: Dictionary = sim.result()
+	var m: Control = load("res://scenes/MatchScene.tscn").instantiate()
+	root.add_child(m)
+	await _settle()
+	var box: Node = m.find_child("CoachBox", true, false)
+	var block: Node = box.find_child("BestSoFar", true, false) if box != null else null
+	_check(block != null, "The break shows Best so far (%s)" % tag)
+	if block == null:
+		m.queue_free()
+		await _settle()
+		return
+	# The top three of each side, from the match's own player stats.
+	var want := []
+	for side in [me, 1 - me]:
+		var ranked := []
+		for p in (res["roster"] as Array)[side]:
+			var st: Dictionary = (res["players"] as Dictionary).get(str(p["id"]), {})
+			ranked.append([str(p["id"]), int(notes.rating(st)), int(float(st.get("disposals", 0.0)))])
+		ranked.sort_custom(func(a, b): return a[1] > b[1] or (a[1] == b[1] and a[2] > b[2]))
+		for r in ranked.slice(0, 2 if (sz.x >= 900 and side != me) else 3):
+			want.append(r)
+	var bad := []
+	var found := 0
+	for r in want:
+		var row: Node = block.find_child("BestRow_%s" % str(r[0]), true, false)
+		if row == null:
+			bad.append("missing " + str(r[0]))
+			continue
+		found += 1
+		var rating_l: Label = row.find_child("StandoutRating", true, false)
+		if rating_l == null or rating_l.text != str(r[1]):
+			bad.append("%s rating %s v %d" % [str(r[0]), rating_l.text if rating_l else "-", int(r[1])])
+	_check(found == want.size() and bad.is_empty(), "Best so far lists the best of each side with the match's own ratings (%s: %s)" % [tag, str(bad)])
+	var all_b: Button = block.find_child("BestSoFarAll", true, false)
+	_check(all_b != null and (await Tap.tap(all_b)) == "", "All player stats takes a real tap (%s)" % tag)
+	await _settle()
+	var sheet: Node = m.find_child("BreakStatsSheet", true, false)
+	_check(sheet != null and sheet.find_child("PlayerStats", true, false) != null,
+			"...and opens the full player table (%s)" % tag)
+	m.queue_free()
+	await _settle()
+
+
 func _pc_break_worst_case(club := "COL") -> void:
 	var db = root.get_node("GameDB")
 	var Mu = load("res://scripts/sim/Matchups.gd")
@@ -829,6 +887,7 @@ func _pc_break_worst_case(club := "COL") -> void:
 	await _settle()
 	var box: Node = m.find_child("CoachBox", true, false)
 	_check(box != null and box.find_child("LooseTally", true, false) != null, "(setup) your loose man's tally is on the break")
+	_check(box != null and box.find_child("BestSoFar", true, false) != null, "Best so far is on the fullest PC break (%s)" % club)
 	var bc: Control = box.find_child("BreakColumns", true, false) if box != null else null
 	var bsc: ScrollContainer = null
 	var up: Node = bc
